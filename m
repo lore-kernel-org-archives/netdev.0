@@ -1,76 +1,92 @@
 From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: [PATCH 1/4] net: qrtr: Refactor packet allocation
-Date: Wed,  7 Jun 2017 11:54:58 -0700
-Message-ID: <20170607185501.6000-1-bjorn.andersson@linaro.org>
+Subject: [PATCH 2/4] net: qrtr: Inject BYE on remote termination
+Date: Wed,  7 Jun 2017 11:54:59 -0700
+Message-ID: <20170607185501.6000-2-bjorn.andersson@linaro.org>
+References: <20170607185501.6000-1-bjorn.andersson@linaro.org>
 Cc: Arun Kumar Neelakantam <aneela@codeaurora.org>,
         netdev@vger.kernel.org, linux-arm-msm@vger.kernel.org,
         linux-kernel@vger.kernel.org, Courtney Cavin <ccavin@gmail.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <20170607185501.6000-1-bjorn.andersson@linaro.org>
 Sender: linux-arm-msm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Extract the allocation and filling in the control message header fields
-to a separate function in order to reuse this in subsequent patches.
+Per the QMUX protocol specification a terminating node can send a BYE
+control message to signal that the link is going down, upon receiving
+this all information about remote services should be discarded and local
+clients should be notified.
+
+In the event that the link was brought down abruptly the router is
+supposed to act like a BYE message has arrived. As there is no harm in
+receiving an extra BYE from the remote this patch implements the latter
+by injecting a BYE when the link to the remote is unregistered.
+
+The name service will receive the BYE and can implement the notification
+to the local clients.
 
 Cc: Courtney Cavin <ccavin@gmail.com>
 Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
 ---
- net/qrtr/qrtr.c | 25 +++++++++++++++++++------
- 1 file changed, 19 insertions(+), 6 deletions(-)
+ net/qrtr/qrtr.c | 27 +++++++++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
 
 diff --git a/net/qrtr/qrtr.c b/net/qrtr/qrtr.c
-index a9a8c7d5a4a9..86d35ed50da9 100644
+index 86d35ed50da9..e8cbab23d667 100644
 --- a/net/qrtr/qrtr.c
 +++ b/net/qrtr/qrtr.c
-@@ -245,14 +245,11 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
- }
- EXPORT_SYMBOL_GPL(qrtr_endpoint_post);
+@@ -111,6 +111,8 @@ struct qrtr_node {
+ 	struct list_head item;
+ };
  
--/* Allocate and construct a resume-tx packet. */
--static struct sk_buff *qrtr_alloc_resume_tx(u32 src_node,
--					    u32 dst_node, u32 port)
-+static struct sk_buff *qrtr_alloc_ctrl_packet(u32 type, size_t pkt_len,
-+					      u32 src_node, u32 dst_node)
- {
--	const int pkt_len = 20;
- 	struct qrtr_hdr *hdr;
- 	struct sk_buff *skb;
--	__le32 *buf;
- 
- 	skb = alloc_skb(QRTR_HDR_SIZE + pkt_len, GFP_KERNEL);
- 	if (!skb)
-@@ -261,7 +258,7 @@ static struct sk_buff *qrtr_alloc_resume_tx(u32 src_node,
- 
- 	hdr = (struct qrtr_hdr *)skb_put(skb, QRTR_HDR_SIZE);
- 	hdr->version = cpu_to_le32(QRTR_PROTO_VER);
--	hdr->type = cpu_to_le32(QRTR_TYPE_RESUME_TX);
-+	hdr->type = cpu_to_le32(type);
- 	hdr->src_node_id = cpu_to_le32(src_node);
- 	hdr->src_port_id = cpu_to_le32(QRTR_PORT_CTRL);
- 	hdr->confirm_rx = cpu_to_le32(0);
-@@ -269,6 +266,22 @@ static struct sk_buff *qrtr_alloc_resume_tx(u32 src_node,
- 	hdr->dst_node_id = cpu_to_le32(dst_node);
- 	hdr->dst_port_id = cpu_to_le32(QRTR_PORT_CTRL);
- 
-+	return skb;
-+}
++static int qrtr_local_enqueue(struct qrtr_node *node, struct sk_buff *skb);
 +
-+/* Allocate and construct a resume-tx packet. */
-+static struct sk_buff *qrtr_alloc_resume_tx(u32 src_node,
-+					    u32 dst_node, u32 port)
+ /* Release node resources and free the node.
+  *
+  * Do not call directly, use qrtr_node_release.  To be used with
+@@ -291,6 +293,25 @@ static struct sk_buff *qrtr_alloc_resume_tx(u32 src_node,
+ 	return skb;
+ }
+ 
++/* Allocate and construct a BYE message to signal remote termination */
++static struct sk_buff *qrtr_alloc_local_bye(u32 src_node)
 +{
 +	const int pkt_len = 20;
 +	struct sk_buff *skb;
 +	__le32 *buf;
 +
-+	skb = qrtr_alloc_ctrl_packet(QRTR_TYPE_RESUME_TX, pkt_len,
-+				     src_node, dst_node);
++	skb = qrtr_alloc_ctrl_packet(QRTR_TYPE_BYE, pkt_len,
++				     src_node, qrtr_local_nid);
 +	if (!skb)
 +		return NULL;
 +
- 	buf = (__le32 *)skb_put(skb, pkt_len);
- 	memset(buf, 0, pkt_len);
- 	buf[0] = cpu_to_le32(QRTR_TYPE_RESUME_TX);
++	buf = (__le32 *)skb_put(skb, pkt_len);
++	memset(buf, 0, pkt_len);
++	buf[0] = cpu_to_le32(QRTR_TYPE_BYE);
++
++	return skb;
++}
++
+ static struct qrtr_sock *qrtr_port_lookup(int port);
+ static void qrtr_port_put(struct qrtr_sock *ipc);
+ 
+@@ -382,11 +403,17 @@ EXPORT_SYMBOL_GPL(qrtr_endpoint_register);
+ void qrtr_endpoint_unregister(struct qrtr_endpoint *ep)
+ {
+ 	struct qrtr_node *node = ep->node;
++	struct sk_buff *skb;
+ 
+ 	mutex_lock(&node->ep_lock);
+ 	node->ep = NULL;
+ 	mutex_unlock(&node->ep_lock);
+ 
++	/* Notify the local controller about the event */
++	skb = qrtr_alloc_local_bye(node->nid);
++	if (skb)
++		qrtr_local_enqueue(NULL, skb);
++
+ 	qrtr_node_release(node);
+ 	ep->node = NULL;
+ }
 -- 
 2.12.0
