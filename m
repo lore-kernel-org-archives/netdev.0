@@ -1,285 +1,109 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2 net-next] tcp: add TCPMemoryPressuresChrono counter
-Date: Wed, 07 Jun 2017 13:29:12 -0700
-Message-ID: <1496867352.736.45.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1496776767.736.11.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-intel-i40e] question about assignment overwrite
+Date: Wed, 07 Jun 2017 13:34:59 -0700
+Message-ID: <1496867699.2192.2.camel@intel.com>
+References: <20170517154858.Horde.xMvsIEhHNSGu52mfyp7HA3R@gator4166.hostgator.com>
+         <1495086551.46489.1.camel@intel.com> <20170607195526.GA26867@korriban>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+        protocol="application/pgp-signature"; boundary="=-wSm8y2wVnRk1vY5qlnqX"
+Cc: "Gustavo A. R. Silva" <garsilva@embeddedor.com>,
+        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Mauro Rodrigues <maurosr@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170607195526.GA26867@korriban>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+
+--=-wSm8y2wVnRk1vY5qlnqX
 Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: base64
+
+T24gV2VkLCAyMDE3LTA2LTA3IGF0IDE2OjU1IC0wMzAwLCBNYXVybyBSb2RyaWd1ZXMgd3JvdGU6
+Cj4gT24gV2VkLCBNYXkgMTcsIDIwMTcgYXQgMTA6NDk6MTFQTSAtMDcwMCwgSmVmZiBLaXJzaGVy
+IHdyb3RlOgo+ID4gT24gV2VkLCAyMDE3LTA1LTE3IGF0IDE1OjQ4IC0wNTAwLCBHdXN0YXZvIEEu
+IFIuIFNpbHZhIHdyb3RlOgo+ID4gPiBXaGlsZSBsb29raW5nIGludG8gQ292ZXJpdHkgSUQgMTQw
+ODk1NiBJIHJhbiBpbnRvIHRoZSBmb2xsb3dpbmcKPiA+ID4gcGllY2XCoMKgCj4gPiA+IG9mIGNv
+ZGUgYXQgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX21haW4uYzo4ODA3Ogo+
+ID4gPiAKPiA+ID4gODgwN8KgwqDCoMKgwqDCoMKgIGlmIChwZi0+aHcubWFjLnR5cGUgPT0gSTQw
+RV9NQUNfWDcyMikgewo+ID4gPiA4ODA4wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIHBm
+LT5mbGFncyB8PSBJNDBFX0ZMQUdfUlNTX0FRX0NBUEFCTEUKPiA+ID4gODgwOcKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIHwgSTQwRV9GTEFH
+XzEyOF9RUF9SU1NfQ0FQQUJMRQo+ID4gPiA4ODEwwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAgfCBJNDBFX0ZMQUdfSFdfQVRSX0VWSUNUX0NB
+UEFCTEUKPiA+ID4gODgxMcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgIHwgSTQwRV9GTEFHX09VVEVSX1VEUF9DU1VNX0NBUEFCTEUKPiA+ID4g
+ODgxMsKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgIHwgSTQwRV9GTEFHX1dCX09OX0lUUl9DQVBBQkxFCj4gPiA+IDg4MTPCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCB8Cj4gPiA+IEk0MEVf
+RkxBR19NVUxUSVBMRV9UQ1BfVURQX1JTU19QQ1RZUEUKPiA+ID4gODgxNMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIHwgSTQwRV9GTEFHX05P
+X1BDSV9MSU5LX0NIRUNLCj4gPiA+IDg4MTXCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCB8IEk0MEVfRkxBR19VU0VfU0VUX0xMRFBfTUlCCj4g
+PiA+IDg4MTbCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoCB8IEk0MEVfRkxBR19HRU5FVkVfT0ZGTE9BRF9DQVBBQkxFCj4gPiA+IDg4MTfCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCB8IEk0
+MEVfRkxBR19QVFBfTDRfQ0FQQUJMRQo+ID4gPiA4ODE4wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAgfCBJNDBFX0ZMQUdfV09MX01DX01BR0lD
+X1BLVF9XQUtFOwo+ID4gPiA4ODE5wqDCoMKgwqDCoMKgwqAgfSBlbHNlIGlmICgocGYtPmh3LmFx
+LmFwaV9tYWpfdmVyID4gMSkgfHwKPiA+ID4gODgyMMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoCAoKHBmLT5ody5hcS5hcGlfbWFqX3ZlciA9PSAxKSAmJgo+ID4gPiA4ODIxwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAgKHBmLT5ody5hcS5hcGlfbWluX3Zl
+ciA+IDQpKSkgewo+ID4gPiA4ODIywqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIC8qIFN1
+cHBvcnRlZCBpbiBGVyBBUEkgdmVyc2lvbiBoaWdoZXIgdGhhbiAxLjQgKi8KPiA+ID4gODgyM8Kg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCBwZi0+ZmxhZ3MgfD0gSTQwRV9GTEFHX0dFTkVW
+RV9PRkZMT0FEX0NBUEFCTEU7Cj4gPiA+IDg4MjTCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqAgcGYtPmZsYWdzID0gSTQwRV9GTEFHX0hXX0FUUl9FVklDVF9DQVBBQkxFOwo+ID4gPiA4ODI1
+wqDCoMKgwqDCoMKgwqAgfSBlbHNlIHsKPiA+ID4gODgyNsKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoCBwZi0+ZmxhZ3MgPSBJNDBFX0ZMQUdfSFdfQVRSX0VWSUNUX0NBUEFCTEU7Cj4gPiA+
+IDg4MjfCoMKgwqDCoMKgwqDCoCB9Cj4gPiA+IAo+ID4gPiBUaGUgaXNzdWUgaGVyZSBpcyB0aGF0
+IHRoZSBhc3NpZ25tZW50IGF0IGxpbmUgODgyMyBpcyBvdmVyd3JpdHRlbgo+ID4gPiBiecKgwqAK
+PiA+ID4gdGhlIGNvZGUgYXQgbGluZSA4ODI0Lgo+ID4gPiAKPiA+ID4gSSdtIHN1c3BpY2lvdXMg
+dGhhdCBsaW5lIDg4MjQgc2hvdWxkIGJlIHJlbW92ZSBhbmQgYSBwYXRjaCBsaWtlIHRoZcKgwqAK
+PiA+ID4gZm9sbG93aW5nIGNhbiBiZSBhcHBsaWVkOgo+ID4gPiAKPiA+ID4gaW5kZXggZDVjOWM5
+ZS4uNDhmZmE3MyAxMDA2NDQKPiA+ID4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwv
+aTQwZS9pNDBlX21haW4uYwo+ID4gPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9p
+NDBlL2k0MGVfbWFpbi5jCj4gPiA+IEBAIC04ODIxLDcgKzg4MjEsNiBAQCBzdGF0aWMgaW50IGk0
+MGVfc3dfaW5pdChzdHJ1Y3QgaTQwZV9wZiAqcGYpCj4gPiA+IMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqAgKHBmLT5ody5hcS5hcGlfbWluX3ZlciA+IDQpKSkgewo+ID4g
+PiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCAvKiBTdXBwb3J0ZWQgaW4gRlcgQVBJ
+IHZlcnNpb24gaGlnaGVyIHRoYW4gMS40ICovCj4gPiA+IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgIHBmLT5mbGFncyB8PSBJNDBFX0ZMQUdfR0VORVZFX09GRkxPQURfQ0FQQUJMRTsK
+PiA+ID4gLcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAgcGYtPmZsYWdzID0gSTQwRV9GTEFH
+X0hXX0FUUl9FVklDVF9DQVBBQkxFOwo+ID4gPiDCoMKgwqDCoMKgwqDCoMKgIH0gZWxzZSB7Cj4g
+PiA+IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIHBmLT5mbGFncyA9IEk0MEVfRkxB
+R19IV19BVFJfRVZJQ1RfQ0FQQUJMRTsKPiA+ID4gwqDCoMKgwqDCoMKgwqDCoCB9Cj4gPiA+IAo+
+ID4gPiBXaGF0IGRvIHlvdSB0aGluaz8KPiA+IAo+ID4gVGhpcyBpc3N1ZSBpcyBhbHJlYWR5IGZp
+eGVkIGluIG15IGRldi1xdWV1ZSBicmFuY2ggb24gbXkgbmV4dC1xdWV1ZQo+ID4gdHJlZS4KPiAK
+PiBIaSBKZWZmLCBhcmUgeW91IHBsYW5uaW5nIHRvIHB1c2ggdGhpcyBmaXggaW50byBuZXQgYnJh
+bmNoIGFueXRpbWUgc29vbj8KPiAKPiBUaGFua3MsCj4gCj4gTWF1cm8KClRoZSBwYXRjaCB0aGF0
+IGZpeGVkIHRoaXMgaXNzdWUgaXMgYWxyZWFkeSBpbiBEYXZpZCBNaWxsZXIncyBuZXQtbmV4dCB0
+cmVlLg==
+
+
+--=-wSm8y2wVnRk1vY5qlnqX
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36587 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751425AbdFGU3O (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 16:29:14 -0400
-Received: by mail-pf0-f194.google.com with SMTP id y7so2637316pfd.3
-        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 13:29:14 -0700 (PDT)
-In-Reply-To: <1496776767.736.11.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-DRAM supply shortage and poor memory pressure tracking in TCP
-stack makes any change in SO_SNDBUF/SO_RCVBUF (or equivalent autotuning
-limits) and tcp_mem[] quite hazardous.
+iQIcBAABCgAGBQJZOGNzAAoJEOVv75VaS+3O4RoQAKbkVORTPpov/Iow4A/uXKKI
+cjYmOPsMxHKLwslr8obGUnTZe7GlEZUDy6XJRwOLa0jMHm1aGteZPvrk3yKNUsN/
+5qF5IT8YU2295llo2UqyGcN2PhHWD/M/aKWE5Gunn6nToVOwufa/HBuC0t0H9Kha
+ZXmWqH9mx6wtG8OyOKG+N8QZjhEl53y0c5T5JO0ZNFn1LEhVW9YaYWb/3vK0JADa
+mypJTzo9lmKzoNEUF4GUleSlJ6CESRmC9BJLCCYegWoEsQu+Yw6AzN5JrOfkBHXy
+xvPFgLZznXiKujF9H96a6wbdqa9C1+E4x8nosrNV68I9c2asJB7qz4kkQ2BkX5kT
+fDy1QvehWA+k1zHrSckUdbiyQY3jT5U+zW8TUB6VPOwCwidATCRK+zydHTFcXjhM
+dePKQTejwyy++RXMHTBbOF8xPoR3iA/fp13I6QNMCa/zWrTqrD6IDFpQasYuSKTr
+ydS/9GI6FSfYKn/6BY9ZbjFyIxRoICPfg38dl6xaf2C6JC+Q9IgzlYCiJu06/ko9
+NJngfTVffkMvTXugbmomu6AG+wgQ23MADFYtsD4ROA3BkjLyF5fFWIr6GO9S4V3R
+nTEEEg0Y0IRMbaUw0AKXyyaMa1Yfy44udPFSZSQRot+UcmU7u1E5bQLrk+ZzHHVm
+fwUWIbkUKHf4v+6U6osU
+=2TIT
+-----END PGP SIGNATURE-----
 
-TCPMemoryPressures SNMP counter is an indication of tcp_mem sysctl
-limits being hit, but only tracking number of transitions.
-
-If TCP stack behavior under stress was perfect :
-1) It would maintain memory usage close to the limit.
-2) Memory pressure state would be entered for short times.
-
-We certainly prefer 100 events lasting 10ms compared to one event
-lasting 200 seconds.
-
-This patch adds a new SNMP counter tracking cumulative duration of
-memory pressure events, given in ms units.
-
-$ cat /proc/sys/net/ipv4/tcp_mem
-3088    4117    6176
-$ grep TCP /proc/net/sockstat
-TCP: inuse 180 orphan 0 tw 2 alloc 234 mem 4140
-$ nstat -n ; sleep 10 ; nstat |grep Pressure
-TcpExtTCPMemoryPressures        1700
-TcpExtTCPMemoryPressuresChrono  5209
-
-v2: Used EXPORT_SYMBOL_GPL() instead of EXPORT_SYMBOL() as David
-instructed.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/net/sock.h        |   22 ++--------------------
- include/net/tcp.h         |    3 ++-
- include/uapi/linux/snmp.h |    1 +
- net/core/sock.c           |   20 ++++++++++++++++++++
- net/decnet/af_decnet.c    |    2 +-
- net/ipv4/proc.c           |    1 +
- net/ipv4/tcp.c            |   31 +++++++++++++++++++++++++------
- net/ipv4/tcp_ipv4.c       |    1 +
- net/ipv6/tcp_ipv6.c       |    1 +
- net/sctp/socket.c         |    2 +-
- 10 files changed, 55 insertions(+), 29 deletions(-)
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 3467d9e89e7dba1c35fa44a6268a28735f795319..858891c36f94ad2577726d6d21cf871dbcd55d98 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1080,6 +1080,7 @@ struct proto {
- 	bool			(*stream_memory_free)(const struct sock *sk);
- 	/* Memory pressure */
- 	void			(*enter_memory_pressure)(struct sock *sk);
-+	void			(*leave_memory_pressure)(struct sock *sk);
- 	atomic_long_t		*memory_allocated;	/* Current allocated memory. */
- 	struct percpu_counter	*sockets_allocated;	/* Current number of sockets. */
- 	/*
-@@ -1088,7 +1089,7 @@ struct proto {
- 	 * All the __sk_mem_schedule() is of this nature: accounting
- 	 * is strict, actions are advisory and have some latency.
- 	 */
--	int			*memory_pressure;
-+	unsigned long		*memory_pressure;
- 	long			*sysctl_mem;
- 	int			*sysctl_wmem;
- 	int			*sysctl_rmem;
-@@ -1193,25 +1194,6 @@ static inline bool sk_under_memory_pressure(const struct sock *sk)
- 	return !!*sk->sk_prot->memory_pressure;
- }
- 
--static inline void sk_leave_memory_pressure(struct sock *sk)
--{
--	int *memory_pressure = sk->sk_prot->memory_pressure;
--
--	if (!memory_pressure)
--		return;
--
--	if (*memory_pressure)
--		*memory_pressure = 0;
--}
--
--static inline void sk_enter_memory_pressure(struct sock *sk)
--{
--	if (!sk->sk_prot->enter_memory_pressure)
--		return;
--
--	sk->sk_prot->enter_memory_pressure(sk);
--}
--
- static inline long
- sk_memory_allocated(const struct sock *sk)
- {
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 28b577a35786ddc9b223b54dd387e59910d9c521..9b7cf93392d7f850d539f8b51333f2ba13e8856f 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -279,7 +279,7 @@ extern int sysctl_tcp_pacing_ca_ratio;
- 
- extern atomic_long_t tcp_memory_allocated;
- extern struct percpu_counter tcp_sockets_allocated;
--extern int tcp_memory_pressure;
-+extern unsigned long tcp_memory_pressure;
- 
- /* optimized version of sk_under_memory_pressure() for TCP sockets */
- static inline bool tcp_under_memory_pressure(const struct sock *sk)
-@@ -1322,6 +1322,7 @@ extern void tcp_openreq_init_rwin(struct request_sock *req,
- 				  const struct dst_entry *dst);
- 
- void tcp_enter_memory_pressure(struct sock *sk);
-+void tcp_leave_memory_pressure(struct sock *sk);
- 
- static inline int keepalive_intvl_when(const struct tcp_sock *tp)
- {
-diff --git a/include/uapi/linux/snmp.h b/include/uapi/linux/snmp.h
-index 95cffcb21dfdba7c974706131d0f43e21435e82d..d8569329579816213255169d0c183f4400835f7b 100644
---- a/include/uapi/linux/snmp.h
-+++ b/include/uapi/linux/snmp.h
-@@ -228,6 +228,7 @@ enum
- 	LINUX_MIB_TCPABORTONLINGER,		/* TCPAbortOnLinger */
- 	LINUX_MIB_TCPABORTFAILED,		/* TCPAbortFailed */
- 	LINUX_MIB_TCPMEMORYPRESSURES,		/* TCPMemoryPressures */
-+	LINUX_MIB_TCPMEMORYPRESSURESCHRONO,	/* TCPMemoryPressuresChrono */
- 	LINUX_MIB_TCPSACKDISCARD,		/* TCPSACKDiscard */
- 	LINUX_MIB_TCPDSACKIGNOREDOLD,		/* TCPSACKIgnoredOld */
- 	LINUX_MIB_TCPDSACKIGNOREDNOUNDO,	/* TCPSACKIgnoredNoUndo */
-diff --git a/net/core/sock.c b/net/core/sock.c
-index bef844127e0182091678b9d57f7ec85c5241748d..ad8a4bc841267a442a1da3c56ef1cf074f9825b9 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -2076,6 +2076,26 @@ int sock_cmsg_send(struct sock *sk, struct msghdr *msg,
- }
- EXPORT_SYMBOL(sock_cmsg_send);
- 
-+static void sk_enter_memory_pressure(struct sock *sk)
-+{
-+	if (!sk->sk_prot->enter_memory_pressure)
-+		return;
-+
-+	sk->sk_prot->enter_memory_pressure(sk);
-+}
-+
-+static void sk_leave_memory_pressure(struct sock *sk)
-+{
-+	if (sk->sk_prot->leave_memory_pressure) {
-+		sk->sk_prot->leave_memory_pressure(sk);
-+	} else {
-+		unsigned long *memory_pressure = sk->sk_prot->memory_pressure;
-+
-+		if (memory_pressure && *memory_pressure)
-+			*memory_pressure = 0;
-+	}
-+}
-+
- /* On 32bit arches, an skb frag is limited to 2^15 */
- #define SKB_FRAG_PAGE_ORDER	get_order(32768)
- 
-diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
-index 405483a07efc7ac2efcfe86e285a7673547c9691..73a0399dc7a277178b0a432a067172131dce99ee 100644
---- a/net/decnet/af_decnet.c
-+++ b/net/decnet/af_decnet.c
-@@ -447,7 +447,7 @@ static void dn_destruct(struct sock *sk)
- 	dst_release(rcu_dereference_check(sk->sk_dst_cache, 1));
- }
- 
--static int dn_memory_pressure;
-+static unsigned long dn_memory_pressure;
- 
- static void dn_enter_memory_pressure(struct sock *sk)
- {
-diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
-index fa44e752a9a3f8eb9957314149ae15e6df10465a..43eb6567b3a0a2add9a1d36019eae5b6d5caf657 100644
---- a/net/ipv4/proc.c
-+++ b/net/ipv4/proc.c
-@@ -250,6 +250,7 @@ static const struct snmp_mib snmp4_net_list[] = {
- 	SNMP_MIB_ITEM("TCPAbortOnLinger", LINUX_MIB_TCPABORTONLINGER),
- 	SNMP_MIB_ITEM("TCPAbortFailed", LINUX_MIB_TCPABORTFAILED),
- 	SNMP_MIB_ITEM("TCPMemoryPressures", LINUX_MIB_TCPMEMORYPRESSURES),
-+	SNMP_MIB_ITEM("TCPMemoryPressuresChrono", LINUX_MIB_TCPMEMORYPRESSURESCHRONO),
- 	SNMP_MIB_ITEM("TCPSACKDiscard", LINUX_MIB_TCPSACKDISCARD),
- 	SNMP_MIB_ITEM("TCPDSACKIgnoredOld", LINUX_MIB_TCPDSACKIGNOREDOLD),
- 	SNMP_MIB_ITEM("TCPDSACKIgnoredNoUndo", LINUX_MIB_TCPDSACKIGNOREDNOUNDO),
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 87981fcdfcf20c6846ea3474dce1e640aea6e092..cc8fd8b747a47e9b66492ecdf27256ef6d879877 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -320,17 +320,36 @@ struct tcp_splice_state {
-  * All the __sk_mem_schedule() is of this nature: accounting
-  * is strict, actions are advisory and have some latency.
-  */
--int tcp_memory_pressure __read_mostly;
--EXPORT_SYMBOL(tcp_memory_pressure);
-+unsigned long tcp_memory_pressure __read_mostly;
-+EXPORT_SYMBOL_GPL(tcp_memory_pressure);
- 
- void tcp_enter_memory_pressure(struct sock *sk)
- {
--	if (!tcp_memory_pressure) {
-+	unsigned long val;
-+
-+	if (tcp_memory_pressure)
-+		return;
-+	val = jiffies;
-+
-+	if (!val)
-+		val--;
-+	if (!cmpxchg(&tcp_memory_pressure, 0, val))
- 		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPMEMORYPRESSURES);
--		tcp_memory_pressure = 1;
--	}
- }
--EXPORT_SYMBOL(tcp_enter_memory_pressure);
-+EXPORT_SYMBOL_GPL(tcp_enter_memory_pressure);
-+
-+void tcp_leave_memory_pressure(struct sock *sk)
-+{
-+	unsigned long val;
-+
-+	if (!tcp_memory_pressure)
-+		return;
-+	val = xchg(&tcp_memory_pressure, 0);
-+	if (val)
-+		NET_ADD_STATS(sock_net(sk), LINUX_MIB_TCPMEMORYPRESSURESCHRONO,
-+			      jiffies_to_msecs(jiffies - val));
-+}
-+EXPORT_SYMBOL_GPL(tcp_leave_memory_pressure);
- 
- /* Convert seconds to retransmits based on initial and max timeout */
- static u8 secs_to_retrans(int seconds, int timeout, int rto_max)
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 191b2f78b19d2c8d62c59cc046bd608687679619..d19933949373ca019fd06fa310a506efd29718cb 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -2387,6 +2387,7 @@ struct proto tcp_prot = {
- 	.unhash			= inet_unhash,
- 	.get_port		= inet_csk_get_port,
- 	.enter_memory_pressure	= tcp_enter_memory_pressure,
-+	.leave_memory_pressure	= tcp_leave_memory_pressure,
- 	.stream_memory_free	= tcp_stream_memory_free,
- 	.sockets_allocated	= &tcp_sockets_allocated,
- 	.orphan_count		= &tcp_orphan_count,
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 233edfabe1dbceaeb6cdd42a2bb379072aeee361..f6592790d9f93bf40f3e5432c945bca20b28ff34 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1909,6 +1909,7 @@ struct proto tcpv6_prot = {
- 	.unhash			= inet_unhash,
- 	.get_port		= inet_csk_get_port,
- 	.enter_memory_pressure	= tcp_enter_memory_pressure,
-+	.leave_memory_pressure	= tcp_leave_memory_pressure,
- 	.stream_memory_free	= tcp_stream_memory_free,
- 	.sockets_allocated	= &tcp_sockets_allocated,
- 	.memory_allocated	= &tcp_memory_allocated,
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 0822046e4f3f5a1acd3f5382d915bf9004a25c1c..5f58dd03e3ace38b9c4babbe2d92f0a3f98a4b68 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -103,7 +103,7 @@ static int sctp_autobind(struct sock *sk);
- static void sctp_sock_migrate(struct sock *, struct sock *,
- 			      struct sctp_association *, sctp_socket_type_t);
- 
--static int sctp_memory_pressure;
-+static unsigned long sctp_memory_pressure;
- static atomic_long_t sctp_memory_allocated;
- struct percpu_counter sctp_sockets_allocated;
- 
+--=-wSm8y2wVnRk1vY5qlnqX--
