@@ -1,240 +1,93 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net-next v2] net: ipmr: add getlink support
-Date: Wed,  7 Jun 2017 18:02:32 +0300
-Message-ID: <1496847752-6935-1-git-send-email-nikolay@cumulusnetworks.com>
-References: <1496767292-7976-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: roopa@cumulusnetworks.com, sharpd@cumulusnetworks.com,
-        davem@davemloft.net,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Jes Sorensen <jes.sorensen@gmail.com>
+Subject: Re: [PATCH 7/7] mlx5: Do not build eswitch_offloads if
+ CONFIG_MLX5_EN_ESWITCH_OFFLOADS is set
+Date: Wed, 7 Jun 2017 11:19:43 -0400
+Message-ID: <7a5d0385-5e5e-114d-5064-f380b749d00c@gmail.com>
+References: <20170526211624.23133-1-jsorensen@fb.com>
+ <20170526211624.23133-8-jsorensen@fb.com>
+ <CAJ3xEMgeBaE9q6sucXtOQTBLAvZvf_d0eGvMsGbVa2vWc21R-Q@mail.gmail.com>
+ <e7c36f4e-788a-89dd-e92e-e6a31004758a@gmail.com>
+ <CAJ3xEMh8ALo9Pgb0sh5dzAFaPtiKDaZyEhgasgi40Pba1JzCQA@mail.gmail.com>
+ <c5b3bd3d-b5de-8b0b-34ff-068a1b3bd31c@fb.com>
+ <CAJ3xEMhKjPwg75hO8af7XDL5JPoxkq2AtpL61CtOLb-T4aACWQ@mail.gmail.com>
+ <aed5b35a-3467-7e01-6f14-e70ea4a94832@fb.com>
+ <CALzJLG-=WU8DFNkqjAKBSFjHyc1V2YvoWV4r7fG9QVSRTybgZw@mail.gmail.com>
+ <34ee6c6c-e509-40d0-77f7-a5ac451139a7@fb.com>
+ <CALzJLG9oK-g9J6OunfqLsqppAPZMWjWXNSfXnP3OdsnnhaaCxg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Or Gerlitz <gerlitz.or@gmail.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Kernel Team <kernel-team@fb.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Ilan Tayari <ilant@mellanox.com>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+        Jes Sorensen <jsorensen@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f42.google.com ([74.125.82.42]:38710 "EHLO
-        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750831AbdFGPHH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 11:07:07 -0400
-Received: by mail-wm0-f42.google.com with SMTP id n195so13312425wmg.1
-        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 08:07:06 -0700 (PDT)
-In-Reply-To: <1496767292-7976-1-git-send-email-nikolay@cumulusnetworks.com>
+Received: from mail-yb0-f193.google.com ([209.85.213.193]:33886 "EHLO
+        mail-yb0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750920AbdFGPTq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 11:19:46 -0400
+Received: by mail-yb0-f193.google.com with SMTP id o185so554303yba.1
+        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 08:19:46 -0700 (PDT)
+In-Reply-To: <CALzJLG9oK-g9J6OunfqLsqppAPZMWjWXNSfXnP3OdsnnhaaCxg@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently there's no way to dump the VIF table for an ipmr table other
-than the default (via proc). This is a major issue when debugging ipmr
-issues and in general it is good to know which interfaces are
-configured. This patch adds support for RTM_GETLINK for the ipmr family
-so we can dump the VIF table and the ipmr table's current config for
-each table. We're protected by rtnl so no need to acquire RCU or
-mrt_lock.
+On 06/07/2017 12:06 AM, Saeed Mahameed wrote:
+> On Wed, Jun 7, 2017 at 12:46 AM, Jes Sorensen <jsorensen@fb.com> wrote:
+>>> Hey Jes,
+>>>
+>>> It is not just about squashing patches, I am working on a series of
+>>> patches to allow compiling out eswitch/eswitch_offloads/en_rep.c/en_tc
+>>> altogether, it will come out cleaner as it will remove all ethernet
+>>> sriov/eswitch VF representors and eswitch tc offloads stuff with one
+>>> kconfig flag, and yet preserve standard QoS functionality from en_tc.
+>>
+>>
+>> Saeed,
+>>
+>> I realize it is not just about squashing patches, however doing that to
+>> someone else's patches is just broken. The Linux kernel way is to build on
+>> top of patches, if they are valid, rather than throwing them all away and
+>> doing it from scratch again bottom up. If there was something actually wrong
+>> with my patches, and I would love to understand if that is the case, since I
+>> don't know 1/100th of the hardware details that you know, then please share
+>> those details.
+> 
+> Hey Jes,
+> 
+> Sorry for the inconvenience, I am working on a very similar patches,
+> even before you posted yours.
+> Your patches are fine, but as i said before, removing eswitch as is
+> will introduce a small regression in Multi-PF configuration.
+> 
+> the issue is that lately we are having tons of discussions exactly
+> about this and how to do the driver breakdown
+> that makes everyone happy, so things are moving relatively slow, but
+> my work on eswitch is converging.
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
-v2: use netlink attributes for all mrtable and vif fields, and set message
-    type to RTM_NEWLINK
+Gotcha. I deliberately didn't disable eswitch itself in my patch, but 
+only the offloading functionality, because of the old discussion 
+mentioning that the eswitch needing to be initialized.
 
-The plan is to add full netlink control to ipmr via new/set/dellink later.
-Also this would allow us to dump any number of VIFs in the future when we
-remove the VIF device limit.
+>> Sounds good.
+>>
+>>> I will post some patches for you to review by end of week.
+>>
+>>
+>> Could we please start seeing this stuff happen in a public git tree so it is
+>> possible to follow and contribute to the development? It is very frustrating
+>> having to wait for things to appear and and not knowing whether a patch is
+>> integrated or needs to be revised when you have things building on top of
+>> it.
+> 
+> Sure, I will post some patches later today.
+> I believe they will be fully ready by for submission by End of week.
+> Again sorry about this.
 
- include/uapi/linux/mroute.h |  42 +++++++++++++++
- net/ipv4/ipmr.c             | 126 ++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 168 insertions(+)
+Awesome!
 
-diff --git a/include/uapi/linux/mroute.h b/include/uapi/linux/mroute.h
-index 1fe4c1e7d66e..f904367c0cee 100644
---- a/include/uapi/linux/mroute.h
-+++ b/include/uapi/linux/mroute.h
-@@ -110,6 +110,48 @@ struct igmpmsg {
- 	struct in_addr im_src,im_dst;
- };
- 
-+/* ipmr netlink table attributes */
-+enum {
-+	IPMRA_TABLE_UNSPEC,
-+	IPMRA_TABLE_ID,
-+	IPMRA_TABLE_CACHE_RES_QUEUE_LEN,
-+	IPMRA_TABLE_MROUTE_REG_VIF_NUM,
-+	IPMRA_TABLE_MROUTE_DO_ASSERT,
-+	IPMRA_TABLE_MROUTE_DO_PIM,
-+	IPMRA_TABLE_VIFS,
-+	__IPMRA_TABLE_MAX
-+};
-+#define IPMRA_TABLE_MAX (__IPMRA_TABLE_MAX - 1)
-+
-+/* ipmr netlink vif attribute format
-+ * [ IPMRA_TABLE_VIFS ] - nested attribute
-+ *   [ IPMRA_VIF ] - nested attribute
-+ *     [ IPMRA_VIFA_xxx ]
-+ */
-+enum {
-+	IPMRA_VIF_UNSPEC,
-+	IPMRA_VIF,
-+	__IPMRA_VIF_MAX
-+};
-+#define IPMRA_VIF_MAX (__IPMRA_VIF_MAX - 1)
-+
-+/* vif-specific attributes */
-+enum {
-+	IPMRA_VIFA_UNSPEC,
-+	IPMRA_VIFA_IFINDEX,
-+	IPMRA_VIFA_VIF_ID,
-+	IPMRA_VIFA_FLAGS,
-+	IPMRA_VIFA_BYTES_IN,
-+	IPMRA_VIFA_BYTES_OUT,
-+	IPMRA_VIFA_PACKETS_IN,
-+	IPMRA_VIFA_PACKETS_OUT,
-+	IPMRA_VIFA_LOCAL_ADDR,
-+	IPMRA_VIFA_REMOTE_ADDR,
-+	IPMRA_VIFA_PAD,
-+	__IPMRA_VIFA_MAX
-+};
-+#define IPMRA_VIFA_MAX (__IPMRA_VIFA_MAX - 1)
-+
- /* That's all usermode folks */
- 
- #define MFC_ASSERT_THRESH (3*HZ)		/* Maximal freq. of asserts */
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index 551de4d023a8..9374b99c7c17 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -2528,6 +2528,129 @@ static int ipmr_rtm_route(struct sk_buff *skb, struct nlmsghdr *nlh,
- 		return ipmr_mfc_delete(tbl, &mfcc, parent);
- }
- 
-+static bool ipmr_fill_table(struct mr_table *mrt, struct sk_buff *skb)
-+{
-+	u32 queue_len = atomic_read(&mrt->cache_resolve_queue_len);
-+
-+	if (nla_put_u32(skb, IPMRA_TABLE_ID, mrt->id) ||
-+	    nla_put_u32(skb, IPMRA_TABLE_CACHE_RES_QUEUE_LEN, queue_len) ||
-+	    nla_put_s32(skb, IPMRA_TABLE_MROUTE_REG_VIF_NUM,
-+			mrt->mroute_reg_vif_num) ||
-+	    nla_put_u8(skb, IPMRA_TABLE_MROUTE_DO_ASSERT,
-+		       mrt->mroute_do_assert) ||
-+	    nla_put_u8(skb, IPMRA_TABLE_MROUTE_DO_PIM, mrt->mroute_do_pim))
-+		return false;
-+
-+	return true;
-+}
-+
-+static bool ipmr_fill_vif(struct mr_table *mrt, u32 vifid, struct sk_buff *skb)
-+{
-+	struct nlattr *vif_nest;
-+	struct vif_device *vif;
-+
-+	/* if the VIF doesn't exist just continue */
-+	if (!VIF_EXISTS(mrt, vifid))
-+		return true;
-+
-+	vif = &mrt->vif_table[vifid];
-+	vif_nest = nla_nest_start(skb, IPMRA_VIF);
-+	if (!vif_nest)
-+		return false;
-+	if (nla_put_u32(skb, IPMRA_VIFA_IFINDEX, vif->dev->ifindex) ||
-+	    nla_put_u32(skb, IPMRA_VIFA_VIF_ID, vifid) ||
-+	    nla_put_u16(skb, IPMRA_VIFA_FLAGS, vif->flags) ||
-+	    nla_put_u64_64bit(skb, IPMRA_VIFA_BYTES_IN, vif->bytes_in,
-+			      IPMRA_VIFA_PAD) ||
-+	    nla_put_u64_64bit(skb, IPMRA_VIFA_BYTES_OUT, vif->bytes_out,
-+			      IPMRA_VIFA_PAD) ||
-+	    nla_put_u64_64bit(skb, IPMRA_VIFA_PACKETS_IN, vif->pkt_in,
-+			      IPMRA_VIFA_PAD) ||
-+	    nla_put_u64_64bit(skb, IPMRA_VIFA_PACKETS_OUT, vif->pkt_out,
-+			      IPMRA_VIFA_PAD) ||
-+	    nla_put_be32(skb, IPMRA_VIFA_LOCAL_ADDR, vif->local) ||
-+	    nla_put_be32(skb, IPMRA_VIFA_REMOTE_ADDR, vif->remote)) {
-+		nla_nest_cancel(skb, vif_nest);
-+		return false;
-+	}
-+	nla_nest_end(skb, vif_nest);
-+
-+	return true;
-+}
-+
-+static int ipmr_rtm_dumplink(struct sk_buff *skb, struct netlink_callback *cb)
-+{
-+	struct net *net = sock_net(skb->sk);
-+	struct nlmsghdr *nlh = NULL;
-+	unsigned int t = 0, s_t;
-+	unsigned int e = 0, s_e;
-+	struct mr_table *mrt;
-+
-+	s_t = cb->args[0];
-+	s_e = cb->args[1];
-+
-+	ipmr_for_each_table(mrt, net) {
-+		struct nlattr *vifs, *af;
-+		struct ifinfomsg *hdr;
-+		u32 i;
-+
-+		if (t < s_t)
-+			goto skip_table;
-+		nlh = nlmsg_put(skb, NETLINK_CB(cb->skb).portid,
-+				cb->nlh->nlmsg_seq, RTM_NEWLINK,
-+				sizeof(*hdr), NLM_F_MULTI);
-+		if (!nlh)
-+			break;
-+
-+		hdr = nlmsg_data(nlh);
-+		memset(hdr, 0, sizeof(*hdr));
-+		hdr->ifi_family = RTNL_FAMILY_IPMR;
-+
-+		af = nla_nest_start(skb, IFLA_AF_SPEC);
-+		if (!af) {
-+			nlmsg_cancel(skb, nlh);
-+			goto out;
-+		}
-+
-+		if (!ipmr_fill_table(mrt, skb)) {
-+			nlmsg_cancel(skb, nlh);
-+			goto out;
-+		}
-+
-+		vifs = nla_nest_start(skb, IPMRA_TABLE_VIFS);
-+		if (!vifs) {
-+			nla_nest_end(skb, af);
-+			nlmsg_end(skb, nlh);
-+			goto out;
-+		}
-+		for (i = 0; i < mrt->maxvif; i++) {
-+			if (e < s_e)
-+				goto skip_entry;
-+			if (!ipmr_fill_vif(mrt, i, skb)) {
-+				nla_nest_end(skb, vifs);
-+				nla_nest_end(skb, af);
-+				nlmsg_end(skb, nlh);
-+				goto out;
-+			}
-+skip_entry:
-+			e++;
-+		}
-+		s_e = 0;
-+		e = 0;
-+		nla_nest_end(skb, vifs);
-+		nla_nest_end(skb, af);
-+		nlmsg_end(skb, nlh);
-+skip_table:
-+		t++;
-+	}
-+
-+out:
-+	cb->args[1] = e;
-+	cb->args[0] = t;
-+
-+	return skb->len;
-+}
-+
- #ifdef CONFIG_PROC_FS
- /* The /proc interfaces to multicast routing :
-  * /proc/net/ip_mr_cache & /proc/net/ip_mr_vif
-@@ -2870,6 +2993,9 @@ int __init ip_mr_init(void)
- 		      ipmr_rtm_route, NULL, NULL);
- 	rtnl_register(RTNL_FAMILY_IPMR, RTM_DELROUTE,
- 		      ipmr_rtm_route, NULL, NULL);
-+
-+	rtnl_register(RTNL_FAMILY_IPMR, RTM_GETLINK,
-+		      NULL, ipmr_rtm_dumplink, NULL);
- 	return 0;
- 
- #ifdef CONFIG_IP_PIMSM_V2
--- 
-2.1.4
+Jes
