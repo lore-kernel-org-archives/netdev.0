@@ -1,63 +1,52 @@
-From: "Weiny, Ira" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: RE: Netlink messages without NLM_F_REQUEST flag
-Date: Wed, 7 Jun 2017 17:10:35 +0000
-Message-ID: <2807E5FD2F6FDA4886F6618EAC48510E67CCE1CD@CRSMSX101.amr.corp.intel.com>
-References: <20170607161901.GD1127@mtr-leonro.local>
- <20170607163758.GA25313@obsidianresearch.com>
- <CALq1K=Jj_jJ5_OAiiws-es37tFEsLeLJeSvnU+bfwd0KLkGM3Q@mail.gmail.com>
- <20170607164750.GA7507@obsidianresearch.com>
- <20170607170037.GG1127@mtr-leonro.local>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next v2 5/5] net: dsa: Stop accessing ds->dst->cpu_dp in drivers
+Date: Wed, 07 Jun 2017 13:15:38 -0400
+Message-ID: <87ink7oh1h.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170607000317.14729-1-f.fainelli@gmail.com> <20170607000317.14729-6-f.fainelli@gmail.com> <87ink8tum2.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <CAGVrzcb_ve=gOAnAo73-TqzZgWN6F3gr7Tu0BtWS8UBYQ2MciQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Wan, Kaike" <kaike.wan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "Fleck, John" <john.fleck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Jiri Pirko <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        RDMA mailing list <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170607170037.GG1127-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>,
+        John Crispin <john@phrozen.org>,
+        David Miller <davem@davemloft.net>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:53114 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751668AbdFGRRs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 13:17:48 -0400
+In-Reply-To: <CAGVrzcb_ve=gOAnAo73-TqzZgWN6F3gr7Tu0BtWS8UBYQ2MciQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> 
-> On Wed, Jun 07, 2017 at 10:47:50AM -0600, Jason Gunthorpe wrote:
-> > On Wed, Jun 07, 2017 at 07:43:44PM +0300, Leon Romanovsky wrote:
-> > > On Wed, Jun 7, 2017 at 7:37 PM, Jason Gunthorpe 
-> > > <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org> wrote:
-> > > > On Wed, Jun 07, 2017 at 07:19:01PM +0300, Leon Romanovsky wrote:
-> > > >> It makes me wonder if it is expected behavior for
-> > > >> ibnl_rcv_reply_skb() to handle !NLM_F_REQUEST messages and do 
-> > > >> we really need it? What are the scenarios?  In my use case, 
-> > > >> which is for sure different from yours, I'm always setting 
-> > > >> NLM_F_REQUEST while communicating with kernel.
-> > > >
-> > > > If I recall the user space SA code issues REQUESTS from the 
-> > > > kernel to userspace, so userspace returns with the response 
-> > > > format. This is abnormal for netlink hence the special function.
-> > >
-> > > In netlink semantics, kernel side is supposed to send netlink 
-> > > notification message and userspace is supposed to send REQUEST.
-> >
-> > That pattern is for async communications, the SA stuff needs a sync 
-> > protocol, unfortunately.
-> 
-> There is special flag NLM_F_ACK for it and userspace will set 
-> NLM_F_REQUEST | NLM_F_ACK once synchronization is needed.
-> 
+Hi Florian,
 
-Reference?
+Florian Fainelli <f.fainelli@gmail.com> writes:
 
->From my understanding, NLM_F_REQUEST | NLM_F_ACK is simply requesting an ack from the kernel on a request.  In our case the message is a response to the kernel request.
+>> So as I said in v2, now that a driver is guaranteed that dp->cpu_dp is
+>> correctly assigned at setup time, isn't better (especially for future
+>> multi-CPU support) to provide an helper which returns the CPU port for a
+>> given port? i.e. dsa_get_cpu_port(struct dsa_switch *ds, int port).
+>>
+>> Or is there something blocking? I might be wrong.
+>
+> mt7530.c needs access to the CPU port at ops->setup() time which is
+> why this is still here.
 
-Ira
+Yes, mt7530 is the only one doing this and has an hardcoded CPU port. So
+what I meant was, shouldn't we have this instead:
+
+    struct dsa_port *dsa_get_cpu_port(struct dsa_switch *ds, int port)
+    {
+        return ds->ports[port].cpu_dp;
+    }
+
+And:
+
+-       dn = ds->dst->cpu_dp->netdev->dev.of_node->parent;
++       cpu_dp = dsa_get_cpu_port(ds, MT7530_CPU_PORT);
++       dn = cpu_dp->netdev->dev.of_node->parent;
 
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+
+        Vivien
