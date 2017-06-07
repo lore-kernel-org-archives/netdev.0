@@ -1,65 +1,49 @@
-From: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Subject: Re: [for-next 4/6] net/mlx5: FPGA, Add basic support for Innova
-Date: Wed, 7 Jun 2017 07:16:42 +0300
-Message-ID: <CALzJLG9Rdjme2piWX+CDeHZZebWArM_wGjLJPh8=COOxBHuFkw@mail.gmail.com>
-References: <AM4PR0501MB1940330F0EBAA819C87C5278DBF20@AM4PR0501MB1940.eurprd05.prod.outlook.com>
- <20170529153131.GB7924@obsidianresearch.com> <AM4PR0501MB1940D05A19F098286B99EAD0DBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
- <20170529160252.GA27550@obsidianresearch.com> <AM4PR0501MB194037FF8F17466BC9ECC73DDBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
- <AM4PR0501MB19409139227E11A4A7F82F0FDBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
- <20170601153704.GA1680@obsidianresearch.com> <AM4PR0501MB19404B83A69B87AFB1326B45DBF50@AM4PR0501MB1940.eurprd05.prod.outlook.com>
- <20170605151724.GA20182@obsidianresearch.com> <AM4PR0501MB194008AAABEB6AAAA2ADFC82DBCB0@AM4PR0501MB1940.eurprd05.prod.outlook.com>
- <20170606161709.GA8671@obsidianresearch.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Repeatable inet6_dump_fib crash in stock 4.12.0-rc4+
+Date: Tue, 06 Jun 2017 21:19:26 -0700
+Message-ID: <1496809166.736.25.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <bbfa5208-3a04-c87a-a6e1-ee0ae73965d0@candelatech.com>
+         <a5733c67-e3a3-9cc0-0862-40ef6fc03de3@gmail.com>
+         <1496795269.736.21.camel@edumazet-glaptop3.roam.corp.google.com>
+         <da189b9d-760f-0591-2acf-1a6b7910e227@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "jsorensen-b10kYP2dOMg@public.gmane.org" <jsorensen-b10kYP2dOMg@public.gmane.org>,
-        Andy Shevchenko <andy.shevchenko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "linux-fpga-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-fpga-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Alan Tull <atull-yzvPICuk2ABMcg4IHK0kFoH6Mc4MB0Vx@public.gmane.org>,
-        "yi1.li-VuQAYsv1563Yd54FQh9/CA@public.gmane.org" <yi1.li-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-        Boris Pismenny <borisp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170606161709.GA8671-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: Ben Greear <greearb@candelatech.com>,
+        netdev <netdev@vger.kernel.org>
+To: David Ahern <dsahern@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f45.google.com ([74.125.83.45]:35395 "EHLO
+        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751610AbdFGET2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 00:19:28 -0400
+Received: by mail-pg0-f45.google.com with SMTP id k71so946741pgd.2
+        for <netdev@vger.kernel.org>; Tue, 06 Jun 2017 21:19:28 -0700 (PDT)
+In-Reply-To: <da189b9d-760f-0591-2acf-1a6b7910e227@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 6, 2017 at 7:17 PM, Jason Gunthorpe
-<jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org> wrote:
-> On Tue, Jun 06, 2017 at 06:52:15AM +0000, Ilan Tayari wrote:
->
->> So neither the host stack nor the network are aware of them.
->> They exist momentarily only on the internal traces on the board and not
->> anywhere else.
->
-> Is that really true? If you are creating rocee QPs' then the RDMA
-> stack sees this stuff and now we have buried a RDMA ULP inside an
-> ethernet driver which seems really wonky..
+On Tue, 2017-06-06 at 18:34 -0600, David Ahern wrote:
+> On 6/6/17 6:27 PM, Eric Dumazet wrote:
+> > Good catch, but it looks like similar fix is needed a few lines before.
+> > 
+> > diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+> > index deea901746c8570c5e801e40592c91e3b62812e0..b214443dc8346cef3690df7f27cc48a864028865 100644
+> > --- a/net/ipv6/ip6_fib.c
+> > +++ b/net/ipv6/ip6_fib.c
+> > @@ -372,12 +372,13 @@ static int fib6_dump_table(struct fib6_table *table, struct sk_buff *skb,
+> >  
+> >  		read_lock_bh(&table->tb6_lock);
+> >  		res = fib6_walk(net, w);
+> > -		read_unlock_bh(&table->tb6_lock);
+> >  		if (res > 0) {
+> >  			cb->args[4] = 1;
+> >  			cb->args[5] = w->root->fn_sernum;
+> >  		}
+> > +		read_unlock_bh(&table->tb6_lock);
+> 
+> indeed. tunnel vision on Ben's problem
 
-It is not an ethernet driver, mlx5_core provides both RDMA and
-ethernet interfaces to both mlx5_ib and the mlx5e netdevice.
-
-so it is perfectly capable of creating QPs on its own, after all it is
-the one creating QPs for the RDMA stack :).
-
-rdma_create_qp->mlx5_ib_create_qp->mlx5_core_create_qp.
-
-
->
->> I don't mind explaining further, but I think you will just see it in the
->> patchset when we submit.
->
-> You described exactly what I thought.. I just disagree with you that
-> an ethernet connected and controlled IP accelerator is 'part of the
-> NIC', even if it happens to be colocated on the same circuit board.
->
-> Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+BTW, bug was already Ben's problem when Patrick tried to fix it
+in commit 2bec5a369ee79 ("ipv6: fib: fix crash when changing large fib
+while dumping it")  seven years ago ;)
