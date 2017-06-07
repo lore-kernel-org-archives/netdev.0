@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 2/5] net: dsa: check VLAN capability of every switch
-Date: Wed,  7 Jun 2017 18:12:14 -0400
-Message-ID: <20170607221217.2323-3-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 5/5] net: dsa: mv88e6xxx: do not skip ports on VLAN del
+Date: Wed,  7 Jun 2017 18:12:17 -0400
+Message-ID: <20170607221217.2323-6-vivien.didelot@savoirfairelinux.com>
 References: <20170607221217.2323-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -9,88 +9,48 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Andrew Lunn <andrew@lunn.ch>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:58414 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751581AbdFGWOa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 18:14:30 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170607221217.2323-1-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Now that the VLAN object is propagated to every switch chip of the
-switch fabric, we can easily ensure that they all support the required
-VLAN operations before modifying an entry on a single switch.
+The mv88e6xxx driver currently tries to be smart and remove by itself a
+VLAN entry from the VTU when the driven switch sees no user ports as
+members of the VLAN.
 
-To achieve that, remove the condition skipping other target switches,
-and add a bitmap of VLAN members, eventually containing the target port,
-if we are programming the switch target.
+This is bad in a multi-chip switch fabric, since a chip in between
+others may have no bridge port members, but still needs to be aware of
+the VID in order to correctly pass frames in the data path.
 
-This will allow us to easily add other VLAN members, such as the DSA or
-CPU ports (to introduce cross-chip VLAN support) or the other port
-members if we want to reduce hardware accesses later.
+Now that the DSA core explicitly manages DSA and CPU ports, do not skip
+them when checking remaining VLAN members.
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- net/dsa/switch.c | 27 +++++++++++++++++----------
- 1 file changed, 17 insertions(+), 10 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c | 4 ----
+ 1 file changed, 4 deletions(-)
 
-diff --git a/net/dsa/switch.c b/net/dsa/switch.c
-index d8e5c311ee7c..f235ae1e9777 100644
---- a/net/dsa/switch.c
-+++ b/net/dsa/switch.c
-@@ -159,19 +159,27 @@ static int dsa_switch_vlan_add(struct dsa_switch *ds,
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 41202b1d6d7f..0534eb706caa 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -1325,7 +1325,6 @@ static void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
+ static int _mv88e6xxx_port_vlan_del(struct mv88e6xxx_chip *chip,
+ 				    int port, u16 vid)
  {
- 	const struct switchdev_obj_port_vlan *vlan = info->vlan;
- 	struct switchdev_trans *trans = info->trans;
-+	DECLARE_BITMAP(members, ds->num_ports);
-+	int port, err;
+-	struct dsa_switch *ds = chip->ds;
+ 	struct mv88e6xxx_vtu_entry vlan;
+ 	int i, err;
  
--	/* Do not care yet about other switch chips of the fabric */
--	if (ds->index != info->sw_index)
--		return 0;
-+	/* Build a mask of VLAN members */
-+	bitmap_zero(members, ds->num_ports);
-+	if (ds->index == info->sw_index)
-+		set_bit(info->port, members);
- 
- 	if (switchdev_trans_ph_prepare(trans)) {
- 		if (!ds->ops->port_vlan_prepare || !ds->ops->port_vlan_add)
- 			return -EOPNOTSUPP;
- 
--		return ds->ops->port_vlan_prepare(ds, info->port, vlan, trans);
-+		for_each_set_bit(port, members, ds->num_ports) {
-+			err = ds->ops->port_vlan_prepare(ds, port, vlan, trans);
-+			if (err)
-+				return err;
-+		}
- 	}
- 
--	ds->ops->port_vlan_add(ds, info->port, vlan, trans);
-+	for_each_set_bit(port, members, ds->num_ports)
-+		ds->ops->port_vlan_add(ds, port, vlan, trans);
- 
- 	return 0;
- }
-@@ -181,14 +189,13 @@ static int dsa_switch_vlan_del(struct dsa_switch *ds,
- {
- 	const struct switchdev_obj_port_vlan *vlan = info->vlan;
- 
--	/* Do not care yet about other switch chips of the fabric */
--	if (ds->index != info->sw_index)
--		return 0;
+@@ -1342,9 +1341,6 @@ static int _mv88e6xxx_port_vlan_del(struct mv88e6xxx_chip *chip,
+ 	/* keep the VLAN unless all ports are excluded */
+ 	vlan.valid = false;
+ 	for (i = 0; i < mv88e6xxx_num_ports(chip); ++i) {
+-		if (dsa_is_cpu_port(ds, i) || dsa_is_dsa_port(ds, i))
+-			continue;
 -
- 	if (!ds->ops->port_vlan_del)
- 		return -EOPNOTSUPP;
- 
--	return ds->ops->port_vlan_del(ds, info->port, vlan);
-+	if (ds->index == info->sw_index)
-+		return ds->ops->port_vlan_del(ds, info->port, vlan);
-+
-+	return 0;
- }
- 
- static int dsa_switch_event(struct notifier_block *nb,
+ 		if (vlan.member[i] != GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER) {
+ 			vlan.valid = true;
+ 			break;
 -- 
 2.13.1
