@@ -1,34 +1,31 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 1/5] net: dsa: mv88e6xxx: define membership on
- VLAN add
-Date: Wed, 7 Jun 2017 12:31:46 -0700
-Message-ID: <f4c5f796-9379-c43a-767c-71f12f8b414c@gmail.com>
-References: <20170606205631.22880-1-vivien.didelot@savoirfairelinux.com>
- <20170606205631.22880-2-vivien.didelot@savoirfairelinux.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: Have 6161/6123 use EDSA
+ tags
+Date: Wed, 07 Jun 2017 15:32:11 -0400 (EDT)
+Message-ID: <20170607.153211.2215871928299179731.davem@davemloft.net>
+References: <1496840779-4260-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170606205631.22880-2-vivien.didelot@savoirfairelinux.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, cphealy@gmail.com,
+        vivien.didelot@savoirfairelinux.com,
+        nikita.yoush@cogentembedded.com
+To: andrew@lunn.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34688 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751704AbdFGTcN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 15:32:13 -0400
+In-Reply-To: <1496840779-4260-1-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/06/2017 01:56 PM, Vivien Didelot wrote:
-> Define the target port membership of the VLAN entry in
-> mv88e6xxx_port_vlan_add where ds is scoped.
-> 
-> Allow the DSA core to call later the port_vlan_add operation for CPU or
-> DSA ports, by using the Unmodified membership for these ports, as in the
-> current behavior.
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Wed,  7 Jun 2017 15:06:19 +0200
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
--- 
-Florian
+> The mv88e6161 and mv88e6123 are capable of using EDSA tags when
+> passing frames from the host to the switch and back.
+> 
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+
+Applied.
