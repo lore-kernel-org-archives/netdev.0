@@ -1,49 +1,49 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next] net: dsa: mv88e6xxx: Have 6161/6123 use EDSA tags
-Date: Wed,  7 Jun 2017 15:06:19 +0200
-Message-ID: <1496840779-4260-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>, Chris Healy <cphealy@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
-        Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:39638 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751203AbdFGNGn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Jun 2017 09:06:43 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mateusz Jurczyk <mjurczyk@google.com>
+Subject: [PATCH] decnet: dn_rtmsg: Improve input length sanitization in dnrmg_receive_user_skb
+Date: Wed,  7 Jun 2017 15:14:29 +0200
+Message-ID: <20170607131429.30441-1-mjurczyk@google.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        linux-decnet-user@lists.sourceforge.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The mv88e6161 and mv88e6123 are capable of using EDSA tags when
-passing frames from the host to the switch and back.
+Verify that the length of the socket buffer is sufficient to cover the
+entire nlh->nlmsg_len field before accessing that field for further
+input sanitization. If the client only supplies 1-3 bytes of data in
+sk_buff, then nlh->nlmsg_len remains partially uninitialized and
+contains leftover memory from the corresponding kernel allocation.
+Operating on such data may result in indeterminate evaluation of the
+nlmsg_len < sizeof(*nlh) expression.
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+The bug was discovered by a runtime instrumentation designed to detect
+use of uninitialized memory in the kernel. The patch prevents this and
+other similar tools (e.g. KMSAN) from flagging this behavior in the future.
+
+Signed-off-by: Mateusz Jurczyk <mjurczyk@google.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/decnet/netfilter/dn_rtmsg.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index ea20c4ee30b6..f53bae07387f 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -3279,7 +3279,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.g1_irqs = 9,
- 		.atu_move_port_mask = 0xf,
- 		.pvt = true,
--		.tag_protocol = DSA_TAG_PROTO_DSA,
-+		.tag_protocol = DSA_TAG_PROTO_EDSA,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6165,
- 		.ops = &mv88e6123_ops,
- 	},
-@@ -3331,7 +3331,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.g1_irqs = 9,
- 		.atu_move_port_mask = 0xf,
- 		.pvt = true,
--		.tag_protocol = DSA_TAG_PROTO_DSA,
-+		.tag_protocol = DSA_TAG_PROTO_EDSA,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6165,
- 		.ops = &mv88e6161_ops,
- 	},
+diff --git a/net/decnet/netfilter/dn_rtmsg.c b/net/decnet/netfilter/dn_rtmsg.c
+index 1ed81ac6dd1a..26e020e9d415 100644
+--- a/net/decnet/netfilter/dn_rtmsg.c
++++ b/net/decnet/netfilter/dn_rtmsg.c
+@@ -102,7 +102,9 @@ static inline void dnrmg_receive_user_skb(struct sk_buff *skb)
+ {
+ 	struct nlmsghdr *nlh = nlmsg_hdr(skb);
+ 
+-	if (nlh->nlmsg_len < sizeof(*nlh) || skb->len < nlh->nlmsg_len)
++	if (skb->len < sizeof(nlh->nlmsg_len) ||
++	    nlh->nlmsg_len < sizeof(*nlh) ||
++	    skb->len < nlh->nlmsg_len)
+ 		return;
+ 
+ 	if (!netlink_capable(skb, CAP_NET_ADMIN))
 -- 
-2.11.0
+2.13.1.508.gb3defc5cc-goog
