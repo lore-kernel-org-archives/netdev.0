@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH 8/9] dt-bindings: orion-mdio: document the new xmdio compatible
-Date: Wed,  7 Jun 2017 10:38:09 +0200
-Message-ID: <20170607083810.30922-9-antoine.tenart@free-electrons.com>
+Subject: [PATCH 9/9] arm64: marvell: dts: add xmdio nodes for 7k/8k
+Date: Wed,  7 Jun 2017 10:38:10 +0200
+Message-ID: <20170607083810.30922-10-antoine.tenart@free-electrons.com>
 References: <20170607083810.30922-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, mw@semihalf.com,
@@ -11,42 +11,60 @@ To: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
         gregory.clement@free-electrons.com,
         sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:37637 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:37636 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750739AbdFGIjQ (ORCPT
+        with ESMTP id S1751516AbdFGIjQ (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 04:39:16 -0400
 In-Reply-To: <20170607083810.30922-1-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A new compatible for Marvell xMDIO interfaces was added into the Marvell
-MDIO driver. Document this new compatible.
+Add the description of the xMDIO bus for the Marvell Armada 7k and
+Marvell Armada 8k; for both CP110 slave and master. This bus is found
+on Marvell Ethernet controllers and provides an interface with the
+xMDIO bus.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- Documentation/devicetree/bindings/net/marvell-orion-mdio.txt | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi | 7 +++++++
+ arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi  | 7 +++++++
+ 2 files changed, 14 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
-index ccdabdcc8618..315036ff8fed 100644
---- a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
-+++ b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
-@@ -1,12 +1,12 @@
- * Marvell MDIO Ethernet Controller interface
+diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
+index 037ed30d75a7..95953743455e 100644
+--- a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
+@@ -98,6 +98,13 @@
+ 				clocks = <&cpm_syscon0 1 9>, <&cpm_syscon0 1 5>;
+ 			};
  
- The Ethernet controllers of the Marvel Kirkwood, Dove, Orion5x,
--MV78xx0, Armada 370 and Armada XP have an identical unit that provides
--an interface with the MDIO bus. This driver handles this MDIO
--interface.
-+MV78xx0, Armada 370, Armada XP, Armada 7k and Armada 8k have an
-+identical unit that provides an interface with the MDIO bus or to
-+the xMDIO bus. This driver handles these interfaces.
++			cpm_xmdio: mdio@12a600 {
++				#address-cells = <1>;
++				#size-cells = <0>;
++				compatible = "marvell,xmdio";
++				reg = <0x12a600 0x10>;
++			};
++
+ 			cpm_icu: interrupt-controller@1e0000 {
+ 				compatible = "marvell,cp110-icu"; 
+ 				reg = <0x1e0000 0x10>;
+diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
+index 2a99ff8fca2a..594356243ddb 100644
+--- a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
+@@ -103,6 +103,13 @@
+ 				clocks = <&cps_syscon0 1 9>, <&cps_syscon0 1 5>;
+ 			};
  
- Required properties:
--- compatible: "marvell,orion-mdio"
-+- compatible: "marvell,orion-mdio" or "marvell,xmdio"
- - reg: address and length of the MDIO registers.  When an interrupt is
-   not present, the length is the size of the SMI register (4 bytes)
-   otherwise it must be 0x84 bytes to cover the interrupt control
++			cps_xmdio: mdio@12a600 {
++				#address-cells = <1>;
++				#size-cells = <0>;
++				compatible = "marvell,xmdio";
++				reg = <0x12a600 0x10>;
++			};
++
+ 			cps_icu: interrupt-controller@1e0000 {
+ 				compatible = "marvell,cp110-icu";
+ 				reg = <0x1e0000 0x10>;
 -- 
 2.9.4
