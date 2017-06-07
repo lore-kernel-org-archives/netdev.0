@@ -1,73 +1,85 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH 4/9] net: mvmdio: move the read valid check into its own function
-Date: Wed,  7 Jun 2017 10:38:05 +0200
-Message-ID: <20170607083810.30922-5-antoine.tenart@free-electrons.com>
-References: <20170607083810.30922-1-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
-        thomas.petazzoni@free-electrons.com, mw@semihalf.com,
-        linux@armlinux.org.uk, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org
-To: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
-        gregory.clement@free-electrons.com,
-        sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:37605 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751207AbdFGIjO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 04:39:14 -0400
-In-Reply-To: <20170607083810.30922-1-antoine.tenart@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Mario Molitor" <Mario_Molitor@web.de>
+Subject: [PATCH 1/2(net.git)] stmmac: fix ptp header for GMAC3 hw timestamp
+Date: Wed, 7 Jun 2017 10:42:21 +0200
+Message-ID: <trinity-fff77f78-0a67-4c52-8a3e-4fb46c9e1a70-1496824941168@3capp-webde-bs41>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: peppe.cavallaro@st.com, alexandre.torgue@st.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Move the read valid check in its own function. This is needed as a
-requirement to factorize the driver to add the xMDIO support in the
-future.
+>From e87e1a88a3bf054c45156edf8a63d72169064baa Mon Sep 17 00:00:00 2001
+From: Mario Molitor <mario_molitor@web.de>
+Date: Tue, 6 Jun 2017 21:31:02 +0200
+Subject: [PATCH 1/2] stmmac: fix ptp header for GMAC3 hw timestamp
 
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+According the CYCLON V documention only the bit 16 of snaptypesel should
+set.
+(more information see Table 17-20 (cv_5v4.pdf) :
+ Timestamp Snapshot Dependency on Register Bits)
+
+fixed: commit d2042052a0aa ("stmmac: update the PTP header file")
+Signed-off-by: Mario Molitor <mario_molitor@web.de>
 ---
- drivers/net/ethernet/marvell/mvmdio.c | 11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 15 ++++++++++++---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h  |  3 ++-
+ 2 files changed, 14 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-index 96af8d57d9e5..56bbe3990590 100644
---- a/drivers/net/ethernet/marvell/mvmdio.c
-+++ b/drivers/net/ethernet/marvell/mvmdio.c
-@@ -69,6 +69,11 @@ static int orion_mdio_smi_is_done(struct orion_mdio_dev *dev)
- 	return !(readl(dev->regs) & MVMDIO_SMI_BUSY);
- }
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index a74c481..14d0bf3 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -546,7 +546,10 @@ static int stmmac_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
+ 			/* PTP v1, UDP, any kind of event packet */
+ 			config.rx_filter = HWTSTAMP_FILTER_PTP_V1_L4_EVENT;
+ 			/* take time stamp for all event messages */
+-			snap_type_sel = PTP_TCR_SNAPTYPSEL_1;
++			if (priv->plat->has_gmac4)
++				snap_type_sel = PTP_GMAC4_TCR_SNAPTYPSEL_1;
++			else
++				snap_type_sel = PTP_TCR_SNAPTYPSEL_1;
  
-+static int orion_mdio_smi_is_read_valid(struct orion_mdio_dev *dev)
-+{
-+	return !(readl(dev->regs) & MVMDIO_SMI_READ_VALID);
-+}
-+
- /* Wait for the SMI unit to be ready for another operation
-  */
- static int orion_mdio_wait_ready(struct mii_bus *bus)
-@@ -113,7 +118,6 @@ static int orion_mdio_read(struct mii_bus *bus, int mii_id,
- 			   int regnum)
- {
- 	struct orion_mdio_dev *dev = bus->priv;
--	u32 val;
- 	int ret;
+ 			ptp_over_ipv4_udp = PTP_TCR_TSIPV4ENA;
+ 			ptp_over_ipv6_udp = PTP_TCR_TSIPV6ENA;
+@@ -578,7 +581,10 @@ static int stmmac_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
+ 			config.rx_filter = HWTSTAMP_FILTER_PTP_V2_L4_EVENT;
+ 			ptp_v2 = PTP_TCR_TSVER2ENA;
+ 			/* take time stamp for all event messages */
+-			snap_type_sel = PTP_TCR_SNAPTYPSEL_1;
++			if (priv->plat->has_gmac4)
++				snap_type_sel = PTP_GMAC4_TCR_SNAPTYPSEL_1;
++			else
++				snap_type_sel = PTP_TCR_SNAPTYPSEL_1;
  
- 	mutex_lock(&dev->lock);
-@@ -131,14 +135,13 @@ static int orion_mdio_read(struct mii_bus *bus, int mii_id,
- 	if (ret < 0)
- 		goto out;
+ 			ptp_over_ipv4_udp = PTP_TCR_TSIPV4ENA;
+ 			ptp_over_ipv6_udp = PTP_TCR_TSIPV6ENA;
+@@ -612,7 +618,10 @@ static int stmmac_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
+ 			config.rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
+ 			ptp_v2 = PTP_TCR_TSVER2ENA;
+ 			/* take time stamp for all event messages */
+-			snap_type_sel = PTP_TCR_SNAPTYPSEL_1;
++			if (priv->plat->has_gmac4)
++				snap_type_sel = PTP_GMAC4_TCR_SNAPTYPSEL_1;
++			else
++				snap_type_sel = PTP_TCR_SNAPTYPSEL_1;
  
--	val = readl(dev->regs);
--	if (!(val & MVMDIO_SMI_READ_VALID)) {
-+	if (orion_mdio_smi_is_read_valid(dev)) {
- 		dev_err(bus->parent, "SMI bus read not valid\n");
- 		ret = -ENODEV;
- 		goto out;
- 	}
+ 			ptp_over_ipv4_udp = PTP_TCR_TSIPV4ENA;
+ 			ptp_over_ipv6_udp = PTP_TCR_TSIPV6ENA;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h
+index 48fb72f..f4b31d6 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h
+@@ -59,7 +59,8 @@
+ /* Enable Snapshot for Messages Relevant to Master */
+ #define	PTP_TCR_TSMSTRENA	BIT(15)
+ /* Select PTP packets for Taking Snapshots */
+-#define	PTP_TCR_SNAPTYPSEL_1	GENMASK(17, 16)
++#define	PTP_TCR_SNAPTYPSEL_1	BIT(16)
++#define	PTP_GMAC4_TCR_SNAPTYPSEL_1	GENMASK(17, 16)
+ /* Enable MAC address for PTP Frame Filtering */
+ #define	PTP_TCR_TSENMACADDR	BIT(18)
  
--	ret = val & GENMASK(15,0);
-+	ret = readl(dev->regs) & GENMASK(15,0);
- out:
- 	mutex_unlock(&dev->lock);
- 	return ret;
 -- 
-2.9.4
+2.7.4
