@@ -1,98 +1,83 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [for-next 4/6] net/mlx5: FPGA, Add basic support for Innova
-Date: Wed, 7 Jun 2017 13:21:32 -0600
-Message-ID: <20170607192132.GA10929@obsidianresearch.com>
-References: <AM4PR0501MB194037FF8F17466BC9ECC73DDBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
- <AM4PR0501MB19409139227E11A4A7F82F0FDBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
- <20170601153704.GA1680@obsidianresearch.com>
- <AM4PR0501MB19404B83A69B87AFB1326B45DBF50@AM4PR0501MB1940.eurprd05.prod.outlook.com>
- <20170605151724.GA20182@obsidianresearch.com>
- <AM4PR0501MB194008AAABEB6AAAA2ADFC82DBCB0@AM4PR0501MB1940.eurprd05.prod.outlook.com>
- <20170606161709.GA8671@obsidianresearch.com>
- <CALzJLG9Rdjme2piWX+CDeHZZebWArM_wGjLJPh8=COOxBHuFkw@mail.gmail.com>
- <20170607154858.GA30124@obsidianresearch.com>
- <CALzJLG8epxWp1pmTd_fxOUfzXF5YoOFfnrRBJ0-YZVL1Gi_yOw@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2 5/5] net: dsa: Stop accessing ds->dst->cpu_dp
+ in drivers
+Date: Wed, 7 Jun 2017 12:21:51 -0700
+Message-ID: <c8ecc6c3-2780-cf63-24f6-b546e837430e@gmail.com>
+References: <20170607000317.14729-1-f.fainelli@gmail.com>
+ <20170607000317.14729-6-f.fainelli@gmail.com>
+ <87ink8tum2.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <CAGVrzcb_ve=gOAnAo73-TqzZgWN6F3gr7Tu0BtWS8UBYQ2MciQ@mail.gmail.com>
+ <87ink7oh1h.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ilan Tayari <ilant@mellanox.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Doug Ledford <dledford@redhat.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        "jsorensen@fb.com" <jsorensen@fb.com>,
-        Andy Shevchenko <andy.shevchenko@gmail.com>,
-        "linux-fpga@vger.kernel.org" <linux-fpga@vger.kernel.org>,
-        Alan Tull <atull@opensource.altera.com>,
-        "yi1.li@linux.intel.com" <yi1.li@linux.intel.com>,
-        Boris Pismenny <borisp@mellanox.com>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>,
+        John Crispin <john@phrozen.org>,
+        David Miller <davem@davemloft.net>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from quartz.orcorp.ca ([184.70.90.242]:47630 "EHLO quartz.orcorp.ca"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751877AbdFGTVo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Jun 2017 15:21:44 -0400
-Content-Disposition: inline
-In-Reply-To: <CALzJLG8epxWp1pmTd_fxOUfzXF5YoOFfnrRBJ0-YZVL1Gi_yOw@mail.gmail.com>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:36224 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751945AbdFGTWD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 15:22:03 -0400
+Received: by mail-wm0-f68.google.com with SMTP id k15so4000517wmh.3
+        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 12:22:03 -0700 (PDT)
+In-Reply-To: <87ink7oh1h.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 07, 2017 at 10:13:43PM +0300, Saeed Mahameed wrote:
-> On Wed, Jun 7, 2017 at 6:48 PM, Jason Gunthorpe
-> <jgunthorpe@obsidianresearch.com> wrote:
-> > On Wed, Jun 07, 2017 at 07:16:42AM +0300, Saeed Mahameed wrote:
-> >> On Tue, Jun 6, 2017 at 7:17 PM, Jason Gunthorpe
-> >> <jgunthorpe@obsidianresearch.com> wrote:
-> >> > On Tue, Jun 06, 2017 at 06:52:15AM +0000, Ilan Tayari wrote:
-> >> >
-> >> >> So neither the host stack nor the network are aware of them.
-> >> >> They exist momentarily only on the internal traces on the board and not
-> >> >> anywhere else.
-> >> >
-> >> > Is that really true? If you are creating rocee QPs' then the RDMA
-> >> > stack sees this stuff and now we have buried a RDMA ULP inside an
-> >> > ethernet driver which seems really wonky..
-> >>
-> >> It is not an ethernet driver, mlx5_core provides both RDMA and
-> >> ethernet interfaces to both mlx5_ib and the mlx5e netdevice.
-> >>
-> >> so it is perfectly capable of creating QPs on its own, after all it is
-> >> the one creating QPs for the RDMA stack :).
-> >>
-> >> rdma_create_qp->mlx5_ib_create_qp->mlx5_core_create_qp.
-> >
-> > Wait, so you built a RDMA ULP inside your driver without using the
-> > RDMA API?
-> >
+On 06/07/2017 10:15 AM, Vivien Didelot wrote:
+> Hi Florian,
 > 
-> No !!
-> I am just showing you that the ib_core eventually will end up calling
-> mlx5_core to create a QP.
-> so mlx5_core can create the QP it self since it is the one eventually
-> creating QPs.
-> we just call mlx5_core_create_qp directly.
-
-Which is building a RDMA ULP inside a driver without using the core
-code :(
-
-> > This keep getting more ugly :(
-> >
-> > What about security? What if user space sends some raw packets to the
-> > FPGA - can it reprogram the ISPEC settings or worse?
-> >
+> Florian Fainelli <f.fainelli@gmail.com> writes:
 > 
-> No such thing. This QP is only for internal driver/HW communications,
-> as it is faster from the existing command interface.
-> it is not meant to be exposed for any raw user space usages at all,
-> without proper standard API adapter of course.
+>>> So as I said in v2, now that a driver is guaranteed that dp->cpu_dp is
+>>> correctly assigned at setup time, isn't better (especially for future
+>>> multi-CPU support) to provide an helper which returns the CPU port for a
+>>> given port? i.e. dsa_get_cpu_port(struct dsa_switch *ds, int port).
+>>>
+>>> Or is there something blocking? I might be wrong.
+>>
+>> mt7530.c needs access to the CPU port at ops->setup() time which is
+>> why this is still here.
+> 
+> Yes, mt7530 is the only one doing this and has an hardcoded CPU port. So
+> what I meant was, shouldn't we have this instead:
+> 
+>     struct dsa_port *dsa_get_cpu_port(struct dsa_switch *ds, int port)
+>     {
+>         return ds->ports[port].cpu_dp;
+>     }
 
-I'm not asking about the QP, I'm asking what happens after the NIC
-part. You use ROCE packets to control the FPGA. What prevents
-userspace from forcibly constructing roce packets and sending them to
-the FPGA. How does the FPGA know for certain the packet came from the
-kernel QP and not someplace else.
+We don't actually have a CPU port point to itself:
 
-This is especially true for mlx nics as there are many raw packet
-bypass mechanisms available to userspace.
++
++		for (i = 0; i < ds->num_ports; i++) {
++			p = &ds->ports[i];
++			if (!dsa_port_is_valid(p) ||
++			    i == index) <=============
++				continue;
++
++			p->cpu_dp = port;
++		}
+ 	}
 
-Jason
+> 
+> And:
+> 
+> -       dn = ds->dst->cpu_dp->netdev->dev.of_node->parent;
+> +       cpu_dp = dsa_get_cpu_port(ds, MT7530_CPU_PORT);
+> +       dn = cpu_dp->netdev->dev.of_node->parent;
+
+If we are giving the port number to get its cpu_dp pointer back, that
+seems a bit pointless.
+
+I still think the helper with fls(ds->cpu_port_mask) - 1 is better in
+that it will return what you have configured from Device Tree/platform
+data. MT7530 does allow the CPU port being arbitrary, and it would
+disable MTK tags in that case.
+
+Thanks!
+-- 
+Florian
