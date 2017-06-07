@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 1/5] net: dsa: mv88e6xxx: define membership on VLAN add
-Date: Wed,  7 Jun 2017 18:12:13 -0400
-Message-ID: <20170607221217.2323-2-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 2/5] net: dsa: check VLAN capability of every switch
+Date: Wed,  7 Jun 2017 18:12:14 -0400
+Message-ID: <20170607221217.2323-3-vivien.didelot@savoirfairelinux.com>
 References: <20170607221217.2323-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -10,75 +10,87 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:58410 "EHLO
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:58414 "EHLO
         mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751530AbdFGWOa (ORCPT
+        with ESMTP id S1751581AbdFGWOa (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 18:14:30 -0400
 In-Reply-To: <20170607221217.2323-1-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Define the target port membership of the VLAN entry in
-mv88e6xxx_port_vlan_add where ds is scoped.
+Now that the VLAN object is propagated to every switch chip of the
+switch fabric, we can easily ensure that they all support the required
+VLAN operations before modifying an entry on a single switch.
 
-Allow the DSA core to call later the port_vlan_add operation for CPU or
-DSA ports, by using the Unmodified membership for these ports, as in the
-current behavior.
+To achieve that, remove the condition skipping other target switches,
+and add a bitmap of VLAN members, eventually containing the target port,
+if we are programming the switch target.
+
+This will allow us to easily add other VLAN members, such as the DSA or
+CPU ports (to introduce cross-chip VLAN support) or the other port
+members if we want to reduce hardware accesses later.
 
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c | 16 +++++++++++-----
- 1 file changed, 11 insertions(+), 5 deletions(-)
+ net/dsa/switch.c | 27 +++++++++++++++++----------
+ 1 file changed, 17 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 44c87027623b..962b4e873bf9 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1274,7 +1274,7 @@ mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
- }
- 
- static int _mv88e6xxx_port_vlan_add(struct mv88e6xxx_chip *chip, int port,
--				    u16 vid, bool untagged)
-+				    u16 vid, u8 member)
+diff --git a/net/dsa/switch.c b/net/dsa/switch.c
+index d8e5c311ee7c..f235ae1e9777 100644
+--- a/net/dsa/switch.c
++++ b/net/dsa/switch.c
+@@ -159,19 +159,27 @@ static int dsa_switch_vlan_add(struct dsa_switch *ds,
  {
- 	struct mv88e6xxx_vtu_entry vlan;
- 	int err;
-@@ -1283,9 +1283,7 @@ static int _mv88e6xxx_port_vlan_add(struct mv88e6xxx_chip *chip, int port,
- 	if (err)
- 		return err;
+ 	const struct switchdev_obj_port_vlan *vlan = info->vlan;
+ 	struct switchdev_trans *trans = info->trans;
++	DECLARE_BITMAP(members, ds->num_ports);
++	int port, err;
  
--	vlan.member[port] = untagged ?
--		GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED :
--		GLOBAL_VTU_DATA_MEMBER_TAG_TAGGED;
-+	vlan.member[port] = member;
+-	/* Do not care yet about other switch chips of the fabric */
+-	if (ds->index != info->sw_index)
+-		return 0;
++	/* Build a mask of VLAN members */
++	bitmap_zero(members, ds->num_ports);
++	if (ds->index == info->sw_index)
++		set_bit(info->port, members);
  
- 	return mv88e6xxx_vtu_loadpurge(chip, &vlan);
+ 	if (switchdev_trans_ph_prepare(trans)) {
+ 		if (!ds->ops->port_vlan_prepare || !ds->ops->port_vlan_add)
+ 			return -EOPNOTSUPP;
+ 
+-		return ds->ops->port_vlan_prepare(ds, info->port, vlan, trans);
++		for_each_set_bit(port, members, ds->num_ports) {
++			err = ds->ops->port_vlan_prepare(ds, port, vlan, trans);
++			if (err)
++				return err;
++		}
+ 	}
+ 
+-	ds->ops->port_vlan_add(ds, info->port, vlan, trans);
++	for_each_set_bit(port, members, ds->num_ports)
++		ds->ops->port_vlan_add(ds, port, vlan, trans);
+ 
+ 	return 0;
  }
-@@ -1297,15 +1295,23 @@ static void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
- 	struct mv88e6xxx_chip *chip = ds->priv;
- 	bool untagged = vlan->flags & BRIDGE_VLAN_INFO_UNTAGGED;
- 	bool pvid = vlan->flags & BRIDGE_VLAN_INFO_PVID;
-+	u8 member;
- 	u16 vid;
+@@ -181,14 +189,13 @@ static int dsa_switch_vlan_del(struct dsa_switch *ds,
+ {
+ 	const struct switchdev_obj_port_vlan *vlan = info->vlan;
  
- 	if (!chip->info->max_vid)
- 		return;
+-	/* Do not care yet about other switch chips of the fabric */
+-	if (ds->index != info->sw_index)
+-		return 0;
+-
+ 	if (!ds->ops->port_vlan_del)
+ 		return -EOPNOTSUPP;
  
-+	if (dsa_is_dsa_port(ds, port) || dsa_is_cpu_port(ds, port))
-+		member = GLOBAL_VTU_DATA_MEMBER_TAG_UNMODIFIED;
-+	else if (untagged)
-+		member = GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED;
-+	else
-+		member = GLOBAL_VTU_DATA_MEMBER_TAG_TAGGED;
+-	return ds->ops->port_vlan_del(ds, info->port, vlan);
++	if (ds->index == info->sw_index)
++		return ds->ops->port_vlan_del(ds, info->port, vlan);
 +
- 	mutex_lock(&chip->reg_lock);
++	return 0;
+ }
  
- 	for (vid = vlan->vid_begin; vid <= vlan->vid_end; ++vid)
--		if (_mv88e6xxx_port_vlan_add(chip, port, vid, untagged))
-+		if (_mv88e6xxx_port_vlan_add(chip, port, vid, member))
- 			netdev_err(ds->ports[port].netdev,
- 				   "failed to add VLAN %d%c\n",
- 				   vid, untagged ? 'u' : 't');
+ static int dsa_switch_event(struct notifier_block *nb,
 -- 
 2.13.1
