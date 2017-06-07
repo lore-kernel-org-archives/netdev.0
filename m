@@ -1,83 +1,41 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 4/9] net: mvmdio: move the read valid check into its own
- function
-Date: Wed, 7 Jun 2017 13:00:21 +0300
-Message-ID: <71f0a99b-4736-a405-1d06-9c05f80aa327@cogentembedded.com>
-References: <20170607083810.30922-1-antoine.tenart@free-electrons.com>
- <20170607083810.30922-5-antoine.tenart@free-electrons.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH v2] xfrm: fix xfrm_dev_event() missing when compile
+ without CONFIG_XFRM_OFFLOAD
+Date: Wed, 7 Jun 2017 12:59:02 +0200
+Message-ID: <20170607105902.GU2631@secunet.com>
+References: <1496277502-10642-1-git-send-email-liuhangbin@gmail.com>
+ <1496300276-30901-1-git-send-email-liuhangbin@gmail.com>
+ <20170606080658.GO2631@secunet.com>
+ <20170606092600.GC12974@leo.usersys.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, netdev@vger.kernel.org,
- mw@semihalf.com, linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org
-To: Antoine Tenart <antoine.tenart@free-electrons.com>, davem@davemloft.net,
- jason@lakedaemon.net, andrew@lunn.ch, gregory.clement@free-electrons.com,
- sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20170607083810.30922-5-antoine.tenart@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, Guy Shapiro <guysh@mellanox.com>,
+        David Miller <davem@davemloft.net>
+To: Hangbin Liu <liuhangbin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:35284 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751008AbdFGK7G (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Jun 2017 06:59:06 -0400
+Content-Disposition: inline
+In-Reply-To: <20170606092600.GC12974@leo.usersys.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello!
+On Tue, Jun 06, 2017 at 05:26:01PM +0800, Hangbin Liu wrote:
+> On Tue, Jun 06, 2017 at 10:06:58AM +0200, Steffen Klassert wrote:
+> > On Thu, Jun 01, 2017 at 02:57:56PM +0800, Hangbin Liu wrote:
+> > > In commit d77e38e612a0 ("xfrm: Add an IPsec hardware offloading API") we
+> > > make xfrm_device.o only compiled when enable option CONFIG_XFRM_OFFLOAD.
+> > > But this will make xfrm_dev_event() missing if we only enable default XFRM
+> > > options.
+> > > 
+> > > Then if we set down and unregister an interface with IPsec on it.
+> > 
+> > You should not be able to register an interface with IPsec offload
+> > without CONFIG_XFRM_OFFLOAD.
+> 
+> Yes, I mean when compile with default CONFIG_XFRM, the xfrm_dev_event() ->
+> xfrm_dev_down() -> xfrm_garbage_collect() will missing.
 
-On 6/7/2017 11:38 AM, Antoine Tenart wrote:
-
-> Move the read valid check in its own function. This is needed as a
-> requirement to factorize the driver to add the xMDIO support in the
-> future.
->
-> Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
-> ---
->  drivers/net/ethernet/marvell/mvmdio.c | 11 +++++++----
->  1 file changed, 7 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-> index 96af8d57d9e5..56bbe3990590 100644
-> --- a/drivers/net/ethernet/marvell/mvmdio.c
-> +++ b/drivers/net/ethernet/marvell/mvmdio.c
-> @@ -69,6 +69,11 @@ static int orion_mdio_smi_is_done(struct orion_mdio_dev *dev)
->  	return !(readl(dev->regs) & MVMDIO_SMI_BUSY);
->  }
->
-> +static int orion_mdio_smi_is_read_valid(struct orion_mdio_dev *dev)
-> +{
-> +	return !(readl(dev->regs) & MVMDIO_SMI_READ_VALID);
-> +}
-> +
->  /* Wait for the SMI unit to be ready for another operation
->   */
->  static int orion_mdio_wait_ready(struct mii_bus *bus)
-> @@ -113,7 +118,6 @@ static int orion_mdio_read(struct mii_bus *bus, int mii_id,
->  			   int regnum)
->  {
->  	struct orion_mdio_dev *dev = bus->priv;
-> -	u32 val;
->  	int ret;
->
->  	mutex_lock(&dev->lock);
-> @@ -131,14 +135,13 @@ static int orion_mdio_read(struct mii_bus *bus, int mii_id,
->  	if (ret < 0)
->  		goto out;
->
-> -	val = readl(dev->regs);
-> -	if (!(val & MVMDIO_SMI_READ_VALID)) {
-> +	if (orion_mdio_smi_is_read_valid(dev)) {
->  		dev_err(bus->parent, "SMI bus read not valid\n");
-
-    I think you reversed the valuid/invalid sense in the new function's name.
-
->  		ret = -ENODEV;
->  		goto out;
->  	}
->
-[...]
-
-MBR, Sergei
+Ok, I see what you mean now. Thanks for the explanation!
