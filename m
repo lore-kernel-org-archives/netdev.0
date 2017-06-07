@@ -1,92 +1,79 @@
-From: Mauro Rodrigues <maurosr@linux.vnet.ibm.com>
-Subject: Re: [net-intel-i40e] question about assignment overwrite
-Date: Wed, 7 Jun 2017 16:55:27 -0300
-Message-ID: <20170607195526.GA26867@korriban>
-References: <20170517154858.Horde.xMvsIEhHNSGu52mfyp7HA3R@gator4166.hostgator.com>
- <1495086551.46489.1.camel@intel.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 5/5] net: dsa: mv88e6xxx: do not purge a VTU entry
+Date: Wed, 07 Jun 2017 15:59:15 -0400
+Message-ID: <87shjbfu24.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170606205631.22880-1-vivien.didelot@savoirfairelinux.com> <20170606205631.22880-6-vivien.didelot@savoirfairelinux.com> <ae09e920-fcea-ac29-3b2d-51275e0fec56@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: "Gustavo A. R. Silva" <garsilva@embeddedor.com>,
-        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:59623 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751252AbdFGTzi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 15:55:38 -0400
-Received: from pps.filterd (m0098393.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v57Js8gA132894
-        for <netdev@vger.kernel.org>; Wed, 7 Jun 2017 15:55:38 -0400
-Received: from e24smtp03.br.ibm.com (e24smtp03.br.ibm.com [32.104.18.24])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2axptq32qv-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 15:55:37 -0400
-Received: from localhost
-        by e24smtp03.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <maurosr@linux.vnet.ibm.com>;
-        Wed, 7 Jun 2017 16:55:35 -0300
-Content-Disposition: inline
-In-Reply-To: <1495086551.46489.1.camel@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <ae09e920-fcea-ac29-3b2d-51275e0fec56@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 17, 2017 at 10:49:11PM -0700, Jeff Kirsher wrote:
-> On Wed, 2017-05-17 at 15:48 -0500, Gustavo A. R. Silva wrote:
-> > While looking into Coverity ID 1408956 I ran into the following
-> > piece  
-> > of code at drivers/net/ethernet/intel/i40e/i40e_main.c:8807:
-> > 
-> > 8807        if (pf->hw.mac.type == I40E_MAC_X722) {
-> > 8808                pf->flags |= I40E_FLAG_RSS_AQ_CAPABLE
-> > 8809                             | I40E_FLAG_128_QP_RSS_CAPABLE
-> > 8810                             | I40E_FLAG_HW_ATR_EVICT_CAPABLE
-> > 8811                             | I40E_FLAG_OUTER_UDP_CSUM_CAPABLE
-> > 8812                             | I40E_FLAG_WB_ON_ITR_CAPABLE
-> > 8813                             |
-> > I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE
-> > 8814                             | I40E_FLAG_NO_PCI_LINK_CHECK
-> > 8815                             | I40E_FLAG_USE_SET_LLDP_MIB
-> > 8816                             | I40E_FLAG_GENEVE_OFFLOAD_CAPABLE
-> > 8817                             | I40E_FLAG_PTP_L4_CAPABLE
-> > 8818                             | I40E_FLAG_WOL_MC_MAGIC_PKT_WAKE;
-> > 8819        } else if ((pf->hw.aq.api_maj_ver > 1) ||
-> > 8820                   ((pf->hw.aq.api_maj_ver == 1) &&
-> > 8821                    (pf->hw.aq.api_min_ver > 4))) {
-> > 8822                /* Supported in FW API version higher than 1.4 */
-> > 8823                pf->flags |= I40E_FLAG_GENEVE_OFFLOAD_CAPABLE;
-> > 8824                pf->flags = I40E_FLAG_HW_ATR_EVICT_CAPABLE;
-> > 8825        } else {
-> > 8826                pf->flags = I40E_FLAG_HW_ATR_EVICT_CAPABLE;
-> > 8827        }
-> > 
-> > The issue here is that the assignment at line 8823 is overwritten
-> > by  
-> > the code at line 8824.
-> > 
-> > I'm suspicious that line 8824 should be remove and a patch like the  
-> > following can be applied:
-> > 
-> > index d5c9c9e..48ffa73 100644
-> > --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> > +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> > @@ -8821,7 +8821,6 @@ static int i40e_sw_init(struct i40e_pf *pf)
-> >                      (pf->hw.aq.api_min_ver > 4))) {
-> >                  /* Supported in FW API version higher than 1.4 */
-> >                  pf->flags |= I40E_FLAG_GENEVE_OFFLOAD_CAPABLE;
-> > -               pf->flags = I40E_FLAG_HW_ATR_EVICT_CAPABLE;
-> >          } else {
-> >                  pf->flags = I40E_FLAG_HW_ATR_EVICT_CAPABLE;
-> >          }
-> > 
-> > What do you think?
-> 
-> This issue is already fixed in my dev-queue branch on my next-queue
-> tree.
+Hi Florian,
 
-Hi Jeff, are you planning to push this fix into net branch anytime soon?
+Florian Fainelli <f.fainelli@gmail.com> writes:
 
-Thanks,
+> On 06/06/2017 01:56 PM, Vivien Didelot wrote:
+>> The mv88e6xxx driver currently tries to be smart and remove by itself a
+>> VLAN entry from the VTU when the driven switch sees no user ports as
+>> members of the VLAN.
+>> 
+>> This is bad in a multi-chip switch fabric, since a chip in between
+>> others may have no bridge port members, but still needs to be aware of
+>> the VID in order to correctly pass frames in the data path.
+>> 
+>> Remove the code purging a VTU entry when updating a port membership.
+>
+> In that case the switch sitting between two other chips and passing
+> traffic would still have at least two of its DSA ports be part of a VTU
+> entry, right?
 
-Mauro
+That is correct.
+
+>
+> So could not we just do ....
+>
+>> 
+>> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+>> ---
+>>  drivers/net/dsa/mv88e6xxx/chip.c | 15 +--------------
+>>  1 file changed, 1 insertion(+), 14 deletions(-)
+>> 
+>> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+>> index 522f023bb17e..64c0f88f9e79 100644
+>> --- a/drivers/net/dsa/mv88e6xxx/chip.c
+>> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
+>> @@ -1325,9 +1325,8 @@ static void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
+>>  static int _mv88e6xxx_port_vlan_del(struct mv88e6xxx_chip *chip,
+>>  				    int port, u16 vid)
+>>  {
+>> -	struct dsa_switch *ds = chip->ds;
+>>  	struct mv88e6xxx_vtu_entry vlan;
+>> -	int i, err;
+>> +	int err;
+>>  
+>>  	err = mv88e6xxx_vtu_get(chip, vid, &vlan, false);
+>>  	if (err)
+>> @@ -1339,18 +1338,6 @@ static int _mv88e6xxx_port_vlan_del(struct mv88e6xxx_chip *chip,
+>>  
+>>  	vlan.member[port] = GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER;
+>>  
+>> -	/* keep the VLAN unless all ports are excluded */
+>> -	vlan.valid = false;
+>> -	for (i = 0; i < mv88e6xxx_num_ports(chip); ++i) {
+>> -		if (dsa_is_cpu_port(ds, i) || dsa_is_dsa_port(ds, i))
+>> -			continue;
+>
+> ... break the loop here?
+
+I can remove only the dsa_is_{cpu,dsa}_port condition above, this will
+make the code ready for when the DSA core will remove VLAN on DSA ports.
+
+Thanks!
+
+        Vivien
