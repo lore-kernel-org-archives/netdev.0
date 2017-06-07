@@ -1,18 +1,18 @@
 Return-Path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59572 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:39196 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751682AbdFGVNK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Jun 2017 17:13:10 -0400
+        id S1751561AbdFGQ1O (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Jun 2017 12:27:14 -0400
 Subject: [PATCH net-next 3/3] rxrpc: Provide a cmsg to specify the amount of
  Tx data for a call
 From: David Howells <dhowells@redhat.com>
 To: netdev@vger.kernel.org
 Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
         linux-kernel@vger.kernel.org
-Date: Wed, 07 Jun 2017 22:12:52 +0100
-Message-ID: <149686997270.21359.9167134783033151421.stgit@warthog.procyon.org.uk>
-In-Reply-To: <149686995195.21359.17550471913376009423.stgit@warthog.procyon.org.uk>
-References: <149686995195.21359.17550471913376009423.stgit@warthog.procyon.org.uk>
+Date: Wed, 07 Jun 2017 17:27:02 +0100
+Message-ID: <149685282268.8474.1240316032949974771.stgit@warthog.procyon.org.uk>
+In-Reply-To: <149685280179.8474.3836343127280242150.stgit@warthog.procyon.org.uk>
+References: <149685280179.8474.3836343127280242150.stgit@warthog.procyon.org.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -290,14 +290,14 @@ index 692110808baa..423030fd93be 100644
  			 here, (const void *)user_call_ID);
  
 diff --git a/net/rxrpc/sendmsg.c b/net/rxrpc/sendmsg.c
-index d939a5b1abc3..2e636a525a65 100644
+index d939a5b1abc3..d78f23532439 100644
 --- a/net/rxrpc/sendmsg.c
 +++ b/net/rxrpc/sendmsg.c
 @@ -29,6 +29,7 @@ enum rxrpc_command {
  };
  
  struct rxrpc_send_params {
-+	s64			tx_total_len;	/* Total Tx data length (if send data) */
++	u64			tx_total_len;	/* Total Tx data length (if send data) */
  	unsigned long		user_call_ID;	/* User's call ID */
  	u32			abort_code;	/* Abort code to Tx (if abort) */
  	enum rxrpc_command	command : 8;	/* The command to implement */
