@@ -1,57 +1,29 @@
-From: Mateusz Jurczyk <mjurczyk@google.com>
-Subject: [PATCH v2] decnet: dn_rtmsg: Improve input length sanitization in dnrmg_receive_user_skb
-Date: Wed,  7 Jun 2017 16:14:29 +0200
-Message-ID: <20170607141429.5781-1-mjurczyk@google.com>
-References: <20170607131429.30441-1-mjurczyk@google.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        linux-decnet-user@lists.sourceforge.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20170607131429.30441-1-mjurczyk@google.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mayrhofer Family <info@cnpq.br>
+Subject: RE: Grant
+Date: Wed,  7 Jun 2017 01:53:10 -0300
+Message-ID: <1496811190.593786b6c0e5d@email.cnpq.br>
+Reply-To: tmason9w4r@gmail.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from antivirus1.cnpq.br ([200.130.33.200]:48987 "EHLO
+        Antivirus1.cnpq.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751410AbdFGOPs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 10:15:48 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Verify that the length of the socket buffer is sufficient to cover the
-nlmsghdr structure before accessing the nlh->nlmsg_len field for further
-input sanitization. If the client only supplies 1-3 bytes of data in
-sk_buff, then nlh->nlmsg_len remains partially uninitialized and
-contains leftover memory from the corresponding kernel allocation.
-Operating on such data may result in indeterminate evaluation of the
-nlmsg_len < sizeof(*nlh) expression.
 
-The bug was discovered by a runtime instrumentation designed to detect
-use of uninitialized memory in the kernel. The patch prevents this and
-other similar tools (e.g. KMSAN) from flagging this behavior in the future.
 
-Signed-off-by: Mateusz Jurczyk <mjurczyk@google.com>
----
-Changes in v2:
-  - Compare skb->len against sizeof(*nlh) instead of sizeof(nlh->nlmsg_len)
-    to avoid assuming the layout of the nlmsghdr structure. This was
-    motivated by Eric Dumazet's comment on a related patch submission.
-
- net/decnet/netfilter/dn_rtmsg.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/net/decnet/netfilter/dn_rtmsg.c b/net/decnet/netfilter/dn_rtmsg.c
-index 1ed81ac6dd1a..aa8ffecc46a4 100644
---- a/net/decnet/netfilter/dn_rtmsg.c
-+++ b/net/decnet/netfilter/dn_rtmsg.c
-@@ -102,7 +102,9 @@ static inline void dnrmg_receive_user_skb(struct sk_buff *skb)
- {
- 	struct nlmsghdr *nlh = nlmsg_hdr(skb);
- 
--	if (nlh->nlmsg_len < sizeof(*nlh) || skb->len < nlh->nlmsg_len)
-+	if (skb->len < sizeof(*nlh) ||
-+	    nlh->nlmsg_len < sizeof(*nlh) ||
-+	    skb->len < nlh->nlmsg_len)
- 		return;
- 
- 	if (!netlink_capable(skb, CAP_NET_ADMIN))
 -- 
-2.13.1.508.gb3defc5cc-goog
+Good Day,
 
+My wife and I have awarded you with a donation of $ 1,000,000.00 Dollars from
+part of our Jackpot Lottery of 50 Million Dollars, respond with your details
+for claims.
+
+We await your earliest response and God Bless you.
+
+Friedrich And Annand Mayrhofer.
