@@ -1,33 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: fec: Clear and enable MIB counters on
- imx51
-Date: Wed, 07 Jun 2017 10:07:42 -0400 (EDT)
-Message-ID: <20170607.100742.9158707718791478.davem@davemloft.net>
-References: <1496800629-24910-1-git-send-email-andrew@lunn.ch>
+Subject: Re: [PATCH net-next v2 3/3] udp: try to avoid 2 cache miss on
+ dequeue
+Date: Wed, 07 Jun 2017 10:10:56 -0400 (EDT)
+Message-ID: <20170607.101056.833234534371053047.davem@davemloft.net>
+References: <cover.1496756090.git.pabeni@redhat.com>
+        <cdbe7b4e6758719d3e02938f05c8575d009e2822.1496756090.git.pabeni@redhat.com>
+        <1496822205.2409.1.camel@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nikita.yoush@cogentembedded.com,
-        fabio.estevam@nxp.com, cphealy@gmail.com
-To: andrew@lunn.ch
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: pabeni@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56996 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:57048 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751530AbdFGOHr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 10:07:47 -0400
-In-Reply-To: <1496800629-24910-1-git-send-email-andrew@lunn.ch>
+        with ESMTP id S1751383AbdFGOLD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 10:11:03 -0400
+In-Reply-To: <1496822205.2409.1.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Wed,  7 Jun 2017 03:57:09 +0200
+From: Paolo Abeni <pabeni@redhat.com>
+Date: Wed, 07 Jun 2017 09:56:45 +0200
 
-> Both the IMX51 and IMX53 datasheet indicates that the MIB counters
-> should be cleared during setup. Otherwise random numbers are returned
-> via ethtool -S.  Add a quirk and a function to do this.
+> Hi David,
 > 
-> Tested on an IMX51.
+> On Tue, 2017-06-06 at 16:23 +0200, Paolo Abeni wrote:
+>> when udp_recvmsg() is executed, on x86_64 and other archs, most skb
+>> fields are on cold cachelines.
+>> If the skb are linear and the kernel don't need to compute the udp
+>> csum, only a handful of skb fields are required by udp_recvmsg().
+>> Since we already use skb->dev_scratch to cache hot data, and
+>> there are 32 bits unused on 64 bit archs, use such field to cache
+>> as much data as we can, and try to prefetch on dequeue the relevant
+>> fields that are left out.
+>> 
+>> This can save up to 2 cache miss per packet.
+>> 
+>> v1 -> v2:
+>>   - changed udp_dev_scratch fields types to u{32,16} variant,
+>>     replaced bitfield with bool
+>> 
+>> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 > 
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> Can you please keep on-hold this series a little time? the lkp-robot
+> just reported a performance regression on v1 which I have still to
+> investigate. I can't look at it really soon, but I expect the same
+> should apply to v2.
+> 
+> It sounds quite weird to me, since the bisected patch touches the UDP
+> code only and the regression is on apachebench.
 
-Applied, thanks.
+Hmmm, DNS lookups?
+
+Thanks for looking into this.
