@@ -1,81 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/2] tcp: md5: add fields to the tcp_md5sig struct to
- set a key address prefix
-Date: Tue, 06 Jun 2017 21:08:22 -0700
-Message-ID: <1496808502.736.23.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170607005414.25361-1-colona@arista.com>
-         <20170607005414.25361-2-colona@arista.com>
+From: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: [for-next 4/6] net/mlx5: FPGA, Add basic support for Innova
+Date: Wed, 7 Jun 2017 07:16:42 +0300
+Message-ID: <CALzJLG9Rdjme2piWX+CDeHZZebWArM_wGjLJPh8=COOxBHuFkw@mail.gmail.com>
+References: <AM4PR0501MB1940330F0EBAA819C87C5278DBF20@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <20170529153131.GB7924@obsidianresearch.com> <AM4PR0501MB1940D05A19F098286B99EAD0DBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <20170529160252.GA27550@obsidianresearch.com> <AM4PR0501MB194037FF8F17466BC9ECC73DDBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <AM4PR0501MB19409139227E11A4A7F82F0FDBF30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <20170601153704.GA1680@obsidianresearch.com> <AM4PR0501MB19404B83A69B87AFB1326B45DBF50@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <20170605151724.GA20182@obsidianresearch.com> <AM4PR0501MB194008AAABEB6AAAA2ADFC82DBCB0@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <20170606161709.GA8671@obsidianresearch.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Ivan Delalande <colona@arista.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170607005414.25361-2-colona@arista.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "jsorensen-b10kYP2dOMg@public.gmane.org" <jsorensen-b10kYP2dOMg@public.gmane.org>,
+        Andy Shevchenko <andy.shevchenko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "linux-fpga-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-fpga-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Alan Tull <atull-yzvPICuk2ABMcg4IHK0kFoH6Mc4MB0Vx@public.gmane.org>,
+        "yi1.li-VuQAYsv1563Yd54FQh9/CA@public.gmane.org" <yi1.li-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+        Boris Pismenny <borisp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170606161709.GA8671-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-06-06 at 17:54 -0700, Ivan Delalande wrote:
-> Replace padding in the socket option structure tcp_md5sig with a new
-> flag field and address prefix length so it can be specified when
-> configuring a new key with the TCP_MD5SIG socket option.
-> 
-> Signed-off-by: Bob Gilligan <gilligan@arista.com>
-> Signed-off-by: Eric Mowat <mowat@arista.com>
-> Signed-off-by: Ivan Delalande <colona@arista.com>
-> ---
->  include/uapi/linux/tcp.h |  6 +++++-
->  net/ipv4/tcp_ipv4.c      | 13 +++++++++++--
->  net/ipv6/tcp_ipv6.c      | 20 +++++++++++++++-----
->  3 files changed, 31 insertions(+), 8 deletions(-)
-> 
-> diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
-> index 38a2b07afdff..52ac30aa0652 100644
-> --- a/include/uapi/linux/tcp.h
-> +++ b/include/uapi/linux/tcp.h
-> @@ -234,9 +234,13 @@ enum {
->  /* for TCP_MD5SIG socket option */
->  #define TCP_MD5SIG_MAXKEYLEN	80
->  
-> +/* tcp_md5sig flags */
-> +#define TCP_MD5SIG_FLAG_PREFIX		1	/* address prefix length */
-> +
->  struct tcp_md5sig {
->  	struct __kernel_sockaddr_storage tcpm_addr;	/* address associated */
-> -	__u16	__tcpm_pad1;				/* zero */
-> +	__u8	tcpm_flags;				/* flags */
-> +	__u8	tcpm_prefixlen;				/* address prefix */
->  	__u16	tcpm_keylen;				/* key length */
->  	__u32	__tcpm_pad2;				/* zero */
->  	__u8	tcpm_key[TCP_MD5SIG_MAXKEYLEN];		/* key (binary) */
-> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-> index 51ca3bd5a8a3..2b1bb67b3388 100644
-> --- a/net/ipv4/tcp_ipv4.c
-> +++ b/net/ipv4/tcp_ipv4.c
-> @@ -1069,6 +1069,7 @@ static int tcp_v4_parse_md5_keys(struct sock *sk, char __user *optval,
->  {
->  	struct tcp_md5sig cmd;
->  	struct sockaddr_in *sin = (struct sockaddr_in *)&cmd.tcpm_addr;
-> +	u8 prefixlen;
->  
->  	if (optlen < sizeof(cmd))
->  		return -EINVAL;
-> @@ -1079,15 +1080,23 @@ static int tcp_v4_parse_md5_keys(struct sock *sk, char __user *optval,
->  	if (sin->sin_family != AF_INET)
->  		return -EINVAL;
->  
-> +	if (cmd.tcpm_flags & TCP_MD5SIG_FLAG_PREFIX) {
-> +		prefixlen = cmd.tcpm_prefixlen;
-> +		if (prefixlen > 32)
-> +			return -EINVAL;
-> +	} else {
-> +		prefixlen = 32;
-> +	}
+On Tue, Jun 6, 2017 at 7:17 PM, Jason Gunthorpe
+<jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org> wrote:
+> On Tue, Jun 06, 2017 at 06:52:15AM +0000, Ilan Tayari wrote:
+>
+>> So neither the host stack nor the network are aware of them.
+>> They exist momentarily only on the internal traces on the board and not
+>> anywhere else.
+>
+> Is that really true? If you are creating rocee QPs' then the RDMA
+> stack sees this stuff and now we have buried a RDMA ULP inside an
+> ethernet driver which seems really wonky..
 
-This will break some applications that maybe did not clear the
-__tcpm_pad1 field ?
+It is not an ethernet driver, mlx5_core provides both RDMA and
+ethernet interfaces to both mlx5_ib and the mlx5e netdevice.
+
+so it is perfectly capable of creating QPs on its own, after all it is
+the one creating QPs for the RDMA stack :).
+
+rdma_create_qp->mlx5_ib_create_qp->mlx5_core_create_qp.
 
 
-You need to find another way to maintain compatibility with old
-applications.
+>
+>> I don't mind explaining further, but I think you will just see it in the
+>> patchset when we submit.
+>
+> You described exactly what I thought.. I just disagree with you that
+> an ethernet connected and controlled IP accelerator is 'part of the
+> NIC', even if it happens to be colocated on the same circuit board.
+>
+> Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
