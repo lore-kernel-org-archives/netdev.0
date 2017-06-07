@@ -1,10 +1,10 @@
 From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH v3 5/6] dt-bindings: display: amlogic: DT fix
- s/resets-names/reset-names/
-Date: Wed, 7 Jun 2017 17:42:57 -0500
-Message-ID: <20170607224257.aqwrv7ryxrtr7yva@rob-hp-laptop>
+Subject: Re: [PATCH v3 6/6] dt-bindings: net: btusb: DT fix
+ s/interrupt-name/interrupt-names/
+Date: Wed, 7 Jun 2017 17:43:18 -0500
+Message-ID: <20170607224318.wswmmhdwmqtvvqob@rob-hp-laptop>
 References: <1496407129-13527-1-git-send-email-geert+renesas@glider.be>
- <1496407129-13527-6-git-send-email-geert+renesas@glider.be>
+ <1496407129-13527-7-git-send-email-geert+renesas@glider.be>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
@@ -20,7 +20,7 @@ Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
 To: Geert Uytterhoeven <geert+renesas@glider.be>
 Return-path: <dri-devel-bounces@lists.freedesktop.org>
 Content-Disposition: inline
-In-Reply-To: <1496407129-13527-6-git-send-email-geert+renesas@glider.be>
+In-Reply-To: <1496407129-13527-7-git-send-email-geert+renesas@glider.be>
 List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
  <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
 List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
@@ -32,14 +32,13 @@ Errors-To: dri-devel-bounces@lists.freedesktop.org
 Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
 List-Id: netdev.vger.kernel.org
 
-T24gRnJpLCBKdW4gMDIsIDIwMTcgYXQgMDI6Mzg6NDhQTSArMDIwMCwgR2VlcnQgVXl0dGVyaG9l
-dmVuIHdyb3RlOgo+IEZpeGVzOiA4Y2NlZGE1MzQ5Mzc3ZTMwICgiZHQtYmluZGluZ3M6IEFkZCBi
-aW5kaW5ncyBmb3IgdGhlIEFtbG9naWMgTWVzb24gZHctaGRtaSBleHRlbnNpb24iKQo+IFNpZ25l
-ZC1vZmYtYnk6IEdlZXJ0IFV5dHRlcmhvZXZlbiA8Z2VlcnQrcmVuZXNhc0BnbGlkZXIuYmU+Cj4g
-LS0tCj4gdjM6Cj4gICAtIE5ldy4KPiAtLS0KPiAgRG9jdW1lbnRhdGlvbi9kZXZpY2V0cmVlL2Jp
-bmRpbmdzL2Rpc3BsYXkvYW1sb2dpYyxtZXNvbi1kdy1oZG1pLnR4dCB8IDIgKy0KPiAgMSBmaWxl
-IGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspLCAxIGRlbGV0aW9uKC0pCgpBY2tlZC1ieTogUm9iIEhl
-cnJpbmcgPHJvYmhAa2VybmVsLm9yZz4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX18KZHJpLWRldmVsIG1haWxpbmcgbGlzdApkcmktZGV2ZWxAbGlzdHMuZnJl
-ZWRlc2t0b3Aub3JnCmh0dHBzOi8vbGlzdHMuZnJlZWRlc2t0b3Aub3JnL21haWxtYW4vbGlzdGlu
-Zm8vZHJpLWRldmVsCg==
+T24gRnJpLCBKdW4gMDIsIDIwMTcgYXQgMDI6Mzg6NDlQTSArMDIwMCwgR2VlcnQgVXl0dGVyaG9l
+dmVuIHdyb3RlOgo+IEZpeGVzOiBmZDkxM2VmN2NlNjE5NDY3ICgiQmx1ZXRvb3RoOiBidHVzYjog
+QWRkIG91dC1vZi1iYW5kIHdha2V1cCBzdXBwb3J0IikKPiBTaWduZWQtb2ZmLWJ5OiBHZWVydCBV
+eXR0ZXJob2V2ZW4gPGdlZXJ0K3JlbmVzYXNAZ2xpZGVyLmJlPgo+IC0tLQo+IHYzOgo+ICAgLSBO
+ZXcuCj4gLS0tCj4gIERvY3VtZW50YXRpb24vZGV2aWNldHJlZS9iaW5kaW5ncy9uZXQvYnR1c2Iu
+dHh0IHwgMiArLQo+ICAxIGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24oKyksIDEgZGVsZXRpb24o
+LSkKCkFja2VkLWJ5OiBSb2IgSGVycmluZyA8cm9iaEBrZXJuZWwub3JnPgpfX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkcmktZGV2ZWwgbWFpbGluZyBsaXN0
+CmRyaS1kZXZlbEBsaXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0cHM6Ly9saXN0cy5mcmVlZGVza3Rv
+cC5vcmcvbWFpbG1hbi9saXN0aW5mby9kcmktZGV2ZWwK
