@@ -1,46 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: add TCPMemoryPressuresChrono counter
-Date: Wed, 07 Jun 2017 14:54:48 -0400 (EDT)
-Message-ID: <20170607.145448.152856288455996460.davem@davemloft.net>
-References: <1496776767.736.11.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33754 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751690AbdFGSyv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 14:54:51 -0400
-In-Reply-To: <1496776767.736.11.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Subject: [PATCH 1/4] net: qrtr: Refactor packet allocation
+Date: Wed,  7 Jun 2017 11:54:58 -0700
+Message-ID: <20170607185501.6000-1-bjorn.andersson@linaro.org>
+Cc: Arun Kumar Neelakantam <aneela@codeaurora.org>,
+        netdev@vger.kernel.org, linux-arm-msm@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Courtney Cavin <ccavin@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 06 Jun 2017 12:19:27 -0700
+Extract the allocation and filling in the control message header fields
+to a separate function in order to reuse this in subsequent patches.
 
-> @@ -320,18 +320,37 @@ struct tcp_splice_state {
->   * All the __sk_mem_schedule() is of this nature: accounting
->   * is strict, actions are advisory and have some latency.
->   */
-> -int tcp_memory_pressure __read_mostly;
-> +unsigned long tcp_memory_pressure __read_mostly;
->  EXPORT_SYMBOL(tcp_memory_pressure);
+Cc: Courtney Cavin <ccavin@gmail.com>
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+---
+ net/qrtr/qrtr.c | 25 +++++++++++++++++++------
+ 1 file changed, 19 insertions(+), 6 deletions(-)
 
-I know it is not strictly related to your change, but if you are
-adding new exports in this area let's do it properly.
-
-The existing tcp_memory_pressure export, as well as these two:
-
-...
->  EXPORT_SYMBOL(tcp_enter_memory_pressure);
-...
-> +EXPORT_SYMBOL(tcp_leave_memory_pressure);
-
-ought to be EXPORT_SYMBOL_GPL().  They are exported for the sake of
-ipv6 TCP support, and nothing else.
-
-I'll apply this with that fixed.
-
-Thanks Eric.
+diff --git a/net/qrtr/qrtr.c b/net/qrtr/qrtr.c
+index a9a8c7d5a4a9..86d35ed50da9 100644
+--- a/net/qrtr/qrtr.c
++++ b/net/qrtr/qrtr.c
+@@ -245,14 +245,11 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
+ }
+ EXPORT_SYMBOL_GPL(qrtr_endpoint_post);
+ 
+-/* Allocate and construct a resume-tx packet. */
+-static struct sk_buff *qrtr_alloc_resume_tx(u32 src_node,
+-					    u32 dst_node, u32 port)
++static struct sk_buff *qrtr_alloc_ctrl_packet(u32 type, size_t pkt_len,
++					      u32 src_node, u32 dst_node)
+ {
+-	const int pkt_len = 20;
+ 	struct qrtr_hdr *hdr;
+ 	struct sk_buff *skb;
+-	__le32 *buf;
+ 
+ 	skb = alloc_skb(QRTR_HDR_SIZE + pkt_len, GFP_KERNEL);
+ 	if (!skb)
+@@ -261,7 +258,7 @@ static struct sk_buff *qrtr_alloc_resume_tx(u32 src_node,
+ 
+ 	hdr = (struct qrtr_hdr *)skb_put(skb, QRTR_HDR_SIZE);
+ 	hdr->version = cpu_to_le32(QRTR_PROTO_VER);
+-	hdr->type = cpu_to_le32(QRTR_TYPE_RESUME_TX);
++	hdr->type = cpu_to_le32(type);
+ 	hdr->src_node_id = cpu_to_le32(src_node);
+ 	hdr->src_port_id = cpu_to_le32(QRTR_PORT_CTRL);
+ 	hdr->confirm_rx = cpu_to_le32(0);
+@@ -269,6 +266,22 @@ static struct sk_buff *qrtr_alloc_resume_tx(u32 src_node,
+ 	hdr->dst_node_id = cpu_to_le32(dst_node);
+ 	hdr->dst_port_id = cpu_to_le32(QRTR_PORT_CTRL);
+ 
++	return skb;
++}
++
++/* Allocate and construct a resume-tx packet. */
++static struct sk_buff *qrtr_alloc_resume_tx(u32 src_node,
++					    u32 dst_node, u32 port)
++{
++	const int pkt_len = 20;
++	struct sk_buff *skb;
++	__le32 *buf;
++
++	skb = qrtr_alloc_ctrl_packet(QRTR_TYPE_RESUME_TX, pkt_len,
++				     src_node, dst_node);
++	if (!skb)
++		return NULL;
++
+ 	buf = (__le32 *)skb_put(skb, pkt_len);
+ 	memset(buf, 0, pkt_len);
+ 	buf[0] = cpu_to_le32(QRTR_TYPE_RESUME_TX);
+-- 
+2.12.0
