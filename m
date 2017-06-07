@@ -1,78 +1,48 @@
-From: Ivan Delalande <colona@arista.com>
-Subject: Re: [PATCH 2/2] tcp: md5: add fields to the tcp_md5sig struct to set
- a key address prefix
-Date: Wed, 7 Jun 2017 08:13:20 +0200
-Message-ID: <20170607061320.GB11691@ycc.fr>
-References: <20170607005414.25361-1-colona@arista.com>
- <20170607005414.25361-2-colona@arista.com>
- <1496808502.736.23.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Subject: [PATCH v2] net: mvpp2: do not bypass the mvpp22_port_mii_set function
+Date: Wed,  7 Jun 2017 08:17:50 +0200
+Message-ID: <20170607061750.28516-1-antoine.tenart@free-electrons.com>
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        gregory.clement@free-electrons.com, mw@semihalf.com,
+        linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org
+To: davem@davemloft.net, netdev@vger.kernel.org,
+        thomas.petazzoni@free-electrons.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:38284 "EHLO
-        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750730AbdFGGNX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 02:13:23 -0400
-Received: by mail-wm0-f41.google.com with SMTP id n195so3672386wmg.1
-        for <netdev@vger.kernel.org>; Tue, 06 Jun 2017 23:13:22 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1496808502.736.23.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail.free-electrons.com ([62.4.15.54]:33206 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751207AbdFGGSD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 02:18:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 06, 2017 at 09:08:22PM -0700, Eric Dumazet wrote:
-> On Tue, 2017-06-06 at 17:54 -0700, Ivan Delalande wrote:
->> diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
->> index 38a2b07afdff..52ac30aa0652 100644
->> --- a/include/uapi/linux/tcp.h
->> +++ b/include/uapi/linux/tcp.h
->> @@ -234,9 +234,13 @@ enum {
->>  /* for TCP_MD5SIG socket option */
->>  #define TCP_MD5SIG_MAXKEYLEN	80
->>  
->> +/* tcp_md5sig flags */
->> +#define TCP_MD5SIG_FLAG_PREFIX		1	/* address prefix length */
->> +
->>  struct tcp_md5sig {
->>  	struct __kernel_sockaddr_storage tcpm_addr;	/* address associated */
->> -	__u16	__tcpm_pad1;				/* zero */
->> +	__u8	tcpm_flags;				/* flags */
->> +	__u8	tcpm_prefixlen;				/* address prefix */
->>  	__u16	tcpm_keylen;				/* key length */
->>  	__u32	__tcpm_pad2;				/* zero */
->>  	__u8	tcpm_key[TCP_MD5SIG_MAXKEYLEN];		/* key (binary) */
-> 
-> This will break some applications that maybe did not clear the
-> __tcpm_pad1 field ?
-> 
-> 
-> You need to find another way to maintain compatibility with old
-> applications.
+The mvpp22_port_mii_set() function was added by 2697582144dd, but the
+function directly returns without doing anything. This return was used
+when debugging and wasn't removed before sending the patch. Fix this.
 
-All right, I thought this was acceptable after seeing a few examples of
-this in commits extending other structures in uapi, but the context and
-use were probably different for those.
+Fixes: 2697582144dd ("net: mvpp2: handle misc PPv2.1/PPv2.2 differences")
+Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+Acked-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+---
 
-We had another version of this patch which steals a bit from tcpm_keylen
-to use as a flag for this feature specifically and with the prefixlen at
-the same place as this patch. So when the flag is set we know we can
-safely interpret this part of the padding field as a prefix as all valid
-calls from older user programs should not have a key length greater than
-80 bytes.
+Since v1:
+  - Added the Fixes tag.
+  - Added Thomas' Acked-by.
 
-Would this be better? Programs compiled with the new headers could break
-on older kernels if they don't check the version, I don't know if that's
-a concern.
+ drivers/net/ethernet/marvell/mvpp2.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-Or should we just add these two new fields at the end of tcp_md5sig and
-use them only if the value of optlen in the parse function called from
-setsockopt is large enough?
-
-
-Thank you,
+diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+index 9b875d776b29..70bca2a6fb02 100644
+--- a/drivers/net/ethernet/marvell/mvpp2.c
++++ b/drivers/net/ethernet/marvell/mvpp2.c
+@@ -4186,8 +4186,6 @@ static void mvpp22_port_mii_set(struct mvpp2_port *port)
+ {
+ 	u32 val;
+ 
+-	return;
+-
+ 	/* Only GOP port 0 has an XLG MAC */
+ 	if (port->gop_id == 0) {
+ 		val = readl(port->base + MVPP22_XLG_CTRL3_REG);
 -- 
-Ivan Delalande
-Arista Networks
+2.9.4
