@@ -1,52 +1,43 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net-next v2 3/3] udp: try to avoid 2 cache miss on
- dequeue
-Date: Wed, 07 Jun 2017 09:56:45 +0200
-Message-ID: <1496822205.2409.1.camel@redhat.com>
-References: <cover.1496756090.git.pabeni@redhat.com>
-         <cdbe7b4e6758719d3e02938f05c8575d009e2822.1496756090.git.pabeni@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Subject: [PATCH 3/9] net: mvmdio: use GENMASK for masks
+Date: Wed,  7 Jun 2017 10:38:04 +0200
+Message-ID: <20170607083810.30922-4-antoine.tenart@free-electrons.com>
+References: <20170607083810.30922-1-antoine.tenart@free-electrons.com>
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        thomas.petazzoni@free-electrons.com, mw@semihalf.com,
+        linux@armlinux.org.uk, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org
+To: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
+        gregory.clement@free-electrons.com,
+        sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49504 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751026AbdFGH4s (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Jun 2017 03:56:48 -0400
-In-Reply-To: <cdbe7b4e6758719d3e02938f05c8575d009e2822.1496756090.git.pabeni@redhat.com>
+Received: from mail.free-electrons.com ([62.4.15.54]:37597 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751026AbdFGIjO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 04:39:14 -0400
+In-Reply-To: <20170607083810.30922-1-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+Cosmetic patch to use the GENMASK helper for masks.
 
-On Tue, 2017-06-06 at 16:23 +0200, Paolo Abeni wrote:
-> when udp_recvmsg() is executed, on x86_64 and other archs, most skb
-> fields are on cold cachelines.
-> If the skb are linear and the kernel don't need to compute the udp
-> csum, only a handful of skb fields are required by udp_recvmsg().
-> Since we already use skb->dev_scratch to cache hot data, and
-> there are 32 bits unused on 64 bit archs, use such field to cache
-> as much data as we can, and try to prefetch on dequeue the relevant
-> fields that are left out.
-> 
-> This can save up to 2 cache miss per packet.
-> 
-> v1 -> v2:
->   - changed udp_dev_scratch fields types to u{32,16} variant,
->     replaced bitfield with bool
-> 
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+---
+ drivers/net/ethernet/marvell/mvmdio.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Can you please keep on-hold this series a little time? the lkp-robot
-just reported a performance regression on v1 which I have still to
-investigate. I can't look at it really soon, but I expect the same
-should apply to v2.
-
-It sounds quite weird to me, since the bisected patch touches the UDP
-code only and the regression is on apachebench.
-
-Thank you,
-
-Paolo
+diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
+index 17b518b13ae3..96af8d57d9e5 100644
+--- a/drivers/net/ethernet/marvell/mvmdio.c
++++ b/drivers/net/ethernet/marvell/mvmdio.c
+@@ -138,7 +138,7 @@ static int orion_mdio_read(struct mii_bus *bus, int mii_id,
+ 		goto out;
+ 	}
+ 
+-	ret = val & 0xFFFF;
++	ret = val & GENMASK(15,0);
+ out:
+ 	mutex_unlock(&dev->lock);
+ 	return ret;
+-- 
+2.9.4
