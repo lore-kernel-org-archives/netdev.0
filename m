@@ -1,75 +1,50 @@
-From: <morice.diane@gmail.com>
-Subject: (unknown)
-Date: Wed, 07 Jun 2017 07:42:08 -0000
-Message-ID: <149682132881.12492.6792482456878085232@zaural.ru>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] net: ipmr: add getlink support
+Date: Wed, 7 Jun 2017 10:44:38 +0300
+Message-ID: <5793a3a8-8a7b-438c-a6b4-3c42271fe06d@cumulusnetworks.com>
+References: <1496767292-7976-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="284085067588.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: roopa@cumulusnetworks.com, davem@davemloft.net,
+        sharpd@cumulusnetworks.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ws18.zone31-163-169.zaural.ru ([31.163.169.18]:56984 "HELO
-        zaural.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S1750730AbdFGHmM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Jun 2017 03:42:12 -0400
-Content-Disposition: attachment
-Subject: 
+Received: from mail-wr0-f179.google.com ([209.85.128.179]:36546 "EHLO
+        mail-wr0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751003AbdFGHol (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 03:44:41 -0400
+Received: by mail-wr0-f179.google.com with SMTP id v111so2194948wrc.3
+        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 00:44:40 -0700 (PDT)
+In-Reply-To: <1496767292-7976-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-ABsMAAAAAA==
+On 06/06/17 19:41, Nikolay Aleksandrov wrote:
+> Currently there's no way to dump the VIF table for an ipmr table other
+> than the default (via proc). This is a major issue when debugging ipmr
+> issues and in general it is good to know which interfaces are
+> configured. This patch adds support for RTM_GETLINK for the ipmr family
+> so we can dump the VIF table and the ipmr table's current config for
+> each table. We're protected by rtnl so no need to acquire RCU or
+> mrt_lock.
+> 
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> ---
+> The plan is to add full netlink control to ipmr via new/set/dellink later.
+> Also this would allow us to dump any number of VIFs in the future when we
+> remove the VIF device limit.
+> 
+>  include/uapi/linux/mroute.h |  38 +++++++++++++++
+>  net/ipv4/ipmr.c             | 114 ++++++++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 152 insertions(+)
+> 
+
+Self-NAK, after discussing this further with Roopa, I think it'll be best if we turn all of
+these table and vif options into embedded separate netlink attributes. We'll get all the
+netlink benefits and it will be much easier for user-space to manipulate them later.
+
+Will send v2 later after some testing.
+
+Thanks,
+ Nik
