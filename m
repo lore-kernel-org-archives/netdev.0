@@ -1,45 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: davicom: dm9000: Avoid spinlock recursion
- during dm9000_timeout routine
-Date: Wed, 07 Jun 2017 14:38:44 -0400 (EDT)
-Message-ID: <20170607.143844.682492319776197931.davem@davemloft.net>
-References: <1496758626-2726-1-git-send-email-liu.xiang6@zte.com.cn>
+From: Flavio Leitner <fbl@sysclose.org>
+Subject: Re: [PATCH net] netlink: don't send unknown nsid
+Date: Wed, 7 Jun 2017 15:40:36 -0300
+Message-ID: <20170607183746.GD2658@x240.lan>
+References: <4942f9fe-625b-bb97-7b45-4a1e8bf69b1b@6wind.com>
+ <1496304007-1962-1-git-send-email-nicolas.dichtel@6wind.com>
+ <20170601170246.GF2673@x240.lan>
+ <75fccaea-0ebe-1a2a-27d7-ad30fd99f41d@6wind.com>
+ <20170601224454.GG2673@x240.lan>
+ <58321cd0-6c7f-d4d8-628f-2c124d71ef82@6wind.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        liuxiang1999@gmail.com
-To: liu.xiang6@zte.com.cn
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1496758626-2726-1-git-send-email-liu.xiang6@zte.com.cn>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sender-of-o52.zoho.com ([135.84.80.217]:21492 "EHLO
+        sender-of-o52.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752012AbdFGSnr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 14:43:47 -0400
+Content-Disposition: inline
+In-Reply-To: <58321cd0-6c7f-d4d8-628f-2c124d71ef82@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Liu Xiang <liu.xiang6@zte.com.cn>
-Date: Tue,  6 Jun 2017 22:17:06 +0800
+On Mon, Jun 05, 2017 at 10:40:24AM +0200, Nicolas Dichtel wrote:
+> > Let me ask this instead: How do you think userspace should behave when
+> > netnsid allocation fails?
+> > 
+> There is two ways to assign a nsid:
+>  - manually with netlink ('ip netns set'). In this case, the error is reported
+>    to userspace via netlink.
 
-> On the DM9000B, dm9000_phy_write() is called after the main spinlock
-> is held, during the dm9000_timeout() routine. Spinlock recursion
-> occurs because the main spinlock is requested again in
-> dm9000_phy_write(). So spinlock should be avoided in phy operation
-> during the dm9000_timeout() routine.
-> 
-> ---
-> v2:
->    dm9000_phy_write_reg is extracted from dm9000_phy_write, with no lock,
->    do the real phy operation.
+OK.
 
-I told you during your first submission that this is racy.
+>  - automatically when a x-netns interface is created. The link-nsid is also
+>    reported to userspace. If the allocation failed, NETNSA_NSID_NOT_ASSIGNED is
+>    reported. And if you were able to create this x-netns interface, it means
+>    that you have access to this peer netns, thus you can try to assign the nsid
+>    manually.
 
-Conditional locking in multithreaded driver almost never works
-properly.
+Does that prevent the interface to be created?
 
-Once we enter the timeout, another asynchronous thread of control (an
-interrupt, timer, whatever) can try to do a PHY operation and skip the
-locking because the timeout boolean is set.
+> So, in both cases, userland knows that something went wrong.
+> Do you have another scenario in mind?
 
-That's not right.
+Let's say the app is restarted, or another monitoring app is executed
+with enough perms.  How will it identify the error condition?
 
-You will need to find a more correct solution to this locking problem.
-
-Thanks.
+-- 
+Flavio
