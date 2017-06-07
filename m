@@ -1,73 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/2] tcp: md5: add fields to the tcp_md5sig struct to
- set a key address prefix
-Date: Wed, 07 Jun 2017 05:51:24 -0700
-Message-ID: <1496839884.736.28.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170607005414.25361-1-colona@arista.com>
-         <20170607005414.25361-2-colona@arista.com>
-         <1496808502.736.23.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170607061320.GB11691@ycc.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Ivan Delalande <colona@arista.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170607061320.GB11691@ycc.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH net-next] net: dsa: mv88e6xxx: Have 6161/6123 use EDSA tags
+Date: Wed,  7 Jun 2017 15:06:19 +0200
+Message-ID: <1496840779-4260-1-git-send-email-andrew@lunn.ch>
+Cc: netdev <netdev@vger.kernel.org>, Chris Healy <cphealy@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
+        Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:39638 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751203AbdFGNGn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Jun 2017 09:06:43 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-06-07 at 08:13 +0200, Ivan Delalande wrote:
-> On Tue, Jun 06, 2017 at 09:08:22PM -0700, Eric Dumazet wrote:
-> > On Tue, 2017-06-06 at 17:54 -0700, Ivan Delalande wrote:
-> >> diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
-> >> index 38a2b07afdff..52ac30aa0652 100644
-> >> --- a/include/uapi/linux/tcp.h
-> >> +++ b/include/uapi/linux/tcp.h
-> >> @@ -234,9 +234,13 @@ enum {
-> >>  /* for TCP_MD5SIG socket option */
-> >>  #define TCP_MD5SIG_MAXKEYLEN	80
-> >>  
-> >> +/* tcp_md5sig flags */
-> >> +#define TCP_MD5SIG_FLAG_PREFIX		1	/* address prefix length */
-> >> +
-> >>  struct tcp_md5sig {
-> >>  	struct __kernel_sockaddr_storage tcpm_addr;	/* address associated */
-> >> -	__u16	__tcpm_pad1;				/* zero */
-> >> +	__u8	tcpm_flags;				/* flags */
-> >> +	__u8	tcpm_prefixlen;				/* address prefix */
-> >>  	__u16	tcpm_keylen;				/* key length */
-> >>  	__u32	__tcpm_pad2;				/* zero */
-> >>  	__u8	tcpm_key[TCP_MD5SIG_MAXKEYLEN];		/* key (binary) */
-> > 
-> > This will break some applications that maybe did not clear the
-> > __tcpm_pad1 field ?
-> > 
-> > 
-> > You need to find another way to maintain compatibility with old
-> > applications.
-> 
-> All right, I thought this was acceptable after seeing a few examples of
-> this in commits extending other structures in uapi, but the context and
-> use were probably different for those.
-> 
-> We had another version of this patch which steals a bit from tcpm_keylen
-> to use as a flag for this feature specifically and with the prefixlen at
-> the same place as this patch. So when the flag is set we know we can
-> safely interpret this part of the padding field as a prefix as all valid
-> calls from older user programs should not have a key length greater than
-> 80 bytes.
-> 
-> Would this be better? Programs compiled with the new headers could break
-> on older kernels if they don't check the version, I don't know if that's
-> a concern.
-> 
-> Or should we just add these two new fields at the end of tcp_md5sig and
-> use them only if the value of optlen in the parse function called from
-> setsockopt is large enough?
+The mv88e6161 and mv88e6123 are capable of using EDSA tags when
+passing frames from the host to the switch and back.
 
-I believe this is the deferrable way to handle this.
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
+ drivers/net/dsa/mv88e6xxx/chip.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-But note that old kernels would not send an error back, if an
-application tries the new semantic.
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index ea20c4ee30b6..f53bae07387f 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -3279,7 +3279,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.g1_irqs = 9,
+ 		.atu_move_port_mask = 0xf,
+ 		.pvt = true,
+-		.tag_protocol = DSA_TAG_PROTO_DSA,
++		.tag_protocol = DSA_TAG_PROTO_EDSA,
+ 		.flags = MV88E6XXX_FLAGS_FAMILY_6165,
+ 		.ops = &mv88e6123_ops,
+ 	},
+@@ -3331,7 +3331,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.g1_irqs = 9,
+ 		.atu_move_port_mask = 0xf,
+ 		.pvt = true,
+-		.tag_protocol = DSA_TAG_PROTO_DSA,
++		.tag_protocol = DSA_TAG_PROTO_EDSA,
+ 		.flags = MV88E6XXX_FLAGS_FAMILY_6165,
+ 		.ops = &mv88e6161_ops,
+ 	},
+-- 
+2.11.0
