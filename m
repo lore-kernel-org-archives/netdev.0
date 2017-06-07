@@ -1,130 +1,106 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v3 3/3] net/cxgb4: Use new PCI_DEV_FLAGS_NO_RELAXED_ORDERING
- flag
-Date: Wed, 7 Jun 2017 16:24:36 -0700
-Message-ID: <CAKgT0UeN7BK94wgU=LiD9CAo0ihrFgv2bZLFrTtr_+bgSbswxQ@mail.gmail.com>
-References: <1496826968-10152-1-git-send-email-dingtianhong@huawei.com> <1496826968-10152-4-git-send-email-dingtianhong@huawei.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next v2 5/5] net: dsa: Stop accessing ds->dst->cpu_dp in drivers
+Date: Wed, 07 Jun 2017 19:24:00 -0400
+Message-ID: <87wp8nv0tr.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170607000317.14729-1-f.fainelli@gmail.com> <20170607000317.14729-6-f.fainelli@gmail.com> <87ink8tum2.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <CAGVrzcb_ve=gOAnAo73-TqzZgWN6F3gr7Tu0BtWS8UBYQ2MciQ@mail.gmail.com> <87ink7oh1h.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <c8ecc6c3-2780-cf63-24f6-b546e837430e@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Casey Leedom <leedom@chelsio.com>, Ashok Raj <ashok.raj@intel.com>,
-        Bjorn Helgaas <helgaas@kernel.org>,
-        Michael Werner <werner@chelsio.com>,
-        Ganesh Goudar <ganeshgr@chelsio.com>,
-        Asit K Mallick <asit.k.mallick@intel.com>,
-        Patrick J Cramer <patrick.j.cramer@intel.com>,
-        Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
-        Bob Shaw <Bob.Shaw@amd.com>, h <l.stach@pengutronix.de>,
-        Amir Ancel <amira@mellanox.com>,
-        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
-        David Laight <David.Laight@aculab.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will.deacon@arm.com>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Robin Murphy <robin.murphy@arm.com>,
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>,
+        John Crispin <john@phrozen.org>,
         David Miller <davem@davemloft.net>,
-        linux-arm-kernel@lists.inf
-To: Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1496826968-10152-4-git-send-email-dingtianhong@huawei.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        Sean Wang <sean.wang@mediatek.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:33440 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751520AbdFGX0S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 19:26:18 -0400
+In-Reply-To: <c8ecc6c3-2780-cf63-24f6-b546e837430e@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 7, 2017 at 2:16 AM, Ding Tianhong <dingtianhong@huawei.com> wrote:
-> From: Casey Leedom <leedom@chelsio.com>
->
-> cxgb4 Ethernet driver now queries Root Complex Port to determine if it can
-> send TLPs to it with the Relaxed Ordering Attribute set.
->
-> Signed-off-by: Casey Leedom <leedom@chelsio.com>
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+Hi Florian,
 
-So I am pretty sure this patch doesn't work with patch 2. We need to
-update it so that it doesn't check the root complex but instead checks
-itself to see if it is allowed to use relaxed ordering.
+Sorry to bother you again, I don't want to be annoying but I might not
+get things right still.
 
-What we need here is the ability to detect if relaxed ordering is
-disabled, and if so take the steps needed to enable peer to peer
-relaxed ordering without enabling relaxed ordering to the root
-complex. Do I have that right Casey?
+Florian Fainelli <f.fainelli@gmail.com> writes:
 
-> ---
->  drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  1 +
->  drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 17 +++++++++++++++++
->  drivers/net/ethernet/chelsio/cxgb4/sge.c        |  5 +++--
->  3 files changed, 21 insertions(+), 2 deletions(-)
+>>>> So as I said in v2, now that a driver is guaranteed that dp->cpu_dp is
+>>>> correctly assigned at setup time, isn't better (especially for future
+>>>> multi-CPU support) to provide an helper which returns the CPU port for a
+>>>> given port? i.e. dsa_get_cpu_port(struct dsa_switch *ds, int port).
+>>>>
+>>>> Or is there something blocking? I might be wrong.
+>>>
+>>> mt7530.c needs access to the CPU port at ops->setup() time which is
+>>> why this is still here.
+>> 
+>> Yes, mt7530 is the only one doing this and has an hardcoded CPU port. So
+>> what I meant was, shouldn't we have this instead:
+>> 
+>>     struct dsa_port *dsa_get_cpu_port(struct dsa_switch *ds, int port)
+>>     {
+>>         return ds->ports[port].cpu_dp;
+>>     }
 >
-> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-> index e88c180..478f25a 100644
-> --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-> @@ -521,6 +521,7 @@ enum {                                 /* adapter flags */
->         USING_SOFT_PARAMS  = (1 << 6),
->         MASTER_PF          = (1 << 7),
->         FW_OFLD_CONN       = (1 << 9),
-> +       ROOT_NO_RELAXED_ORDERING = (1 << 10),
->  };
+> We don't actually have a CPU port point to itself:
 >
->  enum {
-> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-> index 38a5c67..fbfe341 100644
-> --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-> @@ -4628,6 +4628,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->  #ifdef CONFIG_PCI_IOV
->         u32 v, port_vec;
->  #endif
-> +       struct pci_dev *root;
->
->         printk_once(KERN_INFO "%s - version %s\n", DRV_DESC, DRV_VERSION);
->
-> @@ -4726,6 +4727,22 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->         adapter->msg_enable = DFLT_MSG_ENABLE;
->         memset(adapter->chan_map, 0xff, sizeof(adapter->chan_map));
->
-> +       /* If possible, we use PCIe Relaxed Ordering Attribute to deliver
-> +        * Ingress Packet Data to Free List Buffers in order to allow for
-> +        * chipset performance optimizations between the Root Complex and
-> +        * Memory Controllers.  (Messages to the associated Ingress Queue
-> +        * notifying new Packet Placement in the Free Lists Buffers will be
-> +        * send without the Relaxed Ordering Attribute thus guaranteing that
-> +        * all preceding PCIe Transaction Layer Packets will be processed
-> +        * first.)  But some Root Complexes have various issues with Upstream
-> +        * Transaction Layer Packets with the Relaxed Ordering Attribute set.
-> +        * So we check our Root Complex to see if it's flaged with advice
-> +        * against using Relaxed Ordering.
-> +        */
-> +       root = pci_find_pcie_root_port(adapter->pdev);
-> +       if (pcie_get_relaxed_ordering(root))
-> +               adapter->flags |= ROOT_NO_RELAXED_ORDERING;
 > +
->         spin_lock_init(&adapter->stats_lock);
->         spin_lock_init(&adapter->tid_release_lock);
->         spin_lock_init(&adapter->win0_lock);
-> diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-> index f05f0d4..ac229a3 100644
-> --- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-> +++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-> @@ -2571,6 +2571,7 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
->         struct fw_iq_cmd c;
->         struct sge *s = &adap->sge;
->         struct port_info *pi = netdev_priv(dev);
-> +       int relaxed = !(adap->flags & ROOT_NO_RELAXED_ORDERING);
+> +		for (i = 0; i < ds->num_ports; i++) {
+> +			p = &ds->ports[i];
+> +			if (!dsa_port_is_valid(p) ||
+> +			    i == index) <=============
+> +				continue;
+> +
+> +			p->cpu_dp = port;
+> +		}
+>  	}
 >
->         /* Size needs to be multiple of 16, including status entry. */
->         iq->size = roundup(iq->size, 16);
-> @@ -2624,8 +2625,8 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+>> 
+>> And:
+>> 
+>> -       dn = ds->dst->cpu_dp->netdev->dev.of_node->parent;
+>> +       cpu_dp = dsa_get_cpu_port(ds, MT7530_CPU_PORT);
+>> +       dn = cpu_dp->netdev->dev.of_node->parent;
 >
->                 flsz = fl->size / 8 + s->stat_len / sizeof(struct tx_desc);
->                 c.iqns_to_fl0congen |= htonl(FW_IQ_CMD_FL0PACKEN_F |
-> -                                            FW_IQ_CMD_FL0FETCHRO_F |
-> -                                            FW_IQ_CMD_FL0DATARO_F |
-> +                                            FW_IQ_CMD_FL0FETCHRO_V(relaxed) |
-> +                                            FW_IQ_CMD_FL0DATARO_V(relaxed) |
->                                              FW_IQ_CMD_FL0PADEN_F);
->                 if (cong >= 0)
->                         c.iqns_to_fl0congen |=
-> --
-> 1.9.0
->
->
+> If we are giving the port number to get its cpu_dp pointer back, that
+> seems a bit pointless.
+
+What a driver may want is the master interface (e.g. eth0), actually
+soldered to the dedicated switch CPU port, that will be used to
+send/receive frames.
+
+Also I do not think that it is a good thing that a DSA driver play much
+in dsa_port structures (they are ideally DSA core only specific data).
+They only seem to need the master interface, so what I see is:
+
+    static inline struct net_device *dsa_get_master(struct dsa_switch *ds, int port)
+    {
+            struct dsa_port *dp = &ds->ports[port];
+
+            if (!dsa_is_cpu_port(ds, port))
+                    dp = dp->cpu_dp;
+
+            return dp->netdev;
+    }
+
+> I still think the helper with fls(ds->cpu_port_mask) - 1 is better in
+> that it will return what you have configured from Device Tree/platform
+> data. MT7530 does allow the CPU port being arbitrary, and it would
+> disable MTK tags in that case.
+
+If MT7530 allows several CPU ports, what is MT7530_CPU_PORT then?
+(Maybe Sean can give me some details here?)
+
+Now let's think that you can have several CPU ports (as with mv88e6xxx).
+I think it is the driver responsibility to iterate over CPU capable
+ports and inspect the master devices if they need to, instead of having
+DSA core return an arbitrary one (which might be the wrong one.)
+
+This is a static data (describing to which SoC interface a switch CPU
+port is wired) that should've been parsed by DSA core before setup.
+
+Thanks,
+
+        Vivien
