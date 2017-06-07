@@ -1,44 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] mlx4 drivers: version update
-Date: Wed, 07 Jun 2017 15:33:33 -0400 (EDT)
-Message-ID: <20170607.153333.2137691985139660875.davem@davemloft.net>
-References: <1496841975-7728-1-git-send-email-tariqt@mellanox.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 4/5] net: dsa: mv88e6xxx: exclude all ports in
+ new VLAN
+Date: Wed, 7 Jun 2017 12:34:35 -0700
+Message-ID: <76c1c68b-466c-f0cc-edbf-324445064650@gmail.com>
+References: <20170606205631.22880-1-vivien.didelot@savoirfairelinux.com>
+ <20170606205631.22880-5-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        eranbe@mellanox.com, leonro@mellanox.com
-To: tariqt@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34698 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752118AbdFGTdg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 15:33:36 -0400
-In-Reply-To: <1496841975-7728-1-git-send-email-tariqt@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170606205631.22880-5-vivien.didelot@savoirfairelinux.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tariq Toukan <tariqt@mellanox.com>
-Date: Wed,  7 Jun 2017 16:26:12 +0300
-
-> This patchset contains version updates for the MLX4 drivers:
-> Core, EN, and IB.
+On 06/06/2017 01:56 PM, Vivien Didelot wrote:
+> Now that the DSA core adds the CPU and DSA ports itself to the new VLAN
+> entry, there is no need to include them as members of this VLAN when
+> initializing a new VTU entry.
 > 
-> Just like we've done in mlx5, we modify the outdated driver
-> version (reported in ethtool for example).
-> This better reflects the current driver state, and removes the
-> redundant date string.
-> We are not going to change this frequently or even use it.
+> As of now, initialize a new VTU entry with all ports excluded.
 > 
-> I include the IB patch in this series as it has similar subject
-> and content.
-> It does not cause any kind of conflict with Doug's tree.
-> The rdma mailing list is CCed.
-> Please let me know if I need to submit this differently.
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Ok, series applied.
-
-Doug, let me know if you want to handle this differently or want
-me to change something.
-
-Thanks.
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+-- 
+Florian
