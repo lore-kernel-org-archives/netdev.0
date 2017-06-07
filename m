@@ -1,38 +1,98 @@
 From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: [RESEND PATCH 0/4] Missing QRTR features
-Date: Wed,  7 Jun 2017 14:07:35 -0700
-Message-ID: <20170607210739.27263-1-bjorn.andersson@linaro.org>
+Subject: [RESEND PATCH 2/4] net: qrtr: Inject BYE on remote termination
+Date: Wed,  7 Jun 2017 14:07:37 -0700
+Message-ID: <20170607210739.27263-3-bjorn.andersson@linaro.org>
+References: <20170607210739.27263-1-bjorn.andersson@linaro.org>
 Cc: Arun Kumar Neelakantam <aneela@codeaurora.org>,
         netdev@vger.kernel.org, linux-arm-msm@vger.kernel.org,
         linux-kernel@vger.kernel.org, Courtney Cavin <ccavin@gmail.com>
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-Sender: linux-arm-msm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f41.google.com ([74.125.83.41]:36585 "EHLO
+        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751889AbdFGVHq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 17:07:46 -0400
+Received: by mail-pg0-f41.google.com with SMTP id a70so9078386pge.3
+        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 14:07:46 -0700 (PDT)
+In-Reply-To: <20170607210739.27263-1-bjorn.andersson@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The QMUX specification covers packet routing as well as service life cycle and
-discovery. The current implementation of qrtr supports the prior part, but in
-order to fully implement service management on-top a few more parts are needed.
+Per the QMUX protocol specification a terminating node can send a BYE
+control message to signal that the link is going down, upon receiving
+this all information about remote services should be discarded and local
+clients should be notified.
 
-The first patch in the series serves the purpose of reducing duplication in
-patch two and three.
+In the event that the link was brought down abruptly the router is
+supposed to act like a BYE message has arrived. As there is no harm in
+receiving an extra BYE from the remote this patch implements the latter
+by injecting a BYE when the link to the remote is unregistered.
 
-The second and third patch adds two qrtr-level notifications required by the
-specification, in order to notify local and remote service controllers about
-dying clients.
+The name service will receive the BYE and can implement the notification
+to the local clients.
 
-The last patch serves the purpose of notifying local clients about the presence
-of a local service register, allowing them to register services as well as
-querying for remote registered services.
+Cc: Courtney Cavin <ccavin@gmail.com>
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+---
+ net/qrtr/qrtr.c | 27 +++++++++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
 
-Bjorn Andersson (4):
-  net: qrtr: Refactor packet allocation
-  net: qrtr: Inject BYE on remote termination
-  net: qrtr: Broadcast DEL_CLIENT message when endpoint is closed
-  net: qrtr: Inform open sockets about new controller
-
- net/qrtr/qrtr.c | 104 ++++++++++++++++++++++++++++++++++++++++++++++++++++----
- 1 file changed, 98 insertions(+), 6 deletions(-)
-
+diff --git a/net/qrtr/qrtr.c b/net/qrtr/qrtr.c
+index 86d35ed50da9..e8cbab23d667 100644
+--- a/net/qrtr/qrtr.c
++++ b/net/qrtr/qrtr.c
+@@ -111,6 +111,8 @@ struct qrtr_node {
+ 	struct list_head item;
+ };
+ 
++static int qrtr_local_enqueue(struct qrtr_node *node, struct sk_buff *skb);
++
+ /* Release node resources and free the node.
+  *
+  * Do not call directly, use qrtr_node_release.  To be used with
+@@ -291,6 +293,25 @@ static struct sk_buff *qrtr_alloc_resume_tx(u32 src_node,
+ 	return skb;
+ }
+ 
++/* Allocate and construct a BYE message to signal remote termination */
++static struct sk_buff *qrtr_alloc_local_bye(u32 src_node)
++{
++	const int pkt_len = 20;
++	struct sk_buff *skb;
++	__le32 *buf;
++
++	skb = qrtr_alloc_ctrl_packet(QRTR_TYPE_BYE, pkt_len,
++				     src_node, qrtr_local_nid);
++	if (!skb)
++		return NULL;
++
++	buf = (__le32 *)skb_put(skb, pkt_len);
++	memset(buf, 0, pkt_len);
++	buf[0] = cpu_to_le32(QRTR_TYPE_BYE);
++
++	return skb;
++}
++
+ static struct qrtr_sock *qrtr_port_lookup(int port);
+ static void qrtr_port_put(struct qrtr_sock *ipc);
+ 
+@@ -382,11 +403,17 @@ EXPORT_SYMBOL_GPL(qrtr_endpoint_register);
+ void qrtr_endpoint_unregister(struct qrtr_endpoint *ep)
+ {
+ 	struct qrtr_node *node = ep->node;
++	struct sk_buff *skb;
+ 
+ 	mutex_lock(&node->ep_lock);
+ 	node->ep = NULL;
+ 	mutex_unlock(&node->ep_lock);
+ 
++	/* Notify the local controller about the event */
++	skb = qrtr_alloc_local_bye(node->nid);
++	if (skb)
++		qrtr_local_enqueue(NULL, skb);
++
+ 	qrtr_node_release(node);
+ 	ep->node = NULL;
+ }
 -- 
 2.12.0
