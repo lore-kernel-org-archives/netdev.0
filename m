@@ -1,49 +1,54 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net] net: ipv6: Release route when device is unregistering
-Date: Wed, 7 Jun 2017 13:14:20 -0700
-Message-ID: <CAJieiUjseMsEp-u5h1YoDAqRO4WcbEHg3KoEHpxQ84ERXn9jfw@mail.gmail.com>
-References: <20170607182623.20734-1-dsahern@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: add TCPMemoryPressuresChrono counter
+Date: Wed, 07 Jun 2017 13:23:19 -0700
+Message-ID: <1496866999.736.42.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1496776767.736.11.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170607.145448.152856288455996460.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Ahern <dsahern@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f48.google.com ([209.85.213.48]:36024 "EHLO
-        mail-vk0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751405AbdFGUOV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 16:14:21 -0400
-Received: by mail-vk0-f48.google.com with SMTP id p85so9571612vkd.3
-        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 13:14:21 -0700 (PDT)
-In-Reply-To: <20170607182623.20734-1-dsahern@gmail.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36743 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751581AbdFGUX0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 16:23:26 -0400
+Received: by mail-pf0-f196.google.com with SMTP id y7so2625370pfd.3
+        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 13:23:25 -0700 (PDT)
+In-Reply-To: <20170607.145448.152856288455996460.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 7, 2017 at 11:26 AM, David Ahern <dsahern@gmail.com> wrote:
-> Roopa reported attempts to delete a bond device that is referenced in a
-> multipath route is hanging:
->
-> $ ifdown bond2    # ifupdown2 command that deletes virtual devices
-> unregister_netdevice: waiting for bond2 to become free. Usage count = 2
->
-> Steps to reproduce:
->     echo 1 > /proc/sys/net/ipv6/conf/all/ignore_routes_with_linkdown
->     ip link add dev bond12 type bond
->     ip link add dev bond13 type bond
->     ip addr add 2001:db8:2::0/64 dev bond12
->     ip addr add 2001:db8:3::0/64 dev bond13
->     ip route add 2001:db8:33::0/64 nexthop via 2001:db8:2::2 nexthop via 2001:db8:3::2
->     ip link del dev bond12
->     ip link del dev bond13
->
-> The root cause is the recent change to keep routes on a linkdown. Update
-> the check to detect when the device is unregistering and release the
-> route for that case.
->
-> Fixes: a1a22c12060e4 ("net: ipv6: Keep nexthop of multipath route on admin down")
-> Reported-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Signed-off-by: David Ahern <dsahern@gmail.com>
-> ---
+On Wed, 2017-06-07 at 14:54 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Tue, 06 Jun 2017 12:19:27 -0700
+> 
+> > @@ -320,18 +320,37 @@ struct tcp_splice_state {
+> >   * All the __sk_mem_schedule() is of this nature: accounting
+> >   * is strict, actions are advisory and have some latency.
+> >   */
+> > -int tcp_memory_pressure __read_mostly;
+> > +unsigned long tcp_memory_pressure __read_mostly;
+> >  EXPORT_SYMBOL(tcp_memory_pressure);
+> 
+> I know it is not strictly related to your change, but if you are
+> adding new exports in this area let's do it properly.
+> 
+> The existing tcp_memory_pressure export, as well as these two:
+> 
+> ...
+> >  EXPORT_SYMBOL(tcp_enter_memory_pressure);
+> ...
+> > +EXPORT_SYMBOL(tcp_leave_memory_pressure);
+> 
+> ought to be EXPORT_SYMBOL_GPL().  They are exported for the sake of
+> ipv6 TCP support, and nothing else.
+> 
+> I'll apply this with that fixed.
+> 
+> Thanks Eric.
 
-Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Sure, I will send a V2 with the two EXPORT_SYMBOL_GPL()
 
-This patch fixes the issue for me. Thanks David.
+Thanks.
