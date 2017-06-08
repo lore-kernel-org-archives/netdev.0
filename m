@@ -1,99 +1,283 @@
-From: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
-Subject: [PATCH 03/44] dmaengine: ioat: don't use DMA_ERROR_CODE
-Date: Thu,  8 Jun 2017 15:25:28 +0200
-Message-ID: <20170608132609.32662-4-hch@lst.de>
+From: Christoph Hellwig <hch@lst.de>
+Subject: [PATCH 02/44] ibmveth: properly unwind on init errors
+Date: Thu,  8 Jun 2017 15:25:27 +0200
+Message-ID: <20170608132609.32662-3-hch@lst.de>
 References: <20170608132609.32662-1-hch@lst.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org,
-	linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, openrisc-cunTk1MwBs9a3B2Vnqf2dGD2FQJk+8+b@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, dmaengine-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
-	linux-samsung-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <20170608132609.32662-1-hch-jcswGhMUV9g@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
-List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Cc: linux-kernel@vger.kernel.org
+To: x86@kernel.org, linux-arm-kernel@lists.infradead.org,
+        xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
+        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
+        linux-mips@linux-mips.org, openrisc@lists.librecores.org,
+        linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
+        linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
+        linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
+        linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
+        linux-samsung-soc@vger.kernel.org,
+        iommu@lists.linux-foundation.org, netdev@vger.kernel.org
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <20170608132609.32662-1-hch@lst.de>
+Sender: sparclinux-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-DMA_ERROR_CODE is not a public API and will go away.  Instead properly
-unwind based on the loop counter.
+That way the driver doesn't have to rely on DMA_ERROR_CODE, which
+is not a public API and going away.
 
-Signed-off-by: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- drivers/dma/ioat/init.c | 24 +++++++-----------------
- 1 file changed, 7 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/ibm/ibmveth.c | 159 +++++++++++++++++--------------------
+ 1 file changed, 74 insertions(+), 85 deletions(-)
 
-diff --git a/drivers/dma/ioat/init.c b/drivers/dma/ioat/init.c
-index 6ad4384b3fa8..ed8ed1192775 100644
---- a/drivers/dma/ioat/init.c
-+++ b/drivers/dma/ioat/init.c
-@@ -839,8 +839,6 @@ static int ioat_xor_val_self_test(struct ioatdma_device *ioat_dma)
- 		goto free_resources;
+diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
+index 72ab7b6bf20b..3ac27f59e595 100644
+--- a/drivers/net/ethernet/ibm/ibmveth.c
++++ b/drivers/net/ethernet/ibm/ibmveth.c
+@@ -467,56 +467,6 @@ static void ibmveth_rxq_harvest_buffer(struct ibmveth_adapter *adapter)
+ 	}
+ }
+ 
+-static void ibmveth_cleanup(struct ibmveth_adapter *adapter)
+-{
+-	int i;
+-	struct device *dev = &adapter->vdev->dev;
+-
+-	if (adapter->buffer_list_addr != NULL) {
+-		if (!dma_mapping_error(dev, adapter->buffer_list_dma)) {
+-			dma_unmap_single(dev, adapter->buffer_list_dma, 4096,
+-					DMA_BIDIRECTIONAL);
+-			adapter->buffer_list_dma = DMA_ERROR_CODE;
+-		}
+-		free_page((unsigned long)adapter->buffer_list_addr);
+-		adapter->buffer_list_addr = NULL;
+-	}
+-
+-	if (adapter->filter_list_addr != NULL) {
+-		if (!dma_mapping_error(dev, adapter->filter_list_dma)) {
+-			dma_unmap_single(dev, adapter->filter_list_dma, 4096,
+-					DMA_BIDIRECTIONAL);
+-			adapter->filter_list_dma = DMA_ERROR_CODE;
+-		}
+-		free_page((unsigned long)adapter->filter_list_addr);
+-		adapter->filter_list_addr = NULL;
+-	}
+-
+-	if (adapter->rx_queue.queue_addr != NULL) {
+-		dma_free_coherent(dev, adapter->rx_queue.queue_len,
+-				  adapter->rx_queue.queue_addr,
+-				  adapter->rx_queue.queue_dma);
+-		adapter->rx_queue.queue_addr = NULL;
+-	}
+-
+-	for (i = 0; i < IBMVETH_NUM_BUFF_POOLS; i++)
+-		if (adapter->rx_buff_pool[i].active)
+-			ibmveth_free_buffer_pool(adapter,
+-						 &adapter->rx_buff_pool[i]);
+-
+-	if (adapter->bounce_buffer != NULL) {
+-		if (!dma_mapping_error(dev, adapter->bounce_buffer_dma)) {
+-			dma_unmap_single(&adapter->vdev->dev,
+-					adapter->bounce_buffer_dma,
+-					adapter->netdev->mtu + IBMVETH_BUFF_OH,
+-					DMA_BIDIRECTIONAL);
+-			adapter->bounce_buffer_dma = DMA_ERROR_CODE;
+-		}
+-		kfree(adapter->bounce_buffer);
+-		adapter->bounce_buffer = NULL;
+-	}
+-}
+-
+ static int ibmveth_register_logical_lan(struct ibmveth_adapter *adapter,
+         union ibmveth_buf_desc rxq_desc, u64 mac_address)
+ {
+@@ -573,14 +523,17 @@ static int ibmveth_open(struct net_device *netdev)
+ 	for(i = 0; i < IBMVETH_NUM_BUFF_POOLS; i++)
+ 		rxq_entries += adapter->rx_buff_pool[i].size;
+ 
++	rc = -ENOMEM;
+ 	adapter->buffer_list_addr = (void*) get_zeroed_page(GFP_KERNEL);
+-	adapter->filter_list_addr = (void*) get_zeroed_page(GFP_KERNEL);
++	if (!adapter->buffer_list_addr) {
++		netdev_err(netdev, "unable to allocate list pages\n");
++		goto out;
++	}
+ 
+-	if (!adapter->buffer_list_addr || !adapter->filter_list_addr) {
+-		netdev_err(netdev, "unable to allocate filter or buffer list "
+-			   "pages\n");
+-		rc = -ENOMEM;
+-		goto err_out;
++	adapter->filter_list_addr = (void*) get_zeroed_page(GFP_KERNEL);
++	if (!adapter->filter_list_addr) {
++		netdev_err(netdev, "unable to allocate filter pages\n");
++		goto out_free_buffer_list;
  	}
  
--	for (i = 0; i < IOAT_NUM_SRC_TEST; i++)
--		dma_srcs[i] = DMA_ERROR_CODE;
- 	for (i = 0; i < IOAT_NUM_SRC_TEST; i++) {
- 		dma_srcs[i] = dma_map_page(dev, xor_srcs[i], 0, PAGE_SIZE,
- 					   DMA_TO_DEVICE);
-@@ -910,8 +908,6 @@ static int ioat_xor_val_self_test(struct ioatdma_device *ioat_dma)
+ 	dev = &adapter->vdev->dev;
+@@ -590,22 +543,21 @@ static int ibmveth_open(struct net_device *netdev)
+ 	adapter->rx_queue.queue_addr =
+ 		dma_alloc_coherent(dev, adapter->rx_queue.queue_len,
+ 				   &adapter->rx_queue.queue_dma, GFP_KERNEL);
+-	if (!adapter->rx_queue.queue_addr) {
+-		rc = -ENOMEM;
+-		goto err_out;
+-	}
++	if (!adapter->rx_queue.queue_addr)
++		goto out_free_filter_list;
  
- 	xor_val_result = 1;
- 
--	for (i = 0; i < IOAT_NUM_SRC_TEST + 1; i++)
--		dma_srcs[i] = DMA_ERROR_CODE;
- 	for (i = 0; i < IOAT_NUM_SRC_TEST + 1; i++) {
- 		dma_srcs[i] = dma_map_page(dev, xor_val_srcs[i], 0, PAGE_SIZE,
- 					   DMA_TO_DEVICE);
-@@ -965,8 +961,6 @@ static int ioat_xor_val_self_test(struct ioatdma_device *ioat_dma)
- 	op = IOAT_OP_XOR_VAL;
- 
- 	xor_val_result = 0;
--	for (i = 0; i < IOAT_NUM_SRC_TEST + 1; i++)
--		dma_srcs[i] = DMA_ERROR_CODE;
- 	for (i = 0; i < IOAT_NUM_SRC_TEST + 1; i++) {
- 		dma_srcs[i] = dma_map_page(dev, xor_val_srcs[i], 0, PAGE_SIZE,
- 					   DMA_TO_DEVICE);
-@@ -1017,18 +1011,14 @@ static int ioat_xor_val_self_test(struct ioatdma_device *ioat_dma)
- 	goto free_resources;
- dma_unmap:
- 	if (op == IOAT_OP_XOR) {
--		if (dest_dma != DMA_ERROR_CODE)
--			dma_unmap_page(dev, dest_dma, PAGE_SIZE,
--				       DMA_FROM_DEVICE);
--		for (i = 0; i < IOAT_NUM_SRC_TEST; i++)
--			if (dma_srcs[i] != DMA_ERROR_CODE)
--				dma_unmap_page(dev, dma_srcs[i], PAGE_SIZE,
--					       DMA_TO_DEVICE);
-+		while (--i >= 0)
-+			dma_unmap_page(dev, dma_srcs[i], PAGE_SIZE,
-+				       DMA_TO_DEVICE);
-+		dma_unmap_page(dev, dest_dma, PAGE_SIZE, DMA_FROM_DEVICE);
- 	} else if (op == IOAT_OP_XOR_VAL) {
--		for (i = 0; i < IOAT_NUM_SRC_TEST + 1; i++)
--			if (dma_srcs[i] != DMA_ERROR_CODE)
--				dma_unmap_page(dev, dma_srcs[i], PAGE_SIZE,
--					       DMA_TO_DEVICE);
-+		while (--i >= 0)
-+			dma_unmap_page(dev, dma_srcs[i], PAGE_SIZE,
-+				       DMA_TO_DEVICE);
+ 	adapter->buffer_list_dma = dma_map_single(dev,
+ 			adapter->buffer_list_addr, 4096, DMA_BIDIRECTIONAL);
++	if (dma_mapping_error(dev, adapter->buffer_list_dma)) {
++		netdev_err(netdev, "unable to map buffer list pages\n");
++		goto out_free_queue_mem;
++	}
++
+ 	adapter->filter_list_dma = dma_map_single(dev,
+ 			adapter->filter_list_addr, 4096, DMA_BIDIRECTIONAL);
+-
+-	if ((dma_mapping_error(dev, adapter->buffer_list_dma)) ||
+-	    (dma_mapping_error(dev, adapter->filter_list_dma))) {
+-		netdev_err(netdev, "unable to map filter or buffer list "
+-			   "pages\n");
+-		rc = -ENOMEM;
+-		goto err_out;
++	if (dma_mapping_error(dev, adapter->filter_list_dma)) {
++		netdev_err(netdev, "unable to map filter list pages\n");
++		goto out_unmap_buffer_list;
  	}
- free_resources:
- 	dma->device_free_chan_resources(dma_chan);
+ 
+ 	adapter->rx_queue.index = 0;
+@@ -636,7 +588,7 @@ static int ibmveth_open(struct net_device *netdev)
+ 				     rxq_desc.desc,
+ 				     mac_address);
+ 		rc = -ENONET;
+-		goto err_out;
++		goto out_unmap_filter_list;
+ 	}
+ 
+ 	for (i = 0; i < IBMVETH_NUM_BUFF_POOLS; i++) {
+@@ -646,7 +598,7 @@ static int ibmveth_open(struct net_device *netdev)
+ 			netdev_err(netdev, "unable to alloc pool\n");
+ 			adapter->rx_buff_pool[i].active = 0;
+ 			rc = -ENOMEM;
+-			goto err_out;
++			goto out_free_buffer_pools;
+ 		}
+ 	}
+ 
+@@ -660,22 +612,21 @@ static int ibmveth_open(struct net_device *netdev)
+ 			lpar_rc = h_free_logical_lan(adapter->vdev->unit_address);
+ 		} while (H_IS_LONG_BUSY(lpar_rc) || (lpar_rc == H_BUSY));
+ 
+-		goto err_out;
++		goto out_free_buffer_pools;
+ 	}
+ 
++	rc = -ENOMEM;
+ 	adapter->bounce_buffer =
+ 	    kmalloc(netdev->mtu + IBMVETH_BUFF_OH, GFP_KERNEL);
+-	if (!adapter->bounce_buffer) {
+-		rc = -ENOMEM;
+-		goto err_out_free_irq;
+-	}
++	if (!adapter->bounce_buffer)
++		goto out_free_irq;
++
+ 	adapter->bounce_buffer_dma =
+ 	    dma_map_single(&adapter->vdev->dev, adapter->bounce_buffer,
+ 			   netdev->mtu + IBMVETH_BUFF_OH, DMA_BIDIRECTIONAL);
+ 	if (dma_mapping_error(dev, adapter->bounce_buffer_dma)) {
+ 		netdev_err(netdev, "unable to map bounce buffer\n");
+-		rc = -ENOMEM;
+-		goto err_out_free_irq;
++		goto out_free_bounce_buffer;
+ 	}
+ 
+ 	netdev_dbg(netdev, "initial replenish cycle\n");
+@@ -687,10 +638,31 @@ static int ibmveth_open(struct net_device *netdev)
+ 
+ 	return 0;
+ 
+-err_out_free_irq:
++out_free_bounce_buffer:
++	kfree(adapter->bounce_buffer);
++out_free_irq:
+ 	free_irq(netdev->irq, netdev);
+-err_out:
+-	ibmveth_cleanup(adapter);
++out_free_buffer_pools:
++	while (--i >= 0) {
++		if (adapter->rx_buff_pool[i].active)
++			ibmveth_free_buffer_pool(adapter,
++						 &adapter->rx_buff_pool[i]);
++	}
++out_unmap_filter_list:
++	dma_unmap_single(dev, adapter->filter_list_dma, 4096,
++			 DMA_BIDIRECTIONAL);
++out_unmap_buffer_list:
++	dma_unmap_single(dev, adapter->buffer_list_dma, 4096,
++			 DMA_BIDIRECTIONAL);
++out_free_queue_mem:
++	dma_free_coherent(dev, adapter->rx_queue.queue_len,
++			  adapter->rx_queue.queue_addr,
++			  adapter->rx_queue.queue_dma);
++out_free_filter_list:
++	free_page((unsigned long)adapter->filter_list_addr);
++out_free_buffer_list:
++	free_page((unsigned long)adapter->buffer_list_addr);
++out:
+ 	napi_disable(&adapter->napi);
+ 	return rc;
+ }
+@@ -698,7 +670,9 @@ static int ibmveth_open(struct net_device *netdev)
+ static int ibmveth_close(struct net_device *netdev)
+ {
+ 	struct ibmveth_adapter *adapter = netdev_priv(netdev);
++	struct device *dev = &adapter->vdev->dev;
+ 	long lpar_rc;
++	int i;
+ 
+ 	netdev_dbg(netdev, "close starting\n");
+ 
+@@ -722,7 +696,27 @@ static int ibmveth_close(struct net_device *netdev)
+ 
+ 	ibmveth_update_rx_no_buffer(adapter);
+ 
+-	ibmveth_cleanup(adapter);
++	dma_unmap_single(dev, adapter->buffer_list_dma, 4096,
++			 DMA_BIDIRECTIONAL);
++	free_page((unsigned long)adapter->buffer_list_addr);
++
++	dma_unmap_single(dev, adapter->filter_list_dma, 4096,
++			 DMA_BIDIRECTIONAL);
++	free_page((unsigned long)adapter->filter_list_addr);
++
++	dma_free_coherent(dev, adapter->rx_queue.queue_len,
++			  adapter->rx_queue.queue_addr,
++			  adapter->rx_queue.queue_dma);
++
++	for (i = 0; i < IBMVETH_NUM_BUFF_POOLS; i++)
++		if (adapter->rx_buff_pool[i].active)
++			ibmveth_free_buffer_pool(adapter,
++						 &adapter->rx_buff_pool[i]);
++
++	dma_unmap_single(&adapter->vdev->dev, adapter->bounce_buffer_dma,
++			 adapter->netdev->mtu + IBMVETH_BUFF_OH,
++			 DMA_BIDIRECTIONAL);
++	kfree(adapter->bounce_buffer);
+ 
+ 	netdev_dbg(netdev, "close complete\n");
+ 
+@@ -1648,11 +1642,6 @@ static int ibmveth_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ 	}
+ 
+ 	netdev_dbg(netdev, "adapter @ 0x%p\n", adapter);
+-
+-	adapter->buffer_list_dma = DMA_ERROR_CODE;
+-	adapter->filter_list_dma = DMA_ERROR_CODE;
+-	adapter->rx_queue.queue_dma = DMA_ERROR_CODE;
+-
+ 	netdev_dbg(netdev, "registering netdev...\n");
+ 
+ 	ibmveth_set_features(netdev, netdev->features);
 -- 
 2.11.0
+
