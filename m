@@ -1,54 +1,57 @@
-From: Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [RFC PATCH net-next 3/5] bpf/verifier: feed
- pointer-to-unknown-scalar casts into scalar ALU path
-Date: Thu, 8 Jun 2017 18:12:39 +0100
-Message-ID: <3cca425f-5794-dddd-18a8-af5e36bb3597@solarflare.com>
-References: <92db9689-af6a-e172-ba57-195e588f9cc0@solarflare.com>
-	<47ecf6ca-ae89-7fc3-3cd5-a47009b6ede9@solarflare.com>
-	<20170608023540.5ecmmobhl2rtgrg5@ast-mbp>
-	<2363ab5f-c344-900b-78ee-41e2eb0dd40f@solarflare.com>
-	<20170608165004.n5jc33pocxlytuvf@ast-mbp.dhcp.thefacebook.com>
-Reply-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+From: Alexandre Ferrieux <alexandre.ferrieux@gmail.com>
+Subject: Using HTB and FQ on the same interface
+Date: Thu, 8 Jun 2017 19:22:54 +0200
+Message-ID: <CAKYWH0SjoSHX+qgRj77bo=3L7iy9Gfwd8NNA3fQm2jqM1m5VLQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <20170608165004.n5jc33pocxlytuvf-+o4/htvd0TCa6kscz5V53/3mLCh9rsb+VpNB7YpNyf8@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f178.google.com ([209.85.216.178]:33636 "EHLO
+        mail-qt0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751132AbdFHRXQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 13:23:16 -0400
+Received: by mail-qt0-f178.google.com with SMTP id u12so49459150qth.0
+        for <netdev@vger.kernel.org>; Thu, 08 Jun 2017 10:23:15 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/06/17 17:50, Alexei Starovoitov wrote:
-> On Thu, Jun 08, 2017 at 04:25:39PM +0100, Edward Cree wrote:
->> On 08/06/17 03:35, Alexei Starovoitov wrote:
->>> such large back and forth move doesn't help reviewing.
->>> may be just merge it into previous patch?
->>> Or keep that function in the right place in patch 2 already?
->> I think 'diff' got a bit confused, and maybe with different options I could
->>  have got it to produce something more readable.  But I think I will just
->>  merge this into patch 2; it's only separate because it started out as an
->>  experiment.
-> after sleeping on it I'm not sure we should be allowing such pointer
-> arithmetic. In normal C code people do fancy tricks with lower 3 bits
-> of the pointer, but in bpf code I cannot see such use case.
-> What kind of realistic code will be doing ptr & 0x40 ?
-Well, I didn't support it because I saw a use case.  I supported it because
- it seemed easy to do and the code came out reasonably elegant-looking.
-Since this is guarded by env->allow_ptr_leaks, I can't see any reason _not_
- to let people try fancy tricks with the low bits of pointers.
-I agree ptr & 0x40 is a crazy thing with no imaginable use case, but...
-"Unix was not designed to stop its users from doing stupid things, as that
- would also stop them from doing clever things." ;-)
+Hello, I need to use simultaneously on the same interface the classful
+qdisc HTB and the classless qdisc FQ. The rationale is:
 
--Ed
+   - I need to send properly shaped UDP streams to a few remote IP
+addresses. For this I'm using htb classes and u32 filters.
+
+   - for a few other remote peers I need FQ to be available since I
+activated BBR congestion control (ip route change ... congctl bbr)
+
+Questions:
+
+  (1) can this be done at all ?
+
+  (2)  if yes, what are the recommended hierarchy and parameters so
+that things go smoothly in the limit of low traffic (neither qdisc
+needing a significant fraction of the 1Gbps line rate) ?
+
+I was thinking about
+
+    # HTB as root
+    root@foo:~# tc qdisc add dev eth1 handle 1: root htb
+    # FQ in a line-rate class
+    root@foo:~# tc class add dev eth1 parent 1: classid 1:42 htb rate 1gbit
+    root@foo:~# tc qdisc add dev eth1 parent 1:42 fq
+    # "n" HTB classes with appropriate rates and individual u32 filters
+    root@foo:~# tc class add dev eth1 parent 1: classid $id htb rate $rate
+    root@foo:~# tc filter add dev eth1 parent 1: protocol ip prio
+$prio u32 match ip protocol 17 0xff match ip dst $IP/32 flowid $id
+
+Thanks for amending.
+
+  (3) In detail, how do the models interact (the token buckets on one
+side, and the regular interval timers on the other) ? What happens to
+subsequent packets in a paced FQ flow if some get delayed due to
+contention: does FQ "catch up" or do packets get offset in the future
+?
+
+Thanks in advance,
+
+-Alex
