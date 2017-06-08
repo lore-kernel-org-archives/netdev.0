@@ -1,97 +1,57 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH RFC net-next 4/4] net/mlx5: Add CONFIG_MLX5_ESWITCH Kconfig
-Date: Thu, 8 Jun 2017 12:35:20 +0300
-Message-ID: <CAJ3xEMhPkf9DSs=zguYNzp13iMVDHJoLbFhi8MihuD6C5LHXeg@mail.gmail.com>
-References: <20170607234214.24723-1-saeedm@mellanox.com> <20170607234214.24723-5-saeedm@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-        Jes Sorensen <jsorensen@fb.com>,
-        Kernel Team <kernel-team@fb.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: Saeed Mahameed <saeedm@mellanox.com>
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Subject: [PATCH v2 1/8] net: mvmdio: reorder headers alphabetically
+Date: Thu,  8 Jun 2017 11:26:46 +0200
+Message-ID: <20170608092653.25221-2-antoine.tenart@free-electrons.com>
+References: <20170608092653.25221-1-antoine.tenart@free-electrons.com>
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        thomas.petazzoni@free-electrons.com, mw@semihalf.com,
+        linux@armlinux.org.uk, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org
+To: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
+        gregory.clement@free-electrons.com,
+        sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:36687 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751760AbdFHJfW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 05:35:22 -0400
-Received: by mail-oi0-f66.google.com with SMTP id g14so2012066oib.3
-        for <netdev@vger.kernel.org>; Thu, 08 Jun 2017 02:35:21 -0700 (PDT)
-In-Reply-To: <20170607234214.24723-5-saeedm@mellanox.com>
+Received: from mail.free-electrons.com ([62.4.15.54]:48777 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750788AbdFHKAN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 06:00:13 -0400
+In-Reply-To: <20170608092653.25221-1-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 8, 2017 at 2:42 AM, Saeed Mahameed <saeedm@mellanox.com> wrote:
+Cosmetic fix reordering headers alphabetically.
 
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> @@ -2961,9 +2961,8 @@ static int mlx5e_modify_channels_vsd(struct mlx5e_channels *chs, bool vsd)
->         return 0;
->  }
->
-> -static int mlx5e_setup_tc(struct net_device *netdev, u8 tc)
-> +static int mlx5e_setup_tc(struct mlx5e_priv *priv, u8 tc)
->  {
-> -       struct mlx5e_priv *priv = netdev_priv(netdev);
->         struct mlx5e_channels new_channels = {};
->         int err = 0;
->
-> @@ -2995,6 +2994,7 @@ static int mlx5e_ndo_setup_tc(struct net_device *dev, u32 handle,
->  {
->         struct mlx5e_priv *priv = netdev_priv(dev);
->
-> +#ifdef CONFIG_MLX5_ESWITCH
->         if (TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS))
->                 goto mqprio;
->
-> @@ -3013,12 +3013,13 @@ static int mlx5e_ndo_setup_tc(struct net_device *dev, u32 handle,
->         }
->
->  mqprio:
-> +#endif
->         if (tc->type != TC_SETUP_MQPRIO)
-> -               return -EINVAL;
-> +               return -EOPNOTSUPP;
+Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/marvell/mvmdio.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-why change this corner in this patch? we're doing enough changes
-
->
->         tc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
->
-> -       return mlx5e_setup_tc(dev, tc->mqprio->num_tc);
-> +       return mlx5e_setup_tc(priv, tc->mqprio->num_tc);
->  }
-
-same comment
-
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-
-> @@ -948,13 +946,11 @@ static int mlx5_init_once(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
->                 goto err_rl_cleanup;
->         }
->
-> -#ifdef CONFIG_MLX5_CORE_EN
->         err = mlx5_eswitch_init(dev);
->         if (err) {
->                 dev_err(&pdev->dev, "Failed to init eswitch %d\n", err);
->                 goto err_mpfs_cleanup;
->         }
-> -#endif
-
-why? before this patch we were doing it only if Ethernet
-(MLX5_CORE_EN) was defined into the build,
-and now we are returning blindly zero if another config isn't there
-(CONFIG_MLX5_ESWITCH) - is that
-fully equivalent? do we want to be fully equiv?
-
-> @@ -965,10 +961,8 @@ static int mlx5_init_once(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
->         return 0;
->
->  err_eswitch_cleanup:
-> -#ifdef CONFIG_MLX5_CORE_EN
->         mlx5_eswitch_cleanup(dev->priv.eswitch);
->  err_mpfs_cleanup:
-> -#endif
-
-same comment/question
+diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
+index 90a60b98c28e..109a2bff334d 100644
+--- a/drivers/net/ethernet/marvell/mvmdio.c
++++ b/drivers/net/ethernet/marvell/mvmdio.c
+@@ -17,16 +17,16 @@
+  * warranty of any kind, whether express or implied.
+  */
+ 
++#include <linux/clk.h>
++#include <linux/delay.h>
++#include <linux/interrupt.h>
++#include <linux/io.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/mutex.h>
++#include <linux/of_mdio.h>
+ #include <linux/phy.h>
+-#include <linux/interrupt.h>
+ #include <linux/platform_device.h>
+-#include <linux/delay.h>
+-#include <linux/io.h>
+-#include <linux/clk.h>
+-#include <linux/of_mdio.h>
+ #include <linux/sched.h>
+ #include <linux/wait.h>
+ 
+-- 
+2.9.4
