@@ -1,36 +1,30 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] mwifiex: Replace semaphore async_sem with mutex
-Date: Thu, 8 Jun 2017 16:58:12 +0200
-Message-ID: <CAK8P3a2kJbXX8ROBgqyQDpwpKZPm_rNWW_oOAjOJyM7C-DZTiw@mail.gmail.com>
-References: <1496916183-4097-1-git-send-email-binoy.jayan@linaro.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: Zero ifla_vf_info in rtnl_fill_vfinfo()
+Date: Thu, 08 Jun 2017 10:58:41 -0400 (EDT)
+Message-ID: <20170608.105841.978006950240671178.davem@davemloft.net>
+References: <20170607180033.19747-1-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Rajendra <rnayak@codeaurora.org>,
-        Mark Brown <broonie@kernel.org>,
-        Amitkumar Karwar <amitkarwar@gmail.com>,
-        Nishant Sarmukadam <nishants@marvell.com>,
-        Ganapathi Bhat <gbhat@marvell.com>,
-        Xinming Hu <huxm@marvell.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless <linux-wireless@vger.kernel.org>,
-        Networking <netdev@vger.kernel.org>
-To: Binoy Jayan <binoy.jayan@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1496916183-4097-1-git-send-email-binoy.jayan@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mschmidt@redhat.com
+To: Yuval.Mintz@cavium.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57810 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751597AbdFHO6n (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 10:58:43 -0400
+In-Reply-To: <20170607180033.19747-1-Yuval.Mintz@cavium.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 8, 2017 at 12:03 PM, Binoy Jayan <binoy.jayan@linaro.org> wrote:
-> The semaphore 'async_sem' is used as a simple mutex, so
-> it should be written as one. Semaphores are going away in the future.
->
-> Signed-off-by: Binoy Jayan <binoy.jayan@linaro.org>
-> ---
->
-> This patch is part of a bigger effort to eliminate unwanted
-> semaphores from the linux kernel.
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Date: Wed, 7 Jun 2017 21:00:33 +0300
 
-Looks good,
+> Some of the structure's fields are not initialized by the
+> rtnetlink. If driver doesn't set those in ndo_get_vf_config(),
+> they'd leak memory to user.
+> 
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+> CC: Michal Schmidt <mschmidt@redhat.com>
 
-Reviewed-by: Arnd Bergmann <arnd@arndb.de>
+Good catch, applied and queued up for -stable, thanks.
