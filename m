@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: vrf: Make add_fib_rules per network namespace flag
-Date: Thu, 08 Jun 2017 19:28:36 -0400 (EDT)
-Message-ID: <20170608.192836.1501451775101159374.davem@davemloft.net>
-References: <20170608173111.22831-1-dsahern@gmail.com>
+Subject: Re: [PATCH] geneve: add missing rx stats accounting
+Date: Thu, 08 Jun 2017 19:29:24 -0400 (EDT)
+Message-ID: <20170608.192924.2074577502421829651.davem@davemloft.net>
+References: <1496947189-19773-1-git-send-email-girish.moodalbail@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, petrm@mellanox.com
-To: dsahern@gmail.com
+Cc: netdev@vger.kernel.org, pshelar@ovn.org
+To: girish.moodalbail@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40062 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:40068 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751382AbdFHX2n (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 19:28:43 -0400
-In-Reply-To: <20170608173111.22831-1-dsahern@gmail.com>
+        with ESMTP id S1751382AbdFHX30 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 19:29:26 -0400
+In-Reply-To: <1496947189-19773-1-git-send-email-girish.moodalbail@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsahern@gmail.com>
-Date: Thu,  8 Jun 2017 11:31:11 -0600
+From: Girish Moodalbail <girish.moodalbail@oracle.com>
+Date: Thu,  8 Jun 2017 11:39:49 -0700
 
-> Commit 1aa6c4f6b8cd8 ("net: vrf: Add l3mdev rules on first device create")
-> adds the l3mdev FIB rule the first time a VRF device is created. However,
-> it only creates the rule once and only in the namespace the first device
-> is created - which may not be init_net. Fix by using the net_generic
-> capability to make the add_fib_rules flag per network namespace.
-> 
-> Fixes: 1aa6c4f6b8cd8 ("net: vrf: Add l3mdev rules on first device create")
-> Reported-by: Petr Machata <petrm@mellanox.com>
-> Signed-off-by: David Ahern <dsahern@gmail.com>
+> +			++geneve->dev->stats.rx_dropped;
 
-Yeah that's not very helpful behavior.
+Please use the more canonical post-increment "x++"
 
-Applied and queued up for -stable, thanks David.
+Please do this in your entire patch.
+
+Thanks.
