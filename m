@@ -1,67 +1,33 @@
-From: Robin Murphy <robin.murphy@arm.com>
-Subject: Re: [PATCH 16/44] arm64: remove DMA_ERROR_CODE
-Date: Thu, 8 Jun 2017 15:02:00 +0100
-Message-ID: <dddc8995-8278-0604-07cd-ffe34526686e@arm.com>
-References: <20170608132609.32662-1-hch@lst.de>
- <20170608132609.32662-17-hch@lst.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: kisskb: FAILED linux-next/s390-defconfig/s390x Thu Jun 08,
+ 18:28
+Date: Thu, 08 Jun 2017 10:14:06 -0400 (EDT)
+Message-ID: <20170608.101406.777311103277677667.davem@davemloft.net>
+References: <20170608082932.1.78356@6b879c743ee1>
+        <20170608191143.0d54c17e@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linux-kernel@vger.kernel.org
-To: Christoph Hellwig <hch@lst.de>, x86@kernel.org,
- linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org,
- linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org,
- linux-ia64@vger.kernel.org, linux-mips@linux-mips.org,
- openrisc@lists.librecores.org, linuxppc-dev@lists.ozlabs.org,
- linux-s390@vger.kernel.org, linux-sh@vger.kernel.org,
- sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org,
- dmaengine@vger.kernel.org, linux-tegra@vger.kernel.org,
- dri-devel@lists.freedesktop.org, linux-samsung-soc@vger.kernel.org,
- iommu@lists.linux-foundation.org, netdev@vger.kernel.org
-Return-path: <dri-devel-bounces@lists.freedesktop.org>
-In-Reply-To: <20170608132609.32662-17-hch@lst.de>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: dri-devel-bounces@lists.freedesktop.org
-Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, schwidefsky@de.ibm.com,
+        heiko.carstens@de.ibm.com
+To: sfr@canb.auug.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56528 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751092AbdFHOOI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 10:14:08 -0400
+In-Reply-To: <20170608191143.0d54c17e@canb.auug.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMDgvMDYvMTcgMTQ6MjUsIENocmlzdG9waCBIZWxsd2lnIHdyb3RlOgo+IFRoZSBkbWEgYWxs
-b2MgaW50ZXJmYWNlIHJldHVybnMgYW4gZXJyb3IgYnkgcmV0dXJuIE5VTEwsIGFuZCB0aGUKPiBt
-YXBwaW5nIGludGVyZmFjZXMgcmVseSBvbiB0aGUgbWFwcGluZ19lcnJvciBtZXRob2QsIHdoaWNo
-IHRoZSBkdW1teQo+IG9wcyBhbHJlYWR5IGltcGxlbWVudCBjb3JyZWN0bHkuCj4gCj4gVGh1cyBy
-ZW1vdmUgdGhlIERNQV9FUlJPUl9DT0RFIGRlZmluZS4KClJldmlld2VkLWJ5OiBSb2JpbiBNdXJw
-aHkgPHJvYmluLm11cnBoeUBhcm0uY29tPgoKPiBTaWduZWQtb2ZmLWJ5OiBDaHJpc3RvcGggSGVs
-bHdpZyA8aGNoQGxzdC5kZT4KPiAtLS0KPiAgYXJjaC9hcm02NC9pbmNsdWRlL2FzbS9kbWEtbWFw
-cGluZy5oIHwgMSAtCj4gIGFyY2gvYXJtNjQvbW0vZG1hLW1hcHBpbmcuYyAgICAgICAgICB8IDMg
-Ky0tCj4gIDIgZmlsZXMgY2hhbmdlZCwgMSBpbnNlcnRpb24oKyksIDMgZGVsZXRpb25zKC0pCj4g
-Cj4gZGlmZiAtLWdpdCBhL2FyY2gvYXJtNjQvaW5jbHVkZS9hc20vZG1hLW1hcHBpbmcuaCBiL2Fy
-Y2gvYXJtNjQvaW5jbHVkZS9hc20vZG1hLW1hcHBpbmcuaAo+IGluZGV4IDUzOTJkYmVmZmE0NS4u
-Y2Y4ZmM4ZjA1NTgwIDEwMDY0NAo+IC0tLSBhL2FyY2gvYXJtNjQvaW5jbHVkZS9hc20vZG1hLW1h
-cHBpbmcuaAo+ICsrKyBiL2FyY2gvYXJtNjQvaW5jbHVkZS9hc20vZG1hLW1hcHBpbmcuaAo+IEBA
-IC0yNCw3ICsyNCw2IEBACj4gICNpbmNsdWRlIDx4ZW4veGVuLmg+Cj4gICNpbmNsdWRlIDxhc20v
-eGVuL2h5cGVydmlzb3IuaD4KPiAgCj4gLSNkZWZpbmUgRE1BX0VSUk9SX0NPREUJKH4oZG1hX2Fk
-ZHJfdCkwKQo+ICBleHRlcm4gY29uc3Qgc3RydWN0IGRtYV9tYXBfb3BzIGR1bW15X2RtYV9vcHM7
-Cj4gIAo+ICBzdGF0aWMgaW5saW5lIGNvbnN0IHN0cnVjdCBkbWFfbWFwX29wcyAqZ2V0X2FyY2hf
-ZG1hX29wcyhzdHJ1Y3QgYnVzX3R5cGUgKmJ1cykKPiBkaWZmIC0tZ2l0IGEvYXJjaC9hcm02NC9t
-bS9kbWEtbWFwcGluZy5jIGIvYXJjaC9hcm02NC9tbS9kbWEtbWFwcGluZy5jCj4gaW5kZXggMzIx
-NmUwOThjMDU4Li4xNDdmYmI5MDdhMmYgMTAwNjQ0Cj4gLS0tIGEvYXJjaC9hcm02NC9tbS9kbWEt
-bWFwcGluZy5jCj4gKysrIGIvYXJjaC9hcm02NC9tbS9kbWEtbWFwcGluZy5jCj4gQEAgLTE4NCw3
-ICsxODQsNiBAQCBzdGF0aWMgdm9pZCAqX19kbWFfYWxsb2Moc3RydWN0IGRldmljZSAqZGV2LCBz
-aXplX3Qgc2l6ZSwKPiAgbm9fbWFwOgo+ICAJX19kbWFfZnJlZV9jb2hlcmVudChkZXYsIHNpemUs
-IHB0ciwgKmRtYV9oYW5kbGUsIGF0dHJzKTsKPiAgbm9fbWVtOgo+IC0JKmRtYV9oYW5kbGUgPSBE
-TUFfRVJST1JfQ09ERTsKPiAgCXJldHVybiBOVUxMOwo+ICB9Cj4gIAo+IEBAIC00ODcsNyArNDg2
-LDcgQEAgc3RhdGljIGRtYV9hZGRyX3QgX19kdW1teV9tYXBfcGFnZShzdHJ1Y3QgZGV2aWNlICpk
-ZXYsIHN0cnVjdCBwYWdlICpwYWdlLAo+ICAJCQkJICAgZW51bSBkbWFfZGF0YV9kaXJlY3Rpb24g
-ZGlyLAo+ICAJCQkJICAgdW5zaWduZWQgbG9uZyBhdHRycykKPiAgewo+IC0JcmV0dXJuIERNQV9F
-UlJPUl9DT0RFOwo+ICsJcmV0dXJuIDA7Cj4gIH0KPiAgCj4gIHN0YXRpYyB2b2lkIF9fZHVtbXlf
-dW5tYXBfcGFnZShzdHJ1Y3QgZGV2aWNlICpkZXYsIGRtYV9hZGRyX3QgZGV2X2FkZHIsCj4gCgpf
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkcmktZGV2ZWwg
-bWFpbGluZyBsaXN0CmRyaS1kZXZlbEBsaXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0cHM6Ly9saXN0
-cy5mcmVlZGVza3RvcC5vcmcvbWFpbG1hbi9saXN0aW5mby9kcmktZGV2ZWwK
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Thu, 8 Jun 2017 19:11:43 +1000
+
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Thu, 8 Jun 2017 19:06:29 +1000
+> Subject: [PATCH] net: s390: fix up for "Fix inconsistent teardown and release
+>  of private netdev state"
+> 
+> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+
+Applied, thanks Stephen.
