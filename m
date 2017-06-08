@@ -1,40 +1,104 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 0/2][pull request] 1GbE Intel Wired LAN Driver Updates 2017-06-07
-Date: Wed,  7 Jun 2017 22:32:35 -0700
-Message-ID: <20170608053237.73040-1-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next 2/2] e1000e: Undo e1000e_pm_freeze if __e1000_shutdown fails
+Date: Wed,  7 Jun 2017 22:32:37 -0700
+Message-ID: <20170608053237.73040-3-jeffrey.t.kirsher@intel.com>
+References: <20170608053237.73040-1-jeffrey.t.kirsher@intel.com>
+Cc: Chris Wilson <chris@chris-wilson.co.uk>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jani Nikula <jani.nikula@intel.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:30535 "EHLO mga01.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750752AbdFHFcl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Jun 2017 01:32:41 -0400
+        id S1750752AbdFHFcm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Jun 2017 01:32:42 -0400
+In-Reply-To: <20170608053237.73040-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains a fix for e1000e and igb.
+From: Chris Wilson <chris@chris-wilson.co.uk>
 
-Colin Ian King fixes sparse warnings in igb by making functions static.
+An error during suspend (e100e_pm_suspend),
 
-Chris Wilson provides a fix for a previous commit which is causing an
-issue during suspend "e1000e_pm_suspend()", where we need to run
-e1000e_pm_thaw() if __e1000_shutdown() is unsuccessful.
+[  429.994338] ACPI : EC: event blocked
+[  429.994633] e1000e: EEE TX LPI TIMER: 00000011
+[  430.955451] pci_pm_suspend(): e1000e_pm_suspend+0x0/0x30 [e1000e] returns -2
+[  430.955454] dpm_run_callback(): pci_pm_suspend+0x0/0x140 returns -2
+[  430.955458] PM: Device 0000:00:19.0 failed to suspend async: error -2
+[  430.955581] PM: Some devices failed to suspend, or early wake event detected
+[  430.957709] ACPI : EC: event unblocked
 
-The following are changes since commit 50dffe7fad6c156c2928e45c19ff7b86eb951f4c:
-  Merge branch 'mlx4-drivers-version-update'
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 1GbE
+lead to complete failure:
 
-Chris Wilson (1):
-  e1000e: Undo e1000e_pm_freeze if __e1000_shutdown fails
+[  432.585002] ------------[ cut here ]------------
+[  432.585013] WARNING: CPU: 3 PID: 8372 at kernel/irq/manage.c:1478 __free_irq+0x9f/0x280
+[  432.585015] Trying to free already-free IRQ 20
+[  432.585016] Modules linked in: cdc_ncm usbnet x86_pkg_temp_thermal intel_powerclamp coretemp mii crct10dif_pclmul crc32_pclmul ghash_clmulni_intel snd_hda_codec_hdmi snd_hda_codec_realtek snd_hda_codec_generic snd_hda_intel snd_hda_codec snd_hwdep lpc_ich snd_hda_core snd_pcm mei_me mei sdhci_pci sdhci i915 mmc_core e1000e ptp pps_core prime_numbers
+[  432.585042] CPU: 3 PID: 8372 Comm: kworker/u16:40 Tainted: G     U          4.10.0-rc8-CI-Patchwork_3870+ #1
+[  432.585044] Hardware name: LENOVO 2356GCG/2356GCG, BIOS G7ET31WW (1.13 ) 07/02/2012
+[  432.585050] Workqueue: events_unbound async_run_entry_fn
+[  432.585051] Call Trace:
+[  432.585058]  dump_stack+0x67/0x92
+[  432.585062]  __warn+0xc6/0xe0
+[  432.585065]  warn_slowpath_fmt+0x4a/0x50
+[  432.585070]  ? _raw_spin_lock_irqsave+0x49/0x60
+[  432.585072]  __free_irq+0x9f/0x280
+[  432.585075]  free_irq+0x34/0x80
+[  432.585089]  e1000_free_irq+0x65/0x70 [e1000e]
+[  432.585098]  e1000e_pm_freeze+0x7a/0xb0 [e1000e]
+[  432.585106]  e1000e_pm_suspend+0x21/0x30 [e1000e]
+[  432.585113]  pci_pm_suspend+0x71/0x140
+[  432.585118]  dpm_run_callback+0x6f/0x330
+[  432.585122]  ? pci_pm_freeze+0xe0/0xe0
+[  432.585125]  __device_suspend+0xea/0x330
+[  432.585128]  async_suspend+0x1a/0x90
+[  432.585132]  async_run_entry_fn+0x34/0x160
+[  432.585137]  process_one_work+0x1f4/0x6d0
+[  432.585140]  ? process_one_work+0x16e/0x6d0
+[  432.585143]  worker_thread+0x49/0x4a0
+[  432.585145]  kthread+0x107/0x140
+[  432.585148]  ? process_one_work+0x6d0/0x6d0
+[  432.585150]  ? kthread_create_on_node+0x40/0x40
+[  432.585154]  ret_from_fork+0x2e/0x40
+[  432.585156] ---[ end trace 6712df7f8c4b9124 ]---
 
-Colin Ian King (1):
-  igb: make a few local functions static
+The unwind failures stems from commit 2800209994f8 ("e1000e: Refactor PM
+flows"), but it may be a later patch that introduced the non-recoverable
+behaviour.
 
- drivers/net/ethernet/intel/e1000e/netdev.c |  7 ++++++-
- drivers/net/ethernet/intel/igb/igb_main.c  | 12 ++++++------
- 2 files changed, 12 insertions(+), 7 deletions(-)
+Fixes: 2800209994f8 ("e1000e: Refactor PM flows")
+Bugzilla: https://bugs.freedesktop.org/show_bug.cgi?id=99847
+Signed-off-by: Chris Wilson <chris@chris-wilson.co.uk>
+Signed-off-by: Jani Nikula <jani.nikula@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index e1d46c11cb61..2dcb5463d9b8 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -6640,12 +6640,17 @@ static int e1000e_pm_thaw(struct device *dev)
+ static int e1000e_pm_suspend(struct device *dev)
+ {
+ 	struct pci_dev *pdev = to_pci_dev(dev);
++	int rc;
+ 
+ 	e1000e_flush_lpic(pdev);
+ 
+ 	e1000e_pm_freeze(dev);
+ 
+-	return __e1000_shutdown(pdev, false);
++	rc = __e1000_shutdown(pdev, false);
++	if (rc)
++		e1000e_pm_thaw(dev);
++
++	return rc;
+ }
+ 
+ static int e1000e_pm_resume(struct device *dev)
 -- 
 2.12.2
