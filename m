@@ -1,63 +1,93 @@
-From: Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next 7/8] qed: Call rx_release_cb() when flushing LL2
-Date: Thu, 8 Jun 2017 19:13:22 +0300
-Message-ID: <20170608161323.7597-8-Yuval.Mintz@cavium.com>
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 6/8] qed: No need for LL2 frags indication
+Date: Thu, 8 Jun 2017 19:13:21 +0300
+Message-ID: <20170608161323.7597-7-Yuval.Mintz@cavium.com>
 References: <20170608161323.7597-1-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170608161323.7597-1-Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <linux-rdma@vger.kernel.org>, <Michal.Kalderon@cavium.com>,
+        Yuval Mintz <Yuval.Mintz@cavium.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-dm3nam03on0080.outbound.protection.outlook.com ([104.47.41.80]:8992
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752116AbdFHQOQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Jun 2017 12:14:16 -0400
+In-Reply-To: <20170608161323.7597-1-Yuval.Mintz@cavium.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Driver to inform the connection owner that the its buffers are being
-released as part of a flush.
+This is a legacy leftover; There's no current flow where 'frags_mapped'
+would be set.
 
-Signed-off-by: Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_ll2.c | 13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_ll2.c | 31 ++++++++-----------------------
+ 1 file changed, 8 insertions(+), 23 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.c b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-index 2a68fb9..c6172a77e 100644
+index b222b2b..2a68fb9 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_ll2.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-@@ -525,10 +525,6 @@ static void qed_ll2_rxq_flush(struct qed_hwfn *p_hwfn, u8 connection_handle)
- 	p_rx = &p_ll2_conn->rx_queue;
+@@ -73,7 +73,6 @@ struct qed_cb_ll2_info {
+ 	int rx_cnt;
+ 	u32 rx_size;
+ 	u8 handle;
+-	bool frags_mapped;
  
- 	while (!list_empty(&p_rx->active_descq)) {
--		dma_addr_t rx_buf_addr;
--		void *cookie;
--		bool b_last;
+ 	/* Lock protecting LL2 buffer lists in sleepless context */
+ 	spinlock_t lock;
+@@ -108,12 +107,6 @@ static void qed_ll2b_complete_tx_packet(void *cxt,
+ 		cdev->ll2->cbs->tx_cb(cdev->ll2->cb_cookie, skb,
+ 				      b_last_fragment);
+ 
+-	if (cdev->ll2->frags_mapped)
+-		/* Case where mapped frags were received, need to
+-		 * free skb with nr_frags marked as 0
+-		 */
+-		skb_shinfo(skb)->nr_frags = 0;
 -
- 		p_pkt = list_first_entry(&p_rx->active_descq,
- 					 struct qed_ll2_rx_packet, list_entry);
- 		if (!p_pkt)
-@@ -543,10 +539,15 @@ static void qed_ll2_rxq_flush(struct qed_hwfn *p_hwfn, u8 connection_handle)
- 			qed_ooo_put_free_buffer(p_hwfn, p_hwfn->p_ooo_info,
- 						p_buffer);
- 		} else {
--			rx_buf_addr = p_pkt->rx_buf_addr;
--			cookie = p_pkt->cookie;
-+			dma_addr_t rx_buf_addr = p_pkt->rx_buf_addr;
-+			void *cookie = p_pkt->cookie;
-+			bool b_last;
- 
- 			b_last = list_empty(&p_rx->active_descq);
-+			p_ll2_conn->cbs.rx_release_cb(p_ll2_conn->cbs.cookie,
-+						      p_ll2_conn->my_id,
-+						      cookie,
-+						      rx_buf_addr, b_last);
- 		}
- 	}
+ 	dev_kfree_skb_any(skb);
  }
+ 
+@@ -2100,7 +2093,6 @@ static int qed_ll2_start(struct qed_dev *cdev, struct qed_ll2_params *params)
+ 	spin_lock_init(&cdev->ll2->lock);
+ 	cdev->ll2->rx_size = NET_SKB_PAD + ETH_HLEN +
+ 			     L1_CACHE_BYTES + params->mtu;
+-	cdev->ll2->frags_mapped = params->frags_mapped;
+ 
+ 	/*Allocate memory for LL2 */
+ 	DP_INFO(cdev, "Allocating LL2 buffers of size %08x bytes\n",
+@@ -2313,21 +2305,14 @@ static int qed_ll2_start_xmit(struct qed_dev *cdev, struct sk_buff *skb)
+ 
+ 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+ 		frag = &skb_shinfo(skb)->frags[i];
+-		if (!cdev->ll2->frags_mapped) {
+-			mapping = skb_frag_dma_map(&cdev->pdev->dev, frag, 0,
+-						   skb_frag_size(frag),
+-						   DMA_TO_DEVICE);
+-
+-			if (unlikely(dma_mapping_error(&cdev->pdev->dev,
+-						       mapping))) {
+-				DP_NOTICE(cdev,
+-					  "Unable to map frag - dropping packet\n");
+-				rc = -ENOMEM;
+-				goto err;
+-			}
+-		} else {
+-			mapping = page_to_phys(skb_frag_page(frag)) |
+-			    frag->page_offset;
++
++		mapping = skb_frag_dma_map(&cdev->pdev->dev, frag, 0,
++					   skb_frag_size(frag), DMA_TO_DEVICE);
++
++		if (unlikely(dma_mapping_error(&cdev->pdev->dev, mapping))) {
++			DP_NOTICE(cdev,
++				  "Unable to map frag - dropping packet\n");
++			goto err;
+ 		}
+ 
+ 		rc = qed_ll2_set_fragment_of_tx_packet(QED_LEADING_HWFN(cdev),
 -- 
 2.9.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
