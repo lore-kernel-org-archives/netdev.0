@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 31/44] hexagon: remove arch-specific dma_supported implementation
-Date: Thu,  8 Jun 2017 15:25:56 +0200
-Message-ID: <20170608132609.32662-32-hch@lst.de>
+Subject: [PATCH 30/44] dma-virt: remove dma_supported and mapping_error methods
+Date: Thu,  8 Jun 2017 15:25:55 +0200
+Message-ID: <20170608132609.32662-31-hch@lst.de>
 References: <20170608132609.32662-1-hch@lst.de>
 Cc: linux-kernel@vger.kernel.org
 To: x86@kernel.org, linux-arm-kernel@lists.infradead.org,
@@ -14,53 +14,45 @@ To: x86@kernel.org, linux-arm-kernel@lists.infradead.org,
         linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
         linux-samsung-soc@vger.kernel.org,
         iommu@lists.linux-foundation.org, netdev@vger.kernel.org
-Return-path: <linux-hexagon-owner@vger.kernel.org>
+Return-path: <linux-ia64-owner@vger.kernel.org>
 In-Reply-To: <20170608132609.32662-1-hch@lst.de>
-Sender: linux-hexagon-owner@vger.kernel.org
+Sender: linux-ia64-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This implementation is simply bogus - hexagon only has a simple
-direct mapped DMA implementation and thus doesn't care about the
-address.
+These just duplicate the default behavior if no method is provided.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/hexagon/include/asm/dma-mapping.h | 2 --
- arch/hexagon/kernel/dma.c              | 9 ---------
- 2 files changed, 11 deletions(-)
+ lib/dma-virt.c | 12 ------------
+ 1 file changed, 12 deletions(-)
 
-diff --git a/arch/hexagon/include/asm/dma-mapping.h b/arch/hexagon/include/asm/dma-mapping.h
-index 00e3f10113b0..9c15cb5271a6 100644
---- a/arch/hexagon/include/asm/dma-mapping.h
-+++ b/arch/hexagon/include/asm/dma-mapping.h
-@@ -37,8 +37,6 @@ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
- 	return dma_ops;
+diff --git a/lib/dma-virt.c b/lib/dma-virt.c
+index dcd4df1f7174..5c4f11329721 100644
+--- a/lib/dma-virt.c
++++ b/lib/dma-virt.c
+@@ -51,22 +51,10 @@ static int dma_virt_map_sg(struct device *dev, struct scatterlist *sgl,
+ 	return nents;
  }
  
--#define HAVE_ARCH_DMA_SUPPORTED 1
--extern int dma_supported(struct device *dev, u64 mask);
- extern int dma_is_consistent(struct device *dev, dma_addr_t dma_handle);
- extern void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
- 			   enum dma_data_direction direction);
-diff --git a/arch/hexagon/kernel/dma.c b/arch/hexagon/kernel/dma.c
-index 71269dc0f225..9ff1b2041f85 100644
---- a/arch/hexagon/kernel/dma.c
-+++ b/arch/hexagon/kernel/dma.c
-@@ -35,15 +35,6 @@ static inline void *dma_addr_to_virt(dma_addr_t dma_addr)
- 	return phys_to_virt((unsigned long) dma_addr);
- }
- 
--int dma_supported(struct device *dev, u64 mask)
+-static int dma_virt_mapping_error(struct device *dev, dma_addr_t dma_addr)
 -{
--	if (mask == DMA_BIT_MASK(32))
--		return 1;
--	else
--		return 0;
+-	return false;
 -}
--EXPORT_SYMBOL(dma_supported);
 -
- static struct gen_pool *coherent_pool;
- 
- 
+-static int dma_virt_supported(struct device *dev, u64 mask)
+-{
+-	return true;
+-}
+-
+ const struct dma_map_ops dma_virt_ops = {
+ 	.alloc			= dma_virt_alloc,
+ 	.free			= dma_virt_free,
+ 	.map_page		= dma_virt_map_page,
+ 	.map_sg			= dma_virt_map_sg,
+-	.mapping_error		= dma_virt_mapping_error,
+-	.dma_supported		= dma_virt_supported,
+ };
+ EXPORT_SYMBOL(dma_virt_ops);
 -- 
 2.11.0
+
