@@ -1,42 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cxgb4: handle interrupt raised when FW crashes
-Date: Thu, 08 Jun 2017 15:38:41 -0400 (EDT)
-Message-ID: <20170608.153841.1633074884358599473.davem@davemloft.net>
-References: <1496909601-29370-1-git-send-email-ganeshgr@chelsio.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 5/7] net: dsa: mv88e6xxx: rework pause limit
+ operation
+Date: Thu, 8 Jun 2017 21:40:54 +0200
+Message-ID: <20170608194054.GI20216@lunn.ch>
+References: <20170608190445.24443-1-vivien.didelot@savoirfairelinux.com>
+ <20170608190445.24443-6-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nirranjan@chelsio.com,
-        indranil@chelsio.com, venkatesh@chelsio.com,
-        rahul.lakkireddy@chelsio.com
-To: ganeshgr@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35546 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751523AbdFHTin (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 15:38:43 -0400
-In-Reply-To: <1496909601-29370-1-git-send-email-ganeshgr@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170608190445.24443-6-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Date: Thu,  8 Jun 2017 13:43:21 +0530
-
-> From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
+On Thu, Jun 08, 2017 at 03:04:43PM -0400, Vivien Didelot wrote:
+> All Marvell chips supporting Pause frames limiting use 1-byte value for
+> input and output.
 > 
-> Handle TIMER0INT when FW crashes. Check for PCIE_FW[FW_EVAL]
-> and if it says "Device FW Crashed", then treat it as fatal.
-> Else, non-fatal.
+> Old chips have both bytes adjacent in a 16-bit register. New ones have
+> an indirect table using 8-bit data.
 > 
-> Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-> Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
- ...
-> @@ -4075,10 +4076,26 @@ static void cim_intr_handler(struct adapter *adapter)
->  	};
->  
->  	int fat;
-> +	u32 val, fw_err;
+> The mv88e6xxx library functions (such as in port.c) must not contain
+> driver logic, but only generic helpers. This patch changes the
+> port_pause_config operation for port_pause_limit taking two u8 arguments
+> for input and output limits. There is no functional changes.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Please respect the reverse christmas tree variable ordering.
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-Thank you.
+    Andrew
