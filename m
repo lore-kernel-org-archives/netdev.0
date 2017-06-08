@@ -1,7 +1,7 @@
 From: <netanel@amazon.com>
-Subject: [PATCH net-next 8/8] net: ena: bug fix in lost tx packets detection mechanism
-Date: Fri, 9 Jun 2017 00:46:36 +0300
-Message-ID: <1496958410-4220-10-git-send-email-netanel@amazon.com>
+Subject: [PATCH net-next 03/13] net: ena: change sizeof() argument to be the type pointer
+Date: Fri, 9 Jun 2017 00:46:40 +0300
+Message-ID: <1496958410-4220-14-git-send-email-netanel@amazon.com>
 References: <1496958410-4220-1-git-send-email-netanel@amazon.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,168 +11,94 @@ Cc: Netanel Belgazal <netanel@amazon.com>, <dwmw@amazon.com>,
         <evgenys@amazon.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-fw-6002.amazon.com ([52.95.49.90]:46410 "EHLO
-        smtp-fw-6002.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751865AbdFHVsW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 17:48:22 -0400
+Received: from smtp-fw-2101.amazon.com ([72.21.196.25]:58006 "EHLO
+        smtp-fw-2101.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751865AbdFHVsa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 17:48:30 -0400
 In-Reply-To: <1496958410-4220-1-git-send-email-netanel@amazon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Netanel Belgazal <netanel@amazon.com>
 
-check_for_missing_tx_completions() is called from a timer
-task and looking for lost tx packets.
-The old implementation accumulate all the lost tx packets
-and did not check if those packets were retrieved on a later stage.
-This cause to a situation where the driver reset
-the device for no reason.
+Instead of using:
+memset(ptr, 0x0, sizeof(struct ...))
+use:
+memset(ptr, 0x0, sizeor(*ptr))
 
 Signed-off-by: Netanel Belgazal <netanel@amazon.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_ethtool.c |  1 -
- drivers/net/ethernet/amazon/ena/ena_netdev.c  | 66 +++++++++++++++------------
- drivers/net/ethernet/amazon/ena/ena_netdev.h  | 14 +++++-
- 3 files changed, 50 insertions(+), 31 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_com.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_ethtool.c b/drivers/net/ethernet/amazon/ena/ena_ethtool.c
-index 533b2fb..3ee55e2 100644
---- a/drivers/net/ethernet/amazon/ena/ena_ethtool.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_ethtool.c
-@@ -80,7 +80,6 @@ static const struct ena_stats ena_stats_tx_strings[] = {
- 	ENA_STAT_TX_ENTRY(tx_poll),
- 	ENA_STAT_TX_ENTRY(doorbells),
- 	ENA_STAT_TX_ENTRY(prepare_ctx_err),
--	ENA_STAT_TX_ENTRY(missing_tx_comp),
- 	ENA_STAT_TX_ENTRY(bad_req_id),
- };
+diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
+index 65d53d5..2721c70 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_com.c
++++ b/drivers/net/ethernet/amazon/ena/ena_com.c
+@@ -329,7 +329,7 @@ static int ena_com_init_io_sq(struct ena_com_dev *ena_dev,
+ 	size_t size;
+ 	int dev_node = 0;
  
-diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-index 3c366bf..4f16ed3 100644
---- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-@@ -1995,6 +1995,7 @@ static netdev_tx_t ena_start_xmit(struct sk_buff *skb, struct net_device *dev)
+-	memset(&io_sq->desc_addr, 0x0, sizeof(struct ena_com_io_desc_addr));
++	memset(&io_sq->desc_addr, 0x0, sizeof(io_sq->desc_addr));
  
- 	tx_info->tx_descs = nb_hw_desc;
- 	tx_info->last_jiffies = jiffies;
-+	tx_info->print_once = 0;
+ 	io_sq->desc_entry_size =
+ 		(io_sq->direction == ENA_COM_IO_QUEUE_DIRECTION_TX) ?
+@@ -383,7 +383,7 @@ static int ena_com_init_io_cq(struct ena_com_dev *ena_dev,
+ 	size_t size;
+ 	int prev_node = 0;
  
- 	tx_ring->next_to_use = ENA_TX_RING_IDX_NEXT(next_to_use,
- 		tx_ring->ring_size);
-@@ -2564,13 +2565,44 @@ static void ena_fw_reset_device(struct work_struct *work)
- 		"Reset attempt failed. Can not reset the device\n");
- }
+-	memset(&io_cq->cdesc_addr, 0x0, sizeof(struct ena_com_io_desc_addr));
++	memset(&io_cq->cdesc_addr, 0x0, sizeof(io_cq->cdesc_addr));
  
--static void check_for_missing_tx_completions(struct ena_adapter *adapter)
-+static int check_missing_comp_in_queue(struct ena_adapter *adapter,
-+				       struct ena_ring *tx_ring)
- {
- 	struct ena_tx_buffer *tx_buf;
- 	unsigned long last_jiffies;
-+	u32 missed_tx = 0;
-+	int i;
-+
-+	for (i = 0; i < tx_ring->ring_size; i++) {
-+		tx_buf = &tx_ring->tx_buffer_info[i];
-+		last_jiffies = tx_buf->last_jiffies;
-+		if (unlikely(last_jiffies &&
-+			     time_is_before_jiffies(last_jiffies + TX_TIMEOUT))) {
-+			if (!tx_buf->print_once)
-+				netif_notice(adapter, tx_err, adapter->netdev,
-+					     "Found a Tx that wasn't completed on time, qid %d, index %d.\n",
-+					     tx_ring->qid, i);
-+
-+			tx_buf->print_once = 1;
-+			missed_tx++;
-+
-+			if (unlikely(missed_tx > MAX_NUM_OF_TIMEOUTED_PACKETS)) {
-+				netif_err(adapter, tx_err, adapter->netdev,
-+					  "The number of lost tx completions is above the threshold (%d > %d). Reset the device\n",
-+					  missed_tx, MAX_NUM_OF_TIMEOUTED_PACKETS);
-+				set_bit(ENA_FLAG_TRIGGER_RESET, &adapter->flags);
-+				return -EIO;
-+			}
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static void check_for_missing_tx_completions(struct ena_adapter *adapter)
-+{
- 	struct ena_ring *tx_ring;
--	int i, j, budget;
--	u32 missed_tx;
-+	int i, budget, rc;
+ 	/* Use the basic completion descriptor for Rx */
+ 	io_cq->cdesc_entry_size_in_bytes =
+@@ -685,7 +685,7 @@ static int ena_com_destroy_io_sq(struct ena_com_dev *ena_dev,
+ 	u8 direction;
+ 	int ret;
  
- 	/* Make sure the driver doesn't turn the device in other process */
- 	smp_rmb();
-@@ -2586,31 +2618,9 @@ static void check_for_missing_tx_completions(struct ena_adapter *adapter)
- 	for (i = adapter->last_monitored_tx_qid; i < adapter->num_queues; i++) {
- 		tx_ring = &adapter->tx_ring[i];
+-	memset(&destroy_cmd, 0x0, sizeof(struct ena_admin_aq_destroy_sq_cmd));
++	memset(&destroy_cmd, 0x0, sizeof(destroy_cmd));
  
--		for (j = 0; j < tx_ring->ring_size; j++) {
--			tx_buf = &tx_ring->tx_buffer_info[j];
--			last_jiffies = tx_buf->last_jiffies;
--			if (unlikely(last_jiffies && time_is_before_jiffies(last_jiffies + TX_TIMEOUT))) {
--				netif_notice(adapter, tx_err, adapter->netdev,
--					     "Found a Tx that wasn't completed on time, qid %d, index %d.\n",
--					     tx_ring->qid, j);
--
--				u64_stats_update_begin(&tx_ring->syncp);
--				missed_tx = tx_ring->tx_stats.missing_tx_comp++;
--				u64_stats_update_end(&tx_ring->syncp);
--
--				/* Clear last jiffies so the lost buffer won't
--				 * be counted twice.
--				 */
--				tx_buf->last_jiffies = 0;
--
--				if (unlikely(missed_tx > MAX_NUM_OF_TIMEOUTED_PACKETS)) {
--					netif_err(adapter, tx_err, adapter->netdev,
--						  "The number of lost tx completion is above the threshold (%d > %d). Reset the device\n",
--						  missed_tx, MAX_NUM_OF_TIMEOUTED_PACKETS);
--					set_bit(ENA_FLAG_TRIGGER_RESET, &adapter->flags);
--				}
--			}
--		}
-+		rc = check_missing_comp_in_queue(adapter, tx_ring);
-+		if (unlikely(rc))
-+			return;
+ 	if (io_sq->direction == ENA_COM_IO_QUEUE_DIRECTION_TX)
+ 		direction = ENA_ADMIN_SQ_DIRECTION_TX;
+@@ -967,7 +967,7 @@ static int ena_com_create_io_sq(struct ena_com_dev *ena_dev,
+ 	u8 direction;
+ 	int ret;
  
- 		budget--;
- 		if (!budget)
-diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.h b/drivers/net/ethernet/amazon/ena/ena_netdev.h
-index 8828f1d..88b5e56 100644
---- a/drivers/net/ethernet/amazon/ena/ena_netdev.h
-+++ b/drivers/net/ethernet/amazon/ena/ena_netdev.h
-@@ -146,7 +146,18 @@ struct ena_tx_buffer {
- 	u32 tx_descs;
- 	/* num of buffers used by this skb */
- 	u32 num_of_bufs;
--	/* Save the last jiffies to detect missing tx packets */
-+
-+	/* Used for detect missing tx packets to limit the number of prints */
-+	u32 print_once;
-+	/* Save the last jiffies to detect missing tx packets
-+	 *
-+	 * sets to non zero value on ena_start_xmit and set to zero on
-+	 * napi and timer_Service_routine.
-+	 *
-+	 * while this value is not protected by lock,
-+	 * a given packet is not expected to be handled by ena_start_xmit
-+	 * and by napi/timer_service at the same time.
-+	 */
- 	unsigned long last_jiffies;
- 	struct ena_com_buf bufs[ENA_PKT_MAX_BUFS];
- } ____cacheline_aligned;
-@@ -170,7 +181,6 @@ struct ena_stats_tx {
- 	u64 napi_comp;
- 	u64 tx_poll;
- 	u64 doorbells;
--	u64 missing_tx_comp;
- 	u64 bad_req_id;
- };
+-	memset(&create_cmd, 0x0, sizeof(struct ena_admin_aq_create_sq_cmd));
++	memset(&create_cmd, 0x0, sizeof(create_cmd));
  
+ 	create_cmd.aq_common_descriptor.opcode = ENA_ADMIN_CREATE_SQ;
+ 
+@@ -1159,7 +1159,7 @@ int ena_com_create_io_cq(struct ena_com_dev *ena_dev,
+ 	struct ena_admin_acq_create_cq_resp_desc cmd_completion;
+ 	int ret;
+ 
+-	memset(&create_cmd, 0x0, sizeof(struct ena_admin_aq_create_cq_cmd));
++	memset(&create_cmd, 0x0, sizeof(create_cmd));
+ 
+ 	create_cmd.aq_common_descriptor.opcode = ENA_ADMIN_CREATE_CQ;
+ 
+@@ -1267,7 +1267,7 @@ int ena_com_destroy_io_cq(struct ena_com_dev *ena_dev,
+ 	struct ena_admin_acq_destroy_cq_resp_desc destroy_resp;
+ 	int ret;
+ 
+-	memset(&destroy_cmd, 0x0, sizeof(struct ena_admin_aq_destroy_sq_cmd));
++	memset(&destroy_cmd, 0x0, sizeof(destroy_cmd));
+ 
+ 	destroy_cmd.cq_idx = io_cq->idx;
+ 	destroy_cmd.aq_common_descriptor.opcode = ENA_ADMIN_DESTROY_CQ;
+@@ -1623,8 +1623,8 @@ int ena_com_create_io_queue(struct ena_com_dev *ena_dev,
+ 	io_sq = &ena_dev->io_sq_queues[ctx->qid];
+ 	io_cq = &ena_dev->io_cq_queues[ctx->qid];
+ 
+-	memset(io_sq, 0x0, sizeof(struct ena_com_io_sq));
+-	memset(io_cq, 0x0, sizeof(struct ena_com_io_cq));
++	memset(io_sq, 0x0, sizeof(*io_sq));
++	memset(io_cq, 0x0, sizeof(*io_cq));
+ 
+ 	/* Init CQ */
+ 	io_cq->q_depth = ctx->queue_size;
 -- 
 2.7.4
