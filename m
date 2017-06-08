@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 3/7] net: dsa: mv88e6xxx: use bridge state values
-Date: Thu,  8 Jun 2017 18:34:10 -0400
-Message-ID: <20170608223414.594-4-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 1/7] net: dsa: mv888e6xxx: do not use netdev printing
+Date: Thu,  8 Jun 2017 18:34:08 -0400
+Message-ID: <20170608223414.594-2-vivien.didelot@savoirfairelinux.com>
 References: <20170608223414.594-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,98 +14,221 @@ In-Reply-To: <20170608223414.594-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Reuse the BR_STATE_* values to abstract a port STP state value.
+The mv888e6xxx driver accesses a port's netdev mostly for printing.
 
-This provides shorter names and better control over the DSA switch
-operation call.
+This is bad for 2 reasons: DSA and CPU ports do not have a netdev
+pointer; it doesn't give us a correct picture of why a DSA driver might
+need to access a port's netdev.
+
+Instead simply use dev_* printing functions with chip->dev (or ds->dev
+depending on the scope, both guaranteed to exist), with a p%d prefix for
+the target port.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c | 23 ++---------------------
- drivers/net/dsa/mv88e6xxx/port.c | 20 ++++++++++++++++++++
- 2 files changed, 22 insertions(+), 21 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c | 31 +++++++++++++++----------------
+ drivers/net/dsa/mv88e6xxx/port.c | 39 ++++++++++++++++++---------------------
+ 2 files changed, 33 insertions(+), 37 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index b610429f7516..e25d48ecf880 100644
+index 0534eb706caa..bf7ad2e8b4d7 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -915,28 +915,10 @@ static void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port,
- 					 u8 state)
- {
- 	struct mv88e6xxx_chip *chip = ds->priv;
--	int stp_state;
- 	int err;
+@@ -489,8 +489,7 @@ static int mv88e6xxx_port_setup_mac(struct mv88e6xxx_chip *chip, int port,
+ 	err = 0;
+ restore_link:
+ 	if (chip->info->ops->port_set_link(chip, port, link))
+-		netdev_err(chip->ds->ports[port].netdev,
+-			   "failed to restore MAC's link\n");
++		dev_err(chip->dev, "p%d: failed to restore MAC's link\n", port);
  
--	switch (state) {
--	case BR_STATE_DISABLED:
--		stp_state = PORT_CONTROL_STATE_DISABLED;
--		break;
--	case BR_STATE_BLOCKING:
--	case BR_STATE_LISTENING:
--		stp_state = PORT_CONTROL_STATE_BLOCKING;
--		break;
--	case BR_STATE_LEARNING:
--		stp_state = PORT_CONTROL_STATE_LEARNING;
--		break;
--	case BR_STATE_FORWARDING:
--	default:
--		stp_state = PORT_CONTROL_STATE_FORWARDING;
--		break;
--	}
--
- 	mutex_lock(&chip->reg_lock);
--	err = mv88e6xxx_port_set_state(chip, port, stp_state);
-+	err = mv88e6xxx_port_set_state(chip, port, state);
+ 	return err;
+ }
+@@ -514,7 +513,7 @@ static void mv88e6xxx_adjust_link(struct dsa_switch *ds, int port,
+ 	mutex_unlock(&chip->reg_lock);
+ 
+ 	if (err && err != -EOPNOTSUPP)
+-		netdev_err(ds->ports[port].netdev, "failed to configure MAC\n");
++		dev_err(ds->dev, "p%d: failed to configure MAC\n", port);
+ }
+ 
+ static int mv88e6xxx_stats_snapshot(struct mv88e6xxx_chip *chip, int port)
+@@ -941,7 +940,7 @@ static void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port,
  	mutex_unlock(&chip->reg_lock);
  
  	if (err)
-@@ -1694,8 +1676,7 @@ static int mv88e6xxx_disable_ports(struct mv88e6xxx_chip *chip)
+-		netdev_err(ds->ports[port].netdev, "failed to update state\n");
++		dev_err(ds->dev, "p%d: failed to update state\n", port);
+ }
  
- 	/* Set all ports to the Disabled state */
- 	for (i = 0; i < mv88e6xxx_num_ports(chip); i++) {
--		err = mv88e6xxx_port_set_state(chip, i,
--					       PORT_CONTROL_STATE_DISABLED);
-+		err = mv88e6xxx_port_set_state(chip, i, BR_STATE_DISABLED);
- 		if (err)
- 			return err;
- 	}
+ static int mv88e6xxx_atu_setup(struct mv88e6xxx_chip *chip)
+@@ -1009,7 +1008,7 @@ static void mv88e6xxx_port_fast_age(struct dsa_switch *ds, int port)
+ 	mutex_unlock(&chip->reg_lock);
+ 
+ 	if (err)
+-		netdev_err(ds->ports[port].netdev, "failed to flush ATU\n");
++		dev_err(ds->dev, "p%d: failed to flush ATU\n", port);
+ }
+ 
+ static int mv88e6xxx_vtu_setup(struct mv88e6xxx_chip *chip)
+@@ -1214,10 +1213,9 @@ static int mv88e6xxx_port_check_hw_vlan(struct dsa_switch *ds, int port,
+ 			if (!ds->ports[i].bridge_dev)
+ 				continue;
+ 
+-			netdev_warn(ds->ports[port].netdev,
+-				    "hardware VLAN %d already used by %s\n",
+-				    vlan.vid,
+-				    netdev_name(ds->ports[i].bridge_dev));
++			dev_err(ds->dev, "p%d: hw VLAN %d already used by %s\n",
++				port, vlan.vid,
++				netdev_name(ds->ports[i].bridge_dev));
+ 			err = -EOPNOTSUPP;
+ 			goto unlock;
+ 		}
+@@ -1311,13 +1309,12 @@ static void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
+ 
+ 	for (vid = vlan->vid_begin; vid <= vlan->vid_end; ++vid)
+ 		if (_mv88e6xxx_port_vlan_add(chip, port, vid, member))
+-			netdev_err(ds->ports[port].netdev,
+-				   "failed to add VLAN %d%c\n",
+-				   vid, untagged ? 'u' : 't');
++			dev_err(ds->dev, "p%d: failed to add VLAN %d%c\n", port,
++				vid, untagged ? 'u' : 't');
+ 
+ 	if (pvid && mv88e6xxx_port_set_pvid(chip, port, vlan->vid_end))
+-		netdev_err(ds->ports[port].netdev, "failed to set PVID %d\n",
+-			   vlan->vid_end);
++		dev_err(ds->dev, "p%d: failed to set PVID %d\n", port,
++			vlan->vid_end);
+ 
+ 	mutex_unlock(&chip->reg_lock);
+ }
+@@ -1451,7 +1448,8 @@ static void mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
+ 	mutex_lock(&chip->reg_lock);
+ 	if (mv88e6xxx_port_db_load_purge(chip, port, fdb->addr, fdb->vid,
+ 					 GLOBAL_ATU_DATA_STATE_UC_STATIC))
+-		netdev_err(ds->ports[port].netdev, "failed to load unicast MAC address\n");
++		dev_err(ds->dev, "p%d: failed to load unicast MAC address\n",
++			port);
+ 	mutex_unlock(&chip->reg_lock);
+ }
+ 
+@@ -3793,7 +3791,8 @@ static void mv88e6xxx_port_mdb_add(struct dsa_switch *ds, int port,
+ 	mutex_lock(&chip->reg_lock);
+ 	if (mv88e6xxx_port_db_load_purge(chip, port, mdb->addr, mdb->vid,
+ 					 GLOBAL_ATU_DATA_STATE_MC_STATIC))
+-		netdev_err(ds->ports[port].netdev, "failed to load multicast MAC address\n");
++		dev_err(ds->dev, "p%d: failed to load multicast MAC address\n",
++			port);
+ 	mutex_unlock(&chip->reg_lock);
+ }
+ 
 diff --git a/drivers/net/dsa/mv88e6xxx/port.c b/drivers/net/dsa/mv88e6xxx/port.c
-index 09e17131a6bd..46e73ca0ac4d 100644
+index 3719ece60c61..fc09b26f9b49 100644
 --- a/drivers/net/dsa/mv88e6xxx/port.c
 +++ b/drivers/net/dsa/mv88e6xxx/port.c
-@@ -12,6 +12,7 @@
-  * (at your option) any later version.
-  */
- 
-+#include <linux/if_bridge.h>
- #include <linux/phy.h>
- 
- #include "chip.h"
-@@ -412,6 +413,25 @@ int mv88e6xxx_port_set_state(struct mv88e6xxx_chip *chip, int port, u8 state)
+@@ -76,9 +76,9 @@ static int mv88e6xxx_port_set_rgmii_delay(struct mv88e6xxx_chip *chip, int port,
+ 	if (err)
  		return err;
  
- 	reg &= ~PORT_CONTROL_STATE_MASK;
-+
-+	switch (state) {
-+	case BR_STATE_DISABLED:
-+		state = PORT_CONTROL_STATE_DISABLED;
-+		break;
-+	case BR_STATE_BLOCKING:
-+	case BR_STATE_LISTENING:
-+		state = PORT_CONTROL_STATE_BLOCKING;
-+		break;
-+	case BR_STATE_LEARNING:
-+		state = PORT_CONTROL_STATE_LEARNING;
-+		break;
-+	case BR_STATE_FORWARDING:
-+		state = PORT_CONTROL_STATE_FORWARDING;
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+
- 	reg |= state;
+-	netdev_dbg(chip->ds->ports[port].netdev, "delay RXCLK %s, TXCLK %s\n",
+-		   reg & PORT_PCS_CTRL_RGMII_DELAY_RXCLK ? "yes" : "no",
+-		   reg & PORT_PCS_CTRL_RGMII_DELAY_TXCLK ? "yes" : "no");
++	dev_dbg(chip->dev, "p%d: delay RXCLK %s, TXCLK %s\n", port,
++		reg & PORT_PCS_CTRL_RGMII_DELAY_RXCLK ? "yes" : "no",
++		reg & PORT_PCS_CTRL_RGMII_DELAY_TXCLK ? "yes" : "no");
  
- 	err = mv88e6xxx_port_write(chip, port, PORT_CONTROL, reg);
+ 	return 0;
+ }
+@@ -130,9 +130,9 @@ int mv88e6xxx_port_set_link(struct mv88e6xxx_chip *chip, int port, int link)
+ 	if (err)
+ 		return err;
+ 
+-	netdev_dbg(chip->ds->ports[port].netdev, "%s link %s\n",
+-		   reg & PORT_PCS_CTRL_FORCE_LINK ? "Force" : "Unforce",
+-		   reg & PORT_PCS_CTRL_LINK_UP ? "up" : "down");
++	dev_dbg(chip->dev, "p%d: %s link %s\n", port,
++		reg & PORT_PCS_CTRL_FORCE_LINK ? "Force" : "Unforce",
++		reg & PORT_PCS_CTRL_LINK_UP ? "up" : "down");
+ 
+ 	return 0;
+ }
+@@ -166,9 +166,9 @@ int mv88e6xxx_port_set_duplex(struct mv88e6xxx_chip *chip, int port, int dup)
+ 	if (err)
+ 		return err;
+ 
+-	netdev_dbg(chip->ds->ports[port].netdev, "%s %s duplex\n",
+-		   reg & PORT_PCS_CTRL_FORCE_DUPLEX ? "Force" : "Unforce",
+-		   reg & PORT_PCS_CTRL_DUPLEX_FULL ? "full" : "half");
++	dev_dbg(chip->dev, "p%d: %s %s duplex\n", port,
++		reg & PORT_PCS_CTRL_FORCE_DUPLEX ? "Force" : "Unforce",
++		reg & PORT_PCS_CTRL_DUPLEX_FULL ? "full" : "half");
+ 
+ 	return 0;
+ }
+@@ -226,10 +226,9 @@ static int mv88e6xxx_port_set_speed(struct mv88e6xxx_chip *chip, int port,
+ 		return err;
+ 
+ 	if (speed)
+-		netdev_dbg(chip->ds->ports[port].netdev,
+-			   "Speed set to %d Mbps\n", speed);
++		dev_dbg(chip->dev, "p%d: Speed set to %d Mbps\n", port, speed);
+ 	else
+-		netdev_dbg(chip->ds->ports[port].netdev, "Speed unforced\n");
++		dev_dbg(chip->dev, "p%d: Speed unforced\n", port);
+ 
+ 	return 0;
+ }
+@@ -419,8 +418,8 @@ int mv88e6xxx_port_set_state(struct mv88e6xxx_chip *chip, int port, u8 state)
+ 	if (err)
+ 		return err;
+ 
+-	netdev_dbg(chip->ds->ports[port].netdev, "PortState set to %s\n",
+-		   mv88e6xxx_port_state_names[state]);
++	dev_dbg(chip->dev, "p%d: PortState set to %s\n", port,
++		mv88e6xxx_port_state_names[state]);
+ 
+ 	return 0;
+ }
+@@ -580,8 +579,7 @@ int mv88e6xxx_port_set_vlan_map(struct mv88e6xxx_chip *chip, int port, u16 map)
+ 	if (err)
+ 		return err;
+ 
+-	netdev_dbg(chip->ds->ports[port].netdev, "VLANTable set to %.3x\n",
+-		   map);
++	dev_dbg(chip->dev, "p%d: VLANTable set to %.3x\n", port, map);
+ 
+ 	return 0;
+ }
+@@ -646,7 +644,7 @@ int mv88e6xxx_port_set_fid(struct mv88e6xxx_chip *chip, int port, u16 fid)
+ 			return err;
+ 	}
+ 
+-	netdev_dbg(chip->ds->ports[port].netdev, "FID set to %u\n", fid);
++	dev_dbg(chip->dev, "p%d: FID set to %u\n", port, fid);
+ 
+ 	return 0;
+ }
+@@ -683,8 +681,7 @@ int mv88e6xxx_port_set_pvid(struct mv88e6xxx_chip *chip, int port, u16 pvid)
+ 	if (err)
+ 		return err;
+ 
+-	netdev_dbg(chip->ds->ports[port].netdev, "DefaultVID set to %u\n",
+-		   pvid);
++	dev_dbg(chip->dev, "p%d: DefaultVID set to %u\n", port, pvid);
+ 
+ 	return 0;
+ }
+@@ -761,8 +758,8 @@ int mv88e6xxx_port_set_8021q_mode(struct mv88e6xxx_chip *chip, int port,
+ 	if (err)
+ 		return err;
+ 
+-	netdev_dbg(chip->ds->ports[port].netdev, "802.1QMode set to %s\n",
+-		   mv88e6xxx_port_8021q_mode_names[mode]);
++	dev_dbg(chip->dev, "p%d: 802.1QMode set to %s\n", port,
++		mv88e6xxx_port_8021q_mode_names[mode]);
+ 
+ 	return 0;
+ }
 -- 
 2.13.1
