@@ -1,7 +1,7 @@
 From: <netanel@amazon.com>
-Subject: [PATCH net-next 03/13] net: ena: change sizeof() argument to be the type pointer
-Date: Fri, 9 Jun 2017 00:46:40 +0300
-Message-ID: <1496958410-4220-14-git-send-email-netanel@amazon.com>
+Subject: [PATCH net-next 7/8] net: ena: disable admin msix while working in polling mode
+Date: Fri, 9 Jun 2017 00:46:35 +0300
+Message-ID: <1496958410-4220-9-git-send-email-netanel@amazon.com>
 References: <1496958410-4220-1-git-send-email-netanel@amazon.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,94 +11,46 @@ Cc: Netanel Belgazal <netanel@amazon.com>, <dwmw@amazon.com>,
         <evgenys@amazon.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-fw-2101.amazon.com ([72.21.196.25]:58006 "EHLO
-        smtp-fw-2101.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751865AbdFHVsa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 17:48:30 -0400
+Received: from smtp-fw-33001.amazon.com ([207.171.190.10]:15542 "EHLO
+        smtp-fw-33001.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751865AbdFHVsc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 17:48:32 -0400
 In-Reply-To: <1496958410-4220-1-git-send-email-netanel@amazon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Netanel Belgazal <netanel@amazon.com>
 
-Instead of using:
-memset(ptr, 0x0, sizeof(struct ...))
-use:
-memset(ptr, 0x0, sizeor(*ptr))
-
 Signed-off-by: Netanel Belgazal <netanel@amazon.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_com.c | 16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_com.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
 diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
-index 65d53d5..2721c70 100644
+index ea60b9e..f5b237e 100644
 --- a/drivers/net/ethernet/amazon/ena/ena_com.c
 +++ b/drivers/net/ethernet/amazon/ena/ena_com.c
-@@ -329,7 +329,7 @@ static int ena_com_init_io_sq(struct ena_com_dev *ena_dev,
- 	size_t size;
- 	int dev_node = 0;
+@@ -61,6 +61,8 @@
  
--	memset(&io_sq->desc_addr, 0x0, sizeof(struct ena_com_io_desc_addr));
-+	memset(&io_sq->desc_addr, 0x0, sizeof(io_sq->desc_addr));
+ #define ENA_MMIO_READ_TIMEOUT 0xFFFFFFFF
  
- 	io_sq->desc_entry_size =
- 		(io_sq->direction == ENA_COM_IO_QUEUE_DIRECTION_TX) ?
-@@ -383,7 +383,7 @@ static int ena_com_init_io_cq(struct ena_com_dev *ena_dev,
- 	size_t size;
- 	int prev_node = 0;
++#define ENA_REGS_ADMIN_INTR_MASK 1
++
+ /*****************************************************************************/
+ /*****************************************************************************/
+ /*****************************************************************************/
+@@ -1454,6 +1456,12 @@ void ena_com_admin_destroy(struct ena_com_dev *ena_dev)
  
--	memset(&io_cq->cdesc_addr, 0x0, sizeof(struct ena_com_io_desc_addr));
-+	memset(&io_cq->cdesc_addr, 0x0, sizeof(io_cq->cdesc_addr));
+ void ena_com_set_admin_polling_mode(struct ena_com_dev *ena_dev, bool polling)
+ {
++	u32 mask_value = 0;
++
++	if (polling)
++		mask_value = ENA_REGS_ADMIN_INTR_MASK;
++
++	writel(mask_value, ena_dev->reg_bar + ENA_REGS_INTR_MASK_OFF);
+ 	ena_dev->admin_queue.polling = polling;
+ }
  
- 	/* Use the basic completion descriptor for Rx */
- 	io_cq->cdesc_entry_size_in_bytes =
-@@ -685,7 +685,7 @@ static int ena_com_destroy_io_sq(struct ena_com_dev *ena_dev,
- 	u8 direction;
- 	int ret;
- 
--	memset(&destroy_cmd, 0x0, sizeof(struct ena_admin_aq_destroy_sq_cmd));
-+	memset(&destroy_cmd, 0x0, sizeof(destroy_cmd));
- 
- 	if (io_sq->direction == ENA_COM_IO_QUEUE_DIRECTION_TX)
- 		direction = ENA_ADMIN_SQ_DIRECTION_TX;
-@@ -967,7 +967,7 @@ static int ena_com_create_io_sq(struct ena_com_dev *ena_dev,
- 	u8 direction;
- 	int ret;
- 
--	memset(&create_cmd, 0x0, sizeof(struct ena_admin_aq_create_sq_cmd));
-+	memset(&create_cmd, 0x0, sizeof(create_cmd));
- 
- 	create_cmd.aq_common_descriptor.opcode = ENA_ADMIN_CREATE_SQ;
- 
-@@ -1159,7 +1159,7 @@ int ena_com_create_io_cq(struct ena_com_dev *ena_dev,
- 	struct ena_admin_acq_create_cq_resp_desc cmd_completion;
- 	int ret;
- 
--	memset(&create_cmd, 0x0, sizeof(struct ena_admin_aq_create_cq_cmd));
-+	memset(&create_cmd, 0x0, sizeof(create_cmd));
- 
- 	create_cmd.aq_common_descriptor.opcode = ENA_ADMIN_CREATE_CQ;
- 
-@@ -1267,7 +1267,7 @@ int ena_com_destroy_io_cq(struct ena_com_dev *ena_dev,
- 	struct ena_admin_acq_destroy_cq_resp_desc destroy_resp;
- 	int ret;
- 
--	memset(&destroy_cmd, 0x0, sizeof(struct ena_admin_aq_destroy_sq_cmd));
-+	memset(&destroy_cmd, 0x0, sizeof(destroy_cmd));
- 
- 	destroy_cmd.cq_idx = io_cq->idx;
- 	destroy_cmd.aq_common_descriptor.opcode = ENA_ADMIN_DESTROY_CQ;
-@@ -1623,8 +1623,8 @@ int ena_com_create_io_queue(struct ena_com_dev *ena_dev,
- 	io_sq = &ena_dev->io_sq_queues[ctx->qid];
- 	io_cq = &ena_dev->io_cq_queues[ctx->qid];
- 
--	memset(io_sq, 0x0, sizeof(struct ena_com_io_sq));
--	memset(io_cq, 0x0, sizeof(struct ena_com_io_cq));
-+	memset(io_sq, 0x0, sizeof(*io_sq));
-+	memset(io_cq, 0x0, sizeof(*io_cq));
- 
- 	/* Init CQ */
- 	io_cq->q_depth = ctx->queue_size;
 -- 
 2.7.4
