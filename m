@@ -1,48 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: ipv6: Release route when device is
- unregistering
-Date: Thu, 08 Jun 2017 11:13:06 -0400 (EDT)
-Message-ID: <20170608.111306.987099708536491352.davem@davemloft.net>
-References: <20170607182623.20734-1-dsahern@gmail.com>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: net/can: trying to register non-static key in can_rx_register
+Date: Thu, 8 Jun 2017 17:16:22 +0200
+Message-ID: <CAAeHK+ywJzK4Hd=O_+j+Dw7pb=s-MgwVLJywrLAQdkwfybdu1Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com
-To: dsahern@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58078 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751504AbdFHPNJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 11:13:09 -0400
-In-Reply-To: <20170607182623.20734-1-dsahern@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Oliver Hartkopp <socketcan@hartkopp.net>,
+        Marc Kleine-Budde <mkl@pengutronix.de>,
+        "David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ahern <dsahern@gmail.com>
-Date: Wed,  7 Jun 2017 12:26:23 -0600
+Hi,
 
-> Roopa reported attempts to delete a bond device that is referenced in a
-> multipath route is hanging:
-> 
-> $ ifdown bond2    # ifupdown2 command that deletes virtual devices
-> unregister_netdevice: waiting for bond2 to become free. Usage count = 2
-> 
-> Steps to reproduce:
->     echo 1 > /proc/sys/net/ipv6/conf/all/ignore_routes_with_linkdown
->     ip link add dev bond12 type bond
->     ip link add dev bond13 type bond
->     ip addr add 2001:db8:2::0/64 dev bond12
->     ip addr add 2001:db8:3::0/64 dev bond13
->     ip route add 2001:db8:33::0/64 nexthop via 2001:db8:2::2 nexthop via 2001:db8:3::2
->     ip link del dev bond12
->     ip link del dev bond13
-> 
-> The root cause is the recent change to keep routes on a linkdown. Update
-> the check to detect when the device is unregistering and release the
-> route for that case.
-> 
-> Fixes: a1a22c12060e4 ("net: ipv6: Keep nexthop of multipath route on admin down")
-> Reported-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Signed-off-by: David Ahern <dsahern@gmail.com>
+I've got the following error report while fuzzing the kernel with syzkaller.
 
-Applied and queued up for -stable, thanks David.
+On commit b29794ec95c6856b316c2295904208bf11ffddd9 (4.12-rc4+).
+
+INFO: trying to register non-static key.
+the code is fine but needs lockdep annotation.
+turning off the locking correctness validator.
+CPU: 2 PID: 17404 Comm: syz-executor1 Not tainted 4.12.0-rc4+ #15
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+Call Trace:
+ __dump_stack lib/dump_stack.c:16 [inline]
+ dump_stack+0x292/0x395 lib/dump_stack.c:52
+ register_lock_class+0x717/0x1aa0 kernel/locking/lockdep.c:755
+ __lock_acquire+0x269/0x3690 kernel/locking/lockdep.c:3255
+ ? 0xffffffffa0000000
+ lock_acquire+0x22d/0x560 kernel/locking/lockdep.c:3855
+ __raw_spin_lock include/linux/spinlock_api_smp.h:142 [inline]
+ _raw_spin_lock+0x2f/0x40 kernel/locking/spinlock.c:151
+ spin_lock include/linux/spinlock.h:299 [inline]
+ can_rx_register+0x4f3/0x700 net/can/af_can.c:483
+ raw_enable_filters+0xd7/0x1e0 net/can/raw.c:192
+ raw_enable_allfilters+0x8a/0x1e0 net/can/raw.c:258
+ raw_bind+0x244/0x830 net/can/raw.c:435
+ SYSC_bind+0x20e/0x4c0 net/socket.c:1422
+ SyS_bind+0x29/0x30 net/socket.c:1408
+ entry_SYSCALL_64_fastpath+0x1f/0xbe
+RIP: 0033:0x446389
+RSP: 002b:00007fa1efda2c08 EFLAGS: 00000292 ORIG_RAX: 0000000000000031
+RAX: ffffffffffffffda RBX: 0000000000000220 RCX: 0000000000446389
+RDX: 0000000000000060 RSI: 0000000020001fa0 RDI: 0000000000000017
+RBP: 00000000ffffffff R08: 0000000000000000 R09: 0000000000000000
+R10: 0000000000000000 R11: 0000000000000292 R12: 0000000000000017
+R13: 0000000000003770 R14: 00000000006e4830 R15: 0000000000c13000
