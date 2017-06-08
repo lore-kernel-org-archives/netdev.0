@@ -1,38 +1,29 @@
-From: =?utf-8?B?5Lil5rW35Y+M?= <yanhaishuang@cmss.chinamobile.com>
-Subject: Re: [PATCH 1/2] ip_tunnel: fix potential issue in ip_tunnel_rcv
-Date: Thu, 8 Jun 2017 08:10:07 +0800
-Message-ID: <E030598F-13EC-4816-965E-FC24D86DA5CF@cmss.chinamobile.com>
-References: <1496844976-15282-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
- <1496846893.736.41.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=us-ascii
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: build failure after merge of the net tree
+Date: Wed, 07 Jun 2017 20:17:57 -0400 (EDT)
+Message-ID: <20170607.201757.1253550817745426205.davem@davemloft.net>
+References: <20170608100858.4c1b18db@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+        linux-kernel@vger.kernel.org, hdegoede@redhat.com,
+        gregkh@linuxfoundation.org
+To: sfr@canb.auug.org.au
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1496846893.736.41.camel@edumazet-glaptop3.roam.corp.google.com>
+In-Reply-To: <20170608100858.4c1b18db@canb.auug.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Thu, 8 Jun 2017 10:08:58 +1000
 
-> On 7 Jun 2017, at 10:48 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> I applied the following merge fix patch for today.
 > 
-> On Wed, 2017-06-07 at 22:16 +0800, Haishuang Yan wrote:
->> When ip_tunnel_rcv fails, the tun_dst won't be freed, so move
->> skb_dst_set to begin and tun_dst would be freed by kfree_skb.
->> 
->> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
->> ---
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Thu, 8 Jun 2017 09:49:26 +1000
+> Subject: [PATCH] net: fix up for "Fix inconsistent teardown and release of private netdev state"
 > 
-> Please add the missing Fixes: tag and CC author of the patch that added
-> this bug, so that he has a chance to comment and avoid future similar
-> bugs.
-> 
-> Thanks.
-> 
-> 
-> 
+> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
 
-Ok, I will add these information in v2 commit.
-Thanks.
+Looks good to me, thanks Stephen.
