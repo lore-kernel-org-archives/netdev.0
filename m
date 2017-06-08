@@ -1,44 +1,406 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] net: mvpp2: fixes and cleanups
-Date: Thu, 08 Jun 2017 16:11:09 -0400 (EDT)
-Message-ID: <20170608.161109.392184322028755789.davem@davemloft.net>
-References: <1496935647-29670-1-git-send-email-thomas.petazzoni@free-electrons.com>
+From: Krister Johansen <kjlx@templeofstupid.com>
+Subject: [PATCH v2 net-next] Ipvlan should return an error when an address is
+ already in use.
+Date: Thu, 8 Jun 2017 13:12:14 -0700
+Message-ID: <20170608201214.GB2553@templeofstupid.com>
+References: <20170101.222632.843875843588487678.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mw@semihalf.com, stefanc@marvell.com,
-        nadavh@marvell.com, hannah@marvell.com, yehuday@marvell.com,
-        antoine.tenart@free-electrons.com,
-        gregory.clement@free-electrons.com, elfring@users.sourceforge.net,
-        marc.zyngier@arm.com
-To: thomas.petazzoni@free-electrons.com
+Content-Type: text/plain; charset=us-ascii
+Cc: maheshb@google.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36248 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751683AbdFHULM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 16:11:12 -0400
-In-Reply-To: <1496935647-29670-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Received: from sub5.mail.dreamhost.com ([208.113.200.129]:59390 "EHLO
+        homiemail-a57.g.dreamhost.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751706AbdFHUMT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 16:12:19 -0400
+Received: from homiemail-a57.g.dreamhost.com (localhost [127.0.0.1])
+        by homiemail-a57.g.dreamhost.com (Postfix) with ESMTP id 3D6536004706
+        for <netdev@vger.kernel.org>; Thu,  8 Jun 2017 13:12:16 -0700 (PDT)
+Received: from kmjvbox (c-174-62-91-145.hsd1.ca.comcast.net [174.62.91.145])
+        (using TLSv1 with cipher ECDHE-RSA-AES256-SHA (256/256 bits))
+        (No client certificate requested)
+        (Authenticated sender: kjlx@templeofstupid.com)
+        by homiemail-a57.g.dreamhost.com (Postfix) with ESMTPSA id A942E6004529
+        for <netdev@vger.kernel.org>; Thu,  8 Jun 2017 13:12:15 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170101.222632.843875843588487678.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Date: Thu,  8 Jun 2017 17:27:22 +0200
+The ipvlan code already knows how to detect when a duplicate address is
+about to be assigned to an ipvlan device.  However, that failure is not
+propogated outward and leads to a silent failure.
 
-> Here is a small set of fixes/improvements for the mvpp2 driver.
-> 
-> The first two patches are fixes: they fix bogus usage of
-> smp_processor_id() in a migration-enabled context. Indeed currently
-> the driver outputs some fat warnings in CONFIG_DEBUG_PREEMPT-enabled
-> kernels. Therefore, some fixes should be pushed to stable.
-> 
-> The last three patches are cleanups and not needed for stable, but
-> they stack on top of the fixes.
+Introduce a validation step at ip address creation time and allow device
+drivers to register to validate the incoming ip addresses.  The ipvlan
+code is the first consumer.  If it detects an address in use, we can
+return an error to the user before beginning to commit the new ifa in
+the networking code.
 
-Please do not mix genuine bug fixes and cleanups.
+This can be especially useful if it is necessary to provision many
+ipvlans in containers.  The provisioning software (or operator) can use
+this to detect situations where an ip address is unexpectedly in use.
 
-You must submit them separately.
+Signed-off-by: Krister Johansen <kjlx@templeofstupid.com>
+---
+ drivers/net/ipvlan/ipvlan_main.c | 69 ++++++++++++++++++++++++++++++++++++++++
+ include/linux/inetdevice.h       |  7 ++++
+ include/net/addrconf.h           | 10 +++++-
+ net/ipv4/devinet.c               | 33 +++++++++++++++++++
+ net/ipv6/addrconf.c              | 17 +++++++++-
+ net/ipv6/addrconf_core.c         | 19 +++++++++++
+ 6 files changed, 153 insertions(+), 2 deletions(-)
 
-Send the fixes targetting 'net', and once those are accepted and
-'net' is merged into 'net-next', you can submit the cleanups.
+Apologies for letting this one languish for so long.  This iteration is
+more code than I hoped it would be, but I believe it addresses the
+concerns raised in the prior iteration of the review.
 
-Thank you.
+Changes v1 -> v2:
+
+- Add a separate validator chain with ipvlan as the first consumer.
+  [Address Dave M.'s comment about needing all chain users to agree
+  about use of notifier_[to|from]_errno]
+
+- Run validator chain only during address creation.
+  [Address Dave M.'s comment about prior version failing to handle
+  primary address promotions.]
+
+- Run validator step before the atomic section in the ip address create
+  path.
+  [Address my own dissatisfaction with having to rollback and
+  potentially issue an immediate up and then down RTNETLINK event.]
+
+diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+index 618ed88..e4141d6 100644
+--- a/drivers/net/ipvlan/ipvlan_main.c
++++ b/drivers/net/ipvlan/ipvlan_main.c
+@@ -824,6 +824,33 @@ static int ipvlan_addr6_event(struct notifier_block *unused,
+ 	return NOTIFY_OK;
+ }
+ 
++static int ipvlan_addr6_validator_event(struct notifier_block *unused,
++					unsigned long event, void *ptr)
++{
++	struct in6_validator_info *i6vi = (struct in6_validator_info *)ptr;
++	struct net_device *dev = (struct net_device *)i6vi->i6vi_dev->dev;
++	struct ipvl_dev *ipvlan = netdev_priv(dev);
++
++	/* FIXME IPv6 autoconf calls us from bh without RTNL */
++	if (in_softirq())
++		return NOTIFY_DONE;
++
++	if (!netif_is_ipvlan(dev))
++		return NOTIFY_DONE;
++
++	if (!ipvlan || !ipvlan->port)
++		return NOTIFY_DONE;
++
++	switch (event) {
++	case NETDEV_UP:
++		if (ipvlan_addr_busy(ipvlan->port, &i6vi->i6vi_addr, true))
++			return notifier_from_errno(-EADDRINUSE);
++		break;
++	}
++
++	return NOTIFY_OK;
++}
++
+ static int ipvlan_add_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
+ {
+ 	if (ipvlan_addr_busy(ipvlan->port, ip4_addr, false)) {
+@@ -871,10 +898,37 @@ static int ipvlan_addr4_event(struct notifier_block *unused,
+ 	return NOTIFY_OK;
+ }
+ 
++static int ipvlan_addr4_validator_event(struct notifier_block *unused,
++					unsigned long event, void *ptr)
++{
++	struct in_validator_info *ivi = (struct in_validator_info *)ptr;
++	struct net_device *dev = (struct net_device *)ivi->ivi_dev->dev;
++	struct ipvl_dev *ipvlan = netdev_priv(dev);
++
++	if (!netif_is_ipvlan(dev))
++		return NOTIFY_DONE;
++
++	if (!ipvlan || !ipvlan->port)
++		return NOTIFY_DONE;
++
++	switch (event) {
++	case NETDEV_UP:
++		if (ipvlan_addr_busy(ipvlan->port, &ivi->ivi_addr, false))
++			return notifier_from_errno(-EADDRINUSE);
++		break;
++	}
++
++	return NOTIFY_OK;
++}
++
+ static struct notifier_block ipvlan_addr4_notifier_block __read_mostly = {
+ 	.notifier_call = ipvlan_addr4_event,
+ };
+ 
++static struct notifier_block ipvlan_addr4_vtor_notifier_block __read_mostly = {
++	.notifier_call = ipvlan_addr4_validator_event,
++};
++
+ static struct notifier_block ipvlan_notifier_block __read_mostly = {
+ 	.notifier_call = ipvlan_device_event,
+ };
+@@ -883,6 +937,10 @@ static struct notifier_block ipvlan_addr6_notifier_block __read_mostly = {
+ 	.notifier_call = ipvlan_addr6_event,
+ };
+ 
++static struct notifier_block ipvlan_addr6_vtor_notifier_block __read_mostly = {
++	.notifier_call = ipvlan_addr6_validator_event,
++};
++
+ static void ipvlan_ns_exit(struct net *net)
+ {
+ 	struct ipvlan_netns *vnet = net_generic(net, ipvlan_netid);
+@@ -907,7 +965,10 @@ static int __init ipvlan_init_module(void)
+ 	ipvlan_init_secret();
+ 	register_netdevice_notifier(&ipvlan_notifier_block);
+ 	register_inet6addr_notifier(&ipvlan_addr6_notifier_block);
++	register_inet6addr_validator_notifier(
++	    &ipvlan_addr6_vtor_notifier_block);
+ 	register_inetaddr_notifier(&ipvlan_addr4_notifier_block);
++	register_inetaddr_validator_notifier(&ipvlan_addr4_vtor_notifier_block);
+ 
+ 	err = register_pernet_subsys(&ipvlan_net_ops);
+ 	if (err < 0)
+@@ -922,7 +983,11 @@ static int __init ipvlan_init_module(void)
+ 	return 0;
+ error:
+ 	unregister_inetaddr_notifier(&ipvlan_addr4_notifier_block);
++	unregister_inetaddr_validator_notifier(
++	    &ipvlan_addr4_vtor_notifier_block);
+ 	unregister_inet6addr_notifier(&ipvlan_addr6_notifier_block);
++	unregister_inet6addr_validator_notifier(
++	    &ipvlan_addr6_vtor_notifier_block);
+ 	unregister_netdevice_notifier(&ipvlan_notifier_block);
+ 	return err;
+ }
+@@ -933,7 +998,11 @@ static void __exit ipvlan_cleanup_module(void)
+ 	unregister_pernet_subsys(&ipvlan_net_ops);
+ 	unregister_netdevice_notifier(&ipvlan_notifier_block);
+ 	unregister_inetaddr_notifier(&ipvlan_addr4_notifier_block);
++	unregister_inetaddr_validator_notifier(
++	    &ipvlan_addr4_vtor_notifier_block);
+ 	unregister_inet6addr_notifier(&ipvlan_addr6_notifier_block);
++	unregister_inet6addr_validator_notifier(
++	    &ipvlan_addr6_vtor_notifier_block);
+ }
+ 
+ module_init(ipvlan_init_module);
+diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+index a2e9d6e..e7c04c4 100644
+--- a/include/linux/inetdevice.h
++++ b/include/linux/inetdevice.h
+@@ -150,8 +150,15 @@ struct in_ifaddr {
+ 	unsigned long		ifa_tstamp; /* updated timestamp */
+ };
+ 
++struct in_validator_info {
++	__be32			ivi_addr;
++	struct in_device	*ivi_dev;
++};
++
+ int register_inetaddr_notifier(struct notifier_block *nb);
+ int unregister_inetaddr_notifier(struct notifier_block *nb);
++int register_inetaddr_validator_notifier(struct notifier_block *nb);
++int unregister_inetaddr_validator_notifier(struct notifier_block *nb);
+ 
+ void inet_netconf_notify_devconf(struct net *net, int event, int type,
+ 				 int ifindex, struct ipv4_devconf *devconf);
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+index b43a4ee..d0889cb 100644
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -48,11 +48,15 @@ struct prefix_info {
+ 	struct in6_addr		prefix;
+ };
+ 
+-
+ #include <linux/netdevice.h>
+ #include <net/if_inet6.h>
+ #include <net/ipv6.h>
+ 
++struct in6_validator_info {
++	struct in6_addr		i6vi_addr;
++	struct inet6_dev	*i6vi_dev;
++};
++
+ #define IN6_ADDR_HSIZE_SHIFT	4
+ #define IN6_ADDR_HSIZE		(1 << IN6_ADDR_HSIZE_SHIFT)
+ 
+@@ -278,6 +282,10 @@ int register_inet6addr_notifier(struct notifier_block *nb);
+ int unregister_inet6addr_notifier(struct notifier_block *nb);
+ int inet6addr_notifier_call_chain(unsigned long val, void *v);
+ 
++int register_inet6addr_validator_notifier(struct notifier_block *nb);
++int unregister_inet6addr_validator_notifier(struct notifier_block *nb);
++int inet6addr_validator_notifier_call_chain(unsigned long val, void *v);
++
+ void inet6_netconf_notify_devconf(struct net *net, int event, int type,
+ 				  int ifindex, struct ipv6_devconf *devconf);
+ 
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index df14815..a7dd088 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -176,6 +176,7 @@ EXPORT_SYMBOL(__ip_dev_find);
+ static void rtmsg_ifa(int event, struct in_ifaddr *, struct nlmsghdr *, u32);
+ 
+ static BLOCKING_NOTIFIER_HEAD(inetaddr_chain);
++static BLOCKING_NOTIFIER_HEAD(inetaddr_validator_chain);
+ static void inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
+ 			 int destroy);
+ #ifdef CONFIG_SYSCTL
+@@ -441,6 +442,8 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
+ {
+ 	struct in_device *in_dev = ifa->ifa_dev;
+ 	struct in_ifaddr *ifa1, **ifap, **last_primary;
++	struct in_validator_info ivi;
++	int ret;
+ 
+ 	ASSERT_RTNL();
+ 
+@@ -471,6 +474,23 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
+ 		}
+ 	}
+ 
++	/* Allow any devices that wish to register ifaddr validtors to weigh
++	 * in now, before changes are committed.  The rntl lock is serializing
++	 * access here, so the state should not change between a validator call
++	 * and a final notify on commit.  This isn't invoked on promotion under
++	 * the assumption that validators are checking the address itself, and
++	 * not the flags.
++	 */
++	ivi.ivi_addr = ifa->ifa_address;
++	ivi.ivi_dev = ifa->ifa_dev;
++	ret = blocking_notifier_call_chain(&inetaddr_validator_chain,
++					   NETDEV_UP, &ivi);
++	ret = notifier_to_errno(ret);
++	if (ret) {
++		inet_free_ifa(ifa);
++		return ret;
++	}
++
+ 	if (!(ifa->ifa_flags & IFA_F_SECONDARY)) {
+ 		prandom_seed((__force u32) ifa->ifa_local);
+ 		ifap = last_primary;
+@@ -1356,6 +1376,19 @@ int unregister_inetaddr_notifier(struct notifier_block *nb)
+ }
+ EXPORT_SYMBOL(unregister_inetaddr_notifier);
+ 
++int register_inetaddr_validator_notifier(struct notifier_block *nb)
++{
++	return blocking_notifier_chain_register(&inetaddr_validator_chain, nb);
++}
++EXPORT_SYMBOL(register_inetaddr_validator_notifier);
++
++int unregister_inetaddr_validator_notifier(struct notifier_block *nb)
++{
++	return blocking_notifier_chain_unregister(&inetaddr_validator_chain,
++	    nb);
++}
++EXPORT_SYMBOL(unregister_inetaddr_validator_notifier);
++
+ /* Rename ifa_labels for a device name change. Make some effort to preserve
+  * existing alias numbering and to create unique labels if possible.
+ */
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 25443fd..0aa36b0 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -963,6 +963,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+ 	struct net *net = dev_net(idev->dev);
+ 	struct inet6_ifaddr *ifa = NULL;
+ 	struct rt6_info *rt;
++	struct in6_validator_info i6vi;
+ 	unsigned int hash;
+ 	int err = 0;
+ 	int addr_type = ipv6_addr_type(addr);
+@@ -974,6 +975,9 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+ 		return ERR_PTR(-EADDRNOTAVAIL);
+ 
+ 	rcu_read_lock_bh();
++
++	in6_dev_hold(idev);
++
+ 	if (idev->dead) {
+ 		err = -ENODEV;			/*XXX*/
+ 		goto out2;
+@@ -984,6 +988,17 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+ 		goto out2;
+ 	}
+ 
++	i6vi.i6vi_addr = *addr;
++	i6vi.i6vi_dev = idev;
++	rcu_read_unlock_bh();
++
++	err = inet6addr_validator_notifier_call_chain(NETDEV_UP, &i6vi);
++
++	rcu_read_lock_bh();
++	err = notifier_to_errno(err);
++	if (err)
++		goto out2;
++
+ 	spin_lock(&addrconf_hash_lock);
+ 
+ 	/* Ignore adding duplicate addresses on an interface */
+@@ -1034,7 +1049,6 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+ 	ifa->rt = rt;
+ 
+ 	ifa->idev = idev;
+-	in6_dev_hold(idev);
+ 	/* For caller */
+ 	in6_ifa_hold(ifa);
+ 
+@@ -1062,6 +1076,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+ 		inet6addr_notifier_call_chain(NETDEV_UP, ifa);
+ 	else {
+ 		kfree(ifa);
++		in6_dev_put(idev);
+ 		ifa = ERR_PTR(err);
+ 	}
+ 
+diff --git a/net/ipv6/addrconf_core.c b/net/ipv6/addrconf_core.c
+index bfa941f..9e3488d 100644
+--- a/net/ipv6/addrconf_core.c
++++ b/net/ipv6/addrconf_core.c
+@@ -88,6 +88,7 @@ int __ipv6_addr_type(const struct in6_addr *addr)
+ EXPORT_SYMBOL(__ipv6_addr_type);
+ 
+ static ATOMIC_NOTIFIER_HEAD(inet6addr_chain);
++static ATOMIC_NOTIFIER_HEAD(inet6addr_validator_chain);
+ 
+ int register_inet6addr_notifier(struct notifier_block *nb)
+ {
+@@ -107,6 +108,24 @@ int inet6addr_notifier_call_chain(unsigned long val, void *v)
+ }
+ EXPORT_SYMBOL(inet6addr_notifier_call_chain);
+ 
++int register_inet6addr_validator_notifier(struct notifier_block *nb)
++{
++	return atomic_notifier_chain_register(&inet6addr_validator_chain, nb);
++}
++EXPORT_SYMBOL(register_inet6addr_validator_notifier);
++
++int unregister_inet6addr_validator_notifier(struct notifier_block *nb)
++{
++	return atomic_notifier_chain_unregister(&inet6addr_validator_chain, nb);
++}
++EXPORT_SYMBOL(unregister_inet6addr_validator_notifier);
++
++int inet6addr_validator_notifier_call_chain(unsigned long val, void *v)
++{
++	return atomic_notifier_call_chain(&inet6addr_validator_chain, val, v);
++}
++EXPORT_SYMBOL(inet6addr_validator_notifier_call_chain);
++
+ static int eafnosupport_ipv6_dst_lookup(struct net *net, struct sock *u1,
+ 					struct dst_entry **u2,
+ 					struct flowi6 *u3)
+-- 
+2.7.4
