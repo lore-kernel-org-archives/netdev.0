@@ -1,47 +1,26 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: linux-next: build failure after merge of the wireless-drivers-next tree
-Date: Thu, 08 Jun 2017 15:07:00 +0300
-Message-ID: <87lgp24ra3.fsf@codeaurora.org>
-References: <20170608122759.7ffda0c3@canb.auug.org.au>
-        <3594bd0d-e2b4-a380-ba06-8dedbbcbe11f@quantenna.com>
-        <20170608125737.1e09c36d@canb.auug.org.au>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: merge net into net-next?
+Date: Thu, 08 Jun 2017 14:10:55 +0200
+Message-ID: <1496923855.26119.0.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Igor Mitsyanko <igor.mitsyanko.os@quantenna.com>,
-        Wireless <linux-wireless@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>,
-        Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Dmitrii Lebed <dlebed@quantenna.com>,
-        Sergei Maksimenko <smaksimenko@quantenna.com>,
-        Sergey Matyukevich <smatyukevich@quantenna.com>,
-        Bindu Therthala <btherthala@quantenna.com>,
-        Huizhao Wang <hwang@quantenna.com>,
-        Kamlesh Rath <krath@quantenna.com>,
-        Avinash Patil <avinashp@quantenna.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20170608125737.1e09c36d@canb.auug.org.au> (Stephen Rothwell's
-        message of "Thu, 8 Jun 2017 12:57:37 +1000")
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:41626 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751132AbdFHMK6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Jun 2017 08:10:58 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stephen Rothwell <sfr@canb.auug.org.au> writes:
+Hi Dave,
 
-> Hi Igor,
->
-> On Wed, 7 Jun 2017 19:43:18 -0700 Igor Mitsyanko <igor.mitsyanko.os@quantenna.com> wrote:
->>
->> thanks. As I understand, you've applied this patch during a merge and no 
->> further actions are required, correct?
->
-> Dave Miller will need to apply that patch (or something similar) when
-> he merges the wireless-drivers-next tree into the net-next tree.  I
-> will keep applying the patch each day until then.
+Could you do me a favour and merge net into net-next? I want to merge
+that back in order to apply a patch to mac80211-next that otherwise
+conflicts fairly badly with a change in mac80211.
 
-Thanks, I'll remind Dave about this when i submit the pull request (very
-soon now).
+Thanks!
 
--- 
-Kalle Valo
+johannes
