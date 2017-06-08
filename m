@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 12/44] microblaze: remove DMA_ERROR_CODE
-Date: Thu,  8 Jun 2017 15:25:37 +0200
-Message-ID: <20170608132609.32662-13-hch@lst.de>
+Subject: [PATCH 15/44] xtensa: remove DMA_ERROR_CODE
+Date: Thu,  8 Jun 2017 15:25:40 +0200
+Message-ID: <20170608132609.32662-16-hch@lst.de>
 References: <20170608132609.32662-1-hch@lst.de>
 Cc: linux-kernel@vger.kernel.org
 To: x86@kernel.org, linux-arm-kernel@lists.infradead.org,
@@ -14,31 +14,35 @@ To: x86@kernel.org, linux-arm-kernel@lists.infradead.org,
         linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
         linux-samsung-soc@vger.kernel.org,
         iommu@lists.linux-foundation.org, netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bombadil.infradead.org ([65.50.211.133]:52417 "EHLO
+        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751776AbdFHN1X (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 09:27:23 -0400
 In-Reply-To: <20170608132609.32662-1-hch@lst.de>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-microblaze does not return errors for dma_map_page.
+xtensa already implements the mapping_error method for its only
+dma_map_ops instance.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/microblaze/include/asm/dma-mapping.h | 2 --
+ arch/xtensa/include/asm/dma-mapping.h | 2 --
  1 file changed, 2 deletions(-)
 
-diff --git a/arch/microblaze/include/asm/dma-mapping.h b/arch/microblaze/include/asm/dma-mapping.h
-index 3fad5e722a66..e15cd2f76e23 100644
---- a/arch/microblaze/include/asm/dma-mapping.h
-+++ b/arch/microblaze/include/asm/dma-mapping.h
-@@ -28,8 +28,6 @@
- #include <asm/io.h>
- #include <asm/cacheflush.h>
+diff --git a/arch/xtensa/include/asm/dma-mapping.h b/arch/xtensa/include/asm/dma-mapping.h
+index c6140fa8c0be..269738dc9d1d 100644
+--- a/arch/xtensa/include/asm/dma-mapping.h
++++ b/arch/xtensa/include/asm/dma-mapping.h
+@@ -16,8 +16,6 @@
+ #include <linux/mm.h>
+ #include <linux/scatterlist.h>
  
 -#define DMA_ERROR_CODE		(~(dma_addr_t)0x0)
 -
- #define __dma_alloc_coherent(dev, gfp, size, handle)	NULL
- #define __dma_free_coherent(size, addr)		((void)0)
+ extern const struct dma_map_ops xtensa_dma_map_ops;
  
+ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
 -- 
 2.11.0
-
