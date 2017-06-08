@@ -1,117 +1,111 @@
-From: Girish Moodalbail <girish.moodalbail@oracle.com>
-Subject: [PATCH] geneve: add missing rx stats accounting
-Date: Thu,  8 Jun 2017 11:39:49 -0700
-Message-ID: <1496947189-19773-1-git-send-email-girish.moodalbail@oracle.com>
-Cc: davem@davemloft.net, pshelar@ovn.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 3/7] net: dsa: mv88e6xxx: use bridge state values
+Date: Thu,  8 Jun 2017 15:04:41 -0400
+Message-ID: <20170608190445.24443-4-vivien.didelot@savoirfairelinux.com>
+References: <20170608190445.24443-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:33317 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751505AbdFHSxK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 14:53:10 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170608190445.24443-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There are few places on the receive path where packet drops and packet
-errors were not accounted for. This patch fixes that issue.
+Reuse the BR_STATE_* values to abstract a port STP state value.
 
-Signed-off-by: Girish Moodalbail <girish.moodalbail@oracle.com>
+This provides shorter names and better control over the DSA switch
+operation call.
+
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/geneve.c | 36 ++++++++++++++++++++++++------------
- 1 file changed, 24 insertions(+), 12 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c | 23 ++---------------------
+ drivers/net/dsa/mv88e6xxx/port.c | 20 ++++++++++++++++++++
+ 2 files changed, 22 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index 6ebb0f5..34a4d45 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -212,6 +212,7 @@ static void geneve_rx(struct geneve_dev *geneve, struct geneve_sock *gs,
- 	struct genevehdr *gnvh = geneve_hdr(skb);
- 	struct metadata_dst *tun_dst = NULL;
- 	struct pcpu_sw_netstats *stats;
-+	unsigned int len;
- 	int err = 0;
- 	void *oiph;
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 42dd5560c131..916da1e7f25a 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -915,28 +915,10 @@ static void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port,
+ 					 u8 state)
+ {
+ 	struct mv88e6xxx_chip *chip = ds->priv;
+-	int stp_state;
+ 	int err;
  
-@@ -225,8 +226,10 @@ static void geneve_rx(struct geneve_dev *geneve, struct geneve_sock *gs,
- 		tun_dst = udp_tun_rx_dst(skb, geneve_get_sk_family(gs), flags,
- 					 vni_to_tunnel_id(gnvh->vni),
- 					 gnvh->opt_len * 4);
--		if (!tun_dst)
-+		if (!tun_dst) {
-+			++geneve->dev->stats.rx_dropped;
- 			goto drop;
-+		}
- 		/* Update tunnel dst according to Geneve options. */
- 		ip_tunnel_info_opts_set(&tun_dst->u.tun_info,
- 					gnvh->options, gnvh->opt_len * 4);
-@@ -234,8 +237,11 @@ static void geneve_rx(struct geneve_dev *geneve, struct geneve_sock *gs,
- 		/* Drop packets w/ critical options,
- 		 * since we don't support any...
- 		 */
--		if (gnvh->critical)
-+		if (gnvh->critical) {
-+			++geneve->dev->stats.rx_frame_errors;
-+			++geneve->dev->stats.rx_errors;
- 			goto drop;
-+		}
- 	}
- 
- 	skb_reset_mac_header(skb);
-@@ -246,8 +252,10 @@ static void geneve_rx(struct geneve_dev *geneve, struct geneve_sock *gs,
- 		skb_dst_set(skb, &tun_dst->dst);
- 
- 	/* Ignore packet loops (and multicast echo) */
--	if (ether_addr_equal(eth_hdr(skb)->h_source, geneve->dev->dev_addr))
-+	if (ether_addr_equal(eth_hdr(skb)->h_source, geneve->dev->dev_addr)) {
-+		++geneve->dev->stats.rx_errors;
- 		goto drop;
-+	}
- 
- 	oiph = skb_network_header(skb);
- 	skb_reset_network_header(skb);
-@@ -279,13 +287,15 @@ static void geneve_rx(struct geneve_dev *geneve, struct geneve_sock *gs,
- 		}
- 	}
- 
--	stats = this_cpu_ptr(geneve->dev->tstats);
--	u64_stats_update_begin(&stats->syncp);
--	stats->rx_packets++;
--	stats->rx_bytes += skb->len;
--	u64_stats_update_end(&stats->syncp);
+-	switch (state) {
+-	case BR_STATE_DISABLED:
+-		stp_state = PORT_CONTROL_STATE_DISABLED;
+-		break;
+-	case BR_STATE_BLOCKING:
+-	case BR_STATE_LISTENING:
+-		stp_state = PORT_CONTROL_STATE_BLOCKING;
+-		break;
+-	case BR_STATE_LEARNING:
+-		stp_state = PORT_CONTROL_STATE_LEARNING;
+-		break;
+-	case BR_STATE_FORWARDING:
+-	default:
+-		stp_state = PORT_CONTROL_STATE_FORWARDING;
+-		break;
+-	}
 -
--	gro_cells_receive(&geneve->gro_cells, skb);
-+	len = skb->len;
-+	err = gro_cells_receive(&geneve->gro_cells, skb);
-+	if (likely(err == NET_RX_SUCCESS)) {
-+		stats = this_cpu_ptr(geneve->dev->tstats);
-+		u64_stats_update_begin(&stats->syncp);
-+		stats->rx_packets++;
-+		stats->rx_bytes += len;
-+		u64_stats_update_end(&stats->syncp);
+ 	mutex_lock(&chip->reg_lock);
+-	err = mv88e6xxx_port_set_state(chip, port, stp_state);
++	err = mv88e6xxx_port_set_state(chip, port, state);
+ 	mutex_unlock(&chip->reg_lock);
+ 
+ 	if (err)
+@@ -1694,8 +1676,7 @@ static int mv88e6xxx_disable_ports(struct mv88e6xxx_chip *chip)
+ 
+ 	/* Set all ports to the Disabled state */
+ 	for (i = 0; i < mv88e6xxx_num_ports(chip); i++) {
+-		err = mv88e6xxx_port_set_state(chip, i,
+-					       PORT_CONTROL_STATE_DISABLED);
++		err = mv88e6xxx_port_set_state(chip, i, BR_STATE_DISABLED);
+ 		if (err)
+ 			return err;
+ 	}
+diff --git a/drivers/net/dsa/mv88e6xxx/port.c b/drivers/net/dsa/mv88e6xxx/port.c
+index 8e49c5584a53..cf19ab22f46e 100644
+--- a/drivers/net/dsa/mv88e6xxx/port.c
++++ b/drivers/net/dsa/mv88e6xxx/port.c
+@@ -12,6 +12,7 @@
+  * (at your option) any later version.
+  */
+ 
++#include <linux/if_bridge.h>
+ #include <linux/phy.h>
+ 
+ #include "chip.h"
+@@ -412,6 +413,25 @@ int mv88e6xxx_port_set_state(struct mv88e6xxx_chip *chip, int port, u8 state)
+ 		return err;
+ 
+ 	reg &= ~PORT_CONTROL_STATE_MASK;
++
++	switch (state) {
++	case BR_STATE_DISABLED:
++		state = PORT_CONTROL_STATE_DISABLED;
++		break;
++	case BR_STATE_BLOCKING:
++	case BR_STATE_LISTENING:
++		state = PORT_CONTROL_STATE_BLOCKING;
++		break;
++	case BR_STATE_LEARNING:
++		state = PORT_CONTROL_STATE_LEARNING;
++		break;
++	case BR_STATE_FORWARDING:
++		state = PORT_CONTROL_STATE_FORWARDING;
++		break;
++	default:
++		return -EINVAL;
 +	}
- 	return;
- drop:
- 	/* Consume bad packet */
-@@ -334,7 +344,7 @@ static int geneve_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 	struct geneve_sock *gs;
- 	int opts_len;
++
+ 	reg |= state;
  
--	/* Need Geneve and inner Ethernet header to be present */
-+	/* Need UDP and Geneve header to be present */
- 	if (unlikely(!pskb_may_pull(skb, GENEVE_BASE_HLEN)))
- 		goto drop;
- 
-@@ -357,8 +367,10 @@ static int geneve_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 	opts_len = geneveh->opt_len * 4;
- 	if (iptunnel_pull_header(skb, GENEVE_BASE_HLEN + opts_len,
- 				 htons(ETH_P_TEB),
--				 !net_eq(geneve->net, dev_net(geneve->dev))))
-+				 !net_eq(geneve->net, dev_net(geneve->dev)))) {
-+		++geneve->dev->stats.rx_dropped;
- 		goto drop;
-+	}
- 
- 	geneve_rx(geneve, gs, skb);
- 	return 0;
+ 	err = mv88e6xxx_port_write(chip, port, PORT_CONTROL, reg);
 -- 
-1.8.3.1
+2.13.1
