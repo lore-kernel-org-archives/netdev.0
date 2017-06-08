@@ -1,74 +1,111 @@
-From: <bcohen@childrensnational.org>
-Subject: (unknown)
-Date: Thu, 08 Jun 2017 22:14:51 -0000
-Message-ID: <149696009192.29697.5075851396804670659@ttknet.ru>
-Mime-Version: 1.0
-Content-Type: application/zip; name="64017075.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 56.34.access.ttknet.ru ([31.163.34.56]:56193 "HELO ttknet.ru"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S1751827AbdFHWO5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Jun 2017 18:14:57 -0400
-Content-Disposition: attachment
-Subject: 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 3/7] net: dsa: mv88e6xxx: use bridge state values
+Date: Thu,  8 Jun 2017 18:34:10 -0400
+Message-ID: <20170608223414.594-4-vivien.didelot@savoirfairelinux.com>
+References: <20170608223414.594-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170608223414.594-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-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
-AAEATwAAAOcLAAAAAA==
+Reuse the BR_STATE_* values to abstract a port STP state value.
+
+This provides shorter names and better control over the DSA switch
+operation call.
+
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6xxx/chip.c | 23 ++---------------------
+ drivers/net/dsa/mv88e6xxx/port.c | 20 ++++++++++++++++++++
+ 2 files changed, 22 insertions(+), 21 deletions(-)
+
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index b610429f7516..e25d48ecf880 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -915,28 +915,10 @@ static void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port,
+ 					 u8 state)
+ {
+ 	struct mv88e6xxx_chip *chip = ds->priv;
+-	int stp_state;
+ 	int err;
+ 
+-	switch (state) {
+-	case BR_STATE_DISABLED:
+-		stp_state = PORT_CONTROL_STATE_DISABLED;
+-		break;
+-	case BR_STATE_BLOCKING:
+-	case BR_STATE_LISTENING:
+-		stp_state = PORT_CONTROL_STATE_BLOCKING;
+-		break;
+-	case BR_STATE_LEARNING:
+-		stp_state = PORT_CONTROL_STATE_LEARNING;
+-		break;
+-	case BR_STATE_FORWARDING:
+-	default:
+-		stp_state = PORT_CONTROL_STATE_FORWARDING;
+-		break;
+-	}
+-
+ 	mutex_lock(&chip->reg_lock);
+-	err = mv88e6xxx_port_set_state(chip, port, stp_state);
++	err = mv88e6xxx_port_set_state(chip, port, state);
+ 	mutex_unlock(&chip->reg_lock);
+ 
+ 	if (err)
+@@ -1694,8 +1676,7 @@ static int mv88e6xxx_disable_ports(struct mv88e6xxx_chip *chip)
+ 
+ 	/* Set all ports to the Disabled state */
+ 	for (i = 0; i < mv88e6xxx_num_ports(chip); i++) {
+-		err = mv88e6xxx_port_set_state(chip, i,
+-					       PORT_CONTROL_STATE_DISABLED);
++		err = mv88e6xxx_port_set_state(chip, i, BR_STATE_DISABLED);
+ 		if (err)
+ 			return err;
+ 	}
+diff --git a/drivers/net/dsa/mv88e6xxx/port.c b/drivers/net/dsa/mv88e6xxx/port.c
+index 09e17131a6bd..46e73ca0ac4d 100644
+--- a/drivers/net/dsa/mv88e6xxx/port.c
++++ b/drivers/net/dsa/mv88e6xxx/port.c
+@@ -12,6 +12,7 @@
+  * (at your option) any later version.
+  */
+ 
++#include <linux/if_bridge.h>
+ #include <linux/phy.h>
+ 
+ #include "chip.h"
+@@ -412,6 +413,25 @@ int mv88e6xxx_port_set_state(struct mv88e6xxx_chip *chip, int port, u8 state)
+ 		return err;
+ 
+ 	reg &= ~PORT_CONTROL_STATE_MASK;
++
++	switch (state) {
++	case BR_STATE_DISABLED:
++		state = PORT_CONTROL_STATE_DISABLED;
++		break;
++	case BR_STATE_BLOCKING:
++	case BR_STATE_LISTENING:
++		state = PORT_CONTROL_STATE_BLOCKING;
++		break;
++	case BR_STATE_LEARNING:
++		state = PORT_CONTROL_STATE_LEARNING;
++		break;
++	case BR_STATE_FORWARDING:
++		state = PORT_CONTROL_STATE_FORWARDING;
++		break;
++	default:
++		return -EINVAL;
++	}
++
+ 	reg |= state;
+ 
+ 	err = mv88e6xxx_port_write(chip, port, PORT_CONTROL, reg);
+-- 
+2.13.1
