@@ -1,65 +1,56 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH] ila_xlat: add missing hash secret initialization
-Date: Thu, 8 Jun 2017 13:18:15 -0700
-Message-ID: <CALx6S355af1b7xKtu82yowy2_=4qyjWXgDP2ZmoF_9x1Wvj_yA@mail.gmail.com>
-References: <20170608075448.2076975-1-arnd@arndb.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH net-next 0/5] bpf: rewrite value tracking in
+ verifier
+Date: Thu, 08 Jun 2017 16:18:51 -0400 (EDT)
+Message-ID: <20170608.161851.611860605114539498.davem@davemloft.net>
+References: <92db9689-af6a-e172-ba57-195e588f9cc0@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        stephen hemminger <stephen@networkplumber.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, ast@fb.com, daniel@iogearbox.net,
+        netdev@vger.kernel.org, iovisor-dev@lists.iovisor.org,
+        linux-kernel@vger.kernel.org
+To: ecree@solarflare.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170608075448.2076975-1-arnd@arndb.de>
+In-Reply-To: <92db9689-af6a-e172-ba57-195e588f9cc0@solarflare.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 8, 2017 at 12:54 AM, Arnd Bergmann <arnd@arndb.de> wrote:
-> While discussing the possible merits of clang warning about unused initialized
-> functions, I found one function that was clearly meant to be called but
-> never actually is.
->
-> __ila_hash_secret_init() initializes the hash value for the ila locator,
-> apparently this is intended to prevent hash collision attacks, but this ends
-> up being a read-only zero constant since there is no caller. I could find
-> no indication of why it was never called, the earliest patch submission
-> for the module already was like this. If my interpretation is right, we
-> certainly want to backport the patch to stable kernels as well.
->
-> I considered adding it to the ila_xlat_init callback, but for best effect
-> the random data is read as late as possible, just before it is first used.
-> The underlying net_get_random_once() is already highly optimized to avoid
-> overhead when called frequently.
->
-> Fixes: 7f00feaf1076 ("ila: Add generic ILA translation facility")
-> Cc: stable@vger.kernel.org
-> Link: https://www.spinics.net/lists/kernel/msg2527243.html
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> ---
->  net/ipv6/ila/ila_xlat.c | 1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/net/ipv6/ila/ila_xlat.c b/net/ipv6/ila/ila_xlat.c
-> index 2fd5ca151dcf..77f7f8c7d93d 100644
-> --- a/net/ipv6/ila/ila_xlat.c
-> +++ b/net/ipv6/ila/ila_xlat.c
-> @@ -62,6 +62,7 @@ static inline u32 ila_locator_hash(struct ila_locator loc)
->  {
->         u32 *v = (u32 *)loc.v32;
->
-> +       __ila_hash_secret_init();
->         return jhash_2words(v[0], v[1], hashrnd);
->  }
->
-> --
-> 2.9.0
->
+From: Edward Cree <ecree@solarflare.com>
+Date: Wed, 7 Jun 2017 15:55:57 +0100
 
-Thanks Arnd!
+> This series simplifies alignment tracking, generalises bounds tracking and
+>  fixes some bounds-tracking bugs in the BPF verifier.  Pointer arithmetic on
+>  packet pointers, stack pointers, map value pointers and context pointers has
+>  been unified, and bounds on these pointers are only checked when the pointer
+>  is dereferenced.
+> Operations on pointers which destroy all relation to the original pointer
+>  (such as multiplies and shifts) are disallowed if !env->allow_ptr_leaks,
+>  otherwise they convert the pointer to an unknown scalar and feed it to the
+>  normal scalar arithmetic handling.
+> Pointer types have been unified with the corresponding adjusted-pointer types
+>  where those existed (e.g. PTR_TO_MAP_VALUE[_ADJ] or FRAME_PTR vs
+>  PTR_TO_STACK); similarly, CONST_IMM and UNKNOWN_VALUE have been unified into
+>  SCALAR_VALUE.
+> Pointer types (except CONST_PTR_TO_MAP, PTR_TO_MAP_VALUE_OR_NULL and
+>  PTR_TO_PACKET_END, which do not allow arithmetic) have a 'fixed offset' and
+>  a 'variable offset'; the former is used when e.g. adding an immediate or a
+>  known-constant register, as long as it does not overflow.  Otherwise the
+>  latter is used, and any operation creating a new variable offset creates a
+>  new 'id' (and, for PTR_TO_PACKET, clears the 'range').
+> SCALAR_VALUEs use the 'variable offset' fields to track the range of possible
+>  values; the 'fixed offset' should never be set on a scalar.
+> 
+> Patch 2/5 is rather on the big side, but since it changes the contents and
+>  semantics of a fairly central data structure, I'm not really sure how to go
+>  about splitting it up further without producing broken intermediate states.
+> 
+> With the changes in patch 5/5, all tools/testing/selftests/bpf/test_verifier
+>  tests pass.
 
-Acked-by: Tom Herbert <tom@herbertland.com>
+Edward, I haven't had a chance to review this yet, but I wanted to thank you
+for working on this.
+
+I will find some time to test your work on sparc too.
+
+Thanks again!
