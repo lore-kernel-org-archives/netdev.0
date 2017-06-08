@@ -1,79 +1,137 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 40/44] tile: remove dma_supported and
-	mapping_error methods
-Date: Thu,  8 Jun 2017 15:26:05 +0200
-Message-ID: <20170608132609.32662-41-hch@lst.de>
-References: <20170608132609.32662-1-hch@lst.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linux-kernel@vger.kernel.org
-To: x86@kernel.org, linux-arm-kernel@lists.infradead.org,
- xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
- linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
- linux-mips@linux-mips.org, openrisc@lists.librecores.org,
- linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
- linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
- linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
- linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
- linux-samsung-soc@vger.kernel.org, iommu@lists.linux-foundation.org,
- netdev@vger.kernel.org
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <20170608132609.32662-1-hch@lst.de>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
-List-Id: netdev.vger.kernel.org
+From: Yuval Shaia <yuval.shaia@oracle.com>
+Subject: [PATCH] net/ethtool: Replace memset with compiler directive
+Date: Thu,  8 Jun 2017 16:32:21 +0300
+Message-ID: <20170608133221.608-1-yuval.shaia@oracle.com>
+To: davem@davemloft.net, andrew@lunn.ch, allan.nielsen@microsemi.com,
+        Raju.Lakkaraju@microsemi.com, jakub.kicinski@netronome.com,
+        steffen.klassert@secunet.com, ast@fb.com, sgruszka@redhat.com,
+        mlichvar@redhat.com, yuval.shaia@oracle.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:34837 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752022AbdFHNdN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 09:33:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhlc2UganVzdCBkdXBsaWNhdGUgdGhlIGRlZmF1bHQgYmVoYXZpb3IgaWYgbm8gbWV0aG9kIGlz
-IHByb3ZpZGVkLgoKU2lnbmVkLW9mZi1ieTogQ2hyaXN0b3BoIEhlbGx3aWcgPGhjaEBsc3QuZGU+
-Ci0tLQogYXJjaC90aWxlL2tlcm5lbC9wY2ktZG1hLmMgfCAzMCAtLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0KIDEgZmlsZSBjaGFuZ2VkLCAzMCBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQg
-YS9hcmNoL3RpbGUva2VybmVsL3BjaS1kbWEuYyBiL2FyY2gvdGlsZS9rZXJuZWwvcGNpLWRtYS5j
-CmluZGV4IDU2OWJiNmRkMTU0YS4uZjJhYmVkYzhhMDgwIDEwMDY0NAotLS0gYS9hcmNoL3RpbGUv
-a2VybmVsL3BjaS1kbWEuYworKysgYi9hcmNoL3RpbGUva2VybmVsL3BjaS1kbWEuYwpAQCAtMzE3
-LDE4ICszMTcsNiBAQCBzdGF0aWMgdm9pZCB0aWxlX2RtYV9zeW5jX3NnX2Zvcl9kZXZpY2Uoc3Ry
-dWN0IGRldmljZSAqZGV2LAogCX0KIH0KIAotc3RhdGljIGlubGluZSBpbnQKLXRpbGVfZG1hX21h
-cHBpbmdfZXJyb3Ioc3RydWN0IGRldmljZSAqZGV2LCBkbWFfYWRkcl90IGRtYV9hZGRyKQotewot
-CXJldHVybiAwOwotfQotCi1zdGF0aWMgaW5saW5lIGludAotdGlsZV9kbWFfc3VwcG9ydGVkKHN0
-cnVjdCBkZXZpY2UgKmRldiwgdTY0IG1hc2spCi17Ci0JcmV0dXJuIDE7Ci19Ci0KIHN0YXRpYyBj
-b25zdCBzdHJ1Y3QgZG1hX21hcF9vcHMgdGlsZV9kZWZhdWx0X2RtYV9tYXBfb3BzID0gewogCS5h
-bGxvYyA9IHRpbGVfZG1hX2FsbG9jX2NvaGVyZW50LAogCS5mcmVlID0gdGlsZV9kbWFfZnJlZV9j
-b2hlcmVudCwKQEAgLTM0MCw4ICszMjgsNiBAQCBzdGF0aWMgY29uc3Qgc3RydWN0IGRtYV9tYXBf
-b3BzIHRpbGVfZGVmYXVsdF9kbWFfbWFwX29wcyA9IHsKIAkuc3luY19zaW5nbGVfZm9yX2Rldmlj
-ZSA9IHRpbGVfZG1hX3N5bmNfc2luZ2xlX2Zvcl9kZXZpY2UsCiAJLnN5bmNfc2dfZm9yX2NwdSA9
-IHRpbGVfZG1hX3N5bmNfc2dfZm9yX2NwdSwKIAkuc3luY19zZ19mb3JfZGV2aWNlID0gdGlsZV9k
-bWFfc3luY19zZ19mb3JfZGV2aWNlLAotCS5tYXBwaW5nX2Vycm9yID0gdGlsZV9kbWFfbWFwcGlu
-Z19lcnJvciwKLQkuZG1hX3N1cHBvcnRlZCA9IHRpbGVfZG1hX3N1cHBvcnRlZAogfTsKIAogY29u
-c3Qgc3RydWN0IGRtYV9tYXBfb3BzICp0aWxlX2RtYV9tYXBfb3BzID0gJnRpbGVfZGVmYXVsdF9k
-bWFfbWFwX29wczsKQEAgLTUwNCwxOCArNDkwLDYgQEAgc3RhdGljIHZvaWQgdGlsZV9wY2lfZG1h
-X3N5bmNfc2dfZm9yX2RldmljZShzdHJ1Y3QgZGV2aWNlICpkZXYsCiAJfQogfQogCi1zdGF0aWMg
-aW5saW5lIGludAotdGlsZV9wY2lfZG1hX21hcHBpbmdfZXJyb3Ioc3RydWN0IGRldmljZSAqZGV2
-LCBkbWFfYWRkcl90IGRtYV9hZGRyKQotewotCXJldHVybiAwOwotfQotCi1zdGF0aWMgaW5saW5l
-IGludAotdGlsZV9wY2lfZG1hX3N1cHBvcnRlZChzdHJ1Y3QgZGV2aWNlICpkZXYsIHU2NCBtYXNr
-KQotewotCXJldHVybiAxOwotfQotCiBzdGF0aWMgY29uc3Qgc3RydWN0IGRtYV9tYXBfb3BzIHRp
-bGVfcGNpX2RlZmF1bHRfZG1hX21hcF9vcHMgPSB7CiAJLmFsbG9jID0gdGlsZV9wY2lfZG1hX2Fs
-bG9jX2NvaGVyZW50LAogCS5mcmVlID0gdGlsZV9wY2lfZG1hX2ZyZWVfY29oZXJlbnQsCkBAIC01
-MjcsOCArNTAxLDYgQEAgc3RhdGljIGNvbnN0IHN0cnVjdCBkbWFfbWFwX29wcyB0aWxlX3BjaV9k
-ZWZhdWx0X2RtYV9tYXBfb3BzID0gewogCS5zeW5jX3NpbmdsZV9mb3JfZGV2aWNlID0gdGlsZV9w
-Y2lfZG1hX3N5bmNfc2luZ2xlX2Zvcl9kZXZpY2UsCiAJLnN5bmNfc2dfZm9yX2NwdSA9IHRpbGVf
-cGNpX2RtYV9zeW5jX3NnX2Zvcl9jcHUsCiAJLnN5bmNfc2dfZm9yX2RldmljZSA9IHRpbGVfcGNp
-X2RtYV9zeW5jX3NnX2Zvcl9kZXZpY2UsCi0JLm1hcHBpbmdfZXJyb3IgPSB0aWxlX3BjaV9kbWFf
-bWFwcGluZ19lcnJvciwKLQkuZG1hX3N1cHBvcnRlZCA9IHRpbGVfcGNpX2RtYV9zdXBwb3J0ZWQK
-IH07CiAKIGNvbnN0IHN0cnVjdCBkbWFfbWFwX29wcyAqZ3hfcGNpX2RtYV9tYXBfb3BzID0gJnRp
-bGVfcGNpX2RlZmF1bHRfZG1hX21hcF9vcHM7CkBAIC01NzgsOCArNTUwLDYgQEAgc3RhdGljIGNv
-bnN0IHN0cnVjdCBkbWFfbWFwX29wcyBwY2lfaHlicmlkX2RtYV9vcHMgPSB7CiAJLnN5bmNfc2lu
-Z2xlX2Zvcl9kZXZpY2UgPSB0aWxlX3BjaV9kbWFfc3luY19zaW5nbGVfZm9yX2RldmljZSwKIAku
-c3luY19zZ19mb3JfY3B1ID0gdGlsZV9wY2lfZG1hX3N5bmNfc2dfZm9yX2NwdSwKIAkuc3luY19z
-Z19mb3JfZGV2aWNlID0gdGlsZV9wY2lfZG1hX3N5bmNfc2dfZm9yX2RldmljZSwKLQkubWFwcGlu
-Z19lcnJvciA9IHRpbGVfcGNpX2RtYV9tYXBwaW5nX2Vycm9yLAotCS5kbWFfc3VwcG9ydGVkID0g
-dGlsZV9wY2lfZG1hX3N1cHBvcnRlZAogfTsKIAogY29uc3Qgc3RydWN0IGRtYV9tYXBfb3BzICpn
-eF9sZWdhY3lfcGNpX2RtYV9tYXBfb3BzID0gJnBjaV9zd2lvdGxiX2RtYV9vcHM7Ci0tIAoyLjEx
-LjAKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpYZW4t
-ZGV2ZWwgbWFpbGluZyBsaXN0Clhlbi1kZXZlbEBsaXN0cy54ZW4ub3JnCmh0dHBzOi8vbGlzdHMu
-eGVuLm9yZy94ZW4tZGV2ZWwK
+Take advantage of compiler variable zero-ing and remove calls to memset.
+
+Signed-off-by: Yuval Shaia <yuval.shaia@oracle.com>
+---
+ net/core/ethtool.c | 21 +++++++--------------
+ 1 file changed, 7 insertions(+), 14 deletions(-)
+
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 03111a2..051af09 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -559,7 +559,7 @@ int __ethtool_get_link_ksettings(struct net_device *dev,
+ 				 struct ethtool_link_ksettings *link_ksettings)
+ {
+ 	int err;
+-	struct ethtool_cmd cmd;
++	struct ethtool_cmd cmd = {0};
+ 
+ 	ASSERT_RTNL();
+ 
+@@ -576,7 +576,6 @@ int __ethtool_get_link_ksettings(struct net_device *dev,
+ 	if (!dev->ethtool_ops->get_settings)
+ 		return -EOPNOTSUPP;
+ 
+-	memset(&cmd, 0, sizeof(cmd));
+ 	cmd.cmd = ETHTOOL_GSET;
+ 	err = dev->ethtool_ops->get_settings(dev, &cmd);
+ 	if (err < 0)
+@@ -777,7 +776,7 @@ warn_incomplete_ethtool_legacy_settings_conversion(const char *details)
+  */
+ static int ethtool_get_settings(struct net_device *dev, void __user *useraddr)
+ {
+-	struct ethtool_cmd cmd;
++	struct ethtool_cmd cmd = {0};
+ 
+ 	ASSERT_RTNL();
+ 
+@@ -808,7 +807,6 @@ static int ethtool_get_settings(struct net_device *dev, void __user *useraddr)
+ 		if (!dev->ethtool_ops->get_settings)
+ 			return -EOPNOTSUPP;
+ 
+-		memset(&cmd, 0, sizeof(cmd));
+ 		cmd.cmd = ETHTOOL_GSET;
+ 		err = dev->ethtool_ops->get_settings(dev, &cmd);
+ 		if (err < 0)
+@@ -870,10 +868,9 @@ static int ethtool_set_settings(struct net_device *dev, void __user *useraddr)
+ static noinline_for_stack int ethtool_get_drvinfo(struct net_device *dev,
+ 						  void __user *useraddr)
+ {
+-	struct ethtool_drvinfo info;
++	struct ethtool_drvinfo info = {0};
+ 	const struct ethtool_ops *ops = dev->ethtool_ops;
+ 
+-	memset(&info, 0, sizeof(info));
+ 	info.cmd = ETHTOOL_GDRVINFO;
+ 	if (ops->get_drvinfo) {
+ 		ops->get_drvinfo(dev, &info);
+@@ -916,7 +913,7 @@ static noinline_for_stack int ethtool_get_drvinfo(struct net_device *dev,
+ static noinline_for_stack int ethtool_get_sset_info(struct net_device *dev,
+ 						    void __user *useraddr)
+ {
+-	struct ethtool_sset_info info;
++	struct ethtool_sset_info info = {0};
+ 	u64 sset_mask;
+ 	int i, idx = 0, n_bits = 0, ret, rc;
+ 	u32 *info_buf = NULL;
+@@ -932,7 +929,6 @@ static noinline_for_stack int ethtool_get_sset_info(struct net_device *dev,
+ 	/* calculate size of return buffer */
+ 	n_bits = hweight64(sset_mask);
+ 
+-	memset(&info, 0, sizeof(info));
+ 	info.cmd = ETHTOOL_GSSET_INFO;
+ 
+ 	info_buf = kzalloc(n_bits * sizeof(u32), GFP_USER);
+@@ -1479,13 +1475,12 @@ static int ethtool_set_wol(struct net_device *dev, char __user *useraddr)
+ 
+ static int ethtool_get_eee(struct net_device *dev, char __user *useraddr)
+ {
+-	struct ethtool_eee edata;
++	struct ethtool_eee edata = {0};
+ 	int rc;
+ 
+ 	if (!dev->ethtool_ops->get_eee)
+ 		return -EOPNOTSUPP;
+ 
+-	memset(&edata, 0, sizeof(struct ethtool_eee));
+ 	edata.cmd = ETHTOOL_GEEE;
+ 	rc = dev->ethtool_ops->get_eee(dev, &edata);
+ 
+@@ -2109,7 +2104,7 @@ static int ethtool_get_dump_data(struct net_device *dev,
+ {
+ 	int ret;
+ 	__u32 len;
+-	struct ethtool_dump dump, tmp;
++	struct ethtool_dump dump, tmp = {0};
+ 	const struct ethtool_ops *ops = dev->ethtool_ops;
+ 	void *data = NULL;
+ 
+@@ -2119,7 +2114,6 @@ static int ethtool_get_dump_data(struct net_device *dev,
+ 	if (copy_from_user(&dump, useraddr, sizeof(dump)))
+ 		return -EFAULT;
+ 
+-	memset(&tmp, 0, sizeof(tmp));
+ 	tmp.cmd = ETHTOOL_GET_DUMP_FLAG;
+ 	ret = ops->get_dump_flag(dev, &tmp);
+ 	if (ret)
+@@ -2170,11 +2164,10 @@ static int ethtool_get_dump_data(struct net_device *dev,
+ static int ethtool_get_ts_info(struct net_device *dev, void __user *useraddr)
+ {
+ 	int err = 0;
+-	struct ethtool_ts_info info;
++	struct ethtool_ts_info info = {0};
+ 	const struct ethtool_ops *ops = dev->ethtool_ops;
+ 	struct phy_device *phydev = dev->phydev;
+ 
+-	memset(&info, 0, sizeof(info));
+ 	info.cmd = ETHTOOL_GET_TS_INFO;
+ 
+ 	if (phydev && phydev->drv && phydev->drv->ts_info) {
+-- 
+2.9.4
