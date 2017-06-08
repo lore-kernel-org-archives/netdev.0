@@ -1,84 +1,88 @@
-From: Bhumika Goyal <bhumirks@gmail.com>
-Subject: [PATCH 2/2] drivers: net: emac: add const to mii_phy_ops structures
-Date: Thu,  8 Jun 2017 11:30:58 +0530
-Message-ID: <1496901658-6476-3-git-send-email-bhumirks@gmail.com>
-References: <1496901658-6476-1-git-send-email-bhumirks@gmail.com>
-Cc: Bhumika Goyal <bhumirks@gmail.com>
-To: julia.lawall@lip6.fr, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-        davem@davemloft.net
+From: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
+Subject: RE: [linuxwifi] [PATCH] net: wireless: intel: iwlwifi: dvm: fix tid
+ mask
+Date: Thu, 8 Jun 2017 06:31:01 +0000
+Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB3E5520A41@hasmsx107.ger.corp.intel.com>
+References: <20170607223354.22399-1-kirkseraph@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Berg, Johannes" <johannes.berg@intel.com>,
+        "Coelho, Luciano" <luciano.coelho@intel.com>,
+        linuxwifi <linuxwifi@intel.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        "open list:INTEL WIRELESS WIFI LINK (iwlwifi)"
+        <linux-wireless@vger.kernel.org>,
+        "open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+        open list <linux-kernel@vger.kernel.org>
+To: Seraphime Kirkovski <kirkseraph@gmail.com>,
+        "luca@coelho.fi" <luca@coelho.fi>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1496901658-6476-1-git-send-email-bhumirks@gmail.com>
+In-Reply-To: <20170607223354.22399-1-kirkseraph@gmail.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The object references of mii_phy_ops structures are only stored
-in the ops field of a mii_phy_def structure. This ops field is of type
-const. So, mii_phy_ops structures having similar properties can be
-declared as const.
-
-Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
----
- drivers/net/ethernet/ibm/emac/phy.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/ibm/emac/phy.c b/drivers/net/ethernet/ibm/emac/phy.c
-index 5b88cc6..35865d0 100644
---- a/drivers/net/ethernet/ibm/emac/phy.c
-+++ b/drivers/net/ethernet/ibm/emac/phy.c
-@@ -276,7 +276,7 @@ static int genmii_read_link(struct mii_phy *phy)
- }
- 
- /* Generic implementation for most 10/100/1000 PHYs */
--static struct mii_phy_ops generic_phy_ops = {
-+static const struct mii_phy_ops generic_phy_ops = {
- 	.setup_aneg	= genmii_setup_aneg,
- 	.setup_forced	= genmii_setup_forced,
- 	.poll_link	= genmii_poll_link,
-@@ -340,7 +340,7 @@ static int cis8201_init(struct mii_phy *phy)
- 	return 0;
- }
- 
--static struct mii_phy_ops cis8201_phy_ops = {
-+static const struct mii_phy_ops cis8201_phy_ops = {
- 	.init		= cis8201_init,
- 	.setup_aneg	= genmii_setup_aneg,
- 	.setup_forced	= genmii_setup_forced,
-@@ -420,7 +420,7 @@ static int et1011c_init(struct mii_phy *phy)
- 	return 0;
- }
- 
--static struct mii_phy_ops et1011c_phy_ops = {
-+static const struct mii_phy_ops et1011c_phy_ops = {
- 	.init		= et1011c_init,
- 	.setup_aneg	= genmii_setup_aneg,
- 	.setup_forced	= genmii_setup_forced,
-@@ -439,7 +439,7 @@ static struct mii_phy_def et1011c_phy_def = {
- 
- 
- 
--static struct mii_phy_ops m88e1111_phy_ops = {
-+static const struct mii_phy_ops m88e1111_phy_ops = {
- 	.init		= m88e1111_init,
- 	.setup_aneg	= genmii_setup_aneg,
- 	.setup_forced	= genmii_setup_forced,
-@@ -455,7 +455,7 @@ static struct mii_phy_def m88e1111_phy_def = {
- 	.ops		= &m88e1111_phy_ops,
- };
- 
--static struct mii_phy_ops m88e1112_phy_ops = {
-+static const struct mii_phy_ops m88e1112_phy_ops = {
- 	.init		= m88e1112_init,
- 	.setup_aneg	= genmii_setup_aneg,
- 	.setup_forced	= genmii_setup_forced,
-@@ -480,7 +480,7 @@ static int ar8035_init(struct mii_phy *phy)
- 	return 0;
- }
- 
--static struct mii_phy_ops ar8035_phy_ops = {
-+static const struct mii_phy_ops ar8035_phy_ops = {
- 	.init		= ar8035_init,
- 	.setup_aneg	= genmii_setup_aneg,
- 	.setup_forced	= genmii_setup_forced,
--- 
-2.7.4
+SGksDQoNCj4gU3ViamVjdDogW2xpbnV4d2lmaV0gW1BBVENIXSBuZXQ6IHdpcmVsZXNzOiBpbnRl
+bDogaXdsd2lmaTogZHZtOiBmaXggdGlkIG1hc2sNCj4gDQo+IEN1cnJlbnRseSB0aGUgdGlkIG1h
+c2sgY292ZXJzIHRoZSBmaXJzdCA0IGJpdHMgb2YgaXdsYWduX3R4X3Jlc3A6OnJhX3RpZCwNCj4g
+d2hpY2ggZ2l2ZXMgMTYgcG9zc2libGUgdmFsdWVzIGZvciB0aWQuDQo+IFRoaXMgaXMgcHJvYmxl
+bWF0aWMgYmVjYXVzZSBJV0xfTUFYX1RJRF9DT1VOVCBpcyA4LCBzbyBpbmRleGluZw0KPiBpd2xf
+cHJpdjo6dGlkX2RhdGEgY2FuIGdvIHZlcnkgd3JvbmcuDQoNClRydWUsIE9UT0ggd2UgbmVlZCB0
+aWQgdG8gYmUgOCBzb21ldGltZXMuIFdlICpqdXN0KiBuZWVkIHRvIG1ha2Ugc3VyZQ0KdGhhdCB3
+ZSBkb24ndCBpbmRleCB0aWRfZGF0YSB3aXRoIHRoaXMuIEhlbmNlIEkgdGhpbmsgdGhlIHByb3Bl
+ciBmaXggaXM6DQoNCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC93aXJlbGVzcy9pbnRlbC9pd2x3
+aWZpL2R2bS90eC5jIGIvZHJpdmVycy9uZXQvd2lyZWxlc3MvaW50ZWwvaXdsd2lmaS9kdm0vdHgu
+Yw0KaW5kZXggMDZhYzNmMS4uMTZhODY0NiAxMDA2NDQNCi0tLSBhL2RyaXZlcnMvbmV0L3dpcmVs
+ZXNzL2ludGVsL2l3bHdpZmkvZHZtL3R4LmMNCisrKyBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2lu
+dGVsL2l3bHdpZmkvZHZtL3R4LmMNCkBAIC0xMTkwLDExICsxMTkwLDExIEBAIHZvaWQgaXdsYWdu
+X3J4X3JlcGx5X3R4KHN0cnVjdCBpd2xfcHJpdiAqcHJpdiwgc3RydWN0IGl3bF9yeF9jbWRfYnVm
+ZmVyICpyeGIpDQogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIG5leHRfcmVjbGFpbWVk
+Ow0KICAgICAgICAgICAgICAgICAgICAgICAgSVdMX0RFQlVHX1RYX1JFUExZKHByaXYsICJOZXh0
+IHJlY2xhaW1lZCBwYWNrZXQ6JWRcbiIsDQogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgIG5leHRfcmVjbGFpbWVkKTsNCisgICAgICAgICAgICAgICAgICAg
+ICAgIGl3bGFnbl9jaGVja19yYXRpZF9lbXB0eShwcml2LCBzdGFfaWQsIHRpZCk7DQogICAgICAg
+ICAgICAgICAgfQ0KDQogICAgICAgICAgICAgICAgaXdsX3RyYW5zX3JlY2xhaW0ocHJpdi0+dHJh
+bnMsIHR4cV9pZCwgc3NuLCAmc2ticyk7DQoNCi0gICAgICAgICAgICAgICBpd2xhZ25fY2hlY2tf
+cmF0aWRfZW1wdHkocHJpdiwgc3RhX2lkLCB0aWQpOw0KICAgICAgICAgICAgICAgIGZyZWVkID0g
+MDsNCg0KICAgICAgICAgICAgICAgIC8qIHByb2Nlc3MgZnJhbWVzICovDQoNCg0KQ2xlYXJseSBj
+YWxsaW5nIGl3bGFnbl9jaGVja19yYXRpZF9lbXB0eSB3aXRoIHRpZCA9IElXTF9USURfTk9OX1FP
+UyBpcyBhIGJhZCBpZGVhLg0KDQo+IA0KPiBXaXRoIFVCU0FOIEkgY2FuIGl0IGhhcHBlbmluZyB3
+aGlsZSBlc3RhYmxpc2hpbmcgdGhlIGZpcnN0IGNvbm5lY3Rpb24NCj4gYWZ0ZXIgbW9kdWxlIGxv
+YWQuDQo+IA0KPiBbICAyNzIuMTQzNDQwXSBVQlNBTjogVW5kZWZpbmVkIGJlaGF2aW91ciBpbg0K
+PiBkcml2ZXJzL25ldC93aXJlbGVzcy9pbnRlbC9pd2x3aWZpL2R2bS90eC5jOjc3NzozMg0KPiBb
+ICAyNzIuMTQzNDQ3XSBpbmRleCA4IGlzIG91dCBvZiByYW5nZSBmb3IgdHlwZSAnaXdsX3RpZF9k
+YXRhIFs4XScNCj4gWyAgMjcyLjE0MzQ1N10gQ1BVOiAwIFBJRDogNDYwNSBDb21tOiBpcnEvMzIt
+aXdsd2lmaSBOb3QgdGFpbnRlZCA0LjEyLjAtZGlydHkNCj4gIzINCj4gWyAgMjcyLjE0MzQ2MF0g
+SGFyZHdhcmUgbmFtZTogSGV3bGV0dC1QYWNrYXJkIEhQIEVsaXRlQm9vayAyNTYwcC8xNjJCLA0K
+PiBCSU9TIDY4U1NVIFZlci4gRi4wMiAwNy8yNi8yMDExDQo+IFsgIDI3Mi4xNDM0NjJdIENhbGwg
+VHJhY2U6DQo+IFsgIDI3Mi4xNDM0NzJdICBkdW1wX3N0YWNrKzB4OWMvMHgxMGINCj4gWyAgMjcy
+LjE0MzQ3N10gID8gX2F0b21pY19kZWNfYW5kX2xvY2srMHgyODUvMHgyODUNCj4gWyAgMjcyLjE0
+MzQ4Nl0gIHVic2FuX2VwaWxvZ3VlKzB4ZC8weDRlDQo+IFsgIDI3Mi4xNDM0OTNdICBfX3Vic2Fu
+X2hhbmRsZV9vdXRfb2ZfYm91bmRzKzB4ZWYvMHgxMTgNCj4gWyAgMjcyLjE0MzQ5OF0gID8gX191
+YnNhbl9oYW5kbGVfc2hpZnRfb3V0X29mX2JvdW5kcysweDIyMS8weDIyMQ0KPiBbICAyNzIuMTQz
+NTE5XSAgPyBpd2xfdHJhbnNfcGNpZV9yZWNsYWltKzB4MTUzLzB4YzkwIFtpd2x3aWZpXQ0KPiBb
+ICAyNzIuMTQzNTM5XSAgaXdsYWduX2NoZWNrX3JhdGlkX2VtcHR5KzB4MzM3LzB4NDEwIFtpd2xk
+dm1dDQo+IFsgIDI3Mi4xNDM1NTZdICA/IGl3bF9oY21kX25hbWVzX2NtcCsweDJmLzB4NjAgW2l3
+bHdpZmldDQo+IFsgIDI3Mi4xNDM1NzFdICBpd2xhZ25fcnhfcmVwbHlfdHgrMHg4YTQvMHgxODIw
+IFtpd2xkdm1dDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBTZXJhcGhpbWUgS2lya292c2tpIDxraXJr
+c2VyYXBoQGdtYWlsLmNvbT4NCj4gLS0tDQo+ICAgIEknbSBjdXJyZW50bHkgcnVubmluZyB0aGlz
+IHBhdGNoIG9uIG15IG1hY2hpbmVzIGFuZCBJIGhhdmUgd2lmaS4NCj4gICAgVGhlIHBhdGNoIHBy
+ZXN1bWVzINCwIGNsZWFudXAgcGF0Y2gsIEkgc2VudCB5ZXN0ZXJkYXk6DQo+ICAgICAgIGh0dHBz
+Oi8vd3d3LnNwaW5pY3MubmV0L2xpc3RzL2tlcm5lbC9tc2cyNTI2MzE0Lmh0bWwNCj4gDQo+ICBk
+cml2ZXJzL25ldC93aXJlbGVzcy9pbnRlbC9pd2x3aWZpL2R2bS9jb21tYW5kcy5oIHwgMiArLQ0K
+PiAgMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspLCAxIGRlbGV0aW9uKC0pDQo+IA0KPiBk
+aWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvd2lyZWxlc3MvaW50ZWwvaXdsd2lmaS9kdm0vY29tbWFu
+ZHMuaA0KPiBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2ludGVsL2l3bHdpZmkvZHZtL2NvbW1hbmRz
+LmgNCj4gaW5kZXggMzdkMmJhNWFlODUyLi5lNTk5NGRmOWVhNGMgMTAwNjQ0DQo+IC0tLSBhL2Ry
+aXZlcnMvbmV0L3dpcmVsZXNzL2ludGVsL2l3bHdpZmkvZHZtL2NvbW1hbmRzLmgNCj4gKysrIGIv
+ZHJpdmVycy9uZXQvd2lyZWxlc3MvaW50ZWwvaXdsd2lmaS9kdm0vY29tbWFuZHMuaA0KPiBAQCAt
+MTQ0OCw3ICsxNDQ4LDcgQEAgc3RydWN0IGFnZ190eF9zdGF0dXMgew0KPiAgICovDQo+ICAvKiBy
+ZWZlciB0byByYV90aWQgKi8NCj4gICNkZWZpbmUgSVdMQUdOX1RYX1JFU19USURfUE9TCTANCj4g
+LSNkZWZpbmUgSVdMQUdOX1RYX1JFU19USURfTVNLCTB4MGYNCj4gKyNkZWZpbmUgSVdMQUdOX1RY
+X1JFU19USURfTVNLCTB4MDcNCj4gICNkZWZpbmUgSVdMQUdOX1RYX1JFU19SQV9QT1MJNA0KPiAg
+I2RlZmluZSBJV0xBR05fVFhfUkVTX1JBX01TSwkweGYwDQo+IA0KPiAtLQ0KPiAyLjExLjANCj4g
+DQo+IC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCj4gbGludXh3aWZpQGVj
+bGlzdHMuaW50ZWwuY29tDQo+IGh0dHBzOi8vZWNsaXN0cy5pbnRlbC5jb20vc3ltcGEvaW5mby9s
+aW51eHdpZmkNCj4gVW5zdWJzY3JpYmUgYnkgc2VuZGluZyBlbWFpbCB0byBzeW1wYUBlY2xpc3Rz
+LmludGVsLmNvbSB3aXRoIHN1YmplY3QNCj4gIlVuc3Vic2NyaWJlIGxpbnV4d2lmaSINCg==
