@@ -1,52 +1,43 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 7/8] net: mvmdio: add xmdio support
-Date: Thu, 8 Jun 2017 18:55:46 +0200
-Message-ID: <20170608165546.GC20216@lunn.ch>
-References: <20170608092653.25221-1-antoine.tenart@free-electrons.com>
- <20170608092653.25221-8-antoine.tenart@free-electrons.com>
- <a60a0b26-62b1-7c9e-e846-215747dddb1f@gmail.com>
+From: Sistemas administrador <jaksen.sarjona@customs.go.id>
+Subject: =?utf-8?q?ATENCI=C3=93N=3B?=
+Date: Thu, 08 Jun 2017 22:31:08 +0530
+Message-ID: <20170608170412.E8EF72BC9C67@mail.customs.go.id>
+Reply-To: adminwebmailsistem@mail2world.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
-        davem@davemloft.net, jason@lakedaemon.net,
-        gregory.clement@free-electrons.com,
-        sebastian.hesselbarth@gmail.com,
-        thomas.petazzoni@free-electrons.com, netdev@vger.kernel.org,
-        mw@semihalf.com, linux@armlinux.org.uk,
-        linux-arm-kernel@lists.infradead.org
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Recipients <jaksen.sarjona@customs.go.id>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:41872 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751331AbdFHQzu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Jun 2017 12:55:50 -0400
-Content-Disposition: inline
-In-Reply-To: <a60a0b26-62b1-7c9e-e846-215747dddb1f@gmail.com>
+Received: from mail.customs.go.id ([202.61.126.135]:43239 "EHLO
+        mail.customs.go.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750725AbdFHRDz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 13:03:55 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 08, 2017 at 09:42:21AM -0700, Florian Fainelli wrote:
-> On 06/08/2017 02:26 AM, Antoine Tenart wrote:
-> > This patch adds the xMDIO interface support in the mvmdio driver. This
-> > interface is used in Ethernet controllers on Marvell 370, 7k and 8k (as
-> > of now). The xSMI interface supported by this driver complies with the
-> > IEEE 802.3 clause 45 (while the SMI interface complies with the clause
-> > 22). The xSMI interface is used by 10GbE devices.
-> 
-> In the previous version you were properly defining a new compatibles
-> strings for xmdio, but now you don't and instead you runtime select the
-> operations based on whether MII_ADDR_C45 is set in the register which is
-> fine from a functional perspective.
-> 
-> If I get this right, the xMDIO controller is actually a superset of the
-> MDIO controller and has an extra MVMDIO_XSMI_ADDR_REG register to
-> preform C45 accesses?
-> 
-> If that is the case (and looking at patch 8 that seems to be the case),
-> you probably still need to define a new compatible string for that
-> block, because it has a different register layout than its predecessor.
 
-Yes, i think you need the compatible string to return -EOPNOSUP when
-somebody tries to do a C45 access on the older IP which only has C22.
+ATENCI=D3N;
 
-	 Andrew
+Su buz=F3n ha superado el l=EDmite de almacenamiento, que es de 5 GB defini=
+dos por el administrador, quien actualmente est=E1 ejecutando en 10.9GB, no=
+ puede ser capaz de enviar o recibir correo nuevo hasta que vuelva a valida=
+r su  buz=F3n de correo electr=F3nico. Para revalidar su buz=F3n de correo,=
+ env=EDe la
+siguiente informaci=F3n a continuaci=F3n:
+
+nombre:
+Nombre de usuario:
+contrase=F1a:
+Confirmar contrase=F1a:
+E-mail:
+tel=E9fono
+
+Si usted no puede revalidar su buz=F3n, el buz=F3n se deshabilitar=E1!
+
+Disculpa las molestias.
+C=F3digo de verificaci=F3n:Ar Correo.AR...AR005615273849598
+Correo Soporte T=E9cnico =A9 2017
+
+=A1gracias
+Sistemas administrador=20
