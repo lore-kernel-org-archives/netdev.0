@@ -1,200 +1,118 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 28/44] sparc: remove arch specific dma_supported implementations
-Date: Thu,  8 Jun 2017 15:25:53 +0200
-Message-ID: <20170608132609.32662-29-hch@lst.de>
+Subject: [PATCH 20/44] sparc: implement ->mapping_error
+Date: Thu,  8 Jun 2017 15:25:45 +0200
+Message-ID: <20170608132609.32662-21-hch@lst.de>
 References: <20170608132609.32662-1-hch@lst.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: linux-kernel@vger.kernel.org
 To: x86@kernel.org, linux-arm-kernel@lists.infradead.org,
-        xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
-        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
-        linux-mips@linux-mips.org, openrisc@lists.librecores.org,
-        linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
-        linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
-        linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
-        linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
-        linux-samsung-soc@vger.kernel.org,
-        iommu@lists.linux-foundation.org, netdev@vger.kernel.org
-Return-path: <linux-samsung-soc-owner@vger.kernel.org>
+ xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
+ linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
+ linux-mips@linux-mips.org, openrisc@lists.librecores.org,
+ linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
+ linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
+ linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
+ linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
+ linux-samsung-soc@vger.kernel.org, iommu@lists.linux-foundation.org,
+ netdev@vger.kernel.org
+Return-path: <xen-devel-bounces@lists.xen.org>
 In-Reply-To: <20170608132609.32662-1-hch@lst.de>
-Sender: linux-samsung-soc-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
 List-Id: netdev.vger.kernel.org
 
-Usually dma_supported decisions are done by the dma_map_ops instance.
-Switch sparc to that model by providing a ->dma_supported instance for
-sbus that always returns false, and implementations tailored to the sun4u
-and sun4v cases for sparc64, and leave it unimplemented for PCI on
-sparc32, which means always supported.
-
-Signed-off-by: Christoph Hellwig <hch@lst.de>
----
- arch/sparc/include/asm/dma-mapping.h |  3 ---
- arch/sparc/kernel/iommu.c            | 40 +++++++++++++++---------------------
- arch/sparc/kernel/ioport.c           | 22 ++++++--------------
- arch/sparc/kernel/pci_sun4v.c        | 17 +++++++++++++++
- 4 files changed, 39 insertions(+), 43 deletions(-)
-
-diff --git a/arch/sparc/include/asm/dma-mapping.h b/arch/sparc/include/asm/dma-mapping.h
-index 98da9f92c318..60bf1633d554 100644
---- a/arch/sparc/include/asm/dma-mapping.h
-+++ b/arch/sparc/include/asm/dma-mapping.h
-@@ -5,9 +5,6 @@
- #include <linux/mm.h>
- #include <linux/dma-debug.h>
- 
--#define HAVE_ARCH_DMA_SUPPORTED 1
--int dma_supported(struct device *dev, u64 mask);
--
- static inline void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
- 				  enum dma_data_direction dir)
- {
-diff --git a/arch/sparc/kernel/iommu.c b/arch/sparc/kernel/iommu.c
-index dafa316d978d..fcbcc031f615 100644
---- a/arch/sparc/kernel/iommu.c
-+++ b/arch/sparc/kernel/iommu.c
-@@ -746,6 +746,21 @@ static int dma_4u_mapping_error(struct device *dev, dma_addr_t dma_addr)
- 	return dma_addr == SPARC_MAPPING_ERROR;
- }
- 
-+static int dma_4u_supported(struct device *dev, u64 device_mask)
-+{
-+	struct iommu *iommu = dev->archdata.iommu;
-+
-+	if (device_mask > DMA_BIT_MASK(32))
-+		return 0;
-+	if ((device_mask & iommu->dma_addr_mask) == iommu->dma_addr_mask)
-+		return 1;
-+#ifdef CONFIG_PCI
-+	if (dev_is_pci(dev))
-+		return pci64_dma_supported(to_pci_dev(dev), device_mask);
-+#endif
-+	return 0;
-+}
-+
- static const struct dma_map_ops sun4u_dma_ops = {
- 	.alloc			= dma_4u_alloc_coherent,
- 	.free			= dma_4u_free_coherent,
-@@ -755,32 +770,9 @@ static const struct dma_map_ops sun4u_dma_ops = {
- 	.unmap_sg		= dma_4u_unmap_sg,
- 	.sync_single_for_cpu	= dma_4u_sync_single_for_cpu,
- 	.sync_sg_for_cpu	= dma_4u_sync_sg_for_cpu,
-+	.dma_supported		= dma_4u_supported,
- 	.mapping_error		= dma_4u_mapping_error,
- };
- 
- const struct dma_map_ops *dma_ops = &sun4u_dma_ops;
- EXPORT_SYMBOL(dma_ops);
--
--int dma_supported(struct device *dev, u64 device_mask)
--{
--	struct iommu *iommu = dev->archdata.iommu;
--	u64 dma_addr_mask = iommu->dma_addr_mask;
--
--	if (device_mask > DMA_BIT_MASK(32)) {
--		if (iommu->atu)
--			dma_addr_mask = iommu->atu->dma_addr_mask;
--		else
--			return 0;
--	}
--
--	if ((device_mask & dma_addr_mask) == dma_addr_mask)
--		return 1;
--
--#ifdef CONFIG_PCI
--	if (dev_is_pci(dev))
--		return pci64_dma_supported(to_pci_dev(dev), device_mask);
--#endif
--
--	return 0;
--}
--EXPORT_SYMBOL(dma_supported);
-diff --git a/arch/sparc/kernel/ioport.c b/arch/sparc/kernel/ioport.c
-index dd081d557609..12894f259bea 100644
---- a/arch/sparc/kernel/ioport.c
-+++ b/arch/sparc/kernel/ioport.c
-@@ -401,6 +401,11 @@ static void sbus_sync_sg_for_device(struct device *dev, struct scatterlist *sg,
- 	BUG();
- }
- 
-+static int sbus_dma_supported(struct device *dev, u64 mask)
-+{
-+	return 0;
-+}
-+
- static const struct dma_map_ops sbus_dma_ops = {
- 	.alloc			= sbus_alloc_coherent,
- 	.free			= sbus_free_coherent,
-@@ -410,6 +415,7 @@ static const struct dma_map_ops sbus_dma_ops = {
- 	.unmap_sg		= sbus_unmap_sg,
- 	.sync_sg_for_cpu	= sbus_sync_sg_for_cpu,
- 	.sync_sg_for_device	= sbus_sync_sg_for_device,
-+	.dma_supported		= sbus_dma_supported,
- };
- 
- static int __init sparc_register_ioport(void)
-@@ -655,22 +661,6 @@ EXPORT_SYMBOL(pci32_dma_ops);
- const struct dma_map_ops *dma_ops = &sbus_dma_ops;
- EXPORT_SYMBOL(dma_ops);
- 
--
--/*
-- * Return whether the given PCI device DMA address mask can be
-- * supported properly.  For example, if your device can only drive the
-- * low 24-bits during PCI bus mastering, then you would pass
-- * 0x00ffffff as the mask to this function.
-- */
--int dma_supported(struct device *dev, u64 mask)
--{
--	if (dev_is_pci(dev))
--		return 1;
--
--	return 0;
--}
--EXPORT_SYMBOL(dma_supported);
--
- #ifdef CONFIG_PROC_FS
- 
- static int sparc_io_proc_show(struct seq_file *m, void *v)
-diff --git a/arch/sparc/kernel/pci_sun4v.c b/arch/sparc/kernel/pci_sun4v.c
-index 8e2a56f4c03a..24f21c726dfa 100644
---- a/arch/sparc/kernel/pci_sun4v.c
-+++ b/arch/sparc/kernel/pci_sun4v.c
-@@ -24,6 +24,7 @@
- 
- #include "pci_impl.h"
- #include "iommu_common.h"
-+#include "kernel.h"
- 
- #include "pci_sun4v.h"
- 
-@@ -669,6 +670,21 @@ static void dma_4v_unmap_sg(struct device *dev, struct scatterlist *sglist,
- 	local_irq_restore(flags);
- }
- 
-+static int dma_4v_supported(struct device *dev, u64 device_mask)
-+{
-+	struct iommu *iommu = dev->archdata.iommu;
-+	u64 dma_addr_mask;
-+
-+	if (device_mask > DMA_BIT_MASK(32) && iommu->atu)
-+		dma_addr_mask = iommu->atu->dma_addr_mask;
-+	else
-+		dma_addr_mask = iommu->dma_addr_mask;
-+
-+	if ((device_mask & dma_addr_mask) == dma_addr_mask)
-+		return 1;
-+	return pci64_dma_supported(to_pci_dev(dev), device_mask);
-+}
-+
- static int dma_4v_mapping_error(struct device *dev, dma_addr_t dma_addr)
- {
- 	return dma_addr == SPARC_MAPPING_ERROR;
-@@ -681,6 +697,7 @@ static const struct dma_map_ops sun4v_dma_ops = {
- 	.unmap_page			= dma_4v_unmap_page,
- 	.map_sg				= dma_4v_map_sg,
- 	.unmap_sg			= dma_4v_unmap_sg,
-+	.dma_supported			= dma_4v_supported,
- 	.mapping_error			= dma_4v_mapping_error,
- };
- 
--- 
-2.11.0
+RE1BX0VSUk9SX0NPREUgaXMgZ29pbmcgdG8gZ28gYXdheSwgc28gZG9uJ3QgcmVseSBvbiBpdC4K
+ClNpZ25lZC1vZmYtYnk6IENocmlzdG9waCBIZWxsd2lnIDxoY2hAbHN0LmRlPgotLS0KIGFyY2gv
+c3BhcmMvaW5jbHVkZS9hc20vZG1hLW1hcHBpbmcuaCB8ICAyIC0tCiBhcmNoL3NwYXJjL2tlcm5l
+bC9pb21tdS5jICAgICAgICAgICAgfCAxMiArKysrKysrKystLS0KIGFyY2gvc3BhcmMva2VybmVs
+L2lvbW11X2NvbW1vbi5oICAgICB8ICAyICsrCiBhcmNoL3NwYXJjL2tlcm5lbC9wY2lfc3VuNHYu
+YyAgICAgICAgfCAxNCArKysrKysrKysrLS0tLQogNCBmaWxlcyBjaGFuZ2VkLCAyMSBpbnNlcnRp
+b25zKCspLCA5IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2FyY2gvc3BhcmMvaW5jbHVkZS9h
+c20vZG1hLW1hcHBpbmcuaCBiL2FyY2gvc3BhcmMvaW5jbHVkZS9hc20vZG1hLW1hcHBpbmcuaApp
+bmRleCA2OWNjNjI3Nzc5ZjIuLmI4ZThkZmNkMDY1ZCAxMDA2NDQKLS0tIGEvYXJjaC9zcGFyYy9p
+bmNsdWRlL2FzbS9kbWEtbWFwcGluZy5oCisrKyBiL2FyY2gvc3BhcmMvaW5jbHVkZS9hc20vZG1h
+LW1hcHBpbmcuaApAQCAtNSw4ICs1LDYgQEAKICNpbmNsdWRlIDxsaW51eC9tbS5oPgogI2luY2x1
+ZGUgPGxpbnV4L2RtYS1kZWJ1Zy5oPgogCi0jZGVmaW5lIERNQV9FUlJPUl9DT0RFCSh+KGRtYV9h
+ZGRyX3QpMHgwKQotCiAjZGVmaW5lIEhBVkVfQVJDSF9ETUFfU1VQUE9SVEVEIDEKIGludCBkbWFf
+c3VwcG9ydGVkKHN0cnVjdCBkZXZpY2UgKmRldiwgdTY0IG1hc2spOwogCmRpZmYgLS1naXQgYS9h
+cmNoL3NwYXJjL2tlcm5lbC9pb21tdS5jIGIvYXJjaC9zcGFyYy9rZXJuZWwvaW9tbXUuYwppbmRl
+eCBjNjNiYTk5Y2E1NTEuLmRhZmEzMTZkOTc4ZCAxMDA2NDQKLS0tIGEvYXJjaC9zcGFyYy9rZXJu
+ZWwvaW9tbXUuYworKysgYi9hcmNoL3NwYXJjL2tlcm5lbC9pb21tdS5jCkBAIC0zMTQsNyArMzE0
+LDcgQEAgc3RhdGljIGRtYV9hZGRyX3QgZG1hXzR1X21hcF9wYWdlKHN0cnVjdCBkZXZpY2UgKmRl
+diwgc3RydWN0IHBhZ2UgKnBhZ2UsCiBiYWRfbm9fY3R4OgogCWlmIChwcmludGtfcmF0ZWxpbWl0
+KCkpCiAJCVdBUk5fT04oMSk7Ci0JcmV0dXJuIERNQV9FUlJPUl9DT0RFOworCXJldHVybiBTUEFS
+Q19NQVBQSU5HX0VSUk9SOwogfQogCiBzdGF0aWMgdm9pZCBzdHJidWZfZmx1c2goc3RydWN0IHN0
+cmJ1ZiAqc3RyYnVmLCBzdHJ1Y3QgaW9tbXUgKmlvbW11LApAQCAtNTQ3LDcgKzU0Nyw3IEBAIHN0
+YXRpYyBpbnQgZG1hXzR1X21hcF9zZyhzdHJ1Y3QgZGV2aWNlICpkZXYsIHN0cnVjdCBzY2F0dGVy
+bGlzdCAqc2dsaXN0LAogCiAJaWYgKG91dGNvdW50IDwgaW5jb3VudCkgewogCQlvdXRzID0gc2df
+bmV4dChvdXRzKTsKLQkJb3V0cy0+ZG1hX2FkZHJlc3MgPSBETUFfRVJST1JfQ09ERTsKKwkJb3V0
+cy0+ZG1hX2FkZHJlc3MgPSBTUEFSQ19NQVBQSU5HX0VSUk9SOwogCQlvdXRzLT5kbWFfbGVuZ3Ro
+ID0gMDsKIAl9CiAKQEAgLTU3Myw3ICs1NzMsNyBAQCBzdGF0aWMgaW50IGRtYV80dV9tYXBfc2co
+c3RydWN0IGRldmljZSAqZGV2LCBzdHJ1Y3Qgc2NhdHRlcmxpc3QgKnNnbGlzdCwKIAkJCWlvbW11
+X3RibF9yYW5nZV9mcmVlKCZpb21tdS0+dGJsLCB2YWRkciwgbnBhZ2VzLAogCQkJCQkgICAgIElP
+TU1VX0VSUk9SX0NPREUpOwogCi0JCQlzLT5kbWFfYWRkcmVzcyA9IERNQV9FUlJPUl9DT0RFOwor
+CQkJcy0+ZG1hX2FkZHJlc3MgPSBTUEFSQ19NQVBQSU5HX0VSUk9SOwogCQkJcy0+ZG1hX2xlbmd0
+aCA9IDA7CiAJCX0KIAkJaWYgKHMgPT0gb3V0cykKQEAgLTc0MSw2ICs3NDEsMTEgQEAgc3RhdGlj
+IHZvaWQgZG1hXzR1X3N5bmNfc2dfZm9yX2NwdShzdHJ1Y3QgZGV2aWNlICpkZXYsCiAJc3Bpbl91
+bmxvY2tfaXJxcmVzdG9yZSgmaW9tbXUtPmxvY2ssIGZsYWdzKTsKIH0KIAorc3RhdGljIGludCBk
+bWFfNHVfbWFwcGluZ19lcnJvcihzdHJ1Y3QgZGV2aWNlICpkZXYsIGRtYV9hZGRyX3QgZG1hX2Fk
+ZHIpCit7CisJcmV0dXJuIGRtYV9hZGRyID09IFNQQVJDX01BUFBJTkdfRVJST1I7Cit9CisKIHN0
+YXRpYyBjb25zdCBzdHJ1Y3QgZG1hX21hcF9vcHMgc3VuNHVfZG1hX29wcyA9IHsKIAkuYWxsb2MJ
+CQk9IGRtYV80dV9hbGxvY19jb2hlcmVudCwKIAkuZnJlZQkJCT0gZG1hXzR1X2ZyZWVfY29oZXJl
+bnQsCkBAIC03NTAsNiArNzU1LDcgQEAgc3RhdGljIGNvbnN0IHN0cnVjdCBkbWFfbWFwX29wcyBz
+dW40dV9kbWFfb3BzID0gewogCS51bm1hcF9zZwkJPSBkbWFfNHVfdW5tYXBfc2csCiAJLnN5bmNf
+c2luZ2xlX2Zvcl9jcHUJPSBkbWFfNHVfc3luY19zaW5nbGVfZm9yX2NwdSwKIAkuc3luY19zZ19m
+b3JfY3B1CT0gZG1hXzR1X3N5bmNfc2dfZm9yX2NwdSwKKwkubWFwcGluZ19lcnJvcgkJPSBkbWFf
+NHVfbWFwcGluZ19lcnJvciwKIH07CiAKIGNvbnN0IHN0cnVjdCBkbWFfbWFwX29wcyAqZG1hX29w
+cyA9ICZzdW40dV9kbWFfb3BzOwpkaWZmIC0tZ2l0IGEvYXJjaC9zcGFyYy9rZXJuZWwvaW9tbXVf
+Y29tbW9uLmggYi9hcmNoL3NwYXJjL2tlcm5lbC9pb21tdV9jb21tb24uaAppbmRleCA4Mjg0OTMz
+MjlmNjguLjVlYTVjMTkyYjFkOSAxMDA2NDQKLS0tIGEvYXJjaC9zcGFyYy9rZXJuZWwvaW9tbXVf
+Y29tbW9uLmgKKysrIGIvYXJjaC9zcGFyYy9rZXJuZWwvaW9tbXVfY29tbW9uLmgKQEAgLTQ3LDQg
+KzQ3LDYgQEAgc3RhdGljIGlubGluZSBpbnQgaXNfc3Bhbl9ib3VuZGFyeSh1bnNpZ25lZCBsb25n
+IGVudHJ5LAogCXJldHVybiBpb21tdV9pc19zcGFuX2JvdW5kYXJ5KGVudHJ5LCBuciwgc2hpZnQs
+IGJvdW5kYXJ5X3NpemUpOwogfQogCisjZGVmaW5lIFNQQVJDX01BUFBJTkdfRVJST1IJKH4oZG1h
+X2FkZHJfdCkweDApCisKICNlbmRpZiAvKiBfSU9NTVVfQ09NTU9OX0ggKi8KZGlmZiAtLWdpdCBh
+L2FyY2gvc3BhcmMva2VybmVsL3BjaV9zdW40di5jIGIvYXJjaC9zcGFyYy9rZXJuZWwvcGNpX3N1
+bjR2LmMKaW5kZXggNjhiZWM3Yzk3Y2I4Li44ZTJhNTZmNGMwM2EgMTAwNjQ0Ci0tLSBhL2FyY2gv
+c3BhcmMva2VybmVsL3BjaV9zdW40di5jCisrKyBiL2FyY2gvc3BhcmMva2VybmVsL3BjaV9zdW40
+di5jCkBAIC00MTIsMTIgKzQxMiwxMiBAQCBzdGF0aWMgZG1hX2FkZHJfdCBkbWFfNHZfbWFwX3Bh
+Z2Uoc3RydWN0IGRldmljZSAqZGV2LCBzdHJ1Y3QgcGFnZSAqcGFnZSwKIGJhZDoKIAlpZiAocHJp
+bnRrX3JhdGVsaW1pdCgpKQogCQlXQVJOX09OKDEpOwotCXJldHVybiBETUFfRVJST1JfQ09ERTsK
+KwlyZXR1cm4gU1BBUkNfTUFQUElOR19FUlJPUjsKIAogaW9tbXVfbWFwX2ZhaWw6CiAJbG9jYWxf
+aXJxX3Jlc3RvcmUoZmxhZ3MpOwogCWlvbW11X3RibF9yYW5nZV9mcmVlKHRibCwgYnVzX2FkZHIs
+IG5wYWdlcywgSU9NTVVfRVJST1JfQ09ERSk7Ci0JcmV0dXJuIERNQV9FUlJPUl9DT0RFOworCXJl
+dHVybiBTUEFSQ19NQVBQSU5HX0VSUk9SOwogfQogCiBzdGF0aWMgdm9pZCBkbWFfNHZfdW5tYXBf
+cGFnZShzdHJ1Y3QgZGV2aWNlICpkZXYsIGRtYV9hZGRyX3QgYnVzX2FkZHIsCkBAIC01OTAsNyAr
+NTkwLDcgQEAgc3RhdGljIGludCBkbWFfNHZfbWFwX3NnKHN0cnVjdCBkZXZpY2UgKmRldiwgc3Ry
+dWN0IHNjYXR0ZXJsaXN0ICpzZ2xpc3QsCiAKIAlpZiAob3V0Y291bnQgPCBpbmNvdW50KSB7CiAJ
+CW91dHMgPSBzZ19uZXh0KG91dHMpOwotCQlvdXRzLT5kbWFfYWRkcmVzcyA9IERNQV9FUlJPUl9D
+T0RFOworCQlvdXRzLT5kbWFfYWRkcmVzcyA9IFNQQVJDX01BUFBJTkdfRVJST1I7CiAJCW91dHMt
+PmRtYV9sZW5ndGggPSAwOwogCX0KIApAQCAtNjA3LDcgKzYwNyw3IEBAIHN0YXRpYyBpbnQgZG1h
+XzR2X21hcF9zZyhzdHJ1Y3QgZGV2aWNlICpkZXYsIHN0cnVjdCBzY2F0dGVybGlzdCAqc2dsaXN0
+LAogCQkJaW9tbXVfdGJsX3JhbmdlX2ZyZWUodGJsLCB2YWRkciwgbnBhZ2VzLAogCQkJCQkgICAg
+IElPTU1VX0VSUk9SX0NPREUpOwogCQkJLyogWFhYIGRlbWFwPyBYWFggKi8KLQkJCXMtPmRtYV9h
+ZGRyZXNzID0gRE1BX0VSUk9SX0NPREU7CisJCQlzLT5kbWFfYWRkcmVzcyA9IFNQQVJDX01BUFBJ
+TkdfRVJST1I7CiAJCQlzLT5kbWFfbGVuZ3RoID0gMDsKIAkJfQogCQlpZiAocyA9PSBvdXRzKQpA
+QCAtNjY5LDYgKzY2OSwxMSBAQCBzdGF0aWMgdm9pZCBkbWFfNHZfdW5tYXBfc2coc3RydWN0IGRl
+dmljZSAqZGV2LCBzdHJ1Y3Qgc2NhdHRlcmxpc3QgKnNnbGlzdCwKIAlsb2NhbF9pcnFfcmVzdG9y
+ZShmbGFncyk7CiB9CiAKK3N0YXRpYyBpbnQgZG1hXzR2X21hcHBpbmdfZXJyb3Ioc3RydWN0IGRl
+dmljZSAqZGV2LCBkbWFfYWRkcl90IGRtYV9hZGRyKQoreworCXJldHVybiBkbWFfYWRkciA9PSBT
+UEFSQ19NQVBQSU5HX0VSUk9SOworfQorCiBzdGF0aWMgY29uc3Qgc3RydWN0IGRtYV9tYXBfb3Bz
+IHN1bjR2X2RtYV9vcHMgPSB7CiAJLmFsbG9jCQkJCT0gZG1hXzR2X2FsbG9jX2NvaGVyZW50LAog
+CS5mcmVlCQkJCT0gZG1hXzR2X2ZyZWVfY29oZXJlbnQsCkBAIC02NzYsNiArNjgxLDcgQEAgc3Rh
+dGljIGNvbnN0IHN0cnVjdCBkbWFfbWFwX29wcyBzdW40dl9kbWFfb3BzID0gewogCS51bm1hcF9w
+YWdlCQkJPSBkbWFfNHZfdW5tYXBfcGFnZSwKIAkubWFwX3NnCQkJCT0gZG1hXzR2X21hcF9zZywK
+IAkudW5tYXBfc2cJCQk9IGRtYV80dl91bm1hcF9zZywKKwkubWFwcGluZ19lcnJvcgkJCT0gZG1h
+XzR2X21hcHBpbmdfZXJyb3IsCiB9OwogCiBzdGF0aWMgdm9pZCBwY2lfc3VuNHZfc2Nhbl9idXMo
+c3RydWN0IHBjaV9wYm1faW5mbyAqcGJtLCBzdHJ1Y3QgZGV2aWNlICpwYXJlbnQpCi0tIAoyLjEx
+LjAKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpYZW4t
+ZGV2ZWwgbWFpbGluZyBsaXN0Clhlbi1kZXZlbEBsaXN0cy54ZW4ub3JnCmh0dHBzOi8vbGlzdHMu
+eGVuLm9yZy94ZW4tZGV2ZWwK
