@@ -1,55 +1,55 @@
-From: =?utf-8?B?5Lil5rW35Y+M?= <yanhaishuang@cmss.chinamobile.com>
-Subject: Re: [PATCH v3 2/2] ip6_tunnel: fix potential issue in __ip6_tnl_rcv
-Date: Thu, 8 Jun 2017 15:33:58 +0800
-Message-ID: <6CE04FE7-4904-4047-95F5-80461324CDA6@cmss.chinamobile.com>
-References: <1496896364-27153-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
- <1496896364-27153-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
- <20170608043847.uejvydlitzuik76j@ast-mbp>
- <3A078CA0-C9C8-45D2-A359-1FB38B25792D@cmss.chinamobile.com>
- <20170608050041.cte3gpavshg2nmdc@ast-mbp>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: "=David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Eric Dumazet <edumazet@google.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta2.chinamobile.com ([221.176.66.80]:18386 "EHLO
-        cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751537AbdFHHeC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 03:34:02 -0400
-In-Reply-To: <20170608050041.cte3gpavshg2nmdc@ast-mbp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Seraphime Kirkovski <kirkseraph@gmail.com>
+Subject: Re: [linuxwifi] [PATCH] net: wireless: intel: iwlwifi: dvm: fix tid
+ mask
+Date: Thu, 8 Jun 2017 09:49:54 +0200
+Message-ID: <20170608074954.qihkavvqdtwn4zmp@macchiaveli>
+References: <20170607223354.22399-1-kirkseraph@gmail.com>
+ <0BA3FCBA62E2DC44AF3030971E174FB3E5520A41@hasmsx107.ger.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "luca@coelho.fi" <luca@coelho.fi>,
+        "Berg, Johannes" <johannes.berg@intel.com>,
+        "Coelho, Luciano" <luciano.coelho@intel.com>,
+        linuxwifi <linuxwifi@intel.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        "open list:INTEL WIRELESS WIFI LINK (iwlwifi)"
+        <linux-wireless@vger.kernel.org>,
+        "open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+        open list <linux-kernel@vger.kernel.org>
+To: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <0BA3FCBA62E2DC44AF3030971E174FB3E5520A41@hasmsx107.ger.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> On 8 Jun 2017, at 1:00 PM, Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
-> 
-> On Thu, Jun 08, 2017 at 12:56:58PM +0800, 严海双 wrote:
->> 
->>> On 8 Jun 2017, at 12:38 PM, Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
->>> 
->>> On Thu, Jun 08, 2017 at 12:32:44PM +0800, Haishuang Yan wrote:
->>>> When __ip6_tnl_rcv fails, the tun_dst won't be freed, so call
->>>> dst_release to free it in error code path.
->>>> 
->>>> CC: Alexei Starovoitov <ast@fb.com>
->>>> Fixes: 8d79266bc48c ("ip6_tunnel: add collect_md mode to IPv6 tunnels")
->>>> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
->>> 
->>> I don't get it. Why did you send another version of the patch?
->>> What was wrong with previous approach that myself and Eric acked?
->>> 
->>> 
->> 
->> Sorry for your confusing, because Pravin Shelar give a feedback in ipv4 patch, see below:
-> 
-> hmm. right.
-> Then it raises the question: How did you test this and previous patch?
-> 
-> since previous version was sort-of fixing the bug, but completely
-> breaking the logic...
-> 
-> 
+On Thu, Jun 08, 2017 at 06:31:01AM +0000, Grumbach, Emmanuel wrote:
+> Hi,
 
-Sorry for my previous fault, I tried to fix this problem in theory without testing carefully.
-I have tested the latest patches, it works ok now.
+Hi,
+
+> True, OTOH we need tid to be 8 sometimes. We *just* need to make sure
+> that we don't index tid_data with this. Hence I think the proper fix is:
+> 
+> diff --git a/drivers/net/wireless/intel/iwlwifi/dvm/tx.c b/drivers/net/wireless/intel/iwlwifi/dvm/tx.c
+> index 06ac3f1..16a8646 100644
+> --- a/drivers/net/wireless/intel/iwlwifi/dvm/tx.c
+> +++ b/drivers/net/wireless/intel/iwlwifi/dvm/tx.c
+> @@ -1190,11 +1190,11 @@ void iwlagn_rx_reply_tx(struct iwl_priv *priv, struct iwl_rx_cmd_buffer *rxb)
+>                                 next_reclaimed;
+>                         IWL_DEBUG_TX_REPLY(priv, "Next reclaimed packet:%d\n",
+>                                                   next_reclaimed);
+> +                       iwlagn_check_ratid_empty(priv, sta_id, tid);
+>                 }
+> 
+>                 iwl_trans_reclaim(priv->trans, txq_id, ssn, &skbs);
+> 
+> -               iwlagn_check_ratid_empty(priv, sta_id, tid);
+>                 freed = 0;
+> 
+>                 /* process frames */
+
+I can confirm it works. You can add my Tested-By.
+
+Thanks,
+Seraph
