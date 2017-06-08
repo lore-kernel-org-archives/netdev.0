@@ -1,43 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 2/2] ip6_tunnel: fix potential issue in __ip6_tnl_rcv
-Date: Thu, 08 Jun 2017 09:18:35 -0400 (EDT)
-Message-ID: <20170608.091835.68093454960092119.davem@davemloft.net>
-References: <20170608043847.uejvydlitzuik76j@ast-mbp>
-        <3A078CA0-C9C8-45D2-A359-1FB38B25792D@cmss.chinamobile.com>
-        <20170608050041.cte3gpavshg2nmdc@ast-mbp>
+From: Christoph Hellwig <hch@lst.de>
+Subject: clean up and modularize arch dma_mapping interface
+Date: Thu,  8 Jun 2017 15:25:25 +0200
+Message-ID: <20170608132609.32662-1-hch@lst.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: yanhaishuang@cmss.chinamobile.com, netdev@vger.kernel.org,
-        edumazet@google.com
-To: alexei.starovoitov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55088 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751232AbdFHNSh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 09:18:37 -0400
-In-Reply-To: <20170608050041.cte3gpavshg2nmdc@ast-mbp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org
+To: x86@kernel.org, linux-arm-kernel@lists.infradead.org,
+ xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
+ linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
+ linux-mips@linux-mips.org, openrisc@lists.librecores.org,
+ linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
+ linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
+ linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
+ linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
+ linux-samsung-soc@vger.kernel.org, iommu@lists.linux-foundation.org,
+ netdev@vger.kernel.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogQWxleGVpIFN0YXJvdm9pdG92IDxhbGV4ZWkuc3Rhcm92b2l0b3ZAZ21haWwuY29tPg0K
-RGF0ZTogV2VkLCA3IEp1biAyMDE3IDIyOjAwOjQzIC0wNzAwDQoNCj4gT24gVGh1LCBKdW4gMDgs
-IDIwMTcgYXQgMTI6NTY6NThQTSArMDgwMCwg5Lil5rW35Y+MIHdyb3RlOg0KPj4gDQo+PiA+IE9u
-IDggSnVuIDIwMTcsIGF0IDEyOjM4IFBNLCBBbGV4ZWkgU3Rhcm92b2l0b3YgPGFsZXhlaS5zdGFy
-b3ZvaXRvdkBnbWFpbC5jb20+IHdyb3RlOg0KPj4gPiANCj4+ID4gT24gVGh1LCBKdW4gMDgsIDIw
-MTcgYXQgMTI6MzI6NDRQTSArMDgwMCwgSGFpc2h1YW5nIFlhbiB3cm90ZToNCj4+ID4+IFdoZW4g
-X19pcDZfdG5sX3JjdiBmYWlscywgdGhlIHR1bl9kc3Qgd29uJ3QgYmUgZnJlZWQsIHNvIGNhbGwN
-Cj4+ID4+IGRzdF9yZWxlYXNlIHRvIGZyZWUgaXQgaW4gZXJyb3IgY29kZSBwYXRoLg0KPj4gPj4g
-DQo+PiA+PiBDQzogQWxleGVpIFN0YXJvdm9pdG92IDxhc3RAZmIuY29tPg0KPj4gPj4gRml4ZXM6
-IDhkNzkyNjZiYzQ4YyAoImlwNl90dW5uZWw6IGFkZCBjb2xsZWN0X21kIG1vZGUgdG8gSVB2NiB0
-dW5uZWxzIikNCj4+ID4+IFNpZ25lZC1vZmYtYnk6IEhhaXNodWFuZyBZYW4gPHlhbmhhaXNodWFu
-Z0BjbXNzLmNoaW5hbW9iaWxlLmNvbT4NCj4+ID4gDQo+PiA+IEkgZG9uJ3QgZ2V0IGl0LiBXaHkg
-ZGlkIHlvdSBzZW5kIGFub3RoZXIgdmVyc2lvbiBvZiB0aGUgcGF0Y2g/DQo+PiA+IFdoYXQgd2Fz
-IHdyb25nIHdpdGggcHJldmlvdXMgYXBwcm9hY2ggdGhhdCBteXNlbGYgYW5kIEVyaWMgYWNrZWQ/
-DQo+PiA+IA0KPj4gPiANCj4+IA0KPj4gU29ycnkgZm9yIHlvdXIgY29uZnVzaW5nLCBiZWNhdXNl
-IFByYXZpbiBTaGVsYXIgZ2l2ZSBhIGZlZWRiYWNrIGluIGlwdjQgcGF0Y2gsIHNlZSBiZWxvdzoN
-Cj4gDQo+IGhtbS4gcmlnaHQuDQo+IFRoZW4gaXQgcmFpc2VzIHRoZSBxdWVzdGlvbjogSG93IGRp
-ZCB5b3UgdGVzdCB0aGlzIGFuZCBwcmV2aW91cyBwYXRjaD8NCj4gDQo+IHNpbmNlIHByZXZpb3Vz
-IHZlcnNpb24gd2FzIHNvcnQtb2YgZml4aW5nIHRoZSBidWcsIGJ1dCBjb21wbGV0ZWx5DQo+IGJy
-ZWFraW5nIHRoZSBsb2dpYy4uLg0KDQpBbnlvbmUgd2hvIHBvc3RzIG5ldyBwYXRjaGVzIHRoaXMg
-cGF0Y2ggaXNuJ3QgdGVzdGluZyB0aGluZ3MgdGhvcm91Z2hseSBhdCBhbGwuDQo=
+Hi all,
+
+for a while we have a generic implementation of the dma mapping routines
+that call into per-arch or per-device operations.  But right now there
+still are various bits in the interfaces where don't clearly operate
+on these ops.  This series tries to clean up a lot of those (but not all
+yet, but the series is big enough).  It gets rid of the DMA_ERROR_CODE
+way of signaling failures of the mapping routines from the
+implementations to the generic code (and cleans up various drivers that
+were incorrectly using it), and gets rid of the ->set_dma_mask routine
+in favor of relying on the ->dma_capable method that can be used in
+the same way, but which requires less code duplication.
+
+Btw, we don't seem to have a tree every-growing amount of common dma
+mapping code, and given that I have a fair amount of all over the tree
+work in that area in my plate I'd like to start one.  Any good reason
+to that?  Anyone willing to volunteer as co maintainer?
+
+The whole series is also available in git:
+
+    git://git.infradead.org/users/hch/misc.git dma-map
+
+Gitweb:
+
+    http://git.infradead.org/users/hch/misc.git/shortlog/refs/heads/dma-map
