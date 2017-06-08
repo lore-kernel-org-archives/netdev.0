@@ -1,31 +1,42 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v2 2/2] ip6_tunnel: fix potential issue in __ip6_tnl_rcv
-Date: Wed, 7 Jun 2017 19:49:17 -0700
-Message-ID: <20170608024916.ujy5muoelj6x646i@ast-mbp>
-References: <1496883476-17445-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
- <1496883476-17445-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: build failure after merge of the
+ wireless-drivers-next tree
+Date: Thu, 8 Jun 2017 12:57:37 +1000
+Message-ID: <20170608125737.1e09c36d@canb.auug.org.au>
+References: <20170608122759.7ffda0c3@canb.auug.org.au>
+        <3594bd0d-e2b4-a380-ba06-8dedbbcbe11f@quantenna.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "=David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@fb.com>
-To: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+        Wireless <linux-wireless@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Dmitrii Lebed <dlebed@quantenna.com>,
+        Sergei Maksimenko <smaksimenko@quantenna.com>,
+        Sergey Matyukevich <smatyukevich@quantenna.com>,
+        Bindu Therthala <btherthala@quantenna.com>,
+        Huizhao Wang <hwang@quantenna.com>,
+        Kamlesh Rath <krath@quantenna.com>,
+        Avinash Patil <avinashp@quantenna.com>
+To: Igor Mitsyanko <igor.mitsyanko.os@quantenna.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1496883476-17445-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
+In-Reply-To: <3594bd0d-e2b4-a380-ba06-8dedbbcbe11f@quantenna.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 08, 2017 at 08:57:56AM +0800, Haishuang Yan wrote:
-> When __ip6_tnl_rcv fails, the tun_dst won't be freed, so move
-> skb_dst_set to begin and tun_dst would be freed by kfree_skb.
-> 
-> CC: Alexei Starovoitov <ast@fb.com>
-> Fixes: 8d79266bc48c ("ip6_tunnel: add collect_md mode to IPv6 tunnels")
-> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Hi Igor,
 
-Good catch. Thanks!
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+On Wed, 7 Jun 2017 19:43:18 -0700 Igor Mitsyanko <igor.mitsyanko.os@quantenna.com> wrote:
+>
+> thanks. As I understand, you've applied this patch during a merge and no 
+> further actions are required, correct?
+
+Dave Miller will need to apply that patch (or something similar) when
+he merges the wireless-drivers-next tree into the net-next tree.  I
+will keep applying the patch each day until then.
+-- 
+Cheers,
+Stephen Rothwell
