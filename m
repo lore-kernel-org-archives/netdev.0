@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 15/19] rocker: Add support for querying supported bridge flags
-Date: Thu,  8 Jun 2017 08:44:24 +0200
-Message-ID: <20170608064428.4785-16-jiri@resnulli.us>
+Subject: [patch net-next v2 03/19] net: bridge: Add support for calling FDB external learning under rcu
+Date: Thu,  8 Jun 2017 08:44:12 +0200
+Message-ID: <20170608064428.4785-4-jiri@resnulli.us>
 References: <20170608064428.4785-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, arkadis@mellanox.com,
         mlxsw@mellanox.com, roopa@cumulusnetworks.com,
@@ -9,107 +9,90 @@ Cc: davem@davemloft.net, idosch@mellanox.com, arkadis@mellanox.com,
         nikolay@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:32861 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751590AbdFHGox (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 02:44:53 -0400
-Received: by mail-wm0-f68.google.com with SMTP id x3so5672259wme.0
-        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 23:44:52 -0700 (PDT)
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:36477 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751450AbdFHGog (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 02:44:36 -0400
+Received: by mail-wr0-f196.google.com with SMTP id e23so2899363wre.3
+        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 23:44:35 -0700 (PDT)
 In-Reply-To: <20170608064428.4785-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
 
-Add support for querying supported bridge flags.
+This is done as a preparation to moving the switchdev notifier chain
+to be atomic. The FDB external learning should be called under rtnl
+or rcu.
 
 Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/rocker/rocker.h       |  4 ++++
- drivers/net/ethernet/rocker/rocker_main.c  | 18 ++++++++++++++++++
- drivers/net/ethernet/rocker/rocker_ofdpa.c | 11 +++++++++++
- 3 files changed, 33 insertions(+)
+ net/bridge/br.c         | 4 ++--
+ net/bridge/br_fdb.c     | 2 --
+ net/bridge/br_private.h | 6 ++++++
+ 3 files changed, 8 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/rocker/rocker.h b/drivers/net/ethernet/rocker/rocker.h
-index ee9675d..c25e331 100644
---- a/drivers/net/ethernet/rocker/rocker.h
-+++ b/drivers/net/ethernet/rocker/rocker.h
-@@ -112,6 +112,10 @@ struct rocker_world_ops {
- 					  struct switchdev_trans *trans);
- 	int (*port_attr_bridge_flags_get)(const struct rocker_port *rocker_port,
- 					  unsigned long *p_brport_flags);
-+	int (*port_attr_bridge_flags_support_get)(const struct rocker_port *
-+						  rocker_port,
-+						  unsigned long *
-+						  p_brport_flags);
- 	int (*port_attr_bridge_ageing_time_set)(struct rocker_port *rocker_port,
- 						u32 ageing_time,
- 						struct switchdev_trans *trans);
-diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
-index bab1361..a741e51 100644
---- a/drivers/net/ethernet/rocker/rocker_main.c
-+++ b/drivers/net/ethernet/rocker/rocker_main.c
-@@ -1585,6 +1585,20 @@ rocker_world_port_attr_bridge_flags_get(const struct rocker_port *rocker_port,
+diff --git a/net/bridge/br.c b/net/bridge/br.c
+index 889e564..e962fff 100644
+--- a/net/bridge/br.c
++++ b/net/bridge/br.c
+@@ -121,7 +121,7 @@ static struct notifier_block br_device_notifier = {
+ 	.notifier_call = br_device_event
+ };
+ 
+-/* called with RTNL */
++/* called with RTNL or RCU */
+ static int br_switchdev_event(struct notifier_block *unused,
+ 			      unsigned long event, void *ptr)
+ {
+@@ -131,7 +131,7 @@ static int br_switchdev_event(struct notifier_block *unused,
+ 	struct switchdev_notifier_fdb_info *fdb_info;
+ 	int err = NOTIFY_DONE;
+ 
+-	p = br_port_get_rtnl(dev);
++	p = br_port_get_rtnl_rcu(dev);
+ 	if (!p)
+ 		goto out;
+ 
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index ab0c7cc..5c780cd 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -1075,7 +1075,6 @@ int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
+ 	struct net_bridge_fdb_entry *fdb;
+ 	int err = 0;
+ 
+-	ASSERT_RTNL();
+ 	spin_lock_bh(&br->hash_lock);
+ 
+ 	head = &br->hash[br_mac_hash(addr, vid)];
+@@ -1110,7 +1109,6 @@ int br_fdb_external_learn_del(struct net_bridge *br, struct net_bridge_port *p,
+ 	struct net_bridge_fdb_entry *fdb;
+ 	int err = 0;
+ 
+-	ASSERT_RTNL();
+ 	spin_lock_bh(&br->hash_lock);
+ 
+ 	fdb = br_fdb_find(br, addr, vid);
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 7f43992..a122684 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -284,6 +284,12 @@ static inline struct net_bridge_port *br_port_get_rtnl(const struct net_device *
+ 		rtnl_dereference(dev->rx_handler_data) : NULL;
  }
  
- static int
-+rocker_world_port_attr_bridge_flags_support_get(const struct rocker_port *
-+						rocker_port,
-+						unsigned long *
-+						p_brport_flags_support)
++static inline struct net_bridge_port *br_port_get_rtnl_rcu(const struct net_device *dev)
 +{
-+	struct rocker_world_ops *wops = rocker_port->rocker->wops;
-+
-+	if (!wops->port_attr_bridge_flags_support_get)
-+		return -EOPNOTSUPP;
-+	return wops->port_attr_bridge_flags_support_get(rocker_port,
-+							p_brport_flags_support);
++	return br_port_exists(dev) ?
++		rcu_dereference_rtnl(dev->rx_handler_data) : NULL;
 +}
 +
-+static int
- rocker_world_port_attr_bridge_ageing_time_set(struct rocker_port *rocker_port,
- 					      u32 ageing_time,
- 					      struct switchdev_trans *trans)
-@@ -2053,6 +2067,10 @@ static int rocker_port_attr_get(struct net_device *dev,
- 		err = rocker_world_port_attr_bridge_flags_get(rocker_port,
- 							      &attr->u.brport_flags);
- 		break;
-+	case SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS_SUPPORT:
-+		err = rocker_world_port_attr_bridge_flags_support_get(rocker_port,
-+								      &attr->u.brport_flags_support);
-+		break;
- 	default:
- 		return -EOPNOTSUPP;
- 	}
-diff --git a/drivers/net/ethernet/rocker/rocker_ofdpa.c b/drivers/net/ethernet/rocker/rocker_ofdpa.c
-index 0b5a58f..7528ee7 100644
---- a/drivers/net/ethernet/rocker/rocker_ofdpa.c
-+++ b/drivers/net/ethernet/rocker/rocker_ofdpa.c
-@@ -2643,6 +2643,16 @@ ofdpa_port_attr_bridge_flags_get(const struct rocker_port *rocker_port,
- }
- 
- static int
-+ofdpa_port_attr_bridge_flags_support_get(const struct rocker_port *
-+					 rocker_port,
-+					 unsigned long *
-+					 p_brport_flags_support)
-+{
-+	*p_brport_flags_support = BR_LEARNING;
-+	return 0;
-+}
-+
-+static int
- ofdpa_port_attr_bridge_ageing_time_set(struct rocker_port *rocker_port,
- 				       u32 ageing_time,
- 				       struct switchdev_trans *trans)
-@@ -2989,6 +2999,7 @@ struct rocker_world_ops rocker_ofdpa_ops = {
- 	.port_attr_stp_state_set = ofdpa_port_attr_stp_state_set,
- 	.port_attr_bridge_flags_set = ofdpa_port_attr_bridge_flags_set,
- 	.port_attr_bridge_flags_get = ofdpa_port_attr_bridge_flags_get,
-+	.port_attr_bridge_flags_support_get = ofdpa_port_attr_bridge_flags_support_get,
- 	.port_attr_bridge_ageing_time_set = ofdpa_port_attr_bridge_ageing_time_set,
- 	.port_obj_vlan_add = ofdpa_port_obj_vlan_add,
- 	.port_obj_vlan_del = ofdpa_port_obj_vlan_del,
+ struct net_bridge {
+ 	spinlock_t			lock;
+ 	spinlock_t			hash_lock;
 -- 
 2.9.3
