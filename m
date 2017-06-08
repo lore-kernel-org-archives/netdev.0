@@ -1,78 +1,82 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch iproute2/net-next] tc: add support for TRAP action
-Date: Thu, 8 Jun 2017 08:57:19 +0200
-Message-ID: <20170608065719.GD2238@nanopsycho>
-References: <20170605143832.7025-1-jiri@resnulli.us>
- <20170605143945.7094-1-jiri@resnulli.us>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH net-next 0/3] LiquidIO: avoid VM low memory crashes
+Date: Thu, 8 Jun 2017 10:12:37 +0300
+Message-ID: <20170608071237.GL1127@mtr-leonro.local>
+References: <20170608035045.GA1608@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        edumazet@google.com, alexander.h.duyck@intel.com,
-        stephen@networkplumber.org, daniel@iogearbox.net,
-        mlxsw@mellanox.com
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="7vAdt9JsdkkzRPKN"
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        raghu.vatsavayi@cavium.com, derek.chickles@cavium.com,
+        satananda.burla@cavium.com, ricardo.farrington@cavium.com
+To: Felix Manlunas <felix.manlunas@cavium.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:34864 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751515AbdFHG5X (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 02:57:23 -0400
-Received: by mail-wr0-f194.google.com with SMTP id g76so2926265wrd.2
-        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 23:57:22 -0700 (PDT)
+Received: from mail.kernel.org ([198.145.29.99]:42356 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751418AbdFHHMn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Jun 2017 03:12:43 -0400
 Content-Disposition: inline
-In-Reply-To: <20170605143945.7094-1-jiri@resnulli.us>
+In-Reply-To: <20170608035045.GA1608@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Jun 05, 2017 at 04:39:45PM CEST, jiri@resnulli.us wrote:
->From: Jiri Pirko <jiri@mellanox.com>
->
->Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-Stephen, note that the kernel part was accepted in v2. Thanks.
+--7vAdt9JsdkkzRPKN
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Wed, Jun 07, 2017 at 08:50:45PM -0700, Felix Manlunas wrote:
+> From: Rick Farrington <ricardo.farrington@cavium.com>
+>
+> This patchset addresses issues brought about by low memory conditions
+> in a VM.  These conditions were only seen when VM's were intentionally
+> created with small amounts of memory (for stress testing).
+>
+> 1. Fix GPF in octeon_init_droq(); zero the allocated block 'recv_buf_list'.
+>    This prevents a GPF trying to access an invalid 'recv_buf_list[i]' entry
+>    in octeon_droq_destroy_ring_buffers() if init didn't alloc all entries.
+> 2. Don't dereference a NULL ptr in octeon_droq_destroy_ring_buffers().
+> 3. For defensive programming, zero the allocated block 'oct->droq[0]' in
+>    octeon_setup_output_queues() and 'oct->instr_queue[0]' in
+>    octeon_setup_instr_queues().
+>
+
+While these patches are harmless, I don't really understand how
+allocating the same arrays just with zeros in it can prevent low memory
+crashes. Once you used v[m,z]alloc, you should expect for failures in
+these flows and relying on content of that page is not called "solve the
+bug".
+
+Thanks
 
 
->---
-> include/linux/pkt_cls.h | 5 +++++
-> tc/tc_util.c            | 3 +++
-> 2 files changed, 8 insertions(+)
+
+>  drivers/net/ethernet/cavium/liquidio/octeon_device.c | 8 ++++----
+>  drivers/net/ethernet/cavium/liquidio/octeon_droq.c   | 6 ++++--
+>  2 files changed, 8 insertions(+), 6 deletions(-)
 >
->diff --git a/include/linux/pkt_cls.h b/include/linux/pkt_cls.h
->index c6e8cf5..477ed05 100644
->--- a/include/linux/pkt_cls.h
->+++ b/include/linux/pkt_cls.h
->@@ -37,6 +37,11 @@ enum {
-> #define TC_ACT_QUEUED		5
-> #define TC_ACT_REPEAT		6
-> #define TC_ACT_REDIRECT		7
->+#define TC_ACT_TRAP		8 /* For hw path, this means "trap to cpu",
->+				   * for sw path, this is equivalent of
->+				   * TC_ACT_STOLEN - drop the skb and act
->+				   * like everything is allright.
->+				   */
-> 
-> /* There is a special kind of actions called "extended actions",
->  * which need a value parameter. These have a local opcode located in
->diff --git a/tc/tc_util.c b/tc/tc_util.c
->index 4f7283d..5a0f96a 100644
->--- a/tc/tc_util.c
->+++ b/tc/tc_util.c
->@@ -430,6 +430,8 @@ static const char *action_n2a(int action)
-> 		return "pipe";
-> 	case TC_ACT_STOLEN:
-> 		return "stolen";
->+	case TC_ACT_TRAP:
->+		return "trap";
-> 	default:
-> 		snprintf(buf, 64, "%d", action);
-> 		buf[63] = '\0';
->@@ -462,6 +464,7 @@ static int action_a2n(char *arg, int *result, bool allow_num)
-> 		{"reclassify", TC_ACT_RECLASSIFY},
-> 		{"pipe", TC_ACT_PIPE},
-> 		{"goto", TC_ACT_GOTO_CHAIN},
->+		{"trap", TC_ACT_TRAP},
-> 		{ NULL },
-> 	}, *iter;
-> 
->-- 
->2.9.3
+> --
+> 1.8.3.1
 >
+
+--7vAdt9JsdkkzRPKN
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlk4+OUACgkQ5GN7iDZy
+WKfNoxAAgm/6G/HM9CrQWqtbN9ySF0bClgWn1/QJDB4MymfkQdSF8Dcalxl5v8hH
+3ay6mhUe1i6eDq8vYQPZnLOioZhIb/10Ag1PmKHTudPTKB/muTzhj/0hWwvVlOxO
+SjxNKwzUhMh06liDNoSs5W/iaKK2CYpGDbXuwSrmKzt1ljHDiV7iMTyTEnokEw3a
+VT38oqX9i4LgOj+rIOUKyaIAbmXdq4i/pAcC7Ab81wFIBiqtPQ3ohk7aGe+uXxvD
+WuJavvJjStyV3rzQfzXr5Nu7WhaXGbz+S+dpSJLIUG8MBAi5aeYOb7ELT2XTLPWf
+8574w3SlG+FQlQOBrKoy2xD+0AiMyQ30QzhJXM0TM8QnRzklYisXxYa9Hfuq02Om
+ZXb7ZPCD32ss18jpCeJVxvbP3k+VIUviATNPF+6uISGARzmbr1vI1HhIbtx0/AWp
+C6Afrw9uvbyECl4oaXM0hqzNU75GgnZn5LFlqcINYtrJQgwhUP3lF7WFHDchLVQs
+aIAT+d47YO8VyoFkXNvkvEkC8bxr4BWiPqMiVJUlhJJ+Pky0om/RdzAuJqmW1paU
+PT6ZEloeyO3JGTjMQnZKm/xWRGfzBfg7CyLJICW1zFpcd6gPGBUxyf6oynCNH8wg
+EkzUVuqcMOJvzIyqEtjrGCtAOeTJY3BLidwYz69tb54euQmay38=
+=PsdC
+-----END PGP SIGNATURE-----
+
+--7vAdt9JsdkkzRPKN--
