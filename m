@@ -1,33 +1,33 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH 2/2(net.git)] stmmac: fix for hw timestamp of GMAC3 unit
-Date: Thu, 8 Jun 2017 04:31:58 +0300
-Message-ID: <CAHp75VfOhjLB96wf33CCFiEhxQ5ve3DX+GKiwUX-jB8FQCUB=w@mail.gmail.com>
-References: <trinity-988824f2-9aed-4ed0-bc97-d78b13337cf5-1496825121649@3capp-webde-bs41>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 1/2] ip_tunnel: fix potential issue in ip_tunnel_rcv
+Date: Wed, 07 Jun 2017 19:21:20 -0700
+Message-ID: <1496888480.736.51.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1496883476-17445-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        Alexandre TORGUE <alexandre.torgue@st.com>,
-        netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Mario Molitor <Mario_Molitor@web.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <trinity-988824f2-9aed-4ed0-bc97-d78b13337cf5-1496825121649@3capp-webde-bs41>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Pravin B Shelar <pshelar@nicira.com>,
+        Haishuang Yan <yanhaishuang@cmss.chinamobile.com390e>
+To: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35191 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751433AbdFHCVW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2017 22:21:22 -0400
+In-Reply-To: <1496883476-17445-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 7, 2017 at 11:45 AM, Mario Molitor <Mario_Molitor@web.de> wrote:
+On Thu, 2017-06-08 at 08:57 +0800, Haishuang Yan wrote:
+> When ip_tunnel_rcv fails, the tun_dst won't be freed, so move
+> skb_dst_set to begin and tun_dst would be freed by kfree_skb.
+> 
+> CC: Pravin B Shelar <pshelar@nicira.com>
+> Fixes: 2e15ea390e6f ("ip_gre: Add support to collect tunnel metadata.")
+> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com390e>
+> ---
 
->  exit:
-> -       return ret;
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-> +       if (likely(ret == 0))
-> +               return 1;
-> +       else
-> +               return 0;
-
-else is redundant.
-
-
--- 
-With Best Regards,
-Andy Shevchenko
+Thanks a lot.
