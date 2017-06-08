@@ -1,53 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] net: Fix build regression in rtl8723bs staging driver.
-Date: Thu, 08 Jun 2017 11:54:03 -0400 (EDT)
-Message-ID: <20170608.115403.59151122730404982.davem@davemloft.net>
+From: Soheil Hassas Yeganeh <soheil@google.com>
+Subject: Re: [PATCH net-next] skbuff: only inherit relevant tx_flags
+Date: Thu, 8 Jun 2017 11:59:40 -0400
+Message-ID: <CACSApvY3taHwTV4RdPEnj4d8FU6FSt8kxqZiY=tB+pbxZRCCAA@mail.gmail.com>
+References: <20170608153503.74199-1-willemdebruijn.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Willem de Bruijn <willemb@google.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59084 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751640AbdFHPyF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 11:54:05 -0400
-Received: from localhost (unknown [38.140.131.194])
-        (using TLSv1 with cipher AES128-SHA (128/128 bits))
-        (Client did not present a certificate)
-        (Authenticated sender: davem-davemloft)
-        by shards.monkeyblade.net (Postfix) with ESMTPSA id 5421F1248ABA3
-        for <netdev@vger.kernel.org>; Thu,  8 Jun 2017 08:12:25 -0700 (PDT)
+Received: from mail-io0-f181.google.com ([209.85.223.181]:34488 "EHLO
+        mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751583AbdFHQAZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 12:00:25 -0400
+Received: by mail-io0-f181.google.com with SMTP id i7so22096874ioe.1
+        for <netdev@vger.kernel.org>; Thu, 08 Jun 2017 09:00:25 -0700 (PDT)
+In-Reply-To: <20170608153503.74199-1-willemdebruijn.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQpkcml2ZXJzL3N0YWdpbmcvcnRsODcyM2JzL29zX2RlcC9pb2N0bF9jZmc4MDIxMS5jOiBJbiBm
-dW5jdGlvbiChcnR3X2NmZzgwMjExX2FkZF9tb25pdG9yX2lmojoNCmRyaXZlcnMvc3RhZ2luZy9y
-dGw4NzIzYnMvb3NfZGVwL2lvY3RsX2NmZzgwMjExLmM6MjY3MDoxMDogZXJyb3I6IKFzdHJ1Y3Qg
-bmV0X2RldmljZaIgaGFzIG5vIG1lbWJlciBuYW1lZCChZGVzdHJ1Y3RvcqINCiAgbW9uX25kZXYt
-PmRlc3RydWN0b3IgPSBydHdfbmRldl9kZXN0cnVjdG9yOw0KICAgICAgICAgIF4NCg0KU2lnbmVk
-LW9mZi1ieTogRGF2aWQgUy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KLS0tDQoNCkFu
-b3RoZXIgcGllY2Ugb2YgZmFsbG91dCBmcm9tIHRoZSBkZXN0cnVjdG9yIGZpeCwgc29ycnkgYWJv
-dXQNCmFsbCBvZiB0aGlzLi4uDQoNCiBkcml2ZXJzL3N0YWdpbmcvcnRsODcyM2JzL29zX2RlcC9p
-b2N0bF9jZmc4MDIxMS5jIHwgMyArKy0NCiBkcml2ZXJzL3N0YWdpbmcvcnRsODcyM2JzL29zX2Rl
-cC9vc19pbnRmcy5jICAgICAgIHwgMiAtLQ0KIDIgZmlsZXMgY2hhbmdlZCwgMiBpbnNlcnRpb25z
-KCspLCAzIGRlbGV0aW9ucygtKQ0KDQpkaWZmIC0tZ2l0IGEvZHJpdmVycy9zdGFnaW5nL3J0bDg3
-MjNicy9vc19kZXAvaW9jdGxfY2ZnODAyMTEuYyBiL2RyaXZlcnMvc3RhZ2luZy9ydGw4NzIzYnMv
-b3NfZGVwL2lvY3RsX2NmZzgwMjExLmMNCmluZGV4IDM2YzMxODkuLmJkNDM1MmYgMTAwNjQ0DQot
-LS0gYS9kcml2ZXJzL3N0YWdpbmcvcnRsODcyM2JzL29zX2RlcC9pb2N0bF9jZmc4MDIxMS5jDQor
-KysgYi9kcml2ZXJzL3N0YWdpbmcvcnRsODcyM2JzL29zX2RlcC9pb2N0bF9jZmc4MDIxMS5jDQpA
-QCAtMjY2Nyw3ICsyNjY3LDggQEAgc3RhdGljIGludCBydHdfY2ZnODAyMTFfYWRkX21vbml0b3Jf
-aWYgKHN0cnVjdCBhZGFwdGVyICpwYWRhcHRlciwgY2hhciAqbmFtZSwgc3QNCiAJbW9uX25kZXYt
-PnR5cGUgPSBBUlBIUkRfSUVFRTgwMjExX1JBRElPVEFQOw0KIAlzdHJuY3B5KG1vbl9uZGV2LT5u
-YW1lLCBuYW1lLCBJRk5BTVNJWik7DQogCW1vbl9uZGV2LT5uYW1lW0lGTkFNU0laIC0gMV0gPSAw
-Ow0KLQltb25fbmRldi0+ZGVzdHJ1Y3RvciA9IHJ0d19uZGV2X2Rlc3RydWN0b3I7DQorCW1vbl9u
-ZGV2LT5uZWVkc19mcmVlX25ldGRldiA9IHRydWU7DQorCW1vbl9uZGV2LT5wcml2X2Rlc3RydWN0
-b3IgPSBydHdfbmRldl9kZXN0cnVjdG9yOw0KIA0KIAltb25fbmRldi0+bmV0ZGV2X29wcyA9ICZy
-dHdfY2ZnODAyMTFfbW9uaXRvcl9pZl9vcHM7DQogDQpkaWZmIC0tZ2l0IGEvZHJpdmVycy9zdGFn
-aW5nL3J0bDg3MjNicy9vc19kZXAvb3NfaW50ZnMuYyBiL2RyaXZlcnMvc3RhZ2luZy9ydGw4NzIz
-YnMvb3NfZGVwL29zX2ludGZzLmMNCmluZGV4IGY4M2NmYzcuLjAyMTU4OTkgMTAwNjQ0DQotLS0g
-YS9kcml2ZXJzL3N0YWdpbmcvcnRsODcyM2JzL29zX2RlcC9vc19pbnRmcy5jDQorKysgYi9kcml2
-ZXJzL3N0YWdpbmcvcnRsODcyM2JzL29zX2RlcC9vc19pbnRmcy5jDQpAQCAtMTIwNyw4ICsxMjA3
-LDYgQEAgdm9pZCBydHdfbmRldl9kZXN0cnVjdG9yKHN0cnVjdCBuZXRfZGV2aWNlICpuZGV2KQ0K
-IA0KIAlpZiAobmRldi0+aWVlZTgwMjExX3B0cikNCiAJCWtmcmVlKCh1OCAqKW5kZXYtPmllZWU4
-MDIxMV9wdHIpOw0KLQ0KLQlmcmVlX25ldGRldihuZGV2KTsNCiB9DQogDQogdm9pZCBydHdfZGV2
-X3VubG9hZChzdHJ1Y3QgYWRhcHRlciAqcGFkYXB0ZXIpDQotLSANCjIuNC4xMQ0KDQo=
+On Thu, Jun 8, 2017 at 11:35 AM, Willem de Bruijn
+<willemdebruijn.kernel@gmail.com> wrote:
+>
+> From: Willem de Bruijn <willemb@google.com>
+>
+> When inheriting tx_flags from one skbuff to another, always apply a
+> mask to avoid overwriting unrelated other bits in the field.
+>
+> The two SKBTX_SHARED_FRAG cases clears all other bits. In practice,
+> tx_flags are zero at this point now. But this is fragile. Timestamp
+> flags are set, for instance, if in tcp_gso_segment, after this clear
+> in skb_segment.
+>
+> The SKBTX_ANY_TSTAMP mask in __skb_tstamp_tx ensures that new
+> skbs do not accidentally inherit flags such as SKBTX_SHARED_FRAG.
+>
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
+
+Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
