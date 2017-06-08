@@ -1,56 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] tcp: add TCPMemoryPressuresChrono counter
-Date: Thu, 08 Jun 2017 11:26:39 -0400 (EDT)
-Message-ID: <20170608.112639.1539826730157752352.davem@davemloft.net>
-References: <1496776767.736.11.camel@edumazet-glaptop3.roam.corp.google.com>
-        <1496867352.736.45.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: [RFC PATCH net-next 5/5] selftests/bpf: change
+ test_verifier expectations
+Date: Thu, 8 Jun 2017 16:27:47 +0100
+Message-ID: <8033b93c-2d13-ad57-2a59-9fbb603a6e9c@solarflare.com>
+References: <92db9689-af6a-e172-ba57-195e588f9cc0@solarflare.com>
+	<b04aa1a3-2b6c-2d3d-f26f-17eaaa549539@solarflare.com>
+	<20170608024334.jgo63s2fnoi5wmia@ast-mbp>
+Reply-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58404 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751597AbdFHP0l (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 11:26:41 -0400
-In-Reply-To: <1496867352.736.45.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <20170608024334.jgo63s2fnoi5wmia@ast-mbp>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 07 Jun 2017 13:29:12 -0700
+On 08/06/17 03:43, Alexei Starovoitov wrote:
+> On Wed, Jun 07, 2017 at 04:00:02PM +0100, Edward Cree wrote:
+>> Some of the verifier's error messages have changed, and some constructs
+>>  that previously couldn't be verified are now accepted.
+>>
+>> Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+>> ---
+>>  tools/testing/selftests/bpf/test_verifier.c | 226 ++++++++++++++--------------
+>>  1 file changed, 116 insertions(+), 110 deletions(-)
+> imo this rewrite needs more than one additional test.
+> Like i counted at least 2 new verifier features (like negative and ptr & 0x40)
+> All the new logic needs to be covered by tests.
+Yes, I will write some new tests to cover the new features.  I just wanted
+ to get some comments on the patch first, in case I was barking up entirely
+ the wrong tree.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> DRAM supply shortage and poor memory pressure tracking in TCP
-> stack makes any change in SO_SNDBUF/SO_RCVBUF (or equivalent autotuning
-> limits) and tcp_mem[] quite hazardous.
-> 
-> TCPMemoryPressures SNMP counter is an indication of tcp_mem sysctl
-> limits being hit, but only tracking number of transitions.
-> 
-> If TCP stack behavior under stress was perfect :
-> 1) It would maintain memory usage close to the limit.
-> 2) Memory pressure state would be entered for short times.
-> 
-> We certainly prefer 100 events lasting 10ms compared to one event
-> lasting 200 seconds.
-> 
-> This patch adds a new SNMP counter tracking cumulative duration of
-> memory pressure events, given in ms units.
-> 
-> $ cat /proc/sys/net/ipv4/tcp_mem
-> 3088    4117    6176
-> $ grep TCP /proc/net/sockstat
-> TCP: inuse 180 orphan 0 tw 2 alloc 234 mem 4140
-> $ nstat -n ; sleep 10 ; nstat |grep Pressure
-> TcpExtTCPMemoryPressures        1700
-> TcpExtTCPMemoryPressuresChrono  5209
-> 
-> v2: Used EXPORT_SYMBOL_GPL() instead of EXPORT_SYMBOL() as David
-> instructed.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-
-Applied, thanks Eric.
+-Ed
