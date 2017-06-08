@@ -1,36 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RESEND PATCH 0/4] Missing QRTR features
-Date: Thu, 08 Jun 2017 11:35:22 -0400 (EDT)
-Message-ID: <20170608.113522.1009136088878719137.davem@davemloft.net>
-References: <20170607210739.27263-1-bjorn.andersson@linaro.org>
+Subject: Re: [PATCH net-next 0/3] rxrpc: Tx length parameter
+Date: Thu, 08 Jun 2017 11:42:03 -0400 (EDT)
+Message-ID: <20170608.114203.1335498499864627385.davem@davemloft.net>
+References: <149686995195.21359.17550471913376009423.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: aneela@codeaurora.org, netdev@vger.kernel.org,
-        linux-arm-msm@vger.kernel.org, linux-kernel@vger.kernel.org,
-        ccavin@gmail.com
-To: bjorn.andersson@linaro.org
+Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170607210739.27263-1-bjorn.andersson@linaro.org>
+In-Reply-To: <149686995195.21359.17550471913376009423.stgit@warthog.procyon.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Date: Wed,  7 Jun 2017 14:07:35 -0700
+From: David Howells <dhowells@redhat.com>
+Date: Wed, 07 Jun 2017 22:12:32 +0100
 
-> The QMUX specification covers packet routing as well as service life cycle and
-> discovery. The current implementation of qrtr supports the prior part, but in
-> order to fully implement service management on-top a few more parts are needed.
+> Here's a set of patches that allows someone initiating a client call with
+> AF_RXRPC to indicate upfront the total amount of data that will be
+> transmitted.  This will allow AF_RXRPC to encrypt directly from source
+> buffer to packet rather than having to copy into the buffer and only
+> encrypt when it's full (the encrypted portion of the packet starts with a
+> length and so we can't encrypt until we know what the length will be).
 > 
-> The first patch in the series serves the purpose of reducing duplication in
-> patch two and three.
+> The three patches are:
 > 
-> The second and third patch adds two qrtr-level notifications required by the
-> specification, in order to notify local and remote service controllers about
-> dying clients.
+>  (1) Provide a means of finding out what control message types are actually
+>      supported.  EINVAL is reported if an unsupported cmsg type is seen, so
+>      we don't want to set the new cmsg unless we know it will be accepted.
 > 
-> The last patch serves the purpose of notifying local clients about the presence
-> of a local service register, allowing them to register services as well as
-> querying for remote registered services.
+>  (2) Consolidate some stuff into a struct to reduce the parameter count on
+>      the function that parses the cmsg buffer.
+> 
+>  (3) Introduce the RXRPC_TX_LENGTH cmsg.  This can be provided on the first
+>      sendmsg() that contributes data to a client call request or a service
+>      call reply.  If provided, the user must provide exactly that amount of
+>      data or an error will be incurred.
+> 
+> Changes in version 2:
+> 
+>  (*) struct rxrpc_send_params::tx_total_len should be s64 not u64.  Thanks to
+>      Julia Lawall for reporting this.
+ ...
+> Tagged thusly:
+> 
+> 	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
+> 	rxrpc-rewrite-20170607-v2
 
-Looks good, series applied to net-next, thank you.
+Pulled, thanks David.
