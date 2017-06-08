@@ -1,130 +1,176 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 23/44] x86/calgary: implement ->mapping_error
-Date: Thu,  8 Jun 2017 15:25:48 +0200
-Message-ID: <20170608132609.32662-24-hch@lst.de>
+Subject: [PATCH 21/44] powerpc: implement ->mapping_error
+Date: Thu,  8 Jun 2017 15:25:46 +0200
+Message-ID: <20170608132609.32662-22-hch@lst.de>
 References: <20170608132609.32662-1-hch@lst.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: linux-kernel@vger.kernel.org
 To: x86@kernel.org, linux-arm-kernel@lists.infradead.org,
-        xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
-        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
-        linux-mips@linux-mips.org, openrisc@lists.librecores.org,
-        linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
-        linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
-        linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
-        linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
-        linux-samsung-soc@vger.kernel.org,
-        iommu@lists.linux-foundation.org, netdev@vger.kernel.org
-Return-path: <linux-samsung-soc-owner@vger.kernel.org>
+ xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
+ linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
+ linux-mips@linux-mips.org, openrisc@lists.librecores.org,
+ linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
+ linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
+ linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
+ linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
+ linux-samsung-soc@vger.kernel.org, iommu@lists.linux-foundation.org,
+ netdev@vger.kernel.org
+Return-path: <xen-devel-bounces@lists.xen.org>
 In-Reply-To: <20170608132609.32662-1-hch@lst.de>
-Sender: linux-samsung-soc-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
 List-Id: netdev.vger.kernel.org
 
-DMA_ERROR_CODE is going to go away, so don't rely on it.
-
-Signed-off-by: Christoph Hellwig <hch@lst.de>
----
- arch/x86/kernel/pci-calgary_64.c | 24 ++++++++++++++++--------
- 1 file changed, 16 insertions(+), 8 deletions(-)
-
-diff --git a/arch/x86/kernel/pci-calgary_64.c b/arch/x86/kernel/pci-calgary_64.c
-index fda7867046d0..e75b490f2b0b 100644
---- a/arch/x86/kernel/pci-calgary_64.c
-+++ b/arch/x86/kernel/pci-calgary_64.c
-@@ -50,6 +50,8 @@
- #include <asm/x86_init.h>
- #include <asm/iommu_table.h>
- 
-+#define CALGARY_MAPPING_ERROR	0
-+
- #ifdef CONFIG_CALGARY_IOMMU_ENABLED_BY_DEFAULT
- int use_calgary __read_mostly = 1;
- #else
-@@ -252,7 +254,7 @@ static unsigned long iommu_range_alloc(struct device *dev,
- 			if (panic_on_overflow)
- 				panic("Calgary: fix the allocator.\n");
- 			else
--				return DMA_ERROR_CODE;
-+				return CALGARY_MAPPING_ERROR;
- 		}
- 	}
- 
-@@ -272,10 +274,10 @@ static dma_addr_t iommu_alloc(struct device *dev, struct iommu_table *tbl,
- 
- 	entry = iommu_range_alloc(dev, tbl, npages);
- 
--	if (unlikely(entry == DMA_ERROR_CODE)) {
-+	if (unlikely(entry == CALGARY_MAPPING_ERROR)) {
- 		pr_warn("failed to allocate %u pages in iommu %p\n",
- 			npages, tbl);
--		return DMA_ERROR_CODE;
-+		return CALGARY_MAPPING_ERROR;
- 	}
- 
- 	/* set the return dma address */
-@@ -295,7 +297,7 @@ static void iommu_free(struct iommu_table *tbl, dma_addr_t dma_addr,
- 	unsigned long flags;
- 
- 	/* were we called with bad_dma_address? */
--	badend = DMA_ERROR_CODE + (EMERGENCY_PAGES * PAGE_SIZE);
-+	badend = CALGARY_MAPPING_ERROR + (EMERGENCY_PAGES * PAGE_SIZE);
- 	if (unlikely(dma_addr < badend)) {
- 		WARN(1, KERN_ERR "Calgary: driver tried unmapping bad DMA "
- 		       "address 0x%Lx\n", dma_addr);
-@@ -380,7 +382,7 @@ static int calgary_map_sg(struct device *dev, struct scatterlist *sg,
- 		npages = iommu_num_pages(vaddr, s->length, PAGE_SIZE);
- 
- 		entry = iommu_range_alloc(dev, tbl, npages);
--		if (entry == DMA_ERROR_CODE) {
-+		if (entry == CALGARY_MAPPING_ERROR) {
- 			/* makes sure unmap knows to stop */
- 			s->dma_length = 0;
- 			goto error;
-@@ -398,7 +400,7 @@ static int calgary_map_sg(struct device *dev, struct scatterlist *sg,
- error:
- 	calgary_unmap_sg(dev, sg, nelems, dir, 0);
- 	for_each_sg(sg, s, nelems, i) {
--		sg->dma_address = DMA_ERROR_CODE;
-+		sg->dma_address = CALGARY_MAPPING_ERROR;
- 		sg->dma_length = 0;
- 	}
- 	return 0;
-@@ -453,7 +455,7 @@ static void* calgary_alloc_coherent(struct device *dev, size_t size,
- 
- 	/* set up tces to cover the allocated range */
- 	mapping = iommu_alloc(dev, tbl, ret, npages, DMA_BIDIRECTIONAL);
--	if (mapping == DMA_ERROR_CODE)
-+	if (mapping == CALGARY_MAPPING_ERROR)
- 		goto free;
- 	*dma_handle = mapping;
- 	return ret;
-@@ -478,6 +480,11 @@ static void calgary_free_coherent(struct device *dev, size_t size,
- 	free_pages((unsigned long)vaddr, get_order(size));
- }
- 
-+static int calgary_mapping_error(struct device *dev, dma_addr_t dma_addr)
-+{
-+	return dma_addr == CALGARY_MAPPING_ERROR;
-+}
-+
- static const struct dma_map_ops calgary_dma_ops = {
- 	.alloc = calgary_alloc_coherent,
- 	.free = calgary_free_coherent,
-@@ -485,6 +492,7 @@ static const struct dma_map_ops calgary_dma_ops = {
- 	.unmap_sg = calgary_unmap_sg,
- 	.map_page = calgary_map_page,
- 	.unmap_page = calgary_unmap_page,
-+	.mapping_error = calgary_mapping_error,
- };
- 
- static inline void __iomem * busno_to_bbar(unsigned char num)
-@@ -732,7 +740,7 @@ static void __init calgary_reserve_regions(struct pci_dev *dev)
- 	struct iommu_table *tbl = pci_iommu(dev->bus);
- 
- 	/* reserve EMERGENCY_PAGES from bad_dma_address and up */
--	iommu_range_reserve(tbl, DMA_ERROR_CODE, EMERGENCY_PAGES);
-+	iommu_range_reserve(tbl, CALGARY_MAPPING_ERROR, EMERGENCY_PAGES);
- 
- 	/* avoid the BIOS/VGA first 640KB-1MB region */
- 	/* for CalIOC2 - avoid the entire first MB */
--- 
-2.11.0
+RE1BX0VSUk9SX0NPREUgaXMgZ29pbmcgdG8gZ28gYXdheSwgc28gZG9uJ3QgcmVseSBvbiBpdC4g
+IEluc3RlYWQKZGVmaW5lIGEgLT5tYXBwaW5nX2Vycm9yIG1ldGhvZCBmb3IgYWxsIElPTU1VIGJh
+c2VkIGRtYSBvcGVyYXRpb24KaW5zdGFuY2VzLiAgVGhlIGRpcmVjdCBvcHMgZG9uJ3QgZXZlciBy
+ZXR1cm4gYW4gZXJyb3IgYW5kIGRvbid0Cm5lZWQgYSAtPm1hcHBpbmdfZXJyb3IgbWV0aG9kLgoK
+U2lnbmVkLW9mZi1ieTogQ2hyaXN0b3BoIEhlbGx3aWcgPGhjaEBsc3QuZGU+Ci0tLQogYXJjaC9w
+b3dlcnBjL2luY2x1ZGUvYXNtL2RtYS1tYXBwaW5nLmggfCAgNCAtLS0tCiBhcmNoL3Bvd2VycGMv
+aW5jbHVkZS9hc20vaW9tbXUuaCAgICAgICB8ICA0ICsrKysKIGFyY2gvcG93ZXJwYy9rZXJuZWwv
+ZG1hLWlvbW11LmMgICAgICAgIHwgIDYgKysrKysrCiBhcmNoL3Bvd2VycGMva2VybmVsL2lvbW11
+LmMgICAgICAgICAgICB8IDI4ICsrKysrKysrKysrKysrLS0tLS0tLS0tLS0tLS0KIGFyY2gvcG93
+ZXJwYy9wbGF0Zm9ybXMvY2VsbC9pb21tdS5jICAgIHwgIDEgKwogYXJjaC9wb3dlcnBjL3BsYXRm
+b3Jtcy9wc2VyaWVzL3Zpby5jICAgfCAgMyArKy0KIDYgZmlsZXMgY2hhbmdlZCwgMjcgaW5zZXJ0
+aW9ucygrKSwgMTkgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvYXJjaC9wb3dlcnBjL2luY2x1
+ZGUvYXNtL2RtYS1tYXBwaW5nLmggYi9hcmNoL3Bvd2VycGMvaW5jbHVkZS9hc20vZG1hLW1hcHBp
+bmcuaAppbmRleCAxODFhMDk1NDY4ZTQuLjczYWVkYmU2Yzk3NyAxMDA2NDQKLS0tIGEvYXJjaC9w
+b3dlcnBjL2luY2x1ZGUvYXNtL2RtYS1tYXBwaW5nLmgKKysrIGIvYXJjaC9wb3dlcnBjL2luY2x1
+ZGUvYXNtL2RtYS1tYXBwaW5nLmgKQEAgLTE3LDEwICsxNyw2IEBACiAjaW5jbHVkZSA8YXNtL2lv
+Lmg+CiAjaW5jbHVkZSA8YXNtL3N3aW90bGIuaD4KIAotI2lmZGVmIENPTkZJR19QUEM2NAotI2Rl
+ZmluZSBETUFfRVJST1JfQ09ERQkJKH4oZG1hX2FkZHJfdCkweDApCi0jZW5kaWYKLQogLyogU29t
+ZSBkbWEgZGlyZWN0IGZ1bmNzIG11c3QgYmUgdmlzaWJsZSBmb3IgdXNlIGluIG90aGVyIGRtYV9v
+cHMgKi8KIGV4dGVybiB2b2lkICpfX2RtYV9kaXJlY3RfYWxsb2NfY29oZXJlbnQoc3RydWN0IGRl
+dmljZSAqZGV2LCBzaXplX3Qgc2l6ZSwKIAkJCQkJIGRtYV9hZGRyX3QgKmRtYV9oYW5kbGUsIGdm
+cF90IGZsYWcsCmRpZmYgLS1naXQgYS9hcmNoL3Bvd2VycGMvaW5jbHVkZS9hc20vaW9tbXUuaCBi
+L2FyY2gvcG93ZXJwYy9pbmNsdWRlL2FzbS9pb21tdS5oCmluZGV4IDhhOGNlMjIwZDdkMC4uMjBm
+ZWJlMGI3ZjMyIDEwMDY0NAotLS0gYS9hcmNoL3Bvd2VycGMvaW5jbHVkZS9hc20vaW9tbXUuaAor
+KysgYi9hcmNoL3Bvd2VycGMvaW5jbHVkZS9hc20vaW9tbXUuaApAQCAtMTM5LDYgKzEzOSw4IEBA
+IHN0cnVjdCBzY2F0dGVybGlzdDsKIAogI2lmZGVmIENPTkZJR19QUEM2NAogCisjZGVmaW5lIElP
+TU1VX01BUFBJTkdfRVJST1IJCSh+KGRtYV9hZGRyX3QpMHgwKQorCiBzdGF0aWMgaW5saW5lIHZv
+aWQgc2V0X2lvbW11X3RhYmxlX2Jhc2Uoc3RydWN0IGRldmljZSAqZGV2LAogCQkJCQlzdHJ1Y3Qg
+aW9tbXVfdGFibGUgKmJhc2UpCiB7CkBAIC0yMzgsNiArMjQwLDggQEAgc3RhdGljIGlubGluZSBp
+bnQgX19pbml0IHRjZV9pb21tdV9idXNfbm90aWZpZXJfaW5pdCh2b2lkKQogfQogI2VuZGlmIC8q
+ICFDT05GSUdfSU9NTVVfQVBJICovCiAKK2ludCBkbWFfaW9tbXVfbWFwcGluZ19lcnJvcihzdHJ1
+Y3QgZGV2aWNlICpkZXYsIGRtYV9hZGRyX3QgZG1hX2FkZHIpOworCiAjZWxzZQogCiBzdGF0aWMg
+aW5saW5lIHZvaWQgKmdldF9pb21tdV90YWJsZV9iYXNlKHN0cnVjdCBkZXZpY2UgKmRldikKZGlm
+ZiAtLWdpdCBhL2FyY2gvcG93ZXJwYy9rZXJuZWwvZG1hLWlvbW11LmMgYi9hcmNoL3Bvd2VycGMv
+a2VybmVsL2RtYS1pb21tdS5jCmluZGV4IGZiN2NiYWEzNzY1OC4uOGY3YWJmOWJhYTYzIDEwMDY0
+NAotLS0gYS9hcmNoL3Bvd2VycGMva2VybmVsL2RtYS1pb21tdS5jCisrKyBiL2FyY2gvcG93ZXJw
+Yy9rZXJuZWwvZG1hLWlvbW11LmMKQEAgLTEwNSw2ICsxMDUsMTEgQEAgc3RhdGljIHU2NCBkbWFf
+aW9tbXVfZ2V0X3JlcXVpcmVkX21hc2soc3RydWN0IGRldmljZSAqZGV2KQogCXJldHVybiBtYXNr
+OwogfQogCitpbnQgZG1hX2lvbW11X21hcHBpbmdfZXJyb3Ioc3RydWN0IGRldmljZSAqZGV2LCBk
+bWFfYWRkcl90IGRtYV9hZGRyKQoreworCXJldHVybiBkbWFfYWRkciA9PSBJT01NVV9NQVBQSU5H
+X0VSUk9SOworfQorCiBzdHJ1Y3QgZG1hX21hcF9vcHMgZG1hX2lvbW11X29wcyA9IHsKIAkuYWxs
+b2MJCQk9IGRtYV9pb21tdV9hbGxvY19jb2hlcmVudCwKIAkuZnJlZQkJCT0gZG1hX2lvbW11X2Zy
+ZWVfY29oZXJlbnQsCkBAIC0xMTUsNSArMTIwLDYgQEAgc3RydWN0IGRtYV9tYXBfb3BzIGRtYV9p
+b21tdV9vcHMgPSB7CiAJLm1hcF9wYWdlCQk9IGRtYV9pb21tdV9tYXBfcGFnZSwKIAkudW5tYXBf
+cGFnZQkJPSBkbWFfaW9tbXVfdW5tYXBfcGFnZSwKIAkuZ2V0X3JlcXVpcmVkX21hc2sJPSBkbWFf
+aW9tbXVfZ2V0X3JlcXVpcmVkX21hc2ssCisJLm1hcHBpbmdfZXJyb3IJCT0gZG1hX2lvbW11X21h
+cHBpbmdfZXJyb3IsCiB9OwogRVhQT1JUX1NZTUJPTChkbWFfaW9tbXVfb3BzKTsKZGlmZiAtLWdp
+dCBhL2FyY2gvcG93ZXJwYy9rZXJuZWwvaW9tbXUuYyBiL2FyY2gvcG93ZXJwYy9rZXJuZWwvaW9t
+bXUuYwppbmRleCBmMmI3MjRjZDllNjQuLjIzM2NhM2ZlNDc1NCAxMDA2NDQKLS0tIGEvYXJjaC9w
+b3dlcnBjL2tlcm5lbC9pb21tdS5jCisrKyBiL2FyY2gvcG93ZXJwYy9rZXJuZWwvaW9tbXUuYwpA
+QCAtMTk4LDExICsxOTgsMTEgQEAgc3RhdGljIHVuc2lnbmVkIGxvbmcgaW9tbXVfcmFuZ2VfYWxs
+b2Moc3RydWN0IGRldmljZSAqZGV2LAogCWlmICh1bmxpa2VseShucGFnZXMgPT0gMCkpIHsKIAkJ
+aWYgKHByaW50a19yYXRlbGltaXQoKSkKIAkJCVdBUk5fT04oMSk7Ci0JCXJldHVybiBETUFfRVJS
+T1JfQ09ERTsKKwkJcmV0dXJuIElPTU1VX01BUFBJTkdfRVJST1I7CiAJfQogCiAJaWYgKHNob3Vs
+ZF9mYWlsX2lvbW11KGRldikpCi0JCXJldHVybiBETUFfRVJST1JfQ09ERTsKKwkJcmV0dXJuIElP
+TU1VX01BUFBJTkdfRVJST1I7CiAKIAkvKgogCSAqIFdlIGRvbid0IG5lZWQgdG8gZGlzYWJsZSBw
+cmVlbXB0aW9uIGhlcmUgYmVjYXVzZSBhbnkgQ1BVIGNhbgpAQCAtMjc4LDcgKzI3OCw3IEBAIHN0
+YXRpYyB1bnNpZ25lZCBsb25nIGlvbW11X3JhbmdlX2FsbG9jKHN0cnVjdCBkZXZpY2UgKmRldiwK
+IAkJfSBlbHNlIHsKIAkJCS8qIEdpdmUgdXAgKi8KIAkJCXNwaW5fdW5sb2NrX2lycXJlc3RvcmUo
+Jihwb29sLT5sb2NrKSwgZmxhZ3MpOwotCQkJcmV0dXJuIERNQV9FUlJPUl9DT0RFOworCQkJcmV0
+dXJuIElPTU1VX01BUFBJTkdfRVJST1I7CiAJCX0KIAl9CiAKQEAgLTMxMCwxMyArMzEwLDEzIEBA
+IHN0YXRpYyBkbWFfYWRkcl90IGlvbW11X2FsbG9jKHN0cnVjdCBkZXZpY2UgKmRldiwgc3RydWN0
+IGlvbW11X3RhYmxlICp0YmwsCiAJCQkgICAgICB1bnNpZ25lZCBsb25nIGF0dHJzKQogewogCXVu
+c2lnbmVkIGxvbmcgZW50cnk7Ci0JZG1hX2FkZHJfdCByZXQgPSBETUFfRVJST1JfQ09ERTsKKwlk
+bWFfYWRkcl90IHJldCA9IElPTU1VX01BUFBJTkdfRVJST1I7CiAJaW50IGJ1aWxkX2ZhaWw7CiAK
+IAllbnRyeSA9IGlvbW11X3JhbmdlX2FsbG9jKGRldiwgdGJsLCBucGFnZXMsIE5VTEwsIG1hc2ss
+IGFsaWduX29yZGVyKTsKIAotCWlmICh1bmxpa2VseShlbnRyeSA9PSBETUFfRVJST1JfQ09ERSkp
+Ci0JCXJldHVybiBETUFfRVJST1JfQ09ERTsKKwlpZiAodW5saWtlbHkoZW50cnkgPT0gSU9NTVVf
+TUFQUElOR19FUlJPUikpCisJCXJldHVybiBJT01NVV9NQVBQSU5HX0VSUk9SOwogCiAJZW50cnkg
+Kz0gdGJsLT5pdF9vZmZzZXQ7CS8qIE9mZnNldCBpbnRvIHJlYWwgVENFIHRhYmxlICovCiAJcmV0
+ID0gZW50cnkgPDwgdGJsLT5pdF9wYWdlX3NoaWZ0OwkvKiBTZXQgdGhlIHJldHVybiBkbWEgYWRk
+cmVzcyAqLwpAQCAtMzI4LDEyICszMjgsMTIgQEAgc3RhdGljIGRtYV9hZGRyX3QgaW9tbXVfYWxs
+b2Moc3RydWN0IGRldmljZSAqZGV2LCBzdHJ1Y3QgaW9tbXVfdGFibGUgKnRibCwKIAogCS8qIHRi
+bC0+aXRfb3BzLT5zZXQoKSBvbmx5IHJldHVybnMgbm9uLXplcm8gZm9yIHRyYW5zaWVudCBlcnJv
+cnMuCiAJICogQ2xlYW4gdXAgdGhlIHRhYmxlIGJpdG1hcCBpbiB0aGlzIGNhc2UgYW5kIHJldHVy
+bgotCSAqIERNQV9FUlJPUl9DT0RFLiBGb3IgYWxsIG90aGVyIGVycm9ycyB0aGUgZnVuY3Rpb25h
+bGl0eSBpcworCSAqIElPTU1VX01BUFBJTkdfRVJST1IuIEZvciBhbGwgb3RoZXIgZXJyb3JzIHRo
+ZSBmdW5jdGlvbmFsaXR5IGlzCiAJICogbm90IGFsdGVyZWQuCiAJICovCiAJaWYgKHVubGlrZWx5
+KGJ1aWxkX2ZhaWwpKSB7CiAJCV9faW9tbXVfZnJlZSh0YmwsIHJldCwgbnBhZ2VzKTsKLQkJcmV0
+dXJuIERNQV9FUlJPUl9DT0RFOworCQlyZXR1cm4gSU9NTVVfTUFQUElOR19FUlJPUjsKIAl9CiAK
+IAkvKiBGbHVzaC9pbnZhbGlkYXRlIFRMQiBjYWNoZXMgaWYgbmVjZXNzYXJ5ICovCkBAIC00Nzgs
+NyArNDc4LDcgQEAgaW50IHBwY19pb21tdV9tYXBfc2coc3RydWN0IGRldmljZSAqZGV2LCBzdHJ1
+Y3QgaW9tbXVfdGFibGUgKnRibCwKIAkJREJHKCIgIC0gdmFkZHI6ICVseCwgc2l6ZTogJWx4XG4i
+LCB2YWRkciwgc2xlbik7CiAKIAkJLyogSGFuZGxlIGZhaWx1cmUgKi8KLQkJaWYgKHVubGlrZWx5
+KGVudHJ5ID09IERNQV9FUlJPUl9DT0RFKSkgeworCQlpZiAodW5saWtlbHkoZW50cnkgPT0gSU9N
+TVVfTUFQUElOR19FUlJPUikpIHsKIAkJCWlmICghKGF0dHJzICYgRE1BX0FUVFJfTk9fV0FSTikg
+JiYKIAkJCSAgICBwcmludGtfcmF0ZWxpbWl0KCkpCiAJCQkJZGV2X2luZm8oZGV2LCAiaW9tbXVf
+YWxsb2MgZmFpbGVkLCB0YmwgJXAgIgpAQCAtNTQ1LDcgKzU0NSw3IEBAIGludCBwcGNfaW9tbXVf
+bWFwX3NnKHN0cnVjdCBkZXZpY2UgKmRldiwgc3RydWN0IGlvbW11X3RhYmxlICp0YmwsCiAJICov
+CiAJaWYgKG91dGNvdW50IDwgaW5jb3VudCkgewogCQlvdXRzID0gc2dfbmV4dChvdXRzKTsKLQkJ
+b3V0cy0+ZG1hX2FkZHJlc3MgPSBETUFfRVJST1JfQ09ERTsKKwkJb3V0cy0+ZG1hX2FkZHJlc3Mg
+PSBJT01NVV9NQVBQSU5HX0VSUk9SOwogCQlvdXRzLT5kbWFfbGVuZ3RoID0gMDsKIAl9CiAKQEAg
+LTU2Myw3ICs1NjMsNyBAQCBpbnQgcHBjX2lvbW11X21hcF9zZyhzdHJ1Y3QgZGV2aWNlICpkZXYs
+IHN0cnVjdCBpb21tdV90YWJsZSAqdGJsLAogCQkJbnBhZ2VzID0gaW9tbXVfbnVtX3BhZ2VzKHMt
+PmRtYV9hZGRyZXNzLCBzLT5kbWFfbGVuZ3RoLAogCQkJCQkJIElPTU1VX1BBR0VfU0laRSh0Ymwp
+KTsKIAkJCV9faW9tbXVfZnJlZSh0YmwsIHZhZGRyLCBucGFnZXMpOwotCQkJcy0+ZG1hX2FkZHJl
+c3MgPSBETUFfRVJST1JfQ09ERTsKKwkJCXMtPmRtYV9hZGRyZXNzID0gSU9NTVVfTUFQUElOR19F
+UlJPUjsKIAkJCXMtPmRtYV9sZW5ndGggPSAwOwogCQl9CiAJCWlmIChzID09IG91dHMpCkBAIC03
+NzcsNyArNzc3LDcgQEAgZG1hX2FkZHJfdCBpb21tdV9tYXBfcGFnZShzdHJ1Y3QgZGV2aWNlICpk
+ZXYsIHN0cnVjdCBpb21tdV90YWJsZSAqdGJsLAogCQkJICB1bnNpZ25lZCBsb25nIG1hc2ssIGVu
+dW0gZG1hX2RhdGFfZGlyZWN0aW9uIGRpcmVjdGlvbiwKIAkJCSAgdW5zaWduZWQgbG9uZyBhdHRy
+cykKIHsKLQlkbWFfYWRkcl90IGRtYV9oYW5kbGUgPSBETUFfRVJST1JfQ09ERTsKKwlkbWFfYWRk
+cl90IGRtYV9oYW5kbGUgPSBJT01NVV9NQVBQSU5HX0VSUk9SOwogCXZvaWQgKnZhZGRyOwogCXVu
+c2lnbmVkIGxvbmcgdWFkZHI7CiAJdW5zaWduZWQgaW50IG5wYWdlcywgYWxpZ247CkBAIC03OTcs
+NyArNzk3LDcgQEAgZG1hX2FkZHJfdCBpb21tdV9tYXBfcGFnZShzdHJ1Y3QgZGV2aWNlICpkZXYs
+IHN0cnVjdCBpb21tdV90YWJsZSAqdGJsLAogCQlkbWFfaGFuZGxlID0gaW9tbXVfYWxsb2MoZGV2
+LCB0YmwsIHZhZGRyLCBucGFnZXMsIGRpcmVjdGlvbiwKIAkJCQkJIG1hc2sgPj4gdGJsLT5pdF9w
+YWdlX3NoaWZ0LCBhbGlnbiwKIAkJCQkJIGF0dHJzKTsKLQkJaWYgKGRtYV9oYW5kbGUgPT0gRE1B
+X0VSUk9SX0NPREUpIHsKKwkJaWYgKGRtYV9oYW5kbGUgPT0gSU9NTVVfTUFQUElOR19FUlJPUikg
+ewogCQkJaWYgKCEoYXR0cnMgJiBETUFfQVRUUl9OT19XQVJOKSAmJgogCQkJICAgIHByaW50a19y
+YXRlbGltaXQoKSkgIHsKIAkJCQlkZXZfaW5mbyhkZXYsICJpb21tdV9hbGxvYyBmYWlsZWQsIHRi
+bCAlcCAiCkBAIC04NjksNyArODY5LDcgQEAgdm9pZCAqaW9tbXVfYWxsb2NfY29oZXJlbnQoc3Ry
+dWN0IGRldmljZSAqZGV2LCBzdHJ1Y3QgaW9tbXVfdGFibGUgKnRibCwKIAlpb19vcmRlciA9IGdl
+dF9pb21tdV9vcmRlcihzaXplLCB0YmwpOwogCW1hcHBpbmcgPSBpb21tdV9hbGxvYyhkZXYsIHRi
+bCwgcmV0LCBuaW9fcGFnZXMsIERNQV9CSURJUkVDVElPTkFMLAogCQkJICAgICAgbWFzayA+PiB0
+YmwtPml0X3BhZ2Vfc2hpZnQsIGlvX29yZGVyLCAwKTsKLQlpZiAobWFwcGluZyA9PSBETUFfRVJS
+T1JfQ09ERSkgeworCWlmIChtYXBwaW5nID09IElPTU1VX01BUFBJTkdfRVJST1IpIHsKIAkJZnJl
+ZV9wYWdlcygodW5zaWduZWQgbG9uZylyZXQsIG9yZGVyKTsKIAkJcmV0dXJuIE5VTEw7CiAJfQpk
+aWZmIC0tZ2l0IGEvYXJjaC9wb3dlcnBjL3BsYXRmb3Jtcy9jZWxsL2lvbW11LmMgYi9hcmNoL3Bv
+d2VycGMvcGxhdGZvcm1zL2NlbGwvaW9tbXUuYwppbmRleCA3MWI5OTViYmNhZTAuLjk0ODA4NmUz
+M2EwYyAxMDA2NDQKLS0tIGEvYXJjaC9wb3dlcnBjL3BsYXRmb3Jtcy9jZWxsL2lvbW11LmMKKysr
+IGIvYXJjaC9wb3dlcnBjL3BsYXRmb3Jtcy9jZWxsL2lvbW11LmMKQEAgLTY2MCw2ICs2NjAsNyBA
+QCBzdGF0aWMgY29uc3Qgc3RydWN0IGRtYV9tYXBfb3BzIGRtYV9pb21tdV9maXhlZF9vcHMgPSB7
+CiAJLnNldF9kbWFfbWFzayAgID0gZG1hX3NldF9tYXNrX2FuZF9zd2l0Y2gsCiAJLm1hcF9wYWdl
+ICAgICAgID0gZG1hX2ZpeGVkX21hcF9wYWdlLAogCS51bm1hcF9wYWdlICAgICA9IGRtYV9maXhl
+ZF91bm1hcF9wYWdlLAorCS5tYXBwaW5nX2Vycm9yCT0gZG1hX2lvbW11X21hcHBpbmdfZXJyb3Is
+CiB9OwogCiBzdGF0aWMgdm9pZCBjZWxsX2RtYV9kZXZfc2V0dXBfZml4ZWQoc3RydWN0IGRldmlj
+ZSAqZGV2KTsKZGlmZiAtLWdpdCBhL2FyY2gvcG93ZXJwYy9wbGF0Zm9ybXMvcHNlcmllcy92aW8u
+YyBiL2FyY2gvcG93ZXJwYy9wbGF0Zm9ybXMvcHNlcmllcy92aW8uYwppbmRleCAyOGIwOWZkNzk3
+ZWMuLmU2ZjQzZDU0NjgyNyAxMDA2NDQKLS0tIGEvYXJjaC9wb3dlcnBjL3BsYXRmb3Jtcy9wc2Vy
+aWVzL3Zpby5jCisrKyBiL2FyY2gvcG93ZXJwYy9wbGF0Zm9ybXMvcHNlcmllcy92aW8uYwpAQCAt
+NTE5LDcgKzUxOSw3IEBAIHN0YXRpYyBkbWFfYWRkcl90IHZpb19kbWFfaW9tbXVfbWFwX3BhZ2Uo
+c3RydWN0IGRldmljZSAqZGV2LCBzdHJ1Y3QgcGFnZSAqcGFnZSwKIHsKIAlzdHJ1Y3QgdmlvX2Rl
+diAqdmlvZGV2ID0gdG9fdmlvX2RldihkZXYpOwogCXN0cnVjdCBpb21tdV90YWJsZSAqdGJsOwot
+CWRtYV9hZGRyX3QgcmV0ID0gRE1BX0VSUk9SX0NPREU7CisJZG1hX2FkZHJfdCByZXQgPSBJT01N
+VV9NQVBQSU5HX0VSUk9SOwogCiAJdGJsID0gZ2V0X2lvbW11X3RhYmxlX2Jhc2UoZGV2KTsKIAlp
+ZiAodmlvX2Ntb19hbGxvYyh2aW9kZXYsIHJvdW5kdXAoc2l6ZSwgSU9NTVVfUEFHRV9TSVpFKHRi
+bCkpKSkgewpAQCAtNjI1LDYgKzYyNSw3IEBAIHN0YXRpYyBjb25zdCBzdHJ1Y3QgZG1hX21hcF9v
+cHMgdmlvX2RtYV9tYXBwaW5nX29wcyA9IHsKIAkudW5tYXBfcGFnZSAgICAgICAgPSB2aW9fZG1h
+X2lvbW11X3VubWFwX3BhZ2UsCiAJLmRtYV9zdXBwb3J0ZWQgICAgID0gdmlvX2RtYV9pb21tdV9k
+bWFfc3VwcG9ydGVkLAogCS5nZXRfcmVxdWlyZWRfbWFzayA9IHZpb19kbWFfZ2V0X3JlcXVpcmVk
+X21hc2ssCisJLm1hcHBpbmdfZXJyb3IJICAgPSBkbWFfaW9tbXVfbWFwcGluZ19lcnJvciwKIH07
+CiAKIC8qKgotLSAKMi4xMS4wCgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX18KWGVuLWRldmVsIG1haWxpbmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMueGVuLm9y
+ZwpodHRwczovL2xpc3RzLnhlbi5vcmcveGVuLWRldmVsCg==
