@@ -1,53 +1,89 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: net/can: trying to register non-static key in can_rx_register
-Date: Thu, 8 Jun 2017 17:16:22 +0200
-Message-ID: <CAAeHK+ywJzK4Hd=O_+j+Dw7pb=s-MgwVLJywrLAQdkwfybdu1Q@mail.gmail.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: net/can: trying to register non-static key in can_rx_register
+Date: Thu, 8 Jun 2017 17:20:54 +0200
+Message-ID: <97710f24-092e-ade4-fa14-3bc812bbf42f@pengutronix.de>
+References: <CAAeHK+ywJzK4Hd=O_+j+Dw7pb=s-MgwVLJywrLAQdkwfybdu1Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="vPDxnfSKlxAw2OITTXCMtCMfFFB2MCgTr"
 Cc: Dmitry Vyukov <dvyukov@google.com>,
         Kostya Serebryany <kcc@google.com>,
         syzkaller <syzkaller@googlegroups.com>
-To: Oliver Hartkopp <socketcan@hartkopp.net>,
-        Marc Kleine-Budde <mkl@pengutronix.de>,
+To: Andrey Konovalov <andreyknvl@google.com>,
+        Oliver Hartkopp <socketcan@hartkopp.net>,
         "David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
         netdev <netdev@vger.kernel.org>,
         LKML <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAAeHK+ywJzK4Hd=O_+j+Dw7pb=s-MgwVLJywrLAQdkwfybdu1Q@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--vPDxnfSKlxAw2OITTXCMtCMfFFB2MCgTr
+Content-Type: multipart/mixed; boundary="1OxLwcP52FetWBkQb9mO4DxClmpOFWt5w";
+ protected-headers="v1"
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+To: Andrey Konovalov <andreyknvl@google.com>,
+ Oliver Hartkopp <socketcan@hartkopp.net>,
+ "David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
+ netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>
+Cc: Dmitry Vyukov <dvyukov@google.com>, Kostya Serebryany <kcc@google.com>,
+ syzkaller <syzkaller@googlegroups.com>
+Message-ID: <97710f24-092e-ade4-fa14-3bc812bbf42f@pengutronix.de>
+Subject: Re: net/can: trying to register non-static key in can_rx_register
+References: <CAAeHK+ywJzK4Hd=O_+j+Dw7pb=s-MgwVLJywrLAQdkwfybdu1Q@mail.gmail.com>
+In-Reply-To: <CAAeHK+ywJzK4Hd=O_+j+Dw7pb=s-MgwVLJywrLAQdkwfybdu1Q@mail.gmail.com>
 
-I've got the following error report while fuzzing the kernel with syzkaller.
+--1OxLwcP52FetWBkQb9mO4DxClmpOFWt5w
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-On commit b29794ec95c6856b316c2295904208bf11ffddd9 (4.12-rc4+).
+On 06/08/2017 05:16 PM, Andrey Konovalov wrote:
+> Hi,
+>=20
+> I've got the following error report while fuzzing the kernel with syzka=
+ller.
+>=20
+> On commit b29794ec95c6856b316c2295904208bf11ffddd9 (4.12-rc4+).
+>=20
+> INFO: trying to register non-static key.
+> the code is fine but needs lockdep annotation.
+> turning off the locking correctness validator.
 
-INFO: trying to register non-static key.
-the code is fine but needs lockdep annotation.
-turning off the locking correctness validator.
-CPU: 2 PID: 17404 Comm: syz-executor1 Not tainted 4.12.0-rc4+ #15
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-Call Trace:
- __dump_stack lib/dump_stack.c:16 [inline]
- dump_stack+0x292/0x395 lib/dump_stack.c:52
- register_lock_class+0x717/0x1aa0 kernel/locking/lockdep.c:755
- __lock_acquire+0x269/0x3690 kernel/locking/lockdep.c:3255
- ? 0xffffffffa0000000
- lock_acquire+0x22d/0x560 kernel/locking/lockdep.c:3855
- __raw_spin_lock include/linux/spinlock_api_smp.h:142 [inline]
- _raw_spin_lock+0x2f/0x40 kernel/locking/spinlock.c:151
- spin_lock include/linux/spinlock.h:299 [inline]
- can_rx_register+0x4f3/0x700 net/can/af_can.c:483
- raw_enable_filters+0xd7/0x1e0 net/can/raw.c:192
- raw_enable_allfilters+0x8a/0x1e0 net/can/raw.c:258
- raw_bind+0x244/0x830 net/can/raw.c:435
- SYSC_bind+0x20e/0x4c0 net/socket.c:1422
- SyS_bind+0x29/0x30 net/socket.c:1408
- entry_SYSCALL_64_fastpath+0x1f/0xbe
-RIP: 0033:0x446389
-RSP: 002b:00007fa1efda2c08 EFLAGS: 00000292 ORIG_RAX: 0000000000000031
-RAX: ffffffffffffffda RBX: 0000000000000220 RCX: 0000000000446389
-RDX: 0000000000000060 RSI: 0000000020001fa0 RDI: 0000000000000017
-RBP: 00000000ffffffff R08: 0000000000000000 R09: 0000000000000000
-R10: 0000000000000000 R11: 0000000000000292 R12: 0000000000000017
-R13: 0000000000003770 R14: 00000000006e4830 R15: 0000000000c13000
+I've posted a patch for this problem earlier today:
+https://marc.info/?l=3Dlinux-can&m=3D149691617012069&w=3D2
+
+I'll send a pull request to David soon.
+
+regards,
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--1OxLwcP52FetWBkQb9mO4DxClmpOFWt5w--
+
+--vPDxnfSKlxAw2OITTXCMtCMfFFB2MCgTr
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAEBCgAdFiEE4bay/IylYqM/npjQHv7KIOw4HPYFAlk5a1YACgkQHv7KIOw4
+HPbELgf7B1cTobJNMQGS4GP4bC/kYtN3m5r7LZUXo4hU6aRuZf6eAXcqSQPFUCL5
+5HZeV1OQQFyOyzM+tuT+bdvmCI2KM90UxQY1AYVtiPP6rP9OyRxfRX1QaM/NYVqX
+YfpLMm51efmfTT6L61GcEcIG2YZy6ceq2jUHFygQcpn0zWrVLiieDcNFtjmdhwMs
+2m4o9ccRiegnWyIwaLMH+k0g/JpFjpao0ylAgNaixFB/qVBA8s4mw4L+XqJFlwa5
+ZT31IQZkLRhWF3R6sB+UVgM+2FquNctjhIkM+69bgQg1KPeD2ixvUmpYt98FdgeY
+X6hu3VxsfO5G8NG5nNM83B+SHa2aRg==
+=nhh6
+-----END PGP SIGNATURE-----
+
+--vPDxnfSKlxAw2OITTXCMtCMfFFB2MCgTr--
