@@ -1,31 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/8] Bug fixes in ena ethernet driver
-Date: Thu, 08 Jun 2017 19:17:12 -0400 (EDT)
-Message-ID: <20170608.191712.1829919738916549276.davem@davemloft.net>
-References: <1496958410-4220-1-git-send-email-netanel@amazon.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next 0/6] netvsc: small cleanups
+Date: Thu,  8 Jun 2017 16:21:17 -0700
+Message-ID: <20170608232123.28366-1-sthemmin@microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dwmw@amazon.com, zorik@amazon.com,
-        matua@amazon.com, saeedb@amazon.com, msw@amazon.com,
-        aliguori@amazon.com, nafea@amazon.com, evgenys@amazon.com
-To: netanel@amazon.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39846 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751132AbdFHXRQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 19:17:16 -0400
-In-Reply-To: <1496958410-4220-1-git-send-email-netanel@amazon.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org
+To: kys@microsoft.com,
+	haiyangz@microsoft.com,
+	sthemmin@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
+These are all small optimizations found during development of later features.
 
-Two parallel patch series to the same driver and targetting the
-same GIT tree is extremely undesirable, please don't do this.
+Stephen Hemminger (6):
+  netvsc: optimize calculation of number of slots
+  netvsc: use hv_get_bytes_to_read
+  netvsc: use typed pointer for internal state
+  netvsc: mark error cases as unlikely
+  netvsc: pass net_device to netvsc_init_buf and netvsc_connect_vsp
+  netvsc: fold in get_outbound_net_device
 
-Submit one series, and once applied submit the second series.
+ drivers/net/hyperv/hyperv_net.h |  3 +--
+ drivers/net/hyperv/netvsc.c     | 49 ++++++++++++-------------------------
+ drivers/net/hyperv/netvsc_drv.c | 53 ++++++++++-------------------------------
+ 3 files changed, 29 insertions(+), 76 deletions(-)
 
-I'm deleting all of your patches from my queue, please resubmit
-things properly.
-
-Thank you.
+-- 
+2.11.0
