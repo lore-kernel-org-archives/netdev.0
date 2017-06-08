@@ -1,40 +1,33 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch iproute2/net-next] tc: add support for TRAP action
-Date: Thu, 8 Jun 2017 20:41:18 +0200
-Message-ID: <20170608184118.GH2238@nanopsycho>
-References: <20170605143832.7025-1-jiri@resnulli.us>
- <20170605143945.7094-1-jiri@resnulli.us>
- <20170608192612.6a9c175a@griffin>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 0/2][pull request] 1GbE Intel Wired LAN Driver
+ Updates 2017-06-07
+Date: Thu, 08 Jun 2017 14:41:38 -0400 (EDT)
+Message-ID: <20170608.144138.1495526638857980394.davem@davemloft.net>
+References: <20170608053237.73040-1-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-        xiyou.wangcong@gmail.com, edumazet@google.com,
-        alexander.h.duyck@intel.com, stephen@networkplumber.org,
-        daniel@iogearbox.net, mlxsw@mellanox.com
-To: Jiri Benc <jbenc@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f173.google.com ([209.85.128.173]:35818 "EHLO
-        mail-wr0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751392AbdFHSlV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 14:41:21 -0400
-Received: by mail-wr0-f173.google.com with SMTP id q97so22037367wrb.2
-        for <netdev@vger.kernel.org>; Thu, 08 Jun 2017 11:41:20 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170608192612.6a9c175a@griffin>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34290 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750788AbdFHSll (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 14:41:41 -0400
+In-Reply-To: <20170608053237.73040-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Jun 08, 2017 at 07:26:12PM CEST, jbenc@redhat.com wrote:
->On Mon,  5 Jun 2017 16:39:45 +0200, Jiri Pirko wrote:
->> From: Jiri Pirko <jiri@mellanox.com>
->> 
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->> ---
->>  include/linux/pkt_cls.h | 5 +++++
->>  tc/tc_util.c            | 3 +++
->>  2 files changed, 8 insertions(+)
->
->No documentation again. Please add the description of the new action to
->a man page.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed,  7 Jun 2017 22:32:35 -0700
 
-Will do. It's on my todo list.
+> This series contains a fix for e1000e and igb.
+> 
+> Colin Ian King fixes sparse warnings in igb by making functions static.
+> 
+> Chris Wilson provides a fix for a previous commit which is causing an
+> issue during suspend "e1000e_pm_suspend()", where we need to run
+> e1000e_pm_thaw() if __e1000_shutdown() is unsuccessful.
+
+Series applied, thanks Jeff.
