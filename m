@@ -1,56 +1,112 @@
-From: Mark Brown <broonie@kernel.org>
-Subject: Re: next-20170608 build: 1 failures 4 warnings (next-20170608)
-Date: Thu, 8 Jun 2017 11:32:31 +0100
-Message-ID: <20170608103231.gmqx6qluzcjwzrst@sirena.org.uk>
-References: <E1dIuCM-0000cQ-QM@optimist>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH RFC net-next 4/4] net/mlx5: Add CONFIG_MLX5_ESWITCH Kconfig
+Date: Thu, 8 Jun 2017 13:32:23 +0300
+Message-ID: <CALzJLG-jOoY=3SKKMSb8eULqRni9qNj0pOUWNamfuNxAjOz2og@mail.gmail.com>
+References: <20170607234214.24723-1-saeedm@mellanox.com> <20170607234214.24723-5-saeedm@mellanox.com>
+ <CAJ3xEMhPkf9DSs=zguYNzp13iMVDHJoLbFhi8MihuD6C5LHXeg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="oo7lue4fim4mgc5h"
-Cc: kernel-build-reports@lists.linaro.org,
-        linaro-kernel@lists.linaro.org, linux-next@vger.kernel.org,
-        netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-        Sebastian Reichel <sre@kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Jes Sorensen <jsorensen@fb.com>,
+        Kernel Team <kernel-team@fb.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mezzanine.sirena.org.uk ([106.187.55.193]:53950 "EHLO
-        mezzanine.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750725AbdFHKcm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 06:32:42 -0400
-Content-Disposition: inline
-In-Reply-To: <E1dIuCM-0000cQ-QM@optimist>
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:34240 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750725AbdFHKco (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 06:32:44 -0400
+Received: by mail-qt0-f193.google.com with SMTP id o21so7113451qtb.1
+        for <netdev@vger.kernel.org>; Thu, 08 Jun 2017 03:32:44 -0700 (PDT)
+In-Reply-To: <CAJ3xEMhPkf9DSs=zguYNzp13iMVDHJoLbFhi8MihuD6C5LHXeg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Jun 8, 2017 at 12:35 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> On Thu, Jun 8, 2017 at 2:42 AM, Saeed Mahameed <saeedm@mellanox.com> wrote:
+>
+>> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+>> @@ -2961,9 +2961,8 @@ static int mlx5e_modify_channels_vsd(struct mlx5e_channels *chs, bool vsd)
+>>         return 0;
+>>  }
+>>
+>> -static int mlx5e_setup_tc(struct net_device *netdev, u8 tc)
+>> +static int mlx5e_setup_tc(struct mlx5e_priv *priv, u8 tc)
+>>  {
+>> -       struct mlx5e_priv *priv = netdev_priv(netdev);
+>>         struct mlx5e_channels new_channels = {};
+>>         int err = 0;
+>>
+>> @@ -2995,6 +2994,7 @@ static int mlx5e_ndo_setup_tc(struct net_device *dev, u32 handle,
+>>  {
+>>         struct mlx5e_priv *priv = netdev_priv(dev);
+>>
+>> +#ifdef CONFIG_MLX5_ESWITCH
+>>         if (TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS))
+>>                 goto mqprio;
+>>
+>> @@ -3013,12 +3013,13 @@ static int mlx5e_ndo_setup_tc(struct net_device *dev, u32 handle,
+>>         }
+>>
+>>  mqprio:
+>> +#endif
+>>         if (tc->type != TC_SETUP_MQPRIO)
+>> -               return -EINVAL;
+>> +               return -EOPNOTSUPP;
+>
+> why change this corner in this patch? we're doing enough changes
+>
+>>
+>>         tc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
+>>
+>> -       return mlx5e_setup_tc(dev, tc->mqprio->num_tc);
+>> +       return mlx5e_setup_tc(priv, tc->mqprio->num_tc);
+>>  }
+>
+> same comment
+>
 
---oo7lue4fim4mgc5h
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Ok will change both.
 
-On Thu, Jun 08, 2017 at 10:57:50AM +0100, Build bot for Mark Brown wrote:
+>> --- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+>
+>> @@ -948,13 +946,11 @@ static int mlx5_init_once(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
+>>                 goto err_rl_cleanup;
+>>         }
+>>
+>> -#ifdef CONFIG_MLX5_CORE_EN
+>>         err = mlx5_eswitch_init(dev);
+>>         if (err) {
+>>                 dev_err(&pdev->dev, "Failed to init eswitch %d\n", err);
+>>                 goto err_mpfs_cleanup;
+>>         }
+>> -#endif
+>
+> why? before this patch we were doing it only if Ethernet
+> (MLX5_CORE_EN) was defined into the build,
+> and now we are returning blindly zero if another config isn't there
+> (CONFIG_MLX5_ESWITCH) - is that
+> fully equivalent? do we want to be fully equiv?
+>
 
-Today's -next fails to build an ARM allmodconfig due to:
+Fully equivalent and more correct behavior and design.
+eswitch is now separate from MPFS and EN and fully independent and has
+its own CONFIG_MLX5_ESWITCH,
+you can choose to have it or not (CONFIG_MLX5_ESWITCH) it won't
+affects other components.
 
-> 	arm-allmodconfig
-> ../drivers/hsi/clients/ssi_protocol.c:1069:5: error: 'struct net_device' has no member named 'destructor'
+>> @@ -965,10 +961,8 @@ static int mlx5_init_once(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
+>>         return 0;
+>>
+>>  err_eswitch_cleanup:
+>> -#ifdef CONFIG_MLX5_CORE_EN
+>>         mlx5_eswitch_cleanup(dev->priv.eswitch);
+>>  err_mpfs_cleanup:
+>> -#endif
+>
+> same comment/question
 
-due to cf124db566e6 (net: Fix inconsistent teardown and release of
-private netdev state.) which missed this instance, presumably due to a
-combination of it not being in one of the normal networking driver
-directories and only being buildable on ARM.
-
---oo7lue4fim4mgc5h
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAABCAAdFiEEreZoqmdXGLWf4p/qJNaLcl1Uh9AFAlk5J74ACgkQJNaLcl1U
-h9CXgAf+I6yj0qzQFDYMCaWbNd5DY77250VPlirMUQLQgibmTec5y+YMYQCh1+TN
-fhJPtGuGC1QwNKG3CkpxSBooRG7oKmWng0vtHyNUPgG+5eP4OjU45349sUNXL/EH
-jlfSRxOXhZeMk6KbrZuKu/KJKfnhhZ1I5WiZKQAQ7ZyEP2XhaT0c9Riv1CZWelGa
-UlrB3S9ZxvQteekIOaA5GLiftJkeq3R4la0Ha5F1NfWl9D5MbhVZLa87LAHKKUtC
-Gc4SV5S9ijgsEdwORKI2SquMWH2Tx/7D9yfB3xUSiR8EUPH4zOXhuU6SMtCPMWAl
-vKLuXRd60oFhS/ITnruv0GnyiNASdg==
-=VbXP
------END PGP SIGNATURE-----
-
---oo7lue4fim4mgc5h--
+Same answer.
