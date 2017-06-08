@@ -1,67 +1,60 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next 3/3] LiquidIO: lowmem: init allocated memory to 0
-Date: Wed, 7 Jun 2017 20:53:22 -0700
-Message-ID: <20170608035322.GA1658@felix-thinkpad.cavium.com>
-References: <20170608035045.GA1608@felix-thinkpad.cavium.com>
+From: Pravin Shelar <pshelar@ovn.org>
+Subject: Re: [PATCH v2 1/2] ip_tunnel: fix potential issue in ip_tunnel_rcv
+Date: Wed, 7 Jun 2017 21:06:45 -0700
+Message-ID: <CAOrHB_DAmU7ZA7S3TkZ+O0xkswQeiDz8vKYeuP-d7yZy4wQtVQ@mail.gmail.com>
+References: <1496883476-17445-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+ <CAOrHB_CZ-3TRs2O3KATW_ji_QQxqO=28UeDU_-Gx7ZPxz_RWCg@mail.gmail.com> <1496891711.736.55.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        ricardo.farrington@cavium.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Cc: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>,
+        "=David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        linux-kernel@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>,
+        Haishuang Yan <yanhaishuang@cmss.chinamobile.com390e>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0078.outbound.protection.outlook.com ([104.47.34.78]:41315
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751502AbdFHDxa (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Jun 2017 23:53:30 -0400
-Content-Disposition: inline
-In-Reply-To: <20170608035045.GA1608@felix-thinkpad.cavium.com>
+Received: from relay2-d.mail.gandi.net ([217.70.183.194]:47598 "EHLO
+        relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750786AbdFHEGs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 00:06:48 -0400
+In-Reply-To: <1496891711.736.55.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rick Farrington <ricardo.farrington@cavium.com>
-
-For defensive programming, zero the allocated block 'oct->droq[0]' in
-octeon_setup_output_queues() and 'oct->instr_queue[0]' in
-octeon_setup_instr_queues().
-
-Signed-off-by: Rick Farrington <ricardo.farrington@cavium.com>
-Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
----
- drivers/net/ethernet/cavium/liquidio/octeon_device.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.c b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-index 3b7cc93..087820b 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-@@ -880,11 +880,11 @@ int octeon_setup_instr_queues(struct octeon_device *oct)
- 
- 	oct->num_iqs = 0;
- 
--	oct->instr_queue[0] = vmalloc_node(sizeof(*oct->instr_queue[0]),
-+	oct->instr_queue[0] = vzalloc_node(sizeof(*oct->instr_queue[0]),
- 				numa_node);
- 	if (!oct->instr_queue[0])
- 		oct->instr_queue[0] =
--			vmalloc(sizeof(struct octeon_instr_queue));
-+			vzalloc(sizeof(struct octeon_instr_queue));
- 	if (!oct->instr_queue[0])
- 		return 1;
- 	memset(oct->instr_queue[0], 0, sizeof(struct octeon_instr_queue));
-@@ -927,9 +927,9 @@ int octeon_setup_output_queues(struct octeon_device *oct)
- 		desc_size = CFG_GET_DEF_RX_BUF_SIZE(CHIP_CONF(oct, cn23xx_vf));
- 	}
- 	oct->num_oqs = 0;
--	oct->droq[0] = vmalloc_node(sizeof(*oct->droq[0]), numa_node);
-+	oct->droq[0] = vzalloc_node(sizeof(*oct->droq[0]), numa_node);
- 	if (!oct->droq[0])
--		oct->droq[0] = vmalloc(sizeof(*oct->droq[0]));
-+		oct->droq[0] = vzalloc(sizeof(*oct->droq[0]));
- 	if (!oct->droq[0])
- 		return 1;
- 
--- 
-1.8.3.1
+On Wed, Jun 7, 2017 at 8:15 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2017-06-07 at 19:13 -0700, Pravin Shelar wrote:
+>> On Wed, Jun 7, 2017 at 5:57 PM, Haishuang Yan
+>> <yanhaishuang@cmss.chinamobile.com> wrote:
+>> > When ip_tunnel_rcv fails, the tun_dst won't be freed, so move
+>> > skb_dst_set to begin and tun_dst would be freed by kfree_skb.
+>> >
+>> > CC: Pravin B Shelar <pshelar@nicira.com>
+>> > Fixes: 2e15ea390e6f ("ip_gre: Add support to collect tunnel metadata.")
+>> > Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com390e>
+>> > ---
+>> >  net/ipv4/ip_tunnel.c | 6 +++---
+>> >  1 file changed, 3 insertions(+), 3 deletions(-)
+>> >
+>> > diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+>> > index b878ecb..27fc20f 100644
+>> > --- a/net/ipv4/ip_tunnel.c
+>> > +++ b/net/ipv4/ip_tunnel.c
+>> > @@ -386,6 +386,9 @@ int ip_tunnel_rcv(struct ip_tunnel *tunnel, struct sk_buff *skb,
+>> >         const struct iphdr *iph = ip_hdr(skb);
+>> >         int err;
+>> >
+>> > +       if (tun_dst)
+>> > +               skb_dst_set(skb, (struct dst_entry *)tun_dst);
+>> > +
+>> If dst is set so early, skb_scrub_packet() would remove the tunnel dst
+>> reference.
+>> It is better to call skb_dst_drop() from error code path.
+>
+> Do we really want to keep a dst from another namespace if
+> skb_scrub_packet() is called with xnet=true ?
+>
+tun_dst is allocated in same namespace. It is required for LWT to work.
