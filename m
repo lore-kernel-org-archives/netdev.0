@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 07/19] mlxsw: spectrum: Remove support for bridge FDB learning sync
-Date: Thu,  8 Jun 2017 08:44:16 +0200
-Message-ID: <20170608064428.4785-8-jiri@resnulli.us>
+Subject: [patch net-next v2 19/19] rocker: Remove support bridge bypass FDB
+Date: Thu,  8 Jun 2017 08:44:28 +0200
+Message-ID: <20170608064428.4785-20-jiri@resnulli.us>
 References: <20170608064428.4785-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, arkadis@mellanox.com,
         mlxsw@mellanox.com, roopa@cumulusnetworks.com,
@@ -9,79 +9,209 @@ Cc: davem@davemloft.net, idosch@mellanox.com, arkadis@mellanox.com,
         nikolay@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:35639 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751512AbdFHGol (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 02:44:41 -0400
-Received: by mail-wr0-f194.google.com with SMTP id g76so2901652wrd.2
-        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 23:44:40 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35534 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751629AbdFHGo7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 02:44:59 -0400
+Received: by mail-wm0-f66.google.com with SMTP id g15so5662197wmc.2
+        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 23:44:58 -0700 (PDT)
 In-Reply-To: <20170608064428.4785-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
 
-Currently the mlxsw driver supports an option for disabling syncing
-the hardware learned FDBs with the software bridge. This behavior
-breaks the bridge offload model and thus it is removed.
+The FDB add/delete are now done through the notification chain. The FDBs
+are synced with the bridge and there is no need for extra dumping.
 
 Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlxsw/spectrum_switchdev.c | 20 +++++++++-----------
- 1 file changed, 9 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/rocker/rocker.h       |  3 --
+ drivers/net/ethernet/rocker/rocker_main.c  | 73 ------------------------------
+ drivers/net/ethernet/rocker/rocker_ofdpa.c | 30 ------------
+ 3 files changed, 106 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-index 0111a77..eb88b72 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-@@ -1857,19 +1857,17 @@ void mlxsw_sp_port_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_port,
- 	mlxsw_sp_bridge_port_put(mlxsw_sp->bridge, bridge_port);
+diff --git a/drivers/net/ethernet/rocker/rocker.h b/drivers/net/ethernet/rocker/rocker.h
+index a0fa3f8..748fb12 100644
+--- a/drivers/net/ethernet/rocker/rocker.h
++++ b/drivers/net/ethernet/rocker/rocker.h
+@@ -126,9 +126,6 @@ struct rocker_world_ops {
+ 				u16 vid, const unsigned char *addr);
+ 	int (*port_obj_fdb_del)(struct rocker_port *rocker_port,
+ 				u16 vid, const unsigned char *addr);
+-	int (*port_obj_fdb_dump)(const struct rocker_port *rocker_port,
+-				 struct switchdev_obj_port_fdb *fdb,
+-				 switchdev_obj_dump_cb_t *cb);
+ 	int (*port_master_linked)(struct rocker_port *rocker_port,
+ 				  struct net_device *master);
+ 	int (*port_master_unlinked)(struct rocker_port *rocker_port,
+diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
+index 3e78129..b1e5c07 100644
+--- a/drivers/net/ethernet/rocker/rocker_main.c
++++ b/drivers/net/ethernet/rocker/rocker_main.c
+@@ -1652,33 +1652,6 @@ rocker_world_port_obj_vlan_del(struct rocker_port *rocker_port,
  }
  
--static void mlxsw_sp_fdb_call_notifiers(bool learning_sync, bool adding,
-+static void mlxsw_sp_fdb_call_notifiers(bool adding,
- 					char *mac, u16 vid,
- 					struct net_device *dev)
+ static int
+-rocker_world_port_obj_fdb_add(struct rocker_port *rocker_port,
+-			      const struct switchdev_obj_port_fdb *fdb,
+-			      struct switchdev_trans *trans)
+-{
+-	struct rocker_world_ops *wops = rocker_port->rocker->wops;
+-
+-	if (!wops->port_obj_fdb_add)
+-		return -EOPNOTSUPP;
+-
+-	if (switchdev_trans_ph_prepare(trans))
+-		return 0;
+-
+-	return wops->port_obj_fdb_add(rocker_port, fdb->vid, fdb->addr);
+-}
+-
+-static int
+-rocker_world_port_obj_fdb_del(struct rocker_port *rocker_port,
+-			      const struct switchdev_obj_port_fdb *fdb)
+-{
+-	struct rocker_world_ops *wops = rocker_port->rocker->wops;
+-
+-	if (!wops->port_obj_fdb_del)
+-		return -EOPNOTSUPP;
+-	return wops->port_obj_fdb_del(rocker_port, fdb->vid, fdb->addr);
+-}
+-
+-static int
+ rocker_world_port_fdb_add(struct rocker_port *rocker_port,
+ 			  struct switchdev_notifier_fdb_info *info)
  {
- 	struct switchdev_notifier_fdb_info info;
- 	unsigned long notifier_type;
- 
--	if (learning_sync) {
--		info.addr = mac;
--		info.vid = vid;
--		notifier_type = adding ? SWITCHDEV_FDB_ADD_TO_BRIDGE : SWITCHDEV_FDB_DEL_TO_BRIDGE;
--		call_switchdev_notifiers(notifier_type, dev, &info.info);
--	}
-+	info.addr = mac;
-+	info.vid = vid;
-+	notifier_type = adding ? SWITCHDEV_FDB_ADD_TO_BRIDGE : SWITCHDEV_FDB_DEL_TO_BRIDGE;
-+	call_switchdev_notifiers(notifier_type, dev, &info.info);
+@@ -1701,18 +1674,6 @@ rocker_world_port_fdb_del(struct rocker_port *rocker_port,
+ 	return wops->port_obj_fdb_del(rocker_port, info->vid, info->addr);
  }
  
- static void mlxsw_sp_fdb_notify_mac_process(struct mlxsw_sp *mlxsw_sp,
-@@ -1918,8 +1916,8 @@ static void mlxsw_sp_fdb_notify_mac_process(struct mlxsw_sp *mlxsw_sp,
+-static int
+-rocker_world_port_obj_fdb_dump(const struct rocker_port *rocker_port,
+-			       struct switchdev_obj_port_fdb *fdb,
+-			       switchdev_obj_dump_cb_t *cb)
+-{
+-	struct rocker_world_ops *wops = rocker_port->rocker->wops;
+-
+-	if (!wops->port_obj_fdb_dump)
+-		return -EOPNOTSUPP;
+-	return wops->port_obj_fdb_dump(rocker_port, fdb, cb);
+-}
+-
+ static int rocker_world_port_master_linked(struct rocker_port *rocker_port,
+ 					   struct net_device *master)
+ {
+@@ -2067,9 +2028,6 @@ static const struct net_device_ops rocker_port_netdev_ops = {
+ 	.ndo_start_xmit			= rocker_port_xmit,
+ 	.ndo_set_mac_address		= rocker_port_set_mac_address,
+ 	.ndo_change_mtu			= rocker_port_change_mtu,
+-	.ndo_fdb_add			= switchdev_port_fdb_add,
+-	.ndo_fdb_del			= switchdev_port_fdb_del,
+-	.ndo_fdb_dump			= switchdev_port_fdb_dump,
+ 	.ndo_get_phys_port_name		= rocker_port_get_phys_port_name,
+ 	.ndo_change_proto_down		= rocker_port_change_proto_down,
+ 	.ndo_neigh_destroy		= rocker_port_neigh_destroy,
+@@ -2150,11 +2108,6 @@ static int rocker_port_obj_add(struct net_device *dev,
+ 						     SWITCHDEV_OBJ_PORT_VLAN(obj),
+ 						     trans);
+ 		break;
+-	case SWITCHDEV_OBJ_ID_PORT_FDB:
+-		err = rocker_world_port_obj_fdb_add(rocker_port,
+-						    SWITCHDEV_OBJ_PORT_FDB(obj),
+-						    trans);
+-		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+ 		break;
+@@ -2174,31 +2127,6 @@ static int rocker_port_obj_del(struct net_device *dev,
+ 		err = rocker_world_port_obj_vlan_del(rocker_port,
+ 						     SWITCHDEV_OBJ_PORT_VLAN(obj));
+ 		break;
+-	case SWITCHDEV_OBJ_ID_PORT_FDB:
+-		err = rocker_world_port_obj_fdb_del(rocker_port,
+-						    SWITCHDEV_OBJ_PORT_FDB(obj));
+-		break;
+-	default:
+-		err = -EOPNOTSUPP;
+-		break;
+-	}
+-
+-	return err;
+-}
+-
+-static int rocker_port_obj_dump(struct net_device *dev,
+-				struct switchdev_obj *obj,
+-				switchdev_obj_dump_cb_t *cb)
+-{
+-	const struct rocker_port *rocker_port = netdev_priv(dev);
+-	int err = 0;
+-
+-	switch (obj->id) {
+-	case SWITCHDEV_OBJ_ID_PORT_FDB:
+-		err = rocker_world_port_obj_fdb_dump(rocker_port,
+-						     SWITCHDEV_OBJ_PORT_FDB(obj),
+-						     cb);
+-		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+ 		break;
+@@ -2212,7 +2140,6 @@ static const struct switchdev_ops rocker_port_switchdev_ops = {
+ 	.switchdev_port_attr_set	= rocker_port_attr_set,
+ 	.switchdev_port_obj_add		= rocker_port_obj_add,
+ 	.switchdev_port_obj_del		= rocker_port_obj_del,
+-	.switchdev_port_obj_dump	= rocker_port_obj_dump,
+ };
  
- 	if (!do_notification)
- 		return;
--	mlxsw_sp_fdb_call_notifiers(bridge_port->flags & BR_LEARNING_SYNC,
--				    adding, mac, vid, bridge_port->dev);
-+	mlxsw_sp_fdb_call_notifiers(adding, mac, vid, bridge_port->dev);
-+
- 	return;
+ struct rocker_fib_event_work {
+diff --git a/drivers/net/ethernet/rocker/rocker_ofdpa.c b/drivers/net/ethernet/rocker/rocker_ofdpa.c
+index 5510ad0..bd0e3f1 100644
+--- a/drivers/net/ethernet/rocker/rocker_ofdpa.c
++++ b/drivers/net/ethernet/rocker/rocker_ofdpa.c
+@@ -2608,35 +2608,6 @@ static int ofdpa_port_obj_fdb_del(struct rocker_port *rocker_port,
+ 	return ofdpa_port_fdb(ofdpa_port, addr, vlan_id, flags);
+ }
  
- just_remove:
-@@ -1976,8 +1974,8 @@ static void mlxsw_sp_fdb_notify_mac_lag_process(struct mlxsw_sp *mlxsw_sp,
- 
- 	if (!do_notification)
- 		return;
--	mlxsw_sp_fdb_call_notifiers(bridge_port->flags & BR_LEARNING_SYNC,
--				    adding, mac, vid, bridge_port->dev);
-+	mlxsw_sp_fdb_call_notifiers(adding, mac, vid, bridge_port->dev);
-+
- 	return;
- 
- just_remove:
+-static int ofdpa_port_obj_fdb_dump(const struct rocker_port *rocker_port,
+-				   struct switchdev_obj_port_fdb *fdb,
+-				   switchdev_obj_dump_cb_t *cb)
+-{
+-	const struct ofdpa_port *ofdpa_port = rocker_port->wpriv;
+-	struct ofdpa *ofdpa = ofdpa_port->ofdpa;
+-	struct ofdpa_fdb_tbl_entry *found;
+-	struct hlist_node *tmp;
+-	unsigned long lock_flags;
+-	int bkt;
+-	int err = 0;
+-
+-	spin_lock_irqsave(&ofdpa->fdb_tbl_lock, lock_flags);
+-	hash_for_each_safe(ofdpa->fdb_tbl, bkt, tmp, found, entry) {
+-		if (found->key.ofdpa_port != ofdpa_port)
+-			continue;
+-		ether_addr_copy(fdb->addr, found->key.addr);
+-		fdb->ndm_state = NUD_REACHABLE;
+-		fdb->vid = ofdpa_port_vlan_to_vid(ofdpa_port,
+-						  found->key.vlan_id);
+-		err = cb(&fdb->obj);
+-		if (err)
+-			break;
+-	}
+-	spin_unlock_irqrestore(&ofdpa->fdb_tbl_lock, lock_flags);
+-
+-	return err;
+-}
+-
+ static int ofdpa_port_bridge_join(struct ofdpa_port *ofdpa_port,
+ 				  struct net_device *bridge)
+ {
+@@ -2861,7 +2832,6 @@ struct rocker_world_ops rocker_ofdpa_ops = {
+ 	.port_obj_vlan_del = ofdpa_port_obj_vlan_del,
+ 	.port_obj_fdb_add = ofdpa_port_obj_fdb_add,
+ 	.port_obj_fdb_del = ofdpa_port_obj_fdb_del,
+-	.port_obj_fdb_dump = ofdpa_port_obj_fdb_dump,
+ 	.port_master_linked = ofdpa_port_master_linked,
+ 	.port_master_unlinked = ofdpa_port_master_unlinked,
+ 	.port_neigh_update = ofdpa_port_neigh_update,
 -- 
 2.9.3
