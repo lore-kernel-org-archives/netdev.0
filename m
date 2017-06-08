@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH v2 2/8] net: mvmdio: use tabs for defines
-Date: Thu,  8 Jun 2017 11:26:47 +0200
-Message-ID: <20170608092653.25221-3-antoine.tenart@free-electrons.com>
+Subject: [PATCH v2 8/8] arm64: marvell: dts: add xmdio nodes for 7k/8k
+Date: Thu,  8 Jun 2017 11:26:53 +0200
+Message-ID: <20170608092653.25221-9-antoine.tenart@free-electrons.com>
 References: <20170608092653.25221-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, mw@semihalf.com,
@@ -11,64 +11,66 @@ To: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
         gregory.clement@free-electrons.com,
         sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:48789 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:48837 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750937AbdFHKAO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 06:00:14 -0400
+        with ESMTP id S1751507AbdFHKAX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 06:00:23 -0400
 In-Reply-To: <20170608092653.25221-1-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cosmetic patch replacing spaces by tabs for defined values.
+Add the description of the xMDIO bus for the Marvell Armada 7k and
+Marvell Armada 8k; for both CP110 slave and master. This bus is found
+on Marvell Ethernet controllers and provides an interface with the
+xMDIO bus.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/marvell/mvmdio.c | 26 +++++++++++++-------------
- 1 file changed, 13 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-index 109a2bff334d..17b518b13ae3 100644
---- a/drivers/net/ethernet/marvell/mvmdio.c
-+++ b/drivers/net/ethernet/marvell/mvmdio.c
-@@ -30,25 +30,25 @@
- #include <linux/sched.h>
- #include <linux/wait.h>
+@Dave: patch 8 should go through the mvebu tree as asked by Gregory,
+thanks!
+
+ arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi | 8 ++++++++
+ arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi  | 8 ++++++++
+ 2 files changed, 16 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
+index 037ed30d75a7..ab728aacdfae 100644
+--- a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
+@@ -98,6 +98,14 @@
+ 				clocks = <&cpm_syscon0 1 9>, <&cpm_syscon0 1 5>;
+ 			};
  
--#define MVMDIO_SMI_DATA_SHIFT              0
--#define MVMDIO_SMI_PHY_ADDR_SHIFT          16
--#define MVMDIO_SMI_PHY_REG_SHIFT           21
--#define MVMDIO_SMI_READ_OPERATION          BIT(26)
--#define MVMDIO_SMI_WRITE_OPERATION         0
--#define MVMDIO_SMI_READ_VALID              BIT(27)
--#define MVMDIO_SMI_BUSY                    BIT(28)
--#define MVMDIO_ERR_INT_CAUSE		   0x007C
--#define  MVMDIO_ERR_INT_SMI_DONE	   0x00000010
--#define MVMDIO_ERR_INT_MASK		   0x0080
-+#define MVMDIO_SMI_DATA_SHIFT		0
-+#define MVMDIO_SMI_PHY_ADDR_SHIFT	16
-+#define MVMDIO_SMI_PHY_REG_SHIFT	21
-+#define MVMDIO_SMI_READ_OPERATION	BIT(26)
-+#define MVMDIO_SMI_WRITE_OPERATION	0
-+#define MVMDIO_SMI_READ_VALID		BIT(27)
-+#define MVMDIO_SMI_BUSY			BIT(28)
-+#define MVMDIO_ERR_INT_CAUSE		0x007C
-+#define  MVMDIO_ERR_INT_SMI_DONE	0x00000010
-+#define MVMDIO_ERR_INT_MASK		0x0080
++			cpm_xmdio: mdio@12a600 {
++				#address-cells = <1>;
++				#size-cells = <0>;
++				compatible = "marvell,orion-mdio";
++				reg = <0x12a600 0x10>;
++				status = "disabled";
++			};
++
+ 			cpm_icu: interrupt-controller@1e0000 {
+ 				compatible = "marvell,cp110-icu"; 
+ 				reg = <0x1e0000 0x10>;
+diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
+index 2a99ff8fca2a..89af7a31e622 100644
+--- a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
+@@ -103,6 +103,14 @@
+ 				clocks = <&cps_syscon0 1 9>, <&cps_syscon0 1 5>;
+ 			};
  
- /*
-  * SMI Timeout measurements:
-  * - Kirkwood 88F6281 (Globalscale Dreamplug): 45us to 95us (Interrupt)
-  * - Armada 370       (Globalscale Mirabox):   41us to 43us (Polled)
-  */
--#define MVMDIO_SMI_TIMEOUT		   1000 /* 1000us = 1ms */
--#define MVMDIO_SMI_POLL_INTERVAL_MIN	   45
--#define MVMDIO_SMI_POLL_INTERVAL_MAX	   55
-+#define MVMDIO_SMI_TIMEOUT		1000 /* 1000us = 1ms */
-+#define MVMDIO_SMI_POLL_INTERVAL_MIN	45
-+#define MVMDIO_SMI_POLL_INTERVAL_MAX	55
- 
- struct orion_mdio_dev {
- 	struct mutex lock;
++			cps_xmdio: mdio@12a600 {
++				#address-cells = <1>;
++				#size-cells = <0>;
++				compatible = "marvell,orion-mdio";
++				reg = <0x12a600 0x10>;
++				status = "disabled";
++			};
++
+ 			cps_icu: interrupt-controller@1e0000 {
+ 				compatible = "marvell,cp110-icu";
+ 				reg = <0x1e0000 0x10>;
 -- 
 2.9.4
