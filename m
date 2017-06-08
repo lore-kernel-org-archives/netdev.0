@@ -1,60 +1,67 @@
-From: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
-Subject: RE: [linuxwifi] [PATCH] net: wireless: intel: iwlwifi: dvm: fix tid
- mask
-Date: Thu, 8 Jun 2017 08:31:02 +0000
-Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB3E55212B0@hasmsx107.ger.corp.intel.com>
-References: <20170607223354.22399-1-kirkseraph@gmail.com>
- <0BA3FCBA62E2DC44AF3030971E174FB3E5520A41@hasmsx107.ger.corp.intel.com>
- <20170608074954.qihkavvqdtwn4zmp@macchiaveli>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net] netlink: don't send unknown nsid
+Date: Thu, 8 Jun 2017 10:31:53 +0200
+Message-ID: <057303a1-5d27-1b24-c8b0-d3cf46b14825@6wind.com>
+References: <4942f9fe-625b-bb97-7b45-4a1e8bf69b1b@6wind.com>
+ <1496304007-1962-1-git-send-email-nicolas.dichtel@6wind.com>
+ <20170601170246.GF2673@x240.lan>
+ <75fccaea-0ebe-1a2a-27d7-ad30fd99f41d@6wind.com>
+ <20170601224454.GG2673@x240.lan>
+ <58321cd0-6c7f-d4d8-628f-2c124d71ef82@6wind.com>
+ <20170607183746.GD2658@x240.lan>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "luca@coelho.fi" <luca@coelho.fi>,
-        "Berg, Johannes" <johannes.berg@intel.com>,
-        "Coelho, Luciano" <luciano.coelho@intel.com>,
-        linuxwifi <linuxwifi@intel.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        "open list:INTEL WIRELESS WIFI LINK (iwlwifi)"
-        <linux-wireless@vger.kernel.org>,
-        "open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
-        open list <linux-kernel@vger.kernel.org>
-To: Seraphime Kirkovski <kirkseraph@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170608074954.qihkavvqdtwn4zmp@macchiaveli>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Flavio Leitner <fbl@sysclose.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:36057 "EHLO
+        mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751049AbdFHIb5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 04:31:57 -0400
+Received: by mail-wm0-f49.google.com with SMTP id 7so132890923wmo.1
+        for <netdev@vger.kernel.org>; Thu, 08 Jun 2017 01:31:56 -0700 (PDT)
+In-Reply-To: <20170607183746.GD2658@x240.lan>
+Content-Language: fr
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Le 07/06/2017 à 21:14, Flavio Leitner a écrit :
+> On Mon, Jun 05, 2017 at 10:40:24AM +0200, Nicolas Dichtel wrote:
+>>> Let me ask this instead: How do you think userspace should behave when
+>>> netnsid allocation fails?
+>>>
+>> There is two ways to assign a nsid:
+>>  - manually with netlink ('ip netns set'). In this case, the error is reported
+>>    to userspace via netlink.
+> 
+> OK.
+> 
+>>  - automatically when a x-netns interface is created. The link-nsid is also
+>>    reported to userspace. If the allocation failed, NETNSA_NSID_NOT_ASSIGNED is
+>>    reported. And if you were able to create this x-netns interface, it means
+>>    that you have access to this peer netns, thus you can try to assign the nsid
+>>    manually.
+> 
+> Does that prevent the interface to be created?
+No.
 
 > 
-> On Thu, Jun 08, 2017 at 06:31:01AM +0000, Grumbach, Emmanuel wrote:
-> > Hi,
+>> So, in both cases, userland knows that something went wrong.
+>> Do you have another scenario in mind?
 > 
-> Hi,
-> 
-> > True, OTOH we need tid to be 8 sometimes. We *just* need to make sure
-> > that we don't index tid_data with this. Hence I think the proper fix is:
-> >
-> > diff --git a/drivers/net/wireless/intel/iwlwifi/dvm/tx.c
-> > b/drivers/net/wireless/intel/iwlwifi/dvm/tx.c
-> > index 06ac3f1..16a8646 100644
-> > --- a/drivers/net/wireless/intel/iwlwifi/dvm/tx.c
-> > +++ b/drivers/net/wireless/intel/iwlwifi/dvm/tx.c
-> > @@ -1190,11 +1190,11 @@ void iwlagn_rx_reply_tx(struct iwl_priv *priv,
-> struct iwl_rx_cmd_buffer *rxb)
-> >                                 next_reclaimed;
-> >                         IWL_DEBUG_TX_REPLY(priv, "Next reclaimed packet:%d\n",
-> >                                                   next_reclaimed);
-> > +                       iwlagn_check_ratid_empty(priv, sta_id, tid);
-> >                 }
-> >
-> >                 iwl_trans_reclaim(priv->trans, txq_id, ssn, &skbs);
-> >
-> > -               iwlagn_check_ratid_empty(priv, sta_id, tid);
-> >                 freed = 0;
-> >
-> >                 /* process frames */
-> 
-> I can confirm it works. You can add my Tested-By.
+> Let's say the app is restarted, or another monitoring app is executed
+> with enough perms.  How will it identify the error condition?
+Your app wants to monitor a subset of netns. It means that you already have a
+way to identify those netns, something like a file stored somewhere
+(/var/run/netns/, /proc/<pid>/ns/net, ...). Thus, it's easy to check if those
+netns have a nsid assigned in the netns where your app will open the socket.
 
-Patch in review in our internal tree. It'll be upstreamed through the regular process.
-Thanks for your report and debug work.
+This option was called NETLINK_F_LISTEN_ALL_NSID, because it only enables to
+listen netns *with* a nsid assigned, nothing more. It's up to the user to ensure
+that nsid are correctly assigned.
+
+
+Regards,
+Nicolas
