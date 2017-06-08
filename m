@@ -1,343 +1,93 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 4/7] net: dsa: mv88e6xxx: do not prefix ops with g1
-Date: Thu,  8 Jun 2017 15:04:42 -0400
-Message-ID: <20170608190445.24443-5-vivien.didelot@savoirfairelinux.com>
-References: <20170608190445.24443-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170608190445.24443-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: [RFC PATCH net-next 3/5] bpf/verifier: feed
+ pointer-to-unknown-scalar casts into scalar ALU path
+Date: Thu, 8 Jun 2017 20:07:53 +0100
+Message-ID: <05371ef3-f10a-21b0-def0-1cbdfe458171@solarflare.com>
+References: <92db9689-af6a-e172-ba57-195e588f9cc0@solarflare.com>
+	<47ecf6ca-ae89-7fc3-3cd5-a47009b6ede9@solarflare.com>
+	<20170608023540.5ecmmobhl2rtgrg5@ast-mbp>
+	<2363ab5f-c344-900b-78ee-41e2eb0dd40f@solarflare.com>
+	<20170608165004.n5jc33pocxlytuvf@ast-mbp.dhcp.thefacebook.com>
+	<3cca425f-5794-dddd-18a8-af5e36bb3597@solarflare.com>
+	<20170608184108.52tlp5apo44jte2t@ast-mbp.dhcp.thefacebook.com>
+Reply-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <20170608184108.52tlp5apo44jte2t-+o4/htvd0TCa6kscz5V53/3mLCh9rsb+VpNB7YpNyf8@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The mv88e6xxx_ops describe functionalities, regardless their locations
-(which can be Global1, Global2, or whatever register set.)
+On 08/06/17 19:41, Alexei Starovoitov wrote:
+> On Thu, Jun 08, 2017 at 06:12:39PM +0100, Edward Cree wrote:
+>> On 08/06/17 17:50, Alexei Starovoitov wrote:
+>>> On Thu, Jun 08, 2017 at 04:25:39PM +0100, Edward Cree wrote:
+>>>> On 08/06/17 03:35, Alexei Starovoitov wrote:
+>>>>> such large back and forth move doesn't help reviewing.
+>>>>> may be just merge it into previous patch?
+>>>>> Or keep that function in the right place in patch 2 already?
+>>>> I think 'diff' got a bit confused, and maybe with different options I could
+>>>>  have got it to produce something more readable.  But I think I will just
+>>>>  merge this into patch 2; it's only separate because it started out as an
+>>>>  experiment.
+>>> after sleeping on it I'm not sure we should be allowing such pointer
+>>> arithmetic. In normal C code people do fancy tricks with lower 3 bits
+>>> of the pointer, but in bpf code I cannot see such use case.
+>>> What kind of realistic code will be doing ptr & 0x40 ?
+>> Well, I didn't support it because I saw a use case.  I supported it because
+>>  it seemed easy to do and the code came out reasonably elegant-looking.
+>> Since this is guarded by env->allow_ptr_leaks, I can't see any reason _not_
+>>  to let people try fancy tricks with the low bits of pointers.
+>> I agree ptr & 0x40 is a crazy thing with no imaginable use case, but...
+>> "Unix was not designed to stop its users from doing stupid things, as that
+>>  would also stop them from doing clever things." ;-)
+> well, I agree with the philosophy :) but I also see few reasons not to allow it:
+> 1. it immediately becomes uapi and if later we find out that it's preventing us
+> to do something we actually really need we'll be stuck looking for workaround
+What could it prevent us from doing, though?  It's basically equivalent to giving
+ BPF an opcode that casts a pointer to a u64, which of course is only allowed if
+ allow_ptr_leaks is true.  And since we don't feed any knowledge about the pointer
+ into the verifier, it's just like any other way of filling a register with
+ arbitrary, unknown bits.
+I can fully appreciate why you're being cautious, what with uapi and all.  But I
+ don't think there's any actual problem here.  Open to being convinced, though.
+> 2. it's the same pruning concern. probably doesn't fully apply here, but
+> the reason we don't track 'if (reg == 1) ...'
+Don't we though?
+http://elixir.free-electrons.com/linux/v4.12-rc4/source/kernel/bpf/verifier.c#L2127
+> is if we mark that
+> register as known const_imm in the true branch, it will screw up
+> pruning quite badly. It's trivial to track and may seem useful,
+> but hurts instead.
+(Thinking out loud...)
 
-Rename the g1_set_cpu_port and g1_set_egress_port ops to set_cpu_port
-and set_egress_port. No functional changes.
+What would be really nice is a way to propagate limits backwards as well as
+ forwards, so that the verifier can say "when I tested this branch, I used
+ this part of the state, I read four bytes past this pointer".  Then when it
+ wants to prune, it can say "well, the state this time isn't as strong, but
+ it still satisfies everything I actually used".
+But that sounds like it would be very hard indeed to do.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx/chip.c | 108 +++++++++++++++++++--------------------
- drivers/net/dsa/mv88e6xxx/chip.h |   4 +-
- 2 files changed, 56 insertions(+), 56 deletions(-)
+Maybe with the basic-block DAG stuff David's been talking about, we could
+ find all the paths that reach a block, and take the union of their states,
+ and then run through the block feeding it that combined state.  But that
+ could reject code that relies on correlation of the state (i.e. if r1 != 0
+ then r2 is valid ptr I can access, etc) so would still need the 'walk with
+ each individual state' as a fallback.  Though at least you'd have all the
+ states at once so you could find out which ones were subsumed, instead of
+ hoping you get to them in the right order.
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 916da1e7f25a..5e5b1b4ecaa8 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -2015,14 +2015,14 @@ static int mv88e6xxx_g1_setup(struct mv88e6xxx_chip *chip)
- 	u32 upstream_port = dsa_upstream_port(ds);
- 	int err;
- 
--	if (chip->info->ops->g1_set_cpu_port) {
--		err = chip->info->ops->g1_set_cpu_port(chip, upstream_port);
-+	if (chip->info->ops->set_cpu_port) {
-+		err = chip->info->ops->set_cpu_port(chip, upstream_port);
- 		if (err)
- 			return err;
- 	}
- 
--	if (chip->info->ops->g1_set_egress_port) {
--		err = chip->info->ops->g1_set_egress_port(chip, upstream_port);
-+	if (chip->info->ops->set_egress_port) {
-+		err = chip->info->ops->set_egress_port(chip, upstream_port);
- 		if (err)
- 			return err;
- 	}
-@@ -2369,8 +2369,8 @@ static const struct mv88e6xxx_ops mv88e6085_ops = {
- 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
- 	.stats_get_strings = mv88e6095_stats_get_strings,
- 	.stats_get_stats = mv88e6095_stats_get_stats,
--	.g1_set_cpu_port = mv88e6095_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6095_g1_set_egress_port,
-+	.set_cpu_port = mv88e6095_g1_set_cpu_port,
-+	.set_egress_port = mv88e6095_g1_set_egress_port,
- 	.watchdog_ops = &mv88e6097_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
- 	.ppu_enable = mv88e6185_g1_ppu_enable,
-@@ -2424,8 +2424,8 @@ static const struct mv88e6xxx_ops mv88e6097_ops = {
- 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
- 	.stats_get_strings = mv88e6095_stats_get_strings,
- 	.stats_get_stats = mv88e6095_stats_get_stats,
--	.g1_set_cpu_port = mv88e6095_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6095_g1_set_egress_port,
-+	.set_cpu_port = mv88e6095_g1_set_cpu_port,
-+	.set_egress_port = mv88e6095_g1_set_egress_port,
- 	.watchdog_ops = &mv88e6097_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-@@ -2449,8 +2449,8 @@ static const struct mv88e6xxx_ops mv88e6123_ops = {
- 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
- 	.stats_get_strings = mv88e6095_stats_get_strings,
- 	.stats_get_stats = mv88e6095_stats_get_stats,
--	.g1_set_cpu_port = mv88e6095_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6095_g1_set_egress_port,
-+	.set_cpu_port = mv88e6095_g1_set_cpu_port,
-+	.set_egress_port = mv88e6095_g1_set_egress_port,
- 	.watchdog_ops = &mv88e6097_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-@@ -2478,8 +2478,8 @@ static const struct mv88e6xxx_ops mv88e6131_ops = {
- 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
- 	.stats_get_strings = mv88e6095_stats_get_strings,
- 	.stats_get_stats = mv88e6095_stats_get_stats,
--	.g1_set_cpu_port = mv88e6095_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6095_g1_set_egress_port,
-+	.set_cpu_port = mv88e6095_g1_set_cpu_port,
-+	.set_egress_port = mv88e6095_g1_set_egress_port,
- 	.watchdog_ops = &mv88e6097_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
- 	.ppu_enable = mv88e6185_g1_ppu_enable,
-@@ -2513,8 +2513,8 @@ static const struct mv88e6xxx_ops mv88e6141_ops = {
- 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
- 	.stats_get_strings = mv88e6320_stats_get_strings,
- 	.stats_get_stats = mv88e6390_stats_get_stats,
--	.g1_set_cpu_port = mv88e6390_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6390_g1_set_egress_port,
-+	.set_cpu_port = mv88e6390_g1_set_cpu_port,
-+	.set_egress_port = mv88e6390_g1_set_egress_port,
- 	.watchdog_ops = &mv88e6390_watchdog_ops,
- 	.mgmt_rsvd2cpu =  mv88e6390_g1_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-@@ -2543,8 +2543,8 @@ static const struct mv88e6xxx_ops mv88e6161_ops = {
- 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
- 	.stats_get_strings = mv88e6095_stats_get_strings,
- 	.stats_get_stats = mv88e6095_stats_get_stats,
--	.g1_set_cpu_port = mv88e6095_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6095_g1_set_egress_port,
-+	.set_cpu_port = mv88e6095_g1_set_cpu_port,
-+	.set_egress_port = mv88e6095_g1_set_egress_port,
- 	.watchdog_ops = &mv88e6097_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-@@ -2566,8 +2566,8 @@ static const struct mv88e6xxx_ops mv88e6165_ops = {
- 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
- 	.stats_get_strings = mv88e6095_stats_get_strings,
- 	.stats_get_stats = mv88e6095_stats_get_stats,
--	.g1_set_cpu_port = mv88e6095_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6095_g1_set_egress_port,
-+	.set_cpu_port = mv88e6095_g1_set_cpu_port,
-+	.set_egress_port = mv88e6095_g1_set_egress_port,
- 	.watchdog_ops = &mv88e6097_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-@@ -2597,8 +2597,8 @@ static const struct mv88e6xxx_ops mv88e6171_ops = {
- 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
- 	.stats_get_strings = mv88e6095_stats_get_strings,
- 	.stats_get_stats = mv88e6095_stats_get_stats,
--	.g1_set_cpu_port = mv88e6095_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6095_g1_set_egress_port,
-+	.set_cpu_port = mv88e6095_g1_set_cpu_port,
-+	.set_egress_port = mv88e6095_g1_set_egress_port,
- 	.watchdog_ops = &mv88e6097_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-@@ -2630,8 +2630,8 @@ static const struct mv88e6xxx_ops mv88e6172_ops = {
- 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
- 	.stats_get_strings = mv88e6095_stats_get_strings,
- 	.stats_get_stats = mv88e6095_stats_get_stats,
--	.g1_set_cpu_port = mv88e6095_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6095_g1_set_egress_port,
-+	.set_cpu_port = mv88e6095_g1_set_cpu_port,
-+	.set_egress_port = mv88e6095_g1_set_egress_port,
- 	.watchdog_ops = &mv88e6097_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-@@ -2662,8 +2662,8 @@ static const struct mv88e6xxx_ops mv88e6175_ops = {
- 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
- 	.stats_get_strings = mv88e6095_stats_get_strings,
- 	.stats_get_stats = mv88e6095_stats_get_stats,
--	.g1_set_cpu_port = mv88e6095_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6095_g1_set_egress_port,
-+	.set_cpu_port = mv88e6095_g1_set_cpu_port,
-+	.set_egress_port = mv88e6095_g1_set_egress_port,
- 	.watchdog_ops = &mv88e6097_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-@@ -2695,8 +2695,8 @@ static const struct mv88e6xxx_ops mv88e6176_ops = {
- 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
- 	.stats_get_strings = mv88e6095_stats_get_strings,
- 	.stats_get_stats = mv88e6095_stats_get_stats,
--	.g1_set_cpu_port = mv88e6095_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6095_g1_set_egress_port,
-+	.set_cpu_port = mv88e6095_g1_set_cpu_port,
-+	.set_egress_port = mv88e6095_g1_set_egress_port,
- 	.watchdog_ops = &mv88e6097_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-@@ -2721,8 +2721,8 @@ static const struct mv88e6xxx_ops mv88e6185_ops = {
- 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
- 	.stats_get_strings = mv88e6095_stats_get_strings,
- 	.stats_get_stats = mv88e6095_stats_get_stats,
--	.g1_set_cpu_port = mv88e6095_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6095_g1_set_egress_port,
-+	.set_cpu_port = mv88e6095_g1_set_cpu_port,
-+	.set_egress_port = mv88e6095_g1_set_egress_port,
- 	.watchdog_ops = &mv88e6097_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
- 	.ppu_enable = mv88e6185_g1_ppu_enable,
-@@ -2755,8 +2755,8 @@ static const struct mv88e6xxx_ops mv88e6190_ops = {
- 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
- 	.stats_get_strings = mv88e6320_stats_get_strings,
- 	.stats_get_stats = mv88e6390_stats_get_stats,
--	.g1_set_cpu_port = mv88e6390_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6390_g1_set_egress_port,
-+	.set_cpu_port = mv88e6390_g1_set_cpu_port,
-+	.set_egress_port = mv88e6390_g1_set_egress_port,
- 	.watchdog_ops = &mv88e6390_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-@@ -2788,8 +2788,8 @@ static const struct mv88e6xxx_ops mv88e6190x_ops = {
- 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
- 	.stats_get_strings = mv88e6320_stats_get_strings,
- 	.stats_get_stats = mv88e6390_stats_get_stats,
--	.g1_set_cpu_port = mv88e6390_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6390_g1_set_egress_port,
-+	.set_cpu_port = mv88e6390_g1_set_cpu_port,
-+	.set_egress_port = mv88e6390_g1_set_egress_port,
- 	.watchdog_ops = &mv88e6390_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-@@ -2821,8 +2821,8 @@ static const struct mv88e6xxx_ops mv88e6191_ops = {
- 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
- 	.stats_get_strings = mv88e6320_stats_get_strings,
- 	.stats_get_stats = mv88e6390_stats_get_stats,
--	.g1_set_cpu_port = mv88e6390_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6390_g1_set_egress_port,
-+	.set_cpu_port = mv88e6390_g1_set_cpu_port,
-+	.set_egress_port = mv88e6390_g1_set_egress_port,
- 	.watchdog_ops = &mv88e6390_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-@@ -2855,8 +2855,8 @@ static const struct mv88e6xxx_ops mv88e6240_ops = {
- 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
- 	.stats_get_strings = mv88e6095_stats_get_strings,
- 	.stats_get_stats = mv88e6095_stats_get_stats,
--	.g1_set_cpu_port = mv88e6095_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6095_g1_set_egress_port,
-+	.set_cpu_port = mv88e6095_g1_set_cpu_port,
-+	.set_egress_port = mv88e6095_g1_set_egress_port,
- 	.watchdog_ops = &mv88e6097_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-@@ -2889,8 +2889,8 @@ static const struct mv88e6xxx_ops mv88e6290_ops = {
- 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
- 	.stats_get_strings = mv88e6320_stats_get_strings,
- 	.stats_get_stats = mv88e6390_stats_get_stats,
--	.g1_set_cpu_port = mv88e6390_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6390_g1_set_egress_port,
-+	.set_cpu_port = mv88e6390_g1_set_cpu_port,
-+	.set_egress_port = mv88e6390_g1_set_egress_port,
- 	.watchdog_ops = &mv88e6390_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-@@ -2922,8 +2922,8 @@ static const struct mv88e6xxx_ops mv88e6320_ops = {
- 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
- 	.stats_get_strings = mv88e6320_stats_get_strings,
- 	.stats_get_stats = mv88e6320_stats_get_stats,
--	.g1_set_cpu_port = mv88e6095_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6095_g1_set_egress_port,
-+	.set_cpu_port = mv88e6095_g1_set_cpu_port,
-+	.set_egress_port = mv88e6095_g1_set_egress_port,
- 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
- 	.vtu_getnext = mv88e6185_g1_vtu_getnext,
-@@ -2953,8 +2953,8 @@ static const struct mv88e6xxx_ops mv88e6321_ops = {
- 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
- 	.stats_get_strings = mv88e6320_stats_get_strings,
- 	.stats_get_stats = mv88e6320_stats_get_stats,
--	.g1_set_cpu_port = mv88e6095_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6095_g1_set_egress_port,
-+	.set_cpu_port = mv88e6095_g1_set_cpu_port,
-+	.set_egress_port = mv88e6095_g1_set_egress_port,
- 	.reset = mv88e6352_g1_reset,
- 	.vtu_getnext = mv88e6185_g1_vtu_getnext,
- 	.vtu_loadpurge = mv88e6185_g1_vtu_loadpurge,
-@@ -2984,8 +2984,8 @@ static const struct mv88e6xxx_ops mv88e6341_ops = {
- 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
- 	.stats_get_strings = mv88e6320_stats_get_strings,
- 	.stats_get_stats = mv88e6390_stats_get_stats,
--	.g1_set_cpu_port = mv88e6390_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6390_g1_set_egress_port,
-+	.set_cpu_port = mv88e6390_g1_set_cpu_port,
-+	.set_egress_port = mv88e6390_g1_set_egress_port,
- 	.watchdog_ops = &mv88e6390_watchdog_ops,
- 	.mgmt_rsvd2cpu =  mv88e6390_g1_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-@@ -3015,8 +3015,8 @@ static const struct mv88e6xxx_ops mv88e6350_ops = {
- 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
- 	.stats_get_strings = mv88e6095_stats_get_strings,
- 	.stats_get_stats = mv88e6095_stats_get_stats,
--	.g1_set_cpu_port = mv88e6095_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6095_g1_set_egress_port,
-+	.set_cpu_port = mv88e6095_g1_set_cpu_port,
-+	.set_egress_port = mv88e6095_g1_set_egress_port,
- 	.watchdog_ops = &mv88e6097_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-@@ -3046,8 +3046,8 @@ static const struct mv88e6xxx_ops mv88e6351_ops = {
- 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
- 	.stats_get_strings = mv88e6095_stats_get_strings,
- 	.stats_get_stats = mv88e6095_stats_get_stats,
--	.g1_set_cpu_port = mv88e6095_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6095_g1_set_egress_port,
-+	.set_cpu_port = mv88e6095_g1_set_cpu_port,
-+	.set_egress_port = mv88e6095_g1_set_egress_port,
- 	.watchdog_ops = &mv88e6097_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-@@ -3079,8 +3079,8 @@ static const struct mv88e6xxx_ops mv88e6352_ops = {
- 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
- 	.stats_get_strings = mv88e6095_stats_get_strings,
- 	.stats_get_stats = mv88e6095_stats_get_stats,
--	.g1_set_cpu_port = mv88e6095_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6095_g1_set_egress_port,
-+	.set_cpu_port = mv88e6095_g1_set_cpu_port,
-+	.set_egress_port = mv88e6095_g1_set_egress_port,
- 	.watchdog_ops = &mv88e6097_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-@@ -3115,8 +3115,8 @@ static const struct mv88e6xxx_ops mv88e6390_ops = {
- 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
- 	.stats_get_strings = mv88e6320_stats_get_strings,
- 	.stats_get_stats = mv88e6390_stats_get_stats,
--	.g1_set_cpu_port = mv88e6390_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6390_g1_set_egress_port,
-+	.set_cpu_port = mv88e6390_g1_set_cpu_port,
-+	.set_egress_port = mv88e6390_g1_set_egress_port,
- 	.watchdog_ops = &mv88e6390_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-@@ -3150,8 +3150,8 @@ static const struct mv88e6xxx_ops mv88e6390x_ops = {
- 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
- 	.stats_get_strings = mv88e6320_stats_get_strings,
- 	.stats_get_stats = mv88e6390_stats_get_stats,
--	.g1_set_cpu_port = mv88e6390_g1_set_cpu_port,
--	.g1_set_egress_port = mv88e6390_g1_set_egress_port,
-+	.set_cpu_port = mv88e6390_g1_set_cpu_port,
-+	.set_egress_port = mv88e6390_g1_set_egress_port,
- 	.watchdog_ops = &mv88e6390_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.h b/drivers/net/dsa/mv88e6xxx/chip.h
-index 33f8814e8a48..2d918bef4878 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.h
-+++ b/drivers/net/dsa/mv88e6xxx/chip.h
-@@ -468,8 +468,8 @@ struct mv88e6xxx_ops {
- 	void (*stats_get_strings)(struct mv88e6xxx_chip *chip,  uint8_t *data);
- 	void (*stats_get_stats)(struct mv88e6xxx_chip *chip,  int port,
- 				uint64_t *data);
--	int (*g1_set_cpu_port)(struct mv88e6xxx_chip *chip, int port);
--	int (*g1_set_egress_port)(struct mv88e6xxx_chip *chip, int port);
-+	int (*set_cpu_port)(struct mv88e6xxx_chip *chip, int port);
-+	int (*set_egress_port)(struct mv88e6xxx_chip *chip, int port);
- 	const struct mv88e6xxx_irq_ops *watchdog_ops;
- 
- 	/* Can be either in g1 or g2, so don't use a prefix */
--- 
-2.13.1
+-Ed
