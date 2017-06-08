@@ -1,110 +1,88 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 00/16] nfp: ctrl vNIC
-Date: Thu, 8 Jun 2017 08:38:45 +0200
-Message-ID: <20170608063845.GC2238@nanopsycho>
-References: <20170606061610.GA1911@nanopsycho>
- <20170606002105.7a84432f@cakuba.netronome.com>
- <20170606082336.GB1911@nanopsycho>
- <20170606020945.05a9bcc5@cakuba.netronome.com>
- <20170606091757.GC1911@nanopsycho>
- <BLUPR0701MB2004F8E6F28C1181003BEA788DCB0@BLUPR0701MB2004.namprd07.prod.outlook.com>
- <20170606112043.GD1911@nanopsycho>
- <BLUPR0701MB200425BE49D0578371379A138DC80@BLUPR0701MB2004.namprd07.prod.outlook.com>
- <20170608053853.GA2238@nanopsycho>
- <BLUPR0701MB200495371E8CD9FDC59748B78DC90@BLUPR0701MB2004.namprd07.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jakub Kicinski <kubakici@wp.pl>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "oss-drivers@netronome.com" <oss-drivers@netronome.com>
-To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: [patch net-next v2 00/19] Remove support from bridge bypass for mlxsw/rocker drivers
+Date: Thu,  8 Jun 2017 08:44:09 +0200
+Message-ID: <20170608064428.4785-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, arkadis@mellanox.com,
+        mlxsw@mellanox.com, roopa@cumulusnetworks.com,
+        stephen@networkplumber.org, ivecera@redhat.com,
+        nikolay@cumulusnetworks.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:36840 "EHLO
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35289 "EHLO
         mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751049AbdFHGis (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 02:38:48 -0400
-Received: by mail-wm0-f67.google.com with SMTP id d17so803182wme.3
-        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 23:38:47 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <BLUPR0701MB200495371E8CD9FDC59748B78DC90@BLUPR0701MB2004.namprd07.prod.outlook.com>
+        with ESMTP id S1750917AbdFHGoc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 02:44:32 -0400
+Received: by mail-wm0-f67.google.com with SMTP id g15so5660378wmc.2
+        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 23:44:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Jun 08, 2017 at 08:33:11AM CEST, Yuval.Mintz@cavium.com wrote:
->> >> >> >> >What were your plans with pre-netdev config?
->> >> >> >>
->> >> >> >> We need to pass come initial resource division. Generally the
->> >> >> >> consensus is to have these options exposed through devlink, let
->> >> >> >> the user configure them all and then to have a trigger that
->> >> >> >> would cause driver re-orchestration according to the new
->> >> >> >> values. The flow would look like
->> >> >> >> this:
->> >> >> >>
->> >> >> >> -driver loads with defaults, inits hw and instantiates netdevs
->> >> >> >> -driver exposes config options via devlink -user sets up the
->> >> >> >> options -user pushes the "go" trigger -upon the trigger
->> >> >> >> command, devlink calls the driver re-init callback -driver
->> >> >> >> shuts down the current instances, re-initializes hw,
->> >> >> >> re-instantiates the netdevs
->> >> >> >>
->> >> >> >> Makes sense?
->> >> >> >
->> >> >> >I like the idea of a "go"/apply/reload trigger and extending devlink.
->> >> >> >Do you plan on adding a way to persist the settings?  I'm
->> >> >> >concerned NIC users may want to boot into the right mode once
->> >> >> >it's set, without reloads and reconfigs upon boot.  Also is there
->> >> >> >going to be a way to query the pending/running config?  Sounds
->> >> >> >like we may want to expose three value sets - persistent/default,
->> >> >> >running and pending/to be applied.
->> >> >
->> >> >> I don't think it is a good idea to introduce any kind of
->> >> >> configuration persistency in HW. I believe that user is the master
->> >> >> and he has all needed info. He can store it persistently, but it
->> >> >> is up to
->> >> him.
->> >> >>
->> >> >> So basicaly during boot, we need the devlink configuration to
->> >> >> happen early on, before the netdevices get configured. udev? Not
->> >> >> sure how exactly to do this. Have to ask around :)
->> >> >
->> >> >Thinking about use cases where we'd want information available at
->> >> >probe time, it might have been even better to have it separated from
->> >> >the netdevice, e.g., providing clients with node to configure
->> >> >(generic?) information on top of their PCI nodes.
->> >>
->> >> Yuval, devlink is separated from the netdevices....
->> >
->> >Separate from the netdevices, yes. But I think it's still a networking facility.
->> >I.e., would it make sense creating devlink nodes for PCI devices?
->> 
->> True that devlink is placed in net/core. But from the very beginning, it was
->> designed to be multipurpose. So not only for net devices, but for any device
->> where is is suitable.
->> 
->> >
->> >Anyway, I don't think there's any *strong* need for what I was asking
->> >for; It's simply that I was thinking of qed where there's quite a bit
->> >going on during the pci probe, and thought how re-doing it can be avoided.
->> 
->> You can (should) register devlink early on way before netdevs.
->
->Given that I can't really register it sooner than the PCI probe,
->how would shortly-before or way-before differ?
+From: Jiri Pirko <jiri@mellanox.com>
 
-Yeah. Pci probe is the limit :)
+Currently setting bridge port attributes and adding FDBs are done via
+setting the SELF flag which implies unconsistent offloading model. This
+patch-set fixes this behavior by making the bridge and drivers which are
+using it to be totally in sync.
 
->
->Assume you have some userspace daemon monitoring devlink and applying
->user-provided configuration.
->How could it reliably apply the configuration between devlink registration
->and netdevice registeration?
+This implies several changes:
+- Offloading bridge flags from the bridge code.
+- Sending notification about FDB add/del to the software bridge in a 
+  similiar way it is done for the hardware externally learned FDBs.
 
-You cannot assume that. That is why I suggested devlink config and then
-a trigger to re-initialize the hw and the netdevices.
+By making the offloading model more consistent a cleanup is done in
+the drivers supporting it. This is done in order to remove un-needed
+logic related to dump operation which is redundant.
 
+First add missing functionality to bridge, then clean up the mlxsw/rocker
+drivers.
+---
+v1->v2
+- Move bridge-switchdev related stuff to br_switchdev.c as suggested by Nik
 
->
->The merit of the udev suggestion was that the sync. point was in userspace,
->so user could always make sure that devlink rules apply before netdev state changes.
->
->
+Arkadi Sharshevsky (19):
+  net: switchdev: Add support for querying supported bridge flags by
+    hardware
+  net: bridge: Add support for offloading port attributes
+  net: bridge: Add support for calling FDB external learning under rcu
+  net: switchdev: Change notifier chain to be atomic
+  net: bridge: Add support for notifying devices about FDB add/del
+  net: bridge: Receive notification about successful FDB offload
+  mlxsw: spectrum: Remove support for bridge FDB learning sync
+  mlxsw: spectrum_switchdev: Add support for querying supported bridge
+    flags
+  mlxsw: spectrum: Remove support for bypass bridge port attributes/vlan
+    set
+  mlxsw: spectrum_switchdev: Change switchdev notifier API
+  mlxsw: spectrum_switchdev: Add support for learning FDB through
+    notification
+  mlxsw: spectrum: Remove support for bridge bypass FDB add/del
+  net: Remove support for bridge bypass ndos from stacked devices
+  rocker: Remove support for bridge FDB learning sync
+  rocker: Add support for querying supported bridge flags
+  rocker: Change world_ops API and implementation to be switchdev
+    independant
+  rocker: Add support for learning FDB through notification
+  rocker: Remove support for bypass bridge port attributes/vlan set
+  rocker: Remove support bridge bypass FDB
+
+ drivers/net/bonding/bond_main.c                    |   6 -
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |   8 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   1 +
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 360 +++++-------
+ drivers/net/ethernet/rocker/rocker.h               |  21 +-
+ drivers/net/ethernet/rocker/rocker_main.c          | 235 +++++---
+ drivers/net/ethernet/rocker/rocker_ofdpa.c         | 610 ++++++++-------------
+ drivers/net/team/team.c                            |   6 -
+ include/net/switchdev.h                            |   9 +-
+ include/uapi/linux/neighbour.h                     |   1 +
+ net/8021q/vlan_dev.c                               |   6 -
+ net/bridge/br.c                                    |  19 +-
+ net/bridge/br_fdb.c                                |  26 +-
+ net/bridge/br_netlink.c                            |  87 ++-
+ net/bridge/br_private.h                            |  28 +-
+ net/bridge/br_switchdev.c                          |  76 +++
+ net/switchdev/switchdev.c                          |  30 +-
+ 17 files changed, 736 insertions(+), 793 deletions(-)
+
+-- 
+2.9.3
