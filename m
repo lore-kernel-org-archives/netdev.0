@@ -1,88 +1,55 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Thu, 8 Jun 2017 09:22:20 +0200
-Message-ID: <20170608072220.GA778@kroah.com>
-References: <20170608100858.4c1b18db@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>,
-        Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Hans de Goede <hdegoede@redhat.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
+From: =?utf-8?B?5Lil5rW35Y+M?= <yanhaishuang@cmss.chinamobile.com>
+Subject: Re: [PATCH v3 2/2] ip6_tunnel: fix potential issue in __ip6_tnl_rcv
+Date: Thu, 8 Jun 2017 15:33:58 +0800
+Message-ID: <6CE04FE7-4904-4047-95F5-80461324CDA6@cmss.chinamobile.com>
+References: <1496896364-27153-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+ <1496896364-27153-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
+ <20170608043847.uejvydlitzuik76j@ast-mbp>
+ <3A078CA0-C9C8-45D2-A359-1FB38B25792D@cmss.chinamobile.com>
+ <20170608050041.cte3gpavshg2nmdc@ast-mbp>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: "=David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Eric Dumazet <edumazet@google.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:59866 "EHLO
-        mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750725AbdFHHW1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 03:22:27 -0400
-Content-Disposition: inline
-In-Reply-To: <20170608100858.4c1b18db@canb.auug.org.au>
+Received: from cmccmta2.chinamobile.com ([221.176.66.80]:18386 "EHLO
+        cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751537AbdFHHeC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 03:34:02 -0400
+In-Reply-To: <20170608050041.cte3gpavshg2nmdc@ast-mbp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 08, 2017 at 10:08:58AM +1000, Stephen Rothwell wrote:
-> Hi all,
+> On 8 Jun 2017, at 1:00 PM, Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
 > 
-> After merging the net tree, today's linux-next build (x86_64 allmodconfig)
-> failed like this:
+> On Thu, Jun 08, 2017 at 12:56:58PM +0800, 严海双 wrote:
+>> 
+>>> On 8 Jun 2017, at 12:38 PM, Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+>>> 
+>>> On Thu, Jun 08, 2017 at 12:32:44PM +0800, Haishuang Yan wrote:
+>>>> When __ip6_tnl_rcv fails, the tun_dst won't be freed, so call
+>>>> dst_release to free it in error code path.
+>>>> 
+>>>> CC: Alexei Starovoitov <ast@fb.com>
+>>>> Fixes: 8d79266bc48c ("ip6_tunnel: add collect_md mode to IPv6 tunnels")
+>>>> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+>>> 
+>>> I don't get it. Why did you send another version of the patch?
+>>> What was wrong with previous approach that myself and Eric acked?
+>>> 
+>>> 
+>> 
+>> Sorry for your confusing, because Pravin Shelar give a feedback in ipv4 patch, see below:
 > 
-> drivers/staging/rtl8723bs/os_dep/ioctl_cfg80211.c: In function 'rtw_cfg80211_add_monitor_if':
-> drivers/staging/rtl8723bs/os_dep/ioctl_cfg80211.c:2670:10: error: 'struct net_device' has no member named 'destructor'
->   mon_ndev->destructor = rtw_ndev_destructor;
->           ^
+> hmm. right.
+> Then it raises the question: How did you test this and previous patch?
 > 
-> Caused by commit
+> since previous version was sort-of fixing the bug, but completely
+> breaking the logic...
 > 
->   cf124db566e6 ("net: Fix inconsistent teardown and release of private netdev state.")
 > 
-> from the net tree interacting with commit
-> 
->   554c0a3abf21 ("staging: Add rtl8723bs sdio wifi driver"
-> 
-> from Linus' tree (v4.12-rc1).
-> 
-> I applied the following merge fix patch for today.
-> 
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Thu, 8 Jun 2017 09:49:26 +1000
-> Subject: [PATCH] net: fix up for "Fix inconsistent teardown and release of private netdev state"
-> 
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> ---
->  drivers/staging/rtl8723bs/os_dep/ioctl_cfg80211.c | 3 ++-
->  drivers/staging/rtl8723bs/os_dep/os_intfs.c       | 2 --
->  2 files changed, 2 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/staging/rtl8723bs/os_dep/ioctl_cfg80211.c b/drivers/staging/rtl8723bs/os_dep/ioctl_cfg80211.c
-> index 36c3189fc4b7..bd4352fe2de3 100644
-> --- a/drivers/staging/rtl8723bs/os_dep/ioctl_cfg80211.c
-> +++ b/drivers/staging/rtl8723bs/os_dep/ioctl_cfg80211.c
-> @@ -2667,7 +2667,8 @@ static int rtw_cfg80211_add_monitor_if (struct adapter *padapter, char *name, st
->  	mon_ndev->type = ARPHRD_IEEE80211_RADIOTAP;
->  	strncpy(mon_ndev->name, name, IFNAMSIZ);
->  	mon_ndev->name[IFNAMSIZ - 1] = 0;
-> -	mon_ndev->destructor = rtw_ndev_destructor;
-> +	mon_ndev->needs_free_netdev = true;
-> +	mon_ndev->priv_destructor = rtw_ndev_destructor;
->  
->  	mon_ndev->netdev_ops = &rtw_cfg80211_monitor_if_ops;
->  
-> diff --git a/drivers/staging/rtl8723bs/os_dep/os_intfs.c b/drivers/staging/rtl8723bs/os_dep/os_intfs.c
-> index f83cfc76505c..021589913681 100644
-> --- a/drivers/staging/rtl8723bs/os_dep/os_intfs.c
-> +++ b/drivers/staging/rtl8723bs/os_dep/os_intfs.c
-> @@ -1207,8 +1207,6 @@ void rtw_ndev_destructor(struct net_device *ndev)
->  
->  	if (ndev->ieee80211_ptr)
->  		kfree((u8 *)ndev->ieee80211_ptr);
-> -
-> -	free_netdev(ndev);
->  }
->  
->  void rtw_dev_unload(struct adapter *padapter)
 
-Looks good to me, thanks for this, I'll keep it around for when the
-merge window  happens.
-
-greg k-h
+Sorry for my previous fault, I tried to fix this problem in theory without testing carefully.
+I have tested the latest patches, it works ok now.
