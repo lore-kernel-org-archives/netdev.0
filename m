@@ -1,43 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ila_xlat: add missing hash secret initialization
-Date: Thu, 08 Jun 2017 15:37:35 -0400 (EDT)
-Message-ID: <20170608.153735.449425073256387555.davem@davemloft.net>
-References: <20170608075448.2076975-1-arnd@arndb.de>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 2/7] net: dsa: mv88e6xxx: add egress mode
+ enumeration
+Date: Thu, 8 Jun 2017 21:38:02 +0200
+Message-ID: <20170608193802.GH20216@lunn.ch>
+References: <20170608190445.24443-1-vivien.didelot@savoirfairelinux.com>
+ <20170608190445.24443-3-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        yoshfuji@linux-ipv6.org, kaber@trash.net,
-        stephen@networkplumber.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: arnd@arndb.de
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170608075448.2076975-1-arnd@arndb.de>
+Content-Disposition: inline
+In-Reply-To: <20170608190445.24443-3-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Thu,  8 Jun 2017 09:54:24 +0200
+On Thu, Jun 08, 2017 at 03:04:40PM -0400, Vivien Didelot wrote:
+> As for the frame mode, add a mv88e6xxx_egress_mode enumeration instead
+> of a 16-bit register mask.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-> While discussing the possible merits of clang warning about unused initialized
-> functions, I found one function that was clearly meant to be called but
-> never actually is.
-> 
-> __ila_hash_secret_init() initializes the hash value for the ila locator,
-> apparently this is intended to prevent hash collision attacks, but this ends
-> up being a read-only zero constant since there is no caller. I could find
-> no indication of why it was never called, the earliest patch submission
-> for the module already was like this. If my interpretation is right, we
-> certainly want to backport the patch to stable kernels as well.
-> 
-> I considered adding it to the ila_xlat_init callback, but for best effect
-> the random data is read as late as possible, just before it is first used.
-> The underlying net_get_random_once() is already highly optimized to avoid
-> overhead when called frequently.
-> 
-> Fixes: 7f00feaf1076 ("ila: Add generic ILA translation facility")
-> Cc: stable@vger.kernel.org
-> Link: https://www.spinics.net/lists/kernel/msg2527243.html
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-Yikes, good catch, applied and queued up for -stable.
+    Andrew
