@@ -1,55 +1,32 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] ila_xlat: add missing hash secret initialization
-Date: Thu,  8 Jun 2017 09:54:24 +0200
-Message-ID: <20170608075448.2076975-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        stephen hemminger <stephen@networkplumber.org>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Oliver Carter" <olivercarter_google@earthlink.net>
+Subject: (unknown)
+Date: Thu, 8 Jun 2017 05:41:40 +0000
+Message-ID: <29D2C1A9-BE4A-45D2-CAA1-DF9476D10FE2@earthlink.net>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain;
+        charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+To: "netdev" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from elasmtp-curtail.atl.sa.earthlink.net ([209.86.89.64]:34416 "EHLO
+        elasmtp-curtail.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751416AbdFHIFK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 04:05:10 -0400
+Received: from [41.136.224.13] (helo=smtpauth.earthlink.net)
+        by elasmtp-curtail.atl.sa.earthlink.net with esmtpa (Exim 4.67)
+        (envelope-from <olivercarter_google@earthlink.net>)
+        id 1dIqEx-000DUC-NJ
+        for netdev@vger.kernel.org; Thu, 08 Jun 2017 01:44:17 -0400
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-While discussing the possible merits of clang warning about unused initialized
-functions, I found one function that was clearly meant to be called but
-never actually is.
+Hey Netdev
 
-__ila_hash_secret_init() initializes the hash value for the ila locator,
-apparently this is intended to prevent hash collision attacks, but this ends
-up being a read-only zero constant since there is no caller. I could find
-no indication of why it was never called, the earliest patch submission
-for the module already was like this. If my interpretation is right, we
-certainly want to backport the patch to stable kernels as well.
 
-I considered adding it to the ila_xlat_init callback, but for best effect
-the random data is read as late as possible, just before it is first used.
-The underlying net_get_random_once() is already highly optimized to avoid
-overhead when called frequently.
 
-Fixes: 7f00feaf1076 ("ila: Add generic ILA translation facility")
-Cc: stable@vger.kernel.org
-Link: https://www.spinics.net/lists/kernel/msg2527243.html
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- net/ipv6/ila/ila_xlat.c | 1 +
- 1 file changed, 1 insertion(+)
+http://arc-protect.com/m7_gift_giver.php?isnt=pfcz272prn36hk
 
-diff --git a/net/ipv6/ila/ila_xlat.c b/net/ipv6/ila/ila_xlat.c
-index 2fd5ca151dcf..77f7f8c7d93d 100644
---- a/net/ipv6/ila/ila_xlat.c
-+++ b/net/ipv6/ila/ila_xlat.c
-@@ -62,6 +62,7 @@ static inline u32 ila_locator_hash(struct ila_locator loc)
- {
- 	u32 *v = (u32 *)loc.v32;
- 
-+	__ila_hash_secret_init();
- 	return jhash_2words(v[0], v[1], hashrnd);
- }
- 
--- 
-2.9.0
+
+
+Oliver
