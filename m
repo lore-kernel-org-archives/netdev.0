@@ -1,8 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH v2 3/8] net: mvmdio: use GENMASK for masks
-Date: Thu,  8 Jun 2017 11:26:48 +0200
-Message-ID: <20170608092653.25221-4-antoine.tenart@free-electrons.com>
-References: <20170608092653.25221-1-antoine.tenart@free-electrons.com>
+Subject: [PATCH v2 0/8] net: mvmdio: add xSMI support
+Date: Thu,  8 Jun 2017 11:26:45 +0200
+Message-ID: <20170608092653.25221-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, mw@semihalf.com,
         linux@armlinux.org.uk, netdev@vger.kernel.org,
@@ -11,34 +10,62 @@ To: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
         gregory.clement@free-electrons.com,
         sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:48801 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:48845 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750937AbdFHKAW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 06:00:22 -0400
-In-Reply-To: <20170608092653.25221-1-antoine.tenart@free-electrons.com>
+        with ESMTP id S1751481AbdFHKA2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 06:00:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cosmetic patch to use the GENMASK helper for masks.
+Hello,
 
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/marvell/mvmdio.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+This series aims to add the xSMI support (also called xMDIO) to the
+mvmdio driver. The xSMI interface complies with the IEEE 802.3 clause 45
+and is used by 10GbE devices. On 7k and 8k (as of now), such an
+interface is found and is used by Ethernet controllers.
 
-diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-index 17b518b13ae3..96af8d57d9e5 100644
---- a/drivers/net/ethernet/marvell/mvmdio.c
-+++ b/drivers/net/ethernet/marvell/mvmdio.c
-@@ -138,7 +138,7 @@ static int orion_mdio_read(struct mii_bus *bus, int mii_id,
- 		goto out;
- 	}
- 
--	ret = val & 0xFFFF;
-+	ret = val & GENMASK(15,0);
- out:
- 	mutex_unlock(&dev->lock);
- 	return ret;
+Patches 1-3 are cosmetic cleanups.
+
+Patches 4-6 are prerequisites to the xSMI support.
+
+Patches 7-8 add the xSMI support to the mvmdio driver, and a node is
+added both in the cp110 slave and master device trees.
+
+This was tested on an Armada 8040 mcbin, as well as on both the
+Armada 7040 DB and the Armada 8040 DB to ensure the SMI interface
+was still working.
+
+@Dave: patch 8 should go through the mvebu tree as asked by Gregory,
+thanks!
+
+Thanks,
+Antoine
+
+Since v1:
+  - Instead of using the smi/xsmi helpers based on the compatible, now
+    check if the MII_ADDR_C45 bit is set.
+  - Removed the marvell,xmdio compatible addition.
+  - Fixed the is_read_valid logic.
+  - Updated to use static const variables for ops.
+  - Added 3 Reviewed-by tags from Florian (I dropped another one as the
+    patch changed in v2).
+
+Antoine Tenart (8):
+  net: mvmdio: reorder headers alphabetically
+  net: mvmdio: use tabs for defines
+  net: mvmdio: use GENMASK for masks
+  net: mvmdio: move the read valid check into its own function
+  net: mvmdio: introduce an ops structure
+  net: mvmdio: put the poll intervals in the ops structure
+  net: mvmdio: add xmdio support
+  arm64: marvell: dts: add xmdio nodes for 7k/8k
+
+ .../devicetree/bindings/net/marvell-orion-mdio.txt |   6 +-
+ .../boot/dts/marvell/armada-cp110-master.dtsi      |   8 +
+ .../arm64/boot/dts/marvell/armada-cp110-slave.dtsi |   8 +
+ drivers/net/ethernet/marvell/Kconfig               |   6 +-
+ drivers/net/ethernet/marvell/mvmdio.c              | 196 ++++++++++++++++-----
+ 5 files changed, 178 insertions(+), 46 deletions(-)
+
 -- 
 2.9.4
