@@ -1,41 +1,47 @@
-From: Soheil Hassas Yeganeh <soheil@google.com>
-Subject: Re: [PATCH net-next] skbuff: only inherit relevant tx_flags
-Date: Thu, 8 Jun 2017 11:59:40 -0400
-Message-ID: <CACSApvY3taHwTV4RdPEnj4d8FU6FSt8kxqZiY=tB+pbxZRCCAA@mail.gmail.com>
-References: <20170608153503.74199-1-willemdebruijn.kernel@gmail.com>
+From: Marc Zyngier <marc.zyngier@arm.com>
+Subject: Re: [PATCH 2/5] net: mvpp2: use {get,put}_cpu() instead of
+ smp_processor_id()
+Date: Thu, 8 Jun 2017 17:01:36 +0100
+Message-ID: <e81a0c75-7ae2-a656-6c45-74d8694d358f@arm.com>
+References: <1496935647-29670-1-git-send-email-thomas.petazzoni@free-electrons.com>
+ <1496935647-29670-3-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Willem de Bruijn <willemb@google.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Marcin Wojtas <mw@semihalf.com>,
+        Stefan Chulski <stefanc@marvell.com>,
+        Nadav Haklai <nadavh@marvell.com>,
+        Hanna Hawa <hannah@marvell.com>,
+        Yehuda Yitschak <yehuday@marvell.com>,
+        Antoine Tenart <antoine.tenart@free-electrons.com>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        Markus Elfring <elfring@users.sourceforge.net>
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f181.google.com ([209.85.223.181]:34488 "EHLO
-        mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751583AbdFHQAZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 12:00:25 -0400
-Received: by mail-io0-f181.google.com with SMTP id i7so22096874ioe.1
-        for <netdev@vger.kernel.org>; Thu, 08 Jun 2017 09:00:25 -0700 (PDT)
-In-Reply-To: <20170608153503.74199-1-willemdebruijn.kernel@gmail.com>
+Received: from foss.arm.com ([217.140.101.70]:54040 "EHLO foss.arm.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751614AbdFHQBk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Jun 2017 12:01:40 -0400
+In-Reply-To: <1496935647-29670-3-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 8, 2017 at 11:35 AM, Willem de Bruijn
-<willemdebruijn.kernel@gmail.com> wrote:
->
-> From: Willem de Bruijn <willemb@google.com>
->
-> When inheriting tx_flags from one skbuff to another, always apply a
-> mask to avoid overwriting unrelated other bits in the field.
->
-> The two SKBTX_SHARED_FRAG cases clears all other bits. In practice,
-> tx_flags are zero at this point now. But this is fragile. Timestamp
-> flags are set, for instance, if in tcp_gso_segment, after this clear
-> in skb_segment.
->
-> The SKBTX_ANY_TSTAMP mask in __skb_tstamp_tx ensures that new
-> skbs do not accidentally inherit flags such as SKBTX_SHARED_FRAG.
->
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
+On 08/06/17 16:27, Thomas Petazzoni wrote:
+> smp_processor_id() should not be used in migration-enabled contexts. We
+> originally thought it was OK in the specific situation of this driver,
+> but it was wrong, and calling smp_processor_id() in a migration-enabled
+> context prints a big fat warning when CONFIG_DEBUG_PREEMPT=y.
+> 
+> Therefore, this commit replaces the smp_processor_id() in
+> migration-enabled contexts by the appropriate get_cpu/put_cpu sections.
+> 
+> Reported-by: Marc Zyngier <marc.zyngier@arm.com>
+> Fixes: a786841df72e ("net: mvpp2: handle register mapping and access for PPv2.2")
+> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 
-Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
+Tested-by: Marc Zyngier <marc.zyngier@arm.com>
+
+	M.
+-- 
+Jazz is not dead. It just smells funny...
