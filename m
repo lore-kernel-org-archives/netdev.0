@@ -1,39 +1,56 @@
-From: Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [RFC PATCH net-next 3/5] bpf/verifier: feed
- pointer-to-unknown-scalar casts into scalar ALU path
-Date: Thu, 8 Jun 2017 16:25:39 +0100
-Message-ID: <2363ab5f-c344-900b-78ee-41e2eb0dd40f@solarflare.com>
-References: <92db9689-af6a-e172-ba57-195e588f9cc0@solarflare.com>
-	<47ecf6ca-ae89-7fc3-3cd5-a47009b6ede9@solarflare.com>
-	<20170608023540.5ecmmobhl2rtgrg5@ast-mbp>
-Reply-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] tcp: add TCPMemoryPressuresChrono counter
+Date: Thu, 08 Jun 2017 11:26:39 -0400 (EDT)
+Message-ID: <20170608.112639.1539826730157752352.davem@davemloft.net>
+References: <1496776767.736.11.camel@edumazet-glaptop3.roam.corp.google.com>
+        <1496867352.736.45.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <20170608023540.5ecmmobhl2rtgrg5@ast-mbp>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:58404 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751597AbdFHP0l (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 11:26:41 -0400
+In-Reply-To: <1496867352.736.45.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/06/17 03:35, Alexei Starovoitov wrote:
-> such large back and forth move doesn't help reviewing.
-> may be just merge it into previous patch?
-> Or keep that function in the right place in patch 2 already?
-I think 'diff' got a bit confused, and maybe with different options I could
- have got it to produce something more readable.  But I think I will just
- merge this into patch 2; it's only separate because it started out as an
- experiment.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 07 Jun 2017 13:29:12 -0700
 
--Ed
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> DRAM supply shortage and poor memory pressure tracking in TCP
+> stack makes any change in SO_SNDBUF/SO_RCVBUF (or equivalent autotuning
+> limits) and tcp_mem[] quite hazardous.
+> 
+> TCPMemoryPressures SNMP counter is an indication of tcp_mem sysctl
+> limits being hit, but only tracking number of transitions.
+> 
+> If TCP stack behavior under stress was perfect :
+> 1) It would maintain memory usage close to the limit.
+> 2) Memory pressure state would be entered for short times.
+> 
+> We certainly prefer 100 events lasting 10ms compared to one event
+> lasting 200 seconds.
+> 
+> This patch adds a new SNMP counter tracking cumulative duration of
+> memory pressure events, given in ms units.
+> 
+> $ cat /proc/sys/net/ipv4/tcp_mem
+> 3088    4117    6176
+> $ grep TCP /proc/net/sockstat
+> TCP: inuse 180 orphan 0 tw 2 alloc 234 mem 4140
+> $ nstat -n ; sleep 10 ; nstat |grep Pressure
+> TcpExtTCPMemoryPressures        1700
+> TcpExtTCPMemoryPressuresChrono  5209
+> 
+> v2: Used EXPORT_SYMBOL_GPL() instead of EXPORT_SYMBOL() as David
+> instructed.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+
+Applied, thanks Eric.
