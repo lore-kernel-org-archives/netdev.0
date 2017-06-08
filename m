@@ -1,48 +1,47 @@
 From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Subject: [PATCH v2 2/2] ip6_tunnel: fix potential issue in __ip6_tnl_rcv
-Date: Thu,  8 Jun 2017 08:57:56 +0800
-Message-ID: <1496883476-17445-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
-References: <1496883476-17445-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Subject: [PATCH v2 1/2] ip_tunnel: fix potential issue in ip_tunnel_rcv
+Date: Thu,  8 Jun 2017 08:57:55 +0800
+Message-ID: <1496883476-17445-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         Haishuang Yan <yanhaishuang@cmss.chinamobile.com>,
-        Alexei Starovoitov <ast@fb.com>
+        Pravin B Shelar <pshelar@nicira.com>,
+        Haishuang Yan <yanhaishuang@cmss.chinamobile.com390e>
 To: "=David S. Miller" <davem@davemloft.net>,
         Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
         James Morris <jmorris@namei.org>,
         Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
         Patrick McHardy <kaber@trash.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1496883476-17445-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When __ip6_tnl_rcv fails, the tun_dst won't be freed, so move
+When ip_tunnel_rcv fails, the tun_dst won't be freed, so move
 skb_dst_set to begin and tun_dst would be freed by kfree_skb.
 
-CC: Alexei Starovoitov <ast@fb.com>
-Fixes: 8d79266bc48c ("ip6_tunnel: add collect_md mode to IPv6 tunnels")
-Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+CC: Pravin B Shelar <pshelar@nicira.com>
+Fixes: 2e15ea390e6f ("ip_gre: Add support to collect tunnel metadata.")
+Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com390e>
 ---
- net/ipv6/ip6_tunnel.c | 6 +++---
+ net/ipv4/ip_tunnel.c | 6 +++---
  1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 9b37f97..bf45f1b 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -789,6 +789,9 @@ static int __ip6_tnl_rcv(struct ip6_tnl *tunnel, struct sk_buff *skb,
- 	const struct ipv6hdr *ipv6h = ipv6_hdr(skb);
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index b878ecb..27fc20f 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -386,6 +386,9 @@ int ip_tunnel_rcv(struct ip_tunnel *tunnel, struct sk_buff *skb,
+ 	const struct iphdr *iph = ip_hdr(skb);
  	int err;
  
 +	if (tun_dst)
 +		skb_dst_set(skb, (struct dst_entry *)tun_dst);
 +
- 	if ((!(tpi->flags & TUNNEL_CSUM) &&
- 	     (tunnel->parms.i_flags & TUNNEL_CSUM)) ||
- 	    ((tpi->flags & TUNNEL_CSUM) &&
-@@ -852,9 +855,6 @@ static int __ip6_tnl_rcv(struct ip6_tnl *tunnel, struct sk_buff *skb,
- 
- 	skb_scrub_packet(skb, !net_eq(tunnel->net, dev_net(tunnel->dev)));
+ #ifdef CONFIG_NET_IPGRE_BROADCAST
+ 	if (ipv4_is_multicast(iph->daddr)) {
+ 		tunnel->dev->stats.multicast++;
+@@ -439,9 +442,6 @@ int ip_tunnel_rcv(struct ip_tunnel *tunnel, struct sk_buff *skb,
+ 		skb->dev = tunnel->dev;
+ 	}
  
 -	if (tun_dst)
 -		skb_dst_set(skb, (struct dst_entry *)tun_dst);
