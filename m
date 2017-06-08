@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 27/44] sparc: remove leon_dma_ops
-Date: Thu,  8 Jun 2017 15:25:52 +0200
-Message-ID: <20170608132609.32662-28-hch@lst.de>
+Subject: [PATCH 31/44] hexagon: remove arch-specific dma_supported implementation
+Date: Thu,  8 Jun 2017 15:25:56 +0200
+Message-ID: <20170608132609.32662-32-hch@lst.de>
 References: <20170608132609.32662-1-hch@lst.de>
 Cc: linux-kernel@vger.kernel.org
 To: x86@kernel.org, linux-arm-kernel@lists.infradead.org,
@@ -14,66 +14,53 @@ To: x86@kernel.org, linux-arm-kernel@lists.infradead.org,
         linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
         linux-samsung-soc@vger.kernel.org,
         iommu@lists.linux-foundation.org, netdev@vger.kernel.org
-Return-path: <sparclinux-owner@vger.kernel.org>
+Return-path: <linux-hexagon-owner@vger.kernel.org>
 In-Reply-To: <20170608132609.32662-1-hch@lst.de>
-Sender: sparclinux-owner@vger.kernel.org
+Sender: linux-hexagon-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We can just use pci32_dma_ops.
-
-Btw, given that leon is 32-bit and appears to be PCI based, do even need
-the special case for it in get_arch_dma_ops at all?
+This implementation is simply bogus - hexagon only has a simple
+direct mapped DMA implementation and thus doesn't care about the
+address.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/sparc/include/asm/dma-mapping.h | 3 +--
- arch/sparc/kernel/ioport.c           | 5 +----
- 2 files changed, 2 insertions(+), 6 deletions(-)
+ arch/hexagon/include/asm/dma-mapping.h | 2 --
+ arch/hexagon/kernel/dma.c              | 9 ---------
+ 2 files changed, 11 deletions(-)
 
-diff --git a/arch/sparc/include/asm/dma-mapping.h b/arch/sparc/include/asm/dma-mapping.h
-index b8e8dfcd065d..98da9f92c318 100644
---- a/arch/sparc/include/asm/dma-mapping.h
-+++ b/arch/sparc/include/asm/dma-mapping.h
-@@ -17,7 +17,6 @@ static inline void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+diff --git a/arch/hexagon/include/asm/dma-mapping.h b/arch/hexagon/include/asm/dma-mapping.h
+index 00e3f10113b0..9c15cb5271a6 100644
+--- a/arch/hexagon/include/asm/dma-mapping.h
++++ b/arch/hexagon/include/asm/dma-mapping.h
+@@ -37,8 +37,6 @@ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
+ 	return dma_ops;
  }
  
- extern const struct dma_map_ops *dma_ops;
--extern const struct dma_map_ops *leon_dma_ops;
- extern const struct dma_map_ops pci32_dma_ops;
- 
- extern struct bus_type pci_bus_type;
-@@ -26,7 +25,7 @@ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
- {
- #ifdef CONFIG_SPARC_LEON
- 	if (sparc_cpu_model == sparc_leon)
--		return leon_dma_ops;
-+		return &pci32_dma_ops;
- #endif
- #if defined(CONFIG_SPARC32) && defined(CONFIG_PCI)
- 	if (bus == &pci_bus_type)
-diff --git a/arch/sparc/kernel/ioport.c b/arch/sparc/kernel/ioport.c
-index cf20033a1458..dd081d557609 100644
---- a/arch/sparc/kernel/ioport.c
-+++ b/arch/sparc/kernel/ioport.c
-@@ -637,6 +637,7 @@ static void pci32_sync_sg_for_device(struct device *device, struct scatterlist *
- 	}
+-#define HAVE_ARCH_DMA_SUPPORTED 1
+-extern int dma_supported(struct device *dev, u64 mask);
+ extern int dma_is_consistent(struct device *dev, dma_addr_t dma_handle);
+ extern void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+ 			   enum dma_data_direction direction);
+diff --git a/arch/hexagon/kernel/dma.c b/arch/hexagon/kernel/dma.c
+index 71269dc0f225..9ff1b2041f85 100644
+--- a/arch/hexagon/kernel/dma.c
++++ b/arch/hexagon/kernel/dma.c
+@@ -35,15 +35,6 @@ static inline void *dma_addr_to_virt(dma_addr_t dma_addr)
+ 	return phys_to_virt((unsigned long) dma_addr);
  }
  
-+/* note: leon re-uses pci32_dma_ops */
- const struct dma_map_ops pci32_dma_ops = {
- 	.alloc			= pci32_alloc_coherent,
- 	.free			= pci32_free_coherent,
-@@ -651,10 +652,6 @@ const struct dma_map_ops pci32_dma_ops = {
- };
- EXPORT_SYMBOL(pci32_dma_ops);
- 
--/* leon re-uses pci32_dma_ops */
--const struct dma_map_ops *leon_dma_ops = &pci32_dma_ops;
--EXPORT_SYMBOL(leon_dma_ops);
+-int dma_supported(struct device *dev, u64 mask)
+-{
+-	if (mask == DMA_BIT_MASK(32))
+-		return 1;
+-	else
+-		return 0;
+-}
+-EXPORT_SYMBOL(dma_supported);
 -
- const struct dma_map_ops *dma_ops = &sbus_dma_ops;
- EXPORT_SYMBOL(dma_ops);
+ static struct gen_pool *coherent_pool;
+ 
  
 -- 
 2.11.0
-
