@@ -1,85 +1,99 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: kisskb: FAILED linux-next/s390-defconfig/s390x Thu Jun 08,
- 18:28
-Date: Thu, 8 Jun 2017 19:11:43 +1000
-Message-ID: <20170608191143.0d54c17e@canb.auug.org.au>
-References: <20170608082932.1.78356@6b879c743ee1>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH RFC net-next 3/4] net/mlx5: Separate between eswitch and
+ MPFS l2 table logic
+Date: Thu, 8 Jun 2017 12:13:18 +0300
+Message-ID: <CAJ3xEMi9+iaa3CCA-gdBC7Okz3KgpWbea-vvfYEJFpTQkboxUA@mail.gmail.com>
+References: <20170607234214.24723-1-saeedm@mellanox.com> <20170607234214.24723-4-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>,
-        Heiko Carstens <heiko.carstens@de.ibm.com>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+        Jes Sorensen <jsorensen@fb.com>,
+        Kernel Team <kernel-team@fb.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>
+To: Saeed Mahameed <saeedm@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:45425 "EHLO ozlabs.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750725AbdFHJLq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Jun 2017 05:11:46 -0400
-In-Reply-To: <20170608082932.1.78356@6b879c743ee1>
+Received: from mail-ot0-f194.google.com ([74.125.82.194]:33078 "EHLO
+        mail-ot0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751450AbdFHJNT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 05:13:19 -0400
+Received: by mail-ot0-f194.google.com with SMTP id k4so3070256otd.0
+        for <netdev@vger.kernel.org>; Thu, 08 Jun 2017 02:13:19 -0700 (PDT)
+In-Reply-To: <20170607234214.24723-4-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On Thu, Jun 8, 2017 at 2:42 AM, Saeed Mahameed <saeedm@mellanox.com> wrote:
+[...]
+>  9 files changed, 376 insertions(+), 223 deletions(-)
 
-On Thu, 08 Jun 2017 08:29:32 -0000 noreply@ellerman.id.au wrote:
->
-> FAILED linux-next/s390-defconfig/s390x Thu Jun 08, 18:28
-> 
-> http://kisskb.ellerman.id.au/kisskb/buildresult/13055728/
-> 
-> Commit:   Add linux-next specific files for 20170608
->           e4689b9aad2ded9ed83e3c5f61e84388762295c4
-> Compiler: s390x-linux-gcc (GCC) 4.6.3
-> 
-> Possible errors
-> ---------------
-> 
-> drivers/s390/net/netiucv.c:1975:5: error: 'struct net_device' has no member named 'destructor'
-> make[3]: *** [drivers/s390/net/netiucv.o] Error 1
-> make[2]: *** [drivers/s390/net] Error 2
-> make[1]: *** [drivers/s390] Error 2
-> make: *** [sub-make] Error 2
+a bit of heavy duty for this sort of sensitive change, should
+investigate if it can be broken a bit
 
-Another one for the net tree ...
+> +int mlx5_mpfs_init(struct mlx5_core_dev *dev)
+> +{
+> +       int l2table_size = 1 << MLX5_CAP_GEN(dev, log_max_l2_table);
+> +       struct mlx5_mpfs *mpfs;
+> +
+> +       if (!MLX5_VPORT_MANAGER(dev))
+> +               return 0;
 
-I haven't actually even build tested this, but it seems obvious ...
+In commit 955bc48081805c053 we added
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Thu, 8 Jun 2017 19:06:29 +1000
-Subject: [PATCH] net: s390: fix up for "Fix inconsistent teardown and release
- of private netdev state"
++ static bool mlx5e_is_eswitch_vport_mngr(struct mlx5_core_dev *mdev)
++{
++       return (MLX5_CAP_GEN(mdev, vport_group_manager) &&
++               MLX5_CAP_GEN(mdev, port_type) == MLX5_CAP_PORT_TYPE_ETH);
++}
++
 
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- drivers/s390/net/netiucv.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+and now you add
 
-diff --git a/drivers/s390/net/netiucv.c b/drivers/s390/net/netiucv.c
-index dba94b486f05..fa732bd86729 100644
---- a/drivers/s390/net/netiucv.c
-+++ b/drivers/s390/net/netiucv.c
-@@ -1954,7 +1954,6 @@ static void netiucv_free_netdevice(struct net_device *dev)
- 		privptr->conn = NULL; privptr->fsm = NULL;
- 		/* privptr gets freed by free_netdev() */
- 	}
--	free_netdev(dev);
- }
- 
- /**
-@@ -1972,7 +1971,8 @@ static void netiucv_setup_netdevice(struct net_device *dev)
- 	dev->mtu	         = NETIUCV_MTU_DEFAULT;
- 	dev->min_mtu		 = 576;
- 	dev->max_mtu		 = NETIUCV_MTU_MAX;
--	dev->destructor          = netiucv_free_netdevice;
-+	dev->needs_free_netdev   = true;
-+	dev->priv_destructor     = netiucv_free_netdevice;
- 	dev->hard_header_len     = NETIUCV_HDRLEN;
- 	dev->addr_len            = 0;
- 	dev->type                = ARPHRD_SLIP;
--- 
-2.11.0
++#define MLX5_VPORT_MANAGER(mdev) \
++       (MLX5_CAP_GEN(mdev, vport_group_manager) && mlx5_core_is_pf(mdev))
++
 
--- 
-Cheers,
-Stephen Rothwell
+would be good to align things across the place with a pre-patch and
+then use the whatever check
+we need to apply
+
+BTW  mlx5e_is_eswitch_vport_mngr() should return false in the down
+stream patch when eswitch is compiled out, right?
+
+> +void mlx5_mpfs_cleanup(struct mlx5_core_dev *dev)
+> +{
+> +       struct mlx5_mpfs *mpfs = dev->priv.mpfs;
+> +
+> +       if (!MLX5_VPORT_MANAGER(dev))
+> +               return;
+> +
+> +       WARN_ON(!hlist_empty(mpfs->hash));
+
+I don't see any line with WARN_ON that was deleted by this patch, why add that?
+
+> +       kfree(mpfs->bitmap);
+> +       kfree(mpfs);
+> +}
+> +
+> +int mlx5_mpfs_add_mac(struct mlx5_core_dev *dev, u8 *mac)
+> +{
+
+> +       if (!MLX5_VPORT_MANAGER(dev))
+> +               return 0;
+> +
+> +       if (is_multicast_ether_addr(mac))
+> +               return 0;
+
+It would have been much better reviewed and maintained if we can code
+things in a manner under which we don't get here if not appropriate and
+not simulate successful return.
+
+> +int mlx5_mpfs_del_mac(struct mlx5_core_dev *dev, u8 *mac)
+> +{
+
+> +       if (!MLX5_VPORT_MANAGER(dev))
+> +               return 0;
+> +
+> +       if (is_multicast_ether_addr(mac))
+> +               return 0;
+
+same comment as for the add_mac call
