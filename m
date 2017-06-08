@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 19/19] rocker: Remove support bridge bypass FDB
-Date: Thu,  8 Jun 2017 08:44:28 +0200
-Message-ID: <20170608064428.4785-20-jiri@resnulli.us>
+Subject: [patch net-next v2 12/19] mlxsw: spectrum: Remove support for bridge bypass FDB add/del
+Date: Thu,  8 Jun 2017 08:44:21 +0200
+Message-ID: <20170608064428.4785-13-jiri@resnulli.us>
 References: <20170608064428.4785-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, arkadis@mellanox.com,
         mlxsw@mellanox.com, roopa@cumulusnetworks.com,
@@ -9,129 +9,269 @@ Cc: davem@davemloft.net, idosch@mellanox.com, arkadis@mellanox.com,
         nikolay@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35534 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751629AbdFHGo7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 02:44:59 -0400
-Received: by mail-wm0-f66.google.com with SMTP id g15so5662197wmc.2
-        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 23:44:58 -0700 (PDT)
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:36526 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751595AbdFHGox (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 02:44:53 -0400
+Received: by mail-wr0-f196.google.com with SMTP id e23so2899702wre.3
+        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 23:44:48 -0700 (PDT)
 In-Reply-To: <20170608064428.4785-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
 
-The FDB add/delete are now done through the notification chain. The FDBs
+The FDB add/del are now done through the notification chain. The FDBs
 are synced with the bridge and there is no need for extra dumping.
 
 Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/rocker/rocker.h       |  3 --
- drivers/net/ethernet/rocker/rocker_main.c  | 73 ------------------------------
- drivers/net/ethernet/rocker/rocker_ofdpa.c | 30 ------------
- 3 files changed, 106 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |   3 -
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 200 ---------------------
+ 2 files changed, 203 deletions(-)
 
-diff --git a/drivers/net/ethernet/rocker/rocker.h b/drivers/net/ethernet/rocker/rocker.h
-index a0fa3f8..748fb12 100644
---- a/drivers/net/ethernet/rocker/rocker.h
-+++ b/drivers/net/ethernet/rocker/rocker.h
-@@ -126,9 +126,6 @@ struct rocker_world_ops {
- 				u16 vid, const unsigned char *addr);
- 	int (*port_obj_fdb_del)(struct rocker_port *rocker_port,
- 				u16 vid, const unsigned char *addr);
--	int (*port_obj_fdb_dump)(const struct rocker_port *rocker_port,
--				 struct switchdev_obj_port_fdb *fdb,
--				 switchdev_obj_dump_cb_t *cb);
- 	int (*port_master_linked)(struct rocker_port *rocker_port,
- 				  struct net_device *master);
- 	int (*port_master_unlinked)(struct rocker_port *rocker_port,
-diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
-index 3e78129..b1e5c07 100644
---- a/drivers/net/ethernet/rocker/rocker_main.c
-+++ b/drivers/net/ethernet/rocker/rocker_main.c
-@@ -1652,33 +1652,6 @@ rocker_world_port_obj_vlan_del(struct rocker_port *rocker_port,
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 93530ab..85c6c49 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -1752,9 +1752,6 @@ static const struct net_device_ops mlxsw_sp_port_netdev_ops = {
+ 	.ndo_get_offload_stats	= mlxsw_sp_port_get_offload_stats,
+ 	.ndo_vlan_rx_add_vid	= mlxsw_sp_port_add_vid,
+ 	.ndo_vlan_rx_kill_vid	= mlxsw_sp_port_kill_vid,
+-	.ndo_fdb_add		= switchdev_port_fdb_add,
+-	.ndo_fdb_del		= switchdev_port_fdb_del,
+-	.ndo_fdb_dump		= switchdev_port_fdb_dump,
+ 	.ndo_get_phys_port_name	= mlxsw_sp_port_get_phys_port_name,
+ };
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index 0297c13..cd89a3e 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -1141,47 +1141,6 @@ static int mlxsw_sp_port_fdb_uc_lag_op(struct mlxsw_sp *mlxsw_sp, u16 lag_id,
  }
  
  static int
--rocker_world_port_obj_fdb_add(struct rocker_port *rocker_port,
--			      const struct switchdev_obj_port_fdb *fdb,
--			      struct switchdev_trans *trans)
+-mlxsw_sp_port_fdb_static_add(struct mlxsw_sp_port *mlxsw_sp_port,
+-			     const struct switchdev_obj_port_fdb *fdb,
+-			     struct switchdev_trans *trans)
 -{
--	struct rocker_world_ops *wops = rocker_port->rocker->wops;
--
--	if (!wops->port_obj_fdb_add)
--		return -EOPNOTSUPP;
+-	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+-	struct net_device *orig_dev = fdb->obj.orig_dev;
+-	struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan;
+-	struct mlxsw_sp_bridge_device *bridge_device;
+-	struct mlxsw_sp_bridge_port *bridge_port;
+-	u16 fid_index, vid;
 -
 -	if (switchdev_trans_ph_prepare(trans))
 -		return 0;
 -
--	return wops->port_obj_fdb_add(rocker_port, fdb->vid, fdb->addr);
+-	bridge_port = mlxsw_sp_bridge_port_find(mlxsw_sp->bridge, orig_dev);
+-	if (WARN_ON(!bridge_port))
+-		return -EINVAL;
+-
+-	bridge_device = bridge_port->bridge_device;
+-	mlxsw_sp_port_vlan = mlxsw_sp_port_vlan_find_by_bridge(mlxsw_sp_port,
+-							       bridge_device,
+-							       fdb->vid);
+-	if (!mlxsw_sp_port_vlan)
+-		return 0;
+-
+-	fid_index = mlxsw_sp_fid_index(mlxsw_sp_port_vlan->fid);
+-	vid = mlxsw_sp_port_vlan->vid;
+-
+-	if (!mlxsw_sp_port->lagged)
+-		return mlxsw_sp_port_fdb_uc_op(mlxsw_sp,
+-					       mlxsw_sp_port->local_port,
+-					       fdb->addr, fid_index, true,
+-					       false);
+-	else
+-		return mlxsw_sp_port_fdb_uc_lag_op(mlxsw_sp,
+-						   mlxsw_sp_port->lag_id,
+-						   fdb->addr, fid_index, vid,
+-						   true, false);
 -}
 -
 -static int
--rocker_world_port_obj_fdb_del(struct rocker_port *rocker_port,
--			      const struct switchdev_obj_port_fdb *fdb)
--{
--	struct rocker_world_ops *wops = rocker_port->rocker->wops;
--
--	if (!wops->port_obj_fdb_del)
--		return -EOPNOTSUPP;
--	return wops->port_obj_fdb_del(rocker_port, fdb->vid, fdb->addr);
--}
--
--static int
- rocker_world_port_fdb_add(struct rocker_port *rocker_port,
- 			  struct switchdev_notifier_fdb_info *info)
+ mlxsw_sp_port_fdb_set(struct mlxsw_sp_port *mlxsw_sp_port,
+ 		      struct switchdev_notifier_fdb_info *fdb_info, bool adding)
  {
-@@ -1701,18 +1674,6 @@ rocker_world_port_fdb_del(struct rocker_port *rocker_port,
- 	return wops->port_obj_fdb_del(rocker_port, info->vid, info->addr);
+@@ -1385,11 +1344,6 @@ static int mlxsw_sp_port_obj_add(struct net_device *dev,
+ 					      SWITCHDEV_OBJ_PORT_VLAN(obj),
+ 					      trans);
+ 		break;
+-	case SWITCHDEV_OBJ_ID_PORT_FDB:
+-		err = mlxsw_sp_port_fdb_static_add(mlxsw_sp_port,
+-						   SWITCHDEV_OBJ_PORT_FDB(obj),
+-						   trans);
+-		break;
+ 	case SWITCHDEV_OBJ_ID_PORT_MDB:
+ 		err = mlxsw_sp_port_mdb_add(mlxsw_sp_port,
+ 					    SWITCHDEV_OBJ_PORT_MDB(obj),
+@@ -1441,43 +1395,6 @@ static int mlxsw_sp_port_vlans_del(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	return 0;
  }
  
 -static int
--rocker_world_port_obj_fdb_dump(const struct rocker_port *rocker_port,
--			       struct switchdev_obj_port_fdb *fdb,
--			       switchdev_obj_dump_cb_t *cb)
+-mlxsw_sp_port_fdb_static_del(struct mlxsw_sp_port *mlxsw_sp_port,
+-			     const struct switchdev_obj_port_fdb *fdb)
 -{
--	struct rocker_world_ops *wops = rocker_port->rocker->wops;
+-	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+-	struct net_device *orig_dev = fdb->obj.orig_dev;
+-	struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan;
+-	struct mlxsw_sp_bridge_device *bridge_device;
+-	struct mlxsw_sp_bridge_port *bridge_port;
+-	u16 fid_index, vid;
 -
--	if (!wops->port_obj_fdb_dump)
--		return -EOPNOTSUPP;
--	return wops->port_obj_fdb_dump(rocker_port, fdb, cb);
+-	bridge_port = mlxsw_sp_bridge_port_find(mlxsw_sp->bridge, orig_dev);
+-	if (WARN_ON(!bridge_port))
+-		return -EINVAL;
+-
+-	bridge_device = bridge_port->bridge_device;
+-	mlxsw_sp_port_vlan = mlxsw_sp_port_vlan_find_by_bridge(mlxsw_sp_port,
+-							       bridge_device,
+-							       fdb->vid);
+-	if (!mlxsw_sp_port_vlan)
+-		return 0;
+-
+-	fid_index = mlxsw_sp_fid_index(mlxsw_sp_port_vlan->fid);
+-	vid = mlxsw_sp_port_vlan->vid;
+-
+-	if (!mlxsw_sp_port->lagged)
+-		return mlxsw_sp_port_fdb_uc_op(mlxsw_sp,
+-					       mlxsw_sp_port->local_port,
+-					       fdb->addr, fid_index, false,
+-					       false);
+-	else
+-		return mlxsw_sp_port_fdb_uc_lag_op(mlxsw_sp,
+-						   mlxsw_sp_port->lag_id,
+-						   fdb->addr, fid_index, vid,
+-						   false, false);
 -}
 -
- static int rocker_world_port_master_linked(struct rocker_port *rocker_port,
- 					   struct net_device *master)
+ static int mlxsw_sp_port_mdb_del(struct mlxsw_sp_port *mlxsw_sp_port,
+ 				 const struct switchdev_obj_port_mdb *mdb)
  {
-@@ -2067,9 +2028,6 @@ static const struct net_device_ops rocker_port_netdev_ops = {
- 	.ndo_start_xmit			= rocker_port_xmit,
- 	.ndo_set_mac_address		= rocker_port_set_mac_address,
- 	.ndo_change_mtu			= rocker_port_change_mtu,
--	.ndo_fdb_add			= switchdev_port_fdb_add,
--	.ndo_fdb_del			= switchdev_port_fdb_del,
--	.ndo_fdb_dump			= switchdev_port_fdb_dump,
- 	.ndo_get_phys_port_name		= rocker_port_get_phys_port_name,
- 	.ndo_change_proto_down		= rocker_port_change_proto_down,
- 	.ndo_neigh_destroy		= rocker_port_neigh_destroy,
-@@ -2150,11 +2108,6 @@ static int rocker_port_obj_add(struct net_device *dev,
- 						     SWITCHDEV_OBJ_PORT_VLAN(obj),
- 						     trans);
+@@ -1537,10 +1454,6 @@ static int mlxsw_sp_port_obj_del(struct net_device *dev,
+ 		err = mlxsw_sp_port_vlans_del(mlxsw_sp_port,
+ 					      SWITCHDEV_OBJ_PORT_VLAN(obj));
  		break;
 -	case SWITCHDEV_OBJ_ID_PORT_FDB:
--		err = rocker_world_port_obj_fdb_add(rocker_port,
--						    SWITCHDEV_OBJ_PORT_FDB(obj),
--						    trans);
+-		err = mlxsw_sp_port_fdb_static_del(mlxsw_sp_port,
+-						   SWITCHDEV_OBJ_PORT_FDB(obj));
 -		break;
- 	default:
- 		err = -EOPNOTSUPP;
- 		break;
-@@ -2174,31 +2127,6 @@ static int rocker_port_obj_del(struct net_device *dev,
- 		err = rocker_world_port_obj_vlan_del(rocker_port,
- 						     SWITCHDEV_OBJ_PORT_VLAN(obj));
- 		break;
+ 	case SWITCHDEV_OBJ_ID_PORT_MDB:
+ 		err = mlxsw_sp_port_mdb_del(mlxsw_sp_port,
+ 					    SWITCHDEV_OBJ_PORT_MDB(obj));
+@@ -1570,124 +1483,11 @@ static struct mlxsw_sp_port *mlxsw_sp_lag_rep_port(struct mlxsw_sp *mlxsw_sp,
+ 	return NULL;
+ }
+ 
+-static int mlxsw_sp_port_fdb_dump(struct mlxsw_sp_port *mlxsw_sp_port,
+-				  struct switchdev_obj_port_fdb *fdb,
+-				  switchdev_obj_dump_cb_t *cb)
+-{
+-	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+-	struct net_device *orig_dev = fdb->obj.orig_dev;
+-	struct mlxsw_sp_bridge_port *bridge_port;
+-	u16 lag_id, fid_index;
+-	char mac[ETH_ALEN];
+-	int stored_err = 0;
+-	char *sfd_pl;
+-	u8 num_rec;
+-	int err;
+-
+-	bridge_port = mlxsw_sp_bridge_port_find(mlxsw_sp->bridge, orig_dev);
+-	if (!bridge_port)
+-		return 0;
+-
+-	sfd_pl = kmalloc(MLXSW_REG_SFD_LEN, GFP_KERNEL);
+-	if (!sfd_pl)
+-		return -ENOMEM;
+-
+-	mlxsw_reg_sfd_pack(sfd_pl, MLXSW_REG_SFD_OP_QUERY_DUMP, 0);
+-	do {
+-		struct mlxsw_sp_port *tmp;
+-		u8 local_port;
+-		int i;
+-
+-		mlxsw_reg_sfd_num_rec_set(sfd_pl, MLXSW_REG_SFD_REC_MAX_COUNT);
+-		err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(sfd), sfd_pl);
+-		if (err)
+-			goto out;
+-
+-		num_rec = mlxsw_reg_sfd_num_rec_get(sfd_pl);
+-
+-		/* Even in case of error, we have to run the dump to the end
+-		 * so the session in firmware is finished.
+-		 */
+-		if (stored_err)
+-			continue;
+-
+-		for (i = 0; i < num_rec; i++) {
+-			switch (mlxsw_reg_sfd_rec_type_get(sfd_pl, i)) {
+-			case MLXSW_REG_SFD_REC_TYPE_UNICAST:
+-				mlxsw_reg_sfd_uc_unpack(sfd_pl, i, mac,
+-							&fid_index,
+-							&local_port);
+-				if (bridge_port->lagged)
+-					continue;
+-				if (bridge_port->system_port != local_port)
+-					continue;
+-				if (bridge_port->bridge_device->vlan_enabled)
+-					fdb->vid = fid_index;
+-				else
+-					fdb->vid = 0;
+-				ether_addr_copy(fdb->addr, mac);
+-				fdb->ndm_state = NUD_REACHABLE;
+-				err = cb(&fdb->obj);
+-				if (err)
+-					stored_err = err;
+-				break;
+-			case MLXSW_REG_SFD_REC_TYPE_UNICAST_LAG:
+-				mlxsw_reg_sfd_uc_lag_unpack(sfd_pl, i,
+-							    mac, &fid_index,
+-							    &lag_id);
+-				if (!bridge_port->lagged)
+-					continue;
+-				if (bridge_port->lag_id != lag_id)
+-					continue;
+-				tmp = mlxsw_sp_lag_rep_port(mlxsw_sp, lag_id);
+-				if (tmp->local_port !=
+-				    mlxsw_sp_port->local_port)
+-					continue;
+-				if (bridge_port->bridge_device->vlan_enabled)
+-					fdb->vid = fid_index;
+-				else
+-					fdb->vid = 0;
+-				ether_addr_copy(fdb->addr, mac);
+-				fdb->ndm_state = NUD_REACHABLE;
+-				err = cb(&fdb->obj);
+-				if (err)
+-					stored_err = err;
+-				break;
+-			}
+-		}
+-	} while (num_rec == MLXSW_REG_SFD_REC_MAX_COUNT);
+-
+-out:
+-	kfree(sfd_pl);
+-	return stored_err ? stored_err : err;
+-}
+-
+-static int mlxsw_sp_port_obj_dump(struct net_device *dev,
+-				  struct switchdev_obj *obj,
+-				  switchdev_obj_dump_cb_t *cb)
+-{
+-	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
+-	int err = 0;
+-
+-	switch (obj->id) {
 -	case SWITCHDEV_OBJ_ID_PORT_FDB:
--		err = rocker_world_port_obj_fdb_del(rocker_port,
--						    SWITCHDEV_OBJ_PORT_FDB(obj));
+-		err = mlxsw_sp_port_fdb_dump(mlxsw_sp_port,
+-					     SWITCHDEV_OBJ_PORT_FDB(obj), cb);
 -		break;
 -	default:
 -		err = -EOPNOTSUPP;
@@ -141,77 +281,14 @@ index 3e78129..b1e5c07 100644
 -	return err;
 -}
 -
--static int rocker_port_obj_dump(struct net_device *dev,
--				struct switchdev_obj *obj,
--				switchdev_obj_dump_cb_t *cb)
--{
--	const struct rocker_port *rocker_port = netdev_priv(dev);
--	int err = 0;
--
--	switch (obj->id) {
--	case SWITCHDEV_OBJ_ID_PORT_FDB:
--		err = rocker_world_port_obj_fdb_dump(rocker_port,
--						     SWITCHDEV_OBJ_PORT_FDB(obj),
--						     cb);
--		break;
- 	default:
- 		err = -EOPNOTSUPP;
- 		break;
-@@ -2212,7 +2140,6 @@ static const struct switchdev_ops rocker_port_switchdev_ops = {
- 	.switchdev_port_attr_set	= rocker_port_attr_set,
- 	.switchdev_port_obj_add		= rocker_port_obj_add,
- 	.switchdev_port_obj_del		= rocker_port_obj_del,
--	.switchdev_port_obj_dump	= rocker_port_obj_dump,
+ static const struct switchdev_ops mlxsw_sp_port_switchdev_ops = {
+ 	.switchdev_port_attr_get	= mlxsw_sp_port_attr_get,
+ 	.switchdev_port_attr_set	= mlxsw_sp_port_attr_set,
+ 	.switchdev_port_obj_add		= mlxsw_sp_port_obj_add,
+ 	.switchdev_port_obj_del		= mlxsw_sp_port_obj_del,
+-	.switchdev_port_obj_dump	= mlxsw_sp_port_obj_dump,
  };
  
- struct rocker_fib_event_work {
-diff --git a/drivers/net/ethernet/rocker/rocker_ofdpa.c b/drivers/net/ethernet/rocker/rocker_ofdpa.c
-index 5510ad0..bd0e3f1 100644
---- a/drivers/net/ethernet/rocker/rocker_ofdpa.c
-+++ b/drivers/net/ethernet/rocker/rocker_ofdpa.c
-@@ -2608,35 +2608,6 @@ static int ofdpa_port_obj_fdb_del(struct rocker_port *rocker_port,
- 	return ofdpa_port_fdb(ofdpa_port, addr, vlan_id, flags);
- }
- 
--static int ofdpa_port_obj_fdb_dump(const struct rocker_port *rocker_port,
--				   struct switchdev_obj_port_fdb *fdb,
--				   switchdev_obj_dump_cb_t *cb)
--{
--	const struct ofdpa_port *ofdpa_port = rocker_port->wpriv;
--	struct ofdpa *ofdpa = ofdpa_port->ofdpa;
--	struct ofdpa_fdb_tbl_entry *found;
--	struct hlist_node *tmp;
--	unsigned long lock_flags;
--	int bkt;
--	int err = 0;
--
--	spin_lock_irqsave(&ofdpa->fdb_tbl_lock, lock_flags);
--	hash_for_each_safe(ofdpa->fdb_tbl, bkt, tmp, found, entry) {
--		if (found->key.ofdpa_port != ofdpa_port)
--			continue;
--		ether_addr_copy(fdb->addr, found->key.addr);
--		fdb->ndm_state = NUD_REACHABLE;
--		fdb->vid = ofdpa_port_vlan_to_vid(ofdpa_port,
--						  found->key.vlan_id);
--		err = cb(&fdb->obj);
--		if (err)
--			break;
--	}
--	spin_unlock_irqrestore(&ofdpa->fdb_tbl_lock, lock_flags);
--
--	return err;
--}
--
- static int ofdpa_port_bridge_join(struct ofdpa_port *ofdpa_port,
- 				  struct net_device *bridge)
- {
-@@ -2861,7 +2832,6 @@ struct rocker_world_ops rocker_ofdpa_ops = {
- 	.port_obj_vlan_del = ofdpa_port_obj_vlan_del,
- 	.port_obj_fdb_add = ofdpa_port_obj_fdb_add,
- 	.port_obj_fdb_del = ofdpa_port_obj_fdb_del,
--	.port_obj_fdb_dump = ofdpa_port_obj_fdb_dump,
- 	.port_master_linked = ofdpa_port_master_linked,
- 	.port_master_unlinked = ofdpa_port_master_unlinked,
- 	.port_neigh_update = ofdpa_port_neigh_update,
+ static int
 -- 
 2.9.3
