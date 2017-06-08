@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 14/19] rocker: Remove support for bridge FDB learning sync
-Date: Thu,  8 Jun 2017 08:44:23 +0200
-Message-ID: <20170608064428.4785-15-jiri@resnulli.us>
+Subject: [patch net-next v2 04/19] net: switchdev: Change notifier chain to be atomic
+Date: Thu,  8 Jun 2017 08:44:13 +0200
+Message-ID: <20170608064428.4785-5-jiri@resnulli.us>
 References: <20170608064428.4785-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, arkadis@mellanox.com,
         mlxsw@mellanox.com, roopa@cumulusnetworks.com,
@@ -9,58 +9,100 @@ Cc: davem@davemloft.net, idosch@mellanox.com, arkadis@mellanox.com,
         nikolay@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:32853 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751647AbdFHGpB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 02:45:01 -0400
-Received: by mail-wm0-f66.google.com with SMTP id x3so5672201wme.0
-        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 23:44:55 -0700 (PDT)
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:33646 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751463AbdFHGoh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 02:44:37 -0400
+Received: by mail-wr0-f194.google.com with SMTP id v104so2902605wrb.0
+        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 23:44:36 -0700 (PDT)
 In-Reply-To: <20170608064428.4785-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
 
-Currently the rocker driver supports an option for disabling syncing
-the hardware learned FDBs with the software bridge. This behavior
-breaks the bridge offload model and thus it is removed.
+In order to use the switchdev notifier chain for FDB sync with the
+device it has to be changed to atomic. The is done because the bridge
+can learn new FDBs in atomic context.
 
 Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+Reviewed-by: Ivan Vecera <ivecera@redhat.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/rocker/rocker_ofdpa.c | 6 +-----
- 1 file changed, 1 insertion(+), 5 deletions(-)
+ net/switchdev/switchdev.c | 30 ++++++------------------------
+ 1 file changed, 6 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/ethernet/rocker/rocker_ofdpa.c b/drivers/net/ethernet/rocker/rocker_ofdpa.c
-index f659dad..0b5a58f 100644
---- a/drivers/net/ethernet/rocker/rocker_ofdpa.c
-+++ b/drivers/net/ethernet/rocker/rocker_ofdpa.c
-@@ -1959,7 +1959,6 @@ static int ofdpa_port_fdb_learn(struct ofdpa_port *ofdpa_port,
- 	u32 out_pport = ofdpa_port->pport;
- 	u32 tunnel_id = 0;
- 	u32 group_id = ROCKER_GROUP_NONE;
--	bool syncing = !!(ofdpa_port->brport_flags & BR_LEARNING_SYNC);
- 	bool copy_to_cpu = false;
- 	int err;
- 
-@@ -1974,9 +1973,6 @@ static int ofdpa_port_fdb_learn(struct ofdpa_port *ofdpa_port,
- 			return err;
- 	}
- 
--	if (!syncing)
--		return 0;
--
- 	if (!ofdpa_port_is_bridged(ofdpa_port))
- 		return 0;
- 
-@@ -2550,7 +2546,7 @@ static int ofdpa_port_pre_init(struct rocker_port *rocker_port)
- 	ofdpa_port->rocker_port = rocker_port;
- 	ofdpa_port->dev = rocker_port->dev;
- 	ofdpa_port->pport = rocker_port->pport;
--	ofdpa_port->brport_flags = BR_LEARNING | BR_LEARNING_SYNC;
-+	ofdpa_port->brport_flags = BR_LEARNING;
- 	ofdpa_port->ageing_time = BR_DEFAULT_AGEING_TIME;
- 	return 0;
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index 8d40a7d..25dc67e 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -571,24 +571,17 @@ int switchdev_port_obj_dump(struct net_device *dev, struct switchdev_obj *obj,
  }
+ EXPORT_SYMBOL_GPL(switchdev_port_obj_dump);
+ 
+-static RAW_NOTIFIER_HEAD(switchdev_notif_chain);
++static ATOMIC_NOTIFIER_HEAD(switchdev_notif_chain);
+ 
+ /**
+  *	register_switchdev_notifier - Register notifier
+  *	@nb: notifier_block
+  *
+- *	Register switch device notifier. This should be used by code
+- *	which needs to monitor events happening in particular device.
+- *	Return values are same as for atomic_notifier_chain_register().
++ *	Register switch device notifier.
+  */
+ int register_switchdev_notifier(struct notifier_block *nb)
+ {
+-	int err;
+-
+-	rtnl_lock();
+-	err = raw_notifier_chain_register(&switchdev_notif_chain, nb);
+-	rtnl_unlock();
+-	return err;
++	return atomic_notifier_chain_register(&switchdev_notif_chain, nb);
+ }
+ EXPORT_SYMBOL_GPL(register_switchdev_notifier);
+ 
+@@ -597,16 +590,10 @@ EXPORT_SYMBOL_GPL(register_switchdev_notifier);
+  *	@nb: notifier_block
+  *
+  *	Unregister switch device notifier.
+- *	Return values are same as for atomic_notifier_chain_unregister().
+  */
+ int unregister_switchdev_notifier(struct notifier_block *nb)
+ {
+-	int err;
+-
+-	rtnl_lock();
+-	err = raw_notifier_chain_unregister(&switchdev_notif_chain, nb);
+-	rtnl_unlock();
+-	return err;
++	return atomic_notifier_chain_unregister(&switchdev_notif_chain, nb);
+ }
+ EXPORT_SYMBOL_GPL(unregister_switchdev_notifier);
+ 
+@@ -616,18 +603,13 @@ EXPORT_SYMBOL_GPL(unregister_switchdev_notifier);
+  *	@dev: port device
+  *	@info: notifier information data
+  *
+- *	Call all network notifier blocks. This should be called by driver
+- *	when it needs to propagate hardware event.
+- *	Return values are same as for atomic_notifier_call_chain().
+- *	rtnl_lock must be held.
++ *	Call all network notifier blocks.
+  */
+ int call_switchdev_notifiers(unsigned long val, struct net_device *dev,
+ 			     struct switchdev_notifier_info *info)
+ {
+-	ASSERT_RTNL();
+-
+ 	info->dev = dev;
+-	return raw_notifier_call_chain(&switchdev_notif_chain, val, info);
++	return atomic_notifier_call_chain(&switchdev_notif_chain, val, info);
+ }
+ EXPORT_SYMBOL_GPL(call_switchdev_notifiers);
+ 
 -- 
 2.9.3
