@@ -1,41 +1,31 @@
-From: Alexei Starovoitov via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [RFC PATCH net-next 5/5] selftests/bpf: change
- test_verifier expectations
-Date: Wed, 7 Jun 2017 19:43:36 -0700
-Message-ID: <20170608024334.jgo63s2fnoi5wmia@ast-mbp>
-References: <92db9689-af6a-e172-ba57-195e588f9cc0@solarflare.com>
-	<b04aa1a3-2b6c-2d3d-f26f-17eaaa549539@solarflare.com>
-Reply-To: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v2 2/2] ip6_tunnel: fix potential issue in __ip6_tnl_rcv
+Date: Wed, 7 Jun 2017 19:49:17 -0700
+Message-ID: <20170608024916.ujy5muoelj6x646i@ast-mbp>
+References: <1496883476-17445-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+ <1496883476-17445-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "=David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@fb.com>
+To: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <b04aa1a3-2b6c-2d3d-f26f-17eaaa549539-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+In-Reply-To: <1496883476-17445-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 07, 2017 at 04:00:02PM +0100, Edward Cree wrote:
-> Some of the verifier's error messages have changed, and some constructs
->  that previously couldn't be verified are now accepted.
+On Thu, Jun 08, 2017 at 08:57:56AM +0800, Haishuang Yan wrote:
+> When __ip6_tnl_rcv fails, the tun_dst won't be freed, so move
+> skb_dst_set to begin and tun_dst would be freed by kfree_skb.
 > 
-> Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-> ---
->  tools/testing/selftests/bpf/test_verifier.c | 226 ++++++++++++++--------------
->  1 file changed, 116 insertions(+), 110 deletions(-)
+> CC: Alexei Starovoitov <ast@fb.com>
+> Fixes: 8d79266bc48c ("ip6_tunnel: add collect_md mode to IPv6 tunnels")
+> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
 
-imo this rewrite needs more than one additional test.
-Like i counted at least 2 new verifier features (like negative and ptr & 0x40)
-All the new logic needs to be covered by tests.
+Good catch. Thanks!
+Acked-by: Alexei Starovoitov <ast@kernel.org>
