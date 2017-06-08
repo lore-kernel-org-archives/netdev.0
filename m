@@ -1,112 +1,53 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH RFC net-next 4/4] net/mlx5: Add CONFIG_MLX5_ESWITCH Kconfig
-Date: Thu, 8 Jun 2017 13:32:23 +0300
-Message-ID: <CALzJLG-jOoY=3SKKMSb8eULqRni9qNj0pOUWNamfuNxAjOz2og@mail.gmail.com>
-References: <20170607234214.24723-1-saeedm@mellanox.com> <20170607234214.24723-5-saeedm@mellanox.com>
- <CAJ3xEMhPkf9DSs=zguYNzp13iMVDHJoLbFhi8MihuD6C5LHXeg@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2 3/8] net: mvmdio: use GENMASK for masks
+Date: Thu, 8 Jun 2017 13:35:38 +0300
+Message-ID: <6b94a360-dcc7-a78c-819b-4f3c87cf3c6c@cogentembedded.com>
+References: <20170608092653.25221-1-antoine.tenart@free-electrons.com>
+ <20170608092653.25221-4-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Jes Sorensen <jsorensen@fb.com>,
-        Kernel Team <kernel-team@fb.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: thomas.petazzoni@free-electrons.com, mw@semihalf.com,
+        linux@armlinux.org.uk, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org
+To: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
+        gregory.clement@free-electrons.com,
+        sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:34240 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750725AbdFHKco (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 06:32:44 -0400
-Received: by mail-qt0-f193.google.com with SMTP id o21so7113451qtb.1
-        for <netdev@vger.kernel.org>; Thu, 08 Jun 2017 03:32:44 -0700 (PDT)
-In-Reply-To: <CAJ3xEMhPkf9DSs=zguYNzp13iMVDHJoLbFhi8MihuD6C5LHXeg@mail.gmail.com>
+Received: from mail-lf0-f48.google.com ([209.85.215.48]:34407 "EHLO
+        mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751587AbdFHKfl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 06:35:41 -0400
+Received: by mail-lf0-f48.google.com with SMTP id v20so16253066lfa.1
+        for <netdev@vger.kernel.org>; Thu, 08 Jun 2017 03:35:40 -0700 (PDT)
+In-Reply-To: <20170608092653.25221-4-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 8, 2017 at 12:35 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
-> On Thu, Jun 8, 2017 at 2:42 AM, Saeed Mahameed <saeedm@mellanox.com> wrote:
->
->> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
->> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
->> @@ -2961,9 +2961,8 @@ static int mlx5e_modify_channels_vsd(struct mlx5e_channels *chs, bool vsd)
->>         return 0;
->>  }
->>
->> -static int mlx5e_setup_tc(struct net_device *netdev, u8 tc)
->> +static int mlx5e_setup_tc(struct mlx5e_priv *priv, u8 tc)
->>  {
->> -       struct mlx5e_priv *priv = netdev_priv(netdev);
->>         struct mlx5e_channels new_channels = {};
->>         int err = 0;
->>
->> @@ -2995,6 +2994,7 @@ static int mlx5e_ndo_setup_tc(struct net_device *dev, u32 handle,
->>  {
->>         struct mlx5e_priv *priv = netdev_priv(dev);
->>
->> +#ifdef CONFIG_MLX5_ESWITCH
->>         if (TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS))
->>                 goto mqprio;
->>
->> @@ -3013,12 +3013,13 @@ static int mlx5e_ndo_setup_tc(struct net_device *dev, u32 handle,
->>         }
->>
->>  mqprio:
->> +#endif
->>         if (tc->type != TC_SETUP_MQPRIO)
->> -               return -EINVAL;
->> +               return -EOPNOTSUPP;
->
-> why change this corner in this patch? we're doing enough changes
->
->>
->>         tc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
->>
->> -       return mlx5e_setup_tc(dev, tc->mqprio->num_tc);
->> +       return mlx5e_setup_tc(priv, tc->mqprio->num_tc);
->>  }
->
-> same comment
->
+Hello!
 
-Ok will change both.
+On 6/8/2017 12:26 PM, Antoine Tenart wrote:
 
->> --- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
->> +++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+> Cosmetic patch to use the GENMASK helper for masks.
 >
->> @@ -948,13 +946,11 @@ static int mlx5_init_once(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
->>                 goto err_rl_cleanup;
->>         }
->>
->> -#ifdef CONFIG_MLX5_CORE_EN
->>         err = mlx5_eswitch_init(dev);
->>         if (err) {
->>                 dev_err(&pdev->dev, "Failed to init eswitch %d\n", err);
->>                 goto err_mpfs_cleanup;
->>         }
->> -#endif
+> Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  drivers/net/ethernet/marvell/mvmdio.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 >
-> why? before this patch we were doing it only if Ethernet
-> (MLX5_CORE_EN) was defined into the build,
-> and now we are returning blindly zero if another config isn't there
-> (CONFIG_MLX5_ESWITCH) - is that
-> fully equivalent? do we want to be fully equiv?
+> diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
+> index 17b518b13ae3..96af8d57d9e5 100644
+> --- a/drivers/net/ethernet/marvell/mvmdio.c
+> +++ b/drivers/net/ethernet/marvell/mvmdio.c
+> @@ -138,7 +138,7 @@ static int orion_mdio_read(struct mii_bus *bus, int mii_id,
+>  		goto out;
+>  	}
 >
+> -	ret = val & 0xFFFF;
+> +	ret = val & GENMASK(15,0);
 
-Fully equivalent and more correct behavior and design.
-eswitch is now separate from MPFS and EN and fully independent and has
-its own CONFIG_MLX5_ESWITCH,
-you can choose to have it or not (CONFIG_MLX5_ESWITCH) it won't
-affects other components.
+    Need a space after comma.
 
->> @@ -965,10 +961,8 @@ static int mlx5_init_once(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
->>         return 0;
->>
->>  err_eswitch_cleanup:
->> -#ifdef CONFIG_MLX5_CORE_EN
->>         mlx5_eswitch_cleanup(dev->priv.eswitch);
->>  err_mpfs_cleanup:
->> -#endif
->
-> same comment/question
-
-Same answer.
+MBR, Sergei
