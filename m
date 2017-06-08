@@ -1,36 +1,52 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFC PATCH net-next 3/5] bpf/verifier: feed
- pointer-to-unknown-scalar casts into scalar ALU path
-Date: Thu, 8 Jun 2017 09:50:06 -0700
-Message-ID: <20170608165004.n5jc33pocxlytuvf@ast-mbp.dhcp.thefacebook.com>
-References: <92db9689-af6a-e172-ba57-195e588f9cc0@solarflare.com>
- <47ecf6ca-ae89-7fc3-3cd5-a47009b6ede9@solarflare.com>
- <20170608023540.5ecmmobhl2rtgrg5@ast-mbp>
- <2363ab5f-c344-900b-78ee-41e2eb0dd40f@solarflare.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2 7/8] net: mvmdio: add xmdio support
+Date: Thu, 8 Jun 2017 18:55:46 +0200
+Message-ID: <20170608165546.GC20216@lunn.ch>
+References: <20170608092653.25221-1-antoine.tenart@free-electrons.com>
+ <20170608092653.25221-8-antoine.tenart@free-electrons.com>
+ <a60a0b26-62b1-7c9e-e846-215747dddb1f@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-        iovisor-dev <iovisor-dev@lists.iovisor.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Edward Cree <ecree@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        davem@davemloft.net, jason@lakedaemon.net,
+        gregory.clement@free-electrons.com,
+        sebastian.hesselbarth@gmail.com,
+        thomas.petazzoni@free-electrons.com, netdev@vger.kernel.org,
+        mw@semihalf.com, linux@armlinux.org.uk,
+        linux-arm-kernel@lists.infradead.org
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:41872 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751331AbdFHQzu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Jun 2017 12:55:50 -0400
 Content-Disposition: inline
-In-Reply-To: <2363ab5f-c344-900b-78ee-41e2eb0dd40f@solarflare.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <a60a0b26-62b1-7c9e-e846-215747dddb1f@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 08, 2017 at 04:25:39PM +0100, Edward Cree wrote:
-> On 08/06/17 03:35, Alexei Starovoitov wrote:
-> > such large back and forth move doesn't help reviewing.
-> > may be just merge it into previous patch?
-> > Or keep that function in the right place in patch 2 already?
-> I think 'diff' got a bit confused, and maybe with different options I could
->  have got it to produce something more readable.  But I think I will just
->  merge this into patch 2; it's only separate because it started out as an
->  experiment.
+On Thu, Jun 08, 2017 at 09:42:21AM -0700, Florian Fainelli wrote:
+> On 06/08/2017 02:26 AM, Antoine Tenart wrote:
+> > This patch adds the xMDIO interface support in the mvmdio driver. This
+> > interface is used in Ethernet controllers on Marvell 370, 7k and 8k (as
+> > of now). The xSMI interface supported by this driver complies with the
+> > IEEE 802.3 clause 45 (while the SMI interface complies with the clause
+> > 22). The xSMI interface is used by 10GbE devices.
+> 
+> In the previous version you were properly defining a new compatibles
+> strings for xmdio, but now you don't and instead you runtime select the
+> operations based on whether MII_ADDR_C45 is set in the register which is
+> fine from a functional perspective.
+> 
+> If I get this right, the xMDIO controller is actually a superset of the
+> MDIO controller and has an extra MVMDIO_XSMI_ADDR_REG register to
+> preform C45 accesses?
+> 
+> If that is the case (and looking at patch 8 that seems to be the case),
+> you probably still need to define a new compatible string for that
+> block, because it has a different register layout than its predecessor.
 
-after sleeping on it I'm not sure we should be allowing such pointer
-arithmetic. In normal C code people do fancy tricks with lower 3 bits
-of the pointer, but in bpf code I cannot see such use case.
-What kind of realistic code will be doing ptr & 0x40 ?
+Yes, i think you need the compatible string to return -EOPNOSUP when
+somebody tries to do a C45 access on the older IP which only has C22.
+
+	 Andrew
