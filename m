@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
-Subject: [PATCH 09/44] c6x: remove DMA_ERROR_CODE
-Date: Thu,  8 Jun 2017 15:25:34 +0200
-Message-ID: <20170608132609.32662-10-hch@lst.de>
+Subject: [PATCH 13/44] openrisc: remove DMA_ERROR_CODE
+Date: Thu,  8 Jun 2017 15:25:38 +0200
+Message-ID: <20170608132609.32662-14-hch@lst.de>
 References: <20170608132609.32662-1-hch@lst.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -30,25 +30,24 @@ Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.o
 Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+openrisc does not return errors for dma_map_page.
+
 Signed-off-by: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
 ---
- arch/c6x/include/asm/dma-mapping.h | 5 -----
- 1 file changed, 5 deletions(-)
+ arch/openrisc/include/asm/dma-mapping.h | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/arch/c6x/include/asm/dma-mapping.h b/arch/c6x/include/asm/dma-mapping.h
-index aca9f755e4f8..05daf1038111 100644
---- a/arch/c6x/include/asm/dma-mapping.h
-+++ b/arch/c6x/include/asm/dma-mapping.h
-@@ -12,11 +12,6 @@
- #ifndef _ASM_C6X_DMA_MAPPING_H
- #define _ASM_C6X_DMA_MAPPING_H
+diff --git a/arch/openrisc/include/asm/dma-mapping.h b/arch/openrisc/include/asm/dma-mapping.h
+index 0c0075f17145..a4ea139c2ef9 100644
+--- a/arch/openrisc/include/asm/dma-mapping.h
++++ b/arch/openrisc/include/asm/dma-mapping.h
+@@ -26,8 +26,6 @@
+ #include <linux/kmemcheck.h>
+ #include <linux/dma-mapping.h>
  
--/*
-- * DMA errors are defined by all-bits-set in the DMA address.
-- */
--#define DMA_ERROR_CODE ~0
+-#define DMA_ERROR_CODE		(~(dma_addr_t)0x0)
 -
- extern const struct dma_map_ops c6x_dma_ops;
+ extern const struct dma_map_ops or1k_dma_map_ops;
  
  static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
 -- 
