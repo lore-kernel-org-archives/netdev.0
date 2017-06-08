@@ -1,55 +1,37 @@
-From: Seraphime Kirkovski <kirkseraph@gmail.com>
-Subject: Re: [linuxwifi] [PATCH] net: wireless: intel: iwlwifi: dvm: fix tid
- mask
-Date: Thu, 8 Jun 2017 09:49:54 +0200
-Message-ID: <20170608074954.qihkavvqdtwn4zmp@macchiaveli>
-References: <20170607223354.22399-1-kirkseraph@gmail.com>
- <0BA3FCBA62E2DC44AF3030971E174FB3E5520A41@hasmsx107.ger.corp.intel.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH RFC net-next 1/4] net/mlx5e: Rearrange netdevice ops structures
+Date: Thu, 8 Jun 2017 10:52:41 +0300
+Message-ID: <CAJ3xEMj7YOatHvRUj_AmEfVPGuV_7tgOVqy2+scieFuRhfT7TA@mail.gmail.com>
+References: <20170607234214.24723-1-saeedm@mellanox.com> <20170607234214.24723-2-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "luca@coelho.fi" <luca@coelho.fi>,
-        "Berg, Johannes" <johannes.berg@intel.com>,
-        "Coelho, Luciano" <luciano.coelho@intel.com>,
-        linuxwifi <linuxwifi@intel.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        "open list:INTEL WIRELESS WIFI LINK (iwlwifi)"
-        <linux-wireless@vger.kernel.org>,
-        "open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
-        open list <linux-kernel@vger.kernel.org>
-To: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <0BA3FCBA62E2DC44AF3030971E174FB3E5520A41@hasmsx107.ger.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+        Jes Sorensen <jsorensen@fb.com>,
+        Kernel Team <kernel-team@fb.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Tzahi Oved <tzahio@mellanox.com>
+To: Saeed Mahameed <saeedm@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ot0-f177.google.com ([74.125.82.177]:35285 "EHLO
+        mail-ot0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751464AbdFHHwm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 03:52:42 -0400
+Received: by mail-ot0-f177.google.com with SMTP id a2so19222031oth.2
+        for <netdev@vger.kernel.org>; Thu, 08 Jun 2017 00:52:42 -0700 (PDT)
+In-Reply-To: <20170607234214.24723-2-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 08, 2017 at 06:31:01AM +0000, Grumbach, Emmanuel wrote:
-> Hi,
+On Thu, Jun 8, 2017 at 2:42 AM, Saeed Mahameed <saeedm@mellanox.com> wrote:
+> Since we are going to allow compiling the driver without eswitch,
+> it means we will have to compile out mlx5e_netdev_ops_sriov and will
+> replace it with mlx5e_netdev_ops_basic.
+>
+> Move missing vxlan ndos into mlx5e_netdev_ops_basic.
 
-Hi,
+preferred to be more price and use the term udp tunnel (missing udp tunnel) ndos
 
-> True, OTOH we need tid to be 8 sometimes. We *just* need to make sure
-> that we don't index tid_data with this. Hence I think the proper fix is:
-> 
-> diff --git a/drivers/net/wireless/intel/iwlwifi/dvm/tx.c b/drivers/net/wireless/intel/iwlwifi/dvm/tx.c
-> index 06ac3f1..16a8646 100644
-> --- a/drivers/net/wireless/intel/iwlwifi/dvm/tx.c
-> +++ b/drivers/net/wireless/intel/iwlwifi/dvm/tx.c
-> @@ -1190,11 +1190,11 @@ void iwlagn_rx_reply_tx(struct iwl_priv *priv, struct iwl_rx_cmd_buffer *rxb)
->                                 next_reclaimed;
->                         IWL_DEBUG_TX_REPLY(priv, "Next reclaimed packet:%d\n",
->                                                   next_reclaimed);
-> +                       iwlagn_check_ratid_empty(priv, sta_id, tid);
->                 }
-> 
->                 iwl_trans_reclaim(priv->trans, txq_id, ssn, &skbs);
-> 
-> -               iwlagn_check_ratid_empty(priv, sta_id, tid);
->                 freed = 0;
-> 
->                 /* process frames */
+> Rearrange some ndos in mlx5e_netdev_ops_sriov and put vf/eswitch related
+> ndos towards the end of the struct.
 
-I can confirm it works. You can add my Tested-By.
-
-Thanks,
-Seraph
+Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
