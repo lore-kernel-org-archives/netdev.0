@@ -1,7 +1,7 @@
 From: "Mario Molitor" <Mario_Molitor@web.de>
-Subject: [PATCH 1/2(net.git)] stmmac: fix ptp header for GMAC3 hw timestamp
-Date: Thu, 8 Jun 2017 23:31:13 +0200
-Message-ID: <trinity-0deb7b33-2ac6-4e6d-9e43-c5feb0c09e14-1496957473112@3capp-webde-bs49>
+Subject: [PATCH 2/2(net.git)] stmmac: fix for hw timestamp of GMAC3 unit
+Date: Thu, 8 Jun 2017 23:35:02 +0200
+Message-ID: <trinity-8bed4ae0-8914-46c8-b515-dda572c13b88-1496957702157@3capp-webde-bs49>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: netdev <netdev@vger.kernel.org>,
@@ -12,76 +12,102 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->From ce9c334037fce37ccd715124cda57d1fd6d8cfe8 Mon Sep 17 00:00:00 2001
+>From d5c520880a5f6b470cb150b9aae67341089b9395 Mon Sep 17 00:00:00 2001
 From: Mario Molitor <mario_molitor@web.de>
-Date: Thu, 8 Jun 2017 22:41:02 +0200
-Subject: [PATCH 1/2] stmmac: fix ptp header for GMAC3 hw timestamp
+Date: Thu, 8 Jun 2017 23:03:09 +0200
+Subject: [PATCH 2/2] stmmac: fix for hw timestamp of GMAC3 unit
 
-According the CYCLON V documention only the bit 16 of snaptypesel should
-set.
-(more information see Table 17-20 (cv_5v4.pdf) :
- Timestamp Snapshot Dependency on Register Bits)
+1.) Bugfix of function stmmac_get_tx_hwtstamp.
+    Corrected the tx timestamp available check (same as 4.8 and older)
+    Change printout from info syslevel to debug.
 
-Fixes: d2042052a0aa ("stmmac: update the PTP header file")
+2.) Bugfix of function stmmac_get_rx_hwtstamp.
+    Corrected the rx timestamp available check (same as 4.8 and older)
+    Change printout from info syslevel to debug.
+
+Fixes: ba1ffd74df74 ("stmmac: fix PTP support for GMAC4")
 Signed-off-by: Mario Molitor <mario_molitor@web.de>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 15 ++++++++++++---
- drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h  |  3 ++-
- 2 files changed, 14 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c | 11 +++++++----
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 10 +++++-----
+ 2 files changed, 12 insertions(+), 9 deletions(-)
 
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
+index aa64764..e0ef02f 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
+@@ -214,13 +214,13 @@ static int dwmac4_wrback_get_tx_timestamp_status(struct dma_desc *p)
+ {
+ 	/* Context type from W/B descriptor must be zero */
+ 	if (le32_to_cpu(p->des3) & TDES3_CONTEXT_TYPE)
+-		return -EINVAL;
++		return 0;
+ 
+ 	/* Tx Timestamp Status is 1 so des0 and des1'll have valid values */
+ 	if (le32_to_cpu(p->des3) & TDES3_TIMESTAMP_STATUS)
+-		return 0;
++		return 1;
+ 
+-	return 1;
++	return 0;
+ }
+ 
+ static inline u64 dwmac4_get_timestamp(void *desc, u32 ats)
+@@ -282,7 +282,10 @@ static int dwmac4_wrback_get_rx_timestamp_status(void *desc, u32 ats)
+ 		}
+ 	}
+ exit:
+-	return ret;
++	if (likely(ret == 0))
++		return 1;
++
++	return 0;
+ }
+ 
+ static void dwmac4_rd_init_rx_desc(struct dma_desc *p, int disable_rx_ic,
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 12236da..d54e5d7 100644
+index d54e5d7..d16d11b 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -546,7 +546,10 @@ static int stmmac_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
- 			/* PTP v1, UDP, any kind of event packet */
- 			config.rx_filter = HWTSTAMP_FILTER_PTP_V1_L4_EVENT;
- 			/* take time stamp for all event messages */
--			snap_type_sel = PTP_TCR_SNAPTYPSEL_1;
-+			if (priv->plat->has_gmac4)
-+				snap_type_sel = PTP_GMAC4_TCR_SNAPTYPSEL_1;
-+			else
-+				snap_type_sel = PTP_TCR_SNAPTYPSEL_1;
+@@ -434,14 +434,14 @@ static void stmmac_get_tx_hwtstamp(struct stmmac_priv *priv,
+ 		return;
  
- 			ptp_over_ipv4_udp = PTP_TCR_TSIPV4ENA;
- 			ptp_over_ipv6_udp = PTP_TCR_TSIPV6ENA;
-@@ -578,7 +581,10 @@ static int stmmac_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
- 			config.rx_filter = HWTSTAMP_FILTER_PTP_V2_L4_EVENT;
- 			ptp_v2 = PTP_TCR_TSVER2ENA;
- 			/* take time stamp for all event messages */
--			snap_type_sel = PTP_TCR_SNAPTYPSEL_1;
-+			if (priv->plat->has_gmac4)
-+				snap_type_sel = PTP_GMAC4_TCR_SNAPTYPSEL_1;
-+			else
-+				snap_type_sel = PTP_TCR_SNAPTYPSEL_1;
+ 	/* check tx tstamp status */
+-	if (!priv->hw->desc->get_tx_timestamp_status(p)) {
++	if (priv->hw->desc->get_tx_timestamp_status(p)) {
+ 		/* get the valid tstamp */
+ 		ns = priv->hw->desc->get_timestamp(p, priv->adv_ts);
  
- 			ptp_over_ipv4_udp = PTP_TCR_TSIPV4ENA;
- 			ptp_over_ipv6_udp = PTP_TCR_TSIPV6ENA;
-@@ -612,7 +618,10 @@ static int stmmac_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
- 			config.rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
- 			ptp_v2 = PTP_TCR_TSVER2ENA;
- 			/* take time stamp for all event messages */
--			snap_type_sel = PTP_TCR_SNAPTYPSEL_1;
-+			if (priv->plat->has_gmac4)
-+				snap_type_sel = PTP_GMAC4_TCR_SNAPTYPSEL_1;
-+			else
-+				snap_type_sel = PTP_TCR_SNAPTYPSEL_1;
+ 		memset(&shhwtstamp, 0, sizeof(struct skb_shared_hwtstamps));
+ 		shhwtstamp.hwtstamp = ns_to_ktime(ns);
  
- 			ptp_over_ipv4_udp = PTP_TCR_TSIPV4ENA;
- 			ptp_over_ipv6_udp = PTP_TCR_TSIPV6ENA;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h
-index 48fb72f..f4b31d6 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h
-@@ -59,7 +59,8 @@
- /* Enable Snapshot for Messages Relevant to Master */
- #define	PTP_TCR_TSMSTRENA	BIT(15)
- /* Select PTP packets for Taking Snapshots */
--#define	PTP_TCR_SNAPTYPSEL_1	GENMASK(17, 16)
-+#define	PTP_TCR_SNAPTYPSEL_1	BIT(16)
-+#define	PTP_GMAC4_TCR_SNAPTYPSEL_1	GENMASK(17, 16)
- /* Enable MAC address for PTP Frame Filtering */
- #define	PTP_TCR_TSENMACADDR	BIT(18)
+-		netdev_info(priv->dev, "get valid TX hw timestamp %llu\n", ns);
++		netdev_dbg(priv->dev, "get valid TX hw timestamp %llu\n", ns);
+ 		/* pass tstamp to stack */
+ 		skb_tstamp_tx(skb, &shhwtstamp);
+ 	}
+@@ -468,19 +468,19 @@ static void stmmac_get_rx_hwtstamp(struct stmmac_priv *priv, struct dma_desc *p,
+ 		return;
+ 
+ 	/* Check if timestamp is available */
+-	if (!priv->hw->desc->get_rx_timestamp_status(p, priv->adv_ts)) {
++	if (priv->hw->desc->get_rx_timestamp_status(p, priv->adv_ts)) {
+ 		/* For GMAC4, the valid timestamp is from CTX next desc. */
+ 		if (priv->plat->has_gmac4)
+ 			ns = priv->hw->desc->get_timestamp(np, priv->adv_ts);
+ 		else
+ 			ns = priv->hw->desc->get_timestamp(p, priv->adv_ts);
+ 
+-		netdev_info(priv->dev, "get valid RX hw timestamp %llu\n", ns);
++		netdev_dbg(priv->dev, "get valid RX hw timestamp %llu\n", ns);
+ 		shhwtstamp = skb_hwtstamps(skb);
+ 		memset(shhwtstamp, 0, sizeof(struct skb_shared_hwtstamps));
+ 		shhwtstamp->hwtstamp = ns_to_ktime(ns);
+ 	} else  {
+-		netdev_err(priv->dev, "cannot get RX hw timestamp\n");
++		netdev_dbg(priv->dev, "cannot get RX hw timestamp\n");
+ 	}
+ }
  
 -- 
 2.7.4
