@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 6/7] net: dsa: mv88e6xxx: rework jumbo size operation
-Date: Thu,  8 Jun 2017 18:34:13 -0400
-Message-ID: <20170608223414.594-7-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 5/7] net: dsa: mv88e6xxx: rework pause limit operation
+Date: Thu,  8 Jun 2017 18:34:12 -0400
+Message-ID: <20170608223414.594-6-vivien.didelot@savoirfairelinux.com>
 References: <20170608223414.594-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -9,265 +9,312 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Andrew Lunn <andrew@lunn.ch>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:50794 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751812AbdFHWgi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 18:36:38 -0400
 In-Reply-To: <20170608223414.594-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Marvell chips have a Jumbo Mode to set the maximum frame size (MTU).
+All Marvell chips supporting Pause frames limiting use 1-byte value for
+input and output.
 
-The mv88e6xxx_ops structure is meant to contain generic functionalities,
-no driver logic. Change port_jumbo_config to port_set_jumbo_size setting
-the mode from a given maximum size value.
+Old chips have both bytes adjacent in a 16-bit register. New ones have
+an indirect table using 8-bit data.
 
-There is no functional changes since we still use 10240 bytes.
-
-At the same time, correctly clear all Jumbo Mode bits before writing.
+The mv88e6xxx library functions (such as in port.c) must not contain
+driver logic, but only generic helpers. This patch changes the
+port_pause_config operation for port_pause_limit taking two u8 arguments
+for input and output limits. There is no functional changes.
 
 Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c | 38 +++++++++++++++++++-------------------
+ drivers/net/dsa/mv88e6xxx/chip.c | 48 ++++++++++++++++++++--------------------
  drivers/net/dsa/mv88e6xxx/chip.h |  3 ++-
- drivers/net/dsa/mv88e6xxx/port.c | 14 ++++++++++++--
- drivers/net/dsa/mv88e6xxx/port.h |  4 +++-
- 4 files changed, 36 insertions(+), 23 deletions(-)
+ drivers/net/dsa/mv88e6xxx/port.c | 12 +++++-----
+ drivers/net/dsa/mv88e6xxx/port.h |  6 +++--
+ 4 files changed, 37 insertions(+), 32 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index a0f450cb45fb..a4cf0366765f 100644
+index f33b83bf3ee8..a0f450cb45fb 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1876,8 +1876,8 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
+@@ -1901,8 +1901,8 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
  	if (err)
  		return err;
  
--	if (chip->info->ops->port_jumbo_config) {
--		err = chip->info->ops->port_jumbo_config(chip, port);
-+	if (chip->info->ops->port_set_jumbo_size) {
-+		err = chip->info->ops->port_set_jumbo_size(chip, port, 10240);
+-	if (chip->info->ops->port_pause_config) {
+-		err = chip->info->ops->port_pause_config(chip, port);
++	if (chip->info->ops->port_pause_limit) {
++		err = chip->info->ops->port_pause_limit(chip, port, 0, 0);
  		if (err)
  			return err;
  	}
-@@ -2415,7 +2415,7 @@ static const struct mv88e6xxx_ops mv88e6097_ops = {
- 	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
+@@ -2362,7 +2362,7 @@ static const struct mv88e6xxx_ops mv88e6085_ops = {
  	.port_set_egress_floods = mv88e6352_port_set_egress_floods,
  	.port_set_ether_type = mv88e6351_port_set_ether_type,
--	.port_jumbo_config = mv88e6165_port_jumbo_config,
-+	.port_set_jumbo_size = mv88e6165_port_set_jumbo_size,
- 	.port_egress_rate_limiting = mv88e6095_port_egress_rate_limiting,
- 	.port_pause_limit = mv88e6097_port_pause_limit,
- 	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
-@@ -2471,7 +2471,7 @@ static const struct mv88e6xxx_ops mv88e6131_ops = {
- 	.port_set_egress_floods = mv88e6185_port_set_egress_floods,
- 	.port_set_ether_type = mv88e6351_port_set_ether_type,
- 	.port_set_upstream_port = mv88e6095_port_set_upstream_port,
--	.port_jumbo_config = mv88e6165_port_jumbo_config,
-+	.port_set_jumbo_size = mv88e6165_port_set_jumbo_size,
  	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
- 	.port_pause_limit = mv88e6097_port_pause_limit,
+-	.port_pause_config = mv88e6097_port_pause_config,
++	.port_pause_limit = mv88e6097_port_pause_limit,
+ 	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.port_disable_pri_override = mv88e6xxx_port_disable_pri_override,
  	.stats_snapshot = mv88e6xxx_g1_stats_snapshot,
-@@ -2504,7 +2504,7 @@ static const struct mv88e6xxx_ops mv88e6141_ops = {
- 	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
- 	.port_set_egress_floods = mv88e6352_port_set_egress_floods,
+@@ -2417,7 +2417,7 @@ static const struct mv88e6xxx_ops mv88e6097_ops = {
  	.port_set_ether_type = mv88e6351_port_set_ether_type,
--	.port_jumbo_config = mv88e6165_port_jumbo_config,
-+	.port_set_jumbo_size = mv88e6165_port_set_jumbo_size,
- 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
- 	.port_pause_limit = mv88e6097_port_pause_limit,
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6095_port_egress_rate_limiting,
+-	.port_pause_config = mv88e6097_port_pause_config,
++	.port_pause_limit = mv88e6097_port_pause_limit,
  	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
-@@ -2534,7 +2534,7 @@ static const struct mv88e6xxx_ops mv88e6161_ops = {
- 	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
- 	.port_set_egress_floods = mv88e6352_port_set_egress_floods,
- 	.port_set_ether_type = mv88e6351_port_set_ether_type,
--	.port_jumbo_config = mv88e6165_port_jumbo_config,
-+	.port_set_jumbo_size = mv88e6165_port_set_jumbo_size,
+ 	.port_disable_pri_override = mv88e6xxx_port_disable_pri_override,
+ 	.stats_snapshot = mv88e6xxx_g1_stats_snapshot,
+@@ -2473,7 +2473,7 @@ static const struct mv88e6xxx_ops mv88e6131_ops = {
+ 	.port_set_upstream_port = mv88e6095_port_set_upstream_port,
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
  	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
- 	.port_pause_limit = mv88e6097_port_pause_limit,
+-	.port_pause_config = mv88e6097_port_pause_config,
++	.port_pause_limit = mv88e6097_port_pause_limit,
+ 	.stats_snapshot = mv88e6xxx_g1_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+@@ -2506,7 +2506,7 @@ static const struct mv88e6xxx_ops mv88e6141_ops = {
+ 	.port_set_ether_type = mv88e6351_port_set_ether_type,
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+-	.port_pause_config = mv88e6097_port_pause_config,
++	.port_pause_limit = mv88e6097_port_pause_limit,
  	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
-@@ -2588,7 +2588,7 @@ static const struct mv88e6xxx_ops mv88e6171_ops = {
- 	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
- 	.port_set_egress_floods = mv88e6352_port_set_egress_floods,
+ 	.port_disable_pri_override = mv88e6xxx_port_disable_pri_override,
+ 	.stats_snapshot = mv88e6390_g1_stats_snapshot,
+@@ -2536,7 +2536,7 @@ static const struct mv88e6xxx_ops mv88e6161_ops = {
  	.port_set_ether_type = mv88e6351_port_set_ether_type,
--	.port_jumbo_config = mv88e6165_port_jumbo_config,
-+	.port_set_jumbo_size = mv88e6165_port_set_jumbo_size,
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
  	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
- 	.port_pause_limit = mv88e6097_port_pause_limit,
+-	.port_pause_config = mv88e6097_port_pause_config,
++	.port_pause_limit = mv88e6097_port_pause_limit,
  	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
-@@ -2621,7 +2621,7 @@ static const struct mv88e6xxx_ops mv88e6172_ops = {
- 	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
- 	.port_set_egress_floods = mv88e6352_port_set_egress_floods,
+ 	.port_disable_pri_override = mv88e6xxx_port_disable_pri_override,
+ 	.stats_snapshot = mv88e6320_g1_stats_snapshot,
+@@ -2590,7 +2590,7 @@ static const struct mv88e6xxx_ops mv88e6171_ops = {
  	.port_set_ether_type = mv88e6351_port_set_ether_type,
--	.port_jumbo_config = mv88e6165_port_jumbo_config,
-+	.port_set_jumbo_size = mv88e6165_port_set_jumbo_size,
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
  	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
- 	.port_pause_limit = mv88e6097_port_pause_limit,
+-	.port_pause_config = mv88e6097_port_pause_config,
++	.port_pause_limit = mv88e6097_port_pause_limit,
  	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
-@@ -2653,7 +2653,7 @@ static const struct mv88e6xxx_ops mv88e6175_ops = {
- 	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
- 	.port_set_egress_floods = mv88e6352_port_set_egress_floods,
+ 	.port_disable_pri_override = mv88e6xxx_port_disable_pri_override,
+ 	.stats_snapshot = mv88e6320_g1_stats_snapshot,
+@@ -2623,7 +2623,7 @@ static const struct mv88e6xxx_ops mv88e6172_ops = {
  	.port_set_ether_type = mv88e6351_port_set_ether_type,
--	.port_jumbo_config = mv88e6165_port_jumbo_config,
-+	.port_set_jumbo_size = mv88e6165_port_set_jumbo_size,
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
  	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
- 	.port_pause_limit = mv88e6097_port_pause_limit,
+-	.port_pause_config = mv88e6097_port_pause_config,
++	.port_pause_limit = mv88e6097_port_pause_limit,
  	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
-@@ -2686,7 +2686,7 @@ static const struct mv88e6xxx_ops mv88e6176_ops = {
- 	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
- 	.port_set_egress_floods = mv88e6352_port_set_egress_floods,
+ 	.port_disable_pri_override = mv88e6xxx_port_disable_pri_override,
+ 	.stats_snapshot = mv88e6320_g1_stats_snapshot,
+@@ -2655,7 +2655,7 @@ static const struct mv88e6xxx_ops mv88e6175_ops = {
  	.port_set_ether_type = mv88e6351_port_set_ether_type,
--	.port_jumbo_config = mv88e6165_port_jumbo_config,
-+	.port_set_jumbo_size = mv88e6165_port_set_jumbo_size,
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
  	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
- 	.port_pause_limit = mv88e6097_port_pause_limit,
+-	.port_pause_config = mv88e6097_port_pause_config,
++	.port_pause_limit = mv88e6097_port_pause_limit,
  	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
-@@ -2846,7 +2846,7 @@ static const struct mv88e6xxx_ops mv88e6240_ops = {
- 	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
- 	.port_set_egress_floods = mv88e6352_port_set_egress_floods,
+ 	.port_disable_pri_override = mv88e6xxx_port_disable_pri_override,
+ 	.stats_snapshot = mv88e6320_g1_stats_snapshot,
+@@ -2688,7 +2688,7 @@ static const struct mv88e6xxx_ops mv88e6176_ops = {
  	.port_set_ether_type = mv88e6351_port_set_ether_type,
--	.port_jumbo_config = mv88e6165_port_jumbo_config,
-+	.port_set_jumbo_size = mv88e6165_port_set_jumbo_size,
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
  	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
- 	.port_pause_limit = mv88e6097_port_pause_limit,
+-	.port_pause_config = mv88e6097_port_pause_config,
++	.port_pause_limit = mv88e6097_port_pause_limit,
  	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
-@@ -2913,7 +2913,7 @@ static const struct mv88e6xxx_ops mv88e6320_ops = {
+ 	.port_disable_pri_override = mv88e6xxx_port_disable_pri_override,
+ 	.stats_snapshot = mv88e6320_g1_stats_snapshot,
+@@ -2747,7 +2747,7 @@ static const struct mv88e6xxx_ops mv88e6190_ops = {
  	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
  	.port_set_egress_floods = mv88e6352_port_set_egress_floods,
  	.port_set_ether_type = mv88e6351_port_set_ether_type,
--	.port_jumbo_config = mv88e6165_port_jumbo_config,
-+	.port_set_jumbo_size = mv88e6165_port_set_jumbo_size,
- 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
- 	.port_pause_limit = mv88e6097_port_pause_limit,
+-	.port_pause_config = mv88e6390_port_pause_config,
++	.port_pause_limit = mv88e6390_port_pause_limit,
  	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
-@@ -2944,7 +2944,7 @@ static const struct mv88e6xxx_ops mv88e6321_ops = {
+ 	.port_disable_pri_override = mv88e6xxx_port_disable_pri_override,
+ 	.stats_snapshot = mv88e6390_g1_stats_snapshot,
+@@ -2780,7 +2780,7 @@ static const struct mv88e6xxx_ops mv88e6190x_ops = {
  	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
  	.port_set_egress_floods = mv88e6352_port_set_egress_floods,
  	.port_set_ether_type = mv88e6351_port_set_ether_type,
--	.port_jumbo_config = mv88e6165_port_jumbo_config,
-+	.port_set_jumbo_size = mv88e6165_port_set_jumbo_size,
- 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
- 	.port_pause_limit = mv88e6097_port_pause_limit,
+-	.port_pause_config = mv88e6390_port_pause_config,
++	.port_pause_limit = mv88e6390_port_pause_limit,
  	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
-@@ -2975,7 +2975,7 @@ static const struct mv88e6xxx_ops mv88e6341_ops = {
+ 	.port_disable_pri_override = mv88e6xxx_port_disable_pri_override,
+ 	.stats_snapshot = mv88e6390_g1_stats_snapshot,
+@@ -2813,7 +2813,7 @@ static const struct mv88e6xxx_ops mv88e6191_ops = {
  	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
  	.port_set_egress_floods = mv88e6352_port_set_egress_floods,
  	.port_set_ether_type = mv88e6351_port_set_ether_type,
--	.port_jumbo_config = mv88e6165_port_jumbo_config,
-+	.port_set_jumbo_size = mv88e6165_port_set_jumbo_size,
- 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
- 	.port_pause_limit = mv88e6097_port_pause_limit,
+-	.port_pause_config = mv88e6390_port_pause_config,
++	.port_pause_limit = mv88e6390_port_pause_limit,
  	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
-@@ -3006,7 +3006,7 @@ static const struct mv88e6xxx_ops mv88e6350_ops = {
- 	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
- 	.port_set_egress_floods = mv88e6352_port_set_egress_floods,
+ 	.port_disable_pri_override = mv88e6xxx_port_disable_pri_override,
+ 	.stats_snapshot = mv88e6390_g1_stats_snapshot,
+@@ -2848,7 +2848,7 @@ static const struct mv88e6xxx_ops mv88e6240_ops = {
  	.port_set_ether_type = mv88e6351_port_set_ether_type,
--	.port_jumbo_config = mv88e6165_port_jumbo_config,
-+	.port_set_jumbo_size = mv88e6165_port_set_jumbo_size,
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
  	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
- 	.port_pause_limit = mv88e6097_port_pause_limit,
+-	.port_pause_config = mv88e6097_port_pause_config,
++	.port_pause_limit = mv88e6097_port_pause_limit,
  	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
-@@ -3037,7 +3037,7 @@ static const struct mv88e6xxx_ops mv88e6351_ops = {
+ 	.port_disable_pri_override = mv88e6xxx_port_disable_pri_override,
+ 	.stats_snapshot = mv88e6320_g1_stats_snapshot,
+@@ -2880,7 +2880,7 @@ static const struct mv88e6xxx_ops mv88e6290_ops = {
  	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
  	.port_set_egress_floods = mv88e6352_port_set_egress_floods,
  	.port_set_ether_type = mv88e6351_port_set_ether_type,
--	.port_jumbo_config = mv88e6165_port_jumbo_config,
-+	.port_set_jumbo_size = mv88e6165_port_set_jumbo_size,
- 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
- 	.port_pause_limit = mv88e6097_port_pause_limit,
- 	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
-@@ -3070,7 +3070,7 @@ static const struct mv88e6xxx_ops mv88e6352_ops = {
- 	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
- 	.port_set_egress_floods = mv88e6352_port_set_egress_floods,
- 	.port_set_ether_type = mv88e6351_port_set_ether_type,
--	.port_jumbo_config = mv88e6165_port_jumbo_config,
-+	.port_set_jumbo_size = mv88e6165_port_set_jumbo_size,
- 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
- 	.port_pause_limit = mv88e6097_port_pause_limit,
- 	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
-@@ -3104,7 +3104,7 @@ static const struct mv88e6xxx_ops mv88e6390_ops = {
- 	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
- 	.port_set_egress_floods = mv88e6352_port_set_egress_floods,
- 	.port_set_ether_type = mv88e6351_port_set_ether_type,
--	.port_jumbo_config = mv88e6165_port_jumbo_config,
-+	.port_set_jumbo_size = mv88e6165_port_set_jumbo_size,
- 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
- 	.port_pause_limit = mv88e6390_port_pause_limit,
+-	.port_pause_config = mv88e6390_port_pause_config,
++	.port_pause_limit = mv88e6390_port_pause_limit,
  	.port_set_cmode = mv88e6390x_port_set_cmode,
-@@ -3140,7 +3140,7 @@ static const struct mv88e6xxx_ops mv88e6390x_ops = {
- 	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
- 	.port_set_egress_floods = mv88e6352_port_set_egress_floods,
- 	.port_set_ether_type = mv88e6351_port_set_ether_type,
--	.port_jumbo_config = mv88e6165_port_jumbo_config,
-+	.port_set_jumbo_size = mv88e6165_port_set_jumbo_size,
- 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
- 	.port_pause_limit = mv88e6390_port_pause_limit,
  	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.port_disable_pri_override = mv88e6xxx_port_disable_pri_override,
+@@ -2915,7 +2915,7 @@ static const struct mv88e6xxx_ops mv88e6320_ops = {
+ 	.port_set_ether_type = mv88e6351_port_set_ether_type,
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+-	.port_pause_config = mv88e6097_port_pause_config,
++	.port_pause_limit = mv88e6097_port_pause_limit,
+ 	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.port_disable_pri_override = mv88e6xxx_port_disable_pri_override,
+ 	.stats_snapshot = mv88e6320_g1_stats_snapshot,
+@@ -2946,7 +2946,7 @@ static const struct mv88e6xxx_ops mv88e6321_ops = {
+ 	.port_set_ether_type = mv88e6351_port_set_ether_type,
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+-	.port_pause_config = mv88e6097_port_pause_config,
++	.port_pause_limit = mv88e6097_port_pause_limit,
+ 	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.port_disable_pri_override = mv88e6xxx_port_disable_pri_override,
+ 	.stats_snapshot = mv88e6320_g1_stats_snapshot,
+@@ -2977,7 +2977,7 @@ static const struct mv88e6xxx_ops mv88e6341_ops = {
+ 	.port_set_ether_type = mv88e6351_port_set_ether_type,
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+-	.port_pause_config = mv88e6097_port_pause_config,
++	.port_pause_limit = mv88e6097_port_pause_limit,
+ 	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.port_disable_pri_override = mv88e6xxx_port_disable_pri_override,
+ 	.stats_snapshot = mv88e6390_g1_stats_snapshot,
+@@ -3008,7 +3008,7 @@ static const struct mv88e6xxx_ops mv88e6350_ops = {
+ 	.port_set_ether_type = mv88e6351_port_set_ether_type,
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+-	.port_pause_config = mv88e6097_port_pause_config,
++	.port_pause_limit = mv88e6097_port_pause_limit,
+ 	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.port_disable_pri_override = mv88e6xxx_port_disable_pri_override,
+ 	.stats_snapshot = mv88e6320_g1_stats_snapshot,
+@@ -3039,7 +3039,7 @@ static const struct mv88e6xxx_ops mv88e6351_ops = {
+ 	.port_set_ether_type = mv88e6351_port_set_ether_type,
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+-	.port_pause_config = mv88e6097_port_pause_config,
++	.port_pause_limit = mv88e6097_port_pause_limit,
+ 	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.port_disable_pri_override = mv88e6xxx_port_disable_pri_override,
+ 	.stats_snapshot = mv88e6320_g1_stats_snapshot,
+@@ -3072,7 +3072,7 @@ static const struct mv88e6xxx_ops mv88e6352_ops = {
+ 	.port_set_ether_type = mv88e6351_port_set_ether_type,
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+-	.port_pause_config = mv88e6097_port_pause_config,
++	.port_pause_limit = mv88e6097_port_pause_limit,
+ 	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.port_disable_pri_override = mv88e6xxx_port_disable_pri_override,
+ 	.stats_snapshot = mv88e6320_g1_stats_snapshot,
+@@ -3106,7 +3106,7 @@ static const struct mv88e6xxx_ops mv88e6390_ops = {
+ 	.port_set_ether_type = mv88e6351_port_set_ether_type,
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+-	.port_pause_config = mv88e6390_port_pause_config,
++	.port_pause_limit = mv88e6390_port_pause_limit,
+ 	.port_set_cmode = mv88e6390x_port_set_cmode,
+ 	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.port_disable_pri_override = mv88e6xxx_port_disable_pri_override,
+@@ -3142,7 +3142,7 @@ static const struct mv88e6xxx_ops mv88e6390x_ops = {
+ 	.port_set_ether_type = mv88e6351_port_set_ether_type,
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+-	.port_pause_config = mv88e6390_port_pause_config,
++	.port_pause_limit = mv88e6390_port_pause_limit,
+ 	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
+ 	.port_disable_pri_override = mv88e6xxx_port_disable_pri_override,
+ 	.stats_snapshot = mv88e6390_g1_stats_snapshot,
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.h b/drivers/net/dsa/mv88e6xxx/chip.h
-index d5f55c28f613..d70873498501 100644
+index 07b35cccb0c4..d5f55c28f613 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.h
 +++ b/drivers/net/dsa/mv88e6xxx/chip.h
-@@ -422,7 +422,8 @@ struct mv88e6xxx_ops {
- 				      bool unicast, bool multicast);
- 	int (*port_set_ether_type)(struct mv88e6xxx_chip *chip, int port,
- 				   u16 etype);
--	int (*port_jumbo_config)(struct mv88e6xxx_chip *chip, int port);
-+	int (*port_set_jumbo_size)(struct mv88e6xxx_chip *chip, int port,
-+				   size_t size);
+@@ -425,7 +425,8 @@ struct mv88e6xxx_ops {
+ 	int (*port_jumbo_config)(struct mv88e6xxx_chip *chip, int port);
  
  	int (*port_egress_rate_limiting)(struct mv88e6xxx_chip *chip, int port);
- 	int (*port_pause_limit)(struct mv88e6xxx_chip *chip, int port, u8 in,
+-	int (*port_pause_config)(struct mv88e6xxx_chip *chip, int port);
++	int (*port_pause_limit)(struct mv88e6xxx_chip *chip, int port, u8 in,
++				u8 out);
+ 	int (*port_disable_learn_limit)(struct mv88e6xxx_chip *chip, int port);
+ 	int (*port_disable_pri_override)(struct mv88e6xxx_chip *chip, int port);
+ 
 diff --git a/drivers/net/dsa/mv88e6xxx/port.c b/drivers/net/dsa/mv88e6xxx/port.c
-index ee94d16789a2..efeb8d6b02e6 100644
+index 46e73ca0ac4d..ee94d16789a2 100644
 --- a/drivers/net/dsa/mv88e6xxx/port.c
 +++ b/drivers/net/dsa/mv88e6xxx/port.c
-@@ -816,7 +816,8 @@ int mv88e6xxx_port_set_map_da(struct mv88e6xxx_chip *chip, int port)
- 	return mv88e6xxx_port_write(chip, port, PORT_CONTROL_2, reg);
+@@ -376,22 +376,24 @@ int mv88e6xxx_port_get_cmode(struct mv88e6xxx_chip *chip, int port, u8 *cmode)
+  * the remote end or the period of time that this port can pause the
+  * remote end.
+  */
+-int mv88e6097_port_pause_config(struct mv88e6xxx_chip *chip, int port)
++int mv88e6097_port_pause_limit(struct mv88e6xxx_chip *chip, int port, u8 in,
++			       u8 out)
+ {
+-	return mv88e6xxx_port_write(chip, port, PORT_PAUSE_CTRL, 0x0000);
++	return mv88e6xxx_port_write(chip, port, PORT_PAUSE_CTRL, out << 8 | in);
  }
  
--int mv88e6165_port_jumbo_config(struct mv88e6xxx_chip *chip, int port)
-+int mv88e6165_port_set_jumbo_size(struct mv88e6xxx_chip *chip, int port,
-+				  size_t size)
+-int mv88e6390_port_pause_config(struct mv88e6xxx_chip *chip, int port)
++int mv88e6390_port_pause_limit(struct mv88e6xxx_chip *chip, int port, u8 in,
++			       u8 out)
  {
- 	u16 reg;
  	int err;
-@@ -825,7 +826,16 @@ int mv88e6165_port_jumbo_config(struct mv88e6xxx_chip *chip, int port)
+ 
+ 	err = mv88e6xxx_port_write(chip, port, PORT_PAUSE_CTRL,
+-				   PORT_FLOW_CTRL_LIMIT_IN | 0);
++				   PORT_FLOW_CTRL_LIMIT_IN | in);
  	if (err)
  		return err;
  
--	reg |= PORT_CONTROL_2_JUMBO_10240;
-+	reg &= ~PORT_CONTROL_2_JUMBO_MASK;
-+
-+	if (size <= 1522)
-+		reg |= PORT_CONTROL_2_JUMBO_1522;
-+	else if (size <= 2048)
-+		reg |= PORT_CONTROL_2_JUMBO_2048;
-+	else if (size <= 10240)
-+		reg |= PORT_CONTROL_2_JUMBO_10240;
-+	else
-+		return -ERANGE;
- 
- 	return mv88e6xxx_port_write(chip, port, PORT_CONTROL_2, reg);
+ 	return mv88e6xxx_port_write(chip, port, PORT_PAUSE_CTRL,
+-				    PORT_FLOW_CTRL_LIMIT_OUT | 0);
++				    PORT_FLOW_CTRL_LIMIT_OUT | out);
  }
+ 
+ /* Offset 0x04: Port Control Register */
 diff --git a/drivers/net/dsa/mv88e6xxx/port.h b/drivers/net/dsa/mv88e6xxx/port.h
-index 7be66f5b4c31..8a59cabc20fa 100644
+index 1de200074e21..7be66f5b4c31 100644
 --- a/drivers/net/dsa/mv88e6xxx/port.h
 +++ b/drivers/net/dsa/mv88e6xxx/port.h
-@@ -133,6 +133,7 @@
- #define PORT_CONTROL_2_VTU_PRI_OVERRIDE	BIT(14)
- #define PORT_CONTROL_2_SA_PRIO_OVERRIDE	BIT(13)
- #define PORT_CONTROL_2_DA_PRIO_OVERRIDE	BIT(12)
-+#define PORT_CONTROL_2_JUMBO_MASK	(0x03 << 12)
- #define PORT_CONTROL_2_JUMBO_1522	(0x00 << 12)
- #define PORT_CONTROL_2_JUMBO_2048	(0x01 << 12)
- #define PORT_CONTROL_2_JUMBO_10240	(0x02 << 12)
-@@ -225,7 +226,8 @@ int mv88e6351_port_set_ether_type(struct mv88e6xxx_chip *chip, int port,
- 				  u16 etype);
- int mv88e6xxx_port_set_message_port(struct mv88e6xxx_chip *chip, int port,
- 				    bool message_port);
--int mv88e6165_port_jumbo_config(struct mv88e6xxx_chip *chip, int port);
-+int mv88e6165_port_set_jumbo_size(struct mv88e6xxx_chip *chip, int port,
-+				  size_t size);
+@@ -228,8 +228,10 @@ int mv88e6xxx_port_set_message_port(struct mv88e6xxx_chip *chip, int port,
+ int mv88e6165_port_jumbo_config(struct mv88e6xxx_chip *chip, int port);
  int mv88e6095_port_egress_rate_limiting(struct mv88e6xxx_chip *chip, int port);
  int mv88e6097_port_egress_rate_limiting(struct mv88e6xxx_chip *chip, int port);
- int mv88e6097_port_pause_limit(struct mv88e6xxx_chip *chip, int port, u8 in,
+-int mv88e6097_port_pause_config(struct mv88e6xxx_chip *chip, int port);
+-int mv88e6390_port_pause_config(struct mv88e6xxx_chip *chip, int port);
++int mv88e6097_port_pause_limit(struct mv88e6xxx_chip *chip, int port, u8 in,
++			       u8 out);
++int mv88e6390_port_pause_limit(struct mv88e6xxx_chip *chip, int port, u8 in,
++			       u8 out);
+ int mv88e6390x_port_set_cmode(struct mv88e6xxx_chip *chip, int port,
+ 			      phy_interface_t mode);
+ int mv88e6xxx_port_get_cmode(struct mv88e6xxx_chip *chip, int port, u8 *cmode);
 -- 
 2.13.1
