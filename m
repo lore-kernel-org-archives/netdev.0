@@ -1,58 +1,107 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 2/6] netvsc: use hv_get_bytes_to_read
-Date: Thu,  8 Jun 2017 16:21:19 -0700
-Message-ID: <20170608232123.28366-3-sthemmin@microsoft.com>
+Subject: [PATCH net-next 1/6] netvsc: optimize calculation of number of slots
+Date: Thu,  8 Jun 2017 16:21:18 -0700
+Message-ID: <20170608232123.28366-2-sthemmin@microsoft.com>
 References: <20170608232123.28366-1-sthemmin@microsoft.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org
-To: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f47.google.com ([74.125.83.47]:36239 "EHLO
-        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751506AbdFHXVj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 19:21:39 -0400
-Received: by mail-pg0-f47.google.com with SMTP id a70so20575640pge.3
-        for <netdev@vger.kernel.org>; Thu, 08 Jun 2017 16:21:38 -0700 (PDT)
+To: kys@microsoft.com,
+	haiyangz@microsoft.com,
+	sthemmin@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
 In-Reply-To: <20170608232123.28366-1-sthemmin@microsoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Don't need need to look at write space in netvsc_close.
+Speed up transmit check for fragmented packets by using existing
+macros to compute number of pages, and eliminate loop since
+skb fragments each take a page. Number of slots is also unsigned.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/netvsc_drv.c | 10 +++-------
- 1 file changed, 3 insertions(+), 7 deletions(-)
+ drivers/net/hyperv/netvsc_drv.c | 43 ++++++++++-------------------------------
+ 1 file changed, 10 insertions(+), 33 deletions(-)
 
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index df6d8e28949e..436a3ad55cfd 100644
+index 2564ac83eb64..df6d8e28949e 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -120,7 +120,7 @@ static int netvsc_close(struct net_device *net)
- 	struct net_device_context *net_device_ctx = netdev_priv(net);
- 	struct netvsc_device *nvdev = rtnl_dereference(net_device_ctx->nvdev);
- 	int ret;
--	u32 aread, awrite, i, msec = 10, retry = 0, retry_max = 20;
-+	u32 aread, i, msec = 10, retry = 0, retry_max = 20;
- 	struct vmbus_channel *chn;
+@@ -345,34 +345,14 @@ static u32 init_page_array(void *hdr, u32 len, struct sk_buff *skb,
+ 	return slots_used;
+ }
  
- 	netif_tx_disable(net);
-@@ -141,15 +141,11 @@ static int netvsc_close(struct net_device *net)
- 			if (!chn)
- 				continue;
- 
--			hv_get_ringbuffer_availbytes(&chn->inbound, &aread,
--						     &awrite);
+-static int count_skb_frag_slots(struct sk_buff *skb)
+-{
+-	int i, frags = skb_shinfo(skb)->nr_frags;
+-	int pages = 0;
 -
-+			aread = hv_get_bytes_to_read(&chn->inbound);
- 			if (aread)
- 				break;
- 
--			hv_get_ringbuffer_availbytes(&chn->outbound, &aread,
--						     &awrite);
+-	for (i = 0; i < frags; i++) {
+-		skb_frag_t *frag = skb_shinfo(skb)->frags + i;
+-		unsigned long size = skb_frag_size(frag);
+-		unsigned long offset = frag->page_offset;
 -
-+			aread = hv_get_bytes_to_read(&chn->outbound);
- 			if (aread)
- 				break;
- 		}
+-		/* Skip unused frames from start of page */
+-		offset &= ~PAGE_MASK;
+-		pages += PFN_UP(offset + size);
+-	}
+-	return pages;
+-}
+-
+-static int netvsc_get_slots(struct sk_buff *skb)
++/* Estimate number of page buffers neede to transmit
++ * Need at most 2 for RNDIS header plus skb body and fragments.
++ */
++static unsigned int netvsc_get_slots(const struct sk_buff *skb)
+ {
+-	char *data = skb->data;
+-	unsigned int offset = offset_in_page(data);
+-	unsigned int len = skb_headlen(skb);
+-	int slots;
+-	int frag_slots;
+-
+-	slots = DIV_ROUND_UP(offset + len, PAGE_SIZE);
+-	frag_slots = count_skb_frag_slots(skb);
+-	return slots + frag_slots;
++	return PFN_UP(offset_in_page(skb->data) + skb_headlen(skb))
++		+ skb_shinfo(skb)->nr_frags
++		+ 2;
+ }
+ 
+ static u32 net_checksum_info(struct sk_buff *skb)
+@@ -410,21 +390,18 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	struct hv_page_buffer page_buf[MAX_PAGE_BUFFER_COUNT];
+ 	struct hv_page_buffer *pb = page_buf;
+ 
+-	/* We will atmost need two pages to describe the rndis
+-	 * header. We can only transmit MAX_PAGE_BUFFER_COUNT number
++	/* We can only transmit MAX_PAGE_BUFFER_COUNT number
+ 	 * of pages in a single packet. If skb is scattered around
+ 	 * more pages we try linearizing it.
+ 	 */
+-
+-	num_data_pgs = netvsc_get_slots(skb) + 2;
+-
++	num_data_pgs = netvsc_get_slots(skb);
+ 	if (unlikely(num_data_pgs > MAX_PAGE_BUFFER_COUNT)) {
+ 		++net_device_ctx->eth_stats.tx_scattered;
+ 
+ 		if (skb_linearize(skb))
+ 			goto no_memory;
+ 
+-		num_data_pgs = netvsc_get_slots(skb) + 2;
++		num_data_pgs = netvsc_get_slots(skb);
+ 		if (num_data_pgs > MAX_PAGE_BUFFER_COUNT) {
+ 			++net_device_ctx->eth_stats.tx_too_big;
+ 			goto drop;
 -- 
 2.11.0
