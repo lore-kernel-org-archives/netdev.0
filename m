@@ -1,38 +1,48 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH v3 2/2] ip6_tunnel: fix potential issue in __ip6_tnl_rcv
-Date: Wed, 7 Jun 2017 21:50:23 -0700
-Message-ID: <CANn89iJi3OZ4LmC-seirR=qp=caQTOf0W-zvpe=DQCK7+qwg+w@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 1/2] ip_tunnel: fix potential issue in ip_tunnel_rcv
+Date: Wed, 07 Jun 2017 21:54:33 -0700
+Message-ID: <1496897673.736.56.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <1496896364-27153-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
- <1496896364-27153-2-git-send-email-yanhaishuang@cmss.chinamobile.com> <20170608043847.uejvydlitzuik76j@ast-mbp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>,
-        "=David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f178.google.com ([209.85.161.178]:36213 "EHLO
-        mail-yw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750786AbdFHEuZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 00:50:25 -0400
-Received: by mail-yw0-f178.google.com with SMTP id l75so9595283ywc.3
-        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 21:50:25 -0700 (PDT)
-In-Reply-To: <20170608043847.uejvydlitzuik76j@ast-mbp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Pravin B Shelar <pshelar@nicira.com>
+To: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1496896364-27153-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 7, 2017 at 9:38 PM, Alexei Starovoitov
-<alexei.starovoitov@gmail.com> wrote:
-> On Thu, Jun 08, 2017 at 12:32:44PM +0800, Haishuang Yan wrote:
->> When __ip6_tnl_rcv fails, the tun_dst won't be freed, so call
->> dst_release to free it in error code path.
->>
->> CC: Alexei Starovoitov <ast@fb.com>
->> Fixes: 8d79266bc48c ("ip6_tunnel: add collect_md mode to IPv6 tunnels")
->> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
->
-> I don't get it. Why did you send another version of the patch?
-> What was wrong with previous approach that myself and Eric acked?
->
+On Thu, 2017-06-08 at 12:32 +0800, Haishuang Yan wrote:
+> When ip_tunnel_rcv fails, the tun_dst won't be freed, so call
+> dst_release to free it in error code path.
+> 
+> CC: Pravin B Shelar <pshelar@nicira.com>
+> Fixes: 2e15ea390e6f ("ip_gre: Add support to collect tunnel metadata.")
+> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+> 
+> ---
+> Changes in v2:
+>   - Add the the missing Fixes information
+> Changes in v3:
+>   - Free tun_dst from error code path
+> ---
+>  net/ipv4/ip_tunnel.c | 2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+> index b878ecb..0f1d876 100644
+> --- a/net/ipv4/ip_tunnel.c
+> +++ b/net/ipv4/ip_tunnel.c
+> @@ -446,6 +446,8 @@ int ip_tunnel_rcv(struct ip_tunnel *tunnel, struct sk_buff *skb,
+>  	return 0;
+>  
+>  drop:
+> +	if (tun_dst)
+> +		dst_release((struct dst_entry *)tun_dst);
+>  	kfree_skb(skb);
+>  	return 0;
+>  }
 
-Answer lies in Pravin feedback on v2 of the patch on ipv4 side.
+Acked-by: Eric Dumazet <edumazet@google.com>
