@@ -1,73 +1,26 @@
-From: <unsubscribe.me@admisi.com>
-Subject: (unknown)
-Date: Thu, 08 Jun 2017 13:07:35 -0000
-Message-ID: <149692725575.12490.8473303159263932304@zaural.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] LiquidIO: avoid VM low memory crashes
+Date: Thu, 08 Jun 2017 09:16:28 -0400 (EDT)
+Message-ID: <20170608.091628.172121691219559817.davem@davemloft.net>
+References: <20170608035045.GA1608@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="33904617.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        ricardo.farrington@cavium.com
+To: felix.manlunas@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ws142.zone31-163-128.zaural.ru ([31.163.128.142]:57649 "HELO
-        zaural.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S1751428AbdFHNHj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Jun 2017 09:07:39 -0400
-Subject: 
-Content-Disposition: attachment
+Received: from shards.monkeyblade.net ([184.105.139.130]:55064 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751605AbdFHNQd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 09:16:33 -0400
+In-Reply-To: <20170608035045.GA1608@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
+
+Please no "StudlyCaps" in the subject lines, the name of the driver
+and the directory it is in is "liquidio" in all lower-case.
+
+Thank you.
