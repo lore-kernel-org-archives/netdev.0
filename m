@@ -1,34 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: merge net into net-next?
-Date: Thu, 08 Jun 2017 10:19:52 -0400 (EDT)
-Message-ID: <20170608.101952.1058268538534168493.davem@davemloft.net>
-References: <1496923855.26119.0.camel@sipsolutions.net>
-        <1496924055.26119.1.camel@sipsolutions.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: clean up and modularize arch dma_mapping interface
+Date: Thu, 08 Jun 2017 10:21:36 -0400 (EDT)
+Message-ID: <20170608.102136.2294569179855411095.davem@davemloft.net>
+References: <20170608132609.32662-1-hch@lst.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: johannes@sipsolutions.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56726 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751774AbdFHOTx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 10:19:53 -0400
-In-Reply-To: <1496924055.26119.1.camel@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-samsung-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org,
+	linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org,
+	x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
+	dmaengine-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	openrisc-cunTk1MwBs9a3B2Vnqf2dGD2FQJk+8+b@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org,
+	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: hch-jcswGhMUV9g@public.gmane.org
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <20170608132609.32662-1-hch-jcswGhMUV9g@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Thu, 08 Jun 2017 14:14:15 +0200
+From: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
+Date: Thu,  8 Jun 2017 15:25:25 +0200
 
-> On Thu, 2017-06-08 at 14:10 +0200, Johannes Berg wrote:
->> Hi Dave,
->> 
->> Could you do me a favour and merge net into net-next? I want to merge
->> that back in order to apply a patch to mac80211-next that otherwise
->> conflicts fairly badly with a change in mac80211.
-> 
-> Wait, forget it. You already did, I just managed to somehow miss that -
-> sorry for the noise!
+> for a while we have a generic implementation of the dma mapping routines
+> that call into per-arch or per-device operations.  But right now there
+> still are various bits in the interfaces where don't clearly operate
+> on these ops.  This series tries to clean up a lot of those (but not all
+> yet, but the series is big enough).  It gets rid of the DMA_ERROR_CODE
+> way of signaling failures of the mapping routines from the
+> implementations to the generic code (and cleans up various drivers that
+> were incorrectly using it), and gets rid of the ->set_dma_mask routine
+> in favor of relying on the ->dma_capable method that can be used in
+> the same way, but which requires less code duplication.
 
-Great, nothing for me to do!
+There is unlikely to be conflicts for the sparc and net changes, so I
+will simply ACK them.
+
+Thanks Christoph.
