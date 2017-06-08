@@ -1,33 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] af_unix: Add sockaddr length checks before accessing
- sa_family in bind and connect handlers
-Date: Thu, 08 Jun 2017 16:04:25 -0400 (EDT)
-Message-ID: <20170608.160425.3981801836671654.davem@davemloft.net>
-References: <20170608091336.8274-1-mjurczyk@google.com>
+Subject: Re: [PATCH net 1/3] bonding: fix 802.3ad support for 5G and 50G
+ speeds
+Date: Thu, 08 Jun 2017 16:05:54 -0400 (EDT)
+Message-ID: <20170608.160554.2203162035278317553.davem@davemloft.net>
+References: <1496913493-23293-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, hannes@stressinduktion.org,
-        viro@zeniv.linux.org.uk, keescook@chromium.org,
-        mszeredi@redhat.com, iboukris@gmail.com, avagin@openvz.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: mjurczyk@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170608091336.8274-1-mjurczyk@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
+        andy@greyhouse.net, thibaut.collet@6wind.com,
+        linville@tuxdriver.com
+To: nicolas.dichtel@6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36108 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751475AbdFHUF4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 16:05:56 -0400
+In-Reply-To: <1496913493-23293-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mateusz Jurczyk <mjurczyk@google.com>
-Date: Thu,  8 Jun 2017 11:13:36 +0200
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Thu,  8 Jun 2017 11:18:11 +0200
 
-> Verify that the caller-provided sockaddr structure is large enough to
-> contain the sa_family field, before accessing it in bind() and connect()
-> handlers of the AF_UNIX socket. Since neither syscall enforces a minimum
-> size of the corresponding memory region, very short sockaddrs (zero or
-> one byte long) result in operating on uninitialized memory while
-> referencing .sa_family.
+> From: Thibaut Collet <thibaut.collet@6wind.com>
 > 
-> Signed-off-by: Mateusz Jurczyk <mjurczyk@google.com>
+> This patch adds [5|50] Gbps enum definition, and fixes
+> aggregated bandwidth calculation based on above slave links.
+> 
+> Fixes: c9a70d43461d ("net-next: ethtool: Added port speed macros.")
+> Signed-off-by: Thibaut Collet <thibaut.collet@6wind.com>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-The sockaddr comes from a structure on the caller's kernel stack, even
-if the user gives a smaller length, it is legal to access that memory.
+Applied.
