@@ -1,40 +1,64 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 7/8] net: mvmdio: add xmdio support
-Date: Thu, 8 Jun 2017 18:03:31 +0200
-Message-ID: <20170608160331.GA20216@lunn.ch>
-References: <20170608092653.25221-1-antoine.tenart@free-electrons.com>
- <20170608092653.25221-8-antoine.tenart@free-electrons.com>
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 0/8] qed*: Light L2 updates
+Date: Thu, 8 Jun 2017 19:13:15 +0300
+Message-ID: <20170608161323.7597-1-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, jason@lakedaemon.net,
-        gregory.clement@free-electrons.com,
-        sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com,
-        thomas.petazzoni@free-electrons.com, mw@semihalf.com,
-        linux@armlinux.org.uk, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org
-To: Antoine Tenart <antoine.tenart@free-electrons.com>
+Content-Type: text/plain
+Cc: <linux-rdma@vger.kernel.org>, <Michal.Kalderon@cavium.com>,
+        Yuval Mintz <Yuval.Mintz@cavium.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:41729 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750725AbdFHQDh (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Jun 2017 12:03:37 -0400
-Content-Disposition: inline
-In-Reply-To: <20170608092653.25221-8-antoine.tenart@free-electrons.com>
+Received: from mail-bl2nam02on0086.outbound.protection.outlook.com ([104.47.38.86]:9488
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751504AbdFHQNl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Jun 2017 12:13:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 08, 2017 at 11:26:52AM +0200, Antoine Tenart wrote:
-> +#define MVMDIO_XSMI_MGNT_REG		0x0
-> +#define  MVMDIO_XSMI_READ_VALID		BIT(29)
-> +#define  MVMDIO_XSMI_BUSY		BIT(30)
-> +#define MVMDIO_XSMI_ADDR_REG		0x8
-> +#define  MVMDIO_XSMI_PHYADDR_SHIFT	16
-> +#define  MVMDIO_XSMI_DEVADDR_SHIFT	21
-> +#define  MVMDIO_XSMI_READ_OPERATION	(0x7 << 26)
-> +#define  MVMDIO_XSMI_WRITE_OPERATION	(0x5 << 27)
+This series does a major overhaul of the LL2 logic in qed.
+The single biggest change done here is in #5 where we're changing
+the API qed provides for LL2 [both internally in case of storage and
+externally in case of RoCE] to become callback-based to allow cleaner
+scalability in preperation to the future iWARP submission which would
+aadd additional flavors of LL2. It's also the only patch in series
+to modify !qed logic [qedr].
 
-Hi Antoine
+Patches prior to that mostly deal with refactoring LL2 code,
+encapsulating varaious parameters into structure and re-ordering
+of LL2 code. The latter patches add some small missing bits of LL2
+ffunctionality.
 
-These two operations seem odd. Generally ops have the same shift.
+Dave,
 
-      Andrew
+Please consider applying this series to `net-next'.
+
+Thanks,
+Yuval
+
+Michal Kalderon (1):
+  qed*: LL2 callback operations
+
+Yuval Mintz (7):
+  qed: LL2 to use packed information for tx
+  qed: Revise ll2 Rx completion
+  qed: Cleaner seperation of LL2 inputs
+  qed: LL2 code relocations
+  qed: No need for LL2 frags indication
+  qed: Call rx_release_cb() when flushing LL2
+  qed: collect GSI port statistics
+
+ drivers/infiniband/hw/qedr/main.c          |   6 +-
+ drivers/infiniband/hw/qedr/qedr.h          |   2 +
+ drivers/infiniband/hw/qedr/qedr_cm.c       | 238 ++++++--
+ drivers/net/ethernet/qlogic/qed/qed.h      |   1 -
+ drivers/net/ethernet/qlogic/qed/qed_ll2.c  | 882 +++++++++++++++--------------
+ drivers/net/ethernet/qlogic/qed/qed_ll2.h  | 113 +---
+ drivers/net/ethernet/qlogic/qed/qed_roce.c | 295 +---------
+ drivers/net/ethernet/qlogic/qed/qed_roce.h |  43 --
+ include/linux/qed/qed_ll2_if.h             | 126 +++++
+ include/linux/qed/qed_roce_if.h            |  80 +--
+ 10 files changed, 842 insertions(+), 944 deletions(-)
+
+-- 
+2.9.4
