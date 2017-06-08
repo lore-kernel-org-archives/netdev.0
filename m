@@ -1,66 +1,82 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH v2 6/8] net: mvmdio: put the poll intervals in the ops structure
-Date: Thu,  8 Jun 2017 11:26:51 +0200
-Message-ID: <20170608092653.25221-7-antoine.tenart@free-electrons.com>
-References: <20170608092653.25221-1-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
-        thomas.petazzoni@free-electrons.com, mw@semihalf.com,
-        linux@armlinux.org.uk, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org
-To: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
-        gregory.clement@free-electrons.com,
-        sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:48824 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751504AbdFHKAX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 06:00:23 -0400
-In-Reply-To: <20170608092653.25221-1-antoine.tenart@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Binoy Jayan <binoy.jayan@linaro.org>
+Subject: [PATCH] mwifiex: Replace semaphore async_sem with mutex
+Date: Thu,  8 Jun 2017 15:33:03 +0530
+Message-ID: <1496916183-4097-1-git-send-email-binoy.jayan@linaro.org>
+Cc: linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>,
+        Rajendra <rnayak@codeaurora.org>,
+        Mark Brown <broonie@kernel.org>,
+        Amitkumar Karwar <amitkarwar@gmail.com>,
+        Nishant Sarmukadam <nishants@marvell.com>,
+        Ganapathi Bhat <gbhat@marvell.com>,
+        Xinming Hu <huxm@marvell.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Binoy Jayan <binoy.jayan@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Put the two poll intervals (min and max) in the driver's ops
-structure. This is needed to add the xmdio support later.
+The semaphore 'async_sem' is used as a simple mutex, so
+it should be written as one. Semaphores are going away in the future.
 
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+Signed-off-by: Binoy Jayan <binoy.jayan@linaro.org>
 ---
- drivers/net/ethernet/marvell/mvmdio.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-index f66b474b382a..07b18f60da2a 100644
---- a/drivers/net/ethernet/marvell/mvmdio.c
-+++ b/drivers/net/ethernet/marvell/mvmdio.c
-@@ -70,6 +70,9 @@ struct orion_mdio_ops {
- 	void (*start_read)(struct orion_mdio_dev *, int, int);
- 	u16 (*read)(struct orion_mdio_dev *);
- 	void (*write)(struct orion_mdio_dev *, int, int, u16);
-+
-+	unsigned int poll_interval_min;
-+	unsigned int poll_interval_max;
- };
+This patch is part of a bigger effort to eliminate unwanted
+semaphores from the linux kernel.
+
+ drivers/net/wireless/marvell/mwifiex/cfg80211.c | 2 +-
+ drivers/net/wireless/marvell/mwifiex/main.h     | 2 +-
+ drivers/net/wireless/marvell/mwifiex/scan.c     | 4 ++--
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/wireless/marvell/mwifiex/cfg80211.c b/drivers/net/wireless/marvell/mwifiex/cfg80211.c
+index 7ec06bf..9e0d638 100644
+--- a/drivers/net/wireless/marvell/mwifiex/cfg80211.c
++++ b/drivers/net/wireless/marvell/mwifiex/cfg80211.c
+@@ -3059,7 +3059,7 @@ struct wireless_dev *mwifiex_add_virtual_intf(struct wiphy *wiphy,
+ 	INIT_DELAYED_WORK(&priv->dfs_chan_sw_work,
+ 			  mwifiex_dfs_chan_sw_work_queue);
  
- static int orion_mdio_smi_is_done(struct orion_mdio_dev *dev)
-@@ -112,6 +115,9 @@ static const struct orion_mdio_ops orion_mdio_smi_ops = {
- 	.start_read = orion_mdio_smi_start_read_op,
- 	.read = orion_mdio_smi_read_op,
- 	.write = orion_mdio_smi_write_op,
-+
-+	.poll_interval_min = MVMDIO_SMI_POLL_INTERVAL_MIN,
-+	.poll_interval_max = MVMDIO_SMI_POLL_INTERVAL_MAX,
- };
+-	sema_init(&priv->async_sem, 1);
++	mutex_init(&priv->async_mutex);
  
- /* Wait for the SMI unit to be ready for another operation
-@@ -131,8 +137,8 @@ static int orion_mdio_wait_ready(const struct orion_mdio_ops *ops,
- 			break;
+ 	mwifiex_dbg(adapter, INFO,
+ 		    "info: %s: Marvell 802.11 Adapter\n", dev->name);
+diff --git a/drivers/net/wireless/marvell/mwifiex/main.h b/drivers/net/wireless/marvell/mwifiex/main.h
+index bb2a467..9c2cb33 100644
+--- a/drivers/net/wireless/marvell/mwifiex/main.h
++++ b/drivers/net/wireless/marvell/mwifiex/main.h
+@@ -628,7 +628,7 @@ struct mwifiex_private {
+ 	struct dentry *dfs_dev_dir;
+ #endif
+ 	u16 current_key_index;
+-	struct semaphore async_sem;
++	struct mutex async_mutex;
+ 	struct cfg80211_scan_request *scan_request;
+ 	u8 cfg_bssid[6];
+ 	struct wps wps;
+diff --git a/drivers/net/wireless/marvell/mwifiex/scan.c b/drivers/net/wireless/marvell/mwifiex/scan.c
+index ce6936d..ae9630b 100644
+--- a/drivers/net/wireless/marvell/mwifiex/scan.c
++++ b/drivers/net/wireless/marvell/mwifiex/scan.c
+@@ -2809,7 +2809,7 @@ int mwifiex_request_scan(struct mwifiex_private *priv,
+ {
+ 	int ret;
  
- 	        if (dev->err_interrupt <= 0) {
--			usleep_range(MVMDIO_SMI_POLL_INTERVAL_MIN,
--				     MVMDIO_SMI_POLL_INTERVAL_MAX);
-+			usleep_range(ops->poll_interval_min,
-+				     ops->poll_interval_max);
+-	if (down_interruptible(&priv->async_sem)) {
++	if (mutex_lock_interruptible(&priv->async_mutex)) {
+ 		mwifiex_dbg(priv->adapter, ERROR,
+ 			    "%s: acquire semaphore fail\n",
+ 			    __func__);
+@@ -2825,7 +2825,7 @@ int mwifiex_request_scan(struct mwifiex_private *priv,
+ 		/* Normal scan */
+ 		ret = mwifiex_scan_networks(priv, NULL);
  
- 			if (time_is_before_jiffies(end))
- 				++timedout;
+-	up(&priv->async_sem);
++	mutex_unlock(&priv->async_mutex);
+ 
+ 	return ret;
+ }
 -- 
-2.9.4
+Binoy Jayan
