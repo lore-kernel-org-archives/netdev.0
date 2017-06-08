@@ -1,88 +1,105 @@
-From: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
-Subject: RE: [linuxwifi] [PATCH] net: wireless: intel: iwlwifi: dvm: fix tid
- mask
-Date: Thu, 8 Jun 2017 06:31:01 +0000
-Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB3E5520A41@hasmsx107.ger.corp.intel.com>
-References: <20170607223354.22399-1-kirkseraph@gmail.com>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH net-next 00/16] nfp: ctrl vNIC
+Date: Thu, 8 Jun 2017 06:33:11 +0000
+Message-ID: <BLUPR0701MB200495371E8CD9FDC59748B78DC90@BLUPR0701MB2004.namprd07.prod.outlook.com>
+References: <20170606000157.17556-1-jakub.kicinski@netronome.com>
+ <20170606061610.GA1911@nanopsycho>
+ <20170606002105.7a84432f@cakuba.netronome.com>
+ <20170606082336.GB1911@nanopsycho>
+ <20170606020945.05a9bcc5@cakuba.netronome.com>
+ <20170606091757.GC1911@nanopsycho>
+ <BLUPR0701MB2004F8E6F28C1181003BEA788DCB0@BLUPR0701MB2004.namprd07.prod.outlook.com>
+ <20170606112043.GD1911@nanopsycho>
+ <BLUPR0701MB200425BE49D0578371379A138DC80@BLUPR0701MB2004.namprd07.prod.outlook.com>
+ <20170608053853.GA2238@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Berg, Johannes" <johannes.berg@intel.com>,
-        "Coelho, Luciano" <luciano.coelho@intel.com>,
-        linuxwifi <linuxwifi@intel.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        "open list:INTEL WIRELESS WIFI LINK (iwlwifi)"
-        <linux-wireless@vger.kernel.org>,
-        "open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
-        open list <linux-kernel@vger.kernel.org>
-To: Seraphime Kirkovski <kirkseraph@gmail.com>,
-        "luca@coelho.fi" <luca@coelho.fi>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170607223354.22399-1-kirkseraph@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Jakub Kicinski <kubakici@wp.pl>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "oss-drivers@netronome.com" <oss-drivers@netronome.com>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2nam02on0076.outbound.protection.outlook.com ([104.47.38.76]:33072
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750822AbdFHGdN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Jun 2017 02:33:13 -0400
+In-Reply-To: <20170608053853.GA2238@nanopsycho>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGksDQoNCj4gU3ViamVjdDogW2xpbnV4d2lmaV0gW1BBVENIXSBuZXQ6IHdpcmVsZXNzOiBpbnRl
-bDogaXdsd2lmaTogZHZtOiBmaXggdGlkIG1hc2sNCj4gDQo+IEN1cnJlbnRseSB0aGUgdGlkIG1h
-c2sgY292ZXJzIHRoZSBmaXJzdCA0IGJpdHMgb2YgaXdsYWduX3R4X3Jlc3A6OnJhX3RpZCwNCj4g
-d2hpY2ggZ2l2ZXMgMTYgcG9zc2libGUgdmFsdWVzIGZvciB0aWQuDQo+IFRoaXMgaXMgcHJvYmxl
-bWF0aWMgYmVjYXVzZSBJV0xfTUFYX1RJRF9DT1VOVCBpcyA4LCBzbyBpbmRleGluZw0KPiBpd2xf
-cHJpdjo6dGlkX2RhdGEgY2FuIGdvIHZlcnkgd3JvbmcuDQoNClRydWUsIE9UT0ggd2UgbmVlZCB0
-aWQgdG8gYmUgOCBzb21ldGltZXMuIFdlICpqdXN0KiBuZWVkIHRvIG1ha2Ugc3VyZQ0KdGhhdCB3
-ZSBkb24ndCBpbmRleCB0aWRfZGF0YSB3aXRoIHRoaXMuIEhlbmNlIEkgdGhpbmsgdGhlIHByb3Bl
-ciBmaXggaXM6DQoNCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC93aXJlbGVzcy9pbnRlbC9pd2x3
-aWZpL2R2bS90eC5jIGIvZHJpdmVycy9uZXQvd2lyZWxlc3MvaW50ZWwvaXdsd2lmaS9kdm0vdHgu
-Yw0KaW5kZXggMDZhYzNmMS4uMTZhODY0NiAxMDA2NDQNCi0tLSBhL2RyaXZlcnMvbmV0L3dpcmVs
-ZXNzL2ludGVsL2l3bHdpZmkvZHZtL3R4LmMNCisrKyBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2lu
-dGVsL2l3bHdpZmkvZHZtL3R4LmMNCkBAIC0xMTkwLDExICsxMTkwLDExIEBAIHZvaWQgaXdsYWdu
-X3J4X3JlcGx5X3R4KHN0cnVjdCBpd2xfcHJpdiAqcHJpdiwgc3RydWN0IGl3bF9yeF9jbWRfYnVm
-ZmVyICpyeGIpDQogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIG5leHRfcmVjbGFpbWVk
-Ow0KICAgICAgICAgICAgICAgICAgICAgICAgSVdMX0RFQlVHX1RYX1JFUExZKHByaXYsICJOZXh0
-IHJlY2xhaW1lZCBwYWNrZXQ6JWRcbiIsDQogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgIG5leHRfcmVjbGFpbWVkKTsNCisgICAgICAgICAgICAgICAgICAg
-ICAgIGl3bGFnbl9jaGVja19yYXRpZF9lbXB0eShwcml2LCBzdGFfaWQsIHRpZCk7DQogICAgICAg
-ICAgICAgICAgfQ0KDQogICAgICAgICAgICAgICAgaXdsX3RyYW5zX3JlY2xhaW0ocHJpdi0+dHJh
-bnMsIHR4cV9pZCwgc3NuLCAmc2ticyk7DQoNCi0gICAgICAgICAgICAgICBpd2xhZ25fY2hlY2tf
-cmF0aWRfZW1wdHkocHJpdiwgc3RhX2lkLCB0aWQpOw0KICAgICAgICAgICAgICAgIGZyZWVkID0g
-MDsNCg0KICAgICAgICAgICAgICAgIC8qIHByb2Nlc3MgZnJhbWVzICovDQoNCg0KQ2xlYXJseSBj
-YWxsaW5nIGl3bGFnbl9jaGVja19yYXRpZF9lbXB0eSB3aXRoIHRpZCA9IElXTF9USURfTk9OX1FP
-UyBpcyBhIGJhZCBpZGVhLg0KDQo+IA0KPiBXaXRoIFVCU0FOIEkgY2FuIGl0IGhhcHBlbmluZyB3
-aGlsZSBlc3RhYmxpc2hpbmcgdGhlIGZpcnN0IGNvbm5lY3Rpb24NCj4gYWZ0ZXIgbW9kdWxlIGxv
-YWQuDQo+IA0KPiBbICAyNzIuMTQzNDQwXSBVQlNBTjogVW5kZWZpbmVkIGJlaGF2aW91ciBpbg0K
-PiBkcml2ZXJzL25ldC93aXJlbGVzcy9pbnRlbC9pd2x3aWZpL2R2bS90eC5jOjc3NzozMg0KPiBb
-ICAyNzIuMTQzNDQ3XSBpbmRleCA4IGlzIG91dCBvZiByYW5nZSBmb3IgdHlwZSAnaXdsX3RpZF9k
-YXRhIFs4XScNCj4gWyAgMjcyLjE0MzQ1N10gQ1BVOiAwIFBJRDogNDYwNSBDb21tOiBpcnEvMzIt
-aXdsd2lmaSBOb3QgdGFpbnRlZCA0LjEyLjAtZGlydHkNCj4gIzINCj4gWyAgMjcyLjE0MzQ2MF0g
-SGFyZHdhcmUgbmFtZTogSGV3bGV0dC1QYWNrYXJkIEhQIEVsaXRlQm9vayAyNTYwcC8xNjJCLA0K
-PiBCSU9TIDY4U1NVIFZlci4gRi4wMiAwNy8yNi8yMDExDQo+IFsgIDI3Mi4xNDM0NjJdIENhbGwg
-VHJhY2U6DQo+IFsgIDI3Mi4xNDM0NzJdICBkdW1wX3N0YWNrKzB4OWMvMHgxMGINCj4gWyAgMjcy
-LjE0MzQ3N10gID8gX2F0b21pY19kZWNfYW5kX2xvY2srMHgyODUvMHgyODUNCj4gWyAgMjcyLjE0
-MzQ4Nl0gIHVic2FuX2VwaWxvZ3VlKzB4ZC8weDRlDQo+IFsgIDI3Mi4xNDM0OTNdICBfX3Vic2Fu
-X2hhbmRsZV9vdXRfb2ZfYm91bmRzKzB4ZWYvMHgxMTgNCj4gWyAgMjcyLjE0MzQ5OF0gID8gX191
-YnNhbl9oYW5kbGVfc2hpZnRfb3V0X29mX2JvdW5kcysweDIyMS8weDIyMQ0KPiBbICAyNzIuMTQz
-NTE5XSAgPyBpd2xfdHJhbnNfcGNpZV9yZWNsYWltKzB4MTUzLzB4YzkwIFtpd2x3aWZpXQ0KPiBb
-ICAyNzIuMTQzNTM5XSAgaXdsYWduX2NoZWNrX3JhdGlkX2VtcHR5KzB4MzM3LzB4NDEwIFtpd2xk
-dm1dDQo+IFsgIDI3Mi4xNDM1NTZdICA/IGl3bF9oY21kX25hbWVzX2NtcCsweDJmLzB4NjAgW2l3
-bHdpZmldDQo+IFsgIDI3Mi4xNDM1NzFdICBpd2xhZ25fcnhfcmVwbHlfdHgrMHg4YTQvMHgxODIw
-IFtpd2xkdm1dDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBTZXJhcGhpbWUgS2lya292c2tpIDxraXJr
-c2VyYXBoQGdtYWlsLmNvbT4NCj4gLS0tDQo+ICAgIEknbSBjdXJyZW50bHkgcnVubmluZyB0aGlz
-IHBhdGNoIG9uIG15IG1hY2hpbmVzIGFuZCBJIGhhdmUgd2lmaS4NCj4gICAgVGhlIHBhdGNoIHBy
-ZXN1bWVzINCwIGNsZWFudXAgcGF0Y2gsIEkgc2VudCB5ZXN0ZXJkYXk6DQo+ICAgICAgIGh0dHBz
-Oi8vd3d3LnNwaW5pY3MubmV0L2xpc3RzL2tlcm5lbC9tc2cyNTI2MzE0Lmh0bWwNCj4gDQo+ICBk
-cml2ZXJzL25ldC93aXJlbGVzcy9pbnRlbC9pd2x3aWZpL2R2bS9jb21tYW5kcy5oIHwgMiArLQ0K
-PiAgMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspLCAxIGRlbGV0aW9uKC0pDQo+IA0KPiBk
-aWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvd2lyZWxlc3MvaW50ZWwvaXdsd2lmaS9kdm0vY29tbWFu
-ZHMuaA0KPiBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2ludGVsL2l3bHdpZmkvZHZtL2NvbW1hbmRz
-LmgNCj4gaW5kZXggMzdkMmJhNWFlODUyLi5lNTk5NGRmOWVhNGMgMTAwNjQ0DQo+IC0tLSBhL2Ry
-aXZlcnMvbmV0L3dpcmVsZXNzL2ludGVsL2l3bHdpZmkvZHZtL2NvbW1hbmRzLmgNCj4gKysrIGIv
-ZHJpdmVycy9uZXQvd2lyZWxlc3MvaW50ZWwvaXdsd2lmaS9kdm0vY29tbWFuZHMuaA0KPiBAQCAt
-MTQ0OCw3ICsxNDQ4LDcgQEAgc3RydWN0IGFnZ190eF9zdGF0dXMgew0KPiAgICovDQo+ICAvKiBy
-ZWZlciB0byByYV90aWQgKi8NCj4gICNkZWZpbmUgSVdMQUdOX1RYX1JFU19USURfUE9TCTANCj4g
-LSNkZWZpbmUgSVdMQUdOX1RYX1JFU19USURfTVNLCTB4MGYNCj4gKyNkZWZpbmUgSVdMQUdOX1RY
-X1JFU19USURfTVNLCTB4MDcNCj4gICNkZWZpbmUgSVdMQUdOX1RYX1JFU19SQV9QT1MJNA0KPiAg
-I2RlZmluZSBJV0xBR05fVFhfUkVTX1JBX01TSwkweGYwDQo+IA0KPiAtLQ0KPiAyLjExLjANCj4g
-DQo+IC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCj4gbGludXh3aWZpQGVj
-bGlzdHMuaW50ZWwuY29tDQo+IGh0dHBzOi8vZWNsaXN0cy5pbnRlbC5jb20vc3ltcGEvaW5mby9s
-aW51eHdpZmkNCj4gVW5zdWJzY3JpYmUgYnkgc2VuZGluZyBlbWFpbCB0byBzeW1wYUBlY2xpc3Rz
-LmludGVsLmNvbSB3aXRoIHN1YmplY3QNCj4gIlVuc3Vic2NyaWJlIGxpbnV4d2lmaSINCg==
+> >> >> >> >What were your plans with pre-netdev config?
+> >> >> >>
+> >> >> >> We need to pass come initial resource division. Generally the
+> >> >> >> consensus is to have these options exposed through devlink, let
+> >> >> >> the user configure them all and then to have a trigger that
+> >> >> >> would cause driver re-orchestration according to the new
+> >> >> >> values. The flow would look like
+> >> >> >> this:
+> >> >> >>
+> >> >> >> -driver loads with defaults, inits hw and instantiates netdevs
+> >> >> >> -driver exposes config options via devlink -user sets up the
+> >> >> >> options -user pushes the "go" trigger -upon the trigger
+> >> >> >> command, devlink calls the driver re-init callback -driver
+> >> >> >> shuts down the current instances, re-initializes hw,
+> >> >> >> re-instantiates the netdevs
+> >> >> >>
+> >> >> >> Makes sense?
+> >> >> >
+> >> >> >I like the idea of a "go"/apply/reload trigger and extending devli=
+nk.
+> >> >> >Do you plan on adding a way to persist the settings?  I'm
+> >> >> >concerned NIC users may want to boot into the right mode once
+> >> >> >it's set, without reloads and reconfigs upon boot.  Also is there
+> >> >> >going to be a way to query the pending/running config?  Sounds
+> >> >> >like we may want to expose three value sets - persistent/default,
+> >> >> >running and pending/to be applied.
+> >> >
+> >> >> I don't think it is a good idea to introduce any kind of
+> >> >> configuration persistency in HW. I believe that user is the master
+> >> >> and he has all needed info. He can store it persistently, but it
+> >> >> is up to
+> >> him.
+> >> >>
+> >> >> So basicaly during boot, we need the devlink configuration to
+> >> >> happen early on, before the netdevices get configured. udev? Not
+> >> >> sure how exactly to do this. Have to ask around :)
+> >> >
+> >> >Thinking about use cases where we'd want information available at
+> >> >probe time, it might have been even better to have it separated from
+> >> >the netdevice, e.g., providing clients with node to configure
+> >> >(generic?) information on top of their PCI nodes.
+> >>
+> >> Yuval, devlink is separated from the netdevices....
+> >
+> >Separate from the netdevices, yes. But I think it's still a networking f=
+acility.
+> >I.e., would it make sense creating devlink nodes for PCI devices?
+>=20
+> True that devlink is placed in net/core. But from the very beginning, it =
+was
+> designed to be multipurpose. So not only for net devices, but for any dev=
+ice
+> where is is suitable.
+>=20
+> >
+> >Anyway, I don't think there's any *strong* need for what I was asking
+> >for; It's simply that I was thinking of qed where there's quite a bit
+> >going on during the pci probe, and thought how re-doing it can be avoide=
+d.
+>=20
+> You can (should) register devlink early on way before netdevs.
+
+Given that I can't really register it sooner than the PCI probe,
+how would shortly-before or way-before differ?
+
+Assume you have some userspace daemon monitoring devlink and applying
+user-provided configuration.
+How could it reliably apply the configuration between devlink registration
+and netdevice registeration?
+
+The merit of the udev suggestion was that the sync. point was in userspace,
+so user could always make sure that devlink rules apply before netdev state=
+ changes.
