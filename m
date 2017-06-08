@@ -1,76 +1,86 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 1/2] igb: make a few local functions static
-Date: Wed,  7 Jun 2017 22:32:36 -0700
-Message-ID: <20170608053237.73040-2-jeffrey.t.kirsher@intel.com>
-References: <20170608053237.73040-1-jeffrey.t.kirsher@intel.com>
-Cc: Colin Ian King <colin.king@canonical.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 00/16] nfp: ctrl vNIC
+Date: Thu, 8 Jun 2017 07:38:53 +0200
+Message-ID: <20170608053853.GA2238@nanopsycho>
+References: <20170606000157.17556-1-jakub.kicinski@netronome.com>
+ <20170606061610.GA1911@nanopsycho>
+ <20170606002105.7a84432f@cakuba.netronome.com>
+ <20170606082336.GB1911@nanopsycho>
+ <20170606020945.05a9bcc5@cakuba.netronome.com>
+ <20170606091757.GC1911@nanopsycho>
+ <BLUPR0701MB2004F8E6F28C1181003BEA788DCB0@BLUPR0701MB2004.namprd07.prod.outlook.com>
+ <20170606112043.GD1911@nanopsycho>
+ <BLUPR0701MB200425BE49D0578371379A138DC80@BLUPR0701MB2004.namprd07.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jakub Kicinski <kubakici@wp.pl>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "oss-drivers@netronome.com" <oss-drivers@netronome.com>
+To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:30535 "EHLO mga01.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750788AbdFHFcm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Jun 2017 01:32:42 -0400
-In-Reply-To: <20170608053237.73040-1-jeffrey.t.kirsher@intel.com>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35403 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750799AbdFHFi5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 01:38:57 -0400
+Received: by mail-wm0-f66.google.com with SMTP id g15so5463942wmc.2
+        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 22:38:56 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <BLUPR0701MB200425BE49D0578371379A138DC80@BLUPR0701MB2004.namprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+Wed, Jun 07, 2017 at 07:48:08PM CEST, Yuval.Mintz@cavium.com wrote:
+>> >> >> >What were your plans with pre-netdev config?
+>> >> >>
+>> >> >> We need to pass come initial resource division. Generally the
+>> >> >> consensus is to have these options exposed through devlink, let
+>> >> >> the user configure them all and then to have a trigger that would
+>> >> >> cause driver re-orchestration according to the new values. The
+>> >> >> flow would look like
+>> >> >> this:
+>> >> >>
+>> >> >> -driver loads with defaults, inits hw and instantiates netdevs
+>> >> >> -driver exposes config options via devlink -user sets up the
+>> >> >> options -user pushes the "go" trigger -upon the trigger command,
+>> >> >> devlink calls the driver re-init callback -driver shuts down the
+>> >> >> current instances, re-initializes hw,  re-instantiates the netdevs
+>> >> >>
+>> >> >> Makes sense?
+>> >> >
+>> >> >I like the idea of a "go"/apply/reload trigger and extending devlink.
+>> >> >Do you plan on adding a way to persist the settings?  I'm concerned
+>> >> >NIC users may want to boot into the right mode once it's set,
+>> >> >without reloads and reconfigs upon boot.  Also is there going to be
+>> >> >a way to query the pending/running config?  Sounds like we may want
+>> >> >to expose three value sets - persistent/default, running and
+>> >> >pending/to be applied.
+>> >
+>> >> I don't think it is a good idea to introduce any kind of
+>> >> configuration persistency in HW. I believe that user is the master
+>> >> and he has all needed info. He can store it persistently, but it is up to
+>> him.
+>> >>
+>> >> So basicaly during boot, we need the devlink configuration to happen
+>> >> early on, before the netdevices get configured. udev? Not sure how
+>> >> exactly to do this. Have to ask around :)
+>> >
+>> >Thinking about use cases where we'd want information available at probe
+>> >time, it might have been even better to have it separated from the
+>> >netdevice, e.g., providing clients with node to configure (generic?)
+>> >information on top of their PCI nodes.
+>> 
+>> Yuval, devlink is separated from the netdevices....
+>
+>Separate from the netdevices, yes. But I think it's still a networking facility.
+>I.e., would it make sense creating devlink nodes for PCI devices?
 
-Clean up a few sparse warnings, these following
-functions can be made static:
+True that devlink is placed in net/core. But from the very beginning, it
+was designed to be multipurpose. So not only for net devices, but for
+any device where is is suitable.
 
-drivers/net/ethernet/intel/igb/igb_main.c: warning: symbol
-  'igb_add_mac_filter' was not declared. Should it be static?
-drivers/net/ethernet/intel/igb/igb_main.c: warning: symbol
-  'igb_del_mac_filter' was not declared. Should it be static?
-drivers/net/ethernet/intel/igb/igb_main.c: warning: symbol
-  'igb_set_vf_mac_filter' was not declared. Should it be static?
+>
+>Anyway, I don't think there's any *strong* need for what I was asking for;
+>It's simply that I was thinking of qed where there's quite a bit going on
+>during the pci probe, and thought how re-doing it can be avoided.
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/igb/igb_main.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 7e433344a13c..ec62410b035a 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -6469,8 +6469,8 @@ static void igb_set_default_mac_filter(struct igb_adapter *adapter)
- 	igb_rar_set_index(adapter, 0);
- }
- 
--int igb_add_mac_filter(struct igb_adapter *adapter, const u8 *addr,
--		       const u8 queue)
-+static int igb_add_mac_filter(struct igb_adapter *adapter, const u8 *addr,
-+			      const u8 queue)
- {
- 	struct e1000_hw *hw = &adapter->hw;
- 	int rar_entries = hw->mac.rar_entry_count -
-@@ -6499,8 +6499,8 @@ int igb_add_mac_filter(struct igb_adapter *adapter, const u8 *addr,
- 	return -ENOSPC;
- }
- 
--int igb_del_mac_filter(struct igb_adapter *adapter, const u8 *addr,
--		       const u8 queue)
-+static int igb_del_mac_filter(struct igb_adapter *adapter, const u8 *addr,
-+			      const u8 queue)
- {
- 	struct e1000_hw *hw = &adapter->hw;
- 	int rar_entries = hw->mac.rar_entry_count -
-@@ -6552,8 +6552,8 @@ static int igb_uc_unsync(struct net_device *netdev, const unsigned char *addr)
- 	return 0;
- }
- 
--int igb_set_vf_mac_filter(struct igb_adapter *adapter, const int vf,
--			  const u32 info, const u8 *addr)
-+static int igb_set_vf_mac_filter(struct igb_adapter *adapter, const int vf,
-+				 const u32 info, const u8 *addr)
- {
- 	struct pci_dev *pdev = adapter->pdev;
- 	struct vf_data_storage *vf_data = &adapter->vf_data[vf];
--- 
-2.12.2
+You can (should) register devlink early on way before netdevs.
