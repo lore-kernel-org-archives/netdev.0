@@ -1,37 +1,55 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH RFC net-next 1/4] net/mlx5e: Rearrange netdevice ops structures
-Date: Thu, 8 Jun 2017 10:52:41 +0300
-Message-ID: <CAJ3xEMj7YOatHvRUj_AmEfVPGuV_7tgOVqy2+scieFuRhfT7TA@mail.gmail.com>
-References: <20170607234214.24723-1-saeedm@mellanox.com> <20170607234214.24723-2-saeedm@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-        Jes Sorensen <jsorensen@fb.com>,
-        Kernel Team <kernel-team@fb.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Tzahi Oved <tzahio@mellanox.com>
-To: Saeed Mahameed <saeedm@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f177.google.com ([74.125.82.177]:35285 "EHLO
-        mail-ot0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751464AbdFHHwm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 03:52:42 -0400
-Received: by mail-ot0-f177.google.com with SMTP id a2so19222031oth.2
-        for <netdev@vger.kernel.org>; Thu, 08 Jun 2017 00:52:42 -0700 (PDT)
-In-Reply-To: <20170607234214.24723-2-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] ila_xlat: add missing hash secret initialization
+Date: Thu,  8 Jun 2017 09:54:24 +0200
+Message-ID: <20170608075448.2076975-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        stephen hemminger <stephen@networkplumber.org>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 8, 2017 at 2:42 AM, Saeed Mahameed <saeedm@mellanox.com> wrote:
-> Since we are going to allow compiling the driver without eswitch,
-> it means we will have to compile out mlx5e_netdev_ops_sriov and will
-> replace it with mlx5e_netdev_ops_basic.
->
-> Move missing vxlan ndos into mlx5e_netdev_ops_basic.
+While discussing the possible merits of clang warning about unused initialized
+functions, I found one function that was clearly meant to be called but
+never actually is.
 
-preferred to be more price and use the term udp tunnel (missing udp tunnel) ndos
+__ila_hash_secret_init() initializes the hash value for the ila locator,
+apparently this is intended to prevent hash collision attacks, but this ends
+up being a read-only zero constant since there is no caller. I could find
+no indication of why it was never called, the earliest patch submission
+for the module already was like this. If my interpretation is right, we
+certainly want to backport the patch to stable kernels as well.
 
-> Rearrange some ndos in mlx5e_netdev_ops_sriov and put vf/eswitch related
-> ndos towards the end of the struct.
+I considered adding it to the ila_xlat_init callback, but for best effect
+the random data is read as late as possible, just before it is first used.
+The underlying net_get_random_once() is already highly optimized to avoid
+overhead when called frequently.
 
-Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
+Fixes: 7f00feaf1076 ("ila: Add generic ILA translation facility")
+Cc: stable@vger.kernel.org
+Link: https://www.spinics.net/lists/kernel/msg2527243.html
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ net/ipv6/ila/ila_xlat.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/ipv6/ila/ila_xlat.c b/net/ipv6/ila/ila_xlat.c
+index 2fd5ca151dcf..77f7f8c7d93d 100644
+--- a/net/ipv6/ila/ila_xlat.c
++++ b/net/ipv6/ila/ila_xlat.c
+@@ -62,6 +62,7 @@ static inline u32 ila_locator_hash(struct ila_locator loc)
+ {
+ 	u32 *v = (u32 *)loc.v32;
+ 
++	__ila_hash_secret_init();
+ 	return jhash_2words(v[0], v[1], hashrnd);
+ }
+ 
+-- 
+2.9.0
