@@ -1,406 +1,179 @@
 From: Krister Johansen <kjlx@templeofstupid.com>
-Subject: [PATCH v2 net-next] Ipvlan should return an error when an address is
- already in use.
-Date: Thu, 8 Jun 2017 13:12:14 -0700
-Message-ID: <20170608201214.GB2553@templeofstupid.com>
-References: <20170101.222632.843875843588487678.davem@davemloft.net>
+Subject: [PATCH net] Fix an intermittent pr_emerg warning about lo becoming
+ free.
+Date: Thu, 8 Jun 2017 13:12:38 -0700
+Message-ID: <20170608201238.GC2553@templeofstupid.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: maheshb@google.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sub5.mail.dreamhost.com ([208.113.200.129]:59390 "EHLO
+Received: from sub5.mail.dreamhost.com ([208.113.200.129]:59408 "EHLO
         homiemail-a57.g.dreamhost.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751706AbdFHUMT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 16:12:19 -0400
+        by vger.kernel.org with ESMTP id S1751550AbdFHUMk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 16:12:40 -0400
 Received: from homiemail-a57.g.dreamhost.com (localhost [127.0.0.1])
-        by homiemail-a57.g.dreamhost.com (Postfix) with ESMTP id 3D6536004706
-        for <netdev@vger.kernel.org>; Thu,  8 Jun 2017 13:12:16 -0700 (PDT)
+        by homiemail-a57.g.dreamhost.com (Postfix) with ESMTP id 996FD6004D18
+        for <netdev@vger.kernel.org>; Thu,  8 Jun 2017 13:12:39 -0700 (PDT)
 Received: from kmjvbox (c-174-62-91-145.hsd1.ca.comcast.net [174.62.91.145])
         (using TLSv1 with cipher ECDHE-RSA-AES256-SHA (256/256 bits))
         (No client certificate requested)
         (Authenticated sender: kjlx@templeofstupid.com)
-        by homiemail-a57.g.dreamhost.com (Postfix) with ESMTPSA id A942E6004529
-        for <netdev@vger.kernel.org>; Thu,  8 Jun 2017 13:12:15 -0700 (PDT)
+        by homiemail-a57.g.dreamhost.com (Postfix) with ESMTPSA id 6241B6004D0C
+        for <netdev@vger.kernel.org>; Thu,  8 Jun 2017 13:12:39 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20170101.222632.843875843588487678.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ipvlan code already knows how to detect when a duplicate address is
-about to be assigned to an ipvlan device.  However, that failure is not
-propogated outward and leads to a silent failure.
+It looks like this:
 
-Introduce a validation step at ip address creation time and allow device
-drivers to register to validate the incoming ip addresses.  The ipvlan
-code is the first consumer.  If it detects an address in use, we can
-return an error to the user before beginning to commit the new ifa in
-the networking code.
+Message from syslogd@flamingo at Apr 26 00:45:00 ...
+ kernel:unregister_netdevice: waiting for lo to become free. Usage count = 4
 
-This can be especially useful if it is necessary to provision many
-ipvlans in containers.  The provisioning software (or operator) can use
-this to detect situations where an ip address is unexpectedly in use.
+They seem to coincide with net namespace teardown.
+
+The message is emitted by netdev_wait_allrefs().
+
+Forced a kdump in netdev_run_todo, but found that the refcount on the lo
+device was already 0 at the time we got to the panic.
+
+Used bcc to check the blocking in netdev_run_todo.  The only places
+where we're off cpu there are in the rcu_barrier() and msleep() calls.
+That behavior is expected.  The msleep time coincides with the amount of
+time we spend waiting for the refcount to reach zero; the rcu_barrier()
+wait times are not excessive.
+
+After looking through the list of callbacks that the netdevice notifiers
+invoke in this path, it appears that the dst_dev_event is the most
+interesting.  The dst_ifdown path places a hold on the loopback_dev as
+part of releasing the dev associated with the original dst cache entry.
+Most of our notifier callbacks are straight-forward, but this one a)
+looks complex, and b) places a hold on the network interface in
+question.
+
+I constructed a new bcc script that watches various events in the
+liftime of a dst cache entry.  Note that dst_ifdown will take a hold on
+the loopback device until the invalidated dst entry gets freed.
+
+[      __dst_free] on DST: ffff883ccabb7900 IF tap1008300eth0 invoked at 1282115677036183
+    __dst_free
+    rcu_nocb_kthread
+    kthread
+    ret_from_fork
+---
+[     dst_gc_task] completed in          4: start: 1282115783057516 end 1282115783062462
+[     dst_gc_task] completed in          5: start: 1282116447054101 end 1282116447059392
+[     dst_gc_task] completed in          5: start: 1282118111030391 end 1282118111036041
+[     dst_gc_task] completed in          6: start: 1282121247074938 end 1282121247081141
+[     dst_gc_task] completed in          5: start: 1282126815053252 end 1282126815058751
+[     dst_gc_task] completed in          6: start: 1282135007055673 end 1282135007061877
+[     dst_gc_task] completed in          6: start: 1282145759021745 end 1282145759027830
+[     dst_release] on DST: ffff883ccabb7900 IF tap1008300eth0 invoked at 1282147838674257
+    dst_release
+    ip_queue_xmit
+    tcp_transmit_skb
+    tcp_write_xmit
+    __tcp_push_pending_frames
+    tcp_send_fin
+    tcp_close
+    inet_release
+    sock_release
+    sock_close
+    __fput
+    ____fput
+    task_work_run
+    do_exit
+    do_group_exit
+    SyS_exit_group
+    do_syscall_64
+    return_from_SYSCALL_64
+[      dst_ifdown] on DST: ffff883ccabb7900 IF tap1008300eth0 invoked at 1282148067377680
+    dst_ifdown
+    notifier_call_chain
+    raw_notifier_call_chain
+    call_netdevice_notifiers_info
+    netdev_run_todo
+    kretprobe_trampoline
+    default_device_exit_batch
+    ops_exit_list.isra.4
+    cleanup_net
+    process_one_work
+    worker_thread
+    kthread
+    ret_from_fork
+---
+[      dst_ifdown] on DST: ffff883ccabb7900 IF lo invoked at 1282148067411269
+    dst_ifdown
+    notifier_call_chain
+    raw_notifier_call_chain
+    call_netdevice_notifiers_info
+    netdev_run_todo
+    kretprobe_trampoline
+    default_device_exit_batch
+    ops_exit_list.isra.4
+    cleanup_net
+    process_one_work
+    worker_thread
+    kthread
+    ret_from_fork
+---
+<...>
+[     dst_destroy] on DST: ffff883ccabb7900 IF lo invoked at 1282160607074022
+    dst_destroy
+    kretprobe_trampoline
+    worker_thread
+    kthread
+    ret_from_fork
+---
+[     dst_gc_task] completed in         30: start: 1282160607047161 end 1282160607077572
+
+The way this works is that if there's still a reference on the dst entry
+at the time we try to free it, it gets placed in the gc list by
+__dst_free and the dst_destroy() call is invoked by the gc task once the
+refcount is 0.  If the gc task processes a 10th or less of its entries
+on a single pass, it inreases the amount of time it waits between gc
+intervals.
+
+Looking at the gc_task intervals, they started at 663ms when we invoked
+__dst_free().  After that, they increased to 1663, 3136, 5567, 8191,
+10751, and 14848.  The release that set the refcnt to 0 on our dst entry
+occurred after the gc_task was enqueued for 14 second interval so we had
+to wait longer than the warning time in wait_allrefs in order for the
+dst entry to get free'd and the hold on 'lo' to be released.
+
+A simple solution to this problem is to have dst_dev_event() reset the
+gc timer, which causes us to process this list shortly after the
+gc_mutex is relased when dst_dev_event() completes.
 
 Signed-off-by: Krister Johansen <kjlx@templeofstupid.com>
 ---
- drivers/net/ipvlan/ipvlan_main.c | 69 ++++++++++++++++++++++++++++++++++++++++
- include/linux/inetdevice.h       |  7 ++++
- include/net/addrconf.h           | 10 +++++-
- net/ipv4/devinet.c               | 33 +++++++++++++++++++
- net/ipv6/addrconf.c              | 17 +++++++++-
- net/ipv6/addrconf_core.c         | 19 +++++++++++
- 6 files changed, 153 insertions(+), 2 deletions(-)
+ net/core/dst.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
-Apologies for letting this one languish for so long.  This iteration is
-more code than I hoped it would be, but I believe it addresses the
-concerns raised in the prior iteration of the review.
-
-Changes v1 -> v2:
-
-- Add a separate validator chain with ipvlan as the first consumer.
-  [Address Dave M.'s comment about needing all chain users to agree
-  about use of notifier_[to|from]_errno]
-
-- Run validator chain only during address creation.
-  [Address Dave M.'s comment about prior version failing to handle
-  primary address promotions.]
-
-- Run validator step before the atomic section in the ip address create
-  path.
-  [Address my own dissatisfaction with having to rollback and
-  potentially issue an immediate up and then down RTNETLINK event.]
-
-diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-index 618ed88..e4141d6 100644
---- a/drivers/net/ipvlan/ipvlan_main.c
-+++ b/drivers/net/ipvlan/ipvlan_main.c
-@@ -824,6 +824,33 @@ static int ipvlan_addr6_event(struct notifier_block *unused,
- 	return NOTIFY_OK;
- }
+diff --git a/net/core/dst.c b/net/core/dst.c
+index 6192f11..13ba4a0 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -469,6 +469,20 @@ static int dst_dev_event(struct notifier_block *this, unsigned long event,
+ 		spin_lock_bh(&dst_garbage.lock);
+ 		dst = dst_garbage.list;
+ 		dst_garbage.list = NULL;
++		/* The code in dst_ifdown places a hold on the loopback device.
++		 * If the gc entry processing is set to expire after a lengthy
++		 * interval, this hold can cause netdev_wait_allrefs() to hang
++		 * out and wait for a long time -- until the the loopback
++		 * interface is released.  If we're really unlucky, it'll emit
++		 * pr_emerg messages to console too.  Reset the interval here,
++		 * so dst cleanups occur in a more timely fashion.
++		 */
++		if (dst_garbage.timer_inc > DST_GC_INC) {
++			dst_garbage.timer_inc = DST_GC_INC;
++			dst_garbage.timer_expires = DST_GC_MIN;
++			mod_delayed_work(system_wq, &dst_gc_work,
++					 dst_garbage.timer_expires);
++		}
+ 		spin_unlock_bh(&dst_garbage.lock);
  
-+static int ipvlan_addr6_validator_event(struct notifier_block *unused,
-+					unsigned long event, void *ptr)
-+{
-+	struct in6_validator_info *i6vi = (struct in6_validator_info *)ptr;
-+	struct net_device *dev = (struct net_device *)i6vi->i6vi_dev->dev;
-+	struct ipvl_dev *ipvlan = netdev_priv(dev);
-+
-+	/* FIXME IPv6 autoconf calls us from bh without RTNL */
-+	if (in_softirq())
-+		return NOTIFY_DONE;
-+
-+	if (!netif_is_ipvlan(dev))
-+		return NOTIFY_DONE;
-+
-+	if (!ipvlan || !ipvlan->port)
-+		return NOTIFY_DONE;
-+
-+	switch (event) {
-+	case NETDEV_UP:
-+		if (ipvlan_addr_busy(ipvlan->port, &i6vi->i6vi_addr, true))
-+			return notifier_from_errno(-EADDRINUSE);
-+		break;
-+	}
-+
-+	return NOTIFY_OK;
-+}
-+
- static int ipvlan_add_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
- {
- 	if (ipvlan_addr_busy(ipvlan->port, ip4_addr, false)) {
-@@ -871,10 +898,37 @@ static int ipvlan_addr4_event(struct notifier_block *unused,
- 	return NOTIFY_OK;
- }
- 
-+static int ipvlan_addr4_validator_event(struct notifier_block *unused,
-+					unsigned long event, void *ptr)
-+{
-+	struct in_validator_info *ivi = (struct in_validator_info *)ptr;
-+	struct net_device *dev = (struct net_device *)ivi->ivi_dev->dev;
-+	struct ipvl_dev *ipvlan = netdev_priv(dev);
-+
-+	if (!netif_is_ipvlan(dev))
-+		return NOTIFY_DONE;
-+
-+	if (!ipvlan || !ipvlan->port)
-+		return NOTIFY_DONE;
-+
-+	switch (event) {
-+	case NETDEV_UP:
-+		if (ipvlan_addr_busy(ipvlan->port, &ivi->ivi_addr, false))
-+			return notifier_from_errno(-EADDRINUSE);
-+		break;
-+	}
-+
-+	return NOTIFY_OK;
-+}
-+
- static struct notifier_block ipvlan_addr4_notifier_block __read_mostly = {
- 	.notifier_call = ipvlan_addr4_event,
- };
- 
-+static struct notifier_block ipvlan_addr4_vtor_notifier_block __read_mostly = {
-+	.notifier_call = ipvlan_addr4_validator_event,
-+};
-+
- static struct notifier_block ipvlan_notifier_block __read_mostly = {
- 	.notifier_call = ipvlan_device_event,
- };
-@@ -883,6 +937,10 @@ static struct notifier_block ipvlan_addr6_notifier_block __read_mostly = {
- 	.notifier_call = ipvlan_addr6_event,
- };
- 
-+static struct notifier_block ipvlan_addr6_vtor_notifier_block __read_mostly = {
-+	.notifier_call = ipvlan_addr6_validator_event,
-+};
-+
- static void ipvlan_ns_exit(struct net *net)
- {
- 	struct ipvlan_netns *vnet = net_generic(net, ipvlan_netid);
-@@ -907,7 +965,10 @@ static int __init ipvlan_init_module(void)
- 	ipvlan_init_secret();
- 	register_netdevice_notifier(&ipvlan_notifier_block);
- 	register_inet6addr_notifier(&ipvlan_addr6_notifier_block);
-+	register_inet6addr_validator_notifier(
-+	    &ipvlan_addr6_vtor_notifier_block);
- 	register_inetaddr_notifier(&ipvlan_addr4_notifier_block);
-+	register_inetaddr_validator_notifier(&ipvlan_addr4_vtor_notifier_block);
- 
- 	err = register_pernet_subsys(&ipvlan_net_ops);
- 	if (err < 0)
-@@ -922,7 +983,11 @@ static int __init ipvlan_init_module(void)
- 	return 0;
- error:
- 	unregister_inetaddr_notifier(&ipvlan_addr4_notifier_block);
-+	unregister_inetaddr_validator_notifier(
-+	    &ipvlan_addr4_vtor_notifier_block);
- 	unregister_inet6addr_notifier(&ipvlan_addr6_notifier_block);
-+	unregister_inet6addr_validator_notifier(
-+	    &ipvlan_addr6_vtor_notifier_block);
- 	unregister_netdevice_notifier(&ipvlan_notifier_block);
- 	return err;
- }
-@@ -933,7 +998,11 @@ static void __exit ipvlan_cleanup_module(void)
- 	unregister_pernet_subsys(&ipvlan_net_ops);
- 	unregister_netdevice_notifier(&ipvlan_notifier_block);
- 	unregister_inetaddr_notifier(&ipvlan_addr4_notifier_block);
-+	unregister_inetaddr_validator_notifier(
-+	    &ipvlan_addr4_vtor_notifier_block);
- 	unregister_inet6addr_notifier(&ipvlan_addr6_notifier_block);
-+	unregister_inet6addr_validator_notifier(
-+	    &ipvlan_addr6_vtor_notifier_block);
- }
- 
- module_init(ipvlan_init_module);
-diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
-index a2e9d6e..e7c04c4 100644
---- a/include/linux/inetdevice.h
-+++ b/include/linux/inetdevice.h
-@@ -150,8 +150,15 @@ struct in_ifaddr {
- 	unsigned long		ifa_tstamp; /* updated timestamp */
- };
- 
-+struct in_validator_info {
-+	__be32			ivi_addr;
-+	struct in_device	*ivi_dev;
-+};
-+
- int register_inetaddr_notifier(struct notifier_block *nb);
- int unregister_inetaddr_notifier(struct notifier_block *nb);
-+int register_inetaddr_validator_notifier(struct notifier_block *nb);
-+int unregister_inetaddr_validator_notifier(struct notifier_block *nb);
- 
- void inet_netconf_notify_devconf(struct net *net, int event, int type,
- 				 int ifindex, struct ipv4_devconf *devconf);
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index b43a4ee..d0889cb 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -48,11 +48,15 @@ struct prefix_info {
- 	struct in6_addr		prefix;
- };
- 
--
- #include <linux/netdevice.h>
- #include <net/if_inet6.h>
- #include <net/ipv6.h>
- 
-+struct in6_validator_info {
-+	struct in6_addr		i6vi_addr;
-+	struct inet6_dev	*i6vi_dev;
-+};
-+
- #define IN6_ADDR_HSIZE_SHIFT	4
- #define IN6_ADDR_HSIZE		(1 << IN6_ADDR_HSIZE_SHIFT)
- 
-@@ -278,6 +282,10 @@ int register_inet6addr_notifier(struct notifier_block *nb);
- int unregister_inet6addr_notifier(struct notifier_block *nb);
- int inet6addr_notifier_call_chain(unsigned long val, void *v);
- 
-+int register_inet6addr_validator_notifier(struct notifier_block *nb);
-+int unregister_inet6addr_validator_notifier(struct notifier_block *nb);
-+int inet6addr_validator_notifier_call_chain(unsigned long val, void *v);
-+
- void inet6_netconf_notify_devconf(struct net *net, int event, int type,
- 				  int ifindex, struct ipv6_devconf *devconf);
- 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index df14815..a7dd088 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -176,6 +176,7 @@ EXPORT_SYMBOL(__ip_dev_find);
- static void rtmsg_ifa(int event, struct in_ifaddr *, struct nlmsghdr *, u32);
- 
- static BLOCKING_NOTIFIER_HEAD(inetaddr_chain);
-+static BLOCKING_NOTIFIER_HEAD(inetaddr_validator_chain);
- static void inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
- 			 int destroy);
- #ifdef CONFIG_SYSCTL
-@@ -441,6 +442,8 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
- {
- 	struct in_device *in_dev = ifa->ifa_dev;
- 	struct in_ifaddr *ifa1, **ifap, **last_primary;
-+	struct in_validator_info ivi;
-+	int ret;
- 
- 	ASSERT_RTNL();
- 
-@@ -471,6 +474,23 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
- 		}
- 	}
- 
-+	/* Allow any devices that wish to register ifaddr validtors to weigh
-+	 * in now, before changes are committed.  The rntl lock is serializing
-+	 * access here, so the state should not change between a validator call
-+	 * and a final notify on commit.  This isn't invoked on promotion under
-+	 * the assumption that validators are checking the address itself, and
-+	 * not the flags.
-+	 */
-+	ivi.ivi_addr = ifa->ifa_address;
-+	ivi.ivi_dev = ifa->ifa_dev;
-+	ret = blocking_notifier_call_chain(&inetaddr_validator_chain,
-+					   NETDEV_UP, &ivi);
-+	ret = notifier_to_errno(ret);
-+	if (ret) {
-+		inet_free_ifa(ifa);
-+		return ret;
-+	}
-+
- 	if (!(ifa->ifa_flags & IFA_F_SECONDARY)) {
- 		prandom_seed((__force u32) ifa->ifa_local);
- 		ifap = last_primary;
-@@ -1356,6 +1376,19 @@ int unregister_inetaddr_notifier(struct notifier_block *nb)
- }
- EXPORT_SYMBOL(unregister_inetaddr_notifier);
- 
-+int register_inetaddr_validator_notifier(struct notifier_block *nb)
-+{
-+	return blocking_notifier_chain_register(&inetaddr_validator_chain, nb);
-+}
-+EXPORT_SYMBOL(register_inetaddr_validator_notifier);
-+
-+int unregister_inetaddr_validator_notifier(struct notifier_block *nb)
-+{
-+	return blocking_notifier_chain_unregister(&inetaddr_validator_chain,
-+	    nb);
-+}
-+EXPORT_SYMBOL(unregister_inetaddr_validator_notifier);
-+
- /* Rename ifa_labels for a device name change. Make some effort to preserve
-  * existing alias numbering and to create unique labels if possible.
- */
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 25443fd..0aa36b0 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -963,6 +963,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
- 	struct net *net = dev_net(idev->dev);
- 	struct inet6_ifaddr *ifa = NULL;
- 	struct rt6_info *rt;
-+	struct in6_validator_info i6vi;
- 	unsigned int hash;
- 	int err = 0;
- 	int addr_type = ipv6_addr_type(addr);
-@@ -974,6 +975,9 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
- 		return ERR_PTR(-EADDRNOTAVAIL);
- 
- 	rcu_read_lock_bh();
-+
-+	in6_dev_hold(idev);
-+
- 	if (idev->dead) {
- 		err = -ENODEV;			/*XXX*/
- 		goto out2;
-@@ -984,6 +988,17 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
- 		goto out2;
- 	}
- 
-+	i6vi.i6vi_addr = *addr;
-+	i6vi.i6vi_dev = idev;
-+	rcu_read_unlock_bh();
-+
-+	err = inet6addr_validator_notifier_call_chain(NETDEV_UP, &i6vi);
-+
-+	rcu_read_lock_bh();
-+	err = notifier_to_errno(err);
-+	if (err)
-+		goto out2;
-+
- 	spin_lock(&addrconf_hash_lock);
- 
- 	/* Ignore adding duplicate addresses on an interface */
-@@ -1034,7 +1049,6 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
- 	ifa->rt = rt;
- 
- 	ifa->idev = idev;
--	in6_dev_hold(idev);
- 	/* For caller */
- 	in6_ifa_hold(ifa);
- 
-@@ -1062,6 +1076,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
- 		inet6addr_notifier_call_chain(NETDEV_UP, ifa);
- 	else {
- 		kfree(ifa);
-+		in6_dev_put(idev);
- 		ifa = ERR_PTR(err);
- 	}
- 
-diff --git a/net/ipv6/addrconf_core.c b/net/ipv6/addrconf_core.c
-index bfa941f..9e3488d 100644
---- a/net/ipv6/addrconf_core.c
-+++ b/net/ipv6/addrconf_core.c
-@@ -88,6 +88,7 @@ int __ipv6_addr_type(const struct in6_addr *addr)
- EXPORT_SYMBOL(__ipv6_addr_type);
- 
- static ATOMIC_NOTIFIER_HEAD(inet6addr_chain);
-+static ATOMIC_NOTIFIER_HEAD(inet6addr_validator_chain);
- 
- int register_inet6addr_notifier(struct notifier_block *nb)
- {
-@@ -107,6 +108,24 @@ int inet6addr_notifier_call_chain(unsigned long val, void *v)
- }
- EXPORT_SYMBOL(inet6addr_notifier_call_chain);
- 
-+int register_inet6addr_validator_notifier(struct notifier_block *nb)
-+{
-+	return atomic_notifier_chain_register(&inet6addr_validator_chain, nb);
-+}
-+EXPORT_SYMBOL(register_inet6addr_validator_notifier);
-+
-+int unregister_inet6addr_validator_notifier(struct notifier_block *nb)
-+{
-+	return atomic_notifier_chain_unregister(&inet6addr_validator_chain, nb);
-+}
-+EXPORT_SYMBOL(unregister_inet6addr_validator_notifier);
-+
-+int inet6addr_validator_notifier_call_chain(unsigned long val, void *v)
-+{
-+	return atomic_notifier_call_chain(&inet6addr_validator_chain, val, v);
-+}
-+EXPORT_SYMBOL(inet6addr_validator_notifier_call_chain);
-+
- static int eafnosupport_ipv6_dst_lookup(struct net *net, struct sock *u1,
- 					struct dst_entry **u2,
- 					struct flowi6 *u3)
+ 		if (last)
 -- 
 2.7.4
