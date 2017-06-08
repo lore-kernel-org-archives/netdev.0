@@ -1,74 +1,33 @@
-From: <kirola@soraluze.eus>
-Subject: (unknown)
-Date: Thu, 08 Jun 2017 17:59:21 -0000
-Message-ID: <149694476126.30693.9989021582666957379@elmostrador.cl>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute] tc: flower: add support for matching on ip tos
+ and ttl
+Date: Thu, 8 Jun 2017 11:01:10 -0700
+Message-ID: <20170608110110.0271dcf0@xeon-e3>
+References: <1496837874-9284-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="87350019.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Roi Dayan <roid@mellanox.com>,
+        Paul Blakey <paulb@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.elmostrador.cl ([190.82.84.203]:60518 "HELO elmostrador.cl"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S1751132AbdFHR72 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Jun 2017 13:59:28 -0400
-Subject: 
-Content-Disposition: attachment
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:35091 "EHLO
+        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750822AbdFHSBU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 14:01:20 -0400
+Received: by mail-pf0-f170.google.com with SMTP id l89so19702266pfi.2
+        for <netdev@vger.kernel.org>; Thu, 08 Jun 2017 11:01:20 -0700 (PDT)
+In-Reply-To: <1496837874-9284-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-UEsDBAoAAgAAAAi9yEoo+eNNywsAAMsLAAAHABwANzcwLnppcFVUCQAD/4s5Wf+LOVl1eAsAAQQA
-AAAABAAAAABQSwMEFAACAAgABKjISkrFgWgpCwAA8yIAAAYAHAA3NzAuanNVVAkAA3hmOVnQiTlZ
-dXgLAAEEAAAAAAQAAAAA7VrbjtzGEX2WAP2DwBcNdwi7eSexmQCBgbwF86DHvQDNm7SWtATGK2cN
-Qf+eOlWnh5zVyloHQgIjsb2eYbO7ui6nTld3z/Txtr+7mW9f7vfOyd9mdnv51yWzm52b5/jF808v
-nj87jHcfD7cv+fKaL89fPP/84vkURMwmY7Of5VNE7GftRxG/+sPLvTxKDxn37O7wm/wfL/TNzS76
-h7+L8OYZe+02t+M/X/6d0jeRCNuL6CiJRIlZ/tFv88w2mVTUk29HXbX7RbS92UZvL9jzahOerf/V
-Jj6juPjqPIofKp9Ah78dDv63TZpkSZ5E0/t5PkTxRX715buDvx3mD/oyjmGLuOdZ7+/6t5vxENPe
-z4s/F3+s/fgdQrGHjHne6Od+HQJ4QUZAuWk+bM7PY42BhcPiof1+3olLRcQs8XSq5QXGSdvVD798
-7H65O2yyJIvja7hOelzs4e15vrIYqox3u6h/+0pcvjTd7SLTQgft6EF2oG4PAw/JM4J8t43E13Wb
-ZFklf22SlkWS1UlaFEnalklWptIkzUkufXJ5kRVJ0yZFmlRxQjN2FHfx6oMAbvtuG/14efn6U/H5
-xzdxMqvn3e4yuowS2rtz5/CUqc2WhNbKO7b9heJ/eD/evrl7G5q329B1u40/3UwbPv11Rxewf/xp
-kfiZWmylzx64Fcz+vI3i88/Rdq+odpv4G9+iDYXECmrCIDY/d4fRv9OvwOIJQImAm507vl/hdQHP
-CdjCrCuUod/ePUh0tn6Z2PAdUhfyBc/yzTiBz+fKHQ7u2u8Ad2THTazN97sj7ViHhOLicyp9Dw8U
-SfTe/zpGT0rLRfsTeuPECNP+lNY08vMDa9n6BZrRrOTF6BqN4dtOkZgKEoPu7HzBrlcb9oxJVVDk
-AQ1FH2CYcFD2RA46Kv+QQET65oS8Z7UnOrvO2rPrtj67brqz60m+V5N9+l7ay7PrTp6r6uy6yORZ
-2vPG/spB2mWcw3gn472Mk+diPLsepa+XcUMu36W9ls9C5PepjBO5ubQVIqOSz0zeNRhf2Ly1fO/k
-s5P3jcgYZZ66sXGtyEjlOets3lrmymSuRj69tI+j6T+KjFHk9hX1n6i/NzmpyCugl7Rl0qctTIde
-nkvoAf1hl8ibpH8tfnAio5e/XGxwGJuaTU7mGTC243iRN/TmT/gA7SXGiIxeZBfiowxjC7PfyXML
-HVLzVS79JhnX5Zw/tRhhvMd7fBdbncjNvNmG+OFvEjm5fHaijy/N3ik3O2H/U+eH73xl8Z86zi+6
-DNKWSls+mf+z0eZDnBp5HjL6vzD9B8ii/4rK8KPjvH3mnekGvw212YfYIv4jcYH4VyKvhD8a0yNX
-3EVbQbMguCpNE6AAWkzSq6blviEKZUTVW8TgGSftmUguoU1jqGroCUUsUDCaJxGFAVrIZ5EbWkpp
-r2VsMVkWAMXwIDSG5Rk1Vy/W5gW1AiiWMWnL+XubCxGBF5rKPF7XhjyfMoo9owVP5/QevFquUBDm
-miwzOvoCMpGRVbZEIQ1IZhQhA1msKBKZVbvKQsjxFsUyo/4Z7feL/er/mvo39jl2hiL4tBpOWUDt
-74wdMD8yZRgZq8rQ3AUUBhRhjmw1PzI+NyTB12ARsADiD929W7JA5xcZTU/7RYZDHAcbr/bLu1H0
-q3vzQ1cbgwALAcW+IworyyIgMx/M/n6weWGTZgGZ1ROjwB18nMLmI4IhVb1YmwehIfJerRhNClCH
-yEIK+iMqqfTJHXO6sbwED8NjmBGWgRfBZ0NLZCL3U8sleBFcrFw+GWoxN6wYG0MR8rALyOosauCM
-hrmIfIU+QDGiBhQrb+U2PzII4wZPFEl7WVoUMR58D1RpFnii2HH+klz2rSimq/GpjQd6YFPXmw3t
-YFHEeHA89IceFTkfKFpn8X8OBX/m+AcE/x8F/8so+DPHPyD4WyjAihhQgOiO9JbjMyqIsCJjpdeK
-JLV3XWZWjKXVhPBiiILWNayn8t5WJCAo50rbswqAVzEnVtLe2YoOZIa6DNaHulrr2t5Q0Jecn3V5
-lxJFg6Hlv1qR1BZ1jEcUMX/hzNfH+TOrhyEP9atWVJXJLLjfgJ9T1pZH++Vd781/Gr+J9nvGFHsd
-Z3EH0lN/WpeiP9AValC0DamhEPUukAWfoK7uUBOzCkGFqPjpTc/AAtALyFX/Z/RJqGhgP31c0Vat
-qGrLOiC3aoxFgv3Yc2CeYggIRi4GL+ruYLJI6u6msFyChiplNC4CH0Ay6jKMB+qwuyuYBdBkmIii
-xjwePDqgUidSgAR4C5ymdWVNFI30YmrZU1cmByjW3UFndbXqyV1G4LIqNYTA66jhkTFhd9Kxjg27
-C40ivam7tdZ4MHBRP1rksXsCl2qtmBsXwdPpY7vLzHaXiJbPyWWsj9vcskD1b81eRER3tzJv6S27
-4A/dVwDN8HVn45XLsoWLYKvWtcz+gllYUS58rvo748Ku/noWpDV319whDtzhhywCCykKubtXFHrj
-xpxzKIsxKxsyIdaP477GrezPbB/Uk1PBYlrXF9a/dassfJRFA4IdV8jApfAitFB0TLZaKe+M5rl1
-LururDUtwEl6RjHRCqB7MKvhBaBw5IrUPljRv/sZRWVZgGipDt7OHHRFK2yVhB5AMLgE8ziuasqF
-5CVw+HF3ky9Z1IdVrjb/IQsw/nhGM1oWIFuA2omI1fl7a5+4swtrUdouLABdwx5dz4gm20ljPBCL
-mCgKGjvnAItkMi6tjFXQF/oDnUAR7EAWIquV3wpjkoJrSMfKSCuKnhVRZnaGtbBendF4zq9nTBkr
-gpRcWtH/fqlowu4cdnjq1K9YpOFpQF6YP+EXVHctY7OO30S9Jnc8i1BG/h0revPAyFUqMPoQIuMs
-CtA2VCRaFyISIW/TpS5DfQguB5fidArRLsn3ysWO45tTLteTlj/iBdasx5MycjYqD8hSfvFWx5b1
-g7WgJIqGZY+vawHPFVq3ZBHs1LqW9SBW5YLnEeAVIGYdRT1prDg+nDSSBVKygI73ti6Cy7SiSW3F
-Bgv4jCxSr+raR1gIaFIubcgi9XJSNnBdDSg8nnR1rMsrVmQ5z1Mq2s+KoiWnI0ZaEaW2FoS1DFjB
-uqAntQ/OmIA11SmwGGJUspJLl7VE9yXDUn1WJ/4LCP53vKgnZaz1sEoGL4YVHZZDi2NF8ke4nFyG
-rNKTqpRnreUT6vLcvFCFigBVycTzRr9UBN59WdGE+QtGClEMdTm8q3XhaGsM/KArsmcUn1DX9tyJ
-YHenLMAzUD2vLizjlItzriXOUISMBDohW/VnTem5GxzJ+SXPm+GHLOwLHNeSinuDkSzCjHqUhVYn
-nTX3LIHLp3w5KR05HhXJcXy5Gv8VFOY8JfSsQGC/njdXX99d6lpGFgRDYnxXBgRrXTJwd8Xz27Qw
-LVKuaBlXn5Y7gpL7yo5tujsoDC2ITDqapwuiCVrr7oJ89LXqPqxoKeuikEXVigs1Yo3tjLS2anle
-Oi23DpqFBbOg4R7XLysS3mF+PTUPKzJ3N/CWcgErkowZ0j6sKFa7M83MEMWV/7DLrHjGEW59Ru4b
-tC5d7e4e7k5RFdjuVu+Ij/fm82N3Vryvxt3dfLwvD1dXzj28jmTrF9eRuBE7XkLe7y4jd38Zbdl8
-8epufn13uLl98+pqc3rHGOZ92s1/0OjkipH3vXv96cL+5Noe9/nukV9O3O8iqGNX6Oz2+A0rTLrB
-vaNOPtPAcC3+Otreb6M3F5fRdInfSFxGb/3hJzVcu19tKCVeX07i1wt2FYn/kugwf/gpOrmRjOZh
-jOKL9Gm3kYud3+cXEesfQuh9Znz+L1BLAQIeAxQAAgAIAASoyEpKxYFoKQsAAPMiAAAGABgAAAAA
-AAEAAACkgQAAAAA3NzAuanNVVAUAA3hmOVl1eAsAAQQAAAAABAAAAABQSwUGAAAAAAEAAQBMAAAA
-aQsAAAAAUEsBAh4DCgACAAAACL3ISij5403LCwAAywsAAAcAGAAAAAAAAAAAAKSBAAAAADc3MC56
-aXBVVAUAA/+LOVl1eAsAAQQAAAAABAAAAABQSwUGAAAAAAEAAQBNAAAADAwAAAAA
+On Wed,  7 Jun 2017 15:17:54 +0300
+Or Gerlitz <ogerlitz@mellanox.com> wrote:
+
+> Allow users to set flower classifier filter rules which
+> include matches for ip tos and ttl.
+> 
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Reviewed-by: Jiri Pirko <jiri@mellanox.com>
+
+Applied to net-next
