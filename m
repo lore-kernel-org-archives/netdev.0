@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
-Subject: [PATCH 05/44] drm/armada: don't abuse DMA_ERROR_CODE
-Date: Thu,  8 Jun 2017 15:25:30 +0200
-Message-ID: <20170608132609.32662-6-hch@lst.de>
+Subject: [PATCH 06/44] iommu/dma: don't rely on DMA_ERROR_CODE
+Date: Thu,  8 Jun 2017 15:25:31 +0200
+Message-ID: <20170608132609.32662-7-hch@lst.de>
 References: <20170608132609.32662-1-hch@lst.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -30,76 +30,92 @@ Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.o
 Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-dev_addr isn't even a dma_addr_t, and DMA_ERROR_CODE has never been
-a valid driver API.  Add a bool mapped flag instead.
+DMA_ERROR_CODE is not a public API and will go away soon.  dma dma-iommu
+driver already implements a proper ->mapping_error method, so it's only
+using the value internally.  Add a new local define using the value
+that arm64 which is the only current user of dma-iommu.
 
 Signed-off-by: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
 ---
- drivers/gpu/drm/armada/armada_fb.c  | 2 +-
- drivers/gpu/drm/armada/armada_gem.c | 5 ++---
- drivers/gpu/drm/armada/armada_gem.h | 1 +
- 3 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/iommu/dma-iommu.c | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/gpu/drm/armada/armada_fb.c b/drivers/gpu/drm/armada/armada_fb.c
-index 2a7eb6817c36..92e6b08ea64a 100644
---- a/drivers/gpu/drm/armada/armada_fb.c
-+++ b/drivers/gpu/drm/armada/armada_fb.c
-@@ -133,7 +133,7 @@ static struct drm_framebuffer *armada_fb_create(struct drm_device *dev,
- 	}
+diff --git a/drivers/iommu/dma-iommu.c b/drivers/iommu/dma-iommu.c
+index 62618e77bedc..638aea814b94 100644
+--- a/drivers/iommu/dma-iommu.c
++++ b/drivers/iommu/dma-iommu.c
+@@ -31,6 +31,8 @@
+ #include <linux/scatterlist.h>
+ #include <linux/vmalloc.h>
  
- 	/* Framebuffer objects must have a valid device address for scanout */
--	if (obj->dev_addr == DMA_ERROR_CODE) {
-+	if (!obj->mapped) {
- 		ret = -EINVAL;
- 		goto err_unref;
- 	}
-diff --git a/drivers/gpu/drm/armada/armada_gem.c b/drivers/gpu/drm/armada/armada_gem.c
-index d6c2a5d190eb..a76ca21d063b 100644
---- a/drivers/gpu/drm/armada/armada_gem.c
-+++ b/drivers/gpu/drm/armada/armada_gem.c
-@@ -175,6 +175,7 @@ armada_gem_linear_back(struct drm_device *dev, struct armada_gem_object *obj)
- 
- 		obj->phys_addr = obj->linear->start;
- 		obj->dev_addr = obj->linear->start;
-+		obj->mapped = true;
- 	}
- 
- 	DRM_DEBUG_DRIVER("obj %p phys %#llx dev %#llx\n", obj,
-@@ -205,7 +206,6 @@ armada_gem_alloc_private_object(struct drm_device *dev, size_t size)
- 		return NULL;
- 
- 	drm_gem_private_object_init(dev, &obj->obj, size);
--	obj->dev_addr = DMA_ERROR_CODE;
- 
- 	DRM_DEBUG_DRIVER("alloc private obj %p size %zu\n", obj, size);
- 
-@@ -229,8 +229,6 @@ static struct armada_gem_object *armada_gem_alloc_object(struct drm_device *dev,
- 		return NULL;
- 	}
- 
--	obj->dev_addr = DMA_ERROR_CODE;
--
- 	mapping = obj->obj.filp->f_mapping;
- 	mapping_set_gfp_mask(mapping, GFP_HIGHUSER | __GFP_RECLAIMABLE);
- 
-@@ -610,5 +608,6 @@ int armada_gem_map_import(struct armada_gem_object *dobj)
- 		return -EINVAL;
- 	}
- 	dobj->dev_addr = sg_dma_address(dobj->sgt->sgl);
-+	dobj->mapped = true;
- 	return 0;
++#define IOMMU_MAPPING_ERROR	(~(dma_addr_t)0)
++
+ struct iommu_dma_msi_page {
+ 	struct list_head	list;
+ 	dma_addr_t		iova;
+@@ -500,7 +502,7 @@ void iommu_dma_free(struct device *dev, struct page **pages, size_t size,
+ {
+ 	__iommu_dma_unmap(iommu_get_domain_for_dev(dev), *handle, size);
+ 	__iommu_dma_free_pages(pages, PAGE_ALIGN(size) >> PAGE_SHIFT);
+-	*handle = DMA_ERROR_CODE;
++	*handle = IOMMU_MAPPING_ERROR;
  }
-diff --git a/drivers/gpu/drm/armada/armada_gem.h b/drivers/gpu/drm/armada/armada_gem.h
-index b88d2b9853c7..6e524e0676bb 100644
---- a/drivers/gpu/drm/armada/armada_gem.h
-+++ b/drivers/gpu/drm/armada/armada_gem.h
-@@ -16,6 +16,7 @@ struct armada_gem_object {
- 	void			*addr;
- 	phys_addr_t		phys_addr;
- 	resource_size_t		dev_addr;
-+	bool			mapped;
- 	struct drm_mm_node	*linear;	/* for linear backed */
- 	struct page		*page;		/* for page backed */
- 	struct sg_table		*sgt;		/* for imported */
+ 
+ /**
+@@ -533,7 +535,7 @@ struct page **iommu_dma_alloc(struct device *dev, size_t size, gfp_t gfp,
+ 	dma_addr_t iova;
+ 	unsigned int count, min_size, alloc_sizes = domain->pgsize_bitmap;
+ 
+-	*handle = DMA_ERROR_CODE;
++	*handle = IOMMU_MAPPING_ERROR;
+ 
+ 	min_size = alloc_sizes & -alloc_sizes;
+ 	if (min_size < PAGE_SIZE) {
+@@ -627,11 +629,11 @@ static dma_addr_t __iommu_dma_map(struct device *dev, phys_addr_t phys,
+ 
+ 	iova = iommu_dma_alloc_iova(domain, size, dma_get_mask(dev), dev);
+ 	if (!iova)
+-		return DMA_ERROR_CODE;
++		return IOMMU_MAPPING_ERROR;
+ 
+ 	if (iommu_map(domain, iova, phys - iova_off, size, prot)) {
+ 		iommu_dma_free_iova(cookie, iova, size);
+-		return DMA_ERROR_CODE;
++		return IOMMU_MAPPING_ERROR;
+ 	}
+ 	return iova + iova_off;
+ }
+@@ -671,7 +673,7 @@ static int __finalise_sg(struct device *dev, struct scatterlist *sg, int nents,
+ 
+ 		s->offset += s_iova_off;
+ 		s->length = s_length;
+-		sg_dma_address(s) = DMA_ERROR_CODE;
++		sg_dma_address(s) = IOMMU_MAPPING_ERROR;
+ 		sg_dma_len(s) = 0;
+ 
+ 		/*
+@@ -714,11 +716,11 @@ static void __invalidate_sg(struct scatterlist *sg, int nents)
+ 	int i;
+ 
+ 	for_each_sg(sg, s, nents, i) {
+-		if (sg_dma_address(s) != DMA_ERROR_CODE)
++		if (sg_dma_address(s) != IOMMU_MAPPING_ERROR)
+ 			s->offset += sg_dma_address(s);
+ 		if (sg_dma_len(s))
+ 			s->length = sg_dma_len(s);
+-		sg_dma_address(s) = DMA_ERROR_CODE;
++		sg_dma_address(s) = IOMMU_MAPPING_ERROR;
+ 		sg_dma_len(s) = 0;
+ 	}
+ }
+@@ -836,7 +838,7 @@ void iommu_dma_unmap_resource(struct device *dev, dma_addr_t handle,
+ 
+ int iommu_dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
+ {
+-	return dma_addr == DMA_ERROR_CODE;
++	return dma_addr == IOMMU_MAPPING_ERROR;
+ }
+ 
+ static struct iommu_dma_msi_page *iommu_dma_get_msi_page(struct device *dev,
 -- 
 2.11.0
