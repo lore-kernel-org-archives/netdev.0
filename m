@@ -1,103 +1,68 @@
-From: <helga.brickl@arcor.de>
-Subject: (unknown)
-Date: Thu, 08 Jun 2017 11:31:53 -0000
-Message-ID: <149692151388.23067.14912493439779445124@vnpt.vn>
+From: Sebastian Reichel <sre@kernel.org>
+Subject: Re: next-20170608 build: 1 failures 4 warnings (next-20170608)
+Date: Thu, 8 Jun 2017 13:33:26 +0200
+Message-ID: <20170608113326.zo3nqwkbx3k42owz@earth>
+References: <E1dIuCM-0000cQ-QM@optimist>
+ <20170608103231.gmqx6qluzcjwzrst@sirena.org.uk>
 Mime-Version: 1.0
-Content-Type: application/zip; name="529462.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.vnpt.vn ([14.187.66.251]:41566 "HELO vnpt.vn"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S1751383AbdFHLcD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Jun 2017 07:32:03 -0400
-Content-Disposition: attachment
-Subject: 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+        protocol="application/pgp-signature"; boundary="gsowus6vtznnoya2"
+Cc: "David S. Miller" <davem@davemloft.net>,
+        kernel-build-reports@lists.linaro.org,
+        linaro-kernel@lists.linaro.org, linux-next@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Mark Brown <broonie@kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170608103231.gmqx6qluzcjwzrst@sirena.org.uk>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-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
-4NIBUEsFBgAAAAABAAEAWgAAAF0SAAAAAA==
+
+--gsowus6vtznnoya2
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Hi,
+
+On Thu, Jun 08, 2017 at 11:32:31AM +0100, Mark Brown wrote:
+> On Thu, Jun 08, 2017 at 10:57:50AM +0100, Build bot for Mark Brown wrote:
+>=20
+> Today's -next fails to build an ARM allmodconfig due to:
+>=20
+> > 	arm-allmodconfig
+> > ../drivers/hsi/clients/ssi_protocol.c:1069:5: error: 'struct net_device=
+' has no member named 'destructor'
+>=20
+> due to cf124db566e6 (net: Fix inconsistent teardown and release of
+> private netdev state.) which missed this instance, presumably due to a
+> combination of it not being in one of the normal networking driver
+> directories and only being buildable on ARM.
+
+I assume, that this will be fixed via the net tree.
+If you Cc me on updated/new patch I will provide Acked-by.
+
+-- Sebastian
+
+--gsowus6vtznnoya2
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAABCgAdFiEE72YNB0Y/i3JqeVQT2O7X88g7+poFAlk5NgYACgkQ2O7X88g7
++poAExAAhU/w20E5WhOsW34q9cKL636imVqYv9A0LVTD3DSINy01J0u3Nh30tOGN
+hy/8hn5XJ5m/J2BnPSdfmXlEskJozOJ/xtoUb30cfOftB4Aq0Kr38jcfwxSXgVCd
+NdZgS+aQxCPuw69nP7qbyXKWEVel55cQKSSARP3xcnY2JgaBdOK0xUn9VLy0o1bl
+NSdxP24zvnkXi0Yk31uR5FrTIujw4E4Tzomrpure6oVZmU/K9QqfdbeoH8Bpgu4e
+AQz6/baMGED8hAJJ7e5o1B3KlI4INs6CjqxKxXsgJrdAui3b7Stokq9TQc3RiUqR
+R374rKQBHYjwF6WQI2ZFB2yQ7OzKaCeVEH87wpapvvDJ3EL69QmLqGY+uzih8n+l
+gXh5BdLUO9ZRU+xtTDixFCyDKVrPi06dUbl9U/dQyu0jazIOwp0j7GSQGpLtV+/N
+Dq+lGsQyzYZhZzz7nZE8W2WrX3yNHeV/SqDLWQhdH6sS2kXfTvTwhbozfk+TEPm+
+sB2BjcDf6mZf16gSWZrTeODG8lCvnhNd/qwT9C9ZThzxwBmdy0weuixGcYfN4n5P
+j5ajbFCx0iDHk7HrWTF8cJ3j1GpdPvDLR564uVlh5gl7B/o5TuvDuc6+267Y32xN
+QRnBKnV4ziMSguBhN9K1Y2xRQvx3rJzJGnFXnSl5tKFkviOQ17w=
+=5Ssi
+-----END PGP SIGNATURE-----
+
+--gsowus6vtznnoya2--
