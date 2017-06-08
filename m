@@ -1,26 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2 net-next] net: stmmac: fix RX routing function name
-Date: Thu, 08 Jun 2017 19:30:57 -0400 (EDT)
-Message-ID: <20170608.193057.362766079085620990.davem@davemloft.net>
-References: <014297b3b5a1654eda19f099082d04b79a98b16a.1496944749.git.jpinto@synopsys.com>
+Subject: Re: [PATCH net-next] net: ethernet: ti: cpsw: enable
+ HWTSTAMP_FILTER_PTP_V1_L4_EVENT filter
+Date: Thu, 08 Jun 2017 19:32:16 -0400 (EDT)
+Message-ID: <20170608.193216.1564917208894051322.davem@davemloft.net>
+References: <20170608185131.32653-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com
-To: Joao.Pinto@synopsys.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40118 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751382AbdFHXa7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 19:30:59 -0400
-In-Reply-To: <014297b3b5a1654eda19f099082d04b79a98b16a.1496944749.git.jpinto@synopsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, nsekhar@ti.com,
+        linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org
+To: grygorii.strashko@ti.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170608185131.32653-1-grygorii.strashko@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Date: Thu, 8 Jun 2017 13:51:31 -0500
 
-A patch series should always have a proper "[PATCH 0/N] ..." header posting
-explaining what the patch series is doing at a high level, how it is doing
-it, and why it is doing it that way.
+> CPSW driver supports PTP v1 messages, but for unknown reasons this filter
+> is not advertised. As result,
+> ./tools/testing/selftests/networking/timestamping/timestamping utility
+> can't be used for testing of CPSW RX timestamping with option
+> SOF_TIMESTAMPING_RX_HARDWARE, because it uses
+> HWTSTAMP_FILTER_PTP_V1_L4_SYNC filter.
+> 
+> Hence, fix it by advertising HWTSTAMP_FILTER_PTP_V1_L4_XXX filters
+> in CPSW driver.
+> 
+> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 
-Thank you.
+Applied.
