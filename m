@@ -1,26 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2 0/3] netvsc: bug fixes
-Date: Thu, 08 Jun 2017 11:46:33 -0400 (EDT)
-Message-ID: <20170608.114633.2109283089315273289.davem@davemloft.net>
-References: <20170607225349.28359-1-sthemmin@microsoft.com>
+Subject: [PATCH] net: Fix build regression in rtl8723bs staging driver.
+Date: Thu, 08 Jun 2017 11:54:03 -0400 (EDT)
+Message-ID: <20170608.115403.59151122730404982.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com,
-        devel@linuxdriverproject.org, netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58992 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:59084 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751620AbdFHPqi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 11:46:38 -0400
-In-Reply-To: <20170607225349.28359-1-sthemmin@microsoft.com>
+        with ESMTP id S1751640AbdFHPyF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 11:54:05 -0400
+Received: from localhost (unknown [38.140.131.194])
+        (using TLSv1 with cipher AES128-SHA (128/128 bits))
+        (Client did not present a certificate)
+        (Authenticated sender: davem-davemloft)
+        by shards.monkeyblade.net (Postfix) with ESMTPSA id 5421F1248ABA3
+        for <netdev@vger.kernel.org>; Thu,  8 Jun 2017 08:12:25 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Wed,  7 Jun 2017 15:53:46 -0700
-
-> These are bugfixes for netvsc driver in 4.12.
-
-Looks good, series applied, thanks.
+DQpkcml2ZXJzL3N0YWdpbmcvcnRsODcyM2JzL29zX2RlcC9pb2N0bF9jZmc4MDIxMS5jOiBJbiBm
+dW5jdGlvbiChcnR3X2NmZzgwMjExX2FkZF9tb25pdG9yX2lmojoNCmRyaXZlcnMvc3RhZ2luZy9y
+dGw4NzIzYnMvb3NfZGVwL2lvY3RsX2NmZzgwMjExLmM6MjY3MDoxMDogZXJyb3I6IKFzdHJ1Y3Qg
+bmV0X2RldmljZaIgaGFzIG5vIG1lbWJlciBuYW1lZCChZGVzdHJ1Y3RvcqINCiAgbW9uX25kZXYt
+PmRlc3RydWN0b3IgPSBydHdfbmRldl9kZXN0cnVjdG9yOw0KICAgICAgICAgIF4NCg0KU2lnbmVk
+LW9mZi1ieTogRGF2aWQgUy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KLS0tDQoNCkFu
+b3RoZXIgcGllY2Ugb2YgZmFsbG91dCBmcm9tIHRoZSBkZXN0cnVjdG9yIGZpeCwgc29ycnkgYWJv
+dXQNCmFsbCBvZiB0aGlzLi4uDQoNCiBkcml2ZXJzL3N0YWdpbmcvcnRsODcyM2JzL29zX2RlcC9p
+b2N0bF9jZmc4MDIxMS5jIHwgMyArKy0NCiBkcml2ZXJzL3N0YWdpbmcvcnRsODcyM2JzL29zX2Rl
+cC9vc19pbnRmcy5jICAgICAgIHwgMiAtLQ0KIDIgZmlsZXMgY2hhbmdlZCwgMiBpbnNlcnRpb25z
+KCspLCAzIGRlbGV0aW9ucygtKQ0KDQpkaWZmIC0tZ2l0IGEvZHJpdmVycy9zdGFnaW5nL3J0bDg3
+MjNicy9vc19kZXAvaW9jdGxfY2ZnODAyMTEuYyBiL2RyaXZlcnMvc3RhZ2luZy9ydGw4NzIzYnMv
+b3NfZGVwL2lvY3RsX2NmZzgwMjExLmMNCmluZGV4IDM2YzMxODkuLmJkNDM1MmYgMTAwNjQ0DQot
+LS0gYS9kcml2ZXJzL3N0YWdpbmcvcnRsODcyM2JzL29zX2RlcC9pb2N0bF9jZmc4MDIxMS5jDQor
+KysgYi9kcml2ZXJzL3N0YWdpbmcvcnRsODcyM2JzL29zX2RlcC9pb2N0bF9jZmc4MDIxMS5jDQpA
+QCAtMjY2Nyw3ICsyNjY3LDggQEAgc3RhdGljIGludCBydHdfY2ZnODAyMTFfYWRkX21vbml0b3Jf
+aWYgKHN0cnVjdCBhZGFwdGVyICpwYWRhcHRlciwgY2hhciAqbmFtZSwgc3QNCiAJbW9uX25kZXYt
+PnR5cGUgPSBBUlBIUkRfSUVFRTgwMjExX1JBRElPVEFQOw0KIAlzdHJuY3B5KG1vbl9uZGV2LT5u
+YW1lLCBuYW1lLCBJRk5BTVNJWik7DQogCW1vbl9uZGV2LT5uYW1lW0lGTkFNU0laIC0gMV0gPSAw
+Ow0KLQltb25fbmRldi0+ZGVzdHJ1Y3RvciA9IHJ0d19uZGV2X2Rlc3RydWN0b3I7DQorCW1vbl9u
+ZGV2LT5uZWVkc19mcmVlX25ldGRldiA9IHRydWU7DQorCW1vbl9uZGV2LT5wcml2X2Rlc3RydWN0
+b3IgPSBydHdfbmRldl9kZXN0cnVjdG9yOw0KIA0KIAltb25fbmRldi0+bmV0ZGV2X29wcyA9ICZy
+dHdfY2ZnODAyMTFfbW9uaXRvcl9pZl9vcHM7DQogDQpkaWZmIC0tZ2l0IGEvZHJpdmVycy9zdGFn
+aW5nL3J0bDg3MjNicy9vc19kZXAvb3NfaW50ZnMuYyBiL2RyaXZlcnMvc3RhZ2luZy9ydGw4NzIz
+YnMvb3NfZGVwL29zX2ludGZzLmMNCmluZGV4IGY4M2NmYzcuLjAyMTU4OTkgMTAwNjQ0DQotLS0g
+YS9kcml2ZXJzL3N0YWdpbmcvcnRsODcyM2JzL29zX2RlcC9vc19pbnRmcy5jDQorKysgYi9kcml2
+ZXJzL3N0YWdpbmcvcnRsODcyM2JzL29zX2RlcC9vc19pbnRmcy5jDQpAQCAtMTIwNyw4ICsxMjA3
+LDYgQEAgdm9pZCBydHdfbmRldl9kZXN0cnVjdG9yKHN0cnVjdCBuZXRfZGV2aWNlICpuZGV2KQ0K
+IA0KIAlpZiAobmRldi0+aWVlZTgwMjExX3B0cikNCiAJCWtmcmVlKCh1OCAqKW5kZXYtPmllZWU4
+MDIxMV9wdHIpOw0KLQ0KLQlmcmVlX25ldGRldihuZGV2KTsNCiB9DQogDQogdm9pZCBydHdfZGV2
+X3VubG9hZChzdHJ1Y3QgYWRhcHRlciAqcGFkYXB0ZXIpDQotLSANCjIuNC4xMQ0KDQo=
