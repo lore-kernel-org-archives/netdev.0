@@ -1,7 +1,7 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 1/8] qed: LL2 to use packed information for tx
-Date: Thu, 8 Jun 2017 19:13:16 +0300
-Message-ID: <20170608161323.7597-2-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 2/8] qed: Revise ll2 Rx completion
+Date: Thu, 8 Jun 2017 19:13:17 +0300
+Message-ID: <20170608161323.7597-3-Yuval.Mintz@cavium.com>
 References: <20170608161323.7597-1-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,423 +9,220 @@ Cc: <linux-rdma@vger.kernel.org>, <Michal.Kalderon@cavium.com>,
         Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0064.outbound.protection.outlook.com ([104.47.34.64]:46001
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+Received: from mail-bn3nam01on0086.outbound.protection.outlook.com ([104.47.33.86]:24117
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751803AbdFHQNm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Jun 2017 12:13:42 -0400
+        id S1752004AbdFHQNz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Jun 2017 12:13:55 -0400
 In-Reply-To: <20170608161323.7597-1-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-First step in revising the LL2 interface, this declares
-qed_ll2_tx_pkt_info as part of the ll2 interface, and uses it for
-transmission instead of receiving lots of parameters.
+This introduces qed_ll2_comp_rx_data as a public struct
+and moves handling of Rx packets in LL2 into using it.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_ll2.c  | 127 +++++++++++++----------------
- drivers/net/ethernet/qlogic/qed/qed_ll2.h  |  41 ++--------
- drivers/net/ethernet/qlogic/qed/qed_roce.c |  18 ++--
- include/linux/qed/qed_ll2_if.h             |  27 ++++++
- 4 files changed, 102 insertions(+), 111 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_ll2.c | 84 ++++++++++++++++++-------------
+ include/linux/qed/qed_ll2_if.h            | 25 +++++++++
+ 2 files changed, 75 insertions(+), 34 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.c b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-index f67ed6d..0b75f5d 100644
+index 0b75f5d..46b71a6 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_ll2.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-@@ -740,12 +740,13 @@ static void
- qed_ooo_submit_tx_buffers(struct qed_hwfn *p_hwfn,
- 			  struct qed_ll2_info *p_ll2_conn)
- {
-+	struct qed_ll2_tx_pkt_info tx_pkt;
- 	struct qed_ooo_buffer *p_buffer;
--	int rc;
- 	u16 l4_hdr_offset_w;
- 	dma_addr_t first_frag;
- 	u16 parse_flags;
- 	u8 bd_flags;
-+	int rc;
- 
- 	/* Submit Tx buffers here */
- 	while ((p_buffer = qed_ooo_get_ready_buffer(p_hwfn,
-@@ -760,13 +761,18 @@ qed_ooo_submit_tx_buffers(struct qed_hwfn *p_hwfn,
- 		SET_FIELD(bd_flags, CORE_TX_BD_DATA_FORCE_VLAN_MODE, 1);
- 		SET_FIELD(bd_flags, CORE_TX_BD_DATA_L4_PROTOCOL, 1);
- 
--		rc = qed_ll2_prepare_tx_packet(p_hwfn, p_ll2_conn->my_id, 1,
--					       p_buffer->vlan, bd_flags,
--					       l4_hdr_offset_w,
--					       p_ll2_conn->conn.tx_dest, 0,
--					       first_frag,
--					       p_buffer->packet_length,
--					       p_buffer, true);
-+		memset(&tx_pkt, 0, sizeof(tx_pkt));
-+		tx_pkt.num_of_bds = 1;
-+		tx_pkt.vlan = p_buffer->vlan;
-+		tx_pkt.bd_flags = bd_flags;
-+		tx_pkt.l4_hdr_offset_w = l4_hdr_offset_w;
-+		tx_pkt.tx_dest = p_ll2_conn->conn.tx_dest;
-+		tx_pkt.first_frag = first_frag;
-+		tx_pkt.first_frag_len = p_buffer->packet_length;
-+		tx_pkt.cookie = p_buffer;
-+
-+		rc = qed_ll2_prepare_tx_packet(p_hwfn, p_ll2_conn->my_id,
-+					       &tx_pkt, true);
- 		if (rc) {
- 			qed_ooo_put_ready_buffer(p_hwfn, p_hwfn->p_ooo_info,
- 						 p_buffer, false);
-@@ -1593,20 +1599,18 @@ int qed_ll2_post_rx_buffer(struct qed_hwfn *p_hwfn,
- static void qed_ll2_prepare_tx_packet_set(struct qed_hwfn *p_hwfn,
- 					  struct qed_ll2_tx_queue *p_tx,
- 					  struct qed_ll2_tx_packet *p_curp,
--					  u8 num_of_bds,
--					  dma_addr_t first_frag,
--					  u16 first_frag_len, void *p_cookie,
-+					  struct qed_ll2_tx_pkt_info *pkt,
- 					  u8 notify_fw)
- {
- 	list_del(&p_curp->list_entry);
--	p_curp->cookie = p_cookie;
--	p_curp->bd_used = num_of_bds;
-+	p_curp->cookie = pkt->cookie;
-+	p_curp->bd_used = pkt->num_of_bds;
- 	p_curp->notify_fw = notify_fw;
- 	p_tx->cur_send_packet = p_curp;
- 	p_tx->cur_send_frag_num = 0;
- 
--	p_curp->bds_set[p_tx->cur_send_frag_num].tx_frag = first_frag;
--	p_curp->bds_set[p_tx->cur_send_frag_num].frag_len = first_frag_len;
-+	p_curp->bds_set[p_tx->cur_send_frag_num].tx_frag = pkt->first_frag;
-+	p_curp->bds_set[p_tx->cur_send_frag_num].frag_len = pkt->first_frag_len;
- 	p_tx->cur_send_frag_num++;
+@@ -165,41 +165,33 @@ static void qed_ll2_kill_buffers(struct qed_dev *cdev)
  }
  
-@@ -1614,32 +1618,33 @@ static void
- qed_ll2_prepare_tx_packet_set_bd(struct qed_hwfn *p_hwfn,
- 				 struct qed_ll2_info *p_ll2,
- 				 struct qed_ll2_tx_packet *p_curp,
--				 u8 num_of_bds,
--				 enum core_tx_dest tx_dest,
--				 u16 vlan,
--				 u8 bd_flags,
--				 u16 l4_hdr_offset_w,
--				 enum core_roce_flavor_type roce_flavor,
--				 dma_addr_t first_frag,
--				 u16 first_frag_len)
-+				 struct qed_ll2_tx_pkt_info *pkt)
+ static void qed_ll2b_complete_rx_packet(struct qed_hwfn *p_hwfn,
+-					u8 connection_handle,
+-					struct qed_ll2_rx_packet *p_pkt,
+-					struct core_rx_fast_path_cqe *p_cqe,
+-					bool b_last_packet)
++				 struct qed_ll2_comp_rx_data *data)
  {
- 	struct qed_chain *p_tx_chain = &p_ll2->tx_queue.txq_chain;
- 	u16 prod_idx = qed_chain_get_prod_idx(p_tx_chain);
- 	struct core_tx_bd *start_bd = NULL;
-+	enum core_roce_flavor_type roce_flavor;
-+	enum core_tx_dest tx_dest;
- 	u16 bd_data = 0, frag_idx;
+-	u16 packet_length = le16_to_cpu(p_cqe->packet_length);
+-	struct qed_ll2_buffer *buffer = p_pkt->cookie;
++	struct qed_ll2_buffer *buffer = data->cookie;
+ 	struct qed_dev *cdev = p_hwfn->cdev;
+-	u16 vlan = le16_to_cpu(p_cqe->vlan);
+-	u32 opaque_data_0, opaque_data_1;
+-	u8 pad = p_cqe->placement_offset;
+ 	dma_addr_t new_phys_addr;
+ 	struct sk_buff *skb;
+ 	bool reuse = false;
+ 	int rc = -EINVAL;
+ 	u8 *new_data;
  
-+	roce_flavor = (pkt->qed_roce_flavor == QED_LL2_ROCE) ? CORE_ROCE
-+							     : CORE_RROCE;
-+
-+	tx_dest = (pkt->tx_dest == QED_LL2_TX_DEST_NW) ? CORE_TX_DEST_NW
-+						       : CORE_TX_DEST_LB;
-+
- 	start_bd = (struct core_tx_bd *)qed_chain_produce(p_tx_chain);
--	start_bd->nw_vlan_or_lb_echo = cpu_to_le16(vlan);
-+	start_bd->nw_vlan_or_lb_echo = cpu_to_le16(pkt->vlan);
- 	SET_FIELD(start_bd->bitfield1, CORE_TX_BD_L4_HDR_OFFSET_W,
--		  cpu_to_le16(l4_hdr_offset_w));
-+		  cpu_to_le16(pkt->l4_hdr_offset_w));
- 	SET_FIELD(start_bd->bitfield1, CORE_TX_BD_TX_DST, tx_dest);
--	bd_data |= bd_flags;
-+	bd_data |= pkt->bd_flags;
- 	SET_FIELD(bd_data, CORE_TX_BD_DATA_START_BD, 0x1);
--	SET_FIELD(bd_data, CORE_TX_BD_DATA_NBDS, num_of_bds);
-+	SET_FIELD(bd_data, CORE_TX_BD_DATA_NBDS, pkt->num_of_bds);
- 	SET_FIELD(bd_data, CORE_TX_BD_DATA_ROCE_FLAV, roce_flavor);
- 	start_bd->bd_data.as_bitfield = cpu_to_le16(bd_data);
--	DMA_REGPAIR_LE(start_bd->addr, first_frag);
--	start_bd->nbytes = cpu_to_le16(first_frag_len);
-+	DMA_REGPAIR_LE(start_bd->addr, pkt->first_frag);
-+	start_bd->nbytes = cpu_to_le16(pkt->first_frag_len);
- 
+-	opaque_data_0 = le32_to_cpu(p_cqe->opaque_data.data[0]);
+-	opaque_data_1 = le32_to_cpu(p_cqe->opaque_data.data[1]);
+-
  	DP_VERBOSE(p_hwfn,
- 		   (NETIF_MSG_TX_QUEUED | QED_MSG_LL2),
-@@ -1648,17 +1653,17 @@ qed_ll2_prepare_tx_packet_set_bd(struct qed_hwfn *p_hwfn,
- 		   p_ll2->cid,
- 		   p_ll2->conn.conn_type,
- 		   prod_idx,
--		   first_frag_len,
--		   num_of_bds,
-+		   pkt->first_frag_len,
-+		   pkt->num_of_bds,
- 		   le32_to_cpu(start_bd->addr.hi),
- 		   le32_to_cpu(start_bd->addr.lo));
+ 		   (NETIF_MSG_RX_STATUS | QED_MSG_STORAGE | NETIF_MSG_PKTDATA),
+ 		   "Got an LL2 Rx completion: [Buffer at phys 0x%llx, offset 0x%02x] Length 0x%04x Parse_flags 0x%04x vlan 0x%04x Opaque data [0x%08x:0x%08x]\n",
+-		   (u64)p_pkt->rx_buf_addr, pad, packet_length,
+-		   le16_to_cpu(p_cqe->parse_flags.flags), vlan,
+-		   opaque_data_0, opaque_data_1);
++		   (u64)data->rx_buf_addr,
++		   data->u.placement_offset,
++		   data->length.packet_length,
++		   data->parse_flags,
++		   data->vlan, data->opaque_data_0, data->opaque_data_1);
  
--	if (p_ll2->tx_queue.cur_send_frag_num == num_of_bds)
-+	if (p_ll2->tx_queue.cur_send_frag_num == pkt->num_of_bds)
- 		return;
+ 	if ((cdev->dp_module & NETIF_MSG_PKTDATA) && buffer->data) {
+ 		print_hex_dump(KERN_INFO, "",
+ 			       DUMP_PREFIX_OFFSET, 16, 1,
+-			       buffer->data, packet_length, false);
++			       buffer->data, data->length.packet_length, false);
+ 	}
  
- 	/* Need to provide the packet with additional BDs for frags */
- 	for (frag_idx = p_ll2->tx_queue.cur_send_frag_num;
--	     frag_idx < num_of_bds; frag_idx++) {
-+	     frag_idx < pkt->num_of_bds; frag_idx++) {
- 		struct core_tx_bd **p_bd = &p_curp->bds_set[frag_idx].txq_bd;
+ 	/* Determine if data is valid */
+-	if (packet_length < ETH_HLEN)
++	if (data->length.packet_length < ETH_HLEN)
+ 		reuse = true;
  
- 		*p_bd = (struct core_tx_bd *)qed_chain_produce(p_tx_chain);
-@@ -1726,21 +1731,13 @@ static void qed_ll2_tx_packet_notify(struct qed_hwfn *p_hwfn,
+ 	/* Allocate a replacement for buffer; Reuse upon failure */
+@@ -219,9 +211,9 @@ static void qed_ll2b_complete_rx_packet(struct qed_hwfn *p_hwfn,
+ 		goto out_post;
+ 	}
  
- int qed_ll2_prepare_tx_packet(struct qed_hwfn *p_hwfn,
- 			      u8 connection_handle,
--			      u8 num_of_bds,
--			      u16 vlan,
--			      u8 bd_flags,
--			      u16 l4_hdr_offset_w,
--			      enum qed_ll2_tx_dest e_tx_dest,
--			      enum qed_ll2_roce_flavor_type qed_roce_flavor,
--			      dma_addr_t first_frag,
--			      u16 first_frag_len, void *cookie, u8 notify_fw)
-+			      struct qed_ll2_tx_pkt_info *pkt,
-+			      bool notify_fw)
+-	pad += NET_SKB_PAD;
+-	skb_reserve(skb, pad);
+-	skb_put(skb, packet_length);
++	data->u.placement_offset += NET_SKB_PAD;
++	skb_reserve(skb, data->u.placement_offset);
++	skb_put(skb, data->length.packet_length);
+ 	skb_checksum_none_assert(skb);
+ 
+ 	/* Get parital ethernet information instead of eth_type_trans(),
+@@ -232,10 +224,12 @@ static void qed_ll2b_complete_rx_packet(struct qed_hwfn *p_hwfn,
+ 
+ 	/* Pass SKB onward */
+ 	if (cdev->ll2->cbs && cdev->ll2->cbs->rx_cb) {
+-		if (vlan)
+-			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlan);
++		if (data->vlan)
++			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
++					       data->vlan);
+ 		cdev->ll2->cbs->rx_cb(cdev->ll2->cb_cookie, skb,
+-				      opaque_data_0, opaque_data_1);
++				      data->opaque_data_0,
++				      data->opaque_data_1);
+ 	}
+ 
+ 	/* Update Buffer information and update FW producer */
+@@ -472,33 +466,55 @@ qed_ll2_rxq_completion_gsi(struct qed_hwfn *p_hwfn,
+ 	return 0;
+ }
+ 
+-static int qed_ll2_rxq_completion_reg(struct qed_hwfn *p_hwfn,
+-				      struct qed_ll2_info *p_ll2_conn,
+-				      union core_rx_cqe_union *p_cqe,
+-				      unsigned long *p_lock_flags,
+-				      bool b_last_cqe)
++static void qed_ll2_rxq_parse_reg(struct qed_hwfn *p_hwfn,
++				  union core_rx_cqe_union *p_cqe,
++				  struct qed_ll2_comp_rx_data *data)
++{
++	data->parse_flags = le16_to_cpu(p_cqe->rx_cqe_fp.parse_flags.flags);
++	data->length.packet_length =
++	    le16_to_cpu(p_cqe->rx_cqe_fp.packet_length);
++	data->vlan = le16_to_cpu(p_cqe->rx_cqe_fp.vlan);
++	data->opaque_data_0 = le32_to_cpu(p_cqe->rx_cqe_fp.opaque_data.data[0]);
++	data->opaque_data_1 = le32_to_cpu(p_cqe->rx_cqe_fp.opaque_data.data[1]);
++	data->u.placement_offset = p_cqe->rx_cqe_fp.placement_offset;
++}
++
++static int
++qed_ll2_rxq_handle_completion(struct qed_hwfn *p_hwfn,
++			      struct qed_ll2_info *p_ll2_conn,
++			      union core_rx_cqe_union *p_cqe,
++			      unsigned long *p_lock_flags, bool b_last_cqe)
  {
- 	struct qed_ll2_tx_packet *p_curp = NULL;
- 	struct qed_ll2_info *p_ll2_conn = NULL;
--	enum core_roce_flavor_type roce_flavor;
- 	struct qed_ll2_tx_queue *p_tx;
- 	struct qed_chain *p_tx_chain;
--	enum core_tx_dest tx_dest;
- 	unsigned long flags;
- 	int rc = 0;
+ 	struct qed_ll2_rx_queue *p_rx = &p_ll2_conn->rx_queue;
+ 	struct qed_ll2_rx_packet *p_pkt = NULL;
++	struct qed_ll2_comp_rx_data data;
  
-@@ -1750,7 +1747,7 @@ int qed_ll2_prepare_tx_packet(struct qed_hwfn *p_hwfn,
- 	p_tx = &p_ll2_conn->tx_queue;
- 	p_tx_chain = &p_tx->txq_chain;
- 
--	if (num_of_bds > CORE_LL2_TX_MAX_BDS_PER_PACKET)
-+	if (pkt->num_of_bds > CORE_LL2_TX_MAX_BDS_PER_PACKET)
+ 	if (!list_empty(&p_rx->active_descq))
+ 		p_pkt = list_first_entry(&p_rx->active_descq,
+ 					 struct qed_ll2_rx_packet, list_entry);
+ 	if (!p_pkt) {
+ 		DP_NOTICE(p_hwfn,
+-			  "LL2 Rx completion but active_descq is empty\n");
++			  "[%d] LL2 Rx completion but active_descq is empty\n",
++			  p_ll2_conn->conn.conn_type);
++
  		return -EIO;
- 
- 	spin_lock_irqsave(&p_tx->lock, flags);
-@@ -1763,7 +1760,7 @@ int qed_ll2_prepare_tx_packet(struct qed_hwfn *p_hwfn,
- 	if (!list_empty(&p_tx->free_descq))
- 		p_curp = list_first_entry(&p_tx->free_descq,
- 					  struct qed_ll2_tx_packet, list_entry);
--	if (p_curp && qed_chain_get_elem_left(p_tx_chain) < num_of_bds)
-+	if (p_curp && qed_chain_get_elem_left(p_tx_chain) < pkt->num_of_bds)
- 		p_curp = NULL;
- 
- 	if (!p_curp) {
-@@ -1771,26 +1768,10 @@ int qed_ll2_prepare_tx_packet(struct qed_hwfn *p_hwfn,
- 		goto out;
  	}
+ 	list_del(&p_pkt->list_entry);
  
--	tx_dest = e_tx_dest == QED_LL2_TX_DEST_NW ? CORE_TX_DEST_NW :
--						    CORE_TX_DEST_LB;
--	if (qed_roce_flavor == QED_LL2_ROCE) {
--		roce_flavor = CORE_ROCE;
--	} else if (qed_roce_flavor == QED_LL2_RROCE) {
--		roce_flavor = CORE_RROCE;
--	} else {
--		rc = -EINVAL;
--		goto out;
--	}
--
- 	/* Prepare packet and BD, and perhaps send a doorbell to FW */
--	qed_ll2_prepare_tx_packet_set(p_hwfn, p_tx, p_curp,
--				      num_of_bds, first_frag,
--				      first_frag_len, cookie, notify_fw);
--	qed_ll2_prepare_tx_packet_set_bd(p_hwfn, p_ll2_conn, p_curp,
--					 num_of_bds, tx_dest,
--					 vlan, bd_flags, l4_hdr_offset_w,
--					 roce_flavor,
--					 first_frag, first_frag_len);
-+	qed_ll2_prepare_tx_packet_set(p_hwfn, p_tx, p_curp, pkt, notify_fw);
++	qed_ll2_rxq_parse_reg(p_hwfn, p_cqe, &data);
+ 	if (qed_chain_consume(&p_rx->rxq_chain) != p_pkt->rxq_bd)
+ 		DP_NOTICE(p_hwfn,
+ 			  "Mismatch between active_descq and the LL2 Rx chain\n");
 +
-+	qed_ll2_prepare_tx_packet_set_bd(p_hwfn, p_ll2_conn, p_curp, pkt);
+ 	list_add_tail(&p_pkt->list_entry, &p_rx->free_descq);
  
- 	qed_ll2_tx_packet_notify(p_hwfn, p_ll2_conn);
- 
-@@ -2245,6 +2226,7 @@ static int qed_ll2_stop(struct qed_dev *cdev)
- 
- static int qed_ll2_start_xmit(struct qed_dev *cdev, struct sk_buff *skb)
- {
-+	struct qed_ll2_tx_pkt_info pkt;
- 	const skb_frag_t *frag;
- 	int rc = -EINVAL, i;
- 	dma_addr_t mapping;
-@@ -2279,12 +2261,17 @@ static int qed_ll2_start_xmit(struct qed_dev *cdev, struct sk_buff *skb)
- 		flags |= BIT(CORE_TX_BD_DATA_VLAN_INSERTION_SHIFT);
- 	}
- 
--	rc = qed_ll2_prepare_tx_packet(QED_LEADING_HWFN(cdev),
--				       cdev->ll2->handle,
--				       1 + skb_shinfo(skb)->nr_frags,
--				       vlan, flags, 0, QED_LL2_TX_DEST_NW,
--				       0 /* RoCE FLAVOR */,
--				       mapping, skb->len, skb, 1);
-+	memset(&pkt, 0, sizeof(pkt));
-+	pkt.num_of_bds = 1 + skb_shinfo(skb)->nr_frags;
-+	pkt.vlan = vlan;
-+	pkt.bd_flags = flags;
-+	pkt.tx_dest = QED_LL2_TX_DEST_NW;
-+	pkt.first_frag = mapping;
-+	pkt.first_frag_len = skb->len;
-+	pkt.cookie = skb;
++	data.connection_handle = p_ll2_conn->my_id;
++	data.cookie = p_pkt->cookie;
++	data.rx_buf_addr = p_pkt->rx_buf_addr;
++	data.b_last_packet = b_last_cqe;
 +
-+	rc = qed_ll2_prepare_tx_packet(&cdev->hwfns[0], cdev->ll2->handle,
-+				       &pkt, 1);
- 	if (rc)
- 		goto err;
+ 	spin_unlock_irqrestore(&p_rx->lock, *p_lock_flags);
+-	qed_ll2b_complete_rx_packet(p_hwfn, p_ll2_conn->my_id,
+-				    p_pkt, &p_cqe->rx_cqe_fp, b_last_cqe);
++	qed_ll2b_complete_rx_packet(p_hwfn, &data);
+ 	spin_lock_irqsave(&p_rx->lock, *p_lock_flags);
  
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.h b/drivers/net/ethernet/qlogic/qed/qed_ll2.h
-index 2c07d0e..96af50b 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_ll2.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.h
-@@ -47,12 +47,6 @@
- 
- #define QED_MAX_NUM_OF_LL2_CONNECTIONS                    (4)
- 
--enum qed_ll2_roce_flavor_type {
--	QED_LL2_ROCE,
--	QED_LL2_RROCE,
--	MAX_QED_LL2_ROCE_FLAVOR_TYPE
--};
--
- enum qed_ll2_conn_type {
- 	QED_LL2_TYPE_FCOE,
- 	QED_LL2_TYPE_ISCSI,
-@@ -64,12 +58,6 @@ enum qed_ll2_conn_type {
- 	MAX_QED_LL2_RX_CONN_TYPE
- };
- 
--enum qed_ll2_tx_dest {
--	QED_LL2_TX_DEST_NW, /* Light L2 TX Destination to the Network */
--	QED_LL2_TX_DEST_LB, /* Light L2 TX Destination to the Loopback */
--	QED_LL2_TX_DEST_MAX
--};
--
- struct qed_ll2_rx_packet {
- 	struct list_head list_entry;
- 	struct core_rx_bd_with_buff_len *rxq_bd;
-@@ -216,35 +204,16 @@ int qed_ll2_post_rx_buffer(struct qed_hwfn *p_hwfn,
-  *				      to prepare Tx packet submission to FW.
-  *
-  * @param p_hwfn
-- * @param connection_handle	LL2 connection's handle obtained from
-- *				qed_ll2_require_connection
-- * @param num_of_bds		a number of requested BD equals a number of
-- *				fragments in Tx packet
-- * @param vlan			VLAN to insert to packet (if insertion set)
-- * @param bd_flags
-- * @param l4_hdr_offset_w	L4 Header Offset from start of packet
-- *				(in words). This is needed if both l4_csum
-- *				and ipv6_ext are set
-- * @param e_tx_dest             indicates if the packet is to be transmitted via
-- *                              loopback or to the network
-- * @param first_frag
-- * @param first_frag_len
-- * @param cookie
-- *
-- * @param notify_fw
-+ * @param connection_handle
-+ * @param pkt - info regarding the tx packet
-+ * @param notify_fw - issue doorbell to fw for this packet
-  *
-  * @return 0 on success, failure otherwise
-  */
- int qed_ll2_prepare_tx_packet(struct qed_hwfn *p_hwfn,
- 			      u8 connection_handle,
--			      u8 num_of_bds,
--			      u16 vlan,
--			      u8 bd_flags,
--			      u16 l4_hdr_offset_w,
--			      enum qed_ll2_tx_dest e_tx_dest,
--			      enum qed_ll2_roce_flavor_type qed_roce_flavor,
--			      dma_addr_t first_frag,
--			      u16 first_frag_len, void *cookie, u8 notify_fw);
-+			      struct qed_ll2_tx_pkt_info *pkt,
-+			      bool notify_fw);
- 
- /**
-  * @brief qed_ll2_release_connection -	releases resources
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_roce.c b/drivers/net/ethernet/qlogic/qed/qed_roce.c
-index b9434b7..afc63c0 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_roce.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_roce.c
-@@ -2937,6 +2937,7 @@ static int qed_roce_ll2_tx(struct qed_dev *cdev,
- 	struct qed_hwfn *hwfn = QED_LEADING_HWFN(cdev);
- 	struct qed_roce_ll2_info *roce_ll2 = hwfn->ll2;
- 	enum qed_ll2_roce_flavor_type qed_roce_flavor;
-+	struct qed_ll2_tx_pkt_info ll2_pkt;
- 	u8 flags = 0;
- 	int rc;
- 	int i;
-@@ -2955,11 +2956,18 @@ static int qed_roce_ll2_tx(struct qed_dev *cdev,
- 		flags |= BIT(CORE_TX_BD_DATA_IP_CSUM_SHIFT);
- 
- 	/* Tx header */
--	rc = qed_ll2_prepare_tx_packet(QED_LEADING_HWFN(cdev), roce_ll2->handle,
--				       1 + pkt->n_seg, 0, flags, 0,
--				       QED_LL2_TX_DEST_NW,
--				       qed_roce_flavor, pkt->header.baddr,
--				       pkt->header.len, pkt, 1);
-+	memset(&ll2_pkt, 0, sizeof(ll2_pkt));
-+	ll2_pkt.num_of_bds = 1 + pkt->n_seg;
-+	ll2_pkt.bd_flags = flags;
-+	ll2_pkt.tx_dest = QED_LL2_TX_DEST_NW;
-+	ll2_pkt.qed_roce_flavor = qed_roce_flavor;
-+	ll2_pkt.first_frag = pkt->header.baddr;
-+	ll2_pkt.first_frag_len = pkt->header.len;
-+	ll2_pkt.cookie = pkt;
-+
-+	rc = qed_ll2_prepare_tx_packet(QED_LEADING_HWFN(cdev),
-+				       roce_ll2->handle,
-+				       &ll2_pkt, 1);
- 	if (rc) {
- 		DP_ERR(cdev, "roce ll2 tx: header failed (rc=%d)\n", rc);
- 		return QED_ROCE_TX_HEAD_FAILURE;
+ 	return 0;
+@@ -538,9 +554,9 @@ static int qed_ll2_rxq_completion(struct qed_hwfn *p_hwfn, void *cookie)
+ 							cqe, flags, b_last_cqe);
+ 			break;
+ 		case CORE_RX_CQE_TYPE_REGULAR:
+-			rc = qed_ll2_rxq_completion_reg(p_hwfn, p_ll2_conn,
+-							cqe, &flags,
+-							b_last_cqe);
++			rc = qed_ll2_rxq_handle_completion(p_hwfn, p_ll2_conn,
++							   cqe, &flags,
++							   b_last_cqe);
+ 			break;
+ 		default:
+ 			rc = -EIO;
 diff --git a/include/linux/qed/qed_ll2_if.h b/include/linux/qed/qed_ll2_if.h
-index 4fb4666..1a9a5b9 100644
+index 1a9a5b9..5145278 100644
 --- a/include/linux/qed/qed_ll2_if.h
 +++ b/include/linux/qed/qed_ll2_if.h
-@@ -43,6 +43,18 @@
- #include <linux/slab.h>
- #include <linux/qed/qed_if.h>
- 
-+enum qed_ll2_roce_flavor_type {
-+	QED_LL2_ROCE,
-+	QED_LL2_RROCE,
-+	MAX_QED_LL2_ROCE_FLAVOR_TYPE
-+};
-+
-+enum qed_ll2_tx_dest {
-+	QED_LL2_TX_DEST_NW, /* Light L2 TX Destination to the Network */
-+	QED_LL2_TX_DEST_LB, /* Light L2 TX Destination to the Loopback */
-+	QED_LL2_TX_DEST_MAX
-+};
-+
- struct qed_ll2_stats {
- 	u64 gsi_invalid_hdr;
- 	u64 gsi_invalid_pkt_length;
-@@ -67,6 +79,21 @@ struct qed_ll2_stats {
+@@ -79,6 +79,31 @@ struct qed_ll2_stats {
  	u64 sent_bcast_pkts;
  };
  
-+struct qed_ll2_tx_pkt_info {
-+	u8 num_of_bds;
-+	u16 vlan;
-+	u8 bd_flags;
-+	u16 l4_hdr_offset_w;	/* from start of packet */
-+	enum qed_ll2_tx_dest tx_dest;
-+	enum qed_ll2_roce_flavor_type qed_roce_flavor;
-+	dma_addr_t first_frag;
-+	u16 first_frag_len;
-+	bool enable_ip_cksum;
-+	bool enable_l4_cksum;
-+	bool calc_ip_len;
++struct qed_ll2_comp_rx_data {
++	u8 connection_handle;
 +	void *cookie;
++	dma_addr_t rx_buf_addr;
++	u16 parse_flags;
++	u16 vlan;
++	bool b_last_packet;
++
++	union {
++		u8 placement_offset;
++		u8 data_length_error;
++	} u;
++	union {
++		u16 packet_length;
++		u16 data_length;
++	} length;
++
++	u32 opaque_data_0;
++	u32 opaque_data_1;
++
++	/* GSI only */
++	u32 gid_dst[4];
++	u16 qp_id;
 +};
 +
- #define QED_LL2_UNUSED_HANDLE   (0xff)
- 
- struct qed_ll2_cb_ops {
+ struct qed_ll2_tx_pkt_info {
+ 	u8 num_of_bds;
+ 	u16 vlan;
 -- 
 2.9.4
