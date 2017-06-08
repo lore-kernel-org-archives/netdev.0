@@ -1,7 +1,7 @@
 From: <netanel@amazon.com>
-Subject: [PATCH net-next 06/13] net: ena: allow the driver to work with small number of msix vectors
-Date: Fri, 9 Jun 2017 00:46:43 +0300
-Message-ID: <1496958410-4220-17-git-send-email-netanel@amazon.com>
+Subject: [PATCH net-next 05/13] net: ena: add support for out of order rx buffers refill
+Date: Fri, 9 Jun 2017 00:46:42 +0300
+Message-ID: <1496958410-4220-16-git-send-email-netanel@amazon.com>
 References: <1496958410-4220-1-git-send-email-netanel@amazon.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,194 +11,276 @@ Cc: Netanel Belgazal <netanel@amazon.com>, <dwmw@amazon.com>,
         <evgenys@amazon.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-fw-2101.amazon.com ([72.21.196.25]:17600 "EHLO
-        smtp-fw-2101.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751753AbdFHVsp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 17:48:45 -0400
+Received: from smtp-fw-33001.amazon.com ([207.171.190.10]:24826 "EHLO
+        smtp-fw-33001.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751983AbdFHVsw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 17:48:52 -0400
 In-Reply-To: <1496958410-4220-1-git-send-email-netanel@amazon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Netanel Belgazal <netanel@amazon.com>
 
-Current driver tries to allocate msix vectors as the number of the
-negotiated io queues. (with another msix vector for management).
-If pci_alloc_irq_vectors() fails, the driver aborts the probe
-and the ENA network device is never brought up.
+ENA driver post Rx buffers through the Rx submission queue
+for the ENA device to fill them with receive packets.
+Each Rx buffer is marked with req_id in the Rx descriptor.
 
-With this patch, the driver's logic will reduce the number of IO
-queues to the number of allocated msix vectors (minus one for management)
-instead of failing probe().
+Newer ENA devices could consume the posted Rx buffer in out of order,
+and as result the corresponding Rx completion queue will have Rx
+completion descriptors with non contiguous req_id(s)
+
+In this change the driver holds two rings.
+The first ring (called free_rx_ids) is a mapping ring.
+It holds all the unused request ids.
+The values in this ring are from 0 to ring_size -1.
+
+When the driver wants to allocate a new Rx buffer it uses the head of
+free_rx_ids and uses it's value as the index for rx_buffer_info ring.
+The req_id is also written to the Rx descriptor
+
+Upon Rx completion,
+The driver took the req_id from the completion descriptor and uses it
+as index in rx_buffer_info.
+The req_id is then return to the free_rx_ids ring.
+
+This patch also adds statistics to inform when the driver receive out
+of range or unused req_id.
+
+Note:
+free_rx_ids is only accessible from the napi handler, so no locking is
+required
 
 Signed-off-by: Netanel Belgazal <netanel@amazon.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_netdev.c | 65 ++++++++++++++++++++--------
- drivers/net/ethernet/amazon/ena/ena_netdev.h |  6 ++-
- 2 files changed, 51 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_eth_com.c |  5 ++
+ drivers/net/ethernet/amazon/ena/ena_ethtool.c |  1 +
+ drivers/net/ethernet/amazon/ena/ena_netdev.c  | 83 ++++++++++++++++++++++-----
+ drivers/net/ethernet/amazon/ena/ena_netdev.h  | 11 +++-
+ 4 files changed, 83 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-index fcbcd18..04aade8 100644
---- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-@@ -1269,9 +1269,20 @@ static irqreturn_t ena_intr_msix_io(int irq, void *data)
- 	return IRQ_HANDLED;
- }
+diff --git a/drivers/net/ethernet/amazon/ena/ena_eth_com.c b/drivers/net/ethernet/amazon/ena/ena_eth_com.c
+index f999305..b11e573 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_eth_com.c
++++ b/drivers/net/ethernet/amazon/ena/ena_eth_com.c
+@@ -493,6 +493,11 @@ int ena_com_tx_comp_req_id_get(struct ena_com_io_cq *io_cq, u16 *req_id)
+ 	if (cdesc_phase != expected_phase)
+ 		return -EAGAIN;
  
-+/* Reserve a single MSI-X vector for management (admin + aenq).
-+ * plus reserve one vector for each potential io queue.
-+ * the number of potential io queues is the minimum of what the device
-+ * supports and the number of vCPUs.
-+ */
- static int ena_enable_msix(struct ena_adapter *adapter, int num_queues)
- {
--	int msix_vecs, rc;
-+	int msix_vecs, irq_cnt;
-+
-+	if (test_bit(ENA_FLAG_MSIX_ENABLED, &adapter->flags)) {
-+		netif_err(adapter, probe, adapter->netdev,
-+			  "Error, MSI-X is already enabled\n");
-+		return -EPERM;
-+	}
- 
- 	/* Reserved the max msix vectors we might need */
- 	msix_vecs = ENA_MAX_MSIX_VEC(num_queues);
-@@ -1279,25 +1290,28 @@ static int ena_enable_msix(struct ena_adapter *adapter, int num_queues)
- 	netif_dbg(adapter, probe, adapter->netdev,
- 		  "trying to enable MSI-X, vectors %d\n", msix_vecs);
- 
--	rc = pci_alloc_irq_vectors(adapter->pdev, msix_vecs, msix_vecs,
--			PCI_IRQ_MSIX);
--	if (rc < 0) {
-+	irq_cnt = pci_alloc_irq_vectors(adapter->pdev, ENA_MIN_MSIX_VEC,
-+					msix_vecs, PCI_IRQ_MSIX);
-+
-+	if (irq_cnt < 0) {
- 		netif_err(adapter, probe, adapter->netdev,
--			  "Failed to enable MSI-X, vectors %d rc %d\n",
--			  msix_vecs, rc);
-+			  "Failed to enable MSI-X. irq_cnt %d\n", irq_cnt);
- 		return -ENOSPC;
- 	}
- 
--	netif_dbg(adapter, probe, adapter->netdev, "enable MSI-X, vectors %d\n",
--		  msix_vecs);
--
--	if (msix_vecs >= 1) {
--		if (ena_init_rx_cpu_rmap(adapter))
--			netif_warn(adapter, probe, adapter->netdev,
--				   "Failed to map IRQs to CPUs\n");
-+	if (irq_cnt != msix_vecs) {
-+		netif_notice(adapter, probe, adapter->netdev,
-+			     "enable only %d MSI-X (out of %d), reduce the number of queues\n",
-+			     irq_cnt, msix_vecs);
-+		adapter->num_queues = irq_cnt - ENA_ADMIN_MSIX_VEC;
- 	}
- 
--	adapter->msix_vecs = msix_vecs;
-+	if (ena_init_rx_cpu_rmap(adapter))
-+		netif_warn(adapter, probe, adapter->netdev,
-+			   "Failed to map IRQs to CPUs\n");
-+
-+	adapter->msix_vecs = irq_cnt;
-+	set_bit(ENA_FLAG_MSIX_ENABLED, &adapter->flags);
- 
- 	return 0;
- }
-@@ -1374,6 +1388,12 @@ static int ena_request_io_irq(struct ena_adapter *adapter)
- 	struct ena_irq *irq;
- 	int rc = 0, i, k;
- 
-+	if (!test_bit(ENA_FLAG_MSIX_ENABLED, &adapter->flags)) {
-+		netif_err(adapter, ifup, adapter->netdev,
-+			  "Failed to request I/O IRQ: MSI-X is not enabled\n");
++	if (unlikely(cdesc->req_id >= io_cq->q_depth)) {
++		pr_err("Invalid req id %d\n", cdesc->req_id);
 +		return -EINVAL;
 +	}
 +
- 	for (i = ENA_IO_IRQ_FIRST_IDX; i < adapter->msix_vecs; i++) {
- 		irq = &adapter->irq_tbl[i];
- 		rc = request_irq(irq->vector, irq->handler, flags, irq->name,
-@@ -1432,6 +1452,12 @@ static void ena_free_io_irq(struct ena_adapter *adapter)
- 	}
- }
+ 	ena_com_cq_inc_head(io_cq);
  
-+static void ena_disable_msix(struct ena_adapter *adapter)
-+{
-+	if (test_and_clear_bit(ENA_FLAG_MSIX_ENABLED, &adapter->flags))
-+		pci_free_irq_vectors(adapter->pdev);
-+}
-+
- static void ena_disable_io_intr_sync(struct ena_adapter *adapter)
- {
- 	int i;
-@@ -2520,7 +2546,8 @@ static int ena_enable_msix_and_set_admin_interrupts(struct ena_adapter *adapter,
- 	return 0;
- 
- err_disable_msix:
--	pci_free_irq_vectors(adapter->pdev);
-+	ena_disable_msix(adapter);
-+
- 	return rc;
- }
- 
-@@ -2558,7 +2585,7 @@ static void ena_fw_reset_device(struct work_struct *work)
- 
- 	ena_free_mgmnt_irq(adapter);
- 
--	pci_free_irq_vectors(adapter->pdev);
-+	ena_disable_msix(adapter);
- 
- 	ena_com_abort_admin_commands(ena_dev);
- 
-@@ -2610,7 +2637,7 @@ static void ena_fw_reset_device(struct work_struct *work)
- 	return;
- err_disable_msix:
- 	ena_free_mgmnt_irq(adapter);
--	pci_free_irq_vectors(adapter->pdev);
-+	ena_disable_msix(adapter);
- err_device_destroy:
- 	ena_com_admin_destroy(ena_dev);
- err:
-@@ -3269,7 +3296,7 @@ static int ena_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- err_free_msix:
- 	ena_com_dev_reset(ena_dev, ENA_REGS_RESET_INIT_ERR);
- 	ena_free_mgmnt_irq(adapter);
--	pci_free_irq_vectors(adapter->pdev);
-+	ena_disable_msix(adapter);
- err_worker_destroy:
- 	ena_com_destroy_interrupt_moderation(ena_dev);
- 	del_timer(&adapter->timer_service);
-@@ -3354,7 +3381,7 @@ static void ena_remove(struct pci_dev *pdev)
- 
- 	ena_free_mgmnt_irq(adapter);
- 
--	pci_free_irq_vectors(adapter->pdev);
-+	ena_disable_msix(adapter);
- 
- 	free_netdev(netdev);
- 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.h b/drivers/net/ethernet/amazon/ena/ena_netdev.h
-index c6b17ce..4518a9d 100644
---- a/drivers/net/ethernet/amazon/ena/ena_netdev.h
-+++ b/drivers/net/ethernet/amazon/ena/ena_netdev.h
-@@ -58,7 +58,10 @@
- #define DEVICE_NAME	"Elastic Network Adapter (ENA)"
- 
- /* 1 for AENQ + ADMIN */
--#define ENA_MAX_MSIX_VEC(io_queues)	(1 + (io_queues))
-+#define ENA_ADMIN_MSIX_VEC		1
-+#define ENA_MAX_MSIX_VEC(io_queues)	(ENA_ADMIN_MSIX_VEC + (io_queues))
-+
-+#define ENA_MIN_MSIX_VEC		2
- 
- #define ENA_REG_BAR			0
- #define ENA_MEM_BAR			2
-@@ -267,6 +270,7 @@ enum ena_flags_t {
- 	ENA_FLAG_DEVICE_RUNNING,
- 	ENA_FLAG_DEV_UP,
- 	ENA_FLAG_LINK_UP,
-+	ENA_FLAG_MSIX_ENABLED,
- 	ENA_FLAG_TRIGGER_RESET
+ 	*req_id = READ_ONCE(cdesc->req_id);
+diff --git a/drivers/net/ethernet/amazon/ena/ena_ethtool.c b/drivers/net/ethernet/amazon/ena/ena_ethtool.c
+index d51a67f..b1212de 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_ethtool.c
++++ b/drivers/net/ethernet/amazon/ena/ena_ethtool.c
+@@ -93,6 +93,7 @@ static const struct ena_stats ena_stats_rx_strings[] = {
+ 	ENA_STAT_RX_ENTRY(dma_mapping_err),
+ 	ENA_STAT_RX_ENTRY(bad_desc_num),
+ 	ENA_STAT_RX_ENTRY(rx_copybreak_pkt),
++	ENA_STAT_RX_ENTRY(bad_req_id),
+ 	ENA_STAT_RX_ENTRY(empty_rx_ring),
  };
  
+diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+index 0d35a4cc..fcbcd18 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
++++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+@@ -304,6 +304,24 @@ static void ena_free_all_io_tx_resources(struct ena_adapter *adapter)
+ 		ena_free_tx_resources(adapter, i);
+ }
+ 
++static inline int validate_rx_req_id(struct ena_ring *rx_ring, u16 req_id)
++{
++	if (likely(req_id < rx_ring->ring_size))
++		return 0;
++
++	netif_err(rx_ring->adapter, rx_err, rx_ring->netdev,
++		  "Invalid rx req_id: %hu\n", req_id);
++
++	u64_stats_update_begin(&rx_ring->syncp);
++	rx_ring->rx_stats.bad_req_id++;
++	u64_stats_update_end(&rx_ring->syncp);
++
++	/* Trigger device reset */
++	rx_ring->adapter->reset_reason = ENA_REGS_RESET_INV_RX_REQ_ID;
++	set_bit(ENA_FLAG_TRIGGER_RESET, &rx_ring->adapter->flags);
++	return -EFAULT;
++}
++
+ /* ena_setup_rx_resources - allocate I/O Rx resources (Descriptors)
+  * @adapter: network interface device structure
+  * @qid: queue index
+@@ -315,7 +333,7 @@ static int ena_setup_rx_resources(struct ena_adapter *adapter,
+ {
+ 	struct ena_ring *rx_ring = &adapter->rx_ring[qid];
+ 	struct ena_irq *ena_irq = &adapter->irq_tbl[ENA_IO_IRQ_IDX(qid)];
+-	int size, node;
++	int size, node, i;
+ 
+ 	if (rx_ring->rx_buffer_info) {
+ 		netif_err(adapter, ifup, adapter->netdev,
+@@ -336,6 +354,20 @@ static int ena_setup_rx_resources(struct ena_adapter *adapter,
+ 			return -ENOMEM;
+ 	}
+ 
++	size = sizeof(u16) * rx_ring->ring_size;
++	rx_ring->free_rx_ids = vzalloc_node(size, node);
++	if (!rx_ring->free_rx_ids) {
++		rx_ring->free_rx_ids = vzalloc(size);
++		if (!rx_ring->free_rx_ids) {
++			vfree(rx_ring->rx_buffer_info);
++			return -ENOMEM;
++		}
++	}
++
++	/* Req id ring for receiving RX pkts out of order */
++	for (i = 0; i < rx_ring->ring_size; i++)
++		rx_ring->free_rx_ids[i] = i;
++
+ 	/* Reset rx statistics */
+ 	memset(&rx_ring->rx_stats, 0x0, sizeof(rx_ring->rx_stats));
+ 
+@@ -359,6 +391,9 @@ static void ena_free_rx_resources(struct ena_adapter *adapter,
+ 
+ 	vfree(rx_ring->rx_buffer_info);
+ 	rx_ring->rx_buffer_info = NULL;
++
++	vfree(rx_ring->free_rx_ids);
++	rx_ring->free_rx_ids = NULL;
+ }
+ 
+ /* ena_setup_all_rx_resources - allocate I/O Rx queues resources for all queues
+@@ -464,15 +499,22 @@ static void ena_free_rx_page(struct ena_ring *rx_ring,
+ 
+ static int ena_refill_rx_bufs(struct ena_ring *rx_ring, u32 num)
+ {
+-	u16 next_to_use;
++	u16 next_to_use, req_id;
+ 	u32 i;
+ 	int rc;
+ 
+ 	next_to_use = rx_ring->next_to_use;
+ 
+ 	for (i = 0; i < num; i++) {
+-		struct ena_rx_buffer *rx_info =
+-			&rx_ring->rx_buffer_info[next_to_use];
++		struct ena_rx_buffer *rx_info;
++
++		req_id = rx_ring->free_rx_ids[next_to_use];
++		rc = validate_rx_req_id(rx_ring, req_id);
++		if (unlikely(rc < 0))
++			break;
++
++		rx_info = &rx_ring->rx_buffer_info[req_id];
++
+ 
+ 		rc = ena_alloc_rx_page(rx_ring, rx_info,
+ 				       __GFP_COLD | GFP_ATOMIC | __GFP_COMP);
+@@ -484,7 +526,7 @@ static int ena_refill_rx_bufs(struct ena_ring *rx_ring, u32 num)
+ 		}
+ 		rc = ena_com_add_single_rx_desc(rx_ring->ena_com_io_sq,
+ 						&rx_info->ena_buf,
+-						next_to_use);
++						req_id);
+ 		if (unlikely(rc)) {
+ 			netif_warn(rx_ring->adapter, rx_status, rx_ring->netdev,
+ 				   "failed to add buffer for rx queue %d\n",
+@@ -789,13 +831,14 @@ static struct sk_buff *ena_rx_skb(struct ena_ring *rx_ring,
+ 				  u16 *next_to_clean)
+ {
+ 	struct sk_buff *skb;
+-	struct ena_rx_buffer *rx_info =
+-		&rx_ring->rx_buffer_info[*next_to_clean];
+-	u32 len;
+-	u32 buf = 0;
++	struct ena_rx_buffer *rx_info;
++	u16 len, req_id, buf = 0;
+ 	void *va;
+ 
+-	len = ena_bufs[0].len;
++	len = ena_bufs[buf].len;
++	req_id = ena_bufs[buf].req_id;
++	rx_info = &rx_ring->rx_buffer_info[req_id];
++
+ 	if (unlikely(!rx_info->page)) {
+ 		netif_err(rx_ring->adapter, rx_err, rx_ring->netdev,
+ 			  "Page is NULL\n");
+@@ -867,13 +910,18 @@ static struct sk_buff *ena_rx_skb(struct ena_ring *rx_ring,
+ 			  skb->len, skb->data_len);
+ 
+ 		rx_info->page = NULL;
++
++		rx_ring->free_rx_ids[*next_to_clean] = req_id;
+ 		*next_to_clean =
+ 			ENA_RX_RING_IDX_NEXT(*next_to_clean,
+ 					     rx_ring->ring_size);
+ 		if (likely(--descs == 0))
+ 			break;
+-		rx_info = &rx_ring->rx_buffer_info[*next_to_clean];
+-		len = ena_bufs[++buf].len;
++
++		buf++;
++		len = ena_bufs[buf].len;
++		req_id = ena_bufs[buf].req_id;
++		rx_info = &rx_ring->rx_buffer_info[req_id];
+ 	} while (1);
+ 
+ 	return skb;
+@@ -974,6 +1022,7 @@ static int ena_clean_rx_irq(struct ena_ring *rx_ring, struct napi_struct *napi,
+ 	int rc = 0;
+ 	int total_len = 0;
+ 	int rx_copybreak_pkt = 0;
++	int i;
+ 
+ 	netif_dbg(rx_ring->adapter, rx_status, rx_ring->netdev,
+ 		  "%s qid %d\n", __func__, rx_ring->qid);
+@@ -1003,9 +1052,13 @@ static int ena_clean_rx_irq(struct ena_ring *rx_ring, struct napi_struct *napi,
+ 
+ 		/* exit if we failed to retrieve a buffer */
+ 		if (unlikely(!skb)) {
+-			next_to_clean = ENA_RX_RING_IDX_ADD(next_to_clean,
+-							    ena_rx_ctx.descs,
+-							    rx_ring->ring_size);
++			for (i = 0; i < ena_rx_ctx.descs; i++) {
++				rx_ring->free_tx_ids[next_to_clean] =
++					rx_ring->ena_bufs[i].req_id;
++				next_to_clean =
++					ENA_RX_RING_IDX_NEXT(next_to_clean,
++							     rx_ring->ring_size);
++			}
+ 			break;
+ 		}
+ 
+diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.h b/drivers/net/ethernet/amazon/ena/ena_netdev.h
+index bbae971..c6b17ce 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_netdev.h
++++ b/drivers/net/ethernet/amazon/ena/ena_netdev.h
+@@ -194,12 +194,19 @@ struct ena_stats_rx {
+ 	u64 dma_mapping_err;
+ 	u64 bad_desc_num;
+ 	u64 rx_copybreak_pkt;
++	u64 bad_req_id;
+ 	u64 empty_rx_ring;
+ };
+ 
+ struct ena_ring {
+-	/* Holds the empty requests for TX out of order completions */
+-	u16 *free_tx_ids;
++	union {
++		/* Holds the empty requests for TX/RX
++		 * out of order completions
++		 */
++		u16 *free_tx_ids;
++		u16 *free_rx_ids;
++	};
++
+ 	union {
+ 		struct ena_tx_buffer *tx_buffer_info;
+ 		struct ena_rx_buffer *rx_buffer_info;
 -- 
 2.7.4
