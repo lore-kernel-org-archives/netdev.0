@@ -1,98 +1,33 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 03/19] net: bridge: Add support for calling FDB external learning under rcu
-Date: Thu,  8 Jun 2017 08:44:12 +0200
-Message-ID: <20170608064428.4785-4-jiri@resnulli.us>
-References: <20170608064428.4785-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, arkadis@mellanox.com,
-        mlxsw@mellanox.com, roopa@cumulusnetworks.com,
-        stephen@networkplumber.org, ivecera@redhat.com,
-        nikolay@cumulusnetworks.com
+Subject: [patch net-next 0/3] mlxsw: Remove compatibility with old firmware
+Date: Thu,  8 Jun 2017 08:47:42 +0200
+Message-ID: <20170608064745.4900-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:36477 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751450AbdFHGog (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 02:44:36 -0400
-Received: by mail-wr0-f196.google.com with SMTP id e23so2899363wre.3
-        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 23:44:35 -0700 (PDT)
-In-Reply-To: <20170608064428.4785-1-jiri@resnulli.us>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33279 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751299AbdFHGrs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 02:47:48 -0400
+Received: by mail-wm0-f65.google.com with SMTP id x3so5682963wme.0
+        for <netdev@vger.kernel.org>; Wed, 07 Jun 2017 23:47:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-This is done as a preparation to moving the switchdev notifier chain
-to be atomic. The FDB external learning should be called under rtnl
-or rcu.
+Up until recently we couldn't enforce a minimal firmware version, which
+forced us to be compatible with old firmware versions. This patchset
+removes this code and simplifies the driver.
 
-Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
-Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- net/bridge/br.c         | 4 ++--
- net/bridge/br_fdb.c     | 2 --
- net/bridge/br_private.h | 6 ++++++
- 3 files changed, 8 insertions(+), 4 deletions(-)
+Ido Schimmel (3):
+  mlxsw: spectrum_router: Mark only first LPM tree as reserved
+  mlxsw: spectrum: Simplify port split flow
+  mlxsw: spectrum: Pass port argument to module mapping functions
 
-diff --git a/net/bridge/br.c b/net/bridge/br.c
-index 889e564..e962fff 100644
---- a/net/bridge/br.c
-+++ b/net/bridge/br.c
-@@ -121,7 +121,7 @@ static struct notifier_block br_device_notifier = {
- 	.notifier_call = br_device_event
- };
- 
--/* called with RTNL */
-+/* called with RTNL or RCU */
- static int br_switchdev_event(struct notifier_block *unused,
- 			      unsigned long event, void *ptr)
- {
-@@ -131,7 +131,7 @@ static int br_switchdev_event(struct notifier_block *unused,
- 	struct switchdev_notifier_fdb_info *fdb_info;
- 	int err = NOTIFY_DONE;
- 
--	p = br_port_get_rtnl(dev);
-+	p = br_port_get_rtnl_rcu(dev);
- 	if (!p)
- 		goto out;
- 
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index ab0c7cc..5c780cd 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -1075,7 +1075,6 @@ int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
- 	struct net_bridge_fdb_entry *fdb;
- 	int err = 0;
- 
--	ASSERT_RTNL();
- 	spin_lock_bh(&br->hash_lock);
- 
- 	head = &br->hash[br_mac_hash(addr, vid)];
-@@ -1110,7 +1109,6 @@ int br_fdb_external_learn_del(struct net_bridge *br, struct net_bridge_port *p,
- 	struct net_bridge_fdb_entry *fdb;
- 	int err = 0;
- 
--	ASSERT_RTNL();
- 	spin_lock_bh(&br->hash_lock);
- 
- 	fdb = br_fdb_find(br, addr, vid);
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 7f43992..a122684 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -284,6 +284,12 @@ static inline struct net_bridge_port *br_port_get_rtnl(const struct net_device *
- 		rtnl_dereference(dev->rx_handler_data) : NULL;
- }
- 
-+static inline struct net_bridge_port *br_port_get_rtnl_rcu(const struct net_device *dev)
-+{
-+	return br_port_exists(dev) ?
-+		rcu_dereference_rtnl(dev->rx_handler_data) : NULL;
-+}
-+
- struct net_bridge {
- 	spinlock_t			lock;
- 	spinlock_t			hash_lock;
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 114 ++++++---------------
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  |   2 +-
+ 2 files changed, 35 insertions(+), 81 deletions(-)
+
 -- 
 2.9.3
