@@ -1,47 +1,40 @@
-From: Marc Zyngier <marc.zyngier@arm.com>
-Subject: Re: [PATCH 2/5] net: mvpp2: use {get,put}_cpu() instead of
- smp_processor_id()
-Date: Thu, 8 Jun 2017 17:01:36 +0100
-Message-ID: <e81a0c75-7ae2-a656-6c45-74d8694d358f@arm.com>
-References: <1496935647-29670-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <1496935647-29670-3-git-send-email-thomas.petazzoni@free-electrons.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2 7/8] net: mvmdio: add xmdio support
+Date: Thu, 8 Jun 2017 18:03:31 +0200
+Message-ID: <20170608160331.GA20216@lunn.ch>
+References: <20170608092653.25221-1-antoine.tenart@free-electrons.com>
+ <20170608092653.25221-8-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Marcin Wojtas <mw@semihalf.com>,
-        Stefan Chulski <stefanc@marvell.com>,
-        Nadav Haklai <nadavh@marvell.com>,
-        Hanna Hawa <hannah@marvell.com>,
-        Yehuda Yitschak <yehuday@marvell.com>,
-        Antoine Tenart <antoine.tenart@free-electrons.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Markus Elfring <elfring@users.sourceforge.net>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, jason@lakedaemon.net,
+        gregory.clement@free-electrons.com,
+        sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com,
+        thomas.petazzoni@free-electrons.com, mw@semihalf.com,
+        linux@armlinux.org.uk, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org
+To: Antoine Tenart <antoine.tenart@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:54040 "EHLO foss.arm.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:41729 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751614AbdFHQBk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Jun 2017 12:01:40 -0400
-In-Reply-To: <1496935647-29670-3-git-send-email-thomas.petazzoni@free-electrons.com>
+        id S1750725AbdFHQDh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Jun 2017 12:03:37 -0400
+Content-Disposition: inline
+In-Reply-To: <20170608092653.25221-8-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/06/17 16:27, Thomas Petazzoni wrote:
-> smp_processor_id() should not be used in migration-enabled contexts. We
-> originally thought it was OK in the specific situation of this driver,
-> but it was wrong, and calling smp_processor_id() in a migration-enabled
-> context prints a big fat warning when CONFIG_DEBUG_PREEMPT=y.
-> 
-> Therefore, this commit replaces the smp_processor_id() in
-> migration-enabled contexts by the appropriate get_cpu/put_cpu sections.
-> 
-> Reported-by: Marc Zyngier <marc.zyngier@arm.com>
-> Fixes: a786841df72e ("net: mvpp2: handle register mapping and access for PPv2.2")
-> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+On Thu, Jun 08, 2017 at 11:26:52AM +0200, Antoine Tenart wrote:
+> +#define MVMDIO_XSMI_MGNT_REG		0x0
+> +#define  MVMDIO_XSMI_READ_VALID		BIT(29)
+> +#define  MVMDIO_XSMI_BUSY		BIT(30)
+> +#define MVMDIO_XSMI_ADDR_REG		0x8
+> +#define  MVMDIO_XSMI_PHYADDR_SHIFT	16
+> +#define  MVMDIO_XSMI_DEVADDR_SHIFT	21
+> +#define  MVMDIO_XSMI_READ_OPERATION	(0x7 << 26)
+> +#define  MVMDIO_XSMI_WRITE_OPERATION	(0x5 << 27)
 
-Tested-by: Marc Zyngier <marc.zyngier@arm.com>
+Hi Antoine
 
-	M.
--- 
-Jazz is not dead. It just smells funny...
+These two operations seem odd. Generally ops have the same shift.
+
+      Andrew
