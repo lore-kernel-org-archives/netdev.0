@@ -1,51 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] rxrpc: Tx length parameter
-Date: Thu, 08 Jun 2017 11:42:03 -0400 (EDT)
-Message-ID: <20170608.114203.1335498499864627385.davem@davemloft.net>
-References: <149686995195.21359.17550471913376009423.stgit@warthog.procyon.org.uk>
+Subject: Re: [PATCH net-next v2 0/5] net: dsa: add cross-chip VLAN support
+Date: Thu, 08 Jun 2017 11:44:07 -0400 (EDT)
+Message-ID: <20170608.114407.1854285894299317374.davem@davemloft.net>
+References: <20170607221217.2323-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
+To: vivien.didelot@savoirfairelinux.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <149686995195.21359.17550471913376009423.stgit@warthog.procyon.org.uk>
+In-Reply-To: <20170607221217.2323-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Howells <dhowells@redhat.com>
-Date: Wed, 07 Jun 2017 22:12:32 +0100
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Wed,  7 Jun 2017 18:12:12 -0400
 
-> Here's a set of patches that allows someone initiating a client call with
-> AF_RXRPC to indicate upfront the total amount of data that will be
-> transmitted.  This will allow AF_RXRPC to encrypt directly from source
-> buffer to packet rather than having to copy into the buffer and only
-> encrypt when it's full (the encrypted portion of the packet starts with a
-> length and so we can't encrypt until we know what the length will be).
-> 
-> The three patches are:
-> 
->  (1) Provide a means of finding out what control message types are actually
->      supported.  EINVAL is reported if an unsupported cmsg type is seen, so
->      we don't want to set the new cmsg unless we know it will be accepted.
-> 
->  (2) Consolidate some stuff into a struct to reduce the parameter count on
->      the function that parses the cmsg buffer.
-> 
->  (3) Introduce the RXRPC_TX_LENGTH cmsg.  This can be provided on the first
->      sendmsg() that contributes data to a client call request or a service
->      call reply.  If provided, the user must provide exactly that amount of
->      data or an error will be incurred.
-> 
-> Changes in version 2:
-> 
->  (*) struct rxrpc_send_params::tx_total_len should be s64 not u64.  Thanks to
->      Julia Lawall for reporting this.
+> The current code in DSA does not support cross-chip VLAN. This means
+> that in a multi-chip environment such as this one (similar to ZII Rev B)
  ...
-> Tagged thusly:
+> adding a VLAN to p9 won't be enough to reach the CPU, until at least one
+> port of sw0 and sw1 join the VLAN as well and become aware of the VID.
 > 
-> 	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
-> 	rxrpc-rewrite-20170607-v2
+> This patchset makes the DSA core program the VLAN on the CPU and DSA
+> links itself, which brings seamlessly cross-chip VLAN support to DSA.
+> 
+> With this series applied*, the hardware VLAN tables of a 3-switch setup
+> look like this after adding a VLAN to only one port of the end switch:
+  ...
+> Completely removing a VLAN entry (which is currently the responsibility
+> of drivers anyway) is not supported yet since it requires some caching.
+> 
+> (*) the output is shown from this out-of-tree debugfs patch:
+> https://github.com/vivien/linux/commit/7b61a684b9d6b6a499135a587c7f62a1fddceb8b.patch
+> 
+> Changes in v2:
+>   - canonical incrementation (port++ instead of ++port)
+>   - check CPU and DSA ports before purging a VLAN
+>   - add Reviewed-by tags
 
-Pulled, thanks David.
+Series applied, thanks Vivien.
