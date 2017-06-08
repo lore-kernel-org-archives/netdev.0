@@ -1,7 +1,7 @@
 From: <netanel@amazon.com>
-Subject: [PATCH net-next 05/13] net: ena: add support for out of order rx buffers refill
-Date: Fri, 9 Jun 2017 00:46:42 +0300
-Message-ID: <1496958410-4220-16-git-send-email-netanel@amazon.com>
+Subject: [PATCH net-next 01/13] net: ena: change return value for unsupported features unsupported return value
+Date: Fri, 9 Jun 2017 00:46:38 +0300
+Message-ID: <1496958410-4220-12-git-send-email-netanel@amazon.com>
 References: <1496958410-4220-1-git-send-email-netanel@amazon.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,276 +11,249 @@ Cc: Netanel Belgazal <netanel@amazon.com>, <dwmw@amazon.com>,
         <evgenys@amazon.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-fw-33001.amazon.com ([207.171.190.10]:24826 "EHLO
-        smtp-fw-33001.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751983AbdFHVsw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 17:48:52 -0400
+Received: from smtp-fw-4101.amazon.com ([72.21.198.25]:63954 "EHLO
+        smtp-fw-4101.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751843AbdFHVsl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 17:48:41 -0400
 In-Reply-To: <1496958410-4220-1-git-send-email-netanel@amazon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Netanel Belgazal <netanel@amazon.com>
 
-ENA driver post Rx buffers through the Rx submission queue
-for the ENA device to fill them with receive packets.
-Each Rx buffer is marked with req_id in the Rx descriptor.
-
-Newer ENA devices could consume the posted Rx buffer in out of order,
-and as result the corresponding Rx completion queue will have Rx
-completion descriptors with non contiguous req_id(s)
-
-In this change the driver holds two rings.
-The first ring (called free_rx_ids) is a mapping ring.
-It holds all the unused request ids.
-The values in this ring are from 0 to ring_size -1.
-
-When the driver wants to allocate a new Rx buffer it uses the head of
-free_rx_ids and uses it's value as the index for rx_buffer_info ring.
-The req_id is also written to the Rx descriptor
-
-Upon Rx completion,
-The driver took the req_id from the completion descriptor and uses it
-as index in rx_buffer_info.
-The req_id is then return to the free_rx_ids ring.
-
-This patch also adds statistics to inform when the driver receive out
-of range or unused req_id.
-
-Note:
-free_rx_ids is only accessible from the napi handler, so no locking is
-required
+return -EOPNOTSUPP instead of -EPERM.
 
 Signed-off-by: Netanel Belgazal <netanel@amazon.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_eth_com.c |  5 ++
- drivers/net/ethernet/amazon/ena/ena_ethtool.c |  1 +
- drivers/net/ethernet/amazon/ena/ena_netdev.c  | 83 ++++++++++++++++++++++-----
- drivers/net/ethernet/amazon/ena/ena_netdev.h  | 11 +++-
- 4 files changed, 83 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_com.c     | 22 +++++++++++-----------
+ drivers/net/ethernet/amazon/ena/ena_ethtool.c | 10 +++-------
+ drivers/net/ethernet/amazon/ena/ena_netdev.c  | 20 ++++++++++----------
+ 3 files changed, 24 insertions(+), 28 deletions(-)
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_eth_com.c b/drivers/net/ethernet/amazon/ena/ena_eth_com.c
-index f999305..b11e573 100644
---- a/drivers/net/ethernet/amazon/ena/ena_eth_com.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_eth_com.c
-@@ -493,6 +493,11 @@ int ena_com_tx_comp_req_id_get(struct ena_com_io_cq *io_cq, u16 *req_id)
- 	if (cdesc_phase != expected_phase)
- 		return -EAGAIN;
+diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
+index f5b237e..02752d5 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_com.c
++++ b/drivers/net/ethernet/amazon/ena/ena_com.c
+@@ -494,7 +494,7 @@ static int ena_com_comp_status_to_errno(u8 comp_status)
+ 	case ENA_ADMIN_RESOURCE_ALLOCATION_FAILURE:
+ 		return -ENOMEM;
+ 	case ENA_ADMIN_UNSUPPORTED_OPCODE:
+-		return -EPERM;
++		return -EOPNOTSUPP;
+ 	case ENA_ADMIN_BAD_OPCODE:
+ 	case ENA_ADMIN_MALFORMED_REQUEST:
+ 	case ENA_ADMIN_ILLEGAL_PARAMETER:
+@@ -786,7 +786,7 @@ static int ena_com_get_feature_ex(struct ena_com_dev *ena_dev,
  
-+	if (unlikely(cdesc->req_id >= io_cq->q_depth)) {
-+		pr_err("Invalid req id %d\n", cdesc->req_id);
-+		return -EINVAL;
-+	}
-+
- 	ena_com_cq_inc_head(io_cq);
- 
- 	*req_id = READ_ONCE(cdesc->req_id);
-diff --git a/drivers/net/ethernet/amazon/ena/ena_ethtool.c b/drivers/net/ethernet/amazon/ena/ena_ethtool.c
-index d51a67f..b1212de 100644
---- a/drivers/net/ethernet/amazon/ena/ena_ethtool.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_ethtool.c
-@@ -93,6 +93,7 @@ static const struct ena_stats ena_stats_rx_strings[] = {
- 	ENA_STAT_RX_ENTRY(dma_mapping_err),
- 	ENA_STAT_RX_ENTRY(bad_desc_num),
- 	ENA_STAT_RX_ENTRY(rx_copybreak_pkt),
-+	ENA_STAT_RX_ENTRY(bad_req_id),
- 	ENA_STAT_RX_ENTRY(empty_rx_ring),
- };
- 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-index 0d35a4cc..fcbcd18 100644
---- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-@@ -304,6 +304,24 @@ static void ena_free_all_io_tx_resources(struct ena_adapter *adapter)
- 		ena_free_tx_resources(adapter, i);
- }
- 
-+static inline int validate_rx_req_id(struct ena_ring *rx_ring, u16 req_id)
-+{
-+	if (likely(req_id < rx_ring->ring_size))
-+		return 0;
-+
-+	netif_err(rx_ring->adapter, rx_err, rx_ring->netdev,
-+		  "Invalid rx req_id: %hu\n", req_id);
-+
-+	u64_stats_update_begin(&rx_ring->syncp);
-+	rx_ring->rx_stats.bad_req_id++;
-+	u64_stats_update_end(&rx_ring->syncp);
-+
-+	/* Trigger device reset */
-+	rx_ring->adapter->reset_reason = ENA_REGS_RESET_INV_RX_REQ_ID;
-+	set_bit(ENA_FLAG_TRIGGER_RESET, &rx_ring->adapter->flags);
-+	return -EFAULT;
-+}
-+
- /* ena_setup_rx_resources - allocate I/O Rx resources (Descriptors)
-  * @adapter: network interface device structure
-  * @qid: queue index
-@@ -315,7 +333,7 @@ static int ena_setup_rx_resources(struct ena_adapter *adapter,
- {
- 	struct ena_ring *rx_ring = &adapter->rx_ring[qid];
- 	struct ena_irq *ena_irq = &adapter->irq_tbl[ENA_IO_IRQ_IDX(qid)];
--	int size, node;
-+	int size, node, i;
- 
- 	if (rx_ring->rx_buffer_info) {
- 		netif_err(adapter, ifup, adapter->netdev,
-@@ -336,6 +354,20 @@ static int ena_setup_rx_resources(struct ena_adapter *adapter,
- 			return -ENOMEM;
+ 	if (!ena_com_check_supported_feature_id(ena_dev, feature_id)) {
+ 		pr_debug("Feature %d isn't supported\n", feature_id);
+-		return -EPERM;
++		return -EOPNOTSUPP;
  	}
  
-+	size = sizeof(u16) * rx_ring->ring_size;
-+	rx_ring->free_rx_ids = vzalloc_node(size, node);
-+	if (!rx_ring->free_rx_ids) {
-+		rx_ring->free_rx_ids = vzalloc(size);
-+		if (!rx_ring->free_rx_ids) {
-+			vfree(rx_ring->rx_buffer_info);
-+			return -ENOMEM;
-+		}
-+	}
-+
-+	/* Req id ring for receiving RX pkts out of order */
-+	for (i = 0; i < rx_ring->ring_size; i++)
-+		rx_ring->free_rx_ids[i] = i;
-+
- 	/* Reset rx statistics */
- 	memset(&rx_ring->rx_stats, 0x0, sizeof(rx_ring->rx_stats));
+ 	memset(&get_cmd, 0x0, sizeof(get_cmd));
+@@ -1324,7 +1324,7 @@ int ena_com_set_aenq_config(struct ena_com_dev *ena_dev, u32 groups_flag)
+ 	if ((get_resp.u.aenq.supported_groups & groups_flag) != groups_flag) {
+ 		pr_warn("Trying to set unsupported aenq events. supported flag: %x asked flag: %x\n",
+ 			get_resp.u.aenq.supported_groups, groups_flag);
+-		return -EPERM;
++		return -EOPNOTSUPP;
+ 	}
  
-@@ -359,6 +391,9 @@ static void ena_free_rx_resources(struct ena_adapter *adapter,
+ 	memset(&cmd, 0x0, sizeof(cmd));
+@@ -1909,7 +1909,7 @@ int ena_com_set_dev_mtu(struct ena_com_dev *ena_dev, int mtu)
  
- 	vfree(rx_ring->rx_buffer_info);
- 	rx_ring->rx_buffer_info = NULL;
-+
-+	vfree(rx_ring->free_rx_ids);
-+	rx_ring->free_rx_ids = NULL;
+ 	if (!ena_com_check_supported_feature_id(ena_dev, ENA_ADMIN_MTU)) {
+ 		pr_debug("Feature %d isn't supported\n", ENA_ADMIN_MTU);
+-		return -EPERM;
++		return -EOPNOTSUPP;
+ 	}
+ 
+ 	memset(&cmd, 0x0, sizeof(cmd));
+@@ -1963,7 +1963,7 @@ int ena_com_set_hash_function(struct ena_com_dev *ena_dev)
+ 						ENA_ADMIN_RSS_HASH_FUNCTION)) {
+ 		pr_debug("Feature %d isn't supported\n",
+ 			 ENA_ADMIN_RSS_HASH_FUNCTION);
+-		return -EPERM;
++		return -EOPNOTSUPP;
+ 	}
+ 
+ 	/* Validate hash function is supported */
+@@ -1975,7 +1975,7 @@ int ena_com_set_hash_function(struct ena_com_dev *ena_dev)
+ 	if (get_resp.u.flow_hash_func.supported_func & (1 << rss->hash_func)) {
+ 		pr_err("Func hash %d isn't supported by device, abort\n",
+ 		       rss->hash_func);
+-		return -EPERM;
++		return -EOPNOTSUPP;
+ 	}
+ 
+ 	memset(&cmd, 0x0, sizeof(cmd));
+@@ -2034,7 +2034,7 @@ int ena_com_fill_hash_function(struct ena_com_dev *ena_dev,
+ 
+ 	if (!((1 << func) & get_resp.u.flow_hash_func.supported_func)) {
+ 		pr_err("Flow hash function %d isn't supported\n", func);
+-		return -EPERM;
++		return -EOPNOTSUPP;
+ 	}
+ 
+ 	switch (func) {
+@@ -2127,7 +2127,7 @@ int ena_com_set_hash_ctrl(struct ena_com_dev *ena_dev)
+ 						ENA_ADMIN_RSS_HASH_INPUT)) {
+ 		pr_debug("Feature %d isn't supported\n",
+ 			 ENA_ADMIN_RSS_HASH_INPUT);
+-		return -EPERM;
++		return -EOPNOTSUPP;
+ 	}
+ 
+ 	memset(&cmd, 0x0, sizeof(cmd));
+@@ -2208,7 +2208,7 @@ int ena_com_set_default_hash_ctrl(struct ena_com_dev *ena_dev)
+ 			pr_err("hash control doesn't support all the desire configuration. proto %x supported %x selected %x\n",
+ 			       i, hash_ctrl->supported_fields[i].fields,
+ 			       hash_ctrl->selected_fields[i].fields);
+-			return -EPERM;
++			return -EOPNOTSUPP;
+ 		}
+ 	}
+ 
+@@ -2286,7 +2286,7 @@ int ena_com_indirect_table_set(struct ena_com_dev *ena_dev)
+ 		    ena_dev, ENA_ADMIN_RSS_REDIRECTION_TABLE_CONFIG)) {
+ 		pr_debug("Feature %d isn't supported\n",
+ 			 ENA_ADMIN_RSS_REDIRECTION_TABLE_CONFIG);
+-		return -EPERM;
++		return -EOPNOTSUPP;
+ 	}
+ 
+ 	ret = ena_com_ind_tbl_convert_to_device(ena_dev);
+@@ -2553,7 +2553,7 @@ int ena_com_init_interrupt_moderation(struct ena_com_dev *ena_dev)
+ 				 ENA_ADMIN_INTERRUPT_MODERATION);
+ 
+ 	if (rc) {
+-		if (rc == -EPERM) {
++		if (rc == -EOPNOTSUPP) {
+ 			pr_debug("Feature %d isn't supported\n",
+ 				 ENA_ADMIN_INTERRUPT_MODERATION);
+ 			rc = 0;
+diff --git a/drivers/net/ethernet/amazon/ena/ena_ethtool.c b/drivers/net/ethernet/amazon/ena/ena_ethtool.c
+index 3ee55e2..d51a67f 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_ethtool.c
++++ b/drivers/net/ethernet/amazon/ena/ena_ethtool.c
+@@ -539,12 +539,8 @@ static int ena_get_rss_hash(struct ena_com_dev *ena_dev,
+ 	}
+ 
+ 	rc = ena_com_get_hash_ctrl(ena_dev, proto, &hash_fields);
+-	if (rc) {
+-		/* If device don't have permission, return unsupported */
+-		if (rc == -EPERM)
+-			rc = -EOPNOTSUPP;
++	if (rc)
+ 		return rc;
+-	}
+ 
+ 	cmd->data = ena_flow_hash_to_flow_type(hash_fields);
+ 
+@@ -612,7 +608,7 @@ static int ena_set_rxnfc(struct net_device *netdev, struct ethtool_rxnfc *info)
+ 		rc = -EOPNOTSUPP;
+ 	}
+ 
+-	return (rc == -EPERM) ? -EOPNOTSUPP : rc;
++	return rc;
  }
  
- /* ena_setup_all_rx_resources - allocate I/O Rx queues resources for all queues
-@@ -464,15 +499,22 @@ static void ena_free_rx_page(struct ena_ring *rx_ring,
+ static int ena_get_rxnfc(struct net_device *netdev, struct ethtool_rxnfc *info,
+@@ -638,7 +634,7 @@ static int ena_get_rxnfc(struct net_device *netdev, struct ethtool_rxnfc *info,
+ 		rc = -EOPNOTSUPP;
+ 	}
  
- static int ena_refill_rx_bufs(struct ena_ring *rx_ring, u32 num)
- {
--	u16 next_to_use;
-+	u16 next_to_use, req_id;
- 	u32 i;
- 	int rc;
+-	return (rc == -EPERM) ? -EOPNOTSUPP : rc;
++	return rc;
+ }
  
- 	next_to_use = rx_ring->next_to_use;
+ static u32 ena_get_rxfh_indir_size(struct net_device *netdev)
+diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+index 4f16ed3..8d4f65e 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
++++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+@@ -1446,7 +1446,7 @@ static int ena_rss_configure(struct ena_adapter *adapter)
+ 	/* In case the RSS table wasn't initialized by probe */
+ 	if (!ena_dev->rss.tbl_log_size) {
+ 		rc = ena_rss_init_default(adapter);
+-		if (rc && (rc != -EPERM)) {
++		if (rc && (rc != -EOPNOTSUPP)) {
+ 			netif_err(adapter, ifup, adapter->netdev,
+ 				  "Failed to init RSS rc: %d\n", rc);
+ 			return rc;
+@@ -1455,17 +1455,17 @@ static int ena_rss_configure(struct ena_adapter *adapter)
  
- 	for (i = 0; i < num; i++) {
--		struct ena_rx_buffer *rx_info =
--			&rx_ring->rx_buffer_info[next_to_use];
-+		struct ena_rx_buffer *rx_info;
-+
-+		req_id = rx_ring->free_rx_ids[next_to_use];
-+		rc = validate_rx_req_id(rx_ring, req_id);
-+		if (unlikely(rc < 0))
-+			break;
-+
-+		rx_info = &rx_ring->rx_buffer_info[req_id];
-+
+ 	/* Set indirect table */
+ 	rc = ena_com_indirect_table_set(ena_dev);
+-	if (unlikely(rc && rc != -EPERM))
++	if (unlikely(rc && rc != -EOPNOTSUPP))
+ 		return rc;
  
- 		rc = ena_alloc_rx_page(rx_ring, rx_info,
- 				       __GFP_COLD | GFP_ATOMIC | __GFP_COMP);
-@@ -484,7 +526,7 @@ static int ena_refill_rx_bufs(struct ena_ring *rx_ring, u32 num)
+ 	/* Configure hash function (if supported) */
+ 	rc = ena_com_set_hash_function(ena_dev);
+-	if (unlikely(rc && (rc != -EPERM)))
++	if (unlikely(rc && (rc != -EOPNOTSUPP)))
+ 		return rc;
+ 
+ 	/* Configure hash inputs (if supported) */
+ 	rc = ena_com_set_hash_ctrl(ena_dev);
+-	if (unlikely(rc && (rc != -EPERM)))
++	if (unlikely(rc && (rc != -EOPNOTSUPP)))
+ 		return rc;
+ 
+ 	return 0;
+@@ -2144,7 +2144,7 @@ static void ena_config_host_info(struct ena_com_dev *ena_dev)
+ 
+ 	rc = ena_com_set_host_attributes(ena_dev);
+ 	if (rc) {
+-		if (rc == -EPERM)
++		if (rc == -EOPNOTSUPP)
+ 			pr_warn("Cannot set host attributes\n");
+ 		else
+ 			pr_err("Cannot set host attributes\n");
+@@ -2181,7 +2181,7 @@ static void ena_config_debug_area(struct ena_adapter *adapter)
+ 
+ 	rc = ena_com_set_host_attributes(adapter->ena_dev);
+ 	if (rc) {
+-		if (rc == -EPERM)
++		if (rc == -EOPNOTSUPP)
+ 			netif_warn(adapter, drv, adapter->netdev,
+ 				   "Cannot set host attributes\n");
+ 		else
+@@ -2886,7 +2886,7 @@ static int ena_rss_init_default(struct ena_adapter *adapter)
+ 		val = ethtool_rxfh_indir_default(i, adapter->num_queues);
+ 		rc = ena_com_indirect_table_fill_entry(ena_dev, i,
+ 						       ENA_IO_RXQ_IDX(val));
+-		if (unlikely(rc && (rc != -EPERM))) {
++		if (unlikely(rc && (rc != -EOPNOTSUPP))) {
+ 			dev_err(dev, "Cannot fill indirect table\n");
+ 			goto err_fill_indir;
  		}
- 		rc = ena_com_add_single_rx_desc(rx_ring->ena_com_io_sq,
- 						&rx_info->ena_buf,
--						next_to_use);
-+						req_id);
- 		if (unlikely(rc)) {
- 			netif_warn(rx_ring->adapter, rx_status, rx_ring->netdev,
- 				   "failed to add buffer for rx queue %d\n",
-@@ -789,13 +831,14 @@ static struct sk_buff *ena_rx_skb(struct ena_ring *rx_ring,
- 				  u16 *next_to_clean)
- {
- 	struct sk_buff *skb;
--	struct ena_rx_buffer *rx_info =
--		&rx_ring->rx_buffer_info[*next_to_clean];
--	u32 len;
--	u32 buf = 0;
-+	struct ena_rx_buffer *rx_info;
-+	u16 len, req_id, buf = 0;
- 	void *va;
+@@ -2894,13 +2894,13 @@ static int ena_rss_init_default(struct ena_adapter *adapter)
  
--	len = ena_bufs[0].len;
-+	len = ena_bufs[buf].len;
-+	req_id = ena_bufs[buf].req_id;
-+	rx_info = &rx_ring->rx_buffer_info[req_id];
-+
- 	if (unlikely(!rx_info->page)) {
- 		netif_err(rx_ring->adapter, rx_err, rx_ring->netdev,
- 			  "Page is NULL\n");
-@@ -867,13 +910,18 @@ static struct sk_buff *ena_rx_skb(struct ena_ring *rx_ring,
- 			  skb->len, skb->data_len);
+ 	rc = ena_com_fill_hash_function(ena_dev, ENA_ADMIN_CRC32, NULL,
+ 					ENA_HASH_KEY_SIZE, 0xFFFFFFFF);
+-	if (unlikely(rc && (rc != -EPERM))) {
++	if (unlikely(rc && (rc != -EOPNOTSUPP))) {
+ 		dev_err(dev, "Cannot fill hash function\n");
+ 		goto err_fill_indir;
+ 	}
  
- 		rx_info->page = NULL;
-+
-+		rx_ring->free_rx_ids[*next_to_clean] = req_id;
- 		*next_to_clean =
- 			ENA_RX_RING_IDX_NEXT(*next_to_clean,
- 					     rx_ring->ring_size);
- 		if (likely(--descs == 0))
- 			break;
--		rx_info = &rx_ring->rx_buffer_info[*next_to_clean];
--		len = ena_bufs[++buf].len;
-+
-+		buf++;
-+		len = ena_bufs[buf].len;
-+		req_id = ena_bufs[buf].req_id;
-+		rx_info = &rx_ring->rx_buffer_info[req_id];
- 	} while (1);
- 
- 	return skb;
-@@ -974,6 +1022,7 @@ static int ena_clean_rx_irq(struct ena_ring *rx_ring, struct napi_struct *napi,
- 	int rc = 0;
- 	int total_len = 0;
- 	int rx_copybreak_pkt = 0;
-+	int i;
- 
- 	netif_dbg(rx_ring->adapter, rx_status, rx_ring->netdev,
- 		  "%s qid %d\n", __func__, rx_ring->qid);
-@@ -1003,9 +1052,13 @@ static int ena_clean_rx_irq(struct ena_ring *rx_ring, struct napi_struct *napi,
- 
- 		/* exit if we failed to retrieve a buffer */
- 		if (unlikely(!skb)) {
--			next_to_clean = ENA_RX_RING_IDX_ADD(next_to_clean,
--							    ena_rx_ctx.descs,
--							    rx_ring->ring_size);
-+			for (i = 0; i < ena_rx_ctx.descs; i++) {
-+				rx_ring->free_tx_ids[next_to_clean] =
-+					rx_ring->ena_bufs[i].req_id;
-+				next_to_clean =
-+					ENA_RX_RING_IDX_NEXT(next_to_clean,
-+							     rx_ring->ring_size);
-+			}
- 			break;
- 		}
- 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.h b/drivers/net/ethernet/amazon/ena/ena_netdev.h
-index bbae971..c6b17ce 100644
---- a/drivers/net/ethernet/amazon/ena/ena_netdev.h
-+++ b/drivers/net/ethernet/amazon/ena/ena_netdev.h
-@@ -194,12 +194,19 @@ struct ena_stats_rx {
- 	u64 dma_mapping_err;
- 	u64 bad_desc_num;
- 	u64 rx_copybreak_pkt;
-+	u64 bad_req_id;
- 	u64 empty_rx_ring;
- };
- 
- struct ena_ring {
--	/* Holds the empty requests for TX out of order completions */
--	u16 *free_tx_ids;
-+	union {
-+		/* Holds the empty requests for TX/RX
-+		 * out of order completions
-+		 */
-+		u16 *free_tx_ids;
-+		u16 *free_rx_ids;
-+	};
-+
- 	union {
- 		struct ena_tx_buffer *tx_buffer_info;
- 		struct ena_rx_buffer *rx_buffer_info;
+ 	rc = ena_com_set_default_hash_ctrl(ena_dev);
+-	if (unlikely(rc && (rc != -EPERM))) {
++	if (unlikely(rc && (rc != -EOPNOTSUPP))) {
+ 		dev_err(dev, "Cannot fill hash control\n");
+ 		goto err_fill_indir;
+ 	}
+@@ -3114,7 +3114,7 @@ static int ena_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		goto err_worker_destroy;
+ 	}
+ 	rc = ena_rss_init_default(adapter);
+-	if (rc && (rc != -EPERM)) {
++	if (rc && (rc != -EOPNOTSUPP)) {
+ 		dev_err(&pdev->dev, "Cannot init RSS rc: %d\n", rc);
+ 		goto err_free_msix;
+ 	}
 -- 
 2.7.4
