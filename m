@@ -1,99 +1,118 @@
-From: crow <crow@linux.org.ba>
-Subject: ARM GLX Khadas VIM Pro - Ethernet detected as only 10Mbps and stalled
- after some traffic
-Date: Thu, 8 Jun 2017 19:30:12 +0200
-Message-ID: <CAG_g8w7PND+6r17cLoTG0rG0CqVDA-Z9kr8Zi+TOq5Qbpd9Gtw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-To: netdev@vger.kernel.org, linux-amlogic@lists.infradead.org
+From: David Ahern <dsahern@gmail.com>
+Subject: [PATCH] net: vrf: Make add_fib_rules per network namespace flag
+Date: Thu,  8 Jun 2017 11:31:11 -0600
+Message-ID: <20170608173111.22831-1-dsahern@gmail.com>
+Cc: petrm@mellanox.com, David Ahern <dsahern@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f170.google.com ([209.85.223.170]:33682 "EHLO
-        mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750914AbdFHRaP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 13:30:15 -0400
-Received: by mail-io0-f170.google.com with SMTP id t87so3427190ioe.0
-        for <netdev@vger.kernel.org>; Thu, 08 Jun 2017 10:30:15 -0700 (PDT)
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34568 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751452AbdFHRbQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 13:31:16 -0400
+Received: by mail-pf0-f194.google.com with SMTP id u1so5878080pfg.1
+        for <netdev@vger.kernel.org>; Thu, 08 Jun 2017 10:31:16 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-I have here two problems with Khadas VIM Pro device and Ethernet.
+Commit 1aa6c4f6b8cd8 ("net: vrf: Add l3mdev rules on first device create")
+adds the l3mdev FIB rule the first time a VRF device is created. However,
+it only creates the rule once and only in the namespace the first device
+is created - which may not be init_net. Fix by using the net_generic
+capability to make the add_fib_rules flag per network namespace.
 
-1) sometimes with the Kernel Linux 4.12-rc4 the Ethernet link is Up
-but only 10Mbps.
-Don't work (either SSH to device nor over serial console to ping out)
-meson8b-dwmac c9410000.ethernet eth0: Link is Up - 10Mbps/Half - flow
-control off
+Fixes: 1aa6c4f6b8cd8 ("net: vrf: Add l3mdev rules on first device create")
+Reported-by: Petr Machata <petrm@mellanox.com>
+Signed-off-by: David Ahern <dsahern@gmail.com>
+---
+ drivers/net/vrf.c | 36 ++++++++++++++++++++++++++++++++----
+ 1 file changed, 32 insertions(+), 4 deletions(-)
 
-Works (if I do ifconfig eth0 down / up):
-meson8b-dwmac c9410000.ethernet eth0: Link is Down
-meson8b-dwmac c9410000.ethernet eth0: Link is Up - 100Mbps/Full - flow
-control off
-
-Whole log could be found in [0].
-
-2) if downloading an amount of data while connected to device over
-SSH, connection will stall and after some minutes SSH session would be
-disconnected. Nothing is written in dmesg and ethtool shows me same
-values before when Ethernet was working, and after when connection
-stall. Whole log can be found in [1]
-
-SSH to device (OK)
-  -> Cloning linux git repo...
-Cloning into bare repository '/opt/mmcblk1/linux-aarch64-git/linux'...
-remote: Counting objects: 5399033, done.
-remote: Compressing objects: 100% (1495/1495), done.
-Receiving objects:   3% (161971/5399033), 73.20 MiB | 6.19 MiB/s
-
-here the download stalled and SSH connection also stalled but not disconnected
-
-# ethtool eth0
-Settings for eth0:
-        Supported ports: [ TP MII ]
-        Supported link modes:   10baseT/Half 10baseT/Full
-                                100baseT/Half 100baseT/Full
-        Supported pause frame use: Symmetric Receive-only
-        Supports auto-negotiation: Yes
-        Advertised link modes:  10baseT/Half 10baseT/Full
-                                100baseT/Half 100baseT/Full
-        Advertised pause frame use: No
-        Advertised auto-negotiation: Yes
-        Link partner advertised link modes:  10baseT/Half 10baseT/Full
-                                             100baseT/Half 100baseT/Full
-        Link partner advertised pause frame use: No
-        Link partner advertised auto-negotiation: Yes
-        Speed: 100Mb/s
-        Duplex: Full
-        Port: MII
-        PHYAD: 8
-        Transceiver: internal
-        Auto-negotiation: on
-        Supports Wake-on: ug
-        Wake-on: d
-        Current message level: 0x0000003f (63)
-                               drv probe link timer ifdown ifup
-        Link detected: yes
-#
-
-after 2 min SSH connection disconnected
-
-over serial console:
-# ping -c3 8.8.8.8
-PING 8.8.8.8 (8.8.8.8) 56(84) bytes of data.
->From 10.8.8.6 icmp_seq=1 Destination Host Unreachable
-
---- 8.8.8.8 ping statistics ---
-3 packets transmitted, 0 received, +1 errors, 100% packet loss, time 2060ms
-pipe 3
-#
-
-nothing in dmesg or in journalctl
-
-also here is helps only to take port down and again up. restarting
-networking services fails "timed out".
-
-Regards,
-
-
-[0] https://defuse.ca/b/jqXqW9Ip
-[1] https://defuse.ca/b/bJLOAuX6
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index db882493875c..73b36f579867 100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -36,12 +36,14 @@
+ #include <net/addrconf.h>
+ #include <net/l3mdev.h>
+ #include <net/fib_rules.h>
++#include <net/netns/generic.h>
+ 
+ #define DRV_NAME	"vrf"
+ #define DRV_VERSION	"1.0"
+ 
+ #define FIB_RULE_PREF  1000       /* default preference for FIB rules */
+-static bool add_fib_rules = true;
++
++static unsigned int vrf_net_id;
+ 
+ struct net_vrf {
+ 	struct rtable __rcu	*rth;
+@@ -1394,6 +1396,8 @@ static int vrf_newlink(struct net *src_net, struct net_device *dev,
+ 		       struct nlattr *tb[], struct nlattr *data[])
+ {
+ 	struct net_vrf *vrf = netdev_priv(dev);
++	bool *add_fib_rules;
++	struct net *net;
+ 	int err;
+ 
+ 	if (!data || !data[IFLA_VRF_TABLE])
+@@ -1409,13 +1413,15 @@ static int vrf_newlink(struct net *src_net, struct net_device *dev,
+ 	if (err)
+ 		goto out;
+ 
+-	if (add_fib_rules) {
++	net = dev_net(dev);
++	add_fib_rules = net_generic(net, vrf_net_id);
++	if (*add_fib_rules) {
+ 		err = vrf_add_fib_rules(dev);
+ 		if (err) {
+ 			unregister_netdevice(dev);
+ 			goto out;
+ 		}
+-		add_fib_rules = false;
++		*add_fib_rules = false;
+ 	}
+ 
+ out:
+@@ -1498,16 +1504,38 @@ static struct notifier_block vrf_notifier_block __read_mostly = {
+ 	.notifier_call = vrf_device_event,
+ };
+ 
++/* Initialize per network namespace state */
++static int __net_init vrf_netns_init(struct net *net)
++{
++	bool *add_fib_rules = net_generic(net, vrf_net_id);
++
++	*add_fib_rules = true;
++
++	return 0;
++}
++
++static struct pernet_operations vrf_net_ops __net_initdata = {
++	.init = vrf_netns_init,
++	.id   = &vrf_net_id,
++	.size = sizeof(bool),
++};
++
+ static int __init vrf_init_module(void)
+ {
+ 	int rc;
+ 
+ 	register_netdevice_notifier(&vrf_notifier_block);
+ 
+-	rc = rtnl_link_register(&vrf_link_ops);
++	rc = register_pernet_subsys(&vrf_net_ops);
+ 	if (rc < 0)
+ 		goto error;
+ 
++	rc = rtnl_link_register(&vrf_link_ops);
++	if (rc < 0) {
++		unregister_pernet_subsys(&vrf_net_ops);
++		goto error;
++	}
++
+ 	return 0;
+ 
+ error:
+-- 
+2.11.0 (Apple Git-81)
