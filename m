@@ -1,7 +1,7 @@
 From: <netanel@amazon.com>
-Subject: [PATCH net-next 1/8] net: ena: fix rare uncompleted admin command false alarm
-Date: Fri, 9 Jun 2017 09:55:17 +0300
-Message-ID: <1496991325-551-2-git-send-email-netanel@amazon.com>
+Subject: [PATCH net-next 4/8] net: ena: fix race condition between submit and completion admin command
+Date: Fri, 9 Jun 2017 09:55:20 +0300
+Message-ID: <1496991325-551-5-git-send-email-netanel@amazon.com>
 References: <1496991325-551-1-git-send-email-netanel@amazon.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,78 +11,69 @@ Cc: Netanel Belgazal <netanel@amazon.com>, <dwmw@amazon.com>,
         <evgenys@amazon.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-fw-6001.amazon.com ([52.95.48.154]:29525 "EHLO
-        smtp-fw-6001.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751506AbdFIGzw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 02:55:52 -0400
+Received: from smtp-fw-4101.amazon.com ([72.21.198.25]:40680 "EHLO
+        smtp-fw-4101.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751610AbdFIG4B (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 02:56:01 -0400
 In-Reply-To: <1496991325-551-1-git-send-email-netanel@amazon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Netanel Belgazal <netanel@amazon.com>
 
-The current flow to detect admin completion is:
-while (command_not_completed) {
-	if (timeout)
-		error
+Bug:
+"Completion context is occupied" error printout will be noticed in
+dmesg.
+This error will cause the admin command to fail, which will lead to
+an ena_probe() failure or a watchdog reset (depends on which admin
+command failed).
 
-	check_for_completion()
-		sleep()
-   }
-So in case the sleep took more than the timeout
-(in case the thread/workqueue was not scheduled due to higher priority
-task or prolonged VMexit), the driver can detect a stall even if
-the completion is present.
+Root cause:
+__ena_com_submit_admin_cmd() is the function that submits new entries to
+the admin queue.
+The function have a check that makes sure the queue is not full and the
+function does not override any outstanding command.
+It uses head and tail indexes for this check.
+The head is increased by ena_com_handle_admin_completion() which runs
+from interrupt context, and the tail index is increased by the submit
+function (the function is running under ->q_lock, so there is no risk
+of multithread increment).
+Each command is associated with a completion context. This context
+allocated before call to __ena_com_submit_admin_cmd() and freed by
+ena_com_wait_and_process_admin_cq_interrupts(), right after the command
+was completed.
 
-The fix changes the order of this function to first check for
-completion and only after that check if the timeout expired.
+This can lead to a state where the head was increased, the check passed,
+but the completion context is still in use.
+
+Solution:
+Use the atomic variable ->outstanding_cmds instead of using the head and
+the tail indexes.
+This variable is safe for use since it is bumped in get_comp_ctx() in
+__ena_com_submit_admin_cmd() and is freed by comp_ctxt_release()
 
 Signed-off-by: Netanel Belgazal <netanel@amazon.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_com.c | 21 +++++++++++----------
- 1 file changed, 11 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_com.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
-index 08d11ce..e1c2fab 100644
+index e1c2fab..ea60b9e 100644
 --- a/drivers/net/ethernet/amazon/ena/ena_com.c
 +++ b/drivers/net/ethernet/amazon/ena/ena_com.c
-@@ -508,15 +508,20 @@ static int ena_com_comp_status_to_errno(u8 comp_status)
- static int ena_com_wait_and_process_admin_cq_polling(struct ena_comp_ctx *comp_ctx,
- 						     struct ena_com_admin_queue *admin_queue)
- {
--	unsigned long flags;
--	u32 start_time;
-+	unsigned long flags, timeout;
- 	int ret;
+@@ -232,11 +232,9 @@ static struct ena_comp_ctx *__ena_com_submit_admin_cmd(struct ena_com_admin_queu
+ 	tail_masked = admin_queue->sq.tail & queue_size_mask;
  
--	start_time = ((u32)jiffies_to_usecs(jiffies));
-+	timeout = jiffies + ADMIN_CMD_TIMEOUT_US;
-+
-+	while (1) {
-+		spin_lock_irqsave(&admin_queue->q_lock, flags);
-+		ena_com_handle_admin_completion(admin_queue);
-+		spin_unlock_irqrestore(&admin_queue->q_lock, flags);
- 
--	while (comp_ctx->status == ENA_CMD_SUBMITTED) {
--		if ((((u32)jiffies_to_usecs(jiffies)) - start_time) >
--		    ADMIN_CMD_TIMEOUT_US) {
-+		if (comp_ctx->status != ENA_CMD_SUBMITTED)
-+			break;
-+
-+		if (time_is_before_jiffies(timeout)) {
- 			pr_err("Wait for completion (polling) timeout\n");
- 			/* ENA didn't have any completion */
- 			spin_lock_irqsave(&admin_queue->q_lock, flags);
-@@ -528,10 +533,6 @@ static int ena_com_wait_and_process_admin_cq_polling(struct ena_comp_ctx *comp_c
- 			goto err;
- 		}
- 
--		spin_lock_irqsave(&admin_queue->q_lock, flags);
--		ena_com_handle_admin_completion(admin_queue);
--		spin_unlock_irqrestore(&admin_queue->q_lock, flags);
--
- 		msleep(100);
+ 	/* In case of queue FULL */
+-	cnt = admin_queue->sq.tail - admin_queue->sq.head;
++	cnt = atomic_read(&admin_queue->outstanding_cmds);
+ 	if (cnt >= admin_queue->q_depth) {
+-		pr_debug("admin queue is FULL (tail %d head %d depth: %d)\n",
+-			 admin_queue->sq.tail, admin_queue->sq.head,
+-			 admin_queue->q_depth);
++		pr_debug("admin queue is full.\n");
+ 		admin_queue->stats.out_of_space++;
+ 		return ERR_PTR(-ENOSPC);
  	}
- 
 -- 
 2.7.4
