@@ -1,113 +1,35 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 06/11] r8152: adjust U2P3 for RTL8153
-Date: Fri, 9 Jun 2017 17:11:43 +0800
-Message-ID: <1394712342-15778-266-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-260-Taiwan-albertk@realtek.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH 07/11] wireless: ipw2x00: convert to use DRIVER_ATTR_RW
+Date: Fri, 09 Jun 2017 12:25:44 +0300
+Message-ID: <87h8zp4inb.fsf@codeaurora.org>
+References: <20170609090314.13991-1-gregkh@linuxfoundation.org>
+        <20170609090314.13991-7-gregkh@linuxfoundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-        <linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org,
+        Stanislav Yakovlev <stas.yakovlev@gmail.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-260-Taiwan-albertk@realtek.com>
+In-Reply-To: <20170609090314.13991-7-gregkh@linuxfoundation.org> (Greg
+        Kroah-Hartman's message of "Fri, 9 Jun 2017 11:03:10 +0200")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use another way to keep disabling the U2P3 for both RTL_VER_03 and
-RTL_VER_04.
+Greg Kroah-Hartman <gregkh@linuxfoundation.org> writes:
 
-Move enabling U2P3 from r8153_init() to r8153_hw_phy_cfg(). The
-engineer ask the setting should be done after PHY settings.
+> We are trying to get rid of DRIVER_ATTR(), and the ipw2x00 driver's
+> attributes can be trivially changed to use DRIVER_ATTR_RW().
+>
+> Cc: Stanislav Yakovlev <stas.yakovlev@gmail.com>
+> Cc: Kalle Valo <kvalo@codeaurora.org>
+> Cc: <linux-wireless@vger.kernel.org>
+> Cc: <netdev@vger.kernel.org>
+> Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 
-Disable U2P3 first in rtl8153_up().
+Looks good to me. I assume that I should take this, but let me know if
+you are planning to push this via your trees instead. Either way is fine
+for me, I'm not expecting any conflicts here.
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 41 +++++++++++++++++++++++++++++++++++++----
- 1 file changed, 37 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 32e83fd..565ac5b 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -2468,7 +2468,7 @@ static void r8153_u2p3en(struct r8152 *tp, bool enable)
- 	u32 ocp_data;
- 
- 	ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_U2P3_CTRL);
--	if (enable && tp->version != RTL_VER_03 && tp->version != RTL_VER_04)
-+	if (enable)
- 		ocp_data |= U2P3_ENABLE;
- 	else
- 		ocp_data &= ~U2P3_ENABLE;
-@@ -2559,7 +2559,18 @@ static void rtl8153_runtime_enable(struct r8152 *tp, bool enable)
- 	} else {
- 		rtl_runtime_suspend_enable(tp, false);
- 		r8153_mac_clk_spd(tp, false);
--		r8153_u2p3en(tp, true);
-+
-+		switch (tp->version) {
-+		case RTL_VER_03:
-+		case RTL_VER_04:
-+			break;
-+		case RTL_VER_05:
-+		case RTL_VER_06:
-+		default:
-+			r8153_u2p3en(tp, true);
-+			break;
-+		}
-+
- 		r8153_u1u2en(tp, true);
- 	}
- }
-@@ -2898,6 +2909,17 @@ static void r8153_hw_phy_cfg(struct r8152 *tp)
- 	r8153_aldps_en(tp, true);
- 	r8152b_enable_fc(tp);
- 
-+	switch (tp->version) {
-+	case RTL_VER_03:
-+	case RTL_VER_04:
-+		break;
-+	case RTL_VER_05:
-+	case RTL_VER_06:
-+	default:
-+		r8153_u2p3en(tp, true);
-+		break;
-+	}
-+
- 	set_bit(PHY_RESET, &tp->flags);
- }
- 
-@@ -3143,10 +3165,22 @@ static void rtl8153_up(struct r8152 *tp)
- 		return;
- 
- 	r8153_u1u2en(tp, false);
-+	r8153_u2p3en(tp, false);
- 	r8153_aldps_en(tp, false);
- 	r8153_first_init(tp);
- 	r8153_aldps_en(tp, true);
--	r8153_u2p3en(tp, true);
-+
-+	switch (tp->version) {
-+	case RTL_VER_03:
-+	case RTL_VER_04:
-+		break;
-+	case RTL_VER_05:
-+	case RTL_VER_06:
-+	default:
-+		r8153_u2p3en(tp, true);
-+		break;
-+	}
-+
- 	r8153_u1u2en(tp, true);
- }
- 
-@@ -3545,7 +3579,6 @@ static void r8153_init(struct r8152 *tp)
- 	ocp_write_word(tp, MCU_TYPE_USB, USB_USB_CTRL, ocp_data);
- 
- 	rtl_tally_reset(tp);
--	r8153_u2p3en(tp, true);
- }
- 
- static int rtl8152_pre_reset(struct usb_interface *intf)
 -- 
-2.7.4
+Kalle Valo
