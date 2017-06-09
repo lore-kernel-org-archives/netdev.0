@@ -1,37 +1,20 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH net-next] qed: add qed_int_sb_init() stub function
-Date: Fri, 9 Jun 2017 13:44:01 +0000
-Message-ID: <BLUPR0701MB2004385885B7ECD40AC806598DCE0@BLUPR0701MB2004.namprd07.prod.outlook.com>
-References: <20170609103744.3239316-1-arnd@arndb.de>
+From: "Mrs Alice Walton" <alice@alvorada.rs.gov.br>
+Subject: (unknown)
+Date: Fri, 09 Jun 2017 05:45:46 -0700
+Message-ID: <20170609124638.1639BA6EE334@mail.alvorada.rs.gov.br>
+Reply-To: alicewalton7651@hotmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
-Cc: "David S. Miller" <davem@davemloft.net>,
-        "Chopra, Manish" <Manish.Chopra@cavium.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170609103744.3239316-1-arnd@arndb.de>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Recipients <alice@alvorada.rs.gov.br>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.alvorada.rs.gov.br ([177.43.243.125]:42904 "EHLO
+        mail.alvorada.rs.gov.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751763AbdFINo7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 09:44:59 -0400
+Content-Description: Mail message body
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> When CONFIG_QED_SRIOV is disabled, we get a build error:
->=20
-> drivers/net/ethernet/qlogic/qed/qed_int.c: In function 'qed_int_sb_init':
-> drivers/net/ethernet/qlogic/qed/qed_int.c:1499:4: error: implicit declara=
-tion
-> of function 'qed_vf_set_sb_info'; did you mean 'qed_mcp_get_resc_info'? [=
--
-> Werror=3Dimplicit-function-declaration]
->=20
-> All the other declarations have a 'static inline' stub as an alternative =
-here, so
-> this adds one more for qed_int_sb_init.
->=20
-> Fixes: 50a207147fce ("qed: Hold a single array for SBs")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-
-Missed it. Thanks.
-Acked-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+I have a charity proposal for you
