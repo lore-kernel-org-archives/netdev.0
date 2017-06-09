@@ -1,47 +1,32 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH net-next] qed: add qed_int_sb_init() stub function
-Date: Fri,  9 Jun 2017 12:37:35 +0200
-Message-ID: <20170609103744.3239316-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        "Chopra, Manish" <Manish.Chopra@cavium.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Yuval Mintz <Yuval.Mintz@cavium.com>,
-        Ariel Elior <Ariel.Elior@cavium.com>,
-        everest-linux-l2@cavium.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Petr Machata <petrm@mellanox.com>
+Subject: Re: [PATCH] net: vrf: Make add_fib_rules per network namespace flag
+Date: Fri, 09 Jun 2017 13:09:31 +0200
+Message-ID: <87shj92z9w.fsf@mellanox.com>
+References: <20170608173111.22831-1-dsahern@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsahern@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db5eur01on0052.outbound.protection.outlook.com ([104.47.2.52]:34064
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751530AbdFILJl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 9 Jun 2017 07:09:41 -0400
+In-Reply-To: <20170608173111.22831-1-dsahern@gmail.com> (David Ahern's message
+        of "Thu, 8 Jun 2017 11:31:11 -0600")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When CONFIG_QED_SRIOV is disabled, we get a build error:
+David Ahern <dsahern@gmail.com> writes:
 
-drivers/net/ethernet/qlogic/qed/qed_int.c: In function 'qed_int_sb_init':
-drivers/net/ethernet/qlogic/qed/qed_int.c:1499:4: error: implicit declaration of function 'qed_vf_set_sb_info'; did you mean 'qed_mcp_get_resc_info'? [-Werror=implicit-function-declaration]
+> Commit 1aa6c4f6b8cd8 ("net: vrf: Add l3mdev rules on first device create")
+> adds the l3mdev FIB rule the first time a VRF device is created. However,
+> it only creates the rule once and only in the namespace the first device
+> is created - which may not be init_net. Fix by using the net_generic
+> capability to make the add_fib_rules flag per network namespace.
 
-All the other declarations have a 'static inline' stub as an alternative
-here, so this adds one more for qed_int_sb_init.
+Works per my testing.
 
-Fixes: 50a207147fce ("qed: Hold a single array for SBs")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/qlogic/qed/qed_vf.h | 5 +++++
- 1 file changed, 5 insertions(+)
-
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.h b/drivers/net/ethernet/qlogic/qed/qed_vf.h
-index b65bbc54a097..34d9b882a780 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_vf.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_vf.h
-@@ -1105,6 +1105,11 @@ static inline u16 qed_vf_get_igu_sb_id(struct qed_hwfn *p_hwfn, u16 sb_id)
- 	return 0;
- }
- 
-+static inline void qed_vf_set_sb_info(struct qed_hwfn *p_hwfn, u16 sb_id,
-+				      struct qed_sb_info *p_sb)
-+{
-+}
-+
- static inline int qed_vf_pf_vport_start(struct qed_hwfn *p_hwfn,
- 					u8 vport_id,
- 					u16 mtu,
--- 
-2.9.0
+Thanks!
+Petr
