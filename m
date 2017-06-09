@@ -1,30 +1,36 @@
-From: Martin Parrish <dataprotection@asda.co.uk>
-Subject: office for an agent/mediator
-Date: Fri, 09 Jun 2017 15:48:51 -0500
-Message-ID: <a59ee83c36f1fd6f47ef171a78580344__39871.2736940526$1497042689$gmane$org@viatorbd.com>
-Reply-To: martinparrish087@gmail.com
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH net-next] ipv6: Initial skb->dev and skb->protocol in ip6_output
+Date: Fri, 9 Jun 2017 14:11:40 -0700
+Message-ID: <CANn89iJwxmiU2HN4cG42r74_2z4pk+t1pD0nWaHUgJFGffgM=A@mail.gmail.com>
+References: <1497035168-9093-1-git-send-email-chenbofeng.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Lorenzo Colitti <lorenzo@google.com>,
+        Chenbo Feng <fengc@google.com>
+To: Chenbo Feng <chenbofeng.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway24.websitewelcome.com ([192.185.51.196]:40662 "EHLO
-        gateway24.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751561AbdFIVLZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 17:11:25 -0400
-Received: from cm2.websitewelcome.com (cm2.websitewelcome.com [192.185.178.13])
-        by gateway24.websitewelcome.com (Postfix) with ESMTP id 511A23282
-        for <netdev@vger.kernel.org>; Fri,  9 Jun 2017 15:49:34 -0500 (CDT)
+Received: from mail-yw0-f179.google.com ([209.85.161.179]:33617 "EHLO
+        mail-yw0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751545AbdFIVLl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 17:11:41 -0400
+Received: by mail-yw0-f179.google.com with SMTP id 63so24203888ywr.0
+        for <netdev@vger.kernel.org>; Fri, 09 Jun 2017 14:11:41 -0700 (PDT)
+In-Reply-To: <1497035168-9093-1-git-send-email-chenbofeng.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Jun 9, 2017 at 12:06 PM, Chenbo Feng
+<chenbofeng.kernel@gmail.com> wrote:
+> From: Chenbo Feng <fengc@google.com>
+>
+> Move the initialization of skb->dev and skb->protocol from
+> ip6_finish_output2 to ip6_output. This can make the skb->dev and
+> skb->protocol information avalaible to the CGROUP eBPF filter.
+>
+> Signed-off-by: Chenbo Feng <fengc@google.com>
+> Acked-by: Eric Dumazet <edumazet@google.com>
+> ---
 
-VALERO CRUDE USA is looking for an agent, to be our coordinator in 
-Europe and Asia,
-which you will act as an intermediary between our company and the
-final buyer of petroleum products in those regions,Inform us if you are 
-interested
-Sincerely,
-Martin Parrish
-(Vice-President Alternate Fuels)
+Arg, you mixed my Acked-by for your other patch :/
