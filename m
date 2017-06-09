@@ -1,28 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] geneve: add missing rx stats accounting
-Date: Fri, 09 Jun 2017 12:50:20 -0400 (EDT)
-Message-ID: <20170609.125020.2287687662203118385.davem@davemloft.net>
-References: <1496966868-6032-1-git-send-email-girish.moodalbail@oracle.com>
+Subject: Re: [PATCH net-next] liquidio: disallow enabling firmware debug
+ from a VF
+Date: Fri, 09 Jun 2017 12:51:07 -0400 (EDT)
+Message-ID: <20170609.125107.951779342423653233.davem@davemloft.net>
+References: <20170609022036.GA1327@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pshelar@ovn.org
-To: girish.moodalbail@oracle.com
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com
+To: felix.manlunas@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34044 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:34092 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751645AbdFIQuW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 12:50:22 -0400
-In-Reply-To: <1496966868-6032-1-git-send-email-girish.moodalbail@oracle.com>
+        with ESMTP id S1751562AbdFIQvJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 12:51:09 -0400
+In-Reply-To: <20170609022036.GA1327@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Girish Moodalbail <girish.moodalbail@oracle.com>
-Date: Thu,  8 Jun 2017 17:07:48 -0700
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Thu, 8 Jun 2017 19:20:36 -0700
 
-> There are few places on the receive path where packet drops and packet
-> errors were not accounted for. This patch fixes that issue.
+> From: Derek Chickles <derek.chickles@cavium.com>
 > 
-> Signed-off-by: Girish Moodalbail <girish.moodalbail@oracle.com>
+> Disallow enabling firmware debug from a VF.  Only PF is allowed to do that.
+> 
+> Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
 
-Applied, thank you.
+Applied.
