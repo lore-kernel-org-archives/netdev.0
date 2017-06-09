@@ -1,39 +1,31 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next] bonding: warn user when 802.3ad speed is unknown
-Date: Fri, 9 Jun 2017 16:23:59 +0200
-Message-ID: <20170609142359.GD20756@lunn.ch>
-References: <20170608164811.GB20216@lunn.ch>
- <1497015283-1729-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net v2] net: ipmr: Fix some mroute forwarding issues in
+ vrf's
+Date: Fri, 9 Jun 2017 16:28:12 +0200
+Message-ID: <20170609142812.GE20756@lunn.ch>
+References: <20170609142259.24423-1-sharpd@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, j.vosburgh@gmail.com,
-        vfalico@gmail.com, andy@greyhouse.net, thibaut.collet@6wind.com,
-        linville@tuxdriver.com
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, dsahern@gmail.com,
+        Thomas.Winter@alliedtelesis.co.nz, nikolay@cumulusnetworks.com,
+        yotamg@mellanox.com, idosch@mellanox.com, roopa@cumulusnetworks.com
+To: Donald Sharp <sharpd@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:43314 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:43331 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751527AbdFIOYT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 9 Jun 2017 10:24:19 -0400
+        id S1751560AbdFIO2Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 9 Jun 2017 10:28:16 -0400
 Content-Disposition: inline
-In-Reply-To: <1497015283-1729-1-git-send-email-nicolas.dichtel@6wind.com>
+In-Reply-To: <20170609142259.24423-1-sharpd@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 09, 2017 at 03:34:43PM +0200, Nicolas Dichtel wrote:
-> Make it explicit in the log.
-> 
-> Suggested-by: Andrew Lunn <andrew@lunn.ch>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>  static void ip_mr_forward(struct net *net, struct mr_table *mrt,
+> -			  struct sk_buff *skb, struct mfc_cache *cache,
+> -			  int local);
+> +			  struct net_device *dev, struct sk_buff *skb,
+> +                          struct mfc_cache *cache, int local);
 
-Hi Nicolas
+You appear to have spaces here, not tabs.
 
-How often is this called? It seems like it is used by
-ad_port_selection_logic, which has the comment:
-
-	is called in the inititalization (after all the handshkes),
-	and after every lacpdu receive (if selected is off)
-
-I just wonder if this should be rate limited?
-
-  Andrew
+    Andrew
