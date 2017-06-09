@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 09/11] r8152: check if disabling ALDPS is finished
-Date: Fri, 9 Jun 2017 17:11:46 +0800
-Message-ID: <1394712342-15778-269-Taiwan-albertk@realtek.com>
+Subject: [PATCH net-next 11/11] r8152: replace napi_complete with napi_complete_done
+Date: Fri, 9 Jun 2017 17:11:48 +0800
+Message-ID: <1394712342-15778-271-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-260-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,32 +13,34 @@ In-Reply-To: <1394712342-15778-260-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use PLA 0xe000 bit 8 to check if disabling ALDPS is finished.
+Change from using napi_complete to napi_complete_done to allow for the
+use of gro_flush_timeout in tuning network processing.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+ drivers/net/usb/r8152.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index f43b7a8..204f4b2 100644
+index fa29583..5a02053 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -2836,9 +2836,15 @@ static void r8153_aldps_en(struct r8152 *tp, bool enable)
- 		data |= EN_ALDPS;
- 		ocp_reg_write(tp, OCP_POWER_CFG, data);
- 	} else {
-+		int i;
-+
- 		data &= ~EN_ALDPS;
- 		ocp_reg_write(tp, OCP_POWER_CFG, data);
--		msleep(20);
-+		for (i = 0; i < 20; i++) {
-+			usleep_range(1000, 2000);
-+			if (ocp_read_word(tp, MCU_TYPE_PLA, 0xe000) & 0x0100)
-+				break;
-+		}
+@@ -1938,7 +1938,8 @@ static int r8152_poll(struct napi_struct *napi, int budget)
+ 	bottom_half(tp);
+ 
+ 	if (work_done < budget) {
+-		napi_complete(napi);
++		if (!napi_complete_done(napi, work_done))
++			goto out;
+ 		if (!list_empty(&tp->rx_done))
+ 			napi_schedule(napi);
+ 		else if (!skb_queue_empty(&tp->tx_queue) &&
+@@ -1946,6 +1947,7 @@ static int r8152_poll(struct napi_struct *napi, int budget)
+ 			napi_schedule(napi);
  	}
+ 
++out:
+ 	return work_done;
  }
  
 -- 
