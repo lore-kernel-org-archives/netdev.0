@@ -1,52 +1,30 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next v2] bonding: warn user when 802.3ad speed is unknown
-Date: Fri,  9 Jun 2017 17:58:08 +0200
-Message-ID: <1497023888-1420-1-git-send-email-nicolas.dichtel@6wind.com>
-References: <20170609145932.GG20756@lunn.ch>
-Cc: netdev@vger.kernel.org, davem@davemloft.net, j.vosburgh@gmail.com,
-        vfalico@gmail.com, andy@greyhouse.net, thibaut.collet@6wind.com,
-        linville@tuxdriver.com, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: andrew@lunn.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:49591 "EHLO
-        proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751642AbdFIP6W (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 11:58:22 -0400
-In-Reply-To: <20170609145932.GG20756@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/7] net: dsa: mv88e6xxx: ops cosmetics
+Date: Fri, 09 Jun 2017 12:11:20 -0400 (EDT)
+Message-ID: <20170609.121120.2149178729617274766.davem@davemloft.net>
+References: <20170608223414.594-1-vivien.didelot@savoirfairelinux.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170608223414.594-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Goal is to advertise the user when ethtool speeds and 802.3ad speeds are
-desynchronized.
-When this case happens, the kernel needs to be patched.
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Thu,  8 Jun 2017 18:34:07 -0400
 
-Suggested-by: Andrew Lunn <andrew@lunn.ch>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
+> This patchset brings no functional changes. It is a first step in a
+> bigger cosmetics change to the driver. It simplifies print messages and
+> polishes data types and chip operations.
+> 
+> The next patchs will only prefix and document the port registers macros.
+> 
+> Changes in v2:
+>   - KISS and simply use dev_* since chip->ds may not be initialized
+>   - add reviewers tags
 
-Here is another proposal. Comments are welcome.
-
-v2: use pr_warn_once()
-    warn only when speed != SPEED_UNKNOWN
-
- drivers/net/bonding/bond_3ad.c | 5 +++++
- 1 file changed, 5 insertions(+)
-
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index b44a6aeb346d..165a8009c640 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -322,6 +322,11 @@ static u16 __get_link_speed(struct port *port)
- 
- 		default:
- 			/* unknown speed value from ethtool. shouldn't happen */
-+			if (slave->speed != SPEED_UNKNOWN)
-+				pr_warn_once("%s: unknown ethtool speed (%d) for port %d (set it to 0)\n",
-+					     slave->bond->dev->name,
-+					     slave->speed,
-+					     port->actor_port_number);
- 			speed = 0;
- 			break;
- 		}
--- 
-2.8.1
+Series applied, thank you.
