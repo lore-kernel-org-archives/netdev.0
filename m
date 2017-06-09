@@ -1,56 +1,91 @@
-From: Dominik Heidler <dheidler@suse.de>
-Subject: [PATCH] l2tp: cast l2tp traffic counter to unsigned
-Date: Fri,  9 Jun 2017 16:29:47 +0200
-Message-ID: <20170609142947.16969-1-dheidler@suse.de>
-Cc: Dominik Heidler <dheidler@suse.de>,
-        Tom Parkin <tparkin@katalix.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] net: Fix inconsistent teardown and release of private
+ netdev state.
+Date: Fri, 09 Jun 2017 16:33:47 +0200
+Message-ID: <1497018827.12088.1.camel@sipsolutions.net>
+References: <20170607.155411.201795978436906426.davem@davemloft.net>
+         <1497012325.2424.12.camel@sipsolutions.net>
+         <20170609.101733.1675759409997288763.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:46430 "EHLO mx1.suse.de"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751534AbdFIObq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 9 Jun 2017 10:31:46 -0400
+Received: from s3.sipsolutions.net ([5.9.151.49]:56754 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751612AbdFIOdw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 9 Jun 2017 10:33:52 -0400
+In-Reply-To: <20170609.101733.1675759409997288763.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes a counter problem on 32bit systems:
-When the rx_bytes counter reached 2 GiB, it jumpd to (2^64 Bytes - 2GiB) Bytes.
+On Fri, 2017-06-09 at 10:17 -0400, David Miller wrote:
+> 
+> > I guess this must mean that that all others are dealing with the
+> > problem "manually", right? Perhaps needs_free_netdev isn't all that
+> > necessary then?
+> 
+> Yeah, the major two modes of operation are manual freeing of the
+> netdev (usually at module unload time or similar) or via the
+> destructor mechanisms.
 
-rtnl_link_stats64 has __u64 type and atomic_long_read returns
-atomic_long_t which is signed. Due to the conversation
-we get an incorrect value on 32bit systems if the MSB of
-the atomic_long_t value is set.
+Ok, thanks.
 
-CC: Tom Parkin <tparkin@katalix.com>
-Fixes: 7b7c0719cd7a ("l2tp: avoid deadlock in l2tp stats update")
-Signed-off-by: Dominik Heidler <dheidler@suse.de>
----
- net/l2tp/l2tp_eth.c | 13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
+> > I think you introduced a bug though - isn't this needed?
+> > 
+> > --- a/net/mac80211/iface.c
+> > +++ b/net/mac80211/iface.c
+> > @@ -1816,6 +1816,7 @@ int ieee80211_if_add(struct ieee80211_local
+> *local, const char *name,
+> >                 ret = dev_alloc_name(ndev, ndev->name);
+> >                 if (ret < 0) {
+> >                         ieee80211_if_free(ndev);
+> > +                       free_netdev(ndev);
+> >                         return ret;
+> >                 }
+> >  
+> > There was another caller of ieee80211_if_free() which you modified,
+> and
+> > thus needs the free_netdev() that you removed from it.
+> 
+> I think you are right.  The pattern is that when something fails
+> after allocating the netdev, but before registering it, that code
+> must free the netdev itself.
 
-diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
-index 8b21af7321b9..668a75e002e9 100644
---- a/net/l2tp/l2tp_eth.c
-+++ b/net/l2tp/l2tp_eth.c
-@@ -114,12 +114,13 @@ static void l2tp_eth_get_stats64(struct net_device *dev,
- {
- 	struct l2tp_eth *priv = netdev_priv(dev);
- 
--	stats->tx_bytes   = atomic_long_read(&priv->tx_bytes);
--	stats->tx_packets = atomic_long_read(&priv->tx_packets);
--	stats->tx_dropped = atomic_long_read(&priv->tx_dropped);
--	stats->rx_bytes   = atomic_long_read(&priv->rx_bytes);
--	stats->rx_packets = atomic_long_read(&priv->rx_packets);
--	stats->rx_errors  = atomic_long_read(&priv->rx_errors);
-+	stats->tx_bytes   = (unsigned long) atomic_long_read(&priv->tx_bytes);
-+	stats->tx_packets = (unsigned long) atomic_long_read(&priv->tx_packets);
-+	stats->tx_dropped = (unsigned long) atomic_long_read(&priv->tx_dropped);
-+	stats->rx_bytes   = (unsigned long) atomic_long_read(&priv->rx_bytes);
-+	stats->rx_packets = (unsigned long) atomic_long_read(&priv->rx_packets);
-+	stats->rx_errors  = (unsigned long) atomic_long_read(&priv->rx_errors);
-+
- }
- 
- static const struct net_device_ops l2tp_eth_netdev_ops = {
--- 
-2.13.0
+Right. Do you want me to put that into my tree? I could do it tonight,
+or perhaps only Monday though.
+
+> > Would an alternative have been to not use (priv_)destructor here,
+> and
+> > just free all the data after unregister_netdevice(_many)? This sets
+> the
+> > reg_state to NETREG_UNREGISTERING, so sysfs can no longer look at
+> the
+> > stats afterwards, and it's been unlisted (unlist_netdevice) so
+> can't be
+> > reached through any other means either.
+> > 
+> > IOW, this would also work and fix the bug above along the way?
+> > 
+> > diff --git a/net/mac80211/iface.c b/net/mac80211/iface.c
+> > index 915d7e1b4545..23df973d5181 100644
+> > --- a/net/mac80211/iface.c
+> > +++ b/net/mac80211/iface.c
+>  ...
+> > @@ -1932,6 +1931,7 @@ void ieee80211_if_remove(struct
+> ieee80211_sub_if_data *sdata)
+> >  
+> >       if (sdata->dev) {
+> >               unregister_netdevice(sdata->dev);
+> > +             ieee80211_if_free(sdata->dev);
+> >       } else {
+> >               cfg80211_unregister_wdev(&sdata->wdev);
+> >               ieee80211_teardown_sdata(sdata);
+> 
+> Unless I misunderstood something, unregister_netdevice() here will
+> invoke the ->priv_destructor() and thus now it will be invoked twice?
+
+I think you missed that I removed priv_destructor?
+
+johannes
