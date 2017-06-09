@@ -1,86 +1,84 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: Re: [PATCH net] net/flow: fix fc->percpu NULL pointer dereference
-Date: Fri, 9 Jun 2017 16:23:01 +0800
-Message-ID: <CAPwn2JSeKnspZpnWTXsze7sCSXJ9mbq2K3-mu-muuy8iT4A1qw@mail.gmail.com>
-References: <1496996036-22077-1-git-send-email-liuhangbin@gmail.com>
+From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: [PATCH net-next 1/8] qed: LL2 to use packed information for tx
+Date: Fri, 9 Jun 2017 08:23:30 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD001B8C2@AcuExch.aculab.com>
+References: <20170608161323.7597-1-Yuval.Mintz@cavium.com>
+        <20170608161323.7597-2-Yuval.Mintz@cavium.com>
+ <20170608.192358.1444190196602150329.davem@davemloft.net>
+ <063D6719AE5E284EB5DD2968C1650D6DD001B851@AcuExch.aculab.com>
+ <BLUPR0701MB2004CA6F1F262EC4E815E6B58DCE0@BLUPR0701MB2004.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>,
-        Xin Long <lucien.xin@gmail.com>,
-        Hangbin Liu <liuhangbin@gmail.com>,
-        network dev <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f68.google.com ([209.85.214.68]:34755 "EHLO
-        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751650AbdFIIXD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 04:23:03 -0400
-Received: by mail-it0-f68.google.com with SMTP id 201so3772444itu.1
-        for <netdev@vger.kernel.org>; Fri, 09 Jun 2017 01:23:02 -0700 (PDT)
-In-Reply-To: <1496996036-22077-1-git-send-email-liuhangbin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "Kalderon, Michal" <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+To: "'Mintz, Yuval'" <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        'David Miller' <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <BLUPR0701MB2004CA6F1F262EC4E815E6B58DCE0-v5ruerSQ/oj1oiTf6dR/AE5OhdzP3rhOnBOFsp37pqbUKgpGm//BTAC/G2K4zDHf@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Steffen,
+From: Mintz, Yuval
+> Sent: 09 June 2017 08:52
+> > From: David Laight [mailto:David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org]
+> > Sent: Friday, June 09, 2017 10:28 AM
+> > To: 'David Miller' <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>; Mintz, Yuval
+> > <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+> > Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Kalderon, Michal
+> > <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+> > Subject: RE: [PATCH net-next 1/8] qed: LL2 to use packed information for tx
+> >
+> > From: David Miller
+> > > Sent: 09 June 2017 00:24
+> > >
+> > > From: Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+> > > Date: Thu, 8 Jun 2017 19:13:16 +0300
+> > >
+> > > > @@ -67,6 +79,21 @@ struct qed_ll2_stats {
+> > > >  	u64 sent_bcast_pkts;
+> > > >  };
+> > > >
+> > > > +struct qed_ll2_tx_pkt_info {
+> > > > +	u8 num_of_bds;
+> > > > +	u16 vlan;
+> > > > +	u8 bd_flags;
+> > > > +	u16 l4_hdr_offset_w;	/* from start of packet */
+> > > > +	enum qed_ll2_tx_dest tx_dest;
+> > > > +	enum qed_ll2_roce_flavor_type qed_roce_flavor;
+> > > > +	dma_addr_t first_frag;
+> > > > +	u16 first_frag_len;
+> > > > +	bool enable_ip_cksum;
+> > > > +	bool enable_l4_cksum;
+> > > > +	bool calc_ip_len;
+> > > > +	void *cookie;
+> > > > +};
+> > > > +
+> > >
+> > > This layout is extremely inefficient, with lots of padding in between
+> > > struct members.
+> > >
+> > > Group small u8 members and u16 members together so that they consume
+> > > full 32-bit areas so you can eliminate all of the padding.
+> >
+> > I'd also query the use of u16 sizes/lengths, any arithmetic on u16 (and u8)
+> > variables is likely to generate extra code (on non-x86).
+> > You are using 32 bits for the 'enum' - I bet the values fit in 8 bits, so aren't
+> > really worried about size.
+> >
+> > If size did matter you can easily get the above down to 32 bytes.
+> 
+> You're right, and that's exactly the point -  since this is not data-path critical
+> I don't see why the size/efficiency should matter [greatly].
 
-BTW, If we put the check in xfrm_policy_flush(), we can prevent it earlier.
-But If we put the check in flow_cache_percpu_empty(), we can prevent
-other functions set fc->percpu to NULL, although not much possible : )
+It is just good practise so that it happens automatically when it does matter.
+Just swapping 'vlan' and 'bd_flags' would make it look much better.
 
-So I'm not quite sure whether we should put the check in
-flow_cache_percpu_empty() or in xfrm_policy_flush().
+	David
 
-Do you have any suggestion?
-
-Thanks
-Hangbin
-
-2017-06-09 16:13 GMT+08:00 Hangbin Liu <liuhangbin@gmail.com>:
-> Now we will force to do garbage collection if any policy removed in
-> xfrm_policy_flush(). But during xfrm_net_exit(). We call flow_cache_fini()
-> first and set set fc->percpu to NULL. Then after we call xfrm_policy_fini()
-> -> frxm_policy_flush() -> flow_cache_flush(), we will get NULL pointer
-> dereference when check percpu_empty. The code path looks like:
->
-> flow_cache_fini()
->   - fc->percpu = NULL
-> xfrm_policy_fini()
->   - xfrm_policy_flush()
->     - xfrm_garbage_collect()
->       - flow_cache_flush()
->         - flow_cache_percpu_empty()
->           - fcp = per_cpu_ptr(fc->percpu, cpu)
->
-> To reproduce, just add ipsec in netns and then remove the netns.
->
-> Fixes: 35db06912189 ("xfrm: do the garbage collection after flushing policy")
-> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
-> ---
->  net/core/flow.c | 11 +++++++----
->  1 file changed, 7 insertions(+), 4 deletions(-)
->
-> diff --git a/net/core/flow.c b/net/core/flow.c
-> index f7f5d19..321fc53 100644
-> --- a/net/core/flow.c
-> +++ b/net/core/flow.c
-> @@ -332,10 +332,13 @@ static int flow_cache_percpu_empty(struct flow_cache *fc, int cpu)
->         struct flow_cache_percpu *fcp;
->         unsigned int i;
->
-> -       fcp = per_cpu_ptr(fc->percpu, cpu);
-> -       for (i = 0; i < flow_cache_hash_size(fc); i++)
-> -               if (!hlist_empty(&fcp->hash_table[i]))
-> -                       return 0;
-> +       if (fc->percpu) {
-> +               fcp = per_cpu_ptr(fc->percpu, cpu);
-> +               for (i = 0; i < flow_cache_hash_size(fc); i++)
-> +                       if (!hlist_empty(&fcp->hash_table[i]))
-> +                               return 0;
-> +       }
-> +
->         return 1;
->  }
->
-> --
-> 2.5.5
->
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
