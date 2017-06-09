@@ -1,80 +1,56 @@
-From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH v6 00/21] net-next: stmmac: add dwmac-sun8i
- ethernet driver
-Date: Fri, 9 Jun 2017 14:50:57 +0200
-Message-ID: <20170609125057.ja6ftva7fji66wo2@flea.home>
-References: <20170601.145819.789604139072328057.davem@davemloft.net>
- <20170602063752.aqyvwcykvepiyt4y@flea.lan>
- <20170602091320.lyfxsanxrypfpozb@flea.lan>
- <20170602.102205.701672574727845689.davem@davemloft.net>
- <20170602222422.2elv6snjp3ahrhbi@flea.lan>
-Reply-To: maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="l4udedxtr3pi3jfp"
-Cc: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
-	will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-	alexandre.torgue-qxv4g6HH51o@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-sunxi+bncBDSJBYGBRIMBBPFT5LEQKGQE4MJEDSY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Content-Disposition: inline
-In-Reply-To: <20170602222422.2elv6snjp3ahrhbi-ZC1Zs529Oq4@public.gmane.org>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: [PATCH 3/6] can: peak_usb: fix product-id endianness in error message
+Date: Fri,  9 Jun 2017 14:55:10 +0200
+Message-ID: <20170609125513.24436-4-mkl@pengutronix.de>
+References: <20170609125513.24436-1-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+        kernel@pengutronix.de, Johan Hovold <johan@kernel.org>,
+        Marc Kleine-Budde <mkl@pengutronix.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:48155 "EHLO
+        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751623AbdFIMzV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 08:55:21 -0400
+In-Reply-To: <20170609125513.24436-1-mkl@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Johan Hovold <johan@kernel.org>
 
---l4udedxtr3pi3jfp
-Content-Type: text/plain; charset="UTF-8"
-Content-Disposition: inline
+Make sure to use the USB device product-id stored in host-byte order in
+a probe error message.
 
-On Sat, Jun 03, 2017 at 12:24:22AM +0200, Maxime Ripard wrote:
-> Hi,
-> 
-> On Fri, Jun 02, 2017 at 10:22:05AM -0400, David Miller wrote:
-> > From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-> > Date: Fri, 2 Jun 2017 11:13:20 +0200
-> > 
-> > > On Fri, Jun 02, 2017 at 08:37:52AM +0200, Maxime Ripard wrote:
-> > >> On Thu, Jun 01, 2017 at 02:58:19PM -0400, David Miller wrote:
-> > >> > From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> > >> > Date: Wed, 31 May 2017 09:18:31 +0200
-> > >> > 
-> > >> > > This patch series add the driver for dwmac-sun8i which handle the Ethernet MAC
-> > >> > > present on Allwinner H3/H5/A83T/A64 SoCs.
-> > >> > 
-> > >> > Series applied, but wow that's a lot of DT file changes :-(
-> > >> 
-> > >> The DT patches should not go through your tree, but arm-soc, so I
-> > >> guess this is not an issue for you?
-> > > 
-> > > Ok, so I saw that you actually merged them. Can you revert or drop
-> > > that merge for the DT part?
-> > > 
-> > > This will generate a lot of conflicts with our tree, and I'm not sure
-> > > this would be efficient to make you take all the entirely unrelated to
-> > > next patches.
-> > 
-> > Please tell me which specific changes to revert.
-> > 
-> > Thank you.
-> 
-> Ideally everything from 2c0cba482e79 ("arm: sun8i: sunxi-h3-h5: Add dt
-> node for the syscon control module") to 2428fd0fe550 ("arm64:
-> defconfig: Enable dwmac-sun8i driver on defconfig")
+Also remove a redundant reassignment of the local usb_dev variable which
+had already been used to retrieve the product id.
 
-Ping?
+Signed-off-by: Johan Hovold <johan@kernel.org>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+---
+ drivers/net/can/usb/peak_usb/pcan_usb_core.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
+diff --git a/drivers/net/can/usb/peak_usb/pcan_usb_core.c b/drivers/net/can/usb/peak_usb/pcan_usb_core.c
+index 57913dbbae0a..1ca76e03e965 100644
+--- a/drivers/net/can/usb/peak_usb/pcan_usb_core.c
++++ b/drivers/net/can/usb/peak_usb/pcan_usb_core.c
+@@ -908,8 +908,6 @@ static int peak_usb_probe(struct usb_interface *intf,
+ 	const struct peak_usb_adapter *peak_usb_adapter = NULL;
+ 	int i, err = -ENOMEM;
+ 
+-	usb_dev = interface_to_usbdev(intf);
+-
+ 	/* get corresponding PCAN-USB adapter */
+ 	for (i = 0; i < ARRAY_SIZE(peak_usb_adapters_list); i++)
+ 		if (peak_usb_adapters_list[i]->device_id == usb_id_product) {
+@@ -920,7 +918,7 @@ static int peak_usb_probe(struct usb_interface *intf,
+ 	if (!peak_usb_adapter) {
+ 		/* should never come except device_id bad usage in this file */
+ 		pr_err("%s: didn't find device id. 0x%x in devices list\n",
+-			PCAN_USB_DRIVER_NAME, usb_dev->descriptor.idProduct);
++			PCAN_USB_DRIVER_NAME, usb_id_product);
+ 		return -ENODEV;
+ 	}
+ 
 -- 
-Maxime Ripard, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
---l4udedxtr3pi3jfp--
+2.11.0
