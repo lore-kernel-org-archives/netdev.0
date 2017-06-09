@@ -1,157 +1,80 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] net: Fix inconsistent teardown and release of private
- netdev state.
-Date: Fri, 09 Jun 2017 14:45:25 +0200
-Message-ID: <1497012325.2424.12.camel@sipsolutions.net>
-References: <20170607.155411.201795978436906426.davem@davemloft.net>
-         (sfid-20170607_215419_417472_E8ADEEB0)
+From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH v6 00/21] net-next: stmmac: add dwmac-sun8i
+ ethernet driver
+Date: Fri, 9 Jun 2017 14:50:57 +0200
+Message-ID: <20170609125057.ja6ftva7fji66wo2@flea.home>
+References: <20170601.145819.789604139072328057.davem@davemloft.net>
+ <20170602063752.aqyvwcykvepiyt4y@flea.lan>
+ <20170602091320.lyfxsanxrypfpozb@flea.lan>
+ <20170602.102205.701672574727845689.davem@davemloft.net>
+ <20170602222422.2elv6snjp3ahrhbi@flea.lan>
+Reply-To: maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="l4udedxtr3pi3jfp"
+Cc: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+	will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+	alexandre.torgue-qxv4g6HH51o@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-sunxi+bncBDSJBYGBRIMBBPFT5LEQKGQE4MJEDSY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Content-Disposition: inline
+In-Reply-To: <20170602222422.2elv6snjp3ahrhbi-ZC1Zs529Oq4@public.gmane.org>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
+
+
+--l4udedxtr3pi3jfp
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:55830 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751536AbdFIMp3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 9 Jun 2017 08:45:29 -0400
-In-Reply-To: <20170607.155411.201795978436906426.davem@davemloft.net> (sfid-20170607_215419_417472_E8ADEEB0)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Disposition: inline
 
-Hi Dave,
+On Sat, Jun 03, 2017 at 12:24:22AM +0200, Maxime Ripard wrote:
+> Hi,
+> 
+> On Fri, Jun 02, 2017 at 10:22:05AM -0400, David Miller wrote:
+> > From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+> > Date: Fri, 2 Jun 2017 11:13:20 +0200
+> > 
+> > > On Fri, Jun 02, 2017 at 08:37:52AM +0200, Maxime Ripard wrote:
+> > >> On Thu, Jun 01, 2017 at 02:58:19PM -0400, David Miller wrote:
+> > >> > From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > >> > Date: Wed, 31 May 2017 09:18:31 +0200
+> > >> > 
+> > >> > > This patch series add the driver for dwmac-sun8i which handle the Ethernet MAC
+> > >> > > present on Allwinner H3/H5/A83T/A64 SoCs.
+> > >> > 
+> > >> > Series applied, but wow that's a lot of DT file changes :-(
+> > >> 
+> > >> The DT patches should not go through your tree, but arm-soc, so I
+> > >> guess this is not an issue for you?
+> > > 
+> > > Ok, so I saw that you actually merged them. Can you revert or drop
+> > > that merge for the DT part?
+> > > 
+> > > This will generate a lot of conflicts with our tree, and I'm not sure
+> > > this would be efficient to make you take all the entirely unrelated to
+> > > next patches.
+> > 
+> > Please tell me which specific changes to revert.
+> > 
+> > Thank you.
+> 
+> Ideally everything from 2c0cba482e79 ("arm: sun8i: sunxi-h3-h5: Add dt
+> node for the syscon control module") to 2428fd0fe550 ("arm64:
+> defconfig: Enable dwmac-sun8i driver on defconfig")
 
-I hope you don't mind a question or two for my understanding here.
-Actually, this got pretty long... but I think there's a bug in here.
+Ping?
 
-
-(For background, I'm looking into this because I'm interested in what
-to do about backporting this to older kernels, or better, how to deal
-with it in the backports project that tries to use the normal code as
-is, backporting helper functions etc., which won't be possible here)
-
-
-Under drivers/ in general, I count more than 400 calls to
-register_netdev[ice](), but only 39 that set the new needs_free_netdev.
-Some will overlap and have the same ops, but still, that's a rather
-small portion of them. The logic means those that don't set
-needs_free_netdev can't really use the new priv_destructor (previously
-destructor), I think? It seems to me that priv_destructor should imply
-needs_free_netdev (though not necessarily the other way around).
-
-I guess this must mean that that all others are dealing with the
-problem "manually", right? Perhaps needs_free_netdev isn't all that
-necessary then?
-
-
-So then the changes to net/mac80211/iface.c are just because you now
-invoke priv_destructor in failure paths in register_netdevice, and that
-would now double-free everything, since this was invoked already in the
-failure paths - hence the change to only free the netdev in the failure
-path.
-
-I think you introduced a bug though - isn't this needed?
-
---- a/net/mac80211/iface.c
-+++ b/net/mac80211/iface.c
-@@ -1816,6 +1816,7 @@ int ieee80211_if_add(struct ieee80211_local *local, const char *name,
-                ret = dev_alloc_name(ndev, ndev->name);
-                if (ret < 0) {
-                        ieee80211_if_free(ndev);
-+                       free_netdev(ndev);
-                        return ret;
-                }
- 
-There was another caller of ieee80211_if_free() which you modified, and
-thus needs the free_netdev() that you removed from it.
-
-
-Would an alternative have been to not use (priv_)destructor here, and
-just free all the data after unregister_netdevice(_many)? This sets the
-reg_state to NETREG_UNREGISTERING, so sysfs can no longer look at the
-stats afterwards, and it's been unlisted (unlist_netdevice) so can't be
-reached through any other means either.
-
-IOW, this would also work and fix the bug above along the way?
-
-diff --git a/net/mac80211/iface.c b/net/mac80211/iface.c
-index 915d7e1b4545..23df973d5181 100644
---- a/net/mac80211/iface.c
-+++ b/net/mac80211/iface.c
-@@ -1213,6 +1213,7 @@ static const struct net_device_ops ieee80211_monitorif_ops = {
- static void ieee80211_if_free(struct net_device *dev)
- {
- 	free_percpu(dev->tstats);
-+	free_netdev(dev);
- }
- 
- static void ieee80211_if_setup(struct net_device *dev)
-@@ -1220,8 +1221,6 @@ static void ieee80211_if_setup(struct net_device *dev)
- 	ether_setup(dev);
- 	dev->priv_flags &= ~IFF_TX_SKB_SHARING;
- 	dev->netdev_ops = &ieee80211_dataif_ops;
--	dev->needs_free_netdev = true;
--	dev->priv_destructor = ieee80211_if_free;
- }
- 
- static void ieee80211_if_setup_no_queue(struct net_device *dev)
-@@ -1905,7 +1904,7 @@ int ieee80211_if_add(struct ieee80211_local *local, const char *name,
- 
- 		ret = register_netdevice(ndev);
- 		if (ret) {
--			free_netdev(ndev);
-+			ieee80211_if_free(ndev);
- 			return ret;
- 		}
- 	}
-@@ -1932,6 +1931,7 @@ void ieee80211_if_remove(struct ieee80211_sub_if_data *sdata)
- 
- 	if (sdata->dev) {
- 		unregister_netdevice(sdata->dev);
-+		ieee80211_if_free(sdata->dev);
- 	} else {
- 		cfg80211_unregister_wdev(&sdata->wdev);
- 		ieee80211_teardown_sdata(sdata);
-@@ -1950,7 +1950,6 @@ void ieee80211_remove_interfaces(struct ieee80211_local *local)
- {
- 	struct ieee80211_sub_if_data *sdata, *tmp;
- 	LIST_HEAD(unreg_list);
--	LIST_HEAD(wdev_list);
- 
- 	ASSERT_RTNL();
- 
-@@ -1971,21 +1970,22 @@ void ieee80211_remove_interfaces(struct ieee80211_local *local)
- 	     wiphy_name(local->hw.wiphy), local->open_count);
- 
- 	mutex_lock(&local->iflist_mtx);
--	list_for_each_entry_safe(sdata, tmp, &local->interfaces, list) {
--		list_del(&sdata->list);
--
-+	list_for_each_entry(sdata, &local->interfaces, list) {
- 		if (sdata->dev)
- 			unregister_netdevice_queue(sdata->dev, &unreg_list);
--		else
--			list_add(&sdata->list, &wdev_list);
- 	}
- 	mutex_unlock(&local->iflist_mtx);
- 	unregister_netdevice_many(&unreg_list);
- 
--	list_for_each_entry_safe(sdata, tmp, &wdev_list, list) {
-+	list_for_each_entry(sdata, &local->interfaces, list) {
- 		list_del(&sdata->list);
--		cfg80211_unregister_wdev(&sdata->wdev);
--		kfree(sdata);
-+
-+		if (sdata->dev) {
-+			ieee80211_if_free(sdata->dev);
-+		} else {
-+			cfg80211_unregister_wdev(&sdata->wdev);
-+			kfree(sdata);
-+		}
- 	}
- }
- 
-
-(I might be tempted to put that in to ease the backporting)
-
-Thanks,
-johannes
+-- 
+Maxime Ripard, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
+--l4udedxtr3pi3jfp--
