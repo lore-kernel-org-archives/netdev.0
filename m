@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 08/11] r8152: move the initialization to reset_resume function
-Date: Fri, 9 Jun 2017 17:11:45 +0800
-Message-ID: <1394712342-15778-268-Taiwan-albertk@realtek.com>
+Subject: [PATCH net-next 09/11] r8152: check if disabling ALDPS is finished
+Date: Fri, 9 Jun 2017 17:11:46 +0800
+Message-ID: <1394712342-15778-269-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-260-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,40 +13,32 @@ In-Reply-To: <1394712342-15778-260-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Move tp->rtl_ops.init() from rtl8152_resume() to rtl8152_reset_resume().
-The initialization is only necessary for reset_resume().
+Use PLA 0xe000 bit 8 to check if disabling ALDPS is finished.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+ drivers/net/usb/r8152.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index f78111c..f43b7a8 100644
+index f43b7a8..204f4b2 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -3776,11 +3776,8 @@ static int rtl8152_resume(struct usb_interface *intf)
- 
- 	mutex_lock(&tp->control);
- 
--	if (!test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
--		tp->rtl_ops.init(tp);
--		queue_delayed_work(system_long_wq, &tp->hw_phy_work, 0);
-+	if (!test_bit(SELECTIVE_SUSPEND, &tp->flags))
- 		netif_device_attach(netdev);
--	}
- 
- 	if (netif_running(netdev) && netdev->flags & IFF_UP) {
- 		if (test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
-@@ -3826,6 +3823,10 @@ static int rtl8152_reset_resume(struct usb_interface *intf)
- 	struct r8152 *tp = usb_get_intfdata(intf);
- 
- 	clear_bit(SELECTIVE_SUSPEND, &tp->flags);
-+	mutex_lock(&tp->control);
-+	tp->rtl_ops.init(tp);
-+	queue_delayed_work(system_long_wq, &tp->hw_phy_work, 0);
-+	mutex_unlock(&tp->control);
- 	return rtl8152_resume(intf);
+@@ -2836,9 +2836,15 @@ static void r8153_aldps_en(struct r8152 *tp, bool enable)
+ 		data |= EN_ALDPS;
+ 		ocp_reg_write(tp, OCP_POWER_CFG, data);
+ 	} else {
++		int i;
++
+ 		data &= ~EN_ALDPS;
+ 		ocp_reg_write(tp, OCP_POWER_CFG, data);
+-		msleep(20);
++		for (i = 0; i < 20; i++) {
++			usleep_range(1000, 2000);
++			if (ocp_read_word(tp, MCU_TYPE_PLA, 0xe000) & 0x0100)
++				break;
++		}
+ 	}
  }
  
 -- 
