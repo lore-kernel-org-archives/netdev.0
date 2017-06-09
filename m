@@ -1,38 +1,40 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next] bonding: warn user when 802.3ad speed is unknown
-Date: Fri, 9 Jun 2017 16:59:32 +0200
-Message-ID: <20170609145932.GG20756@lunn.ch>
-References: <20170608164811.GB20216@lunn.ch>
- <1497015283-1729-1-git-send-email-nicolas.dichtel@6wind.com>
- <20170609142359.GD20756@lunn.ch>
- <fcca67e0-a170-6dd7-dcbb-7a0ecc0453d5@6wind.com>
+Subject: Re: [PATCH v2 7/8] net: mvmdio: add xmdio support
+Date: Fri, 9 Jun 2017 17:03:40 +0200
+Message-ID: <20170609150340.GH20756@lunn.ch>
+References: <20170608092653.25221-1-antoine.tenart@free-electrons.com>
+ <20170608092653.25221-8-antoine.tenart@free-electrons.com>
+ <a60a0b26-62b1-7c9e-e846-215747dddb1f@gmail.com>
+ <20170609082541.GC31464@kwain>
+ <20170609132624.GC20756@lunn.ch>
+ <20170609140922.GD31464@kwain>
+ <20170609144936.GF20756@lunn.ch>
+ <20170609145630.GE31464@kwain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, j.vosburgh@gmail.com,
-        vfalico@gmail.com, andy@greyhouse.net, thibaut.collet@6wind.com,
-        linville@tuxdriver.com
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>, davem@davemloft.net,
+        jason@lakedaemon.net, gregory.clement@free-electrons.com,
+        sebastian.hesselbarth@gmail.com,
+        thomas.petazzoni@free-electrons.com, mw@semihalf.com,
+        linux@armlinux.org.uk, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org
+To: Antoine Tenart <antoine.tenart@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:43387 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:43404 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751597AbdFIO74 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 9 Jun 2017 10:59:56 -0400
+        id S1751562AbdFIPDv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 9 Jun 2017 11:03:51 -0400
 Content-Disposition: inline
-In-Reply-To: <fcca67e0-a170-6dd7-dcbb-7a0ecc0453d5@6wind.com>
+In-Reply-To: <20170609145630.GE31464@kwain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > I just wonder if this should be rate limited?
-> So using net_warn_ratelimited()?
-> 
-> Displaying this message continuously in the log, even at a low rate, seems not
-> the best things to do. The first time seems enough, but it would require more
-> code for that. Is it not over-engineering?
+> There are two busses, one generating c22 transactions and one generating
+> c45 transactions. Each bus has its own MDC/MDIO pins.
 
-Maybe look at the _once functions, dev_warn_once, printk_once.
+O.K. That is what i wanted to know. So we want two completely separate
+device tree bindings, busses registered with Linux, etc.
 
-> The ideal solution would be a BUILD_BUG_ON(), but I don't see how to make that.
+Thanks for clarification.
 
-Me neither.
-
-   Andrew
+       Andrew
