@@ -1,54 +1,53 @@
-From: Brenden Blanco <bblanco@gmail.com>
-Subject: ixgbe tx hang with XDP_TX beyond queue limit
-Date: Thu, 8 Jun 2017 23:22:29 -0700
-Message-ID: <20170609062228.GA14897@gmail.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net] ipv4: igmp: fix a use after free
+Date: Fri, 9 Jun 2017 14:24:00 +0800
+Message-ID: <CADvbK_cv+yfZpa7y1+5a9mntTbkTmEu6YyR7pbHGAtH+5+RLRA@mail.gmail.com>
+References: <CAAeHK+xmSxokDidhzP1VWgmbbwege4OaGvOA4PwTP1scs6J5zA@mail.gmail.com>
+ <1496929425.736.73.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CADvbK_fWOFWZxKc8gbzeDeU1ALq5GHxKvoGsPt+GsdAP0a601w@mail.gmail.com>
+ <1496954011.736.86.camel@edumazet-glaptop3.roam.corp.google.com> <CAM_iQpVu+sF4zGhGCYDV6J-+rN69zuMGGvGJpLajhYS-QfdUfQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Alexander Duyck <alexander.h.duyck@intel.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:33567 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751780AbdFIGXA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 02:23:00 -0400
-Received: by mail-pf0-f181.google.com with SMTP id 83so25065256pfr.0
-        for <netdev@vger.kernel.org>; Thu, 08 Jun 2017 23:22:55 -0700 (PDT)
-Content-Disposition: inline
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:34208 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751720AbdFIGYC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 02:24:02 -0400
+Received: by mail-qt0-f193.google.com with SMTP id o21so13183476qtb.1
+        for <netdev@vger.kernel.org>; Thu, 08 Jun 2017 23:24:01 -0700 (PDT)
+In-Reply-To: <CAM_iQpVu+sF4zGhGCYDV6J-+rN69zuMGGvGJpLajhYS-QfdUfQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Fri, Jun 9, 2017 at 8:59 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
 
-I am doing some XDP testing on a dual socket, combined 40 core machine
-with ixgbe. I have found that with the default settings, depending on
-which core a packet is received on, the xdp tx queue will hang with:
+> On Thu, Jun 8, 2017 at 1:33 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> I mentioned (in https://lkml.org/lkml/2017/5/31/619 ) that we might need
+>> to defer freeing after rcu grace period but for some reason decided it
+>> was not needed.
+Yes, this one could fix it.
 
-  ixgbe 0000:01:00.0 eno1: Detected Tx Unit Hang (XDP)
-    Tx Queue             <38>
-    TDH, TDT             <0>, <8>
-    next_to_use          <8>
-    next_to_clean        <0>
-  tx_buffer_info[next_to_clean]
-    time_stamp           <0>
-    jiffies              <101f21bb8>
-  ixgbe 0000:01:00.0 eno1: tx hang 1 detected on queue 38, resetting adapter
-  ixgbe 0000:01:00.0 eno1: initiating reset due to tx timeout
-  ixgbe 0000:01:00.0 eno1: Reset adapter
+>
+> This one makes sense, it is the second time I saw the use-after-free
+> in igmp code, both are because we don't respect the RCU rule to free
+> an element in the list.
+>
+>>
+>> What about :
+>
+> But not sure if all ip_ma_put() callers want ip_mc_clear_src().
+If that's problem, there may be another way:
 
-When the received core is such that the xdp queue falls beyond
-MAX_TX_QUEUES, then the hang results. In other words, if I leave
-`ethtool -L eno1 combined 40` (the default), and a packet is received on
-core 24 or greater, it hangs. However, if I lower the tx queue count to
-24 (since XDP is forced to nr_cpu_ids), or if I force the incoming
-packets onto core < 24 with an ntuple filter, then no hang occurs.
+  leave ip_mc_clear_src as it is, just add pmc->lock to protect this call.
 
-I imagine that some limits on the number of queues is in order here, or
-some error reporting when loading the xdp program/allocating queues.
+this use-after-free was actually caused by using pmc->sources/tomb
+in add_grec while ip_mc_clear_src is freeing them. add_grec is already
+under pmc->lock, so to add pmc->lock for ip_mc_clear_src should be
+enough to protect the list pmc->sources/tomb.
 
-For now I am working around by lowering the rx queue count to leave
-space for the xdp queues.
-
-Thanks,
-Brenden
+wdyt ?
