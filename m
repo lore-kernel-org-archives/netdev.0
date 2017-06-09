@@ -1,55 +1,58 @@
-From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next 0/3] mlx4 drivers: version update
-Date: Fri, 09 Jun 2017 17:26:53 -0400
-Message-ID: <1497043613.7171.227.camel@redhat.com>
-References: <1496841975-7728-1-git-send-email-tariqt@mellanox.com>
-         <20170607.153333.2137691985139660875.davem@davemloft.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] ipv4: igmp: fix a use after free
+Date: Fri, 9 Jun 2017 14:35:32 -0700
+Message-ID: <CAM_iQpUUYR0h7HxrBYXum-3Tij9i7VNzrv5c+jbqAajQuxf6xQ@mail.gmail.com>
+References: <CAAeHK+xmSxokDidhzP1VWgmbbwege4OaGvOA4PwTP1scs6J5zA@mail.gmail.com>
+ <1496929425.736.73.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CADvbK_fWOFWZxKc8gbzeDeU1ALq5GHxKvoGsPt+GsdAP0a601w@mail.gmail.com>
+ <1496954011.736.86.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpVu+sF4zGhGCYDV6J-+rN69zuMGGvGJpLajhYS-QfdUfQ@mail.gmail.com>
+ <CADvbK_cv+yfZpa7y1+5a9mntTbkTmEu6YyR7pbHGAtH+5+RLRA@mail.gmail.com>
+ <1497023774.736.92.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpVcLiE3ru1ukq9CCTvTN_+-77XapOWT=1EgF0DgB224-w@mail.gmail.com> <CADvbK_fbxdkZUdJK=qUx+neTNfiOUJrm3-AvBa2+a4eB1b+PWA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        eranbe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170607.153333.2137691985139660875.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:35233 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751560AbdFIVfy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 17:35:54 -0400
+Received: by mail-wr0-f194.google.com with SMTP id g76so9265176wrd.2
+        for <netdev@vger.kernel.org>; Fri, 09 Jun 2017 14:35:53 -0700 (PDT)
+In-Reply-To: <CADvbK_fbxdkZUdJK=qUx+neTNfiOUJrm3-AvBa2+a4eB1b+PWA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-06-07 at 15:33 -0400, David Miller wrote:
-> From: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-> Date: Wed,  7 Jun 2017 16:26:12 +0300
-> 
-> > This patchset contains version updates for the MLX4 drivers:
-> > Core, EN, and IB.
-> > 
-> > Just like we've done in mlx5, we modify the outdated driver
-> > version (reported in ethtool for example).
-> > This better reflects the current driver state, and removes the
-> > redundant date string.
-> > We are not going to change this frequently or even use it.
-> > 
-> > I include the IB patch in this series as it has similar subject
-> > and content.
-> > It does not cause any kind of conflict with Doug's tree.
-> > The rdma mailing list is CCed.
-> > Please let me know if I need to submit this differently.
-> 
-> Ok, series applied.
-> 
-> Doug, let me know if you want to handle this differently or want
-> me to change something.
-> 
-> Thanks.
+On Fri, Jun 9, 2017 at 11:05 AM, Xin Long <lucien.xin@gmail.com> wrote:
+> On Sat, Jun 10, 2017 at 1:01 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> This is what I thought in my first response, until I realized
+>> it is not pure RCU, otherwise pmc->lock should not be taken
+>> in igmpv3_send_cr(). It seems the code is mixing the use
+>> of spinlock and RCU.
+> rcu lock is for pmc not being freed, and spinlock is for pmc's
+> members' modification. is there some rule these two locks
+> should be mixed?
+>
 
-You've got it, I'll skip it, it's all good.
+This is exactly why I said we are mixing RCU and spinlock.
 
--- 
-Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-    GPG KeyID: B826A3330E572FDD
-   
-Key fingerprint = AE6B 1BDA 122B 23B4 265B  1274 B826 A333 0E57 2FDD
+>
+>>
+>> We need RCU anyway, ip_check_mc_rcu() is the real fast
+>> path where we don't take spinlock. I think we will need more
+>> work.
+> It seems all add_grec() callings needs spinlock, maybe  add_grec
+> modifies pmc's member. it's hard to drop spinlock.
+>
+> from ip_check_mc_rcu you mentioned about, it should be right
+> to call ip_mc_clear_src after rcu grace period, like Eric's patch.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Well, more than just that, we need to use proper RCU API for
+pmc->sources and you know it is a singly linked list...
+
+I will work on this.
