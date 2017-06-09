@@ -1,61 +1,53 @@
-From: Caesar Wang <wxt@rock-chips.com>
-Subject: [PATCH] mwifiex: fixes the trivial print
-Date: Fri,  9 Jun 2017 19:40:11 +0800
-Message-ID: <1497008411-15223-1-git-send-email-wxt@rock-chips.com>
-Cc: nishants@marvell.com, gbhat@marvell.com, kvalo@codeaurora.org,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, briannorris@chromium.org,
-        jeffy.chen@rock-chips.com, Caesar Wang <wxt@rock-chips.com>
-To: amitkarwar@gmail.com, huxm@marvell.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH 33/44] openrisc: remove arch-specific dma_supported implementation
+Date: Fri, 9 Jun 2017 14:20:42 +0200
+Message-ID: <CAMuHMdUPeFJJtz8eJkQEAR-2w9oHt-fXeGHvvKFLfU2A4YyviQ@mail.gmail.com>
+References: <20170608132609.32662-1-hch@lst.de> <20170608132609.32662-34-hch@lst.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: "the arch/x86 maintainers" <x86@kernel.org>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
+        "open list:QUALCOMM HEXAGON..." <linux-hexagon@vger.kernel.org>,
+        "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>,
+        Linux MIPS Mailing List <linux-mips@linux-mips.org>,
+        openrisc@lists.librecores.org,
+        "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+        linux-s390 <linux-s390@vger.kernel.org>,
+        Linux-sh list <linux-sh@vger.kernel.org>,
+        sparclinux <sparclinux@vger.kernel.org>,
+        "linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>,
+        dmaengine@vger.kernel.org, linux-tegra@vger.kernel.org,
+        DRI Development <dri-devel@lists.freedesktop.org>,
+        "linux-samsung-soc@vg
+To: Christoph Hellwig <hch@lst.de>
+Return-path: <linux-hexagon-owner@vger.kernel.org>
+In-Reply-To: <20170608132609.32662-34-hch@lst.de>
+Sender: linux-hexagon-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We have always met the unused log be printed as following.
+Hi Christoph,
 
-...
-[23193.523182] mwifiex_pcie 0000:01:00.0: mwifiex_get_cfp:
-cannot find cfp by band 2    & channel=13 freq=0
-[23378.633684] mwifiex_pcie 0000:01:00.0: mwifiex_get_cfp:
-cannot find cfp by band 2    & channel=13 freq=0
+On Thu, Jun 8, 2017 at 3:25 PM, Christoph Hellwig <hch@lst.de> wrote:
+> This implementation is simply bogus - hexagon only has a simple
 
-Maybe that's related to wifi regdom, since wifi default area
-was US and didn't support 12~14 channels.
+openrisc?
 
-As Frequencies:
-* 2412 MHz [1] (30.0 dBm)
-* 2417 MHz [2] (30.0 dBm)
-* 2422 MHz [3] (30.0 dBm)
-* 2427 MHz [4] (30.0 dBm)
-* 2432 MHz [5] (30.0 dBm)
-* 2437 MHz [6] (30.0 dBm)
-* 2442 MHz [7] (30.0 dBm)
-* 2447 MHz [8] (30.0 dBm)
-* 2452 MHz [9] (30.0 dBm)
-* 2457 MHz [10] (30.0 dBm)
-* 2462 MHz [11] (30.0 dBm)
-* 2467 MHz [12] (disabled)
-* 2472 MHz [13] (disabled)
-* 2484 MHz [14] (disabled)
+> direct mapped DMA implementation and thus doesn't care about the
+> address.
+>
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
+> ---
+>  arch/openrisc/include/asm/dma-mapping.h | 7 -------
 
-Signed-off-by: Caesar Wang <wxt@rock-chips.com>
----
+Gr{oetje,eeting}s,
 
- drivers/net/wireless/marvell/mwifiex/cfp.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+                        Geert
 
-diff --git a/drivers/net/wireless/marvell/mwifiex/cfp.c b/drivers/net/wireless/marvell/mwifiex/cfp.c
-index 1ff2205..6e29943 100644
---- a/drivers/net/wireless/marvell/mwifiex/cfp.c
-+++ b/drivers/net/wireless/marvell/mwifiex/cfp.c
-@@ -350,7 +350,7 @@ mwifiex_get_cfp(struct mwifiex_private *priv, u8 band, u16 channel, u32 freq)
- 		}
- 	}
- 	if (i == sband->n_channels) {
--		mwifiex_dbg(priv->adapter, ERROR,
-+		mwifiex_dbg(priv->adapter, WARN,
- 			    "%s: cannot find cfp by band %d\t"
- 			    "& channel=%d freq=%d\n",
- 			    __func__, band, channel, freq);
--- 
-2.7.4
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
