@@ -1,41 +1,33 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH net] mac80211: free netdev on dev_alloc_name() error
-Date: Fri,  9 Jun 2017 21:33:09 +0200
-Message-ID: <20170609193309.14972-1-johannes@sipsolutions.net>
-Cc: Johannes Berg <johannes.berg@intel.com>
-To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net RESEND] net: rps: send out pending IPI's on CPU
+ hotplug
+Date: Fri, 09 Jun 2017 15:35:15 -0400 (EDT)
+Message-ID: <20170609.153515.1558177148048438064.davem@davemloft.net>
+References: <1496998498-20836-1-git-send-email-ashwanth@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: ashwanth@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:59156 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751554AbdFITdN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 9 Jun 2017 15:33:13 -0400
+Received: from shards.monkeyblade.net ([184.105.139.130]:37916 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751538AbdFITfR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 15:35:17 -0400
+In-Reply-To: <1496998498-20836-1-git-send-email-ashwanth@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes.berg@intel.com>
+From: Ashwanth Goli <ashwanth@codeaurora.org>
+Date: Fri,  9 Jun 2017 14:24:58 +0530
 
-The change to remove free_netdev() from ieee80211_if_free()
-erroneously didn't add the necessary free_netdev() for when
-ieee80211_if_free() is called directly in one place, rather
-than as the priv_destructor. Add the missing call.
+> IPI's from the victim cpu are not handled in dev_cpu_callback.
+> So these pending IPI's would be sent to the remote cpu only when
+> NET_RX is scheduled on the victim cpu and since this trigger is
+> unpredictable it would result in packet latencies on the remote cpu.
+> 
+> This patch add support to send the pending ipi's of victim cpu.
+> 
+> Signed-off-by: Ashwanth Goli <ashwanth@codeaurora.org>
 
-Fixes: cf124db566e6 ("net: Fix inconsistent teardown and release of private netdev state.")
-Signed-off-by: Johannes Berg <johannes.berg@intel.com>
----
- net/mac80211/iface.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/mac80211/iface.c b/net/mac80211/iface.c
-index 915d7e1b4545..f5f50150ba1c 100644
---- a/net/mac80211/iface.c
-+++ b/net/mac80211/iface.c
-@@ -1816,6 +1816,7 @@ int ieee80211_if_add(struct ieee80211_local *local, const char *name,
- 		ret = dev_alloc_name(ndev, ndev->name);
- 		if (ret < 0) {
- 			ieee80211_if_free(ndev);
-+			free_netdev(ndev);
- 			return ret;
- 		}
- 
--- 
-2.11.0
+Applied, thank you.
