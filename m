@@ -1,48 +1,35 @@
-From: Chenbo Feng <chenbofeng.kernel@gmail.com>
-Subject: [PATCH net-next] bpf: Remove duplicate tcp_filter hook in ipv6
-Date: Fri,  9 Jun 2017 12:17:37 -0700
-Message-ID: <1497035857-9927-1-git-send-email-chenbofeng.kernel@gmail.com>
-Cc: Lorenzo Colitti <lorenzo@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Chenbo Feng <fengc@google.com>
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH net-next] ipv6: Initial skb->dev and skb->protocol in ip6_output
+Date: Fri, 09 Jun 2017 21:24:25 +0200
+Message-ID: <87d1adge1i.fsf@miraculix.mork.no>
+References: <1497035168-9093-1-git-send-email-chenbofeng.kernel@gmail.com>
+        <20170609.150836.1427149901008136163.davem@davemloft.net>
+        <3270a030-2608-1629-07d6-7fdeee9e98cc@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        lorenzo@google.com, edumazet@google.com, fengc@google.com
+To: Chenbo Feng <chenbofeng.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33502 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751621AbdFITSz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 15:18:55 -0400
-Received: by mail-pf0-f193.google.com with SMTP id f27so9474531pfe.0
-        for <netdev@vger.kernel.org>; Fri, 09 Jun 2017 12:18:55 -0700 (PDT)
+Received: from canardo.mork.no ([148.122.252.1]:45215 "EHLO canardo.mork.no"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751561AbdFITYe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 9 Jun 2017 15:24:34 -0400
+In-Reply-To: <3270a030-2608-1629-07d6-7fdeee9e98cc@gmail.com> (Chenbo Feng's
+        message of "Fri, 9 Jun 2017 12:13:57 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chenbo Feng <fengc@google.com>
+Chenbo Feng <chenbofeng.kernel@gmail.com> writes:
 
-There are two tcp_filter hooks in tcp_ipv6 ingress path currently.
-One is at tcp_v6_rcv and another is in tcp_v6_do_rcv. It seems the
-tcp_filter() call inside tcp_v6_do_rcv is redundent and some packet
-will be filtered twice in this situation. This will cause trouble
-when using eBPF filters to account traffic data.
+> This patch is still under working since it may have problem with
+> ip_fragment() call, did you applied it already? Should I send a revert
+> patch to you then?
 
-Signed-off-by: Chenbo Feng <fengc@google.com>
-Acked-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv6/tcp_ipv6.c | 3 ---
- 1 file changed, 3 deletions(-)
+It does? I initially thought so too, but looking closer I believe the
+ip6_copy_metadata() calls in ip6_fragment() takes care of it.
 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 0840543..84ad502 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1249,9 +1249,6 @@ static int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
- 	if (skb->protocol == htons(ETH_P_IP))
- 		return tcp_v4_do_rcv(sk, skb);
- 
--	if (tcp_filter(sk, skb))
--		goto discard;
--
- 	/*
- 	 *	socket locking is here for SMP purposes as backlog rcv
- 	 *	is currently called with bh processing disabled.
--- 
-2.7.4
+
+
+Bj=C3=B8rn
