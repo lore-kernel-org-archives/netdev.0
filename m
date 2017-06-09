@@ -1,56 +1,64 @@
-From: <netanel@amazon.com>
-Subject: [PATCH net-next 7/8] net: ena: disable admin msix while working in polling mode
-Date: Sat, 10 Jun 2017 01:13:56 +0300
-Message-ID: <1497046437-20390-8-git-send-email-netanel@amazon.com>
-References: <1497046437-20390-1-git-send-email-netanel@amazon.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] l2tp: cast l2tp traffic counter to unsigned
+Date: Fri, 9 Jun 2017 15:16:21 -0700
+Message-ID: <20170609151621.11e610a2@xeon-e3>
+References: <20170609142947.16969-1-dheidler@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Netanel Belgazal <netanel@amazon.com>, <dwmw@amazon.com>,
-        <zorik@amazon.com>, <matua@amazon.com>, <saeedb@amazon.com>,
-        <msw@amazon.com>, <aliguori@amazon.com>, <nafea@amazon.com>,
-        <evgenys@amazon.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-fw-9101.amazon.com ([207.171.184.25]:1475 "EHLO
-        smtp-fw-9101.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751571AbdFIWPl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 18:15:41 -0400
-In-Reply-To: <1497046437-20390-1-git-send-email-netanel@amazon.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Tom Parkin <tparkin@katalix.com>
+To: Dominik Heidler <dheidler@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170609142947.16969-1-dheidler@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Netanel Belgazal <netanel@amazon.com>
+On Fri,  9 Jun 2017 16:29:47 +0200
+Dominik Heidler <dheidler@suse.de> wrote:
 
-Signed-off-by: Netanel Belgazal <netanel@amazon.com>
----
- drivers/net/ethernet/amazon/ena/ena_com.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+> This fixes a counter problem on 32bit systems:
+> When the rx_bytes counter reached 2 GiB, it jumpd to (2^64 Bytes - 2GiB) Bytes.
+> 
+> rtnl_link_stats64 has __u64 type and atomic_long_read returns
+> atomic_long_t which is signed. Due to the conversation
+> we get an incorrect value on 32bit systems if the MSB of
+> the atomic_long_t value is set.
+> 
+> CC: Tom Parkin <tparkin@katalix.com>
+> Fixes: 7b7c0719cd7a ("l2tp: avoid deadlock in l2tp stats update")
+> Signed-off-by: Dominik Heidler <dheidler@suse.de>
+> ---
+>  net/l2tp/l2tp_eth.c | 13 +++++++------
+>  1 file changed, 7 insertions(+), 6 deletions(-)
+> 
+> diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
+> index 8b21af7321b9..668a75e002e9 100644
+> --- a/net/l2tp/l2tp_eth.c
+> +++ b/net/l2tp/l2tp_eth.c
+> @@ -114,12 +114,13 @@ static void l2tp_eth_get_stats64(struct net_device *dev,
+>  {
+>  	struct l2tp_eth *priv = netdev_priv(dev);
+>  
+> -	stats->tx_bytes   = atomic_long_read(&priv->tx_bytes);
+> -	stats->tx_packets = atomic_long_read(&priv->tx_packets);
+> -	stats->tx_dropped = atomic_long_read(&priv->tx_dropped);
+> -	stats->rx_bytes   = atomic_long_read(&priv->rx_bytes);
+> -	stats->rx_packets = atomic_long_read(&priv->rx_packets);
+> -	stats->rx_errors  = atomic_long_read(&priv->rx_errors);
+> +	stats->tx_bytes   = (unsigned long) atomic_long_read(&priv->tx_bytes);
+> +	stats->tx_packets = (unsigned long) atomic_long_read(&priv->tx_packets);
+> +	stats->tx_dropped = (unsigned long) atomic_long_read(&priv->tx_dropped);
+> +	stats->rx_bytes   = (unsigned long) atomic_long_read(&priv->rx_bytes);
+> +	stats->rx_packets = (unsigned long) atomic_long_read(&priv->rx_packets);
+> +	stats->rx_errors  = (unsigned long) atomic_long_read(&priv->rx_errors);
+> +
+>  }
+>  
+>  static const struct net_device_ops l2tp_eth_netdev_ops = {
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
-index ea60b9e..f5b237e 100644
---- a/drivers/net/ethernet/amazon/ena/ena_com.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_com.c
-@@ -61,6 +61,8 @@
- 
- #define ENA_MMIO_READ_TIMEOUT 0xFFFFFFFF
- 
-+#define ENA_REGS_ADMIN_INTR_MASK 1
-+
- /*****************************************************************************/
- /*****************************************************************************/
- /*****************************************************************************/
-@@ -1454,6 +1456,12 @@ void ena_com_admin_destroy(struct ena_com_dev *ena_dev)
- 
- void ena_com_set_admin_polling_mode(struct ena_com_dev *ena_dev, bool polling)
- {
-+	u32 mask_value = 0;
-+
-+	if (polling)
-+		mask_value = ENA_REGS_ADMIN_INTR_MASK;
-+
-+	writel(mask_value, ena_dev->reg_bar + ENA_REGS_INTR_MASK_OFF);
- 	ena_dev->admin_queue.polling = polling;
- }
- 
--- 
-2.7.4
+This is not the right way to fix this.
+
+1. shouldn't be using atomic's for network counters, look at other network devices.
+
+2. should be using u64_stats_fetch  api to handle 64 bit counters.
