@@ -1,425 +1,125 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 3/5] nfp: remove automatic caching of HWInfo
-Date: Thu,  8 Jun 2017 20:56:12 -0700
-Message-ID: <20170609035614.12691-4-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 5/5] nfp: report application FW build name in ethtool -i
+Date: Thu,  8 Jun 2017 20:56:14 -0700
+Message-ID: <20170609035614.12691-6-jakub.kicinski@netronome.com>
 References: <20170609035614.12691-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f49.google.com ([74.125.83.49]:34577 "EHLO
-        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751510AbdFID55 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 23:57:57 -0400
-Received: by mail-pg0-f49.google.com with SMTP id v18so22359670pgb.1
-        for <netdev@vger.kernel.org>; Thu, 08 Jun 2017 20:57:56 -0700 (PDT)
+Received: from mail-pg0-f43.google.com ([74.125.83.43]:34583 "EHLO
+        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751571AbdFID6N (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 23:58:13 -0400
+Received: by mail-pg0-f43.google.com with SMTP id v18so22359860pgb.1
+        for <netdev@vger.kernel.org>; Thu, 08 Jun 2017 20:58:08 -0700 (PDT)
 In-Reply-To: <20170609035614.12691-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make callers take care of managing life time of HWInfo.
+Make sure application FW build name is NULL-terminated and
+print it as a part of ethtool's firmware version string.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_app_nic.c   |  2 +-
- drivers/net/ethernet/netronome/nfp/nfp_main.c      | 20 ++++---
- drivers/net/ethernet/netronome/nfp/nfp_main.h      |  5 +-
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c  | 12 ++--
- drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h   |  4 +-
- .../net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h   |  3 -
- .../ethernet/netronome/nfp/nfpcore/nfp_cppcore.c   | 17 ------
- .../ethernet/netronome/nfp/nfpcore/nfp_hwinfo.c    | 70 +++++++++-------------
- 8 files changed, 54 insertions(+), 79 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_app.c          | 8 ++++++++
+ drivers/net/ethernet/netronome/nfp/nfp_app.h          | 1 +
+ drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c  | 4 ++--
+ drivers/net/ethernet/netronome/nfp/nfpcore/nfp_mip.c  | 7 +++++++
+ drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nffw.h | 1 +
+ 5 files changed, 19 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app_nic.c b/drivers/net/ethernet/netronome/nfp/nfp_app_nic.c
-index 1a33ad9f4170..83c65e6291ee 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_app_nic.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_app_nic.c
-@@ -80,7 +80,7 @@ int nfp_app_nic_vnic_init(struct nfp_app *app, struct nfp_net *nn,
- 	if (err)
- 		return err < 0 ? err : 0;
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.c b/drivers/net/ethernet/netronome/nfp/nfp_app.c
+index de07517da1bd..396b93f54823 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_app.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_app.c
+@@ -35,6 +35,7 @@
+ #include <linux/slab.h>
  
--	nfp_net_get_mac_addr(nn, app->cpp, id);
-+	nfp_net_get_mac_addr(app->pf, nn, id);
+ #include "nfpcore/nfp_cpp.h"
++#include "nfpcore/nfp_nffw.h"
+ #include "nfp_app.h"
+ #include "nfp_main.h"
  
- 	return 0;
- }
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.c b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-index 51fe8de34b67..94211e245257 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-@@ -170,7 +170,7 @@ nfp_net_fw_find(struct pci_dev *pdev, struct nfp_pf *pf)
- 		return NULL;
- 	}
- 
--	fw_model = nfp_hwinfo_lookup(pf->cpp, "assembly.partno");
-+	fw_model = nfp_hwinfo_lookup(pf->hwinfo, "assembly.partno");
- 	if (!fw_model) {
- 		dev_err(&pdev->dev, "Error: can't read part number\n");
- 		return NULL;
-@@ -358,16 +358,18 @@ static int nfp_pci_probe(struct pci_dev *pdev,
- 		goto err_disable_msix;
- 	}
- 
-+	pf->hwinfo = nfp_hwinfo_read(pf->cpp);
-+
- 	dev_info(&pdev->dev, "Assembly: %s%s%s-%s CPLD: %s\n",
--		 nfp_hwinfo_lookup(pf->cpp, "assembly.vendor"),
--		 nfp_hwinfo_lookup(pf->cpp, "assembly.partno"),
--		 nfp_hwinfo_lookup(pf->cpp, "assembly.serial"),
--		 nfp_hwinfo_lookup(pf->cpp, "assembly.revision"),
--		 nfp_hwinfo_lookup(pf->cpp, "cpld.version"));
-+		 nfp_hwinfo_lookup(pf->hwinfo, "assembly.vendor"),
-+		 nfp_hwinfo_lookup(pf->hwinfo, "assembly.partno"),
-+		 nfp_hwinfo_lookup(pf->hwinfo, "assembly.serial"),
-+		 nfp_hwinfo_lookup(pf->hwinfo, "assembly.revision"),
-+		 nfp_hwinfo_lookup(pf->hwinfo, "cpld.version"));
- 
- 	err = devlink_register(devlink, &pdev->dev);
- 	if (err)
--		goto err_cpp_free;
-+		goto err_hwinfo_free;
- 
- 	err = nfp_nsp_init(pdev, pf);
- 	if (err)
-@@ -403,7 +405,8 @@ static int nfp_pci_probe(struct pci_dev *pdev,
- 	kfree(pf->nspi);
- err_devlink_unreg:
- 	devlink_unregister(devlink);
--err_cpp_free:
-+err_hwinfo_free:
-+	kfree(pf->hwinfo);
- 	nfp_cpp_free(pf->cpp);
- err_disable_msix:
- 	pci_set_drvdata(pdev, NULL);
-@@ -438,6 +441,7 @@ static void nfp_pci_remove(struct pci_dev *pdev)
- 		nfp_fw_unload(pf);
- 
- 	pci_set_drvdata(pdev, NULL);
-+	kfree(pf->hwinfo);
- 	nfp_cpp_free(pf->cpp);
- 
- 	kfree(pf->eth_tbl);
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.h b/drivers/net/ethernet/netronome/nfp/nfp_main.h
-index 907852f00423..041643807f7e 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_main.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_main.h
-@@ -54,6 +54,7 @@ struct pci_dev;
- struct nfp_cpp;
- struct nfp_cpp_area;
- struct nfp_eth_table;
-+struct nfp_hwinfo;
- struct nfp_net;
- struct nfp_nsp_identify;
- struct nfp_rtsym_table;
-@@ -72,6 +73,7 @@ struct nfp_rtsym_table;
-  * @fw_loaded:		Is the firmware loaded?
-  * @ctrl_vnic:		Pointer to the control vNIC if available
-  * @rtbl:		RTsym table
-+ * @hwinfo:		HWInfo table
-  * @eth_tbl:		NSP ETH table
-  * @nspi:		NSP identification info
-  * @hwmon_dev:		pointer to hwmon device
-@@ -104,6 +106,7 @@ struct nfp_pf {
- 	struct nfp_net *ctrl_vnic;
- 
- 	struct nfp_rtsym_table *rtbl;
-+	struct nfp_hwinfo *hwinfo;
- 	struct nfp_eth_table *eth_tbl;
- 	struct nfp_nsp_identify *nspi;
- 
-@@ -133,7 +136,7 @@ void nfp_hwmon_unregister(struct nfp_pf *pf);
- struct nfp_eth_table_port *
- nfp_net_find_port(struct nfp_eth_table *eth_tbl, unsigned int id);
- void
--nfp_net_get_mac_addr(struct nfp_net *nn, struct nfp_cpp *cpp, unsigned int id);
-+nfp_net_get_mac_addr(struct nfp_pf *pf, struct nfp_net *nn, unsigned int id);
- 
- bool nfp_ctrl_tx(struct nfp_net *nn, struct sk_buff *skb);
- 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index c845049fcff2..bc2bc0886176 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -63,13 +63,13 @@
- 
- #define NFP_PF_CSR_SLICE_SIZE	(32 * 1024)
- 
--static int nfp_is_ready(struct nfp_cpp *cpp)
-+static int nfp_is_ready(struct nfp_pf *pf)
- {
- 	const char *cp;
- 	long state;
- 	int err;
- 
--	cp = nfp_hwinfo_lookup(cpp, "board.state");
-+	cp = nfp_hwinfo_lookup(pf->hwinfo, "board.state");
- 	if (!cp)
- 		return 0;
- 
-@@ -134,15 +134,15 @@ static u8 __iomem *nfp_net_map_area(struct nfp_cpp *cpp,
- 
- /**
-  * nfp_net_get_mac_addr() - Get the MAC address.
-+ * @pf:       NFP PF handle
-  * @nn:       NFP Network structure
-- * @cpp:      NFP CPP handle
-  * @id:	      NFP port id
-  *
-  * First try to get the MAC address from NSP ETH table. If that
-  * fails try HWInfo.  As a last resort generate a random address.
-  */
- void
--nfp_net_get_mac_addr(struct nfp_net *nn, struct nfp_cpp *cpp, unsigned int id)
-+nfp_net_get_mac_addr(struct nfp_pf *pf, struct nfp_net *nn, unsigned int id)
- {
- 	struct nfp_eth_table_port *eth_port;
- 	struct nfp_net_dp *dp = &nn->dp;
-@@ -159,7 +159,7 @@ nfp_net_get_mac_addr(struct nfp_net *nn, struct nfp_cpp *cpp, unsigned int id)
- 
- 	snprintf(name, sizeof(name), "eth%d.mac", id);
- 
--	mac_str = nfp_hwinfo_lookup(cpp, name);
-+	mac_str = nfp_hwinfo_lookup(pf->hwinfo, name);
- 	if (!mac_str) {
- 		dev_warn(dp->dev, "Can't lookup MAC address. Generate\n");
- 		eth_hw_addr_random(dp->netdev);
-@@ -713,7 +713,7 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
- 	INIT_WORK(&pf->port_refresh_work, nfp_net_refresh_vnics);
- 
- 	/* Verify that the board has completed initialization */
--	if (!nfp_is_ready(pf->cpp)) {
-+	if (!nfp_is_ready(pf)) {
- 		nfp_err(pf->cpp, "NFP is not ready for NIC operation.\n");
- 		return -EINVAL;
- 	}
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
-index 94641b4c2c55..1a8d04a1e113 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
-@@ -46,7 +46,9 @@
- 
- /* Implemented in nfp_hwinfo.c */
- 
--const char *nfp_hwinfo_lookup(struct nfp_cpp *cpp, const char *lookup);
-+struct nfp_hwinfo;
-+struct nfp_hwinfo *nfp_hwinfo_read(struct nfp_cpp *cpp);
-+const char *nfp_hwinfo_lookup(struct nfp_hwinfo *hwinfo, const char *lookup);
- 
- /* Implemented in nfp_nsp.c, low level functions */
- 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
-index e3a2201eb658..25a967158ce9 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
-@@ -222,9 +222,6 @@ u32 nfp_cpp_model(struct nfp_cpp *cpp);
- u16 nfp_cpp_interface(struct nfp_cpp *cpp);
- int nfp_cpp_serial(struct nfp_cpp *cpp, const u8 **serial);
- 
--void *nfp_hwinfo_cache(struct nfp_cpp *cpp);
--void nfp_hwinfo_cache_set(struct nfp_cpp *cpp, void *val);
--
- struct nfp_cpp_area *nfp_cpp_area_alloc_with_name(struct nfp_cpp *cpp,
- 						  u32 cpp_id,
- 						  const char *name,
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
-index f477186558bd..9b69dcf87be9 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
-@@ -76,9 +76,6 @@ struct nfp_cpp_resource {
-  * @serial:		chip serial number
-  * @imb_cat_table:	CPP Mapping Table
-  *
-- * Following fields can be used only in probe() or with rtnl held:
-- * @hwinfo:		HWInfo database fetched from the device
-- *
-  * Following fields use explicit locking:
-  * @resource_list:	NFP CPP resource list
-  * @resource_lock:	protects @resource_list
-@@ -106,8 +103,6 @@ struct nfp_cpp {
- 
- 	struct mutex area_cache_mutex;
- 	struct list_head area_cache_list;
--
--	void *hwinfo;
+@@ -43,6 +44,13 @@ static const struct nfp_app_type *apps[] = {
+ 	&app_bpf,
  };
  
- /* Element of the area_cache_list */
-@@ -231,8 +226,6 @@ void nfp_cpp_free(struct nfp_cpp *cpp)
- 	if (cpp->op->free)
- 		cpp->op->free(cpp);
- 
--	kfree(cpp->hwinfo);
--
- 	device_unregister(&cpp->dev);
- 
- 	kfree(cpp);
-@@ -273,16 +266,6 @@ int nfp_cpp_serial(struct nfp_cpp *cpp, const u8 **serial)
- 	return sizeof(cpp->serial);
- }
- 
--void *nfp_hwinfo_cache(struct nfp_cpp *cpp)
--{
--	return cpp->hwinfo;
--}
--
--void nfp_hwinfo_cache_set(struct nfp_cpp *cpp, void *val)
--{
--	cpp->hwinfo = val;
--}
--
- /**
-  * nfp_cpp_area_alloc_with_name() - allocate a new CPP area
-  * @cpp:	CPP device handle
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_hwinfo.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_hwinfo.c
-index 8d8f311ffa6e..4f24aff1e772 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_hwinfo.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_hwinfo.c
-@@ -178,7 +178,8 @@ hwinfo_db_validate(struct nfp_cpp *cpp, struct nfp_hwinfo *db, u32 len)
- 	return hwinfo_db_walk(cpp, db, size);
- }
- 
--static int hwinfo_try_fetch(struct nfp_cpp *cpp, size_t *cpp_size)
-+static struct nfp_hwinfo *
-+hwinfo_try_fetch(struct nfp_cpp *cpp, size_t *cpp_size)
++const char *nfp_app_mip_name(struct nfp_app *app)
++{
++	if (!app || !app->pf->mip)
++		return "";
++	return nfp_mip_name(app->pf->mip);
++}
++
+ struct sk_buff *nfp_app_ctrl_msg_alloc(struct nfp_app *app, unsigned int size)
  {
- 	struct nfp_hwinfo *header;
- 	struct nfp_resource *res;
-@@ -196,7 +197,7 @@ static int hwinfo_try_fetch(struct nfp_cpp *cpp, size_t *cpp_size)
- 		nfp_resource_release(res);
- 
- 		if (*cpp_size < HWINFO_SIZE_MIN)
--			return -ENOENT;
-+			return NULL;
- 	} else if (PTR_ERR(res) == -ENOENT) {
- 		/* Try getting the HWInfo table from the 'classic' location */
- 		cpp_id = NFP_CPP_ISLAND_ID(NFP_CPP_TARGET_MU,
-@@ -204,101 +205,86 @@ static int hwinfo_try_fetch(struct nfp_cpp *cpp, size_t *cpp_size)
- 		cpp_addr = 0x30000;
- 		*cpp_size = 0x0e000;
- 	} else {
--		return PTR_ERR(res);
-+		return NULL;
- 	}
- 
- 	db = kmalloc(*cpp_size + 1, GFP_KERNEL);
- 	if (!db)
--		return -ENOMEM;
-+		return NULL;
- 
- 	err = nfp_cpp_read(cpp, cpp_id, cpp_addr, db, *cpp_size);
--	if (err != *cpp_size) {
--		kfree(db);
--		return err < 0 ? err : -EIO;
--	}
-+	if (err != *cpp_size)
-+		goto exit_free;
- 
- 	header = (void *)db;
--	if (nfp_hwinfo_is_updating(header)) {
--		kfree(db);
--		return -EBUSY;
--	}
-+	if (nfp_hwinfo_is_updating(header))
-+		goto exit_free;
- 
- 	if (le32_to_cpu(header->version) != NFP_HWINFO_VERSION_2) {
- 		nfp_err(cpp, "Unknown HWInfo version: 0x%08x\n",
- 			le32_to_cpu(header->version));
--		kfree(db);
--		return -EINVAL;
-+		goto exit_free;
- 	}
- 
- 	/* NULL-terminate for safety */
- 	db[*cpp_size] = '\0';
- 
--	nfp_hwinfo_cache_set(cpp, db);
--
--	return 0;
-+	return (void *)db;
-+exit_free:
-+	kfree(db);
-+	return NULL;
+ 	struct sk_buff *skb;
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.h b/drivers/net/ethernet/netronome/nfp/nfp_app.h
+index 3fbf68f8577c..f5e373fa8c3b 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_app.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_app.h
+@@ -216,6 +216,7 @@ static inline void nfp_app_ctrl_rx(struct nfp_app *app, struct sk_buff *skb)
+ 	app->type->ctrl_msg_rx(app, skb);
  }
  
--static int hwinfo_fetch(struct nfp_cpp *cpp, size_t *hwdb_size)
-+static struct nfp_hwinfo *hwinfo_fetch(struct nfp_cpp *cpp, size_t *hwdb_size)
- {
- 	const unsigned long wait_until = jiffies + HWINFO_WAIT * HZ;
-+	struct nfp_hwinfo *db;
- 	int err;
++const char *nfp_app_mip_name(struct nfp_app *app);
+ struct sk_buff *nfp_app_ctrl_msg_alloc(struct nfp_app *app, unsigned int size);
  
- 	for (;;) {
- 		const unsigned long start_time = jiffies;
+ struct nfp_app *nfp_app_alloc(struct nfp_pf *pf, enum nfp_app_id id);
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
+index 83664ca25213..6e31355c3567 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
+@@ -166,10 +166,10 @@ static void nfp_net_get_drvinfo(struct net_device *netdev,
  
--		err = hwinfo_try_fetch(cpp, hwdb_size);
--		if (!err)
--			return 0;
-+		db = hwinfo_try_fetch(cpp, hwdb_size);
-+		if (db)
-+			return db;
+ 	nfp_net_get_nspinfo(nn->app, nsp_version);
+ 	snprintf(drvinfo->fw_version, sizeof(drvinfo->fw_version),
+-		 "%d.%d.%d.%d %s %s",
++		 "%d.%d.%d.%d %s %s %s",
+ 		 nn->fw_ver.resv, nn->fw_ver.class,
+ 		 nn->fw_ver.major, nn->fw_ver.minor, nsp_version,
+-		 nfp_app_name(nn->app));
++		 nfp_app_mip_name(nn->app), nfp_app_name(nn->app));
+ 	strlcpy(drvinfo->bus_info, pci_name(nn->pdev),
+ 		sizeof(drvinfo->bus_info));
  
- 		err = msleep_interruptible(100);
- 		if (err || time_after(start_time, wait_until)) {
- 			nfp_err(cpp, "NFP access error\n");
--			return -EIO;
-+			return NULL;
- 		}
- 	}
- }
- 
--static int nfp_hwinfo_load(struct nfp_cpp *cpp)
-+struct nfp_hwinfo *nfp_hwinfo_read(struct nfp_cpp *cpp)
- {
- 	struct nfp_hwinfo *db;
- 	size_t hwdb_size = 0;
- 	int err;
- 
--	err = hwinfo_fetch(cpp, &hwdb_size);
--	if (err)
--		return err;
-+	db = hwinfo_fetch(cpp, &hwdb_size);
-+	if (!db)
-+		return NULL;
- 
--	db = nfp_hwinfo_cache(cpp);
- 	err = hwinfo_db_validate(cpp, db, hwdb_size);
- 	if (err) {
- 		kfree(db);
--		nfp_hwinfo_cache_set(cpp, NULL);
--		return err;
-+		return NULL;
- 	}
- 
--	return 0;
-+	return db;
- }
- 
- /**
-  * nfp_hwinfo_lookup() - Find a value in the HWInfo table by name
-- * @cpp:	NFP CPP handle
-+ * @hwinfo:	NFP HWinfo table
-  * @lookup:	HWInfo name to search for
-  *
-  * Return: Value of the HWInfo name, or NULL
-  */
--const char *nfp_hwinfo_lookup(struct nfp_cpp *cpp, const char *lookup)
-+const char *nfp_hwinfo_lookup(struct nfp_hwinfo *hwinfo, const char *lookup)
- {
- 	const char *key, *val, *end;
--	struct nfp_hwinfo *hwinfo;
--	int err;
--
--	hwinfo = nfp_hwinfo_cache(cpp);
--	if (!hwinfo) {
--		err = nfp_hwinfo_load(cpp);
--		if (err)
--			return NULL;
--		hwinfo = nfp_hwinfo_cache(cpp);
--	}
- 
- 	if (!hwinfo || !lookup)
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_mip.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_mip.c
+index 3d15dd03647e..5f193fe2d69e 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_mip.c
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_mip.c
+@@ -141,6 +141,8 @@ const struct nfp_mip *nfp_mip_open(struct nfp_cpp *cpp)
  		return NULL;
+ 	}
+ 
++	mip->name[sizeof(mip->name) - 1] = 0;
++
+ 	return mip;
+ }
+ 
+@@ -149,6 +151,11 @@ void nfp_mip_close(const struct nfp_mip *mip)
+ 	kfree(mip);
+ }
+ 
++const char *nfp_mip_name(const struct nfp_mip *mip)
++{
++	return mip->name;
++}
++
+ /**
+  * nfp_mip_symtab() - Get the address and size of the MIP symbol table
+  * @mip:	MIP handle
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nffw.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nffw.h
+index c7266baec0eb..d27d29782a12 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nffw.h
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nffw.h
+@@ -55,6 +55,7 @@ struct nfp_mip;
+ const struct nfp_mip *nfp_mip_open(struct nfp_cpp *cpp);
+ void nfp_mip_close(const struct nfp_mip *mip);
+ 
++const char *nfp_mip_name(const struct nfp_mip *mip);
+ void nfp_mip_symtab(const struct nfp_mip *mip, u32 *addr, u32 *size);
+ void nfp_mip_strtab(const struct nfp_mip *mip, u32 *addr, u32 *size);
+ 
 -- 
 2.11.0
