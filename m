@@ -1,69 +1,43 @@
-From: Krister Johansen <kjlx@templeofstupid.com>
-Subject: Re: [PATCH v2 net-next] Ipvlan should return an error when an
- address is already in use.
-Date: Fri, 9 Jun 2017 10:25:01 -0700
-Message-ID: <20170609172501.GB2766@templeofstupid.com>
-References: <20170608201214.GB2553@templeofstupid.com>
- <20170609.122646.100677990071641882.davem@davemloft.net>
- <20170609171310.GA2766@templeofstupid.com>
- <20170609.131510.1262676940920520377.davem@davemloft.net>
+From: Flavio Leitner <fbl@sysclose.org>
+Subject: Re: [PATCH net] netlink: don't send unknown nsid
+Date: Fri, 9 Jun 2017 14:33:00 -0300
+Message-ID: <20170609173300.GE2850@x240.lan>
+References: <4942f9fe-625b-bb97-7b45-4a1e8bf69b1b@6wind.com>
+ <1496304007-1962-1-git-send-email-nicolas.dichtel@6wind.com>
+ <20170601170246.GF2673@x240.lan>
+ <75fccaea-0ebe-1a2a-27d7-ad30fd99f41d@6wind.com>
+ <20170601224454.GG2673@x240.lan>
+ <58321cd0-6c7f-d4d8-628f-2c124d71ef82@6wind.com>
+ <20170607183746.GD2658@x240.lan>
+ <057303a1-5d27-1b24-c8b0-d3cf46b14825@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kjlx@templeofstupid.com, maheshb@google.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sub5.mail.dreamhost.com ([208.113.200.129]:53091 "EHLO
-        homiemail-a80.g.dreamhost.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751527AbdFIRY7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 13:24:59 -0400
-Received: from homiemail-a80.g.dreamhost.com (localhost [127.0.0.1])
-        by homiemail-a80.g.dreamhost.com (Postfix) with ESMTP id C78BB6004D35
-        for <netdev@vger.kernel.org>; Fri,  9 Jun 2017 10:24:58 -0700 (PDT)
-Received: from kmjvbox (c-174-62-91-145.hsd1.ca.comcast.net [174.62.91.145])
-        (using TLSv1 with cipher ECDHE-RSA-AES256-SHA (256/256 bits))
-        (No client certificate requested)
-        (Authenticated sender: kjlx@templeofstupid.com)
-        by homiemail-a80.g.dreamhost.com (Postfix) with ESMTPSA id A4DE16004D1D
-        for <netdev@vger.kernel.org>; Fri,  9 Jun 2017 10:24:58 -0700 (PDT)
+Received: from sender-of-o52.zoho.com ([135.84.80.217]:21433 "EHLO
+        sender-of-o52.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751535AbdFIRdN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 13:33:13 -0400
 Content-Disposition: inline
-In-Reply-To: <20170609.131510.1262676940920520377.davem@davemloft.net>
+In-Reply-To: <057303a1-5d27-1b24-c8b0-d3cf46b14825@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 09, 2017 at 01:15:10PM -0400, David Miller wrote:
-> From: Krister Johansen <kjlx@templeofstupid.com>
-> Date: Fri, 9 Jun 2017 10:13:10 -0700
+On Thu, Jun 08, 2017 at 10:31:53AM +0200, Nicolas Dichtel wrote:
+> Le 07/06/2017 à 21:14, Flavio Leitner a écrit :
+> > Let's say the app is restarted, or another monitoring app is executed
+> > with enough perms.  How will it identify the error condition?
+> Your app wants to monitor a subset of netns. It means that you already have a
+> way to identify those netns, something like a file stored somewhere
+> (/var/run/netns/, /proc/<pid>/ns/net, ...). Thus, it's easy to check if those
+> netns have a nsid assigned in the netns where your app will open the socket.
 > 
-> > On Fri, Jun 09, 2017 at 12:26:46PM -0400, David Miller wrote:
-> >> From: Krister Johansen <kjlx@templeofstupid.com>
-> >> Date: Thu, 8 Jun 2017 13:12:14 -0700
-> >> 
-> >> > The ipvlan code already knows how to detect when a duplicate address is
-> >> > about to be assigned to an ipvlan device.  However, that failure is not
-> >> > propogated outward and leads to a silent failure.
-> >> > 
-> >> > Introduce a validation step at ip address creation time and allow device
-> >> > drivers to register to validate the incoming ip addresses.  The ipvlan
-> >> > code is the first consumer.  If it detects an address in use, we can
-> >> > return an error to the user before beginning to commit the new ifa in
-> >> > the networking code.
-> >> > 
-> >> > This can be especially useful if it is necessary to provision many
-> >> > ipvlans in containers.  The provisioning software (or operator) can use
-> >> > this to detect situations where an ip address is unexpectedly in use.
-> >> > 
-> >> > Signed-off-by: Krister Johansen <kjlx@templeofstupid.com>
-> >> 
-> >> Ok, applied, thank you.
-> > 
-> > Thanks, did this look otherwise alright?
-> 
-> Yes, I was mildly unsatisfied with the ipv6 addrconf situation but I know
-> very well about that, and those kinds of addresses aren't of interest
-> for what you are trying to achieve right?
+> This option was called NETLINK_F_LISTEN_ALL_NSID, because it only enables to
+> listen netns *with* a nsid assigned, nothing more. It's up to the user to ensure
+> that nsid are correctly assigned.
 
-That's correct.  I'm basically trying to catch the case where 'ip addr'
-or its equivalent rtnetlink invocation manually configure an ip address
-on a ipvlan.
-
--K
+Makes sense, thanks.
+-- 
+Flavio
