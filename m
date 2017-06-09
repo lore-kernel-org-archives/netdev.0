@@ -1,82 +1,41 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v4 3/7] dt-bindings: net: Document Intel pch_gbe binding
-Date: Fri, 9 Jun 2017 08:21:49 -0500
-Message-ID: <20170609132149.uihv7qnr7zvodm6f@rob-hp-laptop>
-References: <20170602234042.22782-1-paul.burton@imgtec.com>
- <20170605173136.10795-1-paul.burton@imgtec.com>
- <20170605173136.10795-4-paul.burton@imgtec.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [RFC PATCH net-next 2/5] bpf/verifier: rework value tracking
+Date: Fri, 09 Jun 2017 15:25:36 +0200
+Message-ID: <593AA1D0.3030100@iogearbox.net>
+References: <92db9689-af6a-e172-ba57-195e588f9cc0@solarflare.com> <cef78266-62ec-8ef7-a512-cc111ba9c22a@solarflare.com> <20170608023239.lsqijtfcg5fadpai@ast-mbp> <81a661cc-a37c-336b-c10f-1fd4b301ca54@solarflare.com> <20170608164553.y2jvdbmsqqdc7cqt@ast-mbp.dhcp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Jarod Wilson <jarod-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Tobias Klauser <tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Paul Burton <paul.burton-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170605173136.10795-4-paul.burton-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Alexei Starovoitov <ast@fb.com>,
+        netdev@vger.kernel.org,
+        iovisor-dev <iovisor-dev@lists.iovisor.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Edward Cree <ecree@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170608164553.y2jvdbmsqqdc7cqt@ast-mbp.dhcp.thefacebook.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 05, 2017 at 10:31:32AM -0700, Paul Burton wrote:
-> Introduce documentation for a device tree binding for the Intel Platform
-> Controller Hub (PCH) GigaBit Ethernet (GBE) device. Although this is a
-> PCIe device & thus largely auto-detectable, this binding will be used to
-> provide the driver with the PHY reset GPIO.
-> 
-> Signed-off-by: Paul Burton <paul.burton-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
-> Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> Cc: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-> Cc: Jarod Wilson <jarod-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
-> Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> Cc: Tobias Klauser <tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org>
-> Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org
-> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> 
-> ---
-> 
-> Changes in v4: None
-> 
-> Changes in v3:
-> - New patch.
-> 
-> Changes in v2: None
-> 
->  Documentation/devicetree/bindings/net/pch_gbe.txt | 25 +++++++++++++++++++++++
->  1 file changed, 25 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/pch_gbe.txt
-> 
-> diff --git a/Documentation/devicetree/bindings/net/pch_gbe.txt b/Documentation/devicetree/bindings/net/pch_gbe.txt
-> new file mode 100644
-> index 000000000000..5de479c26b04
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/pch_gbe.txt
-> @@ -0,0 +1,25 @@
-> +Intel Platform Controller Hub (PCH) GigaBit Ethernet (GBE)
-> +
-> +Required properties:
-> +- compatible:		Should be the PCI vendor & device ID, eg. "pci8086,8802".
-> +- reg:			Should be a PCI device number as specified by the PCI bus
-> +			binding to IEEE Std 1275-1994.
-> +- phy-reset-gpios:	Should be a GPIO list containing a single GPIO that
-> +			resets the attached PHY when active.
-> +
-> +Example:
-> +
-> +	eg20t_mac@2,0,1 {
+On 06/08/2017 06:45 PM, Alexei Starovoitov wrote:
+[...]
+> I think Daniel will be happy to test your next rev of the patches.
+> I'll test them as well.
+> At least 'insn_processed' from C code in tools/testing/selftests/bpf/
+> is a good estimate of how these changes affect pruning.
 
-ethernet@...
+Without having looked more deeply (yet), I ran couple of tests with
+the cilium test suite to track complexity. Overall programs load
+with the set applied, worst case increase I've seen for some of the
+current progs was by ~80% from ~33k to ~60k insns. Will still go over
+the code for an initial review either today or tomorrow.
 
-Your unit address is not valid for PCI[1]. You should not have the bus 
-number (2) as there should be a bridge node that defines the bus number.
+> btw, I'm working on bpf_call support and also refactoring verifier
+> quite a bit, but my stuff is far from ready and I'll wait for
+> your rewrite to land first.
+> One of the things I'm working on is trying to get rid of state pruning
+> heuristics and use register+stack liveness information instead.
+> It's all experimental so far.
 
-Rob
-
-[1] http://www.o3one.org/hwdocs/openfirmware/pci_supplement_2_1.pdf
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+Daniel
