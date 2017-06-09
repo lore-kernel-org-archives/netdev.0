@@ -1,41 +1,62 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [RFC PATCH net-next 2/5] bpf/verifier: rework value tracking
-Date: Fri, 09 Jun 2017 15:25:36 +0200
-Message-ID: <593AA1D0.3030100@iogearbox.net>
-References: <92db9689-af6a-e172-ba57-195e588f9cc0@solarflare.com> <cef78266-62ec-8ef7-a512-cc111ba9c22a@solarflare.com> <20170608023239.lsqijtfcg5fadpai@ast-mbp> <81a661cc-a37c-336b-c10f-1fd4b301ca54@solarflare.com> <20170608164553.y2jvdbmsqqdc7cqt@ast-mbp.dhcp.thefacebook.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2 7/8] net: mvmdio: add xmdio support
+Date: Fri, 9 Jun 2017 15:26:24 +0200
+Message-ID: <20170609132624.GC20756@lunn.ch>
+References: <20170608092653.25221-1-antoine.tenart@free-electrons.com>
+ <20170608092653.25221-8-antoine.tenart@free-electrons.com>
+ <a60a0b26-62b1-7c9e-e846-215747dddb1f@gmail.com>
+ <20170609082541.GC31464@kwain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Alexei Starovoitov <ast@fb.com>,
-        netdev@vger.kernel.org,
-        iovisor-dev <iovisor-dev@lists.iovisor.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Edward Cree <ecree@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170608164553.y2jvdbmsqqdc7cqt@ast-mbp.dhcp.thefacebook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>, davem@davemloft.net,
+        jason@lakedaemon.net, gregory.clement@free-electrons.com,
+        sebastian.hesselbarth@gmail.com,
+        thomas.petazzoni@free-electrons.com, mw@semihalf.com,
+        linux@armlinux.org.uk, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org
+To: Antoine Tenart <antoine.tenart@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:43203 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751534AbdFIN0a (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 9 Jun 2017 09:26:30 -0400
+Content-Disposition: inline
+In-Reply-To: <20170609082541.GC31464@kwain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/08/2017 06:45 PM, Alexei Starovoitov wrote:
-[...]
-> I think Daniel will be happy to test your next rev of the patches.
-> I'll test them as well.
-> At least 'insn_processed' from C code in tools/testing/selftests/bpf/
-> is a good estimate of how these changes affect pruning.
+On Fri, Jun 09, 2017 at 10:25:41AM +0200, Antoine Tenart wrote:
+> On Thu, Jun 08, 2017 at 09:42:21AM -0700, Florian Fainelli wrote:
+> > On 06/08/2017 02:26 AM, Antoine Tenart wrote:
+> > > This patch adds the xMDIO interface support in the mvmdio driver. This
+> > > interface is used in Ethernet controllers on Marvell 370, 7k and 8k (as
+> > > of now). The xSMI interface supported by this driver complies with the
+> > > IEEE 802.3 clause 45 (while the SMI interface complies with the clause
+> > > 22). The xSMI interface is used by 10GbE devices.
+> > 
+> > In the previous version you were properly defining a new compatibles
+> > strings for xmdio, but now you don't and instead you runtime select the
+> > operations based on whether MII_ADDR_C45 is set in the register which is
+> > fine from a functional perspective.
+> > 
+> > If I get this right, the xMDIO controller is actually a superset of the
+> > MDIO controller and has an extra MVMDIO_XSMI_ADDR_REG register to
+> > preform C45 accesses?
+> 
+> This is also a mistake. It's not a superset as the register offsets are
+> different. So we can't use the same smi operations in both cases. We
+> would need dedicated xmdio smi operations, but I don't think there is a
+> board where a c22 PHY is connected to the xMDIO interface.
 
-Without having looked more deeply (yet), I ran couple of tests with
-the cilium test suite to track complexity. Overall programs load
-with the set applied, worst case increase I've seen for some of the
-current progs was by ~80% from ~33k to ~60k insns. Will still go over
-the code for an initial review either today or tomorrow.
+Hi Antoine
 
-> btw, I'm working on bpf_call support and also refactoring verifier
-> quite a bit, but my stuff is far from ready and I'll wait for
-> your rewrite to land first.
-> One of the things I'm working on is trying to get rid of state pruning
-> heuristics and use register+stack liveness information instead.
-> It's all experimental so far.
+I don't have the datasheet...
 
-Thanks,
-Daniel
+Is it described as one device, which can do c22 via one set of
+registers, and c45 by another set of registers?
+
+Or are there two separate devices. In particular, does each device
+have there own MDC and MDIO pins? Do we have an C22 only device/bus,
+and a C45 only device/bus?
+
+    Andrew
