@@ -1,41 +1,120 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net 2/3] bonding: fix 802.3ad support for 14G speed
-Date: Thu, 08 Jun 2017 17:05:12 -0700
-Message-ID: <1496966712.1929.25.camel@perches.com>
-References: <1496913493-23293-1-git-send-email-nicolas.dichtel@6wind.com>
-         <1496913493-23293-2-git-send-email-nicolas.dichtel@6wind.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
-        andy@greyhouse.net, thibaut.collet@6wind.com,
-        linville@tuxdriver.com
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>, davem@davemloft.net
+From: Girish Moodalbail <girish.moodalbail@oracle.com>
+Subject: [PATCH net-next v2] geneve: add missing rx stats accounting
+Date: Thu,  8 Jun 2017 17:07:48 -0700
+Message-ID: <1496966868-6032-1-git-send-email-girish.moodalbail@oracle.com>
+Cc: davem@davemloft.net, pshelar@ovn.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0147.hostedemail.com ([216.40.44.147]:54198 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751392AbdFIAFQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 20:05:16 -0400
-In-Reply-To: <1496913493-23293-2-git-send-email-nicolas.dichtel@6wind.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:43747 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751393AbdFIAVU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 20:21:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-06-08 at 11:18 +0200, Nicolas Dichtel wrote:
-> This patch adds 14 Gbps enum definition, and fixes
-> aggregated bandwidth calculation based on above slave links.
+There are few places on the receive path where packet drops and packet
+errors were not accounted for. This patch fixes that issue.
 
-Doesn't 14G need to be added to phy.c?
+Signed-off-by: Girish Moodalbail <girish.moodalbail@oracle.com>
 ---
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index a4238cb56731..d1c33a8cbaf5 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -54,6 +54,8 @@ static const char *phy_speed_to_str(int speed)
- 		return "5Gbps";
- 	case SPEED_10000:
- 		return "10Gbps";
-+	case SPEED_14000:
-+		return "14Gbps";
- 	case SPEED_20000:
- 		return "20Gbps";
- 	case SPEED_25000:
+v0 -> v1:
+   -modified to use canonical post-increment "x++"
+---
+ drivers/net/geneve.c | 36 ++++++++++++++++++++++++------------
+ 1 file changed, 24 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index 6ebb0f5..ff626db 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -212,6 +212,7 @@ static void geneve_rx(struct geneve_dev *geneve, struct geneve_sock *gs,
+ 	struct genevehdr *gnvh = geneve_hdr(skb);
+ 	struct metadata_dst *tun_dst = NULL;
+ 	struct pcpu_sw_netstats *stats;
++	unsigned int len;
+ 	int err = 0;
+ 	void *oiph;
+ 
+@@ -225,8 +226,10 @@ static void geneve_rx(struct geneve_dev *geneve, struct geneve_sock *gs,
+ 		tun_dst = udp_tun_rx_dst(skb, geneve_get_sk_family(gs), flags,
+ 					 vni_to_tunnel_id(gnvh->vni),
+ 					 gnvh->opt_len * 4);
+-		if (!tun_dst)
++		if (!tun_dst) {
++			geneve->dev->stats.rx_dropped++;
+ 			goto drop;
++		}
+ 		/* Update tunnel dst according to Geneve options. */
+ 		ip_tunnel_info_opts_set(&tun_dst->u.tun_info,
+ 					gnvh->options, gnvh->opt_len * 4);
+@@ -234,8 +237,11 @@ static void geneve_rx(struct geneve_dev *geneve, struct geneve_sock *gs,
+ 		/* Drop packets w/ critical options,
+ 		 * since we don't support any...
+ 		 */
+-		if (gnvh->critical)
++		if (gnvh->critical) {
++			geneve->dev->stats.rx_frame_errors++;
++			geneve->dev->stats.rx_errors++;
+ 			goto drop;
++		}
+ 	}
+ 
+ 	skb_reset_mac_header(skb);
+@@ -246,8 +252,10 @@ static void geneve_rx(struct geneve_dev *geneve, struct geneve_sock *gs,
+ 		skb_dst_set(skb, &tun_dst->dst);
+ 
+ 	/* Ignore packet loops (and multicast echo) */
+-	if (ether_addr_equal(eth_hdr(skb)->h_source, geneve->dev->dev_addr))
++	if (ether_addr_equal(eth_hdr(skb)->h_source, geneve->dev->dev_addr)) {
++		geneve->dev->stats.rx_errors++;
+ 		goto drop;
++	}
+ 
+ 	oiph = skb_network_header(skb);
+ 	skb_reset_network_header(skb);
+@@ -279,13 +287,15 @@ static void geneve_rx(struct geneve_dev *geneve, struct geneve_sock *gs,
+ 		}
+ 	}
+ 
+-	stats = this_cpu_ptr(geneve->dev->tstats);
+-	u64_stats_update_begin(&stats->syncp);
+-	stats->rx_packets++;
+-	stats->rx_bytes += skb->len;
+-	u64_stats_update_end(&stats->syncp);
+-
+-	gro_cells_receive(&geneve->gro_cells, skb);
++	len = skb->len;
++	err = gro_cells_receive(&geneve->gro_cells, skb);
++	if (likely(err == NET_RX_SUCCESS)) {
++		stats = this_cpu_ptr(geneve->dev->tstats);
++		u64_stats_update_begin(&stats->syncp);
++		stats->rx_packets++;
++		stats->rx_bytes += len;
++		u64_stats_update_end(&stats->syncp);
++	}
+ 	return;
+ drop:
+ 	/* Consume bad packet */
+@@ -334,7 +344,7 @@ static int geneve_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+ 	struct geneve_sock *gs;
+ 	int opts_len;
+ 
+-	/* Need Geneve and inner Ethernet header to be present */
++	/* Need UDP and Geneve header to be present */
+ 	if (unlikely(!pskb_may_pull(skb, GENEVE_BASE_HLEN)))
+ 		goto drop;
+ 
+@@ -357,8 +367,10 @@ static int geneve_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+ 	opts_len = geneveh->opt_len * 4;
+ 	if (iptunnel_pull_header(skb, GENEVE_BASE_HLEN + opts_len,
+ 				 htons(ETH_P_TEB),
+-				 !net_eq(geneve->net, dev_net(geneve->dev))))
++				 !net_eq(geneve->net, dev_net(geneve->dev)))) {
++		geneve->dev->stats.rx_dropped++;
+ 		goto drop;
++	}
+ 
+ 	geneve_rx(geneve, gs, skb);
+ 	return 0;
+-- 
+1.8.3.1
