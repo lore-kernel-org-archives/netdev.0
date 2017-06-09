@@ -1,30 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/8] Bug fixes in ena ethernet driver
-Date: Fri, 09 Jun 2017 15:33:12 -0400 (EDT)
-Message-ID: <20170609.153312.1390770571565991697.davem@davemloft.net>
-References: <1496991325-551-1-git-send-email-netanel@amazon.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dwmw@amazon.com, zorik@amazon.com,
-        matua@amazon.com, saeedb@amazon.com, msw@amazon.com,
-        aliguori@amazon.com, nafea@amazon.com, evgenys@amazon.com
-To: netanel@amazon.com
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH net] mac80211: free netdev on dev_alloc_name() error
+Date: Fri,  9 Jun 2017 21:33:09 +0200
+Message-ID: <20170609193309.14972-1-johannes@sipsolutions.net>
+Cc: Johannes Berg <johannes.berg@intel.com>
+To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37888 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751554AbdFITdP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 15:33:15 -0400
-In-Reply-To: <1496991325-551-1-git-send-email-netanel@amazon.com>
+Received: from s3.sipsolutions.net ([5.9.151.49]:59156 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751554AbdFITdN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 9 Jun 2017 15:33:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <netanel@amazon.com>
-Date: Fri, 9 Jun 2017 09:55:16 +0300
+From: Johannes Berg <johannes.berg@intel.com>
 
-> This patchset contains fixes for the bugs that were discovered so far.
+The change to remove free_netdev() from ieee80211_if_free()
+erroneously didn't add the necessary free_netdev() for when
+ieee80211_if_free() is called directly in one place, rather
+than as the priv_destructor. Add the missing call.
 
-You submitted patch #6 twice, once with the word "stuck" in the subject
-line, once with the word "hang" in the subject line.
+Fixes: cf124db566e6 ("net: Fix inconsistent teardown and release of private netdev state.")
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+ net/mac80211/iface.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Please sort this out and resubmit, thanks.
+diff --git a/net/mac80211/iface.c b/net/mac80211/iface.c
+index 915d7e1b4545..f5f50150ba1c 100644
+--- a/net/mac80211/iface.c
++++ b/net/mac80211/iface.c
+@@ -1816,6 +1816,7 @@ int ieee80211_if_add(struct ieee80211_local *local, const char *name,
+ 		ret = dev_alloc_name(ndev, ndev->name);
+ 		if (ret < 0) {
+ 			ieee80211_if_free(ndev);
++			free_netdev(ndev);
+ 			return ret;
+ 		}
+ 
+-- 
+2.11.0
