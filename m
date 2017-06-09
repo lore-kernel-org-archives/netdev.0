@@ -1,64 +1,65 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] l2tp: cast l2tp traffic counter to unsigned
-Date: Fri, 9 Jun 2017 15:16:21 -0700
-Message-ID: <20170609151621.11e610a2@xeon-e3>
-References: <20170609142947.16969-1-dheidler@suse.de>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 0/8] Bug fixes in ena ethernet driver
+Date: Fri, 9 Jun 2017 15:19:54 -0700
+Message-ID: <fac900d3-dae3-1c88-ceef-d28294ed7941@gmail.com>
+References: <1497046437-20390-1-git-send-email-netanel@amazon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Tom Parkin <tparkin@katalix.com>
-To: Dominik Heidler <dheidler@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170609142947.16969-1-dheidler@suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dwmw@amazon.com, zorik@amazon.com, matua@amazon.com,
+        saeedb@amazon.com, msw@amazon.com, aliguori@amazon.com,
+        nafea@amazon.com, evgenys@amazon.com
+To: netanel@amazon.com, davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:35640 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751545AbdFIWT7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 18:19:59 -0400
+Received: by mail-qt0-f193.google.com with SMTP id x58so18062271qtc.2
+        for <netdev@vger.kernel.org>; Fri, 09 Jun 2017 15:19:58 -0700 (PDT)
+In-Reply-To: <1497046437-20390-1-git-send-email-netanel@amazon.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri,  9 Jun 2017 16:29:47 +0200
-Dominik Heidler <dheidler@suse.de> wrote:
-
-> This fixes a counter problem on 32bit systems:
-> When the rx_bytes counter reached 2 GiB, it jumpd to (2^64 Bytes - 2GiB) Bytes.
+On 06/09/2017 03:13 PM, netanel@amazon.com wrote:
+> From: Netanel Belgazal <netanel@amazon.com>
 > 
-> rtnl_link_stats64 has __u64 type and atomic_long_read returns
-> atomic_long_t which is signed. Due to the conversation
-> we get an incorrect value on 32bit systems if the MSB of
-> the atomic_long_t value is set.
+> This patchset contains fixes for the bugs that were discovered so far.
+
+If these are all fixes you should submit them against the "net" tree.
+net-next is for features [1].
+
+Since these are fixes, you may also want to provide a Fixes: 12-digit
+commit ("commit subject") [2] such that David can queue these patches
+for stable trees and this can be retrofitted into kernel distributions.
+
+[1]:
+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/networking/netdev-FAQ.txt#n25
+
+[2]:
+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/process/submitting-patches.rst#n183
+
 > 
-> CC: Tom Parkin <tparkin@katalix.com>
-> Fixes: 7b7c0719cd7a ("l2tp: avoid deadlock in l2tp stats update")
-> Signed-off-by: Dominik Heidler <dheidler@suse.de>
-> ---
->  net/l2tp/l2tp_eth.c | 13 +++++++------
->  1 file changed, 7 insertions(+), 6 deletions(-)
+> Netanel Belgazal (8):
+>   net: ena: fix rare uncompleted admin command false alarm
+>   net: ena: fix bug that might cause hang after consecutive open/close
+>     interface.
+>   net: ena: add missing return when ena_com_get_io_handlers() fails
+>   net: ena: fix race condition between submit and completion admin
+>     command
+>   net: ena: add missing unmap bars on device removal
+>   net: ena: fix theoretical Rx hang on low memory systems
+>   net: ena: disable admin msix while working in polling mode
+>   net: ena: bug fix in lost tx packets detection mechanism
 > 
-> diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
-> index 8b21af7321b9..668a75e002e9 100644
-> --- a/net/l2tp/l2tp_eth.c
-> +++ b/net/l2tp/l2tp_eth.c
-> @@ -114,12 +114,13 @@ static void l2tp_eth_get_stats64(struct net_device *dev,
->  {
->  	struct l2tp_eth *priv = netdev_priv(dev);
->  
-> -	stats->tx_bytes   = atomic_long_read(&priv->tx_bytes);
-> -	stats->tx_packets = atomic_long_read(&priv->tx_packets);
-> -	stats->tx_dropped = atomic_long_read(&priv->tx_dropped);
-> -	stats->rx_bytes   = atomic_long_read(&priv->rx_bytes);
-> -	stats->rx_packets = atomic_long_read(&priv->rx_packets);
-> -	stats->rx_errors  = atomic_long_read(&priv->rx_errors);
-> +	stats->tx_bytes   = (unsigned long) atomic_long_read(&priv->tx_bytes);
-> +	stats->tx_packets = (unsigned long) atomic_long_read(&priv->tx_packets);
-> +	stats->tx_dropped = (unsigned long) atomic_long_read(&priv->tx_dropped);
-> +	stats->rx_bytes   = (unsigned long) atomic_long_read(&priv->rx_bytes);
-> +	stats->rx_packets = (unsigned long) atomic_long_read(&priv->rx_packets);
-> +	stats->rx_errors  = (unsigned long) atomic_long_read(&priv->rx_errors);
-> +
->  }
->  
->  static const struct net_device_ops l2tp_eth_netdev_ops = {
+>  drivers/net/ethernet/amazon/ena/ena_com.c     |  35 +++--
+>  drivers/net/ethernet/amazon/ena/ena_ethtool.c |   2 +-
+>  drivers/net/ethernet/amazon/ena/ena_netdev.c  | 179 +++++++++++++++++++-------
+>  drivers/net/ethernet/amazon/ena/ena_netdev.h  |  16 ++-
+>  4 files changed, 168 insertions(+), 64 deletions(-)
+> 
 
-This is not the right way to fix this.
 
-1. shouldn't be using atomic's for network counters, look at other network devices.
-
-2. should be using u64_stats_fetch  api to handle 64 bit counters.
+-- 
+Florian
