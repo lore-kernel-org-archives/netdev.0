@@ -1,38 +1,53 @@
-From: David Miller <davem@davemloft.net>
+From: Chenbo Feng <chenbofeng.kernel@gmail.com>
 Subject: Re: [PATCH net-next] ipv6: Initial skb->dev and skb->protocol in
  ip6_output
-Date: Fri, 09 Jun 2017 15:08:36 -0400 (EDT)
-Message-ID: <20170609.150836.1427149901008136163.davem@davemloft.net>
+Date: Fri, 9 Jun 2017 12:13:57 -0700
+Message-ID: <3270a030-2608-1629-07d6-7fdeee9e98cc@gmail.com>
 References: <1497035168-9093-1-git-send-email-chenbofeng.kernel@gmail.com>
+ <20170609.150836.1427149901008136163.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, lorenzo@google.com, edumazet@google.com,
         fengc@google.com
-To: chenbofeng.kernel@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37230 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751554AbdFITIl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 15:08:41 -0400
-In-Reply-To: <1497035168-9093-1-git-send-email-chenbofeng.kernel@gmail.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:33010 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751554AbdFITN7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 15:13:59 -0400
+Received: by mail-pf0-f196.google.com with SMTP id f27so9462040pfe.0
+        for <netdev@vger.kernel.org>; Fri, 09 Jun 2017 12:13:59 -0700 (PDT)
+In-Reply-To: <20170609.150836.1427149901008136163.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chenbo Feng <chenbofeng.kernel@gmail.com>
-Date: Fri,  9 Jun 2017 12:06:07 -0700
 
-> From: Chenbo Feng <fengc@google.com>
-> 
-> Move the initialization of skb->dev and skb->protocol from
-> ip6_finish_output2 to ip6_output. This can make the skb->dev and
-> skb->protocol information avalaible to the CGROUP eBPF filter.
-> 
-> Signed-off-by: Chenbo Feng <fengc@google.com>
-> Acked-by: Eric Dumazet <edumazet@google.com>
 
-Applied, thanks.
+On 06/09/2017 12:08 PM, David Miller wrote:
+> From: Chenbo Feng <chenbofeng.kernel@gmail.com>
+> Date: Fri,  9 Jun 2017 12:06:07 -0700
+>
+>> From: Chenbo Feng <fengc@google.com>
+>>
+>> Move the initialization of skb->dev and skb->protocol from
+>> ip6_finish_output2 to ip6_output. This can make the skb->dev and
+>> skb->protocol information avalaible to the CGROUP eBPF filter.
+>>
+>> Signed-off-by: Chenbo Feng <fengc@google.com>
+>> Acked-by: Eric Dumazet <edumazet@google.com>
+> Applied, thanks.
+>
+> This makes ipv6 consistent with ipv4.
+>
+> I am surprised this wasn't noticed, for example, in netfilter.
+> .
+>
+Hi David,
 
-This makes ipv6 consistent with ipv4.
+This patch is still under working since it may have problem with 
+ip_fragment() call, did you applied it already? Should I send a revert 
+patch to you then?
 
-I am surprised this wasn't noticed, for example, in netfilter.
+Chenbo Feng
