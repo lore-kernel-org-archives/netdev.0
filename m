@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 11/11] r8152: replace napi_complete with napi_complete_done
-Date: Fri, 9 Jun 2017 17:11:48 +0800
-Message-ID: <1394712342-15778-271-Taiwan-albertk@realtek.com>
+Subject: [PATCH net-next 10/11] r8152: avoid rx queue more than 1000 packets
+Date: Fri, 9 Jun 2017 17:11:47 +0800
+Message-ID: <1394712342-15778-270-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-260-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,35 +13,27 @@ In-Reply-To: <1394712342-15778-260-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Change from using napi_complete to napi_complete_done to allow for the
-use of gro_flush_timeout in tuning network processing.
+Stop queuing rx packets if it is more than 1000.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/usb/r8152.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index fa29583..5a02053 100644
+index 204f4b2..fa29583 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -1938,7 +1938,8 @@ static int r8152_poll(struct napi_struct *napi, int budget)
- 	bottom_half(tp);
+@@ -1813,6 +1813,10 @@ static int rx_bottom(struct r8152 *tp, int budget)
+ 			unsigned int pkt_len;
+ 			struct sk_buff *skb;
  
- 	if (work_done < budget) {
--		napi_complete(napi);
-+		if (!napi_complete_done(napi, work_done))
-+			goto out;
- 		if (!list_empty(&tp->rx_done))
- 			napi_schedule(napi);
- 		else if (!skb_queue_empty(&tp->tx_queue) &&
-@@ -1946,6 +1947,7 @@ static int r8152_poll(struct napi_struct *napi, int budget)
- 			napi_schedule(napi);
- 	}
- 
-+out:
- 	return work_done;
- }
- 
++			/* limite the skb numbers for rx_queue */
++			if (unlikely(skb_queue_len(&tp->rx_queue) >= 1000))
++				break;
++
+ 			pkt_len = le32_to_cpu(rx_desc->opts1) & RX_LEN_MASK;
+ 			if (pkt_len < ETH_ZLEN)
+ 				break;
 -- 
 2.7.4
