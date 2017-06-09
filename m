@@ -1,62 +1,63 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 5/6] can: af_can: namespace support: fix lockdep splat: properly initialize spin_lock
-Date: Fri,  9 Jun 2017 14:55:12 +0200
-Message-ID: <20170609125513.24436-6-mkl@pengutronix.de>
+Subject: [PATCH 6/6] can: enable CAN FD for virtual CAN devices by default
+Date: Fri,  9 Jun 2017 14:55:13 +0200
+Message-ID: <20170609125513.24436-7-mkl@pengutronix.de>
 References: <20170609125513.24436-1-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-        kernel@pengutronix.de, Marc Kleine-Budde <mkl@pengutronix.de>,
-        Mario Kicherer <dev@kicherer.org>
+        kernel@pengutronix.de, Oliver Hartkopp <socketcan@hartkopp.net>,
+        Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:35529 "EHLO
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:48421 "EHLO
         metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751657AbdFIMzW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 08:55:22 -0400
+        by vger.kernel.org with ESMTP id S1751578AbdFIMzX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 08:55:23 -0400
 In-Reply-To: <20170609125513.24436-1-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch uses spin_lock_init() instead of __SPIN_LOCK_UNLOCKED() to
-initialize the per namespace net->can.can_rcvlists_lock lock to fix this
-lockdep warning:
+From: Oliver Hartkopp <socketcan@hartkopp.net>
 
-| INFO: trying to register non-static key.
-| the code is fine but needs lockdep annotation.
-| turning off the locking correctness validator.
-| CPU: 0 PID: 186 Comm: candump Not tainted 4.12.0-rc3+ #47
-| Hardware name: Marvell Kirkwood (Flattened Device Tree)
-| [<c0016644>] (unwind_backtrace) from [<c00139a8>] (show_stack+0x18/0x1c)
-| [<c00139a8>] (show_stack) from [<c0058c8c>] (register_lock_class+0x1e4/0x55c)
-| [<c0058c8c>] (register_lock_class) from [<c005bdfc>] (__lock_acquire+0x148/0x1990)
-| [<c005bdfc>] (__lock_acquire) from [<c005deec>] (lock_acquire+0x174/0x210)
-| [<c005deec>] (lock_acquire) from [<c04a6780>] (_raw_spin_lock+0x50/0x88)
-| [<c04a6780>] (_raw_spin_lock) from [<bf02116c>] (can_rx_register+0x94/0x15c [can])
-| [<bf02116c>] (can_rx_register [can]) from [<bf02a868>] (raw_enable_filters+0x60/0xc0 [can_raw])
-| [<bf02a868>] (raw_enable_filters [can_raw]) from [<bf02ac14>] (raw_enable_allfilters+0x2c/0xa0 [can_raw])
-| [<bf02ac14>] (raw_enable_allfilters [can_raw]) from [<bf02ad38>] (raw_bind+0xb0/0x250 [can_raw])
-| [<bf02ad38>] (raw_bind [can_raw]) from [<c03b5fb8>] (SyS_bind+0x70/0xac)
-| [<c03b5fb8>] (SyS_bind) from [<c000f8c0>] (ret_fast_syscall+0x0/0x1c)
+CAN FD capable CAN interfaces can handle (classic) CAN 2.0 frames too.
+New users usually fail at their first attempt to explore CAN FD on
+virtual CAN interfaces due to the current CAN_MTU default.
 
-Cc: Mario Kicherer <dev@kicherer.org>
-Acked-by: Oliver Hartkopp <socketcan@hartkopp.net>
+Set the MTU to CANFD_MTU by default to reduce this confusion.
+If someone *really* needs a 'classic CAN'-only device this can be set
+with the 'ip' tool with e.g. 'ip link set vcan0 mtu 16' as before.
+
+Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- net/can/af_can.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/can/vcan.c  | 2 +-
+ drivers/net/can/vxcan.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/can/af_can.c b/net/can/af_can.c
-index b6406fe33c76..88edac0f3e36 100644
---- a/net/can/af_can.c
-+++ b/net/can/af_can.c
-@@ -872,8 +872,7 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
- 
- static int can_pernet_init(struct net *net)
+diff --git a/drivers/net/can/vcan.c b/drivers/net/can/vcan.c
+index 0eda1b308583..a8cb33264ff1 100644
+--- a/drivers/net/can/vcan.c
++++ b/drivers/net/can/vcan.c
+@@ -152,7 +152,7 @@ static const struct net_device_ops vcan_netdev_ops = {
+ static void vcan_setup(struct net_device *dev)
  {
--	net->can.can_rcvlists_lock =
--		__SPIN_LOCK_UNLOCKED(net->can.can_rcvlists_lock);
-+	spin_lock_init(&net->can.can_rcvlists_lock);
- 	net->can.can_rx_alldev_list =
- 		kzalloc(sizeof(struct dev_rcv_lists), GFP_KERNEL);
- 
+ 	dev->type		= ARPHRD_CAN;
+-	dev->mtu		= CAN_MTU;
++	dev->mtu		= CANFD_MTU;
+ 	dev->hard_header_len	= 0;
+ 	dev->addr_len		= 0;
+ 	dev->tx_queue_len	= 0;
+diff --git a/drivers/net/can/vxcan.c b/drivers/net/can/vxcan.c
+index 30cf2368becf..cfe889e8f172 100644
+--- a/drivers/net/can/vxcan.c
++++ b/drivers/net/can/vxcan.c
+@@ -150,7 +150,7 @@ static const struct net_device_ops vxcan_netdev_ops = {
+ static void vxcan_setup(struct net_device *dev)
+ {
+ 	dev->type		= ARPHRD_CAN;
+-	dev->mtu		= CAN_MTU;
++	dev->mtu		= CANFD_MTU;
+ 	dev->hard_header_len	= 0;
+ 	dev->addr_len		= 0;
+ 	dev->tx_queue_len	= 0;
 -- 
 2.11.0
