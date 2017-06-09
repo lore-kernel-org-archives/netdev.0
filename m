@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 07/11] r8152: move the default coalesce setting for RTL8153
-Date: Fri, 9 Jun 2017 17:11:44 +0800
-Message-ID: <1394712342-15778-267-Taiwan-albertk@realtek.com>
+Subject: [PATCH net-next 06/11] r8152: adjust U2P3 for RTL8153
+Date: Fri, 9 Jun 2017 17:11:43 +0800
+Message-ID: <1394712342-15778-266-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-260-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,57 +13,101 @@ In-Reply-To: <1394712342-15778-260-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Only RTL8153 could set coalesce, so move the default setting for
-rtl8152_probe() to r8153_init().
+Use another way to keep disabling the U2P3 for both RTL_VER_03 and
+RTL_VER_04.
+
+Move enabling U2P3 from r8153_init() to r8153_hw_phy_cfg(). The
+engineer ask the setting should be done after PHY settings.
+
+Disable U2P3 first in rtl8153_up().
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 26 +++++++++++++-------------
- 1 file changed, 13 insertions(+), 13 deletions(-)
+ drivers/net/usb/r8152.c | 41 +++++++++++++++++++++++++++++++++++++----
+ 1 file changed, 37 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 565ac5b..f78111c 100644
+index 32e83fd..565ac5b 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -3579,6 +3579,19 @@ static void r8153_init(struct r8152 *tp)
+@@ -2468,7 +2468,7 @@ static void r8153_u2p3en(struct r8152 *tp, bool enable)
+ 	u32 ocp_data;
+ 
+ 	ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_U2P3_CTRL);
+-	if (enable && tp->version != RTL_VER_03 && tp->version != RTL_VER_04)
++	if (enable)
+ 		ocp_data |= U2P3_ENABLE;
+ 	else
+ 		ocp_data &= ~U2P3_ENABLE;
+@@ -2559,7 +2559,18 @@ static void rtl8153_runtime_enable(struct r8152 *tp, bool enable)
+ 	} else {
+ 		rtl_runtime_suspend_enable(tp, false);
+ 		r8153_mac_clk_spd(tp, false);
+-		r8153_u2p3en(tp, true);
++
++		switch (tp->version) {
++		case RTL_VER_03:
++		case RTL_VER_04:
++			break;
++		case RTL_VER_05:
++		case RTL_VER_06:
++		default:
++			r8153_u2p3en(tp, true);
++			break;
++		}
++
+ 		r8153_u1u2en(tp, true);
+ 	}
+ }
+@@ -2898,6 +2909,17 @@ static void r8153_hw_phy_cfg(struct r8152 *tp)
+ 	r8153_aldps_en(tp, true);
+ 	r8152b_enable_fc(tp);
+ 
++	switch (tp->version) {
++	case RTL_VER_03:
++	case RTL_VER_04:
++		break;
++	case RTL_VER_05:
++	case RTL_VER_06:
++	default:
++		r8153_u2p3en(tp, true);
++		break;
++	}
++
+ 	set_bit(PHY_RESET, &tp->flags);
+ }
+ 
+@@ -3143,10 +3165,22 @@ static void rtl8153_up(struct r8152 *tp)
+ 		return;
+ 
+ 	r8153_u1u2en(tp, false);
++	r8153_u2p3en(tp, false);
+ 	r8153_aldps_en(tp, false);
+ 	r8153_first_init(tp);
+ 	r8153_aldps_en(tp, true);
+-	r8153_u2p3en(tp, true);
++
++	switch (tp->version) {
++	case RTL_VER_03:
++	case RTL_VER_04:
++		break;
++	case RTL_VER_05:
++	case RTL_VER_06:
++	default:
++		r8153_u2p3en(tp, true);
++		break;
++	}
++
+ 	r8153_u1u2en(tp, true);
+ }
+ 
+@@ -3545,7 +3579,6 @@ static void r8153_init(struct r8152 *tp)
  	ocp_write_word(tp, MCU_TYPE_USB, USB_USB_CTRL, ocp_data);
  
  	rtl_tally_reset(tp);
-+
-+	switch (tp->udev->speed) {
-+	case USB_SPEED_SUPER:
-+	case USB_SPEED_SUPER_PLUS:
-+		tp->coalesce = COALESCE_SUPER;
-+		break;
-+	case USB_SPEED_HIGH:
-+		tp->coalesce = COALESCE_HIGH;
-+		break;
-+	default:
-+		tp->coalesce = COALESCE_SLOW;
-+		break;
-+	}
+-	r8153_u2p3en(tp, true);
  }
  
  static int rtl8152_pre_reset(struct usb_interface *intf)
-@@ -4524,19 +4537,6 @@ static int rtl8152_probe(struct usb_interface *intf,
- 	tp->mii.reg_num_mask = 0x1f;
- 	tp->mii.phy_id = R8152_PHY_ID;
- 
--	switch (udev->speed) {
--	case USB_SPEED_SUPER:
--	case USB_SPEED_SUPER_PLUS:
--		tp->coalesce = COALESCE_SUPER;
--		break;
--	case USB_SPEED_HIGH:
--		tp->coalesce = COALESCE_HIGH;
--		break;
--	default:
--		tp->coalesce = COALESCE_SLOW;
--		break;
--	}
--
- 	tp->autoneg = AUTONEG_ENABLE;
- 	tp->speed = tp->mii.supports_gmii ? SPEED_1000 : SPEED_100;
- 	tp->duplex = DUPLEX_FULL;
 -- 
 2.7.4
