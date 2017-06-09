@@ -1,62 +1,124 @@
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Subject: [PATCH net-next] cxgb4: fix memory leak in init_one()
-Date: Fri,  9 Jun 2017 19:26:24 +0530
-Message-ID: <1497016584-12034-1-git-send-email-ganeshgr@chelsio.com>
-Cc: nirranjan@chelsio.com, indranil@chelsio.com, venkatesh@chelsio.com,
-        Ganesh Goudar <ganeshgr@chelsio.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next 1/2] netns: define extack error msg for nsis cmds
+Date: Fri,  9 Jun 2017 14:41:56 +0200
+Message-ID: <1497012117-1344-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org,
+        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:6879 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751536AbdFIN4p (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 09:56:45 -0400
+Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:48391 "EHLO
+        proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751714AbdFIN51 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 09:57:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Free up mbox_log allocated for PF0 to PF3.
+It helps the user to identify errors.
 
-Fixes: 7829451c695e ("cxgb4: Add control net_device for configuring PCIe VF")
-Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+CC: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ net/core/net_namespace.c | 42 +++++++++++++++++++++++++++++++++---------
+ 1 file changed, 33 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index ff8bcf5..01c9710 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -5169,13 +5169,15 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 			      &v, &port_vec);
- 	if (err < 0) {
- 		dev_err(adapter->pdev_dev, "Could not fetch port params\n");
--		goto free_adapter;
-+		goto free_mbox_log;
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index 26bbfababff2..1f60c180e2de 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -596,6 +596,7 @@ static int rtnl_net_newid(struct sk_buff *skb, struct nlmsghdr *nlh,
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct nlattr *tb[NETNSA_MAX + 1];
++	struct nlattr *nla;
+ 	struct net *peer;
+ 	int nsid, err;
+ 
+@@ -603,23 +604,35 @@ static int rtnl_net_newid(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 			  rtnl_net_policy, extack);
+ 	if (err < 0)
+ 		return err;
+-	if (!tb[NETNSA_NSID])
++	if (!tb[NETNSA_NSID]) {
++		NL_SET_ERR_MSG(extack, "nsid is missing");
+ 		return -EINVAL;
++	}
+ 	nsid = nla_get_s32(tb[NETNSA_NSID]);
+ 
+-	if (tb[NETNSA_PID])
++	if (tb[NETNSA_PID]) {
+ 		peer = get_net_ns_by_pid(nla_get_u32(tb[NETNSA_PID]));
+-	else if (tb[NETNSA_FD])
++		nla = tb[NETNSA_PID];
++	} else if (tb[NETNSA_FD]) {
+ 		peer = get_net_ns_by_fd(nla_get_u32(tb[NETNSA_FD]));
+-	else
++		nla = tb[NETNSA_FD];
++	} else {
++		NL_SET_ERR_MSG(extack, "Peer netns reference is missing");
+ 		return -EINVAL;
+-	if (IS_ERR(peer))
++	}
++	if (IS_ERR(peer)) {
++		NL_SET_BAD_ATTR(extack, nla);
++		NL_SET_ERR_MSG(extack, "Peer netns reference is invalid");
+ 		return PTR_ERR(peer);
++	}
+ 
+ 	spin_lock_bh(&net->nsid_lock);
+ 	if (__peernet2id(net, peer) >= 0) {
+ 		spin_unlock_bh(&net->nsid_lock);
+ 		err = -EEXIST;
++		NL_SET_BAD_ATTR(extack, nla);
++		NL_SET_ERR_MSG(extack,
++			       "Peer netns already has a nsid assigned");
+ 		goto out;
  	}
  
- 	adapter->params.nports = hweight32(port_vec);
- 	pci_set_drvdata(pdev, adapter);
- 	return 0;
+@@ -628,6 +641,9 @@ static int rtnl_net_newid(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	if (err >= 0) {
+ 		rtnl_net_notifyid(net, RTM_NEWNSID, err);
+ 		err = 0;
++	} else if (err == -ENOSPC && nsid >= 0) {
++		NL_SET_BAD_ATTR(extack, tb[NETNSA_NSID]);
++		NL_SET_ERR_MSG(extack, "The specified nsid is already used");
+ 	}
+ out:
+ 	put_net(peer);
+@@ -670,6 +686,7 @@ static int rtnl_net_getid(struct sk_buff *skb, struct nlmsghdr *nlh,
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct nlattr *tb[NETNSA_MAX + 1];
++	struct nlattr *nla;
+ 	struct sk_buff *msg;
+ 	struct net *peer;
+ 	int err, id;
+@@ -678,15 +695,22 @@ static int rtnl_net_getid(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 			  rtnl_net_policy, extack);
+ 	if (err < 0)
+ 		return err;
+-	if (tb[NETNSA_PID])
++	if (tb[NETNSA_PID]) {
+ 		peer = get_net_ns_by_pid(nla_get_u32(tb[NETNSA_PID]));
+-	else if (tb[NETNSA_FD])
++		nla = tb[NETNSA_PID];
++	} else if (tb[NETNSA_FD]) {
+ 		peer = get_net_ns_by_fd(nla_get_u32(tb[NETNSA_FD]));
+-	else
++		nla = tb[NETNSA_FD];
++	} else {
++		NL_SET_ERR_MSG(extack, "Peer netns reference is missing");
+ 		return -EINVAL;
++	}
  
-+free_mbox_log:
-+	kfree(adapter->mbox_log);
-  free_adapter:
- 	kfree(adapter);
-  free_pci_region:
-@@ -5275,6 +5277,7 @@ static void remove_one(struct pci_dev *pdev)
- 			unregister_netdev(adapter->port[0]);
- 		iounmap(adapter->regs);
- 		kfree(adapter->vfinfo);
-+		kfree(adapter->mbox_log);
- 		kfree(adapter);
- 		pci_disable_sriov(pdev);
- 		pci_release_regions(pdev);
-@@ -5321,6 +5324,7 @@ static void shutdown_one(struct pci_dev *pdev)
- 			unregister_netdev(adapter->port[0]);
- 		iounmap(adapter->regs);
- 		kfree(adapter->vfinfo);
-+		kfree(adapter->mbox_log);
- 		kfree(adapter);
- 		pci_disable_sriov(pdev);
- 		pci_release_regions(pdev);
+-	if (IS_ERR(peer))
++	if (IS_ERR(peer)) {
++		NL_SET_BAD_ATTR(extack, nla);
++		NL_SET_ERR_MSG(extack, "Peer netns reference is invalid");
+ 		return PTR_ERR(peer);
++	}
+ 
+ 	msg = nlmsg_new(rtnl_net_get_size(), GFP_KERNEL);
+ 	if (!msg) {
 -- 
-2.1.0
+2.8.1
