@@ -1,42 +1,37 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next] bonding: warn user when 802.3ad speed is unknown
-Date: Fri,  9 Jun 2017 15:34:43 +0200
-Message-ID: <1497015283-1729-1-git-send-email-nicolas.dichtel@6wind.com>
-References: <20170608164811.GB20216@lunn.ch>
-Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
-        andy@greyhouse.net, thibaut.collet@6wind.com,
-        linville@tuxdriver.com, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:48190 "EHLO
-        proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751545AbdFINe6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 09:34:58 -0400
-In-Reply-To: <20170608164811.GB20216@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH net-next] qed: add qed_int_sb_init() stub function
+Date: Fri, 9 Jun 2017 13:44:01 +0000
+Message-ID: <BLUPR0701MB2004385885B7ECD40AC806598DCE0@BLUPR0701MB2004.namprd07.prod.outlook.com>
+References: <20170609103744.3239316-1-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "David S. Miller" <davem@davemloft.net>,
+        "Chopra, Manish" <Manish.Chopra@cavium.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170609103744.3239316-1-arnd@arndb.de>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Make it explicit in the log.
+> When CONFIG_QED_SRIOV is disabled, we get a build error:
+>=20
+> drivers/net/ethernet/qlogic/qed/qed_int.c: In function 'qed_int_sb_init':
+> drivers/net/ethernet/qlogic/qed/qed_int.c:1499:4: error: implicit declara=
+tion
+> of function 'qed_vf_set_sb_info'; did you mean 'qed_mcp_get_resc_info'? [=
+-
+> Werror=3Dimplicit-function-declaration]
+>=20
+> All the other declarations have a 'static inline' stub as an alternative =
+here, so
+> this adds one more for qed_int_sb_init.
+>=20
+> Fixes: 50a207147fce ("qed: Hold a single array for SBs")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Suggested-by: Andrew Lunn <andrew@lunn.ch>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- drivers/net/bonding/bond_3ad.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index b44a6aeb346d..b15b177662b0 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -322,6 +322,9 @@ static u16 __get_link_speed(struct port *port)
- 
- 		default:
- 			/* unknown speed value from ethtool. shouldn't happen */
-+			pr_warn("%s: unknown speed (%d) for port %d (set it to 0)\n",
-+				slave->bond->dev->name, slave->speed,
-+				port->actor_port_number);
- 			speed = 0;
- 			break;
- 		}
--- 
-2.8.1
+Missed it. Thanks.
+Acked-by: Yuval Mintz <Yuval.Mintz@cavium.com>
