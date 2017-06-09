@@ -1,43 +1,89 @@
-From: Flavio Leitner <fbl@sysclose.org>
-Subject: Re: [PATCH net] netlink: don't send unknown nsid
-Date: Fri, 9 Jun 2017 14:33:00 -0300
-Message-ID: <20170609173300.GE2850@x240.lan>
-References: <4942f9fe-625b-bb97-7b45-4a1e8bf69b1b@6wind.com>
- <1496304007-1962-1-git-send-email-nicolas.dichtel@6wind.com>
- <20170601170246.GF2673@x240.lan>
- <75fccaea-0ebe-1a2a-27d7-ad30fd99f41d@6wind.com>
- <20170601224454.GG2673@x240.lan>
- <58321cd0-6c7f-d4d8-628f-2c124d71ef82@6wind.com>
- <20170607183746.GD2658@x240.lan>
- <057303a1-5d27-1b24-c8b0-d3cf46b14825@6wind.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net] ipv4: igmp: fix a use after free
+Date: Sat, 10 Jun 2017 02:05:42 +0800
+Message-ID: <CADvbK_fbxdkZUdJK=qUx+neTNfiOUJrm3-AvBa2+a4eB1b+PWA@mail.gmail.com>
+References: <CAAeHK+xmSxokDidhzP1VWgmbbwege4OaGvOA4PwTP1scs6J5zA@mail.gmail.com>
+ <1496929425.736.73.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CADvbK_fWOFWZxKc8gbzeDeU1ALq5GHxKvoGsPt+GsdAP0a601w@mail.gmail.com>
+ <1496954011.736.86.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpVu+sF4zGhGCYDV6J-+rN69zuMGGvGJpLajhYS-QfdUfQ@mail.gmail.com>
+ <CADvbK_cv+yfZpa7y1+5a9mntTbkTmEu6YyR7pbHGAtH+5+RLRA@mail.gmail.com>
+ <1497023774.736.92.camel@edumazet-glaptop3.roam.corp.google.com> <CAM_iQpVcLiE3ru1ukq9CCTvTN_+-77XapOWT=1EgF0DgB224-w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sender-of-o52.zoho.com ([135.84.80.217]:21433 "EHLO
-        sender-of-o52.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751535AbdFIRdN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 13:33:13 -0400
-Content-Disposition: inline
-In-Reply-To: <057303a1-5d27-1b24-c8b0-d3cf46b14825@6wind.com>
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:34866 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751554AbdFISFo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 14:05:44 -0400
+Received: by mail-qt0-f193.google.com with SMTP id x58so16693968qtc.2
+        for <netdev@vger.kernel.org>; Fri, 09 Jun 2017 11:05:44 -0700 (PDT)
+In-Reply-To: <CAM_iQpVcLiE3ru1ukq9CCTvTN_+-77XapOWT=1EgF0DgB224-w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 08, 2017 at 10:31:53AM +0200, Nicolas Dichtel wrote:
-> Le 07/06/2017 à 21:14, Flavio Leitner a écrit :
-> > Let's say the app is restarted, or another monitoring app is executed
-> > with enough perms.  How will it identify the error condition?
-> Your app wants to monitor a subset of netns. It means that you already have a
-> way to identify those netns, something like a file stored somewhere
-> (/var/run/netns/, /proc/<pid>/ns/net, ...). Thus, it's easy to check if those
-> netns have a nsid assigned in the netns where your app will open the socket.
-> 
-> This option was called NETLINK_F_LISTEN_ALL_NSID, because it only enables to
-> listen netns *with* a nsid assigned, nothing more. It's up to the user to ensure
-> that nsid are correctly assigned.
+On Sat, Jun 10, 2017 at 1:01 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
 
-Makes sense, thanks.
--- 
-Flavio
+> On Fri, Jun 9, 2017 at 8:56 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> On Fri, 2017-06-09 at 14:24 +0800, Xin Long wrote:
+>>> On Fri, Jun 9, 2017 at 8:59 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>>>
+>>> > On Thu, Jun 8, 2017 at 1:33 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>>> >> I mentioned (in https://lkml.org/lkml/2017/5/31/619 ) that we might need
+>>> >> to defer freeing after rcu grace period but for some reason decided it
+>>> >> was not needed.
+>>> Yes, this one could fix it.
+>>>
+>>> >
+>>> > This one makes sense, it is the second time I saw the use-after-free
+>>> > in igmp code, both are because we don't respect the RCU rule to free
+>>> > an element in the list.
+>>> >
+>>> >>
+>>> >> What about :
+>>> >
+>>> > But not sure if all ip_ma_put() callers want ip_mc_clear_src().
+>>> If that's problem, there may be another way:
+>>>
+>>>   leave ip_mc_clear_src as it is, just add pmc->lock to protect this call.
+>>>
+>>> this use-after-free was actually caused by using pmc->sources/tomb
+>>> in add_grec while ip_mc_clear_src is freeing them. add_grec is already
+>>> under pmc->lock, so to add pmc->lock for ip_mc_clear_src should be
+>>> enough to protect the list pmc->sources/tomb.
+>>>
+>>> wdyt ?
+>>
+>> This would we weird.
+>>
+>> When we free skb components, we do not grab a spinlock.
+>>
+>> When we free something, just make sure we must be the last user of it.
+>>
+>> RCU rules -> Must respect RCU grace period before delete.
+>>
+>> No need for extra spinlock.
+>
+> This is what I thought in my first response, until I realized
+> it is not pure RCU, otherwise pmc->lock should not be taken
+> in igmpv3_send_cr(). It seems the code is mixing the use
+> of spinlock and RCU.
+rcu lock is for pmc not being freed, and spinlock is for pmc's
+members' modification. is there some rule these two locks
+should be mixed?
+
+
+>
+> We need RCU anyway, ip_check_mc_rcu() is the real fast
+> path where we don't take spinlock. I think we will need more
+> work.
+It seems all add_grec() callings needs spinlock, maybe  add_grec
+modifies pmc's member. it's hard to drop spinlock.
+
+from ip_check_mc_rcu you mentioned about, it should be right
+to call ip_mc_clear_src after rcu grace period, like Eric's patch.
