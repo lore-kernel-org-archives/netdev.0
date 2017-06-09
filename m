@@ -1,58 +1,61 @@
-From: Mateusz Jurczyk <mjurczyk@google.com>
-Subject: Re: [PATCH] af_unix: Add sockaddr length checks before accessing
- sa_family in bind and connect handlers
-Date: Fri, 9 Jun 2017 13:15:40 +0200
-Message-ID: <CAPr8fOTtiUwBiVP2_740WZmmbbN=6oYJoyBCK31qOFbq5UCtSw@mail.gmail.com>
-References: <20170608091336.8274-1-mjurczyk@google.com> <20170608.160425.3981801836671654.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: WANG Cong <xiyou.wangcong@gmail.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Al Viro <viro@zeniv.linux.org.uk>,
-        Kees Cook <keescook@chromium.org>,
-        Miklos Szeredi <mszeredi@redhat.com>,
-        Isaac Boukris <iboukris@gmail.com>,
-        Andrey Vagin <avagin@openvz.org>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Caesar Wang <wxt@rock-chips.com>
+Subject: [PATCH] mwifiex: fixes the trivial print
+Date: Fri,  9 Jun 2017 19:40:11 +0800
+Message-ID: <1497008411-15223-1-git-send-email-wxt@rock-chips.com>
+Cc: nishants@marvell.com, gbhat@marvell.com, kvalo@codeaurora.org,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, briannorris@chromium.org,
+        jeffy.chen@rock-chips.com, Caesar Wang <wxt@rock-chips.com>
+To: amitkarwar@gmail.com, huxm@marvell.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170608.160425.3981801836671654.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 8, 2017 at 10:04 PM, David Miller <davem@davemloft.net> wrote:
-> From: Mateusz Jurczyk <mjurczyk@google.com>
-> Date: Thu,  8 Jun 2017 11:13:36 +0200
->
->> Verify that the caller-provided sockaddr structure is large enough to
->> contain the sa_family field, before accessing it in bind() and connect()
->> handlers of the AF_UNIX socket. Since neither syscall enforces a minimum
->> size of the corresponding memory region, very short sockaddrs (zero or
->> one byte long) result in operating on uninitialized memory while
->> referencing .sa_family.
->>
->> Signed-off-by: Mateusz Jurczyk <mjurczyk@google.com>
->
-> The sockaddr comes from a structure on the caller's kernel stack, even
-> if the user gives a smaller length, it is legal to access that memory.
+We have always met the unused log be printed as following.
 
-It is legal to access it, but since it's uninitialized kernel stack
-memory, the results of comparisons against AF_UNIX or AF_UNSPEC are
-indeterminate. In practice a user-mode program could likely use timing
-measurement to infer the evaluation of these comparisons, and hence
-determine if a garbage 16-bit variable on the kernel stack is equal to
-0x0000 or 0x0001, or a garbage byte is equal to 0x00 (if the first
-byte is provided).
+...
+[23193.523182] mwifiex_pcie 0000:01:00.0: mwifiex_get_cfp:
+cannot find cfp by band 2    & channel=13 freq=0
+[23378.633684] mwifiex_pcie 0000:01:00.0: mwifiex_get_cfp:
+cannot find cfp by band 2    & channel=13 freq=0
 
-This is of course not very bad. However, my project for finding use of
-uninitialized memory flagged it, and I thought it was worth fixing, at
-least to avoid having this construct detected in the future (e.g. by
-KMSAN).
+Maybe that's related to wifi regdom, since wifi default area
+was US and didn't support 12~14 channels.
 
-There are a few more instances of this behavior in other socket types,
-which I was going to report with separate patches. If you decide this
-kind of issues indeed deserves a fix, please let me know if further
-separate patches are the right approach.
+As Frequencies:
+* 2412 MHz [1] (30.0 dBm)
+* 2417 MHz [2] (30.0 dBm)
+* 2422 MHz [3] (30.0 dBm)
+* 2427 MHz [4] (30.0 dBm)
+* 2432 MHz [5] (30.0 dBm)
+* 2437 MHz [6] (30.0 dBm)
+* 2442 MHz [7] (30.0 dBm)
+* 2447 MHz [8] (30.0 dBm)
+* 2452 MHz [9] (30.0 dBm)
+* 2457 MHz [10] (30.0 dBm)
+* 2462 MHz [11] (30.0 dBm)
+* 2467 MHz [12] (disabled)
+* 2472 MHz [13] (disabled)
+* 2484 MHz [14] (disabled)
 
-Thanks,
-Mateusz
+Signed-off-by: Caesar Wang <wxt@rock-chips.com>
+---
+
+ drivers/net/wireless/marvell/mwifiex/cfp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/marvell/mwifiex/cfp.c b/drivers/net/wireless/marvell/mwifiex/cfp.c
+index 1ff2205..6e29943 100644
+--- a/drivers/net/wireless/marvell/mwifiex/cfp.c
++++ b/drivers/net/wireless/marvell/mwifiex/cfp.c
+@@ -350,7 +350,7 @@ mwifiex_get_cfp(struct mwifiex_private *priv, u8 band, u16 channel, u32 freq)
+ 		}
+ 	}
+ 	if (i == sband->n_channels) {
+-		mwifiex_dbg(priv->adapter, ERROR,
++		mwifiex_dbg(priv->adapter, WARN,
+ 			    "%s: cannot find cfp by band %d\t"
+ 			    "& channel=%d freq=%d\n",
+ 			    __func__, band, channel, freq);
+-- 
+2.7.4
