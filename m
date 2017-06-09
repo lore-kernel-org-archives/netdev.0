@@ -1,7 +1,7 @@
 From: <netanel@amazon.com>
-Subject: [PATCH net-next 5/8] net: ena: add missing unmap bars on device removal
-Date: Sat, 10 Jun 2017 01:13:54 +0300
-Message-ID: <1497046437-20390-6-git-send-email-netanel@amazon.com>
+Subject: [PATCH net-next 4/8] net: ena: fix race condition between submit and completion admin command
+Date: Sat, 10 Jun 2017 01:13:53 +0300
+Message-ID: <1497046437-20390-5-git-send-email-netanel@amazon.com>
 References: <1497046437-20390-1-git-send-email-netanel@amazon.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,60 +13,67 @@ To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from smtp-fw-6001.amazon.com ([52.95.48.154]:12673 "EHLO
         smtp-fw-6001.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751740AbdFIWPC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 18:15:02 -0400
+        with ESMTP id S1751735AbdFIWPA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 18:15:00 -0400
 In-Reply-To: <1497046437-20390-1-git-send-email-netanel@amazon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Netanel Belgazal <netanel@amazon.com>
 
-This patch also change the mapping functions to devm_ functions
+Bug:
+"Completion context is occupied" error printout will be noticed in
+dmesg.
+This error will cause the admin command to fail, which will lead to
+an ena_probe() failure or a watchdog reset (depends on which admin
+command failed).
+
+Root cause:
+__ena_com_submit_admin_cmd() is the function that submits new entries to
+the admin queue.
+The function have a check that makes sure the queue is not full and the
+function does not override any outstanding command.
+It uses head and tail indexes for this check.
+The head is increased by ena_com_handle_admin_completion() which runs
+from interrupt context, and the tail index is increased by the submit
+function (the function is running under ->q_lock, so there is no risk
+of multithread increment).
+Each command is associated with a completion context. This context
+allocated before call to __ena_com_submit_admin_cmd() and freed by
+ena_com_wait_and_process_admin_cq_interrupts(), right after the command
+was completed.
+
+This can lead to a state where the head was increased, the check passed,
+but the completion context is still in use.
+
+Solution:
+Use the atomic variable ->outstanding_cmds instead of using the head and
+the tail indexes.
+This variable is safe for use since it is bumped in get_comp_ctx() in
+__ena_com_submit_admin_cmd() and is freed by comp_ctxt_release()
 
 Signed-off-by: Netanel Belgazal <netanel@amazon.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_netdev.c | 15 +++++++++++----
- 1 file changed, 11 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_com.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-index 1e71e89..4e9fbdd 100644
---- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-@@ -2853,6 +2853,11 @@ static void ena_release_bars(struct ena_com_dev *ena_dev, struct pci_dev *pdev)
- {
- 	int release_bars;
+diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
+index e1c2fab..ea60b9e 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_com.c
++++ b/drivers/net/ethernet/amazon/ena/ena_com.c
+@@ -232,11 +232,9 @@ static struct ena_comp_ctx *__ena_com_submit_admin_cmd(struct ena_com_admin_queu
+ 	tail_masked = admin_queue->sq.tail & queue_size_mask;
  
-+	if (ena_dev->mem_bar)
-+		devm_iounmap(&pdev->dev, ena_dev->mem_bar);
-+
-+	devm_iounmap(&pdev->dev, ena_dev->reg_bar);
-+
- 	release_bars = pci_select_bars(pdev, IORESOURCE_MEM) & ENA_BAR_MASK;
- 	pci_release_selected_regions(pdev, release_bars);
- }
-@@ -2940,8 +2945,9 @@ static int ena_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_free_ena_dev;
+ 	/* In case of queue FULL */
+-	cnt = admin_queue->sq.tail - admin_queue->sq.head;
++	cnt = atomic_read(&admin_queue->outstanding_cmds);
+ 	if (cnt >= admin_queue->q_depth) {
+-		pr_debug("admin queue is FULL (tail %d head %d depth: %d)\n",
+-			 admin_queue->sq.tail, admin_queue->sq.head,
+-			 admin_queue->q_depth);
++		pr_debug("admin queue is full.\n");
+ 		admin_queue->stats.out_of_space++;
+ 		return ERR_PTR(-ENOSPC);
  	}
- 
--	ena_dev->reg_bar = ioremap(pci_resource_start(pdev, ENA_REG_BAR),
--				   pci_resource_len(pdev, ENA_REG_BAR));
-+	ena_dev->reg_bar = devm_ioremap(&pdev->dev,
-+					pci_resource_start(pdev, ENA_REG_BAR),
-+					pci_resource_len(pdev, ENA_REG_BAR));
- 	if (!ena_dev->reg_bar) {
- 		dev_err(&pdev->dev, "failed to remap regs bar\n");
- 		rc = -EFAULT;
-@@ -2961,8 +2967,9 @@ static int ena_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	ena_set_push_mode(pdev, ena_dev, &get_feat_ctx);
- 
- 	if (ena_dev->tx_mem_queue_type == ENA_ADMIN_PLACEMENT_POLICY_DEV) {
--		ena_dev->mem_bar = ioremap_wc(pci_resource_start(pdev, ENA_MEM_BAR),
--					      pci_resource_len(pdev, ENA_MEM_BAR));
-+		ena_dev->mem_bar = devm_ioremap_wc(&pdev->dev,
-+						   pci_resource_start(pdev, ENA_MEM_BAR),
-+						   pci_resource_len(pdev, ENA_MEM_BAR));
- 		if (!ena_dev->mem_bar) {
- 			rc = -EFAULT;
- 			goto err_device_destroy;
 -- 
 2.7.4
