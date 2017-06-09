@@ -1,156 +1,69 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] net: Fix inconsistent teardown and release of private
- netdev state.
-Date: Fri, 9 Jun 2017 10:21:04 -0700
-Message-ID: <20170609102104.34c26568@xeon-e3>
-References: <20170607.155411.201795978436906426.davem@davemloft.net>
+From: Krister Johansen <kjlx@templeofstupid.com>
+Subject: Re: [PATCH v2 net-next] Ipvlan should return an error when an
+ address is already in use.
+Date: Fri, 9 Jun 2017 10:25:01 -0700
+Message-ID: <20170609172501.GB2766@templeofstupid.com>
+References: <20170608201214.GB2553@templeofstupid.com>
+ <20170609.122646.100677990071641882.davem@davemloft.net>
+ <20170609171310.GA2766@templeofstupid.com>
+ <20170609.131510.1262676940920520377.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kjlx@templeofstupid.com, maheshb@google.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f42.google.com ([74.125.83.42]:35650 "EHLO
-        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751671AbdFIRVM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 13:21:12 -0400
-Received: by mail-pg0-f42.google.com with SMTP id k71so28514422pgd.2
-        for <netdev@vger.kernel.org>; Fri, 09 Jun 2017 10:21:12 -0700 (PDT)
-In-Reply-To: <20170607.155411.201795978436906426.davem@davemloft.net>
+Received: from sub5.mail.dreamhost.com ([208.113.200.129]:53091 "EHLO
+        homiemail-a80.g.dreamhost.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751527AbdFIRY7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 13:24:59 -0400
+Received: from homiemail-a80.g.dreamhost.com (localhost [127.0.0.1])
+        by homiemail-a80.g.dreamhost.com (Postfix) with ESMTP id C78BB6004D35
+        for <netdev@vger.kernel.org>; Fri,  9 Jun 2017 10:24:58 -0700 (PDT)
+Received: from kmjvbox (c-174-62-91-145.hsd1.ca.comcast.net [174.62.91.145])
+        (using TLSv1 with cipher ECDHE-RSA-AES256-SHA (256/256 bits))
+        (No client certificate requested)
+        (Authenticated sender: kjlx@templeofstupid.com)
+        by homiemail-a80.g.dreamhost.com (Postfix) with ESMTPSA id A4DE16004D1D
+        for <netdev@vger.kernel.org>; Fri,  9 Jun 2017 10:24:58 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170609.131510.1262676940920520377.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 07 Jun 2017 15:54:11 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
+On Fri, Jun 09, 2017 at 01:15:10PM -0400, David Miller wrote:
+> From: Krister Johansen <kjlx@templeofstupid.com>
+> Date: Fri, 9 Jun 2017 10:13:10 -0700
+> 
+> > On Fri, Jun 09, 2017 at 12:26:46PM -0400, David Miller wrote:
+> >> From: Krister Johansen <kjlx@templeofstupid.com>
+> >> Date: Thu, 8 Jun 2017 13:12:14 -0700
+> >> 
+> >> > The ipvlan code already knows how to detect when a duplicate address is
+> >> > about to be assigned to an ipvlan device.  However, that failure is not
+> >> > propogated outward and leads to a silent failure.
+> >> > 
+> >> > Introduce a validation step at ip address creation time and allow device
+> >> > drivers to register to validate the incoming ip addresses.  The ipvlan
+> >> > code is the first consumer.  If it detects an address in use, we can
+> >> > return an error to the user before beginning to commit the new ifa in
+> >> > the networking code.
+> >> > 
+> >> > This can be especially useful if it is necessary to provision many
+> >> > ipvlans in containers.  The provisioning software (or operator) can use
+> >> > this to detect situations where an ip address is unexpectedly in use.
+> >> > 
+> >> > Signed-off-by: Krister Johansen <kjlx@templeofstupid.com>
+> >> 
+> >> Ok, applied, thank you.
+> > 
+> > Thanks, did this look otherwise alright?
+> 
+> Yes, I was mildly unsatisfied with the ipv6 addrconf situation but I know
+> very well about that, and those kinds of addresses aren't of interest
+> for what you are trying to achieve right?
 
-> Network devices can allocate reasources and private memory using
-> netdev_ops->ndo_init().  However, the release of these resources
-> can occur in one of two different places.
-> 
-> Either netdev_ops->ndo_uninit() or netdev->destructor().
-> 
-> The decision of which operation frees the resources depends upon
-> whether it is necessary for all netdev refs to be released before it
-> is safe to perform the freeing.
-> 
-> netdev_ops->ndo_uninit() presumably can occur right after the
-> NETDEV_UNREGISTER notifier completes and the unicast and multicast
-> address lists are flushed.
-> 
-> netdev->destructor(), on the other hand, does not run until the
-> netdev references all go away.
-> 
-> Further complicating the situation is that netdev->destructor()
-> almost universally does also a free_netdev().
-> 
-> This creates a problem for the logic in register_netdevice().
-> Because all callers of register_netdevice() manage the freeing
-> of the netdev, and invoke free_netdev(dev) if register_netdevice()
-> fails.
-> 
-> If netdev_ops->ndo_init() succeeds, but something else fails inside
-> of register_netdevice(), it does call ndo_ops->ndo_uninit().  But
-> it is not able to invoke netdev->destructor().
-> 
-> This is because netdev->destructor() will do a free_netdev() and
-> then the caller of register_netdevice() will do the same.
-> 
-> However, this means that the resources that would normally be released
-> by netdev->destructor() will not be.
-> 
-> Over the years drivers have added local hacks to deal with this, by
-> invoking their destructor parts by hand when register_netdevice()
-> fails.
-> 
-> Many drivers do not try to deal with this, and instead we have leaks.
-> 
-> Let's close this hole by formalizing the distinction between what
-> private things need to be freed up by netdev->destructor() and whether
-> the driver needs unregister_netdevice() to perform the free_netdev().
-> 
-> netdev->priv_destructor() performs all actions to free up the private
-> resources that used to be freed by netdev->destructor(), except for
-> free_netdev().
-> 
-> netdev->needs_free_netdev is a boolean that indicates whether
-> free_netdev() should be done at the end of unregister_netdevice().
-> 
-> Now, register_netdevice() can sanely release all resources after
-> ndo_ops->ndo_init() succeeds, by invoking both ndo_ops->ndo_uninit()
-> and netdev->priv_destructor().
-> 
-> And at the end of unregister_netdevice(), we invoke
-> netdev->priv_destructor() and optionally call free_netdev().
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
-> 
-> This is from a few weeks ago, pushed to 'net' and queued up for
-> -stable.
-> 
->  drivers/net/bonding/bond_main.c                             | 6 +++---
->  drivers/net/caif/caif_hsi.c                                 | 2 +-
->  drivers/net/caif/caif_serial.c                              | 2 +-
->  drivers/net/caif/caif_spi.c                                 | 2 +-
->  drivers/net/caif/caif_virtio.c                              | 2 +-
->  drivers/net/can/slcan.c                                     | 7 +++----
->  drivers/net/can/vcan.c                                      | 2 +-
->  drivers/net/can/vxcan.c                                     | 2 +-
->  drivers/net/dummy.c                                         | 4 ++--
->  drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c             | 2 +-
->  drivers/net/geneve.c                                        | 2 +-
->  drivers/net/gtp.c                                           | 2 +-
->  drivers/net/hamradio/6pack.c                                | 2 +-
->  drivers/net/hamradio/bpqether.c                             | 2 +-
->  drivers/net/ifb.c                                           | 4 ++--
->  drivers/net/ipvlan/ipvlan_main.c                            | 2 +-
->  drivers/net/loopback.c                                      | 4 ++--
->  drivers/net/macsec.c                                        | 4 ++--
->  drivers/net/macvlan.c                                       | 2 +-
->  drivers/net/nlmon.c                                         | 2 +-
->  drivers/net/slip/slip.c                                     | 7 +++----
->  drivers/net/team/team.c                                     | 4 ++--
->  drivers/net/tun.c                                           | 4 ++--
->  drivers/net/usb/cdc-phonet.c                                | 2 +-
->  drivers/net/usb/qmi_wwan.c                                  | 2 +-
->  drivers/net/veth.c                                          | 4 ++--
->  drivers/net/vrf.c                                           | 2 +-
->  drivers/net/vsockmon.c                                      | 2 +-
->  drivers/net/vxlan.c                                         | 2 +-
->  drivers/net/wan/dlci.c                                      | 2 +-
->  drivers/net/wan/hdlc_fr.c                                   | 2 +-
->  drivers/net/wan/lapbether.c                                 | 2 +-
->  drivers/net/wireless/ath/ath6kl/main.c                      | 2 +-
->  drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c | 1 -
->  drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c     | 3 ++-
->  drivers/net/wireless/intersil/hostap/hostap_main.c          | 2 +-
->  drivers/net/wireless/mac80211_hwsim.c                       | 2 +-
->  drivers/net/wireless/marvell/mwifiex/main.c                 | 2 +-
->  drivers/staging/rtl8188eu/os_dep/mon.c                      | 2 +-
->  drivers/usb/gadget/function/f_phonet.c                      | 2 +-
->  include/linux/netdevice.h                                   | 7 ++++---
->  net/8021q/vlan_dev.c                                        | 4 ++--
->  net/batman-adv/soft-interface.c                             | 5 ++---
->  net/bluetooth/6lowpan.c                                     | 2 +-
->  net/bridge/br_device.c                                      | 2 +-
->  net/caif/chnl_net.c                                         | 4 ++--
->  net/core/dev.c                                              | 8 ++++++--
->  net/hsr/hsr_device.c                                        | 4 ++--
->  net/ieee802154/6lowpan/core.c                               | 2 +-
->  net/ipv4/ip_tunnel.c                                        | 4 ++--
->  net/ipv4/ipmr.c                                             | 2 +-
->  net/ipv6/ip6_gre.c                                          | 9 +++++----
->  net/ipv6/ip6_tunnel.c                                       | 8 ++++----
->  net/ipv6/ip6_vti.c                                          | 8 ++++----
->  net/ipv6/ip6mr.c                                            | 2 +-
->  net/ipv6/sit.c                                              | 6 +++---
->  net/irda/irlan/irlan_eth.c                                  | 2 +-
->  net/l2tp/l2tp_eth.c                                         | 2 +-
->  net/mac80211/iface.c                                        | 6 +++---
->  net/mac802154/iface.c                                       | 7 +++----
->  net/openvswitch/vport-internal_dev.c                        | 4 ++--
->  net/phonet/pep-gprs.c                                       | 2 +-
->  62 files changed, 105 insertions(+), 103 deletions(-)
+That's correct.  I'm basically trying to catch the case where 'ip addr'
+or its equivalent rtnetlink invocation manually configure an ip address
+on a ipvlan.
 
-Is there anything in Documentation/networking/netdevices.txt about this to
-avoid any future issues?
+-K
