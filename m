@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] mac80211: free netdev on dev_alloc_name() error
-Date: Fri, 09 Jun 2017 15:40:36 -0400 (EDT)
-Message-ID: <20170609.154036.1650264279344295227.davem@davemloft.net>
-References: <20170609193309.14972-1-johannes@sipsolutions.net>
+Subject: Re: pull-request: can 2017-06-09
+Date: Fri, 09 Jun 2017 15:42:17 -0400 (EDT)
+Message-ID: <20170609.154217.1768446080709146205.davem@davemloft.net>
+References: <20170609125513.24436-1-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        johannes.berg@intel.com
-To: johannes@sipsolutions.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38064 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751584AbdFITkh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 15:40:37 -0400
-In-Reply-To: <20170609193309.14972-1-johannes@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+        kernel@pengutronix.de
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20170609125513.24436-1-mkl@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Fri,  9 Jun 2017 21:33:09 +0200
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Fri,  9 Jun 2017 14:55:07 +0200
 
-> From: Johannes Berg <johannes.berg@intel.com>
+> this is a pull request of 6 patches for net/master.
 > 
-> The change to remove free_netdev() from ieee80211_if_free()
-> erroneously didn't add the necessary free_netdev() for when
-> ieee80211_if_free() is called directly in one place, rather
-> than as the priv_destructor. Add the missing call.
-> 
-> Fixes: cf124db566e6 ("net: Fix inconsistent teardown and release of private netdev state.")
-> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+> There's a patch by Stephane Grosjean that fixes an uninitialized symbol warning
+> in the peak_canfd driver. A patch by Johan Hovold to fix the product-id
+> endianness in an error message in the the peak_usb driver. A patch by Oliver
+> Hartkopp to enable CAN FD for virtual CAN devices by default. Three patches by
+> me, one makes the helper function can_change_state() robust to be called with
+> cf == NULL. The next patch fixes a memory leak in the gs_usb driver. And the
+> last one fixes a lockdep splat by properly initialize the per-net
+> can_rcvlists_lock spin_lock.
 
-Applied, thanks Johannes.
+Pulled, thank you Marc.
