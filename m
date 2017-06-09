@@ -1,72 +1,49 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next] liquidio: disallow enabling firmware debug from a VF
-Date: Thu, 8 Jun 2017 19:20:36 -0700
-Message-ID: <20170609022036.GA1327@felix-thinkpad.cavium.com>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH] wireless: wlcore: spi: remove unnecessary variable
+Date: Thu, 8 Jun 2017 22:24:30 -0500
+Message-ID: <20170609032430.GA7432@embeddedgus>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0044.outbound.protection.outlook.com ([104.47.40.44]:37532
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751469AbdFICUq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Jun 2017 22:20:46 -0400
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Derek Chickles <derek.chickles@cavium.com>
+Remove unnecessary variable and refactor the code.
 
-Disallow enabling firmware debug from a VF.  Only PF is allowed to do that.
-
-Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+Addresses-Coverity-ID: 1365000
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
 ---
- drivers/net/ethernet/cavium/liquidio/lio_ethtool.c | 9 ++++++++-
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 4 ----
- 2 files changed, 8 insertions(+), 5 deletions(-)
+ drivers/net/wireless/ti/wlcore/spi.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-index 579dc73..9a520a7 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-@@ -700,6 +700,13 @@ static void lio_set_msglevel(struct net_device *netdev, u32 msglvl)
- 	lio->msg_enable = msglvl;
+diff --git a/drivers/net/wireless/ti/wlcore/spi.c b/drivers/net/wireless/ti/wlcore/spi.c
+index fa3547e..d2d899a 100644
+--- a/drivers/net/wireless/ti/wlcore/spi.c
++++ b/drivers/net/wireless/ti/wlcore/spi.c
+@@ -366,17 +366,14 @@ static int __wl12xx_spi_raw_write(struct device *child, int addr,
+ static int __must_check wl12xx_spi_raw_write(struct device *child, int addr,
+ 					     void *buf, size_t len, bool fixed)
+ {
+-	int ret;
+-
+ 	/* The ELP wakeup write may fail the first time due to internal
+ 	 * hardware latency. It is safer to send the wakeup command twice to
+ 	 * avoid unexpected failures.
+ 	 */
+ 	if (addr == HW_ACCESS_ELP_CTRL_REG)
+-		ret = __wl12xx_spi_raw_write(child, addr, buf, len, fixed);
+-	ret = __wl12xx_spi_raw_write(child, addr, buf, len, fixed);
++		__wl12xx_spi_raw_write(child, addr, buf, len, fixed);
+ 
+-	return ret;
++	return __wl12xx_spi_raw_write(child, addr, buf, len, fixed);
  }
  
-+static void lio_vf_set_msglevel(struct net_device *netdev, u32 msglvl)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+
-+	lio->msg_enable = msglvl;
-+}
-+
- static void
- lio_get_pauseparam(struct net_device *netdev, struct ethtool_pauseparam *pause)
- {
-@@ -2611,7 +2618,7 @@ static const struct ethtool_ops lio_vf_ethtool_ops = {
- 	.get_regs_len		= lio_get_regs_len,
- 	.get_regs		= lio_get_regs,
- 	.get_msglevel		= lio_get_msglevel,
--	.set_msglevel		= lio_set_msglevel,
-+	.set_msglevel		= lio_vf_set_msglevel,
- 	.get_sset_count		= lio_vf_get_sset_count,
- 	.get_coalesce		= lio_get_intr_coalesce,
- 	.set_coalesce		= lio_set_intr_coalesce,
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index 31d737c..ad7ea6d 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -2997,10 +2997,6 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
- 			liquidio_set_feature(netdev, OCTNET_CMD_LRO_ENABLE,
- 					     OCTNIC_LROIPV4 | OCTNIC_LROIPV6);
- 
--		if ((debug != -1) && (debug & NETIF_MSG_HW))
--			liquidio_set_feature(netdev, OCTNET_CMD_VERBOSE_ENABLE,
--					     0);
--
- 		if (setup_link_status_change_wq(netdev))
- 			goto setup_nic_dev_fail;
- 
+ /**
+-- 
+2.5.0
