@@ -1,48 +1,54 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net] ipv4: igmp: fix a use after free
-Date: Thu, 8 Jun 2017 23:05:10 -0700
-Message-ID: <CAM_iQpUd0uO63zPzC6ijYRcRAZSrW_C_trWA5vyRM_9OsHLU-A@mail.gmail.com>
-References: <CAAeHK+xmSxokDidhzP1VWgmbbwege4OaGvOA4PwTP1scs6J5zA@mail.gmail.com>
- <1496929425.736.73.camel@edumazet-glaptop3.roam.corp.google.com>
- <CADvbK_fWOFWZxKc8gbzeDeU1ALq5GHxKvoGsPt+GsdAP0a601w@mail.gmail.com>
- <1496954011.736.86.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpVu+sF4zGhGCYDV6J-+rN69zuMGGvGJpLajhYS-QfdUfQ@mail.gmail.com> <1496972227.736.90.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Brenden Blanco <bblanco@gmail.com>
+Subject: ixgbe tx hang with XDP_TX beyond queue limit
+Date: Thu, 8 Jun 2017 23:22:29 -0700
+Message-ID: <20170609062228.GA14897@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Xin Long <lucien.xin@gmail.com>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Alexander Duyck <alexander.h.duyck@intel.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34401 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751515AbdFIGFc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 02:05:32 -0400
-Received: by mail-wm0-f68.google.com with SMTP id 70so10190148wme.1
-        for <netdev@vger.kernel.org>; Thu, 08 Jun 2017 23:05:31 -0700 (PDT)
-In-Reply-To: <1496972227.736.90.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:33567 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751780AbdFIGXA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 02:23:00 -0400
+Received: by mail-pf0-f181.google.com with SMTP id 83so25065256pfr.0
+        for <netdev@vger.kernel.org>; Thu, 08 Jun 2017 23:22:55 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 8, 2017 at 6:37 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2017-06-08 at 17:59 -0700, Cong Wang wrote:
->> On Thu, Jun 8, 2017 at 1:33 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > I mentioned (in https://lkml.org/lkml/2017/5/31/619 ) that we might need
->> > to defer freeing after rcu grace period but for some reason decided it
->> > was not needed.
->>
->> This one makes sense, it is the second time I saw the use-after-free
->> in igmp code, both are because we don't respect the RCU rule to free
->> an element in the list.
->>
->> >
->> > What about :
->>
->> But not sure if all ip_ma_put() callers want ip_mc_clear_src().
->
-> That would lead to a memory leak if this was the case ?
+Hi,
 
-Maybe, but looking at igmpv3_clear_delrec() again, seems
-we can just acquire pmc->lock in ip_mc_clear_src() to serialize
-with the readers?
+I am doing some XDP testing on a dual socket, combined 40 core machine
+with ixgbe. I have found that with the default settings, depending on
+which core a packet is received on, the xdp tx queue will hang with:
+
+  ixgbe 0000:01:00.0 eno1: Detected Tx Unit Hang (XDP)
+    Tx Queue             <38>
+    TDH, TDT             <0>, <8>
+    next_to_use          <8>
+    next_to_clean        <0>
+  tx_buffer_info[next_to_clean]
+    time_stamp           <0>
+    jiffies              <101f21bb8>
+  ixgbe 0000:01:00.0 eno1: tx hang 1 detected on queue 38, resetting adapter
+  ixgbe 0000:01:00.0 eno1: initiating reset due to tx timeout
+  ixgbe 0000:01:00.0 eno1: Reset adapter
+
+When the received core is such that the xdp queue falls beyond
+MAX_TX_QUEUES, then the hang results. In other words, if I leave
+`ethtool -L eno1 combined 40` (the default), and a packet is received on
+core 24 or greater, it hangs. However, if I lower the tx queue count to
+24 (since XDP is forced to nr_cpu_ids), or if I force the incoming
+packets onto core < 24 with an ntuple filter, then no hang occurs.
+
+I imagine that some limits on the number of queues is in order here, or
+some error reporting when loading the xdp program/allocating queues.
+
+For now I am working around by lowering the rx queue count to leave
+space for the xdp queues.
+
+Thanks,
+Brenden
