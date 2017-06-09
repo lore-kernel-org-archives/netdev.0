@@ -1,106 +1,106 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net-next 1/2] bpf: Fix test_bpf_obj_id() when the bpf_jit_enable sysctl is diabled
-Date: Thu, 8 Jun 2017 22:30:16 -0700
-Message-ID: <20170609053017.2909855-1-kafai@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Yonghong Song <yhs@fb.com>, <kernel-team@fb.com>
-To: <netdev@vger.kernel.org>
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Subject: [PATCH net-next v2] cxgb4: handle interrupt raised when FW crashes
+Date: Fri,  9 Jun 2017 11:12:35 +0530
+Message-ID: <1496986955-11024-1-git-send-email-ganeshgr@chelsio.com>
+Cc: nirranjan@chelsio.com, indranil@chelsio.com, venkatesh@chelsio.com,
+        Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>,
+        Ganesh Goudar <ganeshgr@chelsio.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:60269 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751502AbdFIFaU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 01:30:20 -0400
-Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
-        by m0089730.ppops.net (8.16.0.20/8.16.0.20) with SMTP id v595T3xB028939
-        for <netdev@vger.kernel.org>; Thu, 8 Jun 2017 22:30:19 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by m0089730.ppops.net with ESMTP id 2ayn9vg11t-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 08 Jun 2017 22:30:19 -0700
-Received: from facebook.com (2401:db00:11:d09a:face:0:41:0)     by
- mx-out.facebook.com (10.212.236.89) with ESMTP id
- b92498984cd411e7828c0002c95209d8-6c7358f0 for <netdev@vger.kernel.org>;        Thu,
- 08 Jun 2017 22:30:18 -0700
+Received: from stargate.chelsio.com ([12.32.117.8]:19127 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751483AbdFIFnL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 01:43:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-test_bpf_obj_id() should not expect a non zero jited_prog_len
-to be returned by bpf_obj_get_info_by_fd() when
-net.core.bpf_jit_enable is 0.
+From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 
-The patch checks for net.core.bpf_jit_enable and
-has different expectation on jited_prog_len.
+Handle TIMER0INT when FW crashes. Check for PCIE_FW[FW_EVAL]
+and if it says "Device FW Crashed", then treat it as fatal.
+Else, non-fatal.
 
-This patch also removes the pwd.h header which I forgot
-to remove after making changes.
-
-Fixes: 95b9afd3987f ("bpf: Test for bpf ID")
-Reported-by: Yonghong Song <yhs@fb.com>
-Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
+Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 ---
- tools/testing/selftests/bpf/test_progs.c | 19 +++++++++++++++----
- 1 file changed, 15 insertions(+), 4 deletions(-)
+v2: Following the reverse chirstmas tree variable ordering
+---
 
-diff --git a/tools/testing/selftests/bpf/test_progs.c b/tools/testing/selftests/bpf/test_progs.c
-index 8189bfc7e277..fec13ab84fca 100644
---- a/tools/testing/selftests/bpf/test_progs.c
-+++ b/tools/testing/selftests/bpf/test_progs.c
-@@ -23,7 +23,7 @@ typedef __u16 __sum16;
- #include <sys/wait.h>
- #include <sys/resource.h>
- #include <sys/types.h>
--#include <pwd.h>
-+#include <fcntl.h>
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c    | 19 ++++++++++++++++++-
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h  |  4 ++++
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h |  4 ++++
+ 3 files changed, 26 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index da1322d..16af646 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -4040,6 +4040,7 @@ static void cim_intr_handler(struct adapter *adapter)
+ 		{ MBHOSTPARERR_F, "CIM mailbox host parity error", -1, 1 },
+ 		{ TIEQINPARERRINT_F, "CIM TIEQ outgoing parity error", -1, 1 },
+ 		{ TIEQOUTPARERRINT_F, "CIM TIEQ incoming parity error", -1, 1 },
++		{ TIMER0INT_F, "CIM TIMER0 interrupt", -1, 1 },
+ 		{ 0 }
+ 	};
+ 	static const struct intr_info cim_upintr_info[] = {
+@@ -4074,11 +4075,27 @@ static void cim_intr_handler(struct adapter *adapter)
+ 		{ 0 }
+ 	};
  
- #include <linux/bpf.h>
- #include <linux/err.h>
-@@ -297,6 +297,7 @@ static void test_bpf_obj_id(void)
- 	const __u32 array_key = 0;
- 	const int nr_iters = 2;
- 	const char *file = "./test_obj_id.o";
-+	const char *jit_sysctl = "/proc/sys/net/core/bpf_jit_enable";
++	u32 val, fw_err;
+ 	int fat;
  
- 	struct bpf_object *objs[nr_iters];
- 	int prog_fds[nr_iters], map_fds[nr_iters];
-@@ -305,9 +306,18 @@ static void test_bpf_obj_id(void)
- 	struct bpf_map_info map_infos[nr_iters + 1];
- 	char jited_insns[128], xlated_insns[128];
- 	__u32 i, next_id, info_len, nr_id_found, duration = 0;
--	int err = 0;
-+	int sysctl_fd, jit_enabled = 0, err = 0;
- 	__u64 array_value;
+-	if (t4_read_reg(adapter, PCIE_FW_A) & PCIE_FW_ERR_F)
++	fw_err = t4_read_reg(adapter, PCIE_FW_A);
++	if (fw_err & PCIE_FW_ERR_F)
+ 		t4_report_fw_error(adapter);
  
-+	sysctl_fd = open(jit_sysctl, 0, O_RDONLY);
-+	if (sysctl_fd != -1) {
-+		char tmpc;
++	/* When the Firmware detects an internal error which normally
++	 * wouldn't raise a Host Interrupt, it forces a CIM Timer0 interrupt
++	 * in order to make sure the Host sees the Firmware Crash.  So
++	 * if we have a Timer0 interrupt and don't see a Firmware Crash,
++	 * ignore the Timer0 interrupt.
++	 */
 +
-+		if (read(sysctl_fd, &tmpc, sizeof(tmpc)) == 1)
-+			jit_enabled = (tmpc != '0');
-+		close(sysctl_fd);
-+	}
++	val = t4_read_reg(adapter, CIM_HOST_INT_CAUSE_A);
++	if (val & TIMER0INT_F)
++		if (!(fw_err & PCIE_FW_ERR_F) ||
++		    (PCIE_FW_EVAL_G(fw_err) != PCIE_FW_EVAL_CRASH))
++			t4_write_reg(adapter, CIM_HOST_INT_CAUSE_A,
++				     TIMER0INT_F);
 +
- 	err = bpf_prog_get_fd_by_id(0);
- 	CHECK(err >= 0 || errno != ENOENT,
- 	      "get-fd-by-notexist-prog-id", "err %d errno %d\n", err, errno);
-@@ -339,13 +349,14 @@ static void test_bpf_obj_id(void)
- 		if (CHECK(err ||
- 			  prog_infos[i].type != BPF_PROG_TYPE_SOCKET_FILTER ||
- 			  info_len != sizeof(struct bpf_prog_info) ||
--			  !prog_infos[i].jited_prog_len ||
-+			  (jit_enabled && !prog_infos[i].jited_prog_len) ||
- 			  !prog_infos[i].xlated_prog_len,
- 			  "get-prog-info(fd)",
--			  "err %d errno %d i %d type %d(%d) info_len %u(%lu) jited_prog_len %u xlated_prog_len %u\n",
-+			  "err %d errno %d i %d type %d(%d) info_len %u(%lu) jit_enabled %d jited_prog_len %u xlated_prog_len %u\n",
- 			  err, errno, i,
- 			  prog_infos[i].type, BPF_PROG_TYPE_SOCKET_FILTER,
- 			  info_len, sizeof(struct bpf_prog_info),
-+			  jit_enabled,
- 			  prog_infos[i].jited_prog_len,
- 			  prog_infos[i].xlated_prog_len))
- 			goto done;
+ 	fat = t4_handle_intr_status(adapter, CIM_HOST_INT_CAUSE_A,
+ 				    cim_intr_info) +
+ 	      t4_handle_intr_status(adapter, CIM_HOST_UPACC_INT_CAUSE_A,
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+index 3348d33..3884336 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+@@ -1077,6 +1077,10 @@
+ #define TIEQINPARERRINT_V(x) ((x) << TIEQINPARERRINT_S)
+ #define TIEQINPARERRINT_F    TIEQINPARERRINT_V(1U)
+ 
++#define TIMER0INT_S    2
++#define TIMER0INT_V(x) ((x) << TIMER0INT_S)
++#define TIMER0INT_F    TIMER0INT_V(1U)
++
+ #define PREFDROPINT_S    1
+ #define PREFDROPINT_V(x) ((x) << PREFDROPINT_S)
+ #define PREFDROPINT_F    PREFDROPINT_V(1U)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+index c65c33c..f47461a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+@@ -3088,6 +3088,10 @@ struct fw_debug_cmd {
+ #define FW_DEBUG_CMD_TYPE_G(x)	\
+ 	(((x) >> FW_DEBUG_CMD_TYPE_S) & FW_DEBUG_CMD_TYPE_M)
+ 
++enum pcie_fw_eval {
++	PCIE_FW_EVAL_CRASH = 0,
++};
++
+ #define PCIE_FW_ERR_S		31
+ #define PCIE_FW_ERR_V(x)	((x) << PCIE_FW_ERR_S)
+ #define PCIE_FW_ERR_F		PCIE_FW_ERR_V(1U)
 -- 
-2.9.3
+2.1.0
