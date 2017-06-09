@@ -1,52 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] Ipvlan should return an error when an
- address is already in use.
-Date: Fri, 09 Jun 2017 13:15:10 -0400 (EDT)
-Message-ID: <20170609.131510.1262676940920520377.davem@davemloft.net>
-References: <20170608201214.GB2553@templeofstupid.com>
-        <20170609.122646.100677990071641882.davem@davemloft.net>
-        <20170609171310.GA2766@templeofstupid.com>
+From: "Mr.David Kekeli" <kojofofone@gmail.com>
+Subject: Reply for more details
+Date: Fri, 9 Jun 2017 17:17:06 +0000
+Message-ID: <CAPFeOzr+2GkoAGeBMN=wXWuERUeimD8kyBiAwDB=2m=XzvX6rg@mail.gmail.com>
+Reply-To: davidkekeli1001@hotmail.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: maheshb@google.com, netdev@vger.kernel.org
-To: kjlx@templeofstupid.com
+Content-Type: text/plain; charset="UTF-8"
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34616 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751527AbdFIRPL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 13:15:11 -0400
-In-Reply-To: <20170609171310.GA2766@templeofstupid.com>
+Received: from mail-ot0-f195.google.com ([74.125.82.195]:36014 "EHLO
+        mail-ot0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751527AbdFIRRI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 13:17:08 -0400
+Received: by mail-ot0-f195.google.com with SMTP id i31so6357595ota.3
+        for <netdev@vger.kernel.org>; Fri, 09 Jun 2017 10:17:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Krister Johansen <kjlx@templeofstupid.com>
-Date: Fri, 9 Jun 2017 10:13:10 -0700
+My Greetings,
 
-> On Fri, Jun 09, 2017 at 12:26:46PM -0400, David Miller wrote:
->> From: Krister Johansen <kjlx@templeofstupid.com>
->> Date: Thu, 8 Jun 2017 13:12:14 -0700
->> 
->> > The ipvlan code already knows how to detect when a duplicate address is
->> > about to be assigned to an ipvlan device.  However, that failure is not
->> > propogated outward and leads to a silent failure.
->> > 
->> > Introduce a validation step at ip address creation time and allow device
->> > drivers to register to validate the incoming ip addresses.  The ipvlan
->> > code is the first consumer.  If it detects an address in use, we can
->> > return an error to the user before beginning to commit the new ifa in
->> > the networking code.
->> > 
->> > This can be especially useful if it is necessary to provision many
->> > ipvlans in containers.  The provisioning software (or operator) can use
->> > this to detect situations where an ip address is unexpectedly in use.
->> > 
->> > Signed-off-by: Krister Johansen <kjlx@templeofstupid.com>
->> 
->> Ok, applied, thank you.
-> 
-> Thanks, did this look otherwise alright?
+I am a banker by profession and currently holds the position of Chief
+Auditor in our bank, I have the ability to transfer unclaimed funds of
+U.S.$ 6.2 m (6.2 million dollars) that belong to one of our late
+customer, who bear the same last name with you who died in a car crash
+along with his Family and no one came to put claim the funds, if left
+unclaimed the fund will be Transferred to the state treasury in the
+bank so I invite you to a Deal where we can facilitate the transfer of
+this fund, and I promise You 50% as a percentage of the fund will be
+transferred into your account, meanwhile here are the needed
+information from you for the facilitation of the funds.
 
-Yes, I was mildly unsatisfied with the ipv6 addrconf situation but I know
-very well about that, and those kinds of addresses aren't of interest
-for what you are trying to achieve right?
+1.Your First Name
+2.Your Last Name
+3.Your Telephone number
+4.Your Age
+5.Your Country
+6.Your occupation
+7.Your Email Address
+
+
+Am waiting for your urgent reply so that we will starts immediately,
+Sorry if you received this letter in your spam, Due to recent
+connection error here in my country. May Almighty God Bless You!
+
+
+I wait to hear from you for more details,
+
+
+Best Regard,
+
+David Kekeli.
