@@ -1,31 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can 2017-06-09
-Date: Fri, 09 Jun 2017 15:42:17 -0400 (EDT)
-Message-ID: <20170609.154217.1768446080709146205.davem@davemloft.net>
-References: <20170609125513.24436-1-mkl@pengutronix.de>
+From: Chenbo Feng <chenbofeng.kernel@gmail.com>
+Subject: Re: [PATCH net-next] ipv6: Initial skb->dev and skb->protocol in
+ ip6_output
+Date: Fri, 9 Jun 2017 12:45:01 -0700
+Message-ID: <9999fb16-74c0-1f7a-7657-5905fcc0db63@gmail.com>
+References: <1497035168-9093-1-git-send-email-chenbofeng.kernel@gmail.com>
+ <20170609.150836.1427149901008136163.davem@davemloft.net>
+ <3270a030-2608-1629-07d6-7fdeee9e98cc@gmail.com>
+ <87d1adge1i.fsf@miraculix.mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-        kernel@pengutronix.de
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20170609125513.24436-1-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        lorenzo@google.com, edumazet@google.com, fengc@google.com
+To: =?UTF-8?Q?Bj=c3=b8rn_Mork?= <bjorn@mork.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:32894 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751584AbdFITpD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 15:45:03 -0400
+Received: by mail-pf0-f178.google.com with SMTP id 83so31637455pfr.0
+        for <netdev@vger.kernel.org>; Fri, 09 Jun 2017 12:45:03 -0700 (PDT)
+In-Reply-To: <87d1adge1i.fsf@miraculix.mork.no>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Fri,  9 Jun 2017 14:55:07 +0200
 
-> this is a pull request of 6 patches for net/master.
-> 
-> There's a patch by Stephane Grosjean that fixes an uninitialized symbol warning
-> in the peak_canfd driver. A patch by Johan Hovold to fix the product-id
-> endianness in an error message in the the peak_usb driver. A patch by Oliver
-> Hartkopp to enable CAN FD for virtual CAN devices by default. Three patches by
-> me, one makes the helper function can_change_state() robust to be called with
-> cf == NULL. The next patch fixes a memory leak in the gs_usb driver. And the
-> last one fixes a lockdep splat by properly initialize the per-net
-> can_rcvlists_lock spin_lock.
 
-Pulled, thank you Marc.
+On 06/09/2017 12:24 PM, Bjørn Mork wrote:
+> Chenbo Feng <chenbofeng.kernel@gmail.com> writes:
+>
+>> This patch is still under working since it may have problem with
+>> ip_fragment() call, did you applied it already? Should I send a revert
+>> patch to you then?
+> It does? I initially thought so too, but looking closer I believe the
+> ip6_copy_metadata() calls in ip6_fragment() takes care of it.
+>
+>
+>
+> Bjørn
+>
+At least in the fail_toobig code path of ip_fragment() call, skb->dev 
+get assigned again. It seems to be redundant with this patch or it will 
+rewrite the skb->dev field. I will revert this one and upload again 
+after I have a proper handle for that.
