@@ -1,44 +1,54 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 2/2] bpf: Fix test_obj_id.c for llvm 5.0
-Date: Fri, 09 Jun 2017 12:06:53 +0200
-Message-ID: <593A733D.2030104@iogearbox.net>
-References: <20170609053017.2909855-1-kafai@fb.com> <20170609053017.2909855-2-kafai@fb.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 3/6] netvsc: use typed pointer for internal state
+Date: Fri, 9 Jun 2017 13:24:24 +0300
+Message-ID: <a26be48a-b3c8-484c-5415-f13aeee34d02@cogentembedded.com>
+References: <20170608232123.28366-1-sthemmin@microsoft.com>
+ <20170608232123.28366-4-sthemmin@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@fb.com>, Yonghong Song <yhs@fb.com>,
-        kernel-team@fb.com
-To: Martin KaFai Lau <kafai@fb.com>, netdev@vger.kernel.org
+Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>, kys@microsoft.com,
+        haiyangz@microsoft.com, sthemmin@microsoft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:35286 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751547AbdFIKGz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 06:06:55 -0400
-In-Reply-To: <20170609053017.2909855-2-kafai@fb.com>
+Received: from mail-lf0-f49.google.com ([209.85.215.49]:34887 "EHLO
+        mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751519AbdFIKY2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 06:24:28 -0400
+Received: by mail-lf0-f49.google.com with SMTP id p189so28032572lfe.2
+        for <netdev@vger.kernel.org>; Fri, 09 Jun 2017 03:24:27 -0700 (PDT)
+In-Reply-To: <20170608232123.28366-4-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/09/2017 07:30 AM, Martin KaFai Lau wrote:
-> llvm 5.0 does not like the section name and the function name
-> to be the same:
->
-> clang -I. -I./include/uapi -I../../../include/uapi \
-> 	-I../../../../samples/bpf/ \
-> 	-Wno-compare-distinct-pointer-types \
-> 	-O2 -target bpf -c \
-> 	linux/tools/testing/selftests/bpf/test_obj_id.c -o \
-> 	linux/tools/testing/selftests/bpf/test_obj_id.o
-> fatal error: error in backend: 'test_prog_id' label emitted multiple times to
-> assembly file
-> clang-5.0: error: clang frontend command failed with exit code 70 (use -v to
-> see invocation)
-> clang version 5.0.0 (trunk 304326) (llvm/trunk 304329)
->
-> This patch makes changes to the section name and the function name.
->
-> Fixes: 95b9afd3987f ("bpf: Test for bpf ID")
-> Reported-by: Alexei Starovoitov <ast@fb.com>
-> Reported-by: Yonghong Song <yhs@fb.com>
-> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Hello.
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+On 6/9/2017 2:21 AM, Stephen Hemminger wrote:
+
+> The element netvsc_device:extension is always a point to RNDIS
+
+    Pointer, maybe?
+
+> information.
+>
+> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+> ---
+>  drivers/net/hyperv/hyperv_net.h | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+> index 262b2ea576a3..f82d54e0208c 100644
+> --- a/drivers/net/hyperv/hyperv_net.h
+> +++ b/drivers/net/hyperv/hyperv_net.h
+> @@ -763,8 +763,7 @@ struct netvsc_device {
+>
+>  	refcount_t sc_offered;
+>
+> -	/* Holds rndis device info */
+> -	void *extension;
+> +	struct rndis_device *extension;
+>
+>  	int ring_size;
+>
+
+MBR, Sergei
