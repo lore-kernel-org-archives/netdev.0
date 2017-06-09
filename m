@@ -1,120 +1,69 @@
-From: Girish Moodalbail <girish.moodalbail@oracle.com>
-Subject: [PATCH net-next v2] geneve: add missing rx stats accounting
-Date: Thu,  8 Jun 2017 17:07:48 -0700
-Message-ID: <1496966868-6032-1-git-send-email-girish.moodalbail@oracle.com>
-Cc: davem@davemloft.net, pshelar@ovn.org
-To: netdev@vger.kernel.org
+From: =?utf-8?B?5Lil5rW35Y+M?= <yanhaishuang@cmss.chinamobile.com>
+Subject: Re: [PATCH v3 2/2] ip6_tunnel: fix potential issue in __ip6_tnl_rcv
+Date: Fri, 9 Jun 2017 08:23:10 +0800
+Message-ID: <854D089B-1932-45B0-8501-9C374FCA3F3B@cmss.chinamobile.com>
+References: <3A078CA0-C9C8-45D2-A359-1FB38B25792D@cmss.chinamobile.com>
+ <20170608050041.cte3gpavshg2nmdc@ast-mbp>
+ <6CE04FE7-4904-4047-95F5-80461324CDA6@cmss.chinamobile.com>
+ <20170608.095958.853026498068086014.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
+        edumazet@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:43747 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751393AbdFIAVU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 20:21:20 -0400
+Received: from cmccmta2.chinamobile.com ([221.176.66.80]:19265 "EHLO
+        cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751652AbdFIAXR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2017 20:23:17 -0400
+In-Reply-To: <20170608.095958.853026498068086014.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are few places on the receive path where packet drops and packet
-errors were not accounted for. This patch fixes that issue.
 
-Signed-off-by: Girish Moodalbail <girish.moodalbail@oracle.com>
----
-v0 -> v1:
-   -modified to use canonical post-increment "x++"
----
- drivers/net/geneve.c | 36 ++++++++++++++++++++++++------------
- 1 file changed, 24 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index 6ebb0f5..ff626db 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -212,6 +212,7 @@ static void geneve_rx(struct geneve_dev *geneve, struct geneve_sock *gs,
- 	struct genevehdr *gnvh = geneve_hdr(skb);
- 	struct metadata_dst *tun_dst = NULL;
- 	struct pcpu_sw_netstats *stats;
-+	unsigned int len;
- 	int err = 0;
- 	void *oiph;
- 
-@@ -225,8 +226,10 @@ static void geneve_rx(struct geneve_dev *geneve, struct geneve_sock *gs,
- 		tun_dst = udp_tun_rx_dst(skb, geneve_get_sk_family(gs), flags,
- 					 vni_to_tunnel_id(gnvh->vni),
- 					 gnvh->opt_len * 4);
--		if (!tun_dst)
-+		if (!tun_dst) {
-+			geneve->dev->stats.rx_dropped++;
- 			goto drop;
-+		}
- 		/* Update tunnel dst according to Geneve options. */
- 		ip_tunnel_info_opts_set(&tun_dst->u.tun_info,
- 					gnvh->options, gnvh->opt_len * 4);
-@@ -234,8 +237,11 @@ static void geneve_rx(struct geneve_dev *geneve, struct geneve_sock *gs,
- 		/* Drop packets w/ critical options,
- 		 * since we don't support any...
- 		 */
--		if (gnvh->critical)
-+		if (gnvh->critical) {
-+			geneve->dev->stats.rx_frame_errors++;
-+			geneve->dev->stats.rx_errors++;
- 			goto drop;
-+		}
- 	}
- 
- 	skb_reset_mac_header(skb);
-@@ -246,8 +252,10 @@ static void geneve_rx(struct geneve_dev *geneve, struct geneve_sock *gs,
- 		skb_dst_set(skb, &tun_dst->dst);
- 
- 	/* Ignore packet loops (and multicast echo) */
--	if (ether_addr_equal(eth_hdr(skb)->h_source, geneve->dev->dev_addr))
-+	if (ether_addr_equal(eth_hdr(skb)->h_source, geneve->dev->dev_addr)) {
-+		geneve->dev->stats.rx_errors++;
- 		goto drop;
-+	}
- 
- 	oiph = skb_network_header(skb);
- 	skb_reset_network_header(skb);
-@@ -279,13 +287,15 @@ static void geneve_rx(struct geneve_dev *geneve, struct geneve_sock *gs,
- 		}
- 	}
- 
--	stats = this_cpu_ptr(geneve->dev->tstats);
--	u64_stats_update_begin(&stats->syncp);
--	stats->rx_packets++;
--	stats->rx_bytes += skb->len;
--	u64_stats_update_end(&stats->syncp);
--
--	gro_cells_receive(&geneve->gro_cells, skb);
-+	len = skb->len;
-+	err = gro_cells_receive(&geneve->gro_cells, skb);
-+	if (likely(err == NET_RX_SUCCESS)) {
-+		stats = this_cpu_ptr(geneve->dev->tstats);
-+		u64_stats_update_begin(&stats->syncp);
-+		stats->rx_packets++;
-+		stats->rx_bytes += len;
-+		u64_stats_update_end(&stats->syncp);
-+	}
- 	return;
- drop:
- 	/* Consume bad packet */
-@@ -334,7 +344,7 @@ static int geneve_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 	struct geneve_sock *gs;
- 	int opts_len;
- 
--	/* Need Geneve and inner Ethernet header to be present */
-+	/* Need UDP and Geneve header to be present */
- 	if (unlikely(!pskb_may_pull(skb, GENEVE_BASE_HLEN)))
- 		goto drop;
- 
-@@ -357,8 +367,10 @@ static int geneve_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 	opts_len = geneveh->opt_len * 4;
- 	if (iptunnel_pull_header(skb, GENEVE_BASE_HLEN + opts_len,
- 				 htons(ETH_P_TEB),
--				 !net_eq(geneve->net, dev_net(geneve->dev))))
-+				 !net_eq(geneve->net, dev_net(geneve->dev)))) {
-+		geneve->dev->stats.rx_dropped++;
- 		goto drop;
-+	}
- 
- 	geneve_rx(geneve, gs, skb);
- 	return 0;
--- 
-1.8.3.1
+> On 8 Jun 2017, at 9:59 PM, David Miller <davem@davemloft.net> wrote:
+> 
+> From: 严海双 <yanhaishuang@cmss.chinamobile.com>
+> Date: Thu, 8 Jun 2017 15:33:58 +0800
+> 
+>>> On 8 Jun 2017, at 1:00 PM, Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+>>> 
+>>> On Thu, Jun 08, 2017 at 12:56:58PM +0800, 严海双 wrote:
+>>>> 
+>>>>> On 8 Jun 2017, at 12:38 PM, Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+>>>>> 
+>>>>> On Thu, Jun 08, 2017 at 12:32:44PM +0800, Haishuang Yan wrote:
+>>>>>> When __ip6_tnl_rcv fails, the tun_dst won't be freed, so call
+>>>>>> dst_release to free it in error code path.
+>>>>>> 
+>>>>>> CC: Alexei Starovoitov <ast@fb.com>
+>>>>>> Fixes: 8d79266bc48c ("ip6_tunnel: add collect_md mode to IPv6 tunnels")
+>>>>>> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+>>>>> 
+>>>>> I don't get it. Why did you send another version of the patch?
+>>>>> What was wrong with previous approach that myself and Eric acked?
+>>>>> 
+>>>>> 
+>>>> 
+>>>> Sorry for your confusing, because Pravin Shelar give a feedback in ipv4 patch, see below:
+>>> 
+>>> hmm. right.
+>>> Then it raises the question: How did you test this and previous patch?
+>>> 
+>>> since previous version was sort-of fixing the bug, but completely
+>>> breaking the logic...
+>>> 
+>>> 
+>> 
+>> Sorry for my previous fault, I tried to fix this problem in theory without testing carefully.
+>> I have tested the latest patches, it works ok now.
+> 
+> This does not instill a lot of confidence in us.
+> 
+> I want someone else to test these patches, then you can resubmit them
+> with proper Tested-by: tags added, since you thought it was OK to submit
+> a patch without testing in the first place.
+
+Ok, thanks.
