@@ -1,105 +1,90 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH net-next 1/8] qed: LL2 to use packed information for tx
-Date: Fri, 9 Jun 2017 07:08:54 +0000
-Message-ID: <BLUPR0701MB200415C3D80FB06774CF2C7B8DCE0@BLUPR0701MB2004.namprd07.prod.outlook.com>
-References: <20170608161323.7597-1-Yuval.Mintz@cavium.com>
-        <20170608161323.7597-2-Yuval.Mintz@cavium.com>
- <20170608.192358.1444190196602150329.davem@davemloft.net>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH 2/2 net-next] net: stmmac: Improve documentation on AVB
+ parameters
+Date: Fri, 9 Jun 2017 09:10:33 +0200
+Message-ID: <188848c4-7159-55b2-07b2-0f8c1391a484@st.com>
+References: <014297b3b5a1654eda19f099082d04b79a98b16a.1496944749.git.jpinto@synopsys.com>
+ <95bf7beef1abfb3c140ef56a8f59374bf6513496.1496944749.git.jpinto@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        "Kalderon, Michal" <Michal.Kalderon@cavium.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <alexandre.torgue@st.com>,
+        David Miller <davem@davemloft.net>
+To: Joao Pinto <Joao.Pinto@synopsys.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0052.outbound.protection.outlook.com ([104.47.36.52]:58024
-        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751591AbdFIHJJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 9 Jun 2017 03:09:09 -0400
-In-Reply-To: <20170608.192358.1444190196602150329.davem@davemloft.net>
-Content-Language: en-US
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:43076 "EHLO
+        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751522AbdFIHKl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 03:10:41 -0400
+In-Reply-To: <95bf7beef1abfb3c140ef56a8f59374bf6513496.1496944749.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > +struct qed_ll2_tx_pkt_info {
-> > +	u8 num_of_bds;
-> > +	u16 vlan;
-> > +	u8 bd_flags;
-> > +	u16 l4_hdr_offset_w;	/* from start of packet */
-> > +	enum qed_ll2_tx_dest tx_dest;
-> > +	enum qed_ll2_roce_flavor_type qed_roce_flavor;
-> > +	dma_addr_t first_frag;
-> > +	u16 first_frag_len;
-> > +	bool enable_ip_cksum;
-> > +	bool enable_l4_cksum;
-> > +	bool calc_ip_len;
-> > +	void *cookie;
-> > +};
-> > +
->=20
-> This layout is extremely inefficient, with lots of padding in between str=
-uct
-> members.
->=20
-> Group small u8 members and u16 members together so that they consume
-> full 32-bit areas so you can eliminate all of the padding.
+Hi Joao
 
-While I can mend the holes, the total structure size doesn't really change:
+On 6/8/2017 8:02 PM, Joao Pinto wrote:
+> This patch fixes the description of the DT AVB parameters and gives
+> an accurate example. It was also included the base values that were
+> used to get the example' CBS paremeter values.
+>
+> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+> ---
+>   Documentation/devicetree/bindings/net/stmmac.txt | 24 ++++++++++++++++--------
+>   1 file changed, 16 insertions(+), 8 deletions(-)
+>
+> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
+> index c3a7be6..707426d 100644
+> --- a/Documentation/devicetree/bindings/net/stmmac.txt
+> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
+> @@ -109,10 +109,10 @@ Optional properties:
+>   			  [Attention] Queue 0 is reserved for legacy traffic
+>   			  and so no AVB is available in this queue.
+>   		- Configure Credit Base Shaper (if AVB Mode selected):
+> -			- snps,send_slope: enable Low Power Interface
+> -			- snps,idle_slope: unlock on WoL
+> -			- snps,high_credit: max write outstanding req. limit
+> -			- snps,low_credit: max read outstanding req. limit
+> +			- snps,send_slope: Send Slope Credit value
+> +			- snps,idle_slope:  Idle Slope Credit value
+> +			- snps,high_credit: High Credit value
+> +			- snps,low_credit: Low Credit value
+>   		- snps,priority: TX queue priority (Range: 0x0 to 0xF)
+>   Examples:
+>   
+> @@ -143,10 +143,18 @@ Examples:
+>   
+>   		queue1 {
+>   			snps,avb-algorithm;
+> -			snps,send_slope = <0x1000>;
+> -			snps,idle_slope = <0x1000>;
+> -			snps,high_credit = <0x3E800>;
+> -			snps,low_credit = <0xFFC18000>;
+> +			/*
+> +			 *  Example AVB parameters based on:
+> +			 *   Allocated Bandwidth: 40%
+> +			 *   Maximum Frame size: 1000 bytes
+> +			 *   Maximum Interference size: 1500 bytes
+> +			 *   Port Transmit Rate: 8
+> +			 *   Scaling Factor: 1024
+> +			 */
+> +			snps,idle_slope = <0xCCC>;
+> +			snps,send_slope = <0x1333>;
+> +			snps,high_credit = <0x4B0000>;
 
-struct qed_ll2_tx_pkt_info {
-        u8                         num_of_bds;           /*     0     1 */
+Thanks for having taken care about this changes, please, as required, 
+add a cover-letter
+and give more information about these values that can be tuned by user 
+and, for example,
+the snps,high_credit could be as default = 0xbe4000 that is a reasonable 
+value because
+comes from 1522 * 8 * 1024 and LOW credit is the two complement.
+                       ^^^^^
+                     frame size ---> maximum is 16
 
-        /* XXX 1 byte hole, try to pack */
+Regards
+Peppe
 
-        u16                        vlan;                 /*     2     2 */
-        u8                         bd_flags;             /*     4     1 */
-
-        /* XXX 1 byte hole, try to pack */
-
-        u16                        l4_hdr_offset_w;      /*     6     2 */
-        enum qed_ll2_tx_dest       tx_dest;              /*     8     4 */
-        enum qed_ll2_roce_flavor_type qed_roce_flavor;   /*    12     4 */
-        dma_addr_t                 first_frag;           /*    16     8 */
-        u16                        first_frag_len;       /*    24     2 */
-        bool                       enable_ip_cksum;      /*    26     1 */
-        bool                       enable_l4_cksum;      /*    27     1 */
-        bool                       calc_ip_len;          /*    28     1 */
-
-        /* XXX 3 bytes hole, try to pack */
-
-        void *                     cookie;               /*    32     8 */
-
-        /* size: 40, cachelines: 1, members: 12 */
-        /* sum members: 35, holes: 3, sum holes: 5 */
-        /* last cacheline: 40 bytes */
-};
-
-Becomes:
-
-struct qed_ll2_tx_pkt_info {
-        void *                     cookie;               /*     0     8 */
-        dma_addr_t                 first_frag;           /*     8     8 */
-        enum qed_ll2_tx_dest       tx_dest;              /*    16     4 */
-        enum qed_ll2_roce_flavor_type qed_roce_flavor;   /*    20     4 */
-        u16                        vlan;                 /*    24     2 */
-        u16                        l4_hdr_offset_w;      /*    26     2 */
-        u16                        first_frag_len;       /*    28     2 */
-        u8                         num_of_bds;           /*    30     1 */
-        u8                         bd_flags;             /*    31     1 */
-        bool                       enable_ip_cksum;      /*    32     1 */
-        bool                       enable_l4_cksum;      /*    33     1 */
-        bool                       calc_ip_len;          /*    34     1 */
-
-        /* size: 40, cachelines: 1, members: 12 */
-        /* padding: 5 */
-        /* last cacheline: 40 bytes */
-};
-
-I'm going to send the changed version in V2 as as there's no harm to it,
-[+ we *can* reduce the size of qed_ll2_comp_rx_data you commented
-for patch #2 in series]
-
-But one thing I thought of asking - do we consider layouts of relatively
-insignificant structures to be some golden coding standard?
+> +			snps,low_credit = <0xFFB50000>;
+>   			snps,priority = <0x1>;
+>   		};
+>   	};
