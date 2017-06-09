@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 01/11] r8152: add r8153_phy_status function
-Date: Fri, 9 Jun 2017 17:11:38 +0800
-Message-ID: <1394712342-15778-261-Taiwan-albertk@realtek.com>
+Subject: [PATCH net-next 03/11] r8152: adjust the settings about MAC clock speed down for RTL8153
+Date: Fri, 9 Jun 2017 17:11:40 +0800
+Message-ID: <1394712342-15778-263-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-260-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,81 +13,88 @@ In-Reply-To: <1394712342-15778-260-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use r8153_phy_status() to check phy status of RTL8153.
+The MAC clock speed down could be enabled if the U1/U2 is disabled.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 37 +++++++++++++++++++++++++------------
- 1 file changed, 25 insertions(+), 12 deletions(-)
+ drivers/net/usb/r8152.c | 34 +++++++++++++++++++++++++++++-----
+ 1 file changed, 29 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index fd31fab..9239dfb 100644
+index b8c904f..9a794db 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -394,6 +394,7 @@
- 
- /* OCP_PHY_STATUS */
- #define PHY_STAT_MASK		0x0007
-+#define PHY_STAT_EXT_INIT	2
- #define PHY_STAT_LAN_ON		3
- #define PHY_STAT_PWRDN		5
- 
-@@ -2452,6 +2453,28 @@ static void r8153_u2p3en(struct r8152 *tp, bool enable)
- 	ocp_write_word(tp, MCU_TYPE_USB, USB_U2P3_CTRL, ocp_data);
+@@ -2428,6 +2428,29 @@ static void __rtl_set_wol(struct r8152 *tp, u32 wolopts)
+ 		device_set_wakeup_enable(&tp->udev->dev, false);
  }
  
-+static u16 r8153_phy_status(struct r8152 *tp, u16 desired)
++static void r8153_mac_clk_spd(struct r8152 *tp, bool enable)
 +{
-+	u16 data;
-+	int i;
-+
-+	for (i = 0; i < 500; i++) {
-+		data = ocp_reg_read(tp, OCP_PHY_STATUS);
-+		data &= PHY_STAT_MASK;
-+		if (desired) {
-+			if (data == desired)
-+				break;
-+		} else if (data == PHY_STAT_LAN_ON || data == PHY_STAT_PWRDN ||
-+			   data == PHY_STAT_EXT_INIT) {
-+			break;
-+		}
-+
-+		msleep(20);
++	/* MAC clock speed down */
++	if (enable) {
++		ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL,
++			       ALDPS_SPDWN_RATIO);
++		ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL2,
++			       EEE_SPDWN_RATIO);
++		ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL3,
++			       PKT_AVAIL_SPDWN_EN | SUSPEND_SPDWN_EN |
++			       U1U2_SPDWN_EN | L1_SPDWN_EN);
++		ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL4,
++			       PWRSAVE_SPDWN_EN | RXDV_SPDWN_EN | TX10MIDLE_EN |
++			       TP100_SPDWN_EN | TP500_SPDWN_EN | EEE_SPDWN_EN |
++			       TP1000_SPDWN_EN);
++	} else {
++		ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL, 0);
++		ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL2, 0);
++		ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL3, 0);
++		ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL4, 0);
 +	}
-+
-+	return data;
 +}
 +
- static void r8153_power_cut_en(struct r8152 *tp, bool enable)
+ static void r8153_u1u2en(struct r8152 *tp, bool enable)
  {
+ 	u8 u1u2[8];
+@@ -2533,7 +2556,9 @@ static void rtl8153_runtime_enable(struct r8152 *tp, bool enable)
+ 	if (enable) {
+ 		r8153_u1u2en(tp, false);
+ 		r8153_u2p3en(tp, false);
++		r8153_mac_clk_spd(tp, true);
+ 	} else {
++		r8153_mac_clk_spd(tp, false);
+ 		r8153_u2p3en(tp, true);
+ 		r8153_u1u2en(tp, true);
+ 	}
+@@ -2881,6 +2906,7 @@ static void r8153_first_init(struct r8152 *tp)
  	u32 ocp_data;
-@@ -3420,12 +3443,7 @@ static void r8153_init(struct r8152 *tp)
- 		msleep(20);
- 	}
+ 	int i;
  
--	for (i = 0; i < 500; i++) {
--		ocp_data = ocp_reg_read(tp, OCP_PHY_STATUS) & PHY_STAT_MASK;
--		if (ocp_data == PHY_STAT_LAN_ON || ocp_data == PHY_STAT_PWRDN)
--			break;
--		msleep(20);
--	}
-+	data = r8153_phy_status(tp, 0);
++	r8153_mac_clk_spd(tp, false);
+ 	rxdy_gated_en(tp, true);
+ 	r8153_teredo_off(tp);
  
- 	if (tp->version == RTL_VER_03 || tp->version == RTL_VER_04 ||
- 	    tp->version == RTL_VER_05)
-@@ -3437,12 +3455,7 @@ static void r8153_init(struct r8152 *tp)
- 		r8152_mdio_write(tp, MII_BMCR, data);
- 	}
+@@ -2947,6 +2973,8 @@ static void r8153_enter_oob(struct r8152 *tp)
+ 	u32 ocp_data;
+ 	int i;
  
--	for (i = 0; i < 500; i++) {
--		ocp_data = ocp_reg_read(tp, OCP_PHY_STATUS) & PHY_STAT_MASK;
--		if (ocp_data == PHY_STAT_LAN_ON)
--			break;
--		msleep(20);
--	}
-+	data = r8153_phy_status(tp, PHY_STAT_LAN_ON);
++	r8153_mac_clk_spd(tp, true);
++
+ 	ocp_data = ocp_read_byte(tp, MCU_TYPE_PLA, PLA_OOB_CTRL);
+ 	ocp_data &= ~NOW_IS_OOB;
+ 	ocp_write_byte(tp, MCU_TYPE_PLA, PLA_OOB_CTRL, ocp_data);
+@@ -3513,13 +3541,9 @@ static void r8153_init(struct r8152 *tp)
  
- 	usb_disable_lpm(tp->udev);
- 	r8153_u2p3en(tp, false);
+ 	r8153_power_cut_en(tp, false);
+ 	r8153_u1u2en(tp, true);
++	r8153_mac_clk_spd(tp, false);
+ 	usb_enable_lpm(tp->udev);
+ 
+-	/* MAC clock speed down */
+-	ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL, 0);
+-	ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL2, 0);
+-	ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL3, 0);
+-	ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL4, 0);
+ 
+ 	rtl_tally_reset(tp);
+ 	r8153_u2p3en(tp, true);
 -- 
 2.7.4
