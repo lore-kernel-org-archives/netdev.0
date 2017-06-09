@@ -1,38 +1,64 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 07/11] wireless: ipw2x00: convert to use DRIVER_ATTR_RW
-Date: Fri, 9 Jun 2017 11:34:24 +0200
-Message-ID: <20170609093424.GA31717@kroah.com>
-References: <20170609090314.13991-1-gregkh@linuxfoundation.org>
- <20170609090314.13991-7-gregkh@linuxfoundation.org>
- <87h8zp4inb.fsf@codeaurora.org>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH v4.11 -stable] esp4: Fix udpencap for local TCP packets.
+Date: Fri, 9 Jun 2017 11:35:46 +0200
+Message-ID: <20170609093545.GS22049@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-        Stanislav Yakovlev <stas.yakovlev@gmail.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:47522 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751530AbdFIJfx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 9 Jun 2017 05:35:53 -0400
 Content-Disposition: inline
-In-Reply-To: <87h8zp4inb.fsf@codeaurora.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 09, 2017 at 12:25:44PM +0300, Kalle Valo wrote:
-> Greg Kroah-Hartman <gregkh@linuxfoundation.org> writes:
-> 
-> > We are trying to get rid of DRIVER_ATTR(), and the ipw2x00 driver's
-> > attributes can be trivially changed to use DRIVER_ATTR_RW().
-> >
-> > Cc: Stanislav Yakovlev <stas.yakovlev@gmail.com>
-> > Cc: Kalle Valo <kvalo@codeaurora.org>
-> > Cc: <linux-wireless@vger.kernel.org>
-> > Cc: <netdev@vger.kernel.org>
-> > Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> 
-> Looks good to me. I assume that I should take this, but let me know if
-> you are planning to push this via your trees instead. Either way is fine
-> for me, I'm not expecting any conflicts here.
+Locally generated TCP packets are usually cloned, so we
+do skb_cow_data() on this packets. After that we need to
+reload the pointer to the esp header. On udpencap this
+header has an offset to skb_transport_header, so take this
+offset into account.
 
-I can take it, thanks!
+This is a backport of:
+commit 0e78a87306a ("esp4: Fix udpencap for local TCP packets.")
 
-greg k-h
+Fixes: 67d349ed603 ("net/esp4: Fix invalid esph pointer crash")
+Fixes: fca11ebde3f0 ("esp4: Reorganize esp_output")
+Reported-by: Don Bowman <db@donbowman.ca>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/ipv4/esp4.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index b1e2444..9708a32 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -212,6 +212,7 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	u8 *iv;
+ 	u8 *tail;
+ 	u8 *vaddr;
++	int esph_offset;
+ 	int blksize;
+ 	int clen;
+ 	int alen;
+@@ -392,12 +393,14 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	}
+ 
+ cow:
++	esph_offset = (unsigned char *)esph - skb_transport_header(skb);
++
+ 	err = skb_cow_data(skb, tailen, &trailer);
+ 	if (err < 0)
+ 		goto error;
+ 	nfrags = err;
+ 	tail = skb_tail_pointer(trailer);
+-	esph = ip_esp_hdr(skb);
++	esph = (struct ip_esp_hdr *)(skb_transport_header(skb) + esph_offset);
+ 
+ skip_cow:
+ 	esp_output_fill_trailer(tail, tfclen, plen, proto);
+-- 
+2.7.4
