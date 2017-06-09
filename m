@@ -1,47 +1,34 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [PATCH 06/11] net: ehea: convert to use DRIVER_ATTR_RO
-Date: Fri,  9 Jun 2017 11:03:09 +0200
-Message-ID: <20170609090314.13991-6-gregkh@linuxfoundation.org>
-References: <20170609090314.13991-1-gregkh@linuxfoundation.org>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Douglas Miller <dougmill@linux.vnet.ibm.com>,
-        netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net-next 00/11] r8152: minor adjustment
+Date: Fri, 9 Jun 2017 17:11:37 +0800
+Message-ID: <1394712342-15778-260-Taiwan-albertk@realtek.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+        <linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170609090314.13991-1-gregkh@linuxfoundation.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We are trying to get rid of DRIVER_ATTR(), and the ehea driver's
-attribute can be trivially changed to use DRIVER_ATTR_RO().
+Adjust some code to make it reasonable or satisfy the suggestion from
+the engineers.
 
-Cc: Douglas Miller <dougmill@linux.vnet.ibm.com>
-Cc: <netdev@vger.kernel.org>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
----
- drivers/net/ethernet/ibm/ehea/ehea_main.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+Hayes Wang (11):
+  r8152: add r8153_phy_status function
+  r8152: adjust lpm settings for RTL8153
+  r8152: adjust the settings about MAC clock speed down for RTL8153
+  r8152: move the setting of rx aggregation
+  r8152: adjust rtl8153_runtime_enable function
+  r8152: adjust U2P3 for RTL8153
+  r8152: move the default coalesce setting for RTL8153
+  r8152: move the initialization to reset_resume function
+  r8152: check if disabling ALDPS is finished
+  r8152: avoid rx queue more than 1000 packets
+  r8152: replace napi_complete with napi_complete_done
 
-diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
-index 1e53d7a82675..b9d310f20bcc 100644
---- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
-+++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
-@@ -3553,14 +3553,12 @@ static int check_module_parm(void)
- 	return ret;
- }
- 
--static ssize_t ehea_show_capabilities(struct device_driver *drv,
--				      char *buf)
-+static ssize_t capabilities_show(struct device_driver *drv, char *buf)
- {
- 	return sprintf(buf, "%d", EHEA_CAPABILITIES);
- }
- 
--static DRIVER_ATTR(capabilities, S_IRUSR | S_IRGRP | S_IROTH,
--		   ehea_show_capabilities, NULL);
-+static DRIVER_ATTR_RO(capabilities);
- 
- static int __init ehea_module_init(void)
- {
+ drivers/net/usb/r8152.c | 181 ++++++++++++++++++++++++++++++++++--------------
+ 1 file changed, 130 insertions(+), 51 deletions(-)
+
 -- 
-2.13.1
+2.7.4
