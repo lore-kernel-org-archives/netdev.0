@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 05/11] r8152: adjust rtl8153_runtime_enable function
-Date: Fri, 9 Jun 2017 17:11:42 +0800
-Message-ID: <1394712342-15778-265-Taiwan-albertk@realtek.com>
+Subject: [PATCH net-next 08/11] r8152: move the initialization to reset_resume function
+Date: Fri, 9 Jun 2017 17:11:45 +0800
+Message-ID: <1394712342-15778-268-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-260-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,33 +13,41 @@ In-Reply-To: <1394712342-15778-260-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adjust the order of rtl8153_runtime_enable() according to the
-suggestion from the engineer.
+Move tp->rtl_ops.init() from rtl8152_resume() to rtl8152_reset_resume().
+The initialization is only necessary for reset_resume().
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/usb/r8152.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index e569c48..32e83fd 100644
+index f78111c..f43b7a8 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -2551,13 +2551,13 @@ static void rtl_runtime_suspend_enable(struct r8152 *tp, bool enable)
+@@ -3776,11 +3776,8 @@ static int rtl8152_resume(struct usb_interface *intf)
  
- static void rtl8153_runtime_enable(struct r8152 *tp, bool enable)
- {
--	rtl_runtime_suspend_enable(tp, enable);
--
- 	if (enable) {
- 		r8153_u1u2en(tp, false);
- 		r8153_u2p3en(tp, false);
- 		r8153_mac_clk_spd(tp, true);
-+		rtl_runtime_suspend_enable(tp, true);
- 	} else {
-+		rtl_runtime_suspend_enable(tp, false);
- 		r8153_mac_clk_spd(tp, false);
- 		r8153_u2p3en(tp, true);
- 		r8153_u1u2en(tp, true);
+ 	mutex_lock(&tp->control);
+ 
+-	if (!test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
+-		tp->rtl_ops.init(tp);
+-		queue_delayed_work(system_long_wq, &tp->hw_phy_work, 0);
++	if (!test_bit(SELECTIVE_SUSPEND, &tp->flags))
+ 		netif_device_attach(netdev);
+-	}
+ 
+ 	if (netif_running(netdev) && netdev->flags & IFF_UP) {
+ 		if (test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
+@@ -3826,6 +3823,10 @@ static int rtl8152_reset_resume(struct usb_interface *intf)
+ 	struct r8152 *tp = usb_get_intfdata(intf);
+ 
+ 	clear_bit(SELECTIVE_SUSPEND, &tp->flags);
++	mutex_lock(&tp->control);
++	tp->rtl_ops.init(tp);
++	queue_delayed_work(system_long_wq, &tp->hw_phy_work, 0);
++	mutex_unlock(&tp->control);
+ 	return rtl8152_resume(intf);
+ }
+ 
 -- 
 2.7.4
