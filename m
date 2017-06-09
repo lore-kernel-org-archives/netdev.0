@@ -1,65 +1,113 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] af_unix: Add sockaddr length checks before accessing
- sa_family in bind and connect handlers
-Date: Fri, 09 Jun 2017 10:09:55 -0400 (EDT)
-Message-ID: <20170609.100955.2159377473358085139.davem@davemloft.net>
-References: <20170608091336.8274-1-mjurczyk@google.com>
-        <20170608.160425.3981801836671654.davem@davemloft.net>
-        <CAPr8fOTtiUwBiVP2_740WZmmbbN=6oYJoyBCK31qOFbq5UCtSw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, hannes@stressinduktion.org,
-        viro@zeniv.linux.org.uk, keescook@chromium.org,
-        mszeredi@redhat.com, iboukris@gmail.com, avagin@openvz.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: mjurczyk@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAPr8fOTtiUwBiVP2_740WZmmbbN=6oYJoyBCK31qOFbq5UCtSw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Donald Sharp <sharpd@cumulusnetworks.com>
+Subject: [PATCH] Fix some mroute forwarding issues in vrf's
+Date: Fri,  9 Jun 2017 10:10:47 -0400
+Message-ID: <20170609141047.23499-1-sharpd@cumulusnetworks.com>
+To: netdev@vger.kernel.org, dsahern@gmail.com,
+        Thomas.Winter@alliedtelesis.co.nz, nikolay@cumulusnetworks.com,
+        yotamg@mellanox.com, idosch@mellanox.com, roopa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f53.google.com ([74.125.83.53]:34709 "EHLO
+        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751566AbdFIOLA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 10:11:00 -0400
+Received: by mail-pg0-f53.google.com with SMTP id v18so27018117pgb.1
+        for <netdev@vger.kernel.org>; Fri, 09 Jun 2017 07:11:00 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mateusz Jurczyk <mjurczyk@google.com>
-Date: Fri, 9 Jun 2017 13:15:40 +0200
+This patch fixes two issues:
 
-> On Thu, Jun 8, 2017 at 10:04 PM, David Miller <davem@davemloft.net> wrote:
->> From: Mateusz Jurczyk <mjurczyk@google.com>
->> Date: Thu,  8 Jun 2017 11:13:36 +0200
->>
->>> Verify that the caller-provided sockaddr structure is large enough to
->>> contain the sa_family field, before accessing it in bind() and connect()
->>> handlers of the AF_UNIX socket. Since neither syscall enforces a minimum
->>> size of the corresponding memory region, very short sockaddrs (zero or
->>> one byte long) result in operating on uninitialized memory while
->>> referencing .sa_family.
->>>
->>> Signed-off-by: Mateusz Jurczyk <mjurczyk@google.com>
->>
->> The sockaddr comes from a structure on the caller's kernel stack, even
->> if the user gives a smaller length, it is legal to access that memory.
-> 
-> It is legal to access it, but since it's uninitialized kernel stack
-> memory, the results of comparisons against AF_UNIX or AF_UNSPEC are
-> indeterminate. In practice a user-mode program could likely use timing
-> measurement to infer the evaluation of these comparisons, and hence
-> determine if a garbage 16-bit variable on the kernel stack is equal to
-> 0x0000 or 0x0001, or a garbage byte is equal to 0x00 (if the first
-> byte is provided).
-> 
-> This is of course not very bad. However, my project for finding use of
-> uninitialized memory flagged it, and I thought it was worth fixing, at
-> least to avoid having this construct detected in the future (e.g. by
-> KMSAN).
-> 
-> There are a few more instances of this behavior in other socket types,
-> which I was going to report with separate patches. If you decide this
-> kind of issues indeed deserves a fix, please let me know if further
-> separate patches are the right approach.
+1) When forwarding on *,G mroutes that are in a vrf, the
+kernel was dropping information about the actual incoming
+interface when calling ip_mr_forward from ip_mr_input.
+This caused ip_mr_forward to send the multicast packet
+back out the incoming interface.  Fix this by
+modifying ip_mr_forward to be handed the correctly
+resolved dev.
 
-Oh that's right, we don't zero initialize the on-stack object before
-copying from userspace.
+2) When a unresolved cache entry is created we store
+the incoming skb on the unresolved cache entry and
+upon mroute resolution from the user space daemon,
+we attempt to forward the packet.  Again we were
+not resolving to the correct incoming device for
+a vrf scenario, before calling ip_mr_forward.
+Fix this by resolving to the correct interface
+and calling ip_mr_forward with the result.
 
-I'm going to apply this patch and please submit further changes fixing
-bugs like this one.
+Signed-off-by: Donald Sharp <sharpd@cumulusnetworks.com>
+---
+ net/ipv4/ipmr.c | 27 ++++++++++++++++++---------
+ 1 file changed, 18 insertions(+), 9 deletions(-)
 
-Thanks.
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 551de4d..559009e 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -101,8 +101,8 @@ static struct mr_table *ipmr_new_table(struct net *net, u32 id);
+ static void ipmr_free_table(struct mr_table *mrt);
+ 
+ static void ip_mr_forward(struct net *net, struct mr_table *mrt,
+-			  struct sk_buff *skb, struct mfc_cache *cache,
+-			  int local);
++			  struct net_device *dev, struct sk_buff *skb,
++                          struct mfc_cache *cache, int local);
+ static int ipmr_cache_report(struct mr_table *mrt,
+ 			     struct sk_buff *pkt, vifi_t vifi, int assert);
+ static int __ipmr_fill_mroute(struct mr_table *mrt, struct sk_buff *skb,
+@@ -988,7 +988,16 @@ static void ipmr_cache_resolve(struct net *net, struct mr_table *mrt,
+ 
+ 			rtnl_unicast(skb, net, NETLINK_CB(skb).portid);
+ 		} else {
+-			ip_mr_forward(net, mrt, skb, c, 0);
++                        struct net_device *dev = skb->dev;
++
++                        if (netif_is_l3_master(dev)) {
++                                dev = __dev_get_by_index(net, IPCB(skb)->iif);
++                                if (!dev) {
++                                        kfree_skb(skb);
++                                        continue;
++                                }
++                        }
++                        ip_mr_forward(net, mrt, dev, skb, c, 0);
+ 		}
+ 	}
+ }
+@@ -1828,10 +1837,10 @@ static int ipmr_find_vif(struct mr_table *mrt, struct net_device *dev)
+ 
+ /* "local" means that we should preserve one skb (for local delivery) */
+ static void ip_mr_forward(struct net *net, struct mr_table *mrt,
+-			  struct sk_buff *skb, struct mfc_cache *cache,
+-			  int local)
++			  struct net_device *dev, struct sk_buff *skb,
++                          struct mfc_cache *cache, int local)
+ {
+-	int true_vifi = ipmr_find_vif(mrt, skb->dev);
++	int true_vifi = ipmr_find_vif(mrt, dev);
+ 	int psend = -1;
+ 	int vif, ct;
+ 
+@@ -1853,11 +1862,11 @@ static void ip_mr_forward(struct net *net, struct mr_table *mrt,
+ 	}
+ 
+ 	/* Wrong interface: drop packet and (maybe) send PIM assert. */
+-	if (mrt->vif_table[vif].dev != skb->dev) {
++	if (mrt->vif_table[vif].dev != dev) {
+ 		struct net_device *mdev;
+ 
+ 		mdev = l3mdev_master_dev_rcu(mrt->vif_table[vif].dev);
+-		if (mdev == skb->dev)
++		if (mdev == dev)
+ 			goto forward;
+ 
+ 		if (rt_is_output_route(skb_rtable(skb))) {
+@@ -2064,7 +2073,7 @@ int ip_mr_input(struct sk_buff *skb)
+ 	}
+ 
+ 	read_lock(&mrt_lock);
+-	ip_mr_forward(net, mrt, skb, cache, local);
++	ip_mr_forward(net, mrt, dev, skb, cache, local);
+ 	read_unlock(&mrt_lock);
+ 
+ 	if (local)
+-- 
+2.9.4
