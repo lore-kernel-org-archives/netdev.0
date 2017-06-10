@@ -1,54 +1,99 @@
-From: <kindergartenchaos2@gmail.com>
-Subject: (unknown)
-Date: Sat, 10 Jun 2017 08:23:57 -0000
-Message-ID: <149708303749.19457.1597419671797367094@hinet.net>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCHv2 net] net/flow: fix fc->percpu NULL pointer dereference
+Date: Sat, 10 Jun 2017 16:29:23 +0800
+Message-ID: <CADvbK_dBuJKymP6tT358EEN2Qg6s+f8Sj8z-UN6ypdoDNcp-dA@mail.gmail.com>
+References: <1496996036-22077-1-git-send-email-liuhangbin@gmail.com> <1497013755-24481-1-git-send-email-liuhangbin@gmail.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="829628.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: network dev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Steffen Klassert <steffen.klassert@secunet.com>
+To: Hangbin Liu <liuhangbin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 36-230-245-186.dynamic-ip.hinet.net ([36.230.245.186]:43804
-        "HELO hinet.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with SMTP id S1751848AbdFJIYK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2017 04:24:10 -0400
-Subject: 
-Content-Disposition: attachment
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:33369 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751844AbdFJI3Y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2017 04:29:24 -0400
+Received: by mail-qk0-f195.google.com with SMTP id 76so2349945qkz.0
+        for <netdev@vger.kernel.org>; Sat, 10 Jun 2017 01:29:24 -0700 (PDT)
+In-Reply-To: <1497013755-24481-1-git-send-email-liuhangbin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-AAAAZAcAAAAA
+On Fri, Jun 9, 2017 at 9:09 PM, Hangbin Liu <liuhangbin@gmail.com> wrote:
+> Now we will force to do garbage collection if any policy removed in
+> xfrm_policy_flush(). But during xfrm_net_exit(). We call flow_cache_fini()
+> first and set set fc->percpu to NULL. Then after we call xfrm_policy_fini()
+> -> frxm_policy_flush() -> flow_cache_flush(), we will get NULL pointer
+> dereference when check percpu_empty. The code path looks like:
+>
+> flow_cache_fini()
+>   - fc->percpu = NULL
+> xfrm_policy_fini()
+>   - xfrm_policy_flush()
+>     - xfrm_garbage_collect()
+>       - flow_cache_flush()
+>         - flow_cache_percpu_empty()
+>           - fcp = per_cpu_ptr(fc->percpu, cpu)
+>
+> To reproduce, just add ipsec in netns and then remove the netns.
+>
+> v2:
+> As Xin Long suggested, since only two other places need to call it. move
+> xfrm_garbage_collect() outside xfrm_policy_flush().
+>
+> Fixes: 35db06912189 ("xfrm: do the garbage collection after flushing policy")
+> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+> ---
+>  net/key/af_key.c       | 2 ++
+>  net/xfrm/xfrm_policy.c | 4 ----
+>  net/xfrm/xfrm_user.c   | 1 +
+>  3 files changed, 3 insertions(+), 4 deletions(-)
+>
+> diff --git a/net/key/af_key.c b/net/key/af_key.c
+> index 512dc43..5103f92 100644
+> --- a/net/key/af_key.c
+> +++ b/net/key/af_key.c
+> @@ -2755,6 +2755,8 @@ static int pfkey_spdflush(struct sock *sk, struct sk_buff *skb, const struct sad
+>         int err, err2;
+>
+>         err = xfrm_policy_flush(net, XFRM_POLICY_TYPE_MAIN, true);
+> +       if (!err)
+> +               xfrm_garbage_collect(net);
+>         err2 = unicast_flush_resp(sk, hdr);
+>         if (err || err2) {
+>                 if (err == -ESRCH) /* empty table - old silent behavior */
+> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+> index ed4e52d..643a18f 100644
+> --- a/net/xfrm/xfrm_policy.c
+> +++ b/net/xfrm/xfrm_policy.c
+> @@ -1006,10 +1006,6 @@ int xfrm_policy_flush(struct net *net, u8 type, bool task_valid)
+>                 err = -ESRCH;
+>  out:
+>         spin_unlock_bh(&net->xfrm.xfrm_policy_lock);
+> -
+> -       if (cnt)
+> -               xfrm_garbage_collect(net);
+> -
+>         return err;
+>  }
+>  EXPORT_SYMBOL(xfrm_policy_flush);
+> diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+> index 38614df..86116e9 100644
+> --- a/net/xfrm/xfrm_user.c
+> +++ b/net/xfrm/xfrm_user.c
+> @@ -2027,6 +2027,7 @@ static int xfrm_flush_policy(struct sk_buff *skb, struct nlmsghdr *nlh,
+>                         return 0;
+>                 return err;
+>         }
+> +       xfrm_garbage_collect(net);
+>
+>         c.data.type = type;
+>         c.event = nlh->nlmsg_type;
+> --
+> 2.5.5
+>
+ It's a xfrm fix, pls also fix the title, like:
+   xfrm: move xfrm_garbage_collect out of xfrm_policy_flush
+or
+   xfrm: fix ...
