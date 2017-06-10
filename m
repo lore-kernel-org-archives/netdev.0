@@ -1,36 +1,85 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH net-next 8/9] net: hns3: Add support of debugfs interface
- to HNS3 driver
-Date: Sat, 10 Jun 2017 12:51:57 +0000
-Message-ID: <BY2PR0701MB2005750A49D78C63B4B4A6B18DCF0@BY2PR0701MB2005.namprd07.prod.outlook.com>
-References: <20170610034630.493852-1-salil.mehta@huawei.com>
- <20170610034630.493852-9-salil.mehta@huawei.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: Re: [PATCH] net: tipc: Fix a sleep-in-atomic bug
+ in tipc_msg_reverse
+Date: Sat, 10 Jun 2017 13:18:03 +0000
+Message-ID: <DB5PR0701MB1958DBCDED9E71F400BBE7969ACF0@DB5PR0701MB1958.eurprd07.prod.outlook.com>
+References: <1497085415-630-1-git-send-email-baijiaju1990@163.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "yisen.zhuang@huawei.com" <yisen.zhuang@huawei.com>,
-        "huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
-        "lipeng321@huawei.com" <lipeng321@huawei.com>,
-        "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linuxarm@huawei.com" <linuxarm@huawei.com>
-To: Salil Mehta <salil.mehta@huawei.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170610034630.493852-9-salil.mehta@huawei.com>
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tipc-discussion@lists.sourceforge.net"
+	<tipc-discussion@lists.sourceforge.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Jia-Ju Bai <baijiaju1990@163.com>, Ying Xue <ying.xue@windriver.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1497085415-630-1-git-send-email-baijiaju1990@163.com>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.sourceforge.net/lists/options/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-> This adds the support of the debugfs interface to the driver for debuggin=
-g
-> purposes.
+Acked.
 
-> +const struct  hclge_support_cmd  support_cmd[] =3D {
-> +	{"send cmd", 8, hclge_dbg_send,
-> +		"opcode flag data0 data1 data2 data3 data4 data5"},
-> +	{"help", 4, hclge_dbg_usage, "no option"}, };
+///jon
 
-Is there an actual description of what this does? Or is it simply a huge ba=
-ckdoor?
+
+> -----Original Message-----
+> From: Jia-Ju Bai [mailto:baijiaju1990@163.com]
+> Sent: Saturday, June 10, 2017 05:04
+> To: Jon Maloy <jon.maloy@ericsson.com>; Ying Xue
+> <ying.xue@windriver.com>; davem@davemloft.net
+> Cc: netdev@vger.kernel.org; tipc-discussion@lists.sourceforge.net; linux-
+> kernel@vger.kernel.org; Jia-Ju Bai <baijiaju1990@163.com>
+> Subject: [PATCH] net: tipc: Fix a sleep-in-atomic bug in tipc_msg_reverse
+> 
+> The kernel may sleep under a rcu read lock in tipc_msg_reverse, and the
+> function call path is:
+> tipc_l2_rcv_msg (acquire the lock by rcu_read_lock)
+>   tipc_rcv
+>     tipc_sk_rcv
+>       tipc_msg_reverse
+>         pskb_expand_head(GFP_KERNEL) --> may sleep tipc_node_broadcast
+>   tipc_node_xmit_skb
+>     tipc_node_xmit
+>       tipc_sk_rcv
+>         tipc_msg_reverse
+>           pskb_expand_head(GFP_KERNEL) --> may sleep
+> 
+> To fix it, "GFP_KERNEL" is replaced with "GFP_ATOMIC".
+> 
+> Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+> ---
+>  net/tipc/msg.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/tipc/msg.c b/net/tipc/msg.c index 312ef7d..ab30876 100644
+> --- a/net/tipc/msg.c
+> +++ b/net/tipc/msg.c
+> @@ -508,7 +508,7 @@ bool tipc_msg_reverse(u32 own_node,  struct
+> sk_buff **skb, int err)
+>  	}
+> 
+>  	if (skb_cloned(_skb) &&
+> -	    pskb_expand_head(_skb, BUF_HEADROOM, BUF_TAILROOM,
+> GFP_KERNEL))
+> +	    pskb_expand_head(_skb, BUF_HEADROOM, BUF_TAILROOM,
+> GFP_ATOMIC))
+>  		goto exit;
+> 
+>  	/* Now reverse the concerned fields */
+> --
+> 1.7.9.5
+> 
+
+
+------------------------------------------------------------------------------
+Check out the vibrant tech community on one of the world's most
+engaging tech sites, Slashdot.org! http://sdm.link/slashdot
