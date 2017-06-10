@@ -1,48 +1,103 @@
-From: =?utf-8?B?0JDQu9C10LrRgdC10Lkg0JHQvtC70LTRi9GA0LXQsg==?=
-        <ne-vlezay80@yandex.ru>
-Subject: =?utf-8?B?dmV0aDog0L/RgNC+0LHQu9C10LzRiyDRgdC+INGB0LrQvtGA0L7RgdGC0YzRjg==?=
-Date: Sat, 10 Jun 2017 14:33:38 +0300
-Message-ID: <952771497094418@web20m.yandex.ru>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next RFC 1/1] net netlink: Add new type NLA_FLAG_BITS
+Date: Sat, 10 Jun 2017 08:33:28 -0400
+Message-ID: <3173015e-cc6a-dc31-a2c7-5e919613cc31@mojatatu.com>
+References: <1493562519-15563-1-git-send-email-jhs@emojatatu.com>
+ <20170502.150345.954488149548327006.davem@davemloft.net>
+ <a719bd37-9e60-8ce2-c5d5-cbc9195a4f62@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, xiyou.wangcong@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward18m.cmail.yandex.net ([5.255.216.149]:52707 "EHLO
-        forward18m.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751955AbdFJLl0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2017 07:41:26 -0400
-Received: from mxback5j.mail.yandex.net (mxback5j.mail.yandex.net [IPv6:2a02:6b8:0:1619::10e])
-        by forward18m.cmail.yandex.net (Yandex) with ESMTP id 175D721FEB
-        for <netdev@vger.kernel.org>; Sat, 10 Jun 2017 14:33:39 +0300 (MSK)
+Received: from mail-it0-f66.google.com ([209.85.214.66]:33333 "EHLO
+        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751677AbdFJMdc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2017 08:33:32 -0400
+Received: by mail-it0-f66.google.com with SMTP id l6so8122909iti.0
+        for <netdev@vger.kernel.org>; Sat, 10 Jun 2017 05:33:31 -0700 (PDT)
+In-Reply-To: <a719bd37-9e60-8ce2-c5d5-cbc9195a4f62@mojatatu.com>
+Content-Language: en-GB
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Короче, имеем ядро 4.11.4. При передаче данных через veth, мы получаем скорость примерно такую:
-root@containers:~# iperf3 -c 10.194.1.3
-Connecting to host 10.194.1.3, port 5201
-[  4] local 10.194.1.2 port 55640 connected to 10.194.1.3 port 5201
-[ ID] Interval           Transfer     Bandwidth       Retr  Cwnd
-[  4]   0.00-1.00   sec   678 MBytes  5.68 Gbits/sec    0   1.10 MBytes       
-[  4]   1.00-2.00   sec   684 MBytes  5.73 Gbits/sec    0   1.60 MBytes       
-[  4]   2.00-3.00   sec   684 MBytes  5.74 Gbits/sec    0   1.60 MBytes       
-[  4]   3.00-4.00   sec   686 MBytes  5.75 Gbits/sec    0   1.60 MBytes       
-[  4]   4.00-5.00   sec   685 MBytes  5.75 Gbits/sec    0   1.60 MBytes       
-[  4]   5.00-6.00   sec   684 MBytes  5.73 Gbits/sec    0   1.60 MBytes       
-[  4]   6.00-7.00   sec   684 MBytes  5.74 Gbits/sec    0   1.60 MBytes       
-[  4]   7.00-8.00   sec   684 MBytes  5.74 Gbits/sec    0   1.60 MBytes       
-[  4]   8.00-9.00   sec   686 MBytes  5.75 Gbits/sec    0   1.60 MBytes       
-[  4]   9.00-10.00  sec   685 MBytes  5.75 Gbits/sec    0   1.60 MBytes       
-- - - - - - - - - - - - - - - - - - - - - - - - -
-[ ID] Interval           Transfer     Bandwidth       Retr
-[  4]   0.00-10.00  sec  6.68 GBytes  5.74 Gbits/sec    0             sender
-[  4]   0.00-10.00  sec  6.68 GBytes  5.74 Gbits/sec                  receiver
 
-iperf Done.
 
-Собственно, в чём вопрос:
-Какие изменения были внесины в драйвер veth? На сколько я понимаю, маленькая скорость возникает потому, что включенна проверка от плохих пакетов, которые были в этом баге: https://github.com/kubernetes/kubernetes/issues/18898
+Ping.. Following up
 
-Дело в том, что veth используется также для создания псевдо туннелей, например если надо покключить в l2 режиме устройства которые не поддерживают больших пакетов к сети, в которой есть jumbo frame. 
+On 17-05-02 09:52 PM, Jamal Hadi Salim wrote:
+> On 17-05-02 03:03 PM, David Miller wrote:
+>> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>> Date: Sun, 30 Apr 2017 10:28:39 -0400
+>>
+>>> Generic bitflags attribute content sent to the kernel by user.
+>>> With this type the user can either set or unset a flag in the
+>>> kernel.
+>>
+>> You asked for feedback, here it is :-)
+>>
+>> I think this is overengineered.
+>>
+>> Just define a u32 for the value, and mask which defines which bits are
+>> legitimate and defined.  Any bit outside of the legitimate mask must
+>> be zero.
+>>
+> 
+> That is what it does but as a nla type. It has a validator ops() in
+> case someone wants to override the default validator.
+> Is the ops the over-engineering you refer to or merely making it an
+> nla type is a problem?
+>
 
-Дело в том, что эту проверку невозможно отключить.
+Since its been a month, a reminder of what the patch introduced a
+new netlink type, NLA_FLAG_BITS
+
+UAPI structure:
+
+struct nla_bit_flags {
+        u32 nla_flag_values;
+        u32 nla_flag_selector;
+}
+
+User to kernel example:
+---
+     nla_flag_values = 0x0, and nla_flag_selector = 0x1
+     implies we are selecting bit 1 and we want to set its value to 0.
+
+     nla_flag_values = 0x2, and nla_flag_selector = 0x2
+     implies we are selecting bit 2 and we want to set its value to 1.
+---
+
+A kernel subsystem specifies validation rules of the following
+nature:
+----
+  [ATTR_GOO] = { .type = NLA_FLAG_BITS,
+                 .validation_data = &myvalidflags },
+
+where myvalidflags is the bit mask of the flags the kernel understands.
+We reject any bitmask of values that dont fit myvalidflags.
+
+The user can also specify their own validation callback as so:
+
+     [ATTR_GOO] = { .type = MYTYPE,
+                    .validation_data = &myvalidation_data,
+                    .validate_content = mycontent_validator },
+
+     myvalidation_data is the allowed bitmap as before
+     With validator callback looking like:
+
+     int mycontent_validator(const struct nlattr *nla, void *valid_data)
+     {
+            const struct myattribute *user_data = nla_data(nla);
+            struct myvalidation_struct *valid_data_constraint = valid_data;
+
+           ... validate user_data against valid_data_constraint ...
+           ... return appropriate error code etc ...
+     }
+-------
+
+So Dave ;-> Are you suggesting I get rid of the validation op?
+
+cheers,
+jamal
