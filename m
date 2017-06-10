@@ -1,33 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] netns: fix error code when the nsid is
- already used
-Date: Sat, 10 Jun 2017 15:59:24 -0400 (EDT)
-Message-ID: <20170610.155924.632737973845428746.davem@davemloft.net>
-References: <1497012117-1344-1-git-send-email-nicolas.dichtel@6wind.com>
-        <1497012117-1344-2-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next] bonding: warn user when 802.3ad speed is
+ unknown
+Date: Sat, 10 Jun 2017 16:01:16 -0400 (EDT)
+Message-ID: <20170610.160116.642326510430989622.davem@davemloft.net>
+References: <20170608164811.GB20216@lunn.ch>
+        <1497015283-1729-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
+        andy@greyhouse.net, thibaut.collet@6wind.com,
+        linville@tuxdriver.com
 To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33214 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:33320 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751548AbdFJT7b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2017 15:59:31 -0400
-In-Reply-To: <1497012117-1344-2-git-send-email-nicolas.dichtel@6wind.com>
+        with ESMTP id S1751555AbdFJUBS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2017 16:01:18 -0400
+In-Reply-To: <1497015283-1729-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Fri,  9 Jun 2017 14:41:57 +0200
+Date: Fri,  9 Jun 2017 15:34:43 +0200
 
-> When the user tries to assign a specific nsid, idr_alloc() is called with
-> the range [nsid, nsid+1]. If this nsid is already used, idr_alloc() returns
-> ENOSPC (No space left on device). In our case, it's better to return
-> EEXIST to make it clear that the nsid is not available.
+> Make it explicit in the log.
 > 
-> CC: Jamal Hadi Salim <jhs@mojatatu.com>
+> Suggested-by: Andrew Lunn <andrew@lunn.ch>
 > Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Applied.
+I agree with others that we should rate limit this somehow given
+the context in which it is invoked.
