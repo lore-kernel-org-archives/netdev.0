@@ -1,56 +1,80 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] sctp: disable BH in sctp_for_each_endpoint
-Date: Sat, 10 Jun 2017 14:48:14 +0800
-Message-ID: <fc2c69db46c2dc7c877a54fc0b0917d99d0b7f0c.1497077294.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH net-next] sctp: fix recursive locking warning in sctp_do_peeloff
+Date: Sat, 10 Jun 2017 14:56:56 +0800
+Message-ID: <a5f7dc6e508e016041f685179f1d99fc04541bdd.1497077816.git.lucien.xin@gmail.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net,
+        Cong Wang <xiyou.wangcong@gmail.com>
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36724 "EHLO
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:33062 "EHLO
         mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751785AbdFJGsX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2017 02:48:23 -0400
+        with ESMTP id S1751785AbdFJG5F (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2017 02:57:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now sctp holds read_lock when foreach sctp_ep_hashtable without disabling
-BH. If CPU schedules to another thread A at this moment, the thread A may
-be trying to hold the write_lock with disabling BH.
+Dmitry got the following recursive locking report while running syzkaller
+fuzzer, the Call Trace:
+ __dump_stack lib/dump_stack.c:16 [inline]
+ dump_stack+0x2ee/0x3ef lib/dump_stack.c:52
+ print_deadlock_bug kernel/locking/lockdep.c:1729 [inline]
+ check_deadlock kernel/locking/lockdep.c:1773 [inline]
+ validate_chain kernel/locking/lockdep.c:2251 [inline]
+ __lock_acquire+0xef2/0x3430 kernel/locking/lockdep.c:3340
+ lock_acquire+0x2a1/0x630 kernel/locking/lockdep.c:3755
+ lock_sock_nested+0xcb/0x120 net/core/sock.c:2536
+ lock_sock include/net/sock.h:1460 [inline]
+ sctp_close+0xcd/0x9d0 net/sctp/socket.c:1497
+ inet_release+0xed/0x1c0 net/ipv4/af_inet.c:425
+ inet6_release+0x50/0x70 net/ipv6/af_inet6.c:432
+ sock_release+0x8d/0x1e0 net/socket.c:597
+ __sock_create+0x38b/0x870 net/socket.c:1226
+ sock_create+0x7f/0xa0 net/socket.c:1237
+ sctp_do_peeloff+0x1a2/0x440 net/sctp/socket.c:4879
+ sctp_getsockopt_peeloff net/sctp/socket.c:4914 [inline]
+ sctp_getsockopt+0x111a/0x67e0 net/sctp/socket.c:6628
+ sock_common_getsockopt+0x95/0xd0 net/core/sock.c:2690
+ SYSC_getsockopt net/socket.c:1817 [inline]
+ SyS_getsockopt+0x240/0x380 net/socket.c:1799
+ entry_SYSCALL_64_fastpath+0x1f/0xc2
 
-As BH is disabled and CPU cannot schedule back to the thread holding the
-read_lock, while the thread A keeps waiting for the read_lock. A dead
-lock would be triggered by this.
+This warning is caused by the lock held by sctp_getsockopt() is on one
+socket, while the other lock that sctp_close() is getting later is on
+the newly created (which failed) socket during peeloff operation.
 
-This patch is to fix this dead lock by calling read_lock_bh instead to
-disable BH when holding the read_lock in sctp_for_each_endpoint.
+This patch is to avoid this warning by use lock_sock with subclass
+SINGLE_DEPTH_NESTING as Wang Cong and Marcelo's suggestion.
 
-Fixes: 626d16f50f39 ("sctp: export some apis or variables for sctp_diag and reuse some for proc")
-Reported-by: Xiumei Mu <xmu@redhat.com>
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Suggested-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Suggested-by: Cong Wang <xiyou.wangcong@gmail.com>
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
  net/sctp/socket.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index f16c8d9..30aa0a5 100644
+index 5f58dd0..32d5495 100644
 --- a/net/sctp/socket.c
 +++ b/net/sctp/socket.c
-@@ -4622,13 +4622,13 @@ int sctp_for_each_endpoint(int (*cb)(struct sctp_endpoint *, void *),
+@@ -1494,7 +1494,7 @@ static void sctp_close(struct sock *sk, long timeout)
  
- 	for (head = sctp_ep_hashtable; hash < sctp_ep_hashsize;
- 	     hash++, head++) {
--		read_lock(&head->lock);
-+		read_lock_bh(&head->lock);
- 		sctp_for_each_hentry(epb, &head->chain) {
- 			err = cb(sctp_ep(epb), p);
- 			if (err)
- 				break;
- 		}
--		read_unlock(&head->lock);
-+		read_unlock_bh(&head->lock);
- 	}
+ 	pr_debug("%s: sk:%p, timeout:%ld\n", __func__, sk, timeout);
  
- 	return err;
+-	lock_sock(sk);
++	lock_sock_nested(sk, SINGLE_DEPTH_NESTING);
+ 	sk->sk_shutdown = SHUTDOWN_MASK;
+ 	sk->sk_state = SCTP_SS_CLOSING;
+ 
+@@ -1544,7 +1544,7 @@ static void sctp_close(struct sock *sk, long timeout)
+ 	 * held and that should be grabbed before socket lock.
+ 	 */
+ 	spin_lock_bh(&net->sctp.addr_wq_lock);
+-	bh_lock_sock(sk);
++	bh_lock_sock_nested(sk);
+ 
+ 	/* Hold the sock, since sk_common_release() will put sock_put()
+ 	 * and we have just a little more cleanup.
 -- 
 2.1.0
