@@ -1,52 +1,110 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH 2/6] net/ipv6: use constant time memory comparison for mac
-Date: Sat, 10 Jun 2017 04:59:08 +0200
-Message-ID: <20170610025912.6499-3-Jason@zx2c4.com>
-References: <20170610025912.6499-1-Jason@zx2c4.com>
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org,
-	stable@vger.kernel.org
-To: linux-kernel@vger.kernel.org,
-	kernel-hardening@lists.openwall.com
-Return-path: <kernel-hardening-return-8503-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20170610025912.6499-1-Jason@zx2c4.com>
+From: Salil Mehta <salil.mehta@huawei.com>
+Subject: [PATCH net-next 0/9] Hisilicon Network Subsystem 3 Ethernet Driver
+Date: Sat, 10 Jun 2017 04:46:21 +0100
+Message-ID: <20170610034630.493852-1-salil.mehta@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
+        <huangdaode@hisilicon.com>, <lipeng321@huawei.com>,
+        <mehta.salil.lnk@gmail.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Otherwise, we enable a MAC forgery via timing attack.
+This patch-set contains the support of the HNS3 (Hisilicon Network Subsystem 3)
+Ethernet driver for hip08 family of SoCs and future upcoming SoCs.
 
-Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
-Cc: stable@vger.kernel.org
----
- net/ipv6/seg6_hmac.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Hisilicon's new hip08 SoCs have integrated ethernet based on PCI Express and
+hence there was a need of new driver over the previous HNS driver which is 
+already part of the Linux mainline. This new driver is NOT backward
+compatible with HNS.
 
-diff --git a/net/ipv6/seg6_hmac.c b/net/ipv6/seg6_hmac.c
-index f950cb53d5e3..54213c83b44e 100644
---- a/net/ipv6/seg6_hmac.c
-+++ b/net/ipv6/seg6_hmac.c
-@@ -38,6 +38,7 @@
- #include <net/xfrm.h>
- 
- #include <linux/cryptohash.h>
-+#include <crypto/algapi.h>
- #include <crypto/hash.h>
- #include <crypto/sha.h>
- #include <net/seg6.h>
-@@ -274,7 +275,7 @@ bool seg6_hmac_validate_skb(struct sk_buff *skb)
- 	if (seg6_hmac_compute(hinfo, srh, &ipv6_hdr(skb)->saddr, hmac_output))
- 		return false;
- 
--	if (memcmp(hmac_output, tlv->hmac, SEG6_HMAC_FIELD_LEN) != 0)
-+	if (crypto_memneq(hmac_output, tlv->hmac, SEG6_HMAC_FIELD_LEN))
- 		return false;
- 
- 	return true;
+This current driver is meant to control the Physical Function and there would
+soon be a support of a separate driver for Virtual Function once this base PF
+driver has been accepted. Also, this driver is the ongoing development work and
+HNS3 Ethernet driver would be incrementally enhanced with more new features.
+
+High Level Architecture:
+
+        [ Ethtool ]
+	   ^  |
+           |  | 
+       [Ethernet Client]  [RoCE Client] . . . [ Ethernet Client ]     
+    ---------------------------------------------     |
+                         |                            |
+     [ HNAE3 Framework (Register/unregister) ]        |
+                         |                            |
+    ---------------------------------------------     |
+                   [ HNAE Device ]                    |
+                         |                            |
+                   [ HCLGE Layer]                     |
+         ________________|_________________           |
+        |                |                 |          |
+    [ MDIO ]    [ Scheduler/Shaper ]  [ Debugfs ]     |
+        |                |                 |          |
+        |________________|_________________|          |     
+                         |                            |
+             [ IMP command Interface ]                |
+    ---------------------------------------------     |
+              HIP08  H A R D W A R E                  *
+
+
+Current patch-set broadly adds the support of the following PF functionality:
+ 1. Basic Rx and Tx functionality 
+ 2. TSO support
+ 3. Ethtool support
+ 4. Debugfs support 
+ 5. HNAE framework and hardware compatability layer
+ 6. Scheduler and Shaper support in transmit function
+ 7. MDIO support
+
+Salil Mehta (9):
+  net: hns3: Add support of HNS3 Ethernet Driver for hip08 SoC
+  net: hns3: Add support of the HNAE3 framework
+  net: hns3: Add HNS3 IMP(Integrated Mgmt Proc) Cmd Interface Support
+  net: hns3: Add HNS3 Acceleration Engine & Compatibility Layer Support
+  net: hns3: Add support of TX Scheduler & Shaper to HNS3 driver
+  net: hns3: Add MDIO support to HNS3 Ethernet driver for hip08 SoC
+  net: hns3: Add Ethtool support to HNS3 driver
+  net: hns3: Add support of debugfs interface to HNS3 driver
+  net: hns3: Add HNS3 driver to kernel build framework & MAINTAINERS
+
+ MAINTAINERS                                        |    8 +
+ drivers/net/ethernet/hisilicon/Kconfig             |   24 +
+ drivers/net/ethernet/hisilicon/Makefile            |    1 +
+ drivers/net/ethernet/hisilicon/hns3/Makefile       |    7 +
+ drivers/net/ethernet/hisilicon/hns3/hnae3.c        |  305 ++
+ drivers/net/ethernet/hisilicon/hns3/hnae3.h        |  449 +++
+ .../net/ethernet/hisilicon/hns3/hns3pf/Makefile    |   11 +
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c |  347 ++
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h |  742 ++++
+ .../ethernet/hisilicon/hns3/hns3pf/hclge_debugfs.c |  188 +
+ .../ethernet/hisilicon/hns3/hns3pf/hclge_main.c    | 4257 ++++++++++++++++++++
+ .../ethernet/hisilicon/hns3/hns3pf/hclge_main.h    |  493 +++
+ .../ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c    |  310 ++
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c  | 1018 +++++
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h  |  108 +
+ .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c | 2851 +++++++++++++
+ .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h |  585 +++
+ .../ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c  |  894 ++++
+ 18 files changed, 12598 insertions(+)
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/Makefile
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hnae3.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hnae3.h
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/Makefile
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_debugfs.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c
+
 -- 
-2.13.1
+2.7.4
