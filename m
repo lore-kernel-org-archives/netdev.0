@@ -1,7 +1,8 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH net-next 0/9] Hisilicon Network Subsystem 3 Ethernet Driver
-Date: Sat, 10 Jun 2017 04:46:21 +0100
-Message-ID: <20170610034630.493852-1-salil.mehta@huawei.com>
+Subject: [PATCH net-next 6/9] net: hns3: Add MDIO support to HNS3 Ethernet driver for hip08 SoC
+Date: Sat, 10 Jun 2017 04:46:27 +0100
+Message-ID: <20170610034630.493852-7-salil.mehta@huawei.com>
+References: <20170610034630.493852-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
@@ -10,101 +11,338 @@ Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
         <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
 To: <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170610034630.493852-1-salil.mehta@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch-set contains the support of the HNS3 (Hisilicon Network Subsystem 3)
-Ethernet driver for hip08 family of SoCs and future upcoming SoCs.
+This patch adds the support of MDIO bus interface for HNS3 driver.
+Code provides various interfaces to start and stop the PHY layer
+and to read and write the MDIO bus or PHY.
 
-Hisilicon's new hip08 SoCs have integrated ethernet based on PCI Express and
-hence there was a need of new driver over the previous HNS driver which is 
-already part of the Linux mainline. This new driver is NOT backward
-compatible with HNS.
-
-This current driver is meant to control the Physical Function and there would
-soon be a support of a separate driver for Virtual Function once this base PF
-driver has been accepted. Also, this driver is the ongoing development work and
-HNS3 Ethernet driver would be incrementally enhanced with more new features.
-
-High Level Architecture:
-
-        [ Ethtool ]
-	   ^  |
-           |  | 
-       [Ethernet Client]  [RoCE Client] . . . [ Ethernet Client ]     
-    ---------------------------------------------     |
-                         |                            |
-     [ HNAE3 Framework (Register/unregister) ]        |
-                         |                            |
-    ---------------------------------------------     |
-                   [ HNAE Device ]                    |
-                         |                            |
-                   [ HCLGE Layer]                     |
-         ________________|_________________           |
-        |                |                 |          |
-    [ MDIO ]    [ Scheduler/Shaper ]  [ Debugfs ]     |
-        |                |                 |          |
-        |________________|_________________|          |     
-                         |                            |
-             [ IMP command Interface ]                |
-    ---------------------------------------------     |
-              HIP08  H A R D W A R E                  *
-
-
-Current patch-set broadly adds the support of the following PF functionality:
- 1. Basic Rx and Tx functionality 
- 2. TSO support
- 3. Ethtool support
- 4. Debugfs support 
- 5. HNAE framework and hardware compatability layer
- 6. Scheduler and Shaper support in transmit function
- 7. MDIO support
-
-Salil Mehta (9):
-  net: hns3: Add support of HNS3 Ethernet Driver for hip08 SoC
-  net: hns3: Add support of the HNAE3 framework
-  net: hns3: Add HNS3 IMP(Integrated Mgmt Proc) Cmd Interface Support
-  net: hns3: Add HNS3 Acceleration Engine & Compatibility Layer Support
-  net: hns3: Add support of TX Scheduler & Shaper to HNS3 driver
-  net: hns3: Add MDIO support to HNS3 Ethernet driver for hip08 SoC
-  net: hns3: Add Ethtool support to HNS3 driver
-  net: hns3: Add support of debugfs interface to HNS3 driver
-  net: hns3: Add HNS3 driver to kernel build framework & MAINTAINERS
-
- MAINTAINERS                                        |    8 +
- drivers/net/ethernet/hisilicon/Kconfig             |   24 +
- drivers/net/ethernet/hisilicon/Makefile            |    1 +
- drivers/net/ethernet/hisilicon/hns3/Makefile       |    7 +
- drivers/net/ethernet/hisilicon/hns3/hnae3.c        |  305 ++
- drivers/net/ethernet/hisilicon/hns3/hnae3.h        |  449 +++
- .../net/ethernet/hisilicon/hns3/hns3pf/Makefile    |   11 +
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c |  347 ++
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h |  742 ++++
- .../ethernet/hisilicon/hns3/hns3pf/hclge_debugfs.c |  188 +
- .../ethernet/hisilicon/hns3/hns3pf/hclge_main.c    | 4257 ++++++++++++++++++++
- .../ethernet/hisilicon/hns3/hns3pf/hclge_main.h    |  493 +++
- .../ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c    |  310 ++
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c  | 1018 +++++
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h  |  108 +
- .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c | 2851 +++++++++++++
- .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h |  585 +++
- .../ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c  |  894 ++++
- 18 files changed, 12598 insertions(+)
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/Makefile
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hnae3.c
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hnae3.h
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/Makefile
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_debugfs.c
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
+Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
+Signed-off-by: lipeng <lipeng321@huawei.com>
+Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
+Signed-off-by: Yisen Zhuang <yisen.zhuang@huawei.com>
+---
+ .../ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c    | 310 +++++++++++++++++++++
+ 1 file changed, 310 insertions(+)
  create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c
 
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c
+new file mode 100644
+index 0000000..c6812d2
+--- /dev/null
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c
+@@ -0,0 +1,310 @@
++/*
++ * Copyright (c) 2016~2017 Hisilicon Limited.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <linux/etherdevice.h>
++#include <linux/kernel.h>
++
++#include "hclge_cmd.h"
++#include "hclge_main.h"
++
++enum hclge_mdio_c22_op_seq {
++	HCLGE_MDIO_C22_WRITE = 1,
++	HCLGE_MDIO_C22_READ = 2
++};
++
++enum hclge_mdio_c45_op_seq {
++	HCLGE_MDIO_C45_WRITE_ADDR = 0,
++	HCLGE_MDIO_C45_WRITE_DATA,
++	HCLGE_MDIO_C45_READ_INCREMENT,
++	HCLGE_MDIO_C45_READ
++};
++
++#define HCLGE_MDIO_CTRL_START_BIT       BIT(0)
++#define HCLGE_MDIO_CTRL_ST_MSK  GENMASK(2, 1)
++#define HCLGE_MDIO_CTRL_ST_LSH  1
++#define HCLGE_MDIO_IS_C22(c22)  (((c22) << HCLGE_MDIO_CTRL_ST_LSH) & \
++	HCLGE_MDIO_CTRL_ST_MSK)
++
++#define HCLGE_MDIO_CTRL_OP_MSK  GENMASK(4, 3)
++#define HCLGE_MDIO_CTRL_OP_LSH  3
++#define HCLGE_MDIO_CTRL_OP(access) \
++	(((access) << HCLGE_MDIO_CTRL_OP_LSH) &	HCLGE_MDIO_CTRL_OP_MSK)
++#define HCLGE_MDIO_CTRL_PRTAD_MSK       GENMASK(4, 0)
++#define HCLGE_MDIO_CTRL_DEVAD_MSK       GENMASK(4, 0)
++
++#define HCLGE_MDIO_STA_VAL(val)	((val) & BIT(0))
++
++struct hclge_mdio_cfg_cmd {
++	u8 ctrl_bit;
++	u8 prtad;       /* The external port address */
++	u8 devad;       /* The external device address */
++	u8 rsvd;
++	__le16 addr_c45;/* Only valid for c45 */
++	__le16 data_wr;
++	__le16 data_rd;
++	__le16 sta;
++};
++
++static int hclge_mdio_write(struct mii_bus *bus, int phy_id, int regnum,
++			    u16 data)
++{
++	struct hclge_dev *hdev = (struct hclge_dev *)bus->priv;
++	struct hclge_mdio_cfg_cmd *mdio_cmd;
++	enum hclge_cmd_status status;
++	struct hclge_desc desc;
++	u8 is_c45, devad;
++	u16 reg;
++
++	if (!bus)
++		return -EINVAL;
++
++	is_c45 = !!(regnum & MII_ADDR_C45);
++	devad = ((regnum >> 16) & 0x1f);
++	reg = (u16)(regnum & 0xffff);
++
++	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_MDIO_CONFIG, false);
++
++	mdio_cmd = (struct hclge_mdio_cfg_cmd *)desc.data;
++
++	if (!is_c45) {
++		/* C22 write reg and data */
++		mdio_cmd->ctrl_bit = HCLGE_MDIO_IS_C22(!is_c45);
++		mdio_cmd->ctrl_bit |= HCLGE_MDIO_CTRL_OP(HCLGE_MDIO_C22_WRITE);
++		mdio_cmd->ctrl_bit |= HCLGE_MDIO_CTRL_START_BIT;
++		mdio_cmd->data_wr = cpu_to_le16(data);
++		mdio_cmd->devad = devad & HCLGE_MDIO_CTRL_DEVAD_MSK;
++		mdio_cmd->prtad = phy_id & HCLGE_MDIO_CTRL_PRTAD_MSK;
++	} else {
++		/* Set phy addr */
++		mdio_cmd->ctrl_bit |= HCLGE_MDIO_CTRL_START_BIT;
++		mdio_cmd->addr_c45 = cpu_to_le16(reg);
++		mdio_cmd->data_wr = cpu_to_le16(data);
++		mdio_cmd->devad = devad & HCLGE_MDIO_CTRL_DEVAD_MSK;
++		mdio_cmd->prtad = phy_id & HCLGE_MDIO_CTRL_PRTAD_MSK;
++	}
++
++	status = hclge_cmd_send(&hdev->hw, &desc, 1);
++	if (status) {
++		dev_err(&hdev->pdev->dev,
++			"mdio write fail when sending cmd, status is %d.\n",
++			status);
++		return -EIO;
++	}
++
++	return 0;
++}
++
++static int hclge_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
++{
++	struct hclge_dev *hdev = (struct hclge_dev *)bus->priv;
++	struct hclge_mdio_cfg_cmd *mdio_cmd;
++	enum hclge_cmd_status status;
++	struct hclge_desc desc;
++	u8 is_c45, devad;
++	u16 reg;
++
++	if (!bus)
++		return -EINVAL;
++
++	is_c45 = !!(regnum & MII_ADDR_C45);
++	devad = ((regnum >> 16) & GENMASK(4, 0));
++	reg = (u16)(regnum & GENMASK(15, 0));
++
++	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_MDIO_CONFIG, true);
++
++	mdio_cmd = (struct hclge_mdio_cfg_cmd *)desc.data;
++
++	dev_dbg(&bus->dev, "phy id=%d, is_c45=%d, devad=%d, reg=%#x!\n",
++		phy_id, is_c45, devad, reg);
++
++	if (!is_c45) {
++		/* C22 read reg */
++		mdio_cmd->ctrl_bit = HCLGE_MDIO_IS_C22(!is_c45);
++		mdio_cmd->ctrl_bit |= HCLGE_MDIO_CTRL_OP(HCLGE_MDIO_C22_READ);
++		mdio_cmd->ctrl_bit |= HCLGE_MDIO_CTRL_START_BIT;
++		mdio_cmd->devad = reg & HCLGE_MDIO_CTRL_DEVAD_MSK;
++		mdio_cmd->prtad = phy_id & HCLGE_MDIO_CTRL_PRTAD_MSK;
++	} else {
++		/* C45 phy addr */
++		mdio_cmd->ctrl_bit |= HCLGE_MDIO_CTRL_START_BIT;
++
++		mdio_cmd->addr_c45 = cpu_to_le16(reg);
++		mdio_cmd->devad = devad & HCLGE_MDIO_CTRL_DEVAD_MSK;
++		mdio_cmd->prtad = phy_id & HCLGE_MDIO_CTRL_PRTAD_MSK;
++	}
++
++	/* Read out phy data */
++	status = hclge_cmd_send(&hdev->hw, &desc, 1);
++	if (status) {
++		dev_err(&hdev->pdev->dev,
++			"mdio read fail when get data, status is %d.\n",
++			status);
++		return -EIO;
++	}
++
++	if (le16_to_cpu(HCLGE_MDIO_STA_VAL(mdio_cmd->sta))) {
++		dev_err(&hdev->pdev->dev, "mdio read data error\n");
++		return -ENOMEM;
++	}
++
++	return le16_to_cpu(mdio_cmd->data_rd);
++}
++
++int hclge_mac_mdio_config(struct hclge_dev *hdev)
++{
++	struct hclge_mac *mac = &hdev->hw.mac;
++	struct mii_bus *mdio_bus;
++	struct net_device *ndev = &mac->ndev;
++	struct phy_device *phy;
++	bool is_c45;
++	int ret;
++
++	if (hdev->hw.mac.phy_addr >= PHY_MAX_ADDR)
++		return 0;
++
++	if (hdev->hw.mac.phy_if == PHY_INTERFACE_MODE_NA)
++		return 0;
++	else if (mac->phy_if == PHY_INTERFACE_MODE_SGMII)
++		is_c45 = 0;
++	else if (mac->phy_if == PHY_INTERFACE_MODE_XGMII)
++		is_c45 = 1;
++	else
++		return -ENODATA;
++
++	SET_NETDEV_DEV(ndev, &hdev->pdev->dev);
++
++	mdio_bus = devm_mdiobus_alloc(&hdev->pdev->dev);
++	if (!mdio_bus) {
++		ret = -ENOMEM;
++		goto err_miibus_alloc;
++	}
++
++	mdio_bus->name = "hisilicon MII bus";
++	mdio_bus->read = hclge_mdio_read;
++	mdio_bus->write = hclge_mdio_write;
++	snprintf(mdio_bus->id, MII_BUS_ID_SIZE, "%s-%s", "mii",
++		 dev_name(&hdev->pdev->dev));
++
++	mdio_bus->parent = &hdev->pdev->dev;
++	mdio_bus->priv = hdev;
++	mdio_bus->phy_mask = ~0;
++	ret = mdiobus_register(mdio_bus);
++	if (ret) {
++		dev_err(mdio_bus->parent,
++			"Failed to register MDIO bus ret = %#x\n", ret);
++		goto err_mdio_register;
++	}
++
++	phy = get_phy_device(mdio_bus, mac->phy_addr, is_c45);
++	if (!phy || IS_ERR(phy)) {
++		dev_err(mdio_bus->parent, "Failed to get phy device\n");
++		ret = -EIO;
++		goto err_mdio_register;
++	}
++
++	phy->irq = mdio_bus->irq[mac->phy_addr];
++
++	/* All data is now stored in the phy struct;
++	 * register it
++	 */
++	ret = phy_device_register(phy);
++	if (ret) {
++		ret = -ENODEV;
++		goto err_phy_register;
++	}
++
++	mac->phy_dev = phy;
++
++	return 0;
++
++err_phy_register:
++	phy_device_free(phy);
++err_mdio_register:
++	mdiobus_unregister(mdio_bus);
++	mdiobus_free(mdio_bus);
++err_miibus_alloc:
++	return ret;
++}
++
++static void hclge_mac_adjust_link(struct net_device *net_dev)
++{
++	int duplex;
++	int speed;
++	struct hclge_mac *hw_mac;
++	struct hclge_hw *hw;
++	struct hclge_dev *hdev;
++
++	if (!net_dev)
++		return;
++
++	hw_mac = container_of(net_dev, struct hclge_mac, ndev);
++	hw = container_of(hw_mac, struct hclge_hw, mac);
++	hdev = hw->back;
++
++	speed = hw_mac->phy_dev->speed;
++	duplex = hw_mac->phy_dev->duplex;
++
++	/* update antoneg. */
++	hw_mac->autoneg = hw_mac->phy_dev->autoneg;
++
++	if ((hw_mac->speed != speed) || (hw_mac->duplex != duplex))
++		(void)hclge_cfg_mac_speed_dup(hdev, speed, !!duplex);
++}
++
++int hclge_mac_start_phy(struct hclge_dev *hdev)
++{
++	struct hclge_mac *mac = &hdev->hw.mac;
++	struct phy_device *phy_dev = mac->phy_dev;
++	int ret;
++
++	if (!phy_dev)
++		return 0;
++
++	if (mac->phy_if != PHY_INTERFACE_MODE_XGMII) {
++		phy_dev->dev_flags = 0;
++
++		ret = phy_connect_direct(&mac->ndev, phy_dev,
++					 hclge_mac_adjust_link,
++					 mac->phy_if);
++		phy_dev->supported = SUPPORTED_10baseT_Half |
++				SUPPORTED_10baseT_Full |
++				SUPPORTED_100baseT_Half |
++				SUPPORTED_100baseT_Full |
++				SUPPORTED_Autoneg |
++				SUPPORTED_1000baseT_Full;
++
++		phy_dev->autoneg = false;
++	} else {
++		ret = phy_attach_direct(&mac->ndev, phy_dev, 0, mac->phy_if);
++		phy_dev->supported = SUPPORTED_10000baseR_FEC |
++				SUPPORTED_10000baseKR_Full;
++	}
++	if (unlikely(ret))
++		return -ENODEV;
++
++	phy_start(phy_dev);
++
++	return 0;
++}
++
++void hclge_mac_stop_phy(struct hclge_dev *hdev)
++{
++	struct hclge_mac *mac = &hdev->hw.mac;
++	struct phy_device *phy_dev = mac->phy_dev;
++
++	if (!phy_dev)
++		return;
++
++	phy_stop(phy_dev);
++
++	if (mac->phy_if != PHY_INTERFACE_MODE_XGMII)
++		phy_disconnect(phy_dev);
++	else
++		phy_detach(phy_dev);
++}
 -- 
 2.7.4
