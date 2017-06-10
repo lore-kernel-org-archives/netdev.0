@@ -1,59 +1,59 @@
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net-next] sctp: use read_lock_bh in sctp_eps_seq_show
-Date: Sat, 10 Jun 2017 13:02:05 -0300
-Message-ID: <20170610160205.GC5799@localhost.localdomain>
-References: <f845585a99f0cb76659f4d5dae4f7d6fd5552224.1497078812.git.lucien.xin@gmail.com>
+Subject: Re: [PATCHv2 net-next] sctp: no need to check assoc id before
+ calling sctp_assoc_set_id
+Date: Sat, 10 Jun 2017 13:03:13 -0300
+Message-ID: <20170610160313.GD5799@localhost.localdomain>
+References: <ea556c7733c5bf63532ce35186e4bc7a519bf858.1497079632.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
         Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
 To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56278 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:47196 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751912AbdFJQCI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 10 Jun 2017 12:02:08 -0400
+        id S1751912AbdFJQDQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 10 Jun 2017 12:03:16 -0400
 Content-Disposition: inline
-In-Reply-To: <f845585a99f0cb76659f4d5dae4f7d6fd5552224.1497078812.git.lucien.xin@gmail.com>
+In-Reply-To: <ea556c7733c5bf63532ce35186e4bc7a519bf858.1497079632.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 10, 2017 at 03:13:32PM +0800, Xin Long wrote:
-> This patch is to use read_lock_bh instead of local_bh_disable
-> and read_lock in sctp_eps_seq_show.
+On Sat, Jun 10, 2017 at 03:27:12PM +0800, Xin Long wrote:
+> sctp_assoc_set_id does the assoc id check in the beginning when
+> processing dupcookie, no need to do the same check before calling
+> it.
+> 
+> v1->v2:
+>   fix some typo errs Marcelo pointed in changelog.
 > 
 > Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
 Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
 > ---
->  net/sctp/proc.c | 6 ++----
->  1 file changed, 2 insertions(+), 4 deletions(-)
+>  net/sctp/associola.c | 8 ++------
+>  1 file changed, 2 insertions(+), 6 deletions(-)
 > 
-> diff --git a/net/sctp/proc.c b/net/sctp/proc.c
-> index 5a27d0f..8e34db5 100644
-> --- a/net/sctp/proc.c
-> +++ b/net/sctp/proc.c
-> @@ -218,8 +218,7 @@ static int sctp_eps_seq_show(struct seq_file *seq, void *v)
->  		return -ENOMEM;
+> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+> index 288c5e0..72b07dd 100644
+> --- a/net/sctp/associola.c
+> +++ b/net/sctp/associola.c
+> @@ -1181,12 +1181,8 @@ void sctp_assoc_update(struct sctp_association *asoc,
+>  		if (sctp_state(asoc, COOKIE_WAIT))
+>  			sctp_stream_update(&asoc->stream, &new->stream);
 >  
->  	head = &sctp_ep_hashtable[hash];
-> -	local_bh_disable();
-> -	read_lock(&head->lock);
-> +	read_lock_bh(&head->lock);
->  	sctp_for_each_hentry(epb, &head->chain) {
->  		ep = sctp_ep(epb);
->  		sk = epb->sk;
-> @@ -234,8 +233,7 @@ static int sctp_eps_seq_show(struct seq_file *seq, void *v)
->  		sctp_seq_dump_local_addrs(seq, epb);
->  		seq_printf(seq, "\n");
+> -		if (!asoc->assoc_id) {
+> -			/* get a new association id since we don't have one
+> -			 * yet.
+> -			 */
+> -			sctp_assoc_set_id(asoc, GFP_ATOMIC);
+> -		}
+> +		/* get a new assoc id if we don't have one yet. */
+> +		sctp_assoc_set_id(asoc, GFP_ATOMIC);
 >  	}
-> -	read_unlock(&head->lock);
-> -	local_bh_enable();
-> +	read_unlock_bh(&head->lock);
 >  
->  	return 0;
->  }
+>  	/* SCTP-AUTH: Save the peer parameters from the new associations
 > -- 
 > 2.1.0
 > 
