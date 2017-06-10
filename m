@@ -1,64 +1,45 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCHv2 net-next] sctp: no need to check assoc id before
- calling sctp_assoc_set_id
-Date: Sat, 10 Jun 2017 13:03:13 -0300
-Message-ID: <20170610160313.GD5799@localhost.localdomain>
-References: <ea556c7733c5bf63532ce35186e4bc7a519bf858.1497079632.git.lucien.xin@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 8/9] net: hns3: Add support of debugfs interface
+ to HNS3 driver
+Date: Sat, 10 Jun 2017 18:35:35 +0200
+Message-ID: <20170610163535.GC26740@lunn.ch>
+References: <20170610034630.493852-1-salil.mehta@huawei.com>
+ <20170610034630.493852-9-salil.mehta@huawei.com>
+ <BY2PR0701MB2005750A49D78C63B4B4A6B18DCF0@BY2PR0701MB2005.namprd07.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47196 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751912AbdFJQDQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 10 Jun 2017 12:03:16 -0400
+Cc: Salil Mehta <salil.mehta@huawei.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "yisen.zhuang@huawei.com" <yisen.zhuang@huawei.com>,
+        "huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
+        "lipeng321@huawei.com" <lipeng321@huawei.com>,
+        "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linuxarm@huawei.com" <linuxarm@huawei.com>
+To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <ea556c7733c5bf63532ce35186e4bc7a519bf858.1497079632.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <BY2PR0701MB2005750A49D78C63B4B4A6B18DCF0@BY2PR0701MB2005.namprd07.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 10, 2017 at 03:27:12PM +0800, Xin Long wrote:
-> sctp_assoc_set_id does the assoc id check in the beginning when
-> processing dupcookie, no need to do the same check before calling
-> it.
+On Sat, Jun 10, 2017 at 12:51:57PM +0000, Mintz, Yuval wrote:
+> > This adds the support of the debugfs interface to the driver for debugging
+> > purposes.
 > 
-> v1->v2:
->   fix some typo errs Marcelo pointed in changelog.
+> > +const struct  hclge_support_cmd  support_cmd[] = {
+> > +	{"send cmd", 8, hclge_dbg_send,
+> > +		"opcode flag data0 data1 data2 data3 data4 data5"},
+> > +	{"help", 4, hclge_dbg_usage, "no option"}, };
 > 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Is there an actual description of what this does? Or is it simply a huge backdoor?
 
-Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+It looks like a huge backdoor to the chip.
 
-> ---
->  net/sctp/associola.c | 8 ++------
->  1 file changed, 2 insertions(+), 6 deletions(-)
-> 
-> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> index 288c5e0..72b07dd 100644
-> --- a/net/sctp/associola.c
-> +++ b/net/sctp/associola.c
-> @@ -1181,12 +1181,8 @@ void sctp_assoc_update(struct sctp_association *asoc,
->  		if (sctp_state(asoc, COOKIE_WAIT))
->  			sctp_stream_update(&asoc->stream, &new->stream);
->  
-> -		if (!asoc->assoc_id) {
-> -			/* get a new association id since we don't have one
-> -			 * yet.
-> -			 */
-> -			sctp_assoc_set_id(asoc, GFP_ATOMIC);
-> -		}
-> +		/* get a new assoc id if we don't have one yet. */
-> +		sctp_assoc_set_id(asoc, GFP_ATOMIC);
->  	}
->  
->  	/* SCTP-AUTH: Save the peer parameters from the new associations
-> -- 
-> 2.1.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+It is O.K. to have such a patch internally for your own development
+work, but it should not be submitted for mainline.
+
+NACK
+
+	Andrew
