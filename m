@@ -1,49 +1,40 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: [PATCH v1] net: rfkill: gpio: Switch to devm_acpi_dev_add_driver_gpios()
-Date: Sat, 10 Jun 2017 22:10:34 +0300
-Message-ID: <20170610191034.53635-1-andriy.shevchenko@linux.intel.com>
-Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-To: Johannes Berg <johannes@sipsolutions.net>,
-        linux-wireless@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:2949 "EHLO mga14.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751563AbdFJTLi (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 10 Jun 2017 15:11:38 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2] sh_eth: add support to change MTU
+Date: Sat, 10 Jun 2017 22:26:13 +0300
+Message-ID: <239c39ff-cf0e-d332-7b52-098ba8029798@cogentembedded.com>
+References: <20170609203215.1206-1-niklas.soderlund+renesas@ragnatech.se>
+ <20170609203658.GB17461@bigcity.dyn.berto.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
+To: =?UTF-8?Q?Niklas_S=c3=b6derlund?= <niklas.soderlund@ragnatech.se>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <20170609203658.GB17461@bigcity.dyn.berto.se>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Switch to use managed variant of acpi_dev_add_driver_gpios() to simplify
-error path and fix potentially wrong assingment if ->probe() fails.
+Hello!
 
-Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
----
- net/rfkill/rfkill-gpio.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+On 06/09/2017 11:36 PM, Niklas Söderlund wrote:
 
-diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
-index 76c01cbd56e3..41bd496531d4 100644
---- a/net/rfkill/rfkill-gpio.c
-+++ b/net/rfkill/rfkill-gpio.c
-@@ -81,8 +81,7 @@ static int rfkill_gpio_acpi_probe(struct device *dev,
- 
- 	rfkill->type = (unsigned)id->driver_data;
- 
--	return acpi_dev_add_driver_gpios(ACPI_COMPANION(dev),
--					 acpi_rfkill_default_gpios);
-+	return devm_acpi_dev_add_driver_gpios(dev, acpi_rfkill_default_gpios);
- }
- 
- static int rfkill_gpio_probe(struct platform_device *pdev)
-@@ -154,8 +153,6 @@ static int rfkill_gpio_remove(struct platform_device *pdev)
- 	rfkill_unregister(rfkill->rfkill_dev);
- 	rfkill_destroy(rfkill->rfkill_dev);
- 
--	acpi_dev_remove_driver_gpios(ACPI_COMPANION(&pdev->dev));
--
- 	return 0;
- }
- 
--- 
-2.11.0
+>> The hardware supports the MTU to be changed and the driver it self is
+>> somewhat prepared to support this. This patch hooks up the callbacks to
+>> be able to change the MTU from user-space.
+>>
+>> Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
+>> Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>> ---
+[...]
+>> @@ -3171,6 +3184,13 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+>>  	}
+>>  	sh_eth_set_default_cpu_data(mdp->cd);
+>>
+>> +	/* User's manua states max MTU should be 2048 but due to the
+>
+> s/manua/manual/
+
+    Looking at it for another time, I'd also reword the subject -- something 
+like "sh_eth: add support for changing MTU" or "sh_eth: add MTU change support".
+
+MBR, Sergei
