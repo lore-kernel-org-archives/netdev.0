@@ -1,65 +1,98 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: Re: [Regression, 4.12-rc1] Address family not supported by protocol
-Date: Fri, 9 Jun 2017 16:43:22 -0700
-Message-ID: <10656c28-6789-41d8-dc2d-d1c84b6c2793@infradead.org>
-References: <c882b399-e183-8113-32aa-757abcd269bd@molgen.mpg.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] l2tp: cast l2tp traffic counter to unsigned
+Date: Fri, 09 Jun 2017 17:29:11 -0700
+Message-ID: <1497054551.736.99.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170609142947.16969-1-dheidler@suse.de>
+         <20170609151621.11e610a2@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Paul Menzel <pmenzel@molgen.mpg.de>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: Dominik Heidler <dheidler@suse.de>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Tom Parkin <tparkin@katalix.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:44752 "EHLO
-        merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751545AbdFIXn3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 19:43:29 -0400
-In-Reply-To: <c882b399-e183-8113-32aa-757abcd269bd@molgen.mpg.de>
-Content-Language: en-US
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:34399 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751712AbdFJA3O (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 20:29:14 -0400
+In-Reply-To: <20170609151621.11e610a2@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[adding netdev]
-
-Hi Paul,
-Did you get anywhere with this?
-
-The only difference that I see in the kernel config files is
-
-4.12-rc1 says:
-# CONFIG_NET_SCH_DEFAULT is not set
-
-and 4.11 does not have that kconfig option.
-
-
-On 05/15/17 05:53, Paul Menzel wrote:
-> Dear Linux folks,
+On Fri, 2017-06-09 at 15:16 -0700, Stephen Hemminger wrote:
+> On Fri,  9 Jun 2017 16:29:47 +0200
+> Dominik Heidler <dheidler@suse.de> wrote:
 > 
+> > This fixes a counter problem on 32bit systems:
+> > When the rx_bytes counter reached 2 GiB, it jumpd to (2^64 Bytes - 2GiB) Bytes.
+> > 
+> > rtnl_link_stats64 has __u64 type and atomic_long_read returns
+> > atomic_long_t which is signed. Due to the conversation
+> > we get an incorrect value on 32bit systems if the MSB of
+> > the atomic_long_t value is set.
+> > 
+> > CC: Tom Parkin <tparkin@katalix.com>
+> > Fixes: 7b7c0719cd7a ("l2tp: avoid deadlock in l2tp stats update")
+> > Signed-off-by: Dominik Heidler <dheidler@suse.de>
+> > ---
+> >  net/l2tp/l2tp_eth.c | 13 +++++++------
+> >  1 file changed, 7 insertions(+), 6 deletions(-)
+> > 
+> > diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
+> > index 8b21af7321b9..668a75e002e9 100644
+> > --- a/net/l2tp/l2tp_eth.c
+> > +++ b/net/l2tp/l2tp_eth.c
+> > @@ -114,12 +114,13 @@ static void l2tp_eth_get_stats64(struct net_device *dev,
+> >  {
+> >  	struct l2tp_eth *priv = netdev_priv(dev);
+> >  
+> > -	stats->tx_bytes   = atomic_long_read(&priv->tx_bytes);
+> > -	stats->tx_packets = atomic_long_read(&priv->tx_packets);
+> > -	stats->tx_dropped = atomic_long_read(&priv->tx_dropped);
+> > -	stats->rx_bytes   = atomic_long_read(&priv->rx_bytes);
+> > -	stats->rx_packets = atomic_long_read(&priv->rx_packets);
+> > -	stats->rx_errors  = atomic_long_read(&priv->rx_errors);
+> > +	stats->tx_bytes   = (unsigned long) atomic_long_read(&priv->tx_bytes);
+> > +	stats->tx_packets = (unsigned long) atomic_long_read(&priv->tx_packets);
+> > +	stats->tx_dropped = (unsigned long) atomic_long_read(&priv->tx_dropped);
+> > +	stats->rx_bytes   = (unsigned long) atomic_long_read(&priv->rx_bytes);
+> > +	stats->rx_packets = (unsigned long) atomic_long_read(&priv->rx_packets);
+> > +	stats->rx_errors  = (unsigned long) atomic_long_read(&priv->rx_errors);
+> > +
+> >  }
+> >  
+> >  static const struct net_device_ops l2tp_eth_netdev_ops = {
 > 
-> When building Linux 4.12-rc1 with the configuration from Linux 4.11, then many user space programs show the error `Address family not supported by protocol`.
+> This is not the right way to fix this.
 > 
-> Please find the configuration, and the Linux kernel messages attached.
+> 1. shouldn't be using atomic's for network counters, look at other network devices.
 > 
-> [    5.383630] systemd[1]: Failed to insert module 'autofs4': No such file or directory
-> [    5.383808] systemd[1]: Failed to insert module 'unix': No such file or directory
-> [    5.600711] systemd[1]: systemd 231 running in system mode. (+PAM -AUDIT -SELINUX +IMA -APPARMOR +SMACK +SYSVINIT +UTMP -LIBCRYPTSETUP +GCRYPT +GNUTLS -ACL +XZ -LZ4 -SECCOMP +BLKID +ELFUTILS +KMOD +IDN)
-> [    5.601028] systemd[1]: Detected architecture x86-64.
-> [    5.623700] systemd[1]: Set hostname to <keineahnung.molgen.mpg.de>.
-> [    5.631835] systemd[1]: Failed to read AF_UNIX datagram queue length, ignoring: No such file or directory
-> [    6.404973] systemd[1]: Failed to allocate notification socket: Address family not supported by protocol
-> [    6.405441] systemd[1]: Failed to allocate cgroups agent socket: Address family not supported by protocol
-> [    6.405817] systemd[1]: Failed to allocate private socket: Address family not supported by protocol
-> [    6.406218] systemd[1]: socket() failed: Address family not supported by protocol
-> [    6.406379] systemd[1]: Failed to fully start up daemon: Address family not supported by protocol
-> [    6.515759] systemd[1]: Failed to listen on udev Control Socket.
-> [    8.597362] systemd-udevd[283]: error getting socket: Address family not supported by protocol
-> Any help, where to report this issue to, is welcome.
-> 
-> 
-> Kind regards,
-> 
-> Paul
+> 2. should be using u64_stats_fetch  api to handle 64 bit counters.
 
+But they do not want 64bit counters, and not per cpu counters for a
+driver handling few packets per second.
 
--- 
-~Randy
+Just use native size of "unsigned long".
+
+We use the same atomic_long_t for (struct netdev)->rx_dropped,
+tx_dropped & rx_nohandler
+
+So I guess same fix is needed in dev_get_stats()
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 54bb8d99d26afcc1a9c5a56f1e8c2d1f6e06db98..1a66a8761f9a579c9bf6b6ab5b1415770adcf76b 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -7785,9 +7785,9 @@ struct rtnl_link_stats64 *dev_get_stats(struct net_device *dev,
+ 	} else {
+ 		netdev_stats_to_stats64(storage, &dev->stats);
+ 	}
+-	storage->rx_dropped += atomic_long_read(&dev->rx_dropped);
+-	storage->tx_dropped += atomic_long_read(&dev->tx_dropped);
+-	storage->rx_nohandler += atomic_long_read(&dev->rx_nohandler);
++	storage->rx_dropped += (unsigned long)atomic_long_read(&dev->rx_dropped);
++	storage->tx_dropped += (unsigned long)atomic_long_read(&dev->tx_dropped);
++	storage->rx_nohandler += (unsigned long)atomic_long_read(&dev->rx_nohandler);
+ 	return storage;
+ }
+ EXPORT_SYMBOL(dev_get_stats);
