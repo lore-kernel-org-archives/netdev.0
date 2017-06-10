@@ -1,75 +1,52 @@
 From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH 0/6] Constant Time Memory Comparisons Are Important
-Date: Sat, 10 Jun 2017 04:59:06 +0200
-Message-ID: <20170610025912.6499-1-Jason@zx2c4.com>
+Subject: [PATCH 2/6] net/ipv6: use constant time memory comparison for mac
+Date: Sat, 10 Jun 2017 04:59:08 +0200
+Message-ID: <20170610025912.6499-3-Jason@zx2c4.com>
+References: <20170610025912.6499-1-Jason@zx2c4.com>
 Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
-        Anna Schumaker <anna.schumaker@netapp.com>,
-        David Howells <dhowells@redhat.com>,
-        David Safford <safford@us.ibm.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Gilad Ben-Yossef <gilad@benyossef.com>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Gustavo Padovan <gustavo@padovan.org>,
-        "J. Bruce Fields" <bfields@fieldses.org>,
-        Jeff Layton <jlayton@poochiereds.net>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        Johannes Berg <johannes@sipsolutions.net>,
-        Marcel Holtmann <marcel@holtmann.org>,
-        Mimi Zohar <zohar@linux.vnet.ibm.com>,
-        Trond Myklebust <trond.myklebust@primarydata.com>,
-        keyrings@vger.kernel.org, linux-bluetooth@vger.kernel.org,
-        linux-nfs@vger.kernel.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org, kernel-hardening@lists.openwall.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+	"David S. Miller" <davem@davemloft.net>,
+	netdev@vger.kernel.org,
+	stable@vger.kernel.org
+To: linux-kernel@vger.kernel.org,
+	kernel-hardening@lists.openwall.com
+Return-path: <kernel-hardening-return-8503-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <20170610025912.6499-1-Jason@zx2c4.com>
 List-Id: netdev.vger.kernel.org
 
-Whenever you're comparing two MACs, it's important to do this using
-crypto_memneq instead of memcmp. With memcmp, you leak timing information,
-which could then be used to iteratively forge a MAC. This is far too basic
-of a mistake for us to have so pervasively in the year 2017, so let's begin
-cleaning this stuff up. The following 6 locations were found with some
-simple regex greps, but I'm sure more lurk below the surface. If you
-maintain some code or know somebody who maintains some code that deals
-with MACs, tell them to double check which comparison function they're
-using.
+Otherwise, we enable a MAC forgery via timing attack.
 
-Jason A. Donenfeld (6):
-  sunrpc: use constant time memory comparison for mac
-  net/ipv6: use constant time memory comparison for mac
-  ccree: use constant time memory comparison for macs and tags
-  security/keys: use constant time memory comparison for macs
-  bluetooth/smp: use constant time memory comparison for secret values
-  mac80211/wpa: use constant time memory comparison for MACs
-
-Cc: Anna Schumaker <anna.schumaker@netapp.com>
-Cc: David Howells <dhowells@redhat.com>
-Cc: David Safford <safford@us.ibm.com>
+Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
 Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Gilad Ben-Yossef <gilad@benyossef.com>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Gustavo Padovan <gustavo@padovan.org>
-Cc: "J. Bruce Fields" <bfields@fieldses.org>
-Cc: Jeff Layton <jlayton@poochiereds.net>
-Cc: Johan Hedberg <johan.hedberg@gmail.com>
-Cc: Johannes Berg <johannes@sipsolutions.net>
-Cc: Marcel Holtmann <marcel@holtmann.org>
-Cc: Mimi Zohar <zohar@linux.vnet.ibm.com>
-Cc: Trond Myklebust <trond.myklebust@primarydata.com>
-Cc: keyrings@vger.kernel.org
-Cc: linux-bluetooth@vger.kernel.org
-Cc: linux-nfs@vger.kernel.org
-Cc: linux-wireless@vger.kernel.org
 Cc: netdev@vger.kernel.org
+Cc: stable@vger.kernel.org
+---
+ net/ipv6/seg6_hmac.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
- drivers/staging/ccree/ssi_fips_ll.c   | 17 ++++++++-------
- net/bluetooth/smp.c                   | 39 ++++++++++++++++++-----------------
- net/ipv6/seg6_hmac.c                  |  3 ++-
- net/mac80211/wpa.c                    |  9 ++++----
- net/sunrpc/auth_gss/gss_krb5_crypto.c |  3 ++-
- security/keys/trusted.c               |  7 ++++---
- 6 files changed, 42 insertions(+), 36 deletions(-)
-
+diff --git a/net/ipv6/seg6_hmac.c b/net/ipv6/seg6_hmac.c
+index f950cb53d5e3..54213c83b44e 100644
+--- a/net/ipv6/seg6_hmac.c
++++ b/net/ipv6/seg6_hmac.c
+@@ -38,6 +38,7 @@
+ #include <net/xfrm.h>
+ 
+ #include <linux/cryptohash.h>
++#include <crypto/algapi.h>
+ #include <crypto/hash.h>
+ #include <crypto/sha.h>
+ #include <net/seg6.h>
+@@ -274,7 +275,7 @@ bool seg6_hmac_validate_skb(struct sk_buff *skb)
+ 	if (seg6_hmac_compute(hinfo, srh, &ipv6_hdr(skb)->saddr, hmac_output))
+ 		return false;
+ 
+-	if (memcmp(hmac_output, tlv->hmac, SEG6_HMAC_FIELD_LEN) != 0)
++	if (crypto_memneq(hmac_output, tlv->hmac, SEG6_HMAC_FIELD_LEN))
+ 		return false;
+ 
+ 	return true;
 -- 
 2.13.1
