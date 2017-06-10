@@ -1,7 +1,7 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH net-next 6/9] net: hns3: Add MDIO support to HNS3 Ethernet driver for hip08 SoC
-Date: Sat, 10 Jun 2017 04:46:27 +0100
-Message-ID: <20170610034630.493852-7-salil.mehta@huawei.com>
+Subject: [PATCH net-next 2/9] net: hns3: Add support of the HNAE3 framework
+Date: Sat, 10 Jun 2017 04:46:23 +0100
+Message-ID: <20170610034630.493852-3-salil.mehta@huawei.com>
 References: <20170610034630.493852-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,27 +15,32 @@ In-Reply-To: <20170610034630.493852-1-salil.mehta@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds the support of MDIO bus interface for HNS3 driver.
-Code provides various interfaces to start and stop the PHY layer
-and to read and write the MDIO bus or PHY.
+This patch adds the support of the HNAE3 (Hisilicon Network
+Acceleration Engine 3) framework support to the HNS3 driver.
+
+Framework facilitates clients like ENET(HNS3 Ethernet Driver), RoCE
+and user-space Ethernet drivers (like ODP etc.) to register with HNAE3
+devices and their associated operations.
 
 Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
 Signed-off-by: lipeng <lipeng321@huawei.com>
 Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
 Signed-off-by: Yisen Zhuang <yisen.zhuang@huawei.com>
 ---
- .../ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c    | 310 +++++++++++++++++++++
- 1 file changed, 310 insertions(+)
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c
+ drivers/net/ethernet/hisilicon/hns3/hnae3.c | 305 +++++++++++++++++++
+ drivers/net/ethernet/hisilicon/hns3/hnae3.h | 449 ++++++++++++++++++++++++++++
+ 2 files changed, 754 insertions(+)
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hnae3.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hnae3.h
 
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hnae3.c b/drivers/net/ethernet/hisilicon/hns3/hnae3.c
 new file mode 100644
-index 0000000..c6812d2
+index 0000000..f133e1d
 --- /dev/null
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c
-@@ -0,0 +1,310 @@
++++ b/drivers/net/ethernet/hisilicon/hns3/hnae3.c
+@@ -0,0 +1,305 @@
 +/*
-+ * Copyright (c) 2016~2017 Hisilicon Limited.
++ * Copyright (c) 2016-2017 Hisilicon Limited.
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License as published by
@@ -43,306 +48,756 @@ index 0000000..c6812d2
 + * (at your option) any later version.
 + */
 +
-+#include <linux/etherdevice.h>
-+#include <linux/kernel.h>
++#include <linux/slab.h>
++#include <linux/list.h>
++#include <linux/spinlock.h>
 +
-+#include "hclge_cmd.h"
-+#include "hclge_main.h"
++#include "hnae3.h"
 +
-+enum hclge_mdio_c22_op_seq {
-+	HCLGE_MDIO_C22_WRITE = 1,
-+	HCLGE_MDIO_C22_READ = 2
-+};
++static LIST_HEAD(hnae3_ae_algo_list);
++static LIST_HEAD(hnae3_client_list);
++static LIST_HEAD(hnae3_ae_dev_list);
 +
-+enum hclge_mdio_c45_op_seq {
-+	HCLGE_MDIO_C45_WRITE_ADDR = 0,
-+	HCLGE_MDIO_C45_WRITE_DATA,
-+	HCLGE_MDIO_C45_READ_INCREMENT,
-+	HCLGE_MDIO_C45_READ
-+};
++static DEFINE_SPINLOCK(hnae3_list_ae_algo_lock);
++static DEFINE_SPINLOCK(hnae3_list_client_lock);
++static DEFINE_SPINLOCK(hnae3_list_ae_dev_lock);
 +
-+#define HCLGE_MDIO_CTRL_START_BIT       BIT(0)
-+#define HCLGE_MDIO_CTRL_ST_MSK  GENMASK(2, 1)
-+#define HCLGE_MDIO_CTRL_ST_LSH  1
-+#define HCLGE_MDIO_IS_C22(c22)  (((c22) << HCLGE_MDIO_CTRL_ST_LSH) & \
-+	HCLGE_MDIO_CTRL_ST_MSK)
-+
-+#define HCLGE_MDIO_CTRL_OP_MSK  GENMASK(4, 3)
-+#define HCLGE_MDIO_CTRL_OP_LSH  3
-+#define HCLGE_MDIO_CTRL_OP(access) \
-+	(((access) << HCLGE_MDIO_CTRL_OP_LSH) &	HCLGE_MDIO_CTRL_OP_MSK)
-+#define HCLGE_MDIO_CTRL_PRTAD_MSK       GENMASK(4, 0)
-+#define HCLGE_MDIO_CTRL_DEVAD_MSK       GENMASK(4, 0)
-+
-+#define HCLGE_MDIO_STA_VAL(val)	((val) & BIT(0))
-+
-+struct hclge_mdio_cfg_cmd {
-+	u8 ctrl_bit;
-+	u8 prtad;       /* The external port address */
-+	u8 devad;       /* The external device address */
-+	u8 rsvd;
-+	__le16 addr_c45;/* Only valid for c45 */
-+	__le16 data_wr;
-+	__le16 data_rd;
-+	__le16 sta;
-+};
-+
-+static int hclge_mdio_write(struct mii_bus *bus, int phy_id, int regnum,
-+			    u16 data)
++static void hnae3_list_add(spinlock_t *lock, struct list_head *node,
++			   struct list_head *head)
 +{
-+	struct hclge_dev *hdev = (struct hclge_dev *)bus->priv;
-+	struct hclge_mdio_cfg_cmd *mdio_cmd;
-+	enum hclge_cmd_status status;
-+	struct hclge_desc desc;
-+	u8 is_c45, devad;
-+	u16 reg;
++	unsigned long flags;
 +
-+	if (!bus)
-+		return -EINVAL;
-+
-+	is_c45 = !!(regnum & MII_ADDR_C45);
-+	devad = ((regnum >> 16) & 0x1f);
-+	reg = (u16)(regnum & 0xffff);
-+
-+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_MDIO_CONFIG, false);
-+
-+	mdio_cmd = (struct hclge_mdio_cfg_cmd *)desc.data;
-+
-+	if (!is_c45) {
-+		/* C22 write reg and data */
-+		mdio_cmd->ctrl_bit = HCLGE_MDIO_IS_C22(!is_c45);
-+		mdio_cmd->ctrl_bit |= HCLGE_MDIO_CTRL_OP(HCLGE_MDIO_C22_WRITE);
-+		mdio_cmd->ctrl_bit |= HCLGE_MDIO_CTRL_START_BIT;
-+		mdio_cmd->data_wr = cpu_to_le16(data);
-+		mdio_cmd->devad = devad & HCLGE_MDIO_CTRL_DEVAD_MSK;
-+		mdio_cmd->prtad = phy_id & HCLGE_MDIO_CTRL_PRTAD_MSK;
-+	} else {
-+		/* Set phy addr */
-+		mdio_cmd->ctrl_bit |= HCLGE_MDIO_CTRL_START_BIT;
-+		mdio_cmd->addr_c45 = cpu_to_le16(reg);
-+		mdio_cmd->data_wr = cpu_to_le16(data);
-+		mdio_cmd->devad = devad & HCLGE_MDIO_CTRL_DEVAD_MSK;
-+		mdio_cmd->prtad = phy_id & HCLGE_MDIO_CTRL_PRTAD_MSK;
-+	}
-+
-+	status = hclge_cmd_send(&hdev->hw, &desc, 1);
-+	if (status) {
-+		dev_err(&hdev->pdev->dev,
-+			"mdio write fail when sending cmd, status is %d.\n",
-+			status);
-+		return -EIO;
-+	}
-+
-+	return 0;
++	spin_lock_irqsave(lock, flags);
++	list_add_tail_rcu(node, head);
++	spin_unlock_irqrestore(lock, flags);
 +}
 +
-+static int hclge_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
++static void hnae3_list_del(spinlock_t *lock, struct list_head *node)
 +{
-+	struct hclge_dev *hdev = (struct hclge_dev *)bus->priv;
-+	struct hclge_mdio_cfg_cmd *mdio_cmd;
-+	enum hclge_cmd_status status;
-+	struct hclge_desc desc;
-+	u8 is_c45, devad;
-+	u16 reg;
++	unsigned long flags;
 +
-+	if (!bus)
-+		return -EINVAL;
-+
-+	is_c45 = !!(regnum & MII_ADDR_C45);
-+	devad = ((regnum >> 16) & GENMASK(4, 0));
-+	reg = (u16)(regnum & GENMASK(15, 0));
-+
-+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_MDIO_CONFIG, true);
-+
-+	mdio_cmd = (struct hclge_mdio_cfg_cmd *)desc.data;
-+
-+	dev_dbg(&bus->dev, "phy id=%d, is_c45=%d, devad=%d, reg=%#x!\n",
-+		phy_id, is_c45, devad, reg);
-+
-+	if (!is_c45) {
-+		/* C22 read reg */
-+		mdio_cmd->ctrl_bit = HCLGE_MDIO_IS_C22(!is_c45);
-+		mdio_cmd->ctrl_bit |= HCLGE_MDIO_CTRL_OP(HCLGE_MDIO_C22_READ);
-+		mdio_cmd->ctrl_bit |= HCLGE_MDIO_CTRL_START_BIT;
-+		mdio_cmd->devad = reg & HCLGE_MDIO_CTRL_DEVAD_MSK;
-+		mdio_cmd->prtad = phy_id & HCLGE_MDIO_CTRL_PRTAD_MSK;
-+	} else {
-+		/* C45 phy addr */
-+		mdio_cmd->ctrl_bit |= HCLGE_MDIO_CTRL_START_BIT;
-+
-+		mdio_cmd->addr_c45 = cpu_to_le16(reg);
-+		mdio_cmd->devad = devad & HCLGE_MDIO_CTRL_DEVAD_MSK;
-+		mdio_cmd->prtad = phy_id & HCLGE_MDIO_CTRL_PRTAD_MSK;
-+	}
-+
-+	/* Read out phy data */
-+	status = hclge_cmd_send(&hdev->hw, &desc, 1);
-+	if (status) {
-+		dev_err(&hdev->pdev->dev,
-+			"mdio read fail when get data, status is %d.\n",
-+			status);
-+		return -EIO;
-+	}
-+
-+	if (le16_to_cpu(HCLGE_MDIO_STA_VAL(mdio_cmd->sta))) {
-+		dev_err(&hdev->pdev->dev, "mdio read data error\n");
-+		return -ENOMEM;
-+	}
-+
-+	return le16_to_cpu(mdio_cmd->data_rd);
++	spin_lock_irqsave(lock, flags);
++	list_del_rcu(node);
++	spin_unlock_irqrestore(lock, flags);
 +}
 +
-+int hclge_mac_mdio_config(struct hclge_dev *hdev)
++static bool hnae3_client_match(enum hnae3_client_type client_type,
++			       enum hnae3_dev_type dev_type)
 +{
-+	struct hclge_mac *mac = &hdev->hw.mac;
-+	struct mii_bus *mdio_bus;
-+	struct net_device *ndev = &mac->ndev;
-+	struct phy_device *phy;
-+	bool is_c45;
++	if (dev_type == HNAE3_DEV_KNIC) {
++		switch (client_type) {
++		case HNAE3_CLIENT_KNIC:
++		case HNAE3_CLIENT_ROCE:
++			return true;
++		default:
++			return false;
++		}
++	} else if (dev_type == HNAE3_DEV_UNIC) {
++		switch (client_type) {
++		case HNAE3_CLIENT_UNIC:
++			return true;
++		default:
++			return false;
++		}
++	} else {
++		return false;
++	}
++}
++
++int hnae3_register_client(struct hnae3_client *client)
++{
++	struct hnae3_client *client_tmp;
++	struct hnae3_ae_dev *ae_dev;
 +	int ret;
 +
-+	if (hdev->hw.mac.phy_addr >= PHY_MAX_ADDR)
-+		return 0;
-+
-+	if (hdev->hw.mac.phy_if == PHY_INTERFACE_MODE_NA)
-+		return 0;
-+	else if (mac->phy_if == PHY_INTERFACE_MODE_SGMII)
-+		is_c45 = 0;
-+	else if (mac->phy_if == PHY_INTERFACE_MODE_XGMII)
-+		is_c45 = 1;
-+	else
-+		return -ENODATA;
-+
-+	SET_NETDEV_DEV(ndev, &hdev->pdev->dev);
-+
-+	mdio_bus = devm_mdiobus_alloc(&hdev->pdev->dev);
-+	if (!mdio_bus) {
-+		ret = -ENOMEM;
-+		goto err_miibus_alloc;
++	/* One system should only have one client for every type */
++	list_for_each_entry(client_tmp, &hnae3_client_list, node) {
++		if (client_tmp->type == client->type)
++			return 0;
 +	}
 +
-+	mdio_bus->name = "hisilicon MII bus";
-+	mdio_bus->read = hclge_mdio_read;
-+	mdio_bus->write = hclge_mdio_write;
-+	snprintf(mdio_bus->id, MII_BUS_ID_SIZE, "%s-%s", "mii",
-+		 dev_name(&hdev->pdev->dev));
++	hnae3_list_add(&hnae3_list_client_lock, &client->node,
++		       &hnae3_client_list);
 +
-+	mdio_bus->parent = &hdev->pdev->dev;
-+	mdio_bus->priv = hdev;
-+	mdio_bus->phy_mask = ~0;
-+	ret = mdiobus_register(mdio_bus);
-+	if (ret) {
-+		dev_err(mdio_bus->parent,
-+			"Failed to register MDIO bus ret = %#x\n", ret);
-+		goto err_mdio_register;
++	/* Check if there are matched ae_dev */
++	list_for_each_entry(ae_dev, &hnae3_ae_dev_list, node) {
++		if (hnae3_client_match(client->type, ae_dev->dev_type) &&
++		    hnae_get_bit(ae_dev->flag, HNAE3_DEV_INITED_B)) {
++			if (ae_dev->ops && ae_dev->ops->register_client) {
++				ret = ae_dev->ops->register_client(client,
++								   ae_dev);
++				if (ret) {
++					dev_err(&ae_dev->pdev->dev,
++						"init ae_dev error.\n");
++					return ret;
++				}
++			}
++		}
 +	}
-+
-+	phy = get_phy_device(mdio_bus, mac->phy_addr, is_c45);
-+	if (!phy || IS_ERR(phy)) {
-+		dev_err(mdio_bus->parent, "Failed to get phy device\n");
-+		ret = -EIO;
-+		goto err_mdio_register;
-+	}
-+
-+	phy->irq = mdio_bus->irq[mac->phy_addr];
-+
-+	/* All data is now stored in the phy struct;
-+	 * register it
-+	 */
-+	ret = phy_device_register(phy);
-+	if (ret) {
-+		ret = -ENODEV;
-+		goto err_phy_register;
-+	}
-+
-+	mac->phy_dev = phy;
 +
 +	return 0;
-+
-+err_phy_register:
-+	phy_device_free(phy);
-+err_mdio_register:
-+	mdiobus_unregister(mdio_bus);
-+	mdiobus_free(mdio_bus);
-+err_miibus_alloc:
-+	return ret;
 +}
++EXPORT_SYMBOL(hnae3_register_client);
 +
-+static void hclge_mac_adjust_link(struct net_device *net_dev)
++void hnae3_unregister_client(struct hnae3_client *client)
 +{
-+	int duplex;
-+	int speed;
-+	struct hclge_mac *hw_mac;
-+	struct hclge_hw *hw;
-+	struct hclge_dev *hdev;
++	struct hnae3_ae_dev *ae_dev;
 +
-+	if (!net_dev)
-+		return;
-+
-+	hw_mac = container_of(net_dev, struct hclge_mac, ndev);
-+	hw = container_of(hw_mac, struct hclge_hw, mac);
-+	hdev = hw->back;
-+
-+	speed = hw_mac->phy_dev->speed;
-+	duplex = hw_mac->phy_dev->duplex;
-+
-+	/* update antoneg. */
-+	hw_mac->autoneg = hw_mac->phy_dev->autoneg;
-+
-+	if ((hw_mac->speed != speed) || (hw_mac->duplex != duplex))
-+		(void)hclge_cfg_mac_speed_dup(hdev, speed, !!duplex);
++	/* Check if there are matched ae_dev */
++	list_for_each_entry(ae_dev, &hnae3_ae_dev_list, node) {
++		if (hnae3_client_match(client->type, ae_dev->dev_type) &&
++		    hnae_get_bit(ae_dev->flag, HNAE3_DEV_INITED_B))
++			if (ae_dev->ops && ae_dev->ops->unregister_client)
++				ae_dev->ops->unregister_client(client, ae_dev);
++	}
++	hnae3_list_del(&hnae3_list_client_lock, &client->node);
 +}
++EXPORT_SYMBOL(hnae3_unregister_client);
 +
-+int hclge_mac_start_phy(struct hclge_dev *hdev)
++/* hnae_ae_register - register a AE engine to hnae framework
++ * @hdev: the hnae ae engine device
++ * @owner:  the module who provides this dev
++ * NOTE: the duplicated name will not be checked
++ */
++int hnae3_register_ae_algo(struct hnae3_ae_algo *ae_algo)
 +{
-+	struct hclge_mac *mac = &hdev->hw.mac;
-+	struct phy_device *phy_dev = mac->phy_dev;
++	struct hnae3_ae_dev *ae_dev;
++	struct hnae3_client *client;
++	const struct pci_device_id *id;
 +	int ret;
 +
-+	if (!phy_dev)
-+		return 0;
++	hnae3_list_add(&hnae3_list_ae_algo_lock, &ae_algo->node,
++		       &hnae3_ae_algo_list);
 +
-+	if (mac->phy_if != PHY_INTERFACE_MODE_XGMII) {
-+		phy_dev->dev_flags = 0;
++	/* Check if there are matched ae_dev */
++	list_for_each_entry(ae_dev, &hnae3_ae_dev_list, node) {
++		id = pci_match_id(ae_algo->pdev_id_table, ae_dev->pdev);
++		if (!id)
++			continue;
 +
-+		ret = phy_connect_direct(&mac->ndev, phy_dev,
-+					 hclge_mac_adjust_link,
-+					 mac->phy_if);
-+		phy_dev->supported = SUPPORTED_10baseT_Half |
-+				SUPPORTED_10baseT_Full |
-+				SUPPORTED_100baseT_Half |
-+				SUPPORTED_100baseT_Full |
-+				SUPPORTED_Autoneg |
-+				SUPPORTED_1000baseT_Full;
++		/* ae_dev init should set flag */
++		ae_dev->ops = ae_algo->ops;
++		ret = ae_algo->ops->init_ae_dev(ae_dev);
++		if (!ret) {
++			hnae_set_bit(ae_dev->flag, HNAE3_DEV_INITED_B, 1);
++		} else {
++			dev_err(&ae_dev->pdev->dev, "init ae_dev error.\n");
++			return ret;
++		}
 +
-+		phy_dev->autoneg = false;
-+	} else {
-+		ret = phy_attach_direct(&mac->ndev, phy_dev, 0, mac->phy_if);
-+		phy_dev->supported = SUPPORTED_10000baseR_FEC |
-+				SUPPORTED_10000baseKR_Full;
++		list_for_each_entry(client, &hnae3_client_list, node) {
++			if (hnae3_client_match(client->type,
++					       ae_dev->dev_type) &&
++			    hnae_get_bit(ae_dev->flag, HNAE3_DEV_INITED_B)) {
++				if (ae_dev->ops &&
++				    ae_dev->ops->register_client) {
++					ret = ae_dev->ops->register_client(
++						client, ae_dev);
++					if (ret) {
++						dev_err(&ae_dev->pdev->dev,
++							"init ae_dev error.\n");
++						return ret;
++					}
++				}
++			}
++		}
 +	}
-+	if (unlikely(ret))
-+		return -ENODEV;
-+
-+	phy_start(phy_dev);
 +
 +	return 0;
 +}
++EXPORT_SYMBOL(hnae3_register_ae_algo);
 +
-+void hclge_mac_stop_phy(struct hclge_dev *hdev)
++/* hnae_ae_unregister - unregisters a HNAE AE engine
++ * @cdev: the device to unregister
++ */
++void hnae3_unregister_ae_algo(struct hnae3_ae_algo *ae_algo)
 +{
-+	struct hclge_mac *mac = &hdev->hw.mac;
-+	struct phy_device *phy_dev = mac->phy_dev;
++	struct hnae3_ae_dev *ae_dev;
++	struct hnae3_client *client;
++	const struct pci_device_id *id;
 +
-+	if (!phy_dev)
-+		return;
++	/* Check if there are matched ae_dev */
++	list_for_each_entry(ae_dev, &hnae3_ae_dev_list, node) {
++		id = pci_match_id(ae_algo->pdev_id_table, ae_dev->pdev);
++		if (!id)
++			continue;
 +
-+	phy_stop(phy_dev);
++		/* Check if there are matched client */
++		list_for_each_entry(client, &hnae3_client_list, node) {
++			if (hnae3_client_match(client->type,
++					       ae_dev->dev_type) &&
++			    hnae_get_bit(ae_dev->flag, HNAE3_DEV_INITED_B)) {
++				hnae3_unregister_client(client);
++				continue;
++			}
++		}
 +
-+	if (mac->phy_if != PHY_INTERFACE_MODE_XGMII)
-+		phy_disconnect(phy_dev);
-+	else
-+		phy_detach(phy_dev);
++		ae_algo->ops->uninit_ae_dev(ae_dev);
++		hnae_set_bit(ae_dev->flag, HNAE3_DEV_INITED_B, 0);
++	}
++
++	hnae3_list_del(&hnae3_list_ae_algo_lock, &ae_algo->node);
 +}
++EXPORT_SYMBOL(hnae3_unregister_ae_algo);
++
++/* hnae_ae_register - register a AE engine to hnae framework
++ * @hdev: the hnae ae engine device
++ * @owner:  the module who provides this dev
++ * NOTE: the duplicated name will not be checked
++ */
++int hnae3_register_ae_dev(struct hnae3_ae_dev *ae_dev)
++{
++	struct hnae3_ae_algo *ae_algo;
++	struct hnae3_client *client;
++	const struct pci_device_id *id;
++	int ret;
++
++	hnae3_list_add(&hnae3_list_ae_dev_lock, &ae_dev->node,
++		       &hnae3_ae_dev_list);
++
++	/* Check if there are matched ae_algo */
++	list_for_each_entry(ae_algo, &hnae3_ae_algo_list, node) {
++		id = pci_match_id(ae_algo->pdev_id_table, ae_dev->pdev);
++		if (!id)
++			continue;
++
++		ae_dev->ops = ae_algo->ops;
++
++		/* ae_dev init should set flag */
++		ret = ae_dev->ops->init_ae_dev(ae_dev);
++		if (!ret) {
++			hnae_set_bit(ae_dev->flag, HNAE3_DEV_INITED_B, 1);
++			break;
++		}
++
++		dev_err(&ae_dev->pdev->dev, "init ae_dev error.\n");
++		return ret;
++	}
++
++	if (!ae_dev->ops)
++		return 0;
++
++	list_for_each_entry(client, &hnae3_client_list, node) {
++		if (hnae3_client_match(client->type, ae_dev->dev_type) &&
++		    hnae_get_bit(ae_dev->flag, HNAE3_DEV_INITED_B)) {
++			if (ae_dev->ops && ae_dev->ops->register_client) {
++				ret = ae_dev->ops->register_client(client,
++								   ae_dev);
++				if (ret) {
++					dev_err(&ae_dev->pdev->dev,
++						"init ae_dev error.\n");
++					return ret;
++				}
++			}
++		}
++	}
++
++	return 0;
++}
++EXPORT_SYMBOL(hnae3_register_ae_dev);
++
++/* hnae_ae_unregister - unregisters a HNAE AE engine
++ * @cdev: the device to unregister
++ */
++void hnae3_unregister_ae_dev(struct hnae3_ae_dev *ae_dev)
++{
++	struct hnae3_ae_algo *ae_algo;
++	struct hnae3_client *client;
++	const struct pci_device_id *id;
++
++	/* Check if there are matched ae_algo */
++	list_for_each_entry(ae_algo, &hnae3_ae_algo_list, node) {
++		id = pci_match_id(ae_algo->pdev_id_table, ae_dev->pdev);
++		if (!id)
++			continue;
++
++		/* Check if there are matched client */
++		list_for_each_entry(client, &hnae3_client_list, node) {
++			if (hnae3_client_match(client->type,
++					       ae_dev->dev_type) &&
++			    hnae_get_bit(ae_dev->flag, HNAE3_DEV_INITED_B)) {
++				hnae3_unregister_client(client);
++				continue;
++			}
++		}
++
++		ae_algo->ops->uninit_ae_dev(ae_dev);
++		hnae_set_bit(ae_dev->flag, HNAE3_DEV_INITED_B, 0);
++	}
++
++	hnae3_list_del(&hnae3_list_ae_dev_lock, &ae_dev->node);
++}
++EXPORT_SYMBOL(hnae3_unregister_ae_dev);
++
++static int __init hnae3_init(void)
++{
++	return 0;
++}
++
++static void __exit hnae3_exit(void)
++{
++}
++
++subsys_initcall(hnae3_init);
++module_exit(hnae3_exit);
++
++MODULE_AUTHOR("Huawei Tech. Co., Ltd.");
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("HNAE3(Hisilicon Network Acceleration Engine) Framework");
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hnae3.h b/drivers/net/ethernet/hisilicon/hns3/hnae3.h
+new file mode 100644
+index 0000000..2575f30
+--- /dev/null
++++ b/drivers/net/ethernet/hisilicon/hns3/hnae3.h
+@@ -0,0 +1,449 @@
++/*
++ * Copyright (c) 2016-2017 Hisilicon Limited.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#ifndef __HNAE_H
++#define __HNAE_H
++
++/* Names used in this framework:
++ *      ae handle (handle):
++ *        a set of queues provided by AE
++ *      ring buffer queue (rbq):
++ *        the channel between upper layer and the AE, can do tx and rx
++ *      ring:
++ *        a tx or rx channel within a rbq
++ *      ring description (desc):
++ *        an element in the ring with packet information
++ *      buffer:
++ *        a memory region referred by desc with the full packet payload
++ *
++ * "num" means a static number set as a parameter, "count" mean a dynamic
++ *   number set while running
++ * "cb" means control block
++ */
++
++#include <linux/acpi.h>
++#include <linux/delay.h>
++#include <linux/device.h>
++#include <linux/module.h>
++#include <linux/netdevice.h>
++#include <linux/pci.h>
++#include <linux/types.h>
++
++#define HNAE_DRIVER_VERSION "1.0"
++#define HNAE_DRIVER_NAME "hns3"
++#define HNAE_COPYRIGHT "Copyright(c) 2017 Huawei Corporation."
++#define HNAE_DRIVER_STRING "Hisilicon Network Subsystem Driver"
++#define HNAE_DEFAULT_DEVICE_DESCR "Hisilicon Network Subsystem"
++
++/* Device IDs */
++#define HISILICON				0x19E5
++#define HNAE3_DEV_ID_GE				0xA220
++#define HNAE3_DEV_ID_25GE			0xA221
++#define HNAE3_DEV_ID_25GE_RDMA			0xA222
++#define HNAE3_DEV_ID_25GE_RDMA_MACSEC		0xA223
++#define HNAE3_DEV_ID_50GE_RDMA			0xA224
++#define HNAE3_DEV_ID_50GE_RDMA_MACSEC		0xA225
++#define HNAE3_DEV_ID_100G_RDMA_MACSEC		0xA226
++#define HNAE3_DEV_ID_100G_VF			0xA22E
++#define HNAE3_DEV_ID_100G_RDMA_DCB_PFC_VF	0xA22F
++
++#define HNAE3_CLASS_NAME_SIZE 16
++
++#define HNAE3_DEV_INITED_B			0x0
++#define HNAE_DEV_SUPPORT_ROCE_B			0x1
++
++#define ring_ptr_move_fw(ring, p) \
++	((ring)->p = ((ring)->p + 1) % (ring)->desc_num)
++#define ring_ptr_move_bw(ring, p) \
++	((ring)->p = ((ring)->p - 1 + (ring)->desc_num) % (ring)->desc_num)
++
++enum hns_desc_type {
++	DESC_TYPE_SKB,
++	DESC_TYPE_PAGE,
++};
++
++struct hnae3_handle;
++
++struct hnae3_queue {
++	void __iomem *io_base;
++	struct hnae3_ae_algo *ae_algo;
++	struct hnae3_handle *handle;
++	int tqp_index;	/* index in a handle */
++	u32 buf_size;	/* size for hnae_desc->addr, preset by AE */
++	u16 desc_num;	/* total number of desc */
++};
++
++/*hnae3 loop mode*/
++enum hnae3_loop {
++	HNAE3_MAC_INTER_LOOP_MAC,
++	HNAE3_MAC_INTER_LOOP_SERDES,
++	HNAE3_MAC_INTER_LOOP_PHY,
++	HNAE3_MAC_LOOP_NONE,
++};
++
++enum hnae3_client_type {
++	HNAE3_CLIENT_KNIC,
++	HNAE3_CLIENT_UNIC,
++	HNAE3_CLIENT_ROCE,
++};
++
++enum hnae3_dev_type {
++	HNAE3_DEV_KNIC,
++	HNAE3_DEV_UNIC,
++};
++
++/* mac media type */
++enum hnae3_media_type {
++	HNAE3_MEDIA_TYPE_UNKNOWN,
++	HNAE3_MEDIA_TYPE_FIBER,
++	HNAE3_MEDIA_TYPE_COPPER,
++	HNAE3_MEDIA_TYPE_BACKPLANE,
++};
++
++struct hnae3_vector_info {
++	u8 __iomem *io_addr;
++	int vector;
++};
++
++#define HNAE3_RING_TYPE_B 0
++#define HNAE3_RING_TYPE_TX 0
++#define HNAE3_RING_TYPE_RX 1
++
++struct hnae3_ring_chain_node {
++	struct hnae3_ring_chain_node *next;
++	u32 tqp_index;
++	u32 flag;
++};
++
++#define HNAE3_IS_TX_RING(node) \
++	(((node)->flag & (1 << HNAE3_RING_TYPE_B)) == HNAE3_RING_TYPE_TX)
++
++struct hnae3_client_ops {
++	int (*init_instance)(struct hnae3_handle *handle);
++	void (*uninit_instance)(struct hnae3_handle *handle, bool reset);
++	void (*link_status_change)(struct hnae3_handle *handle, bool state);
++};
++
++#define HNAE3_CLIENT_NAME_LENGTH 16
++struct hnae3_client {
++	char name[HNAE3_CLIENT_NAME_LENGTH];
++	u16 version;
++	unsigned long state;
++	enum hnae3_client_type type;
++	const struct hnae3_client_ops *ops;
++	struct list_head node;
++};
++
++struct hnae3_ae_dev {
++	struct pci_dev *pdev;
++	struct hnae3_ae_ops *ops;
++	struct list_head node;
++	u32 flag;
++	enum hnae3_dev_type dev_type;
++	void *priv;
++};
++
++/* This struct defines the operation on the handle.
++ *
++ * init_ae_dev(): (mandatory)
++ *   Get PF configure from pci_dev and initialize PF hardware
++ * uninit_ae_dev()
++ *   Disable PF device and release PF resource
++ * register_client
++ *   Register client to ae_dev
++ * unregister_client()
++ *   Unregister client from ae_dev
++ * start()
++ *   Enable the hardware
++ * stop()
++ *   Disable the hardware
++ * get_status()
++ *   Get the carrier state of the back channel of the handle, 1 for ok, 0 for
++ *   non-ok
++ * get_ksettings_an_result()
++ *   Get negotiation status,speed and duplex
++ * update_speed_duplex_h()
++ *   Update hardware speed and duplex
++ * get_media_type()
++ *   Get media type of MAC
++ * adjust_link()
++ *   Adjust link status
++ * set_loopback()
++ *   Set loopback
++ * set_promisc_mode
++ *   Set promisc mode
++ * set_mtu()
++ *   set mtu
++ * get_pauseparam()
++ *   get tx and rx of pause frame use
++ * set_pauseparam()
++ *   set tx and rx of pause frame use
++ * set_autoneg()
++ *   set auto autonegotiation of pause frame use
++ * get_autoneg()
++ *   get auto autonegotiation of pause frame use
++ * get_coalesce_usecs()
++ *   get usecs to delay a TX interrupt after a packet is sent
++ * get_rx_max_coalesced_frames()
++ *   get Maximum number of packets to be sent before a TX interrupt.
++ * set_coalesce_usecs()
++ *   set usecs to delay a TX interrupt after a packet is sent
++ * set_coalesce_frames()
++ *   set Maximum number of packets to be sent before a TX interrupt.
++ * get_mac_addr()
++ *   get mac address
++ * set_mac_addr()
++ *   set mac address
++ * add_uc_addr
++ *   Add unicast addr to mac table
++ * rm_uc_addr
++ *   Remove unicast addr from mac table
++ * set_mc_addr()
++ *   Set multicast address
++ * add_mc_addr
++ *   Add multicast address to mac table
++ * rm_mc_addr
++ *   Remove multicast address from mac table
++ * update_stats()
++ *   Update Old network device statistics
++ * get_ethtool_stats()
++ *   Get ethtool network device statistics
++ * get_strings()
++ *   Get a set of strings that describe the requested objects
++ * get_sset_count()
++ *   Get number of strings that @get_strings will write
++ * update_led_status()
++ *   Update the led status
++ * set_led_id()
++ *   Set led id
++ * get_regs()
++ *   Get regs dump
++ * get_regs_len()
++ *   Get the len of the regs dump
++ * get_rss_key_size()
++ *   Get rss key size
++ * get_rss_indir_size()
++ *   Get rss indirection table size
++ * get_rss()
++ *   Get rss table
++ * set_rss()
++ *   Set rss table
++ * get_tc_size()
++ *   Get tc size of handle
++ * get_vector()
++ *   Get vector number and vector infomation
++ * map_ring_to_vector()
++ *   Map rings to vector
++ * unmap_ring_from_vector()
++ *   Unmap rings from vector
++ * add_tunnel_udp()
++ *   Add tunnel information to hardware
++ * del_tunnel_udp()
++ *   Delete tunnel information from hardware
++ * reset_queue()
++ *   Reset queue
++ * get_fw_version()
++ *   Get firmware version
++ * get_mdix_mode()
++ *   Get media typr of phy
++ * set_vlan_filter()
++ *   Set vlan filter config of Ports
++ * set_vf_vlan_filter()
++ *   Set vlan filter config of vf
++ */
++struct hnae3_ae_ops {
++	int (*init_ae_dev)(struct hnae3_ae_dev *ae_dev);
++	void (*uninit_ae_dev)(struct hnae3_ae_dev *ae_dev);
++
++	int (*register_client)(struct hnae3_client *client,
++			       struct hnae3_ae_dev *ae_dev);
++	void (*unregister_client)(struct hnae3_client *client,
++				  struct hnae3_ae_dev *ae_dev);
++	int (*start)(struct hnae3_handle *handle);
++	void (*stop)(struct hnae3_handle *handle);
++	int (*get_status)(struct hnae3_handle *handle);
++	void (*get_ksettings_an_result)(struct hnae3_handle *handle,
++					u8 *auto_neg, u32 *speed, u8 *duplex);
++
++	int (*update_speed_duplex_h)(struct hnae3_handle *handle);
++	int (*cfg_mac_speed_dup_h)(struct hnae3_handle *handle, int speed,
++				   u8 duplex);
++
++	void (*get_media_type)(struct hnae3_handle *handle, u8 *media_type);
++	void (*adjust_link)(struct hnae3_handle *handle, int speed, int duplex);
++	int (*set_loopback)(struct hnae3_handle *handle,
++			    enum hnae3_loop loop_mode, bool en);
++
++	void (*set_promisc_mode)(struct hnae3_handle *handle, u32 en);
++	int (*set_mtu)(struct hnae3_handle *handle, int new_mtu);
++
++	void (*get_pauseparam)(struct hnae3_handle *handle,
++			       u32 *auto_neg, u32 *rx_en, u32 *tx_en);
++	int (*set_pauseparam)(struct hnae3_handle *handle,
++			      u32 auto_neg, u32 rx_en, u32 tx_en);
++
++	int (*set_autoneg)(struct hnae3_handle *handle, bool enable);
++	int (*get_autoneg)(struct hnae3_handle *handle);
++
++	void (*get_coalesce_usecs)(struct hnae3_handle *handle,
++				   u32 *tx_usecs, u32 *rx_usecs);
++	void (*get_rx_max_coalesced_frames)(struct hnae3_handle *handle,
++					    u32 *tx_frames, u32 *rx_frames);
++	int (*set_coalesce_usecs)(struct hnae3_handle *handle, u32 timeout);
++	int (*set_coalesce_frames)(struct hnae3_handle *handle,
++				   u32 coalesce_frames);
++	void (*get_coalesce_range)(struct hnae3_handle *handle,
++				   u32 *tx_frames_low, u32 *rx_frames_low,
++				   u32 *tx_frames_high, u32 *rx_frames_high,
++				   u32 *tx_usecs_low, u32 *rx_usecs_low,
++				   u32 *tx_usecs_high, u32 *rx_usecs_high);
++
++	void (*get_mac_addr)(struct hnae3_handle *handle, u8 *p);
++	int (*set_mac_addr)(struct hnae3_handle *handle, void *p);
++	int (*add_uc_addr)(struct hnae3_handle *handle,
++			   const unsigned char *addr);
++	int (*rm_uc_addr)(struct hnae3_handle *handle,
++			  const unsigned char *addr);
++	int (*set_mc_addr)(struct hnae3_handle *handle, void *addr);
++	int (*add_mc_addr)(struct hnae3_handle *handle,
++			   const unsigned char *addr);
++	int (*rm_mc_addr)(struct hnae3_handle *handle,
++			  const unsigned char *addr);
++
++	void (*set_tso_stats)(struct hnae3_handle *handle, int enable);
++	void (*update_stats)(struct hnae3_handle *handle,
++			     struct net_device_stats *net_stats);
++	void (*get_stats)(struct hnae3_handle *handle, u64 *data);
++
++	void (*get_strings)(struct hnae3_handle *handle,
++			    u32 stringset, u8 *data);
++	int (*get_sset_count)(struct hnae3_handle *handle, int stringset);
++
++	void (*get_regs)(struct hnae3_handle *handle, void *data);
++	int (*get_regs_len)(struct hnae3_handle *handle);
++
++	u32 (*get_rss_key_size)(struct hnae3_handle *handle);
++	u32 (*get_rss_indir_size)(struct hnae3_handle *handle);
++	int (*get_rss)(struct hnae3_handle *handle, u32 *indir, u8 *key,
++		       u8 *hfunc);
++	int (*set_rss)(struct hnae3_handle *handle, const u32 *indir,
++		       const u8 *key, const u8 hfunc);
++
++	int (*get_tc_size)(struct hnae3_handle *handle);
++
++	int (*get_vector)(struct hnae3_handle *handle, u16 vector_num,
++			  struct hnae3_vector_info *vector_info);
++	int (*map_ring_to_vector)(struct hnae3_handle *handle,
++				  int vector_num,
++				  struct hnae3_ring_chain_node *vr_chain);
++	int (*unmap_ring_from_vector)(struct hnae3_handle *handle,
++				      int vector_num,
++				      struct hnae3_ring_chain_node *vr_chain);
++
++	int (*add_tunnel_udp)(struct hnae3_handle *handle, u16 port_num);
++	int (*del_tunnel_udp)(struct hnae3_handle *handle, u16 port_num);
++
++	void (*reset_queue)(struct hnae3_handle *handle, u16 queue_id);
++	u32 (*get_fw_version)(struct hnae3_handle *handle);
++	void (*get_mdix_mode)(struct hnae3_handle *handle,
++			      u8 *tp_mdix_ctrl, u8 *tp_mdix);
++
++	int (*set_vlan_filter)(struct hnae3_handle *handle, __be16 proto,
++			       u16 vlan_id, bool is_kill);
++	int (*set_vf_vlan_filter)(struct hnae3_handle *handle, int vfid,
++				  u16 vlan, u8 qos, __be16 proto);
++};
++
++struct hnae3_ae_algo {
++	struct hnae3_ae_ops *ops;
++	struct list_head node;
++	char name[HNAE3_CLASS_NAME_SIZE];
++	const struct pci_device_id *pdev_id_table;
++};
++
++#define HNAE3_INT_NAME_LEN        (IFNAMSIZ + 16)
++#define HNAE3_ITR_COUNTDOWN_START 100
++
++struct hnae3_tc_info {
++	u16	tqp_offset;	/* TQP offset from base TQP */
++	u16	tqp_count;	/* Total TQPs */
++	u8	up;		/* user priority */
++	u8	tc;		/* TC index */
++	bool	enable;		/* If this TC is enable or not */
++};
++
++#define HNAE3_MAX_TC		8
++struct hnae3_knic_private_info {
++	struct net_device *netdev; /* Set by KNIC client when init instance */
++	u16 rss_size;		   /* Allocated RSS queues */
++	u16 rx_buf_len;
++	u16 num_desc;
++
++	u8 num_tc;		   /* Total number of enabled TCs */
++	struct hnae3_tc_info tc_info[HNAE3_MAX_TC]; /* Idx of array is HW TC */
++
++	u16 num_tqps;		  /* total number of TQPs in this handle */
++	struct hnae3_queue **tqp;  /* array base of all TQPs in this instance */
++};
++
++struct hnae3_roce_private_info {
++	void __iomem *roce_io_base;
++	struct net_device *netdev;
++	int base_vector;
++	int num_vectors;
++};
++
++struct hnae3_unic_private_info {
++	u16 rx_buf_len;
++	u16 num_desc;
++	u16 num_tqps;	/* total number of tqps in this handle */
++	struct hnae3_queue **tqp;  /* array base of all TQPs of this instance */
++};
++
++#define HNAE3_SUPPORT_MAC_LOOPBACK    1
++#define HNAE3_SUPPORT_PHY_LOOPBACK    2
++#define HNAE3_SUPPORT_SERDES_LOOPBACK 4
++
++struct hnae3_handle {
++	struct hnae3_client *client;
++	struct pci_dev *pdev;
++	void *priv;
++	struct hnae3_ae_algo *ae_algo;  /* the class who provides this handle */
++	u64 flags; /* Indicate the capabilities for this handle*/
++
++	union {
++		struct hnae3_knic_private_info kinfo;
++		struct hnae3_unic_private_info uinfo;
++		struct hnae3_roce_private_info rinfo;
++	};
++
++	u32 numa_node_mask;	/* for multi-chip support */
++};
++
++#define hnae_set_field(origin, mask, shift, val) \
++	do { \
++		(origin) &= (~(mask)); \
++		(origin) |= ((val) << (shift)) & (mask); \
++	} while (0)
++#define hnae_get_field(origin, mask, shift) (((origin) & (mask)) >> (shift))
++
++#define hnae_set_bit(origin, shift, val) \
++	hnae_set_field((origin), (0x1 << (shift)), (shift), (val))
++#define hnae_get_bit(origin, shift) \
++	hnae_get_field((origin), (0x1 << (shift)), (shift))
++
++int hnae3_register_ae_dev(struct hnae3_ae_dev *ae_dev);
++void hnae3_unregister_ae_dev(struct hnae3_ae_dev *ae_dev);
++
++void hnae3_unregister_ae_algo(struct hnae3_ae_algo *ae_algo);
++int hnae3_register_ae_algo(struct hnae3_ae_algo *ae_algo);
++
++void hnae3_unregister_client(struct hnae3_client *client);
++int hnae3_register_client(struct hnae3_client *client);
++#endif
 -- 
 2.7.4
