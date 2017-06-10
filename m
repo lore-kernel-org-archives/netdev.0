@@ -1,7 +1,7 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH net-next 2/9] net: hns3: Add support of the HNAE3 framework
-Date: Sat, 10 Jun 2017 04:46:23 +0100
-Message-ID: <20170610034630.493852-3-salil.mehta@huawei.com>
+Subject: [PATCH net-next 5/9] net: hns3: Add support of TX Scheduler & Shaper to HNS3 driver
+Date: Sat, 10 Jun 2017 04:46:26 +0100
+Message-ID: <20170610034630.493852-6-salil.mehta@huawei.com>
 References: <20170610034630.493852-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,32 +15,36 @@ In-Reply-To: <20170610034630.493852-1-salil.mehta@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds the support of the HNAE3 (Hisilicon Network
-Acceleration Engine 3) framework support to the HNS3 driver.
+THis patch adds the support of the Scheduling and Shaping
+functionalities during the transmit leg. This also adds the
+support of Pause at MAC level. (Pause at per-priority level
+shall be added later along with the DCB feature).
 
-Framework facilitates clients like ENET(HNS3 Ethernet Driver), RoCE
-and user-space Ethernet drivers (like ODP etc.) to register with HNAE3
-devices and their associated operations.
+Hardware as such consists of two types of cofiguration of 6 level
+schedulers. Algorithms varies according to the level and type
+of scheduler being used. Current patch is used to initialize
+the mapping, algorithms(like SP, DWRR etc) and shaper(CIR, PIR etc)
+being used.
 
 Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
 Signed-off-by: lipeng <lipeng321@huawei.com>
 Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
 Signed-off-by: Yisen Zhuang <yisen.zhuang@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns3/hnae3.c | 305 +++++++++++++++++++
- drivers/net/ethernet/hisilicon/hns3/hnae3.h | 449 ++++++++++++++++++++++++++++
- 2 files changed, 754 insertions(+)
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hnae3.c
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hnae3.h
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c  | 1018 ++++++++++++++++++++
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h  |  108 +++
+ 2 files changed, 1126 insertions(+)
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h
 
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hnae3.c b/drivers/net/ethernet/hisilicon/hns3/hnae3.c
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
 new file mode 100644
-index 0000000..f133e1d
+index 0000000..2b66a0e
 --- /dev/null
-+++ b/drivers/net/ethernet/hisilicon/hns3/hnae3.c
-@@ -0,0 +1,305 @@
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
+@@ -0,0 +1,1018 @@
 +/*
-+ * Copyright (c) 2016-2017 Hisilicon Limited.
++ * Copyright (c) 2016~2017 Hisilicon Limited.
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License as published by
@@ -48,310 +52,1023 @@ index 0000000..f133e1d
 + * (at your option) any later version.
 + */
 +
-+#include <linux/slab.h>
-+#include <linux/list.h>
-+#include <linux/spinlock.h>
++#include <linux/etherdevice.h>
 +
-+#include "hnae3.h"
++#include "hclge_cmd.h"
++#include "hclge_main.h"
++#include "hclge_tm.h"
 +
-+static LIST_HEAD(hnae3_ae_algo_list);
-+static LIST_HEAD(hnae3_client_list);
-+static LIST_HEAD(hnae3_ae_dev_list);
++enum hclge_shaper_level {
++	HCLGE_SHAPER_LVL_PRI	= 0,
++	HCLGE_SHAPER_LVL_PG	= 1,
++	HCLGE_SHAPER_LVL_PORT	= 2,
++	HCLGE_SHAPER_LVL_QSET	= 3,
++	HCLGE_SHAPER_LVL_CNT	= 4,
++	HCLGE_SHAPER_LVL_VF	= 0,
++	HCLGE_SHAPER_LVL_PF	= 1,
++};
 +
-+static DEFINE_SPINLOCK(hnae3_list_ae_algo_lock);
-+static DEFINE_SPINLOCK(hnae3_list_client_lock);
-+static DEFINE_SPINLOCK(hnae3_list_ae_dev_lock);
++#define HCLGE_SHAPER_BS_U_DEF	1
++#define HCLGE_SHAPER_BS_S_DEF	4
 +
-+static void hnae3_list_add(spinlock_t *lock, struct list_head *node,
-+			   struct list_head *head)
++#define HCLGE_ETHER_MAX_RATE	100000
++
++/* hclge_shaper_para_calc: calculate ir parameter for the shaper
++ * @ir: Rate to be config, its unit is Mbps
++ * @shaper_level: the shaper level. eg: port, pg, priority, queueset
++ * @ir_b: IR_B parameter of IR shaper
++ * @ir_u: IR_U parameter of IR shaper
++ * @ir_s: IR_S parameter of IR shaper
++ *
++ * the formula:
++ *
++ *		IR_b * (2 ^ IR_u) * 8
++ * IR(Mbps) = -------------------------  *  CLOCK(1000Mbps)
++ *		Tick * (2 ^ IR_s)
++ *
++ * @return: 0: calculate sucessful, negative: fail
++ */
++static int hclge_shaper_para_calc(u32 ir, u8 shaper_level,
++				  u8 *ir_b, u8 *ir_u, u8 *ir_s)
 +{
-+	unsigned long flags;
++	const u16 tick_array[HCLGE_SHAPER_LVL_CNT] = {
++		6 * 256,        /* Prioriy level */
++		6 * 32,         /* Prioriy group level */
++		6 * 8,          /* Port level */
++		6 * 256         /* Qset level */
++	};
++	u8 ir_u_calc = 0, ir_s_calc = 0;
++	u32 ir_calc;
++	u32 tick;
 +
-+	spin_lock_irqsave(lock, flags);
-+	list_add_tail_rcu(node, head);
-+	spin_unlock_irqrestore(lock, flags);
-+}
++	/* Calc tick */
++	if (shaper_level >= HCLGE_SHAPER_LVL_CNT)
++		return -ENOMEM;
 +
-+static void hnae3_list_del(spinlock_t *lock, struct list_head *node)
-+{
-+	unsigned long flags;
++	tick = tick_array[shaper_level];
 +
-+	spin_lock_irqsave(lock, flags);
-+	list_del_rcu(node);
-+	spin_unlock_irqrestore(lock, flags);
-+}
++	/**
++	 * Calc the speed if ir_b = 126, ir_u = 0 and ir_s = 0
++	 * the formula is changed to:
++	 *		126 * 1 * 8
++	 * ir_calc = ---------------- * 1000
++	 *		tick * 1
++	 */
++	ir_calc = (1008000 + (tick >> 1) - 1) / tick;
 +
-+static bool hnae3_client_match(enum hnae3_client_type client_type,
-+			       enum hnae3_dev_type dev_type)
-+{
-+	if (dev_type == HNAE3_DEV_KNIC) {
-+		switch (client_type) {
-+		case HNAE3_CLIENT_KNIC:
-+		case HNAE3_CLIENT_ROCE:
-+			return true;
-+		default:
-+			return false;
++	if (ir_calc == ir) {
++		*ir_b = 126;
++		*ir_u = 0;
++		*ir_s = 0;
++
++		return 0;
++	} else if (ir_calc > ir) {
++		/* Increasing the denominator to select ir_s value */
++		while (ir_calc > ir) {
++			ir_s_calc++;
++			ir_calc = 1008000 / (tick * (1 << ir_s_calc));
 +		}
-+	} else if (dev_type == HNAE3_DEV_UNIC) {
-+		switch (client_type) {
-+		case HNAE3_CLIENT_UNIC:
-+			return true;
-+		default:
-+			return false;
-+		}
++
++		if (ir_calc == ir)
++			*ir_b = 126;
++		else
++			*ir_b = (ir * tick * (1 << ir_s_calc) + 4000) / 8000;
 +	} else {
-+		return false;
-+	}
-+}
++		/* Increasing the numerator to select ir_u value */
++		u32 numerator;
 +
-+int hnae3_register_client(struct hnae3_client *client)
-+{
-+	struct hnae3_client *client_tmp;
-+	struct hnae3_ae_dev *ae_dev;
-+	int ret;
-+
-+	/* One system should only have one client for every type */
-+	list_for_each_entry(client_tmp, &hnae3_client_list, node) {
-+		if (client_tmp->type == client->type)
-+			return 0;
-+	}
-+
-+	hnae3_list_add(&hnae3_list_client_lock, &client->node,
-+		       &hnae3_client_list);
-+
-+	/* Check if there are matched ae_dev */
-+	list_for_each_entry(ae_dev, &hnae3_ae_dev_list, node) {
-+		if (hnae3_client_match(client->type, ae_dev->dev_type) &&
-+		    hnae_get_bit(ae_dev->flag, HNAE3_DEV_INITED_B)) {
-+			if (ae_dev->ops && ae_dev->ops->register_client) {
-+				ret = ae_dev->ops->register_client(client,
-+								   ae_dev);
-+				if (ret) {
-+					dev_err(&ae_dev->pdev->dev,
-+						"init ae_dev error.\n");
-+					return ret;
-+				}
-+			}
++		while (ir_calc < ir) {
++			ir_u_calc++;
++			numerator = 1008000 * (1 << ir_u_calc);
++			ir_calc = (numerator + (tick >> 1)) / tick;
 +		}
-+	}
 +
-+	return 0;
-+}
-+EXPORT_SYMBOL(hnae3_register_client);
-+
-+void hnae3_unregister_client(struct hnae3_client *client)
-+{
-+	struct hnae3_ae_dev *ae_dev;
-+
-+	/* Check if there are matched ae_dev */
-+	list_for_each_entry(ae_dev, &hnae3_ae_dev_list, node) {
-+		if (hnae3_client_match(client->type, ae_dev->dev_type) &&
-+		    hnae_get_bit(ae_dev->flag, HNAE3_DEV_INITED_B))
-+			if (ae_dev->ops && ae_dev->ops->unregister_client)
-+				ae_dev->ops->unregister_client(client, ae_dev);
-+	}
-+	hnae3_list_del(&hnae3_list_client_lock, &client->node);
-+}
-+EXPORT_SYMBOL(hnae3_unregister_client);
-+
-+/* hnae_ae_register - register a AE engine to hnae framework
-+ * @hdev: the hnae ae engine device
-+ * @owner:  the module who provides this dev
-+ * NOTE: the duplicated name will not be checked
-+ */
-+int hnae3_register_ae_algo(struct hnae3_ae_algo *ae_algo)
-+{
-+	struct hnae3_ae_dev *ae_dev;
-+	struct hnae3_client *client;
-+	const struct pci_device_id *id;
-+	int ret;
-+
-+	hnae3_list_add(&hnae3_list_ae_algo_lock, &ae_algo->node,
-+		       &hnae3_ae_algo_list);
-+
-+	/* Check if there are matched ae_dev */
-+	list_for_each_entry(ae_dev, &hnae3_ae_dev_list, node) {
-+		id = pci_match_id(ae_algo->pdev_id_table, ae_dev->pdev);
-+		if (!id)
-+			continue;
-+
-+		/* ae_dev init should set flag */
-+		ae_dev->ops = ae_algo->ops;
-+		ret = ae_algo->ops->init_ae_dev(ae_dev);
-+		if (!ret) {
-+			hnae_set_bit(ae_dev->flag, HNAE3_DEV_INITED_B, 1);
++		if (ir_calc == ir) {
++			*ir_b = 126;
 +		} else {
-+			dev_err(&ae_dev->pdev->dev, "init ae_dev error.\n");
-+			return ret;
-+		}
-+
-+		list_for_each_entry(client, &hnae3_client_list, node) {
-+			if (hnae3_client_match(client->type,
-+					       ae_dev->dev_type) &&
-+			    hnae_get_bit(ae_dev->flag, HNAE3_DEV_INITED_B)) {
-+				if (ae_dev->ops &&
-+				    ae_dev->ops->register_client) {
-+					ret = ae_dev->ops->register_client(
-+						client, ae_dev);
-+					if (ret) {
-+						dev_err(&ae_dev->pdev->dev,
-+							"init ae_dev error.\n");
-+						return ret;
-+					}
-+				}
-+			}
++			u32 denominator = (8000 * (1 << --ir_u_calc));
++			*ir_b = (ir * tick + (denominator >> 1)) / denominator;
 +		}
 +	}
++
++	*ir_u = ir_u_calc;
++	*ir_s = ir_s_calc;
 +
 +	return 0;
 +}
-+EXPORT_SYMBOL(hnae3_register_ae_algo);
 +
-+/* hnae_ae_unregister - unregisters a HNAE AE engine
-+ * @cdev: the device to unregister
-+ */
-+void hnae3_unregister_ae_algo(struct hnae3_ae_algo *ae_algo)
++static int hclge_mac_pause_en_cfg(struct hclge_dev *hdev, bool tx, bool rx)
 +{
-+	struct hnae3_ae_dev *ae_dev;
-+	struct hnae3_client *client;
-+	const struct pci_device_id *id;
++	struct hclge_desc desc;
 +
-+	/* Check if there are matched ae_dev */
-+	list_for_each_entry(ae_dev, &hnae3_ae_dev_list, node) {
-+		id = pci_match_id(ae_algo->pdev_id_table, ae_dev->pdev);
-+		if (!id)
-+			continue;
++	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_CFG_MAC_PAUSE_EN, false);
 +
-+		/* Check if there are matched client */
-+		list_for_each_entry(client, &hnae3_client_list, node) {
-+			if (hnae3_client_match(client->type,
-+					       ae_dev->dev_type) &&
-+			    hnae_get_bit(ae_dev->flag, HNAE3_DEV_INITED_B)) {
-+				hnae3_unregister_client(client);
-+				continue;
-+			}
-+		}
++	desc.data[0] = cpu_to_le32((tx ? HCLGE_TX_MAC_PAUSE_EN_MSK : 0) |
++		(rx ? HCLGE_RX_MAC_PAUSE_EN_MSK : 0));
 +
-+		ae_algo->ops->uninit_ae_dev(ae_dev);
-+		hnae_set_bit(ae_dev->flag, HNAE3_DEV_INITED_B, 0);
-+	}
-+
-+	hnae3_list_del(&hnae3_list_ae_algo_lock, &ae_algo->node);
++	return hclge_cmd_send(&hdev->hw, &desc, 1);
 +}
-+EXPORT_SYMBOL(hnae3_unregister_ae_algo);
 +
-+/* hnae_ae_register - register a AE engine to hnae framework
-+ * @hdev: the hnae ae engine device
-+ * @owner:  the module who provides this dev
-+ * NOTE: the duplicated name will not be checked
-+ */
-+int hnae3_register_ae_dev(struct hnae3_ae_dev *ae_dev)
++static int hclge_fill_pri_array(struct hclge_dev *hdev, u8 *pri, u8 pri_id)
 +{
-+	struct hnae3_ae_algo *ae_algo;
-+	struct hnae3_client *client;
-+	const struct pci_device_id *id;
++	u8 tc;
++
++	for (tc = 0; tc < hdev->tm_info.num_tc; tc++)
++		if (hdev->tm_info.tc_info[tc].up == pri_id)
++			break;
++
++	if (tc >= hdev->tm_info.num_tc)
++		return -ENOMEM;
++
++	/**
++	 * the register for priority has four bytes, the first bytes includes
++	 *  priority0 and priority1, the higher 4bit stands for priority1
++	 *  while the lower 4bit stands for priority0, as below:
++	 * first byte:	| pri_1 | pri_0 |
++	 * second byte:	| pri_3 | pri_2 |
++	 * third byte:	| pri_5 | pri_4 |
++	 * fourth byte:	| pri_7 | pri_6 |
++	 */
++	pri[pri_id >> 1] |= tc << ((pri_id & 1) * 4);
++
++	return 0;
++}
++
++static int hclge_up_to_tc_map(struct hclge_dev *hdev)
++{
++	struct hclge_desc desc;
++	u8 *pri = (u8 *)desc.data;
++	u8 pri_id;
 +	int ret;
 +
-+	hnae3_list_add(&hnae3_list_ae_dev_lock, &ae_dev->node,
-+		       &hnae3_ae_dev_list);
++	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_PRI_TO_TC_MAPPING, false);
 +
-+	/* Check if there are matched ae_algo */
-+	list_for_each_entry(ae_algo, &hnae3_ae_algo_list, node) {
-+		id = pci_match_id(ae_algo->pdev_id_table, ae_dev->pdev);
-+		if (!id)
-+			continue;
-+
-+		ae_dev->ops = ae_algo->ops;
-+
-+		/* ae_dev init should set flag */
-+		ret = ae_dev->ops->init_ae_dev(ae_dev);
-+		if (!ret) {
-+			hnae_set_bit(ae_dev->flag, HNAE3_DEV_INITED_B, 1);
-+			break;
-+		}
-+
-+		dev_err(&ae_dev->pdev->dev, "init ae_dev error.\n");
-+		return ret;
++	for (pri_id = 0; pri_id < hdev->tm_info.num_tc; pri_id++) {
++		ret = hclge_fill_pri_array(hdev, pri, pri_id);
++		if (ret)
++			return ret;
 +	}
 +
-+	if (!ae_dev->ops)
++	return hclge_cmd_send(&hdev->hw, &desc, 1);
++}
++
++static int hclge_tm_pg_to_pri_map_cfg(struct hclge_dev *hdev,
++				      u8 pg_id, u8 pri_bit_map)
++{
++	struct hclge_pg_to_pri_link_cmd *map;
++	struct hclge_desc desc;
++
++	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TM_PG_TO_PRI_LINK, false);
++
++	map = (struct hclge_pg_to_pri_link_cmd *)desc.data;
++
++	map->pg_id = cpu_to_le16(pg_id);
++	map->pri_bit_map = pri_bit_map;
++
++	return hclge_cmd_send(&hdev->hw, &desc, 1);
++}
++
++static int hclge_tm_qs_to_pri_map_cfg(struct hclge_dev *hdev,
++				      u16 qs_id, u8 pri)
++{
++	struct hclge_qs_to_pri_link_cmd *map;
++	struct hclge_desc desc;
++
++	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TM_QS_TO_PRI_LINK, false);
++
++	map = (struct hclge_qs_to_pri_link_cmd *)desc.data;
++
++	map->qs_id = cpu_to_le16(qs_id);
++	map->priority = pri;
++	map->link_vld = HCLGE_TM_QS_PRI_LINK_VLD_MSK;
++
++	return hclge_cmd_send(&hdev->hw, &desc, 1);
++}
++
++static int hclge_tm_q_to_qs_map_cfg(struct hclge_dev *hdev,
++				    u8 q_id, u16 qs_id)
++{
++	struct hclge_nq_to_qs_link_cmd *map;
++	struct hclge_desc desc;
++
++	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TM_NQ_TO_QS_LINK, false);
++
++	map = (struct hclge_nq_to_qs_link_cmd *)desc.data;
++
++	map->nq_id = cpu_to_le16(q_id);
++	map->qset_id = cpu_to_le16(qs_id | HCLGE_TM_Q_QS_LINK_VLD_MSK);
++
++	return hclge_cmd_send(&hdev->hw, &desc, 1);
++}
++
++static int hclge_tm_gp_weight_cfg(struct hclge_dev *hdev, u8 pg_id,
++				  u8 dwrr)
++{
++	struct hclge_pg_weight_cmd *weight;
++	struct hclge_desc desc;
++
++	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TM_PG_WEIGHT, false);
++
++	weight = (struct hclge_pg_weight_cmd *)desc.data;
++
++	weight->pg_id = pg_id;
++	weight->dwrr = dwrr;
++
++	return hclge_cmd_send(&hdev->hw, &desc, 1);
++}
++
++static int hclge_tm_pri_weight_cfg(struct hclge_dev *hdev, u8 pri_id,
++				   u8 dwrr)
++{
++	struct hclge_priority_weight_cmd *weight;
++	struct hclge_desc desc;
++
++	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TM_PRI_WEIGHT, false);
++
++	weight = (struct hclge_priority_weight_cmd *)desc.data;
++
++	weight->pri_id = pri_id;
++	weight->dwrr = dwrr;
++
++	return hclge_cmd_send(&hdev->hw, &desc, 1);
++}
++
++static int hclge_tm_qs_weight_cfg(struct hclge_dev *hdev, u16 qs_id,
++				  u8 dwrr)
++{
++	struct hclge_qs_weight_cmd *weight;
++	struct hclge_desc desc;
++
++	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TM_QS_WEIGHT, false);
++
++	weight = (struct hclge_qs_weight_cmd *)desc.data;
++
++	weight->qs_id = cpu_to_le16(qs_id);
++	weight->dwrr = dwrr;
++
++	return hclge_cmd_send(&hdev->hw, &desc, 1);
++}
++
++static int hclge_tm_pg_shapping_cfg(struct hclge_dev *hdev,
++				    enum hclge_shap_bucket bucket, u8 pg_id,
++				    u8 ir_b, u8 ir_u, u8 ir_s, u8 bs_b, u8 bs_s)
++{
++	struct hclge_pg_shapping_cmd *shap_cfg_cmd;
++	enum hclge_opcode_type opcode;
++	struct hclge_desc desc;
++
++	opcode = bucket ? HCLGE_OPC_TM_PG_P_SHAPPING :
++		HCLGE_OPC_TM_PG_C_SHAPPING;
++	hclge_cmd_setup_basic_desc(&desc, opcode, false);
++
++	shap_cfg_cmd = (struct hclge_pg_shapping_cmd *)desc.data;
++
++	shap_cfg_cmd->pg_id = pg_id;
++
++	hclge_tm_set_feild(shap_cfg_cmd->pg_shapping_para, IR_B, ir_b);
++	hclge_tm_set_feild(shap_cfg_cmd->pg_shapping_para, IR_U, ir_u);
++	hclge_tm_set_feild(shap_cfg_cmd->pg_shapping_para, IR_S, ir_s);
++	hclge_tm_set_feild(shap_cfg_cmd->pg_shapping_para, BS_B, bs_b);
++	hclge_tm_set_feild(shap_cfg_cmd->pg_shapping_para, BS_S, bs_s);
++
++	return hclge_cmd_send(&hdev->hw, &desc, 1);
++}
++
++static int hclge_tm_pri_shapping_cfg(struct hclge_dev *hdev,
++				     enum hclge_shap_bucket bucket, u8 pri_id,
++				     u8 ir_b, u8 ir_u, u8 ir_s,
++				     u8 bs_b, u8 bs_s)
++{
++	struct hclge_pri_shapping_cmd *shap_cfg_cmd;
++	enum hclge_opcode_type opcode;
++	struct hclge_desc desc;
++
++	opcode = bucket ? HCLGE_OPC_TM_PRI_P_SHAPPING :
++		HCLGE_OPC_TM_PRI_C_SHAPPING;
++
++	hclge_cmd_setup_basic_desc(&desc, opcode, false);
++
++	shap_cfg_cmd = (struct hclge_pri_shapping_cmd *)desc.data;
++
++	shap_cfg_cmd->pri_id = pri_id;
++
++	hclge_tm_set_feild(shap_cfg_cmd->pri_shapping_para, IR_B, ir_b);
++	hclge_tm_set_feild(shap_cfg_cmd->pri_shapping_para, IR_U, ir_u);
++	hclge_tm_set_feild(shap_cfg_cmd->pri_shapping_para, IR_S, ir_s);
++	hclge_tm_set_feild(shap_cfg_cmd->pri_shapping_para, BS_B, bs_b);
++	hclge_tm_set_feild(shap_cfg_cmd->pri_shapping_para, BS_S, bs_s);
++
++	return hclge_cmd_send(&hdev->hw, &desc, 1);
++}
++
++static int hclge_tm_pg_schd_mode_cfg(struct hclge_dev *hdev, u8 pg_id)
++{
++	struct hclge_desc desc;
++
++	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TM_PG_SCH_MODE_CFG, false);
++
++	if (hdev->tm_info.pg_info[pg_id].pg_sch_mode == HCLGE_SCH_MODE_DWRR)
++		desc.data[1] = cpu_to_le32(HCLGE_TM_TX_SCHD_DWRR_MSK);
++	else
++		desc.data[1] = 0;
++
++	desc.data[0] = cpu_to_le32(pg_id);
++
++	return hclge_cmd_send(&hdev->hw, &desc, 1);
++}
++
++static int hclge_tm_pri_schd_mode_cfg(struct hclge_dev *hdev, u8 pri_id)
++{
++	struct hclge_desc desc;
++
++	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TM_PRI_SCH_MODE_CFG, false);
++
++	if (hdev->tm_info.tc_info[pri_id].tc_sch_mode == HCLGE_SCH_MODE_DWRR)
++		desc.data[1] = cpu_to_le32(HCLGE_TM_TX_SCHD_DWRR_MSK);
++	else
++		desc.data[1] = 0;
++
++	desc.data[0] = cpu_to_le32(pri_id);
++
++	return hclge_cmd_send(&hdev->hw, &desc, 1);
++}
++
++static int hclge_tm_qs_schd_mode_cfg(struct hclge_dev *hdev, u16 qs_id)
++{
++	struct hclge_desc desc;
++
++	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TM_QS_SCH_MODE_CFG, false);
++
++	if (hdev->tm_info.tc_info[qs_id].tc_sch_mode == HCLGE_SCH_MODE_DWRR)
++		desc.data[1] = cpu_to_le32(HCLGE_TM_TX_SCHD_DWRR_MSK);
++	else
++		desc.data[1] = 0;
++
++	desc.data[0] = cpu_to_le32(qs_id);
++
++	return hclge_cmd_send(&hdev->hw, &desc, 1);
++}
++
++static int hclge_tm_qs_bp_cfg(struct hclge_dev *hdev, u8 tc)
++{
++	struct hclge_bp_to_qs_map_cmd *bp_to_qs_map_cmd;
++	struct hclge_desc desc;
++
++	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TM_BP_TO_QSET_MAPPING,
++				   false);
++
++	bp_to_qs_map_cmd = (struct hclge_bp_to_qs_map_cmd *)desc.data;
++
++	bp_to_qs_map_cmd->tc_id = tc;
++
++	/* Qset and tc is one by one mapping */
++	bp_to_qs_map_cmd->qs_bit_map = cpu_to_le32(1 << tc);
++
++	return hclge_cmd_send(&hdev->hw, &desc, 1);
++}
++
++static void hclge_tm_vport_tc_info_update(struct hclge_vport *vport)
++{
++	struct hnae3_knic_private_info *kinfo = &vport->nic.kinfo;
++	struct hclge_dev *hdev = vport->back;
++	u8 i;
++
++	kinfo = &vport->nic.kinfo;
++	vport->bw_limit = hdev->tm_info.pg_info[0].bw_limit;
++	kinfo->num_tc =
++		min_t(u16, kinfo->num_tqps, hdev->tm_info.num_tc);
++	kinfo->rss_size
++		= min_t(u16, hdev->rss_size_max,
++			kinfo->num_tqps / kinfo->num_tc);
++	vport->qs_offset = hdev->tm_info.num_tc * vport->vport_id;
++	vport->dwrr = 100;  /* 100 percent as init */
++
++	for (i = 0; i < kinfo->num_tc; i++) {
++		if (hdev->hw_tc_map & BIT(i)) {
++			kinfo->tc_info[i].enable = true;
++			kinfo->tc_info[i].tqp_offset = i * kinfo->rss_size;
++			kinfo->tc_info[i].tqp_count = kinfo->rss_size;
++			kinfo->tc_info[i].tc = i;
++			kinfo->tc_info[i].up = hdev->tm_info.tc_info[i].up;
++		} else {
++			/* Set to default queue if TC is disable */
++			kinfo->tc_info[i].enable = false;
++			kinfo->tc_info[i].tqp_offset = 0;
++			kinfo->tc_info[i].tqp_count = 1;
++			kinfo->tc_info[i].tc = 0;
++			kinfo->tc_info[i].up = 0;
++		}
++	}
++}
++
++static void hclge_tm_vport_info_update(struct hclge_dev *hdev)
++{
++	struct hclge_vport *vport = hdev->vport;
++	u32 i;
++
++	for (i = 0; i < hdev->num_alloc_vport; i++) {
++		hclge_tm_vport_tc_info_update(vport);
++
++		vport++;
++	}
++}
++
++static void hclge_tm_tc_info_init(struct hclge_dev *hdev)
++{
++	u8 i;
++
++	for (i = 0; i < hdev->tm_info.num_tc; i++) {
++		hdev->tm_info.tc_info[i].tc_id = i;
++		hdev->tm_info.tc_info[i].tc_sch_mode = HCLGE_SCH_MODE_DWRR;
++		hdev->tm_info.tc_info[i].up = i;
++		hdev->tm_info.tc_info[i].pgid = 0;
++		hdev->tm_info.tc_info[i].bw_limit =
++			hdev->tm_info.pg_info[0].bw_limit;
++	}
++
++	hdev->flag &= ~HCLGE_FLAG_DCB_ENABLE;
++}
++
++static void hclge_tm_pg_info_init(struct hclge_dev *hdev)
++{
++	u8 i;
++
++	for (i = 0; i < hdev->tm_info.num_pg; i++) {
++		int k;
++
++		hdev->tm_info.pg_dwrr[i] = i ? 0 : 100;
++
++		hdev->tm_info.pg_info[i].pg_id = i;
++		hdev->tm_info.pg_info[i].pg_sch_mode = HCLGE_SCH_MODE_DWRR;
++
++		hdev->tm_info.pg_info[i].bw_limit = HCLGE_ETHER_MAX_RATE;
++
++		if (i != 0)
++			continue;
++
++		hdev->tm_info.pg_info[i].tc_bit_map = hdev->hw_tc_map;
++		for (k = 0; k < hdev->tm_info.num_tc; k++)
++			hdev->tm_info.pg_info[i].tc_dwrr[k] = 100;
++	}
++}
++
++static int hclge_tm_schd_info_init(struct hclge_dev *hdev)
++{
++	if ((hdev->tx_sch_mode != HCLGE_FLAG_TC_BASE_SCH_MODE) &&
++	    (hdev->tm_info.num_pg != 1))
++		return -EINVAL;
++
++	hclge_tm_pg_info_init(hdev);
++
++	hclge_tm_tc_info_init(hdev);
++
++	hclge_tm_vport_info_update(hdev);
++
++	hdev->tm_info.fc_mode = HCLGE_FC_NONE;
++	if (hdev->tm_info.num_tc != 1)
++		hdev->fc_mode_last_time = hdev->tm_info.fc_mode;
++	else
++		hdev->fc_mode_last_time = hdev->tm_info.fc_mode;
++
++	return 0;
++}
++
++static int hclge_tm_pg_to_pri_map(struct hclge_dev *hdev)
++{
++	int ret;
++	u32 i;
++
++	if (hdev->tx_sch_mode != HCLGE_FLAG_TC_BASE_SCH_MODE)
 +		return 0;
 +
-+	list_for_each_entry(client, &hnae3_client_list, node) {
-+		if (hnae3_client_match(client->type, ae_dev->dev_type) &&
-+		    hnae_get_bit(ae_dev->flag, HNAE3_DEV_INITED_B)) {
-+			if (ae_dev->ops && ae_dev->ops->register_client) {
-+				ret = ae_dev->ops->register_client(client,
-+								   ae_dev);
-+				if (ret) {
-+					dev_err(&ae_dev->pdev->dev,
-+						"init ae_dev error.\n");
++	for (i = 0; i < hdev->tm_info.num_pg; i++) {
++		/* Cfg mapping */
++		ret = hclge_tm_pg_to_pri_map_cfg(
++			hdev, i, hdev->tm_info.pg_info[i].tc_bit_map);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
++static int hclge_tm_pg_shaper_cfg(struct hclge_dev *hdev)
++{
++	u8 ir_u, ir_b, ir_s;
++	int ret;
++	u32 i;
++
++	/* Cfg pg schd */
++	if (hdev->tx_sch_mode != HCLGE_FLAG_TC_BASE_SCH_MODE)
++		return 0;
++
++	/* Pg to pri */
++	for (i = 0; i < hdev->tm_info.num_pg; i++) {
++		/* Calc shaper para */
++		ret = hclge_shaper_para_calc(
++					hdev->tm_info.pg_info[i].bw_limit,
++					HCLGE_SHAPER_LVL_PG,
++					&ir_b, &ir_u, &ir_s);
++		if (ret)
++			return ret;
++
++		ret = hclge_tm_pg_shapping_cfg(hdev,
++					       HCLGE_TM_SHAP_C_BUCKET, i,
++					       0, 0, 0, HCLGE_SHAPER_BS_U_DEF,
++					       HCLGE_SHAPER_BS_S_DEF);
++		if (ret)
++			return ret;
++
++		ret = hclge_tm_pg_shapping_cfg(hdev,
++					       HCLGE_TM_SHAP_P_BUCKET, i,
++					       ir_b, ir_u, ir_s,
++					       HCLGE_SHAPER_BS_U_DEF,
++					       HCLGE_SHAPER_BS_S_DEF);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
++static int hclge_tm_pg_dwrr_cfg(struct hclge_dev *hdev)
++{
++	int ret;
++	u32 i;
++
++	/* cfg pg schd */
++	if (hdev->tx_sch_mode != HCLGE_FLAG_TC_BASE_SCH_MODE)
++		return 0;
++
++	/* pg to prio */
++	for (i = 0; i < hdev->tm_info.num_pg; i++) {
++		/* Cfg dwrr */
++		ret = hclge_tm_gp_weight_cfg(hdev, i,
++					     hdev->tm_info.pg_dwrr[i]);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
++static int hclge_vport_q_to_qs_map(struct hclge_dev *hdev,
++				   struct hclge_vport *vport)
++{
++	struct hnae3_knic_private_info *kinfo = &vport->nic.kinfo;
++	struct hnae3_queue **tqp = kinfo->tqp;
++	struct hnae3_tc_info *v_tc_info;
++	u32 i, j;
++	int ret;
++
++	for (i = 0; i < kinfo->num_tc; i++) {
++		v_tc_info = &kinfo->tc_info[i];
++		for (j = 0; j < v_tc_info->tqp_count; j++) {
++			struct hnae3_queue *q = tqp[v_tc_info->tqp_offset + j];
++
++			ret = hclge_tm_q_to_qs_map_cfg(hdev,
++						       hclge_get_queue_id(q),
++						       vport->qs_offset + i);
++			if (ret)
++				return ret;
++		}
++	}
++
++	return 0;
++}
++
++static int hclge_tm_pri_q_qs_cfg(struct hclge_dev *hdev)
++{
++	struct hclge_vport *vport = hdev->vport;
++	int ret;
++	u32 i;
++
++	if (hdev->tx_sch_mode == HCLGE_FLAG_TC_BASE_SCH_MODE) {
++		/* Cfg qs -> pri mapping, one by one mapping */
++		for (i = 0; i < hdev->tm_info.num_tc; i++) {
++			ret = hclge_tm_qs_to_pri_map_cfg(hdev, i, i);
++			if (ret)
++				return ret;
++		}
++	} else if (hdev->tx_sch_mode == HCLGE_FLAG_VNET_BASE_SCH_MODE) {
++		int k;
++		/* Cfg qs -> pri mapping,  qs = tc, pri = vf, 8 qs -> 1 pri */
++		for (k = 0; k < hdev->num_alloc_vport; k++)
++			for (i = 0; i < HNAE3_MAX_TC; i++) {
++				ret = hclge_tm_qs_to_pri_map_cfg(
++					hdev, vport[k].qs_offset + i, k);
++				if (ret)
 +					return ret;
-+				}
 +			}
++	} else {
++		return -EINVAL;
++	}
++
++	/* Cfg q -> qs mapping */
++	for (i = 0; i < hdev->num_alloc_vport; i++) {
++		ret = hclge_vport_q_to_qs_map(hdev, vport);
++		if (ret)
++			return ret;
++
++		vport++;
++	}
++
++	return 0;
++}
++
++static int hclge_tm_pri_tc_base_shaper_cfg(struct hclge_dev *hdev)
++{
++	u8 ir_u, ir_b, ir_s;
++	int ret;
++	u32 i;
++
++	for (i = 0; i < hdev->tm_info.num_tc; i++) {
++		ret = hclge_shaper_para_calc(
++					hdev->tm_info.tc_info[i].bw_limit,
++					HCLGE_SHAPER_LVL_PRI,
++					&ir_b, &ir_u, &ir_s);
++		if (ret)
++			return ret;
++
++		ret = hclge_tm_pri_shapping_cfg(
++			hdev, HCLGE_TM_SHAP_C_BUCKET, i,
++			0, 0, 0, HCLGE_SHAPER_BS_U_DEF,
++			HCLGE_SHAPER_BS_S_DEF);
++		if (ret)
++			return ret;
++
++		ret = hclge_tm_pri_shapping_cfg(
++			hdev, HCLGE_TM_SHAP_P_BUCKET, i,
++			ir_b, ir_u, ir_s, HCLGE_SHAPER_BS_U_DEF,
++			HCLGE_SHAPER_BS_S_DEF);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
++static int hclge_tm_pri_vnet_base_shaper_pri_cfg(struct hclge_vport *vport)
++{
++	struct hclge_dev *hdev = vport->back;
++	u8 ir_u, ir_b, ir_s;
++	int ret;
++
++	ret = hclge_shaper_para_calc(vport->bw_limit, HCLGE_SHAPER_LVL_VF,
++				     &ir_b, &ir_u, &ir_s);
++	if (ret)
++		return ret;
++
++	ret = hclge_tm_pri_shapping_cfg(hdev, HCLGE_TM_SHAP_C_BUCKET,
++					vport->vport_id,
++					0, 0, 0, HCLGE_SHAPER_BS_U_DEF,
++					HCLGE_SHAPER_BS_S_DEF);
++	if (ret)
++		return ret;
++
++	ret = hclge_tm_pri_shapping_cfg(hdev, HCLGE_TM_SHAP_P_BUCKET,
++					vport->vport_id,
++					ir_b, ir_u, ir_s,
++					HCLGE_SHAPER_BS_U_DEF,
++					HCLGE_SHAPER_BS_S_DEF);
++	if (ret)
++		return ret;
++
++	return 0;
++}
++
++static int hclge_tm_pri_vnet_base_shaper_qs_cfg(struct hclge_vport *vport)
++{
++	struct hnae3_knic_private_info *kinfo = &vport->nic.kinfo;
++	struct hclge_dev *hdev = vport->back;
++	struct hnae3_tc_info *v_tc_info;
++	u8 ir_u, ir_b, ir_s;
++	u32 i;
++	int ret;
++
++	for (i = 0; i < kinfo->num_tc; i++) {
++		v_tc_info = &kinfo->tc_info[i];
++		ret = hclge_shaper_para_calc(
++					hdev->tm_info.tc_info[i].bw_limit,
++					HCLGE_SHAPER_LVL_QSET,
++					&ir_b, &ir_u, &ir_s);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
++static int hclge_tm_pri_vnet_base_shaper_cfg(struct hclge_dev *hdev)
++{
++	struct hclge_vport *vport = hdev->vport;
++	int ret;
++	u32 i;
++
++	/* Need config vport shaper */
++	for (i = 0; i < hdev->num_alloc_vport; i++) {
++		ret = hclge_tm_pri_vnet_base_shaper_pri_cfg(vport);
++		if (ret)
++			return ret;
++
++		ret = hclge_tm_pri_vnet_base_shaper_qs_cfg(vport);
++		if (ret)
++			return ret;
++
++		vport++;
++	}
++
++	return 0;
++}
++
++static int hclge_tm_pri_shaper_cfg(struct hclge_dev *hdev)
++{
++	int ret;
++
++	if (hdev->tx_sch_mode == HCLGE_FLAG_TC_BASE_SCH_MODE) {
++		ret = hclge_tm_pri_tc_base_shaper_cfg(hdev);
++		if (ret)
++			return ret;
++	} else {
++		ret = hclge_tm_pri_vnet_base_shaper_cfg(hdev);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
++static int hclge_tm_pri_tc_base_dwrr_cfg(struct hclge_dev *hdev)
++{
++	struct hclge_pg_info *pg_info;
++	u8 dwrr;
++	int ret;
++	u32 i;
++
++	for (i = 0; i < hdev->tm_info.num_tc; i++) {
++		pg_info =
++			&hdev->tm_info.pg_info[hdev->tm_info.tc_info[i].pgid];
++		dwrr = pg_info->tc_dwrr[i];
++
++		ret = hclge_tm_pri_weight_cfg(hdev, i, dwrr);
++		if (ret)
++			return ret;
++
++		ret = hclge_tm_qs_weight_cfg(hdev, i, dwrr);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
++static int hclge_tm_pri_vnet_base_dwrr_pri_cfg(struct hclge_vport *vport)
++{
++	struct hnae3_knic_private_info *kinfo = &vport->nic.kinfo;
++	struct hclge_dev *hdev = vport->back;
++	int ret;
++	u8 i;
++
++	/* Vf dwrr */
++	ret = hclge_tm_pri_weight_cfg(hdev, vport->vport_id, vport->dwrr);
++	if (ret)
++		return ret;
++
++	/* Qset dwrr */
++	for (i = 0; i < kinfo->num_tc; i++) {
++		ret = hclge_tm_qs_weight_cfg(
++			hdev, vport->qs_offset + i,
++			hdev->tm_info.pg_info[0].tc_dwrr[i]);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
++static int hclge_tm_pri_vnet_base_dwrr_cfg(struct hclge_dev *hdev)
++{
++	struct hclge_vport *vport = hdev->vport;
++	int ret;
++	u32 i;
++
++	for (i = 0; i < hdev->num_alloc_vport; i++) {
++		ret = hclge_tm_pri_vnet_base_dwrr_pri_cfg(vport);
++		if (ret)
++			return ret;
++
++		vport++;
++	}
++
++	return 0;
++}
++
++static int hclge_tm_pri_dwrr_cfg(struct hclge_dev *hdev)
++{
++	int ret;
++
++	if (hdev->tx_sch_mode == HCLGE_FLAG_TC_BASE_SCH_MODE) {
++		ret = hclge_tm_pri_tc_base_dwrr_cfg(hdev);
++		if (ret)
++			return ret;
++	} else {
++		ret = hclge_tm_pri_vnet_base_dwrr_cfg(hdev);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
++static int hclge_tm_map_cfg(struct hclge_dev *hdev)
++{
++	int ret;
++
++	ret = hclge_tm_pg_to_pri_map(hdev);
++	if (ret)
++		return ret;
++
++	return hclge_tm_pri_q_qs_cfg(hdev);
++}
++
++static int hclge_tm_shaper_cfg(struct hclge_dev *hdev)
++{
++	int ret;
++
++	ret = hclge_tm_pg_shaper_cfg(hdev);
++	if (ret)
++		return ret;
++
++	return hclge_tm_pri_shaper_cfg(hdev);
++}
++
++int hclge_tm_dwrr_cfg(struct hclge_dev *hdev)
++{
++	int ret;
++
++	ret = hclge_tm_pg_dwrr_cfg(hdev);
++	if (ret)
++		return ret;
++
++	return hclge_tm_pri_dwrr_cfg(hdev);
++}
++
++static int hclge_tm_lvl2_schd_mode_cfg(struct hclge_dev *hdev)
++{
++	int ret;
++	u8 i;
++
++	/* Only being config on TC-Based scheduler mode */
++	if (hdev->tx_sch_mode == HCLGE_FLAG_VNET_BASE_SCH_MODE)
++		return 0;
++
++	for (i = 0; i < hdev->tm_info.num_pg; i++) {
++		ret = hclge_tm_pg_schd_mode_cfg(hdev, i);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
++static int hclge_tm_schd_mode_vnet_base_cfg(struct hclge_vport *vport)
++{
++	struct hnae3_knic_private_info *kinfo = &vport->nic.kinfo;
++	struct hclge_dev *hdev = vport->back;
++	int ret;
++	u8 i;
++
++	ret = hclge_tm_pri_schd_mode_cfg(hdev, vport->vport_id);
++	if (ret)
++		return ret;
++
++	for (i = 0; i < kinfo->num_tc; i++) {
++		ret = hclge_tm_qs_schd_mode_cfg(hdev, vport->qs_offset + i);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
++static int hclge_tm_lvl34_schd_mode_cfg(struct hclge_dev *hdev)
++{
++	struct hclge_vport *vport = hdev->vport;
++	int ret;
++	u8 i;
++
++	if (hdev->tx_sch_mode == HCLGE_FLAG_TC_BASE_SCH_MODE) {
++		for (i = 0; i < hdev->tm_info.num_tc; i++) {
++			ret = hclge_tm_pri_schd_mode_cfg(hdev, i);
++			if (ret)
++				return ret;
++
++			ret = hclge_tm_qs_schd_mode_cfg(hdev, i);
++			if (ret)
++				return ret;
++		}
++	} else {
++		for (i = 0; i < hdev->num_alloc_vport; i++) {
++			ret = hclge_tm_schd_mode_vnet_base_cfg(vport);
++			if (ret)
++				return ret;
++
++			vport++;
 +		}
 +	}
 +
 +	return 0;
 +}
-+EXPORT_SYMBOL(hnae3_register_ae_dev);
 +
-+/* hnae_ae_unregister - unregisters a HNAE AE engine
-+ * @cdev: the device to unregister
-+ */
-+void hnae3_unregister_ae_dev(struct hnae3_ae_dev *ae_dev)
++static int hclge_tm_schd_mode_hw(struct hclge_dev *hdev)
 +{
-+	struct hnae3_ae_algo *ae_algo;
-+	struct hnae3_client *client;
-+	const struct pci_device_id *id;
++	int ret;
 +
-+	/* Check if there are matched ae_algo */
-+	list_for_each_entry(ae_algo, &hnae3_ae_algo_list, node) {
-+		id = pci_match_id(ae_algo->pdev_id_table, ae_dev->pdev);
-+		if (!id)
-+			continue;
++	ret = hclge_tm_lvl2_schd_mode_cfg(hdev);
++	if (ret)
++		return ret;
 +
-+		/* Check if there are matched client */
-+		list_for_each_entry(client, &hnae3_client_list, node) {
-+			if (hnae3_client_match(client->type,
-+					       ae_dev->dev_type) &&
-+			    hnae_get_bit(ae_dev->flag, HNAE3_DEV_INITED_B)) {
-+				hnae3_unregister_client(client);
-+				continue;
-+			}
-+		}
++	return hclge_tm_lvl34_schd_mode_cfg(hdev);
++}
 +
-+		ae_algo->ops->uninit_ae_dev(ae_dev);
-+		hnae_set_bit(ae_dev->flag, HNAE3_DEV_INITED_B, 0);
++static int hclge_tm_schd_setup_hw(struct hclge_dev *hdev)
++{
++	int ret;
++
++	/* Cfg tm mapping  */
++	ret = hclge_tm_map_cfg(hdev);
++	if (ret)
++		return ret;
++
++	/* Cfg tm shaper */
++	ret = hclge_tm_shaper_cfg(hdev);
++	if (ret)
++		return ret;
++
++	/* Cfg dwrr */
++	ret = hclge_tm_dwrr_cfg(hdev);
++	if (ret)
++		return ret;
++
++	/* Cfg schd mode for each level schd */
++	return hclge_tm_schd_mode_hw(hdev);
++}
++
++int hclge_pause_setup_hw(struct hclge_dev *hdev)
++{
++	bool en = hdev->tm_info.fc_mode != HCLGE_FC_PFC;
++	int ret;
++	u8 i;
++
++	ret = hclge_mac_pause_en_cfg(hdev, en, en);
++	if (ret)
++		return ret;
++
++	for (i = 0; i < hdev->tm_info.num_tc; i++) {
++		ret = hclge_tm_qs_bp_cfg(hdev, i);
++		if (ret)
++			return ret;
 +	}
 +
-+	hnae3_list_del(&hnae3_list_ae_dev_lock, &ae_dev->node);
++	return hclge_up_to_tc_map(hdev);
 +}
-+EXPORT_SYMBOL(hnae3_unregister_ae_dev);
 +
-+static int __init hnae3_init(void)
++int hclge_tm_init_hw(struct hclge_dev *hdev)
 +{
++	int ret;
++
++	if ((hdev->tx_sch_mode != HCLGE_FLAG_TC_BASE_SCH_MODE) &&
++	    (hdev->tx_sch_mode != HCLGE_FLAG_VNET_BASE_SCH_MODE))
++		return -ENOTSUPP;
++
++	ret = hclge_tm_schd_setup_hw(hdev);
++	if (ret)
++		return ret;
++
++	ret = hclge_pause_setup_hw(hdev);
++	if (ret)
++		return ret;
++
 +	return 0;
 +}
 +
-+static void __exit hnae3_exit(void)
++int hclge_tm_schd_init(struct hclge_dev *hdev)
 +{
++	int ret = hclge_tm_schd_info_init(hdev);
++
++	if (ret)
++		return ret;
++
++	return hclge_tm_init_hw(hdev);
 +}
-+
-+subsys_initcall(hnae3_init);
-+module_exit(hnae3_exit);
-+
-+MODULE_AUTHOR("Huawei Tech. Co., Ltd.");
-+MODULE_LICENSE("GPL");
-+MODULE_DESCRIPTION("HNAE3(Hisilicon Network Acceleration Engine) Framework");
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hnae3.h b/drivers/net/ethernet/hisilicon/hns3/hnae3.h
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h
 new file mode 100644
-index 0000000..2575f30
+index 0000000..59316aa
 --- /dev/null
-+++ b/drivers/net/ethernet/hisilicon/hns3/hnae3.h
-@@ -0,0 +1,449 @@
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h
+@@ -0,0 +1,108 @@
 +/*
-+ * Copyright (c) 2016-2017 Hisilicon Limited.
++ * Copyright (c) 2016~2017 Hisilicon Limited.
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License as published by
@@ -359,445 +1076,104 @@ index 0000000..2575f30
 + * (at your option) any later version.
 + */
 +
-+#ifndef __HNAE_H
-+#define __HNAE_H
++#ifndef __HCLGE_TX_SCHD_H__
++#define __HCLGE_TX_SCHD_H__
 +
-+/* Names used in this framework:
-+ *      ae handle (handle):
-+ *        a set of queues provided by AE
-+ *      ring buffer queue (rbq):
-+ *        the channel between upper layer and the AE, can do tx and rx
-+ *      ring:
-+ *        a tx or rx channel within a rbq
-+ *      ring description (desc):
-+ *        an element in the ring with packet information
-+ *      buffer:
-+ *        a memory region referred by desc with the full packet payload
-+ *
-+ * "num" means a static number set as a parameter, "count" mean a dynamic
-+ *   number set while running
-+ * "cb" means control block
-+ */
-+
-+#include <linux/acpi.h>
-+#include <linux/delay.h>
-+#include <linux/device.h>
-+#include <linux/module.h>
-+#include <linux/netdevice.h>
-+#include <linux/pci.h>
 +#include <linux/types.h>
 +
-+#define HNAE_DRIVER_VERSION "1.0"
-+#define HNAE_DRIVER_NAME "hns3"
-+#define HNAE_COPYRIGHT "Copyright(c) 2017 Huawei Corporation."
-+#define HNAE_DRIVER_STRING "Hisilicon Network Subsystem Driver"
-+#define HNAE_DEFAULT_DEVICE_DESCR "Hisilicon Network Subsystem"
++/* MAC Pause */
++#define HCLGE_TX_MAC_PAUSE_EN_MSK	BIT(0)
++#define HCLGE_RX_MAC_PAUSE_EN_MSK	BIT(1)
 +
-+/* Device IDs */
-+#define HISILICON				0x19E5
-+#define HNAE3_DEV_ID_GE				0xA220
-+#define HNAE3_DEV_ID_25GE			0xA221
-+#define HNAE3_DEV_ID_25GE_RDMA			0xA222
-+#define HNAE3_DEV_ID_25GE_RDMA_MACSEC		0xA223
-+#define HNAE3_DEV_ID_50GE_RDMA			0xA224
-+#define HNAE3_DEV_ID_50GE_RDMA_MACSEC		0xA225
-+#define HNAE3_DEV_ID_100G_RDMA_MACSEC		0xA226
-+#define HNAE3_DEV_ID_100G_VF			0xA22E
-+#define HNAE3_DEV_ID_100G_RDMA_DCB_PFC_VF	0xA22F
++#define HCLGE_TM_PORT_BASE_MODE_MSK	BIT(0)
 +
-+#define HNAE3_CLASS_NAME_SIZE 16
++/* SP or DWRR */
++#define HCLGE_TM_TX_SCHD_DWRR_MSK	BIT(0)
++#define HCLGE_TM_TX_SCHD_SP_MSK		(0xFE)
 +
-+#define HNAE3_DEV_INITED_B			0x0
-+#define HNAE_DEV_SUPPORT_ROCE_B			0x1
-+
-+#define ring_ptr_move_fw(ring, p) \
-+	((ring)->p = ((ring)->p + 1) % (ring)->desc_num)
-+#define ring_ptr_move_bw(ring, p) \
-+	((ring)->p = ((ring)->p - 1 + (ring)->desc_num) % (ring)->desc_num)
-+
-+enum hns_desc_type {
-+	DESC_TYPE_SKB,
-+	DESC_TYPE_PAGE,
++struct hclge_pg_to_pri_link_cmd {
++	u8 pg_id;
++	u8 rsvd1[3];
++	u8 pri_bit_map;
 +};
 +
-+struct hnae3_handle;
-+
-+struct hnae3_queue {
-+	void __iomem *io_base;
-+	struct hnae3_ae_algo *ae_algo;
-+	struct hnae3_handle *handle;
-+	int tqp_index;	/* index in a handle */
-+	u32 buf_size;	/* size for hnae_desc->addr, preset by AE */
-+	u16 desc_num;	/* total number of desc */
++struct hclge_qs_to_pri_link_cmd {
++	__le16 qs_id;
++	__le16 rsvd;
++	u8 priority;
++#define HCLGE_TM_QS_PRI_LINK_VLD_MSK	BIT(0)
++	u8 link_vld;
 +};
 +
-+/*hnae3 loop mode*/
-+enum hnae3_loop {
-+	HNAE3_MAC_INTER_LOOP_MAC,
-+	HNAE3_MAC_INTER_LOOP_SERDES,
-+	HNAE3_MAC_INTER_LOOP_PHY,
-+	HNAE3_MAC_LOOP_NONE,
++struct hclge_nq_to_qs_link_cmd {
++	__le16 nq_id;
++	__le16 rsvd;
++#define HCLGE_TM_Q_QS_LINK_VLD_MSK	BIT(10)
++	__le16 qset_id;
 +};
 +
-+enum hnae3_client_type {
-+	HNAE3_CLIENT_KNIC,
-+	HNAE3_CLIENT_UNIC,
-+	HNAE3_CLIENT_ROCE,
++struct hclge_pg_weight_cmd {
++	u8 pg_id;
++	u8 dwrr;
 +};
 +
-+enum hnae3_dev_type {
-+	HNAE3_DEV_KNIC,
-+	HNAE3_DEV_UNIC,
++struct hclge_priority_weight_cmd {
++	u8 pri_id;
++	u8 dwrr;
 +};
 +
-+/* mac media type */
-+enum hnae3_media_type {
-+	HNAE3_MEDIA_TYPE_UNKNOWN,
-+	HNAE3_MEDIA_TYPE_FIBER,
-+	HNAE3_MEDIA_TYPE_COPPER,
-+	HNAE3_MEDIA_TYPE_BACKPLANE,
++struct hclge_qs_weight_cmd {
++	__le16 qs_id;
++	u8 dwrr;
 +};
 +
-+struct hnae3_vector_info {
-+	u8 __iomem *io_addr;
-+	int vector;
++#define HCLGE_TM_SHAP_IR_B_MSK  BIT_MASK(8)
++#define HCLGE_TM_SHAP_IR_B_LSH	0
++#define HCLGE_TM_SHAP_IR_U_MSK  GENMASK(11, 8)
++#define HCLGE_TM_SHAP_IR_U_LSH	8
++#define HCLGE_TM_SHAP_IR_S_MSK  GENMASK(15, 12)
++#define HCLGE_TM_SHAP_IR_S_LSH	12
++#define HCLGE_TM_SHAP_BS_B_MSK  GENMASK(20, 16)
++#define HCLGE_TM_SHAP_BS_B_LSH	16
++#define HCLGE_TM_SHAP_BS_S_MSK  GENMASK(25, 21)
++#define HCLGE_TM_SHAP_BS_S_LSH	21
++
++enum hclge_shap_bucket {
++	HCLGE_TM_SHAP_C_BUCKET = 0,
++	HCLGE_TM_SHAP_P_BUCKET,
 +};
 +
-+#define HNAE3_RING_TYPE_B 0
-+#define HNAE3_RING_TYPE_TX 0
-+#define HNAE3_RING_TYPE_RX 1
-+
-+struct hnae3_ring_chain_node {
-+	struct hnae3_ring_chain_node *next;
-+	u32 tqp_index;
-+	u32 flag;
++struct hclge_pri_shapping_cmd {
++	u8 pri_id;
++	u8 rsvd[3];
++	__le32 pri_shapping_para;
 +};
 +
-+#define HNAE3_IS_TX_RING(node) \
-+	(((node)->flag & (1 << HNAE3_RING_TYPE_B)) == HNAE3_RING_TYPE_TX)
-+
-+struct hnae3_client_ops {
-+	int (*init_instance)(struct hnae3_handle *handle);
-+	void (*uninit_instance)(struct hnae3_handle *handle, bool reset);
-+	void (*link_status_change)(struct hnae3_handle *handle, bool state);
++struct hclge_pg_shapping_cmd {
++	u8 pg_id;
++	u8 rsvd[3];
++	__le32 pg_shapping_para;
 +};
 +
-+#define HNAE3_CLIENT_NAME_LENGTH 16
-+struct hnae3_client {
-+	char name[HNAE3_CLIENT_NAME_LENGTH];
-+	u16 version;
-+	unsigned long state;
-+	enum hnae3_client_type type;
-+	const struct hnae3_client_ops *ops;
-+	struct list_head node;
++struct hclge_bp_to_qs_map_cmd {
++	u8 tc_id;
++	u8 rsvd[2];
++	u8 qs_group_id;
++	__le32 qs_bit_map;
++	u32 rsvd1;
 +};
 +
-+struct hnae3_ae_dev {
-+	struct pci_dev *pdev;
-+	struct hnae3_ae_ops *ops;
-+	struct list_head node;
-+	u32 flag;
-+	enum hnae3_dev_type dev_type;
-+	void *priv;
-+};
++#define hclge_tm_set_feild(dest, string, val) \
++			hnae_set_field((dest), (HCLGE_TM_SHAP_##string##_MSK), \
++				       (HCLGE_TM_SHAP_##string##_LSH), val)
++#define hclge_tm_get_feild(src, string) \
++			hnae_get_field((src), (HCLGE_TM_SHAP_##string##_MSK), \
++				       (HCLGE_TM_SHAP_##string##_LSH))
 +
-+/* This struct defines the operation on the handle.
-+ *
-+ * init_ae_dev(): (mandatory)
-+ *   Get PF configure from pci_dev and initialize PF hardware
-+ * uninit_ae_dev()
-+ *   Disable PF device and release PF resource
-+ * register_client
-+ *   Register client to ae_dev
-+ * unregister_client()
-+ *   Unregister client from ae_dev
-+ * start()
-+ *   Enable the hardware
-+ * stop()
-+ *   Disable the hardware
-+ * get_status()
-+ *   Get the carrier state of the back channel of the handle, 1 for ok, 0 for
-+ *   non-ok
-+ * get_ksettings_an_result()
-+ *   Get negotiation status,speed and duplex
-+ * update_speed_duplex_h()
-+ *   Update hardware speed and duplex
-+ * get_media_type()
-+ *   Get media type of MAC
-+ * adjust_link()
-+ *   Adjust link status
-+ * set_loopback()
-+ *   Set loopback
-+ * set_promisc_mode
-+ *   Set promisc mode
-+ * set_mtu()
-+ *   set mtu
-+ * get_pauseparam()
-+ *   get tx and rx of pause frame use
-+ * set_pauseparam()
-+ *   set tx and rx of pause frame use
-+ * set_autoneg()
-+ *   set auto autonegotiation of pause frame use
-+ * get_autoneg()
-+ *   get auto autonegotiation of pause frame use
-+ * get_coalesce_usecs()
-+ *   get usecs to delay a TX interrupt after a packet is sent
-+ * get_rx_max_coalesced_frames()
-+ *   get Maximum number of packets to be sent before a TX interrupt.
-+ * set_coalesce_usecs()
-+ *   set usecs to delay a TX interrupt after a packet is sent
-+ * set_coalesce_frames()
-+ *   set Maximum number of packets to be sent before a TX interrupt.
-+ * get_mac_addr()
-+ *   get mac address
-+ * set_mac_addr()
-+ *   set mac address
-+ * add_uc_addr
-+ *   Add unicast addr to mac table
-+ * rm_uc_addr
-+ *   Remove unicast addr from mac table
-+ * set_mc_addr()
-+ *   Set multicast address
-+ * add_mc_addr
-+ *   Add multicast address to mac table
-+ * rm_mc_addr
-+ *   Remove multicast address from mac table
-+ * update_stats()
-+ *   Update Old network device statistics
-+ * get_ethtool_stats()
-+ *   Get ethtool network device statistics
-+ * get_strings()
-+ *   Get a set of strings that describe the requested objects
-+ * get_sset_count()
-+ *   Get number of strings that @get_strings will write
-+ * update_led_status()
-+ *   Update the led status
-+ * set_led_id()
-+ *   Set led id
-+ * get_regs()
-+ *   Get regs dump
-+ * get_regs_len()
-+ *   Get the len of the regs dump
-+ * get_rss_key_size()
-+ *   Get rss key size
-+ * get_rss_indir_size()
-+ *   Get rss indirection table size
-+ * get_rss()
-+ *   Get rss table
-+ * set_rss()
-+ *   Set rss table
-+ * get_tc_size()
-+ *   Get tc size of handle
-+ * get_vector()
-+ *   Get vector number and vector infomation
-+ * map_ring_to_vector()
-+ *   Map rings to vector
-+ * unmap_ring_from_vector()
-+ *   Unmap rings from vector
-+ * add_tunnel_udp()
-+ *   Add tunnel information to hardware
-+ * del_tunnel_udp()
-+ *   Delete tunnel information from hardware
-+ * reset_queue()
-+ *   Reset queue
-+ * get_fw_version()
-+ *   Get firmware version
-+ * get_mdix_mode()
-+ *   Get media typr of phy
-+ * set_vlan_filter()
-+ *   Set vlan filter config of Ports
-+ * set_vf_vlan_filter()
-+ *   Set vlan filter config of vf
-+ */
-+struct hnae3_ae_ops {
-+	int (*init_ae_dev)(struct hnae3_ae_dev *ae_dev);
-+	void (*uninit_ae_dev)(struct hnae3_ae_dev *ae_dev);
++int hclge_tm_schd_init(struct hclge_dev *hdev);
++int hclge_tm_setup_tc(struct hclge_dev *hdev);
++int hclge_pause_setup_hw(struct hclge_dev *hdev);
 +
-+	int (*register_client)(struct hnae3_client *client,
-+			       struct hnae3_ae_dev *ae_dev);
-+	void (*unregister_client)(struct hnae3_client *client,
-+				  struct hnae3_ae_dev *ae_dev);
-+	int (*start)(struct hnae3_handle *handle);
-+	void (*stop)(struct hnae3_handle *handle);
-+	int (*get_status)(struct hnae3_handle *handle);
-+	void (*get_ksettings_an_result)(struct hnae3_handle *handle,
-+					u8 *auto_neg, u32 *speed, u8 *duplex);
-+
-+	int (*update_speed_duplex_h)(struct hnae3_handle *handle);
-+	int (*cfg_mac_speed_dup_h)(struct hnae3_handle *handle, int speed,
-+				   u8 duplex);
-+
-+	void (*get_media_type)(struct hnae3_handle *handle, u8 *media_type);
-+	void (*adjust_link)(struct hnae3_handle *handle, int speed, int duplex);
-+	int (*set_loopback)(struct hnae3_handle *handle,
-+			    enum hnae3_loop loop_mode, bool en);
-+
-+	void (*set_promisc_mode)(struct hnae3_handle *handle, u32 en);
-+	int (*set_mtu)(struct hnae3_handle *handle, int new_mtu);
-+
-+	void (*get_pauseparam)(struct hnae3_handle *handle,
-+			       u32 *auto_neg, u32 *rx_en, u32 *tx_en);
-+	int (*set_pauseparam)(struct hnae3_handle *handle,
-+			      u32 auto_neg, u32 rx_en, u32 tx_en);
-+
-+	int (*set_autoneg)(struct hnae3_handle *handle, bool enable);
-+	int (*get_autoneg)(struct hnae3_handle *handle);
-+
-+	void (*get_coalesce_usecs)(struct hnae3_handle *handle,
-+				   u32 *tx_usecs, u32 *rx_usecs);
-+	void (*get_rx_max_coalesced_frames)(struct hnae3_handle *handle,
-+					    u32 *tx_frames, u32 *rx_frames);
-+	int (*set_coalesce_usecs)(struct hnae3_handle *handle, u32 timeout);
-+	int (*set_coalesce_frames)(struct hnae3_handle *handle,
-+				   u32 coalesce_frames);
-+	void (*get_coalesce_range)(struct hnae3_handle *handle,
-+				   u32 *tx_frames_low, u32 *rx_frames_low,
-+				   u32 *tx_frames_high, u32 *rx_frames_high,
-+				   u32 *tx_usecs_low, u32 *rx_usecs_low,
-+				   u32 *tx_usecs_high, u32 *rx_usecs_high);
-+
-+	void (*get_mac_addr)(struct hnae3_handle *handle, u8 *p);
-+	int (*set_mac_addr)(struct hnae3_handle *handle, void *p);
-+	int (*add_uc_addr)(struct hnae3_handle *handle,
-+			   const unsigned char *addr);
-+	int (*rm_uc_addr)(struct hnae3_handle *handle,
-+			  const unsigned char *addr);
-+	int (*set_mc_addr)(struct hnae3_handle *handle, void *addr);
-+	int (*add_mc_addr)(struct hnae3_handle *handle,
-+			   const unsigned char *addr);
-+	int (*rm_mc_addr)(struct hnae3_handle *handle,
-+			  const unsigned char *addr);
-+
-+	void (*set_tso_stats)(struct hnae3_handle *handle, int enable);
-+	void (*update_stats)(struct hnae3_handle *handle,
-+			     struct net_device_stats *net_stats);
-+	void (*get_stats)(struct hnae3_handle *handle, u64 *data);
-+
-+	void (*get_strings)(struct hnae3_handle *handle,
-+			    u32 stringset, u8 *data);
-+	int (*get_sset_count)(struct hnae3_handle *handle, int stringset);
-+
-+	void (*get_regs)(struct hnae3_handle *handle, void *data);
-+	int (*get_regs_len)(struct hnae3_handle *handle);
-+
-+	u32 (*get_rss_key_size)(struct hnae3_handle *handle);
-+	u32 (*get_rss_indir_size)(struct hnae3_handle *handle);
-+	int (*get_rss)(struct hnae3_handle *handle, u32 *indir, u8 *key,
-+		       u8 *hfunc);
-+	int (*set_rss)(struct hnae3_handle *handle, const u32 *indir,
-+		       const u8 *key, const u8 hfunc);
-+
-+	int (*get_tc_size)(struct hnae3_handle *handle);
-+
-+	int (*get_vector)(struct hnae3_handle *handle, u16 vector_num,
-+			  struct hnae3_vector_info *vector_info);
-+	int (*map_ring_to_vector)(struct hnae3_handle *handle,
-+				  int vector_num,
-+				  struct hnae3_ring_chain_node *vr_chain);
-+	int (*unmap_ring_from_vector)(struct hnae3_handle *handle,
-+				      int vector_num,
-+				      struct hnae3_ring_chain_node *vr_chain);
-+
-+	int (*add_tunnel_udp)(struct hnae3_handle *handle, u16 port_num);
-+	int (*del_tunnel_udp)(struct hnae3_handle *handle, u16 port_num);
-+
-+	void (*reset_queue)(struct hnae3_handle *handle, u16 queue_id);
-+	u32 (*get_fw_version)(struct hnae3_handle *handle);
-+	void (*get_mdix_mode)(struct hnae3_handle *handle,
-+			      u8 *tp_mdix_ctrl, u8 *tp_mdix);
-+
-+	int (*set_vlan_filter)(struct hnae3_handle *handle, __be16 proto,
-+			       u16 vlan_id, bool is_kill);
-+	int (*set_vf_vlan_filter)(struct hnae3_handle *handle, int vfid,
-+				  u16 vlan, u8 qos, __be16 proto);
-+};
-+
-+struct hnae3_ae_algo {
-+	struct hnae3_ae_ops *ops;
-+	struct list_head node;
-+	char name[HNAE3_CLASS_NAME_SIZE];
-+	const struct pci_device_id *pdev_id_table;
-+};
-+
-+#define HNAE3_INT_NAME_LEN        (IFNAMSIZ + 16)
-+#define HNAE3_ITR_COUNTDOWN_START 100
-+
-+struct hnae3_tc_info {
-+	u16	tqp_offset;	/* TQP offset from base TQP */
-+	u16	tqp_count;	/* Total TQPs */
-+	u8	up;		/* user priority */
-+	u8	tc;		/* TC index */
-+	bool	enable;		/* If this TC is enable or not */
-+};
-+
-+#define HNAE3_MAX_TC		8
-+struct hnae3_knic_private_info {
-+	struct net_device *netdev; /* Set by KNIC client when init instance */
-+	u16 rss_size;		   /* Allocated RSS queues */
-+	u16 rx_buf_len;
-+	u16 num_desc;
-+
-+	u8 num_tc;		   /* Total number of enabled TCs */
-+	struct hnae3_tc_info tc_info[HNAE3_MAX_TC]; /* Idx of array is HW TC */
-+
-+	u16 num_tqps;		  /* total number of TQPs in this handle */
-+	struct hnae3_queue **tqp;  /* array base of all TQPs in this instance */
-+};
-+
-+struct hnae3_roce_private_info {
-+	void __iomem *roce_io_base;
-+	struct net_device *netdev;
-+	int base_vector;
-+	int num_vectors;
-+};
-+
-+struct hnae3_unic_private_info {
-+	u16 rx_buf_len;
-+	u16 num_desc;
-+	u16 num_tqps;	/* total number of tqps in this handle */
-+	struct hnae3_queue **tqp;  /* array base of all TQPs of this instance */
-+};
-+
-+#define HNAE3_SUPPORT_MAC_LOOPBACK    1
-+#define HNAE3_SUPPORT_PHY_LOOPBACK    2
-+#define HNAE3_SUPPORT_SERDES_LOOPBACK 4
-+
-+struct hnae3_handle {
-+	struct hnae3_client *client;
-+	struct pci_dev *pdev;
-+	void *priv;
-+	struct hnae3_ae_algo *ae_algo;  /* the class who provides this handle */
-+	u64 flags; /* Indicate the capabilities for this handle*/
-+
-+	union {
-+		struct hnae3_knic_private_info kinfo;
-+		struct hnae3_unic_private_info uinfo;
-+		struct hnae3_roce_private_info rinfo;
-+	};
-+
-+	u32 numa_node_mask;	/* for multi-chip support */
-+};
-+
-+#define hnae_set_field(origin, mask, shift, val) \
-+	do { \
-+		(origin) &= (~(mask)); \
-+		(origin) |= ((val) << (shift)) & (mask); \
-+	} while (0)
-+#define hnae_get_field(origin, mask, shift) (((origin) & (mask)) >> (shift))
-+
-+#define hnae_set_bit(origin, shift, val) \
-+	hnae_set_field((origin), (0x1 << (shift)), (shift), (val))
-+#define hnae_get_bit(origin, shift) \
-+	hnae_get_field((origin), (0x1 << (shift)), (shift))
-+
-+int hnae3_register_ae_dev(struct hnae3_ae_dev *ae_dev);
-+void hnae3_unregister_ae_dev(struct hnae3_ae_dev *ae_dev);
-+
-+void hnae3_unregister_ae_algo(struct hnae3_ae_algo *ae_algo);
-+int hnae3_register_ae_algo(struct hnae3_ae_algo *ae_algo);
-+
-+void hnae3_unregister_client(struct hnae3_client *client);
-+int hnae3_register_client(struct hnae3_client *client);
 +#endif
 -- 
 2.7.4
