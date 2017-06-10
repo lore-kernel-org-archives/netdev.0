@@ -1,98 +1,43 @@
-From: Arend van Spriel <arend.vanspriel@broadcom.com>
-Subject: Re: [PATCH v2] brcmfmac: Fix glom_skb leak in brcmf_sdiod_recv_chain
-Date: Sat, 10 Jun 2017 21:27:11 +0200
-Message-ID: <801f5209-f5a0-7414-f8f4-1500178a680b@broadcom.com>
-References: <CA+8PC_e8HdkBw4DfGUPO0BbM-W5wftK=i6_vjwFTmS7=axyFUw@mail.gmail.com>
- <1496442569-11307-1-git-send-email-housel@acm.org>
- <CAHp75VcfK5V42vzsh=L+CnX2ZnF=8UORbOf+f2WfmcNH1DbAsw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Franky Lin <franky.lin@broadcom.com>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
-        Christian Daudt <csd@broadcom.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Florian Westphal <fw@strlen.de>,
-        Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
-        "open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
-        <linux-wireless@vger.kernel.org>,
-        "open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
-        <brcm80211-dev-list.pdl@broadcom.com>,
-        "open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
-        open list <linux-kernel@vger.kernel.org>
-To: Andy Shevchenko <andy.shevchenko@gmail.com>,
-        "Peter S. Housel" <housel@acm.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHp75VcfK5V42vzsh=L+CnX2ZnF=8UORbOf+f2WfmcNH1DbAsw@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Chenbo Feng <chenbofeng.kernel@gmail.com>
+Subject: [PATCH net-next] Remove the redundant skb->dev initialization in ip6_fragment
+Date: Sat, 10 Jun 2017 12:35:38 -0700
+Message-ID: <1497123338-16571-1-git-send-email-chenbofeng.kernel@gmail.com>
+Cc: Lorenzo Colitti <lorenzo@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Chenbo Feng <fengc@google.com>
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:33073 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751137AbdFJTfq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2017 15:35:46 -0400
+Received: by mail-pf0-f196.google.com with SMTP id w12so2096154pfk.0
+        for <netdev@vger.kernel.org>; Sat, 10 Jun 2017 12:35:46 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03-06-17 17:36, Andy Shevchenko wrote:
-> On Sat, Jun 3, 2017 at 1:29 AM, Peter S. Housel <housel@acm.org> wrote:
->> An earlier change to this function (3bdae810721b) fixed a leak in the
->> case of an unsuccessful call to brcmf_sdiod_buffrw(). However, the
->> glom_skb buffer, used for emulating a scattering read, is never used
->> or referenced after its contents are copied into the destination
->> buffers, and therefore always needs to be freed by the end of the
->> function.
+From: Chenbo Feng <fengc@google.com>
 
-[snip]
+After moves the skb->dev and skb->protocol initialization into
+ip6_output, setting the skb->dev inside ip6_fragment is unnecessary.
 
->> +                       skb_queue_walk(pktq, skb) {
->> +                               memcpy(skb->data, glom_skb->data, skb->len);
->> +                               skb_pull(glom_skb, skb->len);
->> +                       }
->>                 }
-> 
->> +               brcmu_pkt_buf_free_skb(glom_skb);
-> 
-> Can we just add this one line instead or I'm missing something?
-
-I guess. We don't want to walk the packet queue if glom_skb is not
-carrying data due to brcmf_sdiod_buffrw() failure.
-
-So I would go with the patch below as brcmu_pkt_buf_free_skb() simply
-ignores null pointer.
-
-Regards,
-Arend
+Fixes: 97a7a37a7b7b("ipv6: Initial skb->dev and skb->protocol in ip6_output")
+Signed-off-by: Chenbo Feng <fengc@google.com>
 ---
-diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c
-b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c
-index 5bc2ba2..3722f23 100644
---- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c
-+++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c
-@@ -705,7 +705,7 @@ int brcmf_sdiod_recv_pkt(struct brcmf_sdio_dev
-*sdiodev, struct sk_buff *pkt)
- int brcmf_sdiod_recv_chain(struct brcmf_sdio_dev *sdiodev,
-                           struct sk_buff_head *pktq, uint totlen)
- {
--       struct sk_buff *glom_skb;
-+       struct sk_buff *glom_skb = NULL;
-        struct sk_buff *skb;
-        u32 addr = sdiodev->sbwad;
-        int err = 0;
-@@ -726,10 +726,8 @@ int brcmf_sdiod_recv_chain(struct brcmf_sdio_dev
-*sdiodev,
-                        return -ENOMEM;
-                err = brcmf_sdiod_buffrw(sdiodev, SDIO_FUNC_2, false, addr,
-                                         glom_skb);
--               if (err) {
--                       brcmu_pkt_buf_free_skb(glom_skb);
-+               if (err)
-                        goto done;
--               }
+ net/ipv6/ip6_output.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-                skb_queue_walk(pktq, skb) {
-                        memcpy(skb->data, glom_skb->data, skb->len);
-@@ -740,6 +738,7 @@ int brcmf_sdiod_recv_chain(struct brcmf_sdio_dev
-*sdiodev,
-                                            pktq);
-
- done:
-+       brcmu_pkt_buf_free_skb(glom_skb);
-        return err;
- }
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 02cd44f..0d6f3b6 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -869,7 +869,6 @@ int ip6_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
+ 	if (skb->sk && dst_allfrag(skb_dst(skb)))
+ 		sk_nocaps_add(skb->sk, NETIF_F_GSO_MASK);
+ 
+-	skb->dev = skb_dst(skb)->dev;
+ 	icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
+ 	err = -EMSGSIZE;
+ 
+-- 
+2.7.4
