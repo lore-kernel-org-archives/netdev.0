@@ -1,39 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 2/2] tcp: md5: extend the tcp_md5sig struct to
- specify a key address prefix
-Date: Sat, 10 Jun 2017 18:58:11 -0400 (EDT)
-Message-ID: <20170610.185811.1771245027556677313.davem@davemloft.net>
-References: <20170607005414.25361-1-colona@arista.com>
-        <20170610021449.16091-1-colona@arista.com>
-        <20170610021449.16091-2-colona@arista.com>
+Subject: Re: [PATCH net-next 1/1] net: reflect mark on tcp syn ack packets
+Date: Sat, 10 Jun 2017 19:02:13 -0400 (EDT)
+Message-ID: <20170610.190213.1437094451353913622.davem@davemloft.net>
+References: <1497101461-20921-1-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: colona@arista.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170610021449.16091-2-colona@arista.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, lorenzo@google.com, mrv@mojatatu.com,
+        hadi@mojatatu.com
+To: jhs@mojatatu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37624 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751660AbdFJXCP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2017 19:02:15 -0400
+In-Reply-To: <1497101461-20921-1-git-send-email-jhs@emojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ivan Delalande <colona@arista.com>
-Date: Fri,  9 Jun 2017 19:14:49 -0700
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Sat, 10 Jun 2017 09:31:01 -0400
 
-> Add a flag field and address prefix length at the end of the tcp_md5sig
-> structure so users can configure an address prefix length along with a
-> key. Make sure shorter option values are still accepted in
-> tcp_v4_parse_md5_keys and tcp_v6_parse_md5_keys to maintain backward
-> compatibility.
-> 
-> Signed-off-by: Bob Gilligan <gilligan@arista.com>
-> Signed-off-by: Eric Mowat <mowat@arista.com>
-> Signed-off-by: Ivan Delalande <colona@arista.com>
+> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+> index 7a3fd25..a8fd5f0 100644
+> --- a/net/ipv4/ip_output.c
+> +++ b/net/ipv4/ip_output.c
+> @@ -173,7 +173,8 @@ int ip_build_and_send_pkt(struct sk_buff *skb, const struct sock *sk,
+>  	}
+>  
+>  	skb->priority = sk->sk_priority;
+> -	skb->mark = sk->sk_mark;
+> +	if (!skb->mark)
+> +		skb->mark = sk->sk_mark;
 
-As I believe was previously stated, the problem with this approach is
-that if a new tool requests the prefix length and is run on an older
-kernel, the kernel will return success even though the prefix length
-was not taken into account.
+Maybe this should both be "inet_request_mark()"?
 
-We do not want to get a success back when the operation requested was
-not performed.
+Also, Lorenzo, please review.
