@@ -1,44 +1,106 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 0/8] Misc BPF updates
-Date: Sun, 11 Jun 2017 00:50:39 +0200
-Message-ID: <cover.1497133948.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 5/8] bpf, tests: add a test for htab lookup + update traversal
+Date: Sun, 11 Jun 2017 00:50:44 +0200
+Message-ID: <45e5e04bafeb4979e1f14b5c266d5ba28f8a5b13.1497133948.git.daniel@iogearbox.net>
+References: <cover.1497133948.git.daniel@iogearbox.net>
 Cc: ast@fb.com, netdev@vger.kernel.org,
         Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:57815 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:57830 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751660AbdFJWu6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2017 18:50:58 -0400
+        with ESMTP id S1751633AbdFJWu7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2017 18:50:59 -0400
+In-Reply-To: <cover.1497133948.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1497133948.git.daniel@iogearbox.net>
+References: <cover.1497133948.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This set contains a couple of misc updates: stack usage reduction
-for perf_sample_data in tracing progs, reduction of stale data in
-verifier on register state transitions that I still had in my queue
-and few selftest improvements as well as bpf_set_hash() helper for
-tc programs.
+Add a test case to track behaviour when traversing and updating the
+htab map. We recently used such traversal, so it's quite useful to
+keep it as an example in selftests.
 
-Thanks!
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ tools/testing/selftests/bpf/test_maps.c | 50 +++++++++++++++++++++++++++++++++
+ 1 file changed, 50 insertions(+)
 
-Daniel Borkmann (8):
-  bpf: avoid excessive stack usage for perf_sample_data
-  bpf: don't check spilled reg state for non-STACK_SPILLed type slots
-  bpf: reset id on CONST_IMM transition
-  bpf: reset id on spilled regs in clear_all_pkt_pointers
-  bpf, tests: add a test for htab lookup + update traversal
-  bpf, tests: set rlimit also for test_align, so it doesn't fail
-  bpf: remove cg_skb_func_proto and use sk_filter_func_proto directly
-  bpf: add bpf_set_hash helper for tc progs
-
- include/uapi/linux/bpf.h                 |  8 ++++-
- kernel/bpf/verifier.c                    |  8 +++--
- kernel/trace/bpf_trace.c                 | 10 ++++---
- net/core/filter.c                        | 28 +++++++++++++-----
- tools/include/uapi/linux/bpf.h           |  8 ++++-
- tools/testing/selftests/bpf/test_align.c |  5 ++++
- tools/testing/selftests/bpf/test_maps.c  | 50 ++++++++++++++++++++++++++++++++
- 7 files changed, 102 insertions(+), 15 deletions(-)
-
+diff --git a/tools/testing/selftests/bpf/test_maps.c b/tools/testing/selftests/bpf/test_maps.c
+index 9331452..79601c8 100644
+--- a/tools/testing/selftests/bpf/test_maps.c
++++ b/tools/testing/selftests/bpf/test_maps.c
+@@ -239,6 +239,54 @@ static void test_hashmap_percpu(int task, void *data)
+ 	close(fd);
+ }
+ 
++static void test_hashmap_walk(int task, void *data)
++{
++	int fd, i, max_entries = 100000;
++	long long key, value, next_key;
++	bool next_key_valid = true;
++
++	fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value),
++			    max_entries, map_flags);
++	if (fd < 0) {
++		printf("Failed to create hashmap '%s'!\n", strerror(errno));
++		exit(1);
++	}
++
++	for (i = 0; i < max_entries; i++) {
++		key = i; value = key;
++		assert(bpf_map_update_elem(fd, &key, &value, BPF_NOEXIST) == 0);
++	}
++
++	for (i = 0; bpf_map_get_next_key(fd, !i ? NULL : &key,
++					 &next_key) == 0; i++) {
++		key = next_key;
++		assert(bpf_map_lookup_elem(fd, &key, &value) == 0);
++	}
++
++	assert(i == max_entries);
++
++	assert(bpf_map_get_next_key(fd, NULL, &key) == 0);
++	for (i = 0; next_key_valid; i++) {
++		next_key_valid = bpf_map_get_next_key(fd, &key, &next_key) == 0;
++		assert(bpf_map_lookup_elem(fd, &key, &value) == 0);
++		value++;
++		assert(bpf_map_update_elem(fd, &key, &value, BPF_EXIST) == 0);
++		key = next_key;
++	}
++
++	assert(i == max_entries);
++
++	for (i = 0; bpf_map_get_next_key(fd, !i ? NULL : &key,
++					 &next_key) == 0; i++) {
++		key = next_key;
++		assert(bpf_map_lookup_elem(fd, &key, &value) == 0);
++		assert(value - 1 == key);
++	}
++
++	assert(i == max_entries);
++	close(fd);
++}
++
+ static void test_arraymap(int task, void *data)
+ {
+ 	int key, next_key, fd;
+@@ -464,6 +512,7 @@ static void test_map_stress(void)
+ 	run_parallel(100, test_hashmap, NULL);
+ 	run_parallel(100, test_hashmap_percpu, NULL);
+ 	run_parallel(100, test_hashmap_sizes, NULL);
++	run_parallel(100, test_hashmap_walk, NULL);
+ 
+ 	run_parallel(100, test_arraymap, NULL);
+ 	run_parallel(100, test_arraymap_percpu, NULL);
+@@ -549,6 +598,7 @@ static void run_all_tests(void)
+ {
+ 	test_hashmap(0, NULL);
+ 	test_hashmap_percpu(0, NULL);
++	test_hashmap_walk(0, NULL);
+ 
+ 	test_arraymap(0, NULL);
+ 	test_arraymap_percpu(0, NULL);
 -- 
 1.9.3
