@@ -1,40 +1,98 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2] sh_eth: add support to change MTU
-Date: Sat, 10 Jun 2017 22:26:13 +0300
-Message-ID: <239c39ff-cf0e-d332-7b52-098ba8029798@cogentembedded.com>
-References: <20170609203215.1206-1-niklas.soderlund+renesas@ragnatech.se>
- <20170609203658.GB17461@bigcity.dyn.berto.se>
+From: Arend van Spriel <arend.vanspriel@broadcom.com>
+Subject: Re: [PATCH v2] brcmfmac: Fix glom_skb leak in brcmf_sdiod_recv_chain
+Date: Sat, 10 Jun 2017 21:27:11 +0200
+Message-ID: <801f5209-f5a0-7414-f8f4-1500178a680b@broadcom.com>
+References: <CA+8PC_e8HdkBw4DfGUPO0BbM-W5wftK=i6_vjwFTmS7=axyFUw@mail.gmail.com>
+ <1496442569-11307-1-git-send-email-housel@acm.org>
+ <CAHp75VcfK5V42vzsh=L+CnX2ZnF=8UORbOf+f2WfmcNH1DbAsw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
-To: =?UTF-8?Q?Niklas_S=c3=b6derlund?= <niklas.soderlund@ragnatech.se>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20170609203658.GB17461@bigcity.dyn.berto.se>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
+        Christian Daudt <csd@broadcom.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Florian Westphal <fw@strlen.de>,
+        Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
+        "open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
+        <linux-wireless@vger.kernel.org>,
+        "open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
+        <brcm80211-dev-list.pdl@broadcom.com>,
+        "open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+        open list <linux-kernel@vger.kernel.org>
+To: Andy Shevchenko <andy.shevchenko@gmail.com>,
+        "Peter S. Housel" <housel@acm.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHp75VcfK5V42vzsh=L+CnX2ZnF=8UORbOf+f2WfmcNH1DbAsw@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On 03-06-17 17:36, Andy Shevchenko wrote:
+> On Sat, Jun 3, 2017 at 1:29 AM, Peter S. Housel <housel@acm.org> wrote:
+>> An earlier change to this function (3bdae810721b) fixed a leak in the
+>> case of an unsuccessful call to brcmf_sdiod_buffrw(). However, the
+>> glom_skb buffer, used for emulating a scattering read, is never used
+>> or referenced after its contents are copied into the destination
+>> buffers, and therefore always needs to be freed by the end of the
+>> function.
 
-On 06/09/2017 11:36 PM, Niklas Söderlund wrote:
+[snip]
 
->> The hardware supports the MTU to be changed and the driver it self is
->> somewhat prepared to support this. This patch hooks up the callbacks to
->> be able to change the MTU from user-space.
->>
->> Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
->> Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->> ---
-[...]
->> @@ -3171,6 +3184,13 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
->>  	}
->>  	sh_eth_set_default_cpu_data(mdp->cd);
->>
->> +	/* User's manua states max MTU should be 2048 but due to the
->
-> s/manua/manual/
+>> +                       skb_queue_walk(pktq, skb) {
+>> +                               memcpy(skb->data, glom_skb->data, skb->len);
+>> +                               skb_pull(glom_skb, skb->len);
+>> +                       }
+>>                 }
+> 
+>> +               brcmu_pkt_buf_free_skb(glom_skb);
+> 
+> Can we just add this one line instead or I'm missing something?
 
-    Looking at it for another time, I'd also reword the subject -- something 
-like "sh_eth: add support for changing MTU" or "sh_eth: add MTU change support".
+I guess. We don't want to walk the packet queue if glom_skb is not
+carrying data due to brcmf_sdiod_buffrw() failure.
 
-MBR, Sergei
+So I would go with the patch below as brcmu_pkt_buf_free_skb() simply
+ignores null pointer.
+
+Regards,
+Arend
+---
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c
+b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c
+index 5bc2ba2..3722f23 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c
+@@ -705,7 +705,7 @@ int brcmf_sdiod_recv_pkt(struct brcmf_sdio_dev
+*sdiodev, struct sk_buff *pkt)
+ int brcmf_sdiod_recv_chain(struct brcmf_sdio_dev *sdiodev,
+                           struct sk_buff_head *pktq, uint totlen)
+ {
+-       struct sk_buff *glom_skb;
++       struct sk_buff *glom_skb = NULL;
+        struct sk_buff *skb;
+        u32 addr = sdiodev->sbwad;
+        int err = 0;
+@@ -726,10 +726,8 @@ int brcmf_sdiod_recv_chain(struct brcmf_sdio_dev
+*sdiodev,
+                        return -ENOMEM;
+                err = brcmf_sdiod_buffrw(sdiodev, SDIO_FUNC_2, false, addr,
+                                         glom_skb);
+-               if (err) {
+-                       brcmu_pkt_buf_free_skb(glom_skb);
++               if (err)
+                        goto done;
+-               }
+
+                skb_queue_walk(pktq, skb) {
+                        memcpy(skb->data, glom_skb->data, skb->len);
+@@ -740,6 +738,7 @@ int brcmf_sdiod_recv_chain(struct brcmf_sdio_dev
+*sdiodev,
+                                            pktq);
+
+ done:
++       brcmu_pkt_buf_free_skb(glom_skb);
+        return err;
+ }
