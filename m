@@ -1,179 +1,41 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH v2 2/2] net: mvpp2: use {get,put}_cpu() instead of smp_processor_id()
-Date: Sat, 10 Jun 2017 23:18:22 +0200
-Message-ID: <20170610211822.24371-3-thomas.petazzoni@free-electrons.com>
-References: <20170610211822.24371-1-thomas.petazzoni@free-electrons.com>
-Cc: Marc Zyngier <marc.zyngier@arm.com>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Antoine Tenart <antoine.tenart@free-electrons.com>,
-        Nadav Haklai <nadavh@marvell.com>,
-        Hanna Hawa <hannah@marvell.com>,
-        Yehuda Yitschak <yehuday@marvell.com>,
-        Marcin Wojtas <mw@semihalf.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:44387 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751647AbdFJVSg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2017 17:18:36 -0400
-In-Reply-To: <20170610211822.24371-1-thomas.petazzoni@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: caif: Fix a sleep-in-atomic bug in
+ cfpkt_create_pfx
+Date: Sat, 10 Jun 2017 18:21:29 -0400 (EDT)
+Message-ID: <20170610.182129.1342772715077530967.davem@davemloft.net>
+References: <1497084579-32434-1-git-send-email-baijiaju1990@163.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dmitry.tarnyagin@lockless.no, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: baijiaju1990@163.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1497084579-32434-1-git-send-email-baijiaju1990@163.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-smp_processor_id() should not be used in migration-enabled contexts. We
-originally thought it was OK in the specific situation of this driver,
-but it was wrong, and calling smp_processor_id() in a migration-enabled
-context prints a big fat warning when CONFIG_DEBUG_PREEMPT=y.
+From: Jia-Ju Bai <baijiaju1990@163.com>
+Date: Sat, 10 Jun 2017 16:49:39 +0800
 
-Therefore, this commit replaces the smp_processor_id() in
-migration-enabled contexts by the appropriate get_cpu/put_cpu sections.
+> The kernel may sleep under a rcu read lock in cfpkt_create_pfx, and the
+> function call path is:
+> cfcnfg_linkup_rsp (acquire the lock by rcu_read_lock)
+>   cfctrl_linkdown_req
+>     cfpkt_create
+>       cfpkt_create_pfx
+>         alloc_skb(GFP_KERNEL) --> may sleep
+> cfserl_receive (acquire the lock by rcu_read_lock)
+>   cfpkt_split
+>     cfpkt_create_pfx
+>       alloc_skb(GFP_KERNEL) --> may sleep
+> 
+> There is "in_interrupt" in cfpkt_create_pfx to decide use "GFP_KERNEL" or
+> "GFP_ATOMIC". In this situation, "GFP_KERNEL" is used because the function 
+> is called under a rcu read lock, instead in interrupt.
+> 
+> To fix it, only "GFP_ATOMIC" is used in cfpkt_create_pfx.
+> 
+> Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
 
-Reported-by: Marc Zyngier <marc.zyngier@arm.com>
-Fixes: a786841df72e ("net: mvpp2: handle register mapping and access for PPv2.2")
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Tested-by: Marc Zyngier <marc.zyngier@arm.com>
----
- drivers/net/ethernet/marvell/mvpp2.c | 27 +++++++++++++++++++--------
- 1 file changed, 19 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 5841e53..33c9016 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -3719,7 +3719,7 @@ static void mvpp2_bm_bufs_get_addrs(struct device *dev, struct mvpp2 *priv,
- 				    dma_addr_t *dma_addr,
- 				    phys_addr_t *phys_addr)
- {
--	int cpu = smp_processor_id();
-+	int cpu = get_cpu();
- 
- 	*dma_addr = mvpp2_percpu_read(priv, cpu,
- 				      MVPP2_BM_PHY_ALLOC_REG(bm_pool->id));
-@@ -3740,6 +3740,8 @@ static void mvpp2_bm_bufs_get_addrs(struct device *dev, struct mvpp2 *priv,
- 		if (sizeof(phys_addr_t) == 8)
- 			*phys_addr |= (u64)phys_addr_highbits << 32;
- 	}
-+
-+	put_cpu();
- }
- 
- /* Free all buffers from the pool */
-@@ -3925,7 +3927,7 @@ static inline void mvpp2_bm_pool_put(struct mvpp2_port *port, int pool,
- 				     dma_addr_t buf_dma_addr,
- 				     phys_addr_t buf_phys_addr)
- {
--	int cpu = smp_processor_id();
-+	int cpu = get_cpu();
- 
- 	if (port->priv->hw_version == MVPP22) {
- 		u32 val = 0;
-@@ -3952,6 +3954,8 @@ static inline void mvpp2_bm_pool_put(struct mvpp2_port *port, int pool,
- 			   MVPP2_BM_VIRT_RLS_REG, buf_phys_addr);
- 	mvpp2_percpu_write(port->priv, cpu,
- 			   MVPP2_BM_PHY_RLS_REG(pool), buf_dma_addr);
-+
-+	put_cpu();
- }
- 
- /* Refill BM pool */
-@@ -4732,7 +4736,7 @@ static void mvpp2_txp_max_tx_size_set(struct mvpp2_port *port)
- static void mvpp2_rx_pkts_coal_set(struct mvpp2_port *port,
- 				   struct mvpp2_rx_queue *rxq)
- {
--	int cpu = smp_processor_id();
-+	int cpu = get_cpu();
- 
- 	if (rxq->pkts_coal > MVPP2_OCCUPIED_THRESH_MASK)
- 		rxq->pkts_coal = MVPP2_OCCUPIED_THRESH_MASK;
-@@ -4740,6 +4744,8 @@ static void mvpp2_rx_pkts_coal_set(struct mvpp2_port *port,
- 	mvpp2_percpu_write(port->priv, cpu, MVPP2_RXQ_NUM_REG, rxq->id);
- 	mvpp2_percpu_write(port->priv, cpu, MVPP2_RXQ_THRESH_REG,
- 			   rxq->pkts_coal);
-+
-+	put_cpu();
- }
- 
- static u32 mvpp2_usec_to_cycles(u32 usec, unsigned long clk_hz)
-@@ -4920,7 +4926,7 @@ static int mvpp2_rxq_init(struct mvpp2_port *port,
- 	mvpp2_write(port->priv, MVPP2_RXQ_STATUS_REG(rxq->id), 0);
- 
- 	/* Set Rx descriptors queue starting address - indirect access */
--	cpu = smp_processor_id();
-+	cpu = get_cpu();
- 	mvpp2_percpu_write(port->priv, cpu, MVPP2_RXQ_NUM_REG, rxq->id);
- 	if (port->priv->hw_version == MVPP21)
- 		rxq_dma = rxq->descs_dma;
-@@ -4929,6 +4935,7 @@ static int mvpp2_rxq_init(struct mvpp2_port *port,
- 	mvpp2_percpu_write(port->priv, cpu, MVPP2_RXQ_DESC_ADDR_REG, rxq_dma);
- 	mvpp2_percpu_write(port->priv, cpu, MVPP2_RXQ_DESC_SIZE_REG, rxq->size);
- 	mvpp2_percpu_write(port->priv, cpu, MVPP2_RXQ_INDEX_REG, 0);
-+	put_cpu();
- 
- 	/* Set Offset */
- 	mvpp2_rxq_offset_set(port, rxq->id, NET_SKB_PAD);
-@@ -4991,10 +4998,11 @@ static void mvpp2_rxq_deinit(struct mvpp2_port *port,
- 	 * free descriptor number
- 	 */
- 	mvpp2_write(port->priv, MVPP2_RXQ_STATUS_REG(rxq->id), 0);
--	cpu = smp_processor_id();
-+	cpu = get_cpu();
- 	mvpp2_percpu_write(port->priv, cpu, MVPP2_RXQ_NUM_REG, rxq->id);
- 	mvpp2_percpu_write(port->priv, cpu, MVPP2_RXQ_DESC_ADDR_REG, 0);
- 	mvpp2_percpu_write(port->priv, cpu, MVPP2_RXQ_DESC_SIZE_REG, 0);
-+	put_cpu();
- }
- 
- /* Create and initialize a Tx queue */
-@@ -5017,7 +5025,7 @@ static int mvpp2_txq_init(struct mvpp2_port *port,
- 	txq->last_desc = txq->size - 1;
- 
- 	/* Set Tx descriptors queue starting address - indirect access */
--	cpu = smp_processor_id();
-+	cpu = get_cpu();
- 	mvpp2_percpu_write(port->priv, cpu, MVPP2_TXQ_NUM_REG, txq->id);
- 	mvpp2_percpu_write(port->priv, cpu, MVPP2_TXQ_DESC_ADDR_REG,
- 			   txq->descs_dma);
-@@ -5042,6 +5050,7 @@ static int mvpp2_txq_init(struct mvpp2_port *port,
- 	mvpp2_percpu_write(port->priv, cpu, MVPP2_TXQ_PREF_BUF_REG,
- 			   MVPP2_PREF_BUF_PTR(desc) | MVPP2_PREF_BUF_SIZE_16 |
- 			   MVPP2_PREF_BUF_THRESH(desc_per_txq / 2));
-+	put_cpu();
- 
- 	/* WRR / EJP configuration - indirect access */
- 	tx_port_num = mvpp2_egress_port(port);
-@@ -5112,10 +5121,11 @@ static void mvpp2_txq_deinit(struct mvpp2_port *port,
- 	mvpp2_write(port->priv, MVPP2_TXQ_SCHED_TOKEN_CNTR_REG(txq->id), 0);
- 
- 	/* Set Tx descriptors queue starting address and size */
--	cpu = smp_processor_id();
-+	cpu = get_cpu();
- 	mvpp2_percpu_write(port->priv, cpu, MVPP2_TXQ_NUM_REG, txq->id);
- 	mvpp2_percpu_write(port->priv, cpu, MVPP2_TXQ_DESC_ADDR_REG, 0);
- 	mvpp2_percpu_write(port->priv, cpu, MVPP2_TXQ_DESC_SIZE_REG, 0);
-+	put_cpu();
- }
- 
- /* Cleanup Tx ports */
-@@ -5125,7 +5135,7 @@ static void mvpp2_txq_clean(struct mvpp2_port *port, struct mvpp2_tx_queue *txq)
- 	int delay, pending, cpu;
- 	u32 val;
- 
--	cpu = smp_processor_id();
-+	cpu = get_cpu();
- 	mvpp2_percpu_write(port->priv, cpu, MVPP2_TXQ_NUM_REG, txq->id);
- 	val = mvpp2_percpu_read(port->priv, cpu, MVPP2_TXQ_PREF_BUF_REG);
- 	val |= MVPP2_TXQ_DRAIN_EN_MASK;
-@@ -5152,6 +5162,7 @@ static void mvpp2_txq_clean(struct mvpp2_port *port, struct mvpp2_tx_queue *txq)
- 
- 	val &= ~MVPP2_TXQ_DRAIN_EN_MASK;
- 	mvpp2_percpu_write(port->priv, cpu, MVPP2_TXQ_PREF_BUF_REG, val);
-+	put_cpu();
- 
- 	for_each_present_cpu(cpu) {
- 		txq_pcpu = per_cpu_ptr(txq->pcpu, cpu);
--- 
-2.9.4
+Applied and queued up for -stable.
