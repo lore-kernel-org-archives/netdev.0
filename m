@@ -1,46 +1,39 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 4/8] bpf: reset id on spilled regs in clear_all_pkt_pointers
-Date: Sun, 11 Jun 2017 00:50:43 +0200
-Message-ID: <e09fbd2f5e136107029efc7b301115b3d4c446f8.1497133948.git.daniel@iogearbox.net>
-References: <cover.1497133948.git.daniel@iogearbox.net>
-Cc: ast@fb.com, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:57827 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751765AbdFJWu7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2017 18:50:59 -0400
-In-Reply-To: <cover.1497133948.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1497133948.git.daniel@iogearbox.net>
-References: <cover.1497133948.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 2/2] tcp: md5: extend the tcp_md5sig struct to
+ specify a key address prefix
+Date: Sat, 10 Jun 2017 18:58:11 -0400 (EDT)
+Message-ID: <20170610.185811.1771245027556677313.davem@davemloft.net>
+References: <20170607005414.25361-1-colona@arista.com>
+        <20170610021449.16091-1-colona@arista.com>
+        <20170610021449.16091-2-colona@arista.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: colona@arista.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170610021449.16091-2-colona@arista.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Right now, we don't reset the id of spilled registers in case of
-clear_all_pkt_pointers(). Given pkt_pointers are highly likely to
-contain an id, do so by reusing __mark_reg_unknown_value().
+From: Ivan Delalande <colona@arista.com>
+Date: Fri,  9 Jun 2017 19:14:49 -0700
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
----
- kernel/bpf/verifier.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> Add a flag field and address prefix length at the end of the tcp_md5sig
+> structure so users can configure an address prefix length along with a
+> key. Make sure shorter option values are still accepted in
+> tcp_v4_parse_md5_keys and tcp_v6_parse_md5_keys to maintain backward
+> compatibility.
+> 
+> Signed-off-by: Bob Gilligan <gilligan@arista.com>
+> Signed-off-by: Eric Mowat <mowat@arista.com>
+> Signed-off-by: Ivan Delalande <colona@arista.com>
 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index d195d82..519a614 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -1346,8 +1346,8 @@ static void clear_all_pkt_pointers(struct bpf_verifier_env *env)
- 		if (reg->type != PTR_TO_PACKET &&
- 		    reg->type != PTR_TO_PACKET_END)
- 			continue;
--		reg->type = UNKNOWN_VALUE;
--		reg->imm = 0;
-+		__mark_reg_unknown_value(state->spilled_regs,
-+					 i / BPF_REG_SIZE);
- 	}
- }
- 
--- 
-1.9.3
+As I believe was previously stated, the problem with this approach is
+that if a new tool requests the prefix length and is run on an older
+kernel, the kernel will return success even though the prefix length
+was not taken into account.
+
+We do not want to get a success back when the operation requested was
+not performed.
