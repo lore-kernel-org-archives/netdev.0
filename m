@@ -1,56 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fec: Add a fec_enet_clear_ethtool_stats() stub
- for CONFIG_M5272
-Date: Sat, 10 Jun 2017 16:45:48 -0400 (EDT)
-Message-ID: <20170610.164548.1956717141935099097.davem@davemloft.net>
-References: <1497058642-31542-1-git-send-email-festevam@gmail.com>
-        <20170610.161649.2086289606620760235.davem@davemloft.net>
-        <CAOMZO5A8hv2+kr_aFQyfA=MFLGbcHwTLtdXBHhRNc_tQpDkBeA@mail.gmail.com>
+From: <morice.diane@gmail.com>
+Subject: (unknown)
+Date: Sat, 10 Jun 2017 21:03:19 -0000
+Message-ID: <149712859944.30695.12577205610086944644@50-246-4-189-static.hfc.comcastbusiness.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fugang.duan@nxp.com, andrew@lunn.ch, cphealy@gmail.com,
-        netdev@vger.kernel.org, paul.gortmaker@windriver.com,
-        fabio.estevam@nxp.com
-To: festevam@gmail.com
+Content-Type: application/zip; name="6681956269.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34452 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751751AbdFJUpv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2017 16:45:51 -0400
-In-Reply-To: <CAOMZO5A8hv2+kr_aFQyfA=MFLGbcHwTLtdXBHhRNc_tQpDkBeA@mail.gmail.com>
+Received: from 50-246-4-189-static.hfc.comcastbusiness.net ([50.246.4.189]:52591
+        "HELO 50-246-4-189-static.hfc.comcastbusiness.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+        id S1751594AbdFJVDY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 10 Jun 2017 17:03:24 -0400
+Content-Disposition: attachment
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <festevam@gmail.com>
-Date: Sat, 10 Jun 2017 17:33:01 -0300
-
-> On Sat, Jun 10, 2017 at 5:16 PM, David Miller <davem@davemloft.net> wrote:
->> From: Fabio Estevam <festevam@gmail.com>
->> Date: Fri,  9 Jun 2017 22:37:22 -0300
->>
->>> From: Fabio Estevam <fabio.estevam@nxp.com>
->>>
->>> Commit 2b30842b23b9 ("net: fec: Clear and enable MIB counters on imx51")
->>> introduced fec_enet_clear_ethtool_stats(), but missed to add a stub
->>> for the CONFIG_M5272=y case, causing build failure for the
->>> m5272c3_defconfig.
->>>
->>> Add the missing empty stub to fix the build failure.
->>>
->>> Reported-by: Paul Gortmaker <paul.gortmaker@windriver.com>
->>> Signed-off-by: Fabio Estevam <fabio.estevam@nxp.com>
->>
->> Applied, thanks.
-> 
-> I should have marked net-next in the Subject.
-> 
-> Commit 2b30842b23b9 ("net: fec: Clear and enable MIB counters on
-> imx51") is in net-next, so this one should go to net-next, not to net.
-> 
-> Sorry about that.
-
-Ok, reverted from 'net' and applied to 'net-next' with an appropriate
-Fixes: tag added.
-
-Thanks.
+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
+AQBPAAAAHwwAAAAA
