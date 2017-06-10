@@ -1,58 +1,65 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH net-next] net: fec: Clear and enable MIB counters on imx51
-Date: Fri, 9 Jun 2017 22:12:59 -0300
-Message-ID: <CAOMZO5A1hh=6npHGkK8Y+0F_ta+Kr-5OxRdqyqmma_xis84WqA@mail.gmail.com>
-References: <1496800629-24910-1-git-send-email-andrew@lunn.ch>
- <20170607.100742.9158707718791478.davem@davemloft.net> <CAP=VYLr4_jjiXs8bD+9LU3TvEmmJqcU=MRFaKV-Co12mYNE0WA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>, Andrew Lunn <andrew@lunn.ch>,
-        netdev <netdev@vger.kernel.org>,
-        Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
-        Fabio Estevam <fabio.estevam@nxp.com>,
-        Chris Healy <cphealy@gmail.com>,
-        "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <CAP=VYLr4_jjiXs8bD+9LU3TvEmmJqcU=MRFaKV-Co12mYNE0WA@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Krister Johansen <kjlx@templeofstupid.com>
+Subject: [PATCH iproute/master 0/3] lost mpls ip tunnel patches
+Date: Fri,  9 Jun 2017 18:31:29 -0700
+Message-ID: <1497058292-10099-1-git-send-email-kjlx@templeofstupid.com>
+Cc: netdev@vger.kernel.org, simon.horman@netronome.com,
+        dsahern@gmail.com, Krister Johansen <kjlx@templeofstupid.com>
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sub5.mail.dreamhost.com ([208.113.200.129]:56386 "EHLO
+        homiemail-a48.g.dreamhost.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751608AbdFJBcQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2017 21:32:16 -0400
+Received: from homiemail-a48.g.dreamhost.com (localhost [127.0.0.1])
+        by homiemail-a48.g.dreamhost.com (Postfix) with ESMTP id B28AD70D2B10
+        for <netdev@vger.kernel.org>; Fri,  9 Jun 2017 18:32:15 -0700 (PDT)
+Received: from kmjvbox (c-174-62-91-145.hsd1.ca.comcast.net [174.62.91.145])
+        (using TLSv1 with cipher ECDHE-RSA-AES256-SHA (256/256 bits))
+        (No client certificate requested)
+        (Authenticated sender: kjlx@templeofstupid.com)
+        by homiemail-a48.g.dreamhost.com (Postfix) with ESMTPSA id 790EB70D2B04
+        for <netdev@vger.kernel.org>; Fri,  9 Jun 2017 18:32:15 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Paul,
+Hi Stephen,
+I'm a bit unsure of the decorum in this particular situation. Kernel
+support for mpls/ip tunnels was integrated back in July of 2016.  At the
+time, the author of that feature sent out a RFC patch for the iproute
+support but never followed up on subsequent code review comments.
 
-On Fri, Jun 9, 2017 at 10:01 PM, Paul Gortmaker
-<paul.gortmaker@windriver.com> wrote:
+The kernel support got merged, but the iproute support never made it in.
+I wanted to run some tests with these features.  In the process, I
+tracked down the author's original patches, merged them into current
+iproute, and attempted to address the comments from code reviewers.
 
-> Seems to break one of the automated linux-next builds:
->
-> http://kisskb.ellerman.id.au/kisskb/buildresult/13057702/
->
-> A mindless automated bisect reports:
->
-> 2b30842b23b9e6796c7bd5f0916fd2ebf6b7d633 is the first bad commit
-> commit 2b30842b23b9e6796c7bd5f0916fd2ebf6b7d633
-> Author: Andrew Lunn <andrew@lunn.ch>
-> Date:   Wed Jun 7 03:57:09 2017 +0200
->
->     net: fec: Clear and enable MIB counters on imx51
+I've attached an 'Original-Author' label to each commit, and have CC'd
+him and the code reviewer on this patch.  If any part of this is
+improper, please let me know and I'll respin accordingly.  Mostly, I
+wanted to close the loop here so the mpls in ip tunnel support is usable
+through iproute.
 
-This should fix it:
+The original threads for the 2016 patch are here:
 
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -2379,6 +2379,10 @@ static void fec_enet_clear_ethtool_stats(struct
-net_device *dev)
- static inline void fec_enet_update_ethtool_stats(struct net_device *dev)
- {
- }
-+
-+static inline void fec_enet_clear_ethtool_stats(struct net_device *dev)
-+{
-+}
- #endif /* !defined(CONFIG_M5272) */
+http://marc.info/?l=linux-netdev&m=146782946216005&w=2
+http://marc.info/?l=linux-netdev&m=146782941615977&w=2
+http://marc.info/?l=linux-netdev&m=146782947016007&w=2
+http://marc.info/?l=linux-netdev&m=146782942915988&w=2
 
- /* ITR clock source is enet system clock (clk_ahb).
+Thanks,
 
-Will test it and submit a formal patch in case it works.
+-K
 
-Thanks
+Krister Johansen (3):
+  iptunnel: document mode parameter for sit tunnels
+  iptunnel: add support for mpls/ip to sit tunnels
+  iptunnel: add support for mpls/ip to ipip tunnels
+
+ include/utils.h       |  3 +++
+ ip/link_iptnl.c       | 30 ++++++++++++++++++++++++++----
+ ip/tunnel.c           |  3 +++
+ man/man8/ip-link.8.in | 12 +++++++++++-
+ 4 files changed, 43 insertions(+), 5 deletions(-)
+
+-- 
+2.7.4
