@@ -1,79 +1,123 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 6/8] bpf, tests: set rlimit also for test_align, so it doesn't fail
-Date: Sun, 11 Jun 2017 00:50:45 +0200
-Message-ID: <1f92ac2c63bc5ab688c036b17e45051df3be65b6.1497133948.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 8/8] bpf: add bpf_set_hash helper for tc progs
+Date: Sun, 11 Jun 2017 00:50:47 +0200
+Message-ID: <d612032fbb7bfa9615a9feef9daac7307031c790.1497133948.git.daniel@iogearbox.net>
 References: <cover.1497133948.git.daniel@iogearbox.net>
 Cc: ast@fb.com, netdev@vger.kernel.org,
         Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:57836 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:57844 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751660AbdFJWvA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2017 18:51:00 -0400
+        with ESMTP id S1751666AbdFJWvB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2017 18:51:01 -0400
 In-Reply-To: <cover.1497133948.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1497133948.git.daniel@iogearbox.net>
 References: <cover.1497133948.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When running all the tests, through 'make run_tests', I had
-test_align failing due to insufficient rlimit. Set it the same
-way as all other test cases from BPF selftests do, so that
-test case properly loads everything.
-
-  [...]
-  Summary: 7 PASSED, 1 FAILED
-  selftests: test_progs [PASS]
-  /home/foo/net-next/tools/testing/selftests/bpf
-  Test   0: mov ... Failed to load program.
-  FAIL
-  Test   1: shift ... Failed to load program.
-  FAIL
-  Test   2: addsub ... Failed to load program.
-  FAIL
-  Test   3: mul ... Failed to load program.
-  FAIL
-  Test   4: unknown shift ... Failed to load program.
-  FAIL
-  Test   5: unknown mul ... Failed to load program.
-  FAIL
-  Test   6: packet const offset ... Failed to load program.
-  FAIL
-  Test   7: packet variable offset ... Failed to load program.
-  FAIL
-  Results: 0 pass 8 fail
-  selftests: test_align [PASS]
-  [...]
+Allow for tc BPF programs to set a skb->hash, apart from clearing
+and triggering a recalc that we have right now. It allows for BPF
+to implement a custom hashing routine for skb_get_hash().
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- tools/testing/selftests/bpf/test_align.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ include/uapi/linux/bpf.h       |  8 +++++++-
+ net/core/filter.c              | 20 ++++++++++++++++++++
+ tools/include/uapi/linux/bpf.h |  8 +++++++-
+ 3 files changed, 34 insertions(+), 2 deletions(-)
 
-diff --git a/tools/testing/selftests/bpf/test_align.c b/tools/testing/selftests/bpf/test_align.c
-index 9644d4e..1426594 100644
---- a/tools/testing/selftests/bpf/test_align.c
-+++ b/tools/testing/selftests/bpf/test_align.c
-@@ -9,6 +9,8 @@
- #include <stddef.h>
- #include <stdbool.h>
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 9b2c10b..f94b48b 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -513,6 +513,11 @@ enum bpf_attach_type {
+  *     Get the owner uid of the socket stored inside sk_buff.
+  *     @skb: pointer to skb
+  *     Return: uid of the socket owner on success or overflowuid if failed.
++ *
++ * u32 bpf_set_hash(skb, hash)
++ *     Set full skb->hash.
++ *     @skb: pointer to skb
++ *     @hash: hash to set
+  */
+ #define __BPF_FUNC_MAPPER(FN)		\
+ 	FN(unspec),			\
+@@ -562,7 +567,8 @@ enum bpf_attach_type {
+ 	FN(xdp_adjust_head),		\
+ 	FN(probe_read_str),		\
+ 	FN(get_socket_cookie),		\
+-	FN(get_socket_uid),
++	FN(get_socket_uid),		\
++	FN(set_hash),
  
-+#include <sys/resource.h>
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+  * function eBPF program intends to call
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 4867391..a65a3b2 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1874,6 +1874,24 @@ int skb_do_redirect(struct sk_buff *skb)
+ 	.arg1_type	= ARG_PTR_TO_CTX,
+ };
+ 
++BPF_CALL_2(bpf_set_hash, struct sk_buff *, skb, u32, hash)
++{
++	/* Set user specified hash as L4(+), so that it gets returned
++	 * on skb_get_hash() call unless BPF prog later on triggers a
++	 * skb_clear_hash().
++	 */
++	__skb_set_sw_hash(skb, hash, true);
++	return 0;
++}
 +
- #include <linux/unistd.h>
- #include <linux/filter.h>
- #include <linux/bpf_perf_event.h>
-@@ -432,6 +434,9 @@ static int do_test(unsigned int from, unsigned int to)
- int main(int argc, char **argv)
++static const struct bpf_func_proto bpf_set_hash_proto = {
++	.func		= bpf_set_hash,
++	.gpl_only	= false,
++	.ret_type	= RET_INTEGER,
++	.arg1_type	= ARG_PTR_TO_CTX,
++	.arg2_type	= ARG_ANYTHING,
++};
++
+ BPF_CALL_3(bpf_skb_vlan_push, struct sk_buff *, skb, __be16, vlan_proto,
+ 	   u16, vlan_tci)
  {
- 	unsigned int from = 0, to = ARRAY_SIZE(tests);
-+	struct rlimit rinf = { RLIM_INFINITY, RLIM_INFINITY };
-+
-+	setrlimit(RLIMIT_MEMLOCK, &rinf);
+@@ -2744,6 +2762,8 @@ static unsigned long bpf_xdp_copy(void *dst_buff, const void *src_buff,
+ 		return &bpf_get_hash_recalc_proto;
+ 	case BPF_FUNC_set_hash_invalid:
+ 		return &bpf_set_hash_invalid_proto;
++	case BPF_FUNC_set_hash:
++		return &bpf_set_hash_proto;
+ 	case BPF_FUNC_perf_event_output:
+ 		return &bpf_skb_event_output_proto;
+ 	case BPF_FUNC_get_smp_processor_id:
+diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
+index 9b2c10b..f94b48b 100644
+--- a/tools/include/uapi/linux/bpf.h
++++ b/tools/include/uapi/linux/bpf.h
+@@ -513,6 +513,11 @@ enum bpf_attach_type {
+  *     Get the owner uid of the socket stored inside sk_buff.
+  *     @skb: pointer to skb
+  *     Return: uid of the socket owner on success or overflowuid if failed.
++ *
++ * u32 bpf_set_hash(skb, hash)
++ *     Set full skb->hash.
++ *     @skb: pointer to skb
++ *     @hash: hash to set
+  */
+ #define __BPF_FUNC_MAPPER(FN)		\
+ 	FN(unspec),			\
+@@ -562,7 +567,8 @@ enum bpf_attach_type {
+ 	FN(xdp_adjust_head),		\
+ 	FN(probe_read_str),		\
+ 	FN(get_socket_cookie),		\
+-	FN(get_socket_uid),
++	FN(get_socket_uid),		\
++	FN(set_hash),
  
- 	if (argc == 3) {
- 		unsigned int l = atoi(argv[argc - 2]);
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+  * function eBPF program intends to call
 -- 
 1.9.3
