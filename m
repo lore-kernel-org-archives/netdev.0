@@ -1,28 +1,27 @@
-From: David Miller <davem@davemloft.net>
+From: David Ahern <dsahern@gmail.com>
 Subject: Re: [PATCH net v3] net: ipmr: Fix some mroute forwarding issues in
  vrf's
-Date: Sat, 10 Jun 2017 19:07:59 -0400 (EDT)
-Message-ID: <20170610.190759.166589591911771854.davem@davemloft.net>
+Date: Sat, 10 Jun 2017 17:32:33 -0600
+Message-ID: <25a39bcd-d623-951a-75c5-773b2cc0518e@gmail.com>
 References: <20170610203017.4085-1-sharpd@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dsahern@gmail.com,
+To: Donald Sharp <sharpd@cumulusnetworks.com>, netdev@vger.kernel.org,
         Thomas.Winter@alliedtelesis.co.nz, nikolay@cumulusnetworks.com,
         yotamg@mellanox.com, idosch@mellanox.com, roopa@cumulusnetworks.com
-To: sharpd@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37796 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751660AbdFJXIC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2017 19:08:02 -0400
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:35792 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751558AbdFJXcf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2017 19:32:35 -0400
+Received: by mail-pg0-f67.google.com with SMTP id f127so10974196pgc.2
+        for <netdev@vger.kernel.org>; Sat, 10 Jun 2017 16:32:35 -0700 (PDT)
 In-Reply-To: <20170610203017.4085-1-sharpd@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Donald Sharp <sharpd@cumulusnetworks.com>
-Date: Sat, 10 Jun 2017 16:30:17 -0400
-
+On 6/10/17 2:30 PM, Donald Sharp wrote:
 > This patch fixes two issues:
 > 
 > 1) When forwarding on *,G mroutes that are in a vrf, the
@@ -44,5 +43,11 @@ Date: Sat, 10 Jun 2017 16:30:17 -0400
 > 
 > Fixes: e58e41596811 ("net: Enable support for VRF with ipv4 multicast")
 > Signed-off-by: Donald Sharp <sharpd@cumulusnetworks.com>
+> ---
+> v2: Fixed title
+> v3: Addressed Review comments by Andrew Lunn and David Ahern
+> 
 
-David, please review.
+LGTM.
+
+Acked-by: David Ahern <dsahern@gmail.com>
