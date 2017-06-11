@@ -1,7 +1,7 @@
 From: <netanel@amazon.com>
-Subject: [PATCH net 8/9] net: ena: bug fix in lost tx packets detection mechanism
-Date: Sun, 11 Jun 2017 15:42:50 +0300
-Message-ID: <1497184971-28178-9-git-send-email-netanel@amazon.com>
+Subject: [PATCH net 7/9] net: ena: disable admin msix while working in polling mode
+Date: Sun, 11 Jun 2017 15:42:49 +0300
+Message-ID: <1497184971-28178-8-git-send-email-netanel@amazon.com>
 References: <1497184971-28178-1-git-send-email-netanel@amazon.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,169 +11,47 @@ Cc: Netanel Belgazal <netanel@amazon.com>, <dwmw@amazon.com>,
         <evgenys@amazon.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-fw-4101.amazon.com ([72.21.198.25]:51131 "EHLO
-        smtp-fw-4101.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751850AbdFKMx4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2017 08:53:56 -0400
+Received: from smtp-fw-2101.amazon.com ([72.21.196.25]:62969 "EHLO
+        smtp-fw-2101.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751850AbdFKMyC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2017 08:54:02 -0400
 In-Reply-To: <1497184971-28178-1-git-send-email-netanel@amazon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Netanel Belgazal <netanel@amazon.com>
 
-check_for_missing_tx_completions() is called from a timer
-task and looking for lost tx packets.
-The old implementation accumulate all the lost tx packets
-and did not check if those packets were retrieved on a later stage.
-This cause to a situation where the driver reset
-the device for no reason.
-
 Fixes: 1738cd3ed342 ("Add a driver for Amazon Elastic Network Adapters (ENA)")
 Signed-off-by: Netanel Belgazal <netanel@amazon.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_ethtool.c |  1 -
- drivers/net/ethernet/amazon/ena/ena_netdev.c  | 66 +++++++++++++++------------
- drivers/net/ethernet/amazon/ena/ena_netdev.h  | 14 +++++-
- 3 files changed, 50 insertions(+), 31 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_com.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_ethtool.c b/drivers/net/ethernet/amazon/ena/ena_ethtool.c
-index 533b2fbdeef1..3ee55e2fd694 100644
---- a/drivers/net/ethernet/amazon/ena/ena_ethtool.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_ethtool.c
-@@ -80,7 +80,6 @@ static const struct ena_stats ena_stats_tx_strings[] = {
- 	ENA_STAT_TX_ENTRY(tx_poll),
- 	ENA_STAT_TX_ENTRY(doorbells),
- 	ENA_STAT_TX_ENTRY(prepare_ctx_err),
--	ENA_STAT_TX_ENTRY(missing_tx_comp),
- 	ENA_STAT_TX_ENTRY(bad_req_id),
- };
+diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
+index ea60b9e67acb..f5b237e0bd60 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_com.c
++++ b/drivers/net/ethernet/amazon/ena/ena_com.c
+@@ -61,6 +61,8 @@
  
-diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-index 3c366bfbbab1..4f16ed38bcf3 100644
---- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-@@ -1995,6 +1995,7 @@ static netdev_tx_t ena_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ #define ENA_MMIO_READ_TIMEOUT 0xFFFFFFFF
  
- 	tx_info->tx_descs = nb_hw_desc;
- 	tx_info->last_jiffies = jiffies;
-+	tx_info->print_once = 0;
++#define ENA_REGS_ADMIN_INTR_MASK 1
++
+ /*****************************************************************************/
+ /*****************************************************************************/
+ /*****************************************************************************/
+@@ -1454,6 +1456,12 @@ void ena_com_admin_destroy(struct ena_com_dev *ena_dev)
  
- 	tx_ring->next_to_use = ENA_TX_RING_IDX_NEXT(next_to_use,
- 		tx_ring->ring_size);
-@@ -2564,13 +2565,44 @@ static void ena_fw_reset_device(struct work_struct *work)
- 		"Reset attempt failed. Can not reset the device\n");
- }
- 
--static void check_for_missing_tx_completions(struct ena_adapter *adapter)
-+static int check_missing_comp_in_queue(struct ena_adapter *adapter,
-+				       struct ena_ring *tx_ring)
+ void ena_com_set_admin_polling_mode(struct ena_com_dev *ena_dev, bool polling)
  {
- 	struct ena_tx_buffer *tx_buf;
- 	unsigned long last_jiffies;
-+	u32 missed_tx = 0;
-+	int i;
++	u32 mask_value = 0;
 +
-+	for (i = 0; i < tx_ring->ring_size; i++) {
-+		tx_buf = &tx_ring->tx_buffer_info[i];
-+		last_jiffies = tx_buf->last_jiffies;
-+		if (unlikely(last_jiffies &&
-+			     time_is_before_jiffies(last_jiffies + TX_TIMEOUT))) {
-+			if (!tx_buf->print_once)
-+				netif_notice(adapter, tx_err, adapter->netdev,
-+					     "Found a Tx that wasn't completed on time, qid %d, index %d.\n",
-+					     tx_ring->qid, i);
++	if (polling)
++		mask_value = ENA_REGS_ADMIN_INTR_MASK;
 +
-+			tx_buf->print_once = 1;
-+			missed_tx++;
-+
-+			if (unlikely(missed_tx > MAX_NUM_OF_TIMEOUTED_PACKETS)) {
-+				netif_err(adapter, tx_err, adapter->netdev,
-+					  "The number of lost tx completions is above the threshold (%d > %d). Reset the device\n",
-+					  missed_tx, MAX_NUM_OF_TIMEOUTED_PACKETS);
-+				set_bit(ENA_FLAG_TRIGGER_RESET, &adapter->flags);
-+				return -EIO;
-+			}
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static void check_for_missing_tx_completions(struct ena_adapter *adapter)
-+{
- 	struct ena_ring *tx_ring;
--	int i, j, budget;
--	u32 missed_tx;
-+	int i, budget, rc;
- 
- 	/* Make sure the driver doesn't turn the device in other process */
- 	smp_rmb();
-@@ -2586,31 +2618,9 @@ static void check_for_missing_tx_completions(struct ena_adapter *adapter)
- 	for (i = adapter->last_monitored_tx_qid; i < adapter->num_queues; i++) {
- 		tx_ring = &adapter->tx_ring[i];
- 
--		for (j = 0; j < tx_ring->ring_size; j++) {
--			tx_buf = &tx_ring->tx_buffer_info[j];
--			last_jiffies = tx_buf->last_jiffies;
--			if (unlikely(last_jiffies && time_is_before_jiffies(last_jiffies + TX_TIMEOUT))) {
--				netif_notice(adapter, tx_err, adapter->netdev,
--					     "Found a Tx that wasn't completed on time, qid %d, index %d.\n",
--					     tx_ring->qid, j);
--
--				u64_stats_update_begin(&tx_ring->syncp);
--				missed_tx = tx_ring->tx_stats.missing_tx_comp++;
--				u64_stats_update_end(&tx_ring->syncp);
--
--				/* Clear last jiffies so the lost buffer won't
--				 * be counted twice.
--				 */
--				tx_buf->last_jiffies = 0;
--
--				if (unlikely(missed_tx > MAX_NUM_OF_TIMEOUTED_PACKETS)) {
--					netif_err(adapter, tx_err, adapter->netdev,
--						  "The number of lost tx completion is above the threshold (%d > %d). Reset the device\n",
--						  missed_tx, MAX_NUM_OF_TIMEOUTED_PACKETS);
--					set_bit(ENA_FLAG_TRIGGER_RESET, &adapter->flags);
--				}
--			}
--		}
-+		rc = check_missing_comp_in_queue(adapter, tx_ring);
-+		if (unlikely(rc))
-+			return;
- 
- 		budget--;
- 		if (!budget)
-diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.h b/drivers/net/ethernet/amazon/ena/ena_netdev.h
-index 8828f1d6dd22..88b5e5612338 100644
---- a/drivers/net/ethernet/amazon/ena/ena_netdev.h
-+++ b/drivers/net/ethernet/amazon/ena/ena_netdev.h
-@@ -146,7 +146,18 @@ struct ena_tx_buffer {
- 	u32 tx_descs;
- 	/* num of buffers used by this skb */
- 	u32 num_of_bufs;
--	/* Save the last jiffies to detect missing tx packets */
-+
-+	/* Used for detect missing tx packets to limit the number of prints */
-+	u32 print_once;
-+	/* Save the last jiffies to detect missing tx packets
-+	 *
-+	 * sets to non zero value on ena_start_xmit and set to zero on
-+	 * napi and timer_Service_routine.
-+	 *
-+	 * while this value is not protected by lock,
-+	 * a given packet is not expected to be handled by ena_start_xmit
-+	 * and by napi/timer_service at the same time.
-+	 */
- 	unsigned long last_jiffies;
- 	struct ena_com_buf bufs[ENA_PKT_MAX_BUFS];
- } ____cacheline_aligned;
-@@ -170,7 +181,6 @@ struct ena_stats_tx {
- 	u64 napi_comp;
- 	u64 tx_poll;
- 	u64 doorbells;
--	u64 missing_tx_comp;
- 	u64 bad_req_id;
- };
++	writel(mask_value, ena_dev->reg_bar + ENA_REGS_INTR_MASK_OFF);
+ 	ena_dev->admin_queue.polling = polling;
+ }
  
 -- 
 2.7.4
