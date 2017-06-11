@@ -1,101 +1,155 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCHv3 net] xfrm: move xfrm_garbage_collect out of xfrm_policy_flush
-Date: Sun, 11 Jun 2017 18:51:29 +0800
-Message-ID: <CADvbK_cxFyx0VWOzJyoxUc+FfnSJy0H+Y2enUaGmvHb4ZKDr7Q@mail.gmail.com>
-References: <1497013755-24481-1-git-send-email-liuhangbin@gmail.com> <1497145460-24614-1-git-send-email-liuhangbin@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: network dev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Steffen Klassert <steffen.klassert@secunet.com>
-To: Hangbin Liu <liuhangbin@gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH net-next v10 0/4] net sched actions: improve dump performance
+Date: Sun, 11 Jun 2017 07:53:42 -0400
+Message-ID: <1497182026-11594-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, xiyou.wangcong@gmail.com,
+        eric.dumazet@gmail.com, simon.horman@netronome.com,
+        mrv@mojatatu.com, Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:34477 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751649AbdFKKva (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2017 06:51:30 -0400
-Received: by mail-qt0-f196.google.com with SMTP id o21so21345937qtb.1
-        for <netdev@vger.kernel.org>; Sun, 11 Jun 2017 03:51:30 -0700 (PDT)
-In-Reply-To: <1497145460-24614-1-git-send-email-liuhangbin@gmail.com>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:32949 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751595AbdFKLx5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2017 07:53:57 -0400
+Received: by mail-io0-f194.google.com with SMTP id j200so3945116ioe.0
+        for <netdev@vger.kernel.org>; Sun, 11 Jun 2017 04:53:56 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 11, 2017 at 9:44 AM, Hangbin Liu <liuhangbin@gmail.com> wrote:
-> Now we will force to do garbage collection if any policy removed in
-> xfrm_policy_flush(). But during xfrm_net_exit(). We call flow_cache_fini()
-> first and set set fc->percpu to NULL. Then after we call xfrm_policy_fini()
-> -> frxm_policy_flush() -> flow_cache_flush(), we will get NULL pointer
-> dereference when check percpu_empty. The code path looks like:
->
-> flow_cache_fini()
->   - fc->percpu = NULL
-> xfrm_policy_fini()
->   - xfrm_policy_flush()
->     - xfrm_garbage_collect()
->       - flow_cache_flush()
->         - flow_cache_percpu_empty()
->           - fcp = per_cpu_ptr(fc->percpu, cpu)
->
-> To reproduce, just add ipsec in netns and then remove the netns.
->
-> v2:
-> As Xin Long suggested, since only two other places need to call it. move
-> xfrm_garbage_collect() outside xfrm_policy_flush().
->
-> v3:
-> Fix subject mismatch after v2 fix.
->
-> Fixes: 35db06912189 ("xfrm: do the garbage collection after flushing policy")
-> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
-> ---
->  net/key/af_key.c       | 2 ++
->  net/xfrm/xfrm_policy.c | 4 ----
->  net/xfrm/xfrm_user.c   | 1 +
->  3 files changed, 3 insertions(+), 4 deletions(-)
->
-> diff --git a/net/key/af_key.c b/net/key/af_key.c
-> index 512dc43..5103f92 100644
-> --- a/net/key/af_key.c
-> +++ b/net/key/af_key.c
-> @@ -2755,6 +2755,8 @@ static int pfkey_spdflush(struct sock *sk, struct sk_buff *skb, const struct sad
->         int err, err2;
->
->         err = xfrm_policy_flush(net, XFRM_POLICY_TYPE_MAIN, true);
-> +       if (!err)
-> +               xfrm_garbage_collect(net);
->         err2 = unicast_flush_resp(sk, hdr);
->         if (err || err2) {
->                 if (err == -ESRCH) /* empty table - old silent behavior */
-> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-> index ed4e52d..643a18f 100644
-> --- a/net/xfrm/xfrm_policy.c
-> +++ b/net/xfrm/xfrm_policy.c
-> @@ -1006,10 +1006,6 @@ int xfrm_policy_flush(struct net *net, u8 type, bool task_valid)
->                 err = -ESRCH;
->  out:
->         spin_unlock_bh(&net->xfrm.xfrm_policy_lock);
-> -
-> -       if (cnt)
-> -               xfrm_garbage_collect(net);
-> -
->         return err;
->  }
->  EXPORT_SYMBOL(xfrm_policy_flush);
-> diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-> index 38614df..86116e9 100644
-> --- a/net/xfrm/xfrm_user.c
-> +++ b/net/xfrm/xfrm_user.c
-> @@ -2027,6 +2027,7 @@ static int xfrm_flush_policy(struct sk_buff *skb, struct nlmsghdr *nlh,
->                         return 0;
->                 return err;
->         }
-> +       xfrm_garbage_collect(net);
->
->         c.data.type = type;
->         c.event = nlh->nlmsg_type;
-> --
-> 2.5.5
->
-Reviewed-by: Xin Long <lucien.xin@gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-though I could still see some typo err in changelog.
+Changes since v9:
+-----------------
+
+1) General consensus:
+- remove again the use of BIT() to maintain uapi consistency ;->
+
+1) Jiri:
+- Add a new netlink type NLA_FLAG_BITS to check for valid bits 
+  and use it instead of inline vetting.
+  
+Changes since v8:
+-----------------
+
+1) Jiri:
+- Add back the use of BIT(). Eventually fix iproute2 instead
+- Rename VALID_TCA_FLAGS to VALID_TCA_ROOT_FLAGS
+
+Changes since v7:
+-----------------
+
+Jamal:
+No changes.
+Patch 1 went out twice. Resend without two copies of patch 1
+
+changes since v6:
+-----------------
+
+1) DaveM:
+New rules for netlink messages. From now on we are going to start
+checking for bits that are not used and rejecting anything we dont
+understand. In the future this is going to require major changes
+to user space code (tc etc). This is just a start.
+
+To quote, David:
+"
+ Again, bits you aren't using now, make sure userspace doesn't
+   set them.  And if it does, reject.
+"
+Added checks for ensuring things work as above.
+
+2) Jiri:
+a)Fix the commit message to properly use "Fixes" description
+b)Align assignments for nla_policy
+
+Changes since v5:
+----------------
+
+0)
+Remove use of BIT() because it is kernel specific. Requires a separate
+patch (Jiri can submit that in his cleanups)
+
+1)To paraphrase Eric D.
+
+"memcpy(nla_data(count_attr), &cb->args[1], sizeof(u32));
+wont work on 64bit BE machines because cb->args[1]
+(which is 64 bit is larger in size than sizeof(u32))"
+
+Fixed
+
+2) Jiri Pirko
+
+i) Spotted a bug fix mixed in the patch for wrong TLV
+fix. Add patch 1/3 to address this. Make part of this
+series because of dependencies.
+
+ii) Rename ACT_LARGE_DUMP_ON -> TCA_FLAG_LARGE_DUMP_ON
+
+iii) Satisfy Jiri's obsession against the noun "tcaa"
+a)Rename struct nlattr *tcaa --> struct nlattr *tb
+b)Rename TCAA_ACT_XXX -> TCA_ROOT_XXX
+
+Changes since v4:
+-----------------
+
+1) Eric D.
+
+pointed out that when all skb space is used up by the dump
+there will be no space to insert the TCAA_ACT_COUNT attribute.
+
+2) Jiri:
+
+i) Change:
+
+enum {
+        TCAA_UNSPEC,
+        TCAA_ACT_TAB,
+        TCAA_ACT_FLAGS,
+        TCAA_ACT_COUNT,
+        TCAA_ACT_TIME_FILTER,
+        __TCAA_MAX
+};
+
+#define TCAA_MAX (__TCAA_MAX - 1)
+#define ACT_LARGE_DUMP_ON               (1 << 0)
+
+to:
+enum {
+       TCAA_UNSPEC,
+       TCAA_ACT_TAB,
+#define TCA_ACT_TAB TCAA_ACT_TAB
+       TCAA_ACT_FLAGS,
+       TCAA_ACT_COUNT,
+       __TCAA_MAX,
+#define        TCAA_MAX (__TCAA_MAX - 1)
+};
+
+#define ACT_LARGE_DUMP_ON              BIT(0)
+
+Jiri plans to followup with the rest of the code to make the
+style consistent.
+
+ii) Rename attribute TCAA_ACT_TIME_FILTER --> TCAA_ACT_TIME_DELTA
+
+iii) Rename variable jiffy_filter --> jiffy_since
+iv) Rename msecs_filter --> msecs_since
+v) get rid of unused cb->args[0] and rename cb->args[4] to cb->args[0]
+
+Earlier Changes
+----------------
+- Jiri mostly on names of things.
+
+Jamal Hadi Salim (4):
+  net netlink: Add new type NLA_FLAG_BITS
+  net sched actions: Use proper root attribute table for actions
+  net sched actions: dump more than TCA_ACT_MAX_PRIO actions per batch
+  net sched actions: add time filter for action dumping
+
+ include/net/netlink.h          | 11 +++++++
+ include/uapi/linux/rtnetlink.h | 40 ++++++++++++++++++++++--
+ lib/nlattr.c                   | 25 +++++++++++++++
+ net/sched/act_api.c            | 70 +++++++++++++++++++++++++++++++++++-------
+ 4 files changed, 133 insertions(+), 13 deletions(-)
+
+-- 
+1.9.1
