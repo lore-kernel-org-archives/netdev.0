@@ -1,40 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [pull request][net 0/6] Mellanox mlx5 fixes 2017-06-11
-Date: Sun, 11 Jun 2017 16:42:10 -0400 (EDT)
-Message-ID: <20170611.164210.726640838112020106.davem@davemloft.net>
-References: <20170611140028.12467-1-saeedm@mellanox.com>
+From: Emmanuel Grumbach <egrumbach@gmail.com>
+Subject: Re: [PATCH 0/6] Constant Time Memory Comparisons Are Important
+Date: Sun, 11 Jun 2017 23:48:36 +0300
+Message-ID: <CANUX_P2b0Bx+-E_OBQ0reGW0=d6819qc=r83K0kTv0xMo8mtLQ@mail.gmail.com>
+References: <20170610025912.6499-1-Jason@zx2c4.com> <878tkzq6wi.fsf@purkki.adurom.net>
+ <CAGXu5jKp=X7-eKo+HgzS3uqncx5yy-u=tJNqV9K8GOgJ=-C7iA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: saeedm@mellanox.com
+Content-Type: text/plain; charset="UTF-8"
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+        "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>,
+        Anna Schumaker <anna.schumaker@netapp.com>,
+        David Howells <dhowells@redhat.com>,
+        David Safford <safford@us.ibm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Gilad Ben-Yossef <gilad@benyossef.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Gustavo Padovan <gustavo@padovan.org>,
+        "J. Bruce Fields" <bfields@fieldses.org>,
+        Jeff Layton <jlayton@poochiereds.net>,
+        Johan Hedberg <johan.hedberg@gmail.com>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        Marcel Holtmann <marcel@holtmann.org>,
+        Mimi Zohar <zohar@linux.vnet.ibm.com>,
+        Trond Myklebust <trond.myklebust@
+To: Kees Cook <keescook@chromium.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38928 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751794AbdFKUmL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2017 16:42:11 -0400
-In-Reply-To: <20170611140028.12467-1-saeedm@mellanox.com>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:33947 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751794AbdFKUsi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2017 16:48:38 -0400
+In-Reply-To: <CAGXu5jKp=X7-eKo+HgzS3uqncx5yy-u=tJNqV9K8GOgJ=-C7iA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-Date: Sun, 11 Jun 2017 17:00:22 +0300
+On Sun, Jun 11, 2017 at 4:36 PM, Kees Cook <keescook@chromium.org> wrote:
+>
+> On Sun, Jun 11, 2017 at 1:13 AM, Kalle Valo <kvalo@codeaurora.org> wrote:
+> > "Jason A. Donenfeld" <Jason@zx2c4.com> writes:
+> >
+> >> Whenever you're comparing two MACs, it's important to do this using
+> >> crypto_memneq instead of memcmp. With memcmp, you leak timing information,
+> >> which could then be used to iteratively forge a MAC.
+> >
+> > Do you have any pointers where I could learn more about this?
+>
+> While not using C specifically, this talks about the problem generally:
+> https://www.chosenplaintext.ca/articles/beginners-guide-constant-time-cryptography.html
+>
 
-> This series contains some fixes for the mlx5 core and netdev driver.
-> 
-> Please pull and let me know if there's any problem.
-
-Pulled, thanks.
-
-> For -stable:
-> ("net/mlx5e: Added BW check for DIM decision mechanism")              kernels >= 4.9
-> ("net/mlx5e: Fix wrong indications in DIM due to counter wraparound") kernels >= 4.9
-> ("net/mlx5: Remove several module events out of ethtool stats")       kernels >= 4.10
-> ("net/mlx5: Enable 4K UAR only when page size is bigger than 4K")     kernels >= 4.11
-> 
-> *all patches apply with no issue on their -stable.
-> 
-> BTW I never asked you if this way of marking patches to -stable is good for you ?
-> if you prefer another format please let me know.
-
-It works fine for now, I'll let you know if it causes problems :)
+Sorry for the stupid question, but the MAC address is in plaintext in
+the air anyway or easily accessible via user space tools. I fail to
+see what it is so secret about a MAC address in that code where that
+same MAC address is accessible via myriads of ways.
