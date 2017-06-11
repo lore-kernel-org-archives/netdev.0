@@ -1,72 +1,142 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [pull request][net 0/6] Mellanox mlx5 fixes 2017-06-11
-Date: Sun, 11 Jun 2017 17:00:22 +0300
-Message-ID: <20170611140028.12467-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
+Subject: [net 4/6] net/mlx5e: Added BW check for DIM decision mechanism
+Date: Sun, 11 Jun 2017 17:00:26 +0300
+Message-ID: <20170611140028.12467-5-saeedm@mellanox.com>
+References: <20170611140028.12467-1-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Tal Gilboa <talgi@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:35955 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:35957 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751936AbdFKOAu (ORCPT
+        with ESMTP id S1751784AbdFKOAu (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2017 10:00:50 -0400
+In-Reply-To: <20170611140028.12467-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Tal Gilboa <talgi@mellanox.com>
 
-This series contains some fixes for the mlx5 core and netdev driver.
+DIM (Dynamically-tuned Interrupt Moderation) is a mechanism designed for
+changing the channel interrupt moderation values in order to reduce CPU
+overhead for all traffic types.
+Until now only interrupt and packet rate were sampled.
+We found a scenario on which we get a false indication since a change in
+DIM caused more aggregation and reduced packet rate while increasing BW.
 
-Please pull and let me know if there's any problem.
+We now regard a change as succesfull iff:
+current_BW > (prev_BW + threshold) or
+current_BW ~= prev_BW and current_PR > (prev_PR + threshold) or
+current_BW ~= prev_BW and current_PR ~= prev_PR and
+    current_IR < (prev_IR - threshold)
+Where BW = Bandwidth, PR = Packet rate and IR = Interrupt rate
 
-For -stable:
-("net/mlx5e: Added BW check for DIM decision mechanism")              kernels >= 4.9
-("net/mlx5e: Fix wrong indications in DIM due to counter wraparound") kernels >= 4.9
-("net/mlx5: Remove several module events out of ethtool stats")       kernels >= 4.10
-("net/mlx5: Enable 4K UAR only when page size is bigger than 4K")     kernels >= 4.11
+Improvements (ConnectX-4Lx 25GbE, single RX queue, LRO off)
+    --------------------------------------------------
+    packet size | before[Mb/s] | after[Mb/s] | gain  |
+    2B          | 343.4        | 359.4       |  4.5% |
+    16B         | 2739.7       | 2814.8      |  2.7% |
+    64B         | 9739         | 10185.3     |  4.5% |
 
-*all patches apply with no issue on their -stable.
-
-BTW I never asked you if this way of marking patches to -stable is good for you ?
-if you prefer another format please let me know.
-
-Thanks,
-Saeed.
+Fixes: cb3c7fd4f839 ("net/mlx5e: Support adaptive RX coalescing")
+Signed-off-by: Tal Gilboa <talgi@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |  2 ++
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx_am.c | 37 ++++++++++++----------
+ 2 files changed, 22 insertions(+), 17 deletions(-)
 
-The following changes since commit b87fa0fafef4b16495740432f4eb8262efa500d0:
-
-  Merge branch 'mvpp2-fixes' (2017-06-10 18:22:56 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/saeed/linux.git tags/mlx5-fixes-2017-06-11
-
-for you to fetch changes up to 91828bd89940e8145f91751a015bc11bc486aad0:
-
-  net/mlx5: Enable 4K UAR only when page size is bigger than 4K (2017-06-11 13:10:36 +0300)
-
-----------------------------------------------------------------
-mlx5-fixes-2017-06-11
-
-----------------------------------------------------------------
-Huy Nguyen (1):
-      net/mlx5: Remove several module events out of ethtool stats
-
-Majd Dibbiny (1):
-      net/mlx5: Enable 4K UAR only when page size is bigger than 4K
-
-Mohamad Haj Yahia (2):
-      net/mlx5: Fix create vport flow table flow
-      net/mlx5: Continue health polling until it is explicitly stopped
-
-Tal Gilboa (2):
-      net/mlx5e: Added BW check for DIM decision mechanism
-      net/mlx5e: Fix wrong indications in DIM due to counter wraparound
-
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  8 ++--
- drivers/net/ethernet/mellanox/mlx5/core/en_rx_am.c | 45 +++++++++++++---------
- drivers/net/ethernet/mellanox/mlx5/core/en_stats.h | 11 +-----
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/health.c   | 11 +++---
- drivers/net/ethernet/mellanox/mlx5/core/main.c     |  6 ++-
- 6 files changed, 43 insertions(+), 40 deletions(-)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 2fd044b23875..429da21a583d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -458,12 +458,14 @@ struct mlx5e_mpw_info {
+ 
+ struct mlx5e_rx_am_stats {
+ 	int ppms; /* packets per msec */
++	int bpms; /* bytes per msec */
+ 	int epms; /* events per msec */
+ };
+ 
+ struct mlx5e_rx_am_sample {
+ 	ktime_t		time;
+ 	unsigned int	pkt_ctr;
++	unsigned int    byte_ctr;
+ 	u16		event_ctr;
+ };
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx_am.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx_am.c
+index 02dd3a95ed8f..54cdda957f9a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx_am.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx_am.c
+@@ -183,28 +183,27 @@ static void mlx5e_am_exit_parking(struct mlx5e_rx_am *am)
+ 	mlx5e_am_step(am);
+ }
+ 
++#define IS_SIGNIFICANT_DIFF(val, ref) \
++	(((100 * abs((val) - (ref))) / (ref)) > 10) /* more than 10% difference */
++
+ static int mlx5e_am_stats_compare(struct mlx5e_rx_am_stats *curr,
+ 				  struct mlx5e_rx_am_stats *prev)
+ {
+-	int diff;
+-
+-	if (!prev->ppms)
+-		return curr->ppms ? MLX5E_AM_STATS_BETTER :
++	if (!prev->bpms)
++		return curr->bpms ? MLX5E_AM_STATS_BETTER :
+ 				    MLX5E_AM_STATS_SAME;
+ 
+-	diff = curr->ppms - prev->ppms;
+-	if (((100 * abs(diff)) / prev->ppms) > 10) /* more than 10% diff */
+-		return (diff > 0) ? MLX5E_AM_STATS_BETTER :
+-				    MLX5E_AM_STATS_WORSE;
++	if (IS_SIGNIFICANT_DIFF(curr->bpms, prev->bpms))
++		return (curr->bpms > prev->bpms) ? MLX5E_AM_STATS_BETTER :
++						   MLX5E_AM_STATS_WORSE;
+ 
+-	if (!prev->epms)
+-		return curr->epms ? MLX5E_AM_STATS_WORSE :
+-				    MLX5E_AM_STATS_SAME;
++	if (IS_SIGNIFICANT_DIFF(curr->ppms, prev->ppms))
++		return (curr->ppms > prev->ppms) ? MLX5E_AM_STATS_BETTER :
++						   MLX5E_AM_STATS_WORSE;
+ 
+-	diff = curr->epms - prev->epms;
+-	if (((100 * abs(diff)) / prev->epms) > 10) /* more than 10% diff */
+-		return (diff < 0) ? MLX5E_AM_STATS_BETTER :
+-				    MLX5E_AM_STATS_WORSE;
++	if (IS_SIGNIFICANT_DIFF(curr->epms, prev->epms))
++		return (curr->epms < prev->epms) ? MLX5E_AM_STATS_BETTER :
++						   MLX5E_AM_STATS_WORSE;
+ 
+ 	return MLX5E_AM_STATS_SAME;
+ }
+@@ -266,6 +265,7 @@ static void mlx5e_am_sample(struct mlx5e_rq *rq,
+ {
+ 	s->time	     = ktime_get();
+ 	s->pkt_ctr   = rq->stats.packets;
++	s->byte_ctr  = rq->stats.bytes;
+ 	s->event_ctr = rq->cq.event_ctr;
+ }
+ 
+@@ -278,12 +278,15 @@ static void mlx5e_am_calc_stats(struct mlx5e_rx_am_sample *start,
+ 	/* u32 holds up to 71 minutes, should be enough */
+ 	u32 delta_us = ktime_us_delta(end->time, start->time);
+ 	unsigned int npkts = end->pkt_ctr - start->pkt_ctr;
++	unsigned int nbytes = end->byte_ctr - start->byte_ctr;
+ 
+ 	if (!delta_us)
+ 		return;
+ 
+-	curr_stats->ppms =            (npkts * USEC_PER_MSEC) / delta_us;
+-	curr_stats->epms = (MLX5E_AM_NEVENTS * USEC_PER_MSEC) / delta_us;
++	curr_stats->ppms = DIV_ROUND_UP(npkts * USEC_PER_MSEC, delta_us);
++	curr_stats->bpms = DIV_ROUND_UP(nbytes * USEC_PER_MSEC, delta_us);
++	curr_stats->epms = DIV_ROUND_UP(MLX5E_AM_NEVENTS * USEC_PER_MSEC,
++					delta_us);
+ }
+ 
+ void mlx5e_rx_am_work(struct work_struct *work)
+-- 
+2.11.0
