@@ -1,61 +1,34 @@
-From: Emil Lenngren <emil.lenngren-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 0/6] Constant Time Memory Comparisons Are Important
-Date: Sun, 11 Jun 2017 23:30:33 +0200
-Message-ID: <CAO1O6see6yDr-hDVNPi9Kv9wO6p-98w7YhsnnwnVOVCSEGVksw@mail.gmail.com>
-References: <20170610025912.6499-1-Jason@zx2c4.com> <878tkzq6wi.fsf@purkki.adurom.net>
- <CAGXu5jKp=X7-eKo+HgzS3uqncx5yy-u=tJNqV9K8GOgJ=-C7iA@mail.gmail.com> <CANUX_P2b0Bx+-E_OBQ0reGW0=d6819qc=r83K0kTv0xMo8mtLQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [pull request][net-next 0/9] Mellanox mlx5 updates 2017-06-11
+Date: Sun, 11 Jun 2017 18:13:03 -0400 (EDT)
+Message-ID: <20170611.181303.1030738853099284178.davem@davemloft.net>
+References: <20170611145553.14180-1-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        "Jason A. Donenfeld" <Jason-OnJsPKxuuEcAvxtiuMwx3w@public.gmane.org>,
-        LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "kernel-hardening-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org"
-        <kernel-hardening-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org>,
-        Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-        David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        David Safford <safford-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Gilad Ben-Yossef <gilad-6S/DczAoZh3WXxRugSxzZg@public.gmane.org>,
-        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-        Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-        "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-        Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
-        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-        Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-        Mimi Zohar <zohar-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-To: Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CANUX_P2b0Bx+-E_OBQ0reGW0=d6819qc=r83K0kTv0xMo8mtLQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: saeedm@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:40924 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751911AbdFKWNH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2017 18:13:07 -0400
+In-Reply-To: <20170611145553.14180-1-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2017-06-11 22:48 GMT+02:00 Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
-> On Sun, Jun 11, 2017 at 4:36 PM, Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org> wrote:
->>
->> On Sun, Jun 11, 2017 at 1:13 AM, Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org> wrote:
->> > "Jason A. Donenfeld" <Jason-OnJsPKxuuEcAvxtiuMwx3w@public.gmane.org> writes:
->> >
->> >> Whenever you're comparing two MACs, it's important to do this using
->> >> crypto_memneq instead of memcmp. With memcmp, you leak timing information,
->> >> which could then be used to iteratively forge a MAC.
->> >
->> > Do you have any pointers where I could learn more about this?
->>
->> While not using C specifically, this talks about the problem generally:
->> https://www.chosenplaintext.ca/articles/beginners-guide-constant-time-cryptography.html
->>
->
-> Sorry for the stupid question, but the MAC address is in plaintext in
-> the air anyway or easily accessible via user space tools. I fail to
-> see what it is so secret about a MAC address in that code where that
-> same MAC address is accessible via myriads of ways.
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Sun, 11 Jun 2017 17:55:44 +0300
 
-I think you're mixing up Media Access Control (MAC) addresses with
-Message Authentication Code (MAC). The second one is a cryptographic
-signature of a message.
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> This series provides updates to mlx5 header rewrite feature, from Or Gerlitz.
+> and three more small updates From Maor and Eran.
+> 
+> For more details please see below.
+
+Pulled, thanks.
+
+> Please pull and let me know if there's any problem.
+> *This series doesn't introduce any conflict with the ongoing net
+> pull request.
+
+Ok, thanks for letting me know.
