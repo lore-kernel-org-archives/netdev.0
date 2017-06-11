@@ -1,8 +1,7 @@
 From: <netanel@amazon.com>
-Subject: [PATCH net 1/9] net: ena: fix rare uncompleted admin command false alarm
-Date: Sun, 11 Jun 2017 15:42:43 +0300
-Message-ID: <1497184971-28178-2-git-send-email-netanel@amazon.com>
-References: <1497184971-28178-1-git-send-email-netanel@amazon.com>
+Subject: [PATCH net 0/9] Bugs fixes in ena ethernet driver
+Date: Sun, 11 Jun 2017 15:42:42 +0300
+Message-ID: <1497184971-28178-1-git-send-email-netanel@amazon.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Netanel Belgazal <netanel@amazon.com>, <dwmw@amazon.com>,
@@ -11,79 +10,35 @@ Cc: Netanel Belgazal <netanel@amazon.com>, <dwmw@amazon.com>,
         <evgenys@amazon.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-fw-2101.amazon.com ([72.21.196.25]:56431 "EHLO
-        smtp-fw-2101.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751636AbdFKMxS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2017 08:53:18 -0400
-In-Reply-To: <1497184971-28178-1-git-send-email-netanel@amazon.com>
+Received: from smtp-fw-33001.amazon.com ([207.171.190.10]:1195 "EHLO
+        smtp-fw-33001.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751784AbdFKMxb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2017 08:53:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Netanel Belgazal <netanel@amazon.com>
 
-The current flow to detect admin completion is:
-while (command_not_completed) {
-	if (timeout)
-		error
+This patchset contains fixes for the bugs that were discovered so far.
 
-	check_for_completion()
-		sleep()
-   }
-So in case the sleep took more than the timeout
-(in case the thread/workqueue was not scheduled due to higher priority
-task or prolonged VMexit), the driver can detect a stall even if
-the completion is present.
+Netanel Belgazal (9):
+  net: ena: fix rare uncompleted admin command false alarm
+  net: ena: fix bug that might cause hang after consecutive open/close
+    interface.
+  net: ena: add missing return when ena_com_get_io_handlers() fails
+  net: ena: fix race condition between submit and completion admin
+    command
+  net: ena: add missing unmap bars on device removal
+  net: ena: fix theoretical Rx hang on low memory systems
+  net: ena: disable admin msix while working in polling mode
+  net: ena: bug fix in lost tx packets detection mechanism
+  net: ena: update ena driver to version 1.1.7
 
-The fix changes the order of this function to first check for
-completion and only after that check if the timeout expired.
+ drivers/net/ethernet/amazon/ena/ena_com.c     |  35 +++--
+ drivers/net/ethernet/amazon/ena/ena_ethtool.c |   2 +-
+ drivers/net/ethernet/amazon/ena/ena_netdev.c  | 179 +++++++++++++++++++-------
+ drivers/net/ethernet/amazon/ena/ena_netdev.h  |  18 ++-
+ 4 files changed, 169 insertions(+), 65 deletions(-)
 
-Fixes: 1738cd3ed342 ("Add a driver for Amazon Elastic Network Adapters (ENA)")
-Signed-off-by: Netanel Belgazal <netanel@amazon.com>
----
- drivers/net/ethernet/amazon/ena/ena_com.c | 21 +++++++++++----------
- 1 file changed, 11 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
-index 08d11cede9c9..e1c2fab6292f 100644
---- a/drivers/net/ethernet/amazon/ena/ena_com.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_com.c
-@@ -508,15 +508,20 @@ static int ena_com_comp_status_to_errno(u8 comp_status)
- static int ena_com_wait_and_process_admin_cq_polling(struct ena_comp_ctx *comp_ctx,
- 						     struct ena_com_admin_queue *admin_queue)
- {
--	unsigned long flags;
--	u32 start_time;
-+	unsigned long flags, timeout;
- 	int ret;
- 
--	start_time = ((u32)jiffies_to_usecs(jiffies));
-+	timeout = jiffies + ADMIN_CMD_TIMEOUT_US;
-+
-+	while (1) {
-+		spin_lock_irqsave(&admin_queue->q_lock, flags);
-+		ena_com_handle_admin_completion(admin_queue);
-+		spin_unlock_irqrestore(&admin_queue->q_lock, flags);
- 
--	while (comp_ctx->status == ENA_CMD_SUBMITTED) {
--		if ((((u32)jiffies_to_usecs(jiffies)) - start_time) >
--		    ADMIN_CMD_TIMEOUT_US) {
-+		if (comp_ctx->status != ENA_CMD_SUBMITTED)
-+			break;
-+
-+		if (time_is_before_jiffies(timeout)) {
- 			pr_err("Wait for completion (polling) timeout\n");
- 			/* ENA didn't have any completion */
- 			spin_lock_irqsave(&admin_queue->q_lock, flags);
-@@ -528,10 +533,6 @@ static int ena_com_wait_and_process_admin_cq_polling(struct ena_comp_ctx *comp_c
- 			goto err;
- 		}
- 
--		spin_lock_irqsave(&admin_queue->q_lock, flags);
--		ena_com_handle_admin_completion(admin_queue);
--		spin_unlock_irqrestore(&admin_queue->q_lock, flags);
--
- 		msleep(100);
- 	}
- 
 -- 
 2.7.4
