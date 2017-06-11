@@ -1,38 +1,101 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: ipmr: MFC routes when VIF deleted
-Date: Sun, 11 Jun 2017 11:55:07 +0300
-Message-ID: <67ef0899-928a-d2cb-bf12-4bea80240dbe@mellanox.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCHv3 net] xfrm: move xfrm_garbage_collect out of xfrm_policy_flush
+Date: Sun, 11 Jun 2017 18:51:29 +0800
+Message-ID: <CADvbK_cxFyx0VWOzJyoxUc+FfnSJy0H+Y2enUaGmvHb4ZKDr7Q@mail.gmail.com>
+References: <1497013755-24481-1-git-send-email-liuhangbin@gmail.com> <1497145460-24614-1-git-send-email-liuhangbin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        Donald Sharp <sharpd@cumulusnetworks.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: network dev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Steffen Klassert <steffen.klassert@secunet.com>
+To: Hangbin Liu <liuhangbin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr20079.outbound.protection.outlook.com ([40.107.2.79]:43232
-        "EHLO EUR02-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751764AbdFKIzP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 11 Jun 2017 04:55:15 -0400
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:34477 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751649AbdFKKva (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2017 06:51:30 -0400
+Received: by mail-qt0-f196.google.com with SMTP id o21so21345937qtb.1
+        for <netdev@vger.kernel.org>; Sun, 11 Jun 2017 03:51:30 -0700 (PDT)
+In-Reply-To: <1497145460-24614-1-git-send-email-liuhangbin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have been looking into some weird behavior, and I am not sure whether it is
-a bug or a feature.
+On Sun, Jun 11, 2017 at 9:44 AM, Hangbin Liu <liuhangbin@gmail.com> wrote:
+> Now we will force to do garbage collection if any policy removed in
+> xfrm_policy_flush(). But during xfrm_net_exit(). We call flow_cache_fini()
+> first and set set fc->percpu to NULL. Then after we call xfrm_policy_fini()
+> -> frxm_policy_flush() -> flow_cache_flush(), we will get NULL pointer
+> dereference when check percpu_empty. The code path looks like:
+>
+> flow_cache_fini()
+>   - fc->percpu = NULL
+> xfrm_policy_fini()
+>   - xfrm_policy_flush()
+>     - xfrm_garbage_collect()
+>       - flow_cache_flush()
+>         - flow_cache_percpu_empty()
+>           - fcp = per_cpu_ptr(fc->percpu, cpu)
+>
+> To reproduce, just add ipsec in netns and then remove the netns.
+>
+> v2:
+> As Xin Long suggested, since only two other places need to call it. move
+> xfrm_garbage_collect() outside xfrm_policy_flush().
+>
+> v3:
+> Fix subject mismatch after v2 fix.
+>
+> Fixes: 35db06912189 ("xfrm: do the garbage collection after flushing policy")
+> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+> ---
+>  net/key/af_key.c       | 2 ++
+>  net/xfrm/xfrm_policy.c | 4 ----
+>  net/xfrm/xfrm_user.c   | 1 +
+>  3 files changed, 3 insertions(+), 4 deletions(-)
+>
+> diff --git a/net/key/af_key.c b/net/key/af_key.c
+> index 512dc43..5103f92 100644
+> --- a/net/key/af_key.c
+> +++ b/net/key/af_key.c
+> @@ -2755,6 +2755,8 @@ static int pfkey_spdflush(struct sock *sk, struct sk_buff *skb, const struct sad
+>         int err, err2;
+>
+>         err = xfrm_policy_flush(net, XFRM_POLICY_TYPE_MAIN, true);
+> +       if (!err)
+> +               xfrm_garbage_collect(net);
+>         err2 = unicast_flush_resp(sk, hdr);
+>         if (err || err2) {
+>                 if (err == -ESRCH) /* empty table - old silent behavior */
+> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+> index ed4e52d..643a18f 100644
+> --- a/net/xfrm/xfrm_policy.c
+> +++ b/net/xfrm/xfrm_policy.c
+> @@ -1006,10 +1006,6 @@ int xfrm_policy_flush(struct net *net, u8 type, bool task_valid)
+>                 err = -ESRCH;
+>  out:
+>         spin_unlock_bh(&net->xfrm.xfrm_policy_lock);
+> -
+> -       if (cnt)
+> -               xfrm_garbage_collect(net);
+> -
+>         return err;
+>  }
+>  EXPORT_SYMBOL(xfrm_policy_flush);
+> diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+> index 38614df..86116e9 100644
+> --- a/net/xfrm/xfrm_user.c
+> +++ b/net/xfrm/xfrm_user.c
+> @@ -2027,6 +2027,7 @@ static int xfrm_flush_policy(struct sk_buff *skb, struct nlmsghdr *nlh,
+>                         return 0;
+>                 return err;
+>         }
+> +       xfrm_garbage_collect(net);
+>
+>         c.data.type = type;
+>         c.event = nlh->nlmsg_type;
+> --
+> 2.5.5
+>
+Reviewed-by: Xin Long <lucien.xin@gmail.com>
 
-When a VIF with index v gets deleted, the MFC routes does not get updated, which
-means that there can be routes pointing to that VIF. On datapath, when packet
-hits that route, the VIF validity will be checked and will not be sent to that
-device (but still, the route does not get updated).  Now, if the user creates
-another VIF with the same index v but different underlay device, the same route
-will forward the traffic to that device.
-
-It is relevant to mention that when user adds a MFC route, only the active VIFs
-are used, so the flow of adding a route with dummy VIF indices and then
-connecting those VIF indices to real device is not supported. The only way to
-create a MFC route that has non existing VIFs is to create one with existing
-VIFs and then delete them.
-
-Do we really want to support that?  To me, it looks like a buggy flow and I
-suggest that upon VIF deletion, the MFC routes will be updated to not point to
-any non existing VIF indices.
+though I could still see some typo err in changelog.
