@@ -1,99 +1,27 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v10 1/4] net netlink: Add new type NLA_FLAG_BITS
-Date: Sun, 11 Jun 2017 14:37:25 -0400
-Message-ID: <4441aa62-d00e-82b6-d337-f86cf97e3c6d@mojatatu.com>
-References: <1497182026-11594-1-git-send-email-jhs@emojatatu.com>
- <1497182026-11594-2-git-send-email-jhs@emojatatu.com>
- <20170611134924.GA1896@nanopsycho.orion>
- <4c536950-2be3-cc9c-1f77-066624800d07@mojatatu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/9] Bugs fixes in ena ethernet driver
+Date: Sun, 11 Jun 2017 16:38:07 -0400 (EDT)
+Message-ID: <20170611.163807.1473229146636819355.davem@davemloft.net>
+References: <1497184971-28178-1-git-send-email-netanel@amazon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
-        simon.horman@netronome.com, mrv@mojatatu.com
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: netdev@vger.kernel.org, dwmw@amazon.com, zorik@amazon.com,
+        matua@amazon.com, saeedb@amazon.com, msw@amazon.com,
+        aliguori@amazon.com, nafea@amazon.com, evgenys@amazon.com
+To: netanel@amazon.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:34406 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751784AbdFKSh2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2017 14:37:28 -0400
-Received: by mail-io0-f195.google.com with SMTP id a96so8836724ioj.1
-        for <netdev@vger.kernel.org>; Sun, 11 Jun 2017 11:37:28 -0700 (PDT)
-In-Reply-To: <4c536950-2be3-cc9c-1f77-066624800d07@mojatatu.com>
-Content-Language: en-GB
+Received: from shards.monkeyblade.net ([184.105.139.130]:38860 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751794AbdFKUiM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2017 16:38:12 -0400
+In-Reply-To: <1497184971-28178-1-git-send-email-netanel@amazon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-06-11 01:38 PM, Jamal Hadi Salim wrote:
-> On 17-06-11 09:49 AM, Jiri Pirko wrote:
->> Sun, Jun 11, 2017 at 01:53:43PM CEST, jhs@mojatatu.com wrote:
->>> From: Jamal Hadi Salim <jhs@mojatatu.com>
-> 
-> 
->>> This patch also provides an extra feature: a validation callback
->>> that could be speaciliazed for other types.
->>
->> s/speaciliazed/speciliazed/
->>
-> 
-> Will fix.
-> 
-> 
->>>
->>> [ATTR_GOO] = { .type = MYTYPE,
->>>            .validation_data = &myvalidation_data,
->>>                .validate_content = mycontent_validator },
->>
->> Indent is wrong. (Does not matter really in desc, but anyway)
->>
-> 
-> I cant find out how it got indented that way; my source
-> or email dont show it as such (but really doesnt matter).
-> 
-> 
->> Suggested-by: Jiri Pirko <jiri@mellanox.com>
->>
-> 
-> Will add.
-> 
->>
->>> ---
->>> include/net/netlink.h          | 11 +++++++++++
->>> include/uapi/linux/rtnetlink.h | 17 +++++++++++++++++
->>> lib/nlattr.c                   | 25 +++++++++++++++++++++++++
->>> 3 files changed, 53 insertions(+)
->>>
->>> diff --git a/include/net/netlink.h b/include/net/netlink.h
->>> index 0170917..8ab9784 100644
->>> --- a/include/net/netlink.h
->>> +++ b/include/net/netlink.h
->>> @@ -6,6 +6,11 @@
->>> #include <linux/jiffies.h>
->>> #include <linux/in6.h>
->>>
->>> +struct nla_bit_flags {
->>> +    u32 nla_flag_values;
->>> +    u32 nla_flag_selector;
->>> +};
->>
->> I don't understand why you redefine the struct here. You already have it
->> defined in the uapi: struct __nla_bit_flags
->>
->> Just move this (struct nla_bit_flags) to the uapi and remove
->> __nla_bit_flags ?
->>
-> 
-> I am not sure that will compile since the type is defined in netlink.h
-> Also, note: uapi uses _u32 and kernel uses u32 as types i.e it is pretty
-> common approach; i will try to move it to uapi and keep that uapi
-> format. If it doesnt compile without acrobatics I will keep it as is.
->
+From: <netanel@amazon.com>
+Date: Sun, 11 Jun 2017 15:42:42 +0300
 
-It doesnt compile - I could move it to linux/netlink.h but it seems
-so out of place.
-so i will keep things as is for now unless you can think of something
-else.
+> This patchset contains fixes for the bugs that were discovered so far.
 
-cheers,
-jamal
+Series applied.
