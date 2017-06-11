@@ -1,67 +1,178 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 5/9] net/mlx5e: Use modify header ID cache for offloaded TC NIC flows
-Date: Sun, 11 Jun 2017 17:55:49 +0300
-Message-ID: <20170611145553.14180-6-saeedm@mellanox.com>
+Subject: [net-next 7/9] net/mlx5: Update flow table commands layout
+Date: Sun, 11 Jun 2017 17:55:51 +0300
+Message-ID: <20170611145553.14180-8-saeedm@mellanox.com>
 References: <20170611145553.14180-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+Cc: netdev@vger.kernel.org, Maor Gottlieb <maorg@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:46637 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:46659 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751912AbdFKO4K (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2017 10:56:10 -0400
+        with ESMTP id S1751976AbdFKO4O (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2017 10:56:14 -0400
 In-Reply-To: <20170611145553.14180-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
+From: Maor Gottlieb <maorg@mellanox.com>
 
-Use the modify header ID cache for the header re-write part of offloading
-TC NIC flows.
+Update struct mlx5_ifc_create(modify)_flow_table_bits according to
+the last device specification.
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Reviewed-by: Paul Blakey <paulb@mellanox.com>
+Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 11 +++--------
- 1 file changed, 3 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c | 32 ++++++++++-------
+ include/linux/mlx5/mlx5_ifc.h                    | 46 +++++++++++-------------
+ 2 files changed, 40 insertions(+), 38 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index 4625a0e226da..0c7a0872b22b 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -251,10 +251,7 @@ mlx5e_tc_add_nic_flow(struct mlx5e_priv *priv,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
+index abb44a268563..e750f07793b8 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
+@@ -78,28 +78,33 @@ int mlx5_cmd_create_flow_table(struct mlx5_core_dev *dev,
+ 		 MLX5_CMD_OP_CREATE_FLOW_TABLE);
+ 
+ 	MLX5_SET(create_flow_table_in, in, table_type, type);
+-	MLX5_SET(create_flow_table_in, in, level, level);
+-	MLX5_SET(create_flow_table_in, in, log_size, log_size);
++	MLX5_SET(create_flow_table_in, in, flow_table_context.level, level);
++	MLX5_SET(create_flow_table_in, in, flow_table_context.log_size, log_size);
+ 	if (vport) {
+ 		MLX5_SET(create_flow_table_in, in, vport_number, vport);
+ 		MLX5_SET(create_flow_table_in, in, other_vport, 1);
  	}
  
- 	if (attr->action & MLX5_FLOW_CONTEXT_ACTION_MOD_HDR) {
--		err = mlx5_modify_header_alloc(dev, MLX5_FLOW_NAMESPACE_KERNEL,
--					       parse_attr->num_mod_hdr_actions,
--					       parse_attr->mod_hdr_actions,
--					       &attr->mod_hdr_id);
-+		err = mlx5e_attach_mod_hdr(priv, flow, parse_attr);
- 		flow_act.modify_id = attr->mod_hdr_id;
- 		kfree(parse_attr->mod_hdr_actions);
- 		if (err) {
-@@ -296,8 +293,7 @@ mlx5e_tc_add_nic_flow(struct mlx5e_priv *priv,
+-	MLX5_SET(create_flow_table_in, in, decap_en, en_encap_decap);
+-	MLX5_SET(create_flow_table_in, in, encap_en, en_encap_decap);
++	MLX5_SET(create_flow_table_in, in, flow_table_context.decap_en,
++		 en_encap_decap);
++	MLX5_SET(create_flow_table_in, in, flow_table_context.encap_en,
++		 en_encap_decap);
+ 
+ 	switch (op_mod) {
+ 	case FS_FT_OP_MOD_NORMAL:
+ 		if (next_ft) {
+-			MLX5_SET(create_flow_table_in, in, table_miss_mode, 1);
+-			MLX5_SET(create_flow_table_in, in, table_miss_id, next_ft->id);
++			MLX5_SET(create_flow_table_in, in,
++				 flow_table_context.table_miss_action, 1);
++			MLX5_SET(create_flow_table_in, in,
++				 flow_table_context.table_miss_id, next_ft->id);
+ 		}
+ 		break;
+ 
+ 	case FS_FT_OP_MOD_LAG_DEMUX:
+ 		MLX5_SET(create_flow_table_in, in, op_mod, 0x1);
+ 		if (next_ft)
+-			MLX5_SET(create_flow_table_in, in, lag_master_next_table_id,
++			MLX5_SET(create_flow_table_in, in,
++				 flow_table_context.lag_master_next_table_id,
+ 				 next_ft->id);
+ 		break;
  	}
- err_create_ft:
- 	if (attr->action & MLX5_FLOW_CONTEXT_ACTION_MOD_HDR)
--		mlx5_modify_header_dealloc(priv->mdev,
--					   attr->mod_hdr_id);
-+		mlx5e_detach_mod_hdr(priv, flow);
- err_create_mod_hdr_id:
- 	mlx5_fc_destroy(dev, counter);
- 
-@@ -320,8 +316,7 @@ static void mlx5e_tc_del_nic_flow(struct mlx5e_priv *priv,
+@@ -146,10 +151,10 @@ int mlx5_cmd_modify_flow_table(struct mlx5_core_dev *dev,
+ 			 MLX5_MODIFY_FLOW_TABLE_LAG_NEXT_TABLE_ID);
+ 		if (next_ft) {
+ 			MLX5_SET(modify_flow_table_in, in,
+-				 lag_master_next_table_id, next_ft->id);
++				 flow_table_context.lag_master_next_table_id, next_ft->id);
+ 		} else {
+ 			MLX5_SET(modify_flow_table_in, in,
+-				 lag_master_next_table_id, 0);
++				 flow_table_context.lag_master_next_table_id, 0);
+ 		}
+ 	} else {
+ 		if (ft->vport) {
+@@ -160,11 +165,14 @@ int mlx5_cmd_modify_flow_table(struct mlx5_core_dev *dev,
+ 		MLX5_SET(modify_flow_table_in, in, modify_field_select,
+ 			 MLX5_MODIFY_FLOW_TABLE_MISS_TABLE_ID);
+ 		if (next_ft) {
+-			MLX5_SET(modify_flow_table_in, in, table_miss_mode, 1);
+-			MLX5_SET(modify_flow_table_in, in, table_miss_id,
++			MLX5_SET(modify_flow_table_in, in,
++				 flow_table_context.table_miss_action, 1);
++			MLX5_SET(modify_flow_table_in, in,
++				 flow_table_context.table_miss_id,
+ 				 next_ft->id);
+ 		} else {
+-			MLX5_SET(modify_flow_table_in, in, table_miss_mode, 0);
++			MLX5_SET(modify_flow_table_in, in,
++				 flow_table_context.table_miss_action, 0);
+ 		}
  	}
  
- 	if (attr->action & MLX5_FLOW_CONTEXT_ACTION_MOD_HDR)
--		mlx5_modify_header_dealloc(priv->mdev,
--					   attr->mod_hdr_id);
-+		mlx5e_detach_mod_hdr(priv, flow);
- }
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 56e96f6a0a45..ec308657af3b 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -6627,6 +6627,24 @@ struct mlx5_ifc_create_flow_table_out_bits {
+ 	u8         reserved_at_60[0x20];
+ };
  
- static void mlx5e_detach_encap(struct mlx5e_priv *priv,
++struct mlx5_ifc_flow_table_context_bits {
++	u8         encap_en[0x1];
++	u8         decap_en[0x1];
++	u8         reserved_at_2[0x2];
++	u8         table_miss_action[0x4];
++	u8         level[0x8];
++	u8         reserved_at_10[0x8];
++	u8         log_size[0x8];
++
++	u8         reserved_at_20[0x8];
++	u8         table_miss_id[0x18];
++
++	u8         reserved_at_40[0x8];
++	u8         lag_master_next_table_id[0x18];
++
++	u8         reserved_at_60[0xe0];
++};
++
+ struct mlx5_ifc_create_flow_table_in_bits {
+ 	u8         opcode[0x10];
+ 	u8         reserved_at_10[0x10];
+@@ -6645,21 +6663,7 @@ struct mlx5_ifc_create_flow_table_in_bits {
+ 
+ 	u8         reserved_at_a0[0x20];
+ 
+-	u8         encap_en[0x1];
+-	u8         decap_en[0x1];
+-	u8         reserved_at_c2[0x2];
+-	u8         table_miss_mode[0x4];
+-	u8         level[0x8];
+-	u8         reserved_at_d0[0x8];
+-	u8         log_size[0x8];
+-
+-	u8         reserved_at_e0[0x8];
+-	u8         table_miss_id[0x18];
+-
+-	u8         reserved_at_100[0x8];
+-	u8         lag_master_next_table_id[0x18];
+-
+-	u8         reserved_at_120[0x80];
++	struct mlx5_ifc_flow_table_context_bits flow_table_context;
+ };
+ 
+ struct mlx5_ifc_create_flow_group_out_bits {
+@@ -8277,17 +8281,7 @@ struct mlx5_ifc_modify_flow_table_in_bits {
+ 	u8         reserved_at_a0[0x8];
+ 	u8         table_id[0x18];
+ 
+-	u8         reserved_at_c0[0x4];
+-	u8         table_miss_mode[0x4];
+-	u8         reserved_at_c8[0x18];
+-
+-	u8         reserved_at_e0[0x8];
+-	u8         table_miss_id[0x18];
+-
+-	u8         reserved_at_100[0x8];
+-	u8         lag_master_next_table_id[0x18];
+-
+-	u8         reserved_at_120[0x80];
++	struct mlx5_ifc_flow_table_context_bits flow_table_context;
+ };
+ 
+ struct mlx5_ifc_ets_tcn_config_reg_bits {
 -- 
 2.11.0
