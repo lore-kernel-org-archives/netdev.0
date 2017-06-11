@@ -1,156 +1,165 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: Re: [PATCH net v3] net: ipmr: Fix some mroute forwarding issues in
- vrf's
-Date: Sun, 11 Jun 2017 09:12:47 +0300
-Message-ID: <ad5c41b7-aade-929f-9aa3-30433e8dcb32@mellanox.com>
-References: <20170610203017.4085-1-sharpd@cumulusnetworks.com>
+From: crow <crow@linux.org.ba>
+Subject: Re: ARM GLX Khadas VIM Pro - Ethernet detected as only 10Mbps and
+ stalled after some traffic
+Date: Sun, 11 Jun 2017 08:31:36 +0200
+Message-ID: <CAG_g8w7aaryfdGgRtbazGMGm5svebgNPNcKyWBfxaObMHs3x-Q@mail.gmail.com>
+References: <CAG_g8w7PND+6r17cLoTG0rG0CqVDA-Z9kr8Zi+TOq5Qbpd9Gtw@mail.gmail.com>
+ <CAG_g8w40V_u7JnX+EuNvCLmB2dAzuk_TgMkkKT9pn-SLBRi1pA@mail.gmail.com> <20170610152741.GB26740@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-To: Donald Sharp <sharpd@cumulusnetworks.com>, netdev@vger.kernel.org,
-        dsahern@gmail.com, Thomas.Winter@alliedtelesis.co.nz,
-        nikolay@cumulusnetworks.com, idosch@mellanox.com,
-        roopa@cumulusnetworks.com
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev@vger.kernel.org, linux-amlogic@lists.infradead.org
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0069.outbound.protection.outlook.com ([104.47.0.69]:53248
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751671AbdFKGMz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 11 Jun 2017 02:12:55 -0400
-In-Reply-To: <20170610203017.4085-1-sharpd@cumulusnetworks.com>
+Received: from mail-it0-f44.google.com ([209.85.214.44]:35493 "EHLO
+        mail-it0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751683AbdFKGbi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2017 02:31:38 -0400
+Received: by mail-it0-f44.google.com with SMTP id m62so13071668itc.0
+        for <netdev@vger.kernel.org>; Sat, 10 Jun 2017 23:31:38 -0700 (PDT)
+In-Reply-To: <20170610152741.GB26740@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/10/2017 11:30 PM, Donald Sharp wrote:
-> This patch fixes two issues:
->
-> 1) When forwarding on *,G mroutes that are in a vrf, the
-> kernel was dropping information about the actual incoming
-> interface when calling ip_mr_forward from ip_mr_input.
-> This caused ip_mr_forward to send the multicast packet
-> back out the incoming interface.  Fix this by
-> modifying ip_mr_forward to be handed the correctly
-> resolved dev.
->
-> 2) When a unresolved cache entry is created we store
-> the incoming skb on the unresolved cache entry and
-> upon mroute resolution from the user space daemon,
-> we attempt to forward the packet.  Again we were
-> not resolving to the correct incoming device for
-> a vrf scenario, before calling ip_mr_forward.
-> Fix this by resolving to the correct interface
-> and calling ip_mr_forward with the result.
->
-> Fixes: e58e41596811 ("net: Enable support for VRF with ipv4 multicast")
-> Signed-off-by: Donald Sharp <sharpd@cumulusnetworks.com>
-> ---
-> v2: Fixed title
-> v3: Addressed Review comments by Andrew Lunn and David Ahern
->
->  net/ipv4/ipmr.c | 32 +++++++++++++++-----------------
->  1 file changed, 15 insertions(+), 17 deletions(-)
->
-> diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-> index 551de4d..09368a1 100644
-> --- a/net/ipv4/ipmr.c
-> +++ b/net/ipv4/ipmr.c
-> @@ -101,8 +101,8 @@ static struct mr_table *ipmr_new_table(struct net *net, u32 id);
->  static void ipmr_free_table(struct mr_table *mrt);
->  
->  static void ip_mr_forward(struct net *net, struct mr_table *mrt,
-> -			  struct sk_buff *skb, struct mfc_cache *cache,
-> -			  int local);
-> +			  struct net_device *dev, struct sk_buff *skb,
-> +			  struct mfc_cache *cache, int local);
->  static int ipmr_cache_report(struct mr_table *mrt,
->  			     struct sk_buff *pkt, vifi_t vifi, int assert);
->  static int __ipmr_fill_mroute(struct mr_table *mrt, struct sk_buff *skb,
-> @@ -988,7 +988,7 @@ static void ipmr_cache_resolve(struct net *net, struct mr_table *mrt,
->  
->  			rtnl_unicast(skb, net, NETLINK_CB(skb).portid);
->  		} else {
-> -			ip_mr_forward(net, mrt, skb, c, 0);
-> +			ip_mr_forward(net, mrt, skb->dev, skb, c, 0);
->  		}
->  	}
->  }
-> @@ -1073,7 +1073,7 @@ static int ipmr_cache_report(struct mr_table *mrt,
->  
->  /* Queue a packet for resolution. It gets locked cache entry! */
->  static int ipmr_cache_unresolved(struct mr_table *mrt, vifi_t vifi,
-> -				 struct sk_buff *skb)
-> +				 struct sk_buff *skb, struct net_device *dev)
->  {
->  	const struct iphdr *iph = ip_hdr(skb);
->  	struct mfc_cache *c;
-> @@ -1130,6 +1130,10 @@ static int ipmr_cache_unresolved(struct mr_table *mrt, vifi_t vifi,
->  		kfree_skb(skb);
->  		err = -ENOBUFS;
->  	} else {
-> +		if (dev) {
-> +			skb->dev = dev;
-> +			skb->skb_iif = dev->ifindex;
-> +		}
->  		skb_queue_tail(&c->mfc_un.unres.unresolved, skb);
->  		err = 0;
->  	}
-> @@ -1828,10 +1832,10 @@ static int ipmr_find_vif(struct mr_table *mrt, struct net_device *dev)
->  
->  /* "local" means that we should preserve one skb (for local delivery) */
->  static void ip_mr_forward(struct net *net, struct mr_table *mrt,
-> -			  struct sk_buff *skb, struct mfc_cache *cache,
-> -			  int local)
-> +			  struct net_device *dev, struct sk_buff *skb,
-> +			  struct mfc_cache *cache, int local)
->  {
-> -	int true_vifi = ipmr_find_vif(mrt, skb->dev);
-> +	int true_vifi = ipmr_find_vif(mrt, dev);
->  	int psend = -1;
->  	int vif, ct;
->  
-> @@ -1853,13 +1857,7 @@ static void ip_mr_forward(struct net *net, struct mr_table *mrt,
->  	}
->  
->  	/* Wrong interface: drop packet and (maybe) send PIM assert. */
-> -	if (mrt->vif_table[vif].dev != skb->dev) {
-> -		struct net_device *mdev;
-> -
-> -		mdev = l3mdev_master_dev_rcu(mrt->vif_table[vif].dev);
-> -		if (mdev == skb->dev)
-> -			goto forward;
-> -
-> +	if (mrt->vif_table[vif].dev != dev) {
->  		if (rt_is_output_route(skb_rtable(skb))) {
->  			/* It is our own packet, looped back.
->  			 * Very complicated situation...
-> @@ -2053,7 +2051,7 @@ int ip_mr_input(struct sk_buff *skb)
->  		read_lock(&mrt_lock);
->  		vif = ipmr_find_vif(mrt, dev);
->  		if (vif >= 0) {
-> -			int err2 = ipmr_cache_unresolved(mrt, vif, skb);
-> +			int err2 = ipmr_cache_unresolved(mrt, vif, skb, dev);
->  			read_unlock(&mrt_lock);
->  
->  			return err2;
-> @@ -2064,7 +2062,7 @@ int ip_mr_input(struct sk_buff *skb)
->  	}
->  
->  	read_lock(&mrt_lock);
-> -	ip_mr_forward(net, mrt, skb, cache, local);
-> +	ip_mr_forward(net, mrt, dev, skb, cache, local);
->  	read_unlock(&mrt_lock);
->  
->  	if (local)
-> @@ -2238,7 +2236,7 @@ int ipmr_get_route(struct net *net, struct sk_buff *skb,
->  		iph->saddr = saddr;
->  		iph->daddr = daddr;
->  		iph->version = 0;
-> -		err = ipmr_cache_unresolved(mrt, vif, skb2);
-> +		err = ipmr_cache_unresolved(mrt, vif, skb2, dev);
->  		read_unlock(&mrt_lock);
->  		rcu_read_unlock();
->  		return err;
+Hi Andrew,
 
-Thanks Donald!
+On Sat, Jun 10, 2017 at 5:27 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+>> Also what Martin Blumenstingl wrote is following which is also crucial
+>> for fixing the issue:
+>> Amlogic has given their ethernet PHY driver some updates [2], it now
+>> includes wake-on-lan, and they now have an internal_phy_read_status
+>> which uses reset_internal_phy if there's a link and some error counter
+>> exceeds some magic value.
+>
+> Hi Crow
+>
+> You could probably just drop the Amlogic driver into mainline and see
+> if it works better. If that solves your problem, we can look at
+> merging the changes.
+>
+>         Andrew
 
-Reviewed-by: Yotam Gigi <yotamg@mellanox.com>
+Thank your for the suggestion, and thanks Martin to explaining me over
+IRC what actually I should do.
+
+I recompiled mainline kernel 4.12-rc4 with the Amlogic driver:
+replaced drivers/net/phy/meson-gxl.c with
+https://github.com/khadas/linux/blob/ubuntu-4.9/drivers/amlogic/ethernet/phy/amlogic.c
+
+But this did not solve the issue. As soon as i start git clone i lose
+network connection to device (no session timeout/disconnect this time,
+but I am unable to reconnect over SSH or to get OK ping replay back).
+
+Here are the tests:
+Linux khadasvimpro 4.12.0-rc4-4-ARCH #1 SMP Sun Jun 11 03:39:21 CEST
+2017 aarch64 GNU/Linux
+
+# modinfo meson_gxl
+filename:
+/lib/modules/4.12.0-rc4-4-ARCH/kernel/drivers/net/phy/meson-gxl.ko.gz
+license:        GPL
+author:         Neil Armstrong <narmstrong@baylibre.com>
+author:         Baoqi wang
+description:    Amlogic Meson GXL Internal PHY driver
+alias:          mdio:0000000110000001010001000000????
+depends:
+intree:         Y
+vermagic:       4.12.0-rc4-4-ARCH SMP mod_unload aarch64
+#
+# mii-tool -vvv eth0
+Using SIOCGMIIPHY=0x8947
+eth0: negotiated 1000baseT-HD flow-control, link ok
+  registers for MII PHY 8:
+    1000 782d 0181 4400 01e1 c1e1 000f 2001
+    ffff ffff ffff ffff ffff ffff ffff ffff
+    0040 0002 40e8 5400 1c1c 0000 0000 aaaa
+    fff0 ffff 0000 040a 1407 004a 0000 105a
+  product info: vendor 00:60:51, model 0 rev 0
+  basic mode:   autonegotiation enabled
+  basic status: autonegotiation complete, link ok
+  capabilities: 1000baseT-HD 1000baseT-FD 100baseTx-FD 100baseTx-HD
+10baseT-FD 10baseT-HD
+  advertising:  1000baseT-HD 1000baseT-FD 100baseTx-FD 100baseTx-HD
+10baseT-FD 10baseT-HD
+  link partner: 1000baseT-HD 1000baseT-FD 100baseTx-FD 100baseTx-HD
+10baseT-FD 10baseT-HD
+$
+
+over SSH startet following but it stall already at 0%:
+
+$ git clone git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
+Cloning into 'linux-stable'...
+remote: Counting objects: 5948690, done.
+remote: Compressing objects: 100% (124799/124799), done.
+Receiving objects:   0% (11668/5948690), 2.27 MiB | 4.52 MiB/s
+
+shows timeout while trying to sync with NTP server:
+
+# journalctl -f
+systemd-timesyncd[299]: Timed out waiting for reply from
+83.68.137.76:123 (2.at.pool.ntp.org).
+systemd-timesyncd[299]: Timed out waiting for reply from
+86.59.113.114:123 (2.at.pool.ntp.org).
+
+while still not working dump the register:
+# mii-tool -vvv eth0
+Using SIOCGMIIPHY=0x8947
+eth0: negotiated 1000baseT-HD flow-control, link ok
+  registers for MII PHY 8:
+    1000 782d 0181 4400 01e1 c1e1 000d 2001
+    ffff ffff ffff ffff ffff ffff ffff ffff
+    0040 0002 40e8 5400 1c1c 0000 0000 aaaa
+    fff0 ffff 0000 040a 1407 0000 0000 105a
+  product info: vendor 00:60:51, model 0 rev 0
+  basic mode:   autonegotiation enabled
+  basic status: autonegotiation complete, link ok
+  capabilities: 1000baseT-HD 1000baseT-FD 100baseTx-FD 100baseTx-HD
+10baseT-FD 10baseT-HD
+  advertising:  1000baseT-HD 1000baseT-FD 100baseTx-FD 100baseTx-HD
+10baseT-FD 10baseT-HD
+  link partner: 1000baseT-HD 1000baseT-FD 100baseTx-FD 100baseTx-HD
+10baseT-FD 10baseT-HD
+#
+
+# ifconfig eth0 down && ifconfig eth0 up
+# dmesg -T | tail -n 10
+[Sun Jun 11 07:40:34 2017] meson8b-dwmac c9410000.ethernet eth0:
+device MAC address 00:15:18:01:81:31
+[Sun Jun 11 07:40:34 2017] random: crng init done
+[Sun Jun 11 07:40:34 2017] Meson GXL Internal PHY 0.e40908ff:08:
+attached PHY driver [Meson GXL Internal PHY]
+(mii_bus:phy_addr=0.e40908ff:08, irq=-1)
+[Sun Jun 11 07:40:34 2017] meson8b-dwmac c9410000.ethernet eth0: PTP
+not supported by HW
+[Sun Jun 11 07:40:36 2017] brcmfmac: brcmf_c_preinit_dcmds: Firmware
+version = wl0: Mar  1 2015 07:29:38 version 7.45.18 (r538002) FWID
+01-6a2c8ad4
+[Sun Jun 11 07:40:36 2017] meson8b-dwmac c9410000.ethernet eth0: Link
+is Up - 100Mbps/Full - flow control off
+[Sun Jun 11 07:41:23 2017] EXT4-fs (mmcblk1p1): mounted filesystem
+with ordered data mode. Opts: (null)
+[Sun Jun 11 07:54:28 2017] Meson GXL Internal PHY 0.e40908ff:08:
+attached PHY driver [Meson GXL Internal PHY]
+(mii_bus:phy_addr=0.e40908ff:08, irq=-1)
+[Sun Jun 11 07:54:28 2017] meson8b-dwmac c9410000.ethernet eth0: PTP
+not supported by HW
+[Sun Jun 11 07:54:30 2017] meson8b-dwmac c9410000.ethernet eth0: Link
+is Up - 100Mbps/Full - flow control off
+#
+
+then I took eth0 and wlan0 up (same ArchLinuxArm with same mainline
+kernel same place where the files are stored eMMC) and this was
+working so it should not be the ArchLinuxArm which makes problem, and
+did same git clone as with custom Amlogic kernel (3.1.4 and 4.9.26
+under Khadas Ubuntu image) and test was successfully:
+
+$ git clone git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
+Cloning into 'linux-stable'...
+remote: Counting objects: 5948690, done.
+remote: Compressing objects: 100% (124799/124799), done.
+remote: Total 5948690 (delta 427756), reused 549521 (delta 425675)
+Receiving objects: 100% (5948690/5948690), 1.21 GiB | 4.94 MiB/s, done.
+Resolving deltas: 100% (4961965/4961965), done.
+Checking out files: 100% (59844/59844), done.
+$
+
+Regards,
