@@ -1,10 +1,11 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v10 1/4] net netlink: Add new type NLA_FLAG_BITS
-Date: Sun, 11 Jun 2017 13:38:58 -0400
-Message-ID: <4c536950-2be3-cc9c-1f77-066624800d07@mojatatu.com>
+Subject: Re: [PATCH net-next v10 3/4] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Sun, 11 Jun 2017 13:45:06 -0400
+Message-ID: <7d4f7dbe-631a-34f5-0549-93dd484d2368@mojatatu.com>
 References: <1497182026-11594-1-git-send-email-jhs@emojatatu.com>
- <1497182026-11594-2-git-send-email-jhs@emojatatu.com>
- <20170611134924.GA1896@nanopsycho.orion>
+ <1497182026-11594-4-git-send-email-jhs@emojatatu.com>
+ <20170611141303.GC1896@nanopsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -13,155 +14,159 @@ Cc: davem@davemloft.net, netdev@vger.kernel.org,
         simon.horman@netronome.com, mrv@mojatatu.com
 To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:34607 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751764AbdFKRjK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2017 13:39:10 -0400
-Received: by mail-io0-f193.google.com with SMTP id a96so8767580ioj.1
-        for <netdev@vger.kernel.org>; Sun, 11 Jun 2017 10:39:10 -0700 (PDT)
-In-Reply-To: <20170611134924.GA1896@nanopsycho.orion>
+Received: from mail-it0-f65.google.com ([209.85.214.65]:33224 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751751AbdFKRpV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2017 13:45:21 -0400
+Received: by mail-it0-f65.google.com with SMTP id l6so9833586iti.0
+        for <netdev@vger.kernel.org>; Sun, 11 Jun 2017 10:45:20 -0700 (PDT)
+In-Reply-To: <20170611141303.GC1896@nanopsycho.orion>
 Content-Language: en-GB
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-06-11 09:49 AM, Jiri Pirko wrote:
-> Sun, Jun 11, 2017 at 01:53:43PM CEST, jhs@mojatatu.com wrote:
+On 17-06-11 10:13 AM, Jiri Pirko wrote:
+> Sun, Jun 11, 2017 at 01:53:45PM CEST, jhs@mojatatu.com wrote:
 >> From: Jamal Hadi Salim <jhs@mojatatu.com>
-
-
->> This patch also provides an extra feature: a validation callback
->> that could be speaciliazed for other types.
-> 
-> s/speaciliazed/speciliazed/
-> 
-
-Will fix.
-
-
 >>
->> [ATTR_GOO] = { .type = MYTYPE,
->> 	       .validation_data = &myvalidation_data,
->>                .validate_content = mycontent_validator },
-> 
-> Indent is wrong. (Does not matter really in desc, but anyway)
->
-
-I cant find out how it got indented that way; my source
-or email dont show it as such (but really doesnt matter).
-
-
-> Suggested-by: Jiri Pirko <jiri@mellanox.com>
-> 
-
-Will add.
-
-> 
+>> When you dump hundreds of thousands of actions, getting only 32 per
+>> dump batch even when the socket buffer and memory allocations allow
+>> is inefficient.
+>>
+>> With this change, the user will get as many as possibly fitting
+>> within the given constraints available to the kernel.
+>>
+>> The top level action TLV space is extended. An attribute
+>> TCA_ROOT_FLAGS is used to carry flags; flag TCA_FLAG_LARGE_DUMP_ON
+>> is set by the user indicating the user is capable of processing
+>> these large dumps. Older user space which doesnt set this flag
+>> doesnt get the large (than 32) batches.
+>> The kernel uses the TCA_ROOT_COUNT attribute to tell the user how many
+>> actions are put in a single batch. As such user space app knows how long
+>> to iterate (independent of the type of action being dumped)
+>> instead of hardcoded maximum of 32 thus maintaining backward compat.
+>>
+>> Some results dumping 1.5M actions below:
+>> first an unpatched tc which doesnt understand these features...
+>>
+>> prompt$ time -p tc actions ls action gact | grep index | wc -l
+>> 1500000
+>> real 1388.43
+>> user 2.07
+>> sys 1386.79
+>>
+>> Now lets see a patched tc which sets the correct flags when requesting
+>> a dump:
+>>
+>> prompt$ time -p updatedtc actions ls action gact | grep index | wc -l
+>> 1500000
+>> real 178.13
+>> user 2.02
+>> sys 176.96
+>>
+>> That is about 8x performance improvement for tc app which sets its
+>> receive buffer to about 32K.
+>>
+>> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 >> ---
->> include/net/netlink.h          | 11 +++++++++++
->> include/uapi/linux/rtnetlink.h | 17 +++++++++++++++++
->> lib/nlattr.c                   | 25 +++++++++++++++++++++++++
->> 3 files changed, 53 insertions(+)
+>> include/uapi/linux/rtnetlink.h | 22 +++++++++++++++++--
+>> net/sched/act_api.c            | 50 +++++++++++++++++++++++++++++++++---------
+>> 2 files changed, 60 insertions(+), 12 deletions(-)
 >>
->> diff --git a/include/net/netlink.h b/include/net/netlink.h
->> index 0170917..8ab9784 100644
->> --- a/include/net/netlink.h
->> +++ b/include/net/netlink.h
->> @@ -6,6 +6,11 @@
->> #include <linux/jiffies.h>
->> #include <linux/in6.h>
->>
->> +struct nla_bit_flags {
->> +	u32 nla_flag_values;
->> +	u32 nla_flag_selector;
->> +};
-> 
-> I don't understand why you redefine the struct here. You already have it
-> defined in the uapi: struct __nla_bit_flags
-> 
-> Just move this (struct nla_bit_flags) to the uapi and remove
-> __nla_bit_flags ?
->
-
-I am not sure that will compile since the type is defined in netlink.h
-Also, note: uapi uses _u32 and kernel uses u32 as types i.e it is pretty
-common approach; i will try to move it to uapi and keep that uapi
-format. If it doesnt compile without acrobatics I will keep it as is.
-
-> 
-> 
->> +
-
-
-
->> diff --git a/lib/nlattr.c b/lib/nlattr.c
->> index a7e0b16..78fed43 100644
->> --- a/lib/nlattr.c
->> +++ b/lib/nlattr.c
->> @@ -27,6 +27,21 @@
->> 	[NLA_S64]	= sizeof(s64),
+>> diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+>> index 8f07957..7d2030f 100644
+>> --- a/include/uapi/linux/rtnetlink.h
+>> +++ b/include/uapi/linux/rtnetlink.h
+>> @@ -693,10 +693,28 @@ struct tcamsg {
+>> 	unsigned char	tca__pad1;
+>> 	unsigned short	tca__pad2;
 >> };
+>> +
+>> +enum {
+>> +	TCA_ROOT_UNSPEC,
+>> +	TCA_ROOT_TAB,
+>> +#define TCA_ACT_TAB TCA_ROOT_TAB
+>> +#define TCAA_MAX TCA_ROOT_TAB
+>> +	TCA_ROOT_FLAGS,
+>> +	TCA_ROOT_COUNT,
+>> +	__TCA_ROOT_MAX,
+>> +#define	TCA_ROOT_MAX (__TCA_ROOT_MAX - 1)
+>> +};
+>> +
+>> #define TA_RTA(r)  ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct tcamsg))))
+>> #define TA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct tcamsg))
+>> -#define TCA_ACT_TAB 1 /* attr type must be >=1 */	
+>> -#define TCAA_MAX 1
+>> +/* tcamsg flags stored in attribute TCA_ROOT_FLAGS
+>> + *
+>> + * TCA_FLAG_LARGE_DUMP_ON user->kernel to request for larger than TCA_ACT_MAX_PRIO
+>> + * actions in a dump. All dump responses will contain the number of actions
+>> + * being dumped stored in for user app's consumption in TCA_ROOT_COUNT
+>> + *
+>> + */
+>> +#define TCA_FLAG_LARGE_DUMP_ON		(1 << 0)
 >>
->> +static int validate_nla_bit_flags(const struct nlattr *nla, void *valid_data)
->> +{
->> +	const struct nla_bit_flags *nbf = nla_data(nla);
->> +	u32 *valid_flags_mask = valid_data;
->> +
->> +	if (!valid_data)
->> +		return -EINVAL;
->> +
->> +
-> 
-> Avoid one empty line here (you have 2)
-> 
-
-Will fix.
-
-> 
->> +	if (nbf->nla_flag_values & ~*valid_flags_mask)
->> +		return -EINVAL;
->> +
->> +	return 0;
->> +}
->> +
->> static int validate_nla(const struct nlattr *nla, int maxtype,
->> 			const struct nla_policy *policy)
+>> /* New extended info filters for IFLA_EXT_MASK */
+>> #define RTEXT_FILTER_VF		(1 << 0)
+>> diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+>> index 400eb6e..935dc19 100644
+>> --- a/net/sched/act_api.c
+>> +++ b/net/sched/act_api.c
+>> @@ -110,6 +110,7 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
+>> 			   struct netlink_callback *cb)
 >> {
->> @@ -46,6 +61,13 @@ static int validate_nla(const struct nlattr *nla, int maxtype,
->> 			return -ERANGE;
->> 		break;
+>> 	int err = 0, index = -1, i = 0, s_i = 0, n_i = 0;
+>> +	u32 act_flags = cb->args[2];
+>> 	struct nlattr *nest;
 >>
->> +	case NLA_FLAG_BITS:
->> +		if (attrlen != 8) /* 2 x 32 bits */
-> 
-> sizeof(struct nla_bit_flags) instead of 8 please, you can skip the
-> comment then.
-> 
-
-Good point.
-
-> 
->> +			return -ERANGE;
->> +
->> +		return validate_nla_bit_flags(nla, pt->validation_data);
->> +		break;
->> +
->> 	case NLA_NUL_STRING:
->> 		if (pt->len)
->> 			minlen = min_t(int, attrlen, pt->len + 1);
->> @@ -103,6 +125,9 @@ static int validate_nla(const struct nlattr *nla, int maxtype,
->> 			return -ERANGE;
+>> 	spin_lock_bh(&hinfo->lock);
+>> @@ -138,14 +139,18 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
+>> 			}
+>> 			nla_nest_end(skb, nest);
+>> 			n_i++;
+>> -			if (n_i >= TCA_ACT_MAX_PRIO)
+>> +			if (!(act_flags & TCA_FLAG_LARGE_DUMP_ON) &&
+>> +			    n_i >= TCA_ACT_MAX_PRIO)
+>> 				goto done;
+>> 		}
 >> 	}
+>> done:
+>> 	spin_unlock_bh(&hinfo->lock);
+>> -	if (n_i)
+>> +	if (n_i) {
+>> 		cb->args[0] += n_i;
+>> +		if (act_flags & TCA_FLAG_LARGE_DUMP_ON)
+>> +			cb->args[1] = n_i;
+>> +	}
+>> 	return n_i;
 >>
->> +	if (pt->validate_content)
->> +		return pt->validate_content(nla, pt->validation_data);
+>> nla_put_failure:
+>> @@ -1068,11 +1073,17 @@ static int tcf_action_add(struct net *net, struct nlattr *nla,
+>> 	return tcf_add_notify(net, n, &actions, portid);
+>> }
+>>
+>> +static u32 allowed_flags = TCA_FLAG_LARGE_DUMP_ON;
 > 
-> This validation mechanism is completely independent from the added NLA_FLAG_BITS
-> attr as it could be used with other attribute types. Please have it as a
-> separate patch.
+> An empty line would be nice. Also, since this is outside a function, some
+> context prefix would be nice:
+> static u32 tcaa_root_flags_allowed = TCA_FLAG_LARGE_DUMP_ON;
 >
 
+You are going to make me exceed the 80 char limit? ;->
 
-Ok - so one more patch then ;->
+
+>> +	if (tb[TCA_ROOT_FLAGS])
+>> +		nla_memcpy(&select_flags, tb[TCA_ROOT_FLAGS],
+>> +			   sizeof(select_flags));
+> 
+> Please introduce a helper for this attr type in patch 1:
+> 
+> u32 select_flags;
+> 
+> select_flags = nla_get_flag_bits_values(tb[TCA_ROOT_FLAGS])
+> 
+
+Sure.
 
 cheers,
 jamal
