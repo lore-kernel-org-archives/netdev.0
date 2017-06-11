@@ -1,102 +1,52 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next] bpf, arm64: take advantage of stack_depth tracking
-Date: Sun, 11 Jun 2017 03:55:27 +0200
-Message-ID: <afc90487fc573886a44178c2428f3157312128d8.1497145004.git.daniel@iogearbox.net>
-Cc: ast@fb.com, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:56391 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751689AbdFKC3n (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2017 22:29:43 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [PATCH 07/44] xen-swiotlb: consolidate xen_swiotlb_dma_ops
+Date: Sat, 10 Jun 2017 22:36:44 -0400
+Message-ID: <20170611023644.GE30966@char.us.oracle.com>
+References: <20170608132609.32662-1-hch@lst.de>
+ <20170608132609.32662-8-hch@lst.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linux-mips@linux-mips.org, linux-samsung-soc@vger.kernel.org,
+ linux-ia64@vger.kernel.org, linux-c6x-dev@linux-c6x.org,
+ linux-s390@vger.kernel.org, linux-sh@vger.kernel.org,
+ linux-hexagon@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org,
+ linux-tegra@vger.kernel.org, linux-kernel@vger.kernel.org,
+ dri-devel@lists.freedesktop.org, dmaengine@vger.kernel.org,
+ iommu@lists.linux-foundation.org, openrisc@lists.librecores.org,
+ netdev@vger.kernel.org, sparclinux@vger.kernel.org,
+ xen-devel@lists.xenproject.org, linuxppc-dev@lists.ozlabs.org,
+ linux-arm-kernel@lists.infradead.org
+To: Christoph Hellwig <hch@lst.de>
+Return-path: <dri-devel-bounces@lists.freedesktop.org>
+Content-Disposition: inline
+In-Reply-To: <20170608132609.32662-8-hch@lst.de>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
+List-Post: <mailto:dri-devel@lists.freedesktop.org>
+List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: dri-devel-bounces@lists.freedesktop.org
+Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
+List-Id: netdev.vger.kernel.org
 
-Make use of recently implemented stack_depth tracking for arm64 JIT,
-so that stack usage can be reduced heavily for programs not using
-tail calls at least.
-
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
----
- arch/arm64/net/bpf_jit_comp.c | 22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
-
-diff --git a/arch/arm64/net/bpf_jit_comp.c b/arch/arm64/net/bpf_jit_comp.c
-index 4f95873..73de2c7 100644
---- a/arch/arm64/net/bpf_jit_comp.c
-+++ b/arch/arm64/net/bpf_jit_comp.c
-@@ -69,6 +69,7 @@ struct jit_ctx {
- 	int epilogue_offset;
- 	int *offset;
- 	u32 *image;
-+	u32 stack_size;
- };
- 
- static inline void emit(const u32 insn, struct jit_ctx *ctx)
-@@ -145,16 +146,11 @@ static inline int epilogue_offset(const struct jit_ctx *ctx)
- /* Stack must be multiples of 16B */
- #define STACK_ALIGN(sz) (((sz) + 15) & ~15)
- 
--#define _STACK_SIZE \
--	(MAX_BPF_STACK \
--	 + 4 /* extra for skb_copy_bits buffer */)
--
--#define STACK_SIZE STACK_ALIGN(_STACK_SIZE)
--
- #define PROLOGUE_OFFSET 8
- 
- static int build_prologue(struct jit_ctx *ctx)
- {
-+	const struct bpf_prog *prog = ctx->prog;
- 	const u8 r6 = bpf2a64[BPF_REG_6];
- 	const u8 r7 = bpf2a64[BPF_REG_7];
- 	const u8 r8 = bpf2a64[BPF_REG_8];
-@@ -176,9 +172,9 @@ static int build_prologue(struct jit_ctx *ctx)
- 	 *                        |     |
- 	 *                        | ... | BPF prog stack
- 	 *                        |     |
--	 *                        +-----+ <= (BPF_FP - MAX_BPF_STACK)
-+	 *                        +-----+ <= (BPF_FP - prog->aux->stack_depth)
- 	 *                        |RSVD | JIT scratchpad
--	 * current A64_SP =>      +-----+ <= (BPF_FP - STACK_SIZE)
-+	 * current A64_SP =>      +-----+ <= (BPF_FP - ctx->stack_size)
- 	 *                        |     |
- 	 *                        | ... | Function call stack
- 	 *                        |     |
-@@ -202,8 +198,12 @@ static int build_prologue(struct jit_ctx *ctx)
- 	/* Initialize tail_call_cnt */
- 	emit(A64_MOVZ(1, tcc, 0, 0), ctx);
- 
-+	/* 4 byte extra for skb_copy_bits buffer */
-+	ctx->stack_size = prog->aux->stack_depth + 4;
-+	ctx->stack_size = STACK_ALIGN(ctx->stack_size);
-+
- 	/* Set up function call stack */
--	emit(A64_SUB_I(1, A64_SP, A64_SP, STACK_SIZE), ctx);
-+	emit(A64_SUB_I(1, A64_SP, A64_SP, ctx->stack_size), ctx);
- 
- 	cur_offset = ctx->idx - idx0;
- 	if (cur_offset != PROLOGUE_OFFSET) {
-@@ -288,7 +288,7 @@ static void build_epilogue(struct jit_ctx *ctx)
- 	const u8 fp = bpf2a64[BPF_REG_FP];
- 
- 	/* We're done with BPF stack */
--	emit(A64_ADD_I(1, A64_SP, A64_SP, STACK_SIZE), ctx);
-+	emit(A64_ADD_I(1, A64_SP, A64_SP, ctx->stack_size), ctx);
- 
- 	/* Restore fs (x25) and x26 */
- 	emit(A64_POP(fp, A64_R(26), A64_SP), ctx);
-@@ -732,7 +732,7 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx)
- 			return -EINVAL;
- 		}
- 		emit_a64_mov_i64(r3, size, ctx);
--		emit(A64_SUB_I(1, r4, fp, STACK_SIZE), ctx);
-+		emit(A64_SUB_I(1, r4, fp, ctx->stack_size), ctx);
- 		emit_a64_mov_i64(r5, (unsigned long)bpf_load_pointer, ctx);
- 		emit(A64_BLR(r5), ctx);
- 		emit(A64_MOV(1, r0, A64_R(0)), ctx);
--- 
-1.9.3
+T24gVGh1LCBKdW4gMDgsIDIwMTcgYXQgMDM6MjU6MzJQTSArMDIwMCwgQ2hyaXN0b3BoIEhlbGx3
+aWcgd3JvdGU6Cj4gQVJNIGFuZCB4ODYgaGFkIGR1cGxpY2F0ZWQgdmVyc2lvbnMgb2YgdGhlIGRt
+YV9vcHMgc3RydWN0dXJlLCB0aGUKPiBvbmx5IGRpZmZlcmVuY2UgaXMgdGhhdCB4ODYgaGFzbid0
+IHdpcmVkIHVwIHRoZSBzZXRfZG1hX21hc2ssCj4gbW1hcCwgYW5kIGdldF9zZ3RhYmxlIG9wcyB5
+ZXQuICBPbiB4ODYgYWxsIG9mIHRoZW0gYXJlIGlkZW50aWNhbAo+IHRvIHRoZSBnZW5lcmljIHZl
+cnNpb24sIHNvIHRoZXkgYXJlbid0IG5lZWRlZCBidXQgaGFybWxlc3MuCj4gCj4gQWxsIHRoZSBz
+eW1ib2xzIHVzZWQgb25seSBmb3IgeGVuX3N3aW90bGJfZG1hX29wcyBjYW4gbm93IGJlIG1hcmtl
+ZAo+IHN0YXRpYyBhcyB3ZWxsLgo+IAo+IFNpZ25lZC1vZmYtYnk6IENocmlzdG9waCBIZWxsd2ln
+IDxoY2hAbHN0LmRlPgo+IC0tLQo+ICBhcmNoL2FybS94ZW4vbW0uYyAgICAgICAgICAgICAgfCAx
+NyAtLS0tLS0tLQo+ICBhcmNoL3g4Ni94ZW4vcGNpLXN3aW90bGIteGVuLmMgfCAxNCAtLS0tLS0t
+Cj4gIGRyaXZlcnMveGVuL3N3aW90bGIteGVuLmMgICAgICB8IDkzICsrKysrKysrKysrKysrKysr
+KysrKystLS0tLS0tLS0tLS0tLS0tLS0tLQo+ICBpbmNsdWRlL3hlbi9zd2lvdGxiLXhlbi5oICAg
+ICAgfCA2MiArLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCj4gIDQgZmlsZXMgY2hhbmdlZCwg
+NDkgaW5zZXJ0aW9ucygrKSwgMTM3IGRlbGV0aW9ucygtKQoKWWVlZXkhCgpSZXZpZXdlZC1ieTog
+S29ucmFkIFJ6ZXN6dXRlayBXaWxrIDxrb25yYWQud2lsa0BvcmFjbGUuY29tPgpfX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkcmktZGV2ZWwgbWFpbGluZyBs
+aXN0CmRyaS1kZXZlbEBsaXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0cHM6Ly9saXN0cy5mcmVlZGVz
+a3RvcC5vcmcvbWFpbG1hbi9saXN0aW5mby9kcmktZGV2ZWwK
