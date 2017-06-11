@@ -1,41 +1,52 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [PATCH 08/44] xen-swiotlb: implement ->mapping_error
-Date: Sat, 10 Jun 2017 22:37:26 -0400
-Message-ID: <20170611023726.GF30966@char.us.oracle.com>
-References: <20170608132609.32662-1-hch@lst.de>
- <20170608132609.32662-9-hch@lst.de>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 6/9] net: hns3: Add MDIO support to HNS3
+ Ethernet driver for hip08 SoC
+Date: Sun, 11 Jun 2017 04:43:14 +0200
+Message-ID: <20170611024314.GD26740@lunn.ch>
+References: <20170610034630.493852-1-salil.mehta@huawei.com>
+ <20170610034630.493852-7-salil.mehta@huawei.com>
+ <ba416774-9ccc-e6b6-3518-fb492b8b2858@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linux-mips@linux-mips.org, linux-samsung-soc@vger.kernel.org,
- linux-ia64@vger.kernel.org, linux-c6x-dev@linux-c6x.org,
- linux-s390@vger.kernel.org, linux-sh@vger.kernel.org,
- linux-hexagon@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org,
- linux-tegra@vger.kernel.org, linux-kernel@vger.kernel.org,
- dri-devel@lists.freedesktop.org, dmaengine@vger.kernel.org,
- iommu@lists.linux-foundation.org, openrisc@lists.librecores.org,
- netdev@vger.kernel.org, sparclinux@vger.kernel.org,
- xen-devel@lists.xenproject.org, linuxppc-dev@lists.ozlabs.org,
- linux-arm-kernel@lists.infradead.org
-To: Christoph Hellwig <hch@lst.de>
-Return-path: <dri-devel-bounces@lists.freedesktop.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Salil Mehta <salil.mehta@huawei.com>, davem@davemloft.net,
+        yisen.zhuang@huawei.com, huangdaode@hisilicon.com,
+        lipeng321@huawei.com, mehta.salil.lnk@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linuxarm@huawei.com
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170608132609.32662-9-hch@lst.de>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: dri-devel-bounces@lists.freedesktop.org
-Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
+In-Reply-To: <ba416774-9ccc-e6b6-3518-fb492b8b2858@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gVGh1LCBKdW4gMDgsIDIwMTcgYXQgMDM6MjU6MzNQTSArMDIwMCwgQ2hyaXN0b3BoIEhlbGx3
-aWcgd3JvdGU6Cj4gRE1BX0VSUk9SX0NPREUgaXMgZ29pbmcgdG8gZ28gYXdheSwgc28gZG9uJ3Qg
-cmVseSBvbiBpdC4KClJldmlld2VkLWJ5OiBLb25yYWQgUnplc3p1dGVrIFdpbGsgPGtvbnJhZC53
-aWxrQG9yYWNsZS5jb20+Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fCmRyaS1kZXZlbCBtYWlsaW5nIGxpc3QKZHJpLWRldmVsQGxpc3RzLmZyZWVkZXNrdG9w
-Lm9yZwpodHRwczovL2xpc3RzLmZyZWVkZXNrdG9wLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2RyaS1k
-ZXZlbAo=
+> > +int hclge_mac_mdio_config(struct hclge_dev *hdev)
+> > +{
+> > +	struct hclge_mac *mac = &hdev->hw.mac;
+> > +	struct mii_bus *mdio_bus;
+> > +	struct net_device *ndev = &mac->ndev;
+> > +	struct phy_device *phy;
+> > +	bool is_c45;
+> > +	int ret;
+> > +
+> > +	if (hdev->hw.mac.phy_addr >= PHY_MAX_ADDR)
+> > +		return 0;
+> > +
+> > +	if (hdev->hw.mac.phy_if == PHY_INTERFACE_MODE_NA)
+> > +		return 0;
+> > +	else if (mac->phy_if == PHY_INTERFACE_MODE_SGMII)
+> > +		is_c45 = 0;
+> > +	else if (mac->phy_if == PHY_INTERFACE_MODE_XGMII)
+> > +		is_c45 = 1;
+> > +	else
+> > +		return -ENODATA;
+> 
+> Can you consider using a switch () case statement here?
+
+Does this concept even make sense? The Marvell 10G phy will use SGMII
+for 10/100/1000Mbs and swap to XGMII for 10Gbps. It however stays a
+c45 device all the time.
+
+In general, i don't think PHY mode is related to C22/C45.
+
+   Andrew
