@@ -1,41 +1,38 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH 0/6] Constant Time Memory Comparisons Are Important
-Date: Sun, 11 Jun 2017 11:13:01 +0300
-Message-ID: <878tkzq6wi.fsf@purkki.adurom.net>
-References: <20170610025912.6499-1-Jason@zx2c4.com>
+From: Yotam Gigi <yotamg@mellanox.com>
+Subject: ipmr: MFC routes when VIF deleted
+Date: Sun, 11 Jun 2017 11:55:07 +0300
+Message-ID: <67ef0899-928a-d2cb-bf12-4bea80240dbe@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, kernel-hardening@lists.openwall.com,
-        Anna Schumaker <anna.schumaker@netapp.com>,
-        David Howells <dhowells@redhat.com>,
-        David Safford <safford@us.ibm.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Gilad Ben-Yossef <gilad@benyossef.com>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Gustavo Padovan <gustavo@padovan.org>,
-        "J. Bruce Fields" <bfields@fieldses.org>,
-        Jeff Layton <jlayton@poochiereds.net>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        Johannes Berg <johannes@sipsolutions.net>,
-        Marcel Holtmann <marcel@holtmann.org>,
-        Mimi Zohar <zohar@linux.vnet.ibm.com>,
-        Trond Myklebust <trond.myklebust@primarydata.com>,
-        keyrings@vger.kernel.org, linux-bluetooth@vger.kernel.org,
-        linux-nfs@vger.kernel.org, linux-wireless@vger.kernel.org,
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170610025912.6499-1-Jason@zx2c4.com> (Jason A. Donenfeld's
-        message of "Sat, 10 Jun 2017 04:59:06 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        Donald Sharp <sharpd@cumulusnetworks.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-eopbgr20079.outbound.protection.outlook.com ([40.107.2.79]:43232
+        "EHLO EUR02-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751764AbdFKIzP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 11 Jun 2017 04:55:15 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Jason A. Donenfeld" <Jason@zx2c4.com> writes:
+I have been looking into some weird behavior, and I am not sure whether it is
+a bug or a feature.
 
-> Whenever you're comparing two MACs, it's important to do this using
-> crypto_memneq instead of memcmp. With memcmp, you leak timing information,
-> which could then be used to iteratively forge a MAC.
+When a VIF with index v gets deleted, the MFC routes does not get updated, which
+means that there can be routes pointing to that VIF. On datapath, when packet
+hits that route, the VIF validity will be checked and will not be sent to that
+device (but still, the route does not get updated).  Now, if the user creates
+another VIF with the same index v but different underlay device, the same route
+will forward the traffic to that device.
 
-Do you have any pointers where I could learn more about this?
+It is relevant to mention that when user adds a MFC route, only the active VIFs
+are used, so the flow of adding a route with dummy VIF indices and then
+connecting those VIF indices to real device is not supported. The only way to
+create a MFC route that has non existing VIFs is to create one with existing
+VIFs and then delete them.
 
--- 
-Kalle Valo
+Do we really want to support that?  To me, it looks like a buggy flow and I
+suggest that upon VIF deletion, the MFC routes will be updated to not point to
+any non existing VIF indices.
