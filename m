@@ -1,250 +1,79 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v10 1/4] net netlink: Add new type NLA_FLAG_BITS
-Date: Sun, 11 Jun 2017 15:49:24 +0200
-Message-ID: <20170611134924.GA1896@nanopsycho.orion>
-References: <1497182026-11594-1-git-send-email-jhs@emojatatu.com>
- <1497182026-11594-2-git-send-email-jhs@emojatatu.com>
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Subject: Re: [PATCH v2] brcmfmac: Fix glom_skb leak in brcmf_sdiod_recv_chain
+Date: Sun, 11 Jun 2017 16:49:50 +0300
+Message-ID: <CAHp75VfSagtTco5qnMLyNRcmWMcf7h3RAAa9wmgKGCfB3ees_Q@mail.gmail.com>
+References: <CA+8PC_e8HdkBw4DfGUPO0BbM-W5wftK=i6_vjwFTmS7=axyFUw@mail.gmail.com>
+ <1496442569-11307-1-git-send-email-housel@acm.org> <CAHp75VcfK5V42vzsh=L+CnX2ZnF=8UORbOf+f2WfmcNH1DbAsw@mail.gmail.com>
+ <801f5209-f5a0-7414-f8f4-1500178a680b@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
-        simon.horman@netronome.com, mrv@mojatatu.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:36756 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751916AbdFKNt2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2017 09:49:28 -0400
-Received: by mail-wr0-f194.google.com with SMTP id e23so16566312wre.3
-        for <netdev@vger.kernel.org>; Sun, 11 Jun 2017 06:49:27 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1497182026-11594-2-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: "Peter S. Housel" <housel@acm.org>,
+        Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
+        Christian Daudt <csd@broadcom.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Florian Westphal <fw@strlen.de>,
+        Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
+        "open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
+        <linux-wireless@vger.kernel.org>,
+        "open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
+        <brcm80211-dev-list.pdl@broadcom.com>,
+        "open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+        open list <linux-kernel@vger.kernel.org>
+To: Arend van Spriel <arend.vanspriel@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <801f5209-f5a0-7414-f8f4-1500178a680b@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sun, Jun 11, 2017 at 01:53:43PM CEST, jhs@mojatatu.com wrote:
->From: Jamal Hadi Salim <jhs@mojatatu.com>
+On Sat, Jun 10, 2017 at 10:27 PM, Arend van Spriel
+<arend.vanspriel@broadcom.com> wrote:
+> On 03-06-17 17:36, Andy Shevchenko wrote:
+>> On Sat, Jun 3, 2017 at 1:29 AM, Peter S. Housel <housel@acm.org> wrote:
+
+The following looks good to me.
+Feel free to add
+Reviewed-by: Andy Shevchenko <andy.shevchenko@gmail.com>
+
+> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c
+> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c
+> @@ -705,7 +705,7 @@ int brcmf_sdiod_recv_pkt(struct brcmf_sdio_dev
+> *sdiodev, struct sk_buff *pkt)
+>  int brcmf_sdiod_recv_chain(struct brcmf_sdio_dev *sdiodev,
+>                            struct sk_buff_head *pktq, uint totlen)
+>  {
+> -       struct sk_buff *glom_skb;
+> +       struct sk_buff *glom_skb = NULL;
+>         struct sk_buff *skb;
+>         u32 addr = sdiodev->sbwad;
+>         int err = 0;
+> @@ -726,10 +726,8 @@ int brcmf_sdiod_recv_chain(struct brcmf_sdio_dev
+> *sdiodev,
+>                         return -ENOMEM;
+>                 err = brcmf_sdiod_buffrw(sdiodev, SDIO_FUNC_2, false, addr,
+>                                          glom_skb);
+> -               if (err) {
+> -                       brcmu_pkt_buf_free_skb(glom_skb);
+> +               if (err)
+>                         goto done;
+> -               }
 >
->Generic bitflags attribute content sent to the kernel by user.
->With this type the user can either set or unset a flag in the
->kernel.
+>                 skb_queue_walk(pktq, skb) {
+>                         memcpy(skb->data, glom_skb->data, skb->len);
+> @@ -740,6 +738,7 @@ int brcmf_sdiod_recv_chain(struct brcmf_sdio_dev
+> *sdiodev,
+>                                             pktq);
 >
->The nla_flag_values is a bitmap that defines the values being set
->The nla_flag_selector is a bitmask that defines which value is legit.
+>  done:
+> +       brcmu_pkt_buf_free_skb(glom_skb);
+>         return err;
+>  }
 >
->A check is made to ensure the rules that a kernel subsystem always
->conforms to bitflags the kernel already knows about. i.e
->if the user tries to set a bit flag that is not understood then
->the _it will be rejected_.
->
->In the most basic form, the user specifies the attribute policy as:
->[ATTR_GOO] = { .type = NLA_FLAG_BITS, .validation_data = &myvalidflags },
->
->where myvalidflags is the bit mask of the flags the kernel understands.
->
->If the user _does not_ provide myvalidflags then the attribute will
->also be rejected.
->
->Examples:
->nla_flag_values = 0x0, and nla_flag_selector = 0x1
->implies we are selecting bit 1 and we want to set its value to 0.
->
->nla_flag_values = 0x2, and nla_flag_selector = 0x2
->implies we are selecting bit 2 and we want to set its value to 1.
->
->This patch also provides an extra feature: a validation callback
->that could be speaciliazed for other types.
-
-s/speaciliazed/speciliazed/
-
-
->This feature is intended to be used by a kernel subsystem to check
->for a combination of bits being present. Example "bit x is valid
->only if bit y and z are present".
->
->So a kernel subsystem could specify validation rules of the following
->nature:
->
->[ATTR_GOO] = { .type = MYTYPE,
->	       .validation_data = &myvalidation_data,
->               .validate_content = mycontent_validator },
-
-Indent is wrong. (Does not matter really in desc, but anyway)
-
-
->
->With validator callback looking like:
->
->int mycontent_validator(const struct nlattr *nla, void *valid_data)
->{
->       const struct myattribute *user_data = nla_data(nla);
->       struct myvalidation_struct *valid_data_constraint = valid_data;
->
->      ... return appropriate error code etc ...
->}
->
->
->Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-
-Suggested-by: Jiri Pirko <jiri@mellanox.com>
-
-
->---
-> include/net/netlink.h          | 11 +++++++++++
-> include/uapi/linux/rtnetlink.h | 17 +++++++++++++++++
-> lib/nlattr.c                   | 25 +++++++++++++++++++++++++
-> 3 files changed, 53 insertions(+)
->
->diff --git a/include/net/netlink.h b/include/net/netlink.h
->index 0170917..8ab9784 100644
->--- a/include/net/netlink.h
->+++ b/include/net/netlink.h
->@@ -6,6 +6,11 @@
-> #include <linux/jiffies.h>
-> #include <linux/in6.h>
-> 
->+struct nla_bit_flags {
->+	u32 nla_flag_values;
->+	u32 nla_flag_selector;
->+};
-
-I don't understand why you redefine the struct here. You already have it
-defined in the uapi: struct __nla_bit_flags
-
-Just move this (struct nla_bit_flags) to the uapi and remove
-__nla_bit_flags ?
 
 
 
->+
-> /* ========================================================================
->  *         Netlink Messages and Attributes Interface (As Seen On TV)
->  * ------------------------------------------------------------------------
->@@ -178,6 +183,7 @@ enum {
-> 	NLA_S16,
-> 	NLA_S32,
-> 	NLA_S64,
->+	NLA_FLAG_BITS,
-> 	__NLA_TYPE_MAX,
-> };
-> 
->@@ -206,6 +212,7 @@ enum {
->  *    NLA_MSECS            Leaving the length field zero will verify the
->  *                         given type fits, using it verifies minimum length
->  *                         just like "All other"
->+ *    NLA_FLAG_BITS        A bitmap/bitselector attribute
->  *    All other            Minimum length of attribute payload
->  *
->  * Example:
->@@ -213,11 +220,15 @@ enum {
->  * 	[ATTR_FOO] = { .type = NLA_U16 },
->  *	[ATTR_BAR] = { .type = NLA_STRING, .len = BARSIZ },
->  *	[ATTR_BAZ] = { .len = sizeof(struct mystruct) },
->+ *	[ATTR_GOO] = { .type = NLA_FLAG_BITS, .validation_data = &myvalidflags },
->  * };
->  */
-> struct nla_policy {
-> 	u16		type;
-> 	u16		len;
->+	void            *validation_data;
->+	int             (*validate_content)(const struct nlattr *nla,
->+					    const void *validation_data);
-> };
-> 
-> /**
->diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
->index 564790e..8f07957 100644
->--- a/include/uapi/linux/rtnetlink.h
->+++ b/include/uapi/linux/rtnetlink.h
->@@ -179,6 +179,23 @@ struct rtattr {
-> #define RTA_DATA(rta)   ((void*)(((char*)(rta)) + RTA_LENGTH(0)))
-> #define RTA_PAYLOAD(rta) ((int)((rta)->rta_len) - RTA_LENGTH(0))
-> 
->+/* Generic bitflags attribute content sent to the kernel.
->+ *
->+ * The nla_flag_values is a bitmap that defines the values being set
->+ * The nla_flag_selector is a bitmask that defines which value is legit
->+ *
->+ * Examples:
->+ *  nla_flag_values = 0x0, and nla_flag_selector = 0x1
->+ *  implies we are selecting bit 1 and we want to set its value to 0.
->+ *
->+ *  nla_flag_values = 0x2, and nla_flag_selector = 0x2
->+ *  implies we are selecting bit 2 and we want to set its value to 1.
->+ *
->+ */
->+struct __nla_bit_flags {
->+	__u32 nla_flag_values;
->+	__u32 nla_flag_selector;
->+};
-> 
-> 
-> 
->diff --git a/lib/nlattr.c b/lib/nlattr.c
->index a7e0b16..78fed43 100644
->--- a/lib/nlattr.c
->+++ b/lib/nlattr.c
->@@ -27,6 +27,21 @@
-> 	[NLA_S64]	= sizeof(s64),
-> };
-> 
->+static int validate_nla_bit_flags(const struct nlattr *nla, void *valid_data)
->+{
->+	const struct nla_bit_flags *nbf = nla_data(nla);
->+	u32 *valid_flags_mask = valid_data;
->+
->+	if (!valid_data)
->+		return -EINVAL;
->+
->+
-
-Avoid one empty line here (you have 2)
-
-
->+	if (nbf->nla_flag_values & ~*valid_flags_mask)
->+		return -EINVAL;
->+
->+	return 0;
->+}
->+
-> static int validate_nla(const struct nlattr *nla, int maxtype,
-> 			const struct nla_policy *policy)
-> {
->@@ -46,6 +61,13 @@ static int validate_nla(const struct nlattr *nla, int maxtype,
-> 			return -ERANGE;
-> 		break;
-> 
->+	case NLA_FLAG_BITS:
->+		if (attrlen != 8) /* 2 x 32 bits */
-
-sizeof(struct nla_bit_flags) instead of 8 please, you can skip the
-comment then.
-
-
->+			return -ERANGE;
->+
->+		return validate_nla_bit_flags(nla, pt->validation_data);
->+		break;
->+
-> 	case NLA_NUL_STRING:
-> 		if (pt->len)
-> 			minlen = min_t(int, attrlen, pt->len + 1);
->@@ -103,6 +125,9 @@ static int validate_nla(const struct nlattr *nla, int maxtype,
-> 			return -ERANGE;
-> 	}
-> 
->+	if (pt->validate_content)
->+		return pt->validate_content(nla, pt->validation_data);
-
-This validation mechanism is completely independent from the added NLA_FLAG_BITS
-attr as it could be used with other attribute types. Please have it as a
-separate patch.
-
-
->+
-> 	return 0;
-> }
-> 
->-- 
->1.9.1
->
+-- 
+With Best Regards,
+Andy Shevchenko
