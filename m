@@ -1,46 +1,156 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net v1 PATCH] hsr: fix incorrect warning
-Date: Mon, 12 Jun 2017 15:22:47 -0400 (EDT)
-Message-ID: <20170612.152247.858320640401682490.davem@davemloft.net>
-References: <1497294386-12829-1-git-send-email-m-karicheri2@ti.com>
+From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next] ibmvnic: Client-initiated failover
+Date: Mon, 12 Jun 2017 14:42:54 -0500
+Message-ID: <2f2385af-023b-a5fe-9ccf-378c0340443b@linux.vnet.ibm.com>
+References: <1497288904-15259-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: arvid.brodin@alten.se, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: m-karicheri2@ti.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1497294386-12829-1-git-send-email-m-karicheri2@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jallen@linux.vnet.ibm.com
+To: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:45875 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752086AbdFLTm7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 15:42:59 -0400
+Received: from pps.filterd (m0098416.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5CJcSkc152435
+        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 15:42:58 -0400
+Received: from e14.ny.us.ibm.com (e14.ny.us.ibm.com [129.33.205.204])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 2b1vx0mub9-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 15:42:58 -0400
+Received: from localhost
+        by e14.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
+        Mon, 12 Jun 2017 15:42:57 -0400
+In-Reply-To: <1497288904-15259-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Murali Karicheri <m-karicheri2@ti.com>
-Date: Mon, 12 Jun 2017 15:06:26 -0400
+On 06/12/2017 12:35 PM, Thomas Falcon wrote:
+> The IBM vNIC protocol provides support for the user to initiate
+> a failover from the client LPAR in case the current backing infrastructure
+> is deemed inadequate or in an error state.
+> 
+> Support for two H_VIOCTL sub-commands for vNIC devices are required
+> to implement this function. These commands are H_GET_SESSION_TOKEN
+> and H_SESSION_ERR_DETECTED.
+> 
+> "[H_GET_SESSION_TOKEN] is used to obtain a session token from a VNIC client
+> adapter.  This token is opaque to the caller and is intended to be used in
+> tandem with the SESSION_ERROR_DETECTED vioctl subfunction."
+> 
+> "[H_SESSION_ERR_DETECTED] is used to report that the currently active
+> backing device for a VNIC client adapter is behaving poorly, and that
+> the hypervisor should attempt to fail over to a different backing device,
+> if one is available."
+> 
+> To provide tools access to this functionality the vNIC driver creates a
+> sysfs file that, when written to, will send a request to pHyp to failover
+> to a different backing device.
+> 
+> Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
 
-> When HSR interface is setup using ip link command, an annoying warning
-> appears with the trace as below:-
-> 
-> [  203.019828] hsr_get_node: Non-HSR frame
-> [  203.019833] Modules linked in:
-> [  203.019848] CPU: 0 PID: 158 Comm: sd-resolve Tainted: G        W       4.12.0-rc3-00052-g9fa6bf70 #2
-> [  203.019853] Hardware name: Generic DRA74X (Flattened Device Tree)
-> [  203.019869] [<c0110280>] (unwind_backtrace) from [<c010c2f4>] (show_stack+0x10/0x14)
-> [  203.019880] [<c010c2f4>] (show_stack) from [<c04b9f64>] (dump_stack+0xac/0xe0)
-> [  203.019894] [<c04b9f64>] (dump_stack) from [<c01374e8>] (__warn+0xd8/0x104)
-> [  203.019907] [<c01374e8>] (__warn) from [<c0137548>] (warn_slowpath_fmt+0x34/0x44)
-> root@am57xx-evm:~# [  203.019921] [<c0137548>] (warn_slowpath_fmt) from [<c081126c>] (hsr_get_node+0x148/0x170)
-> [  203.019932] [<c081126c>] (hsr_get_node) from [<c0814240>] (hsr_forward_skb+0x110/0x7c0)
-> [  203.019942] [<c0814240>] (hsr_forward_skb) from [<c0811d64>] (hsr_dev_xmit+0x2c/0x34)
-> [  203.019954] [<c0811d64>] (hsr_dev_xmit) from [<c06c0828>] (dev_hard_start_xmit+0xc4/0x3bc)
-> [  203.019963] [<c06c0828>] (dev_hard_start_xmit) from [<c06c13d8>] (__dev_queue_xmit+0x7c4/0x98c)
-> [  203.019974] [<c06c13d8>] (__dev_queue_xmit) from [<c0782f54>] (ip6_finish_output2+0x330/0xc1c)
-> [  203.019983] [<c0782f54>] (ip6_finish_output2) from [<c0788f0c>] (ip6_output+0x58/0x454)
-> [  203.019994] [<c0788f0c>] (ip6_output) from [<c07b16cc>] (mld_sendpack+0x420/0x744)
-> 
-> As this is an expected path to hsr_get_node() with frame coming from
-> the master interface, add a check to ensure packet is not from the
-> master port and then warn.
-> 
-> Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
+Reviewed-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
 
-Applied, thank you.
+> ---
+>  arch/powerpc/include/asm/hvcall.h  |  2 ++
+>  drivers/net/ethernet/ibm/ibmvnic.c | 46 ++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 48 insertions(+)
+> 
+> diff --git a/arch/powerpc/include/asm/hvcall.h b/arch/powerpc/include/asm/hvcall.h
+> index d73755f..57d38b5 100644
+> --- a/arch/powerpc/include/asm/hvcall.h
+> +++ b/arch/powerpc/include/asm/hvcall.h
+> @@ -295,6 +295,8 @@
+>  #define H_DISABLE_ALL_VIO_INTS	0x0A
+>  #define H_DISABLE_VIO_INTERRUPT	0x0B
+>  #define H_ENABLE_VIO_INTERRUPT	0x0C
+> +#define H_GET_SESSION_TOKEN	0x19
+> +#define H_SESSION_ERR_DETECTED	0x1A
+> 
+> 
+>  /* Platform specific hcalls, used by KVM */
+> diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
+> index 7d84e20..fd3ef30 100644
+> --- a/drivers/net/ethernet/ibm/ibmvnic.c
+> +++ b/drivers/net/ethernet/ibm/ibmvnic.c
+> @@ -3656,6 +3656,8 @@ static int ibmvnic_init(struct ibmvnic_adapter *adapter)
+>  	return rc;
+>  }
+> 
+> +static struct device_attribute dev_attr_failover;
+> +
+>  static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
+>  {
+>  	struct ibmvnic_adapter *adapter;
+> @@ -3712,9 +3714,16 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
+> 
+>  	netdev->mtu = adapter->req_mtu - ETH_HLEN;
+> 
+> +	rc = device_create_file(&dev->dev, &dev_attr_failover);
+> +	if (rc) {
+> +		free_netdev(netdev);
+> +		return rc;
+> +	}
+> +
+>  	rc = register_netdev(netdev);
+>  	if (rc) {
+>  		dev_err(&dev->dev, "failed to register netdev rc=%d\n", rc);
+> +		device_remove_file(&dev->dev, &dev_attr_failover);
+>  		free_netdev(netdev);
+>  		return rc;
+>  	}
+> @@ -3740,12 +3749,49 @@ static int ibmvnic_remove(struct vio_dev *dev)
+>  	adapter->state = VNIC_REMOVED;
+> 
+>  	mutex_unlock(&adapter->reset_lock);
+> +	device_remove_file(&dev->dev, &dev_attr_failover);
+>  	free_netdev(netdev);
+>  	dev_set_drvdata(&dev->dev, NULL);
+> 
+>  	return 0;
+>  }
+> 
+> +static ssize_t failover_store(struct device *dev, struct device_attribute *attr,
+> +			      const char *buf, size_t count)
+> +{
+> +	struct net_device *netdev = dev_get_drvdata(dev);
+> +	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
+> +	unsigned long retbuf[PLPAR_HCALL_BUFSIZE];
+> +	__be64 session_token;
+> +	long rc;
+> +
+> +	if (!sysfs_streq(buf, "1"))
+> +		return -EINVAL;
+> +
+> +	rc = plpar_hcall(H_VIOCTL, retbuf, adapter->vdev->unit_address,
+> +			 H_GET_SESSION_TOKEN, 0, 0, 0);
+> +	if (rc) {
+> +		netdev_err(netdev, "Couldn't retrieve session token, rc %ld\n",
+> +			   rc);
+> +		return -EINVAL;
+> +	}
+> +
+> +	session_token = (__be64)retbuf[0];
+> +	netdev_dbg(netdev, "Initiating client failover, session id %llx\n",
+> +		   be64_to_cpu(session_token));
+> +	rc = plpar_hcall_norets(H_VIOCTL, adapter->vdev->unit_address,
+> +				H_SESSION_ERR_DETECTED, session_token, 0, 0);
+> +	if (rc) {
+> +		netdev_err(netdev, "Client initiated failover failed, rc %ld\n",
+> +			   rc);
+> +		return -EINVAL;
+> +	}
+> +
+> +	return count;
+> +}
+> +
+> +static DEVICE_ATTR(failover, 0200, NULL, failover_store);
+> +
+>  static unsigned long ibmvnic_get_desired_dma(struct vio_dev *vdev)
+>  {
+>  	struct net_device *netdev = dev_get_drvdata(&vdev->dev);
+> 
