@@ -1,114 +1,50 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next] net: mvpp2: enable basic 10G support
-Date: Mon, 12 Jun 2017 16:01:39 +0200
-Message-ID: <20170612140139.31377-1-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
-        gregory.clement@free-electrons.com,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        stefanc@marvell.com, mw@semihalf.com, linux@armlinux.org.uk,
-        netdev@vger.kernel.org
-To: davem@davemloft.net
+From: "Belgazal, Netanel" <netanel@amazon.com>
+Subject: Re: [PATCH net 0/9] Bugs fixes in ena ethernet driver
+Date: Mon, 12 Jun 2017 14:09:30 +0000
+Message-ID: <1497276570720.79426@amazon.com>
+References: <1497184971-28178-1-git-send-email-netanel@amazon.com>,<20170611.163807.1473229146636819355.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Woodhouse, David" <dwmw@amazon.co.uk>,
+        "Machulsky, Zorik" <zorik@amazon.com>,
+        "Matushevsky, Alexander" <matua@amazon.com>,
+        "BSHARA, Said" <saeedb@amazon.com>,
+        "Wilson, Matt" <msw@amazon.com>,
+        "Liguori, Anthony" <aliguori@amazon.com>,
+        "Bshara, Nafea" <nafea@amazon.com>,
+        "Schmeilin, Evgeny" <evgenys@amazon.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:50522 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751954AbdFLOCN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 10:02:13 -0400
+Received: from smtp-fw-33001.amazon.com ([207.171.190.10]:30476 "EHLO
+        smtp-fw-33001.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752125AbdFLOKE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 10:10:04 -0400
+In-Reply-To: <20170611.163807.1473229146636819355.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On GOP port 0 two MAC modes are available: GMAC and XLG. The XLG MAC is
-used for 10G connectivity. This patch adds a basic 10G support by
-allowing to use the XLG MAC on port 0 and by reworking the
-port_enable/disable functions so that the XLG MAC is configured when
-using 10G.
-
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvpp2.c | 49 ++++++++++++++++++++++++++++++------
- 1 file changed, 41 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 33c901622ed5..ca4b55c60682 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -345,9 +345,15 @@
- /* Per-port XGMAC registers. PPv2.2 only, only for GOP port 0,
-  * relative to port->base.
-  */
-+#define MVPP22_XLG_CTRL0_REG			0x100
-+#define      MVPP22_XLG_CTRL0_PORT_EN		BIT(0)
-+#define      MVPP22_XLG_CTRL0_MAC_RESET_DIS	BIT(1)
-+#define      MVPP22_XLG_CTRL0_MIB_CNT_DIS	BIT(14)
-+
- #define MVPP22_XLG_CTRL3_REG			0x11c
- #define      MVPP22_XLG_CTRL3_MACMODESELECT_MASK	(7 << 13)
- #define      MVPP22_XLG_CTRL3_MACMODESELECT_GMAC	(0 << 13)
-+#define      MVPP22_XLG_CTRL3_MACMODESELECT_10G		(1 << 13)
- 
- /* SMI registers. PPv2.2 only, relative to priv->iface_base. */
- #define MVPP22_SMI_MISC_CFG_REG			0x1204
-@@ -4186,7 +4192,13 @@ static void mvpp22_port_mii_set(struct mvpp2_port *port)
- 	if (port->gop_id == 0) {
- 		val = readl(port->base + MVPP22_XLG_CTRL3_REG);
- 		val &= ~MVPP22_XLG_CTRL3_MACMODESELECT_MASK;
--		val |= MVPP22_XLG_CTRL3_MACMODESELECT_GMAC;
-+
-+		if (port->phy_interface == PHY_INTERFACE_MODE_XAUI ||
-+		    port->phy_interface == PHY_INTERFACE_MODE_10GKR)
-+			val |= MVPP22_XLG_CTRL3_MACMODESELECT_10G;
-+		else
-+			val |= MVPP22_XLG_CTRL3_MACMODESELECT_GMAC;
-+
- 		writel(val, port->base + MVPP22_XLG_CTRL3_REG);
- 	}
- 
-@@ -4236,19 +4248,40 @@ static void mvpp2_port_enable(struct mvpp2_port *port)
- {
- 	u32 val;
- 
--	val = readl(port->base + MVPP2_GMAC_CTRL_0_REG);
--	val |= MVPP2_GMAC_PORT_EN_MASK;
--	val |= MVPP2_GMAC_MIB_CNTR_EN_MASK;
--	writel(val, port->base + MVPP2_GMAC_CTRL_0_REG);
-+	/* Only GOP port 0 has an XLG MAC */
-+	if (port->gop_id == 0 &&
-+	    (port->phy_interface == PHY_INTERFACE_MODE_XAUI ||
-+	     port->phy_interface == PHY_INTERFACE_MODE_10GKR)) {
-+		val = readl(port->base + MVPP22_XLG_CTRL0_REG);
-+		val |= MVPP22_XLG_CTRL0_PORT_EN |
-+		       MVPP22_XLG_CTRL0_MAC_RESET_DIS;
-+		val &= ~MVPP22_XLG_CTRL0_MIB_CNT_DIS;
-+		writel(val, port->base + MVPP22_XLG_CTRL0_REG);
-+	} else {
-+		val = readl(port->base + MVPP2_GMAC_CTRL_0_REG);
-+		val |= MVPP2_GMAC_PORT_EN_MASK;
-+		val |= MVPP2_GMAC_MIB_CNTR_EN_MASK;
-+		writel(val, port->base + MVPP2_GMAC_CTRL_0_REG);
-+	}
- }
- 
- static void mvpp2_port_disable(struct mvpp2_port *port)
- {
- 	u32 val;
- 
--	val = readl(port->base + MVPP2_GMAC_CTRL_0_REG);
--	val &= ~(MVPP2_GMAC_PORT_EN_MASK);
--	writel(val, port->base + MVPP2_GMAC_CTRL_0_REG);
-+	/* Only GOP port 0 has an XLG MAC */
-+	if (port->gop_id == 0 &&
-+	    (port->phy_interface == PHY_INTERFACE_MODE_XAUI ||
-+	     port->phy_interface == PHY_INTERFACE_MODE_10GKR)) {
-+		val = readl(port->base + MVPP22_XLG_CTRL0_REG);
-+		val &= ~(MVPP22_XLG_CTRL0_PORT_EN |
-+			 MVPP22_XLG_CTRL0_MAC_RESET_DIS);
-+		writel(val, port->base + MVPP22_XLG_CTRL0_REG);
-+	} else {
-+		val = readl(port->base + MVPP2_GMAC_CTRL_0_REG);
-+		val &= ~(MVPP2_GMAC_PORT_EN_MASK);
-+		writel(val, port->base + MVPP2_GMAC_CTRL_0_REG);
-+	}
- }
- 
- /* Set IEEE 802.3x Flow Control Xon Packet Transmission Mode */
--- 
-2.9.4
+Thank you David,=0A=
+=0A=
+Do you might have an ETA when do you plan to merge net branch into net-next=
+?  I plan to base my new patchset to net-next on top of this one.=0A=
+=0A=
+Regards,=0A=
+Netanel=0A=
+________________________________________=0A=
+From: David Miller <davem@davemloft.net>=0A=
+Sent: Sunday, June 11, 2017 11:38 PM=0A=
+To: Belgazal, Netanel=0A=
+Cc: netdev@vger.kernel.org; Woodhouse, David; Machulsky, Zorik; Matushevsky=
+, Alexander; BSHARA, Said; Wilson, Matt; Liguori, Anthony; Bshara, Nafea; S=
+chmeilin, Evgeny=0A=
+Subject: Re: [PATCH net 0/9] Bugs fixes in ena ethernet driver=0A=
+=0A=
+From: <netanel@amazon.com>=0A=
+Date: Sun, 11 Jun 2017 15:42:42 +0300=0A=
+=0A=
+> This patchset contains fixes for the bugs that were discovered so far.=0A=
+=0A=
+Series applied.=0A=
