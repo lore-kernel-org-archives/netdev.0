@@ -1,67 +1,46 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v10 1/4] net netlink: Add new type NLA_FLAG_BITS
-Date: Mon, 12 Jun 2017 21:22:38 +0200
-Message-ID: <20170612192238.GF1993@nanopsycho>
-References: <1497182026-11594-2-git-send-email-jhs@emojatatu.com>
- <20170611134924.GA1896@nanopsycho.orion>
- <4c536950-2be3-cc9c-1f77-066624800d07@mojatatu.com>
- <4441aa62-d00e-82b6-d337-f86cf97e3c6d@mojatatu.com>
- <20170612103432.GA1993@nanopsycho>
- <8e2f151d-3a02-4b1b-755b-23a0a85556b4@mojatatu.com>
- <20170612114345.GB1993@nanopsycho>
- <22f33fa9-1759-57b7-6aea-898f89c9f61f@mojatatu.com>
- <20170612141450.GD1993@nanopsycho>
- <80dd1bc2-80d6-d8fa-6032-d0641ae5d79b@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net v1 PATCH] hsr: fix incorrect warning
+Date: Mon, 12 Jun 2017 15:22:47 -0400 (EDT)
+Message-ID: <20170612.152247.858320640401682490.davem@davemloft.net>
+References: <1497294386-12829-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net,
-        netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-        eric.dumazet@gmail.com, simon.horman@netronome.com,
-        mrv@mojatatu.com
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:34563 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752086AbdFLTWl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 15:22:41 -0400
-Received: by mail-wr0-f195.google.com with SMTP id u101so24259021wrc.1
-        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 12:22:40 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <80dd1bc2-80d6-d8fa-6032-d0641ae5d79b@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: arvid.brodin@alten.se, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: m-karicheri2@ti.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1497294386-12829-1-git-send-email-m-karicheri2@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Jun 12, 2017 at 05:00:41PM CEST, dsahern@gmail.com wrote:
->On 6/12/17 8:14 AM, Jiri Pirko wrote:
->>>> The thing is, struct nla_flag_bits is tightly coupled with NLA_FLAG_BITS
->>>> enum value. They should be in the same uapi file. That makes sense to me.
->>>>
->>>
->>> Sure - they should be in the same file. But is it uapi/linux/netlink.h?
->> 
->> Might be the netlink-types.h you mentioned above.
->> 
->> ccing DavidA.
->> 
->
->Just saw this patch set this morning. Few comments:
->
->1. I think nla_bitfield or nla_bitmap is a better name than nla_flag_bits
+From: Murali Karicheri <m-karicheri2@ti.com>
+Date: Mon, 12 Jun 2017 15:06:26 -0400
 
-ack
+> When HSR interface is setup using ip link command, an annoying warning
+> appears with the trace as below:-
+> 
+> [  203.019828] hsr_get_node: Non-HSR frame
+> [  203.019833] Modules linked in:
+> [  203.019848] CPU: 0 PID: 158 Comm: sd-resolve Tainted: G        W       4.12.0-rc3-00052-g9fa6bf70 #2
+> [  203.019853] Hardware name: Generic DRA74X (Flattened Device Tree)
+> [  203.019869] [<c0110280>] (unwind_backtrace) from [<c010c2f4>] (show_stack+0x10/0x14)
+> [  203.019880] [<c010c2f4>] (show_stack) from [<c04b9f64>] (dump_stack+0xac/0xe0)
+> [  203.019894] [<c04b9f64>] (dump_stack) from [<c01374e8>] (__warn+0xd8/0x104)
+> [  203.019907] [<c01374e8>] (__warn) from [<c0137548>] (warn_slowpath_fmt+0x34/0x44)
+> root@am57xx-evm:~# [  203.019921] [<c0137548>] (warn_slowpath_fmt) from [<c081126c>] (hsr_get_node+0x148/0x170)
+> [  203.019932] [<c081126c>] (hsr_get_node) from [<c0814240>] (hsr_forward_skb+0x110/0x7c0)
+> [  203.019942] [<c0814240>] (hsr_forward_skb) from [<c0811d64>] (hsr_dev_xmit+0x2c/0x34)
+> [  203.019954] [<c0811d64>] (hsr_dev_xmit) from [<c06c0828>] (dev_hard_start_xmit+0xc4/0x3bc)
+> [  203.019963] [<c06c0828>] (dev_hard_start_xmit) from [<c06c13d8>] (__dev_queue_xmit+0x7c4/0x98c)
+> [  203.019974] [<c06c13d8>] (__dev_queue_xmit) from [<c0782f54>] (ip6_finish_output2+0x330/0xc1c)
+> [  203.019983] [<c0782f54>] (ip6_finish_output2) from [<c0788f0c>] (ip6_output+0x58/0x454)
+> [  203.019994] [<c0788f0c>] (ip6_output) from [<c07b16cc>] (mld_sendpack+0x420/0x744)
+> 
+> As this is an expected path to hsr_get_node() with frame coming from
+> the master interface, add a check to ensure packet is not from the
+> master port and then warn.
+> 
+> Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
 
-
->
->2. The length should be open ended with the size of the array determined
->by nla_len / sizeof(struct nla_bitfield). That allows this to be
->extended to an arbitrary large bitfield as needed.
-
-Yeah, I was thinking about that as well. Seems handy to have this
-generic len.
-
-
->
->3. IMO since these are nla prefixes and new NLA type they should be in
->uapi/linux/netlink.h
-
-Including NLA_* type enum? I think it is reasonable.
+Applied, thank you.
