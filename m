@@ -1,46 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net] i40e: fix handling of HW ATR eviction
-Date: Mon, 12 Jun 2017 18:53:19 -0400 (EDT)
-Message-ID: <20170612.185319.1991996625537854242.davem@davemloft.net>
-References: <20170612223837.38940-1-jeffrey.t.kirsher@intel.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v2] arm: eBPF JIT compiler
+Date: Tue, 13 Jun 2017 01:17:14 +0200
+Message-ID: <593F20FA.6010505@iogearbox.net>
+References: <1495754003-21099-1-git-send-email-illusionist.neo@gmail.com> <CAGXu5jKmLNMR+uhM9Ov2XPW6kCjip_SjScgEH0fTFp6fQtKFiA@mail.gmail.com> <593E6B0F.8070901@iogearbox.net> <CAHgaXd+DW2bggto=2S9hOdMrtPTvhD2QN4rPf2V8iHewQpg-YA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jacob.e.keller@intel.com, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45728 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753136AbdFLWxV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 18:53:21 -0400
-In-Reply-To: <20170612223837.38940-1-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Kees Cook <keescook@chromium.org>,
+        Network Development <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Russell King <linux@armlinux.org.uk>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        LKML <linux-kernel@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: Shubham Bansal <illusionist.neo@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHgaXd+DW2bggto=2S9hOdMrtPTvhD2QN4rPf2V8iHewQpg-YA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Mon, 12 Jun 2017 15:38:36 -0700
+On 06/12/2017 05:40 PM, Shubham Bansal wrote:
+[...]
+>> Did you manage to get tail calls tested as well (I assume so since you
+>> implemented emit_bpf_tail_call() in the patch but just out of curiosity)?
+>
+> I didn't try it exclusively, I thought test_bpf must have tested it. Doesn't it?
 
-> From: Jacob Keller <jacob.e.keller@intel.com>
-> 
-> A recent commit to refactor the driver and remove the hw_disabled_flags
-> field accidentally introduced two regressions. First, we overwrote
-> pf->flags which removed various key flags including the MSI-X settings.
-> 
-> Additionally, it was intended that we have now two flags,
-> HW_ATR_EVICT_CAPABLe and HW_ATR_EVICT_ENABLED, but this was not done,
-> and we accidentally were mis-using HW_ATR_EVICT_CAPABLE everywhere.
-> 
-> This patch adds the missing piece, HW_ATR_EVICT_ENABLED, and safely
-> updates pf->flags instead of overwriting it.
-> 
-> Without this patch we will have many problems including disabling MSI-X
-> support, and we'll attempt to use HW ATR eviction on devices which do
-> not support it.
-> 
-> Fixes: 47994c119a36 ("i40e: remove hw_disabled_flags in favor of using separate flag bits", 2017-04-19)
-> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+In samples/bpf/ there's sockex3* that would exercise it, or
+alternatively in iproute2 repo under examples/bpf/ there's
+bpf_cyclic.c and bpf_tailcall.c as a prog.
 
-Applied, thanks Jeff.
+Hm, generally, we should really add a test case also to BPF
+selftest suite to facilitate that. I'll likely do that for
+the next batch of BPF patches.
