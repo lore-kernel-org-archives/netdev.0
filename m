@@ -1,116 +1,104 @@
-From: =?UTF-8?q?Niklas=20S=C3=B6derlund?=
-        <niklas.soderlund+renesas@ragnatech.se>
-Subject: [PATCH v3] sh_eth: add support for changing MTU
-Date: Mon, 12 Jun 2017 10:39:03 +0200
-Message-ID: <20170612083903.1584-1-niklas.soderlund+renesas@ragnatech.se>
+From: AL Yu-Chen Cho <acho@suse.com>
+Subject: Re: [PATCH v4 1/3] Bluetooth: bnep: fix possible might sleep error
+ in bnep_session
+Date: Mon, 12 Jun 2017 16:43:45 +0800
+Message-ID: <1497257025.3326.3.camel@suse.com>
+References: <1487033725-7208-1-git-send-email-jeffy.chen@rock-chips.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
-        =?UTF-8?q?Niklas=20S=C3=B6derlund?=
-        <niklas.soderlund+renesas@ragnatech.se>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Brian Norris <briannorris@chromium.org>,
+        Douglas Anderson <dianders@chromium.org>,
+        Johan Hedberg <johan.hedberg@intel.com>,
+        Peter Hurley <peter@hurleysoftware.com>,
+        Johan Hedberg <johan.hedberg@gmail.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Marcel Holtmann <marcel@holtmann.org>,
+        Gustavo Padovan <gustavo@padovan.org>
+To: Jeffy Chen <jeffy.chen@rock-chips.com>,
+        linux-bluetooth@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1487033725-7208-1-git-send-email-jeffy.chen@rock-chips.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The hardware supports the MTU to be changed and the driver it self is
-somewhat prepared to support this. This patch hooks up the callbacks to
-be able to change the MTU from user-space.
-
-Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
-Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
----
-
-Based on v4.12-rc1 and tested on Renesas R-Car Koelsch M2.
-
-Test procedure:
-
-1. On host set MTU to something large (9000) was used for this test.
-
-2. On target set MTU to something other then 1500, in this test the max
-   MTU of 1978 is used.
-
-3. Send ping with large payload and observe that it works.
-
-   ping -M do -s 1954 <target>
-
-   The reason for 1954 instead of 1982 is two fold:
-
-   1. On Linux (different on Mac IIRC) the ICMP/ping implementation
-      do not encapsulate the 28 byte ICMP (8) + IP (20).
-   2. The driver internally reserve 4 bytes of transmission buffer for
-      an optional VLAN header (4). And since no VLAN is used in this
-      setup the additional 4 bytes can carry data.
-
-4. For extra verification the packet flow is inspected using tcpdump to
-   verify that there is no packet fragmentation.
-
-* Changes since v2
-- Changed subject from 'sh_eth: add support to change MTU' to 'sh_eth: add 
-  support for changing MTU' as suggested by Sergei.
-- Changed variable name of struct net_device from dev to ndev, thanks Sergei!
-- Fixed typo.
-
-* Changes since v1
-- Fix spelling mistake in comment, thanks Sergei!
-- Add Acked-by from Sergei.
-
-
- drivers/net/ethernet/renesas/sh_eth.c | 20 ++++++++++++++++++++
- 1 file changed, 20 insertions(+)
-
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index f68c4db656eda846..2be46e4a32913972 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -2558,6 +2558,17 @@ static int sh_eth_do_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
- 	return phy_mii_ioctl(phydev, rq, cmd);
- }
- 
-+static int sh_eth_change_mtu(struct net_device *ndev, int new_mtu)
-+{
-+	if (netif_running(ndev))
-+		return -EBUSY;
-+
-+	ndev->mtu = new_mtu;
-+	netdev_update_features(ndev);
-+
-+	return 0;
-+}
-+
- /* For TSU_POSTn. Please refer to the manual about this (strange) bitfields */
- static void *sh_eth_tsu_get_post_reg_offset(struct sh_eth_private *mdp,
- 					    int entry)
-@@ -3029,6 +3040,7 @@ static const struct net_device_ops sh_eth_netdev_ops = {
- 	.ndo_set_rx_mode	= sh_eth_set_rx_mode,
- 	.ndo_tx_timeout		= sh_eth_tx_timeout,
- 	.ndo_do_ioctl		= sh_eth_do_ioctl,
-+	.ndo_change_mtu		= sh_eth_change_mtu,
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_set_mac_address	= eth_mac_addr,
- };
-@@ -3043,6 +3055,7 @@ static const struct net_device_ops sh_eth_netdev_ops_tsu = {
- 	.ndo_vlan_rx_kill_vid	= sh_eth_vlan_rx_kill_vid,
- 	.ndo_tx_timeout		= sh_eth_tx_timeout,
- 	.ndo_do_ioctl		= sh_eth_do_ioctl,
-+	.ndo_change_mtu		= sh_eth_change_mtu,
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_set_mac_address	= eth_mac_addr,
- };
-@@ -3171,6 +3184,13 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
- 	}
- 	sh_eth_set_default_cpu_data(mdp->cd);
- 
-+	/* User's manual states max MTU should be 2048 but due to the
-+	 * alignment calculations in sh_eth_ring_init() the practical
-+	 * MTU is a bit less. Maybe this can be optimized some more.
-+	 */
-+	ndev->max_mtu = 2000 - (ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN);
-+	ndev->min_mtu = ETH_MIN_MTU;
-+
- 	/* set function */
- 	if (mdp->cd->tsu)
- 		ndev->netdev_ops = &sh_eth_netdev_ops_tsu;
--- 
-2.13.1
+On Tue, 2017-02-14 at 08:55 +0800, Jeffy Chen wrote:
+> It looks like bnep_session has same pattern as the issue reported in
+> old rfcomm:
+> 
+> 	while (1) {
+> 		set_current_state(TASK_INTERRUPTIBLE);
+> 		if (condition)
+> 			break;
+> 		// may call might_sleep here
+> 		schedule();
+> 	}
+> 	__set_current_state(TASK_RUNNING);
+> 
+> Which fixed at:
+> 	dfb2fae Bluetooth: Fix nested sleeps
+> 
+> So let's fix it at the same way, also follow the suggestion of:
+> https://lwn.net/Articles/628628/
+> 
+> Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+> Reviewed-by: Brian Norris <briannorris@chromium.org>
+Reviewed-by: AL Yu-Chen Cho <acho@suse.com>
+> ---
+> 
+> Changes in v3:
+> Add brian's Reviewed-by.
+> 
+> Changes in v2:
+> Remove unnecessary memory barrier before wake_up_* functions.
+> 
+>  net/bluetooth/bnep/core.c | 11 +++++------
+>  1 file changed, 5 insertions(+), 6 deletions(-)
+> 
+> diff --git a/net/bluetooth/bnep/core.c b/net/bluetooth/bnep/core.c
+> index fbf251f..4d6b94d 100644
+> --- a/net/bluetooth/bnep/core.c
+> +++ b/net/bluetooth/bnep/core.c
+> @@ -484,16 +484,16 @@ static int bnep_session(void *arg)
+>  	struct net_device *dev = s->dev;
+>  	struct sock *sk = s->sock->sk;
+>  	struct sk_buff *skb;
+> -	wait_queue_t wait;
+> +	DEFINE_WAIT_FUNC(wait, woken_wake_function);
+>  
+>  	BT_DBG("");
+>  
+>  	set_user_nice(current, -15);
+>  
+> -	init_waitqueue_entry(&wait, current);
+>  	add_wait_queue(sk_sleep(sk), &wait);
+>  	while (1) {
+> -		set_current_state(TASK_INTERRUPTIBLE);
+> +		/* Ensure session->terminate is updated */
+> +		smp_mb__before_atomic();
+>  
+>  		if (atomic_read(&s->terminate))
+>  			break;
+> @@ -515,9 +515,8 @@ static int bnep_session(void *arg)
+>  				break;
+>  		netif_wake_queue(dev);
+>  
+> -		schedule();
+> +		wait_woken(&wait, TASK_INTERRUPTIBLE,
+> MAX_SCHEDULE_TIMEOUT);
+>  	}
+> -	__set_current_state(TASK_RUNNING);
+>  	remove_wait_queue(sk_sleep(sk), &wait);
+>  
+>  	/* Cleanup session */
+> @@ -666,7 +665,7 @@ int bnep_del_connection(struct bnep_conndel_req
+> *req)
+>  	s = __bnep_get_session(req->dst);
+>  	if (s) {
+>  		atomic_inc(&s->terminate);
+> -		wake_up_process(s->task);
+> +		wake_up_interruptible(sk_sleep(s->sock->sk));
+>  	} else
+>  		err = -ENOENT;
+>  
