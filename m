@@ -1,31 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/9] Bugs fixes in ena ethernet driver
-Date: Mon, 12 Jun 2017 10:24:32 -0400 (EDT)
-Message-ID: <20170612.102432.2053652648532805091.davem@davemloft.net>
-References: <1497184971-28178-1-git-send-email-netanel@amazon.com>
-        <20170611.163807.1473229146636819355.davem@davemloft.net>
-        <1497276570720.79426@amazon.com>
+Subject: Re: [PATCH v2] net: phy: Make phy_ethtool_ksettings_get return void
+Date: Mon, 12 Jun 2017 10:25:25 -0400 (EDT)
+Message-ID: <20170612.102525.1159274040679939960.davem@davemloft.net>
+References: <20170612141508.29229-1-yuval.shaia@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dwmw@amazon.co.uk, zorik@amazon.com,
-        matua@amazon.com, saeedb@amazon.com, msw@amazon.com,
-        aliguori@amazon.com, nafea@amazon.com, evgenys@amazon.com
-To: netanel@amazon.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33148 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752189AbdFLOYf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 10:24:35 -0400
-In-Reply-To: <1497276570720.79426@amazon.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: michael.chan@broadcom.com, f.fainelli@gmail.com,
+        siva.kallam@broadcom.com, prashant@broadcom.com,
+        madalin.bucur@nxp.com, leoli@freescale.com,
+        sebastian.hesselbarth@gmail.com,
+        sergei.shtylyov@cogentembedded.com, grygorii.strashko@ti.com,
+        w-kwok2@ti.com, m-karicheri2@ti.com, andrew@lunn.ch,
+        woojung.huh@microchip.com, UNGLinuxDriver@microchip.com,
+        vivien.didelot@savoirfairelinux.com, arnd@arndb.de,
+        tremyfr@gmail.com, jarod@redhat.com, horms+renesas@verge.net.au,
+        kazuya.mizuguchi.ks@renesas.com, dan.carpenter@oracle.com,
+        niklas.soderlund+renesas@ragnatech.se, johan@kernel.org,
+        masaru.nagai.vx@renesas.com, geert+renesas@glider.be,
+        laurent.pinchart@ideasonboard.com, chris.brandt@renesas.com,
+        ivan.khoronzhuk@linaro.org, mugunthanvnm@ti.com,
+        netdev@vger.kernel.org, linux-arm-kernel
+To: yuval.shaia@oracle.com
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <20170612141508.29229-1-yuval.shaia@oracle.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Belgazal, Netanel" <netanel@amazon.com>
-Date: Mon, 12 Jun 2017 14:09:30 +0000
+From: Yuval Shaia <yuval.shaia@oracle.com>
+Date: Mon, 12 Jun 2017 17:15:08 +0300
 
-> Do you might have an ETA when do you plan to merge net branch into
-> net-next?  I plan to base my new patchset to net-next on top of this
-> one.
+> Make return value void since function never return meaningfull value
+> 
+> Signed-off-by: Yuval Shaia <yuval.shaia@oracle.com>
+> Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> ---
+> v0 ->v1:
+> 	* These files were missing in v0
+> 		* drivers/net/ethernet/renesas/ravb_main.c
+> 		* drivers/net/ethernet/renesas/sh_eth.c
+> 		* drivers/net/ethernet/ti/netcp_ethss.c
+> 	* Add Acked-by: Sergei Shtylyov
+> v1 -> v2:
+> 	* Adjust to net-next tree
 
-Probably later in the week, either Tuesday or Weds.
+Applied, thank you.
