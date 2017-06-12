@@ -1,148 +1,74 @@
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Subject: [PATCH net-next] ibmvnic: Client-initiated failover
-Date: Mon, 12 Jun 2017 12:35:04 -0500
-Message-ID: <1497288904-15259-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
-Cc: nfont@linux.vnet.ibm.com, jallen@linux.vnet.ibm.com,
-        Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
+From: Jes Sorensen <jsorensen@fb.com>
+Subject: Re: [PATCH RFC net-next 3/4] net/mlx5: Separate between eswitch and
+ MPFS l2 table logic
+Date: Mon, 12 Jun 2017 13:52:54 -0400
+Message-ID: <d205ed47-0275-ade7-1fdc-d82001b1dda5@fb.com>
+References: <20170607234214.24723-1-saeedm@mellanox.com>
+ <20170607234214.24723-4-saeedm@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <kernel-team@fb.com>, Or Gerlitz <ogerlitz@mellanox.com>,
+        Tzahi Oved <tzahio@mellanox.com>
+To: Saeed Mahameed <saeedm@mellanox.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:48297 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752749AbdFLRf3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 13:35:29 -0400
-Received: from pps.filterd (m0098420.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5CHXmOt063951
-        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 13:35:10 -0400
-Received: from e16.ny.us.ibm.com (e16.ny.us.ibm.com [129.33.205.206])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 2b1v8j9tx8-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 13:35:09 -0400
-Received: from localhost
-        by e16.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
-        Mon, 12 Jun 2017 13:35:09 -0400
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:56708 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752018AbdFLRxE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 13:53:04 -0400
+In-Reply-To: <20170607234214.24723-4-saeedm@mellanox.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The IBM vNIC protocol provides support for the user to initiate
-a failover from the client LPAR in case the current backing infrastructure
-is deemed inadequate or in an error state.
+On 06/07/2017 07:42 PM, Saeed Mahameed wrote:
+> Multi-Physical Function Switch (MPFs) is required for when multi-PF
+> configuration is enabled to allow passing user configured unicast MAC
+> addresses to the requesting PF.
+> 
+> Before this patch eswitch.c used to manage the HW MPFS l2 table,
+> eswitch always enabled vport(0) (NIC PF) vport's contexts update on unicast
+> mac address list changes, to populate the PF's MPFS L2 table accordingly,
+> even if SRIOV was not enabled.
+> 
+> In downstream patch we would like to allow compiling the driver without
+> eswitch functionalities, for that we move MPFS l2 table logic out
+> of eswitch.c into its own file, and provide Kconfig flag (MLX5_MPFS) to
+> allow compiling out MPFS for those who don't want Multi-PF support
+> 
+> NIC PF netdevice will now directly update MPFS l2 table via the new MPFS
+> API. VF netdevice has no access to MPFS L2 table, so e-Switch will remain
+> responsible of updating its PF MPFS l2 table on behalf of its VFs.
+> 
+> Due to this change we also don't require enabling vport(0) (PF vport)
+> unicast mac changes events anymore, for when SRIOV is not enabled.
+> Which means eswitch is now activated only on SRIOV activation, and not
+> required otherwise.
 
-Support for two H_VIOCTL sub-commands for vNIC devices are required
-to implement this function. These commands are H_GET_SESSION_TOKEN
-and H_SESSION_ERR_DETECTED.
 
-"[H_GET_SESSION_TOKEN] is used to obtain a session token from a VNIC client
-adapter.  This token is opaque to the caller and is intended to be used in
-tandem with the SESSION_ERROR_DETECTED vioctl subfunction."
+On overall it looks good - one nit.
 
-"[H_SESSION_ERR_DETECTED] is used to report that the currently active
-backing device for a VNIC client adapter is behaving poorly, and that
-the hypervisor should attempt to fail over to a different backing device,
-if one is available."
+> +static int alloc_l2table_index(struct mlx5_mpfs *l2table, u32 *ix)
+> +{
+> +	int err = 0;
+> +
+> +	*ix = find_first_zero_bit(l2table->bitmap, l2table->size);
+> +	if (*ix >= l2table->size)
+> +		err = -ENOSPC;
+> +	else
+> +		__set_bit(*ix, l2table->bitmap);
+> +
+> +	return err;
+> +}
 
-To provide tools access to this functionality the vNIC driver creates a
-sysfs file that, when written to, will send a request to pHyp to failover
-to a different backing device.
+You pass in a pointer for ix but you don't modify it, why not just pass 
+in the value?.
 
-Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
----
- arch/powerpc/include/asm/hvcall.h  |  2 ++
- drivers/net/ethernet/ibm/ibmvnic.c | 46 ++++++++++++++++++++++++++++++++++++++
- 2 files changed, 48 insertions(+)
+> +static void free_l2table_index(struct mlx5_mpfs *l2table, u32 ix)
+> +{
+> +	__clear_bit(ix, l2table->bitmap);
+> +}
 
-diff --git a/arch/powerpc/include/asm/hvcall.h b/arch/powerpc/include/asm/hvcall.h
-index d73755f..57d38b5 100644
---- a/arch/powerpc/include/asm/hvcall.h
-+++ b/arch/powerpc/include/asm/hvcall.h
-@@ -295,6 +295,8 @@
- #define H_DISABLE_ALL_VIO_INTS	0x0A
- #define H_DISABLE_VIO_INTERRUPT	0x0B
- #define H_ENABLE_VIO_INTERRUPT	0x0C
-+#define H_GET_SESSION_TOKEN	0x19
-+#define H_SESSION_ERR_DETECTED	0x1A
- 
- 
- /* Platform specific hcalls, used by KVM */
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index 7d84e20..fd3ef30 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -3656,6 +3656,8 @@ static int ibmvnic_init(struct ibmvnic_adapter *adapter)
- 	return rc;
- }
- 
-+static struct device_attribute dev_attr_failover;
-+
- static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
- {
- 	struct ibmvnic_adapter *adapter;
-@@ -3712,9 +3714,16 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
- 
- 	netdev->mtu = adapter->req_mtu - ETH_HLEN;
- 
-+	rc = device_create_file(&dev->dev, &dev_attr_failover);
-+	if (rc) {
-+		free_netdev(netdev);
-+		return rc;
-+	}
-+
- 	rc = register_netdev(netdev);
- 	if (rc) {
- 		dev_err(&dev->dev, "failed to register netdev rc=%d\n", rc);
-+		device_remove_file(&dev->dev, &dev_attr_failover);
- 		free_netdev(netdev);
- 		return rc;
- 	}
-@@ -3740,12 +3749,49 @@ static int ibmvnic_remove(struct vio_dev *dev)
- 	adapter->state = VNIC_REMOVED;
- 
- 	mutex_unlock(&adapter->reset_lock);
-+	device_remove_file(&dev->dev, &dev_attr_failover);
- 	free_netdev(netdev);
- 	dev_set_drvdata(&dev->dev, NULL);
- 
- 	return 0;
- }
- 
-+static ssize_t failover_store(struct device *dev, struct device_attribute *attr,
-+			      const char *buf, size_t count)
-+{
-+	struct net_device *netdev = dev_get_drvdata(dev);
-+	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
-+	unsigned long retbuf[PLPAR_HCALL_BUFSIZE];
-+	__be64 session_token;
-+	long rc;
-+
-+	if (!sysfs_streq(buf, "1"))
-+		return -EINVAL;
-+
-+	rc = plpar_hcall(H_VIOCTL, retbuf, adapter->vdev->unit_address,
-+			 H_GET_SESSION_TOKEN, 0, 0, 0);
-+	if (rc) {
-+		netdev_err(netdev, "Couldn't retrieve session token, rc %ld\n",
-+			   rc);
-+		return -EINVAL;
-+	}
-+
-+	session_token = (__be64)retbuf[0];
-+	netdev_dbg(netdev, "Initiating client failover, session id %llx\n",
-+		   be64_to_cpu(session_token));
-+	rc = plpar_hcall_norets(H_VIOCTL, adapter->vdev->unit_address,
-+				H_SESSION_ERR_DETECTED, session_token, 0, 0);
-+	if (rc) {
-+		netdev_err(netdev, "Client initiated failover failed, rc %ld\n",
-+			   rc);
-+		return -EINVAL;
-+	}
-+
-+	return count;
-+}
-+
-+static DEVICE_ATTR(failover, 0200, NULL, failover_store);
-+
- static unsigned long ibmvnic_get_desired_dma(struct vio_dev *vdev)
- {
- 	struct net_device *netdev = dev_get_drvdata(&vdev->dev);
--- 
-1.8.3.1
+Here you stick to the u32.
+
+Jes
