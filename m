@@ -1,156 +1,42 @@
-From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Subject: Re: [PATCH net-next] ibmvnic: Client-initiated failover
-Date: Mon, 12 Jun 2017 14:42:54 -0500
-Message-ID: <2f2385af-023b-a5fe-9ccf-378c0340443b@linux.vnet.ibm.com>
-References: <1497288904-15259-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net-next v10 1/4] net netlink: Add new type NLA_FLAG_BITS
+Date: Mon, 12 Jun 2017 13:58:33 -0600
+Message-ID: <4d150766-dd1e-26f5-43ea-a3c93cdf291b@gmail.com>
+References: <1497182026-11594-2-git-send-email-jhs@emojatatu.com>
+ <20170611134924.GA1896@nanopsycho.orion>
+ <4c536950-2be3-cc9c-1f77-066624800d07@mojatatu.com>
+ <4441aa62-d00e-82b6-d337-f86cf97e3c6d@mojatatu.com>
+ <20170612103432.GA1993@nanopsycho>
+ <8e2f151d-3a02-4b1b-755b-23a0a85556b4@mojatatu.com>
+ <20170612114345.GB1993@nanopsycho>
+ <22f33fa9-1759-57b7-6aea-898f89c9f61f@mojatatu.com>
+ <20170612141450.GD1993@nanopsycho>
+ <80dd1bc2-80d6-d8fa-6032-d0641ae5d79b@gmail.com>
+ <20170612192238.GF1993@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: jallen@linux.vnet.ibm.com
-To: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>, netdev@vger.kernel.org
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net,
+        netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
+        eric.dumazet@gmail.com, simon.horman@netronome.com,
+        mrv@mojatatu.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:45875 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752086AbdFLTm7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 15:42:59 -0400
-Received: from pps.filterd (m0098416.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5CJcSkc152435
-        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 15:42:58 -0400
-Received: from e14.ny.us.ibm.com (e14.ny.us.ibm.com [129.33.205.204])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 2b1vx0mub9-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 15:42:58 -0400
-Received: from localhost
-        by e14.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
-        Mon, 12 Jun 2017 15:42:57 -0400
-In-Reply-To: <1497288904-15259-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
-Content-Language: en-US
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:35586 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752093AbdFLT6l (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 15:58:41 -0400
+Received: by mail-pf0-f194.google.com with SMTP id s66so2901322pfs.2
+        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 12:58:40 -0700 (PDT)
+In-Reply-To: <20170612192238.GF1993@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/12/2017 12:35 PM, Thomas Falcon wrote:
-> The IBM vNIC protocol provides support for the user to initiate
-> a failover from the client LPAR in case the current backing infrastructure
-> is deemed inadequate or in an error state.
+On 6/12/17 1:22 PM, Jiri Pirko wrote:
 > 
-> Support for two H_VIOCTL sub-commands for vNIC devices are required
-> to implement this function. These commands are H_GET_SESSION_TOKEN
-> and H_SESSION_ERR_DETECTED.
-> 
-> "[H_GET_SESSION_TOKEN] is used to obtain a session token from a VNIC client
-> adapter.  This token is opaque to the caller and is intended to be used in
-> tandem with the SESSION_ERROR_DETECTED vioctl subfunction."
-> 
-> "[H_SESSION_ERR_DETECTED] is used to report that the currently active
-> backing device for a VNIC client adapter is behaving poorly, and that
-> the hypervisor should attempt to fail over to a different backing device,
-> if one is available."
-> 
-> To provide tools access to this functionality the vNIC driver creates a
-> sysfs file that, when written to, will send a request to pHyp to failover
-> to a different backing device.
-> 
-> Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+>> 3. IMO since these are nla prefixes and new NLA type they should be in
+>> uapi/linux/netlink.h
+> Including NLA_* type enum? I think it is reasonable.
 
-Reviewed-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-
-> ---
->  arch/powerpc/include/asm/hvcall.h  |  2 ++
->  drivers/net/ethernet/ibm/ibmvnic.c | 46 ++++++++++++++++++++++++++++++++++++++
->  2 files changed, 48 insertions(+)
-> 
-> diff --git a/arch/powerpc/include/asm/hvcall.h b/arch/powerpc/include/asm/hvcall.h
-> index d73755f..57d38b5 100644
-> --- a/arch/powerpc/include/asm/hvcall.h
-> +++ b/arch/powerpc/include/asm/hvcall.h
-> @@ -295,6 +295,8 @@
->  #define H_DISABLE_ALL_VIO_INTS	0x0A
->  #define H_DISABLE_VIO_INTERRUPT	0x0B
->  #define H_ENABLE_VIO_INTERRUPT	0x0C
-> +#define H_GET_SESSION_TOKEN	0x19
-> +#define H_SESSION_ERR_DETECTED	0x1A
-> 
-> 
->  /* Platform specific hcalls, used by KVM */
-> diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-> index 7d84e20..fd3ef30 100644
-> --- a/drivers/net/ethernet/ibm/ibmvnic.c
-> +++ b/drivers/net/ethernet/ibm/ibmvnic.c
-> @@ -3656,6 +3656,8 @@ static int ibmvnic_init(struct ibmvnic_adapter *adapter)
->  	return rc;
->  }
-> 
-> +static struct device_attribute dev_attr_failover;
-> +
->  static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
->  {
->  	struct ibmvnic_adapter *adapter;
-> @@ -3712,9 +3714,16 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
-> 
->  	netdev->mtu = adapter->req_mtu - ETH_HLEN;
-> 
-> +	rc = device_create_file(&dev->dev, &dev_attr_failover);
-> +	if (rc) {
-> +		free_netdev(netdev);
-> +		return rc;
-> +	}
-> +
->  	rc = register_netdev(netdev);
->  	if (rc) {
->  		dev_err(&dev->dev, "failed to register netdev rc=%d\n", rc);
-> +		device_remove_file(&dev->dev, &dev_attr_failover);
->  		free_netdev(netdev);
->  		return rc;
->  	}
-> @@ -3740,12 +3749,49 @@ static int ibmvnic_remove(struct vio_dev *dev)
->  	adapter->state = VNIC_REMOVED;
-> 
->  	mutex_unlock(&adapter->reset_lock);
-> +	device_remove_file(&dev->dev, &dev_attr_failover);
->  	free_netdev(netdev);
->  	dev_set_drvdata(&dev->dev, NULL);
-> 
->  	return 0;
->  }
-> 
-> +static ssize_t failover_store(struct device *dev, struct device_attribute *attr,
-> +			      const char *buf, size_t count)
-> +{
-> +	struct net_device *netdev = dev_get_drvdata(dev);
-> +	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
-> +	unsigned long retbuf[PLPAR_HCALL_BUFSIZE];
-> +	__be64 session_token;
-> +	long rc;
-> +
-> +	if (!sysfs_streq(buf, "1"))
-> +		return -EINVAL;
-> +
-> +	rc = plpar_hcall(H_VIOCTL, retbuf, adapter->vdev->unit_address,
-> +			 H_GET_SESSION_TOKEN, 0, 0, 0);
-> +	if (rc) {
-> +		netdev_err(netdev, "Couldn't retrieve session token, rc %ld\n",
-> +			   rc);
-> +		return -EINVAL;
-> +	}
-> +
-> +	session_token = (__be64)retbuf[0];
-> +	netdev_dbg(netdev, "Initiating client failover, session id %llx\n",
-> +		   be64_to_cpu(session_token));
-> +	rc = plpar_hcall_norets(H_VIOCTL, adapter->vdev->unit_address,
-> +				H_SESSION_ERR_DETECTED, session_token, 0, 0);
-> +	if (rc) {
-> +		netdev_err(netdev, "Client initiated failover failed, rc %ld\n",
-> +			   rc);
-> +		return -EINVAL;
-> +	}
-> +
-> +	return count;
-> +}
-> +
-> +static DEVICE_ATTR(failover, 0200, NULL, failover_store);
-> +
->  static unsigned long ibmvnic_get_desired_dma(struct vio_dev *vdev)
->  {
->  	struct net_device *netdev = dev_get_drvdata(&vdev->dev);
-> 
+well, maybe not the NLA_BITFIELD. That enum is for policy validation
+kernel side so not really part of the API.
