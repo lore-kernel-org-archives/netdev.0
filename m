@@ -1,63 +1,104 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: WARNING in dev_watchdog
-Date: Mon, 12 Jun 2017 14:17:29 +0100
-Message-ID: <1497273449.3477.69.camel@decadent.org.uk>
-References: <CAJsXRPGWqm-DN2+VsEjCAOZV-C2GqkzmjPjJgRoGTUABJSFnow@mail.gmail.com>
-         <20170612064232.GA14559@kroah.com>
-         <CAJsXRPHmYk5FQBhwfP7d_Ah7cNHk=P_7-RLHzBTuLwrukqpBWQ@mail.gmail.com>
+From: Mason <slash.tmp@free.fr>
+Subject: Toggling link state breaks network connectivity
+Date: Mon, 12 Jun 2017 15:22:44 +0200
+Message-ID: <927c2f12-0d1b-1e80-fede-ad9abe807222@free.fr>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-        protocol="application/pgp-signature"; boundary="=-qlS0oQBSUZMqd4xrBywa"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        security@kernel.org
-To: Dison River <pwn2river@gmail.com>,
-        Greg KH <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAJsXRPHmYk5FQBhwfP7d_Ah7cNHk=P_7-RLHzBTuLwrukqpBWQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>, Mans Rullgard <mans@mansr.com>,
+        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp5-g21.free.fr ([212.27.42.5]:58734 "EHLO smtp5-g21.free.fr"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751974AbdFLNXC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 12 Jun 2017 09:23:02 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Hello,
+
+I am using the following drivers for Ethernet connectivity.
+drivers/net/ethernet/aurora/nb8800.c
+drivers/net/phy/at803x.c
+
+Pulling the cable and plugging it back works as expected.
+(I can ping both before and after.)
+
+However, if I toggle the link state in software (using ip link set),
+the board loses network connectivity.
+
+# Statically assign IP address
+ip addr add 172.27.64.77/18 brd 172.27.127.255 dev eth0
+# Set link state to "up"
+ip link set eth0 up
+# ping -c 3 172.27.64.1 > /tmp/v1
+
+PING 172.27.64.1 (172.27.64.1): 56 data bytes
+64 bytes from 172.27.64.1: seq=0 ttl=64 time=18.321 ms
+
+--- 172.27.64.1 ping statistics ---
+3 packets transmitted, 1 packets received, 66% packet loss
+round-trip min/avg/max = 18.321/18.321/18.321 ms
 
 
---=-qlS0oQBSUZMqd4xrBywa
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+172.27.64.1 is a desktop system.
+Running
+% tcpdump -n -i eth1-boards ether host 00:16:e8:4d:7f:c4
+on the desktop, I get:
 
-On Mon, 2017-06-12 at 16:13 +0800, Dison River wrote:
-> Sorry,this WARNING is not reproducible.And I don't have PoC for this
-> bug.
+15:01:45.187346 ARP, Request who-has 172.27.64.1 tell 172.27.64.77, length 46
+15:01:45.187359 ARP, Reply 172.27.64.1 is-at 00:15:17:24:e0:81, length 28
+15:01:45.194633 IP 172.27.64.77 > 172.27.64.1: ICMP echo request, id 41219, seq 0, length 64
+15:01:45.194662 IP 172.27.64.1 > 172.27.64.77: ICMP echo reply, id 41219, seq 0, length 64
+15:01:50.198564 ARP, Request who-has 172.27.64.77 tell 172.27.64.1, length 28
+15:01:50.205929 IP 172.27.64.77 > 172.27.64.1: ICMP echo request, id 41219, seq 1, length 64
+15:01:50.205951 IP 172.27.64.1 > 172.27.64.77: ICMP echo reply, id 41219, seq 1, length 64
+15:01:50.213217 IP 172.27.64.77 > 172.27.64.1: ICMP echo request, id 41219, seq 2, length 64
+15:01:50.213232 IP 172.27.64.1 > 172.27.64.77: ICMP echo reply, id 41219, seq 2, length 64
+15:01:51.198563 ARP, Request who-has 172.27.64.77 tell 172.27.64.1, length 28
+15:01:51.209586 ARP, Reply 172.27.64.77 is-at 00:16:e8:4d:7f:c4, length 46
+15:01:51.209598 ARP, Reply 172.27.64.77 is-at 00:16:e8:4d:7f:c4, length 46
 
-I found and reported a similar bug in e1000 and e1000e some years ago,
-which was fixed in the latter here:
-https://git.kernel.org/linus/d821a4c4d11ad160925dab2bb009b8444beff484
+Packet #1: the board asks for the desktop's MAC address
+Packet #2: the desktop replies instantly
+Packet #3: the board sends the first ping
+Packet #4: the desktop replies instantly
+Then the board goes quiet for a long time (why???)
+Packet #5: the desktop asks for the board's MAC address (doesn't it have it already?)
+Packet #6: this seems to unwedge the board, which sends the second ping
+Packet #7: the desktop replies instantly
+Packet #8: the board sends the third ping
+Packet #9: the desktop replies instantly
+Packet #10: the desktop asks again for the board's MAC address
+Packet #11 and #12: the board answers twice (for the old and new requests?)
 
-I think e1000 may still be unfixed, so this might be the same bug.
+Some oddities, but it seems to work.
 
-Ben.
+Now toggle the link state:
 
---=20
-Ben Hutchings
-Unix is many things to many people,
-but it's never been everything to anybody.
+% ip link set eth0 down
+% ip link set eth0 up
+% ping -c 3 172.27.64.1 > /tmp/v2
 
---=-qlS0oQBSUZMqd4xrBywa
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+PING 172.27.64.1 (172.27.64.1): 56 data bytes
 
------BEGIN PGP SIGNATURE-----
+--- 172.27.64.1 ping statistics ---
+3 packets transmitted, 0 packets received, 100% packet loss
 
-iQIzBAABCgAdFiEErCspvTSmr92z9o8157/I7JWGEQkFAlk+lGkACgkQ57/I7JWG
-EQkq1A/+Mu1uUdhdDxzPRh2BiBxyAUOQ3aLPQ8px8XbYBE+BDJSeuCW1e94+4yWp
-U3BIc/uaJJS6hIFPAstMiA2ZSXLjOlBgRbVLo0ZQVVCWWdW7jzGDsa0M481RW9cW
-hgvJeKaTxtwmQhhhDggbytVcWQQ+6/5ptZtjCPju/EdDr0CbCRM2OHgXOvnY+sNH
-DPrBVb390nHhu8NvyLbTg3OC3rs2T7VxpieITYDuYWeBlI+1JIHGNPldarwf2Bcf
-v7Bz1ro5LnhmtGpltCk5jj0aBY3osve7dIoBX62KrzzpeFOnns8+eWkwc2VZnWKA
-s4YqGxvJIDOzWkDVtO/uhUm9Uy3I8CqEJanODu0IFeUaS+xCGaMNYS12H7q4G4Qh
-aXur7ecEM098nZtPG2rlnKpqLq8drMMy5HahjGyJW+x58RqQrEnWqvk4po06sd93
-fVAYhduGtmkkVenSuxtVNUpeiraiOnmSeGfnSvWNYVKyEaT6JAKTtnzoBhtrVnYX
-+dXVqyubY8sJePWWDLnFcnowKHrsQnTE7rnQcxvhS5fEsQNgIkRgnJ12NSUSadny
-eIWCB9LibsrIU9ye4RBY69jafmmeaXT9qtPdoFkel7634nQeSFb1T4iiS5IAXZqp
-uT3ehNhVU4tcnTUsUx5VmPF7pE54fK/+8E5MftIC4x/MXxTwtwc=
-=uXpA
------END PGP SIGNATURE-----
 
---=-qlS0oQBSUZMqd4xrBywa--
+On the desktop, I see
+
+15:14:03.900162 ARP, Request who-has 172.27.64.1 tell 172.27.64.77, length 46
+15:14:03.900175 ARP, Reply 172.27.64.1 is-at 00:15:17:24:e0:81, length 28
+15:14:05.017189 ARP, Request who-has 172.27.64.1 tell 172.27.64.77, length 46
+15:14:05.017200 ARP, Reply 172.27.64.1 is-at 00:15:17:24:e0:81, length 28
+15:14:06.030531 ARP, Request who-has 172.27.64.1 tell 172.27.64.77, length 46
+15:14:06.030541 ARP, Reply 172.27.64.1 is-at 00:15:17:24:e0:81, length 28
+
+So basically, the board is asking the desktop for its MAC address,
+and the desktop is answering immediately. But the board doesn't seem
+to be getting the replies... Any ideas, or words of wisdom, as they say?
+
+Regards.
