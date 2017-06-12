@@ -1,43 +1,33 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH v2] arm: eBPF JIT compiler
-Date: Sun, 11 Jun 2017 19:00:43 -0700
-Message-ID: <CAGXu5jKHQNO8QtbfudLZ8vg1FmdLb3SiMikTvkEryggUQz=AcA@mail.gmail.com>
-References: <1495754003-21099-1-git-send-email-illusionist.neo@gmail.com>
- <CAGXu5jKmLNMR+uhM9Ov2XPW6kCjip_SjScgEH0fTFp6fQtKFiA@mail.gmail.com> <CAHgaXdJ=-n8J8ot_5YQC=YMZrwTBvdNTp5Ta_J_J9vNGWQ4DCQ@mail.gmail.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net v3] net: ipmr: Fix some mroute forwarding issues in
+ vrf's
+Date: Sun, 11 Jun 2017 20:55:05 -0600
+Message-ID: <af56ef0c-5979-12e0-f3cf-936c89cd2bdc@gmail.com>
+References: <20170610203017.4085-1-sharpd@cumulusnetworks.com>
+ <20170611.181556.1883936192698112580.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Network Development <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Russell King <linux@armlinux.org.uk>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        LKML <linux-kernel@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: Shubham Bansal <illusionist.neo@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Thomas.Winter@alliedtelesis.co.nz,
+        nikolay@cumulusnetworks.com, yotamg@mellanox.com,
+        idosch@mellanox.com, roopa@cumulusnetworks.com
+To: David Miller <davem@davemloft.net>, sharpd@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f170.google.com ([209.85.223.170]:36156 "EHLO
-        mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752014AbdFLCAp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2017 22:00:45 -0400
-Received: by mail-io0-f170.google.com with SMTP id y77so49768398ioe.3
-        for <netdev@vger.kernel.org>; Sun, 11 Jun 2017 19:00:45 -0700 (PDT)
-In-Reply-To: <CAHgaXdJ=-n8J8ot_5YQC=YMZrwTBvdNTp5Ta_J_J9vNGWQ4DCQ@mail.gmail.com>
+Received: from mail-pg0-f49.google.com ([74.125.83.49]:33604 "EHLO
+        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751983AbdFLCzQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2017 22:55:16 -0400
+Received: by mail-pg0-f49.google.com with SMTP id f185so40668382pgc.0
+        for <netdev@vger.kernel.org>; Sun, 11 Jun 2017 19:55:16 -0700 (PDT)
+In-Reply-To: <20170611.181556.1883936192698112580.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 6, 2017 at 12:47 PM, Shubham Bansal
-<illusionist.neo@gmail.com> wrote:
-> Hi Russell, Alexei, David, Daniel, kees,
->
-> Any update on this patch moving forward?
+On 6/11/17 4:15 PM, David Miller wrote:
+> 
+> Applied and queued up for -stable, thank you.
+> 
 
-Since this has gotten testing by various people and passes the
-existing self-tests, I think this can probably go in via the ARM patch
-tracker? Russell does that sound okay to you?
-
--Kees
-
--- 
-Kees Cook
-Pixel Security
+The backport will need bcfc7d33110b; that commit should have had the
+same Fixes tag -- e58e41596811 ("net: Enable support for VRF with ipv4
+multicast")
