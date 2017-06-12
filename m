@@ -1,116 +1,35 @@
-From: <gregkh@linuxfoundation.org>
-Subject: patch "wireless: ipw2x00: convert to use DRIVER_ATTR_RW" added to driver-core-testing
-Date: Mon, 12 Jun 2017 16:15:26 +0200
-Message-ID: <1497276926190176@kroah.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull-request: wireless-drivers-next 2017-06-12
+Date: Mon, 12 Jun 2017 10:15:51 -0400 (EDT)
+Message-ID: <20170612.101551.1401883231011186549.davem@davemloft.net>
+References: <87poe98h90.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ANSI_X3.4-1968
-Content-Transfer-Encoding: 8bit
-To: gregkh@linuxfoundation.org, kvalo@codeaurora.org,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        stas.yakovlev@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:56790 "EHLO
-        mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752310AbdFLOPk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 10:15:40 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: kvalo@codeaurora.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87poe98h90.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Kalle Valo <kvalo@codeaurora.org>
+Date: Mon, 12 Jun 2017 16:31:23 +0300
 
-This is a note to let you know that I've just added the patch titled
+> here's a pull request to net-next, more info in the tag below. But do
+> note that Stephen reported qtnfmac will fail to build with the net tree
+> due to the changes in netdev destructor:
+> 
+> https://lkml.kernel.org/r/20170608122759.7ffda0c3@canb.auug.org.au
+> 
+> So once you pull these changes AND your net tree to net-next you need to
+> apply Stephen's patch above. As of this writing there is no build
+> breakage (yet).
+> 
+> Please let me know if there are any problems.
 
-    wireless: ipw2x00: convert to use DRIVER_ATTR_RW
+Yep, I'll have to deal with that in the merge commit next time I pull
+net into net-next, thanks for reminding me.
 
-to my driver-core git tree which can be found at
-    git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/driver-core.git
-in the driver-core-testing branch.
-
-The patch will show up in the next release of the linux-next tree
-(usually sometime within the next 24 hours during the week.)
-
-The patch will be merged to the driver-core-next branch sometime soon,
-after it passes testing, and the merge window is open.
-
-If you have any questions about this process, please let me know.
-
-
->From 0457e1ae0f4b88676b0cea30ef6acff24febbbc0 Mon Sep 17 00:00:00 2001
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Date: Fri, 9 Jun 2017 11:03:10 +0200
-Subject: wireless: ipw2x00: convert to use DRIVER_ATTR_RW
-
-We are trying to get rid of DRIVER_ATTR(), and the ipw2x00 driver's
-attributes can be trivially changed to use DRIVER_ATTR_RW().
-
-Cc: Stanislav Yakovlev <stas.yakovlev@gmail.com>
-Cc: Kalle Valo <kvalo@codeaurora.org>
-Cc: <linux-wireless@vger.kernel.org>
-Cc: <netdev@vger.kernel.org>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
----
- drivers/net/wireless/intel/ipw2x00/ipw2100.c | 8 +++-----
- drivers/net/wireless/intel/ipw2x00/ipw2200.c | 8 +++-----
- 2 files changed, 6 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/wireless/intel/ipw2x00/ipw2100.c b/drivers/net/wireless/intel/ipw2x00/ipw2100.c
-index f922859acf40..aaaca4d08e2b 100644
---- a/drivers/net/wireless/intel/ipw2x00/ipw2100.c
-+++ b/drivers/net/wireless/intel/ipw2x00/ipw2100.c
-@@ -4160,12 +4160,12 @@ static ssize_t show_bssinfo(struct device *d, struct device_attribute *attr,
- static DEVICE_ATTR(bssinfo, S_IRUGO, show_bssinfo, NULL);
- 
- #ifdef CONFIG_IPW2100_DEBUG
--static ssize_t show_debug_level(struct device_driver *d, char *buf)
-+static ssize_t debug_level_show(struct device_driver *d, char *buf)
- {
- 	return sprintf(buf, "0x%08X\n", ipw2100_debug_level);
- }
- 
--static ssize_t store_debug_level(struct device_driver *d,
-+static ssize_t debug_level_store(struct device_driver *d,
- 				 const char *buf, size_t count)
- {
- 	u32 val;
-@@ -4179,9 +4179,7 @@ static ssize_t store_debug_level(struct device_driver *d,
- 
- 	return strnlen(buf, count);
- }
--
--static DRIVER_ATTR(debug_level, S_IWUSR | S_IRUGO, show_debug_level,
--		   store_debug_level);
-+static DRIVER_ATTR_RW(debug_level);
- #endif				/* CONFIG_IPW2100_DEBUG */
- 
- static ssize_t show_fatal_error(struct device *d,
-diff --git a/drivers/net/wireless/intel/ipw2x00/ipw2200.c b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-index bbc579b647b6..5b79e2ec3a16 100644
---- a/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-+++ b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-@@ -1195,12 +1195,12 @@ static void ipw_led_shutdown(struct ipw_priv *priv)
-  *
-  * See the level definitions in ipw for details.
-  */
--static ssize_t show_debug_level(struct device_driver *d, char *buf)
-+static ssize_t debug_level_show(struct device_driver *d, char *buf)
- {
- 	return sprintf(buf, "0x%08X\n", ipw_debug_level);
- }
- 
--static ssize_t store_debug_level(struct device_driver *d, const char *buf,
-+static ssize_t debug_level_store(struct device_driver *d, const char *buf,
- 				 size_t count)
- {
- 	char *p = (char *)buf;
-@@ -1221,9 +1221,7 @@ static ssize_t store_debug_level(struct device_driver *d, const char *buf,
- 
- 	return strnlen(buf, count);
- }
--
--static DRIVER_ATTR(debug_level, S_IWUSR | S_IRUGO,
--		   show_debug_level, store_debug_level);
-+static DRIVER_ATTR_RW(debug_level);
- 
- static inline u32 ipw_get_event_log_len(struct ipw_priv *priv)
- {
--- 
-2.13.1
+Pulled, thanks.
