@@ -1,80 +1,371 @@
-From: Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH 0/6] Constant Time Memory Comparisons Are Important
-Date: Mon, 12 Jun 2017 09:33:24 +0200
-Message-ID: <5595d4bc-a43e-7a89-eb86-fa77556cd7af@broadcom.com>
-References: <20170610025912.6499-1-Jason@zx2c4.com>
- <878tkzq6wi.fsf@purkki.adurom.net>
- <CAGXu5jKp=X7-eKo+HgzS3uqncx5yy-u=tJNqV9K8GOgJ=-C7iA@mail.gmail.com>
- <CANUX_P2b0Bx+-E_OBQ0reGW0=d6819qc=r83K0kTv0xMo8mtLQ@mail.gmail.com>
- <CAO1O6see6yDr-hDVNPi9Kv9wO6p-98w7YhsnnwnVOVCSEGVksw@mail.gmail.com>
+From: Yuval Shaia <yuval.shaia@oracle.com>
+Subject: [PATCH v1] net/phy: Make phy_ethtool_ksettings_get return void
+Date: Mon, 12 Jun 2017 10:42:33 +0300
+Message-ID: <20170612074233.8688-1-yuval.shaia@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        "Jason A. Donenfeld" <Jason-OnJsPKxuuEcAvxtiuMwx3w@public.gmane.org>,
-        LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "kernel-hardening-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org"
-        <kernel-hardening-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org>,
-        Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-        David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        David Safford <safford-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Gilad Ben-Yossef <gilad-6S/DczAoZh3WXxRugSxzZg@public.gmane.org>,
-        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-        Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-        "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-        Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
-        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-        Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-        Mimi Zohar <zohar-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-To: Emil Lenngren <emil.lenngren-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAO1O6see6yDr-hDVNPi9Kv9wO6p-98w7YhsnnwnVOVCSEGVksw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Language: en-GB
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: michael.chan@broadcom.com, f.fainelli@gmail.com, siva.kallam@broadcom.com,
+ prashant@broadcom.com, madalin.bucur@nxp.com, leoli@freescale.com,
+ sebastian.hesselbarth@gmail.com, sergei.shtylyov@cogentembedded.com,
+ grygorii.strashko@ti.com, w-kwok2@ti.com, m-karicheri2@ti.com,
+ andrew@lunn.ch, woojung.huh@microchip.com,
+ UNGLinuxDriver@microchip.com, vivien.didelot@savoirfairelinux.com,
+ davem@davemloft.net, arnd@arndb.de, tremyfr@gmail.com,
+ jarod@redhat.com, yuval.shaia@oracle.com, horms+renesas@verge.net.au,
+ kazuya.mizuguchi.ks@renesas.com, dan.carpenter@oracle.com,
+ niklas.soderlund+renesas@ragnatech.se, johan@kernel.org,
+ masaru.nagai.vx@renesas.com, geert+renesas@glider.be,
+ laurent.pinchart@ideasonboard.com, chris.brandt@renesas.com,
+ ivan.khoronzhuk@linaro.org, mugunthanvnm@ti.com,
+ netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ linuxppc-dev@lists.ozlabs.org,
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On 6/11/2017 11:30 PM, Emil Lenngren wrote:
-> 2017-06-11 22:48 GMT+02:00 Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
->> On Sun, Jun 11, 2017 at 4:36 PM, Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org> wrote:
->>>
->>> On Sun, Jun 11, 2017 at 1:13 AM, Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org> wrote:
->>>> "Jason A. Donenfeld" <Jason-OnJsPKxuuEcAvxtiuMwx3w@public.gmane.org> writes:
->>>>
->>>>> Whenever you're comparing two MACs, it's important to do this using
->>>>> crypto_memneq instead of memcmp. With memcmp, you leak timing information,
->>>>> which could then be used to iteratively forge a MAC.
->>>>
->>>> Do you have any pointers where I could learn more about this?
->>>
->>> While not using C specifically, this talks about the problem generally:
->>> https://www.chosenplaintext.ca/articles/beginners-guide-constant-time-cryptography.html
->>>
->>
->> Sorry for the stupid question, but the MAC address is in plaintext in
->> the air anyway or easily accessible via user space tools. I fail to
->> see what it is so secret about a MAC address in that code where that
->> same MAC address is accessible via myriads of ways.
-> 
-> I think you're mixing up Media Access Control (MAC) addresses with
-> Message Authentication Code (MAC). The second one is a cryptographic
-> signature of a message.
+Make return value void since function never return meaningfull value
 
-While this may be obvious to those who are in the know this mixup is 
-easily made outside the crypto domain and especially in the (wireless) 
-networking domain (my mind wandered towards the same error path). As 
-this series is touching stuff outside crypto it is good to be explicit 
-and not use such abbreviations that can be misinterpreted. The article 
-Kees referred to is also useful to get into the proper context here and 
-at least worth mentioning this or other useful references in the cover 
-letter.
+Signed-off-by: Yuval Shaia <yuval.shaia@oracle.com>
+Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+---
+Re-sending since last time forgot to add netdev-list
+v0 ->v1:
+	* These files were missing in v0
+		* drivers/net/ethernet/renesas/ravb_main.c
+		* drivers/net/ethernet/renesas/sh_eth.c
+		* drivers/net/ethernet/ti/netcp_ethss.c
+	* Add Acked-by: Sergei Shtylyov
+---
+ drivers/net/ethernet/broadcom/b44.c                |  3 ++-
+ drivers/net/ethernet/broadcom/bcm63xx_enet.c       |  3 ++-
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c     |  4 +++-
+ drivers/net/ethernet/broadcom/tg3.c                |  4 +++-
+ drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c |  6 ++----
+ drivers/net/ethernet/freescale/ucc_geth_ethtool.c  |  4 +++-
+ drivers/net/ethernet/marvell/mv643xx_eth.c         |  5 ++---
+ drivers/net/ethernet/renesas/ravb_main.c           | 14 +++++++-------
+ drivers/net/ethernet/renesas/sh_eth.c              |  5 ++---
+ drivers/net/ethernet/ti/cpsw.c                     |  9 +++++----
+ drivers/net/ethernet/ti/netcp_ethss.c              |  8 +++-----
+ drivers/net/phy/phy.c                              | 10 +++++-----
+ drivers/net/usb/lan78xx.c                          |  2 +-
+ include/linux/phy.h                                |  4 ++--
+ net/dsa/slave.c                                    |  9 +++++----
+ 15 files changed, 47 insertions(+), 43 deletions(-)
 
-Regards,
-Arend
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
+index 5b95bb4..9873d2d 100644
+--- a/drivers/net/ethernet/broadcom/b44.c
++++ b/drivers/net/ethernet/broadcom/b44.c
+@@ -1836,7 +1836,8 @@ static int b44_get_link_ksettings(struct net_device *dev,
+ 
+ 	if (bp->flags & B44_FLAG_EXTERNAL_PHY) {
+ 		BUG_ON(!dev->phydev);
+-		return phy_ethtool_ksettings_get(dev->phydev, cmd);
++		phy_ethtool_ksettings_get(dev->phydev, cmd);
++		return 0;
+ 	}
+ 
+ 	supported = (SUPPORTED_Autoneg);
+diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+index 50d88d3..34ebb40 100644
+--- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
++++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+@@ -1453,7 +1453,8 @@ static int bcm_enet_get_link_ksettings(struct net_device *dev,
+ 	if (priv->has_phy) {
+ 		if (!dev->phydev)
+ 			return -ENODEV;
+-		return phy_ethtool_ksettings_get(dev->phydev, cmd);
++		phy_ethtool_ksettings_get(dev->phydev, cmd);
++		return 0;
+ 	} else {
+ 		cmd->base.autoneg = 0;
+ 		cmd->base.speed = (priv->force_speed_100) ?
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index a205a9f..daca1c9 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -477,7 +477,9 @@ static int bcmgenet_get_link_ksettings(struct net_device *dev,
+ 	if (!priv->phydev)
+ 		return -ENODEV;
+ 
+-	return phy_ethtool_ksettings_get(priv->phydev, cmd);
++	phy_ethtool_ksettings_get(priv->phydev, cmd);
++
++	return 0;
+ }
+ 
+ static int bcmgenet_set_link_ksettings(struct net_device *dev,
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 537d571..d600c41 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -12097,7 +12097,9 @@ static int tg3_get_link_ksettings(struct net_device *dev,
+ 		if (!(tp->phy_flags & TG3_PHYFLG_IS_CONNECTED))
+ 			return -EAGAIN;
+ 		phydev = mdiobus_get_phy(tp->mdio_bus, tp->phy_addr);
+-		return phy_ethtool_ksettings_get(phydev, cmd);
++		phy_ethtool_ksettings_get(phydev, cmd);
++
++		return 0;
+ 	}
+ 
+ 	supported = (SUPPORTED_Autoneg);
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c b/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
+index 15571e2..aad825088 100644
+--- a/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
+@@ -75,16 +75,14 @@ static char dpaa_stats_global[][ETH_GSTRING_LEN] = {
+ static int dpaa_get_link_ksettings(struct net_device *net_dev,
+ 				   struct ethtool_link_ksettings *cmd)
+ {
+-	int err;
+-
+ 	if (!net_dev->phydev) {
+ 		netdev_dbg(net_dev, "phy device not initialized\n");
+ 		return 0;
+ 	}
+ 
+-	err = phy_ethtool_ksettings_get(net_dev->phydev, cmd);
++	phy_ethtool_ksettings_get(net_dev->phydev, cmd);
+ 
+-	return err;
++	return 0;
+ }
+ 
+ static int dpaa_set_link_ksettings(struct net_device *net_dev,
+diff --git a/drivers/net/ethernet/freescale/ucc_geth_ethtool.c b/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
+index b642990..4df282e 100644
+--- a/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
++++ b/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
+@@ -113,7 +113,9 @@ uec_get_ksettings(struct net_device *netdev, struct ethtool_link_ksettings *cmd)
+ 	if (!phydev)
+ 		return -ENODEV;
+ 
+-	return phy_ethtool_ksettings_get(phydev, cmd);
++	phy_ethtool_ksettings_get(phydev, cmd);
++
++	return 0;
+ }
+ 
+ static int
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index 25642de..5794d98 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -1501,10 +1501,9 @@ mv643xx_eth_get_link_ksettings_phy(struct mv643xx_eth_private *mp,
+ 				   struct ethtool_link_ksettings *cmd)
+ {
+ 	struct net_device *dev = mp->dev;
+-	int err;
+ 	u32 supported, advertising;
+ 
+-	err = phy_ethtool_ksettings_get(dev->phydev, cmd);
++	phy_ethtool_ksettings_get(dev->phydev, cmd);
+ 
+ 	/*
+ 	 * The MAC does not support 1000baseT_Half.
+@@ -1520,7 +1519,7 @@ mv643xx_eth_get_link_ksettings_phy(struct mv643xx_eth_private *mp,
+ 	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
+ 						advertising);
+ 
+-	return err;
++	return 0;
+ }
+ 
+ static int
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index 3cd7989..9b8e210 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -1076,16 +1076,16 @@ static int ravb_get_link_ksettings(struct net_device *ndev,
+ 				   struct ethtool_link_ksettings *cmd)
+ {
+ 	struct ravb_private *priv = netdev_priv(ndev);
+-	int error = -ENODEV;
+ 	unsigned long flags;
+ 
+-	if (ndev->phydev) {
+-		spin_lock_irqsave(&priv->lock, flags);
+-		error = phy_ethtool_ksettings_get(ndev->phydev, cmd);
+-		spin_unlock_irqrestore(&priv->lock, flags);
+-	}
++	if (!ndev->phydev)
++		return -ENODEV;
+ 
+-	return error;
++	spin_lock_irqsave(&priv->lock, flags);
++	phy_ethtool_ksettings_get(ndev->phydev, cmd);
++	spin_unlock_irqrestore(&priv->lock, flags);
++
++	return 0;
+ }
+ 
+ static int ravb_set_link_ksettings(struct net_device *ndev,
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index 2d686cc..b2f0cea 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -1915,16 +1915,15 @@ static int sh_eth_get_link_ksettings(struct net_device *ndev,
+ {
+ 	struct sh_eth_private *mdp = netdev_priv(ndev);
+ 	unsigned long flags;
+-	int ret;
+ 
+ 	if (!ndev->phydev)
+ 		return -ENODEV;
+ 
+ 	spin_lock_irqsave(&mdp->lock, flags);
+-	ret = phy_ethtool_ksettings_get(ndev->phydev, cmd);
++	phy_ethtool_ksettings_get(ndev->phydev, cmd);
+ 	spin_unlock_irqrestore(&mdp->lock, flags);
+ 
+-	return ret;
++	return 0;
+ }
+ 
+ static int sh_eth_set_link_ksettings(struct net_device *ndev,
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index f4d7aec..03707ee 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -2165,11 +2165,12 @@ static int cpsw_get_link_ksettings(struct net_device *ndev,
+ 	struct cpsw_common *cpsw = priv->cpsw;
+ 	int slave_no = cpsw_slave_index(cpsw, priv);
+ 
+-	if (cpsw->slaves[slave_no].phy)
+-		return phy_ethtool_ksettings_get(cpsw->slaves[slave_no].phy,
+-						 ecmd);
+-	else
++	if (cpsw->slaves[slave_no].phy) {
++		phy_ethtool_ksettings_get(cpsw->slaves[slave_no].phy, ecmd);
++		return 0;
++	} else {
+ 		return -EOPNOTSUPP;
++	}
+ }
+ 
+ static int cpsw_set_link_ksettings(struct net_device *ndev,
+diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
+index dd92950..0847a8f 100644
+--- a/drivers/net/ethernet/ti/netcp_ethss.c
++++ b/drivers/net/ethernet/ti/netcp_ethss.c
+@@ -1927,7 +1927,6 @@ static int keystone_get_link_ksettings(struct net_device *ndev,
+ 	struct netcp_intf *netcp = netdev_priv(ndev);
+ 	struct phy_device *phy = ndev->phydev;
+ 	struct gbe_intf *gbe_intf;
+-	int ret;
+ 
+ 	if (!phy)
+ 		return -EINVAL;
+@@ -1939,11 +1938,10 @@ static int keystone_get_link_ksettings(struct net_device *ndev,
+ 	if (!gbe_intf->slave)
+ 		return -EINVAL;
+ 
+-	ret = phy_ethtool_ksettings_get(phy, cmd);
+-	if (!ret)
+-		cmd->base.port = gbe_intf->slave->phy_port_t;
++	phy_ethtool_ksettings_get(phy, cmd);
++	cmd->base.port = gbe_intf->slave->phy_port_t;
+ 
+-	return ret;
++	return 0;
+ }
+ 
+ static int keystone_set_link_ksettings(struct net_device *ndev,
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 82ab8fb..9c372bf 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -508,8 +508,8 @@ int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd)
+ }
+ EXPORT_SYMBOL(phy_ethtool_gset);
+ 
+-int phy_ethtool_ksettings_get(struct phy_device *phydev,
+-			      struct ethtool_link_ksettings *cmd)
++void phy_ethtool_ksettings_get(struct phy_device *phydev,
++			       struct ethtool_link_ksettings *cmd)
+ {
+ 	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
+ 						phydev->supported);
+@@ -531,8 +531,6 @@ int phy_ethtool_ksettings_get(struct phy_device *phydev,
+ 	cmd->base.autoneg = phydev->autoneg;
+ 	cmd->base.eth_tp_mdix_ctrl = phydev->mdix_ctrl;
+ 	cmd->base.eth_tp_mdix = phydev->mdix;
+-
+-	return 0;
+ }
+ EXPORT_SYMBOL(phy_ethtool_ksettings_get);
+ 
+@@ -1448,7 +1446,9 @@ int phy_ethtool_get_link_ksettings(struct net_device *ndev,
+ 	if (!phydev)
+ 		return -ENODEV;
+ 
+-	return phy_ethtool_ksettings_get(phydev, cmd);
++	phy_ethtool_ksettings_get(phydev, cmd);
++
++	return 0;
+ }
+ EXPORT_SYMBOL(phy_ethtool_get_link_ksettings);
+ 
+diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
+index 9eff97a..5833f7e 100644
+--- a/drivers/net/usb/lan78xx.c
++++ b/drivers/net/usb/lan78xx.c
+@@ -1490,7 +1490,7 @@ static int lan78xx_get_link_ksettings(struct net_device *net,
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = phy_ethtool_ksettings_get(phydev, cmd);
++	phy_ethtool_ksettings_get(phydev, cmd);
+ 
+ 	usb_autopm_put_interface(dev->intf);
+ 
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index e76e4ad..4ec07a6 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -844,8 +844,8 @@ void phy_stop_machine(struct phy_device *phydev);
+ void phy_trigger_machine(struct phy_device *phydev, bool sync);
+ int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd);
+ int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd);
+-int phy_ethtool_ksettings_get(struct phy_device *phydev,
+-			      struct ethtool_link_ksettings *cmd);
++void phy_ethtool_ksettings_get(struct phy_device *phydev,
++			       struct ethtool_link_ksettings *cmd);
+ int phy_ethtool_ksettings_set(struct phy_device *phydev,
+ 			      const struct ethtool_link_ksettings *cmd);
+ int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd);
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 7693182..ba9f78b 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -689,12 +689,13 @@ dsa_slave_get_link_ksettings(struct net_device *dev,
+ 			     struct ethtool_link_ksettings *cmd)
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+-	int err = -EOPNOTSUPP;
+ 
+-	if (p->phy != NULL)
+-		err = phy_ethtool_ksettings_get(p->phy, cmd);
++	if (!p->phy)
++		return -EOPNOTSUPP;
+ 
+-	return err;
++	phy_ethtool_ksettings_get(p->phy, cmd);
++
++	return 0;
+ }
+ 
+ static int
+-- 
+2.9.4
