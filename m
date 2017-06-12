@@ -1,391 +1,90 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: [PATCH v3 7/9] net: mvmdio: add xmdio xsmi support
-Date: Mon, 12 Jun 2017 11:42:50 +0100
-Message-ID: <20170612104250.GB10223@n2100.armlinux.org.uk>
-References: <20170612095745.11300-1-antoine.tenart@free-electrons.com>
- <20170612095745.11300-8-antoine.tenart@free-electrons.com>
- <20170612101739.GA4902@n2100.armlinux.org.uk>
- <20170612104126.GB4902@n2100.armlinux.org.uk>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH v4 0/3] Add new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+Date: Mon, 12 Jun 2017 19:05:22 +0800
+Message-ID: <1497265525-4752-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: thomas.petazzoni@free-electrons.com, andrew@lunn.ch,
-        f.fainelli@gmail.com, jason@lakedaemon.net, netdev@vger.kernel.org,
-        nadavh@marvell.com, gregory.clement@free-electrons.com,
-        mw@semihalf.com, davem@davemloft.net,
-        linux-arm-kernel@lists.infradead.org,
-        sebastian.hesselbarth@gmail.com
-To: Antoine Tenart <antoine.tenart@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:37104 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752010AbdFLKnD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 06:43:03 -0400
-Content-Disposition: inline
-In-Reply-To: <20170612104126.GB4902@n2100.armlinux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Ding Tianhong <dingtianhong@huawei.com>
+To: <leedom@chelsio.com>, <ashok.raj@intel.com>, <helgaas@kernel.org>,
+        <werner@chelsio.com>, <ganeshgr@chelsio.com>,
+        <asit.k.mallick@intel.com>, <patrick.j.cramer@intel.com>,
+        <Suravee.Suthikulpanit@amd.com>, <Bob.Shaw@amd.com>,
+        <l.stach@pengutronix.de>, <amira@mellanox.com>,
+        <gabriele.paoloni@huawei.com>, <David.Laight@aculab.com>,
+        <jeffrey.t.kirsher@intel.com>, <catalin.marinas@arm.com>,
+        <will.deacon@arm.com>, <mark.rutland@arm.com>,
+        <robin.murphy@arm.com>, <davem@davemloft.net>,
+        <alexander.duyck@gmail.com>,
+        <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+        <linux-pci@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Russell King <rmk+kernel@armlinux.org.uk>
-Subject: [PATCH 2/2] net: mvmdio: get rid of fine-grained ops
-MIME-Version: 1.0
-Content-Disposition: inline
-Content-Transfer-Encoding: 8bit
-Content-Type: text/plain; charset="utf-8"
+Some devices have problems with Transaction Layer Packets with the Relaxed
+Ordering Attribute set.  This patch set adds a new PCIe Device Flag,
+PCI_DEV_FLAGS_NO_RELAXED_ORDERING, a set of PCI Quirks to catch some known
+devices with Relaxed Ordering issues, and a use of this new flag by the
+cxgb4 driver to avoid using Relaxed Ordering with problematic Root Complex
+Ports.
 
-The fine-grained ops makes the driver less readable, so let's instead
-implement two pairs of read/write mii_bus ops, one for SMI and the
-other for XSMI.
+It's been years since I've submitted kernel.org patches, I appolgise for the
+almost certain submission errors.
 
-Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
----
- drivers/net/ethernet/marvell/mvmdio.c | 268 ++++++++++++++++------------------
- 1 file changed, 124 insertions(+), 144 deletions(-)
+v2: Alexander point out that the v1 was only a part of the whole solution,
+    some platform which has some issues could use the new flag to indicate
+    that it is not safe to enable relaxed ordering attribute, then we need
+    to clear the relaxed ordering enable bits in the PCI configuration when
+    initializing the device. So add a new second patch to modify the PCI
+    initialization code to clear the relaxed ordering enable bit in the
+    event that the root complex doesn't want relaxed ordering enabled.
 
-diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-index d6770217965e..d04022db8619 100644
---- a/drivers/net/ethernet/marvell/mvmdio.c
-+++ b/drivers/net/ethernet/marvell/mvmdio.c
-@@ -84,123 +84,11 @@ struct orion_mdio_dev {
- 
- struct orion_mdio_ops {
- 	int (*is_done)(struct orion_mdio_dev *);
--	int (*is_read_valid)(struct orion_mdio_dev *);
--	void (*start_read)(struct orion_mdio_dev *, int, int);
--	u16 (*read)(struct orion_mdio_dev *);
--	void (*write)(struct orion_mdio_dev *, int, int, u16);
- 
- 	unsigned int poll_interval_min;
- 	unsigned int poll_interval_max;
- };
- 
--/* mdio smi */
--static int orion_mdio_smi_is_done(struct orion_mdio_dev *dev)
--{
--	return !(readl(dev->regs) & MVMDIO_SMI_BUSY);
--}
--
--static int orion_mdio_smi_is_read_valid(struct orion_mdio_dev *dev)
--{
--	return readl(dev->regs) & MVMDIO_SMI_READ_VALID;
--}
--
--static void orion_mdio_smi_start_read_op(struct orion_mdio_dev *dev, int mii_id,
--					 int regnum)
--{
--	writel(((mii_id << MVMDIO_SMI_PHY_ADDR_SHIFT) |
--		(regnum << MVMDIO_SMI_PHY_REG_SHIFT)  |
--		MVMDIO_SMI_READ_OPERATION),
--	       dev->regs);
--}
--
--static u16 orion_mdio_smi_read_op(struct orion_mdio_dev *dev)
--{
--	return readl(dev->regs) & GENMASK(15, 0);
--}
--
--static void orion_mdio_smi_write_op(struct orion_mdio_dev *dev, int mii_id,
--				    int regnum, u16 value)
--{
--	writel(((mii_id << MVMDIO_SMI_PHY_ADDR_SHIFT) |
--		(regnum << MVMDIO_SMI_PHY_REG_SHIFT)  |
--		MVMDIO_SMI_WRITE_OPERATION            |
--		(value << MVMDIO_SMI_DATA_SHIFT)),
--	       dev->regs);
--}
--
--static const struct orion_mdio_ops orion_mdio_smi_ops = {
--	.is_done = orion_mdio_smi_is_done,
--	.is_read_valid = orion_mdio_smi_is_read_valid,
--	.start_read = orion_mdio_smi_start_read_op,
--	.read = orion_mdio_smi_read_op,
--	.write = orion_mdio_smi_write_op,
--
--	.poll_interval_min = MVMDIO_SMI_POLL_INTERVAL_MIN,
--	.poll_interval_max = MVMDIO_SMI_POLL_INTERVAL_MAX,
--};
--
--/* xmdio xsmi */
--static int orion_mdio_xsmi_is_done(struct orion_mdio_dev *dev)
--{
--	return !(readl(dev->regs + MVMDIO_XSMI_MGNT_REG) & MVMDIO_XSMI_BUSY);
--}
--
--static int orion_mdio_xsmi_is_read_valid(struct orion_mdio_dev *dev)
--{
--	return readl(dev->regs + MVMDIO_XSMI_MGNT_REG) & MVMDIO_XSMI_READ_VALID;
--}
--
--static void orion_mdio_xsmi_start_read_op(struct orion_mdio_dev *dev,
--					  int mii_id, int regnum)
--{
--	u16 dev_addr = (regnum >> 16) & GENMASK(4, 0);
--
--	writel(regnum & GENMASK(15, 0), dev->regs + MVMDIO_XSMI_ADDR_REG);
--	writel((mii_id << MVMDIO_XSMI_PHYADDR_SHIFT) |
--	       (dev_addr << MVMDIO_XSMI_DEVADDR_SHIFT) |
--	       MVMDIO_XSMI_READ_OPERATION,
--	       dev->regs + MVMDIO_XSMI_MGNT_REG);
--}
--
--static u16 orion_mdio_xsmi_read_op(struct orion_mdio_dev *dev)
--{
--	return readl(dev->regs + MVMDIO_XSMI_MGNT_REG) & GENMASK(15, 0);
--}
--
--static void orion_mdio_xsmi_write_op(struct orion_mdio_dev *dev, int mii_id,
--				     int regnum, u16 value)
--{
--	u16 dev_addr = (regnum >> 16) & GENMASK(4, 0);
--
--	writel(regnum & GENMASK(15, 0), dev->regs + MVMDIO_XSMI_ADDR_REG);
--	writel((mii_id << MVMDIO_XSMI_PHYADDR_SHIFT) |
--	       (dev_addr << MVMDIO_XSMI_DEVADDR_SHIFT) |
--	       MVMDIO_XSMI_WRITE_OPERATION | value,
--	       dev->regs + MVMDIO_XSMI_MGNT_REG);
--}
--
--static const struct orion_mdio_ops orion_mdio_xsmi_ops = {
--	.is_done = orion_mdio_xsmi_is_done,
--	.is_read_valid = orion_mdio_xsmi_is_read_valid,
--	.start_read = orion_mdio_xsmi_start_read_op,
--	.read = orion_mdio_xsmi_read_op,
--	.write = orion_mdio_xsmi_write_op,
--
--	.poll_interval_min = MVMDIO_XSMI_POLL_INTERVAL_MIN,
--	.poll_interval_max = MVMDIO_XSMI_POLL_INTERVAL_MAX,
--};
--
--static const struct orion_mdio_ops *orion_mdio_get_ops(struct orion_mdio_dev *dev,
--						       int regnum)
--{
--	if (dev->bus_type == BUS_TYPE_XSMI && (regnum & MII_ADDR_C45))
--		return &orion_mdio_xsmi_ops;
--	else if (dev->bus_type == BUS_TYPE_SMI)
--		return &orion_mdio_smi_ops;
--
--	return ERR_PTR(-EOPNOTSUPP);
--}
--
- /* Wait for the SMI unit to be ready for another operation
-  */
- static int orion_mdio_wait_ready(const struct orion_mdio_ops *ops,
-@@ -241,57 +129,138 @@ static int orion_mdio_wait_ready(const struct orion_mdio_ops *ops,
- 	return  -ETIMEDOUT;
- }
- 
--static int orion_mdio_read(struct mii_bus *bus, int mii_id,
--			   int regnum)
-+/* mdio smi */
-+static int orion_mdio_smi_is_done(struct orion_mdio_dev *dev)
-+{
-+	return !(readl(dev->regs) & MVMDIO_SMI_BUSY);
-+}
-+
-+static const struct orion_mdio_ops orion_mdio_smi_ops = {
-+	.is_done = orion_mdio_smi_is_done,
-+
-+	.poll_interval_min = MVMDIO_SMI_POLL_INTERVAL_MIN,
-+	.poll_interval_max = MVMDIO_SMI_POLL_INTERVAL_MAX,
-+};
-+
-+static int orion_mdio_smi_read(struct mii_bus *bus, int mii_id,
-+			       int regnum)
- {
- 	struct orion_mdio_dev *dev = bus->priv;
--	const struct orion_mdio_ops *ops;
- 	int ret;
- 
--	ops = orion_mdio_get_ops(dev, regnum);
--	if (IS_ERR(ops))
--		return PTR_ERR(ops);
-+	if (regnum & MII_ADDR_C45)
-+		return -EOPNOTSUPP;
- 
--	ret = orion_mdio_wait_ready(ops, bus);
-+	ret = orion_mdio_wait_ready(&orion_mdio_smi_ops, bus);
- 	if (ret < 0)
--		goto out;
-+		return ret;
- 
--	ops->start_read(dev, mii_id, regnum);
-+	writel(((mii_id << MVMDIO_SMI_PHY_ADDR_SHIFT) |
-+		(regnum << MVMDIO_SMI_PHY_REG_SHIFT)  |
-+		MVMDIO_SMI_READ_OPERATION),
-+	       dev->regs);
- 
--	ret = orion_mdio_wait_ready(ops, bus);
-+	ret = orion_mdio_wait_ready(&orion_mdio_smi_ops, bus);
- 	if (ret < 0)
--		goto out;
-+		return ret;
- 
--	if (!ops->is_read_valid(dev)) {
-+	if (!(readl(dev->regs) & MVMDIO_SMI_READ_VALID)) {
- 		dev_err(bus->parent, "SMI bus read not valid\n");
--		ret = -ENODEV;
--		goto out;
-+		return -ENODEV;
- 	}
- 
--	ret = ops->read(dev);
--out:
--	return ret;
-+	return readl(dev->regs) & GENMASK(15, 0);
- }
- 
--static int orion_mdio_write(struct mii_bus *bus, int mii_id,
--			    int regnum, u16 value)
-+static int orion_mdio_smi_write(struct mii_bus *bus, int mii_id,
-+				int regnum, u16 value)
- {
- 	struct orion_mdio_dev *dev = bus->priv;
--	const struct orion_mdio_ops *ops;
- 	int ret;
- 
--	ops = orion_mdio_get_ops(dev, regnum);
--	if (IS_ERR(ops))
--		return PTR_ERR(ops);
-+	if (regnum & MII_ADDR_C45)
-+		return -EOPNOTSUPP;
- 
--	ret = orion_mdio_wait_ready(ops, bus);
-+	ret = orion_mdio_wait_ready(&orion_mdio_smi_ops, bus);
- 	if (ret < 0)
--		goto out;
-+		return ret;
-+
-+	writel(((mii_id << MVMDIO_SMI_PHY_ADDR_SHIFT) |
-+		(regnum << MVMDIO_SMI_PHY_REG_SHIFT)  |
-+		MVMDIO_SMI_WRITE_OPERATION            |
-+		(value << MVMDIO_SMI_DATA_SHIFT)),
-+	       dev->regs);
- 
--	ops->write(dev, mii_id, regnum, value);
-+	return 0;
-+}
- 
--out:
--	return ret;
-+/* xmdio xsmi */
-+static int orion_mdio_xsmi_is_done(struct orion_mdio_dev *dev)
-+{
-+	return !(readl(dev->regs + MVMDIO_XSMI_MGNT_REG) & MVMDIO_XSMI_BUSY);
-+}
-+
-+static const struct orion_mdio_ops orion_mdio_xsmi_ops = {
-+	.is_done = orion_mdio_xsmi_is_done,
-+
-+	.poll_interval_min = MVMDIO_XSMI_POLL_INTERVAL_MIN,
-+	.poll_interval_max = MVMDIO_XSMI_POLL_INTERVAL_MAX,
-+};
-+
-+static int orion_mdio_xsmi_read(struct mii_bus *bus, int mii_id,
-+				int regnum)
-+{
-+	struct orion_mdio_dev *dev = bus->priv;
-+	u16 dev_addr = (regnum >> 16) & GENMASK(4, 0);
-+	int ret;
-+
-+	if (!(regnum & MII_ADDR_C45))
-+		return -EOPNOTSUPP;
-+
-+	ret = orion_mdio_wait_ready(&orion_mdio_xsmi_ops, bus);
-+	if (ret < 0)
-+		return ret;
-+
-+	writel(regnum & GENMASK(15, 0), dev->regs + MVMDIO_XSMI_ADDR_REG);
-+	writel((mii_id << MVMDIO_XSMI_PHYADDR_SHIFT) |
-+	       (dev_addr << MVMDIO_XSMI_DEVADDR_SHIFT) |
-+	       MVMDIO_XSMI_READ_OPERATION,
-+	       dev->regs + MVMDIO_XSMI_MGNT_REG);
-+
-+	ret = orion_mdio_wait_ready(&orion_mdio_xsmi_ops, bus);
-+	if (ret < 0)
-+		return ret;
-+
-+	if (!(readl(dev->regs + MVMDIO_XSMI_MGNT_REG) &
-+	      MVMDIO_XSMI_READ_VALID)) {
-+		dev_err(bus->parent, "XSMI bus read not valid\n");
-+		return -ENODEV;
-+	}
-+
-+	return readl(dev->regs + MVMDIO_XSMI_MGNT_REG) & GENMASK(15, 0);
-+}
-+
-+static int orion_mdio_xsmi_write(struct mii_bus *bus, int mii_id,
-+				int regnum, u16 value)
-+{
-+	struct orion_mdio_dev *dev = bus->priv;
-+	u16 dev_addr = (regnum >> 16) & GENMASK(4, 0);
-+	int ret;
-+
-+	if (!(regnum & MII_ADDR_C45))
-+		return -EOPNOTSUPP;
-+
-+	ret = orion_mdio_wait_ready(&orion_mdio_xsmi_ops, bus);
-+	if (ret < 0)
-+		return ret;
-+
-+	writel(regnum & GENMASK(15, 0), dev->regs + MVMDIO_XSMI_ADDR_REG);
-+	writel((mii_id << MVMDIO_XSMI_PHYADDR_SHIFT) |
-+	       (dev_addr << MVMDIO_XSMI_DEVADDR_SHIFT) |
-+	       MVMDIO_XSMI_WRITE_OPERATION | value,
-+	       dev->regs + MVMDIO_XSMI_MGNT_REG);
-+
-+	return 0;
- }
- 
- static irqreturn_t orion_mdio_err_irq(int irq, void *dev_id)
-@@ -311,11 +280,14 @@ static irqreturn_t orion_mdio_err_irq(int irq, void *dev_id)
- 
- static int orion_mdio_probe(struct platform_device *pdev)
- {
-+	enum orion_mdio_bus_type type;
- 	struct resource *r;
- 	struct mii_bus *bus;
- 	struct orion_mdio_dev *dev;
- 	int i, ret;
- 
-+	type = (enum orion_mdio_bus_type)of_device_get_match_data(&pdev->dev);
-+
- 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	if (!r) {
- 		dev_err(&pdev->dev, "No SMI register address given\n");
-@@ -328,8 +300,17 @@ static int orion_mdio_probe(struct platform_device *pdev)
- 		return -ENOMEM;
- 
- 	bus->name = "orion_mdio_bus";
--	bus->read = orion_mdio_read;
--	bus->write = orion_mdio_write;
-+
-+	switch (type) {
-+	case BUS_TYPE_SMI:
-+		bus->read = orion_mdio_smi_read;
-+		bus->write = orion_mdio_smi_write;
-+		break;
-+	case BUS_TYPE_XSMI:
-+		bus->read = orion_mdio_xsmi_read;
-+		bus->write = orion_mdio_xsmi_write;
-+		break;
-+	}
- 	snprintf(bus->id, MII_BUS_ID_SIZE, "%s-mii",
- 		 dev_name(&pdev->dev));
- 	bus->parent = &pdev->dev;
-@@ -371,8 +352,7 @@ static int orion_mdio_probe(struct platform_device *pdev)
- 		return -EPROBE_DEFER;
- 	}
- 
--	dev->bus_type =
--		(enum orion_mdio_bus_type)of_device_get_match_data(&pdev->dev);
-+	dev->bus_type = type;
- 
- 	if (pdev->dev.of_node)
- 		ret = of_mdiobus_register(bus, pdev->dev.of_node);
--- 
-2.7.4
+    The third patch was base on the v1's second patch and only be changed
+    to query the relaxed ordering enable bit in the PCI configuration space
+    to allow the Chelsio NIC to send TLPs with the relaxed ordering attributes
+    set.
 
+    This version didn't plan to drop the defines for Intel Drivers to use the
+    new checking way to enable relaxed ordering because it is not the hardest
+    part of the moment, we could fix it in next patchset when this patches
+    reach the goal.  
+
+v3: Redesigned the logic for pci_configure_relaxed_ordering when configuration,
+    If a PCIe device didn't enable the relaxed ordering attribute default,
+    we should not do anything in the PCIe configuration, otherwise we
+    should check if any of the devices above us do not support relaxed
+    ordering by the PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag, then base on
+    the result if we get a return that indicate that the relaxed ordering
+    is not supported we should update our device to disable relaxed ordering
+    in configuration space. If the device above us doesn't exist or isn't
+    the PCIe device, we shouldn't do anything and skip updating relaxed ordering
+    because we are probably running in a guest.
+
+v4: Rename the functions pcie_get_relaxed_ordering and pcie_disable_relaxed_ordering
+    according John's suggestion, and modify the description, use the true/false
+    as the return value.
+
+    We shouldn't enable relaxed ordering attribute by the setting in the root
+    complex configuration space for PCIe device, so fix it for cxgb4.
+
+    Fix some format issues.
+
+Casey Leedom (2):
+  PCI: Add new PCIe Fabric End Node flag,
+    PCI_DEV_FLAGS_NO_RELAXED_ORDERING
+  net/cxgb4: Use new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+
+Ding Tianhong (1):
+  PCI: Enable PCIe Relaxed Ordering if supported
+
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  1 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 17 ++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        |  5 +--
+ drivers/pci/pci.c                               | 32 +++++++++++++++++++
+ drivers/pci/probe.c                             | 41 +++++++++++++++++++++++++
+ drivers/pci/quirks.c                            | 38 +++++++++++++++++++++++
+ include/linux/pci.h                             |  4 +++
+ 7 files changed, 136 insertions(+), 2 deletions(-)
 
 -- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+1.9.0
