@@ -1,31 +1,43 @@
-From: "IT Department" <jijeesh.m@muthoottumini.com>
-Subject: Alert
-Date: Mon, 12 Jun 2017 01:25:36 +0100
-Message-ID: <20170612003030.490CA3498CFD@muthoottumini.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH v2] arm: eBPF JIT compiler
+Date: Sun, 11 Jun 2017 19:00:43 -0700
+Message-ID: <CAGXu5jKHQNO8QtbfudLZ8vg1FmdLb3SiMikTvkEryggUQz=AcA@mail.gmail.com>
+References: <1495754003-21099-1-git-send-email-illusionist.neo@gmail.com>
+ <CAGXu5jKmLNMR+uhM9Ov2XPW6kCjip_SjScgEH0fTFp6fQtKFiA@mail.gmail.com> <CAHgaXdJ=-n8J8ot_5YQC=YMZrwTBvdNTp5Ta_J_J9vNGWQ4DCQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Network Development <netdev@vger.kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Russell King <linux@armlinux.org.uk>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        LKML <linux-kernel@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: Shubham Bansal <illusionist.neo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from abts-kk-static-ilp-078.168.181.122.airtel.in ([122.181.168.78]:36872
-        "EHLO muthoottumini.com" rhost-flags-OK-FAIL-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751936AbdFLBig (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2017 21:38:36 -0400
-Received: from localhost (localhost [127.0.0.1])
-        by muthoottumini.com (Postfix) with ESMTP id 7B68F3498D43
-        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 07:13:17 +0530 (IST)
-Received: from [192.168.10.101] (unknown [160.152.15.233])
-        by muthoottumini.com (Postfix) with ESMTPSA id 490CA3498CFD
-        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 06:00:29 +0530 (IST)
-Content-Description: Mail message body
+Received: from mail-io0-f170.google.com ([209.85.223.170]:36156 "EHLO
+        mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752014AbdFLCAp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2017 22:00:45 -0400
+Received: by mail-io0-f170.google.com with SMTP id y77so49768398ioe.3
+        for <netdev@vger.kernel.org>; Sun, 11 Jun 2017 19:00:45 -0700 (PDT)
+In-Reply-To: <CAHgaXdJ=-n8J8ot_5YQC=YMZrwTBvdNTp5Ta_J_J9vNGWQ4DCQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Jun 6, 2017 at 12:47 PM, Shubham Bansal
+<illusionist.neo@gmail.com> wrote:
+> Hi Russell, Alexei, David, Daniel, kees,
+>
+> Any update on this patch moving forward?
 
+Since this has gotten testing by various people and passes the
+existing self-tests, I think this can probably go in via the ARM patch
+tracker? Russell does that sound okay to you?
 
+-Kees
 
-Recently, we have detect some unusual activity on your account and as a result, all email users are urged to update their email account within 24 hours of receiving this e-mail, please click the link http://beam.to/1469 to confirm that your email account is up to date with the institution requirement.
-
----
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+-- 
+Kees Cook
+Pixel Security
