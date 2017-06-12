@@ -1,94 +1,137 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] ravb: add wake-on-lan support via magic packet
-Date: Mon, 12 Jun 2017 13:43:04 +0200
-Message-ID: <CAMuHMdXcyomJxd+eBX7hHWF+twkt=sLy_botuEbykHLBkEvuow@mail.gmail.com>
-References: <20170512143242.GA13939@bigcity.dyn.berto.se> <CAMuHMdU+uiiZfh5u+tL_bVJinhP-c0_iF4ZQh8=9NHN+aqUs=Q@mail.gmail.com>
- <20170512211222.GI31437@bigcity.dyn.berto.se> <CAMuHMdWZ8XLX0Zu0D54Ex+3RaFNm_fJyFQvyo+qz10HpB2nGqQ@mail.gmail.com>
- <20170516090214.GA30768@bigcity.dyn.berto.se> <CAMuHMdVkitTgVmUrPu5+z2JwnwHop4bJ5anMq1SmCeFfV=OxQg@mail.gmail.com>
- <20170516110145.GA27247@verge.net.au> <CAMuHMdV9fjYvV=axAkp5WQbXTbZSXg5+g=HNubzPYSRwmStiWg@mail.gmail.com>
- <20170516121604.GF15597@bigcity.dyn.berto.se> <CAMuHMdVzRKTtDE=+hBkde+zFyYOb54iKesSGbJVJ2j_-HPZ+wQ@mail.gmail.com>
- <20170612113210.GH17461@bigcity.dyn.berto.se>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v10 1/4] net netlink: Add new type NLA_FLAG_BITS
+Date: Mon, 12 Jun 2017 13:43:45 +0200
+Message-ID: <20170612114345.GB1993@nanopsycho>
+References: <1497182026-11594-1-git-send-email-jhs@emojatatu.com>
+ <1497182026-11594-2-git-send-email-jhs@emojatatu.com>
+ <20170611134924.GA1896@nanopsycho.orion>
+ <4c536950-2be3-cc9c-1f77-066624800d07@mojatatu.com>
+ <4441aa62-d00e-82b6-d337-f86cf97e3c6d@mojatatu.com>
+ <20170612103432.GA1993@nanopsycho>
+ <8e2f151d-3a02-4b1b-755b-23a0a85556b4@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Simon Horman <horms@verge.net.au>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>
-To: =?UTF-8?Q?Niklas_S=C3=B6derlund?= <niklas.soderlund@ragnatech.se>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
+        simon.horman@netronome.com, mrv@mojatatu.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f45.google.com ([209.85.214.45]:36613 "EHLO
-        mail-it0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751718AbdFLLnH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 07:43:07 -0400
-In-Reply-To: <20170612113210.GH17461@bigcity.dyn.berto.se>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:35886 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751969AbdFLLns (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 07:43:48 -0400
+Received: by mail-wr0-f196.google.com with SMTP id e23so21431482wre.3
+        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 04:43:47 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <8e2f151d-3a02-4b1b-755b-23a0a85556b4@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Niklas,
+Mon, Jun 12, 2017 at 01:10:56PM CEST, jhs@mojatatu.com wrote:
+>On 17-06-12 06:34 AM, Jiri Pirko wrote:
+>> Sun, Jun 11, 2017 at 08:37:25PM CEST, jhs@mojatatu.com wrote:
+>> > On 17-06-11 01:38 PM, Jamal Hadi Salim wrote:
+>> > > On 17-06-11 09:49 AM, Jiri Pirko wrote:
+>> > > > Sun, Jun 11, 2017 at 01:53:43PM CEST, jhs@mojatatu.com wrote:
+>> > > > > From: Jamal Hadi Salim <jhs@mojatatu.com>
+>> > > 
+>> > > 
+>> > > > > This patch also provides an extra feature: a validation callback
+>> > > > > that could be speaciliazed for other types.
+>> > > > 
+>> > > > s/speaciliazed/speciliazed/
+>> > > > 
+>> > > 
+>> > > Will fix.
+>> > > 
+>> > > 
+>> > > > > 
+>> > > > > [ATTR_GOO] = { .type = MYTYPE,
+>> > > > >             .validation_data = &myvalidation_data,
+>> > > > >                 .validate_content = mycontent_validator },
+>> > > > 
+>> > > > Indent is wrong. (Does not matter really in desc, but anyway)
+>> > > > 
+>> > > 
+>> > > I cant find out how it got indented that way; my source
+>> > > or email dont show it as such (but really doesnt matter).
+>> > > 
+>> > > 
+>> > > > Suggested-by: Jiri Pirko <jiri@mellanox.com>
+>> > > > 
+>> > > 
+>> > > Will add.
+>> > > 
+>> > > > 
+>> > > > > ---
+>> > > > > include/net/netlink.h          | 11 +++++++++++
+>> > > > > include/uapi/linux/rtnetlink.h | 17 +++++++++++++++++
+>> > > > > lib/nlattr.c                   | 25 +++++++++++++++++++++++++
+>> > > > > 3 files changed, 53 insertions(+)
+>> > > > > 
+>> > > > > diff --git a/include/net/netlink.h b/include/net/netlink.h
+>> > > > > index 0170917..8ab9784 100644
+>> > > > > --- a/include/net/netlink.h
+>> > > > > +++ b/include/net/netlink.h
+>> > > > > @@ -6,6 +6,11 @@
+>> > > > > #include <linux/jiffies.h>
+>> > > > > #include <linux/in6.h>
+>> > > > > 
+>> > > > > +struct nla_bit_flags {
+>> > > > > +    u32 nla_flag_values;
+>> > > > > +    u32 nla_flag_selector;
+>> > > > > +};
+>> > > > 
+>> > > > I don't understand why you redefine the struct here. You already have it
+>> > > > defined in the uapi: struct __nla_bit_flags
+>> > > > 
+>> > > > Just move this (struct nla_bit_flags) to the uapi and remove
+>> > > > __nla_bit_flags ?
+>> > > > 
+>> > > 
+>> > > I am not sure that will compile since the type is defined in netlink.h
+>> > > Also, note: uapi uses _u32 and kernel uses u32 as types i.e it is pretty
+>> > > common approach; i will try to move it to uapi and keep that uapi
+>> > > format. If it doesnt compile without acrobatics I will keep it as is.
+>> > > 
+>> > 
+>> > It doesnt compile - I could move it to linux/netlink.h but it seems
+>> > so out of place.
+>> > so i will keep things as is for now unless you can think of something
+>> > else.
+>> 
+>> First of all, makes no sense to put this struct "struct __nla_bit_flags"
+>> into rtnetlink.h uapi file. This is generic netlink stuff, not specifict
+>> to rtnetlink.
+>> 
+>> I believe that this struct should go into:
+>> include/uapi/linux/netlink.h
+>> 
+>> struct nla_flag_bits {
+>> 	__u32 nla_flag_bits_values;
+>> 	__u32 nla_flag_bits_selector;
+>> };
+>> 
+>> Then you can use it from userspace and everywhere in kernel.
+>> 
+>That file seems to be very out of place for this stuff.
 
-On Mon, Jun 12, 2017 at 1:32 PM, Niklas S=C3=B6derlund
-<niklas.soderlund@ragnatech.se> wrote:
-> On 2017-05-18 10:52:25 +0200, Geert Uytterhoeven wrote:
->> On Tue, May 16, 2017 at 2:16 PM, Niklas S=C3=B6derlund
->> <niklas.soderlund@ragnatech.se> wrote:
->> > On 2017-05-16 13:36:21 +0200, Geert Uytterhoeven wrote:
->> >> On Tue, May 16, 2017 at 1:01 PM, Simon Horman <horms@verge.net.au> wr=
-ote:
->> >> > Is there some way for - e.g. the driver - to not enable WoL on Gen3=
- SoCs
->> >> > until the clock issues is sorted out? I'm quite happy to enable fea=
-tures
->> >> > where they work; not so much where they don't.
->> >>
->> >> Agreed.
->> >>
->> >> One workaround could be to disable/enable the module clock in the WoL
->> >> resume path, to make sure it is enabled.  Once the enable count reach=
-es
->> >> 0, CCF will know it's disabled, and will really enable next time.
->> >> You may need a double disable/double enable though, without testing I
->> >> don't know remember the enable count is 1 or 2 at that point (due to =
-PM
->> >> runtime).
->> >
->> > I thought about this but it feels like such a hack I did not dare
->> > suggest it :-) But at the same time it would be nice to enable WoL for
->> > the s2idle use-case where it works. Only resume from PSCI with WoL
->> > enabled that is broken, and WoL in PSCI suspend will never work :-)
->>
->> Indeed.
->>
->> > How about I add another patch in v2 on-top of this that adds the clock
->> > disable/enable hack? That way it's clear that this is a workaround and
->> > once we have support for suspend/resume in CPG/MSSR just that patch ca=
-n
->> > be reverted? Or is it cleaner to fold it in to this patch with a big
->> > comment that this is a workaround? Or is it maybe better to hold of on
->> > this until CPG/MSSR supports suspend/resume?
->>
->> Personally, I would have no problems of having the workaround integrated=
- (and
->> documented, of course) in the WoL patch, as it avoids having broken PSCI
->> suspend in between WoL-without-workaround and a separate workaround.
+Howcome? It is a common netlink api.
+
+
 >
-> You have now posted '[PATCH/RFC] clk: renesas: cpg-mssr: Restore module
-> clock registers during resume' which solves this issue. Do you think it
-> would be OK for me to resubmit this patch due to an unrelated fix and
-> state that it depends on your patch or do you feel it still would be
-> valuable to include a workaround in the RAVB driver as to not make it
-> dependent on your patch?
+>> Btw, I find it very odd that enum containling NLA_* like NLA_U32 and
+>> others is not part of uapi file and is rather defined in
+>> include/net/netlink.h. Any idea why?
+>> 
+>
+>NLA_XXX are kernel side types.  They are part of net/netlink.h which is
+>not uapi accessible.
+>David Ahern has submitted a patch to move all those defines to iproute2.
+>Will make sense to move these to a uapi/linux/netlink-types.h but that
+>is waay beyond the scope of this patch set.
 
-The the module clock restore patch fixes the issue, I think it's too immatu=
-re
-to upstream.  Applying your WoL patch as-is does introduce a regression if
-WoL is enabled (although you could debate that it's not a regression, as Wo=
-L
-couldn't be enabled before, but a generic userspace may try to do that anyw=
-ay).
+Well, I don't think so :)
 
-If the workaround isn't too ugly, I would include it.
-
-Gr{oetje,eeting}s,
-
-                        Geert
+The thing is, struct nla_flag_bits is tightly coupled with NLA_FLAG_BITS
+enum value. They should be in the same uapi file. That makes sense to me.
