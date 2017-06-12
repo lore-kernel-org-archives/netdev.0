@@ -1,158 +1,80 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH v3 3/3] net/cxgb4: Use new
- PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
-Date: Mon, 12 Jun 2017 14:53:29 +0800
-Message-ID: <2805c6bb-9d1d-0216-60ef-48cb7c377c4b@huawei.com>
-References: <1496826968-10152-1-git-send-email-dingtianhong@huawei.com>
- <1496826968-10152-4-git-send-email-dingtianhong@huawei.com>
- <CAKgT0UeN7BK94wgU=LiD9CAo0ihrFgv2bZLFrTtr_+bgSbswxQ@mail.gmail.com>
+From: Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH 0/6] Constant Time Memory Comparisons Are Important
+Date: Mon, 12 Jun 2017 09:33:24 +0200
+Message-ID: <5595d4bc-a43e-7a89-eb86-fa77556cd7af@broadcom.com>
+References: <20170610025912.6499-1-Jason@zx2c4.com>
+ <878tkzq6wi.fsf@purkki.adurom.net>
+ <CAGXu5jKp=X7-eKo+HgzS3uqncx5yy-u=tJNqV9K8GOgJ=-C7iA@mail.gmail.com>
+ <CANUX_P2b0Bx+-E_OBQ0reGW0=d6819qc=r83K0kTv0xMo8mtLQ@mail.gmail.com>
+ <CAO1O6see6yDr-hDVNPi9Kv9wO6p-98w7YhsnnwnVOVCSEGVksw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland@arm.com>,
- Gabriele Paoloni <gabriele.paoloni@huawei.com>,
- Asit K Mallick <asit.k.mallick@intel.com>,
- Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>,
- Ashok Raj <ashok.raj@intel.com>, Bjorn Helgaas <helgaas@kernel.org>,
- Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
- "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
- Ganesh Goudar <ganeshgr@chelsio.com>, Bob Shaw <Bob.Shaw@amd.com>,
- Casey Leedom <leedom@chelsio.com>,
- Patrick J Cramer <patrick.j.cramer@intel.com>,
- Michael Werner <werner@chelsio.com>, linux-arm-kernel@lists.infradead.org,
- Amir Ancel <amira@mellanox.com>, Netdev <netdev@vger.kernel.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- David Laight <David.Laight@aculab.com>,
- Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
- Robin Murphy <robin.murphy@arm.com>, David Miller <davem@
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <CAKgT0UeN7BK94wgU=LiD9CAo0ihrFgv2bZLFrTtr_+bgSbswxQ@mail.gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        "Jason A. Donenfeld" <Jason-OnJsPKxuuEcAvxtiuMwx3w@public.gmane.org>,
+        LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "kernel-hardening-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org"
+        <kernel-hardening-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org>,
+        Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+        David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        David Safford <safford-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Gilad Ben-Yossef <gilad-6S/DczAoZh3WXxRugSxzZg@public.gmane.org>,
+        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+        Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+        "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+        Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
+        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+        Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+        Mimi Zohar <zohar-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+To: Emil Lenngren <emil.lenngren-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAO1O6see6yDr-hDVNPi9Kv9wO6p-98w7YhsnnwnVOVCSEGVksw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Language: en-GB
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On 2017/6/8 7:24, Alexander Duyck wrote:
-> On Wed, Jun 7, 2017 at 2:16 AM, Ding Tianhong <dingtianhong@huawei.com> wrote:
->> From: Casey Leedom <leedom@chelsio.com>
+On 6/11/2017 11:30 PM, Emil Lenngren wrote:
+> 2017-06-11 22:48 GMT+02:00 Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
+>> On Sun, Jun 11, 2017 at 4:36 PM, Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org> wrote:
+>>>
+>>> On Sun, Jun 11, 2017 at 1:13 AM, Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org> wrote:
+>>>> "Jason A. Donenfeld" <Jason-OnJsPKxuuEcAvxtiuMwx3w@public.gmane.org> writes:
+>>>>
+>>>>> Whenever you're comparing two MACs, it's important to do this using
+>>>>> crypto_memneq instead of memcmp. With memcmp, you leak timing information,
+>>>>> which could then be used to iteratively forge a MAC.
+>>>>
+>>>> Do you have any pointers where I could learn more about this?
+>>>
+>>> While not using C specifically, this talks about the problem generally:
+>>> https://www.chosenplaintext.ca/articles/beginners-guide-constant-time-cryptography.html
+>>>
 >>
->> cxgb4 Ethernet driver now queries Root Complex Port to determine if it can
->> send TLPs to it with the Relaxed Ordering Attribute set.
->>
->> Signed-off-by: Casey Leedom <leedom@chelsio.com>
->> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>> Sorry for the stupid question, but the MAC address is in plaintext in
+>> the air anyway or easily accessible via user space tools. I fail to
+>> see what it is so secret about a MAC address in that code where that
+>> same MAC address is accessible via myriads of ways.
 > 
-> So I am pretty sure this patch doesn't work with patch 2. We need to
-> update it so that it doesn't check the root complex but instead checks
-> itself to see if it is allowed to use relaxed ordering.
-> 
+> I think you're mixing up Media Access Control (MAC) addresses with
+> Message Authentication Code (MAC). The second one is a cryptographic
+> signature of a message.
 
-Right, we should check the End Point PCIe device configuration space, not RC.
+While this may be obvious to those who are in the know this mixup is 
+easily made outside the crypto domain and especially in the (wireless) 
+networking domain (my mind wandered towards the same error path). As 
+this series is touching stuff outside crypto it is good to be explicit 
+and not use such abbreviations that can be misinterpreted. The article 
+Kees referred to is also useful to get into the proper context here and 
+at least worth mentioning this or other useful references in the cover 
+letter.
 
-> What we need here is the ability to detect if relaxed ordering is
-> disabled, and if so take the steps needed to enable peer to peer
-> relaxed ordering without enabling relaxed ordering to the root
-> complex. Do I have that right Casey?
-> 
-
-I am not very clear to this driver about how to enable peer to peer
-relaxed ordering without enabling relaxed ordering to the RC, need
-some help from Casey, so I will still focus on this patch and only
-fix the peer to RC relaxed ordering problem, I hope Casey could send
-another patch to fix it later.
-
-Thanks
-Ding
-
->> ---
->>  drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  1 +
->>  drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 17 +++++++++++++++++
->>  drivers/net/ethernet/chelsio/cxgb4/sge.c        |  5 +++--
->>  3 files changed, 21 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
->> index e88c180..478f25a 100644
->> --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
->> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
->> @@ -521,6 +521,7 @@ enum {                                 /* adapter flags */
->>         USING_SOFT_PARAMS  = (1 << 6),
->>         MASTER_PF          = (1 << 7),
->>         FW_OFLD_CONN       = (1 << 9),
->> +       ROOT_NO_RELAXED_ORDERING = (1 << 10),
->>  };
->>
->>  enum {
->> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
->> index 38a5c67..fbfe341 100644
->> --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
->> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
->> @@ -4628,6 +4628,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->>  #ifdef CONFIG_PCI_IOV
->>         u32 v, port_vec;
->>  #endif
->> +       struct pci_dev *root;
->>
->>         printk_once(KERN_INFO "%s - version %s\n", DRV_DESC, DRV_VERSION);
->>
->> @@ -4726,6 +4727,22 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->>         adapter->msg_enable = DFLT_MSG_ENABLE;
->>         memset(adapter->chan_map, 0xff, sizeof(adapter->chan_map));
->>
->> +       /* If possible, we use PCIe Relaxed Ordering Attribute to deliver
->> +        * Ingress Packet Data to Free List Buffers in order to allow for
->> +        * chipset performance optimizations between the Root Complex and
->> +        * Memory Controllers.  (Messages to the associated Ingress Queue
->> +        * notifying new Packet Placement in the Free Lists Buffers will be
->> +        * send without the Relaxed Ordering Attribute thus guaranteing that
->> +        * all preceding PCIe Transaction Layer Packets will be processed
->> +        * first.)  But some Root Complexes have various issues with Upstream
->> +        * Transaction Layer Packets with the Relaxed Ordering Attribute set.
->> +        * So we check our Root Complex to see if it's flaged with advice
->> +        * against using Relaxed Ordering.
->> +        */
->> +       root = pci_find_pcie_root_port(adapter->pdev);
->> +       if (pcie_get_relaxed_ordering(root))
->> +               adapter->flags |= ROOT_NO_RELAXED_ORDERING;
->> +
->>         spin_lock_init(&adapter->stats_lock);
->>         spin_lock_init(&adapter->tid_release_lock);
->>         spin_lock_init(&adapter->win0_lock);
->> diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
->> index f05f0d4..ac229a3 100644
->> --- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
->> +++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
->> @@ -2571,6 +2571,7 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
->>         struct fw_iq_cmd c;
->>         struct sge *s = &adap->sge;
->>         struct port_info *pi = netdev_priv(dev);
->> +       int relaxed = !(adap->flags & ROOT_NO_RELAXED_ORDERING);
->>
->>         /* Size needs to be multiple of 16, including status entry. */
->>         iq->size = roundup(iq->size, 16);
->> @@ -2624,8 +2625,8 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
->>
->>                 flsz = fl->size / 8 + s->stat_len / sizeof(struct tx_desc);
->>                 c.iqns_to_fl0congen |= htonl(FW_IQ_CMD_FL0PACKEN_F |
->> -                                            FW_IQ_CMD_FL0FETCHRO_F |
->> -                                            FW_IQ_CMD_FL0DATARO_F |
->> +                                            FW_IQ_CMD_FL0FETCHRO_V(relaxed) |
->> +                                            FW_IQ_CMD_FL0DATARO_V(relaxed) |
->>                                              FW_IQ_CMD_FL0PADEN_F);
->>                 if (cong >= 0)
->>                         c.iqns_to_fl0congen |=
->> --
->> 1.9.0
->>
->>
-> 
-> .
-> 
+Regards,
+Arend
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
