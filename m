@@ -1,10 +1,11 @@
 From: Russell King - ARM Linux <linux@armlinux.org.uk>
 Subject: Re: [PATCH v3 7/9] net: mvmdio: add xmdio xsmi support
-Date: Mon, 12 Jun 2017 11:41:26 +0100
-Message-ID: <20170612104126.GB4902@n2100.armlinux.org.uk>
+Date: Mon, 12 Jun 2017 11:42:18 +0100
+Message-ID: <20170612104218.GA10223@n2100.armlinux.org.uk>
 References: <20170612095745.11300-1-antoine.tenart@free-electrons.com>
  <20170612095745.11300-8-antoine.tenart@free-electrons.com>
  <20170612101739.GA4902@n2100.armlinux.org.uk>
+ <20170612104126.GB4902@n2100.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: thomas.petazzoni@free-electrons.com, andrew@lunn.ch,
@@ -15,60 +16,92 @@ Cc: thomas.petazzoni@free-electrons.com, andrew@lunn.ch,
         sebastian.hesselbarth@gmail.com
 To: Antoine Tenart <antoine.tenart@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:37042 "EHLO
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:37074 "EHLO
         pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751604AbdFLKlm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 06:41:42 -0400
+        with ESMTP id S1751718AbdFLKm3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 06:42:29 -0400
 Content-Disposition: inline
-In-Reply-To: <20170612101739.GA4902@n2100.armlinux.org.uk>
+In-Reply-To: <20170612104126.GB4902@n2100.armlinux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 12, 2017 at 11:17:39AM +0100, Russell King - ARM Linux wrote:
-> On Mon, Jun 12, 2017 at 11:57:43AM +0200, Antoine Tenart wrote:
-> > +static const struct orion_mdio_ops *orion_mdio_get_ops(struct orion_mdio_dev *dev,
-> > +						       int regnum)
-> > +{
-> > +	if (dev->bus_type == BUS_TYPE_XSMI && (regnum & MII_ADDR_C45))
-> > +		return &orion_mdio_xsmi_ops;
-> > +	else if (dev->bus_type == BUS_TYPE_SMI)
-> > +		return &orion_mdio_smi_ops;
-> > +
-> > +	return ERR_PTR(-EOPNOTSUPP);
-> > +}
-> 
-> Oh, this is where you're doing it - I'm not sure having this complexity
-> is really necessary - there is no dynamic choice between the two.  This
-> seems to be way over-engineered.
-> 
-> You might as well make the SMI operations fail if MII_ADDR_C45 is set,
-> and the XSMI operations fail if MII_ADDR_C45 is not set.
-> 
-> Hmm, I think this whole driver is over-engineered:
-> 
-> 1. the mdio read/write functions implement their own locking.
-> 
->    At the MDIO level, there is already locking in the form of a per-bus
->    lock "bus->mdio_lock" which will be taken whenever either of these
->    functions is called.  So the driver's "dev->lock" is redundant.
-> 
-> 2. with the redundant locking removed, orion_mdio_write() becomes a
->    call to orion_mdio_wait_ready() followed by a call to dev->ops->write.
->    It seems that orion_mdio_wait_ready() could be a library function
->    shared between a SMI version of orion_mdio_write() and a XSMI version.
-> 
-> 3. the same is really true of orion_mdio_read(), although that function
->    is a little more complex in itself, the result would actually end up
->    being simpler.
-> 
-> With those changes together, it elimates "struct orion_mdio_ops" entirely,
-> and I think makes the driver smaller, simpler, and cleaner.
+From: Russell King <rmk+kernel@armlinux.org.uk>
+Subject: [PATCH 1/2] net: mvmdio: remove duplicate locking
 
-I wasn't able to completely get rid of the ops structure, but I think
-this is cleaner.  I haven't tested these two patches yet.
+The MDIO layer already provides per-bus locking, so there's no need for
+MDIO bus drivers to do their own internal locking.  Remove this.
 
- drivers/net/ethernet/marvell/mvmdio.c | 276 +++++++++++++++-------------------
- 1 file changed, 123 insertions(+), 153 deletions(-)
+Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+---
+ drivers/net/ethernet/marvell/mvmdio.c | 10 ----------
+ 1 file changed, 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
+index c43747f0be0b..d6770217965e 100644
+--- a/drivers/net/ethernet/marvell/mvmdio.c
++++ b/drivers/net/ethernet/marvell/mvmdio.c
+@@ -23,7 +23,6 @@
+ #include <linux/io.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+-#include <linux/mutex.h>
+ #include <linux/of_device.h>
+ #include <linux/of_mdio.h>
+ #include <linux/phy.h>
+@@ -69,7 +68,6 @@ enum orion_mdio_bus_type {
+ };
+ 
+ struct orion_mdio_dev {
+-	struct mutex lock;
+ 	void __iomem *regs;
+ 	struct clk *clk[3];
+ 	/*
+@@ -254,8 +252,6 @@ static int orion_mdio_read(struct mii_bus *bus, int mii_id,
+ 	if (IS_ERR(ops))
+ 		return PTR_ERR(ops);
+ 
+-	mutex_lock(&dev->lock);
+-
+ 	ret = orion_mdio_wait_ready(ops, bus);
+ 	if (ret < 0)
+ 		goto out;
+@@ -274,7 +270,6 @@ static int orion_mdio_read(struct mii_bus *bus, int mii_id,
+ 
+ 	ret = ops->read(dev);
+ out:
+-	mutex_unlock(&dev->lock);
+ 	return ret;
+ }
+ 
+@@ -289,8 +284,6 @@ static int orion_mdio_write(struct mii_bus *bus, int mii_id,
+ 	if (IS_ERR(ops))
+ 		return PTR_ERR(ops);
+ 
+-	mutex_lock(&dev->lock);
+-
+ 	ret = orion_mdio_wait_ready(ops, bus);
+ 	if (ret < 0)
+ 		goto out;
+@@ -298,7 +291,6 @@ static int orion_mdio_write(struct mii_bus *bus, int mii_id,
+ 	ops->write(dev, mii_id, regnum, value);
+ 
+ out:
+-	mutex_unlock(&dev->lock);
+ 	return ret;
+ }
+ 
+@@ -382,8 +374,6 @@ static int orion_mdio_probe(struct platform_device *pdev)
+ 	dev->bus_type =
+ 		(enum orion_mdio_bus_type)of_device_get_match_data(&pdev->dev);
+ 
+-	mutex_init(&dev->lock);
+-
+ 	if (pdev->dev.of_node)
+ 		ret = of_mdiobus_register(bus, pdev->dev.of_node);
+ 	else
+-- 
+2.7.4
+
 
 -- 
 RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
