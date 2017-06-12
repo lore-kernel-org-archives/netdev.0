@@ -1,103 +1,61 @@
 From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next v3 1/3] net: factor out a helper to decrement the skb refcount
-Date: Mon, 12 Jun 2017 11:23:41 +0200
-Message-ID: <bfa550f4bd51ba4c43c3101dbcd4add53be51c98.1497026892.git.pabeni@redhat.com>
-References: <cover.1497026892.git.pabeni@redhat.com>
+Subject: [PATCH net-next v3 0/3] udp: reduce cache pressure
+Date: Mon, 12 Jun 2017 11:23:40 +0200
+Message-ID: <cover.1497026892.git.pabeni@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
         Eric Dumazet <edumazet@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45540 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:57034 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752010AbdFLJYd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 12 Jun 2017 05:24:33 -0400
-In-Reply-To: <cover.1497026892.git.pabeni@redhat.com>
+        id S1752010AbdFLJYb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 12 Jun 2017 05:24:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The same code is replicated in 3 different places; move it to a
-common helper.
+In the most common use case, many skb fields are not used by recvmsg(), and
+the few ones actually accessed lays on cold cachelines, which leads to several
+cache miss per packet.
 
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-Acked-by: Eric Dumazet <edumazet@google.com>
----
- include/linux/skbuff.h | 13 +++++++++++++
- net/core/datagram.c    |  4 +---
- net/core/skbuff.c      | 14 ++++----------
- 3 files changed, 18 insertions(+), 13 deletions(-)
+This patch series attempts to reduce such misses with different strategies:
+* caching the interesting fields in the scratched space
+* avoid accessing at all uninteresting fields
+* prefetching
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index d460a4c..decce36 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -867,6 +867,19 @@ static inline unsigned int skb_napi_id(const struct sk_buff *skb)
- #endif
- }
- 
-+/* decrement the reference count and return true if we can free the skb */
-+static inline bool skb_unref(struct sk_buff *skb)
-+{
-+	if (unlikely(!skb))
-+		return false;
-+	if (likely(atomic_read(&skb->users) == 1))
-+		smp_rmb();
-+	else if (likely(!atomic_dec_and_test(&skb->users)))
-+		return false;
-+
-+	return true;
-+}
-+
- void kfree_skb(struct sk_buff *skb);
- void kfree_skb_list(struct sk_buff *segs);
- void skb_tx_error(struct sk_buff *skb);
-diff --git a/net/core/datagram.c b/net/core/datagram.c
-index bc46118..e5311a7 100644
---- a/net/core/datagram.c
-+++ b/net/core/datagram.c
-@@ -330,9 +330,7 @@ void __skb_free_datagram_locked(struct sock *sk, struct sk_buff *skb, int len)
- {
- 	bool slow;
- 
--	if (likely(atomic_read(&skb->users) == 1))
--		smp_rmb();
--	else if (likely(!atomic_dec_and_test(&skb->users))) {
-+	if (!skb_unref(skb)) {
- 		sk_peek_offset_bwd(sk, len);
- 		return;
- 	}
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index e508c1e..747263c 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -694,12 +694,9 @@ EXPORT_SYMBOL(__kfree_skb);
-  */
- void kfree_skb(struct sk_buff *skb)
- {
--	if (unlikely(!skb))
--		return;
--	if (likely(atomic_read(&skb->users) == 1))
--		smp_rmb();
--	else if (likely(!atomic_dec_and_test(&skb->users)))
-+	if (!skb_unref(skb))
- 		return;
-+
- 	trace_kfree_skb(skb, __builtin_return_address(0));
- 	__kfree_skb(skb);
- }
-@@ -746,12 +743,9 @@ EXPORT_SYMBOL(skb_tx_error);
-  */
- void consume_skb(struct sk_buff *skb)
- {
--	if (unlikely(!skb))
--		return;
--	if (likely(atomic_read(&skb->users) == 1))
--		smp_rmb();
--	else if (likely(!atomic_dec_and_test(&skb->users)))
-+	if (!skb_unref(skb))
- 		return;
-+
- 	trace_consume_skb(skb);
- 	__kfree_skb(skb);
- }
+Tested using the udp_sink program by Jesper[1] as the receiver, an h/w l4 rx
+hash on the ingress nic, so that the number of ingress nic rx queues hit by the
+udp traffic could be controlled via ethtool -L.
+
+The udp_sink program was bound to the first idle cpu, to get more
+stable numbers.
+
+On a single numa node receiver:
+
+nic rx queues           vanilla                 patched kernel      delta
+1                       1850 kpps               1850 kpps           0%
+2                       2370 kpps               2700 kpps           13.9%
+16                      2000 kpps               2220 kpps           11%
+
+[1] https://github.com/netoptimizer/network-testing/blob/master/src/udp_sink.c
+
+v1 -> v2:
+  - replaced secpath_reset() with skb_release_head_state()
+  - changed udp_dev_scratch fields types to u{32,16} variant,
+    replaced bitfield with bool
+
+v2 -> v3:
+  - no changes, tested against apachebench for performances regression
+
+Paolo Abeni (3):
+  net: factor out a helper to decrement the skb refcount
+  udp: avoid a cache miss on dequeue
+  udp: try to avoid 2 cache miss on dequeue
+
+ include/linux/skbuff.h |  15 +++++++
+ net/core/datagram.c    |   4 +-
+ net/core/skbuff.c      |  38 ++++++++++------
+ net/ipv4/udp.c         | 120 ++++++++++++++++++++++++++++++++++++++++++++-----
+ 4 files changed, 148 insertions(+), 29 deletions(-)
+
 -- 
 2.9.4
