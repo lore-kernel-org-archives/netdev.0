@@ -1,14 +1,12 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v10 1/4] net netlink: Add new type NLA_FLAG_BITS
-Date: Mon, 12 Jun 2017 13:43:45 +0200
-Message-ID: <20170612114345.GB1993@nanopsycho>
+Subject: Re: [PATCH net-next v10 3/4] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Mon, 12 Jun 2017 13:47:51 +0200
+Message-ID: <20170612114751.GC1993@nanopsycho>
 References: <1497182026-11594-1-git-send-email-jhs@emojatatu.com>
- <1497182026-11594-2-git-send-email-jhs@emojatatu.com>
- <20170611134924.GA1896@nanopsycho.orion>
- <4c536950-2be3-cc9c-1f77-066624800d07@mojatatu.com>
- <4441aa62-d00e-82b6-d337-f86cf97e3c6d@mojatatu.com>
- <20170612103432.GA1993@nanopsycho>
- <8e2f151d-3a02-4b1b-755b-23a0a85556b4@mojatatu.com>
+ <1497182026-11594-4-git-send-email-jhs@emojatatu.com>
+ <20170611141303.GC1896@nanopsycho.orion>
+ <fbf09ea1-36ee-69b1-74b0-ac436fff86ad@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
@@ -16,122 +14,49 @@ Cc: davem@davemloft.net, netdev@vger.kernel.org,
         simon.horman@netronome.com, mrv@mojatatu.com
 To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:35886 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751969AbdFLLns (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 07:43:48 -0400
-Received: by mail-wr0-f196.google.com with SMTP id e23so21431482wre.3
-        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 04:43:47 -0700 (PDT)
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:34248 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752653AbdFLLry (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 07:47:54 -0400
+Received: by mail-wr0-f193.google.com with SMTP id u101so21430479wrc.1
+        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 04:47:54 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <8e2f151d-3a02-4b1b-755b-23a0a85556b4@mojatatu.com>
+In-Reply-To: <fbf09ea1-36ee-69b1-74b0-ac436fff86ad@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Jun 12, 2017 at 01:10:56PM CEST, jhs@mojatatu.com wrote:
->On 17-06-12 06:34 AM, Jiri Pirko wrote:
->> Sun, Jun 11, 2017 at 08:37:25PM CEST, jhs@mojatatu.com wrote:
->> > On 17-06-11 01:38 PM, Jamal Hadi Salim wrote:
->> > > On 17-06-11 09:49 AM, Jiri Pirko wrote:
->> > > > Sun, Jun 11, 2017 at 01:53:43PM CEST, jhs@mojatatu.com wrote:
->> > > > > From: Jamal Hadi Salim <jhs@mojatatu.com>
->> > > 
->> > > 
->> > > > > This patch also provides an extra feature: a validation callback
->> > > > > that could be speaciliazed for other types.
->> > > > 
->> > > > s/speaciliazed/speciliazed/
->> > > > 
->> > > 
->> > > Will fix.
->> > > 
->> > > 
->> > > > > 
->> > > > > [ATTR_GOO] = { .type = MYTYPE,
->> > > > >             .validation_data = &myvalidation_data,
->> > > > >                 .validate_content = mycontent_validator },
->> > > > 
->> > > > Indent is wrong. (Does not matter really in desc, but anyway)
->> > > > 
->> > > 
->> > > I cant find out how it got indented that way; my source
->> > > or email dont show it as such (but really doesnt matter).
->> > > 
->> > > 
->> > > > Suggested-by: Jiri Pirko <jiri@mellanox.com>
->> > > > 
->> > > 
->> > > Will add.
->> > > 
->> > > > 
->> > > > > ---
->> > > > > include/net/netlink.h          | 11 +++++++++++
->> > > > > include/uapi/linux/rtnetlink.h | 17 +++++++++++++++++
->> > > > > lib/nlattr.c                   | 25 +++++++++++++++++++++++++
->> > > > > 3 files changed, 53 insertions(+)
->> > > > > 
->> > > > > diff --git a/include/net/netlink.h b/include/net/netlink.h
->> > > > > index 0170917..8ab9784 100644
->> > > > > --- a/include/net/netlink.h
->> > > > > +++ b/include/net/netlink.h
->> > > > > @@ -6,6 +6,11 @@
->> > > > > #include <linux/jiffies.h>
->> > > > > #include <linux/in6.h>
->> > > > > 
->> > > > > +struct nla_bit_flags {
->> > > > > +    u32 nla_flag_values;
->> > > > > +    u32 nla_flag_selector;
->> > > > > +};
->> > > > 
->> > > > I don't understand why you redefine the struct here. You already have it
->> > > > defined in the uapi: struct __nla_bit_flags
->> > > > 
->> > > > Just move this (struct nla_bit_flags) to the uapi and remove
->> > > > __nla_bit_flags ?
->> > > > 
->> > > 
->> > > I am not sure that will compile since the type is defined in netlink.h
->> > > Also, note: uapi uses _u32 and kernel uses u32 as types i.e it is pretty
->> > > common approach; i will try to move it to uapi and keep that uapi
->> > > format. If it doesnt compile without acrobatics I will keep it as is.
->> > > 
+Mon, Jun 12, 2017 at 01:16:05PM CEST, jhs@mojatatu.com wrote:
+>On 17-06-11 10:13 AM, Jiri Pirko wrote:
+>> Sun, Jun 11, 2017 at 01:53:45PM CEST, jhs@mojatatu.com wrote:
+>[..]
+>> > @@ -1168,14 +1185,24 @@ static int tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
+>> > 	if (a_o == NULL)
+>> > 		return 0;
 >> > 
->> > It doesnt compile - I could move it to linux/netlink.h but it seems
->> > so out of place.
->> > so i will keep things as is for now unless you can think of something
->> > else.
+>> > +	if (tb[TCA_ROOT_FLAGS])
+>> > +		nla_memcpy(&select_flags, tb[TCA_ROOT_FLAGS],
+>> > +			   sizeof(select_flags));
 >> 
->> First of all, makes no sense to put this struct "struct __nla_bit_flags"
->> into rtnetlink.h uapi file. This is generic netlink stuff, not specifict
->> to rtnetlink.
+>> Please introduce a helper for this attr type in patch 1:
 >> 
->> I believe that this struct should go into:
->> include/uapi/linux/netlink.h
+>> u32 select_flags;
 >> 
->> struct nla_flag_bits {
->> 	__u32 nla_flag_bits_values;
->> 	__u32 nla_flag_bits_selector;
->> };
->> 
->> Then you can use it from userspace and everywhere in kernel.
->> 
->That file seems to be very out of place for this stuff.
-
-Howcome? It is a common netlink api.
-
-
->
->> Btw, I find it very odd that enum containling NLA_* like NLA_U32 and
->> others is not part of uapi file and is rather defined in
->> include/net/netlink.h. Any idea why?
+>> select_flags = nla_get_flag_bits_values(tb[TCA_ROOT_FLAGS])
 >> 
 >
->NLA_XXX are kernel side types.  They are part of net/netlink.h which is
->not uapi accessible.
->David Ahern has submitted a patch to move all those defines to iproute2.
->Will make sense to move these to a uapi/linux/netlink-types.h but that
->is waay beyond the scope of this patch set.
+>This also is not useful.
+>It happens to be ok for this use case but not for the
+>general case. i.e.
+>We need to get the whole struct not just the values
+>and use the selector to pick what bits are affected.
+>Example if bit X is set to 1 in selector and bit X in value
+>is 0, then we set the kernel's bit X to 0.
 
-Well, I don't think so :)
+Sure, have another helper for selector then.
+Or, you can have:
 
-The thing is, struct nla_flag_bits is tightly coupled with NLA_FLAG_BITS
-enum value. They should be in the same uapi file. That makes sense to me.
+	struct nla_flag_bits *fb;
+	fb = nla_get_flag_bits(tb[TCA_ROOT_FLAGS]);
+
+Or all 3 helpers. My point is, it is a specific netlink attribute with
+specific format, it should have get/put helpers.
