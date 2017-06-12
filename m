@@ -1,125 +1,86 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: Toggling link state breaks network connectivity
-Date: Mon, 12 Jun 2017 09:38:00 -0700
-Message-ID: <2c12bc7a-fd57-3d3d-7dc0-f522cfadd042@gmail.com>
-References: <927c2f12-0d1b-1e80-fede-ad9abe807222@free.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Andrew Lunn <andrew@lunn.ch>, Mans Rullgard <mans@mansr.com>,
-        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>
-To: Mason <slash.tmp@free.fr>, netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f180.google.com ([209.85.128.180]:36736 "EHLO
-        mail-wr0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754340AbdFLQiF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 12:38:05 -0400
-Received: by mail-wr0-f180.google.com with SMTP id v111so103899857wrc.3
-        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 09:38:04 -0700 (PDT)
-In-Reply-To: <927c2f12-0d1b-1e80-fede-ad9abe807222@free.fr>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 10/13] net: dsa: mv88e6xxx: prefix Port Egress Rate Control macros
+Date: Mon, 12 Jun 2017 12:37:42 -0400
+Message-ID: <20170612163745.16868-11-vivien.didelot@savoirfairelinux.com>
+References: <20170612163745.16868-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170612163745.16868-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/12/2017 06:22 AM, Mason wrote:
-> Hello,
-> 
-> I am using the following drivers for Ethernet connectivity.
-> drivers/net/ethernet/aurora/nb8800.c
-> drivers/net/phy/at803x.c
-> 
-> Pulling the cable and plugging it back works as expected.
-> (I can ping both before and after.)
-> 
-> However, if I toggle the link state in software (using ip link set),
-> the board loses network connectivity.
-> 
-> # Statically assign IP address
-> ip addr add 172.27.64.77/18 brd 172.27.127.255 dev eth0
-> # Set link state to "up"
-> ip link set eth0 up
-> # ping -c 3 172.27.64.1 > /tmp/v1
-> 
-> PING 172.27.64.1 (172.27.64.1): 56 data bytes
-> 64 bytes from 172.27.64.1: seq=0 ttl=64 time=18.321 ms
+For implicit namespacing and clarity, prefix the common Port Egress Rate
+Control and Port Egress Rate Control 2 registers macros with
+MV88E6XXX_PORT_EGRESS_RATE_CTL1 and MV88E6XXX_PORT_EGRESS_RATE_CTL2.
 
-This delay seems abnormally long unless you are purposely introducing
-delay (e.g: with cls_netem) or this is a really remote host, does not
-seem to be based on your traces later on.
+Document the register and prefer ordered hex masks values for all
+Marvell 16-bit registers.
 
-> 
-> --- 172.27.64.1 ping statistics ---
-> 3 packets transmitted, 1 packets received, 66% packet loss
-> round-trip min/avg/max = 18.321/18.321/18.321 ms
-> 
-> 
-> 172.27.64.1 is a desktop system.
-> Running
-> % tcpdump -n -i eth1-boards ether host 00:16:e8:4d:7f:c4
-> on the desktop, I get:
-> 
-> 15:01:45.187346 ARP, Request who-has 172.27.64.1 tell 172.27.64.77, length 46
-> 15:01:45.187359 ARP, Reply 172.27.64.1 is-at 00:15:17:24:e0:81, length 28
-> 15:01:45.194633 IP 172.27.64.77 > 172.27.64.1: ICMP echo request, id 41219, seq 0, length 64
-> 15:01:45.194662 IP 172.27.64.1 > 172.27.64.77: ICMP echo reply, id 41219, seq 0, length 64
-> 15:01:50.198564 ARP, Request who-has 172.27.64.77 tell 172.27.64.1, length 28
-> 15:01:50.205929 IP 172.27.64.77 > 172.27.64.1: ICMP echo request, id 41219, seq 1, length 64
-> 15:01:50.205951 IP 172.27.64.1 > 172.27.64.77: ICMP echo reply, id 41219, seq 1, length 64
-> 15:01:50.213217 IP 172.27.64.77 > 172.27.64.1: ICMP echo request, id 41219, seq 2, length 64
-> 15:01:50.213232 IP 172.27.64.1 > 172.27.64.77: ICMP echo reply, id 41219, seq 2, length 64
-> 15:01:51.198563 ARP, Request who-has 172.27.64.77 tell 172.27.64.1, length 28
-> 15:01:51.209586 ARP, Reply 172.27.64.77 is-at 00:16:e8:4d:7f:c4, length 46
-> 15:01:51.209598 ARP, Reply 172.27.64.77 is-at 00:16:e8:4d:7f:c4, length 46
-> 
-> Packet #1: the board asks for the desktop's MAC address
-> Packet #2: the desktop replies instantly
-> Packet #3: the board sends the first ping
-> Packet #4: the desktop replies instantly
-> Then the board goes quiet for a long time (why???)
-> Packet #5: the desktop asks for the board's MAC address (doesn't it have it already?)
-> Packet #6: this seems to unwedge the board, which sends the second ping
-> Packet #7: the desktop replies instantly
-> Packet #8: the board sends the third ping
-> Packet #9: the desktop replies instantly
-> Packet #10: the desktop asks again for the board's MAC address
-> Packet #11 and #12: the board answers twice (for the old and new requests?)
-> 
-> Some oddities, but it seems to work.
-> 
-> Now toggle the link state:
-> 
-> % ip link set eth0 down
-> % ip link set eth0 up
-> % ping -c 3 172.27.64.1 > /tmp/v2
-> 
-> PING 172.27.64.1 (172.27.64.1): 56 data bytes
-> 
-> --- 172.27.64.1 ping statistics ---
-> 3 packets transmitted, 0 packets received, 100% packet loss
-> 
-> 
-> On the desktop, I see
-> 
-> 15:14:03.900162 ARP, Request who-has 172.27.64.1 tell 172.27.64.77, length 46
-> 15:14:03.900175 ARP, Reply 172.27.64.1 is-at 00:15:17:24:e0:81, length 28
-> 15:14:05.017189 ARP, Request who-has 172.27.64.1 tell 172.27.64.77, length 46
-> 15:14:05.017200 ARP, Reply 172.27.64.1 is-at 00:15:17:24:e0:81, length 28
-> 15:14:06.030531 ARP, Request who-has 172.27.64.1 tell 172.27.64.77, length 46
-> 15:14:06.030541 ARP, Reply 172.27.64.1 is-at 00:15:17:24:e0:81, length 28
-> 
-> So basically, the board is asking the desktop for its MAC address,
-> and the desktop is answering immediately. But the board doesn't seem
-> to be getting the replies... Any ideas, or words of wisdom, as they say?
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6xxx/chip.c | 3 ++-
+ drivers/net/dsa/mv88e6xxx/port.c | 6 ++++--
+ drivers/net/dsa/mv88e6xxx/port.h | 8 ++++++--
+ 3 files changed, 12 insertions(+), 5 deletions(-)
 
-- check the Ethernet MAC counters to see if there is packet loss, or
-error, or both
-
-- consult with your HW engineers for possible flaws in your
-ndo_open/ndo_close paths and possible interactions with the MAC/PHY
-clocks, or reset etc.
-
-- see if your PHY needs a complete re-init after an up/down sequence and
-if you are doing this properly
-
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index efc57003b9ee..8146c94e394d 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -1897,7 +1897,8 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
+ 		return err;
+ 
+ 	/* Egress rate control 2: disable egress rate control. */
+-	err = mv88e6xxx_port_write(chip, port, PORT_RATE_CONTROL_2, 0x0000);
++	err = mv88e6xxx_port_write(chip, port, MV88E6XXX_PORT_EGRESS_RATE_CTL2,
++				   0x0000);
+ 	if (err)
+ 		return err;
+ 
+diff --git a/drivers/net/dsa/mv88e6xxx/port.c b/drivers/net/dsa/mv88e6xxx/port.c
+index ad86b2e30ac5..595f842c955b 100644
+--- a/drivers/net/dsa/mv88e6xxx/port.c
++++ b/drivers/net/dsa/mv88e6xxx/port.c
+@@ -859,12 +859,14 @@ int mv88e6165_port_set_jumbo_size(struct mv88e6xxx_chip *chip, int port,
+ 
+ int mv88e6095_port_egress_rate_limiting(struct mv88e6xxx_chip *chip, int port)
+ {
+-	return mv88e6xxx_port_write(chip, port, PORT_RATE_CONTROL, 0x0000);
++	return mv88e6xxx_port_write(chip, port, MV88E6XXX_PORT_EGRESS_RATE_CTL1,
++				    0x0000);
+ }
+ 
+ int mv88e6097_port_egress_rate_limiting(struct mv88e6xxx_chip *chip, int port)
+ {
+-	return mv88e6xxx_port_write(chip, port, PORT_RATE_CONTROL, 0x0001);
++	return mv88e6xxx_port_write(chip, port, MV88E6XXX_PORT_EGRESS_RATE_CTL1,
++				    0x0001);
+ }
+ 
+ /* Offset 0x0C: Port ATU Control */
+diff --git a/drivers/net/dsa/mv88e6xxx/port.h b/drivers/net/dsa/mv88e6xxx/port.h
+index ce236f06db6d..5bcba657a111 100644
+--- a/drivers/net/dsa/mv88e6xxx/port.h
++++ b/drivers/net/dsa/mv88e6xxx/port.h
+@@ -177,8 +177,12 @@
+ #define MV88E6XXX_PORT_CTL2_INGRESS_MONITOR		0x0010
+ #define MV88E6095_PORT_CTL2_CPU_PORT_MASK		0x000f
+ 
+-#define PORT_RATE_CONTROL	0x09
+-#define PORT_RATE_CONTROL_2	0x0a
++/* Offset 0x09: Egress Rate Control */
++#define MV88E6XXX_PORT_EGRESS_RATE_CTL1		0x09
++
++/* Offset 0x0A: Egress Rate Control 2 */
++#define MV88E6XXX_PORT_EGRESS_RATE_CTL2		0x0a
++
+ #define PORT_ASSOC_VECTOR	0x0b
+ #define PORT_ASSOC_VECTOR_HOLD_AT_1		BIT(15)
+ #define PORT_ASSOC_VECTOR_INT_AGE_OUT		BIT(14)
 -- 
-Florian
+2.13.1
