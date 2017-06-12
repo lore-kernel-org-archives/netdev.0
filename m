@@ -1,86 +1,48 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH 0/6] Constant Time Memory Comparisons Are Important
-Date: Mon, 12 Jun 2017 16:46:47 +0300
-Message-ID: <87lgox8gjc.fsf@kamboji.qca.qualcomm.com>
-References: <20170610025912.6499-1-Jason@zx2c4.com>
-	<878tkzq6wi.fsf@purkki.adurom.net>
-	<CAGXu5jKp=X7-eKo+HgzS3uqncx5yy-u=tJNqV9K8GOgJ=-C7iA@mail.gmail.com>
-	<CANUX_P2b0Bx+-E_OBQ0reGW0=d6819qc=r83K0kTv0xMo8mtLQ@mail.gmail.com>
-	<CAO1O6see6yDr-hDVNPi9Kv9wO6p-98w7YhsnnwnVOVCSEGVksw@mail.gmail.com>
-	<5595d4bc-a43e-7a89-eb86-fa77556cd7af@broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v1] net/phy: Make phy_ethtool_ksettings_get return void
+Date: Mon, 12 Jun 2017 09:51:21 -0400 (EDT)
+Message-ID: <20170612.095121.1880452682603577061.davem@davemloft.net>
+References: <20170612074233.8688-1-yuval.shaia@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Emil Lenngren <emil.lenngren@gmail.com>,  Emmanuel Grumbach <egrumbach@gmail.com>,  Kees Cook <keescook@chromium.org>,  "Jason A. Donenfeld" <Jason@zx2c4.com>,  LKML <linux-kernel@vger.kernel.org>,  "kernel-hardening\@lists.openwall.com" <kernel-hardening@lists.openwall.com>,  Anna Schumaker <anna.schumaker@netapp.com>,  David Howells <dhowells@redhat.com>,  David Safford <safford@us.ibm.com>,  "David S. Miller" <davem@davemloft.net>,  Gilad Ben-Yossef <gilad@benyossef.com>,  Greg Kroah-Hartman <gregkh@linuxfoundation.org>,  Gustavo Padovan <gustavo@padovan.org>,  "J. Bruce Fields" <bfields@fieldses.org>,  Jeff Layton <jlayton@poochiereds.net>,  Johan Hedberg <johan.hedberg@gmail.com>,  Johannes Berg <johannes@sipsolutions.net>,  Marcel Holtmann <marcel@holtmann.org>,  Mimi Zohar <zoha
- r@linux.vnet.ibm.com>,  Trond Myklebust <trond.myklebust@primarydata.com>,  keyrings@vger.kernel.o
-To: Arend van Spriel <arend.vanspriel@broadcom.com>
-Return-path: <kernel-hardening-return-8526-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <5595d4bc-a43e-7a89-eb86-fa77556cd7af@broadcom.com> (Arend van
-	Spriel's message of "Mon, 12 Jun 2017 09:33:24 +0200")
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: michael.chan@broadcom.com, f.fainelli@gmail.com,
+        siva.kallam@broadcom.com, prashant@broadcom.com,
+        madalin.bucur@nxp.com, leoli@freescale.com,
+        sebastian.hesselbarth@gmail.com,
+        sergei.shtylyov@cogentembedded.com, grygorii.strashko@ti.com,
+        w-kwok2@ti.com, m-karicheri2@ti.com, andrew@lunn.ch,
+        woojung.huh@microchip.com, UNGLinuxDriver@microchip.com,
+        vivien.didelot@savoirfairelinux.com, arnd@arndb.de,
+        tremyfr@gmail.com, jarod@redhat.com, horms+renesas@verge.net.au,
+        kazuya.mizuguchi.ks@renesas.com, dan.carpenter@oracle.com,
+        niklas.soderlund+renesas@ragnatech.se, johan@kernel.org,
+        masaru.nagai.vx@renesas.com, geert+renesas@glider.be,
+        laurent.pinchart@ideasonboard.com, chris.brandt@renesas.com,
+        ivan.khoronzhuk@linaro.org, mugunthanvnm@ti.com,
+        netdev@vger.kernel.org, linux-arm-kernel
+To: yuval.shaia@oracle.com
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <20170612074233.8688-1-yuval.shaia@oracle.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arend van Spriel <arend.vanspriel@broadcom.com> writes:
+From: Yuval Shaia <yuval.shaia@oracle.com>
+Date: Mon, 12 Jun 2017 10:42:33 +0300
 
-> On 6/11/2017 11:30 PM, Emil Lenngren wrote:
->> 2017-06-11 22:48 GMT+02:00 Emmanuel Grumbach <egrumbach@gmail.com>:
->>> On Sun, Jun 11, 2017 at 4:36 PM, Kees Cook <keescook@chromium.org> wrote:
->>>>
->>>> On Sun, Jun 11, 2017 at 1:13 AM, Kalle Valo <kvalo@codeaurora.org> wrote:
->>>>> "Jason A. Donenfeld" <Jason@zx2c4.com> writes:
->>>>>
->>>>>> Whenever you're comparing two MACs, it's important to do this using
->>>>>> crypto_memneq instead of memcmp. With memcmp, you leak timing information,
->>>>>> which could then be used to iteratively forge a MAC.
->>>>>
->>>>> Do you have any pointers where I could learn more about this?
->>>>
->>>> While not using C specifically, this talks about the problem generally:
->>>> https://www.chosenplaintext.ca/articles/beginners-guide-constant-time-cryptography.html
->>>>
->>>
->>> Sorry for the stupid question, but the MAC address is in plaintext in
->>> the air anyway or easily accessible via user space tools. I fail to
->>> see what it is so secret about a MAC address in that code where that
->>> same MAC address is accessible via myriads of ways.
->>
->> I think you're mixing up Media Access Control (MAC) addresses with
->> Message Authentication Code (MAC). The second one is a cryptographic
->> signature of a message.
->
-> While this may be obvious to those who are in the know this mixup is
-> easily made outside the crypto domain and especially in the (wireless)
-> networking domain (my mind wandered towards the same error path).
+> Make return value void since function never return meaningfull value
+> 
+> Signed-off-by: Yuval Shaia <yuval.shaia@oracle.com>
+> Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> ---
+> Re-sending since last time forgot to add netdev-list
+> v0 ->v1:
+> 	* These files were missing in v0
+> 		* drivers/net/ethernet/renesas/ravb_main.c
+> 		* drivers/net/ethernet/renesas/sh_eth.c
+> 		* drivers/net/ethernet/ti/netcp_ethss.c
+> 	* Add Acked-by: Sergei Shtylyov
 
-I did realise that this was about Message Authentication Code (yay!) but
-I got lost because I thought this is somehow related to timestamps :)
-Thanks to Kees I now understand this is about revealing execution time
-to the attacker, not timestamps or anything like that.
+This doesn't apply cleanly to net-next at all.
 
-> As this series is touching stuff outside crypto it is good to be
-> explicit and not use such abbreviations that can be misinterpreted.
-> The article Kees referred to is also useful to get into the proper
-> context here and at least worth mentioning this or other useful
-> references in the cover letter.
-
-And the kernel documentation we have is not really helping much:
-
-/**
- * crypto_memneq - Compare two areas of memory without leaking
- *		   timing information.
- *
- * @a: One area of memory
- * @b: Another area of memory
- * @size: The size of the area.
- *
- * Returns 0 when data is equal, 1 otherwise.
- */
-
-For most people "leaking timing information" does not tell much. Adding
-a sentence or two _why_ this function should be used would be very
-helpful.
-
--- 
-Kalle Valo
+Please respin against an uptodate net-next tree, thank you.
