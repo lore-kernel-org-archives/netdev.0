@@ -1,91 +1,148 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] igmp: acquire pmc lock for ip_mc_clear_src()
-Date: Mon, 12 Jun 2017 09:52:26 -0700
-Message-ID: <1497286346-26888-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: andreyknvl@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Xin Long <lucien.xin@gmail.com>
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Subject: [PATCH net-next] ibmvnic: Client-initiated failover
+Date: Mon, 12 Jun 2017 12:35:04 -0500
+Message-ID: <1497288904-15259-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Cc: nfont@linux.vnet.ibm.com, jallen@linux.vnet.ibm.com,
+        Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:34596 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753680AbdFLQxQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 12:53:16 -0400
-Received: by mail-pg0-f68.google.com with SMTP id v14so14756433pgn.1
-        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 09:53:15 -0700 (PDT)
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:48297 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752749AbdFLRf3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 13:35:29 -0400
+Received: from pps.filterd (m0098420.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5CHXmOt063951
+        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 13:35:10 -0400
+Received: from e16.ny.us.ibm.com (e16.ny.us.ibm.com [129.33.205.206])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 2b1v8j9tx8-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 13:35:09 -0400
+Received: from localhost
+        by e16.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
+        Mon, 12 Jun 2017 13:35:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrey reported a use-after-free in add_grec():
+The IBM vNIC protocol provides support for the user to initiate
+a failover from the client LPAR in case the current backing infrastructure
+is deemed inadequate or in an error state.
 
-        for (psf = *psf_list; psf; psf = psf_next) {
-		...
-                psf_next = psf->sf_next;
+Support for two H_VIOCTL sub-commands for vNIC devices are required
+to implement this function. These commands are H_GET_SESSION_TOKEN
+and H_SESSION_ERR_DETECTED.
 
-where the struct ip_sf_list's were already freed by:
+"[H_GET_SESSION_TOKEN] is used to obtain a session token from a VNIC client
+adapter.  This token is opaque to the caller and is intended to be used in
+tandem with the SESSION_ERROR_DETECTED vioctl subfunction."
 
- kfree+0xe8/0x2b0 mm/slub.c:3882
- ip_mc_clear_src+0x69/0x1c0 net/ipv4/igmp.c:2078
- ip_mc_dec_group+0x19a/0x470 net/ipv4/igmp.c:1618
- ip_mc_drop_socket+0x145/0x230 net/ipv4/igmp.c:2609
- inet_release+0x4e/0x1c0 net/ipv4/af_inet.c:411
- sock_release+0x8d/0x1e0 net/socket.c:597
- sock_close+0x16/0x20 net/socket.c:1072
+"[H_SESSION_ERR_DETECTED] is used to report that the currently active
+backing device for a VNIC client adapter is behaving poorly, and that
+the hypervisor should attempt to fail over to a different backing device,
+if one is available."
 
-This happens because we don't hold pmc->lock in ip_mc_clear_src()
-and a parallel mr_ifc_timer timer could jump in and access them.
+To provide tools access to this functionality the vNIC driver creates a
+sysfs file that, when written to, will send a request to pHyp to failover
+to a different backing device.
 
-The RCU lock is there but it is merely for pmc itself, this
-spinlock could actually ensure we don't access them in parallel.
-
-Thanks to Eric and Long for discussion on this bug.
-
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Xin Long <lucien.xin@gmail.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
 ---
- net/ipv4/igmp.c | 21 +++++++++++++--------
- 1 file changed, 13 insertions(+), 8 deletions(-)
+ arch/powerpc/include/asm/hvcall.h  |  2 ++
+ drivers/net/ethernet/ibm/ibmvnic.c | 46 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 48 insertions(+)
 
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index 44fd86d..8f6b5bb 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -2071,21 +2071,26 @@ static int ip_mc_add_src(struct in_device *in_dev, __be32 *pmca, int sfmode,
+diff --git a/arch/powerpc/include/asm/hvcall.h b/arch/powerpc/include/asm/hvcall.h
+index d73755f..57d38b5 100644
+--- a/arch/powerpc/include/asm/hvcall.h
++++ b/arch/powerpc/include/asm/hvcall.h
+@@ -295,6 +295,8 @@
+ #define H_DISABLE_ALL_VIO_INTS	0x0A
+ #define H_DISABLE_VIO_INTERRUPT	0x0B
+ #define H_ENABLE_VIO_INTERRUPT	0x0C
++#define H_GET_SESSION_TOKEN	0x19
++#define H_SESSION_ERR_DETECTED	0x1A
  
- static void ip_mc_clear_src(struct ip_mc_list *pmc)
- {
--	struct ip_sf_list *psf, *nextpsf;
-+	struct ip_sf_list *psf, *nextpsf, *tomb, *sources;
  
--	for (psf = pmc->tomb; psf; psf = nextpsf) {
-+	spin_lock_bh(&pmc->lock);
-+	tomb = pmc->tomb;
-+	pmc->tomb = NULL;
-+	sources = pmc->sources;
-+	pmc->sources = NULL;
-+	pmc->sfmode = MCAST_EXCLUDE;
-+	pmc->sfcount[MCAST_INCLUDE] = 0;
-+	pmc->sfcount[MCAST_EXCLUDE] = 1;
-+	spin_unlock_bh(&pmc->lock);
-+
-+	for (psf = tomb; psf; psf = nextpsf) {
- 		nextpsf = psf->sf_next;
- 		kfree(psf);
- 	}
--	pmc->tomb = NULL;
--	for (psf = pmc->sources; psf; psf = nextpsf) {
-+	for (psf = sources; psf; psf = nextpsf) {
- 		nextpsf = psf->sf_next;
- 		kfree(psf);
- 	}
--	pmc->sources = NULL;
--	pmc->sfmode = MCAST_EXCLUDE;
--	pmc->sfcount[MCAST_INCLUDE] = 0;
--	pmc->sfcount[MCAST_EXCLUDE] = 1;
+ /* Platform specific hcalls, used by KVM */
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
+index 7d84e20..fd3ef30 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.c
++++ b/drivers/net/ethernet/ibm/ibmvnic.c
+@@ -3656,6 +3656,8 @@ static int ibmvnic_init(struct ibmvnic_adapter *adapter)
+ 	return rc;
  }
  
- /* Join a multicast group
++static struct device_attribute dev_attr_failover;
++
+ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ {
+ 	struct ibmvnic_adapter *adapter;
+@@ -3712,9 +3714,16 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ 
+ 	netdev->mtu = adapter->req_mtu - ETH_HLEN;
+ 
++	rc = device_create_file(&dev->dev, &dev_attr_failover);
++	if (rc) {
++		free_netdev(netdev);
++		return rc;
++	}
++
+ 	rc = register_netdev(netdev);
+ 	if (rc) {
+ 		dev_err(&dev->dev, "failed to register netdev rc=%d\n", rc);
++		device_remove_file(&dev->dev, &dev_attr_failover);
+ 		free_netdev(netdev);
+ 		return rc;
+ 	}
+@@ -3740,12 +3749,49 @@ static int ibmvnic_remove(struct vio_dev *dev)
+ 	adapter->state = VNIC_REMOVED;
+ 
+ 	mutex_unlock(&adapter->reset_lock);
++	device_remove_file(&dev->dev, &dev_attr_failover);
+ 	free_netdev(netdev);
+ 	dev_set_drvdata(&dev->dev, NULL);
+ 
+ 	return 0;
+ }
+ 
++static ssize_t failover_store(struct device *dev, struct device_attribute *attr,
++			      const char *buf, size_t count)
++{
++	struct net_device *netdev = dev_get_drvdata(dev);
++	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
++	unsigned long retbuf[PLPAR_HCALL_BUFSIZE];
++	__be64 session_token;
++	long rc;
++
++	if (!sysfs_streq(buf, "1"))
++		return -EINVAL;
++
++	rc = plpar_hcall(H_VIOCTL, retbuf, adapter->vdev->unit_address,
++			 H_GET_SESSION_TOKEN, 0, 0, 0);
++	if (rc) {
++		netdev_err(netdev, "Couldn't retrieve session token, rc %ld\n",
++			   rc);
++		return -EINVAL;
++	}
++
++	session_token = (__be64)retbuf[0];
++	netdev_dbg(netdev, "Initiating client failover, session id %llx\n",
++		   be64_to_cpu(session_token));
++	rc = plpar_hcall_norets(H_VIOCTL, adapter->vdev->unit_address,
++				H_SESSION_ERR_DETECTED, session_token, 0, 0);
++	if (rc) {
++		netdev_err(netdev, "Client initiated failover failed, rc %ld\n",
++			   rc);
++		return -EINVAL;
++	}
++
++	return count;
++}
++
++static DEVICE_ATTR(failover, 0200, NULL, failover_store);
++
+ static unsigned long ibmvnic_get_desired_dma(struct vio_dev *vdev)
+ {
+ 	struct net_device *netdev = dev_get_drvdata(&vdev->dev);
 -- 
-2.5.5
+1.8.3.1
