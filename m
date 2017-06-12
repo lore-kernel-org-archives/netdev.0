@@ -1,175 +1,57 @@
-From: AL Yu-Chen Cho <acho@suse.com>
-Subject: Re: [PATCH v4 3/3] Bluetooth: hidp: fix possible might sleep error
- in hidp_session_thread
-Date: Mon, 12 Jun 2017 16:44:05 +0800
-Message-ID: <1497257045.3326.6.camel@suse.com>
-References: <1487033725-7208-1-git-send-email-jeffy.chen@rock-chips.com>
-         <1487033725-7208-3-git-send-email-jeffy.chen@rock-chips.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH nf-next] netns: add and use net_ns_barrier
+Date: Mon, 12 Jun 2017 10:47:09 +0200
+Message-ID: <20170612084709.GA3242@salvia>
+References: <20170530093812.10712-1-fw@strlen.de>
+ <87y3tcj3n7.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Brian Norris <briannorris@chromium.org>,
-        Douglas Anderson <dianders@chromium.org>,
-        Johan Hedberg <johan.hedberg@intel.com>,
-        Peter Hurley <peter@hurleysoftware.com>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Marcel Holtmann <marcel@holtmann.org>,
-        Gustavo Padovan <gustavo@padovan.org>
-To: Jeffy Chen <jeffy.chen@rock-chips.com>,
-        linux-bluetooth@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1487033725-7208-3-git-send-email-jeffy.chen@rock-chips.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, netfilter-devel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ganesha.gnumonks.org ([213.95.27.120]:56627 "EHLO
+        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750730AbdFLIrQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 04:47:16 -0400
+Content-Disposition: inline
+In-Reply-To: <87y3tcj3n7.fsf@xmission.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-02-14 at 08:55 +0800, Jeffy Chen wrote:
-> It looks like hidp_session_thread has same pattern as the issue
-> reported in
-> old rfcomm:
+On Wed, May 31, 2017 at 01:13:32PM -0500, Eric W. Biederman wrote:
+> Florian Westphal <fw@strlen.de> writes:
 > 
-> 	while (1) {
-> 		set_current_state(TASK_INTERRUPTIBLE);
-> 		if (condition)
-> 			break;
-> 		// may call might_sleep here
-> 		schedule();
-> 	}
-> 	__set_current_state(TASK_RUNNING);
+> > Quoting Joe Stringer:
+> >   If a user loads nf_conntrack_ftp, sends FTP traffic through a network
+> >   namespace, destroys that namespace then unloads the FTP helper module,
+> >   then the kernel will crash.
+> >
+> > Events that lead to the crash:
+> > 1. conntrack is created with ftp helper in netns x
+> > 2. This netns is destroyed
+> > 3. netns destruction is scheduled
+> > 4. netns destruction wq starts, removes netns from global list
+> > 5. ftp helper is unloaded, which resets all helpers of the conntracks
+> > via for_each_net()
+> >
+> > but because netns is already gone from list the for_each_net() loop
+> > doesn't include it, therefore all of these conntracks are unaffected.
+> >
+> > 6. helper module unload finishes
+> > 7. netns wq invokes destructor for rmmod'ed helper
+> >
+> > CC: "Eric W. Biederman" <ebiederm@xmission.com>
+> > Reported-by: Joe Stringer <joe@ovn.org>
+> > Signed-off-by: Florian Westphal <fw@strlen.de>
+> > ---
+> >  Eric, I'd like an explicit (n)ack from you for this one.
 > 
-> Which fixed at:
-> 	dfb2fae Bluetooth: Fix nested sleeps
-> 
-> So let's fix it at the same way, also follow the suggestion of:
-> https://lwn.net/Articles/628628/
-> 
-> Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
-> 1/ Fix could not wake up by wake attempts on original wait queues.
-> 2/ Remove unnecessary memory barrier before wake_up_* functions.
-> 
-> 1/ Make hidp_session_wake_function static.
-> 2/ Remove unnecessary default_wake_function.
-> 
+> This doesn't look too scary but I have the impression we have addressed
+> this elsewhere with a different solution.
 
-Tested-by: AL Yu-Chen Cho <acho@suse.com>
+Eric, so you hold your nose there and I take this ;-)
 
-> ---
-> 
-> Changes in v3: None
-> Changes in v2: None
-> 
->  net/bluetooth/hidp/core.c | 33 ++++++++++++++++++++++-----------
->  1 file changed, 22 insertions(+), 11 deletions(-)
-> 
-> diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
-> index 0bec458..1fc0764 100644
-> --- a/net/bluetooth/hidp/core.c
-> +++ b/net/bluetooth/hidp/core.c
-> @@ -36,6 +36,7 @@
->  #define VERSION "1.2"
->  
->  static DECLARE_RWSEM(hidp_session_sem);
-> +static DECLARE_WAIT_QUEUE_HEAD(hidp_session_wq);
->  static LIST_HEAD(hidp_session_list);
->  
->  static unsigned char hidp_keycode[256] = {
-> @@ -1068,12 +1069,12 @@ static int hidp_session_start_sync(struct
-> hidp_session *session)
->   * Wake up session thread and notify it to stop. This is
-> asynchronous and
->   * returns immediately. Call this whenever a runtime error occurs
-> and you want
->   * the session to stop.
-> - * Note: wake_up_process() performs any necessary memory-barriers
-> for us.
-> + * Note: wake_up_interruptible() performs any necessary memory-
-> barriers for us.
->   */
->  static void hidp_session_terminate(struct hidp_session *session)
->  {
->  	atomic_inc(&session->terminate);
-> -	wake_up_process(session->task);
-> +	wake_up_interruptible(&hidp_session_wq);
->  }
->  
->  /*
-> @@ -1180,7 +1181,9 @@ static void hidp_session_run(struct
-> hidp_session *session)
->  	struct sock *ctrl_sk = session->ctrl_sock->sk;
->  	struct sock *intr_sk = session->intr_sock->sk;
->  	struct sk_buff *skb;
-> +	DEFINE_WAIT_FUNC(wait, woken_wake_function);
->  
-> +	add_wait_queue(&hidp_session_wq, &wait);
->  	for (;;) {
->  		/*
->  		 * This thread can be woken up two ways:
-> @@ -1188,12 +1191,10 @@ static void hidp_session_run(struct
-> hidp_session *session)
->  		 *    session->terminate flag and wakes this thread
-> up.
->  		 *  - Via modifying the socket state of
-> ctrl/intr_sock. This
->  		 *    thread is woken up by ->sk_state_changed().
-> -		 *
-> -		 * Note: set_current_state() performs any necessary
-> -		 * memory-barriers for us.
->  		 */
-> -		set_current_state(TASK_INTERRUPTIBLE);
->  
-> +		/* Ensure session->terminate is updated */
-> +		smp_mb__before_atomic();
->  		if (atomic_read(&session->terminate))
->  			break;
->  
-> @@ -1227,11 +1228,22 @@ static void hidp_session_run(struct
-> hidp_session *session)
->  		hidp_process_transmit(session, &session-
-> >ctrl_transmit,
->  				      session->ctrl_sock);
->  
-> -		schedule();
-> +		wait_woken(&wait, TASK_INTERRUPTIBLE,
-> MAX_SCHEDULE_TIMEOUT);
->  	}
-> +	remove_wait_queue(&hidp_session_wq, &wait);
->  
->  	atomic_inc(&session->terminate);
-> -	set_current_state(TASK_RUNNING);
-> +
-> +	/* Ensure session->terminate is updated */
-> +	smp_mb__after_atomic();
-> +}
-> +
-> +static int hidp_session_wake_function(wait_queue_t *wait,
-> +				      unsigned int mode,
-> +				      int sync, void *key)
-> +{
-> +	wake_up_interruptible(&hidp_session_wq);
-> +	return false;
->  }
->  
->  /*
-> @@ -1244,7 +1256,8 @@ static void hidp_session_run(struct
-> hidp_session *session)
->  static int hidp_session_thread(void *arg)
->  {
->  	struct hidp_session *session = arg;
-> -	wait_queue_t ctrl_wait, intr_wait;
-> +	DEFINE_WAIT_FUNC(ctrl_wait, hidp_session_wake_function);
-> +	DEFINE_WAIT_FUNC(intr_wait, hidp_session_wake_function);
->  
->  	BT_DBG("session %p", session);
->  
-> @@ -1254,8 +1267,6 @@ static int hidp_session_thread(void *arg)
->  	set_user_nice(current, -15);
->  	hidp_set_timer(session);
->  
-> -	init_waitqueue_entry(&ctrl_wait, current);
-> -	init_waitqueue_entry(&intr_wait, current);
->  	add_wait_queue(sk_sleep(session->ctrl_sock->sk),
-> &ctrl_wait);
->  	add_wait_queue(sk_sleep(session->intr_sock->sk),
-> &intr_wait);
->  	/* This memory barrier is paired with wq_has_sleeper(). See
+Or let me know if you want a different path.
+
+Thanks !
