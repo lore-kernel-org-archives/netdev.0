@@ -1,103 +1,130 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH v4 3/3] net/cxgb4: Use new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
-Date: Mon, 12 Jun 2017 19:05:25 +0800
-Message-ID: <1497265525-4752-4-git-send-email-dingtianhong@huawei.com>
-References: <1497265525-4752-1-git-send-email-dingtianhong@huawei.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next v10 1/4] net netlink: Add new type NLA_FLAG_BITS
+Date: Mon, 12 Jun 2017 07:10:56 -0400
+Message-ID: <8e2f151d-3a02-4b1b-755b-23a0a85556b4@mojatatu.com>
+References: <1497182026-11594-1-git-send-email-jhs@emojatatu.com>
+ <1497182026-11594-2-git-send-email-jhs@emojatatu.com>
+ <20170611134924.GA1896@nanopsycho.orion>
+ <4c536950-2be3-cc9c-1f77-066624800d07@mojatatu.com>
+ <4441aa62-d00e-82b6-d337-f86cf97e3c6d@mojatatu.com>
+ <20170612103432.GA1993@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Ding Tianhong <dingtianhong@huawei.com>
-To: <leedom@chelsio.com>, <ashok.raj@intel.com>, <helgaas@kernel.org>,
-        <werner@chelsio.com>, <ganeshgr@chelsio.com>,
-        <asit.k.mallick@intel.com>, <patrick.j.cramer@intel.com>,
-        <Suravee.Suthikulpanit@amd.com>, <Bob.Shaw@amd.com>,
-        <l.stach@pengutronix.de>, <amira@mellanox.com>,
-        <gabriele.paoloni@huawei.com>, <David.Laight@aculab.com>,
-        <jeffrey.t.kirsher@intel.com>, <catalin.marinas@arm.com>,
-        <will.deacon@arm.com>, <mark.rutland@arm.com>,
-        <robin.murphy@arm.com>, <davem@davemloft.net>,
-        <alexander.duyck@gmail.com>,
-        <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
-        <linux-pci@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1497265525-4752-1-git-send-email-dingtianhong@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
+        simon.horman@netronome.com, mrv@mojatatu.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:33344 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752010AbdFLLK7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 07:10:59 -0400
+Received: by mail-io0-f194.google.com with SMTP id j200so5475785ioe.0
+        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 04:10:59 -0700 (PDT)
+In-Reply-To: <20170612103432.GA1993@nanopsycho>
+Content-Language: en-GB
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Casey Leedom <leedom@chelsio.com>
+On 17-06-12 06:34 AM, Jiri Pirko wrote:
+> Sun, Jun 11, 2017 at 08:37:25PM CEST, jhs@mojatatu.com wrote:
+>> On 17-06-11 01:38 PM, Jamal Hadi Salim wrote:
+>>> On 17-06-11 09:49 AM, Jiri Pirko wrote:
+>>>> Sun, Jun 11, 2017 at 01:53:43PM CEST, jhs@mojatatu.com wrote:
+>>>>> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>>>
+>>>
+>>>>> This patch also provides an extra feature: a validation callback
+>>>>> that could be speaciliazed for other types.
+>>>>
+>>>> s/speaciliazed/speciliazed/
+>>>>
+>>>
+>>> Will fix.
+>>>
+>>>
+>>>>>
+>>>>> [ATTR_GOO] = { .type = MYTYPE,
+>>>>>             .validation_data = &myvalidation_data,
+>>>>>                 .validate_content = mycontent_validator },
+>>>>
+>>>> Indent is wrong. (Does not matter really in desc, but anyway)
+>>>>
+>>>
+>>> I cant find out how it got indented that way; my source
+>>> or email dont show it as such (but really doesnt matter).
+>>>
+>>>
+>>>> Suggested-by: Jiri Pirko <jiri@mellanox.com>
+>>>>
+>>>
+>>> Will add.
+>>>
+>>>>
+>>>>> ---
+>>>>> include/net/netlink.h          | 11 +++++++++++
+>>>>> include/uapi/linux/rtnetlink.h | 17 +++++++++++++++++
+>>>>> lib/nlattr.c                   | 25 +++++++++++++++++++++++++
+>>>>> 3 files changed, 53 insertions(+)
+>>>>>
+>>>>> diff --git a/include/net/netlink.h b/include/net/netlink.h
+>>>>> index 0170917..8ab9784 100644
+>>>>> --- a/include/net/netlink.h
+>>>>> +++ b/include/net/netlink.h
+>>>>> @@ -6,6 +6,11 @@
+>>>>> #include <linux/jiffies.h>
+>>>>> #include <linux/in6.h>
+>>>>>
+>>>>> +struct nla_bit_flags {
+>>>>> +    u32 nla_flag_values;
+>>>>> +    u32 nla_flag_selector;
+>>>>> +};
+>>>>
+>>>> I don't understand why you redefine the struct here. You already have it
+>>>> defined in the uapi: struct __nla_bit_flags
+>>>>
+>>>> Just move this (struct nla_bit_flags) to the uapi and remove
+>>>> __nla_bit_flags ?
+>>>>
+>>>
+>>> I am not sure that will compile since the type is defined in netlink.h
+>>> Also, note: uapi uses _u32 and kernel uses u32 as types i.e it is pretty
+>>> common approach; i will try to move it to uapi and keep that uapi
+>>> format. If it doesnt compile without acrobatics I will keep it as is.
+>>>
+>>
+>> It doesnt compile - I could move it to linux/netlink.h but it seems
+>> so out of place.
+>> so i will keep things as is for now unless you can think of something
+>> else.
+> 
+> First of all, makes no sense to put this struct "struct __nla_bit_flags"
+> into rtnetlink.h uapi file. This is generic netlink stuff, not specifict
+> to rtnetlink.
+> 
+> I believe that this struct should go into:
+> include/uapi/linux/netlink.h
+> 
+> struct nla_flag_bits {
+> 	__u32 nla_flag_bits_values;
+> 	__u32 nla_flag_bits_selector;
+> };
+> 
+> Then you can use it from userspace and everywhere in kernel.
+> 
+That file seems to be very out of place for this stuff.
 
-cxgb4 Ethernet driver now queries PCIe configuration space to determine
-if it can send TLPs to it with the Relaxed Ordering Attribute set.
+> Btw, I find it very odd that enum containling NLA_* like NLA_U32 and
+> others is not part of uapi file and is rather defined in
+> include/net/netlink.h. Any idea why?
+> 
 
-Signed-off-by: Casey Leedom <leedom@chelsio.com>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  1 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 17 +++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/sge.c        |  5 +++--
- 3 files changed, 21 insertions(+), 2 deletions(-)
+NLA_XXX are kernel side types.  They are part of net/netlink.h which is
+not uapi accessible.
+David Ahern has submitted a patch to move all those defines to iproute2.
+Will make sense to move these to a uapi/linux/netlink-types.h but that
+is waay beyond the scope of this patch set.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index e88c180..478f25a 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -521,6 +521,7 @@ enum {                                 /* adapter flags */
- 	USING_SOFT_PARAMS  = (1 << 6),
- 	MASTER_PF          = (1 << 7),
- 	FW_OFLD_CONN       = (1 << 9),
-+	ROOT_NO_RELAXED_ORDERING = (1 << 10),
- };
- 
- enum {
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 38a5c67..1dd093d 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -4726,6 +4726,23 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	adapter->msg_enable = DFLT_MSG_ENABLE;
- 	memset(adapter->chan_map, 0xff, sizeof(adapter->chan_map));
- 
-+	/* If possible, we use PCIe Relaxed Ordering Attribute to deliver
-+	 * Ingress Packet Data to Free List Buffers in order to allow for
-+	 * chipset performance optimizations between the Root Complex and
-+	 * Memory Controllers.  (Messages to the associated Ingress Queue
-+	 * notifying new Packet Placement in the Free Lists Buffers will be
-+	 * send without the Relaxed Ordering Attribute thus guaranteeing that
-+	 * all preceding PCIe Transaction Layer Packets will be processed
-+	 * first.)  But some Root Complexes have various issues with Upstream
-+	 * Transaction Layer Packets with the Relaxed Ordering Attribute set.
-+	 * The PCIe devices which under the Root Complexes will be cleared the
-+	 * Relaxed Ordering bit in the configuration space, So we check our
-+	 * PCIe configuration space to see if it's flagged with advice against
-+	 * using Relaxed Ordering.
-+	 */
-+	if (pcie_relaxed_ordering_supported(pdev))
-+		adapter->flags |= ROOT_NO_RELAXED_ORDERING;
-+
- 	spin_lock_init(&adapter->stats_lock);
- 	spin_lock_init(&adapter->tid_release_lock);
- 	spin_lock_init(&adapter->win0_lock);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index f05f0d4..ac229a3 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -2571,6 +2571,7 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
- 	struct fw_iq_cmd c;
- 	struct sge *s = &adap->sge;
- 	struct port_info *pi = netdev_priv(dev);
-+	int relaxed = !(adap->flags & ROOT_NO_RELAXED_ORDERING);
- 
- 	/* Size needs to be multiple of 16, including status entry. */
- 	iq->size = roundup(iq->size, 16);
-@@ -2624,8 +2625,8 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
- 
- 		flsz = fl->size / 8 + s->stat_len / sizeof(struct tx_desc);
- 		c.iqns_to_fl0congen |= htonl(FW_IQ_CMD_FL0PACKEN_F |
--					     FW_IQ_CMD_FL0FETCHRO_F |
--					     FW_IQ_CMD_FL0DATARO_F |
-+					     FW_IQ_CMD_FL0FETCHRO_V(relaxed) |
-+					     FW_IQ_CMD_FL0DATARO_V(relaxed) |
- 					     FW_IQ_CMD_FL0PADEN_F);
- 		if (cong >= 0)
- 			c.iqns_to_fl0congen |=
--- 
-1.9.0
+cheers,
+jamal
