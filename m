@@ -1,57 +1,83 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [for-next 4/6] net/mlx5: FPGA, Add basic support for Innova
-Date: Mon, 12 Jun 2017 10:14:23 -0600
-Message-ID: <20170612161423.GB24829@obsidianresearch.com>
-References: <20170601153704.GA1680@obsidianresearch.com>
- <AM4PR0501MB19404B83A69B87AFB1326B45DBF50@AM4PR0501MB1940.eurprd05.prod.outlook.com>
- <20170605151724.GA20182@obsidianresearch.com>
- <AM4PR0501MB194008AAABEB6AAAA2ADFC82DBCB0@AM4PR0501MB1940.eurprd05.prod.outlook.com>
- <20170606161709.GA8671@obsidianresearch.com>
- <CALzJLG9Rdjme2piWX+CDeHZZebWArM_wGjLJPh8=COOxBHuFkw@mail.gmail.com>
- <20170607154858.GA30124@obsidianresearch.com>
- <CALzJLG8epxWp1pmTd_fxOUfzXF5YoOFfnrRBJ0-YZVL1Gi_yOw@mail.gmail.com>
- <20170607192132.GA10929@obsidianresearch.com>
- <AM4PR0501MB19401208254971445E61367EDBCC0@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: mdio-thunder.c:undefined reference to `mdiobus_unregister'
+Date: Mon, 12 Jun 2017 09:17:15 -0700
+Message-ID: <65ac6724-3b40-86ca-534d-f5bede84703c@gmail.com>
+References: <201706121044.hytIipdV%fengguang.wu@intel.com>
+ <d61b3289-9149-4a43-b8bd-4c3b94590e5f@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-        Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "jsorensen-b10kYP2dOMg@public.gmane.org" <jsorensen-b10kYP2dOMg@public.gmane.org>,
-        Andy Shevchenko <andy.shevchenko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "linux-fpga-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-fpga-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Alan Tull <atull-yzvPICuk2ABMcg4IHK0kFoH6Mc4MB0Vx@public.gmane.org>,
-        "yi1.li-VuQAYsv1563Yd54FQh9/CA@public.gmane.org" <yi1.li-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-        Boris Pismenny <borisp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <AM4PR0501MB19401208254971445E61367EDBCC0-dp/nxUn679gfNUYDR5dMTsDSnupUy6xnnBOFsp37pqbUKgpGm//BTAC/G2K4zDHf@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: kbuild-all@01.org, linux-kernel@vger.kernel.org,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Arnd Bergmann <arnd@arndb.de>
+To: Randy Dunlap <rdunlap@infradead.org>,
+        kbuild test robot <fengguang.wu@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <d61b3289-9149-4a43-b8bd-4c3b94590e5f@infradead.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 11, 2017 at 05:59:04AM +0000, Ilan Tayari wrote:
-> > This is especially true for mlx nics as there are many raw packet
-> > bypass mechanisms available to userspace.
+On 06/12/2017 09:09 AM, Randy Dunlap wrote:
+> On 06/11/17 19:14, kbuild test robot wrote:
+>> tree:   https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git master
+>> head:   32c1431eea4881a6b17bd7c639315010aeefa452
+>> commit: 90eff9096c01ba90cdae504a6b95ee87fe2556a3 net: phy: Allow splitting MDIO bus/device support from PHYs
+>> date:   3 months ago
+>> config: x86_64-randconfig-s2-06120830 (attached as .config)
+>> compiler: gcc-6 (Debian 6.2.0-3) 6.2.0 20160901
+>> reproduce:
+>>         git checkout 90eff9096c01ba90cdae504a6b95ee87fe2556a3
+>>         # save the attached .config to linux build tree
+>>         make ARCH=x86_64 
+>>
+>> All errors (new ones prefixed by >>):
+>>
+>>    drivers/built-in.o: In function `thunder_mdiobus_pci_remove':
+>>>> mdio-thunder.c:(.text+0x2a212f): undefined reference to `mdiobus_unregister'
+>>>> mdio-thunder.c:(.text+0x2a2138): undefined reference to `mdiobus_free'
+>>    drivers/built-in.o: In function `thunder_mdiobus_pci_probe':
+>>    mdio-thunder.c:(.text+0x2a22e7): undefined reference to `devm_mdiobus_alloc_size'
+>>    mdio-thunder.c:(.text+0x2a236f): undefined reference to `of_mdiobus_register'
+>>
+>> ---
+>> 0-DAY kernel test infrastructure                Open Source Technology Center
+>> https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+>>
 > 
-> The device uses internal signaling that ensures that no entity other
-> than the mlx5 driver can talk over the FPGA channel.  This is also
-> the reason why this is not a "ULP in a driver", but rather an
-> internal bus that happens to use some of our existing HW features.
+> Ugh. I don't know the solution to this one.
+> 
+> CONFIG_MDIO_DEVICE=y
+> CONFIG_MDIO_THUNDER=y
+> CONFIG_PHYLIB=m
+> 
+> First 2 lines are OK, but the third line causes the problem...
+> in drivers/net/phy/Makefile:
+> 
+> # PHYLIB implies MDIO_DEVICE, in that case, we have a bunch of circular
+> # dependencies that does not make it possible to split mdio-bus objects into a
+> # dedicated loadable module, so we bundle them all together into libphy.ko
+> ifdef CONFIG_PHYLIB
+> libphy-y			+= $(mdio-bus-y)
+> else
+> obj-$(CONFIG_MDIO_DEVICE)	+= mdio-bus.o
+> endif
+> libphy-$(CONFIG_SWPHY)		+= swphy.o
+> libphy-$(CONFIG_LED_TRIGGER_PHY)	+= phy_led_triggers.o
+> 
+> obj-$(CONFIG_PHYLIB)		+= libphy.o
+> 
+> 
+> So PHYLIB is built as libphy.ko and the mdiobus functions are there
+> instead of being in mdio-bus.o (so they are not built-in), while the
+> mdio-thunder driver is built-in.
 
-You are taking both positions at once - that this is *just* a 'bump on
-the wire' and everything is done via ethernet packets, and also that
-there is a special internal bus that nothing needs to know about.
+We may need:
 
-It is hard to be both ways, if it is ethernet packets there there are
-ways to create those packets outside the driver's control and security
-is a big question.
+depends on !(MDIO_DEVICE=y && PHYLIB=m)
 
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+similar to what MDIO_BITBANG already has.
+
+I will cook something later today, thanks!
+-- 
+Florian
