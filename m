@@ -1,56 +1,67 @@
-From: Shubham Bansal <illusionist.neo@gmail.com>
-Subject: Re: [PATCH v2] arm: eBPF JIT compiler
-Date: Mon, 12 Jun 2017 21:11:58 +0530
-Message-ID: <CAHgaXdKqpgKzPHCbeagy_AArrir48UinLWX3yKxcvMkQ4_7apQ@mail.gmail.com>
-References: <1495754003-21099-1-git-send-email-illusionist.neo@gmail.com>
- <CAGXu5jKmLNMR+uhM9Ov2XPW6kCjip_SjScgEH0fTFp6fQtKFiA@mail.gmail.com>
- <593E6B0F.8070901@iogearbox.net> <20170612110611.GC4902@n2100.armlinux.org.uk>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [net-next] net: phy: marvell: Show complete link partner
+ advertising
+Date: Mon, 12 Jun 2017 09:05:04 -0700
+Message-ID: <a172b1f9-5141-6d53-1d96-bd028a0b0a23@gmail.com>
+References: <20170612133237.E20945085BC@solo.franken.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Kees Cook <keescook@chromium.org>,
-        Network Development <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexei Starovoitov <ast@kernel.org>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        LKML <linux-kernel@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: Russell King - ARM Linux <linux@armlinux.org.uk>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Thomas Bogendoerfer <tsbogend@alpha.franken.de>, andrew@lunn.ch,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        rmk+kernel@armlinux.org.uk
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170612110611.GC4902@n2100.armlinux.org.uk>
+In-Reply-To: <20170612133237.E20945085BC@solo.franken.de>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Russel,
+On 06/12/2017 05:54 AM, Thomas Bogendoerfer wrote:
+> From: Thomas Bogendoerfer <tbogendoerfer@suse.de>
+> 
+> Give back all modes advertised by the link partner. This change brings
+> the marvell phy driver in line with all other phy drivers.
+> 
+> Signed-off-by: Thomas Bogendoerfer <tbogendoerfer@suse.de>
 
-On Mon, Jun 12, 2017 at 4:36 PM, Russell King - ARM Linux
-<linux@armlinux.org.uk> wrote:
-> On Mon, Jun 12, 2017 at 12:21:03PM +0200, Daniel Borkmann wrote:
->> On 05/30/2017 09:19 PM, Kees Cook wrote:
->> >On Thu, May 25, 2017 at 4:13 PM, Shubham Bansal
->> ><illusionist.neo@gmail.com> wrote:
->> >>+static int validate_code(struct jit_ctx *ctx)
->> >>+{
->> >>+       int i;
->> >>+
->> >>+       for (i = 0; i < ctx->idx; i++) {
->> >>+               u32 a32_insn = le32_to_cpu(ctx->target[i]);
->>
->> Given __opcode_to_mem_arm(ARM_INST_UDF) is used to fill the image,
->> perhaps use the __mem_to_opcode_arm() helper for the check?
->>
->> >>+               if (a32_insn == ARM_INST_UDF)
->
-> The following is probably better:
->
->                 if (ctx->target[i] == __opcode_to_mem_arm(ARM_INST_UDF))
->
-> since then you can take advantage of the compiler optimising the
-> constant rather than having to do a byte swap on an unknown 32-bit
-> value.
+I thought Russell had a similar patch but I can't find it applied in
+net-next, so:
 
-Done. Thanks :)
-Please check if you can find anymore issues with the code. I really
-appreciate it.
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 
--Shubham
+drivers/net/phy/lxt.c has a similar pattern that would be worth fixing too.
+
+> ---
+>  drivers/net/phy/marvell.c | 7 -------
+>  1 file changed, 7 deletions(-)
+> 
+> diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+> index 4c5246fed69b..8400403b3f62 100644
+> --- a/drivers/net/phy/marvell.c
+> +++ b/drivers/net/phy/marvell.c
+> @@ -1139,7 +1139,6 @@ static int marvell_read_status_page_an(struct phy_device *phydev,
+>  	int status;
+>  	int lpa;
+>  	int lpagb;
+> -	int adv;
+>  
+>  	status = phy_read(phydev, MII_M1011_PHY_STATUS);
+>  	if (status < 0)
+> @@ -1153,12 +1152,6 @@ static int marvell_read_status_page_an(struct phy_device *phydev,
+>  	if (lpagb < 0)
+>  		return lpagb;
+>  
+> -	adv = phy_read(phydev, MII_ADVERTISE);
+> -	if (adv < 0)
+> -		return adv;
+> -
+> -	lpa &= adv;
+> -
+>  	if (status & MII_M1011_PHY_STATUS_FULLDUPLEX)
+>  		phydev->duplex = DUPLEX_FULL;
+>  	else
+> 
+
+
+-- 
+Florian
