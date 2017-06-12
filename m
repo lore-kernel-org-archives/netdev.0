@@ -1,33 +1,46 @@
-From: "HELP DESK" <zakeerhussai@careind.net>
-Subject: EMAIL ALERT
-Date: Mon, 12 Jun 2017 20:55:02 +0100
-Message-ID: <20170612194758.0915D2850155@cams.careind.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cams.careind.net ([1.23.164.19]:55560 "EHLO cams.careind.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752386AbdFLUKO (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 12 Jun 2017 16:10:14 -0400
-Received: from localhost (localhost.localdomain [127.0.0.1])
-        by cams.careind.net (Postfix) with ESMTP id 170552850145
-        for <netdev@vger.kernel.org>; Tue, 13 Jun 2017 01:18:01 +0530 (IST)
-Received: from cams.careind.net ([127.0.0.1])
-        by localhost (cams.careind.net [127.0.0.1]) (amavisd-new, port 10024)
-        with ESMTP id Rx8TwdAkHQrf for <netdev@vger.kernel.org>;
-        Tue, 13 Jun 2017 01:18:00 +0530 (IST)
-Received: from [192.168.10.103] (unknown [192.168.0.31])
-        by cams.careind.net (Postfix) with ESMTPSA id 0915D2850155
-        for <netdev@vger.kernel.org>; Tue, 13 Jun 2017 01:17:57 +0530 (IST)
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arun Parameswaran <arun.parameswaran@broadcom.com>
+Subject: [PATCH v1 1/2] dt-binding: ptp: add bindings document for dte based ptp clock
+Date: Mon, 12 Jun 2017 13:26:00 -0700
+Message-ID: <1497299161-6458-2-git-send-email-arun.parameswaran@broadcom.com>
+References: <1497299161-6458-1-git-send-email-arun.parameswaran@broadcom.com>
+Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org, bcm-kernel-feedback-list@broadcom.com,
+        Arun Parameswaran <arun.parameswaran@broadcom.com>
+To: Richard Cochran <richardcochran@gmail.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1497299161-6458-1-git-send-email-arun.parameswaran@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Recently, we have detect some unusual activity on your account and as a result, all email users are urged to update their email account within 24 hours of receiving this e-mail, please click the link http://beam.to/1469 to confirm that your email account is up to date with the institution requirement.
+Add device tree binding documentation for the Broadcom DTE
+PTP clock driver.
 
-
+Signed-off-by: Arun Parameswaran <arun.parameswaran@broadcom.com>
 ---
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+ Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
+
+diff --git a/Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt b/Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
+new file mode 100644
+index 0000000..07590bc
+--- /dev/null
++++ b/Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
+@@ -0,0 +1,13 @@
++* Broadcom Digital Timing Engine(DTE) based PTP clock driver
++
++Required properties:
++- compatible: should be "brcm,ptp-dte"
++- reg: address and length of the DTE block's NCO registers
++
++Example:
++
++ptp_dte: ptp_dte@180af650 {
++	compatible = "brcm,ptp-dte";
++	reg = <0x180af650 0x10>;
++	status = "okay";
++};
+-- 
+1.9.1
