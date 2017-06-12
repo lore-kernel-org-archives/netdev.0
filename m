@@ -1,139 +1,158 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: WARNING in dev_watchdog
-Date: Mon, 12 Jun 2017 08:42:32 +0200
-Message-ID: <20170612064232.GA14559@kroah.com>
-References: <CAJsXRPGWqm-DN2+VsEjCAOZV-C2GqkzmjPjJgRoGTUABJSFnow@mail.gmail.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH v3 3/3] net/cxgb4: Use new
+ PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+Date: Mon, 12 Jun 2017 14:53:29 +0800
+Message-ID: <2805c6bb-9d1d-0216-60ef-48cb7c377c4b@huawei.com>
+References: <1496826968-10152-1-git-send-email-dingtianhong@huawei.com>
+ <1496826968-10152-4-git-send-email-dingtianhong@huawei.com>
+ <CAKgT0UeN7BK94wgU=LiD9CAo0ihrFgv2bZLFrTtr_+bgSbswxQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        security@kernel.org
-To: Dison River <pwn2river@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAJsXRPGWqm-DN2+VsEjCAOZV-C2GqkzmjPjJgRoGTUABJSFnow@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland@arm.com>,
+ Gabriele Paoloni <gabriele.paoloni@huawei.com>,
+ Asit K Mallick <asit.k.mallick@intel.com>,
+ Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>,
+ Ashok Raj <ashok.raj@intel.com>, Bjorn Helgaas <helgaas@kernel.org>,
+ Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+ "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+ Ganesh Goudar <ganeshgr@chelsio.com>, Bob Shaw <Bob.Shaw@amd.com>,
+ Casey Leedom <leedom@chelsio.com>,
+ Patrick J Cramer <patrick.j.cramer@intel.com>,
+ Michael Werner <werner@chelsio.com>, linux-arm-kernel@lists.infradead.org,
+ Amir Ancel <amira@mellanox.com>, Netdev <netdev@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ David Laight <David.Laight@aculab.com>,
+ Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
+ Robin Murphy <robin.murphy@arm.com>, David Miller <davem@
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <CAKgT0UeN7BK94wgU=LiD9CAo0ihrFgv2bZLFrTtr_+bgSbswxQ@mail.gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 12, 2017 at 02:37:22PM +0800, Dison River wrote:
-> Hi:
->     I've got the following error report while fuzzing the kernel with
-> syzkaller on linux-4.11.0-rc3.
-> 
-> log:
-> WARNING: CPU: 2 PID: 0 at net/sched/sch_generic.c:316
-> dev_watchdog+0x648/0x770 net/sched/sch_generic.c:315
-> NETDEV WATCHDOG: eth0 (e1000): transmit queue 0 timed out
-> Kernel panic - not syncing: panic_on_warn set ...
-> 
-> CPU: 2 PID: 0 Comm: swapper/2 Not tainted 4.11.0-rc3 #2
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS
-> Ubuntu-1.8.2-1ubuntu1 04/01/2014
-> Call Trace:
->  <IRQ>
->  __dump_stack lib/dump_stack.c:16 [inline]
->  dump_stack+0x95/0xe8 lib/dump_stack.c:52
->  panic+0x1ae/0x386 kernel/panic.c:180
->  __warn+0x1c4/0x1e0 kernel/panic.c:541
->  warn_slowpath_fmt+0xac/0xd0 kernel/panic.c:564
->  dev_watchdog+0x648/0x770 net/sched/sch_generic.c:315
->  call_timer_fn+0x15b/0x5e0 kernel/time/timer.c:1268
->  expire_timers kernel/time/timer.c:1307 [inline]
->  __run_timers kernel/time/timer.c:1601 [inline]
->  run_timer_softirq+0x5c7/0x1140 kernel/time/timer.c:1614
->  __do_softirq+0x217/0x8b7 kernel/softirq.c:284
->  invoke_softirq kernel/softirq.c:364 [inline]
->  irq_exit+0x198/0x1d0 kernel/softirq.c:405
->  exiting_irq arch/x86/include/asm/apic.h:657 [inline]
->  smp_apic_timer_interrupt+0x76/0xa0 arch/x86/kernel/apic/apic.c:962
->  apic_timer_interrupt+0x90/0xa0 arch/x86/entry/entry_64.S:707
-> RIP: 0010:native_safe_halt arch/x86/include/asm/irqflags.h:53 [inline]
-> RIP: 0010:arch_safe_halt arch/x86/include/asm/irqflags.h:95 [inline]
-> RIP: 0010:default_idle+0x1f/0x2d0 arch/x86/kernel/process.c:275
-> RSP: 0018:ffff88006dee7e78 EFLAGS: 00000246 ORIG_RAX: ffffffffffffff10
-> RAX: 0000000000000007 RBX: ffff88006de9db40 RCX: 0000000000000000
-> RDX: 0000000000000000 RSI: 0000000000000001 RDI: ffff88006de9e314
-> RBP: ffff88006dee7e98 R08: 0000000000000040 R09: 0000000000000000
-> R10: 0000000000000000 R11: 0000000000000000 R12: ffffffff83efc9b8
-> R13: ffff88006de9db40 R14: 0000000000000002 R15: ffff88006de9db40
->  </IRQ>
->  arch_cpu_idle+0xa/0x10 arch/x86/kernel/process.c:266
->  default_idle_call+0x36/0x50 kernel/sched/idle.c:97
->  cpuidle_idle_call kernel/sched/idle.c:155 [inline]
->  do_idle+0x20b/0x2d0 kernel/sched/idle.c:244
->  cpu_startup_entry+0x18/0x20 kernel/sched/idle.c:346
->  start_secondary+0x245/0x2d0 arch/x86/kernel/smpboot.c:275
->  start_cpu+0x14/0x14 arch/x86/kernel/head_64.S:306
-> Dumping ftrace buffer:
->    (ftrace buffer empty)
-> Kernel Offset: disabled
-> Rebooting in 86400 seconds..
-> 
-> 
-> report :
-> 
-> 
-> syzkaller login: [   37.041894] ------------[ cut here ]------------
-> [   37.042430] WARNING: CPU: 2 PID: 0 at net/sched/sch_generic.c:316
-> dev_watchdog+0x648/0x770
-> [   37.042978] NETDEV WATCHDOG: eth0 (e1000): transmit queue 0 timed out
-> [   37.043405] Kernel panic - not syncing: panic_on_warn set ...
-> [   37.043405]
-> [   37.043888] CPU: 2 PID: 0 Comm: swapper/2 Not tainted 4.11.0-rc3 #2
-> [   37.044297] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996),
-> BIOS Ubuntu-1.8.2-1ubuntu1 04/01/2014
-> [   37.044909] Call Trace:
-> [   37.045080]  <IRQ>
-> [   37.045226]  dump_stack+0x95/0xe8
-> [   37.045453]  ? dev_watchdog+0x648/0x770
-> [   37.045712]  panic+0x1ae/0x386
-> [   37.045924]  ? percpu_up_read_preempt_enable.constprop.53+0xae/0xae
-> [   37.046342]  ? dev_watchdog+0x648/0x770
-> [   37.046605]  ? vprintk_default+0x28/0x30
-> [   37.046873]  ? dev_watchdog+0x648/0x770
-> [   37.047114]  __warn+0x1c4/0x1e0
-> [   37.047820]  warn_slowpath_fmt+0xac/0xd0
-> [   37.048467]  ? __warn+0x1e0/0x1e0
-> [   37.048698]  ? dev_watchdog+0x125/0x770
-> [   37.048963]  dev_watchdog+0x648/0x770
-> [   37.049218]  call_timer_fn+0x15b/0x5e0
-> [   37.049475]  ? call_timer_fn+0xcc/0x5e0
-> [   37.049739]  ? qdisc_rcu_free+0x110/0x110
-> [   37.050014]  ? process_timeout+0x20/0x20
-> [   37.050285]  ? trace_hardirqs_on_caller+0x19e/0x580
-> [   37.053699]  ? qdisc_rcu_free+0x110/0x110
-> [   37.054931]  ? qdisc_rcu_free+0x110/0x110
-> [   37.055296]  run_timer_softirq+0x5c7/0x1140
-> [   37.055949]  ? msleep_interruptible+0x170/0x170
-> [   37.056671]  ? lapic_timer_shutdown+0x3d/0x50
-> [   37.057268]  ? clockevents_switch_state+0xe3/0x320
-> [   37.057837]  __do_softirq+0x217/0x8b7
-> [   37.058097]  irq_exit+0x198/0x1d0
-> [   37.058326]  smp_apic_timer_interrupt+0x76/0xa0
-> [   37.058634]  apic_timer_interrupt+0x90/0xa0
-> [   37.058921] RIP: 0010:default_idle+0x1f/0x2d0
-> [   37.059217] RSP: 0018:ffff88006dee7e78 EFLAGS: 00000246 ORIG_RAX:
-> ffffffffffffff10
-> [   37.059702] RAX: 0000000000000007 RBX: ffff88006de9db40 RCX: 0000000000000000
-> [   37.060179] RDX: 0000000000000000 RSI: 0000000000000001 RDI: ffff88006de9e314
-> [   37.065968] RBP: ffff88006dee7e98 R08: 0000000000000040 R09: 0000000000000000
-> [   37.066451] R10: 0000000000000000 R11: 0000000000000000 R12: ffffffff83efc9b8
-> [   37.073921] R13: ffff88006de9db40 R14: 0000000000000002 R15: ffff88006de9db40
-> [   37.074405]  </IRQ>
-> [   37.074767]  ? default_idle+0x1d/0x2d0
-> [   37.075026]  arch_cpu_idle+0xa/0x10
-> [   37.075266]  default_idle_call+0x36/0x50
-> [   37.075534]  do_idle+0x20b/0x2d0
-> [   37.075815]  cpu_startup_entry+0x18/0x20
-> [   37.076084]  start_secondary+0x245/0x2d0
-> [   37.076352]  start_cpu+0x14/0x14
-> [   37.077025] Dumping ftrace buffer:
-> [   37.077308]    (ftrace buffer empty)
-> [   37.077555] Kernel Offset: disabled
-> [   37.078786] Rebooting in 86400 seconds..
 
-Any hints as to exactly what you were doing at the time, and a
-reproducer so we could try to test this?
 
-thanks,
+On 2017/6/8 7:24, Alexander Duyck wrote:
+> On Wed, Jun 7, 2017 at 2:16 AM, Ding Tianhong <dingtianhong@huawei.com> wrote:
+>> From: Casey Leedom <leedom@chelsio.com>
+>>
+>> cxgb4 Ethernet driver now queries Root Complex Port to determine if it can
+>> send TLPs to it with the Relaxed Ordering Attribute set.
+>>
+>> Signed-off-by: Casey Leedom <leedom@chelsio.com>
+>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> 
+> So I am pretty sure this patch doesn't work with patch 2. We need to
+> update it so that it doesn't check the root complex but instead checks
+> itself to see if it is allowed to use relaxed ordering.
+> 
 
-greg k-h
+Right, we should check the End Point PCIe device configuration space, not RC.
+
+> What we need here is the ability to detect if relaxed ordering is
+> disabled, and if so take the steps needed to enable peer to peer
+> relaxed ordering without enabling relaxed ordering to the root
+> complex. Do I have that right Casey?
+> 
+
+I am not very clear to this driver about how to enable peer to peer
+relaxed ordering without enabling relaxed ordering to the RC, need
+some help from Casey, so I will still focus on this patch and only
+fix the peer to RC relaxed ordering problem, I hope Casey could send
+another patch to fix it later.
+
+Thanks
+Ding
+
+>> ---
+>>  drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  1 +
+>>  drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 17 +++++++++++++++++
+>>  drivers/net/ethernet/chelsio/cxgb4/sge.c        |  5 +++--
+>>  3 files changed, 21 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+>> index e88c180..478f25a 100644
+>> --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+>> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+>> @@ -521,6 +521,7 @@ enum {                                 /* adapter flags */
+>>         USING_SOFT_PARAMS  = (1 << 6),
+>>         MASTER_PF          = (1 << 7),
+>>         FW_OFLD_CONN       = (1 << 9),
+>> +       ROOT_NO_RELAXED_ORDERING = (1 << 10),
+>>  };
+>>
+>>  enum {
+>> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+>> index 38a5c67..fbfe341 100644
+>> --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+>> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+>> @@ -4628,6 +4628,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>>  #ifdef CONFIG_PCI_IOV
+>>         u32 v, port_vec;
+>>  #endif
+>> +       struct pci_dev *root;
+>>
+>>         printk_once(KERN_INFO "%s - version %s\n", DRV_DESC, DRV_VERSION);
+>>
+>> @@ -4726,6 +4727,22 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>>         adapter->msg_enable = DFLT_MSG_ENABLE;
+>>         memset(adapter->chan_map, 0xff, sizeof(adapter->chan_map));
+>>
+>> +       /* If possible, we use PCIe Relaxed Ordering Attribute to deliver
+>> +        * Ingress Packet Data to Free List Buffers in order to allow for
+>> +        * chipset performance optimizations between the Root Complex and
+>> +        * Memory Controllers.  (Messages to the associated Ingress Queue
+>> +        * notifying new Packet Placement in the Free Lists Buffers will be
+>> +        * send without the Relaxed Ordering Attribute thus guaranteing that
+>> +        * all preceding PCIe Transaction Layer Packets will be processed
+>> +        * first.)  But some Root Complexes have various issues with Upstream
+>> +        * Transaction Layer Packets with the Relaxed Ordering Attribute set.
+>> +        * So we check our Root Complex to see if it's flaged with advice
+>> +        * against using Relaxed Ordering.
+>> +        */
+>> +       root = pci_find_pcie_root_port(adapter->pdev);
+>> +       if (pcie_get_relaxed_ordering(root))
+>> +               adapter->flags |= ROOT_NO_RELAXED_ORDERING;
+>> +
+>>         spin_lock_init(&adapter->stats_lock);
+>>         spin_lock_init(&adapter->tid_release_lock);
+>>         spin_lock_init(&adapter->win0_lock);
+>> diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+>> index f05f0d4..ac229a3 100644
+>> --- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
+>> +++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+>> @@ -2571,6 +2571,7 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+>>         struct fw_iq_cmd c;
+>>         struct sge *s = &adap->sge;
+>>         struct port_info *pi = netdev_priv(dev);
+>> +       int relaxed = !(adap->flags & ROOT_NO_RELAXED_ORDERING);
+>>
+>>         /* Size needs to be multiple of 16, including status entry. */
+>>         iq->size = roundup(iq->size, 16);
+>> @@ -2624,8 +2625,8 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+>>
+>>                 flsz = fl->size / 8 + s->stat_len / sizeof(struct tx_desc);
+>>                 c.iqns_to_fl0congen |= htonl(FW_IQ_CMD_FL0PACKEN_F |
+>> -                                            FW_IQ_CMD_FL0FETCHRO_F |
+>> -                                            FW_IQ_CMD_FL0DATARO_F |
+>> +                                            FW_IQ_CMD_FL0FETCHRO_V(relaxed) |
+>> +                                            FW_IQ_CMD_FL0DATARO_V(relaxed) |
+>>                                              FW_IQ_CMD_FL0PADEN_F);
+>>                 if (cong >= 0)
+>>                         c.iqns_to_fl0congen |=
+>> --
+>> 1.9.0
+>>
+>>
+> 
+> .
+> 
