@@ -1,13 +1,11 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v10 1/4] net netlink: Add new type NLA_FLAG_BITS
-Date: Mon, 12 Jun 2017 07:10:56 -0400
-Message-ID: <8e2f151d-3a02-4b1b-755b-23a0a85556b4@mojatatu.com>
+Subject: Re: [PATCH net-next v10 3/4] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Mon, 12 Jun 2017 07:16:05 -0400
+Message-ID: <fbf09ea1-36ee-69b1-74b0-ac436fff86ad@mojatatu.com>
 References: <1497182026-11594-1-git-send-email-jhs@emojatatu.com>
- <1497182026-11594-2-git-send-email-jhs@emojatatu.com>
- <20170611134924.GA1896@nanopsycho.orion>
- <4c536950-2be3-cc9c-1f77-066624800d07@mojatatu.com>
- <4441aa62-d00e-82b6-d337-f86cf97e3c6d@mojatatu.com>
- <20170612103432.GA1993@nanopsycho>
+ <1497182026-11594-4-git-send-email-jhs@emojatatu.com>
+ <20170611141303.GC1896@nanopsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -16,115 +14,42 @@ Cc: davem@davemloft.net, netdev@vger.kernel.org,
         simon.horman@netronome.com, mrv@mojatatu.com
 To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:33344 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752010AbdFLLK7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 07:10:59 -0400
-Received: by mail-io0-f194.google.com with SMTP id j200so5475785ioe.0
-        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 04:10:59 -0700 (PDT)
-In-Reply-To: <20170612103432.GA1993@nanopsycho>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:34523 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751737AbdFLLQH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 07:16:07 -0400
+Received: by mail-it0-f67.google.com with SMTP id 201so9241446itu.1
+        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 04:16:07 -0700 (PDT)
+In-Reply-To: <20170611141303.GC1896@nanopsycho.orion>
 Content-Language: en-GB
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-06-12 06:34 AM, Jiri Pirko wrote:
-> Sun, Jun 11, 2017 at 08:37:25PM CEST, jhs@mojatatu.com wrote:
->> On 17-06-11 01:38 PM, Jamal Hadi Salim wrote:
->>> On 17-06-11 09:49 AM, Jiri Pirko wrote:
->>>> Sun, Jun 11, 2017 at 01:53:43PM CEST, jhs@mojatatu.com wrote:
->>>>> From: Jamal Hadi Salim <jhs@mojatatu.com>
->>>
->>>
->>>>> This patch also provides an extra feature: a validation callback
->>>>> that could be speaciliazed for other types.
->>>>
->>>> s/speaciliazed/speciliazed/
->>>>
->>>
->>> Will fix.
->>>
->>>
->>>>>
->>>>> [ATTR_GOO] = { .type = MYTYPE,
->>>>>             .validation_data = &myvalidation_data,
->>>>>                 .validate_content = mycontent_validator },
->>>>
->>>> Indent is wrong. (Does not matter really in desc, but anyway)
->>>>
->>>
->>> I cant find out how it got indented that way; my source
->>> or email dont show it as such (but really doesnt matter).
->>>
->>>
->>>> Suggested-by: Jiri Pirko <jiri@mellanox.com>
->>>>
->>>
->>> Will add.
->>>
->>>>
->>>>> ---
->>>>> include/net/netlink.h          | 11 +++++++++++
->>>>> include/uapi/linux/rtnetlink.h | 17 +++++++++++++++++
->>>>> lib/nlattr.c                   | 25 +++++++++++++++++++++++++
->>>>> 3 files changed, 53 insertions(+)
->>>>>
->>>>> diff --git a/include/net/netlink.h b/include/net/netlink.h
->>>>> index 0170917..8ab9784 100644
->>>>> --- a/include/net/netlink.h
->>>>> +++ b/include/net/netlink.h
->>>>> @@ -6,6 +6,11 @@
->>>>> #include <linux/jiffies.h>
->>>>> #include <linux/in6.h>
->>>>>
->>>>> +struct nla_bit_flags {
->>>>> +    u32 nla_flag_values;
->>>>> +    u32 nla_flag_selector;
->>>>> +};
->>>>
->>>> I don't understand why you redefine the struct here. You already have it
->>>> defined in the uapi: struct __nla_bit_flags
->>>>
->>>> Just move this (struct nla_bit_flags) to the uapi and remove
->>>> __nla_bit_flags ?
->>>>
->>>
->>> I am not sure that will compile since the type is defined in netlink.h
->>> Also, note: uapi uses _u32 and kernel uses u32 as types i.e it is pretty
->>> common approach; i will try to move it to uapi and keep that uapi
->>> format. If it doesnt compile without acrobatics I will keep it as is.
->>>
+On 17-06-11 10:13 AM, Jiri Pirko wrote:
+> Sun, Jun 11, 2017 at 01:53:45PM CEST, jhs@mojatatu.com wrote:
+[..]
+>> @@ -1168,14 +1185,24 @@ static int tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
+>> 	if (a_o == NULL)
+>> 		return 0;
 >>
->> It doesnt compile - I could move it to linux/netlink.h but it seems
->> so out of place.
->> so i will keep things as is for now unless you can think of something
->> else.
+>> +	if (tb[TCA_ROOT_FLAGS])
+>> +		nla_memcpy(&select_flags, tb[TCA_ROOT_FLAGS],
+>> +			   sizeof(select_flags));
 > 
-> First of all, makes no sense to put this struct "struct __nla_bit_flags"
-> into rtnetlink.h uapi file. This is generic netlink stuff, not specifict
-> to rtnetlink.
+> Please introduce a helper for this attr type in patch 1:
 > 
-> I believe that this struct should go into:
-> include/uapi/linux/netlink.h
+> u32 select_flags;
 > 
-> struct nla_flag_bits {
-> 	__u32 nla_flag_bits_values;
-> 	__u32 nla_flag_bits_selector;
-> };
-> 
-> Then you can use it from userspace and everywhere in kernel.
-> 
-That file seems to be very out of place for this stuff.
-
-> Btw, I find it very odd that enum containling NLA_* like NLA_U32 and
-> others is not part of uapi file and is rather defined in
-> include/net/netlink.h. Any idea why?
+> select_flags = nla_get_flag_bits_values(tb[TCA_ROOT_FLAGS])
 > 
 
-NLA_XXX are kernel side types.  They are part of net/netlink.h which is
-not uapi accessible.
-David Ahern has submitted a patch to move all those defines to iproute2.
-Will make sense to move these to a uapi/linux/netlink-types.h but that
-is waay beyond the scope of this patch set.
+This also is not useful.
+It happens to be ok for this use case but not for the
+general case. i.e.
+We need to get the whole struct not just the values
+and use the selector to pick what bits are affected.
+Example if bit X is set to 1 in selector and bit X in value
+is 0, then we set the kernel's bit X to 0.
 
 cheers,
 jamal
