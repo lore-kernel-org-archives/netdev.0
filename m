@@ -1,59 +1,143 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH 2/2] mdio_bus: use devm_gpiod_get_optional()
-Date: Mon, 12 Jun 2017 23:55:39 +0300
-Message-ID: <20170612210551.696721345__12621.0674913184$1497301575$gmane$org@cogentembedded.com>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: [PATCH 1/2] mdio_bus: handle only single PHY reset GPIO
+Date: Mon, 12 Jun 2017 23:55:38 +0300
+Message-ID: <20170612210547.823996341@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f45.google.com ([209.85.215.45]:34149 "EHLO
-        mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752756AbdFLVGG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 17:06:06 -0400
-Received: by mail-lf0-f45.google.com with SMTP id v20so58094877lfa.1
-        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 14:06:05 -0700 (PDT)
-To: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-To: Rob Herring <robh+dt@kernel.org>
-To: Frank Rowand <frowand.list@gmail.com>
-To: devicetree@vger.kernel.org
-Content-Disposition: inline; filename=mdio_bus-use-devm_gpiod_get_optional.patch
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline; filename=mdio_bus-handle-only-single-PHY-reset-GPIO.patch
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The MDIO reset GPIO is really a classical optional GPIO property case,
-so devm_gpiod_get_optional() should have been used, not devm_gpiod_get().
-Doing this  saves several LoCs...
+Commit 4c5e7a2c0501 ("dt-bindings: mdio: Clarify binding document")
+declared that a MDIO reset GPIO property should have only a single GPIO
+reference/specifier, however the supporting code was left intact, still
+burdening the kernel with now apparently useless loops -- get rid of them.
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
 
 ---
- drivers/net/phy/mdio_bus.c |   14 +++++---------
- 1 file changed, 5 insertions(+), 9 deletions(-)
+ drivers/net/phy/mdio_bus.c |   53 ++++++++++++++++-----------------------------
+ drivers/of/of_mdio.c       |    1 
+ include/linux/phy.h        |    6 +----
+ 3 files changed, 21 insertions(+), 39 deletions(-)
 
 Index: net-next/drivers/net/phy/mdio_bus.c
 ===================================================================
 --- net-next.orig/drivers/net/phy/mdio_bus.c
 +++ net-next/drivers/net/phy/mdio_bus.c
-@@ -354,16 +354,12 @@ int __mdiobus_register(struct mii_bus *b
+@@ -353,33 +353,22 @@ int __mdiobus_register(struct mii_bus *b
+ 
  	mutex_init(&bus->mdio_lock);
  
- 	/* de-assert bus level PHY GPIO reset */
--	gpiod = devm_gpiod_get(&bus->dev, "reset", GPIOD_OUT_LOW);
-+	gpiod = devm_gpiod_get_optional(&bus->dev, "reset", GPIOD_OUT_LOW);
- 	if (IS_ERR(gpiod)) {
--		err = PTR_ERR(gpiod);
--		if (err != -ENOENT) {
--			dev_err(&bus->dev,
--				"mii_bus %s couldn't get reset GPIO\n",
--				bus->id);
--			return err;
--		}
--	} else	{
-+		dev_err(&bus->dev, "mii_bus %s couldn't get reset GPIO\n",
-+			bus->id);
-+		return PTR_ERR(gpiod);
-+	} else	if (gpiod) {
- 		bus->reset_gpiod = gpiod;
+-	/* de-assert bus level PHY GPIO resets */
+-	if (bus->num_reset_gpios > 0) {
+-		bus->reset_gpiod = devm_kcalloc(&bus->dev,
+-						 bus->num_reset_gpios,
+-						 sizeof(struct gpio_desc *),
+-						 GFP_KERNEL);
+-		if (!bus->reset_gpiod)
+-			return -ENOMEM;
+-	}
+-
+-	for (i = 0; i < bus->num_reset_gpios; i++) {
+-		gpiod = devm_gpiod_get_index(&bus->dev, "reset", i,
+-					     GPIOD_OUT_LOW);
+-		if (IS_ERR(gpiod)) {
+-			err = PTR_ERR(gpiod);
+-			if (err != -ENOENT) {
+-				dev_err(&bus->dev,
+-					"mii_bus %s couldn't get reset GPIO\n",
+-					bus->id);
+-				return err;
+-			}
+-		} else {
+-			bus->reset_gpiod[i] = gpiod;
+-			gpiod_set_value_cansleep(gpiod, 1);
+-			udelay(bus->reset_delay_us);
+-			gpiod_set_value_cansleep(gpiod, 0);
++	/* de-assert bus level PHY GPIO reset */
++	gpiod = devm_gpiod_get(&bus->dev, "reset", GPIOD_OUT_LOW);
++	if (IS_ERR(gpiod)) {
++		err = PTR_ERR(gpiod);
++		if (err != -ENOENT) {
++			dev_err(&bus->dev,
++				"mii_bus %s couldn't get reset GPIO\n",
++				bus->id);
++			return err;
+ 		}
++	} else	{
++		bus->reset_gpiod = gpiod;
++
++		gpiod_set_value_cansleep(gpiod, 1);
++		udelay(bus->reset_delay_us);
++		gpiod_set_value_cansleep(gpiod, 0);
+ 	}
  
- 		gpiod_set_value_cansleep(gpiod, 1);
+ 	if (bus->reset)
+@@ -414,10 +403,8 @@ error:
+ 	}
+ 
+ 	/* Put PHYs in RESET to save power */
+-	for (i = 0; i < bus->num_reset_gpios; i++) {
+-		if (bus->reset_gpiod[i])
+-			gpiod_set_value_cansleep(bus->reset_gpiod[i], 1);
+-	}
++	if (bus->reset_gpiod)
++		gpiod_set_value_cansleep(bus->reset_gpiod, 1);
+ 
+ 	device_del(&bus->dev);
+ 	return err;
+@@ -442,10 +429,8 @@ void mdiobus_unregister(struct mii_bus *
+ 	}
+ 
+ 	/* Put PHYs in RESET to save power */
+-	for (i = 0; i < bus->num_reset_gpios; i++) {
+-		if (bus->reset_gpiod[i])
+-			gpiod_set_value_cansleep(bus->reset_gpiod[i], 1);
+-	}
++	if (bus->reset_gpiod)
++		gpiod_set_value_cansleep(bus->reset_gpiod, 1);
+ 
+ 	device_del(&bus->dev);
+ }
+Index: net-next/drivers/of/of_mdio.c
+===================================================================
+--- net-next.orig/drivers/of/of_mdio.c
++++ net-next/drivers/of/of_mdio.c
+@@ -226,7 +226,6 @@ int of_mdiobus_register(struct mii_bus *
+ 	/* Get bus level PHY reset GPIO details */
+ 	mdio->reset_delay_us = DEFAULT_GPIO_RESET_DELAY;
+ 	of_property_read_u32(np, "reset-delay-us", &mdio->reset_delay_us);
+-	mdio->num_reset_gpios = of_gpio_named_count(np, "reset-gpios");
+ 
+ 	/* Register the MDIO bus */
+ 	rc = mdiobus_register(mdio);
+Index: net-next/include/linux/phy.h
+===================================================================
+--- net-next.orig/include/linux/phy.h
++++ net-next/include/linux/phy.h
+@@ -226,10 +226,8 @@ struct mii_bus {
+ 
+ 	/* GPIO reset pulse width in microseconds */
+ 	int reset_delay_us;
+-	/* Number of reset GPIOs */
+-	int num_reset_gpios;
+-	/* Array of RESET GPIO descriptors */
+-	struct gpio_desc **reset_gpiod;
++	/* RESET GPIO descriptor pointer */
++	struct gpio_desc *reset_gpiod;
+ };
+ #define to_mii_bus(d) container_of(d, struct mii_bus, dev)
+ 
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
