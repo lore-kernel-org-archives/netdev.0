@@ -1,7 +1,7 @@
 From: Russell King - ARM Linux <linux@armlinux.org.uk>
 Subject: Re: [PATCH v3 7/9] net: mvmdio: add xmdio xsmi support
-Date: Mon, 12 Jun 2017 11:07:56 +0100
-Message-ID: <20170612100756.GZ4902@n2100.armlinux.org.uk>
+Date: Mon, 12 Jun 2017 11:17:39 +0100
+Message-ID: <20170612101739.GA4902@n2100.armlinux.org.uk>
 References: <20170612095745.11300-1-antoine.tenart@free-electrons.com>
  <20170612095745.11300-8-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
@@ -14,55 +14,53 @@ Cc: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
         linux-arm-kernel@lists.infradead.org
 To: Antoine Tenart <antoine.tenart@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:36588 "EHLO
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:36722 "EHLO
         pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752129AbdFLKIU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 06:08:20 -0400
+        with ESMTP id S1752065AbdFLKSA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 06:18:00 -0400
 Content-Disposition: inline
 In-Reply-To: <20170612095745.11300-8-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Mon, Jun 12, 2017 at 11:57:43AM +0200, Antoine Tenart wrote:
-> +static void orion_mdio_xsmi_start_read_op(struct orion_mdio_dev *dev,
-> +					  int mii_id, int regnum)
+> +static const struct orion_mdio_ops *orion_mdio_get_ops(struct orion_mdio_dev *dev,
+> +						       int regnum)
 > +{
-> +	u16 dev_addr = (regnum >> 16) & GENMASK(4, 0);
+> +	if (dev->bus_type == BUS_TYPE_XSMI && (regnum & MII_ADDR_C45))
+> +		return &orion_mdio_xsmi_ops;
+> +	else if (dev->bus_type == BUS_TYPE_SMI)
+> +		return &orion_mdio_smi_ops;
 > +
-> +	writel(regnum & GENMASK(15, 0), dev->regs + MVMDIO_XSMI_ADDR_REG);
-> +	writel((mii_id << MVMDIO_XSMI_PHYADDR_SHIFT) |
-> +	       (dev_addr << MVMDIO_XSMI_DEVADDR_SHIFT) |
-> +	       MVMDIO_XSMI_READ_OPERATION,
-> +	       dev->regs + MVMDIO_XSMI_MGNT_REG);
+> +	return ERR_PTR(-EOPNOTSUPP);
+> +}
 
-So what happens if this function gets passed a Clause 22 formatted
-request?  Both regnum and mii_id are in the range 0-31.  MII_ADDR_C45
-in regnum is clear.
+Oh, this is where you're doing it - I'm not sure having this complexity
+is really necessary - there is no dynamic choice between the two.  This
+seems to be way over-engineered.
 
-The answer is we produce two Clause 45 frames on the bus, which is
-certainly not correct.  You need to trap and error out if MII_ADDR_C45
-is not set (as I've already said previously.)
+You might as well make the SMI operations fail if MII_ADDR_C45 is set,
+and the XSMI operations fail if MII_ADDR_C45 is not set.
 
-The SMI operations need to do the reverse - they need to fail if they
-receive a regnum with MII_ADDR_C45 set, as they are unable to produce
-Clause 45 frames.
+Hmm, I think this whole driver is over-engineered:
 
-> +static void orion_mdio_xsmi_write_op(struct orion_mdio_dev *dev, int mii_id,
-> +				     int regnum, u16 value)
-> +{
-> +	u16 dev_addr = (regnum >> 16) & GENMASK(4, 0);
-> +
-> +	writel(regnum & GENMASK(15, 0), dev->regs + MVMDIO_XSMI_ADDR_REG);
-> +	writel((mii_id << MVMDIO_XSMI_PHYADDR_SHIFT) |
-> +	       (dev_addr << MVMDIO_XSMI_DEVADDR_SHIFT) |
-> +	       MVMDIO_XSMI_WRITE_OPERATION | value,
-> +	       dev->regs + MVMDIO_XSMI_MGNT_REG);
+1. the mdio read/write functions implement their own locking.
 
-It's even more important here, as a Clause 22 write will produce a
-valid Clause 45 pair of frames with dev_addr = 0.
+   At the MDIO level, there is already locking in the form of a per-bus
+   lock "bus->mdio_lock" which will be taken whenever either of these
+   functions is called.  So the driver's "dev->lock" is redundant.
 
-Again, the corresponding SMI code needs to reject Clause 45 requests
-as the SMI interface is unable to produce Clause 45 frames.
+2. with the redundant locking removed, orion_mdio_write() becomes a
+   call to orion_mdio_wait_ready() followed by a call to dev->ops->write.
+   It seems that orion_mdio_wait_ready() could be a library function
+   shared between a SMI version of orion_mdio_write() and a XSMI version.
+
+3. the same is really true of orion_mdio_read(), although that function
+   is a little more complex in itself, the result would actually end up
+   being simpler.
+
+With those changes together, it elimates "struct orion_mdio_ops" entirely,
+and I think makes the driver smaller, simpler, and cleaner.
 
 -- 
 RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
