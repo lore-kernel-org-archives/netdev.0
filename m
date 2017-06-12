@@ -1,64 +1,116 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 2/2] r8152: move calling delay_autosuspend function
-Date: Mon, 12 Jun 2017 16:21:25 +0800
-Message-ID: <1394712342-15778-274-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-272-Taiwan-albertk@realtek.com>
+From: =?UTF-8?q?Niklas=20S=C3=B6derlund?=
+        <niklas.soderlund+renesas@ragnatech.se>
+Subject: [PATCH v3] sh_eth: add support for changing MTU
+Date: Mon, 12 Jun 2017 10:39:03 +0200
+Message-ID: <20170612083903.1584-1-niklas.soderlund+renesas@ragnatech.se>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-        <linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-272-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+        =?UTF-8?q?Niklas=20S=C3=B6derlund?=
+        <niklas.soderlund+renesas@ragnatech.se>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Move calling delay_autosuspend() in rtl8152_runtime_suspend(). Calling
-delay_autosuspend() as late as possible.
+The hardware supports the MTU to be changed and the driver it self is
+somewhat prepared to support this. This patch hooks up the callbacks to
+be able to change the MTU from user-space.
 
-The original flows are
-   1. check if the driver/device is busy now.
-   2. set wake events.
-   3. enter runtime suspend.
-
-If the wake event occurs between (1) and (2), the device may miss it. Besides,
-to avoid the runtime resume occurs after runtime suspend immediately, move the
-checking to the end of rtl8152_runtime_suspend().
-
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
+Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 ---
- drivers/net/usb/r8152.c | 12 +++++-------
- 1 file changed, 5 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 3257955..fb6fa6e 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -3752,13 +3752,6 @@ static int rtl8152_runtime_suspend(struct r8152 *tp)
- 	if (netif_running(netdev) && test_bit(WORK_ENABLE, &tp->flags)) {
- 		u32 rcr = 0;
+Based on v4.12-rc1 and tested on Renesas R-Car Koelsch M2.
+
+Test procedure:
+
+1. On host set MTU to something large (9000) was used for this test.
+
+2. On target set MTU to something other then 1500, in this test the max
+   MTU of 1978 is used.
+
+3. Send ping with large payload and observe that it works.
+
+   ping -M do -s 1954 <target>
+
+   The reason for 1954 instead of 1982 is two fold:
+
+   1. On Linux (different on Mac IIRC) the ICMP/ping implementation
+      do not encapsulate the 28 byte ICMP (8) + IP (20).
+   2. The driver internally reserve 4 bytes of transmission buffer for
+      an optional VLAN header (4). And since no VLAN is used in this
+      setup the additional 4 bytes can carry data.
+
+4. For extra verification the packet flow is inspected using tcpdump to
+   verify that there is no packet fragmentation.
+
+* Changes since v2
+- Changed subject from 'sh_eth: add support to change MTU' to 'sh_eth: add 
+  support for changing MTU' as suggested by Sergei.
+- Changed variable name of struct net_device from dev to ndev, thanks Sergei!
+- Fixed typo.
+
+* Changes since v1
+- Fix spelling mistake in comment, thanks Sergei!
+- Add Acked-by from Sergei.
+
+
+ drivers/net/ethernet/renesas/sh_eth.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index f68c4db656eda846..2be46e4a32913972 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -2558,6 +2558,17 @@ static int sh_eth_do_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
+ 	return phy_mii_ioctl(phydev, rq, cmd);
+ }
  
--		if (delay_autosuspend(tp)) {
--			clear_bit(SELECTIVE_SUSPEND, &tp->flags);
--			smp_mb__after_atomic();
--			ret = -EBUSY;
--			goto out1;
--		}
--
- 		if (netif_carrier_ok(netdev)) {
- 			u32 ocp_data;
- 
-@@ -3792,6 +3785,11 @@ static int rtl8152_runtime_suspend(struct r8152 *tp)
- 			ocp_write_dword(tp, MCU_TYPE_PLA, PLA_RCR, rcr);
- 			napi_enable(napi);
- 		}
++static int sh_eth_change_mtu(struct net_device *ndev, int new_mtu)
++{
++	if (netif_running(ndev))
++		return -EBUSY;
 +
-+		if (delay_autosuspend(tp)) {
-+			rtl8152_runtime_resume(tp);
-+			ret = -EBUSY;
-+		}
++	ndev->mtu = new_mtu;
++	netdev_update_features(ndev);
++
++	return 0;
++}
++
+ /* For TSU_POSTn. Please refer to the manual about this (strange) bitfields */
+ static void *sh_eth_tsu_get_post_reg_offset(struct sh_eth_private *mdp,
+ 					    int entry)
+@@ -3029,6 +3040,7 @@ static const struct net_device_ops sh_eth_netdev_ops = {
+ 	.ndo_set_rx_mode	= sh_eth_set_rx_mode,
+ 	.ndo_tx_timeout		= sh_eth_tx_timeout,
+ 	.ndo_do_ioctl		= sh_eth_do_ioctl,
++	.ndo_change_mtu		= sh_eth_change_mtu,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_set_mac_address	= eth_mac_addr,
+ };
+@@ -3043,6 +3055,7 @@ static const struct net_device_ops sh_eth_netdev_ops_tsu = {
+ 	.ndo_vlan_rx_kill_vid	= sh_eth_vlan_rx_kill_vid,
+ 	.ndo_tx_timeout		= sh_eth_tx_timeout,
+ 	.ndo_do_ioctl		= sh_eth_do_ioctl,
++	.ndo_change_mtu		= sh_eth_change_mtu,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_set_mac_address	= eth_mac_addr,
+ };
+@@ -3171,6 +3184,13 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
  	}
+ 	sh_eth_set_default_cpu_data(mdp->cd);
  
- out1:
++	/* User's manual states max MTU should be 2048 but due to the
++	 * alignment calculations in sh_eth_ring_init() the practical
++	 * MTU is a bit less. Maybe this can be optimized some more.
++	 */
++	ndev->max_mtu = 2000 - (ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN);
++	ndev->min_mtu = ETH_MIN_MTU;
++
+ 	/* set function */
+ 	if (mdp->cd->tsu)
+ 		ndev->netdev_ops = &sh_eth_netdev_ops_tsu;
 -- 
-2.7.4
+2.13.1
