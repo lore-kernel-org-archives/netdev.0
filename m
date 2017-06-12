@@ -1,10 +1,10 @@
 From: AL Yu-Chen Cho <acho@suse.com>
-Subject: Re: [PATCH v4 2/3] Bluetooth: cmtp: fix possible might sleep error
- in cmtp_session
-Date: Mon, 12 Jun 2017 16:44:01 +0800
-Message-ID: <1497257041.3326.5.camel@suse.com>
+Subject: Re: [PATCH v4 3/3] Bluetooth: hidp: fix possible might sleep error
+ in hidp_session_thread
+Date: Mon, 12 Jun 2017 16:44:05 +0800
+Message-ID: <1497257045.3326.6.camel@suse.com>
 References: <1487033725-7208-1-git-send-email-jeffy.chen@rock-chips.com>
-         <1487033725-7208-2-git-send-email-jeffy.chen@rock-chips.com>
+         <1487033725-7208-3-git-send-email-jeffy.chen@rock-chips.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -20,12 +20,13 @@ Cc: Brian Norris <briannorris@chromium.org>,
 To: Jeffy Chen <jeffy.chen@rock-chips.com>,
         linux-bluetooth@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1487033725-7208-2-git-send-email-jeffy.chen@rock-chips.com>
+In-Reply-To: <1487033725-7208-3-git-send-email-jeffy.chen@rock-chips.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Tue, 2017-02-14 at 08:55 +0800, Jeffy Chen wrote:
-> It looks like cmtp_session has same pattern as the issue reported in
+> It looks like hidp_session_thread has same pattern as the issue
+> reported in
 > old rfcomm:
 > 
 > 	while (1) {
@@ -44,78 +45,131 @@ On Tue, 2017-02-14 at 08:55 +0800, Jeffy Chen wrote:
 > https://lwn.net/Articles/628628/
 > 
 > Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
-> Reviewed-by: Brian Norris <briannorris@chromium.org>
-> Remove unnecessary memory barrier before wake_up_* functions.
-Reviewed-by: AL Yu-Chen Cho <acho@suse.com>
+> 1/ Fix could not wake up by wake attempts on original wait queues.
+> 2/ Remove unnecessary memory barrier before wake_up_* functions.
 > 
+> 1/ Make hidp_session_wake_function static.
+> 2/ Remove unnecessary default_wake_function.
+> 
+
+Tested-by: AL Yu-Chen Cho <acho@suse.com>
+
 > ---
 > 
-> Changes in v3:
-> Add brian's Reviewed-by.
-> 
+> Changes in v3: None
 > Changes in v2: None
 > 
->  net/bluetooth/cmtp/core.c | 17 ++++++++++-------
->  1 file changed, 10 insertions(+), 7 deletions(-)
+>  net/bluetooth/hidp/core.c | 33 ++++++++++++++++++++++-----------
+>  1 file changed, 22 insertions(+), 11 deletions(-)
 > 
-> diff --git a/net/bluetooth/cmtp/core.c b/net/bluetooth/cmtp/core.c
-> index 9e59b66..1152ce3 100644
-> --- a/net/bluetooth/cmtp/core.c
-> +++ b/net/bluetooth/cmtp/core.c
-> @@ -280,16 +280,16 @@ static int cmtp_session(void *arg)
->  	struct cmtp_session *session = arg;
->  	struct sock *sk = session->sock->sk;
+> diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
+> index 0bec458..1fc0764 100644
+> --- a/net/bluetooth/hidp/core.c
+> +++ b/net/bluetooth/hidp/core.c
+> @@ -36,6 +36,7 @@
+>  #define VERSION "1.2"
+>  
+>  static DECLARE_RWSEM(hidp_session_sem);
+> +static DECLARE_WAIT_QUEUE_HEAD(hidp_session_wq);
+>  static LIST_HEAD(hidp_session_list);
+>  
+>  static unsigned char hidp_keycode[256] = {
+> @@ -1068,12 +1069,12 @@ static int hidp_session_start_sync(struct
+> hidp_session *session)
+>   * Wake up session thread and notify it to stop. This is
+> asynchronous and
+>   * returns immediately. Call this whenever a runtime error occurs
+> and you want
+>   * the session to stop.
+> - * Note: wake_up_process() performs any necessary memory-barriers
+> for us.
+> + * Note: wake_up_interruptible() performs any necessary memory-
+> barriers for us.
+>   */
+>  static void hidp_session_terminate(struct hidp_session *session)
+>  {
+>  	atomic_inc(&session->terminate);
+> -	wake_up_process(session->task);
+> +	wake_up_interruptible(&hidp_session_wq);
+>  }
+>  
+>  /*
+> @@ -1180,7 +1181,9 @@ static void hidp_session_run(struct
+> hidp_session *session)
+>  	struct sock *ctrl_sk = session->ctrl_sock->sk;
+>  	struct sock *intr_sk = session->intr_sock->sk;
 >  	struct sk_buff *skb;
-> -	wait_queue_t wait;
 > +	DEFINE_WAIT_FUNC(wait, woken_wake_function);
 >  
->  	BT_DBG("session %p", session);
->  
->  	set_user_nice(current, -15);
->  
-> -	init_waitqueue_entry(&wait, current);
->  	add_wait_queue(sk_sleep(sk), &wait);
->  	while (1) {
+> +	add_wait_queue(&hidp_session_wq, &wait);
+>  	for (;;) {
+>  		/*
+>  		 * This thread can be woken up two ways:
+> @@ -1188,12 +1191,10 @@ static void hidp_session_run(struct
+> hidp_session *session)
+>  		 *    session->terminate flag and wakes this thread
+> up.
+>  		 *  - Via modifying the socket state of
+> ctrl/intr_sock. This
+>  		 *    thread is woken up by ->sk_state_changed().
+> -		 *
+> -		 * Note: set_current_state() performs any necessary
+> -		 * memory-barriers for us.
+>  		 */
 > -		set_current_state(TASK_INTERRUPTIBLE);
+>  
 > +		/* Ensure session->terminate is updated */
 > +		smp_mb__before_atomic();
->  
 >  		if (atomic_read(&session->terminate))
 >  			break;
-> @@ -306,9 +306,8 @@ static int cmtp_session(void *arg)
 >  
->  		cmtp_process_transmit(session);
+> @@ -1227,11 +1228,22 @@ static void hidp_session_run(struct
+> hidp_session *session)
+>  		hidp_process_transmit(session, &session-
+> >ctrl_transmit,
+>  				      session->ctrl_sock);
 >  
 > -		schedule();
 > +		wait_woken(&wait, TASK_INTERRUPTIBLE,
 > MAX_SCHEDULE_TIMEOUT);
 >  	}
-> -	__set_current_state(TASK_RUNNING);
->  	remove_wait_queue(sk_sleep(sk), &wait);
+> +	remove_wait_queue(&hidp_session_wq, &wait);
 >  
->  	down_write(&cmtp_session_sem);
-> @@ -393,7 +392,7 @@ int cmtp_add_connection(struct cmtp_connadd_req
-> *req, struct socket *sock)
->  		err = cmtp_attach_device(session);
->  		if (err < 0) {
->  			atomic_inc(&session->terminate);
-> -			wake_up_process(session->task);
-> +			wake_up_interruptible(sk_sleep(session-
-> >sock->sk));
->  			up_write(&cmtp_session_sem);
->  			return err;
->  		}
-> @@ -431,7 +430,11 @@ int cmtp_del_connection(struct cmtp_conndel_req
-> *req)
->  
->  		/* Stop session thread */
->  		atomic_inc(&session->terminate);
-> -		wake_up_process(session->task);
+>  	atomic_inc(&session->terminate);
+> -	set_current_state(TASK_RUNNING);
 > +
-> +		/* Ensure session->terminate is updated */
-> +		smp_mb__after_atomic();
+> +	/* Ensure session->terminate is updated */
+> +	smp_mb__after_atomic();
+> +}
 > +
-> +		wake_up_interruptible(sk_sleep(session->sock->sk));
->  	} else
->  		err = -ENOENT;
+> +static int hidp_session_wake_function(wait_queue_t *wait,
+> +				      unsigned int mode,
+> +				      int sync, void *key)
+> +{
+> +	wake_up_interruptible(&hidp_session_wq);
+> +	return false;
+>  }
 >  
+>  /*
+> @@ -1244,7 +1256,8 @@ static void hidp_session_run(struct
+> hidp_session *session)
+>  static int hidp_session_thread(void *arg)
+>  {
+>  	struct hidp_session *session = arg;
+> -	wait_queue_t ctrl_wait, intr_wait;
+> +	DEFINE_WAIT_FUNC(ctrl_wait, hidp_session_wake_function);
+> +	DEFINE_WAIT_FUNC(intr_wait, hidp_session_wake_function);
+>  
+>  	BT_DBG("session %p", session);
+>  
+> @@ -1254,8 +1267,6 @@ static int hidp_session_thread(void *arg)
+>  	set_user_nice(current, -15);
+>  	hidp_set_timer(session);
+>  
+> -	init_waitqueue_entry(&ctrl_wait, current);
+> -	init_waitqueue_entry(&intr_wait, current);
+>  	add_wait_queue(sk_sleep(session->ctrl_sock->sk),
+> &ctrl_wait);
+>  	add_wait_queue(sk_sleep(session->intr_sock->sk),
+> &intr_wait);
+>  	/* This memory barrier is paired with wq_has_sleeper(). See
