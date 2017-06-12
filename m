@@ -1,57 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: phy: Make phy_ethtool_ksettings_get return void
-Date: Mon, 12 Jun 2017 10:59:05 -0400 (EDT)
-Message-ID: <20170612.105905.1031273319008486521.davem@davemloft.net>
-References: <20170612141508.29229-1-yuval.shaia@oracle.com>
-        <20170612.102525.1159274040679939960.davem@davemloft.net>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net-next v10 1/4] net netlink: Add new type NLA_FLAG_BITS
+Date: Mon, 12 Jun 2017 09:00:41 -0600
+Message-ID: <80dd1bc2-80d6-d8fa-6032-d0641ae5d79b@gmail.com>
+References: <1497182026-11594-1-git-send-email-jhs@emojatatu.com>
+ <1497182026-11594-2-git-send-email-jhs@emojatatu.com>
+ <20170611134924.GA1896@nanopsycho.orion>
+ <4c536950-2be3-cc9c-1f77-066624800d07@mojatatu.com>
+ <4441aa62-d00e-82b6-d337-f86cf97e3c6d@mojatatu.com>
+ <20170612103432.GA1993@nanopsycho>
+ <8e2f151d-3a02-4b1b-755b-23a0a85556b4@mojatatu.com>
+ <20170612114345.GB1993@nanopsycho>
+ <22f33fa9-1759-57b7-6aea-898f89c9f61f@mojatatu.com>
+ <20170612141450.GD1993@nanopsycho>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: michael.chan@broadcom.com, f.fainelli@gmail.com,
-        siva.kallam@broadcom.com, prashant@broadcom.com,
-        madalin.bucur@nxp.com, leoli@freescale.com,
-        sebastian.hesselbarth@gmail.com,
-        sergei.shtylyov@cogentembedded.com, grygorii.strashko@ti.com,
-        w-kwok2@ti.com, m-karicheri2@ti.com, andrew@lunn.ch,
-        woojung.huh@microchip.com, UNGLinuxDriver@microchip.com,
-        vivien.didelot@savoirfairelinux.com, arnd@arndb.de,
-        tremyfr@gmail.com, jarod@redhat.com, horms+renesas@verge.net.au,
-        kazuya.mizuguchi.ks@renesas.com, dan.carpenter@oracle.com,
-        niklas.soderlund+renesas@ragnatech.se, johan@kernel.org,
-        masaru.nagai.vx@renesas.com, geert+renesas@glider.be,
-        laurent.pinchart@ideasonboard.com, chris.brandt@renesas.com,
-        ivan.khoronzhuk@linaro.org, mugunthanvnm@ti.com,
-        netdev@vger.kernel.org, linux-arm-kernel
-To: yuval.shaia@oracle.com
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
+        simon.horman@netronome.com, mrv@mojatatu.com
+To: Jiri Pirko <jiri@resnulli.us>, Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34100 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751981AbdFLO7N (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 10:59:13 -0400
-In-Reply-To: <20170612.102525.1159274040679939960.davem@davemloft.net>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33805 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752086AbdFLPAp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 11:00:45 -0400
+Received: by mail-pf0-f193.google.com with SMTP id d5so4444086pfe.1
+        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 08:00:45 -0700 (PDT)
+In-Reply-To: <20170612141450.GD1993@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogTW9uLCAxMiBK
-dW4gMjAxNyAxMDoyNToyNSAtMDQwMCAoRURUKQ0KDQo+IEZyb206IFl1dmFsIFNoYWlhIDx5dXZh
-bC5zaGFpYUBvcmFjbGUuY29tPg0KPiBEYXRlOiBNb24sIDEyIEp1biAyMDE3IDE3OjE1OjA4ICsw
-MzAwDQo+IA0KPj4gTWFrZSByZXR1cm4gdmFsdWUgdm9pZCBzaW5jZSBmdW5jdGlvbiBuZXZlciBy
-ZXR1cm4gbWVhbmluZ2Z1bGwgdmFsdWUNCj4+IA0KPj4gU2lnbmVkLW9mZi1ieTogWXV2YWwgU2hh
-aWEgPHl1dmFsLnNoYWlhQG9yYWNsZS5jb20+DQo+PiBBY2tlZC1ieTogU2VyZ2VpIFNodHlseW92
-IDxzZXJnZWkuc2h0eWx5b3ZAY29nZW50ZW1iZWRkZWQuY29tPg0KPj4gLS0tDQo+PiB2MCAtPnYx
-Og0KPj4gCSogVGhlc2UgZmlsZXMgd2VyZSBtaXNzaW5nIGluIHYwDQo+PiAJCSogZHJpdmVycy9u
-ZXQvZXRoZXJuZXQvcmVuZXNhcy9yYXZiX21haW4uYw0KPj4gCQkqIGRyaXZlcnMvbmV0L2V0aGVy
-bmV0L3JlbmVzYXMvc2hfZXRoLmMNCj4+IAkJKiBkcml2ZXJzL25ldC9ldGhlcm5ldC90aS9uZXRj
-cF9ldGhzcy5jDQo+PiAJKiBBZGQgQWNrZWQtYnk6IFNlcmdlaSBTaHR5bHlvdg0KPj4gdjEgLT4g
-djI6DQo+PiAJKiBBZGp1c3QgdG8gbmV0LW5leHQgdHJlZQ0KPiANCj4gQXBwbGllZCwgdGhhbmsg
-eW91Lg0KDQpSZXZlcnRlZCwgcGxlYXNlIHRlc3QgeW91ciBidWlsZCBwcm9wZXJseToNCg0KZHJp
-dmVycy9uZXQvZXRoZXJuZXQvYXBtL3hnZW5lL3hnZW5lX2VuZXRfZXRodG9vbC5jOiBJbiBmdW5j
-dGlvbiCheGdlbmVfZ2V0X2xpbmtfa3NldHRpbmdzojoNCmRyaXZlcnMvbmV0L2V0aGVybmV0L2Fw
-bS94Z2VuZS94Z2VuZV9lbmV0X2V0aHRvb2wuYzoxMzQ6MTA6IGVycm9yOiB2b2lkIHZhbHVlIG5v
-dCBpZ25vcmVkIGFzIGl0IG91Z2h0IHRvIGJlDQogICByZXR1cm4gcGh5X2V0aHRvb2xfa3NldHRp
-bmdzX2dldChwaHlkZXYsIGNtZCk7DQogICAgICAgICAgXg0KZHJpdmVycy9uZXQvZXRoZXJuZXQv
-YXBtL3hnZW5lL3hnZW5lX2VuZXRfZXRodG9vbC5jOjE0MDoxMTogZXJyb3I6IHZvaWQgdmFsdWUg
-bm90IGlnbm9yZWQgYXMgaXQgb3VnaHQgdG8gYmUNCiAgICByZXR1cm4gcGh5X2V0aHRvb2xfa3Nl
-dHRpbmdzX2dldChwaHlkZXYsIGNtZCk7DQogICAgICAgICAgIF4NCnNjcmlwdHMvTWFrZWZpbGUu
-YnVpbGQ6MzAyOiByZWNpcGUgZm9yIHRhcmdldCAnZHJpdmVycy9uZXQvZXRoZXJuZXQvYXBtL3hn
-ZW5lL3hnZW5lX2VuZXRfZXRodG9vbC5vJyBmYWlsZWQNCg==
+On 6/12/17 8:14 AM, Jiri Pirko wrote:
+>>> The thing is, struct nla_flag_bits is tightly coupled with NLA_FLAG_BITS
+>>> enum value. They should be in the same uapi file. That makes sense to me.
+>>>
+>>
+>> Sure - they should be in the same file. But is it uapi/linux/netlink.h?
+> 
+> Might be the netlink-types.h you mentioned above.
+> 
+> ccing DavidA.
+> 
+
+Just saw this patch set this morning. Few comments:
+
+1. I think nla_bitfield or nla_bitmap is a better name than nla_flag_bits
+
+2. The length should be open ended with the size of the array determined
+by nla_len / sizeof(struct nla_bitfield). That allows this to be
+extended to an arbitrary large bitfield as needed.
+
+3. IMO since these are nla prefixes and new NLA type they should be in
+uapi/linux/netlink.h
