@@ -1,28 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next] net: phy: marvell: Show complete link partner
- advertising
-Date: Mon, 12 Jun 2017 12:08:04 -0400 (EDT)
-Message-ID: <20170612.120804.1619040953406621775.davem@davemloft.net>
-References: <20170612133237.E20945085BC@solo.franken.de>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: mdio-thunder.c:undefined reference to `mdiobus_unregister'
+Date: Mon, 12 Jun 2017 09:09:17 -0700
+Message-ID: <d61b3289-9149-4a43-b8bd-4c3b94590e5f@infradead.org>
+References: <201706121044.hytIipdV%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: tsbogend@alpha.franken.de
+Cc: kbuild-all@01.org, linux-kernel@vger.kernel.org,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Arnd Bergmann <arnd@arndb.de>
+To: kbuild test robot <fengguang.wu@intel.com>,
+        Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170612133237.E20945085BC@solo.franken.de>
+In-Reply-To: <201706121044.hytIipdV%fengguang.wu@intel.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-Date: Mon, 12 Jun 2017 14:54:57 +0200
-
-> From: Thomas Bogendoerfer <tbogendoerfer@suse.de>
+On 06/11/17 19:14, kbuild test robot wrote:
+> tree:   https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git master
+> head:   32c1431eea4881a6b17bd7c639315010aeefa452
+> commit: 90eff9096c01ba90cdae504a6b95ee87fe2556a3 net: phy: Allow splitting MDIO bus/device support from PHYs
+> date:   3 months ago
+> config: x86_64-randconfig-s2-06120830 (attached as .config)
+> compiler: gcc-6 (Debian 6.2.0-3) 6.2.0 20160901
+> reproduce:
+>         git checkout 90eff9096c01ba90cdae504a6b95ee87fe2556a3
+>         # save the attached .config to linux build tree
+>         make ARCH=x86_64 
 > 
-> Give back all modes advertised by the link partner. This change brings
-> the marvell phy driver in line with all other phy drivers.
+> All errors (new ones prefixed by >>):
 > 
-> Signed-off-by: Thomas Bogendoerfer <tbogendoerfer@suse.de>
+>    drivers/built-in.o: In function `thunder_mdiobus_pci_remove':
+>>> mdio-thunder.c:(.text+0x2a212f): undefined reference to `mdiobus_unregister'
+>>> mdio-thunder.c:(.text+0x2a2138): undefined reference to `mdiobus_free'
+>    drivers/built-in.o: In function `thunder_mdiobus_pci_probe':
+>    mdio-thunder.c:(.text+0x2a22e7): undefined reference to `devm_mdiobus_alloc_size'
+>    mdio-thunder.c:(.text+0x2a236f): undefined reference to `of_mdiobus_register'
+> 
+> ---
+> 0-DAY kernel test infrastructure                Open Source Technology Center
+> https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+> 
 
-Applied, thanks.
+Ugh. I don't know the solution to this one.
+
+CONFIG_MDIO_DEVICE=y
+CONFIG_MDIO_THUNDER=y
+CONFIG_PHYLIB=m
+
+First 2 lines are OK, but the third line causes the problem...
+in drivers/net/phy/Makefile:
+
+# PHYLIB implies MDIO_DEVICE, in that case, we have a bunch of circular
+# dependencies that does not make it possible to split mdio-bus objects into a
+# dedicated loadable module, so we bundle them all together into libphy.ko
+ifdef CONFIG_PHYLIB
+libphy-y			+= $(mdio-bus-y)
+else
+obj-$(CONFIG_MDIO_DEVICE)	+= mdio-bus.o
+endif
+libphy-$(CONFIG_SWPHY)		+= swphy.o
+libphy-$(CONFIG_LED_TRIGGER_PHY)	+= phy_led_triggers.o
+
+obj-$(CONFIG_PHYLIB)		+= libphy.o
+
+
+So PHYLIB is built as libphy.ko and the mdiobus functions are there
+instead of being in mdio-bus.o (so they are not built-in), while the
+mdio-thunder driver is built-in.
+
+
+
+-- 
+~Randy
