@@ -1,32 +1,34 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] netconsole: Remove duplicate "netconsole: " logging prefix
-Date: Mon, 12 Jun 2017 16:39:51 -0700
-Message-ID: <a61deabca48ccbbfb1b0d077881d114ad0c5bc75.1497310740.git.joe@perches.com>
-Cc: netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 1/2] mdio_bus: handle only single PHY reset GPIO
+Date: Mon, 12 Jun 2017 16:43:40 -0700
+Message-ID: <12bb1f10-79cc-25a5-1115-69d13c36a68b@gmail.com>
+References: <20170612210547.823996341@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170612210547.823996341-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Content-Language: en-US
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-It's already added by pr_fmt so remove the explicit use.
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/netconsole.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index 06ee6395117f..0e27920c2b6b 100644
---- a/drivers/net/netconsole.c
-+++ b/drivers/net/netconsole.c
-@@ -358,7 +358,7 @@ static ssize_t enabled_store(struct config_item *item,
- 		if (err)
- 			goto out_unlock;
- 
--		pr_info("netconsole: network logging started\n");
-+		pr_info("network logging started\n");
- 	} else {	/* false */
- 		/* We need to disable the netconsole before cleaning it up
- 		 * otherwise we might end up in write_msg() with
+On 06/12/2017 01:55 PM, Sergei Shtylyov wrote:
+
+Subject should be: net: phy: Handle only single PHY reset GPIO to be
+consistent with prior submissions, and can you also send your patches
+inline using git format-patch + git send-email so it's possible to quote
+ the contents?
+
+Thanks
 -- 
-2.10.0.rc2.1.g053435c
+Florian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
