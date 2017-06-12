@@ -1,48 +1,114 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/3] udp: reduce cache pressure
-Date: Mon, 12 Jun 2017 10:01:49 -0400 (EDT)
-Message-ID: <20170612.100149.741300818874259404.davem@davemloft.net>
-References: <cover.1497026892.git.pabeni@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com
-To: pabeni@redhat.com
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next] net: mvpp2: enable basic 10G support
+Date: Mon, 12 Jun 2017 16:01:39 +0200
+Message-ID: <20170612140139.31377-1-antoine.tenart@free-electrons.com>
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        gregory.clement@free-electrons.com,
+        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
+        stefanc@marvell.com, mw@semihalf.com, linux@armlinux.org.uk,
+        netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60720 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751954AbdFLOBv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 10:01:51 -0400
-In-Reply-To: <cover.1497026892.git.pabeni@redhat.com>
+Received: from mail.free-electrons.com ([62.4.15.54]:50522 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751954AbdFLOCN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 10:02:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paolo Abeni <pabeni@redhat.com>
-Date: Mon, 12 Jun 2017 11:23:40 +0200
+On GOP port 0 two MAC modes are available: GMAC and XLG. The XLG MAC is
+used for 10G connectivity. This patch adds a basic 10G support by
+allowing to use the XLG MAC on port 0 and by reworking the
+port_enable/disable functions so that the XLG MAC is configured when
+using 10G.
 
-> In the most common use case, many skb fields are not used by recvmsg(), and
-> the few ones actually accessed lays on cold cachelines, which leads to several
-> cache miss per packet.
-> 
-> This patch series attempts to reduce such misses with different strategies:
-> * caching the interesting fields in the scratched space
-> * avoid accessing at all uninteresting fields
-> * prefetching
-> 
-> Tested using the udp_sink program by Jesper[1] as the receiver, an h/w l4 rx
-> hash on the ingress nic, so that the number of ingress nic rx queues hit by the
-> udp traffic could be controlled via ethtool -L.
-> 
-> The udp_sink program was bound to the first idle cpu, to get more
-> stable numbers.
-> 
-> On a single numa node receiver:
-> 
-> nic rx queues           vanilla                 patched kernel      delta
-> 1                       1850 kpps               1850 kpps           0%
-> 2                       2370 kpps               2700 kpps           13.9%
-> 16                      2000 kpps               2220 kpps           11%
-> 
-> [1] https://github.com/netoptimizer/network-testing/blob/master/src/udp_sink.c
+Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+---
+ drivers/net/ethernet/marvell/mvpp2.c | 49 ++++++++++++++++++++++++++++++------
+ 1 file changed, 41 insertions(+), 8 deletions(-)
 
-Series applied, thank you.
+diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+index 33c901622ed5..ca4b55c60682 100644
+--- a/drivers/net/ethernet/marvell/mvpp2.c
++++ b/drivers/net/ethernet/marvell/mvpp2.c
+@@ -345,9 +345,15 @@
+ /* Per-port XGMAC registers. PPv2.2 only, only for GOP port 0,
+  * relative to port->base.
+  */
++#define MVPP22_XLG_CTRL0_REG			0x100
++#define      MVPP22_XLG_CTRL0_PORT_EN		BIT(0)
++#define      MVPP22_XLG_CTRL0_MAC_RESET_DIS	BIT(1)
++#define      MVPP22_XLG_CTRL0_MIB_CNT_DIS	BIT(14)
++
+ #define MVPP22_XLG_CTRL3_REG			0x11c
+ #define      MVPP22_XLG_CTRL3_MACMODESELECT_MASK	(7 << 13)
+ #define      MVPP22_XLG_CTRL3_MACMODESELECT_GMAC	(0 << 13)
++#define      MVPP22_XLG_CTRL3_MACMODESELECT_10G		(1 << 13)
+ 
+ /* SMI registers. PPv2.2 only, relative to priv->iface_base. */
+ #define MVPP22_SMI_MISC_CFG_REG			0x1204
+@@ -4186,7 +4192,13 @@ static void mvpp22_port_mii_set(struct mvpp2_port *port)
+ 	if (port->gop_id == 0) {
+ 		val = readl(port->base + MVPP22_XLG_CTRL3_REG);
+ 		val &= ~MVPP22_XLG_CTRL3_MACMODESELECT_MASK;
+-		val |= MVPP22_XLG_CTRL3_MACMODESELECT_GMAC;
++
++		if (port->phy_interface == PHY_INTERFACE_MODE_XAUI ||
++		    port->phy_interface == PHY_INTERFACE_MODE_10GKR)
++			val |= MVPP22_XLG_CTRL3_MACMODESELECT_10G;
++		else
++			val |= MVPP22_XLG_CTRL3_MACMODESELECT_GMAC;
++
+ 		writel(val, port->base + MVPP22_XLG_CTRL3_REG);
+ 	}
+ 
+@@ -4236,19 +4248,40 @@ static void mvpp2_port_enable(struct mvpp2_port *port)
+ {
+ 	u32 val;
+ 
+-	val = readl(port->base + MVPP2_GMAC_CTRL_0_REG);
+-	val |= MVPP2_GMAC_PORT_EN_MASK;
+-	val |= MVPP2_GMAC_MIB_CNTR_EN_MASK;
+-	writel(val, port->base + MVPP2_GMAC_CTRL_0_REG);
++	/* Only GOP port 0 has an XLG MAC */
++	if (port->gop_id == 0 &&
++	    (port->phy_interface == PHY_INTERFACE_MODE_XAUI ||
++	     port->phy_interface == PHY_INTERFACE_MODE_10GKR)) {
++		val = readl(port->base + MVPP22_XLG_CTRL0_REG);
++		val |= MVPP22_XLG_CTRL0_PORT_EN |
++		       MVPP22_XLG_CTRL0_MAC_RESET_DIS;
++		val &= ~MVPP22_XLG_CTRL0_MIB_CNT_DIS;
++		writel(val, port->base + MVPP22_XLG_CTRL0_REG);
++	} else {
++		val = readl(port->base + MVPP2_GMAC_CTRL_0_REG);
++		val |= MVPP2_GMAC_PORT_EN_MASK;
++		val |= MVPP2_GMAC_MIB_CNTR_EN_MASK;
++		writel(val, port->base + MVPP2_GMAC_CTRL_0_REG);
++	}
+ }
+ 
+ static void mvpp2_port_disable(struct mvpp2_port *port)
+ {
+ 	u32 val;
+ 
+-	val = readl(port->base + MVPP2_GMAC_CTRL_0_REG);
+-	val &= ~(MVPP2_GMAC_PORT_EN_MASK);
+-	writel(val, port->base + MVPP2_GMAC_CTRL_0_REG);
++	/* Only GOP port 0 has an XLG MAC */
++	if (port->gop_id == 0 &&
++	    (port->phy_interface == PHY_INTERFACE_MODE_XAUI ||
++	     port->phy_interface == PHY_INTERFACE_MODE_10GKR)) {
++		val = readl(port->base + MVPP22_XLG_CTRL0_REG);
++		val &= ~(MVPP22_XLG_CTRL0_PORT_EN |
++			 MVPP22_XLG_CTRL0_MAC_RESET_DIS);
++		writel(val, port->base + MVPP22_XLG_CTRL0_REG);
++	} else {
++		val = readl(port->base + MVPP2_GMAC_CTRL_0_REG);
++		val &= ~(MVPP2_GMAC_PORT_EN_MASK);
++		writel(val, port->base + MVPP2_GMAC_CTRL_0_REG);
++	}
+ }
+ 
+ /* Set IEEE 802.3x Flow Control Xon Packet Transmission Mode */
+-- 
+2.9.4
