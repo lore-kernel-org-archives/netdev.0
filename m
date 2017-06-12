@@ -1,19 +1,65 @@
-From: Financial Services Pvt Ltd <jaka.lesmana@customs.go.id>
-Subject: Quick Loans
-Date: Mon, 12 Jun 2017 09:34:45 +0530
-Message-ID: <20170612040659.ABB771BC8606@mail.customs.go.id>
-Reply-To: payingfunds@3mail.ie
+From: Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 0/6] Constant Time Memory Comparisons Are Important
+Date: Mon, 12 Jun 2017 08:03:33 +0300
+Message-ID: <CANUX_P1n0=rK+biS7M0-vxP5Uhk5rU+qj4_9jtdRF9Yh219PVA@mail.gmail.com>
+References: <20170610025912.6499-1-Jason@zx2c4.com> <878tkzq6wi.fsf@purkki.adurom.net>
+ <CAGXu5jKp=X7-eKo+HgzS3uqncx5yy-u=tJNqV9K8GOgJ=-C7iA@mail.gmail.com>
+ <CANUX_P2b0Bx+-E_OBQ0reGW0=d6819qc=r83K0kTv0xMo8mtLQ@mail.gmail.com> <CAO1O6see6yDr-hDVNPi9Kv9wO6p-98w7YhsnnwnVOVCSEGVksw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Recipients <jaka.lesmana@customs.go.id>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.customs.go.id ([202.61.126.135]:43378 "EHLO
-        mail.customs.go.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752000AbdFLEkW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 00:40:22 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        "Jason A. Donenfeld" <Jason-OnJsPKxuuEcAvxtiuMwx3w@public.gmane.org>,
+        LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "kernel-hardening-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org"
+        <kernel-hardening-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org>,
+        Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+        David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        David Safford <safford-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Gilad Ben-Yossef <gilad-6S/DczAoZh3WXxRugSxzZg@public.gmane.org>,
+        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+        Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+        "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+        Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
+        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+        Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+        Mimi Zohar <zohar-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+To: Emil Lenngren <emil.lenngren-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAO1O6see6yDr-hDVNPi9Kv9wO6p-98w7YhsnnwnVOVCSEGVksw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Apply for a loan at 3% reply to this Email for more Info
+On Mon, Jun 12, 2017 at 12:30 AM, Emil Lenngren <emil.lenngren-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> 2017-06-11 22:48 GMT+02:00 Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
+>> On Sun, Jun 11, 2017 at 4:36 PM, Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org> wrote:
+>>>
+>>> On Sun, Jun 11, 2017 at 1:13 AM, Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org> wrote:
+>>> > "Jason A. Donenfeld" <Jason-OnJsPKxuuEcAvxtiuMwx3w@public.gmane.org> writes:
+>>> >
+>>> >> Whenever you're comparing two MACs, it's important to do this using
+>>> >> crypto_memneq instead of memcmp. With memcmp, you leak timing information,
+>>> >> which could then be used to iteratively forge a MAC.
+>>> >
+>>> > Do you have any pointers where I could learn more about this?
+>>>
+>>> While not using C specifically, this talks about the problem generally:
+>>> https://www.chosenplaintext.ca/articles/beginners-guide-constant-time-cryptography.html
+>>>
+>>
+>> Sorry for the stupid question, but the MAC address is in plaintext in
+>> the air anyway or easily accessible via user space tools. I fail to
+>> see what it is so secret about a MAC address in that code where that
+>> same MAC address is accessible via myriads of ways.
+>
+> I think you're mixing up Media Access Control (MAC) addresses with
+> Message Authentication Code (MAC). The second one is a cryptographic
+> signature of a message.
+
+Obviously... Sorry for the noise.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
