@@ -1,162 +1,115 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v2] arm: eBPF JIT compiler
-Date: Mon, 12 Jun 2017 12:21:03 +0200
-Message-ID: <593E6B0F.8070901@iogearbox.net>
-References: <1495754003-21099-1-git-send-email-illusionist.neo@gmail.com> <CAGXu5jKmLNMR+uhM9Ov2XPW6kCjip_SjScgEH0fTFp6fQtKFiA@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v10 1/4] net netlink: Add new type NLA_FLAG_BITS
+Date: Mon, 12 Jun 2017 12:34:32 +0200
+Message-ID: <20170612103432.GA1993@nanopsycho>
+References: <1497182026-11594-1-git-send-email-jhs@emojatatu.com>
+ <1497182026-11594-2-git-send-email-jhs@emojatatu.com>
+ <20170611134924.GA1896@nanopsycho.orion>
+ <4c536950-2be3-cc9c-1f77-066624800d07@mojatatu.com>
+ <4441aa62-d00e-82b6-d337-f86cf97e3c6d@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Russell King <linux@armlinux.org.uk>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        LKML <linux-kernel@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: Kees Cook <keescook@chromium.org>,
-        Shubham Bansal <illusionist.neo@gmail.com>,
-        Network Development <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexei Starovoitov <ast@kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
+        simon.horman@netronome.com, mrv@mojatatu.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:37349 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752065AbdFLKVJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 06:21:09 -0400
-In-Reply-To: <CAGXu5jKmLNMR+uhM9Ov2XPW6kCjip_SjScgEH0fTFp6fQtKFiA@mail.gmail.com>
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:33960 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751599AbdFLKeg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 06:34:36 -0400
+Received: by mail-wr0-f193.google.com with SMTP id u101so20998479wrc.1
+        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 03:34:35 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4441aa62-d00e-82b6-d337-f86cf97e3c6d@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/30/2017 09:19 PM, Kees Cook wrote:
-> Forwarding this to net-dev and eBPF folks, who weren't on CC...
-
-Sorry for being late. Some comments below from a cursory look ...
-
-> -Kees
+Sun, Jun 11, 2017 at 08:37:25PM CEST, jhs@mojatatu.com wrote:
+>On 17-06-11 01:38 PM, Jamal Hadi Salim wrote:
+>> On 17-06-11 09:49 AM, Jiri Pirko wrote:
+>> > Sun, Jun 11, 2017 at 01:53:43PM CEST, jhs@mojatatu.com wrote:
+>> > > From: Jamal Hadi Salim <jhs@mojatatu.com>
+>> 
+>> 
+>> > > This patch also provides an extra feature: a validation callback
+>> > > that could be speaciliazed for other types.
+>> > 
+>> > s/speaciliazed/speciliazed/
+>> > 
+>> 
+>> Will fix.
+>> 
+>> 
+>> > > 
+>> > > [ATTR_GOO] = { .type = MYTYPE,
+>> > >            .validation_data = &myvalidation_data,
+>> > >                .validate_content = mycontent_validator },
+>> > 
+>> > Indent is wrong. (Does not matter really in desc, but anyway)
+>> > 
+>> 
+>> I cant find out how it got indented that way; my source
+>> or email dont show it as such (but really doesnt matter).
+>> 
+>> 
+>> > Suggested-by: Jiri Pirko <jiri@mellanox.com>
+>> > 
+>> 
+>> Will add.
+>> 
+>> > 
+>> > > ---
+>> > > include/net/netlink.h          | 11 +++++++++++
+>> > > include/uapi/linux/rtnetlink.h | 17 +++++++++++++++++
+>> > > lib/nlattr.c                   | 25 +++++++++++++++++++++++++
+>> > > 3 files changed, 53 insertions(+)
+>> > > 
+>> > > diff --git a/include/net/netlink.h b/include/net/netlink.h
+>> > > index 0170917..8ab9784 100644
+>> > > --- a/include/net/netlink.h
+>> > > +++ b/include/net/netlink.h
+>> > > @@ -6,6 +6,11 @@
+>> > > #include <linux/jiffies.h>
+>> > > #include <linux/in6.h>
+>> > > 
+>> > > +struct nla_bit_flags {
+>> > > +    u32 nla_flag_values;
+>> > > +    u32 nla_flag_selector;
+>> > > +};
+>> > 
+>> > I don't understand why you redefine the struct here. You already have it
+>> > defined in the uapi: struct __nla_bit_flags
+>> > 
+>> > Just move this (struct nla_bit_flags) to the uapi and remove
+>> > __nla_bit_flags ?
+>> > 
+>> 
+>> I am not sure that will compile since the type is defined in netlink.h
+>> Also, note: uapi uses _u32 and kernel uses u32 as types i.e it is pretty
+>> common approach; i will try to move it to uapi and keep that uapi
+>> format. If it doesnt compile without acrobatics I will keep it as is.
+>> 
 >
-> On Thu, May 25, 2017 at 4:13 PM, Shubham Bansal
-> <illusionist.neo@gmail.com> wrote:
->> The JIT compiler emits ARM 32 bit instructions. Currently, It supports
->> eBPF only. Classic BPF is supported because of the conversion by BPF
->> core.
->>
->> This patch is essentially changing the current implementation of JIT
->> compiler of Berkeley Packet Filter from classic to internal with almost
->> all instructions from eBPF ISA supported except the following
->>          BPF_ALU64 | BPF_DIV | BPF_K
->>          BPF_ALU64 | BPF_DIV | BPF_X
->>          BPF_ALU64 | BPF_MOD | BPF_K
->>          BPF_ALU64 | BPF_MOD | BPF_X
->>          BPF_STX | BPF_XADD | BPF_W
->>          BPF_STX | BPF_XADD | BPF_DW
->>          BPF_JMP | BPF_CALL
+>It doesnt compile - I could move it to linux/netlink.h but it seems
+>so out of place.
+>so i will keep things as is for now unless you can think of something
+>else.
 
-Any plans to implement above especially BPF_JMP | BPF_CALL in near future?
-Reason why I'm asking is that i) currently the arm32 cBPF JIT implements
-all of the cBPF extensions (except SKF_AD_RANDOM and SKF_AD_VLAN_TPID).
-Some of the programs that were JITed before e.g. using SKF_AD_CPU would now
-fall back to the eBPF interpreter due to lack of translation in JIT, but
-also ii) that probably most (if not all) of eBPF programs use BPF helper
-calls heavily, which will still redirect them to the interpreter right now
-due to lack of BPF_JMP | BPF_CALL support, so it's really quite essential
-to have it implemented.
+First of all, makes no sense to put this struct "struct __nla_bit_flags"
+into rtnetlink.h uapi file. This is generic netlink stuff, not specifict
+to rtnetlink.
 
->> Implementation is using scratch space to emulate 64 bit eBPF ISA on 32 bit
->> ARM because of deficiency of general purpose registers on ARM. Currently,
->> only LITTLE ENDIAN machines are supported in this eBPF JIT Compiler.
->>
->> Tested on ARMv7 with QEMU by me (Shubham Bansal).
->> Tested on ARMv5 by Andrew Lunn (andrew@lunn.ch).
->> Expected to work on ARMv6 as well, as its a part ARMv7 and part ARMv5.
->> Although, a proper testing is not done for ARMv6.
->>
->> Both of these testing are done with and without CONFIG_FRAME_POINTER
->> separately for LITTLE ENDIAN machine.
->>
->> For testing:
->>
->> 1. JIT is enabled with
->>          echo 1 > /proc/sys/net/core/bpf_jit_enable
->> 2. Constant Blinding can be enabled along with JIT using
->>          echo 1 > /proc/sys/net/core/bpf_jit_enable
->>          echo 2 > /proc/sys/net/core/bpf_jit_harden
->>
->> See Documentation/networking/filter.txt for more information.
->>
->> Result : test_bpf: Summary: 314 PASSED, 0 FAILED, [278/306 JIT'ed]
+I believe that this struct should go into:
+include/uapi/linux/netlink.h
 
-Did you also manage to get the BPF selftest suite running in the meantime
-(tools/testing/selftests/bpf/)? There are a couple of programs that clang
-will compile (test_pkt_access.o, test_xdp.o, test_l4lb.o, test_tcp_estats.o)
-and then test run.
+struct nla_flag_bits {
+	__u32 nla_flag_bits_values;
+	__u32 nla_flag_bits_selector;
+};
 
-Did you manage to get tail calls tested as well (I assume so since you
-implemented emit_bpf_tail_call() in the patch but just out of curiosity)?
+Then you can use it from userspace and everywhere in kernel.
 
->> Signed-off-by: Shubham Bansal <illusionist.neo@gmail.com>
->> ---
->>   Documentation/networking/filter.txt |    4 +-
->>   arch/arm/Kconfig                    |    2 +-
->>   arch/arm/net/bpf_jit_32.c           | 2404 ++++++++++++++++++++++++-----------
->>   arch/arm/net/bpf_jit_32.h           |  108 +-
->>   4 files changed, 1713 insertions(+), 805 deletions(-)
->>
-[...]
-
-If arm folks take the patch, there will be two minor (silent) merge
-conflicts with net-next:
-
-1) In bpf_int_jit_compile(), below the jited = 1 assignment, there
-    needs to come a prog->jited_len = image_size.
-2) The internal tail call opcode changed from BPF_JMP | BPF_CALL | BPF_X
-    into BPF_JMP | BPF_TAIL_CALL.
-
-Two minor things below, could probably also be as follow-up.
-
-[...]
->> +       /* dst = imm64 */
->> +       case BPF_LD | BPF_IMM | BPF_DW:
->> +       {
->> +               const struct bpf_insn insn1 = insn[1];
->> +               u32 hi, lo = imm;
->> +
->> +               if (insn1.code != 0 || insn1.src_reg != 0 ||
->> +                   insn1.dst_reg != 0 || insn1.off != 0) {
->> +                       /* Note: verifier in BPF core must catch invalid
->> +                        * instruction.
->> +                        */
->> +                       pr_err_once("Invalid BPF_LD_IMM64 instruction\n");
->> +                       return -EINVAL;
->> +               }
-
-Nit: this check can be removed as verifier already takes care
-of it. (No JIT checks for this anymore.)
-
->> +               hi = insn1.imm;
->> +               emit_a32_mov_i(dst_lo, lo, dstk, ctx);
->> +               emit_a32_mov_i(dst_hi, hi, dstk, ctx);
->> +
->> +               return 1;
->> +       }
-[...]
->> -       /* compute offsets only during the first pass */
->> -       if (ctx->target == NULL)
->> -               ctx->offsets[i] = ctx->idx * 4;
->> +static int validate_code(struct jit_ctx *ctx)
->> +{
->> +       int i;
->> +
->> +       for (i = 0; i < ctx->idx; i++) {
->> +               u32 a32_insn = le32_to_cpu(ctx->target[i]);
-
-Given __opcode_to_mem_arm(ARM_INST_UDF) is used to fill the image,
-perhaps use the __mem_to_opcode_arm() helper for the check?
-
->> +               if (a32_insn == ARM_INST_UDF)
->> +                       return -1;
->> +       }
->>
->>          return 0;
->>   }
->>
->> +void bpf_jit_compile(struct bpf_prog *prog)
->> +{
->> +       /* Nothing to do here. We support Internal BPF. */
->> +}
+Btw, I find it very odd that enum containling NLA_* like NLA_U32 and
+others is not part of uapi file and is rather defined in
+include/net/netlink.h. Any idea why?
