@@ -1,36 +1,51 @@
-From: Oliver Neukum <oneukum@suse.com>
-Subject: [PATCH] r8152: give the device version
-Date: Mon, 12 Jun 2017 13:56:51 +0200
-Message-ID: <20170612115651.8015-1-oneukum@suse.com>
-Cc: Oliver Neukum <oneukum@suse.com>
-To: davem@davemloft.net, netdev@vger.kernel.org, hayeswang@realtek.co
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCHv3 net] xfrm: move xfrm_garbage_collect out of
+ xfrm_policy_flush
+Date: Mon, 12 Jun 2017 14:13:42 +0200
+Message-ID: <20170612121342.GY2631@secunet.com>
+References: <1497013755-24481-1-git-send-email-liuhangbin@gmail.com>
+ <1497145460-24614-1-git-send-email-liuhangbin@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
+        Xin Long <lucien.xin@gmail.com>
+To: Hangbin Liu <liuhangbin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:33031 "EHLO mx1.suse.de"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751944AbdFLL6u (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 12 Jun 2017 07:58:50 -0400
+Received: from a.mx.secunet.com ([62.96.220.36]:45684 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751942AbdFLMNp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 12 Jun 2017 08:13:45 -0400
+Content-Disposition: inline
+In-Reply-To: <1497145460-24614-1-git-send-email-liuhangbin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Getting the device version out of the driver really aids debugging.
+On Sun, Jun 11, 2017 at 09:44:20AM +0800, Hangbin Liu wrote:
+> Now we will force to do garbage collection if any policy removed in
+> xfrm_policy_flush(). But during xfrm_net_exit(). We call flow_cache_fini()
+> first and set set fc->percpu to NULL. Then after we call xfrm_policy_fini()
+> -> frxm_policy_flush() -> flow_cache_flush(), we will get NULL pointer
+> dereference when check percpu_empty. The code path looks like:
+> 
+> flow_cache_fini()
+>   - fc->percpu = NULL
+> xfrm_policy_fini()
+>   - xfrm_policy_flush()
+>     - xfrm_garbage_collect()
+>       - flow_cache_flush()
+>         - flow_cache_percpu_empty()
+> 	  - fcp = per_cpu_ptr(fc->percpu, cpu)
+> 
+> To reproduce, just add ipsec in netns and then remove the netns.
+> 
+> v2:
+> As Xin Long suggested, since only two other places need to call it. move
+> xfrm_garbage_collect() outside xfrm_policy_flush().
+> 
+> v3:
+> Fix subject mismatch after v2 fix.
+> 
+> Fixes: 35db06912189 ("xfrm: do the garbage collection after flushing policy")
+> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
 
-Signed-off-by: Oliver Neukum <oneukum@suse.com>
----
- drivers/net/usb/r8152.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index ddc62cb69be8..1a419a45e2a2 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -4368,6 +4368,8 @@ static u8 rtl_get_version(struct usb_interface *intf)
- 		break;
- 	}
- 
-+	dev_dbg(&intf->dev, "Detected version 0x%04x\n", version);
-+
- 	return version;
- }
- 
--- 
-2.12.3
+Patch applied, thanks eveyone!
