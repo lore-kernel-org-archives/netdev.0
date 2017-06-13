@@ -1,68 +1,40 @@
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [net-next,v2] openvswitch: add macro MODULE_ALIAS_VPORT_TYPE for vport type alias
-Date: Tue, 13 Jun 2017 15:00:57 +0800
-Message-ID: <1497337257-2533-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-To: pshelar@nicira.com, netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta2.chinamobile.com ([221.176.66.80]:42634 "EHLO
-        cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752656AbdFMHBL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 03:01:11 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [-next] mwifiex: make function mwifiex_ret_pkt_aggr_ctrl static
+Date: Tue, 13 Jun 2017 07:01:23 +0000 (UTC)
+Message-ID: <20170613070123.14C71607E4@smtp.codeaurora.org>
+References: <20170602085639.29338-1-colin.king@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Amitkumar Karwar <amitkarwar@gmail.com>,
+        Nishant Sarmukadam <nishants@marvell.com>,
+        Ganapathi Bhat <gbhat@marvell.com>,
+        Xinming Hu <huxm@marvell.com>, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Colin Ian King <colin.king@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170602085639.29338-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add a new macro MODULE_ALIAS_VPORT_TYPE to unify and simplify the
-declaration of vport type alias.
+Colin Ian King <colin.king@canonical.com> wrote:
 
-Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
----
- net/openvswitch/vport-geneve.c | 2 +-
- net/openvswitch/vport-gre.c    | 2 +-
- net/openvswitch/vport-vxlan.c  | 2 +-
- net/openvswitch/vport.h        | 3 +++
- 4 files changed, 6 insertions(+), 3 deletions(-)
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> function mwifiex_ret_pkt_aggr_ctrl can be made static as it does not
+> need to be in global scope.
+> 
+> Cleans up sparse warning: "symbol 'mwifiex_ret_pkt_aggr_ctrl' was not
+> declared. Should it be static?"
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
-index 5aaf3ba..0ebf023 100644
---- a/net/openvswitch/vport-geneve.c
-+++ b/net/openvswitch/vport-geneve.c
-@@ -141,4 +141,4 @@ static void __exit ovs_geneve_tnl_exit(void)
- 
- MODULE_DESCRIPTION("OVS: Geneve switching port");
- MODULE_LICENSE("GPL");
--MODULE_ALIAS("vport-type-5");
-+MODULE_ALIAS_VPORT_TYPE(5);
-diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
-index 0e72d95..97fc4d5 100644
---- a/net/openvswitch/vport-gre.c
-+++ b/net/openvswitch/vport-gre.c
-@@ -113,4 +113,4 @@ static void __exit ovs_gre_tnl_exit(void)
- 
- MODULE_DESCRIPTION("OVS: GRE switching port");
- MODULE_LICENSE("GPL");
--MODULE_ALIAS("vport-type-3");
-+MODULE_ALIAS_VPORT_TYPE(3);
-diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
-index 869acb3..0375b6a 100644
---- a/net/openvswitch/vport-vxlan.c
-+++ b/net/openvswitch/vport-vxlan.c
-@@ -179,4 +179,4 @@ static void __exit ovs_vxlan_tnl_exit(void)
- 
- MODULE_DESCRIPTION("OVS: VXLAN switching port");
- MODULE_LICENSE("GPL");
--MODULE_ALIAS("vport-type-4");
-+MODULE_ALIAS_VPORT_TYPE(4);
-diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
-index cda66c2..1d1584f 100644
---- a/net/openvswitch/vport.h
-+++ b/net/openvswitch/vport.h
-@@ -199,4 +199,7 @@ static inline const char *ovs_vport_name(struct vport *vport)
- void ovs_vport_ops_unregister(struct vport_ops *ops);
- void ovs_vport_send(struct vport *vport, struct sk_buff *skb, u8 mac_proto);
- 
-+#define MODULE_ALIAS_VPORT_TYPE(type) \
-+	MODULE_ALIAS("vport-type-" __stringify(type))
-+
- #endif /* vport.h */
+Patch applied to wireless-drivers-next.git, thanks.
+
+292c333300ec mwifiex: make function mwifiex_ret_pkt_aggr_ctrl static
+
 -- 
-1.8.3.1
+https://patchwork.kernel.org/patch/9761985/
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
