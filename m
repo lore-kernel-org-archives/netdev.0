@@ -1,7 +1,7 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [RFC/RFT PATCH 4/4] [debug] ARM: am335x: illustrate hwstamp
-Date: Tue, 13 Jun 2017 18:16:23 -0500
-Message-ID: <20170613231623.28353-5-grygorii.strashko@ti.com>
+Subject: [RFC/RFT PATCH 1/4] net: ethernet: ti: cpts: use own highpri workqueue
+Date: Tue, 13 Jun 2017 18:16:20 -0500
+Message-ID: <20170613231623.28353-2-grygorii.strashko@ti.com>
 References: <20170613231623.28353-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,92 +16,65 @@ In-Reply-To: <20170613231623.28353-1-grygorii.strashko@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch allows to test CPTS HW_TS_PUSH functionality on am335x boards
-
-below sequence of commands will enable Timer7 to trigger 1sec
-periodic pulses on CPTS HW4_TS_PUSH input pin:
-
- # echo 1000000000 > /sys/class/pwm/pwmchip0/pwm0/period
- # echo 500000000 > /sys/class/pwm/pwmchip0/pwm0/duty_cycle
- # echo 1 > /sys/class/pwm/pwmchip0/pwm0/enable
- # ./ptp/testptp -e 10 -i 3
-external time stamp request okay
-event index 3 at 1493259028.376600798
-event index 3 at 1493259029.377170898
-event index 3 at 1493259030.377741039
-event index 3 at 1493259031.378311139
-event index 3 at 1493259032.378881279
-event index 3 at 1493259033.379451424
-event index 3 at 1493259034.380021520
-event index 3 at 1493259035.380591660
-event index 3 at 1493259036.381161765
-event index 3 at 1493259037.381731909
+There could be significant delay in CPTS work schedule under high system
+load and on -RT which could cause CPTS misbehavior due to internal counter
+overflow. Usage of own highpri ordered workqueue allows to avoid such kind
+of issues and makes it possible to tune priority of CPTS workqueue thread
+on -RT.
 
 Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 ---
- arch/arm/boot/dts/am335x-boneblack.dts | 6 ++++++
- arch/arm/boot/dts/am335x-evm.dts       | 7 +++++++
- arch/arm/boot/dts/am33xx.dtsi          | 1 +
- arch/arm/configs/omap2plus_defconfig   | 2 +-
- 4 files changed, 15 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/ti/cpts.c | 11 +++++++++--
+ drivers/net/ethernet/ti/cpts.h |  1 +
+ 2 files changed, 10 insertions(+), 2 deletions(-)
 
-diff --git a/arch/arm/boot/dts/am335x-boneblack.dts b/arch/arm/boot/dts/am335x-boneblack.dts
-index 935ed17..997f5b4 100644
---- a/arch/arm/boot/dts/am335x-boneblack.dts
-+++ b/arch/arm/boot/dts/am335x-boneblack.dts
-@@ -25,4 +25,10 @@
- 	oppnitro@1000000000 {
- 		opp-supported-hw = <0x06 0x0100>;
- 	};
+diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
+index 32279d2..f35d950 100644
+--- a/drivers/net/ethernet/ti/cpts.c
++++ b/drivers/net/ethernet/ti/cpts.c
+@@ -245,7 +245,8 @@ static void cpts_overflow_check(struct work_struct *work)
+ 
+ 	cpts_ptp_gettime(&cpts->info, &ts);
+ 	pr_debug("cpts overflow check at %lld.%09lu\n", ts.tv_sec, ts.tv_nsec);
+-	schedule_delayed_work(&cpts->overflow_work, cpts->ov_check_period);
++	queue_delayed_work(cpts->workwq, &cpts->overflow_work,
++			   cpts->ov_check_period);
+ }
+ 
+ static int cpts_match(struct sk_buff *skb, unsigned int ptp_class,
+@@ -378,7 +379,8 @@ int cpts_register(struct cpts *cpts)
+ 	}
+ 	cpts->phc_index = ptp_clock_index(cpts->clock);
+ 
+-	schedule_delayed_work(&cpts->overflow_work, cpts->ov_check_period);
++	queue_delayed_work(cpts->workwq, &cpts->overflow_work,
++			   cpts->ov_check_period);
+ 	return 0;
+ 
+ err_ptp:
+@@ -477,6 +479,11 @@ struct cpts *cpts_create(struct device *dev, void __iomem *regs,
+ 	cpts->reg = (struct cpsw_cpts __iomem *)regs;
+ 	spin_lock_init(&cpts->lock);
+ 	INIT_DELAYED_WORK(&cpts->overflow_work, cpts_overflow_check);
++	cpts->workwq = alloc_ordered_workqueue("cpts_ptp",
++					       WQ_MEM_RECLAIM | WQ_HIGHPRI);
++	if (!cpts->workwq)
++		return ERR_PTR(-ENOMEM);
 +
-+	pwm7: dmtimer-pwm {
-+		compatible = "ti,omap-dmtimer-pwm";
-+		ti,timers = <&timer7>;
-+		#pwm-cells = <3>;
-+	};
- };
-diff --git a/arch/arm/boot/dts/am335x-evm.dts b/arch/arm/boot/dts/am335x-evm.dts
-index 1c37a7c..ec36197 100644
---- a/arch/arm/boot/dts/am335x-evm.dts
-+++ b/arch/arm/boot/dts/am335x-evm.dts
-@@ -164,6 +164,13 @@
- 			system-clock-frequency = <12000000>;
- 		};
- 	};
-+
-+	pwm7: dmtimer-pwm {
-+		compatible = "ti,omap-dmtimer-pwm";
-+		ti,timers = <&timer7>;
-+		#pwm-cells = <3>;
-+	};
-+
+ 
+ 	ret = cpts_of_parse(cpts, node);
+ 	if (ret)
+diff --git a/drivers/net/ethernet/ti/cpts.h b/drivers/net/ethernet/ti/cpts.h
+index c96eca2..3eae01c 100644
+--- a/drivers/net/ethernet/ti/cpts.h
++++ b/drivers/net/ethernet/ti/cpts.h
+@@ -125,6 +125,7 @@ struct cpts {
+ 	struct list_head pool;
+ 	struct cpts_event pool_data[CPTS_MAX_EVENTS];
+ 	unsigned long ov_check_period;
++	struct workqueue_struct *workwq;
  };
  
- &am33xx_pinmux {
-diff --git a/arch/arm/boot/dts/am33xx.dtsi b/arch/arm/boot/dts/am33xx.dtsi
-index 9e24294..1a64b80 100644
---- a/arch/arm/boot/dts/am33xx.dtsi
-+++ b/arch/arm/boot/dts/am33xx.dtsi
-@@ -864,6 +864,7 @@
- 			ranges;
- 			syscon = <&scm_conf>;
- 			status = "disabled";
-+			cpts-ext-ts-inputs = <4>;
- 
- 			davinci_mdio: mdio@4a101000 {
- 				compatible = "ti,cpsw-mdio","ti,davinci_mdio";
-diff --git a/arch/arm/configs/omap2plus_defconfig b/arch/arm/configs/omap2plus_defconfig
-index a120ae8..6d3dcbc 100644
---- a/arch/arm/configs/omap2plus_defconfig
-+++ b/arch/arm/configs/omap2plus_defconfig
-@@ -459,7 +459,7 @@ CONFIG_CPCAP_ADC=m
- CONFIG_TI_AM335X_ADC=m
- CONFIG_BMP280=m
- CONFIG_PWM=y
--CONFIG_PWM_OMAP_DMTIMER=m
-+CONFIG_PWM_OMAP_DMTIMER=y
- CONFIG_PWM_TIECAP=m
- CONFIG_PWM_TIEHRPWM=m
- CONFIG_PWM_TWL=m
+ void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb);
 -- 
 2.10.1
