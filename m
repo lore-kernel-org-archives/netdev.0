@@ -1,41 +1,74 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH nf-next] netns: add and use net_ns_barrier
-Date: Tue, 13 Jun 2017 08:16:56 +0200
-Message-ID: <20170613061656.GF18283@breakpoint.cc>
-References: <20170530093812.10712-1-fw@strlen.de>
- <87y3tcj3n7.fsf@xmission.com>
- <20170601085259.GA6067@breakpoint.cc>
- <CAM_iQpXgrQcbrQsMVoomcsHtk4JffRjJ27FLRoignndAzFVkug@mail.gmail.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH] mwifiex: fixes the trivial print
+Date: Tue, 13 Jun 2017 09:28:23 +0300
+Message-ID: <87poe8pfjs.fsf@purkki.adurom.net>
+References: <1497008411-15223-1-git-send-email-wxt@rock-chips.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-        "Eric W. Biederman" <ebiederm@xmission.com>,
-        netfilter-devel@vger.kernel.org,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:45888 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752285AbdFMGRf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 02:17:35 -0400
-Content-Disposition: inline
-In-Reply-To: <CAM_iQpXgrQcbrQsMVoomcsHtk4JffRjJ27FLRoignndAzFVkug@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: amitkarwar@gmail.com, huxm@marvell.com, nishants@marvell.com,
+        gbhat@marvell.com, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        briannorris@chromium.org, jeffy.chen@rock-chips.com
+To: Caesar Wang <wxt@rock-chips.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1497008411-15223-1-git-send-email-wxt@rock-chips.com> (Caesar
+        Wang's message of "Fri, 9 Jun 2017 19:40:11 +0800")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Thu, Jun 1, 2017 at 1:52 AM, Florian Westphal <fw@strlen.de> wrote:
-> > Joe described it nicely, problem is that after unload we may have
-> > conntracks that still have a nf_conn_help extension attached that
-> > has a pointer to a structure that resided in the (unloaded) module.
-> 
-> Why not hold a refcnt for its module?
+Caesar Wang <wxt@rock-chips.com> writes:
 
-That would work as well.
+> We have always met the unused log be printed as following.
+>
+> ...
+> [23193.523182] mwifiex_pcie 0000:01:00.0: mwifiex_get_cfp:
+> cannot find cfp by band 2    & channel=13 freq=0
+> [23378.633684] mwifiex_pcie 0000:01:00.0: mwifiex_get_cfp:
+> cannot find cfp by band 2    & channel=13 freq=0
+>
+> Maybe that's related to wifi regdom, since wifi default area
+> was US and didn't support 12~14 channels.
+>
+> As Frequencies:
+> * 2412 MHz [1] (30.0 dBm)
+> * 2417 MHz [2] (30.0 dBm)
+> * 2422 MHz [3] (30.0 dBm)
+> * 2427 MHz [4] (30.0 dBm)
+> * 2432 MHz [5] (30.0 dBm)
+> * 2437 MHz [6] (30.0 dBm)
+> * 2442 MHz [7] (30.0 dBm)
+> * 2447 MHz [8] (30.0 dBm)
+> * 2452 MHz [9] (30.0 dBm)
+> * 2457 MHz [10] (30.0 dBm)
+> * 2462 MHz [11] (30.0 dBm)
+> * 2467 MHz [12] (disabled)
+> * 2472 MHz [13] (disabled)
+> * 2484 MHz [14] (disabled)
+>
+> Signed-off-by: Caesar Wang <wxt@rock-chips.com>
+> ---
+>
+>  drivers/net/wireless/marvell/mwifiex/cfp.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/wireless/marvell/mwifiex/cfp.c b/drivers/net/wireless/marvell/mwifiex/cfp.c
+> index 1ff2205..6e29943 100644
+> --- a/drivers/net/wireless/marvell/mwifiex/cfp.c
+> +++ b/drivers/net/wireless/marvell/mwifiex/cfp.c
+> @@ -350,7 +350,7 @@ mwifiex_get_cfp(struct mwifiex_private *priv, u8 band, u16 channel, u32 freq)
+>  		}
+>  	}
+>  	if (i == sband->n_channels) {
+> -		mwifiex_dbg(priv->adapter, ERROR,
+> +		mwifiex_dbg(priv->adapter, WARN,
+>  			    "%s: cannot find cfp by band %d\t"
+>  			    "& channel=%d freq=%d\n",
+>  			    __func__, band, channel, freq);
 
-I'm not sure its nice to disallow rmmod of helper modules if they are
-used by a connection however.
+I don't see how this fixes anything, care to explain? And the title is
+quite vague.
 
-Right now you can "rmmod nf_conntrack_foo" at any time and this should
-work just fine without first having to flush affected conntracks
-manually.
+And I would rather fix the root cause, mwifiex folks please comment.
+
+-- 
+Kalle Valo
