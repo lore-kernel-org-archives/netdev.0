@@ -1,7 +1,7 @@
 From: David Daney <david.daney@cavium.com>
-Subject: [PATCH 4/4] samples/bpf: Fix tracex5 to work with MIPS syscalls.
-Date: Tue, 13 Jun 2017 16:49:38 -0700
-Message-ID: <20170613234938.4823-5-david.daney@cavium.com>
+Subject: [PATCH 1/4] tools: bpf_jit_disasm:  Handle large images.
+Date: Tue, 13 Jun 2017 16:49:35 -0700
+Message-ID: <20170613234938.4823-2-david.daney@cavium.com>
 References: <20170613234938.4823-1-david.daney@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,140 +11,142 @@ To: Alexei Starovoitov <ast@kernel.org>,
         Daniel Borkmann <daniel@iogearbox.net>,
         "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-mips-bounce@linux-mips.org>
 In-Reply-To: <20170613234938.4823-1-david.daney@cavium.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-There are two problems:
-
-1) In MIPS the __NR_* macros expand to an expression, this causes the
-   sections of the object file to be named like:
-
-  .
-  .
-  .
-  [ 5] kprobe/(5000 + 1) PROGBITS        0000000000000000 000160 ...
-  [ 6] kprobe/(5000 + 0) PROGBITS        0000000000000000 000258 ...
-  [ 7] kprobe/(5000 + 9) PROGBITS        0000000000000000 000348 ...
-  .
-  .
-  .
-
-The fix here is to use the "asm_offsets" trick to evaluate the macros
-in the C compiler and generate a header file with a usable form of the
-macros.
-
-2) MIPS syscall numbers start at 5000, so we need a bigger map to hold
-the sub-programs.
+Dynamically allocate memory so that JIT images larger than the size of
+the statically allocated array can be handled.
 
 Signed-off-by: David Daney <david.daney@cavium.com>
 ---
- samples/bpf/Makefile       | 13 +++++++++++++
- samples/bpf/syscall_nrs.c  | 12 ++++++++++++
- samples/bpf/tracex5_kern.c | 11 ++++++++---
- 3 files changed, 33 insertions(+), 3 deletions(-)
- create mode 100644 samples/bpf/syscall_nrs.c
+ tools/net/bpf_jit_disasm.c | 37 ++++++++++++++++++++++++++-----------
+ 1 file changed, 26 insertions(+), 11 deletions(-)
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 6c7468e..a0561dc 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -160,6 +160,17 @@ clean:
- 	$(MAKE) -C ../../ M=$(CURDIR) clean
- 	@rm -f *~
- 
-+$(obj)/syscall_nrs.s:	$(src)/syscall_nrs.c
-+	$(call if_changed_dep,cc_s_c)
-+
-+$(obj)/syscall_nrs.h:	$(obj)/syscall_nrs.s FORCE
-+	$(call filechk,offsets,__SYSCALL_NRS_H__)
-+
-+clean-files += syscall_nrs.h
-+
-+FORCE:
-+
-+
- # Verify LLVM compiler tools are available and bpf target is supported by llc
- .PHONY: verify_cmds verify_target_bpf $(CLANG) $(LLC)
- 
-@@ -180,6 +191,8 @@ verify_target_bpf: verify_cmds
- 
- $(src)/*.c: verify_target_bpf
- 
-+$(obj)/tracex5_kern.o: $(obj)/syscall_nrs.h
-+
- # asm/sysreg.h - inline assembly used by it is incompatible with llvm.
- # But, there is no easy way to fix it, so just exclude it since it is
- # useless for BPF samples.
-diff --git a/samples/bpf/syscall_nrs.c b/samples/bpf/syscall_nrs.c
-new file mode 100644
-index 0000000..ce2a30b
---- /dev/null
-+++ b/samples/bpf/syscall_nrs.c
-@@ -0,0 +1,12 @@
-+#include <uapi/linux/unistd.h>
-+#include <linux/kbuild.h>
-+
-+#define SYSNR(_NR) DEFINE(SYS ## _NR, _NR)
-+
-+void syscall_defines(void)
-+{
-+	COMMENT("Linux system call numbers.");
-+	SYSNR(__NR_write);
-+	SYSNR(__NR_read);
-+	SYSNR(__NR_mmap);
-+}
-diff --git a/samples/bpf/tracex5_kern.c b/samples/bpf/tracex5_kern.c
-index 7e4cf74..f57f4e1 100644
---- a/samples/bpf/tracex5_kern.c
-+++ b/samples/bpf/tracex5_kern.c
-@@ -9,6 +9,7 @@
- #include <uapi/linux/bpf.h>
- #include <uapi/linux/seccomp.h>
- #include <uapi/linux/unistd.h>
-+#include "syscall_nrs.h"
- #include "bpf_helpers.h"
- 
- #define PROG(F) SEC("kprobe/"__stringify(F)) int bpf_func_##F
-@@ -17,7 +18,11 @@ struct bpf_map_def SEC("maps") progs = {
- 	.type = BPF_MAP_TYPE_PROG_ARRAY,
- 	.key_size = sizeof(u32),
- 	.value_size = sizeof(u32),
-+#ifdef __mips__
-+	.max_entries = 6000, /* MIPS n64 syscalls start at 5000 */
-+#else
- 	.max_entries = 1024,
-+#endif
- };
- 
- SEC("kprobe/__seccomp_filter")
-@@ -37,7 +42,7 @@ int bpf_prog1(struct pt_regs *ctx)
+diff --git a/tools/net/bpf_jit_disasm.c b/tools/net/bpf_jit_disasm.c
+index ad572e6..422d9abd 100644
+--- a/tools/net/bpf_jit_disasm.c
++++ b/tools/net/bpf_jit_disasm.c
+@@ -159,8 +159,8 @@ static void put_log_buff(char *buff)
+ 	free(buff);
  }
  
- /* we jump here when syscall number == __NR_write */
--PROG(__NR_write)(struct pt_regs *ctx)
-+PROG(SYS__NR_write)(struct pt_regs *ctx)
+-static unsigned int get_last_jit_image(char *haystack, size_t hlen,
+-				       uint8_t *image, size_t ilen)
++static uint8_t *get_last_jit_image(char *haystack, size_t hlen,
++				   unsigned int *ilen)
  {
- 	struct seccomp_data sd;
+ 	char *ptr, *pptr, *tmp;
+ 	off_t off = 0;
+@@ -168,9 +168,10 @@ static unsigned int get_last_jit_image(char *haystack, size_t hlen,
+ 	regmatch_t pmatch[1];
+ 	unsigned long base;
+ 	regex_t regex;
++	uint8_t *image;
  
-@@ -50,7 +55,7 @@ PROG(__NR_write)(struct pt_regs *ctx)
+ 	if (hlen == 0)
+-		return 0;
++		return NULL;
+ 
+ 	ret = regcomp(&regex, "flen=[[:alnum:]]+ proglen=[[:digit:]]+ "
+ 		      "pass=[[:digit:]]+ image=[[:xdigit:]]+", REG_EXTENDED);
+@@ -194,11 +195,22 @@ static unsigned int get_last_jit_image(char *haystack, size_t hlen,
+ 		     &flen, &proglen, &pass, &base);
+ 	if (ret != 4) {
+ 		regfree(&regex);
+-		return 0;
++		return NULL;
++	}
++	if (proglen > 1000000) {
++		printf("proglen of %d too big, stopping\n", proglen);
++		return NULL;
+ 	}
+ 
++	image = malloc(proglen);
++	if (!image) {
++		printf("Out of memory\n");
++		return NULL;
++	}
++	memset(image, 0, proglen);
++
+ 	tmp = ptr = haystack + off;
+-	while ((ptr = strtok(tmp, "\n")) != NULL && ulen < ilen) {
++	while ((ptr = strtok(tmp, "\n")) != NULL && ulen < proglen) {
+ 		tmp = NULL;
+ 		if (!strstr(ptr, "JIT code"))
+ 			continue;
+@@ -208,10 +220,12 @@ static unsigned int get_last_jit_image(char *haystack, size_t hlen,
+ 		ptr = pptr;
+ 		do {
+ 			image[ulen++] = (uint8_t) strtoul(pptr, &pptr, 16);
+-			if (ptr == pptr || ulen >= ilen) {
++			if (ptr == pptr) {
+ 				ulen--;
+ 				break;
+ 			}
++			if (ulen >= proglen)
++				break;
+ 			ptr = pptr;
+ 		} while (1);
+ 	}
+@@ -222,7 +236,8 @@ static unsigned int get_last_jit_image(char *haystack, size_t hlen,
+ 	printf("%lx + <x>:\n", base);
+ 
+ 	regfree(&regex);
+-	return ulen;
++	*ilen = ulen;
++	return image;
+ }
+ 
+ static void usage(void)
+@@ -237,12 +252,12 @@ static void usage(void)
+ int main(int argc, char **argv)
+ {
+ 	unsigned int len, klen, opt, opcodes = 0;
+-	static uint8_t image[32768];
+ 	char *kbuff, *file = NULL;
+ 	char *ofile = NULL;
+ 	int ofd;
+ 	ssize_t nr;
+ 	uint8_t *pos;
++	uint8_t *image = NULL;
+ 
+ 	while ((opt = getopt(argc, argv, "of:O:")) != -1) {
+ 		switch (opt) {
+@@ -262,7 +277,6 @@ int main(int argc, char **argv)
+ 	}
+ 
+ 	bfd_init();
+-	memset(image, 0, sizeof(image));
+ 
+ 	kbuff = get_log_buff(file, &klen);
+ 	if (!kbuff) {
+@@ -270,8 +284,8 @@ int main(int argc, char **argv)
+ 		return -1;
+ 	}
+ 
+-	len = get_last_jit_image(kbuff, klen, image, sizeof(image));
+-	if (len <= 0) {
++	image = get_last_jit_image(kbuff, klen, &len);
++	if (!image) {
+ 		fprintf(stderr, "No JIT image found!\n");
+ 		goto done;
+ 	}
+@@ -301,5 +315,6 @@ int main(int argc, char **argv)
+ 
+ done:
+ 	put_log_buff(kbuff);
++	free(image);
  	return 0;
  }
- 
--PROG(__NR_read)(struct pt_regs *ctx)
-+PROG(SYS__NR_read)(struct pt_regs *ctx)
- {
- 	struct seccomp_data sd;
- 
-@@ -63,7 +68,7 @@ PROG(__NR_read)(struct pt_regs *ctx)
- 	return 0;
- }
- 
--PROG(__NR_mmap)(struct pt_regs *ctx)
-+PROG(SYS__NR_mmap)(struct pt_regs *ctx)
- {
- 	char fmt[] = "mmap\n";
- 	bpf_trace_printk(fmt, sizeof(fmt));
 -- 
 2.9.4
