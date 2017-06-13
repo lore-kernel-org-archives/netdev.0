@@ -1,34 +1,50 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 1/2] mdio_bus: handle only single PHY reset GPIO
-Date: Mon, 12 Jun 2017 16:43:40 -0700
-Message-ID: <12bb1f10-79cc-25a5-1115-69d13c36a68b@gmail.com>
-References: <20170612210547.823996341@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170612210547.823996341-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Content-Language: en-US
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net] net: phy: Fix MDIO_THUNDER dependencies
+Date: Mon, 12 Jun 2017 17:18:51 -0700
+Message-ID: <20170613001852.10073-1-f.fainelli@gmail.com>
+Cc: rdunlap@infradead.org, arnd@arndb.de,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        linux-kernel@vger.kernel.org (open list)
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+After commit 90eff9096c01 ("net: phy: Allow splitting MDIO
+bus/device support from PHYs") we could create a configuration where
+MDIO_DEVICE=y and PHYLIB=m which leads to the following undefined
+references:
 
+ drivers/built-in.o: In function `thunder_mdiobus_pci_remove':
+>> mdio-thunder.c:(.text+0x2a212f): undefined reference to
+>> `mdiobus_unregister'
+>> mdio-thunder.c:(.text+0x2a2138): undefined reference to
+>> `mdiobus_free'
+   drivers/built-in.o: In function `thunder_mdiobus_pci_probe':
+   mdio-thunder.c:(.text+0x2a22e7): undefined reference to
+`devm_mdiobus_alloc_size'
+   mdio-thunder.c:(.text+0x2a236f): undefined reference to
+`of_mdiobus_register'
 
-On 06/12/2017 01:55 PM, Sergei Shtylyov wrote:
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Fixes: 90eff9096c01 ("net: phy: Allow splitting MDIO bus/device support from PHYs")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/phy/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
 
-Subject should be: net: phy: Handle only single PHY reset GPIO to be
-consistent with prior submissions, and can you also send your patches
-inline using git format-patch + git send-email so it's possible to quote
- the contents?
-
-Thanks
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index c360dd6ead22..3ab6c58d4be6 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -127,6 +127,7 @@ config MDIO_THUNDER
+ 	tristate "ThunderX SOCs MDIO buses"
+ 	depends on 64BIT
+ 	depends on PCI
++	depends on !(MDIO_DEVICE=y && PHYLIB=m)
+ 	select MDIO_CAVIUM
+ 	help
+ 	  This driver supports the MDIO interfaces found on Cavium
 -- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.9.3
