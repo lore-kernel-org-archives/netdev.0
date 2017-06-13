@@ -1,154 +1,63 @@
-From: Salil Mehta <salil.mehta@huawei.com>
-Subject: RE: [PATCH net-next 1/9] net: hns3: Add support of HNS3 Ethernet
- Driver for hip08 SoC
-Date: Tue, 13 Jun 2017 17:08:18 +0000
-Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F93B7A1B62@FRAEML521-MBX.china.huawei.com>
-References: <20170610034630.493852-1-salil.mehta@huawei.com>
- <20170610034630.493852-2-salil.mehta@huawei.com>
- <BY2PR0701MB2005075560E4EA9F455049988DCF0@BY2PR0701MB2005.namprd07.prod.outlook.com>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH net,stable] qmi_wwan: new Telewell and Sierra device IDs
+Date: Tue, 13 Jun 2017 19:10:18 +0200
+Message-ID: <20170613171018.31526-1-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
-        huangdaode <huangdaode@hisilicon.com>,
-        "lipeng (Y)" <lipeng321@huawei.com>,
-        "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Linuxarm <linuxarm@huawei.com>
-To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BY2PR0701MB2005075560E4EA9F455049988DCF0@BY2PR0701MB2005.namprd07.prod.outlook.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-usb@vger.kernel.org, Johan Hovold <johan@kernel.org>,
+        Lars Melin <larsm17@gmail.com>, Dan Williams <dcbw@redhat.com>,
+        Daniele Palmas <dnlplm@gmail.com>,
+        Petr Kloc <petr_kloc@yahoo.com>,
+        Teemu Likonen <tlikonen@iki.fi>,
+        =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:34071 "EHLO canardo.mork.no"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752337AbdFMRKm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 13 Jun 2017 13:10:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Yuval
+A new Sierra Wireless EM7305 device ID used in a Toshiba laptop,
+and two Longcheer device IDs entries used by Telewell TW-3G HSPA+
+branded modems.
 
-> -----Original Message-----
-> From: Mintz, Yuval [mailto:Yuval.Mintz@cavium.com]
-> Sent: Saturday, June 10, 2017 1:43 PM
-> To: Salil Mehta; davem@davemloft.net
-> Cc: Zhuangyuzeng (Yisen); huangdaode; lipeng (Y);
-> mehta.salil.lnk@gmail.com; netdev@vger.kernel.org; linux-
-> kernel@vger.kernel.org; Linuxarm
-> Subject: RE: [PATCH net-next 1/9] net: hns3: Add support of HNS3
-> Ethernet Driver for hip08 SoC
-> 
-> > +static void hns3_nic_net_down(struct net_device *ndev) {
-> > +	struct hns3_nic_priv *priv = netdev_priv(ndev);
-> > +	struct hnae3_ae_ops *ops;
-> > +	int i;
-> > +
-> > +	netif_tx_stop_all_queues(ndev);
-> > +	netif_carrier_off(ndev);
-> > +	netif_tx_disable(ndev);
-> > +
-> > +	ops = priv->ae_handle->ae_algo->ops;
-> > +
-> > +	if (ops->stop)
-> > +		ops->stop(priv->ae_handle);
-> > +
-> > +	netif_tx_stop_all_queues(ndev);
-> 
-> Looks a bit excessive. Why do you need all these
-> netif_tx_stop_all_queues()?
-If we are disabling the netdev. We need to stop scheduling
-the queues associated with that netdev for TX, so we need
-this code. Why do you think it is excessive? 
+Reported-by: Petr Kloc <petr_kloc@yahoo.com>
+Reported-by: Teemu Likonen <tlikonen@iki.fi>
+Signed-off-by: Bjørn Mork <bjorn@mork.no>
+---
+The following patch should be backported to v4.9 and later stable kernels to
+make this one apply cleanly:
 
-Thanks
-Salil
-> 
-> > +int hns3_nic_net_xmit_hw(struct net_device *ndev,
-> ...
-> > +out_map_frag_fail:
-> > +
-> > +	while (ring->next_to_use != next_to_use) {
-> > +		if (ring->next_to_use != next_to_use)
-> > +			dma_unmap_page(dev,
-> > +				       ring->desc_cb[ring->next_to_use].dma,
-> > +				       ring->desc_cb[ring->next_to_use].length,
-> > +				       DMA_TO_DEVICE);
-> > +		else
-> > +			dma_unmap_single(dev,
-> > +					 ring->desc_cb[next_to_use].dma,
-> > +					 ring->desc_cb[next_to_use].length,
-> > +					 DMA_TO_DEVICE);
-> > +	}
-> 
-> Something looks completely broken in this error-handling 'loop'.
-This looks bad indeed. I will clean this logic. 
+ 14cf4a771b30 ("drivers: net: usb: qmi_wwan: add QMI_QUIRK_SET_DTR for Telit PID 0x1201")
 
-Thanks
-Salil
-> 
-> > +static int hns3_setup_tc(struct net_device *ndev, u8 tc) {
-> ...
-> > +	/* Assign UP2TC map for the VSI */
-> > +	for (i = 0; i < HNAE3_MAX_TC; i++) {
-> > +		netdev_set_prio_tc_map(ndev,
-> > +				       kinfo->tc_info[i].up,
-> > +				       kinfo->tc_info[i].tc);
-> > +	}
-> ...
-> > +static int hns3_nic_setup_tc(struct net_device *dev, u32 handle,
-> > +			     u32 chain_index, __be16 protocol,
-> > +			     struct tc_to_netdev *tc)
-> > +{
-> > +	if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
-> > +		return -EINVAL;
-> > +
-> > +	return hns3_setup_tc(dev, tc->mqprio->num_tc); }
-> 
-> Isn't mqprio going to override your priority2tc mapping with the one
-> provided
-> by user?
-I guess you are referring to below code in the mqprio_init() - right?
 
-static int mqprio_init(struct Qdisc *sch, struct nlattr *opt)
-{
-  [...]
-	/* Always use supplied priority mappings */
-	for (i = 0; i < TC_BITMASK + 1; i++)
-		netdev_set_prio_tc_map(dev, i, qopt->prio_tc_map[i]);
-  [...]
-}
+ drivers/net/usb/qmi_wwan.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-In this case yes, you are right below code seems to be redundant:
-
- +	/* Assign UP2TC map for the VSI */
- +	for (i = 0; i < HNAE3_MAX_TC; i++) {
- +		netdev_set_prio_tc_map(ndev,
- +				       kinfo->tc_info[i].up,
- +				       kinfo->tc_info[i].tc);
-
-Hope I am not missing anything here?
-
-Thanks
-Salil
-> 
-> > +
-> > +static int hns3_handle_rx_bd(struct hns3_enet_ring *ring,
-> > +			     struct sk_buff **out_skb, int *out_bnum) {
-> ...
-> > +	/* Prefetch first cache line of first page */
-> > +	prefetch(va);
-> > +#if L1_CACHE_BYTES < 128
-> > +	prefetch(va + L1_CACHE_BYTES);
-> > +#endif
-> 
-> Might be better to comment what you're actually fetching
-Idea is to cache few bytes of the header of the packet. Our L1
-Cache line size is 64B so need to prefetch twice to make it
-128B. But in actual we can have greater size of caches with
-128B Level 1 cache lines. In such a case, single fetch would
-suffice to cache in the relevant part of the header.
-
-Will provide a comment over it - no problem.
-
-Thanks
-Salil
-> 
-> 
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index 949671ce4039..32a22f4e8356 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -1192,6 +1192,8 @@ static const struct usb_device_id products[] = {
+ 	{QMI_FIXED_INTF(0x1199, 0x9056, 8)},	/* Sierra Wireless Modem */
+ 	{QMI_FIXED_INTF(0x1199, 0x9057, 8)},
+ 	{QMI_FIXED_INTF(0x1199, 0x9061, 8)},	/* Sierra Wireless Modem */
++	{QMI_FIXED_INTF(0x1199, 0x9063, 8)},	/* Sierra Wireless EM7305 */
++	{QMI_FIXED_INTF(0x1199, 0x9063, 10)},	/* Sierra Wireless EM7305 */
+ 	{QMI_FIXED_INTF(0x1199, 0x9071, 8)},	/* Sierra Wireless MC74xx */
+ 	{QMI_FIXED_INTF(0x1199, 0x9071, 10)},	/* Sierra Wireless MC74xx */
+ 	{QMI_FIXED_INTF(0x1199, 0x9079, 8)},	/* Sierra Wireless EM74xx */
+@@ -1206,6 +1208,8 @@ static const struct usb_device_id products[] = {
+ 	{QMI_FIXED_INTF(0x1bc7, 0x1100, 3)},	/* Telit ME910 */
+ 	{QMI_FIXED_INTF(0x1bc7, 0x1200, 5)},	/* Telit LE920 */
+ 	{QMI_QUIRK_SET_DTR(0x1bc7, 0x1201, 2)},	/* Telit LE920, LE920A4 */
++	{QMI_FIXED_INTF(0x1c9e, 0x9801, 3)},	/* Telewell TW-3G HSPA+ */
++	{QMI_FIXED_INTF(0x1c9e, 0x9803, 4)},	/* Telewell TW-3G HSPA+ */
+ 	{QMI_FIXED_INTF(0x1c9e, 0x9b01, 3)},	/* XS Stick W100-2 from 4G Systems */
+ 	{QMI_FIXED_INTF(0x0b3c, 0xc000, 4)},	/* Olivetti Olicard 100 */
+ 	{QMI_FIXED_INTF(0x0b3c, 0xc001, 4)},	/* Olivetti Olicard 120 */
+-- 
+2.11.0
