@@ -1,36 +1,37 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next] fjes: remove duplicate set of flag IFF_BROADCAST
-Date: Tue, 13 Jun 2017 18:55:08 +0300
-Message-ID: <054ebc9e-5c41-d59b-84be-a84feb3baf92@cogentembedded.com>
-References: <1497358189-3342-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next 03/10] bpf: mlx5e: Report bpf_prog ID during XDP_QUERY_PROG
+Date: Tue, 13 Jun 2017 19:04:26 +0300
+Message-ID: <CALzJLG_mos9=Tw0A0xASi3U3PF+=5-+e+K4ZdsR6M_saZ5B+0w@mail.gmail.com>
+References: <20170613010025.2983342-1-kafai@fb.com> <20170613010025.2983342-4-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>,
-        davem@davemloft.net, izumi.taku@jp.fujitsu.com,
-        netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+        Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Kernel Team <kernel-team@fb.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: Martin KaFai Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f53.google.com ([209.85.215.53]:35040 "EHLO
-        mail-lf0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753038AbdFMPzM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 11:55:12 -0400
-Received: by mail-lf0-f53.google.com with SMTP id p189so75398405lfe.2
-        for <netdev@vger.kernel.org>; Tue, 13 Jun 2017 08:55:11 -0700 (PDT)
-In-Reply-To: <1497358189-3342-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+Received: from mail-qt0-f182.google.com ([209.85.216.182]:36465 "EHLO
+        mail-qt0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751768AbdFMQEs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 12:04:48 -0400
+Received: by mail-qt0-f182.google.com with SMTP id u19so178170440qta.3
+        for <netdev@vger.kernel.org>; Tue, 13 Jun 2017 09:04:47 -0700 (PDT)
+In-Reply-To: <20170613010025.2983342-4-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
-
-On 06/13/2017 03:49 PM, Zhang Shengju wrote:
-
-> Remove unnecessary set of flag IFF_BROADCAST, since ether_setup
-
-    s/set/setting/. Perhaps can be fixed while applying...
-
-> already does this.
+On Tue, Jun 13, 2017 at 4:00 AM, Martin KaFai Lau <kafai@fb.com> wrote:
+> Add support to mlx5e to report bpf_prog ID during XDP_QUERY_PROG.
 >
-> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-[...]
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+> Cc: Tariq Toukan <tariqt@mellanox.com>
+> Cc: Saeed Mahameed <saeedm@mellanox.com>
+> Acked-by: Alexei Starovoitov <ast@fb.com>
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 
-MBR, Sergei
+Acked-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Thanks you Martin.
