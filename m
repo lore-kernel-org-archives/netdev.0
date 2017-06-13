@@ -1,20 +1,22 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [-next] mwifiex: make function mwifiex_ret_pkt_aggr_ctrl static
-Date: Tue, 13 Jun 2017 07:01:23 +0000 (UTC)
-Message-ID: <20170613070123.14C71607E4@smtp.codeaurora.org>
-References: <20170602085639.29338-1-colin.king@canonical.com>
+Subject: Re: [wireless-next] qtnfmac: check band before allocating cmd_skb to
+ avoid resource leak
+Date: Tue, 13 Jun 2017 07:02:13 +0000 (UTC)
+Message-ID: <20170613070213.64C55606DC@smtp.codeaurora.org>
+References: <20170602154045.28948-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Amitkumar Karwar <amitkarwar@gmail.com>,
-        Nishant Sarmukadam <nishants@marvell.com>,
-        Ganapathi Bhat <gbhat@marvell.com>,
-        Xinming Hu <huxm@marvell.com>, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-        linux-kernel@vger.kernel.org
+Cc: Igor Mitsyanko <imitsyanko@quantenna.com>,
+        Avinash Patil <avinashp@quantenna.com>,
+        Sergey Matyukevich <smatyukevich@quantenna.com>,
+        Dmitrii Lebed <dlebed@quantenna.com>,
+        Huizhao Wang <hwang@quantenna.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Colin Ian King <colin.king@canonical.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170602085639.29338-1-colin.king@canonical.com>
+In-Reply-To: <20170602154045.28948-1-colin.king@canonical.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -22,19 +24,21 @@ Colin Ian King <colin.king@canonical.com> wrote:
 
 > From: Colin Ian King <colin.king@canonical.com>
 > 
-> function mwifiex_ret_pkt_aggr_ctrl can be made static as it does not
-> need to be in global scope.
+> The current code allocates cmd_skb and then will leak this if band->band
+> is an illegal value. It is simpler to sanity check the band first before
+> allocating cmd_skb so that we don't have to free cmd_skb if an invalid
+> band occurs.
 > 
-> Cleans up sparse warning: "symbol 'mwifiex_ret_pkt_aggr_ctrl' was not
-> declared. Should it be static?"
+> Detected by CoverityScan, CID#1437561 ("Resource Leak")
 > 
 > Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Reviewed-by: Igor Mitsyanko <igor.mitsyanko.os@quantenna.com>
 
 Patch applied to wireless-drivers-next.git, thanks.
 
-292c333300ec mwifiex: make function mwifiex_ret_pkt_aggr_ctrl static
+bc0384eedb66 qtnfmac: check band before allocating cmd_skb to avoid resource leak
 
 -- 
-https://patchwork.kernel.org/patch/9761985/
+https://patchwork.kernel.org/patch/9762863/
 
 https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
