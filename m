@@ -1,7 +1,7 @@
 From: David Daney <david.daney@cavium.com>
-Subject: [PATCH 2/4] test_bpf: Add test to make conditional jump cross a large number of insns.
-Date: Tue, 13 Jun 2017 16:49:36 -0700
-Message-ID: <20170613234938.4823-3-david.daney@cavium.com>
+Subject: [PATCH 3/4] bpf: Add MIPS support to samples/bpf.
+Date: Tue, 13 Jun 2017 16:49:37 -0700
+Message-ID: <20170613234938.4823-4-david.daney@cavium.com>
 References: <20170613234938.4823-1-david.daney@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,69 +16,34 @@ In-Reply-To: <20170613234938.4823-1-david.daney@cavium.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On MIPS, conditional branches can only span 32k instructions.  To
-exceed this limit in the JIT with the BPF maximum of 4k insns, we need
-to choose eBPF insns that expand to more than 8 machine instructions.
-Use BPF_LD_ABS as it is quite complex.  This forces the JIT to invert
-the sense of the branch to branch around a long jump to the end.
-
-This (somewhat) verifies that the branch inversion logic and target
-address calculation of the long jumps are done correctly.
-
 Signed-off-by: David Daney <david.daney@cavium.com>
 ---
- lib/test_bpf.c | 32 ++++++++++++++++++++++++++++++++
- 1 file changed, 32 insertions(+)
+ samples/bpf/bpf_helpers.h | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
 
-diff --git a/lib/test_bpf.c b/lib/test_bpf.c
-index be88cba..9ecbf47 100644
---- a/lib/test_bpf.c
-+++ b/lib/test_bpf.c
-@@ -434,6 +434,30 @@ static int bpf_fill_ld_abs_vlan_push_pop(struct bpf_test *self)
- 	return 0;
- }
+diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
+index 9a9c95f..76526da 100644
+--- a/samples/bpf/bpf_helpers.h
++++ b/samples/bpf/bpf_helpers.h
+@@ -135,6 +135,19 @@ static int (*bpf_skb_change_head)(void *, int len, int flags) =
+ #define PT_REGS_SP(x) ((x)->sp)
+ #define PT_REGS_IP(x) ((x)->pc)
  
-+static int bpf_fill_jump_around_ld_abs(struct bpf_test *self)
-+{
-+	unsigned int len = BPF_MAXINSNS;
-+	struct bpf_insn *insn;
-+	int i = 0;
++#elif defined(__mips__)
 +
-+	insn = kmalloc_array(len, sizeof(*insn), GFP_KERNEL);
-+	if (!insn)
-+		return -ENOMEM;
++#define PT_REGS_PARM1(x) ((x)->regs[4])
++#define PT_REGS_PARM2(x) ((x)->regs[5])
++#define PT_REGS_PARM3(x) ((x)->regs[6])
++#define PT_REGS_PARM4(x) ((x)->regs[7])
++#define PT_REGS_PARM5(x) ((x)->regs[8])
++#define PT_REGS_RET(x) ((x)->regs[31])
++#define PT_REGS_FP(x) ((x)->regs[30]) /* Works only with CONFIG_FRAME_POINTER */
++#define PT_REGS_RC(x) ((x)->regs[1])
++#define PT_REGS_SP(x) ((x)->regs[29])
++#define PT_REGS_IP(x) ((x)->cp0_epc)
 +
-+	insn[i++] = BPF_MOV64_REG(R6, R1);
-+	insn[i++] = BPF_LD_ABS(BPF_B, 0);
-+	insn[i] = BPF_JMP_IMM(BPF_JEQ, R0, 10, len - i - 2);
-+	i++;
-+	while (i < len - 1)
-+		insn[i++] = BPF_LD_ABS(BPF_B, 1);
-+	insn[i] = BPF_EXIT_INSN();
-+
-+	self->u.ptr.insns = insn;
-+	self->u.ptr.len = len;
-+
-+	return 0;
-+}
-+
- static int __bpf_fill_stxdw(struct bpf_test *self, int size)
- {
- 	unsigned int len = BPF_MAXINSNS;
-@@ -5022,6 +5046,14 @@ static struct bpf_test tests[] = {
- 		{ { ETH_HLEN, 0xbef } },
- 		.fill_helper = bpf_fill_ld_abs_vlan_push_pop,
- 	},
-+	{
-+		"BPF_MAXINSNS: jump around ld_abs",
-+		{ },
-+		INTERNAL,
-+		{ 10, 11 },
-+		{ { 2, 10 } },
-+		.fill_helper = bpf_fill_jump_around_ld_abs,
-+	},
- 	/*
- 	 * LD_IND / LD_ABS on fragmented SKBs
- 	 */
+ #elif defined(__powerpc__)
+ 
+ #define PT_REGS_PARM1(x) ((x)->gpr[3])
 -- 
 2.9.4
