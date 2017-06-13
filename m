@@ -1,64 +1,63 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH] ip6_tunnel: Correct tos value in collect_md mode
-Date: Tue, 13 Jun 2017 17:37:04 +0200
-Message-ID: <594006A0.9020801@iogearbox.net>
-References: <1497340529-18736-1-git-send-email-yanhaishuang@cmss.chinamobile.com> <593FB700.6020701@iogearbox.net> <0D379591-C5AA-496C-BC00-18005EAA7D21@cmss.chinamobile.com>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: [PATCH net] net: phy: Fix MDIO_THUNDER dependencies
+Date: Tue, 13 Jun 2017 08:45:29 -0700
+Message-ID: <08ec75c3-8d0d-c543-5d42-46feb6522ba6@infradead.org>
+References: <20170613001852.10073-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, peter.a.dawson@boeing.com, ast@fb.com
-To: =?UTF-8?B?5Lil5rW35Y+M?= <yanhaishuang@cmss.chinamobile.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: arnd@arndb.de, Andrew Lunn <andrew@lunn.ch>,
+        open list <linux-kernel@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <0D379591-C5AA-496C-BC00-18005EAA7D21@cmss.chinamobile.com>
+In-Reply-To: <20170613001852.10073-1-f.fainelli@gmail.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/13/2017 03:31 PM, 严海双 wrote:
->> On 13 Jun 2017, at 5:57 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
->> On 06/13/2017 09:55 AM, Haishuang Yan wrote:
->>> Same as ip_gre, geneve and vxlan, use key->tos as tos value.
->>
->> Please also add Fixes tag and Cc original authors.
->>
->> Fixes: 0e9a709560db ("ip6_tunnel, ip6_gre: fix setting of DSCP on encapsulated packets”)
->
-> Ok, I will add it, thanks
->
->>> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
->>> ---
->>>   net/ipv6/ip6_tunnel.c | 4 ++--
->>>   1 file changed, 2 insertions(+), 2 deletions(-)
->>>
->>> diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
->>> index ef99d59..5f4aff5 100644
->>> --- a/net/ipv6/ip6_tunnel.c
->>> +++ b/net/ipv6/ip6_tunnel.c
->>> @@ -1249,7 +1249,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
->>>   		fl6.flowi6_proto = IPPROTO_IPIP;
->>>   		fl6.daddr = key->u.ipv6.dst;
->>>   		fl6.flowlabel = key->label;
->>> -		dsfield = ip6_tclass(key->label);
->>> +		dsfield = key->tos;
->>
->> Not exactly the same as vxlan / geneve. They do use key->tos
->> indeed, but they also set fl6.flowlabel differently:
->>
->>   [...]
->>   prio = info->key.tos;
->>   [...]
->>   fl6->flowlabel = ip6_make_flowinfo(RT_TOS(prio),
->>                                      info->key.label);
->>   [...]
->>
->> But looks like the latter is done later in ip6_tnl_xmit() eventually
->> before the route lookup as per 5f733ee68f9a ("ip6_tunnel: fix traffic
->> class routing for tunnels") fix. However, you still might want to
->> mask key->tos with RT_TOS().
->
-> Do you mean this way?
+On 06/12/17 17:18, Florian Fainelli wrote:
+> After commit 90eff9096c01 ("net: phy: Allow splitting MDIO
+> bus/device support from PHYs") we could create a configuration where
+> MDIO_DEVICE=y and PHYLIB=m which leads to the following undefined
+> references:
+> 
+>  drivers/built-in.o: In function `thunder_mdiobus_pci_remove':
+>>> mdio-thunder.c:(.text+0x2a212f): undefined reference to
+>>> `mdiobus_unregister'
+>>> mdio-thunder.c:(.text+0x2a2138): undefined reference to
+>>> `mdiobus_free'
+>    drivers/built-in.o: In function `thunder_mdiobus_pci_probe':
+>    mdio-thunder.c:(.text+0x2a22e7): undefined reference to
+> `devm_mdiobus_alloc_size'
+>    mdio-thunder.c:(.text+0x2a236f): undefined reference to
+> `of_mdiobus_register'
+> 
+> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+> Fixes: 90eff9096c01 ("net: phy: Allow splitting MDIO bus/device support from PHYs")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-This one from my last comment: dsfield = RT_TOS(key->tos)
+Tested-by: Randy Dunlap <rdunlap@infradead.org>
+
+Thanks.
+
+> ---
+>  drivers/net/phy/Kconfig | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+> index c360dd6ead22..3ab6c58d4be6 100644
+> --- a/drivers/net/phy/Kconfig
+> +++ b/drivers/net/phy/Kconfig
+> @@ -127,6 +127,7 @@ config MDIO_THUNDER
+>  	tristate "ThunderX SOCs MDIO buses"
+>  	depends on 64BIT
+>  	depends on PCI
+> +	depends on !(MDIO_DEVICE=y && PHYLIB=m)
+>  	select MDIO_CAVIUM
+>  	help
+>  	  This driver supports the MDIO interfaces found on Cavium
+> 
+
+
+-- 
+~Randy
