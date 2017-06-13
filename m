@@ -1,36 +1,28 @@
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [net-next] fjes: remove duplicate set of flag IFF_BROADCAST
-Date: Tue, 13 Jun 2017 20:49:49 +0800
-Message-ID: <1497358189-3342-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-To: davem@davemloft.net, izumi.taku@jp.fujitsu.com,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta3.chinamobile.com ([221.176.66.81]:12404 "EHLO
-        cmccmta3.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752233AbdFMMt6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 08:49:58 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greg KH <greg@kroah.com>
+Subject: Re: kernel BUG at net/ipv4/tcp_output.c:2748!
+Date: Tue, 13 Jun 2017 15:02:46 +0200
+Message-ID: <20170613130246.GA23325@kroah.com>
+References: <CAJsXRPG5_0q95s_p7yRKT2crU-ghgTMx6ki8mRSg=MkJ58becA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, security@kernel.org
+To: Dison River <pwn2river@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAJsXRPG5_0q95s_p7yRKT2crU-ghgTMx6ki8mRSg=MkJ58becA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Remove unnecessary set of flag IFF_BROADCAST, since ether_setup
-already does this.
+On Tue, Jun 13, 2017 at 07:39:00PM +0800, Dison River wrote:
+> Hi
+>    I've got the following error report while fuzzing the kernel with
+> syzkaller on
+> linux-4.11.0-rc3.
 
-Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
----
- drivers/net/fjes/fjes_main.c | 1 -
- 1 file changed, 1 deletion(-)
+4.11-rc3 is pretty old now, can you try 4.12-rc4 for this?
 
-diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
-index ae48c80..b56e07f 100644
---- a/drivers/net/fjes/fjes_main.c
-+++ b/drivers/net/fjes/fjes_main.c
-@@ -1348,7 +1348,6 @@ static void fjes_netdev_setup(struct net_device *netdev)
- 	netdev->mtu = fjes_support_mtu[3];
- 	netdev->min_mtu = fjes_support_mtu[0];
- 	netdev->max_mtu = fjes_support_mtu[3];
--	netdev->flags |= IFF_BROADCAST;
- 	netdev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
- }
- 
--- 
-1.8.3.1
+thanks,
+
+greg k-h
