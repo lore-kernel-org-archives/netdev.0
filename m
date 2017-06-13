@@ -1,7 +1,7 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V2 net-next 5/8] net: hns3: Add support of TX Scheduler & Shaper to HNS3 driver
-Date: Wed, 14 Jun 2017 00:10:32 +0100
-Message-ID: <20170613231035.494020-6-salil.mehta@huawei.com>
+Subject: [PATCH V2 net-next 6/8] net: hns3: Add MDIO support to HNS3 Ethernet driver for hip08 SoC
+Date: Wed, 14 Jun 2017 00:10:33 +0100
+Message-ID: <20170613231035.494020-7-salil.mehta@huawei.com>
 References: <20170613231035.494020-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,34 +15,30 @@ In-Reply-To: <20170613231035.494020-1-salil.mehta@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-THis patch adds the support of the Scheduling and Shaping
-functionalities during the transmit leg. This also adds the
-support of Pause at MAC level. (Pause at per-priority level
-shall be added later along with the DCB feature).
-
-Hardware as such consists of two types of cofiguration of 6 level
-schedulers. Algorithms varies according to the level and type
-of scheduler being used. Current patch is used to initialize
-the mapping, algorithms(like SP, DWRR etc) and shaper(CIR, PIR etc)
-being used.
+This patch adds the support of MDIO bus interface for HNS3 driver.
+Code provides various interfaces to start and stop the PHY layer
+and to read and write the MDIO bus or PHY.
 
 Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
 Signed-off-by: lipeng <lipeng321@huawei.com>
 Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
 Signed-off-by: Yisen Zhuang <yisen.zhuang@huawei.com>
 ---
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c  | 1018 ++++++++++++++++++++
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h  |  108 +++
- 2 files changed, 1126 insertions(+)
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h
+Patch V2: Addresses below selective comments(*some remaining*)
+ 1. Florian Fainelli: https://lkml.org/lkml/2017/6/10/130
+ 2. Andrew Lunn: https://lkml.org/lkml/2017/6/10/168
+Patch V1: Initial Submit
+---
+ .../ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c    | 295 +++++++++++++++++++++
+ 1 file changed, 295 insertions(+)
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c
 
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c
 new file mode 100644
-index 0000000..2b66a0e
+index 0000000..4d3a32b
 --- /dev/null
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
-@@ -0,0 +1,1018 @@
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c
+@@ -0,0 +1,295 @@
 +/*
 + * Copyright (c) 2016~2017 Hisilicon Limited.
 + *
@@ -53,1127 +49,290 @@ index 0000000..2b66a0e
 + */
 +
 +#include <linux/etherdevice.h>
++#include <linux/kernel.h>
 +
 +#include "hclge_cmd.h"
 +#include "hclge_main.h"
-+#include "hclge_tm.h"
 +
-+enum hclge_shaper_level {
-+	HCLGE_SHAPER_LVL_PRI	= 0,
-+	HCLGE_SHAPER_LVL_PG	= 1,
-+	HCLGE_SHAPER_LVL_PORT	= 2,
-+	HCLGE_SHAPER_LVL_QSET	= 3,
-+	HCLGE_SHAPER_LVL_CNT	= 4,
-+	HCLGE_SHAPER_LVL_VF	= 0,
-+	HCLGE_SHAPER_LVL_PF	= 1,
++enum hclge_mdio_c22_op_seq {
++	HCLGE_MDIO_C22_WRITE = 1,
++	HCLGE_MDIO_C22_READ = 2
 +};
 +
-+#define HCLGE_SHAPER_BS_U_DEF	1
-+#define HCLGE_SHAPER_BS_S_DEF	4
++enum hclge_mdio_c45_op_seq {
++	HCLGE_MDIO_C45_WRITE_ADDR = 0,
++	HCLGE_MDIO_C45_WRITE_DATA,
++	HCLGE_MDIO_C45_READ_INCREMENT,
++	HCLGE_MDIO_C45_READ
++};
 +
-+#define HCLGE_ETHER_MAX_RATE	100000
++#define HCLGE_MDIO_CTRL_START_BIT       BIT(0)
++#define HCLGE_MDIO_CTRL_ST_MSK  GENMASK(2, 1)
++#define HCLGE_MDIO_CTRL_ST_LSH  1
++#define HCLGE_MDIO_IS_C22(c22)  (((c22) << HCLGE_MDIO_CTRL_ST_LSH) & \
++	HCLGE_MDIO_CTRL_ST_MSK)
 +
-+/* hclge_shaper_para_calc: calculate ir parameter for the shaper
-+ * @ir: Rate to be config, its unit is Mbps
-+ * @shaper_level: the shaper level. eg: port, pg, priority, queueset
-+ * @ir_b: IR_B parameter of IR shaper
-+ * @ir_u: IR_U parameter of IR shaper
-+ * @ir_s: IR_S parameter of IR shaper
-+ *
-+ * the formula:
-+ *
-+ *		IR_b * (2 ^ IR_u) * 8
-+ * IR(Mbps) = -------------------------  *  CLOCK(1000Mbps)
-+ *		Tick * (2 ^ IR_s)
-+ *
-+ * @return: 0: calculate sucessful, negative: fail
-+ */
-+static int hclge_shaper_para_calc(u32 ir, u8 shaper_level,
-+				  u8 *ir_b, u8 *ir_u, u8 *ir_s)
++#define HCLGE_MDIO_CTRL_OP_MSK  GENMASK(4, 3)
++#define HCLGE_MDIO_CTRL_OP_LSH  3
++#define HCLGE_MDIO_CTRL_OP(access) \
++	(((access) << HCLGE_MDIO_CTRL_OP_LSH) &	HCLGE_MDIO_CTRL_OP_MSK)
++#define HCLGE_MDIO_CTRL_PRTAD_MSK       GENMASK(4, 0)
++#define HCLGE_MDIO_CTRL_DEVAD_MSK       GENMASK(4, 0)
++
++#define HCLGE_MDIO_STA_VAL(val)	((val) & BIT(0))
++
++struct hclge_mdio_cfg_cmd {
++	u8 ctrl_bit;
++	u8 prtad;       /* The external port address */
++	u8 devad;       /* The external device address */
++	u8 rsvd;
++	__le16 addr_c45;/* Only valid for c45 */
++	__le16 data_wr;
++	__le16 data_rd;
++	__le16 sta;
++};
++
++static int hclge_mdio_write(struct mii_bus *bus, int phy_id, int regnum,
++			    u16 data)
 +{
-+	const u16 tick_array[HCLGE_SHAPER_LVL_CNT] = {
-+		6 * 256,        /* Prioriy level */
-+		6 * 32,         /* Prioriy group level */
-+		6 * 8,          /* Port level */
-+		6 * 256         /* Qset level */
-+	};
-+	u8 ir_u_calc = 0, ir_s_calc = 0;
-+	u32 ir_calc;
-+	u32 tick;
-+
-+	/* Calc tick */
-+	if (shaper_level >= HCLGE_SHAPER_LVL_CNT)
-+		return -ENOMEM;
-+
-+	tick = tick_array[shaper_level];
-+
-+	/**
-+	 * Calc the speed if ir_b = 126, ir_u = 0 and ir_s = 0
-+	 * the formula is changed to:
-+	 *		126 * 1 * 8
-+	 * ir_calc = ---------------- * 1000
-+	 *		tick * 1
-+	 */
-+	ir_calc = (1008000 + (tick >> 1) - 1) / tick;
-+
-+	if (ir_calc == ir) {
-+		*ir_b = 126;
-+		*ir_u = 0;
-+		*ir_s = 0;
-+
-+		return 0;
-+	} else if (ir_calc > ir) {
-+		/* Increasing the denominator to select ir_s value */
-+		while (ir_calc > ir) {
-+			ir_s_calc++;
-+			ir_calc = 1008000 / (tick * (1 << ir_s_calc));
-+		}
-+
-+		if (ir_calc == ir)
-+			*ir_b = 126;
-+		else
-+			*ir_b = (ir * tick * (1 << ir_s_calc) + 4000) / 8000;
-+	} else {
-+		/* Increasing the numerator to select ir_u value */
-+		u32 numerator;
-+
-+		while (ir_calc < ir) {
-+			ir_u_calc++;
-+			numerator = 1008000 * (1 << ir_u_calc);
-+			ir_calc = (numerator + (tick >> 1)) / tick;
-+		}
-+
-+		if (ir_calc == ir) {
-+			*ir_b = 126;
-+		} else {
-+			u32 denominator = (8000 * (1 << --ir_u_calc));
-+			*ir_b = (ir * tick + (denominator >> 1)) / denominator;
-+		}
-+	}
-+
-+	*ir_u = ir_u_calc;
-+	*ir_s = ir_s_calc;
-+
-+	return 0;
-+}
-+
-+static int hclge_mac_pause_en_cfg(struct hclge_dev *hdev, bool tx, bool rx)
-+{
++	struct hclge_dev *hdev = (struct hclge_dev *)bus->priv;
++	struct hclge_mdio_cfg_cmd *mdio_cmd;
++	enum hclge_cmd_status status;
 +	struct hclge_desc desc;
++	u8 is_c45, devad;
++	u16 reg;
 +
-+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_CFG_MAC_PAUSE_EN, false);
-+
-+	desc.data[0] = cpu_to_le32((tx ? HCLGE_TX_MAC_PAUSE_EN_MSK : 0) |
-+		(rx ? HCLGE_RX_MAC_PAUSE_EN_MSK : 0));
-+
-+	return hclge_cmd_send(&hdev->hw, &desc, 1);
-+}
-+
-+static int hclge_fill_pri_array(struct hclge_dev *hdev, u8 *pri, u8 pri_id)
-+{
-+	u8 tc;
-+
-+	for (tc = 0; tc < hdev->tm_info.num_tc; tc++)
-+		if (hdev->tm_info.tc_info[tc].up == pri_id)
-+			break;
-+
-+	if (tc >= hdev->tm_info.num_tc)
-+		return -ENOMEM;
-+
-+	/**
-+	 * the register for priority has four bytes, the first bytes includes
-+	 *  priority0 and priority1, the higher 4bit stands for priority1
-+	 *  while the lower 4bit stands for priority0, as below:
-+	 * first byte:	| pri_1 | pri_0 |
-+	 * second byte:	| pri_3 | pri_2 |
-+	 * third byte:	| pri_5 | pri_4 |
-+	 * fourth byte:	| pri_7 | pri_6 |
-+	 */
-+	pri[pri_id >> 1] |= tc << ((pri_id & 1) * 4);
-+
-+	return 0;
-+}
-+
-+static int hclge_up_to_tc_map(struct hclge_dev *hdev)
-+{
-+	struct hclge_desc desc;
-+	u8 *pri = (u8 *)desc.data;
-+	u8 pri_id;
-+	int ret;
-+
-+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_PRI_TO_TC_MAPPING, false);
-+
-+	for (pri_id = 0; pri_id < hdev->tm_info.num_tc; pri_id++) {
-+		ret = hclge_fill_pri_array(hdev, pri, pri_id);
-+		if (ret)
-+			return ret;
-+	}
-+
-+	return hclge_cmd_send(&hdev->hw, &desc, 1);
-+}
-+
-+static int hclge_tm_pg_to_pri_map_cfg(struct hclge_dev *hdev,
-+				      u8 pg_id, u8 pri_bit_map)
-+{
-+	struct hclge_pg_to_pri_link_cmd *map;
-+	struct hclge_desc desc;
-+
-+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TM_PG_TO_PRI_LINK, false);
-+
-+	map = (struct hclge_pg_to_pri_link_cmd *)desc.data;
-+
-+	map->pg_id = cpu_to_le16(pg_id);
-+	map->pri_bit_map = pri_bit_map;
-+
-+	return hclge_cmd_send(&hdev->hw, &desc, 1);
-+}
-+
-+static int hclge_tm_qs_to_pri_map_cfg(struct hclge_dev *hdev,
-+				      u16 qs_id, u8 pri)
-+{
-+	struct hclge_qs_to_pri_link_cmd *map;
-+	struct hclge_desc desc;
-+
-+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TM_QS_TO_PRI_LINK, false);
-+
-+	map = (struct hclge_qs_to_pri_link_cmd *)desc.data;
-+
-+	map->qs_id = cpu_to_le16(qs_id);
-+	map->priority = pri;
-+	map->link_vld = HCLGE_TM_QS_PRI_LINK_VLD_MSK;
-+
-+	return hclge_cmd_send(&hdev->hw, &desc, 1);
-+}
-+
-+static int hclge_tm_q_to_qs_map_cfg(struct hclge_dev *hdev,
-+				    u8 q_id, u16 qs_id)
-+{
-+	struct hclge_nq_to_qs_link_cmd *map;
-+	struct hclge_desc desc;
-+
-+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TM_NQ_TO_QS_LINK, false);
-+
-+	map = (struct hclge_nq_to_qs_link_cmd *)desc.data;
-+
-+	map->nq_id = cpu_to_le16(q_id);
-+	map->qset_id = cpu_to_le16(qs_id | HCLGE_TM_Q_QS_LINK_VLD_MSK);
-+
-+	return hclge_cmd_send(&hdev->hw, &desc, 1);
-+}
-+
-+static int hclge_tm_gp_weight_cfg(struct hclge_dev *hdev, u8 pg_id,
-+				  u8 dwrr)
-+{
-+	struct hclge_pg_weight_cmd *weight;
-+	struct hclge_desc desc;
-+
-+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TM_PG_WEIGHT, false);
-+
-+	weight = (struct hclge_pg_weight_cmd *)desc.data;
-+
-+	weight->pg_id = pg_id;
-+	weight->dwrr = dwrr;
-+
-+	return hclge_cmd_send(&hdev->hw, &desc, 1);
-+}
-+
-+static int hclge_tm_pri_weight_cfg(struct hclge_dev *hdev, u8 pri_id,
-+				   u8 dwrr)
-+{
-+	struct hclge_priority_weight_cmd *weight;
-+	struct hclge_desc desc;
-+
-+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TM_PRI_WEIGHT, false);
-+
-+	weight = (struct hclge_priority_weight_cmd *)desc.data;
-+
-+	weight->pri_id = pri_id;
-+	weight->dwrr = dwrr;
-+
-+	return hclge_cmd_send(&hdev->hw, &desc, 1);
-+}
-+
-+static int hclge_tm_qs_weight_cfg(struct hclge_dev *hdev, u16 qs_id,
-+				  u8 dwrr)
-+{
-+	struct hclge_qs_weight_cmd *weight;
-+	struct hclge_desc desc;
-+
-+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TM_QS_WEIGHT, false);
-+
-+	weight = (struct hclge_qs_weight_cmd *)desc.data;
-+
-+	weight->qs_id = cpu_to_le16(qs_id);
-+	weight->dwrr = dwrr;
-+
-+	return hclge_cmd_send(&hdev->hw, &desc, 1);
-+}
-+
-+static int hclge_tm_pg_shapping_cfg(struct hclge_dev *hdev,
-+				    enum hclge_shap_bucket bucket, u8 pg_id,
-+				    u8 ir_b, u8 ir_u, u8 ir_s, u8 bs_b, u8 bs_s)
-+{
-+	struct hclge_pg_shapping_cmd *shap_cfg_cmd;
-+	enum hclge_opcode_type opcode;
-+	struct hclge_desc desc;
-+
-+	opcode = bucket ? HCLGE_OPC_TM_PG_P_SHAPPING :
-+		HCLGE_OPC_TM_PG_C_SHAPPING;
-+	hclge_cmd_setup_basic_desc(&desc, opcode, false);
-+
-+	shap_cfg_cmd = (struct hclge_pg_shapping_cmd *)desc.data;
-+
-+	shap_cfg_cmd->pg_id = pg_id;
-+
-+	hclge_tm_set_feild(shap_cfg_cmd->pg_shapping_para, IR_B, ir_b);
-+	hclge_tm_set_feild(shap_cfg_cmd->pg_shapping_para, IR_U, ir_u);
-+	hclge_tm_set_feild(shap_cfg_cmd->pg_shapping_para, IR_S, ir_s);
-+	hclge_tm_set_feild(shap_cfg_cmd->pg_shapping_para, BS_B, bs_b);
-+	hclge_tm_set_feild(shap_cfg_cmd->pg_shapping_para, BS_S, bs_s);
-+
-+	return hclge_cmd_send(&hdev->hw, &desc, 1);
-+}
-+
-+static int hclge_tm_pri_shapping_cfg(struct hclge_dev *hdev,
-+				     enum hclge_shap_bucket bucket, u8 pri_id,
-+				     u8 ir_b, u8 ir_u, u8 ir_s,
-+				     u8 bs_b, u8 bs_s)
-+{
-+	struct hclge_pri_shapping_cmd *shap_cfg_cmd;
-+	enum hclge_opcode_type opcode;
-+	struct hclge_desc desc;
-+
-+	opcode = bucket ? HCLGE_OPC_TM_PRI_P_SHAPPING :
-+		HCLGE_OPC_TM_PRI_C_SHAPPING;
-+
-+	hclge_cmd_setup_basic_desc(&desc, opcode, false);
-+
-+	shap_cfg_cmd = (struct hclge_pri_shapping_cmd *)desc.data;
-+
-+	shap_cfg_cmd->pri_id = pri_id;
-+
-+	hclge_tm_set_feild(shap_cfg_cmd->pri_shapping_para, IR_B, ir_b);
-+	hclge_tm_set_feild(shap_cfg_cmd->pri_shapping_para, IR_U, ir_u);
-+	hclge_tm_set_feild(shap_cfg_cmd->pri_shapping_para, IR_S, ir_s);
-+	hclge_tm_set_feild(shap_cfg_cmd->pri_shapping_para, BS_B, bs_b);
-+	hclge_tm_set_feild(shap_cfg_cmd->pri_shapping_para, BS_S, bs_s);
-+
-+	return hclge_cmd_send(&hdev->hw, &desc, 1);
-+}
-+
-+static int hclge_tm_pg_schd_mode_cfg(struct hclge_dev *hdev, u8 pg_id)
-+{
-+	struct hclge_desc desc;
-+
-+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TM_PG_SCH_MODE_CFG, false);
-+
-+	if (hdev->tm_info.pg_info[pg_id].pg_sch_mode == HCLGE_SCH_MODE_DWRR)
-+		desc.data[1] = cpu_to_le32(HCLGE_TM_TX_SCHD_DWRR_MSK);
-+	else
-+		desc.data[1] = 0;
-+
-+	desc.data[0] = cpu_to_le32(pg_id);
-+
-+	return hclge_cmd_send(&hdev->hw, &desc, 1);
-+}
-+
-+static int hclge_tm_pri_schd_mode_cfg(struct hclge_dev *hdev, u8 pri_id)
-+{
-+	struct hclge_desc desc;
-+
-+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TM_PRI_SCH_MODE_CFG, false);
-+
-+	if (hdev->tm_info.tc_info[pri_id].tc_sch_mode == HCLGE_SCH_MODE_DWRR)
-+		desc.data[1] = cpu_to_le32(HCLGE_TM_TX_SCHD_DWRR_MSK);
-+	else
-+		desc.data[1] = 0;
-+
-+	desc.data[0] = cpu_to_le32(pri_id);
-+
-+	return hclge_cmd_send(&hdev->hw, &desc, 1);
-+}
-+
-+static int hclge_tm_qs_schd_mode_cfg(struct hclge_dev *hdev, u16 qs_id)
-+{
-+	struct hclge_desc desc;
-+
-+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TM_QS_SCH_MODE_CFG, false);
-+
-+	if (hdev->tm_info.tc_info[qs_id].tc_sch_mode == HCLGE_SCH_MODE_DWRR)
-+		desc.data[1] = cpu_to_le32(HCLGE_TM_TX_SCHD_DWRR_MSK);
-+	else
-+		desc.data[1] = 0;
-+
-+	desc.data[0] = cpu_to_le32(qs_id);
-+
-+	return hclge_cmd_send(&hdev->hw, &desc, 1);
-+}
-+
-+static int hclge_tm_qs_bp_cfg(struct hclge_dev *hdev, u8 tc)
-+{
-+	struct hclge_bp_to_qs_map_cmd *bp_to_qs_map_cmd;
-+	struct hclge_desc desc;
-+
-+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TM_BP_TO_QSET_MAPPING,
-+				   false);
-+
-+	bp_to_qs_map_cmd = (struct hclge_bp_to_qs_map_cmd *)desc.data;
-+
-+	bp_to_qs_map_cmd->tc_id = tc;
-+
-+	/* Qset and tc is one by one mapping */
-+	bp_to_qs_map_cmd->qs_bit_map = cpu_to_le32(1 << tc);
-+
-+	return hclge_cmd_send(&hdev->hw, &desc, 1);
-+}
-+
-+static void hclge_tm_vport_tc_info_update(struct hclge_vport *vport)
-+{
-+	struct hnae3_knic_private_info *kinfo = &vport->nic.kinfo;
-+	struct hclge_dev *hdev = vport->back;
-+	u8 i;
-+
-+	kinfo = &vport->nic.kinfo;
-+	vport->bw_limit = hdev->tm_info.pg_info[0].bw_limit;
-+	kinfo->num_tc =
-+		min_t(u16, kinfo->num_tqps, hdev->tm_info.num_tc);
-+	kinfo->rss_size
-+		= min_t(u16, hdev->rss_size_max,
-+			kinfo->num_tqps / kinfo->num_tc);
-+	vport->qs_offset = hdev->tm_info.num_tc * vport->vport_id;
-+	vport->dwrr = 100;  /* 100 percent as init */
-+
-+	for (i = 0; i < kinfo->num_tc; i++) {
-+		if (hdev->hw_tc_map & BIT(i)) {
-+			kinfo->tc_info[i].enable = true;
-+			kinfo->tc_info[i].tqp_offset = i * kinfo->rss_size;
-+			kinfo->tc_info[i].tqp_count = kinfo->rss_size;
-+			kinfo->tc_info[i].tc = i;
-+			kinfo->tc_info[i].up = hdev->tm_info.tc_info[i].up;
-+		} else {
-+			/* Set to default queue if TC is disable */
-+			kinfo->tc_info[i].enable = false;
-+			kinfo->tc_info[i].tqp_offset = 0;
-+			kinfo->tc_info[i].tqp_count = 1;
-+			kinfo->tc_info[i].tc = 0;
-+			kinfo->tc_info[i].up = 0;
-+		}
-+	}
-+}
-+
-+static void hclge_tm_vport_info_update(struct hclge_dev *hdev)
-+{
-+	struct hclge_vport *vport = hdev->vport;
-+	u32 i;
-+
-+	for (i = 0; i < hdev->num_alloc_vport; i++) {
-+		hclge_tm_vport_tc_info_update(vport);
-+
-+		vport++;
-+	}
-+}
-+
-+static void hclge_tm_tc_info_init(struct hclge_dev *hdev)
-+{
-+	u8 i;
-+
-+	for (i = 0; i < hdev->tm_info.num_tc; i++) {
-+		hdev->tm_info.tc_info[i].tc_id = i;
-+		hdev->tm_info.tc_info[i].tc_sch_mode = HCLGE_SCH_MODE_DWRR;
-+		hdev->tm_info.tc_info[i].up = i;
-+		hdev->tm_info.tc_info[i].pgid = 0;
-+		hdev->tm_info.tc_info[i].bw_limit =
-+			hdev->tm_info.pg_info[0].bw_limit;
-+	}
-+
-+	hdev->flag &= ~HCLGE_FLAG_DCB_ENABLE;
-+}
-+
-+static void hclge_tm_pg_info_init(struct hclge_dev *hdev)
-+{
-+	u8 i;
-+
-+	for (i = 0; i < hdev->tm_info.num_pg; i++) {
-+		int k;
-+
-+		hdev->tm_info.pg_dwrr[i] = i ? 0 : 100;
-+
-+		hdev->tm_info.pg_info[i].pg_id = i;
-+		hdev->tm_info.pg_info[i].pg_sch_mode = HCLGE_SCH_MODE_DWRR;
-+
-+		hdev->tm_info.pg_info[i].bw_limit = HCLGE_ETHER_MAX_RATE;
-+
-+		if (i != 0)
-+			continue;
-+
-+		hdev->tm_info.pg_info[i].tc_bit_map = hdev->hw_tc_map;
-+		for (k = 0; k < hdev->tm_info.num_tc; k++)
-+			hdev->tm_info.pg_info[i].tc_dwrr[k] = 100;
-+	}
-+}
-+
-+static int hclge_tm_schd_info_init(struct hclge_dev *hdev)
-+{
-+	if ((hdev->tx_sch_mode != HCLGE_FLAG_TC_BASE_SCH_MODE) &&
-+	    (hdev->tm_info.num_pg != 1))
++	if (!bus)
 +		return -EINVAL;
 +
-+	hclge_tm_pg_info_init(hdev);
++	is_c45 = !!(regnum & MII_ADDR_C45);
++	devad = ((regnum >> 16) & 0x1f);
++	reg = (u16)(regnum & 0xffff);
 +
-+	hclge_tm_tc_info_init(hdev);
++	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_MDIO_CONFIG, false);
 +
-+	hclge_tm_vport_info_update(hdev);
++	mdio_cmd = (struct hclge_mdio_cfg_cmd *)desc.data;
 +
-+	hdev->tm_info.fc_mode = HCLGE_FC_NONE;
-+	if (hdev->tm_info.num_tc != 1)
-+		hdev->fc_mode_last_time = hdev->tm_info.fc_mode;
-+	else
-+		hdev->fc_mode_last_time = hdev->tm_info.fc_mode;
++	mdio_cmd->ctrl_bit |= HCLGE_MDIO_CTRL_START_BIT;
++	mdio_cmd->prtad = phy_id & HCLGE_MDIO_CTRL_PRTAD_MSK;
++	mdio_cmd->data_wr = cpu_to_le16(data);
++	mdio_cmd->devad = devad & HCLGE_MDIO_CTRL_DEVAD_MSK;
 +
-+	return 0;
-+}
-+
-+static int hclge_tm_pg_to_pri_map(struct hclge_dev *hdev)
-+{
-+	int ret;
-+	u32 i;
-+
-+	if (hdev->tx_sch_mode != HCLGE_FLAG_TC_BASE_SCH_MODE)
-+		return 0;
-+
-+	for (i = 0; i < hdev->tm_info.num_pg; i++) {
-+		/* Cfg mapping */
-+		ret = hclge_tm_pg_to_pri_map_cfg(
-+			hdev, i, hdev->tm_info.pg_info[i].tc_bit_map);
-+		if (ret)
-+			return ret;
-+	}
-+
-+	return 0;
-+}
-+
-+static int hclge_tm_pg_shaper_cfg(struct hclge_dev *hdev)
-+{
-+	u8 ir_u, ir_b, ir_s;
-+	int ret;
-+	u32 i;
-+
-+	/* Cfg pg schd */
-+	if (hdev->tx_sch_mode != HCLGE_FLAG_TC_BASE_SCH_MODE)
-+		return 0;
-+
-+	/* Pg to pri */
-+	for (i = 0; i < hdev->tm_info.num_pg; i++) {
-+		/* Calc shaper para */
-+		ret = hclge_shaper_para_calc(
-+					hdev->tm_info.pg_info[i].bw_limit,
-+					HCLGE_SHAPER_LVL_PG,
-+					&ir_b, &ir_u, &ir_s);
-+		if (ret)
-+			return ret;
-+
-+		ret = hclge_tm_pg_shapping_cfg(hdev,
-+					       HCLGE_TM_SHAP_C_BUCKET, i,
-+					       0, 0, 0, HCLGE_SHAPER_BS_U_DEF,
-+					       HCLGE_SHAPER_BS_S_DEF);
-+		if (ret)
-+			return ret;
-+
-+		ret = hclge_tm_pg_shapping_cfg(hdev,
-+					       HCLGE_TM_SHAP_P_BUCKET, i,
-+					       ir_b, ir_u, ir_s,
-+					       HCLGE_SHAPER_BS_U_DEF,
-+					       HCLGE_SHAPER_BS_S_DEF);
-+		if (ret)
-+			return ret;
-+	}
-+
-+	return 0;
-+}
-+
-+static int hclge_tm_pg_dwrr_cfg(struct hclge_dev *hdev)
-+{
-+	int ret;
-+	u32 i;
-+
-+	/* cfg pg schd */
-+	if (hdev->tx_sch_mode != HCLGE_FLAG_TC_BASE_SCH_MODE)
-+		return 0;
-+
-+	/* pg to prio */
-+	for (i = 0; i < hdev->tm_info.num_pg; i++) {
-+		/* Cfg dwrr */
-+		ret = hclge_tm_gp_weight_cfg(hdev, i,
-+					     hdev->tm_info.pg_dwrr[i]);
-+		if (ret)
-+			return ret;
-+	}
-+
-+	return 0;
-+}
-+
-+static int hclge_vport_q_to_qs_map(struct hclge_dev *hdev,
-+				   struct hclge_vport *vport)
-+{
-+	struct hnae3_knic_private_info *kinfo = &vport->nic.kinfo;
-+	struct hnae3_queue **tqp = kinfo->tqp;
-+	struct hnae3_tc_info *v_tc_info;
-+	u32 i, j;
-+	int ret;
-+
-+	for (i = 0; i < kinfo->num_tc; i++) {
-+		v_tc_info = &kinfo->tc_info[i];
-+		for (j = 0; j < v_tc_info->tqp_count; j++) {
-+			struct hnae3_queue *q = tqp[v_tc_info->tqp_offset + j];
-+
-+			ret = hclge_tm_q_to_qs_map_cfg(hdev,
-+						       hclge_get_queue_id(q),
-+						       vport->qs_offset + i);
-+			if (ret)
-+				return ret;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static int hclge_tm_pri_q_qs_cfg(struct hclge_dev *hdev)
-+{
-+	struct hclge_vport *vport = hdev->vport;
-+	int ret;
-+	u32 i;
-+
-+	if (hdev->tx_sch_mode == HCLGE_FLAG_TC_BASE_SCH_MODE) {
-+		/* Cfg qs -> pri mapping, one by one mapping */
-+		for (i = 0; i < hdev->tm_info.num_tc; i++) {
-+			ret = hclge_tm_qs_to_pri_map_cfg(hdev, i, i);
-+			if (ret)
-+				return ret;
-+		}
-+	} else if (hdev->tx_sch_mode == HCLGE_FLAG_VNET_BASE_SCH_MODE) {
-+		int k;
-+		/* Cfg qs -> pri mapping,  qs = tc, pri = vf, 8 qs -> 1 pri */
-+		for (k = 0; k < hdev->num_alloc_vport; k++)
-+			for (i = 0; i < HNAE3_MAX_TC; i++) {
-+				ret = hclge_tm_qs_to_pri_map_cfg(
-+					hdev, vport[k].qs_offset + i, k);
-+				if (ret)
-+					return ret;
-+			}
++	if (is_c45) {
++		/* Set phy addr */
++		mdio_cmd->addr_c45 = cpu_to_le16(reg);
 +	} else {
++		/* C22 write reg and data */
++		mdio_cmd->ctrl_bit = HCLGE_MDIO_IS_C22(!is_c45);
++		mdio_cmd->ctrl_bit |= HCLGE_MDIO_CTRL_OP(HCLGE_MDIO_C22_WRITE);
++	}
++
++	status = hclge_cmd_send(&hdev->hw, &desc, 1);
++	if (status) {
++		dev_err(&hdev->pdev->dev,
++			"mdio write fail when sending cmd, status is %d.\n",
++			status);
++		return -EIO;
++	}
++
++	return 0;
++}
++
++static int hclge_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
++{
++	struct hclge_dev *hdev = (struct hclge_dev *)bus->priv;
++	struct hclge_mdio_cfg_cmd *mdio_cmd;
++	enum hclge_cmd_status status;
++	struct hclge_desc desc;
++	u8 is_c45, devad;
++	u16 reg;
++
++	if (!bus)
 +		return -EINVAL;
-+	}
 +
-+	/* Cfg q -> qs mapping */
-+	for (i = 0; i < hdev->num_alloc_vport; i++) {
-+		ret = hclge_vport_q_to_qs_map(hdev, vport);
-+		if (ret)
-+			return ret;
++	is_c45 = !!(regnum & MII_ADDR_C45);
++	devad = ((regnum >> 16) & GENMASK(4, 0));
++	reg = (u16)(regnum & GENMASK(15, 0));
 +
-+		vport++;
-+	}
++	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_MDIO_CONFIG, true);
 +
-+	return 0;
-+}
++	mdio_cmd = (struct hclge_mdio_cfg_cmd *)desc.data;
 +
-+static int hclge_tm_pri_tc_base_shaper_cfg(struct hclge_dev *hdev)
-+{
-+	u8 ir_u, ir_b, ir_s;
-+	int ret;
-+	u32 i;
++	dev_dbg(&bus->dev, "phy id=%d, is_c45=%d, devad=%d, reg=%#x!\n",
++		phy_id, is_c45, devad, reg);
 +
-+	for (i = 0; i < hdev->tm_info.num_tc; i++) {
-+		ret = hclge_shaper_para_calc(
-+					hdev->tm_info.tc_info[i].bw_limit,
-+					HCLGE_SHAPER_LVL_PRI,
-+					&ir_b, &ir_u, &ir_s);
-+		if (ret)
-+			return ret;
++	mdio_cmd->ctrl_bit |= HCLGE_MDIO_CTRL_START_BIT;
++	mdio_cmd->prtad = phy_id & HCLGE_MDIO_CTRL_PRTAD_MSK;
++	mdio_cmd->devad = devad & HCLGE_MDIO_CTRL_DEVAD_MSK;
 +
-+		ret = hclge_tm_pri_shapping_cfg(
-+			hdev, HCLGE_TM_SHAP_C_BUCKET, i,
-+			0, 0, 0, HCLGE_SHAPER_BS_U_DEF,
-+			HCLGE_SHAPER_BS_S_DEF);
-+		if (ret)
-+			return ret;
-+
-+		ret = hclge_tm_pri_shapping_cfg(
-+			hdev, HCLGE_TM_SHAP_P_BUCKET, i,
-+			ir_b, ir_u, ir_s, HCLGE_SHAPER_BS_U_DEF,
-+			HCLGE_SHAPER_BS_S_DEF);
-+		if (ret)
-+			return ret;
-+	}
-+
-+	return 0;
-+}
-+
-+static int hclge_tm_pri_vnet_base_shaper_pri_cfg(struct hclge_vport *vport)
-+{
-+	struct hclge_dev *hdev = vport->back;
-+	u8 ir_u, ir_b, ir_s;
-+	int ret;
-+
-+	ret = hclge_shaper_para_calc(vport->bw_limit, HCLGE_SHAPER_LVL_VF,
-+				     &ir_b, &ir_u, &ir_s);
-+	if (ret)
-+		return ret;
-+
-+	ret = hclge_tm_pri_shapping_cfg(hdev, HCLGE_TM_SHAP_C_BUCKET,
-+					vport->vport_id,
-+					0, 0, 0, HCLGE_SHAPER_BS_U_DEF,
-+					HCLGE_SHAPER_BS_S_DEF);
-+	if (ret)
-+		return ret;
-+
-+	ret = hclge_tm_pri_shapping_cfg(hdev, HCLGE_TM_SHAP_P_BUCKET,
-+					vport->vport_id,
-+					ir_b, ir_u, ir_s,
-+					HCLGE_SHAPER_BS_U_DEF,
-+					HCLGE_SHAPER_BS_S_DEF);
-+	if (ret)
-+		return ret;
-+
-+	return 0;
-+}
-+
-+static int hclge_tm_pri_vnet_base_shaper_qs_cfg(struct hclge_vport *vport)
-+{
-+	struct hnae3_knic_private_info *kinfo = &vport->nic.kinfo;
-+	struct hclge_dev *hdev = vport->back;
-+	struct hnae3_tc_info *v_tc_info;
-+	u8 ir_u, ir_b, ir_s;
-+	u32 i;
-+	int ret;
-+
-+	for (i = 0; i < kinfo->num_tc; i++) {
-+		v_tc_info = &kinfo->tc_info[i];
-+		ret = hclge_shaper_para_calc(
-+					hdev->tm_info.tc_info[i].bw_limit,
-+					HCLGE_SHAPER_LVL_QSET,
-+					&ir_b, &ir_u, &ir_s);
-+		if (ret)
-+			return ret;
-+	}
-+
-+	return 0;
-+}
-+
-+static int hclge_tm_pri_vnet_base_shaper_cfg(struct hclge_dev *hdev)
-+{
-+	struct hclge_vport *vport = hdev->vport;
-+	int ret;
-+	u32 i;
-+
-+	/* Need config vport shaper */
-+	for (i = 0; i < hdev->num_alloc_vport; i++) {
-+		ret = hclge_tm_pri_vnet_base_shaper_pri_cfg(vport);
-+		if (ret)
-+			return ret;
-+
-+		ret = hclge_tm_pri_vnet_base_shaper_qs_cfg(vport);
-+		if (ret)
-+			return ret;
-+
-+		vport++;
-+	}
-+
-+	return 0;
-+}
-+
-+static int hclge_tm_pri_shaper_cfg(struct hclge_dev *hdev)
-+{
-+	int ret;
-+
-+	if (hdev->tx_sch_mode == HCLGE_FLAG_TC_BASE_SCH_MODE) {
-+		ret = hclge_tm_pri_tc_base_shaper_cfg(hdev);
-+		if (ret)
-+			return ret;
++	if (is_c45) {
++		/* C45 phy addr */
++		mdio_cmd->addr_c45 = cpu_to_le16(reg);
 +	} else {
-+		ret = hclge_tm_pri_vnet_base_shaper_cfg(hdev);
-+		if (ret)
-+			return ret;
++		/* C22 read reg */
++		mdio_cmd->ctrl_bit = HCLGE_MDIO_IS_C22(!is_c45);
++		mdio_cmd->ctrl_bit |= HCLGE_MDIO_CTRL_OP(HCLGE_MDIO_C22_READ);
 +	}
 +
-+	return 0;
-+}
-+
-+static int hclge_tm_pri_tc_base_dwrr_cfg(struct hclge_dev *hdev)
-+{
-+	struct hclge_pg_info *pg_info;
-+	u8 dwrr;
-+	int ret;
-+	u32 i;
-+
-+	for (i = 0; i < hdev->tm_info.num_tc; i++) {
-+		pg_info =
-+			&hdev->tm_info.pg_info[hdev->tm_info.tc_info[i].pgid];
-+		dwrr = pg_info->tc_dwrr[i];
-+
-+		ret = hclge_tm_pri_weight_cfg(hdev, i, dwrr);
-+		if (ret)
-+			return ret;
-+
-+		ret = hclge_tm_qs_weight_cfg(hdev, i, dwrr);
-+		if (ret)
-+			return ret;
++	/* Read out phy data */
++	status = hclge_cmd_send(&hdev->hw, &desc, 1);
++	if (status) {
++		dev_err(&hdev->pdev->dev,
++			"mdio read fail when get data, status is %d.\n",
++			status);
++		return -EIO;
 +	}
 +
-+	return 0;
-+}
-+
-+static int hclge_tm_pri_vnet_base_dwrr_pri_cfg(struct hclge_vport *vport)
-+{
-+	struct hnae3_knic_private_info *kinfo = &vport->nic.kinfo;
-+	struct hclge_dev *hdev = vport->back;
-+	int ret;
-+	u8 i;
-+
-+	/* Vf dwrr */
-+	ret = hclge_tm_pri_weight_cfg(hdev, vport->vport_id, vport->dwrr);
-+	if (ret)
-+		return ret;
-+
-+	/* Qset dwrr */
-+	for (i = 0; i < kinfo->num_tc; i++) {
-+		ret = hclge_tm_qs_weight_cfg(
-+			hdev, vport->qs_offset + i,
-+			hdev->tm_info.pg_info[0].tc_dwrr[i]);
-+		if (ret)
-+			return ret;
++	if (le16_to_cpu(HCLGE_MDIO_STA_VAL(mdio_cmd->sta))) {
++		dev_err(&hdev->pdev->dev, "mdio read data error\n");
++		return -ENOMEM;
 +	}
 +
-+	return 0;
++	return le16_to_cpu(mdio_cmd->data_rd);
 +}
 +
-+static int hclge_tm_pri_vnet_base_dwrr_cfg(struct hclge_dev *hdev)
++int hclge_mac_mdio_config(struct hclge_dev *hdev)
 +{
-+	struct hclge_vport *vport = hdev->vport;
-+	int ret;
-+	u32 i;
-+
-+	for (i = 0; i < hdev->num_alloc_vport; i++) {
-+		ret = hclge_tm_pri_vnet_base_dwrr_pri_cfg(vport);
-+		if (ret)
-+			return ret;
-+
-+		vport++;
-+	}
-+
-+	return 0;
-+}
-+
-+static int hclge_tm_pri_dwrr_cfg(struct hclge_dev *hdev)
-+{
++	struct hclge_mac *mac = &hdev->hw.mac;
++	struct mii_bus *mdio_bus;
++	struct net_device *ndev = &mac->ndev;
++	struct phy_device *phy;
 +	int ret;
 +
-+	if (hdev->tx_sch_mode == HCLGE_FLAG_TC_BASE_SCH_MODE) {
-+		ret = hclge_tm_pri_tc_base_dwrr_cfg(hdev);
-+		if (ret)
-+			return ret;
-+	} else {
-+		ret = hclge_tm_pri_vnet_base_dwrr_cfg(hdev);
-+		if (ret)
-+			return ret;
-+	}
-+
-+	return 0;
-+}
-+
-+static int hclge_tm_map_cfg(struct hclge_dev *hdev)
-+{
-+	int ret;
-+
-+	ret = hclge_tm_pg_to_pri_map(hdev);
-+	if (ret)
-+		return ret;
-+
-+	return hclge_tm_pri_q_qs_cfg(hdev);
-+}
-+
-+static int hclge_tm_shaper_cfg(struct hclge_dev *hdev)
-+{
-+	int ret;
-+
-+	ret = hclge_tm_pg_shaper_cfg(hdev);
-+	if (ret)
-+		return ret;
-+
-+	return hclge_tm_pri_shaper_cfg(hdev);
-+}
-+
-+int hclge_tm_dwrr_cfg(struct hclge_dev *hdev)
-+{
-+	int ret;
-+
-+	ret = hclge_tm_pg_dwrr_cfg(hdev);
-+	if (ret)
-+		return ret;
-+
-+	return hclge_tm_pri_dwrr_cfg(hdev);
-+}
-+
-+static int hclge_tm_lvl2_schd_mode_cfg(struct hclge_dev *hdev)
-+{
-+	int ret;
-+	u8 i;
-+
-+	/* Only being config on TC-Based scheduler mode */
-+	if (hdev->tx_sch_mode == HCLGE_FLAG_VNET_BASE_SCH_MODE)
++	if (hdev->hw.mac.phy_addr >= PHY_MAX_ADDR)
 +		return 0;
 +
-+	for (i = 0; i < hdev->tm_info.num_pg; i++) {
-+		ret = hclge_tm_pg_schd_mode_cfg(hdev, i);
-+		if (ret)
-+			return ret;
++	SET_NETDEV_DEV(ndev, &hdev->pdev->dev);
++
++	mdio_bus = devm_mdiobus_alloc(&hdev->pdev->dev);
++	if (!mdio_bus) {
++		ret = -ENOMEM;
++		goto err_miibus_alloc;
 +	}
 +
-+	return 0;
-+}
++	mdio_bus->name = "hisilicon MII bus";
++	mdio_bus->read = hclge_mdio_read;
++	mdio_bus->write = hclge_mdio_write;
++	snprintf(mdio_bus->id, MII_BUS_ID_SIZE, "%s-%s", "mii",
++		 dev_name(&hdev->pdev->dev));
 +
-+static int hclge_tm_schd_mode_vnet_base_cfg(struct hclge_vport *vport)
-+{
-+	struct hnae3_knic_private_info *kinfo = &vport->nic.kinfo;
-+	struct hclge_dev *hdev = vport->back;
-+	int ret;
-+	u8 i;
-+
-+	ret = hclge_tm_pri_schd_mode_cfg(hdev, vport->vport_id);
-+	if (ret)
-+		return ret;
-+
-+	for (i = 0; i < kinfo->num_tc; i++) {
-+		ret = hclge_tm_qs_schd_mode_cfg(hdev, vport->qs_offset + i);
-+		if (ret)
-+			return ret;
++	mdio_bus->parent = &hdev->pdev->dev;
++	mdio_bus->priv = hdev;
++	mdio_bus->phy_mask = ~(1 << mac->phy_addr);
++	ret = mdiobus_register(mdio_bus);
++	if (ret) {
++		dev_err(mdio_bus->parent,
++			"Failed to register MDIO bus ret = %#x\n", ret);
++		goto err_mdio_register;
 +	}
 +
++	phy = get_phy_device(mdio_bus, mac->phy_addr, mac->is_c45);
++	if (!phy || IS_ERR(phy)) {
++		dev_err(mdio_bus->parent, "Failed to get phy device\n");
++		ret = -EIO;
++		goto err_mdio_register;
++	}
++
++	phy->irq = mdio_bus->irq[mac->phy_addr];
++
++	/* All data is now stored in the phy struct;
++	 * register it
++	 */
++	ret = phy_device_register(phy);
++	if (ret) {
++		ret = -ENODEV;
++		goto err_phy_register;
++	}
++
++	mac->phy_dev = phy;
++
 +	return 0;
++
++err_phy_register:
++	phy_device_free(phy);
++
++err_mdio_register:
++	mdiobus_unregister(mdio_bus);
++	mdiobus_free(mdio_bus);
++err_miibus_alloc:
++	return ret;
 +}
 +
-+static int hclge_tm_lvl34_schd_mode_cfg(struct hclge_dev *hdev)
++static void hclge_mac_adjust_link(struct net_device *net_dev)
 +{
-+	struct hclge_vport *vport = hdev->vport;
++	int duplex;
++	int speed;
++	struct hclge_mac *hw_mac;
++	struct hclge_hw *hw;
++	struct hclge_dev *hdev;
++
++	if (!net_dev)
++		return;
++
++	hw_mac = container_of(net_dev, struct hclge_mac, ndev);
++	hw = container_of(hw_mac, struct hclge_hw, mac);
++	hdev = hw->back;
++
++	speed = hw_mac->phy_dev->speed;
++	duplex = hw_mac->phy_dev->duplex;
++
++	/* update antoneg. */
++	hw_mac->autoneg = hw_mac->phy_dev->autoneg;
++
++	if ((hw_mac->speed != speed) || (hw_mac->duplex != duplex))
++		(void)hclge_cfg_mac_speed_dup(hdev, speed, !!duplex);
++}
++
++int hclge_mac_start_phy(struct hclge_dev *hdev)
++{
++	struct hclge_mac *mac = &hdev->hw.mac;
++	struct phy_device *phy_dev = mac->phy_dev;
 +	int ret;
-+	u8 i;
 +
-+	if (hdev->tx_sch_mode == HCLGE_FLAG_TC_BASE_SCH_MODE) {
-+		for (i = 0; i < hdev->tm_info.num_tc; i++) {
-+			ret = hclge_tm_pri_schd_mode_cfg(hdev, i);
-+			if (ret)
-+				return ret;
++	if (!phy_dev)
++		return 0;
 +
-+			ret = hclge_tm_qs_schd_mode_cfg(hdev, i);
-+			if (ret)
-+				return ret;
-+		}
++	if (mac->phy_if != PHY_INTERFACE_MODE_XGMII) {
++		phy_dev->dev_flags = 0;
++
++		ret = phy_connect_direct(&mac->ndev, phy_dev,
++					 hclge_mac_adjust_link,
++					 mac->phy_if);
++		phy_dev->supported = SUPPORTED_10baseT_Half |
++				SUPPORTED_10baseT_Full |
++				SUPPORTED_100baseT_Half |
++				SUPPORTED_100baseT_Full |
++				SUPPORTED_Autoneg |
++				SUPPORTED_1000baseT_Full;
++
++		phy_dev->autoneg = false;
 +	} else {
-+		for (i = 0; i < hdev->num_alloc_vport; i++) {
-+			ret = hclge_tm_schd_mode_vnet_base_cfg(vport);
-+			if (ret)
-+				return ret;
-+
-+			vport++;
-+		}
++		ret = phy_attach_direct(&mac->ndev, phy_dev, 0, mac->phy_if);
++		phy_dev->supported = SUPPORTED_10000baseR_FEC |
++				SUPPORTED_10000baseKR_Full;
 +	}
++	if (unlikely(ret))
++		return -ENODEV;
++
++	phy_start(phy_dev);
 +
 +	return 0;
 +}
 +
-+static int hclge_tm_schd_mode_hw(struct hclge_dev *hdev)
++void hclge_mac_stop_phy(struct hclge_dev *hdev)
 +{
-+	int ret;
++	struct hclge_mac *mac = &hdev->hw.mac;
++	struct phy_device *phy_dev = mac->phy_dev;
 +
-+	ret = hclge_tm_lvl2_schd_mode_cfg(hdev);
-+	if (ret)
-+		return ret;
++	if (!phy_dev)
++		return;
 +
-+	return hclge_tm_lvl34_schd_mode_cfg(hdev);
++	phy_stop(phy_dev);
++
++	if (mac->phy_if != PHY_INTERFACE_MODE_XGMII)
++		phy_disconnect(phy_dev);
++	else
++		phy_detach(phy_dev);
 +}
-+
-+static int hclge_tm_schd_setup_hw(struct hclge_dev *hdev)
-+{
-+	int ret;
-+
-+	/* Cfg tm mapping  */
-+	ret = hclge_tm_map_cfg(hdev);
-+	if (ret)
-+		return ret;
-+
-+	/* Cfg tm shaper */
-+	ret = hclge_tm_shaper_cfg(hdev);
-+	if (ret)
-+		return ret;
-+
-+	/* Cfg dwrr */
-+	ret = hclge_tm_dwrr_cfg(hdev);
-+	if (ret)
-+		return ret;
-+
-+	/* Cfg schd mode for each level schd */
-+	return hclge_tm_schd_mode_hw(hdev);
-+}
-+
-+int hclge_pause_setup_hw(struct hclge_dev *hdev)
-+{
-+	bool en = hdev->tm_info.fc_mode != HCLGE_FC_PFC;
-+	int ret;
-+	u8 i;
-+
-+	ret = hclge_mac_pause_en_cfg(hdev, en, en);
-+	if (ret)
-+		return ret;
-+
-+	for (i = 0; i < hdev->tm_info.num_tc; i++) {
-+		ret = hclge_tm_qs_bp_cfg(hdev, i);
-+		if (ret)
-+			return ret;
-+	}
-+
-+	return hclge_up_to_tc_map(hdev);
-+}
-+
-+int hclge_tm_init_hw(struct hclge_dev *hdev)
-+{
-+	int ret;
-+
-+	if ((hdev->tx_sch_mode != HCLGE_FLAG_TC_BASE_SCH_MODE) &&
-+	    (hdev->tx_sch_mode != HCLGE_FLAG_VNET_BASE_SCH_MODE))
-+		return -ENOTSUPP;
-+
-+	ret = hclge_tm_schd_setup_hw(hdev);
-+	if (ret)
-+		return ret;
-+
-+	ret = hclge_pause_setup_hw(hdev);
-+	if (ret)
-+		return ret;
-+
-+	return 0;
-+}
-+
-+int hclge_tm_schd_init(struct hclge_dev *hdev)
-+{
-+	int ret = hclge_tm_schd_info_init(hdev);
-+
-+	if (ret)
-+		return ret;
-+
-+	return hclge_tm_init_hw(hdev);
-+}
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h
-new file mode 100644
-index 0000000..59316aa
---- /dev/null
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h
-@@ -0,0 +1,108 @@
-+/*
-+ * Copyright (c) 2016~2017 Hisilicon Limited.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#ifndef __HCLGE_TX_SCHD_H__
-+#define __HCLGE_TX_SCHD_H__
-+
-+#include <linux/types.h>
-+
-+/* MAC Pause */
-+#define HCLGE_TX_MAC_PAUSE_EN_MSK	BIT(0)
-+#define HCLGE_RX_MAC_PAUSE_EN_MSK	BIT(1)
-+
-+#define HCLGE_TM_PORT_BASE_MODE_MSK	BIT(0)
-+
-+/* SP or DWRR */
-+#define HCLGE_TM_TX_SCHD_DWRR_MSK	BIT(0)
-+#define HCLGE_TM_TX_SCHD_SP_MSK		(0xFE)
-+
-+struct hclge_pg_to_pri_link_cmd {
-+	u8 pg_id;
-+	u8 rsvd1[3];
-+	u8 pri_bit_map;
-+};
-+
-+struct hclge_qs_to_pri_link_cmd {
-+	__le16 qs_id;
-+	__le16 rsvd;
-+	u8 priority;
-+#define HCLGE_TM_QS_PRI_LINK_VLD_MSK	BIT(0)
-+	u8 link_vld;
-+};
-+
-+struct hclge_nq_to_qs_link_cmd {
-+	__le16 nq_id;
-+	__le16 rsvd;
-+#define HCLGE_TM_Q_QS_LINK_VLD_MSK	BIT(10)
-+	__le16 qset_id;
-+};
-+
-+struct hclge_pg_weight_cmd {
-+	u8 pg_id;
-+	u8 dwrr;
-+};
-+
-+struct hclge_priority_weight_cmd {
-+	u8 pri_id;
-+	u8 dwrr;
-+};
-+
-+struct hclge_qs_weight_cmd {
-+	__le16 qs_id;
-+	u8 dwrr;
-+};
-+
-+#define HCLGE_TM_SHAP_IR_B_MSK  BIT_MASK(8)
-+#define HCLGE_TM_SHAP_IR_B_LSH	0
-+#define HCLGE_TM_SHAP_IR_U_MSK  GENMASK(11, 8)
-+#define HCLGE_TM_SHAP_IR_U_LSH	8
-+#define HCLGE_TM_SHAP_IR_S_MSK  GENMASK(15, 12)
-+#define HCLGE_TM_SHAP_IR_S_LSH	12
-+#define HCLGE_TM_SHAP_BS_B_MSK  GENMASK(20, 16)
-+#define HCLGE_TM_SHAP_BS_B_LSH	16
-+#define HCLGE_TM_SHAP_BS_S_MSK  GENMASK(25, 21)
-+#define HCLGE_TM_SHAP_BS_S_LSH	21
-+
-+enum hclge_shap_bucket {
-+	HCLGE_TM_SHAP_C_BUCKET = 0,
-+	HCLGE_TM_SHAP_P_BUCKET,
-+};
-+
-+struct hclge_pri_shapping_cmd {
-+	u8 pri_id;
-+	u8 rsvd[3];
-+	__le32 pri_shapping_para;
-+};
-+
-+struct hclge_pg_shapping_cmd {
-+	u8 pg_id;
-+	u8 rsvd[3];
-+	__le32 pg_shapping_para;
-+};
-+
-+struct hclge_bp_to_qs_map_cmd {
-+	u8 tc_id;
-+	u8 rsvd[2];
-+	u8 qs_group_id;
-+	__le32 qs_bit_map;
-+	u32 rsvd1;
-+};
-+
-+#define hclge_tm_set_feild(dest, string, val) \
-+			hnae_set_field((dest), (HCLGE_TM_SHAP_##string##_MSK), \
-+				       (HCLGE_TM_SHAP_##string##_LSH), val)
-+#define hclge_tm_get_feild(src, string) \
-+			hnae_get_field((src), (HCLGE_TM_SHAP_##string##_MSK), \
-+				       (HCLGE_TM_SHAP_##string##_LSH))
-+
-+int hclge_tm_schd_init(struct hclge_dev *hdev);
-+int hclge_tm_setup_tc(struct hclge_dev *hdev);
-+int hclge_pause_setup_hw(struct hclge_dev *hdev);
-+
-+#endif
 -- 
 2.7.4
