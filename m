@@ -1,38 +1,77 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net,stable] qmi_wwan: new Telewell and Sierra device IDs
-Date: Tue, 13 Jun 2017 13:21:46 -0400 (EDT)
-Message-ID: <20170613.132146.1171292364667084017.davem@davemloft.net>
-References: <20170613171018.31526-1-bjorn@mork.no>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, larsm17-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, petr_kloc-/E1597aS9LQAvxtiuMwx3w@public.gmane.org, tlikonen-X3B1VOXEql0@public.gmane.org
-To: bjorn-yOkvZcmFvRU@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170613171018.31526-1-bjorn-yOkvZcmFvRU@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Magnus Damm <magnus.damm@gmail.com>
+Subject: [PATCH] via-rhine: add support for changing MTU
+Date: Wed, 14 Jun 2017 02:18:27 +0900
+Message-ID: <149737430797.28477.9215445312169809396.sendpatchset@little-apple>
+Cc: Magnus Damm <magnus.damm@gmail.com>, linux-kernel@vger.kernel.org,
+        davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-Date: Tue, 13 Jun 2017 19:10:18 +0200
+From: Magnus Damm <damm+renesas@opensource.se>
 
-> A new Sierra Wireless EM7305 device ID used in a Toshiba laptop,
-> and two Longcheer device IDs entries used by Telewell TW-3G HSPA+
-> branded modems.
-> 
-> Reported-by: Petr Kloc <petr_kloc-/E1597aS9LQAvxtiuMwx3w@public.gmane.org>
-> Reported-by: Teemu Likonen <tlikonen-X3B1VOXEql0@public.gmane.org>
-> Signed-off-by: Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-> ---
-> The following patch should be backported to v4.9 and later stable kernels to
-> make this one apply cleanly:
-> 
->  14cf4a771b30 ("drivers: net: usb: qmi_wwan: add QMI_QUIRK_SET_DTR for Telit PID 0x1201")
+Allow adjusting the MTU for via-rhine devices in case of no TX alignment
+buffer is used.
 
-Ok, applied and queued up for -stable, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Lightly tested on ALIX2D13 hardware by making use of VXLAN with MTU set
+to 1500 on top of via-rhine devices with 1550 MTU. Without this patch
+the VXLAN MTU is limited to less than 1500.
+
+Signed-off-by: Magnus Damm <damm+renesas@opensource.se>
+---
+
+ Developed on top of next-20170613
+
+ drivers/net/ethernet/via/via-rhine.c |   19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+--- 0001/drivers/net/ethernet/via/via-rhine.c
++++ work/drivers/net/ethernet/via/via-rhine.c	2017-06-14 02:05:25.410607110 +0900
+@@ -518,6 +518,7 @@ static void rhine_get_stats64(struct net
+ static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+ static const struct ethtool_ops netdev_ethtool_ops;
+ static int  rhine_close(struct net_device *dev);
++static int rhine_change_mtu(struct net_device *dev, int new_mtu);
+ static int rhine_vlan_rx_add_vid(struct net_device *dev,
+ 				 __be16 proto, u16 vid);
+ static int rhine_vlan_rx_kill_vid(struct net_device *dev,
+@@ -894,6 +895,7 @@ static const struct net_device_ops rhine
+ 	.ndo_set_mac_address 	 = eth_mac_addr,
+ 	.ndo_do_ioctl		 = netdev_ioctl,
+ 	.ndo_tx_timeout 	 = rhine_tx_timeout,
++	.ndo_change_mtu 	 = rhine_change_mtu,
+ 	.ndo_vlan_rx_add_vid	 = rhine_vlan_rx_add_vid,
+ 	.ndo_vlan_rx_kill_vid	 = rhine_vlan_rx_kill_vid,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+@@ -981,6 +983,14 @@ static int rhine_init_one_common(struct
+ 				 NETIF_F_HW_VLAN_CTAG_RX |
+ 				 NETIF_F_HW_VLAN_CTAG_FILTER;
+ 
++	/* Allow MTU configuration as long as TX alignment buffer is unused */
++	if (!(rp->quirks & rqRhineI)) {
++		/* Packets less than 64 octets will raise RDES0.RUNT. */
++		dev->min_mtu = ETH_ZLEN - ETH_HLEN;
++		/* Hardware has 11 bits of RDES0.Rx_Length including FCS. */
++		dev->max_mtu = 0x1fff - ETH_HLEN - ETH_FCS_LEN;
++	}
++
+ 	/* dev->name not defined before register_netdev()! */
+ 	rc = register_netdev(dev);
+ 	if (rc)
+@@ -1399,6 +1409,15 @@ static void rhine_set_carrier(struct mii
+ 		   mii->force_media, netif_carrier_ok(dev));
+ }
+ 
++static int rhine_change_mtu(struct net_device *dev, int new_mtu)
++{
++	if (dev->flags & IFF_UP)
++		return -EBUSY;
++
++	dev->mtu = new_mtu;
++	return 0;
++}
++
+ /**
+  * rhine_set_cam - set CAM multicast filters
+  * @ioaddr: register block of this Rhine
