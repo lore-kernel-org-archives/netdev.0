@@ -1,48 +1,33 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH] rtlwifi: rtl8821ae: remove unused variable
-Date: Tue, 13 Jun 2017 15:42:59 -0500
-Message-ID: <20170613204259.GA9189@embeddedgus>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] net_sched: move tcf_lock down after gen_replace_estimator()
+Date: Tue, 13 Jun 2017 13:45:20 -0700
+Message-ID: <CAM_iQpV_B5oZRtU5mj90PAXnhk+JCJsQ0B=Or3eyx6VBMzuOLQ@mail.gmail.com>
+References: <1497386184-14960-1-git-send-email-xiyou.wangcong@gmail.com> <20170613204040.GB3112@yuvallap>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        nicholashuber@gmail.com, Laura Abbott <labbott@redhat.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Yuval Shaia <yuval.shaia@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:33341 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751793AbdFMUpm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 16:45:42 -0400
+Received: by mail-wr0-f194.google.com with SMTP id v104so33621317wrb.0
+        for <netdev@vger.kernel.org>; Tue, 13 Jun 2017 13:45:41 -0700 (PDT)
+In-Reply-To: <20170613204040.GB3112@yuvallap>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Remove unused variable rtlhal.
+On Tue, Jun 13, 2017 at 1:40 PM, Yuval Shaia <yuval.shaia@oracle.com> wrote:
+> On Tue, Jun 13, 2017 at 01:36:24PM -0700, Cong Wang wrote:
+>> Laura reported a sleep-in-atomic kernel warning inside
+>
+> Since you added a Reported-by tag below i don't see a reason to
+> specifically mention it in commit log message.
 
-Addresses-Coverity-ID: 1248810
-Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
----
- drivers/net/wireless/realtek/rtlwifi/rtl8821ae/hw.c | 3 ---
- 1 file changed, 3 deletions(-)
+If you have faith in this, feel free to update netdev-FAQ.txt to save
+your time and others' time in the future.
 
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/hw.c b/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/hw.c
-index 2bc6bac..d158e34 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/hw.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/hw.c
-@@ -1360,7 +1360,6 @@ static bool _rtl8821ae_reset_pcie_interface_dma(struct ieee80211_hw *hw,
- static void _rtl8821ae_get_wakeup_reason(struct ieee80211_hw *hw)
- {
- 	struct rtl_priv *rtlpriv = rtl_priv(hw);
--	struct rtl_hal *rtlhal = rtl_hal(rtl_priv(hw));
- 	struct rtl_ps_ctl *ppsc = rtl_psc(rtlpriv);
- 	u8 fw_reason = 0;
- 	struct timeval ts;
-@@ -1372,8 +1371,6 @@ static void _rtl8821ae_get_wakeup_reason(struct ieee80211_hw *hw)
- 
- 	ppsc->wakeup_reason = 0;
- 
--	rtlhal->last_suspend_sec = ts.tv_sec;
--
- 	switch (fw_reason) {
- 	case FW_WOW_V2_PTK_UPDATE_EVENT:
- 		ppsc->wakeup_reason = WOL_REASON_PTK_UPDATE;
--- 
-2.5.0
+Thanks.
