@@ -1,63 +1,49 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: Re: [PATCH net] net: phy: Fix MDIO_THUNDER dependencies
-Date: Tue, 13 Jun 2017 08:45:29 -0700
-Message-ID: <08ec75c3-8d0d-c543-5d42-46feb6522ba6@infradead.org>
-References: <20170613001852.10073-1-f.fainelli@gmail.com>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: Toggling link state breaks network connectivity
+Date: Tue, 13 Jun 2017 17:47:02 +0200
+Message-ID: <51eb8306-64e5-f528-d663-be80c73098f1@free.fr>
+References: <927c2f12-0d1b-1e80-fede-ad9abe807222@free.fr>
+ <2c12bc7a-fd57-3d3d-7dc0-f522cfadd042@gmail.com>
+ <b3d1fd0c-281a-dd5a-d0e8-75f42475a248@free.fr>
+ <17e1e9c3-7adb-05fe-18cd-ce6db4ac792d@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, Andrew Lunn <andrew@lunn.ch>,
-        open list <linux-kernel@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170613001852.10073-1-f.fainelli@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Andrew Lunn <andrew@lunn.ch>, Mans Rullgard <mans@mansr.com>,
+        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp5-g21.free.fr ([212.27.42.5]:10472 "EHLO smtp5-g21.free.fr"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751758AbdFMPrP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 13 Jun 2017 11:47:15 -0400
+In-Reply-To: <17e1e9c3-7adb-05fe-18cd-ce6db4ac792d@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/12/17 17:18, Florian Fainelli wrote:
-> After commit 90eff9096c01 ("net: phy: Allow splitting MDIO
-> bus/device support from PHYs") we could create a configuration where
-> MDIO_DEVICE=y and PHYLIB=m which leads to the following undefined
-> references:
+On 13/06/2017 17:36, Florian Fainelli wrote:
+
+> On 06/13/2017 08:07 AM, Mason wrote:
+>
+>> I did note something that seems important.
+>> If I toggle the link state in software, then connectivity breaks.
+>> If I unplug the ethernet cable, and replug, connectivity remains.
 > 
->  drivers/built-in.o: In function `thunder_mdiobus_pci_remove':
->>> mdio-thunder.c:(.text+0x2a212f): undefined reference to
->>> `mdiobus_unregister'
->>> mdio-thunder.c:(.text+0x2a2138): undefined reference to
->>> `mdiobus_free'
->    drivers/built-in.o: In function `thunder_mdiobus_pci_probe':
->    mdio-thunder.c:(.text+0x2a22e7): undefined reference to
-> `devm_mdiobus_alloc_size'
->    mdio-thunder.c:(.text+0x2a236f): undefined reference to
-> `of_mdiobus_register'
-> 
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Fixes: 90eff9096c01 ("net: phy: Allow splitting MDIO bus/device support from PHYs")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> What does that actually mean? If you disconnect the cable a link state
+> should be notified and another link state should be notified, even if
+> that happens faster than the PHYLIB polling time (1s).
 
-Tested-by: Randy Dunlap <rdunlap@infradead.org>
+Sorry for being unclear.
 
-Thanks.
+If I unplug/replug the cable, ping still works afterward.
+(Packet RX appears to be *not* wedged)
 
-> ---
->  drivers/net/phy/Kconfig | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-> index c360dd6ead22..3ab6c58d4be6 100644
-> --- a/drivers/net/phy/Kconfig
-> +++ b/drivers/net/phy/Kconfig
-> @@ -127,6 +127,7 @@ config MDIO_THUNDER
->  	tristate "ThunderX SOCs MDIO buses"
->  	depends on 64BIT
->  	depends on PCI
-> +	depends on !(MDIO_DEVICE=y && PHYLIB=m)
->  	select MDIO_CAVIUM
->  	help
->  	  This driver supports the MDIO interfaces found on Cavium
-> 
+If I toggle the link state in SW (set link down/set link up),
+I can no longer ping afterward.
+(Packet RX appears to be wedged, so ARP replies are not seen)
 
+Maybe the two experiments are too unrelated to consider
+the different results relevant in any way?
 
--- 
-~Randy
+Regards.
