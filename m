@@ -1,116 +1,42 @@
-From: <gregkh@linuxfoundation.org>
-Subject: patch "wireless: ipw2x00: convert to use DRIVER_ATTR_RW" added to driver-core-next
-Date: Tue, 13 Jun 2017 07:58:56 +0200
-Message-ID: <1497333536150221@kroah.com>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [PATCH net-next 00/10] bpf: xdp: Report bpf_prog ID in IFLA_XDP
+Date: Mon, 12 Jun 2017 23:07:23 -0700
+Message-ID: <20170612230723.0da6c696@cakuba.netronome.com>
+References: <20170613010025.2983342-1-kafai@fb.com>
+        <20170612182452.61b8a0a3@cakuba.netronome.com>
+        <20170613053534.2afamabn6wkwka44@dhcp-172-26-110-210.dhcp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ANSI_X3.4-1968
-Content-Transfer-Encoding: 8bit
-To: gregkh@linuxfoundation.org, kvalo@codeaurora.org,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        stas.yakovlev@gmail.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>, <kernel-team@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:43374 "EHLO
-        mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752357AbdFMF7Q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 01:59:16 -0400
+Received: from mx3.wp.pl ([212.77.101.9]:5225 "EHLO mx3.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752100AbdFMGHb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 13 Jun 2017 02:07:31 -0400
+In-Reply-To: <20170613053534.2afamabn6wkwka44@dhcp-172-26-110-210.dhcp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 12 Jun 2017 22:35:34 -0700, Martin KaFai Lau wrote:
+> On Mon, Jun 12, 2017 at 06:26:02PM -0700, Jakub Kicinski wrote:
+> > On Mon, 12 Jun 2017 18:00:15 -0700, Martin KaFai Lau wrote:  
+> > > This is the first usage of the new bpf_prog ID.  It is for
+> > > reporting the ID of a xdp_prog through netlink.
+> > >
+> > > It rides on the existing IFLA_XDP.  This patch adds IFLA_XDP_PROG_ID
+> > > for the bpf_prog ID reporting.
+> > >
+> > > It starts with changing the generic_xdp first.  After that,
+> > > the hardware driver is changed one by one.  The final patch
+> > > removes the prog_attached from 'struct netdev_xdp' because
+> > > prog_id > 0 implies the presence of xdp_prog.  
+> >
+> > Daniel made the XDP_ATTACHED an enum to be able to extend it with other
+> > modes.  I would appreciate if you didn't remove the member since I have
+> > this waiting in my tree:  
+> I see. I will keep prog_attached then.
 
-This is a note to let you know that I've just added the patch titled
-
-    wireless: ipw2x00: convert to use DRIVER_ATTR_RW
-
-to my driver-core git tree which can be found at
-    git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/driver-core.git
-in the driver-core-next branch.
-
-The patch will show up in the next release of the linux-next tree
-(usually sometime within the next 24 hours during the week.)
-
-The patch will also be merged in the next major kernel release
-during the merge window.
-
-If you have any questions about this process, please let me know.
-
-
->From 0457e1ae0f4b88676b0cea30ef6acff24febbbc0 Mon Sep 17 00:00:00 2001
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Date: Fri, 9 Jun 2017 11:03:10 +0200
-Subject: wireless: ipw2x00: convert to use DRIVER_ATTR_RW
-
-We are trying to get rid of DRIVER_ATTR(), and the ipw2x00 driver's
-attributes can be trivially changed to use DRIVER_ATTR_RW().
-
-Cc: Stanislav Yakovlev <stas.yakovlev@gmail.com>
-Cc: Kalle Valo <kvalo@codeaurora.org>
-Cc: <linux-wireless@vger.kernel.org>
-Cc: <netdev@vger.kernel.org>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
----
- drivers/net/wireless/intel/ipw2x00/ipw2100.c | 8 +++-----
- drivers/net/wireless/intel/ipw2x00/ipw2200.c | 8 +++-----
- 2 files changed, 6 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/wireless/intel/ipw2x00/ipw2100.c b/drivers/net/wireless/intel/ipw2x00/ipw2100.c
-index f922859acf40..aaaca4d08e2b 100644
---- a/drivers/net/wireless/intel/ipw2x00/ipw2100.c
-+++ b/drivers/net/wireless/intel/ipw2x00/ipw2100.c
-@@ -4160,12 +4160,12 @@ static ssize_t show_bssinfo(struct device *d, struct device_attribute *attr,
- static DEVICE_ATTR(bssinfo, S_IRUGO, show_bssinfo, NULL);
- 
- #ifdef CONFIG_IPW2100_DEBUG
--static ssize_t show_debug_level(struct device_driver *d, char *buf)
-+static ssize_t debug_level_show(struct device_driver *d, char *buf)
- {
- 	return sprintf(buf, "0x%08X\n", ipw2100_debug_level);
- }
- 
--static ssize_t store_debug_level(struct device_driver *d,
-+static ssize_t debug_level_store(struct device_driver *d,
- 				 const char *buf, size_t count)
- {
- 	u32 val;
-@@ -4179,9 +4179,7 @@ static ssize_t store_debug_level(struct device_driver *d,
- 
- 	return strnlen(buf, count);
- }
--
--static DRIVER_ATTR(debug_level, S_IWUSR | S_IRUGO, show_debug_level,
--		   store_debug_level);
-+static DRIVER_ATTR_RW(debug_level);
- #endif				/* CONFIG_IPW2100_DEBUG */
- 
- static ssize_t show_fatal_error(struct device *d,
-diff --git a/drivers/net/wireless/intel/ipw2x00/ipw2200.c b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-index bbc579b647b6..5b79e2ec3a16 100644
---- a/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-+++ b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-@@ -1195,12 +1195,12 @@ static void ipw_led_shutdown(struct ipw_priv *priv)
-  *
-  * See the level definitions in ipw for details.
-  */
--static ssize_t show_debug_level(struct device_driver *d, char *buf)
-+static ssize_t debug_level_show(struct device_driver *d, char *buf)
- {
- 	return sprintf(buf, "0x%08X\n", ipw_debug_level);
- }
- 
--static ssize_t store_debug_level(struct device_driver *d, const char *buf,
-+static ssize_t debug_level_store(struct device_driver *d, const char *buf,
- 				 size_t count)
- {
- 	char *p = (char *)buf;
-@@ -1221,9 +1221,7 @@ static ssize_t store_debug_level(struct device_driver *d, const char *buf,
- 
- 	return strnlen(buf, count);
- }
--
--static DRIVER_ATTR(debug_level, S_IWUSR | S_IRUGO,
--		   show_debug_level, store_debug_level);
-+static DRIVER_ATTR_RW(debug_level);
- 
- static inline u32 ipw_get_event_log_len(struct ipw_priv *priv)
- {
--- 
-2.13.1
+Thanks!
