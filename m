@@ -1,33 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] MDIO bus reset GPIO cleanups
-Date: Tue, 13 Jun 2017 13:00:59 -0400 (EDT)
-Message-ID: <20170613.130059.891454430682161684.davem@davemloft.net>
-References: <20170612205537.977289294@cogentembedded.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] Add printk for bonding module packets_per_slave
+ parameter
+Date: Tue, 13 Jun 2017 10:00:52 -0700
+Message-ID: <1497373252.18751.19.camel@perches.com>
+References: <20170613134246.6407-1-michael.j.dilmore@gmail.com>
+         <20170613.113411.506760268959654820.davem@davemloft.net>
+         <1497370863.18751.15.camel@perches.com>
+         <dffd68fa-66bf-7709-7df7-7aa5e0e2ed44@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, f.fainelli@gmail.com, robh+dt@kernel.org,
-        frowand.list@gmail.com, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
+Cc: j.vosburgh@gmail.com, vfalico@gmail.com, andy@greyhouse.net,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        nikolay@cumulusnetworks.com
+To: jtoppins@redhat.com, David Miller <davem@davemloft.net>,
+        michael.j.dilmore@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44634 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753636AbdFMRBB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 13:01:01 -0400
-In-Reply-To: <20170612205537.977289294@cogentembedded.com>
+Received: from smtprelay0119.hostedemail.com ([216.40.44.119]:57927 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1753641AbdFMRBC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 13:01:02 -0400
+In-Reply-To: <dffd68fa-66bf-7709-7df7-7aa5e0e2ed44@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Mon, 12 Jun 2017 23:55:37 +0300
-
-> Commit 4c5e7a2c0501 ("dt-bindings: mdio: Clarify binding document")
-> declared that a MDIO reset GPIO property should have only a single GPIO
-> reference/specifier, however the supporting code was left intact...
-> Here's a couple of the obvious cleanups to that code:
+On Tue, 2017-06-13 at 12:42 -0400, Jonathan Toppins wrote:
+> On 06/13/2017 12:21 PM, Joe Perches wrote:
+> > On Tue, 2017-06-13 at 11:34 -0400, David Miller wrote:
+> > > From: Michael Dilmore <michael.j.dilmore@gmail.com>
+> > > Date: Tue, 13 Jun 2017 14:42:46 +0100
+> > > 
+> > > > The packets per slave parameter used by round robin mode does not have a printk debug
+> > > > message in its set function in bond_options.c. Adding such a function would aid debugging
+> > > > of round-robin mode and allow the user to more easily verify that the parameter has been
+> > > > set correctly. I should add that I'm motivated by my own experience here - it's not
+> > > > obvious from output of tools such as wireshark and ifstat that the parameter is working
+> > > > correctly, and with the differences in bonding configuration across different distributions,
+> > > > it would have been comforting to see this output.
+[]
+> > > You can verify things by simplying reading the value back.
+> > > 
+> > > If every parameter emitted a kernel log message, it would be
+> > > unreadable.
+> > > 
+> > > I'm not applying this, sorry.
+> > 
+> > I agree.  Noisy logging output is not good.
+> > 
+> > Perhaps a general conversion of the dozens
+> > of existing netdev_info uses in this file to
+> > netdev_dbg and adding this at netdev_dbg is
+> > appropriate.
 > 
-> [1/2] mdio_bus: handle only single PHY reset GPIO
-> [2/2] mdio_bus: use devm_gpiod_get_optional()
+> In general I agree. The few times I have debugged bonds, I always ended
+> up enabling debug prinks anyway. I don't see a problem moving these to
+> debug as well.
+> 
+> Adding nik whom converted a lot of this code to common paths for input.
 
-Series applied.
+If Nikolay agrees with the conversion, it's trivial.
+Please submit it.  I did it just for reference.
+
+Stylistic nits about the existing file:
+
+There are some inconsistencies in pr_info/pr_err uses
+with invalid inputs.
+
+It would also be nicer if the forward static declarations
+were removed and the static definitions reordered.
