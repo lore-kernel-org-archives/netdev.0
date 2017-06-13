@@ -1,42 +1,45 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [Patch net] igmp: acquire pmc lock for ip_mc_clear_src()
-Date: Tue, 13 Jun 2017 16:23:57 +0800
-Message-ID: <CADvbK_csz4E5wAx7oGBhF6kU+DpmQvLgoGqGXyveMnxEMvD69Q@mail.gmail.com>
-References: <1497286346-26888-1-git-send-email-xiyou.wangcong@gmail.com>
- <CADvbK_f=NePnrAvARnOMvg_o8G2bj-p1i1e_CXMZ6BooW3yhHA@mail.gmail.com> <CAM_iQpV7GmFfM2zo0ADxHm7fF4EErY5h3jLLKvNhfN+N-tYStQ@mail.gmail.com>
+From: Tom Bogendoerfer <tsbogend@alpha.franken.de>
+Subject: Re: [net-next] net: phy: marvell: Show complete link partner
+ advertising
+Date: Tue, 13 Jun 2017 10:32:27 +0200
+Message-ID: <20170613083227.GA20254@alpha.franken.de>
+References: <20170612133237.E20945085BC@solo.franken.de>
+ <a172b1f9-5141-6d53-1d96-bd028a0b0a23@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: network dev <netdev@vger.kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f170.google.com ([209.85.216.170]:35110 "EHLO
-        mail-qt0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751753AbdFMIX7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 04:23:59 -0400
-Received: by mail-qt0-f170.google.com with SMTP id w1so160311584qtg.2
-        for <netdev@vger.kernel.org>; Tue, 13 Jun 2017 01:23:58 -0700 (PDT)
-In-Reply-To: <CAM_iQpV7GmFfM2zo0ADxHm7fF4EErY5h3jLLKvNhfN+N-tYStQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: andrew@lunn.ch, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, rmk+kernel@armlinux.org.uk
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <a172b1f9-5141-6d53-1d96-bd028a0b0a23@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 13, 2017 at 2:35 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Mon, Jun 12, 2017 at 11:30 AM, Xin Long <lucien.xin@gmail.com> wrote:
->> Hi, Cong.
->>
->> how about in ip_check_mc_rcu():
->>         for (psf = im->sources; psf; psf = psf->sf_next) {
->>                if (psf->sf_inaddr == src_addr)
->>                            break;
->>          }
->>
->> I didn't see spinlock for it, is it safe to access them in parallel ?
->> or these two places would never be in parallel ?
->
-> That is a different bug which needs more work, therefore
-> I defer it to net-next. And I already explained to you why
-> it needs more work than just a call_rcu().
-Okay, thanks Cong.
+On Mon, Jun 12, 2017 at 09:05:04AM -0700, Florian Fainelli wrote:
+> On 06/12/2017 05:54 AM, Thomas Bogendoerfer wrote:
+> > From: Thomas Bogendoerfer <tbogendoerfer@suse.de>
+> > 
+> > Give back all modes advertised by the link partner. This change brings
+> > the marvell phy driver in line with all other phy drivers.
+> > 
+> > Signed-off-by: Thomas Bogendoerfer <tbogendoerfer@suse.de>
+> 
+> I thought Russell had a similar patch but I can't find it applied in
+> net-next, so:
+> 
+> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+> 
+> drivers/net/phy/lxt.c has a similar pattern that would be worth fixing too.
 
-Reviewed-by: Xin Long <lucien.xin@gmail.com>
+that's different and correct. The lpa value is not exported as lp_advertising,
+but only used internal. Well the bug here is IMHO, that it doesn't
+export lpa to lp_advertising at all as it's done in genphy_read_status().
+And from a quick grep there are more phy drivers doing that...
+I'll have a look later.
+
+Thomas.
+
+-- 
+Crap can work. Given enough thrust pigs will fly, but it's not necessarily a
+good idea.                                                [ RFC1925, 2.3 ]
