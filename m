@@ -1,116 +1,69 @@
-From: Matthias May <matthias.may@neratec.com>
-Subject: Re: Toggling link state breaks network connectivity
-Date: Tue, 13 Jun 2017 11:39:31 +0200
-Message-ID: <aef8dfb4-d11a-2859-3589-f477cd150071@neratec.com>
-References: <927c2f12-0d1b-1e80-fede-ad9abe807222@free.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: 8BIT
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>, Mans Rullgard <mans@mansr.com>,
-        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>
-To: Mason <slash.tmp@free.fr>, netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.neratec.com ([46.140.151.2]:54794 "EHLO mail.neratec.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751996AbdFMJje (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 13 Jun 2017 05:39:34 -0400
-In-Reply-To: <927c2f12-0d1b-1e80-fede-ad9abe807222@free.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: pull-request: mac80211 2017-06-13
+Date: Tue, 13 Jun 2017 11:44:08 +0200
+Message-ID: <20170613094409.12965-1-johannes@sipsolutions.net>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 12/06/17 15:22, Mason wrote:
-> Hello,
-> 
-> I am using the following drivers for Ethernet connectivity.
-> drivers/net/ethernet/aurora/nb8800.c
-> drivers/net/phy/at803x.c
-> 
-> Pulling the cable and plugging it back works as expected.
-> (I can ping both before and after.)
-> 
-> However, if I toggle the link state in software (using ip link set),
-> the board loses network connectivity.
-> 
-> # Statically assign IP address
-> ip addr add 172.27.64.77/18 brd 172.27.127.255 dev eth0
-> # Set link state to "up"
-> ip link set eth0 up
-> # ping -c 3 172.27.64.1 > /tmp/v1
-> 
-> PING 172.27.64.1 (172.27.64.1): 56 data bytes
-> 64 bytes from 172.27.64.1: seq=0 ttl=64 time=18.321 ms
-> 
-> --- 172.27.64.1 ping statistics ---
-> 3 packets transmitted, 1 packets received, 66% packet loss
-> round-trip min/avg/max = 18.321/18.321/18.321 ms
-> 
-> 
-> 172.27.64.1 is a desktop system.
-> Running
-> % tcpdump -n -i eth1-boards ether host 00:16:e8:4d:7f:c4
-> on the desktop, I get:
-> 
-> 15:01:45.187346 ARP, Request who-has 172.27.64.1 tell 172.27.64.77, length 46
-> 15:01:45.187359 ARP, Reply 172.27.64.1 is-at 00:15:17:24:e0:81, length 28
-> 15:01:45.194633 IP 172.27.64.77 > 172.27.64.1: ICMP echo request, id 41219, seq 0, length 64
-> 15:01:45.194662 IP 172.27.64.1 > 172.27.64.77: ICMP echo reply, id 41219, seq 0, length 64
-> 15:01:50.198564 ARP, Request who-has 172.27.64.77 tell 172.27.64.1, length 28
-> 15:01:50.205929 IP 172.27.64.77 > 172.27.64.1: ICMP echo request, id 41219, seq 1, length 64
-> 15:01:50.205951 IP 172.27.64.1 > 172.27.64.77: ICMP echo reply, id 41219, seq 1, length 64
-> 15:01:50.213217 IP 172.27.64.77 > 172.27.64.1: ICMP echo request, id 41219, seq 2, length 64
-> 15:01:50.213232 IP 172.27.64.1 > 172.27.64.77: ICMP echo reply, id 41219, seq 2, length 64
-> 15:01:51.198563 ARP, Request who-has 172.27.64.77 tell 172.27.64.1, length 28
-> 15:01:51.209586 ARP, Reply 172.27.64.77 is-at 00:16:e8:4d:7f:c4, length 46
-> 15:01:51.209598 ARP, Reply 172.27.64.77 is-at 00:16:e8:4d:7f:c4, length 46
-> 
-> Packet #1: the board asks for the desktop's MAC address
-> Packet #2: the desktop replies instantly
-> Packet #3: the board sends the first ping
-> Packet #4: the desktop replies instantly
-> Then the board goes quiet for a long time (why???)
-> Packet #5: the desktop asks for the board's MAC address (doesn't it have it already?)
-> Packet #6: this seems to unwedge the board, which sends the second ping
-> Packet #7: the desktop replies instantly
-> Packet #8: the board sends the third ping
-> Packet #9: the desktop replies instantly
-> Packet #10: the desktop asks again for the board's MAC address
-> Packet #11 and #12: the board answers twice (for the old and new requests?)
-> 
-> Some oddities, but it seems to work.
-> 
-> Now toggle the link state:
-> 
-> % ip link set eth0 down
-> % ip link set eth0 up
-> % ping -c 3 172.27.64.1 > /tmp/v2
-> 
-> PING 172.27.64.1 (172.27.64.1): 56 data bytes
-> 
-> --- 172.27.64.1 ping statistics ---
-> 3 packets transmitted, 0 packets received, 100% packet loss
-> 
-> 
-> On the desktop, I see
-> 
-> 15:14:03.900162 ARP, Request who-has 172.27.64.1 tell 172.27.64.77, length 46
-> 15:14:03.900175 ARP, Reply 172.27.64.1 is-at 00:15:17:24:e0:81, length 28
-> 15:14:05.017189 ARP, Request who-has 172.27.64.1 tell 172.27.64.77, length 46
-> 15:14:05.017200 ARP, Reply 172.27.64.1 is-at 00:15:17:24:e0:81, length 28
-> 15:14:06.030531 ARP, Request who-has 172.27.64.1 tell 172.27.64.77, length 46
-> 15:14:06.030541 ARP, Reply 172.27.64.1 is-at 00:15:17:24:e0:81, length 28
-> 
-> So basically, the board is asking the desktop for its MAC address,
-> and the desktop is answering immediately. But the board doesn't seem
-> to be getting the replies... Any ideas, or words of wisdom, as they say?
-> 
-> Regards.
-> 
+Hi Dave,
 
-Hi
-You might want to read this thread:
-https://www.mail-archive.com/netdev@vger.kernel.org/msg133896.html
-The symptoms you describe are pretty much what we had at one point.
+Here are some more fixes for the current cycle. Nothing really
+big, though my own patches look bigger than they are due to some
+code moving. The commit logs are far longer than the changes :-)
 
-BR
-Matthias
+Please pull and let me know if there's any problem.
+
+Thanks,
+johannes
+
+
+
+The following changes since commit 0bed865060836dc5f26b68052de0a504d66d9fae:
+
+  net: Fix build regression in rtl8723bs staging driver. (2017-06-08 11:51:59 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2017-06-13
+
+for you to fetch changes up to b3dd8279659f14f3624bb32559782d699fa6f7d1:
+
+  mac80211: don't send SMPS action frame in AP mode when not needed (2017-06-13 10:24:35 +0200)
+
+----------------------------------------------------------------
+Some fixes:
+ * Avi fixes some fallout from my mac80211 RX flags changes
+ * Emmanuel fixes an issue with adhering to the spec, and
+   an oversight in the SMPS management code
+ * Jason's patch makes mac80211 use constant-time memory
+   comparisons for message authentication, to avoid having
+   potentially observable timing differences
+ * my fix makes mac80211 set the basic rates bitmap before
+   the channel so the next update to the driver has more
+   consistent data - this required another rework patch to
+   remove some useless 5/10 MHz code that can never be hit
+
+----------------------------------------------------------------
+Avraham Stern (1):
+      mac80211: Fix incorrect condition when checking rx timestamp
+
+Emmanuel Grumbach (2):
+      mac80211: don't look at the PM bit of BAR frames
+      mac80211: don't send SMPS action frame in AP mode when not needed
+
+Jason A. Donenfeld (1):
+      mac80211/wpa: use constant time memory comparison for MACs
+
+Johannes Berg (2):
+      mac80211: remove 5/10 MHz rate code from station MLME
+      mac80211: set bss_info data before configuring the channel
+
+ net/mac80211/cfg.c         |  2 ++
+ net/mac80211/ieee80211_i.h |  2 +-
+ net/mac80211/mlme.c        | 62 +++++++++++++++++++++++-----------------------
+ net/mac80211/rx.c          |  6 ++++-
+ net/mac80211/wpa.c         |  9 ++++---
+ 5 files changed, 44 insertions(+), 37 deletions(-)
