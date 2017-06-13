@@ -1,50 +1,42 @@
-From: Simon Wunderlich <sw@simonwunderlich.de>
-Subject: [PATCH 04/10] batman-adv: Combine two seq_puts() calls into one call in batadv_nc_nodes_seq_print_text()
-Date: Tue, 13 Jun 2017 13:36:54 +0200
-Message-ID: <20170613113700.31220-5-sw@simonwunderlich.de>
+From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Subject: [PATCH 01/10] batman-adv: Start new development cycle
+Date: Tue, 13 Jun 2017 13:36:51 +0200
+Message-ID: <20170613113700.31220-2-sw@simonwunderlich.de>
 References: <20170613113700.31220-1-sw@simonwunderlich.de>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-        Markus Elfring <elfring@users.sourceforge.net>,
-        Sven Eckelmann <sven@narfation.org>,
-        Simon Wunderlich <sw@simonwunderlich.de>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from packetmixer.de ([79.140.42.25]:43816 "EHLO
-        mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753175AbdFMLhJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 07:37:09 -0400
-In-Reply-To: <20170613113700.31220-1-sw@simonwunderlich.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20170613113700.31220-1-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-
-A bit of text was put into a sequence by two separate function calls.
-Print the same data by a single function call instead.
-
-This issue was detected by using the Coccinelle software.
-
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
-Signed-off-by: Sven Eckelmann <sven@narfation.org>
-Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
+Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
 ---
- net/batman-adv/network-coding.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ net/batman-adv/main.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/batman-adv/network-coding.c b/net/batman-adv/network-coding.c
-index e1f6fc72fe3e..3604d7899e2c 100644
---- a/net/batman-adv/network-coding.c
-+++ b/net/batman-adv/network-coding.c
-@@ -1935,9 +1935,7 @@ int batadv_nc_nodes_seq_print_text(struct seq_file *seq, void *offset)
- 						list)
- 				seq_printf(seq, "%pM ",
- 					   nc_node->addr);
--			seq_puts(seq, "\n");
--
--			seq_puts(seq, " Outgoing: ");
-+			seq_puts(seq, "\n Outgoing: ");
- 			/* For out_nc_node to this orig_node */
- 			list_for_each_entry_rcu(nc_node,
- 						&orig_node->out_coding_list,
+diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
+index 810f7d026f54..feaf60e4cbc3 100644
+--- a/net/batman-adv/main.h
++++ b/net/batman-adv/main.h
+@@ -24,7 +24,7 @@
+ #define BATADV_DRIVER_DEVICE "batman-adv"
+ 
+ #ifndef BATADV_SOURCE_VERSION
+-#define BATADV_SOURCE_VERSION "2017.1"
++#define BATADV_SOURCE_VERSION "2017.2"
+ #endif
+ 
+ /* B.A.T.M.A.N. parameters */
 -- 
 2.11.0
