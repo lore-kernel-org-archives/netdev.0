@@ -1,48 +1,52 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH nf-next] netns: add and use net_ns_barrier
-Date: Tue, 13 Jun 2017 09:35:20 -0700
-Message-ID: <CAM_iQpUtZZBXQNB+tWJikQNmCHBot3tp7vAsc6+Xnh5H__6++g@mail.gmail.com>
-References: <20170530093812.10712-1-fw@strlen.de> <87y3tcj3n7.fsf@xmission.com>
- <20170601085259.GA6067@breakpoint.cc> <CAM_iQpXgrQcbrQsMVoomcsHtk4JffRjJ27FLRoignndAzFVkug@mail.gmail.com>
- <20170613061656.GF18283@breakpoint.cc>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH] nfc: nci: remove unnecessary null check
+Date: Tue, 13 Jun 2017 11:37:18 -0500
+Message-ID: <20170613163718.GA5375@embeddedgus>
+References: <28317503-e721-2564-a9ff-82182aa0644a@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-        netfilter-devel@vger.kernel.org,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:33163 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753423AbdFMQft (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 12:35:49 -0400
-In-Reply-To: <20170613061656.GF18283@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>,
+        Guenter Roeck <linux@roeck-us.net>
+To: Samuel Ortiz <sameo@linux.intel.com>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <28317503-e721-2564-a9ff-82182aa0644a@roeck-us.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 12, 2017 at 11:16 PM, Florian Westphal <fw@strlen.de> wrote:
-> Cong Wang <xiyou.wangcong@gmail.com> wrote:
->> On Thu, Jun 1, 2017 at 1:52 AM, Florian Westphal <fw@strlen.de> wrote:
->> > Joe described it nicely, problem is that after unload we may have
->> > conntracks that still have a nf_conn_help extension attached that
->> > has a pointer to a structure that resided in the (unloaded) module.
->>
->> Why not hold a refcnt for its module?
->
-> That would work as well.
->
-> I'm not sure its nice to disallow rmmod of helper modules if they are
-> used by a connection however.
+Remove unnecessary NULL check for pointer conn_info.
+conn_info is set in list_for_each_entry() using container_of(),
+which is never NULL.
 
-I am _not_ suggesting to disallow rmmod.
+Addresses-Coverity-ID: 1362349
+Cc: Guenter Roeck <linux@roeck-us.net>
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+---
+ net/nfc/nci/core.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
->
-> Right now you can "rmmod nf_conntrack_foo" at any time and this should
-> work just fine without first having to flush affected conntracks
-> manually.
-
-My point is that since netns wq could invoke code of that module,
-why it doesn't hold a refcnt of that module?
-
-I am not familiar with netfilter code base so not sure if that is
-hard to do or not, but it looks more elegant than this barrier.
+diff --git a/net/nfc/nci/core.c b/net/nfc/nci/core.c
+index 61fff42..c15cb88 100644
+--- a/net/nfc/nci/core.c
++++ b/net/nfc/nci/core.c
+@@ -73,11 +73,10 @@ int nci_get_conn_info_by_dest_type_params(struct nci_dev *ndev, u8 dest_type,
+ 		if (conn_info->dest_type == dest_type) {
+ 			if (!params)
+ 				return conn_info->conn_id;
+-			if (conn_info) {
+-				if (params->id == conn_info->dest_params->id &&
+-				    params->protocol == conn_info->dest_params->protocol)
+-					return conn_info->conn_id;
+-			}
++
++			if (params->id == conn_info->dest_params->id &&
++			    params->protocol == conn_info->dest_params->protocol)
++				return conn_info->conn_id;
+ 		}
+ 	}
+ 
+-- 
+2.5.0
