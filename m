@@ -1,39 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/4] net: dsa: Multi-CPU ground work (v3)
-Date: Tue, 13 Jun 2017 16:11:13 -0400 (EDT)
-Message-ID: <20170613.161113.1646399895545825339.davem@davemloft.net>
-References: <20170613191725.26625-1-f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] cxgb4: handle serial flash interrupt
+Date: Tue, 13 Jun 2017 16:11:32 -0400 (EDT)
+Message-ID: <20170613.161132.1501937364224601071.davem@davemloft.net>
+References: <1497381343-31705-1-git-send-email-ganeshgr@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, john@phrozen.org
-To: f.fainelli@gmail.com
+Cc: netdev@vger.kernel.org, nirranjan@chelsio.com,
+        indranil@chelsio.com, venkatesh@chelsio.com,
+        rahul.lakkireddy@chelsio.com
+To: ganeshgr@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49798 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:49808 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752326AbdFMULS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 16:11:18 -0400
-In-Reply-To: <20170613191725.26625-1-f.fainelli@gmail.com>
+        with ESMTP id S1753653AbdFMULe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 16:11:34 -0400
+In-Reply-To: <1497381343-31705-1-git-send-email-ganeshgr@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue, 13 Jun 2017 12:17:21 -0700
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Date: Wed, 14 Jun 2017 00:45:43 +0530
 
-> This patch series prepares the ground for adding mutliple CPU port support to
-> DSA, and starts by removing redundant pieces of information such as
-> master_netdev which is cpu_dp->ethernet. Finally drivers are moved away from
-> directly accessing ds->dst->cpu_dp and use appropriate helper functions.
+> If SF bit is not cleared in PL_INT_CAUSE, subsequent non-data
+> interrupts are not raised.  Enable SF bit in Global Interrupt
+> Mask and handle it as non-fatal and hence eventually clear it.
 > 
-> Note that if you have Device Tree blobs/platform configurations that are
-> currently listing multiple CPU ports, the proposed behavior in
-> dsa_ds_get_cpu_dp() will be to return the last bit set in ds->cpu_port_mask.
-> 
-> Future plans include:
-> - making dst->cpu_dp a flexible data structure (array, list, you name it)
-> - having the ability for drivers to return a default/preferred CPU port (if
->   necessary)
- ...
+> Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
+> Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 
-Series applied, thanks Florian.
+Applied.
