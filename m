@@ -1,40 +1,85 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [PATCH net-next 08/10] bpf: nfp: Report bpf_prog ID during
- XDP_QUERY_PROG
-Date: Mon, 12 Jun 2017 18:28:42 -0700
-Message-ID: <20170612182842.3150789d@cakuba.netronome.com>
-References: <20170613010025.2983342-1-kafai@fb.com>
-        <20170613010025.2983342-9-kafai@fb.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: build failure after merge of the
+ wireless-drivers-next tree
+Date: Tue, 13 Jun 2017 12:00:24 +1000
+Message-ID: <20170613120024.2a1ce31b@canb.auug.org.au>
+References: <20170608122759.7ffda0c3@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>, <kernel-team@fb.com>
-To: Martin KaFai Lau <kafai@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:35480 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752508AbdFMB2q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 21:28:46 -0400
-Received: by mail-pg0-f52.google.com with SMTP id k71so52576707pgd.2
-        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 18:28:46 -0700 (PDT)
-In-Reply-To: <20170613010025.2983342-9-kafai@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+        Wireless <linux-wireless@vger.kernel.org>,
+        Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Igor Mitsyanko <igor.mitsyanko.os@quantenna.com>,
+        Dmitrii Lebed <dlebed@quantenna.com>,
+        Sergei Maksimenko <smaksimenko@quantenna.com>,
+        Sergey Matyukevich <smatyukevich@quantenna.com>,
+        Bindu Therthala <btherthala@quantenna.com>,
+        Huizhao Wang <hwang@quantenna.com>,
+        Kamlesh Rath <krath@quantenna.com>,
+        Avinash Patil <avinashp@quantenna.com>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170608122759.7ffda0c3@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 12 Jun 2017 18:00:23 -0700, Martin KaFai Lau wrote:
-> +	case XDP_QUERY_PROG: {
-> +		const struct bpf_prog *xdp_prog;
-> +
-> +		xdp_prog = READ_ONCE(nn->dp.xdp_prog);
-> +		if (xdp_prog)
-> +			xdp->prog_id = xdp_prog->aux->id;
-> +		else
-> +			xdp->prog_id = 0;
->  		return 0;
-> +	}
->  	default:
->  		return -EINVAL;
->  	}
+Hi Dave,
 
-Why READ_ONCE?  I thought .ndo_xdp is always called under RTNL.
+On Thu, 8 Jun 2017 12:27:59 +1000 Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+>
+> After merging the wireless-drivers-next tree, today's linux-next build
+> (x86_64 allmodconfig) failed like this:
+> 
+> drivers/net/wireless/quantenna/qtnfmac/core.c: In function 'qtnf_core_net_attach':
+> drivers/net/wireless/quantenna/qtnfmac/core.c:319:5: error: 'struct net_device' has no member named 'destructor'
+>   dev->destructor = free_netdev;
+>      ^
+> 
+> Caused by commit
+> 
+>   98f44cb0655c ("qtnfmac: introduce new FullMAC driver for Quantenna chipsets")
+
+This commit is now in the net-next tree ...
+
+> interacting with commit
+> 
+>   cf124db566e6 ("net: Fix inconsistent teardown and release of private netdev state.")
+> 
+> from the net tree.
+> 
+> I applied this merge fix patch for today.
+
+So this merge fix patch is needed when the net and net-next trees are merged.
+
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Thu, 8 Jun 2017 12:24:08 +1000
+> Subject: [PATCH] qtnfmac: fix up for "net: Fix inconsistent teardown and
+>  release of private netdev state."
+> 
+> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> ---
+>  drivers/net/wireless/quantenna/qtnfmac/core.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/wireless/quantenna/qtnfmac/core.c b/drivers/net/wireless/quantenna/qtnfmac/core.c
+> index c5ac252464f4..f053532c0e87 100644
+> --- a/drivers/net/wireless/quantenna/qtnfmac/core.c
+> +++ b/drivers/net/wireless/quantenna/qtnfmac/core.c
+> @@ -316,7 +316,7 @@ int qtnf_core_net_attach(struct qtnf_wmac *mac, struct qtnf_vif *vif,
+>  	vif->netdev = dev;
+>  
+>  	dev->netdev_ops = &qtnf_netdev_ops;
+> -	dev->destructor = free_netdev;
+> +	dev->needs_free_netdev = true;
+>  	dev_net_set(dev, wiphy_net(wiphy));
+>  	dev->ieee80211_ptr = &vif->wdev;
+>  	dev->ieee80211_ptr->iftype = iftype;
+> -- 
+> 2.11.0
+
+-- 
+Cheers,
+Stephen Rothwell
