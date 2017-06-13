@@ -1,43 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net-next 15/15] bpf: Sample bpf program to set
- sndcwnd clamp
-Date: Tue, 13 Jun 2017 17:32:06 -0400 (EDT)
-Message-ID: <20170613.173206.1185302030405741253.davem@davemloft.net>
-References: <20170613180004.3008403-1-brakmo@fb.com>
-        <20170613180004.3008403-16-brakmo@fb.com>
+Subject: Re: [PATCH] via-rhine: add support for changing MTU
+Date: Tue, 13 Jun 2017 17:33:18 -0400 (EDT)
+Message-ID: <20170613.173318.167061176274123943.davem@davemloft.net>
+References: <149737430797.28477.9215445312169809396.sendpatchset@little-apple>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-team@fb.com, bmatheny@fb.com,
-        ast@fb.com, daniel@iogearbox.net, dsa@cumulusnetworks.com
-To: brakmo@fb.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51708 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751793AbdFMVcI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 17:32:08 -0400
-In-Reply-To: <20170613180004.3008403-16-brakmo@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: magnus.damm@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <149737430797.28477.9215445312169809396.sendpatchset@little-apple>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Lawrence Brakmo <brakmo@fb.com>
-Date: Tue, 13 Jun 2017 11:00:04 -0700
+From: Magnus Damm <magnus.damm@gmail.com>
+Date: Wed, 14 Jun 2017 02:18:27 +0900
 
-> +SEC("sockops")
-> +int bpf_clamp(struct __sk_buff *skb)
-> +{
-> +	struct bpf_socket_ops *skops = (struct bpf_socket_ops *) skb;
-> +	char fmt1[] = "BPF command: %d\n";
-> +	char fmt2[] = "  Returning %d\n";
-> +	int op;
-> +	int rv = 0;
-> +	int bufsize = 150000;
-> +	int clamp = 100;
-> +	int to_init = 10;
-> +
-> +	// For testing purposes, only execute rest of BPF program
-> +	// if neither port numberis 55601
-> +	if (skops->remote_port != 55601 && skops->local_port != 55601)
-> +		return -1;
+> From: Magnus Damm <damm+renesas@opensource.se>
+> 
+> Allow adjusting the MTU for via-rhine devices in case of no TX alignment
+> buffer is used.
+> 
+> Lightly tested on ALIX2D13 hardware by making use of VXLAN with MTU set
+> to 1500 on top of via-rhine devices with 1550 MTU. Without this patch
+> the VXLAN MTU is limited to less than 1500.
+> 
+> Signed-off-by: Magnus Damm <damm+renesas@opensource.se>
 
-Local variable ordering and C++ comments.
+Why is the TX alignment buffer such an obstacle?
+
+It would be so much nicer if this could be supported for all chip
+variants instead of some certain subset which users have no idea
+of figuring out.  It's a really bad user experience to set them
+up for failure like this.
