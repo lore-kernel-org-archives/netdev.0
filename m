@@ -1,44 +1,136 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v10 1/4] net netlink: Add new type NLA_FLAG_BITS
-Date: Tue, 13 Jun 2017 07:32:58 +0200
-Message-ID: <20170613053258.GA1877@nanopsycho>
-References: <4c536950-2be3-cc9c-1f77-066624800d07@mojatatu.com>
- <4441aa62-d00e-82b6-d337-f86cf97e3c6d@mojatatu.com>
- <20170612103432.GA1993@nanopsycho>
- <8e2f151d-3a02-4b1b-755b-23a0a85556b4@mojatatu.com>
- <20170612114345.GB1993@nanopsycho>
- <22f33fa9-1759-57b7-6aea-898f89c9f61f@mojatatu.com>
- <20170612141450.GD1993@nanopsycho>
- <80dd1bc2-80d6-d8fa-6032-d0641ae5d79b@gmail.com>
- <20170612192238.GF1993@nanopsycho>
- <4d150766-dd1e-26f5-43ea-a3c93cdf291b@gmail.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH net-next 00/10] bpf: xdp: Report bpf_prog ID in IFLA_XDP
+Date: Mon, 12 Jun 2017 22:35:34 -0700
+Message-ID: <20170613053534.2afamabn6wkwka44@dhcp-172-26-110-210.dhcp.thefacebook.com>
+References: <20170613010025.2983342-1-kafai@fb.com>
+ <20170612182452.61b8a0a3@cakuba.netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net,
-        netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-        eric.dumazet@gmail.com, simon.horman@netronome.com,
-        mrv@mojatatu.com
-To: David Ahern <dsahern@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>, <kernel-team@fb.com>
+To: Jakub Kicinski <kubakici@wp.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f179.google.com ([209.85.128.179]:33601 "EHLO
-        mail-wr0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751921AbdFMFdC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 01:33:02 -0400
-Received: by mail-wr0-f179.google.com with SMTP id v104so121836367wrb.0
-        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 22:33:01 -0700 (PDT)
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:36888 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751921AbdFMFfw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 01:35:52 -0400
 Content-Disposition: inline
-In-Reply-To: <4d150766-dd1e-26f5-43ea-a3c93cdf291b@gmail.com>
+In-Reply-To: <20170612182452.61b8a0a3@cakuba.netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Jun 12, 2017 at 09:58:33PM CEST, dsahern@gmail.com wrote:
->On 6/12/17 1:22 PM, Jiri Pirko wrote:
->> 
->>> 3. IMO since these are nla prefixes and new NLA type they should be in
->>> uapi/linux/netlink.h
->> Including NLA_* type enum? I think it is reasonable.
+On Mon, Jun 12, 2017 at 06:26:02PM -0700, Jakub Kicinski wrote:
+> On Mon, 12 Jun 2017 18:00:15 -0700, Martin KaFai Lau wrote:
+> > This is the first usage of the new bpf_prog ID.  It is for
+> > reporting the ID of a xdp_prog through netlink.
+> >
+> > It rides on the existing IFLA_XDP.  This patch adds IFLA_XDP_PROG_ID
+> > for the bpf_prog ID reporting.
+> >
+> > It starts with changing the generic_xdp first.  After that,
+> > the hardware driver is changed one by one.  The final patch
+> > removes the prog_attached from 'struct netdev_xdp' because
+> > prog_id > 0 implies the presence of xdp_prog.
 >
->well, maybe not the NLA_BITFIELD. That enum is for policy validation
->kernel side so not really part of the API.
+> Daniel made the XDP_ATTACHED an enum to be able to extend it with other
+> modes.  I would appreciate if you didn't remove the member since I have
+> this waiting in my tree:
+I see. I will keep prog_attached then.
 
-Yeah, now I see it. Agreed.
+>
+> From: Jakub Kicinski <jakub.kicinski@netronome.com>
+> Date: Mon, 5 Jun 2017 22:52:01 -0700
+> Subject: [PATCH net-next] xdp: add reporting of offload mode
+>
+> Extend the XDP_ATTACHED_* values to include offloaded mode.
+> Let drivers report whether program is installed in the driver
+> or the HW by changing the prog_attached field from bool to
+> u8 (type of the netlink attribute).
+>
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> ---
+>  include/linux/netdevice.h    | 7 ++++---
+j
+>  include/uapi/linux/if_link.h | 1 +
+>  net/core/dev.c               | 2 +-
+>  net/core/rtnetlink.c         | 6 +++---
+>  4 files changed, 9 insertions(+), 7 deletions(-)
+>
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 524c7776ce96..76165dfd2a1e 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -808,7 +808,8 @@ enum xdp_netdev_command {
+>  	 */
+>  	XDP_SETUP_PROG,
+>  	/* Check if a bpf program is set on the device.  The callee should
+> -	 * return true if a program is currently attached and running.
+> +	 * set @prog_attached to one of XDP_ATTACHED_* values, note that "true"
+> +	 * is equivalent to XDP_ATTACHED_DRV.
+>  	 */
+>  	XDP_QUERY_PROG,
+>  };
+> @@ -824,7 +825,7 @@ struct netdev_xdp {
+>  			struct netlink_ext_ack *extack;
+>  		};
+>  		/* XDP_QUERY_PROG */
+> -		bool prog_attached;
+> +		u8 prog_attached;
+>  	};
+>  };
+>
+> @@ -3302,7 +3303,7 @@ struct sk_buff *dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+>  typedef int (*xdp_op_t)(struct net_device *dev, struct netdev_xdp *xdp);
+>  int dev_change_xdp_fd(struct net_device *dev, struct netlink_ext_ack *extack,
+>  		      int fd, u32 flags);
+> -bool __dev_xdp_attached(struct net_device *dev, xdp_op_t xdp_op);
+> +u8 __dev_xdp_attached(struct net_device *dev, xdp_op_t xdp_op);
+>
+>  int __dev_forward_skb(struct net_device *dev, struct sk_buff *skb);
+>  int dev_forward_skb(struct net_device *dev, struct sk_buff *skb);
+> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+> index 8ed679fe603f..4dd59b7463a9 100644
+> --- a/include/uapi/linux/if_link.h
+> +++ b/include/uapi/linux/if_link.h
+> @@ -900,6 +900,7 @@ enum {
+>  	XDP_ATTACHED_NONE = 0,
+>  	XDP_ATTACHED_DRV,
+>  	XDP_ATTACHED_SKB,
+> +	XDP_ATTACHED_HW,
+>  };
+>
+>  enum {
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 8f72f4a9c6ac..8f29b6ba99ac 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -6930,7 +6930,7 @@ int dev_change_proto_down(struct net_device *dev, bool proto_down)
+>  }
+>  EXPORT_SYMBOL(dev_change_proto_down);
+>
+> -bool __dev_xdp_attached(struct net_device *dev, xdp_op_t xdp_op)
+> +u8 __dev_xdp_attached(struct net_device *dev, xdp_op_t xdp_op)
+>  {
+>  	struct netdev_xdp xdp;
+>
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index 7084f1db2446..5b16e479ea68 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -1255,10 +1255,10 @@ static u8 rtnl_xdp_attached_mode(struct net_device *dev)
+>
+>  	if (rcu_access_pointer(dev->xdp_prog))
+>  		return XDP_ATTACHED_SKB;
+> -	if (ops->ndo_xdp && __dev_xdp_attached(dev, ops->ndo_xdp))
+> -		return XDP_ATTACHED_DRV;
+> +	if (!ops->ndo_xdp)
+> +		return XDP_ATTACHED_NONE;
+>
+> -	return XDP_ATTACHED_NONE;
+> +	return __dev_xdp_attached(dev, ops->ndo_xdp);
+>  }
+>
+>  static int rtnl_xdp_fill(struct sk_buff *skb, struct net_device *dev)
+> --
+> 2.11.0
+>
