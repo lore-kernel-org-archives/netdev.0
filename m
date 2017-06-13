@@ -1,43 +1,36 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: mwifiex: Replace semaphore async_sem with mutex
-Date: Tue, 13 Jun 2017 07:05:52 +0000 (UTC)
-Message-ID: <20170613070552.B281F601D9@smtp.codeaurora.org>
-References: <1496916183-4097-1-git-send-email-binoy.jayan@linaro.org>
+Subject: Re: [PATCHv5] wlcore: add wl1285 compatible
+Date: Tue, 13 Jun 2017 07:06:22 +0000 (UTC)
+Message-ID: <20170613070622.CA4736075B@smtp.codeaurora.org>
+References: <20170608205000.3268-1-sebastian.reichel@collabora.co.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Binoy Jayan <binoy.jayan@linaro.org>, linux-kernel@vger.kernel.org,
-        Arnd Bergmann <arnd@arndb.de>,
-        Rajendra <rnayak@codeaurora.org>,
-        Mark Brown <broonie@kernel.org>,
-        Amitkumar Karwar <amitkarwar@gmail.com>,
-        Nishant Sarmukadam <nishants@marvell.com>,
-        Ganapathi Bhat <gbhat@marvell.com>,
-        Xinming Hu <huxm@marvell.com>, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Binoy Jayan <binoy.jayan@linaro.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:46462 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753024AbdFMHF6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 03:05:58 -0400
-In-Reply-To: <1496916183-4097-1-git-send-email-binoy.jayan@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Sebastian Reichel <sebastian.reichel@collabora.co.uk>
+To: Sebastian Reichel <sebastian.reichel@collabora.co.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170608205000.3268-1-sebastian.reichel@collabora.co.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Binoy Jayan <binoy.jayan@linaro.org> wrote:
+Sebastian Reichel <sebastian.reichel@collabora.co.uk> wrote:
 
-> The semaphore 'async_sem' is used as a simple mutex, so
-> it should be written as one. Semaphores are going away in the future.
+> Motorola Droid 4 uses a WL 1285C. With differences between
+> chips not being public let's add explicit binding for wl1285
+> instead of relying on wl1283 being very similar.
 > 
-> Signed-off-by: Binoy Jayan <binoy.jayan@linaro.org>
-> Reviewed-by: Arnd Bergmann <arnd@arndb.de>
+> Reviewed-by: Rob Herring <robh@kernel.org>
+> Acked-by: Kalle Valo <kvalo@codeaurora.org>
+> Acked-by: Tony Lindgren <tony@atomide.com>
+> Signed-off-by: Sebastian Reichel <sebastian.reichel@collabora.co.uk>
 
 Patch applied to wireless-drivers-next.git, thanks.
 
-1abf9ae719f6 mwifiex: Replace semaphore async_sem with mutex
+078b30da3f07 wlcore: add wl1285 compatible
 
 -- 
-https://patchwork.kernel.org/patch/9774361/
+https://patchwork.kernel.org/patch/9776481/
 
 https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
