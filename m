@@ -1,92 +1,39 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: nfc: nci: fix potential NULL pointer dereference
-Date: Mon, 12 Jun 2017 17:31:54 -0700
-Message-ID: <28317503-e721-2564-a9ff-82182aa0644a@roeck-us.net>
-References: <20170612220223.GA6326@embeddedgus>
- <20170612222155.GA18302@roeck-us.net>
- <20170612172805.Horde.AUST5RGJfhNVnchxoXV3U2C@gator4166.hostgator.com>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH net-next 1/1] net: reflect mark on tcp syn ack packets
+Date: Tue, 13 Jun 2017 09:34:07 +0900
+Message-ID: <CAKD1Yr1GcK3XQpyx=p-EHWXHax_+-HXpHFT6uWZY_9ovv8V7mA@mail.gmail.com>
+References: <1497101461-20921-1-git-send-email-jhs@emojatatu.com>
+ <20170610.190213.1437094451353913622.davem@davemloft.net> <056cbd5c-2a5f-8767-e584-591f39bc2029@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Samuel Ortiz <sameo@linux.intel.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170612172805.Horde.AUST5RGJfhNVnchxoXV3U2C@gator4166.hostgator.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        mrv@mojatatu.com, hadi@mojatatu.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vk0-f45.google.com ([209.85.213.45]:33299 "EHLO
+        mail-vk0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752508AbdFMAe3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 20:34:29 -0400
+Received: by mail-vk0-f45.google.com with SMTP id p62so56316185vkp.0
+        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 17:34:29 -0700 (PDT)
+In-Reply-To: <056cbd5c-2a5f-8767-e584-591f39bc2029@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/12/2017 03:28 PM, Gustavo A. R. Silva wrote:
-> Hi Guenter,
-> 
-> Please, see my comments below
-> 
-> Quoting Guenter Roeck <linux@roeck-us.net>:
-> 
->> On Mon, Jun 12, 2017 at 05:02:23PM -0500, Gustavo A. R. Silva wrote:
->>> NULL check at line 76: if (conn_info) {, implies that pointer conn_info
->>> might be NULL, but this pointer is being previously dereferenced,
->>> which might cause a NULL pointer dereference.
->>>
->>> Add NULL check before dereferencing pointer conn_info in order to
->>> avoid a potential NULL pointer dereference.
->>>
->>> Addresses-Coverity-ID: 1362349
->>> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
->>> ---
->>>  net/nfc/nci/core.c | 11 +++++------
->>>  1 file changed, 5 insertions(+), 6 deletions(-)
->>>
->>> diff --git a/net/nfc/nci/core.c b/net/nfc/nci/core.c
->>> index 61fff42..d2198ce 100644
->>> --- a/net/nfc/nci/core.c
->>> +++ b/net/nfc/nci/core.c
->>> @@ -70,14 +70,13 @@ int nci_get_conn_info_by_dest_type_params(struct nci_dev *ndev, u8 dest_type,
->>>      struct nci_conn_info *conn_info;
->>>
->>>      list_for_each_entry(conn_info, &ndev->conn_info_list, list) {
+On Sun, Jun 11, 2017 at 8:58 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+>> Maybe this should both be "inet_request_mark()"?
 >>
->> conn_info is set in list_for_each_entry() using container_of(),
->> which is never NULL. Plus, it is dereferenced there as well.
->> The check is unnecessary.
->>
-> 
-> Thanks for clarifying.
-> 
->> Guenter
->>
->>> -        if (conn_info->dest_type == dest_type) {
->>> +        if (conn_info && conn_info->dest_type == dest_type) {
->>>              if (!params)
->>>                  return conn_info->conn_id;
->>> -            if (conn_info) {
-> 
-> So, this NULL check could be removed as it seems it is not useful at all ?
-> 
-Exactly.
+>
+> Challenge is making of a synack requires a new allocated skb;
+> and sk is a listening socket - which should/has a mark of
+> 0 meaning at ip_build_and_send_pkt() it overrides
+> the value already set on the skb->mark.
 
->>> -                if (params->id == conn_info->dest_params->id &&
->>> -                    params->protocol == conn_info->dest_params->protocol)
->>> -                    return conn_info->conn_id;
->>> -            }
->>> +
->>> +            if (params->id == conn_info->dest_params->id &&
->>> +                params->protocol == conn_info->dest_params->protocol)
->>> +                return conn_info->conn_id;
->>>          }
->>>      }
->>>
-> 
-> Thank you
-> -- 
-> Gustavo A. R. Silva
-> 
-> 
-> 
-> 
-> 
-> 
-> 
+As David says, the tcp_fwmark_accept sysctl is not really appropriate
+for synack packets - what it does is ensure that when a connection is
+accepted, sk->sk_mark is set to the mark of the incoming skb.
+
+I think the correct behaviour here is to to honour the
+ip_fwmark_reflect sysctl instead, and if it's enabled, make the synack
+mark be the same as the the incoming syn mark.
