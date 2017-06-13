@@ -1,42 +1,79 @@
-From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 01/10] batman-adv: Start new development cycle
-Date: Tue, 13 Jun 2017 13:36:51 +0200
-Message-ID: <20170613113700.31220-2-sw@simonwunderlich.de>
+From: Simon Wunderlich <sw@simonwunderlich.de>
+Subject: [PATCH 08/10] batman-adv: simplify return handling in some TT functions
+Date: Tue, 13 Jun 2017 13:36:58 +0200
+Message-ID: <20170613113700.31220-9-sw@simonwunderlich.de>
 References: <20170613113700.31220-1-sw@simonwunderlich.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20170613113700.31220-1-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+        Simon Wunderlich <sw@simonwunderlich.de>,
+        Sven Eckelmann <sven@narfation.org>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from packetmixer.de ([79.140.42.25]:43816 "EHLO
+        mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753301AbdFMLhL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 07:37:11 -0400
+In-Reply-To: <20170613113700.31220-1-sw@simonwunderlich.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
 ---
- net/batman-adv/main.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/batman-adv/translation-table.c | 17 ++++++-----------
+ 1 file changed, 6 insertions(+), 11 deletions(-)
 
-diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
-index 810f7d026f54..feaf60e4cbc3 100644
---- a/net/batman-adv/main.h
-+++ b/net/batman-adv/main.h
-@@ -24,7 +24,7 @@
- #define BATADV_DRIVER_DEVICE "batman-adv"
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index 4b64a9a633d9..e1133bc634b5 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -2488,18 +2488,16 @@ static bool
+ _batadv_is_ap_isolated(struct batadv_tt_local_entry *tt_local_entry,
+ 		       struct batadv_tt_global_entry *tt_global_entry)
+ {
+-	bool ret = false;
+-
+ 	if (tt_local_entry->common.flags & BATADV_TT_CLIENT_WIFI &&
+ 	    tt_global_entry->common.flags & BATADV_TT_CLIENT_WIFI)
+-		ret = true;
++		return true;
  
- #ifndef BATADV_SOURCE_VERSION
--#define BATADV_SOURCE_VERSION "2017.1"
-+#define BATADV_SOURCE_VERSION "2017.2"
- #endif
+ 	/* check if the two clients are marked as isolated */
+ 	if (tt_local_entry->common.flags & BATADV_TT_CLIENT_ISOLA &&
+ 	    tt_global_entry->common.flags & BATADV_TT_CLIENT_ISOLA)
+-		ret = true;
++		return true;
  
- /* B.A.T.M.A.N. parameters */
+-	return ret;
++	return false;
+ }
+ 
+ /**
+@@ -4010,8 +4008,6 @@ bool batadv_tt_add_temporary_global_entry(struct batadv_priv *bat_priv,
+ 					  const unsigned char *addr,
+ 					  unsigned short vid)
+ {
+-	bool ret = false;
+-
+ 	/* ignore loop detect macs, they are not supposed to be in the tt local
+ 	 * data as well.
+ 	 */
+@@ -4021,14 +4017,13 @@ bool batadv_tt_add_temporary_global_entry(struct batadv_priv *bat_priv,
+ 	if (!batadv_tt_global_add(bat_priv, orig_node, addr, vid,
+ 				  BATADV_TT_CLIENT_TEMP,
+ 				  atomic_read(&orig_node->last_ttvn)))
+-		goto out;
++		return false;
+ 
+ 	batadv_dbg(BATADV_DBG_TT, bat_priv,
+ 		   "Added temporary global client (addr: %pM, vid: %d, orig: %pM)\n",
+ 		   addr, batadv_print_vid(vid), orig_node->orig);
+-	ret = true;
+-out:
+-	return ret;
++
++	return true;
+ }
+ 
+ /**
 -- 
 2.11.0
