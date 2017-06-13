@@ -1,54 +1,92 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next 1/1] net: reflect mark on tcp syn ack packets
-Date: Tue, 13 Jun 2017 07:33:40 -0400
-Message-ID: <b6e180c2-b17d-38fd-27cc-6d92ff38e8dd@mojatatu.com>
-References: <1497101461-20921-1-git-send-email-jhs@emojatatu.com>
- <20170610.190213.1437094451353913622.davem@davemloft.net>
- <056cbd5c-2a5f-8767-e584-591f39bc2029@mojatatu.com>
- <CAKD1Yr1GcK3XQpyx=p-EHWXHax_+-HXpHFT6uWZY_9ovv8V7mA@mail.gmail.com>
+From: Simon Wunderlich <sw@simonwunderlich.de>
+Subject: [PATCH 00/10] pull request for net-next: batman-adv 2017-06-13
+Date: Tue, 13 Jun 2017 13:36:50 +0200
+Message-ID: <20170613113700.31220-1-sw@simonwunderlich.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        mrv@mojatatu.com, hadi@mojatatu.com
-To: Lorenzo Colitti <lorenzo@google.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+        Simon Wunderlich <sw@simonwunderlich.de>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:36488 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752109AbdFMLdn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 07:33:43 -0400
-Received: by mail-io0-f195.google.com with SMTP id i93so12648069iod.3
-        for <netdev@vger.kernel.org>; Tue, 13 Jun 2017 04:33:43 -0700 (PDT)
-In-Reply-To: <CAKD1Yr1GcK3XQpyx=p-EHWXHax_+-HXpHFT6uWZY_9ovv8V7mA@mail.gmail.com>
-Content-Language: en-GB
+Received: from packetmixer.de ([79.140.42.25]:43784 "EHLO
+        mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752294AbdFMLhH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 07:37:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-06-12 08:34 PM, Lorenzo Colitti wrote:
-> On Sun, Jun 11, 2017 at 8:58 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
->>> Maybe this should both be "inet_request_mark()"?
+Hi David,
 
-> As David says, the tcp_fwmark_accept sysctl is not really appropriate
-> for synack packets - what it does is ensure that when a connection is
-> accepted, sk->sk_mark is set to the mark of the incoming skb.
-> 
-> I think the correct behaviour here is to to honour the
-> ip_fwmark_reflect sysctl instead, and if it's enabled, make the synack
-> mark be the same as the the incoming syn mark.
-> 
+here is our feature/cleanup pull request of batman-adv to go into net-next.
 
-Ok, so in the patch I sent then change this:
+Please pull or let me know of any problem!
 
-+       if (sock_net(sk)->ipv4.sysctl_tcp_fwmark_accept)
-+               skb->mark = ireq->ir_mark;
+Thank you,
+      Simon
 
-to:
+The following changes since commit 2ea659a9ef488125eb46da6eb571de5eae5c43f6:
 
-+       if (sock_net(sk)->ipv4.fwmark_reflect)
-+               skb->mark = ireq->ir_mark;
+  Linux 4.12-rc1 (2017-05-13 13:19:49 -0700)
 
-correct?
+are available in the git repository at:
 
-cheers,
-jamal
+  git://git.open-mesh.org/linux-merge.git tags/batadv-next-for-davem-20170613
+
+for you to fetch changes up to d62890885efbc48acea46964ea3af69b61c8c5eb:
+
+  batman-adv: Accept only filled wifi station info (2017-06-13 12:25:43 +0200)
+
+----------------------------------------------------------------
+This feature/cleanup patchset includes the following patches:
+
+ - bump version strings, by Simon Wunderlich
+
+ - decrease maximum fragment size, by Matthias Schiffer
+
+ - Clean up seqfile writing, by Markus Elfring (2 patches)
+
+ - use __func__ in debug messages, by Sven Eckelmann
+
+ - Mark tpmeter initializers with __init, by Antonio Quartulli
+
+ - ignore loop detection MAC addresses, by Simon Wunderlich
+
+ - clean up some return handling, by Simon Wunderlich
+
+ - improve ELP throughput value handling for WiFi neighbors
+   in BATMAN V/ELP, by Sven Eckelmann (2 patches)
+
+----------------------------------------------------------------
+Antonio Quartulli (1):
+      batman-adv: tp_meter: mark init function with __init
+
+Markus Elfring (2):
+      batman-adv: Replace a seq_puts() call by seq_putc() in two functions
+      batman-adv: Combine two seq_puts() calls into one call in batadv_nc_nodes_seq_print_text()
+
+Matthias Schiffer (1):
+      batman-adv: decrease maximum fragment size
+
+Simon Wunderlich (3):
+      batman-adv: Start new development cycle
+      batman-adv: do not add loop detection mac addresses to global tt
+      batman-adv: simplify return handling in some TT functions
+
+Sven Eckelmann (3):
+      batman-adv: Print correct function names in dbg messages
+      batman-adv: Use default throughput value on cfg80211 error
+      batman-adv: Accept only filled wifi station info
+
+ net/batman-adv/bat_iv_ogm.c            |  5 ++-
+ net/batman-adv/bat_v.c                 |  2 +-
+ net/batman-adv/bat_v_elp.c             | 10 ++++-
+ net/batman-adv/bridge_loop_avoidance.c | 73 ++++++++++++++++++----------------
+ net/batman-adv/distributed-arp-table.c |  2 +-
+ net/batman-adv/main.h                  |  4 +-
+ net/batman-adv/network-coding.c        |  4 +-
+ net/batman-adv/routing.c               |  4 +-
+ net/batman-adv/send.c                  |  6 +--
+ net/batman-adv/tp_meter.c              |  3 +-
+ net/batman-adv/translation-table.c     | 21 +++++-----
+ 11 files changed, 72 insertions(+), 62 deletions(-)
