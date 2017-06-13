@@ -1,28 +1,47 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: kernel BUG at net/ipv4/tcp_output.c:2748!
-Date: Tue, 13 Jun 2017 15:02:46 +0200
-Message-ID: <20170613130246.GA23325@kroah.com>
-References: <CAJsXRPG5_0q95s_p7yRKT2crU-ghgTMx6ki8mRSg=MkJ58becA@mail.gmail.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH][netdev-next] net: hns: make guid hns_dsaf_acpi_dsm_guid static
+Date: Tue, 13 Jun 2017 14:03:21 +0100
+Message-ID: <20170613130321.7797-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, security@kernel.org
-To: Dison River <pwn2river@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Yisen Zhuang <yisen.zhuang@huawei.com>,
+        Salil Mehta <salil.mehta@huawei.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Daode Huang <huangdaode@hisilicon.com>,
+        Kejian Yan <yankejian@huawei.com>,
+        Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
+        oulijun <oulijun@huawei.com>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAJsXRPG5_0q95s_p7yRKT2crU-ghgTMx6ki8mRSg=MkJ58becA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 13, 2017 at 07:39:00PM +0800, Dison River wrote:
-> Hi
->    I've got the following error report while fuzzing the kernel with
-> syzkaller on
-> linux-4.11.0-rc3.
+From: Colin Ian King <colin.king@canonical.com>
 
-4.11-rc3 is pretty old now, can you try 4.12-rc4 for this?
+The guid hns_dsaf_acpi_dsm_guid does not need to be in global
+scope, so make it static.
 
-thanks,
+Cleans up sparse warning:
+"symbol 'hns_dsaf_acpi_dsm_guid' was not declared. Should it be static?"
 
-greg k-h
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
+index 6b15a507999c..7a8addda726e 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
+@@ -29,7 +29,7 @@ enum _dsm_rst_type {
+ 	HNS_ROCE_RESET_FUNC     = 0x7,
+ };
+ 
+-const guid_t hns_dsaf_acpi_dsm_guid =
++static const guid_t hns_dsaf_acpi_dsm_guid =
+ 	GUID_INIT(0x1A85AA1A, 0xE293, 0x415E,
+ 		  0x8E, 0x28, 0x8D, 0x69, 0x0A, 0x0F, 0x82, 0x0A);
+ 
+-- 
+2.11.0
