@@ -1,30 +1,25 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] qed: fix dump of context data
-Date: Tue, 13 Jun 2017 13:33:19 -0400 (EDT)
-Message-ID: <20170613.133319.437740378210457511.davem@davemloft.net>
-References: <1497345359-2193-1-git-send-email-Tomer.Tayar@cavium.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull-request: mac80211 2017-06-13
+Date: Tue, 13 Jun 2017 13:34:39 -0400 (EDT)
+Message-ID: <20170613.133439.1143649047996656005.davem@davemloft.net>
+References: <20170613094409.12965-1-johannes@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yuval.mintz@cavium.com
-To: Tomer.Tayar@cavium.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45558 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752253AbdFMRdV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 13:33:21 -0400
-In-Reply-To: <1497345359-2193-1-git-send-email-Tomer.Tayar@cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170613094409.12965-1-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Tomer Tayar <Tomer.Tayar@cavium.com>
-Date: Tue, 13 Jun 2017 12:15:59 +0300
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Tue, 13 Jun 2017 11:44:08 +0200
 
-> Currently when dumping a context data only word number '1' is read for the
-> entire context.
+> Here are some more fixes for the current cycle. Nothing really
+> big, though my own patches look bigger than they are due to some
+> code moving. The commit logs are far longer than the changes :-)
 > 
-> Fixes: c965db444629 ("qed: Add support for debug data collection")
-> 
-> Signed-off-by: Tomer Tayar <Tomer.Tayar@cavium.com>
+> Please pull and let me know if there's any problem.
 
-Applied.
+Pulled, thanks Johannes.
