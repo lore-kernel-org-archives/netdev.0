@@ -1,50 +1,618 @@
 From: Yonghong Song <yhs@fb.com>
-Subject: [PATCH 0/2] bpf: permit bpf program narrower loads for ctx fields
-Date: Tue, 13 Jun 2017 15:52:12 -0700
-Message-ID: <20170613225214.2854085-1-yhs@fb.com>
+Subject: [PATCH 1/2] bpf: permits narrower load from bpf program context fields
+Date: Tue, 13 Jun 2017 15:52:13 -0700
+Message-ID: <20170613225214.2854085-2-yhs@fb.com>
+References: <20170613225214.2854085-1-yhs@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <ast@fb.com>, <daniel@iogearbox.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:60630 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753217AbdFMWwS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 18:52:18 -0400
-Received: from pps.filterd (m0109332.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5DMmr8K000812
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:42326 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752259AbdFMWwR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 18:52:17 -0400
+Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5DMniJA016777
         for <netdev@vger.kernel.org>; Tue, 13 Jun 2017 15:52:17 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2b2nmdgpj1-1
+        by mx0a-00082601.pphosted.com with ESMTP id 2b2s0f8181-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
         for <netdev@vger.kernel.org>; Tue, 13 Jun 2017 15:52:17 -0700
 Received: from facebook.com (2401:db00:11:d0af:face:0:2d:0)     by
- mx-out.facebook.com (2401:db00:2050:5102:face:0000:003b:0000) with ESMTP       id
- f20e221e508a11e794de6fbdf6e974f4-a53328f0 for <netdev@vger.kernel.org>;        Tue,
+ mx-out.facebook.com (2401:db00:2050:5102:face:0000:0037:0000) with ESMTP       id
+ f21061e6508a11e7aa6675369c678944-fe93a8f0 for <netdev@vger.kernel.org>;        Tue,
  13 Jun 2017 15:52:15 -0700
+In-Reply-To: <20170613225214.2854085-1-yhs@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Today, if users try to access a ctx field through a narrower load, e.g.,
-__be16 prot = __sk_buff->protocol, verifier will fail.
-This set contains the verifier change to permit such loads for
-certain ctx fields as well as the new test cases in selftests/bpf.
+Currently, verifier will reject a program if it contains an
+narrower load from the bpf context structure. For example,
+        __u8 h = __sk_buff->hash, or
+        __u16 p = __sk_buff->protocol
+        __u32 sample_period = bpf_perf_event_data->sample_period
+which are narrower loads of 4-byte or 8-byte field.
 
-Yonghong Song (2):
-  bpf: permits narrower load from bpf program context fields
-  selftests/bpf: Add test cases to test narrower ctx field loads
+This patch solves the issue by:
+  . Introduce a new parameter ctx_field_size to carry the
+    field size of narrower load from prog type
+    specific *__is_valid_access validator back to verifier.
+  . The non-zero ctx_field_size for a memory access indicates
+    (1). underlying prog type specific convert_ctx_accesses
+         supporting non-whole-field access
+    (2). the current insn is a narrower or whole field access.
+  . In verifier, for such loads where load memory size is
+    less than ctx_field_size, verifier transforms it
+    to a full field load followed by proper masking.
+  . Currently, __sk_buff and bpf_perf_event_data->sample_period
+    are supporting narrowing loads.
+  . Narrower stores are still not allowed as typical ctx stores
+    are just normal stores.
 
- include/linux/bpf.h                              |   2 +-
- include/linux/bpf_verifier.h                     |   1 +
- kernel/bpf/verifier.c                            |  71 +++++---
- kernel/trace/bpf_trace.c                         |  21 ++-
- net/core/filter.c                                |  56 +++++--
- tools/testing/selftests/bpf/Makefile             |   3 +-
- tools/testing/selftests/bpf/test_pkt_md_access.c |  35 ++++
- tools/testing/selftests/bpf/test_progs.c         |  21 +++
- tools/testing/selftests/bpf/test_verifier.c      | 200 ++++++++++++++++++-----
- 9 files changed, 324 insertions(+), 86 deletions(-)
- create mode 100644 tools/testing/selftests/bpf/test_pkt_md_access.c
+Because of this change, some tests in verifier will fail and
+these tests are removed. As a bonus, rename some out of bound
+__sk_buff->cb access to proper field name and remove two
+redundant "skb cb oob" tests.
 
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Yonghong Song <yhs@fb.com>
+---
+ include/linux/bpf.h                         |  2 +-
+ include/linux/bpf_verifier.h                |  1 +
+ kernel/bpf/verifier.c                       | 71 ++++++++++++++++------
+ kernel/trace/bpf_trace.c                    | 21 +++++--
+ net/core/filter.c                           | 56 +++++++++++++-----
+ tools/testing/selftests/bpf/test_verifier.c | 92 ++++-------------------------
+ 6 files changed, 124 insertions(+), 119 deletions(-)
+
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index c32bace..1bcbf0a 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -157,7 +157,7 @@ struct bpf_verifier_ops {
+ 	 * with 'type' (read or write) is allowed
+ 	 */
+ 	bool (*is_valid_access)(int off, int size, enum bpf_access_type type,
+-				enum bpf_reg_type *reg_type);
++				enum bpf_reg_type *reg_type, int *ctx_field_size);
+ 	int (*gen_prologue)(struct bpf_insn *insn, bool direct_write,
+ 			    const struct bpf_prog *prog);
+ 	u32 (*convert_ctx_access)(enum bpf_access_type type,
+diff --git a/include/linux/bpf_verifier.h b/include/linux/bpf_verifier.h
+index d5093b5..189741c 100644
+--- a/include/linux/bpf_verifier.h
++++ b/include/linux/bpf_verifier.h
+@@ -73,6 +73,7 @@ struct bpf_insn_aux_data {
+ 		enum bpf_reg_type ptr_type;	/* pointer type for load/store insns */
+ 		struct bpf_map *map_ptr;	/* pointer for call insn into lookup_elem */
+ 	};
++	int ctx_field_size; /* the ctx field size for load/store insns, maybe 0 */
+ };
+ 
+ #define MAX_USED_MAPS 64 /* max number of maps accessed by one eBPF program */
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 519a614..44b97d9 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -758,15 +758,26 @@ static int check_packet_access(struct bpf_verifier_env *env, u32 regno, int off,
+ }
+ 
+ /* check access to 'struct bpf_context' fields */
+-static int check_ctx_access(struct bpf_verifier_env *env, int off, int size,
++static int check_ctx_access(struct bpf_verifier_env *env, int insn_idx, int off, int size,
+ 			    enum bpf_access_type t, enum bpf_reg_type *reg_type)
+ {
++	int ctx_field_size = 0;
++
+ 	/* for analyzer ctx accesses are already validated and converted */
+ 	if (env->analyzer_ops)
+ 		return 0;
+ 
+ 	if (env->prog->aux->ops->is_valid_access &&
+-	    env->prog->aux->ops->is_valid_access(off, size, t, reg_type)) {
++	    env->prog->aux->ops->is_valid_access(off, size, t, reg_type, &ctx_field_size)) {
++		/* a non zero ctx_field_size indicates:
++		 * . For this field, the prog type specific ctx conversion algorithm
++		 *   only supports whole field access.
++		 * . This ctx access is a candiate for later verifier transformation
++		 *   to load the whole field and then apply a mask to get correct result.
++		 */
++		if (ctx_field_size)
++			env->insn_aux_data[insn_idx].ctx_field_size = ctx_field_size;
++
+ 		/* remember the offset of last byte accessed in ctx */
+ 		if (env->prog->aux->max_ctx_offset < off + size)
+ 			env->prog->aux->max_ctx_offset = off + size;
+@@ -868,7 +879,7 @@ static int check_ptr_alignment(struct bpf_verifier_env *env,
+  * if t==write && value_regno==-1, some unknown value is stored into memory
+  * if t==read && value_regno==-1, don't care what we read from memory
+  */
+-static int check_mem_access(struct bpf_verifier_env *env, u32 regno, int off,
++static int check_mem_access(struct bpf_verifier_env *env, int insn_idx, u32 regno, int off,
+ 			    int bpf_size, enum bpf_access_type t,
+ 			    int value_regno)
+ {
+@@ -911,7 +922,7 @@ static int check_mem_access(struct bpf_verifier_env *env, u32 regno, int off,
+ 			verbose("R%d leaks addr into ctx\n", value_regno);
+ 			return -EACCES;
+ 		}
+-		err = check_ctx_access(env, off, size, t, &reg_type);
++		err = check_ctx_access(env, insn_idx, off, size, t, &reg_type);
+ 		if (!err && t == BPF_READ && value_regno >= 0) {
+ 			mark_reg_unknown_value_and_range(state->regs,
+ 							 value_regno);
+@@ -972,7 +983,7 @@ static int check_mem_access(struct bpf_verifier_env *env, u32 regno, int off,
+ 	return err;
+ }
+ 
+-static int check_xadd(struct bpf_verifier_env *env, struct bpf_insn *insn)
++static int check_xadd(struct bpf_verifier_env *env, int insn_idx, struct bpf_insn *insn)
+ {
+ 	struct bpf_reg_state *regs = env->cur_state.regs;
+ 	int err;
+@@ -994,13 +1005,13 @@ static int check_xadd(struct bpf_verifier_env *env, struct bpf_insn *insn)
+ 		return err;
+ 
+ 	/* check whether atomic_add can read the memory */
+-	err = check_mem_access(env, insn->dst_reg, insn->off,
++	err = check_mem_access(env, insn_idx, insn->dst_reg, insn->off,
+ 			       BPF_SIZE(insn->code), BPF_READ, -1);
+ 	if (err)
+ 		return err;
+ 
+ 	/* check whether atomic_add can write into the same memory */
+-	return check_mem_access(env, insn->dst_reg, insn->off,
++	return check_mem_access(env, insn_idx, insn->dst_reg, insn->off,
+ 				BPF_SIZE(insn->code), BPF_WRITE, -1);
+ }
+ 
+@@ -1416,7 +1427,7 @@ static int check_call(struct bpf_verifier_env *env, int func_id, int insn_idx)
+ 	 * is inferred from register state.
+ 	 */
+ 	for (i = 0; i < meta.access_size; i++) {
+-		err = check_mem_access(env, meta.regno, i, BPF_B, BPF_WRITE, -1);
++		err = check_mem_access(env, insn_idx, meta.regno, i, BPF_B, BPF_WRITE, -1);
+ 		if (err)
+ 			return err;
+ 	}
+@@ -2993,18 +3004,12 @@ static int do_check(struct bpf_verifier_env *env)
+ 			/* check that memory (src_reg + off) is readable,
+ 			 * the state of dst_reg will be updated by this func
+ 			 */
+-			err = check_mem_access(env, insn->src_reg, insn->off,
++			err = check_mem_access(env, insn_idx, insn->src_reg, insn->off,
+ 					       BPF_SIZE(insn->code), BPF_READ,
+ 					       insn->dst_reg);
+ 			if (err)
+ 				return err;
+ 
+-			if (BPF_SIZE(insn->code) != BPF_W &&
+-			    BPF_SIZE(insn->code) != BPF_DW) {
+-				insn_idx++;
+-				continue;
+-			}
+-
+ 			prev_src_type = &env->insn_aux_data[insn_idx].ptr_type;
+ 
+ 			if (*prev_src_type == NOT_INIT) {
+@@ -3032,7 +3037,7 @@ static int do_check(struct bpf_verifier_env *env)
+ 			enum bpf_reg_type *prev_dst_type, dst_reg_type;
+ 
+ 			if (BPF_MODE(insn->code) == BPF_XADD) {
+-				err = check_xadd(env, insn);
++				err = check_xadd(env, insn_idx, insn);
+ 				if (err)
+ 					return err;
+ 				insn_idx++;
+@@ -3051,7 +3056,7 @@ static int do_check(struct bpf_verifier_env *env)
+ 			dst_reg_type = regs[insn->dst_reg].type;
+ 
+ 			/* check that memory (dst_reg + off) is writeable */
+-			err = check_mem_access(env, insn->dst_reg, insn->off,
++			err = check_mem_access(env, insn_idx, insn->dst_reg, insn->off,
+ 					       BPF_SIZE(insn->code), BPF_WRITE,
+ 					       insn->src_reg);
+ 			if (err)
+@@ -3080,7 +3085,7 @@ static int do_check(struct bpf_verifier_env *env)
+ 				return err;
+ 
+ 			/* check that memory (dst_reg + off) is writeable */
+-			err = check_mem_access(env, insn->dst_reg, insn->off,
++			err = check_mem_access(env, insn_idx, insn->dst_reg, insn->off,
+ 					       BPF_SIZE(insn->code), BPF_WRITE,
+ 					       -1);
+ 			if (err)
+@@ -3383,7 +3388,7 @@ static int convert_ctx_accesses(struct bpf_verifier_env *env)
+ 	struct bpf_insn insn_buf[16], *insn;
+ 	struct bpf_prog *new_prog;
+ 	enum bpf_access_type type;
+-	int i, cnt, delta = 0;
++	int i, cnt, off, size, ctx_field_size, is_narrower_load, delta = 0;
+ 
+ 	if (ops->gen_prologue) {
+ 		cnt = ops->gen_prologue(insn_buf, env->seen_direct_write,
+@@ -3423,11 +3428,39 @@ static int convert_ctx_accesses(struct bpf_verifier_env *env)
+ 		if (env->insn_aux_data[i + delta].ptr_type != PTR_TO_CTX)
+ 			continue;
+ 
++		off = insn->off;
++		size = bpf_size_to_bytes(BPF_SIZE(insn->code));
++		ctx_field_size = env->insn_aux_data[i + delta].ctx_field_size;
++		is_narrower_load = (type == BPF_READ && size < ctx_field_size);
++
++		/* If the read access is a narrower load of the field,
++		 * convert to a 4/8-byte load, to minimum program type specific
++		 * convert_ctx_access changes. If conversion is successful,
++		 * we will apply proper mask to the result.
++		 */
++		if (is_narrower_load) {
++			int size_code = BPF_H;
++
++			if (ctx_field_size == 4)
++				size_code = BPF_W;
++			else if (ctx_field_size == 8)
++				size_code = BPF_DW;
++			insn->off = off & ~(ctx_field_size - 1);
++			insn->code = BPF_LDX | BPF_MEM | size_code;
++		}
+ 		cnt = ops->convert_ctx_access(type, insn, insn_buf, env->prog);
+ 		if (cnt == 0 || cnt >= ARRAY_SIZE(insn_buf)) {
+ 			verbose("bpf verifier is misconfigured\n");
+ 			return -EINVAL;
+ 		}
++		if (is_narrower_load) {
++			if (ctx_field_size <= 4)
++				insn_buf[cnt++] = BPF_ALU32_IMM(BPF_AND, insn->dst_reg,
++							(1 << size * 8) - 1);
++			else
++				insn_buf[cnt++] = BPF_ALU64_IMM(BPF_AND, insn->dst_reg,
++							(1 << size * 8) - 1);
++		}
+ 
+ 		new_prog = bpf_patch_insn_data(env, i + delta, insn_buf, cnt);
+ 		if (!new_prog)
+diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+index 051d7fc..9d3ec82 100644
+--- a/kernel/trace/bpf_trace.c
++++ b/kernel/trace/bpf_trace.c
+@@ -479,7 +479,7 @@ static const struct bpf_func_proto *kprobe_prog_func_proto(enum bpf_func_id func
+ 
+ /* bpf+kprobe programs can access fields of 'struct pt_regs' */
+ static bool kprobe_prog_is_valid_access(int off, int size, enum bpf_access_type type,
+-					enum bpf_reg_type *reg_type)
++					enum bpf_reg_type *reg_type, int *ctx_field_size)
+ {
+ 	if (off < 0 || off >= sizeof(struct pt_regs))
+ 		return false;
+@@ -562,7 +562,7 @@ static const struct bpf_func_proto *tp_prog_func_proto(enum bpf_func_id func_id)
+ }
+ 
+ static bool tp_prog_is_valid_access(int off, int size, enum bpf_access_type type,
+-				    enum bpf_reg_type *reg_type)
++				    enum bpf_reg_type *reg_type, int *ctx_field_size)
+ {
+ 	if (off < sizeof(void *) || off >= PERF_MAX_TRACE_SIZE)
+ 		return false;
+@@ -581,17 +581,26 @@ const struct bpf_verifier_ops tracepoint_prog_ops = {
+ };
+ 
+ static bool pe_prog_is_valid_access(int off, int size, enum bpf_access_type type,
+-				    enum bpf_reg_type *reg_type)
++				    enum bpf_reg_type *reg_type, int *ctx_field_size)
+ {
++	int sample_period_off;
++
+ 	if (off < 0 || off >= sizeof(struct bpf_perf_event_data))
+ 		return false;
+ 	if (type != BPF_READ)
+ 		return false;
+ 	if (off % size != 0)
+ 		return false;
+-	if (off == offsetof(struct bpf_perf_event_data, sample_period)) {
+-		if (size != sizeof(u64))
+-			return false;
++
++	/* permit 1, 2, 4 byte narrower and 8 normal read access to sample_period */
++	sample_period_off = offsetof(struct bpf_perf_event_data, sample_period);
++	if (off >= sample_period_off && off < sample_period_off + sizeof(__u64)) {
++		*ctx_field_size = 8;
++#ifdef __LITTLE_ENDIAN
++		return (off & 0x7) == 0 && size <= 8 && (size & (size - 1)) == 0;
++#else
++		return ((off & 0x7) + size) == 8 && size <= 8 && (size & (size - 1)) == 0;
++#endif
+ 	} else {
+ 		if (size != sizeof(long))
+ 			return false;
+diff --git a/net/core/filter.c b/net/core/filter.c
+index a65a3b2..60ed6f3 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -2856,7 +2856,8 @@ lwt_xmit_func_proto(enum bpf_func_id func_id)
+ 	}
+ }
+ 
+-static bool __is_valid_access(int off, int size)
++static bool __is_valid_access(int off, int size, enum bpf_access_type type,
++			      int *ctx_field_size)
+ {
+ 	if (off < 0 || off >= sizeof(struct __sk_buff))
+ 		return false;
+@@ -2872,9 +2873,27 @@ static bool __is_valid_access(int off, int size)
+ 		    offsetof(struct __sk_buff, cb[4]) + sizeof(__u32))
+ 			return false;
+ 		break;
+-	default:
++	case offsetof(struct __sk_buff, data) ...
++	     offsetof(struct __sk_buff, data) + sizeof(__u32) - 1:
++	case offsetof(struct __sk_buff, data_end) ...
++	     offsetof(struct __sk_buff, data_end) + sizeof(__u32) - 1:
+ 		if (size != sizeof(__u32))
+ 			return false;
++		break;
++	default:
++		/* permit narrower load for not cb/data/data_end fields */
++		*ctx_field_size = 4;
++		if (type == BPF_WRITE) {
++			if (size != sizeof(__u32))
++				return false;
++		} else {
++			if (size != sizeof(__u32))
++#ifdef __LITTLE_ENDIAN
++				return (off & 0x3) == 0 && (size == 1 || size == 2);
++#else
++				return (off & 0x3) + size == 4 && (size == 1 || size == 2);
++#endif
++		}
+ 	}
+ 
+ 	return true;
+@@ -2882,12 +2901,16 @@ static bool __is_valid_access(int off, int size)
+ 
+ static bool sk_filter_is_valid_access(int off, int size,
+ 				      enum bpf_access_type type,
+-				      enum bpf_reg_type *reg_type)
++				      enum bpf_reg_type *reg_type,
++				      int *ctx_field_size)
+ {
+ 	switch (off) {
+-	case offsetof(struct __sk_buff, tc_classid):
+-	case offsetof(struct __sk_buff, data):
+-	case offsetof(struct __sk_buff, data_end):
++	case offsetof(struct __sk_buff, tc_classid) ...
++	     offsetof(struct __sk_buff, tc_classid) + sizeof(__u32) - 1:
++	case offsetof(struct __sk_buff, data) ...
++	     offsetof(struct __sk_buff, data) + sizeof(__u32) - 1:
++	case offsetof(struct __sk_buff, data_end) ...
++	     offsetof(struct __sk_buff, data_end) + sizeof(__u32) - 1:
+ 		return false;
+ 	}
+ 
+@@ -2901,15 +2924,17 @@ static bool sk_filter_is_valid_access(int off, int size,
+ 		}
+ 	}
+ 
+-	return __is_valid_access(off, size);
++	return __is_valid_access(off, size, type, ctx_field_size);
+ }
+ 
+ static bool lwt_is_valid_access(int off, int size,
+ 				enum bpf_access_type type,
+-				enum bpf_reg_type *reg_type)
++				enum bpf_reg_type *reg_type,
++				int *ctx_field_size)
+ {
+ 	switch (off) {
+-	case offsetof(struct __sk_buff, tc_classid):
++	case offsetof(struct __sk_buff, tc_classid) ...
++	     offsetof(struct __sk_buff, tc_classid) + sizeof(__u32) - 1:
+ 		return false;
+ 	}
+ 
+@@ -2934,12 +2959,13 @@ static bool lwt_is_valid_access(int off, int size,
+ 		break;
+ 	}
+ 
+-	return __is_valid_access(off, size);
++	return __is_valid_access(off, size, type, ctx_field_size);
+ }
+ 
+ static bool sock_filter_is_valid_access(int off, int size,
+ 					enum bpf_access_type type,
+-					enum bpf_reg_type *reg_type)
++					enum bpf_reg_type *reg_type,
++					int *ctx_field_size)
+ {
+ 	if (type == BPF_WRITE) {
+ 		switch (off) {
+@@ -3002,7 +3028,8 @@ static int tc_cls_act_prologue(struct bpf_insn *insn_buf, bool direct_write,
+ 
+ static bool tc_cls_act_is_valid_access(int off, int size,
+ 				       enum bpf_access_type type,
+-				       enum bpf_reg_type *reg_type)
++				       enum bpf_reg_type *reg_type,
++				       int *ctx_field_size)
+ {
+ 	if (type == BPF_WRITE) {
+ 		switch (off) {
+@@ -3027,7 +3054,7 @@ static bool tc_cls_act_is_valid_access(int off, int size,
+ 		break;
+ 	}
+ 
+-	return __is_valid_access(off, size);
++	return __is_valid_access(off, size, type, ctx_field_size);
+ }
+ 
+ static bool __is_valid_xdp_access(int off, int size)
+@@ -3044,7 +3071,8 @@ static bool __is_valid_xdp_access(int off, int size)
+ 
+ static bool xdp_is_valid_access(int off, int size,
+ 				enum bpf_access_type type,
+-				enum bpf_reg_type *reg_type)
++				enum bpf_reg_type *reg_type,
++				int *ctx_field_size)
+ {
+ 	if (type == BPF_WRITE)
+ 		return false;
+diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
+index 4ee4708..1334170 100644
+--- a/tools/testing/selftests/bpf/test_verifier.c
++++ b/tools/testing/selftests/bpf/test_verifier.c
+@@ -1073,44 +1073,22 @@ static struct bpf_test tests[] = {
+ 		.result = ACCEPT,
+ 	},
+ 	{
+-		"check cb access: byte, oob 1",
++		"__sk_buff->hash, offset 0, byte store not permitted",
+ 		.insns = {
+ 			BPF_MOV64_IMM(BPF_REG_0, 0),
+ 			BPF_STX_MEM(BPF_B, BPF_REG_1, BPF_REG_0,
+-				    offsetof(struct __sk_buff, cb[4]) + 4),
++				    offsetof(struct __sk_buff, hash)),
+ 			BPF_EXIT_INSN(),
+ 		},
+ 		.errstr = "invalid bpf_context access",
+ 		.result = REJECT,
+ 	},
+ 	{
+-		"check cb access: byte, oob 2",
++		"__sk_buff->tc_index, offset 3, byte store not permitted",
+ 		.insns = {
+ 			BPF_MOV64_IMM(BPF_REG_0, 0),
+ 			BPF_STX_MEM(BPF_B, BPF_REG_1, BPF_REG_0,
+-				    offsetof(struct __sk_buff, cb[0]) - 1),
+-			BPF_EXIT_INSN(),
+-		},
+-		.errstr = "invalid bpf_context access",
+-		.result = REJECT,
+-	},
+-	{
+-		"check cb access: byte, oob 3",
+-		.insns = {
+-			BPF_MOV64_IMM(BPF_REG_0, 0),
+-			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_1,
+-				    offsetof(struct __sk_buff, cb[4]) + 4),
+-			BPF_EXIT_INSN(),
+-		},
+-		.errstr = "invalid bpf_context access",
+-		.result = REJECT,
+-	},
+-	{
+-		"check cb access: byte, oob 4",
+-		.insns = {
+-			BPF_MOV64_IMM(BPF_REG_0, 0),
+-			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_1,
+-				    offsetof(struct __sk_buff, cb[0]) - 1),
++				    offsetof(struct __sk_buff, tc_index) + 3),
+ 			BPF_EXIT_INSN(),
+ 		},
+ 		.errstr = "invalid bpf_context access",
+@@ -1188,44 +1166,22 @@ static struct bpf_test tests[] = {
+ 		.result = REJECT,
+ 	},
+ 	{
+-		"check cb access: half, oob 1",
++		"check __sk_buff->hash, offset 0, half store not permitted",
+ 		.insns = {
+ 			BPF_MOV64_IMM(BPF_REG_0, 0),
+ 			BPF_STX_MEM(BPF_H, BPF_REG_1, BPF_REG_0,
+-				    offsetof(struct __sk_buff, cb[4]) + 4),
++				    offsetof(struct __sk_buff, hash)),
+ 			BPF_EXIT_INSN(),
+ 		},
+ 		.errstr = "invalid bpf_context access",
+ 		.result = REJECT,
+ 	},
+ 	{
+-		"check cb access: half, oob 2",
++		"check __sk_buff->tc_index, offset 2, half store not permitted",
+ 		.insns = {
+ 			BPF_MOV64_IMM(BPF_REG_0, 0),
+ 			BPF_STX_MEM(BPF_H, BPF_REG_1, BPF_REG_0,
+-				    offsetof(struct __sk_buff, cb[0]) - 2),
+-			BPF_EXIT_INSN(),
+-		},
+-		.errstr = "invalid bpf_context access",
+-		.result = REJECT,
+-	},
+-	{
+-		"check cb access: half, oob 3",
+-		.insns = {
+-			BPF_MOV64_IMM(BPF_REG_0, 0),
+-			BPF_LDX_MEM(BPF_H, BPF_REG_0, BPF_REG_1,
+-				    offsetof(struct __sk_buff, cb[4]) + 4),
+-			BPF_EXIT_INSN(),
+-		},
+-		.errstr = "invalid bpf_context access",
+-		.result = REJECT,
+-	},
+-	{
+-		"check cb access: half, oob 4",
+-		.insns = {
+-			BPF_MOV64_IMM(BPF_REG_0, 0),
+-			BPF_LDX_MEM(BPF_H, BPF_REG_0, BPF_REG_1,
+-				    offsetof(struct __sk_buff, cb[0]) - 2),
++				    offsetof(struct __sk_buff, tc_index) + 2),
+ 			BPF_EXIT_INSN(),
+ 		},
+ 		.errstr = "invalid bpf_context access",
+@@ -1368,28 +1324,6 @@ static struct bpf_test tests[] = {
+ 		"check cb access: double, oob 2",
+ 		.insns = {
+ 			BPF_MOV64_IMM(BPF_REG_0, 0),
+-			BPF_STX_MEM(BPF_DW, BPF_REG_1, BPF_REG_0,
+-				    offsetof(struct __sk_buff, cb[4]) + 8),
+-			BPF_EXIT_INSN(),
+-		},
+-		.errstr = "invalid bpf_context access",
+-		.result = REJECT,
+-	},
+-	{
+-		"check cb access: double, oob 3",
+-		.insns = {
+-			BPF_MOV64_IMM(BPF_REG_0, 0),
+-			BPF_STX_MEM(BPF_DW, BPF_REG_1, BPF_REG_0,
+-				    offsetof(struct __sk_buff, cb[0]) - 8),
+-			BPF_EXIT_INSN(),
+-		},
+-		.errstr = "invalid bpf_context access",
+-		.result = REJECT,
+-	},
+-	{
+-		"check cb access: double, oob 4",
+-		.insns = {
+-			BPF_MOV64_IMM(BPF_REG_0, 0),
+ 			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1,
+ 				    offsetof(struct __sk_buff, cb[4])),
+ 			BPF_EXIT_INSN(),
+@@ -1398,22 +1332,22 @@ static struct bpf_test tests[] = {
+ 		.result = REJECT,
+ 	},
+ 	{
+-		"check cb access: double, oob 5",
++		"check __sk_buff->ifindex dw store not permitted",
+ 		.insns = {
+ 			BPF_MOV64_IMM(BPF_REG_0, 0),
+-			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1,
+-				    offsetof(struct __sk_buff, cb[4]) + 8),
++			BPF_STX_MEM(BPF_DW, BPF_REG_1, BPF_REG_0,
++				    offsetof(struct __sk_buff, ifindex)),
+ 			BPF_EXIT_INSN(),
+ 		},
+ 		.errstr = "invalid bpf_context access",
+ 		.result = REJECT,
+ 	},
+ 	{
+-		"check cb access: double, oob 6",
++		"check __sk_buff->ifindex dw load not permitted",
+ 		.insns = {
+ 			BPF_MOV64_IMM(BPF_REG_0, 0),
+ 			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1,
+-				    offsetof(struct __sk_buff, cb[0]) - 8),
++				    offsetof(struct __sk_buff, ifindex)),
+ 			BPF_EXIT_INSN(),
+ 		},
+ 		.errstr = "invalid bpf_context access",
 -- 
 2.9.3
