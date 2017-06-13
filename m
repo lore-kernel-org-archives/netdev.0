@@ -1,60 +1,35 @@
-From: Enric Balletbo Serra <eballetbo@gmail.com>
-Subject: Re: brcmfmac: Fix kernel oops on resume when request firmware fails.
-Date: Tue, 13 Jun 2017 12:23:35 +0200
-Message-ID: <CAFqH_53v341QhUewFR5aQdZE1bPo5J5TY0G6zkXU9y0c5VEz1g@mail.gmail.com>
-References: <20170523180733.26276-1-enric.balletbo@collabora.com> <20170613055448.C0CD36075B@smtp.codeaurora.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 0/2] MDIO bus reset GPIO cleanups
+Date: Tue, 13 Jun 2017 13:28:37 +0300
+Message-ID: <eedb8398-58b7-b73e-636a-1cccc10afd98@cogentembedded.com>
+References: <20170612205537.977289294@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Enric Balletbo i Serra <enric.balletbo@collabora.com>,
-        Arend van Spriel <arend.vanspriel@broadcom.com>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        Christian Daudt <csd@broadcom.com>
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170613055448.C0CD36075B@smtp.codeaurora.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Frank Rowand <frowand.list@gmail.com>, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f41.google.com ([209.85.215.41]:35993 "EHLO
+        mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752622AbdFMK2i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 06:28:38 -0400
+Received: by mail-lf0-f41.google.com with SMTP id o83so67109253lff.3
+        for <netdev@vger.kernel.org>; Tue, 13 Jun 2017 03:28:37 -0700 (PDT)
+In-Reply-To: <20170612205537.977289294@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Kalle,
+On 6/12/2017 11:55 PM, Sergei Shtylyov wrote:
 
-2017-06-13 7:54 GMT+02:00 Kalle Valo <kvalo@codeaurora.org>:
-> Enric Balletbo i Serra <enric.balletbo@collabora.com> wrote:
->
->> When request firmware fails, brcmf_ops_sdio_remove is being called and
->> brcmf_bus freed. In such circumstancies if you do a suspend/resume cycle
->> the kernel hangs on resume due a NULL pointer dereference in resume
->> function.
->>
->> Steps to reproduce the problem:
->>  - modprobe brcmfmac without the firmware
->>      brcmfmac mmc1:0001:1: Direct firmware load for brcm/brcmfmac4354-sdio.bin
->>      failed with error -2
->>  - do a suspend/resume cycle (echo mem > /sys/power/state)
->>
->> Protect against the NULL pointer derefence by checking if dev_get_drvdata
->> returned a valid pointer.
->>
->> Signed-off-by: Enric Balletbo i Serra <enric.balletbo@collabora.com>
->
-> My understanding is that there's a new version of this patch which fixes
-> the issue. If not, let me know.
->
-> Patch set to Superseded.
->
+> Commit 4c5e7a2c0501 ("dt-bindings: mdio: Clarify binding document")
+> declared that a MDIO reset GPIO property should have only a single GPIO
+> reference/specifier, however the supporting code was left intact...
+> Here's a couple of the obvious cleanups to that code:
 
-Yes there are these patch series [1] that fixes the issue, I guess
-Arend is working on a v2 to fix a small issue we found.
+    Apparently, I forgot how to write cover letters: the patches were against 
+net-next (well, at least this could be deduced from the patches themselves).
 
-[1] https://www.spinics.net/lists/linux-wireless/msg162762.html
-
-> --
-> https://patchwork.kernel.org/patch/9743159/
->
-> https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
->
-
-Regards,
- Enric
+MBR, Sergei
