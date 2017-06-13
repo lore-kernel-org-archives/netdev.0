@@ -1,40 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] networking: use skb_put_zero()
-Date: Tue, 13 Jun 2017 13:54:13 -0400 (EDT)
-Message-ID: <20170613.135413.281023855002218492.davem@davemloft.net>
-References: <20170613122818.3523-1-johannes@sipsolutions.net>
+Subject: Re: [net-next] fjes: remove duplicate set of flag IFF_BROADCAST
+Date: Tue, 13 Jun 2017 13:55:04 -0400 (EDT)
+Message-ID: <20170613.135504.254441343790339094.davem@davemloft.net>
+References: <1497358189-3342-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, johannes.berg@intel.com
-To: johannes@sipsolutions.net
+Cc: izumi.taku@jp.fujitsu.com, netdev@vger.kernel.org
+To: zhangshengju@cmss.chinamobile.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46154 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:46174 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753439AbdFMRyQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 13:54:16 -0400
-In-Reply-To: <20170613122818.3523-1-johannes@sipsolutions.net>
+        with ESMTP id S1752615AbdFMRzG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 13:55:06 -0400
+In-Reply-To: <1497358189-3342-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Tue, 13 Jun 2017 14:28:18 +0200
+From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Date: Tue, 13 Jun 2017 20:49:49 +0800
 
-> From: Johannes Berg <johannes.berg@intel.com>
+> Remove unnecessary set of flag IFF_BROADCAST, since ether_setup
+> already does this.
 > 
-> Use the recently introduced helper to replace the pattern of
-> skb_put() && memset(), this transformation was done with the
-> following spatch:
-> 
-> @@
-> identifier p;
-> expression len;
-> expression skb;
-> @@
-> -p = skb_put(skb, len);
-> -memset(p, 0, len);
-> +p = skb_put_zero(skb, len);
-> 
-> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
 
-Applied, thanks!
+Applied with commit log message fixed, thanks.
