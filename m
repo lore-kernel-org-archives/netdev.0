@@ -1,24 +1,25 @@
 From: <gregkh@linuxfoundation.org>
-Subject: patch "net: caif: convert to use DRIVER_ATTR_RO" added to driver-core-next
-Date: Tue, 13 Jun 2017 07:58:53 +0200
-Message-ID: <1497333533195173@kroah.com>
+Subject: patch "wireless: ipw2x00: convert to use DRIVER_ATTR_RW" added to driver-core-next
+Date: Tue, 13 Jun 2017 07:58:56 +0200
+Message-ID: <1497333536150221@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ANSI_X3.4-1968
 Content-Transfer-Encoding: 8bit
-To: gregkh@linuxfoundation.org, davem@davemloft.net,
-        dmitry.tarnyagin@lockless.no, netdev@vger.kernel.org
+To: gregkh@linuxfoundation.org, kvalo@codeaurora.org,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        stas.yakovlev@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:43236 "EHLO
+Received: from mail.linuxfoundation.org ([140.211.169.12]:43374 "EHLO
         mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752097AbdFMF7G (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 01:59:06 -0400
+        with ESMTP id S1752357AbdFMF7Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 01:59:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 This is a note to let you know that I've just added the patch titled
 
-    net: caif: convert to use DRIVER_ATTR_RO
+    wireless: ipw2x00: convert to use DRIVER_ATTR_RW
 
 to my driver-core git tree which can be found at
     git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/driver-core.git
@@ -33,80 +34,83 @@ during the merge window.
 If you have any questions about this process, please let me know.
 
 
->From f85205c42eb0423e05c91d0276bfc86b136d42f6 Mon Sep 17 00:00:00 2001
+>From 0457e1ae0f4b88676b0cea30ef6acff24febbbc0 Mon Sep 17 00:00:00 2001
 From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Date: Fri, 9 Jun 2017 11:03:08 +0200
-Subject: net: caif: convert to use DRIVER_ATTR_RO
+Date: Fri, 9 Jun 2017 11:03:10 +0200
+Subject: wireless: ipw2x00: convert to use DRIVER_ATTR_RW
 
-We are trying to get rid of DRIVER_ATTR(), and the caif driver's
-attributes can be trivially changed to use DRIVER_ATTR_RO().
+We are trying to get rid of DRIVER_ATTR(), and the ipw2x00 driver's
+attributes can be trivially changed to use DRIVER_ATTR_RW().
 
-Cc: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>
+Cc: Stanislav Yakovlev <stas.yakovlev@gmail.com>
+Cc: Kalle Valo <kvalo@codeaurora.org>
+Cc: <linux-wireless@vger.kernel.org>
 Cc: <netdev@vger.kernel.org>
-Acked-by: David S. Miller <davem@davemloft.net>
 Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 ---
- drivers/net/caif/caif_spi.c | 20 ++++++++++----------
- 1 file changed, 10 insertions(+), 10 deletions(-)
+ drivers/net/wireless/intel/ipw2x00/ipw2100.c | 8 +++-----
+ drivers/net/wireless/intel/ipw2x00/ipw2200.c | 8 +++-----
+ 2 files changed, 6 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/caif/caif_spi.c b/drivers/net/caif/caif_spi.c
-index 3a529fbe539f..3281a3e0c144 100644
---- a/drivers/net/caif/caif_spi.c
-+++ b/drivers/net/caif/caif_spi.c
-@@ -289,44 +289,44 @@ static LIST_HEAD(cfspi_list);
- static spinlock_t cfspi_list_lock;
+diff --git a/drivers/net/wireless/intel/ipw2x00/ipw2100.c b/drivers/net/wireless/intel/ipw2x00/ipw2100.c
+index f922859acf40..aaaca4d08e2b 100644
+--- a/drivers/net/wireless/intel/ipw2x00/ipw2100.c
++++ b/drivers/net/wireless/intel/ipw2x00/ipw2100.c
+@@ -4160,12 +4160,12 @@ static ssize_t show_bssinfo(struct device *d, struct device_attribute *attr,
+ static DEVICE_ATTR(bssinfo, S_IRUGO, show_bssinfo, NULL);
  
- /* SPI uplink head alignment. */
--static ssize_t show_up_head_align(struct device_driver *driver, char *buf)
-+static ssize_t up_head_align_show(struct device_driver *driver, char *buf)
+ #ifdef CONFIG_IPW2100_DEBUG
+-static ssize_t show_debug_level(struct device_driver *d, char *buf)
++static ssize_t debug_level_show(struct device_driver *d, char *buf)
  {
- 	return sprintf(buf, "%d\n", spi_up_head_align);
+ 	return sprintf(buf, "0x%08X\n", ipw2100_debug_level);
  }
  
--static DRIVER_ATTR(up_head_align, S_IRUSR, show_up_head_align, NULL);
-+static DRIVER_ATTR_RO(up_head_align);
- 
- /* SPI uplink tail alignment. */
--static ssize_t show_up_tail_align(struct device_driver *driver, char *buf)
-+static ssize_t up_tail_align_show(struct device_driver *driver, char *buf)
+-static ssize_t store_debug_level(struct device_driver *d,
++static ssize_t debug_level_store(struct device_driver *d,
+ 				 const char *buf, size_t count)
  {
- 	return sprintf(buf, "%d\n", spi_up_tail_align);
+ 	u32 val;
+@@ -4179,9 +4179,7 @@ static ssize_t store_debug_level(struct device_driver *d,
+ 
+ 	return strnlen(buf, count);
+ }
+-
+-static DRIVER_ATTR(debug_level, S_IWUSR | S_IRUGO, show_debug_level,
+-		   store_debug_level);
++static DRIVER_ATTR_RW(debug_level);
+ #endif				/* CONFIG_IPW2100_DEBUG */
+ 
+ static ssize_t show_fatal_error(struct device *d,
+diff --git a/drivers/net/wireless/intel/ipw2x00/ipw2200.c b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
+index bbc579b647b6..5b79e2ec3a16 100644
+--- a/drivers/net/wireless/intel/ipw2x00/ipw2200.c
++++ b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
+@@ -1195,12 +1195,12 @@ static void ipw_led_shutdown(struct ipw_priv *priv)
+  *
+  * See the level definitions in ipw for details.
+  */
+-static ssize_t show_debug_level(struct device_driver *d, char *buf)
++static ssize_t debug_level_show(struct device_driver *d, char *buf)
+ {
+ 	return sprintf(buf, "0x%08X\n", ipw_debug_level);
  }
  
--static DRIVER_ATTR(up_tail_align, S_IRUSR, show_up_tail_align, NULL);
-+static DRIVER_ATTR_RO(up_tail_align);
- 
- /* SPI downlink head alignment. */
--static ssize_t show_down_head_align(struct device_driver *driver, char *buf)
-+static ssize_t down_head_align_show(struct device_driver *driver, char *buf)
+-static ssize_t store_debug_level(struct device_driver *d, const char *buf,
++static ssize_t debug_level_store(struct device_driver *d, const char *buf,
+ 				 size_t count)
  {
- 	return sprintf(buf, "%d\n", spi_down_head_align);
+ 	char *p = (char *)buf;
+@@ -1221,9 +1221,7 @@ static ssize_t store_debug_level(struct device_driver *d, const char *buf,
+ 
+ 	return strnlen(buf, count);
  }
+-
+-static DRIVER_ATTR(debug_level, S_IWUSR | S_IRUGO,
+-		   show_debug_level, store_debug_level);
++static DRIVER_ATTR_RW(debug_level);
  
--static DRIVER_ATTR(down_head_align, S_IRUSR, show_down_head_align, NULL);
-+static DRIVER_ATTR_RO(down_head_align);
- 
- /* SPI downlink tail alignment. */
--static ssize_t show_down_tail_align(struct device_driver *driver, char *buf)
-+static ssize_t down_tail_align_show(struct device_driver *driver, char *buf)
- {
- 	return sprintf(buf, "%d\n", spi_down_tail_align);
- }
- 
--static DRIVER_ATTR(down_tail_align, S_IRUSR, show_down_tail_align, NULL);
-+static DRIVER_ATTR_RO(down_tail_align);
- 
- /* SPI frame alignment. */
--static ssize_t show_frame_align(struct device_driver *driver, char *buf)
-+static ssize_t frame_align_show(struct device_driver *driver, char *buf)
- {
- 	return sprintf(buf, "%d\n", spi_frm_align);
- }
- 
--static DRIVER_ATTR(frame_align, S_IRUSR, show_frame_align, NULL);
-+static DRIVER_ATTR_RO(frame_align);
- 
- int cfspi_xmitfrm(struct cfspi *cfspi, u8 *buf, size_t len)
+ static inline u32 ipw_get_event_log_len(struct ipw_priv *priv)
  {
 -- 
 2.13.1
