@@ -1,43 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net-next 06/15] bpf: Sample bpf program to set
- initial window
-Date: Tue, 13 Jun 2017 17:14:52 -0400 (EDT)
-Message-ID: <20170613.171452.1515304283256474282.davem@davemloft.net>
-References: <20170613180004.3008403-1-brakmo@fb.com>
-        <20170613180004.3008403-7-brakmo@fb.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 6/9] net: hns3: Add MDIO support to HNS3
+ Ethernet driver for hip08 SoC
+Date: Tue, 13 Jun 2017 23:15:54 +0200
+Message-ID: <20170613211554.GD15847@lunn.ch>
+References: <20170610034630.493852-1-salil.mehta@huawei.com>
+ <20170610034630.493852-7-salil.mehta@huawei.com>
+ <ba416774-9ccc-e6b6-3518-fb492b8b2858@gmail.com>
+ <20170611024314.GD26740@lunn.ch>
+ <F4CC6FACFEB3C54C9141D49AD221F7F93B7A2303@FRAEML521-MBX.china.huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-team@fb.com, bmatheny@fb.com,
-        ast@fb.com, daniel@iogearbox.net, dsa@cumulusnetworks.com
-To: brakmo@fb.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51192 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752695AbdFMVOy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 17:14:54 -0400
-In-Reply-To: <20170613180004.3008403-7-brakmo@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
+        huangdaode <huangdaode@hisilicon.com>,
+        "lipeng (Y)" <lipeng321@huawei.com>,
+        "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Linuxarm <linuxarm@huawei.com>
+To: Salil Mehta <salil.mehta@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <F4CC6FACFEB3C54C9141D49AD221F7F93B7A2303@FRAEML521-MBX.china.huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Lawrence Brakmo <brakmo@fb.com>
-Date: Tue, 13 Jun 2017 10:59:55 -0700
+> You are correct is_c45 should not be derived from the type of PHY like
+> it is being done here. I have changed this code and now we are getting this
+> information from the IMP(Integrated Management Processor) which handles
+> the NIC commands and also maintains Ethernet specific configuration.
 
-> +SEC("sockops")
-> +int bpf_rwnd(struct __sk_buff *skb)
-> +{
-> +	struct bpf_socket_ops *skops = (struct bpf_socket_ops *) skb;
-> +	char fmt1[] = "BPF command: %d\n";
-> +	char fmt2[] = "  Returning %d\n";
-> +	int op;
-> +	int rv = -1;
+Florian
 
-Longest to shortest line for local variable declarations please.
+With c22, registering the MDIO bus is enough to cause all c22
+addresses to be probed and the PHYs found. If you are not using device
+tree, you can then use phy_find_first() to get the first phy on the
+bus.
 
-> +
-> +	// For testing purposes, only execute rest of BPF program
-> +	// if neither port numberis 55601
+As far as i remember, this does not work for c45. mdiobus_scan() is
+only looking for c22 PHYs. Maybe we should be making mdiobus_scan()
+look first for a c45 and then try c22?
 
-Again, please use non-C++ comments.
-
-Thank you.
+     Andrew
