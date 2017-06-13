@@ -1,39 +1,67 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [PATCH net-next 1/1] net: reflect mark on tcp syn ack packets
-Date: Tue, 13 Jun 2017 09:34:07 +0900
-Message-ID: <CAKD1Yr1GcK3XQpyx=p-EHWXHax_+-HXpHFT6uWZY_9ovv8V7mA@mail.gmail.com>
-References: <1497101461-20921-1-git-send-email-jhs@emojatatu.com>
- <20170610.190213.1437094451353913622.davem@davemloft.net> <056cbd5c-2a5f-8767-e584-591f39bc2029@mojatatu.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [PATCH net-next 05/10] bpf: bnxt: Report bpf_prog ID during XDP_QUERY_PROG
+Date: Mon, 12 Jun 2017 18:00:20 -0700
+Message-ID: <20170613010025.2983342-6-kafai@fb.com>
+References: <20170613010025.2983342-1-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        mrv@mojatatu.com, hadi@mojatatu.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain
+Cc: Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>, <kernel-team@fb.com>,
+        Michael Chan <michael.chan@broadcom.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f45.google.com ([209.85.213.45]:33299 "EHLO
-        mail-vk0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752508AbdFMAe3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 20:34:29 -0400
-Received: by mail-vk0-f45.google.com with SMTP id p62so56316185vkp.0
-        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 17:34:29 -0700 (PDT)
-In-Reply-To: <056cbd5c-2a5f-8767-e584-591f39bc2029@mojatatu.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:51629 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753136AbdFMBA3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2017 21:00:29 -0400
+Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5D10OpU012035
+        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 18:00:28 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 2b21t10v4a-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 12 Jun 2017 18:00:28 -0700
+Received: from facebook.com (2401:db00:11:d09a:face:0:41:0)     by
+ mx-out.facebook.com (10.212.232.59) with ESMTP id
+ b077dfd24fd311e7bd720002c991e86a-81f3b8f0 for <netdev@vger.kernel.org>;        Mon,
+ 12 Jun 2017 18:00:27 -0700
+In-Reply-To: <20170613010025.2983342-1-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 11, 2017 at 8:58 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
->> Maybe this should both be "inet_request_mark()"?
->>
->
-> Challenge is making of a synack requires a new allocated skb;
-> and sk is a listening socket - which should/has a mark of
-> 0 meaning at ip_build_and_send_pkt() it overrides
-> the value already set on the skb->mark.
+Add support to bnxt to report bpf_prog ID during XDP_QUERY_PROG.
 
-As David says, the tcp_fwmark_accept sysctl is not really appropriate
-for synack packets - what it does is ensure that when a connection is
-accepted, sk->sk_mark is set to the mark of the incoming skb.
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Cc: Michael Chan <michael.chan@broadcom.com>
+Acked-by: Alexei Starovoitov <ast@fb.com>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
 
-I think the correct behaviour here is to to honour the
-ip_fwmark_reflect sysctl instead, and if it's enabled, make the synack
-mark be the same as the the incoming syn mark.
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
+index 8ce793a0d030..5bf1c7ddb378 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
+@@ -216,10 +216,17 @@ int bnxt_xdp(struct net_device *dev, struct netdev_xdp *xdp)
+ 	case XDP_SETUP_PROG:
+ 		rc = bnxt_xdp_set(bp, xdp->prog);
+ 		break;
+-	case XDP_QUERY_PROG:
+-		xdp->prog_attached = !!bp->xdp_prog;
++	case XDP_QUERY_PROG: {
++		const struct bpf_prog *xdp_prog;
++
++		xdp_prog = READ_ONCE(bp->xdp_prog);
++		if (xdp_prog)
++			xdp->prog_id = xdp_prog->aux->id;
++		else
++			xdp->prog_id = 0;
+ 		rc = 0;
+ 		break;
++	}
+ 	default:
+ 		rc = -EINVAL;
+ 		break;
+-- 
+2.9.3
