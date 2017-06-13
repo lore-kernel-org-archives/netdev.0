@@ -1,85 +1,48 @@
-From: Yuval Shaia <yuval.shaia@oracle.com>
-Subject: Re: [Patch net] net_sched: move tcf_lock down after
- gen_replace_estimator()
-Date: Tue, 13 Jun 2017 23:40:41 +0300
-Message-ID: <20170613204040.GB3112@yuvallap>
-References: <1497386184-14960-1-git-send-email-xiyou.wangcong@gmail.com>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH] rtlwifi: rtl8821ae: remove unused variable
+Date: Tue, 13 Jun 2017 15:42:59 -0500
+Message-ID: <20170613204259.GA9189@embeddedgus>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, nicholashuber@gmail.com,
-        labbott@redhat.com, Jamal Hadi Salim <jhs@mojatatu.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:40290 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752327AbdFMUl2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 16:41:28 -0400
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+        Chaoming Li <chaoming_li@realsil.com.cn>,
+        Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1497386184-14960-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 13, 2017 at 01:36:24PM -0700, Cong Wang wrote:
-> Laura reported a sleep-in-atomic kernel warning inside
+Remove unused variable rtlhal.
 
-Since you added a Reported-by tag below i don't see a reason to
-specifically mention it in commit log message.
+Addresses-Coverity-ID: 1248810
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+---
+ drivers/net/wireless/realtek/rtlwifi/rtl8821ae/hw.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-> tcf_act_police_init() which calls gen_replace_estimator() with
-> spinlock protection.
-> 
-> It is not necessary in this case, we already have RTNL lock here
-> so it is enough to protect concurrent writers. For the reader,
-> i.e. tcf_act_police(), it needs to make decision based on this
-> rate estimator, in the worst case we drop more/less packets than
-> necessary while changing the rate in parallel, it is still acceptable.
-> 
-> Reported-by: Laura Abbott <labbott@redhat.com>
-> Reported-by: Nick Huber <nicholashuber@gmail.com>
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> ---
->  net/sched/act_police.c | 8 +++-----
->  1 file changed, 3 insertions(+), 5 deletions(-)
-> 
-> diff --git a/net/sched/act_police.c b/net/sched/act_police.c
-> index f42008b..b062bc8 100644
-> --- a/net/sched/act_police.c
-> +++ b/net/sched/act_police.c
-> @@ -132,21 +132,21 @@ static int tcf_act_police_init(struct net *net, struct nlattr *nla,
->  		}
->  	}
->  
-> -	spin_lock_bh(&police->tcf_lock);
->  	if (est) {
->  		err = gen_replace_estimator(&police->tcf_bstats, NULL,
->  					    &police->tcf_rate_est,
->  					    &police->tcf_lock,
->  					    NULL, est);
->  		if (err)
-> -			goto failure_unlock;
-> +			goto failure;
->  	} else if (tb[TCA_POLICE_AVRATE] &&
->  		   (ret == ACT_P_CREATED ||
->  		    !gen_estimator_active(&police->tcf_rate_est))) {
->  		err = -EINVAL;
-> -		goto failure_unlock;
-> +		goto failure;
->  	}
->  
-> +	spin_lock_bh(&police->tcf_lock);
->  	/* No failure allowed after this point */
->  	police->tcfp_mtu = parm->mtu;
->  	if (police->tcfp_mtu == 0) {
-> @@ -192,8 +192,6 @@ static int tcf_act_police_init(struct net *net, struct nlattr *nla,
->  
->  	return ret;
->  
-> -failure_unlock:
-> -	spin_unlock_bh(&police->tcf_lock);
->  failure:
->  	qdisc_put_rtab(P_tab);
->  	qdisc_put_rtab(R_tab);
-> -- 
-> 2.5.5
-> 
+diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/hw.c b/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/hw.c
+index 2bc6bac..d158e34 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/hw.c
++++ b/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/hw.c
+@@ -1360,7 +1360,6 @@ static bool _rtl8821ae_reset_pcie_interface_dma(struct ieee80211_hw *hw,
+ static void _rtl8821ae_get_wakeup_reason(struct ieee80211_hw *hw)
+ {
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+-	struct rtl_hal *rtlhal = rtl_hal(rtl_priv(hw));
+ 	struct rtl_ps_ctl *ppsc = rtl_psc(rtlpriv);
+ 	u8 fw_reason = 0;
+ 	struct timeval ts;
+@@ -1372,8 +1371,6 @@ static void _rtl8821ae_get_wakeup_reason(struct ieee80211_hw *hw)
+ 
+ 	ppsc->wakeup_reason = 0;
+ 
+-	rtlhal->last_suspend_sec = ts.tv_sec;
+-
+ 	switch (fw_reason) {
+ 	case FW_WOW_V2_PTK_UPDATE_EVENT:
+ 		ppsc->wakeup_reason = WOL_REASON_PTK_UPDATE;
+-- 
+2.5.0
