@@ -1,45 +1,89 @@
-From: Tom Bogendoerfer <tsbogend@alpha.franken.de>
-Subject: Re: [net-next] net: phy: marvell: Show complete link partner
- advertising
-Date: Tue, 13 Jun 2017 10:32:27 +0200
-Message-ID: <20170613083227.GA20254@alpha.franken.de>
-References: <20170612133237.E20945085BC@solo.franken.de>
- <a172b1f9-5141-6d53-1d96-bd028a0b0a23@gmail.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: stmmac tx timeout
+Date: Tue, 13 Jun 2017 10:38:52 +0200
+Message-ID: <20170613083852.GA17031@amd>
+References: <fc8e5141-5815-9a6d-51ed-ddd7e5c2bbc8@axis.com>
+ <20170523133946.GA7713@amd>
+ <9f7d2198-073f-435c-fd9a-f25889968b9d@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: andrew@lunn.ch, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, rmk+kernel@armlinux.org.uk
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="AqsLC8rIMeq19msA"
+Cc: Alexandre Torgue <alexandre.torgue@st.com>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Joao Pinto <Joao.Pinto@synopsys.com>,
+        Lars Persson <larper@axis.com>, netdev <netdev@vger.kernel.org>
+To: Niklas Cassel <niklas.cassel@axis.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:50007 "EHLO
+        atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752186AbdFMIjO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 04:39:14 -0400
 Content-Disposition: inline
-In-Reply-To: <a172b1f9-5141-6d53-1d96-bd028a0b0a23@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <9f7d2198-073f-435c-fd9a-f25889968b9d@axis.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 12, 2017 at 09:05:04AM -0700, Florian Fainelli wrote:
-> On 06/12/2017 05:54 AM, Thomas Bogendoerfer wrote:
-> > From: Thomas Bogendoerfer <tbogendoerfer@suse.de>
-> > 
-> > Give back all modes advertised by the link partner. This change brings
-> > the marvell phy driver in line with all other phy drivers.
-> > 
-> > Signed-off-by: Thomas Bogendoerfer <tbogendoerfer@suse.de>
-> 
-> I thought Russell had a similar patch but I can't find it applied in
-> net-next, so:
-> 
-> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-> 
-> drivers/net/phy/lxt.c has a similar pattern that would be worth fixing too.
 
-that's different and correct. The lpa value is not exported as lp_advertising,
-but only used internal. Well the bug here is IMHO, that it doesn't
-export lpa to lp_advertising at all as it's done in genphy_read_status().
-And from a quick grep there are more phy drivers doing that...
-I'll have a look later.
+--AqsLC8rIMeq19msA
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Thomas.
+Hi!
 
--- 
-Crap can work. Given enough thrust pigs will fly, but it's not necessarily a
-good idea.                                                [ RFC1925, 2.3 ]
+> > @@ -2043,7 +2063,11 @@ static netdev_tx_t stmmac_xmit(struct sk_buff
+> > *skb, stru\
+> > ct net_device *dev)
+> >         } else
+> > 	                priv->tx_count_frames =3D 0;
+> >=20
+> > +       dma_rmb();
+> > +       dma_wmb();
+> >         /* To avoid raise condition */
+> > +       BUG_ON(first->des01.etx.own); /* This BUG_ON seems to be enough.
+> > +                                          Replacing it with barriers i=
+s _not_enough. */
+> >         priv->hw->desc->set_tx_owner(first);
+> >  	wmb();
+> >=20
+> > No, the BUG_ON() does not trigger. Yes, it still fixes the driver for
+> > me. You may want to verify it has same effect for you.
+>=20
+> Hello Pavel,
+>=20
+> I am sincerely grateful for you help.
+>=20
+> I forward ported your patch to 4.9,
+> however, I could still get tx timeouts.
+>=20
+> Thankfully I finally found the root cause of
+> my tx timeouts, see the patch I've submitted
+> here:
+>=20
+> http://marc.info/?l=3Dlinux-kernel&m=3D149673393525236
+
+Thanks a lot for the information. And unfortunately yes, there's
+probably more work to do in the stmmac driver; for example it would be
+good if _tx_timeout were actually able to recover the card. I probably
+have patch for that somewhere, too...
+
+Best regards,
+									Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
+
+--AqsLC8rIMeq19msA
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlk/pJwACgkQMOfwapXb+vLDmACcCAQTgX9K1+u5K1HXn/A0v6wN
+gPEAn05sCN1MgRhV4UXrg195RbwusiQn
+=BoCk
+-----END PGP SIGNATURE-----
+
+--AqsLC8rIMeq19msA--
