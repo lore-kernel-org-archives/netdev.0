@@ -1,128 +1,144 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: pull-request: mac80211-next 2017-06-13
-Date: Tue, 13 Jun 2017 14:22:21 +0200
-Message-ID: <20170613122223.2386-1-johannes@sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Subject: [PATCH net-next] networking: use skb_put_zero()
+Date: Tue, 13 Jun 2017 14:28:18 +0200
+Message-ID: <20170613122818.3523-1-johannes@sipsolutions.net>
+Cc: Johannes Berg <johannes.berg@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:54270 "EHLO sipsolutions.net"
+Received: from s3.sipsolutions.net ([5.9.151.49]:54304 "EHLO sipsolutions.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752608AbdFMMWd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 13 Jun 2017 08:22:33 -0400
+        id S1753245AbdFMM2Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 13 Jun 2017 08:28:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Johannes Berg <johannes.berg@intel.com>
 
-Looks like I haven't sent you anything for a long time, so here
-we go. There isn't a ton of things, but in particular the 4-way-
-handshake offload has been a long time in the making.
+Use the recently introduced helper to replace the pattern of
+skb_put() && memset(), this transformation was done with the
+following spatch:
 
-I'll send you the conversion for more skb_put_zero() users in a
-separate patch after this.
+@@
+identifier p;
+expression len;
+expression skb;
+@@
+-p = skb_put(skb, len);
+-memset(p, 0, len);
++p = skb_put_zero(skb, len);
 
-Please pull and let me know if there's any problem.
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+This obviously requires skb_put_zero() which is coming in through
+the mac80211-next merge I just sent you a pull request for.
+---
+ drivers/net/ethernet/apple/bmac.c            | 3 +--
+ drivers/net/ethernet/broadcom/bcm63xx_enet.c | 3 +--
+ drivers/net/ethernet/qualcomm/qca_spi.c      | 3 +--
+ drivers/net/wireless/marvell/mwifiex/tdls.c  | 4 ++--
+ drivers/nfc/pn533/pn533.c                    | 3 +--
+ lib/nlattr.c                                 | 3 +--
+ net/sctp/sm_make_chunk.c                     | 3 +--
+ 7 files changed, 8 insertions(+), 14 deletions(-)
 
-Thanks,
-johannes
-
-
-
-The following changes since commit 50dffe7fad6c156c2928e45c19ff7b86eb951f4c:
-
-  Merge branch 'mlx4-drivers-version-update' (2017-06-07 15:33:02 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211-next.git tags/mac80211-next-for-davem-2017-06-13
-
-for you to fetch changes up to 4524667b1e6801a92a4de066788e558b71fe323a:
-
-  net: rfkill: gpio: Switch to devm_acpi_dev_add_driver_gpios() (2017-06-13 11:07:51 +0200)
-
-----------------------------------------------------------------
-A couple of weeks worth of updates - looks like things are quiet:
- * merged net-next back to get a patch from net that another patch
-   here depends on
- * various small improvements/cleanups across the board
- * 4-way handshake offload (many thanks to Arend for shepherding that)
- * mesh CSA/DFS support in mac80211
- * the skb_put_zero() we discussed previously
-
-----------------------------------------------------------------
-Andy Shevchenko (1):
-      net: rfkill: gpio: Switch to devm_acpi_dev_add_driver_gpios()
-
-Arend Van Spriel (1):
-      nl80211: remove desciption about request from NL80211_CMD_ROAM
-
-Avraham Stern (2):
-      cfg80211: support 4-way handshake offloading for 802.1X
-      nl80211: add authorized flag to ROAM event
-
-Benjamin Berg (4):
-      mac80211: mesh: mark channel as unusable if a regulatory MESH CSA is received
-      wireless: Only join DFS channels in mesh mode if userspace flags support
-      wireless: Require HANDLE_DFS flag to switch channel for non-AP mode
-      mac80211: mesh: Allow following CSA to DFS channels if userspace handles it
-
-Bjorn Andersson (1):
-      mac80211: Invoke TX LED in more code paths
-
-Eliad Peller (1):
-      cfg80211: support 4-way handshake offloading for WPA/WPA2-PSK
-
-Emmanuel Grumbach (1):
-      mac80211: add the action to the drv_ampdu_action tracepoint
-
-Johannes Berg (5):
-      cfg80211: improve warnings in VHT rate calculation
-      mac80211: move clearing result into ieee80211_parse_ch_switch_ie()
-      skbuff/mac80211: introduce and use skb_put_zero()
-      Merge remote-tracking branch 'net-next/master' into mac80211-next
-      mac80211: manage RX BA session offload without SKB queue
-
-Simon Wunderlich (3):
-      mac80211: mark as action frame when parsing IEs of CSA action frames
-      mac80211: mesh: support sending wide bandwidth CSA
-      mac80211: enable VHT for mesh channel processing
-
-Toke Høiland-Jørgensen (1):
-      mac80211: Dynamically set CoDel parameters per station
-
- include/linux/ieee80211.h    |   4 ++
- include/linux/skbuff.h       |   9 +++
- include/net/cfg80211.h       |  42 ++++++++++++++
- include/net/mac80211.h       |  37 ++++++++++--
- include/uapi/linux/nl80211.h |  73 +++++++++++++++++++++--
- net/mac80211/agg-rx.c        |  47 ++++-----------
- net/mac80211/cfg.c           |   1 +
- net/mac80211/debugfs_sta.c   |   6 ++
- net/mac80211/ht.c            |  12 ++++
- net/mac80211/ibss.c          |   1 -
- net/mac80211/ieee80211_i.h   |  16 ++---
- net/mac80211/iface.c         |  25 +-------
- net/mac80211/mesh.c          |  85 ++++++++++++++++++++++++---
- net/mac80211/mesh_plink.c    |   3 +-
- net/mac80211/mlme.c          |   1 -
- net/mac80211/rate.c          |   3 +-
- net/mac80211/rx.c            |   4 --
- net/mac80211/spectmgmt.c     |   7 +++
- net/mac80211/sta_info.c      |  30 ++++++++++
- net/mac80211/sta_info.h      |  14 +++++
- net/mac80211/status.c        |   4 +-
- net/mac80211/trace.h         |  11 ++--
- net/mac80211/tx.c            |   9 ++-
- net/mac80211/util.c          |  37 ++++++++++++
- net/rfkill/rfkill-gpio.c     |   5 +-
- net/wireless/core.c          |   5 ++
- net/wireless/mesh.c          |   8 +++
- net/wireless/nl80211.c       | 135 ++++++++++++++++++++++++++++++++++++++++++-
- net/wireless/rdev-ops.h      |  25 ++++++++
- net/wireless/sme.c           |   1 +
- net/wireless/trace.h         |  60 +++++++++++++++++++
- net/wireless/util.c          |  11 ++--
- 32 files changed, 620 insertions(+), 111 deletions(-)
+diff --git a/drivers/net/ethernet/apple/bmac.c b/drivers/net/ethernet/apple/bmac.c
+index 2b2d87089987..eac740c476ce 100644
+--- a/drivers/net/ethernet/apple/bmac.c
++++ b/drivers/net/ethernet/apple/bmac.c
+@@ -1218,8 +1218,7 @@ static void bmac_reset_and_enable(struct net_device *dev)
+ 	 */
+ 	skb = netdev_alloc_skb(dev, ETHERMINPACKET);
+ 	if (skb != NULL) {
+-		data = skb_put(skb, ETHERMINPACKET);
+-		memset(data, 0, ETHERMINPACKET);
++		data = skb_put_zero(skb, ETHERMINPACKET);
+ 		memcpy(data, dev->dev_addr, ETH_ALEN);
+ 		memcpy(data + ETH_ALEN, dev->dev_addr, ETH_ALEN);
+ 		bmac_transmit_packet(skb, dev);
+diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+index 50d88d3e03b6..18edc2622135 100644
+--- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
++++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+@@ -609,8 +609,7 @@ static int bcm_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			dev_kfree_skb(skb);
+ 			skb = nskb;
+ 		}
+-		data = skb_put(skb, needed);
+-		memset(data, 0, needed);
++		data = skb_put_zero(skb, needed);
+ 	}
+ 
+ 	/* point to the next available desc */
+diff --git a/drivers/net/ethernet/qualcomm/qca_spi.c b/drivers/net/ethernet/qualcomm/qca_spi.c
+index de78f60309a0..9c236298fe21 100644
+--- a/drivers/net/ethernet/qualcomm/qca_spi.c
++++ b/drivers/net/ethernet/qualcomm/qca_spi.c
+@@ -719,8 +719,7 @@ qcaspi_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	qcafrm_create_header(ptmp, frame_len);
+ 
+ 	if (pad_len) {
+-		ptmp = skb_put(skb, pad_len);
+-		memset(ptmp, 0, pad_len);
++		ptmp = skb_put_zero(skb, pad_len);
+ 	}
+ 
+ 	ptmp = skb_put(skb, QCAFRM_FOOTER_LEN);
+diff --git a/drivers/net/wireless/marvell/mwifiex/tdls.c b/drivers/net/wireless/marvell/mwifiex/tdls.c
+index d76ce8797de1..b7d124dbef0c 100644
+--- a/drivers/net/wireless/marvell/mwifiex/tdls.c
++++ b/drivers/net/wireless/marvell/mwifiex/tdls.c
+@@ -853,8 +853,8 @@ int mwifiex_send_tdls_action_frame(struct mwifiex_private *priv, const u8 *peer,
+ 
+ 	pkt_type = PKT_TYPE_MGMT;
+ 	tx_control = 0;
+-	pos = skb_put(skb, MWIFIEX_MGMT_FRAME_HEADER_SIZE + sizeof(pkt_len));
+-	memset(pos, 0, MWIFIEX_MGMT_FRAME_HEADER_SIZE + sizeof(pkt_len));
++	pos = skb_put_zero(skb,
++			   MWIFIEX_MGMT_FRAME_HEADER_SIZE + sizeof(pkt_len));
+ 	memcpy(pos, &pkt_type, sizeof(pkt_type));
+ 	memcpy(pos + sizeof(pkt_type), &tx_control, sizeof(tx_control));
+ 
+diff --git a/drivers/nfc/pn533/pn533.c b/drivers/nfc/pn533/pn533.c
+index 65bbaa5fcdda..70c304504a29 100644
+--- a/drivers/nfc/pn533/pn533.c
++++ b/drivers/nfc/pn533/pn533.c
+@@ -1043,8 +1043,7 @@ static struct sk_buff *pn533_alloc_poll_tg_frame(struct pn533 *dev)
+ 	get_random_bytes(felica + 2, 6);
+ 
+ 	/* NFCID3 */
+-	nfcid3 = skb_put(skb, 10);
+-	memset(nfcid3, 0, 10);
++	nfcid3 = skb_put_zero(skb, 10);
+ 	memcpy(nfcid3, felica, 8);
+ 
+ 	/* General bytes */
+diff --git a/lib/nlattr.c b/lib/nlattr.c
+index a7e0b16078df..d09d9746fc5d 100644
+--- a/lib/nlattr.c
++++ b/lib/nlattr.c
+@@ -400,8 +400,7 @@ void *__nla_reserve_nohdr(struct sk_buff *skb, int attrlen)
+ {
+ 	void *start;
+ 
+-	start = skb_put(skb, NLA_ALIGN(attrlen));
+-	memset(start, 0, NLA_ALIGN(attrlen));
++	start = skb_put_zero(skb, NLA_ALIGN(attrlen));
+ 
+ 	return start;
+ }
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index bd439edf2d8a..ea2601501654 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -1296,8 +1296,7 @@ struct sctp_chunk *sctp_make_auth(const struct sctp_association *asoc)
+ 	retval->subh.auth_hdr = sctp_addto_chunk(retval, sizeof(sctp_authhdr_t),
+ 						&auth_hdr);
+ 
+-	hmac = skb_put(retval->skb, hmac_desc->hmac_len);
+-	memset(hmac, 0, hmac_desc->hmac_len);
++	hmac = skb_put_zero(retval->skb, hmac_desc->hmac_len);
+ 
+ 	/* Adjust the chunk header to include the empty MAC */
+ 	retval->chunk_hdr->length =
+-- 
+2.11.0
