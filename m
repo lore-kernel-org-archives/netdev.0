@@ -1,53 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] igmp: acquire pmc lock for ip_mc_clear_src()
-Date: Tue, 13 Jun 2017 13:00:37 -0400 (EDT)
-Message-ID: <20170613.130037.2205216485425901214.davem@davemloft.net>
-References: <1497286346-26888-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Salil Mehta <salil.mehta@huawei.com>
+Subject: RE: [PATCH net-next 8/9] net: hns3: Add support of debugfs
+ interface to HNS3 driver
+Date: Tue, 13 Jun 2017 17:14:29 +0000
+Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F93B7A1BA4@FRAEML521-MBX.china.huawei.com>
+References: <20170610034630.493852-1-salil.mehta@huawei.com>
+ <20170610034630.493852-9-salil.mehta@huawei.com>
+ <BY2PR0701MB2005750A49D78C63B4B4A6B18DCF0@BY2PR0701MB2005.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andreyknvl@google.com, edumazet@google.com,
-        lucien.xin@gmail.com
-To: xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44990 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752211AbdFMRKv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 13:10:51 -0400
-In-Reply-To: <1497286346-26888-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
+        huangdaode <huangdaode@hisilicon.com>,
+        "lipeng (Y)" <lipeng321@huawei.com>,
+        "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Linuxarm <linuxarm@huawei.com>
+To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <BY2PR0701MB2005750A49D78C63B4B4A6B18DCF0@BY2PR0701MB2005.namprd07.prod.outlook.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Mon, 12 Jun 2017 09:52:26 -0700
+HI Yuval,
 
-> Andrey reported a use-after-free in add_grec():
+> -----Original Message-----
+> From: Mintz, Yuval [mailto:Yuval.Mintz@cavium.com]
+> Sent: Saturday, June 10, 2017 1:52 PM
+> To: Salil Mehta; davem@davemloft.net
+> Cc: Zhuangyuzeng (Yisen); huangdaode; lipeng (Y);
+> mehta.salil.lnk@gmail.com; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org; Linuxarm
+> Subject: RE: [PATCH net-next 8/9] net: hns3: Add support of debugfs
+> interface to HNS3 driver
 > 
->         for (psf = *psf_list; psf; psf = psf_next) {
-> 		...
->                 psf_next = psf->sf_next;
+> > This adds the support of the debugfs interface to the driver for
+> debugging
+> > purposes.
 > 
-> where the struct ip_sf_list's were already freed by:
+> > +const struct  hclge_support_cmd  support_cmd[] = {
+> > +	{"send cmd", 8, hclge_dbg_send,
+> > +		"opcode flag data0 data1 data2 data3 data4 data5"},
+> > +	{"help", 4, hclge_dbg_usage, "no option"}, };
 > 
->  kfree+0xe8/0x2b0 mm/slub.c:3882
->  ip_mc_clear_src+0x69/0x1c0 net/ipv4/igmp.c:2078
->  ip_mc_dec_group+0x19a/0x470 net/ipv4/igmp.c:1618
->  ip_mc_drop_socket+0x145/0x230 net/ipv4/igmp.c:2609
->  inet_release+0x4e/0x1c0 net/ipv4/af_inet.c:411
->  sock_release+0x8d/0x1e0 net/socket.c:597
->  sock_close+0x16/0x20 net/socket.c:1072
-> 
-> This happens because we don't hold pmc->lock in ip_mc_clear_src()
-> and a parallel mr_ifc_timer timer could jump in and access them.
-> 
-> The RCU lock is there but it is merely for pmc itself, this
-> spinlock could actually ensure we don't access them in parallel.
-> 
-> Thanks to Eric and Long for discussion on this bug.
-> 
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Xin Long <lucien.xin@gmail.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Is there an actual description of what this does? Or is it simply a
+> huge backdoor?
+Yes, I understand it has been coded in haste to assist in debugging
+of the driver. Yes, there is a format to it but needs bit of work
+I guess, otherwise it will be like opening pandoras box. For now, I will drop
+this debugfs patch and later will push with proper explanation of its
+need and interface.
 
-Applied and queued up for -stable, thanks.
+Thanks
+Salil
