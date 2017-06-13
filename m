@@ -1,7 +1,7 @@
 From: David Daney <david.daney@cavium.com>
-Subject: [PATCH 3/4] bpf: Add MIPS support to samples/bpf.
-Date: Tue, 13 Jun 2017 16:49:37 -0700
-Message-ID: <20170613234938.4823-4-david.daney@cavium.com>
+Subject: [PATCH 4/4] samples/bpf: Fix tracex5 to work with MIPS syscalls.
+Date: Tue, 13 Jun 2017 16:49:38 -0700
+Message-ID: <20170613234938.4823-5-david.daney@cavium.com>
 References: <20170613234938.4823-1-david.daney@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,34 +16,135 @@ In-Reply-To: <20170613234938.4823-1-david.daney@cavium.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+There are two problems:
+
+1) In MIPS the __NR_* macros expand to an expression, this causes the
+   sections of the object file to be named like:
+
+  .
+  .
+  .
+  [ 5] kprobe/(5000 + 1) PROGBITS        0000000000000000 000160 ...
+  [ 6] kprobe/(5000 + 0) PROGBITS        0000000000000000 000258 ...
+  [ 7] kprobe/(5000 + 9) PROGBITS        0000000000000000 000348 ...
+  .
+  .
+  .
+
+The fix here is to use the "asm_offsets" trick to evaluate the macros
+in the C compiler and generate a header file with a usable form of the
+macros.
+
+2) MIPS syscall numbers start at 5000, so we need a bigger map to hold
+the sub-programs.
+
 Signed-off-by: David Daney <david.daney@cavium.com>
 ---
- samples/bpf/bpf_helpers.h | 13 +++++++++++++
- 1 file changed, 13 insertions(+)
+ samples/bpf/Makefile       | 13 +++++++++++++
+ samples/bpf/syscall_nrs.c  | 12 ++++++++++++
+ samples/bpf/tracex5_kern.c | 11 ++++++++---
+ 3 files changed, 33 insertions(+), 3 deletions(-)
+ create mode 100644 samples/bpf/syscall_nrs.c
 
-diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
-index 9a9c95f..76526da 100644
---- a/samples/bpf/bpf_helpers.h
-+++ b/samples/bpf/bpf_helpers.h
-@@ -135,6 +135,19 @@ static int (*bpf_skb_change_head)(void *, int len, int flags) =
- #define PT_REGS_SP(x) ((x)->sp)
- #define PT_REGS_IP(x) ((x)->pc)
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index 6c7468e..a0561dc 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -160,6 +160,17 @@ clean:
+ 	$(MAKE) -C ../../ M=$(CURDIR) clean
+ 	@rm -f *~
  
-+#elif defined(__mips__)
++$(obj)/syscall_nrs.s:	$(src)/syscall_nrs.c
++	$(call if_changed_dep,cc_s_c)
 +
-+#define PT_REGS_PARM1(x) ((x)->regs[4])
-+#define PT_REGS_PARM2(x) ((x)->regs[5])
-+#define PT_REGS_PARM3(x) ((x)->regs[6])
-+#define PT_REGS_PARM4(x) ((x)->regs[7])
-+#define PT_REGS_PARM5(x) ((x)->regs[8])
-+#define PT_REGS_RET(x) ((x)->regs[31])
-+#define PT_REGS_FP(x) ((x)->regs[30]) /* Works only with CONFIG_FRAME_POINTER */
-+#define PT_REGS_RC(x) ((x)->regs[1])
-+#define PT_REGS_SP(x) ((x)->regs[29])
-+#define PT_REGS_IP(x) ((x)->cp0_epc)
++$(obj)/syscall_nrs.h:	$(obj)/syscall_nrs.s FORCE
++	$(call filechk,offsets,__SYSCALL_NRS_H__)
 +
- #elif defined(__powerpc__)
++clean-files += syscall_nrs.h
++
++FORCE:
++
++
+ # Verify LLVM compiler tools are available and bpf target is supported by llc
+ .PHONY: verify_cmds verify_target_bpf $(CLANG) $(LLC)
  
- #define PT_REGS_PARM1(x) ((x)->gpr[3])
+@@ -180,6 +191,8 @@ verify_target_bpf: verify_cmds
+ 
+ $(src)/*.c: verify_target_bpf
+ 
++$(obj)/tracex5_kern.o: $(obj)/syscall_nrs.h
++
+ # asm/sysreg.h - inline assembly used by it is incompatible with llvm.
+ # But, there is no easy way to fix it, so just exclude it since it is
+ # useless for BPF samples.
+diff --git a/samples/bpf/syscall_nrs.c b/samples/bpf/syscall_nrs.c
+new file mode 100644
+index 0000000..ce2a30b
+--- /dev/null
++++ b/samples/bpf/syscall_nrs.c
+@@ -0,0 +1,12 @@
++#include <uapi/linux/unistd.h>
++#include <linux/kbuild.h>
++
++#define SYSNR(_NR) DEFINE(SYS ## _NR, _NR)
++
++void syscall_defines(void)
++{
++	COMMENT("Linux system call numbers.");
++	SYSNR(__NR_write);
++	SYSNR(__NR_read);
++	SYSNR(__NR_mmap);
++}
+diff --git a/samples/bpf/tracex5_kern.c b/samples/bpf/tracex5_kern.c
+index 7e4cf74..f57f4e1 100644
+--- a/samples/bpf/tracex5_kern.c
++++ b/samples/bpf/tracex5_kern.c
+@@ -9,6 +9,7 @@
+ #include <uapi/linux/bpf.h>
+ #include <uapi/linux/seccomp.h>
+ #include <uapi/linux/unistd.h>
++#include "syscall_nrs.h"
+ #include "bpf_helpers.h"
+ 
+ #define PROG(F) SEC("kprobe/"__stringify(F)) int bpf_func_##F
+@@ -17,7 +18,11 @@ struct bpf_map_def SEC("maps") progs = {
+ 	.type = BPF_MAP_TYPE_PROG_ARRAY,
+ 	.key_size = sizeof(u32),
+ 	.value_size = sizeof(u32),
++#ifdef __mips__
++	.max_entries = 6000, /* MIPS n64 syscalls start at 5000 */
++#else
+ 	.max_entries = 1024,
++#endif
+ };
+ 
+ SEC("kprobe/__seccomp_filter")
+@@ -37,7 +42,7 @@ int bpf_prog1(struct pt_regs *ctx)
+ }
+ 
+ /* we jump here when syscall number == __NR_write */
+-PROG(__NR_write)(struct pt_regs *ctx)
++PROG(SYS__NR_write)(struct pt_regs *ctx)
+ {
+ 	struct seccomp_data sd;
+ 
+@@ -50,7 +55,7 @@ PROG(__NR_write)(struct pt_regs *ctx)
+ 	return 0;
+ }
+ 
+-PROG(__NR_read)(struct pt_regs *ctx)
++PROG(SYS__NR_read)(struct pt_regs *ctx)
+ {
+ 	struct seccomp_data sd;
+ 
+@@ -63,7 +68,7 @@ PROG(__NR_read)(struct pt_regs *ctx)
+ 	return 0;
+ }
+ 
+-PROG(__NR_mmap)(struct pt_regs *ctx)
++PROG(SYS__NR_mmap)(struct pt_regs *ctx)
+ {
+ 	char fmt[] = "mmap\n";
+ 	bpf_trace_printk(fmt, sizeof(fmt));
 -- 
 2.9.4
