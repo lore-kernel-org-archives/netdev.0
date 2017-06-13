@@ -1,120 +1,72 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH 3/4] net: dsa: Associate slave network device with CPU port
-Date: Tue, 13 Jun 2017 12:17:24 -0700
-Message-ID: <20170613191725.26625-4-f.fainelli@gmail.com>
-References: <20170613191725.26625-1-f.fainelli@gmail.com>
+Subject: [PATCH net-next v3 0/4] net: dsa: Multi-CPU ground work (v3)
+Date: Tue, 13 Jun 2017 12:17:21 -0700
+Message-ID: <20170613191725.26625-1-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, andrew@lunn.ch,
         vivien.didelot@savoirfairelinux.com, john@phrozen.org,
         Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:34444 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753808AbdFMTRk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 15:17:40 -0400
-Received: by mail-wr0-f193.google.com with SMTP id u101so33339563wrc.1
-        for <netdev@vger.kernel.org>; Tue, 13 Jun 2017 12:17:39 -0700 (PDT)
-In-Reply-To: <20170613191725.26625-1-f.fainelli@gmail.com>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:33262 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753448AbdFMTRf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 15:17:35 -0400
+Received: by mail-wr0-f194.google.com with SMTP id v104so32984887wrb.0
+        for <netdev@vger.kernel.org>; Tue, 13 Jun 2017 12:17:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In preparation for supporting multiple CPU ports with DSA, have the
-dsa_port structure know which CPU it is associated with. This will be
-important in order to make sure the correct CPU is used for transmission
-of the frames. If not for functional reasons, for performance (e.g: load
-balancing) and forwarding decisions.
+Hi all,
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- include/net/dsa.h  |  1 +
- net/dsa/dsa2.c     | 11 +++++++++++
- net/dsa/dsa_priv.h |  2 +-
- net/dsa/legacy.c   |  1 +
- net/dsa/slave.c    |  4 +++-
- 5 files changed, 17 insertions(+), 2 deletions(-)
+This patch series prepares the ground for adding mutliple CPU port support to
+DSA, and starts by removing redundant pieces of information such as
+master_netdev which is cpu_dp->ethernet. Finally drivers are moved away from
+directly accessing ds->dst->cpu_dp and use appropriate helper functions.
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 7e93869819f9..58969b9a090c 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -171,6 +171,7 @@ struct dsa_port {
- 	struct dsa_switch	*ds;
- 	unsigned int		index;
- 	const char		*name;
-+	struct dsa_port		*cpu_dp;
- 	struct net_device	*netdev;
- 	struct device_node	*dn;
- 	unsigned int		ageing_time;
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index ab48c4f989da..52af8401af07 100644
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@ -490,6 +490,8 @@ static int dsa_cpu_parse(struct dsa_port *port, u32 index,
- 	enum dsa_tag_protocol tag_protocol;
- 	struct net_device *ethernet_dev;
- 	struct device_node *ethernet;
-+	struct dsa_port *p;
-+	unsigned int i;
- 
- 	if (port->dn) {
- 		ethernet = of_parse_phandle(port->dn, "ethernet", 0);
-@@ -507,6 +509,15 @@ static int dsa_cpu_parse(struct dsa_port *port, u32 index,
- 	if (!dst->cpu_dp) {
- 		dst->cpu_dp = port;
- 		dst->cpu_dp->netdev = ethernet_dev;
-+
-+		for (i = 0; i < ds->num_ports; i++) {
-+			p = &ds->ports[i];
-+			if (!dsa_port_is_valid(p) ||
-+			    i == index)
-+				continue;
-+
-+			p->cpu_dp = port;
-+		}
- 	}
- 
- 	tag_protocol = ds->ops->get_tag_protocol(ds);
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 5c510f4ba0ce..7c2326f3b538 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -185,7 +185,7 @@ extern const struct dsa_device_ops trailer_netdev_ops;
- 
- static inline struct net_device *dsa_master_netdev(struct dsa_slave_priv *p)
- {
--	return p->dp->ds->dst->cpu_dp->netdev;
-+	return p->dp->cpu_dp->netdev;
- }
- 
- #endif
-diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
-index 5d4f6ffa3424..e60906125375 100644
---- a/net/dsa/legacy.c
-+++ b/net/dsa/legacy.c
-@@ -129,6 +129,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
- 			ds->dsa_port_mask |= 1 << i;
- 		} else {
- 			ds->enabled_port_mask |= 1 << i;
-+			ds->ports[i].cpu_dp = dst->cpu_dp;
- 		}
- 		valid_name_found = true;
- 	}
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index c33db4e3b445..427f8afcfaf3 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -1141,9 +1141,11 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 	struct net_device *master;
- 	struct net_device *slave_dev;
- 	struct dsa_slave_priv *p;
-+	struct dsa_port *cpu_dp;
- 	int ret;
- 
--	master = ds->dst->cpu_dp->netdev;
-+	cpu_dp = ds->dst->cpu_dp;
-+	master = cpu_dp->netdev;
- 
- 	slave_dev = alloc_netdev(sizeof(struct dsa_slave_priv), name,
- 				 NET_NAME_UNKNOWN, ether_setup);
+Note that if you have Device Tree blobs/platform configurations that are
+currently listing multiple CPU ports, the proposed behavior in
+dsa_ds_get_cpu_dp() will be to return the last bit set in ds->cpu_port_mask.
+
+Future plans include:
+- making dst->cpu_dp a flexible data structure (array, list, you name it)
+- having the ability for drivers to return a default/preferred CPU port (if
+  necessary)
+
+Changes in v3:
+
+- removed the last patch since it causes problems with bcm_sf2/b53 in a
+  dual-CPU case (root cause known, proper fix underway)
+
+- removed dsa_ds_get_cpu_dp()
+
+Changes in v2:
+
+- added Reviewed-by tags
+- assign port->cpu_dp earlier before ops->setup() has run
+
+Florian Fainelli (5):
+  net: dsa: Remove master_netdev and use dst->cpu_dp->netdev
+  net: dsa: Relocate master ethtool operations
+  net: dsa: Associate slave network device with CPU port
+  net: dsa: Introduce dsa_dst_get_cpu_dp()
+  net: dsa: Stop accessing ds->dst->cpu_dp in drivers
+
+ drivers/net/dsa/b53/b53_common.c |  4 +--
+ drivers/net/dsa/bcm_sf2.c        | 10 +++++---
+ drivers/net/dsa/mt7530.c         |  6 +++--
+ drivers/net/dsa/mv88e6060.c      |  2 +-
+ drivers/net/dsa/qca8k.c          |  2 +-
+ include/net/dsa.h                | 29 +++++++++-------------
+ net/dsa/dsa.c                    | 19 ++++----------
+ net/dsa/dsa2.c                   | 27 ++++++++++++--------
+ net/dsa/dsa_priv.h               | 10 ++++++++
+ net/dsa/legacy.c                 | 23 ++++++++++-------
+ net/dsa/slave.c                  | 53 ++++++++++++++++++++--------------------
+ net/dsa/tag_brcm.c               |  5 ++--
+ net/dsa/tag_ksz.c                |  5 ++--
+ net/dsa/tag_qca.c                |  3 ++-
+ net/dsa/tag_trailer.c            |  5 ++--
+ 15 files changed, 107 insertions(+), 96 deletions(-)
+
 -- 
 2.9.3
