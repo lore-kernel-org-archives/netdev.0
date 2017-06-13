@@ -1,197 +1,84 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH v4 4/4] net: dsa: Introduce dsa_get_cpu_port()
-Date: Tue, 13 Jun 2017 13:27:22 -0700
-Message-ID: <20170613202722.17598-5-f.fainelli@gmail.com>
-References: <20170613202722.17598-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, john@phrozen.org,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: Repeatable inet6_dump_fib crash in stock 4.12.0-rc4+
+Date: Tue, 13 Jun 2017 14:28:22 -0600
+Message-ID: <42400e72-d93d-4c2b-7864-efd40e0bd981@gmail.com>
+References: <bbfa5208-3a04-c87a-a6e1-ee0ae73965d0@candelatech.com>
+ <a5733c67-e3a3-9cc0-0862-40ef6fc03de3@gmail.com>
+ <1496795269.736.21.camel@edumazet-glaptop3.roam.corp.google.com>
+ <da189b9d-760f-0591-2acf-1a6b7910e227@gmail.com>
+ <1496809166.736.25.camel@edumazet-glaptop3.roam.corp.google.com>
+ <94bcc041-6402-d0ce-b9cf-3b46aa622f34@candelatech.com>
+ <CAM_iQpXM3G=J0tw=n1_mKno=i41Kmoxb00+nDyBWofWskj5P_A@mail.gmail.com>
+ <7e0c97fa-cd6e-ed0f-bf99-0e4af40fbd2f@gmail.com>
+ <1497043557.736.94.camel@edumazet-glaptop3.roam.corp.google.com>
+ <9cb61ef0-37c0-8f35-bb5c-e3d8e63cbe2f@candelatech.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:33903 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753766AbdFMU1k (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 16:27:40 -0400
-Received: by mail-wr0-f196.google.com with SMTP id u101so33861398wrc.1
-        for <netdev@vger.kernel.org>; Tue, 13 Jun 2017 13:27:39 -0700 (PDT)
-In-Reply-To: <20170613202722.17598-1-f.fainelli@gmail.com>
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:33057 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752109AbdFMU2Z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 16:28:25 -0400
+Received: by mail-pg0-f50.google.com with SMTP id f185so65552865pgc.0
+        for <netdev@vger.kernel.org>; Tue, 13 Jun 2017 13:28:25 -0700 (PDT)
+In-Reply-To: <9cb61ef0-37c0-8f35-bb5c-e3d8e63cbe2f@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Introduce a helper function which will return a reference to the CPU
-port used in a dsa_switch_tree. Right now this is a singleton, but this
-will change once we introduce multi-CPU port support, so ease the
-transition by converting the affected code paths.
+On 6/13/17 2:16 PM, Ben Greear wrote:
+> On 06/09/2017 02:25 PM, Eric Dumazet wrote:
+>> On Fri, 2017-06-09 at 07:27 -0600, David Ahern wrote:
+>>> On 6/8/17 11:55 PM, Cong Wang wrote:
+>>>> On Thu, Jun 8, 2017 at 2:27 PM, Ben Greear <greearb@candelatech.com>
+>>>> wrote:
+>>>>>
+>>>>> As far as I can tell, the patch did not help, or at least we still
+>>>>> reproduce
+>>>>> the
+>>>>> crash easily.
+>>>>
+>>>> netlink dump is serialized by nlk->cb_mutex so I don't think that
+>>>> patch makes any sense w.r.t race condition.
+>>>
+>>> From what I can see fn_sernum should be accessed under table lock, so
+>>> when saving and checking it during a walk make sure it the lock is held.
+>>> That has nothing to do with the netlink dump, but the table changing
+>>> during a walk.
+>>
+>>
+>> Yes, your patch makes total sense, of course.
+> 
+> I guess someone should go ahead and make an official patch and
+> submit it, even if it doesn't fix my problem.
 
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- net/dsa/dsa_priv.h    |  5 +++++
- net/dsa/slave.c       | 31 ++++++++++++++++---------------
- net/dsa/tag_brcm.c    |  5 ++---
- net/dsa/tag_ksz.c     |  5 ++---
- net/dsa/tag_qca.c     |  3 ++-
- net/dsa/tag_trailer.c |  5 ++---
- 6 files changed, 29 insertions(+), 25 deletions(-)
+I can do that; was hoping to root cause the problem first.
 
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 7c2326f3b538..55982cc39b24 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -188,4 +188,9 @@ static inline struct net_device *dsa_master_netdev(struct dsa_slave_priv *p)
- 	return p->dp->cpu_dp->netdev;
- }
- 
-+static inline struct dsa_port *dsa_get_cpu_port(struct dsa_switch_tree *dst)
-+{
-+	return dst->cpu_dp;
-+}
-+
- #endif
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index a80b46777a04..9507bd38cf04 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -520,14 +520,14 @@ static void dsa_cpu_port_get_ethtool_stats(struct net_device *dev,
- 					   uint64_t *data)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
--	struct dsa_switch *ds = dst->cpu_dp->ds;
--	s8 cpu_port = dst->cpu_dp->index;
-+	struct dsa_port *cpu_dp = dsa_get_cpu_port(dst);
-+	struct dsa_switch *ds = cpu_dp->ds;
-+	s8 cpu_port = cpu_dp->index;
- 	int count = 0;
- 
--	if (dst->cpu_dp->ethtool_ops.get_sset_count) {
--		count = dst->cpu_dp->ethtool_ops.get_sset_count(dev,
--							       ETH_SS_STATS);
--		dst->cpu_dp->ethtool_ops.get_ethtool_stats(dev, stats, data);
-+	if (cpu_dp->ethtool_ops.get_sset_count) {
-+		count = cpu_dp->ethtool_ops.get_sset_count(dev, ETH_SS_STATS);
-+		cpu_dp->ethtool_ops.get_ethtool_stats(dev, stats, data);
- 	}
- 
- 	if (ds->ops->get_ethtool_stats)
-@@ -537,11 +537,12 @@ static void dsa_cpu_port_get_ethtool_stats(struct net_device *dev,
- static int dsa_cpu_port_get_sset_count(struct net_device *dev, int sset)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
--	struct dsa_switch *ds = dst->cpu_dp->ds;
-+	struct dsa_port *cpu_dp = dsa_get_cpu_port(dst);
-+	struct dsa_switch *ds = cpu_dp->ds;
- 	int count = 0;
- 
--	if (dst->cpu_dp->ethtool_ops.get_sset_count)
--		count += dst->cpu_dp->ethtool_ops.get_sset_count(dev, sset);
-+	if (cpu_dp->ethtool_ops.get_sset_count)
-+		count += cpu_dp->ethtool_ops.get_sset_count(dev, sset);
- 
- 	if (sset == ETH_SS_STATS && ds->ops->get_sset_count)
- 		count += ds->ops->get_sset_count(ds);
-@@ -553,8 +554,9 @@ static void dsa_cpu_port_get_strings(struct net_device *dev,
- 				     uint32_t stringset, uint8_t *data)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
--	struct dsa_switch *ds = dst->cpu_dp->ds;
--	s8 cpu_port = dst->cpu_dp->index;
-+	struct dsa_port *cpu_dp = dsa_get_cpu_port(dst);
-+	struct dsa_switch *ds = cpu_dp->ds;
-+	s8 cpu_port = cpu_dp->index;
- 	int len = ETH_GSTRING_LEN;
- 	int mcount = 0, count;
- 	unsigned int i;
-@@ -565,10 +567,9 @@ static void dsa_cpu_port_get_strings(struct net_device *dev,
- 	/* We do not want to be NULL-terminated, since this is a prefix */
- 	pfx[sizeof(pfx) - 1] = '_';
- 
--	if (dst->cpu_dp->ethtool_ops.get_sset_count) {
--		mcount = dst->cpu_dp->ethtool_ops.get_sset_count(dev,
--								ETH_SS_STATS);
--		dst->cpu_dp->ethtool_ops.get_strings(dev, stringset, data);
-+	if (cpu_dp->ethtool_ops.get_sset_count) {
-+		mcount = cpu_dp->ethtool_ops.get_sset_count(dev, ETH_SS_STATS);
-+		cpu_dp->ethtool_ops.get_strings(dev, stringset, data);
- 	}
- 
- 	if (stringset == ETH_SS_STATS && ds->ops->get_strings) {
-diff --git a/net/dsa/tag_brcm.c b/net/dsa/tag_brcm.c
-index c03860907f28..c697d9815177 100644
---- a/net/dsa/tag_brcm.c
-+++ b/net/dsa/tag_brcm.c
-@@ -93,12 +93,11 @@ static struct sk_buff *brcm_tag_rcv(struct sk_buff *skb, struct net_device *dev,
- 				    struct net_device *orig_dev)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
--	struct dsa_switch *ds;
-+	struct dsa_port *cpu_dp = dsa_get_cpu_port(dst);
-+	struct dsa_switch *ds = cpu_dp->ds;
- 	int source_port;
- 	u8 *brcm_tag;
- 
--	ds = dst->cpu_dp->ds;
--
- 	if (unlikely(!pskb_may_pull(skb, BRCM_TAG_LEN)))
- 		return NULL;
- 
-diff --git a/net/dsa/tag_ksz.c b/net/dsa/tag_ksz.c
-index b94a334a1d02..fab41de8e983 100644
---- a/net/dsa/tag_ksz.c
-+++ b/net/dsa/tag_ksz.c
-@@ -75,12 +75,11 @@ static struct sk_buff *ksz_rcv(struct sk_buff *skb, struct net_device *dev,
- 			       struct net_device *orig_dev)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
--	struct dsa_switch *ds;
-+	struct dsa_port *cpu_dp = dsa_get_cpu_port(dst);
-+	struct dsa_switch *ds = cpu_dp->ds;
- 	u8 *tag;
- 	int source_port;
- 
--	ds = dst->cpu_dp->ds;
--
- 	tag = skb_tail_pointer(skb) - KSZ_EGRESS_TAG_LEN;
- 
- 	source_port = tag[0] & 7;
-diff --git a/net/dsa/tag_qca.c b/net/dsa/tag_qca.c
-index 4f43cf0b4eff..1867a3d11f28 100644
---- a/net/dsa/tag_qca.c
-+++ b/net/dsa/tag_qca.c
-@@ -67,6 +67,7 @@ static struct sk_buff *qca_tag_rcv(struct sk_buff *skb, struct net_device *dev,
- 				   struct net_device *orig_dev)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
-+	struct dsa_port *cpu_dp = dsa_get_cpu_port(dst);
- 	struct dsa_switch *ds;
- 	u8 ver;
- 	int port;
-@@ -95,7 +96,7 @@ static struct sk_buff *qca_tag_rcv(struct sk_buff *skb, struct net_device *dev,
- 	/* This protocol doesn't support cascading multiple switches so it's
- 	 * safe to assume the switch is first in the tree
- 	 */
--	ds = dst->cpu_dp->ds;
-+	ds = cpu_dp->ds;
- 	if (!ds)
- 		return NULL;
- 
-diff --git a/net/dsa/tag_trailer.c b/net/dsa/tag_trailer.c
-index b4f6db094409..172f13167896 100644
---- a/net/dsa/tag_trailer.c
-+++ b/net/dsa/tag_trailer.c
-@@ -61,12 +61,11 @@ static struct sk_buff *trailer_rcv(struct sk_buff *skb, struct net_device *dev,
- 				   struct net_device *orig_dev)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
--	struct dsa_switch *ds;
-+	struct dsa_port *cpu_dp = dsa_get_cpu_port(dst);
-+	struct dsa_switch *ds = cpu_dp->ds;
- 	u8 *trailer;
- 	int source_port;
- 
--	ds = dst->cpu_dp->ds;
--
- 	if (skb_linearize(skb))
- 		return NULL;
- 
--- 
-2.9.3
+
+> 
+>>>>> (gdb) l *(fib6_walk_continue+0x76)
+>>>>> 0x188c6 is in fib6_walk_continue
+>>>>> (/home/greearb/git/linux-2.6/net/ipv6/ip6_fib.c:1593).
+>>>>> 1588                            if (fn == w->root)
+>>>>> 1589                                    return 0;
+>>>>> 1590                            pn = fn->parent;
+>>>>> 1591                            w->node = pn;
+>>>>> 1592    #ifdef CONFIG_IPV6_SUBTREES
+>>>>> 1593                            if (FIB6_SUBTREE(pn) == fn) {
+>>>>
+>>>> Apparently fn->parent is NULL here for some reason, but
+>>>> I don't know if that is expected or not. If a simple NULL check
+>>>> is not enough here, we have to trace why it is NULL.
+>>>
+>>> From my understanding, parent should not be null hence the attempts to
+>>> fix access to table nodes under a lock. ie., figuring out why it is null
+>>> here.
+> 
+> If someone has more suggestions, I'll be happy to test.
+
+I have looked at the code again and nothing is jumping out. Will look
+again later today.
