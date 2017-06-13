@@ -1,55 +1,43 @@
-From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 2/2] batman-adv: fix memory leak when
- dropping packet from other gateway
-Date: Tue, 13 Jun 2017 13:15:31 +0200
-Message-ID: <20170613111531.29082-3-sw@simonwunderlich.de>
-References: <20170613111531.29082-1-sw@simonwunderlich.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20170613111531.29082-1-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Ashwanth Goli <ashwanth@codeaurora.org>
+Subject: [PATCH] net: rps: fix uninitialized symbol warning
+Date: Tue, 13 Jun 2017 16:54:55 +0530
+Message-ID: <1497353095-8712-1-git-send-email-ashwanth@codeaurora.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:44734 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752083AbdFMLZA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 07:25:00 -0400
+Received: from ashwanth-linux.ap.qualcomm.com. (blr-c-bdr-fw-01_globalnat_allzones-outside.qualcomm.com [103.229.19.19])
+        (using TLSv1.2 with cipher ECDHE-RSA-AES128-SHA256 (128/128 bits))
+        (No client certificate requested)
+        (Authenticated sender: ashwanth@codeaurora.org)
+        by smtp.codeaurora.org (Postfix) with ESMTPSA id 72729605A2
+        for <netdev@vger.kernel.org>; Tue, 13 Jun 2017 11:24:58 +0000 (UTC)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andreas Pape <apape-m3bsFMYJiEzvNhTXdWHAddBPR1lH4CV8@public.gmane.org>
+This patch fixes uninitialized symbol warning that
+got introduced by the following commit
+773fc8f6e8d6 ("net: rps: send out pending IPI's on CPU hotplug")
 
-The skb must be released in the receive handler since b91a2543b4c1
-("batman-adv: Consume skb in receive handlers"). Just returning NET_RX_DROP
-will no longer automatically free the memory. This results in memory leaks
-when unicast packets from other backbones must be dropped because they
-share a common backbone.
-
-Fixes: 9e794b6bf4a2 ("batman-adv: drop unicast packets from other backbone gw")
-Signed-off-by: Andreas Pape <apape-m3bsFMYJiEzvNhTXdWHAddBPR1lH4CV8@public.gmane.org>
-[sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org: adjust commit message]
-Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Signed-off-by: Ashwanth Goli <ashwanth@codeaurora.org>
 ---
- net/batman-adv/routing.c | 2 +-
+ net/core/dev.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index e1ebe14ee2a6..ae9f4d37d34f 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -987,7 +987,7 @@ int batadv_recv_unicast_packet(struct sk_buff *skb,
- 				batadv_dbg(BATADV_DBG_BLA, bat_priv,
- 					   "recv_unicast_packet(): Dropped unicast pkt received from another backbone gw %pM.\n",
- 					   orig_addr_gw);
--				return NET_RX_DROP;
-+				goto free_skb;
- 			}
- 		}
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 54bb8d9..6d60149 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -8203,7 +8203,7 @@ static int dev_cpu_dead(unsigned int oldcpu)
+ 	struct sk_buff **list_skb;
+ 	struct sk_buff *skb;
+ 	unsigned int cpu;
+-	struct softnet_data *sd, *oldsd, *remsd;
++	struct softnet_data *sd, *oldsd, *remsd = NULL;
  
+ 	local_irq_disable();
+ 	cpu = smp_processor_id();
 -- 
-2.11.0
+1.9.1
