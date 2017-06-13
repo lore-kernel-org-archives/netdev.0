@@ -1,84 +1,62 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: Repeatable inet6_dump_fib crash in stock 4.12.0-rc4+
-Date: Tue, 13 Jun 2017 14:28:22 -0600
-Message-ID: <42400e72-d93d-4c2b-7864-efd40e0bd981@gmail.com>
-References: <bbfa5208-3a04-c87a-a6e1-ee0ae73965d0@candelatech.com>
- <a5733c67-e3a3-9cc0-0862-40ef6fc03de3@gmail.com>
- <1496795269.736.21.camel@edumazet-glaptop3.roam.corp.google.com>
- <da189b9d-760f-0591-2acf-1a6b7910e227@gmail.com>
- <1496809166.736.25.camel@edumazet-glaptop3.roam.corp.google.com>
- <94bcc041-6402-d0ce-b9cf-3b46aa622f34@candelatech.com>
- <CAM_iQpXM3G=J0tw=n1_mKno=i41Kmoxb00+nDyBWofWskj5P_A@mail.gmail.com>
- <7e0c97fa-cd6e-ed0f-bf99-0e4af40fbd2f@gmail.com>
- <1497043557.736.94.camel@edumazet-glaptop3.roam.corp.google.com>
- <9cb61ef0-37c0-8f35-bb5c-e3d8e63cbe2f@candelatech.com>
+From: Yuval Shaia <yuval.shaia@oracle.com>
+Subject: Re: [net-next] macvlan: propagate the mac address change status for
+ lowerdev
+Date: Tue, 13 Jun 2017 23:34:09 +0300
+Message-ID: <20170613203408.GA3112@yuvallap>
+References: <1497365111-34821-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, fgao@48lvckh6395k16k5.yundunddos.com,
+        vyasevic@redhat.com, netdev@vger.kernel.org
+To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:33057 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752109AbdFMU2Z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 16:28:25 -0400
-Received: by mail-pg0-f50.google.com with SMTP id f185so65552865pgc.0
-        for <netdev@vger.kernel.org>; Tue, 13 Jun 2017 13:28:25 -0700 (PDT)
-In-Reply-To: <9cb61ef0-37c0-8f35-bb5c-e3d8e63cbe2f@candelatech.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:37019 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751793AbdFMUe6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 16:34:58 -0400
+Content-Disposition: inline
+In-Reply-To: <1497365111-34821-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/13/17 2:16 PM, Ben Greear wrote:
-> On 06/09/2017 02:25 PM, Eric Dumazet wrote:
->> On Fri, 2017-06-09 at 07:27 -0600, David Ahern wrote:
->>> On 6/8/17 11:55 PM, Cong Wang wrote:
->>>> On Thu, Jun 8, 2017 at 2:27 PM, Ben Greear <greearb@candelatech.com>
->>>> wrote:
->>>>>
->>>>> As far as I can tell, the patch did not help, or at least we still
->>>>> reproduce
->>>>> the
->>>>> crash easily.
->>>>
->>>> netlink dump is serialized by nlk->cb_mutex so I don't think that
->>>> patch makes any sense w.r.t race condition.
->>>
->>> From what I can see fn_sernum should be accessed under table lock, so
->>> when saving and checking it during a walk make sure it the lock is held.
->>> That has nothing to do with the netlink dump, but the table changing
->>> during a walk.
->>
->>
->> Yes, your patch makes total sense, of course.
+On Tue, Jun 13, 2017 at 10:45:11PM +0800, Zhang Shengju wrote:
+> The macvlan dev should propagate the return value of mac address change for
+> lower device in the passthru mode, instead of always return 0.
 > 
-> I guess someone should go ahead and make an official patch and
-> submit it, even if it doesn't fix my problem.
-
-I can do that; was hoping to root cause the problem first.
-
-
+> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+> ---
+>  drivers/net/macvlan.c | 6 ++----
+>  1 file changed, 2 insertions(+), 4 deletions(-)
 > 
->>>>> (gdb) l *(fib6_walk_continue+0x76)
->>>>> 0x188c6 is in fib6_walk_continue
->>>>> (/home/greearb/git/linux-2.6/net/ipv6/ip6_fib.c:1593).
->>>>> 1588                            if (fn == w->root)
->>>>> 1589                                    return 0;
->>>>> 1590                            pn = fn->parent;
->>>>> 1591                            w->node = pn;
->>>>> 1592    #ifdef CONFIG_IPV6_SUBTREES
->>>>> 1593                            if (FIB6_SUBTREE(pn) == fn) {
->>>>
->>>> Apparently fn->parent is NULL here for some reason, but
->>>> I don't know if that is expected or not. If a simple NULL check
->>>> is not enough here, we have to trace why it is NULL.
->>>
->>> From my understanding, parent should not be null hence the attempts to
->>> fix access to table nodes under a lock. ie., figuring out why it is null
->>> here.
-> 
-> If someone has more suggestions, I'll be happy to test.
+> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+> index 346ad2f..ade1213 100644
+> --- a/drivers/net/macvlan.c
+> +++ b/drivers/net/macvlan.c
+> @@ -703,10 +703,8 @@ static int macvlan_set_mac_address(struct net_device *dev, void *p)
+>  	if (!is_valid_ether_addr(addr->sa_data))
+>  		return -EADDRNOTAVAIL;
+>  
+> -	if (vlan->mode == MACVLAN_MODE_PASSTHRU) {
+> -		dev_set_mac_address(vlan->lowerdev, addr);
+> -		return 0;
+> -	}
+> +	if (vlan->mode == MACVLAN_MODE_PASSTHRU)
+> +		return dev_set_mac_address(vlan->lowerdev, addr);
 
-I have looked at the code again and nothing is jumping out. Will look
-again later today.
+Do you think the following functions needs this fix as well?
+- alb_set_mac_address
+- bond_alb_handle_active_change
+- bond_enslave
+- __bond_release_one
+- macvlan_set_mac_address
+
+Yuval
+
+>  
+>  	return macvlan_sync_address(dev, addr->sa_data);
+>  }
+> -- 
+> 1.8.3.1
+> 
+> 
+> 
