@@ -1,65 +1,38 @@
-From: Julien Gomes <julien@arista.com>
-Subject: [PATCH net-next 1/3] rtnetlink: add NEWCACHEREPORT message type
-Date: Tue, 13 Jun 2017 10:08:20 -0700
-Message-ID: <20170613170822.16310-2-julien@arista.com>
-References: <20170613170822.16310-1-julien@arista.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        nikolay@cumulusnetworks.com, Julien Gomes <julien@arista.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mx.aristanetworks.com ([162.210.130.12]:60492 "EHLO
-        prod-mx.aristanetworks.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753389AbdFMRRB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 13:17:01 -0400
-In-Reply-To: <20170613170822.16310-1-julien@arista.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net,stable] qmi_wwan: new Telewell and Sierra device IDs
+Date: Tue, 13 Jun 2017 13:21:46 -0400 (EDT)
+Message-ID: <20170613.132146.1171292364667084017.davem@davemloft.net>
+References: <20170613171018.31526-1-bjorn@mork.no>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, larsm17-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, petr_kloc-/E1597aS9LQAvxtiuMwx3w@public.gmane.org, tlikonen-X3B1VOXEql0@public.gmane.org
+To: bjorn-yOkvZcmFvRU@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170613171018.31526-1-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-New NEWCACHEREPORT message type to be used for cache reports sent
-via Netlink, effectively allowing splitting cache report reception from
-mroute programming.
+From: Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Date: Tue, 13 Jun 2017 19:10:18 +0200
 
-Suggested-by: Ryan Halbrook <halbrook@arista.com>
-Signed-off-by: Julien Gomes <julien@arista.com>
----
- include/uapi/linux/rtnetlink.h | 3 +++
- security/selinux/nlmsgtab.c    | 3 ++-
- 2 files changed, 5 insertions(+), 1 deletion(-)
+> A new Sierra Wireless EM7305 device ID used in a Toshiba laptop,
+> and two Longcheer device IDs entries used by Telewell TW-3G HSPA+
+> branded modems.
+> 
+> Reported-by: Petr Kloc <petr_kloc-/E1597aS9LQAvxtiuMwx3w@public.gmane.org>
+> Reported-by: Teemu Likonen <tlikonen-X3B1VOXEql0@public.gmane.org>
+> Signed-off-by: Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+> ---
+> The following patch should be backported to v4.9 and later stable kernels to
+> make this one apply cleanly:
+> 
+>  14cf4a771b30 ("drivers: net: usb: qmi_wwan: add QMI_QUIRK_SET_DTR for Telit PID 0x1201")
 
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index 564790e854f7..cd1afb900929 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -146,6 +146,9 @@ enum {
- 	RTM_GETSTATS = 94,
- #define RTM_GETSTATS RTM_GETSTATS
- 
-+	RTM_NEWCACHEREPORT = 96,
-+#define RTM_NEWCACHEREPORT RTM_NEWCACHEREPORT
-+
- 	__RTM_MAX,
- #define RTM_MAX		(((__RTM_MAX + 3) & ~3) - 1)
- };
-diff --git a/security/selinux/nlmsgtab.c b/security/selinux/nlmsgtab.c
-index 5aeaf30b7a13..7b7433a1a34c 100644
---- a/security/selinux/nlmsgtab.c
-+++ b/security/selinux/nlmsgtab.c
-@@ -79,6 +79,7 @@ static const struct nlmsg_perm nlmsg_route_perms[] =
- 	{ RTM_GETNSID,		NETLINK_ROUTE_SOCKET__NLMSG_READ  },
- 	{ RTM_NEWSTATS,		NETLINK_ROUTE_SOCKET__NLMSG_READ },
- 	{ RTM_GETSTATS,		NETLINK_ROUTE_SOCKET__NLMSG_READ  },
-+	{ RTM_NEWCACHEREPORT,	NETLINK_ROUTE_SOCKET__NLMSG_READ },
- };
- 
- static const struct nlmsg_perm nlmsg_tcpdiag_perms[] =
-@@ -158,7 +159,7 @@ int selinux_nlmsg_lookup(u16 sclass, u16 nlmsg_type, u32 *perm)
- 	switch (sclass) {
- 	case SECCLASS_NETLINK_ROUTE_SOCKET:
- 		/* RTM_MAX always point to RTM_SETxxxx, ie RTM_NEWxxx + 3 */
--		BUILD_BUG_ON(RTM_MAX != (RTM_NEWSTATS + 3));
-+		BUILD_BUG_ON(RTM_MAX != (RTM_NEWCACHEREPORT + 3));
- 		err = nlmsg_perm(nlmsg_type, perm, nlmsg_route_perms,
- 				 sizeof(nlmsg_route_perms));
- 		break;
--- 
-2.13.1
+Ok, applied and queued up for -stable, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
