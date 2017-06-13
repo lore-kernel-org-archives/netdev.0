@@ -1,29 +1,42 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v1] net: rfkill: gpio: Switch to
- devm_acpi_dev_add_driver_gpios()
-Date: Tue, 13 Jun 2017 11:08:35 +0200
-Message-ID: <1497344915.6068.8.camel@sipsolutions.net>
-References: <20170610191034.53635-1-andriy.shevchenko@linux.intel.com>
+From: Tomer Tayar <Tomer.Tayar@cavium.com>
+Subject: [PATCH net] qed: fix dump of context data
+Date: Tue, 13 Jun 2017 12:15:59 +0300
+Message-ID: <1497345359-2193-1-git-send-email-Tomer.Tayar@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
-        linux-wireless@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: <yuval.mintz@cavium.com>, Tomer Tayar <Tomer.Tayar@cavium.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:52372 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751834AbdFMJIk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 13 Jun 2017 05:08:40 -0400
-In-Reply-To: <20170610191034.53635-1-andriy.shevchenko@linux.intel.com>
+Received: from mail-co1nam03on0081.outbound.protection.outlook.com ([104.47.40.81]:13291
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751884AbdFMJQH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 13 Jun 2017 05:16:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2017-06-10 at 22:10 +0300, Andy Shevchenko wrote:
-> Switch to use managed variant of acpi_dev_add_driver_gpios() to
-> simplify
-> error path and fix potentially wrong assingment if ->probe() fails.
-> 
-Looks fine, applied.
+Currently when dumping a context data only word number '1' is read for the
+entire context.
 
-johannes
+Fixes: c965db444629 ("qed: Add support for debug data collection")
+
+Signed-off-by: Tomer Tayar <Tomer.Tayar@cavium.com>
+---
+ drivers/net/ethernet/qlogic/qed/qed_debug.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_debug.c b/drivers/net/ethernet/qlogic/qed/qed_debug.c
+index 483241b..a672f6a 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_debug.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_debug.c
+@@ -2956,7 +2956,7 @@ static u32 qed_grc_dump_ctx_data(struct qed_hwfn *p_hwfn,
+ 				qed_wr(p_hwfn,
+ 				       p_ptt,
+ 				       s_storm_defs[storm_id].cm_ctx_wr_addr,
+-				       BIT(9) | lid);
++				       (i << 9) | lid);
+ 				*(dump_buf + offset) = qed_rd(p_hwfn,
+ 							      p_ptt,
+ 							      rd_reg_addr);
+-- 
+1.8.3.1
