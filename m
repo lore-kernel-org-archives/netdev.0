@@ -1,29 +1,41 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: [PATCH net-next 1/2] r8152: split rtl8152_resume function
-Date: Tue, 13 Jun 2017 02:27:20 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB201A5E4ED@RTITMBSV06.realtek.com.tw>
-References: <1394712342-15778-272-Taiwan-albertk@realtek.com>
-         <1394712342-15778-273-Taiwan-albertk@realtek.com>
- <1497270806.15677.18.camel@suse.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH net-next 08/10] bpf: nfp: Report bpf_prog ID during
+ XDP_QUERY_PROG
+Date: Mon, 12 Jun 2017 21:54:17 -0700
+Message-ID: <20170613045411.2jxep4iotlsilfdt@dhcp-172-26-110-210.dhcp.thefacebook.com>
+References: <20170613010025.2983342-1-kafai@fb.com>
+ <20170613010025.2983342-9-kafai@fb.com>
+ <20170612182842.3150789d@cakuba.netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: nic_swsd <nic_swsd@realtek.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: Oliver Neukum <oneukum@suse.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1497270806.15677.18.camel@suse.com>
-Content-Language: zh-TW
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>, <kernel-team@fb.com>
+To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:52734 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751915AbdFME4i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 00:56:38 -0400
+Content-Disposition: inline
+In-Reply-To: <20170612182842.3150789d@cakuba.netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T2xpdmVyIE5ldWt1bSBbbWFpbHRvOm9uZXVrdW1Ac3VzZS5jb21dDQo+IFNlbnQ6IE1vbmRheSwg
-SnVuZSAxMiwgMjAxNyA4OjMzIFBNDQpbLi4uXQ0KPiA+ICvCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqB1c2Jfc3VibWl0X3VyYih0cC0+aW50cl91cmIsIEdGUF9LRVJORUwpOw0KPiANCj4g
-SWYgeW91IGV2ZXIgYnVpbHQgYSBkZXZpY2Ugd2l0aCBpbmNsdWRlZCBzdG9yYWdlLCB0aGlzIGNh
-biBkZWFkbG9jaywNCj4gYXMgeW91IG1heSB3YW50IHRvIHdha2UgdXAgYSBkZXZpY2UgZm9yIG1l
-bW9yeSB0aGF0IGlzIG5lZWRlZCB0byB3YWtlDQo+IHVwIGEgZGV2aWNlLiBVc2UgR0ZQX05PSU8g
-aW4gcmVzdW1lKCkgYW5kIHJlc2V0X3Jlc3VtZSgpLCBhbHdheXMuDQoNCkkgd291bGQgY2hhbmdl
-IGl0LiBUaGFua3MuDQoNCkJlc3QgUmVnYXJkcywNCkhheWVzDQoNCg==
+On Mon, Jun 12, 2017 at 06:28:42PM -0700, Jakub Kicinski wrote:
+> On Mon, 12 Jun 2017 18:00:23 -0700, Martin KaFai Lau wrote:
+> > +	case XDP_QUERY_PROG: {
+> > +		const struct bpf_prog *xdp_prog;
+> > +
+> > +		xdp_prog = READ_ONCE(nn->dp.xdp_prog);
+> > +		if (xdp_prog)
+> > +			xdp->prog_id = xdp_prog->aux->id;
+> > +		else
+> > +			xdp->prog_id = 0;
+> >  		return 0;
+> > +	}
+> >  	default:
+> >  		return -EINVAL;
+> >  	}
+>
+> Why READ_ONCE?  I thought .ndo_xdp is always called under RTNL.
+will remove in the next spin.
