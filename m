@@ -1,46 +1,41 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 03/10] bpf: mlx5e: Report bpf_prog ID during
- XDP_QUERY_PROG
-Date: Tue, 13 Jun 2017 21:04:55 +0200
-Message-ID: <59403757.8040002@iogearbox.net>
-References: <20170613010025.2983342-1-kafai@fb.com> <20170613010025.2983342-4-kafai@fb.com> <CALzJLG_mos9=Tw0A0xASi3U3PF+=5-+e+K4ZdsR6M_saZ5B+0w@mail.gmail.com> <20170613184948.wx326pyjauju7iti@dhcp-172-26-110-210.dhcp.thefacebook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-        Alexei Starovoitov <ast@fb.com>,
-        Kernel Team <kernel-team@fb.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: Martin KaFai Lau <kafai@fb.com>,
-        Saeed Mahameed <saeedm@dev.mellanox.co.il>
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Subject: [PATCH net-next] cxgb4: handle serial flash interrupt
+Date: Wed, 14 Jun 2017 00:45:43 +0530
+Message-ID: <1497381343-31705-1-git-send-email-ganeshgr@chelsio.com>
+Cc: nirranjan@chelsio.com, indranil@chelsio.com, venkatesh@chelsio.com,
+        Ganesh Goudar <ganeshgr@chelsio.com>,
+        Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:55517 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751826AbdFMTFA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 15:05:00 -0400
-In-Reply-To: <20170613184948.wx326pyjauju7iti@dhcp-172-26-110-210.dhcp.thefacebook.com>
+Received: from stargate.chelsio.com ([12.32.117.8]:63312 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753764AbdFMTQW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 15:16:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/13/2017 08:49 PM, Martin KaFai Lau wrote:
-> On Tue, Jun 13, 2017 at 07:04:26PM +0300, Saeed Mahameed wrote:
->> On Tue, Jun 13, 2017 at 4:00 AM, Martin KaFai Lau <kafai@fb.com> wrote:
->>> Add support to mlx5e to report bpf_prog ID during XDP_QUERY_PROG.
->>>
->>> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
->>> Cc: Tariq Toukan <tariqt@mellanox.com>
->>> Cc: Saeed Mahameed <saeedm@mellanox.com>
->>> Acked-by: Alexei Starovoitov <ast@fb.com>
->>> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
->>
->> Acked-by: Saeed Mahameed <saeedm@mellanox.com>
-> Thanks for reviewing, Saeed.
->
-> I will respin v2 with READ_ONCE removed since
-> it is already under rtnl lock per Jakub Kicinski's
-> suggestion in nfp.  The situation should be similar
-> in mlx5e.
+If SF bit is not cleared in PL_INT_CAUSE, subsequent non-data
+interrupts are not raised.  Enable SF bit in Global Interrupt
+Mask and handle it as non-fatal and hence eventually clear it.
 
-Sounds good, yeah, only needed in data path wrt program
-updates.
+Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
+Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index 16af646..d5e316d 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -4462,7 +4462,7 @@ static void pl_intr_handler(struct adapter *adap)
+ #define PF_INTR_MASK (PFSW_F)
+ #define GLBL_INTR_MASK (CIM_F | MPS_F | PL_F | PCIE_F | MC_F | EDC0_F | \
+ 		EDC1_F | LE_F | TP_F | MA_F | PM_TX_F | PM_RX_F | ULP_RX_F | \
+-		CPL_SWITCH_F | SGE_F | ULP_TX_F)
++		CPL_SWITCH_F | SGE_F | ULP_TX_F | SF_F)
+ 
+ /**
+  *	t4_slow_intr_handler - control path interrupt handler
+-- 
+2.1.0
