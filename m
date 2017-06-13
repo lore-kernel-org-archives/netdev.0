@@ -1,10 +1,10 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH V2 net-next 1/8] net: hns3: Add support of HNS3 Ethernet
- Driver for hip08 SoC
-Date: Tue, 13 Jun 2017 16:53:03 -0700
-Message-ID: <20170613165303.7a096821@xeon-e3>
+Subject: Re: [PATCH V2 net-next 7/8] net: hns3: Add Ethtool support to HNS3
+ driver
+Date: Tue, 13 Jun 2017 16:55:14 -0700
+Message-ID: <20170613165514.757eb40f@xeon-e3>
 References: <20170613231035.494020-1-salil.mehta@huawei.com>
-        <20170613231035.494020-2-salil.mehta@huawei.com>
+        <20170613231035.494020-8-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -14,22 +14,49 @@ Cc: <davem@davemloft.net>, <yisen.zhuang@huawei.com>,
         <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
 To: Salil Mehta <salil.mehta@huawei.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170613231035.494020-2-salil.mehta@huawei.com>
+In-Reply-To: <20170613231035.494020-8-salil.mehta@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 14 Jun 2017 00:10:28 +0100
+On Wed, 14 Jun 2017 00:10:34 +0100
 Salil Mehta <salil.mehta@huawei.com> wrote:
 
-> +static irqreturn_t hns3_irq_handle(int irq, void *dev)
-> +{
-> +	struct hns3_enet_tqp_vector *tqp_vector = dev;
+> +/* netdev related stats */
+> +#define HNS3_NETDEV_STAT(_string, _member)			\
+> +	{ _string,						\
+> +	  FIELD_SIZEOF(struct rtnl_link_stats64, _member),	\
+> +	  offsetof(struct rtnl_link_stats64, _member),		\
+> +	}
 > +
-> +	napi_schedule(&tqp_vector->napi);
+> +static const struct hns3_stats hns3_netdev_stats[] = {
+> +	/* misc. Rx/Tx statistics */
+> +	HNS3_NETDEV_STAT("rx_packets", rx_packets),
+> +	HNS3_NETDEV_STAT("tx_packets", tx_packets),
+> +	HNS3_NETDEV_STAT("rx_bytes", rx_bytes),
+> +	HNS3_NETDEV_STAT("tx_bytes", tx_bytes),
+> +	HNS3_NETDEV_STAT("rx_errors", rx_errors),
+> +	HNS3_NETDEV_STAT("tx_errors", tx_errors),
+> +	HNS3_NETDEV_STAT("rx_dropped", rx_dropped),
+> +	HNS3_NETDEV_STAT("tx_dropped", tx_dropped),
+> +	HNS3_NETDEV_STAT("multicast", multicast),
+> +	HNS3_NETDEV_STAT("collisions", collisions),
+> +
+> +	/* detailed Rx errors */
+> +	HNS3_NETDEV_STAT("rx_length_errors", rx_length_errors),
+> +	HNS3_NETDEV_STAT("rx_over_errors", rx_over_errors),
+> +	HNS3_NETDEV_STAT("rx_crc_errors", rx_crc_errors),
+> +	HNS3_NETDEV_STAT("rx_frame_errors", rx_frame_errors),
+> +	HNS3_NETDEV_STAT("rx_fifo_errors", rx_fifo_errors),
+> +	HNS3_NETDEV_STAT("rx_missed_errors", rx_missed_errors),
+> +
+> +	/* detailed Tx errors */
+> +	HNS3_NETDEV_STAT("tx_aborted_errors", tx_aborted_errors),
+> +	HNS3_NETDEV_STAT("tx_carrier_errors", tx_carrier_errors),
+> +	HNS3_NETDEV_STAT("tx_fifo_errors", tx_fifo_errors),
+> +	HNS3_NETDEV_STAT("tx_heartbeat_errors", tx_heartbeat_errors),
+> +	HNS3_NETDEV_STAT("tx_window_errors", tx_window_errors),
+> +
 
-In order to do NAPI correctly, the IRQ must be disabled.
-If you are using MSI, then hardware will do it for you.
-
-But I don't see you ever enable MSI or MSI-x in this driver.
-Are you just assuming that the driver only works on one platform
-and that platform has PCI MSI-X?
+Ethtool statistics should be reserved for device specific values and
+should not be used just to clone statistics that already exist in
+the network device.
