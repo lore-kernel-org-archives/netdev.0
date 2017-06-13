@@ -1,69 +1,62 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: pull-request: mac80211 2017-06-13
-Date: Tue, 13 Jun 2017 11:44:08 +0200
-Message-ID: <20170613094409.12965-1-johannes@sipsolutions.net>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: =?utf-8?B?5Lil5rW35Y+M?= <yanhaishuang@cmss.chinamobile.com>
+Subject: Re: [PATCH] ip6_tunnel: fix potential issue in __ip6_tnl_rcv
+Date: Tue, 13 Jun 2017 17:51:06 +0800
+Message-ID: <3FF0F242-3647-47DF-B412-10A5A840AE71@cmss.chinamobile.com>
+References: <1497344195-19900-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+ <1497344195-19900-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Alexei Starovoitov <ast@fb.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        zhangshengju <zhangshengju@cmss.chinamobile.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1497344195-19900-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
 
-Here are some more fixes for the current cycle. Nothing really
-big, though my own patches look bigger than they are due to some
-code moving. The commit logs are far longer than the changes :-)
+> On 13 Jun 2017, at 4:56 PM, Haishuang Yan <yanhaishuang@cmss.chinamobile.com> wrote:
+> 
+> When __ip6_tnl_rcv fails, the tun_dst won't be freed, so call
+> dst_release to free it in error code path.
+> 
+> CC: Alexei Starovoitov <ast@fb.com>
+> Fixes: 8d79266bc48c ("ip6_tunnel: add collect_md mode to IPv6 tunnels")
+> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+> Tested-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+> 
+> ---
+> v4:
+>  - Add tester information
+> v3:
+>  - Free tun_dst from error code path
+> v2:
+>  - Add the the missing Fixes information
+> ---
+> net/ipv6/ip6_tunnel.c | 2 ++
+> 1 file changed, 2 insertions(+)
+> 
+> diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+> index 9b37f97..ef99d59 100644
+> --- a/net/ipv6/ip6_tunnel.c
+> +++ b/net/ipv6/ip6_tunnel.c
+> @@ -859,6 +859,8 @@ static int __ip6_tnl_rcv(struct ip6_tnl *tunnel, struct sk_buff *skb,
+> 	return 0;
+> 
+> drop:
+> +	if (tun_dst)
+> +		dst_release((struct dst_entry *)tun_dst);
+> 	kfree_skb(skb);
+> 	return 0;
+> }
+> -- 
+> 1.8.3.1
+> 
+> 
 
-Please pull and let me know if there's any problem.
-
-Thanks,
-johannes
-
-
-
-The following changes since commit 0bed865060836dc5f26b68052de0a504d66d9fae:
-
-  net: Fix build regression in rtl8723bs staging driver. (2017-06-08 11:51:59 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2017-06-13
-
-for you to fetch changes up to b3dd8279659f14f3624bb32559782d699fa6f7d1:
-
-  mac80211: don't send SMPS action frame in AP mode when not needed (2017-06-13 10:24:35 +0200)
-
-----------------------------------------------------------------
-Some fixes:
- * Avi fixes some fallout from my mac80211 RX flags changes
- * Emmanuel fixes an issue with adhering to the spec, and
-   an oversight in the SMPS management code
- * Jason's patch makes mac80211 use constant-time memory
-   comparisons for message authentication, to avoid having
-   potentially observable timing differences
- * my fix makes mac80211 set the basic rates bitmap before
-   the channel so the next update to the driver has more
-   consistent data - this required another rework patch to
-   remove some useless 5/10 MHz code that can never be hit
-
-----------------------------------------------------------------
-Avraham Stern (1):
-      mac80211: Fix incorrect condition when checking rx timestamp
-
-Emmanuel Grumbach (2):
-      mac80211: don't look at the PM bit of BAR frames
-      mac80211: don't send SMPS action frame in AP mode when not needed
-
-Jason A. Donenfeld (1):
-      mac80211/wpa: use constant time memory comparison for MACs
-
-Johannes Berg (2):
-      mac80211: remove 5/10 MHz rate code from station MLME
-      mac80211: set bss_info data before configuring the channel
-
- net/mac80211/cfg.c         |  2 ++
- net/mac80211/ieee80211_i.h |  2 +-
- net/mac80211/mlme.c        | 62 +++++++++++++++++++++++-----------------------
- net/mac80211/rx.c          |  6 ++++-
- net/mac80211/wpa.c         |  9 ++++---
- 5 files changed, 44 insertions(+), 37 deletions(-)
+Hi David, Please ignore the patches, I forgot to add subject prefix, sorry.
