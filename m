@@ -1,36 +1,32 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCHv5] wlcore: add wl1285 compatible
-Date: Tue, 13 Jun 2017 07:06:22 +0000 (UTC)
-Message-ID: <20170613070622.CA4736075B@smtp.codeaurora.org>
-References: <20170608205000.3268-1-sebastian.reichel@collabora.co.uk>
+Subject: Re: wlcore: spi: remove unnecessary variable
+Date: Tue, 13 Jun 2017 07:07:10 +0000 (UTC)
+Message-ID: <20170613070710.ED647601D9@smtp.codeaurora.org>
+References: <20170609032430.GA7432@embeddedgus>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org,
-        Sebastian Reichel <sebastian.reichel@collabora.co.uk>
-To: Sebastian Reichel <sebastian.reichel@collabora.co.uk>
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170608205000.3268-1-sebastian.reichel@collabora.co.uk>
+In-Reply-To: <20170609032430.GA7432@embeddedgus>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sebastian Reichel <sebastian.reichel@collabora.co.uk> wrote:
+"Gustavo A. R. Silva" <garsilva@embeddedor.com> wrote:
 
-> Motorola Droid 4 uses a WL 1285C. With differences between
-> chips not being public let's add explicit binding for wl1285
-> instead of relying on wl1283 being very similar.
+> Remove unnecessary variable and refactor the code.
 > 
-> Reviewed-by: Rob Herring <robh@kernel.org>
-> Acked-by: Kalle Valo <kvalo@codeaurora.org>
-> Acked-by: Tony Lindgren <tony@atomide.com>
-> Signed-off-by: Sebastian Reichel <sebastian.reichel@collabora.co.uk>
+> Addresses-Coverity-ID: 1365000
+> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
 
 Patch applied to wireless-drivers-next.git, thanks.
 
-078b30da3f07 wlcore: add wl1285 compatible
+c48c281e7236 wlcore: spi: remove unnecessary variable
 
 -- 
-https://patchwork.kernel.org/patch/9776481/
+https://patchwork.kernel.org/patch/9777073/
 
 https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
