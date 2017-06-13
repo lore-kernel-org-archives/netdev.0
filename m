@@ -1,51 +1,27 @@
-From: Arun Parameswaran <arun.parameswaran-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v1 1/2] dt-binding: ptp: add bindings document for dte
- based ptp clock
-Date: Tue, 13 Jun 2017 10:46:36 -0700
-Message-ID: <cb008f0f-1585-653e-0b89-47478f9f4734@broadcom.com>
-References: <1497299161-6458-1-git-send-email-arun.parameswaran@broadcom.com>
- <1497299161-6458-2-git-send-email-arun.parameswaran@broadcom.com>
- <20170613050947.GA1684@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/2] pull request for net: batman-adv 2017-06-13
+Date: Tue, 13 Jun 2017 13:46:55 -0400 (EDT)
+Message-ID: <20170613.134655.806771445954651420.davem@davemloft.net>
+References: <20170613111531.29082-1-sw@simonwunderlich.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
-To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170613050947.GA1684-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Content-Language: en-US
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: sw@simonwunderlich.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45978 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753778AbdFMRq5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 13:46:57 -0400
+In-Reply-To: <20170613111531.29082-1-sw@simonwunderlich.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Simon Wunderlich <sw@simonwunderlich.de>
+Date: Tue, 13 Jun 2017 13:15:29 +0200
 
-Hi Richard,
+> here are two batman-adv bugfixes for net.
+> 
+> Please pull or let me know of any problem!
 
-On 17-06-12 10:09 PM, Richard Cochran wrote:
-> On Mon, Jun 12, 2017 at 01:26:00PM -0700, Arun Parameswaran wrote:
->> +Example:
->> +
->> +ptp_dte: ptp_dte@180af650 {
->> +	compatible = "brcm,ptp-dte";
->> +	reg = <0x180af650 0x10>;
->> +	status = "okay";
->> +};
-> This patch set looks okay, as far as it goes, but how does one
-> actually use the clock?
->
-> How does one connect this node to an Ethernet MAC, for example?
-In some of the SoC's, the DTE's NCO is synced in hardware with the Ethernet's
-1588 Shim NCO (used for time-stamping the packets). We are working on getting
-all the future SoC's synced this way (for Ethernet).
-
-In other scenarios, we use an user-space app to perform the sync based on
-time-stamps from external hardware sources like the Wi-Fi.
-> Thanks,
-> Richard
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Pulled, thanks.
