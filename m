@@ -1,96 +1,53 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH v4 04/11] net: mvmdio: remove duplicate locking
-Date: Wed, 14 Jun 2017 17:49:04 +0200
-Message-ID: <20170614154911.14510-5-antoine.tenart@free-electrons.com>
-References: <20170614154911.14510-1-antoine.tenart@free-electrons.com>
-Cc: Russell King <rmk+kernel@armlinux.org.uk>,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        mw@semihalf.com, linux@armlinux.org.uk, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org
-To: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
-        gregory.clement@free-electrons.com,
-        sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com
+From: =?UTF-8?Q?Jan_Grash=c3=b6fer?= <jan.grashoefer@gmail.com>
+Subject: Re: Receiving raw packets (incl. VLAN tags) on raw sockets
+Date: Wed, 14 Jun 2017 18:03:27 +0200
+Message-ID: <8e65d057-a39c-6b83-b650-922ba9e86051@gmail.com>
+References: <e06dbb47-2d1c-03ca-4cd7-cc958b6a939e@gmail.com>
+ <877f0eaax8.fsf@xmission.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, aeppert@gmail.com
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:34968 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752536AbdFNPy2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 11:54:28 -0400
-In-Reply-To: <20170614154911.14510-1-antoine.tenart@free-electrons.com>
+Received: from mail-wr0-f182.google.com ([209.85.128.182]:36045 "EHLO
+        mail-wr0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752230AbdFNQDa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 12:03:30 -0400
+Received: by mail-wr0-f182.google.com with SMTP id 36so6618681wry.3
+        for <netdev@vger.kernel.org>; Wed, 14 Jun 2017 09:03:30 -0700 (PDT)
+In-Reply-To: <877f0eaax8.fsf@xmission.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Russell King <rmk+kernel@armlinux.org.uk>
+On 14/06/17 16:41, Eric W. Biederman wrote:
+> That does not work.  That is is just the software fallback for when
+> the device driver does not have a special case the processing
+> vlan tagged packets.
+> 
+> There was a major inconsistency that for a long time the hardware
+> network drivers were stripping tags and the software ones were not.
+> 
+> The code you are playing with is the fix for the rare slow path
+> that does not happen to strip the tags.  Disabling the rare slow path
+> might temporarily solve your symptoms but it will be much more painful
+> when you are entrenched in your ways and discover that high performance
+> hardware behaves differently than your software device.
 
-The MDIO layer already provides per-bus locking, so there's no need for
-MDIO bus drivers to do their own internal locking.  Remove this.
+Thanks for your reply! Actually, I was referring to COTS hardware that 
+incorporates offloading features. But, when it comes to (security) 
+monitoring, offloading is usually disabled [1,2] to process the packets 
+as seen on the wire. Thus the "slow path" would be the default path for 
+most monitoring applications. That is, what makes this situation kind of 
+weird. After turning off the NIC's VLAN offloading, it took me some time 
+to realize that now the kernel strips off VLAN tags. If someone decides 
+that VLAN offloading is not needed, I think the kernel should not 
+enforce it.
 
-Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
----
- drivers/net/ethernet/marvell/mvmdio.c | 10 ----------
- 1 file changed, 10 deletions(-)
+Jan
 
-diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-index 583f1c5753c2..eab625752b12 100644
---- a/drivers/net/ethernet/marvell/mvmdio.c
-+++ b/drivers/net/ethernet/marvell/mvmdio.c
-@@ -23,7 +23,6 @@
- #include <linux/io.h>
- #include <linux/kernel.h>
- #include <linux/module.h>
--#include <linux/mutex.h>
- #include <linux/of_mdio.h>
- #include <linux/phy.h>
- #include <linux/platform_device.h>
-@@ -51,7 +50,6 @@
- #define MVMDIO_SMI_POLL_INTERVAL_MAX	55
- 
- struct orion_mdio_dev {
--	struct mutex lock;
- 	void __iomem *regs;
- 	struct clk *clk[3];
- 	/*
-@@ -116,8 +114,6 @@ static int orion_mdio_read(struct mii_bus *bus, int mii_id,
- 	u32 val;
- 	int ret;
- 
--	mutex_lock(&dev->lock);
--
- 	ret = orion_mdio_wait_ready(bus);
- 	if (ret < 0)
- 		goto out;
-@@ -140,7 +136,6 @@ static int orion_mdio_read(struct mii_bus *bus, int mii_id,
- 
- 	ret = val & GENMASK(15, 0);
- out:
--	mutex_unlock(&dev->lock);
- 	return ret;
- }
- 
-@@ -150,8 +145,6 @@ static int orion_mdio_write(struct mii_bus *bus, int mii_id,
- 	struct orion_mdio_dev *dev = bus->priv;
- 	int ret;
- 
--	mutex_lock(&dev->lock);
--
- 	ret = orion_mdio_wait_ready(bus);
- 	if (ret < 0)
- 		goto out;
-@@ -163,7 +156,6 @@ static int orion_mdio_write(struct mii_bus *bus, int mii_id,
- 	       dev->regs);
- 
- out:
--	mutex_unlock(&dev->lock);
- 	return ret;
- }
- 
-@@ -244,8 +236,6 @@ static int orion_mdio_probe(struct platform_device *pdev)
- 		return -EPROBE_DEFER;
- 	}
- 
--	mutex_init(&dev->lock);
--
- 	if (pdev->dev.of_node)
- 		ret = of_mdiobus_register(bus, pdev->dev.of_node);
- 	else
--- 
-2.9.4
+[1] 
+https://redmine.openinfosecfoundation.org/projects/suricata/wiki/File_Extraction#NIC-offloading
+[2] 
+https://www.bro.org/documentation/faq.html#capture-loss-without-dropped-packets
