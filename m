@@ -1,73 +1,208 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH iproute2 master] bpf: provide fallback defs for __NR_bpf
- when not avail
-Date: Thu, 15 Jun 2017 01:01:14 +0200
-Message-ID: <5941C03A.6010107@iogearbox.net>
-References: <b59b84be59bccbab994072fdd9969b5d8a483f12.1497480167.git.daniel@iogearbox.net> <20170614155648.4cfd7a73@xeon-e3>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net] rxrpc: Fix several cases where a padded len isn't
+ checked in ticket decode
+Date: Thu, 15 Jun 2017 00:12:24 +0100
+Message-ID: <149748194451.23919.13232256832988154536.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:46262 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752121AbdFNXBT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 19:01:19 -0400
-In-Reply-To: <20170614155648.4cfd7a73@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/15/2017 12:56 AM, Stephen Hemminger wrote:
-> On Thu, 15 Jun 2017 00:47:15 +0200
-> Daniel Borkmann <daniel@iogearbox.net> wrote:
->
->> panji reported that he wasn't able to build iproute2's bpf library
->> due to lack of __NR_bpf in his system headers. Providing a fallback
->> definition when __NR_bpf is not available in the system lets the
->> loader compile just fine, so lets add them for majority of archs.
->>
->> Reported-by: panji <jpan@live.nl>
->> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
->> ---
->>   lib/bpf.c | 20 ++++++++++++++++++++
->>   1 file changed, 20 insertions(+)
->>
->> diff --git a/lib/bpf.c b/lib/bpf.c
->> index ae4d97d..e1e29cc 100644
->> --- a/lib/bpf.c
->> +++ b/lib/bpf.c
->> @@ -128,6 +128,26 @@ static inline __u64 bpf_ptr_to_u64(const void *ptr)
->>   	return (__u64)(unsigned long)ptr;
->>   }
->>
->> +#ifndef __NR_bpf
->> +# if defined(__i386__)
->> +#  define __NR_bpf 357
->> +# elif defined(__x86_64__)
->> +#  define __NR_bpf 321
->> +# elif defined(__aarch64__)
->> +#  define __NR_bpf 280
->> +# elif defined(__sparc__)
->> +#  define __NR_bpf 349
->> +# elif defined(__arm__)
->> +#  define __NR_bpf 386
->> +# elif defined(__powerpc__)
->> +#  define __NR_bpf 361
->> +# elif defined(__s390__)
->> +#  define __NR_bpf 351
->> +# else
->> +#  error __NR_bpf not defined. Update kernel headers.
->> +# endif
->> +#endif
->> +
->>   static int bpf(int cmd, union bpf_attr *attr, unsigned int size)
->>   {
->>   #ifdef __NR_bpf
->
-> Sorry this looks like a mess. enumerating architectures in two different
-> projects is likely to break in future.
+This fixes CVE-2017-7482.
 
-It says ifndef __NR_bpf, so only used then. And the numbers are uabi,
-what will break here exactly? libbpf in kernel tree is having a similar
-approach by the way.
+When a kerberos 5 ticket is being decoded so that it can be loaded into an
+rxrpc-type key, there are several places in which the length of a
+variable-length field is checked to make sure that it's not going to
+overrun the available data - but the data is padded to the nearest
+four-byte boundary and the code doesn't check for this extra.  This could
+lead to the size-remaining variable wrapping and the data pointer going
+over the end of the buffer.
+
+Fix this by making the various variable-length data checks use the padded
+length.
+
+Reported-by: 石磊 <shilei-c@360.cn>
+Signed-off-by: David Howells <dhowells@redhat.com>
+Reviewed-by: Marc Dionne <marc.c.dionne@auristor.com>
+Reviewed-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+
+ net/rxrpc/key.c |   64 +++++++++++++++++++++++++++++--------------------------
+ 1 file changed, 34 insertions(+), 30 deletions(-)
+
+diff --git a/net/rxrpc/key.c b/net/rxrpc/key.c
+index 0a4e28477ad9..54369225766e 100644
+--- a/net/rxrpc/key.c
++++ b/net/rxrpc/key.c
+@@ -217,7 +217,7 @@ static int rxrpc_krb5_decode_principal(struct krb5_principal *princ,
+ 				       unsigned int *_toklen)
+ {
+ 	const __be32 *xdr = *_xdr;
+-	unsigned int toklen = *_toklen, n_parts, loop, tmp;
++	unsigned int toklen = *_toklen, n_parts, loop, tmp, paddedlen;
+ 
+ 	/* there must be at least one name, and at least #names+1 length
+ 	 * words */
+@@ -247,16 +247,16 @@ static int rxrpc_krb5_decode_principal(struct krb5_principal *princ,
+ 		toklen -= 4;
+ 		if (tmp <= 0 || tmp > AFSTOKEN_STRING_MAX)
+ 			return -EINVAL;
+-		if (tmp > toklen)
++		paddedlen = (tmp + 3) & ~3;
++		if (paddedlen > toklen)
+ 			return -EINVAL;
+ 		princ->name_parts[loop] = kmalloc(tmp + 1, GFP_KERNEL);
+ 		if (!princ->name_parts[loop])
+ 			return -ENOMEM;
+ 		memcpy(princ->name_parts[loop], xdr, tmp);
+ 		princ->name_parts[loop][tmp] = 0;
+-		tmp = (tmp + 3) & ~3;
+-		toklen -= tmp;
+-		xdr += tmp >> 2;
++		toklen -= paddedlen;
++		xdr += paddedlen >> 2;
+ 	}
+ 
+ 	if (toklen < 4)
+@@ -265,16 +265,16 @@ static int rxrpc_krb5_decode_principal(struct krb5_principal *princ,
+ 	toklen -= 4;
+ 	if (tmp <= 0 || tmp > AFSTOKEN_K5_REALM_MAX)
+ 		return -EINVAL;
+-	if (tmp > toklen)
++	paddedlen = (tmp + 3) & ~3;
++	if (paddedlen > toklen)
+ 		return -EINVAL;
+ 	princ->realm = kmalloc(tmp + 1, GFP_KERNEL);
+ 	if (!princ->realm)
+ 		return -ENOMEM;
+ 	memcpy(princ->realm, xdr, tmp);
+ 	princ->realm[tmp] = 0;
+-	tmp = (tmp + 3) & ~3;
+-	toklen -= tmp;
+-	xdr += tmp >> 2;
++	toklen -= paddedlen;
++	xdr += paddedlen >> 2;
+ 
+ 	_debug("%s/...@%s", princ->name_parts[0], princ->realm);
+ 
+@@ -293,7 +293,7 @@ static int rxrpc_krb5_decode_tagged_data(struct krb5_tagged_data *td,
+ 					 unsigned int *_toklen)
+ {
+ 	const __be32 *xdr = *_xdr;
+-	unsigned int toklen = *_toklen, len;
++	unsigned int toklen = *_toklen, len, paddedlen;
+ 
+ 	/* there must be at least one tag and one length word */
+ 	if (toklen <= 8)
+@@ -307,15 +307,17 @@ static int rxrpc_krb5_decode_tagged_data(struct krb5_tagged_data *td,
+ 	toklen -= 8;
+ 	if (len > max_data_size)
+ 		return -EINVAL;
++	paddedlen = (len + 3) & ~3;
++	if (paddedlen > toklen)
++		return -EINVAL;
+ 	td->data_len = len;
+ 
+ 	if (len > 0) {
+ 		td->data = kmemdup(xdr, len, GFP_KERNEL);
+ 		if (!td->data)
+ 			return -ENOMEM;
+-		len = (len + 3) & ~3;
+-		toklen -= len;
+-		xdr += len >> 2;
++		toklen -= paddedlen;
++		xdr += paddedlen >> 2;
+ 	}
+ 
+ 	_debug("tag %x len %x", td->tag, td->data_len);
+@@ -387,7 +389,7 @@ static int rxrpc_krb5_decode_ticket(u8 **_ticket, u16 *_tktlen,
+ 				    const __be32 **_xdr, unsigned int *_toklen)
+ {
+ 	const __be32 *xdr = *_xdr;
+-	unsigned int toklen = *_toklen, len;
++	unsigned int toklen = *_toklen, len, paddedlen;
+ 
+ 	/* there must be at least one length word */
+ 	if (toklen <= 4)
+@@ -399,6 +401,9 @@ static int rxrpc_krb5_decode_ticket(u8 **_ticket, u16 *_tktlen,
+ 	toklen -= 4;
+ 	if (len > AFSTOKEN_K5_TIX_MAX)
+ 		return -EINVAL;
++	paddedlen = (len + 3) & ~3;
++	if (paddedlen > toklen)
++		return -EINVAL;
+ 	*_tktlen = len;
+ 
+ 	_debug("ticket len %u", len);
+@@ -407,9 +412,8 @@ static int rxrpc_krb5_decode_ticket(u8 **_ticket, u16 *_tktlen,
+ 		*_ticket = kmemdup(xdr, len, GFP_KERNEL);
+ 		if (!*_ticket)
+ 			return -ENOMEM;
+-		len = (len + 3) & ~3;
+-		toklen -= len;
+-		xdr += len >> 2;
++		toklen -= paddedlen;
++		xdr += paddedlen >> 2;
+ 	}
+ 
+ 	*_xdr = xdr;
+@@ -552,7 +556,7 @@ static int rxrpc_preparse_xdr(struct key_preparsed_payload *prep)
+ {
+ 	const __be32 *xdr = prep->data, *token;
+ 	const char *cp;
+-	unsigned int len, tmp, loop, ntoken, toklen, sec_ix;
++	unsigned int len, paddedlen, loop, ntoken, toklen, sec_ix;
+ 	size_t datalen = prep->datalen;
+ 	int ret;
+ 
+@@ -578,22 +582,21 @@ static int rxrpc_preparse_xdr(struct key_preparsed_payload *prep)
+ 	if (len < 1 || len > AFSTOKEN_CELL_MAX)
+ 		goto not_xdr;
+ 	datalen -= 4;
+-	tmp = (len + 3) & ~3;
+-	if (tmp > datalen)
++	paddedlen = (len + 3) & ~3;
++	if (paddedlen > datalen)
+ 		goto not_xdr;
+ 
+ 	cp = (const char *) xdr;
+ 	for (loop = 0; loop < len; loop++)
+ 		if (!isprint(cp[loop]))
+ 			goto not_xdr;
+-	if (len < tmp)
+-		for (; loop < tmp; loop++)
+-			if (cp[loop])
+-				goto not_xdr;
++	for (; loop < paddedlen; loop++)
++		if (cp[loop])
++			goto not_xdr;
+ 	_debug("cellname: [%u/%u] '%*.*s'",
+-	       len, tmp, len, len, (const char *) xdr);
+-	datalen -= tmp;
+-	xdr += tmp >> 2;
++	       len, paddedlen, len, len, (const char *) xdr);
++	datalen -= paddedlen;
++	xdr += paddedlen >> 2;
+ 
+ 	/* get the token count */
+ 	if (datalen < 12)
+@@ -614,10 +617,11 @@ static int rxrpc_preparse_xdr(struct key_preparsed_payload *prep)
+ 		sec_ix = ntohl(*xdr);
+ 		datalen -= 4;
+ 		_debug("token: [%x/%zx] %x", toklen, datalen, sec_ix);
+-		if (toklen < 20 || toklen > datalen)
++		paddedlen = (toklen + 3) & ~3;
++		if (toklen < 20 || toklen > datalen || paddedlen > datalen)
+ 			goto not_xdr;
+-		datalen -= (toklen + 3) & ~3;
+-		xdr += (toklen + 3) >> 2;
++		datalen -= paddedlen;
++		xdr += paddedlen >> 2;
+ 
+ 	} while (--loop > 0);
+ 
