@@ -1,9 +1,9 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH v4 06/11] net: mvmdio: put the poll intervals in the ops structure
-Date: Wed, 14 Jun 2017 17:49:06 +0200
-Message-ID: <20170614154911.14510-7-antoine.tenart@free-electrons.com>
+Subject: [PATCH v4 04/11] net: mvmdio: remove duplicate locking
+Date: Wed, 14 Jun 2017 17:49:04 +0200
+Message-ID: <20170614154911.14510-5-antoine.tenart@free-electrons.com>
 References: <20170614154911.14510-1-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+Cc: Russell King <rmk+kernel@armlinux.org.uk>,
         thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
         mw@semihalf.com, linux@armlinux.org.uk, netdev@vger.kernel.org,
         linux-arm-kernel@lists.infradead.org
@@ -11,54 +11,86 @@ To: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
         gregory.clement@free-electrons.com,
         sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:34982 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:34968 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752548AbdFNPy3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 11:54:29 -0400
+        with ESMTP id S1752536AbdFNPy2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 11:54:28 -0400
 In-Reply-To: <20170614154911.14510-1-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Put the two poll intervals (min and max) in the driver's ops
-structure. This is needed to add the xmdio support later.
+From: Russell King <rmk+kernel@armlinux.org.uk>
 
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+The MDIO layer already provides per-bus locking, so there's no need for
+MDIO bus drivers to do their own internal locking.  Remove this.
+
+Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
 ---
- drivers/net/ethernet/marvell/mvmdio.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/marvell/mvmdio.c | 10 ----------
+ 1 file changed, 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-index 2a8efc77f5fe..e4aa8e2d2e8a 100644
+index 583f1c5753c2..eab625752b12 100644
 --- a/drivers/net/ethernet/marvell/mvmdio.c
 +++ b/drivers/net/ethernet/marvell/mvmdio.c
-@@ -64,6 +64,8 @@ struct orion_mdio_dev {
+@@ -23,7 +23,6 @@
+ #include <linux/io.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+-#include <linux/mutex.h>
+ #include <linux/of_mdio.h>
+ #include <linux/phy.h>
+ #include <linux/platform_device.h>
+@@ -51,7 +50,6 @@
+ #define MVMDIO_SMI_POLL_INTERVAL_MAX	55
  
- struct orion_mdio_ops {
- 	int (*is_done)(struct orion_mdio_dev *);
-+	unsigned int poll_interval_min;
-+	unsigned int poll_interval_max;
- };
+ struct orion_mdio_dev {
+-	struct mutex lock;
+ 	void __iomem *regs;
+ 	struct clk *clk[3];
+ 	/*
+@@ -116,8 +114,6 @@ static int orion_mdio_read(struct mii_bus *bus, int mii_id,
+ 	u32 val;
+ 	int ret;
  
- /* Wait for the SMI unit to be ready for another operation
-@@ -83,8 +85,8 @@ static int orion_mdio_wait_ready(const struct orion_mdio_ops *ops,
- 			break;
+-	mutex_lock(&dev->lock);
+-
+ 	ret = orion_mdio_wait_ready(bus);
+ 	if (ret < 0)
+ 		goto out;
+@@ -140,7 +136,6 @@ static int orion_mdio_read(struct mii_bus *bus, int mii_id,
  
- 	        if (dev->err_interrupt <= 0) {
--			usleep_range(MVMDIO_SMI_POLL_INTERVAL_MIN,
--				     MVMDIO_SMI_POLL_INTERVAL_MAX);
-+			usleep_range(ops->poll_interval_min,
-+				     ops->poll_interval_max);
+ 	ret = val & GENMASK(15, 0);
+ out:
+-	mutex_unlock(&dev->lock);
+ 	return ret;
+ }
  
- 			if (time_is_before_jiffies(end))
- 				++timedout;
-@@ -113,6 +115,8 @@ static int orion_mdio_smi_is_done(struct orion_mdio_dev *dev)
+@@ -150,8 +145,6 @@ static int orion_mdio_write(struct mii_bus *bus, int mii_id,
+ 	struct orion_mdio_dev *dev = bus->priv;
+ 	int ret;
  
- static const struct orion_mdio_ops orion_mdio_smi_ops = {
- 	.is_done = orion_mdio_smi_is_done,
-+	.poll_interval_min = MVMDIO_SMI_POLL_INTERVAL_MIN,
-+	.poll_interval_max = MVMDIO_SMI_POLL_INTERVAL_MAX,
- };
+-	mutex_lock(&dev->lock);
+-
+ 	ret = orion_mdio_wait_ready(bus);
+ 	if (ret < 0)
+ 		goto out;
+@@ -163,7 +156,6 @@ static int orion_mdio_write(struct mii_bus *bus, int mii_id,
+ 	       dev->regs);
  
- static int orion_mdio_read(struct mii_bus *bus, int mii_id,
+ out:
+-	mutex_unlock(&dev->lock);
+ 	return ret;
+ }
+ 
+@@ -244,8 +236,6 @@ static int orion_mdio_probe(struct platform_device *pdev)
+ 		return -EPROBE_DEFER;
+ 	}
+ 
+-	mutex_init(&dev->lock);
+-
+ 	if (pdev->dev.of_node)
+ 		ret = of_mdiobus_register(bus, pdev->dev.of_node);
+ 	else
 -- 
 2.9.4
