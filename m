@@ -1,43 +1,22 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Wed, 14 Jun 2017 10:20:33 +1000
-Message-ID: <20170614102033.27d1ad1f@canb.auug.org.au>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH 3/4] bpf: Add MIPS support to samples/bpf.
+Date: Wed, 14 Jun 2017 02:20:41 +0200
+Message-ID: <59408159.2090705@iogearbox.net>
+References: <20170613234938.4823-1-david.daney@cavium.com> <20170613234938.4823-4-david.daney@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Tomer Tayar <Tomer.Tayar@cavium.com>,
-        Yuval Mintz <Yuval.Mintz@cavium.com>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
+Cc: linux-mips@linux-mips.org, ralf@linux-mips.org
+To: David Daney <david.daney@cavium.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170613234938.4823-4-david.daney@cavium.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+On 06/14/2017 01:49 AM, David Daney wrote:
+> Signed-off-by: David Daney <david.daney@cavium.com>
 
-Today's linux-next merge of the net-next tree got a conflict in:
-
-  drivers/net/ethernet/qlogic/qed/qed_debug.c
-
-between commit:
-
-  ace17c369295 ("qed: fix dump of context data")
-
-from the net tree and commit:
-
-  7b6859fbdcc4 ("qed: Utilize FW 8.20.0.0")
-
-from the net-next tree.
-
-I fixed it up (the latter incorporated the former) and can carry the
-fix as necessary. This is now fixed as far as linux-next is concerned,
-but any non trivial conflicts should be mentioned to your upstream
-maintainer when your tree is submitted for merging.  You may also want
-to consider cooperating with the maintainer of the conflicting tree to
-minimise any particularly complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
