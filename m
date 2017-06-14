@@ -1,53 +1,43 @@
-From: =?UTF-8?Q?Jan_Grash=c3=b6fer?= <jan.grashoefer@gmail.com>
-Subject: Re: Receiving raw packets (incl. VLAN tags) on raw sockets
-Date: Wed, 14 Jun 2017 18:03:27 +0200
-Message-ID: <8e65d057-a39c-6b83-b650-922ba9e86051@gmail.com>
-References: <e06dbb47-2d1c-03ca-4cd7-cc958b6a939e@gmail.com>
- <877f0eaax8.fsf@xmission.com>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: fix VF driver off-by-one bug when setting
+ ethtool -C ethX rx-frames
+Date: Wed, 14 Jun 2017 09:11:31 -0700
+Message-ID: <20170614161131.GA1383@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, aeppert@gmail.com
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        weilin.chang@cavium.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f182.google.com ([209.85.128.182]:36045 "EHLO
-        mail-wr0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752230AbdFNQDa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 12:03:30 -0400
-Received: by mail-wr0-f182.google.com with SMTP id 36so6618681wry.3
-        for <netdev@vger.kernel.org>; Wed, 14 Jun 2017 09:03:30 -0700 (PDT)
-In-Reply-To: <877f0eaax8.fsf@xmission.com>
-Content-Language: en-US
+Received: from mail-co1nam03on0052.outbound.protection.outlook.com ([104.47.40.52]:41724
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752099AbdFNQLl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 14 Jun 2017 12:11:41 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14/06/17 16:41, Eric W. Biederman wrote:
-> That does not work.  That is is just the software fallback for when
-> the device driver does not have a special case the processing
-> vlan tagged packets.
-> 
-> There was a major inconsistency that for a long time the hardware
-> network drivers were stripping tags and the software ones were not.
-> 
-> The code you are playing with is the fix for the rare slow path
-> that does not happen to strip the tags.  Disabling the rare slow path
-> might temporarily solve your symptoms but it will be much more painful
-> when you are entrenched in your ways and discover that high performance
-> hardware behaves differently than your software device.
+From: Weilin Chang <weilin.chang@cavium.com>
 
-Thanks for your reply! Actually, I was referring to COTS hardware that 
-incorporates offloading features. But, when it comes to (security) 
-monitoring, offloading is usually disabled [1,2] to process the packets 
-as seen on the wire. Thus the "slow path" would be the default path for 
-most monitoring applications. That is, what makes this situation kind of 
-weird. After turning off the NIC's VLAN offloading, it took me some time 
-to realize that now the kernel strips off VLAN tags. If someone decides 
-that VLAN offloading is not needed, I think the kernel should not 
-enforce it.
+Signed-off-by: Weilin Chang <weilin.chang@cavium.com>
+Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+---
+ drivers/net/ethernet/cavium/liquidio/lio_ethtool.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Jan
-
-[1] 
-https://redmine.openinfosecfoundation.org/projects/suricata/wiki/File_Extraction#NIC-offloading
-[2] 
-https://www.bro.org/documentation/faq.html#capture-loss-without-dropped-packets
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
+index 53856af..28ecda3 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
+@@ -1808,7 +1808,7 @@ oct_cfg_rx_intrcnt(struct lio *lio,
+ 			    (octeon_read_csr64(
+ 				 oct, CN23XX_VF_SLI_OQ_PKT_INT_LEVELS(q_no)) &
+ 			     (0x3fffff00000000UL)) |
+-				rx_max_coalesced_frames);
++				(rx_max_coalesced_frames - 1));
+ 			/*consider writing to resend bit here*/
+ 		}
+ 		intrmod->rx_frames = rx_max_coalesced_frames;
