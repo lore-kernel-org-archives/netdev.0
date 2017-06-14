@@ -1,34 +1,52 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH net-next] qed: Fix an off by one bug
-Date: Wed, 14 Jun 2017 09:21:32 +0000
-Message-ID: <BY2PR0701MB2005D7EC2C3C89C305AAF0508DC30@BY2PR0701MB2005.namprd07.prod.outlook.com>
-References: <20170614091009.GA29394@elgon.mountain>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: Odd use of %14pM in
+ net/batman-adv/distributed-arp-table.c
+Date: Wed, 14 Jun 2017 02:32:16 -0700
+Message-ID: <1497432736.18751.39.camel@perches.com>
+References: <1497390701.18751.26.camel@perches.com>
+ <5300874.nPgxNW8UST@bentobox>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0080.outbound.protection.outlook.com ([104.47.32.80]:38848
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751888AbdFNJVp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 14 Jun 2017 05:21:45 -0400
-In-Reply-To: <20170614091009.GA29394@elgon.mountain>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Antonio Quartulli <a@unstable.cc>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <5300874.nPgxNW8UST@bentobox>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-> The p_l2_info->pp_qid_usage[] array has "p_l2_info->queues" elements so
-> the > here should be a >=3D or we write beyond the end of the array.
->=20
-> Fixes: bbe3f233ec5e ("qed: Assign a unique per-queue index to queue-cid")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+On Wed, 2017-06-14 at 10:23 +0200, Sven Eckelmann wrote:
+> On Dienstag, 13. Juni 2017 14:51:41 CEST Joe Perches wrote:
+> > An output mac address is 17 bytes
+> 
+> [...]
+> > but in net/batman-adv/distributed-arp-table.c
+> 
+> [...]
+> > %14pM is odd as this should not emit the last byte of the
+> > mac address.  So given the example above, it would output
+> > 00:11:22:33:44
+> 
+> [...]
+> 
+> I completely agree too the "wrong length" part. It is currently not omitting 
+> the last byte:
 
-While it's a theoretical fix [as check is defensive; the queue-id was suppo=
-sed
-to be validated before reaching this part], it's still the right. Thanks Da=
-n.
+Right, I only looked at vsprintf.c and mistook precision for
+field_width.
 
-Acked-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+Do you want to provide a patch to convert it to simple %pM's?
+
+OK.
