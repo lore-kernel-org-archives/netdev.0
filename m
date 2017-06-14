@@ -1,45 +1,62 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH 0/4] bpf: Changes needed (or desired) for MIPS support
-Date: Wed, 14 Jun 2017 02:22:34 +0200
-Message-ID: <594081CA.3060801@iogearbox.net>
-References: <20170613234938.4823-1-david.daney@cavium.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Wed, 14 Jun 2017 10:25:30 +1000
+Message-ID: <20170614102530.2db9f65c@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, ralf@linux-mips.org
-To: David Daney <david.daney@cavium.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170613234938.4823-1-david.daney@cavium.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Andreas Pape <apape@phoenixcontact.com>,
+        Simon Wunderlich <sw@simonwunderlich.de>,
+        Sven Eckelmann <sven@narfation.org>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/14/2017 01:49 AM, David Daney wrote:
-> This is a grab bag of changes to the bpf testing infrastructure I
-> developed working on MIPS eBPF JIT support.  The change to
-> bpf_jit_disasm is probably universally beneficial, the others are more
-> MIPS specific.
+Hi all,
 
-I think these could go independently through net-next tree?
+Today's linux-next merge of the net-next tree got a conflict in:
 
-Thanks,
-Daniel
+  net/batman-adv/routing.c
 
-> David Daney (4):
->    tools: bpf_jit_disasm:  Handle large images.
->    test_bpf: Add test to make conditional jump cross a large number of
->      insns.
->    bpf: Add MIPS support to samples/bpf.
->    samples/bpf: Fix tracex5 to work with MIPS syscalls.
->
->   lib/test_bpf.c             | 32 ++++++++++++++++++++++++++++++++
->   samples/bpf/Makefile       | 13 +++++++++++++
->   samples/bpf/bpf_helpers.h  | 13 +++++++++++++
->   samples/bpf/syscall_nrs.c  | 12 ++++++++++++
->   samples/bpf/tracex5_kern.c | 11 ++++++++---
->   tools/net/bpf_jit_disasm.c | 37 ++++++++++++++++++++++++++-----------
->   6 files changed, 104 insertions(+), 14 deletions(-)
->   create mode 100644 samples/bpf/syscall_nrs.c
->
+between commit:
+
+  a1a745ef980a ("batman-adv: fix memory leak when dropping packet from other gateway")
+
+from the net tree and commit:
+
+  22f0502ed9f3 ("batman-adv: Print correct function names in dbg messages")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
+-- 
+Cheers,
+Stephen Rothwell
+
+diff --cc net/batman-adv/routing.c
+index ae9f4d37d34f,1338b9221613..000000000000
+--- a/net/batman-adv/routing.c
++++ b/net/batman-adv/routing.c
+@@@ -985,9 -985,9 +985,9 @@@ int batadv_recv_unicast_packet(struct s
+  			batadv_orig_node_put(orig_node_gw);
+  			if (is_gw) {
+  				batadv_dbg(BATADV_DBG_BLA, bat_priv,
+- 					   "recv_unicast_packet(): Dropped unicast pkt received from another backbone gw %pM.\n",
+- 					   orig_addr_gw);
++ 					   "%s(): Dropped unicast pkt received from another backbone gw %pM.\n",
++ 					   __func__, orig_addr_gw);
+ -				return NET_RX_DROP;
+ +				goto free_skb;
+  			}
+  		}
+  
