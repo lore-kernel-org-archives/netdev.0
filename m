@@ -1,76 +1,59 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH V2 net-next 6/8] net: hns3: Add MDIO support to HNS3
- Ethernet driver for hip08 SoC
-Date: Wed, 14 Jun 2017 04:42:34 +0200
-Message-ID: <20170614024234.GB16215@lunn.ch>
-References: <20170613231035.494020-1-salil.mehta@huawei.com>
- <20170613231035.494020-7-salil.mehta@huawei.com>
+From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Subject: [PATCH] ip6_tunnel: Correct tos value in collect_md mode
+Date: Wed, 14 Jun 2017 10:48:17 +0800
+Message-ID: <1497408497-1473-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, yisen.zhuang@huawei.com,
-        huangdaode@hisilicon.com, lipeng321@huawei.com,
-        mehta.salil.lnk@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linuxarm@huawei.com
-To: Salil Mehta <salil.mehta@huawei.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Haishuang Yan <yanhaishuang@cmss.chinamobile.com>,
+        Peter Dawson <petedaws@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170613231035.494020-7-salil.mehta@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> +struct hclge_mdio_cfg_cmd {
-> +	u8 ctrl_bit;
-> +	u8 prtad;       /* The external port address */
-> +	u8 devad;       /* The external device address */
-> +	u8 rsvd;
-> +	__le16 addr_c45;/* Only valid for c45 */
-> +	__le16 data_wr;
-> +	__le16 data_rd;
-> +	__le16 sta;
-> +};
-> +
-> +static int hclge_mdio_write(struct mii_bus *bus, int phy_id, int regnum,
-> +			    u16 data)
-> +{
-> +	struct hclge_dev *hdev = (struct hclge_dev *)bus->priv;
-> +	struct hclge_mdio_cfg_cmd *mdio_cmd;
-> +	enum hclge_cmd_status status;
-> +	struct hclge_desc desc;
-> +	u8 is_c45, devad;
-> +	u16 reg;
-> +
-> +	if (!bus)
-> +		return -EINVAL;
-> +
-> +	is_c45 = !!(regnum & MII_ADDR_C45);
-> +	devad = ((regnum >> 16) & 0x1f);
-> +	reg = (u16)(regnum & 0xffff);
-> +
-> +	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_MDIO_CONFIG, false);
-> +
-> +	mdio_cmd = (struct hclge_mdio_cfg_cmd *)desc.data;
-> +
-> +	mdio_cmd->ctrl_bit |= HCLGE_MDIO_CTRL_START_BIT;
-> +	mdio_cmd->prtad = phy_id & HCLGE_MDIO_CTRL_PRTAD_MSK;
-> +	mdio_cmd->data_wr = cpu_to_le16(data);
-> +	mdio_cmd->devad = devad & HCLGE_MDIO_CTRL_DEVAD_MSK;
-> +
-> +	if (is_c45) {
-> +		/* Set phy addr */
-> +		mdio_cmd->addr_c45 = cpu_to_le16(reg);
-> +	} else {
-> +		/* C22 write reg and data */
-> +		mdio_cmd->ctrl_bit = HCLGE_MDIO_IS_C22(!is_c45);
-> +		mdio_cmd->ctrl_bit |= HCLGE_MDIO_CTRL_OP(HCLGE_MDIO_C22_WRITE);
-> +	}
+Same as ip_gre, geneve and vxlan, use key->tos as tos value.
 
-When doing C22, i don't see you putting the reg into mdio_cmd anywhere?
+CC: Peter Dawson <petedaws@gmail.com>
+Fixes: 0e9a709560db ("ip6_tunnel, ip6_gre: fix setting of DSCP on
+encapsulated packets”)
+Suggested-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
 
-Also
+---
+Changes since v2:
+  * Add fixes information
+  * mask key->tos with RT_TOS() suggested by Daniel
+---
+ net/ipv6/ip6_tunnel.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-	mdio_cmd->ctrl_bit = HCLGE_MDIO_IS_C22(!is_c45);
-
-can be pulled of the if/then/else since it takes is_c45 as a
-parameter, or simplified.
-
-     Andrew
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index ef99d59..6400726 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1249,7 +1249,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
+ 		fl6.flowi6_proto = IPPROTO_IPIP;
+ 		fl6.daddr = key->u.ipv6.dst;
+ 		fl6.flowlabel = key->label;
+-		dsfield = ip6_tclass(key->label);
++		dsfield =  RT_TOS(key->tos);
+ 	} else {
+ 		if (!(t->parms.flags & IP6_TNL_F_IGN_ENCAP_LIMIT))
+ 			encap_limit = t->parms.encap_limit;
+@@ -1320,7 +1320,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
+ 		fl6.flowi6_proto = IPPROTO_IPV6;
+ 		fl6.daddr = key->u.ipv6.dst;
+ 		fl6.flowlabel = key->label;
+-		dsfield = ip6_tclass(key->label);
++		dsfield = RT_TOS(key->tos);
+ 	} else {
+ 		offset = ip6_tnl_parse_tlv_enc_lim(skb, skb_network_header(skb));
+ 		/* ip6_tnl_parse_tlv_enc_lim() might have reallocated skb->head */
+-- 
+1.8.3.1
