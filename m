@@ -1,38 +1,121 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] ip: mroute: Add table output to show command
-Date: Wed, 14 Jun 2017 13:32:44 -0700
-Message-ID: <20170614133244.0d1f2aa7@xeon-e3>
-References: <1497442092-14252-1-git-send-email-sharpd@cumulusnetworks.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] skbuff: make skb_put_zero() return void
+Date: Wed, 14 Jun 2017 13:36:53 -0700
+Message-ID: <1497472613.18751.67.camel@perches.com>
+References: <20170614201720.21070-1-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Donald Sharp <sharpd@cumulusnetworks.com>
+Cc: Johannes Berg <johannes.berg@intel.com>
+To: Johannes Berg <johannes@sipsolutions.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:33555 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751974AbdFNUcq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 16:32:46 -0400
-Received: by mail-pf0-f182.google.com with SMTP id 83so5647572pfr.0
-        for <netdev@vger.kernel.org>; Wed, 14 Jun 2017 13:32:46 -0700 (PDT)
-In-Reply-To: <1497442092-14252-1-git-send-email-sharpd@cumulusnetworks.com>
+Received: from smtprelay0162.hostedemail.com ([216.40.44.162]:60668 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751754AbdFNUg4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 16:36:56 -0400
+In-Reply-To: <20170614201720.21070-1-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 14 Jun 2017 08:08:12 -0400
-Donald Sharp <sharpd@cumulusnetworks.com> wrote:
+On Wed, 2017-06-14 at 22:17 +0200, Johannes Berg wrote:
+> From: Johannes Berg <johannes.berg@intel.com>
+> 
+> It's nicer to return void, since then there's no need to
+> cast to any structures. Currently none of the users have
+> a cast, but a number of future conversions do.
+> 
+> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+> ---
+>  include/linux/skbuff.h | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 1151b50892d1..01ea64d0783a 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -1904,9 +1904,9 @@ static inline unsigned char *__skb_put(struct sk_buff *skb, unsigned int len)
+>  	return tmp;
+>  }
+>  
+> -static inline unsigned char *skb_put_zero(struct sk_buff *skb, unsigned int len)
+> +static inline void *skb_put_zero(struct sk_buff *skb, unsigned int len)
+>  {
+> -	unsigned char *tmp = skb_put(skb, len);
+> +	void *tmp = skb_put(skb, len);
+>  
+>  	memset(tmp, 0, len);
 
-> When the user specifies `table all` or `table 0` to
-> the `ip mroute show` command we dump the entirety of
-> the known mroute tables.  Without some sort of
-> divisor to tell us what table we are looking at
-> the command is useless.
-> 
-> Add `Table: <vrf name>` to the output of 'ip mroute show table 0'
-> 
-> Follow the convention established by 'ip route show table 0'
-> for when to display
-> 
-> Signed-off-by: Donald Sharp <sharpd@cumulusnetworks.com>
+Given you are adding a lot of these, it might be better
+to add an exported function that duplicates most of
+skb_put with a memset at the end.
 
-Applied, thanks.
+That would probably create a smaller kernel and might
+be a bit faster.
+
+Perhaps:
+---
+ include/linux/skbuff.h | 10 +---------
+ net/core/skbuff.c      | 22 ++++++++++++++++++++++
+ 2 files changed, 23 insertions(+), 9 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 78213b3f9552..f725cbe30c9c 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1895,6 +1895,7 @@ static inline void skb_set_tail_pointer(struct sk_buff *skb, const int offset)
+  */
+ unsigned char *pskb_put(struct sk_buff *skb, struct sk_buff *tail, int len);
+ unsigned char *skb_put(struct sk_buff *skb, unsigned int len);
++void *skb_put_zero(struct sk_buff *skb, unsigned int len);
+ static inline unsigned char *__skb_put(struct sk_buff *skb, unsigned int len)
+ {
+ 	unsigned char *tmp = skb_tail_pointer(skb);
+@@ -1904,15 +1905,6 @@ static inline unsigned char *__skb_put(struct sk_buff *skb, unsigned int len)
+ 	return tmp;
+ }
+ 
+-static inline unsigned char *skb_put_zero(struct sk_buff *skb, unsigned int len)
+-{
+-	unsigned char *tmp = skb_put(skb, len);
+-
+-	memset(tmp, 0, len);
+-
+-	return tmp;
+-}
+-
+ unsigned char *skb_push(struct sk_buff *skb, unsigned int len);
+ static inline unsigned char *__skb_push(struct sk_buff *skb, unsigned int len)
+ {
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 304602784c3b..e70aa414b139 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1454,6 +1454,28 @@ unsigned char *skb_put(struct sk_buff *skb, unsigned int len)
+ EXPORT_SYMBOL(skb_put);
+ 
+ /**
++ *	skb_put_zero - add zeroed data to a buffer
++ *	@skb: buffer to use
++ *	@len: amount of zeroed data to add
++ *
++ *	This function extends the used data area of the buffer. If this would
++ *	exceed the total buffer size the kernel will panic. A pointer to the
++ *	first byte of the extra data is returned.
++ */
++void *skb_put_zero(struct sk_buff *skb, unsigned int len)
++{
++	unsigned char *tmp = skb_tail_pointer(skb);
++
++	SKB_LINEAR_ASSERT(skb);
++	skb->tail += len;
++	skb->len  += len;
++	if (unlikely(skb->tail > skb->end))
++		skb_over_panic(skb, len, __builtin_return_address(0));
++	return memset(tmp, 0, len);
++}
++EXPORT_SYMBOL(skb_put_zero);
++
++/**
+  *	skb_push - add data to the start of a buffer
+  *	@skb: buffer to use
+  *	@len: amount of data to add
