@@ -1,8 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH v4 08/11] net: mvmdio: add xmdio xsmi support
-Date: Wed, 14 Jun 2017 17:49:08 +0200
-Message-ID: <20170614154911.14510-9-antoine.tenart@free-electrons.com>
-References: <20170614154911.14510-1-antoine.tenart@free-electrons.com>
+Subject: [PATCH v4 00/11] net: mvmdio: add xMDIO xSMI support
+Date: Wed, 14 Jun 2017 17:49:00 +0200
+Message-ID: <20170614154911.14510-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
         mw@semihalf.com, linux@armlinux.org.uk, netdev@vger.kernel.org,
@@ -11,215 +10,83 @@ To: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
         gregory.clement@free-electrons.com,
         sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:34996 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:35004 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752550AbdFNPya (ORCPT
+        with ESMTP id S1752554AbdFNPya (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 11:54:30 -0400
-In-Reply-To: <20170614154911.14510-1-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the xmdio xsmi interface support in the mvmdio driver.
-This interface is used in Ethernet controllers on Marvell 370, 7k and 8k
-(as of now). The xsmi interface supported by this driver complies with
-the IEEE 802.3 clause 45. The xSMI interface is used by 10GbE devices.
+Hello,
 
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvmdio.c | 112 +++++++++++++++++++++++++++++++---
- 1 file changed, 105 insertions(+), 7 deletions(-)
+This series aims to add the xSMI support on the xMDIO bus to the
+mvmdio driver. The xSMI interface complies with the IEEE 802.3 clause 45
+and is used by 10GbE devices. On 7k and 8k (as of now), such an
+interface is found and is used by Ethernet controllers.
 
-diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-index fe6072aae0a6..0888e50f6b17 100644
---- a/drivers/net/ethernet/marvell/mvmdio.c
-+++ b/drivers/net/ethernet/marvell/mvmdio.c
-@@ -23,6 +23,7 @@
- #include <linux/io.h>
- #include <linux/kernel.h>
- #include <linux/module.h>
-+#include <linux/of_device.h>
- #include <linux/of_mdio.h>
- #include <linux/phy.h>
- #include <linux/platform_device.h>
-@@ -40,6 +41,15 @@
- #define  MVMDIO_ERR_INT_SMI_DONE	0x00000010
- #define MVMDIO_ERR_INT_MASK		0x0080
- 
-+#define MVMDIO_XSMI_MGNT_REG		0x0
-+#define  MVMDIO_XSMI_PHYADDR_SHIFT	16
-+#define  MVMDIO_XSMI_DEVADDR_SHIFT	21
-+#define  MVMDIO_XSMI_WRITE_OPERATION	(0x5 << 26)
-+#define  MVMDIO_XSMI_READ_OPERATION	(0x7 << 26)
-+#define  MVMDIO_XSMI_READ_VALID		BIT(29)
-+#define  MVMDIO_XSMI_BUSY		BIT(30)
-+#define MVMDIO_XSMI_ADDR_REG		0x8
-+
- /*
-  * SMI Timeout measurements:
-  * - Kirkwood 88F6281 (Globalscale Dreamplug): 45us to 95us (Interrupt)
-@@ -49,6 +59,9 @@
- #define MVMDIO_SMI_POLL_INTERVAL_MIN	45
- #define MVMDIO_SMI_POLL_INTERVAL_MAX	55
- 
-+#define MVMDIO_XSMI_POLL_INTERVAL_MIN	150
-+#define MVMDIO_XSMI_POLL_INTERVAL_MAX	160
-+
- struct orion_mdio_dev {
- 	void __iomem *regs;
- 	struct clk *clk[3];
-@@ -62,6 +75,11 @@ struct orion_mdio_dev {
- 	wait_queue_head_t smi_busy_wait;
- };
- 
-+enum orion_mdio_bus_type {
-+	BUS_TYPE_SMI,
-+	BUS_TYPE_XSMI
-+};
-+
- struct orion_mdio_ops {
- 	int (*is_done)(struct orion_mdio_dev *);
- 	unsigned int poll_interval_min;
-@@ -119,8 +137,8 @@ static const struct orion_mdio_ops orion_mdio_smi_ops = {
- 	.poll_interval_max = MVMDIO_SMI_POLL_INTERVAL_MAX,
- };
- 
--static int orion_mdio_read(struct mii_bus *bus, int mii_id,
--			   int regnum)
-+static int orion_mdio_smi_read(struct mii_bus *bus, int mii_id,
-+			       int regnum)
- {
- 	struct orion_mdio_dev *dev = bus->priv;
- 	u32 val;
-@@ -154,8 +172,8 @@ static int orion_mdio_read(struct mii_bus *bus, int mii_id,
- 	return ret;
- }
- 
--static int orion_mdio_write(struct mii_bus *bus, int mii_id,
--			    int regnum, u16 value)
-+static int orion_mdio_smi_write(struct mii_bus *bus, int mii_id,
-+				int regnum, u16 value)
- {
- 	struct orion_mdio_dev *dev = bus->priv;
- 	int ret;
-@@ -177,6 +195,73 @@ static int orion_mdio_write(struct mii_bus *bus, int mii_id,
- 	return ret;
- }
- 
-+static int orion_mdio_xsmi_is_done(struct orion_mdio_dev *dev)
-+{
-+	return !(readl(dev->regs + MVMDIO_XSMI_MGNT_REG) & MVMDIO_XSMI_BUSY);
-+}
-+
-+static const struct orion_mdio_ops orion_mdio_xsmi_ops = {
-+	.is_done = orion_mdio_xsmi_is_done,
-+	.poll_interval_min = MVMDIO_XSMI_POLL_INTERVAL_MIN,
-+	.poll_interval_max = MVMDIO_XSMI_POLL_INTERVAL_MAX,
-+};
-+
-+static int orion_mdio_xsmi_read(struct mii_bus *bus, int mii_id,
-+				int regnum)
-+{
-+	struct orion_mdio_dev *dev = bus->priv;
-+	u16 dev_addr = (regnum >> 16) & GENMASK(4, 0);
-+	int ret;
-+
-+	if (!(regnum & MII_ADDR_C45))
-+		return -EOPNOTSUPP;
-+
-+	ret = orion_mdio_wait_ready(&orion_mdio_xsmi_ops, bus);
-+	if (ret < 0)
-+		return ret;
-+
-+	writel(regnum & GENMASK(15, 0), dev->regs + MVMDIO_XSMI_ADDR_REG);
-+	writel((mii_id << MVMDIO_XSMI_PHYADDR_SHIFT) |
-+	       (dev_addr << MVMDIO_XSMI_DEVADDR_SHIFT) |
-+	       MVMDIO_XSMI_READ_OPERATION,
-+	       dev->regs + MVMDIO_XSMI_MGNT_REG);
-+
-+	ret = orion_mdio_wait_ready(&orion_mdio_xsmi_ops, bus);
-+	if (ret < 0)
-+		return ret;
-+
-+	if (!(readl(dev->regs + MVMDIO_XSMI_MGNT_REG) &
-+	      MVMDIO_XSMI_READ_VALID)) {
-+		dev_err(bus->parent, "XSMI bus read not valid\n");
-+		return -ENODEV;
-+	}
-+
-+	return readl(dev->regs + MVMDIO_XSMI_MGNT_REG) & GENMASK(15, 0);
-+}
-+
-+static int orion_mdio_xsmi_write(struct mii_bus *bus, int mii_id,
-+				int regnum, u16 value)
-+{
-+	struct orion_mdio_dev *dev = bus->priv;
-+	u16 dev_addr = (regnum >> 16) & GENMASK(4, 0);
-+	int ret;
-+
-+	if (!(regnum & MII_ADDR_C45))
-+		return -EOPNOTSUPP;
-+
-+	ret = orion_mdio_wait_ready(&orion_mdio_xsmi_ops, bus);
-+	if (ret < 0)
-+		return ret;
-+
-+	writel(regnum & GENMASK(15, 0), dev->regs + MVMDIO_XSMI_ADDR_REG);
-+	writel((mii_id << MVMDIO_XSMI_PHYADDR_SHIFT) |
-+	       (dev_addr << MVMDIO_XSMI_DEVADDR_SHIFT) |
-+	       MVMDIO_XSMI_WRITE_OPERATION | value,
-+	       dev->regs + MVMDIO_XSMI_MGNT_REG);
-+
-+	return 0;
-+}
-+
- static irqreturn_t orion_mdio_err_irq(int irq, void *dev_id)
- {
- 	struct orion_mdio_dev *dev = dev_id;
-@@ -194,11 +279,14 @@ static irqreturn_t orion_mdio_err_irq(int irq, void *dev_id)
- 
- static int orion_mdio_probe(struct platform_device *pdev)
- {
-+	enum orion_mdio_bus_type type;
- 	struct resource *r;
- 	struct mii_bus *bus;
- 	struct orion_mdio_dev *dev;
- 	int i, ret;
- 
-+	type = (enum orion_mdio_bus_type)of_device_get_match_data(&pdev->dev);
-+
- 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	if (!r) {
- 		dev_err(&pdev->dev, "No SMI register address given\n");
-@@ -210,9 +298,18 @@ static int orion_mdio_probe(struct platform_device *pdev)
- 	if (!bus)
- 		return -ENOMEM;
- 
-+	switch (type) {
-+	case BUS_TYPE_SMI:
-+		bus->read = orion_mdio_smi_read;
-+		bus->write = orion_mdio_smi_write;
-+		break;
-+	case BUS_TYPE_XSMI:
-+		bus->read = orion_mdio_xsmi_read;
-+		bus->write = orion_mdio_xsmi_write;
-+		break;
-+	}
-+
- 	bus->name = "orion_mdio_bus";
--	bus->read = orion_mdio_read;
--	bus->write = orion_mdio_write;
- 	snprintf(bus->id, MII_BUS_ID_SIZE, "%s-mii",
- 		 dev_name(&pdev->dev));
- 	bus->parent = &pdev->dev;
-@@ -302,7 +399,8 @@ static int orion_mdio_remove(struct platform_device *pdev)
- }
- 
- static const struct of_device_id orion_mdio_match[] = {
--	{ .compatible = "marvell,orion-mdio" },
-+	{ .compatible = "marvell,orion-mdio", .data = (void *)BUS_TYPE_SMI },
-+	{ .compatible = "marvell,xmdio", .data = (void *)BUS_TYPE_XSMI },
- 	{ }
- };
- MODULE_DEVICE_TABLE(of, orion_mdio_match);
+Patches 1-4 and 9 are cosmetic cleanups.
+
+Patches 5-7 are prerequisites to the xSMI support.
+
+Patches 8 and 10-11 add the xSMI support to the mvmdio driver, and a
+node is added both in the cp110 slave and master device trees.
+
+This was tested on an Armada 8040 mcbin, as well as on both the
+Armada 7040 DB and the Armada 8040 DB to ensure the SMI interface
+was still working.
+
+@Dave: patch 11 should go through the mvebu tree as asked by Gregory,
+thanks!
+
+Thanks,
+Antoine
+
+Since v3:
+  - Added a patch from Russell King removing locks, as there is already
+    per bus locking in the MDIO layer.
+  - Russell suggested another approach to add the xSMI support, by having
+    two different read/write functions. Reworked the series to take this
+    into account. (This also lead to the removal of some patches, and the
+    introduction of some others).
+
+Since v2:
+  - Brought back the marvell,xmdio compatible and updated the driver
+    accordingly. The ops (smi, xsmi) are chosen based on the compatible.
+  - Now return -EOPNOTSUPP when the MII_ADDR_C45 bit is wrongly set.
+  - Mask dev_addr with GENMASK(4, 0).
+  - Moved bit definitions under their register definition.
+  - Fixed the write operation shift.
+  - Added one space before the second parameter of GENMASK.
+
+Since v1:
+  - Instead of using the smi/xsmi helpers based on the compatible, now
+    check if the MII_ADDR_C45 bit is set.
+  - Removed the marvell,xmdio compatible addition.
+  - Fixed the is_read_valid logic.
+  - Updated to use static const variables for ops.
+  - Added 3 Reviewed-by tags from Florian (I dropped another one as the
+    patch changed in v2).
+
+Antoine Tenart (10):
+  net: mvmdio: reorder headers alphabetically
+  net: mvmdio: use tabs for defines
+  net: mvmdio: use GENMASK for masks
+  net: mvmdio: introduce an ops structure
+  net: mvmdio: put the poll intervals in the ops structure
+  net: mvmdio: check the MII_ADDR_C45 bit is not set for smi operations
+  net: mvmdio: add xmdio xsmi support
+  net: mvmdio: simplify the smi read and write error paths
+  dt-bindings: orion-mdio: document the new xmdio compatible
+  arm64: marvell: dts: add xmdio nodes for 7k/8k
+
+Russell King (1):
+  net: mvmdio: remove duplicate locking
+
+ .../devicetree/bindings/net/marvell-orion-mdio.txt |   8 +-
+ .../boot/dts/marvell/armada-cp110-master.dtsi      |   8 +
+ .../arm64/boot/dts/marvell/armada-cp110-slave.dtsi |   8 +
+ drivers/net/ethernet/marvell/mvmdio.c              | 214 +++++++++++++++------
+ 4 files changed, 178 insertions(+), 60 deletions(-)
+
 -- 
 2.9.4
