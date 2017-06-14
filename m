@@ -1,180 +1,126 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 2/2] mlxsw: spectrum: Add support for access cable info via ethtool
-Date: Wed, 14 Jun 2017 09:27:40 +0200
-Message-ID: <20170614072740.1243-3-jiri@resnulli.us>
+Subject: [patch net-next 1/2] mlxsw: reg: Add MCIA register for cable info access
+Date: Wed, 14 Jun 2017 09:27:39 +0200
+Message-ID: <20170614072740.1243-2-jiri@resnulli.us>
 References: <20170614072740.1243-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, arkadis@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:33683 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754223AbdFNH1q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 03:27:46 -0400
-Received: by mail-wr0-f195.google.com with SMTP id v104so36670560wrb.0
-        for <netdev@vger.kernel.org>; Wed, 14 Jun 2017 00:27:45 -0700 (PDT)
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:33666 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754505AbdFNH17 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 03:27:59 -0400
+Received: by mail-wr0-f194.google.com with SMTP id v104so36670359wrb.0
+        for <netdev@vger.kernel.org>; Wed, 14 Jun 2017 00:27:54 -0700 (PDT)
 In-Reply-To: <20170614072740.1243-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
 
-Add support for access cable info via ethtool.
+The MCIA register is used to access the SFP+ and QSFP connector's
+EPROM. It will be used to query the cable info.
 
 Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 131 +++++++++++++++++++++++++
- 1 file changed, 131 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 76 +++++++++++++++++++++++++++++++
+ 1 file changed, 76 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 0e51c36..60bf8f2 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -2519,6 +2519,135 @@ static int mlxsw_sp_flash_device(struct net_device *dev,
- 	return err;
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index 157b9b6..1bd34d9 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -5491,6 +5491,81 @@ static inline void mlxsw_reg_mtmp_unpack(char *payload, unsigned int *p_temp,
+ 		mlxsw_reg_mtmp_sensor_name_memcpy_from(payload, sensor_name);
  }
  
-+#define MLXSW_SP_QSFP_I2C_ADDR 0x50
++/* MCIA - Management Cable Info Access
++ * -----------------------------------
++ * MCIA register is used to access the SFP+ and QSFP connector's EPROM.
++ */
 +
-+static int mlxsw_sp_query_module_eeprom(struct mlxsw_sp_port *mlxsw_sp_port,
-+					u16 offset, u16 size, void *data,
-+					unsigned int *p_read_size)
++#define MLXSW_REG_MCIA_ID 0x9014
++#define MLXSW_REG_MCIA_LEN 0x40
++
++MLXSW_REG_DEFINE(mcia, MLXSW_REG_MCIA_ID, MLXSW_REG_MCIA_LEN);
++
++/* reg_mcia_l
++ * Lock bit. Setting this bit will lock the access to the specific
++ * cable. Used for updating a full page in a cable EPROM. Any access
++ * other then subsequence writes will fail while the port is locked.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, mcia, l, 0x00, 31, 1);
++
++/* reg_mcia_module
++ * Module number.
++ * Access: Index
++ */
++MLXSW_ITEM32(reg, mcia, module, 0x00, 16, 8);
++
++/* reg_mcia_status
++ * Module status.
++ * Access: RO
++ */
++MLXSW_ITEM32(reg, mcia, status, 0x00, 0, 8);
++
++/* reg_mcia_i2c_device_address
++ * I2C device address.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, mcia, i2c_device_address, 0x04, 24, 8);
++
++/* reg_mcia_page_number
++ * Page number.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, mcia, page_number, 0x04, 16, 8);
++
++/* reg_mcia_device_address
++ * Device address.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, mcia, device_address, 0x04, 0, 16);
++
++/* reg_mcia_size
++ * Number of bytes to read/write (up to 48 bytes).
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, mcia, size, 0x08, 0, 16);
++
++#define MLXSW_SP_REG_MCIA_EEPROM_SIZE 48
++
++/* reg_mcia_eeprom
++ * Bytes to read/write.
++ * Access: RW
++ */
++MLXSW_ITEM_BUF(reg, mcia, eeprom, 0x10, MLXSW_SP_REG_MCIA_EEPROM_SIZE);
++
++static inline void mlxsw_reg_mcia_pack(char *payload, u8 module, u8 lock,
++				       u8 page_number, u16 device_addr,
++				       u8 size, u8 i2c_device_addr)
 +{
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
-+	char eeprom_tmp[MLXSW_SP_REG_MCIA_EEPROM_SIZE];
-+	char mcia_pl[MLXSW_REG_MCIA_LEN];
-+	int status;
-+	int err;
-+
-+	size = min_t(u16, size, MLXSW_SP_REG_MCIA_EEPROM_SIZE);
-+	mlxsw_reg_mcia_pack(mcia_pl, mlxsw_sp_port->mapping.module,
-+			    0, 0, offset, size, MLXSW_SP_QSFP_I2C_ADDR);
-+
-+	err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(mcia), mcia_pl);
-+	if (err)
-+		return err;
-+
-+	status = mlxsw_reg_mcia_status_get(mcia_pl);
-+	if (status)
-+		return -EIO;
-+
-+	mlxsw_reg_mcia_eeprom_memcpy_from(mcia_pl, eeprom_tmp);
-+	memcpy(data, eeprom_tmp, size);
-+	*p_read_size = size;
-+
-+	return 0;
++	MLXSW_REG_ZERO(mcia, payload);
++	mlxsw_reg_mcia_module_set(payload, module);
++	mlxsw_reg_mcia_l_set(payload, lock);
++	mlxsw_reg_mcia_page_number_set(payload, page_number);
++	mlxsw_reg_mcia_device_address_set(payload, device_addr);
++	mlxsw_reg_mcia_size_set(payload, size);
++	mlxsw_reg_mcia_i2c_device_address_set(payload, i2c_device_addr);
 +}
 +
-+enum mlxsw_sp_eeprom_module_info_rev_id {
-+	MLXSW_SP_EEPROM_MODULE_INFO_REV_ID_UNSPC      = 0x00,
-+	MLXSW_SP_EEPROM_MODULE_INFO_REV_ID_8436       = 0x01,
-+	MLXSW_SP_EEPROM_MODULE_INFO_REV_ID_8636       = 0x03,
-+};
-+
-+enum mlxsw_sp_eeprom_module_info_id {
-+	MLXSW_SP_EEPROM_MODULE_INFO_ID_SFP              = 0x03,
-+	MLXSW_SP_EEPROM_MODULE_INFO_ID_QSFP             = 0x0C,
-+	MLXSW_SP_EEPROM_MODULE_INFO_ID_QSFP_PLUS        = 0x0D,
-+	MLXSW_SP_EEPROM_MODULE_INFO_ID_QSFP28           = 0x11,
-+};
-+
-+enum mlxsw_sp_eeprom_module_info {
-+	MLXSW_SP_EEPROM_MODULE_INFO_ID,
-+	MLXSW_SP_EEPROM_MODULE_INFO_REV_ID,
-+	MLXSW_SP_EEPROM_MODULE_INFO_SIZE,
-+};
-+
-+static int mlxsw_sp_get_module_info(struct net_device *netdev,
-+				    struct ethtool_modinfo *modinfo)
-+{
-+	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(netdev);
-+	u8 module_info[MLXSW_SP_EEPROM_MODULE_INFO_SIZE];
-+	u8 module_rev_id, module_id;
-+	unsigned int read_size;
-+	int err;
-+
-+	err = mlxsw_sp_query_module_eeprom(mlxsw_sp_port, 0,
-+					   MLXSW_SP_EEPROM_MODULE_INFO_SIZE,
-+					   module_info, &read_size);
-+	if (err)
-+		return err;
-+
-+	if (read_size < MLXSW_SP_EEPROM_MODULE_INFO_SIZE)
-+		return -EIO;
-+
-+	module_rev_id = module_info[MLXSW_SP_EEPROM_MODULE_INFO_REV_ID];
-+	module_id = module_info[MLXSW_SP_EEPROM_MODULE_INFO_ID];
-+
-+	switch (module_id) {
-+	case MLXSW_SP_EEPROM_MODULE_INFO_ID_QSFP:
-+		modinfo->type       = ETH_MODULE_SFF_8436;
-+		modinfo->eeprom_len = ETH_MODULE_SFF_8436_LEN;
-+		break;
-+	case MLXSW_SP_EEPROM_MODULE_INFO_ID_QSFP_PLUS:
-+	case MLXSW_SP_EEPROM_MODULE_INFO_ID_QSFP28:
-+		if (module_id  == MLXSW_SP_EEPROM_MODULE_INFO_ID_QSFP28 ||
-+		    module_rev_id >= MLXSW_SP_EEPROM_MODULE_INFO_REV_ID_8636) {
-+			modinfo->type       = ETH_MODULE_SFF_8636;
-+			modinfo->eeprom_len = ETH_MODULE_SFF_8636_LEN;
-+		} else {
-+			modinfo->type       = ETH_MODULE_SFF_8436;
-+			modinfo->eeprom_len = ETH_MODULE_SFF_8436_LEN;
-+		}
-+		break;
-+	case MLXSW_SP_EEPROM_MODULE_INFO_ID_SFP:
-+		modinfo->type       = ETH_MODULE_SFF_8472;
-+		modinfo->eeprom_len = ETH_MODULE_SFF_8472_LEN;
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+static int mlxsw_sp_get_module_eeprom(struct net_device *netdev,
-+				      struct ethtool_eeprom *ee,
-+				      u8 *data)
-+{
-+	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(netdev);
-+	int offset = ee->offset;
-+	unsigned int read_size;
-+	int i = 0;
-+	int err;
-+
-+	if (!ee->len)
-+		return -EINVAL;
-+
-+	memset(data, 0, ee->len);
-+
-+	while (i < ee->len) {
-+		err = mlxsw_sp_query_module_eeprom(mlxsw_sp_port, offset,
-+						   ee->len - i, data + i,
-+						   &read_size);
-+		if (err) {
-+			netdev_err(mlxsw_sp_port->dev, "Eeprom query failed\n");
-+			return err;
-+		}
-+
-+		i += read_size;
-+		offset += read_size;
-+	}
-+
-+	return 0;
-+}
-+
- static const struct ethtool_ops mlxsw_sp_port_ethtool_ops = {
- 	.get_drvinfo		= mlxsw_sp_port_get_drvinfo,
- 	.get_link		= ethtool_op_get_link,
-@@ -2531,6 +2660,8 @@ static const struct ethtool_ops mlxsw_sp_port_ethtool_ops = {
- 	.get_link_ksettings	= mlxsw_sp_port_get_link_ksettings,
- 	.set_link_ksettings	= mlxsw_sp_port_set_link_ksettings,
- 	.flash_device		= mlxsw_sp_flash_device,
-+	.get_module_info	= mlxsw_sp_get_module_info,
-+	.get_module_eeprom	= mlxsw_sp_get_module_eeprom,
- };
- 
- static int
+ /* MPAT - Monitoring Port Analyzer Table
+  * -------------------------------------
+  * MPAT Register is used to query and configure the Switch PortAnalyzer Table.
+@@ -6433,6 +6508,7 @@ static const struct mlxsw_reg_info *mlxsw_reg_infos[] = {
+ 	MLXSW_REG(mfsl),
+ 	MLXSW_REG(mtcap),
+ 	MLXSW_REG(mtmp),
++	MLXSW_REG(mcia),
+ 	MLXSW_REG(mpat),
+ 	MLXSW_REG(mpar),
+ 	MLXSW_REG(mlcr),
 -- 
 2.9.3
