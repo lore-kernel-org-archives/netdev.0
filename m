@@ -1,69 +1,40 @@
-From: Arun Parameswaran <arun.parameswaran-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v1 1/2] dt-binding: ptp: add bindings document for dte
- based ptp clock
-Date: Wed, 14 Jun 2017 11:39:17 -0700
-Message-ID: <d23bbbcc-9f3f-d664-fd83-58414925f566@broadcom.com>
-References: <1497299161-6458-1-git-send-email-arun.parameswaran@broadcom.com>
- <1497299161-6458-2-git-send-email-arun.parameswaran@broadcom.com>
- <20170613050947.GA1684@localhost.localdomain>
- <cb008f0f-1585-653e-0b89-47478f9f4734@broadcom.com>
- <a4586d75-2aca-94f3-ab7a-fc94c9dc5a4a@broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net] net_sched: move tcf_lock down after
+ gen_replace_estimator()
+Date: Wed, 14 Jun 2017 14:41:19 -0400 (EDT)
+Message-ID: <20170614.144119.741403806288454976.davem@davemloft.net>
+References: <1497386184-14960-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
-To: Ray Jui <ray.jui-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <a4586d75-2aca-94f3-ab7a-fc94c9dc5a4a-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Content-Language: en-US
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nicholashuber@gmail.com,
+        labbott@redhat.com, jhs@mojatatu.com
+To: xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:52882 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751682AbdFNSlU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 14:41:20 -0400
+In-Reply-To: <1497386184-14960-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Tue, 13 Jun 2017 13:36:24 -0700
 
-
-On 17-06-14 11:18 AM, Ray Jui wrote:
+> Laura reported a sleep-in-atomic kernel warning inside
+> tcf_act_police_init() which calls gen_replace_estimator() with
+> spinlock protection.
 > 
+> It is not necessary in this case, we already have RTNL lock here
+> so it is enough to protect concurrent writers. For the reader,
+> i.e. tcf_act_police(), it needs to make decision based on this
+> rate estimator, in the worst case we drop more/less packets than
+> necessary while changing the rate in parallel, it is still acceptable.
 > 
-> On 6/13/17 10:46 AM, Arun Parameswaran wrote:
->>
->> Hi Richard,
->>
->> On 17-06-12 10:09 PM, Richard Cochran wrote:
->>> On Mon, Jun 12, 2017 at 01:26:00PM -0700, Arun Parameswaran wrote:
->>>> +Example:
->>>> +
->>>> +ptp_dte: ptp_dte@180af650 {
->>>> +	compatible = "brcm,ptp-dte";
->>>> +	reg = <0x180af650 0x10>;
->>>> +	status = "okay";
->>>> +};
->>> This patch set looks okay, as far as it goes, but how does one
->>> actually use the clock?
->>>
->>> How does one connect this node to an Ethernet MAC, for example?
->> In some of the SoC's, the DTE's NCO is synced in hardware with the Ethernet's
->> 1588 Shim NCO (used for time-stamping the packets). We are working on getting
->> all the future SoC's synced this way (for Ethernet).
->>
-> 
-> So apparently you do not need any phandle based DT binding defined for
-> the connection between the Ethernet device node and the PTP device node?
-> 
-Correct. This driver doesn't need any phandle.
+> Reported-by: Laura Abbott <labbott@redhat.com>
+> Reported-by: Nick Huber <nicholashuber@gmail.com>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-The Ethernet driver, in SoC's where the hardware link is not available,
-might need the phandle to this driver.
-
->> In other scenarios, we use an user-space app to perform the sync based on
->> time-stamps from external hardware sources like the Wi-Fi.
->>> Thanks,
->>> Richard
->>
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks.
