@@ -1,7 +1,7 @@
 From: Egil Hjelmeland <egil.hjelmeland@zenitel.com>
-Subject: [PATCH 06/13] net: dsa: lan9303: added sysfs node swe_bcst_throt
-Date: Wed, 14 Jun 2017 13:33:14 +0200
-Message-ID: <44ba2d7baaf242c1a5166aa4e2365b21@nooslMX1.zenitelcss.com>
+Subject: [PATCH 05/13] net: dsa: added dsa_net_device_to_dsa_port()
+Date: Wed, 14 Jun 2017 13:26:38 +0200
+Message-ID: <48444b4b8fa14962b372caaf5027782e@nooslMX1.zenitelcss.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <egil.hjelmeland@zenitel.com>
@@ -10,141 +10,55 @@ To: <corbet@lwn.net>, <andrew@lunn.ch>,
         <davem@davemloft.net>, <kernel@pengutronix.de>,
         <linux-doc@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
         <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.bemta3.messagelabs.com ([195.245.230.177]:52560 "EHLO
+        mail1.bemta3.messagelabs.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1756573AbdGXPnH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 11:43:07 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Allowing per-port access to Switch Engine Broadcast Throttling Register
-
-Also added lan9303_write_switch_reg_mask()
+Allowing dsa drivers to attach sysfs nodes.
 
 Signed-off-by: Egil Hjelmeland <egil.hjelmeland@zenitel.com>
 ---
- drivers/net/dsa/lan9303-core.c | 83 ++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 83 insertions(+)
+ include/net/dsa.h |  1 +
+ net/dsa/slave.c   | 10 ++++++++++
+ 2 files changed, 11 insertions(+)
 
-diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
-index be6d78f45a5f..b70acb73aad6 100644
---- a/drivers/net/dsa/lan9303-core.c
-+++ b/drivers/net/dsa/lan9303-core.c
-@@ -154,6 +154,7 @@
- # define LAN9303_SWE_PORT_MIRROR_ENABLE_RX_MIRRORING BIT(1)
- # define LAN9303_SWE_PORT_MIRROR_ENABLE_TX_MIRRORING BIT(0)
- #define LAN9303_SWE_INGRESS_PORT_TYPE 0x1847
-+#define LAN9303_SWE_BCST_THROT 0x1848
- #define LAN9303_BM_CFG 0x1c00
- #define LAN9303_BM_EGRSS_PORT_TYPE 0x1c0c
- # define LAN9303_BM_EGRSS_PORT_TYPE_SPECIAL_TAG_PORT2 (BIT(17) | BIT(16))
-@@ -426,6 +427,20 @@ static int lan9303_read_switch_reg(struct lan9303 *chip, u16 regnum, u32 *val)
- 	return ret;
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 88da272d20d0..a71c0a2401ee 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -450,6 +450,7 @@ void unregister_switch_driver(struct dsa_switch_driver *type);
+ struct mii_bus *dsa_host_dev_to_mii_bus(struct device *dev);
+ 
+ struct net_device *dsa_dev_to_net_device(struct device *dev);
++struct dsa_port *dsa_net_device_to_dsa_port(struct net_device *dev);
+ 
+ /* Keep inline for faster access in hot path */
+ static inline bool netdev_uses_dsa(struct net_device *dev)
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 9507bd38cf04..40410f1740de 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -209,6 +209,16 @@ static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	return -EOPNOTSUPP;
  }
  
-+static int lan9303_write_switch_reg_mask(
-+	struct lan9303 *chip, u16 regnum, u32 val, u32 mask)
++struct dsa_port *dsa_net_device_to_dsa_port(struct net_device *dev)
 +{
-+	int ret;
-+	u32 reg;
++	struct dsa_slave_priv *p = netdev_priv(dev);
 +
-+	ret = lan9303_read_switch_reg(chip, regnum, &reg);
-+	if (ret)
-+		return ret;
-+	reg = (reg & ~mask) | val;
-+
-+	return lan9303_write_switch_reg(chip, regnum, reg);
++	if (!dsa_slave_dev_check(dev))
++		return NULL;
++	return p->dp;
 +}
++EXPORT_SYMBOL_GPL(dsa_net_device_to_dsa_port);
 +
- static int lan9303_detect_phy_setup(struct lan9303 *chip)
- {
- 	int reg;
-@@ -614,6 +629,66 @@ static int lan9303_check_device(struct lan9303 *chip)
- 	return 0;
- }
- 
-+/* ---------------------- Sysfs on slave port --------------------------*/
-+/*13.4.3.23 Switch Engine Broadcast Throttling Register (SWE_BCST_THROT)*/
-+static ssize_t
-+swe_bcst_throt_show(struct device *dev, struct device_attribute *attr,
-+		    char *buf)
-+{
-+	struct dsa_port *dp = dsa_net_device_to_dsa_port(to_net_dev(dev));
-+	struct lan9303 *chip = dp->ds->priv;
-+	int port = dp->index;
-+	int reg;
-+
-+	if (lan9303_read_switch_reg(chip, LAN9303_SWE_BCST_THROT, &reg))
-+		return 0;
-+
-+	reg = (reg >> (9 * port)) & 0x1ff; /*extract port N*/
-+	if (reg & 0x100)
-+		reg &= 0xff; /* remove enable bit */
-+	else
-+		reg = 0;     /* not enabled*/
-+
-+	return scnprintf(buf, PAGE_SIZE, "%d\n", reg);
-+}
-+
-+static ssize_t
-+swe_bcst_throt_store(struct device *dev, struct device_attribute *attr,
-+		     const char *buf, size_t len)
-+{
-+	struct dsa_port *dp = dsa_net_device_to_dsa_port(to_net_dev(dev));
-+	struct lan9303 *chip = dp->ds->priv;
-+	int port = dp->index;
-+	int ret;
-+	unsigned long level;
-+
-+	ret = kstrtoul(buf, 0, &level);
-+	if (ret)
-+		return ret;
-+	level &= 0xff; /* ensure valid range */
-+	if (level)
-+		level |= 0x100; /* Set enable bit  */
-+
-+	ret = lan9303_write_switch_reg_mask(chip, LAN9303_SWE_BCST_THROT,
-+					    level << (9 * port),
-+					    0x1ff << (9 * port));
-+	if (ret)
-+		return ret;
-+	return len;
-+}
-+
-+static DEVICE_ATTR_RW(swe_bcst_throt);
-+
-+static struct attribute *lan9303_attrs[] = {
-+	&dev_attr_swe_bcst_throt.attr,
-+	NULL
-+};
-+
-+static struct attribute_group lan9303_group = {
-+	.name = "lan9303",
-+	.attrs = lan9303_attrs,
-+};
-+
- /* ---------------------------- DSA -----------------------------------*/
- 
- static enum dsa_tag_protocol lan9303_get_tag_protocol(struct dsa_switch *ds)
-@@ -787,6 +862,11 @@ static int lan9303_port_enable(struct dsa_switch *ds, int port,
- 	switch (port) {
- 	case 1:
- 	case 2:
-+		/* lan9303_setup is too early to attach sysfs nodes... */
-+		if (sysfs_create_group(
-+				&ds->ports[port].netdev->dev.kobj,
-+				&lan9303_group))
-+			dev_dbg(chip->dev, "cannot create sysfs group\n");
- 		return lan9303_enable_packet_processing(chip, port);
- 	default:
- 		dev_dbg(chip->dev,
-@@ -805,6 +885,9 @@ static void lan9303_port_disable(struct dsa_switch *ds, int port,
- 	switch (port) {
- 	case 1:
- 	case 2:
-+		sysfs_remove_group(&ds->ports[port].netdev->dev.kobj,
-+				   &lan9303_group);
-+
- 		lan9303_disable_packet_processing(chip, port);
- 		lan9303_phy_write(ds, chip->phy_addr_sel_strap + port,
- 				  MII_BMCR, BMCR_PDOWN);
+ static int dsa_slave_port_attr_set(struct net_device *dev,
+ 				   const struct switchdev_attr *attr,
+ 				   struct switchdev_trans *trans)
 -- 
 2.11.0
 
