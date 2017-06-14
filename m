@@ -1,8 +1,7 @@
 From: Egil Hjelmeland <egil.hjelmeland@zenitel.com>
-Subject: [PATCH 03/13] net: dsa: lan9303: Refactor
- lan9303_enable_packet_processing()
-Date: Wed, 7 Jun 2017 16:58:59 +0200
-Message-ID: <5877a7f72aca445984e3815a0709b965@nooslMX1.zenitelcss.com>
+Subject: [PATCH 06/13] net: dsa: lan9303: added sysfs node swe_bcst_throt
+Date: Wed, 14 Jun 2017 13:33:14 +0200
+Message-ID: <44ba2d7baaf242c1a5166aa4e2365b21@nooslMX1.zenitelcss.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <egil.hjelmeland@zenitel.com>
@@ -11,159 +10,141 @@ To: <corbet@lwn.net>, <andrew@lunn.ch>,
         <davem@davemloft.net>, <kernel@pengutronix.de>,
         <linux-doc@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
         <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.bemta5.messagelabs.com ([195.245.231.149]:16223 "EHLO
-        mail1.bemta5.messagelabs.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1756510AbdGXPmJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 11:42:09 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-lan9303_enable_packet_processing, lan9303_disable_packet_processing()
-Pass port number (0,1,2) as parameter instead of port offset.
-Simplify accordingly.
+Allowing per-port access to Switch Engine Broadcast Throttling Register
+
+Also added lan9303_write_switch_reg_mask()
 
 Signed-off-by: Egil Hjelmeland <egil.hjelmeland@zenitel.com>
 ---
- drivers/net/dsa/lan9303-core.c | 66 ++++++++++++++++++++----------------------
- 1 file changed, 32 insertions(+), 34 deletions(-)
+ drivers/net/dsa/lan9303-core.c | 83 ++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 83 insertions(+)
 
 diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
-index c2b53659f58f..0806a0684d55 100644
+index be6d78f45a5f..b70acb73aad6 100644
 --- a/drivers/net/dsa/lan9303-core.c
 +++ b/drivers/net/dsa/lan9303-core.c
-@@ -159,9 +159,7 @@
- # define LAN9303_BM_EGRSS_PORT_TYPE_SPECIAL_TAG_PORT1 (BIT(9) | BIT(8))
- # define LAN9303_BM_EGRSS_PORT_TYPE_SPECIAL_TAG_PORT0 (BIT(1) | BIT(0))
+@@ -154,6 +154,7 @@
+ # define LAN9303_SWE_PORT_MIRROR_ENABLE_RX_MIRRORING BIT(1)
+ # define LAN9303_SWE_PORT_MIRROR_ENABLE_TX_MIRRORING BIT(0)
+ #define LAN9303_SWE_INGRESS_PORT_TYPE 0x1847
++#define LAN9303_SWE_BCST_THROT 0x1848
+ #define LAN9303_BM_CFG 0x1c00
+ #define LAN9303_BM_EGRSS_PORT_TYPE 0x1c0c
+ # define LAN9303_BM_EGRSS_PORT_TYPE_SPECIAL_TAG_PORT2 (BIT(17) | BIT(16))
+@@ -426,6 +427,20 @@ static int lan9303_read_switch_reg(struct lan9303 *chip, u16 regnum, u32 *val)
+ 	return ret;
+ }
  
--#define LAN9303_PORT_0_OFFSET 0x400
--#define LAN9303_PORT_1_OFFSET 0x800
--#define LAN9303_PORT_2_OFFSET 0xc00
-+#define LAN9303_SWITCH_PORT_REG(port, reg0) (0x400 * (port) + (reg0))
- 
- /* the built-in PHYs are of type LAN911X */
- #define MII_LAN911X_SPECIAL_MODES 0x12
-@@ -457,24 +455,25 @@ static int lan9303_detect_phy_setup(struct lan9303 *chip)
++static int lan9303_write_switch_reg_mask(
++	struct lan9303 *chip, u16 regnum, u32 val, u32 mask)
++{
++	int ret;
++	u32 reg;
++
++	ret = lan9303_read_switch_reg(chip, regnum, &reg);
++	if (ret)
++		return ret;
++	reg = (reg & ~mask) | val;
++
++	return lan9303_write_switch_reg(chip, regnum, reg);
++}
++
+ static int lan9303_detect_phy_setup(struct lan9303 *chip)
+ {
+ 	int reg;
+@@ -614,6 +629,66 @@ static int lan9303_check_device(struct lan9303 *chip)
  	return 0;
  }
  
--#define LAN9303_MAC_RX_CFG_OFFS (LAN9303_MAC_RX_CFG_0 - LAN9303_PORT_0_OFFSET)
--#define LAN9303_MAC_TX_CFG_OFFS (LAN9303_MAC_TX_CFG_0 - LAN9303_PORT_0_OFFSET)
--
- static int lan9303_disable_packet_processing(struct lan9303 *chip,
- 					     unsigned int port)
- {
- 	int ret;
++/* ---------------------- Sysfs on slave port --------------------------*/
++/*13.4.3.23 Switch Engine Broadcast Throttling Register (SWE_BCST_THROT)*/
++static ssize_t
++swe_bcst_throt_show(struct device *dev, struct device_attribute *attr,
++		    char *buf)
++{
++	struct dsa_port *dp = dsa_net_device_to_dsa_port(to_net_dev(dev));
++	struct lan9303 *chip = dp->ds->priv;
++	int port = dp->index;
++	int reg;
++
++	if (lan9303_read_switch_reg(chip, LAN9303_SWE_BCST_THROT, &reg))
++		return 0;
++
++	reg = (reg >> (9 * port)) & 0x1ff; /*extract port N*/
++	if (reg & 0x100)
++		reg &= 0xff; /* remove enable bit */
++	else
++		reg = 0;     /* not enabled*/
++
++	return scnprintf(buf, PAGE_SIZE, "%d\n", reg);
++}
++
++static ssize_t
++swe_bcst_throt_store(struct device *dev, struct device_attribute *attr,
++		     const char *buf, size_t len)
++{
++	struct dsa_port *dp = dsa_net_device_to_dsa_port(to_net_dev(dev));
++	struct lan9303 *chip = dp->ds->priv;
++	int port = dp->index;
++	int ret;
++	unsigned long level;
++
++	ret = kstrtoul(buf, 0, &level);
++	if (ret)
++		return ret;
++	level &= 0xff; /* ensure valid range */
++	if (level)
++		level |= 0x100; /* Set enable bit  */
++
++	ret = lan9303_write_switch_reg_mask(chip, LAN9303_SWE_BCST_THROT,
++					    level << (9 * port),
++					    0x1ff << (9 * port));
++	if (ret)
++		return ret;
++	return len;
++}
++
++static DEVICE_ATTR_RW(swe_bcst_throt);
++
++static struct attribute *lan9303_attrs[] = {
++	&dev_attr_swe_bcst_throt.attr,
++	NULL
++};
++
++static struct attribute_group lan9303_group = {
++	.name = "lan9303",
++	.attrs = lan9303_attrs,
++};
++
+ /* ---------------------------- DSA -----------------------------------*/
  
- 	/* disable RX, but keep register reset default values else */
--	ret = lan9303_write_switch_reg(chip, LAN9303_MAC_RX_CFG_OFFS + port,
--				       LAN9303_MAC_RX_CFG_X_REJECT_MAC_TYPES);
-+	ret = lan9303_write_switch_reg(
-+			chip,
-+			LAN9303_SWITCH_PORT_REG(port, LAN9303_MAC_RX_CFG_0),
-+			LAN9303_MAC_RX_CFG_X_REJECT_MAC_TYPES);
- 	if (ret)
- 		return ret;
- 
- 	/* disable TX, but keep register reset default values else */
--	return lan9303_write_switch_reg(chip, LAN9303_MAC_TX_CFG_OFFS + port,
--				LAN9303_MAC_TX_CFG_X_TX_IFG_CONFIG_DEFAULT |
--				LAN9303_MAC_TX_CFG_X_TX_PAD_ENABLE);
-+	return lan9303_write_switch_reg(
-+			chip,
-+			LAN9303_SWITCH_PORT_REG(port, LAN9303_MAC_TX_CFG_0),
-+			LAN9303_MAC_TX_CFG_X_TX_IFG_CONFIG_DEFAULT |
-+			LAN9303_MAC_TX_CFG_X_TX_PAD_ENABLE);
- }
- 
- static int lan9303_enable_packet_processing(struct lan9303 *chip,
-@@ -483,17 +482,21 @@ static int lan9303_enable_packet_processing(struct lan9303 *chip,
- 	int ret;
- 
- 	/* enable RX and keep register reset default values else */
--	ret = lan9303_write_switch_reg(chip, LAN9303_MAC_RX_CFG_OFFS + port,
--				       LAN9303_MAC_RX_CFG_X_REJECT_MAC_TYPES |
--				       LAN9303_MAC_RX_CFG_X_RX_ENABLE);
-+	ret = lan9303_write_switch_reg(
-+			chip,
-+			LAN9303_SWITCH_PORT_REG(port, LAN9303_MAC_RX_CFG_0),
-+			LAN9303_MAC_RX_CFG_X_REJECT_MAC_TYPES |
-+			LAN9303_MAC_RX_CFG_X_RX_ENABLE);
- 	if (ret)
- 		return ret;
- 
- 	/* enable TX and keep register reset default values else */
--	return lan9303_write_switch_reg(chip, LAN9303_MAC_TX_CFG_OFFS + port,
--				LAN9303_MAC_TX_CFG_X_TX_IFG_CONFIG_DEFAULT |
--				LAN9303_MAC_TX_CFG_X_TX_PAD_ENABLE |
--				LAN9303_MAC_TX_CFG_X_TX_ENABLE);
-+	return lan9303_write_switch_reg(
-+			chip,
-+			LAN9303_SWITCH_PORT_REG(port, LAN9303_MAC_TX_CFG_0),
-+			LAN9303_MAC_TX_CFG_X_TX_IFG_CONFIG_DEFAULT |
-+			LAN9303_MAC_TX_CFG_X_TX_PAD_ENABLE |
-+			LAN9303_MAC_TX_CFG_X_TX_ENABLE);
- }
- 
- /* We want a special working switch:
-@@ -555,12 +558,14 @@ static int lan9303_handle_reset(struct lan9303 *chip)
- /* stop processing packets for all ports */
- static int lan9303_disable_processing(struct lan9303 *chip)
- {
--	int ret;
-+	int ret, p;
- 
--	ret = lan9303_disable_packet_processing(chip, LAN9303_PORT_1_OFFSET);
--	if (ret)
--		return ret;
--	return lan9303_disable_packet_processing(chip, LAN9303_PORT_2_OFFSET);
-+	for (p = 1; p <= 2; p++) {
-+		ret = lan9303_disable_packet_processing(chip, p);
-+		if (ret)
-+			return ret;
-+	}
-+	return 0;
- }
- 
- static int lan9303_check_device(struct lan9303 *chip)
-@@ -696,7 +701,7 @@ static void lan9303_get_ethtool_stats(struct dsa_switch *ds, int port,
- 	unsigned int u, poff;
- 	int ret;
- 
--	poff = port * 0x400;
-+	poff = LAN9303_SWITCH_PORT_REG(port, 0);
- 
- 	for (u = 0; u < ARRAY_SIZE(lan9303_mib); u++) {
- 		ret = lan9303_read_switch_reg(chip,
-@@ -749,11 +754,8 @@ static int lan9303_port_enable(struct dsa_switch *ds, int port,
- 	/* enable internal packet processing */
+ static enum dsa_tag_protocol lan9303_get_tag_protocol(struct dsa_switch *ds)
+@@ -787,6 +862,11 @@ static int lan9303_port_enable(struct dsa_switch *ds, int port,
  	switch (port) {
  	case 1:
--		return lan9303_enable_packet_processing(chip,
--							LAN9303_PORT_1_OFFSET);
  	case 2:
--		return lan9303_enable_packet_processing(chip,
--							LAN9303_PORT_2_OFFSET);
-+		return lan9303_enable_packet_processing(chip, port);
++		/* lan9303_setup is too early to attach sysfs nodes... */
++		if (sysfs_create_group(
++				&ds->ports[port].netdev->dev.kobj,
++				&lan9303_group))
++			dev_dbg(chip->dev, "cannot create sysfs group\n");
+ 		return lan9303_enable_packet_processing(chip, port);
  	default:
  		dev_dbg(chip->dev,
- 			"Error: request to power up invalid port %d\n", port);
-@@ -770,13 +772,9 @@ static void lan9303_port_disable(struct dsa_switch *ds, int port,
- 	/* disable internal packet processing */
+@@ -805,6 +885,9 @@ static void lan9303_port_disable(struct dsa_switch *ds, int port,
  	switch (port) {
  	case 1:
--		lan9303_disable_packet_processing(chip, LAN9303_PORT_1_OFFSET);
--		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 1,
--				  MII_BMCR, BMCR_PDOWN);
--		break;
  	case 2:
--		lan9303_disable_packet_processing(chip, LAN9303_PORT_2_OFFSET);
--		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 2,
-+		lan9303_disable_packet_processing(chip, port);
-+		lan9303_phy_write(ds, chip->phy_addr_sel_strap + port,
++		sysfs_remove_group(&ds->ports[port].netdev->dev.kobj,
++				   &lan9303_group);
++
+ 		lan9303_disable_packet_processing(chip, port);
+ 		lan9303_phy_write(ds, chip->phy_addr_sel_strap + port,
  				  MII_BMCR, BMCR_PDOWN);
- 		break;
- 	default:
 -- 
 2.11.0
 
