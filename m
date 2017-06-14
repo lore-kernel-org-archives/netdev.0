@@ -1,60 +1,77 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next 2/3] ipmr: add netlink notifications on igmpmsg
- cache reports
-Date: Wed, 14 Jun 2017 09:56:25 +0200
-Message-ID: <e1e0c9fc-a2c7-dc98-0255-4af5c69c8e9c@6wind.com>
-References: <20170613170822.16310-1-julien@arista.com>
- <20170613170822.16310-3-julien@arista.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH net-next 1/9] net: hns3: Add support of HNS3 Ethernet
+ Driver for hip08 SoC
+Date: Wed, 14 Jun 2017 08:04:17 +0000
+Message-ID: <BLUPR0701MB2004897373CA744917699BCA8DC30@BLUPR0701MB2004.namprd07.prod.outlook.com>
+References: <20170610034630.493852-1-salil.mehta@huawei.com>
+ <20170610034630.493852-2-salil.mehta@huawei.com>
+ <BY2PR0701MB2005075560E4EA9F455049988DCF0@BY2PR0701MB2005.namprd07.prod.outlook.com>
+ <F4CC6FACFEB3C54C9141D49AD221F7F93B7A1B62@FRAEML521-MBX.china.huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        nikolay@cumulusnetworks.com
-To: Julien Gomes <julien@arista.com>, davem@davemloft.net
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
+        huangdaode <huangdaode@hisilicon.com>,
+        "lipeng (Y)" <lipeng321@huawei.com>,
+        "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Linuxarm <linuxarm@huawei.com>
+To: Salil Mehta <salil.mehta@huawei.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170613170822.16310-3-julien@arista.com>
-Content-Language: fr
+In-Reply-To: <F4CC6FACFEB3C54C9141D49AD221F7F93B7A1B62@FRAEML521-MBX.china.huawei.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le 13/06/2017 à 19:08, Julien Gomes a écrit :
-> Add Netlink notifications on cache reports in ipmr, in addition to the
-> existing igmpmsg sent to mroute_sk.
-> Send RTM_NEWCACHEREPORT notifications to RTNLGRP_IPV4_MROUTE.
-> 
-> MSGTYPE, VIF_ID, SRC_ADDR and DST_ADDR Netlink attributes contain the
-> same data as their equivalent fields in the igmpmsg header.
-> PKT attribute is the packet sent to mroute_sk, without the added igmpmsg
-> header.
-> 
-> Suggested-by: Ryan Halbrook <halbrook@arista.com>
-> Signed-off-by: Julien Gomes <julien@arista.com>
-> ---
->  include/uapi/linux/mroute.h | 11 ++++++++
->  net/ipv4/ipmr.c             | 63 +++++++++++++++++++++++++++++++++++++++++++--
->  2 files changed, 72 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/uapi/linux/mroute.h b/include/uapi/linux/mroute.h
-> index f904367c0cee..f6f9e01ee734 100644
-> --- a/include/uapi/linux/mroute.h
-> +++ b/include/uapi/linux/mroute.h
-> @@ -152,6 +152,17 @@ enum {
->  };
->  #define IPMRA_VIFA_MAX (__IPMRA_VIFA_MAX - 1)
->  
-> +/* ipmr netlink cache report attributes */
-> +enum {
-IPMRA_CACHEREPORTA_UNSPEC is missing.
-By the way, maybe something shorter than IPMRA_CACHEREPORTA_ would be better.
-What about IPMR_CREPORTA_? IPMR_CACHEA_? IPMR_IGMPA_? or whatever.
-What is the signification of the two 'A'? One for 'attribute', but the other?
+> > > +static void hns3_nic_net_down(struct net_device *ndev) {
+> > > +	struct hns3_nic_priv *priv =3D netdev_priv(ndev);
+> > > +	struct hnae3_ae_ops *ops;
+> > > +	int i;
+> > > +
+> > > +	netif_tx_stop_all_queues(ndev);
+> > > +	netif_carrier_off(ndev);
+> > > +	netif_tx_disable(ndev);
+> > > +
+> > > +	ops =3D priv->ae_handle->ae_algo->ops;
+> > > +
+> > > +	if (ops->stop)
+> > > +		ops->stop(priv->ae_handle);
+> > > +
+> > > +	netif_tx_stop_all_queues(ndev);
+> >
+> > Looks a bit excessive. Why do you need all these
+> > netif_tx_stop_all_queues()?
+> If we are disabling the netdev. We need to stop scheduling the queues
+> associated with that netdev for TX, so we need this code. Why do you thin=
+k
+> it is excessive?
 
-> +	IPMRA_CACHEREPORTA_MSGTYPE,
-> +	IPMRA_CACHEREPORTA_VIF_ID,
-> +	IPMRA_CACHEREPORTA_SRC_ADDR,
-> +	IPMRA_CACHEREPORTA_DST_ADDR,
-> +	IPMRA_CACHEREPORTA_PKT,
-> +	__IPMRA_CACHEREPORTA_MAX
-> +};
-> +#define IPMRA_CACHEREPORTA_MAX (__IPMRA_CACHEREPORTA_MAX - 1)
+Why do you need both netif_tx_disable() and netif_tx_stop_all_queues()?
+And why would you need to re-do netif_tx_stop_all_queues() after
+calling ops->stop()?
+
+> > Isn't mqprio going to override your priority2tc mapping with the one
+> > provided by user?
+> I guess you are referring to below code in the mqprio_init() - right?
+>=20
+> static int mqprio_init(struct Qdisc *sch, struct nlattr *opt)
+> {
+>   [...]
+> 	/* Always use supplied priority mappings */
+> 	for (i =3D 0; i < TC_BITMASK + 1; i++)
+> 		netdev_set_prio_tc_map(dev, i, qopt->prio_tc_map[i]);
+>   [...]
+> }
+>=20
+> In this case yes, you are right below code seems to be redundant:
+>=20
+>  +	/* Assign UP2TC map for the VSI */
+>  +	for (i =3D 0; i < HNAE3_MAX_TC; i++) {
+>  +		netdev_set_prio_tc_map(ndev,
+>  +				       kinfo->tc_info[i].up,
+>  +				       kinfo->tc_info[i].tc);
+>=20
+> Hope I am not missing anything here?
+You're not; That's what I meant.
