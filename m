@@ -1,64 +1,47 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v4 10/11] dt-bindings: orion-mdio: document the new xmdio
- compatible
-Date: Wed, 14 Jun 2017 18:35:37 +0200
-Message-ID: <20170614163537.GO15847@lunn.ch>
-References: <20170614154911.14510-1-antoine.tenart@free-electrons.com>
- <20170614154911.14510-11-antoine.tenart@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, jason@lakedaemon.net,
-        gregory.clement@free-electrons.com,
-        sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        mw@semihalf.com, linux@armlinux.org.uk, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org
-To: Antoine Tenart <antoine.tenart@free-electrons.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH iproute2] link_gre6: really support encaplimit option
+Date: Wed, 14 Jun 2017 18:45:42 +0200
+Message-ID: <1497458742-6068-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:49416 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750768AbdFNQfp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 14 Jun 2017 12:35:45 -0400
-Content-Disposition: inline
-In-Reply-To: <20170614154911.14510-11-antoine.tenart@free-electrons.com>
+Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:53807 "EHLO
+        proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752228AbdFNQp5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 12:45:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 14, 2017 at 05:49:10PM +0200, Antoine Tenart wrote:
-> A new compatible for Marvell xMDIO interfaces was added into the Marvell
-> MDIO driver. Document this new compatible.
-> 
-> Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
-> ---
->  Documentation/devicetree/bindings/net/marvell-orion-mdio.txt | 8 ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
-> index ccdabdcc8618..b93a5b5a0472 100644
-> --- a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
-> +++ b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
-> @@ -1,12 +1,12 @@
->  * Marvell MDIO Ethernet Controller interface
->  
->  The Ethernet controllers of the Marvel Kirkwood, Dove, Orion5x,
-> -MV78xx0, Armada 370 and Armada XP have an identical unit that provides
-> -an interface with the MDIO bus. This driver handles this MDIO
-> -interface.
-> +MV78xx0, Armada 370, Armada XP, Armada 7k and Armada 8k have an
-> +identical unit that provides an interface with the MDIO bus or
-> +with the xMDIO bus. This driver handles these interfaces.
+This option is documented in gre6 help, but was not supported.
 
-Hi Antoine
+Fixes: af89576d7a8c ("iproute2: GRE over IPv6 tunnel support.")
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ ip/link_gre6.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
-This patches is looking good now. One nit. The description above
-suggests Kirkwood, Dove, Orion5x, MV78xx0, Armada 370 and Armada XP
-all have xmdio. Maybe better wording would be:
-
-The Ethernet controllers of the Marvel Kirkwood, Dove, Orion5x,
-MV78xx0, Armada 370, Armada XP, Armada 7k and Armada 8k have an
-identical unit that provides an interface with the MDIO bus.
-Additionally, Armada 7k and Armada 8k has a second unit which
-provides an interface with the xMDIO bus. This driver handles
-these interfaces.
-
-      Andrew
+diff --git a/ip/link_gre6.c b/ip/link_gre6.c
+index 205bada78054..4d3d4b54210b 100644
+--- a/ip/link_gre6.c
++++ b/ip/link_gre6.c
+@@ -355,6 +355,18 @@ get_failed:
+ 					invarg("invalid fwmark\n", *argv);
+ 				flags &= ~IP6_TNL_F_USE_ORIG_FWMARK;
+ 			}
++		} else if (strcmp(*argv, "encaplimit") == 0) {
++			NEXT_ARG();
++			if (strcmp(*argv, "none") == 0) {
++				flags |= IP6_TNL_F_IGN_ENCAP_LIMIT;
++			} else {
++				__u8 uval;
++
++				if (get_u8(&uval, *argv, 0) < -1)
++					invarg("invalid ELIM", *argv);
++				encap_limit = uval;
++				flags &= ~IP6_TNL_F_IGN_ENCAP_LIMIT;
++			}
+ 		} else
+ 			usage();
+ 		argc--; argv++;
+-- 
+2.8.1
