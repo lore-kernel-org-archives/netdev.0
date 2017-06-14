@@ -1,89 +1,34 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [PATCH v2 net-next 8/9] bpf: nfp: Report bpf_prog ID during
- XDP_QUERY_PROG
-Date: Tue, 13 Jun 2017 20:43:00 -0700
-Message-ID: <20170613204300.38580ec2@cakuba.netronome.com>
-References: <20170613210841.509578-1-kafai@fb.com>
-        <20170613210841.509578-9-kafai@fb.com>
-        <20170613165232.73a1a005@cakuba.netronome.com>
-        <20170614003750.4wzq3quy7elmziy3@dhcp-172-26-110-210.dhcp.thefacebook.com>
-        <20170613191950.054195e6@cakuba.netronome.com>
-        <20170614031953.5jcbtlcwetcjqodj@kridsdale-mbp.DHCP.thefacebook.com>
+From: Peter Dawson <petedaws@gmail.com>
+Subject: Re: [PATCH] ip6_tunnel: Correct tos value in collect_md mode
+Date: Wed, 14 Jun 2017 15:28:39 +1000
+Message-ID: <20170614152839.38406ce2@gmail.com>
+References: <1497408497-1473-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+        <9E61EADF-769B-431A-81EA-ADBAAD32ABD3@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>, <kernel-team@fb.com>
-To: Martin KaFai Lau <kafai@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:35265 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752854AbdFNDnD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2017 23:43:03 -0400
-Received: by mail-pg0-f43.google.com with SMTP id k71so69321753pgd.2
-        for <netdev@vger.kernel.org>; Tue, 13 Jun 2017 20:43:03 -0700 (PDT)
-In-Reply-To: <20170614031953.5jcbtlcwetcjqodj@kridsdale-mbp.DHCP.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: =?UTF-8?B?5Lil5rW35Y+M?= <yanhaishuang@cmss.chinamobile.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <9E61EADF-769B-431A-81EA-ADBAAD32ABD3@cmss.chinamobile.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 13 Jun 2017 20:19:53 -0700, Martin KaFai Lau wrote:
-> On Tue, Jun 13, 2017 at 07:19:50PM -0700, Jakub Kicinski wrote:
-> > On Tue, 13 Jun 2017 17:37:50 -0700, Martin KaFai Lau wrote:  
-> > > On Tue, Jun 13, 2017 at 04:52:32PM -0700, Jakub Kicinski wrote:  
-> > > > On Tue, 13 Jun 2017 14:08:40 -0700, Martin KaFai Lau wrote:  
-> > > > > -	case XDP_QUERY_PROG:
-> > > > > -		xdp->prog_attached = !!nn->dp.xdp_prog;
-> > > > > +	case XDP_QUERY_PROG: {
-> > > > > +		const struct bpf_prog *xdp_prog;
-> > > > > +
-> > > > > +		xdp_prog = nn->dp.xdp_prog;
-> > > > > +		if (xdp_prog) {
-> > > > > +			xdp->prog_id = xdp_prog->aux->id;
-> > > > > +			xdp->prog_attached = true;
-> > > > > +		} else {
-> > > > > +			xdp->prog_id = 0;
-> > > > > +			xdp->prog_attached = false;
-> > > > > +		}
-> > > > >  		return 0;
-> > > > > +	}  
-> > > >
-> > > > I'm sorry to nit pick but it could be done on a single line:
-> > > >
-> > > > 	case XDP_QUERY_PROG:
-> > > > 		xdp->prog_attached = !!nn->dp.xdp_prog;
-> > > > +		xdp->prog_id = nn->dp.xdp_prog ? nn->dp.xdp_prog->aux->id : 0;
-> > > >  		return 0;
-> > > >  	default:
-> > > >  		return -EINVAL;  
-> > > OK...
-> > >  
-> > > >
-> > > >
-> > > > What would be even cooler is a helper like this:
-> > > >
-> > > > static inline u32 bpf_prog_id(struct bpf_prog *prog)
-> > > > {
-> > > > 	if (!prog)
-> > > > 		return 0;
-> > > > 	return prog->aux->id;
-> > > > }
-> > > >
-> > > > in linux/bpf.h.  
-> > > Good idea.  
-> >
-> > You may actually have to add that into a source file, because bpf.h
-> > does not know the definition of struct bpf_prog :(  
-> Yeah. filter.h seems not working well either.
-> It looks good to me at the first thought.  After a second thought,
-> in the future, I am not so sure having a getter for every fields
-> in bpf_prog.
+On Wed, 14 Jun 2017 10:54:31 +0800
+=E4=B8=A5=E6=B5=B7=E5=8F=8C <yanhaishuang@cmss.chinamobile.com> wrote:
 
-Yes, if it's not a static inline it's far less appealing...
- 
-> I can put bpf_prog_id() in nfp_net_common.c only.
-> or do 'xdp->prog_id = nn->dp.xdp_prog ? nn->dp.xdp_prog->aux->id : 0;'
-> as you suggested earlier also.
-> I am fine either way.  Your call ;)
 
-OK, let's do the ternary operator version then :)  Sorry for leading you
-into this dead end.
+> > Changes since v2:
+> >  * mask key->tos with RT_TOS() suggested by Daniel
+
+Can you help me understand the rationale for this change? Is there are bug =
+introduced by dsfield =3D ip6_tclass(key->label); ?
+
+The RT_TOS masks out 4bits of the 8bit tos field in accordance with RFC1349=
+ (obsoleted by RFC2474). IPv6 does not have a TOS field. So it dosen't make=
+ sense to apply a TOS value to the outer header of an IPv6 tunnel.
