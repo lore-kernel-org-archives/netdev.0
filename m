@@ -1,83 +1,55 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 master] bpf: provide fallback defs for __NR_bpf
- when not avail
-Date: Wed, 14 Jun 2017 16:34:08 -0700
-Message-ID: <20170614163408.4a04c191@xeon-e3>
-References: <b59b84be59bccbab994072fdd9969b5d8a483f12.1497480167.git.daniel@iogearbox.net>
-        <20170614155648.4cfd7a73@xeon-e3>
-        <5941C03A.6010107@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net] i40e: Fix a sleep-in-atomic bug
+Date: Wed, 14 Jun 2017 16:35:31 -0700
+Message-ID: <20170614233531.40509-1-jeffrey.t.kirsher@intel.com>
+Cc: Jia-Ju Bai <baijiaju1990@163.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f46.google.com ([74.125.83.46]:33043 "EHLO
-        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752121AbdFNXeQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 19:34:16 -0400
-Received: by mail-pg0-f46.google.com with SMTP id f185so6713399pgc.0
-        for <netdev@vger.kernel.org>; Wed, 14 Jun 2017 16:34:15 -0700 (PDT)
-In-Reply-To: <5941C03A.6010107@iogearbox.net>
+Received: from mga05.intel.com ([192.55.52.43]:45426 "EHLO mga05.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752661AbdFNXfh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 14 Jun 2017 19:35:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 15 Jun 2017 01:01:14 +0200
-Daniel Borkmann <daniel@iogearbox.net> wrote:
+From: Jia-Ju Bai <baijiaju1990@163.com>
 
-> On 06/15/2017 12:56 AM, Stephen Hemminger wrote:
-> > On Thu, 15 Jun 2017 00:47:15 +0200
-> > Daniel Borkmann <daniel@iogearbox.net> wrote:
-> >  
-> >> panji reported that he wasn't able to build iproute2's bpf library
-> >> due to lack of __NR_bpf in his system headers. Providing a fallback
-> >> definition when __NR_bpf is not available in the system lets the
-> >> loader compile just fine, so lets add them for majority of archs.
-> >>
-> >> Reported-by: panji <jpan@live.nl>
-> >> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> >> ---
-> >>   lib/bpf.c | 20 ++++++++++++++++++++
-> >>   1 file changed, 20 insertions(+)
-> >>
-> >> diff --git a/lib/bpf.c b/lib/bpf.c
-> >> index ae4d97d..e1e29cc 100644
-> >> --- a/lib/bpf.c
-> >> +++ b/lib/bpf.c
-> >> @@ -128,6 +128,26 @@ static inline __u64 bpf_ptr_to_u64(const void *ptr)
-> >>   	return (__u64)(unsigned long)ptr;
-> >>   }
-> >>
-> >> +#ifndef __NR_bpf
-> >> +# if defined(__i386__)
-> >> +#  define __NR_bpf 357
-> >> +# elif defined(__x86_64__)
-> >> +#  define __NR_bpf 321
-> >> +# elif defined(__aarch64__)
-> >> +#  define __NR_bpf 280
-> >> +# elif defined(__sparc__)
-> >> +#  define __NR_bpf 349
-> >> +# elif defined(__arm__)
-> >> +#  define __NR_bpf 386
-> >> +# elif defined(__powerpc__)
-> >> +#  define __NR_bpf 361
-> >> +# elif defined(__s390__)
-> >> +#  define __NR_bpf 351
-> >> +# else
-> >> +#  error __NR_bpf not defined. Update kernel headers.
-> >> +# endif
-> >> +#endif
-> >> +
-> >>   static int bpf(int cmd, union bpf_attr *attr, unsigned int size)
-> >>   {
-> >>   #ifdef __NR_bpf  
-> >
-> > Sorry this looks like a mess. enumerating architectures in two different
-> > projects is likely to break in future.  
-> 
-> It says ifndef __NR_bpf, so only used then. And the numbers are uabi,
-> what will break here exactly? libbpf in kernel tree is having a similar
-> approach by the way.
+The driver may sleep under a spin lock, and the function call path is:
+i40e_ndo_set_vf_port_vlan (acquire the lock by spin_lock_bh)
+  i40e_vsi_remove_pvid
+    i40e_vlan_stripping_disable
+      i40e_aq_update_vsi_params
+        i40e_asq_send_command
+          mutex_lock --> may sleep
 
-You are defining values in two places (kernel and userspace) which has caused
-lots of mismatch in the past. Why isn't this in a kernel uapi header somewhere?
+To fixed it, the spin lock is released before "i40e_vsi_remove_pvid", and
+the lock is acquired again after this function.
+
+Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 95c23fbaa211..0fb38ca78900 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -3017,10 +3017,12 @@ int i40e_ndo_set_vf_port_vlan(struct net_device *netdev, int vf_id,
+ 					   VLAN_VID_MASK));
+ 	}
+ 
++	spin_unlock_bh(&vsi->mac_filter_hash_lock);
+ 	if (vlan_id || qos)
+ 		ret = i40e_vsi_add_pvid(vsi, vlanprio);
+ 	else
+ 		i40e_vsi_remove_pvid(vsi);
++	spin_lock_bh(&vsi->mac_filter_hash_lock);
+ 
+ 	if (vlan_id) {
+ 		dev_info(&pf->pdev->dev, "Setting VLAN %d, QOS 0x%x on VF %d\n",
+-- 
+2.12.2
