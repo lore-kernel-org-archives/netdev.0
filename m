@@ -1,49 +1,57 @@
-From: Donald Sharp <sharpd@cumulusnetworks.com>
-Subject: [PATCH iproute2] ip: mroute: Add table output to show command
-Date: Wed, 14 Jun 2017 08:08:12 -0400
-Message-ID: <1497442092-14252-1-git-send-email-sharpd@cumulusnetworks.com>
-To: netdev@vger.kernel.org, stephen@networkplumber.org
+From: =?UTF-8?Q?Jan_Grash=c3=b6fer?= <jan.grashoefer@gmail.com>
+Subject: Receiving raw packets (incl. VLAN tags) on raw sockets
+Date: Wed, 14 Jun 2017 14:47:56 +0200
+Message-ID: <e06dbb47-2d1c-03ca-4cd7-cc958b6a939e@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: aeppert@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:35560 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750756AbdFNMIT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 08:08:19 -0400
-Received: by mail-pf0-f169.google.com with SMTP id l89so83633794pfi.2
-        for <netdev@vger.kernel.org>; Wed, 14 Jun 2017 05:08:19 -0700 (PDT)
+Received: from mail-wr0-f182.google.com ([209.85.128.182]:33805 "EHLO
+        mail-wr0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751829AbdFNMsK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 08:48:10 -0400
+Received: by mail-wr0-f182.google.com with SMTP id 77so41142104wrb.1
+        for <netdev@vger.kernel.org>; Wed, 14 Jun 2017 05:48:09 -0700 (PDT)
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the user specifies `table all` or `table 0` to
-the `ip mroute show` command we dump the entirety of
-the known mroute tables.  Without some sort of
-divisor to tell us what table we are looking at
-the command is useless.
+Hello,
 
-Add `Table: <vrf name>` to the output of 'ip mroute show table 0'
+trying to ingest packets to a network monitoring tool using AF_Packet, I
+noticed that VLAN tags are stripped off even if VLAN offloading is
+disabled. As described in [1] the tags are stripped that early in the
+receive path that raw sockets do not receive the packets as seen on the
+wire. However, the man pages [2] state:
 
-Follow the convention established by 'ip route show table 0'
-for when to display
+> SOCK_RAW packets are passed to and from the device driver without any
+> changes in the packet data.
 
-Signed-off-by: Donald Sharp <sharpd@cumulusnetworks.com>
----
- ip/ipmroute.c | 5 +++++
- 1 file changed, 5 insertions(+)
+So at least the docs are wrong here. While the VLAN information is
+present in the tpacket_hdr, the packets themselves are manipulated by
+the kernel. In my case, for example, I need to pass on each packet (in
+form of a packet) and thus would have to reinsert the tag manually,
+which is definitely undesirable.
 
-diff --git a/ip/ipmroute.c b/ip/ipmroute.c
-index 4d2d758..70f4c4f 100644
---- a/ip/ipmroute.c
-+++ b/ip/ipmroute.c
-@@ -189,6 +189,11 @@ int print_mroute(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 		fprintf(fp, ", Age %4i.%.2i", (int)tv.tv_sec,
- 			(int)tv.tv_usec/10000);
- 	}
-+
-+	if (table && (table != RT_TABLE_MAIN || show_details > 0) && !filter.tb)
-+		fprintf(fp, " Table: %s",
-+			rtnl_rttable_n2a(table, b1, sizeof(b1)));
-+
- 	fprintf(fp, "\n");
- 	fflush(fp);
- 	return 0;
--- 
-2.1.4
+As I am dealing with a monitoring application, the following patch that
+disables untagging VLANs in promisc mode fixes the issue for me:
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 54f8c16..ec5b1c5 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4104,8 +4104,9 @@ static int __netif_receive_skb_core(struct sk_buff
+*skb, bool pfmemalloc)
+
+        __this_cpu_inc(softnet_data.processed);
+
+-       if (skb->protocol == cpu_to_be16(ETH_P_8021Q) ||
+-           skb->protocol == cpu_to_be16(ETH_P_8021AD)) {
++       if ((skb->protocol == cpu_to_be16(ETH_P_8021Q) ||
++           skb->protocol == cpu_to_be16(ETH_P_8021AD)) &&
++           skb->dev->promiscuity < 1) {
+                skb = skb_vlan_untag(skb);
+                if (unlikely(!skb))
+                        goto out;
