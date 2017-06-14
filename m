@@ -1,39 +1,46 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH net-next 01/11] ipv6: skb_put_zero() used to optimize
- code
-Date: Wed, 14 Jun 2017 21:51:23 +0200
-Message-ID: <1497469883.9377.6.camel@sipsolutions.net>
-References: <1497451026-3923-1-git-send-email-cugyly@163.com>
-         <20170614084434.3342671d@xeon-e3>
-         <1497466892.9377.5.camel@sipsolutions.net>
-         <20170614121416.63a78b0d@xeon-e3> (sfid-20170614_211424_579385_35B01873)
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch iproute2 v2 repost 2/3] tc: actions: add helpers to parse
+ and print control actions
+Date: Wed, 14 Jun 2017 22:10:07 +0200
+Message-ID: <20170614201007.GB1972@nanopsycho>
+References: <20170516172802.1317-1-jiri@resnulli.us>
+ <20170516172937.1391-2-jiri@resnulli.us>
+ <20170614203222.3dcc183d@griffin>
+ <20170614191850.GA1972@nanopsycho>
+ <20170614212824.757ca744@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: yuan linyu <cugyly@163.com>, netdev@vger.kernel.org,
-        "David S . Miller" <davem@davemloft.net>,
-        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+        xiyou.wangcong@gmail.com, dsa@cumulusnetworks.com,
+        edumazet@google.com, stephen@networkplumber.org,
+        daniel@iogearbox.net, alexander.h.duyck@intel.com,
+        simon.horman@netronome.com, mlxsw@mellanox.com
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:41204 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751777AbdFNTv3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 14 Jun 2017 15:51:29 -0400
-In-Reply-To: <20170614121416.63a78b0d@xeon-e3> (sfid-20170614_211424_579385_35B01873)
+Received: from mail-wr0-f173.google.com ([209.85.128.173]:36255 "EHLO
+        mail-wr0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752603AbdFNUKK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 16:10:10 -0400
+Received: by mail-wr0-f173.google.com with SMTP id 36so15471092wry.3
+        for <netdev@vger.kernel.org>; Wed, 14 Jun 2017 13:10:09 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170614212824.757ca744@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-06-14 at 12:14 -0700, Stephen Hemminger wrote:
-> 
-> > I just copied it from skb_put() - you could ask the same there? :)
-> 
-> My taste is to  have less casts. Never understood why so many skb_
-> functions returned char *, probably a leftover from older Unix style.
+Wed, Jun 14, 2017 at 09:28:24PM CEST, jbenc@redhat.com wrote:
+>On Wed, 14 Jun 2017 21:18:50 +0200, Jiri Pirko wrote:
+>> Isn't it fixed by:
+>> 
+>> https://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git/commit/?h=net-next&id=18f05d06016d9492c87fd105d831de0d6d858f43
+>> 
+>> ?
+>
+>Doesn't seem so. The current net-next branch with this commit included
+>fails in the same way.
 
-I agree, for many of them it's awkward and I often just put a (void *)
-cast in there ...
+Will fix tmrw. Thanks!
 
-I guess we can just make them void, and if anyone wants it I can easily
-cook up an spatch to remove casts.
 
-johannes
+>
+> Jiri
