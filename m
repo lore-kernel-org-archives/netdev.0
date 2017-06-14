@@ -1,99 +1,133 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [net-next,v2] openvswitch: add macro MODULE_ALIAS_VPORT_TYPE for
- vport type alias
-Date: Wed, 14 Jun 2017 13:43:09 -0700
-Message-ID: <CAOrHB_C9B138Y38QBZTiYN8kwxFh2+=GyGix00Dp75jA01fbcA@mail.gmail.com>
-References: <1497337257-2533-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v3 net-next 0/4] kernel TLS
+Date: Wed, 14 Jun 2017 13:54:31 -0700
+Message-ID: <CALx6S36NPk4ZYCq1TzWoAdfOeK+ba2D79-giE7WOLeoVuYM_nw@mail.gmail.com>
+References: <20170614183654.GA80067@davejwatson-mba.dhcp.thefacebook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Pravin Shelar <pshelar@nicira.com>,
+Cc: Ilya Lesokhin <ilyal@mellanox.com>,
+        Aviad Yehezkel <aviadye@mellanox.com>,
+        Boris Pismenny <borisp@mellanox.com>,
+        Liran Liss <liranl@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        David Miller <davem@davemloft.net>,
         Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
-To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay6-d.mail.gandi.net ([217.70.183.198]:50126 "EHLO
-        relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752080AbdFNUnN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 16:43:13 -0400
-Received: from mfilter11-d.gandi.net (mfilter11-d.gandi.net [217.70.178.131])
-        by relay6-d.mail.gandi.net (Postfix) with ESMTP id EE3ADFB87E
-        for <netdev@vger.kernel.org>; Wed, 14 Jun 2017 22:43:11 +0200 (CEST)
-Received: from relay6-d.mail.gandi.net ([IPv6:::ffff:217.70.183.198])
-        by mfilter11-d.gandi.net (mfilter11-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id IWj1hXR_gh2U for <netdev@vger.kernel.org>;
-        Wed, 14 Jun 2017 22:43:10 +0200 (CEST)
-Received: from mail-wr0-f177.google.com (mail-wr0-f177.google.com [209.85.128.177])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay6-d.mail.gandi.net (Postfix) with ESMTPSA id 8E729FB8B8
-        for <netdev@vger.kernel.org>; Wed, 14 Jun 2017 22:43:10 +0200 (CEST)
-Received: by mail-wr0-f177.google.com with SMTP id q97so16644209wrb.2
-        for <netdev@vger.kernel.org>; Wed, 14 Jun 2017 13:43:10 -0700 (PDT)
-In-Reply-To: <1497337257-2533-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        nmav@gnutls.org,
+        =?UTF-8?B?RnJpZG9sw61uIFBva29ybsO9?= <fridolin.pokorny@gmail.com>
+To: Dave Watson <davejwatson@fb.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20170614183654.GA80067@davejwatson-mba.dhcp.thefacebook.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 13, 2017 at 12:00 AM, Zhang Shengju
-<zhangshengju@cmss.chinamobile.com> wrote:
-> Add a new macro MODULE_ALIAS_VPORT_TYPE to unify and simplify the
-> declaration of vport type alias.
+On Wed, Jun 14, 2017 at 11:36 AM, Dave Watson <davejwatson@fb.com> wrote:
+> This series adds support for kernel TLS encryption over TCP sockets.
+> A standard TCP socket is converted to a TLS socket using a setsockopt.
+> Only symmetric crypto is done in the kernel, as well as TLS record
+> framing.  The handshake remains in userspace, and the negotiated
+> cipher keys/iv are provided to the TCP socket.
 >
-> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-> ---
->  net/openvswitch/vport-geneve.c | 2 +-
->  net/openvswitch/vport-gre.c    | 2 +-
->  net/openvswitch/vport-vxlan.c  | 2 +-
->  net/openvswitch/vport.h        | 3 +++
->  4 files changed, 6 insertions(+), 3 deletions(-)
->
-The change looks fine. But I do not see value in it. This is compat
-tunnel code, there should not be any more vports added to OVS. So
-adding this new API does not help for future code changes either.
+I don't see support for TLS receive path in the kernel, only the send
+path. Am I missing something?
 
+Thanks,
+Tom
 
-> diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
-> index 5aaf3ba..0ebf023 100644
-> --- a/net/openvswitch/vport-geneve.c
-> +++ b/net/openvswitch/vport-geneve.c
-> @@ -141,4 +141,4 @@ static void __exit ovs_geneve_tnl_exit(void)
+> We implemented support for this API in OpenSSL 1.1.0, the code is
+> available at https://github.com/Mellanox/tls-openssl/tree/master
 >
->  MODULE_DESCRIPTION("OVS: Geneve switching port");
->  MODULE_LICENSE("GPL");
-> -MODULE_ALIAS("vport-type-5");
-> +MODULE_ALIAS_VPORT_TYPE(5);
-> diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
-> index 0e72d95..97fc4d5 100644
-> --- a/net/openvswitch/vport-gre.c
-> +++ b/net/openvswitch/vport-gre.c
-> @@ -113,4 +113,4 @@ static void __exit ovs_gre_tnl_exit(void)
+> It should work with any TLS library with similar modifications,
+> a test tool using gnutls is here: https://github.com/Mellanox/tls-af_ktls_tool
 >
->  MODULE_DESCRIPTION("OVS: GRE switching port");
->  MODULE_LICENSE("GPL");
-> -MODULE_ALIAS("vport-type-3");
-> +MODULE_ALIAS_VPORT_TYPE(3);
-> diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
-> index 869acb3..0375b6a 100644
-> --- a/net/openvswitch/vport-vxlan.c
-> +++ b/net/openvswitch/vport-vxlan.c
-> @@ -179,4 +179,4 @@ static void __exit ovs_vxlan_tnl_exit(void)
+> RFC patch to openssl:
+> https://mta.openssl.org/pipermail/openssl-dev/2017-June/009384.html
 >
->  MODULE_DESCRIPTION("OVS: VXLAN switching port");
->  MODULE_LICENSE("GPL");
-> -MODULE_ALIAS("vport-type-4");
-> +MODULE_ALIAS_VPORT_TYPE(4);
-> diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
-> index cda66c2..1d1584f 100644
-> --- a/net/openvswitch/vport.h
-> +++ b/net/openvswitch/vport.h
-> @@ -199,4 +199,7 @@ static inline const char *ovs_vport_name(struct vport *vport)
->  void ovs_vport_ops_unregister(struct vport_ops *ops);
->  void ovs_vport_send(struct vport *vport, struct sk_buff *skb, u8 mac_proto);
+> Changes from V2:
 >
-> +#define MODULE_ALIAS_VPORT_TYPE(type) \
-> +       MODULE_ALIAS("vport-type-" __stringify(type))
-> +
->  #endif /* vport.h */
+> * EXPORT_SYMBOL_GPL in patch 1
+> * Ensure cleanup code always called before sk_stream_kill_queues to
+>   avoid warnings
+>
+> Changes from V1:
+>
+> * EXPORT_SYMBOL GPL in patch 2
+> * Add link to OpenSSL patch & gnutls example in documentation patch.
+> * sk_write_pending check was rolled in to wait_for_memory path,
+>   avoids special case and fixes lock inbalance issue.
+> * Unify flag handling for sendmsg/sendfile
+>
+> Changes from RFC V2:
+>
+> * Generic ULP (upper layer protocol) framework instead of TLS specific
+>   setsockopts
+> * Dropped Mellanox hardware patches, will come as separate series.
+>   Framework will work for both.
+>
+> RFC V2:
+>
+> http://www.mail-archive.com/netdev@vger.kernel.org/msg160317.html
+>
+> Changes from RFC V1:
+>
+> * Socket based on changing TCP proto_ops instead of crypto framework
+> * Merged code with Mellanox's hardware tls offload
+> * Zerocopy sendmsg support added - sendpage/sendfile is no longer
+>   necessary for zerocopy optimization
+>
+> RFC V1:
+>
+> http://www.mail-archive.com/netdev@vger.kernel.org/msg88021.html
+>
+> * Socket based on crypto userspace API framework, required two
+>   sockets in userspace, one encrypted, one unencrypted.
+>
+> Paper: https://netdevconf.org/1.2/papers/ktls.pdf
+>
+> Aviad Yehezkel (1):
+>   tcp: export do_tcp_sendpages and tcp_rate_check_app_limited functions
+>
+> Boris Pismenny (2):
+>   tcp: ULP infrastructure
+>   tls: Documentation
+>
+> Ilya Lesokhin (1):
+>   tls: kernel TLS support
+>
+>  Documentation/networking/tls.txt   | 135 +++++++
+>  MAINTAINERS                        |  10 +
+>  include/linux/socket.h             |   1 +
+>  include/net/inet_connection_sock.h |   4 +
+>  include/net/tcp.h                  |  27 ++
+>  include/net/tls.h                  | 237 ++++++++++++
+>  include/uapi/linux/tcp.h           |   1 +
+>  include/uapi/linux/tls.h           |  79 ++++
+>  net/Kconfig                        |   1 +
+>  net/Makefile                       |   1 +
+>  net/ipv4/Makefile                  |   2 +-
+>  net/ipv4/sysctl_net_ipv4.c         |  25 ++
+>  net/ipv4/tcp.c                     |  33 +-
+>  net/ipv4/tcp_ipv4.c                |   2 +
+>  net/ipv4/tcp_rate.c                |   1 +
+>  net/ipv4/tcp_ulp.c                 | 134 +++++++
+>  net/tls/Kconfig                    |  12 +
+>  net/tls/Makefile                   |   7 +
+>  net/tls/tls_main.c                 | 487 +++++++++++++++++++++++
+>  net/tls/tls_sw.c                   | 772 +++++++++++++++++++++++++++++++++++++
+>  20 files changed, 1968 insertions(+), 3 deletions(-)
+>  create mode 100644 Documentation/networking/tls.txt
+>  create mode 100644 include/net/tls.h
+>  create mode 100644 include/uapi/linux/tls.h
+>  create mode 100644 net/ipv4/tcp_ulp.c
+>  create mode 100644 net/tls/Kconfig
+>  create mode 100644 net/tls/Makefile
+>  create mode 100644 net/tls/tls_main.c
+>  create mode 100644 net/tls/tls_sw.c
+>
 > --
-> 1.8.3.1
->
->
+> 2.9.3
 >
