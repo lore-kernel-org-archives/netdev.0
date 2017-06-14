@@ -1,34 +1,49 @@
-From: Peter Dawson <petedaws@gmail.com>
-Subject: Re: [PATCH] ip6_tunnel: Correct tos value in collect_md mode
-Date: Wed, 14 Jun 2017 15:28:39 +1000
-Message-ID: <20170614152839.38406ce2@gmail.com>
-References: <1497408497-1473-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-        <9E61EADF-769B-431A-81EA-ADBAAD32ABD3@cmss.chinamobile.com>
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: [RFC/RFT PATCH 4/4] [debug] ARM: am335x: illustrate hwstamp
+Date: Tue, 13 Jun 2017 22:38:27 -0700
+Message-ID: <20170614053827.GD3730@atomide.com>
+References: <20170613231623.28353-1-grygorii.strashko@ti.com>
+ <20170613231623.28353-5-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: =?UTF-8?B?5Lil5rW35Y+M?= <yanhaishuang@cmss.chinamobile.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <9E61EADF-769B-431A-81EA-ADBAAD32ABD3@cmss.chinamobile.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Sekhar Nori <nsekhar@ti.com>,
+        Richard Cochran <richardcochran@gmail.com>,
+        linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
+        ivan.khoronzhuk@linaro.org
+To: Grygorii Strashko <grygorii.strashko@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from muru.com ([72.249.23.125]:51628 "EHLO muru.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750745AbdFNFib (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 14 Jun 2017 01:38:31 -0400
+Content-Disposition: inline
+In-Reply-To: <20170613231623.28353-5-grygorii.strashko@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 14 Jun 2017 10:54:31 +0800
-=E4=B8=A5=E6=B5=B7=E5=8F=8C <yanhaishuang@cmss.chinamobile.com> wrote:
+* Grygorii Strashko <grygorii.strashko@ti.com> [170613 16:20]:
+> This patch allows to test CPTS HW_TS_PUSH functionality on am335x boards
+> 
+> below sequence of commands will enable Timer7 to trigger 1sec
+> periodic pulses on CPTS HW4_TS_PUSH input pin:
+> 
+>  # echo 1000000000 > /sys/class/pwm/pwmchip0/pwm0/period
+>  # echo 500000000 > /sys/class/pwm/pwmchip0/pwm0/duty_cycle
+>  # echo 1 > /sys/class/pwm/pwmchip0/pwm0/enable
+>  # ./ptp/testptp -e 10 -i 3
+> external time stamp request okay
+> event index 3 at 1493259028.376600798
+> event index 3 at 1493259029.377170898
+> event index 3 at 1493259030.377741039
+> event index 3 at 1493259031.378311139
+> event index 3 at 1493259032.378881279
+> event index 3 at 1493259033.379451424
+> event index 3 at 1493259034.380021520
+> event index 3 at 1493259035.380591660
+> event index 3 at 1493259036.381161765
+> event index 3 at 1493259037.381731909
 
+Cool :)
 
-> > Changes since v2:
-> >  * mask key->tos with RT_TOS() suggested by Daniel
-
-Can you help me understand the rationale for this change? Is there are bug =
-introduced by dsfield =3D ip6_tclass(key->label); ?
-
-The RT_TOS masks out 4bits of the 8bit tos field in accordance with RFC1349=
- (obsoleted by RFC2474). IPv6 does not have a TOS field. So it dosen't make=
- sense to apply a TOS value to the outer header of an IPv6 tunnel.
+Acked-by: Tony Lindgren <tony@atomide.com>
