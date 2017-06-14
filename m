@@ -1,44 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 0/4] kernel TLS
-Date: Wed, 14 Jun 2017 15:47:59 -0400 (EDT)
-Message-ID: <20170614.154759.673143940024124611.davem@davemloft.net>
-References: <20170614183654.GA80067@davejwatson-mba.dhcp.thefacebook.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH net-next 01/11] ipv6: skb_put_zero() used to optimize
+ code
+Date: Wed, 14 Jun 2017 21:51:23 +0200
+Message-ID: <1497469883.9377.6.camel@sipsolutions.net>
+References: <1497451026-3923-1-git-send-email-cugyly@163.com>
+         <20170614084434.3342671d@xeon-e3>
+         <1497466892.9377.5.camel@sipsolutions.net>
+         <20170614121416.63a78b0d@xeon-e3> (sfid-20170614_211424_579385_35B01873)
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ilyal@mellanox.com, aviadye@mellanox.com, borisp@mellanox.com,
-        liranl@mellanox.com, matanb@mellanox.com, netdev@vger.kernel.org,
-        tom@herbertland.com, herbert@gondor.apana.org.au,
-        linux-crypto@vger.kernel.org, hannes@stressinduktion.org,
-        eric.dumazet@gmail.com, alexei.starovoitov@gmail.com,
-        nmav@gnutls.org, fridolin.pokorny@gmail.com
-To: davejwatson@fb.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: yuan linyu <cugyly@163.com>, netdev@vger.kernel.org,
+        "David S . Miller" <davem@davemloft.net>,
+        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54884 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751670AbdFNTsC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 15:48:02 -0400
-In-Reply-To: <20170614183654.GA80067@davejwatson-mba.dhcp.thefacebook.com>
+Received: from s3.sipsolutions.net ([5.9.151.49]:41204 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751777AbdFNTv3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 14 Jun 2017 15:51:29 -0400
+In-Reply-To: <20170614121416.63a78b0d@xeon-e3> (sfid-20170614_211424_579385_35B01873)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dave Watson <davejwatson@fb.com>
-Date: Wed, 14 Jun 2017 11:36:54 -0700
+On Wed, 2017-06-14 at 12:14 -0700, Stephen Hemminger wrote:
+> 
+> > I just copied it from skb_put() - you could ask the same there? :)
+> 
+> My taste is to  have less casts. Never understood why so many skb_
+> functions returned char *, probably a leftover from older Unix style.
 
-> This series adds support for kernel TLS encryption over TCP sockets.
-> A standard TCP socket is converted to a TLS socket using a setsockopt.
-> Only symmetric crypto is done in the kernel, as well as TLS record
-> framing.  The handshake remains in userspace, and the negotiated
-> cipher keys/iv are provided to the TCP socket.
-> 
-> We implemented support for this API in OpenSSL 1.1.0, the code is
-> available at https://github.com/Mellanox/tls-openssl/tree/master
-> 
-> It should work with any TLS library with similar modifications,
-> a test tool using gnutls is here: https://github.com/Mellanox/tls-af_ktls_tool
-> 
-> RFC patch to openssl:
-> https://mta.openssl.org/pipermail/openssl-dev/2017-June/009384.html
- ...
+I agree, for many of them it's awkward and I often just put a (void *)
+cast in there ...
 
-I really want to apply this, so everyone give it a good review :-)
+I guess we can just make them void, and if anyone wants it I can easily
+cook up an spatch to remove casts.
+
+johannes
