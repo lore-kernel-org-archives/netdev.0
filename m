@@ -1,32 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: bluetooth-next 2017-06-14
-Date: Wed, 14 Jun 2017 15:23:06 -0400 (EDT)
-Message-ID: <20170614.152306.464199756760117197.davem@davemloft.net>
-References: <20170614094421.GA29140@x1c.lan>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
-To: johan.hedberg@gmail.com
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net-next 0/2] net: sched: act_tunnel_key: UDP checksums
+Date: Wed, 14 Jun 2017 21:19:29 +0200
+Message-ID: <cover.1497467840.git.jbenc@redhat.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jiri Pirko <jiri@resnulli.us>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54156 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751714AbdFNTXL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 15:23:11 -0400
-In-Reply-To: <20170614094421.GA29140@x1c.lan>
+Received: from mx1.redhat.com ([209.132.183.28]:32964 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751756AbdFNTYR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 14 Jun 2017 15:24:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johan Hedberg <johan.hedberg@gmail.com>
-Date: Wed, 14 Jun 2017 12:44:21 +0300
+Currently, the tunnel_key tc action does not set TUNNEL_CSUM, thus
+transmitting packets with zero UDP checksum. This is inconsistent with how
+we treat non-lwt UDP tunnels where the default is to fill in the UDP
+checksum. Non-zero UDP checksum is the better default anyway for various
+reasons previously discussed.
 
-> Here's another batch of Bluetooth patches for the 4.13 kernel:
-> 
->  - Fix for Broadcom controllers not supporting Event Mask Page 2
->  - New QCA ROME USB ID for btusb
->  - Fix for Security Manager Protocol to use constant-time memcmp
->  - Improved support for TI WiLink chips
-> 
-> Please let me know if there are any issues pulling. Thanks.
+Make this configurable for the tunnel_key tc action with the default being
+non-zero checksum. Saves a lot of surprises especially with IPv6.
 
-Pulled, thanks Johan.
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
+
+
+Jiri Benc (2):
+  net: sched: act_tunnel_key: request UDP checksum by default
+  net: sched: act_tunnel_key: make UDP checksum configurable
+
+ include/uapi/linux/tc_act/tc_tunnel_key.h |  1 +
+ net/sched/act_tunnel_key.c                | 15 ++++++++++++---
+ 2 files changed, 13 insertions(+), 3 deletions(-)
+
+-- 
+1.8.3.1
