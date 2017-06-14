@@ -1,208 +1,56 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net] rxrpc: Fix several cases where a padded len isn't
- checked in ticket decode
-Date: Thu, 15 Jun 2017 00:12:24 +0100
-Message-ID: <149748194451.23919.13232256832988154536.stgit@warthog.procyon.org.uk>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v3 net-next 0/4] kernel TLS
+Date: Wed, 14 Jun 2017 16:24:53 -0700
+Message-ID: <CALx6S37sPyn2Za++taRnFy6LcQHx8_yBiS=p7j5X8fN-0j44Pg@mail.gmail.com>
+References: <20170614183654.GA80067@davejwatson-mba.dhcp.thefacebook.com>
+ <CALx6S36NPk4ZYCq1TzWoAdfOeK+ba2D79-giE7WOLeoVuYM_nw@mail.gmail.com> <20170614221738.GC72301@davejwatson-mba.dhcp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Ilya Lesokhin <ilyal@mellanox.com>,
+        Aviad Yehezkel <aviadye@mellanox.com>,
+        Boris Pismenny <borisp@mellanox.com>,
+        Liran Liss <liranl@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        nmav@gnutls.org,
+        =?UTF-8?B?RnJpZG9sw61uIFBva29ybsO9?= <fridolin.pokorny@gmail.com>
+To: Dave Watson <davejwatson@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:34276 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752121AbdFNXY4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 19:24:56 -0400
+Received: by mail-wr0-f196.google.com with SMTP id u101so3622690wrc.1
+        for <netdev@vger.kernel.org>; Wed, 14 Jun 2017 16:24:55 -0700 (PDT)
+In-Reply-To: <20170614221738.GC72301@davejwatson-mba.dhcp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This fixes CVE-2017-7482.
+On Wed, Jun 14, 2017 at 3:17 PM, Dave Watson <davejwatson@fb.com> wrote:
+> On 06/14/17 01:54 PM, Tom Herbert wrote:
+>> On Wed, Jun 14, 2017 at 11:36 AM, Dave Watson <davejwatson@fb.com> wrote:
+>> > This series adds support for kernel TLS encryption over TCP sockets.
+>> > A standard TCP socket is converted to a TLS socket using a setsockopt.
+>> > Only symmetric crypto is done in the kernel, as well as TLS record
+>> > framing.  The handshake remains in userspace, and the negotiated
+>> > cipher keys/iv are provided to the TCP socket.
+>> >
+>> I don't see support for TLS receive path in the kernel, only the send
+>> path. Am I missing something?
+>
+> Correct, this is only TX.  Since it sounds likely some hardware might
+> only be able to offload TX, we decided to configure TX and RX
+> separately.  Using the OpenSSL patches, it should be transparent to
+> users even if only one side is offloaded.
+>
+> The software RX patches exist but haven't been polished up yet.
 
-When a kerberos 5 ticket is being decoded so that it can be loaded into an
-rxrpc-type key, there are several places in which the length of a
-variable-length field is checked to make sure that it's not going to
-overrun the available data - but the data is padded to the nearest
-four-byte boundary and the code doesn't check for this extra.  This could
-lead to the size-remaining variable wrapping and the data pointer going
-over the end of the buffer.
+Thanks for the clarification, looking forward to RX patches also!
 
-Fix this by making the various variable-length data checks use the padded
-length.
-
-Reported-by: 石磊 <shilei-c@360.cn>
-Signed-off-by: David Howells <dhowells@redhat.com>
-Reviewed-by: Marc Dionne <marc.c.dionne@auristor.com>
-Reviewed-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-
- net/rxrpc/key.c |   64 +++++++++++++++++++++++++++++--------------------------
- 1 file changed, 34 insertions(+), 30 deletions(-)
-
-diff --git a/net/rxrpc/key.c b/net/rxrpc/key.c
-index 0a4e28477ad9..54369225766e 100644
---- a/net/rxrpc/key.c
-+++ b/net/rxrpc/key.c
-@@ -217,7 +217,7 @@ static int rxrpc_krb5_decode_principal(struct krb5_principal *princ,
- 				       unsigned int *_toklen)
- {
- 	const __be32 *xdr = *_xdr;
--	unsigned int toklen = *_toklen, n_parts, loop, tmp;
-+	unsigned int toklen = *_toklen, n_parts, loop, tmp, paddedlen;
- 
- 	/* there must be at least one name, and at least #names+1 length
- 	 * words */
-@@ -247,16 +247,16 @@ static int rxrpc_krb5_decode_principal(struct krb5_principal *princ,
- 		toklen -= 4;
- 		if (tmp <= 0 || tmp > AFSTOKEN_STRING_MAX)
- 			return -EINVAL;
--		if (tmp > toklen)
-+		paddedlen = (tmp + 3) & ~3;
-+		if (paddedlen > toklen)
- 			return -EINVAL;
- 		princ->name_parts[loop] = kmalloc(tmp + 1, GFP_KERNEL);
- 		if (!princ->name_parts[loop])
- 			return -ENOMEM;
- 		memcpy(princ->name_parts[loop], xdr, tmp);
- 		princ->name_parts[loop][tmp] = 0;
--		tmp = (tmp + 3) & ~3;
--		toklen -= tmp;
--		xdr += tmp >> 2;
-+		toklen -= paddedlen;
-+		xdr += paddedlen >> 2;
- 	}
- 
- 	if (toklen < 4)
-@@ -265,16 +265,16 @@ static int rxrpc_krb5_decode_principal(struct krb5_principal *princ,
- 	toklen -= 4;
- 	if (tmp <= 0 || tmp > AFSTOKEN_K5_REALM_MAX)
- 		return -EINVAL;
--	if (tmp > toklen)
-+	paddedlen = (tmp + 3) & ~3;
-+	if (paddedlen > toklen)
- 		return -EINVAL;
- 	princ->realm = kmalloc(tmp + 1, GFP_KERNEL);
- 	if (!princ->realm)
- 		return -ENOMEM;
- 	memcpy(princ->realm, xdr, tmp);
- 	princ->realm[tmp] = 0;
--	tmp = (tmp + 3) & ~3;
--	toklen -= tmp;
--	xdr += tmp >> 2;
-+	toklen -= paddedlen;
-+	xdr += paddedlen >> 2;
- 
- 	_debug("%s/...@%s", princ->name_parts[0], princ->realm);
- 
-@@ -293,7 +293,7 @@ static int rxrpc_krb5_decode_tagged_data(struct krb5_tagged_data *td,
- 					 unsigned int *_toklen)
- {
- 	const __be32 *xdr = *_xdr;
--	unsigned int toklen = *_toklen, len;
-+	unsigned int toklen = *_toklen, len, paddedlen;
- 
- 	/* there must be at least one tag and one length word */
- 	if (toklen <= 8)
-@@ -307,15 +307,17 @@ static int rxrpc_krb5_decode_tagged_data(struct krb5_tagged_data *td,
- 	toklen -= 8;
- 	if (len > max_data_size)
- 		return -EINVAL;
-+	paddedlen = (len + 3) & ~3;
-+	if (paddedlen > toklen)
-+		return -EINVAL;
- 	td->data_len = len;
- 
- 	if (len > 0) {
- 		td->data = kmemdup(xdr, len, GFP_KERNEL);
- 		if (!td->data)
- 			return -ENOMEM;
--		len = (len + 3) & ~3;
--		toklen -= len;
--		xdr += len >> 2;
-+		toklen -= paddedlen;
-+		xdr += paddedlen >> 2;
- 	}
- 
- 	_debug("tag %x len %x", td->tag, td->data_len);
-@@ -387,7 +389,7 @@ static int rxrpc_krb5_decode_ticket(u8 **_ticket, u16 *_tktlen,
- 				    const __be32 **_xdr, unsigned int *_toklen)
- {
- 	const __be32 *xdr = *_xdr;
--	unsigned int toklen = *_toklen, len;
-+	unsigned int toklen = *_toklen, len, paddedlen;
- 
- 	/* there must be at least one length word */
- 	if (toklen <= 4)
-@@ -399,6 +401,9 @@ static int rxrpc_krb5_decode_ticket(u8 **_ticket, u16 *_tktlen,
- 	toklen -= 4;
- 	if (len > AFSTOKEN_K5_TIX_MAX)
- 		return -EINVAL;
-+	paddedlen = (len + 3) & ~3;
-+	if (paddedlen > toklen)
-+		return -EINVAL;
- 	*_tktlen = len;
- 
- 	_debug("ticket len %u", len);
-@@ -407,9 +412,8 @@ static int rxrpc_krb5_decode_ticket(u8 **_ticket, u16 *_tktlen,
- 		*_ticket = kmemdup(xdr, len, GFP_KERNEL);
- 		if (!*_ticket)
- 			return -ENOMEM;
--		len = (len + 3) & ~3;
--		toklen -= len;
--		xdr += len >> 2;
-+		toklen -= paddedlen;
-+		xdr += paddedlen >> 2;
- 	}
- 
- 	*_xdr = xdr;
-@@ -552,7 +556,7 @@ static int rxrpc_preparse_xdr(struct key_preparsed_payload *prep)
- {
- 	const __be32 *xdr = prep->data, *token;
- 	const char *cp;
--	unsigned int len, tmp, loop, ntoken, toklen, sec_ix;
-+	unsigned int len, paddedlen, loop, ntoken, toklen, sec_ix;
- 	size_t datalen = prep->datalen;
- 	int ret;
- 
-@@ -578,22 +582,21 @@ static int rxrpc_preparse_xdr(struct key_preparsed_payload *prep)
- 	if (len < 1 || len > AFSTOKEN_CELL_MAX)
- 		goto not_xdr;
- 	datalen -= 4;
--	tmp = (len + 3) & ~3;
--	if (tmp > datalen)
-+	paddedlen = (len + 3) & ~3;
-+	if (paddedlen > datalen)
- 		goto not_xdr;
- 
- 	cp = (const char *) xdr;
- 	for (loop = 0; loop < len; loop++)
- 		if (!isprint(cp[loop]))
- 			goto not_xdr;
--	if (len < tmp)
--		for (; loop < tmp; loop++)
--			if (cp[loop])
--				goto not_xdr;
-+	for (; loop < paddedlen; loop++)
-+		if (cp[loop])
-+			goto not_xdr;
- 	_debug("cellname: [%u/%u] '%*.*s'",
--	       len, tmp, len, len, (const char *) xdr);
--	datalen -= tmp;
--	xdr += tmp >> 2;
-+	       len, paddedlen, len, len, (const char *) xdr);
-+	datalen -= paddedlen;
-+	xdr += paddedlen >> 2;
- 
- 	/* get the token count */
- 	if (datalen < 12)
-@@ -614,10 +617,11 @@ static int rxrpc_preparse_xdr(struct key_preparsed_payload *prep)
- 		sec_ix = ntohl(*xdr);
- 		datalen -= 4;
- 		_debug("token: [%x/%zx] %x", toklen, datalen, sec_ix);
--		if (toklen < 20 || toklen > datalen)
-+		paddedlen = (toklen + 3) & ~3;
-+		if (toklen < 20 || toklen > datalen || paddedlen > datalen)
- 			goto not_xdr;
--		datalen -= (toklen + 3) & ~3;
--		xdr += (toklen + 3) >> 2;
-+		datalen -= paddedlen;
-+		xdr += paddedlen >> 2;
- 
- 	} while (--loop > 0);
- 
+Tom
