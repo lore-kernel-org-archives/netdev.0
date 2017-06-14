@@ -1,57 +1,89 @@
-From: =?UTF-8?Q?Jan_Grash=c3=b6fer?= <jan.grashoefer@gmail.com>
-Subject: Receiving raw packets (incl. VLAN tags) on raw sockets
-Date: Wed, 14 Jun 2017 14:47:56 +0200
-Message-ID: <e06dbb47-2d1c-03ca-4cd7-cc958b6a939e@gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [Patch net] net_sched: move tcf_lock down after
+ gen_replace_estimator()
+Date: Wed, 14 Jun 2017 08:48:26 -0400
+Message-ID: <41b1d17b-d8ba-6d70-9cc7-fcc5f5306dda@mojatatu.com>
+References: <1497386184-14960-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: aeppert@gmail.com
-To: netdev@vger.kernel.org
+Cc: nicholashuber@gmail.com, labbott@redhat.com
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f182.google.com ([209.85.128.182]:33805 "EHLO
-        mail-wr0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751829AbdFNMsK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 08:48:10 -0400
-Received: by mail-wr0-f182.google.com with SMTP id 77so41142104wrb.1
-        for <netdev@vger.kernel.org>; Wed, 14 Jun 2017 05:48:09 -0700 (PDT)
-Content-Language: en-US
+Received: from mail-it0-f66.google.com ([209.85.214.66]:33106 "EHLO
+        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751727AbdFNMsd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 08:48:33 -0400
+Received: by mail-it0-f66.google.com with SMTP id l6so17359150iti.0
+        for <netdev@vger.kernel.org>; Wed, 14 Jun 2017 05:48:33 -0700 (PDT)
+In-Reply-To: <1497386184-14960-1-git-send-email-xiyou.wangcong@gmail.com>
+Content-Language: en-GB
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On 17-06-13 04:36 PM, Cong Wang wrote:
+> Laura reported a sleep-in-atomic kernel warning inside
+> tcf_act_police_init() which calls gen_replace_estimator() with
+> spinlock protection.
+> 
+> It is not necessary in this case, we already have RTNL lock here
+> so it is enough to protect concurrent writers. For the reader,
+> i.e. tcf_act_police(), it needs to make decision based on this
+> rate estimator, in the worst case we drop more/less packets than
+> necessary while changing the rate in parallel, it is still acceptable.
+> 
+> Reported-by: Laura Abbott <labbott@redhat.com>
+> Reported-by: Nick Huber <nicholashuber@gmail.com>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
+>   net/sched/act_police.c | 8 +++-----
+>   1 file changed, 3 insertions(+), 5 deletions(-)
+> 
+> diff --git a/net/sched/act_police.c b/net/sched/act_police.c
+> index f42008b..b062bc8 100644
+> --- a/net/sched/act_police.c
+> +++ b/net/sched/act_police.c
+> @@ -132,21 +132,21 @@ static int tcf_act_police_init(struct net *net, struct nlattr *nla,
+>   		}
+>   	}
+>   
+> -	spin_lock_bh(&police->tcf_lock);
+>   	if (est) {
+>   		err = gen_replace_estimator(&police->tcf_bstats, NULL,
+>   					    &police->tcf_rate_est,
+>   					    &police->tcf_lock,
+>   					    NULL, est);
+>   		if (err)
+> -			goto failure_unlock;
+> +			goto failure;
+>   	} else if (tb[TCA_POLICE_AVRATE] &&
+>   		   (ret == ACT_P_CREATED ||
+>   		    !gen_estimator_active(&police->tcf_rate_est))) {
+>   		err = -EINVAL;
+> -		goto failure_unlock;
+> +		goto failure;
+>   	}
+>   
+> +	spin_lock_bh(&police->tcf_lock);
+>   	/* No failure allowed after this point */
+>   	police->tcfp_mtu = parm->mtu;
+>   	if (police->tcfp_mtu == 0) {
+> @@ -192,8 +192,6 @@ static int tcf_act_police_init(struct net *net, struct nlattr *nla,
+>   
+>   	return ret;
+>   
+> -failure_unlock:
+> -	spin_unlock_bh(&police->tcf_lock);
+>   failure:
+>   	qdisc_put_rtab(P_tab);
+>   	qdisc_put_rtab(R_tab);
+> 
 
-trying to ingest packets to a network monitoring tool using AF_Packet, I
-noticed that VLAN tags are stripped off even if VLAN offloading is
-disabled. As described in [1] the tags are stripped that early in the
-receive path that raw sockets do not receive the packets as seen on the
-wire. However, the man pages [2] state:
 
-> SOCK_RAW packets are passed to and from the device driver without any
-> changes in the packet data.
+Looks good to me.
 
-So at least the docs are wrong here. While the VLAN information is
-present in the tpacket_hdr, the packets themselves are manipulated by
-the kernel. In my case, for example, I need to pass on each packet (in
-form of a packet) and thus would have to reinsert the tag manually,
-which is definitely undesirable.
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-As I am dealing with a monitoring application, the following patch that
-disables untagging VLANs in promisc mode fixes the issue for me:
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 54f8c16..ec5b1c5 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4104,8 +4104,9 @@ static int __netif_receive_skb_core(struct sk_buff
-*skb, bool pfmemalloc)
-
-        __this_cpu_inc(softnet_data.processed);
-
--       if (skb->protocol == cpu_to_be16(ETH_P_8021Q) ||
--           skb->protocol == cpu_to_be16(ETH_P_8021AD)) {
-+       if ((skb->protocol == cpu_to_be16(ETH_P_8021Q) ||
-+           skb->protocol == cpu_to_be16(ETH_P_8021AD)) &&
-+           skb->dev->promiscuity < 1) {
-                skb = skb_vlan_untag(skb);
-                if (unlikely(!skb))
-                        goto out;
+cheers,
+jamal
