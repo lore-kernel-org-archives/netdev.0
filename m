@@ -1,49 +1,61 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: [RFC/RFT PATCH 4/4] [debug] ARM: am335x: illustrate hwstamp
-Date: Tue, 13 Jun 2017 22:38:27 -0700
-Message-ID: <20170614053827.GD3730@atomide.com>
-References: <20170613231623.28353-1-grygorii.strashko@ti.com>
- <20170613231623.28353-5-grygorii.strashko@ti.com>
+From: Magnus Damm <magnus.damm@gmail.com>
+Subject: Re: [PATCH] via-rhine: add support for changing MTU
+Date: Wed, 14 Jun 2017 15:02:30 +0900
+Message-ID: <CANqRtoQ705E_aAVazOOphZAFPBk6gdOq=umROnM+0ove9Y0j7A@mail.gmail.com>
+References: <149737430797.28477.9215445312169809396.sendpatchset@little-apple> <20170613.173318.167061176274123943.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Sekhar Nori <nsekhar@ti.com>,
-        Richard Cochran <richardcochran@gmail.com>,
-        linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
-        ivan.khoronzhuk@linaro.org
-To: Grygorii Strashko <grygorii.strashko@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from muru.com ([72.249.23.125]:51628 "EHLO muru.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750745AbdFNFib (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 14 Jun 2017 01:38:31 -0400
-Content-Disposition: inline
-In-Reply-To: <20170613231623.28353-5-grygorii.strashko@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev <netdev@vger.kernel.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170613.173318.167061176274123943.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-* Grygorii Strashko <grygorii.strashko@ti.com> [170613 16:20]:
-> This patch allows to test CPTS HW_TS_PUSH functionality on am335x boards
-> 
-> below sequence of commands will enable Timer7 to trigger 1sec
-> periodic pulses on CPTS HW4_TS_PUSH input pin:
-> 
->  # echo 1000000000 > /sys/class/pwm/pwmchip0/pwm0/period
->  # echo 500000000 > /sys/class/pwm/pwmchip0/pwm0/duty_cycle
->  # echo 1 > /sys/class/pwm/pwmchip0/pwm0/enable
->  # ./ptp/testptp -e 10 -i 3
-> external time stamp request okay
-> event index 3 at 1493259028.376600798
-> event index 3 at 1493259029.377170898
-> event index 3 at 1493259030.377741039
-> event index 3 at 1493259031.378311139
-> event index 3 at 1493259032.378881279
-> event index 3 at 1493259033.379451424
-> event index 3 at 1493259034.380021520
-> event index 3 at 1493259035.380591660
-> event index 3 at 1493259036.381161765
-> event index 3 at 1493259037.381731909
+On Wed, Jun 14, 2017 at 6:33 AM, David Miller <davem@davemloft.net> wrote:
+> From: Magnus Damm <magnus.damm@gmail.com>
+> Date: Wed, 14 Jun 2017 02:18:27 +0900
+>
+>> From: Magnus Damm <damm+renesas@opensource.se>
+>>
+>> Allow adjusting the MTU for via-rhine devices in case of no TX alignment
+>> buffer is used.
+>>
+>> Lightly tested on ALIX2D13 hardware by making use of VXLAN with MTU set
+>> to 1500 on top of via-rhine devices with 1550 MTU. Without this patch
+>> the VXLAN MTU is limited to less than 1500.
+>>
+>> Signed-off-by: Magnus Damm <damm+renesas@opensource.se>
+>
+> Why is the TX alignment buffer such an obstacle?
 
-Cool :)
+Not such a big obstacle - I simply took the easy way out for this
+first step. Adding support for MTU configuration when TX alignment is
+required requires a bit more effort, and it also makes the driver
+implementation slightly more complex.
 
-Acked-by: Tony Lindgren <tony@atomide.com>
+The particular silicon version of via-rhine devices on my ALIX2D13
+boards do not require the TX alignment workaround, but I should be
+able to add some local test code for development purpose.
+
+As for the TX alignment workaround implementation, when needed the
+driver allocates rp->tx_bufs to PKT_BUF_SIZE * TX_RING_SIZE. To
+support a larger MTU setting without increasing default memory usage
+this TX side can be adjusted to manage buffers in a more dynamic way,
+perhaps similar to the RX side with rp->rx_buf_sz.
+
+> It would be so much nicer if this could be supported for all chip
+> variants instead of some certain subset which users have no idea
+> of figuring out.  It's a really bad user experience to set them
+> up for failure like this.
+
+Sure, I agree!
+
+Will update the code with the TX alignment workaround and resend after
+some much needed testing. It will most likely take some time, so
+please don't block anything on this.
+
+Cheers,
+
+/ magnus
