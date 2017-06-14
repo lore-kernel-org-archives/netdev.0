@@ -1,177 +1,69 @@
-From: Dave Watson <davejwatson@fb.com>
-Subject: [PATCH v3 net-next 4/4] tls: Documentation
-Date: Wed, 14 Jun 2017 11:37:51 -0700
-Message-ID: <20170614183751.GA80390@davejwatson-mba.dhcp.thefacebook.com>
-References: <cover.1497465295.git.davejwatson@fb.com>
+From: Arun Parameswaran <arun.parameswaran-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v1 1/2] dt-binding: ptp: add bindings document for dte
+ based ptp clock
+Date: Wed, 14 Jun 2017 11:39:17 -0700
+Message-ID: <d23bbbcc-9f3f-d664-fd83-58414925f566@broadcom.com>
+References: <1497299161-6458-1-git-send-email-arun.parameswaran@broadcom.com>
+ <1497299161-6458-2-git-send-email-arun.parameswaran@broadcom.com>
+ <20170613050947.GA1684@localhost.localdomain>
+ <cb008f0f-1585-653e-0b89-47478f9f4734@broadcom.com>
+ <a4586d75-2aca-94f3-ab7a-fc94c9dc5a4a@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        <nmav@gnutls.org>, <fridolin.pokorny@gmail.com>
-To: Ilya Lesokhin <ilyal@mellanox.com>,
-        Aviad Yehezkel <aviadye@mellanox.com>,
-        Boris Pismenny <borisp@mellanox.com>,
-        Liran Liss <liranl@mellanox.com>,
-        "Matan Barak" <matanb@mellanox.com>,
-        David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        Tom Herbert <tom@herbertland.com>,
-        <herbert@gondor.apana.org.au>, <linux-crypto@vger.kernel.org>,
-        "Hannes Frederic Sowa" <hannes@stressinduktion.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <cover.1497465295.git.davejwatson@fb.com>
-Sender: linux-crypto-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
+To: Ray Jui <ray.jui-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <a4586d75-2aca-94f3-ab7a-fc94c9dc5a4a-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Content-Language: en-US
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add documentation for the tcp ULP tls interface.
 
-Signed-off-by: Boris Pismenny <borisp@mellanox.com>
-Signed-off-by: Dave Watson <davejwatson@fb.com>
----
- Documentation/networking/tls.txt | 135 +++++++++++++++++++++++++++++++++++++++
- 1 file changed, 135 insertions(+)
- create mode 100644 Documentation/networking/tls.txt
 
-diff --git a/Documentation/networking/tls.txt b/Documentation/networking/tls.txt
-new file mode 100644
-index 0000000..77ed006
---- /dev/null
-+++ b/Documentation/networking/tls.txt
-@@ -0,0 +1,135 @@
-+Overview
-+========
-+
-+Transport Layer Security (TLS) is a Upper Layer Protocol (ULP) that runs over
-+TCP. TLS provides end-to-end data integrity and confidentiality.
-+
-+User interface
-+==============
-+
-+Creating a TLS connection
-+-------------------------
-+
-+First create a new TCP socket and set the TLS ULP.
-+
-+  sock = socket(AF_INET, SOCK_STREAM, 0);
-+  setsockopt(sock, SOL_TCP, TCP_ULP, "tls", sizeof("tls"));
-+
-+Setting the TLS ULP allows us to set/get TLS socket options. Currently
-+only the symmetric encryption is handled in the kernel.  After the TLS
-+handshake is complete, we have all the parameters required to move the
-+data-path to the kernel. There is a separate socket option for moving
-+the transmit and the receive into the kernel.
-+
-+  /* From linux/tls.h */
-+  struct tls_crypto_info {
-+          unsigned short version;
-+          unsigned short cipher_type;
-+  };
-+
-+  struct tls12_crypto_info_aes_gcm_128 {
-+          struct tls_crypto_info info;
-+          unsigned char iv[TLS_CIPHER_AES_GCM_128_IV_SIZE];
-+          unsigned char key[TLS_CIPHER_AES_GCM_128_KEY_SIZE];
-+          unsigned char salt[TLS_CIPHER_AES_GCM_128_SALT_SIZE];
-+          unsigned char rec_seq[TLS_CIPHER_AES_GCM_128_REC_SEQ_SIZE];
-+  };
-+
-+
-+  struct tls12_crypto_info_aes_gcm_128 crypto_info;
-+
-+  crypto_info.info.version = TLS_1_2_VERSION;
-+  crypto_info.info.cipher_type = TLS_CIPHER_AES_GCM_128;
-+  memcpy(crypto_info.iv, iv_write, TLS_CIPHER_AES_GCM_128_IV_SIZE);
-+  memcpy(crypto_info.rec_seq, seq_number_write,
-+					TLS_CIPHER_AES_GCM_128_REC_SEQ_SIZE);
-+  memcpy(crypto_info.key, cipher_key_write, TLS_CIPHER_AES_GCM_128_KEY_SIZE);
-+  memcpy(crypto_info.salt, implicit_iv_write, TLS_CIPHER_AES_GCM_128_SALT_SIZE);
-+
-+  setsockopt(sock, SOL_TLS, TLS_TX, &crypto_info, sizeof(crypto_info));
-+
-+Sending TLS application data
-+----------------------------
-+
-+After setting the TLS_TX socket option all application data sent over this
-+socket is encrypted using TLS and the parameters provided in the socket option.
-+For example, we can send an encrypted hello world record as follows:
-+
-+  const char *msg = "hello world\n";
-+  send(sock, msg, strlen(msg));
-+
-+send() data is directly encrypted from the userspace buffer provided
-+to the encrypted kernel send buffer if possible.
-+
-+The sendfile system call will send the file's data over TLS records of maximum
-+length (2^14).
-+
-+  file = open(filename, O_RDONLY);
-+  fstat(file, &stat);
-+  sendfile(sock, file, &offset, stat.st_size);
-+
-+TLS records are created and sent after each send() call, unless
-+MSG_MORE is passed.  MSG_MORE will delay creation of a record until
-+MSG_MORE is not passed, or the maximum record size is reached.
-+
-+The kernel will need to allocate a buffer for the encrypted data.
-+This buffer is allocated at the time send() is called, such that
-+either the entire send() call will return -ENOMEM (or block waiting
-+for memory), or the encryption will always succeed.  If send() returns
-+-ENOMEM and some data was left on the socket buffer from a previous
-+call using MSG_MORE, the MSG_MORE data is left on the socket buffer.
-+
-+Send TLS control messages
-+-------------------------
-+
-+Other than application data, TLS has control messages such as alert
-+messages (record type 21) and handshake messages (record type 22), etc.
-+These messages can be sent over the socket by providing the TLS record type
-+via a CMSG. For example the following function sends @data of @length bytes
-+using a record of type @record_type.
-+
-+/* send TLS control message using record_type */
-+  static int klts_send_ctrl_message(int sock, unsigned char record_type,
-+                                  void *data, size_t length)
-+  {
-+        struct msghdr msg = {0};
-+        int cmsg_len = sizeof(record_type);
-+        struct cmsghdr *cmsg;
-+        char buf[CMSG_SPACE(cmsg_len)];
-+        struct iovec msg_iov;   /* Vector of data to send/receive into.  */
-+
-+        msg.msg_control = buf;
-+        msg.msg_controllen = sizeof(buf);
-+        cmsg = CMSG_FIRSTHDR(&msg);
-+        cmsg->cmsg_level = SOL_TLS;
-+        cmsg->cmsg_type = TLS_SET_RECORD_TYPE;
-+        cmsg->cmsg_len = CMSG_LEN(cmsg_len);
-+        *CMSG_DATA(cmsg) = record_type;
-+        msg.msg_controllen = cmsg->cmsg_len;
-+
-+        msg_iov.iov_base = data;
-+        msg_iov.iov_len = length;
-+        msg.msg_iov = &msg_iov;
-+        msg.msg_iovlen = 1;
-+
-+        return sendmsg(sock, &msg, 0);
-+  }
-+
-+Control message data should be provided unencrypted, and will be
-+encrypted by the kernel.
-+
-+Integrating in to userspace TLS library
-+---------------------------------------
-+
-+At a high level, the kernel TLS ULP is a replacement for the record
-+layer of a userspace TLS library.
-+
-+A patchset to OpenSSL to use ktls as the record layer is here:
-+
-+https://github.com/Mellanox/tls-openssl
-+
-+An example of calling send directly after a handshake using
-+gnutls.  Since it doesn't implement a full record layer, control
-+messages are not supported:
-+
-+https://github.com/Mellanox/tls-af_ktls_tool
--- 
-2.9.3
+On 17-06-14 11:18 AM, Ray Jui wrote:
+> 
+> 
+> On 6/13/17 10:46 AM, Arun Parameswaran wrote:
+>>
+>> Hi Richard,
+>>
+>> On 17-06-12 10:09 PM, Richard Cochran wrote:
+>>> On Mon, Jun 12, 2017 at 01:26:00PM -0700, Arun Parameswaran wrote:
+>>>> +Example:
+>>>> +
+>>>> +ptp_dte: ptp_dte@180af650 {
+>>>> +	compatible = "brcm,ptp-dte";
+>>>> +	reg = <0x180af650 0x10>;
+>>>> +	status = "okay";
+>>>> +};
+>>> This patch set looks okay, as far as it goes, but how does one
+>>> actually use the clock?
+>>>
+>>> How does one connect this node to an Ethernet MAC, for example?
+>> In some of the SoC's, the DTE's NCO is synced in hardware with the Ethernet's
+>> 1588 Shim NCO (used for time-stamping the packets). We are working on getting
+>> all the future SoC's synced this way (for Ethernet).
+>>
+> 
+> So apparently you do not need any phandle based DT binding defined for
+> the connection between the Ethernet device node and the PTP device node?
+> 
+Correct. This driver doesn't need any phandle.
+
+The Ethernet driver, in SoC's where the hardware link is not available,
+might need the phandle to this driver.
+
+>> In other scenarios, we use an user-space app to perform the sync based on
+>> time-stamps from external hardware sources like the Wi-Fi.
+>>> Thanks,
+>>> Richard
+>>
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
