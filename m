@@ -1,46 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: don't global ICMP rate limit packets
- originating from loopback
-Date: Wed, 14 Jun 2017 15:34:27 -0400 (EDT)
-Message-ID: <20170614.153427.2166855120464478061.davem@davemloft.net>
-References: <149743965710.19877.13901728209731997446.stgit@firesoul>
+Subject: Re: [PATCH 0/3] wext: fix an ancient bug
+Date: Wed, 14 Jun 2017 15:35:36 -0400 (EDT)
+Message-ID: <20170614.153536.450859354383251394.davem@davemloft.net>
+References: <20170614115523.16379-1-johannes@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fweimer@redhat.com, hjl.tools@gmail.com
-To: brouer@redhat.com
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        robert@ocallahan.org
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54504 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:54518 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751735AbdFNTeb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 15:34:31 -0400
-In-Reply-To: <149743965710.19877.13901728209731997446.stgit@firesoul>
+        with ESMTP id S1751665AbdFNTfn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 15:35:43 -0400
+In-Reply-To: <20170614115523.16379-1-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Wed, 14 Jun 2017 13:27:37 +0200
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Wed, 14 Jun 2017 13:55:20 +0200
 
-> Florian Weimer seems to have a glibc test-case which requires that
-> loopback interfaces does not get ICMP ratelimited.  This was broken by
-> commit c0303efeab73 ("net: reduce cycles spend on ICMP replies that
-> gets rate limited").
+> Robert O'Callahan reported that since struct iwreq is smaller than
+> struct ifreq, if it happens to land at the end of a mapped section
+> userspace will erroneously get -EFAULT.
 > 
-> An ICMP response will usually be routed back-out the same incoming
-> interface.  Thus, take advantage of this and skip global ICMP
-> ratelimit when the incoming device is loopback.  In the unlikely event
-> that the outgoing it not loopback, due to strange routing policy
-> rules, ICMP rate limiting still works via peer ratelimiting via
-> icmpv4_xrlim_allow().  Thus, we should still comply with RFC1812
-> (section 4.3.2.8 "Rate Limiting").
+> Bug report is https://bugzilla.kernel.org/show_bug.cgi?id=195869.
 > 
-> This seems to fix the reproducer given by Florian.  While still
-> avoiding to perform expensive and unneeded outgoing route lookup for
-> rate limited packets (in the non-loopback case).
+> This bug is ancient, it kernel 2.1.15 was the first to contain the
+> bug, and was released almost exactly 20.5 years ago.
 > 
-> Fixes: c0303efeab73 ("net: reduce cycles spend on ICMP replies that gets rate limited")
-> Reported-by: Florian Weimer <fweimer@redhat.com>
-> Reported-by: "H.J. Lu" <hjl.tools@gmail.com>
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> Dave, I don't know if we should even bother sending this to stable,
+> but if so, the third patch will apply by itself but not compile, a
+> smaller patch consist of only the net/core/dev_ioctl.c modifications
+> with a cast thrown in where the compile fails/warns due to passing
+> the wrong struct type.
+> 
+> Should I merge this through my tree?
 
-Applied and queued up for -stable, thanks Jesper.
+Agreed that -stable is probably not appropriate, and yes feel free to
+merge it via your tree.
+
+20.5 years... makes me feel old :-)
