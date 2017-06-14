@@ -1,42 +1,85 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: Re: [PATCH net-next] net/mlxfw: fix a NULL dereference
-Date: Wed, 14 Jun 2017 14:03:23 +0300
-Message-ID: <9ca5d66f-3eed-444a-61c8-269f55945be7@mellanox.com>
-References: <20170614104152.GM29394@elgon.mountain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr50084.outbound.protection.outlook.com ([40.107.5.84]:53600
-        "EHLO EUR03-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751771AbdFNLDb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 14 Jun 2017 07:03:31 -0400
-In-Reply-To: <20170614104152.GM29394@elgon.mountain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Caesar Wang <wxt@rock-chips.com>
+Subject: [PATCH v2] mwifiex: fixes the unexpected be printed log by default
+Date: Wed, 14 Jun 2017 19:06:56 +0800
+Message-ID: <1497438416-24665-1-git-send-email-wxt@rock-chips.com>
+Cc: yangzy@marvell.com, jeffy.chen@rock-chips.com,
+        briannorris@chromium.org, linux-kernel@vger.kernel.org,
+        Caesar Wang <wxt@rock-chips.com>,
+        Xinming Hu <huxm@marvell.com>,
+        Ganapathi Bhat <gbhat@marvell.com>,
+        Amitkumar Karwar <amitkarwar@gmail.com>,
+        linux-wireless@vger.kernel.org,
+        Nishant Sarmukadam <nishants@marvell.com>,
+        netdev@vger.kernel.org
+To: kvalo@codeaurora.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/14/2017 01:41 PM, Dan Carpenter wrote:
-> If we hit this error path we end up returning ERR_PTR(0) which is NULL.
-> The caller is not expecting that so it results in a NULL dereference.
->
-> Fixes: 410ed13cae39 ("Add the mlxfw module for Mellanox firmware flash process")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->
-> diff --git a/drivers/net/ethernet/mellanox/mlxfw/mlxfw_mfa2.c b/drivers/net/ethernet/mellanox/mlxfw/mlxfw_mfa2.c
-> index 628150d28061..993cb5ba934e 100644
-> --- a/drivers/net/ethernet/mellanox/mlxfw/mlxfw_mfa2.c
-> +++ b/drivers/net/ethernet/mellanox/mlxfw/mlxfw_mfa2.c
-> @@ -594,6 +594,7 @@ struct mlxfw_mfa2_component *
->  	if (memcmp(comp_data->buff, mlxfw_mfa2_comp_magic,
->  		   mlxfw_mfa2_comp_magic_len) != 0) {
->  		pr_err("Component has wrong magic\n");
-> +		err = -EINVAL;
->  		goto err_out;
->  	}
->  
+This patch uses WARN level is not printed by default.
 
+In some cases, some boards have always met the unused log be printed as
+follows.
+...
+[23193.523182] mwifiex_pcie 0000:01:00.0: mwifiex_get_cfp:
+cannot find cfp by band 2    & channel=13 freq=0
+[23378.633684] mwifiex_pcie 0000:01:00.0: mwifiex_get_cfp:
+cannot find cfp by band 2    & channel=13 freq=0
 
-Acked-by: Yotam Gigi <yotamg@mellanox.com>
+Due to we used the wifi default area was US and didn't support 12~14
+channels. As Frequencies:
+* 2412 MHz [1] (30.0 dBm)
+* 2417 MHz [2] (30.0 dBm)
+* 2422 MHz [3] (30.0 dBm)
+* 2427 MHz [4] (30.0 dBm)
+* 2432 MHz [5] (30.0 dBm)
+* 2437 MHz [6] (30.0 dBm)
+* 2442 MHz [7] (30.0 dBm)
+* 2447 MHz [8] (30.0 dBm)
+* 2452 MHz [9] (30.0 dBm)
+* 2457 MHz [10] (30.0 dBm)
+* 2462 MHz [11] (30.0 dBm)
+* 2467 MHz [12] (disabled)
+* 2472 MHz [13] (disabled)
+* 2484 MHz [14] (disabled)
+
+Also, as the commit 1b499cb72f26b
+("mwifiex: disable channel filtering feature in firmware"), it proved to
+be a feature to get better scan result from overlapping channel.
+
+Even there could be AP from overlapping channel (might be 12/13/14
+in this case), it will be filtered depend on reg domain rules.
+e.g:
+...
+if (ch->flags & IEEE80211_CHAN_DISABLED)
+        continue;
+
+So it should not been an ERROR, use the WARN level to instead it for now.
+
+Signed-off-by: Caesar Wang <wxt@rock-chips.com>
+Acked-by: Xinming Hu <huxm@marvell.com>
+---
+
+Changes in v2:
+- Fixes the commit and title as Kalle and Xinming comments on
+  https://patchwork.kernel.org/patch/9786047/
+- Add the Acked by "HU Xinming"
+
+ drivers/net/wireless/marvell/mwifiex/cfp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/marvell/mwifiex/cfp.c b/drivers/net/wireless/marvell/mwifiex/cfp.c
+index 1ff2205..6e29943 100644
+--- a/drivers/net/wireless/marvell/mwifiex/cfp.c
++++ b/drivers/net/wireless/marvell/mwifiex/cfp.c
+@@ -350,7 +350,7 @@ mwifiex_get_cfp(struct mwifiex_private *priv, u8 band, u16 channel, u32 freq)
+ 		}
+ 	}
+ 	if (i == sband->n_channels) {
+-		mwifiex_dbg(priv->adapter, ERROR,
++		mwifiex_dbg(priv->adapter, WARN,
+ 			    "%s: cannot find cfp by band %d\t"
+ 			    "& channel=%d freq=%d\n",
+ 			    __func__, band, channel, freq);
+-- 
+2.7.4
