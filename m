@@ -1,56 +1,83 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v3 net-next 0/4] kernel TLS
-Date: Wed, 14 Jun 2017 16:24:53 -0700
-Message-ID: <CALx6S37sPyn2Za++taRnFy6LcQHx8_yBiS=p7j5X8fN-0j44Pg@mail.gmail.com>
-References: <20170614183654.GA80067@davejwatson-mba.dhcp.thefacebook.com>
- <CALx6S36NPk4ZYCq1TzWoAdfOeK+ba2D79-giE7WOLeoVuYM_nw@mail.gmail.com> <20170614221738.GC72301@davejwatson-mba.dhcp.thefacebook.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 master] bpf: provide fallback defs for __NR_bpf
+ when not avail
+Date: Wed, 14 Jun 2017 16:34:08 -0700
+Message-ID: <20170614163408.4a04c191@xeon-e3>
+References: <b59b84be59bccbab994072fdd9969b5d8a483f12.1497480167.git.daniel@iogearbox.net>
+        <20170614155648.4cfd7a73@xeon-e3>
+        <5941C03A.6010107@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Ilya Lesokhin <ilyal@mellanox.com>,
-        Aviad Yehezkel <aviadye@mellanox.com>,
-        Boris Pismenny <borisp@mellanox.com>,
-        Liran Liss <liranl@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        nmav@gnutls.org,
-        =?UTF-8?B?RnJpZG9sw61uIFBva29ybsO9?= <fridolin.pokorny@gmail.com>
-To: Dave Watson <davejwatson@fb.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:34276 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752121AbdFNXY4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 19:24:56 -0400
-Received: by mail-wr0-f196.google.com with SMTP id u101so3622690wrc.1
-        for <netdev@vger.kernel.org>; Wed, 14 Jun 2017 16:24:55 -0700 (PDT)
-In-Reply-To: <20170614221738.GC72301@davejwatson-mba.dhcp.thefacebook.com>
+Received: from mail-pg0-f46.google.com ([74.125.83.46]:33043 "EHLO
+        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752121AbdFNXeQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 19:34:16 -0400
+Received: by mail-pg0-f46.google.com with SMTP id f185so6713399pgc.0
+        for <netdev@vger.kernel.org>; Wed, 14 Jun 2017 16:34:15 -0700 (PDT)
+In-Reply-To: <5941C03A.6010107@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 14, 2017 at 3:17 PM, Dave Watson <davejwatson@fb.com> wrote:
-> On 06/14/17 01:54 PM, Tom Herbert wrote:
->> On Wed, Jun 14, 2017 at 11:36 AM, Dave Watson <davejwatson@fb.com> wrote:
->> > This series adds support for kernel TLS encryption over TCP sockets.
->> > A standard TCP socket is converted to a TLS socket using a setsockopt.
->> > Only symmetric crypto is done in the kernel, as well as TLS record
->> > framing.  The handshake remains in userspace, and the negotiated
->> > cipher keys/iv are provided to the TCP socket.
->> >
->> I don't see support for TLS receive path in the kernel, only the send
->> path. Am I missing something?
->
-> Correct, this is only TX.  Since it sounds likely some hardware might
-> only be able to offload TX, we decided to configure TX and RX
-> separately.  Using the OpenSSL patches, it should be transparent to
-> users even if only one side is offloaded.
->
-> The software RX patches exist but haven't been polished up yet.
+On Thu, 15 Jun 2017 01:01:14 +0200
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-Thanks for the clarification, looking forward to RX patches also!
+> On 06/15/2017 12:56 AM, Stephen Hemminger wrote:
+> > On Thu, 15 Jun 2017 00:47:15 +0200
+> > Daniel Borkmann <daniel@iogearbox.net> wrote:
+> >  
+> >> panji reported that he wasn't able to build iproute2's bpf library
+> >> due to lack of __NR_bpf in his system headers. Providing a fallback
+> >> definition when __NR_bpf is not available in the system lets the
+> >> loader compile just fine, so lets add them for majority of archs.
+> >>
+> >> Reported-by: panji <jpan@live.nl>
+> >> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> >> ---
+> >>   lib/bpf.c | 20 ++++++++++++++++++++
+> >>   1 file changed, 20 insertions(+)
+> >>
+> >> diff --git a/lib/bpf.c b/lib/bpf.c
+> >> index ae4d97d..e1e29cc 100644
+> >> --- a/lib/bpf.c
+> >> +++ b/lib/bpf.c
+> >> @@ -128,6 +128,26 @@ static inline __u64 bpf_ptr_to_u64(const void *ptr)
+> >>   	return (__u64)(unsigned long)ptr;
+> >>   }
+> >>
+> >> +#ifndef __NR_bpf
+> >> +# if defined(__i386__)
+> >> +#  define __NR_bpf 357
+> >> +# elif defined(__x86_64__)
+> >> +#  define __NR_bpf 321
+> >> +# elif defined(__aarch64__)
+> >> +#  define __NR_bpf 280
+> >> +# elif defined(__sparc__)
+> >> +#  define __NR_bpf 349
+> >> +# elif defined(__arm__)
+> >> +#  define __NR_bpf 386
+> >> +# elif defined(__powerpc__)
+> >> +#  define __NR_bpf 361
+> >> +# elif defined(__s390__)
+> >> +#  define __NR_bpf 351
+> >> +# else
+> >> +#  error __NR_bpf not defined. Update kernel headers.
+> >> +# endif
+> >> +#endif
+> >> +
+> >>   static int bpf(int cmd, union bpf_attr *attr, unsigned int size)
+> >>   {
+> >>   #ifdef __NR_bpf  
+> >
+> > Sorry this looks like a mess. enumerating architectures in two different
+> > projects is likely to break in future.  
+> 
+> It says ifndef __NR_bpf, so only used then. And the numbers are uabi,
+> what will break here exactly? libbpf in kernel tree is having a similar
+> approach by the way.
 
-Tom
+You are defining values in two places (kernel and userspace) which has caused
+lots of mismatch in the past. Why isn't this in a kernel uapi header somewhere?
