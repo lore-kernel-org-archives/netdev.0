@@ -1,66 +1,33 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH nf-next] netns: add and use net_ns_barrier
-Date: Wed, 14 Jun 2017 10:41:47 +0200
-Message-ID: <20170614084147.GC31030@salvia>
-References: <20170530093812.10712-1-fw@strlen.de>
- <87y3tcj3n7.fsf@xmission.com>
- <20170601085259.GA6067@breakpoint.cc>
- <CAM_iQpXgrQcbrQsMVoomcsHtk4JffRjJ27FLRoignndAzFVkug@mail.gmail.com>
- <20170613061656.GF18283@breakpoint.cc>
- <CAM_iQpUtZZBXQNB+tWJikQNmCHBot3tp7vAsc6+Xnh5H__6++g@mail.gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [PATCH net-next] qed: Fix an off by one bug
+Date: Wed, 14 Jun 2017 12:10:10 +0300
+Message-ID: <20170614091009.GA29394@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-        "Eric W. Biederman" <ebiederm@xmission.com>,
-        netfilter-devel@vger.kernel.org,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: Ariel Elior <Ariel.Elior@cavium.com>, everest-linux-l2@cavium.com,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Yuval Mintz <Yuval.Mintz@cavium.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CAM_iQpUtZZBXQNB+tWJikQNmCHBot3tp7vAsc6+Xnh5H__6++g@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi!
+The p_l2_info->pp_qid_usage[] array has "p_l2_info->queues" elements so
+the > here should be a >= or we write beyond the end of the array.
 
-On Tue, Jun 13, 2017 at 09:35:20AM -0700, Cong Wang wrote:
-> On Mon, Jun 12, 2017 at 11:16 PM, Florian Westphal <fw@strlen.de> wrote:
-> > Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> >> On Thu, Jun 1, 2017 at 1:52 AM, Florian Westphal <fw@strlen.de> wrote:
-> >> > Joe described it nicely, problem is that after unload we may have
-> >> > conntracks that still have a nf_conn_help extension attached that
-> >> > has a pointer to a structure that resided in the (unloaded) module.
-> >>
-> >> Why not hold a refcnt for its module?
-> >
-> > That would work as well.
-> >
-> > I'm not sure its nice to disallow rmmod of helper modules if they are
-> > used by a connection however.
-> 
-> I am _not_ suggesting to disallow rmmod.
-> 
-> >
-> > Right now you can "rmmod nf_conntrack_foo" at any time and this should
-> > work just fine without first having to flush affected conntracks
-> > manually.
-> 
-> My point is that since netns wq could invoke code of that module,
-> why it doesn't hold a refcnt of that module?
-> 
-> I am not familiar with netfilter code base so not sure if that is
-> hard to do or not, but it looks more elegant than this barrier.
+Fixes: bbe3f233ec5e ("qed: Assign a unique per-queue index to queue-cid")
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Florian has added a new native interface to integrate helpers into
-nftables in a much better way than we do now, that allows much more
-fine grain configuration. This new interface bumps refcounts on
-helpers as you suggest.
-
-However, we still have to sort of keep the existing behaviour around,
-people has been relying on this rmmod feature to globally disable
-helpers. It's very old thing indeed and as you can see, very sparse
-grain for the netns era... But still I think we need this.
-
-So I'm inclined to take this, and keep an eye to deprecate this
-behaviour in a several years ahead once. Probably we can get rid of
-this barrier at some point.
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
+index cb8b05dbfc6e..e57699bfbdfa 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_l2.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
+@@ -161,7 +161,7 @@ static bool qed_eth_queue_qid_usage_add(struct qed_hwfn *p_hwfn,
+ 
+ 	mutex_lock(&p_l2_info->lock);
+ 
+-	if (queue_id > p_l2_info->queues) {
++	if (queue_id >= p_l2_info->queues) {
+ 		DP_NOTICE(p_hwfn,
+ 			  "Requested to increase usage for qzone %04x out of %08x\n",
+ 			  queue_id, p_l2_info->queues);
