@@ -1,50 +1,59 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: Repeatable inet6_dump_fib crash in stock 4.12.0-rc4+
-Date: Wed, 14 Jun 2017 16:25:44 -0600
-Message-ID: <8630b942-2684-2f21-fdb9-8474aba71528@gmail.com>
-References: <bbfa5208-3a04-c87a-a6e1-ee0ae73965d0@candelatech.com>
- <a5733c67-e3a3-9cc0-0862-40ef6fc03de3@gmail.com>
- <1496795269.736.21.camel@edumazet-glaptop3.roam.corp.google.com>
- <da189b9d-760f-0591-2acf-1a6b7910e227@gmail.com>
- <1496809166.736.25.camel@edumazet-glaptop3.roam.corp.google.com>
- <94bcc041-6402-d0ce-b9cf-3b46aa622f34@candelatech.com>
- <CAM_iQpXM3G=J0tw=n1_mKno=i41Kmoxb00+nDyBWofWskj5P_A@mail.gmail.com>
- <7e0c97fa-cd6e-ed0f-bf99-0e4af40fbd2f@gmail.com>
- <1497043557.736.94.camel@edumazet-glaptop3.roam.corp.google.com>
- <9cb61ef0-37c0-8f35-bb5c-e3d8e63cbe2f@candelatech.com>
- <CAM_iQpV8u=aqn-AjeRw8CKQ=0Q6_gBvCCaYi2v3pJbYNL2WhJw@mail.gmail.com>
- <3230b360-528b-0ae0-8731-7906e57ee993@gmail.com>
- <4b65e262-e727-010a-ce1f-eb45fcef8e42@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>
+From: Shannon Nelson <shannon.nelson@oracle.com>
+Subject: [PATCH net-next] sunvnet: restrict advertized checksum offloads to just IP
+Date: Wed, 14 Jun 2017 15:43:37 -0700
+Message-ID: <1497480217-391315-1-git-send-email-shannon.nelson@oracle.com>
+Cc: sparclinux@vger.kernel.org,
+        Shannon Nelson <shannon.nelson@oracle.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f41.google.com ([74.125.83.41]:32921 "EHLO
-        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752097AbdFNWZs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 18:25:48 -0400
-Received: by mail-pg0-f41.google.com with SMTP id f185so6114987pgc.0
-        for <netdev@vger.kernel.org>; Wed, 14 Jun 2017 15:25:47 -0700 (PDT)
-In-Reply-To: <4b65e262-e727-010a-ce1f-eb45fcef8e42@candelatech.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:44676 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751600AbdFNWpI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 18:45:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/14/17 4:23 PM, Ben Greear wrote:
-> On 06/13/2017 07:27 PM, David Ahern wrote:
-> 
->> Let's try a targeted debug patch. See attached
-> 
-> I had to change it to pr_err so it would go to our serial console
-> since the system locked hard on crash,
-> and that appears to be enough to change the timing where we can no longer
-> reproduce the problem.
+As much as we'd like to play well with others, we really aren't
+handling the checksums on non-IP protocol packets very well.  This
+is easily seen when trying to do TCP over ipv6 - the checksums are
+garbage.
 
+Here we restrict the checksum feature flag to just IP traffic so
+that we aren't given work we can't yet do.
 
-ok, let's figure out which one is doing that. There are 3 debug
-statements. I suspect fib6_del_route is the one setting the state to
-FWS_U. Can you remove the debug prints in fib6_repair_tree and
-fib6_walk_continue and try again?
+Orabug: 26175391, 26259755
+
+Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
+---
+ drivers/net/ethernet/sun/ldmvsw.c  |    2 +-
+ drivers/net/ethernet/sun/sunvnet.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/sun/ldmvsw.c b/drivers/net/ethernet/sun/ldmvsw.c
+index 5b56c24..8603e39 100644
+--- a/drivers/net/ethernet/sun/ldmvsw.c
++++ b/drivers/net/ethernet/sun/ldmvsw.c
+@@ -248,7 +248,7 @@ static void vsw_poll_controller(struct net_device *dev)
+ 	dev->ethtool_ops = &vsw_ethtool_ops;
+ 	dev->watchdog_timeo = VSW_TX_TIMEOUT;
+ 
+-	dev->hw_features = NETIF_F_HW_CSUM | NETIF_F_SG;
++	dev->hw_features = NETIF_F_IP_CSUM | NETIF_F_SG;
+ 	dev->features = dev->hw_features;
+ 
+ 	/* MTU range: 68 - 65535 */
+diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
+index 0b95105..75b167e 100644
+--- a/drivers/net/ethernet/sun/sunvnet.c
++++ b/drivers/net/ethernet/sun/sunvnet.c
+@@ -312,7 +312,7 @@ static void vnet_poll_controller(struct net_device *dev)
+ 	dev->watchdog_timeo = VNET_TX_TIMEOUT;
+ 
+ 	dev->hw_features = NETIF_F_TSO | NETIF_F_GSO | NETIF_F_GSO_SOFTWARE |
+-			   NETIF_F_HW_CSUM | NETIF_F_SG;
++			   NETIF_F_IP_CSUM | NETIF_F_SG;
+ 	dev->features = dev->hw_features;
+ 
+ 	/* MTU range: 68 - 65535 */
+-- 
+1.7.1
