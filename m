@@ -1,36 +1,49 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v4 05/11] net: mvmdio: introduce an ops structure
-Date: Wed, 14 Jun 2017 10:02:03 -0700
-Message-ID: <cb758687-8516-3f7e-b28a-2b2400464f4f@gmail.com>
-References: <20170614154911.14510-1-antoine.tenart@free-electrons.com>
- <20170614154911.14510-6-antoine.tenart@free-electrons.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute/master 2/3] iptunnel: add support for mpls/ip to
+ sit tunnels
+Date: Wed, 14 Jun 2017 10:02:11 -0700
+Message-ID: <20170614100211.1346dc4e@xeon-e3>
+References: <1497058292-10099-1-git-send-email-kjlx@templeofstupid.com>
+        <1497058292-10099-3-git-send-email-kjlx@templeofstupid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        mw@semihalf.com, linux@armlinux.org.uk, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org
-To: Antoine Tenart <antoine.tenart@free-electrons.com>,
-        davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
-        gregory.clement@free-electrons.com, sebastian.hesselbarth@gmail.com
+Cc: netdev@vger.kernel.org, simon.horman@netronome.com,
+        dsahern@gmail.com
+To: Krister Johansen <kjlx@templeofstupid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:33576 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751714AbdFNRCH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 13:02:07 -0400
-Received: by mail-qt0-f193.google.com with SMTP id w1so1134516qtg.0
-        for <netdev@vger.kernel.org>; Wed, 14 Jun 2017 10:02:06 -0700 (PDT)
-In-Reply-To: <20170614154911.14510-6-antoine.tenart@free-electrons.com>
-Content-Language: en-US
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:35571 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751816AbdFNRCS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 13:02:18 -0400
+Received: by mail-pf0-f171.google.com with SMTP id l89so3144517pfi.2
+        for <netdev@vger.kernel.org>; Wed, 14 Jun 2017 10:02:18 -0700 (PDT)
+In-Reply-To: <1497058292-10099-3-git-send-email-kjlx@templeofstupid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/14/2017 08:49 AM, Antoine Tenart wrote:
-> Introduce an ops structure to add an indirection on the is_done
-> function, as this is needed to add the xMDIO support later.
-> 
-> Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+On Fri,  9 Jun 2017 18:31:31 -0700
+Krister Johansen <kjlx@templeofstupid.com> wrote:
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
--- 
-Florian
+> diff --git a/include/utils.h b/include/utils.h
+> index bfbc9e6..60ffde4 100644
+> --- a/include/utils.h
+> +++ b/include/utils.h
+> @@ -87,6 +87,9 @@ struct ipx_addr {
+>  #ifndef AF_MPLS
+>  # define AF_MPLS 28
+>  #endif
+> +#ifndef IPPROTO_MPLS
+> +#define IPPROTO_MPLS	137
+> +#endif
+>  
+
+I am a little concerned that this definition may end up being different
+between kernel and iproute2.  It looks like utils.h already has lots of duplicate
+definitions of things that are in standard include directory.
+
+Most of these like IPSEC and DECNET are old, but MPLS might get changed
+in the process of going into glibc.
+
+Is there anyway to get this from the kernel headers which are cloned
+into include/linux/ already?
