@@ -1,69 +1,47 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next 2/2] pktgen: Specify the index of first thread
-Date: Wed, 14 Jun 2017 13:29:51 +0200
-Message-ID: <20170614132951.2c86d1cf@redhat.com>
-References: <1497366289-22255-1-git-send-email-tariqt@mellanox.com>
-        <1497366289-22255-3-git-send-email-tariqt@mellanox.com>
-        <20170614090922.541cf241@redhat.com>
-        <61690488-f20e-6768-e007-bd8b89cc0bf7@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Eran Ben Elisha <eranbe@mellanox.com>, brouer@redhat.com
-To: Tariq Toukan <tariqt@mellanox.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH 1/3] wireless: wext: remove ndo_do_ioctl fallback
+Date: Wed, 14 Jun 2017 13:55:21 +0200
+Message-ID: <20170614115523.16379-2-johannes@sipsolutions.net>
+References: <20170614115523.16379-1-johannes@sipsolutions.net>
+Cc: Robert O'Callahan <robert@ocallahan.org>,
+        Johannes Berg <johannes.berg@intel.com>
+To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4188 "EHLO mx1.redhat.com"
+Received: from s3.sipsolutions.net ([5.9.151.49]:37324 "EHLO sipsolutions.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751771AbdFNLaG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 14 Jun 2017 07:30:06 -0400
-In-Reply-To: <61690488-f20e-6768-e007-bd8b89cc0bf7@mellanox.com>
+        id S1751843AbdFNLz2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 14 Jun 2017 07:55:28 -0400
+In-Reply-To: <20170614115523.16379-1-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 14 Jun 2017 14:10:37 +0300
-Tariq Toukan <tariqt@mellanox.com> wrote:
+From: Johannes Berg <johannes.berg@intel.com>
 
-> >> +export L_THREAD="$THREADS + $F_THREAD - 1"
-> >> +  
-> > 
-> > This is sort of bad-shell coding.  This will first get expanded at the
-> > usage point.  The way you use it, it will work, because of the for loop
-> > uses an expansion like "((xxx))".
-> > 
-> > If you echo the $L_THREAD variable you will see: "1 + 0 - 1"
-> > 
-> > IMHO the right thing is to use:
-> > 
-> >    export L_THREAD=$(( THREADS + F_THREAD - 1 ))
-> > 
-> > (I tested this also works for dash + ksh + zsh)
-> >   
-> Thanks, I'll use the suggested command.
-> >   
-> >> diff --git a/samples/pktgen/pktgen_bench_xmit_mode_netif_receive.sh b/samples/pktgen/pktgen_bench_xmit_mode_netif_receive.sh
-> >> index d2694a12de61..e5bfe759a0fb 100755
-> >> --- a/samples/pktgen/pktgen_bench_xmit_mode_netif_receive.sh
-> >> +++ b/samples/pktgen/pktgen_bench_xmit_mode_netif_receive.sh
-> >> @@ -48,7 +48,7 @@ DELAY="0"        # Zero means max speed
-> >>   pg_ctrl "reset"
-> >>   
-> >>   # Threads are specified with parameter -t value in $THREADS
-> >> -for ((thread = 0; thread < $THREADS; thread++)); do
-> >> +for ((thread = $F_THREAD; thread <= $L_THREAD; thread++)); do
-> >>       # The device name is extended with @name, using thread number to
-> >>       # make then unique, but any name will do.
-> >>       dev=${DEV}@${thread}  
-> > 
-> > The expansion/use of $L_THREAD only works because "for-loop" expanded
-> > it by using ""(("" arithmetic evaluation.
-> >   
-> After changing the one above, this one should still be OK, right?
+There are no longer any drivers (in the tree proper, I didn't
+check all the staging drivers) that take WEXT ioctls through
+this API, the only remaining ones that even have ndo_do_ioctl
+are using it only for private ioctls.
 
-Yes, this part is still correct.
+Therefore, we can remove this call.
 
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+ net/wireless/wext-core.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/net/wireless/wext-core.c b/net/wireless/wext-core.c
+index 1a4db6790e20..24ba8a99b946 100644
+--- a/net/wireless/wext-core.c
++++ b/net/wireless/wext-core.c
+@@ -957,9 +957,6 @@ static int wireless_process_ioctl(struct net *net, struct ifreq *ifr,
+ 		else if (private)
+ 			return private(dev, iwr, cmd, info, handler);
+ 	}
+-	/* Old driver API : call driver ioctl handler */
+-	if (dev->netdev_ops->ndo_do_ioctl)
+-		return dev->netdev_ops->ndo_do_ioctl(dev, ifr, cmd);
+ 	return -EOPNOTSUPP;
+ }
+ 
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+2.11.0
