@@ -1,56 +1,44 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Re: [PATCH 0/4] bpf: Changes needed (or desired) for MIPS support
-Date: Wed, 14 Jun 2017 08:54:03 -0700
-Message-ID: <e17ffbca-f11f-5617-3188-a7eb82b03ed3@caviumnetworks.com>
-References: <20170613234938.4823-1-david.daney@cavium.com>
- <594081CA.3060801@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, ralf@linux-mips.org
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        David Daney <david.daney@cavium.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <594081CA.3060801@iogearbox.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Subject: [PATCH v4 03/11] net: mvmdio: use GENMASK for masks
+Date: Wed, 14 Jun 2017 17:49:03 +0200
+Message-ID: <20170614154911.14510-4-antoine.tenart@free-electrons.com>
+References: <20170614154911.14510-1-antoine.tenart@free-electrons.com>
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
+        mw@semihalf.com, linux@armlinux.org.uk, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org
+To: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
+        gregory.clement@free-electrons.com,
+        sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([62.4.15.54]:34957 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752518AbdFNPy2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 11:54:28 -0400
+In-Reply-To: <20170614154911.14510-1-antoine.tenart@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/13/2017 05:22 PM, Daniel Borkmann wrote:
-> On 06/14/2017 01:49 AM, David Daney wrote:
->> This is a grab bag of changes to the bpf testing infrastructure I
->> developed working on MIPS eBPF JIT support.  The change to
->> bpf_jit_disasm is probably universally beneficial, the others are more
->> MIPS specific.
-> 
-> I think these could go independently through net-next tree?
+Cosmetic patch to use the GENMASK helper for masks.
 
-Yes, if davem is happy with them, I think that makes sense that he take 
-them via net-next.
+Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/marvell/mvmdio.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-David Daney
-
-> 
-> Thanks,
-> Daniel
-> 
->> David Daney (4):
->>    tools: bpf_jit_disasm:  Handle large images.
->>    test_bpf: Add test to make conditional jump cross a large number of
->>      insns.
->>    bpf: Add MIPS support to samples/bpf.
->>    samples/bpf: Fix tracex5 to work with MIPS syscalls.
->>
->>   lib/test_bpf.c             | 32 ++++++++++++++++++++++++++++++++
->>   samples/bpf/Makefile       | 13 +++++++++++++
->>   samples/bpf/bpf_helpers.h  | 13 +++++++++++++
->>   samples/bpf/syscall_nrs.c  | 12 ++++++++++++
->>   samples/bpf/tracex5_kern.c | 11 ++++++++---
->>   tools/net/bpf_jit_disasm.c | 37 ++++++++++++++++++++++++++-----------
->>   6 files changed, 104 insertions(+), 14 deletions(-)
->>   create mode 100644 samples/bpf/syscall_nrs.c
->>
-> 
+diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
+index 17b518b13ae3..583f1c5753c2 100644
+--- a/drivers/net/ethernet/marvell/mvmdio.c
++++ b/drivers/net/ethernet/marvell/mvmdio.c
+@@ -138,7 +138,7 @@ static int orion_mdio_read(struct mii_bus *bus, int mii_id,
+ 		goto out;
+ 	}
+ 
+-	ret = val & 0xFFFF;
++	ret = val & GENMASK(15, 0);
+ out:
+ 	mutex_unlock(&dev->lock);
+ 	return ret;
+-- 
+2.9.4
