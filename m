@@ -1,91 +1,44 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 1/9] ixgbe: fix race condition with PTP_TX_IN_PROGRESS bits
-Date: Tue, 13 Jun 2017 17:38:02 -0700
-Message-ID: <20170614003810.33189-2-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 5/9] ixgbe: Bump version number
+Date: Tue, 13 Jun 2017 17:38:06 -0700
+Message-ID: <20170614003810.33189-6-jeffrey.t.kirsher@intel.com>
 References: <20170614003810.33189-1-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Tony Nguyen <anthony.l.nguyen@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([192.55.52.115]:19685 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753579AbdFNAiV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 13 Jun 2017 20:38:21 -0400
+        id S1753870AbdFNAiW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 13 Jun 2017 20:38:22 -0400
 In-Reply-To: <20170614003810.33189-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Tony Nguyen <anthony.l.nguyen@intel.com>
 
-Hardware related to the ixgbe driver is limited to handling a single Tx
-timestamp request at a time. Thus, the driver ignores requests for Tx
-timestamp while waiting for the current request to finish. It uses
-a state bit lock which enforces that only one timestamp request is
-honored at a time.
+Update ixgbe version number.
 
-Unfortunately this suffers from a simple race condition. The bit lock is
-not cleared until after skb_tstamp_tx() is called notifying applications
-of a new Tx timestamp. Even a well behaved application sending only one
-packet at a time and waiting for a response can wake up and send a new
-packet before the bit lock is cleared. This results in needlessly
-dropping some Tx timestamp requests.
-
-We can fix this by unlocking the state bit as soon as we read the
-Timestamp register, as this is the first point at which it is safe to
-unlock.
-
-To avoid issues with the skb pointer, we'll use a copy of the pointer
-and set the global variable in the driver structure to NULL first. This
-ensures that the next timestamp request does not modify our local copy
-of the skb pointer.
-
-This ensures that well behaved applications do not accidentally race
-with the unlock bit. Obviously an application which sends multiple Tx
-timestamp requests at once will still only timestamp one packet at
-a time. Unfortunately there is nothing we can do about this.
-
-Reported-by: David Mirabito <davidm@metamako.com>
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Tony Nguyen <anthony.l.nguyen@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c | 15 ++++++++++++---
- 1 file changed, 12 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-index d44c728fdc0b..4a2000bfd4ae 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-@@ -672,17 +672,26 @@ static void ixgbe_ptp_clear_tx_timestamp(struct ixgbe_adapter *adapter)
-  */
- static void ixgbe_ptp_tx_hwtstamp(struct ixgbe_adapter *adapter)
- {
-+	struct sk_buff *skb = adapter->ptp_tx_skb;
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	struct skb_shared_hwtstamps shhwtstamps;
- 	u64 regval = 0;
- 
- 	regval |= (u64)IXGBE_READ_REG(hw, IXGBE_TXSTMPL);
- 	regval |= (u64)IXGBE_READ_REG(hw, IXGBE_TXSTMPH) << 32;
--
- 	ixgbe_ptp_convert_to_hwtstamp(adapter, &shhwtstamps, regval);
--	skb_tstamp_tx(adapter->ptp_tx_skb, &shhwtstamps);
- 
--	ixgbe_ptp_clear_tx_timestamp(adapter);
-+	/* Handle cleanup of the ptp_tx_skb ourselves, and unlock the state
-+	 * bit prior to notifying the stack via skb_tstamp_tx(). This prevents
-+	 * well behaved applications from attempting to timestamp again prior
-+	 * to the lock bit being clear.
-+	 */
-+	adapter->ptp_tx_skb = NULL;
-+	clear_bit_unlock(__IXGBE_PTP_TX_IN_PROGRESS, &adapter->state);
-+
-+	/* Notify the stack and then free the skb after we've unlocked */
-+	skb_tstamp_tx(skb, &shhwtstamps);
-+	dev_kfree_skb_any(skb);
- }
- 
- /**
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 3ed212f5a43e..c17c8317e001 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -76,7 +76,7 @@ char ixgbe_default_device_descr[] =
+ static char ixgbe_default_device_descr[] =
+ 			      "Intel(R) 10 Gigabit Network Connection";
+ #endif
+-#define DRV_VERSION "5.0.0-k"
++#define DRV_VERSION "5.1.0-k"
+ const char ixgbe_driver_version[] = DRV_VERSION;
+ static const char ixgbe_copyright[] =
+ 				"Copyright (c) 1999-2016 Intel Corporation.";
 -- 
 2.12.2
