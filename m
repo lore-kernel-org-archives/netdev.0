@@ -1,37 +1,46 @@
-From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 0/2] Fix OPA_VNIC issues with debug kernel
-Date: Wed, 14 Jun 2017 12:34:26 -0700
-Message-ID: <1497468868-19122-1-git-send-email-niranjana.vishwanathapura@intel.com>
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, mike.marciniszyn-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: don't global ICMP rate limit packets
+ originating from loopback
+Date: Wed, 14 Jun 2017 15:34:27 -0400 (EDT)
+Message-ID: <20170614.153427.2166855120464478061.davem@davemloft.net>
+References: <149743965710.19877.13901728209731997446.stgit@firesoul>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fweimer@redhat.com, hjl.tools@gmail.com
+To: brouer@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54504 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751735AbdFNTeb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 15:34:31 -0400
+In-Reply-To: <149743965710.19877.13901728209731997446.stgit@firesoul>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Doug,
-Here are couple OPA_VNIC bug fixes.
-As OPA_VNIC is alredy included for 4.12, it would be great
-to get them into the RC release.
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Date: Wed, 14 Jun 2017 13:27:37 +0200
 
-Thanks,
-Niranjana
+> Florian Weimer seems to have a glibc test-case which requires that
+> loopback interfaces does not get ICMP ratelimited.  This was broken by
+> commit c0303efeab73 ("net: reduce cycles spend on ICMP replies that
+> gets rate limited").
+> 
+> An ICMP response will usually be routed back-out the same incoming
+> interface.  Thus, take advantage of this and skip global ICMP
+> ratelimit when the incoming device is loopback.  In the unlikely event
+> that the outgoing it not loopback, due to strange routing policy
+> rules, ICMP rate limiting still works via peer ratelimiting via
+> icmpv4_xrlim_allow().  Thus, we should still comply with RFC1812
+> (section 4.3.2.8 "Rate Limiting").
+> 
+> This seems to fix the reproducer given by Florian.  While still
+> avoiding to perform expensive and unneeded outgoing route lookup for
+> rate limited packets (in the non-loopback case).
+> 
+> Fixes: c0303efeab73 ("net: reduce cycles spend on ICMP replies that gets rate limited")
+> Reported-by: Florian Weimer <fweimer@redhat.com>
+> Reported-by: "H.J. Lu" <hjl.tools@gmail.com>
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 
-Vishwanathapura, Niranjana (2):
-  IB/opa_vnic: Use GFP_ATOMIC while sending trap
-  IB/opa_vnic: Use spinlock instead of mutex for stats_lock
-
- drivers/infiniband/ulp/opa_vnic/opa_vnic_ethtool.c    | 4 ++--
- drivers/infiniband/ulp/opa_vnic/opa_vnic_internal.h   | 2 +-
- drivers/infiniband/ulp/opa_vnic/opa_vnic_netdev.c     | 8 +++-----
- drivers/infiniband/ulp/opa_vnic/opa_vnic_vema.c       | 2 +-
- drivers/infiniband/ulp/opa_vnic/opa_vnic_vema_iface.c | 8 ++++----
- 5 files changed, 11 insertions(+), 13 deletions(-)
-
--- 
-1.8.3.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied and queued up for -stable, thanks Jesper.
