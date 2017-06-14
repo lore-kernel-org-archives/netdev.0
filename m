@@ -1,77 +1,92 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH net-next 1/9] net: hns3: Add support of HNS3 Ethernet
- Driver for hip08 SoC
-Date: Wed, 14 Jun 2017 08:04:17 +0000
-Message-ID: <BLUPR0701MB2004897373CA744917699BCA8DC30@BLUPR0701MB2004.namprd07.prod.outlook.com>
-References: <20170610034630.493852-1-salil.mehta@huawei.com>
- <20170610034630.493852-2-salil.mehta@huawei.com>
- <BY2PR0701MB2005075560E4EA9F455049988DCF0@BY2PR0701MB2005.namprd07.prod.outlook.com>
- <F4CC6FACFEB3C54C9141D49AD221F7F93B7A1B62@FRAEML521-MBX.china.huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
-        huangdaode <huangdaode@hisilicon.com>,
-        "lipeng (Y)" <lipeng321@huawei.com>,
-        "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Linuxarm <linuxarm@huawei.com>
-To: Salil Mehta <salil.mehta@huawei.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
+From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Subject: [PATCH] netfilter: conntrack: fix clash resolution in nat
+Date: Wed, 14 Jun 2017 16:11:23 +0800
+Message-ID: <1497427883-3771-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <F4CC6FACFEB3C54C9141D49AD221F7F93B7A1B62@FRAEML521-MBX.china.huawei.com>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > > +static void hns3_nic_net_down(struct net_device *ndev) {
-> > > +	struct hns3_nic_priv *priv =3D netdev_priv(ndev);
-> > > +	struct hnae3_ae_ops *ops;
-> > > +	int i;
-> > > +
-> > > +	netif_tx_stop_all_queues(ndev);
-> > > +	netif_carrier_off(ndev);
-> > > +	netif_tx_disable(ndev);
-> > > +
-> > > +	ops =3D priv->ae_handle->ae_algo->ops;
-> > > +
-> > > +	if (ops->stop)
-> > > +		ops->stop(priv->ae_handle);
-> > > +
-> > > +	netif_tx_stop_all_queues(ndev);
-> >
-> > Looks a bit excessive. Why do you need all these
-> > netif_tx_stop_all_queues()?
-> If we are disabling the netdev. We need to stop scheduling the queues
-> associated with that netdev for TX, so we need this code. Why do you thin=
-k
-> it is excessive?
+In our openstack environment, slow dns lookup for hostname when
+parallel dns requests for IPv4 and IPv6 addresses from VM, the
+second IPv6 request(AAAA record) is dropped on its way in compute
+node.
 
-Why do you need both netif_tx_disable() and netif_tx_stop_all_queues()?
-And why would you need to re-do netif_tx_stop_all_queues() after
-calling ops->stop()?
+We found many similar related links:
+https://bbs.archlinux.org/viewtopic.php?id=75770
+http://www.spinics.net/lists/netfilter-devel/msg15860.html
+https://www.spinics.net/lists/netfilter-devel/msg37565.html
 
-> > Isn't mqprio going to override your priority2tc mapping with the one
-> > provided by user?
-> I guess you are referring to below code in the mqprio_init() - right?
->=20
-> static int mqprio_init(struct Qdisc *sch, struct nlattr *opt)
-> {
->   [...]
-> 	/* Always use supplied priority mappings */
-> 	for (i =3D 0; i < TC_BITMASK + 1; i++)
-> 		netdev_set_prio_tc_map(dev, i, qopt->prio_tc_map[i]);
->   [...]
-> }
->=20
-> In this case yes, you are right below code seems to be redundant:
->=20
->  +	/* Assign UP2TC map for the VSI */
->  +	for (i =3D 0; i < HNAE3_MAX_TC; i++) {
->  +		netdev_set_prio_tc_map(ndev,
->  +				       kinfo->tc_info[i].up,
->  +				       kinfo->tc_info[i].tc);
->=20
-> Hope I am not missing anything here?
-You're not; That's what I meant.
+After the commit 71d8c47fc653 ("netfilter: conntrack: introduce clash
+resolution on insertion race") can fix packet drop, the second IPv6
+request packet would be forwarded by compute node, but the udp source
+port is bogus, start from 1024:
+14:52:10.868485 IP 10.136.5.132.55785 > 10.136.5.1.domain: 3957+ A?
+www.baidu.com. (31)
+14:52:10.868544 IP 10.136.5.132.1024 > 10.136.5.1.domain: 13826+ AAAA?
+www.baidu.com. (31)
+
+And after the commit 590b52e10d41 ("netfilter: conntrack: skip clash
+resolution if nat is in place") , it exclude nat situation, but the
+packet drops issue come back again.
+
+This patch revert the last commit. If l4proto allow clash but the tuple is
+used by the conntrack that wins race, the original tuple can be reused.
+
+Fixes: 590b52e10d41 ("netfilter: conntrack: skip clash resolution if 25
+nat is in place")
+Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+---
+ net/netfilter/nf_conntrack_core.c | 1 -
+ net/netfilter/nf_nat_core.c       | 4 +++-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index e847dba..7e16518 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -699,7 +699,6 @@ static int nf_ct_resolve_clash(struct net *net, struct sk_buff *skb,
+ 
+ 	l4proto = __nf_ct_l4proto_find(nf_ct_l3num(ct), nf_ct_protonum(ct));
+ 	if (l4proto->allow_clash &&
+-	    ((ct->status & IPS_NAT_DONE_MASK) == 0) &&
+ 	    !nf_ct_is_dying(ct) &&
+ 	    atomic_inc_not_zero(&ct->ct_general.use)) {
+ 		enum ip_conntrack_info oldinfo;
+diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
+index 6c72922..9edfca2 100644
+--- a/net/netfilter/nf_nat_core.c
++++ b/net/netfilter/nf_nat_core.c
+@@ -328,6 +328,7 @@ static int nf_nat_bysource_cmp(struct rhashtable_compare_arg *arg,
+ 	const struct nf_conntrack_zone *zone;
+ 	const struct nf_nat_l3proto *l3proto;
+ 	const struct nf_nat_l4proto *l4proto;
++	const struct nf_conntrack_l4proto *ct_l4proto;
+ 	struct net *net = nf_ct_net(ct);
+ 
+ 	zone = nf_ct_zone(ct);
+@@ -336,6 +337,7 @@ static int nf_nat_bysource_cmp(struct rhashtable_compare_arg *arg,
+ 	l3proto = __nf_nat_l3proto_find(orig_tuple->src.l3num);
+ 	l4proto = __nf_nat_l4proto_find(orig_tuple->src.l3num,
+ 					orig_tuple->dst.protonum);
++	ct_l4proto = __nf_ct_l4proto_find(nf_ct_l3num(ct), nf_ct_protonum(ct));
+ 
+ 	/* 1) If this srcip/proto/src-proto-part is currently mapped,
+ 	 * and that same mapping gives a unique tuple within the given
+@@ -349,7 +351,7 @@ static int nf_nat_bysource_cmp(struct rhashtable_compare_arg *arg,
+ 	    !(range->flags & NF_NAT_RANGE_PROTO_RANDOM_ALL)) {
+ 		/* try the original tuple first */
+ 		if (in_range(l3proto, l4proto, orig_tuple, range)) {
+-			if (!nf_nat_used_tuple(orig_tuple, ct)) {
++			if (!nf_nat_used_tuple(orig_tuple, ct) || ct_l4proto->allow_clash) {
+ 				*tuple = *orig_tuple;
+ 				goto out;
+ 			}
+-- 
+1.8.3.1
