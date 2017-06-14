@@ -1,42 +1,38 @@
-From: Sistemas administrador <abd.jabar@customs.go.id>
-Subject: admin
-Date: Wed, 14 Jun 2017 20:57:52 +0530
-Message-ID: <20170614153019.DE05D13C94C1@mail.customs.go.id>
-Reply-To: adminwebmailsistem@mail2world.com
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [patch iproute2] bridge: Distinguish between externally learned
+ vs offloaded FDBs
+Date: Wed, 14 Jun 2017 09:52:50 -0700
+Message-ID: <20170614095250.6cccc740@xeon-e3>
+References: <20170605092043.3523-1-jiri@resnulli.us>
+        <20170605100705.3909-1-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Recipients <abd.jabar@customs.go.id>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+        arkadis@mellanox.com, mlxsw@mellanox.com,
+        roopa@cumulusnetworks.com, ivecera@redhat.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.customs.go.id ([202.61.126.135]:33176 "EHLO
-        mail.customs.go.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751800AbdFNQwm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 12:52:42 -0400
-Content-Description: Mail message body
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:33602 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750768AbdFNQw6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 12:52:58 -0400
+Received: by mail-pf0-f171.google.com with SMTP id 83so3050957pfr.0
+        for <netdev@vger.kernel.org>; Wed, 14 Jun 2017 09:52:57 -0700 (PDT)
+In-Reply-To: <20170605100705.3909-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ATENCI=D3N;
+On Mon,  5 Jun 2017 12:07:05 +0200
+Jiri Pirko <jiri@resnulli.us> wrote:
 
-Su buz=F3n ha superado el l=EDmite de almacenamiento, que es de 5 GB defini=
-dos por el administrador, quien actualmente est=E1 ejecutando en 10.9GB, no=
- puede ser capaz de enviar o recibir correo nuevo hasta que vuelva a valida=
-r su  buz=F3n de correo electr=F3nico. Para revalidar su buz=F3n de correo,=
- env=EDe la
-siguiente informaci=F3n a continuaci=F3n:
+> From: Arkadi Sharshevsky <arkadis@mellanox.com>
+> 
+> Distinguish between externally learned vs offloaded FDBs. This is done
+> in order to indicate that FDBs added by software was successfully
+> offloaded.
+> 
+> Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-nombre:
-Nombre de usuario:
-contrase=F1a:
-Confirmar contrase=F1a:
-E-mail:
-tel=E9fono
-
-Si usted no puede revalidar su buz=F3n, el buz=F3n se deshabilitar=E1!
-
-Disculpa las molestias.
-C=F3digo de verificaci=F3n:Ar Correo.AR...AR005615273849598
-Correo Soporte T=E9cnico =A9 2017
-
-=A1gracias
-Sistemas administrador
+Applied to net-next
