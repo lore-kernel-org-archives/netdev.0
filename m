@@ -1,67 +1,136 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH v2 03/11] tty: kbd: reduce stack size with KASAN
-Date: Wed, 14 Jun 2017 23:15:38 +0200
-Message-ID: <20170614211556.2062728-4-arnd@arndb.de>
+Subject: [PATCH v2 05/11] mtd: cfi: reduce stack size with KASAN
+Date: Wed, 14 Jun 2017 23:15:40 +0200
+Message-ID: <20170614211556.2062728-6-arnd@arndb.de>
 References: <20170614211556.2062728-1-arnd@arndb.de>
-Cc: kasan-dev@googlegroups.com, Dmitry Vyukov <dvyukov@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Andrey Ryabinin <aryabinin@virtuozzo.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Jiri Slaby <jslaby@suse.com>,
-        Samuel Thibault <samuel.thibault@ens-lyon.org>,
-        Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Boris Brezillon <boris.brezillon@free-electrons.com>,
+ Arend van Spriel <arend.vanspriel@broadcom.com>, Arnd Bergmann <arnd@arndb.de>,
+ netdev@vger.kernel.org, Cyrille Pitchen <cyrille.pitchen@wedev4u.fr>,
+ linux-kernel@vger.kernel.org, kasan-dev@googlegroups.com,
+ Marek Vasut <marek.vasut@gmail.com>, Alexander Potapenko <glider@google.com>,
+ linux-mtd@lists.infradead.org, Richard Weinberger <richard@nod.at>,
+ Andrey Ryabinin <aryabinin@virtuozzo.com>,
+ Brian Norris <computersforpeace@gmail.com>,
+ David Woodhouse <dwmw2@infradead.org>, Dmitry Vyukov <dvyukov@google.com>
 To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-mtd-bounces+gldm-linux-mtd-36=gmane.org@lists.infradead.org>
 In-Reply-To: <20170614211556.2062728-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mtd>,
+ <mailto:linux-mtd-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mtd/>
+List-Post: <mailto:linux-mtd@lists.infradead.org>
+List-Help: <mailto:linux-mtd-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mtd>,
+ <mailto:linux-mtd-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-mtd" <linux-mtd-bounces@lists.infradead.org>
+Errors-To: linux-mtd-bounces+gldm-linux-mtd-36=gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-As reported by kernelci, some functions in the VT code use significant
-amounts of kernel stack when local variables get inlined into the caller
-multiple times:
+When CONFIG_KASAN is used, we consume a lot of extra stack space:
 
-drivers/tty/vt/keyboard.c: In function 'kbd_keycode':
-drivers/tty/vt/keyboard.c:1452:1: error: the frame size of 2240 bytes is larger than 2048 bytes [-Werror=frame-larger-than=]
+drivers/mtd/chips/cfi_cmdset_0020.c: In function 'do_write_buffer':
+drivers/mtd/chips/cfi_cmdset_0020.c:603:1: error: the frame size of 2184 bytes is larger than 1536 bytes [-Werror=frame-larger-than=]
+drivers/mtd/chips/cfi_cmdset_0020.c: In function 'cfi_staa_erase_varsize':
+drivers/mtd/chips/cfi_cmdset_0020.c:972:1: error: the frame size of 1936 bytes is larger than 1536 bytes [-Werror=frame-larger-than=]
+drivers/mtd/chips/cfi_cmdset_0001.c: In function 'do_write_buffer':
+drivers/mtd/chips/cfi_cmdset_0001.c:1841:1: error: the frame size of 1776 bytes is larger than 1536 bytes [-Werror=frame-larger-than=]
 
-Annotating those functions as noinline_if_stackbloat prevents the inlining
-and reduces the overall stack usage in this driver.
+This marks some functions as noinline_if_stackbloat to keep reduce the
+overall stack size.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/tty/vt/keyboard.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/mtd/chips/cfi_cmdset_0020.c | 8 ++++----
+ include/linux/mtd/map.h             | 8 ++++----
+ 2 files changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/tty/vt/keyboard.c b/drivers/tty/vt/keyboard.c
-index f4166263bb3a..c0d111444a0e 100644
---- a/drivers/tty/vt/keyboard.c
-+++ b/drivers/tty/vt/keyboard.c
-@@ -301,13 +301,13 @@ int kbd_rate(struct kbd_repeat *rpt)
- /*
-  * Helper Functions.
-  */
--static void put_queue(struct vc_data *vc, int ch)
-+static noinline_if_stackbloat void put_queue(struct vc_data *vc, int ch)
- {
- 	tty_insert_flip_char(&vc->port, ch, 0);
- 	tty_schedule_flip(&vc->port);
+diff --git a/drivers/mtd/chips/cfi_cmdset_0020.c b/drivers/mtd/chips/cfi_cmdset_0020.c
+index 7d342965f392..5eee5e883f55 100644
+--- a/drivers/mtd/chips/cfi_cmdset_0020.c
++++ b/drivers/mtd/chips/cfi_cmdset_0020.c
+@@ -244,7 +244,7 @@ static struct mtd_info *cfi_staa_setup(struct map_info *map)
  }
  
--static void puts_queue(struct vc_data *vc, char *cp)
-+static noinline_if_stackbloat void puts_queue(struct vc_data *vc, char *cp)
+ 
+-static inline int do_read_onechip(struct map_info *map, struct flchip *chip, loff_t adr, size_t len, u_char *buf)
++static noinline_if_stackbloat int do_read_onechip(struct map_info *map, struct flchip *chip, loff_t adr, size_t len, u_char *buf)
  {
- 	while (*cp) {
- 		tty_insert_flip_char(&vc->port, *cp, 0);
-@@ -555,7 +555,7 @@ static void fn_inc_console(struct vc_data *vc)
- 	set_console(i);
+ 	map_word status, status_OK;
+ 	unsigned long timeo;
+@@ -728,7 +728,7 @@ cfi_staa_writev(struct mtd_info *mtd, const struct kvec *vecs,
  }
  
--static void fn_send_intr(struct vc_data *vc)
-+static noinline_if_stackbloat void fn_send_intr(struct vc_data *vc)
+ 
+-static inline int do_erase_oneblock(struct map_info *map, struct flchip *chip, unsigned long adr)
++static noinline_if_stackbloat int do_erase_oneblock(struct map_info *map, struct flchip *chip, unsigned long adr)
  {
- 	tty_insert_flip_char(&vc->port, 0, TTY_BREAK);
- 	tty_schedule_flip(&vc->port);
+ 	struct cfi_private *cfi = map->fldrv_priv;
+ 	map_word status, status_OK;
+@@ -1029,7 +1029,7 @@ static void cfi_staa_sync (struct mtd_info *mtd)
+ 	}
+ }
+ 
+-static inline int do_lock_oneblock(struct map_info *map, struct flchip *chip, unsigned long adr)
++static noinline_if_stackbloat int do_lock_oneblock(struct map_info *map, struct flchip *chip, unsigned long adr)
+ {
+ 	struct cfi_private *cfi = map->fldrv_priv;
+ 	map_word status, status_OK;
+@@ -1175,7 +1175,7 @@ static int cfi_staa_lock(struct mtd_info *mtd, loff_t ofs, uint64_t len)
+ 	}
+ 	return 0;
+ }
+-static inline int do_unlock_oneblock(struct map_info *map, struct flchip *chip, unsigned long adr)
++static noinline_if_stackbloat int do_unlock_oneblock(struct map_info *map, struct flchip *chip, unsigned long adr)
+ {
+ 	struct cfi_private *cfi = map->fldrv_priv;
+ 	map_word status, status_OK;
+diff --git a/include/linux/mtd/map.h b/include/linux/mtd/map.h
+index 3aa56e3104bb..29db74314db8 100644
+--- a/include/linux/mtd/map.h
++++ b/include/linux/mtd/map.h
+@@ -316,7 +316,7 @@ static inline map_word map_word_or(struct map_info *map, map_word val1, map_word
+ 	return r;
+ }
+ 
+-static inline int map_word_andequal(struct map_info *map, map_word val1, map_word val2, map_word val3)
++static noinline_if_stackbloat int map_word_andequal(struct map_info *map, map_word val1, map_word val2, map_word val3)
+ {
+ 	int i;
+ 
+@@ -328,7 +328,7 @@ static inline int map_word_andequal(struct map_info *map, map_word val1, map_wor
+ 	return 1;
+ }
+ 
+-static inline int map_word_bitsset(struct map_info *map, map_word val1, map_word val2)
++static noinline_if_stackbloat int map_word_bitsset(struct map_info *map, map_word val1, map_word val2)
+ {
+ 	int i;
+ 
+@@ -362,7 +362,7 @@ static inline map_word map_word_load(struct map_info *map, const void *ptr)
+ 	return r;
+ }
+ 
+-static inline map_word map_word_load_partial(struct map_info *map, map_word orig, const unsigned char *buf, int start, int len)
++static noinline_if_stackbloat map_word map_word_load_partial(struct map_info *map, map_word orig, const unsigned char *buf, int start, int len)
+ {
+ 	int i;
+ 
+@@ -392,7 +392,7 @@ static inline map_word map_word_load_partial(struct map_info *map, map_word orig
+ #define MAP_FF_LIMIT 8
+ #endif
+ 
+-static inline map_word map_word_ff(struct map_info *map)
++static noinline_if_stackbloat map_word map_word_ff(struct map_info *map)
+ {
+ 	map_word r;
+ 	int i;
 -- 
 2.9.0
+
+
+______________________________________________________
+Linux MTD discussion mailing list
+http://lists.infradead.org/mailman/listinfo/linux-mtd/
