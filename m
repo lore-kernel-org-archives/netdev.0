@@ -1,61 +1,50 @@
-From: Samuel Thibault <samuel.thibault@ens-lyon.org>
-Subject: Re: [PATCH v2 03/11] tty: kbd: reduce stack size with KASAN
-Date: Thu, 15 Jun 2017 00:16:44 +0200
-Message-ID: <20170614221644.sws7xgm5cgiia6oo@var.youpi.perso.aquilenet.fr>
-References: <20170614211556.2062728-1-arnd@arndb.de>
- <20170614211556.2062728-4-arnd@arndb.de>
- <20170614212834.mtmq3wlnq525qkiz@var.youpi.perso.aquilenet.fr>
- <CAK8P3a0aOmof7bW0Pp=o8nVdQYsQxff9kdYaqkEhrfj-oEPy4A@mail.gmail.com>
+From: Dave Watson <davejwatson@fb.com>
+Subject: Re: [PATCH v3 net-next 0/4] kernel TLS
+Date: Wed, 14 Jun 2017 15:17:38 -0700
+Message-ID: <20170614221738.GC72301@davejwatson-mba.dhcp.thefacebook.com>
+References: <20170614183654.GA80067@davejwatson-mba.dhcp.thefacebook.com>
+ <CALx6S36NPk4ZYCq1TzWoAdfOeK+ba2D79-giE7WOLeoVuYM_nw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-        kasan-dev <kasan-dev@googlegroups.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Andrey Ryabinin <aryabinin@virtuozzo.com>,
-        Networking <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Jiri Slaby <jslaby@suse.com>,
-        Dmitry Torokhov <dmitry.torokhov@gmail.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Ilya Lesokhin <ilyal@mellanox.com>,
+        Aviad Yehezkel <aviadye@mellanox.com>,
+        Boris Pismenny <borisp@mellanox.com>,
+        Liran Liss <liranl@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        <nmav@gnutls.org>,
+        =?iso-8859-1?Q?Fridol=EDn_Pokorn=FD?= <fridolin.pokorny@gmail.com>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:44798 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751606AbdFNWSG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 18:18:06 -0400
 Content-Disposition: inline
-In-Reply-To: <CAK8P3a0aOmof7bW0Pp=o8nVdQYsQxff9kdYaqkEhrfj-oEPy4A@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <CALx6S36NPk4ZYCq1TzWoAdfOeK+ba2D79-giE7WOLeoVuYM_nw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Arnd Bergmann, on mer. 14 juin 2017 23:56:39 +0200, wrote:
-> > I however agree that it's a bad idea to inline it in functions where
-> > it's called so many times (and we're talking about the keyboard anyway).
+On 06/14/17 01:54 PM, Tom Herbert wrote:
+> On Wed, Jun 14, 2017 at 11:36 AM, Dave Watson <davejwatson@fb.com> wrote:
+> > This series adds support for kernel TLS encryption over TCP sockets.
+> > A standard TCP socket is converted to a TLS socket using a setsockopt.
+> > Only symmetric crypto is done in the kernel, as well as TLS record
+> > framing.  The handshake remains in userspace, and the negotiated
+> > cipher keys/iv are provided to the TCP socket.
 > >
-> >> -static void puts_queue(struct vc_data *vc, char *cp)
-> >> +static noinline_if_stackbloat void puts_queue(struct vc_data *vc, char *cp)
-> >
-> > I don't see why, it's only called once in the callers. k_fn, however, is
-> > called several times in k_pad, so that could be why, but then it's
-> > rather be the inlining of k_fn which is a bad idea.
-> 
-> It's called by applkey, which in turn is called by k_pad(),
+> I don't see support for TLS receive path in the kernel, only the send
+> path. Am I missing something?
 
-k_pad calls applkey twice only. Is that really to be considered bloat?
+Correct, this is only TX.  Since it sounds likely some hardware might
+only be able to offload TX, we decided to configure TX and RX
+separately.  Using the OpenSSL patches, it should be transparent to
+users even if only one side is offloaded.
 
-> >> -static void fn_send_intr(struct vc_data *vc)
-> >> +static noinline_if_stackbloat void fn_send_intr(struct vc_data *vc)
-> >
-> > This one is only referenced, not called, I don't see how that could pose
-> > problem.
-> 
-> I was surprised by this as well, but it seems that gcc these days is
-> smart enough to turn the indirect function calls for k_handler[type]
-> and/or f_handler[value] into inlines again when it has already
-> determined the index to be constant.
-
-Cool :) But I don't see how it can see find it out constant. The only
-fn_handler[] caller is k_spec, using value as index. The only caller of
-f_handler[] is kbd_keycode, using type as index, and keysym&0xff as
-value.  That is definitely not constant :)  And it's only one caller, I
-don't see how that can bloat.
-
-Samuel
+The software RX patches exist but haven't been polished up yet.
