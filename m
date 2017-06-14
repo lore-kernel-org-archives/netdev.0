@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH v4 07/11] net: mvmdio: check the MII_ADDR_C45 bit is not set for smi operations
-Date: Wed, 14 Jun 2017 17:49:07 +0200
-Message-ID: <20170614154911.14510-8-antoine.tenart@free-electrons.com>
+Subject: [PATCH v4 05/11] net: mvmdio: introduce an ops structure
+Date: Wed, 14 Jun 2017 17:49:05 +0200
+Message-ID: <20170614154911.14510-6-antoine.tenart@free-electrons.com>
 References: <20170614154911.14510-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
@@ -11,46 +11,107 @@ To: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
         gregory.clement@free-electrons.com,
         sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:34989 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:34978 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752518AbdFNPye (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 11:54:34 -0400
+        with ESMTP id S1752542AbdFNPy3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 11:54:29 -0400
 In-Reply-To: <20170614154911.14510-1-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a check for the read and write smi operations, to ensure the
-MII_ADDR_C45 bit isn't set. This will be needed as soon as the xSMI
-support is added to the mvmdio driver.
+Introduce an ops structure to add an indirection on the is_done
+function, as this is needed to add the xMDIO support later.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvmdio.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/marvell/mvmdio.c | 30 +++++++++++++++++++-----------
+ 1 file changed, 19 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-index e4aa8e2d2e8a..fe6072aae0a6 100644
+index eab625752b12..2a8efc77f5fe 100644
 --- a/drivers/net/ethernet/marvell/mvmdio.c
 +++ b/drivers/net/ethernet/marvell/mvmdio.c
-@@ -126,6 +126,9 @@ static int orion_mdio_read(struct mii_bus *bus, int mii_id,
+@@ -62,14 +62,14 @@ struct orion_mdio_dev {
+ 	wait_queue_head_t smi_busy_wait;
+ };
+ 
+-static int orion_mdio_smi_is_done(struct orion_mdio_dev *dev)
+-{
+-	return !(readl(dev->regs) & MVMDIO_SMI_BUSY);
+-}
++struct orion_mdio_ops {
++	int (*is_done)(struct orion_mdio_dev *);
++};
+ 
+ /* Wait for the SMI unit to be ready for another operation
+  */
+-static int orion_mdio_wait_ready(struct mii_bus *bus)
++static int orion_mdio_wait_ready(const struct orion_mdio_ops *ops,
++				 struct mii_bus *bus)
+ {
+ 	struct orion_mdio_dev *dev = bus->priv;
+ 	unsigned long timeout = usecs_to_jiffies(MVMDIO_SMI_TIMEOUT);
+@@ -77,7 +77,7 @@ static int orion_mdio_wait_ready(struct mii_bus *bus)
+ 	int timedout = 0;
+ 
+ 	while (1) {
+-	        if (orion_mdio_smi_is_done(dev))
++	        if (ops->is_done(dev))
+ 			return 0;
+ 	        else if (timedout)
+ 			break;
+@@ -96,8 +96,7 @@ static int orion_mdio_wait_ready(struct mii_bus *bus)
+ 			if (timeout < 2)
+ 				timeout = 2;
+ 			wait_event_timeout(dev->smi_busy_wait,
+-				           orion_mdio_smi_is_done(dev),
+-				           timeout);
++				           ops->is_done(dev), timeout);
+ 
+ 			++timedout;
+ 	        }
+@@ -107,6 +106,15 @@ static int orion_mdio_wait_ready(struct mii_bus *bus)
+ 	return  -ETIMEDOUT;
+ }
+ 
++static int orion_mdio_smi_is_done(struct orion_mdio_dev *dev)
++{
++	return !(readl(dev->regs) & MVMDIO_SMI_BUSY);
++}
++
++static const struct orion_mdio_ops orion_mdio_smi_ops = {
++	.is_done = orion_mdio_smi_is_done,
++};
++
+ static int orion_mdio_read(struct mii_bus *bus, int mii_id,
+ 			   int regnum)
+ {
+@@ -114,7 +122,7 @@ static int orion_mdio_read(struct mii_bus *bus, int mii_id,
  	u32 val;
  	int ret;
  
-+	if (regnum & MII_ADDR_C45)
-+		return -EOPNOTSUPP;
-+
- 	ret = orion_mdio_wait_ready(&orion_mdio_smi_ops, bus);
+-	ret = orion_mdio_wait_ready(bus);
++	ret = orion_mdio_wait_ready(&orion_mdio_smi_ops, bus);
  	if (ret < 0)
  		goto out;
-@@ -157,6 +160,9 @@ static int orion_mdio_write(struct mii_bus *bus, int mii_id,
+ 
+@@ -123,7 +131,7 @@ static int orion_mdio_read(struct mii_bus *bus, int mii_id,
+ 		MVMDIO_SMI_READ_OPERATION),
+ 	       dev->regs);
+ 
+-	ret = orion_mdio_wait_ready(bus);
++	ret = orion_mdio_wait_ready(&orion_mdio_smi_ops, bus);
+ 	if (ret < 0)
+ 		goto out;
+ 
+@@ -145,7 +153,7 @@ static int orion_mdio_write(struct mii_bus *bus, int mii_id,
  	struct orion_mdio_dev *dev = bus->priv;
  	int ret;
  
-+	if (regnum & MII_ADDR_C45)
-+		return -EOPNOTSUPP;
-+
- 	ret = orion_mdio_wait_ready(&orion_mdio_smi_ops, bus);
+-	ret = orion_mdio_wait_ready(bus);
++	ret = orion_mdio_wait_ready(&orion_mdio_smi_ops, bus);
  	if (ret < 0)
  		goto out;
+ 
 -- 
 2.9.4
