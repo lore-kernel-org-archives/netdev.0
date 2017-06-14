@@ -1,98 +1,62 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH 2/3] wireless: wext: use struct iwreq earlier in the call chain
-Date: Wed, 14 Jun 2017 13:55:22 +0200
-Message-ID: <20170614115523.16379-3-johannes@sipsolutions.net>
-References: <20170614115523.16379-1-johannes@sipsolutions.net>
-Cc: Robert O'Callahan <robert@ocallahan.org>,
-        Johannes Berg <johannes.berg@intel.com>
-To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 0/3] ipmr/ip6mr: add Netlink notifications on
+ cache reports
+Date: Wed, 14 Jun 2017 15:04:10 +0300
+Message-ID: <891d876f-18fb-706b-c269-ec8892d2f6ff@cumulusnetworks.com>
+References: <20170613170822.16310-1-julien@arista.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+        Donald Sharp <sharpd@cumulusnetworks.com>
+To: Julien Gomes <julien@arista.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:37328 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751608AbdFNLz5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 14 Jun 2017 07:55:57 -0400
-In-Reply-To: <20170614115523.16379-1-johannes@sipsolutions.net>
+Received: from mail-wr0-f173.google.com ([209.85.128.173]:35264 "EHLO
+        mail-wr0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751624AbdFNMEN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 08:04:13 -0400
+Received: by mail-wr0-f173.google.com with SMTP id q97so186718476wrb.2
+        for <netdev@vger.kernel.org>; Wed, 14 Jun 2017 05:04:13 -0700 (PDT)
+In-Reply-To: <20170613170822.16310-1-julien@arista.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes.berg@intel.com>
+On 13/06/17 20:08, Julien Gomes wrote:
+> Currently, all ipmr/ip6mr cache reports are sent through the
+> mroute/mroute6 socket only.
+> This forces the use of a single socket for mroute programming, cache
+> reports and, regarding ipmr, IGMP messages without Router Alert option
+> reception.
+> 
+> The present patches are aiming to send Netlink notifications in addition
+> to the existing igmpmsg/mrt6msg to give user programs a way to handle
+> cache reports in parallel with multiple sockets other than the
+> mroute/mroute6 socket.
+> 
+> Julien Gomes (3):
+>   rtnetlink: add NEWCACHEREPORT message type
+>   ipmr: add netlink notifications on igmpmsg cache reports
+>   ip6mr: add netlink notifications on mrt6msg cache reports
+> 
+>  include/uapi/linux/mroute.h    | 11 ++++++++
+>  include/uapi/linux/mroute6.h   | 11 ++++++++
+>  include/uapi/linux/rtnetlink.h |  3 ++
+>  net/ipv4/ipmr.c                | 63 ++++++++++++++++++++++++++++++++++++++++--
+>  net/ipv6/ip6mr.c               | 63 ++++++++++++++++++++++++++++++++++++++++--
+>  security/selinux/nlmsgtab.c    |  3 +-
+>  6 files changed, 149 insertions(+), 5 deletions(-)
+> 
 
-To make it clear that we never use struct ifreq, cast from it
-directly in the wext entrypoint and use struct iwreq from there
-on. The next patch will remove the cast again and pass the
-correct struct from the beginning.
+Hi Julien,
+This has been on our todo list and I'm definitely interested in the implementation.
+A few things that need careful consideration from my POV. First are the security
+implications - this sends rtnl multicast messages but the rtnl socket has
+the NL_CFG_F_NONROOT_RECV flag thus allowing any user on the system to listen in.
+This would allow them to see the full packets and all reports (granted they can see
+the notifications even now), but the full packet is like giving them the opportunity
+to tcpdump the PIM traffic.
+My second (more fixable and minor) concern is about the packet itself, how do you
+know that the packet is all linear so you can directly copy it ?
 
-Signed-off-by: Johannes Berg <johannes.berg@intel.com>
----
- net/wireless/wext-core.c | 15 +++++++--------
- 1 file changed, 7 insertions(+), 8 deletions(-)
-
-diff --git a/net/wireless/wext-core.c b/net/wireless/wext-core.c
-index 24ba8a99b946..12949c8d3e5f 100644
---- a/net/wireless/wext-core.c
-+++ b/net/wireless/wext-core.c
-@@ -914,13 +914,12 @@ int call_commit_handler(struct net_device *dev)
-  * Main IOCTl dispatcher.
-  * Check the type of IOCTL and call the appropriate wrapper...
-  */
--static int wireless_process_ioctl(struct net *net, struct ifreq *ifr,
-+static int wireless_process_ioctl(struct net *net, struct iwreq *iwr,
- 				  unsigned int cmd,
- 				  struct iw_request_info *info,
- 				  wext_ioctl_func standard,
- 				  wext_ioctl_func private)
- {
--	struct iwreq *iwr = (struct iwreq *) ifr;
- 	struct net_device *dev;
- 	iw_handler	handler;
- 
-@@ -928,7 +927,7 @@ static int wireless_process_ioctl(struct net *net, struct ifreq *ifr,
- 	 * The copy_to/from_user() of ifr is also dealt with in there */
- 
- 	/* Make sure the device exist */
--	if ((dev = __dev_get_by_name(net, ifr->ifr_name)) == NULL)
-+	if ((dev = __dev_get_by_name(net, iwr->ifr_name)) == NULL)
- 		return -ENODEV;
- 
- 	/* A bunch of special cases, then the generic case...
-@@ -974,7 +973,7 @@ static int wext_permission_check(unsigned int cmd)
- }
- 
- /* entry point from dev ioctl */
--static int wext_ioctl_dispatch(struct net *net, struct ifreq *ifr,
-+static int wext_ioctl_dispatch(struct net *net, struct iwreq *iwr,
- 			       unsigned int cmd, struct iw_request_info *info,
- 			       wext_ioctl_func standard,
- 			       wext_ioctl_func private)
-@@ -984,9 +983,9 @@ static int wext_ioctl_dispatch(struct net *net, struct ifreq *ifr,
- 	if (ret)
- 		return ret;
- 
--	dev_load(net, ifr->ifr_name);
-+	dev_load(net, iwr->ifr_name);
- 	rtnl_lock();
--	ret = wireless_process_ioctl(net, ifr, cmd, info, standard, private);
-+	ret = wireless_process_ioctl(net, iwr, cmd, info, standard, private);
- 	rtnl_unlock();
- 
- 	return ret;
-@@ -1042,7 +1041,7 @@ int wext_handle_ioctl(struct net *net, struct ifreq *ifr, unsigned int cmd,
- 	struct iw_request_info info = { .cmd = cmd, .flags = 0 };
- 	int ret;
- 
--	ret = wext_ioctl_dispatch(net, ifr, cmd, &info,
-+	ret = wext_ioctl_dispatch(net, (void *)ifr, cmd, &info,
- 				  ioctl_standard_call,
- 				  ioctl_private_call);
- 	if (ret >= 0 &&
-@@ -1104,7 +1103,7 @@ int compat_wext_handle_ioctl(struct net *net, unsigned int cmd,
- 	info.cmd = cmd;
- 	info.flags = IW_REQUEST_FLAG_COMPAT;
- 
--	ret = wext_ioctl_dispatch(net, (struct ifreq *) &iwr, cmd, &info,
-+	ret = wext_ioctl_dispatch(net, &iwr, cmd, &info,
- 				  compat_standard_call,
- 				  compat_private_call);
- 
--- 
-2.11.0
+Thanks,
+ Nik
