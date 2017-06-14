@@ -1,133 +1,65 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v3 net-next 0/4] kernel TLS
-Date: Wed, 14 Jun 2017 13:54:31 -0700
-Message-ID: <CALx6S36NPk4ZYCq1TzWoAdfOeK+ba2D79-giE7WOLeoVuYM_nw@mail.gmail.com>
-References: <20170614183654.GA80067@davejwatson-mba.dhcp.thefacebook.com>
+From: Julien Gomes <julien@arista.com>
+Subject: Re: [PATCH net-next 2/3] ipmr: add netlink notifications on igmpmsg
+ cache reports
+Date: Wed, 14 Jun 2017 14:08:18 -0700
+Message-ID: <3390ae4f-53ab-2ec3-5e5c-20b3fc05de4f@arista.com>
+References: <20170613170822.16310-1-julien@arista.com>
+ <20170613170822.16310-3-julien@arista.com>
+ <e1e0c9fc-a2c7-dc98-0255-4af5c69c8e9c@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Ilya Lesokhin <ilyal@mellanox.com>,
-        Aviad Yehezkel <aviadye@mellanox.com>,
-        Boris Pismenny <borisp@mellanox.com>,
-        Liran Liss <liranl@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        nmav@gnutls.org,
-        =?UTF-8?B?RnJpZG9sw61uIFBva29ybsO9?= <fridolin.pokorny@gmail.com>
-To: Dave Watson <davejwatson@fb.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20170614183654.GA80067@davejwatson-mba.dhcp.thefacebook.com>
-Sender: linux-crypto-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        nikolay@cumulusnetworks.com
+To: nicolas.dichtel@6wind.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <e1e0c9fc-a2c7-dc98-0255-4af5c69c8e9c@6wind.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 14, 2017 at 11:36 AM, Dave Watson <davejwatson@fb.com> wrote:
-> This series adds support for kernel TLS encryption over TCP sockets.
-> A standard TCP socket is converted to a TLS socket using a setsockopt.
-> Only symmetric crypto is done in the kernel, as well as TLS record
-> framing.  The handshake remains in userspace, and the negotiated
-> cipher keys/iv are provided to the TCP socket.
->
-I don't see support for TLS receive path in the kernel, only the send
-path. Am I missing something?
+On 06/14/2017 12:56 AM, Nicolas Dichtel wrote:
+> Le 13/06/2017 à 19:08, Julien Gomes a écrit :
+>> Add Netlink notifications on cache reports in ipmr, in addition to the
+>> existing igmpmsg sent to mroute_sk.
+>> Send RTM_NEWCACHEREPORT notifications to RTNLGRP_IPV4_MROUTE.
+>>
+>> MSGTYPE, VIF_ID, SRC_ADDR and DST_ADDR Netlink attributes contain the
+>> same data as their equivalent fields in the igmpmsg header.
+>> PKT attribute is the packet sent to mroute_sk, without the added igmpmsg
+>> header.
+>>
+>> Suggested-by: Ryan Halbrook <halbrook@arista.com>
+>> Signed-off-by: Julien Gomes <julien@arista.com>
+>> ---
+>>  include/uapi/linux/mroute.h | 11 ++++++++
+>>  net/ipv4/ipmr.c             | 63 +++++++++++++++++++++++++++++++++++++++++++--
+>>  2 files changed, 72 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/include/uapi/linux/mroute.h b/include/uapi/linux/mroute.h
+>> index f904367c0cee..f6f9e01ee734 100644
+>> --- a/include/uapi/linux/mroute.h
+>> +++ b/include/uapi/linux/mroute.h
+>> @@ -152,6 +152,17 @@ enum {
+>>  };
+>>  #define IPMRA_VIFA_MAX (__IPMRA_VIFA_MAX - 1)
+>>  
+>> +/* ipmr netlink cache report attributes */
+>> +enum {
+> IPMRA_CACHEREPORTA_UNSPEC is missing.
 
-Thanks,
-Tom
+Indeed, I will add it.
 
-> We implemented support for this API in OpenSSL 1.1.0, the code is
-> available at https://github.com/Mellanox/tls-openssl/tree/master
->
-> It should work with any TLS library with similar modifications,
-> a test tool using gnutls is here: https://github.com/Mellanox/tls-af_ktls_tool
->
-> RFC patch to openssl:
-> https://mta.openssl.org/pipermail/openssl-dev/2017-June/009384.html
->
-> Changes from V2:
->
-> * EXPORT_SYMBOL_GPL in patch 1
-> * Ensure cleanup code always called before sk_stream_kill_queues to
->   avoid warnings
->
-> Changes from V1:
->
-> * EXPORT_SYMBOL GPL in patch 2
-> * Add link to OpenSSL patch & gnutls example in documentation patch.
-> * sk_write_pending check was rolled in to wait_for_memory path,
->   avoids special case and fixes lock inbalance issue.
-> * Unify flag handling for sendmsg/sendfile
->
-> Changes from RFC V2:
->
-> * Generic ULP (upper layer protocol) framework instead of TLS specific
->   setsockopts
-> * Dropped Mellanox hardware patches, will come as separate series.
->   Framework will work for both.
->
-> RFC V2:
->
-> http://www.mail-archive.com/netdev@vger.kernel.org/msg160317.html
->
-> Changes from RFC V1:
->
-> * Socket based on changing TCP proto_ops instead of crypto framework
-> * Merged code with Mellanox's hardware tls offload
-> * Zerocopy sendmsg support added - sendpage/sendfile is no longer
->   necessary for zerocopy optimization
->
-> RFC V1:
->
-> http://www.mail-archive.com/netdev@vger.kernel.org/msg88021.html
->
-> * Socket based on crypto userspace API framework, required two
->   sockets in userspace, one encrypted, one unencrypted.
->
-> Paper: https://netdevconf.org/1.2/papers/ktls.pdf
->
-> Aviad Yehezkel (1):
->   tcp: export do_tcp_sendpages and tcp_rate_check_app_limited functions
->
-> Boris Pismenny (2):
->   tcp: ULP infrastructure
->   tls: Documentation
->
-> Ilya Lesokhin (1):
->   tls: kernel TLS support
->
->  Documentation/networking/tls.txt   | 135 +++++++
->  MAINTAINERS                        |  10 +
->  include/linux/socket.h             |   1 +
->  include/net/inet_connection_sock.h |   4 +
->  include/net/tcp.h                  |  27 ++
->  include/net/tls.h                  | 237 ++++++++++++
->  include/uapi/linux/tcp.h           |   1 +
->  include/uapi/linux/tls.h           |  79 ++++
->  net/Kconfig                        |   1 +
->  net/Makefile                       |   1 +
->  net/ipv4/Makefile                  |   2 +-
->  net/ipv4/sysctl_net_ipv4.c         |  25 ++
->  net/ipv4/tcp.c                     |  33 +-
->  net/ipv4/tcp_ipv4.c                |   2 +
->  net/ipv4/tcp_rate.c                |   1 +
->  net/ipv4/tcp_ulp.c                 | 134 +++++++
->  net/tls/Kconfig                    |  12 +
->  net/tls/Makefile                   |   7 +
->  net/tls/tls_main.c                 | 487 +++++++++++++++++++++++
->  net/tls/tls_sw.c                   | 772 +++++++++++++++++++++++++++++++++++++
->  20 files changed, 1968 insertions(+), 3 deletions(-)
->  create mode 100644 Documentation/networking/tls.txt
->  create mode 100644 include/net/tls.h
->  create mode 100644 include/uapi/linux/tls.h
->  create mode 100644 net/ipv4/tcp_ulp.c
->  create mode 100644 net/tls/Kconfig
->  create mode 100644 net/tls/Makefile
->  create mode 100644 net/tls/tls_main.c
->  create mode 100644 net/tls/tls_sw.c
->
-> --
-> 2.9.3
->
+> By the way, maybe something shorter than IPMRA_CACHEREPORTA_ would be better.
+> What about IPMR_CREPORTA_? IPMR_CACHEA_? IPMR_IGMPA_? or whatever.
+
+I see absolutely no issue in shortening them.
+IPMRA_CREPORT_ sounds good to me.
+
+> What is the signification of the two 'A'? One for 'attribute', but the other?
+
+Now that you mention it, the second 'A' is simply redundant.
+I will remove it and go with IPMRA_CREPORT_.
+
+-- 
+Julien Gomes
