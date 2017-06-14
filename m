@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] batman-adv: Remove unnecessary length qualifier in
- %14pM
-Date: Wed, 14 Jun 2017 15:20:59 -0400 (EDT)
-Message-ID: <20170614.152059.1700462211376313359.davem@davemloft.net>
-References: <5300874.nPgxNW8UST@bentobox>
-        <c3693cdd478c68f078f105f55972a4406b333e69.1497432565.git.joe@perches.com>
+Subject: Re: pull request: bluetooth-next 2017-06-14
+Date: Wed, 14 Jun 2017 15:23:06 -0400 (EDT)
+Message-ID: <20170614.152306.464199756760117197.davem@davemloft.net>
+References: <20170614094421.GA29140@x1c.lan>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mareklindner@neomailbox.ch, sw@simonwunderlich.de, a@unstable.cc,
-        sven@narfation.org, b.a.t.m.a.n@lists.open-mesh.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <c3693cdd478c68f078f105f55972a4406b333e69.1497432565.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
+To: johan.hedberg@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54156 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751714AbdFNTXL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 15:23:11 -0400
+In-Reply-To: <20170614094421.GA29140@x1c.lan>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Wed, 14 Jun 2017 02:33:52 -0700
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Date: Wed, 14 Jun 2017 12:44:21 +0300
 
-> It's misleading and unnecessary.
+> Here's another batch of Bluetooth patches for the 4.13 kernel:
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
+>  - Fix for Broadcom controllers not supporting Event Mask Page 2
+>  - New QCA ROME USB ID for btusb
+>  - Fix for Security Manager Protocol to use constant-time memcmp
+>  - Improved support for TI WiLink chips
+> 
+> Please let me know if there are any issues pulling. Thanks.
 
-Simon will you take this into your batman-adv tree?
-
-Thanks.
+Pulled, thanks Johan.
