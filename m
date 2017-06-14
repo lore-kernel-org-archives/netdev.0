@@ -1,40 +1,45 @@
-From: yuan linyu <cugyly@163.com>
-Subject: [PATCH net-next 04/11] dsa: skb_put_zero() used to optimize code
-Date: Wed, 14 Jun 2017 22:40:40 +0800
-Message-ID: <1497451240-4182-1-git-send-email-cugyly@163.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH net-next 00/11] skb_put_zero() used to optimize code
+Date: Wed, 14 Jun 2017 16:42:36 +0200
+Message-ID: <1497451356.9377.1.camel@sipsolutions.net>
+References: <1497450634-3581-1-git-send-email-cugyly@163.com>
+         (sfid-20170614_163132_934852_0520825B)
 Mime-Version: 1.0
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
 Cc: "David S . Miller" <davem@davemloft.net>,
         yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-To: netdev@vger.kernel.org
+To: yuan linyu <cugyly@163.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-18.163.com ([220.181.12.18]:38512 "EHLO m12-18.163.com"
+Received: from s3.sipsolutions.net ([5.9.151.49]:38904 "EHLO sipsolutions.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751836AbdFNOlI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 14 Jun 2017 10:41:08 -0400
+        id S1751934AbdFNOmn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 14 Jun 2017 10:42:43 -0400
+In-Reply-To: <1497450634-3581-1-git-send-email-cugyly@163.com> (sfid-20170614_163132_934852_0520825B)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+On Wed, 2017-06-14 at 22:30 +0800, yuan linyu wrote:
+> From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+> 
+> 
+> yuan linyu (11):
+>   ipv6: skb_put_zero() used to optimize code
+>   ipv4: skb_put_zero() used to optimize code
+>   ncsi: skb_put_zero() used to optimize code
+>   dsa: skb_put_zero() used to optimize code
+>   key: skb_put_zero() used to optimize code
+>   openvswitch: skb_put_zero() used to optimize code
+>   batman-adv: skb_put_zero() used to optimize code
+>   bridge: skb_put_zero() used to optimize code
+>   sctp: skb_put_zero() used to optimize code
+>   atm: skb_put_zero() used to optimize code
+>   qrtr: skb_put_zero() used to optimize code
 
-Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
----
- net/dsa/tag_trailer.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+Hmm. I guess my spatch missed these because of the casts present in
+them.
 
-diff --git a/net/dsa/tag_trailer.c b/net/dsa/tag_trailer.c
-index 172f131..b09e562 100644
---- a/net/dsa/tag_trailer.c
-+++ b/net/dsa/tag_trailer.c
-@@ -43,8 +43,7 @@ static struct sk_buff *trailer_xmit(struct sk_buff *skb, struct net_device *dev)
- 	kfree_skb(skb);
- 
- 	if (padlen) {
--		u8 *pad = skb_put(nskb, padlen);
--		memset(pad, 0, padlen);
-+		skb_put_zero(nskb, padlen);
- 	}
- 
- 	trailer = skb_put(nskb, 4);
--- 
-2.7.4
+Surely you didn't do them by hand, so maybe you should provide a single
+big patch with the spatch?
+
+johannes
