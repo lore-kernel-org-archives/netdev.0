@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH v4 11/11] arm64: marvell: dts: add xmdio nodes for 7k/8k
-Date: Wed, 14 Jun 2017 17:49:11 +0200
-Message-ID: <20170614154911.14510-12-antoine.tenart@free-electrons.com>
+Subject: [PATCH v4 01/11] net: mvmdio: reorder headers alphabetically
+Date: Wed, 14 Jun 2017 17:49:01 +0200
+Message-ID: <20170614154911.14510-2-antoine.tenart@free-electrons.com>
 References: <20170614154911.14510-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
@@ -11,62 +11,47 @@ To: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
         gregory.clement@free-electrons.com,
         sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:35011 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:34932 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752611AbdFNPyl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 11:54:41 -0400
+        with ESMTP id S1752507AbdFNPy1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 11:54:27 -0400
 In-Reply-To: <20170614154911.14510-1-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add the description of the xMDIO bus for the Marvell Armada 7k and
-Marvell Armada 8k; for both CP110 slave and master. This bus is found
-on Marvell Ethernet controllers and provides an interface with the
-xMDIO bus.
+Cosmetic fix reordering headers alphabetically.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi | 8 ++++++++
- arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi  | 8 ++++++++
- 2 files changed, 16 insertions(+)
+ drivers/net/ethernet/marvell/mvmdio.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
-index 576e825585c9..8b512b75aea9 100644
---- a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
-+++ b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
-@@ -97,6 +97,14 @@
- 				clocks = <&cpm_syscon0 1 9>, <&cpm_syscon0 1 5>;
- 			};
+diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
+index 90a60b98c28e..109a2bff334d 100644
+--- a/drivers/net/ethernet/marvell/mvmdio.c
++++ b/drivers/net/ethernet/marvell/mvmdio.c
+@@ -17,16 +17,16 @@
+  * warranty of any kind, whether express or implied.
+  */
  
-+			cpm_xmdio: mdio@12a600 {
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+				compatible = "marvell,xmdio";
-+				reg = <0x12a600 0x10>;
-+				status = "disabled";
-+			};
-+
- 			cpm_syscon0: system-controller@440000 {
- 				compatible = "marvell,cp110-system-controller0",
- 					     "syscon";
-diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
-index 797208a11f9d..bd0c0e03edd2 100644
---- a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
-+++ b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
-@@ -104,6 +104,14 @@
- 				clocks = <&cps_syscon0 1 9>, <&cps_syscon0 1 5>;
- 			};
++#include <linux/clk.h>
++#include <linux/delay.h>
++#include <linux/interrupt.h>
++#include <linux/io.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/mutex.h>
++#include <linux/of_mdio.h>
+ #include <linux/phy.h>
+-#include <linux/interrupt.h>
+ #include <linux/platform_device.h>
+-#include <linux/delay.h>
+-#include <linux/io.h>
+-#include <linux/clk.h>
+-#include <linux/of_mdio.h>
+ #include <linux/sched.h>
+ #include <linux/wait.h>
  
-+			cps_xmdio: mdio@12a600 {
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+				compatible = "marvell,xmdio";
-+				reg = <0x12a600 0x10>;
-+				status = "disabled";
-+			};
-+
- 			cps_syscon0: system-controller@440000 {
- 				compatible = "marvell,cp110-system-controller0",
- 					     "syscon";
 -- 
 2.9.4
