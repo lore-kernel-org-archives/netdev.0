@@ -1,92 +1,78 @@
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Subject: [PATCH] netfilter: conntrack: fix clash resolution in nat
-Date: Wed, 14 Jun 2017 16:11:23 +0800
-Message-ID: <1497427883-3771-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Florian Westphal <fw@strlen.de>,
-        "David S. Miller" <davem@davemloft.net>
+From: Sven Eckelmann <sven@narfation.org>
+Subject: Re: [B.A.T.M.A.N.] Odd use of %14pM in net/batman-adv/distributed-arp-table.c
+Date: Wed, 14 Jun 2017 10:23:38 +0200
+Message-ID: <5300874.nPgxNW8UST@bentobox>
+References: <1497390701.18751.26.camel@perches.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; boundary="nextPart4324963.WuPt3uYS2a"; micalg="pgp-sha512"; protocol="application/pgp-signature"
+Cc: Joe Perches <joe@perches.com>,
+        Marek Lindner <mareklindner@neomailbox.ch>,
+        Simon Wunderlich <sw@simonwunderlich.de>,
+        Antonio Quartulli <a@unstable.cc>, netdev@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org
+To: b.a.t.m.a.n@lists.open-mesh.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1497390701.18751.26.camel@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In our openstack environment, slow dns lookup for hostname when
-parallel dns requests for IPv4 and IPv6 addresses from VM, the
-second IPv6 request(AAAA record) is dropped on its way in compute
-node.
+--nextPart4324963.WuPt3uYS2a
+Content-Transfer-Encoding: 7Bit
+Content-Type: text/plain; charset="us-ascii"
 
-We found many similar related links:
-https://bbs.archlinux.org/viewtopic.php?id=75770
-http://www.spinics.net/lists/netfilter-devel/msg15860.html
-https://www.spinics.net/lists/netfilter-devel/msg37565.html
+On Dienstag, 13. Juni 2017 14:51:41 CEST Joe Perches wrote:
+> An output mac address is 17 bytes
+[...]
+> but in net/batman-adv/distributed-arp-table.c
+[...]
+> %14pM is odd as this should not emit the last byte of the
+> mac address.  So given the example above, it would output
+> 00:11:22:33:44
+[...]
 
-After the commit 71d8c47fc653 ("netfilter: conntrack: introduce clash
-resolution on insertion race") can fix packet drop, the second IPv6
-request packet would be forwarded by compute node, but the udp source
-port is bogus, start from 1024:
-14:52:10.868485 IP 10.136.5.132.55785 > 10.136.5.1.domain: 3957+ A?
-www.baidu.com. (31)
-14:52:10.868544 IP 10.136.5.132.1024 > 10.136.5.1.domain: 13826+ AAAA?
-www.baidu.com. (31)
+I completely agree too the "wrong length" part. It is currently not omitting 
+the last byte:
 
-And after the commit 590b52e10d41 ("netfilter: conntrack: skip clash
-resolution if nat is in place") , it exclude nat situation, but the
-packet drops issue come back again.
+    Distributed ARP Table (bat0):
+              IPv4             MAC        VID   last-seen
+     *   10.204.28.206 e8:50:8b:8b:71:8d   -1      4:05
+     *    10.204.77.54 6c:2f:2c:43:70:eb   -1      1:56
+     *    10.25.21.138 ec:1f:72:c3:15:51   -1      4:21
+     *   10.204.27.220 08:70:45:8c:ac:db   -1      2:32
+     *   192.168.42.22 64:66:b3:bb:8e:ef   -1      0:18
+     *     10.204.64.1 02:ba:7a:df:04:00   -1      0:00
+     *   192.168.42.27 e8:de:27:f9:0f:48   -1      0:32
 
-This patch revert the last commit. If l4proto allow clash but the tuple is
-used by the conntrack that wins race, the original tuple can be reused.
+But it definitely also not "correct". I see something similar in the IV OGM
+code:
 
-Fixes: 590b52e10d41 ("netfilter: conntrack: skip clash resolution if 25
-nat is in place")
-Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
----
- net/netfilter/nf_conntrack_core.c | 1 -
- net/netfilter/nf_nat_core.c       | 4 +++-
- 2 files changed, 3 insertions(+), 2 deletions(-)
+    net/batman-adv/bat_iv_ogm.c:               "bidirectional: orig = %-15pM neigh = %-15pM => own_bcast = %2i, real recv = %2i, local tq: %3i, asym_penalty: %3i, iface_penalty: %3i, total tq: %3i, if_incoming = %s, if_outgoing = %s\n",
 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index e847dba..7e16518 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -699,7 +699,6 @@ static int nf_ct_resolve_clash(struct net *net, struct sk_buff *skb,
- 
- 	l4proto = __nf_ct_l4proto_find(nf_ct_l3num(ct), nf_ct_protonum(ct));
- 	if (l4proto->allow_clash &&
--	    ((ct->status & IPS_NAT_DONE_MASK) == 0) &&
- 	    !nf_ct_is_dying(ct) &&
- 	    atomic_inc_not_zero(&ct->ct_general.use)) {
- 		enum ip_conntrack_info oldinfo;
-diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
-index 6c72922..9edfca2 100644
---- a/net/netfilter/nf_nat_core.c
-+++ b/net/netfilter/nf_nat_core.c
-@@ -328,6 +328,7 @@ static int nf_nat_bysource_cmp(struct rhashtable_compare_arg *arg,
- 	const struct nf_conntrack_zone *zone;
- 	const struct nf_nat_l3proto *l3proto;
- 	const struct nf_nat_l4proto *l4proto;
-+	const struct nf_conntrack_l4proto *ct_l4proto;
- 	struct net *net = nf_ct_net(ct);
- 
- 	zone = nf_ct_zone(ct);
-@@ -336,6 +337,7 @@ static int nf_nat_bysource_cmp(struct rhashtable_compare_arg *arg,
- 	l3proto = __nf_nat_l3proto_find(orig_tuple->src.l3num);
- 	l4proto = __nf_nat_l4proto_find(orig_tuple->src.l3num,
- 					orig_tuple->dst.protonum);
-+	ct_l4proto = __nf_ct_l4proto_find(nf_ct_l3num(ct), nf_ct_protonum(ct));
- 
- 	/* 1) If this srcip/proto/src-proto-part is currently mapped,
- 	 * and that same mapping gives a unique tuple within the given
-@@ -349,7 +351,7 @@ static int nf_nat_bysource_cmp(struct rhashtable_compare_arg *arg,
- 	    !(range->flags & NF_NAT_RANGE_PROTO_RANDOM_ALL)) {
- 		/* try the original tuple first */
- 		if (in_range(l3proto, l4proto, orig_tuple, range)) {
--			if (!nf_nat_used_tuple(orig_tuple, ct)) {
-+			if (!nf_nat_used_tuple(orig_tuple, ct) || ct_l4proto->allow_clash) {
- 				*tuple = *orig_tuple;
- 				goto out;
- 			}
--- 
-1.8.3.1
+Do you want to provide a patch to convert it to simple %pM's?
+
+Kind regards,
+	Sven
+--nextPart4324963.WuPt3uYS2a
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part.
+Content-Transfer-Encoding: 7Bit
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAABCgAdFiEEF10rh2Elc9zjMuACXYcKB8Eme0YFAllA8ooACgkQXYcKB8Em
+e0aMxw//aBh5BXDejVsBkFXF23awty4UIDnUq+fupMZFKKp0XWFNECCT5Sp70jWg
+bHwsoNLKTPg3p4y/DQ36j0waOQcBFAepuDE3/2rZwM38jkxPMnM8gUIJlCZ+VIKD
+1xxnid58CimH99CvNFsJ0XbmTW+hJ8WwX7vmM/ewb7qhmHzzlh9l6bwJppTtkSYh
+XZqyXzoW5EOgJ2WOb42Wp85BXzAqlzaZN4yzWorJcYNTQmTNqJPuYgAuKiARb4Hi
+0yJmAB0tsT4uOHlzXyhZ4LAXjvTXUG3PIrS/O6K+Hsp2zCDasqw/9OJyC+VHODlp
+zAgshFbkN/eCCsFcO6HVghKOKFCvg87/bc7OsiKg824nUnS526b5unN7A6sOOlrH
+baGJMek5Lq54HsLD2xhBILAMRfwZoRFQkAnlnkkAnfslcX3XgiQvWE9QUkxn1Ia3
++XSivc7T60wqaw5CARy7kfXLcxXJHwmLff1lQqDVEmdFbLaZsZMDBnlJmkyZYSwT
+2D6ZiEybk9ly+KFL8NCyhObIirfKL2e3eLzpMGmgVfTHTcFs9wzw1u2D4oVqIvQP
+2xBAd/hypoNpGNJgcENpXf6LJOuJyXPNeaLc/+ATNghgDYfDWX4Tjd8SwQnQA9t0
+YUlwieCIknrs9CMr4d6WYvL6LR/alTQU7bpXnbaBR2oeiPbJhUc=
+=Coc4
+-----END PGP SIGNATURE-----
+
+--nextPart4324963.WuPt3uYS2a--
