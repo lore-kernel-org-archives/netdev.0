@@ -1,48 +1,61 @@
-From: Dave Watson <davejwatson@fb.com>
-Subject: Re: [PATCH v3 net-next 0/4] kernel TLS
-Date: Wed, 14 Jun 2017 15:06:26 -0700
-Message-ID: <20170614220626.GB72301@davejwatson-mba.dhcp.thefacebook.com>
-References: <20170614183654.GA80067@davejwatson-mba.dhcp.thefacebook.com>
- <20170614.154759.673143940024124611.davem@davemloft.net>
- <1497471353.765278.1009639400.15AB6F46@webmail.messagingengine.com>
+From: Samuel Thibault <samuel.thibault@ens-lyon.org>
+Subject: Re: [PATCH v2 03/11] tty: kbd: reduce stack size with KASAN
+Date: Thu, 15 Jun 2017 00:16:44 +0200
+Message-ID: <20170614221644.sws7xgm5cgiia6oo@var.youpi.perso.aquilenet.fr>
+References: <20170614211556.2062728-1-arnd@arndb.de>
+ <20170614211556.2062728-4-arnd@arndb.de>
+ <20170614212834.mtmq3wlnq525qkiz@var.youpi.perso.aquilenet.fr>
+ <CAK8P3a0aOmof7bW0Pp=o8nVdQYsQxff9kdYaqkEhrfj-oEPy4A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: David Miller <davem@davemloft.net>, <ilyal@mellanox.com>,
-        <aviadye@mellanox.com>, <borisp@mellanox.com>,
-        <liranl@mellanox.com>, <matanb@mellanox.com>,
-        <netdev@vger.kernel.org>, <tom@herbertland.com>,
-        <herbert@gondor.apana.org.au>, <linux-crypto@vger.kernel.org>,
-        <eric.dumazet@gmail.com>, <alexei.starovoitov@gmail.com>,
-        <nmav@gnutls.org>, <fridolin.pokorny@gmail.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+        kasan-dev <kasan-dev@googlegroups.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Andrey Ryabinin <aryabinin@virtuozzo.com>,
+        Networking <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Jiri Slaby <jslaby@suse.com>,
+        Dmitry Torokhov <dmitry.torokhov@gmail.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1497471353.765278.1009639400.15AB6F46@webmail.messagingengine.com>
-Sender: linux-crypto-owner@vger.kernel.org
+In-Reply-To: <CAK8P3a0aOmof7bW0Pp=o8nVdQYsQxff9kdYaqkEhrfj-oEPy4A@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Hannes, 
-
-On 06/14/17 10:15 PM, Hannes Frederic Sowa wrote:
-> one question for this patch set:
+Arnd Bergmann, on mer. 14 juin 2017 23:56:39 +0200, wrote:
+> > I however agree that it's a bad idea to inline it in functions where
+> > it's called so many times (and we're talking about the keyboard anyway).
+> >
+> >> -static void puts_queue(struct vc_data *vc, char *cp)
+> >> +static noinline_if_stackbloat void puts_queue(struct vc_data *vc, char *cp)
+> >
+> > I don't see why, it's only called once in the callers. k_fn, however, is
+> > called several times in k_pad, so that could be why, but then it's
+> > rather be the inlining of k_fn which is a bad idea.
 > 
-> What is the reason for not allowing key updates for the TX path? I was
-> always loud pointing out the problems with TLSv1.2 renegotiation and
-> TLSv1.3 key update alerts. This patch set uses encryption in a
-> synchronous way directly in the socket layer and thus wouldn't suffer
-> from problems regarding updates of the key. My hunch is that you leave
-> this option open so you can later on introduce asynchronous crypto which
-> might be used on hardware? It looks also be doable in case of MSG_MORE.
-> Otherwise by allowing key updates to the data path I would not see any
-> problems with key updates in TLS.
+> It's called by applkey, which in turn is called by k_pad(),
 
-I don't currently have any reasons to not support renegotation, we
-just don't currently use it, so I didn't add support for it.  I don't
-work on the hardware, but yes it looks like it would have to keep the
-old keys around until everything sent using them has been acked.
+k_pad calls applkey twice only. Is that really to be considered bloat?
 
-> Anyway, this patch seems easy and maybe with key updates added later on
-> doesn't seem to have any problems pointed out by me so far.
+> >> -static void fn_send_intr(struct vc_data *vc)
+> >> +static noinline_if_stackbloat void fn_send_intr(struct vc_data *vc)
+> >
+> > This one is only referenced, not called, I don't see how that could pose
+> > problem.
+> 
+> I was surprised by this as well, but it seems that gcc these days is
+> smart enough to turn the indirect function calls for k_handler[type]
+> and/or f_handler[value] into inlines again when it has already
+> determined the index to be constant.
 
-Indeed, it would be easy to flush any unencrypted data, and then
-change the keys.
+Cool :) But I don't see how it can see find it out constant. The only
+fn_handler[] caller is k_spec, using value as index. The only caller of
+f_handler[] is kbd_keycode, using type as index, and keysym&0xff as
+value.  That is definitely not constant :)  And it's only one caller, I
+don't see how that can bloat.
+
+Samuel
