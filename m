@@ -1,32 +1,22 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH net-next 0/3] rds: tcp: misc bug fixes
-Date: Thu, 15 Jun 2017 11:28:52 -0700
-Message-ID: <cover.1497547381.git.sowmini.varadhan@oracle.com>
-Cc: davem@davemloft.net, sowmini.varadhan@oracle.com,
-        santosh.shilimkar@oracle.com, imanti.mendez@oracle.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:45488 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752469AbdFOSb3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 14:31:29 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] r8152: support new chips
+Date: Thu, 15 Jun 2017 14:32:33 -0400 (EDT)
+Message-ID: <20170615.143233.388693276198967735.davem@davemloft.net>
+References: <1394712342-15778-278-Taiwan-albertk@realtek.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394712342-15778-278-Taiwan-albertk@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This series contains 2 bug fixes (patch2, patch3) and one bit of 
-code cleanup (patch1) identified during database testing
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Thu, 15 Jun 2017 14:44:01 +0800
 
-Sowmini Varadhan (3):
-  rds: tcp: remove cp_outgoing
-  rds: tcp: various endian-ness fixes
-  rds: tcp: Set linger when rejecting an incoming conn in
-    rds_tcp_accept_one
+> These patches are used to support new chips.
 
- net/rds/connection.c  |    5 -----
- net/rds/rds.h         |    4 ++--
- net/rds/recv.c        |   12 +++++++-----
- net/rds/send.c        |   11 +++++++----
- net/rds/tcp_connect.c |    3 +--
- net/rds/tcp_listen.c  |   40 +++++++++++++++++++++++-----------------
- net/rds/threads.c     |    5 +++--
- 7 files changed, 43 insertions(+), 37 deletions(-)
+Series applied, thank you.
