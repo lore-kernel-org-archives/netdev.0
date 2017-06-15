@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 7/8] net: dsa: mv88e6xxx: prefix Global Stats macros
-Date: Thu, 15 Jun 2017 12:14:05 -0400
-Message-ID: <20170615161406.20546-8-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 6/8] net: dsa: mv88e6xxx: prefix Global Monitor Control macros
+Date: Thu, 15 Jun 2017 12:14:04 -0400
+Message-ID: <20170615161406.20546-7-vivien.didelot@savoirfairelinux.com>
 References: <20170615161406.20546-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -9,182 +9,211 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Andrew Lunn <andrew@lunn.ch>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:48608 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751016AbdFOQQX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 12:16:23 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170615161406.20546-1-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Prefix and document the Global Stats Operation and Counter registers and
-give them a clear 16-bit registers representation.
+Prefix and document the Global Monitor Control Register macros
+(which became the Global Monitor & MGMT Control Register with 88E6390)
+and give a clear 16-bit registers representation.
+
+Use __bf_shf to get the shift value at compile time instead of adding
+new defined macros for it.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c    | 14 ++++++++------
- drivers/net/dsa/mv88e6xxx/global1.c | 24 ++++++++++++++----------
- drivers/net/dsa/mv88e6xxx/global1.h | 33 +++++++++++++++++++--------------
- 3 files changed, 41 insertions(+), 30 deletions(-)
+ drivers/net/dsa/mv88e6xxx/global1.c | 65 ++++++++++++++++++++++---------------
+ drivers/net/dsa/mv88e6xxx/global1.h | 38 ++++++++++++----------
+ 2 files changed, 60 insertions(+), 43 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index c31ad01c7f96..46e8d1871847 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -725,7 +725,7 @@ static void mv88e6095_stats_get_stats(struct mv88e6xxx_chip *chip, int port,
- {
- 	return mv88e6xxx_stats_get_stats(chip, port, data,
- 					 STATS_TYPE_BANK0 | STATS_TYPE_PORT,
--					 0, GLOBAL_STATS_OP_HIST_RX_TX);
-+					 0, MV88E6XXX_G1_STATS_OP_HIST_RX_TX);
- }
- 
- static void mv88e6320_stats_get_stats(struct mv88e6xxx_chip *chip, int port,
-@@ -733,8 +733,8 @@ static void mv88e6320_stats_get_stats(struct mv88e6xxx_chip *chip, int port,
- {
- 	return mv88e6xxx_stats_get_stats(chip, port, data,
- 					 STATS_TYPE_BANK0 | STATS_TYPE_BANK1,
--					 GLOBAL_STATS_OP_BANK_1_BIT_9,
--					 GLOBAL_STATS_OP_HIST_RX_TX);
-+					 MV88E6XXX_G1_STATS_OP_BANK_1_BIT_9,
-+					 MV88E6XXX_G1_STATS_OP_HIST_RX_TX);
- }
- 
- static void mv88e6390_stats_get_stats(struct mv88e6xxx_chip *chip, int port,
-@@ -742,7 +742,8 @@ static void mv88e6390_stats_get_stats(struct mv88e6xxx_chip *chip, int port,
- {
- 	return mv88e6xxx_stats_get_stats(chip, port, data,
- 					 STATS_TYPE_BANK0 | STATS_TYPE_BANK1,
--					 GLOBAL_STATS_OP_BANK_1_BIT_10, 0);
-+					 MV88E6XXX_G1_STATS_OP_BANK_1_BIT_10,
-+					 0);
- }
- 
- static void mv88e6xxx_get_stats(struct mv88e6xxx_chip *chip, int port,
-@@ -2057,8 +2058,9 @@ static int mv88e6xxx_g1_setup(struct mv88e6xxx_chip *chip)
- 		return err;
- 
- 	/* Clear the statistics counters for all ports */
--	err = mv88e6xxx_g1_write(chip, GLOBAL_STATS_OP,
--				 GLOBAL_STATS_OP_FLUSH_ALL);
-+	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_STATS_OP,
-+				 MV88E6XXX_G1_STATS_OP_BUSY |
-+				 MV88E6XXX_G1_STATS_OP_FLUSH_ALL);
- 	if (err)
- 		return err;
- 
 diff --git a/drivers/net/dsa/mv88e6xxx/global1.c b/drivers/net/dsa/mv88e6xxx/global1.c
-index ee77840d5271..d76d7c7ea819 100644
+index 63e3ad1ba52a..ee77840d5271 100644
 --- a/drivers/net/dsa/mv88e6xxx/global1.c
 +++ b/drivers/net/dsa/mv88e6xxx/global1.c
-@@ -370,7 +370,8 @@ int mv88e6390_g1_stats_set_histogram(struct mv88e6xxx_chip *chip)
+@@ -12,6 +12,8 @@
+  * (at your option) any later version.
+  */
  
- int mv88e6xxx_g1_stats_wait(struct mv88e6xxx_chip *chip)
- {
--	return mv88e6xxx_g1_wait(chip, GLOBAL_STATS_OP, GLOBAL_STATS_OP_BUSY);
-+	return mv88e6xxx_g1_wait(chip, MV88E6XXX_G1_STATS_OP,
-+				 MV88E6XXX_G1_STATS_OP_BUSY);
- }
++#include <linux/bitfield.h>
++
+ #include "chip.h"
+ #include "global1.h"
  
- int mv88e6xxx_g1_stats_snapshot(struct mv88e6xxx_chip *chip, int port)
-@@ -378,9 +379,10 @@ int mv88e6xxx_g1_stats_snapshot(struct mv88e6xxx_chip *chip, int port)
+@@ -247,17 +249,17 @@ int mv88e6095_g1_set_egress_port(struct mv88e6xxx_chip *chip, int port)
+ 	u16 reg;
  	int err;
  
- 	/* Snapshot the hardware statistics counters for this port. */
--	err = mv88e6xxx_g1_write(chip, GLOBAL_STATS_OP,
--				 GLOBAL_STATS_OP_CAPTURE_PORT |
--				 GLOBAL_STATS_OP_HIST_RX_TX | port);
-+	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_STATS_OP,
-+				 MV88E6XXX_G1_STATS_OP_BUSY |
-+				 MV88E6XXX_G1_STATS_OP_CAPTURE_PORT |
-+				 MV88E6XXX_G1_STATS_OP_HIST_RX_TX | port);
+-	err = mv88e6xxx_g1_read(chip, GLOBAL_MONITOR_CONTROL, &reg);
++	err = mv88e6xxx_g1_read(chip, MV88E6185_G1_MONITOR_CTL, &reg);
  	if (err)
  		return err;
  
-@@ -402,8 +404,9 @@ int mv88e6390_g1_stats_snapshot(struct mv88e6xxx_chip *chip, int port)
- 	port = (port + 1) << 5;
+-	reg &= ~(GLOBAL_MONITOR_CONTROL_INGRESS_MASK |
+-		 GLOBAL_MONITOR_CONTROL_EGRESS_MASK);
++	reg &= ~(MV88E6185_G1_MONITOR_CTL_INGRESS_DEST_MASK |
++		 MV88E6185_G1_MONITOR_CTL_EGRESS_DEST_MASK);
  
- 	/* Snapshot the hardware statistics counters for this port. */
--	err = mv88e6xxx_g1_write(chip, GLOBAL_STATS_OP,
--				 GLOBAL_STATS_OP_CAPTURE_PORT | port);
-+	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_STATS_OP,
-+				 MV88E6XXX_G1_STATS_OP_BUSY |
-+				 MV88E6XXX_G1_STATS_OP_CAPTURE_PORT | port);
+-	reg |= port << GLOBAL_MONITOR_CONTROL_INGRESS_SHIFT |
+-		port << GLOBAL_MONITOR_CONTROL_EGRESS_SHIFT;
++	reg |= port << __bf_shf(MV88E6185_G1_MONITOR_CTL_INGRESS_DEST_MASK) |
++		port << __bf_shf(MV88E6185_G1_MONITOR_CTL_EGRESS_DEST_MASK);
+ 
+-	return mv88e6xxx_g1_write(chip, GLOBAL_MONITOR_CONTROL, reg);
++	return mv88e6xxx_g1_write(chip, MV88E6185_G1_MONITOR_CTL, reg);
+ }
+ 
+ /* Older generations also call this the ARP destination. It has been
+@@ -269,14 +271,14 @@ int mv88e6095_g1_set_cpu_port(struct mv88e6xxx_chip *chip, int port)
+ 	u16 reg;
+ 	int err;
+ 
+-	err = mv88e6xxx_g1_read(chip, GLOBAL_MONITOR_CONTROL, &reg);
++	err = mv88e6xxx_g1_read(chip, MV88E6185_G1_MONITOR_CTL, &reg);
  	if (err)
  		return err;
  
-@@ -419,8 +422,9 @@ void mv88e6xxx_g1_stats_read(struct mv88e6xxx_chip *chip, int stat, u32 *val)
+-	reg &= ~GLOBAL_MONITOR_CONTROL_ARP_MASK;
+-	reg |= port << GLOBAL_MONITOR_CONTROL_ARP_SHIFT;
++	reg &= ~MV88E6185_G1_MONITOR_CTL_ARP_DEST_MASK;
++	reg |= port << __bf_shf(MV88E6185_G1_MONITOR_CTL_ARP_DEST_MASK);
  
- 	*val = 0;
+-	return mv88e6xxx_g1_write(chip, GLOBAL_MONITOR_CONTROL, reg);
++	return mv88e6xxx_g1_write(chip, MV88E6185_G1_MONITOR_CTL, reg);
+ }
  
--	err = mv88e6xxx_g1_write(chip, GLOBAL_STATS_OP,
--				 GLOBAL_STATS_OP_READ_CAPTURED | stat);
-+	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_STATS_OP,
-+				 MV88E6XXX_G1_STATS_OP_BUSY |
-+				 MV88E6XXX_G1_STATS_OP_READ_CAPTURED | stat);
+ static int mv88e6390_g1_monitor_write(struct mv88e6xxx_chip *chip,
+@@ -284,55 +286,66 @@ static int mv88e6390_g1_monitor_write(struct mv88e6xxx_chip *chip,
+ {
+ 	u16 reg;
+ 
+-	reg = GLOBAL_MONITOR_CONTROL_UPDATE | pointer | data;
++	reg = MV88E6390_G1_MONITOR_MGMT_CTL_UPDATE | pointer | data;
+ 
+-	return mv88e6xxx_g1_write(chip, GLOBAL_MONITOR_CONTROL, reg);
++	return mv88e6xxx_g1_write(chip, MV88E6390_G1_MONITOR_MGMT_CTL, reg);
+ }
+ 
+ int mv88e6390_g1_set_egress_port(struct mv88e6xxx_chip *chip, int port)
+ {
++	u16 ptr;
+ 	int err;
+ 
+-	err = mv88e6390_g1_monitor_write(chip, GLOBAL_MONITOR_CONTROL_INGRESS,
+-					 port);
++	ptr = MV88E6390_G1_MONITOR_MGMT_CTL_PTR_INGRESS_DEST;
++	err = mv88e6390_g1_monitor_write(chip, ptr, port);
  	if (err)
- 		return;
+ 		return err;
  
-@@ -428,13 +432,13 @@ void mv88e6xxx_g1_stats_read(struct mv88e6xxx_chip *chip, int stat, u32 *val)
+-	return mv88e6390_g1_monitor_write(chip, GLOBAL_MONITOR_CONTROL_EGRESS,
+-					  port);
++	ptr = MV88E6390_G1_MONITOR_MGMT_CTL_PTR_EGRESS_DEST;
++	err = mv88e6390_g1_monitor_write(chip, ptr, port);
++	if (err)
++		return err;
++
++	return 0;
+ }
+ 
+ int mv88e6390_g1_set_cpu_port(struct mv88e6xxx_chip *chip, int port)
+ {
+-	return mv88e6390_g1_monitor_write(chip, GLOBAL_MONITOR_CONTROL_CPU_DEST,
+-					  port);
++	u16 ptr = MV88E6390_G1_MONITOR_MGMT_CTL_PTR_CPU_DEST;
++
++	return mv88e6390_g1_monitor_write(chip, ptr, port);
+ }
+ 
+ int mv88e6390_g1_mgmt_rsvd2cpu(struct mv88e6xxx_chip *chip)
+ {
++	u16 ptr;
+ 	int err;
+ 
+ 	/* 01:c2:80:00:00:00:00-01:c2:80:00:00:00:07 are Management */
+-	err = mv88e6390_g1_monitor_write(
+-		chip, GLOBAL_MONITOR_CONTROL_0180C280000000XLO, 0xff);
++	ptr = MV88E6390_G1_MONITOR_MGMT_CTL_PTR_0180C280000000XLO;
++	err = mv88e6390_g1_monitor_write(chip, ptr, 0xff);
  	if (err)
- 		return;
+ 		return err;
  
--	err = mv88e6xxx_g1_read(chip, GLOBAL_STATS_COUNTER_32, &reg);
-+	err = mv88e6xxx_g1_read(chip, MV88E6XXX_G1_STATS_COUNTER_32, &reg);
+ 	/* 01:c2:80:00:00:00:08-01:c2:80:00:00:00:0f are Management */
+-	err = mv88e6390_g1_monitor_write(
+-		chip, GLOBAL_MONITOR_CONTROL_0180C280000000XHI, 0xff);
++	ptr = MV88E6390_G1_MONITOR_MGMT_CTL_PTR_0180C280000000XHI;
++	err = mv88e6390_g1_monitor_write(chip, ptr, 0xff);
  	if (err)
- 		return;
+ 		return err;
  
- 	value = reg << 16;
- 
--	err = mv88e6xxx_g1_read(chip, GLOBAL_STATS_COUNTER_01, &reg);
-+	err = mv88e6xxx_g1_read(chip, MV88E6XXX_G1_STATS_COUNTER_01, &reg);
+ 	/* 01:c2:80:00:00:00:20-01:c2:80:00:00:00:27 are Management */
+-	err = mv88e6390_g1_monitor_write(
+-		chip, GLOBAL_MONITOR_CONTROL_0180C280000002XLO, 0xff);
++	ptr = MV88E6390_G1_MONITOR_MGMT_CTL_PTR_0180C280000002XLO;
++	err = mv88e6390_g1_monitor_write(chip, ptr, 0xff);
  	if (err)
- 		return;
+ 		return err;
  
+ 	/* 01:c2:80:00:00:00:28-01:c2:80:00:00:00:2f are Management */
+-	return mv88e6390_g1_monitor_write(
+-		chip, GLOBAL_MONITOR_CONTROL_0180C280000002XHI, 0xff);
++	ptr = MV88E6390_G1_MONITOR_MGMT_CTL_PTR_0180C280000002XHI;
++	err = mv88e6390_g1_monitor_write(chip, ptr, 0xff);
++	if (err)
++		return err;
++
++	return 0;
+ }
+ 
+ /* Offset 0x1c: Global Control 2 */
 diff --git a/drivers/net/dsa/mv88e6xxx/global1.h b/drivers/net/dsa/mv88e6xxx/global1.h
-index 020b21c0c9c3..16c21bd671c5 100644
+index af1a510f7a45..020b21c0c9c3 100644
 --- a/drivers/net/dsa/mv88e6xxx/global1.h
 +++ b/drivers/net/dsa/mv88e6xxx/global1.h
-@@ -186,20 +186,25 @@
- #define MV88E6XXX_G1_CTL2_HIST_TX		0x0080
- #define MV88E6XXX_G1_CTL2_HIST_RX_TX		0x00c0
- 
--#define GLOBAL_STATS_OP		0x1d
--#define GLOBAL_STATS_OP_BUSY	BIT(15)
--#define GLOBAL_STATS_OP_NOP		(0 << 12)
--#define GLOBAL_STATS_OP_FLUSH_ALL	((1 << 12) | GLOBAL_STATS_OP_BUSY)
--#define GLOBAL_STATS_OP_FLUSH_PORT	((2 << 12) | GLOBAL_STATS_OP_BUSY)
--#define GLOBAL_STATS_OP_READ_CAPTURED	((4 << 12) | GLOBAL_STATS_OP_BUSY)
--#define GLOBAL_STATS_OP_CAPTURE_PORT	((5 << 12) | GLOBAL_STATS_OP_BUSY)
--#define GLOBAL_STATS_OP_HIST_RX		((1 << 10) | GLOBAL_STATS_OP_BUSY)
--#define GLOBAL_STATS_OP_HIST_TX		((2 << 10) | GLOBAL_STATS_OP_BUSY)
--#define GLOBAL_STATS_OP_HIST_RX_TX	((3 << 10) | GLOBAL_STATS_OP_BUSY)
--#define GLOBAL_STATS_OP_BANK_1_BIT_9	BIT(9)
--#define GLOBAL_STATS_OP_BANK_1_BIT_10	BIT(10)
--#define GLOBAL_STATS_COUNTER_32	0x1e
--#define GLOBAL_STATS_COUNTER_01	0x1f
-+/* Offset 0x1D: Stats Operation Register */
-+#define MV88E6XXX_G1_STATS_OP			0x1d
-+#define MV88E6XXX_G1_STATS_OP_BUSY		0x8000
-+#define MV88E6XXX_G1_STATS_OP_NOP		0x0000
-+#define MV88E6XXX_G1_STATS_OP_FLUSH_ALL		0x1000
-+#define MV88E6XXX_G1_STATS_OP_FLUSH_PORT	0x2000
-+#define MV88E6XXX_G1_STATS_OP_READ_CAPTURED	0x4000
-+#define MV88E6XXX_G1_STATS_OP_CAPTURE_PORT	0x5000
-+#define MV88E6XXX_G1_STATS_OP_HIST_RX		0x0400
-+#define MV88E6XXX_G1_STATS_OP_HIST_TX		0x0800
-+#define MV88E6XXX_G1_STATS_OP_HIST_RX_TX	0x0c00
-+#define MV88E6XXX_G1_STATS_OP_BANK_1_BIT_9	0x0200
-+#define MV88E6XXX_G1_STATS_OP_BANK_1_BIT_10	0x0400
+@@ -156,23 +156,27 @@
+ #define GLOBAL_IP_PRI_7		0x17
+ #define GLOBAL_IEEE_PRI		0x18
+ #define GLOBAL_CORE_TAG_TYPE	0x19
+-#define GLOBAL_MONITOR_CONTROL	0x1a
+-#define GLOBAL_MONITOR_CONTROL_INGRESS_SHIFT	12
+-#define GLOBAL_MONITOR_CONTROL_INGRESS_MASK	(0xf << 12)
+-#define GLOBAL_MONITOR_CONTROL_EGRESS_SHIFT	8
+-#define GLOBAL_MONITOR_CONTROL_EGRESS_MASK	(0xf << 8)
+-#define GLOBAL_MONITOR_CONTROL_ARP_SHIFT	4
+-#define GLOBAL_MONITOR_CONTROL_ARP_MASK	        (0xf << 4)
+-#define GLOBAL_MONITOR_CONTROL_MIRROR_SHIFT	0
+-#define GLOBAL_MONITOR_CONTROL_ARP_DISABLED	(0xf0)
+-#define GLOBAL_MONITOR_CONTROL_UPDATE			BIT(15)
+-#define GLOBAL_MONITOR_CONTROL_0180C280000000XLO	(0x00 << 8)
+-#define GLOBAL_MONITOR_CONTROL_0180C280000000XHI	(0x01 << 8)
+-#define GLOBAL_MONITOR_CONTROL_0180C280000002XLO	(0x02 << 8)
+-#define GLOBAL_MONITOR_CONTROL_0180C280000002XHI	(0x03 << 8)
+-#define GLOBAL_MONITOR_CONTROL_INGRESS			(0x20 << 8)
+-#define GLOBAL_MONITOR_CONTROL_EGRESS			(0x21 << 8)
+-#define GLOBAL_MONITOR_CONTROL_CPU_DEST			(0x30 << 8)
 +
-+/* Offset 0x1E: Stats Counter Register Bytes 3 & 2
-+ * Offset 0x1F: Stats Counter Register Bytes 1 & 0
-+ */
-+#define MV88E6XXX_G1_STATS_COUNTER_32	0x1e
-+#define MV88E6XXX_G1_STATS_COUNTER_01	0x1f
++/* Offset 0x1A: Monitor Control */
++#define MV88E6185_G1_MONITOR_CTL			0x1a
++#define MV88E6185_G1_MONITOR_CTL_INGRESS_DEST_MASK	0xf000
++#define MV88E6185_G1_MONITOR_CTL_EGRESS_DEST_MASK	0x0f00
++#define MV88E6185_G1_MONITOR_CTL_ARP_DEST_MASK	        0x00f0
++#define MV88E6352_G1_MONITOR_CTL_CPU_DEST_MASK	        0x00f0
++#define MV88E6352_G1_MONITOR_CTL_MIRROR_DEST_MASK	0x000f
++
++/* Offset 0x1A: Monitor & MGMT Control Register */
++#define MV88E6390_G1_MONITOR_MGMT_CTL				0x1a
++#define MV88E6390_G1_MONITOR_MGMT_CTL_UPDATE			0x8000
++#define MV88E6390_G1_MONITOR_MGMT_CTL_PTR_MASK			0x3f00
++#define MV88E6390_G1_MONITOR_MGMT_CTL_PTR_0180C280000000XLO	0x0000
++#define MV88E6390_G1_MONITOR_MGMT_CTL_PTR_0180C280000000XHI	0x0100
++#define MV88E6390_G1_MONITOR_MGMT_CTL_PTR_0180C280000002XLO	0x0200
++#define MV88E6390_G1_MONITOR_MGMT_CTL_PTR_0180C280000002XHI	0x0300
++#define MV88E6390_G1_MONITOR_MGMT_CTL_PTR_INGRESS_DEST		0x2000
++#define MV88E6390_G1_MONITOR_MGMT_CTL_PTR_EGRESS_DEST		0x2100
++#define MV88E6390_G1_MONITOR_MGMT_CTL_PTR_CPU_DEST		0x3000
++#define MV88E6390_G1_MONITOR_MGMT_CTL_DATA_MASK			0x00ff
  
- int mv88e6xxx_g1_read(struct mv88e6xxx_chip *chip, int reg, u16 *val);
- int mv88e6xxx_g1_write(struct mv88e6xxx_chip *chip, int reg, u16 val);
+ /* Offset 0x1C: Global Control 2 */
+ #define MV88E6XXX_G1_CTL2			0x1c
 -- 
 2.13.1
