@@ -1,36 +1,95 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH net-next] nfp: add VLAN filtering support
-Date: Thu, 15 Jun 2017 12:50:57 +0000
-Message-ID: <BLUPR0701MB2004A321103E707B6F6A63918DC00@BLUPR0701MB2004.namprd07.prod.outlook.com>
-References: <20170615062307.10153-1-jakub.kicinski@netronome.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 0/3] ipmr/ip6mr: add Netlink notifications on
+ cache reports
+Date: Thu, 15 Jun 2017 16:00:26 +0300
+Message-ID: <f36d3b05-0598-38a4-0ffa-b6e73986a679@cumulusnetworks.com>
+References: <20170613170822.16310-1-julien@arista.com>
+ <891d876f-18fb-706b-c269-ec8892d2f6ff@cumulusnetworks.com>
+ <7b133850-bbdc-594c-f7f3-62e9d4adf1f3@arista.com>
+ <2d412677-d31a-7740-952c-b1b007bbf075@cumulusnetworks.com>
+ <01588135-b3d6-bc92-be31-0ae86310d904@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "oss-drivers@netronome.com" <oss-drivers@netronome.com>,
-        =?utf-8?B?UGFibG8gQ2FzY8Ozbg==?= <pablo.cascon@netronome.com>
-To: Jakub Kicinski <jakub.kicinski@netronome.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+        Donald Sharp <sharpd@cumulusnetworks.com>
+To: Julien Gomes <julien@arista.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0074.outbound.protection.outlook.com ([104.47.42.74]:50400
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751955AbdFOMu7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 15 Jun 2017 08:50:59 -0400
-In-Reply-To: <20170615062307.10153-1-jakub.kicinski@netronome.com>
-Content-Language: en-US
+Received: from mail-lf0-f52.google.com ([209.85.215.52]:33392 "EHLO
+        mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750948AbdFONAa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 09:00:30 -0400
+Received: by mail-lf0-f52.google.com with SMTP id m77so8886373lfe.0
+        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 06:00:29 -0700 (PDT)
+In-Reply-To: <01588135-b3d6-bc92-be31-0ae86310d904@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBGcm9tOiBQYWJsbyBDYXNjw7NuIDxwYWJsby5jYXNjb25AbmV0cm9ub21lLmNvbT4NCj4gDQo+
-IEFkZCBnZW5lcmFsIHVzZSBwZXItdk5JQyBtYWlsYm94IGFyZWEgYW5kIHVzZSBpdCBmb3IgVkxB
-TiBmaWx0ZXJpbmcgc3VwcG9ydC4NCj4gSW5pdGlhbGx5IHByb3RvIGlzIGhhcmRjb2RlZCB0byA4
-MDIuMXEuDQo+IA0KLi4uDQo+ICtzdGF0aWMgaW50DQo+ICtuZnBfbmV0X3ZsYW5fcnhfYWRkX3Zp
-ZChzdHJ1Y3QgbmV0X2RldmljZSAqbmV0ZGV2LCBfX2JlMTYgcHJvdG8sIHUxNg0KPiArdmlkKSB7
-DQo+ICsJc3RydWN0IG5mcF9uZXQgKm5uID0gbmV0ZGV2X3ByaXYobmV0ZGV2KTsNCj4gKw0KPiAr
-CS8qIFByaW9yaXR5IHRhZ2dlZCBwYWNrZXRzIHdpdGggdmxhbiBpZCAwIGFyZSBwcm9jZXNzZWQg
-YnkgdGhlDQo+ICsJICogTkZQIGFzIHVudGFnZ2VkIHBhY2tldHMNCj4gKwkgKi8NCj4gKwlpZiAo
-IXZpZCkNCj4gKwkJcmV0dXJuIDA7DQo+ICsNCj4gKwlubl93cml0ZXcobm4sIE5GUF9ORVRfQ0ZH
-X1ZMQU5fRklMVEVSX1ZJRCwgdmlkKTsNCj4gKwlubl93cml0ZXcobm4sIE5GUF9ORVRfQ0ZHX1ZM
-QU5fRklMVEVSX1BST1RPLCBFVEhfUF84MDIxUSk7DQoNCklmIGl0J3MgaGFyZC1jb2RlZCwgZG9u
-J3QgeW91IHdhbnQgdG8gZmFpbCB0aGUgcmVxdWVzdCBpbiBjYXNlIHByb3RvIGlzIGRpZmZlcmVu
-dD8NCg==
+On 15/06/17 14:44, Nikolay Aleksandrov wrote:
+> On 15/06/17 14:33, Nikolay Aleksandrov wrote:
+>> On 15/06/17 00:51, Julien Gomes wrote:
+>>> Hi Nikolay,
+>>>
+>>> On 06/14/2017 05:04 AM, Nikolay Aleksandrov wrote:
+>>>
+>>>> This has been on our todo list and I'm definitely interested in the implementation.
+>>>> A few things that need careful consideration from my POV. First are the security
+>>>> implications - this sends rtnl multicast messages but the rtnl socket has
+>>>> the NL_CFG_F_NONROOT_RECV flag thus allowing any user on the system to listen in.
+>>>> This would allow them to see the full packets and all reports (granted they can see
+>>>> the notifications even now), but the full packet is like giving them the opportunity
+>>>> to tcpdump the PIM traffic.
+>>>
+>>> I definitely see how this can be an issue.
+>>> From what I see, this means that either the packet should be
+>>> transmitted another way, or another Netlink family should be used.
+>>>
+>>> NETLINK_ROUTE looks to be the logical family to choose though,
+>>> but then I do not see a proper other way to handle this.
+>>
+>> Right, currently me neither, unless it provides a bind callback when registering
+>> the kernel socket.
+>>
+>>>
+>>> However I may just not be looking into the right direction,
+>>> maybe you currently have another approach in mind?
+>>
+>> I haven't gotten around to make (or even try) them but I was thinking about 2 options
+>> ending up with a similar result:
+>>
+>> 1) genetlink
+>>  It also has the NONROOT_RECV flag, but it also allows for a callback - mcast_bind()
+>>  which can be used to filter.
+>>
+>> or
+>>
+>> 2) Providing a bind callback to the NETLINK_ROUTE socket.
+>>
+> 
+> Ah nevermind, these cannot be used for filtering currently, so it seems
+> the netlink interface would need to be extended too if going down this road.
+> 
+
+Sorry for the multiple emails, just to be thorough - again if going down this
+road all of these would obviously require a different group to bind to in order
+to be able to filter on it, because users must keep receiving their notifications
+for the ipmr one.
+Maybe alternative options should be considered, e.g. allowing multiple sockets
+to receive the reports, but this is starting to sound like af_packet. :-)
+
+>> I haven't checked in detail how feasible each option is. To me 2) seems like the
+>> cleaner/proper way to do it but it requires extending the rtnetlink api.
+>>
+>> It would be nice to get feedback and comments from more people on this.
+>>
+>>>
+>>>> My second (more fixable and minor) concern is about the packet itself, how do you
+>>>> know that the packet is all linear so you can directly copy it ?
+>>>
+>>> Indeed, I overlooked this possibility in this version.
+>>> I will improve that.
+>>>
+>>
+>> Thanks!
+>>
+> 
