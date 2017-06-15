@@ -1,92 +1,84 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next] net: dsa: add cross-chip multicast support
-Date: Thu, 15 Jun 2017 16:14:48 -0400
-Message-ID: <20170615201448.22424-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Jason Cobham <jcobham@questertangent.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net-next 0/7] qed*: RDMA and infrastructure for iWARP
+Date: Thu, 15 Jun 2017 23:29:26 +0300
+Message-ID: <20170615202933.20934-1-Yuval.Mintz@cavium.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Similarly to how cross-chip VLAN works, define a bitmap of multicast
-group members for a switch, now including its DSA ports, so that
-multicast traffic can be sent to all switches of the fabric.
+This series focuses on RDMA in general with emphasis on required changes
+toward adding iWARP support. The vast majority of the changes introduced
+are in qed/qede, with a couple of small changes to qedr
+[mentioned below].
 
-A switch may drop the frames if no user port is a member.
+The infrastructure changes:
+ - Patch #1 adds the ability to pass PBL memory externally for a newly
+created chain.
+ - Patches #4, #5 rename qede_roce.[ch] into qede_rdma.[ch] + change
+prefixes from _roce_ to _rdma_, as the API between qede and qedr is
+agnostic to the variant of the RDMA protocol used. These patches also
+touch qedr [basically to align it with the renaming, nothing more].
+ - Patch #7 replaces the current SPQ async mechanism into serving
+registered callbacks [before adding iWARP which would add another client
+in need of this sort of functionallity].
 
-This brings support for multicast in a multi-chip environment.
-As of now, all switches of the fabric must support the multicast
-operations in order to program a single fabric port.
+The non-infrastrucutre changes:
+ - Patches #2, #3 contain DCB-related changes to better align RDMA with
+configured DCB.
+ - Patch #6 contains a minor [mostly theoretical fix] to release flow.
 
-Reported-by: Jason Cobham <jcobham@questertangent.com>
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- net/dsa/switch.c | 30 ++++++++++++++++++++----------
- 1 file changed, 20 insertions(+), 10 deletions(-)
+Dave,
 
-diff --git a/net/dsa/switch.c b/net/dsa/switch.c
-index f1029a8d0e20..97e2e9c8cf3f 100644
---- a/net/dsa/switch.c
-+++ b/net/dsa/switch.c
-@@ -122,19 +122,30 @@ static int dsa_switch_mdb_add(struct dsa_switch *ds,
- {
- 	const struct switchdev_obj_port_mdb *mdb = info->mdb;
- 	struct switchdev_trans *trans = info->trans;
-+	DECLARE_BITMAP(group, ds->num_ports);
-+	int port, err;
- 
--	/* Do not care yet about other switch chips of the fabric */
--	if (ds->index != info->sw_index)
--		return 0;
-+	/* Build a mask of Multicast group members */
-+	bitmap_zero(group, ds->num_ports);
-+	if (ds->index == info->sw_index)
-+		set_bit(info->port, group);
-+	for (port = 0; port < ds->num_ports; port++)
-+		if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port))
-+			set_bit(port, group);
- 
- 	if (switchdev_trans_ph_prepare(trans)) {
- 		if (!ds->ops->port_mdb_prepare || !ds->ops->port_mdb_add)
- 			return -EOPNOTSUPP;
- 
--		return ds->ops->port_mdb_prepare(ds, info->port, mdb, trans);
-+		for_each_set_bit(port, group, ds->num_ports) {
-+			err = ds->ops->port_mdb_prepare(ds, port, mdb, trans);
-+			if (err)
-+				return err;
-+		}
- 	}
- 
--	ds->ops->port_mdb_add(ds, info->port, mdb, trans);
-+	for_each_set_bit(port, group, ds->num_ports)
-+		ds->ops->port_mdb_add(ds, port, mdb, trans);
- 
- 	return 0;
- }
-@@ -144,14 +155,13 @@ static int dsa_switch_mdb_del(struct dsa_switch *ds,
- {
- 	const struct switchdev_obj_port_mdb *mdb = info->mdb;
- 
--	/* Do not care yet about other switch chips of the fabric */
--	if (ds->index != info->sw_index)
--		return 0;
--
- 	if (!ds->ops->port_mdb_del)
- 		return -EOPNOTSUPP;
- 
--	return ds->ops->port_mdb_del(ds, info->port, mdb);
-+	if (ds->index == info->sw_index)
-+		return ds->ops->port_mdb_del(ds, info->port, mdb);
-+
-+	return 0;
- }
- 
- static int dsa_switch_vlan_add(struct dsa_switch *ds,
+Please consider applying this series to `net-next'.
+
+Thanks,
+Yuval
+
+Michal Kalderon (4):
+  qed*: Rename qede_roce.[ch]
+  qed*: Set rdma generic functions prefix
+  qed: Wait for resources before FUNC_CLOSE
+  qed: SPQ async callback registration
+
+Yuval Mintz (3):
+  qed: Chain support for external PBL
+  qed: RoCE EDPM to honor PFC
+  qed: Disable RoCE dpm when DCBx change occurs
+
+ drivers/infiniband/hw/qedr/main.c                  |  10 +-
+ drivers/infiniband/hw/qedr/qedr.h                  |   2 +-
+ drivers/infiniband/hw/qedr/verbs.c                 |   6 +-
+ drivers/net/ethernet/qlogic/qed/qed_dcbx.c         |  24 ++++
+ drivers/net/ethernet/qlogic/qed/qed_dev.c          |  35 +++--
+ drivers/net/ethernet/qlogic/qed/qed_dev_api.h      |   5 +-
+ drivers/net/ethernet/qlogic/qed/qed_iscsi.c        |  30 ++++-
+ drivers/net/ethernet/qlogic/qed/qed_ll2.c          |   6 +-
+ drivers/net/ethernet/qlogic/qed/qed_reg_addr.h     |   6 +
+ drivers/net/ethernet/qlogic/qed/qed_roce.c         |  87 ++++++++++---
+ drivers/net/ethernet/qlogic/qed/qed_roce.h         |   9 +-
+ drivers/net/ethernet/qlogic/qed/qed_sp.h           |  17 +++
+ drivers/net/ethernet/qlogic/qed/qed_spq.c          |  60 +++++----
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c        |  16 ++-
+ drivers/net/ethernet/qlogic/qed/qed_sriov.h        |  18 ---
+ drivers/net/ethernet/qlogic/qede/Makefile          |   2 +-
+ drivers/net/ethernet/qlogic/qede/qede.h            |   5 +-
+ drivers/net/ethernet/qlogic/qede/qede_main.c       |  21 ++-
+ .../qlogic/qede/{qede_roce.c => qede_rdma.c}       | 144 ++++++++++-----------
+ include/linux/qed/qed_chain.h                      |   7 +
+ include/linux/qed/qed_if.h                         |   3 +-
+ include/linux/qed/{qede_roce.h => qede_rdma.h}     |  37 +++---
+ 22 files changed, 348 insertions(+), 202 deletions(-)
+ rename drivers/net/ethernet/qlogic/qede/{qede_roce.c => qede_rdma.c} (59%)
+ rename include/linux/qed/{qede_roce.h => qede_rdma.h} (67%)
+
 -- 
-2.13.1
+2.9.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
