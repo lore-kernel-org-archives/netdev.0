@@ -1,63 +1,39 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build failure after merge of the
- wireless-drivers-next tree
-Date: Fri, 16 Jun 2017 04:25:19 +1000
-Message-ID: <20170616042519.40f63561@canb.auug.org.au>
-References: <20170608122759.7ffda0c3@canb.auug.org.au>
-        <20170613120024.2a1ce31b@canb.auug.org.au>
-        <20170615.120808.1402317729827497353.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] rxrpc: Fix several cases where a padded len isn't
+ checked in ticket decode
+Date: Thu, 15 Jun 2017 14:27:34 -0400 (EDT)
+Message-ID: <20170615.142734.1952678170179907268.davem@davemloft.net>
+References: <149748194451.23919.13232256832988154536.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kvalo@codeaurora.org,
-        linux-wireless@vger.kernel.org, linux-next@vger.kernel.org,
-        linux-kernel@vger.kernel.org, igor.mitsyanko.os@quantenna.com,
-        dlebed@quantenna.com, smaksimenko@quantenna.com,
-        smatyukevich@quantenna.com, btherthala@quantenna.com,
-        hwang@quantenna.com, krath@quantenna.com, avinashp@quantenna.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20170615.120808.1402317729827497353.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <149748194451.23919.13232256832988154536.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+From: David Howells <dhowells@redhat.com>
+Date: Thu, 15 Jun 2017 00:12:24 +0100
 
-On Thu, 15 Jun 2017 12:08:08 -0400 (EDT) David Miller <davem@davemloft.net> wrote:
->
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Tue, 13 Jun 2017 12:00:24 +1000
+> This fixes CVE-2017-7482.
 > 
-> > On Thu, 8 Jun 2017 12:27:59 +1000 Stephen Rothwell <sfr@canb.auug.org.au> wrote:  
-> >>
-> >> After merging the wireless-drivers-next tree, today's linux-next build
-> >> (x86_64 allmodconfig) failed like this:
-> >> 
-> >> drivers/net/wireless/quantenna/qtnfmac/core.c: In function 'qtnf_core_net_attach':
-> >> drivers/net/wireless/quantenna/qtnfmac/core.c:319:5: error: 'struct net_device' has no member named 'destructor'
-> >>   dev->destructor = free_netdev;
-> >>      ^
-> >> 
-> >> Caused by commit
-> >> 
-> >>   98f44cb0655c ("qtnfmac: introduce new FullMAC driver for Quantenna chipsets")  
-> > 
-> > This commit is now in the net-next tree ...
-> >   
-> >> interacting with commit
-> >> 
-> >>   cf124db566e6 ("net: Fix inconsistent teardown and release of private netdev state.")
-> >> 
-> >> from the net tree.
-> >> 
-> >> I applied this merge fix patch for today.  
-> > 
-> > So this merge fix patch is needed when the net and net-next trees are merged.  
+> When a kerberos 5 ticket is being decoded so that it can be loaded into an
+> rxrpc-type key, there are several places in which the length of a
+> variable-length field is checked to make sure that it's not going to
+> overrun the available data - but the data is padded to the nearest
+> four-byte boundary and the code doesn't check for this extra.  This could
+> lead to the size-remaining variable wrapping and the data pointer going
+> over the end of the buffer.
 > 
-> This is now all resolved, thanks!
+> Fix this by making the various variable-length data checks use the padded
+> length.
+> 
+> Reported-by: 石磊 <shilei-c@360.cn>
+> Signed-off-by: David Howells <dhowells@redhat.com>
+> Reviewed-by: Marc Dionne <marc.c.dionne@auristor.com>
+> Reviewed-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Thanks for letting me know.
-
--- 
-Cheers,
-Stephen Rothwell
+Applied, thanks David.
