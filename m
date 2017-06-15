@@ -1,43 +1,58 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: Re: [PATCH] atm: solos-pci: remove useless variable assignments
-Date: Thu, 15 Jun 2017 16:43:36 -0500
-Message-ID: <20170615164336.Horde.41f0yf4qsGt84ZI8i8R-i9B@gator4166.hostgator.com>
-References: <20170615195621.GA5600@embeddedgus>
- <20170615.173334.947301773714825384.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
-Cc: 3chas3@gmail.com, linux-atm-general@lists.sourceforge.net,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [net-next 06/15] net/mlx5: Avoid space after casting
+Date: Fri, 16 Jun 2017 00:42:43 +0300
+Message-ID: <20170615214252.30140-7-saeedm@mellanox.com>
+References: <20170615214252.30140-1-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway34.websitewelcome.com ([192.185.149.222]:35536 "EHLO
-        gateway34.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752548AbdFOVnu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 17:43:50 -0400
-Received: from cm11.websitewelcome.com (cm11.websitewelcome.com [100.42.49.5])
-        by gateway34.websitewelcome.com (Postfix) with ESMTP id 6191F83E649
-        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 16:43:37 -0500 (CDT)
-In-Reply-To: <20170615.173334.947301773714825384.davem@davemloft.net>
-Content-Disposition: inline
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:32929 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752155AbdFOVnF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 17:43:05 -0400
+In-Reply-To: <20170615214252.30140-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Or Gerlitz <ogerlitz@mellanox.com>
 
-Quoting David Miller <davem@davemloft.net>:
+Fix checkpatch complaints on that:
 
-> From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-> Date: Thu, 15 Jun 2017 14:56:21 -0500
->
->> Value assigned to variable _data32_ at lines 1254 and 1257 is
->> overwritten at line 1260 before it can be used. This makes
->> such variable assignments useless.
->>
->> Addresses-Coverity-ID: 1227049
->> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
->
-> Applied, thanks.
+ CHECK: No space is necessary after a cast
 
-Absolutely, glad to help.
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c               | 2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-Regards
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eq.c b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
+index 43b279b01e07..af51a5d2b912 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eq.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
+@@ -191,7 +191,7 @@ static void eq_update_ci(struct mlx5_eq *eq, int arm)
+ {
+ 	__be32 __iomem *addr = eq->doorbell + (arm ? 0 : 2);
+ 	u32 val = (eq->cons_index & 0xffffff) | (eq->eqn << 24);
+-	__raw_writel((__force u32) cpu_to_be32(val), addr);
++	__raw_writel((__force u32)cpu_to_be32(val), addr);
+ 	/* We still want ordering, just not swabbing, so add a barrier */
+ 	mb();
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index 877395f34e89..b8030b5707a5 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -1093,7 +1093,7 @@ int mlx5_devlink_eswitch_encap_mode_set(struct devlink *devlink, u8 encap)
+ 	if (err) {
+ 		esw_warn(esw->dev, "Failed re-creating fast FDB table, err %d\n", err);
+ 		esw->offloads.encap = !encap;
+-		(void) esw_create_offloads_fast_fdb_table(esw);
++		(void)esw_create_offloads_fast_fdb_table(esw);
+ 	}
+ 	return err;
+ }
+-- 
+2.11.0
