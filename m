@@ -1,35 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] net: sched: act_tunnel_key: UDP checksums
-Date: Thu, 15 Jun 2017 14:21:26 -0400 (EDT)
-Message-ID: <20170615.142126.2291497856328892133.davem@davemloft.net>
-References: <cover.1497467840.git.jbenc@redhat.com>
+Subject: Re: [PATCH net-next] sunvnet: restrict advertized checksum
+ offloads to just IP
+Date: Thu, 15 Jun 2017 14:23:14 -0400 (EDT)
+Message-ID: <20170615.142314.2129688024540050765.davem@davemloft.net>
+References: <1497480217-391315-1-git-send-email-shannon.nelson@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        jiri@resnulli.us
-To: jbenc@redhat.com
+Cc: netdev@vger.kernel.org, sparclinux@vger.kernel.org
+To: shannon.nelson@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59022 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:59060 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752763AbdFOSV3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 14:21:29 -0400
-In-Reply-To: <cover.1497467840.git.jbenc@redhat.com>
+        with ESMTP id S1750835AbdFOSXV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 14:23:21 -0400
+In-Reply-To: <1497480217-391315-1-git-send-email-shannon.nelson@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Wed, 14 Jun 2017 21:19:29 +0200
+From: Shannon Nelson <shannon.nelson@oracle.com>
+Date: Wed, 14 Jun 2017 15:43:37 -0700
 
-> Currently, the tunnel_key tc action does not set TUNNEL_CSUM, thus
-> transmitting packets with zero UDP checksum. This is inconsistent with how
-> we treat non-lwt UDP tunnels where the default is to fill in the UDP
-> checksum. Non-zero UDP checksum is the better default anyway for various
-> reasons previously discussed.
+> As much as we'd like to play well with others, we really aren't
+> handling the checksums on non-IP protocol packets very well.  This
+> is easily seen when trying to do TCP over ipv6 - the checksums are
+> garbage.
 > 
-> Make this configurable for the tunnel_key tc action with the default being
-> non-zero checksum. Saves a lot of surprises especially with IPv6.
+> Here we restrict the checksum feature flag to just IP traffic so
+> that we aren't given work we can't yet do.
 > 
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> Orabug: 26175391, 26259755
+> 
+> Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
 
-Seems reasonable, series applied, thanks.
+Applied, but this bug must be fixed properly and ipv6 checksumming
+properly supported.
+
+Thanks.
