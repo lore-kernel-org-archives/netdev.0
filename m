@@ -1,86 +1,52 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC] networking: introduce and use skb_put_data()
-Date: Thu, 15 Jun 2017 08:40:01 -0700
-Message-ID: <20170615084001.3fc5585c@xeon-e3>
-References: <20170615071018.9529-1-johannes@sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Johannes Berg <johannes.berg@intel.com>
-To: Johannes Berg <johannes@sipsolutions.net>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: [PATCH net-next V2 0/2] pktgen new parameters
+Date: Thu, 15 Jun 2017 19:07:20 +0300
+Message-ID: <1497542842-13721-1-git-send-email-tariqt@mellanox.com>
+Cc: netdev@vger.kernel.org, Jesper Dangaard Brouer <brouer@redhat.com>,
+        Eran Ben Elisha <eranbe@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:36471 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750801AbdFOPkI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 11:40:08 -0400
-Received: by mail-pf0-f176.google.com with SMTP id x63so9079868pff.3
-        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 08:40:08 -0700 (PDT)
-In-Reply-To: <20170615071018.9529-1-johannes@sipsolutions.net>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60233 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1750749AbdFOQHm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 12:07:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 15 Jun 2017 09:10:18 +0200
-Johannes Berg <johannes@sipsolutions.net> wrote:
+Hi Dave,
 
-> From: Johannes Berg <johannes.berg@intel.com>
-> 
-> A common pattern with skb_put() is to just want to memcpy()
-> some data into the new space, introduce skb_put_data() for
-> this.
-> 
-> An spatch similar to the one for skb_put_zero() converts many
-> of the places using it:
-> 
->     @@
->     identifier p, p2;
->     expression len, skb, data;
->     type t, t2;
->     @@
->     (
->     -p = skb_put(skb, len);
->     +p = skb_put_data(skb, data, len);
->     |
->     -p = (t)skb_put(skb, len);
->     +p = skb_put_data(skb, data, len);
->     )
->     (
->     p2 = (t2)p;
->     -memcpy(p2, data, len);
->     |
->     -memcpy(p, data, len);
->     )
-> 
->     @@
->     type t, t2;
->     identifier p, p2;
->     expression skb, data;
->     @@
->     t *p;
->     ...
->     (
->     -p = skb_put(skb, sizeof(t));
->     +p = skb_put_data(skb, data, sizeof(t));
->     |
->     -p = (t *)skb_put(skb, sizeof(t));
->     +p = skb_put_data(skb, data, sizeof(t));
->     )
->     (
->     p2 = (t2)p;
->     -memcpy(p2, data, sizeof(*p));
->     |
->     -memcpy(p, data, sizeof(*p));
->     )
-> 
->     @@
->     expression skb, len, data;
->     @@
->     -memcpy(skb_put(skb, len), data, len);
->     +skb_put_data(skb, data, len);
-> 
-> (again, manually post-processed to retain some comments)
-> 
-> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+This patchset adds two parameters to the pktgen scripts.
+* The first patch adds a parameter to control the number of
+  packets sent by every pktgen thread.
+* The second patch adds a parameter to control the index of
+  first thread, instead of always starting from cpu 0.
 
-LGTM
+Series generated against net-next commit:
+f7aec129a356 rxrpc: Cache the congestion window setting
 
-Reviewed-by: Stephen Hemminger <stephen@networkplumber.org>
+Thanks,
+Tariq.
+
+V2:
+* rebased to latest net-next.
+* per Jesper's comments on Patch 2, fixed $F_THREAD description
+  and $L_THREAD evaluation.
+
+Tariq Toukan (2):
+  pktgen: Specify num packets per thread
+  pktgen: Specify the index of first thread
+
+ samples/pktgen/README.rst                          |  2 ++
+ samples/pktgen/parameters.sh                       | 25 ++++++++++++++++------
+ .../pktgen/pktgen_bench_xmit_mode_netif_receive.sh |  6 +++---
+ .../pktgen/pktgen_bench_xmit_mode_queue_xmit.sh    |  6 +++---
+ samples/pktgen/pktgen_sample01_simple.sh           |  2 +-
+ samples/pktgen/pktgen_sample02_multiqueue.sh       |  7 +++---
+ .../pktgen/pktgen_sample03_burst_single_flow.sh    |  6 +++---
+ samples/pktgen/pktgen_sample04_many_flows.sh       |  6 +++---
+ samples/pktgen/pktgen_sample05_flow_per_thread.sh  |  6 +++---
+ 9 files changed, 41 insertions(+), 25 deletions(-)
+
+-- 
+1.8.3.1
