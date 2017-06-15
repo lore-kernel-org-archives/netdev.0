@@ -1,7 +1,7 @@
 From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next 05/10] net/mlx4_en: Improve stack xmit function
-Date: Thu, 15 Jun 2017 14:35:35 +0300
-Message-ID: <1497526540-30028-6-git-send-email-tariqt@mellanox.com>
+Subject: [PATCH net-next 10/10] net/mlx4_en: Refactor mlx4_en_free_tx_desc
+Date: Thu, 15 Jun 2017 14:35:40 +0300
+Message-ID: <1497526540-30028-11-git-send-email-tariqt@mellanox.com>
 References: <1497526540-30028-1-git-send-email-tariqt@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>, kernel-team@fb.com,
@@ -9,23 +9,21 @@ Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
         Eric Dumazet <edumazet@google.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:36079 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:36080 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752403AbdFOLgZ (ORCPT
+        with ESMTP id S1752387AbdFOLgZ (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 07:36:25 -0400
 In-Reply-To: <1497526540-30028-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Several small code and performance improvements in stack TX datapath,
-including:
-- Compiler branch predictor hints.
-- Minimize variables scope.
-- Move tx_info non-inline flow handling to a separate function.
-- Calculate data_offset in compile time rather than in runtime
-  (for !lso_header_size branch).
-- Avoid trinary-operator ("?") when value can be preset in a matching
-  branch.
+Some code re-ordering, functionally equivalent.
+
+- The !tx_info->inl check is evaluated anyway in both flows
+  (common case/end case). Run it first, this might finish
+  the flows earlier.
+- dma_unmap calls are identical in both flows, get it out
+  of the if block into the common area.
 
 Performance tests:
 Tested on ConnectX3Pro, Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz
@@ -38,226 +36,73 @@ Reviewed-by: Saeed Mahameed <saeedm@mellanox.com>
 Cc: kernel-team@fb.com
 Cc: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_tx.c | 151 +++++++++++++++++------------
- 1 file changed, 87 insertions(+), 64 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c | 45 +++++++++++-------------------
+ 1 file changed, 16 insertions(+), 29 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 2d5e0da1de2f..58f4b322587b 100644
+index efc4411b1e44..7d69d939ee2d 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -774,37 +774,101 @@ static void mlx4_en_tx_write_desc(struct mlx4_en_tx_ring *ring,
+@@ -289,20 +289,20 @@ u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
+ 		skb_tstamp_tx(skb, &hwts);
  	}
- }
  
-+static bool mlx4_en_build_dma_wqe(struct mlx4_en_priv *priv,
-+				  struct skb_shared_info *shinfo,
-+				  struct mlx4_wqe_data_seg *data,
-+				  struct sk_buff *skb,
-+				  int lso_header_size,
-+				  __be32 mr_key,
-+				  struct mlx4_en_tx_info *tx_info)
-+{
-+	struct device *ddev = priv->ddev;
-+	dma_addr_t dma = 0;
-+	u32 byte_count = 0;
-+	int i_frag;
-+
-+	/* Map fragments if any */
-+	for (i_frag = shinfo->nr_frags - 1; i_frag >= 0; i_frag--) {
-+		const struct skb_frag_struct *frag;
-+
-+		frag = &shinfo->frags[i_frag];
-+		byte_count = skb_frag_size(frag);
-+		dma = skb_frag_dma_map(ddev, frag,
-+				       0, byte_count,
-+				       DMA_TO_DEVICE);
-+		if (dma_mapping_error(ddev, dma))
-+			goto tx_drop_unmap;
-+
-+		data->addr = cpu_to_be64(dma);
-+		data->lkey = mr_key;
-+		dma_wmb();
-+		data->byte_count = cpu_to_be32(byte_count);
-+		--data;
-+	}
-+
-+	/* Map linear part if needed */
-+	if (tx_info->linear) {
-+		byte_count = skb_headlen(skb) - lso_header_size;
-+
-+		dma = dma_map_single(ddev, skb->data +
-+				     lso_header_size, byte_count,
-+				     PCI_DMA_TODEVICE);
-+		if (dma_mapping_error(ddev, dma))
-+			goto tx_drop_unmap;
-+
-+		data->addr = cpu_to_be64(dma);
-+		data->lkey = mr_key;
-+		dma_wmb();
-+		data->byte_count = cpu_to_be32(byte_count);
-+	}
-+	/* tx completion can avoid cache line miss for common cases */
-+	tx_info->map0_dma = dma;
-+	tx_info->map0_byte_count = byte_count;
-+
-+	return true;
-+
-+tx_drop_unmap:
-+	en_err(priv, "DMA mapping error\n");
-+
-+	while (++i_frag < shinfo->nr_frags) {
-+		++data;
-+		dma_unmap_page(ddev, (dma_addr_t)be64_to_cpu(data->addr),
-+			       be32_to_cpu(data->byte_count),
-+			       PCI_DMA_TODEVICE);
-+	}
-+
-+	return false;
-+}
-+
- netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct skb_shared_info *shinfo = skb_shinfo(skb);
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 	union mlx4_wqe_qpn_vlan	qpn_vlan = {};
--	struct device *ddev = priv->ddev;
- 	struct mlx4_en_tx_ring *ring;
- 	struct mlx4_en_tx_desc *tx_desc;
- 	struct mlx4_wqe_data_seg *data;
- 	struct mlx4_en_tx_info *tx_info;
--	int tx_ind = 0;
-+	int tx_ind;
- 	int nr_txbb;
- 	int desc_size;
- 	int real_size;
- 	u32 index, bf_index;
- 	__be32 op_own;
--	u16 vlan_proto = 0;
--	int i_frag;
- 	int lso_header_size;
- 	void *fragptr = NULL;
- 	bool bounce = false;
- 	bool send_doorbell;
- 	bool stop_queue;
- 	bool inline_ok;
-+	u8 data_offset;
- 	u32 ring_cons;
- 	bool bf_ok;
- 
- 	tx_ind = skb_get_queue_mapping(skb);
- 	ring = priv->tx_ring[TX][tx_ind];
- 
--	if (!priv->port_up)
-+	if (unlikely(!priv->port_up))
- 		goto tx_drop;
- 
- 	/* fetch ring->cons far ahead before needing it to avoid stall */
-@@ -826,6 +890,8 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	bf_ok = ring->bf_enabled;
- 	if (skb_vlan_tag_present(skb)) {
-+		u16 vlan_proto;
-+
- 		qpn_vlan.vlan_tag = cpu_to_be16(skb_vlan_tag_get(skb));
- 		vlan_proto = be16_to_cpu(skb->vlan_proto);
- 		if (vlan_proto == ETH_P_8021AD)
-@@ -862,64 +928,31 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 	tx_info->skb = skb;
- 	tx_info->nr_txbb = nr_txbb;
- 
--	data = &tx_desc->data;
--	if (lso_header_size)
--		data = ((void *)&tx_desc->lso + ALIGN(lso_header_size + 4,
--						      DS_SIZE));
-+	if (!lso_header_size) {
-+		data = &tx_desc->data;
-+		data_offset = offsetof(struct mlx4_en_tx_desc, data);
-+	} else {
-+		int lso_align = ALIGN(lso_header_size + 4, DS_SIZE);
-+
-+		data = (void *)&tx_desc->lso + lso_align;
-+		data_offset = offsetof(struct mlx4_en_tx_desc, lso) + lso_align;
-+	}
- 
- 	/* valid only for none inline segments */
--	tx_info->data_offset = (void *)data - (void *)tx_desc;
-+	tx_info->data_offset = data_offset;
- 
- 	tx_info->inl = inline_ok;
- 
--	tx_info->linear = (lso_header_size < skb_headlen(skb) &&
--			   !inline_ok) ? 1 : 0;
-+	tx_info->linear = lso_header_size < skb_headlen(skb) && !inline_ok;
- 
- 	tx_info->nr_maps = shinfo->nr_frags + tx_info->linear;
- 	data += tx_info->nr_maps - 1;
- 
--	if (!tx_info->inl) {
--		dma_addr_t dma = 0;
--		u32 byte_count = 0;
--
--		/* Map fragments if any */
--		for (i_frag = shinfo->nr_frags - 1; i_frag >= 0; i_frag--) {
--			const struct skb_frag_struct *frag;
--
--			frag = &shinfo->frags[i_frag];
--			byte_count = skb_frag_size(frag);
--			dma = skb_frag_dma_map(ddev, frag,
--					       0, byte_count,
--					       DMA_TO_DEVICE);
--			if (dma_mapping_error(ddev, dma))
--				goto tx_drop_unmap;
--
--			data->addr = cpu_to_be64(dma);
--			data->lkey = ring->mr_key;
--			dma_wmb();
--			data->byte_count = cpu_to_be32(byte_count);
--			--data;
+-	/* Optimize the common case when there are no wraparounds */
+-	if (likely((void *)tx_desc +
+-		   (tx_info->nr_txbb << LOG_TXBB_SIZE) <= end)) {
+-		if (!tx_info->inl) {
+-			if (tx_info->linear)
+-				dma_unmap_single(priv->ddev,
+-						tx_info->map0_dma,
+-						tx_info->map0_byte_count,
+-						PCI_DMA_TODEVICE);
+-			else
+-				dma_unmap_page(priv->ddev,
+-					       tx_info->map0_dma,
+-					       tx_info->map0_byte_count,
+-					       PCI_DMA_TODEVICE);
++	if (!tx_info->inl) {
++		if (tx_info->linear)
++			dma_unmap_single(priv->ddev,
++					 tx_info->map0_dma,
++					 tx_info->map0_byte_count,
++					 PCI_DMA_TODEVICE);
++		else
++			dma_unmap_page(priv->ddev,
++				       tx_info->map0_dma,
++				       tx_info->map0_byte_count,
++				       PCI_DMA_TODEVICE);
++		/* Optimize the common case when there are no wraparounds */
++		if (likely((void *)tx_desc +
++			   (tx_info->nr_txbb << LOG_TXBB_SIZE) <= end)) {
+ 			for (i = 1; i < nr_maps; i++) {
+ 				data++;
+ 				dma_unmap_page(priv->ddev,
+@@ -310,23 +310,10 @@ u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
+ 					be32_to_cpu(data->byte_count),
+ 					PCI_DMA_TODEVICE);
+ 			}
 -		}
--
--		/* Map linear part if needed */
--		if (tx_info->linear) {
--			byte_count = skb_headlen(skb) - lso_header_size;
--
--			dma = dma_map_single(ddev, skb->data +
--					     lso_header_size, byte_count,
--					     PCI_DMA_TODEVICE);
--			if (dma_mapping_error(ddev, dma))
--				goto tx_drop_unmap;
--
--			data->addr = cpu_to_be64(dma);
--			data->lkey = ring->mr_key;
--			dma_wmb();
--			data->byte_count = cpu_to_be32(byte_count);
--		}
--		/* tx completion can avoid cache line miss for common cases */
--		tx_info->map0_dma = dma;
--		tx_info->map0_byte_count = byte_count;
--	}
-+	if (!tx_info->inl)
-+		if (!mlx4_en_build_dma_wqe(priv, shinfo, data, skb,
-+					   lso_header_size, ring->mr_key,
-+					   tx_info))
-+			goto tx_drop_count;
+-	} else {
+-		if (!tx_info->inl) {
+-			if ((void *) data >= end) {
++		} else {
++			if ((void *)data >= end)
+ 				data = ring->buf + ((void *)data - end);
+-			}
  
- 	/*
- 	 * For timestamping add flag to skb_shinfo and
-@@ -1055,16 +1088,6 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 	}
- 	return NETDEV_TX_OK;
- 
--tx_drop_unmap:
--	en_err(priv, "DMA mapping error\n");
--
--	while (++i_frag < shinfo->nr_frags) {
--		++data;
--		dma_unmap_page(ddev, (dma_addr_t) be64_to_cpu(data->addr),
--			       be32_to_cpu(data->byte_count),
--			       PCI_DMA_TODEVICE);
--	}
--
- tx_drop_count:
- 	ring->tx_dropped++;
- tx_drop:
+-			if (tx_info->linear)
+-				dma_unmap_single(priv->ddev,
+-						tx_info->map0_dma,
+-						tx_info->map0_byte_count,
+-						PCI_DMA_TODEVICE);
+-			else
+-				dma_unmap_page(priv->ddev,
+-					       tx_info->map0_dma,
+-					       tx_info->map0_byte_count,
+-					       PCI_DMA_TODEVICE);
+ 			for (i = 1; i < nr_maps; i++) {
+ 				data++;
+ 				/* Check for wraparound before unmapping */
 -- 
 1.8.3.1
