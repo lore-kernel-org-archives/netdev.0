@@ -1,41 +1,56 @@
-From: YUAN Linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-Subject: RE: [RFC] networking: convert many more places to skb_put_zero()
-Date: Thu, 15 Jun 2017 07:47:53 +0000
-Message-ID: <8729016553E3654398EA69218DA29EEF15BC8F99@cnshjmbx02>
-References: <20170614201748.28213-1-johannes@sipsolutions.net>
-         <8729016553E3654398EA69218DA29EEF15BC8D22@cnshjmbx02>
-         <1497509862.2518.1.camel@sipsolutions.net>
-         <8729016553E3654398EA69218DA29EEF15BC8EFC@cnshjmbx02>
-         <1497510716.2518.4.camel@sipsolutions.net>
-         <8729016553E3654398EA69218DA29EEF15BC8F15@cnshjmbx02>
- <1497512717.2518.5.camel@sipsolutions.net>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH iproute2 2/2] tc: m_tunnel_key: add csum/nocsum option
+Date: Thu, 15 Jun 2017 10:21:10 +0200
+Message-ID: <20170615102110.7e740c3e@griffin>
+References: <cover.1497467840.git.jbenc@redhat.com>
+        <20170614213018.364cd85d@griffin>
+        <20170614133807.2320f98b@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: Johannes Berg <johannes@sipsolutions.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jiri Pirko <jiri@resnulli.us>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cnshjsmin03.alcatel-sbell.com.cn ([116.246.26.71]:54930 "EHLO
-        cnshjsmin03.alcatel-sbell.com.cn" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750774AbdFOHr4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 03:47:56 -0400
-In-Reply-To: <1497512717.2518.5.camel@sipsolutions.net>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:42566 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752075AbdFOIVQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 15 Jun 2017 04:21:16 -0400
+In-Reply-To: <20170614133807.2320f98b@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T2ssIHVuZGVyc3RhbmQgDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTog
-Sm9oYW5uZXMgQmVyZyBbbWFpbHRvOmpvaGFubmVzQHNpcHNvbHV0aW9ucy5uZXRdDQo+IFNlbnQ6
-IFRodXJzZGF5LCBKdW5lIDE1LCAyMDE3IDM6NDUgUE0NCj4gVG86IFlVQU4gTGlueXU7IG5ldGRl
-dkB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtSRkNdIG5ldHdvcmtpbmc6IGNvbnZl
-cnQgbWFueSBtb3JlIHBsYWNlcyB0byBza2JfcHV0X3plcm8oKQ0KPiANCj4gT24gVGh1LCAyMDE3
-LTA2LTE1IGF0IDA3OjIwICswMDAwLCBZVUFOIExpbnl1IHdyb3RlOg0KPiA+ID4NCj4gPiBJbiBt
-eSBvcGluaW9uIGlmIHNwYXRjaCBjYW4gZG8gaXQgZXZlbiBpdCBmb3VuZCBvbmUgcGxhY2UsIGtl
-ZXAgaXQuDQo+ID4gT25seSBsZWF2ZSBkaWZmaWN1bHQgcGxhY2VzIGxpa2UgbmRpc2MuYyB0byBt
-ZS4NCj4gDQo+IEl0J3Mgbm90IHNvIHNpbXBsZSAtIEknZCBoYXZlIHRvIHRhaWxvciB0aGUgc3Bh
-dGNoIHRvIGl0IHByZXR0eSBtdWNoIEkNCj4gZ3Vlc3MsIHNwZW5kaW5nIGZhciBtb3JlIHRpbWUg
-b24gdGhlIHNwYXRjaCB0aGFuIHRoZSBzaW5nbGUgcGxhY2UNCj4gd2FycmFudHMuDQo+IA0KPiA+
-ID4gQnR3LCBqdXN0IG1hZGUgYSBwYXRjaCB0byBhZGQgYW5kIHVzZSAic2tiX3B1dF9kYXRhKCki
-LCBqdXN0IGRvaW5nDQo+ID4gPiBhDQo+ID4gPiBtZW1jcHkoKSBpbnRvIHRoZSBza2JfcHV0KCkg
-YXJlYSBhbHNvIGhhcyBsb3RzIG9mIHVzZXJzLg0KPiA+DQo+ID4gWWVzLCBJIGFsc28gbm90aWNl
-IHNvbWUgcGxhY2VzLg0KPiANCj4gSSBzZW50IGEgcGF0Y2guDQo+IA0KPiBqb2hhbm5lcw0K
+On Wed, 14 Jun 2017 13:38:07 -0700, Stephen Hemminger wrote:
+> Does this change the default? Before your patches what was the checksum
+> setting for the new tunnel.
+
+Yes, it does. See the kernel patches.
+
+I realize it's a user visible change; however, given that the real
+reason act_tunnel_key was introduced is offloading of openvswitch and
+openvswitch doesn't use it yet and I very much doubt there are other
+users, I'm still proposing the change. It makes things aligned between
+the non-lwt tunnels, tc and even the current openvswitch (which
+includes the csum by default as well). When someone someday starts
+using lwtunnels with tc for other uses, this will make it much less
+surprising and will prevent user errors. Not mentioning performance
+which is in general going to be better with the csum.
+
+Furthermore, the only use case for nocsum is a compatibility with
+broken VTEPs from hw vendors. This is not a setup act_tunnel_key is
+going to be used in: in such case, you pretty much want the VXLAN
+internal control plane, not an external one.
+
+We're also not breaking existing Linux setups, even if there were any.
+Even with udp6zerocsumrx, the non-zero csumed packets are still
+accepted.
+
+I was notified about the current confusing behavior by Red Hat QA when
+they were trying to test the tunnel_key action and couldn't make it
+work for IPv6. When those guys needed a help of the kernel developer
+and the kernel developer in question had to insert a few printks to
+realize what's going on, no regular user would be able to use it ;-)
+(Of course, that's "fixable" by documentation.)
+
+ Jiri
