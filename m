@@ -1,98 +1,92 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch iproute2/net-next] tc: don't print error message on miss when parsing control action with default
-Date: Thu, 15 Jun 2017 14:10:51 +0200
-Message-ID: <20170615121051.1877-1-jiri@resnulli.us>
-Cc: stephen@networkplumber.org, jbenc@redhat.com, mlxsw@mellanox.com
-To: netdev@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH iproute2 master] bpf: provide fallback defs for __NR_bpf
+ when not avail
+Date: Thu, 15 Jun 2017 14:49:37 +0200
+Message-ID: <59428261.70004@iogearbox.net>
+References: <b59b84be59bccbab994072fdd9969b5d8a483f12.1497480167.git.daniel@iogearbox.net>        <20170614155648.4cfd7a73@xeon-e3>        <5941C03A.6010107@iogearbox.net> <20170614163408.4a04c191@xeon-e3>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:35375 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751902AbdFOMK4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 08:10:56 -0400
-Received: by mail-wr0-f195.google.com with SMTP id z45so3237748wrb.2
-        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 05:10:56 -0700 (PDT)
+Received: from www62.your-server.de ([213.133.104.62]:37589 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752397AbdFOMtl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 08:49:41 -0400
+In-Reply-To: <20170614163408.4a04c191@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+On 06/15/2017 01:34 AM, Stephen Hemminger wrote:
+> On Thu, 15 Jun 2017 01:01:14 +0200
+> Daniel Borkmann <daniel@iogearbox.net> wrote:
+>
+>> On 06/15/2017 12:56 AM, Stephen Hemminger wrote:
+>>> On Thu, 15 Jun 2017 00:47:15 +0200
+>>> Daniel Borkmann <daniel@iogearbox.net> wrote:
+>>>
+>>>> panji reported that he wasn't able to build iproute2's bpf library
+>>>> due to lack of __NR_bpf in his system headers. Providing a fallback
+>>>> definition when __NR_bpf is not available in the system lets the
+>>>> loader compile just fine, so lets add them for majority of archs.
+>>>>
+>>>> Reported-by: panji <jpan@live.nl>
+>>>> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+>>>> ---
+>>>>    lib/bpf.c | 20 ++++++++++++++++++++
+>>>>    1 file changed, 20 insertions(+)
+>>>>
+>>>> diff --git a/lib/bpf.c b/lib/bpf.c
+>>>> index ae4d97d..e1e29cc 100644
+>>>> --- a/lib/bpf.c
+>>>> +++ b/lib/bpf.c
+>>>> @@ -128,6 +128,26 @@ static inline __u64 bpf_ptr_to_u64(const void *ptr)
+>>>>    	return (__u64)(unsigned long)ptr;
+>>>>    }
+>>>>
+>>>> +#ifndef __NR_bpf
+>>>> +# if defined(__i386__)
+>>>> +#  define __NR_bpf 357
+>>>> +# elif defined(__x86_64__)
+>>>> +#  define __NR_bpf 321
+>>>> +# elif defined(__aarch64__)
+>>>> +#  define __NR_bpf 280
+>>>> +# elif defined(__sparc__)
+>>>> +#  define __NR_bpf 349
+>>>> +# elif defined(__arm__)
+>>>> +#  define __NR_bpf 386
+>>>> +# elif defined(__powerpc__)
+>>>> +#  define __NR_bpf 361
+>>>> +# elif defined(__s390__)
+>>>> +#  define __NR_bpf 351
+>>>> +# else
+>>>> +#  error __NR_bpf not defined. Update kernel headers.
+>>>> +# endif
+>>>> +#endif
+>>>> +
+>>>>    static int bpf(int cmd, union bpf_attr *attr, unsigned int size)
+>>>>    {
+>>>>    #ifdef __NR_bpf
+>>>
+>>> Sorry this looks like a mess. enumerating architectures in two different
+>>> projects is likely to break in future.
+>>
+>> It says ifndef __NR_bpf, so only used then. And the numbers are uabi,
+>> what will break here exactly? libbpf in kernel tree is having a similar
+>> approach by the way.
+>
+> You are defining values in two places (kernel and userspace) which has caused
+> lots of mismatch in the past. Why isn't this in a kernel uapi header somewhere?
 
-In case default control action parsing takes place, it is ok to miss.
-So don't print error message.
+Well, it is architecture specific uapi in asm/unistd*.h usually, but I
+don't think you want to go down that road to pull _that_ into iproute2,
+that would be quite a mess for very little gain, imho. I would also be
+okay if we drop this patch given it's a (presumably) corner case where
+people have old kernel headers installed, running a newer kernel on their
+machine and trying to compile iproute2. Worst case they have to pull in
+this patch manually from patchwork then, but over time distros eventually
+catch up to ship a unistd header with more recent syscall number defines.
 
-Fixes: e67aba559581 ("tc: actions: add helpers to parse and print control actions")
-Reported-by: Jiri Benc <jbenc@redhat.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- tc/tc_util.c | 36 ++++++++++++++++++++++--------------
- 1 file changed, 22 insertions(+), 14 deletions(-)
-
-diff --git a/tc/tc_util.c b/tc/tc_util.c
-index 5a0f96a..3710468 100644
---- a/tc/tc_util.c
-+++ b/tc/tc_util.c
-@@ -481,18 +481,8 @@ static int action_a2n(char *arg, int *result, bool allow_num)
- 	return 0;
- }
- 
--/* Parse action control including possible options.
-- *
-- * Parameters:
-- * @argc_p - pointer to argc to parse
-- * @argv_p - pointer to argv to parse
-- * @result_p - pointer to output variable
-- * @allow_num - whether action may be in numeric format already
-- *
-- * In error case, returns -1 and does not touch @result_1p. Otherwise returns 0.
-- */
--int parse_action_control(int *argc_p, char ***argv_p,
--			 int *result_p, bool allow_num)
-+static int __parse_action_control(int *argc_p, char ***argv_p, int *result_p,
-+				  bool allow_num, bool ignore_a2n_miss)
- {
- 	int argc = *argc_p;
- 	char **argv = *argv_p;
-@@ -501,7 +491,8 @@ int parse_action_control(int *argc_p, char ***argv_p,
- 	if (!argc)
- 		return -1;
- 	if (action_a2n(*argv, &result, allow_num) == -1) {
--		fprintf(stderr, "Bad action type %s\n", *argv);
-+		if (!ignore_a2n_miss)
-+			fprintf(stderr, "Bad action type %s\n", *argv);
- 		return -1;
- 	}
- 	if (result == TC_ACT_GOTO_CHAIN) {
-@@ -534,6 +525,23 @@ int parse_action_control(int *argc_p, char ***argv_p,
-  * @argv_p - pointer to argv to parse
-  * @result_p - pointer to output variable
-  * @allow_num - whether action may be in numeric format already
-+ *
-+ * In error case, returns -1 and does not touch @result_1p. Otherwise returns 0.
-+ */
-+int parse_action_control(int *argc_p, char ***argv_p,
-+			 int *result_p, bool allow_num)
-+{
-+	return __parse_action_control(argc_p, argv_p, result_p,
-+				      allow_num, false);
-+}
-+
-+/* Parse action control including possible options.
-+ *
-+ * Parameters:
-+ * @argc_p - pointer to argc to parse
-+ * @argv_p - pointer to argv to parse
-+ * @result_p - pointer to output variable
-+ * @allow_num - whether action may be in numeric format already
-  * @default_result - set as a result in case of parsing error
-  *
-  * In case there is an error during parsing, the default result is used.
-@@ -542,7 +550,7 @@ void parse_action_control_dflt(int *argc_p, char ***argv_p,
- 			       int *result_p, bool allow_num,
- 			       int default_result)
- {
--	if (parse_action_control(argc_p, argv_p, result_p, allow_num))
-+	if (__parse_action_control(argc_p, argv_p, result_p, allow_num, true))
- 		*result_p = default_result;
- }
- 
--- 
-2.9.3
+Thanks,
+Daniel
