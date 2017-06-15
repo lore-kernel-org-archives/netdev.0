@@ -1,58 +1,115 @@
 From: Harsh Jain <harsh@chelsio.com>
-Subject: [PATCH 2/9] crypto: chcr - Fix fallback key setting
-Date: Thu, 15 Jun 2017 12:43:40 +0530
-Message-ID: <96ec20d1b920195aa9b6cc6d5956e4be0b9daa2d.1497506936.git.harsh@chelsio.com>
+Subject: [PATCH 1/9] crypto: chcr - Pass lcb bit setting to firmware
+Date: Thu, 15 Jun 2017 12:43:39 +0530
+Message-ID: <89ca1a606bd71d3cb29be470d2beae588905152b.1497506936.git.harsh@chelsio.com>
 References: <cover.1497506936.git.harsh@chelsio.com>
 Cc: Harsh Jain <harsh@chelsio.com>
 To: herbert@gondor.apana.org.au, linux-crypto@vger.kernel.org,
         netdev@vger.kernel.org, ganeshgr@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:6814 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750859AbdFOHOB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 03:14:01 -0400
+Return-path: <linux-crypto-owner@vger.kernel.org>
 In-Reply-To: <cover.1497506936.git.harsh@chelsio.com>
 In-Reply-To: <cover.1497506936.git.harsh@chelsio.com>
 References: <cover.1497506936.git.harsh@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Set key of fallback tfm for rfc4309.
+GCM and CBC mode of operation requires Last Cipher Block.
+This patch set lcb bit in WR header when required.
 
 Signed-off-by: Harsh Jain <harsh@chelsio.com>
 ---
- drivers/crypto/chelsio/chcr_algo.c | 12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
+ drivers/crypto/chelsio/chcr_algo.c | 18 +++++++++++-------
+ drivers/crypto/chelsio/chcr_algo.h |  4 ++--
+ 2 files changed, 13 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/crypto/chelsio/chcr_algo.c b/drivers/crypto/chelsio/chcr_algo.c
-index e8ff505..14641c6 100644
+index f00e0d8..e8ff505 100644
 --- a/drivers/crypto/chelsio/chcr_algo.c
 +++ b/drivers/crypto/chelsio/chcr_algo.c
-@@ -2210,7 +2210,8 @@ static int chcr_aead_rfc4309_setkey(struct crypto_aead *aead, const u8 *key,
- 				    unsigned int keylen)
+@@ -518,7 +518,8 @@ static inline void create_wreq(struct chcr_context *ctx,
+ 			       void *req, struct sk_buff *skb,
+ 			       int kctx_len, int hash_sz,
+ 			       int is_iv,
+-			       unsigned int sc_len)
++			       unsigned int sc_len,
++			       unsigned int lcb)
  {
- 	struct chcr_context *ctx = crypto_aead_ctx(aead);
--	 struct chcr_aead_ctx *aeadctx = AEAD_CTX(ctx);
-+	struct chcr_aead_ctx *aeadctx = AEAD_CTX(ctx);
-+	int error;
+ 	struct uld_ctx *u_ctx = ULD_CTX(ctx);
+ 	int iv_loc = IV_DSGL;
+@@ -543,7 +544,8 @@ static inline void create_wreq(struct chcr_context *ctx,
+ 	chcr_req->wreq.cookie = cpu_to_be64((uintptr_t)req);
+ 	chcr_req->wreq.rx_chid_to_rx_q_id =
+ 		FILL_WR_RX_Q_ID(ctx->dev->rx_channel_id, qid,
+-				is_iv ? iv_loc : IV_NOP, ctx->tx_qidx);
++				is_iv ? iv_loc : IV_NOP, !!lcb,
++				ctx->tx_qidx);
  
- 	if (keylen < 3) {
- 		crypto_tfm_set_flags((struct crypto_tfm *)aead,
-@@ -2218,6 +2219,15 @@ static int chcr_aead_rfc4309_setkey(struct crypto_aead *aead, const u8 *key,
- 		aeadctx->enckey_len = 0;
- 		return	-EINVAL;
- 	}
-+	crypto_aead_clear_flags(aeadctx->sw_cipher, CRYPTO_TFM_REQ_MASK);
-+	crypto_aead_set_flags(aeadctx->sw_cipher, crypto_aead_get_flags(aead) &
-+			      CRYPTO_TFM_REQ_MASK);
-+	error = crypto_aead_setkey(aeadctx->sw_cipher, key, keylen);
-+	crypto_aead_clear_flags(aead, CRYPTO_TFM_RES_MASK);
-+	crypto_aead_set_flags(aead, crypto_aead_get_flags(aeadctx->sw_cipher) &
-+			      CRYPTO_TFM_RES_MASK);
-+	if (error)
-+		return error;
- 	keylen -= 3;
- 	memcpy(aeadctx->salt, key + keylen, 3);
- 	return chcr_ccm_common_setkey(aead, key, keylen);
+ 	chcr_req->ulptx.cmd_dest = FILL_ULPTX_CMD_DEST(ctx->dev->tx_channel_id,
+ 						       qid);
+@@ -652,7 +654,8 @@ static inline void create_wreq(struct chcr_context *ctx,
+ 	write_buffer_to_skb(skb, &frags, reqctx->iv, ivsize);
+ 	write_sg_to_skb(skb, &frags, req->src, req->nbytes);
+ 	create_wreq(ctx, chcr_req, req, skb, kctx_len, 0, 1,
+-			sizeof(struct cpl_rx_phys_dsgl) + phys_dsgl);
++			sizeof(struct cpl_rx_phys_dsgl) + phys_dsgl,
++			ablkctx->ciph_mode == CHCR_SCMD_CIPHER_MODE_AES_CBC);
+ 	reqctx->skb = skb;
+ 	skb_get(skb);
+ 	return skb;
+@@ -923,7 +926,7 @@ static struct sk_buff *create_hash_wr(struct ahash_request *req,
+ 		write_sg_to_skb(skb, &frags, req->src, param->sg_len);
+ 
+ 	create_wreq(ctx, chcr_req, req, skb, kctx_len, hash_size_in_response, 0,
+-			DUMMY_BYTES);
++			DUMMY_BYTES, 0);
+ 	req_ctx->skb = skb;
+ 	skb_get(skb);
+ 	return skb;
+@@ -1508,7 +1511,7 @@ static struct sk_buff *create_authenc_wr(struct aead_request *req,
+ 	write_buffer_to_skb(skb, &frags, req->iv, ivsize);
+ 	write_sg_to_skb(skb, &frags, src, req->cryptlen);
+ 	create_wreq(ctx, chcr_req, req, skb, kctx_len, size, 1,
+-		   sizeof(struct cpl_rx_phys_dsgl) + dst_size);
++		   sizeof(struct cpl_rx_phys_dsgl) + dst_size, 0);
+ 	reqctx->skb = skb;
+ 	skb_get(skb);
+ 
+@@ -1804,7 +1807,7 @@ static struct sk_buff *create_aead_ccm_wr(struct aead_request *req,
+ 	skb_set_transport_header(skb, transhdr_len);
+ 	frags = fill_aead_req_fields(skb, req, src, ivsize, aeadctx);
+ 	create_wreq(ctx, chcr_req, req, skb, kctx_len, 0, 1,
+-		    sizeof(struct cpl_rx_phys_dsgl) + dst_size);
++		    sizeof(struct cpl_rx_phys_dsgl) + dst_size, 0);
+ 	reqctx->skb = skb;
+ 	skb_get(skb);
+ 	return skb;
+@@ -1950,7 +1953,8 @@ static struct sk_buff *create_gcm_wr(struct aead_request *req,
+ 	write_buffer_to_skb(skb, &frags, reqctx->iv, ivsize);
+ 	write_sg_to_skb(skb, &frags, src, req->cryptlen);
+ 	create_wreq(ctx, chcr_req, req, skb, kctx_len, size, 1,
+-			sizeof(struct cpl_rx_phys_dsgl) + dst_size);
++			sizeof(struct cpl_rx_phys_dsgl) + dst_size,
++			reqctx->verify);
+ 	reqctx->skb = skb;
+ 	skb_get(skb);
+ 	return skb;
+diff --git a/drivers/crypto/chelsio/chcr_algo.h b/drivers/crypto/chelsio/chcr_algo.h
+index 751d06a..9894c7b 100644
+--- a/drivers/crypto/chelsio/chcr_algo.h
++++ b/drivers/crypto/chelsio/chcr_algo.h
+@@ -185,11 +185,11 @@
+ 			FW_CRYPTO_LOOKASIDE_WR_CCTX_LOC_V(1) | \
+ 			FW_CRYPTO_LOOKASIDE_WR_CCTX_SIZE_V((ctx_len)))
+ 
+-#define FILL_WR_RX_Q_ID(cid, qid, wr_iv, fid) \
++#define FILL_WR_RX_Q_ID(cid, qid, wr_iv, lcb, fid) \
+ 		htonl( \
+ 			FW_CRYPTO_LOOKASIDE_WR_RX_CHID_V((cid)) | \
+ 			FW_CRYPTO_LOOKASIDE_WR_RX_Q_ID_V((qid)) | \
+-			FW_CRYPTO_LOOKASIDE_WR_LCB_V(0) | \
++			FW_CRYPTO_LOOKASIDE_WR_LCB_V((lcb)) | \
+ 			FW_CRYPTO_LOOKASIDE_WR_IV_V((wr_iv)) | \
+ 			FW_CRYPTO_LOOKASIDE_WR_FQIDX_V(fid))
+ 
 -- 
 1.8.3.1
