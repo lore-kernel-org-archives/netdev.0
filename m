@@ -1,37 +1,27 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] skbuff: make skb_put_zero() return void
-Date: Thu, 15 Jun 2017 23:28:28 +0200
-Message-ID: <1497562108.2518.12.camel@sipsolutions.net>
-References: <20170614201720.21070-1-johannes@sipsolutions.net>
-         <20170615.121806.1737755943471705142.davem@davemloft.net>
-         <1497554912.2518.9.camel@sipsolutions.net>
-         <20170615.172637.978834439625255398.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] atm: solos-pci: remove useless variable assignments
+Date: Thu, 15 Jun 2017 17:33:34 -0400 (EDT)
+Message-ID: <20170615.173334.947301773714825384.davem@davemloft.net>
+References: <20170615195621.GA5600@embeddedgus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:53442 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750820AbdFOV2d (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 15 Jun 2017 17:28:33 -0400
-In-Reply-To: <20170615.172637.978834439625255398.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: 3chas3@gmail.com, linux-atm-general@lists.sourceforge.net,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: garsilva@embeddedor.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170615195621.GA5600@embeddedgus>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2017-06-15 at 17:26 -0400, David Miller wrote:
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Date: Thu, 15 Jun 2017 14:56:21 -0500
+
+> Value assigned to variable _data32_ at lines 1254 and 1257 is
+> overwritten at line 1260 before it can be used. This makes
+> such variable assignments useless.
 > 
-> > *skb_put(skb, 1) = 'x';
-> > 
-> > Seems pretty unlikely we have that, and in any case the compiler
-> would
-> > warn (error?) there if skb_put() becomes void.
-> 
-> Actually I am pretty sure I've seen a pattern like that somewhere. :-
-> )
+> Addresses-Coverity-ID: 1227049
+> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
 
-Yeah, there are actually a ton of them, and oddly enough my spatch is
-failing to catch _one_ of them?? Still refining it :)
-
-johannes
+Applied, thanks.
