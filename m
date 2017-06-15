@@ -1,49 +1,47 @@
-From: =?utf-8?B?5Lil5rW35Y+M?= <yanhaishuang@cmss.chinamobile.com>
-Subject: Re: [PATCH] ip6_tunnel: Correct tos value in collect_md mode
-Date: Thu, 15 Jun 2017 08:58:41 +0800
-Message-ID: <142A1EF8-2274-47FD-BA8B-DFF99308E366@cmss.chinamobile.com>
-References: <1497408497-1473-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
- <9E61EADF-769B-431A-81EA-ADBAAD32ABD3@cmss.chinamobile.com>
- <20170614152839.38406ce2@gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Peter Dawson <petedaws@gmail.com>
+From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Subject: [PATCH v4 1/2] ip_tunnel: fix potential issue in ip_tunnel_rcv
+Date: Thu, 15 Jun 2017 10:29:29 +0800
+Message-ID: <1497493770-13000-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Pravin B Shelar <pshelar@ovn.org>,
+        Alexei Starovoitov <ast@fb.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170614152839.38406ce2@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+When ip_tunnel_rcv fails, the tun_dst won't be freed, so call
+dst_release to free it in error code path.
 
-> On 14 Jun 2017, at 1:28 PM, Peter Dawson <petedaws@gmail.com> wrote:
-> 
-> On Wed, 14 Jun 2017 10:54:31 +0800
-> 严海双 <yanhaishuang@cmss.chinamobile.com> wrote:
-> 
-> 
->>> Changes since v2:
->>> * mask key->tos with RT_TOS() suggested by Daniel
-> 
-> Can you help me understand the rationale for this change? Is there are bug introduced by dsfield = ip6_tclass(key->label); ?
-> 
-> The RT_TOS masks out 4bits of the 8bit tos field in accordance with RFC1349 (obsoleted by RFC2474). IPv6 does not have a TOS field. So it dosen't make sense to apply a TOS value to the outer header of an IPv6 tunnel.
-> 
-> 
+Fixes: 2e15ea390e6f ("ip_gre: Add support to collect tunnel metadata.")
+Acked-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Pravin B Shelar <pshelar@ovn.org>
+Tested-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
 
-Hi, Peter
+---
+Change since v4:
+  * Add the the missing Fixes information
+  * Free tun_dst from error code path
+  * Add tester information
+---
+ net/ipv4/ip_tunnel.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Here the tos also means Traffic Class in IPv6, see the define in struct ip_tunnel_key:
-
-u8          tos;        /* TOS for IPv4, TC for IPv6 */
-
-RT_TOS mask is suggested by Daniel, please refer to the implement in vxlan or geneve code:
-
-fl6.flowlabel = ip6_make_flowinfo(RT_TOS(tos), label);
-
-Thanks.
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index b878ecb..0f1d876 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -446,6 +446,8 @@ int ip_tunnel_rcv(struct ip_tunnel *tunnel, struct sk_buff *skb,
+ 	return 0;
+ 
+ drop:
++	if (tun_dst)
++		dst_release((struct dst_entry *)tun_dst);
+ 	kfree_skb(skb);
+ 	return 0;
+ }
+-- 
+1.8.3.1
