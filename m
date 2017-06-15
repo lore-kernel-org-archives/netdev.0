@@ -1,39 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sunvnet: restrict advertized checksum
- offloads to just IP
-Date: Thu, 15 Jun 2017 14:23:14 -0400 (EDT)
-Message-ID: <20170615.142314.2129688024540050765.davem@davemloft.net>
-References: <1497480217-391315-1-git-send-email-shannon.nelson@oracle.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: build failure after merge of the
+ wireless-drivers-next tree
+Date: Fri, 16 Jun 2017 04:25:19 +1000
+Message-ID: <20170616042519.40f63561@canb.auug.org.au>
+References: <20170608122759.7ffda0c3@canb.auug.org.au>
+        <20170613120024.2a1ce31b@canb.auug.org.au>
+        <20170615.120808.1402317729827497353.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sparclinux@vger.kernel.org
-To: shannon.nelson@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59060 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750835AbdFOSXV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 14:23:21 -0400
-In-Reply-To: <1497480217-391315-1-git-send-email-shannon.nelson@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, kvalo@codeaurora.org,
+        linux-wireless@vger.kernel.org, linux-next@vger.kernel.org,
+        linux-kernel@vger.kernel.org, igor.mitsyanko.os@quantenna.com,
+        dlebed@quantenna.com, smaksimenko@quantenna.com,
+        smatyukevich@quantenna.com, btherthala@quantenna.com,
+        hwang@quantenna.com, krath@quantenna.com, avinashp@quantenna.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20170615.120808.1402317729827497353.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Shannon Nelson <shannon.nelson@oracle.com>
-Date: Wed, 14 Jun 2017 15:43:37 -0700
+Hi Dave,
 
-> As much as we'd like to play well with others, we really aren't
-> handling the checksums on non-IP protocol packets very well.  This
-> is easily seen when trying to do TCP over ipv6 - the checksums are
-> garbage.
+On Thu, 15 Jun 2017 12:08:08 -0400 (EDT) David Miller <davem@davemloft.net> wrote:
+>
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Tue, 13 Jun 2017 12:00:24 +1000
 > 
-> Here we restrict the checksum feature flag to just IP traffic so
-> that we aren't given work we can't yet do.
+> > On Thu, 8 Jun 2017 12:27:59 +1000 Stephen Rothwell <sfr@canb.auug.org.au> wrote:  
+> >>
+> >> After merging the wireless-drivers-next tree, today's linux-next build
+> >> (x86_64 allmodconfig) failed like this:
+> >> 
+> >> drivers/net/wireless/quantenna/qtnfmac/core.c: In function 'qtnf_core_net_attach':
+> >> drivers/net/wireless/quantenna/qtnfmac/core.c:319:5: error: 'struct net_device' has no member named 'destructor'
+> >>   dev->destructor = free_netdev;
+> >>      ^
+> >> 
+> >> Caused by commit
+> >> 
+> >>   98f44cb0655c ("qtnfmac: introduce new FullMAC driver for Quantenna chipsets")  
+> > 
+> > This commit is now in the net-next tree ...
+> >   
+> >> interacting with commit
+> >> 
+> >>   cf124db566e6 ("net: Fix inconsistent teardown and release of private netdev state.")
+> >> 
+> >> from the net tree.
+> >> 
+> >> I applied this merge fix patch for today.  
+> > 
+> > So this merge fix patch is needed when the net and net-next trees are merged.  
 > 
-> Orabug: 26175391, 26259755
-> 
-> Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
+> This is now all resolved, thanks!
 
-Applied, but this bug must be fixed properly and ipv6 checksumming
-properly supported.
+Thanks for letting me know.
 
-Thanks.
+-- 
+Cheers,
+Stephen Rothwell
