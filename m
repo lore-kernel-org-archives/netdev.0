@@ -1,33 +1,52 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH] xfrm: NULL dereference on allocation failure
-Date: Thu, 15 Jun 2017 13:57:40 +0200
-Message-ID: <20170615115740.GH2631@secunet.com>
-References: <20170614103537.GJ29394@elgon.mountain>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC v2] networking: convert many more places to skb_put_zero()
+Date: Thu, 15 Jun 2017 13:58:07 +0200
+Message-ID: <1497527887.2518.6.camel@sipsolutions.net>
+References: <20170615092804.19400-1-johannes@sipsolutions.net>
+         <8729016553E3654398EA69218DA29EEF15BC901A@cnshjmbx02>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Trent Jaeger <tjaeger@cse.psu.edu>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+To: YUAN Linyu <Linyu.Yuan@alcatel-sbell.com.cn>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:46062 "EHLO a.mx.secunet.com"
+Received: from s3.sipsolutions.net ([5.9.151.49]:48034 "EHLO sipsolutions.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752387AbdFOL5n (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 15 Jun 2017 07:57:43 -0400
-Content-Disposition: inline
-In-Reply-To: <20170614103537.GJ29394@elgon.mountain>
+        id S1752416AbdFOL6J (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 15 Jun 2017 07:58:09 -0400
+In-Reply-To: <8729016553E3654398EA69218DA29EEF15BC901A@cnshjmbx02>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 14, 2017 at 01:35:37PM +0300, Dan Carpenter wrote:
-> The default error code in pfkey_msg2xfrm_state() is -ENOBUFS.  We
-> added a new call to security_xfrm_state_alloc() which sets "err" to zero
-> so there several places where we can return ERR_PTR(0) if kmalloc()
-> fails.  The caller is expecting error pointers so it leads to a NULL
-> dereference.
+On Thu, 2017-06-15 at 09:54 +0000, YUAN Linyu wrote:
+> > -----Original Message-----
+> > From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel
+> > .org]
+> > On Behalf Of Johannes Berg
+> > Sent: Thursday, June 15, 2017 5:28 PM
+> > To: netdev@vger.kernel.org
+> > Cc: Johannes Berg
+> > Subject: [RFC v2] networking: convert many more places to
+> > skb_put_zero()
+> > 
+> > From: Johannes Berg <johannes.berg@intel.com>
+> > diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+> > index ea2601501654..aaac2660aaf7 100644
+> > --- a/net/sctp/sm_make_chunk.c
+> > +++ b/net/sctp/sm_make_chunk.c
+> > @@ -1478,10 +1478,9 @@ void *sctp_addto_chunk(struct sctp_chunk
+> > *chunk,
+> > int len, const void *data)
+> >  	int chunklen = ntohs(chunk->chunk_hdr->length);
+> >  	int padlen = SCTP_PAD4(chunklen) - chunklen;
+> > 
+> > -	padding = skb_put(chunk->skb, padlen);
+> > +	padding = skb_put_zero(chunk->skb, padlen);
 > 
-> Fixes: df71837d5024 ("[LSM-IPSec]: Security association restriction.")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> "padding" will become unused. 
+> I know this place when I check.
 
-Also applied, thanks a lot Dan!
+Yeah, I figured that would happen. I could try to make the spatch catch
+that too, but I'm not sure I can figure out how to :)
+
+johannes
