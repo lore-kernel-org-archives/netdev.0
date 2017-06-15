@@ -1,229 +1,130 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 07/15] net/mlx5: Undo LAG upon request to create virtual functions
-Date: Fri, 16 Jun 2017 00:42:44 +0300
-Message-ID: <20170615214252.30140-8-saeedm@mellanox.com>
+Subject: [net-next 13/15] net/mlx5e: Optimize update stats work
+Date: Fri, 16 Jun 2017 00:42:50 +0300
+Message-ID: <20170615214252.30140-14-saeedm@mellanox.com>
 References: <20170615214252.30140-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Moni Shoua <monis@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Gal Pressman <galp@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>, kernel-team@fb.com
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:32920 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:32940 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752159AbdFOVnF (ORCPT
+        with ESMTP id S1752269AbdFOVnF (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 17:43:05 -0400
 In-Reply-To: <20170615214252.30140-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Moni Shoua <monis@mellanox.com>
+From: Gal Pressman <galp@mellanox.com>
 
-LAG cannot work if virtual functions are present. Therefore, if LAG is
-configured, the attempt to create virtual functions will fail. This gives
-precedence to LAG over SRIOV which is not the desired behavior as users
-might want to use the bonding/teaming driver also want to work with SRIOV.
-In that case we don't want to force an order of actions, first create
-virtual functions and only than configure a bonding/teaming net device.
-To fix, if LAG is configured during a request to create virtual
-functions, remove it and continue.
+Unlike ethtool stats, get_stats ndo provides information cached by
+update stats work that is running in the background without updating
+them explicitly.
+We cannot update all counters inside the ndo because some
+updates require firmware commands that cannot be performed under a
+spinlock.
 
-We ignore ENODEV when trying to forbid lag. This makes sense
-because "No such device" means that lag is forbidden anyway.
+update_stats work does not need to update ALL counters, since only
+some of them are needed by ndo_get_stats.
+This patch will allow for a minimal run of update_stats using an extra
+parameter which will update necessary counters only and cut 13
+firmware commands in each iteration of the work.
 
-Signed-off-by: Moni Shoua <monis@mellanox.com>
-Reviewed-by: Aviv Heller <avivh@mellanox.com>
+Work duration previous to this patch: ~4200us.
+Work duration after this patch: ~700us (17% of the original time).
+
+Signed-off-by: Gal Pressman <galp@mellanox.com>
+Reviewed-by: Eran Ben Elisha <eranbe@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Cc: kernel-team@fb.com
 ---
- drivers/net/ethernet/mellanox/mlx5/core/lag.c      | 69 +++++++++++++++++++---
- .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |  3 +
- drivers/net/ethernet/mellanox/mlx5/core/sriov.c    | 15 +++--
- 3 files changed, 74 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h         |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c    | 19 ++++++++++++++-----
+ 3 files changed, 16 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/lag.c b/drivers/net/ethernet/mellanox/mlx5/core/lag.c
-index b6993c4e4823..a3a836bdcfd2 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/lag.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/lag.c
-@@ -61,6 +61,11 @@ struct mlx5_lag {
- 	struct lag_tracker        tracker;
- 	struct delayed_work       bond_work;
- 	struct notifier_block     nb;
-+
-+	/* Admin state. Allow lag only if allowed is true
-+	 * even if network conditions for lag were met
-+	 */
-+	bool                      allowed;
- };
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index a0516b0a5273..8094e78292de 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -822,7 +822,7 @@ void mlx5e_rx_am(struct mlx5e_rq *rq);
+ void mlx5e_rx_am_work(struct work_struct *work);
+ struct mlx5e_cq_moder mlx5e_am_get_def_profile(u8 rx_cq_period_mode);
  
- /* General purpose, use for short periods of time.
-@@ -214,6 +219,7 @@ static void mlx5_do_bond(struct mlx5_lag *ldev)
- 	struct lag_tracker tracker;
- 	u8 v2p_port1, v2p_port2;
- 	int i, err;
-+	bool do_bond;
+-void mlx5e_update_stats(struct mlx5e_priv *priv);
++void mlx5e_update_stats(struct mlx5e_priv *priv, bool full);
  
- 	if (!dev0 || !dev1)
- 		return;
-@@ -222,13 +228,9 @@ static void mlx5_do_bond(struct mlx5_lag *ldev)
- 	tracker = ldev->tracker;
- 	mutex_unlock(&lag_mutex);
+ int mlx5e_create_flow_steering(struct mlx5e_priv *priv);
+ void mlx5e_destroy_flow_steering(struct mlx5e_priv *priv);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index b4514f247402..216752070391 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -311,7 +311,7 @@ static void mlx5e_get_ethtool_stats(struct net_device *dev,
  
--	if (tracker.is_bonded && !mlx5_lag_is_bonded(ldev)) {
--		if (mlx5_sriov_is_enabled(dev0) ||
--		    mlx5_sriov_is_enabled(dev1)) {
--			mlx5_core_warn(dev0, "LAG is not supported with SRIOV");
--			return;
--		}
-+	do_bond = tracker.is_bonded && ldev->allowed;
+ 	mutex_lock(&priv->state_lock);
+ 	if (test_bit(MLX5E_STATE_OPENED, &priv->state))
+-		mlx5e_update_stats(priv);
++		mlx5e_update_stats(priv, true);
+ 	channels = &priv->channels;
+ 	mutex_unlock(&priv->state_lock);
  
-+	if (do_bond && !mlx5_lag_is_bonded(ldev)) {
- 		for (i = 0; i < MLX5_MAX_PORTS; i++)
- 			mlx5_remove_dev_by_protocol(ldev->pf[i].dev,
- 						    MLX5_INTERFACE_PROTOCOL_IB);
-@@ -237,7 +239,7 @@ static void mlx5_do_bond(struct mlx5_lag *ldev)
- 
- 		mlx5_add_dev_by_protocol(dev0, MLX5_INTERFACE_PROTOCOL_IB);
- 		mlx5_nic_vport_enable_roce(dev1);
--	} else if (tracker.is_bonded && mlx5_lag_is_bonded(ldev)) {
-+	} else if (do_bond && mlx5_lag_is_bonded(ldev)) {
- 		mlx5_infer_tx_affinity_mapping(&tracker, &v2p_port1,
- 					       &v2p_port2);
- 
-@@ -252,7 +254,7 @@ static void mlx5_do_bond(struct mlx5_lag *ldev)
- 					      "Failed to modify LAG (%d)\n",
- 					      err);
- 		}
--	} else if (!tracker.is_bonded && mlx5_lag_is_bonded(ldev)) {
-+	} else if (!do_bond && mlx5_lag_is_bonded(ldev)) {
- 		mlx5_remove_dev_by_protocol(dev0, MLX5_INTERFACE_PROTOCOL_IB);
- 		mlx5_nic_vport_disable_roce(dev1);
- 
-@@ -411,6 +413,15 @@ static int mlx5_lag_netdev_event(struct notifier_block *this,
- 	return NOTIFY_DONE;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 8bb0241df069..2e9a4187a533 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -244,7 +244,7 @@ static void mlx5e_update_vport_counters(struct mlx5e_priv *priv)
+ 	mlx5_cmd_exec(mdev, in, sizeof(in), out, outlen);
  }
  
-+static bool mlx5_lag_check_prereq(struct mlx5_lag *ldev)
-+{
-+	if ((ldev->pf[0].dev && mlx5_sriov_is_enabled(ldev->pf[0].dev)) ||
-+	    (ldev->pf[1].dev && mlx5_sriov_is_enabled(ldev->pf[1].dev)))
-+		return false;
-+	else
-+		return true;
-+}
-+
- static struct mlx5_lag *mlx5_lag_dev_alloc(void)
+-static void mlx5e_update_pport_counters(struct mlx5e_priv *priv)
++static void mlx5e_update_pport_counters(struct mlx5e_priv *priv, bool full)
  {
- 	struct mlx5_lag *ldev;
-@@ -420,6 +431,7 @@ static struct mlx5_lag *mlx5_lag_dev_alloc(void)
- 		return NULL;
+ 	struct mlx5e_pport_stats *pstats = &priv->stats.pport;
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+@@ -259,6 +259,9 @@ static void mlx5e_update_pport_counters(struct mlx5e_priv *priv)
+ 	MLX5_SET(ppcnt_reg, in, grp, MLX5_IEEE_802_3_COUNTERS_GROUP);
+ 	mlx5_core_access_reg(mdev, in, sz, out, sz, MLX5_REG_PPCNT, 0, 0);
  
- 	INIT_DELAYED_WORK(&ldev->bond_work, mlx5_do_bond_work);
-+	ldev->allowed = mlx5_lag_check_prereq(ldev);
- 
- 	return ldev;
- }
-@@ -444,7 +456,9 @@ static void mlx5_lag_dev_add_pf(struct mlx5_lag *ldev,
- 	ldev->tracker.netdev_state[fn].link_up = 0;
- 	ldev->tracker.netdev_state[fn].tx_enabled = 0;
- 
-+	ldev->allowed = mlx5_lag_check_prereq(ldev);
- 	dev->priv.lag = ldev;
++	if (!full)
++		return;
 +
- 	mutex_unlock(&lag_mutex);
+ 	out = pstats->RFC_2863_counters;
+ 	MLX5_SET(ppcnt_reg, in, grp, MLX5_RFC_2863_COUNTERS_GROUP);
+ 	mlx5_core_access_reg(mdev, in, sz, out, sz, MLX5_REG_PPCNT, 0, 0);
+@@ -318,15 +321,21 @@ static void mlx5e_update_pcie_counters(struct mlx5e_priv *priv)
+ 	mlx5_core_access_reg(mdev, in, sz, out, sz, MLX5_REG_MPCNT, 0, 0);
  }
  
-@@ -464,6 +478,7 @@ static void mlx5_lag_dev_remove_pf(struct mlx5_lag *ldev,
- 	memset(&ldev->pf[i], 0, sizeof(*ldev->pf));
- 
- 	dev->priv.lag = NULL;
-+	ldev->allowed = mlx5_lag_check_prereq(ldev);
- 	mutex_unlock(&lag_mutex);
- }
- 
-@@ -542,6 +557,44 @@ bool mlx5_lag_is_active(struct mlx5_core_dev *dev)
- }
- EXPORT_SYMBOL(mlx5_lag_is_active);
- 
-+static int mlx5_lag_set_state(struct mlx5_core_dev *dev, bool allow)
-+{
-+	struct mlx5_lag *ldev;
-+	int ret = 0;
-+	bool lag_active;
-+
-+	mlx5_dev_list_lock();
-+
-+	ldev = mlx5_lag_dev_get(dev);
-+	if (!ldev) {
-+		ret = -ENODEV;
-+		goto unlock;
-+	}
-+	lag_active = mlx5_lag_is_bonded(ldev);
-+	if (!mlx5_lag_check_prereq(ldev) && allow) {
-+		ret = -EINVAL;
-+		goto unlock;
-+	}
-+	if (ldev->allowed == allow)
-+		goto unlock;
-+	ldev->allowed = allow;
-+	if ((lag_active && !allow) || allow)
-+		mlx5_do_bond(ldev);
-+unlock:
-+	mlx5_dev_list_unlock();
-+	return ret;
-+}
-+
-+int mlx5_lag_forbid(struct mlx5_core_dev *dev)
-+{
-+	return mlx5_lag_set_state(dev, false);
-+}
-+
-+int mlx5_lag_allow(struct mlx5_core_dev *dev)
-+{
-+	return mlx5_lag_set_state(dev, true);
-+}
-+
- struct net_device *mlx5_lag_get_roce_netdev(struct mlx5_core_dev *dev)
+-void mlx5e_update_stats(struct mlx5e_priv *priv)
++void mlx5e_update_stats(struct mlx5e_priv *priv, bool full)
  {
- 	struct net_device *ndev = NULL;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-index cf69b42278df..1fd279c0338d 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-@@ -167,4 +167,7 @@ static inline int mlx5_lag_is_lacp_owner(struct mlx5_core_dev *dev)
- 		    MLX5_CAP_GEN(dev, lag_master);
+-	mlx5e_update_pcie_counters(priv);
+-	mlx5e_update_pport_counters(priv);
++	if (full)
++		mlx5e_update_pcie_counters(priv);
++	mlx5e_update_pport_counters(priv, full);
+ 	mlx5e_update_vport_counters(priv);
+ 	mlx5e_update_q_counter(priv);
+ 	mlx5e_update_sw_counters(priv);
  }
  
-+int mlx5_lag_allow(struct mlx5_core_dev *dev);
-+int mlx5_lag_forbid(struct mlx5_core_dev *dev);
++static void mlx5e_update_ndo_stats(struct mlx5e_priv *priv)
++{
++	mlx5e_update_stats(priv, false);
++}
 +
- #endif /* __MLX5_CORE_H__ */
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/sriov.c b/drivers/net/ethernet/mellanox/mlx5/core/sriov.c
-index e08627785590..bcdf7779c48d 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/sriov.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/sriov.c
-@@ -175,15 +175,20 @@ int mlx5_core_sriov_configure(struct pci_dev *pdev, int num_vfs)
- 	if (!mlx5_core_is_pf(dev))
- 		return -EPERM;
- 
--	if (num_vfs && mlx5_lag_is_active(dev)) {
--		mlx5_core_warn(dev, "can't turn sriov on while LAG is active");
--		return -EINVAL;
-+	if (num_vfs) {
-+		int ret;
-+
-+		ret = mlx5_lag_forbid(dev);
-+		if (ret && (ret != -ENODEV))
-+			return ret;
- 	}
- 
--	if (num_vfs)
-+	if (num_vfs) {
- 		err = mlx5_sriov_enable(pdev, num_vfs);
--	else
-+	} else {
- 		mlx5_sriov_disable(pdev);
-+		mlx5_lag_allow(dev);
-+	}
- 
- 	return err ? err : num_vfs;
- }
+ void mlx5e_update_stats_work(struct work_struct *work)
+ {
+ 	struct delayed_work *dwork = to_delayed_work(work);
+@@ -4195,7 +4204,7 @@ static const struct mlx5e_profile mlx5e_nic_profile = {
+ 	.cleanup_tx	   = mlx5e_cleanup_nic_tx,
+ 	.enable		   = mlx5e_nic_enable,
+ 	.disable	   = mlx5e_nic_disable,
+-	.update_stats	   = mlx5e_update_stats,
++	.update_stats	   = mlx5e_update_ndo_stats,
+ 	.max_nch	   = mlx5e_get_max_num_channels,
+ 	.rx_handlers.handle_rx_cqe       = mlx5e_handle_rx_cqe,
+ 	.rx_handlers.handle_rx_cqe_mpwqe = mlx5e_handle_rx_cqe_mpwrq,
 -- 
 2.11.0
