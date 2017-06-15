@@ -1,193 +1,46 @@
 From: Harsh Jain <harsh@chelsio.com>
-Subject: [PATCH 9/9] crypto: chcr - Select device in Round Robin fashion
-Date: Thu, 15 Jun 2017 12:43:47 +0530
-Message-ID: <718372f6c4af72f11b5d1e1f286e87a68611f744.1497506936.git.harsh@chelsio.com>
+Subject: [PATCH 7/9] MAINTAINERS:Add maintainer for chelsio crypto driver
+Date: Thu, 15 Jun 2017 12:43:45 +0530
+Message-ID: <e76e20f2e2597574c77ba86c56ba4cc6636cbe81.1497506936.git.harsh@chelsio.com>
 References: <cover.1497506936.git.harsh@chelsio.com>
-Cc: Harsh Jain <harsh@chelsio.com>, Atul Gupta <atul.gupta@chelsio.com>
+Cc: Harsh Jain <harsh@chelsio.com>
 To: herbert@gondor.apana.org.au, linux-crypto@vger.kernel.org,
         netdev@vger.kernel.org, ganeshgr@chelsio.com
-Return-path: <linux-crypto-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([12.32.117.8]:15583 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752311AbdFOHOQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 03:14:16 -0400
 In-Reply-To: <cover.1497506936.git.harsh@chelsio.com>
 In-Reply-To: <cover.1497506936.git.harsh@chelsio.com>
 References: <cover.1497506936.git.harsh@chelsio.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When multiple devices are present in system select device
-in round-robin fashion for crypto operations
+Add myself as maintainer for chcr.
 
-Signed-off-by: Atul Gupta <atul.gupta@chelsio.com>
-Reviewed-by: Ganesh Goudar <ganeshgr@chelsio.com>
+Signed-off-by: Harsh Jain <harsh@chelsio.com>
 ---
- drivers/crypto/chelsio/chcr_algo.c             |  8 ++--
- drivers/crypto/chelsio/chcr_core.c             | 53 ++++++++++++++++++--------
- drivers/crypto/chelsio/chcr_core.h             |  2 +-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c |  1 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h |  1 +
- 5 files changed, 44 insertions(+), 21 deletions(-)
+ MAINTAINERS | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-diff --git a/drivers/crypto/chelsio/chcr_algo.c b/drivers/crypto/chelsio/chcr_algo.c
-index 9a84ffa..aa4e5b8 100644
---- a/drivers/crypto/chelsio/chcr_algo.c
-+++ b/drivers/crypto/chelsio/chcr_algo.c
-@@ -1216,7 +1216,7 @@ static int chcr_aes_decrypt(struct ablkcipher_request *req)
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 1f20176..504dc65 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -3706,6 +3706,13 @@ S:	Supported
+ F:	drivers/infiniband/hw/cxgb4/
+ F:	include/uapi/rdma/cxgb4-abi.h
  
- static int chcr_device_init(struct chcr_context *ctx)
- {
--	struct uld_ctx *u_ctx;
-+	struct uld_ctx *u_ctx = NULL;
- 	struct adapter *adap;
- 	unsigned int id;
- 	int txq_perchan, txq_idx, ntxq;
-@@ -1224,12 +1224,12 @@ static int chcr_device_init(struct chcr_context *ctx)
- 
- 	id = smp_processor_id();
- 	if (!ctx->dev) {
--		err = assign_chcr_device(&ctx->dev);
--		if (err) {
-+		u_ctx = assign_chcr_device();
-+		if (!u_ctx) {
- 			pr_err("chcr device assignment fails\n");
- 			goto out;
- 		}
--		u_ctx = ULD_CTX(ctx);
-+		ctx->dev = u_ctx->dev;
- 		adap = padap(ctx->dev);
- 		ntxq = min_not_zero((unsigned int)u_ctx->lldi.nrxq,
- 				    adap->vres.ncrypto_fc);
-diff --git a/drivers/crypto/chelsio/chcr_core.c b/drivers/crypto/chelsio/chcr_core.c
-index 5ae659a..b6dd9cb 100644
---- a/drivers/crypto/chelsio/chcr_core.c
-+++ b/drivers/crypto/chelsio/chcr_core.c
-@@ -29,6 +29,7 @@
- static LIST_HEAD(uld_ctx_list);
- static DEFINE_MUTEX(dev_mutex);
- static atomic_t dev_count;
-+static struct uld_ctx *ctx_rr;
- 
- typedef int (*chcr_handler_func)(struct chcr_dev *dev, unsigned char *input);
- static int cpl_fw6_pld_handler(struct chcr_dev *dev, unsigned char *input);
-@@ -49,25 +50,28 @@
- 	.rx_handler = chcr_uld_rx_handler,
- };
- 
--int assign_chcr_device(struct chcr_dev **dev)
-+struct uld_ctx *assign_chcr_device(void)
- {
--	struct uld_ctx *u_ctx;
--	int ret = -ENXIO;
-+	struct uld_ctx *u_ctx = NULL;
- 
- 	/*
--	 * Which device to use if multiple devices are available TODO
--	 * May be select the device based on round robin. One session
--	 * must go to the same device to maintain the ordering.
-+	 * When multiple devices are present in system select
-+	 * device in round-robin fashion for crypto operations
-+	 * Although One session must use the same device to
-+	 * maintain request-response ordering.
- 	 */
--	mutex_lock(&dev_mutex); /* TODO ? */
--	list_for_each_entry(u_ctx, &uld_ctx_list, entry)
--		if (u_ctx->dev) {
--			*dev = u_ctx->dev;
--			ret = 0;
--			break;
-+	mutex_lock(&dev_mutex);
-+	if (!list_empty(&uld_ctx_list)) {
-+		u_ctx = ctx_rr;
-+		if (list_is_last(&ctx_rr->entry, &uld_ctx_list))
-+			ctx_rr = list_first_entry(&uld_ctx_list,
-+						  struct uld_ctx,
-+						  entry);
-+		else
-+			ctx_rr = list_next_entry(ctx_rr, entry);
- 	}
- 	mutex_unlock(&dev_mutex);
--	return ret;
-+	return u_ctx;
- }
- 
- static int chcr_dev_add(struct uld_ctx *u_ctx)
-@@ -82,11 +86,27 @@ static int chcr_dev_add(struct uld_ctx *u_ctx)
- 	u_ctx->dev = dev;
- 	dev->u_ctx = u_ctx;
- 	atomic_inc(&dev_count);
-+	mutex_lock(&dev_mutex);
-+	list_add_tail(&u_ctx->entry, &uld_ctx_list);
-+	if (!ctx_rr)
-+		ctx_rr = u_ctx;
-+	mutex_unlock(&dev_mutex);
- 	return 0;
- }
- 
- static int chcr_dev_remove(struct uld_ctx *u_ctx)
- {
-+	if (ctx_rr == u_ctx) {
-+		if (list_is_last(&ctx_rr->entry, &uld_ctx_list))
-+			ctx_rr = list_first_entry(&uld_ctx_list,
-+						  struct uld_ctx,
-+						  entry);
-+		else
-+			ctx_rr = list_next_entry(ctx_rr, entry);
-+	}
-+	list_del(&u_ctx->entry);
-+	if (list_empty(&uld_ctx_list))
-+		ctx_rr = NULL;
- 	kfree(u_ctx->dev);
- 	u_ctx->dev = NULL;
- 	atomic_dec(&dev_count);
-@@ -139,10 +159,11 @@ static void *chcr_uld_add(const struct cxgb4_lld_info *lld)
- 		u_ctx = ERR_PTR(-ENOMEM);
- 		goto out;
- 	}
-+	if (!(lld->ulp_crypto & ULP_CRYPTO_LOOKASIDE)) {
-+		u_ctx = ERR_PTR(-ENOMEM);
-+		goto out;
-+	}
- 	u_ctx->lldi = *lld;
--	mutex_lock(&dev_mutex);
--	list_add_tail(&u_ctx->entry, &uld_ctx_list);
--	mutex_unlock(&dev_mutex);
- out:
- 	return u_ctx;
- }
-diff --git a/drivers/crypto/chelsio/chcr_core.h b/drivers/crypto/chelsio/chcr_core.h
-index ddfb2c9..c9a19b2 100644
---- a/drivers/crypto/chelsio/chcr_core.h
-+++ b/drivers/crypto/chelsio/chcr_core.h
-@@ -89,7 +89,7 @@ struct uld_ctx {
- 	struct chcr_dev *dev;
- };
- 
--int assign_chcr_device(struct chcr_dev **dev);
-+struct uld_ctx * assign_chcr_device(void);
- int chcr_send_wr(struct sk_buff *skb);
- int start_crypto(void);
- int stop_crypto(void);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
-index d0868c2..ec53fe9 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
-@@ -642,6 +642,7 @@ static void uld_init(struct adapter *adap, struct cxgb4_lld_info *lld)
- 	lld->sge_ingpadboundary = adap->sge.fl_align;
- 	lld->sge_egrstatuspagesize = adap->sge.stat_len;
- 	lld->sge_pktshift = adap->sge.pktshift;
-+	lld->ulp_crypto = adap->params.crypto;
- 	lld->enable_fw_ofld_conn = adap->flags & FW_OFLD_CONN;
- 	lld->max_ordird_qp = adap->params.max_ordird_qp;
- 	lld->max_ird_adapter = adap->params.max_ird_adapter;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-index 35f4d9f..8f1c874 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-@@ -331,6 +331,7 @@ struct cxgb4_lld_info {
- 	unsigned int iscsi_tagmask;	     /* iscsi ddp tag mask */
- 	unsigned int iscsi_pgsz_order;	     /* iscsi ddp page size orders */
- 	unsigned int iscsi_llimit;	     /* chip's iscsi region llimit */
-+	unsigned int ulp_crypto;             /* crypto lookaside support */
- 	void **iscsi_ppm;		     /* iscsi page pod manager */
- 	int nodeid;			     /* device numa node id */
- 	bool fr_nsmr_tpte_wr_support;	     /* FW supports FR_NSMR_TPTE_WR */
++CXGB4 CRYPTO DRIVER (chcr)
++M:	Harsh Jain <harsh@chelsio.com>
++L:	linux-crypto@vger.kernel.org
++W:	http://www.chelsio.com
++S:	Supported
++F:	drivers/crypto/chelsio
++
+ CXGB4VF ETHERNET DRIVER (CXGB4VF)
+ M:	Casey Leedom <leedom@chelsio.com>
+ L:	netdev@vger.kernel.org
 -- 
 1.8.3.1
