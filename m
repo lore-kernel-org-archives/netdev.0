@@ -1,7 +1,7 @@
 From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [RFC PATCH net-next v2 03/15] bpf: Support for per connection  SYN/SYN-ACK RTOs
-Date: Thu, 15 Jun 2017 13:08:32 -0700
-Message-ID: <20170615200844.2752485-4-brakmo@fb.com>
+Subject: [RFC PATCH net-next v2 04/15] bpf: Sample bpf program to set SYN/SYN-ACK RTOs
+Date: Thu, 15 Jun 2017 13:08:33 -0700
+Message-ID: <20170615200844.2752485-5-brakmo@fb.com>
 References: <20170615200844.2752485-1-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,98 +11,108 @@ Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:58446 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752042AbdFOUIw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 16:08:52 -0400
-Received: from pps.filterd (m0109332.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5FK3UuZ005082
-        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 13:08:51 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:58125 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752030AbdFOUIv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 16:08:51 -0400
+Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
+        by m0089730.ppops.net (8.16.0.20/8.16.0.20) with SMTP id v5FK8MUu021701
+        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 13:08:50 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2b3v6g126y-2
+        by m0089730.ppops.net with ESMTP id 2b3ww40pwc-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 13:08:51 -0700
+        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 13:08:50 -0700
 Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
  mx-out.facebook.com (10.103.99.99) with ESMTP  id
- 722af676520611e78fc80002c9dfb610-f473d8f0 for <netdev@vger.kernel.org>;        Thu,
+ 721ed256520611e78fc80002c9dfb610-f473d8f0 for <netdev@vger.kernel.org>;        Thu,
  15 Jun 2017 13:08:49 -0700
 In-Reply-To: <20170615200844.2752485-1-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for setting a per connection SYN and
-SYN_ACK RTOs from within a BPF_SOCKET_OPS program. For example,
-to set small RTOs when it is known both hosts are within a
-datacenter.
+The sample BPF program, tcp_synrto_kern.c, sets the SYN and SYN-ACK
+RTOs to 10ms when both hosts are within the same datacenter (i.e.
+small RTTs) in an environment where common IPv6 prefixes indicate
+both hosts are in the same data center.
 
 Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
 ---
- include/net/tcp.h        | 11 +++++++++++
- include/uapi/linux/bpf.h |  3 +++
- net/ipv4/tcp_input.c     |  3 ++-
- net/ipv4/tcp_output.c    |  2 +-
- 4 files changed, 17 insertions(+), 2 deletions(-)
+ samples/bpf/Makefile          |  1 +
+ samples/bpf/tcp_synrto_kern.c | 54 +++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 55 insertions(+)
+ create mode 100644 samples/bpf/tcp_synrto_kern.c
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 9ad0d80..a726486 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -2018,4 +2018,15 @@ static inline int tcp_call_bpf(struct sock *sk, bool is_req_sock, int op)
- }
- #endif
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index ed6bc75..21cb016 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -113,6 +113,7 @@ always += lwt_len_hist_kern.o
+ always += xdp_tx_iptunnel_kern.o
+ always += test_map_in_map_kern.o
+ always += cookie_uid_helper_example.o
++always += tcp_synrto_kern.o
  
-+static inline u32 tcp_timeout_init(struct sock *sk, bool is_req_sock)
+ HOSTCFLAGS += -I$(objtree)/usr/include
+ HOSTCFLAGS += -I$(srctree)/tools/lib/
+diff --git a/samples/bpf/tcp_synrto_kern.c b/samples/bpf/tcp_synrto_kern.c
+new file mode 100644
+index 0000000..03579cb
+--- /dev/null
++++ b/samples/bpf/tcp_synrto_kern.c
+@@ -0,0 +1,54 @@
++/*
++ * BPF program to set SYN and SYN-ACK RTOs to 10ms when using IPv6 addresses
++ * and the first 5.5 bytes of the IPv6 addresses are the same (in this example
++ * that means both hosts are in the same datacenter.
++ */
++
++#include <uapi/linux/bpf.h>
++#include <uapi/linux/if_ether.h>
++#include <uapi/linux/if_packet.h>
++#include <uapi/linux/ip.h>
++#include <linux/socket.h>
++#include "bpf_helpers.h"
++
++#define DEBUG 1
++
++SEC("sockops")
++int bpf_synrto(struct bpf_socket_ops *skops)
 +{
-+	int timeout;
++	char fmt1[] = "BPF command: %d\n";
++	char fmt2[] = "  Returning %d\n";
++	int rv = -1;
++	int op;
 +
-+	timeout = tcp_call_bpf(sk, is_req_sock, BPF_SOCKET_OPS_TIMEOUT_INIT);
++	/* For testing purposes, only execute rest of BPF program
++	 * if neither port numberis 55601
++	 */
++	if (skops->remote_port != 55601 && skops->local_port != 55601)
++		return -1;
 +
-+	if (timeout <= 0)
-+		timeout = TCP_TIMEOUT_INIT;
-+	return timeout;
++	op = (int) skops->op;
++
++#ifdef DEBUG
++	bpf_trace_printk(fmt1, sizeof(fmt1), op);
++#endif
++
++	/* Check for TIMEOUT_INIT operation and IPv6 addresses */
++	if (op == BPF_SOCKET_OPS_TIMEOUT_INIT &&
++		skops->family == AF_INET6) {
++
++		/* If the first 5.5 bytes of the IPv6 address are the same
++		 * then both hosts are in the same datacenter
++		 * so use an RTO of 10ms
++		 */
++		if (skops->local_ip6[0] == skops->remote_ip6[0] &&
++		    (skops->local_ip6[1] & 0xfff00000) ==
++		    (skops->remote_ip6[1] & 0xfff00000))
++			rv = 10;
++	}
++#ifdef DEBUG
++	bpf_trace_printk(fmt2, sizeof(fmt2), rv);
++#endif
++	return rv;
 +}
-+
- #endif	/* _TCP_H */
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 1540336..039f327 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -746,6 +746,9 @@ struct bpf_socket_ops {
-  */
- enum {
- 	BPF_SOCKET_OPS_VOID,
-+	BPF_SOCKET_OPS_TIMEOUT_INIT,	/* Should return SYN-RTO value to use or
-+					 * -1 if default value should be used
-+					 */
- };
- 
- #endif /* _UAPI__LINUX_BPF_H__ */
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 2ab7e2f..0867b05 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -6406,7 +6406,8 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
- 	} else {
- 		tcp_rsk(req)->tfo_listener = false;
- 		if (!want_cookie)
--			inet_csk_reqsk_queue_hash_add(sk, req, TCP_TIMEOUT_INIT);
-+			inet_csk_reqsk_queue_hash_add(sk, req,
-+				tcp_timeout_init((struct sock *)req, true));
- 		af_ops->send_synack(sk, dst, &fl, req, &foc,
- 				    !want_cookie ? TCP_SYNACK_NORMAL :
- 						   TCP_SYNACK_COOKIE);
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 9a9c395..5e478a1 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -3327,7 +3327,7 @@ static void tcp_connect_init(struct sock *sk)
- 	tp->rcv_wup = tp->rcv_nxt;
- 	tp->copied_seq = tp->rcv_nxt;
- 
--	inet_csk(sk)->icsk_rto = TCP_TIMEOUT_INIT;
-+	inet_csk(sk)->icsk_rto = tcp_timeout_init(sk, false);
- 	inet_csk(sk)->icsk_retransmits = 0;
- 	tcp_clear_retrans(tp);
- }
++char _license[] SEC("license") = "GPL";
 -- 
 2.9.3
