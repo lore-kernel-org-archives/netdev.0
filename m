@@ -1,54 +1,92 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 3/3] r8152: add byte_enable for ocp_read_word function
-Date: Thu, 15 Jun 2017 14:44:04 +0800
-Message-ID: <1394712342-15778-281-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-278-Taiwan-albertk@realtek.com>
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Subject: Re: [PATCH v4 10/11] dt-bindings: orion-mdio: document the new xmdio
+ compatible
+Date: Thu, 15 Jun 2017 08:55:26 +0200
+Message-ID: <20170615065526.GA4773@kwain.lan>
+References: <20170614154911.14510-1-antoine.tenart@free-electrons.com>
+ <20170614154911.14510-11-antoine.tenart@free-electrons.com>
+ <20170614163537.GO15847@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-        <linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-278-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+        protocol="application/pgp-signature"; boundary="envbJBWh7q8WU6mo"
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        davem@davemloft.net, jason@lakedaemon.net,
+        gregory.clement@free-electrons.com,
+        sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com,
+        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
+        mw@semihalf.com, linux@armlinux.org.uk, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([62.4.15.54]:51865 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750777AbdFOGz2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 02:55:28 -0400
+Content-Disposition: inline
+In-Reply-To: <20170614163537.GO15847@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add byte_enable for ocp_read_word() to replace reading 4
-bytes data with reading the desired 2 bytes data.
 
-This is used to avoid the issue which is described in
-commit b4d99def0938 ("r8152: remove sram_read"). The
-original method always reads 4 bytes data, and it may
-have problem when reading the PHY registers.
+--envbJBWh7q8WU6mo
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-The new method is supported since RTL8153B, but it
-doesn't influence the previous chips. The bits of the
-byte_enable for the previous chips are the reserved
-bits, and the hw would ignore them.
+Hi Andrew,
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+On Wed, Jun 14, 2017 at 06:35:37PM +0200, Andrew Lunn wrote:
+> On Wed, Jun 14, 2017 at 05:49:10PM +0200, Antoine Tenart wrote:
+> > =20
+> >  The Ethernet controllers of the Marvel Kirkwood, Dove, Orion5x,
+> > -MV78xx0, Armada 370 and Armada XP have an identical unit that provides
+> > -an interface with the MDIO bus. This driver handles this MDIO
+> > -interface.
+> > +MV78xx0, Armada 370, Armada XP, Armada 7k and Armada 8k have an
+> > +identical unit that provides an interface with the MDIO bus or
+> > +with the xMDIO bus. This driver handles these interfaces.
+>=20
+> This patches is looking good now. One nit. The description above
+> suggests Kirkwood, Dove, Orion5x, MV78xx0, Armada 370 and Armada XP
+> all have xmdio. Maybe better wording would be:
+>=20
+> The Ethernet controllers of the Marvel Kirkwood, Dove, Orion5x,
+> MV78xx0, Armada 370, Armada XP, Armada 7k and Armada 8k have an
+> identical unit that provides an interface with the MDIO bus.
+> Additionally, Armada 7k and Armada 8k has a second unit which
+> provides an interface with the xMDIO bus. This driver handles
+> these interfaces.
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 4c197da..184b680 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -962,11 +962,13 @@ static u16 ocp_read_word(struct r8152 *tp, u16 type, u16 index)
- {
- 	u32 data;
- 	__le32 tmp;
-+	u16 byen = BYTE_EN_WORD;
- 	u8 shift = index & 2;
- 
- 	index &= ~3;
-+	byen <<= shift;
- 
--	generic_ocp_read(tp, index, sizeof(tmp), &tmp, type);
-+	generic_ocp_read(tp, index, sizeof(tmp), &tmp, type | byen);
- 
- 	data = __le32_to_cpu(tmp);
- 	data >>= (shift * 8);
--- 
-2.7.4
+Agreed, your description is better :)
+I'll respin this patch only, if there is no other comment.
+
+Thanks!
+Antoine
+
+--=20
+Antoine T=E9nart, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
+
+--envbJBWh7q8WU6mo
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJZQi9cAAoJEFxNi8it27zYp9QP/1r9sqyUCbtFggn2ACeVs/dm
+gIV5zLp3jcqXZ1+zO82Og1wMp7tCCTdkgpYqPB1fim3/FX/kqUvJ0jZ7pbhNreLC
+dD1TzU1kT2rhsoYE6Xl8+3GfAnBzc4Buh+rUej3/vMi6o9EhB3/3i0nENb0gk9ui
+XQBiyXymFzNsgx+tGQkOiZSQ35Z9C5Zft5R2R04moSEYfMCZjWFWFTqKlcoWTtZh
+u6OeKgm6308qBG9dR7DtvGbEasrtg8EQJ3gOEBM8YBHyyKtSmkC5sJySm8OKF4Wf
+i3lKLl2uuSHt/WVyz8KOkS6COfZT7hFNPxGNheF4IG0+4QMpyR9TiNmfRtCDavCy
+fTJDv9+ZKwqx2az5M4F3ePtDgAaeYkYQDC7+JutsraKb4T+9nvQoslsnp+9navO0
+8qjo7+cDqfpuwo9yVpJLjYXC/8mGD2O6Id0U0fWhWVL2WfR8f6qr8SkyjBpiSl4U
+lLwPrZqZcUwDR7JYG801EEI+IVlF6bBMWyM6gd/aypV3RGk4uhlIZ2sbgE0Nyw6e
+WDQ8qFGXeHzNp77i+vhGapVbPxddHNLv7RTtkbXOoi+Gor5ABctxsIsDwPed/3sP
+DmQZIZn2iHAYRdsJReCfwM28fPOCcTQL/ppHNLGppezjinhv19/iADIfNs4Qh/DN
+oPHMsl0YWqVDLjVm7B6s
+=mxA5
+-----END PGP SIGNATURE-----
+
+--envbJBWh7q8WU6mo--
