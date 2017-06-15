@@ -1,40 +1,31 @@
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Subject: [PATCH 1/2] ip_tunnel: fix ip tunnel lookup in collect_md mode
-Date: Fri, 16 Jun 2017 00:37:55 +0800
-Message-ID: <1497544676-314-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 0/8] net: dsa: prefix Global macros
+Date: Thu, 15 Jun 2017 19:03:11 +0200
+Message-ID: <20170615170311.GF3786@lunn.ch>
+References: <20170615161406.20546-1-vivien.didelot@savoirfairelinux.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Haishuang Yan <yanhaishuang@cmss.chinamobile.com>,
-        Pravin B Shelar <pshelar@nicira.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Paolo Abeni <pabeni@redhat.com>,
-        Alexei Starovoitov <ast@fb.com>
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170615161406.20546-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In collect_md mode, if the tun dev is down, it still can call
-ip_tunnel_rcv to receive on packets, and the rx statistics increase
-improperly.
+On Thu, Jun 15, 2017 at 12:13:58PM -0400, Vivien Didelot wrote:
+> This patch series is the 2/3 step of the register definitions cleanup.
+> It brings no functional changes.
+> 
+> It prefixes and documents all Global (1) registers with MV88E6XXX_G1_
+> (or a specific model like MV88E6352_G1_STS_PPU_STATE), and prefers a
+> 16-bit hexadecimal representation of the Marvell registers layout.
+> 
+> The next and last patchset will prefix the Global 2 registers.
 
-Fixes: 2e15ea390e6f ("ip_gre: Add support to collect tunnel metadata.")
-Cc: Pravin B Shelar <pshelar@nicira.com>
-Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
----
- net/ipv4/ip_tunnel.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index 0f1d876..a3caba1 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -176,7 +176,7 @@ struct ip_tunnel *ip_tunnel_lookup(struct ip_tunnel_net *itn,
- 		return cand;
- 
- 	t = rcu_dereference(itn->collect_md_tun);
--	if (t)
-+	if (t && (t->dev->flags & IFF_UP))
- 		return t;
- 
- 	if (itn->fb_tunnel_dev && itn->fb_tunnel_dev->flags & IFF_UP)
--- 
-1.8.3.1
+    Andrew
