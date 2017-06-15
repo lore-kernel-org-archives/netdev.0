@@ -1,44 +1,33 @@
-From: Heinrich Schuchardt <xypron.glpk@gmx.de>
-Subject: [PATCH 1/1] Doc: net: dsa: b53: update location of referenced dsa.txt
-Date: Thu, 15 Jun 2017 20:59:57 +0200
-Message-ID: <20170615185957.16405-1-xypron.glpk@gmx.de>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/1] Doc: net: dsa: b53: update location of referenced
+ dsa.txt
+Date: Thu, 15 Jun 2017 15:02:59 -0400 (EDT)
+Message-ID: <20170615.150259.117837421251480394.davem@davemloft.net>
 References: <20170615.144635.940189694308591273.davem@davemloft.net>
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        devicetree@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Heinrich Schuchardt <xypron.glpk@gmx.de>
-To: Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170615.144635.940189694308591273.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+        <20170615185957.16405-1-xypron.glpk@gmx.de>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: xypron.glpk-Mmb7MZpHnFY@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170615185957.16405-1-xypron.glpk-Mmb7MZpHnFY@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The referenced file dsa.txt is located at
-Documentation/devicetree/bindings/net/dsa/dsa.txt
+From: Heinrich Schuchardt <xypron.glpk-Mmb7MZpHnFY@public.gmane.org>
+Date: Thu, 15 Jun 2017 20:59:57 +0200
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
----
-Resent due to missing
-Cc: netdev@vger.kernel.org
----
- Documentation/devicetree/bindings/net/dsa/b53.txt | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> The referenced file dsa.txt is located at
+> Documentation/devicetree/bindings/net/dsa/dsa.txt
+> 
+> Reviewed-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Heinrich Schuchardt <xypron.glpk-Mmb7MZpHnFY@public.gmane.org>
 
-diff --git a/Documentation/devicetree/bindings/net/dsa/b53.txt b/Documentation/devicetree/bindings/net/dsa/b53.txt
-index d6c6e41648d4..8ec2ca21adeb 100644
---- a/Documentation/devicetree/bindings/net/dsa/b53.txt
-+++ b/Documentation/devicetree/bindings/net/dsa/b53.txt
-@@ -34,7 +34,7 @@ Required properties:
-       "brcm,bcm6328-switch"
-       "brcm,bcm6368-switch" and the mandatory "brcm,bcm63xx-switch"
- 
--See Documentation/devicetree/bindings/dsa/dsa.txt for a list of additional
-+See Documentation/devicetree/bindings/net/dsa/dsa.txt for a list of additional
- required and optional properties.
- 
- Examples:
--- 
-2.11.0
+Applied, thank you.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
