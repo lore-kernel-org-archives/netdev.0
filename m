@@ -1,50 +1,47 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net 6/6] net/mlx5e: Avoid doing a cleanup call if the profile doesn't have it
-Date: Thu, 15 Jun 2017 23:55:30 +0300
-Message-ID: <20170615205530.26674-7-saeedm@mellanox.com>
-References: <20170615205530.26674-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: Re: [Intel-wired-lan] [PATCH] intel: i40e: virtchnl: fix incorrect
+ variable assignment
+Date: Thu, 15 Jun 2017 16:07:40 -0500
+Message-ID: <20170615160740.Horde.Jp_M9DTPyKHhri-Ff7J7hSX@gator4166.hostgator.com>
+References: <20170615023826.GA8136@embeddedgus>
+ <20170615135033.00001ecf@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+        intel-wired-lan@lists.osuosl.org, linux-kernel@vger.kernel.org
+To: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:52485 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750820AbdFOU4d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 16:56:33 -0400
-In-Reply-To: <20170615205530.26674-1-saeedm@mellanox.com>
+Received: from gateway30.websitewelcome.com ([192.185.150.24]:21971 "EHLO
+        gateway30.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751755AbdFOVHn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 17:07:43 -0400
+Received: from cm15.websitewelcome.com (cm15.websitewelcome.com [100.42.49.9])
+        by gateway30.websitewelcome.com (Postfix) with ESMTP id D9C4425AD6
+        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 16:07:40 -0500 (CDT)
+In-Reply-To: <20170615135033.00001ecf@intel.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
+Hi Jesse,
 
-The error flow of mlx5e_create_netdev calls the cleanup call
-of the given profile without checking if it exists, fix that.
+Quoting Jesse Brandeburg <jesse.brandeburg@intel.com>:
 
-Currently the VF reps don't register that callback and we crash
-if getting into error -- can be reproduced by the user doing ctrl^C
-while attempting to change the sriov mode from legacy to switchdev.
+> On Wed, 14 Jun 2017 21:38:26 -0500
+> "Gustavo A. R. Silva" <garsilva@embeddedor.com> wrote:
+>
+>> Fix incorrect variable assignment.
+>> Based on line 1511: aq_ret = I40_ERR_PARAM; the correct variable to be
+>> used in this instance is aq_ret instead of ret. Also, variable ret is
+>> updated at line 1602 just before return, so assigning a value to this
+>> variable in this code block is useless.
+>>
+>> Addresses-Coverity-ID: 1397693
+>> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+>
+> Thanks for the fix, looks reasonable.
+> Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Fixes: 26e59d8077a3 '(net/mlx5e: Implement mlx5e interface attach/detach callbacks')
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Reported-by: Sabrina Dubroca <sdubroca@redhat.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Absolutely, glad to help.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 41cd22a223dc..277f4de30375 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -4241,7 +4241,8 @@ struct net_device *mlx5e_create_netdev(struct mlx5_core_dev *mdev,
- 	return netdev;
- 
- err_cleanup_nic:
--	profile->cleanup(priv);
-+	if (profile->cleanup)
-+		profile->cleanup(priv);
- 	free_netdev(netdev);
- 
- 	return NULL;
--- 
-2.11.0
+Regards
