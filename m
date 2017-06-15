@@ -1,60 +1,36 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] Convert multiple netdev_info messages to netdev_dbg
-Date: Thu, 15 Jun 2017 14:54:36 -0700
-Message-ID: <1497563676.14396.19.camel@perches.com>
-References: <1497550452-3067-1-git-send-email-michael.j.dilmore@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: Veaceslav Falico <vfalico@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Michael J Dilmore <michael.j.dilmore@gmail.com>,
-        Jay Vosburgh <j.vosburgh@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1497550452-3067-1-git-send-email-michael.j.dilmore@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [RFC 0/3] make skb accessors return void pointers
+Date: Fri, 16 Jun 2017 00:12:14 +0200
+Message-ID: <20170615221217.16510-1-johannes@sipsolutions.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:53850 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751882AbdFOWMV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 15 Jun 2017 18:12:21 -0400
+Received: by sipsolutions.net with esmtpsa (TLS1.2:ECDHE_RSA_AES_128_GCM_SHA256:128)
+        (Exim 4.89)
+        (envelope-from <johannes@sipsolutions.net>)
+        id 1dLd00-0005sp-3R
+        for netdev@vger.kernel.org; Fri, 16 Jun 2017 00:12:20 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-06-15 at 19:14 +0100, Michael J Dilmore wrote:
-> Multiple netdev_info messages clutter kernel output. Also add netdev_dbg for packets per slave.
-[]
-> diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-[]
-> @@ -9,6 +9,8 @@
->   * (at your option) any later version.
->   */
->   
-> +#define DEBUG 1
+Hi,
 
-Is defining DEBUG really worthwhile.
+After some more fun with spatch, I've come up with these three patches.
 
-As well, it's almost always just
-#define DEBUG
-without any level value unless the
-level value is used in the code.
+I couldn't figure out why spatch didn't convert one skb_put() place,
+and there was one inside a macro it didn't find. Otherwise, it's
+pretty much just spatch and changing the functions/prototypes.
 
-> +
->  #include <linux/errno.h>
->  #include <linux/if.h>
->  #include <linux/netdevice.h>
-> @@ -719,13 +721,13 @@ static int bond_option_mode_set(struct bonding *bond,
->  				const struct bond_opt_value *newval)
->  {
->  	if (!bond_mode_uses_arp(newval->value) && bond->params.arp_interval) {
-> -		netdev_info(bond->dev, "%s mode is incompatible with arp monitoring, start mii monitoring\n",
-> +		netdev_dbg(bond->dev, "%s mode is incompatible with arp monitoring, start mii monitoring\n",
->  			    newval->string);
+I've compiled x86 allyesconfig with this and the skb_put_data() and
+more skb_put_zero() conversions, but I'm going to wait for the 0-day
+kbuild bot to tell me it succeeded on my branch (pushed all of this
+to mac80211-next on the skb-access-cleanups branch) before I submit
+all five patches properly.
 
-Please realign any multiple line arguments to the
-open parenthesis at the same time.
+There's, obviously, no way I'd even have attempted this before having
+coccinelle :-)
 
->  		/* disable arp monitoring */
->  		bond->params.arp_interval = 0;
->  		/* set miimon to default value */
->  		bond->params.miimon = BOND_DEFAULT_MIIMON;
-> -		netdev_info(bond->dev, "Setting MII monitoring interval to %d\n",
-> +		netdev_dbg(bond->dev, "Setting MII monitoring interval to %d\n",
->  			    bond->params.miimon);
-
-etc...
+johannes
