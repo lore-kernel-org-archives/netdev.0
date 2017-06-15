@@ -1,118 +1,96 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 8/8] net: dsa: mv88e6xxx: prefix Global Prio and Tag macros
-Date: Thu, 15 Jun 2017 12:14:06 -0400
-Message-ID: <20170615161406.20546-9-vivien.didelot@savoirfairelinux.com>
-References: <20170615161406.20546-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170615161406.20546-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: Re: [PATCH net-next v5 11/11] arm64: marvell: dts: add xmdio nodes for 7k/8k
+Date: Thu, 15 Jun 2017 18:35:45 +0200
+Message-ID: <87y3st5hum.fsf@free-electrons.com>
+References: <20170615144326.24463-1-antoine.tenart@free-electrons.com>
+        <20170615144326.24463-12-antoine.tenart@free-electrons.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
+        sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com,
+        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
+        mw@semihalf.com, linux@armlinux.org.uk, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org
+To: Antoine Tenart <antoine.tenart@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([62.4.15.54]:38595 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752034AbdFOQfr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 12:35:47 -0400
+In-Reply-To: <20170615144326.24463-12-antoine.tenart@free-electrons.com>
+        (Antoine Tenart's message of "Thu, 15 Jun 2017 16:43:26 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Prefix and document the remaining Global IP and IEEE Priority and Core
-Tag Type registers and give them a clear 16-bit register representation.
+Hi Antoine,
+ 
+ On jeu., juin 15 2017, Antoine Tenart <antoine.tenart@free-electrons.com> wrote:
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx/chip.c    | 18 +++++++++---------
- drivers/net/dsa/mv88e6xxx/global1.h | 33 +++++++++++++++++++++++----------
- 2 files changed, 32 insertions(+), 19 deletions(-)
+> Add the description of the xMDIO bus for the Marvell Armada 7k and
+> Marvell Armada 8k; for both CP110 slave and master. This bus is found
+> on Marvell Ethernet controllers and provides an interface with the
+> xMDIO bus.
+>
+> Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 46e8d1871847..19772e3dd67e 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -2022,33 +2022,33 @@ static int mv88e6xxx_g1_setup(struct mv88e6xxx_chip *chip)
- 		return err;
- 
- 	/* Configure the IP ToS mapping registers. */
--	err = mv88e6xxx_g1_write(chip, GLOBAL_IP_PRI_0, 0x0000);
-+	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_IP_PRI_0, 0x0000);
- 	if (err)
- 		return err;
--	err = mv88e6xxx_g1_write(chip, GLOBAL_IP_PRI_1, 0x0000);
-+	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_IP_PRI_1, 0x0000);
- 	if (err)
- 		return err;
--	err = mv88e6xxx_g1_write(chip, GLOBAL_IP_PRI_2, 0x5555);
-+	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_IP_PRI_2, 0x5555);
- 	if (err)
- 		return err;
--	err = mv88e6xxx_g1_write(chip, GLOBAL_IP_PRI_3, 0x5555);
-+	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_IP_PRI_3, 0x5555);
- 	if (err)
- 		return err;
--	err = mv88e6xxx_g1_write(chip, GLOBAL_IP_PRI_4, 0xaaaa);
-+	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_IP_PRI_4, 0xaaaa);
- 	if (err)
- 		return err;
--	err = mv88e6xxx_g1_write(chip, GLOBAL_IP_PRI_5, 0xaaaa);
-+	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_IP_PRI_5, 0xaaaa);
- 	if (err)
- 		return err;
--	err = mv88e6xxx_g1_write(chip, GLOBAL_IP_PRI_6, 0xffff);
-+	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_IP_PRI_6, 0xffff);
- 	if (err)
- 		return err;
--	err = mv88e6xxx_g1_write(chip, GLOBAL_IP_PRI_7, 0xffff);
-+	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_IP_PRI_7, 0xffff);
- 	if (err)
- 		return err;
- 
- 	/* Configure the IEEE 802.1p priority mapping register. */
--	err = mv88e6xxx_g1_write(chip, GLOBAL_IEEE_PRI, 0xfa41);
-+	err = mv88e6xxx_g1_write(chip, MV88E6XXX_G1_IEEE_PRI, 0xfa41);
- 	if (err)
- 		return err;
- 
-diff --git a/drivers/net/dsa/mv88e6xxx/global1.h b/drivers/net/dsa/mv88e6xxx/global1.h
-index 16c21bd671c5..950b914f9251 100644
---- a/drivers/net/dsa/mv88e6xxx/global1.h
-+++ b/drivers/net/dsa/mv88e6xxx/global1.h
-@@ -146,16 +146,29 @@
- #define MV88E6XXX_G1_ATU_MAC23		0x0e
- #define MV88E6XXX_G1_ATU_MAC45		0x0f
- 
--#define GLOBAL_IP_PRI_0		0x10
--#define GLOBAL_IP_PRI_1		0x11
--#define GLOBAL_IP_PRI_2		0x12
--#define GLOBAL_IP_PRI_3		0x13
--#define GLOBAL_IP_PRI_4		0x14
--#define GLOBAL_IP_PRI_5		0x15
--#define GLOBAL_IP_PRI_6		0x16
--#define GLOBAL_IP_PRI_7		0x17
--#define GLOBAL_IEEE_PRI		0x18
--#define GLOBAL_CORE_TAG_TYPE	0x19
-+/* Offset 0x10: IP-PRI Mapping Register 0
-+ * Offset 0x11: IP-PRI Mapping Register 1
-+ * Offset 0x12: IP-PRI Mapping Register 2
-+ * Offset 0x13: IP-PRI Mapping Register 3
-+ * Offset 0x14: IP-PRI Mapping Register 4
-+ * Offset 0x15: IP-PRI Mapping Register 5
-+ * Offset 0x16: IP-PRI Mapping Register 6
-+ * Offset 0x17: IP-PRI Mapping Register 7
-+ */
-+#define MV88E6XXX_G1_IP_PRI_0	0x10
-+#define MV88E6XXX_G1_IP_PRI_1	0x11
-+#define MV88E6XXX_G1_IP_PRI_2	0x12
-+#define MV88E6XXX_G1_IP_PRI_3	0x13
-+#define MV88E6XXX_G1_IP_PRI_4	0x14
-+#define MV88E6XXX_G1_IP_PRI_5	0x15
-+#define MV88E6XXX_G1_IP_PRI_6	0x16
-+#define MV88E6XXX_G1_IP_PRI_7	0x17
-+
-+/* Offset 0x18: IEEE-PRI Register */
-+#define MV88E6XXX_G1_IEEE_PRI	0x18
-+
-+/* Offset 0x19: Core Tag Type */
-+#define MV88E6185_G1_CORE_TAG_TYPE	0x19
- 
- /* Offset 0x1A: Monitor Control */
- #define MV88E6185_G1_MONITOR_CTL			0x1a
+Applied on mvebu/dt64
+
+Thanks,
+
+Gregory
+
+> ---
+>
+> @Dave: this patch should go through the mvebu tree as asked by Gregory, thanks!
+>
+>  arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi | 8 ++++++++
+>  arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi  | 8 ++++++++
+>  2 files changed, 16 insertions(+)
+>
+> diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
+> index 576e825585c9..8b512b75aea9 100644
+> --- a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
+> +++ b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
+> @@ -97,6 +97,14 @@
+>  				clocks = <&cpm_syscon0 1 9>, <&cpm_syscon0 1 5>;
+>  			};
+>  
+> +			cpm_xmdio: mdio@12a600 {
+> +				#address-cells = <1>;
+> +				#size-cells = <0>;
+> +				compatible = "marvell,xmdio";
+> +				reg = <0x12a600 0x10>;
+> +				status = "disabled";
+> +			};
+> +
+>  			cpm_syscon0: system-controller@440000 {
+>  				compatible = "marvell,cp110-system-controller0",
+>  					     "syscon";
+> diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
+> index 797208a11f9d..bd0c0e03edd2 100644
+> --- a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
+> +++ b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
+> @@ -104,6 +104,14 @@
+>  				clocks = <&cps_syscon0 1 9>, <&cps_syscon0 1 5>;
+>  			};
+>  
+> +			cps_xmdio: mdio@12a600 {
+> +				#address-cells = <1>;
+> +				#size-cells = <0>;
+> +				compatible = "marvell,xmdio";
+> +				reg = <0x12a600 0x10>;
+> +				status = "disabled";
+> +			};
+> +
+>  			cps_syscon0: system-controller@440000 {
+>  				compatible = "marvell,cp110-system-controller0",
+>  					     "syscon";
+> -- 
+> 2.9.4
+>
+
 -- 
-2.13.1
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
