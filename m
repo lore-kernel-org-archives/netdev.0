@@ -1,47 +1,58 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH v2 08/11] brcmsmac: make some local variables 'static const' to reduce stack size
-Date: Thu, 15 Jun 2017 17:56:27 +0300
-Message-ID: <87mv99e1us.fsf@codeaurora.org>
-References: <20170614211556.2062728-1-arnd@arndb.de>
-        <20170614211556.2062728-9-arnd@arndb.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ipv6: fix calling in6_ifa_hold incorrectly for dad
+ work
+Date: Thu, 15 Jun 2017 10:58:03 -0400 (EDT)
+Message-ID: <20170615.105803.1464863749922308353.davem@davemloft.net>
+References: <2d710ef288455604efab24f72f4476ec5edb13bb.1497515638.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-        kasan-dev@googlegroups.com, Dmitry Vyukov <dvyukov@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Andrey Ryabinin <aryabinin@virtuozzo.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Franky Lin <franky.lin@broadcom.com>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        linux-wireless@vger.kernel.org, brcm80211-dev-list.pdl@broadcom.com
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170614211556.2062728-9-arnd@arndb.de> (Arnd Bergmann's message
-        of "Wed, 14 Jun 2017 23:15:43 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: lucien.xin@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:53918 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752791AbdFOO6F (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 10:58:05 -0400
+In-Reply-To: <2d710ef288455604efab24f72f4476ec5edb13bb.1497515638.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Arnd Bergmann <arnd@arndb.de> writes:
+From: Xin Long <lucien.xin@gmail.com>
+Date: Thu, 15 Jun 2017 16:33:58 +0800
 
-> With KASAN and a couple of other patches applied, this driver is one
-> of the few remaining ones that actually use more than 2048 bytes of
-> kernel stack:
->
-> broadcom/brcm80211/brcmsmac/phy/phy_n.c: In function 'wlc_phy_workarounds_nphy_gainctrl':
-> broadcom/brcm80211/brcmsmac/phy/phy_n.c:16065:1: warning: the frame size of 3264 bytes is larger than 2048 bytes [-Wframe-larger-than=]
-> broadcom/brcm80211/brcmsmac/phy/phy_n.c: In function 'wlc_phy_workarounds_nphy':
-> broadcom/brcm80211/brcmsmac/phy/phy_n.c:17138:1: warning: the frame size of 2864 bytes is larger than 2048 bytes [-Wframe-larger-than=]
->
-> Here, I'm reducing the stack size by marking as many local variables as
-> 'static const' as I can without changing the actual code.
->
-> Acked-by: Arend van Spriel <arend.vanspriel@broadcom.com>
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Now when starting the dad work in addrconf_mod_dad_work, if the dad work
+> is idle and queued, it needs to hold ifa.
+> 
+> The problem is there's one gap in [1], during which if the pending dad work
+> is removed elsewhere. It will miss to hold ifa, but the dad word is still
+> idea and queue.
+> 
+>         if (!delayed_work_pending(&ifp->dad_work))
+>                 in6_ifa_hold(ifp);
+>                     <--------------[1]
+>         mod_delayed_work(addrconf_wq, &ifp->dad_work, delay);
+> 
+> An use-after-free issue can be caused by this.
+> 
+> Chen Wei found this issue when WARN_ON(!hlist_unhashed(&ifp->addr_lst)) in
+> net6_ifa_finish_destroy was hit because of it.
+> 
+> As Hannes' suggestion, this patch is to fix it by holding ifa first in
+> addrconf_mod_dad_work, then calling mod_delayed_work and putting ifa if
+> the dad_work is already in queue.
+> 
+> Note that this patch did not choose to fix it with:
+> 
+>   if (!mod_delayed_work(delay))
+>           in6_ifa_hold(ifp);
+> 
+> As with it, when delay == 0, dad_work would be scheduled immediately, all
+> addrconf_mod_dad_work(0) callings had to be moved under ifp->lock.
+> 
+> Reported-by: Wei Chen <weichen@redhat.com>
+> Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-I found the cover letter from lkml and apparently the plan is that
-Andrew will pick these three brcmsmac patches, so I'll drop them in
-wireless patchwork.
-
--- 
-Kalle Valo
+Applied and queued up for -stable, thank you.
