@@ -1,31 +1,44 @@
-From: Shannon Nelson <shannon.nelson@oracle.com>
-Subject: Re: [PATCH net-next] sunvnet: restrict advertized checksum offloads
- to just IP
-Date: Thu, 15 Jun 2017 11:54:51 -0700
-Message-ID: <d8203dbd-2873-afcf-91b9-f7ff7495d3bb@oracle.com>
-References: <1497480217-391315-1-git-send-email-shannon.nelson@oracle.com>
- <20170615.142314.2129688024540050765.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sparclinux@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <sparclinux-owner@vger.kernel.org>
-In-Reply-To: <20170615.142314.2129688024540050765.davem@davemloft.net>
-Content-Language: en-US
-Sender: sparclinux-owner@vger.kernel.org
+From: Heinrich Schuchardt <xypron.glpk@gmx.de>
+Subject: [PATCH 1/1] Doc: net: dsa: b53: update location of referenced dsa.txt
+Date: Thu, 15 Jun 2017 20:59:57 +0200
+Message-ID: <20170615185957.16405-1-xypron.glpk@gmx.de>
+References: <20170615.144635.940189694308591273.davem@davemloft.net>
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        devicetree@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Heinrich Schuchardt <xypron.glpk@gmx.de>
+To: Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170615.144635.940189694308591273.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 6/15/2017 11:23 AM, David Miller wrote:
-> 
-> Applied, but this bug must be fixed properly and ipv6 checksumming
-> properly supported.
-> 
-> Thanks.
-> 
+The referenced file dsa.txt is located at
+Documentation/devicetree/bindings/net/dsa/dsa.txt
 
-Understood - we just wanted first to stop the bleeding while we think 
-about how to do this right.
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
+---
+Resent due to missing
+Cc: netdev@vger.kernel.org
+---
+ Documentation/devicetree/bindings/net/dsa/b53.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thanks,
-sln
+diff --git a/Documentation/devicetree/bindings/net/dsa/b53.txt b/Documentation/devicetree/bindings/net/dsa/b53.txt
+index d6c6e41648d4..8ec2ca21adeb 100644
+--- a/Documentation/devicetree/bindings/net/dsa/b53.txt
++++ b/Documentation/devicetree/bindings/net/dsa/b53.txt
+@@ -34,7 +34,7 @@ Required properties:
+       "brcm,bcm6328-switch"
+       "brcm,bcm6368-switch" and the mandatory "brcm,bcm63xx-switch"
+ 
+-See Documentation/devicetree/bindings/dsa/dsa.txt for a list of additional
++See Documentation/devicetree/bindings/net/dsa/dsa.txt for a list of additional
+ required and optional properties.
+ 
+ Examples:
+-- 
+2.11.0
