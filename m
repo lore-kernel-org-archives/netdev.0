@@ -1,56 +1,72 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH iproute2 2/2] tc: m_tunnel_key: add csum/nocsum option
-Date: Thu, 15 Jun 2017 10:21:10 +0200
-Message-ID: <20170615102110.7e740c3e@griffin>
-References: <cover.1497467840.git.jbenc@redhat.com>
-        <20170614213018.364cd85d@griffin>
-        <20170614133807.2320f98b@xeon-e3>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jiri Pirko <jiri@resnulli.us>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] ipv6: fix calling in6_ifa_hold incorrectly for dad work
+Date: Thu, 15 Jun 2017 16:33:58 +0800
+Message-ID: <2d710ef288455604efab24f72f4476ec5edb13bb.1497515638.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net, hannes@stressinduktion.org
+To: network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42566 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752075AbdFOIVQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 15 Jun 2017 04:21:16 -0400
-In-Reply-To: <20170614133807.2320f98b@xeon-e3>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35228 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750774AbdFOIeJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 04:34:09 -0400
+Received: by mail-pf0-f195.google.com with SMTP id s66so1036225pfs.2
+        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 01:34:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 14 Jun 2017 13:38:07 -0700, Stephen Hemminger wrote:
-> Does this change the default? Before your patches what was the checksum
-> setting for the new tunnel.
+Now when starting the dad work in addrconf_mod_dad_work, if the dad work
+is idle and queued, it needs to hold ifa.
 
-Yes, it does. See the kernel patches.
+The problem is there's one gap in [1], during which if the pending dad work
+is removed elsewhere. It will miss to hold ifa, but the dad word is still
+idea and queue.
 
-I realize it's a user visible change; however, given that the real
-reason act_tunnel_key was introduced is offloading of openvswitch and
-openvswitch doesn't use it yet and I very much doubt there are other
-users, I'm still proposing the change. It makes things aligned between
-the non-lwt tunnels, tc and even the current openvswitch (which
-includes the csum by default as well). When someone someday starts
-using lwtunnels with tc for other uses, this will make it much less
-surprising and will prevent user errors. Not mentioning performance
-which is in general going to be better with the csum.
+        if (!delayed_work_pending(&ifp->dad_work))
+                in6_ifa_hold(ifp);
+                    <--------------[1]
+        mod_delayed_work(addrconf_wq, &ifp->dad_work, delay);
 
-Furthermore, the only use case for nocsum is a compatibility with
-broken VTEPs from hw vendors. This is not a setup act_tunnel_key is
-going to be used in: in such case, you pretty much want the VXLAN
-internal control plane, not an external one.
+An use-after-free issue can be caused by this.
 
-We're also not breaking existing Linux setups, even if there were any.
-Even with udp6zerocsumrx, the non-zero csumed packets are still
-accepted.
+Chen Wei found this issue when WARN_ON(!hlist_unhashed(&ifp->addr_lst)) in
+net6_ifa_finish_destroy was hit because of it.
 
-I was notified about the current confusing behavior by Red Hat QA when
-they were trying to test the tunnel_key action and couldn't make it
-work for IPv6. When those guys needed a help of the kernel developer
-and the kernel developer in question had to insert a few printks to
-realize what's going on, no regular user would be able to use it ;-)
-(Of course, that's "fixable" by documentation.)
+As Hannes' suggestion, this patch is to fix it by holding ifa first in
+addrconf_mod_dad_work, then calling mod_delayed_work and putting ifa if
+the dad_work is already in queue.
 
- Jiri
+Note that this patch did not choose to fix it with:
+
+  if (!mod_delayed_work(delay))
+          in6_ifa_hold(ifp);
+
+As with it, when delay == 0, dad_work would be scheduled immediately, all
+addrconf_mod_dad_work(0) callings had to be moved under ifp->lock.
+
+Reported-by: Wei Chen <weichen@redhat.com>
+Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/ipv6/addrconf.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 6a4fb1e..686c923 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -332,9 +332,9 @@ static void addrconf_mod_rs_timer(struct inet6_dev *idev,
+ static void addrconf_mod_dad_work(struct inet6_ifaddr *ifp,
+ 				   unsigned long delay)
+ {
+-	if (!delayed_work_pending(&ifp->dad_work))
+-		in6_ifa_hold(ifp);
+-	mod_delayed_work(addrconf_wq, &ifp->dad_work, delay);
++	in6_ifa_hold(ifp);
++	if (mod_delayed_work(addrconf_wq, &ifp->dad_work, delay))
++		in6_ifa_put(ifp);
+ }
+ 
+ static int snmp6_alloc_dev(struct inet6_dev *idev)
+-- 
+2.1.0
