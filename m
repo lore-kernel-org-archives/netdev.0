@@ -1,102 +1,54 @@
-From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Subject: [PATCH] ibmvnic: driver initialization for kdump/kexec
-Date: Thu, 15 Jun 2017 14:48:09 -0400
-Message-ID: <20170615184809.42218.80768.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v5 00/11] net: mvmdio: add xMDIO xSMI support
+Date: Thu, 15 Jun 2017 17:30:20 +0200
+Message-ID: <20170615153020.GC3786@lunn.ch>
+References: <20170615144326.24463-1-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: jallen@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, jason@lakedaemon.net,
+        gregory.clement@free-electrons.com,
+        sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com,
+        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
+        mw@semihalf.com, linux@armlinux.org.uk, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org
+To: Antoine Tenart <antoine.tenart@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:45151 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752773AbdFOPAX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 11:00:23 -0400
-Received: from pps.filterd (m0098414.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5FExEvO033618
-        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 11:00:23 -0400
-Received: from e18.ny.us.ibm.com (e18.ny.us.ibm.com [129.33.205.208])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 2b3rapugt6-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 11:00:22 -0400
-Received: from localhost
-        by e18.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
-        Thu, 15 Jun 2017 11:00:22 -0400
+Received: from vps0.lunn.ch ([178.209.37.122]:50486 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751755AbdFOPa1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 15 Jun 2017 11:30:27 -0400
+Content-Disposition: inline
+In-Reply-To: <20170615144326.24463-1-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When booting into the kdump/kexec kernel, pHyp and vios
-are not prepared for the initialization crq request and
-a failover transport event is generated. This is not
-handled correctly.
+On Thu, Jun 15, 2017 at 04:43:15PM +0200, Antoine Tenart wrote:
+> Hello,
+> 
+> This series aims to add the xSMI support on the xMDIO bus to the
+> mvmdio driver. The xSMI interface complies with the IEEE 802.3 clause 45
+> and is used by 10GbE devices. On 7k and 8k (as of now), such an
+> interface is found and is used by Ethernet controllers.
+> 
+> Patches 1-4 and 9 are cosmetic cleanups.
+> 
+> Patches 5-7 are prerequisites to the xSMI support.
+> 
+> Patches 8 and 10-11 add the xSMI support to the mvmdio driver, and a
+> node is added both in the cp110 slave and master device trees.
+> 
+> This was tested on an Armada 8040 mcbin, as well as on both the
+> Armada 7040 DB and the Armada 8040 DB to ensure the SMI interface
+> was still working.
+> 
+> @Dave: patch 11 should go through the mvebu tree as asked by Gregory,
+> thanks!
+> 
+> Thanks,
+> Antoine
 
-At this point in initialization the driver is still in
-the 'probing' state and cannot handle a full reset of the
-driver as is normally done for a failover transport event.
+Looks good.
 
-To correct this we catch driver resets while still in the
-'probing' state and return EAGAIN. This results in the
-driver tearing down the main crq and calling ibmvnic_init()
-again.
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
----
- drivers/net/ethernet/ibm/ibmvnic.c |   24 +++++++++++++++++++-----
- 1 file changed, 19 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index 59ea7a5..50ac1dc 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -1447,6 +1447,12 @@ static void ibmvnic_reset(struct ibmvnic_adapter *adapter,
- 		return;
- 	}
- 
-+	if (adapter->state == VNIC_PROBING) {
-+		netdev_warn(netdev, "Adapter reset during probe\n");
-+		adapter->init_done_rc = EAGAIN;
-+		return;
-+	}
-+
- 	mutex_lock(&adapter->rwi_lock);
- 
- 	list_for_each(entry, &adapter->rwi_list) {
-@@ -3634,12 +3640,18 @@ static int ibmvnic_init(struct ibmvnic_adapter *adapter)
- 	adapter->from_passive_init = false;
- 
- 	init_completion(&adapter->init_done);
-+	adapter->init_done_rc = 0;
- 	ibmvnic_send_crq_init(adapter);
- 	if (!wait_for_completion_timeout(&adapter->init_done, timeout)) {
- 		dev_err(dev, "Initialization sequence timed out\n");
- 		return -1;
- 	}
- 
-+	if (adapter->init_done_rc) {
-+		release_crq_queue(adapter);
-+		return adapter->init_done_rc;
-+	}
-+
- 	if (adapter->from_passive_init) {
- 		adapter->state = VNIC_OPEN;
- 		adapter->from_passive_init = false;
-@@ -3708,11 +3720,13 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
- 	mutex_init(&adapter->rwi_lock);
- 	adapter->resetting = false;
- 
--	rc = ibmvnic_init(adapter);
--	if (rc) {
--		free_netdev(netdev);
--		return rc;
--	}
-+	do {
-+		rc = ibmvnic_init(adapter);
-+		if (rc != EAGAIN) {
-+			free_netdev(netdev);
-+			return rc;
-+		}
-+	} while (rc == EAGAIN);
- 
- 	netdev->mtu = adapter->req_mtu - ETH_HLEN;
- 
+    Andrew
