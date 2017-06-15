@@ -1,31 +1,33 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 0/8] net: dsa: prefix Global macros
-Date: Thu, 15 Jun 2017 19:03:11 +0200
-Message-ID: <20170615170311.GF3786@lunn.ch>
-References: <20170615161406.20546-1-vivien.didelot@savoirfairelinux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 0/2] net: dsa: loop: Driver updates
+Date: Thu, 15 Jun 2017 10:15:51 -0700
+Message-ID: <20170615171553.16482-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com,
         Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170615161406.20546-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:36725 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751016AbdFORQB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 13:16:01 -0400
+Received: by mail-wr0-f193.google.com with SMTP id 77so4338319wrb.3
+        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 10:16:00 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 15, 2017 at 12:13:58PM -0400, Vivien Didelot wrote:
-> This patch series is the 2/3 step of the register definitions cleanup.
-> It brings no functional changes.
-> 
-> It prefixes and documents all Global (1) registers with MV88E6XXX_G1_
-> (or a specific model like MV88E6352_G1_STS_PPU_STATE), and prefers a
-> 16-bit hexadecimal representation of the Marvell registers layout.
-> 
-> The next and last patchset will prefix the Global 2 registers.
+This patch series updates drivers/net/dsa/dsa_loop.c to provide more useful
+coverage of the DSA APIs and how we mangle the CPU ports ethtool statistics
+to include its switch-facing port counters.
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Thanks
 
-    Andrew
+Florian Fainelli (2):
+  net: dsa: loop: Inline unregister_fixed_phys()
+  net: dsa: loop: Implement ethtool statistics
+
+ drivers/net/dsa/dsa_loop.c | 94 ++++++++++++++++++++++++++++++++++++++++------
+ 1 file changed, 82 insertions(+), 12 deletions(-)
+
+-- 
+2.9.3
