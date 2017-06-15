@@ -1,50 +1,65 @@
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Subject: [PATCH 3/5 net-next v2] ibmvnic: Sanitize entire SCRQ buffer on reset
-Date: Wed, 14 Jun 2017 23:50:07 -0500
-Message-ID: <1497502209-16248-4-git-send-email-tlfalcon@linux.vnet.ibm.com>
-References: <1497502209-16248-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
-Cc: nfont@linux.vnet.ibm.com, jallen@linux.vnet.ibm.com,
-        davem@davemloft.net, Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:32811 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751888AbdFOEug (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 00:50:36 -0400
-Received: from pps.filterd (m0098394.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5F4mcZ9053401
-        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 00:50:35 -0400
-Received: from e14.ny.us.ibm.com (e14.ny.us.ibm.com [129.33.205.204])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2b3kdj08t9-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 00:50:35 -0400
-Received: from localhost
-        by e14.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
-        Thu, 15 Jun 2017 00:50:34 -0400
-In-Reply-To: <1497502209-16248-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH v2 03/11] tty: kbd: reduce stack size with KASAN
+Date: Thu, 15 Jun 2017 06:52:21 +0200
+Message-ID: <20170615045221.GA26687@kroah.com>
+References: <20170614211556.2062728-1-arnd@arndb.de>
+ <20170614211556.2062728-4-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+        kasan-dev@googlegroups.com, Dmitry Vyukov <dvyukov@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Andrey Ryabinin <aryabinin@virtuozzo.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Jiri Slaby <jslaby@suse.com>,
+        Samuel Thibault <samuel.thibault@ens-lyon.org>,
+        Dmitry Torokhov <dmitry.torokhov@gmail.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170614211556.2062728-4-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fixup a typo so that the entire SCRQ buffer is cleaned.
+On Wed, Jun 14, 2017 at 11:15:38PM +0200, Arnd Bergmann wrote:
+> As reported by kernelci, some functions in the VT code use significant
+> amounts of kernel stack when local variables get inlined into the caller
+> multiple times:
+> 
+> drivers/tty/vt/keyboard.c: In function 'kbd_keycode':
+> drivers/tty/vt/keyboard.c:1452:1: error: the frame size of 2240 bytes is larger than 2048 bytes [-Werror=frame-larger-than=]
+> 
+> Annotating those functions as noinline_if_stackbloat prevents the inlining
+> and reduces the overall stack usage in this driver.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> ---
+>  drivers/tty/vt/keyboard.c | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/tty/vt/keyboard.c b/drivers/tty/vt/keyboard.c
+> index f4166263bb3a..c0d111444a0e 100644
+> --- a/drivers/tty/vt/keyboard.c
+> +++ b/drivers/tty/vt/keyboard.c
+> @@ -301,13 +301,13 @@ int kbd_rate(struct kbd_repeat *rpt)
+>  /*
+>   * Helper Functions.
+>   */
+> -static void put_queue(struct vc_data *vc, int ch)
+> +static noinline_if_stackbloat void put_queue(struct vc_data *vc, int ch)
+>  {
+>  	tty_insert_flip_char(&vc->port, ch, 0);
+>  	tty_schedule_flip(&vc->port);
+>  }
 
-Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
----
- drivers/net/ethernet/ibm/ibmvnic.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Ugh, really?  We have to start telling gcc not to be stupid here?
+That's not going to be easy, and will just entail us doing this all over
+the place, right?
 
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index d5fbf45..167b47b 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -1745,7 +1745,7 @@ static int reset_one_sub_crq_queue(struct ibmvnic_adapter *adapter,
- 		scrq->irq = 0;
- 	}
- 
--	memset(scrq->msgs, 0, 2 * PAGE_SIZE);
-+	memset(scrq->msgs, 0, 4 * PAGE_SIZE);
- 	scrq->cur = 0;
- 
- 	rc = h_reg_sub_crq(adapter->vdev->unit_address, scrq->msg_token,
--- 
-1.8.5.6
+The code isn't asking to be inlined, so why is gcc allowing it to be
+done that way?  Doesn't that imply gcc is the problem here?
+
+thanks,
+
+greg k-h
