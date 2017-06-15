@@ -1,51 +1,57 @@
 From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: [PATCH] skbuff: make skb_put_zero() return void
-Date: Fri, 16 Jun 2017 00:17:25 +0200
-Message-ID: <1497565045.2518.14.camel@sipsolutions.net>
+Date: Fri, 16 Jun 2017 00:21:16 +0200
+Message-ID: <1497565276.2518.16.camel@sipsolutions.net>
 References: <20170614201720.21070-1-johannes@sipsolutions.net>
-         <1497472613.18751.67.camel@perches.com>
-         <1497472829.9377.13.camel@sipsolutions.net>
-         <1497475096.18751.76.camel@perches.com>
+         <20170615.121806.1737755943471705142.davem@davemloft.net>
+         <1497554912.2518.9.camel@sipsolutions.net>
+         <20170615.172637.978834439625255398.davem@davemloft.net>
+         <1497562108.2518.12.camel@sipsolutions.net>
+         <1497565021.14396.21.camel@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Joe Perches <joe@perches.com>, netdev@vger.kernel.org
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:53942 "EHLO sipsolutions.net"
+Received: from s3.sipsolutions.net ([5.9.151.49]:53960 "EHLO sipsolutions.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751667AbdFOWR1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 15 Jun 2017 18:17:27 -0400
-In-Reply-To: <1497475096.18751.76.camel@perches.com>
+        id S1751789AbdFOWVW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 15 Jun 2017 18:21:22 -0400
+In-Reply-To: <1497565021.14396.21.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-06-14 at 14:18 -0700, Joe Perches wrote:
-> On Wed, 2017-06-14 at 22:40 +0200, Johannes Berg wrote:
-> > On Wed, 2017-06-14 at 13:36 -0700, Joe Perches wrote:
-> > > 
-> > > Given you are adding a lot of these, it might be better
-> > > to add an exported function that duplicates most of
-> > > skb_put with a memset at the end.
-> > 
-> > Yeah, could be done. I'm not sure why you'd want to duplicate it
-> > rather
-> > than call it though? To make it about as fast?
+On Thu, 2017-06-15 at 15:17 -0700, Joe Perches wrote:
+
+> I suggest changing those to skb_put_char(skb, char)
+
+That might be something to think of, but you can't really know for sure
+that they're not using len > 1 and don't yet care about the other bytes
+or something. That'd probably be another bug, but ... dunno
+
+And anyway, I think
+
+*(u8 *)skb_put(skb, 1) = c;
+
+isn't really that bad. Obviously that could be converted further to
+skb_put_char(), using a simple spatch:
+
+@@
+expression SKB, C;
+@@
+- *(u8 *)skb_put(SKB, 1) = C;
++ skb_put_char(SKB, C);
+
+
+> Here's a script that does the conversion.
 > 
-> Yeah, that and reduced stack use.
-> 
-> Dunno how performance sensitive these uses really are
-> but it seems some might be for slow cpu wireless APs in
-> both the rx and tx paths.
+> $ /usr/bin/git grep -P --name-only
+> "\*\s*skb_put\s*\(\s*([\w\.\[\]\>\-]+)\s*,\s*1\s*\)\s*=\s*([^;]+);" |
+> \
+>   xargs perl -p -i -e 's/\*\s*skb_put\s*\(\s*([\w\.\[\]\>\-
+> ]+)\s*,\s*1\s*\)\s*=\s*([^;]+);/skb_put_char(\1, \2);/'
 
-I haven't really checked now, but the wireless (mac80211) ones I saw
-weren't in the data TX/RX, only for management SKBs which are pretty
-much a slowpath.
-
-Anyway, I guess you know how to propose a patch with this :-)
-
-However, I think in that case there should be something like
-skb_pull_inline, so that the skb_put code here isn't all copied around,
-but just lives in a single place that gets inlined into skb_put() and
-skb_put_zero().
+Uh, I think you're using the wrong tool for the job :-)
 
 johannes
