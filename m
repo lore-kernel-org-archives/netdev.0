@@ -1,85 +1,74 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 11/15] net/mlx5e: Reduce number of heap allocated buffers for update stats
-Date: Fri, 16 Jun 2017 00:42:48 +0300
-Message-ID: <20170615214252.30140-12-saeedm@mellanox.com>
+Subject: [net-next 08/15] net/mlx5e: Use function to map aRFS into traffic type
+Date: Fri, 16 Jun 2017 00:42:45 +0300
+Message-ID: <20170615214252.30140-9-saeedm@mellanox.com>
 References: <20170615214252.30140-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Gal Pressman <galp@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>, kernel-team@fb.com
+Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:32934 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:32930 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752445AbdFOVnL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 17:43:11 -0400
+        with ESMTP id S1752158AbdFOVnK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 17:43:10 -0400
 In-Reply-To: <20170615214252.30140-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gal Pressman <galp@mellanox.com>
+From: Tariq Toukan <tariqt@mellanox.com>
 
-Allocating buffers on the heap every 200ms is something we should avoid,
-let's use buffers located on the stack instead.
+For a better code reuse and readability, use the existing
+function arfs_get_tt() to map arfs_type into mlx5e_traffic_types,
+instead of duplicating the switch-case logic.
 
-Signed-off-by: Gal Pressman <galp@mellanox.com>
-Reviewed-by: Eran Ben Elisha <eranbe@mellanox.com>
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Cc: kernel-team@fb.com
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 16 ++--------------
- 1 file changed, 2 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c | 21 +++++++--------------
+ 1 file changed, 7 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 51f686d737cb..50184021624e 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -248,14 +248,10 @@ static void mlx5e_update_pport_counters(struct mlx5e_priv *priv)
- {
- 	struct mlx5e_pport_stats *pstats = &priv->stats.pport;
- 	struct mlx5_core_dev *mdev = priv->mdev;
-+	u32 in[MLX5_ST_SZ_DW(ppcnt_reg)] = {0};
- 	int sz = MLX5_ST_SZ_BYTES(ppcnt_reg);
- 	int prio;
- 	void *out;
--	u32 *in;
--
--	in = kvzalloc(sz, GFP_KERNEL);
--	if (!in)
--		return;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c b/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c
+index f4017c06ddd2..12d3ced61114 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c
+@@ -178,6 +178,7 @@ static int arfs_add_default_rule(struct mlx5e_priv *priv,
+ 	struct mlx5_flow_destination dest;
+ 	MLX5_DECLARE_FLOW_ACT(flow_act);
+ 	struct mlx5_flow_spec *spec;
++	enum mlx5e_traffic_types tt;
+ 	int err = 0;
  
- 	MLX5_SET(ppcnt_reg, in, local_port, 1);
- 
-@@ -288,8 +284,6 @@ static void mlx5e_update_pport_counters(struct mlx5e_priv *priv)
- 		mlx5_core_access_reg(mdev, in, sz, out, sz,
- 				     MLX5_REG_PPCNT, 0, 0);
+ 	spec = kvzalloc(sizeof(*spec), GFP_KERNEL);
+@@ -187,24 +188,16 @@ static int arfs_add_default_rule(struct mlx5e_priv *priv,
  	}
--
--	kvfree(in);
- }
  
- static void mlx5e_update_q_counter(struct mlx5e_priv *priv)
-@@ -307,22 +301,16 @@ static void mlx5e_update_pcie_counters(struct mlx5e_priv *priv)
- {
- 	struct mlx5e_pcie_stats *pcie_stats = &priv->stats.pcie;
- 	struct mlx5_core_dev *mdev = priv->mdev;
-+	u32 in[MLX5_ST_SZ_DW(mpcnt_reg)] = {0};
- 	int sz = MLX5_ST_SZ_BYTES(mpcnt_reg);
- 	void *out;
--	u32 *in;
+ 	dest.type = MLX5_FLOW_DESTINATION_TYPE_TIR;
+-	switch (type) {
+-	case ARFS_IPV4_TCP:
+-		dest.tir_num = tir[MLX5E_TT_IPV4_TCP].tirn;
+-		break;
+-	case ARFS_IPV4_UDP:
+-		dest.tir_num = tir[MLX5E_TT_IPV4_UDP].tirn;
+-		break;
+-	case ARFS_IPV6_TCP:
+-		dest.tir_num = tir[MLX5E_TT_IPV6_TCP].tirn;
+-		break;
+-	case ARFS_IPV6_UDP:
+-		dest.tir_num = tir[MLX5E_TT_IPV6_UDP].tirn;
+-		break;
+-	default:
++	tt = arfs_get_tt(type);
++	if (tt == -EINVAL) {
++		netdev_err(priv->netdev, "%s: bad arfs_type: %d\n",
++			   __func__, type);
+ 		err = -EINVAL;
+ 		goto out;
+ 	}
  
- 	if (!MLX5_CAP_MCAM_FEATURE(mdev, pcie_performance_group))
- 		return;
- 
--	in = kvzalloc(sz, GFP_KERNEL);
--	if (!in)
--		return;
--
- 	out = pcie_stats->pcie_perf_counters;
- 	MLX5_SET(mpcnt_reg, in, grp, MLX5_PCIE_PERFORMANCE_COUNTERS_GROUP);
- 	mlx5_core_access_reg(mdev, in, sz, out, sz, MLX5_REG_MPCNT, 0, 0);
--
--	kvfree(in);
- }
- 
- void mlx5e_update_stats(struct mlx5e_priv *priv)
++	dest.tir_num = tir[tt].tirn;
++
+ 	arfs_t->default_rule = mlx5_add_flow_rules(arfs_t->ft.t, spec,
+ 						   &flow_act,
+ 						   &dest, 1);
 -- 
 2.11.0
