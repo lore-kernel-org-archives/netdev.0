@@ -1,59 +1,42 @@
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Subject: [PATCH v2] ip6_tunnel: Correct tos value in collect_md mode
-Date: Thu, 15 Jun 2017 10:30:29 +0800
-Message-ID: <1497493829-13050-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH] intel: i40e: virtchnl: fix incorrect variable assignment
+Date: Wed, 14 Jun 2017 21:38:26 -0500
+Message-ID: <20170615023826.GA8136@embeddedgus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Haishuang Yan <yanhaishuang@cmss.chinamobile.com>,
-        Peter Dawson <petedaws@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Same as ip_gre, geneve and vxlan, use key->tos as tos value.
+Fix incorrect variable assignment.
+Based on line 1511: aq_ret = I40_ERR_PARAM; the correct variable to be
+used in this instance is aq_ret instead of ret. Also, variable ret is
+updated at line 1602 just before return, so assigning a value to this
+variable in this code block is useless.
 
-CC: Peter Dawson <petedaws@gmail.com>
-Fixes: 0e9a709560db ("ip6_tunnel, ip6_gre: fix setting of DSCP on
-encapsulated packets”)
-Suggested-by: Daniel Borkmann <daniel@iogearbox.net>
-Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-
+Addresses-Coverity-ID: 1397693
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
 ---
-Changes since v2:
-  * Add fixes information
-  * mask key->tos with RT_TOS() suggested by Daniel
----
- net/ipv6/ip6_tunnel.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index ef99d59..6400726 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1249,7 +1249,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
- 		fl6.flowi6_proto = IPPROTO_IPIP;
- 		fl6.daddr = key->u.ipv6.dst;
- 		fl6.flowlabel = key->label;
--		dsfield = ip6_tclass(key->label);
-+		dsfield =  RT_TOS(key->tos);
- 	} else {
- 		if (!(t->parms.flags & IP6_TNL_F_IGN_ENCAP_LIMIT))
- 			encap_limit = t->parms.encap_limit;
-@@ -1320,7 +1320,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
- 		fl6.flowi6_proto = IPPROTO_IPV6;
- 		fl6.daddr = key->u.ipv6.dst;
- 		fl6.flowlabel = key->label;
--		dsfield = ip6_tclass(key->label);
-+		dsfield = RT_TOS(key->tos);
- 	} else {
- 		offset = ip6_tnl_parse_tlv_enc_lim(skb, skb_network_header(skb));
- 		/* ip6_tnl_parse_tlv_enc_lim() might have reallocated skb->head */
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 6bee254..fb1f018 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -1567,7 +1567,7 @@ static int i40e_vc_get_vf_resources_msg(struct i40e_vf *vf, u8 *msg)
+ 			dev_err(&pf->pdev->dev,
+ 				"VF %d requested polling mode: this feature is supported only when the device is running in single function per port (SFP) mode\n",
+ 				 vf->vf_id);
+-			ret = I40E_ERR_PARAM;
++			aq_ret = I40E_ERR_PARAM;
+ 			goto err;
+ 		}
+ 		vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_RX_POLLING;
 -- 
-1.8.3.1
+2.5.0
