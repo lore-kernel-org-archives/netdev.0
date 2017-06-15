@@ -1,52 +1,50 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net 2/6] net/mlx5e: Fix timestamping capabilities reporting
-Date: Thu, 15 Jun 2017 23:55:26 +0300
-Message-ID: <20170615205530.26674-3-saeedm@mellanox.com>
+Subject: [net 3/6] net/mlx5e: Fix min inline value for VF rep SQs
+Date: Thu, 15 Jun 2017 23:55:27 +0300
+Message-ID: <20170615205530.26674-4-saeedm@mellanox.com>
 References: <20170615205530.26674-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Maor Dickman <maord@mellanox.com>,
+Cc: netdev@vger.kernel.org, Chris Mi <chrism@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:52487 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:52486 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751590AbdFOU4d (ORCPT
+        with ESMTP id S1751641AbdFOU4d (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 16:56:33 -0400
 In-Reply-To: <20170615205530.26674-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Maor Dickman <maord@mellanox.com>
+From: Chris Mi <chrism@mellanox.com>
 
-Misuse of (BIT) macro caused to report wrong flags for
-"Hardware Transmit Timestamp Modes" and "Hardware Receive
-Filter Modes"
+The offending commit only changed the code path for PF/VF, but it
+didn't take care of VF representors. As a result, since
+params->tx_min_inline_mode for VF representors is kzalloced to 0
+(MLX5_INLINE_MODE_NONE), all VF reps SQs were set to that mode.
 
-Fixes: ef9814deafd0 ('net/mlx5e: Add HW timestamping (TS) support')
-Signed-off-by: Maor Dickman <maord@mellanox.com>
+This actually works on CX5 by default but broke CX4. Fix that by
+adding a call to query the min inline mode from the VF rep build up code.
+
+Fixes: a6f402e49901 ("net/mlx5e: Tx, no inline copy on ConnectX-5")
+Signed-off-by: Chris Mi <chrism@mellanox.com>
+Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index 8209affa75c3..16486dff1493 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -1242,11 +1242,11 @@ static int mlx5e_get_ts_info(struct net_device *dev,
- 				 SOF_TIMESTAMPING_RX_HARDWARE |
- 				 SOF_TIMESTAMPING_RAW_HARDWARE;
- 
--	info->tx_types = (BIT(1) << HWTSTAMP_TX_OFF) |
--			 (BIT(1) << HWTSTAMP_TX_ON);
-+	info->tx_types = BIT(HWTSTAMP_TX_OFF) |
-+			 BIT(HWTSTAMP_TX_ON);
- 
--	info->rx_filters = (BIT(1) << HWTSTAMP_FILTER_NONE) |
--			   (BIT(1) << HWTSTAMP_FILTER_ALL);
-+	info->rx_filters = BIT(HWTSTAMP_FILTER_NONE) |
-+			   BIT(HWTSTAMP_FILTER_ALL);
- 
- 	return 0;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+index 79462c0368a0..46984a52a94b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+@@ -791,6 +791,8 @@ static void mlx5e_build_rep_params(struct mlx5_core_dev *mdev,
+ 	params->tx_max_inline         = mlx5e_get_max_inline_cap(mdev);
+ 	params->num_tc                = 1;
+ 	params->lro_wqe_sz            = MLX5E_PARAMS_DEFAULT_LRO_WQE_SZ;
++
++	mlx5_query_min_inline(mdev, &params->tx_min_inline_mode);
  }
+ 
+ static void mlx5e_build_rep_netdev(struct net_device *netdev)
 -- 
 2.11.0
