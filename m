@@ -1,117 +1,139 @@
 From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [RFC PATCH net-next v2 08/15] bpf: Add TCP connection BPF callbacks
-Date: Thu, 15 Jun 2017 13:08:37 -0700
-Message-ID: <20170615200844.2752485-9-brakmo@fb.com>
+Subject: [RFC PATCH net-next v2 13/15] bpf: Sample BPF program to set initial cwnd
+Date: Thu, 15 Jun 2017 13:08:42 -0700
+Message-ID: <20170615200844.2752485-14-brakmo@fb.com>
 References: <20170615200844.2752485-1-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
-        "Alexei Starovoitov" <ast@fb.com>,
+        Alexei Starovoitov <ast@fb.com>,
         Daniel Borkmann <daniel@iogearbox.net>,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:40567 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751980AbdFOUI5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 16:08:57 -0400
-Received: from pps.filterd (m0109333.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5FK5EEq025315
-        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 13:08:51 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:38878 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752271AbdFOUJB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 16:09:01 -0400
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+        by m0001303.ppops.net (8.16.0.20/8.16.0.20) with SMTP id v5FK7cte006826
+        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 13:09:01 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2b3qrbj12a-7
+        by m0001303.ppops.net with ESMTP id 2b3cjxk6et-5
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 13:08:51 -0700
+        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 13:09:01 -0700
 Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
  mx-out.facebook.com (10.103.99.97) with ESMTP  id
- 7256519a520611e79e620002c9931860-47328f0 for <netdev@vger.kernel.org>; Thu,
- 15 Jun 2017 13:08:49 -0700
+ 72996a8e520611e79e620002c9931860-47328f0 for <netdev@vger.kernel.org>; Thu,
+ 15 Jun 2017 13:08:50 -0700
 In-Reply-To: <20170615200844.2752485-1-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added callbacks to BPF SOCKET_OPS type program before an active
-connection is intialized and after a passive or active connection is
-established.
+Sample BPF program that assumes hosts are far away (i.e. large RTTs)
+and sets initial cwnd and initial receive window to 40 packets,
+send and receive buffers to 1.5MB.
 
-The following patch demostrates how they can be used to set send and
-receive buffer sizes.
+In practice there would be a test to insure the hosts are actually
+far enough away.
 
 Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
 ---
- include/uapi/linux/bpf.h | 11 +++++++++++
- net/ipv4/tcp_fastopen.c  |  1 +
- net/ipv4/tcp_input.c     |  4 +++-
- net/ipv4/tcp_output.c    |  1 +
- 4 files changed, 16 insertions(+), 1 deletion(-)
+ samples/bpf/Makefile      |  1 +
+ samples/bpf/tcp_iw_kern.c | 73 +++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 74 insertions(+)
+ create mode 100644 samples/bpf/tcp_iw_kern.c
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 8accb4d..c3490d3 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -765,6 +765,17 @@ enum {
- 					 * window (in packets) or -1 if default
- 					 * value should be used
- 					 */
-+	BPF_SOCKET_OPS_TCP_CONNECT_CB,	/* Calls BPF program right before an
-+					 * active connection is initialized
-+					 */
-+	BPF_SOCKET_OPS_ACTIVE_ESTABLISHED_CB,	/* Calls BPF program when an
-+						 * active connection is
-+						 * established
-+						 */
-+	BPF_SOCKET_OPS_PASSIVE_ESTABLISHED_CB,	/* Calls BPF program when a
-+						 * passive connection is
-+						 * established
-+						 */
- };
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index eb324e0..3ec96a0 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -117,6 +117,7 @@ always += tcp_synrto_kern.o
+ always += tcp_rwnd_kern.o
+ always += tcp_bufs_kern.o
+ always += tcp_cong_kern.o
++always += tcp_iw_kern.o
  
- #endif /* _UAPI__LINUX_BPF_H__ */
-diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
-index 4af82b9..c3ec4ec 100644
---- a/net/ipv4/tcp_fastopen.c
-+++ b/net/ipv4/tcp_fastopen.c
-@@ -221,6 +221,7 @@ static struct sock *tcp_fastopen_create_child(struct sock *sk,
- 	tcp_init_congestion_control(child);
- 	tcp_mtup_init(child);
- 	tcp_init_metrics(child);
-+	tcp_call_bpf(child, false, BPF_SOCKET_OPS_PASSIVE_ESTABLISHED_CB);
- 	tcp_init_buffer_space(child);
- 
- 	tp->rcv_nxt = TCP_SKB_CB(skb)->seq + 1;
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 0867b05..e0d688a 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5571,7 +5571,7 @@ void tcp_finish_connect(struct sock *sk, struct sk_buff *skb)
- 	icsk->icsk_af_ops->rebuild_header(sk);
- 
- 	tcp_init_metrics(sk);
--
-+	tcp_call_bpf(sk, false, BPF_SOCKET_OPS_ACTIVE_ESTABLISHED_CB);
- 	tcp_init_congestion_control(sk);
- 
- 	/* Prevent spurious tcp_cwnd_restart() on first data
-@@ -5977,6 +5977,8 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
- 		} else {
- 			/* Make sure socket is routed, for correct metrics. */
- 			icsk->icsk_af_ops->rebuild_header(sk);
-+			tcp_call_bpf(sk, false,
-+				     BPF_SOCKET_OPS_PASSIVE_ESTABLISHED_CB);
- 			tcp_init_congestion_control(sk);
- 
- 			tcp_mtup_init(sk);
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index e5f623f..9124d3d 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -3445,6 +3445,7 @@ int tcp_connect(struct sock *sk)
- 	struct sk_buff *buff;
- 	int err;
- 
-+	tcp_call_bpf(sk, false, BPF_SOCKET_OPS_TCP_CONNECT_CB);
- 	tcp_connect_init(sk);
- 
- 	if (unlikely(tp->repair)) {
+ HOSTCFLAGS += -I$(objtree)/usr/include
+ HOSTCFLAGS += -I$(srctree)/tools/lib/
+diff --git a/samples/bpf/tcp_iw_kern.c b/samples/bpf/tcp_iw_kern.c
+new file mode 100644
+index 0000000..07962c8
+--- /dev/null
++++ b/samples/bpf/tcp_iw_kern.c
+@@ -0,0 +1,73 @@
++/*
++ * BPF program to set initial congestion window and initial receive
++ * window to 40 packets and send and receive buffers to 1.5MB. This
++ * would usually be done after doing appropriate checks that indicate
++ * the hosts are far enough away (i.e. large RTT).
++ */
++
++#include <uapi/linux/bpf.h>
++#include <uapi/linux/if_ether.h>
++#include <uapi/linux/if_packet.h>
++#include <uapi/linux/ip.h>
++#include <linux/socket.h>
++#include "bpf_helpers.h"
++
++#define DEBUG 1
++
++SEC("sockops")
++int bpf_iw(struct bpf_socket_ops *skops)
++{
++	char fmt1[] = "BPF command: %d\n";
++	char fmt2[] = "  Returning %d\n";
++	int bufsize = 1500000;
++	int rwnd_init = 40;
++	int iw = 40;
++	int rv = 0;
++	int op;
++
++	/* For testing purposes, only execute rest of BPF program
++	 * if neither port numberis 55601
++	 */
++	if (skops->remote_port != 55601 && skops->local_port != 55601)
++		return -1;
++
++	op = (int) skops->op;
++
++#ifdef DEBUG
++	bpf_trace_printk(fmt1, sizeof(fmt1), op);
++#endif
++
++	/* Usually there would be a check to insure the hosts are far
++	 * from each other so it makes sense to increase buffer sizes
++	 */
++	switch (op) {
++	case BPF_SOCKET_OPS_RWND_INIT:
++		rv = rwnd_init;
++		break;
++	case BPF_SOCKET_OPS_TCP_CONNECT_CB:
++		/* Set sndbuf and rcvbuf of active connections */
++		rv = bpf_setsockopt(skops, SOL_SOCKET, SO_SNDBUF, &bufsize,
++				    sizeof(bufsize));
++		rv = -rv*100 + bpf_setsockopt(skops, SOL_SOCKET, SO_RCVBUF,
++					      &bufsize, sizeof(bufsize));
++		break;
++	case BPF_SOCKET_OPS_ACTIVE_ESTABLISHED_CB:
++		rv = bpf_setsockopt(skops, SOL_TCP, TCP_BPF_IW, &iw,
++				    sizeof(iw));
++		break;
++	case BPF_SOCKET_OPS_PASSIVE_ESTABLISHED_CB:
++		/* Set sndbuf and rcvbuf of passive connections */
++		rv = bpf_setsockopt(skops, SOL_SOCKET, SO_SNDBUF, &bufsize,
++				    sizeof(bufsize));
++		rv = -rv*100 + bpf_setsockopt(skops, SOL_SOCKET, SO_RCVBUF,
++					      &bufsize, sizeof(bufsize));
++		break;
++	default:
++		rv = -1;
++	}
++#ifdef DEBUG
++	bpf_trace_printk(fmt2, sizeof(fmt2), rv);
++#endif
++	return rv;
++}
++char _license[] SEC("license") = "GPL";
 -- 
 2.9.3
