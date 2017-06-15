@@ -1,30 +1,27 @@
-From: "Hassan Dako" <certificacao@ensp.fiocruz.br>
-Subject: Investment portfolio
-Date: Thu, 15 Jun 2017 00:13:12 +0000
-Message-ID: <20170615001215.5135CB10D5@eros.ensp.fiocruz.br>
-Reply-To: hassan.dako@yandex.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/5 net-next] ibmvnic: Activate disabled RX buffer
+ pools on reset
+Date: Wed, 14 Jun 2017 23:42:04 -0400 (EDT)
+Message-ID: <20170614.234204.669779876622082650.davem@davemloft.net>
+References: <1497497748-14075-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: Recipients <certificacao@ensp.fiocruz.br>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nfont@linux.vnet.ibm.com,
+        jallen@linux.vnet.ibm.com
+To: tlfalcon@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eros.ensp.fiocruz.br ([157.86.160.52]:38493 "EHLO
-        eros.ensp.fiocruz.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751590AbdFODkb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 23:40:31 -0400
-Content-Description: Mail message body
+Received: from shards.monkeyblade.net ([184.105.139.130]:37734 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751555AbdFODmH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2017 23:42:07 -0400
+In-Reply-To: <1497497748-14075-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
 
-How are you today?
+Please always provide a proper "[PATCH 0/N ...] " header posting
+explaining what the patch series is doing, how it is doing it, and why
+it is doing it that way.
 
-we have the financial capability to finance any investment portfolio as far as is it genuine, all we need is a capable business partner that possesses investment strategies or profitable business information for good turn over within 10-20years.
-
-We can provide proof of funds on demand Please write me back if you can work with me on this project.
-
-Thank You,
-
-Best Regards
-Hassan Dako
+I am getting kind of tired asking people for this FWIW...
