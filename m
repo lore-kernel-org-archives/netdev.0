@@ -1,96 +1,56 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [PATCH net-next v5 11/11] arm64: marvell: dts: add xmdio nodes for 7k/8k
-Date: Thu, 15 Jun 2017 18:35:45 +0200
-Message-ID: <87y3st5hum.fsf@free-electrons.com>
-References: <20170615144326.24463-1-antoine.tenart@free-electrons.com>
-        <20170615144326.24463-12-antoine.tenart@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
-        sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        mw@semihalf.com, linux@armlinux.org.uk, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org
-To: Antoine Tenart <antoine.tenart@free-electrons.com>
+From: =?utf-8?B?5Lil5rW35Y+M?= <yanhaishuang@cmss.chinamobile.com>
+Subject: Re: [PATCH 2/2] ip6_tunnel: fix ip6 tunnel lookup in collect_md mode
+Date: Fri, 16 Jun 2017 00:36:44 +0800
+Message-ID: <AA106C31-8154-43E9-AEA7-7D2D7E451C67@cmss.chinamobile.com>
+References: <1497543999-32699-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+ <1497543999-32699-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        linux-kernel@vger.kernel.or
+To: "David S. Miller" <davem@davemloft.net>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Alexei Starovoitov <ast@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:38595 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752034AbdFOQfr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 12:35:47 -0400
-In-Reply-To: <20170615144326.24463-12-antoine.tenart@free-electrons.com>
-        (Antoine Tenart's message of "Thu, 15 Jun 2017 16:43:26 +0200")
+Received: from cmccmta3.chinamobile.com ([221.176.66.81]:54597 "EHLO
+        cmccmta3.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751829AbdFOQgv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 12:36:51 -0400
+In-Reply-To: <1497543999-32699-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Antoine,
- 
- On jeu., juin 15 2017, Antoine Tenart <antoine.tenart@free-electrons.com> wrote:
 
-> Add the description of the xMDIO bus for the Marvell Armada 7k and
-> Marvell Armada 8k; for both CP110 slave and master. This bus is found
-> on Marvell Ethernet controllers and provides an interface with the
-> xMDIO bus.
->
-> Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 
-Applied on mvebu/dt64
-
-Thanks,
-
-Gregory
-
+> On 16 Jun 2017, at 12:26 AM, Haishuang Yan <yanhaishuang@cmss.chinamobile.com> wrote:
+> 
+> In collect_md mode, if the tun dev is down, it still can call
+> __ip6_tnl_rcv to receive on packets, and the rx statistics increase
+> improperly.
+> 
+> Fixes: 8d79266bc48c ("ip6_tunnel: add collect_md mode to IPv6 tunnels")
+> Cc: Alexei Starovoitov <ast@fb.com>
+> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
 > ---
->
-> @Dave: this patch should go through the mvebu tree as asked by Gregory, thanks!
->
->  arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi | 8 ++++++++
->  arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi  | 8 ++++++++
->  2 files changed, 16 insertions(+)
->
-> diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
-> index 576e825585c9..8b512b75aea9 100644
-> --- a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
-> +++ b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
-> @@ -97,6 +97,14 @@
->  				clocks = <&cpm_syscon0 1 9>, <&cpm_syscon0 1 5>;
->  			};
->  
-> +			cpm_xmdio: mdio@12a600 {
-> +				#address-cells = <1>;
-> +				#size-cells = <0>;
-> +				compatible = "marvell,xmdio";
-> +				reg = <0x12a600 0x10>;
-> +				status = "disabled";
-> +			};
-> +
->  			cpm_syscon0: system-controller@440000 {
->  				compatible = "marvell,cp110-system-controller0",
->  					     "syscon";
-> diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
-> index 797208a11f9d..bd0c0e03edd2 100644
-> --- a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
-> +++ b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
-> @@ -104,6 +104,14 @@
->  				clocks = <&cps_syscon0 1 9>, <&cps_syscon0 1 5>;
->  			};
->  
-> +			cps_xmdio: mdio@12a600 {
-> +				#address-cells = <1>;
-> +				#size-cells = <0>;
-> +				compatible = "marvell,xmdio";
-> +				reg = <0x12a600 0x10>;
-> +				status = "disabled";
-> +			};
-> +
->  			cps_syscon0: system-controller@440000 {
->  				compatible = "marvell,cp110-system-controller0",
->  					     "syscon";
+> net/ipv6/ip6_tunnel.c | 2 +-
+> 1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+> index 6400726..25961c7 100644
+> --- a/net/ipv6/ip6_tunnel.c
+> +++ b/net/ipv6/ip6_tunnel.c
+> @@ -171,7 +171,7 @@ static struct net_device_stats *ip6_get_stats(struct net_device *dev)
+> 	}
+> 
+> 	t = rcu_dereference(ip6n->collect_md_tun);
+> -	if (t)
+> +	if (t && (t->dev->flags & IFF_UP))
+> 		return t;
+> 
+> 	t = rcu_dereference(ip6n->tnls_wc[0]);
 > -- 
-> 2.9.4
->
-
--- 
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+> 1.8.3.1
+> 
+> 
+Please skip the patches, I wrote a wrong email address '_'! 
