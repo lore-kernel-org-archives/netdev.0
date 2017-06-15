@@ -1,129 +1,54 @@
-From: Liviu Dudau <liviu@dudau.co.uk>
-Subject: Re: [PATCH net-next] of_mdio: move of_mdio_parse_addr to header file
-Date: Thu, 15 Jun 2017 10:45:37 +0100
-Message-ID: <20170615094537.GA24982@bart.dudau.co.uk>
-References: <1497365768-17627-1-git-send-email-jon.mason@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Frank Rowand <frowand.list@gmail.com>, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Michael Ellerman <mpe@ellerman.id.au>
-To: Jon Mason <jon.mason@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1497365768-17627-1-git-send-email-jon.mason@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: return next obj by passing pos + 1 into sctp_transport_get_idx
+Date: Thu, 15 Jun 2017 17:49:08 +0800
+Message-ID: <a129be6693b882bac11ace44d659ceb1c1cc4f79.1497520148.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33995 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750802AbdFOJtR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 05:49:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 13, 2017 at 10:56:08AM -0400, Jon Mason wrote:
-> The of_mdio_parse_addr() helper function is useful to other code, but
-> the module dependency chain causes issues.  To work around this, we can
-> move of_mdio_parse_addr() to be an inline function in the header file.
-> This gets rid of the dependencies and still allows for the reuse of
-> code.
+In sctp_for_each_transport, pos is used to save how many objs it has
+dumped. Now it gets the last obj by sctp_transport_get_idx, then gets
+the next obj by sctp_transport_get_next.
 
-This patch fixes the modules_install issue I was seeing with module
-dependency cycle.
+The issue is that in the meanwhile if some objs in transport hashtable
+are removed and the objs nums are less than pos, sctp_transport_get_idx
+would return NULL and hti.walker.tbl is NULL as well. At this moment
+it should stop hti, instead of continue getting the next obj. Or it
+would cause a NULL pointer dereference in sctp_transport_get_next.
 
-You can add my:
+This patch is to pass pos + 1 into sctp_transport_get_idx to get the
+next obj directly, even if pos > objs nums, it would return NULL and
+stop hti.
 
-Tested-by: Liviu Dudau <liviu@dudau.co.uk>
+Fixes: 626d16f50f39 ("sctp: export some apis or variables for sctp_diag and reuse some for proc")
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/socket.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-Thanks,
-Liviu
-
-> 
-> Reported-by: Liviu Dudau <liviu@dudau.co.uk>
-> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
-> Fixes: 342fa1964439 ("mdio: mux: make child bus walking more permissive and errors more verbose")
-> ---
->  drivers/of/of_mdio.c    | 22 ----------------------
->  include/linux/of_mdio.h | 24 +++++++++++++++++++++++-
->  2 files changed, 23 insertions(+), 23 deletions(-)
-> 
-> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-> index 7e4c80f9b6cd..057963f2b74f 100644
-> --- a/drivers/of/of_mdio.c
-> +++ b/drivers/of/of_mdio.c
-> @@ -119,28 +119,6 @@ static void of_mdiobus_register_device(struct mii_bus *mdio,
->  		child->name, addr);
->  }
->  
-> -int of_mdio_parse_addr(struct device *dev, const struct device_node *np)
-> -{
-> -	u32 addr;
-> -	int ret;
-> -
-> -	ret = of_property_read_u32(np, "reg", &addr);
-> -	if (ret < 0) {
-> -		dev_err(dev, "%s has invalid PHY address\n", np->full_name);
-> -		return ret;
-> -	}
-> -
-> -	/* A PHY must have a reg property in the range [0-31] */
-> -	if (addr >= PHY_MAX_ADDR) {
-> -		dev_err(dev, "%s PHY address %i is too large\n",
-> -			np->full_name, addr);
-> -		return -EINVAL;
-> -	}
-> -
-> -	return addr;
-> -}
-> -EXPORT_SYMBOL(of_mdio_parse_addr);
-> -
->  /* The following is a list of PHY compatible strings which appear in
->   * some DTBs. The compatible string is never matched against a PHY
->   * driver, so is pointless. We only expect devices which are not PHYs
-> diff --git a/include/linux/of_mdio.h b/include/linux/of_mdio.h
-> index ba35ba520487..f5db93bcd069 100644
-> --- a/include/linux/of_mdio.h
-> +++ b/include/linux/of_mdio.h
-> @@ -27,11 +27,33 @@ struct phy_device *of_phy_attach(struct net_device *dev,
->  				 phy_interface_t iface);
->  
->  extern struct mii_bus *of_mdio_find_bus(struct device_node *mdio_np);
-> -extern int of_mdio_parse_addr(struct device *dev, const struct device_node *np);
->  extern int of_phy_register_fixed_link(struct device_node *np);
->  extern void of_phy_deregister_fixed_link(struct device_node *np);
->  extern bool of_phy_is_fixed_link(struct device_node *np);
->  
-> +
-> +static inline int of_mdio_parse_addr(struct device *dev,
-> +				     const struct device_node *np)
-> +{
-> +	u32 addr;
-> +	int ret;
-> +
-> +	ret = of_property_read_u32(np, "reg", &addr);
-> +	if (ret < 0) {
-> +		dev_err(dev, "%s has invalid PHY address\n", np->full_name);
-> +		return ret;
-> +	}
-> +
-> +	/* A PHY must have a reg property in the range [0-31] */
-> +	if (addr >= PHY_MAX_ADDR) {
-> +		dev_err(dev, "%s PHY address %i is too large\n",
-> +			np->full_name, addr);
-> +		return -EINVAL;
-> +	}
-> +
-> +	return addr;
-> +}
-> +
->  #else /* CONFIG_OF_MDIO */
->  static inline int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
->  {
-> -- 
-> 2.7.4
-> 
-
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 30aa0a5..3a8318e 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -4666,9 +4666,8 @@ int sctp_for_each_transport(int (*cb)(struct sctp_transport *, void *),
+ 	if (err)
+ 		return err;
+ 
+-	sctp_transport_get_idx(net, &hti, pos);
+-	obj = sctp_transport_get_next(net, &hti);
+-	for (; obj && !IS_ERR(obj); obj = sctp_transport_get_next(net, &hti)) {
++	obj = sctp_transport_get_idx(net, &hti, pos + 1);
++	for (; !IS_ERR_OR_NULL(obj); obj = sctp_transport_get_next(net, &hti)) {
+ 		struct sctp_transport *transport = obj;
+ 
+ 		if (!sctp_transport_hold(transport))
 -- 
-   _
- _|_|_
- ('_')
- (⊃  )⊃
- |_|_|
+2.1.0
