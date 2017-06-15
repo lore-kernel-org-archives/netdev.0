@@ -1,40 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 0/4] kernel TLS
-Date: Thu, 15 Jun 2017 12:13:11 -0400 (EDT)
-Message-ID: <20170615.121311.1238287091540165656.davem@davemloft.net>
-References: <20170614183654.GA80067@davejwatson-mba.dhcp.thefacebook.com>
+Subject: Re: [PATCH net] sctp: fix spinfo_srtt to be in msecs and not
+ jiffies
+Date: Thu, 15 Jun 2017 12:15:57 -0400 (EDT)
+Message-ID: <20170615.121557.573870132240215519.davem@davemloft.net>
+References: <ed45c6f580535de366377e20af519ecff5bdf28d.1497466458.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ilyal@mellanox.com, aviadye@mellanox.com, borisp@mellanox.com,
-        liranl@mellanox.com, matanb@mellanox.com, netdev@vger.kernel.org,
-        tom@herbertland.com, herbert@gondor.apana.org.au,
-        linux-crypto@vger.kernel.org, hannes@stressinduktion.org,
-        eric.dumazet@gmail.com, alexei.starovoitov@gmail.com,
-        nmav@gnutls.org, fridolin.pokorny@gmail.com
-To: davejwatson@fb.com
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20170614183654.GA80067@davejwatson-mba.dhcp.thefacebook.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, vyasevich@gmail.com, nhorman@tuxdriver.com,
+        linux-sctp@vger.kernel.org
+To: marcelo.leitner@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:55886 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750793AbdFOQP7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 12:15:59 -0400
+In-Reply-To: <ed45c6f580535de366377e20af519ecff5bdf28d.1497466458.git.marcelo.leitner@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dave Watson <davejwatson@fb.com>
-Date: Wed, 14 Jun 2017 11:36:54 -0700
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Date: Wed, 14 Jun 2017 16:08:59 -0300
 
-> This series adds support for kernel TLS encryption over TCP sockets.
-> A standard TCP socket is converted to a TLS socket using a setsockopt.
-> Only symmetric crypto is done in the kernel, as well as TLS record
-> framing.  The handshake remains in userspace, and the negotiated
-> cipher keys/iv are provided to the TCP socket.
+> RFC 6458 (SCTP Sockets API) Section 8.2.2.  Peer Address Information
+> (SCTP_GET_PEER_ADDR_INFO) defines that spinfo_srtt is in miliseconds,
+> yet we were using it in jiffies.
 > 
-> We implemented support for this API in OpenSSL 1.1.0, the code is
-> available at https://github.com/Mellanox/tls-openssl/tree/master
+> Fix it by converting before assigning, similarly to RTO.
 > 
-> It should work with any TLS library with similar modifications,
-> a test tool using gnutls is here: https://github.com/Mellanox/tls-af_ktls_tool
-> 
-> RFC patch to openssl:
-> https://mta.openssl.org/pipermail/openssl-dev/2017-June/009384.html
- ...
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> ---
+> I hope this is not considered UAPI breakage. This is exported via
+> getsockopt() calls.
 
-Series applied, thanks for all of this hard work!
+Unfortunately it is UAPI breakage, it is too late to change this now.
+
+SOrry.
