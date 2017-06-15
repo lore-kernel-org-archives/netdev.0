@@ -1,42 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sctp: return next obj by passing pos + 1 into
- sctp_transport_get_idx
-Date: Thu, 15 Jun 2017 14:41:04 -0400 (EDT)
-Message-ID: <20170615.144104.2153172737322445562.davem@davemloft.net>
-References: <a129be6693b882bac11ace44d659ceb1c1cc4f79.1497520148.git.lucien.xin@gmail.com>
+From: Shannon Nelson <shannon.nelson@oracle.com>
+Subject: Re: [PATCH net-next] sunvnet: restrict advertized checksum offloads
+ to just IP
+Date: Thu, 15 Jun 2017 11:54:51 -0700
+Message-ID: <d8203dbd-2873-afcf-91b9-f7ff7495d3bb@oracle.com>
+References: <1497480217-391315-1-git-send-email-shannon.nelson@oracle.com>
+ <20170615.142314.2129688024540050765.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        marcelo.leitner@gmail.com, nhorman@tuxdriver.com
-To: lucien.xin@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59630 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750749AbdFOSlG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 14:41:06 -0400
-In-Reply-To: <a129be6693b882bac11ace44d659ceb1c1cc4f79.1497520148.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, sparclinux@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <20170615.142314.2129688024540050765.davem@davemloft.net>
+Content-Language: en-US
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Thu, 15 Jun 2017 17:49:08 +0800
+On 6/15/2017 11:23 AM, David Miller wrote:
+> 
+> Applied, but this bug must be fixed properly and ipv6 checksumming
+> properly supported.
+> 
+> Thanks.
+> 
 
-> In sctp_for_each_transport, pos is used to save how many objs it has
-> dumped. Now it gets the last obj by sctp_transport_get_idx, then gets
-> the next obj by sctp_transport_get_next.
-> 
-> The issue is that in the meanwhile if some objs in transport hashtable
-> are removed and the objs nums are less than pos, sctp_transport_get_idx
-> would return NULL and hti.walker.tbl is NULL as well. At this moment
-> it should stop hti, instead of continue getting the next obj. Or it
-> would cause a NULL pointer dereference in sctp_transport_get_next.
-> 
-> This patch is to pass pos + 1 into sctp_transport_get_idx to get the
-> next obj directly, even if pos > objs nums, it would return NULL and
-> stop hti.
-> 
-> Fixes: 626d16f50f39 ("sctp: export some apis or variables for sctp_diag and reuse some for proc")
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Understood - we just wanted first to stop the bleeding while we think 
+about how to do this right.
 
-Applied and queued up for -stable, thanks.
+Thanks,
+sln
