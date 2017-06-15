@@ -1,77 +1,64 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 0/3] ipmr/ip6mr: add Netlink notifications on
- cache reports
-Date: Thu, 15 Jun 2017 14:33:49 +0300
-Message-ID: <2d412677-d31a-7740-952c-b1b007bbf075@cumulusnetworks.com>
-References: <20170613170822.16310-1-julien@arista.com>
- <891d876f-18fb-706b-c269-ec8892d2f6ff@cumulusnetworks.com>
- <7b133850-bbdc-594c-f7f3-62e9d4adf1f3@arista.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-        Donald Sharp <sharpd@cumulusnetworks.com>
-To: Julien Gomes <julien@arista.com>, davem@davemloft.net
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: [PATCH net-next 00/10] mlx4 XDP performance improvements
+Date: Thu, 15 Jun 2017 14:35:30 +0300
+Message-ID: <1497526540-30028-1-git-send-email-tariqt@mellanox.com>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>, kernel-team@fb.com,
+        Tariq Toukan <tariqt@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f180.google.com ([209.85.128.180]:34719 "EHLO
-        mail-wr0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752495AbdFOLdw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 07:33:52 -0400
-Received: by mail-wr0-f180.google.com with SMTP id 77so17893442wrb.1
-        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 04:33:52 -0700 (PDT)
-In-Reply-To: <7b133850-bbdc-594c-f7f3-62e9d4adf1f3@arista.com>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:36013 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752064AbdFOLgT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 07:36:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15/06/17 00:51, Julien Gomes wrote:
-> Hi Nikolay,
-> 
-> On 06/14/2017 05:04 AM, Nikolay Aleksandrov wrote:
-> 
->> This has been on our todo list and I'm definitely interested in the implementation.
->> A few things that need careful consideration from my POV. First are the security
->> implications - this sends rtnl multicast messages but the rtnl socket has
->> the NL_CFG_F_NONROOT_RECV flag thus allowing any user on the system to listen in.
->> This would allow them to see the full packets and all reports (granted they can see
->> the notifications even now), but the full packet is like giving them the opportunity
->> to tcpdump the PIM traffic.
-> 
-> I definitely see how this can be an issue.
-> From what I see, this means that either the packet should be
-> transmitted another way, or another Netlink family should be used.
-> 
-> NETLINK_ROUTE looks to be the logical family to choose though,
-> but then I do not see a proper other way to handle this.
+Hi Dave,
 
-Right, currently me neither, unless it provides a bind callback when registering
-the kernel socket.
+This patchset contains data-path improvements, mainly for XDP_DROP
+and XDP_TX cases.
 
-> 
-> However I may just not be looking into the right direction,
-> maybe you currently have another approach in mind?
+Main patches:
+* Patch 2 by Saeed allows enabling optimized A0 RX steering (in HW) when
+  setting a single RX ring.
+  With this configuration, HW packet-rate dramatically improves,
+  reaching 28.1 Mpps in XDP_DROP case for both IPv4 (37% gain)
+  and IPv6 (53% gain).
+* Patch 6 enhances the XDP xmit function. Among other changes, now we
+  ring one doorbell per NAPI. Patch gives 17% gain in XDP_TX case.
+* Patch 7 obsoletes the NAPI of XDP_TX completion queue and integrates its
+  poll into the respective RX NAPI. Patch gives 15% gain in XDP_TX case.
 
-I haven't gotten around to make (or even try) them but I was thinking about 2 options
-ending up with a similar result:
+Series generated against net-next commit:
+f7aec129a356 rxrpc: Cache the congestion window setting
 
-1) genetlink
- It also has the NONROOT_RECV flag, but it also allows for a callback - mcast_bind()
- which can be used to filter.
+Thanks,
+Tariq.
 
-or
 
-2) Providing a bind callback to the NETLINK_ROUTE socket.
+Saeed Mahameed (1):
+  net/mlx4_en: Optimized single ring steering
 
-I haven't checked in detail how feasible each option is. To me 2) seems like the
-cleaner/proper way to do it but it requires extending the rtnetlink api.
+Tariq Toukan (9):
+  net/mlx4_en: Remove unused argument in TX datapath function
+  net/mlx4_en: Improve receive data-path
+  net/mlx4_en: Improve transmit CQ polling
+  net/mlx4_en: Improve stack xmit function
+  net/mlx4_en: Improve XDP xmit function
+  net/mlx4_en: Poll XDP TX completion queue in RX NAPI
+  net/mlx4_en: Increase default TX ring size
+  net/mlx4_en: Replace TXBB_SIZE multiplications with shift operations
+  net/mlx4_en: Refactor mlx4_en_free_tx_desc
 
-It would be nice to get feedback and comments from more people on this.
+ drivers/net/ethernet/mellanox/mlx4/en_cq.c     |  25 +-
+ drivers/net/ethernet/mellanox/mlx4/en_main.c   |   6 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |  20 +-
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c     | 145 ++++++++----
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c     | 305 ++++++++++++-------------
+ drivers/net/ethernet/mellanox/mlx4/main.c      |   4 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |  23 +-
+ 7 files changed, 293 insertions(+), 235 deletions(-)
 
-> 
->> My second (more fixable and minor) concern is about the packet itself, how do you
->> know that the packet is all linear so you can directly copy it ?
-> 
-> Indeed, I overlooked this possibility in this version.
-> I will improve that.
-> 
-
-Thanks!
+-- 
+1.8.3.1
