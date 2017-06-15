@@ -1,80 +1,117 @@
 From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [RFC PATCH net-next v2 12/15] bpf: Adds support for setting initial cwnd
-Date: Thu, 15 Jun 2017 13:08:41 -0700
-Message-ID: <20170615200844.2752485-13-brakmo@fb.com>
+Subject: [RFC PATCH net-next v2 08/15] bpf: Add TCP connection BPF callbacks
+Date: Thu, 15 Jun 2017 13:08:37 -0700
+Message-ID: <20170615200844.2752485-9-brakmo@fb.com>
 References: <20170615200844.2752485-1-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
-        Alexei Starovoitov <ast@fb.com>,
+        "Alexei Starovoitov" <ast@fb.com>,
         Daniel Borkmann <daniel@iogearbox.net>,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:37777 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:40567 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751980AbdFOUIv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 16:08:51 -0400
-Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5FK5DqE003814
-        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 13:08:50 -0700
+        by vger.kernel.org with ESMTP id S1751980AbdFOUI5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 16:08:57 -0400
+Received: from pps.filterd (m0109333.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5FK5EEq025315
+        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 13:08:51 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2b3pvjj6vj-4
+        by mx0a-00082601.pphosted.com with ESMTP id 2b3qrbj12a-7
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 13:08:50 -0700
+        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 13:08:51 -0700
 Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
  mx-out.facebook.com (10.103.99.97) with ESMTP  id
- 728751dc520611e79e620002c9931860-47328f0 for <netdev@vger.kernel.org>; Thu,
- 15 Jun 2017 13:08:50 -0700
+ 7256519a520611e79e620002c9931860-47328f0 for <netdev@vger.kernel.org>; Thu,
+ 15 Jun 2017 13:08:49 -0700
 In-Reply-To: <20170615200844.2752485-1-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds a new bpf_setsockopt for TCP sockets, TCP_BPF_IW, which sets the
-initial congestion window. This can be used when the hosts are far
-apart (large RTTs) and it is safe to start with a large inital cwnd.
+Added callbacks to BPF SOCKET_OPS type program before an active
+connection is intialized and after a passive or active connection is
+established.
+
+The following patch demostrates how they can be used to set send and
+receive buffer sizes.
 
 Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
 ---
- include/uapi/linux/bpf.h |  2 ++
- net/core/filter.c        | 14 +++++++++++++-
- 2 files changed, 15 insertions(+), 1 deletion(-)
+ include/uapi/linux/bpf.h | 11 +++++++++++
+ net/ipv4/tcp_fastopen.c  |  1 +
+ net/ipv4/tcp_input.c     |  4 +++-
+ net/ipv4/tcp_output.c    |  1 +
+ 4 files changed, 16 insertions(+), 1 deletion(-)
 
 diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 8d1d2b7..ecb28e2 100644
+index 8accb4d..c3490d3 100644
 --- a/include/uapi/linux/bpf.h
 +++ b/include/uapi/linux/bpf.h
-@@ -781,4 +781,6 @@ enum {
+@@ -765,6 +765,17 @@ enum {
+ 					 * window (in packets) or -1 if default
+ 					 * value should be used
  					 */
++	BPF_SOCKET_OPS_TCP_CONNECT_CB,	/* Calls BPF program right before an
++					 * active connection is initialized
++					 */
++	BPF_SOCKET_OPS_ACTIVE_ESTABLISHED_CB,	/* Calls BPF program when an
++						 * active connection is
++						 * established
++						 */
++	BPF_SOCKET_OPS_PASSIVE_ESTABLISHED_CB,	/* Calls BPF program when a
++						 * passive connection is
++						 * established
++						 */
  };
  
-+#define TCP_BPF_IW		1001	/* Set TCP initial congestion window */
-+
  #endif /* _UAPI__LINUX_BPF_H__ */
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 4325aba..a1d9214 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2723,7 +2723,19 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_socket_ops_kern *, bpf_socket,
- 				tcp_reinit_congestion_control(sk,
- 					inet_csk(sk)->icsk_ca_ops);
+diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
+index 4af82b9..c3ec4ec 100644
+--- a/net/ipv4/tcp_fastopen.c
++++ b/net/ipv4/tcp_fastopen.c
+@@ -221,6 +221,7 @@ static struct sock *tcp_fastopen_create_child(struct sock *sk,
+ 	tcp_init_congestion_control(child);
+ 	tcp_mtup_init(child);
+ 	tcp_init_metrics(child);
++	tcp_call_bpf(child, false, BPF_SOCKET_OPS_PASSIVE_ESTABLISHED_CB);
+ 	tcp_init_buffer_space(child);
+ 
+ 	tp->rcv_nxt = TCP_SKB_CB(skb)->seq + 1;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 0867b05..e0d688a 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5571,7 +5571,7 @@ void tcp_finish_connect(struct sock *sk, struct sk_buff *skb)
+ 	icsk->icsk_af_ops->rebuild_header(sk);
+ 
+ 	tcp_init_metrics(sk);
+-
++	tcp_call_bpf(sk, false, BPF_SOCKET_OPS_ACTIVE_ESTABLISHED_CB);
+ 	tcp_init_congestion_control(sk);
+ 
+ 	/* Prevent spurious tcp_cwnd_restart() on first data
+@@ -5977,6 +5977,8 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
  		} else {
--			ret = -EINVAL;
-+			struct tcp_sock *tp = tcp_sk(sk);
-+
-+			val = *((int *)optval);
-+			switch (optname) {
-+			case TCP_BPF_IW:
-+				if (val <= 0 || tp->data_segs_out > 0)
-+					ret = -EINVAL;
-+				else
-+					tp->snd_cwnd = val;
-+				break;
-+			default:
-+				ret = -EINVAL;
-+			}
- 		}
- 	} else {
- 		ret = -EINVAL;
+ 			/* Make sure socket is routed, for correct metrics. */
+ 			icsk->icsk_af_ops->rebuild_header(sk);
++			tcp_call_bpf(sk, false,
++				     BPF_SOCKET_OPS_PASSIVE_ESTABLISHED_CB);
+ 			tcp_init_congestion_control(sk);
+ 
+ 			tcp_mtup_init(sk);
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index e5f623f..9124d3d 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -3445,6 +3445,7 @@ int tcp_connect(struct sock *sk)
+ 	struct sk_buff *buff;
+ 	int err;
+ 
++	tcp_call_bpf(sk, false, BPF_SOCKET_OPS_TCP_CONNECT_CB);
+ 	tcp_connect_init(sk);
+ 
+ 	if (unlikely(tp->repair)) {
 -- 
 2.9.3
