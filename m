@@ -1,50 +1,58 @@
 From: David Daney <david.daney@cavium.com>
-Subject: [PATCH RFC 2/3] samples/bpf: Add define __EMITTING_BPF__ when building BPF
-Date: Thu, 15 Jun 2017 15:35:42 -0700
-Message-ID: <20170615223543.22867-3-david.daney@cavium.com>
+Subject: [PATCH RFC 1/3] arm64: Gate inclusion of asm/sysreg.h by
+ __EMITTING_BPF__
+Date: Thu, 15 Jun 2017 15:35:41 -0700
+Message-ID: <20170615223543.22867-2-david.daney@cavium.com>
 References: <20170615223543.22867-1-david.daney@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: David Daney <david.daney@cavium.com>
 To: Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
-        ralf@linux-mips.org, Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will.deacon@arm.com>,
-        linux-arm-kernel@lists.infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+ Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
+ ralf@linux-mips.org, Catalin Marinas <catalin.marinas@arm.com>,
+ Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <20170615223543.22867-1-david.daney@cavium.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-... this allows gating of inline assembly code that causes llvm to
-fail when emitting BPF.
+Compilation to eBPF chokes on the inline asm in asm/sysreg.h, so don't
+include it when compiling to a BPF target.
 
 Signed-off-by: David Daney <david.daney@cavium.com>
 ---
- samples/bpf/Makefile | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ arch/arm64/include/asm/sysreg.h | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index a0561dc762fe..4979e6b56662 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -193,12 +193,12 @@ $(src)/*.c: verify_target_bpf
+diff --git a/arch/arm64/include/asm/sysreg.h b/arch/arm64/include/asm/sysreg.h
+index 15c142ce991c..faa8f853e369 100644
+--- a/arch/arm64/include/asm/sysreg.h
++++ b/arch/arm64/include/asm/sysreg.h
+@@ -20,6 +20,8 @@
+ #ifndef __ASM_SYSREG_H
+ #define __ASM_SYSREG_H
  
- $(obj)/tracex5_kern.o: $(obj)/syscall_nrs.h
++#ifndef __EMITTING_BPF__
++
+ #include <linux/stringify.h>
  
--# asm/sysreg.h - inline assembly used by it is incompatible with llvm.
--# But, there is no easy way to fix it, so just exclude it since it is
--# useless for BPF samples.
-+# __EMITTING_BPF__ used to exclude inline assembly, which cannot be
-+# emitted in BPF code.
- $(obj)/%.o: $(src)/%.c
- 	$(CLANG) $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
--		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
-+		-D__KERNEL__ -D__EMITTING_BPF__ \
-+		-Wno-unused-value -Wno-pointer-sign \
- 		-Wno-compare-distinct-pointer-types \
- 		-Wno-gnu-variable-sized-type-not-at-end \
- 		-Wno-address-of-packed-member -Wno-tautological-compare \
+ /*
+@@ -502,5 +504,5 @@ static inline void config_sctlr_el1(u32 clear, u32 set)
+ }
+ 
+ #endif
+-
++#endif  /* __EMITTING_BPF__ */
+ #endif	/* __ASM_SYSREG_H */
 -- 
 2.11.0
