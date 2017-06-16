@@ -1,58 +1,92 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 38/44] arm: implement ->dma_supported instead of
-	->set_dma_mask
-Date: Fri, 16 Jun 2017 20:10:53 +0200
-Message-ID: <20170616181059.19206-39-hch@lst.de>
+Subject: [PATCH 41/44] powerpc/cell: clean up fixed mapping dma_ops initialization
+Date: Fri, 16 Jun 2017 20:10:56 +0200
+Message-ID: <20170616181059.19206-42-hch@lst.de>
 References: <20170616181059.19206-1-hch@lst.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
 Cc: linux-kernel@vger.kernel.org
 To: x86@kernel.org, linux-arm-kernel@lists.infradead.org,
- xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
- linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
- linux-mips@linux-mips.org, openrisc@lists.librecores.org,
- linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
- linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
- linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
- linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
- linux-samsung-soc@vger.kernel.org, iommu@lists.linux-foundation.org,
- netdev@vger.kernel.org
-Return-path: <xen-devel-bounces@lists.xen.org>
+        xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
+        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
+        linux-mips@linux-mips.org, openrisc@lists.librecores.org,
+        linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
+        linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
+        linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
+        linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
+        linux-samsung-soc@vger.kernel.org,
+        iommu@lists.linux-foundation.org, netdev@vger.kernel.org
+Return-path: <linux-samsung-soc-owner@vger.kernel.org>
 In-Reply-To: <20170616181059.19206-1-hch@lst.de>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+Sender: linux-samsung-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-U2FtZSBiZWhhdmlvciwgbGVzcyBjb2RlIGR1cGxpY2F0aW9uLgoKU2lnbmVkLW9mZi1ieTogQ2hy
-aXN0b3BoIEhlbGx3aWcgPGhjaEBsc3QuZGU+Ci0tLQogYXJjaC9hcm0vY29tbW9uL2RtYWJvdW5j
-ZS5jIHwgNyArKystLS0tCiAxIGZpbGUgY2hhbmdlZCwgMyBpbnNlcnRpb25zKCspLCA0IGRlbGV0
-aW9ucygtKQoKZGlmZiAtLWdpdCBhL2FyY2gvYXJtL2NvbW1vbi9kbWFib3VuY2UuYyBiL2FyY2gv
-YXJtL2NvbW1vbi9kbWFib3VuY2UuYwppbmRleCA2ZWNkNWJlNWQzN2UuLjlhOTJkZTYzNDI2ZiAx
-MDA2NDQKLS0tIGEvYXJjaC9hcm0vY29tbW9uL2RtYWJvdW5jZS5jCisrKyBiL2FyY2gvYXJtL2Nv
-bW1vbi9kbWFib3VuY2UuYwpAQCAtNDQ1LDEyICs0NDUsMTIgQEAgc3RhdGljIHZvaWQgZG1hYm91
-bmNlX3N5bmNfZm9yX2RldmljZShzdHJ1Y3QgZGV2aWNlICpkZXYsCiAJYXJtX2RtYV9vcHMuc3lu
-Y19zaW5nbGVfZm9yX2RldmljZShkZXYsIGhhbmRsZSwgc2l6ZSwgZGlyKTsKIH0KIAotc3RhdGlj
-IGludCBkbWFib3VuY2Vfc2V0X21hc2soc3RydWN0IGRldmljZSAqZGV2LCB1NjQgZG1hX21hc2sp
-CitzdGF0aWMgaW50IGRtYWJvdW5jZV9kbWFfc3VwcG9ydGVkKHN0cnVjdCBkZXZpY2UgKmRldiwg
-dTY0IGRtYV9tYXNrKQogewogCWlmIChkZXYtPmFyY2hkYXRhLmRtYWJvdW5jZSkKIAkJcmV0dXJu
-IDA7CiAKLQlyZXR1cm4gYXJtX2RtYV9vcHMuc2V0X2RtYV9tYXNrKGRldiwgZG1hX21hc2spOwor
-CXJldHVybiBhcm1fZG1hX29wcy5kbWFfc3VwcG9ydGVkKGRldiwgZG1hX21hc2spOwogfQogCiBz
-dGF0aWMgaW50IGRtYWJvdW5jZV9tYXBwaW5nX2Vycm9yKHN0cnVjdCBkZXZpY2UgKmRldiwgZG1h
-X2FkZHJfdCBkbWFfYWRkcikKQEAgLTQ3MSw5ICs0NzEsOCBAQCBzdGF0aWMgY29uc3Qgc3RydWN0
-IGRtYV9tYXBfb3BzIGRtYWJvdW5jZV9vcHMgPSB7CiAJLnVubWFwX3NnCQk9IGFybV9kbWFfdW5t
-YXBfc2csCiAJLnN5bmNfc2dfZm9yX2NwdQk9IGFybV9kbWFfc3luY19zZ19mb3JfY3B1LAogCS5z
-eW5jX3NnX2Zvcl9kZXZpY2UJPSBhcm1fZG1hX3N5bmNfc2dfZm9yX2RldmljZSwKLQkuc2V0X2Rt
-YV9tYXNrCQk9IGRtYWJvdW5jZV9zZXRfbWFzaywKKwkuZG1hX3N1cHBvcnRlZAkJPSBkbWFib3Vu
-Y2VfZG1hX3N1cHBvcnRlZCwKIAkubWFwcGluZ19lcnJvcgkJPSBkbWFib3VuY2VfbWFwcGluZ19l
-cnJvciwKLQkuZG1hX3N1cHBvcnRlZAkJPSBhcm1fZG1hX3N1cHBvcnRlZCwKIH07CiAKIHN0YXRp
-YyBpbnQgZG1hYm91bmNlX2luaXRfcG9vbChzdHJ1Y3QgZG1hYm91bmNlX3Bvb2wgKnBvb2wsIHN0
-cnVjdCBkZXZpY2UgKmRldiwKLS0gCjIuMTEuMAoKCl9fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fClhlbi1kZXZlbCBtYWlsaW5nIGxpc3QKWGVuLWRldmVsQGxp
-c3RzLnhlbi5vcmcKaHR0cHM6Ly9saXN0cy54ZW4ub3JnL3hlbi1kZXZlbAo=
+By the time cell_pci_dma_dev_setup calls cell_dma_dev_setup no device can
+have the fixed map_ops set yet as it's only set by the set_dma_mask
+method.  So move the setup for the fixed case to be only called in that
+place instead of indirecting through cell_dma_dev_setup.
+
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/powerpc/platforms/cell/iommu.c | 27 +++++++--------------------
+ 1 file changed, 7 insertions(+), 20 deletions(-)
+
+diff --git a/arch/powerpc/platforms/cell/iommu.c b/arch/powerpc/platforms/cell/iommu.c
+index 948086e33a0c..497bfbdbd967 100644
+--- a/arch/powerpc/platforms/cell/iommu.c
++++ b/arch/powerpc/platforms/cell/iommu.c
+@@ -663,14 +663,9 @@ static const struct dma_map_ops dma_iommu_fixed_ops = {
+ 	.mapping_error	= dma_iommu_mapping_error,
+ };
+ 
+-static void cell_dma_dev_setup_fixed(struct device *dev);
+-
+ static void cell_dma_dev_setup(struct device *dev)
+ {
+-	/* Order is important here, these are not mutually exclusive */
+-	if (get_dma_ops(dev) == &dma_iommu_fixed_ops)
+-		cell_dma_dev_setup_fixed(dev);
+-	else if (get_pci_dma_ops() == &dma_iommu_ops)
++	if (get_pci_dma_ops() == &dma_iommu_ops)
+ 		set_iommu_table_base(dev, cell_get_iommu_table(dev));
+ 	else if (get_pci_dma_ops() == &dma_direct_ops)
+ 		set_dma_offset(dev, cell_dma_direct_offset);
+@@ -963,32 +958,24 @@ static int dma_set_mask_and_switch(struct device *dev, u64 dma_mask)
+ 		return -EIO;
+ 
+ 	if (dma_mask == DMA_BIT_MASK(64) &&
+-		cell_iommu_get_fixed_address(dev) != OF_BAD_ADDR)
+-	{
++	    cell_iommu_get_fixed_address(dev) != OF_BAD_ADDR) {
++		u64 addr = cell_iommu_get_fixed_address(dev) +
++			dma_iommu_fixed_base;
+ 		dev_dbg(dev, "iommu: 64-bit OK, using fixed ops\n");
++		dev_dbg(dev, "iommu: fixed addr = %llx\n", addr);
+ 		set_dma_ops(dev, &dma_iommu_fixed_ops);
++		set_dma_offset(dev, addr);
+ 	} else {
+ 		dev_dbg(dev, "iommu: not 64-bit, using default ops\n");
+ 		set_dma_ops(dev, get_pci_dma_ops());
++		cell_dma_dev_setup(dev);
+ 	}
+ 
+-	cell_dma_dev_setup(dev);
+-
+ 	*dev->dma_mask = dma_mask;
+ 
+ 	return 0;
+ }
+ 
+-static void cell_dma_dev_setup_fixed(struct device *dev)
+-{
+-	u64 addr;
+-
+-	addr = cell_iommu_get_fixed_address(dev) + dma_iommu_fixed_base;
+-	set_dma_offset(dev, addr);
+-
+-	dev_dbg(dev, "iommu: fixed addr = %llx\n", addr);
+-}
+-
+ static void insert_16M_pte(unsigned long addr, unsigned long *ptab,
+ 			   unsigned long base_pte)
+ {
+-- 
+2.11.0
