@@ -1,52 +1,84 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 33/44] openrisc: remove arch-specific dma_supported implementation
-Date: Fri, 16 Jun 2017 20:10:48 +0200
-Message-ID: <20170616181059.19206-34-hch@lst.de>
+Subject: [PATCH 26/44] dma-mapping: remove DMA_ERROR_CODE
+Date: Fri, 16 Jun 2017 20:10:41 +0200
+Message-ID: <20170616181059.19206-27-hch@lst.de>
 References: <20170616181059.19206-1-hch@lst.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: linux-kernel@vger.kernel.org
 To: x86@kernel.org, linux-arm-kernel@lists.infradead.org,
-        xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
-        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
-        linux-mips@linux-mips.org, openrisc@lists.librecores.org,
-        linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
-        linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
-        linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
-        linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
-        linux-samsung-soc@vger.kernel.org,
-        iommu@lists.linux-foundation.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([65.50.211.133]:50612 "EHLO
-        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752511AbdFPSNU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 14:13:20 -0400
+ xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
+ linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
+ linux-mips@linux-mips.org, openrisc@lists.librecores.org,
+ linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
+ linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
+ linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
+ linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
+ linux-samsung-soc@vger.kernel.org, iommu@lists.linux-foundation.org,
+ netdev@vger.kernel.org
+Return-path: <dri-devel-bounces@lists.freedesktop.org>
 In-Reply-To: <20170616181059.19206-1-hch@lst.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
+List-Post: <mailto:dri-devel@lists.freedesktop.org>
+List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: dri-devel-bounces@lists.freedesktop.org
+Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
+List-Id: netdev.vger.kernel.org
 
-This implementation is simply bogus - openrisc only has a simple
-direct mapped DMA implementation and thus doesn't care about the
-address.
-
-Signed-off-by: Christoph Hellwig <hch@lst.de>
----
- arch/openrisc/include/asm/dma-mapping.h | 7 -------
- 1 file changed, 7 deletions(-)
-
-diff --git a/arch/openrisc/include/asm/dma-mapping.h b/arch/openrisc/include/asm/dma-mapping.h
-index a4ea139c2ef9..f41bd3cb76d9 100644
---- a/arch/openrisc/include/asm/dma-mapping.h
-+++ b/arch/openrisc/include/asm/dma-mapping.h
-@@ -33,11 +33,4 @@ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
- 	return &or1k_dma_map_ops;
- }
- 
--#define HAVE_ARCH_DMA_SUPPORTED 1
--static inline int dma_supported(struct device *dev, u64 dma_mask)
--{
--	/* Support 32 bit DMA mask exclusively */
--	return dma_mask == DMA_BIT_MASK(32);
--}
--
- #endif	/* __ASM_OPENRISC_DMA_MAPPING_H */
--- 
-2.11.0
+QW5kIHVwZGF0ZSB0aGUgZG9jdW1lbnRhdGlvbiAtIGRtYV9tYXBwaW5nX2Vycm9yIGhhcyBiZWVu
+IHN1cHBvcnRlZApldmVyeXdoZXJlIGZvciBhIGxvbmcgdGltZS4KClNpZ25lZC1vZmYtYnk6IENo
+cmlzdG9waCBIZWxsd2lnIDxoY2hAbHN0LmRlPgotLS0KIERvY3VtZW50YXRpb24vRE1BLUFQSS1I
+T1dUTy50eHQgfCAzMSArKysrKy0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiBpbmNsdWRlL2xp
+bnV4L2RtYS1tYXBwaW5nLmggICAgIHwgIDUgLS0tLS0KIDIgZmlsZXMgY2hhbmdlZCwgNSBpbnNl
+cnRpb25zKCspLCAzMSBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9Eb2N1bWVudGF0aW9uL0RN
+QS1BUEktSE9XVE8udHh0IGIvRG9jdW1lbnRhdGlvbi9ETUEtQVBJLUhPV1RPLnR4dAppbmRleCA5
+NzkyMjhiYzkwMzUuLjRlZDM4ODM1Njg5OCAxMDA2NDQKLS0tIGEvRG9jdW1lbnRhdGlvbi9ETUEt
+QVBJLUhPV1RPLnR4dAorKysgYi9Eb2N1bWVudGF0aW9uL0RNQS1BUEktSE9XVE8udHh0CkBAIC01
+NTAsMzIgKzU1MCwxMSBAQCBhbmQgdG8gdW5tYXAgaXQ6CiAJZG1hX3VubWFwX3NpbmdsZShkZXYs
+IGRtYV9oYW5kbGUsIHNpemUsIGRpcmVjdGlvbik7CiAKIFlvdSBzaG91bGQgY2FsbCBkbWFfbWFw
+cGluZ19lcnJvcigpIGFzIGRtYV9tYXBfc2luZ2xlKCkgY291bGQgZmFpbCBhbmQgcmV0dXJuCi1l
+cnJvci4gTm90IGFsbCBETUEgaW1wbGVtZW50YXRpb25zIHN1cHBvcnQgdGhlIGRtYV9tYXBwaW5n
+X2Vycm9yKCkgaW50ZXJmYWNlLgotSG93ZXZlciwgaXQgaXMgYSBnb29kIHByYWN0aWNlIHRvIGNh
+bGwgZG1hX21hcHBpbmdfZXJyb3IoKSBpbnRlcmZhY2UsIHdoaWNoCi13aWxsIGludm9rZSB0aGUg
+Z2VuZXJpYyBtYXBwaW5nIGVycm9yIGNoZWNrIGludGVyZmFjZS4gRG9pbmcgc28gd2lsbCBlbnN1
+cmUKLXRoYXQgdGhlIG1hcHBpbmcgY29kZSB3aWxsIHdvcmsgY29ycmVjdGx5IG9uIGFsbCBETUEg
+aW1wbGVtZW50YXRpb25zIHdpdGhvdXQKLWFueSBkZXBlbmRlbmN5IG9uIHRoZSBzcGVjaWZpY3Mg
+b2YgdGhlIHVuZGVybHlpbmcgaW1wbGVtZW50YXRpb24uIFVzaW5nIHRoZQotcmV0dXJuZWQgYWRk
+cmVzcyB3aXRob3V0IGNoZWNraW5nIGZvciBlcnJvcnMgY291bGQgcmVzdWx0IGluIGZhaWx1cmVz
+IHJhbmdpbmcKLWZyb20gcGFuaWNzIHRvIHNpbGVudCBkYXRhIGNvcnJ1cHRpb24uIEEgY291cGxl
+IG9mIGV4YW1wbGVzIG9mIGluY29ycmVjdCB3YXlzCi10byBjaGVjayBmb3IgZXJyb3JzIHRoYXQg
+bWFrZSBhc3N1bXB0aW9ucyBhYm91dCB0aGUgdW5kZXJseWluZyBETUEKLWltcGxlbWVudGF0aW9u
+IGFyZSBhcyBmb2xsb3dzIGFuZCB0aGVzZSBhcmUgYXBwbGljYWJsZSB0byBkbWFfbWFwX3BhZ2Uo
+KSBhcwotd2VsbC4KLQotSW5jb3JyZWN0IGV4YW1wbGUgMToKLQlkbWFfYWRkcl90IGRtYV9oYW5k
+bGU7Ci0KLQlkbWFfaGFuZGxlID0gZG1hX21hcF9zaW5nbGUoZGV2LCBhZGRyLCBzaXplLCBkaXJl
+Y3Rpb24pOwotCWlmICgoZG1hX2hhbmRsZSAmIDB4ZmZmZiAhPSAwKSB8fCAoZG1hX2hhbmRsZSA+
+PSAweDEwMDAwMDApKSB7Ci0JCWdvdG8gbWFwX2Vycm9yOwotCX0KLQotSW5jb3JyZWN0IGV4YW1w
+bGUgMjoKLQlkbWFfYWRkcl90IGRtYV9oYW5kbGU7Ci0KLQlkbWFfaGFuZGxlID0gZG1hX21hcF9z
+aW5nbGUoZGV2LCBhZGRyLCBzaXplLCBkaXJlY3Rpb24pOwotCWlmIChkbWFfaGFuZGxlID09IERN
+QV9FUlJPUl9DT0RFKSB7Ci0JCWdvdG8gbWFwX2Vycm9yOwotCX0KK2Vycm9yLiAgRG9pbmcgc28g
+d2lsbCBlbnN1cmUgdGhhdCB0aGUgbWFwcGluZyBjb2RlIHdpbGwgd29yayBjb3JyZWN0bHkgb24g
+YWxsCitETUEgaW1wbGVtZW50YXRpb25zIHdpdGhvdXQgYW55IGRlcGVuZGVuY3kgb24gdGhlIHNw
+ZWNpZmljcyBvZiB0aGUgdW5kZXJseWluZworaW1wbGVtZW50YXRpb24uIFVzaW5nIHRoZSByZXR1
+cm5lZCBhZGRyZXNzIHdpdGhvdXQgY2hlY2tpbmcgZm9yIGVycm9ycyBjb3VsZAorcmVzdWx0IGlu
+IGZhaWx1cmVzIHJhbmdpbmcgZnJvbSBwYW5pY3MgdG8gc2lsZW50IGRhdGEgY29ycnVwdGlvbi4g
+IFRoZSBzYW1lCithcHBsaWVzIHRvIGRtYV9tYXBfcGFnZSgpIGFzIHdlbGwuCiAKIFlvdSBzaG91
+bGQgY2FsbCBkbWFfdW5tYXBfc2luZ2xlKCkgd2hlbiB0aGUgRE1BIGFjdGl2aXR5IGlzIGZpbmlz
+aGVkLCBlLmcuLAogZnJvbSB0aGUgaW50ZXJydXB0IHdoaWNoIHRvbGQgeW91IHRoYXQgdGhlIERN
+QSB0cmFuc2ZlciBpcyBkb25lLgpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9kbWEtbWFwcGlu
+Zy5oIGIvaW5jbHVkZS9saW51eC9kbWEtbWFwcGluZy5oCmluZGV4IDRmM2VlY2VkY2EyZC4uYTU3
+ODc1MzA5YmZkIDEwMDY0NAotLS0gYS9pbmNsdWRlL2xpbnV4L2RtYS1tYXBwaW5nLmgKKysrIGIv
+aW5jbHVkZS9saW51eC9kbWEtbWFwcGluZy5oCkBAIC01NDYsMTIgKzU0Niw3IEBAIHN0YXRpYyBp
+bmxpbmUgaW50IGRtYV9tYXBwaW5nX2Vycm9yKHN0cnVjdCBkZXZpY2UgKmRldiwgZG1hX2FkZHJf
+dCBkbWFfYWRkcikKIAogCWlmIChnZXRfZG1hX29wcyhkZXYpLT5tYXBwaW5nX2Vycm9yKQogCQly
+ZXR1cm4gZ2V0X2RtYV9vcHMoZGV2KS0+bWFwcGluZ19lcnJvcihkZXYsIGRtYV9hZGRyKTsKLQot
+I2lmZGVmIERNQV9FUlJPUl9DT0RFCi0JcmV0dXJuIGRtYV9hZGRyID09IERNQV9FUlJPUl9DT0RF
+OwotI2Vsc2UKIAlyZXR1cm4gMDsKLSNlbmRpZgogfQogCiAjaWZuZGVmIEhBVkVfQVJDSF9ETUFf
+U1VQUE9SVEVECi0tIAoyLjExLjAKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fCmRyaS1kZXZlbCBtYWlsaW5nIGxpc3QKZHJpLWRldmVsQGxpc3RzLmZyZWVk
+ZXNrdG9wLm9yZwpodHRwczovL2xpc3RzLmZyZWVkZXNrdG9wLm9yZy9tYWlsbWFuL2xpc3RpbmZv
+L2RyaS1kZXZlbAo=
