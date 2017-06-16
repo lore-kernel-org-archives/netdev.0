@@ -1,44 +1,72 @@
-From: Wei Wang <weiwan@google.com>
-Subject: Re: [PATCH net-next 02/21] udp: call dst_hold_safe() in udp_sk_rx_set_dst()
-Date: Fri, 16 Jun 2017 12:06:41 -0700
-Message-ID: <CAEA6p_BJK-Um78CQKG56QGVTx0V8Tu6ughhU7gngpSXruCOBwQ@mail.gmail.com>
-References: <20170616174744.139688-1-tracywwnj@gmail.com> <20170616174744.139688-3-tracywwnj@gmail.com>
- <20170616.150246.2299597096137479184.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/21] remove dst garbage collector logic
+Date: Fri, 16 Jun 2017 15:07:11 -0400 (EDT)
+Message-ID: <20170616.150711.596195466309167124.davem@davemloft.net>
+References: <20170616174744.139688-1-tracywwnj@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: =?UTF-8?B?546L6JSa?= <tracywwnj@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Martin KaFai Lau <kafai@fb.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com, kafai@fb.com,
+        weiwan@google.com
+To: tracywwnj@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f53.google.com ([209.85.213.53]:32847 "EHLO
-        mail-vk0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750792AbdFPTGn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 15:06:43 -0400
-Received: by mail-vk0-f53.google.com with SMTP id p62so27040366vkp.0
-        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 12:06:43 -0700 (PDT)
-In-Reply-To: <20170616.150246.2299597096137479184.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37106 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750787AbdFPTHM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 15:07:12 -0400
+In-Reply-To: <20170616174744.139688-1-tracywwnj@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 16, 2017 at 12:02 PM, David Miller <davem@davemloft.net> wrote:
-> From: Wei Wang <tracywwnj@gmail.com>
-> Date: Fri, 16 Jun 2017 10:47:25 -0700
->
->> +     if (dst)
->> +             /* set noref for now.
->> +              * any place which wants to hold dst has to call
->> +              * dst_hold_safe()
->> +              */
->> +             skb_dst_set_noref(skb, dst);
->
-> You must enclose the code in curly braces if you want to put a comment
-> in this one-line basic block of the 'if' statement.
->
-> Otherwise it's hard to read.
->
-> Likewise for the other similar change in this file.
->
+From: Wei Wang <tracywwnj@gmail.com>
+Date: Fri, 16 Jun 2017 10:47:23 -0700
 
-Got it. Will update in the next version.
+> From: Wei Wang <weiwan@google.com>
+> 
+> The current mechanism of dst release is a bit complicated. It is because
+> the users of dst get divided into 2 situations:
+>   1. Most users take the reference count when using a dst and release the
+>      reference count when done.
+>   2. Exceptional users like IPv4/IPv6/decnet/xfrm routing code do not take
+>      reference count when referencing to a dst due to some histotic reasons.
+> 
+> Due to those exceptional use cases in 2, reference count being 0 is not an
+> adequate evidence to indicate that no user is using this dst. So users in 1
+> can't free the dst simply based on reference count being 0 because users in
+> 2 might still hold reference to it.
+> Instead, a dst garbage list is needed to hold the dst entries that already
+> get removed by the users in 2 but are still held by users in 1. And a periodic
+> garbage collector task is run to check all the dst entries in the list to see
+> if the users in 1 have released the reference to those dst entries.
+> If so, the dst is now ready to be freed.
+> 
+> This logic introduces unnecessary complications in the dst code which makes it
+> hard to understand and to debug.
+> 
+> In order to get rid of the whole dst garbage collector (gc) and make the dst
+> code more unified and simplified, we can make the users in 2 also take reference
+> count on the dst and release it properly when done.
+> This way, dst can be safely freed once the refcount drops to 0 and no gc
+> thread is needed anymore.
+> 
+> This patch series' target is to completely get rid of dst gc logic and free
+> dst based on reference count only.
+> Patch 1-3 are preparation patches to do some cleanup/improvement on the existing
+> code to make later work easier.
+> Patch 4-21 are real implementations.
+> In these patches, a temporary flag DST_NOGC is used to help transition
+> those exceptional users one by one. Once every component is transitioned,
+> this temporary flag is removed.
+> By the end of this patch series, all dst are refcounted when being used
+> and released when done. And dst will be freed when its refcount drops to 0.
+> No dst gc task is running anymore.
+> 
+> Note: This patch series depends on the decnet fix that was sent right before:
+>       "decnet: always not take dst->__refcnt when inserting dst into hash table"
+
+Other than the minor feedback I gave, this series looks great!
+
+Indeed the code is a lot simpler afterwards and much easier to audit and
+understand.
+
+I'll wait a bit for some others to give feedback as well.
