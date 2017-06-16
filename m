@@ -1,42 +1,47 @@
-From: Joe Perches <joe@perches.com>
+From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: [RFC 3/3] networking: make skb_push & __skb_push return void
  pointers
-Date: Fri, 16 Jun 2017 02:19:18 -0700
-Message-ID: <1497604758.10546.3.camel@perches.com>
+Date: Fri, 16 Jun 2017 11:24:48 +0200
+Message-ID: <1497605088.2622.6.camel@sipsolutions.net>
 References: <20170615221217.16510-1-johannes@sipsolutions.net>
          <20170615221217.16510-4-johannes@sipsolutions.net>
+         <1497604758.10546.3.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes.berg@intel.com>
-To: Johannes Berg <johannes@sipsolutions.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+To: Joe Perches <joe@perches.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0135.hostedemail.com ([216.40.44.135]:39795 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1753237AbdFPJTW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 05:19:22 -0400
-In-Reply-To: <20170615221217.16510-4-johannes@sipsolutions.net>
+Received: from s3.sipsolutions.net ([5.9.151.49]:58716 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753111AbdFPJYz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 16 Jun 2017 05:24:55 -0400
+In-Reply-To: <1497604758.10546.3.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-06-16 at 00:12 +0200, Johannes Berg wrote:
-> From: Johannes Berg <johannes.berg@intel.com>
-[]
-> diff --git a/drivers/nfc/pn533/pn533.c b/drivers/nfc/pn533/pn533.c
-[]
-> @@ -2090,10 +2090,10 @@ static int pn533_fill_fragment_skbs(struct pn533 *dev, struct sk_buff *skb)
->  
->  			/* MI + TG */
->  			if (frag_size  == PN533_CMD_DATAFRAME_MAXLEN)
-> -				*skb_push(frag, sizeof(u8)) =
-> -							(PN533_CMD_MI_MASK | 1);
-> -			else
-> -				*skb_push(frag, sizeof(u8)) =  1; /* TG */
-> +				*(u8 *)skb_push(frag, sizeof(u8)) =
-> +									(PN533_CMD_MI_MASK | 1);
-> +				else
-> +					*(u8 *)skb_push(frag, sizeof(u8)) =  1; /* TG */
+On Fri, 2017-06-16 at 02:19 -0700, Joe Perches wrote:
+> 
+> >  			if (frag_size  ==
+> > PN533_CMD_DATAFRAME_MAXLEN)
+> > -				*skb_push(frag, sizeof(u8)) =
+> > -							(PN533_CMD
+> > _MI_MASK | 1);
+> > -			else
+> > -				*skb_push(frag, sizeof(u8)) =  1;
+> > /* TG */
+> > +				*(u8 *)skb_push(frag, sizeof(u8))
+> > =
+> > +									
+> > (PN533_CMD_MI_MASK | 1);
+> > +				else
+> > +					*(u8 *)skb_push(frag,
+> > sizeof(u8)) =  1; /* TG */
+> 
+> Can you check all the if/else uses.
+> This one is not formatted correctly.
+> I didn't look at any others.
 
-Can you check all the if/else uses.
-This one is not formatted correctly.
-I didn't look at any others.
+Hmm, that's annoying. I did fix up a few, but I guess I missed this
+one.
+
+johannes
