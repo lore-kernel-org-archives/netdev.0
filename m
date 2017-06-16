@@ -1,70 +1,48 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Subject: Re: [PATCH v2 03/11] tty: kbd: reduce stack size with KASAN
-Date: Fri, 16 Jun 2017 14:07:48 -0700
-Message-ID: <CAKdAkRR-3ZJd6VX0rPiA9qEBxGRptzTSypno6FqzbDyHRgD2XA@mail.gmail.com>
-References: <20170614211556.2062728-1-arnd@arndb.de> <20170614211556.2062728-4-arnd@arndb.de>
- <20170615045221.GA26687@kroah.com> <20170615045347.GA26913@kroah.com>
- <CAK8P3a32abgm7H7s=dOTkLus3K9o79hRJ31s0eyEVZW30E9p7g@mail.gmail.com>
- <20170616130215.GC31057@kroah.com> <CAK8P3a2upDpcxGCLomyjvsXHfyeTyPmSj9qvymSsgf4pE+spDg@mail.gmail.com>
- <20170616155859.gn2einuermlncaku@var.youpi.perso.aquilenet.fr>
- <CAKdAkRQsVU42wGRmtAgVaEvHXaU1A=B=k8pHh6QiPOM847tqVA@mail.gmail.com> <CAK8P3a2_pZb_9UT-py_35C5WZ=siyhdE_pgZJKYFaoRdznEo_A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Samuel Thibault <samuel.thibault@ens-lyon.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        kasan-dev <kasan-dev@googlegroups.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Andrey Ryabinin <aryabinin@virtuozzo.com>,
-        Networking <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Jiri Slaby <jslaby@suse.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAK8P3a2_pZb_9UT-py_35C5WZ=siyhdE_pgZJKYFaoRdznEo_A@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Lucas Bates <lucasb@mojatatu.com>
+Subject: [PATCH net-next 0/1] Introduction of the tc tests
+Date: Fri, 16 Jun 2017 17:22:34 -0400
+Message-ID: <1497648155-25521-1-git-send-email-lucasb@mojatatu.com>
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+        jiri@resnulli.us, xiyou.wangcong@gmail.com, mrv@mojatatu.com,
+        jhs@mojatatu.com, Lucas Bates <lucasb@mojatatu.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f195.google.com ([209.85.223.195]:33322 "EHLO
+        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750907AbdFPVXE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 17:23:04 -0400
+Received: by mail-io0-f195.google.com with SMTP id j200so5972857ioe.0
+        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 14:23:04 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 16, 2017 at 1:56 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> On Fri, Jun 16, 2017 at 7:29 PM, Dmitry Torokhov
-> <dmitry.torokhov@gmail.com> wrote:
->> On Fri, Jun 16, 2017 at 8:58 AM, Samuel Thibault
->> <samuel.thibault@ens-lyon.org> wrote:
->>> I'm however afraid we'd have to mark a lot of static functions that way,
->>> depending on the aggressivity of gcc... I'd indeed really argue that gcc
->>> should consider stack usage when inlining.
->>>
->>> static int f(int foo) {
->>>         char c[256];
->>>         g(c, foo);
->>> }
->>>
->>> is really not something that I'd want to see the compiler to inline.
->>
->> Why would not we want it be inlined? What we do not want us several
->> calls having _separate_ instances of 'c' generated on the stack, all
->> inlined calls should share 'c'. And of course if we have f1, f2, and
->> f3 with c1, c2, and c3, GCC should not blow up the stack inlining and
->> allocating stack for all 3 of them beforehand.
->>
->> But this all seems to me issue that should be solved in toolchain, not
->> trying to play whack-a-mole with kernel sources.
->
-> The problem for the Samuel's example is that
->
-> a) the "--param asan-stack=1" option in KASAN does blow up the
->    stack, which is why the annotation is now called 'noinline_if_stackbloat'.
->
-> b) The toolchain cannot solve the problem, as most instances of the
->    problem (unlike kbd_put_queue) force the inlining unless you build
->    with the x86-specific CONFIG_OPTIMIZE_INLINING.
+Apologies for sending this as one big patch. I've been sitting on this a little
+too long, but it's ready and I wanted to get it out.
 
-If inlining done right there should be no change in stack size,
-because if calls are not inlined then stack storage is "shared"
-between calls, and it should similarly be shared when calls are
-inlined. And that is toolchain issue.
+There are a limited number of tests to start - I plan to add more on a regular
+basis.
 
--- 
-Dmitry
+Lucas Bates (1):
+  selftests: Introduce tc testsuite
+
+ tools/testing/selftests/tc-testing/.gitignore      |    1 +
+ tools/testing/selftests/tc-testing/README          |  102 ++
+ tools/testing/selftests/tc-testing/TODO.txt        |   10 +
+ .../creating-testcases/AddingTestCases.txt         |   69 ++
+ .../tc-testing/creating-testcases/template.json    |   40 +
+ .../tc-testing/tc-tests/actions/tests.json         | 1115 ++++++++++++++++++++
+ .../tc-testing/tc-tests/filters/tests.json         |   21 +
+ tools/testing/selftests/tc-testing/tdc.py          |  413 ++++++++
+ tools/testing/selftests/tc-testing/tdc_config.py   |   17 +
+ tools/testing/selftests/tc-testing/tdc_helper.py   |   75 ++
+ 10 files changed, 1863 insertions(+)
+ create mode 100644 tools/testing/selftests/tc-testing/.gitignore
+ create mode 100644 tools/testing/selftests/tc-testing/README
+ create mode 100644 tools/testing/selftests/tc-testing/TODO.txt
+ create mode 100644 tools/testing/selftests/tc-testing/creating-testcases/AddingTestCases.txt
+ create mode 100644 tools/testing/selftests/tc-testing/creating-testcases/template.json
+ create mode 100644 tools/testing/selftests/tc-testing/tc-tests/actions/tests.json
+ create mode 100644 tools/testing/selftests/tc-testing/tc-tests/filters/tests.json
+ create mode 100755 tools/testing/selftests/tc-testing/tdc.py
+ create mode 100644 tools/testing/selftests/tc-testing/tdc_config.py
+ create mode 100644 tools/testing/selftests/tc-testing/tdc_helper.py
