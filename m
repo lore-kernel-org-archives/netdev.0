@@ -1,100 +1,97 @@
-From: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
-Subject: [PATCH 42/44] powerpc/cell: use the dma_supported method for ops switching
-Date: Fri, 16 Jun 2017 20:10:57 +0200
-Message-ID: <20170616181059.19206-43-hch@lst.de>
+From: Christoph Hellwig <hch@lst.de>
+Subject: [PATCH 34/44] arm: remove arch specific dma_supported
+	implementation
+Date: Fri, 16 Jun 2017 20:10:49 +0200
+Message-ID: <20170616181059.19206-35-hch@lst.de>
 References: <20170616181059.19206-1-hch@lst.de>
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org,
-        linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, openrisc-cunTk1MwBs9a3B2Vnqf2dGD2FQJk+8+b@public.gmane.org,
-        linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, dmaengine-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
-        linux-samsung-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170616181059.19206-1-hch-jcswGhMUV9g@public.gmane.org>
-Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linux-kernel@vger.kernel.org
+To: x86@kernel.org, linux-arm-kernel@lists.infradead.org,
+ xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
+ linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
+ linux-mips@linux-mips.org, openrisc@lists.librecores.org,
+ linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
+ linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
+ linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
+ linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
+ linux-samsung-soc@vger.kernel.org, iommu@lists.linux-foundation.org,
+ netdev@vger.kernel.org
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <20170616181059.19206-1-hch@lst.de>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
 List-Id: netdev.vger.kernel.org
 
-Besides removing the last instance of the set_dma_mask method this also
-reduced the code duplication.
-
-Signed-off-by: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
----
- arch/powerpc/platforms/cell/iommu.c | 25 +++++++++----------------
- 1 file changed, 9 insertions(+), 16 deletions(-)
-
-diff --git a/arch/powerpc/platforms/cell/iommu.c b/arch/powerpc/platforms/cell/iommu.c
-index 497bfbdbd967..29d4f96ed33e 100644
---- a/arch/powerpc/platforms/cell/iommu.c
-+++ b/arch/powerpc/platforms/cell/iommu.c
-@@ -644,20 +644,14 @@ static void dma_fixed_unmap_sg(struct device *dev, struct scatterlist *sg,
- 				   direction, attrs);
- }
- 
--static int dma_fixed_dma_supported(struct device *dev, u64 mask)
--{
--	return mask == DMA_BIT_MASK(64);
--}
--
--static int dma_set_mask_and_switch(struct device *dev, u64 dma_mask);
-+static int dma_suported_and_switch(struct device *dev, u64 dma_mask);
- 
- static const struct dma_map_ops dma_iommu_fixed_ops = {
- 	.alloc          = dma_fixed_alloc_coherent,
- 	.free           = dma_fixed_free_coherent,
- 	.map_sg         = dma_fixed_map_sg,
- 	.unmap_sg       = dma_fixed_unmap_sg,
--	.dma_supported  = dma_fixed_dma_supported,
--	.set_dma_mask   = dma_set_mask_and_switch,
-+	.dma_supported  = dma_suported_and_switch,
- 	.map_page       = dma_fixed_map_page,
- 	.unmap_page     = dma_fixed_unmap_page,
- 	.mapping_error	= dma_iommu_mapping_error,
-@@ -952,11 +946,8 @@ static u64 cell_iommu_get_fixed_address(struct device *dev)
- 	return dev_addr;
- }
- 
--static int dma_set_mask_and_switch(struct device *dev, u64 dma_mask)
-+static int dma_suported_and_switch(struct device *dev, u64 dma_mask)
- {
--	if (!dev->dma_mask || !dma_supported(dev, dma_mask))
--		return -EIO;
--
- 	if (dma_mask == DMA_BIT_MASK(64) &&
- 	    cell_iommu_get_fixed_address(dev) != OF_BAD_ADDR) {
- 		u64 addr = cell_iommu_get_fixed_address(dev) +
-@@ -965,14 +956,16 @@ static int dma_set_mask_and_switch(struct device *dev, u64 dma_mask)
- 		dev_dbg(dev, "iommu: fixed addr = %llx\n", addr);
- 		set_dma_ops(dev, &dma_iommu_fixed_ops);
- 		set_dma_offset(dev, addr);
--	} else {
-+		return 1;
-+	}
-+
-+	if (dma_iommu_dma_supported(dev, dma_mask)) {
- 		dev_dbg(dev, "iommu: not 64-bit, using default ops\n");
- 		set_dma_ops(dev, get_pci_dma_ops());
- 		cell_dma_dev_setup(dev);
-+		return 1;
- 	}
- 
--	*dev->dma_mask = dma_mask;
--
- 	return 0;
- }
- 
-@@ -1127,7 +1120,7 @@ static int __init cell_iommu_fixed_mapping_init(void)
- 		cell_iommu_setup_window(iommu, np, dbase, dsize, 0);
- 	}
- 
--	dma_iommu_ops.set_dma_mask = dma_set_mask_and_switch;
-+	dma_iommu_ops.dma_supported = dma_suported_and_switch;
- 	set_pci_dma_ops(&dma_iommu_ops);
- 
- 	return 0;
--- 
-2.11.0
+QW5kIGluc3RlYWQgd2lyZSBpdCB1cCBhcyBtZXRob2QgZm9yIGFsbCB0aGUgZG1hX21hcF9vcHMg
+aW5zdGFuY2VzLgoKTm90ZSB0aGF0IHRoZSBjb2RlIHNlZW1zIGEgbGl0dGxlIGZpc2h5IGZvciBk
+bWFib3VuY2UgYW5kIGlvbW11LCBidXQKZm9yIG5vdyBJJ2QgbGlrZSB0byBwcmVzZXJ2ZSB0aGUg
+ZXhpc3RpbmcgYmVoYXZpb3IgMToxLgoKU2lnbmVkLW9mZi1ieTogQ2hyaXN0b3BoIEhlbGx3aWcg
+PGhjaEBsc3QuZGU+Ci0tLQogYXJjaC9hcm0vY29tbW9uL2RtYWJvdW5jZS5jICAgICAgICB8IDEg
+KwogYXJjaC9hcm0vaW5jbHVkZS9hc20vZG1hLWlvbW11LmggICB8IDIgKysKIGFyY2gvYXJtL2lu
+Y2x1ZGUvYXNtL2RtYS1tYXBwaW5nLmggfCAzIC0tLQogYXJjaC9hcm0vbW0vZG1hLW1hcHBpbmcu
+YyAgICAgICAgICB8IDcgKysrKystLQogNCBmaWxlcyBjaGFuZ2VkLCA4IGluc2VydGlvbnMoKyks
+IDUgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvYXJjaC9hcm0vY29tbW9uL2RtYWJvdW5jZS5j
+IGIvYXJjaC9hcm0vY29tbW9uL2RtYWJvdW5jZS5jCmluZGV4IDQwNjAzNzhlMGYxNC4uNmVjZDVi
+ZTVkMzdlIDEwMDY0NAotLS0gYS9hcmNoL2FybS9jb21tb24vZG1hYm91bmNlLmMKKysrIGIvYXJj
+aC9hcm0vY29tbW9uL2RtYWJvdW5jZS5jCkBAIC00NzMsNiArNDczLDcgQEAgc3RhdGljIGNvbnN0
+IHN0cnVjdCBkbWFfbWFwX29wcyBkbWFib3VuY2Vfb3BzID0gewogCS5zeW5jX3NnX2Zvcl9kZXZp
+Y2UJPSBhcm1fZG1hX3N5bmNfc2dfZm9yX2RldmljZSwKIAkuc2V0X2RtYV9tYXNrCQk9IGRtYWJv
+dW5jZV9zZXRfbWFzaywKIAkubWFwcGluZ19lcnJvcgkJPSBkbWFib3VuY2VfbWFwcGluZ19lcnJv
+ciwKKwkuZG1hX3N1cHBvcnRlZAkJPSBhcm1fZG1hX3N1cHBvcnRlZCwKIH07CiAKIHN0YXRpYyBp
+bnQgZG1hYm91bmNlX2luaXRfcG9vbChzdHJ1Y3QgZG1hYm91bmNlX3Bvb2wgKnBvb2wsIHN0cnVj
+dCBkZXZpY2UgKmRldiwKZGlmZiAtLWdpdCBhL2FyY2gvYXJtL2luY2x1ZGUvYXNtL2RtYS1pb21t
+dS5oIGIvYXJjaC9hcm0vaW5jbHVkZS9hc20vZG1hLWlvbW11LmgKaW5kZXggMzg5YTI2YTEwZWEz
+Li5jMDkwZWM2NzVlYWMgMTAwNjQ0Ci0tLSBhL2FyY2gvYXJtL2luY2x1ZGUvYXNtL2RtYS1pb21t
+dS5oCisrKyBiL2FyY2gvYXJtL2luY2x1ZGUvYXNtL2RtYS1pb21tdS5oCkBAIC0zNSw1ICszNSw3
+IEBAIGludCBhcm1faW9tbXVfYXR0YWNoX2RldmljZShzdHJ1Y3QgZGV2aWNlICpkZXYsCiAJCQkJ
+CXN0cnVjdCBkbWFfaW9tbXVfbWFwcGluZyAqbWFwcGluZyk7CiB2b2lkIGFybV9pb21tdV9kZXRh
+Y2hfZGV2aWNlKHN0cnVjdCBkZXZpY2UgKmRldik7CiAKK2ludCBhcm1fZG1hX3N1cHBvcnRlZChz
+dHJ1Y3QgZGV2aWNlICpkZXYsIHU2NCBtYXNrKTsKKwogI2VuZGlmIC8qIF9fS0VSTkVMX18gKi8K
+ICNlbmRpZgpkaWZmIC0tZ2l0IGEvYXJjaC9hcm0vaW5jbHVkZS9hc20vZG1hLW1hcHBpbmcuaCBi
+L2FyY2gvYXJtL2luY2x1ZGUvYXNtL2RtYS1tYXBwaW5nLmgKaW5kZXggNTJhOGZkNWE4ZWRiLi44
+ZGFiY2ZkZjQ1MDUgMTAwNjQ0Ci0tLSBhL2FyY2gvYXJtL2luY2x1ZGUvYXNtL2RtYS1tYXBwaW5n
+LmgKKysrIGIvYXJjaC9hcm0vaW5jbHVkZS9hc20vZG1hLW1hcHBpbmcuaApAQCAtMjAsOSArMjAs
+NiBAQCBzdGF0aWMgaW5saW5lIGNvbnN0IHN0cnVjdCBkbWFfbWFwX29wcyAqZ2V0X2FyY2hfZG1h
+X29wcyhzdHJ1Y3QgYnVzX3R5cGUgKmJ1cykKIAlyZXR1cm4gJmFybV9kbWFfb3BzOwogfQogCi0j
+ZGVmaW5lIEhBVkVfQVJDSF9ETUFfU1VQUE9SVEVEIDEKLWV4dGVybiBpbnQgZG1hX3N1cHBvcnRl
+ZChzdHJ1Y3QgZGV2aWNlICpkZXYsIHU2NCBtYXNrKTsKLQogI2lmZGVmIF9fYXJjaF9wYWdlX3Rv
+X2RtYQogI2Vycm9yIFBsZWFzZSB1cGRhdGUgdG8gX19hcmNoX3Bmbl90b19kbWEKICNlbmRpZgpk
+aWZmIC0tZ2l0IGEvYXJjaC9hcm0vbW0vZG1hLW1hcHBpbmcuYyBiL2FyY2gvYXJtL21tL2RtYS1t
+YXBwaW5nLmMKaW5kZXggOGYyYzVhOGE5OGYwLi5iOTY3N2FkYTQyMWYgMTAwNjQ0Ci0tLSBhL2Fy
+Y2gvYXJtL21tL2RtYS1tYXBwaW5nLmMKKysrIGIvYXJjaC9hcm0vbW0vZG1hLW1hcHBpbmcuYwpA
+QCAtMTk5LDYgKzE5OSw3IEBAIGNvbnN0IHN0cnVjdCBkbWFfbWFwX29wcyBhcm1fZG1hX29wcyA9
+IHsKIAkuc3luY19zZ19mb3JfY3B1CT0gYXJtX2RtYV9zeW5jX3NnX2Zvcl9jcHUsCiAJLnN5bmNf
+c2dfZm9yX2RldmljZQk9IGFybV9kbWFfc3luY19zZ19mb3JfZGV2aWNlLAogCS5tYXBwaW5nX2Vy
+cm9yCQk9IGFybV9kbWFfbWFwcGluZ19lcnJvciwKKwkuZG1hX3N1cHBvcnRlZAkJPSBhcm1fZG1h
+X3N1cHBvcnRlZCwKIH07CiBFWFBPUlRfU1lNQk9MKGFybV9kbWFfb3BzKTsKIApAQCAtMjE4LDYg
+KzIxOSw3IEBAIGNvbnN0IHN0cnVjdCBkbWFfbWFwX29wcyBhcm1fY29oZXJlbnRfZG1hX29wcyA9
+IHsKIAkubWFwX3BhZ2UJCT0gYXJtX2NvaGVyZW50X2RtYV9tYXBfcGFnZSwKIAkubWFwX3NnCQkJ
+PSBhcm1fZG1hX21hcF9zZywKIAkubWFwcGluZ19lcnJvcgkJPSBhcm1fZG1hX21hcHBpbmdfZXJy
+b3IsCisJLmRtYV9zdXBwb3J0ZWQJCT0gYXJtX2RtYV9zdXBwb3J0ZWQsCiB9OwogRVhQT1JUX1NZ
+TUJPTChhcm1fY29oZXJlbnRfZG1hX29wcyk7CiAKQEAgLTExODQsMTEgKzExODYsMTAgQEAgdm9p
+ZCBhcm1fZG1hX3N5bmNfc2dfZm9yX2RldmljZShzdHJ1Y3QgZGV2aWNlICpkZXYsIHN0cnVjdCBz
+Y2F0dGVybGlzdCAqc2csCiAgKiBkdXJpbmcgYnVzIG1hc3RlcmluZywgdGhlbiB5b3Ugd291bGQg
+cGFzcyAweDAwZmZmZmZmIGFzIHRoZSBtYXNrCiAgKiB0byB0aGlzIGZ1bmN0aW9uLgogICovCi1p
+bnQgZG1hX3N1cHBvcnRlZChzdHJ1Y3QgZGV2aWNlICpkZXYsIHU2NCBtYXNrKQoraW50IGFybV9k
+bWFfc3VwcG9ydGVkKHN0cnVjdCBkZXZpY2UgKmRldiwgdTY0IG1hc2spCiB7CiAJcmV0dXJuIF9f
+ZG1hX3N1cHBvcnRlZChkZXYsIG1hc2ssIGZhbHNlKTsKIH0KLUVYUE9SVF9TWU1CT0woZG1hX3N1
+cHBvcnRlZCk7CiAKICNkZWZpbmUgUFJFQUxMT0NfRE1BX0RFQlVHX0VOVFJJRVMJNDA5NgogCkBA
+IC0yMTQ5LDYgKzIxNTAsNyBAQCBjb25zdCBzdHJ1Y3QgZG1hX21hcF9vcHMgaW9tbXVfb3BzID0g
+ewogCS51bm1hcF9yZXNvdXJjZQkJPSBhcm1faW9tbXVfdW5tYXBfcmVzb3VyY2UsCiAKIAkubWFw
+cGluZ19lcnJvcgkJPSBhcm1fZG1hX21hcHBpbmdfZXJyb3IsCisJLmRtYV9zdXBwb3J0ZWQJCT0g
+YXJtX2RtYV9zdXBwb3J0ZWQsCiB9OwogCiBjb25zdCBzdHJ1Y3QgZG1hX21hcF9vcHMgaW9tbXVf
+Y29oZXJlbnRfb3BzID0gewpAQCAtMjE2Nyw2ICsyMTY5LDcgQEAgY29uc3Qgc3RydWN0IGRtYV9t
+YXBfb3BzIGlvbW11X2NvaGVyZW50X29wcyA9IHsKIAkudW5tYXBfcmVzb3VyY2UJPSBhcm1faW9t
+bXVfdW5tYXBfcmVzb3VyY2UsCiAKIAkubWFwcGluZ19lcnJvcgkJPSBhcm1fZG1hX21hcHBpbmdf
+ZXJyb3IsCisJLmRtYV9zdXBwb3J0ZWQJCT0gYXJtX2RtYV9zdXBwb3J0ZWQsCiB9OwogCiAvKioK
+LS0gCjIuMTEuMAoKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fClhlbi1kZXZlbCBtYWlsaW5nIGxpc3QKWGVuLWRldmVsQGxpc3RzLnhlbi5vcmcKaHR0cHM6
+Ly9saXN0cy54ZW4ub3JnL3hlbi1kZXZlbAo=
