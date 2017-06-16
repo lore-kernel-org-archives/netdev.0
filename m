@@ -1,135 +1,135 @@
 From: Wei Wang <tracywwnj@gmail.com>
-Subject: [PATCH net-next 09/21] ipv4: mark DST_NOGC and remove the operation of dst_free()
-Date: Fri, 16 Jun 2017 10:47:32 -0700
-Message-ID: <20170616174744.139688-10-tracywwnj@gmail.com>
+Subject: [PATCH net-next 04/21] net: introduce DST_NOGC in dst_release() to destroy dst based on refcnt
+Date: Fri, 16 Jun 2017 10:47:27 -0700
+Message-ID: <20170616174744.139688-5-tracywwnj@gmail.com>
 References: <20170616174744.139688-1-tracywwnj@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
         Martin KaFai Lau <kafai@fb.com>, Wei Wang <weiwan@google.com>
 To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:33404 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752469AbdFPRs1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 13:48:27 -0400
-Received: by mail-pf0-f196.google.com with SMTP id w12so7568147pfk.0
-        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 10:48:27 -0700 (PDT)
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:33604 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752133AbdFPRsX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 13:48:23 -0400
+Received: by mail-pg0-f68.google.com with SMTP id u62so1641378pgb.0
+        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 10:48:23 -0700 (PDT)
 In-Reply-To: <20170616174744.139688-1-tracywwnj@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Wei Wang <weiwan@google.com>
 
-With the previous preparation patches, we are ready to get rid of the
-dst gc operation in ipv4 code and release dst based on refcnt only.
-So this patch adds DST_NOGC flag for all IPv4 dst and remove the calls
-to dst_free().
-At this point, all dst created in ipv4 code do not use the dst gc
-anymore and will be destroyed at the point when refcnt drops to 0.
+The current mechanism of freeing dst is a bit complicated. dst has its
+ref count and when user grabs the reference to the dst, the ref count is
+properly taken in most cases except in IPv4/IPv6/decnet/xfrm routing
+code due to some historic reasons.
+
+If the reference to dst is always taken properly, we should be able to
+simplify the logic in dst_release() to destroy dst when dst->__refcnt
+drops from 1 to 0. And this should be the only condition to determine
+if we can call dst_destroy().
+And as dst is always ref counted, there is no need for a dst garbage
+list to hold the dst entries that already get removed by the routing
+code but are still held by other users. And the task to periodically
+check the list to free dst if ref count become 0 is also not needed
+anymore.
+
+This patch introduces a temporary flag DST_NOGC(no garbage collector).
+If it is set in the dst, dst_release() will call dst_destroy() when
+dst->__refcnt drops to 0. dst_hold_safe() will also check for this flag
+and do atomic_inc_not_zero() similar as DST_NOCACHE to avoid double free
+issue.
+This temporary flag is mainly used so that we can make the transition
+component by component without breaking other parts.
+This flag will be removed after all components are properly transitioned.
+
+This patch also introduces a new function dst_release_immediate() which
+destroys dst without waiting on the rcu when refcnt drops to 0. It will
+be used in later patches.
+
+Follow-up patches will correct all the places to properly take ref count
+on dst and mark DST_NOGC. dst_release() or dst_release_immediate() will
+be used to release the dst instead of dst_free() and its related
+functions.
+And final clean-up patch will remove the DST_NOGC flag.
 
 Signed-off-by: Wei Wang <weiwan@google.com>
 Acked-by: Martin KaFai Lau <kafai@fb.com>
 ---
- net/ipv4/fib_semantics.c |  6 ++----
- net/ipv4/route.c         | 15 +++------------
- 2 files changed, 5 insertions(+), 16 deletions(-)
+ include/net/dst.h |  5 ++++-
+ net/core/dst.c    | 20 ++++++++++++++++++--
+ 2 files changed, 22 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index f163fa0a1164..ff47ea1408fe 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -153,8 +153,7 @@ static void rt_fibinfo_free(struct rtable __rcu **rtp)
- 	 */
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 1969008783d8..2735d5a1e774 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -58,6 +58,7 @@ struct dst_entry {
+ #define DST_XFRM_TUNNEL		0x0080
+ #define DST_XFRM_QUEUE		0x0100
+ #define DST_METADATA		0x0200
++#define DST_NOGC		0x0400
  
- 	dst_dev_put(&rt->dst);
--	dst_release(&rt->dst);
--	dst_free(&rt->dst);
-+	dst_release_immediate(&rt->dst);
- }
+ 	short			error;
  
- static void free_nh_exceptions(struct fib_nh *nh)
-@@ -198,8 +197,7 @@ static void rt_fibinfo_free_cpus(struct rtable __rcu * __percpu *rtp)
- 		rt = rcu_dereference_protected(*per_cpu_ptr(rtp, cpu), 1);
- 		if (rt) {
- 			dst_dev_put(&rt->dst);
--			dst_release(&rt->dst);
--			dst_free(&rt->dst);
-+			dst_release_immediate(&rt->dst);
- 		}
- 	}
- 	free_percpu(rtp);
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 903a12c601ac..80b30c2bf47d 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -589,11 +589,6 @@ static void ip_rt_build_flow_key(struct flowi4 *fl4, const struct sock *sk,
- 		build_sk_flow_key(fl4, sk);
- }
+@@ -278,6 +279,8 @@ static inline struct dst_entry *dst_clone(struct dst_entry *dst)
  
--static inline void rt_free(struct rtable *rt)
--{
--	call_rcu(&rt->dst.rcu_head, dst_rcu_free);
--}
--
- static DEFINE_SPINLOCK(fnhe_lock);
+ void dst_release(struct dst_entry *dst);
  
- static void fnhe_flush_routes(struct fib_nh_exception *fnhe)
-@@ -605,14 +600,12 @@ static void fnhe_flush_routes(struct fib_nh_exception *fnhe)
- 		RCU_INIT_POINTER(fnhe->fnhe_rth_input, NULL);
- 		dst_dev_put(&rt->dst);
- 		dst_release(&rt->dst);
--		rt_free(rt);
- 	}
- 	rt = rcu_dereference(fnhe->fnhe_rth_output);
- 	if (rt) {
- 		RCU_INIT_POINTER(fnhe->fnhe_rth_output, NULL);
- 		dst_dev_put(&rt->dst);
- 		dst_release(&rt->dst);
--		rt_free(rt);
++void dst_release_immediate(struct dst_entry *dst);
++
+ static inline void refdst_drop(unsigned long refdst)
+ {
+ 	if (!(refdst & SKB_DST_NOREF))
+@@ -334,7 +337,7 @@ static inline void skb_dst_force(struct sk_buff *skb)
+  */
+ static inline bool dst_hold_safe(struct dst_entry *dst)
+ {
+-	if (dst->flags & DST_NOCACHE)
++	if (dst->flags & (DST_NOCACHE | DST_NOGC))
+ 		return atomic_inc_not_zero(&dst->__refcnt);
+ 	dst_hold(dst);
+ 	return true;
+diff --git a/net/core/dst.c b/net/core/dst.c
+index 13ba4a090c41..551834c3363f 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -300,18 +300,34 @@ void dst_release(struct dst_entry *dst)
+ {
+ 	if (dst) {
+ 		int newrefcnt;
+-		unsigned short nocache = dst->flags & DST_NOCACHE;
++		unsigned short destroy_after_rcu = dst->flags &
++						   (DST_NOCACHE | DST_NOGC);
+ 
+ 		newrefcnt = atomic_dec_return(&dst->__refcnt);
+ 		if (unlikely(newrefcnt < 0))
+ 			net_warn_ratelimited("%s: dst:%p refcnt:%d\n",
+ 					     __func__, dst, newrefcnt);
+-		if (!newrefcnt && unlikely(nocache))
++		if (!newrefcnt && unlikely(destroy_after_rcu))
+ 			call_rcu(&dst->rcu_head, dst_destroy_rcu);
  	}
  }
+ EXPORT_SYMBOL(dst_release);
  
-@@ -1341,7 +1334,6 @@ static bool rt_bind_exception(struct rtable *rt, struct fib_nh_exception *fnhe,
- 			if (orig) {
- 				dst_dev_put(&orig->dst);
- 				dst_release(&orig->dst);
--				rt_free(orig);
- 			}
- 			ret = true;
- 		}
-@@ -1374,7 +1366,6 @@ static bool rt_cache_route(struct fib_nh *nh, struct rtable *rt)
- 		if (orig) {
- 			dst_dev_put(&orig->dst);
- 			dst_release(&orig->dst);
--			rt_free(orig);
- 		}
- 	} else {
- 		dst_release(&rt->dst);
-@@ -1505,7 +1496,8 @@ struct rtable *rt_dst_alloc(struct net_device *dev,
- 	rt = dst_alloc(&ipv4_dst_ops, dev, 1, DST_OBSOLETE_FORCE_CHK,
- 		       (will_cache ? 0 : (DST_HOST | DST_NOCACHE)) |
- 		       (nopolicy ? DST_NOPOLICY : 0) |
--		       (noxfrm ? DST_NOXFRM : 0));
-+		       (noxfrm ? DST_NOXFRM : 0) |
-+		       DST_NOGC);
- 
- 	if (rt) {
- 		rt->rt_genid = rt_genid_ipv4(dev_net(dev));
-@@ -2511,7 +2503,7 @@ struct dst_entry *ipv4_blackhole_route(struct net *net, struct dst_entry *dst_or
- 	struct rtable *ort = (struct rtable *) dst_orig;
- 	struct rtable *rt;
- 
--	rt = dst_alloc(&ipv4_dst_blackhole_ops, NULL, 1, DST_OBSOLETE_NONE, 0);
-+	rt = dst_alloc(&ipv4_dst_blackhole_ops, NULL, 1, DST_OBSOLETE_NONE, DST_NOGC);
- 	if (rt) {
- 		struct dst_entry *new = &rt->dst;
- 
-@@ -2534,7 +2526,6 @@ struct dst_entry *ipv4_blackhole_route(struct net *net, struct dst_entry *dst_or
- 		rt->rt_uses_gateway = ort->rt_uses_gateway;
- 
- 		INIT_LIST_HEAD(&rt->rt_uncached);
--		dst_free(new);
- 	}
- 
- 	dst_release(dst_orig);
++void dst_release_immediate(struct dst_entry *dst)
++{
++	if (dst) {
++		int newrefcnt;
++
++		newrefcnt = atomic_dec_return(&dst->__refcnt);
++		if (unlikely(newrefcnt < 0))
++			net_warn_ratelimited("%s: dst:%p refcnt:%d\n",
++					     __func__, dst, newrefcnt);
++		if (!newrefcnt)
++			dst_destroy(dst);
++	}
++}
++EXPORT_SYMBOL(dst_release_immediate);
++
+ u32 *dst_cow_metrics_generic(struct dst_entry *dst, unsigned long old)
+ {
+ 	struct dst_metrics *p = kmalloc(sizeof(*p), GFP_ATOMIC);
 -- 
 2.13.1.518.g3df882009-goog
