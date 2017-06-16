@@ -1,100 +1,105 @@
 From: Wei Wang <tracywwnj@gmail.com>
-Subject: [PATCH net] decnet: always not take dst->__refcnt when inserting dst into hash table
-Date: Fri, 16 Jun 2017 10:46:37 -0700
-Message-ID: <20170616174637.139429-1-tracywwnj@gmail.com>
+Subject: [PATCH net-next 00/21] remove dst garbage collector logic
+Date: Fri, 16 Jun 2017 10:47:23 -0700
+Message-ID: <20170616174744.139688-1-tracywwnj@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
         Martin KaFai Lau <kafai@fb.com>, Wei Wang <weiwan@google.com>
 To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:32962 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750780AbdFPRrG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 13:47:06 -0400
-Received: by mail-pg0-f65.google.com with SMTP id u62so1637613pgb.0
-        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 10:47:06 -0700 (PDT)
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36683 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750886AbdFPRsH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 13:48:07 -0400
+Received: by mail-pf0-f194.google.com with SMTP id y7so7562955pfd.3
+        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 10:48:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Wei Wang <weiwan@google.com>
 
-In the existing dn_route.c code, dn_route_output_slow() takes
-dst->__refcnt before calling dn_insert_route() while dn_route_input_slow()
-does not take dst->__refcnt before calling dn_insert_route().
-This makes the whole routing code very buggy.
-In dn_dst_check_expire(), dnrt_free() is called when rt expires. This
-makes the routes inserted by dn_route_output_slow() not able to be
-freed as the refcnt is not released.
-In dn_dst_gc(), dnrt_drop() is called to release rt which could
-potentially cause the dst->__refcnt to be dropped to -1.
-In dn_run_flush(), dst_free() is called to release all the dst. Again,
-it makes the dst inserted by dn_route_output_slow() not able to be
-released and also, it does not wait on the rcu and could potentially
-cause crash in the path where other users still refer to this dst.
+The current mechanism of dst release is a bit complicated. It is because
+the users of dst get divided into 2 situations:
+  1. Most users take the reference count when using a dst and release the
+     reference count when done.
+  2. Exceptional users like IPv4/IPv6/decnet/xfrm routing code do not take
+     reference count when referencing to a dst due to some histotic reasons.
 
-This patch makes sure both input and output path do not take
-dst->__refcnt before calling dn_insert_route() and also makes sure
-dnrt_free()/dst_free() is called when removing dst from the hash table.
-The only difference between those 2 calls is that dnrt_free() waits on
-the rcu while dst_free() does not.
+Due to those exceptional use cases in 2, reference count being 0 is not an
+adequate evidence to indicate that no user is using this dst. So users in 1
+can't free the dst simply based on reference count being 0 because users in
+2 might still hold reference to it.
+Instead, a dst garbage list is needed to hold the dst entries that already
+get removed by the users in 2 but are still held by users in 1. And a periodic
+garbage collector task is run to check all the dst entries in the list to see
+if the users in 1 have released the reference to those dst entries.
+If so, the dst is now ready to be freed.
 
-Signed-off-by: Wei Wang <weiwan@google.com>
-Acked-by: Martin KaFai Lau <kafai@fb.com>
----
- net/decnet/dn_route.c | 14 ++++----------
- 1 file changed, 4 insertions(+), 10 deletions(-)
+This logic introduces unnecessary complications in the dst code which makes it
+hard to understand and to debug.
 
-diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
-index 4b9518a0d248..6f95612b4d32 100644
---- a/net/decnet/dn_route.c
-+++ b/net/decnet/dn_route.c
-@@ -188,12 +188,6 @@ static inline void dnrt_free(struct dn_route *rt)
- 	call_rcu_bh(&rt->dst.rcu_head, dst_rcu_free);
- }
- 
--static inline void dnrt_drop(struct dn_route *rt)
--{
--	dst_release(&rt->dst);
--	call_rcu_bh(&rt->dst.rcu_head, dst_rcu_free);
--}
--
- static void dn_dst_check_expire(unsigned long dummy)
- {
- 	int i;
-@@ -248,7 +242,7 @@ static int dn_dst_gc(struct dst_ops *ops)
- 			}
- 			*rtp = rt->dst.dn_next;
- 			rt->dst.dn_next = NULL;
--			dnrt_drop(rt);
-+			dnrt_free(rt);
- 			break;
- 		}
- 		spin_unlock_bh(&dn_rt_hash_table[i].lock);
-@@ -350,7 +344,7 @@ static int dn_insert_route(struct dn_route *rt, unsigned int hash, struct dn_rou
- 			dst_use(&rth->dst, now);
- 			spin_unlock_bh(&dn_rt_hash_table[hash].lock);
- 
--			dnrt_drop(rt);
-+			dst_free(&rt->dst);
- 			*rp = rth;
- 			return 0;
- 		}
-@@ -380,7 +374,7 @@ static void dn_run_flush(unsigned long dummy)
- 		for(; rt; rt = next) {
- 			next = rcu_dereference_raw(rt->dst.dn_next);
- 			RCU_INIT_POINTER(rt->dst.dn_next, NULL);
--			dst_free((struct dst_entry *)rt);
-+			dnrt_free(rt);
- 		}
- 
- nothing_to_declare:
-@@ -1187,7 +1181,7 @@ static int dn_route_output_slow(struct dst_entry **pprt, const struct flowidn *o
- 	if (dev_out->flags & IFF_LOOPBACK)
- 		flags |= RTCF_LOCAL;
- 
--	rt = dst_alloc(&dn_dst_ops, dev_out, 1, DST_OBSOLETE_NONE, DST_HOST);
-+	rt = dst_alloc(&dn_dst_ops, dev_out, 0, DST_OBSOLETE_NONE, DST_HOST);
- 	if (rt == NULL)
- 		goto e_nobufs;
- 
+In order to get rid of the whole dst garbage collector (gc) and make the dst
+code more unified and simplified, we can make the users in 2 also take reference
+count on the dst and release it properly when done.
+This way, dst can be safely freed once the refcount drops to 0 and no gc
+thread is needed anymore.
+
+This patch series' target is to completely get rid of dst gc logic and free
+dst based on reference count only.
+Patch 1-3 are preparation patches to do some cleanup/improvement on the existing
+code to make later work easier.
+Patch 4-21 are real implementations.
+In these patches, a temporary flag DST_NOGC is used to help transition
+those exceptional users one by one. Once every component is transitioned,
+this temporary flag is removed.
+By the end of this patch series, all dst are refcounted when being used
+and released when done. And dst will be freed when its refcount drops to 0.
+No dst gc task is running anymore.
+
+Note: This patch series depends on the decnet fix that was sent right before:
+      "decnet: always not take dst->__refcnt when inserting dst into hash table"
+
+Wei Wang (21):
+  ipv6: remove unnecessary dst_hold() in ip6_fragment()
+  udp: call dst_hold_safe() in udp_sk_rx_set_dst()
+  net: use loopback dev when generating blackhole route
+  net: introduce DST_NOGC in dst_release() to destroy dst based on
+    refcnt
+  net: introduce a new function dst_dev_put()
+  ipv4: take dst->__refcnt when caching dst in fib
+  ipv4: call dst_dev_put() properly
+  ipv4: call dst_hold_safe() properly
+  ipv4: mark DST_NOGC and remove the operation of dst_free()
+  ipv6: take dst->__refcnt for insertion into fib6 tree
+  ipv6: call dst_dev_put() properly
+  ipv6: call dst_hold_safe() properly
+  ipv6: mark DST_NOGC and remove the operation of dst_free()
+  ipv6: get rid of icmp6 dst garbage collector
+  xfrm: take refcnt of dst when creating struct xfrm_dst bundle
+  decnet: take dst->__refcnt when struct dn_route is created
+  net: remove dst gc related code
+  net: remove DST_NOGC flag
+  net: remove DST_NOCACHE flag
+  net: reorder all the dst flags
+  net: add debug atomic_inc_not_zero() in dst_hold()
+
+ drivers/net/vrf.c        |   6 +-
+ include/net/dst.h        |  43 ++------
+ include/net/ip6_fib.h    |   2 +-
+ include/net/ip6_route.h  |   1 -
+ include/net/route.h      |   4 +-
+ net/core/dev.c           |   1 -
+ net/core/dst.c           | 275 ++++++++---------------------------------------
+ net/decnet/dn_route.c    |  34 +++---
+ net/ipv4/fib_semantics.c |   9 +-
+ net/ipv4/route.c         |  62 ++++++-----
+ net/ipv4/udp.c           |  22 ++--
+ net/ipv6/addrconf.c      |   4 +-
+ net/ipv6/ip6_fib.c       |  32 +++---
+ net/ipv6/ip6_output.c    |   4 -
+ net/ipv6/route.c         | 127 ++++++++--------------
+ net/ipv6/udp.c           |  14 ++-
+ net/xfrm/xfrm_policy.c   |  49 +++++----
+ 17 files changed, 219 insertions(+), 470 deletions(-)
+
 -- 
 2.13.1.518.g3df882009-goog
