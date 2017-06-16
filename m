@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 10/11] i825xx: switch to switch to dma_alloc_attrs
-Date: Fri, 16 Jun 2017 09:17:15 +0200
-Message-ID: <20170616071716.17321-11-hch@lst.de>
+Subject: [PATCH 11/11] dma-mapping: remove dma_alloc_noncoherent and dma_free_noncoherent
+Date: Fri, 16 Jun 2017 09:17:16 +0200
+Message-ID: <20170616071716.17321-12-hch@lst.de>
 References: <20170616071716.17321-1-hch@lst.de>
 Cc: linux-kernel@vger.kernel.org
 To: linux-scsi@vger.kernel.org, linux-serial@vger.kernel.org,
@@ -13,90 +13,139 @@ In-Reply-To: <20170616071716.17321-1-hch@lst.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This way we can always pass DMA_ATTR_NON_CONSISTENT, the SNI mips version
-will simply ignore the flag.
+No users left, everyone switched to the _attrs versions.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- drivers/net/ethernet/i825xx/lasi_82596.c | 6 ++----
- drivers/net/ethernet/i825xx/lib82596.c   | 9 +++++----
- drivers/net/ethernet/i825xx/sni_82596.c  | 6 ++----
- 3 files changed, 9 insertions(+), 12 deletions(-)
+ Documentation/DMA-API.txt            | 30 ++++++++++++++++--------------
+ arch/metag/include/asm/dma-mapping.h |  2 +-
+ arch/nios2/include/asm/dma-mapping.h |  2 +-
+ arch/tile/include/asm/dma-mapping.h  |  4 ++--
+ include/linux/dma-mapping.h          | 14 --------------
+ 5 files changed, 20 insertions(+), 32 deletions(-)
 
-diff --git a/drivers/net/ethernet/i825xx/lasi_82596.c b/drivers/net/ethernet/i825xx/lasi_82596.c
-index d787fdd5db7b..d5b5021aa759 100644
---- a/drivers/net/ethernet/i825xx/lasi_82596.c
-+++ b/drivers/net/ethernet/i825xx/lasi_82596.c
-@@ -96,8 +96,6 @@
+diff --git a/Documentation/DMA-API.txt b/Documentation/DMA-API.txt
+index 6b20128fab8a..c55782f68348 100644
+--- a/Documentation/DMA-API.txt
++++ b/Documentation/DMA-API.txt
+@@ -451,14 +451,15 @@ processor and an I/O device, you should not be using this part of the
+ API at all.
  
- #define OPT_SWAP_PORT	0x0001	/* Need to wordswp on the MPU port */
+ void *
+-dma_alloc_noncoherent(struct device *dev, size_t size,
+-			       dma_addr_t *dma_handle, gfp_t flag)
++dma_alloc_attrs(struct device *dev, size_t size, dma_addr_t *dma_handle,
++		gfp_t flag, unsigned long attrs)
  
--#define DMA_ALLOC                        dma_alloc_noncoherent
--#define DMA_FREE                         dma_free_noncoherent
- #define DMA_WBACK(ndev, addr, len) \
- 	do { dma_cache_sync((ndev)->dev.parent, (void *)addr, len, DMA_TO_DEVICE); } while (0)
+-Identical to dma_alloc_coherent() except that the platform will
+-choose to return either consistent or non-consistent memory as it sees
+-fit.  By using this API, you are guaranteeing to the platform that you
+-have all the correct and necessary sync points for this memory in the
+-driver should it choose to return non-consistent memory.
++Identical to dma_alloc_coherent() except that when the
++DMA_ATTR_NON_CONSISTENT flags is passed in the attrs argument, the
++platform will choose to return either consistent or non-consistent memory
++as it sees fit.  By using this API, you are guaranteeing to the platform
++that you have all the correct and necessary sync points for this memory
++in the driver should it choose to return non-consistent memory.
  
-@@ -200,8 +198,8 @@ static int lan_remove_chip(struct parisc_device *pdev)
- 	struct i596_private *lp = netdev_priv(dev);
+ Note: where the platform can return consistent memory, it will
+ guarantee that the sync points become nops.
+@@ -469,12 +470,13 @@ required to work on one of the rare (usually non-PCI) architectures
+ that simply cannot make consistent memory.
  
- 	unregister_netdev (dev);
--	DMA_FREE(&pdev->dev, sizeof(struct i596_private),
--		 (void *)lp->dma, lp->dma_addr);
-+	dma_free_attrs(&pdev->dev, sizeof(struct i596_private), lp->dma,
-+		       lp->dma_addr, DMA_ATTR_NON_CONSISTENT);
- 	free_netdev (dev);
- 	return 0;
+ void
+-dma_free_noncoherent(struct device *dev, size_t size, void *cpu_addr,
+-			      dma_addr_t dma_handle)
++dma_free_attrs(struct device *dev, size_t size, void *cpu_addr,
++	       dma_addr_t dma_handle, unsigned long attrs)
+ 
+-Free memory allocated by the nonconsistent API.  All parameters must
+-be identical to those passed in (and returned by
+-dma_alloc_noncoherent()).
++Free memory allocated by the dma_alloc_attrs().  All parameters common
++parameters must identical to those otherwise passed to dma_fre_coherent,
++and the attrs argument must be identical to the attrs passed to
++dma_alloc_attrs().
+ 
+ int
+ dma_get_cache_alignment(void)
+@@ -492,8 +494,8 @@ void
+ dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+ 	       enum dma_data_direction direction)
+ 
+-Do a partial sync of memory that was allocated by
+-dma_alloc_noncoherent(), starting at virtual address vaddr and
++Do a partial sync of memory that was allocated by dma_alloc_attrs() with
++the DMA_ATTR_NON_CONSISTENT flag starting at virtual address vaddr and
+ continuing on for size.  Again, you *must* observe the cache line
+ boundaries when doing this.
+ 
+diff --git a/arch/metag/include/asm/dma-mapping.h b/arch/metag/include/asm/dma-mapping.h
+index fad3dc3cb210..ea573be2b6d0 100644
+--- a/arch/metag/include/asm/dma-mapping.h
++++ b/arch/metag/include/asm/dma-mapping.h
+@@ -9,7 +9,7 @@ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
  }
-diff --git a/drivers/net/ethernet/i825xx/lib82596.c b/drivers/net/ethernet/i825xx/lib82596.c
-index e86773325cbe..31e879fbec07 100644
---- a/drivers/net/ethernet/i825xx/lib82596.c
-+++ b/drivers/net/ethernet/i825xx/lib82596.c
-@@ -1062,8 +1062,9 @@ static int i82596_probe(struct net_device *dev)
- 	if (!dev->base_addr || !dev->irq)
- 		return -ENODEV;
  
--	dma = (struct i596_dma *) DMA_ALLOC(dev->dev.parent,
--		sizeof(struct i596_dma), &lp->dma_addr, GFP_KERNEL);
-+	dma = dma_alloc_attrs(dev->dev.parent, sizeof(struct i596_dma),
-+			      &lp->dma_addr, GFP_KERNEL,
-+			      DMA_ATTR_NON_CONSISTENT);
- 	if (!dma) {
- 		printk(KERN_ERR "%s: Couldn't get shared memory\n", __FILE__);
- 		return -ENOMEM;
-@@ -1084,8 +1085,8 @@ static int i82596_probe(struct net_device *dev)
+ /*
+- * dma_alloc_noncoherent() returns non-cacheable memory, so there's no need to
++ * dma_alloc_attrs() always returns non-cacheable memory, so there's no need to
+  * do any flushing here.
+  */
+ static inline void
+diff --git a/arch/nios2/include/asm/dma-mapping.h b/arch/nios2/include/asm/dma-mapping.h
+index 7b3c6f280293..f8dc62222741 100644
+--- a/arch/nios2/include/asm/dma-mapping.h
++++ b/arch/nios2/include/asm/dma-mapping.h
+@@ -18,7 +18,7 @@ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
+ }
  
- 	i = register_netdev(dev);
- 	if (i) {
--		DMA_FREE(dev->dev.parent, sizeof(struct i596_dma),
--				    (void *)dma, lp->dma_addr);
-+		dma_free_attrs(dev->dev.parent, sizeof(struct i596_dma),
-+			       dma, lp->dma_addr, DMA_ATTR_NON_CONSISTENT);
- 		return i;
- 	}
+ /*
+- * dma_alloc_noncoherent() returns non-cacheable memory, so there's no need to
++ * dma_alloc_attrs() always returns non-cacheable memory, so there's no need to
+  * do any flushing here.
+  */
+ static inline void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+diff --git a/arch/tile/include/asm/dma-mapping.h b/arch/tile/include/asm/dma-mapping.h
+index bbc71a29b2c6..7061dc8af43a 100644
+--- a/arch/tile/include/asm/dma-mapping.h
++++ b/arch/tile/include/asm/dma-mapping.h
+@@ -68,8 +68,8 @@ static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size)
+ int dma_set_mask(struct device *dev, u64 mask);
  
-diff --git a/drivers/net/ethernet/i825xx/sni_82596.c b/drivers/net/ethernet/i825xx/sni_82596.c
-index 2af7f77345fb..b2c04a789744 100644
---- a/drivers/net/ethernet/i825xx/sni_82596.c
-+++ b/drivers/net/ethernet/i825xx/sni_82596.c
-@@ -23,8 +23,6 @@
+ /*
+- * dma_alloc_noncoherent() is #defined to return coherent memory,
+- * so there's no need to do any flushing here.
++ * dma_alloc_attrs() always returns non-cacheable memory, so there's no need to
++ * do any flushing here.
+  */
+ static inline void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+ 				  enum dma_data_direction direction)
+diff --git a/include/linux/dma-mapping.h b/include/linux/dma-mapping.h
+index 6cdf5634906d..e8861e7df6ab 100644
+--- a/include/linux/dma-mapping.h
++++ b/include/linux/dma-mapping.h
+@@ -526,20 +526,6 @@ static inline void dma_free_coherent(struct device *dev, size_t size,
+ 	return dma_free_attrs(dev, size, cpu_addr, dma_handle, 0);
+ }
  
- static const char sni_82596_string[] = "snirm_82596";
- 
--#define DMA_ALLOC                      dma_alloc_coherent
--#define DMA_FREE                       dma_free_coherent
- #define DMA_WBACK(priv, addr, len)     do { } while (0)
- #define DMA_INV(priv, addr, len)       do { } while (0)
- #define DMA_WBACK_INV(priv, addr, len) do { } while (0)
-@@ -152,8 +150,8 @@ static int sni_82596_driver_remove(struct platform_device *pdev)
- 	struct i596_private *lp = netdev_priv(dev);
- 
- 	unregister_netdev(dev);
--	DMA_FREE(dev->dev.parent, sizeof(struct i596_private),
--		 lp->dma, lp->dma_addr);
-+	dma_free_attrs(dev->dev.parent, sizeof(struct i596_private), lp->dma,
-+		       lp->dma_addr, DMA_ATTR_NON_CONSISTENT);
- 	iounmap(lp->ca);
- 	iounmap(lp->mpu_port);
- 	free_netdev (dev);
+-static inline void *dma_alloc_noncoherent(struct device *dev, size_t size,
+-		dma_addr_t *dma_handle, gfp_t gfp)
+-{
+-	return dma_alloc_attrs(dev, size, dma_handle, gfp,
+-			       DMA_ATTR_NON_CONSISTENT);
+-}
+-
+-static inline void dma_free_noncoherent(struct device *dev, size_t size,
+-		void *cpu_addr, dma_addr_t dma_handle)
+-{
+-	dma_free_attrs(dev, size, cpu_addr, dma_handle,
+-		       DMA_ATTR_NON_CONSISTENT);
+-}
+-
+ static inline int dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
+ {
+ 	debug_dma_mapping_error(dev, dma_addr);
 -- 
 2.11.0
