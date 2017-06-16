@@ -1,223 +1,259 @@
 From: Wei Wang <tracywwnj@gmail.com>
-Subject: [PATCH net-next 15/21] xfrm: take refcnt of dst when creating struct xfrm_dst bundle
-Date: Fri, 16 Jun 2017 10:47:38 -0700
-Message-ID: <20170616174744.139688-16-tracywwnj@gmail.com>
+Subject: [PATCH net-next 19/21] net: remove DST_NOCACHE flag
+Date: Fri, 16 Jun 2017 10:47:42 -0700
+Message-ID: <20170616174744.139688-20-tracywwnj@gmail.com>
 References: <20170616174744.139688-1-tracywwnj@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
         Martin KaFai Lau <kafai@fb.com>, Wei Wang <weiwan@google.com>
 To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:34556 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752271AbdFPRsd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 13:48:33 -0400
-Received: by mail-pg0-f67.google.com with SMTP id j186so7271188pge.1
-        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 10:48:33 -0700 (PDT)
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33491 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752584AbdFPRsh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 13:48:37 -0400
+Received: by mail-pf0-f195.google.com with SMTP id w12so7568633pfk.0
+        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 10:48:37 -0700 (PDT)
 In-Reply-To: <20170616174744.139688-1-tracywwnj@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Wei Wang <weiwan@google.com>
 
-During the creation of xfrm_dst bundle, always take ref count when
-allocating the dst. This way, xfrm_bundle_create() will form a linked
-list of dst with dst->child pointing to a ref counted dst child. And
-the returned dst pointer is also ref counted. This makes the link from
-the flow cache to this dst now ref counted properly.
-As the dst is always ref counted properly, we can safely mark
-DST_NOGC flag so dst_release() will release dst based on refcnt only.
-And dst gc is no longer needed and all dst_free() and its related
-function calls should be replaced with dst_release() or
-dst_release_immediate().
-
-The special handling logic for dst->child in dst_destroy() can be
-replaced with a simple dst_release_immediate() call on the child to
-release the whole list linked by dst->child pointer.
-Previously used DST_NOHASH flag is not needed anymore as well. The
-reason that DST_NOHASH is used in the existing code is mainly to prevent
-the dst inserted in the fib tree to be wrongly destroyed during the
-deletion of the xfrm_dst bundle. So in the existing code, DST_NOHASH
-flag is marked in all the dst children except the one which is in the
-fib tree.
-However, with this patch series to remove dst gc logic and release dst
-only based on ref count, it is safe to release all the children from a
-xfrm_dst bundle as long as the dst children are all ref counted
-properly which is already the case in the existing code.
-So, this patch removes the use of DST_NOHASH flag.
+DST_NOCACHE flag check has been removed from dst_release() and
+dst_hold_safe() in a previous patch because all the dst are now ref
+counted properly and can be released based on refcnt only.
+Looking at the rest of the DST_NOCACHE use, all of them can now be
+removed or replaced with other checks.
+So this patch gets rid of all the DST_NOCACHE usage and remove this flag
+completely.
 
 Signed-off-by: Wei Wang <weiwan@google.com>
 Acked-by: Martin KaFai Lau <kafai@fb.com>
 ---
+ drivers/net/vrf.c      |  2 +-
  include/net/dst.h      |  1 -
- net/core/dst.c         | 19 ++-----------------
- net/xfrm/xfrm_policy.c | 48 ++++++++++++++++++++++++++++++------------------
- 3 files changed, 32 insertions(+), 36 deletions(-)
+ include/net/ip6_fib.h  |  2 +-
+ net/core/dst.c         |  2 +-
+ net/ipv4/route.c       | 23 +++++++++++------------
+ net/ipv6/ip6_fib.c     |  4 +---
+ net/ipv6/route.c       |  7 ++-----
+ net/xfrm/xfrm_policy.c |  1 -
+ 8 files changed, 17 insertions(+), 25 deletions(-)
 
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index d038927acfca..997ef25189fd 100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -563,7 +563,7 @@ static void vrf_rt6_release(struct net_device *dev, struct net_vrf *vrf)
+ 
+ static int vrf_rt6_create(struct net_device *dev)
+ {
+-	int flags = DST_HOST | DST_NOPOLICY | DST_NOXFRM | DST_NOCACHE;
++	int flags = DST_HOST | DST_NOPOLICY | DST_NOXFRM;
+ 	struct net_vrf *vrf = netdev_priv(dev);
+ 	struct net *net = dev_net(dev);
+ 	struct fib6_table *rt6i_table;
 diff --git a/include/net/dst.h b/include/net/dst.h
-index 11d779803c0d..88ebb87ad312 100644
+index 1be82f672c37..642483ed4edf 100644
 --- a/include/net/dst.h
 +++ b/include/net/dst.h
 @@ -51,7 +51,6 @@ struct dst_entry {
  #define DST_HOST		0x0001
  #define DST_NOXFRM		0x0002
  #define DST_NOPOLICY		0x0004
--#define DST_NOHASH		0x0008
- #define DST_NOCACHE		0x0010
+-#define DST_NOCACHE		0x0010
  #define DST_NOCOUNT		0x0020
  #define DST_FAKE_RTABLE		0x0040
+ #define DST_XFRM_TUNNEL		0x0080
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index aa50e2e6fa2a..1a88008cc6f5 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -170,7 +170,7 @@ static inline void rt6_update_expires(struct rt6_info *rt0, int timeout)
+ static inline u32 rt6_get_cookie(const struct rt6_info *rt)
+ {
+ 	if (rt->rt6i_flags & RTF_PCPU ||
+-	    (unlikely(rt->dst.flags & DST_NOCACHE) && rt->dst.from))
++	    (unlikely(!list_empty(&rt->rt6i_uncached)) && rt->dst.from))
+ 		rt = (struct rt6_info *)(rt->dst.from);
+ 
+ 	return rt->rt6i_node ? rt->rt6i_node->fn_sernum : 0;
 diff --git a/net/core/dst.c b/net/core/dst.c
-index 2031f778bf2a..b262b22e686d 100644
+index 573dcf21b0af..93d6006ac9ce 100644
 --- a/net/core/dst.c
 +++ b/net/core/dst.c
-@@ -250,7 +250,6 @@ struct dst_entry *dst_destroy(struct dst_entry * dst)
+@@ -269,7 +269,7 @@ static void __metadata_dst_init(struct metadata_dst *md_dst, u8 optslen)
  
- 	smp_rmb();
+ 	dst = &md_dst->dst;
+ 	dst_init(dst, &md_dst_ops, NULL, 1, DST_OBSOLETE_NONE,
+-		 DST_METADATA | DST_NOCACHE | DST_NOCOUNT);
++		 DST_METADATA | DST_NOCOUNT);
  
--again:
- 	child = dst->child;
+ 	dst->input = dst_md_discard;
+ 	dst->output = dst_md_discard_out;
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 9a0f496f8bf4..c816cd53f7fc 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1299,7 +1299,7 @@ static struct fib_nh_exception *find_exception(struct fib_nh *nh, __be32 daddr)
+ }
  
- 	if (!(dst->flags & DST_NOCOUNT))
-@@ -269,20 +268,8 @@ struct dst_entry *dst_destroy(struct dst_entry * dst)
- 		kmem_cache_free(dst->ops->kmem_cachep, dst);
+ static bool rt_bind_exception(struct rtable *rt, struct fib_nh_exception *fnhe,
+-			      __be32 daddr)
++			      __be32 daddr, const bool do_cache)
+ {
+ 	bool ret = false;
  
- 	dst = child;
--	if (dst) {
--		int nohash = dst->flags & DST_NOHASH;
--
--		if (atomic_dec_and_test(&dst->__refcnt)) {
--			/* We were real parent of this dst, so kill child. */
--			if (nohash)
--				goto again;
--		} else {
--			/* Child is still referenced, return it for freeing. */
--			if (nohash)
--				return dst;
--			/* Child is still in his hash table */
+@@ -1328,7 +1328,7 @@ static bool rt_bind_exception(struct rtable *rt, struct fib_nh_exception *fnhe,
+ 		if (!rt->rt_gateway)
+ 			rt->rt_gateway = daddr;
+ 
+-		if (!(rt->dst.flags & DST_NOCACHE)) {
++		if (do_cache) {
+ 			dst_hold(&rt->dst);
+ 			rcu_assign_pointer(*porig, rt);
+ 			if (orig) {
+@@ -1441,7 +1441,8 @@ static bool rt_cache_valid(const struct rtable *rt)
+ static void rt_set_nexthop(struct rtable *rt, __be32 daddr,
+ 			   const struct fib_result *res,
+ 			   struct fib_nh_exception *fnhe,
+-			   struct fib_info *fi, u16 type, u32 itag)
++			   struct fib_info *fi, u16 type, u32 itag,
++			   const bool do_cache)
+ {
+ 	bool cached = false;
+ 
+@@ -1462,8 +1463,8 @@ static void rt_set_nexthop(struct rtable *rt, __be32 daddr,
+ #endif
+ 		rt->dst.lwtstate = lwtstate_get(nh->nh_lwtstate);
+ 		if (unlikely(fnhe))
+-			cached = rt_bind_exception(rt, fnhe, daddr);
+-		else if (!(rt->dst.flags & DST_NOCACHE))
++			cached = rt_bind_exception(rt, fnhe, daddr, do_cache);
++		else if (do_cache)
+ 			cached = rt_cache_route(nh, rt);
+ 		if (unlikely(!cached)) {
+ 			/* Routes we intend to cache in nexthop exception or
+@@ -1471,7 +1472,6 @@ static void rt_set_nexthop(struct rtable *rt, __be32 daddr,
+ 			 * However, if we are unsuccessful at storing this
+ 			 * route into the cache we really need to set it.
+ 			 */
+-			rt->dst.flags |= DST_NOCACHE;
+ 			if (!rt->rt_gateway)
+ 				rt->rt_gateway = daddr;
+ 			rt_add_uncached_list(rt);
+@@ -1494,7 +1494,7 @@ struct rtable *rt_dst_alloc(struct net_device *dev,
+ 	struct rtable *rt;
+ 
+ 	rt = dst_alloc(&ipv4_dst_ops, dev, 1, DST_OBSOLETE_FORCE_CHK,
+-		       (will_cache ? 0 : (DST_HOST | DST_NOCACHE)) |
++		       (will_cache ? 0 : DST_HOST) |
+ 		       (nopolicy ? DST_NOPOLICY : 0) |
+ 		       (noxfrm ? DST_NOXFRM : 0));
+ 
+@@ -1738,7 +1738,8 @@ static int __mkroute_input(struct sk_buff *skb,
+ 
+ 	rth->dst.input = ip_forward;
+ 
+-	rt_set_nexthop(rth, daddr, res, fnhe, res->fi, res->type, itag);
++	rt_set_nexthop(rth, daddr, res, fnhe, res->fi, res->type, itag,
++		       do_cache);
+ 	set_lwt_redirect(rth);
+ 	skb_dst_set(skb, &rth->dst);
+ out:
+@@ -2026,10 +2027,8 @@ out:	return err;
+ 			rth->dst.input = lwtunnel_input;
+ 		}
+ 
+-		if (unlikely(!rt_cache_route(nh, rth))) {
+-			rth->dst.flags |= DST_NOCACHE;
++		if (unlikely(!rt_cache_route(nh, rth)))
+ 			rt_add_uncached_list(rth);
 -		}
--	}
-+	if (dst)
-+		dst_release_immediate(dst);
- 	return NULL;
- }
- EXPORT_SYMBOL(dst_destroy);
-@@ -292,8 +279,6 @@ static void dst_destroy_rcu(struct rcu_head *head)
- 	struct dst_entry *dst = container_of(head, struct dst_entry, rcu_head);
+ 	}
+ 	skb_dst_set(skb, &rth->dst);
+ 	err = 0;
+@@ -2260,7 +2259,7 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
+ #endif
+ 	}
  
- 	dst = dst_destroy(dst);
--	if (dst)
--		__dst_free(dst);
- }
+-	rt_set_nexthop(rth, fl4->daddr, res, fnhe, fi, type, 0);
++	rt_set_nexthop(rth, fl4->daddr, res, fnhe, fi, type, 0, do_cache);
+ 	set_lwt_redirect(rth);
  
- /* Operations to mark dst as DEAD and clean up the net device referenced
+ 	return rth;
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index c67ec79bf0da..4f3e4657f2d6 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -975,8 +975,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt,
+ 	int replace_required = 0;
+ 	int sernum = fib6_new_sernum(info->nl_net);
+ 
+-	if (WARN_ON_ONCE((rt->dst.flags & DST_NOCACHE) &&
+-			 !atomic_read(&rt->dst.__refcnt)))
++	if (WARN_ON_ONCE(!atomic_read(&rt->dst.__refcnt)))
+ 		return -EINVAL;
+ 
+ 	if (info->nlh) {
+@@ -1073,7 +1072,6 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt,
+ 		fib6_start_gc(info->nl_net, rt);
+ 		if (!(rt->rt6i_flags & RTF_CACHE))
+ 			fib6_prune_clones(info->nl_net, pn);
+-		rt->dst.flags &= ~DST_NOCACHE;
+ 	}
+ 
+ out:
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 6b6528fa3292..2e4490076061 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -128,7 +128,6 @@ static void rt6_uncached_list_add(struct rt6_info *rt)
+ {
+ 	struct uncached_list *ul = raw_cpu_ptr(&rt6_uncached_list);
+ 
+-	rt->dst.flags |= DST_NOCACHE;
+ 	rt->rt6i_uncached_list = ul;
+ 
+ 	spin_lock_bh(&ul->lock);
+@@ -1326,7 +1325,7 @@ static struct dst_entry *ip6_dst_check(struct dst_entry *dst, u32 cookie)
+ 	rt6_dst_from_metrics_check(rt);
+ 
+ 	if (rt->rt6i_flags & RTF_PCPU ||
+-	    (unlikely(dst->flags & DST_NOCACHE) && rt->dst.from))
++	    (unlikely(!list_empty(&rt->rt6i_uncached)) && rt->dst.from))
+ 		return rt6_dst_from_check(rt, cookie);
+ 	else
+ 		return rt6_check(rt, cookie);
+@@ -2130,8 +2129,7 @@ static int __ip6_del_rt(struct rt6_info *rt, struct nl_info *info)
+ 	struct fib6_table *table;
+ 	struct net *net = dev_net(rt->dst.dev);
+ 
+-	if (rt == net->ipv6.ip6_null_entry ||
+-	    rt->dst.flags & DST_NOCACHE) {
++	if (rt == net->ipv6.ip6_null_entry) {
+ 		err = -ENOENT;
+ 		goto out;
+ 	}
+@@ -2722,7 +2720,6 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+ 	rt->rt6i_dst.plen = 128;
+ 	tb_id = l3mdev_fib_table(idev->dev) ? : RT6_TABLE_LOCAL;
+ 	rt->rt6i_table = fib6_get_table(net, tb_id);
+-	rt->dst.flags |= DST_NOCACHE;
+ 
+ 	return rt;
+ }
 diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index ed4e52d95172..85e1e13639cc 100644
+index 3f7e77f11112..af8e38f47b5b 100644
 --- a/net/xfrm/xfrm_policy.c
 +++ b/net/xfrm/xfrm_policy.c
-@@ -1590,7 +1590,9 @@ static void xfrm_bundle_flo_delete(struct flow_cache_object *flo)
- 	struct xfrm_dst *xdst = container_of(flo, struct xfrm_dst, flo);
- 	struct dst_entry *dst = &xdst->u.dst;
+@@ -2231,7 +2231,6 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
+ 			}
  
--	dst_free(dst);
-+	/* Mark DST_OBSOLETE_DEAD to fail the next xfrm_dst_check() */
-+	dst->obsolete = DST_OBSOLETE_DEAD;
-+	dst_release_immediate(dst);
- }
- 
- static const struct flow_cache_ops xfrm_bundle_fc_ops = {
-@@ -1620,7 +1622,7 @@ static inline struct xfrm_dst *xfrm_alloc_dst(struct net *net, int family)
- 	default:
- 		BUG();
- 	}
--	xdst = dst_alloc(dst_ops, NULL, 0, DST_OBSOLETE_NONE, 0);
-+	xdst = dst_alloc(dst_ops, NULL, 1, DST_OBSOLETE_NONE, DST_NOGC);
- 
- 	if (likely(xdst)) {
- 		struct dst_entry *dst = &xdst->u.dst;
-@@ -1723,10 +1725,11 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
- 
- 		if (!dst_prev)
- 			dst0 = dst1;
--		else {
--			dst_prev->child = dst_clone(dst1);
--			dst1->flags |= DST_NOHASH;
--		}
-+		else
-+			/* Ref count is taken during xfrm_alloc_dst()
-+			 * No need to do dst_clone() on dst1
-+			 */
-+			dst_prev->child = dst1;
- 
- 		xdst->route = dst;
- 		dst_copy_metrics(dst1, dst);
-@@ -1792,7 +1795,7 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
- 		xfrm_state_put(xfrm[i]);
- free_dst:
- 	if (dst0)
--		dst_free(dst0);
-+		dst_release_immediate(dst0);
- 	dst0 = ERR_PTR(err);
- 	goto out;
- }
-@@ -2073,7 +2076,11 @@ xfrm_bundle_lookup(struct net *net, const struct flowi *fl, u16 family, u8 dir,
- 			pol_dead |= pols[i]->walk.dead;
+ 			dst_hold(&xdst->u.dst);
+-			xdst->u.dst.flags |= DST_NOCACHE;
+ 			route = xdst->route;
  		}
- 		if (pol_dead) {
--			dst_free(&xdst->u.dst);
-+			/* Mark DST_OBSOLETE_DEAD to fail the next
-+			 * xfrm_dst_check()
-+			 */
-+			xdst->u.dst.obsolete = DST_OBSOLETE_DEAD;
-+			dst_release_immediate(&xdst->u.dst);
- 			xdst = NULL;
- 			num_pols = 0;
- 			num_xfrms = 0;
-@@ -2120,11 +2127,12 @@ xfrm_bundle_lookup(struct net *net, const struct flowi *fl, u16 family, u8 dir,
- 	if (xdst) {
- 		/* The policies were stolen for newly generated bundle */
- 		xdst->num_pols = 0;
--		dst_free(&xdst->u.dst);
-+		/* Mark DST_OBSOLETE_DEAD to fail the next xfrm_dst_check() */
-+		xdst->u.dst.obsolete = DST_OBSOLETE_DEAD;
-+		dst_release_immediate(&xdst->u.dst);
  	}
- 
--	/* Flow cache does not have reference, it dst_free()'s,
--	 * but we do need to return one reference for original caller */
-+	/* We do need to return one reference for original caller */
- 	dst_hold(&new_xdst->u.dst);
- 	return &new_xdst->flo;
- 
-@@ -2147,9 +2155,11 @@ xfrm_bundle_lookup(struct net *net, const struct flowi *fl, u16 family, u8 dir,
- inc_error:
- 	XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTPOLERROR);
- error:
--	if (xdst != NULL)
--		dst_free(&xdst->u.dst);
--	else
-+	if (xdst != NULL) {
-+		/* Mark DST_OBSOLETE_DEAD to fail the next xfrm_dst_check() */
-+		xdst->u.dst.obsolete = DST_OBSOLETE_DEAD;
-+		dst_release_immediate(&xdst->u.dst);
-+	} else
- 		xfrm_pols_put(pols, num_pols);
- 	return ERR_PTR(err);
- }
-@@ -2636,10 +2646,12 @@ static struct dst_entry *xfrm_dst_check(struct dst_entry *dst, u32 cookie)
- 	 * notice.  That's what we are validating here via the
- 	 * stale_bundle() check.
- 	 *
--	 * When a policy's bundle is pruned, we dst_free() the XFRM
--	 * dst which causes it's ->obsolete field to be set to
--	 * DST_OBSOLETE_DEAD.  If an XFRM dst has been pruned like
--	 * this, we want to force a new route lookup.
-+	 * When an xdst is removed from flow cache, DST_OBSOLETE_DEAD will
-+	 * be marked on it.
-+	 * When a dst is removed from the fib tree, DST_OBSOLETE_DEAD will
-+	 * be marked on it.
-+	 * Both will force stable_bundle() to fail on any xdst bundle with
-+	 * this dst linked in it.
- 	 */
- 	if (dst->obsolete < 0 && !stale_bundle(dst))
- 		return dst;
 -- 
 2.13.1.518.g3df882009-goog
