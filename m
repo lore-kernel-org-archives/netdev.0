@@ -1,94 +1,97 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [RFC net-next 3/8] nfp: xdp: move driver XDP setup into a separate function
-Date: Fri, 16 Jun 2017 16:57:41 -0700
-Message-ID: <20170616235746.16337-4-jakub.kicinski@netronome.com>
+Subject: [RFC net-next 4/8] nfp: bpf: don't offload XDP programs in DRV_MODE
+Date: Fri, 16 Jun 2017 16:57:42 -0700
+Message-ID: <20170616235746.16337-5-jakub.kicinski@netronome.com>
 References: <20170616235746.16337-1-jakub.kicinski@netronome.com>
 Cc: davem@davemloft.net, kafai@fb.com, daniel@iogearbox.net,
         netoptimizer@brouer.com, oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f49.google.com ([74.125.83.49]:33477 "EHLO
-        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751711AbdFPX61 (ORCPT
+Received: from mail-pg0-f46.google.com ([74.125.83.46]:33479 "EHLO
+        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752143AbdFPX61 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 19:58:27 -0400
-Received: by mail-pg0-f49.google.com with SMTP id f185so26350528pgc.0
-        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 16:58:26 -0700 (PDT)
+Received: by mail-pg0-f46.google.com with SMTP id f185so26350628pgc.0
+        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 16:58:27 -0700 (PDT)
 In-Reply-To: <20170616235746.16337-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In preparation of XDP offload flags move the driver setup into
-a function.  Otherwise the number of conditions in one function
-would make it slightly hard to follow.  The offload handler may
-now be called with NULL prog, even if no offload is currently
-active, but that's fine, offload code can handle that.
+DRV_MODE means that user space wants the program to be run in
+the driver.  Do not try to offload.  Only offload if no mode
+flags have been specified.
+
+Remember what the mode is when the program is installed and refuse
+new setup requests if there is already a program loaded in a
+different mode.  This should leave it open for us to implement
+simultaneous loading of two programs - one in the drv path and
+another to the NIC later.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- .../net/ethernet/netronome/nfp/nfp_net_common.c    | 23 +++++++++++++++++-----
- 1 file changed, 18 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_net.h        |  3 +++
+ drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 14 +++++++++++---
+ 2 files changed, 14 insertions(+), 3 deletions(-)
 
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+index 02fd8d4e253c..7952fbfb94d6 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+@@ -541,6 +541,7 @@ struct nfp_net_dp {
+  * @rss_cfg:            RSS configuration
+  * @rss_key:            RSS secret key
+  * @rss_itbl:           RSS indirection table
++ * @xdp_flags:		Flags with which XDP prog was loaded
+  * @max_r_vecs:		Number of allocated interrupt vectors for RX/TX
+  * @max_tx_rings:       Maximum number of TX rings supported by the Firmware
+  * @max_rx_rings:       Maximum number of RX rings supported by the Firmware
+@@ -590,6 +591,8 @@ struct nfp_net {
+ 	u8 rss_key[NFP_NET_CFG_RSS_KEY_SZ];
+ 	u8 rss_itbl[NFP_NET_CFG_RSS_ITBL_SZ];
+ 
++	u32 xdp_flags;
++
+ 	unsigned int max_tx_rings;
+ 	unsigned int max_rx_rings;
+ 
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index 2bdddd1ae666..f2188b9c3628 100644
+index f2188b9c3628..9563615cf4b7 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -3274,10 +3274,11 @@ static void nfp_net_del_vxlan_port(struct net_device *netdev,
- 		nfp_net_set_vxlan_port(nn, idx, 0);
+@@ -3311,16 +3311,23 @@ nfp_net_xdp_setup_drv(struct nfp_net *nn, struct bpf_prog *prog,
  }
  
--static int nfp_net_xdp_setup(struct nfp_net *nn, struct netdev_xdp *xdp)
-+static int
-+nfp_net_xdp_setup_drv(struct nfp_net *nn, struct bpf_prog *prog,
-+		      struct netlink_ext_ack *extack)
+ static int
+-nfp_net_xdp_setup(struct nfp_net *nn, struct bpf_prog *prog,
++nfp_net_xdp_setup(struct nfp_net *nn, struct bpf_prog *prog, u32 flags,
+ 		  struct netlink_ext_ack *extack)
  {
- 	struct bpf_prog *old_prog = nn->dp.xdp_prog;
--	struct bpf_prog *prog = xdp->prog;
- 	struct nfp_net_dp *dp;
++	struct bpf_prog *offload_prog;
  	int err;
  
-@@ -3286,7 +3287,6 @@ static int nfp_net_xdp_setup(struct nfp_net *nn, struct netdev_xdp *xdp)
- 	if (prog && nn->dp.xdp_prog) {
- 		prog = xchg(&nn->dp.xdp_prog, prog);
- 		bpf_prog_put(prog);
--		nfp_app_xdp_offload(nn->app, nn, nn->dp.xdp_prog);
- 		return 0;
- 	}
- 
-@@ -3300,13 +3300,26 @@ static int nfp_net_xdp_setup(struct nfp_net *nn, struct netdev_xdp *xdp)
- 	dp->rx_dma_off = prog ? XDP_PACKET_HEADROOM - nn->dp.rx_offset : 0;
- 
- 	/* We need RX reconfig to remap the buffers (BIDIR vs FROM_DEV) */
--	err = nfp_net_ring_reconfig(nn, dp, xdp->extack);
-+	err = nfp_net_ring_reconfig(nn, dp, extack);
++	if (nn->dp.xdp_prog && (flags ^ nn->xdp_flags) & XDP_FLAGS_MODES)
++		return -EBUSY;
++
++	offload_prog = flags & XDP_FLAGS_DRV_MODE ? NULL : prog;
++
+ 	err = nfp_net_xdp_setup_drv(nn, prog, extack);
  	if (err)
  		return err;
  
- 	if (old_prog)
- 		bpf_prog_put(old_prog);
- 
-+	return 0;
-+}
-+
-+static int
-+nfp_net_xdp_setup(struct nfp_net *nn, struct bpf_prog *prog,
-+		  struct netlink_ext_ack *extack)
-+{
-+	int err;
-+
-+	err = nfp_net_xdp_setup_drv(nn, prog, extack);
-+	if (err)
-+		return err;
-+
- 	nfp_app_xdp_offload(nn->app, nn, nn->dp.xdp_prog);
+-	nfp_app_xdp_offload(nn->app, nn, nn->dp.xdp_prog);
++	nfp_app_xdp_offload(nn->app, nn, offload_prog);
++	nn->xdp_flags = flags;
  
  	return 0;
-@@ -3318,7 +3331,7 @@ static int nfp_net_xdp(struct net_device *netdev, struct netdev_xdp *xdp)
+ }
+@@ -3331,7 +3338,8 @@ static int nfp_net_xdp(struct net_device *netdev, struct netdev_xdp *xdp)
  
  	switch (xdp->command) {
  	case XDP_SETUP_PROG:
--		return nfp_net_xdp_setup(nn, xdp);
-+		return nfp_net_xdp_setup(nn, xdp->prog, xdp->extack);
+-		return nfp_net_xdp_setup(nn, xdp->prog, xdp->extack);
++		return nfp_net_xdp_setup(nn, xdp->prog, xdp->flags,
++					 xdp->extack);
  	case XDP_QUERY_PROG:
  		xdp->prog_attached = !!nn->dp.xdp_prog;
  		xdp->prog_id = nn->dp.xdp_prog ? nn->dp.xdp_prog->aux->id : 0;
