@@ -1,44 +1,55 @@
-From: Zach Brown <zach.brown@ni.com>
-Subject: [PATCH] net/phy: micrel: configure intterupts after autoneg workaround
-Date: Fri, 16 Jun 2017 12:20:07 -0500
-Message-ID: <1497633607-27180-1-git-send-email-zach.brown@ni.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: [PATCH 1/2] net/core: use local_bh_disable() in netif_rx_ni()
+Date: Fri, 16 Jun 2017 19:23:59 +0200
+Message-ID: <20170616172400.10809-1-bigeasy@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <andrew@lunn.ch>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+To: Eric Dumazet <edumazet@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Galois.linutronix.de ([146.0.238.70]:56426 "EHLO
+        Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750827AbdFPRYF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 13:24:05 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The commit ("net/phy: micrel: Add workaround for bad autoneg") fixes
-an autoneg failure case by resetting the hardware. This turns off
-intterupts. Things will work themselves out if the phy
-polls, as it will figure out it's state during a poll. However if the
-phy uses only intterupts, the phy will stall, since interrupts
-are off.
+In 2004 [0] netif_rx_ni() gained a preempt_disable() section around
+netif_rx() and its do_softirq() + testing for it. The do_softirq() part
+is required because netif_rx() raises the softirq but does not invoke
+it. The preempt_disable() is required to avoid running the BH in
+parallel.
+All this can be avoided be putting this into a local_bh_disable()ed
+section. The local_bh_enable() part will invoke do_softirq() if
+required.
 
-This patch fixes the issue by calling config_intr after resetting the
-phy.
+[0] Make netif_rx_ni preempt-safe
+    http://oss.sgi.com/projects/netdev/archive/2004-10/msg02211.html
 
-Fixes: d2fd719bcb0e ("net/phy: micrel: Add workaround for bad autoneg ")
-Signed-off-by: Zach Brown <zach.brown@ni.com>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- drivers/net/phy/micrel.c | 2 ++
- 1 file changed, 2 insertions(+)
+ net/core/dev.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 9365b07..bc2a0a4 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -620,6 +620,8 @@ static int ksz9031_read_status(struct phy_device *phydev)
- 	if ((regval & 0xFF) == 0xFF) {
- 		phy_init_hw(phydev);
- 		phydev->link = 0;
-+		if (phydev->drv->config_intr)
-+			phydev->drv->config_intr(phydev);
- 	}
- 
- 	return 0;
--- 
-2.7.4
+diff --git a/net/core/dev.c b/net/core/dev.c
+index b8d6dd9e8b5c..b1f8a89322bd 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3928,11 +3928,9 @@ int netif_rx_ni(struct sk_buff *skb)
+=20
+ 	trace_netif_rx_ni_entry(skb);
+=20
+-	preempt_disable();
++	local_bh_disable();
+ 	err =3D netif_rx_internal(skb);
+-	if (local_softirq_pending())
+-		do_softirq();
+-	preempt_enable();
++	local_bh_enable();
+=20
+ 	return err;
+ }
+--=20
+2.11.0
