@@ -1,57 +1,61 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: [PATCH v2 11/11] kasan: rework Kconfig settings
-Date: Fri, 16 Jun 2017 13:44:50 +0200
-Message-ID: <CACT4Y+ZGbvy5jK=ouHxgcSKkCdvJBM6=4Gkd1sGvzOZvKg79GQ@mail.gmail.com>
-References: <20170614211556.2062728-1-arnd@arndb.de> <20170614211556.2062728-12-arnd@arndb.de>
- <CACT4Y+aNMBbkb8b+wwrdhVVxH-1NwgUm+vwXqUggmLnGK-8Q4w@mail.gmail.com> <CAK8P3a18fdnNNSMdxCG13LTFQwQgYmr9ZiBp_r86M5KyFKFqHA@mail.gmail.com>
+From: Rafal Ozieblo <rafalo-vna1KIf7WgpBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH v3 0/4] PTP support for macb driver
+Date: Fri, 16 Jun 2017 12:58:18 +0100
+Message-ID: <1497614298-14074-1-git-send-email-rafalo@cadence.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-        kasan-dev <kasan-dev@googlegroups.com>,
-        Alexander Potapenko <glider@google.com>,
-        Andrey Ryabinin <aryabinin@virtuozzo.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Masahiro Yamada <yamada.masahiro@socionext.com>,
-        Michal Marek <mmarek@suse.com>,
-        Kees Cook <keescook@chromium.org>,
-        Ingo Molnar <mingo@kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        "open list:KERNEL BUILD + fi..." <linux-kbuild@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <CAK8P3a18fdnNNSMdxCG13LTFQwQgYmr9ZiBp_r86M5KyFKFqHA@mail.gmail.com>
-Sender: linux-kbuild-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: Rafal Ozieblo <rafalo-vna1KIf7WgpBDgjK7y7TUQ@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>,
+        Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        <harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>, <andrei.pistirica-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 16, 2017 at 1:42 PM, Arnd Bergmann <arnd@arndb.de> wrote:
->>> diff --git a/lib/Kconfig.kmemcheck b/lib/Kconfig.kmemcheck
->>> index 846e039a86b4..58b9f3f81dc8 100644
->>> --- a/lib/Kconfig.kmemcheck
->>> +++ b/lib/Kconfig.kmemcheck
->>> @@ -7,6 +7,7 @@ menuconfig KMEMCHECK
->>>         bool "kmemcheck: trap use of uninitialized memory"
->>>         depends on DEBUG_KERNEL
->>>         depends on !X86_USE_3DNOW
->>> +       depends on !KASAN_EXTRA
->>
->>
->> KASAN is not meant to work with KMEMCHECK. I am not sure if it even
->> works, and it's definitely unmaintained. Even if it works now, I am
->> not sure what could be the intention of somebody running that
->> combination.
->> So I think we should do: depends on !KASAN
->> Will it make things simper for you?
->
-> I don't think it will change anything for me, other than having to respin the
-> patch series or adding a patch on top.
->
-> I have just checked that KMEMCHECK is already disabled in allmodconfig,
-> and all but one of the warnings I address in the series show up in
-> allmodconfig too.
+This patch series adds support for PTP synchronization protocol
+in Cadence GEM driver based on PHC.
 
-Ack.
+v2 changes:
+* removed alarm's support
+* removed external time stamp support
+* removed PTP event interrupt handling
+* removed ptp_hw_support flag
+* removed all extra sanity checks
+* removed unnecessary #ifdef
+* fixed coding style and alligment issues
+* renamed macb.c to macb_main.c
 
-We can disable it if/when KASAN+KMEMCHECK combination requires any
-additional work, or causes user confusion.
+v3 changes:
+* added checking NULL ptr from ptp_clock_register()
+* fixed error codes return
+* locals list in "upside down Christmas tree" style
+* fixed some other issues from review
+
+Rafal Ozieblo (4):
+  net: macb: Add support for PTP timestamps in DMA descriptors
+  net: macb: Add tsu_clk to device tree
+  net: macb: macb.c changed to macb_main.c
+  net: macb: Add hardware PTP support
+
+ Documentation/devicetree/bindings/net/macb.txt |    1 +
+ drivers/net/ethernet/cadence/Kconfig           |   10 +-
+ drivers/net/ethernet/cadence/Makefile          |    5 +
+ drivers/net/ethernet/cadence/macb.c            | 3509 -----------------------
+ drivers/net/ethernet/cadence/macb.h            |  158 +-
+ drivers/net/ethernet/cadence/macb_main.c       | 3646 ++++++++++++++++++++++++
+ drivers/net/ethernet/cadence/macb_ptp.c        |  518 ++++
+ 7 files changed, 4330 insertions(+), 3517 deletions(-)
+ delete mode 100644 drivers/net/ethernet/cadence/macb.c
+ create mode 100644 drivers/net/ethernet/cadence/macb_main.c
+ create mode 100755 drivers/net/ethernet/cadence/macb_ptp.c
+
+-- 
+2.4.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
