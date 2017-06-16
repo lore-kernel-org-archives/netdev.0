@@ -1,41 +1,55 @@
-From: Serhey Popovych <serhe.popovych@gmail.com>
-Subject: Re: [PATCH 1/3] dev: Prevent creating network devices with negative ifindex
-Date: Fri, 16 Jun 2017 21:14:01 +0300
-Message-ID: <CAGCP4zM90OY=D76jok6TK_KYR60FF5B5EYUfxDerGsg_h1wC6g@mail.gmail.com>
-References: <cover.1497621810.git.serhe.popovych@gmail.com>
- <d365b6f06598d041a177b91b15929285c2649935.1497621810.git.serhe.popovych@gmail.com>
- <20170616091806.2dd229e2@xeon-e3> <02a31165-ad2f-fcdf-e7c5-f66a35712d4e@gmail.com>
- <20170616102542.691385b9@xeon-e3>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] decnet: always not take dst->__refcnt when
+ inserting dst into hash table
+Date: Fri, 16 Jun 2017 15:00:27 -0400 (EDT)
+Message-ID: <20170616.150027.1514023118759756329.davem@davemloft.net>
+References: <20170616174637.139429-1-tracywwnj@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com, kafai@fb.com,
+        weiwan@google.com
+To: tracywwnj@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f181.google.com ([209.85.128.181]:34828 "EHLO
-        mail-wr0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753241AbdFPSPH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 14:15:07 -0400
-Received: by mail-wr0-f181.google.com with SMTP id y25so3292166wrd.2
-        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 11:15:06 -0700 (PDT)
-In-Reply-To: <20170616102542.691385b9@xeon-e3>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36856 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752068AbdFPTAc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 15:00:32 -0400
+In-Reply-To: <20170616174637.139429-1-tracywwnj@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> What do you think?
->
-> Passing -1 is an error, it doesn't make sense  to try and be
-> helpful to buggy userland.
+From: Wei Wang <tracywwnj@gmail.com>
+Date: Fri, 16 Jun 2017 10:46:37 -0700
 
-Here is commit I actually change/fix:
+> From: Wei Wang <weiwan@google.com>
+> 
+> In the existing dn_route.c code, dn_route_output_slow() takes
+> dst->__refcnt before calling dn_insert_route() while dn_route_input_slow()
+> does not take dst->__refcnt before calling dn_insert_route().
+> This makes the whole routing code very buggy.
+> In dn_dst_check_expire(), dnrt_free() is called when rt expires. This
+> makes the routes inserted by dn_route_output_slow() not able to be
+> freed as the refcnt is not released.
+> In dn_dst_gc(), dnrt_drop() is called to release rt which could
+> potentially cause the dst->__refcnt to be dropped to -1.
+> In dn_run_flush(), dst_free() is called to release all the dst. Again,
+> it makes the dst inserted by dn_route_output_slow() not able to be
+> released and also, it does not wait on the rcu and could potentially
+> cause crash in the path where other users still refer to this dst.
+> 
+> This patch makes sure both input and output path do not take
+> dst->__refcnt before calling dn_insert_route() and also makes sure
+> dnrt_free()/dst_free() is called when removing dst from the hash table.
+> The only difference between those 2 calls is that dnrt_free() waits on
+> the rcu while dst_free() does not.
+> 
+> Signed-off-by: Wei Wang <weiwan@google.com>
+> Acked-by: Martin KaFai Lau <kafai@fb.com>
 
-commit 9c7dafbfab15 ("net: Allow to create links with given ifindex")
+Applied and queued up for -stable, thanks.
 
-In this change done the opposite: check for ifm->ifi_index moved to
-register_netdevice() from rtnl_newlink().
+I've also applied it to net-next for the sake of your dst gc removal
+series.
 
-Let me understand finally: why do I need to reverse and move check
-for dev->ifindex from register_netdevice() to rtnl_newlink()? That
-will partially revert commit I note above.
-
--- 
-Thanks,  Serhey
+Thanks again.
