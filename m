@@ -1,76 +1,98 @@
-From: "Mintz, Yuval" <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Subject: RE: [PATCH net-next 5/7] qed*: Set rdma generic functions prefix
-Date: Fri, 16 Jun 2017 12:42:35 +0000
-Message-ID: <BLUPR0701MB200405BFBC116EE4ADECB6028DC10@BLUPR0701MB2004.namprd07.prod.outlook.com>
-References: <20170615202933.20934-6-Yuval.Mintz@cavium.com>
- <201706160519.OPbPzq8J%fengguang.wu@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "kbuild-all-JC7UmRfGjtg@public.gmane.org" <kbuild-all-JC7UmRfGjtg@public.gmane.org>,
-        "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "Kalderon, Michal" <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-To: kbuild test robot <lkp-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201706160519.OPbPzq8J%fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Serhey Popovych <serhe.popovych@gmail.com>
+Subject: fib_rules: Resolve goto rules target on delete
+Date: Fri, 16 Jun 2017 15:44:47 +0300
+Message-ID: <1497617087-26386-1-git-send-email-serhe.popovych@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f68.google.com ([209.85.215.68]:36810 "EHLO
+        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753500AbdFPMpA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 08:45:00 -0400
+Received: by mail-lf0-f68.google.com with SMTP id x81so4081959lfb.3
+        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 05:44:59 -0700 (PDT)
+Received: from tuxracer.synapse.com ([195.238.92.77])
+        by smtp.gmail.com with ESMTPSA id g41sm581520lfi.31.2017.06.16.05.44.57
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Fri, 16 Jun 2017 05:44:57 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Hi Michal,
->=20
-> [auto build test ERROR on net-next/master]
->=20
-> url:    https://github.com/0day-ci/linux/commits/Yuval-Mintz/qed-RDMA-
-> and-infrastructure-for-iWARP/20170616-043925
-> config: i386-randconfig-x076-06120530 (attached as .config)
-> compiler: gcc-6 (Debian 6.2.0-3) 6.2.0 20160901
-> reproduce:
->         # save the attached .config to linux build tree
->         make ARCH=3Di386
->=20
-> All error/warnings (new ones prefixed by >>):
->=20
->=20
-> vim +80 include/linux/qed/qede_rdma.h
+We should avoid marking goto rules unresolved when their
+target is actually reachable after rule deletion.
 
-... I can't really say I understand the warning from the message.
+Consolder following sample scenario:
 
->=20
-> b4d583a63 include/linux/qed/qede_rdma.h Michal Kalderon 2017-06-15  73
-> void qede_rdma_dev_event_open(struct qede_dev *dev);
-> b4d583a63 include/linux/qed/qede_rdma.h Michal Kalderon 2017-06-15  74
-> void qede_rdma_dev_event_close(struct qede_dev *dev);
-> b4d583a63 include/linux/qed/qede_rdma.h Michal Kalderon 2017-06-15  75
-> void qede_rdma_dev_remove(struct qede_dev *dev);
-> b4d583a63 include/linux/qed/qede_rdma.h Michal Kalderon 2017-06-15  76
-> void qede_rdma_event_changeaddr(struct qede_dev *edr);
-> b4d583a63 include/linux/qed/qede_rdma.h Michal Kalderon 2017-06-15  77
-> cee9fbd8e include/linux/qed/qede_roce.h Ram Amrani      2016-10-01  78
-> #else
-> b4d583a63 include/linux/qed/qede_rdma.h Michal Kalderon 2017-06-15
-> @79  static inline int qede_rdma_dev_add(struct qede_dev *dev);
-> cee9fbd8e include/linux/qed/qede_roce.h Ram Amrani      2016-10-01 @80  {
-> cee9fbd8e include/linux/qed/qede_roce.h Ram Amrani      2016-10-01  81
-> 	return 0;
-> cee9fbd8e include/linux/qed/qede_roce.h Ram Amrani      2016-10-01  82  }
-> cee9fbd8e include/linux/qed/qede_roce.h Ram Amrani      2016-10-01  83
->=20
-> :::::: The code at line 80 was first introduced by commit
-> :::::: cee9fbd8e2e9e713cd8bf227c6492fd8854de74b qede: Add qedr
-> framework
->=20
-> :::::: TO: Ram Amrani <Ram.Amrani-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
-> :::::: CC: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
->=20
-> ---
-> 0-DAY kernel test infrastructure                Open Source Technology Ce=
-nter
-> https://lists.01.org/pipermail/kbuild-all                   Intel Corpora=
-tion
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+  # ip -4 ru sh
+  0:      from all lookup local
+  32000:  from all goto 32100
+  32100:  from all lookup main
+  32100:  from all lookup default
+  32766:  from all lookup main
+  32767:  from all lookup default
+
+  # ip -4 ru del pref 32100 table main
+  # ip -4 ru sh
+  0:      from all lookup local
+  32000:  from all goto 32100 [unresolved]
+  32100:  from all lookup default
+  32766:  from all lookup main
+  32767:  from all lookup default
+
+After removal of first rule with preference 32100 we
+mark all goto rules as unreachable, even when rule with
+same preference as removed one still present.
+
+Check if next rule with same preference is available
+and make all rules with goto action pointing to it.
+
+Signed-off-by: Serhey Popovych <serhe.popovych@gmail.com>
+---
+ net/core/fib_rules.c | 21 ++++++++++++++-------
+ 1 file changed, 14 insertions(+), 7 deletions(-)
+
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index f21c4d3..3bba291 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -568,7 +568,7 @@ int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	struct net *net = sock_net(skb->sk);
+ 	struct fib_rule_hdr *frh = nlmsg_data(nlh);
+ 	struct fib_rules_ops *ops = NULL;
+-	struct fib_rule *rule, *tmp;
++	struct fib_rule *rule, *r;
+ 	struct nlattr *tb[FRA_MAX+1];
+ 	struct fib_kuid_range range;
+ 	int err = -EINVAL;
+@@ -668,16 +668,23 @@ int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 
+ 		/*
+ 		 * Check if this rule is a target to any of them. If so,
++		 * adjust to the next one with the same preference or
+ 		 * disable them. As this operation is eventually very
+-		 * expensive, it is only performed if goto rules have
+-		 * actually been added.
++		 * expensive, it is only performed if goto rules, except
++		 * current if it is goto rule, have actually been added.
+ 		 */
+ 		if (ops->nr_goto_rules > 0) {
+-			list_for_each_entry(tmp, &ops->rules_list, list) {
+-				if (rtnl_dereference(tmp->ctarget) == rule) {
+-					RCU_INIT_POINTER(tmp->ctarget, NULL);
++			struct fib_rule *n;
++
++			n = list_next_entry(rule, list);
++			if (&n->list == &ops->rules_list || n->pref != rule->pref)
++				n = NULL;
++			list_for_each_entry(r, &ops->rules_list, list) {
++				if (rtnl_dereference(r->ctarget) != rule)
++					continue;
++				rcu_assign_pointer(r->ctarget, n);
++				if (!n)
+ 					ops->unresolved_rules++;
+-				}
+ 			}
+ 		}
+ 
+-- 
+1.8.3.1
