@@ -1,44 +1,100 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 24/44] x86: remove DMA_ERROR_CODE
-Date: Fri, 16 Jun 2017 20:10:39 +0200
-Message-ID: <20170616181059.19206-25-hch@lst.de>
+Subject: [PATCH 23/44] x86/calgary: implement ->mapping_error
+Date: Fri, 16 Jun 2017 20:10:38 +0200
+Message-ID: <20170616181059.19206-24-hch@lst.de>
 References: <20170616181059.19206-1-hch@lst.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: linux-kernel@vger.kernel.org
 To: x86@kernel.org, linux-arm-kernel@lists.infradead.org,
-        xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
-        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
-        linux-mips@linux-mips.org, openrisc@lists.librecores.org,
-        linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
-        linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
-        linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
-        linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
-        linux-samsung-soc@vger.kernel.org,
-        iommu@lists.linux-foundation.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+ xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
+ linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
+ linux-mips@linux-mips.org, openrisc@lists.librecores.org,
+ linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
+ linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
+ linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
+ linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
+ linux-samsung-soc@vger.kernel.org, iommu@lists.linux-foundation.org,
+ netdev@vger.kernel.org
+Return-path: <xen-devel-bounces@lists.xen.org>
 In-Reply-To: <20170616181059.19206-1-hch@lst.de>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
 List-Id: netdev.vger.kernel.org
 
-All dma_map_ops instances now handle their errors through
-->mapping_error.
-
-Signed-off-by: Christoph Hellwig <hch@lst.de>
----
- arch/x86/include/asm/dma-mapping.h | 2 --
- 1 file changed, 2 deletions(-)
-
-diff --git a/arch/x86/include/asm/dma-mapping.h b/arch/x86/include/asm/dma-mapping.h
-index 08a0838b83fb..c35d228aa381 100644
---- a/arch/x86/include/asm/dma-mapping.h
-+++ b/arch/x86/include/asm/dma-mapping.h
-@@ -19,8 +19,6 @@
- # define ISA_DMA_BIT_MASK DMA_BIT_MASK(32)
- #endif
- 
--#define DMA_ERROR_CODE	0
--
- extern int iommu_merge;
- extern struct device x86_dma_fallback_dev;
- extern int panic_on_overflow;
--- 
-2.11.0
+RE1BX0VSUk9SX0NPREUgaXMgZ29pbmcgdG8gZ28gYXdheSwgc28gZG9uJ3QgcmVseSBvbiBpdC4K
+ClNpZ25lZC1vZmYtYnk6IENocmlzdG9waCBIZWxsd2lnIDxoY2hAbHN0LmRlPgotLS0KIGFyY2gv
+eDg2L2tlcm5lbC9wY2ktY2FsZ2FyeV82NC5jIHwgMjQgKysrKysrKysrKysrKysrKy0tLS0tLS0t
+CiAxIGZpbGUgY2hhbmdlZCwgMTYgaW5zZXJ0aW9ucygrKSwgOCBkZWxldGlvbnMoLSkKCmRpZmYg
+LS1naXQgYS9hcmNoL3g4Ni9rZXJuZWwvcGNpLWNhbGdhcnlfNjQuYyBiL2FyY2gveDg2L2tlcm5l
+bC9wY2ktY2FsZ2FyeV82NC5jCmluZGV4IGZkYTc4NjcwNDZkMC4uZTc1YjQ5MGYyYjBiIDEwMDY0
+NAotLS0gYS9hcmNoL3g4Ni9rZXJuZWwvcGNpLWNhbGdhcnlfNjQuYworKysgYi9hcmNoL3g4Ni9r
+ZXJuZWwvcGNpLWNhbGdhcnlfNjQuYwpAQCAtNTAsNiArNTAsOCBAQAogI2luY2x1ZGUgPGFzbS94
+ODZfaW5pdC5oPgogI2luY2x1ZGUgPGFzbS9pb21tdV90YWJsZS5oPgogCisjZGVmaW5lIENBTEdB
+UllfTUFQUElOR19FUlJPUgkwCisKICNpZmRlZiBDT05GSUdfQ0FMR0FSWV9JT01NVV9FTkFCTEVE
+X0JZX0RFRkFVTFQKIGludCB1c2VfY2FsZ2FyeSBfX3JlYWRfbW9zdGx5ID0gMTsKICNlbHNlCkBA
+IC0yNTIsNyArMjU0LDcgQEAgc3RhdGljIHVuc2lnbmVkIGxvbmcgaW9tbXVfcmFuZ2VfYWxsb2Mo
+c3RydWN0IGRldmljZSAqZGV2LAogCQkJaWYgKHBhbmljX29uX292ZXJmbG93KQogCQkJCXBhbmlj
+KCJDYWxnYXJ5OiBmaXggdGhlIGFsbG9jYXRvci5cbiIpOwogCQkJZWxzZQotCQkJCXJldHVybiBE
+TUFfRVJST1JfQ09ERTsKKwkJCQlyZXR1cm4gQ0FMR0FSWV9NQVBQSU5HX0VSUk9SOwogCQl9CiAJ
+fQogCkBAIC0yNzIsMTAgKzI3NCwxMCBAQCBzdGF0aWMgZG1hX2FkZHJfdCBpb21tdV9hbGxvYyhz
+dHJ1Y3QgZGV2aWNlICpkZXYsIHN0cnVjdCBpb21tdV90YWJsZSAqdGJsLAogCiAJZW50cnkgPSBp
+b21tdV9yYW5nZV9hbGxvYyhkZXYsIHRibCwgbnBhZ2VzKTsKIAotCWlmICh1bmxpa2VseShlbnRy
+eSA9PSBETUFfRVJST1JfQ09ERSkpIHsKKwlpZiAodW5saWtlbHkoZW50cnkgPT0gQ0FMR0FSWV9N
+QVBQSU5HX0VSUk9SKSkgewogCQlwcl93YXJuKCJmYWlsZWQgdG8gYWxsb2NhdGUgJXUgcGFnZXMg
+aW4gaW9tbXUgJXBcbiIsCiAJCQlucGFnZXMsIHRibCk7Ci0JCXJldHVybiBETUFfRVJST1JfQ09E
+RTsKKwkJcmV0dXJuIENBTEdBUllfTUFQUElOR19FUlJPUjsKIAl9CiAKIAkvKiBzZXQgdGhlIHJl
+dHVybiBkbWEgYWRkcmVzcyAqLwpAQCAtMjk1LDcgKzI5Nyw3IEBAIHN0YXRpYyB2b2lkIGlvbW11
+X2ZyZWUoc3RydWN0IGlvbW11X3RhYmxlICp0YmwsIGRtYV9hZGRyX3QgZG1hX2FkZHIsCiAJdW5z
+aWduZWQgbG9uZyBmbGFnczsKIAogCS8qIHdlcmUgd2UgY2FsbGVkIHdpdGggYmFkX2RtYV9hZGRy
+ZXNzPyAqLwotCWJhZGVuZCA9IERNQV9FUlJPUl9DT0RFICsgKEVNRVJHRU5DWV9QQUdFUyAqIFBB
+R0VfU0laRSk7CisJYmFkZW5kID0gQ0FMR0FSWV9NQVBQSU5HX0VSUk9SICsgKEVNRVJHRU5DWV9Q
+QUdFUyAqIFBBR0VfU0laRSk7CiAJaWYgKHVubGlrZWx5KGRtYV9hZGRyIDwgYmFkZW5kKSkgewog
+CQlXQVJOKDEsIEtFUk5fRVJSICJDYWxnYXJ5OiBkcml2ZXIgdHJpZWQgdW5tYXBwaW5nIGJhZCBE
+TUEgIgogCQkgICAgICAgImFkZHJlc3MgMHglTHhcbiIsIGRtYV9hZGRyKTsKQEAgLTM4MCw3ICsz
+ODIsNyBAQCBzdGF0aWMgaW50IGNhbGdhcnlfbWFwX3NnKHN0cnVjdCBkZXZpY2UgKmRldiwgc3Ry
+dWN0IHNjYXR0ZXJsaXN0ICpzZywKIAkJbnBhZ2VzID0gaW9tbXVfbnVtX3BhZ2VzKHZhZGRyLCBz
+LT5sZW5ndGgsIFBBR0VfU0laRSk7CiAKIAkJZW50cnkgPSBpb21tdV9yYW5nZV9hbGxvYyhkZXYs
+IHRibCwgbnBhZ2VzKTsKLQkJaWYgKGVudHJ5ID09IERNQV9FUlJPUl9DT0RFKSB7CisJCWlmIChl
+bnRyeSA9PSBDQUxHQVJZX01BUFBJTkdfRVJST1IpIHsKIAkJCS8qIG1ha2VzIHN1cmUgdW5tYXAg
+a25vd3MgdG8gc3RvcCAqLwogCQkJcy0+ZG1hX2xlbmd0aCA9IDA7CiAJCQlnb3RvIGVycm9yOwpA
+QCAtMzk4LDcgKzQwMCw3IEBAIHN0YXRpYyBpbnQgY2FsZ2FyeV9tYXBfc2coc3RydWN0IGRldmlj
+ZSAqZGV2LCBzdHJ1Y3Qgc2NhdHRlcmxpc3QgKnNnLAogZXJyb3I6CiAJY2FsZ2FyeV91bm1hcF9z
+ZyhkZXYsIHNnLCBuZWxlbXMsIGRpciwgMCk7CiAJZm9yX2VhY2hfc2coc2csIHMsIG5lbGVtcywg
+aSkgewotCQlzZy0+ZG1hX2FkZHJlc3MgPSBETUFfRVJST1JfQ09ERTsKKwkJc2ctPmRtYV9hZGRy
+ZXNzID0gQ0FMR0FSWV9NQVBQSU5HX0VSUk9SOwogCQlzZy0+ZG1hX2xlbmd0aCA9IDA7CiAJfQog
+CXJldHVybiAwOwpAQCAtNDUzLDcgKzQ1NSw3IEBAIHN0YXRpYyB2b2lkKiBjYWxnYXJ5X2FsbG9j
+X2NvaGVyZW50KHN0cnVjdCBkZXZpY2UgKmRldiwgc2l6ZV90IHNpemUsCiAKIAkvKiBzZXQgdXAg
+dGNlcyB0byBjb3ZlciB0aGUgYWxsb2NhdGVkIHJhbmdlICovCiAJbWFwcGluZyA9IGlvbW11X2Fs
+bG9jKGRldiwgdGJsLCByZXQsIG5wYWdlcywgRE1BX0JJRElSRUNUSU9OQUwpOwotCWlmIChtYXBw
+aW5nID09IERNQV9FUlJPUl9DT0RFKQorCWlmIChtYXBwaW5nID09IENBTEdBUllfTUFQUElOR19F
+UlJPUikKIAkJZ290byBmcmVlOwogCSpkbWFfaGFuZGxlID0gbWFwcGluZzsKIAlyZXR1cm4gcmV0
+OwpAQCAtNDc4LDYgKzQ4MCwxMSBAQCBzdGF0aWMgdm9pZCBjYWxnYXJ5X2ZyZWVfY29oZXJlbnQo
+c3RydWN0IGRldmljZSAqZGV2LCBzaXplX3Qgc2l6ZSwKIAlmcmVlX3BhZ2VzKCh1bnNpZ25lZCBs
+b25nKXZhZGRyLCBnZXRfb3JkZXIoc2l6ZSkpOwogfQogCitzdGF0aWMgaW50IGNhbGdhcnlfbWFw
+cGluZ19lcnJvcihzdHJ1Y3QgZGV2aWNlICpkZXYsIGRtYV9hZGRyX3QgZG1hX2FkZHIpCit7CisJ
+cmV0dXJuIGRtYV9hZGRyID09IENBTEdBUllfTUFQUElOR19FUlJPUjsKK30KKwogc3RhdGljIGNv
+bnN0IHN0cnVjdCBkbWFfbWFwX29wcyBjYWxnYXJ5X2RtYV9vcHMgPSB7CiAJLmFsbG9jID0gY2Fs
+Z2FyeV9hbGxvY19jb2hlcmVudCwKIAkuZnJlZSA9IGNhbGdhcnlfZnJlZV9jb2hlcmVudCwKQEAg
+LTQ4NSw2ICs0OTIsNyBAQCBzdGF0aWMgY29uc3Qgc3RydWN0IGRtYV9tYXBfb3BzIGNhbGdhcnlf
+ZG1hX29wcyA9IHsKIAkudW5tYXBfc2cgPSBjYWxnYXJ5X3VubWFwX3NnLAogCS5tYXBfcGFnZSA9
+IGNhbGdhcnlfbWFwX3BhZ2UsCiAJLnVubWFwX3BhZ2UgPSBjYWxnYXJ5X3VubWFwX3BhZ2UsCisJ
+Lm1hcHBpbmdfZXJyb3IgPSBjYWxnYXJ5X21hcHBpbmdfZXJyb3IsCiB9OwogCiBzdGF0aWMgaW5s
+aW5lIHZvaWQgX19pb21lbSAqIGJ1c25vX3RvX2JiYXIodW5zaWduZWQgY2hhciBudW0pCkBAIC03
+MzIsNyArNzQwLDcgQEAgc3RhdGljIHZvaWQgX19pbml0IGNhbGdhcnlfcmVzZXJ2ZV9yZWdpb25z
+KHN0cnVjdCBwY2lfZGV2ICpkZXYpCiAJc3RydWN0IGlvbW11X3RhYmxlICp0YmwgPSBwY2lfaW9t
+bXUoZGV2LT5idXMpOwogCiAJLyogcmVzZXJ2ZSBFTUVSR0VOQ1lfUEFHRVMgZnJvbSBiYWRfZG1h
+X2FkZHJlc3MgYW5kIHVwICovCi0JaW9tbXVfcmFuZ2VfcmVzZXJ2ZSh0YmwsIERNQV9FUlJPUl9D
+T0RFLCBFTUVSR0VOQ1lfUEFHRVMpOworCWlvbW11X3JhbmdlX3Jlc2VydmUodGJsLCBDQUxHQVJZ
+X01BUFBJTkdfRVJST1IsIEVNRVJHRU5DWV9QQUdFUyk7CiAKIAkvKiBhdm9pZCB0aGUgQklPUy9W
+R0EgZmlyc3QgNjQwS0ItMU1CIHJlZ2lvbiAqLwogCS8qIGZvciBDYWxJT0MyIC0gYXZvaWQgdGhl
+IGVudGlyZSBmaXJzdCBNQiAqLwotLSAKMi4xMS4wCgoKX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX18KWGVuLWRldmVsIG1haWxpbmcgbGlzdApYZW4tZGV2ZWxA
+bGlzdHMueGVuLm9yZwpodHRwczovL2xpc3RzLnhlbi5vcmcveGVuLWRldmVsCg==
