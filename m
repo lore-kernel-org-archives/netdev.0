@@ -1,47 +1,34 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: Re: Request for -stable inclusion (xt_TCPMSS)
-Date: Fri, 16 Jun 2017 12:52:11 +0200
-Message-ID: <20170616105211.7byovh3uxlgozyle@alphalink.fr>
-References: <20170616074516.yzgd7sqqigjepx37@alphalink.fr>
- <20170616095912.GB1963@salvia>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC 1/3] networking: make skb_put & friends return void
+ pointers
+Date: Fri, 16 Jun 2017 13:03:40 +0200
+Message-ID: <1497611020.2622.8.camel@sipsolutions.net>
+References: <20170615221217.16510-1-johannes@sipsolutions.net>
+         <20170615221217.16510-2-johannes@sipsolutions.net>
+         <871sqke5co.fsf@miraculix.mork.no>
+         <1497602577.2622.5.camel@sipsolutions.net>
+         <1497609558.10546.5.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Denys Fedoryshchenko <nuclearcat@nuclearcat.com>,
-        netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>,
+        =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:41176 "EHLO
-        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750899AbdFPKwP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 06:52:15 -0400
-Content-Disposition: inline
-In-Reply-To: <20170616095912.GB1963@salvia>
+Received: from s3.sipsolutions.net ([5.9.151.49]:59954 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752375AbdFPLDo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 16 Jun 2017 07:03:44 -0400
+In-Reply-To: <1497609558.10546.5.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 16, 2017 at 11:59:12AM +0200, Pablo Neira Ayuso wrote:
-> Hi Guillaume,
+On Fri, 2017-06-16 at 03:39 -0700, Joe Perches wrote:
 > 
-> On Fri, Jun 16, 2017 at 09:45:17AM +0200, Guillaume Nault wrote:
-> > Hi David,
-> > 
-> > Please queue 2638fd0f92d4 ("netfilter: xt_TCPMSS: add more sanity tests on tcph->doff")
-> > for -stable.
-> > It fixes hard to debug crashes in production, that can be triggered by
-> > remote peers.
-> 
-> What stable kernels you want this in? Does this apply cleanly to them
-> all?
-> 
-I need it (and reviewed/tested it) for 4.9. But the patch applies
-cleanly and looks necessary for all stable versions >= 3.16 (not
-tested though).
+> I would suggest avoiding using skb_put_u8 as it
+> would suggest there should be skb_put_u16 etc
 
-> I can route this for you directly to stable@vger.kernel.org once we
-> sort out these questions.
-> 
-> Thanks!
-Great, thanks Pablo. But do you mean I should have Cc-ed
-stable@vger.kernel.org directly?
+If there are enough users, I don't know why we wouldn't add it? Though
+it should be _unaligned_le16 and _unaligned_be16, if at all :)
+
+johannes
