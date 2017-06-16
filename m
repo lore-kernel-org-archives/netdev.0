@@ -1,51 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 4/7] qed*: Rename qede_roce.[ch]
-Date: Fri, 16 Jun 2017 11:44:28 -0400 (EDT)
-Message-ID: <20170616.114428.630059630310905770.davem@davemloft.net>
-References: <20170615202933.20934-5-Yuval.Mintz@cavium.com>
-        <201706160552.EYIdXcuM%fengguang.wu@intel.com>
-        <BLUPR0701MB2004F40778215AD277D4FF348DC10@BLUPR0701MB2004.namprd07.prod.outlook.com>
+Subject: Re: [PATCH 0/5] skb data accessors cleanup
+Date: Fri, 16 Jun 2017 11:50:13 -0400 (EDT)
+Message-ID: <20170616.115013.1187787408957466917.davem@davemloft.net>
+References: <20170616070747.3332-1-johannes@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lkp@intel.com, kbuild-all@01.org, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, Michal.Kalderon@cavium.com
-To: Yuval.Mintz@cavium.com
+Cc: netdev@vger.kernel.org
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60392 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:60506 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750780AbdFPPoa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 11:44:30 -0400
-In-Reply-To: <BLUPR0701MB2004F40778215AD277D4FF348DC10@BLUPR0701MB2004.namprd07.prod.outlook.com>
+        with ESMTP id S1751882AbdFPPuU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 11:50:20 -0400
+In-Reply-To: <20170616070747.3332-1-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Date: Fri, 16 Jun 2017 12:41:15 +0000
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Fri, 16 Jun 2017 09:07:42 +0200
 
->>    In file included from drivers/net//ethernet/qlogic/qede/qede.h:43:0,
->>                     from drivers/net//ethernet/qlogic/qede/qede_ptp.h:38,
->>                     from drivers/net//ethernet/qlogic/qede/qede_fp.c:43:
->> >> include/linux/qed/qede_rdma.h:57:12: warning: 'struct pci_dev' declared
->> inside parameter list [enabled by default]
->> >> include/linux/qed/qede_rdma.h:57:12: warning: its scope is only this
->> definition or declaration, which is probably not what you want [enabled by
->> default]
+> Over night, Fengguang's bot told me that it compiled all of its many
+> various configurations successfully, and I had done allyesconfig on
+> x86_64 myself yesterday to iron out the things I missed.
 > 
-> This patch is merely renaming qede_roce.h -> qede_rdma.h.
-> I guess the kbuild test robot got better scripts than the time we've added qede_rdma.h,
-> or else it would have catched the fact there are no inclusion since then.
+> So now I think I'm happy with it.
 > 
-> Dave - given this is an existing warning exposed due to a rename [and not something
-> that actually got introduced in this patch], do you want us to fix it via v2 of this series?
-> Or send a fix for it later?
+> My tree was based on your
+> 
+>     commit 3715c47bcda8bb56f7e2be27276282a2d0d48c09
+>     Merge: 18b6e7955d8f d8fbd27469fc
+>     Author: David S. Miller <davem@davemloft.net>
+>     Date:   Thu Jun 15 14:31:56 2017 -0400
+> 
+>         Merge branch 'r8152-support-new-chips'
+> 
+> when the compilation tests happened, but I've reviewed the changes
+> coming into net-next in the meantime and didn't see any new usages
+> of skb data accessors having come in.
 
-I don't know, look at what you're doing in main.c, you're removing an include
-rather than changing the name of the file being included.
+Series applied, thanks!
 
-That is not a zero-change rename at all.
-
-Please respin this and fix all of the things the build bot is reporting as
-well as what I just mentioned.
-
-Thank you.
+I tell ya, spatch appears to be the crack cocaine of Linus kernel
+development.  Once someone gets into some spatch scripting work,
+they can't stop!
