@@ -1,53 +1,47 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 1/3] dev: Prevent creating network devices with negative
- ifindex
-Date: Fri, 16 Jun 2017 09:18:06 -0700
-Message-ID: <20170616091806.2dd229e2@xeon-e3>
-References: <cover.1497621810.git.serhe.popovych@gmail.com>
-        <d365b6f06598d041a177b91b15929285c2649935.1497621810.git.serhe.popovych@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v5 00/11] net: mvmdio: add xMDIO xSMI support
+Date: Fri, 16 Jun 2017 12:28:03 -0400 (EDT)
+Message-ID: <20170616.122803.2124267163457790253.davem@davemloft.net>
+References: <20170615144326.24463-1-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Serhey Popovych <serhe.popovych@gmail.com>
+Cc: jason@lakedaemon.net, andrew@lunn.ch,
+        gregory.clement@free-electrons.com,
+        sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com,
+        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
+        mw@semihalf.com, linux@armlinux.org.uk, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org
+To: antoine.tenart@free-electrons.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:33821 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751762AbdFPQSN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 12:18:13 -0400
-Received: by mail-pg0-f51.google.com with SMTP id v18so22374762pgb.1
-        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 09:18:13 -0700 (PDT)
-In-Reply-To: <d365b6f06598d041a177b91b15929285c2649935.1497621810.git.serhe.popovych@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:33198 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752059AbdFPQ2H (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 12:28:07 -0400
+In-Reply-To: <20170615144326.24463-1-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 16 Jun 2017 17:23:51 +0300
-Serhey Popovych <serhe.popovych@gmail.com> wrote:
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Date: Thu, 15 Jun 2017 16:43:15 +0200
 
-> Interface index is signed integer, we can pass ifm->ifi_index
-> from userspace via netlink and create network device with
-> negative ifindex value.
+> This series aims to add the xSMI support on the xMDIO bus to the
+> mvmdio driver. The xSMI interface complies with the IEEE 802.3 clause 45
+> and is used by 10GbE devices. On 7k and 8k (as of now), such an
+> interface is found and is used by Ethernet controllers.
 > 
-> Fixes: 9c7dafbfab15 ("net: Allow to create links with given ifindex")
-> Signed-off-by: Serhey Popovych <serhe.popovych@gmail.com>
-> ---
->  net/core/dev.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> Patches 1-4 and 9 are cosmetic cleanups.
 > 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 8658074..dae8010 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -7491,7 +7491,7 @@ int register_netdevice(struct net_device *dev)
->  	}
->  
->  	ret = -EBUSY;
-> -	if (!dev->ifindex)
-> +	if (dev->ifindex <= 0)
->  		dev->ifindex = dev_new_index(net);
->  	else if (__dev_get_by_index(net, dev->ifindex))
->  		goto err_uninit;
+> Patches 5-7 are prerequisites to the xSMI support.
+> 
+> Patches 8 and 10-11 add the xSMI support to the mvmdio driver, and a
+> node is added both in the cp110 slave and master device trees.
+> 
+> This was tested on an Armada 8040 mcbin, as well as on both the
+> Armada 7040 DB and the Armada 8040 DB to ensure the SMI interface
+> was still working.
+> 
+> @Dave: patch 11 should go through the mvebu tree as asked by Gregory,
+> thanks!
 
-You should fix this by adding error check in the netlink portion
-that allows creating devices with given ifindex. Passing < 0
-should be an error.
+Patches 1-10 applied to net-next, thanks.
