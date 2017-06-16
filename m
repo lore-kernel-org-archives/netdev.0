@@ -1,47 +1,47 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC 1/3] networking: make skb_put & friends return void
- pointers
-Date: Fri, 16 Jun 2017 03:39:18 -0700
-Message-ID: <1497609558.10546.5.camel@perches.com>
-References: <20170615221217.16510-1-johannes@sipsolutions.net>
-         <20170615221217.16510-2-johannes@sipsolutions.net>
-         <871sqke5co.fsf@miraculix.mork.no>
-         <1497602577.2622.5.camel@sipsolutions.net>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: Request for -stable inclusion (xt_TCPMSS)
+Date: Fri, 16 Jun 2017 12:52:11 +0200
+Message-ID: <20170616105211.7byovh3uxlgozyle@alphalink.fr>
+References: <20170616074516.yzgd7sqqigjepx37@alphalink.fr>
+ <20170616095912.GB1963@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>,
-        =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Denys Fedoryshchenko <nuclearcat@nuclearcat.com>,
+        netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0216.hostedemail.com ([216.40.44.216]:33046 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752436AbdFPKjV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 06:39:21 -0400
-In-Reply-To: <1497602577.2622.5.camel@sipsolutions.net>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:41176 "EHLO
+        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750899AbdFPKwP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 06:52:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20170616095912.GB1963@salvia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-06-16 at 10:42 +0200, Johannes Berg wrote:
-> On Fri, 2017-06-16 at 09:53 +0200, Bjørn Mork wrote:
+On Fri, Jun 16, 2017 at 11:59:12AM +0200, Pablo Neira Ayuso wrote:
+> Hi Guillaume,
 > 
-> > There seem to be a large number of places where the char pointer was
-> > used directly. Not that I have any strong opinion either way, but
-> > adding lots of ugly casts like this seems to contradict the whole
-> > purpose of this change?:
-> > > -			*skb_put(info->rx_skb, 1) = x;
-> > > +			*(u8 *)skb_put(info->rx_skb, 1) = x;
-> > >  			inb(iobase + DATA_H);
-> > >  			info->rx_count--;
-> > >  
+> On Fri, Jun 16, 2017 at 09:45:17AM +0200, Guillaume Nault wrote:
+> > Hi David,
 > > 
-> > That does not look any better in my eyes, and there are ... what?
-> > ... hundreds of them?
+> > Please queue 2638fd0f92d4 ("netfilter: xt_TCPMSS: add more sanity tests on tcph->doff")
+> > for -stable.
+> > It fixes hard to debug crashes in production, that can be triggered by
+> > remote peers.
 > 
-> Yeah it's a bit of a trade-off. There are ~140 of these, but >200 of
-> the removed casts. Joe also suggested we could replace these by
-> skb_put_u8() or so, which would be indeed be nicer. I can send a patch,
-> it's pretty simple.
+> What stable kernels you want this in? Does this apply cleanly to them
+> all?
+> 
+I need it (and reviewed/tested it) for 4.9. But the patch applies
+cleanly and looks necessary for all stable versions >= 3.16 (not
+tested though).
 
-I would suggest avoiding using skb_put_u8 as it
-would suggest there should be skb_put_u16 etc
+> I can route this for you directly to stable@vger.kernel.org once we
+> sort out these questions.
+> 
+> Thanks!
+Great, thanks Pablo. But do you mean I should have Cc-ed
+stable@vger.kernel.org directly?
