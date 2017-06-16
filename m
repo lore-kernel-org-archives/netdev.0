@@ -1,35 +1,33 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [patch iproute2/net-next] tc: don't print error message on miss
- when parsing control action with default
-Date: Fri, 16 Jun 2017 09:08:27 -0700
-Message-ID: <20170616090827.780ef02a@xeon-e3>
-References: <20170615121051.1877-1-jiri@resnulli.us>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Request for -stable inclusion (xt_TCPMSS)
+Date: Fri, 16 Jun 2017 12:10:41 -0400 (EDT)
+Message-ID: <20170616.121041.1690932428093762139.davem@davemloft.net>
+References: <20170616074516.yzgd7sqqigjepx37@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jbenc@redhat.com, mlxsw@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: eric.dumazet@gmail.com, nuclearcat@nuclearcat.com,
+        pablo@netfilter.org, netdev@vger.kernel.org
+To: g.nault@alphalink.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:34950 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750792AbdFPQIe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 12:08:34 -0400
-Received: by mail-pg0-f50.google.com with SMTP id k71so22195565pgd.2
-        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 09:08:34 -0700 (PDT)
-In-Reply-To: <20170615121051.1877-1-jiri@resnulli.us>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60910 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750750AbdFPQKn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 12:10:43 -0400
+In-Reply-To: <20170616074516.yzgd7sqqigjepx37@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 15 Jun 2017 14:10:51 +0200
-Jiri Pirko <jiri@resnulli.us> wrote:
+From: Guillaume Nault <g.nault@alphalink.fr>
+Date: Fri, 16 Jun 2017 09:45:17 +0200
 
-> From: Jiri Pirko <jiri@mellanox.com>
+> Hi David,
 > 
-> In case default control action parsing takes place, it is ok to miss.
-> So don't print error message.
-> 
-> Fixes: e67aba559581 ("tc: actions: add helpers to parse and print control actions")
-> Reported-by: Jiri Benc <jbenc@redhat.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> Please queue 2638fd0f92d4 ("netfilter: xt_TCPMSS: add more sanity tests on tcph->doff")
+> for -stable.
+> It fixes hard to debug crashes in production, that can be triggered by
+> remote peers.
 
-Applied to net-next
+Pablo handles netfilter -stable submissions, so please ask him.
+
+Thank you.
