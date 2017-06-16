@@ -1,76 +1,49 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 44/44] powerpc: merge __dma_set_mask into dma_set_mask
-Date: Fri, 16 Jun 2017 20:10:59 +0200
-Message-ID: <20170616181059.19206-45-hch@lst.de>
+Subject: [PATCH 36/44] dma-mapping: remove
+	HAVE_ARCH_DMA_SUPPORTED
+Date: Fri, 16 Jun 2017 20:10:51 +0200
+Message-ID: <20170616181059.19206-37-hch@lst.de>
 References: <20170616181059.19206-1-hch@lst.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: linux-kernel@vger.kernel.org
 To: x86@kernel.org, linux-arm-kernel@lists.infradead.org,
-        xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
-        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
-        linux-mips@linux-mips.org, openrisc@lists.librecores.org,
-        linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
-        linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
-        linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
-        linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
-        linux-samsung-soc@vger.kernel.org,
-        iommu@lists.linux-foundation.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([65.50.211.133]:35593 "EHLO
-        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752582AbdFPSNs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 14:13:48 -0400
+ xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
+ linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
+ linux-mips@linux-mips.org, openrisc@lists.librecores.org,
+ linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
+ linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
+ linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
+ linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
+ linux-samsung-soc@vger.kernel.org, iommu@lists.linux-foundation.org,
+ netdev@vger.kernel.org
+Return-path: <xen-devel-bounces@lists.xen.org>
 In-Reply-To: <20170616181059.19206-1-hch@lst.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
----
- arch/powerpc/include/asm/dma-mapping.h |  1 -
- arch/powerpc/kernel/dma.c              | 13 ++++---------
- 2 files changed, 4 insertions(+), 10 deletions(-)
-
-diff --git a/arch/powerpc/include/asm/dma-mapping.h b/arch/powerpc/include/asm/dma-mapping.h
-index 73aedbe6c977..eaece3d3e225 100644
---- a/arch/powerpc/include/asm/dma-mapping.h
-+++ b/arch/powerpc/include/asm/dma-mapping.h
-@@ -112,7 +112,6 @@ static inline void set_dma_offset(struct device *dev, dma_addr_t off)
- #define HAVE_ARCH_DMA_SET_MASK 1
- extern int dma_set_mask(struct device *dev, u64 dma_mask);
- 
--extern int __dma_set_mask(struct device *dev, u64 dma_mask);
- extern u64 __dma_get_required_mask(struct device *dev);
- 
- static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size)
-diff --git a/arch/powerpc/kernel/dma.c b/arch/powerpc/kernel/dma.c
-index 466c9f07b288..4194bbbbdb10 100644
---- a/arch/powerpc/kernel/dma.c
-+++ b/arch/powerpc/kernel/dma.c
-@@ -314,14 +314,6 @@ EXPORT_SYMBOL(dma_set_coherent_mask);
- 
- #define PREALLOC_DMA_DEBUG_ENTRIES (1 << 16)
- 
--int __dma_set_mask(struct device *dev, u64 dma_mask)
--{
--	if (!dev->dma_mask || !dma_supported(dev, dma_mask))
--		return -EIO;
--	*dev->dma_mask = dma_mask;
--	return 0;
--}
--
- int dma_set_mask(struct device *dev, u64 dma_mask)
- {
- 	if (ppc_md.dma_set_mask)
-@@ -334,7 +326,10 @@ int dma_set_mask(struct device *dev, u64 dma_mask)
- 			return phb->controller_ops.dma_set_mask(pdev, dma_mask);
- 	}
- 
--	return __dma_set_mask(dev, dma_mask);
-+	if (!dev->dma_mask || !dma_supported(dev, dma_mask))
-+		return -EIO;
-+	*dev->dma_mask = dma_mask;
-+	return 0;
- }
- EXPORT_SYMBOL(dma_set_mask);
- 
--- 
-2.11.0
+U2lnbmVkLW9mZi1ieTogQ2hyaXN0b3BoIEhlbGx3aWcgPGhjaEBsc3QuZGU+Ci0tLQogaW5jbHVk
+ZS9saW51eC9kbWEtbWFwcGluZy5oIHwgMiAtLQogMSBmaWxlIGNoYW5nZWQsIDIgZGVsZXRpb25z
+KC0pCgpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9kbWEtbWFwcGluZy5oIGIvaW5jbHVkZS9s
+aW51eC9kbWEtbWFwcGluZy5oCmluZGV4IGE1Nzg3NTMwOWJmZC4uM2U1OTA4NjU2MjI2IDEwMDY0
+NAotLS0gYS9pbmNsdWRlL2xpbnV4L2RtYS1tYXBwaW5nLmgKKysrIGIvaW5jbHVkZS9saW51eC9k
+bWEtbWFwcGluZy5oCkBAIC01NDksNyArNTQ5LDYgQEAgc3RhdGljIGlubGluZSBpbnQgZG1hX21h
+cHBpbmdfZXJyb3Ioc3RydWN0IGRldmljZSAqZGV2LCBkbWFfYWRkcl90IGRtYV9hZGRyKQogCXJl
+dHVybiAwOwogfQogCi0jaWZuZGVmIEhBVkVfQVJDSF9ETUFfU1VQUE9SVEVECiBzdGF0aWMgaW5s
+aW5lIGludCBkbWFfc3VwcG9ydGVkKHN0cnVjdCBkZXZpY2UgKmRldiwgdTY0IG1hc2spCiB7CiAJ
+Y29uc3Qgc3RydWN0IGRtYV9tYXBfb3BzICpvcHMgPSBnZXRfZG1hX29wcyhkZXYpOwpAQCAtNTYw
+LDcgKzU1OSw2IEBAIHN0YXRpYyBpbmxpbmUgaW50IGRtYV9zdXBwb3J0ZWQoc3RydWN0IGRldmlj
+ZSAqZGV2LCB1NjQgbWFzaykKIAkJcmV0dXJuIDE7CiAJcmV0dXJuIG9wcy0+ZG1hX3N1cHBvcnRl
+ZChkZXYsIG1hc2spOwogfQotI2VuZGlmCiAKICNpZm5kZWYgSEFWRV9BUkNIX0RNQV9TRVRfTUFT
+Swogc3RhdGljIGlubGluZSBpbnQgZG1hX3NldF9tYXNrKHN0cnVjdCBkZXZpY2UgKmRldiwgdTY0
+IG1hc2spCi0tIAoyLjExLjAKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fXwpYZW4tZGV2ZWwgbWFpbGluZyBsaXN0Clhlbi1kZXZlbEBsaXN0cy54ZW4ub3Jn
+Cmh0dHBzOi8vbGlzdHMueGVuLm9yZy94ZW4tZGV2ZWwK
