@@ -1,109 +1,57 @@
-From: Serhey Popovych <serhe.popovych@gmail.com>
-Subject: ipv6: Do not leak throw route references
-Date: Fri, 16 Jun 2017 14:42:17 +0300
-Message-ID: <1497613337-24027-1-git-send-email-serhe.popovych@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:36803 "EHLO
-        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750899AbdFPLmj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 07:42:39 -0400
-Received: by mail-lf0-f65.google.com with SMTP id x81so3885469lfb.3
-        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 04:42:33 -0700 (PDT)
-Received: from tuxracer.synapse.com ([195.238.92.77])
-        by smtp.gmail.com with ESMTPSA id 90sm544966lfs.9.2017.06.16.04.42.26
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Fri, 16 Jun 2017 04:42:26 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: [PATCH v2 11/11] kasan: rework Kconfig settings
+Date: Fri, 16 Jun 2017 13:44:50 +0200
+Message-ID: <CACT4Y+ZGbvy5jK=ouHxgcSKkCdvJBM6=4Gkd1sGvzOZvKg79GQ@mail.gmail.com>
+References: <20170614211556.2062728-1-arnd@arndb.de> <20170614211556.2062728-12-arnd@arndb.de>
+ <CACT4Y+aNMBbkb8b+wwrdhVVxH-1NwgUm+vwXqUggmLnGK-8Q4w@mail.gmail.com> <CAK8P3a18fdnNNSMdxCG13LTFQwQgYmr9ZiBp_r86M5KyFKFqHA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+        kasan-dev <kasan-dev@googlegroups.com>,
+        Alexander Potapenko <glider@google.com>,
+        Andrey Ryabinin <aryabinin@virtuozzo.com>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Masahiro Yamada <yamada.masahiro@socionext.com>,
+        Michal Marek <mmarek@suse.com>,
+        Kees Cook <keescook@chromium.org>,
+        Ingo Molnar <mingo@kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        "open list:KERNEL BUILD + fi..." <linux-kbuild@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <CAK8P3a18fdnNNSMdxCG13LTFQwQgYmr9ZiBp_r86M5KyFKFqHA@mail.gmail.com>
+Sender: linux-kbuild-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-While commit 73ba57b (ipv6: fix backtracking for throw routes)
-does good job on error propagation to the fib_rules_lookup()
-in fib rules core framework that also corrects throw routes
-handling, it does not solve route reference leakage problem
-happened when we return -EAGAIN to the fib_rules_lookup()
-and leave routing table entry referenced in arg->result.
+On Fri, Jun 16, 2017 at 1:42 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+>>> diff --git a/lib/Kconfig.kmemcheck b/lib/Kconfig.kmemcheck
+>>> index 846e039a86b4..58b9f3f81dc8 100644
+>>> --- a/lib/Kconfig.kmemcheck
+>>> +++ b/lib/Kconfig.kmemcheck
+>>> @@ -7,6 +7,7 @@ menuconfig KMEMCHECK
+>>>         bool "kmemcheck: trap use of uninitialized memory"
+>>>         depends on DEBUG_KERNEL
+>>>         depends on !X86_USE_3DNOW
+>>> +       depends on !KASAN_EXTRA
+>>
+>>
+>> KASAN is not meant to work with KMEMCHECK. I am not sure if it even
+>> works, and it's definitely unmaintained. Even if it works now, I am
+>> not sure what could be the intention of somebody running that
+>> combination.
+>> So I think we should do: depends on !KASAN
+>> Will it make things simper for you?
+>
+> I don't think it will change anything for me, other than having to respin the
+> patch series or adding a patch on top.
+>
+> I have just checked that KMEMCHECK is already disabled in allmodconfig,
+> and all but one of the warnings I address in the series show up in
+> allmodconfig too.
 
-If rule with matched throw route isn't last matched in the
-list we overwrite arg->result loosing reference on throw
-route stored previously forever.
+Ack.
 
-We also partially revert commit ab997ad (ipv6: fix the
-incorrect return value of throw route) since we never return
-routing table entry with dst.error == -EAGAIN when
-CONFIG_IPV6_MULTIPLE_TABLES is on. Also there is no point
-to check for RTF_REJECT flag since it is always set throw
-route.
-
-Fixes: 73ba57b (ipv6: fix backtracking for throw routes)
-Signed-off-by: Serhey Popovych <serhe.popovych@gmail.com>
----
- net/ipv6/fib6_rules.c |   22 ++++++----------------
- net/ipv6/ip6_fib.c    |    3 +--
- 2 files changed, 7 insertions(+), 18 deletions(-)
-
-diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index 11318b7..65a3c62 100644
---- a/net/ipv6/fib6_rules.c
-+++ b/net/ipv6/fib6_rules.c
-@@ -33,7 +33,6 @@ struct fib6_rule
- struct dst_entry *fib6_rule_lookup(struct net *net, struct flowi6 *fl6,
- 				   int flags, pol_lookup_t lookup)
- {
--	struct rt6_info *rt;
- 	struct fib_lookup_arg arg = {
- 		.lookup_ptr = lookup,
- 		.flags = FIB_LOOKUP_NOREF,
-@@ -42,21 +41,11 @@ struct dst_entry *fib6_rule_lookup(struct net *net, struct flowi6 *fl6,
- 	fib_rules_lookup(net->ipv6.fib6_rules_ops,
- 			 flowi6_to_flowi(fl6), flags, &arg);
- 
--	rt = arg.result;
-+	if (arg.result)
-+		return arg.result;
- 
--	if (!rt) {
--		dst_hold(&net->ipv6.ip6_null_entry->dst);
--		return &net->ipv6.ip6_null_entry->dst;
--	}
--
--	if (rt->rt6i_flags & RTF_REJECT &&
--	    rt->dst.error == -EAGAIN) {
--		ip6_rt_put(rt);
--		rt = net->ipv6.ip6_null_entry;
--		dst_hold(&rt->dst);
--	}
--
--	return &rt->dst;
-+	dst_hold(&net->ipv6.ip6_null_entry->dst);
-+	return &net->ipv6.ip6_null_entry->dst;
- }
- 
- static int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
-@@ -117,7 +106,8 @@ static int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
- 			ipv6_addr_copy(&flp6->saddr, &saddr);
- 		}
- 		err = rt->dst.error;
--		goto out;
-+		if (err != -EAGAIN)
-+			goto out;
- 	}
- again:
- 	ip6_rt_put(rt);
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index d3cd013..32f91cd 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -249,8 +249,7 @@ struct dst_entry *fib6_rule_lookup(struct net *net, struct flowi6 *fl6,
- 	table = fib6_get_table(net, RT6_TABLE_MAIN);
- 	if (table) {
- 		rt = lookup(net, table, fl6, flags);
--		if (rt->rt6i_flags & RTF_REJECT &&
--		    rt->dst.error == -EAGAIN) {
-+		if (rt->dst.error == -EAGAIN) {
- 			ip6_rt_put(rt);
- 			rt = NULL;
- 		}
--- 
-1.7.10.4
+We can disable it if/when KASAN+KMEMCHECK combination requires any
+additional work, or causes user confusion.
