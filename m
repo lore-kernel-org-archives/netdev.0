@@ -1,239 +1,201 @@
-From: Ivan Delalande <colona@arista.com>
-Subject: [PATCH v3 1/2] tcp: md5: add an address prefix for key lookup
-Date: Thu, 15 Jun 2017 18:07:06 -0700
-Message-ID: <20170616010707.27666-1-colona@arista.com>
-References: <20170610021449.16091-1-colona@arista.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Ivan Delalande <colona@arista.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170610021449.16091-1-colona@arista.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH v4 2/3] PCI: Enable PCIe Relaxed Ordering if supported
+Date: Fri, 16 Jun 2017 09:10:50 +0800
+Message-ID: <5854930e-af6a-4274-2822-cf38e5967da3@huawei.com>
+References: <1497265525-4752-1-git-send-email-dingtianhong@huawei.com>
+ <1497265525-4752-3-git-send-email-dingtianhong@huawei.com>
+ <CAKgT0UfMCTjRWVnYiz-7BaV6NxK+kHm9PppgVp+_sNhfVgKviQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland@arm.com>,
+ Gabriele Paoloni <gabriele.paoloni@huawei.com>,
+ Asit K Mallick <asit.k.mallick@intel.com>,
+ Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>,
+ Ashok Raj <ashok.raj@intel.com>, Bjorn Helgaas <helgaas@kernel.org>,
+ Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+ "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+ Ganesh Goudar <ganeshgr@chelsio.com>, Bob Shaw <Bob.Shaw@amd.com>,
+ Casey Leedom <leedom@chelsio.com>,
+ Patrick J Cramer <patrick.j.cramer@intel.com>,
+ Michael Werner <werner@chelsio.com>, linux-arm-kernel@lists.infradead.org,
+ Amir Ancel <amira@mellanox.com>, Netdev <netdev@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ David Laight <David.Laight@aculab.com>,
+ Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
+ Robin Murphy <robin.murphy@arm.com>, David Miller <davem@
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <CAKgT0UfMCTjRWVnYiz-7BaV6NxK+kHm9PppgVp+_sNhfVgKviQ@mail.gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-This allows the keys used for TCP MD5 signature to be used for whole
-range of addresses, specified with a prefix length, instead of only one
-address as it currently is.
 
-Signed-off-by: Bob Gilligan <gilligan@arista.com>
-Signed-off-by: Eric Mowat <mowat@arista.com>
-Signed-off-by: Ivan Delalande <colona@arista.com>
----
- include/net/tcp.h   |  6 +++--
- net/ipv4/tcp_ipv4.c | 68 ++++++++++++++++++++++++++++++++++++++++++++++-------
- net/ipv6/tcp_ipv6.c | 12 ++++++----
- 3 files changed, 70 insertions(+), 16 deletions(-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 38a7427ae902..2b68023ab095 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1395,6 +1395,7 @@ struct tcp_md5sig_key {
- 	u8			keylen;
- 	u8			family; /* AF_INET or AF_INET6 */
- 	union tcp_md5_addr	addr;
-+	u8			prefixlen;
- 	u8			key[TCP_MD5SIG_MAXKEYLEN];
- 	struct rcu_head		rcu;
- };
-@@ -1438,9 +1439,10 @@ struct tcp_md5sig_pool {
- int tcp_v4_md5_hash_skb(char *md5_hash, const struct tcp_md5sig_key *key,
- 			const struct sock *sk, const struct sk_buff *skb);
- int tcp_md5_do_add(struct sock *sk, const union tcp_md5_addr *addr,
--		   int family, const u8 *newkey, u8 newkeylen, gfp_t gfp);
-+		   int family, u8 prefixlen, const u8 *newkey, u8 newkeylen,
-+		   gfp_t gfp);
- int tcp_md5_do_del(struct sock *sk, const union tcp_md5_addr *addr,
--		   int family);
-+		   int family, u8 prefixlen);
- struct tcp_md5sig_key *tcp_v4_md5_lookup(const struct sock *sk,
- 					 const struct sock *addr_sk);
- 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 5ab2aac5ca19..51ca3bd5a8a3 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -80,6 +80,7 @@
- #include <linux/stddef.h>
- #include <linux/proc_fs.h>
- #include <linux/seq_file.h>
-+#include <linux/inetdevice.h>
- 
- #include <crypto/hash.h>
- #include <linux/scatterlist.h>
-@@ -906,6 +907,9 @@ struct tcp_md5sig_key *tcp_md5_do_lookup(const struct sock *sk,
- 	struct tcp_md5sig_key *key;
- 	unsigned int size = sizeof(struct in_addr);
- 	const struct tcp_md5sig_info *md5sig;
-+	__be32 mask;
-+	struct tcp_md5sig_key *best_match = NULL;
-+	bool match;
- 
- 	/* caller either holds rcu_read_lock() or socket lock */
- 	md5sig = rcu_dereference_check(tp->md5sig_info,
-@@ -919,12 +923,55 @@ struct tcp_md5sig_key *tcp_md5_do_lookup(const struct sock *sk,
- 	hlist_for_each_entry_rcu(key, &md5sig->head, node) {
- 		if (key->family != family)
- 			continue;
--		if (!memcmp(&key->addr, addr, size))
-+
-+		if (family == AF_INET) {
-+			mask = inet_make_mask(key->prefixlen);
-+			match = (key->addr.a4.s_addr & mask) ==
-+				(addr->a4.s_addr & mask);
-+#if IS_ENABLED(CONFIG_IPV6)
-+		} else if (family == AF_INET6) {
-+			match = ipv6_prefix_equal(&key->addr.a6, &addr->a6,
-+						  key->prefixlen);
-+#endif
-+		} else {
-+			match = false;
-+		}
-+
-+		if (match && (!best_match ||
-+			      key->prefixlen > best_match->prefixlen))
-+			best_match = key;
-+	}
-+	return best_match;
-+}
-+EXPORT_SYMBOL(tcp_md5_do_lookup);
-+
-+struct tcp_md5sig_key *tcp_md5_do_lookup_exact(const struct sock *sk,
-+					       const union tcp_md5_addr *addr,
-+					       int family, u8 prefixlen)
-+{
-+	const struct tcp_sock *tp = tcp_sk(sk);
-+	struct tcp_md5sig_key *key;
-+	unsigned int size = sizeof(struct in_addr);
-+	const struct tcp_md5sig_info *md5sig;
-+
-+	/* caller either holds rcu_read_lock() or socket lock */
-+	md5sig = rcu_dereference_check(tp->md5sig_info,
-+				       lockdep_sock_is_held(sk));
-+	if (!md5sig)
-+		return NULL;
-+#if IS_ENABLED(CONFIG_IPV6)
-+	if (family == AF_INET6)
-+		size = sizeof(struct in6_addr);
-+#endif
-+	hlist_for_each_entry_rcu(key, &md5sig->head, node) {
-+		if (key->family != family)
-+			continue;
-+		if (!memcmp(&key->addr, addr, size) &&
-+		    key->prefixlen == prefixlen)
- 			return key;
- 	}
- 	return NULL;
- }
--EXPORT_SYMBOL(tcp_md5_do_lookup);
- 
- struct tcp_md5sig_key *tcp_v4_md5_lookup(const struct sock *sk,
- 					 const struct sock *addr_sk)
-@@ -938,14 +985,15 @@ EXPORT_SYMBOL(tcp_v4_md5_lookup);
- 
- /* This can be called on a newly created socket, from other files */
- int tcp_md5_do_add(struct sock *sk, const union tcp_md5_addr *addr,
--		   int family, const u8 *newkey, u8 newkeylen, gfp_t gfp)
-+		   int family, u8 prefixlen, const u8 *newkey, u8 newkeylen,
-+		   gfp_t gfp)
- {
- 	/* Add Key to the list */
- 	struct tcp_md5sig_key *key;
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct tcp_md5sig_info *md5sig;
- 
--	key = tcp_md5_do_lookup(sk, addr, family);
-+	key = tcp_md5_do_lookup_exact(sk, addr, family, prefixlen);
- 	if (key) {
- 		/* Pre-existing entry - just update that one. */
- 		memcpy(key->key, newkey, newkeylen);
-@@ -976,6 +1024,7 @@ int tcp_md5_do_add(struct sock *sk, const union tcp_md5_addr *addr,
- 	memcpy(key->key, newkey, newkeylen);
- 	key->keylen = newkeylen;
- 	key->family = family;
-+	key->prefixlen = prefixlen;
- 	memcpy(&key->addr, addr,
- 	       (family == AF_INET6) ? sizeof(struct in6_addr) :
- 				      sizeof(struct in_addr));
-@@ -984,11 +1033,12 @@ int tcp_md5_do_add(struct sock *sk, const union tcp_md5_addr *addr,
- }
- EXPORT_SYMBOL(tcp_md5_do_add);
- 
--int tcp_md5_do_del(struct sock *sk, const union tcp_md5_addr *addr, int family)
-+int tcp_md5_do_del(struct sock *sk, const union tcp_md5_addr *addr, int family,
-+		   u8 prefixlen)
- {
- 	struct tcp_md5sig_key *key;
- 
--	key = tcp_md5_do_lookup(sk, addr, family);
-+	key = tcp_md5_do_lookup_exact(sk, addr, family, prefixlen);
- 	if (!key)
- 		return -ENOENT;
- 	hlist_del_rcu(&key->node);
-@@ -1031,13 +1081,13 @@ static int tcp_v4_parse_md5_keys(struct sock *sk, char __user *optval,
- 
- 	if (!cmd.tcpm_keylen)
- 		return tcp_md5_do_del(sk, (union tcp_md5_addr *)&sin->sin_addr.s_addr,
--				      AF_INET);
-+				      AF_INET, 32);
- 
- 	if (cmd.tcpm_keylen > TCP_MD5SIG_MAXKEYLEN)
- 		return -EINVAL;
- 
- 	return tcp_md5_do_add(sk, (union tcp_md5_addr *)&sin->sin_addr.s_addr,
--			      AF_INET, cmd.tcpm_key, cmd.tcpm_keylen,
-+			      AF_INET, 32, cmd.tcpm_key, cmd.tcpm_keylen,
- 			      GFP_KERNEL);
- }
- 
-@@ -1340,7 +1390,7 @@ struct sock *tcp_v4_syn_recv_sock(const struct sock *sk, struct sk_buff *skb,
- 		 * across. Shucks.
- 		 */
- 		tcp_md5_do_add(newsk, (union tcp_md5_addr *)&newinet->inet_daddr,
--			       AF_INET, key->key, key->keylen, GFP_ATOMIC);
-+			       AF_INET, 32, key->key, key->keylen, GFP_ATOMIC);
- 		sk_nocaps_add(newsk, NETIF_F_GSO_MASK);
- 	}
- #endif
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 7a8237acd210..5cf19dab60aa 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -532,9 +532,9 @@ static int tcp_v6_parse_md5_keys(struct sock *sk, char __user *optval,
- 	if (!cmd.tcpm_keylen) {
- 		if (ipv6_addr_v4mapped(&sin6->sin6_addr))
- 			return tcp_md5_do_del(sk, (union tcp_md5_addr *)&sin6->sin6_addr.s6_addr32[3],
--					      AF_INET);
-+					      AF_INET, 32);
- 		return tcp_md5_do_del(sk, (union tcp_md5_addr *)&sin6->sin6_addr,
--				      AF_INET6);
-+				      AF_INET6, 128);
- 	}
- 
- 	if (cmd.tcpm_keylen > TCP_MD5SIG_MAXKEYLEN)
-@@ -542,10 +542,12 @@ static int tcp_v6_parse_md5_keys(struct sock *sk, char __user *optval,
- 
- 	if (ipv6_addr_v4mapped(&sin6->sin6_addr))
- 		return tcp_md5_do_add(sk, (union tcp_md5_addr *)&sin6->sin6_addr.s6_addr32[3],
--				      AF_INET, cmd.tcpm_key, cmd.tcpm_keylen, GFP_KERNEL);
-+				      AF_INET, 32, cmd.tcpm_key,
-+				      cmd.tcpm_keylen, GFP_KERNEL);
- 
- 	return tcp_md5_do_add(sk, (union tcp_md5_addr *)&sin6->sin6_addr,
--			      AF_INET6, cmd.tcpm_key, cmd.tcpm_keylen, GFP_KERNEL);
-+			      AF_INET6, 128, cmd.tcpm_key, cmd.tcpm_keylen,
-+			      GFP_KERNEL);
- }
- 
- static int tcp_v6_md5_hash_headers(struct tcp_md5sig_pool *hp,
-@@ -1183,7 +1185,7 @@ static struct sock *tcp_v6_syn_recv_sock(const struct sock *sk, struct sk_buff *
- 		 * across. Shucks.
- 		 */
- 		tcp_md5_do_add(newsk, (union tcp_md5_addr *)&newsk->sk_v6_daddr,
--			       AF_INET6, key->key, key->keylen,
-+			       AF_INET6, 128, key->key, key->keylen,
- 			       sk_gfp_mask(sk, GFP_ATOMIC));
- 	}
- #endif
--- 
-2.13.1
+On 2017/6/13 5:28, Alexander Duyck wrote:
+> On Mon, Jun 12, 2017 at 4:05 AM, Ding Tianhong <dingtianhong@huawei.com> wrote:
+...
+>>  /**
+>> + * pcie_clear_relaxed_ordering - clear PCI Express relaxed ordering bit
+>> + * @dev: PCI device to query
+>> + *
+>> + * If possible clear relaxed ordering
+>> + */
+>> +int pcie_clear_relaxed_ordering(struct pci_dev *dev)
+>> +{
+>> +       return pcie_capability_clear_word(dev, PCI_EXP_DEVCTL,
+>> +                                         PCI_EXP_DEVCTL_RELAX_EN);
+>> +}
+>> +EXPORT_SYMBOL(pcie_clear_relaxed_ordering);
+>> +
+>> +/**
+>> + * pcie_relaxed_ordering_supported - Probe for PCIe relexed ordering support
+>> + * @dev: PCI device to query
+>> + *
+>> + * Returns true if the device support relaxed ordering attribute.
+>> + */
+>> +bool pcie_relaxed_ordering_supported(struct pci_dev *dev)
+>> +{
+>> +       bool ro_supported = false;
+>> +       u16 v;
+>> +
+>> +       pcie_capability_read_word(dev, PCI_EXP_DEVCTL, &v);
+>> +       if ((v & PCI_EXP_DEVCTL_RELAX_EN) >> 4)
+>> +               ro_supported = true;
+> 
+> Instead of "return ro_supported" why not just "return !!(v &
+> PCIE_EXP_DEVCTL_RELAX_EN)"? You can cut out the extra steps and save
+> yourself some extra steps this way since the shift by 4 shouldn't even
+> really be needed since you are just testing for a bit anyway.
+> 
+
+OK.
+
+>> +
+>> +       return ro_supported;
+>> +}
+>> +EXPORT_SYMBOL(pcie_relaxed_ordering_supported);
+>> +
+>> +/**
+>>   * pcie_get_minimum_link - determine minimum link settings of a PCI device
+>>   * @dev: PCI device to query
+>>   * @speed: storage for minimum speed
+>> diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+>> index 19c8950..ed1f717 100644
+>> --- a/drivers/pci/probe.c
+>> +++ b/drivers/pci/probe.c
+>> @@ -1701,6 +1701,46 @@ static void pci_configure_extended_tags(struct pci_dev *dev)
+>>                                          PCI_EXP_DEVCTL_EXT_TAG);
+>>  }
+>>
+>> +/**
+>> + * pci_dev_should_disable_relaxed_ordering - check if the PCI device
+>> + * should disable the relaxed ordering attribute.
+>> + * @dev: PCI device
+>> + *
+>> + * Return true if any of the PCI devices above us do not support
+>> + * relaxed ordering.
+>> + */
+>> +static bool pci_dev_should_disable_relaxed_ordering(struct pci_dev *dev)
+>> +{
+>> +       bool ro_disabled = false;
+>> +
+>> +       while (dev) {
+>> +               if (dev->dev_flags & PCI_DEV_FLAGS_NO_RELAXED_ORDERING) {
+>> +                       ro_disabled = true;
+>> +                       break;
+>> +               }
+>> +               dev = dev->bus->self;
+>> +       }
+>> +
+>> +       return ro_disabled;
+> 
+> Same thing here. I would suggest just returning either true or false,
+> and drop the ro_disabled value. It will return the lines of code and
+> make things a bit bit more direct.
+> 
+
+OK.
+
+>> +}
+>> +
+>> +static void pci_configure_relaxed_ordering(struct pci_dev *dev)
+>> +{
+>> +       struct pci_dev *bridge = pci_upstream_bridge(dev);
+>> +
+>> +       if (!pci_is_pcie(dev) || !bridge || !pci_is_pcie(bridge))
+>> +               return;
+> 
+> The pci_is_pcie check is actually redundant based on the
+> pcie_relaxed_ordering_supported check using pcie_capability_read_word.
+>
+
+Yes, pcie_capability_read_word already check it, thanks.
+
+
+> Also I am not sure what the point is of the pci_upstream_bridge()
+> check is, it seems like you should be able to catch all the same stuff
+> in your pci_dev_should_disable_relaxed_ordering() call. Though it did
+> give me a thought. I don't think we can alter this for a VF, so you
+> might want to add a check for dev->is_virtfn to the list of checks and
+> if it is a virtual function just return since I don't think there are
+> any VFs that would let you alter this bit anyway.
+> 
+If the upstream device is null, does it mean that it is in a guest OS device? maybe I miss something.
+also I will check the dev->is_virtfn to avoid trying to change the configuration space for VF.
+
+Another question: Because it looks like that maybe the Casey is too busy these days, should we
+delay the modification of the cxgb4 and instead to update the ixgbe? what do you think about it. :)
+
+Thanks.
+Ding
+
+>> +       /* If the releaxed ordering enable bit is not set, do nothing. */
+>> +       if (!pcie_relaxed_ordering_supported(dev))
+>> +               return;
+>> +
+>> +       if (pci_dev_should_disable_relaxed_ordering(dev)) {
+>> +               pcie_clear_relaxed_ordering(dev);
+>> +               dev_info(&dev->dev, "Disable Relaxed Ordering\n");
+>> +       }
+>> +}
+>> +
+>>  static void pci_configure_device(struct pci_dev *dev)
+>>  {
+>>         struct hotplug_params hpp;
+>> @@ -1708,6 +1748,7 @@ static void pci_configure_device(struct pci_dev *dev)
+>>
+>>         pci_configure_mps(dev);
+>>         pci_configure_extended_tags(dev);
+>> +       pci_configure_relaxed_ordering(dev);
+>>
+>>         memset(&hpp, 0, sizeof(hpp));
+>>         ret = pci_get_hp_params(dev, &hpp);
+>> diff --git a/include/linux/pci.h b/include/linux/pci.h
+>> index e1e8428..9870781 100644
+>> --- a/include/linux/pci.h
+>> +++ b/include/linux/pci.h
+>> @@ -1105,6 +1105,8 @@ int __pci_enable_wake(struct pci_dev *dev, pci_power_t state,
+>>  void pci_pme_wakeup_bus(struct pci_bus *bus);
+>>  void pci_d3cold_enable(struct pci_dev *dev);
+>>  void pci_d3cold_disable(struct pci_dev *dev);
+>> +int pcie_clear_relaxed_ordering(struct pci_dev *dev);
+>> +bool pcie_relaxed_ordering_supported(struct pci_dev *dev);
+>>
+>>  static inline int pci_enable_wake(struct pci_dev *dev, pci_power_t state,
+>>                                   bool enable)
+>> --
+>> 1.9.0
+>>
+>>
+> 
+> .
+> 
