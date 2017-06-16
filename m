@@ -1,117 +1,96 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [RFC net-next 7/8] xdp: add reporting of offload mode
-Date: Fri, 16 Jun 2017 16:57:45 -0700
-Message-ID: <20170616235746.16337-8-jakub.kicinski@netronome.com>
+Subject: [RFC net-next 3/8] nfp: xdp: move driver XDP setup into a separate function
+Date: Fri, 16 Jun 2017 16:57:41 -0700
+Message-ID: <20170616235746.16337-4-jakub.kicinski@netronome.com>
 References: <20170616235746.16337-1-jakub.kicinski@netronome.com>
 Cc: davem@davemloft.net, kafai@fb.com, daniel@iogearbox.net,
         netoptimizer@brouer.com, oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:35461 "EHLO
-        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752385AbdFPX6f (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 19:58:35 -0400
-Received: by mail-pf0-f177.google.com with SMTP id l89so28869436pfi.2
-        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 16:58:35 -0700 (PDT)
+Received: from mail-pg0-f49.google.com ([74.125.83.49]:33477 "EHLO
+        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751711AbdFPX61 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 19:58:27 -0400
+Received: by mail-pg0-f49.google.com with SMTP id f185so26350528pgc.0
+        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 16:58:26 -0700 (PDT)
 In-Reply-To: <20170616235746.16337-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Extend the XDP_ATTACHED_* values to include offloaded mode.
-Let drivers report whether program is installed in the driver
-or the HW by changing the prog_attached field from bool to
-u8 (type of the netlink attribute).
-
-Exploit the fact that the value of XDP_ATTACHED_DRV is 1,
-therefore since all drivers currently assign the mode with
-double negation:
-       mode = !!xdp_prog;
-no drivers have to be modified.
+In preparation of XDP offload flags move the driver setup into
+a function.  Otherwise the number of conditions in one function
+would make it slightly hard to follow.  The offload handler may
+now be called with NULL prog, even if no offload is currently
+active, but that's fine, offload code can handle that.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- include/linux/netdevice.h    | 7 ++++---
- include/uapi/linux/if_link.h | 1 +
- net/core/dev.c               | 3 +--
- net/core/rtnetlink.c         | 6 +++---
- 4 files changed, 9 insertions(+), 8 deletions(-)
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 23 +++++++++++++++++-----
+ 1 file changed, 18 insertions(+), 5 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index a838591aad28..68f5d899d1e6 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -809,7 +809,8 @@ enum xdp_netdev_command {
- 	XDP_SETUP_PROG,
- 	XDP_SETUP_PROG_HW,
- 	/* Check if a bpf program is set on the device.  The callee should
--	 * return true if a program is currently attached and running.
-+	 * set @prog_attached to one of XDP_ATTACHED_* values, note that "true"
-+	 * is equivalent to XDP_ATTACHED_DRV.
- 	 */
- 	XDP_QUERY_PROG,
- };
-@@ -827,7 +828,7 @@ struct netdev_xdp {
- 		};
- 		/* XDP_QUERY_PROG */
- 		struct {
--			bool prog_attached;
-+			u8 prog_attached;
- 			u32 prog_id;
- 		};
- 	};
-@@ -3307,7 +3308,7 @@ struct sk_buff *dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
- typedef int (*xdp_op_t)(struct net_device *dev, struct netdev_xdp *xdp);
- int dev_change_xdp_fd(struct net_device *dev, struct netlink_ext_ack *extack,
- 		      int fd, u32 flags);
--bool __dev_xdp_attached(struct net_device *dev, xdp_op_t xdp_op, u32 *prog_id);
-+u8 __dev_xdp_attached(struct net_device *dev, xdp_op_t xdp_op, u32 *prog_id);
- 
- int __dev_forward_skb(struct net_device *dev, struct sk_buff *skb);
- int dev_forward_skb(struct net_device *dev, struct sk_buff *skb);
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index ce777ec88e1e..8d062c58d5cb 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -903,6 +903,7 @@ enum {
- 	XDP_ATTACHED_NONE = 0,
- 	XDP_ATTACHED_DRV,
- 	XDP_ATTACHED_SKB,
-+	XDP_ATTACHED_HW,
- };
- 
- enum {
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 05cec8e2cd82..ad1ecb26e9fa 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6936,8 +6936,7 @@ int dev_change_proto_down(struct net_device *dev, bool proto_down)
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+index 2bdddd1ae666..f2188b9c3628 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+@@ -3274,10 +3274,11 @@ static void nfp_net_del_vxlan_port(struct net_device *netdev,
+ 		nfp_net_set_vxlan_port(nn, idx, 0);
  }
- EXPORT_SYMBOL(dev_change_proto_down);
  
--bool __dev_xdp_attached(struct net_device *dev, xdp_op_t xdp_op,
--			u32 *prog_id)
-+u8 __dev_xdp_attached(struct net_device *dev, xdp_op_t xdp_op, u32 *prog_id)
+-static int nfp_net_xdp_setup(struct nfp_net *nn, struct netdev_xdp *xdp)
++static int
++nfp_net_xdp_setup_drv(struct nfp_net *nn, struct bpf_prog *prog,
++		      struct netlink_ext_ack *extack)
  {
- 	struct netdev_xdp xdp;
+ 	struct bpf_prog *old_prog = nn->dp.xdp_prog;
+-	struct bpf_prog *prog = xdp->prog;
+ 	struct nfp_net_dp *dp;
+ 	int err;
  
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index daf3b39be649..f0f5b418e52d 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1264,10 +1264,10 @@ static u8 rtnl_xdp_attached_mode(struct net_device *dev, u32 *prog_id)
- 		*prog_id = generic_xdp_prog->aux->id;
- 		return XDP_ATTACHED_SKB;
+@@ -3286,7 +3287,6 @@ static int nfp_net_xdp_setup(struct nfp_net *nn, struct netdev_xdp *xdp)
+ 	if (prog && nn->dp.xdp_prog) {
+ 		prog = xchg(&nn->dp.xdp_prog, prog);
+ 		bpf_prog_put(prog);
+-		nfp_app_xdp_offload(nn->app, nn, nn->dp.xdp_prog);
+ 		return 0;
  	}
--	if (ops->ndo_xdp && __dev_xdp_attached(dev, ops->ndo_xdp, prog_id))
--		return XDP_ATTACHED_DRV;
-+	if (!ops->ndo_xdp)
-+		return XDP_ATTACHED_NONE;
  
--	return XDP_ATTACHED_NONE;
-+	return __dev_xdp_attached(dev, ops->ndo_xdp, prog_id);
- }
+@@ -3300,13 +3300,26 @@ static int nfp_net_xdp_setup(struct nfp_net *nn, struct netdev_xdp *xdp)
+ 	dp->rx_dma_off = prog ? XDP_PACKET_HEADROOM - nn->dp.rx_offset : 0;
  
- static int rtnl_xdp_fill(struct sk_buff *skb, struct net_device *dev)
+ 	/* We need RX reconfig to remap the buffers (BIDIR vs FROM_DEV) */
+-	err = nfp_net_ring_reconfig(nn, dp, xdp->extack);
++	err = nfp_net_ring_reconfig(nn, dp, extack);
+ 	if (err)
+ 		return err;
+ 
+ 	if (old_prog)
+ 		bpf_prog_put(old_prog);
+ 
++	return 0;
++}
++
++static int
++nfp_net_xdp_setup(struct nfp_net *nn, struct bpf_prog *prog,
++		  struct netlink_ext_ack *extack)
++{
++	int err;
++
++	err = nfp_net_xdp_setup_drv(nn, prog, extack);
++	if (err)
++		return err;
++
+ 	nfp_app_xdp_offload(nn->app, nn, nn->dp.xdp_prog);
+ 
+ 	return 0;
+@@ -3318,7 +3331,7 @@ static int nfp_net_xdp(struct net_device *netdev, struct netdev_xdp *xdp)
+ 
+ 	switch (xdp->command) {
+ 	case XDP_SETUP_PROG:
+-		return nfp_net_xdp_setup(nn, xdp);
++		return nfp_net_xdp_setup(nn, xdp->prog, xdp->extack);
+ 	case XDP_QUERY_PROG:
+ 		xdp->prog_attached = !!nn->dp.xdp_prog;
+ 		xdp->prog_id = nn->dp.xdp_prog ? nn->dp.xdp_prog->aux->id : 0;
 -- 
 2.11.0
