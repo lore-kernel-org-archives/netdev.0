@@ -1,35 +1,35 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 net] iproute: fix compilation issue with older
- glibc
-Date: Fri, 16 Jun 2017 09:04:39 -0700
-Message-ID: <20170616090439.525c2f9a@xeon-e3>
-References: <20170616135428.18262-1-david.lebrun@uclouvain.be>
+Subject: Re: [patch iproute2/net-next] tc: don't print error message on miss
+ when parsing control action with default
+Date: Fri, 16 Jun 2017 09:08:27 -0700
+Message-ID: <20170616090827.780ef02a@xeon-e3>
+References: <20170615121051.1877-1-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Lebrun <david.lebrun@uclouvain.be>
+Cc: netdev@vger.kernel.org, jbenc@redhat.com, mlxsw@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:36149 "EHLO
-        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750846AbdFPQEl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 12:04:41 -0400
-Received: by mail-pf0-f175.google.com with SMTP id x63so24285941pff.3
-        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 09:04:41 -0700 (PDT)
-In-Reply-To: <20170616135428.18262-1-david.lebrun@uclouvain.be>
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:34950 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750792AbdFPQIe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 12:08:34 -0400
+Received: by mail-pg0-f50.google.com with SMTP id k71so22195565pgd.2
+        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 09:08:34 -0700 (PDT)
+In-Reply-To: <20170615121051.1877-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 16 Jun 2017 15:54:28 +0200
-David Lebrun <david.lebrun@uclouvain.be> wrote:
+On Thu, 15 Jun 2017 14:10:51 +0200
+Jiri Pirko <jiri@resnulli.us> wrote:
 
-> If a header that includes linux/in6.h is included before
-> iproute's utils.h, then iproute2 fails to compile on older
-> glibc versions.
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> Fixes: e8493916a8ede9970732e33ea52d30b83071f401 ("iproute: add support for SR-IPv6 lwtunnel encapsulation")
-> Reported-by: Daniel Borkmann <daniel@iogearbox.net>
-> Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
+> In case default control action parsing takes place, it is ok to miss.
+> So don't print error message.
+> 
+> Fixes: e67aba559581 ("tc: actions: add helpers to parse and print control actions")
+> Reported-by: Jiri Benc <jbenc@redhat.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-Looks good, almost always best to remove #ifdef's if possible.
-Applied
+Applied to net-next
