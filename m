@@ -1,80 +1,246 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 18/44] iommu/amd: implement ->mapping_error
-Date: Fri, 16 Jun 2017 20:10:33 +0200
-Message-ID: <20170616181059.19206-19-hch@lst.de>
+Subject: [PATCH 21/44] powerpc: implement ->mapping_error
+Date: Fri, 16 Jun 2017 20:10:36 +0200
+Message-ID: <20170616181059.19206-22-hch@lst.de>
 References: <20170616181059.19206-1-hch@lst.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
 Cc: linux-kernel@vger.kernel.org
 To: x86@kernel.org, linux-arm-kernel@lists.infradead.org,
- xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
- linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
- linux-mips@linux-mips.org, openrisc@lists.librecores.org,
- linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
- linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
- linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
- linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
- linux-samsung-soc@vger.kernel.org, iommu@lists.linux-foundation.org,
- netdev@vger.kernel.org
-Return-path: <xen-devel-bounces@lists.xen.org>
+        xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
+        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
+        linux-mips@linux-mips.org, openrisc@lists.librecores.org,
+        linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
+        linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
+        linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
+        linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
+        linux-samsung-soc@vger.kernel.org,
+        iommu@lists.linux-foundation.org, netdev@vger.kernel.org
+Return-path: <sparclinux-owner@vger.kernel.org>
 In-Reply-To: <20170616181059.19206-1-hch@lst.de>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+Sender: sparclinux-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RE1BX0VSUk9SX0NPREUgaXMgZ29pbmcgdG8gZ28gYXdheSwgc28gZG9uJ3QgcmVseSBvbiBpdC4K
-ClNpZ25lZC1vZmYtYnk6IENocmlzdG9waCBIZWxsd2lnIDxoY2hAbHN0LmRlPgotLS0KIGRyaXZl
-cnMvaW9tbXUvYW1kX2lvbW11LmMgfCAxOCArKysrKysrKysrKysrLS0tLS0KIDEgZmlsZSBjaGFu
-Z2VkLCAxMyBpbnNlcnRpb25zKCspLCA1IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2RyaXZl
-cnMvaW9tbXUvYW1kX2lvbW11LmMgYi9kcml2ZXJzL2lvbW11L2FtZF9pb21tdS5jCmluZGV4IDYz
-Y2FjZjVkNmNmMi4uZDQxMjgwZTg2OWRlIDEwMDY0NAotLS0gYS9kcml2ZXJzL2lvbW11L2FtZF9p
-b21tdS5jCisrKyBiL2RyaXZlcnMvaW9tbXUvYW1kX2lvbW11LmMKQEAgLTU0LDYgKzU0LDggQEAK
-ICNpbmNsdWRlICJhbWRfaW9tbXVfdHlwZXMuaCIKICNpbmNsdWRlICJpcnFfcmVtYXBwaW5nLmgi
-CiAKKyNkZWZpbmUgQU1EX0lPTU1VX01BUFBJTkdfRVJST1IJMAorCiAjZGVmaW5lIENNRF9TRVRf
-VFlQRShjbWQsIHQpICgoY21kKS0+ZGF0YVsxXSB8PSAoKHQpIDw8IDI4KSkKIAogI2RlZmluZSBM
-T09QX1RJTUVPVVQJMTAwMDAwCkBAIC0yMzk0LDcgKzIzOTYsNyBAQCBzdGF0aWMgZG1hX2FkZHJf
-dCBfX21hcF9zaW5nbGUoc3RydWN0IGRldmljZSAqZGV2LAogCXBhZGRyICY9IFBBR0VfTUFTSzsK
-IAogCWFkZHJlc3MgPSBkbWFfb3BzX2FsbG9jX2lvdmEoZGV2LCBkbWFfZG9tLCBwYWdlcywgZG1h
-X21hc2spOwotCWlmIChhZGRyZXNzID09IERNQV9FUlJPUl9DT0RFKQorCWlmIChhZGRyZXNzID09
-IEFNRF9JT01NVV9NQVBQSU5HX0VSUk9SKQogCQlnb3RvIG91dDsKIAogCXByb3QgPSBkaXIycHJv
-dChkaXJlY3Rpb24pOwpAQCAtMjQzMSw3ICsyNDMzLDcgQEAgc3RhdGljIGRtYV9hZGRyX3QgX19t
-YXBfc2luZ2xlKHN0cnVjdCBkZXZpY2UgKmRldiwKIAogCWRtYV9vcHNfZnJlZV9pb3ZhKGRtYV9k
-b20sIGFkZHJlc3MsIHBhZ2VzKTsKIAotCXJldHVybiBETUFfRVJST1JfQ09ERTsKKwlyZXR1cm4g
-QU1EX0lPTU1VX01BUFBJTkdfRVJST1I7CiB9CiAKIC8qCkBAIC0yNDgzLDcgKzI0ODUsNyBAQCBz
-dGF0aWMgZG1hX2FkZHJfdCBtYXBfcGFnZShzdHJ1Y3QgZGV2aWNlICpkZXYsIHN0cnVjdCBwYWdl
-ICpwYWdlLAogCWlmIChQVFJfRVJSKGRvbWFpbikgPT0gLUVJTlZBTCkKIAkJcmV0dXJuIChkbWFf
-YWRkcl90KXBhZGRyOwogCWVsc2UgaWYgKElTX0VSUihkb21haW4pKQotCQlyZXR1cm4gRE1BX0VS
-Uk9SX0NPREU7CisJCXJldHVybiBBTURfSU9NTVVfTUFQUElOR19FUlJPUjsKIAogCWRtYV9tYXNr
-ID0gKmRldi0+ZG1hX21hc2s7CiAJZG1hX2RvbSA9IHRvX2RtYV9vcHNfZG9tYWluKGRvbWFpbik7
-CkBAIC0yNTYwLDcgKzI1NjIsNyBAQCBzdGF0aWMgaW50IG1hcF9zZyhzdHJ1Y3QgZGV2aWNlICpk
-ZXYsIHN0cnVjdCBzY2F0dGVybGlzdCAqc2dsaXN0LAogCW5wYWdlcyA9IHNnX251bV9wYWdlcyhk
-ZXYsIHNnbGlzdCwgbmVsZW1zKTsKIAogCWFkZHJlc3MgPSBkbWFfb3BzX2FsbG9jX2lvdmEoZGV2
-LCBkbWFfZG9tLCBucGFnZXMsIGRtYV9tYXNrKTsKLQlpZiAoYWRkcmVzcyA9PSBETUFfRVJST1Jf
-Q09ERSkKKwlpZiAoYWRkcmVzcyA9PSBBTURfSU9NTVVfTUFQUElOR19FUlJPUikKIAkJZ290byBv
-dXRfZXJyOwogCiAJcHJvdCA9IGRpcjJwcm90KGRpcmVjdGlvbik7CkBAIC0yNjgzLDcgKzI2ODUs
-NyBAQCBzdGF0aWMgdm9pZCAqYWxsb2NfY29oZXJlbnQoc3RydWN0IGRldmljZSAqZGV2LCBzaXpl
-X3Qgc2l6ZSwKIAkqZG1hX2FkZHIgPSBfX21hcF9zaW5nbGUoZGV2LCBkbWFfZG9tLCBwYWdlX3Rv
-X3BoeXMocGFnZSksCiAJCQkJIHNpemUsIERNQV9CSURJUkVDVElPTkFMLCBkbWFfbWFzayk7CiAK
-LQlpZiAoKmRtYV9hZGRyID09IERNQV9FUlJPUl9DT0RFKQorCWlmICgqZG1hX2FkZHIgPT0gQU1E
-X0lPTU1VX01BUFBJTkdfRVJST1IpCiAJCWdvdG8gb3V0X2ZyZWU7CiAKIAlyZXR1cm4gcGFnZV9h
-ZGRyZXNzKHBhZ2UpOwpAQCAtMjczMiw2ICsyNzM0LDExIEBAIHN0YXRpYyBpbnQgYW1kX2lvbW11
-X2RtYV9zdXBwb3J0ZWQoc3RydWN0IGRldmljZSAqZGV2LCB1NjQgbWFzaykKIAlyZXR1cm4gY2hl
-Y2tfZGV2aWNlKGRldik7CiB9CiAKK3N0YXRpYyBpbnQgYW1kX2lvbW11X21hcHBpbmdfZXJyb3Io
-c3RydWN0IGRldmljZSAqZGV2LCBkbWFfYWRkcl90IGRtYV9hZGRyKQoreworCXJldHVybiBkbWFf
-YWRkciA9PSBBTURfSU9NTVVfTUFQUElOR19FUlJPUjsKK30KKwogc3RhdGljIGNvbnN0IHN0cnVj
-dCBkbWFfbWFwX29wcyBhbWRfaW9tbXVfZG1hX29wcyA9IHsKIAkuYWxsb2MJCT0gYWxsb2NfY29o
-ZXJlbnQsCiAJLmZyZWUJCT0gZnJlZV9jb2hlcmVudCwKQEAgLTI3NDAsNiArMjc0Nyw3IEBAIHN0
-YXRpYyBjb25zdCBzdHJ1Y3QgZG1hX21hcF9vcHMgYW1kX2lvbW11X2RtYV9vcHMgPSB7CiAJLm1h
-cF9zZwkJPSBtYXBfc2csCiAJLnVubWFwX3NnCT0gdW5tYXBfc2csCiAJLmRtYV9zdXBwb3J0ZWQJ
-PSBhbWRfaW9tbXVfZG1hX3N1cHBvcnRlZCwKKwkubWFwcGluZ19lcnJvcgk9IGFtZF9pb21tdV9t
-YXBwaW5nX2Vycm9yLAogfTsKIAogc3RhdGljIGludCBpbml0X3Jlc2VydmVkX2lvdmFfcmFuZ2Vz
-KHZvaWQpCi0tIAoyLjExLjAKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fXwpYZW4tZGV2ZWwgbWFpbGluZyBsaXN0Clhlbi1kZXZlbEBsaXN0cy54ZW4ub3Jn
-Cmh0dHBzOi8vbGlzdHMueGVuLm9yZy94ZW4tZGV2ZWwK
+DMA_ERROR_CODE is going to go away, so don't rely on it.  Instead
+define a ->mapping_error method for all IOMMU based dma operation
+instances.  The direct ops don't ever return an error and don't
+need a ->mapping_error method.
+
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+Acked-by: Michael Ellerman <mpe@ellerman.id.au>
+---
+ arch/powerpc/include/asm/dma-mapping.h |  4 ----
+ arch/powerpc/include/asm/iommu.h       |  4 ++++
+ arch/powerpc/kernel/dma-iommu.c        |  6 ++++++
+ arch/powerpc/kernel/iommu.c            | 28 ++++++++++++++--------------
+ arch/powerpc/platforms/cell/iommu.c    |  1 +
+ arch/powerpc/platforms/pseries/vio.c   |  3 ++-
+ 6 files changed, 27 insertions(+), 19 deletions(-)
+
+diff --git a/arch/powerpc/include/asm/dma-mapping.h b/arch/powerpc/include/asm/dma-mapping.h
+index 181a095468e4..73aedbe6c977 100644
+--- a/arch/powerpc/include/asm/dma-mapping.h
++++ b/arch/powerpc/include/asm/dma-mapping.h
+@@ -17,10 +17,6 @@
+ #include <asm/io.h>
+ #include <asm/swiotlb.h>
+ 
+-#ifdef CONFIG_PPC64
+-#define DMA_ERROR_CODE		(~(dma_addr_t)0x0)
+-#endif
+-
+ /* Some dma direct funcs must be visible for use in other dma_ops */
+ extern void *__dma_direct_alloc_coherent(struct device *dev, size_t size,
+ 					 dma_addr_t *dma_handle, gfp_t flag,
+diff --git a/arch/powerpc/include/asm/iommu.h b/arch/powerpc/include/asm/iommu.h
+index 8a8ce220d7d0..20febe0b7f32 100644
+--- a/arch/powerpc/include/asm/iommu.h
++++ b/arch/powerpc/include/asm/iommu.h
+@@ -139,6 +139,8 @@ struct scatterlist;
+ 
+ #ifdef CONFIG_PPC64
+ 
++#define IOMMU_MAPPING_ERROR		(~(dma_addr_t)0x0)
++
+ static inline void set_iommu_table_base(struct device *dev,
+ 					struct iommu_table *base)
+ {
+@@ -238,6 +240,8 @@ static inline int __init tce_iommu_bus_notifier_init(void)
+ }
+ #endif /* !CONFIG_IOMMU_API */
+ 
++int dma_iommu_mapping_error(struct device *dev, dma_addr_t dma_addr);
++
+ #else
+ 
+ static inline void *get_iommu_table_base(struct device *dev)
+diff --git a/arch/powerpc/kernel/dma-iommu.c b/arch/powerpc/kernel/dma-iommu.c
+index fb7cbaa37658..8f7abf9baa63 100644
+--- a/arch/powerpc/kernel/dma-iommu.c
++++ b/arch/powerpc/kernel/dma-iommu.c
+@@ -105,6 +105,11 @@ static u64 dma_iommu_get_required_mask(struct device *dev)
+ 	return mask;
+ }
+ 
++int dma_iommu_mapping_error(struct device *dev, dma_addr_t dma_addr)
++{
++	return dma_addr == IOMMU_MAPPING_ERROR;
++}
++
+ struct dma_map_ops dma_iommu_ops = {
+ 	.alloc			= dma_iommu_alloc_coherent,
+ 	.free			= dma_iommu_free_coherent,
+@@ -115,5 +120,6 @@ struct dma_map_ops dma_iommu_ops = {
+ 	.map_page		= dma_iommu_map_page,
+ 	.unmap_page		= dma_iommu_unmap_page,
+ 	.get_required_mask	= dma_iommu_get_required_mask,
++	.mapping_error		= dma_iommu_mapping_error,
+ };
+ EXPORT_SYMBOL(dma_iommu_ops);
+diff --git a/arch/powerpc/kernel/iommu.c b/arch/powerpc/kernel/iommu.c
+index f2b724cd9e64..233ca3fe4754 100644
+--- a/arch/powerpc/kernel/iommu.c
++++ b/arch/powerpc/kernel/iommu.c
+@@ -198,11 +198,11 @@ static unsigned long iommu_range_alloc(struct device *dev,
+ 	if (unlikely(npages == 0)) {
+ 		if (printk_ratelimit())
+ 			WARN_ON(1);
+-		return DMA_ERROR_CODE;
++		return IOMMU_MAPPING_ERROR;
+ 	}
+ 
+ 	if (should_fail_iommu(dev))
+-		return DMA_ERROR_CODE;
++		return IOMMU_MAPPING_ERROR;
+ 
+ 	/*
+ 	 * We don't need to disable preemption here because any CPU can
+@@ -278,7 +278,7 @@ static unsigned long iommu_range_alloc(struct device *dev,
+ 		} else {
+ 			/* Give up */
+ 			spin_unlock_irqrestore(&(pool->lock), flags);
+-			return DMA_ERROR_CODE;
++			return IOMMU_MAPPING_ERROR;
+ 		}
+ 	}
+ 
+@@ -310,13 +310,13 @@ static dma_addr_t iommu_alloc(struct device *dev, struct iommu_table *tbl,
+ 			      unsigned long attrs)
+ {
+ 	unsigned long entry;
+-	dma_addr_t ret = DMA_ERROR_CODE;
++	dma_addr_t ret = IOMMU_MAPPING_ERROR;
+ 	int build_fail;
+ 
+ 	entry = iommu_range_alloc(dev, tbl, npages, NULL, mask, align_order);
+ 
+-	if (unlikely(entry == DMA_ERROR_CODE))
+-		return DMA_ERROR_CODE;
++	if (unlikely(entry == IOMMU_MAPPING_ERROR))
++		return IOMMU_MAPPING_ERROR;
+ 
+ 	entry += tbl->it_offset;	/* Offset into real TCE table */
+ 	ret = entry << tbl->it_page_shift;	/* Set the return dma address */
+@@ -328,12 +328,12 @@ static dma_addr_t iommu_alloc(struct device *dev, struct iommu_table *tbl,
+ 
+ 	/* tbl->it_ops->set() only returns non-zero for transient errors.
+ 	 * Clean up the table bitmap in this case and return
+-	 * DMA_ERROR_CODE. For all other errors the functionality is
++	 * IOMMU_MAPPING_ERROR. For all other errors the functionality is
+ 	 * not altered.
+ 	 */
+ 	if (unlikely(build_fail)) {
+ 		__iommu_free(tbl, ret, npages);
+-		return DMA_ERROR_CODE;
++		return IOMMU_MAPPING_ERROR;
+ 	}
+ 
+ 	/* Flush/invalidate TLB caches if necessary */
+@@ -478,7 +478,7 @@ int ppc_iommu_map_sg(struct device *dev, struct iommu_table *tbl,
+ 		DBG("  - vaddr: %lx, size: %lx\n", vaddr, slen);
+ 
+ 		/* Handle failure */
+-		if (unlikely(entry == DMA_ERROR_CODE)) {
++		if (unlikely(entry == IOMMU_MAPPING_ERROR)) {
+ 			if (!(attrs & DMA_ATTR_NO_WARN) &&
+ 			    printk_ratelimit())
+ 				dev_info(dev, "iommu_alloc failed, tbl %p "
+@@ -545,7 +545,7 @@ int ppc_iommu_map_sg(struct device *dev, struct iommu_table *tbl,
+ 	 */
+ 	if (outcount < incount) {
+ 		outs = sg_next(outs);
+-		outs->dma_address = DMA_ERROR_CODE;
++		outs->dma_address = IOMMU_MAPPING_ERROR;
+ 		outs->dma_length = 0;
+ 	}
+ 
+@@ -563,7 +563,7 @@ int ppc_iommu_map_sg(struct device *dev, struct iommu_table *tbl,
+ 			npages = iommu_num_pages(s->dma_address, s->dma_length,
+ 						 IOMMU_PAGE_SIZE(tbl));
+ 			__iommu_free(tbl, vaddr, npages);
+-			s->dma_address = DMA_ERROR_CODE;
++			s->dma_address = IOMMU_MAPPING_ERROR;
+ 			s->dma_length = 0;
+ 		}
+ 		if (s == outs)
+@@ -777,7 +777,7 @@ dma_addr_t iommu_map_page(struct device *dev, struct iommu_table *tbl,
+ 			  unsigned long mask, enum dma_data_direction direction,
+ 			  unsigned long attrs)
+ {
+-	dma_addr_t dma_handle = DMA_ERROR_CODE;
++	dma_addr_t dma_handle = IOMMU_MAPPING_ERROR;
+ 	void *vaddr;
+ 	unsigned long uaddr;
+ 	unsigned int npages, align;
+@@ -797,7 +797,7 @@ dma_addr_t iommu_map_page(struct device *dev, struct iommu_table *tbl,
+ 		dma_handle = iommu_alloc(dev, tbl, vaddr, npages, direction,
+ 					 mask >> tbl->it_page_shift, align,
+ 					 attrs);
+-		if (dma_handle == DMA_ERROR_CODE) {
++		if (dma_handle == IOMMU_MAPPING_ERROR) {
+ 			if (!(attrs & DMA_ATTR_NO_WARN) &&
+ 			    printk_ratelimit())  {
+ 				dev_info(dev, "iommu_alloc failed, tbl %p "
+@@ -869,7 +869,7 @@ void *iommu_alloc_coherent(struct device *dev, struct iommu_table *tbl,
+ 	io_order = get_iommu_order(size, tbl);
+ 	mapping = iommu_alloc(dev, tbl, ret, nio_pages, DMA_BIDIRECTIONAL,
+ 			      mask >> tbl->it_page_shift, io_order, 0);
+-	if (mapping == DMA_ERROR_CODE) {
++	if (mapping == IOMMU_MAPPING_ERROR) {
+ 		free_pages((unsigned long)ret, order);
+ 		return NULL;
+ 	}
+diff --git a/arch/powerpc/platforms/cell/iommu.c b/arch/powerpc/platforms/cell/iommu.c
+index 71b995bbcae0..948086e33a0c 100644
+--- a/arch/powerpc/platforms/cell/iommu.c
++++ b/arch/powerpc/platforms/cell/iommu.c
+@@ -660,6 +660,7 @@ static const struct dma_map_ops dma_iommu_fixed_ops = {
+ 	.set_dma_mask   = dma_set_mask_and_switch,
+ 	.map_page       = dma_fixed_map_page,
+ 	.unmap_page     = dma_fixed_unmap_page,
++	.mapping_error	= dma_iommu_mapping_error,
+ };
+ 
+ static void cell_dma_dev_setup_fixed(struct device *dev);
+diff --git a/arch/powerpc/platforms/pseries/vio.c b/arch/powerpc/platforms/pseries/vio.c
+index 28b09fd797ec..e6f43d546827 100644
+--- a/arch/powerpc/platforms/pseries/vio.c
++++ b/arch/powerpc/platforms/pseries/vio.c
+@@ -519,7 +519,7 @@ static dma_addr_t vio_dma_iommu_map_page(struct device *dev, struct page *page,
+ {
+ 	struct vio_dev *viodev = to_vio_dev(dev);
+ 	struct iommu_table *tbl;
+-	dma_addr_t ret = DMA_ERROR_CODE;
++	dma_addr_t ret = IOMMU_MAPPING_ERROR;
+ 
+ 	tbl = get_iommu_table_base(dev);
+ 	if (vio_cmo_alloc(viodev, roundup(size, IOMMU_PAGE_SIZE(tbl)))) {
+@@ -625,6 +625,7 @@ static const struct dma_map_ops vio_dma_mapping_ops = {
+ 	.unmap_page        = vio_dma_iommu_unmap_page,
+ 	.dma_supported     = vio_dma_iommu_dma_supported,
+ 	.get_required_mask = vio_dma_get_required_mask,
++	.mapping_error	   = dma_iommu_mapping_error,
+ };
+ 
+ /**
+-- 
+2.11.0
+
