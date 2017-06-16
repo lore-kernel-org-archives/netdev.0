@@ -1,70 +1,75 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 1/3] dev: Prevent creating network devices with negative
- ifindex
-Date: Fri, 16 Jun 2017 10:25:42 -0700
-Message-ID: <20170616102542.691385b9@xeon-e3>
-References: <cover.1497621810.git.serhe.popovych@gmail.com>
-        <d365b6f06598d041a177b91b15929285c2649935.1497621810.git.serhe.popovych@gmail.com>
-        <20170616091806.2dd229e2@xeon-e3>
-        <02a31165-ad2f-fcdf-e7c5-f66a35712d4e@gmail.com>
+From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Subject: Re: [PATCH v2 03/11] tty: kbd: reduce stack size with KASAN
+Date: Fri, 16 Jun 2017 10:29:45 -0700
+Message-ID: <CAKdAkRQsVU42wGRmtAgVaEvHXaU1A=B=k8pHh6QiPOM847tqVA@mail.gmail.com>
+References: <20170614211556.2062728-1-arnd@arndb.de> <20170614211556.2062728-4-arnd@arndb.de>
+ <20170615045221.GA26687@kroah.com> <20170615045347.GA26913@kroah.com>
+ <CAK8P3a32abgm7H7s=dOTkLus3K9o79hRJ31s0eyEVZW30E9p7g@mail.gmail.com>
+ <20170616130215.GC31057@kroah.com> <CAK8P3a2upDpcxGCLomyjvsXHfyeTyPmSj9qvymSsgf4pE+spDg@mail.gmail.com>
+ <20170616155859.gn2einuermlncaku@var.youpi.perso.aquilenet.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Serhey Popovych <serhe.popovych@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:34048 "EHLO
-        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750780AbdFPRZu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 13:25:50 -0400
-Received: by mail-pf0-f175.google.com with SMTP id s66so25235038pfs.1
-        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 10:25:50 -0700 (PDT)
-In-Reply-To: <02a31165-ad2f-fcdf-e7c5-f66a35712d4e@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+To: Samuel Thibault <samuel.thibault@ens-lyon.org>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        kasan-dev <kasan-dev@googlegroups.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Andrey Ryabinin <aryabinin@virtuozzo.com>,
+        Networking <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Jiri Slaby <jslaby@suse.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170616155859.gn2einuermlncaku@var.youpi.perso.aquilenet.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 16 Jun 2017 19:44:45 +0300
-Serhey Popovych <serhe.popovych@gmail.com> wrote:
+On Fri, Jun 16, 2017 at 8:58 AM, Samuel Thibault
+<samuel.thibault@ens-lyon.org> wrote:
+> Arnd Bergmann, on ven. 16 juin 2017 17:41:47 +0200, wrote:
+>> The problem are the 'ch' and 'flag' variables that are passed into
+>> tty_insert_flip_char by value, and from there into
+>> tty_insert_flip_string_flags by reference.  In this case, kasan tries
+>> to detect whether tty_insert_flip_string_flags() does any out-of-bounds
+>> access on the pointers and adds 64 bytes redzone around each of
+>> the two variables.
+>
+> Ouch.
+>
+>> gcc-6.3.1 happens to inline 16 calls of tty_insert_flip_char() into
 
-> > On Fri, 16 Jun 2017 17:23:51 +0300
-> > Serhey Popovych <serhe.popovych@gmail.com> wrote:
-> >   
-> >> Interface index is signed integer, we can pass ifm->ifi_index
-> >> from userspace via netlink and create network device with
-> >> negative ifindex value.
-> >>
-> >> Fixes: 9c7dafbfab15 ("net: Allow to create links with given ifindex")
-> >> Signed-off-by: Serhey Popovych <serhe.popovych@gmail.com>
-> >> ---
-> >>  net/core/dev.c | 2 +-
-> >>  1 file changed, 1 insertion(+), 1 deletion(-)
-> >>
-> >> diff --git a/net/core/dev.c b/net/core/dev.c
-> >> index 8658074..dae8010 100644
-> >> --- a/net/core/dev.c
-> >> +++ b/net/core/dev.c
-> >> @@ -7491,7 +7491,7 @@ int register_netdevice(struct net_device *dev)
-> >>  	}
-> >>  
-> >>  	ret = -EBUSY;
-> >> -	if (!dev->ifindex)
-> >> +	if (dev->ifindex <= 0)
-> >>  		dev->ifindex = dev_new_index(net);
-> >>  	else if (__dev_get_by_index(net, dev->ifindex))
-> >>  		goto err_uninit;  
-> > 
-> > You should fix this by adding error check in the netlink portion
-> > that allows creating devices with given ifindex. Passing < 0
-> > should be an error.But should this break some setups if I add such check to netlink  
-> portion? In my opinion it is better to choose silently different
-> ifindex rather than reporting failure. That's why I prefer doing
-> this in register_netdevice().
-> 
-> Also there is similar problem for drivers/net/veth.c, it might
-> happen that other places will be added later that setup
-> dev->ifindex and then call register_netdevice().
-> 
-> What do you think?
+I wonder if we should stop marking tty_insert_flip_char() as inline.
 
-Passing -1 is an error, it doesn't make sense  to try and be
-helpful to buggy userland.
+>> kbd_keycode(), so the stack size grows from 168 bytes to
+>> 168+(16*2*64) = 2216 bytes. There are 10 calls to put_queue()
+>> in to_utf8(), 12 in emulate_raw() and another 4 in kbd_keycode()
+>> itself.
+>
+> That's why I agreed for put_queue :)
+>
+> I'm however afraid we'd have to mark a lot of static functions that way,
+> depending on the aggressivity of gcc... I'd indeed really argue that gcc
+> should consider stack usage when inlining.
+>
+> static int f(int foo) {
+>         char c[256];
+>         g(c, foo);
+> }
+>
+> is really not something that I'd want to see the compiler to inline.
+
+Why would not we want it be inlined? What we do not want us several
+calls having _separate_ instances of 'c' generated on the stack, all
+inlined calls should share 'c'. And of course if we have f1, f2, and
+f3 with c1, c2, and c3, GCC should not blow up the stack inlining and
+allocating stack for all 3 of them beforehand.
+
+But this all seems to me issue that should be solved in toolchain, not
+trying to play whack-a-mole with kernel sources.
+
+Thanks.
+
+-- 
+Dmitry
