@@ -1,39 +1,55 @@
 From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH net 0/4] macvlan: Fix some issues with changing mac addresses
-Date: Fri, 16 Jun 2017 09:36:45 -0400
-Message-ID: <20170616133649.24622-1-vyasevic@redhat.com>
+Subject: [PATCH net 2/4] macvlan: Fix passthru macvlan mac address inheritance
+Date: Fri, 16 Jun 2017 09:36:47 -0400
+Message-ID: <20170616133649.24622-3-vyasevic@redhat.com>
+References: <20170616133649.24622-1-vyasevic@redhat.com>
 Cc: Vladislav Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f175.google.com ([209.85.216.175]:34337 "EHLO
-        mail-qt0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753441AbdFPNg6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 09:36:58 -0400
-Received: by mail-qt0-f175.google.com with SMTP id c10so63398073qtd.1
-        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 06:36:57 -0700 (PDT)
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:36276 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753767AbdFPNhB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 09:37:01 -0400
+Received: by mail-qt0-f196.google.com with SMTP id s33so10245265qtg.3
+        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 06:37:00 -0700 (PDT)
+In-Reply-To: <20170616133649.24622-1-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are some issues in macvlan wrt to changing it's mac address.
-* An error is returned in the specified address is the same as an already
-  assigned address.
-* In passthru mode, the mac address of the macvlan device doesn't change.
-* After changing the mac address of a passthru macvlan and then removing it,
-  the mac address of the physical device remains changed.
+When a lower device of the passthru macvlan changes it's address,
+passthru macvlan is supposed to change it's own address as well.
+However, that doesn't happen correctly because the check in
+macvlan_addr_busy() will catch the fact that the lower level
+(port) mac address is the same as the address we are trying to
+assign to the macvlan, and return an error.  As a result,
+the address of the passthru macvlan device is never changed.
 
-This patch series attempts to resolve these issues.
+The same thing happens when the user attempts to change the
+mac address of the passthru macvlan.
 
-Thanks
--vlad
+The simple solution appears to be to not check against
+the lower device in case of passthru macvlan device, since
+the 2 addresses are _supposed_ to be the same.
 
-Vladislav Yasevich (4):
-  macvlan: Do not return error when setting the same mac address
-  macvlan: Fix passthru macvlan mac address inheritance
-  macvlan: convert port passthru to flags.
-  macvlan: Let passthru macvlan correctly restore lower mac address
+Fixes: e289fd281 (macvlan: fix the problem when mac address changes for passthru mode)
+Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+---
+ drivers/net/macvlan.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
- drivers/net/macvlan.c | 85 ++++++++++++++++++++++++++++++++++++++++++---------
- 1 file changed, 71 insertions(+), 14 deletions(-)
-
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index de214fb..a735a64 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -185,7 +185,8 @@ static bool macvlan_addr_busy(const struct macvlan_port *port,
+ 	 * currently in use by the underlying device or
+ 	 * another macvlan.
+ 	 */
+-	if (ether_addr_equal_64bits(port->dev->dev_addr, addr))
++	if (!port->passthru &&
++	    ether_addr_equal_64bits(port->dev->dev_addr, addr))
+ 		return true;
+ 
+ 	if (macvlan_hash_lookup(port, addr))
 -- 
 2.9.4
