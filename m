@@ -1,115 +1,212 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH v2 03/11] tty: kbd: reduce stack size with KASAN
-Date: Fri, 16 Jun 2017 15:02:15 +0200
-Message-ID: <20170616130215.GC31057@kroah.com>
-References: <20170614211556.2062728-1-arnd@arndb.de>
- <20170614211556.2062728-4-arnd@arndb.de>
- <20170615045221.GA26687@kroah.com>
- <20170615045347.GA26913@kroah.com>
- <CAK8P3a32abgm7H7s=dOTkLus3K9o79hRJ31s0eyEVZW30E9p7g@mail.gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [RFC PATCH net-next v2 07/15] bpf: Add setsockopt helper function
+ to bpf
+Date: Fri, 16 Jun 2017 15:27:18 +0200
+Message-ID: <5943DCB6.6070205@iogearbox.net>
+References: <20170615200844.2752485-1-brakmo@fb.com> <20170615200844.2752485-8-brakmo@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-        kasan-dev <kasan-dev@googlegroups.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Andrey Ryabinin <aryabinin@virtuozzo.com>,
-        Networking <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Jiri Slaby <jslaby@suse.com>,
-        Samuel Thibault <samuel.thibault@ens-lyon.org>,
-        Dmitry Torokhov <dmitry.torokhov@gmail.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAK8P3a32abgm7H7s=dOTkLus3K9o79hRJ31s0eyEVZW30E9p7g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
+        Alexei Starovoitov <ast@fb.com>,
+        David Ahern <dsa@cumulusnetworks.com>
+To: Lawrence Brakmo <brakmo@fb.com>, netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:57003 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752566AbdFPN1W (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 09:27:22 -0400
+In-Reply-To: <20170615200844.2752485-8-brakmo@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 16, 2017 at 02:01:57PM +0200, Arnd Bergmann wrote:
-> On Thu, Jun 15, 2017 at 6:53 AM, Greg Kroah-Hartman
-> <gregkh@linuxfoundation.org> wrote:
-> > On Thu, Jun 15, 2017 at 06:52:21AM +0200, Greg Kroah-Hartman wrote:
-> >> On Wed, Jun 14, 2017 at 11:15:38PM +0200, Arnd Bergmann wrote:
-> >> > As reported by kernelci, some functions in the VT code use significant
-> >> > amounts of kernel stack when local variables get inlined into the caller
-> >> > multiple times:
-> >> >
-> >> > drivers/tty/vt/keyboard.c: In function 'kbd_keycode':
-> >> > drivers/tty/vt/keyboard.c:1452:1: error: the frame size of 2240 bytes is larger than 2048 bytes [-Werror=frame-larger-than=]
-> >> >
-> >> > Annotating those functions as noinline_if_stackbloat prevents the inlining
-> >> > and reduces the overall stack usage in this driver.
-> >> >
-> >> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> >> > ---
-> >> >  drivers/tty/vt/keyboard.c | 6 +++---
-> >> >  1 file changed, 3 insertions(+), 3 deletions(-)
-> >> >
-> >> > diff --git a/drivers/tty/vt/keyboard.c b/drivers/tty/vt/keyboard.c
-> >> > index f4166263bb3a..c0d111444a0e 100644
-> >> > --- a/drivers/tty/vt/keyboard.c
-> >> > +++ b/drivers/tty/vt/keyboard.c
-> >> > @@ -301,13 +301,13 @@ int kbd_rate(struct kbd_repeat *rpt)
-> >> >  /*
-> >> >   * Helper Functions.
-> >> >   */
-> >> > -static void put_queue(struct vc_data *vc, int ch)
-> >> > +static noinline_if_stackbloat void put_queue(struct vc_data *vc, int ch)
-> >> >  {
-> >> >     tty_insert_flip_char(&vc->port, ch, 0);
-> >> >     tty_schedule_flip(&vc->port);
-> >> >  }
-> >>
-> >> Ugh, really?  We have to start telling gcc not to be stupid here?
-> >> That's not going to be easy, and will just entail us doing this all over
-> >> the place, right?
-> >>
-> >> The code isn't asking to be inlined, so why is gcc allowing it to be
-> >> done that way?  Doesn't that imply gcc is the problem here?
-> >
-> > Wait, you are now, in this patch, _asking_ for it to be inlined.  How is
-> > that solving anything?
-> 
-> The three functions that gain the attribute are all those that gcc decided
-> to inline for itself. Usually gcc makes reasonable inlining decisions, so
-> I left the existing behavior my marking them as 'inline' without
-> CONFIG_KASAN and 'noinline' when KASAN is enabled.
+On 06/15/2017 10:08 PM, Lawrence Brakmo wrote:
+> Added support for calling a subset of socket setsockopts from
+> BPF_PROG_TYPE_SOCKET_OPS programs. The code was duplicated rather
+> than making the changes to call the socket setsockopt function because
+> the changes required would have been larger.
+>
+> The ops supported are:
+>    SO_RCVBUF
+>    SO_SNDBUF
+>    SO_MAX_PACING_RATE
+>    SO_PRIORITY
+>    SO_RCVLOWAT
+>    SO_MARK
+>
+> Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
+> ---
+>   include/uapi/linux/bpf.h  | 14 ++++++++-
+>   net/core/filter.c         | 77 ++++++++++++++++++++++++++++++++++++++++++++++-
+>   samples/bpf/bpf_helpers.h |  3 ++
+>   3 files changed, 92 insertions(+), 2 deletions(-)
+>
+> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+> index d945336..8accb4d 100644
+> --- a/include/uapi/linux/bpf.h
+> +++ b/include/uapi/linux/bpf.h
+> @@ -520,6 +520,17 @@ union bpf_attr {
+>    *     Set full skb->hash.
+>    *     @skb: pointer to skb
+>    *     @hash: hash to set
+> + *
+> + * int bpf_setsockopt(bpf_socket, level, optname, optval, optlen)
+> + *     Calls setsockopt. Not all opts are available, only those with
+> + *     integer optvals plus TCP_CONGESTION.
+> + *     Supported levels: SOL_SOCKET and IPROTO_TCP
+> + *     @bpf_socket: pointer to bpf_socket
+> + *     @level: SOL_SOCKET or IPROTO_TCP
+> + *     @optname: option name
+> + *     @optval: pointer to option value
+> + *     @optlen: length of optval in byes
+> + *     Return: 0 or negative error
+>    */
+>   #define __BPF_FUNC_MAPPER(FN)		\
+>   	FN(unspec),			\
+> @@ -570,7 +581,8 @@ union bpf_attr {
+>   	FN(probe_read_str),		\
+>   	FN(get_socket_cookie),		\
+>   	FN(get_socket_uid),		\
+> -	FN(set_hash),
+> +	FN(set_hash),			\
+> +	FN(setsockopt),
+>
+>   /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+>    * function eBPF program intends to call
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index 7466f55..9ff567c 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -54,6 +54,7 @@
+>   #include <net/dst.h>
+>   #include <net/sock_reuseport.h>
+>   #include <net/busy_poll.h>
+> +#include <net/tcp.h>
+>
+>   /**
+>    *	sk_filter_trim_cap - run a packet through a socket filter
+> @@ -2671,6 +2672,69 @@ static const struct bpf_func_proto bpf_get_socket_uid_proto = {
+>   	.arg1_type      = ARG_PTR_TO_CTX,
+>   };
+>
+> +BPF_CALL_5(bpf_setsockopt, struct bpf_socket_ops_kern *, bpf_socket,
+> +	   int, level, int, optname, char *, optval, int, optlen)
+> +{
+> +	struct sock *sk = bpf_socket->sk;
+> +	int ret = 0;
+> +	int val;
+> +
+> +	if (bpf_socket->is_req_sock)
+> +		return -EINVAL;
+> +
+> +	if (level == SOL_SOCKET) {
+> +		/* Only some socketops are supported */
+> +		val = *((int *)optval);
+> +
+> +		switch (optname) {
+> +		case SO_RCVBUF:
+> +			sk->sk_userlocks |= SOCK_RCVBUF_LOCK;
+> +			sk->sk_rcvbuf = max_t(int, val * 2, SOCK_MIN_RCVBUF);
+> +			break;
+> +		case SO_SNDBUF:
+> +			sk->sk_userlocks |= SOCK_SNDBUF_LOCK;
+> +			sk->sk_sndbuf = max_t(int, val * 2, SOCK_MIN_SNDBUF);
+> +			break;
+> +		case SO_MAX_PACING_RATE:
+> +			sk->sk_max_pacing_rate = val;
+> +			sk->sk_pacing_rate = min(sk->sk_pacing_rate,
+> +						 sk->sk_max_pacing_rate);
+> +			break;
+> +		case SO_PRIORITY:
+> +			sk->sk_priority = val;
+> +			break;
+> +		case SO_RCVLOWAT:
+> +			if (val < 0)
+> +				val = INT_MAX;
+> +			sk->sk_rcvlowat = val ? : 1;
+> +			break;
+> +		case SO_MARK:
+> +			sk->sk_mark = val;
+> +			break;
 
-But why should we have to care about this?  If gcc wanted to inline
-them, and it did so in a way that blows up the stack, that would be a
-gcc bug, right?  Why do I have to tell gcc "don't inline", when really,
-I never told it to inline it in the first place?
+Likely all of the above, I think we could make programs even more
+flexible if these are members in the context struct itself, so
+that socket_ops_convert_ctx_access() would translate them inline
+w/o even needing a helper call with the bonus of having read and
+write access.
 
-> Would you rather see this patch instead?
-> 
-> diff --git a/include/linux/tty_flip.h b/include/linux/tty_flip.h
-> index c28dd523f96e..25348c5ffcb7 100644
-> --- a/include/linux/tty_flip.h
-> +++ b/include/linux/tty_flip.h
-> @@ -13,8 +13,8 @@ extern int tty_prepare_flip_string(struct tty_port *port,
->  extern void tty_flip_buffer_push(struct tty_port *port);
->  void tty_schedule_flip(struct tty_port *port);
-> 
-> -static inline int tty_insert_flip_char(struct tty_port *port,
-> -                                       unsigned char ch, char flag)
-> +static noinline_if_stackbloat int
-> +tty_insert_flip_char(struct tty_port *port, unsigned char ch, char flag)
->  {
->         struct tty_buffer *tb = port->buf.tail;
->         int change;
-> 
-> This is just as good at eliminating the crazy stack usage in vt/keyboard.o,
-> but it will also impact all other users of that function.
+But what about socket lock that we otherwise have in sock_setsockopt()?
 
-How is this function blowing up the stack?  We have 2 variables being
-added, that's it.  Are we really that low on stack that 2 words is too
-much?
+Could we add a sock_owned_by_me(sk) to tcp_call_bpf() to really assert
+this for all cases, so that lockdep complains should it ever be not
+the case?
 
-And no, we shouldn't need to do this.  It sounds like ksan is the
-problem here...
-
-thanks,
-
-greg k-h
+> +		default:
+> +			ret = -EINVAL;
+> +		}
+> +	} else if (level == SOL_TCP &&
+> +		   bpf_socket->sk->sk_prot->setsockopt == tcp_setsockopt) {
+> +		/* Place holder */
+> +		ret = -EINVAL;
+> +	} else {
+> +		ret = -EINVAL;
+> +	}
+> +	return ret;
+> +}
+> +
+> +static const struct bpf_func_proto bpf_setsockopt_proto = {
+> +	.func		= bpf_setsockopt,
+> +	.gpl_only	= true,
+> +	.ret_type	= RET_INTEGER,
+> +	.arg1_type	= ARG_PTR_TO_CTX,
+> +	.arg2_type	= ARG_ANYTHING,
+> +	.arg3_type	= ARG_ANYTHING,
+> +	.arg4_type	= ARG_PTR_TO_MEM,
+> +	.arg5_type	= ARG_CONST_SIZE_OR_ZERO,
+> +};
+> +
+>   static const struct bpf_func_proto *
+>   bpf_base_func_proto(enum bpf_func_id func_id)
+>   {
+> @@ -2822,6 +2886,17 @@ lwt_inout_func_proto(enum bpf_func_id func_id)
+>   }
+>
+>   static const struct bpf_func_proto *
+> +	socket_ops_func_proto(enum bpf_func_id func_id)
+> +{
+> +	switch (func_id) {
+> +	case BPF_FUNC_setsockopt:
+> +		return &bpf_setsockopt_proto;
+> +	default:
+> +		return bpf_base_func_proto(func_id);
+> +	}
+> +}
+> +
+> +static const struct bpf_func_proto *
+>   lwt_xmit_func_proto(enum bpf_func_id func_id)
+>   {
+>   	switch (func_id) {
+> @@ -3565,7 +3640,7 @@ const struct bpf_verifier_ops cg_sock_prog_ops = {
+>   };
+>
+>   const struct bpf_verifier_ops socket_ops_prog_ops = {
+> -	.get_func_proto		= bpf_base_func_proto,
+> +	.get_func_proto		= socket_ops_func_proto,
+>   	.is_valid_access	= socket_ops_is_valid_access,
+>   	.convert_ctx_access	= socket_ops_convert_ctx_access,
+>   };
+> diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
+> index f4840b8..d50ac34 100644
+> --- a/samples/bpf/bpf_helpers.h
+> +++ b/samples/bpf/bpf_helpers.h
+> @@ -60,6 +60,9 @@ static unsigned long long (*bpf_get_prandom_u32)(void) =
+>   	(void *) BPF_FUNC_get_prandom_u32;
+>   static int (*bpf_xdp_adjust_head)(void *ctx, int offset) =
+>   	(void *) BPF_FUNC_xdp_adjust_head;
+> +static int (*bpf_setsockopt)(void *ctx, int level, int optname, void *optval,
+> +			     int optlen) =
+> +	(void *) BPF_FUNC_setsockopt;
+>
+>   /* llvm builtin functions that eBPF C program may use to
+>    * emit BPF_LD_ABS and BPF_LD_IND instructions
+>
