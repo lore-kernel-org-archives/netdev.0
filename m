@@ -1,126 +1,63 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 19/44] s390: implement ->mapping_error
-Date: Fri, 16 Jun 2017 20:10:34 +0200
-Message-ID: <20170616181059.19206-20-hch@lst.de>
+Subject: [PATCH 16/44] arm64: remove DMA_ERROR_CODE
+Date: Fri, 16 Jun 2017 20:10:31 +0200
+Message-ID: <20170616181059.19206-17-hch@lst.de>
 References: <20170616181059.19206-1-hch@lst.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: linux-kernel@vger.kernel.org
 To: x86@kernel.org, linux-arm-kernel@lists.infradead.org,
-        xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
-        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
-        linux-mips@linux-mips.org, openrisc@lists.librecores.org,
-        linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
-        linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
-        linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
-        linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
-        linux-samsung-soc@vger.kernel.org,
-        iommu@lists.linux-foundation.org, netdev@vger.kernel.org
-Return-path: <linux-ia64-owner@vger.kernel.org>
+ xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
+ linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
+ linux-mips@linux-mips.org, openrisc@lists.librecores.org,
+ linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
+ linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
+ linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
+ linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
+ linux-samsung-soc@vger.kernel.org, iommu@lists.linux-foundation.org,
+ netdev@vger.kernel.org
+Return-path: <dri-devel-bounces@lists.freedesktop.org>
 In-Reply-To: <20170616181059.19206-1-hch@lst.de>
-Sender: linux-ia64-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
+List-Post: <mailto:dri-devel@lists.freedesktop.org>
+List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: dri-devel-bounces@lists.freedesktop.org
+Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
 List-Id: netdev.vger.kernel.org
 
-s390 can also use noop_dma_ops, and while that currently does not return
-errors it will so in the future.  Implementing the mapping_error method
-is the proper way to have per-ops error conditions.
-
-Signed-off-by: Christoph Hellwig <hch@lst.de>
-Acked-by: Gerald Schaefer <gerald.schaefer@de.ibm.com>
----
- arch/s390/include/asm/dma-mapping.h |  2 --
- arch/s390/pci/pci_dma.c             | 18 +++++++++++++-----
- 2 files changed, 13 insertions(+), 7 deletions(-)
-
-diff --git a/arch/s390/include/asm/dma-mapping.h b/arch/s390/include/asm/dma-mapping.h
-index 3108b8dbe266..512ad0eaa11a 100644
---- a/arch/s390/include/asm/dma-mapping.h
-+++ b/arch/s390/include/asm/dma-mapping.h
-@@ -8,8 +8,6 @@
- #include <linux/dma-debug.h>
- #include <linux/io.h>
- 
--#define DMA_ERROR_CODE		(~(dma_addr_t) 0x0)
--
- extern const struct dma_map_ops s390_pci_dma_ops;
- 
- static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
-diff --git a/arch/s390/pci/pci_dma.c b/arch/s390/pci/pci_dma.c
-index 9081a57fa340..ea623faab525 100644
---- a/arch/s390/pci/pci_dma.c
-+++ b/arch/s390/pci/pci_dma.c
-@@ -14,6 +14,8 @@
- #include <linux/pci.h>
- #include <asm/pci_dma.h>
- 
-+#define S390_MAPPING_ERROR		(~(dma_addr_t) 0x0)
-+
- static struct kmem_cache *dma_region_table_cache;
- static struct kmem_cache *dma_page_table_cache;
- static int s390_iommu_strict;
-@@ -281,7 +283,7 @@ static dma_addr_t dma_alloc_address(struct device *dev, int size)
- 
- out_error:
- 	spin_unlock_irqrestore(&zdev->iommu_bitmap_lock, flags);
--	return DMA_ERROR_CODE;
-+	return S390_MAPPING_ERROR;
- }
- 
- static void dma_free_address(struct device *dev, dma_addr_t dma_addr, int size)
-@@ -329,7 +331,7 @@ static dma_addr_t s390_dma_map_pages(struct device *dev, struct page *page,
- 	/* This rounds up number of pages based on size and offset */
- 	nr_pages = iommu_num_pages(pa, size, PAGE_SIZE);
- 	dma_addr = dma_alloc_address(dev, nr_pages);
--	if (dma_addr == DMA_ERROR_CODE) {
-+	if (dma_addr == S390_MAPPING_ERROR) {
- 		ret = -ENOSPC;
- 		goto out_err;
- 	}
-@@ -352,7 +354,7 @@ static dma_addr_t s390_dma_map_pages(struct device *dev, struct page *page,
- out_err:
- 	zpci_err("map error:\n");
- 	zpci_err_dma(ret, pa);
--	return DMA_ERROR_CODE;
-+	return S390_MAPPING_ERROR;
- }
- 
- static void s390_dma_unmap_pages(struct device *dev, dma_addr_t dma_addr,
-@@ -429,7 +431,7 @@ static int __s390_dma_map_sg(struct device *dev, struct scatterlist *sg,
- 	int ret;
- 
- 	dma_addr_base = dma_alloc_address(dev, nr_pages);
--	if (dma_addr_base == DMA_ERROR_CODE)
-+	if (dma_addr_base == S390_MAPPING_ERROR)
- 		return -ENOMEM;
- 
- 	dma_addr = dma_addr_base;
-@@ -476,7 +478,7 @@ static int s390_dma_map_sg(struct device *dev, struct scatterlist *sg,
- 	for (i = 1; i < nr_elements; i++) {
- 		s = sg_next(s);
- 
--		s->dma_address = DMA_ERROR_CODE;
-+		s->dma_address = S390_MAPPING_ERROR;
- 		s->dma_length = 0;
- 
- 		if (s->offset || (size & ~PAGE_MASK) ||
-@@ -525,6 +527,11 @@ static void s390_dma_unmap_sg(struct device *dev, struct scatterlist *sg,
- 		s->dma_length = 0;
- 	}
- }
-+	
-+static int s390_mapping_error(struct device *dev, dma_addr_t dma_addr)
-+{
-+	return dma_addr == S390_MAPPING_ERROR;
-+}
- 
- int zpci_dma_init_device(struct zpci_dev *zdev)
- {
-@@ -657,6 +664,7 @@ const struct dma_map_ops s390_pci_dma_ops = {
- 	.unmap_sg	= s390_dma_unmap_sg,
- 	.map_page	= s390_dma_map_pages,
- 	.unmap_page	= s390_dma_unmap_pages,
-+	.mapping_error	= s390_mapping_error,
- 	/* if we support direct DMA this must be conditional */
- 	.is_phys	= 0,
- 	/* dma_supported is unconditionally true without a callback */
--- 
-2.11.0
-
+VGhlIGRtYSBhbGxvYyBpbnRlcmZhY2UgcmV0dXJucyBhbiBlcnJvciBieSByZXR1cm4gTlVMTCwg
+YW5kIHRoZQptYXBwaW5nIGludGVyZmFjZXMgcmVseSBvbiB0aGUgbWFwcGluZ19lcnJvciBtZXRo
+b2QsIHdoaWNoIHRoZSBkdW1teQpvcHMgYWxyZWFkeSBpbXBsZW1lbnQgY29ycmVjdGx5LgoKVGh1
+cyByZW1vdmUgdGhlIERNQV9FUlJPUl9DT0RFIGRlZmluZS4KClNpZ25lZC1vZmYtYnk6IENocmlz
+dG9waCBIZWxsd2lnIDxoY2hAbHN0LmRlPgpSZXZpZXdlZC1ieTogUm9iaW4gTXVycGh5IDxyb2Jp
+bi5tdXJwaHlAYXJtLmNvbT4KLS0tCiBhcmNoL2FybTY0L2luY2x1ZGUvYXNtL2RtYS1tYXBwaW5n
+LmggfCAxIC0KIGFyY2gvYXJtNjQvbW0vZG1hLW1hcHBpbmcuYyAgICAgICAgICB8IDMgKy0tCiAy
+IGZpbGVzIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspLCAzIGRlbGV0aW9ucygtKQoKZGlmZiAtLWdp
+dCBhL2FyY2gvYXJtNjQvaW5jbHVkZS9hc20vZG1hLW1hcHBpbmcuaCBiL2FyY2gvYXJtNjQvaW5j
+bHVkZS9hc20vZG1hLW1hcHBpbmcuaAppbmRleCA1MzkyZGJlZmZhNDUuLmNmOGZjOGYwNTU4MCAx
+MDA2NDQKLS0tIGEvYXJjaC9hcm02NC9pbmNsdWRlL2FzbS9kbWEtbWFwcGluZy5oCisrKyBiL2Fy
+Y2gvYXJtNjQvaW5jbHVkZS9hc20vZG1hLW1hcHBpbmcuaApAQCAtMjQsNyArMjQsNiBAQAogI2lu
+Y2x1ZGUgPHhlbi94ZW4uaD4KICNpbmNsdWRlIDxhc20veGVuL2h5cGVydmlzb3IuaD4KIAotI2Rl
+ZmluZSBETUFfRVJST1JfQ09ERQkofihkbWFfYWRkcl90KTApCiBleHRlcm4gY29uc3Qgc3RydWN0
+IGRtYV9tYXBfb3BzIGR1bW15X2RtYV9vcHM7CiAKIHN0YXRpYyBpbmxpbmUgY29uc3Qgc3RydWN0
+IGRtYV9tYXBfb3BzICpnZXRfYXJjaF9kbWFfb3BzKHN0cnVjdCBidXNfdHlwZSAqYnVzKQpkaWZm
+IC0tZ2l0IGEvYXJjaC9hcm02NC9tbS9kbWEtbWFwcGluZy5jIGIvYXJjaC9hcm02NC9tbS9kbWEt
+bWFwcGluZy5jCmluZGV4IDMyMTZlMDk4YzA1OC4uMTQ3ZmJiOTA3YTJmIDEwMDY0NAotLS0gYS9h
+cmNoL2FybTY0L21tL2RtYS1tYXBwaW5nLmMKKysrIGIvYXJjaC9hcm02NC9tbS9kbWEtbWFwcGlu
+Zy5jCkBAIC0xODQsNyArMTg0LDYgQEAgc3RhdGljIHZvaWQgKl9fZG1hX2FsbG9jKHN0cnVjdCBk
+ZXZpY2UgKmRldiwgc2l6ZV90IHNpemUsCiBub19tYXA6CiAJX19kbWFfZnJlZV9jb2hlcmVudChk
+ZXYsIHNpemUsIHB0ciwgKmRtYV9oYW5kbGUsIGF0dHJzKTsKIG5vX21lbToKLQkqZG1hX2hhbmRs
+ZSA9IERNQV9FUlJPUl9DT0RFOwogCXJldHVybiBOVUxMOwogfQogCkBAIC00ODcsNyArNDg2LDcg
+QEAgc3RhdGljIGRtYV9hZGRyX3QgX19kdW1teV9tYXBfcGFnZShzdHJ1Y3QgZGV2aWNlICpkZXYs
+IHN0cnVjdCBwYWdlICpwYWdlLAogCQkJCSAgIGVudW0gZG1hX2RhdGFfZGlyZWN0aW9uIGRpciwK
+IAkJCQkgICB1bnNpZ25lZCBsb25nIGF0dHJzKQogewotCXJldHVybiBETUFfRVJST1JfQ09ERTsK
+KwlyZXR1cm4gMDsKIH0KIAogc3RhdGljIHZvaWQgX19kdW1teV91bm1hcF9wYWdlKHN0cnVjdCBk
+ZXZpY2UgKmRldiwgZG1hX2FkZHJfdCBkZXZfYWRkciwKLS0gCjIuMTEuMAoKX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZHJpLWRldmVsIG1haWxpbmcgbGlz
+dApkcmktZGV2ZWxAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCmh0dHBzOi8vbGlzdHMuZnJlZWRlc2t0
+b3Aub3JnL21haWxtYW4vbGlzdGluZm8vZHJpLWRldmVsCg==
