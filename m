@@ -1,82 +1,40 @@
-From: gfree.wind@vip.163.com
-Subject: [PATCH net] net: 8021q: Fix one possible panic caused by BUG_ON in free_netdev
-Date: Fri, 16 Jun 2017 15:00:02 +0800
-Message-ID: <1497596402-81457-1-git-send-email-gfree.wind@vip.163.com>
-Cc: Gao Feng <gfree.wind@vip.163.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH 0/5] skb data accessors cleanup
+Date: Fri, 16 Jun 2017 09:07:42 +0200
+Message-ID: <20170616070747.3332-1-johannes@sipsolutions.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m181-177.vip.163.com ([123.58.177.181]:54194 "EHLO
-        m181-177.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752031AbdFPHAV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 03:00:21 -0400
+Received: from s3.sipsolutions.net ([5.9.151.49]:57650 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751948AbdFPHHv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 16 Jun 2017 03:07:51 -0400
+Received: by sipsolutions.net with esmtpsa (TLS1.2:ECDHE_RSA_AES_128_GCM_SHA256:128)
+        (Exim 4.89)
+        (envelope-from <johannes@sipsolutions.net>)
+        id 1dLlMD-00040J-Pc
+        for netdev@vger.kernel.org; Fri, 16 Jun 2017 09:07:49 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <gfree.wind@vip.163.com>
+Hi,
 
-The register_vlan_device would invoke free_netdev directly, when
-register_vlan_dev failed. It would trigger the BUG_ON in free_netdev
-if the dev was already registered. In this case, the netdev would be
-freed in netdev_run_todo later.
+Over night, Fengguang's bot told me that it compiled all of its many
+various configurations successfully, and I had done allyesconfig on
+x86_64 myself yesterday to iron out the things I missed.
 
-So add one condition check now. Only when dev is not registered, then
-free it directly.
+So now I think I'm happy with it.
 
-The following is the part coredump when netdev_upper_dev_link failed
-in register_vlan_dev. I removed the lines which are too long.
+My tree was based on your
 
-[  411.237457] ------------[ cut here ]------------
-[  411.237458] kernel BUG at net/core/dev.c:7998!
-[  411.237484] invalid opcode: 0000 [#1] SMP
-[  411.237705]  [last unloaded: 8021q]
-[  411.237718] CPU: 1 PID: 12845 Comm: vconfig Tainted: G            E   4.12.0-rc5+ #6
-[  411.237737] Hardware name: VMware, Inc. VMware Virtual Platform/440BX Desktop Reference Platform, BIOS 6.00 07/02/2015
-[  411.237764] task: ffff9cbeb6685580 task.stack: ffffa7d2807d8000
-[  411.237782] RIP: 0010:free_netdev+0x116/0x120
-[  411.237794] RSP: 0018:ffffa7d2807dbdb0 EFLAGS: 00010297
-[  411.237808] RAX: 0000000000000002 RBX: ffff9cbeb6ba8fd8 RCX: 0000000000001878
-[  411.237826] RDX: 0000000000000001 RSI: 0000000000000282 RDI: 0000000000000000
-[  411.237844] RBP: ffffa7d2807dbdc8 R08: 0002986100029841 R09: 0002982100029801
-[  411.237861] R10: 0004000100029980 R11: 0004000100029980 R12: ffff9cbeb6ba9000
-[  411.238761] R13: ffff9cbeb6ba9060 R14: ffff9cbe60f1a000 R15: ffff9cbeb6ba9000
-[  411.239518] FS:  00007fb690d81700(0000) GS:ffff9cbebb640000(0000) knlGS:0000000000000000
-[  411.239949] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[  411.240454] CR2: 00007f7115624000 CR3: 0000000077cdf000 CR4: 00000000003406e0
-[  411.240936] Call Trace:
-[  411.241462]  vlan_ioctl_handler+0x3f1/0x400 [8021q]
-[  411.241910]  sock_ioctl+0x18b/0x2c0
-[  411.242394]  do_vfs_ioctl+0xa1/0x5d0
-[  411.242853]  ? sock_alloc_file+0xa6/0x130
-[  411.243465]  SyS_ioctl+0x79/0x90
-[  411.243900]  entry_SYSCALL_64_fastpath+0x1e/0xa9
-[  411.244425] RIP: 0033:0x7fb69089a357
-[  411.244863] RSP: 002b:00007ffcd04e0fc8 EFLAGS: 00000202 ORIG_RAX: 0000000000000010
-[  411.245445] RAX: ffffffffffffffda RBX: 00007ffcd04e2884 RCX: 00007fb69089a357
-[  411.245903] RDX: 00007ffcd04e0fd0 RSI: 0000000000008983 RDI: 0000000000000003
-[  411.246527] RBP: 00007ffcd04e0fd0 R08: 0000000000000000 R09: 1999999999999999
-[  411.246976] R10: 000000000000053f R11: 0000000000000202 R12: 0000000000000004
-[  411.247414] R13: 00007ffcd04e1128 R14: 00007ffcd04e2888 R15: 0000000000000001
-[  411.249129] RIP: free_netdev+0x116/0x120 RSP: ffffa7d2807dbdb0
+    commit 3715c47bcda8bb56f7e2be27276282a2d0d48c09
+    Merge: 18b6e7955d8f d8fbd27469fc
+    Author: David S. Miller <davem@davemloft.net>
+    Date:   Thu Jun 15 14:31:56 2017 -0400
 
+        Merge branch 'r8152-support-new-chips'
 
-Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
----
- net/8021q/vlan.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+when the compilation tests happened, but I've reviewed the changes
+coming into net-next in the meantime and didn't see any new usages
+of skb data accessors having come in.
 
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 467069b..9649579 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -277,7 +277,8 @@ static int register_vlan_device(struct net_device *real_dev, u16 vlan_id)
- 	return 0;
- 
- out_free_newdev:
--	free_netdev(new_dev);
-+	if (new_dev->reg_state == NETREG_UNINITIALIZED)
-+		free_netdev(new_dev);
- 	return err;
- }
- 
--- 
-1.9.1
+johannes
