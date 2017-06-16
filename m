@@ -1,42 +1,44 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [kbuild-all] [PATCH net-next] networking: use skb_put_zero()
-Date: Fri, 16 Jun 2017 10:40:11 +0200
-Message-ID: <1497602411.2622.4.camel@sipsolutions.net>
-References: <20170613122818.3523-1-johannes@sipsolutions.net>
-         <201706140443.XOCAM01f%fengguang.wu@intel.com>
-         <20170613.170701.590433468190988945.davem@davemloft.net>
-         <20170616083056.GF14764@yexl-desktop>
+Subject: Re: [RFC 1/3] networking: make skb_put & friends return void
+ pointers
+Date: Fri, 16 Jun 2017 10:42:57 +0200
+Message-ID: <1497602577.2622.5.camel@sipsolutions.net>
+References: <20170615221217.16510-1-johannes@sipsolutions.net>
+         <20170615221217.16510-2-johannes@sipsolutions.net>
+         <871sqke5co.fsf@miraculix.mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: lkp@intel.com, netdev@vger.kernel.org, kbuild-all@01.org
-To: Ye Xiaolong <xiaolong.ye@intel.com>,
-        David Miller <davem@davemloft.net>
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:58442 "EHLO sipsolutions.net"
+Received: from s3.sipsolutions.net ([5.9.151.49]:58454 "EHLO sipsolutions.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752067AbdFPIkS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 16 Jun 2017 04:40:18 -0400
-In-Reply-To: <20170616083056.GF14764@yexl-desktop>
+        id S1752139AbdFPIm7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 16 Jun 2017 04:42:59 -0400
+In-Reply-To: <871sqke5co.fsf@miraculix.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-06-16 at 16:30 +0800, Ye Xiaolong wrote:
-> Hi, David
-> 
-> On 06/13, David Miller wrote:
-> > 
-> > These are bogus reports I think.
-> > 
-> > Johannes's changes depends upon the wireless GIT tree I pulled in
-> > right before I applied his patch.
-> 
-> Did you applied the patch on top of master branch?
+On Fri, 2017-06-16 at 09:53 +0200, Bjørn Mork wrote:
 
-Yes, but after merging my git tree.
+> There seem to be a large number of places where the char pointer was
+> used directly. Not that I have any strong opinion either way, but
+> adding lots of ugly casts like this seems to contradict the whole
+> purpose of this change?:
 
-There was no way the bot could figure this out - it was a discussion
-we'd had earlier, and when I sent the pull request I also sent out the
-patch a few minutes later.
+> > -			*skb_put(info->rx_skb, 1) = x;
+> > +			*(u8 *)skb_put(info->rx_skb, 1) = x;
+> >  			inb(iobase + DATA_H);
+> >  			info->rx_count--;
+> >  
+> 
+> That does not look any better in my eyes, and there are ... what?
+> ... hundreds of them?
+
+Yeah it's a bit of a trade-off. There are ~140 of these, but >200 of
+the removed casts. Joe also suggested we could replace these by
+skb_put_u8() or so, which would be indeed be nicer. I can send a patch,
+it's pretty simple.
 
 johannes
