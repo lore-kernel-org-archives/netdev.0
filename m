@@ -1,44 +1,43 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC 1/3] networking: make skb_put & friends return void
- pointers
-Date: Fri, 16 Jun 2017 10:42:57 +0200
-Message-ID: <1497602577.2622.5.camel@sipsolutions.net>
-References: <20170615221217.16510-1-johannes@sipsolutions.net>
-         <20170615221217.16510-2-johannes@sipsolutions.net>
-         <871sqke5co.fsf@miraculix.mork.no>
+From: Christoph Hellwig <hch@lst.de>
+Subject: Re: [PATCH 25/44] arm: implement ->mapping_error
+Date: Fri, 16 Jun 2017 10:43:28 +0200
+Message-ID: <20170616084328.GC10582@lst.de>
+References: <20170608132609.32662-1-hch@lst.de> <20170608132609.32662-26-hch@lst.de> <20170608144313.GL4902@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:58454 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752139AbdFPIm7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 16 Jun 2017 04:42:59 -0400
-In-Reply-To: <871sqke5co.fsf@miraculix.mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Hellwig <hch@lst.de>, x86@kernel.org,
+        linux-arm-kernel@lists.infradead.org,
+        xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
+        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
+        linux-mips@linux-mips.org, openrisc@lists.librecores.org,
+        linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
+        linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
+        linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
+        linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
+        linux-samsung-soc@vger.kernel.org,
+        iommu@lists.linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Russell King - ARM Linux <linux@armlinux.org.uk>
+Return-path: <linux-ia64-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170608144313.GL4902@n2100.armlinux.org.uk>
+Sender: linux-ia64-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2017-06-16 at 09:53 +0200, Bjørn Mork wrote:
-
-> There seem to be a large number of places where the char pointer was
-> used directly. Not that I have any strong opinion either way, but
-> adding lots of ugly casts like this seems to contradict the whole
-> purpose of this change?:
-
-> > -			*skb_put(info->rx_skb, 1) = x;
-> > +			*(u8 *)skb_put(info->rx_skb, 1) = x;
-> >  			inb(iobase + DATA_H);
-> >  			info->rx_count--;
-> >  
+On Thu, Jun 08, 2017 at 03:43:14PM +0100, Russell King - ARM Linux wrote:
+> BOn Thu, Jun 08, 2017 at 03:25:50PM +0200, Christoph Hellwig wrote:
+> > +static int dmabounce_mapping_error(struct device *dev, dma_addr_t dma_addr)
+> > +{
+> > +	if (dev->archdata.dmabounce)
+> > +		return 0;
 > 
-> That does not look any better in my eyes, and there are ... what?
-> ... hundreds of them?
+> I'm not convinced that we need this check here:
+> 
+>         dev->archdata.dmabounce = device_info;
+>         set_dma_ops(dev, &dmabounce_ops);
+> 
+> There shouldn't be any chance of dev->archdata.dmabounce being NULL if
+> the dmabounce_ops has been set as the current device DMA ops.  So I
+> think that test can be killed.
 
-Yeah it's a bit of a trade-off. There are ~140 of these, but >200 of
-the removed casts. Joe also suggested we could replace these by
-skb_put_u8() or so, which would be indeed be nicer. I can send a patch,
-it's pretty simple.
-
-johannes
+Ok, I'll fix it up.
