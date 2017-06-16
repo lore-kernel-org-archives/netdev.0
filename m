@@ -1,32 +1,49 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 2/2] tc: m_tunnel_key: add csum/nocsum option
-Date: Fri, 16 Jun 2017 09:12:22 -0700
-Message-ID: <20170616091222.4119bdf8@xeon-e3>
-References: <cover.1497467840.git.jbenc@redhat.com>
-        <20170614213018.364cd85d@griffin>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC 2/3] samples/bpf: Add define __EMITTING_BPF__ when
+ building BPF
+Date: Fri, 16 Jun 2017 12:14:34 -0400 (EDT)
+Message-ID: <20170616.121434.859810061597099237.davem@davemloft.net>
+References: <20170615223543.22867-1-david.daney@cavium.com>
+        <20170615223543.22867-3-david.daney@cavium.com>
+        <5943B1C6.7040809@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jiri Pirko <jiri@resnulli.us>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:36042 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750792AbdFPQMa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 12:12:30 -0400
-Received: by mail-pf0-f174.google.com with SMTP id x63so24379534pff.3
-        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 09:12:29 -0700 (PDT)
-In-Reply-To: <20170614213018.364cd85d@griffin>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: david.daney@cavium.com, ast@kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
+        ralf@linux-mips.org, catalin.marinas@arm.com, will.deacon@arm.com,
+        linux-arm-kernel@lists.infradead.org
+To: daniel@iogearbox.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5943B1C6.7040809@iogearbox.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 14 Jun 2017 21:30:18 +0200
-Jiri Benc <jbenc@redhat.com> wrote:
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Fri, 16 Jun 2017 12:24:06 +0200
 
-> Allows control of UDP zero checksum.
+> On 06/16/2017 12:35 AM, David Daney wrote:
+>> ... this allows gating of inline assembly code that causes llvm to
+>> fail when emitting BPF.
+>>
+>> Signed-off-by: David Daney <david.daney@cavium.com>
 > 
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> I don't have a better idea at the moment, perhaps there could be
+> a clang rewrite plugin that would ignore all inline assembly code
+> since this is never used from BPF progs. Hmm. Really ugly that
+> we have to add this __EMITTING_BPF__ into arch asm files, but I
+> don't have a better idea for an immediate workaround right now ...
+> I would really prefer if we could avoid just for the sake of the
+> kernel samples going down the road of adding a
+> !defined(__EMITTING_BPF__)
+> into a uapi asm header for mips, though. Is this coming from
+> networking sample code or rather tracing?
 
-Applied both patches to net-next
+The problem is that we include the arch include/asm files at all.
+
+When we build bpf stuff, we should have a set of asm/ files
+specifically for builds targetting BPF.
+
+Let's just fix this right and stop putting all of these hacks in.
+
+Thank you.
