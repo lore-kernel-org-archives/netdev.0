@@ -1,40 +1,42 @@
-From: Jason Cobham <jcobham@questertangent.com>
-Subject: RE: [PATCH net-next] net: dsa: add cross-chip multicast support
-Date: Thu, 15 Jun 2017 16:33:51 -0700
-Message-ID: <E5E6875F0BF25A4593C06E471C515D8636D3A2B6D9@magpie>
-References: <20170615201448.22424-1-vivien.didelot@savoirfairelinux.com>
+From: Richard Kuo <rkuo@codeaurora.org>
+Subject: Re: [PATCH 17/44] hexagon: switch to use ->mapping_error for error
+ reporting
+Date: Thu, 15 Jun 2017 19:19:11 -0500
+Message-ID: <20170616001911.GA7343@codeaurora.org>
+References: <20170608132609.32662-1-hch@lst.de>
+ <20170608132609.32662-18-hch@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "kernel@savoirfairelinux.com" <kernel@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>
-To: 'Vivien Didelot' <vivien.didelot@savoirfairelinux.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170615201448.22424-1-vivien.didelot@savoirfairelinux.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: x86@kernel.org, linux-arm-kernel@lists.infradead.org,
+        xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
+        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
+        linux-mips@linux-mips.org, openrisc@lists.librecores.org,
+        linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
+        linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
+        linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
+        linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
+        linux-samsung-soc@vger.kernel.org,
+        iommu@lists.linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Christoph Hellwig <hch@lst.de>
+Return-path: <linux-hexagon-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170608132609.32662-18-hch@lst.de>
+Sender: linux-hexagon-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/15/2017 1:15 PM, Vivien Didelot wrote:
-> Similarly to how cross-chip VLAN works, define a bitmap of multicast group
-> members for a switch, now including its DSA ports, so that multicast traffic
-> can be sent to all switches of the fabric.
+On Thu, Jun 08, 2017 at 03:25:42PM +0200, Christoph Hellwig wrote:
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
+> ---
+>  arch/hexagon/include/asm/dma-mapping.h |  2 --
+>  arch/hexagon/kernel/dma.c              | 12 +++++++++---
+>  arch/hexagon/kernel/hexagon_ksyms.c    |  1 -
+>  3 files changed, 9 insertions(+), 6 deletions(-)
 > 
-> A switch may drop the frames if no user port is a member.
-> 
-> This brings support for multicast in a multi-chip environment.
-> As of now, all switches of the fabric must support the multicast operations in
-> order to program a single fabric port.
-> 
-> Reported-by: Jason Cobham <jcobham@questertangent.com>
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Thanks for this fix:
+Acked-by: Richard Kuo <rkuo@codeaurora.org>
 
-Tested-by: Jason Cobham <jcobham@questertangent.com>
---
-Jason
+-- 
+Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum, 
+a Linux Foundation Collaborative Project
