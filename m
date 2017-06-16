@@ -1,120 +1,204 @@
-From: Serhey Popovych <serhe.popovych@gmail.com>
-Subject: [PATCH 2/3] dev: Avoid infinite loop on network device index exhaustion
-Date: Fri, 16 Jun 2017 17:23:52 +0300
-Message-ID: <a6cc35519e46dc988a983f4b167ccd420b42a0fa.1497621810.git.serhe.popovych@gmail.com>
-References: <cover.1497621810.git.serhe.popovych@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:33101 "EHLO
-        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754094AbdFPOYW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 10:24:22 -0400
-Received: by mail-lf0-f66.google.com with SMTP id u62so4370720lfg.0
-        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 07:24:21 -0700 (PDT)
-Received: from tuxracer.synapse.com ([195.238.92.77])
-        by smtp.gmail.com with ESMTPSA id z10sm486566lja.6.2017.06.16.07.24.19
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Fri, 16 Jun 2017 07:24:20 -0700 (PDT)
-In-Reply-To: <cover.1497621810.git.serhe.popovych@gmail.com>
-In-Reply-To: <cover.1497621810.git.serhe.popovych@gmail.com>
-References: <cover.1497621810.git.serhe.popovych@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH v4 2/3] PCI: Enable PCIe Relaxed Ordering if supported
+Date: Fri, 16 Jun 2017 07:39:30 -0700
+Message-ID: <CAKgT0UfefJ8E6m215Caxekd-OugOuZxyS5N3t_q07OTEHHd0xw@mail.gmail.com>
+References: <1497265525-4752-1-git-send-email-dingtianhong@huawei.com>
+ <1497265525-4752-3-git-send-email-dingtianhong@huawei.com>
+ <CAKgT0UfMCTjRWVnYiz-7BaV6NxK+kHm9PppgVp+_sNhfVgKviQ@mail.gmail.com> <5854930e-af6a-4274-2822-cf38e5967da3@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Casey Leedom <leedom@chelsio.com>, Ashok Raj <ashok.raj@intel.com>,
+        Bjorn Helgaas <helgaas@kernel.org>,
+        Michael Werner <werner@chelsio.com>,
+        Ganesh Goudar <ganeshgr@chelsio.com>,
+        Asit K Mallick <asit.k.mallick@intel.com>,
+        Patrick J Cramer <patrick.j.cramer@intel.com>,
+        Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
+        Bob Shaw <Bob.Shaw@amd.com>, h <l.stach@pengutronix.de>,
+        Amir Ancel <amira@mellanox.com>,
+        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
+        David Laight <David.Laight@aculab.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will.deacon@arm.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Robin Murphy <robin.murphy@arm.com>,
+        David Miller <davem@davemloft.net>,
+        linux-arm-kernel@lists.inf
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5854930e-af6a-4274-2822-cf38e5967da3@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If network device indexes exhaust in namespace dev_new_index()
-can loop indefinitely since there is no condition to exit
-except case where free index is found.
+On Thu, Jun 15, 2017 at 6:10 PM, Ding Tianhong <dingtianhong@huawei.com> wrote:
+>
+>
+> On 2017/6/13 5:28, Alexander Duyck wrote:
+>> On Mon, Jun 12, 2017 at 4:05 AM, Ding Tianhong <dingtianhong@huawei.com> wrote:
+> ...
+>>>  /**
+>>> + * pcie_clear_relaxed_ordering - clear PCI Express relaxed ordering bit
+>>> + * @dev: PCI device to query
+>>> + *
+>>> + * If possible clear relaxed ordering
+>>> + */
+>>> +int pcie_clear_relaxed_ordering(struct pci_dev *dev)
+>>> +{
+>>> +       return pcie_capability_clear_word(dev, PCI_EXP_DEVCTL,
+>>> +                                         PCI_EXP_DEVCTL_RELAX_EN);
+>>> +}
+>>> +EXPORT_SYMBOL(pcie_clear_relaxed_ordering);
+>>> +
+>>> +/**
+>>> + * pcie_relaxed_ordering_supported - Probe for PCIe relexed ordering support
+>>> + * @dev: PCI device to query
+>>> + *
+>>> + * Returns true if the device support relaxed ordering attribute.
+>>> + */
+>>> +bool pcie_relaxed_ordering_supported(struct pci_dev *dev)
+>>> +{
+>>> +       bool ro_supported = false;
+>>> +       u16 v;
+>>> +
+>>> +       pcie_capability_read_word(dev, PCI_EXP_DEVCTL, &v);
+>>> +       if ((v & PCI_EXP_DEVCTL_RELAX_EN) >> 4)
+>>> +               ro_supported = true;
+>>
+>> Instead of "return ro_supported" why not just "return !!(v &
+>> PCIE_EXP_DEVCTL_RELAX_EN)"? You can cut out the extra steps and save
+>> yourself some extra steps this way since the shift by 4 shouldn't even
+>> really be needed since you are just testing for a bit anyway.
+>>
+>
+> OK.
+>
+>>> +
+>>> +       return ro_supported;
+>>> +}
+>>> +EXPORT_SYMBOL(pcie_relaxed_ordering_supported);
+>>> +
+>>> +/**
+>>>   * pcie_get_minimum_link - determine minimum link settings of a PCI device
+>>>   * @dev: PCI device to query
+>>>   * @speed: storage for minimum speed
+>>> diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+>>> index 19c8950..ed1f717 100644
+>>> --- a/drivers/pci/probe.c
+>>> +++ b/drivers/pci/probe.c
+>>> @@ -1701,6 +1701,46 @@ static void pci_configure_extended_tags(struct pci_dev *dev)
+>>>                                          PCI_EXP_DEVCTL_EXT_TAG);
+>>>  }
+>>>
+>>> +/**
+>>> + * pci_dev_should_disable_relaxed_ordering - check if the PCI device
+>>> + * should disable the relaxed ordering attribute.
+>>> + * @dev: PCI device
+>>> + *
+>>> + * Return true if any of the PCI devices above us do not support
+>>> + * relaxed ordering.
+>>> + */
+>>> +static bool pci_dev_should_disable_relaxed_ordering(struct pci_dev *dev)
+>>> +{
+>>> +       bool ro_disabled = false;
+>>> +
+>>> +       while (dev) {
+>>> +               if (dev->dev_flags & PCI_DEV_FLAGS_NO_RELAXED_ORDERING) {
+>>> +                       ro_disabled = true;
+>>> +                       break;
+>>> +               }
+>>> +               dev = dev->bus->self;
+>>> +       }
+>>> +
+>>> +       return ro_disabled;
+>>
+>> Same thing here. I would suggest just returning either true or false,
+>> and drop the ro_disabled value. It will return the lines of code and
+>> make things a bit bit more direct.
+>>
+>
+> OK.
+>
+>>> +}
+>>> +
+>>> +static void pci_configure_relaxed_ordering(struct pci_dev *dev)
+>>> +{
+>>> +       struct pci_dev *bridge = pci_upstream_bridge(dev);
+>>> +
+>>> +       if (!pci_is_pcie(dev) || !bridge || !pci_is_pcie(bridge))
+>>> +               return;
+>>
+>> The pci_is_pcie check is actually redundant based on the
+>> pcie_relaxed_ordering_supported check using pcie_capability_read_word.
+>>
+>
+> Yes, pcie_capability_read_word already check it, thanks.
+>
+>
+>> Also I am not sure what the point is of the pci_upstream_bridge()
+>> check is, it seems like you should be able to catch all the same stuff
+>> in your pci_dev_should_disable_relaxed_ordering() call. Though it did
+>> give me a thought. I don't think we can alter this for a VF, so you
+>> might want to add a check for dev->is_virtfn to the list of checks and
+>> if it is a virtual function just return since I don't think there are
+>> any VFs that would let you alter this bit anyway.
+>>
+> If the upstream device is null, does it mean that it is in a guest OS device? maybe I miss something.
+> also I will check the dev->is_virtfn to avoid trying to change the configuration space for VF.
 
-Since all it's caller hold RTNL mutex this may completely
-lock down network subsystem configuration operations.
+Yes, usually the upstream device is NULL in guest setups where all the
+devices are hung off of a single PCI bus.
 
-Instead of retrying with ifindex == 1 (LOOPBACK_IFINDEX)
-in dev_new_index() we should fail and return invalid
-index value (0).
+> Another question: Because it looks like that maybe the Casey is too busy these days, should we
+> delay the modification of the cxgb4 and instead to update the ixgbe? what do you think about it. :)
 
-Adjust callers to correctly handle error case of dev_new_index().
+I would still submit the cxgb4 changes with the one change we have
+made. It should work as is. We can just leave any follow-up work to
+Casey in terms of enabling the peer-to-peer mode if the bits related
+to relaxed ordering are cleared.
 
-Signed-off-by: Serhey Popovych <serhe.popovych@gmail.com>
----
- net/core/dev.c | 30 ++++++++++++++++++++++--------
- 1 file changed, 22 insertions(+), 8 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index dae8010..6f573f7 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -7014,7 +7014,9 @@ int dev_change_xdp_fd(struct net_device *dev, struct netlink_ext_ack *extack,
-  *	@net: the applicable net namespace
-  *
-  *	Returns a suitable unique value for a new device interface
-- *	number.  The caller must hold the rtnl semaphore or the
-+ *	number or zero in case of no free indexes in net namespace.
-+ *
-+ *	The caller must hold the rtnl mutex or the
-  *	dev_base_lock to be sure it remains unique.
-  */
- static int dev_new_index(struct net *net)
-@@ -7023,7 +7025,7 @@ static int dev_new_index(struct net *net)
- 
- 	for (;;) {
- 		if (++ifindex <= 0)
--			ifindex = 1;
-+			return 0;
- 		if (!__dev_get_by_index(net, ifindex))
- 			return net->ifindex = ifindex;
- 	}
-@@ -7491,9 +7493,12 @@ int register_netdevice(struct net_device *dev)
- 	}
- 
- 	ret = -EBUSY;
--	if (dev->ifindex <= 0)
--		dev->ifindex = dev_new_index(net);
--	else if (__dev_get_by_index(net, dev->ifindex))
-+	if (dev->ifindex <= 0) {
-+		int ifindex = dev_new_index(net);
-+		if (!ifindex)
-+			goto err_uninit;
-+		dev->ifindex = ifindex;
-+	} else if (__dev_get_by_index(net, dev->ifindex))
- 		goto err_uninit;
- 
- 	/* Transfer changeable features to wanted_features and enable
-@@ -8174,6 +8179,7 @@ void unregister_netdev(struct net_device *dev)
- 
- int dev_change_net_namespace(struct net_device *dev, struct net *net, const char *pat)
- {
-+	int ifindex = 0;
- 	int err;
- 
- 	ASSERT_RTNL();
-@@ -8192,6 +8198,14 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
- 	if (net_eq(dev_net(dev), net))
- 		goto out;
- 
-+	/* If there is an ifindex conflict assign a new one */
-+	err = -EBUSY;
-+	if (__dev_get_by_index(net, dev->ifindex)) {
-+		ifindex = dev_new_index(net);
-+		if (!ifindex)
-+			goto out;
-+	}
-+
- 	/* Pick the destination device name, and ensure
- 	 * we can use it in the destination network namespace.
- 	 */
-@@ -8245,9 +8259,9 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
- 	/* Actually switch the network namespace */
- 	dev_net_set(dev, net);
- 
--	/* If there is an ifindex conflict assign a new one */
--	if (__dev_get_by_index(net, dev->ifindex))
--		dev->ifindex = dev_new_index(net);
-+	/* Actually change the ifindex */
-+	if (ifindex)
-+		dev->ifindex = ifindex;
- 
- 	/* Send a netdev-add uevent to the new namespace */
- 	kobject_uevent(&dev->dev.kobj, KOBJ_ADD);
--- 
-1.8.3.1
+> Thanks.
+> Ding
+>
+>>> +       /* If the releaxed ordering enable bit is not set, do nothing. */
+>>> +       if (!pcie_relaxed_ordering_supported(dev))
+>>> +               return;
+>>> +
+>>> +       if (pci_dev_should_disable_relaxed_ordering(dev)) {
+>>> +               pcie_clear_relaxed_ordering(dev);
+>>> +               dev_info(&dev->dev, "Disable Relaxed Ordering\n");
+>>> +       }
+>>> +}
+>>> +
+>>>  static void pci_configure_device(struct pci_dev *dev)
+>>>  {
+>>>         struct hotplug_params hpp;
+>>> @@ -1708,6 +1748,7 @@ static void pci_configure_device(struct pci_dev *dev)
+>>>
+>>>         pci_configure_mps(dev);
+>>>         pci_configure_extended_tags(dev);
+>>> +       pci_configure_relaxed_ordering(dev);
+>>>
+>>>         memset(&hpp, 0, sizeof(hpp));
+>>>         ret = pci_get_hp_params(dev, &hpp);
+>>> diff --git a/include/linux/pci.h b/include/linux/pci.h
+>>> index e1e8428..9870781 100644
+>>> --- a/include/linux/pci.h
+>>> +++ b/include/linux/pci.h
+>>> @@ -1105,6 +1105,8 @@ int __pci_enable_wake(struct pci_dev *dev, pci_power_t state,
+>>>  void pci_pme_wakeup_bus(struct pci_bus *bus);
+>>>  void pci_d3cold_enable(struct pci_dev *dev);
+>>>  void pci_d3cold_disable(struct pci_dev *dev);
+>>> +int pcie_clear_relaxed_ordering(struct pci_dev *dev);
+>>> +bool pcie_relaxed_ordering_supported(struct pci_dev *dev);
+>>>
+>>>  static inline int pci_enable_wake(struct pci_dev *dev, pci_power_t state,
+>>>                                   bool enable)
+>>> --
+>>> 1.9.0
+>>>
+>>>
+>>
+>> .
+>>
+>
