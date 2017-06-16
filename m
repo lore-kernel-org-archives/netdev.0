@@ -1,52 +1,56 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC 1/3] networking: make skb_put & friends return void
- pointers
-Date: Fri, 16 Jun 2017 04:26:36 -0700
-Message-ID: <1497612396.10546.7.camel@perches.com>
-References: <20170615221217.16510-1-johannes@sipsolutions.net>
-         <20170615221217.16510-2-johannes@sipsolutions.net>
-         <871sqke5co.fsf@miraculix.mork.no>
-         <1497602577.2622.5.camel@sipsolutions.net>
-         <1497609558.10546.5.camel@perches.com>
-         <1497611020.2622.8.camel@sipsolutions.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v2 11/11] kasan: rework Kconfig settings
+Date: Fri, 16 Jun 2017 13:42:05 +0200
+Message-ID: <CAK8P3a18fdnNNSMdxCG13LTFQwQgYmr9ZiBp_r86M5KyFKFqHA@mail.gmail.com>
+References: <20170614211556.2062728-1-arnd@arndb.de> <20170614211556.2062728-12-arnd@arndb.de>
+ <CACT4Y+aNMBbkb8b+wwrdhVVxH-1NwgUm+vwXqUggmLnGK-8Q4w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>,
-        =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0138.hostedemail.com ([216.40.44.138]:51965 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752372AbdFPL0j (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 07:26:39 -0400
-In-Reply-To: <1497611020.2622.8.camel@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+        kasan-dev <kasan-dev@googlegroups.com>,
+        Alexander Potapenko <glider@google.com>,
+        Andrey Ryabinin <aryabinin@virtuozzo.com>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Masahiro Yamada <yamada.masahiro@socionext.com>,
+        Michal Marek <mmarek@suse.com>,
+        Kees Cook <keescook@chromium.org>,
+        Ingo Molnar <mingo@kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        "open list:KERNEL BUILD + fi..." <linux-kbuild@vger.kernel.org>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+aNMBbkb8b+wwrdhVVxH-1NwgUm+vwXqUggmLnGK-8Q4w@mail.gmail.com>
+Sender: linux-kbuild-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2017-06-16 at 13:03 +0200, Johannes Berg wrote:
-> On Fri, 2017-06-16 at 03:39 -0700, Joe Perches wrote:
-> > 
-> > I would suggest avoiding using skb_put_u8 as it
-> > would suggest there should be skb_put_u16 etc
-> 
-> If there are enough users, I don't know why we wouldn't add it? Though
-> it should be _unaligned_le16 and _unaligned_be16, if at all :)
+On Thu, Jun 15, 2017 at 9:02 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
+> On Wed, Jun 14, 2017 at 11:15 PM, Arnd Bergmann <arnd@arndb.de> wrote:
 
-Maybe.
+>> diff --git a/lib/Kconfig.kmemcheck b/lib/Kconfig.kmemcheck
+>> index 846e039a86b4..58b9f3f81dc8 100644
+>> --- a/lib/Kconfig.kmemcheck
+>> +++ b/lib/Kconfig.kmemcheck
+>> @@ -7,6 +7,7 @@ menuconfig KMEMCHECK
+>>         bool "kmemcheck: trap use of uninitialized memory"
+>>         depends on DEBUG_KERNEL
+>>         depends on !X86_USE_3DNOW
+>> +       depends on !KASAN_EXTRA
+>
+>
+> KASAN is not meant to work with KMEMCHECK. I am not sure if it even
+> works, and it's definitely unmaintained. Even if it works now, I am
+> not sure what could be the intention of somebody running that
+> combination.
+> So I think we should do: depends on !KASAN
+> Will it make things simper for you?
 
-Avoid api explosion can be good.
+I don't think it will change anything for me, other than having to respin the
+patch series or adding a patch on top.
 
-Maybe using skb_put_data() and optimizing away size
-using __builtin_constant_p and a switch statement
-could do more or less the same thing.
+I have just checked that KMEMCHECK is already disabled in allmodconfig,
+and all but one of the warnings I address in the series show up in
+allmodconfig too.
 
-$ git grep -P "\*\s*\(.*\*\s*\)\s*skb_put" *
-drivers/net/wireless/intel/ipw2x00/ipw2200.c:		*(__le16*)skb_put(dst, sizeof(u16)) = cpu_to_le16(
-drivers/net/wireless/intel/ipw2x00/ipw2200.c:			*(__le16*)skb_put(dst, sizeof(u16)) =
-drivers/net/wireless/intel/ipw2x00/ipw2200.c:			*(__le16*)skb_put(dst, sizeof(u16)) =
-drivers/net/wireless/intel/ipw2x00/ipw2200.c:			*(__le16*)skb_put(dst, sizeof(u16)) =
-drivers/s390/net/ctcm_fsms.c:		*((__u16 *)skb_put(ch->trans_skb, 2)) = ch->collect_len + 2;
-drivers/atm/fore200e.c:	*((u32*)skb_put(skb, 4)) = cell_header;
-net/l2tp/l2tp_ip.c:	*((__be32 *) skb_put(skb, 4)) = 0;
-net/atm/signaling.c:	*(struct atmsvc_msg *)skb_put(skb, sizeof(struct atmsvc_msg)) = *msg;
+      Arnd
