@@ -1,33 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Request for -stable inclusion (xt_TCPMSS)
-Date: Fri, 16 Jun 2017 12:10:41 -0400 (EDT)
-Message-ID: <20170616.121041.1690932428093762139.davem@davemloft.net>
-References: <20170616074516.yzgd7sqqigjepx37@alphalink.fr>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 2/2] tc: m_tunnel_key: add csum/nocsum option
+Date: Fri, 16 Jun 2017 09:12:22 -0700
+Message-ID: <20170616091222.4119bdf8@xeon-e3>
+References: <cover.1497467840.git.jbenc@redhat.com>
+        <20170614213018.364cd85d@griffin>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, nuclearcat@nuclearcat.com,
-        pablo@netfilter.org, netdev@vger.kernel.org
-To: g.nault@alphalink.fr
+Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jiri Pirko <jiri@resnulli.us>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60910 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750750AbdFPQKn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 12:10:43 -0400
-In-Reply-To: <20170616074516.yzgd7sqqigjepx37@alphalink.fr>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:36042 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750792AbdFPQMa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 12:12:30 -0400
+Received: by mail-pf0-f174.google.com with SMTP id x63so24379534pff.3
+        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 09:12:29 -0700 (PDT)
+In-Reply-To: <20170614213018.364cd85d@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Guillaume Nault <g.nault@alphalink.fr>
-Date: Fri, 16 Jun 2017 09:45:17 +0200
+On Wed, 14 Jun 2017 21:30:18 +0200
+Jiri Benc <jbenc@redhat.com> wrote:
 
-> Hi David,
+> Allows control of UDP zero checksum.
 > 
-> Please queue 2638fd0f92d4 ("netfilter: xt_TCPMSS: add more sanity tests on tcph->doff")
-> for -stable.
-> It fixes hard to debug crashes in production, that can be triggered by
-> remote peers.
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
 
-Pablo handles netfilter -stable submissions, so please ask him.
-
-Thank you.
+Applied both patches to net-next
