@@ -1,46 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] skb data accessors cleanup
-Date: Fri, 16 Jun 2017 11:50:13 -0400 (EDT)
-Message-ID: <20170616.115013.1187787408957466917.davem@davemloft.net>
-References: <20170616070747.3332-1-johannes@sipsolutions.net>
+From: Samuel Thibault <samuel.thibault@ens-lyon.org>
+Subject: Re: [PATCH v2 03/11] tty: kbd: reduce stack size with KASAN
+Date: Fri, 16 Jun 2017 17:58:59 +0200
+Message-ID: <20170616155859.gn2einuermlncaku@var.youpi.perso.aquilenet.fr>
+References: <20170614211556.2062728-1-arnd@arndb.de>
+ <20170614211556.2062728-4-arnd@arndb.de>
+ <20170615045221.GA26687@kroah.com>
+ <20170615045347.GA26913@kroah.com>
+ <CAK8P3a32abgm7H7s=dOTkLus3K9o79hRJ31s0eyEVZW30E9p7g@mail.gmail.com>
+ <20170616130215.GC31057@kroah.com>
+ <CAK8P3a2upDpcxGCLomyjvsXHfyeTyPmSj9qvymSsgf4pE+spDg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: johannes@sipsolutions.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60506 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751882AbdFPPuU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 11:50:20 -0400
-In-Reply-To: <20170616070747.3332-1-johannes@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        kasan-dev <kasan-dev@googlegroups.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Andrey Ryabinin <aryabinin@virtuozzo.com>,
+        Networking <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Jiri Slaby <jslaby@suse.com>,
+        Dmitry Torokhov <dmitry.torokhov@gmail.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAK8P3a2upDpcxGCLomyjvsXHfyeTyPmSj9qvymSsgf4pE+spDg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Fri, 16 Jun 2017 09:07:42 +0200
+Arnd Bergmann, on ven. 16 juin 2017 17:41:47 +0200, wrote:
+> The problem are the 'ch' and 'flag' variables that are passed into
+> tty_insert_flip_char by value, and from there into
+> tty_insert_flip_string_flags by reference.  In this case, kasan tries
+> to detect whether tty_insert_flip_string_flags() does any out-of-bounds
+> access on the pointers and adds 64 bytes redzone around each of
+> the two variables.
 
-> Over night, Fengguang's bot told me that it compiled all of its many
-> various configurations successfully, and I had done allyesconfig on
-> x86_64 myself yesterday to iron out the things I missed.
-> 
-> So now I think I'm happy with it.
-> 
-> My tree was based on your
-> 
->     commit 3715c47bcda8bb56f7e2be27276282a2d0d48c09
->     Merge: 18b6e7955d8f d8fbd27469fc
->     Author: David S. Miller <davem@davemloft.net>
->     Date:   Thu Jun 15 14:31:56 2017 -0400
-> 
->         Merge branch 'r8152-support-new-chips'
-> 
-> when the compilation tests happened, but I've reviewed the changes
-> coming into net-next in the meantime and didn't see any new usages
-> of skb data accessors having come in.
+Ouch.
 
-Series applied, thanks!
+> gcc-6.3.1 happens to inline 16 calls of tty_insert_flip_char() into
+> kbd_keycode(), so the stack size grows from 168 bytes to
+> 168+(16*2*64) = 2216 bytes. There are 10 calls to put_queue()
+> in to_utf8(), 12 in emulate_raw() and another 4 in kbd_keycode()
+> itself.
 
-I tell ya, spatch appears to be the crack cocaine of Linus kernel
-development.  Once someone gets into some spatch scripting work,
-they can't stop!
+That's why I agreed for put_queue :)
+
+I'm however afraid we'd have to mark a lot of static functions that way,
+depending on the aggressivity of gcc... I'd indeed really argue that gcc
+should consider stack usage when inlining.
+
+static int f(int foo) {
+	char c[256];
+	g(c, foo);
+}
+
+is really not something that I'd want to see the compiler to inline.
+
+> > And no, we shouldn't need to do this.  It sounds like ksan is the
+> > problem here...
+> 
+> Of course kasan is the problem, but it really just does whatever we
+> asked it to do, and cannot do any better as long as we inline many
+> copies of tty_insert_flip_char() into kbd_keycode().
+
+We didn't ask to inline put_queue into kbd_keycode.
+
+Samuel
