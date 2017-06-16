@@ -1,323 +1,173 @@
 From: Wei Wang <tracywwnj@gmail.com>
-Subject: [PATCH net-next 17/21] net: remove dst gc related code
-Date: Fri, 16 Jun 2017 10:47:40 -0700
-Message-ID: <20170616174744.139688-18-tracywwnj@gmail.com>
+Subject: [PATCH net-next 16/21] decnet: take dst->__refcnt when struct dn_route is created
+Date: Fri, 16 Jun 2017 10:47:39 -0700
+Message-ID: <20170616174744.139688-17-tracywwnj@gmail.com>
 References: <20170616174744.139688-1-tracywwnj@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
         Martin KaFai Lau <kafai@fb.com>, Wei Wang <weiwan@google.com>
 To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33474 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752548AbdFPRsf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 13:48:35 -0400
-Received: by mail-pf0-f195.google.com with SMTP id w12so7568538pfk.0
-        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 10:48:35 -0700 (PDT)
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33467 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752548AbdFPRsj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 13:48:39 -0400
+Received: by mail-pf0-f194.google.com with SMTP id w12so7568506pfk.0
+        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 10:48:39 -0700 (PDT)
 In-Reply-To: <20170616174744.139688-1-tracywwnj@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Wei Wang <weiwan@google.com>
 
-This patch removes all dst gc related code and all the dst free
-functions
+struct dn_route is inserted into dn_rt_hash_table but no dst->__refcnt
+is taken.
+This patch makes sure the dn_rt_hash_table's reference to the dst is ref
+counted.
+
+As the dst is always ref counted properly, we can safely mark
+DST_NOGC flag so dst_release() will release dst based on refcnt only.
+And dst gc is no longer needed and all dst_free() or its related
+function calls should be replaced with dst_release() or
+dst_release_immediate(). And dst_dev_put() is called when removing dst
+from the hash table to release the reference on dst->dev before we lose
+pointer to it.
+
+Also, correct the logic in dn_dst_check_expire() and dn_dst_gc() to
+check dst->__refcnt to be > 1 to indicate it is referenced by other
+users.
 
 Signed-off-by: Wei Wang <weiwan@google.com>
 Acked-by: Martin KaFai Lau <kafai@fb.com>
 ---
- include/net/dst.h |  21 ------
- net/core/dev.c    |   1 -
- net/core/dst.c    | 213 ------------------------------------------------------
- 3 files changed, 235 deletions(-)
+ net/decnet/dn_route.c | 36 +++++++++++++++++++-----------------
+ 1 file changed, 19 insertions(+), 17 deletions(-)
 
-diff --git a/include/net/dst.h b/include/net/dst.h
-index 88ebb87ad312..0c56d1fc4d7f 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -425,28 +425,9 @@ void *dst_alloc(struct dst_ops *ops, struct net_device *dev, int initial_ref,
- void dst_init(struct dst_entry *dst, struct dst_ops *ops,
- 	      struct net_device *dev, int initial_ref, int initial_obsolete,
- 	      unsigned short flags);
--void __dst_free(struct dst_entry *dst);
- struct dst_entry *dst_destroy(struct dst_entry *dst);
- void dst_dev_put(struct dst_entry *dst);
- 
--static inline void dst_free(struct dst_entry *dst)
--{
--	if (dst->obsolete > 0)
--		return;
--	if (!atomic_read(&dst->__refcnt)) {
--		dst = dst_destroy(dst);
--		if (!dst)
--			return;
--	}
--	__dst_free(dst);
--}
--
--static inline void dst_rcu_free(struct rcu_head *head)
--{
--	struct dst_entry *dst = container_of(head, struct dst_entry, rcu_head);
--	dst_free(dst);
--}
--
- static inline void dst_confirm(struct dst_entry *dst)
- {
- }
-@@ -508,8 +489,6 @@ static inline struct dst_entry *dst_check(struct dst_entry *dst, u32 cookie)
- 	return dst;
+diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
+index 6f95612b4d32..f467c4e3205b 100644
+--- a/net/decnet/dn_route.c
++++ b/net/decnet/dn_route.c
+@@ -183,11 +183,6 @@ static __inline__ unsigned int dn_hash(__le16 src, __le16 dst)
+ 	return dn_rt_hash_mask & (unsigned int)tmp;
  }
  
--void dst_subsys_init(void);
--
- /* Flags for xfrm_lookup flags argument. */
- enum {
- 	XFRM_LOOKUP_ICMP = 1 << 0,
-diff --git a/net/core/dev.c b/net/core/dev.c
-index b8d6dd9e8b5c..5d1830b8d2cf 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -8681,7 +8681,6 @@ static int __init net_dev_init(void)
- 	rc = cpuhp_setup_state_nocalls(CPUHP_NET_DEV_DEAD, "net/dev:dead",
- 				       NULL, dev_cpu_dead);
- 	WARN_ON(rc < 0);
--	dst_subsys_init();
- 	rc = 0;
- out:
- 	return rc;
-diff --git a/net/core/dst.c b/net/core/dst.c
-index b262b22e686d..cd61291fb0a7 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -42,108 +42,6 @@
-  * to dirty as few cache lines as possible in __dst_free().
-  * As this is not a very strong hint, we dont force an alignment on SMP.
-  */
--static struct {
--	spinlock_t		lock;
--	struct dst_entry	*list;
--	unsigned long		timer_inc;
--	unsigned long		timer_expires;
--} dst_garbage = {
--	.lock = __SPIN_LOCK_UNLOCKED(dst_garbage.lock),
--	.timer_inc = DST_GC_MAX,
--};
--static void dst_gc_task(struct work_struct *work);
--static void ___dst_free(struct dst_entry *dst);
--
--static DECLARE_DELAYED_WORK(dst_gc_work, dst_gc_task);
--
--static DEFINE_MUTEX(dst_gc_mutex);
--/*
-- * long lived entries are maintained in this list, guarded by dst_gc_mutex
-- */
--static struct dst_entry         *dst_busy_list;
--
--static void dst_gc_task(struct work_struct *work)
+-static inline void dnrt_free(struct dn_route *rt)
 -{
--	int    delayed = 0;
--	int    work_performed = 0;
--	unsigned long expires = ~0L;
--	struct dst_entry *dst, *next, head;
--	struct dst_entry *last = &head;
--
--	mutex_lock(&dst_gc_mutex);
--	next = dst_busy_list;
--
--loop:
--	while ((dst = next) != NULL) {
--		next = dst->next;
--		prefetch(&next->next);
--		cond_resched();
--		if (likely(atomic_read(&dst->__refcnt))) {
--			last->next = dst;
--			last = dst;
--			delayed++;
--			continue;
--		}
--		work_performed++;
--
--		dst = dst_destroy(dst);
--		if (dst) {
--			/* NOHASH and still referenced. Unless it is already
--			 * on gc list, invalidate it and add to gc list.
--			 *
--			 * Note: this is temporary. Actually, NOHASH dst's
--			 * must be obsoleted when parent is obsoleted.
--			 * But we do not have state "obsoleted, but
--			 * referenced by parent", so it is right.
--			 */
--			if (dst->obsolete > 0)
--				continue;
--
--			___dst_free(dst);
--			dst->next = next;
--			next = dst;
--		}
--	}
--
--	spin_lock_bh(&dst_garbage.lock);
--	next = dst_garbage.list;
--	if (next) {
--		dst_garbage.list = NULL;
--		spin_unlock_bh(&dst_garbage.lock);
--		goto loop;
--	}
--	last->next = NULL;
--	dst_busy_list = head.next;
--	if (!dst_busy_list)
--		dst_garbage.timer_inc = DST_GC_MAX;
--	else {
--		/*
--		 * if we freed less than 1/10 of delayed entries,
--		 * we can sleep longer.
--		 */
--		if (work_performed <= delayed/10) {
--			dst_garbage.timer_expires += dst_garbage.timer_inc;
--			if (dst_garbage.timer_expires > DST_GC_MAX)
--				dst_garbage.timer_expires = DST_GC_MAX;
--			dst_garbage.timer_inc += DST_GC_INC;
--		} else {
--			dst_garbage.timer_inc = DST_GC_INC;
--			dst_garbage.timer_expires = DST_GC_MIN;
--		}
--		expires = dst_garbage.timer_expires;
--		/*
--		 * if the next desired timer is more than 4 seconds in the
--		 * future then round the timer to whole seconds
--		 */
--		if (expires > 4*HZ)
--			expires = round_jiffies_relative(expires);
--		schedule_delayed_work(&dst_gc_work, expires);
--	}
--
--	spin_unlock_bh(&dst_garbage.lock);
--	mutex_unlock(&dst_gc_mutex);
+-	call_rcu_bh(&rt->dst.rcu_head, dst_rcu_free);
 -}
 -
- int dst_discard_out(struct net *net, struct sock *sk, struct sk_buff *skb)
+ static void dn_dst_check_expire(unsigned long dummy)
  {
- 	kfree_skb(skb);
-@@ -216,34 +114,6 @@ void *dst_alloc(struct dst_ops *ops, struct net_device *dev,
- }
- EXPORT_SYMBOL(dst_alloc);
+ 	int i;
+@@ -202,14 +197,15 @@ static void dn_dst_check_expire(unsigned long dummy)
+ 		spin_lock(&dn_rt_hash_table[i].lock);
+ 		while ((rt = rcu_dereference_protected(*rtp,
+ 						lockdep_is_held(&dn_rt_hash_table[i].lock))) != NULL) {
+-			if (atomic_read(&rt->dst.__refcnt) ||
+-					(now - rt->dst.lastuse) < expire) {
++			if (atomic_read(&rt->dst.__refcnt) > 1 ||
++			    (now - rt->dst.lastuse) < expire) {
+ 				rtp = &rt->dst.dn_next;
+ 				continue;
+ 			}
+ 			*rtp = rt->dst.dn_next;
+ 			rt->dst.dn_next = NULL;
+-			dnrt_free(rt);
++			dst_dev_put(&rt->dst);
++			dst_release(&rt->dst);
+ 		}
+ 		spin_unlock(&dn_rt_hash_table[i].lock);
  
--static void ___dst_free(struct dst_entry *dst)
--{
--	/* The first case (dev==NULL) is required, when
--	   protocol module is unloaded.
--	 */
--	if (dst->dev == NULL || !(dst->dev->flags&IFF_UP)) {
--		dst->input = dst_discard;
--		dst->output = dst_discard_out;
--	}
--	dst->obsolete = DST_OBSOLETE_DEAD;
--}
--
--void __dst_free(struct dst_entry *dst)
--{
--	spin_lock_bh(&dst_garbage.lock);
--	___dst_free(dst);
--	dst->next = dst_garbage.list;
--	dst_garbage.list = dst;
--	if (dst_garbage.timer_inc > DST_GC_INC) {
--		dst_garbage.timer_inc = DST_GC_INC;
--		dst_garbage.timer_expires = DST_GC_MIN;
--		mod_delayed_work(system_wq, &dst_gc_work,
--				 dst_garbage.timer_expires);
--	}
--	spin_unlock_bh(&dst_garbage.lock);
--}
--EXPORT_SYMBOL(__dst_free);
--
- struct dst_entry *dst_destroy(struct dst_entry * dst)
- {
- 	struct dst_entry *child;
-@@ -447,86 +317,3 @@ struct metadata_dst __percpu *metadata_dst_alloc_percpu(u8 optslen, gfp_t flags)
- 	return md_dst;
+@@ -235,14 +231,15 @@ static int dn_dst_gc(struct dst_ops *ops)
+ 
+ 		while ((rt = rcu_dereference_protected(*rtp,
+ 						lockdep_is_held(&dn_rt_hash_table[i].lock))) != NULL) {
+-			if (atomic_read(&rt->dst.__refcnt) ||
+-					(now - rt->dst.lastuse) < expire) {
++			if (atomic_read(&rt->dst.__refcnt) > 1 ||
++			    (now - rt->dst.lastuse) < expire) {
+ 				rtp = &rt->dst.dn_next;
+ 				continue;
+ 			}
+ 			*rtp = rt->dst.dn_next;
+ 			rt->dst.dn_next = NULL;
+-			dnrt_free(rt);
++			dst_dev_put(&rt->dst);
++			dst_release(&rt->dst);
+ 			break;
+ 		}
+ 		spin_unlock_bh(&dn_rt_hash_table[i].lock);
+@@ -344,7 +341,7 @@ static int dn_insert_route(struct dn_route *rt, unsigned int hash, struct dn_rou
+ 			dst_use(&rth->dst, now);
+ 			spin_unlock_bh(&dn_rt_hash_table[hash].lock);
+ 
+-			dst_free(&rt->dst);
++			dst_release_immediate(&rt->dst);
+ 			*rp = rth;
+ 			return 0;
+ 		}
+@@ -374,7 +371,8 @@ static void dn_run_flush(unsigned long dummy)
+ 		for(; rt; rt = next) {
+ 			next = rcu_dereference_raw(rt->dst.dn_next);
+ 			RCU_INIT_POINTER(rt->dst.dn_next, NULL);
+-			dnrt_free(rt);
++			dst_dev_put(&rt->dst);
++			dst_release(&rt->dst);
+ 		}
+ 
+ nothing_to_declare:
+@@ -1181,7 +1179,8 @@ static int dn_route_output_slow(struct dst_entry **pprt, const struct flowidn *o
+ 	if (dev_out->flags & IFF_LOOPBACK)
+ 		flags |= RTCF_LOCAL;
+ 
+-	rt = dst_alloc(&dn_dst_ops, dev_out, 0, DST_OBSOLETE_NONE, DST_HOST);
++	rt = dst_alloc(&dn_dst_ops, dev_out, 1, DST_OBSOLETE_NONE,
++		       DST_HOST | DST_NOGC);
+ 	if (rt == NULL)
+ 		goto e_nobufs;
+ 
+@@ -1215,6 +1214,7 @@ static int dn_route_output_slow(struct dst_entry **pprt, const struct flowidn *o
+ 		goto e_neighbour;
+ 
+ 	hash = dn_hash(rt->fld.saddr, rt->fld.daddr);
++	/* dn_insert_route() increments dst->__refcnt */
+ 	dn_insert_route(rt, hash, (struct dn_route **)pprt);
+ 
+ done:
+@@ -1237,7 +1237,7 @@ static int dn_route_output_slow(struct dst_entry **pprt, const struct flowidn *o
+ 	err = -ENOBUFS;
+ 	goto done;
+ e_neighbour:
+-	dst_free(&rt->dst);
++	dst_release_immediate(&rt->dst);
+ 	goto e_nobufs;
  }
- EXPORT_SYMBOL_GPL(metadata_dst_alloc_percpu);
--
--/* Dirty hack. We did it in 2.2 (in __dst_free),
-- * we have _very_ good reasons not to repeat
-- * this mistake in 2.3, but we have no choice
-- * now. _It_ _is_ _explicit_ _deliberate_
-- * _race_ _condition_.
-- *
-- * Commented and originally written by Alexey.
-- */
--static void dst_ifdown(struct dst_entry *dst, struct net_device *dev,
--		       int unregister)
--{
--	if (dst->ops->ifdown)
--		dst->ops->ifdown(dst, dev, unregister);
--
--	if (dev != dst->dev)
--		return;
--
--	if (!unregister) {
--		dst->input = dst_discard;
--		dst->output = dst_discard_out;
--	} else {
--		dst->dev = dev_net(dst->dev)->loopback_dev;
--		dev_hold(dst->dev);
--		dev_put(dev);
--	}
--}
--
--static int dst_dev_event(struct notifier_block *this, unsigned long event,
--			 void *ptr)
--{
--	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
--	struct dst_entry *dst, *last = NULL;
--
--	switch (event) {
--	case NETDEV_UNREGISTER_FINAL:
--	case NETDEV_DOWN:
--		mutex_lock(&dst_gc_mutex);
--		for (dst = dst_busy_list; dst; dst = dst->next) {
--			last = dst;
--			dst_ifdown(dst, dev, event != NETDEV_DOWN);
--		}
--
--		spin_lock_bh(&dst_garbage.lock);
--		dst = dst_garbage.list;
--		dst_garbage.list = NULL;
--		/* The code in dst_ifdown places a hold on the loopback device.
--		 * If the gc entry processing is set to expire after a lengthy
--		 * interval, this hold can cause netdev_wait_allrefs() to hang
--		 * out and wait for a long time -- until the the loopback
--		 * interface is released.  If we're really unlucky, it'll emit
--		 * pr_emerg messages to console too.  Reset the interval here,
--		 * so dst cleanups occur in a more timely fashion.
--		 */
--		if (dst_garbage.timer_inc > DST_GC_INC) {
--			dst_garbage.timer_inc = DST_GC_INC;
--			dst_garbage.timer_expires = DST_GC_MIN;
--			mod_delayed_work(system_wq, &dst_gc_work,
--					 dst_garbage.timer_expires);
--		}
--		spin_unlock_bh(&dst_garbage.lock);
--
--		if (last)
--			last->next = dst;
--		else
--			dst_busy_list = dst;
--		for (; dst; dst = dst->next)
--			dst_ifdown(dst, dev, event != NETDEV_DOWN);
--		mutex_unlock(&dst_gc_mutex);
--		break;
--	}
--	return NOTIFY_DONE;
--}
--
--static struct notifier_block dst_dev_notifier = {
--	.notifier_call	= dst_dev_event,
--	.priority = -10, /* must be called after other network notifiers */
--};
--
--void __init dst_subsys_init(void)
--{
--	register_netdevice_notifier(&dst_dev_notifier);
--}
+ 
+@@ -1445,7 +1445,8 @@ static int dn_route_input_slow(struct sk_buff *skb)
+ 	}
+ 
+ make_route:
+-	rt = dst_alloc(&dn_dst_ops, out_dev, 0, DST_OBSOLETE_NONE, DST_HOST);
++	rt = dst_alloc(&dn_dst_ops, out_dev, 1, DST_OBSOLETE_NONE,
++		       DST_HOST | DST_NOGC);
+ 	if (rt == NULL)
+ 		goto e_nobufs;
+ 
+@@ -1491,6 +1492,7 @@ static int dn_route_input_slow(struct sk_buff *skb)
+ 		goto e_neighbour;
+ 
+ 	hash = dn_hash(rt->fld.saddr, rt->fld.daddr);
++	/* dn_insert_route() increments dst->__refcnt */
+ 	dn_insert_route(rt, hash, &rt);
+ 	skb_dst_set(skb, &rt->dst);
+ 
+@@ -1514,7 +1516,7 @@ static int dn_route_input_slow(struct sk_buff *skb)
+ 	goto done;
+ 
+ e_neighbour:
+-	dst_free(&rt->dst);
++	dst_release_immediate(&rt->dst);
+ 	goto done;
+ }
+ 
 -- 
 2.13.1.518.g3df882009-goog
