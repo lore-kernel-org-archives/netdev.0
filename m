@@ -1,84 +1,85 @@
-From: Serhey Popovych <serhe.popovych@gmail.com>
-Subject: [PATCH] veth: Be more robust on network device creation when no attributes
-Date: Fri, 16 Jun 2017 18:05:00 +0300
-Message-ID: <1497625500-19440-1-git-send-email-serhe.popovych@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next:master 1119/1146] ERROR:
+ "tcp_rate_check_app_limited" [net/tls/tls.ko] undefined!
+Date: Fri, 16 Jun 2017 11:29:32 -0400 (EDT)
+Message-ID: <20170616.112932.1450887873847611693.davem@davemloft.net>
+References: <201706160508.cYd5HQKm%fengguang.wu@intel.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davejwatson@fb.com, kbuild-all@01.org, netdev@vger.kernel.org,
+        borisp@mellanox.com, ilyal@mellanox.com, aviadye@mellanox.com
+To: fengguang.wu@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:35120 "EHLO
-        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751980AbdFPPFF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 11:05:05 -0400
-Received: by mail-lf0-f66.google.com with SMTP id v20so4505036lfa.2
-        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 08:05:04 -0700 (PDT)
-Received: from tuxracer.synapse.com ([195.238.92.77])
-        by smtp.gmail.com with ESMTPSA id y2sm488319ljd.41.2017.06.16.08.05.02
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Fri, 16 Jun 2017 08:05:02 -0700 (PDT)
+Received: from shards.monkeyblade.net ([184.105.139.130]:60044 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750750AbdFPP3g (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 11:29:36 -0400
+In-Reply-To: <201706160508.cYd5HQKm%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are number of problems with configuration peer
-network device in absence of IFLA_VETH_PEER attributes
-where attributes for main network device shared with
-peer.
+From: kbuild test robot <fengguang.wu@intel.com>
+Date: Fri, 16 Jun 2017 05:19:10 +0800
 
-First it is not feasible to configure both network
-devices with same MAC address since this makes
-communication in such configuration problematic.
+> tree:   https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
+> head:   3715c47bcda8bb56f7e2be27276282a2d0d48c09
+> commit: 3c4d7559159bfe1e3b94df3a657b2cda3a34e218 [1119/1146] tls: kernel TLS support
+> config: x86_64-randconfig-u0-06160346 (attached as .config)
+> compiler: gcc-6 (Debian 6.2.0-3) 6.2.0 20160901
+> reproduce:
+>         git checkout 3c4d7559159bfe1e3b94df3a657b2cda3a34e218
+>         # save the attached .config to linux build tree
+>         make ARCH=x86_64 
+> 
+> All errors (new ones prefixed by >>):
+> 
+>    ERROR: "tcp_prot" [net/tls/tls.ko] undefined!
+>>> ERROR: "tcp_rate_check_app_limited" [net/tls/tls.ko] undefined!
+>    ERROR: "tcp_register_ulp" [net/tls/tls.ko] undefined!
+>    ERROR: "tcp_unregister_ulp" [net/tls/tls.ko] undefined!
+>    ERROR: "do_tcp_sendpages" [net/tls/tls.ko] undefined!
 
-This case can be reproduced with following sequence:
+I've applied the following to fix this.
 
-  # ip link add address 02:11:22:33:44:55 type veth
-  # ip li sh
-  ...
-  26: veth0@veth1: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc \
-  noop state DOWN mode DEFAULT qlen 1000
-      link/ether 00:11:22:33:44:55 brd ff:ff:ff:ff:ff:ff
-  27: veth1@veth0: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc \
-  noop state DOWN mode DEFAULT qlen 1000
-      link/ether 00:11:22:33:44:55 brd ff:ff:ff:ff:ff:ff
+David et al, you must be more responsive when you add build regressions
+to the tree like this.
 
-Second it is not possible to register main network device
-with given name and automatically create peer network
-device name. That happens because IFLA_IFNAME used when
-creating main and reused when creating peer.
+Thank you.
 
-This case can be reproduced with following sequence:
+====================
+>From 54144b4825ea7790cbc32a0f75a1103a97907646 Mon Sep 17 00:00:00 2001
+From: "David S. Miller" <davem@davemloft.net>
+Date: Fri, 16 Jun 2017 11:28:49 -0400
+Subject: [PATCH] tls: Depend upon INET not plain NET.
 
-  # ip link add dev veth1a type veth
-  RTNETLINK answers: File exists
+We refer to TCP et al. symbols so have to use INET as
+the dependency.
 
-To fix both of the cases check if corresponding netlink
-attributes are taken from peer_tb when valid or
-name based on rtnl ops kind and random address is used.
+   ERROR: "tcp_prot" [net/tls/tls.ko] undefined!
+>> ERROR: "tcp_rate_check_app_limited" [net/tls/tls.ko] undefined!
+   ERROR: "tcp_register_ulp" [net/tls/tls.ko] undefined!
+   ERROR: "tcp_unregister_ulp" [net/tls/tls.ko] undefined!
+   ERROR: "do_tcp_sendpages" [net/tls/tls.ko] undefined!
 
-Signed-off-by: Serhey Popovych <serhe.popovych@gmail.com>
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/veth.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/tls/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index 0689433..17714db 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -383,7 +383,7 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
- 		tbp = tb;
- 	}
- 
--	if (tbp[IFLA_IFNAME]) {
-+	if (ifmp && tbp[IFLA_IFNAME]) {
- 		nla_strlcpy(ifname, tbp[IFLA_IFNAME], IFNAMSIZ);
- 		name_assign_type = NET_NAME_USER;
- 	} else {
-@@ -402,7 +402,7 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
- 		return PTR_ERR(peer);
- 	}
- 
--	if (tbp[IFLA_ADDRESS] == NULL)
-+	if (!ifmp || !tbp[IFLA_ADDRESS])
- 		eth_hw_addr_random(peer);
- 
- 	if (ifmp && dev->ifindex > 0)
+diff --git a/net/tls/Kconfig b/net/tls/Kconfig
+index 61e5329..b13541f 100644
+--- a/net/tls/Kconfig
++++ b/net/tls/Kconfig
+@@ -3,7 +3,7 @@
+ #
+ config TLS
+ 	tristate "Transport Layer Security support"
+-	depends on NET
++	depends on INET
+ 	default m
+ 	---help---
+ 	Enable kernel support for TLS protocol. This allows symmetric
 -- 
-1.8.3.1
+2.4.11
