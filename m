@@ -1,49 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC 2/3] samples/bpf: Add define __EMITTING_BPF__ when
- building BPF
-Date: Fri, 16 Jun 2017 12:14:34 -0400 (EDT)
-Message-ID: <20170616.121434.859810061597099237.davem@davemloft.net>
-References: <20170615223543.22867-1-david.daney@cavium.com>
-        <20170615223543.22867-3-david.daney@cavium.com>
-        <5943B1C6.7040809@iogearbox.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH 2/3] dev: Avoid infinite loop on network device index
+ exhaustion
+Date: Fri, 16 Jun 2017 09:16:59 -0700
+Message-ID: <20170616091659.3361b5d0@xeon-e3>
+References: <cover.1497621810.git.serhe.popovych@gmail.com>
+        <a6cc35519e46dc988a983f4b167ccd420b42a0fa.1497621810.git.serhe.popovych@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: david.daney@cavium.com, ast@kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
-        ralf@linux-mips.org, catalin.marinas@arm.com, will.deacon@arm.com,
-        linux-arm-kernel@lists.infradead.org
-To: daniel@iogearbox.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5943B1C6.7040809@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Serhey Popovych <serhe.popovych@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:35813 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752353AbdFPQRB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 12:17:01 -0400
+Received: by mail-pg0-f52.google.com with SMTP id k71so22286759pgd.2
+        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 09:17:01 -0700 (PDT)
+In-Reply-To: <a6cc35519e46dc988a983f4b167ccd420b42a0fa.1497621810.git.serhe.popovych@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Fri, 16 Jun 2017 12:24:06 +0200
+On Fri, 16 Jun 2017 17:23:52 +0300
+Serhey Popovych <serhe.popovych@gmail.com> wrote:
 
-> On 06/16/2017 12:35 AM, David Daney wrote:
->> ... this allows gating of inline assembly code that causes llvm to
->> fail when emitting BPF.
->>
->> Signed-off-by: David Daney <david.daney@cavium.com>
+> If network device indexes exhaust in namespace dev_new_index()
+> can loop indefinitely since there is no condition to exit
+> except case where free index is found.
 > 
-> I don't have a better idea at the moment, perhaps there could be
-> a clang rewrite plugin that would ignore all inline assembly code
-> since this is never used from BPF progs. Hmm. Really ugly that
-> we have to add this __EMITTING_BPF__ into arch asm files, but I
-> don't have a better idea for an immediate workaround right now ...
-> I would really prefer if we could avoid just for the sake of the
-> kernel samples going down the road of adding a
-> !defined(__EMITTING_BPF__)
-> into a uapi asm header for mips, though. Is this coming from
-> networking sample code or rather tracing?
+> Since all it's caller hold RTNL mutex this may completely
+> lock down network subsystem configuration operations.
+> 
+> Instead of retrying with ifindex == 1 (LOOPBACK_IFINDEX)
+> in dev_new_index() we should fail and return invalid
+> index value (0).
+> 
+> Adjust callers to correctly handle error case of dev_new_index().
+> 
+> Signed-off-by: Serhey Popovych <serhe.popovych@gmail.com>
+ 
+This breaks existing semantics.
 
-The problem is that we include the arch include/asm files at all.
-
-When we build bpf stuff, we should have a set of asm/ files
-specifically for builds targetting BPF.
-
-Let's just fix this right and stop putting all of these hacks in.
-
-Thank you.
+Today on Linux the ifindex allocator intentionally wraps around back to 1.
+This is to handle the case of long running system with things like VPN's
+that create and destroy lots of devices.
