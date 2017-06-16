@@ -1,10 +1,10 @@
 From: Richard Kuo <rkuo@codeaurora.org>
-Subject: Re: [PATCH 17/44] hexagon: switch to use ->mapping_error for error
- reporting
-Date: Thu, 15 Jun 2017 19:19:11 -0500
-Message-ID: <20170616001911.GA7343@codeaurora.org>
+Subject: Re: [PATCH 31/44] hexagon: remove arch-specific dma_supported
+ implementation
+Date: Thu, 15 Jun 2017 19:20:16 -0500
+Message-ID: <20170616002016.GB7343@codeaurora.org>
 References: <20170608132609.32662-1-hch@lst.de>
- <20170608132609.32662-18-hch@lst.de>
+ <20170608132609.32662-32-hch@lst.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: x86@kernel.org, linux-arm-kernel@lists.infradead.org,
@@ -21,17 +21,20 @@ Cc: x86@kernel.org, linux-arm-kernel@lists.infradead.org,
 To: Christoph Hellwig <hch@lst.de>
 Return-path: <linux-hexagon-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170608132609.32662-18-hch@lst.de>
+In-Reply-To: <20170608132609.32662-32-hch@lst.de>
 Sender: linux-hexagon-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 08, 2017 at 03:25:42PM +0200, Christoph Hellwig wrote:
+On Thu, Jun 08, 2017 at 03:25:56PM +0200, Christoph Hellwig wrote:
+> This implementation is simply bogus - hexagon only has a simple
+> direct mapped DMA implementation and thus doesn't care about the
+> address.
+> 
 > Signed-off-by: Christoph Hellwig <hch@lst.de>
 > ---
->  arch/hexagon/include/asm/dma-mapping.h |  2 --
->  arch/hexagon/kernel/dma.c              | 12 +++++++++---
->  arch/hexagon/kernel/hexagon_ksyms.c    |  1 -
->  3 files changed, 9 insertions(+), 6 deletions(-)
+>  arch/hexagon/include/asm/dma-mapping.h | 2 --
+>  arch/hexagon/kernel/dma.c              | 9 ---------
+>  2 files changed, 11 deletions(-)
 > 
 
 Acked-by: Richard Kuo <rkuo@codeaurora.org>
