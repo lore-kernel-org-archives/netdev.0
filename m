@@ -1,34 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: dsa: add cross-chip multicast support
-Date: Fri, 16 Jun 2017 15:21:54 -0400 (EDT)
-Message-ID: <20170616.152154.1388838024873603347.davem@davemloft.net>
-References: <20170615201448.22424-1-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [pull request][net-next 00/15] Mellanox mlx5 updates and
+ cleanups 2017-06-16
+Date: Fri, 16 Jun 2017 15:25:51 -0400 (EDT)
+Message-ID: <20170616.152551.1946205924250566640.davem@davemloft.net>
+References: <20170615214252.30140-1-saeedm@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch,
-        jcobham@questertangent.com
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170615201448.22424-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: saeedm@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37474 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750792AbdFPTZx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 15:25:53 -0400
+In-Reply-To: <20170615214252.30140-1-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Thu, 15 Jun 2017 16:14:48 -0400
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Fri, 16 Jun 2017 00:42:37 +0300
 
-> Similarly to how cross-chip VLAN works, define a bitmap of multicast
-> group members for a switch, now including its DSA ports, so that
-> multicast traffic can be sent to all switches of the fabric.
+> This series provides updates and cleanups to mlx5 driver.
 > 
-> A switch may drop the frames if no user port is a member.
+> For more details please see tag log below.
 > 
-> This brings support for multicast in a multi-chip environment.
-> As of now, all switches of the fabric must support the multicast
-> operations in order to program a single fabric port.
-> 
-> Reported-by: Jason Cobham <jcobham@questertangent.com>
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> Please pull and let me know if there's any problem.
+> *This series doesn't introduce any conflict with the ongoing net
+> pull request.
 
-Applied, thanks Vivien.
+Pulled, thank you.
