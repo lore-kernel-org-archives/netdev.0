@@ -1,42 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 0/9] bpf: xdp: Report bpf_prog ID in
- IFLA_XDP
-Date: Fri, 16 Jun 2017 11:59:28 -0400 (EDT)
-Message-ID: <20170616.115928.1848639816473502604.davem@davemloft.net>
-References: <20170616002917.2976329-1-kafai@fb.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCHv2 iproute2 net-next] ip neigh: allow flush FAILED
+ neighbour entry
+Date: Fri, 16 Jun 2017 09:01:30 -0700
+Message-ID: <20170616090130.78045dcb@xeon-e3>
+References: <1496651489-28110-1-git-send-email-liuhangbin@gmail.com>
+        <1497583912-27981-1-git-send-email-liuhangbin@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@fb.com, daniel@iogearbox.net,
-        kernel-team@fb.com
-To: kafai@fb.com
+Cc: netdev@vger.kernel.org
+To: Hangbin Liu <liuhangbin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60670 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751762AbdFPP7p (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 11:59:45 -0400
-In-Reply-To: <20170616002917.2976329-1-kafai@fb.com>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:34688 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752134AbdFPQBj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 12:01:39 -0400
+Received: by mail-pf0-f169.google.com with SMTP id s66so24276130pfs.1
+        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 09:01:39 -0700 (PDT)
+In-Reply-To: <1497583912-27981-1-git-send-email-liuhangbin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Martin KaFai Lau <kafai@fb.com>
-Date: Thu, 15 Jun 2017 17:29:08 -0700
+On Fri, 16 Jun 2017 11:31:52 +0800
+Hangbin Liu <liuhangbin@gmail.com> wrote:
 
-> This is the first usage of the new bpf_prog ID.  It is for
-> reporting the ID of a xdp_prog through netlink.
+> After upstream commit 5071034e4af7 ('neigh: Really delete an arp/neigh entry
+> on "ip neigh delete" or "arp -d"'), we could delete a single FAILED neighbour
+> entry now. But `ip neigh flush` still skip the FAILED entry.
 > 
-> It rides on the existing IFLA_XDP.  This patch adds IFLA_XDP_PROG_ID
-> for the bpf_prog ID reporting.
+> Move the filter after first round flush so we can flush FAILED entry on fixed
+> kernel and also do not keep retrying on old kernel.
 > 
-> It starts with changing the generic_xdp first.  After that,
-> the hardware driver is changed one by one.  Jakub Kicinski mentioned
-> that he will soon introduce XDP_ATTACHED_HW (on top of the existing
-> XDP_ATTACHED_DRV and XDP_ATTACHED_SKB)
-> and he is going to reuse the prog_attached for this purpose.
-> Hence, this patch set keeps the prog_attached even though
-> !!prog_id also implies there is xdp_prog attached.
-> 
-> I have tested with generic_xdp, mlx4 and mlx5.
- ...
+> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
 
-Series applied, thanks Martin.
+Applied, thanks.
