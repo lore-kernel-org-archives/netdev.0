@@ -1,14 +1,14 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH v2 2/6] networking: introduce and use skb_put_data()
-Date: Fri, 16 Jun 2017 14:29:20 +0200
-Message-ID: <20170616122924.3557-3-johannes@sipsolutions.net>
+Subject: [PATCH v2 3/6] networking: make skb_put & friends return void pointers
+Date: Fri, 16 Jun 2017 14:29:21 +0200
+Message-ID: <20170616122924.3557-4-johannes@sipsolutions.net>
 References: <20170616122924.3557-1-johannes@sipsolutions.net>
 Cc: Johannes Berg <johannes.berg@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:32944 "EHLO sipsolutions.net"
+Received: from s3.sipsolutions.net ([5.9.151.49]:32948 "EHLO sipsolutions.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753130AbdFPM3d (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1753326AbdFPM3d (ORCPT <rfc822;netdev@vger.kernel.org>);
         Fri, 16 Jun 2017 08:29:33 -0400
 In-Reply-To: <20170616122924.3557-1-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
@@ -16,5908 +16,4777 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Johannes Berg <johannes.berg@intel.com>
 
-A common pattern with skb_put() is to just want to memcpy()
-some data into the new space, introduce skb_put_data() for
-this.
+It seems like a historic accident that these return unsigned char *,
+and in many places that means casts are required, more often than not.
 
-An spatch similar to the one for skb_put_zero() converts many
-of the places using it:
-
-    @@
-    identifier p, p2;
-    expression len, skb, data;
-    type t, t2;
-    @@
-    (
-    -p = skb_put(skb, len);
-    +p = skb_put_data(skb, data, len);
-    |
-    -p = (t)skb_put(skb, len);
-    +p = skb_put_data(skb, data, len);
-    )
-    (
-    p2 = (t2)p;
-    -memcpy(p2, data, len);
-    |
-    -memcpy(p, data, len);
-    )
+Make these functions (skb_put, __skb_put and pskb_put) return void *
+and remove all the casts across the tree, adding a (u8 *) cast only
+where the unsigned char pointer was used directly, all done with the
+following spatch:
 
     @@
-    type t, t2;
-    identifier p, p2;
-    expression skb, data;
+    expression SKB, LEN;
+    typedef u8;
+    identifier fn = { skb_put, __skb_put };
     @@
-    t *p;
-    ...
-    (
-    -p = skb_put(skb, sizeof(t));
-    +p = skb_put_data(skb, data, sizeof(t));
-    |
-    -p = (t *)skb_put(skb, sizeof(t));
-    +p = skb_put_data(skb, data, sizeof(t));
-    )
-    (
-    p2 = (t2)p;
-    -memcpy(p2, data, sizeof(*p));
-    |
-    -memcpy(p, data, sizeof(*p));
-    )
+    - *(fn(SKB, LEN))
+    + *(u8 *)fn(SKB, LEN)
 
     @@
-    expression skb, len, data;
+    expression E, SKB, LEN;
+    identifier fn = { skb_put, __skb_put };
+    type T;
     @@
-    -memcpy(skb_put(skb, len), data, len);
-    +skb_put_data(skb, data, len);
+    - E = ((T *)(fn(SKB, LEN)))
+    + E = fn(SKB, LEN)
 
-(again, manually post-processed to retain some comments)
+which actually doesn't cover pskb_put since there are only three
+users overall.
 
-Reviewed-by: Stephen Hemminger <stephen@networkplumber.org>
+A handful of stragglers were converted manually, notably a macro in
+drivers/isdn/i4l/isdn_bsdcomp.c and, oddly enough, one of the many
+instances in net/bluetooth/hci_sock.c. In the former file, I also
+had to fix one whitespace problem spatch introduced.
+
 Signed-off-by: Johannes Berg <johannes.berg@intel.com>
 ---
-v2: also modify header files
----
- drivers/atm/fore200e.c                             |  2 +-
- drivers/atm/he.c                                   |  2 +-
- drivers/atm/idt77252.c                             | 11 ++----
- drivers/atm/solos-pci.c                            |  2 +-
- drivers/bluetooth/bfusb.c                          |  6 +--
- drivers/bluetooth/bluecard_cs.c                    |  2 +-
- drivers/bluetooth/btmrvl_main.c                    |  2 +-
- drivers/bluetooth/btqcomsmd.c                      |  2 +-
- drivers/bluetooth/btusb.c                          | 12 +++---
- drivers/bluetooth/hci_bcsp.c                       | 16 ++++----
- drivers/bluetooth/hci_h4.c                         |  2 +-
- drivers/bluetooth/hci_h5.c                         | 12 +++---
- drivers/bluetooth/hci_intel.c                      |  7 ++--
- drivers/bluetooth/hci_ll.c                         |  2 +-
- drivers/bluetooth/hci_mrvl.c                       |  2 +-
- drivers/bluetooth/hci_qca.c                        |  2 +-
- drivers/char/pcmcia/synclink_cs.c                  |  2 +-
- drivers/firewire/net.c                             |  2 +-
- drivers/isdn/capi/capi.c                           |  2 +-
- drivers/isdn/capi/capidrv.c                        |  2 +-
- drivers/isdn/hardware/avm/b1.c                     |  6 +--
- drivers/isdn/hardware/avm/b1dma.c                  |  6 +--
- drivers/isdn/hardware/avm/c4.c                     |  6 +--
- drivers/isdn/hardware/avm/t1isa.c                  |  6 +--
- drivers/isdn/hardware/mISDN/hfcmulti.c             |  5 +--
- drivers/isdn/hardware/mISDN/hfcsusb.c              |  2 +-
- drivers/isdn/hisax/amd7930_fn.c                    |  3 +-
- drivers/isdn/hisax/avm_pci.c                       |  5 ++-
- drivers/isdn/hisax/diva.c                          |  6 ++-
- drivers/isdn/hisax/elsa_ser.c                      |  4 +-
- drivers/isdn/hisax/hfc_usb.c                       |  2 +-
- drivers/isdn/hisax/hisax_fcpcipnp.c                |  3 +-
- drivers/isdn/hisax/hisax_isac.c                    |  4 +-
- drivers/isdn/hisax/hscx_irq.c                      |  6 ++-
- drivers/isdn/hisax/icc.c                           |  2 +-
- drivers/isdn/hisax/ipacx.c                         |  8 ++--
- drivers/isdn/hisax/isac.c                          |  2 +-
- drivers/isdn/hisax/isar.c                          |  6 +--
- drivers/isdn/hisax/isdnl2.c                        |  4 +-
- drivers/isdn/hisax/jade_irq.c                      |  6 ++-
- drivers/isdn/hisax/l3_1tr6.c                       |  8 ++--
- drivers/isdn/hisax/l3dss1.c                        | 28 ++++++-------
- drivers/isdn/hisax/l3ni1.c                         | 32 +++++++--------
- drivers/isdn/hisax/netjet.c                        |  2 +-
- drivers/isdn/hisax/st5481_usb.c                    |  2 +-
- drivers/isdn/hisax/w6692.c                         |  9 +++--
- drivers/isdn/hysdn/hycapi.c                        | 31 +++++++--------
- drivers/isdn/hysdn/hysdn_net.c                     |  2 +-
- drivers/isdn/i4l/isdn_ppp.c                        |  3 +-
- drivers/isdn/i4l/isdn_tty.c                        |  2 +-
- drivers/isdn/i4l/isdn_v110.c                       |  6 +--
- drivers/isdn/isdnloop/isdnloop.c                   |  2 +-
- drivers/isdn/mISDN/dsp_cmx.c                       |  3 +-
- drivers/isdn/mISDN/layer2.c                        |  8 ++--
- drivers/isdn/mISDN/tei.c                           |  2 +-
- drivers/media/dvb-core/dvb_net.c                   |  3 +-
- drivers/media/radio/wl128x/fmdrv_common.c          |  2 +-
- drivers/misc/ti-st/st_core.c                       |  2 +-
- drivers/misc/ti-st/st_kim.c                        |  2 +-
- drivers/net/bonding/bond_alb.c                     |  3 +-
- drivers/net/caif/caif_hsi.c                        |  6 +--
- drivers/net/caif/caif_serial.c                     |  3 +-
- drivers/net/caif/caif_spi.c                        |  3 +-
- drivers/net/caif/caif_virtio.c                     |  2 +-
- drivers/net/can/slcan.c                            |  3 +-
- drivers/net/ethernet/3com/3c515.c                  |  6 +--
- drivers/net/ethernet/3com/3c59x.c                  |  5 +--
- drivers/net/ethernet/aeroflex/greth.c              |  3 +-
- drivers/net/ethernet/agere/et131x.c                |  2 +-
- drivers/net/ethernet/apple/macmace.c               |  2 +-
- drivers/net/ethernet/aurora/nb8800.c               |  4 +-
- drivers/net/ethernet/cadence/macb.c                |  2 +-
- .../net/ethernet/cavium/liquidio/octeon_network.h  |  4 +-
- drivers/net/ethernet/cirrus/cs89x0.c               |  7 ++--
- drivers/net/ethernet/dec/tulip/de4x5.c             |  6 +--
- drivers/net/ethernet/dec/tulip/interrupt.c         | 12 +++---
- drivers/net/ethernet/dec/tulip/uli526x.c           |  6 +--
- drivers/net/ethernet/ec_bhf.c                      |  2 +-
- drivers/net/ethernet/fealnx.c                      |  4 +-
- drivers/net/ethernet/i825xx/82596.c                |  3 +-
- drivers/net/ethernet/i825xx/lib82596.c             |  3 +-
- drivers/net/ethernet/intel/e1000/e1000_main.c      |  2 +-
- drivers/net/ethernet/marvell/mvneta.c              | 10 ++---
- drivers/net/ethernet/micrel/ksz884x.c              |  3 +-
- drivers/net/ethernet/nxp/lpc_eth.c                 |  7 ++--
- drivers/net/ethernet/qlogic/qede/qede_fp.c         |  3 +-
- drivers/net/ethernet/qlogic/qlge/qlge_main.c       |  7 ++--
- drivers/net/ethernet/silan/sc92031.c               | 10 ++---
- drivers/net/fjes/fjes_main.c                       |  3 +-
- drivers/net/hamradio/mkiss.c                       |  2 +-
- drivers/net/hippi/rrunner.c                        |  4 +-
- drivers/net/hyperv/netvsc_drv.c                    |  2 +-
- drivers/net/ieee802154/at86rf230.c                 |  2 +-
- drivers/net/ieee802154/ca8210.c                    |  2 +-
- drivers/net/ieee802154/mrf24j40.c                  |  2 +-
- drivers/net/irda/smsc-ircc2.c                      |  2 +-
- drivers/net/irda/vlsi_ir.c                         |  2 +-
- drivers/net/ppp/ppp_async.c                        |  3 +-
- drivers/net/ppp/ppp_synctty.c                      |  3 +-
- drivers/net/slip/slip.c                            |  2 +-
- drivers/net/usb/asix_common.c                      |  4 +-
- drivers/net/usb/cdc-phonet.c                       |  2 +-
- drivers/net/usb/cdc_mbim.c                         |  2 +-
- drivers/net/usb/cdc_ncm.c                          |  6 +--
- drivers/net/usb/gl620a.c                           |  3 +-
- drivers/net/usb/hso.c                              | 13 +++---
- drivers/net/usb/ipheth.c                           |  2 +-
- drivers/net/usb/lg-vl600.c                         |  2 +-
- drivers/net/usb/qmi_wwan.c                         |  2 +-
- drivers/net/virtio_net.c                           |  2 +-
- drivers/net/wan/farsync.c                          |  2 +-
- drivers/net/wan/hdlc_ppp.c                         |  4 +-
- drivers/net/wan/x25_asy.c                          |  2 +-
- drivers/net/wimax/i2400m/netdev.c                  |  2 +-
- drivers/net/wireless/admtek/adm8211.c              |  6 +--
- drivers/net/wireless/ath/ath10k/mac.c              |  5 +--
- drivers/net/wireless/ath/ath10k/wmi.c              |  5 +--
- drivers/net/wireless/ath/ath9k/channel.c           |  5 +--
- drivers/net/wireless/ath/ath9k/wmi.c               |  3 +-
- drivers/net/wireless/ath/carl9170/rx.c             |  6 +--
- drivers/net/wireless/ath/wil6210/wmi.c             |  2 +-
- drivers/net/wireless/atmel/atmel.c                 |  5 +--
- drivers/net/wireless/broadcom/b43legacy/dma.c      |  2 +-
- drivers/net/wireless/intel/ipw2x00/ipw2200.c       |  5 ++-
- drivers/net/wireless/intel/ipw2x00/libipw_tx.c     |  6 +--
- drivers/net/wireless/intel/iwlegacy/3945.c         |  2 +-
- drivers/net/wireless/intel/iwlegacy/4965-mac.c     |  2 +-
- drivers/net/wireless/intel/iwlwifi/dvm/rx.c        |  2 +-
- drivers/net/wireless/intel/iwlwifi/dvm/tx.c        |  3 +-
- drivers/net/wireless/intel/iwlwifi/mvm/d3.c        |  4 +-
- drivers/net/wireless/intel/iwlwifi/mvm/mac-ctxt.c  |  2 +-
- drivers/net/wireless/intel/iwlwifi/mvm/rx.c        |  2 +-
- drivers/net/wireless/intel/iwlwifi/mvm/rxmq.c      |  5 +--
- drivers/net/wireless/intel/iwlwifi/pcie/tx.c       |  5 +--
- .../net/wireless/intersil/hostap/hostap_80211_tx.c |  2 +-
- drivers/net/wireless/intersil/hostap/hostap_ap.c   |  2 +-
- drivers/net/wireless/intersil/hostap/hostap_hw.c   | 11 +++---
- drivers/net/wireless/intersil/hostap/hostap_main.c |  2 +-
- drivers/net/wireless/intersil/orinoco/main.c       |  2 +-
- drivers/net/wireless/intersil/p54/p54spi.c         |  4 +-
- drivers/net/wireless/intersil/p54/txrx.c           |  5 ++-
- drivers/net/wireless/mac80211_hwsim.c              |  5 +--
- drivers/net/wireless/marvell/libertas/if_sdio.c    |  4 +-
- drivers/net/wireless/marvell/mwifiex/11n_aggr.c    |  2 +-
- drivers/net/wireless/marvell/mwifiex/cfg80211.c    | 10 ++---
- drivers/net/wireless/marvell/mwifiex/tdls.c        |  8 ++--
- drivers/net/wireless/mediatek/mt7601u/dma.c        |  4 +-
- drivers/net/wireless/mediatek/mt7601u/mcu.c        |  2 +-
- .../net/wireless/quantenna/qtnfmac/pearl/pcie.c    |  2 +-
- .../net/wireless/quantenna/qtnfmac/qlink_util.h    |  3 +-
- drivers/net/wireless/ralink/rt2x00/rt2x00debug.c   |  5 +--
- drivers/net/wireless/realtek/rtlwifi/pci.c         |  3 +-
- .../net/wireless/realtek/rtlwifi/rtl8188ee/fw.c    |  3 +-
- .../net/wireless/realtek/rtlwifi/rtl8192se/fw.c    |  7 ++--
- drivers/net/wireless/realtek/rtlwifi/usb.c         |  2 +-
- drivers/net/wireless/rsi/rsi_91x_mgmt.c            |  8 ++--
- drivers/net/wireless/st/cw1200/scan.c              |  2 +-
- drivers/net/wireless/ti/wl1251/main.c              |  2 +-
- drivers/net/wireless/ti/wlcore/cmd.c               |  4 +-
- drivers/net/wireless/ti/wlcore/rx.c                |  4 +-
- drivers/net/wireless/zydas/zd1201.c                | 26 ++++++------
- drivers/net/wireless/zydas/zd1211rw/zd_mac.c       |  2 +-
- drivers/nfc/fdp/fdp.c                              |  3 +-
- drivers/nfc/fdp/i2c.c                              |  2 +-
- drivers/nfc/nfcmrvl/fw_dnld.c                      |  7 ++--
- drivers/nfc/nfcmrvl/i2c.c                          |  2 +-
- drivers/nfc/nfcmrvl/usb.c                          |  4 +-
- drivers/nfc/nxp-nci/firmware.c                     |  3 +-
- drivers/nfc/nxp-nci/i2c.c                          |  5 +--
- drivers/nfc/pn533/pn533.c                          | 28 ++++++-------
- drivers/nfc/pn533/usb.c                            |  4 +-
- drivers/nfc/port100.c                              | 14 +++----
- drivers/nfc/s3fwrn5/firmware.c                     |  4 +-
- drivers/nfc/s3fwrn5/i2c.c                          |  2 +-
- drivers/nfc/st21nfca/dep.c                         |  2 +-
- drivers/nfc/st21nfca/i2c.c                         |  2 +-
- drivers/rpmsg/rpmsg_char.c                         |  2 +-
- drivers/s390/net/ctcm_fsms.c                       |  7 ++--
- drivers/s390/net/ctcm_main.c                       | 10 ++---
- drivers/s390/net/ctcm_mpc.c                        | 46 +++++++++-------------
- drivers/s390/net/lcs.c                             |  2 +-
- drivers/s390/net/netiucv.c                         | 10 ++---
- drivers/s390/net/qeth_core_main.c                  | 10 ++---
- drivers/staging/gdm724x/gdm_lte.c                  | 25 +++++-------
- drivers/staging/ks7010/ks_hostif.c                 | 11 +++---
- drivers/staging/most/aim-network/networking.c      |  8 ++--
- drivers/staging/octeon/ethernet-rx.c               | 10 ++---
- drivers/staging/rtl8188eu/core/rtw_recv.c          |  4 +-
- drivers/staging/rtl8188eu/os_dep/mon.c             |  2 +-
- drivers/staging/rtl8192e/rtllib_rx.c               | 11 ++----
- drivers/staging/rtl8192e/rtllib_softmac.c          |  9 ++---
- drivers/staging/rtl8192e/rtllib_tx.c               | 12 ++----
- drivers/staging/rtl8192u/ieee80211/ieee80211_rx.c  |  9 ++---
- .../staging/rtl8192u/ieee80211/ieee80211_softmac.c |  3 +-
- drivers/staging/rtl8192u/ieee80211/ieee80211_tx.c  |  7 ++--
- drivers/staging/rtl8192u/r819xU_cmdpkt.c           |  3 +-
- drivers/staging/rtl8712/rtl8712_recv.c             |  3 +-
- drivers/staging/rtl8723bs/os_dep/recv_linux.c      |  4 +-
- drivers/staging/wilc1000/linux_mon.c               |  6 +--
- drivers/staging/wilc1000/linux_wlan.c              |  2 +-
- drivers/staging/wlan-ng/hfa384x_usb.c              |  6 +--
- drivers/tty/ipwireless/network.c                   |  2 +-
- drivers/tty/n_gsm.c                                |  2 +-
- drivers/tty/synclink.c                             |  2 +-
- drivers/tty/synclink_gt.c                          |  2 +-
- drivers/tty/synclinkmp.c                           |  2 +-
- drivers/usb/gadget/function/f_ncm.c                | 11 +++---
- drivers/usb/gadget/function/f_phonet.c             |  2 +-
- include/linux/mISDNif.h                            |  2 +-
- include/linux/skbuff.h                             | 10 +++++
- lib/nlattr.c                                       |  2 +-
- net/batman-adv/bat_iv_ogm.c                        |  4 +-
- net/batman-adv/bat_v_ogm.c                         |  6 +--
- net/batman-adv/fragmentation.c                     |  3 +-
- net/bluetooth/cmtp/core.c                          |  2 +-
- net/bluetooth/hci_core.c                           |  2 +-
- net/bluetooth/hci_request.c                        |  2 +-
- net/bluetooth/hci_sock.c                           |  8 ++--
- net/bluetooth/hidp/core.c                          |  2 +-
- net/bluetooth/l2cap_core.c                         |  4 +-
- net/bluetooth/mgmt_util.c                          |  4 +-
- net/bluetooth/rfcomm/tty.c                         |  2 +-
- net/bridge/netfilter/nft_reject_bridge.c           |  6 +--
- net/can/bcm.c                                      |  6 +--
- net/decnet/dn_nsp_out.c                            | 10 ++---
- net/ieee802154/6lowpan/tx.c                        |  7 ++--
- net/ipv6/mcast.c                                   |  4 +-
- net/irda/ircomm/ircomm_tty.c                       |  2 +-
- net/irda/irlap_frame.c                             |  6 +--
- net/key/af_key.c                                   |  3 +-
- net/mac80211/ibss.c                                |  2 +-
- net/mac80211/mesh.c                                |  8 ++--
- net/mac80211/mlme.c                                | 16 ++++----
- net/mac80211/offchannel.c                          |  3 +-
- net/mac80211/rx.c                                  |  2 +-
- net/mac80211/tdls.c                                | 32 ++++++---------
- net/mac80211/tx.c                                  | 22 +++++------
- net/mac80211/util.c                                |  5 +--
- net/netlink/af_netlink.c                           |  2 +-
- net/nfc/digital_dep.c                              | 17 +++-----
- net/nfc/hci/core.c                                 |  6 +--
- net/nfc/llcp_commands.c                            | 15 ++++---
- net/nfc/llcp_core.c                                |  2 +-
- net/nfc/nci/core.c                                 |  4 +-
- net/nfc/nci/data.c                                 |  2 +-
- net/nfc/nci/hci.c                                  |  7 ++--
- net/nfc/nci/uart.c                                 |  2 +-
- net/qrtr/qrtr.c                                    |  2 +-
- net/sctp/output.c                                  |  3 +-
- net/sctp/sm_make_chunk.c                           |  4 +-
- net/vmw_vsock/virtio_transport_common.c            |  6 +--
- net/x25/x25_subr.c                                 | 21 ++++------
- 252 files changed, 622 insertions(+), 741 deletions(-)
+ drivers/atm/atmtcp.c                               |   4 +-
+ drivers/atm/solos-pci.c                            |  12 +--
+ drivers/bluetooth/bluecard_cs.c                    |   2 +-
+ drivers/bluetooth/bt3c_cs.c                        |   2 +-
+ drivers/bluetooth/btmrvl_main.c                    |   2 +-
+ drivers/bluetooth/btuart_cs.c                      |   2 +-
+ drivers/bluetooth/btusb.c                          |  10 +-
+ drivers/bluetooth/dtl1_cs.c                        |   4 +-
+ drivers/bluetooth/hci_bcm.c                        |   6 +-
+ drivers/bluetooth/hci_intel.c                      |   6 +-
+ drivers/bluetooth/hci_ll.c                         |   2 +-
+ drivers/bluetooth/hci_nokia.c                      |  10 +-
+ drivers/bluetooth/hci_qca.c                        |   2 +-
+ drivers/bluetooth/hci_vhci.c                       |   4 +-
+ drivers/crypto/chelsio/chcr_algo.c                 |  10 +-
+ drivers/infiniband/core/addr.c                     |   3 +-
+ drivers/infiniband/core/sa_query.c                 |   3 +-
+ drivers/infiniband/hw/cxgb3/cxio_hal.c             |   2 +-
+ drivers/infiniband/hw/cxgb3/iwch_cm.c              |  22 ++--
+ drivers/infiniband/hw/cxgb4/cm.c                   |  22 ++--
+ drivers/infiniband/hw/cxgb4/cq.c                   |   4 +-
+ drivers/infiniband/hw/cxgb4/mem.c                  |   4 +-
+ drivers/infiniband/hw/cxgb4/qp.c                   |   8 +-
+ drivers/isdn/capi/capi.c                           |   4 +-
+ drivers/isdn/gigaset/asyncdata.c                   |  26 ++---
+ drivers/isdn/gigaset/isocdata.c                    |   2 +-
+ drivers/isdn/i4l/isdn_audio.c                      |   4 +-
+ drivers/isdn/i4l/isdn_bsdcomp.c                    |   8 +-
+ drivers/isdn/i4l/isdn_x25iface.c                   |   4 +-
+ drivers/media/dvb-core/dvb_net.c                   |   2 +-
+ drivers/media/radio/wl128x/fmdrv_common.c          |   2 +-
+ drivers/net/bonding/bond_3ad.c                     |   4 +-
+ drivers/net/can/dev.c                              |   4 +-
+ drivers/net/ethernet/allwinner/sun4i-emac.c        |   2 +-
+ drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c    |  12 +--
+ drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c |   4 +-
+ drivers/net/ethernet/chelsio/cxgb3/l2t.c           |   2 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c  |   4 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |   8 +-
+ drivers/net/ethernet/chelsio/cxgb4/l2t.c           |   2 +-
+ drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.h  |  10 +-
+ drivers/net/ethernet/davicom/dm9000.c              |   2 +-
+ drivers/net/ethernet/dnet.c                        |   2 +-
+ drivers/net/ethernet/hp/hp100.c                    |   2 +-
+ drivers/net/ethernet/intel/i40e/i40e_fcoe.c        |   2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c      |   2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_selftest.c   |   4 +-
+ .../net/ethernet/mellanox/mlx5/core/en_selftest.c  |   6 +-
+ drivers/net/ethernet/micrel/ks8842.c               |   4 +-
+ drivers/net/ethernet/sfc/falcon/selftest.c         |   3 +-
+ drivers/net/ethernet/sfc/selftest.c                |   3 +-
+ drivers/net/hamradio/scc.c                         |   4 +-
+ drivers/net/ppp/pppoe.c                            |   2 +-
+ drivers/net/usb/cdc_ncm.c                          |   2 +-
+ drivers/net/usb/net1080.c                          |   4 +-
+ drivers/net/usb/zaurus.c                           |   8 +-
+ drivers/net/wan/hdlc_ppp.c                         |   2 +-
+ drivers/net/wireless/ath/ath6kl/debug.c            |   2 +-
+ drivers/net/wireless/ath/ath6kl/htc_pipe.c         |   6 +-
+ drivers/net/wireless/ath/ath9k/htc_hst.c           |   9 +-
+ drivers/net/wireless/ath/wil6210/wmi.c             |   2 +-
+ drivers/net/wireless/cisco/airo.c                  |   4 +-
+ drivers/net/wireless/intel/ipw2x00/ipw2200.c       |   2 +-
+ drivers/net/wireless/intel/ipw2x00/libipw_tx.c     |   3 +-
+ drivers/net/wireless/intersil/hostap/hostap_ap.c   |   2 +-
+ drivers/net/wireless/intersil/p54/fwio.c           |  43 ++++----
+ drivers/net/wireless/mac80211_hwsim.c              |   8 +-
+ drivers/net/wireless/marvell/mwifiex/11n_aggr.c    |   2 +-
+ drivers/net/wireless/marvell/mwifiex/tdls.c        |  38 +++----
+ .../net/wireless/quantenna/qtnfmac/qlink_util.h    |  11 +-
+ drivers/net/wireless/ralink/rt2x00/rt2x00debug.c   |   2 +-
+ .../net/wireless/realtek/rtlwifi/rtl8192se/fw.c    |   2 +-
+ drivers/nfc/fdp/i2c.c                              |   2 +-
+ drivers/nfc/microread/i2c.c                        |   4 +-
+ drivers/nfc/microread/microread.c                  |   4 +-
+ drivers/nfc/nfcmrvl/fw_dnld.c                      |   6 +-
+ drivers/nfc/pn533/pn533.c                          |  32 +++---
+ drivers/nfc/pn544/i2c.c                            |   6 +-
+ drivers/nfc/port100.c                              |   4 +-
+ drivers/nfc/st21nfca/i2c.c                         |   6 +-
+ drivers/nfc/st95hf/core.c                          |   2 +-
+ drivers/scsi/bnx2fc/bnx2fc_fcoe.c                  |   2 +-
+ drivers/scsi/fcoe/fcoe.c                           |   2 +-
+ drivers/scsi/qedf/qedf_main.c                      |   2 +-
+ drivers/staging/rtl8192e/rtl819x_BAProc.c          |  10 +-
+ drivers/staging/rtl8192e/rtllib_softmac.c          |  34 +++---
+ .../staging/rtl8192u/ieee80211/ieee80211_softmac.c |  21 ++--
+ .../staging/rtl8192u/ieee80211/rtl819x_BAProc.c    |   8 +-
+ drivers/target/iscsi/cxgbit/cxgbit_cm.c            |   8 +-
+ drivers/target/iscsi/cxgbit/cxgbit_ddp.c           |   2 +-
+ drivers/usb/gadget/function/f_ncm.c                |   5 +-
+ include/linux/skbuff.h                             |   8 +-
+ lib/nlattr.c                                       |   2 +-
+ net/802/garp.c                                     |   6 +-
+ net/802/mrp.c                                      |  11 +-
+ net/appletalk/ddp.c                                |   2 +-
+ net/atm/clip.c                                     |   2 +-
+ net/batman-adv/icmp_socket.c                       |   2 +-
+ net/batman-adv/tp_meter.c                          |   6 +-
+ net/bluetooth/hci_request.c                        |   2 +-
+ net/bluetooth/hci_sock.c                           |  12 +--
+ net/bluetooth/hidp/core.c                          |   2 +-
+ net/bluetooth/l2cap_core.c                         |  14 +--
+ net/bluetooth/mgmt_util.c                          |  10 +-
+ net/bluetooth/rfcomm/core.c                        |   2 +-
+ net/core/pktgen.c                                  |  32 +++---
+ net/core/skbuff.c                                  |   6 +-
+ net/decnet/dn_dev.c                                |   2 +-
+ net/decnet/dn_nsp_out.c                            |  18 ++--
+ net/ipv4/arp.c                                     |   2 +-
+ net/ipv4/igmp.c                                    |   6 +-
+ net/ipv4/ipmr.c                                    |   2 +-
+ net/ipv4/netfilter/ipt_SYNPROXY.c                  |  10 +-
+ net/ipv4/netfilter/nf_reject_ipv4.c                |   2 +-
+ net/ipv6/mcast.c                                   |   4 +-
+ net/ipv6/ndisc.c                                   |   8 +-
+ net/ipv6/netfilter/ip6t_SYNPROXY.c                 |  10 +-
+ net/ipv6/netfilter/nf_reject_ipv6.c                |   2 +-
+ net/irda/irlap_frame.c                             |  17 ++-
+ net/key/af_key.c                                   | 116 +++++++++------------
+ net/mac80211/cfg.c                                 |   4 +-
+ net/mac80211/ht.c                                  |   2 +-
+ net/mac80211/mesh.c                                |   2 +-
+ net/mac80211/mesh_ps.c                             |   2 +-
+ net/mac80211/sta_info.c                            |   2 +-
+ net/mac80211/tdls.c                                |  10 +-
+ net/mac80211/tx.c                                  |   2 +-
+ net/mac80211/wpa.c                                 |   6 +-
+ net/netfilter/nfnetlink_log.c                      |   2 +-
+ net/netfilter/nfnetlink_queue.c                    |   2 +-
+ net/netlink/af_netlink.c                           |   2 +-
+ net/nfc/digital_core.c                             |   4 +-
+ net/nfc/digital_dep.c                              |   2 +-
+ net/nfc/digital_technology.c                       |  18 ++--
+ net/nfc/hci/core.c                                 |   2 +-
+ net/nfc/hci/llc_shdlc.c                            |   4 +-
+ net/nfc/nci/core.c                                 |   2 +-
+ net/nfc/nci/hci.c                                  |   2 +-
+ net/nfc/nci/spi.c                                  |   8 +-
+ net/nfc/nci/uart.c                                 |   2 +-
+ net/psample/psample.c                              |   2 +-
+ net/qrtr/qrtr.c                                    |   2 +-
+ net/sctp/sm_make_chunk.c                           |   2 +-
+ net/sctp/ulpevent.c                                |  29 ++----
+ net/vmw_vsock/virtio_transport_common.c            |   2 +-
+ 145 files changed, 486 insertions(+), 547 deletions(-)
 
-diff --git a/drivers/atm/fore200e.c b/drivers/atm/fore200e.c
-index 637c3e6b0f9e..7584ae1ded85 100644
---- a/drivers/atm/fore200e.c
-+++ b/drivers/atm/fore200e.c
-@@ -1104,7 +1104,7 @@ fore200e_push_rpd(struct fore200e* fore200e, struct atm_vcc* vcc, struct rpd* rp
- 	/* Make device DMA transfer visible to CPU.  */
- 	fore200e->bus->dma_sync_for_cpu(fore200e, buffer->data.dma_addr, rpd->rsd[ i ].length, DMA_FROM_DEVICE);
- 	
--	memcpy(skb_put(skb, rpd->rsd[ i ].length), buffer->data.align_addr, rpd->rsd[ i ].length);
-+	skb_put_data(skb, buffer->data.align_addr, rpd->rsd[i].length);
- 
- 	/* Now let the device get at it again.  */
- 	fore200e->bus->dma_sync_for_device(fore200e, buffer->data.dma_addr, rpd->rsd[ i ].length, DMA_FROM_DEVICE);
-diff --git a/drivers/atm/he.c b/drivers/atm/he.c
-index 3617659b9184..461da2bce8ef 100644
---- a/drivers/atm/he.c
-+++ b/drivers/atm/he.c
-@@ -1735,7 +1735,7 @@ he_service_rbrq(struct he_dev *he_dev, int group)
- 		__net_timestamp(skb);
- 
- 		list_for_each_entry(heb, &he_vcc->buffers, entry)
--			memcpy(skb_put(skb, heb->len), &heb->data, heb->len);
-+			skb_put_data(skb, &heb->data, heb->len);
- 
- 		switch (vcc->qos.aal) {
- 			case ATM_AAL0:
-diff --git a/drivers/atm/idt77252.c b/drivers/atm/idt77252.c
-index 5ec109533bb9..4e64de380bda 100644
---- a/drivers/atm/idt77252.c
-+++ b/drivers/atm/idt77252.c
-@@ -1090,8 +1090,7 @@ dequeue_rx(struct idt77252_dev *card, struct rsq_entry *rsqe)
- 
- 			*((u32 *) sb->data) = aal0;
- 			skb_put(sb, sizeof(u32));
--			memcpy(skb_put(sb, ATM_CELL_PAYLOAD),
--			       cell, ATM_CELL_PAYLOAD);
-+			skb_put_data(sb, cell, ATM_CELL_PAYLOAD);
- 
- 			ATM_SKB(sb)->vcc = vcc;
- 			__net_timestamp(sb);
-@@ -1159,8 +1158,7 @@ dequeue_rx(struct idt77252_dev *card, struct rsq_entry *rsqe)
- 				return;
- 			}
- 			skb_queue_walk(&rpp->queue, sb)
--				memcpy(skb_put(skb, sb->len),
--				       sb->data, sb->len);
-+				skb_put_data(skb, sb->data, sb->len);
- 
- 			recycle_rx_pool_skb(card, rpp);
- 
-@@ -1322,8 +1320,7 @@ idt77252_rx_raw(struct idt77252_dev *card)
- 
- 		*((u32 *) sb->data) = header;
- 		skb_put(sb, sizeof(u32));
--		memcpy(skb_put(sb, ATM_CELL_PAYLOAD), &(queue->data[16]),
--		       ATM_CELL_PAYLOAD);
-+		skb_put_data(sb, &(queue->data[16]), ATM_CELL_PAYLOAD);
- 
- 		ATM_SKB(sb)->vcc = vcc;
- 		__net_timestamp(sb);
-@@ -2014,7 +2011,7 @@ idt77252_send_oam(struct atm_vcc *vcc, void *cell, int flags)
+diff --git a/drivers/atm/atmtcp.c b/drivers/atm/atmtcp.c
+index 3ef6253e1cce..56fa16c85ebf 100644
+--- a/drivers/atm/atmtcp.c
++++ b/drivers/atm/atmtcp.c
+@@ -60,7 +60,7 @@ static int atmtcp_send_control(struct atm_vcc *vcc,int type,
+ 		return -EUNATCH;
  	}
- 	atomic_add(skb->truesize, &sk_atm(vcc)->sk_wmem_alloc);
- 
--	memcpy(skb_put(skb, 52), cell, 52);
-+	skb_put_data(skb, cell, 52);
- 
- 	return idt77252_send_skb(vcc, skb, 1);
- }
+ 	atm_force_charge(out_vcc,skb->truesize);
+-	new_msg = (struct atmtcp_control *) skb_put(skb,sizeof(*new_msg));
++	new_msg = skb_put(skb, sizeof(*new_msg));
+ 	*new_msg = *msg;
+ 	new_msg->hdr.length = ATMTCP_HDR_MAGIC;
+ 	new_msg->type = type;
+@@ -217,7 +217,7 @@ static int atmtcp_v_send(struct atm_vcc *vcc,struct sk_buff *skb)
+ 		atomic_inc(&vcc->stats->tx_err);
+ 		return -ENOBUFS;
+ 	}
+-	hdr = (void *) skb_put(new_skb,sizeof(struct atmtcp_hdr));
++	hdr = skb_put(new_skb, sizeof(struct atmtcp_hdr));
+ 	hdr->vpi = htons(vcc->vpi);
+ 	hdr->vci = htons(vcc->vci);
+ 	hdr->length = htonl(skb->len);
 diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
-index 9115b292e680..077dd15c3a40 100644
+index 077dd15c3a40..4fc99ae1c534 100644
 --- a/drivers/atm/solos-pci.c
 +++ b/drivers/atm/solos-pci.c
-@@ -493,7 +493,7 @@ static int send_command(struct solos_card *card, int dev, const char *buf, size_
- 	header->vci = cpu_to_le16(0);
- 	header->type = cpu_to_le16(PKT_COMMAND);
- 
--	memcpy(skb_put(skb, size), buf, size);
-+	skb_put_data(skb, buf, size);
- 
- 	fpga_queue(card, dev, skb, NULL);
- 
-diff --git a/drivers/bluetooth/bfusb.c b/drivers/bluetooth/bfusb.c
-index 3bf4ec60e073..ab090a313a5f 100644
---- a/drivers/bluetooth/bfusb.c
-+++ b/drivers/bluetooth/bfusb.c
-@@ -335,7 +335,7 @@ static inline int bfusb_recv_block(struct bfusb_data *data, int hdr, unsigned ch
+@@ -205,7 +205,7 @@ static ssize_t solos_param_show(struct device *dev, struct device_attribute *att
+ 		return -ENOMEM;
  	}
  
- 	if (len > 0)
--		memcpy(skb_put(data->reassembly, len), buf, len);
-+		skb_put_data(data->reassembly, buf, len);
+-	header = (void *)skb_put(skb, sizeof(*header));
++	header = skb_put(skb, sizeof(*header));
  
- 	if (hdr & 0x08) {
- 		hci_recv_frame(data->hdev, data->reassembly);
-@@ -505,7 +505,7 @@ static int bfusb_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
- 		buf[1] = 0x00;
- 		buf[2] = (size == BFUSB_MAX_BLOCK_SIZE) ? 0 : size;
- 
--		memcpy(skb_put(nskb, 3), buf, 3);
-+		skb_put_data(nskb, buf, 3);
- 		skb_copy_from_linear_data_offset(skb, sent, skb_put(nskb, size), size);
- 
- 		sent  += size;
-@@ -516,7 +516,7 @@ static int bfusb_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
- 	if ((nskb->len % data->bulk_pkt_size) == 0) {
- 		buf[0] = 0xdd;
- 		buf[1] = 0x00;
--		memcpy(skb_put(nskb, 2), buf, 2);
-+		skb_put_data(nskb, buf, 2);
+ 	buflen = snprintf((void *)&header[1], buflen - 1,
+ 			  "L%05d\n%s\n", current->pid, attr->attr.name);
+@@ -261,7 +261,7 @@ static ssize_t solos_param_store(struct device *dev, struct device_attribute *at
+ 		return -ENOMEM;
  	}
  
- 	read_lock(&data->lock);
+-	header = (void *)skb_put(skb, sizeof(*header));
++	header = skb_put(skb, sizeof(*header));
+ 
+ 	buflen = snprintf((void *)&header[1], buflen - 1,
+ 			  "L%05d\n%s\n%s\n", current->pid, attr->attr.name, buf);
+@@ -486,7 +486,7 @@ static int send_command(struct solos_card *card, int dev, const char *buf, size_
+ 		return 0;
+ 	}
+ 
+-	header = (void *)skb_put(skb, sizeof(*header));
++	header = skb_put(skb, sizeof(*header));
+ 
+ 	header->size = cpu_to_le16(size);
+ 	header->vpi = cpu_to_le16(0);
+@@ -945,7 +945,7 @@ static int popen(struct atm_vcc *vcc)
+ 			dev_warn(&card->dev->dev, "Failed to allocate sk_buff in popen()\n");
+ 		return -ENOMEM;
+ 	}
+-	header = (void *)skb_put(skb, sizeof(*header));
++	header = skb_put(skb, sizeof(*header));
+ 
+ 	header->size = cpu_to_le16(0);
+ 	header->vpi = cpu_to_le16(vcc->vpi);
+@@ -982,7 +982,7 @@ static void pclose(struct atm_vcc *vcc)
+ 		dev_warn(&card->dev->dev, "Failed to allocate sk_buff in pclose()\n");
+ 		return;
+ 	}
+-	header = (void *)skb_put(skb, sizeof(*header));
++	header = skb_put(skb, sizeof(*header));
+ 
+ 	header->size = cpu_to_le16(0);
+ 	header->vpi = cpu_to_le16(vcc->vpi);
+@@ -1398,7 +1398,7 @@ static int atm_init(struct solos_card *card, struct device *parent)
+ 			continue;
+ 		}
+ 
+-		header = (void *)skb_put(skb, sizeof(*header));
++		header = skb_put(skb, sizeof(*header));
+ 
+ 		header->size = cpu_to_le16(0);
+ 		header->vpi = cpu_to_le16(0);
 diff --git a/drivers/bluetooth/bluecard_cs.c b/drivers/bluetooth/bluecard_cs.c
-index 007c0a45f31b..1d30c116b2ee 100644
+index 1d30c116b2ee..39a05b0c8998 100644
 --- a/drivers/bluetooth/bluecard_cs.c
 +++ b/drivers/bluetooth/bluecard_cs.c
-@@ -597,7 +597,7 @@ static int bluecard_hci_set_baud_rate(struct hci_dev *hdev, int baud)
- 		break;
- 	}
+@@ -448,7 +448,7 @@ static void bluecard_receive(struct bluecard_info *info,
  
--	memcpy(skb_put(skb, sizeof(cmd)), cmd, sizeof(cmd));
-+	skb_put_data(skb, cmd, sizeof(cmd));
+ 		} else {
  
- 	skb_queue_tail(&(info->txq), skb);
+-			*skb_put(info->rx_skb, 1) = buf[i];
++			*(u8 *)skb_put(info->rx_skb, 1) = buf[i];
+ 			info->rx_count--;
+ 
+ 			if (info->rx_count == 0) {
+diff --git a/drivers/bluetooth/bt3c_cs.c b/drivers/bluetooth/bt3c_cs.c
+index 8165ef2fe877..be2d431aa366 100644
+--- a/drivers/bluetooth/bt3c_cs.c
++++ b/drivers/bluetooth/bt3c_cs.c
+@@ -282,7 +282,7 @@ static void bt3c_receive(struct bt3c_info *info)
+ 
+ 			__u8 x = inb(iobase + DATA_L);
+ 
+-			*skb_put(info->rx_skb, 1) = x;
++			*(u8 *)skb_put(info->rx_skb, 1) = x;
+ 			inb(iobase + DATA_H);
+ 			info->rx_count--;
  
 diff --git a/drivers/bluetooth/btmrvl_main.c b/drivers/bluetooth/btmrvl_main.c
-index c38cb5b91291..24a188eab360 100644
+index 24a188eab360..8d3d9175d891 100644
 --- a/drivers/bluetooth/btmrvl_main.c
 +++ b/drivers/bluetooth/btmrvl_main.c
-@@ -194,7 +194,7 @@ static int btmrvl_send_sync_cmd(struct btmrvl_private *priv, u16 opcode,
+@@ -189,7 +189,7 @@ static int btmrvl_send_sync_cmd(struct btmrvl_private *priv, u16 opcode,
+ 		return -ENOMEM;
+ 	}
+ 
+-	hdr = (struct hci_command_hdr *)skb_put(skb, HCI_COMMAND_HDR_SIZE);
++	hdr = skb_put(skb, HCI_COMMAND_HDR_SIZE);
+ 	hdr->opcode = cpu_to_le16(opcode);
  	hdr->plen = len;
  
- 	if (len)
--		memcpy(skb_put(skb, len), param, len);
-+		skb_put_data(skb, param, len);
+diff --git a/drivers/bluetooth/btuart_cs.c b/drivers/bluetooth/btuart_cs.c
+index 9624b29f8349..80b64e9684a3 100644
+--- a/drivers/bluetooth/btuart_cs.c
++++ b/drivers/bluetooth/btuart_cs.c
+@@ -233,7 +233,7 @@ static void btuart_receive(struct btuart_info *info)
  
- 	hci_skb_pkt_type(skb) = MRVL_VENDOR_PKT;
+ 		} else {
  
-diff --git a/drivers/bluetooth/btqcomsmd.c b/drivers/bluetooth/btqcomsmd.c
-index ef730c173d4b..d00c4fdae924 100644
---- a/drivers/bluetooth/btqcomsmd.c
-+++ b/drivers/bluetooth/btqcomsmd.c
-@@ -43,7 +43,7 @@ static int btqcomsmd_recv(struct hci_dev *hdev, unsigned int type,
- 	}
+-			*skb_put(info->rx_skb, 1) = inb(iobase + UART_RX);
++			*(u8 *)skb_put(info->rx_skb, 1) = inb(iobase + UART_RX);
+ 			info->rx_count--;
  
- 	hci_skb_pkt_type(skb) = type;
--	memcpy(skb_put(skb, count), data, count);
-+	skb_put_data(skb, data, count);
- 
- 	return hci_recv_frame(hdev, skb);
- }
+ 			if (info->rx_count == 0) {
 diff --git a/drivers/bluetooth/btusb.c b/drivers/bluetooth/btusb.c
-index bfd5f4bdec80..c7ea398e65c1 100644
+index c7ea398e65c1..ba207c787605 100644
 --- a/drivers/bluetooth/btusb.c
 +++ b/drivers/bluetooth/btusb.c
-@@ -478,7 +478,7 @@ static int btusb_recv_intr(struct btusb_data *data, void *buffer, int count)
- 		}
- 
- 		len = min_t(uint, hci_skb_expect(skb), count);
--		memcpy(skb_put(skb, len), buffer, len);
-+		skb_put_data(skb, buffer, len);
- 
- 		count -= len;
- 		buffer += len;
-@@ -533,7 +533,7 @@ static int btusb_recv_bulk(struct btusb_data *data, void *buffer, int count)
- 		}
- 
- 		len = min_t(uint, hci_skb_expect(skb), count);
--		memcpy(skb_put(skb, len), buffer, len);
-+		skb_put_data(skb, buffer, len);
- 
- 		count -= len;
- 		buffer += len;
-@@ -590,7 +590,7 @@ static int btusb_recv_isoc(struct btusb_data *data, void *buffer, int count)
- 		}
- 
- 		len = min_t(uint, hci_skb_expect(skb), count);
--		memcpy(skb_put(skb, len), buffer, len);
-+		skb_put_data(skb, buffer, len);
- 
- 		count -= len;
- 		buffer += len;
-@@ -934,8 +934,8 @@ static void btusb_diag_complete(struct urb *urb)
- 
- 		skb = bt_skb_alloc(urb->actual_length, GFP_ATOMIC);
- 		if (skb) {
--			memcpy(skb_put(skb, urb->actual_length),
--			       urb->transfer_buffer, urb->actual_length);
-+			skb_put_data(skb, urb->transfer_buffer,
-+				     urb->actual_length);
- 			hci_recv_diag(hdev, skb);
- 		}
- 	} else if (urb->status == -ENOENT) {
-@@ -2395,7 +2395,7 @@ static int marvell_config_oob_wake(struct hci_dev *hdev)
- 		return -ENOMEM;
- 	}
- 
--	memcpy(skb_put(skb, sizeof(cmd)), cmd, sizeof(cmd));
-+	skb_put_data(skb, cmd, sizeof(cmd));
- 	hci_skb_pkt_type(skb) = HCI_COMMAND_PKT;
- 
- 	ret = btusb_send_frame(hdev, skb);
-diff --git a/drivers/bluetooth/hci_bcsp.c b/drivers/bluetooth/hci_bcsp.c
-index 910ec968f022..d880f4e33c75 100644
---- a/drivers/bluetooth/hci_bcsp.c
-+++ b/drivers/bluetooth/hci_bcsp.c
-@@ -125,7 +125,7 @@ static void bcsp_slip_msgdelim(struct sk_buff *skb)
- {
- 	const char pkt_delim = 0xc0;
- 
--	memcpy(skb_put(skb, 1), &pkt_delim, 1);
-+	skb_put_data(skb, &pkt_delim, 1);
- }
- 
- static void bcsp_slip_one_byte(struct sk_buff *skb, u8 c)
-@@ -135,13 +135,13 @@ static void bcsp_slip_one_byte(struct sk_buff *skb, u8 c)
- 
- 	switch (c) {
- 	case 0xc0:
--		memcpy(skb_put(skb, 2), &esc_c0, 2);
-+		skb_put_data(skb, &esc_c0, 2);
- 		break;
- 	case 0xdb:
--		memcpy(skb_put(skb, 2), &esc_db, 2);
-+		skb_put_data(skb, &esc_db, 2);
- 		break;
- 	default:
--		memcpy(skb_put(skb, 1), &c, 1);
-+		skb_put_data(skb, &c, 1);
- 	}
- }
- 
-@@ -423,7 +423,7 @@ static void bcsp_handle_le_pkt(struct hci_uart *hu)
- 		BT_DBG("Found a LE conf pkt");
- 		if (!nskb)
- 			return;
--		memcpy(skb_put(nskb, 4), conf_rsp_pkt, 4);
-+		skb_put_data(nskb, conf_rsp_pkt, 4);
- 		hci_skb_pkt_type(nskb) = BCSP_LE_PKT;
- 
- 		skb_queue_head(&bcsp->unrel, nskb);
-@@ -447,7 +447,7 @@ static inline void bcsp_unslip_one_byte(struct bcsp_struct *bcsp, unsigned char
- 			bcsp->rx_esc_state = BCSP_ESCSTATE_ESC;
- 			break;
- 		default:
--			memcpy(skb_put(bcsp->rx_skb, 1), &byte, 1);
-+			skb_put_data(bcsp->rx_skb, &byte, 1);
- 			if ((bcsp->rx_skb->data[0] & 0x40) != 0 &&
- 			    bcsp->rx_state != BCSP_W4_CRC)
- 				bcsp_crc_update(&bcsp->message_crc, byte);
-@@ -458,7 +458,7 @@ static inline void bcsp_unslip_one_byte(struct bcsp_struct *bcsp, unsigned char
- 	case BCSP_ESCSTATE_ESC:
- 		switch (byte) {
- 		case 0xdc:
--			memcpy(skb_put(bcsp->rx_skb, 1), &c0, 1);
-+			skb_put_data(bcsp->rx_skb, &c0, 1);
- 			if ((bcsp->rx_skb->data[0] & 0x40) != 0 &&
- 			    bcsp->rx_state != BCSP_W4_CRC)
- 				bcsp_crc_update(&bcsp->message_crc, 0xc0);
-@@ -467,7 +467,7 @@ static inline void bcsp_unslip_one_byte(struct bcsp_struct *bcsp, unsigned char
- 			break;
- 
- 		case 0xdd:
--			memcpy(skb_put(bcsp->rx_skb, 1), &db, 1);
-+			skb_put_data(bcsp->rx_skb, &db, 1);
- 			if ((bcsp->rx_skb->data[0] & 0x40) != 0 &&
- 			    bcsp->rx_state != BCSP_W4_CRC)
- 				bcsp_crc_update(&bcsp->message_crc, 0xdb);
-diff --git a/drivers/bluetooth/hci_h4.c b/drivers/bluetooth/hci_h4.c
-index 82e5a32b87a4..4e328d7d47bb 100644
---- a/drivers/bluetooth/hci_h4.c
-+++ b/drivers/bluetooth/hci_h4.c
-@@ -209,7 +209,7 @@ struct sk_buff *h4_recv_buf(struct hci_dev *hdev, struct sk_buff *skb,
- 		}
- 
- 		len = min_t(uint, hci_skb_expect(skb) - skb->len, count);
--		memcpy(skb_put(skb, len), buffer, len);
-+		skb_put_data(skb, buffer, len);
- 
- 		count -= len;
- 		buffer += len;
-diff --git a/drivers/bluetooth/hci_h5.c b/drivers/bluetooth/hci_h5.c
-index 90d0456b6744..c0e4e26dc30d 100644
---- a/drivers/bluetooth/hci_h5.c
-+++ b/drivers/bluetooth/hci_h5.c
-@@ -109,7 +109,7 @@ static void h5_link_control(struct hci_uart *hu, const void *data, size_t len)
- 
- 	hci_skb_pkt_type(nskb) = HCI_3WIRE_LINK_PKT;
- 
--	memcpy(skb_put(nskb, len), data, len);
-+	skb_put_data(nskb, data, len);
- 
- 	skb_queue_tail(&h5->unrel, nskb);
- }
-@@ -487,7 +487,7 @@ static void h5_unslip_one_byte(struct h5 *h5, unsigned char c)
- 		}
- 	}
- 
--	memcpy(skb_put(h5->rx_skb, 1), byte, 1);
-+	skb_put_data(h5->rx_skb, byte, 1);
- 	h5->rx_pending--;
- 
- 	BT_DBG("unsliped 0x%02hhx, rx_pending %zu", *byte, h5->rx_pending);
-@@ -579,7 +579,7 @@ static void h5_slip_delim(struct sk_buff *skb)
- {
- 	const char delim = SLIP_DELIMITER;
- 
--	memcpy(skb_put(skb, 1), &delim, 1);
-+	skb_put_data(skb, &delim, 1);
- }
- 
- static void h5_slip_one_byte(struct sk_buff *skb, u8 c)
-@@ -589,13 +589,13 @@ static void h5_slip_one_byte(struct sk_buff *skb, u8 c)
- 
- 	switch (c) {
- 	case SLIP_DELIMITER:
--		memcpy(skb_put(skb, 2), &esc_delim, 2);
-+		skb_put_data(skb, &esc_delim, 2);
- 		break;
- 	case SLIP_ESC:
--		memcpy(skb_put(skb, 2), &esc_esc, 2);
-+		skb_put_data(skb, &esc_esc, 2);
- 		break;
- 	default:
--		memcpy(skb_put(skb, 1), &c, 1);
-+		skb_put_data(skb, &c, 1);
- 	}
- }
- 
-diff --git a/drivers/bluetooth/hci_intel.c b/drivers/bluetooth/hci_intel.c
-index 851bee82df2a..16e728577cd8 100644
---- a/drivers/bluetooth/hci_intel.c
-+++ b/drivers/bluetooth/hci_intel.c
-@@ -185,7 +185,7 @@ static int intel_lpm_suspend(struct hci_uart *hu)
- 		return -ENOMEM;
- 	}
- 
--	memcpy(skb_put(skb, sizeof(suspend)), suspend, sizeof(suspend));
-+	skb_put_data(skb, suspend, sizeof(suspend));
- 	hci_skb_pkt_type(skb) = HCI_LPM_PKT;
- 
- 	set_bit(STATE_LPM_TRANSACTION, &intel->flags);
-@@ -270,8 +270,7 @@ static int intel_lpm_host_wake(struct hci_uart *hu)
- 		return -ENOMEM;
- 	}
- 
--	memcpy(skb_put(skb, sizeof(lpm_resume_ack)), lpm_resume_ack,
--	       sizeof(lpm_resume_ack));
-+	skb_put_data(skb, lpm_resume_ack, sizeof(lpm_resume_ack));
- 	hci_skb_pkt_type(skb) = HCI_LPM_PKT;
- 
- 	/* LPM flow is a priority, enqueue packet at list head */
-@@ -522,7 +521,7 @@ static int intel_set_baudrate(struct hci_uart *hu, unsigned int speed)
- 		return -ENOMEM;
- 	}
- 
--	memcpy(skb_put(skb, sizeof(speed_cmd)), speed_cmd, sizeof(speed_cmd));
-+	skb_put_data(skb, speed_cmd, sizeof(speed_cmd));
- 	hci_skb_pkt_type(skb) = HCI_COMMAND_PKT;
- 
- 	hci_uart_set_flow_control(hu, true);
-diff --git a/drivers/bluetooth/hci_ll.c b/drivers/bluetooth/hci_ll.c
-index 2b16d48d82ee..cc2fa78b434e 100644
---- a/drivers/bluetooth/hci_ll.c
-+++ b/drivers/bluetooth/hci_ll.c
-@@ -413,7 +413,7 @@ static int ll_recv(struct hci_uart *hu, const void *data, int count)
- 	while (count) {
- 		if (ll->rx_count) {
- 			len = min_t(unsigned int, ll->rx_count, count);
--			memcpy(skb_put(ll->rx_skb, len), ptr, len);
-+			skb_put_data(ll->rx_skb, ptr, len);
- 			ll->rx_count -= len; count -= len; ptr += len;
- 
- 			if (ll->rx_count)
-diff --git a/drivers/bluetooth/hci_mrvl.c b/drivers/bluetooth/hci_mrvl.c
-index bbc4b39b1dbf..ffb00669346f 100644
---- a/drivers/bluetooth/hci_mrvl.c
-+++ b/drivers/bluetooth/hci_mrvl.c
-@@ -328,7 +328,7 @@ static int mrvl_load_firmware(struct hci_dev *hdev, const char *name)
- 		}
- 		bt_cb(skb)->pkt_type = MRVL_RAW_DATA;
- 
--		memcpy(skb_put(skb, mrvl->tx_len), fw_ptr, mrvl->tx_len);
-+		skb_put_data(skb, fw_ptr, mrvl->tx_len);
- 		fw_ptr += mrvl->tx_len;
- 
- 		set_bit(STATE_FW_REQ_PENDING, &mrvl->flags);
-diff --git a/drivers/bluetooth/hci_qca.c b/drivers/bluetooth/hci_qca.c
-index f242dfd0c2e2..b55f01320631 100644
---- a/drivers/bluetooth/hci_qca.c
-+++ b/drivers/bluetooth/hci_qca.c
-@@ -869,7 +869,7 @@ static int qca_set_baudrate(struct hci_dev *hdev, uint8_t baudrate)
- 	}
- 
- 	/* Assign commands to change baudrate and packet type. */
--	memcpy(skb_put(skb, sizeof(cmd)), cmd, sizeof(cmd));
-+	skb_put_data(skb, cmd, sizeof(cmd));
- 	hci_skb_pkt_type(skb) = HCI_COMMAND_PKT;
- 
- 	skb_queue_tail(&qca->txq, skb);
-diff --git a/drivers/char/pcmcia/synclink_cs.c b/drivers/char/pcmcia/synclink_cs.c
-index d136db1a10f0..62be953e5fb0 100644
---- a/drivers/char/pcmcia/synclink_cs.c
-+++ b/drivers/char/pcmcia/synclink_cs.c
-@@ -4235,7 +4235,7 @@ static void hdlcdev_rx(MGSLPC_INFO *info, char *buf, int size)
- 		return;
- 	}
- 
--	memcpy(skb_put(skb, size), buf, size);
-+	skb_put_data(skb, buf, size);
- 
- 	skb->protocol = hdlc_type_trans(skb, dev);
- 
-diff --git a/drivers/firewire/net.c b/drivers/firewire/net.c
-index 5d3640264f2d..d5040bbd34e8 100644
---- a/drivers/firewire/net.c
-+++ b/drivers/firewire/net.c
-@@ -600,7 +600,7 @@ static int fwnet_incoming_packet(struct fwnet_device *dev, __be32 *buf, int len,
- 			return -ENOMEM;
- 		}
- 		skb_reserve(skb, LL_RESERVED_SPACE(net));
--		memcpy(skb_put(skb, len), buf, len);
-+		skb_put_data(skb, buf, len);
- 
- 		return fwnet_finish_incoming_packet(net, skb, source_node_id,
- 						    is_broadcast, ether_type);
-diff --git a/drivers/isdn/capi/capi.c b/drivers/isdn/capi/capi.c
-index 6a2df3297e77..77be17590866 100644
---- a/drivers/isdn/capi/capi.c
-+++ b/drivers/isdn/capi/capi.c
-@@ -1058,7 +1058,7 @@ static int capinc_tty_write(struct tty_struct *tty,
- 	}
- 
- 	skb_reserve(skb, CAPI_DATA_B3_REQ_LEN);
--	memcpy(skb_put(skb, count), buf, count);
-+	skb_put_data(skb, buf, count);
- 
- 	__skb_queue_tail(&mp->outqueue, skb);
- 	mp->outbytes += skb->len;
-diff --git a/drivers/isdn/capi/capidrv.c b/drivers/isdn/capi/capidrv.c
-index 85cfa4f8691f..89dd1303a98a 100644
---- a/drivers/isdn/capi/capidrv.c
-+++ b/drivers/isdn/capi/capidrv.c
-@@ -516,7 +516,7 @@ static void send_message(capidrv_contr *card, _cmsg *cmsg)
- 		printk(KERN_ERR "capidrv::send_message: can't allocate mem\n");
- 		return;
- 	}
--	memcpy(skb_put(skb, len), cmsg->buf, len);
-+	skb_put_data(skb, cmsg->buf, len);
- 	if (capi20_put_message(&global.ap, skb) != CAPI_NOERROR)
- 		kfree_skb(skb);
- }
-diff --git a/drivers/isdn/hardware/avm/b1.c b/drivers/isdn/hardware/avm/b1.c
-index 9fdbd99c7547..b1833d08a5fe 100644
---- a/drivers/isdn/hardware/avm/b1.c
-+++ b/drivers/isdn/hardware/avm/b1.c
-@@ -529,8 +529,8 @@ irqreturn_t b1_interrupt(int interrupt, void *devptr)
- 			printk(KERN_ERR "%s: incoming packet dropped\n",
- 			       card->name);
- 		} else {
--			memcpy(skb_put(skb, MsgLen), card->msgbuf, MsgLen);
--			memcpy(skb_put(skb, DataB3Len), card->databuf, DataB3Len);
-+			skb_put_data(skb, card->msgbuf, MsgLen);
-+			skb_put_data(skb, card->databuf, DataB3Len);
- 			capi_ctr_handle_message(ctrl, ApplId, skb);
- 		}
- 		break;
-@@ -544,7 +544,7 @@ irqreturn_t b1_interrupt(int interrupt, void *devptr)
- 			       card->name);
- 			spin_unlock_irqrestore(&card->lock, flags);
- 		} else {
--			memcpy(skb_put(skb, MsgLen), card->msgbuf, MsgLen);
-+			skb_put_data(skb, card->msgbuf, MsgLen);
- 			if (CAPIMSG_CMD(skb->data) == CAPI_DATA_B3_CONF)
- 				capilib_data_b3_conf(&cinfo->ncci_head, ApplId,
- 						     CAPIMSG_NCCI(skb->data),
-diff --git a/drivers/isdn/hardware/avm/b1dma.c b/drivers/isdn/hardware/avm/b1dma.c
-index 818bd8f231db..9538a9e5e1a8 100644
---- a/drivers/isdn/hardware/avm/b1dma.c
-+++ b/drivers/isdn/hardware/avm/b1dma.c
-@@ -474,8 +474,8 @@ static void b1dma_handle_rx(avmcard *card)
- 			printk(KERN_ERR "%s: incoming packet dropped\n",
- 			       card->name);
- 		} else {
--			memcpy(skb_put(skb, MsgLen), card->msgbuf, MsgLen);
--			memcpy(skb_put(skb, DataB3Len), card->databuf, DataB3Len);
-+			skb_put_data(skb, card->msgbuf, MsgLen);
-+			skb_put_data(skb, card->databuf, DataB3Len);
- 			capi_ctr_handle_message(ctrl, ApplId, skb);
- 		}
- 		break;
-@@ -488,7 +488,7 @@ static void b1dma_handle_rx(avmcard *card)
- 			printk(KERN_ERR "%s: incoming packet dropped\n",
- 			       card->name);
- 		} else {
--			memcpy(skb_put(skb, MsgLen), card->msgbuf, MsgLen);
-+			skb_put_data(skb, card->msgbuf, MsgLen);
- 			if (CAPIMSG_CMD(skb->data) == CAPI_DATA_B3_CONF) {
- 				spin_lock(&card->lock);
- 				capilib_data_b3_conf(&cinfo->ncci_head, ApplId,
-diff --git a/drivers/isdn/hardware/avm/c4.c b/drivers/isdn/hardware/avm/c4.c
-index 17beb2869dc1..40c7e2cf423b 100644
---- a/drivers/isdn/hardware/avm/c4.c
-+++ b/drivers/isdn/hardware/avm/c4.c
-@@ -536,8 +536,8 @@ static void c4_handle_rx(avmcard *card)
- 			printk(KERN_ERR "%s: incoming packet dropped\n",
- 			       card->name);
- 		} else {
--			memcpy(skb_put(skb, MsgLen), card->msgbuf, MsgLen);
--			memcpy(skb_put(skb, DataB3Len), card->databuf, DataB3Len);
-+			skb_put_data(skb, card->msgbuf, MsgLen);
-+			skb_put_data(skb, card->databuf, DataB3Len);
- 			capi_ctr_handle_message(ctrl, ApplId, skb);
- 		}
- 		break;
-@@ -555,7 +555,7 @@ static void c4_handle_rx(avmcard *card)
- 			printk(KERN_ERR "%s: incoming packet dropped\n",
- 			       card->name);
- 		} else {
--			memcpy(skb_put(skb, MsgLen), card->msgbuf, MsgLen);
-+			skb_put_data(skb, card->msgbuf, MsgLen);
- 			if (CAPIMSG_CMD(skb->data) == CAPI_DATA_B3_CONF)
- 				capilib_data_b3_conf(&cinfo->ncci_head, ApplId,
- 						     CAPIMSG_NCCI(skb->data),
-diff --git a/drivers/isdn/hardware/avm/t1isa.c b/drivers/isdn/hardware/avm/t1isa.c
-index 9516203c735f..9f80d20ced87 100644
---- a/drivers/isdn/hardware/avm/t1isa.c
-+++ b/drivers/isdn/hardware/avm/t1isa.c
-@@ -171,8 +171,8 @@ static irqreturn_t t1isa_interrupt(int interrupt, void *devptr)
- 				printk(KERN_ERR "%s: incoming packet dropped\n",
- 				       card->name);
- 			} else {
--				memcpy(skb_put(skb, MsgLen), card->msgbuf, MsgLen);
--				memcpy(skb_put(skb, DataB3Len), card->databuf, DataB3Len);
-+				skb_put_data(skb, card->msgbuf, MsgLen);
-+				skb_put_data(skb, card->databuf, DataB3Len);
- 				capi_ctr_handle_message(ctrl, ApplId, skb);
- 			}
- 			break;
-@@ -186,7 +186,7 @@ static irqreturn_t t1isa_interrupt(int interrupt, void *devptr)
- 				printk(KERN_ERR "%s: incoming packet dropped\n",
- 				       card->name);
- 			} else {
--				memcpy(skb_put(skb, MsgLen), card->msgbuf, MsgLen);
-+				skb_put_data(skb, card->msgbuf, MsgLen);
- 				if (CAPIMSG_CMD(skb->data) == CAPI_DATA_B3)
- 					capilib_data_b3_conf(&cinfo->ncci_head, ApplId,
- 							     CAPIMSG_NCCI(skb->data),
-diff --git a/drivers/isdn/hardware/mISDN/hfcmulti.c b/drivers/isdn/hardware/mISDN/hfcmulti.c
-index 961c07ee47b7..aea0c9616ea5 100644
---- a/drivers/isdn/hardware/mISDN/hfcmulti.c
-+++ b/drivers/isdn/hardware/mISDN/hfcmulti.c
-@@ -1926,7 +1926,7 @@ hfcmulti_dtmf(struct hfc_multi *hc)
- 			hh = mISDN_HEAD_P(skb);
- 			hh->prim = PH_CONTROL_IND;
- 			hh->id = DTMF_HFC_COEF;
--			memcpy(skb_put(skb, 512), hc->chan[ch].coeff, 512);
-+			skb_put_data(skb, hc->chan[ch].coeff, 512);
- 			recv_Bchannel_skb(bch, skb);
- 		}
- 	}
-@@ -2332,8 +2332,7 @@ hfcmulti_rx(struct hfc_multi *hc, int ch)
- 				skb = *sp;
- 				*sp = mI_alloc_skb(skb->len, GFP_ATOMIC);
- 				if (*sp) {
--					memcpy(skb_put(*sp, skb->len),
--					       skb->data, skb->len);
-+					skb_put_data(*sp, skb->data, skb->len);
- 					skb_trim(skb, 0);
- 				} else {
- 					printk(KERN_DEBUG "%s: No mem\n",
-diff --git a/drivers/isdn/hardware/mISDN/hfcsusb.c b/drivers/isdn/hardware/mISDN/hfcsusb.c
-index 114f3bcba1b0..17cc879ad2bb 100644
---- a/drivers/isdn/hardware/mISDN/hfcsusb.c
-+++ b/drivers/isdn/hardware/mISDN/hfcsusb.c
-@@ -893,7 +893,7 @@ hfcsusb_rx_frame(struct usb_fifo *fifo, __u8 *data, unsigned int len,
- 		}
- 	}
- 
--	memcpy(skb_put(rx_skb, len), data, len);
-+	skb_put_data(rx_skb, data, len);
- 
- 	if (hdlc) {
- 		/* we have a complete hdlc packet */
-diff --git a/drivers/isdn/hisax/amd7930_fn.c b/drivers/isdn/hisax/amd7930_fn.c
-index 3a4c2f9e19e9..dcf4c2a9fcea 100644
---- a/drivers/isdn/hisax/amd7930_fn.c
-+++ b/drivers/isdn/hisax/amd7930_fn.c
-@@ -317,7 +317,8 @@ Amd7930_empty_Dfifo(struct IsdnCardState *cs, int flag)
- 							debugl1(cs, "%s", cs->dlog);
- 						}
- 						/* moves received data in sk-buffer */
--						memcpy(skb_put(skb, cs->rcvidx), cs->rcvbuf, cs->rcvidx);
-+						skb_put_data(skb, cs->rcvbuf,
-+							     cs->rcvidx);
- 						skb_queue_tail(&cs->rq, skb);
- 					}
- 				}
-diff --git a/drivers/isdn/hisax/avm_pci.c b/drivers/isdn/hisax/avm_pci.c
-index d1427bd6452d..daf3742cdef6 100644
---- a/drivers/isdn/hisax/avm_pci.c
-+++ b/drivers/isdn/hisax/avm_pci.c
-@@ -378,8 +378,9 @@ HDLC_irq(struct BCState *bcs, u_int stat) {
- 					if (!(skb = dev_alloc_skb(bcs->hw.hdlc.rcvidx)))
- 						printk(KERN_WARNING "HDLC: receive out of memory\n");
- 					else {
--						memcpy(skb_put(skb, bcs->hw.hdlc.rcvidx),
--						       bcs->hw.hdlc.rcvbuf, bcs->hw.hdlc.rcvidx);
-+						skb_put_data(skb,
-+							     bcs->hw.hdlc.rcvbuf,
-+							     bcs->hw.hdlc.rcvidx);
- 						skb_queue_tail(&bcs->rqueue, skb);
- 					}
- 					bcs->hw.hdlc.rcvidx = 0;
-diff --git a/drivers/isdn/hisax/diva.c b/drivers/isdn/hisax/diva.c
-index 079336e593f9..3fc94e7741ae 100644
---- a/drivers/isdn/hisax/diva.c
-+++ b/drivers/isdn/hisax/diva.c
-@@ -511,7 +511,8 @@ Memhscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
- 				if (!(skb = dev_alloc_skb(count)))
- 					printk(KERN_WARNING "HSCX: receive out of memory\n");
- 				else {
--					memcpy(skb_put(skb, count), bcs->hw.hscx.rcvbuf, count);
-+					skb_put_data(skb, bcs->hw.hscx.rcvbuf,
-+						     count);
- 					skb_queue_tail(&bcs->rqueue, skb);
- 				}
- 			}
-@@ -526,7 +527,8 @@ Memhscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
- 			if (!(skb = dev_alloc_skb(fifo_size)))
- 				printk(KERN_WARNING "HiSax: receive out of memory\n");
- 			else {
--				memcpy(skb_put(skb, fifo_size), bcs->hw.hscx.rcvbuf, fifo_size);
-+				skb_put_data(skb, bcs->hw.hscx.rcvbuf,
-+					     fifo_size);
- 				skb_queue_tail(&bcs->rqueue, skb);
- 			}
- 			bcs->hw.hscx.rcvidx = 0;
-diff --git a/drivers/isdn/hisax/elsa_ser.c b/drivers/isdn/hisax/elsa_ser.c
-index a2a358c1dc8e..999effd7a276 100644
---- a/drivers/isdn/hisax/elsa_ser.c
-+++ b/drivers/isdn/hisax/elsa_ser.c
-@@ -333,8 +333,8 @@ static inline void receive_chars(struct IsdnCardState *cs,
- 		if (!(skb = dev_alloc_skb(cs->hw.elsa.rcvcnt)))
- 			printk(KERN_WARNING "ElsaSER: receive out of memory\n");
- 		else {
--			memcpy(skb_put(skb, cs->hw.elsa.rcvcnt), cs->hw.elsa.rcvbuf,
--			       cs->hw.elsa.rcvcnt);
-+			skb_put_data(skb, cs->hw.elsa.rcvbuf,
-+				     cs->hw.elsa.rcvcnt);
- 			skb_queue_tail(&cs->hw.elsa.bcs->rqueue, skb);
- 		}
- 		schedule_event(cs->hw.elsa.bcs, B_RCVBUFREADY);
-diff --git a/drivers/isdn/hisax/hfc_usb.c b/drivers/isdn/hisax/hfc_usb.c
-index 6dbd1f1da14f..ef4748083efd 100644
---- a/drivers/isdn/hisax/hfc_usb.c
-+++ b/drivers/isdn/hisax/hfc_usb.c
-@@ -799,7 +799,7 @@ collect_rx_frame(usb_fifo *fifo, __u8 *data, int len, int finish)
- 	}
- 	if (len) {
- 		if (fifo->skbuff->len + len < fifo->max_size) {
--			memcpy(skb_put(fifo->skbuff, len), data, len);
-+			skb_put_data(fifo->skbuff, data, len);
- 		} else {
- 			DBG(HFCUSB_DBG_FIFO_ERR,
- 			    "HCF-USB: got frame exceeded fifo->max_size(%d) fifo(%d)",
-diff --git a/drivers/isdn/hisax/hisax_fcpcipnp.c b/drivers/isdn/hisax/hisax_fcpcipnp.c
-index 5e8a5d967162..5a9f39ed1d5d 100644
---- a/drivers/isdn/hisax/hisax_fcpcipnp.c
-+++ b/drivers/isdn/hisax/hisax_fcpcipnp.c
-@@ -495,8 +495,7 @@ static inline void hdlc_rpr_irq(struct fritz_bcs *bcs, u32 stat)
- 			if (!skb) {
- 				printk(KERN_WARNING "HDLC: receive out of memory\n");
- 			} else {
--				memcpy(skb_put(skb, bcs->rcvidx), bcs->rcvbuf,
--				       bcs->rcvidx);
-+				skb_put_data(skb, bcs->rcvbuf, bcs->rcvidx);
- 				DBG_SKB(1, skb);
- 				B_L1L2(bcs, PH_DATA | INDICATION, skb);
- 			}
-diff --git a/drivers/isdn/hisax/hisax_isac.c b/drivers/isdn/hisax/hisax_isac.c
-index 5154c252a25f..0f36375478c5 100644
---- a/drivers/isdn/hisax/hisax_isac.c
-+++ b/drivers/isdn/hisax/hisax_isac.c
-@@ -557,7 +557,7 @@ static inline void isac_rme_interrupt(struct isac *isac)
- 		DBG(DBG_WARN, "no memory, dropping\n");
- 		goto out;
- 	}
--	memcpy(skb_put(skb, count), isac->rcvbuf, count);
-+	skb_put_data(skb, isac->rcvbuf, count);
- 	DBG_SKB(DBG_RPACKET, skb);
- 	D_L1L2(isac, PH_DATA | INDICATION, skb);
- out:
-@@ -687,7 +687,7 @@ static inline void isacsx_rme_interrupt(struct isac *isac)
- 		DBG(DBG_WARN, "no memory, dropping");
- 		goto out;
- 	}
--	memcpy(skb_put(skb, count), isac->rcvbuf, count);
-+	skb_put_data(skb, isac->rcvbuf, count);
- 	DBG_SKB(DBG_RPACKET, skb);
- 	D_L1L2(isac, PH_DATA | INDICATION, skb);
- out:
-diff --git a/drivers/isdn/hisax/hscx_irq.c b/drivers/isdn/hisax/hscx_irq.c
-index a8d6188402c6..0d7e783c8bef 100644
---- a/drivers/isdn/hisax/hscx_irq.c
-+++ b/drivers/isdn/hisax/hscx_irq.c
-@@ -169,7 +169,8 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
- 				if (!(skb = dev_alloc_skb(count)))
- 					printk(KERN_WARNING "HSCX: receive out of memory\n");
- 				else {
--					memcpy(skb_put(skb, count), bcs->hw.hscx.rcvbuf, count);
-+					skb_put_data(skb, bcs->hw.hscx.rcvbuf,
-+						     count);
- 					skb_queue_tail(&bcs->rqueue, skb);
- 				}
- 			}
-@@ -184,7 +185,8 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
- 			if (!(skb = dev_alloc_skb(fifo_size)))
- 				printk(KERN_WARNING "HiSax: receive out of memory\n");
- 			else {
--				memcpy(skb_put(skb, fifo_size), bcs->hw.hscx.rcvbuf, fifo_size);
-+				skb_put_data(skb, bcs->hw.hscx.rcvbuf,
-+					     fifo_size);
- 				skb_queue_tail(&bcs->rqueue, skb);
- 			}
- 			bcs->hw.hscx.rcvidx = 0;
-diff --git a/drivers/isdn/hisax/icc.c b/drivers/isdn/hisax/icc.c
-index c7c3797a817e..8d1804572b32 100644
---- a/drivers/isdn/hisax/icc.c
-+++ b/drivers/isdn/hisax/icc.c
-@@ -217,7 +217,7 @@ icc_interrupt(struct IsdnCardState *cs, u_char val)
- 				if (!(skb = alloc_skb(count, GFP_ATOMIC)))
- 					printk(KERN_WARNING "HiSax: D receive out of memory\n");
- 				else {
--					memcpy(skb_put(skb, count), cs->rcvbuf, count);
-+					skb_put_data(skb, cs->rcvbuf, count);
- 					skb_queue_tail(&cs->rq, skb);
- 				}
- 			}
-diff --git a/drivers/isdn/hisax/ipacx.c b/drivers/isdn/hisax/ipacx.c
-index 43effe7082ed..c426b4fea28a 100644
---- a/drivers/isdn/hisax/ipacx.c
-+++ b/drivers/isdn/hisax/ipacx.c
-@@ -350,7 +350,7 @@ dch_int(struct IsdnCardState *cs)
- 				if (!(skb = dev_alloc_skb(count)))
- 					printk(KERN_WARNING "HiSax dch_int(): receive out of memory\n");
- 				else {
--					memcpy(skb_put(skb, count), cs->rcvbuf, count);
-+					skb_put_data(skb, cs->rcvbuf, count);
- 					skb_queue_tail(&cs->rq, skb);
- 				}
- 			}
-@@ -627,7 +627,8 @@ bch_int(struct IsdnCardState *cs, u_char hscx)
- 				if (!(skb = dev_alloc_skb(count)))
- 					printk(KERN_WARNING "HiSax bch_int(): receive frame out of memory\n");
- 				else {
--					memcpy(skb_put(skb, count), bcs->hw.hscx.rcvbuf, count);
-+					skb_put_data(skb, bcs->hw.hscx.rcvbuf,
-+						     count);
- 					skb_queue_tail(&bcs->rqueue, skb);
- 				}
- 			}
-@@ -644,7 +645,8 @@ bch_int(struct IsdnCardState *cs, u_char hscx)
- 			if (!(skb = dev_alloc_skb(B_FIFO_SIZE)))
- 				printk(KERN_WARNING "HiSax bch_int(): receive transparent out of memory\n");
- 			else {
--				memcpy(skb_put(skb, B_FIFO_SIZE), bcs->hw.hscx.rcvbuf, B_FIFO_SIZE);
-+				skb_put_data(skb, bcs->hw.hscx.rcvbuf,
-+					     B_FIFO_SIZE);
- 				skb_queue_tail(&bcs->rqueue, skb);
- 			}
- 			bcs->hw.hscx.rcvidx = 0;
-diff --git a/drivers/isdn/hisax/isac.c b/drivers/isdn/hisax/isac.c
-index 4273b4548825..ea965f29a555 100644
---- a/drivers/isdn/hisax/isac.c
-+++ b/drivers/isdn/hisax/isac.c
-@@ -222,7 +222,7 @@ isac_interrupt(struct IsdnCardState *cs, u_char val)
- 				if (!skb)
- 					printk(KERN_WARNING "HiSax: D receive out of memory\n");
- 				else {
--					memcpy(skb_put(skb, count), cs->rcvbuf, count);
-+					skb_put_data(skb, cs->rcvbuf, count);
- 					skb_queue_tail(&cs->rq, skb);
- 				}
- 			}
-diff --git a/drivers/isdn/hisax/isar.c b/drivers/isdn/hisax/isar.c
-index 0dc60b287c4b..98b4b67ea337 100644
---- a/drivers/isdn/hisax/isar.c
-+++ b/drivers/isdn/hisax/isar.c
-@@ -458,7 +458,7 @@ send_DLE_ETX(struct BCState *bcs)
- 	struct sk_buff *skb;
- 
- 	if ((skb = dev_alloc_skb(2))) {
--		memcpy(skb_put(skb, 2), dleetx, 2);
-+		skb_put_data(skb, dleetx, 2);
- 		skb_queue_tail(&bcs->rqueue, skb);
- 		schedule_event(bcs, B_RCVBUFREADY);
- 	} else {
-@@ -550,8 +550,8 @@ isar_rcv_frame(struct IsdnCardState *cs, struct BCState *bcs)
- 				} else if (!(skb = dev_alloc_skb(bcs->hw.isar.rcvidx - 2))) {
- 					printk(KERN_WARNING "ISAR: receive out of memory\n");
- 				} else {
--					memcpy(skb_put(skb, bcs->hw.isar.rcvidx - 2),
--					       bcs->hw.isar.rcvbuf, bcs->hw.isar.rcvidx - 2);
-+					skb_put_data(skb, bcs->hw.isar.rcvbuf,
-+						     bcs->hw.isar.rcvidx - 2);
- 					skb_queue_tail(&bcs->rqueue, skb);
- 					schedule_event(bcs, B_RCVBUFREADY);
- 				}
-diff --git a/drivers/isdn/hisax/isdnl2.c b/drivers/isdn/hisax/isdnl2.c
-index c53a53f6efb6..1a40ed04cb52 100644
---- a/drivers/isdn/hisax/isdnl2.c
-+++ b/drivers/isdn/hisax/isdnl2.c
-@@ -433,7 +433,7 @@ send_uframe(struct PStack *st, u_char cmd, u_char cr)
- 		printk(KERN_WARNING "isdl2 can't alloc sbbuff for send_uframe\n");
- 		return;
- 	}
--	memcpy(skb_put(skb, i), tmp, i);
-+	skb_put_data(skb, tmp, i);
- 	enqueue_super(st, skb);
- }
- 
-@@ -894,7 +894,7 @@ enquiry_cr(struct PStack *st, u_char typ, u_char cr, u_char pf)
- 		printk(KERN_WARNING "isdl2 can't alloc sbbuff for enquiry_cr\n");
- 		return;
- 	}
--	memcpy(skb_put(skb, i), tmp, i);
-+	skb_put_data(skb, tmp, i);
- 	enqueue_super(st, skb);
- }
- 
-diff --git a/drivers/isdn/hisax/jade_irq.c b/drivers/isdn/hisax/jade_irq.c
-index b930da9b5aa6..a89e2df911c5 100644
---- a/drivers/isdn/hisax/jade_irq.c
-+++ b/drivers/isdn/hisax/jade_irq.c
-@@ -147,7 +147,8 @@ jade_interrupt(struct IsdnCardState *cs, u_char val, u_char jade)
- 				if (!(skb = dev_alloc_skb(count)))
- 					printk(KERN_WARNING "JADE %s receive out of memory\n", (jade ? "B" : "A"));
- 				else {
--					memcpy(skb_put(skb, count), bcs->hw.hscx.rcvbuf, count);
-+					skb_put_data(skb, bcs->hw.hscx.rcvbuf,
-+						     count);
- 					skb_queue_tail(&bcs->rqueue, skb);
- 				}
- 			}
-@@ -162,7 +163,8 @@ jade_interrupt(struct IsdnCardState *cs, u_char val, u_char jade)
- 			if (!(skb = dev_alloc_skb(fifo_size)))
- 				printk(KERN_WARNING "HiSax: receive out of memory\n");
- 			else {
--				memcpy(skb_put(skb, fifo_size), bcs->hw.hscx.rcvbuf, fifo_size);
-+				skb_put_data(skb, bcs->hw.hscx.rcvbuf,
-+					     fifo_size);
- 				skb_queue_tail(&bcs->rqueue, skb);
- 			}
- 			bcs->hw.hscx.rcvidx = 0;
-diff --git a/drivers/isdn/hisax/l3_1tr6.c b/drivers/isdn/hisax/l3_1tr6.c
-index 875402e76d0a..da0a1c6aa329 100644
---- a/drivers/isdn/hisax/l3_1tr6.c
-+++ b/drivers/isdn/hisax/l3_1tr6.c
-@@ -149,7 +149,7 @@ l3_1tr6_setup_req(struct l3_process *pc, u_char pr, void *arg)
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l)))
- 		return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	L3DelTimer(&pc->timer);
- 	L3AddTimer(&pc->timer, T303, CC_T303);
- 	newl3state(pc, 1);
-@@ -497,7 +497,7 @@ l3_1tr6_setup_rsp(struct l3_process *pc, u_char pr, void *arg)
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l)))
- 		return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- 	L3DelTimer(&pc->timer);
- 	L3AddTimer(&pc->timer, T313, CC_T313);
-@@ -543,7 +543,7 @@ l3_1tr6_disconnect_req(struct l3_process *pc, u_char pr, void *arg)
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l)))
- 		return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- 	L3AddTimer(&pc->timer, T305, CC_T305);
- }
-@@ -602,7 +602,7 @@ l3_1tr6_t305(struct l3_process *pc, u_char pr, void *arg)
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l)))
- 		return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- 	L3AddTimer(&pc->timer, T308, CC_T308_1);
- }
-diff --git a/drivers/isdn/hisax/l3dss1.c b/drivers/isdn/hisax/l3dss1.c
-index cda700664e9c..18a3484b1f7e 100644
---- a/drivers/isdn/hisax/l3dss1.c
-+++ b/drivers/isdn/hisax/l3dss1.c
-@@ -525,7 +525,7 @@ l3dss1_message_cause(struct l3_process *pc, u_char mt, u_char cause)
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l)))
- 		return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- }
- 
-@@ -551,7 +551,7 @@ l3dss1_status_send(struct l3_process *pc, u_char pr, void *arg)
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l)))
- 		return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- }
- 
-@@ -587,7 +587,7 @@ l3dss1_msg_without_setup(struct l3_process *pc, u_char pr, void *arg)
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l)))
- 		return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- 	dss1_release_l3_process(pc);
- }
-@@ -944,7 +944,7 @@ l3dss1_msg_with_uus(struct l3_process *pc, u_char cmd)
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l)))
- 		return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- } /* l3dss1_msg_with_uus */
- 
-@@ -1420,7 +1420,7 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l)))
- 		return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	L3DelTimer(&pc->timer);
- 	L3AddTimer(&pc->timer, T303, CC_T303);
- 	newl3state(pc, 1);
-@@ -1786,7 +1786,7 @@ l3dss1_disconnect_req(struct l3_process *pc, u_char pr, void *arg)
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l)))
- 		return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	newl3state(pc, 11);
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- 	L3AddTimer(&pc->timer, T305, CC_T305);
-@@ -1848,7 +1848,7 @@ l3dss1_reject_req(struct l3_process *pc, u_char pr, void *arg)
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l)))
- 		return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- 	pc->st->l3.l3l4(pc->st, CC_RELEASE | INDICATION, pc);
- 	newl3state(pc, 0);
-@@ -2145,7 +2145,7 @@ static void l3dss1_redir_req(struct l3_process *pc, u_char pr, void *arg)
- 
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l))) return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- } /* l3dss1_redir_req */
-@@ -2216,7 +2216,7 @@ static int l3dss1_cmd_global(struct PStack *st, isdn_ctrl *ic)
- 				if (pc) dss1_release_l3_process(pc);
- 				return (-2);
- 			}
--			memcpy(skb_put(skb, l), temp, l);
-+			skb_put_data(skb, temp, l);
- 
- 			if (pc)
- 			{ pc->prot.dss1.invoke_id = id; /* remember id */
-@@ -2359,7 +2359,7 @@ l3dss1_t305(struct l3_process *pc, u_char pr, void *arg)
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l)))
- 		return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	newl3state(pc, 19);
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- 	L3AddTimer(&pc->timer, T308, CC_T308_1);
-@@ -2528,7 +2528,7 @@ l3dss1_suspend_req(struct l3_process *pc, u_char pr, void *arg)
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l)))
- 		return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- 	newl3state(pc, 15);
- 	L3AddTimer(&pc->timer, T319, CC_T319);
-@@ -2603,7 +2603,7 @@ l3dss1_resume_req(struct l3_process *pc, u_char pr, void *arg)
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l)))
- 		return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- 	newl3state(pc, 17);
- 	L3AddTimer(&pc->timer, T318, CC_T318);
-@@ -2721,7 +2721,7 @@ l3dss1_global_restart(struct l3_process *pc, u_char pr, void *arg)
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l)))
- 		return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	newl3state(pc, 0);
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- }
-@@ -2929,7 +2929,7 @@ global_handler(struct PStack *st, int mt, struct sk_buff *skb)
- 		l = p - tmp;
- 		if (!(skb = l3_alloc_skb(l)))
- 			return;
--		memcpy(skb_put(skb, l), tmp, l);
-+		skb_put_data(skb, tmp, l);
- 		l3_msg(proc->st, DL_DATA | REQUEST, skb);
- 	} else {
- 		if (st->l3.debug & L3_DEB_STATE) {
-diff --git a/drivers/isdn/hisax/l3ni1.c b/drivers/isdn/hisax/l3ni1.c
-index 8dc791bfaa6f..ea311e7df48e 100644
---- a/drivers/isdn/hisax/l3ni1.c
-+++ b/drivers/isdn/hisax/l3ni1.c
-@@ -454,7 +454,7 @@ l3ni1_message_plus_chid(struct l3_process *pc, u_char mt)
- 
- 	if (!(skb = l3_alloc_skb(7)))
- 		return;
--	memcpy(skb_put(skb, 7), tmp, 7);
-+	skb_put_data(skb, tmp, 7);
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- }
- 
-@@ -475,7 +475,7 @@ l3ni1_message_cause(struct l3_process *pc, u_char mt, u_char cause)
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l)))
- 		return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- }
- 
-@@ -501,7 +501,7 @@ l3ni1_status_send(struct l3_process *pc, u_char pr, void *arg)
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l)))
- 		return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- }
- 
-@@ -537,7 +537,7 @@ l3ni1_msg_without_setup(struct l3_process *pc, u_char pr, void *arg)
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l)))
- 		return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- 	ni1_release_l3_process(pc);
- }
-@@ -894,7 +894,7 @@ l3ni1_msg_with_uus(struct l3_process *pc, u_char cmd)
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l)))
- 		return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- } /* l3ni1_msg_with_uus */
- 
-@@ -1274,7 +1274,7 @@ l3ni1_setup_req(struct l3_process *pc, u_char pr,
- 	{
- 		return;
- 	}
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	L3DelTimer(&pc->timer);
- 	L3AddTimer(&pc->timer, T303, CC_T303);
- 	newl3state(pc, 1);
-@@ -1640,7 +1640,7 @@ l3ni1_disconnect_req(struct l3_process *pc, u_char pr, void *arg)
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l)))
- 		return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	newl3state(pc, 11);
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- 	L3AddTimer(&pc->timer, T305, CC_T305);
-@@ -1704,7 +1704,7 @@ l3ni1_reject_req(struct l3_process *pc, u_char pr, void *arg)
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l)))
- 		return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- 	pc->st->l3.l3l4(pc->st, CC_RELEASE | INDICATION, pc);
- 	newl3state(pc, 0);
-@@ -2001,7 +2001,7 @@ static void l3ni1_redir_req(struct l3_process *pc, u_char pr, void *arg)
- 
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l))) return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- } /* l3ni1_redir_req */
-@@ -2076,7 +2076,7 @@ static int l3ni1_cmd_global(struct PStack *st, isdn_ctrl *ic)
- 				if (pc) ni1_release_l3_process(pc);
- 				return (-2);
- 			}
--			memcpy(skb_put(skb, l), temp, l);
-+			skb_put_data(skb, temp, l);
- 
- 			if (pc)
- 			{ pc->prot.ni1.invoke_id = id; /* remember id */
-@@ -2219,7 +2219,7 @@ l3ni1_t305(struct l3_process *pc, u_char pr, void *arg)
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l)))
- 		return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	newl3state(pc, 19);
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- 	L3AddTimer(&pc->timer, T308, CC_T308_1);
-@@ -2388,7 +2388,7 @@ l3ni1_suspend_req(struct l3_process *pc, u_char pr, void *arg)
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l)))
- 		return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- 	newl3state(pc, 15);
- 	L3AddTimer(&pc->timer, T319, CC_T319);
-@@ -2463,7 +2463,7 @@ l3ni1_resume_req(struct l3_process *pc, u_char pr, void *arg)
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l)))
- 		return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- 	newl3state(pc, 17);
- 	L3AddTimer(&pc->timer, T318, CC_T318);
-@@ -2582,7 +2582,7 @@ l3ni1_global_restart(struct l3_process *pc, u_char pr, void *arg)
- 	l = p - tmp;
- 	if (!(skb = l3_alloc_skb(l)))
- 		return;
--	memcpy(skb_put(skb, l), tmp, l);
-+	skb_put_data(skb, tmp, l);
- 	newl3state(pc, 0);
- 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
- }
-@@ -2655,7 +2655,7 @@ static void l3ni1_SendSpid(struct l3_process *pc, u_char pr, struct sk_buff *skb
- 	*p++ = IE_SPID;
- 	*p++ = l;
- 
--	memcpy(skb_put(skb, l), pSPID, l);
-+	skb_put_data(skb, pSPID, l);
- 
- 	newl3state(pc, iNewState);
- 
-@@ -2873,7 +2873,7 @@ global_handler(struct PStack *st, int mt, struct sk_buff *skb)
- 		l = p - tmp;
- 		if (!(skb = l3_alloc_skb(l)))
- 			return;
--		memcpy(skb_put(skb, l), tmp, l);
-+		skb_put_data(skb, tmp, l);
- 		l3_msg(proc->st, DL_DATA | REQUEST, skb);
- 	} else {
- 		if (st->l3.debug & L3_DEB_STATE) {
-diff --git a/drivers/isdn/hisax/netjet.c b/drivers/isdn/hisax/netjet.c
-index 233e432e06f6..b7f54fa29228 100644
---- a/drivers/isdn/hisax/netjet.c
-+++ b/drivers/isdn/hisax/netjet.c
-@@ -383,7 +383,7 @@ static void got_frame(struct BCState *bcs, int count) {
- 	if (!(skb = dev_alloc_skb(count)))
- 		printk(KERN_WARNING "TIGER: receive out of memory\n");
- 	else {
--		memcpy(skb_put(skb, count), bcs->hw.tiger.rcvbuf, count);
-+		skb_put_data(skb, bcs->hw.tiger.rcvbuf, count);
- 		skb_queue_tail(&bcs->rqueue, skb);
- 	}
- 	test_and_set_bit(B_RCVBUFREADY, &bcs->event);
-diff --git a/drivers/isdn/hisax/st5481_usb.c b/drivers/isdn/hisax/st5481_usb.c
-index a0fdbc074b98..1cb9930d5e24 100644
---- a/drivers/isdn/hisax/st5481_usb.c
-+++ b/drivers/isdn/hisax/st5481_usb.c
-@@ -527,7 +527,7 @@ static void usb_in_complete(struct urb *urb)
- 				WARNING("receive out of memory\n");
- 				break;
- 			}
--			memcpy(skb_put(skb, status), in->rcvbuf, status);
-+			skb_put_data(skb, in->rcvbuf, status);
- 			in->hisax_if->l1l2(in->hisax_if, PH_DATA | INDICATION, skb);
- 		} else if (status == -HDLC_CRC_ERROR) {
- 			INFO("CRC error");
-diff --git a/drivers/isdn/hisax/w6692.c b/drivers/isdn/hisax/w6692.c
-index c99f0ec58a01..6f6733b7c1e4 100644
---- a/drivers/isdn/hisax/w6692.c
-+++ b/drivers/isdn/hisax/w6692.c
-@@ -309,7 +309,9 @@ W6692B_interrupt(struct IsdnCardState *cs, u_char bchan)
- 				if (!(skb = dev_alloc_skb(count)))
- 					printk(KERN_WARNING "W6692: Bchan receive out of memory\n");
- 				else {
--					memcpy(skb_put(skb, count), bcs->hw.w6692.rcvbuf, count);
-+					skb_put_data(skb,
-+						     bcs->hw.w6692.rcvbuf,
-+						     count);
- 					skb_queue_tail(&bcs->rqueue, skb);
- 				}
- 			}
-@@ -332,7 +334,8 @@ W6692B_interrupt(struct IsdnCardState *cs, u_char bchan)
- 			if (!(skb = dev_alloc_skb(W_B_FIFO_THRESH)))
- 				printk(KERN_WARNING "HiSax: receive out of memory\n");
- 			else {
--				memcpy(skb_put(skb, W_B_FIFO_THRESH), bcs->hw.w6692.rcvbuf, W_B_FIFO_THRESH);
-+				skb_put_data(skb, bcs->hw.w6692.rcvbuf,
-+					     W_B_FIFO_THRESH);
- 				skb_queue_tail(&bcs->rqueue, skb);
- 			}
- 			bcs->hw.w6692.rcvidx = 0;
-@@ -441,7 +444,7 @@ W6692_interrupt(int intno, void *dev_id)
- 				if (!(skb = alloc_skb(count, GFP_ATOMIC)))
- 					printk(KERN_WARNING "HiSax: D receive out of memory\n");
- 				else {
--					memcpy(skb_put(skb, count), cs->rcvbuf, count);
-+					skb_put_data(skb, cs->rcvbuf, count);
- 					skb_queue_tail(&cs->rq, skb);
- 				}
- 			}
-diff --git a/drivers/isdn/hysdn/hycapi.c b/drivers/isdn/hysdn/hycapi.c
-index 93bae94314a6..87119b517508 100644
---- a/drivers/isdn/hysdn/hycapi.c
-+++ b/drivers/isdn/hysdn/hycapi.c
-@@ -171,16 +171,16 @@ hycapi_register_internal(struct capi_ctr *ctrl, __u16 appl,
- 		       card->myid);
- 		return;
- 	}
--	memcpy(skb_put(skb, sizeof(__u16)), &len, sizeof(__u16));
--	memcpy(skb_put(skb, sizeof(__u16)), &appl, sizeof(__u16));
-+	skb_put_data(skb, &len, sizeof(__u16));
-+	skb_put_data(skb, &appl, sizeof(__u16));
- 	memcpy(skb_put(skb, sizeof(__u8)), &_command, sizeof(_command));
- 	memcpy(skb_put(skb, sizeof(__u8)), &_subcommand, sizeof(_subcommand));
--	memcpy(skb_put(skb, sizeof(__u16)), &MessageNumber, sizeof(__u16));
--	memcpy(skb_put(skb, sizeof(__u16)), &MessageBufferSize, sizeof(__u16));
--	memcpy(skb_put(skb, sizeof(__u16)), &(rp->level3cnt), sizeof(__u16));
--	memcpy(skb_put(skb, sizeof(__u16)), &(rp->datablkcnt), sizeof(__u16));
--	memcpy(skb_put(skb, sizeof(__u16)), &(rp->datablklen), sizeof(__u16));
--	memcpy(skb_put(skb, slen), ExtFeatureDefaults, slen);
-+	skb_put_data(skb, &MessageNumber, sizeof(__u16));
-+	skb_put_data(skb, &MessageBufferSize, sizeof(__u16));
-+	skb_put_data(skb, &(rp->level3cnt), sizeof(__u16));
-+	skb_put_data(skb, &(rp->datablkcnt), sizeof(__u16));
-+	skb_put_data(skb, &(rp->datablklen), sizeof(__u16));
-+	skb_put_data(skb, ExtFeatureDefaults, slen);
- 	hycapi_applications[appl - 1].ctrl_mask |= (1 << (ctrl->cnr - 1));
- 	hycapi_send_message(ctrl, skb);
- }
-@@ -279,11 +279,11 @@ static void hycapi_release_internal(struct capi_ctr *ctrl, __u16 appl)
- 		       card->myid);
- 		return;
- 	}
--	memcpy(skb_put(skb, sizeof(__u16)), &len, sizeof(__u16));
--	memcpy(skb_put(skb, sizeof(__u16)), &appl, sizeof(__u16));
-+	skb_put_data(skb, &len, sizeof(__u16));
-+	skb_put_data(skb, &appl, sizeof(__u16));
- 	memcpy(skb_put(skb, sizeof(__u8)), &_command, sizeof(_command));
- 	memcpy(skb_put(skb, sizeof(__u8)), &_subcommand, sizeof(_subcommand));
--	memcpy(skb_put(skb, sizeof(__u16)), &MessageNumber, sizeof(__u16));
-+	skb_put_data(skb, &MessageNumber, sizeof(__u16));
- 	hycapi_send_message(ctrl, skb);
- 	hycapi_applications[appl - 1].ctrl_mask &= ~(1 << (ctrl->cnr - 1));
- }
-@@ -557,10 +557,9 @@ hycapi_rx_capipkt(hysdn_card *card, unsigned char *buf, unsigned short len)
- 			       card->myid);
- 			return;
- 		}
--		memcpy(skb_put(skb, MsgLen), buf, MsgLen);
--		memcpy(skb_put(skb, 2 * sizeof(__u32)), CP64, 2 * sizeof(__u32));
--		memcpy(skb_put(skb, len - MsgLen), buf + MsgLen,
--		       len - MsgLen);
-+		skb_put_data(skb, buf, MsgLen);
-+		skb_put_data(skb, CP64, 2 * sizeof(__u32));
-+		skb_put_data(skb, buf + MsgLen, len - MsgLen);
- 		CAPIMSG_SETLEN(skb->data, 30);
- 	} else {
- 		if (!(skb = alloc_skb(len, GFP_ATOMIC))) {
-@@ -568,7 +567,7 @@ hycapi_rx_capipkt(hysdn_card *card, unsigned char *buf, unsigned short len)
- 			       card->myid);
- 			return;
- 		}
--		memcpy(skb_put(skb, len), buf, len);
-+		skb_put_data(skb, buf, len);
- 	}
- 	switch (CAPIMSG_CMD(skb->data))
- 	{
-diff --git a/drivers/isdn/hysdn/hysdn_net.c b/drivers/isdn/hysdn/hysdn_net.c
-index b93a4e9a8d34..8e9c34f33d86 100644
---- a/drivers/isdn/hysdn/hysdn_net.c
-+++ b/drivers/isdn/hysdn/hysdn_net.c
-@@ -201,7 +201,7 @@ hysdn_rx_netpkt(hysdn_card *card, unsigned char *buf, unsigned short len)
- 		return;
- 	}
- 	/* copy the data */
--	memcpy(skb_put(skb, len), buf, len);
-+	skb_put_data(skb, buf, len);
- 
- 	/* determine the used protocol */
- 	skb->protocol = eth_type_trans(skb, dev);
-diff --git a/drivers/isdn/i4l/isdn_ppp.c b/drivers/isdn/i4l/isdn_ppp.c
-index 8aa158a09180..9ce23cf3d7d2 100644
---- a/drivers/isdn/i4l/isdn_ppp.c
-+++ b/drivers/isdn/i4l/isdn_ppp.c
-@@ -2258,8 +2258,7 @@ static void isdn_ppp_ccp_xmit_reset(struct ippp_struct *is, int proto,
- 
- 	/* Now stuff remaining bytes */
- 	if (len) {
--		p = skb_put(skb, len);
--		memcpy(p, data, len);
-+		p = skb_put_data(skb, data, len);
- 	}
- 
- 	/* skb is now ready for xmit */
-diff --git a/drivers/isdn/i4l/isdn_tty.c b/drivers/isdn/i4l/isdn_tty.c
-index ddd8207e4e54..d30130c8d0f3 100644
---- a/drivers/isdn/i4l/isdn_tty.c
-+++ b/drivers/isdn/i4l/isdn_tty.c
-@@ -474,7 +474,7 @@ isdn_tty_senddown(modem_info *info)
- 		return;
- 	}
- 	skb_reserve(skb, skb_res);
--	memcpy(skb_put(skb, buflen), info->port.xmit_buf, buflen);
-+	skb_put_data(skb, info->port.xmit_buf, buflen);
- 	info->xmit_count = 0;
- #ifdef CONFIG_ISDN_AUDIO
- 	if (info->vonline & 2) {
-diff --git a/drivers/isdn/i4l/isdn_v110.c b/drivers/isdn/i4l/isdn_v110.c
-index 52827a80c51f..8b74ce412524 100644
---- a/drivers/isdn/i4l/isdn_v110.c
-+++ b/drivers/isdn/i4l/isdn_v110.c
-@@ -421,7 +421,7 @@ isdn_v110_sync(isdn_v110_stream *v)
- 	}
- 	if ((skb = dev_alloc_skb(v->framelen + v->skbres))) {
- 		skb_reserve(skb, v->skbres);
--		memcpy(skb_put(skb, v->framelen), v->OfflineFrame, v->framelen);
-+		skb_put_data(skb, v->OfflineFrame, v->framelen);
- 	}
- 	return skb;
- }
-@@ -441,7 +441,7 @@ isdn_v110_idle(isdn_v110_stream *v)
- 	}
- 	if ((skb = dev_alloc_skb(v->framelen + v->skbres))) {
- 		skb_reserve(skb, v->skbres);
--		memcpy(skb_put(skb, v->framelen), v->OnlineFrame, v->framelen);
-+		skb_put_data(skb, v->OnlineFrame, v->framelen);
- 	}
- 	return skb;
- }
-@@ -486,7 +486,7 @@ isdn_v110_encode(isdn_v110_stream *v, struct sk_buff *skb)
- 	}
- 	skb_reserve(nskb, v->skbres + sizeof(int));
- 	if (skb->len == 0) {
--		memcpy(skb_put(nskb, v->framelen), v->OnlineFrame, v->framelen);
-+		skb_put_data(nskb, v->OnlineFrame, v->framelen);
- 		*((int *)skb_push(nskb, sizeof(int))) = 0;
- 		return nskb;
- 	}
-diff --git a/drivers/isdn/isdnloop/isdnloop.c b/drivers/isdn/isdnloop/isdnloop.c
-index ef9c8e4f1fa2..7ac7badb8f55 100644
---- a/drivers/isdn/isdnloop/isdnloop.c
-+++ b/drivers/isdn/isdnloop/isdnloop.c
-@@ -479,7 +479,7 @@ isdnloop_fake(isdnloop_card *card, char *s, int ch)
- 	}
- 	if (ch >= 0)
- 		sprintf(skb_put(skb, 3), "%02d;", ch);
--	memcpy(skb_put(skb, strlen(s)), s, strlen(s));
-+	skb_put_data(skb, s, strlen(s));
- 	skb_queue_tail(&card->dqueue, skb);
- 	return 0;
- }
-diff --git a/drivers/isdn/mISDN/dsp_cmx.c b/drivers/isdn/mISDN/dsp_cmx.c
-index 8e3aa002767b..d4b6f01a3f0e 100644
---- a/drivers/isdn/mISDN/dsp_cmx.c
-+++ b/drivers/isdn/mISDN/dsp_cmx.c
-@@ -1595,8 +1595,7 @@ dsp_cmx_send_member(struct dsp *dsp, int len, s32 *c, int members)
- 				thh = mISDN_HEAD_P(txskb);
- 				thh->prim = DL_DATA_REQ;
- 				thh->id = 0;
--				memcpy(skb_put(txskb, len), nskb->data + preload,
--				       len);
-+				skb_put_data(txskb, nskb->data + preload, len);
- 				/* queue (trigger later) */
- 				skb_queue_tail(&dsp->sendq, txskb);
- 			}
-diff --git a/drivers/isdn/mISDN/layer2.c b/drivers/isdn/mISDN/layer2.c
-index 5eb380a25903..7243a6746f8b 100644
---- a/drivers/isdn/mISDN/layer2.c
-+++ b/drivers/isdn/mISDN/layer2.c
-@@ -176,7 +176,7 @@ l2up_create(struct layer2 *l2, u_int prim, int len, void *arg)
- 	hh->prim = prim;
- 	hh->id = (l2->ch.nr << 16) | l2->ch.addr;
- 	if (len)
--		memcpy(skb_put(skb, len), arg, len);
-+		skb_put_data(skb, arg, len);
- 	err = l2->up->send(l2->up, skb);
- 	if (err) {
- 		printk(KERN_WARNING "%s: dev %s err=%d\n", __func__,
-@@ -235,7 +235,7 @@ l2down_create(struct layer2 *l2, u_int prim, u_int id, int len, void *arg)
- 	hh->prim = prim;
- 	hh->id = id;
- 	if (len)
--		memcpy(skb_put(skb, len), arg, len);
-+		skb_put_data(skb, arg, len);
- 	err = l2down_raw(l2, skb);
- 	if (err)
- 		dev_kfree_skb(skb);
-@@ -640,7 +640,7 @@ send_uframe(struct layer2 *l2, struct sk_buff *skb, u_char cmd, u_char cr)
- 			return;
- 		}
- 	}
--	memcpy(skb_put(skb, i), tmp, i);
-+	skb_put_data(skb, tmp, i);
- 	enqueue_super(l2, skb);
- }
- 
-@@ -1125,7 +1125,7 @@ enquiry_cr(struct layer2 *l2, u_char typ, u_char cr, u_char pf)
- 		       mISDNDevName4ch(&l2->ch), __func__);
- 		return;
- 	}
--	memcpy(skb_put(skb, i), tmp, i);
-+	skb_put_data(skb, tmp, i);
- 	enqueue_super(l2, skb);
- }
- 
-diff --git a/drivers/isdn/mISDN/tei.c b/drivers/isdn/mISDN/tei.c
-index 592f597d8951..908127efccf8 100644
---- a/drivers/isdn/mISDN/tei.c
-+++ b/drivers/isdn/mISDN/tei.c
-@@ -312,7 +312,7 @@ teiup_create(struct manager *mgr, u_int prim, int len, void *arg)
- 	hh->prim = prim;
- 	hh->id = (mgr->ch.nr << 16) | mgr->ch.addr;
- 	if (len)
--		memcpy(skb_put(skb, len), arg, len);
-+		skb_put_data(skb, arg, len);
- 	err = mgr->up->send(mgr->up, skb);
- 	if (err) {
- 		printk(KERN_WARNING "%s: err=%d\n", __func__, err);
-diff --git a/drivers/media/dvb-core/dvb_net.c b/drivers/media/dvb-core/dvb_net.c
-index 9947b342633e..bbaf0a8cae8b 100644
---- a/drivers/media/dvb-core/dvb_net.c
-+++ b/drivers/media/dvb-core/dvb_net.c
-@@ -828,8 +828,7 @@ static void dvb_net_ule(struct net_device *dev, const u8 *buf, size_t buf_len)
- 
- 		/* Copy data into our current skb. */
- 		h.how_much = min(h.priv->ule_sndu_remain, (int)h.ts_remain);
--		memcpy(skb_put(h.priv->ule_skb, h.how_much),
--		       h.from_where, h.how_much);
-+		skb_put_data(h.priv->ule_skb, h.from_where, h.how_much);
- 		h.priv->ule_sndu_remain -= h.how_much;
- 		h.ts_remain -= h.how_much;
- 		h.from_where += h.how_much;
-diff --git a/drivers/media/radio/wl128x/fmdrv_common.c b/drivers/media/radio/wl128x/fmdrv_common.c
-index 588e2d61c3b4..c67e055a12c9 100644
---- a/drivers/media/radio/wl128x/fmdrv_common.c
-+++ b/drivers/media/radio/wl128x/fmdrv_common.c
-@@ -442,7 +442,7 @@ static int fm_send_cmd(struct fmdev *fmdev, u8 fm_op, u16 type,	void *payload,
- 		fm_cb(skb)->fm_op = *((u8 *)payload + 2);
- 	}
- 	if (payload != NULL)
--		memcpy(skb_put(skb, payload_len), payload, payload_len);
-+		skb_put_data(skb, payload, payload_len);
- 
- 	fm_cb(skb)->completion = wait_completion;
- 	skb_queue_tail(&fmdev->tx_q, skb);
-diff --git a/drivers/misc/ti-st/st_core.c b/drivers/misc/ti-st/st_core.c
-index 00051590e00f..eda8d407be28 100644
---- a/drivers/misc/ti-st/st_core.c
-+++ b/drivers/misc/ti-st/st_core.c
-@@ -262,7 +262,7 @@ void st_int_recv(void *disc_data,
- 	while (count) {
- 		if (st_gdata->rx_count) {
- 			len = min_t(unsigned int, st_gdata->rx_count, count);
--			memcpy(skb_put(st_gdata->rx_skb, len), ptr, len);
-+			skb_put_data(st_gdata->rx_skb, ptr, len);
- 			st_gdata->rx_count -= len;
- 			count -= len;
- 			ptr += len;
-diff --git a/drivers/misc/ti-st/st_kim.c b/drivers/misc/ti-st/st_kim.c
-index bf0d7708beac..e74413f882ab 100644
---- a/drivers/misc/ti-st/st_kim.c
-+++ b/drivers/misc/ti-st/st_kim.c
-@@ -152,7 +152,7 @@ static void kim_int_recv(struct kim_data_s *kim_gdata,
- 	while (count) {
- 		if (kim_gdata->rx_count) {
- 			len = min_t(unsigned int, kim_gdata->rx_count, count);
--			memcpy(skb_put(kim_gdata->rx_skb, len), ptr, len);
-+			skb_put_data(kim_gdata->rx_skb, ptr, len);
- 			kim_gdata->rx_count -= len;
- 			count -= len;
- 			ptr += len;
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 7d7a3cec149a..b796db7dd621 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -936,8 +936,7 @@ static void alb_send_lp_vid(struct slave *slave, u8 mac_addr[],
- 	if (!skb)
- 		return;
- 
--	data = skb_put(skb, size);
--	memcpy(data, &pkt, size);
-+	data = skb_put_data(skb, &pkt, size);
- 
- 	skb_reset_mac_header(skb);
- 	skb->network_header = skb->mac_header + ETH_HLEN;
-diff --git a/drivers/net/caif/caif_hsi.c b/drivers/net/caif/caif_hsi.c
-index 71a7c3b44fdd..4534326e20ac 100644
---- a/drivers/net/caif/caif_hsi.c
-+++ b/drivers/net/caif/caif_hsi.c
-@@ -454,8 +454,7 @@ static int cfhsi_rx_desc(struct cfhsi_desc *desc, struct cfhsi *cfhsi)
- 		}
- 		caif_assert(skb != NULL);
- 
--		dst = skb_put(skb, len);
--		memcpy(dst, pfrm, len);
-+		dst = skb_put_data(skb, pfrm, len);
- 
- 		skb->protocol = htons(ETH_P_CAIF);
- 		skb_reset_mac_header(skb);
-@@ -585,8 +584,7 @@ static int cfhsi_rx_pld(struct cfhsi_desc *desc, struct cfhsi *cfhsi)
- 		}
- 		caif_assert(skb != NULL);
- 
--		dst = skb_put(skb, len);
--		memcpy(dst, pcffrm, len);
-+		dst = skb_put_data(skb, pcffrm, len);
- 
- 		skb->protocol = htons(ETH_P_CAIF);
- 		skb_reset_mac_header(skb);
-diff --git a/drivers/net/caif/caif_serial.c b/drivers/net/caif/caif_serial.c
-index 76e1d3545105..5c57be2082ba 100644
---- a/drivers/net/caif/caif_serial.c
-+++ b/drivers/net/caif/caif_serial.c
-@@ -198,8 +198,7 @@ static void ldisc_receive(struct tty_struct *tty, const u8 *data,
- 	skb = netdev_alloc_skb(ser->dev, count+1);
- 	if (skb == NULL)
- 		return;
--	p = skb_put(skb, count);
--	memcpy(p, data, count);
-+	p = skb_put_data(skb, data, count);
- 
- 	skb->protocol = htons(ETH_P_CAIF);
- 	skb_reset_mac_header(skb);
-diff --git a/drivers/net/caif/caif_spi.c b/drivers/net/caif/caif_spi.c
-index fc21afe852b9..24a5f5ca2037 100644
---- a/drivers/net/caif/caif_spi.c
-+++ b/drivers/net/caif/caif_spi.c
-@@ -548,8 +548,7 @@ int cfspi_rxfrm(struct cfspi *cfspi, u8 *buf, size_t len)
- 		skb = netdev_alloc_skb(cfspi->ndev, pkt_len + 1);
- 		caif_assert(skb != NULL);
- 
--		dst = skb_put(skb, pkt_len);
--		memcpy(dst, src, pkt_len);
-+		dst = skb_put_data(skb, src, pkt_len);
- 		src += pkt_len;
- 
- 		skb->protocol = htons(ETH_P_CAIF);
-diff --git a/drivers/net/caif/caif_virtio.c b/drivers/net/caif/caif_virtio.c
-index 1794ea0420b7..c3d104feee13 100644
---- a/drivers/net/caif/caif_virtio.c
-+++ b/drivers/net/caif/caif_virtio.c
-@@ -242,7 +242,7 @@ static struct sk_buff *cfv_alloc_and_copy_skb(int *err,
- 
- 	skb_reserve(skb, cfv->rx_hr + pad_len);
- 
--	memcpy(skb_put(skb, cfpkt_len), frm + cfv->rx_hr, cfpkt_len);
-+	skb_put_data(skb, frm + cfv->rx_hr, cfpkt_len);
- 	return skb;
- }
- 
-diff --git a/drivers/net/can/slcan.c b/drivers/net/can/slcan.c
-index 6a6e896e52fa..5d067c1b987f 100644
---- a/drivers/net/can/slcan.c
-+++ b/drivers/net/can/slcan.c
-@@ -216,8 +216,7 @@ static void slc_bump(struct slcan *sl)
- 	can_skb_prv(skb)->ifindex = sl->dev->ifindex;
- 	can_skb_prv(skb)->skbcnt = 0;
- 
--	memcpy(skb_put(skb, sizeof(struct can_frame)),
--	       &cf, sizeof(struct can_frame));
-+	skb_put_data(skb, &cf, sizeof(struct can_frame));
- 
- 	sl->dev->stats.rx_packets++;
- 	sl->dev->stats.rx_bytes += cf.can_dlc;
-diff --git a/drivers/net/ethernet/3com/3c515.c b/drivers/net/ethernet/3com/3c515.c
-index e7b1fa56b290..c5987f518cb2 100644
---- a/drivers/net/ethernet/3com/3c515.c
-+++ b/drivers/net/ethernet/3com/3c515.c
-@@ -1370,9 +1370,9 @@ static int boomerang_rx(struct net_device *dev)
- 			    (skb = netdev_alloc_skb(dev, pkt_len + 4)) != NULL) {
- 				skb_reserve(skb, 2);	/* Align IP on 16 byte boundaries */
- 				/* 'skb_put()' points to the start of sk_buff data area. */
--				memcpy(skb_put(skb, pkt_len),
--				       isa_bus_to_virt(vp->rx_ring[entry].
--						   addr), pkt_len);
-+				skb_put_data(skb,
-+					     isa_bus_to_virt(vp->rx_ring[entry].addr),
-+					     pkt_len);
- 				rx_copy++;
- 			} else {
- 				void *temp;
-diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
-index 14cff6017756..3b516ebeeddb 100644
---- a/drivers/net/ethernet/3com/3c59x.c
-+++ b/drivers/net/ethernet/3com/3c59x.c
-@@ -2628,9 +2628,8 @@ boomerang_rx(struct net_device *dev)
- 				skb_reserve(skb, 2);	/* Align IP on 16 byte boundaries */
- 				pci_dma_sync_single_for_cpu(VORTEX_PCI(vp), dma, PKT_BUF_SZ, PCI_DMA_FROMDEVICE);
- 				/* 'skb_put()' points to the start of sk_buff data area. */
--				memcpy(skb_put(skb, pkt_len),
--					   vp->rx_skbuff[entry]->data,
--					   pkt_len);
-+				skb_put_data(skb, vp->rx_skbuff[entry]->data,
-+					     pkt_len);
- 				pci_dma_sync_single_for_device(VORTEX_PCI(vp), dma, PKT_BUF_SZ, PCI_DMA_FROMDEVICE);
- 				vp->rx_copy++;
- 			} else {
-diff --git a/drivers/net/ethernet/aeroflex/greth.c b/drivers/net/ethernet/aeroflex/greth.c
-index d8e133ced7b8..4309be3724ad 100644
---- a/drivers/net/ethernet/aeroflex/greth.c
-+++ b/drivers/net/ethernet/aeroflex/greth.c
-@@ -807,7 +807,8 @@ static int greth_rx(struct net_device *dev, int limit)
- 				if (netif_msg_pktdata(greth))
- 					greth_print_rx_packet(phys_to_virt(dma_addr), pkt_len);
- 
--				memcpy(skb_put(skb, pkt_len), phys_to_virt(dma_addr), pkt_len);
-+				skb_put_data(skb, phys_to_virt(dma_addr),
-+					     pkt_len);
- 
- 				skb->protocol = eth_type_trans(skb, dev);
- 				dev->stats.rx_bytes += pkt_len;
-diff --git a/drivers/net/ethernet/agere/et131x.c b/drivers/net/ethernet/agere/et131x.c
-index 87a11b9f0ea5..54eff90e2f02 100644
---- a/drivers/net/ethernet/agere/et131x.c
-+++ b/drivers/net/ethernet/agere/et131x.c
-@@ -2282,7 +2282,7 @@ static struct rfd *nic_rx_pkts(struct et131x_adapter *adapter)
- 
- 	adapter->netdev->stats.rx_bytes += rfd->len;
- 
--	memcpy(skb_put(skb, rfd->len), fbr->virt[buff_index], rfd->len);
-+	skb_put_data(skb, fbr->virt[buff_index], rfd->len);
- 
- 	skb->protocol = eth_type_trans(skb, adapter->netdev);
- 	skb->ip_summed = CHECKSUM_NONE;
-diff --git a/drivers/net/ethernet/apple/macmace.c b/drivers/net/ethernet/apple/macmace.c
-index 857df9c45f04..f17a160dbff2 100644
---- a/drivers/net/ethernet/apple/macmace.c
-+++ b/drivers/net/ethernet/apple/macmace.c
-@@ -663,7 +663,7 @@ static void mace_dma_rx_frame(struct net_device *dev, struct mace_frame *mf)
- 			return;
- 		}
- 		skb_reserve(skb, 2);
--		memcpy(skb_put(skb, frame_length), mf->data, frame_length);
-+		skb_put_data(skb, mf->data, frame_length);
- 
- 		skb->protocol = eth_type_trans(skb, dev);
- 		netif_rx(skb);
-diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
-index 5711fbbd6ae3..041cfb7952f8 100644
---- a/drivers/net/ethernet/aurora/nb8800.c
-+++ b/drivers/net/ethernet/aurora/nb8800.c
-@@ -251,7 +251,7 @@ static void nb8800_receive(struct net_device *dev, unsigned int i,
- 
- 	if (len <= RX_COPYBREAK) {
- 		dma_sync_single_for_cpu(&dev->dev, dma, len, DMA_FROM_DEVICE);
--		memcpy(skb_put(skb, len), data, len);
-+		skb_put_data(skb, data, len);
- 		dma_sync_single_for_device(&dev->dev, dma, len,
- 					   DMA_FROM_DEVICE);
- 	} else {
-@@ -264,7 +264,7 @@ static void nb8800_receive(struct net_device *dev, unsigned int i,
- 		}
- 
- 		dma_unmap_page(&dev->dev, dma, RX_BUF_SIZE, DMA_FROM_DEVICE);
--		memcpy(skb_put(skb, RX_COPYHDR), data, RX_COPYHDR);
-+		skb_put_data(skb, data, RX_COPYHDR);
- 		skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page,
- 				offset + RX_COPYHDR, len - RX_COPYHDR,
- 				RX_BUF_SIZE);
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 91f7492623d3..4b0168bcbc8a 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -2992,7 +2992,7 @@ static void at91ether_rx(struct net_device *dev)
- 		skb = netdev_alloc_skb(dev, pktlen + 2);
- 		if (skb) {
- 			skb_reserve(skb, 2);
--			memcpy(skb_put(skb, pktlen), p_recv, pktlen);
-+			skb_put_data(skb, p_recv, pktlen);
- 
- 			skb->protocol = eth_type_trans(skb, dev);
- 			dev->stats.rx_packets++;
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_network.h b/drivers/net/ethernet/cavium/liquidio/octeon_network.h
-index bf483932ff25..4b3507972243 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_network.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_network.h
-@@ -443,8 +443,8 @@ static inline void octeon_fast_packet_next(struct octeon_droq *droq,
- 					   int copy_len,
- 					   int idx)
- {
--	memcpy(skb_put(nicbuf, copy_len),
--	       get_rbd(droq->recv_buf_list[idx].buffer), copy_len);
-+	skb_put_data(nicbuf, get_rbd(droq->recv_buf_list[idx].buffer),
-+		     copy_len);
- }
- 
- /**
-diff --git a/drivers/net/ethernet/cirrus/cs89x0.c b/drivers/net/ethernet/cirrus/cs89x0.c
-index da5b58b853e2..410a0a95130b 100644
---- a/drivers/net/ethernet/cirrus/cs89x0.c
-+++ b/drivers/net/ethernet/cirrus/cs89x0.c
-@@ -450,11 +450,10 @@ dma_rx(struct net_device *dev)
- 
- 	if (bp + length > lp->end_dma_buff) {
- 		int semi_cnt = lp->end_dma_buff - bp;
--		memcpy(skb_put(skb, semi_cnt), bp, semi_cnt);
--		memcpy(skb_put(skb, length - semi_cnt), lp->dma_buff,
--		       length - semi_cnt);
-+		skb_put_data(skb, bp, semi_cnt);
-+		skb_put_data(skb, lp->dma_buff, length - semi_cnt);
- 	} else {
--		memcpy(skb_put(skb, length), bp, length);
-+		skb_put_data(skb, bp, length);
- 	}
- 	bp += (length + 3) & ~3;
- 	if (bp >= lp->end_dma_buff)
-diff --git a/drivers/net/ethernet/dec/tulip/de4x5.c b/drivers/net/ethernet/dec/tulip/de4x5.c
-index fd6bcf024729..47be5018d35d 100644
---- a/drivers/net/ethernet/dec/tulip/de4x5.c
-+++ b/drivers/net/ethernet/dec/tulip/de4x5.c
-@@ -3624,10 +3624,10 @@ de4x5_alloc_rx_buff(struct net_device *dev, int index, int len)
-     skb_reserve(p, 2);	                               /* Align */
-     if (index < lp->rx_old) {                          /* Wrapped buffer */
- 	short tlen = (lp->rxRingSize - lp->rx_old) * RX_BUFF_SZ;
--	memcpy(skb_put(p,tlen),lp->rx_bufs + lp->rx_old * RX_BUFF_SZ,tlen);
--	memcpy(skb_put(p,len-tlen),lp->rx_bufs,len-tlen);
-+	skb_put_data(p, lp->rx_bufs + lp->rx_old * RX_BUFF_SZ, tlen);
-+	skb_put_data(p, lp->rx_bufs, len - tlen);
-     } else {                                           /* Linear buffer */
--	memcpy(skb_put(p,len),lp->rx_bufs + lp->rx_old * RX_BUFF_SZ,len);
-+	skb_put_data(p, lp->rx_bufs + lp->rx_old * RX_BUFF_SZ, len);
-     }
- 
-     return p;
-diff --git a/drivers/net/ethernet/dec/tulip/interrupt.c b/drivers/net/ethernet/dec/tulip/interrupt.c
-index ba6ae24acf62..8df80880ecaa 100644
---- a/drivers/net/ethernet/dec/tulip/interrupt.c
-+++ b/drivers/net/ethernet/dec/tulip/interrupt.c
-@@ -218,9 +218,9 @@ int tulip_poll(struct napi_struct *napi, int budget)
-                                                         pkt_len);
-                                        skb_put(skb, pkt_len);
- #else
--                                       memcpy(skb_put(skb, pkt_len),
--                                              tp->rx_buffers[entry].skb->data,
--                                              pkt_len);
-+                                       skb_put_data(skb,
-+                                                    tp->rx_buffers[entry].skb->data,
-+                                                    pkt_len);
- #endif
-                                        pci_dma_sync_single_for_device(tp->pdev,
- 								      tp->rx_buffers[entry].mapping,
-@@ -444,9 +444,9 @@ static int tulip_rx(struct net_device *dev)
- 						 pkt_len);
- 				skb_put(skb, pkt_len);
- #else
--				memcpy(skb_put(skb, pkt_len),
--				       tp->rx_buffers[entry].skb->data,
--				       pkt_len);
-+				skb_put_data(skb,
-+					     tp->rx_buffers[entry].skb->data,
-+					     pkt_len);
- #endif
- 				pci_dma_sync_single_for_device(tp->pdev,
- 							       tp->rx_buffers[entry].mapping,
-diff --git a/drivers/net/ethernet/dec/tulip/uli526x.c b/drivers/net/ethernet/dec/tulip/uli526x.c
-index 8d98b259d1ba..7fc248efc4ba 100644
---- a/drivers/net/ethernet/dec/tulip/uli526x.c
-+++ b/drivers/net/ethernet/dec/tulip/uli526x.c
-@@ -864,9 +864,9 @@ static void uli526x_rx_packet(struct net_device *dev, struct uli526x_board_info
- 					skb = new_skb;
- 					/* size less than COPY_SIZE, allocate a rxlen SKB */
- 					skb_reserve(skb, 2); /* 16byte align */
--					memcpy(skb_put(skb, rxlen),
--					       skb_tail_pointer(rxptr->rx_skb_ptr),
--					       rxlen);
-+					skb_put_data(skb,
-+						     skb_tail_pointer(rxptr->rx_skb_ptr),
-+						     rxlen);
- 					uli526x_reuse_skb(db, rxptr->rx_skb_ptr);
- 				} else
- 					skb_put(skb, rxlen);
-diff --git a/drivers/net/ethernet/ec_bhf.c b/drivers/net/ethernet/ec_bhf.c
-index 278f139f2a22..4ee042c034a1 100644
---- a/drivers/net/ethernet/ec_bhf.c
-+++ b/drivers/net/ethernet/ec_bhf.c
-@@ -223,7 +223,7 @@ static void ec_bhf_process_rx(struct ec_bhf_priv *priv)
- 
- 		skb = netdev_alloc_skb_ip_align(priv->net_dev, pkt_size);
- 		if (skb) {
--			memcpy(skb_put(skb, pkt_size), data, pkt_size);
-+			skb_put_data(skb, data, pkt_size);
- 			skb->protocol = eth_type_trans(skb, priv->net_dev);
- 			priv->stat_rx_bytes += pkt_size;
- 
-diff --git a/drivers/net/ethernet/fealnx.c b/drivers/net/ethernet/fealnx.c
-index 610f9c07c21d..e92859dab7ae 100644
---- a/drivers/net/ethernet/fealnx.c
-+++ b/drivers/net/ethernet/fealnx.c
-@@ -1711,8 +1711,8 @@ static int netdev_rx(struct net_device *dev)
- 					np->cur_rx->skbuff->data, pkt_len);
- 				skb_put(skb, pkt_len);
- #else
--				memcpy(skb_put(skb, pkt_len),
--					np->cur_rx->skbuff->data, pkt_len);
-+				skb_put_data(skb, np->cur_rx->skbuff->data,
-+					     pkt_len);
- #endif
- 				pci_dma_sync_single_for_device(np->pci_dev,
- 							       np->cur_rx->buffer,
-diff --git a/drivers/net/ethernet/i825xx/82596.c b/drivers/net/ethernet/i825xx/82596.c
-index 945883842533..d719668a6684 100644
---- a/drivers/net/ethernet/i825xx/82596.c
-+++ b/drivers/net/ethernet/i825xx/82596.c
-@@ -809,7 +809,8 @@ static inline int i596_rx(struct net_device *dev)
- 				if (!rx_in_place) {
- 					/* 16 byte align the data fields */
- 					skb_reserve(skb, 2);
--					memcpy(skb_put(skb,pkt_len), rbd->v_data, pkt_len);
-+					skb_put_data(skb, rbd->v_data,
-+						     pkt_len);
- 				}
- 				skb->protocol=eth_type_trans(skb,dev);
- 				skb->len = pkt_len;
-diff --git a/drivers/net/ethernet/i825xx/lib82596.c b/drivers/net/ethernet/i825xx/lib82596.c
-index e86773325cbe..8449c58f01fd 100644
---- a/drivers/net/ethernet/i825xx/lib82596.c
-+++ b/drivers/net/ethernet/i825xx/lib82596.c
-@@ -727,7 +727,8 @@ static inline int i596_rx(struct net_device *dev)
- 					dma_sync_single_for_cpu(dev->dev.parent,
- 								(dma_addr_t)SWAP32(rbd->b_data),
- 								PKT_BUF_SZ, DMA_FROM_DEVICE);
--					memcpy(skb_put(skb, pkt_len), rbd->v_data, pkt_len);
-+					skb_put_data(skb, rbd->v_data,
-+						     pkt_len);
- 					dma_sync_single_for_device(dev->dev.parent,
- 								   (dma_addr_t)SWAP32(rbd->b_data),
- 								   PKT_BUF_SZ, DMA_FROM_DEVICE);
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index bd8b05fe8258..98375e1e1185 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -4345,7 +4345,7 @@ static struct sk_buff *e1000_copybreak(struct e1000_adapter *adapter,
- 	dma_sync_single_for_cpu(&adapter->pdev->dev, buffer_info->dma,
- 				length, DMA_FROM_DEVICE);
- 
--	memcpy(skb_put(skb, length), data, length);
-+	skb_put_data(skb, data, length);
- 
- 	return skb;
- }
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index d297011b535d..0aab74c2a209 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -1976,9 +1976,8 @@ static int mvneta_rx_swbm(struct mvneta_port *pp, int rx_todo,
- 						      MVNETA_MH_SIZE + NET_SKB_PAD,
- 						      rx_bytes,
- 						      DMA_FROM_DEVICE);
--			memcpy(skb_put(skb, rx_bytes),
--			       data + MVNETA_MH_SIZE + NET_SKB_PAD,
--			       rx_bytes);
-+			skb_put_data(skb, data + MVNETA_MH_SIZE + NET_SKB_PAD,
-+				     rx_bytes);
- 
- 			skb->protocol = eth_type_trans(skb, dev);
- 			mvneta_rx_csum(pp, rx_status, skb);
-@@ -2103,9 +2102,8 @@ static int mvneta_rx_hwbm(struct mvneta_port *pp, int rx_todo,
- 			                              MVNETA_MH_SIZE + NET_SKB_PAD,
- 			                              rx_bytes,
- 			                              DMA_FROM_DEVICE);
--			memcpy(skb_put(skb, rx_bytes),
--			       data + MVNETA_MH_SIZE + NET_SKB_PAD,
--			       rx_bytes);
-+			skb_put_data(skb, data + MVNETA_MH_SIZE + NET_SKB_PAD,
-+				     rx_bytes);
- 
- 			skb->protocol = eth_type_trans(skb, dev);
- 			mvneta_rx_csum(pp, rx_status, skb);
-diff --git a/drivers/net/ethernet/micrel/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
-index ee1c78abab0b..e798fbe08600 100644
---- a/drivers/net/ethernet/micrel/ksz884x.c
-+++ b/drivers/net/ethernet/micrel/ksz884x.c
-@@ -5020,8 +5020,7 @@ static inline int rx_proc(struct net_device *dev, struct ksz_hw* hw,
- 		 */
- 		skb_reserve(skb, 2);
- 
--		memcpy(skb_put(skb, packet_len),
--			dma_buf->skb->data, packet_len);
-+		skb_put_data(skb, dma_buf->skb->data, packet_len);
- 	} while (0);
- 
- 	skb->protocol = eth_type_trans(skb, dev);
-diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
-index 9c7ffd649e9a..828bfd93cb54 100644
---- a/drivers/net/ethernet/nxp/lpc_eth.c
-+++ b/drivers/net/ethernet/nxp/lpc_eth.c
-@@ -959,11 +959,10 @@ static int __lpc_handle_recv(struct net_device *ndev, int budget)
- 			if (!skb) {
- 				ndev->stats.rx_dropped++;
- 			} else {
--				prdbuf = skb_put(skb, len);
--
- 				/* Copy packet from buffer */
--				memcpy(prdbuf, pldat->rx_buff_v +
--					rxconsidx * ENET_MAXF_SIZE, len);
-+				prdbuf = skb_put_data(skb,
-+						      pldat->rx_buff_v + rxconsidx * ENET_MAXF_SIZE,
-+						      len);
- 
- 				/* Pass to upper layer */
- 				skb->protocol = eth_type_trans(skb, ndev);
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_fp.c b/drivers/net/ethernet/qlogic/qede/qede_fp.c
-index 892eb98290f6..6fc854b120b0 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_fp.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_fp.c
-@@ -1079,8 +1079,7 @@ static struct sk_buff *qede_rx_allocate_skb(struct qede_dev *edev,
- 	 * re-use the already allcoated & mapped memory.
- 	 */
- 	if (len + pad <= edev->rx_copybreak) {
--		memcpy(skb_put(skb, len),
--		       page_address(page) + offset, len);
-+		skb_put_data(skb, page_address(page) + offset, len);
- 		qede_reuse_page(rxq, bd);
- 		goto out;
- 	}
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-index 1188d420fe53..9feec7009443 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-@@ -1577,7 +1577,7 @@ static void ql_process_mac_rx_page(struct ql_adapter *qdev,
- 		rx_ring->rx_dropped++;
- 		goto err_out;
- 	}
--	memcpy(skb_put(skb, hlen), addr, hlen);
-+	skb_put_data(skb, addr, hlen);
- 	netif_printk(qdev, rx_status, KERN_DEBUG, qdev->ndev,
- 		     "%d bytes of headers and data in large. Chain page to new skb and pull tail.\n",
- 		     length);
-@@ -1654,7 +1654,7 @@ static void ql_process_mac_rx_skb(struct ql_adapter *qdev,
- 				    dma_unmap_len(sbq_desc, maplen),
- 				    PCI_DMA_FROMDEVICE);
- 
--	memcpy(skb_put(new_skb, length), skb->data, length);
-+	skb_put_data(new_skb, skb->data, length);
- 
- 	pci_dma_sync_single_for_device(qdev->pdev,
- 				       dma_unmap_addr(sbq_desc, mapaddr),
-@@ -1817,8 +1817,7 @@ static struct sk_buff *ql_build_rx_skb(struct ql_adapter *qdev,
- 						    dma_unmap_len
- 						    (sbq_desc, maplen),
- 						    PCI_DMA_FROMDEVICE);
--			memcpy(skb_put(skb, length),
--			       sbq_desc->p.skb->data, length);
-+			skb_put_data(skb, sbq_desc->p.skb->data, length);
- 			pci_dma_sync_single_for_device(qdev->pdev,
- 						       dma_unmap_addr
- 						       (sbq_desc,
-diff --git a/drivers/net/ethernet/silan/sc92031.c b/drivers/net/ethernet/silan/sc92031.c
-index 751c81848f35..c07fd594fe71 100644
---- a/drivers/net/ethernet/silan/sc92031.c
-+++ b/drivers/net/ethernet/silan/sc92031.c
-@@ -795,12 +795,12 @@ static void _sc92031_rx_tasklet(struct net_device *dev)
- 		}
- 
- 		if ((rx_ring_offset + pkt_size) > RX_BUF_LEN) {
--			memcpy(skb_put(skb, RX_BUF_LEN - rx_ring_offset),
--				rx_ring + rx_ring_offset, RX_BUF_LEN - rx_ring_offset);
--			memcpy(skb_put(skb, pkt_size - (RX_BUF_LEN - rx_ring_offset)),
--				rx_ring, pkt_size - (RX_BUF_LEN - rx_ring_offset));
-+			skb_put_data(skb, rx_ring + rx_ring_offset,
-+				     RX_BUF_LEN - rx_ring_offset);
-+			skb_put_data(skb, rx_ring,
-+				     pkt_size - (RX_BUF_LEN - rx_ring_offset));
- 		} else {
--			memcpy(skb_put(skb, pkt_size), rx_ring + rx_ring_offset, pkt_size);
-+			skb_put_data(skb, rx_ring + rx_ring_offset, pkt_size);
- 		}
- 
- 		skb->protocol = eth_type_trans(skb, dev);
-diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
-index b56e07fa44a8..750954be5a74 100644
---- a/drivers/net/fjes/fjes_main.c
-+++ b/drivers/net/fjes/fjes_main.c
-@@ -1156,8 +1156,7 @@ static int fjes_poll(struct napi_struct *napi, int budget)
- 				hw->ep_shm_info[cur_epid].net_stats
- 							 .rx_errors += 1;
- 			} else {
--				memcpy(skb_put(skb, frame_len),
--				       frame, frame_len);
-+				skb_put_data(skb, frame, frame_len);
- 				skb->protocol = eth_type_trans(skb, netdev);
- 				skb->ip_summed = CHECKSUM_UNNECESSARY;
- 
-diff --git a/drivers/net/hamradio/mkiss.c b/drivers/net/hamradio/mkiss.c
-index 4a40a3d825b4..aec6c26563cf 100644
---- a/drivers/net/hamradio/mkiss.c
-+++ b/drivers/net/hamradio/mkiss.c
-@@ -298,7 +298,7 @@ static void ax_bump(struct mkiss *ax)
- 		return;
- 	}
- 
--	memcpy(skb_put(skb,count), ax->rbuff, count);
-+	skb_put_data(skb, ax->rbuff, count);
- 	skb->protocol = ax25_type_trans(skb, ax->dev);
- 	netif_rx(skb);
- 	ax->dev->stats.rx_packets++;
-diff --git a/drivers/net/hippi/rrunner.c b/drivers/net/hippi/rrunner.c
-index 1ce6239a4849..7683fd544344 100644
---- a/drivers/net/hippi/rrunner.c
-+++ b/drivers/net/hippi/rrunner.c
-@@ -962,8 +962,8 @@ static void rx_int(struct net_device *dev, u32 rxlimit, u32 index)
- 								    pkt_len,
- 								    PCI_DMA_FROMDEVICE);
- 
--					memcpy(skb_put(skb, pkt_len),
--					       rx_skb->data, pkt_len);
-+					skb_put_data(skb, rx_skb->data,
-+						     pkt_len);
- 
- 					pci_dma_sync_single_for_device(rrpriv->pci_dev,
- 								       desc->addr.addrlo,
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index b65a97ecb78e..9a6c5864bc04 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -593,7 +593,7 @@ static struct sk_buff *netvsc_alloc_recv_skb(struct net_device *net,
- 	 * Copy to skb. This copy is needed here since the memory pointed by
- 	 * hv_netvsc_packet cannot be deallocated
- 	 */
--	memcpy(skb_put(skb, buflen), data, buflen);
-+	skb_put_data(skb, data, buflen);
- 
- 	skb->protocol = eth_type_trans(skb, net);
- 
-diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index 76ba7ecfe142..548d9d026a85 100644
---- a/drivers/net/ieee802154/at86rf230.c
-+++ b/drivers/net/ieee802154/at86rf230.c
-@@ -723,7 +723,7 @@ at86rf230_rx_read_frame_complete(void *context)
- 		return;
- 	}
- 
--	memcpy(skb_put(skb, len), buf + 2, len);
-+	skb_put_data(skb, buf + 2, len);
- 	ieee802154_rx_irqsafe(lp->hw, skb, lqi);
- 	kfree(ctx);
- }
-diff --git a/drivers/net/ieee802154/ca8210.c b/drivers/net/ieee802154/ca8210.c
-index 7a218549c80a..a626c539fb17 100644
---- a/drivers/net/ieee802154/ca8210.c
-+++ b/drivers/net/ieee802154/ca8210.c
-@@ -1875,7 +1875,7 @@ static int ca8210_skb_rx(
- copy_payload:
- 	/* Add <msdulen> bytes of space to the back of the buffer */
- 	/* Copy msdu to skb */
--	memcpy(skb_put(skb, msdulen), &data_ind[29], msdulen);
-+	skb_put_data(skb, &data_ind[29], msdulen);
- 
- 	ieee802154_rx_irqsafe(hw, skb, mpdulinkquality);
- 	return 0;
-diff --git a/drivers/net/ieee802154/mrf24j40.c b/drivers/net/ieee802154/mrf24j40.c
-index bd63289c55e8..7d334963dc08 100644
---- a/drivers/net/ieee802154/mrf24j40.c
-+++ b/drivers/net/ieee802154/mrf24j40.c
-@@ -774,7 +774,7 @@ static void mrf24j40_handle_rx_read_buf_complete(void *context)
- 		return;
- 	}
- 
--	memcpy(skb_put(skb, len), rx_local_buf, len);
-+	skb_put_data(skb, rx_local_buf, len);
- 	ieee802154_rx_irqsafe(devrec->hw, skb, 0);
- 
- #ifdef DEBUG
-diff --git a/drivers/net/irda/smsc-ircc2.c b/drivers/net/irda/smsc-ircc2.c
-index 23ed89ae5ddc..19a55cba6beb 100644
---- a/drivers/net/irda/smsc-ircc2.c
-+++ b/drivers/net/irda/smsc-ircc2.c
-@@ -1459,7 +1459,7 @@ static void smsc_ircc_dma_receive_complete(struct smsc_ircc_cb *self)
- 	/* Make sure IP header gets aligned */
- 	skb_reserve(skb, 1);
- 
--	memcpy(skb_put(skb, len), self->rx_buff.data, len);
-+	skb_put_data(skb, self->rx_buff.data, len);
- 	self->netdev->stats.rx_packets++;
- 	self->netdev->stats.rx_bytes += len;
- 
-diff --git a/drivers/net/irda/vlsi_ir.c b/drivers/net/irda/vlsi_ir.c
-index 15b920086251..6638784c082e 100644
---- a/drivers/net/irda/vlsi_ir.c
-+++ b/drivers/net/irda/vlsi_ir.c
-@@ -578,7 +578,7 @@ static int vlsi_process_rx(struct vlsi_ring *r, struct ring_descr *rd)
- 	skb = rd->skb;
- 	rd->skb = NULL;
- 	skb->dev = ndev;
--	memcpy(skb_put(skb,len), rd->buf, len);
-+	skb_put_data(skb, rd->buf, len);
- 	skb_reset_mac_header(skb);
- 	if (in_interrupt())
- 		netif_rx(skb);
-diff --git a/drivers/net/ppp/ppp_async.c b/drivers/net/ppp/ppp_async.c
-index feb9569e3345..32c72db654e2 100644
---- a/drivers/net/ppp/ppp_async.c
-+++ b/drivers/net/ppp/ppp_async.c
-@@ -894,8 +894,7 @@ ppp_async_input(struct asyncppp *ap, const unsigned char *buf,
- 				/* packet overflowed MRU */
- 				ap->state |= SC_TOSS;
- 			} else {
--				sp = skb_put(skb, n);
--				memcpy(sp, buf, n);
-+				sp = skb_put_data(skb, buf, n);
- 				if (ap->state & SC_ESCAPE) {
- 					sp[0] ^= PPP_TRANS;
- 					ap->state &= ~SC_ESCAPE;
-diff --git a/drivers/net/ppp/ppp_synctty.c b/drivers/net/ppp/ppp_synctty.c
-index 9ae53986cb4a..ce2300c0bcbf 100644
---- a/drivers/net/ppp/ppp_synctty.c
-+++ b/drivers/net/ppp/ppp_synctty.c
-@@ -697,8 +697,7 @@ ppp_sync_input(struct syncppp *ap, const unsigned char *buf,
- 		goto err;
- 	}
- 
--	p = skb_put(skb, count);
--	memcpy(p, buf, count);
-+	p = skb_put_data(skb, buf, count);
- 
- 	/* strip address/control field if present */
- 	p = skb->data;
-diff --git a/drivers/net/slip/slip.c b/drivers/net/slip/slip.c
-index 74b907206aa7..436dd78c396a 100644
---- a/drivers/net/slip/slip.c
-+++ b/drivers/net/slip/slip.c
-@@ -364,7 +364,7 @@ static void sl_bump(struct slip *sl)
- 		return;
- 	}
- 	skb->dev = dev;
--	memcpy(skb_put(skb, count), sl->rbuff, count);
-+	skb_put_data(skb, sl->rbuff, count);
- 	skb_reset_mac_header(skb);
- 	skb->protocol = htons(ETH_P_IP);
- 	netif_rx_ni(skb);
-diff --git a/drivers/net/usb/asix_common.c b/drivers/net/usb/asix_common.c
-index 125cff57c759..90facc5ecab0 100644
---- a/drivers/net/usb/asix_common.c
-+++ b/drivers/net/usb/asix_common.c
-@@ -167,8 +167,8 @@ int asix_rx_fixup_internal(struct usbnet *dev, struct sk_buff *skb,
- 		}
- 
- 		if (rx->ax_skb) {
--			data = skb_put(rx->ax_skb, copy_length);
--			memcpy(data, skb->data + offset, copy_length);
-+			data = skb_put_data(rx->ax_skb, skb->data + offset,
-+					    copy_length);
- 			if (!rx->remaining)
- 				usbnet_skb_return(dev, rx->ax_skb);
- 		}
-diff --git a/drivers/net/usb/cdc-phonet.c b/drivers/net/usb/cdc-phonet.c
-index c7a350bbaaa7..2952cb570996 100644
---- a/drivers/net/usb/cdc-phonet.c
-+++ b/drivers/net/usb/cdc-phonet.c
-@@ -162,7 +162,7 @@ static void rx_complete(struct urb *req)
- 			skb = pnd->rx_skb = netdev_alloc_skb(dev, 12);
- 			if (likely(skb)) {
- 				/* Can't use pskb_pull() on page in IRQ */
--				memcpy(skb_put(skb, 1), page_address(page), 1);
-+				skb_put_data(skb, page_address(page), 1);
- 				skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags,
- 						page, 1, req->actual_length,
- 						PAGE_SIZE);
-diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
-index a6b997cffd3b..18fa45fc979b 100644
---- a/drivers/net/usb/cdc_mbim.c
-+++ b/drivers/net/usb/cdc_mbim.c
-@@ -399,7 +399,7 @@ static struct sk_buff *cdc_mbim_process_dgram(struct usbnet *dev, u8 *buf, size_
- 	memcpy(eth_hdr(skb)->h_dest, dev->net->dev_addr, ETH_ALEN);
- 
- 	/* add datagram */
--	memcpy(skb_put(skb, len), buf, len);
-+	skb_put_data(skb, buf, len);
- 
- 	/* map MBIM session to VLAN */
- 	if (tci)
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 7f02954772c6..8a4c8a1b9dd3 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -1180,7 +1180,7 @@ cdc_ncm_fill_tx_frame(struct usbnet *dev, struct sk_buff *skb, __le32 sign)
- 		ndp16->dpe16[index].wDatagramLength = cpu_to_le16(skb->len);
- 		ndp16->dpe16[index].wDatagramIndex = cpu_to_le16(skb_out->len);
- 		ndp16->wLength = cpu_to_le16(ndplen + sizeof(struct usb_cdc_ncm_dpe16));
--		memcpy(skb_put(skb_out, skb->len), skb->data, skb->len);
-+		skb_put_data(skb_out, skb->data, skb->len);
- 		ctx->tx_curr_frame_payload += skb->len;	/* count real tx payload data */
- 		dev_kfree_skb_any(skb);
- 		skb = NULL;
-@@ -1229,7 +1229,7 @@ cdc_ncm_fill_tx_frame(struct usbnet *dev, struct sk_buff *skb, __le32 sign)
- 		nth16 = (struct usb_cdc_ncm_nth16 *)skb_out->data;
- 		cdc_ncm_align_tail(skb_out, ctx->tx_ndp_modulus, 0, ctx->tx_max);
- 		nth16->wNdpIndex = cpu_to_le16(skb_out->len);
--		memcpy(skb_put(skb_out, ctx->max_ndp_size), ctx->delayed_ndp16, ctx->max_ndp_size);
-+		skb_put_data(skb_out, ctx->delayed_ndp16, ctx->max_ndp_size);
- 
- 		/* Zero out delayed NDP - signature checking will naturally fail. */
- 		ndp16 = memset(ctx->delayed_ndp16, 0, ctx->max_ndp_size);
-@@ -1497,7 +1497,7 @@ int cdc_ncm_rx_fixup(struct usbnet *dev, struct sk_buff *skb_in)
- 			skb = netdev_alloc_skb_ip_align(dev->net,  len);
- 			if (!skb)
- 				goto error;
--			memcpy(skb_put(skb, len), skb_in->data + offset, len);
-+			skb_put_data(skb, skb_in->data + offset, len);
- 			usbnet_skb_return(dev, skb);
- 			payload += len;	/* count payload bytes in this NTB */
- 		}
-diff --git a/drivers/net/usb/gl620a.c b/drivers/net/usb/gl620a.c
-index 1cc24e6f23e2..29276e54bb8b 100644
---- a/drivers/net/usb/gl620a.c
-+++ b/drivers/net/usb/gl620a.c
-@@ -121,8 +121,7 @@ static int genelink_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
- 		if (gl_skb) {
- 
- 			// copy the packet data to the new skb
--			memcpy(skb_put(gl_skb, size),
--					packet->packet_data, size);
-+			skb_put_data(gl_skb, packet->packet_data, size);
- 			usbnet_skb_return(dev, gl_skb);
- 		}
- 
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index 00067a0c51ca..908ada4ca21c 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -911,11 +911,9 @@ static void packetizeRx(struct hso_net *odev, unsigned char *ip_pkt,
- 
- 				/* Copy what we got so far. make room for iphdr
- 				 * after tail. */
--				tmp_rx_buf =
--				    skb_put(odev->skb_rx_buf,
--					    sizeof(struct iphdr));
--				memcpy(tmp_rx_buf, (char *)&(odev->rx_ip_hdr),
--				       sizeof(struct iphdr));
-+				tmp_rx_buf = skb_put_data(odev->skb_rx_buf,
-+							  (char *)&(odev->rx_ip_hdr),
-+							  sizeof(struct iphdr));
- 
- 				/* ETH_HLEN */
- 				odev->rx_buf_size = sizeof(struct iphdr);
-@@ -934,8 +932,9 @@ static void packetizeRx(struct hso_net *odev, unsigned char *ip_pkt,
- 			/* Copy the rest of the bytes that are left in the
- 			 * buffer into the waiting sk_buf. */
- 			/* Make room for temp_bytes after tail. */
--			tmp_rx_buf = skb_put(odev->skb_rx_buf, temp_bytes);
--			memcpy(tmp_rx_buf, ip_pkt + buffer_offset, temp_bytes);
-+			tmp_rx_buf = skb_put_data(odev->skb_rx_buf,
-+						  ip_pkt + buffer_offset,
-+						  temp_bytes);
- 
- 			odev->rx_buf_missing -= temp_bytes;
- 			count -= temp_bytes;
-diff --git a/drivers/net/usb/ipheth.c b/drivers/net/usb/ipheth.c
-index 76465b117b72..0f213ea22c75 100644
---- a/drivers/net/usb/ipheth.c
-+++ b/drivers/net/usb/ipheth.c
-@@ -253,7 +253,7 @@ static void ipheth_rcvbulk_callback(struct urb *urb)
- 		return;
- 	}
- 
--	memcpy(skb_put(skb, len), buf, len);
-+	skb_put_data(skb, buf, len);
- 	skb->dev = dev->net;
- 	skb->protocol = eth_type_trans(skb, dev->net);
- 
-diff --git a/drivers/net/usb/lg-vl600.c b/drivers/net/usb/lg-vl600.c
-index 5714107533bb..d633492bf9eb 100644
---- a/drivers/net/usb/lg-vl600.c
-+++ b/drivers/net/usb/lg-vl600.c
-@@ -135,7 +135,7 @@ static int vl600_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
- 		}
- 
- 		buf = s->current_rx_buf;
--		memcpy(skb_put(buf, skb->len), skb->data, skb->len);
-+		skb_put_data(buf, skb->data, skb->len);
- 	} else if (skb->len < 4) {
- 		netif_err(dev, ifup, dev->net, "Frame too short\n");
- 		dev->net->stats.rx_length_errors++;
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 32a22f4e8356..ffd229ec8352 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -188,7 +188,7 @@ static int qmimux_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
- 			goto skip;
- 		}
- 
--		memcpy(skb_put(skbn, len), skb->data + offset, len);
-+		skb_put_data(skbn, skb->data + offset, len);
- 		if (netif_rx(skbn) != NET_RX_SUCCESS)
- 			return 0;
- 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 1f8c15cb63b0..6bacbd2f0eca 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -305,7 +305,7 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
- 	copy = len;
- 	if (copy > skb_tailroom(skb))
- 		copy = skb_tailroom(skb);
--	memcpy(skb_put(skb, copy), p, copy);
-+	skb_put_data(skb, p, copy);
- 
- 	len -= copy;
- 	offset += copy;
-diff --git a/drivers/net/wan/farsync.c b/drivers/net/wan/farsync.c
-index 33265eb50420..bd46b2552980 100644
---- a/drivers/net/wan/farsync.c
-+++ b/drivers/net/wan/farsync.c
-@@ -857,7 +857,7 @@ fst_rx_dma_complete(struct fst_card_info *card, struct fst_port_info *port,
- 
- 	dbg(DBG_TX, "fst_rx_dma_complete\n");
- 	pi = port->index;
--	memcpy(skb_put(skb, len), card->rx_dma_handle_host, len);
-+	skb_put_data(skb, card->rx_dma_handle_host, len);
- 
- 	/* Reset buffer descriptor */
- 	FST_WRB(card, rxDescrRing[pi][rxp].bits, DMA_OWN);
-diff --git a/drivers/net/wan/hdlc_ppp.c b/drivers/net/wan/hdlc_ppp.c
-index 47fdb87d3567..f5b4ad45831a 100644
---- a/drivers/net/wan/hdlc_ppp.c
-+++ b/drivers/net/wan/hdlc_ppp.c
-@@ -234,9 +234,9 @@ static void ppp_tx_cp(struct net_device *dev, u16 pid, u8 code,
- 	cp->len = htons(sizeof(struct cp_header) + magic_len + len);
- 
- 	if (magic_len)
--		memcpy(skb_put(skb, magic_len), &magic, magic_len);
-+		skb_put_data(skb, &magic, magic_len);
- 	if (len)
--		memcpy(skb_put(skb, len), data, len);
-+		skb_put_data(skb, data, len);
- 
- #if DEBUG_CP
- 	BUG_ON(code >= CP_CODES);
-diff --git a/drivers/net/wan/x25_asy.c b/drivers/net/wan/x25_asy.c
-index 878b05d06fc7..40ee80c03c94 100644
---- a/drivers/net/wan/x25_asy.c
-+++ b/drivers/net/wan/x25_asy.c
-@@ -202,7 +202,7 @@ static void x25_asy_bump(struct x25_asy *sl)
- 		return;
- 	}
- 	skb_push(skb, 1);	/* LAPB internal control */
--	memcpy(skb_put(skb, count), sl->rbuff, count);
-+	skb_put_data(skb, sl->rbuff, count);
- 	skb->protocol = x25_type_trans(skb, sl->dev);
- 	err = lapb_data_received(skb->dev, skb);
- 	if (err != LAPB_OK) {
-diff --git a/drivers/net/wimax/i2400m/netdev.c b/drivers/net/wimax/i2400m/netdev.c
-index 7f64e74d746b..dd7f3168c07d 100644
---- a/drivers/net/wimax/i2400m/netdev.c
-+++ b/drivers/net/wimax/i2400m/netdev.c
-@@ -488,7 +488,7 @@ void i2400m_net_rx(struct i2400m *i2400m, struct sk_buff *skb_rx,
- 			net_dev->stats.rx_dropped++;
- 			goto error_skb_realloc;
- 		}
--		memcpy(skb_put(skb, buf_len), buf, buf_len);
-+		skb_put_data(skb, buf, buf_len);
- 	}
- 	i2400m_rx_fake_eth_header(i2400m->wimax_dev.net_dev,
- 				  skb->data - ETH_HLEN,
-diff --git a/drivers/net/wireless/admtek/adm8211.c b/drivers/net/wireless/admtek/adm8211.c
-index ed626f568b58..5f64f3928c35 100644
---- a/drivers/net/wireless/admtek/adm8211.c
-+++ b/drivers/net/wireless/admtek/adm8211.c
-@@ -390,9 +390,9 @@ static void adm8211_interrupt_rci(struct ieee80211_hw *dev)
- 					priv->pdev,
- 					priv->rx_buffers[entry].mapping,
- 					pktlen, PCI_DMA_FROMDEVICE);
--				memcpy(skb_put(skb, pktlen),
--				       skb_tail_pointer(priv->rx_buffers[entry].skb),
--				       pktlen);
-+				skb_put_data(skb,
-+					     skb_tail_pointer(priv->rx_buffers[entry].skb),
-+					     pktlen);
- 				pci_dma_sync_single_for_device(
- 					priv->pdev,
- 					priv->rx_buffers[entry].mapping,
-diff --git a/drivers/net/wireless/ath/ath10k/mac.c b/drivers/net/wireless/ath/ath10k/mac.c
-index 4674ff33d320..16cf250f6c39 100644
---- a/drivers/net/wireless/ath/ath10k/mac.c
-+++ b/drivers/net/wireless/ath/ath10k/mac.c
-@@ -3475,9 +3475,8 @@ static void ath10k_tx_h_add_p2p_noa_ie(struct ath10k *ar,
- 		if (arvif->u.ap.noa_data)
- 			if (!pskb_expand_head(skb, 0, arvif->u.ap.noa_len,
- 					      GFP_ATOMIC))
--				memcpy(skb_put(skb, arvif->u.ap.noa_len),
--				       arvif->u.ap.noa_data,
--				       arvif->u.ap.noa_len);
-+				skb_put_data(skb, arvif->u.ap.noa_data,
-+					     arvif->u.ap.noa_len);
- 		spin_unlock_bh(&ar->data_lock);
- 	}
- }
-diff --git a/drivers/net/wireless/ath/ath10k/wmi.c b/drivers/net/wireless/ath/ath10k/wmi.c
-index 6afc8d27f0d5..a66e2482897f 100644
---- a/drivers/net/wireless/ath/ath10k/wmi.c
-+++ b/drivers/net/wireless/ath/ath10k/wmi.c
-@@ -3304,9 +3304,8 @@ static void ath10k_wmi_update_noa(struct ath10k *ar, struct ath10k_vif *arvif,
- 
- 	if (arvif->u.ap.noa_data)
- 		if (!pskb_expand_head(bcn, 0, arvif->u.ap.noa_len, GFP_ATOMIC))
--			memcpy(skb_put(bcn, arvif->u.ap.noa_len),
--			       arvif->u.ap.noa_data,
--			       arvif->u.ap.noa_len);
-+			skb_put_data(bcn, arvif->u.ap.noa_data,
-+			             arvif->u.ap.noa_len);
- }
- 
- static int ath10k_wmi_op_pull_swba_ev(struct ath10k *ar, struct sk_buff *skb,
-diff --git a/drivers/net/wireless/ath/ath9k/channel.c b/drivers/net/wireless/ath/ath9k/channel.c
-index 373b1e9457fd..f0439f2d566b 100644
---- a/drivers/net/wireless/ath/ath9k/channel.c
-+++ b/drivers/net/wireless/ath/ath9k/channel.c
-@@ -1005,7 +1005,7 @@ static void ath_scan_send_probe(struct ath_softc *sc,
- 		info->flags |= IEEE80211_TX_CTL_NO_CCK_RATE;
- 
- 	if (req->ie_len)
--		memcpy(skb_put(skb, req->ie_len), req->ie, req->ie_len);
-+		skb_put_data(skb, req->ie, req->ie_len);
- 
- 	skb_set_queue_mapping(skb, IEEE80211_AC_VO);
- 
-@@ -1521,8 +1521,7 @@ void ath9k_beacon_add_noa(struct ath_softc *sc, struct ath_vif *avp,
- 	noa_desc = !!avp->offchannel_duration + !!avp->noa_duration;
- 	noa_len = 2 + sizeof(struct ieee80211_p2p_noa_desc) * noa_desc;
- 
--	hdr = skb_put(skb, sizeof(noa_ie_hdr));
--	memcpy(hdr, noa_ie_hdr, sizeof(noa_ie_hdr));
-+	hdr = skb_put_data(skb, noa_ie_hdr, sizeof(noa_ie_hdr));
- 	hdr[1] = sizeof(noa_ie_hdr) + noa_len - 2;
- 	hdr[7] = noa_len;
- 
-diff --git a/drivers/net/wireless/ath/ath9k/wmi.c b/drivers/net/wireless/ath/ath9k/wmi.c
-index 9c16e2a6d185..c51c69b1ad96 100644
---- a/drivers/net/wireless/ath/ath9k/wmi.c
-+++ b/drivers/net/wireless/ath/ath9k/wmi.c
-@@ -312,8 +312,7 @@ int ath9k_wmi_cmd(struct wmi *wmi, enum wmi_cmd_id cmd_id,
- 	skb_reserve(skb, headroom);
- 
- 	if (cmd_len != 0 && cmd_buf != NULL) {
--		data = (u8 *) skb_put(skb, cmd_len);
--		memcpy(data, cmd_buf, cmd_len);
-+		data = skb_put_data(skb, cmd_buf, cmd_len);
- 	}
- 
- 	mutex_lock(&wmi->op_mutex);
-diff --git a/drivers/net/wireless/ath/carl9170/rx.c b/drivers/net/wireless/ath/carl9170/rx.c
-index b2166726b05d..705063259c8f 100644
---- a/drivers/net/wireless/ath/carl9170/rx.c
-+++ b/drivers/net/wireless/ath/carl9170/rx.c
-@@ -481,7 +481,7 @@ static struct sk_buff *carl9170_rx_copy_data(u8 *buf, int len)
- 	skb = dev_alloc_skb(len + reserved);
- 	if (likely(skb)) {
- 		skb_reserve(skb, reserved);
--		memcpy(skb_put(skb, len), buf, len);
-+		skb_put_data(skb, buf, len);
- 	}
- 
- 	return skb;
-@@ -916,7 +916,7 @@ static void carl9170_rx_stream(struct ar9170 *ar, void *buf, unsigned int len)
- 				}
- 			}
- 
--			memcpy(skb_put(ar->rx_failover, tlen), tbuf, tlen);
-+			skb_put_data(ar->rx_failover, tbuf, tlen);
- 			ar->rx_failover_missing -= tlen;
- 
- 			if (ar->rx_failover_missing <= 0) {
-@@ -958,7 +958,7 @@ static void carl9170_rx_stream(struct ar9170 *ar, void *buf, unsigned int len)
- 			 * the rx - descriptor comes round again.
- 			 */
- 
--			memcpy(skb_put(ar->rx_failover, tlen), tbuf, tlen);
-+			skb_put_data(ar->rx_failover, tbuf, tlen);
- 			ar->rx_failover_missing = clen - tlen;
- 			return;
- 		}
-diff --git a/drivers/net/wireless/ath/wil6210/wmi.c b/drivers/net/wireless/ath/wil6210/wmi.c
-index 814c35645b73..cff9c585972f 100644
---- a/drivers/net/wireless/ath/wil6210/wmi.c
-+++ b/drivers/net/wireless/ath/wil6210/wmi.c
-@@ -681,7 +681,7 @@ static void wmi_evt_eapol_rx(struct wil6210_priv *wil, int id,
- 	ether_addr_copy(eth->h_dest, ndev->dev_addr);
- 	ether_addr_copy(eth->h_source, evt->src_mac);
- 	eth->h_proto = cpu_to_be16(ETH_P_PAE);
--	memcpy(skb_put(skb, eapol_len), evt->eapol, eapol_len);
-+	skb_put_data(skb, evt->eapol, eapol_len);
- 	skb->protocol = eth_type_trans(skb, ndev);
- 	if (likely(netif_rx_ni(skb) == NET_RX_SUCCESS)) {
- 		ndev->stats.rx_packets++;
-diff --git a/drivers/net/wireless/atmel/atmel.c b/drivers/net/wireless/atmel/atmel.c
-index 27b110dc8cc6..b68436b23a63 100644
---- a/drivers/net/wireless/atmel/atmel.c
-+++ b/drivers/net/wireless/atmel/atmel.c
-@@ -1036,9 +1036,8 @@ static void frag_rx_path(struct atmel_private *priv,
- 				priv->dev->stats.rx_dropped++;
- 			} else {
- 				skb_reserve(skb, 2);
--				memcpy(skb_put(skb, priv->frag_len + 12),
--				       priv->rx_buf,
--				       priv->frag_len + 12);
-+				skb_put_data(skb, priv->rx_buf,
-+				             priv->frag_len + 12);
- 				skb->protocol = eth_type_trans(skb, priv->dev);
- 				skb->ip_summed = CHECKSUM_NONE;
- 				netif_rx(skb);
-diff --git a/drivers/net/wireless/broadcom/b43legacy/dma.c b/drivers/net/wireless/broadcom/b43legacy/dma.c
-index f9dd892b9f27..cfa617ddb2f1 100644
---- a/drivers/net/wireless/broadcom/b43legacy/dma.c
-+++ b/drivers/net/wireless/broadcom/b43legacy/dma.c
-@@ -1072,7 +1072,7 @@ static int dma_tx_fragment(struct b43legacy_dmaring *ring,
- 			goto out_unmap_hdr;
- 		}
- 
--		memcpy(skb_put(bounce_skb, skb->len), skb->data, skb->len);
-+		skb_put_data(bounce_skb, skb->data, skb->len);
- 		memcpy(bounce_skb->cb, skb->cb, sizeof(skb->cb));
- 		bounce_skb->dev = skb->dev;
- 		skb_set_queue_mapping(bounce_skb, skb_get_queue_mapping(skb));
-diff --git a/drivers/net/wireless/intel/ipw2x00/ipw2200.c b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-index bbc579b647b6..e0c690b48d4e 100644
---- a/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-+++ b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-@@ -10274,8 +10274,9 @@ static int ipw_tx_skb(struct ipw_priv *priv, struct libipw_txb *txb,
- 
- 				printk(KERN_INFO "Adding frag %d %d...\n",
- 				       j, size);
--				memcpy(skb_put(skb, size),
--				       txb->fragments[j]->data + hdr_len, size);
-+				skb_put_data(skb,
-+					     txb->fragments[j]->data + hdr_len,
-+					     size);
- 			}
- 			dev_kfree_skb_any(txb->fragments[i]);
- 			txb->fragments[i] = skb;
-diff --git a/drivers/net/wireless/intel/ipw2x00/libipw_tx.c b/drivers/net/wireless/intel/ipw2x00/libipw_tx.c
-index 048f1e3ada11..5339d1eeb2f7 100644
---- a/drivers/net/wireless/intel/ipw2x00/libipw_tx.c
-+++ b/drivers/net/wireless/intel/ipw2x00/libipw_tx.c
-@@ -359,7 +359,7 @@ netdev_tx_t libipw_xmit(struct sk_buff *skb, struct net_device *dev)
- 			goto failed;
- 
- 		skb_reserve(skb_new, crypt->ops->extra_msdu_prefix_len);
--		memcpy(skb_put(skb_new, hdr_len), &header, hdr_len);
-+		skb_put_data(skb_new, &header, hdr_len);
- 		snapped = 1;
- 		libipw_copy_snap(skb_put(skb_new, SNAP_SIZE + sizeof(u16)),
- 				    ether_type);
-@@ -470,9 +470,7 @@ netdev_tx_t libipw_xmit(struct sk_buff *skb, struct net_device *dev)
- 			skb_reserve(skb_frag,
- 				    crypt->ops->extra_mpdu_prefix_len);
- 
--		frag_hdr =
--		    (struct libipw_hdr_3addrqos *)skb_put(skb_frag, hdr_len);
--		memcpy(frag_hdr, &header, hdr_len);
-+		frag_hdr = skb_put_data(skb_frag, &header, hdr_len);
- 
- 		/* If this is not the last fragment, then add the MOREFRAGS
- 		 * bit to the frame control */
-diff --git a/drivers/net/wireless/intel/iwlegacy/3945.c b/drivers/net/wireless/intel/iwlegacy/3945.c
-index 080ea8155b90..dbf164d48ed3 100644
---- a/drivers/net/wireless/intel/iwlegacy/3945.c
-+++ b/drivers/net/wireless/intel/iwlegacy/3945.c
-@@ -520,7 +520,7 @@ il3945_pass_packet_to_mac80211(struct il_priv *il, struct il_rx_buf *rxb,
- 	 * and do not consume a full page
- 	 */
- 	if (len <= SMALL_PACKET_SIZE) {
--		memcpy(skb_put(skb, len), rx_hdr->payload, len);
-+		skb_put_data(skb, rx_hdr->payload, len);
- 	} else {
- 		skb_add_rx_frag(skb, 0, rxb->page,
- 				(void *)rx_hdr->payload - (void *)pkt, len,
-diff --git a/drivers/net/wireless/intel/iwlegacy/4965-mac.c b/drivers/net/wireless/intel/iwlegacy/4965-mac.c
-index 49a2ff15ddae..5b51fba75595 100644
---- a/drivers/net/wireless/intel/iwlegacy/4965-mac.c
-+++ b/drivers/net/wireless/intel/iwlegacy/4965-mac.c
-@@ -606,7 +606,7 @@ il4965_pass_packet_to_mac80211(struct il_priv *il, struct ieee80211_hdr *hdr,
- 	}
- 
- 	if (len <= SMALL_PACKET_SIZE) {
--		memcpy(skb_put(skb, len), hdr, len);
-+		skb_put_data(skb, hdr, len);
- 	} else {
- 		skb_add_rx_frag(skb, 0, rxb->page, (void *)hdr - rxb_addr(rxb),
- 				len, PAGE_SIZE << il->hw_params.rx_page_order);
-diff --git a/drivers/net/wireless/intel/iwlwifi/dvm/rx.c b/drivers/net/wireless/intel/iwlwifi/dvm/rx.c
-index adfd6307edca..eaad7389b67c 100644
---- a/drivers/net/wireless/intel/iwlwifi/dvm/rx.c
-+++ b/drivers/net/wireless/intel/iwlwifi/dvm/rx.c
-@@ -657,7 +657,7 @@ static void iwlagn_pass_packet_to_mac80211(struct iwl_priv *priv,
- 	 */
- 	hdrlen = (len <= skb_tailroom(skb)) ? len : sizeof(*hdr);
- 
--	memcpy(skb_put(skb, hdrlen), hdr, hdrlen);
-+	skb_put_data(skb, hdr, hdrlen);
- 	fraglen = len - hdrlen;
- 
- 	if (fraglen) {
-diff --git a/drivers/net/wireless/intel/iwlwifi/dvm/tx.c b/drivers/net/wireless/intel/iwlwifi/dvm/tx.c
-index 4b97371c3b42..adaa2f0097cc 100644
---- a/drivers/net/wireless/intel/iwlwifi/dvm/tx.c
-+++ b/drivers/net/wireless/intel/iwlwifi/dvm/tx.c
-@@ -319,8 +319,7 @@ int iwlagn_tx_skb(struct iwl_priv *priv,
- 		if (noa_data &&
- 		    pskb_expand_head(skb, 0, noa_data->length,
- 				     GFP_ATOMIC) == 0) {
--			memcpy(skb_put(skb, noa_data->length),
--			       noa_data->data, noa_data->length);
-+			skb_put_data(skb, noa_data->data, noa_data->length);
- 			hdr = (struct ieee80211_hdr *)skb->data;
- 		}
- 	}
-diff --git a/drivers/net/wireless/intel/iwlwifi/mvm/d3.c b/drivers/net/wireless/intel/iwlwifi/mvm/d3.c
-index 119a3bd92c50..7a56a0ac151c 100644
---- a/drivers/net/wireless/intel/iwlwifi/mvm/d3.c
-+++ b/drivers/net/wireless/intel/iwlwifi/mvm/d3.c
-@@ -1431,7 +1431,7 @@ static void iwl_mvm_report_wakeup_reasons(struct iwl_mvm *mvm,
- 			if (!pkt)
- 				goto report;
- 
--			memcpy(skb_put(pkt, hdrlen), pktdata, hdrlen);
-+			skb_put_data(pkt, pktdata, hdrlen);
- 			pktdata += hdrlen;
- 			pktsize -= hdrlen;
- 
-@@ -1463,7 +1463,7 @@ static void iwl_mvm_report_wakeup_reasons(struct iwl_mvm *mvm,
- 			pktsize -= ivlen + icvlen;
- 			pktdata += ivlen;
- 
--			memcpy(skb_put(pkt, pktsize), pktdata, pktsize);
-+			skb_put_data(pkt, pktdata, pktsize);
- 
- 			if (ieee80211_data_to_8023(pkt, vif->addr, vif->type))
- 				goto report;
-diff --git a/drivers/net/wireless/intel/iwlwifi/mvm/mac-ctxt.c b/drivers/net/wireless/intel/iwlwifi/mvm/mac-ctxt.c
-index fd2fc46e2fe5..15d13017c1df 100644
---- a/drivers/net/wireless/intel/iwlwifi/mvm/mac-ctxt.c
-+++ b/drivers/net/wireless/intel/iwlwifi/mvm/mac-ctxt.c
-@@ -1596,7 +1596,7 @@ void iwl_mvm_rx_stored_beacon_notif(struct iwl_mvm *mvm,
- 					       rx_status.band);
- 
- 	/* copy the data */
--	memcpy(skb_put(skb, size), sb->data, size);
-+	skb_put_data(skb, sb->data, size);
- 	memcpy(IEEE80211_SKB_RXCB(skb), &rx_status, sizeof(rx_status));
- 
- 	/* pass it as regular rx to mac80211 */
-diff --git a/drivers/net/wireless/intel/iwlwifi/mvm/rx.c b/drivers/net/wireless/intel/iwlwifi/mvm/rx.c
-index fd1dd06c4f18..2c07719aa45c 100644
---- a/drivers/net/wireless/intel/iwlwifi/mvm/rx.c
-+++ b/drivers/net/wireless/intel/iwlwifi/mvm/rx.c
-@@ -133,7 +133,7 @@ static void iwl_mvm_pass_packet_to_mac80211(struct iwl_mvm *mvm,
- 	 */
- 	hdrlen = (len <= skb_tailroom(skb)) ? len : hdrlen + crypt_len + 8;
- 
--	memcpy(skb_put(skb, hdrlen), hdr, hdrlen);
-+	skb_put_data(skb, hdr, hdrlen);
- 	fraglen = len - hdrlen;
- 
- 	if (fraglen) {
-diff --git a/drivers/net/wireless/intel/iwlwifi/mvm/rxmq.c b/drivers/net/wireless/intel/iwlwifi/mvm/rxmq.c
-index 966cd7543629..cf48390f6f68 100644
---- a/drivers/net/wireless/intel/iwlwifi/mvm/rxmq.c
-+++ b/drivers/net/wireless/intel/iwlwifi/mvm/rxmq.c
-@@ -183,9 +183,8 @@ static void iwl_mvm_create_skb(struct sk_buff *skb, struct ieee80211_hdr *hdr,
- 	 * present before copying packet data.
- 	 */
- 	hdrlen += crypt_len;
--	memcpy(skb_put(skb, hdrlen), hdr, hdrlen);
--	memcpy(skb_put(skb, headlen - hdrlen), (u8 *)hdr + hdrlen + pad_len,
--	       headlen - hdrlen);
-+	skb_put_data(skb, hdr, hdrlen);
-+	skb_put_data(skb, (u8 *)hdr + hdrlen + pad_len, headlen - hdrlen);
- 
- 	fraglen = len - headlen;
- 
-diff --git a/drivers/net/wireless/intel/iwlwifi/pcie/tx.c b/drivers/net/wireless/intel/iwlwifi/pcie/tx.c
-index 386950a2d616..01013d273aa7 100644
---- a/drivers/net/wireless/intel/iwlwifi/pcie/tx.c
-+++ b/drivers/net/wireless/intel/iwlwifi/pcie/tx.c
-@@ -2141,8 +2141,7 @@ static int iwl_fill_data_tbs_amsdu(struct iwl_trans *trans, struct sk_buff *skb,
- 							htons(ETH_P_IPV6),
- 						    data_left);
- 
--			memcpy(skb_put(csum_skb, tcp_hdrlen(skb)),
--			       tcph, tcp_hdrlen(skb));
-+			skb_put_data(csum_skb, tcph, tcp_hdrlen(skb));
- 			skb_reset_transport_header(csum_skb);
- 			csum_skb->csum_start =
- 				(unsigned char *)tcp_hdr(csum_skb) -
-@@ -2176,7 +2175,7 @@ static int iwl_fill_data_tbs_amsdu(struct iwl_trans *trans, struct sk_buff *skb,
- 			dma_addr_t tb_phys;
- 
- 			if (trans_pcie->sw_csum_tx)
--				memcpy(skb_put(csum_skb, size), tso.data, size);
-+				skb_put_data(csum_skb, tso.data, size);
- 
- 			tb_phys = dma_map_single(trans->dev, tso.data,
- 						 size, DMA_TO_DEVICE);
-diff --git a/drivers/net/wireless/intersil/hostap/hostap_80211_tx.c b/drivers/net/wireless/intersil/hostap/hostap_80211_tx.c
-index 055e11d353ca..c1b10d5117ad 100644
---- a/drivers/net/wireless/intersil/hostap/hostap_80211_tx.c
-+++ b/drivers/net/wireless/intersil/hostap/hostap_80211_tx.c
-@@ -242,7 +242,7 @@ netdev_tx_t hostap_data_start_xmit(struct sk_buff *skb,
- 		memcpy(skb_push(skb, encaps_len), encaps_data, encaps_len);
- 	memcpy(skb_push(skb, hdr_len), &hdr, hdr_len);
- 	if (use_wds == WDS_OWN_FRAME) {
--		memcpy(skb_put(skb, ETH_ALEN), &hdr.addr4, ETH_ALEN);
-+		skb_put_data(skb, &hdr.addr4, ETH_ALEN);
- 	}
- 
- 	iface->stats.tx_packets++;
-diff --git a/drivers/net/wireless/intersil/hostap/hostap_ap.c b/drivers/net/wireless/intersil/hostap/hostap_ap.c
-index 89b5987303a4..91757defb9be 100644
---- a/drivers/net/wireless/intersil/hostap/hostap_ap.c
-+++ b/drivers/net/wireless/intersil/hostap/hostap_ap.c
-@@ -1000,7 +1000,7 @@ static void prism2_send_mgmt(struct net_device *dev,
- 	hdrlen = hostap_80211_get_hdrlen(cpu_to_le16(type_subtype));
- 	hdr = skb_put_zero(skb, hdrlen);
- 	if (body)
--		memcpy(skb_put(skb, body_len), body, body_len);
-+		skb_put_data(skb, body, body_len);
- 
- 	/* FIX: ctrl::ack sending used special HFA384X_TX_CTRL_802_11
- 	 * tx_control instead of using local->tx_control */
-diff --git a/drivers/net/wireless/intersil/hostap/hostap_hw.c b/drivers/net/wireless/intersil/hostap/hostap_hw.c
-index d4f0b730796e..72b46eaf3de2 100644
---- a/drivers/net/wireless/intersil/hostap/hostap_hw.c
-+++ b/drivers/net/wireless/intersil/hostap/hostap_hw.c
-@@ -2005,7 +2005,7 @@ static void prism2_rx(local_info_t *local)
- 		goto rx_dropped;
- 	}
- 	skb->dev = dev;
--	memcpy(skb_put(skb, hdr_len), &rxdesc, hdr_len);
-+	skb_put_data(skb, &rxdesc, hdr_len);
- 
- 	if (len > 0)
- 		res = hfa384x_from_bap(dev, BAP0, skb_put(skb, len), len);
-@@ -2209,9 +2209,9 @@ static void hostap_tx_callback(local_info_t *local,
- 		return;
- 	}
- 
--	memcpy(skb_put(skb, hdrlen), (void *) &txdesc->frame_control, hdrlen);
-+	skb_put_data(skb, (void *)&txdesc->frame_control, hdrlen);
- 	if (payload)
--		memcpy(skb_put(skb, len), payload, len);
-+		skb_put_data(skb, payload, len);
- 
- 	skb->dev = local->dev;
- 	skb_reset_mac_header(skb);
-@@ -2362,8 +2362,7 @@ static void prism2_txexc(local_info_t *local)
- 		struct sk_buff *skb;
- 		skb = dev_alloc_skb(sizeof(txdesc));
- 		if (skb) {
--			memcpy(skb_put(skb, sizeof(txdesc)), &txdesc,
--			       sizeof(txdesc));
-+			skb_put_data(skb, &txdesc, sizeof(txdesc));
- 			skb_queue_tail(&local->sta_tx_exc_list, skb);
- 			tasklet_schedule(&local->sta_tx_exc_tasklet);
- 		}
-@@ -2460,7 +2459,7 @@ static void prism2_info(local_info_t *local)
- 		goto out;
- 	}
- 
--	memcpy(skb_put(skb, sizeof(info)), &info, sizeof(info));
-+	skb_put_data(skb, &info, sizeof(info));
- 	if (left > 0 && hfa384x_from_bap(dev, BAP0, skb_put(skb, left), left))
- 	{
- 		spin_unlock(&local->baplock);
-diff --git a/drivers/net/wireless/intersil/hostap/hostap_main.c b/drivers/net/wireless/intersil/hostap/hostap_main.c
-index 400f9b5d620e..a3c066f90afc 100644
---- a/drivers/net/wireless/intersil/hostap/hostap_main.c
-+++ b/drivers/net/wireless/intersil/hostap/hostap_main.c
-@@ -1045,7 +1045,7 @@ int prism2_sta_send_mgmt(local_info_t *local, u8 *dst, u16 stype,
- 	memcpy(mgmt->sa, dev->dev_addr, ETH_ALEN);
- 	memcpy(mgmt->bssid, dst, ETH_ALEN);
- 	if (body)
--		memcpy(skb_put(skb, bodylen), body, bodylen);
-+		skb_put_data(skb, body, bodylen);
- 
- 	meta = (struct hostap_skb_tx_data *) skb->cb;
- 	memset(meta, 0, sizeof(*meta));
-diff --git a/drivers/net/wireless/intersil/orinoco/main.c b/drivers/net/wireless/intersil/orinoco/main.c
-index d9128bb25e85..f7abc439fb92 100644
---- a/drivers/net/wireless/intersil/orinoco/main.c
-+++ b/drivers/net/wireless/intersil/orinoco/main.c
-@@ -792,7 +792,7 @@ static void orinoco_rx_monitor(struct net_device *dev, u16 rxfid,
- 	}
- 
- 	/* Copy the 802.11 header to the skb */
--	memcpy(skb_put(skb, hdrlen), &(desc->frame_ctl), hdrlen);
-+	skb_put_data(skb, &(desc->frame_ctl), hdrlen);
- 	skb_reset_mac_header(skb);
- 
- 	/* If any, copy the data from the card to the skb */
-diff --git a/drivers/net/wireless/intersil/p54/p54spi.c b/drivers/net/wireless/intersil/p54/p54spi.c
-index 7ab2f43ab425..e41bf042352e 100644
---- a/drivers/net/wireless/intersil/p54/p54spi.c
-+++ b/drivers/net/wireless/intersil/p54/p54spi.c
-@@ -372,9 +372,9 @@ static int p54spi_rx(struct p54s_priv *priv)
- 	}
- 
- 	if (len <= READAHEAD_SZ) {
--		memcpy(skb_put(skb, len), rx_head + 1, len);
-+		skb_put_data(skb, rx_head + 1, len);
- 	} else {
--		memcpy(skb_put(skb, READAHEAD_SZ), rx_head + 1, READAHEAD_SZ);
-+		skb_put_data(skb, rx_head + 1, READAHEAD_SZ);
- 		p54spi_spi_read(priv, SPI_ADRS_DMA_DATA,
- 				skb_put(skb, len - READAHEAD_SZ),
- 				len - READAHEAD_SZ);
-diff --git a/drivers/net/wireless/intersil/p54/txrx.c b/drivers/net/wireless/intersil/p54/txrx.c
-index 60f9b678ef74..b00c07d72f95 100644
---- a/drivers/net/wireless/intersil/p54/txrx.c
-+++ b/drivers/net/wireless/intersil/p54/txrx.c
-@@ -905,8 +905,9 @@ void p54_tx_80211(struct ieee80211_hw *dev,
- 		if (info->control.hw_key->cipher == WLAN_CIPHER_SUITE_TKIP) {
- 			/* reserve space for the MIC key */
- 			len += 8;
--			memcpy(skb_put(skb, 8), &(info->control.hw_key->key
--				[NL80211_TKIP_DATA_OFFSET_TX_MIC_KEY]), 8);
-+			skb_put_data(skb,
-+				     &(info->control.hw_key->key[NL80211_TKIP_DATA_OFFSET_TX_MIC_KEY]),
-+				     8);
- 		}
- 		/* reserve some space for ICV */
- 		len += info->control.hw_key->icv_len;
-diff --git a/drivers/net/wireless/mac80211_hwsim.c b/drivers/net/wireless/mac80211_hwsim.c
-index c854a557998b..1d6e180052b8 100644
---- a/drivers/net/wireless/mac80211_hwsim.c
-+++ b/drivers/net/wireless/mac80211_hwsim.c
-@@ -2020,8 +2020,7 @@ static void hw_scan_work(struct work_struct *work)
- 			memcpy(mgmt->bssid, req->bssid, ETH_ALEN);
- 
- 			if (req->ie_len)
--				memcpy(skb_put(probe, req->ie_len), req->ie,
--				       req->ie_len);
-+				skb_put_data(probe, req->ie, req->ie_len);
- 
- 			local_bh_disable();
- 			mac80211_hwsim_tx_frame(hwsim->hw, probe,
-@@ -3021,7 +3020,7 @@ static int hwsim_cloned_frame_received_nl(struct sk_buff *skb_2,
- 		goto err;
- 
- 	/* Copy the data */
--	memcpy(skb_put(skb, frame_data_len), frame_data, frame_data_len);
-+	skb_put_data(skb, frame_data, frame_data_len);
- 
- 	data2 = get_hwsim_data_ref_from_addr(dst);
- 	if (!data2)
-diff --git a/drivers/net/wireless/marvell/libertas/if_sdio.c b/drivers/net/wireless/marvell/libertas/if_sdio.c
-index e0196208ab0d..a9e2b06b3175 100644
---- a/drivers/net/wireless/marvell/libertas/if_sdio.c
-+++ b/drivers/net/wireless/marvell/libertas/if_sdio.c
-@@ -256,9 +256,7 @@ static int if_sdio_handle_data(struct if_sdio_card *card,
- 
- 	skb_reserve(skb, NET_IP_ALIGN);
- 
--	data = skb_put(skb, size);
--
--	memcpy(data, buffer, size);
-+	data = skb_put_data(skb, buffer, size);
- 
- 	lbs_process_rxed_packet(card->priv, skb);
- 
-diff --git a/drivers/net/wireless/marvell/mwifiex/11n_aggr.c b/drivers/net/wireless/marvell/mwifiex/11n_aggr.c
-index 53e67526f40d..bc12c37e7501 100644
---- a/drivers/net/wireless/marvell/mwifiex/11n_aggr.c
-+++ b/drivers/net/wireless/marvell/mwifiex/11n_aggr.c
-@@ -81,7 +81,7 @@ mwifiex_11n_form_amsdu_pkt(struct sk_buff *skb_aggr,
- 	tx_header->eth803_hdr.h_proto = htons(skb_src->len + LLC_SNAP_LEN);
- 
- 	/* Add payload */
--	memcpy(skb_put(skb_aggr, skb_src->len), skb_src->data, skb_src->len);
-+	skb_put_data(skb_aggr, skb_src->data, skb_src->len);
- 
- 	/* Add padding for new MSDU to start from 4 byte boundary */
- 	*pad = (4 - ((unsigned long)skb_aggr->tail & 0x3)) % 4;
-diff --git a/drivers/net/wireless/marvell/mwifiex/cfg80211.c b/drivers/net/wireless/marvell/mwifiex/cfg80211.c
-index 025bc06a19d6..c20e4944ef87 100644
---- a/drivers/net/wireless/marvell/mwifiex/cfg80211.c
-+++ b/drivers/net/wireless/marvell/mwifiex/cfg80211.c
-@@ -176,12 +176,10 @@ mwifiex_form_mgmt_frame(struct sk_buff *skb, const u8 *buf, size_t len)
- 	memcpy(skb_push(skb, sizeof(pkt_type)), &pkt_type, sizeof(pkt_type));
- 
- 	/* Add packet data and address4 */
--	memcpy(skb_put(skb, sizeof(struct ieee80211_hdr_3addr)), buf,
--	       sizeof(struct ieee80211_hdr_3addr));
--	memcpy(skb_put(skb, ETH_ALEN), addr, ETH_ALEN);
--	memcpy(skb_put(skb, len - sizeof(struct ieee80211_hdr_3addr)),
--	       buf + sizeof(struct ieee80211_hdr_3addr),
--	       len - sizeof(struct ieee80211_hdr_3addr));
-+	skb_put_data(skb, buf, sizeof(struct ieee80211_hdr_3addr));
-+	skb_put_data(skb, addr, ETH_ALEN);
-+	skb_put_data(skb, buf + sizeof(struct ieee80211_hdr_3addr),
-+		     len - sizeof(struct ieee80211_hdr_3addr));
- 
- 	skb->priority = LOW_PRIO_TID;
- 	__net_timestamp(skb);
-diff --git a/drivers/net/wireless/marvell/mwifiex/tdls.c b/drivers/net/wireless/marvell/mwifiex/tdls.c
-index c76b7315af55..d38555fe4284 100644
---- a/drivers/net/wireless/marvell/mwifiex/tdls.c
-+++ b/drivers/net/wireless/marvell/mwifiex/tdls.c
-@@ -679,8 +679,7 @@ int mwifiex_send_tdls_data_frame(struct mwifiex_private *priv, const u8 *peer,
- 			return ret;
- 		}
- 		if (extra_ies_len)
--			memcpy(skb_put(skb, extra_ies_len), extra_ies,
--			       extra_ies_len);
-+			skb_put_data(skb, extra_ies, extra_ies_len);
- 		mwifiex_tdls_add_link_ie(skb, priv->curr_addr, peer,
- 					 priv->cfg_bssid);
- 		break;
-@@ -693,8 +692,7 @@ int mwifiex_send_tdls_data_frame(struct mwifiex_private *priv, const u8 *peer,
- 			return ret;
- 		}
- 		if (extra_ies_len)
--			memcpy(skb_put(skb, extra_ies_len), extra_ies,
--			       extra_ies_len);
-+			skb_put_data(skb, extra_ies, extra_ies_len);
- 		mwifiex_tdls_add_link_ie(skb, peer, priv->curr_addr,
- 					 priv->cfg_bssid);
- 		break;
-@@ -865,7 +863,7 @@ int mwifiex_send_tdls_action_frame(struct mwifiex_private *priv, const u8 *peer,
- 	}
- 
- 	if (extra_ies_len)
--		memcpy(skb_put(skb, extra_ies_len), extra_ies, extra_ies_len);
-+		skb_put_data(skb, extra_ies, extra_ies_len);
- 
- 	/* the TDLS link IE is always added last we are the responder */
- 
-diff --git a/drivers/net/wireless/mediatek/mt7601u/dma.c b/drivers/net/wireless/mediatek/mt7601u/dma.c
-index a8bc064bc14f..660267b359e4 100644
---- a/drivers/net/wireless/mediatek/mt7601u/dma.c
-+++ b/drivers/net/wireless/mediatek/mt7601u/dma.c
-@@ -52,7 +52,7 @@ mt7601u_rx_skb_from_seg(struct mt7601u_dev *dev, struct mt7601u_rxwi *rxwi,
- 		goto bad_frame;
- 
- 	if (rxwi->rxinfo & cpu_to_le32(MT_RXINFO_L2PAD)) {
--		memcpy(skb_put(skb, hdr_len), data, hdr_len);
-+		skb_put_data(skb, data, hdr_len);
- 
- 		data += hdr_len + 2;
- 		true_len -= hdr_len;
-@@ -63,7 +63,7 @@ mt7601u_rx_skb_from_seg(struct mt7601u_dev *dev, struct mt7601u_rxwi *rxwi,
- 	copy = (true_len <= skb_tailroom(skb)) ? true_len : hdr_len + 8;
- 	frag = true_len - copy;
- 
--	memcpy(skb_put(skb, copy), data, copy);
-+	skb_put_data(skb, data, copy);
- 	data += copy;
- 
- 	if (frag) {
-diff --git a/drivers/net/wireless/mediatek/mt7601u/mcu.c b/drivers/net/wireless/mediatek/mt7601u/mcu.c
-index a9f5f398b2f8..65a8004418ea 100644
---- a/drivers/net/wireless/mediatek/mt7601u/mcu.c
-+++ b/drivers/net/wireless/mediatek/mt7601u/mcu.c
-@@ -68,7 +68,7 @@ mt7601u_mcu_msg_alloc(struct mt7601u_dev *dev, const void *data, int len)
- 	skb = alloc_skb(len + MT_DMA_HDR_LEN + 4, GFP_KERNEL);
- 	if (skb) {
- 		skb_reserve(skb, MT_DMA_HDR_LEN);
--		memcpy(skb_put(skb, len), data, len);
-+		skb_put_data(skb, data, len);
- 	}
- 
- 	return skb;
-diff --git a/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c b/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c
-index 4814d90c8040..f93b27f3a236 100644
---- a/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c
-+++ b/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c
-@@ -213,7 +213,7 @@ static void qtnf_pcie_control_rx_callback(void *arg, const u8 *buf, size_t len)
- 		return;
- 	}
- 
--	memcpy(skb_put(skb, len), buf, len);
-+	skb_put_data(skb, buf, len);
- 
- 	qtnf_trans_handle_rx_ctl_packet(bus, skb);
- }
-diff --git a/drivers/net/wireless/quantenna/qtnfmac/qlink_util.h b/drivers/net/wireless/quantenna/qtnfmac/qlink_util.h
-index d8de484b5995..9844ff0add2b 100644
---- a/drivers/net/wireless/quantenna/qtnfmac/qlink_util.h
-+++ b/drivers/net/wireless/quantenna/qtnfmac/qlink_util.h
-@@ -35,8 +35,7 @@ qtnf_cmd_skb_put_buffer(struct sk_buff *skb, const u8 *buf_src, size_t len)
- {
- 	u8 *buf_dst;
- 
--	buf_dst = skb_put(skb, len);
--	memcpy(buf_dst, buf_src, len);
-+	buf_dst = skb_put_data(skb, buf_src, len);
- }
- 
- static inline void qtnf_cmd_skb_put_tlv_arr(struct sk_buff *skb,
-diff --git a/drivers/net/wireless/ralink/rt2x00/rt2x00debug.c b/drivers/net/wireless/ralink/rt2x00/rt2x00debug.c
-index 4a1bca1b1e26..b70985e126bf 100644
---- a/drivers/net/wireless/ralink/rt2x00/rt2x00debug.c
-+++ b/drivers/net/wireless/ralink/rt2x00/rt2x00debug.c
-@@ -203,9 +203,8 @@ void rt2x00debug_dump_frame(struct rt2x00_dev *rt2x00dev,
- 	dump_hdr->timestamp_usec = cpu_to_le32(timestamp.tv_usec);
- 
- 	if (!(skbdesc->flags & SKBDESC_DESC_IN_SKB))
--		memcpy(skb_put(skbcopy, skbdesc->desc_len), skbdesc->desc,
--		       skbdesc->desc_len);
--	memcpy(skb_put(skbcopy, skb->len), skb->data, skb->len);
-+		skb_put_data(skbcopy, skbdesc->desc, skbdesc->desc_len);
-+	skb_put_data(skbcopy, skb->data, skb->len);
- 
- 	skb_queue_tail(&intf->frame_dump_skbqueue, skbcopy);
- 	wake_up_interruptible(&intf->frame_dump_waitqueue);
-diff --git a/drivers/net/wireless/realtek/rtlwifi/pci.c b/drivers/net/wireless/realtek/rtlwifi/pci.c
-index 2e6b888bd417..0c1f8307e179 100644
---- a/drivers/net/wireless/realtek/rtlwifi/pci.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/pci.c
-@@ -735,8 +735,7 @@ static void _rtl_pci_rx_to_mac80211(struct ieee80211_hw *hw,
- 		if (likely(uskb)) {
- 			memcpy(IEEE80211_SKB_RXCB(uskb), &rx_status,
- 			       sizeof(rx_status));
--			pdata = (u8 *)skb_put(uskb, skb->len);
--			memcpy(pdata, skb->data, skb->len);
-+			pdata = skb_put_data(uskb, skb->data, skb->len);
- 			dev_kfree_skb_any(skb);
- 			ieee80211_rx_irqsafe(hw, uskb);
- 		} else {
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/fw.c b/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/fw.c
-index 21ed9ad3be7a..a2eca669873b 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/fw.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/fw.c
-@@ -620,8 +620,7 @@ void rtl88e_set_fw_rsvdpagepkt(struct ieee80211_hw *hw, bool b_dl_finished)
- 		      u1rsvdpageloc, 3);
- 
- 	skb = dev_alloc_skb(totalpacketlen);
--	memcpy(skb_put(skb, totalpacketlen),
--	       &reserved_page_packet, totalpacketlen);
-+	skb_put_data(skb, &reserved_page_packet, totalpacketlen);
- 
- 	rtstatus = rtl_cmd_send_packet(hw, skb);
- 
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8192se/fw.c b/drivers/net/wireless/realtek/rtlwifi/rtl8192se/fw.c
-index 89a0a28b8b20..dd3ba4810e7d 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8192se/fw.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8192se/fw.c
-@@ -188,10 +188,9 @@ static bool _rtl92s_firmware_downloadcode(struct ieee80211_hw *hw,
- 		if (!skb)
- 			return false;
- 		skb_reserve(skb, extra_descoffset);
--		seg_ptr = (u8 *)skb_put(skb, (u32)(frag_length -
--					extra_descoffset));
--		memcpy(seg_ptr, code_virtual_address + frag_offset,
--		       (u32)(frag_length - extra_descoffset));
-+		seg_ptr = skb_put_data(skb,
-+				       code_virtual_address + frag_offset,
-+				       (u32)(frag_length - extra_descoffset));
- 
- 		tcb_desc = (struct rtl_tcb_desc *)(skb->cb);
- 		tcb_desc->queue_index = TXCMD_QUEUE;
-diff --git a/drivers/net/wireless/realtek/rtlwifi/usb.c b/drivers/net/wireless/realtek/rtlwifi/usb.c
-index 4d989b8ab185..5590d07d0918 100644
---- a/drivers/net/wireless/realtek/rtlwifi/usb.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/usb.c
-@@ -653,7 +653,7 @@ static void _rtl_rx_completed(struct urb *_urb)
- 		/* reserve some space for mac80211's radiotap */
- 		skb_reserve(skb, __RADIO_TAP_SIZE_RSV);
- 
--		memcpy(skb_put(skb, size), _urb->transfer_buffer, size);
-+		skb_put_data(skb, _urb->transfer_buffer, size);
- 
- 		skb_queue_tail(&rtlusb->rx_queue, skb);
- 		tasklet_schedule(&rtlusb->rx_work_tasklet);
-diff --git a/drivers/net/wireless/rsi/rsi_91x_mgmt.c b/drivers/net/wireless/rsi/rsi_91x_mgmt.c
-index fac87c06357b..4433cec4367c 100644
---- a/drivers/net/wireless/rsi/rsi_91x_mgmt.c
-+++ b/drivers/net/wireless/rsi/rsi_91x_mgmt.c
-@@ -412,11 +412,9 @@ static int rsi_mgmt_pkt_to_core(struct rsi_common *common,
- 			return -ENOMEM;
- 		}
- 
--		buffer = skb_put(skb, msg_len);
--
--		memcpy(buffer,
--		       (u8 *)(msg +  FRAME_DESC_SZ + pad_bytes),
--		       msg_len);
-+		buffer = skb_put_data(skb,
-+				      (u8 *)(msg + FRAME_DESC_SZ + pad_bytes),
-+				      msg_len);
- 
- 		pkt_recv = buffer[0];
- 
-diff --git a/drivers/net/wireless/st/cw1200/scan.c b/drivers/net/wireless/st/cw1200/scan.c
-index 0a0ff7e31f5b..cc2ce60f4f09 100644
---- a/drivers/net/wireless/st/cw1200/scan.c
-+++ b/drivers/net/wireless/st/cw1200/scan.c
-@@ -84,7 +84,7 @@ int cw1200_hw_scan(struct ieee80211_hw *hw,
- 		return -ENOMEM;
- 
- 	if (req->ie_len)
--		memcpy(skb_put(frame.skb, req->ie_len), req->ie, req->ie_len);
-+		skb_put_data(frame.skb, req->ie, req->ie_len);
- 
- 	/* will be unlocked in cw1200_scan_work() */
- 	down(&priv->scan.lock);
-diff --git a/drivers/net/wireless/ti/wl1251/main.c b/drivers/net/wireless/ti/wl1251/main.c
-index bbf7604889b7..08f0477f78d9 100644
---- a/drivers/net/wireless/ti/wl1251/main.c
-+++ b/drivers/net/wireless/ti/wl1251/main.c
-@@ -1036,7 +1036,7 @@ static int wl1251_op_hw_scan(struct ieee80211_hw *hw,
- 		goto out_idle;
- 	}
- 	if (req->ie_len)
--		memcpy(skb_put(skb, req->ie_len), req->ie, req->ie_len);
-+		skb_put_data(skb, req->ie, req->ie_len);
- 
- 	ret = wl1251_cmd_template_set(wl, CMD_PROBE_REQ, skb->data,
- 				      skb->len);
-diff --git a/drivers/net/wireless/ti/wlcore/cmd.c b/drivers/net/wireless/ti/wlcore/cmd.c
-index 4a39fb13c478..229f4d01f239 100644
---- a/drivers/net/wireless/ti/wlcore/cmd.c
-+++ b/drivers/net/wireless/ti/wlcore/cmd.c
-@@ -1156,9 +1156,9 @@ int wl12xx_cmd_build_probe_req(struct wl1271 *wl, struct wl12xx_vif *wlvif,
- 		goto out;
- 	}
- 	if (ie0_len)
--		memcpy(skb_put(skb, ie0_len), ie0, ie0_len);
-+		skb_put_data(skb, ie0, ie0_len);
- 	if (ie1_len)
--		memcpy(skb_put(skb, ie1_len), ie1, ie1_len);
-+		skb_put_data(skb, ie1, ie1_len);
- 
- 	if (sched_scan &&
- 	    (wl->quirks & WLCORE_QUIRK_DUAL_PROBE_TMPL)) {
-diff --git a/drivers/net/wireless/ti/wlcore/rx.c b/drivers/net/wireless/ti/wlcore/rx.c
-index 52a55f9acd80..53cd6d4d5b50 100644
---- a/drivers/net/wireless/ti/wlcore/rx.c
-+++ b/drivers/net/wireless/ti/wlcore/rx.c
-@@ -174,15 +174,13 @@ static int wl1271_rx_handle_data(struct wl1271 *wl, u8 *data, u32 length,
- 	/* reserve the unaligned payload(if any) */
- 	skb_reserve(skb, reserved);
- 
--	buf = skb_put(skb, pkt_data_len);
--
- 	/*
- 	 * Copy packets from aggregation buffer to the skbs without rx
- 	 * descriptor and with packet payload aligned care. In case of unaligned
- 	 * packets copy the packets in offset of 2 bytes guarantee IP header
- 	 * payload aligned to 4 bytes.
- 	 */
--	memcpy(buf, data + sizeof(*desc), pkt_data_len);
-+	buf = skb_put_data(skb, data + sizeof(*desc), pkt_data_len);
- 	if (rx_align == WLCORE_RX_BUF_PADDED)
- 		skb_pull(skb, RX_BUF_ALIGN);
- 
-diff --git a/drivers/net/wireless/zydas/zd1201.c b/drivers/net/wireless/zydas/zd1201.c
-index de7ff395977a..7f586d76cf17 100644
---- a/drivers/net/wireless/zydas/zd1201.c
-+++ b/drivers/net/wireless/zydas/zd1201.c
-@@ -326,13 +326,13 @@ static void zd1201_usbrx(struct urb *urb)
- 			if (!(skb = dev_alloc_skb(datalen+24)))
- 				goto resubmit;
- 			
--			memcpy(skb_put(skb, 2), &data[datalen-16], 2);
--			memcpy(skb_put(skb, 2), &data[datalen-2], 2);
--			memcpy(skb_put(skb, 6), &data[datalen-14], 6);
--			memcpy(skb_put(skb, 6), &data[datalen-22], 6);
--			memcpy(skb_put(skb, 6), &data[datalen-8], 6);
--			memcpy(skb_put(skb, 2), &data[datalen-24], 2);
--			memcpy(skb_put(skb, len), data, len);
-+			skb_put_data(skb, &data[datalen - 16], 2);
-+			skb_put_data(skb, &data[datalen - 2], 2);
-+			skb_put_data(skb, &data[datalen - 14], 6);
-+			skb_put_data(skb, &data[datalen - 22], 6);
-+			skb_put_data(skb, &data[datalen - 8], 6);
-+			skb_put_data(skb, &data[datalen - 24], 2);
-+			skb_put_data(skb, data, len);
- 			skb->protocol = eth_type_trans(skb, zd->dev);
- 			zd->dev->stats.rx_packets++;
- 			zd->dev->stats.rx_bytes += skb->len;
-@@ -359,9 +359,9 @@ static void zd1201_usbrx(struct urb *urb)
- 				frag->skb = skb;
- 				frag->seq = seq & IEEE80211_SCTL_SEQ;
- 				skb_reserve(skb, 2);
--				memcpy(skb_put(skb, 12), &data[datalen-14], 12);
--				memcpy(skb_put(skb, 2), &data[6], 2);
--				memcpy(skb_put(skb, len), data+8, len);
-+				skb_put_data(skb, &data[datalen - 14], 12);
-+				skb_put_data(skb, &data[6], 2);
-+				skb_put_data(skb, data + 8, len);
- 				hlist_add_head(&frag->fnode, &zd->fraglist);
- 				goto resubmit;
- 			}
-@@ -385,9 +385,9 @@ static void zd1201_usbrx(struct urb *urb)
- 			if (!skb)
- 				goto resubmit;
- 			skb_reserve(skb, 2);
--			memcpy(skb_put(skb, 12), &data[datalen-14], 12);
--			memcpy(skb_put(skb, 2), &data[6], 2);
--			memcpy(skb_put(skb, len), data+8, len);
-+			skb_put_data(skb, &data[datalen - 14], 12);
-+			skb_put_data(skb, &data[6], 2);
-+			skb_put_data(skb, data + 8, len);
- 		}
- 		skb->protocol = eth_type_trans(skb, zd->dev);
- 		zd->dev->stats.rx_packets++;
-diff --git a/drivers/net/wireless/zydas/zd1211rw/zd_mac.c b/drivers/net/wireless/zydas/zd1211rw/zd_mac.c
-index fe6517a621b0..2d929d2edb00 100644
---- a/drivers/net/wireless/zydas/zd1211rw/zd_mac.c
-+++ b/drivers/net/wireless/zydas/zd1211rw/zd_mac.c
-@@ -1103,7 +1103,7 @@ int zd_mac_rx(struct ieee80211_hw *hw, const u8 *buffer, unsigned int length)
- 	}
- 
- 	/* FIXME : could we avoid this big memcpy ? */
--	memcpy(skb_put(skb, length), buffer, length);
-+	skb_put_data(skb, buffer, length);
- 
- 	memcpy(IEEE80211_SKB_RXCB(skb), &stats, sizeof(stats));
- 	ieee80211_rx_irqsafe(hw, skb);
-diff --git a/drivers/nfc/fdp/fdp.c b/drivers/nfc/fdp/fdp.c
-index 7c1eaea3b685..badd8167ac73 100644
---- a/drivers/nfc/fdp/fdp.c
-+++ b/drivers/nfc/fdp/fdp.c
-@@ -228,8 +228,7 @@ static int fdp_nci_send_patch(struct nci_dev *ndev, u8 conn_id, u8 type)
- 
- 		skb_reserve(skb, NCI_CTRL_HDR_SIZE);
- 
--		memcpy(skb_put(skb, payload_size), fw->data + (fw->size - len),
--		       payload_size);
-+		skb_put_data(skb, fw->data + (fw->size - len), payload_size);
- 
- 		rc = nci_send_data(ndev, conn_id, skb);
- 
-diff --git a/drivers/nfc/fdp/i2c.c b/drivers/nfc/fdp/i2c.c
-index 712936f5d2d6..0877e2283f35 100644
---- a/drivers/nfc/fdp/i2c.c
-+++ b/drivers/nfc/fdp/i2c.c
-@@ -186,7 +186,7 @@ static int fdp_nci_i2c_read(struct fdp_i2c_phy *phy, struct sk_buff **skb)
- 				goto flush;
- 			}
- 
--			memcpy(skb_put(*skb, len), tmp, len);
-+			skb_put_data(*skb, tmp, len);
- 			fdp_nci_i2c_dump_skb(&client->dev, "fdp_rd", *skb);
- 
- 			fdp_nci_i2c_remove_len_lrc(*skb);
-diff --git a/drivers/nfc/nfcmrvl/fw_dnld.c b/drivers/nfc/nfcmrvl/fw_dnld.c
-index c38bdd6a5a82..7c710458568e 100644
---- a/drivers/nfc/nfcmrvl/fw_dnld.c
-+++ b/drivers/nfc/nfcmrvl/fw_dnld.c
-@@ -324,10 +324,9 @@ static int process_state_fw_dnld(struct nfcmrvl_private *priv,
- 			out_skb = alloc_lc_skb(priv, priv->fw_dnld.chunk_len);
- 			if (!out_skb)
- 				return -ENOMEM;
--			memcpy(skb_put(out_skb, priv->fw_dnld.chunk_len),
--			       ((uint8_t *)priv->fw_dnld.fw->data) +
--			       priv->fw_dnld.offset,
--			       priv->fw_dnld.chunk_len);
-+			skb_put_data(out_skb,
-+				     ((uint8_t *)priv->fw_dnld.fw->data) + priv->fw_dnld.offset,
-+				     priv->fw_dnld.chunk_len);
- 			nci_send_frame(priv->ndev, out_skb);
- 			priv->fw_dnld.substate = SUBSTATE_WAIT_DATA_CREDIT;
- 		}
-diff --git a/drivers/nfc/nfcmrvl/i2c.c b/drivers/nfc/nfcmrvl/i2c.c
-index 78b7aa835c81..ffec103702f1 100644
---- a/drivers/nfc/nfcmrvl/i2c.c
-+++ b/drivers/nfc/nfcmrvl/i2c.c
-@@ -60,7 +60,7 @@ static int nfcmrvl_i2c_read(struct nfcmrvl_i2c_drv_data *drv_data,
- 		return -ENOMEM;
- 
- 	/* Copy NCI header into the SKB */
--	memcpy(skb_put(*skb, NCI_CTRL_HDR_SIZE), &nci_hdr, NCI_CTRL_HDR_SIZE);
-+	skb_put_data(*skb, &nci_hdr, NCI_CTRL_HDR_SIZE);
- 
- 	if (nci_hdr.plen) {
- 		/* Read the NCI payload */
-diff --git a/drivers/nfc/nfcmrvl/usb.c b/drivers/nfc/nfcmrvl/usb.c
-index 585a0f20835b..699aa9d16575 100644
---- a/drivers/nfc/nfcmrvl/usb.c
-+++ b/drivers/nfc/nfcmrvl/usb.c
-@@ -83,8 +83,8 @@ static void nfcmrvl_bulk_complete(struct urb *urb)
- 		if (!skb) {
- 			nfc_err(&drv_data->udev->dev, "failed to alloc mem\n");
- 		} else {
--			memcpy(skb_put(skb, urb->actual_length),
--			       urb->transfer_buffer, urb->actual_length);
-+			skb_put_data(skb, urb->transfer_buffer,
-+				     urb->actual_length);
- 			if (nfcmrvl_nci_recv_frame(drv_data->priv, skb) < 0)
- 				nfc_err(&drv_data->udev->dev,
- 					"corrupted Rx packet\n");
-diff --git a/drivers/nfc/nxp-nci/firmware.c b/drivers/nfc/nxp-nci/firmware.c
-index 553011f58339..99ffee1dfd1e 100644
---- a/drivers/nfc/nxp-nci/firmware.c
-+++ b/drivers/nfc/nxp-nci/firmware.c
-@@ -124,8 +124,7 @@ static int nxp_nci_fw_send_chunk(struct nxp_nci_info *info)
- 	header |= chunk_len & NXP_NCI_FW_FRAME_LEN_MASK;
- 	put_unaligned_be16(header, skb_put(skb, NXP_NCI_FW_HDR_LEN));
- 
--	memcpy(skb_put(skb, chunk_len), fw_info->data + fw_info->written,
--	       chunk_len);
-+	skb_put_data(skb, fw_info->data + fw_info->written, chunk_len);
- 
- 	crc = nxp_nci_fw_crc(skb->data, chunk_len + NXP_NCI_FW_HDR_LEN);
- 	put_unaligned_be16(crc, skb_put(skb, NXP_NCI_FW_CRC_LEN));
-diff --git a/drivers/nfc/nxp-nci/i2c.c b/drivers/nfc/nxp-nci/i2c.c
-index ff22d761183c..198585bbc771 100644
---- a/drivers/nfc/nxp-nci/i2c.c
-+++ b/drivers/nfc/nxp-nci/i2c.c
-@@ -135,7 +135,7 @@ static int nxp_nci_i2c_fw_read(struct nxp_nci_i2c_phy *phy,
- 		goto fw_read_exit;
- 	}
- 
--	memcpy(skb_put(*skb, NXP_NCI_FW_HDR_LEN), &header, NXP_NCI_FW_HDR_LEN);
-+	skb_put_data(*skb, &header, NXP_NCI_FW_HDR_LEN);
- 
- 	r = i2c_master_recv(client, skb_put(*skb, frame_len), frame_len);
- 	if (r != frame_len) {
-@@ -176,8 +176,7 @@ static int nxp_nci_i2c_nci_read(struct nxp_nci_i2c_phy *phy,
- 		goto nci_read_exit;
- 	}
- 
--	memcpy(skb_put(*skb, NCI_CTRL_HDR_SIZE), (void *) &header,
--	       NCI_CTRL_HDR_SIZE);
-+	skb_put_data(*skb, (void *)&header, NCI_CTRL_HDR_SIZE);
- 
- 	r = i2c_master_recv(client, skb_put(*skb, header.plen), header.plen);
- 	if (r != header.plen) {
-diff --git a/drivers/nfc/pn533/pn533.c b/drivers/nfc/pn533/pn533.c
-index 70c304504a29..9200bb308e42 100644
---- a/drivers/nfc/pn533/pn533.c
-+++ b/drivers/nfc/pn533/pn533.c
-@@ -1035,11 +1035,10 @@ static struct sk_buff *pn533_alloc_poll_tg_frame(struct pn533 *dev)
- 	*skb_put(skb, 1) = PN533_INIT_TARGET_DEP;
- 
- 	/* MIFARE params */
--	memcpy(skb_put(skb, 6), mifare_params, 6);
-+	skb_put_data(skb, mifare_params, 6);
- 
- 	/* Felica params */
--	felica = skb_put(skb, 18);
--	memcpy(felica, felica_params, 18);
-+	felica = skb_put_data(skb, felica_params, 18);
- 	get_random_bytes(felica + 2, 6);
- 
- 	/* NFCID3 */
-@@ -1049,8 +1048,7 @@ static struct sk_buff *pn533_alloc_poll_tg_frame(struct pn533 *dev)
- 	/* General bytes */
- 	*skb_put(skb, 1) = gbytes_len;
- 
--	gb = skb_put(skb, gbytes_len);
--	memcpy(gb, gbytes, gbytes_len);
-+	gb = skb_put_data(skb, gbytes, gbytes_len);
- 
- 	/* Len Tk */
- 	*skb_put(skb, 1) = 0;
-@@ -1384,15 +1382,14 @@ static int pn533_poll_dep(struct nfc_dev *nfc_dev)
- 	*next = 0;
- 
- 	/* Copy passive data */
--	memcpy(skb_put(skb, PASSIVE_DATA_LEN), passive_data, PASSIVE_DATA_LEN);
-+	skb_put_data(skb, passive_data, PASSIVE_DATA_LEN);
- 	*next |= 1;
- 
- 	/* Copy NFCID3 (which is NFCID2 from SENSF_RES) */
--	memcpy(skb_put(skb, NFC_NFCID3_MAXSIZE), nfcid3,
--	       NFC_NFCID3_MAXSIZE);
-+	skb_put_data(skb, nfcid3, NFC_NFCID3_MAXSIZE);
- 	*next |= 2;
- 
--	memcpy(skb_put(skb, dev->gb_len), dev->gb, dev->gb_len);
-+	skb_put_data(skb, dev->gb, dev->gb_len);
- 	*next |= 4; /* We have some Gi */
- 
- 	rc = pn533_send_cmd_async(dev, PN533_CMD_IN_JUMP_FOR_DEP, skb,
-@@ -1472,7 +1469,7 @@ static struct sk_buff *pn533_alloc_poll_in_frame(struct pn533 *dev,
- 	if (!skb)
- 		return NULL;
- 
--	memcpy(skb_put(skb, mod->len), &mod->data, mod->len);
-+	skb_put_data(skb, &mod->data, mod->len);
- 
- 	return skb;
- }
-@@ -1858,7 +1855,7 @@ static int pn533_dep_link_up(struct nfc_dev *nfc_dev, struct nfc_target *target,
- 	*next = 0;
- 
- 	/* Copy passive data */
--	memcpy(skb_put(skb, PASSIVE_DATA_LEN), passive_data, PASSIVE_DATA_LEN);
-+	skb_put_data(skb, passive_data, PASSIVE_DATA_LEN);
- 	*next |= 1;
- 
- 	/* Copy NFCID3 (which is NFCID2 from SENSF_RES) */
-@@ -1866,12 +1863,11 @@ static int pn533_dep_link_up(struct nfc_dev *nfc_dev, struct nfc_target *target,
- 		memcpy(skb_put(skb, NFC_NFCID3_MAXSIZE), target->nfcid2,
- 		       target->nfcid2_len);
- 	else
--		memcpy(skb_put(skb, NFC_NFCID3_MAXSIZE), nfcid3,
--		       NFC_NFCID3_MAXSIZE);
-+		skb_put_data(skb, nfcid3, NFC_NFCID3_MAXSIZE);
- 	*next |= 2;
- 
- 	if (gb != NULL && gb_len > 0) {
--		memcpy(skb_put(skb, gb_len), gb, gb_len);
-+		skb_put_data(skb, gb, gb_len);
- 		*next |= 4; /* We have some Gi */
- 	} else {
- 		*next = 0;
-@@ -2100,7 +2096,7 @@ static int pn533_fill_fragment_skbs(struct pn533 *dev, struct sk_buff *skb)
- 				*skb_push(frag, sizeof(u8)) =  1; /* TG */
- 		}
- 
--		memcpy(skb_put(frag, frag_size), skb->data, frag_size);
-+		skb_put_data(frag, skb->data, frag_size);
- 
- 		/* Reduce the size of incoming buffer */
- 		skb_pull(skb, frag_size);
-@@ -2375,7 +2371,7 @@ static int pn533_set_configuration(struct pn533 *dev, u8 cfgitem, u8 *cfgdata,
- 		return -ENOMEM;
- 
- 	*skb_put(skb, sizeof(cfgitem)) = cfgitem;
--	memcpy(skb_put(skb, cfgdata_len), cfgdata, cfgdata_len);
-+	skb_put_data(skb, cfgdata, cfgdata_len);
- 
- 	resp = pn533_send_cmd_sync(dev, PN533_CMD_RF_CONFIGURATION, skb);
- 	if (IS_ERR(resp))
-diff --git a/drivers/nfc/pn533/usb.c b/drivers/nfc/pn533/usb.c
-index 8ed203ea21ea..e153e8b64bb8 100644
---- a/drivers/nfc/pn533/usb.c
-+++ b/drivers/nfc/pn533/usb.c
-@@ -75,8 +75,8 @@ static void pn533_recv_response(struct urb *urb)
- 		if (!skb) {
- 			nfc_err(&phy->udev->dev, "failed to alloc memory\n");
- 		} else {
--			memcpy(skb_put(skb, urb->actual_length),
--			       urb->transfer_buffer, urb->actual_length);
-+			skb_put_data(skb, urb->transfer_buffer,
-+				     urb->actual_length);
- 		}
- 	}
- 
-diff --git a/drivers/nfc/port100.c b/drivers/nfc/port100.c
-index 19be93e177fe..e1260da73d45 100644
---- a/drivers/nfc/port100.c
-+++ b/drivers/nfc/port100.c
-@@ -1089,9 +1089,8 @@ static int port100_in_set_rf(struct nfc_digital_dev *ddev, u8 rf)
+@@ -1836,15 +1836,15 @@ static int inject_cmd_complete(struct hci_dev *hdev, __u16 opcode)
  	if (!skb)
  		return -ENOMEM;
  
--	memcpy(skb_put(skb, sizeof(struct port100_in_rf_setting)),
--	       &in_rf_settings[rf],
--	       sizeof(struct port100_in_rf_setting));
-+	skb_put_data(skb, &in_rf_settings[rf],
-+		     sizeof(struct port100_in_rf_setting));
- 
- 	resp = port100_send_cmd_sync(dev, PORT100_CMD_IN_SET_RF, skb);
- 
-@@ -1133,7 +1132,7 @@ static int port100_in_set_framing(struct nfc_digital_dev *ddev, int param)
- 	if (!skb)
- 		return -ENOMEM;
- 
--	memcpy(skb_put(skb, size), protocols, size);
-+	skb_put_data(skb, protocols, size);
- 
- 	resp = port100_send_cmd_sync(dev, PORT100_CMD_IN_SET_PROTOCOL, skb);
- 
-@@ -1247,9 +1246,8 @@ static int port100_tg_set_rf(struct nfc_digital_dev *ddev, u8 rf)
- 	if (!skb)
- 		return -ENOMEM;
- 
--	memcpy(skb_put(skb, sizeof(struct port100_tg_rf_setting)),
--	       &tg_rf_settings[rf],
--	       sizeof(struct port100_tg_rf_setting));
-+	skb_put_data(skb, &tg_rf_settings[rf],
-+		     sizeof(struct port100_tg_rf_setting));
- 
- 	resp = port100_send_cmd_sync(dev, PORT100_CMD_TG_SET_RF, skb);
- 
-@@ -1291,7 +1289,7 @@ static int port100_tg_set_framing(struct nfc_digital_dev *ddev, int param)
- 	if (!skb)
- 		return -ENOMEM;
- 
--	memcpy(skb_put(skb, size), protocols, size);
-+	skb_put_data(skb, protocols, size);
- 
- 	resp = port100_send_cmd_sync(dev, PORT100_CMD_TG_SET_PROTOCOL, skb);
- 
-diff --git a/drivers/nfc/s3fwrn5/firmware.c b/drivers/nfc/s3fwrn5/firmware.c
-index 5f97da1947e3..38548bd970cd 100644
---- a/drivers/nfc/s3fwrn5/firmware.c
-+++ b/drivers/nfc/s3fwrn5/firmware.c
-@@ -76,9 +76,9 @@ static int s3fwrn5_fw_prep_msg(struct s3fwrn5_fw_info *fw_info,
- 	if (!skb)
- 		return -ENOMEM;
- 
--	memcpy(skb_put(skb, S3FWRN5_FW_HDR_SIZE), &hdr, S3FWRN5_FW_HDR_SIZE);
-+	skb_put_data(skb, &hdr, S3FWRN5_FW_HDR_SIZE);
- 	if (len)
--		memcpy(skb_put(skb, len), data, len);
-+		skb_put_data(skb, data, len);
- 
- 	*msg = skb;
- 
-diff --git a/drivers/nfc/s3fwrn5/i2c.c b/drivers/nfc/s3fwrn5/i2c.c
-index 3ed0adf6479b..3f09d7fd2285 100644
---- a/drivers/nfc/s3fwrn5/i2c.c
-+++ b/drivers/nfc/s3fwrn5/i2c.c
-@@ -157,7 +157,7 @@ static int s3fwrn5_i2c_read(struct s3fwrn5_i2c_phy *phy)
- 	if (!skb)
- 		return -ENOMEM;
- 
--	memcpy(skb_put(skb, hdr_size), hdr, hdr_size);
-+	skb_put_data(skb, hdr, hdr_size);
- 
- 	if (data_len == 0)
- 		goto out;
-diff --git a/drivers/nfc/st21nfca/dep.c b/drivers/nfc/st21nfca/dep.c
-index 798a32bbac5d..ada7b114b6c1 100644
---- a/drivers/nfc/st21nfca/dep.c
-+++ b/drivers/nfc/st21nfca/dep.c
-@@ -564,7 +564,7 @@ int st21nfca_im_send_atr_req(struct nfc_hci_dev *hdev, u8 *gb, size_t gb_len)
- 	atr_req->ppi = ST21NFCA_LR_BITS_PAYLOAD_SIZE_254B;
- 	if (gb_len) {
- 		atr_req->ppi |= ST21NFCA_GB_BIT;
--		memcpy(skb_put(skb, gb_len), gb, gb_len);
-+		skb_put_data(skb, gb, gb_len);
- 	}
- 	atr_req->length = sizeof(struct st21nfca_atr_req) + hdev->gb_len;
- 
-diff --git a/drivers/nfc/st21nfca/i2c.c b/drivers/nfc/st21nfca/i2c.c
-index 02a920ca07c8..94d0b913b627 100644
---- a/drivers/nfc/st21nfca/i2c.c
-+++ b/drivers/nfc/st21nfca/i2c.c
-@@ -407,7 +407,7 @@ static int st21nfca_hci_i2c_read(struct st21nfca_i2c_phy *phy,
- 			phy->current_read_len = 0;
- 		}
- 
--		memcpy(skb_put(skb, len), buf, len);
-+		skb_put_data(skb, buf, len);
- 
- 		if (skb->data[skb->len - 1] == ST21NFCA_SOF_EOF) {
- 			phy->current_read_len = 0;
-diff --git a/drivers/rpmsg/rpmsg_char.c b/drivers/rpmsg/rpmsg_char.c
-index 0ca2ccc09ca6..2576284f99a7 100644
---- a/drivers/rpmsg/rpmsg_char.c
-+++ b/drivers/rpmsg/rpmsg_char.c
-@@ -116,7 +116,7 @@ static int rpmsg_ept_cb(struct rpmsg_device *rpdev, void *buf, int len,
- 	if (!skb)
- 		return -ENOMEM;
- 
--	memcpy(skb_put(skb, len), buf, len);
-+	skb_put_data(skb, buf, len);
- 
- 	spin_lock(&eptdev->queue_lock);
- 	skb_queue_tail(&eptdev->queue, skb);
-diff --git a/drivers/s390/net/ctcm_fsms.c b/drivers/s390/net/ctcm_fsms.c
-index 730d9619400e..e9847ce3860d 100644
---- a/drivers/s390/net/ctcm_fsms.c
-+++ b/drivers/s390/net/ctcm_fsms.c
-@@ -1279,7 +1279,7 @@ static void ctcmpc_chx_txdone(fsm_instance *fi, int event, void *arg)
- 		       __func__, data_space);
- 
- 	while ((skb = skb_dequeue(&ch->collect_queue))) {
--		memcpy(skb_put(ch->trans_skb, skb->len), skb->data, skb->len);
-+		skb_put_data(ch->trans_skb, skb->data, skb->len);
- 		p_header = (struct pdu *)
- 			(skb_tail_pointer(ch->trans_skb) - skb->len);
- 		p_header->pdu_flag = 0x00;
-@@ -1431,13 +1431,12 @@ static void ctcmpc_chx_rx(fsm_instance *fi, int event, void *arg)
- 			break;
- 		case MPCG_STATE_FLOWC:
- 		case MPCG_STATE_READY:
--			memcpy(skb_put(new_skb, block_len),
--					       skb->data, block_len);
-+			skb_put_data(new_skb, skb->data, block_len);
- 			skb_queue_tail(&ch->io_queue, new_skb);
- 			tasklet_schedule(&ch->ch_tasklet);
- 			break;
- 		default:
--			memcpy(skb_put(new_skb, len), skb->data, len);
-+			skb_put_data(new_skb, skb->data, len);
- 			skb_queue_tail(&ch->io_queue, new_skb);
- 			tasklet_hi_schedule(&ch->ch_tasklet);
- 			break;
-diff --git a/drivers/s390/net/ctcm_main.c b/drivers/s390/net/ctcm_main.c
-index 198842ce6876..99121352c57b 100644
---- a/drivers/s390/net/ctcm_main.c
-+++ b/drivers/s390/net/ctcm_main.c
-@@ -522,7 +522,7 @@ static int ctcm_transmit_skb(struct channel *ch, struct sk_buff *skb)
- 			ctcm_clear_busy(ch->netdev);
- 			return -ENOMEM;
- 		} else {
--			memcpy(skb_put(nskb, skb->len), skb->data, skb->len);
-+			skb_put_data(nskb, skb->data, skb->len);
- 			atomic_inc(&nskb->users);
- 			atomic_dec(&skb->users);
- 			dev_kfree_skb_irq(skb);
-@@ -638,7 +638,7 @@ static void ctcmpc_send_sweep_req(struct channel *rch)
- 	header->th.th_seq_num	= 0x00;
- 	header->sw.th_last_seq	= ch->th_seq_num;
- 
--	memcpy(skb_put(sweep_skb, TH_SWEEP_LENGTH), header, TH_SWEEP_LENGTH);
-+	skb_put_data(sweep_skb, header, TH_SWEEP_LENGTH);
- 
- 	kfree(header);
- 
-@@ -728,7 +728,7 @@ static int ctcmpc_transmit_skb(struct channel *ch, struct sk_buff *skb)
- 		if (!nskb) {
- 			goto nomem_exit;
- 		} else {
--			memcpy(skb_put(nskb, skb->len), skb->data, skb->len);
-+			skb_put_data(nskb, skb->data, skb->len);
- 			atomic_inc(&nskb->users);
- 			atomic_dec(&skb->users);
- 			dev_kfree_skb_irq(skb);
-@@ -809,7 +809,7 @@ static int ctcmpc_transmit_skb(struct channel *ch, struct sk_buff *skb)
- 		skb_reset_tail_pointer(ch->trans_skb);
- 		ch->trans_skb->len = 0;
- 		ch->ccw[1].count = skb->len;
--		memcpy(skb_put(ch->trans_skb, skb->len), skb->data, skb->len);
-+		skb_put_data(ch->trans_skb, skb->data, skb->len);
- 		atomic_dec(&skb->users);
- 		dev_kfree_skb_irq(skb);
- 		ccw_idx = 0;
-@@ -960,7 +960,7 @@ static int ctcmpc_tx(struct sk_buff *skb, struct net_device *dev)
- 		}
- 		newskb->protocol = skb->protocol;
- 		skb_reserve(newskb, TH_HEADER_LENGTH + PDU_HEADER_LENGTH);
--		memcpy(skb_put(newskb, skb->len), skb->data, skb->len);
-+		skb_put_data(newskb, skb->data, skb->len);
- 		dev_kfree_skb_any(skb);
- 		skb = newskb;
- 	}
-diff --git a/drivers/s390/net/ctcm_mpc.c b/drivers/s390/net/ctcm_mpc.c
-index c103fc7efe9f..f8be39634f03 100644
---- a/drivers/s390/net/ctcm_mpc.c
-+++ b/drivers/s390/net/ctcm_mpc.c
-@@ -667,7 +667,7 @@ static void ctcmpc_send_sweep_resp(struct channel *rch)
- 	header->th.th_seq_num	= 0x00;
- 	header->sw.th_last_seq	= ch->th_seq_num;
- 
--	memcpy(skb_put(sweep_skb, TH_SWEEP_LENGTH), header, TH_SWEEP_LENGTH);
-+	skb_put_data(sweep_skb, header, TH_SWEEP_LENGTH);
- 
- 	kfree(header);
- 
-@@ -974,9 +974,8 @@ void mpc_channel_action(struct channel *ch, int direction, int action)
- 		skb_reset_tail_pointer(ch->xid_skb);
- 		ch->xid_skb->len = 0;
- 
--		memcpy(skb_put(ch->xid_skb, grp->xid_skb->len),
--				grp->xid_skb->data,
--				grp->xid_skb->len);
-+		skb_put_data(ch->xid_skb, grp->xid_skb->data,
-+			     grp->xid_skb->len);
- 
- 		ch->xid->xid2_dlc_type =
- 			((CHANNEL_DIRECTION(ch->flags) == CTCM_READ)
-@@ -1149,7 +1148,7 @@ static void ctcmpc_unpack_skb(struct channel *ch, struct sk_buff *pskb)
- 				fsm_event(grp->fsm, MPCG_EVENT_INOP, dev);
- 						goto done;
- 			}
--			memcpy(skb_put(skb, new_len), pskb->data, new_len);
-+			skb_put_data(skb, pskb->data, new_len);
- 
- 			skb_reset_mac_header(skb);
- 			skb->dev = pskb->dev;
-@@ -1297,16 +1296,15 @@ struct mpc_group *ctcmpc_init_mpc_group(struct ctcm_priv *priv)
- 	/*  base xid for all channels in group  */
- 	grp->xid_skb_data = grp->xid_skb->data;
- 	grp->xid_th = (struct th_header *)grp->xid_skb->data;
--	memcpy(skb_put(grp->xid_skb, TH_HEADER_LENGTH),
--			&thnorm, TH_HEADER_LENGTH);
-+	skb_put_data(grp->xid_skb, &thnorm, TH_HEADER_LENGTH);
- 
- 	grp->xid = (struct xid2 *)skb_tail_pointer(grp->xid_skb);
--	memcpy(skb_put(grp->xid_skb, XID2_LENGTH), &init_xid, XID2_LENGTH);
-+	skb_put_data(grp->xid_skb, &init_xid, XID2_LENGTH);
- 	grp->xid->xid2_adj_id = jiffies | 0xfff00000;
- 	grp->xid->xid2_sender_id = jiffies;
- 
- 	grp->xid_id = skb_tail_pointer(grp->xid_skb);
--	memcpy(skb_put(grp->xid_skb, 4), "VTAM", 4);
-+	skb_put_data(grp->xid_skb, "VTAM", 4);
- 
- 	grp->rcvd_xid_skb =
- 		__dev_alloc_skb(MPC_BUFSIZE_DEFAULT, GFP_ATOMIC|GFP_DMA);
-@@ -1318,8 +1316,7 @@ struct mpc_group *ctcmpc_init_mpc_group(struct ctcm_priv *priv)
- 	}
- 	grp->rcvd_xid_data = grp->rcvd_xid_skb->data;
- 	grp->rcvd_xid_th = (struct th_header *)grp->rcvd_xid_skb->data;
--	memcpy(skb_put(grp->rcvd_xid_skb, TH_HEADER_LENGTH),
--			&thnorm, TH_HEADER_LENGTH);
-+	skb_put_data(grp->rcvd_xid_skb, &thnorm, TH_HEADER_LENGTH);
- 	grp->saved_xid2 = NULL;
- 	priv->xid = grp->xid;
- 	priv->mpcg = grp;
-@@ -1410,8 +1407,7 @@ static void mpc_action_go_inop(fsm_instance *fi, int event, void *arg)
- 	skb_reset_tail_pointer(grp->rcvd_xid_skb);
- 	grp->rcvd_xid_skb->len = 0;
- 	grp->rcvd_xid_th = (struct th_header *)grp->rcvd_xid_skb->data;
--	memcpy(skb_put(grp->rcvd_xid_skb, TH_HEADER_LENGTH), &thnorm,
--	       TH_HEADER_LENGTH);
-+	skb_put_data(grp->rcvd_xid_skb, &thnorm, TH_HEADER_LENGTH);
- 
- 	if (grp->send_qllc_disc == 1) {
- 		grp->send_qllc_disc = 0;
-@@ -1590,8 +1586,7 @@ static int mpc_validate_xid(struct mpcg_info *mpcginfo)
- 		grp->saved_xid2 =
- 			(struct xid2 *)skb_tail_pointer(grp->rcvd_xid_skb);
- 
--		memcpy(skb_put(grp->rcvd_xid_skb,
--					XID2_LENGTH), xid, XID2_LENGTH);
-+		skb_put_data(grp->rcvd_xid_skb, xid, XID2_LENGTH);
- 		grp->rcvd_xid_skb->data = grp->rcvd_xid_data;
- 
- 		skb_reset_tail_pointer(grp->rcvd_xid_skb);
-@@ -1908,17 +1903,15 @@ static void mpc_action_doxid7(fsm_instance *fsm, int event, void *arg)
- 				if (fsm_getstate(ch->fsm) == CH_XID7_PENDING1) {
- 					fsm_newstate(ch->fsm, CH_XID7_PENDING2);
- 					ch->ccw[8].cmd_code = CCW_CMD_SENSE_CMD;
--					memcpy(skb_put(ch->xid_skb,
--							TH_HEADER_LENGTH),
--					       &thdummy, TH_HEADER_LENGTH);
-+					skb_put_data(ch->xid_skb, &thdummy,
-+						     TH_HEADER_LENGTH);
- 					send = 1;
- 				}
- 			} else if (fsm_getstate(ch->fsm) < CH_XID7_PENDING2) {
- 					fsm_newstate(ch->fsm, CH_XID7_PENDING2);
- 					ch->ccw[8].cmd_code = CCW_CMD_WRITE_CTL;
--					memcpy(skb_put(ch->xid_skb,
--						       TH_HEADER_LENGTH),
--					       &thnorm, TH_HEADER_LENGTH);
-+					skb_put_data(ch->xid_skb, &thnorm,
-+						     TH_HEADER_LENGTH);
- 					send = 1;
- 			}
- 		} else {
-@@ -1926,17 +1919,16 @@ static void mpc_action_doxid7(fsm_instance *fsm, int event, void *arg)
- 			if (grp->roll == YSIDE) {
- 				if (fsm_getstate(ch->fsm) < CH_XID7_PENDING4) {
- 					fsm_newstate(ch->fsm, CH_XID7_PENDING4);
--					memcpy(skb_put(ch->xid_skb,
--						       TH_HEADER_LENGTH),
--					       &thnorm, TH_HEADER_LENGTH);
-+					skb_put_data(ch->xid_skb, &thnorm,
-+						     TH_HEADER_LENGTH);
- 					ch->ccw[8].cmd_code = CCW_CMD_WRITE_CTL;
- 					send = 1;
- 				}
- 			} else if (fsm_getstate(ch->fsm) == CH_XID7_PENDING3) {
- 				fsm_newstate(ch->fsm, CH_XID7_PENDING4);
- 				ch->ccw[8].cmd_code = CCW_CMD_SENSE_CMD;
--				memcpy(skb_put(ch->xid_skb, TH_HEADER_LENGTH),
--						&thdummy, TH_HEADER_LENGTH);
-+				skb_put_data(ch->xid_skb, &thdummy,
-+					     TH_HEADER_LENGTH);
- 				send = 1;
- 			}
- 		}
-@@ -2122,7 +2114,7 @@ static int mpc_send_qllc_discontact(struct net_device *dev)
- 			return -ENOMEM;
- 		}
- 
--		memcpy(skb_put(skb, new_len), qllcptr, new_len);
-+		skb_put_data(skb, qllcptr, new_len);
- 		kfree(qllcptr);
- 
- 		if (skb_headroom(skb) < 4) {
-diff --git a/drivers/s390/net/lcs.c b/drivers/s390/net/lcs.c
-index 211b31d9f157..337bacb43d68 100644
---- a/drivers/s390/net/lcs.c
-+++ b/drivers/s390/net/lcs.c
-@@ -1796,7 +1796,7 @@ lcs_get_skb(struct lcs_card *card, char *skb_data, unsigned int skb_len)
- 		card->stats.rx_dropped++;
- 		return;
- 	}
--	memcpy(skb_put(skb, skb_len), skb_data, skb_len);
-+	skb_put_data(skb, skb_data, skb_len);
- 	skb->protocol =	card->lan_type_trans(skb, card->dev);
- 	card->stats.rx_bytes += skb_len;
- 	card->stats.rx_packets++;
-diff --git a/drivers/s390/net/netiucv.c b/drivers/s390/net/netiucv.c
-index fa732bd86729..7db427c0a6a4 100644
---- a/drivers/s390/net/netiucv.c
-+++ b/drivers/s390/net/netiucv.c
-@@ -759,8 +759,7 @@ static void conn_action_txdone(fsm_instance *fi, int event, void *arg)
- 	spin_lock_irqsave(&conn->collect_lock, saveflags);
- 	while ((skb = skb_dequeue(&conn->collect_queue))) {
- 		header.next = conn->tx_buff->len + skb->len + NETIUCV_HDRLEN;
--		memcpy(skb_put(conn->tx_buff, NETIUCV_HDRLEN), &header,
--		       NETIUCV_HDRLEN);
-+		skb_put_data(conn->tx_buff, &header, NETIUCV_HDRLEN);
- 		skb_copy_from_linear_data(skb,
- 					  skb_put(conn->tx_buff, skb->len),
- 					  skb->len);
-@@ -780,7 +779,7 @@ static void conn_action_txdone(fsm_instance *fi, int event, void *arg)
- 	}
- 
- 	header.next = 0;
--	memcpy(skb_put(conn->tx_buff, NETIUCV_HDRLEN), &header, NETIUCV_HDRLEN);
-+	skb_put_data(conn->tx_buff, &header, NETIUCV_HDRLEN);
- 	conn->prof.send_stamp = jiffies;
- 	txmsg.class = 0;
- 	txmsg.tag = 0;
-@@ -1201,8 +1200,7 @@ static int netiucv_transmit_skb(struct iucv_connection *conn,
- 				return rc;
- 			} else {
- 				skb_reserve(nskb, NETIUCV_HDRLEN);
--				memcpy(skb_put(nskb, skb->len),
--				       skb->data, skb->len);
-+				skb_put_data(nskb, skb->data, skb->len);
- 			}
- 			copied = 1;
- 		}
-@@ -1212,7 +1210,7 @@ static int netiucv_transmit_skb(struct iucv_connection *conn,
- 		header.next = nskb->len + NETIUCV_HDRLEN;
- 		memcpy(skb_push(nskb, NETIUCV_HDRLEN), &header, NETIUCV_HDRLEN);
- 		header.next = 0;
--		memcpy(skb_put(nskb, NETIUCV_HDRLEN), &header,  NETIUCV_HDRLEN);
-+		skb_put_data(nskb, &header, NETIUCV_HDRLEN);
- 
- 		fsm_newstate(conn->fsm, CONN_STATE_TX);
- 		conn->prof.send_stamp = jiffies;
-diff --git a/drivers/s390/net/qeth_core_main.c b/drivers/s390/net/qeth_core_main.c
-index 1fb92e870040..08338f27c82c 100644
---- a/drivers/s390/net/qeth_core_main.c
-+++ b/drivers/s390/net/qeth_core_main.c
-@@ -5147,12 +5147,11 @@ static inline int qeth_create_skb_frag(struct qeth_qdio_buffer *qethbuffer,
- 
- 		skb_reserve(*pskb, ETH_HLEN);
- 		if (data_len <= QETH_RX_PULL_LEN) {
--			memcpy(skb_put(*pskb, data_len), element->addr + offset,
--				data_len);
-+			skb_put_data(*pskb, element->addr + offset, data_len);
- 		} else {
- 			get_page(page);
--			memcpy(skb_put(*pskb, QETH_RX_PULL_LEN),
--			       element->addr + offset, QETH_RX_PULL_LEN);
-+			skb_put_data(*pskb, element->addr + offset,
-+				     QETH_RX_PULL_LEN);
- 			skb_fill_page_desc(*pskb, *pfrag, page,
- 				offset + QETH_RX_PULL_LEN,
- 				data_len - QETH_RX_PULL_LEN);
-@@ -5248,8 +5247,7 @@ struct sk_buff *qeth_core_get_next_skb(struct qeth_card *card,
- 				    &skb, offset, &frag, data_len))
- 					goto no_mem;
- 			} else {
--				memcpy(skb_put(skb, data_len), data_ptr,
--					data_len);
-+				skb_put_data(skb, data_ptr, data_len);
- 			}
- 		}
- 		skb_len -= data_len;
-diff --git a/drivers/staging/gdm724x/gdm_lte.c b/drivers/staging/gdm724x/gdm_lte.c
-index cf809987f79f..9ab6ce231f11 100644
---- a/drivers/staging/gdm724x/gdm_lte.c
-+++ b/drivers/staging/gdm724x/gdm_lte.c
-@@ -161,12 +161,9 @@ static int gdm_lte_emulate_arp(struct sk_buff *skb_in, u32 nic_type)
- 		return -ENOMEM;
- 	skb_reserve(skb_out, NET_IP_ALIGN);
- 
--	memcpy(skb_put(skb_out, mac_header_len), mac_header_data,
--	       mac_header_len);
--	memcpy(skb_put(skb_out, sizeof(struct arphdr)), arp_out,
--	       sizeof(struct arphdr));
--	memcpy(skb_put(skb_out, sizeof(struct arpdata)), arp_data_out,
--	       sizeof(struct arpdata));
-+	skb_put_data(skb_out, mac_header_data, mac_header_len);
-+	skb_put_data(skb_out, arp_out, sizeof(struct arphdr));
-+	skb_put_data(skb_out, arp_data_out, sizeof(struct arpdata));
- 
- 	skb_out->protocol = ((struct ethhdr *)mac_header_data)->h_proto;
- 	skb_out->dev = skb_in->dev;
-@@ -322,14 +319,10 @@ static int gdm_lte_emulate_ndp(struct sk_buff *skb_in, u32 nic_type)
- 		return -ENOMEM;
- 	skb_reserve(skb_out, NET_IP_ALIGN);
- 
--	memcpy(skb_put(skb_out, mac_header_len), mac_header_data,
--	       mac_header_len);
--	memcpy(skb_put(skb_out, sizeof(struct ipv6hdr)), &ipv6_out,
--	       sizeof(struct ipv6hdr));
--	memcpy(skb_put(skb_out, sizeof(struct icmp6hdr)), &icmp6_out,
--	       sizeof(struct icmp6hdr));
--	memcpy(skb_put(skb_out, sizeof(struct neighbour_advertisement)), &na,
--	       sizeof(struct neighbour_advertisement));
-+	skb_put_data(skb_out, mac_header_data, mac_header_len);
-+	skb_put_data(skb_out, &ipv6_out, sizeof(struct ipv6hdr));
-+	skb_put_data(skb_out, &icmp6_out, sizeof(struct icmp6hdr));
-+	skb_put_data(skb_out, &na, sizeof(struct neighbour_advertisement));
- 
- 	skb_out->protocol = ((struct ethhdr *)mac_header_data)->h_proto;
- 	skb_out->dev = skb_in->dev;
-@@ -669,8 +662,8 @@ static void gdm_lte_netif_rx(struct net_device *dev, char *buf,
- 		return;
- 	skb_reserve(skb, NET_IP_ALIGN);
- 
--	memcpy(skb_put(skb, mac_header_len), mac_header_data, mac_header_len);
--	memcpy(skb_put(skb, len), buf, len);
-+	skb_put_data(skb, mac_header_data, mac_header_len);
-+	skb_put_data(skb, buf, len);
- 
- 	skb->protocol = ((struct ethhdr *)mac_header_data)->h_proto;
- 	skb->dev = dev;
-diff --git a/drivers/staging/ks7010/ks_hostif.c b/drivers/staging/ks7010/ks_hostif.c
-index 49e95426ac30..da801d3e0585 100644
---- a/drivers/staging/ks7010/ks_hostif.c
-+++ b/drivers/staging/ks7010/ks_hostif.c
-@@ -466,12 +466,12 @@ void hostif_data_indication(struct ks_wlan_private *priv)
- 		DPRINTK(4, "SNAP, rx_ind_size = %d\n", rx_ind_size);
- 
- 		size = ETH_ALEN * 2;
--		memcpy(skb_put(skb, size), priv->rxp, size);
-+		skb_put_data(skb, priv->rxp, size);
- 
- 		/* (SNAP+UI..) skip */
- 
- 		size = rx_ind_size - (ETH_ALEN * 2);
--		memcpy(skb_put(skb, size), &eth_hdr->h_proto, size);
-+		skb_put_data(skb, &eth_hdr->h_proto, size);
- 
- 		aa1x_hdr = (struct ieee802_1x_hdr *)(priv->rxp + ETHER_HDR_SIZE);
- 		break;
-@@ -484,14 +484,13 @@ void hostif_data_indication(struct ks_wlan_private *priv)
- 		}
- 		DPRINTK(3, "NETBEUI/NetBIOS rx_ind_size=%d\n", rx_ind_size);
- 
--		memcpy(skb_put(skb, 12), priv->rxp, 12);	/* 8802/FDDI MAC copy */
-+		skb_put_data(skb, priv->rxp, 12);	/* 8802/FDDI MAC copy */
- 
- 		temp[0] = (((rx_ind_size - 12) >> 8) & 0xff);	/* NETBEUI size add */
- 		temp[1] = ((rx_ind_size - 12) & 0xff);
--		memcpy(skb_put(skb, 2), temp, 2);
-+		skb_put_data(skb, temp, 2);
- 
--		memcpy(skb_put(skb, rx_ind_size - 14), priv->rxp + 12,
--		       rx_ind_size - 14);	/* copy after Type */
-+		skb_put_data(skb, priv->rxp + 12, rx_ind_size - 14);	/* copy after Type */
- 
- 		aa1x_hdr = (struct ieee802_1x_hdr *)(priv->rxp + 14);
- 		break;
-diff --git a/drivers/staging/most/aim-network/networking.c b/drivers/staging/most/aim-network/networking.c
-index ce1764cba5f0..995674f25172 100644
---- a/drivers/staging/most/aim-network/networking.c
-+++ b/drivers/staging/most/aim-network/networking.c
-@@ -486,11 +486,11 @@ static int aim_rx_data(struct mbo *mbo)
- 		ether_addr_copy(skb_put(skb, ETH_ALEN), dev->dev_addr);
- 
- 		/* src */
--		memcpy(skb_put(skb, 4), &zero, 4);
--		memcpy(skb_put(skb, 2), buf + 5, 2);
-+		skb_put_data(skb, &zero, 4);
-+		skb_put_data(skb, buf + 5, 2);
- 
- 		/* eth type */
--		memcpy(skb_put(skb, 2), buf + 10, 2);
-+		skb_put_data(skb, buf + 10, 2);
- 
- 		buf += MDP_HDR_LEN;
- 		len -= MDP_HDR_LEN;
-@@ -499,7 +499,7 @@ static int aim_rx_data(struct mbo *mbo)
- 		len -= MEP_HDR_LEN;
- 	}
- 
--	memcpy(skb_put(skb, len), buf, len);
-+	skb_put_data(skb, buf, len);
- 	skb->protocol = eth_type_trans(skb, dev);
- 	skb_len = skb->len;
- 	if (netif_rx(skb) == NET_RX_SUCCESS) {
-diff --git a/drivers/staging/octeon/ethernet-rx.c b/drivers/staging/octeon/ethernet-rx.c
-index 65a285631994..72baedefa0f1 100644
---- a/drivers/staging/octeon/ethernet-rx.c
-+++ b/drivers/staging/octeon/ethernet-rx.c
-@@ -287,8 +287,7 @@ static int cvm_oct_poll(struct oct_rx_group *rx_group, int budget)
- 					else
- 						ptr += 6;
- 				}
--				memcpy(skb_put(skb, work->word1.len), ptr,
--				       work->word1.len);
-+				skb_put_data(skb, ptr, work->word1.len);
- 				/* No packet buffers to free */
- 			} else {
- 				int segments = work->word2.s.bufs;
-@@ -323,10 +322,9 @@ static int cvm_oct_poll(struct oct_rx_group *rx_group, int budget)
- 					if (segment_size > len)
- 						segment_size = len;
- 					/* Copy the data into the packet */
--					memcpy(skb_put(skb, segment_size),
--					       cvmx_phys_to_ptr(
--					       segment_ptr.s.addr),
--					       segment_size);
-+					skb_put_data(skb,
-+						     cvmx_phys_to_ptr(segment_ptr.s.addr),
-+						     segment_size);
- 					len -= segment_size;
- 					segment_ptr = next_ptr;
- 				}
-diff --git a/drivers/staging/rtl8188eu/core/rtw_recv.c b/drivers/staging/rtl8188eu/core/rtw_recv.c
-index c6c4404e717b..14173cf6e1e7 100644
---- a/drivers/staging/rtl8188eu/core/rtw_recv.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_recv.c
-@@ -1544,8 +1544,8 @@ static int amsdu_to_msdu(struct adapter *padapter, struct recv_frame *prframe)
- 		sub_skb = dev_alloc_skb(nSubframe_Length + 12);
- 		if (sub_skb) {
- 			skb_reserve(sub_skb, 12);
--			data_ptr = (u8 *)skb_put(sub_skb, nSubframe_Length);
--			memcpy(data_ptr, pdata, nSubframe_Length);
-+			data_ptr = skb_put_data(sub_skb, pdata,
-+						nSubframe_Length);
- 		} else {
- 			sub_skb = skb_clone(prframe->pkt, GFP_ATOMIC);
- 			if (sub_skb) {
-diff --git a/drivers/staging/rtl8188eu/os_dep/mon.c b/drivers/staging/rtl8188eu/os_dep/mon.c
-index 859d0d6051cd..225c23fc69dc 100644
---- a/drivers/staging/rtl8188eu/os_dep/mon.c
-+++ b/drivers/staging/rtl8188eu/os_dep/mon.c
-@@ -53,7 +53,7 @@ static void mon_recv_decrypted(struct net_device *dev, const u8 *data,
- 	skb = netdev_alloc_skb(dev, data_len);
- 	if (!skb)
- 		return;
--	memcpy(skb_put(skb, data_len), data, data_len);
-+	skb_put_data(skb, data, data_len);
- 
- 	/*
- 	 * Frame data is not encrypted. Strip off protection so
-diff --git a/drivers/staging/rtl8192e/rtllib_rx.c b/drivers/staging/rtl8192e/rtllib_rx.c
-index 43a77745e6fb..bae98ca0a9b6 100644
---- a/drivers/staging/rtl8192e/rtllib_rx.c
-+++ b/drivers/staging/rtl8192e/rtllib_rx.c
-@@ -817,8 +817,7 @@ static u8 parse_subframe(struct rtllib_device *ieee, struct sk_buff *skb,
- 		if (!sub_skb)
- 			return 0;
- 		skb_reserve(sub_skb, 12);
--		data_ptr = (u8 *)skb_put(sub_skb, skb->len);
--		memcpy(data_ptr, skb->data, skb->len);
-+		data_ptr = skb_put_data(sub_skb, skb->data, skb->len);
- 		sub_skb->dev = ieee->dev;
- 
- 		rxb->subframes[0] = sub_skb;
-@@ -870,8 +869,7 @@ static u8 parse_subframe(struct rtllib_device *ieee, struct sk_buff *skb,
- 		if (!sub_skb)
- 			return 0;
- 		skb_reserve(sub_skb, 12);
--		data_ptr = (u8 *)skb_put(sub_skb, nSubframe_Length);
--		memcpy(data_ptr, skb->data, nSubframe_Length);
-+		data_ptr = skb_put_data(sub_skb, skb->data, nSubframe_Length);
- 
- 		sub_skb->dev = ieee->dev;
- 		rxb->subframes[rxb->nr_subframes++] = sub_skb;
-@@ -1141,13 +1139,12 @@ static int rtllib_rx_decrypt(struct rtllib_device *ieee, struct sk_buff *skb,
- 			/* copy first fragment (including full headers) into
- 			 * beginning of the fragment cache skb
- 			 */
--			memcpy(skb_put(frag_skb, flen), skb->data, flen);
-+			skb_put_data(frag_skb, skb->data, flen);
- 		} else {
- 			/* append frame payload to the end of the fragment
- 			 * cache skb
- 			 */
--			memcpy(skb_put(frag_skb, flen), skb->data + hdrlen,
--			       flen);
-+			skb_put_data(frag_skb, skb->data + hdrlen, flen);
- 		}
- 		dev_kfree_skb_any(skb);
- 		skb = NULL;
-diff --git a/drivers/staging/rtl8192e/rtllib_softmac.c b/drivers/staging/rtl8192e/rtllib_softmac.c
-index eeda17d6409b..60d07d0bb4eb 100644
---- a/drivers/staging/rtl8192e/rtllib_softmac.c
-+++ b/drivers/staging/rtl8192e/rtllib_softmac.c
-@@ -1272,8 +1272,7 @@ rtllib_association_req(struct rtllib_network *beacon,
- 	hdr->info_element[0].id = MFIE_TYPE_SSID;
- 
- 	hdr->info_element[0].len = beacon->ssid_len;
--	tag = skb_put(skb, beacon->ssid_len);
--	memcpy(tag, beacon->ssid, beacon->ssid_len);
-+	tag = skb_put_data(skb, beacon->ssid, beacon->ssid_len);
- 
- 	tag = skb_put(skb, rate_len);
- 
-@@ -1349,8 +1348,7 @@ rtllib_association_req(struct rtllib_network *beacon,
- 	}
- 
- 	if (wpa_ie_len) {
--		tag = skb_put(skb, ieee->wpa_ie_len);
--		memcpy(tag, ieee->wpa_ie, ieee->wpa_ie_len);
-+		tag = skb_put_data(skb, ieee->wpa_ie, ieee->wpa_ie_len);
- 
- 		if (PMKCacheIdx >= 0) {
- 			tag = skb_put(skb, 18);
-@@ -1366,8 +1364,7 @@ rtllib_association_req(struct rtllib_network *beacon,
- 	}
- 
- 	if (wps_ie_len && ieee->wps_ie) {
--		tag = skb_put(skb, wps_ie_len);
--		memcpy(tag, ieee->wps_ie, wps_ie_len);
-+		tag = skb_put_data(skb, ieee->wps_ie, wps_ie_len);
- 	}
- 
- 	tag = skb_put(skb, turbo_info_len);
-diff --git a/drivers/staging/rtl8192e/rtllib_tx.c b/drivers/staging/rtl8192e/rtllib_tx.c
-index 78a3ad5b231f..fc88d47dea43 100644
---- a/drivers/staging/rtl8192e/rtllib_tx.c
-+++ b/drivers/staging/rtl8192e/rtllib_tx.c
-@@ -624,8 +624,7 @@ static int rtllib_xmit_inter(struct sk_buff *skb, struct net_device *dev)
- 
- 			txb->encrypted = 0;
- 			txb->payload_size = cpu_to_le16(skb->len);
--			memcpy(skb_put(txb->fragments[0], skb->len), skb->data,
--			       skb->len);
-+			skb_put_data(txb->fragments[0], skb->data, skb->len);
- 
- 			goto success;
- 		}
-@@ -818,9 +817,7 @@ static int rtllib_xmit_inter(struct sk_buff *skb, struct net_device *dev)
- 			} else {
- 				tcb_desc->bHwSec = 0;
- 			}
--			frag_hdr = (struct rtllib_hdr_3addrqos *)
--				   skb_put(skb_frag, hdr_len);
--			memcpy(frag_hdr, &header, hdr_len);
-+			frag_hdr = skb_put_data(skb_frag, &header, hdr_len);
- 
- 			/* If this is not the last fragment, then add the
- 			 * MOREFRAGS bit to the frame control
-@@ -852,7 +849,7 @@ static int rtllib_xmit_inter(struct sk_buff *skb, struct net_device *dev)
- 				bytes -= SNAP_SIZE + sizeof(u16);
- 			}
- 
--			memcpy(skb_put(skb_frag, bytes), skb->data, bytes);
-+			skb_put_data(skb_frag, skb->data, bytes);
- 
- 			/* Advance the SKB... */
- 			skb_pull(skb, bytes);
-@@ -895,8 +892,7 @@ static int rtllib_xmit_inter(struct sk_buff *skb, struct net_device *dev)
- 
- 		txb->encrypted = 0;
- 		txb->payload_size = cpu_to_le16(skb->len);
--		memcpy(skb_put(txb->fragments[0], skb->len), skb->data,
--		       skb->len);
-+		skb_put_data(txb->fragments[0], skb->data, skb->len);
- 	}
- 
-  success:
-diff --git a/drivers/staging/rtl8192u/ieee80211/ieee80211_rx.c b/drivers/staging/rtl8192u/ieee80211/ieee80211_rx.c
-index 7a31510f0524..c0e2f711cb4e 100644
---- a/drivers/staging/rtl8192u/ieee80211/ieee80211_rx.c
-+++ b/drivers/staging/rtl8192u/ieee80211/ieee80211_rx.c
-@@ -848,8 +848,8 @@ static u8 parse_subframe(struct sk_buff *skb,
- 			if (!sub_skb)
- 				return 0;
- 			skb_reserve(sub_skb, 12);
--			data_ptr = (u8 *)skb_put(sub_skb, nSubframe_Length);
--			memcpy(data_ptr, skb->data, nSubframe_Length);
-+			data_ptr = skb_put_data(sub_skb, skb->data,
-+						nSubframe_Length);
- #endif
- 			rxb->subframes[rxb->nr_subframes++] = sub_skb;
- 			if (rxb->nr_subframes >= MAX_SUBFRAME_COUNT) {
-@@ -1180,12 +1180,11 @@ int ieee80211_rx(struct ieee80211_device *ieee, struct sk_buff *skb,
- 		if (frag == 0) {
- 			/* copy first fragment (including full headers) into
- 			 * beginning of the fragment cache skb */
--			memcpy(skb_put(frag_skb, flen), skb->data, flen);
-+			skb_put_data(frag_skb, skb->data, flen);
- 		} else {
- 			/* append frame payload to the end of the fragment
- 			 * cache skb */
--			memcpy(skb_put(frag_skb, flen), skb->data + hdrlen,
--			       flen);
-+			skb_put_data(frag_skb, skb->data + hdrlen, flen);
- 		}
- 		dev_kfree_skb_any(skb);
- 		skb = NULL;
-diff --git a/drivers/staging/rtl8192u/ieee80211/ieee80211_softmac.c b/drivers/staging/rtl8192u/ieee80211/ieee80211_softmac.c
-index 14aea26804f4..903a1d0269df 100644
---- a/drivers/staging/rtl8192u/ieee80211/ieee80211_softmac.c
-+++ b/drivers/staging/rtl8192u/ieee80211/ieee80211_softmac.c
-@@ -1115,8 +1115,7 @@ ieee80211_association_req(struct ieee80211_network *beacon,
- 	hdr->info_element[0].id = MFIE_TYPE_SSID;
- 
- 	hdr->info_element[0].len = beacon->ssid_len;
--	tag = skb_put(skb, beacon->ssid_len);
--	memcpy(tag, beacon->ssid, beacon->ssid_len);
-+	tag = skb_put_data(skb, beacon->ssid, beacon->ssid_len);
- 
- 	tag = skb_put(skb, rate_len);
- 
-diff --git a/drivers/staging/rtl8192u/ieee80211/ieee80211_tx.c b/drivers/staging/rtl8192u/ieee80211/ieee80211_tx.c
-index bdb96a45a9eb..f58971a4a2e3 100644
---- a/drivers/staging/rtl8192u/ieee80211/ieee80211_tx.c
-+++ b/drivers/staging/rtl8192u/ieee80211/ieee80211_tx.c
-@@ -794,8 +794,7 @@ int ieee80211_xmit(struct sk_buff *skb, struct net_device *dev)
- 			{
- 				tcb_desc->bHwSec = 0;
- 			}
--			frag_hdr = (struct rtl_80211_hdr_3addrqos *)skb_put(skb_frag, hdr_len);
--			memcpy(frag_hdr, &header, hdr_len);
-+			frag_hdr = skb_put_data(skb_frag, &header, hdr_len);
- 
- 			/* If this is not the last fragment, then add the MOREFRAGS
- 			 * bit to the frame control
-@@ -826,7 +825,7 @@ int ieee80211_xmit(struct sk_buff *skb, struct net_device *dev)
- 				bytes -= SNAP_SIZE + sizeof(u16);
- 			}
- 
--			memcpy(skb_put(skb_frag, bytes), skb->data, bytes);
-+			skb_put_data(skb_frag, skb->data, bytes);
- 
- 			/* Advance the SKB... */
- 			skb_pull(skb, bytes);
-@@ -869,7 +868,7 @@ int ieee80211_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 		txb->encrypted = 0;
- 		txb->payload_size = __cpu_to_le16(skb->len);
--		memcpy(skb_put(txb->fragments[0],skb->len), skb->data, skb->len);
-+		skb_put_data(txb->fragments[0], skb->data, skb->len);
- 	}
- 
-  success:
-diff --git a/drivers/staging/rtl8192u/r819xU_cmdpkt.c b/drivers/staging/rtl8192u/r819xU_cmdpkt.c
-index bb6d8bd6c7ac..c3cf01c842a3 100644
---- a/drivers/staging/rtl8192u/r819xU_cmdpkt.c
-+++ b/drivers/staging/rtl8192u/r819xU_cmdpkt.c
-@@ -45,8 +45,7 @@ rt_status SendTxCommandPacket(struct net_device *dev, void *pData, u32 DataLen)
- 	tcb_desc->bCmdOrInit = DESC_PACKET_TYPE_NORMAL;
- 	tcb_desc->bLastIniPkt = 0;
- 	skb_reserve(skb, USB_HWDESC_HEADER_LEN);
--	ptr_buf = skb_put(skb, DataLen);
--	memcpy(ptr_buf, pData, DataLen);
-+	ptr_buf = skb_put_data(skb, pData, DataLen);
- 	tcb_desc->txbuf_size = (u16)DataLen;
- 
- 	if (!priv->ieee80211->check_nic_enough_desc(dev, tcb_desc->queue_index) ||
-diff --git a/drivers/staging/rtl8712/rtl8712_recv.c b/drivers/staging/rtl8712/rtl8712_recv.c
-index 266ffefd55ed..f96c558b3c6a 100644
---- a/drivers/staging/rtl8712/rtl8712_recv.c
-+++ b/drivers/staging/rtl8712/rtl8712_recv.c
-@@ -372,8 +372,7 @@ static int amsdu_to_msdu(struct _adapter *padapter, union recv_frame *prframe)
- 		if (!sub_skb)
- 			break;
- 		skb_reserve(sub_skb, 12);
--		data_ptr = (u8 *)skb_put(sub_skb, nSubframe_Length);
--		memcpy(data_ptr, pdata, nSubframe_Length);
-+		data_ptr = skb_put_data(sub_skb, pdata, nSubframe_Length);
- 		subframes[nr_subframes++] = sub_skb;
- 		if (nr_subframes >= MAX_SUBFRAME_COUNT) {
- 			netdev_warn(padapter->pnetdev, "r8712u: ParseSubframe(): Too many Subframes! Packets dropped!\n");
-diff --git a/drivers/staging/rtl8723bs/os_dep/recv_linux.c b/drivers/staging/rtl8723bs/os_dep/recv_linux.c
-index e731ab4e2bd7..1a6443dc3ff0 100644
---- a/drivers/staging/rtl8723bs/os_dep/recv_linux.c
-+++ b/drivers/staging/rtl8723bs/os_dep/recv_linux.c
-@@ -82,8 +82,8 @@ _pkt *rtw_os_alloc_msdu_pkt(union recv_frame *prframe, u16 nSubframe_Length, u8
- 	if (sub_skb)
- 	{
- 		skb_reserve(sub_skb, 12);
--		data_ptr = (u8 *)skb_put(sub_skb, nSubframe_Length);
--		memcpy(data_ptr, (pdata + ETH_HLEN), nSubframe_Length);
-+		data_ptr = skb_put_data(sub_skb, (pdata + ETH_HLEN),
-+					nSubframe_Length);
- 	}
- 	else
- 	{
-diff --git a/drivers/staging/wilc1000/linux_mon.c b/drivers/staging/wilc1000/linux_mon.c
-index c9782d452b07..dbc266a37974 100644
---- a/drivers/staging/wilc1000/linux_mon.c
-+++ b/drivers/staging/wilc1000/linux_mon.c
-@@ -72,7 +72,7 @@ void WILC_WFI_monitor_rx(u8 *buff, u32 size)
- 		if (!skb)
- 			return;
- 
--		memcpy(skb_put(skb, size), buff, size);
-+		skb_put_data(skb, buff, size);
- 
- 		cb_hdr = (struct wilc_wfi_radiotap_cb_hdr *)skb_push(skb, sizeof(*cb_hdr));
- 		memset(cb_hdr, 0, sizeof(struct wilc_wfi_radiotap_cb_hdr));
-@@ -100,7 +100,7 @@ void WILC_WFI_monitor_rx(u8 *buff, u32 size)
- 		if (!skb)
- 			return;
- 
--		memcpy(skb_put(skb, size), buff, size);
-+		skb_put_data(skb, buff, size);
- 		hdr = (struct wilc_wfi_radiotap_hdr *)skb_push(skb, sizeof(*hdr));
- 		memset(hdr, 0, sizeof(struct wilc_wfi_radiotap_hdr));
- 		hdr->hdr.it_version = 0; /* PKTHDR_RADIOTAP_VERSION; */
-@@ -200,7 +200,7 @@ static netdev_tx_t WILC_WFI_mon_xmit(struct sk_buff *skb,
- 		if (!skb2)
- 			return -ENOMEM;
- 
--		memcpy(skb_put(skb2, skb->len), skb->data, skb->len);
-+		skb_put_data(skb2, skb->data, skb->len);
- 
- 		cb_hdr = (struct wilc_wfi_radiotap_cb_hdr *)skb_push(skb2, sizeof(*cb_hdr));
- 		memset(cb_hdr, 0, sizeof(struct wilc_wfi_radiotap_cb_hdr));
-diff --git a/drivers/staging/wilc1000/linux_wlan.c b/drivers/staging/wilc1000/linux_wlan.c
-index d6d803416be2..f36598a89ce0 100644
---- a/drivers/staging/wilc1000/linux_wlan.c
-+++ b/drivers/staging/wilc1000/linux_wlan.c
-@@ -1160,7 +1160,7 @@ void wilc_frmw_to_linux(struct wilc *wilc, u8 *buff, u32 size, u32 pkt_offset)
- 
- 		skb->dev = wilc_netdev;
- 
--		memcpy(skb_put(skb, frame_len), buff_to_send, frame_len);
-+		skb_put_data(skb, buff_to_send, frame_len);
- 
- 		skb->protocol = eth_type_trans(skb, wilc_netdev);
- 		vif->netstats.rx_packets++;
-diff --git a/drivers/staging/wlan-ng/hfa384x_usb.c b/drivers/staging/wlan-ng/hfa384x_usb.c
-index a812e55ba1b0..1de67f209f2c 100644
---- a/drivers/staging/wlan-ng/hfa384x_usb.c
-+++ b/drivers/staging/wlan-ng/hfa384x_usb.c
-@@ -3530,13 +3530,11 @@ static void hfa384x_int_rxmonitor(struct wlandevice *wlandev,
- 	/* Copy the 802.11 header to the skb
- 	 * (ctl frames may be less than a full header)
- 	 */
--	datap = skb_put(skb, hdrlen);
--	memcpy(datap, &rxdesc->frame_control, hdrlen);
-+	datap = skb_put_data(skb, &rxdesc->frame_control, hdrlen);
- 
- 	/* If any, copy the data from the card to the skb */
- 	if (datalen > 0) {
--		datap = skb_put(skb, datalen);
--		memcpy(datap, rxfrm->data, datalen);
-+		datap = skb_put_data(skb, rxfrm->data, datalen);
- 
- 		/* check for unencrypted stuff if WEP bit set. */
- 		if (*(datap - hdrlen + 1) & 0x40)	/* wep set */
-diff --git a/drivers/tty/ipwireless/network.c b/drivers/tty/ipwireless/network.c
-index c0dfb642383b..c2f9a3263b37 100644
---- a/drivers/tty/ipwireless/network.c
-+++ b/drivers/tty/ipwireless/network.c
-@@ -355,7 +355,7 @@ static struct sk_buff *ipw_packet_received_skb(unsigned char *data,
- 	if (skb == NULL)
- 		return NULL;
- 	skb_reserve(skb, 2);
--	memcpy(skb_put(skb, length), data, length);
-+	skb_put_data(skb, data, length);
- 
- 	return skb;
- }
-diff --git a/drivers/tty/n_gsm.c b/drivers/tty/n_gsm.c
-index 2667a205a5ab..da830f833392 100644
---- a/drivers/tty/n_gsm.c
-+++ b/drivers/tty/n_gsm.c
-@@ -2688,7 +2688,7 @@ static void gsm_mux_rx_netchar(struct gsm_dlci *dlci,
- 		return;
- 	}
- 	skb_reserve(skb, NET_IP_ALIGN);
--	memcpy(skb_put(skb, size), in_buf, size);
-+	skb_put_data(skb, in_buf, size);
- 
- 	skb->dev = net;
- 	skb->protocol = htons(ETH_P_IP);
-diff --git a/drivers/tty/synclink.c b/drivers/tty/synclink.c
-index a2c308f7d637..3fafc5a1b2e0 100644
---- a/drivers/tty/synclink.c
-+++ b/drivers/tty/synclink.c
-@@ -7960,7 +7960,7 @@ static void hdlcdev_rx(struct mgsl_struct *info, char *buf, int size)
- 		return;
- 	}
- 
--	memcpy(skb_put(skb, size), buf, size);
-+	skb_put_data(skb, buf, size);
- 
- 	skb->protocol = hdlc_type_trans(skb, dev);
- 
-diff --git a/drivers/tty/synclink_gt.c b/drivers/tty/synclink_gt.c
-index 31885f20fc15..7e947ecf15f1 100644
---- a/drivers/tty/synclink_gt.c
-+++ b/drivers/tty/synclink_gt.c
-@@ -1755,7 +1755,7 @@ static void hdlcdev_rx(struct slgt_info *info, char *buf, int size)
- 		return;
- 	}
- 
--	memcpy(skb_put(skb, size), buf, size);
-+	skb_put_data(skb, buf, size);
- 
- 	skb->protocol = hdlc_type_trans(skb, dev);
- 
-diff --git a/drivers/tty/synclinkmp.c b/drivers/tty/synclinkmp.c
-index 51e8846cd68f..9b4fb0251c1a 100644
---- a/drivers/tty/synclinkmp.c
-+++ b/drivers/tty/synclinkmp.c
-@@ -1874,7 +1874,7 @@ static void hdlcdev_rx(SLMP_INFO *info, char *buf, int size)
- 		return;
- 	}
- 
--	memcpy(skb_put(skb, size), buf, size);
-+	skb_put_data(skb, buf, size);
- 
- 	skb->protocol = hdlc_type_trans(skb, dev);
- 
-diff --git a/drivers/usb/gadget/function/f_ncm.c b/drivers/usb/gadget/function/f_ncm.c
-index 2882c6d3ae66..630616aaa861 100644
---- a/drivers/usb/gadget/function/f_ncm.c
-+++ b/drivers/usb/gadget/function/f_ncm.c
-@@ -1007,8 +1007,8 @@ static struct sk_buff *package_for_tx(struct f_ncm *ncm)
- 	ntb_iter = skb_put_zero(skb2, ndp_pad);
- 
- 	/* Copy NTB across. */
--	ntb_iter = (void *) skb_put(skb2, ncm->skb_tx_ndp->len);
--	memcpy(ntb_iter, ncm->skb_tx_ndp->data, ncm->skb_tx_ndp->len);
-+	ntb_iter = skb_put_data(skb2, ncm->skb_tx_ndp->data,
-+				ncm->skb_tx_ndp->len);
- 	dev_consume_skb_any(ncm->skb_tx_ndp);
- 	ncm->skb_tx_ndp = NULL;
- 
-@@ -1129,8 +1129,7 @@ static struct sk_buff *ncm_wrap_ntb(struct gether *port,
- 
- 		/* Add the new data to the skb */
- 		ntb_data = skb_put_zero(ncm->skb_tx_data, dgram_pad);
--		ntb_data = (void *) skb_put(ncm->skb_tx_data, skb->len);
--		memcpy(ntb_data, skb->data, skb->len);
-+		ntb_data = skb_put_data(ncm->skb_tx_data, skb->data, skb->len);
- 		dev_consume_skb_any(skb);
- 		skb = NULL;
- 
-@@ -1313,8 +1312,8 @@ static int ncm_unwrap_ntb(struct gether *port,
- 							 dg_len - crc_len);
- 			if (skb2 == NULL)
- 				goto err;
--			memcpy(skb_put(skb2, dg_len - crc_len),
--			       skb->data + index, dg_len - crc_len);
-+			skb_put_data(skb2, skb->data + index,
-+				     dg_len - crc_len);
- 
- 			skb_queue_tail(list, skb2);
- 
-diff --git a/drivers/usb/gadget/function/f_phonet.c b/drivers/usb/gadget/function/f_phonet.c
-index 6a1ce6a55158..9c4c58e4a1a2 100644
---- a/drivers/usb/gadget/function/f_phonet.c
-+++ b/drivers/usb/gadget/function/f_phonet.c
-@@ -336,7 +336,7 @@ static void pn_rx_complete(struct usb_ep *ep, struct usb_request *req)
- 			skb->protocol = htons(ETH_P_PHONET);
- 			skb_reset_mac_header(skb);
- 			/* Can't use pskb_pull() on page in IRQ */
--			memcpy(skb_put(skb, 1), page_address(page), 1);
-+			skb_put_data(skb, page_address(page), 1);
- 		}
- 
- 		skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page,
-diff --git a/include/linux/mISDNif.h b/include/linux/mISDNif.h
-index ac02c54520e9..a7330eb3ec64 100644
---- a/include/linux/mISDNif.h
-+++ b/include/linux/mISDNif.h
-@@ -554,7 +554,7 @@ _alloc_mISDN_skb(u_int prim, u_int id, u_int len, void *dp, gfp_t gfp_mask)
- 	if (!skb)
- 		return NULL;
- 	if (len)
--		memcpy(skb_put(skb, len), dp, len);
-+		skb_put_data(skb, dp, len);
- 	hh = mISDN_HEAD_P(skb);
- 	hh->prim = prim;
- 	hh->id = id;
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 01ea64d0783a..5af5385a0e72 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1913,6 +1913,16 @@ static inline void *skb_put_zero(struct sk_buff *skb, unsigned int len)
- 	return tmp;
- }
- 
-+static inline void *skb_put_data(struct sk_buff *skb, const void *data,
-+				 unsigned int len)
-+{
-+	void *tmp = skb_put(skb, len);
-+
-+	memcpy(tmp, data, len);
-+
-+	return tmp;
-+}
-+
- unsigned char *skb_push(struct sk_buff *skb, unsigned int len);
- static inline unsigned char *__skb_push(struct sk_buff *skb, unsigned int len)
- {
-diff --git a/lib/nlattr.c b/lib/nlattr.c
-index d09d9746fc5d..ab15a6c095d3 100644
---- a/lib/nlattr.c
-+++ b/lib/nlattr.c
-@@ -616,7 +616,7 @@ int nla_append(struct sk_buff *skb, int attrlen, const void *data)
- 	if (unlikely(skb_tailroom(skb) < NLA_ALIGN(attrlen)))
- 		return -EMSGSIZE;
- 
--	memcpy(skb_put(skb, attrlen), data, attrlen);
-+	skb_put_data(skb, data, attrlen);
- 	return 0;
- }
- EXPORT_SYMBOL(nla_append);
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index fa8d6b475c06..a3501173e200 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -732,8 +732,8 @@ static void batadv_iv_ogm_aggregate(struct batadv_forw_packet *forw_packet_aggr,
- 	unsigned char *skb_buff;
- 	unsigned long new_direct_link_flag;
- 
--	skb_buff = skb_put(forw_packet_aggr->skb, packet_len);
--	memcpy(skb_buff, packet_buff, packet_len);
-+	skb_buff = skb_put_data(forw_packet_aggr->skb, packet_buff,
-+				packet_len);
- 	forw_packet_aggr->packet_len += packet_len;
- 	forw_packet_aggr->num_packets++;
- 
-diff --git a/net/batman-adv/bat_v_ogm.c b/net/batman-adv/bat_v_ogm.c
-index 03a35c9f456d..1e3dc374bfde 100644
---- a/net/batman-adv/bat_v_ogm.c
-+++ b/net/batman-adv/bat_v_ogm.c
-@@ -166,8 +166,7 @@ static void batadv_v_ogm_send(struct work_struct *work)
- 		goto reschedule;
- 
- 	skb_reserve(skb, ETH_HLEN);
--	pkt_buff = skb_put(skb, ogm_buff_len);
--	memcpy(pkt_buff, ogm_buff, ogm_buff_len);
-+	pkt_buff = skb_put_data(skb, ogm_buff, ogm_buff_len);
- 
- 	ogm_packet = (struct batadv_ogm2_packet *)skb->data;
- 	ogm_packet->seqno = htonl(atomic_read(&bat_priv->bat_v.ogm_seqno));
-@@ -382,8 +381,7 @@ static void batadv_v_ogm_forward(struct batadv_priv *bat_priv,
- 		goto out;
- 
- 	skb_reserve(skb, ETH_HLEN);
--	skb_buff = skb_put(skb, packet_len);
--	memcpy(skb_buff, ogm_received, packet_len);
-+	skb_buff = skb_put_data(skb, ogm_received, packet_len);
- 
- 	/* apply forward penalty */
- 	ogm_forward = (struct batadv_ogm2_packet *)skb_buff;
-diff --git a/net/batman-adv/fragmentation.c b/net/batman-adv/fragmentation.c
-index 8f964beaac28..a98cf1104a30 100644
---- a/net/batman-adv/fragmentation.c
-+++ b/net/batman-adv/fragmentation.c
-@@ -296,8 +296,7 @@ batadv_frag_merge_packets(struct hlist_head *chain)
- 	/* Copy the payload of the each fragment into the last skb */
- 	hlist_for_each_entry(entry, chain, list) {
- 		size = entry->skb->len - hdr_size;
--		memcpy(skb_put(skb_out, size), entry->skb->data + hdr_size,
--		       size);
-+		skb_put_data(skb_out, entry->skb->data + hdr_size, size);
- 	}
- 
- free:
-diff --git a/net/bluetooth/cmtp/core.c b/net/bluetooth/cmtp/core.c
-index 9e59b6654126..f4c64ef01c24 100644
---- a/net/bluetooth/cmtp/core.c
-+++ b/net/bluetooth/cmtp/core.c
-@@ -122,7 +122,7 @@ static inline void cmtp_add_msgpart(struct cmtp_session *session, int id, const
- 	if (skb && (skb->len > 0))
- 		skb_copy_from_linear_data(skb, skb_put(nskb, skb->len), skb->len);
- 
--	memcpy(skb_put(nskb, count), buf, count);
-+	skb_put_data(nskb, buf, count);
- 
- 	session->reassembly[id] = nskb;
- 
-diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
-index 93806b959039..d860e3cc23cf 100644
---- a/net/bluetooth/hci_core.c
-+++ b/net/bluetooth/hci_core.c
-@@ -3266,7 +3266,7 @@ int hci_reset_dev(struct hci_dev *hdev)
- 		return -ENOMEM;
+-	hdr = (struct hci_event_hdr *)skb_put(skb, sizeof(*hdr));
++	hdr = skb_put(skb, sizeof(*hdr));
+ 	hdr->evt = HCI_EV_CMD_COMPLETE;
+ 	hdr->plen = sizeof(*evt) + 1;
+ 
+-	evt = (struct hci_ev_cmd_complete *)skb_put(skb, sizeof(*evt));
++	evt = skb_put(skb, sizeof(*evt));
+ 	evt->ncmd = 0x01;
+ 	evt->opcode = cpu_to_le16(opcode);
+ 
+-	*skb_put(skb, 1) = 0x00;
++	*(u8 *)skb_put(skb, 1) = 0x00;
  
  	hci_skb_pkt_type(skb) = HCI_EVENT_PKT;
--	memcpy(skb_put(skb, 3), hw_err, 3);
-+	skb_put_data(skb, hw_err, 3);
  
- 	/* Send Hardware Error to upper stack */
- 	return hci_recv_frame(hdev, skb);
-diff --git a/net/bluetooth/hci_request.c b/net/bluetooth/hci_request.c
-index b5faff458d8b..4e4105a932bd 100644
---- a/net/bluetooth/hci_request.c
-+++ b/net/bluetooth/hci_request.c
-@@ -304,7 +304,7 @@ struct sk_buff *hci_prepare_cmd(struct hci_dev *hdev, u16 opcode, u32 plen,
- 	hdr->plen   = plen;
- 
- 	if (plen)
--		memcpy(skb_put(skb, plen), param, plen);
-+		skb_put_data(skb, param, plen);
- 
- 	BT_DBG("skb len %d", skb->len);
- 
-diff --git a/net/bluetooth/hci_sock.c b/net/bluetooth/hci_sock.c
-index 638bf0e1a2e3..083e87f26a0f 100644
---- a/net/bluetooth/hci_sock.c
-+++ b/net/bluetooth/hci_sock.c
-@@ -379,7 +379,7 @@ void hci_send_monitor_ctrl_event(struct hci_dev *hdev, u16 event,
- 		put_unaligned_le16(event, skb_put(skb, 2));
- 
- 		if (data)
--			memcpy(skb_put(skb, data_len), data, data_len);
-+			skb_put_data(skb, data, data_len);
- 
- 		skb->tstamp = tstamp;
- 
-@@ -515,10 +515,10 @@ static struct sk_buff *create_monitor_ctrl_open(struct sock *sk)
- 
- 	put_unaligned_le32(hci_pi(sk)->cookie, skb_put(skb, 4));
- 	put_unaligned_le16(format, skb_put(skb, 2));
--	memcpy(skb_put(skb, sizeof(ver)), ver, sizeof(ver));
-+	skb_put_data(skb, ver, sizeof(ver));
- 	put_unaligned_le32(flags, skb_put(skb, 4));
- 	*skb_put(skb, 1) = TASK_COMM_LEN;
--	memcpy(skb_put(skb, TASK_COMM_LEN), hci_pi(sk)->comm, TASK_COMM_LEN);
-+	skb_put_data(skb, hci_pi(sk)->comm, TASK_COMM_LEN);
- 
- 	__net_timestamp(skb);
- 
-@@ -586,7 +586,7 @@ static struct sk_buff *create_monitor_ctrl_command(struct sock *sk, u16 index,
- 	put_unaligned_le16(opcode, skb_put(skb, 2));
- 
- 	if (buf)
--		memcpy(skb_put(skb, len), buf, len);
-+		skb_put_data(skb, buf, len);
- 
- 	__net_timestamp(skb);
- 
-diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
-index 0bec4588c3c8..9e83713262e8 100644
---- a/net/bluetooth/hidp/core.c
-+++ b/net/bluetooth/hidp/core.c
-@@ -114,7 +114,7 @@ static int hidp_send_message(struct hidp_session *session, struct socket *sock,
- 
- 	*skb_put(skb, 1) = hdr;
- 	if (data && size > 0)
--		memcpy(skb_put(skb, size), data, size);
-+		skb_put_data(skb, data, size);
- 
- 	skb_queue_tail(transmit, skb);
- 	wake_up_interruptible(sk_sleep(sk));
-diff --git a/net/bluetooth/l2cap_core.c b/net/bluetooth/l2cap_core.c
-index f88ac99528ce..fe6a5529bdf5 100644
---- a/net/bluetooth/l2cap_core.c
-+++ b/net/bluetooth/l2cap_core.c
-@@ -2923,7 +2923,7 @@ static struct sk_buff *l2cap_build_cmd(struct l2cap_conn *conn, u8 code,
- 
- 	if (dlen) {
- 		count -= L2CAP_HDR_SIZE + L2CAP_CMD_HDR_SIZE;
--		memcpy(skb_put(skb, count), data, count);
-+		skb_put_data(skb, data, count);
- 		data += count;
+@@ -2767,8 +2767,8 @@ static struct urb *alloc_diag_urb(struct hci_dev *hdev, bool enable)
+ 		return ERR_PTR(-ENOMEM);
  	}
  
-@@ -2938,7 +2938,7 @@ static struct sk_buff *l2cap_build_cmd(struct l2cap_conn *conn, u8 code,
- 		if (!*frag)
- 			goto fail;
+-	*skb_put(skb, 1) = 0xf0;
+-	*skb_put(skb, 1) = enable;
++	*(u8 *)skb_put(skb, 1) = 0xf0;
++	*(u8 *)skb_put(skb, 1) = enable;
  
--		memcpy(skb_put(*frag, count), data, count);
-+		skb_put_data(*frag, data, count);
+ 	pipe = usb_sndbulkpipe(data->udev, data->diag_tx_ep->bEndpointAddress);
  
- 		len  -= count;
- 		data += count;
-diff --git a/net/bluetooth/mgmt_util.c b/net/bluetooth/mgmt_util.c
-index c933bd08c1fe..11d0ca64402b 100644
---- a/net/bluetooth/mgmt_util.c
-+++ b/net/bluetooth/mgmt_util.c
-@@ -44,7 +44,7 @@ static struct sk_buff *create_monitor_ctrl_event(__le16 index, u32 cookie,
- 	put_unaligned_le16(opcode, skb_put(skb, 2));
+diff --git a/drivers/bluetooth/dtl1_cs.c b/drivers/bluetooth/dtl1_cs.c
+index 6317c6f323bf..6c5a3aa566a4 100644
+--- a/drivers/bluetooth/dtl1_cs.c
++++ b/drivers/bluetooth/dtl1_cs.c
+@@ -226,7 +226,7 @@ static void dtl1_receive(struct dtl1_info *info)
+ 			}
+ 		}
  
- 	if (buf)
--		memcpy(skb_put(skb, len), buf, len);
-+		skb_put_data(skb, buf, len);
+-		*skb_put(info->rx_skb, 1) = inb(iobase + UART_RX);
++		*(u8 *)skb_put(info->rx_skb, 1) = inb(iobase + UART_RX);
+ 		nsh = (struct nsh *)info->rx_skb->data;
  
- 	__net_timestamp(skb);
+ 		info->rx_count--;
+@@ -414,7 +414,7 @@ static int dtl1_hci_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
+ 	skb_reserve(s, NSHL);
+ 	skb_copy_from_linear_data(skb, skb_put(s, skb->len), skb->len);
+ 	if (skb->len & 0x0001)
+-		*skb_put(s, 1) = 0;	/* PAD */
++		*(u8 *)skb_put(s, 1) = 0;	/* PAD */
  
-@@ -75,7 +75,7 @@ int mgmt_send_event(u16 event, struct hci_dev *hdev, unsigned short channel,
- 	hdr->len = cpu_to_le16(data_len);
+ 	/* Prepend skb with Nokia frame header and queue */
+ 	memcpy(skb_push(s, NSHL), &nsh, NSHL);
+diff --git a/drivers/bluetooth/hci_bcm.c b/drivers/bluetooth/hci_bcm.c
+index e2096c7803b3..c1c4048ee37d 100644
+--- a/drivers/bluetooth/hci_bcm.c
++++ b/drivers/bluetooth/hci_bcm.c
+@@ -262,9 +262,9 @@ static int bcm_set_diag(struct hci_dev *hdev, bool enable)
+ 	if (!skb)
+ 		return -ENOMEM;
  
- 	if (data)
--		memcpy(skb_put(skb, data_len), data, data_len);
-+		skb_put_data(skb, data, data_len);
+-	*skb_put(skb, 1) = BCM_LM_DIAG_PKT;
+-	*skb_put(skb, 1) = 0xf0;
+-	*skb_put(skb, 1) = enable;
++	*(u8 *)skb_put(skb, 1) = BCM_LM_DIAG_PKT;
++	*(u8 *)skb_put(skb, 1) = 0xf0;
++	*(u8 *)skb_put(skb, 1) = enable;
  
- 	/* Time stamp */
- 	__net_timestamp(skb);
-diff --git a/net/bluetooth/rfcomm/tty.c b/net/bluetooth/rfcomm/tty.c
-index 2f2cb5e27cdd..5f3074cb6b4d 100644
---- a/net/bluetooth/rfcomm/tty.c
-+++ b/net/bluetooth/rfcomm/tty.c
-@@ -798,7 +798,7 @@ static int rfcomm_tty_write(struct tty_struct *tty, const unsigned char *buf, in
+ 	skb_queue_tail(&bcm->txq, skb);
+ 	hci_uart_tx_wakeup(hu);
+diff --git a/drivers/bluetooth/hci_intel.c b/drivers/bluetooth/hci_intel.c
+index 16e728577cd8..ee97c465e32e 100644
+--- a/drivers/bluetooth/hci_intel.c
++++ b/drivers/bluetooth/hci_intel.c
+@@ -462,15 +462,15 @@ static int inject_cmd_complete(struct hci_dev *hdev, __u16 opcode)
+ 	if (!skb)
+ 		return -ENOMEM;
  
- 		skb_reserve(skb, RFCOMM_SKB_HEAD_RESERVE);
+-	hdr = (struct hci_event_hdr *)skb_put(skb, sizeof(*hdr));
++	hdr = skb_put(skb, sizeof(*hdr));
+ 	hdr->evt = HCI_EV_CMD_COMPLETE;
+ 	hdr->plen = sizeof(*evt) + 1;
  
--		memcpy(skb_put(skb, size), buf + sent, size);
-+		skb_put_data(skb, buf + sent, size);
+-	evt = (struct hci_ev_cmd_complete *)skb_put(skb, sizeof(*evt));
++	evt = skb_put(skb, sizeof(*evt));
+ 	evt->ncmd = 0x01;
+ 	evt->opcode = cpu_to_le16(opcode);
  
- 		rfcomm_dlc_send_noerror(dlc, skb);
+-	*skb_put(skb, 1) = 0x00;
++	*(u8 *)skb_put(skb, 1) = 0x00;
  
-diff --git a/net/bridge/netfilter/nft_reject_bridge.c b/net/bridge/netfilter/nft_reject_bridge.c
-index bb6ed8e97580..15bf0c5322ab 100644
---- a/net/bridge/netfilter/nft_reject_bridge.c
-+++ b/net/bridge/netfilter/nft_reject_bridge.c
-@@ -151,8 +151,7 @@ static void nft_reject_br_send_v4_unreach(struct net *net,
- 	icmph->type     = ICMP_DEST_UNREACH;
- 	icmph->code	= code;
+ 	hci_skb_pkt_type(skb) = HCI_EVENT_PKT;
  
--	payload = skb_put(nskb, len);
--	memcpy(payload, skb_network_header(oldskb), len);
-+	payload = skb_put_data(nskb, skb_network_header(oldskb), len);
+diff --git a/drivers/bluetooth/hci_ll.c b/drivers/bluetooth/hci_ll.c
+index cc2fa78b434e..c982943f0747 100644
+--- a/drivers/bluetooth/hci_ll.c
++++ b/drivers/bluetooth/hci_ll.c
+@@ -120,7 +120,7 @@ static int send_hcill_cmd(u8 cmd, struct hci_uart *hu)
+ 	}
  
- 	csum = csum_partial((void *)icmph, len + sizeof(struct icmphdr), 0);
- 	icmph->checksum = csum_fold(csum);
-@@ -278,8 +277,7 @@ static void nft_reject_br_send_v6_unreach(struct net *net,
- 	icmp6h->icmp6_type = ICMPV6_DEST_UNREACH;
- 	icmp6h->icmp6_code = code;
+ 	/* prepare packet */
+-	hcill_packet = (struct hcill_cmd *) skb_put(skb, 1);
++	hcill_packet = skb_put(skb, 1);
+ 	hcill_packet->cmd = cmd;
  
--	payload = skb_put(nskb, len);
--	memcpy(payload, skb_network_header(oldskb), len);
-+	payload = skb_put_data(nskb, skb_network_header(oldskb), len);
- 	nip6h->payload_len = htons(nskb->len - sizeof(struct ipv6hdr));
+ 	/* send packet */
+diff --git a/drivers/bluetooth/hci_nokia.c b/drivers/bluetooth/hci_nokia.c
+index a7d687d8d456..c1b081725b2c 100644
+--- a/drivers/bluetooth/hci_nokia.c
++++ b/drivers/bluetooth/hci_nokia.c
+@@ -246,9 +246,9 @@ static int nokia_send_alive_packet(struct hci_uart *hu)
+ 	hci_skb_pkt_type(skb) = HCI_NOKIA_ALIVE_PKT;
+ 	memset(skb->data, 0x00, len);
  
- 	icmp6h->icmp6_cksum =
-diff --git a/net/can/bcm.c b/net/can/bcm.c
-index 65432633a250..47a8748d953a 100644
---- a/net/can/bcm.c
-+++ b/net/can/bcm.c
-@@ -282,7 +282,7 @@ static void bcm_can_tx(struct bcm_op *op)
+-	hdr = (struct hci_nokia_alive_hdr *)skb_put(skb, sizeof(*hdr));
++	hdr = skb_put(skb, sizeof(*hdr));
+ 	hdr->dlen = sizeof(*pkt);
+-	pkt = (struct hci_nokia_alive_pkt *)skb_put(skb, sizeof(*pkt));
++	pkt = skb_put(skb, sizeof(*pkt));
+ 	pkt->mid = NOKIA_ALIVE_REQ;
+ 
+ 	nokia_enqueue(hu, skb);
+@@ -285,10 +285,10 @@ static int nokia_send_negotiation(struct hci_uart *hu)
+ 
+ 	hci_skb_pkt_type(skb) = HCI_NOKIA_NEG_PKT;
+ 
+-	neg_hdr = (struct hci_nokia_neg_hdr *)skb_put(skb, sizeof(*neg_hdr));
++	neg_hdr = skb_put(skb, sizeof(*neg_hdr));
+ 	neg_hdr->dlen = sizeof(*neg_cmd);
+ 
+-	neg_cmd = (struct hci_nokia_neg_cmd *)skb_put(skb, sizeof(*neg_cmd));
++	neg_cmd = skb_put(skb, sizeof(*neg_cmd));
+ 	neg_cmd->ack = NOKIA_NEG_REQ;
+ 	neg_cmd->baud = cpu_to_le16(baud);
+ 	neg_cmd->unused1 = 0x0000;
+@@ -532,7 +532,7 @@ static int nokia_enqueue(struct hci_uart *hu, struct sk_buff *skb)
+ 		err = skb_pad(skb, 1);
+ 		if (err)
+ 			return err;
+-		*skb_put(skb, 1) = 0x00;
++		*(u8 *)skb_put(skb, 1) = 0x00;
+ 	}
+ 
+ 	skb_queue_tail(&btdev->txq, skb);
+diff --git a/drivers/bluetooth/hci_qca.c b/drivers/bluetooth/hci_qca.c
+index b55f01320631..e2c88515340a 100644
+--- a/drivers/bluetooth/hci_qca.c
++++ b/drivers/bluetooth/hci_qca.c
+@@ -215,7 +215,7 @@ static int send_hci_ibs_cmd(u8 cmd, struct hci_uart *hu)
+ 	}
+ 
+ 	/* Assign HCI_IBS type */
+-	*skb_put(skb, 1) = cmd;
++	*(u8 *)skb_put(skb, 1) = cmd;
+ 
+ 	skb_queue_tail(&qca->txq, skb);
+ 
+diff --git a/drivers/bluetooth/hci_vhci.c b/drivers/bluetooth/hci_vhci.c
+index 233e850fdac7..1ef9c427a2d8 100644
+--- a/drivers/bluetooth/hci_vhci.c
++++ b/drivers/bluetooth/hci_vhci.c
+@@ -146,8 +146,8 @@ static int __vhci_create_device(struct vhci_data *data, __u8 opcode)
+ 
+ 	hci_skb_pkt_type(skb) = HCI_VENDOR_PKT;
+ 
+-	*skb_put(skb, 1) = 0xff;
+-	*skb_put(skb, 1) = opcode;
++	*(u8 *)skb_put(skb, 1) = 0xff;
++	*(u8 *)skb_put(skb, 1) = opcode;
+ 	put_unaligned_le16(hdev->id, skb_put(skb, 2));
+ 	skb_queue_tail(&data->readq, skb);
+ 
+diff --git a/drivers/crypto/chelsio/chcr_algo.c b/drivers/crypto/chelsio/chcr_algo.c
+index f00e0d8bd039..92185ab6797d 100644
+--- a/drivers/crypto/chelsio/chcr_algo.c
++++ b/drivers/crypto/chelsio/chcr_algo.c
+@@ -604,7 +604,7 @@ static struct sk_buff
+ 	if (!skb)
+ 		return ERR_PTR(-ENOMEM);
+ 	skb_reserve(skb, sizeof(struct sge_opaque_hdr));
+-	chcr_req = (struct chcr_wr *)__skb_put(skb, transhdr_len);
++	chcr_req = __skb_put(skb, transhdr_len);
+ 	memset(chcr_req, 0, transhdr_len);
+ 	chcr_req->sec_cpl.op_ivinsrtofst =
+ 		FILL_SEC_CPL_OP_IVINSR(ctx->dev->rx_channel_id, 2, 1);
+@@ -881,7 +881,7 @@ static struct sk_buff *create_hash_wr(struct ahash_request *req,
+ 		return skb;
+ 
+ 	skb_reserve(skb, sizeof(struct sge_opaque_hdr));
+-	chcr_req = (struct chcr_wr *)__skb_put(skb, transhdr_len);
++	chcr_req = __skb_put(skb, transhdr_len);
+ 	memset(chcr_req, 0, transhdr_len);
+ 
+ 	chcr_req->sec_cpl.op_ivinsrtofst =
+@@ -1447,7 +1447,7 @@ static struct sk_buff *create_authenc_wr(struct aead_request *req,
+ 	skb_reserve(skb, sizeof(struct sge_opaque_hdr));
+ 
+ 	/* Write WR */
+-	chcr_req = (struct chcr_wr *) __skb_put(skb, transhdr_len);
++	chcr_req = __skb_put(skb, transhdr_len);
+ 	memset(chcr_req, 0, transhdr_len);
+ 
+ 	stop_offset = (op_type == CHCR_ENCRYPT_OP) ? 0 : authsize;
+@@ -1779,7 +1779,7 @@ static struct sk_buff *create_aead_ccm_wr(struct aead_request *req,
+ 
+ 	skb_reserve(skb, sizeof(struct sge_opaque_hdr));
+ 
+-	chcr_req = (struct chcr_wr *) __skb_put(skb, transhdr_len);
++	chcr_req = __skb_put(skb, transhdr_len);
+ 	memset(chcr_req, 0, transhdr_len);
+ 
+ 	fill_sec_cpl_for_aead(&chcr_req->sec_cpl, dst_size, req, op_type, ctx);
+@@ -1892,7 +1892,7 @@ static struct sk_buff *create_gcm_wr(struct aead_request *req,
+ 	/* NIC driver is going to write the sge hdr. */
+ 	skb_reserve(skb, sizeof(struct sge_opaque_hdr));
+ 
+-	chcr_req = (struct chcr_wr *)__skb_put(skb, transhdr_len);
++	chcr_req = __skb_put(skb, transhdr_len);
+ 	memset(chcr_req, 0, transhdr_len);
+ 
+ 	if (get_aead_subtype(tfm) == CRYPTO_ALG_SUB_TYPE_AEAD_RFC4106)
+diff --git a/drivers/infiniband/core/addr.c b/drivers/infiniband/core/addr.c
+index 02971e239a18..d2957b38575f 100644
+--- a/drivers/infiniband/core/addr.c
++++ b/drivers/infiniband/core/addr.c
+@@ -179,8 +179,7 @@ static int ib_nl_ip_send_msg(struct rdma_dev_addr *dev_addr,
+ 	}
+ 
+ 	/* Construct the family header first */
+-	header = (struct rdma_ls_ip_resolve_header *)
+-		skb_put(skb, NLMSG_ALIGN(sizeof(*header)));
++	header = skb_put(skb, NLMSG_ALIGN(sizeof(*header)));
+ 	header->ifindex = dev_addr->bound_dev_if;
+ 	nla_put(skb, attrtype, size, daddr);
+ 
+diff --git a/drivers/infiniband/core/sa_query.c b/drivers/infiniband/core/sa_query.c
+index fb7aec4047c8..70fa4cabe48e 100644
+--- a/drivers/infiniband/core/sa_query.c
++++ b/drivers/infiniband/core/sa_query.c
+@@ -759,8 +759,7 @@ static void ib_nl_set_path_rec_attrs(struct sk_buff *skb,
+ 	query->mad_buf->context[1] = NULL;
+ 
+ 	/* Construct the family header first */
+-	header = (struct rdma_ls_resolve_header *)
+-		skb_put(skb, NLMSG_ALIGN(sizeof(*header)));
++	header = skb_put(skb, NLMSG_ALIGN(sizeof(*header)));
+ 	memcpy(header->device_name, query->port->agent->device->name,
+ 	       LS_DEVICE_NAME_MAX);
+ 	header->port_num = query->port->port_num;
+diff --git a/drivers/infiniband/hw/cxgb3/cxio_hal.c b/drivers/infiniband/hw/cxgb3/cxio_hal.c
+index 97f7f9544e70..3eff6541bd6f 100644
+--- a/drivers/infiniband/hw/cxgb3/cxio_hal.c
++++ b/drivers/infiniband/hw/cxgb3/cxio_hal.c
+@@ -835,7 +835,7 @@ int cxio_rdma_init(struct cxio_rdev *rdev_p, struct t3_rdma_init_attr *attr)
+ 	if (!skb)
+ 		return -ENOMEM;
+ 	pr_debug("%s rdev_p %p\n", __func__, rdev_p);
+-	wqe = (struct t3_rdma_init_wr *) __skb_put(skb, sizeof(*wqe));
++	wqe = __skb_put(skb, sizeof(*wqe));
+ 	wqe->wrh.op_seop_flags = cpu_to_be32(V_FW_RIWR_OP(T3_WR_INIT));
+ 	wqe->wrh.gen_tid_len = cpu_to_be32(V_FW_RIWR_TID(attr->tid) |
+ 					   V_FW_RIWR_LEN(sizeof(*wqe) >> 3));
+diff --git a/drivers/infiniband/hw/cxgb3/iwch_cm.c b/drivers/infiniband/hw/cxgb3/iwch_cm.c
+index f4c23a74f18c..9ae518c01bc2 100644
+--- a/drivers/infiniband/hw/cxgb3/iwch_cm.c
++++ b/drivers/infiniband/hw/cxgb3/iwch_cm.c
+@@ -175,7 +175,7 @@ static void release_tid(struct t3cdev *tdev, u32 hwtid, struct sk_buff *skb)
+ 	skb = get_skb(skb, sizeof *req, GFP_KERNEL);
+ 	if (!skb)
+ 		return;
+-	req = (struct cpl_tid_release *) skb_put(skb, sizeof(*req));
++	req = skb_put(skb, sizeof(*req));
+ 	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
+ 	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_TID_RELEASE, hwtid));
+ 	skb->priority = CPL_PRIORITY_SETUP;
+@@ -190,7 +190,7 @@ int iwch_quiesce_tid(struct iwch_ep *ep)
+ 
+ 	if (!skb)
+ 		return -ENOMEM;
+-	req = (struct cpl_set_tcb_field *) skb_put(skb, sizeof(*req));
++	req = skb_put(skb, sizeof(*req));
+ 	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
+ 	req->wr.wr_lo = htonl(V_WR_TID(ep->hwtid));
+ 	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_SET_TCB_FIELD, ep->hwtid));
+@@ -211,7 +211,7 @@ int iwch_resume_tid(struct iwch_ep *ep)
+ 
+ 	if (!skb)
+ 		return -ENOMEM;
+-	req = (struct cpl_set_tcb_field *) skb_put(skb, sizeof(*req));
++	req = skb_put(skb, sizeof(*req));
+ 	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
+ 	req->wr.wr_lo = htonl(V_WR_TID(ep->hwtid));
+ 	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_SET_TCB_FIELD, ep->hwtid));
+@@ -398,7 +398,7 @@ static int send_halfclose(struct iwch_ep *ep, gfp_t gfp)
+ 	}
+ 	skb->priority = CPL_PRIORITY_DATA;
+ 	set_arp_failure_handler(skb, arp_failure_discard);
+-	req = (struct cpl_close_con_req *) skb_put(skb, sizeof(*req));
++	req = skb_put(skb, sizeof(*req));
+ 	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_OFLD_CLOSE_CON));
+ 	req->wr.wr_lo = htonl(V_WR_TID(ep->hwtid));
+ 	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_CLOSE_CON_REQ, ep->hwtid));
+@@ -455,7 +455,7 @@ static int send_connect(struct iwch_ep *ep)
+ 	skb->priority = CPL_PRIORITY_SETUP;
+ 	set_arp_failure_handler(skb, act_open_req_arp_failure);
+ 
+-	req = (struct cpl_act_open_req *) skb_put(skb, sizeof(*req));
++	req = skb_put(skb, sizeof(*req));
+ 	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
+ 	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_ACT_OPEN_REQ, ep->atid));
+ 	req->local_port = ep->com.local_addr.sin_port;
+@@ -546,7 +546,7 @@ static int send_mpa_reject(struct iwch_ep *ep, const void *pdata, u8 plen)
+ 		return -ENOMEM;
+ 	}
+ 	skb_reserve(skb, sizeof(*req));
+-	mpa = (struct mpa_message *) skb_put(skb, mpalen);
++	mpa = skb_put(skb, mpalen);
+ 	memset(mpa, 0, sizeof(*mpa));
+ 	memcpy(mpa->key, MPA_KEY_REP, sizeof(mpa->key));
+ 	mpa->flags = MPA_REJECT;
+@@ -596,7 +596,7 @@ static int send_mpa_reply(struct iwch_ep *ep, const void *pdata, u8 plen)
+ 	}
+ 	skb->priority = CPL_PRIORITY_DATA;
+ 	skb_reserve(skb, sizeof(*req));
+-	mpa = (struct mpa_message *) skb_put(skb, mpalen);
++	mpa = skb_put(skb, mpalen);
+ 	memset(mpa, 0, sizeof(*mpa));
+ 	memcpy(mpa->key, MPA_KEY_REP, sizeof(mpa->key));
+ 	mpa->flags = (ep->mpa_attr.crc_enabled ? MPA_CRC : 0) |
+@@ -800,7 +800,7 @@ static int update_rx_credits(struct iwch_ep *ep, u32 credits)
+ 		return 0;
+ 	}
+ 
+-	req = (struct cpl_rx_data_ack *) skb_put(skb, sizeof(*req));
++	req = skb_put(skb, sizeof(*req));
+ 	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
+ 	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_RX_DATA_ACK, ep->hwtid));
+ 	req->credit_dack = htonl(V_RX_CREDITS(credits) | V_RX_FORCE_ACK(1));
+@@ -1205,7 +1205,7 @@ static int listen_start(struct iwch_listen_ep *ep)
+ 		return -ENOMEM;
+ 	}
+ 
+-	req = (struct cpl_pass_open_req *) skb_put(skb, sizeof(*req));
++	req = skb_put(skb, sizeof(*req));
+ 	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
+ 	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_PASS_OPEN_REQ, ep->stid));
+ 	req->local_port = ep->com.local_addr.sin_port;
+@@ -1246,7 +1246,7 @@ static int listen_stop(struct iwch_listen_ep *ep)
+ 		pr_err("%s - failed to alloc skb\n", __func__);
+ 		return -ENOMEM;
+ 	}
+-	req = (struct cpl_close_listserv_req *) skb_put(skb, sizeof(*req));
++	req = skb_put(skb, sizeof(*req));
+ 	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
+ 	req->cpu_idx = 0;
+ 	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_CLOSE_LISTSRV_REQ, ep->stid));
+@@ -1614,7 +1614,7 @@ static int peer_abort(struct t3cdev *tdev, struct sk_buff *skb, void *ctx)
+ 		goto out;
+ 	}
+ 	rpl_skb->priority = CPL_PRIORITY_DATA;
+-	rpl = (struct cpl_abort_rpl *) skb_put(rpl_skb, sizeof(*rpl));
++	rpl = skb_put(rpl_skb, sizeof(*rpl));
+ 	rpl->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_OFLD_HOST_ABORT_CON_RPL));
+ 	rpl->wr.wr_lo = htonl(V_WR_TID(ep->hwtid));
+ 	OPCODE_TID(rpl) = htonl(MK_OPCODE_TID(CPL_ABORT_RPL, ep->hwtid));
+diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
+index 7c32a7c7977d..36ae3023e703 100644
+--- a/drivers/infiniband/hw/cxgb4/cm.c
++++ b/drivers/infiniband/hw/cxgb4/cm.c
+@@ -597,7 +597,7 @@ static int send_flowc(struct c4iw_ep *ep)
+ 	else
+ 		nparams = 9;
+ 
+-	flowc = (struct fw_flowc_wr *)__skb_put(skb, FLOWC_LEN);
++	flowc = __skb_put(skb, FLOWC_LEN);
+ 
+ 	flowc->op_to_nparams = cpu_to_be32(FW_WR_OP_V(FW_FLOWC_WR) |
+ 					   FW_FLOWC_WR_NPARAMS_V(nparams));
+@@ -787,18 +787,16 @@ static int send_connect(struct c4iw_ep *ep)
+ 	if (ep->com.remote_addr.ss_family == AF_INET) {
+ 		switch (CHELSIO_CHIP_VERSION(adapter_type)) {
+ 		case CHELSIO_T4:
+-			req = (struct cpl_act_open_req *)skb_put(skb, wrlen);
++			req = skb_put(skb, wrlen);
+ 			INIT_TP_WR(req, 0);
+ 			break;
+ 		case CHELSIO_T5:
+-			t5req = (struct cpl_t5_act_open_req *)skb_put(skb,
+-					wrlen);
++			t5req = skb_put(skb, wrlen);
+ 			INIT_TP_WR(t5req, 0);
+ 			req = (struct cpl_act_open_req *)t5req;
+ 			break;
+ 		case CHELSIO_T6:
+-			t6req = (struct cpl_t6_act_open_req *)skb_put(skb,
+-					wrlen);
++			t6req = skb_put(skb, wrlen);
+ 			INIT_TP_WR(t6req, 0);
+ 			req = (struct cpl_act_open_req *)t6req;
+ 			t5req = (struct cpl_t5_act_open_req *)t6req;
+@@ -839,18 +837,16 @@ static int send_connect(struct c4iw_ep *ep)
+ 	} else {
+ 		switch (CHELSIO_CHIP_VERSION(adapter_type)) {
+ 		case CHELSIO_T4:
+-			req6 = (struct cpl_act_open_req6 *)skb_put(skb, wrlen);
++			req6 = skb_put(skb, wrlen);
+ 			INIT_TP_WR(req6, 0);
+ 			break;
+ 		case CHELSIO_T5:
+-			t5req6 = (struct cpl_t5_act_open_req6 *)skb_put(skb,
+-					wrlen);
++			t5req6 = skb_put(skb, wrlen);
+ 			INIT_TP_WR(t5req6, 0);
+ 			req6 = (struct cpl_act_open_req6 *)t5req6;
+ 			break;
+ 		case CHELSIO_T6:
+-			t6req6 = (struct cpl_t6_act_open_req6 *)skb_put(skb,
+-					wrlen);
++			t6req6 = skb_put(skb, wrlen);
+ 			INIT_TP_WR(t6req6, 0);
+ 			req6 = (struct cpl_act_open_req6 *)t6req6;
+ 			t5req6 = (struct cpl_t5_act_open_req6 *)t6req6;
+@@ -1904,7 +1900,7 @@ static int send_fw_act_open_req(struct c4iw_ep *ep, unsigned int atid)
+ 	int win;
+ 
+ 	skb = get_skb(NULL, sizeof(*req), GFP_KERNEL);
+-	req = (struct fw_ofld_connection_wr *)__skb_put(skb, sizeof(*req));
++	req = __skb_put(skb, sizeof(*req));
+ 	memset(req, 0, sizeof(*req));
+ 	req->op_compl = htonl(WR_OP_V(FW_OFLD_CONNECTION_WR));
+ 	req->len16_pkd = htonl(FW_WR_LEN16_V(DIV_ROUND_UP(sizeof(*req), 16)));
+@@ -3807,7 +3803,7 @@ static void send_fw_pass_open_req(struct c4iw_dev *dev, struct sk_buff *skb,
+ 	req_skb = alloc_skb(sizeof(struct fw_ofld_connection_wr), GFP_KERNEL);
+ 	if (!req_skb)
+ 		return;
+-	req = (struct fw_ofld_connection_wr *)__skb_put(req_skb, sizeof(*req));
++	req = __skb_put(req_skb, sizeof(*req));
+ 	memset(req, 0, sizeof(*req));
+ 	req->op_compl = htonl(WR_OP_V(FW_OFLD_CONNECTION_WR) | FW_WR_COMPL_F);
+ 	req->len16_pkd = htonl(FW_WR_LEN16_V(DIV_ROUND_UP(sizeof(*req), 16)));
+diff --git a/drivers/infiniband/hw/cxgb4/cq.c b/drivers/infiniband/hw/cxgb4/cq.c
+index 14de5bde1b63..394cfe2625fe 100644
+--- a/drivers/infiniband/hw/cxgb4/cq.c
++++ b/drivers/infiniband/hw/cxgb4/cq.c
+@@ -44,7 +44,7 @@ static int destroy_cq(struct c4iw_rdev *rdev, struct t4_cq *cq,
+ 	wr_len = sizeof *res_wr + sizeof *res;
+ 	set_wr_txq(skb, CPL_PRIORITY_CONTROL, 0);
+ 
+-	res_wr = (struct fw_ri_res_wr *)__skb_put(skb, wr_len);
++	res_wr = __skb_put(skb, wr_len);
+ 	memset(res_wr, 0, wr_len);
+ 	res_wr->op_nres = cpu_to_be32(
+ 			FW_WR_OP_V(FW_RI_RES_WR) |
+@@ -114,7 +114,7 @@ static int create_cq(struct c4iw_rdev *rdev, struct t4_cq *cq,
+ 	}
+ 	set_wr_txq(skb, CPL_PRIORITY_CONTROL, 0);
+ 
+-	res_wr = (struct fw_ri_res_wr *)__skb_put(skb, wr_len);
++	res_wr = __skb_put(skb, wr_len);
+ 	memset(res_wr, 0, wr_len);
+ 	res_wr->op_nres = cpu_to_be32(
+ 			FW_WR_OP_V(FW_RI_RES_WR) |
+diff --git a/drivers/infiniband/hw/cxgb4/mem.c b/drivers/infiniband/hw/cxgb4/mem.c
+index 3ee7f43e419a..ca992e4b66e4 100644
+--- a/drivers/infiniband/hw/cxgb4/mem.c
++++ b/drivers/infiniband/hw/cxgb4/mem.c
+@@ -81,7 +81,7 @@ static int _c4iw_write_mem_dma_aligned(struct c4iw_rdev *rdev, u32 addr,
+ 	}
+ 	set_wr_txq(skb, CPL_PRIORITY_CONTROL, 0);
+ 
+-	req = (struct ulp_mem_io *)__skb_put(skb, wr_len);
++	req = __skb_put(skb, wr_len);
+ 	memset(req, 0, wr_len);
+ 	INIT_ULPTX_WR(req, wr_len, 0, 0);
+ 	req->wr.wr_hi = cpu_to_be32(FW_WR_OP_V(FW_ULPTX_WR) |
+@@ -142,7 +142,7 @@ static int _c4iw_write_mem_inline(struct c4iw_rdev *rdev, u32 addr, u32 len,
+ 		}
+ 		set_wr_txq(skb, CPL_PRIORITY_CONTROL, 0);
+ 
+-		req = (struct ulp_mem_io *)__skb_put(skb, wr_len);
++		req = __skb_put(skb, wr_len);
+ 		memset(req, 0, wr_len);
+ 		INIT_ULPTX_WR(req, wr_len, 0, 0);
+ 
+diff --git a/drivers/infiniband/hw/cxgb4/qp.c b/drivers/infiniband/hw/cxgb4/qp.c
+index 8e4154b4253e..b23a0b057347 100644
+--- a/drivers/infiniband/hw/cxgb4/qp.c
++++ b/drivers/infiniband/hw/cxgb4/qp.c
+@@ -293,7 +293,7 @@ static int create_qp(struct c4iw_rdev *rdev, struct t4_wq *wq,
+ 	}
+ 	set_wr_txq(skb, CPL_PRIORITY_CONTROL, 0);
+ 
+-	res_wr = (struct fw_ri_res_wr *)__skb_put(skb, wr_len);
++	res_wr = __skb_put(skb, wr_len);
+ 	memset(res_wr, 0, wr_len);
+ 	res_wr->op_nres = cpu_to_be32(
+ 			FW_WR_OP_V(FW_RI_RES_WR) |
+@@ -1228,7 +1228,7 @@ static void post_terminate(struct c4iw_qp *qhp, struct t4_cqe *err_cqe,
+ 
+ 	set_wr_txq(skb, CPL_PRIORITY_DATA, qhp->ep->txq_idx);
+ 
+-	wqe = (struct fw_ri_wr *)__skb_put(skb, sizeof(*wqe));
++	wqe = __skb_put(skb, sizeof(*wqe));
+ 	memset(wqe, 0, sizeof *wqe);
+ 	wqe->op_compl = cpu_to_be32(FW_WR_OP_V(FW_RI_INIT_WR));
+ 	wqe->flowid_len16 = cpu_to_be32(
+@@ -1350,7 +1350,7 @@ static int rdma_fini(struct c4iw_dev *rhp, struct c4iw_qp *qhp,
+ 
+ 	set_wr_txq(skb, CPL_PRIORITY_DATA, ep->txq_idx);
+ 
+-	wqe = (struct fw_ri_wr *)__skb_put(skb, sizeof(*wqe));
++	wqe = __skb_put(skb, sizeof(*wqe));
+ 	memset(wqe, 0, sizeof *wqe);
+ 	wqe->op_compl = cpu_to_be32(
+ 		FW_WR_OP_V(FW_RI_INIT_WR) |
+@@ -1419,7 +1419,7 @@ static int rdma_init(struct c4iw_dev *rhp, struct c4iw_qp *qhp)
+ 	}
+ 	set_wr_txq(skb, CPL_PRIORITY_DATA, qhp->ep->txq_idx);
+ 
+-	wqe = (struct fw_ri_wr *)__skb_put(skb, sizeof(*wqe));
++	wqe = __skb_put(skb, sizeof(*wqe));
+ 	memset(wqe, 0, sizeof *wqe);
+ 	wqe->op_compl = cpu_to_be32(
+ 		FW_WR_OP_V(FW_RI_INIT_WR) |
+diff --git a/drivers/isdn/capi/capi.c b/drivers/isdn/capi/capi.c
+index 77be17590866..96f586d34d2d 100644
+--- a/drivers/isdn/capi/capi.c
++++ b/drivers/isdn/capi/capi.c
+@@ -1082,7 +1082,7 @@ static int capinc_tty_put_char(struct tty_struct *tty, unsigned char ch)
+ 	skb = mp->outskb;
+ 	if (skb) {
+ 		if (skb_tailroom(skb) > 0) {
+-			*(skb_put(skb, 1)) = ch;
++			*(u8 *)skb_put(skb, 1) = ch;
+ 			goto unlock_out;
+ 		}
+ 		mp->outskb = NULL;
+@@ -1094,7 +1094,7 @@ static int capinc_tty_put_char(struct tty_struct *tty, unsigned char ch)
+ 	skb = alloc_skb(CAPI_DATA_B3_REQ_LEN + CAPI_MAX_BLKSIZE, GFP_ATOMIC);
+ 	if (skb) {
+ 		skb_reserve(skb, CAPI_DATA_B3_REQ_LEN);
+-		*(skb_put(skb, 1)) = ch;
++		*(u8 *)skb_put(skb, 1) = ch;
+ 		mp->outskb = skb;
+ 	} else {
+ 		printk(KERN_ERR "capinc_put_char: char %u lost\n", ch);
+diff --git a/drivers/isdn/gigaset/asyncdata.c b/drivers/isdn/gigaset/asyncdata.c
+index c90dca5abeac..03ac9fbfe318 100644
+--- a/drivers/isdn/gigaset/asyncdata.c
++++ b/drivers/isdn/gigaset/asyncdata.c
+@@ -264,7 +264,7 @@ static unsigned hdlc_loop(unsigned numbytes, struct inbuf_t *inbuf)
+ 				/* skip remainder of packet */
+ 				bcs->rx_skb = skb = NULL;
+ 			} else {
+-				*__skb_put(skb, 1) = c;
++				*(u8 *)__skb_put(skb, 1) = c;
+ 				fcs = crc_ccitt_byte(fcs, c);
+ 			}
+ 		}
+@@ -315,7 +315,7 @@ static unsigned iraw_loop(unsigned numbytes, struct inbuf_t *inbuf)
+ 
+ 		/* regular data byte: append to current skb */
+ 		inputstate |= INS_have_data;
+-		*__skb_put(skb, 1) = bitrev8(c);
++		*(u8 *)__skb_put(skb, 1) = bitrev8(c);
+ 	}
+ 
+ 	/* pass data up */
+@@ -492,33 +492,33 @@ static struct sk_buff *HDLC_Encode(struct sk_buff *skb)
+ 	hdlc_skb->mac_len = skb->mac_len;
+ 
+ 	/* Add flag sequence in front of everything.. */
+-	*(skb_put(hdlc_skb, 1)) = PPP_FLAG;
++	*(u8 *)skb_put(hdlc_skb, 1) = PPP_FLAG;
+ 
+ 	/* Perform byte stuffing while copying data. */
+ 	while (skb->len--) {
+ 		if (muststuff(*skb->data)) {
+-			*(skb_put(hdlc_skb, 1)) = PPP_ESCAPE;
+-			*(skb_put(hdlc_skb, 1)) = (*skb->data++) ^ PPP_TRANS;
++			*(u8 *)skb_put(hdlc_skb, 1) = PPP_ESCAPE;
++			*(u8 *)skb_put(hdlc_skb, 1) = (*skb->data++) ^ PPP_TRANS;
+ 		} else
+-			*(skb_put(hdlc_skb, 1)) = *skb->data++;
++			*(u8 *)skb_put(hdlc_skb, 1) = *skb->data++;
+ 	}
+ 
+ 	/* Finally add FCS (byte stuffed) and flag sequence */
+ 	c = (fcs & 0x00ff);	/* least significant byte first */
+ 	if (muststuff(c)) {
+-		*(skb_put(hdlc_skb, 1)) = PPP_ESCAPE;
++		*(u8 *)skb_put(hdlc_skb, 1) = PPP_ESCAPE;
+ 		c ^= PPP_TRANS;
+ 	}
+-	*(skb_put(hdlc_skb, 1)) = c;
++	*(u8 *)skb_put(hdlc_skb, 1) = c;
+ 
+ 	c = ((fcs >> 8) & 0x00ff);
+ 	if (muststuff(c)) {
+-		*(skb_put(hdlc_skb, 1)) = PPP_ESCAPE;
++		*(u8 *)skb_put(hdlc_skb, 1) = PPP_ESCAPE;
+ 		c ^= PPP_TRANS;
+ 	}
+-	*(skb_put(hdlc_skb, 1)) = c;
++	*(u8 *)skb_put(hdlc_skb, 1) = c;
+ 
+-	*(skb_put(hdlc_skb, 1)) = PPP_FLAG;
++	*(u8 *)skb_put(hdlc_skb, 1) = PPP_FLAG;
+ 
+ 	dev_kfree_skb_any(skb);
+ 	return hdlc_skb;
+@@ -561,8 +561,8 @@ static struct sk_buff *iraw_encode(struct sk_buff *skb)
+ 	while (len--) {
+ 		c = bitrev8(*cp++);
+ 		if (c == DLE_FLAG)
+-			*(skb_put(iraw_skb, 1)) = c;
+-		*(skb_put(iraw_skb, 1)) = c;
++			*(u8 *)skb_put(iraw_skb, 1) = c;
++		*(u8 *)skb_put(iraw_skb, 1) = c;
+ 	}
+ 	dev_kfree_skb_any(skb);
+ 	return iraw_skb;
+diff --git a/drivers/isdn/gigaset/isocdata.c b/drivers/isdn/gigaset/isocdata.c
+index bc29f1d52a2f..74e250664ce9 100644
+--- a/drivers/isdn/gigaset/isocdata.c
++++ b/drivers/isdn/gigaset/isocdata.c
+@@ -511,7 +511,7 @@ static inline void hdlc_putbyte(unsigned char c, struct bc_state *bcs)
+ 		bcs->rx_skb = NULL;
+ 		return;
+ 	}
+-	*__skb_put(bcs->rx_skb, 1) = c;
++	*(u8 *)__skb_put(bcs->rx_skb, 1) = c;
+ }
+ 
+ /* hdlc_flush
+diff --git a/drivers/isdn/i4l/isdn_audio.c b/drivers/isdn/i4l/isdn_audio.c
+index 78ce42214713..b6bcd1eca128 100644
+--- a/drivers/isdn/i4l/isdn_audio.c
++++ b/drivers/isdn/i4l/isdn_audio.c
+@@ -462,7 +462,7 @@ isdn_audio_goertzel(int *sample, modem_info *info)
+ 		       info->line);
+ 		return;
+ 	}
+-	result = (int *) skb_put(skb, sizeof(int) * NCOEFF);
++	result = skb_put(skb, sizeof(int) * NCOEFF);
+ 	for (k = 0; k < NCOEFF; k++) {
+ 		sk = sk1 = sk2 = 0;
+ 		for (n = 0; n < DTMF_NPOINTS; n++) {
+@@ -672,7 +672,7 @@ isdn_audio_put_dle_code(modem_info *info, u_char code)
+ 		       info->line);
+ 		return;
+ 	}
+-	p = (char *) skb_put(skb, 2);
++	p = skb_put(skb, 2);
+ 	p[0] = 0x10;
+ 	p[1] = code;
+ 	ISDN_AUDIO_SKB_DLECOUNT(skb) = 0;
+diff --git a/drivers/isdn/i4l/isdn_bsdcomp.c b/drivers/isdn/i4l/isdn_bsdcomp.c
+index 8837ac5a492d..6ade0916da4e 100644
+--- a/drivers/isdn/i4l/isdn_bsdcomp.c
++++ b/drivers/isdn/i4l/isdn_bsdcomp.c
+@@ -472,7 +472,7 @@ static int bsd_compress(void *state, struct sk_buff *skb_in, struct sk_buff *skb
+ 		accm |= ((ent) << bitno);				\
+ 		do	{						\
+ 			if (skb_out && skb_tailroom(skb_out) > 0)	\
+-				*(skb_put(skb_out, 1)) = (unsigned char)(accm >> 24); \
++				*(u8 *)skb_put(skb_out, 1) = (u8)(accm >> 24); \
+ 			accm <<= 8;					\
+ 			bitno += 8;					\
+ 		} while (bitno <= 24);					\
+@@ -602,7 +602,7 @@ static int bsd_compress(void *state, struct sk_buff *skb_in, struct sk_buff *skb
+ 	 * Do not emit a completely useless byte of ones.
+ 	 */
+ 	if (bitno < 32 && skb_out && skb_tailroom(skb_out) > 0)
+-		*(skb_put(skb_out, 1)) = (unsigned char)((accm | (0xff << (bitno - 8))) >> 24);
++		*(u8 *)skb_put(skb_out, 1) = (unsigned char)((accm | (0xff << (bitno - 8))) >> 24);
+ 
+ 	/*
+ 	 * Increase code size if we would have without the packet
+@@ -698,7 +698,7 @@ static int bsd_decompress(void *state, struct sk_buff *skb_in, struct sk_buff *s
+ 	db->bytes_out += ilen;
+ 
+ 	if (skb_tailroom(skb_out) > 0)
+-		*(skb_put(skb_out, 1)) = 0;
++		*(u8 *)skb_put(skb_out, 1) = 0;
+ 	else
+ 		return DECOMP_ERR_NOMEM;
+ 
+@@ -816,7 +816,7 @@ static int bsd_decompress(void *state, struct sk_buff *skb_in, struct sk_buff *s
+ #endif
+ 
+ 		if (extra)		/* the KwKwK case again */
+-			*(skb_put(skb_out, 1)) = finchar;
++			*(u8 *)skb_put(skb_out, 1) = finchar;
+ 
+ 		/*
+ 		 * If not first code in a packet, and
+diff --git a/drivers/isdn/i4l/isdn_x25iface.c b/drivers/isdn/i4l/isdn_x25iface.c
+index ba60076e0b95..e33fa3073f74 100644
+--- a/drivers/isdn/i4l/isdn_x25iface.c
++++ b/drivers/isdn/i4l/isdn_x25iface.c
+@@ -224,7 +224,7 @@ static int isdn_x25iface_connect_ind(struct concap_proto *cprot)
+ 
+ 	skb = dev_alloc_skb(1);
+ 	if (skb) {
+-		*(skb_put(skb, 1)) = X25_IFACE_CONNECT;
++		*(u8 *)skb_put(skb, 1) = X25_IFACE_CONNECT;
+ 		skb->protocol = x25_type_trans(skb, cprot->net_dev);
+ 		netif_rx(skb);
+ 		return 0;
+@@ -253,7 +253,7 @@ static int isdn_x25iface_disconn_ind(struct concap_proto *cprot)
+ 	*state_p = WAN_DISCONNECTED;
+ 	skb = dev_alloc_skb(1);
+ 	if (skb) {
+-		*(skb_put(skb, 1)) = X25_IFACE_DISCONNECT;
++		*(u8 *)skb_put(skb, 1) = X25_IFACE_DISCONNECT;
+ 		skb->protocol = x25_type_trans(skb, cprot->net_dev);
+ 		netif_rx(skb);
+ 		return 0;
+diff --git a/drivers/media/dvb-core/dvb_net.c b/drivers/media/dvb-core/dvb_net.c
+index bbaf0a8cae8b..06b0dcc13695 100644
+--- a/drivers/media/dvb-core/dvb_net.c
++++ b/drivers/media/dvb-core/dvb_net.c
+@@ -963,7 +963,7 @@ static void dvb_net_sec(struct net_device *dev,
+ 	skb->dev = dev;
+ 
+ 	/* copy L3 payload */
+-	eth = (u8 *) skb_put(skb, pkt_len - 12 - 4 + 14 - snap);
++	eth = skb_put(skb, pkt_len - 12 - 4 + 14 - snap);
+ 	memcpy(eth + 14, pkt + 12 + snap, pkt_len - 12 - 4 - snap);
+ 
+ 	/* create ethernet header: */
+diff --git a/drivers/media/radio/wl128x/fmdrv_common.c b/drivers/media/radio/wl128x/fmdrv_common.c
+index c67e055a12c9..ab3428bf63fe 100644
+--- a/drivers/media/radio/wl128x/fmdrv_common.c
++++ b/drivers/media/radio/wl128x/fmdrv_common.c
+@@ -416,7 +416,7 @@ static int fm_send_cmd(struct fmdev *fmdev, u8 fm_op, u16 type,	void *payload,
+ 	if (!test_bit(FM_FW_DW_INPROGRESS, &fmdev->flag) ||
+ 			test_bit(FM_INTTASK_RUNNING, &fmdev->flag)) {
+ 		/* Fill command header info */
+-		hdr = (struct fm_cmd_msg_hdr *)skb_put(skb, FM_CMD_MSG_HDR_SIZE);
++		hdr = skb_put(skb, FM_CMD_MSG_HDR_SIZE);
+ 		hdr->hdr = FM_PKT_LOGICAL_CHAN_NUMBER;	/* 0x08 */
+ 
+ 		/* 3 (fm_opcode,rd_wr,dlen) + payload len) */
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index 5427032aa05e..f43fb2f958a5 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -857,7 +857,7 @@ static int ad_lacpdu_send(struct port *port)
+ 	skb->protocol = PKT_TYPE_LACPDU;
+ 	skb->priority = TC_PRIO_CONTROL;
+ 
+-	lacpdu_header = (struct lacpdu_header *)skb_put(skb, length);
++	lacpdu_header = skb_put(skb, length);
+ 
+ 	ether_addr_copy(lacpdu_header->hdr.h_dest, lacpdu_mcast_addr);
+ 	/* Note: source address is set to be the member's PERMANENT address,
+@@ -899,7 +899,7 @@ static int ad_marker_send(struct port *port, struct bond_marker *marker)
+ 	skb->network_header = skb->mac_header + ETH_HLEN;
+ 	skb->protocol = PKT_TYPE_LACPDU;
+ 
+-	marker_header = (struct bond_marker_header *)skb_put(skb, length);
++	marker_header = skb_put(skb, length);
+ 
+ 	ether_addr_copy(marker_header->hdr.h_dest, lacpdu_mcast_addr);
+ 	/* Note: source address is set to be the member's PERMANENT address,
+diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
+index ae4ed03dc642..a3011c001080 100644
+--- a/drivers/net/can/dev.c
++++ b/drivers/net/can/dev.c
+@@ -648,7 +648,7 @@ struct sk_buff *alloc_can_skb(struct net_device *dev, struct can_frame **cf)
  	can_skb_prv(skb)->ifindex = dev->ifindex;
  	can_skb_prv(skb)->skbcnt = 0;
  
--	memcpy(skb_put(skb, op->cfsiz), cf, op->cfsiz);
-+	skb_put_data(skb, cf, op->cfsiz);
+-	*cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
++	*cf = skb_put(skb, sizeof(struct can_frame));
+ 	memset(*cf, 0, sizeof(struct can_frame));
  
- 	/* send with loopback */
- 	skb->dev = dev;
-@@ -318,13 +318,13 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
+ 	return skb;
+@@ -677,7 +677,7 @@ struct sk_buff *alloc_canfd_skb(struct net_device *dev,
+ 	can_skb_prv(skb)->ifindex = dev->ifindex;
+ 	can_skb_prv(skb)->skbcnt = 0;
+ 
+-	*cfd = (struct canfd_frame *)skb_put(skb, sizeof(struct canfd_frame));
++	*cfd = skb_put(skb, sizeof(struct canfd_frame));
+ 	memset(*cfd, 0, sizeof(struct canfd_frame));
+ 
+ 	return skb;
+diff --git a/drivers/net/ethernet/allwinner/sun4i-emac.c b/drivers/net/ethernet/allwinner/sun4i-emac.c
+index c8f4d26fc9d4..3143de45baaa 100644
+--- a/drivers/net/ethernet/allwinner/sun4i-emac.c
++++ b/drivers/net/ethernet/allwinner/sun4i-emac.c
+@@ -633,7 +633,7 @@ static void emac_rx(struct net_device *dev)
+ 			if (!skb)
+ 				continue;
+ 			skb_reserve(skb, 2);
+-			rdptr = (u8 *) skb_put(skb, rxlen - 4);
++			rdptr = skb_put(skb, rxlen - 4);
+ 
+ 			/* Read received packet from RX SRAM */
+ 			if (netif_msg_rx_status(db))
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+index 2ff6bd139c96..e1a50c87c9a9 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+@@ -471,7 +471,7 @@ static int init_tp_parity(struct adapter *adap)
+ 		if (!skb)
+ 			goto alloc_skb_fail;
+ 
+-		req = (struct cpl_smt_write_req *)__skb_put(skb, sizeof(*req));
++		req = __skb_put(skb, sizeof(*req));
+ 		memset(req, 0, sizeof(*req));
+ 		req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
+ 		OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_SMT_WRITE_REQ, i));
+@@ -495,7 +495,7 @@ static int init_tp_parity(struct adapter *adap)
+ 		if (!skb)
+ 			goto alloc_skb_fail;
+ 
+-		req = (struct cpl_l2t_write_req *)__skb_put(skb, sizeof(*req));
++		req = __skb_put(skb, sizeof(*req));
+ 		memset(req, 0, sizeof(*req));
+ 		req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
+ 		OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_L2T_WRITE_REQ, i));
+@@ -518,7 +518,7 @@ static int init_tp_parity(struct adapter *adap)
+ 		if (!skb)
+ 			goto alloc_skb_fail;
+ 
+-		req = (struct cpl_rte_write_req *)__skb_put(skb, sizeof(*req));
++		req = __skb_put(skb, sizeof(*req));
+ 		memset(req, 0, sizeof(*req));
+ 		req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
+ 		OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_RTE_WRITE_REQ, i));
+@@ -538,7 +538,7 @@ static int init_tp_parity(struct adapter *adap)
+ 	if (!skb)
+ 		goto alloc_skb_fail;
+ 
+-	greq = (struct cpl_set_tcb_field *)__skb_put(skb, sizeof(*greq));
++	greq = __skb_put(skb, sizeof(*greq));
+ 	memset(greq, 0, sizeof(*greq));
+ 	greq->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
+ 	OPCODE_TID(greq) = htonl(MK_OPCODE_TID(CPL_SET_TCB_FIELD, 0));
+@@ -909,7 +909,7 @@ static int write_smt_entry(struct adapter *adapter, int idx)
+ 	if (!skb)
+ 		return -ENOMEM;
+ 
+-	req = (struct cpl_smt_write_req *)__skb_put(skb, sizeof(*req));
++	req = __skb_put(skb, sizeof(*req));
+ 	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
+ 	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_SMT_WRITE_REQ, idx));
+ 	req->mtu_idx = NMTUS - 1;	/* should be 0 but there's a T3 bug */
+@@ -952,7 +952,7 @@ static int send_pktsched_cmd(struct adapter *adap, int sched, int qidx, int lo,
+ 	if (!skb)
+ 		return -ENOMEM;
+ 
+-	req = (struct mngt_pktsched_wr *)skb_put(skb, sizeof(*req));
++	req = skb_put(skb, sizeof(*req));
+ 	req->wr_hi = htonl(V_WR_OP(FW_WROPCODE_MNGT));
+ 	req->mngt_opcode = FW_MNGTOPCODE_PKTSCHED_SET;
+ 	req->sched = sched;
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
+index fa81445e334c..50cd660732c5 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
+@@ -552,7 +552,7 @@ static inline void mk_tid_release(struct sk_buff *skb, unsigned int tid)
+ 	struct cpl_tid_release *req;
+ 
+ 	skb->priority = CPL_PRIORITY_SETUP;
+-	req = (struct cpl_tid_release *)__skb_put(skb, sizeof(*req));
++	req = __skb_put(skb, sizeof(*req));
+ 	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
+ 	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_TID_RELEASE, tid));
+ }
+@@ -1096,7 +1096,7 @@ static void set_l2t_ix(struct t3cdev *tdev, u32 tid, struct l2t_entry *e)
+ 		return;
+ 	}
+ 	skb->priority = CPL_PRIORITY_CONTROL;
+-	req = (struct cpl_set_tcb_field *)skb_put(skb, sizeof(*req));
++	req = skb_put(skb, sizeof(*req));
+ 	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
+ 	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_SET_TCB_FIELD, tid));
+ 	req->reply = 0;
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/l2t.c b/drivers/net/ethernet/chelsio/cxgb3/l2t.c
+index 26264125865f..248e40c6966c 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/l2t.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/l2t.c
+@@ -96,7 +96,7 @@ static int setup_l2e_send_pending(struct t3cdev *dev, struct sk_buff *skb,
+ 			return -ENOMEM;
+ 	}
+ 
+-	req = (struct cpl_l2t_write_req *)__skb_put(skb, sizeof(*req));
++	req = __skb_put(skb, sizeof(*req));
+ 	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
+ 	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_L2T_WRITE_REQ, e->idx));
+ 	req->params = htonl(V_L2T_W_IDX(e->idx) | V_L2T_W_IFF(e->smt_idx) |
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
+index 10736738ff30..a0fab65e80e8 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
+@@ -190,7 +190,7 @@ static int del_filter_wr(struct adapter *adapter, int fidx)
+ 	if (!skb)
+ 		return -ENOMEM;
+ 
+-	fwr = (struct fw_filter_wr *)__skb_put(skb, len);
++	fwr = __skb_put(skb, len);
+ 	t4_mk_filtdelwr(f->tid, fwr, adapter->sge.fw_evtq.abs_id);
+ 
+ 	/* Mark the filter as "pending" and ship off the Filter Work Request.
+@@ -231,7 +231,7 @@ int set_filter_wr(struct adapter *adapter, int fidx)
+ 		}
+ 	}
+ 
+-	fwr = (struct fw_filter_wr *)__skb_put(skb, sizeof(*fwr));
++	fwr = __skb_put(skb, sizeof(*fwr));
+ 	memset(fwr, 0, sizeof(*fwr));
+ 
+ 	/* It would be nice to put most of the following in t4_hw.c but most
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 2c6de769f4e6..15fb284eafc0 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -1175,7 +1175,7 @@ static void mk_tid_release(struct sk_buff *skb, unsigned int chan,
+ 	struct cpl_tid_release *req;
+ 
+ 	set_wr_txq(skb, CPL_PRIORITY_SETUP, chan);
+-	req = (struct cpl_tid_release *)__skb_put(skb, sizeof(*req));
++	req = __skb_put(skb, sizeof(*req));
+ 	INIT_TP_WR(req, tid);
+ 	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_TID_RELEASE, tid));
+ }
+@@ -1359,7 +1359,7 @@ int cxgb4_create_server(const struct net_device *dev, unsigned int stid,
+ 		return -ENOMEM;
+ 
+ 	adap = netdev2adap(dev);
+-	req = (struct cpl_pass_open_req *)__skb_put(skb, sizeof(*req));
++	req = __skb_put(skb, sizeof(*req));
+ 	INIT_TP_WR(req, 0);
+ 	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_PASS_OPEN_REQ, stid));
+ 	req->local_port = sport;
+@@ -1400,7 +1400,7 @@ int cxgb4_create_server6(const struct net_device *dev, unsigned int stid,
+ 		return -ENOMEM;
+ 
+ 	adap = netdev2adap(dev);
+-	req = (struct cpl_pass_open_req6 *)__skb_put(skb, sizeof(*req));
++	req = __skb_put(skb, sizeof(*req));
+ 	INIT_TP_WR(req, 0);
+ 	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_PASS_OPEN_REQ6, stid));
+ 	req->local_port = sport;
+@@ -1432,7 +1432,7 @@ int cxgb4_remove_server(const struct net_device *dev, unsigned int stid,
+ 	if (!skb)
+ 		return -ENOMEM;
+ 
+-	req = (struct cpl_close_listsvr_req *)__skb_put(skb, sizeof(*req));
++	req = __skb_put(skb, sizeof(*req));
+ 	INIT_TP_WR(req, 0);
+ 	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_CLOSE_LISTSRV_REQ, stid));
+ 	req->reply_ctrl = htons(NO_REPLY_V(0) | (ipv6 ? LISTSVR_IPV6_V(1) :
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/l2t.c b/drivers/net/ethernet/chelsio/cxgb4/l2t.c
+index 6f3692db29af..f7ef8871dd0b 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/l2t.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/l2t.c
+@@ -146,7 +146,7 @@ static int write_l2e(struct adapter *adap, struct l2t_entry *e, int sync)
+ 	if (!skb)
+ 		return -ENOMEM;
+ 
+-	req = (struct cpl_l2t_write_req *)__skb_put(skb, sizeof(*req));
++	req = __skb_put(skb, sizeof(*req));
+ 	INIT_TP_WR(req, 0);
+ 
+ 	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_L2T_WRITE_REQ,
+diff --git a/drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.h b/drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.h
+index 515b94ff9080..4b5aacc09cab 100644
+--- a/drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.h
++++ b/drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.h
+@@ -90,7 +90,7 @@ cxgb_mk_tid_release(struct sk_buff *skb, u32 len, u32 tid, u16 chan)
+ {
+ 	struct cpl_tid_release *req;
+ 
+-	req = (struct cpl_tid_release *)__skb_put(skb, len);
++	req = __skb_put(skb, len);
+ 	memset(req, 0, len);
+ 
+ 	INIT_TP_WR(req, tid);
+@@ -104,7 +104,7 @@ cxgb_mk_close_con_req(struct sk_buff *skb, u32 len, u32 tid, u16 chan,
+ {
+ 	struct cpl_close_con_req *req;
+ 
+-	req = (struct cpl_close_con_req *)__skb_put(skb, len);
++	req = __skb_put(skb, len);
+ 	memset(req, 0, len);
+ 
+ 	INIT_TP_WR(req, tid);
+@@ -119,7 +119,7 @@ cxgb_mk_abort_req(struct sk_buff *skb, u32 len, u32 tid, u16 chan,
+ {
+ 	struct cpl_abort_req *req;
+ 
+-	req = (struct cpl_abort_req *)__skb_put(skb, len);
++	req = __skb_put(skb, len);
+ 	memset(req, 0, len);
+ 
+ 	INIT_TP_WR(req, tid);
+@@ -134,7 +134,7 @@ cxgb_mk_abort_rpl(struct sk_buff *skb, u32 len, u32 tid, u16 chan)
+ {
+ 	struct cpl_abort_rpl *rpl;
+ 
+-	rpl = (struct cpl_abort_rpl *)__skb_put(skb, len);
++	rpl = __skb_put(skb, len);
+ 	memset(rpl, 0, len);
+ 
+ 	INIT_TP_WR(rpl, tid);
+@@ -149,7 +149,7 @@ cxgb_mk_rx_data_ack(struct sk_buff *skb, u32 len, u32 tid, u16 chan,
+ {
+ 	struct cpl_rx_data_ack *req;
+ 
+-	req = (struct cpl_rx_data_ack *)__skb_put(skb, len);
++	req = __skb_put(skb, len);
+ 	memset(req, 0, len);
+ 
+ 	INIT_TP_WR(req, tid);
+diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
+index 008dc8161775..16fe776ddbe5 100644
+--- a/drivers/net/ethernet/davicom/dm9000.c
++++ b/drivers/net/ethernet/davicom/dm9000.c
+@@ -1171,7 +1171,7 @@ dm9000_rx(struct net_device *dev)
+ 		if (GoodPacket &&
+ 		    ((skb = netdev_alloc_skb(dev, RxLen + 4)) != NULL)) {
+ 			skb_reserve(skb, 2);
+-			rdptr = (u8 *) skb_put(skb, RxLen - 4);
++			rdptr = skb_put(skb, RxLen - 4);
+ 
+ 			/* Read received packet from RX SRAM */
+ 
+diff --git a/drivers/net/ethernet/dnet.c b/drivers/net/ethernet/dnet.c
+index 3e77dd863175..5a847941c46b 100644
+--- a/drivers/net/ethernet/dnet.c
++++ b/drivers/net/ethernet/dnet.c
+@@ -399,7 +399,7 @@ static int dnet_poll(struct napi_struct *napi, int budget)
+ 			 * 'skb_put()' points to the start of sk_buff
+ 			 * data area.
+ 			 */
+-			data_ptr = (unsigned int *)skb_put(skb, pkt_len);
++			data_ptr = skb_put(skb, pkt_len);
+ 			for (i = 0; i < (pkt_len + 3) >> 2; i++)
+ 				*data_ptr++ = dnet_readl(bp, RX_DATA_FIFO);
+ 			skb->protocol = eth_type_trans(skb, dev);
+diff --git a/drivers/net/ethernet/hp/hp100.c b/drivers/net/ethernet/hp/hp100.c
+index 5673b071e39d..c6164a98f257 100644
+--- a/drivers/net/ethernet/hp/hp100.c
++++ b/drivers/net/ethernet/hp/hp100.c
+@@ -1281,7 +1281,7 @@ static int hp100_build_rx_pdl(hp100_ring_t * ringptr,
+ 		 */
+ 		skb_reserve(ringptr->skb, 2);
+ 
+-		ringptr->skb->data = (u_char *) skb_put(ringptr->skb, MAX_ETHER_SIZE);
++		ringptr->skb->data = skb_put(ringptr->skb, MAX_ETHER_SIZE);
+ 
+ 		/* ringptr->pdl points to the beginning of the PDL, i.e. the PDH */
+ 		/* Note: 1st Fragment is used for the 4 byte packet status
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_fcoe.c b/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
+index b077ef8b00fa..2d1253c5b7a1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
+@@ -762,7 +762,7 @@ int i40e_fcoe_handle_offload(struct i40e_ring *rx_ring,
+ 		    (fh->fh_r_ctl == FC_RCTL_DD_SOL_DATA)) {
+ 			struct fcoe_crc_eof *crc = NULL;
+ 
+-			crc = (struct fcoe_crc_eof *)skb_put(skb, sizeof(*crc));
++			crc = skb_put(skb, sizeof(*crc));
+ 			crc->fcoe_eof = FC_EOF_T;
+ 		} else {
+ 			/* otherwise, drop the header only frame */
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+index 2a653ec954f5..a23c2b5411a0 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+@@ -491,7 +491,7 @@ int ixgbe_fcoe_ddp(struct ixgbe_adapter *adapter,
+ 	if ((fh->fh_r_ctl == FC_RCTL_DD_SOL_DATA) &&
+ 	    (fctl & FC_FC_END_SEQ)) {
+ 		skb_linearize(skb);
+-		crc = (struct fcoe_crc_eof *)skb_put(skb, sizeof(*crc));
++		crc = skb_put(skb, sizeof(*crc));
+ 		crc->fcoe_eof = FC_EOF_T;
+ 	}
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_selftest.c b/drivers/net/ethernet/mellanox/mlx4/en_selftest.c
+index 17112faafbcc..88699b181946 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_selftest.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_selftest.c
+@@ -63,8 +63,8 @@ static int mlx4_en_test_loopback_xmit(struct mlx4_en_priv *priv)
+ 
+ 	skb_reserve(skb, NET_IP_ALIGN);
+ 
+-	ethh = (struct ethhdr *)skb_put(skb, sizeof(struct ethhdr));
+-	packet	= (unsigned char *)skb_put(skb, packet_size);
++	ethh = skb_put(skb, sizeof(struct ethhdr));
++	packet = skb_put(skb, packet_size);
+ 	memcpy(ethh->h_dest, priv->dev->dev_addr, ETH_ALEN);
+ 	eth_zero_addr(ethh->h_source);
+ 	ethh->h_proto = htons(ETH_P_ARP);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_selftest.c b/drivers/net/ethernet/mellanox/mlx5/core/en_selftest.c
+index 601abf240d63..c456ca07b562 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_selftest.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_selftest.c
+@@ -136,10 +136,10 @@ static struct sk_buff *mlx5e_test_get_udp_skb(struct mlx5e_priv *priv)
+ 	skb_reset_mac_header(skb);
+ 
+ 	skb_set_network_header(skb, skb->len);
+-	iph = (struct iphdr *)skb_put(skb, sizeof(struct iphdr));
++	iph = skb_put(skb, sizeof(struct iphdr));
+ 
+ 	skb_set_transport_header(skb, skb->len);
+-	udph = (struct udphdr *)skb_put(skb, sizeof(struct udphdr));
++	udph = skb_put(skb, sizeof(struct udphdr));
+ 
+ 	/* Fill ETH header */
+ 	ether_addr_copy(ethh->h_dest, priv->netdev->dev_addr);
+@@ -167,7 +167,7 @@ static struct sk_buff *mlx5e_test_get_udp_skb(struct mlx5e_priv *priv)
+ 	ip_send_check(iph);
+ 
+ 	/* Fill test header and data */
+-	mlxh = (struct mlx5ehdr *)skb_put(skb, sizeof(*mlxh));
++	mlxh = skb_put(skb, sizeof(*mlxh));
+ 	mlxh->version = 0;
+ 	mlxh->magic = cpu_to_be64(MLX5E_TEST_MAGIC);
+ 	strlcpy(mlxh->text, mlx5e_test_text, sizeof(mlxh->text));
+diff --git a/drivers/net/ethernet/micrel/ks8842.c b/drivers/net/ethernet/micrel/ks8842.c
+index cb0102dd7f70..e3d7c74d47bb 100644
+--- a/drivers/net/ethernet/micrel/ks8842.c
++++ b/drivers/net/ethernet/micrel/ks8842.c
+@@ -669,7 +669,7 @@ static void ks8842_rx_frame(struct net_device *netdev,
+ 			ks8842_update_rx_counters(netdev, status, len);
+ 
+ 			if (adapter->conf_flags & KS884X_16BIT) {
+-				u16 *data16 = (u16 *)skb_put(skb, len);
++				u16 *data16 = skb_put(skb, len);
+ 				ks8842_select_bank(adapter, 17);
+ 				while (len > 0) {
+ 					*data16++ = ioread16(adapter->hw_addr +
+@@ -679,7 +679,7 @@ static void ks8842_rx_frame(struct net_device *netdev,
+ 					len -= sizeof(u32);
+ 				}
+ 			} else {
+-				u32 *data = (u32 *)skb_put(skb, len);
++				u32 *data = skb_put(skb, len);
+ 
+ 				ks8842_select_bank(adapter, 17);
+ 				while (len > 0) {
+diff --git a/drivers/net/ethernet/sfc/falcon/selftest.c b/drivers/net/ethernet/sfc/falcon/selftest.c
+index 92bc34c91547..55c0fbbc4fb8 100644
+--- a/drivers/net/ethernet/sfc/falcon/selftest.c
++++ b/drivers/net/ethernet/sfc/falcon/selftest.c
+@@ -431,8 +431,7 @@ static int ef4_begin_loopback(struct ef4_tx_queue *tx_queue)
+ 
+ 		/* Copy the payload in, incrementing the source address to
+ 		 * exercise the rss vectors */
+-		payload = ((struct ef4_loopback_payload *)
+-			   skb_put(skb, sizeof(state->payload)));
++		payload = skb_put(skb, sizeof(state->payload));
+ 		memcpy(payload, &state->payload, sizeof(state->payload));
+ 		payload->ip.saddr = htonl(INADDR_LOOPBACK | (i << 2));
+ 
+diff --git a/drivers/net/ethernet/sfc/selftest.c b/drivers/net/ethernet/sfc/selftest.c
+index dab286a337a6..f6936949fc85 100644
+--- a/drivers/net/ethernet/sfc/selftest.c
++++ b/drivers/net/ethernet/sfc/selftest.c
+@@ -431,8 +431,7 @@ static int efx_begin_loopback(struct efx_tx_queue *tx_queue)
+ 
+ 		/* Copy the payload in, incrementing the source address to
+ 		 * exercise the rss vectors */
+-		payload = ((struct efx_loopback_payload *)
+-			   skb_put(skb, sizeof(state->payload)));
++		payload = skb_put(skb, sizeof(state->payload));
+ 		memcpy(payload, &state->payload, sizeof(state->payload));
+ 		payload->ip.saddr = htonl(INADDR_LOOPBACK | (i << 2));
+ 
+diff --git a/drivers/net/hamradio/scc.c b/drivers/net/hamradio/scc.c
+index 6754cd01c605..140a209f22ab 100644
+--- a/drivers/net/hamradio/scc.c
++++ b/drivers/net/hamradio/scc.c
+@@ -540,7 +540,7 @@ static inline void scc_rxint(struct scc_channel *scc)
+ 		}
+ 		
+ 		scc->rx_buff = skb;
+-		*(skb_put(skb, 1)) = 0;	/* KISS data */
++		*(u8 *)skb_put(skb, 1) = 0;	/* KISS data */
+ 	}
+ 	
+ 	if (skb->len >= scc->stat.bufsize)
+@@ -555,7 +555,7 @@ static inline void scc_rxint(struct scc_channel *scc)
+ 		return;
+ 	}
+ 
+-	*(skb_put(skb, 1)) = Inb(scc->data);
++	*(u8 *)skb_put(skb, 1) = Inb(scc->data);
+ }
+ 
+ 
+diff --git a/drivers/net/ppp/pppoe.c b/drivers/net/ppp/pppoe.c
+index d7e405268983..4e1da1645b15 100644
+--- a/drivers/net/ppp/pppoe.c
++++ b/drivers/net/ppp/pppoe.c
+@@ -877,7 +877,7 @@ static int pppoe_sendmsg(struct socket *sock, struct msghdr *m,
+ 	skb->priority = sk->sk_priority;
+ 	skb->protocol = cpu_to_be16(ETH_P_PPP_SES);
+ 
+-	ph = (struct pppoe_hdr *)skb_put(skb, total_len + sizeof(struct pppoe_hdr));
++	ph = skb_put(skb, total_len + sizeof(struct pppoe_hdr));
+ 	start = (char *)&ph->tag[0];
+ 
+ 	error = memcpy_from_msg(start, m, total_len);
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index 8a4c8a1b9dd3..4d4837a0645b 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -1250,7 +1250,7 @@ cdc_ncm_fill_tx_frame(struct usbnet *dev, struct sk_buff *skb, __le32 sign)
+ 		skb_put_zero(skb_out, padding_count);
+ 	} else if (skb_out->len < ctx->tx_max &&
+ 		   (skb_out->len % dev->maxpacket) == 0) {
+-		*skb_put(skb_out, 1) = 0;	/* force short packet */
++		*(u8 *)skb_put(skb_out, 1) = 0;	/* force short packet */
+ 	}
+ 
+ 	/* set final frame length */
+diff --git a/drivers/net/usb/net1080.c b/drivers/net/usb/net1080.c
+index 3202c19df83d..861ff45f0b09 100644
+--- a/drivers/net/usb/net1080.c
++++ b/drivers/net/usb/net1080.c
+@@ -473,8 +473,8 @@ net1080_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags)
+ 
+ 	/* maybe pad; then trailer */
+ 	if (!((skb->len + sizeof *trailer) & 0x01))
+-		*skb_put(skb, 1) = PAD_BYTE;
+-	trailer = (struct nc_trailer *) skb_put(skb, sizeof *trailer);
++		*(u8 *)skb_put(skb, 1) = PAD_BYTE;
++	trailer = skb_put(skb, sizeof *trailer);
+ 	put_unaligned(header->packet_id, &trailer->packet_id);
+ #if 0
+ 	netdev_dbg(dev->net, "frame >tx h %d p %d id %d\n",
+diff --git a/drivers/net/usb/zaurus.c b/drivers/net/usb/zaurus.c
+index 6aaa6eb9df72..dc3cd03763af 100644
+--- a/drivers/net/usb/zaurus.c
++++ b/drivers/net/usb/zaurus.c
+@@ -74,10 +74,10 @@ zaurus_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags)
+ 		fcs = crc32_le(~0, skb->data, skb->len);
+ 		fcs = ~fcs;
+ 
+-		*skb_put (skb, 1) = fcs       & 0xff;
+-		*skb_put (skb, 1) = (fcs>> 8) & 0xff;
+-		*skb_put (skb, 1) = (fcs>>16) & 0xff;
+-		*skb_put (skb, 1) = (fcs>>24) & 0xff;
++		*(u8 *)skb_put(skb, 1) = fcs       & 0xff;
++		*(u8 *)skb_put(skb, 1) = (fcs>> 8) & 0xff;
++		*(u8 *)skb_put(skb, 1) = (fcs>>16) & 0xff;
++		*(u8 *)skb_put(skb, 1) = (fcs>>24) & 0xff;
+ 	}
+ 	return skb;
+ }
+diff --git a/drivers/net/wan/hdlc_ppp.c b/drivers/net/wan/hdlc_ppp.c
+index f5b4ad45831a..fa3460a0dbbe 100644
+--- a/drivers/net/wan/hdlc_ppp.c
++++ b/drivers/net/wan/hdlc_ppp.c
+@@ -228,7 +228,7 @@ static void ppp_tx_cp(struct net_device *dev, u16 pid, u8 code,
+ 	}
+ 	skb_reserve(skb, sizeof(struct hdlc_header));
+ 
+-	cp = (struct cp_header *)skb_put(skb, sizeof(struct cp_header));
++	cp = skb_put(skb, sizeof(struct cp_header));
+ 	cp->code = code;
+ 	cp->id = id;
+ 	cp->len = htons(sizeof(struct cp_header) + magic_len + len);
+diff --git a/drivers/net/wireless/ath/ath6kl/debug.c b/drivers/net/wireless/ath/ath6kl/debug.c
+index e2b7809d7886..1eea6c23976f 100644
+--- a/drivers/net/wireless/ath/ath6kl/debug.c
++++ b/drivers/net/wireless/ath/ath6kl/debug.c
+@@ -348,7 +348,7 @@ void ath6kl_debug_fwlog_event(struct ath6kl *ar, const void *buf, size_t len)
  	if (!skb)
  		return;
  
--	memcpy(skb_put(skb, sizeof(*head)), head, sizeof(*head));
-+	skb_put_data(skb, head, sizeof(*head));
+-	slot = (struct ath6kl_fwlog_slot *) skb_put(skb, slot_len);
++	slot = skb_put(skb, slot_len);
+ 	slot->timestamp = cpu_to_le32(jiffies);
+ 	slot->length = cpu_to_le32(len);
+ 	memcpy(slot->payload, buf, len);
+diff --git a/drivers/net/wireless/ath/ath6kl/htc_pipe.c b/drivers/net/wireless/ath/ath6kl/htc_pipe.c
+index d127a08d60df..b13d61111072 100644
+--- a/drivers/net/wireless/ath/ath6kl/htc_pipe.c
++++ b/drivers/net/wireless/ath/ath6kl/htc_pipe.c
+@@ -1274,8 +1274,7 @@ static int ath6kl_htc_pipe_conn_service(struct htc_target *target,
+ 		length = sizeof(struct htc_conn_service_msg);
  
- 	if (head->nframes) {
- 		/* CAN frames starting here */
- 		firstframe = (struct canfd_frame *)skb_tail_pointer(skb);
+ 		/* assemble connect service message */
+-		conn_msg = (struct htc_conn_service_msg *) skb_put(skb,
+-								   length);
++		conn_msg = skb_put(skb, length);
+ 		if (conn_msg == NULL) {
+ 			WARN_ON_ONCE(1);
+ 			status = -EINVAL;
+@@ -1504,8 +1503,7 @@ static int ath6kl_htc_pipe_start(struct htc_target *target)
+ 	skb = packet->skb;
  
--		memcpy(skb_put(skb, datalen), frames, datalen);
-+		skb_put_data(skb, frames, datalen);
+ 	/* assemble setup complete message */
+-	setup = (struct htc_setup_comp_ext_msg *) skb_put(skb,
+-							  sizeof(*setup));
++	setup = skb_put(skb, sizeof(*setup));
+ 	memset(setup, 0, sizeof(struct htc_setup_comp_ext_msg));
+ 	setup->msg_id = cpu_to_le16(HTC_MSG_SETUP_COMPLETE_EX_ID);
+ 
+diff --git a/drivers/net/wireless/ath/ath9k/htc_hst.c b/drivers/net/wireless/ath/ath9k/htc_hst.c
+index 8e6dae23669b..9fa8970a1f7d 100644
+--- a/drivers/net/wireless/ath/ath9k/htc_hst.c
++++ b/drivers/net/wireless/ath/ath9k/htc_hst.c
+@@ -156,8 +156,7 @@ static int htc_config_pipe_credits(struct htc_target *target)
+ 	}
+ 	skb_reserve(skb, sizeof(struct htc_frame_hdr));
+ 
+-	cp_msg = (struct htc_config_pipe_msg *)
+-		skb_put(skb, sizeof(struct htc_config_pipe_msg));
++	cp_msg = skb_put(skb, sizeof(struct htc_config_pipe_msg));
+ 
+ 	cp_msg->message_id = cpu_to_be16(HTC_MSG_CONFIG_PIPE_ID);
+ 	cp_msg->pipe_id = USB_WLAN_TX_PIPE;
+@@ -195,8 +194,7 @@ static int htc_setup_complete(struct htc_target *target)
+ 	}
+ 	skb_reserve(skb, sizeof(struct htc_frame_hdr));
+ 
+-	comp_msg = (struct htc_comp_msg *)
+-		skb_put(skb, sizeof(struct htc_comp_msg));
++	comp_msg = skb_put(skb, sizeof(struct htc_comp_msg));
+ 	comp_msg->msg_id = cpu_to_be16(HTC_MSG_SETUP_COMPLETE_ID);
+ 
+ 	target->htc_flags |= HTC_OP_START_WAIT;
+@@ -265,8 +263,7 @@ int htc_connect_service(struct htc_target *target,
+ 
+ 	skb_reserve(skb, sizeof(struct htc_frame_hdr));
+ 
+-	conn_msg = (struct htc_conn_svc_msg *)
+-			skb_put(skb, sizeof(struct htc_conn_svc_msg));
++	conn_msg = skb_put(skb, sizeof(struct htc_conn_svc_msg));
+ 	conn_msg->service_id = cpu_to_be16(service_connreq->service_id);
+ 	conn_msg->msg_id = cpu_to_be16(HTC_MSG_CONNECT_SERVICE_ID);
+ 	conn_msg->con_flags = cpu_to_be16(service_connreq->con_flags);
+diff --git a/drivers/net/wireless/ath/wil6210/wmi.c b/drivers/net/wireless/ath/wil6210/wmi.c
+index cff9c585972f..0a5020f31de1 100644
+--- a/drivers/net/wireless/ath/wil6210/wmi.c
++++ b/drivers/net/wireless/ath/wil6210/wmi.c
+@@ -677,7 +677,7 @@ static void wmi_evt_eapol_rx(struct wil6210_priv *wil, int id,
+ 		return;
+ 	}
+ 
+-	eth = (struct ethhdr *)skb_put(skb, ETH_HLEN);
++	eth = skb_put(skb, ETH_HLEN);
+ 	ether_addr_copy(eth->h_dest, ndev->dev_addr);
+ 	ether_addr_copy(eth->h_source, evt->src_mac);
+ 	eth->h_proto = cpu_to_be16(ETH_P_PAE);
+diff --git a/drivers/net/wireless/cisco/airo.c b/drivers/net/wireless/cisco/airo.c
+index 1b7e125a28e2..4623155ec36e 100644
+--- a/drivers/net/wireless/cisco/airo.c
++++ b/drivers/net/wireless/cisco/airo.c
+@@ -3330,7 +3330,7 @@ static void airo_handle_rx(struct airo_info *ai)
+ 	}
+ 
+ 	skb_reserve(skb, 2); /* This way the IP header is aligned */
+-	buffer = (__le16 *) skb_put(skb, len + hdrlen);
++	buffer = skb_put(skb, len + hdrlen);
+ 	if (test_bit(FLAG_802_11, &ai->flags)) {
+ 		buffer[0] = fc;
+ 		bap_read(ai, buffer + 1, hdrlen - 2, BAP0);
+@@ -3734,7 +3734,7 @@ static void mpi_receive_802_11(struct airo_info *ai)
+ 		ai->dev->stats.rx_dropped++;
+ 		goto badrx;
+ 	}
+-	buffer = (u16*)skb_put (skb, len + hdrlen);
++	buffer = skb_put(skb, len + hdrlen);
+ 	memcpy ((char *)buffer, ptr, hdrlen);
+ 	ptr += hdrlen;
+ 	if (hdrlen == 24)
+diff --git a/drivers/net/wireless/intel/ipw2x00/ipw2200.c b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
+index e0c690b48d4e..5e4ce4abd62e 100644
+--- a/drivers/net/wireless/intel/ipw2x00/ipw2200.c
++++ b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
+@@ -10371,7 +10371,7 @@ static void ipw_handle_promiscuous_tx(struct ipw_priv *priv,
+ 		if (!dst)
+ 			continue;
+ 
+-		rt_hdr = (void *)skb_put(dst, sizeof(*rt_hdr));
++		rt_hdr = skb_put(dst, sizeof(*rt_hdr));
+ 
+ 		rt_hdr->it_version = PKTHDR_RADIOTAP_VERSION;
+ 		rt_hdr->it_pad = 0;
+diff --git a/drivers/net/wireless/intel/ipw2x00/libipw_tx.c b/drivers/net/wireless/intel/ipw2x00/libipw_tx.c
+index 5339d1eeb2f7..84205aa508df 100644
+--- a/drivers/net/wireless/intel/ipw2x00/libipw_tx.c
++++ b/drivers/net/wireless/intel/ipw2x00/libipw_tx.c
+@@ -439,8 +439,7 @@ netdev_tx_t libipw_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	if (rts_required) {
+ 		skb_frag = txb->fragments[0];
+-		frag_hdr =
+-		    (struct libipw_hdr_3addrqos *)skb_put(skb_frag, hdr_len);
++		frag_hdr = skb_put(skb_frag, hdr_len);
  
  		/*
- 		 * the BCM uses the flags-element of the canfd_frame
-diff --git a/net/decnet/dn_nsp_out.c b/net/decnet/dn_nsp_out.c
-index 849805e7af52..b8a558715395 100644
---- a/net/decnet/dn_nsp_out.c
-+++ b/net/decnet/dn_nsp_out.c
-@@ -533,7 +533,7 @@ void dn_send_conn_conf(struct sock *sk, gfp_t gfp)
- 	*skb_put(skb,1) = len;
- 
- 	if (len > 0)
--		memcpy(skb_put(skb, len), scp->conndata_out.opt_data, len);
-+		skb_put_data(skb, scp->conndata_out.opt_data, len);
- 
- 
- 	dn_nsp_send(skb);
-@@ -691,22 +691,22 @@ void dn_nsp_send_conninit(struct sock *sk, unsigned char msgflg)
- 	aux = scp->accessdata.acc_userl;
- 	*skb_put(skb, 1) = aux;
- 	if (aux > 0)
--		memcpy(skb_put(skb, aux), scp->accessdata.acc_user, aux);
-+		skb_put_data(skb, scp->accessdata.acc_user, aux);
- 
- 	aux = scp->accessdata.acc_passl;
- 	*skb_put(skb, 1) = aux;
- 	if (aux > 0)
--		memcpy(skb_put(skb, aux), scp->accessdata.acc_pass, aux);
-+		skb_put_data(skb, scp->accessdata.acc_pass, aux);
- 
- 	aux = scp->accessdata.acc_accl;
- 	*skb_put(skb, 1) = aux;
- 	if (aux > 0)
--		memcpy(skb_put(skb, aux), scp->accessdata.acc_acc, aux);
-+		skb_put_data(skb, scp->accessdata.acc_acc, aux);
- 
- 	aux = (__u8)le16_to_cpu(scp->conndata_out.opt_optl);
- 	*skb_put(skb, 1) = aux;
- 	if (aux > 0)
--		memcpy(skb_put(skb, aux), scp->conndata_out.opt_data, aux);
-+		skb_put_data(skb, scp->conndata_out.opt_data, aux);
- 
- 	scp->persist = dn_nsp_persist(sk);
- 	scp->persist_fxn = dn_nsp_retrans_conninit;
-diff --git a/net/ieee802154/6lowpan/tx.c b/net/ieee802154/6lowpan/tx.c
-index dbb476d7d38f..e6ff5128e61a 100644
---- a/net/ieee802154/6lowpan/tx.c
-+++ b/net/ieee802154/6lowpan/tx.c
-@@ -121,8 +121,7 @@ lowpan_alloc_frag(struct sk_buff *skb, int size,
- 		*mac_cb(frag) = *mac_cb(skb);
- 
- 		if (frag1) {
--			memcpy(skb_put(frag, skb->mac_len),
--			       skb_mac_header(skb), skb->mac_len);
-+			skb_put_data(frag, skb_mac_header(skb), skb->mac_len);
- 		} else {
- 			rc = wpan_dev_hard_header(frag, wdev,
- 						  &master_hdr->dest,
-@@ -152,8 +151,8 @@ lowpan_xmit_fragment(struct sk_buff *skb, const struct ieee802154_hdr *wpan_hdr,
- 	if (IS_ERR(frag))
- 		return PTR_ERR(frag);
- 
--	memcpy(skb_put(frag, frag_hdrlen), frag_hdr, frag_hdrlen);
--	memcpy(skb_put(frag, len), skb_network_header(skb) + offset, len);
-+	skb_put_data(frag, frag_hdr, frag_hdrlen);
-+	skb_put_data(frag, skb_network_header(skb) + offset, len);
- 
- 	raw_dump_table(__func__, " fragment dump", frag->data, frag->len);
- 
-diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-index 9098429e38bc..b64046ccae69 100644
---- a/net/ipv6/mcast.c
-+++ b/net/ipv6/mcast.c
-@@ -1602,7 +1602,7 @@ static struct sk_buff *mld_newpack(struct inet6_dev *idev, unsigned int mtu)
- 
- 	ip6_mc_hdr(sk, skb, dev, saddr, &mld2_all_mcr, NEXTHDR_HOP, 0);
- 
--	memcpy(skb_put(skb, sizeof(ra)), ra, sizeof(ra));
-+	skb_put_data(skb, ra, sizeof(ra));
- 
- 	skb_set_transport_header(skb, skb_tail_pointer(skb) - skb->data);
- 	skb_put(skb, sizeof(*pmr));
-@@ -2006,7 +2006,7 @@ static void igmp6_send(struct in6_addr *addr, struct net_device *dev, int type)
- 
- 	ip6_mc_hdr(sk, skb, dev, saddr, snd_addr, NEXTHDR_HOP, payload_len);
- 
--	memcpy(skb_put(skb, sizeof(ra)), ra, sizeof(ra));
-+	skb_put_data(skb, ra, sizeof(ra));
- 
- 	hdr = skb_put_zero(skb, sizeof(struct mld_msg));
- 	hdr->mld_type = type;
-diff --git a/net/irda/ircomm/ircomm_tty.c b/net/irda/ircomm/ircomm_tty.c
-index f6061c4bb0a8..ec157c3419b5 100644
---- a/net/irda/ircomm/ircomm_tty.c
-+++ b/net/irda/ircomm/ircomm_tty.c
-@@ -690,7 +690,7 @@ static int ircomm_tty_write(struct tty_struct *tty,
- 		}
- 
- 		/* Copy data */
--		memcpy(skb_put(skb,size), buf + len, size);
-+		skb_put_data(skb, buf + len, size);
- 
- 		count -= size;
- 		len += size;
-diff --git a/net/irda/irlap_frame.c b/net/irda/irlap_frame.c
-index b936b1251a66..bf56ac7dba96 100644
---- a/net/irda/irlap_frame.c
-+++ b/net/irda/irlap_frame.c
-@@ -392,8 +392,7 @@ void irlap_send_discovery_xid_frame(struct irlap_cb *self, int S, __u8 s,
- 		info[0] = discovery->data.charset;
- 
- 		len = IRDA_MIN(discovery->name_len, skb_tailroom(tx_skb));
--		info = skb_put(tx_skb, len);
--		memcpy(info, discovery->data.info, len);
-+		info = skb_put_data(tx_skb, discovery->data.info, len);
+ 		 * Set header frame_ctl to the RTS.
+diff --git a/drivers/net/wireless/intersil/hostap/hostap_ap.c b/drivers/net/wireless/intersil/hostap/hostap_ap.c
+index 91757defb9be..eb9cd6fa9c4d 100644
+--- a/drivers/net/wireless/intersil/hostap/hostap_ap.c
++++ b/drivers/net/wireless/intersil/hostap/hostap_ap.c
+@@ -2361,7 +2361,7 @@ static void schedule_packet_send(local_info_t *local, struct sta_info *sta)
+ 		return;
  	}
- 	irlap_queue_xmit(self, tx_skb);
- }
-@@ -1216,8 +1215,7 @@ void irlap_send_test_frame(struct irlap_cb *self, __u8 caddr, __u32 daddr,
- 	frame->control = TEST_RSP | PF_BIT;
  
- 	/* Copy info */
--	info = skb_put(tx_skb, cmd->len);
--	memcpy(info, cmd->data, cmd->len);
-+	info = skb_put_data(tx_skb, cmd->data, cmd->len);
+-	hdr = (struct ieee80211_hdr *) skb_put(skb, 16);
++	hdr = skb_put(skb, 16);
  
- 	/* Return to sender */
- 	irlap_wait_min_turn_around(self, &self->qos_tx);
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 8ad430edb5b8..3ebb4268973b 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -1706,8 +1706,7 @@ static int unicast_flush_resp(struct sock *sk, const struct sadb_msg *ihdr)
+ 	/* Generate a fake pspoll frame to start packet delivery */
+ 	hdr->frame_control = cpu_to_le16(
+diff --git a/drivers/net/wireless/intersil/p54/fwio.c b/drivers/net/wireless/intersil/p54/fwio.c
+index 3076f646c829..52c095c7765f 100644
+--- a/drivers/net/wireless/intersil/p54/fwio.c
++++ b/drivers/net/wireless/intersil/p54/fwio.c
+@@ -206,7 +206,7 @@ static struct sk_buff *p54_alloc_skb(struct p54_common *priv, u16 hdr_flags,
+ 		return NULL;
+ 	skb_reserve(skb, priv->tx_hdr_len);
+ 
+-	hdr = (struct p54_hdr *) skb_put(skb, sizeof(*hdr));
++	hdr = skb_put(skb, sizeof(*hdr));
+ 	hdr->flags = cpu_to_le16(hdr_flags);
+ 	hdr->len = cpu_to_le16(payload_len);
+ 	hdr->type = cpu_to_le16(type);
+@@ -236,8 +236,7 @@ int p54_download_eeprom(struct p54_common *priv, void *buf,
+ 
+ 	mutex_lock(&priv->eeprom_mutex);
+ 	priv->eeprom = buf;
+-	eeprom_hdr = (struct p54_eeprom_lm86 *) skb_put(skb,
+-		eeprom_hdr_size + len);
++	eeprom_hdr = skb_put(skb, eeprom_hdr_size + len);
+ 
+ 	if (priv->fw_var < 0x509) {
+ 		eeprom_hdr->v1.offset = cpu_to_le16(offset);
+@@ -273,7 +272,7 @@ int p54_update_beacon_tim(struct p54_common *priv, u16 aid, bool set)
+ 	if (unlikely(!skb))
+ 		return -ENOMEM;
+ 
+-	tim = (struct p54_tim *) skb_put(skb, sizeof(*tim));
++	tim = skb_put(skb, sizeof(*tim));
+ 	tim->count = 1;
+ 	tim->entry[0] = cpu_to_le16(set ? (aid | 0x8000) : aid);
+ 	p54_tx(priv, skb);
+@@ -290,7 +289,7 @@ int p54_sta_unlock(struct p54_common *priv, u8 *addr)
+ 	if (unlikely(!skb))
+ 		return -ENOMEM;
+ 
+-	sta = (struct p54_sta_unlock *)skb_put(skb, sizeof(*sta));
++	sta = skb_put(skb, sizeof(*sta));
+ 	memcpy(sta->addr, addr, ETH_ALEN);
+ 	p54_tx(priv, skb);
+ 	return 0;
+@@ -310,7 +309,7 @@ int p54_tx_cancel(struct p54_common *priv, __le32 req_id)
+ 	if (unlikely(!skb))
+ 		return -ENOMEM;
+ 
+-	cancel = (struct p54_txcancel *)skb_put(skb, sizeof(*cancel));
++	cancel = skb_put(skb, sizeof(*cancel));
+ 	cancel->req_id = req_id;
+ 	p54_tx(priv, skb);
+ 	return 0;
+@@ -327,7 +326,7 @@ int p54_setup_mac(struct p54_common *priv)
  	if (!skb)
- 		return -ENOBUFS;
+ 		return -ENOMEM;
  
--	hdr = (struct sadb_msg *) skb_put(skb, sizeof(struct sadb_msg));
--	memcpy(hdr, ihdr, sizeof(struct sadb_msg));
-+	hdr = skb_put_data(skb, ihdr, sizeof(struct sadb_msg));
- 	hdr->sadb_msg_errno = (uint8_t) 0;
- 	hdr->sadb_msg_len = (sizeof(struct sadb_msg) / sizeof(uint64_t));
+-	setup = (struct p54_setup_mac *) skb_put(skb, sizeof(*setup));
++	setup = skb_put(skb, sizeof(*setup));
+ 	if (!(priv->hw->conf.flags & IEEE80211_CONF_IDLE)) {
+ 		switch (priv->mode) {
+ 		case NL80211_IFTYPE_STATION:
+@@ -413,18 +412,18 @@ int p54_scan(struct p54_common *priv, u16 mode, u16 dwell)
+ 	if (!skb)
+ 		return -ENOMEM;
  
-diff --git a/net/mac80211/ibss.c b/net/mac80211/ibss.c
-index 660ac6a426f4..e9c6aa3ed05b 100644
---- a/net/mac80211/ibss.c
-+++ b/net/mac80211/ibss.c
-@@ -1569,7 +1569,7 @@ static void ieee80211_rx_mgmt_probe_req(struct ieee80211_sub_if_data *sdata,
+-	head = (struct p54_scan_head *) skb_put(skb, sizeof(*head));
++	head = skb_put(skb, sizeof(*head));
+ 	memset(head->scan_params, 0, sizeof(head->scan_params));
+ 	head->mode = cpu_to_le16(mode);
+ 	head->dwell = cpu_to_le16(dwell);
+ 	head->freq = freq;
+ 
+ 	if (priv->rxhw == PDR_SYNTH_FRONTEND_LONGBOW) {
+-		__le16 *pa_power_points = (__le16 *) skb_put(skb, 2);
++		__le16 *pa_power_points = skb_put(skb, 2);
+ 		*pa_power_points = cpu_to_le16(0x0c);
+ 	}
+ 
+-	iq_autocal = (void *) skb_put(skb, sizeof(*iq_autocal));
++	iq_autocal = skb_put(skb, sizeof(*iq_autocal));
+ 	for (i = 0; i < priv->iq_autocal_len; i++) {
+ 		if (priv->iq_autocal[i].freq != freq)
+ 			continue;
+@@ -437,9 +436,9 @@ int p54_scan(struct p54_common *priv, u16 mode, u16 dwell)
+ 		goto err;
+ 
+ 	if (priv->rxhw == PDR_SYNTH_FRONTEND_LONGBOW)
+-		body = (void *) skb_put(skb, sizeof(body->longbow));
++		body = skb_put(skb, sizeof(body->longbow));
+ 	else
+-		body = (void *) skb_put(skb, sizeof(body->normal));
++		body = skb_put(skb, sizeof(body->normal));
+ 
+ 	for (i = 0; i < priv->output_limit->entries; i++) {
+ 		__le16 *entry_freq = (void *) (priv->output_limit->data +
+@@ -500,25 +499,25 @@ int p54_scan(struct p54_common *priv, u16 mode, u16 dwell)
+ 		goto err;
+ 
+ 	if ((priv->fw_var >= 0x500) && (priv->fw_var < 0x509)) {
+-		rate = (void *) skb_put(skb, sizeof(*rate));
++		rate = skb_put(skb, sizeof(*rate));
+ 		rate->basic_rate_mask = cpu_to_le32(priv->basic_rate_mask);
+ 		for (i = 0; i < sizeof(rate->rts_rates); i++)
+ 			rate->rts_rates[i] = i;
+ 	}
+ 
+-	rssi = (struct pda_rssi_cal_entry *) skb_put(skb, sizeof(*rssi));
++	rssi = skb_put(skb, sizeof(*rssi));
+ 	rssi_data = p54_rssi_find(priv, le16_to_cpu(freq));
+ 	rssi->mul = cpu_to_le16(rssi_data->mul);
+ 	rssi->add = cpu_to_le16(rssi_data->add);
+ 	if (priv->rxhw == PDR_SYNTH_FRONTEND_LONGBOW) {
+ 		/* Longbow frontend needs ever more */
+-		rssi = (void *) skb_put(skb, sizeof(*rssi));
++		rssi = skb_put(skb, sizeof(*rssi));
+ 		rssi->mul = cpu_to_le16(rssi_data->longbow_unkn);
+ 		rssi->add = cpu_to_le16(rssi_data->longbow_unk2);
+ 	}
+ 
+ 	if (priv->fw_var >= 0x509) {
+-		rate = (void *) skb_put(skb, sizeof(*rate));
++		rate = skb_put(skb, sizeof(*rate));
+ 		rate->basic_rate_mask = cpu_to_le32(priv->basic_rate_mask);
+ 		for (i = 0; i < sizeof(rate->rts_rates); i++)
+ 			rate->rts_rates[i] = i;
+@@ -550,7 +549,7 @@ int p54_set_leds(struct p54_common *priv)
+ 	if (unlikely(!skb))
+ 		return -ENOMEM;
+ 
+-	led = (struct p54_led *) skb_put(skb, sizeof(*led));
++	led = skb_put(skb, sizeof(*led));
+ 	led->flags = cpu_to_le16(0x0003);
+ 	led->mask[0] = led->mask[1] = cpu_to_le16(priv->softled_state);
+ 	led->delay[0] = cpu_to_le16(1);
+@@ -570,7 +569,7 @@ int p54_set_edcf(struct p54_common *priv)
+ 	if (unlikely(!skb))
+ 		return -ENOMEM;
+ 
+-	edcf = (struct p54_edcf *)skb_put(skb, sizeof(*edcf));
++	edcf = skb_put(skb, sizeof(*edcf));
+ 	if (priv->use_short_slot) {
+ 		edcf->slottime = 9;
+ 		edcf->sifs = 0x10;
+@@ -615,7 +614,7 @@ int p54_set_ps(struct p54_common *priv)
+ 	if (!skb)
+ 		return -ENOMEM;
+ 
+-	psm = (struct p54_psm *)skb_put(skb, sizeof(*psm));
++	psm = skb_put(skb, sizeof(*psm));
+ 	psm->mode = cpu_to_le16(mode);
+ 	psm->aid = cpu_to_le16(priv->aid);
+ 	for (i = 0; i < ARRAY_SIZE(psm->intervals); i++) {
+@@ -644,7 +643,7 @@ int p54_init_xbow_synth(struct p54_common *priv)
+ 	if (unlikely(!skb))
+ 		return -ENOMEM;
+ 
+-	xbow = (struct p54_xbow_synth *)skb_put(skb, sizeof(*xbow));
++	xbow = skb_put(skb, sizeof(*xbow));
+ 	xbow->magic1 = cpu_to_le16(0x1);
+ 	xbow->magic2 = cpu_to_le16(0x2);
+ 	xbow->freq = cpu_to_le16(5390);
+@@ -664,7 +663,7 @@ int p54_upload_key(struct p54_common *priv, u8 algo, int slot, u8 idx, u8 len,
+ 	if (unlikely(!skb))
+ 		return -ENOMEM;
+ 
+-	rxkey = (struct p54_keycache *)skb_put(skb, sizeof(*rxkey));
++	rxkey = skb_put(skb, sizeof(*rxkey));
+ 	rxkey->entry = slot;
+ 	rxkey->key_id = idx;
+ 	rxkey->key_type = algo;
+@@ -744,7 +743,7 @@ int p54_set_groupfilter(struct p54_common *priv)
+ 	if (!skb)
+ 		return -ENOMEM;
+ 
+-	grp = (struct p54_group_address_table *)skb_put(skb, sizeof(*grp));
++	grp = skb_put(skb, sizeof(*grp));
+ 
+ 	on = !(priv->filter_flags & FIF_ALLMULTI) &&
+ 	     (priv->mc_maclist_num > 0 &&
+diff --git a/drivers/net/wireless/mac80211_hwsim.c b/drivers/net/wireless/mac80211_hwsim.c
+index 1d6e180052b8..7418088e296f 100644
+--- a/drivers/net/wireless/mac80211_hwsim.c
++++ b/drivers/net/wireless/mac80211_hwsim.c
+@@ -650,7 +650,7 @@ static void hwsim_send_ps_poll(void *dat, u8 *mac, struct ieee80211_vif *vif)
+ 	skb = dev_alloc_skb(sizeof(*pspoll));
+ 	if (!skb)
+ 		return;
+-	pspoll = (void *) skb_put(skb, sizeof(*pspoll));
++	pspoll = skb_put(skb, sizeof(*pspoll));
+ 	pspoll->frame_control = cpu_to_le16(IEEE80211_FTYPE_CTL |
+ 					    IEEE80211_STYPE_PSPOLL |
+ 					    IEEE80211_FCTL_PM);
+@@ -681,7 +681,7 @@ static void hwsim_send_nullfunc(struct mac80211_hwsim_data *data, u8 *mac,
+ 	skb = dev_alloc_skb(sizeof(*hdr));
+ 	if (!skb)
+ 		return;
+-	hdr = (void *) skb_put(skb, sizeof(*hdr) - ETH_ALEN);
++	hdr = skb_put(skb, sizeof(*hdr) - ETH_ALEN);
+ 	hdr->frame_control = cpu_to_le16(IEEE80211_FTYPE_DATA |
+ 					 IEEE80211_STYPE_NULLFUNC |
+ 					 (ps ? IEEE80211_FCTL_PM : 0));
+@@ -892,7 +892,7 @@ static void mac80211_hwsim_monitor_ack(struct ieee80211_channel *chan,
+ 	if (skb == NULL)
  		return;
  
- 	skb_reserve(skb, local->tx_headroom);
--	memcpy(skb_put(skb, presp->head_len), presp->head, presp->head_len);
-+	skb_put_data(skb, presp->head, presp->head_len);
+-	hdr = (struct hwsim_radiotap_ack_hdr *) skb_put(skb, sizeof(*hdr));
++	hdr = skb_put(skb, sizeof(*hdr));
+ 	hdr->hdr.it_version = PKTHDR_RADIOTAP_VERSION;
+ 	hdr->hdr.it_pad = 0;
+ 	hdr->hdr.it_len = cpu_to_le16(sizeof(*hdr));
+@@ -904,7 +904,7 @@ static void mac80211_hwsim_monitor_ack(struct ieee80211_channel *chan,
+ 	flags = IEEE80211_CHAN_2GHZ;
+ 	hdr->rt_chbitmask = cpu_to_le16(flags);
  
- 	memcpy(((struct ieee80211_mgmt *) skb->data)->da, mgmt->sa, ETH_ALEN);
- 	ibss_dbg(sdata, "Sending ProbeResp to %pM\n", mgmt->sa);
-diff --git a/net/mac80211/mesh.c b/net/mac80211/mesh.c
-index e45c8d94952e..861697f2d75b 100644
---- a/net/mac80211/mesh.c
-+++ b/net/mac80211/mesh.c
-@@ -345,7 +345,7 @@ int mesh_add_vendor_ies(struct ieee80211_sub_if_data *sdata,
- 		data = ifmsh->ie + offset;
- 		if (skb_tailroom(skb) < len)
- 			return -ENOMEM;
--		memcpy(skb_put(skb, len), data, len);
-+		skb_put_data(skb, data, len);
+-	hdr11 = (struct ieee80211_hdr *) skb_put(skb, 10);
++	hdr11 = skb_put(skb, 10);
+ 	hdr11->frame_control = cpu_to_le16(IEEE80211_FTYPE_CTL |
+ 					   IEEE80211_STYPE_ACK);
+ 	hdr11->duration_id = cpu_to_le16(0);
+diff --git a/drivers/net/wireless/marvell/mwifiex/11n_aggr.c b/drivers/net/wireless/marvell/mwifiex/11n_aggr.c
+index bc12c37e7501..042a1d07f686 100644
+--- a/drivers/net/wireless/marvell/mwifiex/11n_aggr.c
++++ b/drivers/net/wireless/marvell/mwifiex/11n_aggr.c
+@@ -62,7 +62,7 @@ mwifiex_11n_form_amsdu_pkt(struct sk_buff *skb_aggr,
+ 	};
+ 	struct tx_packet_hdr *tx_header;
+ 
+-	tx_header = (void *)skb_put(skb_aggr, sizeof(*tx_header));
++	tx_header = skb_put(skb_aggr, sizeof(*tx_header));
+ 
+ 	/* Copy DA and SA */
+ 	dt_offset = 2 * ETH_ALEN;
+diff --git a/drivers/net/wireless/marvell/mwifiex/tdls.c b/drivers/net/wireless/marvell/mwifiex/tdls.c
+index d38555fe4284..39cd677d4159 100644
+--- a/drivers/net/wireless/marvell/mwifiex/tdls.c
++++ b/drivers/net/wireless/marvell/mwifiex/tdls.c
+@@ -158,7 +158,7 @@ static void mwifiex_tdls_add_aid(struct mwifiex_private *priv,
+ 	u8 *pos;
+ 
+ 	assoc_rsp = (struct ieee_types_assoc_rsp *)&priv->assoc_rsp_buf;
+-	pos = (void *)skb_put(skb, 4);
++	pos = skb_put(skb, 4);
+ 	*pos++ = WLAN_EID_AID;
+ 	*pos++ = 2;
+ 	memcpy(pos, &assoc_rsp->a_id, sizeof(assoc_rsp->a_id));
+@@ -172,7 +172,7 @@ static int mwifiex_tdls_add_vht_capab(struct mwifiex_private *priv,
+ 	struct ieee80211_vht_cap vht_cap;
+ 	u8 *pos;
+ 
+-	pos = (void *)skb_put(skb, sizeof(struct ieee80211_vht_cap) + 2);
++	pos = skb_put(skb, sizeof(struct ieee80211_vht_cap) + 2);
+ 	*pos++ = WLAN_EID_VHT_CAPABILITY;
+ 	*pos++ = sizeof(struct ieee80211_vht_cap);
+ 
+@@ -207,7 +207,7 @@ mwifiex_tdls_add_ht_oper(struct mwifiex_private *priv, const u8 *mac,
+ 		return 0;
  	}
  
- 	return 0;
-@@ -369,7 +369,7 @@ int mesh_add_rsn_ie(struct ieee80211_sub_if_data *sdata, struct sk_buff *skb)
- 
- 	if (skb_tailroom(skb) < len)
- 		return -ENOMEM;
--	memcpy(skb_put(skb, len), data, len);
-+	skb_put_data(skb, data, len);
- 
- 	return 0;
- }
-@@ -1125,8 +1125,8 @@ ieee80211_mesh_rx_probe_req(struct ieee80211_sub_if_data *sdata,
- 		goto out;
- 
- 	skb_reserve(presp, local->tx_headroom);
--	memcpy(skb_put(presp, bcn->head_len), bcn->head, bcn->head_len);
--	memcpy(skb_put(presp, bcn->tail_len), bcn->tail, bcn->tail_len);
-+	skb_put_data(presp, bcn->head, bcn->head_len);
-+	skb_put_data(presp, bcn->tail, bcn->tail_len);
- 	hdr = (struct ieee80211_mgmt *) presp->data;
- 	hdr->frame_control = cpu_to_le16(IEEE80211_FTYPE_MGMT |
- 					 IEEE80211_STYPE_PROBE_RESP);
-diff --git a/net/mac80211/mlme.c b/net/mac80211/mlme.c
-index e810334595ff..7be7917e1541 100644
---- a/net/mac80211/mlme.c
-+++ b/net/mac80211/mlme.c
-@@ -796,8 +796,8 @@ static void ieee80211_send_assoc(struct ieee80211_sub_if_data *sdata)
- 						 after_ric,
- 						 ARRAY_SIZE(after_ric),
- 						 offset);
--		pos = skb_put(skb, noffset - offset);
--		memcpy(pos, assoc_data->ie + offset, noffset - offset);
-+		pos = skb_put_data(skb, assoc_data->ie + offset,
-+				   noffset - offset);
- 		offset = noffset;
+-	pos = (void *)skb_put(skb, sizeof(struct ieee80211_ht_operation) + 2);
++	pos = skb_put(skb, sizeof(struct ieee80211_ht_operation) + 2);
+ 	*pos++ = WLAN_EID_HT_OPERATION;
+ 	*pos++ = sizeof(struct ieee80211_ht_operation);
+ 	ht_oper = (void *)pos;
+@@ -272,7 +272,7 @@ static int mwifiex_tdls_add_vht_oper(struct mwifiex_private *priv,
+ 		ap_vht_cap = bss_desc->bcn_vht_cap;
  	}
  
-@@ -834,8 +834,8 @@ static void ieee80211_send_assoc(struct ieee80211_sub_if_data *sdata)
- 		noffset = ieee80211_ie_split(assoc_data->ie, assoc_data->ie_len,
- 					     before_vht, ARRAY_SIZE(before_vht),
- 					     offset);
--		pos = skb_put(skb, noffset - offset);
--		memcpy(pos, assoc_data->ie + offset, noffset - offset);
-+		pos = skb_put_data(skb, assoc_data->ie + offset,
-+				   noffset - offset);
- 		offset = noffset;
- 	}
+-	pos = (void *)skb_put(skb, sizeof(struct ieee80211_vht_operation) + 2);
++	pos = skb_put(skb, sizeof(struct ieee80211_vht_operation) + 2);
+ 	*pos++ = WLAN_EID_VHT_OPERATION;
+ 	*pos++ = sizeof(struct ieee80211_vht_operation);
+ 	vht_oper = (struct ieee80211_vht_operation *)pos;
+@@ -359,7 +359,7 @@ static void mwifiex_tdls_add_ext_capab(struct mwifiex_private *priv,
+ {
+ 	struct ieee_types_extcap *extcap;
  
-@@ -848,8 +848,8 @@ static void ieee80211_send_assoc(struct ieee80211_sub_if_data *sdata)
- 		noffset = ieee80211_ie_split_vendor(assoc_data->ie,
- 						    assoc_data->ie_len,
- 						    offset);
--		pos = skb_put(skb, noffset - offset);
--		memcpy(pos, assoc_data->ie + offset, noffset - offset);
-+		pos = skb_put_data(skb, assoc_data->ie + offset,
-+				   noffset - offset);
- 		offset = noffset;
- 	}
+-	extcap = (void *)skb_put(skb, sizeof(struct ieee_types_extcap));
++	extcap = skb_put(skb, sizeof(struct ieee_types_extcap));
+ 	extcap->ieee_hdr.element_id = WLAN_EID_EXT_CAPABILITY;
+ 	extcap->ieee_hdr.len = 8;
+ 	memset(extcap->ext_capab, 0, 8);
+@@ -372,7 +372,7 @@ static void mwifiex_tdls_add_ext_capab(struct mwifiex_private *priv,
  
-@@ -868,8 +868,8 @@ static void ieee80211_send_assoc(struct ieee80211_sub_if_data *sdata)
- 	/* add any remaining custom (i.e. vendor specific here) IEs */
- 	if (assoc_data->ie_len) {
- 		noffset = assoc_data->ie_len;
--		pos = skb_put(skb, noffset - offset);
--		memcpy(pos, assoc_data->ie + offset, noffset - offset);
-+		pos = skb_put_data(skb, assoc_data->ie + offset,
-+				   noffset - offset);
- 	}
+ static void mwifiex_tdls_add_qos_capab(struct sk_buff *skb)
+ {
+-	u8 *pos = (void *)skb_put(skb, 3);
++	u8 *pos = skb_put(skb, 3);
  
- 	if (assoc_data->fils_kek_len &&
-diff --git a/net/mac80211/offchannel.c b/net/mac80211/offchannel.c
-index eede5c6db8d5..f8e7a8bbc618 100644
---- a/net/mac80211/offchannel.c
-+++ b/net/mac80211/offchannel.c
-@@ -885,8 +885,7 @@ int ieee80211_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
- 	}
- 	skb_reserve(skb, local->hw.extra_tx_headroom);
+ 	*pos++ = WLAN_EID_QOS_CAPA;
+ 	*pos++ = 1;
+@@ -413,8 +413,8 @@ mwifiex_add_wmm_info_ie(struct mwifiex_private *priv, struct sk_buff *skb,
+ {
+ 	u8 *buf;
  
--	data = skb_put(skb, params->len);
--	memcpy(data, params->buf, params->len);
-+	data = skb_put_data(skb, params->buf, params->len);
+-	buf = (void *)skb_put(skb, MWIFIEX_TDLS_WMM_INFO_SIZE +
+-			      sizeof(struct ieee_types_header));
++	buf = skb_put(skb,
++		      MWIFIEX_TDLS_WMM_INFO_SIZE + sizeof(struct ieee_types_header));
  
- 	/* Update CSA counters */
- 	if (sdata->vif.csa_active &&
-diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
-index e1ab1c4af33c..53b00bb52095 100644
---- a/net/mac80211/rx.c
-+++ b/net/mac80211/rx.c
-@@ -2098,7 +2098,7 @@ ieee80211_rx_h_defragment(struct ieee80211_rx_data *rx)
+ 	*buf++ = WLAN_EID_VENDOR_SPECIFIC;
+ 	*buf++ = 7; /* len */
+@@ -431,7 +431,7 @@ static void mwifiex_tdls_add_bss_co_2040(struct sk_buff *skb)
+ {
+ 	struct ieee_types_bss_co_2040 *bssco;
+ 
+-	bssco = (void *)skb_put(skb, sizeof(struct ieee_types_bss_co_2040));
++	bssco = skb_put(skb, sizeof(struct ieee_types_bss_co_2040));
+ 	bssco->ieee_hdr.element_id = WLAN_EID_BSS_COEX_2040;
+ 	bssco->ieee_hdr.len = sizeof(struct ieee_types_bss_co_2040) -
+ 			      sizeof(struct ieee_types_header);
+@@ -443,8 +443,8 @@ static void mwifiex_tdls_add_supported_chan(struct sk_buff *skb)
+ 	struct ieee_types_generic *supp_chan;
+ 	u8 chan_supp[] = {1, 11};
+ 
+-	supp_chan = (void *)skb_put(skb, (sizeof(struct ieee_types_header) +
+-					  sizeof(chan_supp)));
++	supp_chan = skb_put(skb,
++			    (sizeof(struct ieee_types_header) + sizeof(chan_supp)));
+ 	supp_chan->ieee_hdr.element_id = WLAN_EID_SUPPORTED_CHANNELS;
+ 	supp_chan->ieee_hdr.len = sizeof(chan_supp);
+ 	memcpy(supp_chan->data, chan_supp, sizeof(chan_supp));
+@@ -455,8 +455,8 @@ static void mwifiex_tdls_add_oper_class(struct sk_buff *skb)
+ 	struct ieee_types_generic *reg_class;
+ 	u8 rc_list[] = {1,
+ 		1, 2, 3, 4, 12, 22, 23, 24, 25, 27, 28, 29, 30, 32, 33};
+-	reg_class = (void *)skb_put(skb, (sizeof(struct ieee_types_header) +
+-					  sizeof(rc_list)));
++	reg_class = skb_put(skb,
++			    (sizeof(struct ieee_types_header) + sizeof(rc_list)));
+ 	reg_class->ieee_hdr.element_id = WLAN_EID_SUPPORTED_REGULATORY_CLASSES;
+ 	reg_class->ieee_hdr.len = sizeof(rc_list);
+ 	memcpy(reg_class->data, rc_list, sizeof(rc_list));
+@@ -475,7 +475,7 @@ static int mwifiex_prep_tdls_encap_data(struct mwifiex_private *priv,
+ 
+ 	capab = priv->curr_bss_params.bss_descriptor.cap_info_bitmap;
+ 
+-	tf = (void *)skb_put(skb, offsetof(struct ieee80211_tdls_data, u));
++	tf = skb_put(skb, offsetof(struct ieee80211_tdls_data, u));
+ 	memcpy(tf->da, peer, ETH_ALEN);
+ 	memcpy(tf->sa, priv->curr_addr, ETH_ALEN);
+ 	tf->ether_type = cpu_to_be16(ETH_P_TDLS);
+@@ -494,7 +494,7 @@ static int mwifiex_prep_tdls_encap_data(struct mwifiex_private *priv,
+ 			return ret;
  		}
- 	}
- 	while ((skb = __skb_dequeue(&entry->skb_list))) {
--		memcpy(skb_put(rx->skb, skb->len), skb->data, skb->len);
-+		skb_put_data(rx->skb, skb->data, skb->len);
- 		dev_kfree_skb(skb);
- 	}
  
-diff --git a/net/mac80211/tdls.c b/net/mac80211/tdls.c
-index c379c99cd1d8..86740670102d 100644
---- a/net/mac80211/tdls.c
-+++ b/net/mac80211/tdls.c
-@@ -388,8 +388,7 @@ ieee80211_tdls_add_setup_start_ies(struct ieee80211_sub_if_data *sdata,
- 					     before_ext_cap,
- 					     ARRAY_SIZE(before_ext_cap),
- 					     offset);
--		pos = skb_put(skb, noffset - offset);
--		memcpy(pos, extra_ies + offset, noffset - offset);
-+		pos = skb_put_data(skb, extra_ies + offset, noffset - offset);
- 		offset = noffset;
- 	}
+-		pos = (void *)skb_put(skb, sizeof(struct ieee80211_ht_cap) + 2);
++		pos = skb_put(skb, sizeof(struct ieee80211_ht_cap) + 2);
+ 		*pos++ = WLAN_EID_HT_CAPABILITY;
+ 		*pos++ = sizeof(struct ieee80211_ht_cap);
+ 		ht_cap = (void *)pos;
+@@ -534,7 +534,7 @@ static int mwifiex_prep_tdls_encap_data(struct mwifiex_private *priv,
+ 			return ret;
+ 		}
  
-@@ -418,8 +417,7 @@ ieee80211_tdls_add_setup_start_ies(struct ieee80211_sub_if_data *sdata,
- 					     before_ht_cap,
- 					     ARRAY_SIZE(before_ht_cap),
- 					     offset);
--		pos = skb_put(skb, noffset - offset);
--		memcpy(pos, extra_ies + offset, noffset - offset);
-+		pos = skb_put_data(skb, extra_ies + offset, noffset - offset);
- 		offset = noffset;
- 	}
+-		pos = (void *)skb_put(skb, sizeof(struct ieee80211_ht_cap) + 2);
++		pos = skb_put(skb, sizeof(struct ieee80211_ht_cap) + 2);
+ 		*pos++ = WLAN_EID_HT_CAPABILITY;
+ 		*pos++ = sizeof(struct ieee80211_ht_cap);
+ 		ht_cap = (void *)pos;
+@@ -616,7 +616,7 @@ mwifiex_tdls_add_link_ie(struct sk_buff *skb, const u8 *src_addr,
+ {
+ 	struct ieee80211_tdls_lnkie *lnkid;
  
-@@ -490,8 +488,7 @@ ieee80211_tdls_add_setup_start_ies(struct ieee80211_sub_if_data *sdata,
- 					     before_vht_cap,
- 					     ARRAY_SIZE(before_vht_cap),
- 					     offset);
--		pos = skb_put(skb, noffset - offset);
--		memcpy(pos, extra_ies + offset, noffset - offset);
-+		pos = skb_put_data(skb, extra_ies + offset, noffset - offset);
- 		offset = noffset;
- 	}
+-	lnkid = (void *)skb_put(skb, sizeof(struct ieee80211_tdls_lnkie));
++	lnkid = skb_put(skb, sizeof(struct ieee80211_tdls_lnkie));
+ 	lnkid->ie_type = WLAN_EID_LINK_ID;
+ 	lnkid->ie_len = sizeof(struct ieee80211_tdls_lnkie) -
+ 			sizeof(struct ieee_types_header);
+@@ -741,7 +741,7 @@ mwifiex_construct_tdls_action_frame(struct mwifiex_private *priv,
  
-@@ -532,8 +529,7 @@ ieee80211_tdls_add_setup_start_ies(struct ieee80211_sub_if_data *sdata,
- 	/* add any remaining IEs */
- 	if (extra_ies_len) {
- 		noffset = extra_ies_len;
--		pos = skb_put(skb, noffset - offset);
--		memcpy(pos, extra_ies + offset, noffset - offset);
-+		pos = skb_put_data(skb, extra_ies + offset, noffset - offset);
- 	}
+ 	capab = priv->curr_bss_params.bss_descriptor.cap_info_bitmap;
  
- }
-@@ -575,8 +571,7 @@ ieee80211_tdls_add_setup_cfm_ies(struct ieee80211_sub_if_data *sdata,
- 					     before_qos,
- 					     ARRAY_SIZE(before_qos),
- 					     offset);
--		pos = skb_put(skb, noffset - offset);
--		memcpy(pos, extra_ies + offset, noffset - offset);
-+		pos = skb_put_data(skb, extra_ies + offset, noffset - offset);
- 		offset = noffset;
- 	}
+-	mgmt = (void *)skb_put(skb, offsetof(struct ieee80211_mgmt, u));
++	mgmt = skb_put(skb, offsetof(struct ieee80211_mgmt, u));
  
-@@ -596,8 +591,7 @@ ieee80211_tdls_add_setup_cfm_ies(struct ieee80211_sub_if_data *sdata,
- 					     before_ht_op,
- 					     ARRAY_SIZE(before_ht_op),
- 					     offset);
--		pos = skb_put(skb, noffset - offset);
--		memcpy(pos, extra_ies + offset, noffset - offset);
-+		pos = skb_put_data(skb, extra_ies + offset, noffset - offset);
- 		offset = noffset;
- 	}
+ 	memset(mgmt, 0, 24);
+ 	memcpy(mgmt->da, peer, ETH_ALEN);
+@@ -775,7 +775,7 @@ mwifiex_construct_tdls_action_frame(struct mwifiex_private *priv,
+ 			return ret;
+ 		}
  
-@@ -638,8 +632,7 @@ ieee80211_tdls_add_setup_cfm_ies(struct ieee80211_sub_if_data *sdata,
- 	/* add any remaining IEs */
- 	if (extra_ies_len) {
- 		noffset = extra_ies_len;
--		pos = skb_put(skb, noffset - offset);
--		memcpy(pos, extra_ies + offset, noffset - offset);
-+		pos = skb_put_data(skb, extra_ies + offset, noffset - offset);
- 	}
+-		pos = (void *)skb_put(skb, sizeof(struct ieee80211_ht_cap) + 2);
++		pos = skb_put(skb, sizeof(struct ieee80211_ht_cap) + 2);
+ 		*pos++ = WLAN_EID_HT_CAPABILITY;
+ 		*pos++ = sizeof(struct ieee80211_ht_cap);
+ 		ht_cap = (void *)pos;
+diff --git a/drivers/net/wireless/quantenna/qtnfmac/qlink_util.h b/drivers/net/wireless/quantenna/qtnfmac/qlink_util.h
+index 9844ff0add2b..f6ac39973b5d 100644
+--- a/drivers/net/wireless/quantenna/qtnfmac/qlink_util.h
++++ b/drivers/net/wireless/quantenna/qtnfmac/qlink_util.h
+@@ -26,7 +26,7 @@ static inline void qtnf_cmd_skb_put_action(struct sk_buff *skb, u16 action)
+ {
+ 	__le16 *buf_ptr;
+ 
+-	buf_ptr = (__le16 *)skb_put(skb, sizeof(action));
++	buf_ptr = skb_put(skb, sizeof(action));
+ 	*buf_ptr = cpu_to_le16(action);
  }
  
-@@ -670,8 +663,7 @@ ieee80211_tdls_add_chan_switch_req_ies(struct ieee80211_sub_if_data *sdata,
- 					     before_lnkie,
- 					     ARRAY_SIZE(before_lnkie),
- 					     offset);
--		pos = skb_put(skb, noffset - offset);
--		memcpy(pos, extra_ies + offset, noffset - offset);
-+		pos = skb_put_data(skb, extra_ies + offset, noffset - offset);
- 		offset = noffset;
+@@ -42,8 +42,7 @@ static inline void qtnf_cmd_skb_put_tlv_arr(struct sk_buff *skb,
+ 					    u16 tlv_id, const u8 arr[],
+ 					    size_t arr_len)
+ {
+-	struct qlink_tlv_hdr *hdr =
+-			(void *)skb_put(skb, sizeof(*hdr) + arr_len);
++	struct qlink_tlv_hdr *hdr = skb_put(skb, sizeof(*hdr) + arr_len);
+ 
+ 	hdr->type = cpu_to_le16(tlv_id);
+ 	hdr->len = cpu_to_le16(arr_len);
+@@ -53,8 +52,7 @@ static inline void qtnf_cmd_skb_put_tlv_arr(struct sk_buff *skb,
+ static inline void qtnf_cmd_skb_put_tlv_u8(struct sk_buff *skb, u16 tlv_id,
+ 					   u8 value)
+ {
+-	struct qlink_tlv_hdr *hdr =
+-			(void *)skb_put(skb, sizeof(*hdr) + sizeof(value));
++	struct qlink_tlv_hdr *hdr = skb_put(skb, sizeof(*hdr) + sizeof(value));
+ 
+ 	hdr->type = cpu_to_le16(tlv_id);
+ 	hdr->len = cpu_to_le16(sizeof(value));
+@@ -64,8 +62,7 @@ static inline void qtnf_cmd_skb_put_tlv_u8(struct sk_buff *skb, u16 tlv_id,
+ static inline void qtnf_cmd_skb_put_tlv_u16(struct sk_buff *skb,
+ 					    u16 tlv_id, u16 value)
+ {
+-	struct qlink_tlv_hdr *hdr =
+-			(void *)skb_put(skb, sizeof(*hdr) + sizeof(value));
++	struct qlink_tlv_hdr *hdr = skb_put(skb, sizeof(*hdr) + sizeof(value));
+ 	__le16 tmp = cpu_to_le16(value);
+ 
+ 	hdr->type = cpu_to_le16(tlv_id);
+diff --git a/drivers/net/wireless/ralink/rt2x00/rt2x00debug.c b/drivers/net/wireless/ralink/rt2x00/rt2x00debug.c
+index b70985e126bf..51520a0e2138 100644
+--- a/drivers/net/wireless/ralink/rt2x00/rt2x00debug.c
++++ b/drivers/net/wireless/ralink/rt2x00/rt2x00debug.c
+@@ -188,7 +188,7 @@ void rt2x00debug_dump_frame(struct rt2x00_dev *rt2x00dev,
+ 		return;
  	}
  
-@@ -680,8 +672,7 @@ ieee80211_tdls_add_chan_switch_req_ies(struct ieee80211_sub_if_data *sdata,
- 	/* add any remaining IEs */
- 	if (extra_ies_len) {
- 		noffset = extra_ies_len;
--		pos = skb_put(skb, noffset - offset);
--		memcpy(pos, extra_ies + offset, noffset - offset);
-+		pos = skb_put_data(skb, extra_ies + offset, noffset - offset);
+-	dump_hdr = (struct rt2x00dump_hdr *)skb_put(skbcopy, sizeof(*dump_hdr));
++	dump_hdr = skb_put(skbcopy, sizeof(*dump_hdr));
+ 	dump_hdr->version = cpu_to_le32(DUMP_HEADER_VERSION);
+ 	dump_hdr->header_length = cpu_to_le32(sizeof(*dump_hdr));
+ 	dump_hdr->desc_length = cpu_to_le32(skbdesc->desc_len);
+diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8192se/fw.c b/drivers/net/wireless/realtek/rtlwifi/rtl8192se/fw.c
+index dd3ba4810e7d..e7b1d7c0f542 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/rtl8192se/fw.c
++++ b/drivers/net/wireless/realtek/rtlwifi/rtl8192se/fw.c
+@@ -462,7 +462,7 @@ static u32 _rtl92s_fill_h2c_cmd(struct sk_buff *skb, u32 h2cbufferlen,
+ 			break;
+ 
+ 		/* Clear content */
+-		ph2c_buffer = (u8 *)skb_put(skb, (u32)len);
++		ph2c_buffer = skb_put(skb, (u32)len);
+ 		memset((ph2c_buffer + totallen + tx_desclen), 0, len);
+ 
+ 		/* CMD len */
+diff --git a/drivers/nfc/fdp/i2c.c b/drivers/nfc/fdp/i2c.c
+index 0877e2283f35..97f003e84381 100644
+--- a/drivers/nfc/fdp/i2c.c
++++ b/drivers/nfc/fdp/i2c.c
+@@ -86,7 +86,7 @@ static void fdp_nci_i2c_add_len_lrc(struct sk_buff *skb)
+ 	for (i = 0; i < len + 2; i++)
+ 		lrc ^= skb->data[i];
+ 
+-	*skb_put(skb, 1) = lrc;
++	*(u8 *)skb_put(skb, 1) = lrc;
+ }
+ 
+ static void fdp_nci_i2c_remove_len_lrc(struct sk_buff *skb)
+diff --git a/drivers/nfc/microread/i2c.c b/drivers/nfc/microread/i2c.c
+index e0e8afd27849..8e328c36a816 100644
+--- a/drivers/nfc/microread/i2c.c
++++ b/drivers/nfc/microread/i2c.c
+@@ -75,7 +75,7 @@ static void microread_i2c_add_len_crc(struct sk_buff *skb)
+ 	for (i = 0; i < skb->len; i++)
+ 		crc = crc ^ skb->data[i];
+ 
+-	*skb_put(skb, 1) = crc;
++	*(u8 *)skb_put(skb, 1) = crc;
+ }
+ 
+ static void microread_i2c_remove_len_crc(struct sk_buff *skb)
+@@ -173,7 +173,7 @@ static int microread_i2c_read(struct microread_i2c_phy *phy,
+ 		goto flush;
  	}
- }
  
-@@ -696,7 +687,7 @@ ieee80211_tdls_add_chan_switch_resp_ies(struct ieee80211_sub_if_data *sdata,
- 		ieee80211_tdls_add_link_ie(sdata, skb, peer, initiator);
+-	*skb_put(*skb, 1) = len;
++	*(u8 *)skb_put(*skb, 1) = len;
  
- 	if (extra_ies_len)
--		memcpy(skb_put(skb, extra_ies_len), extra_ies, extra_ies_len);
-+		skb_put_data(skb, extra_ies, extra_ies_len);
- }
+ 	r = i2c_master_recv(client, skb_put(*skb, len), len);
+ 	if (r != len) {
+diff --git a/drivers/nfc/microread/microread.c b/drivers/nfc/microread/microread.c
+index f454dc68cc03..9d0dd1be0923 100644
+--- a/drivers/nfc/microread/microread.c
++++ b/drivers/nfc/microread/microread.c
+@@ -441,8 +441,8 @@ static int microread_im_transceive(struct nfc_hci_dev *hdev,
  
- static void ieee80211_tdls_add_ies(struct ieee80211_sub_if_data *sdata,
-@@ -726,8 +717,7 @@ static void ieee80211_tdls_add_ies(struct ieee80211_sub_if_data *sdata,
- 	case WLAN_TDLS_TEARDOWN:
- 	case WLAN_TDLS_DISCOVERY_REQUEST:
- 		if (extra_ies_len)
--			memcpy(skb_put(skb, extra_ies_len), extra_ies,
--			       extra_ies_len);
-+			skb_put_data(skb, extra_ies, extra_ies_len);
- 		if (status_code == 0 || action_code == WLAN_TDLS_TEARDOWN)
- 			ieee80211_tdls_add_link_ie(sdata, skb, peer, initiator);
+ 		crc = crc_ccitt(0xffff, skb->data, skb->len);
+ 		crc = ~crc;
+-		*skb_put(skb, 1) = crc & 0xff;
+-		*skb_put(skb, 1) = crc >> 8;
++		*(u8 *)skb_put(skb, 1) = crc & 0xff;
++		*(u8 *)skb_put(skb, 1) = crc >> 8;
  		break;
-diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
-index 1af9ed29a915..18c5d6e6305d 100644
---- a/net/mac80211/tx.c
-+++ b/net/mac80211/tx.c
-@@ -903,8 +903,8 @@ static int ieee80211_fragment(struct ieee80211_tx_data *tx,
- 		tmp->dev = skb->dev;
- 
- 		/* copy header and data */
--		memcpy(skb_put(tmp, hdrlen), skb->data, hdrlen);
--		memcpy(skb_put(tmp, fraglen), skb->data + pos, fraglen);
-+		skb_put_data(tmp, skb->data, hdrlen);
-+		skb_put_data(tmp, skb->data + pos, fraglen);
- 
- 		pos += fraglen;
- 	}
-@@ -4132,8 +4132,7 @@ __ieee80211_beacon_get(struct ieee80211_hw *hw,
- 				goto out;
- 
- 			skb_reserve(skb, local->tx_headroom);
--			memcpy(skb_put(skb, beacon->head_len), beacon->head,
--			       beacon->head_len);
-+			skb_put_data(skb, beacon->head, beacon->head_len);
- 
- 			ieee80211_beacon_add_tim(sdata, &ap->ps, skb,
- 						 is_template);
-@@ -4147,8 +4146,8 @@ __ieee80211_beacon_get(struct ieee80211_hw *hw,
- 			}
- 
- 			if (beacon->tail)
--				memcpy(skb_put(skb, beacon->tail_len),
--				       beacon->tail, beacon->tail_len);
-+				skb_put_data(skb, beacon->tail,
-+					     beacon->tail_len);
- 		} else
- 			goto out;
- 	} else if (sdata->vif.type == NL80211_IFTYPE_ADHOC) {
-@@ -4171,8 +4170,7 @@ __ieee80211_beacon_get(struct ieee80211_hw *hw,
- 		if (!skb)
- 			goto out;
- 		skb_reserve(skb, local->tx_headroom);
--		memcpy(skb_put(skb, beacon->head_len), beacon->head,
--		       beacon->head_len);
-+		skb_put_data(skb, beacon->head, beacon->head_len);
- 
- 		hdr = (struct ieee80211_hdr *) skb->data;
- 		hdr->frame_control = cpu_to_le16(IEEE80211_FTYPE_MGMT |
-@@ -4207,8 +4205,7 @@ __ieee80211_beacon_get(struct ieee80211_hw *hw,
- 		if (!skb)
- 			goto out;
- 		skb_reserve(skb, local->tx_headroom);
--		memcpy(skb_put(skb, beacon->head_len), beacon->head,
--		       beacon->head_len);
-+		skb_put_data(skb, beacon->head, beacon->head_len);
- 		ieee80211_beacon_add_tim(sdata, &ifmsh->ps, skb, is_template);
- 
- 		if (offs) {
-@@ -4216,8 +4213,7 @@ __ieee80211_beacon_get(struct ieee80211_hw *hw,
- 			offs->tim_length = skb->len - beacon->head_len;
- 		}
- 
--		memcpy(skb_put(skb, beacon->tail_len), beacon->tail,
--		       beacon->tail_len);
-+		skb_put_data(skb, beacon->tail, beacon->tail_len);
- 	} else {
- 		WARN_ON(1);
- 		goto out;
-@@ -4337,7 +4333,7 @@ struct sk_buff *ieee80211_proberesp_get(struct ieee80211_hw *hw,
- 	if (!skb)
- 		goto out;
- 
--	memcpy(skb_put(skb, presp->len), presp->data, presp->len);
-+	skb_put_data(skb, presp->data, presp->len);
- 
- 	hdr = (struct ieee80211_hdr *) skb->data;
- 	memset(hdr->addr1, 0, sizeof(hdr->addr1));
-diff --git a/net/mac80211/util.c b/net/mac80211/util.c
-index 148c7276869c..259698de569f 100644
---- a/net/mac80211/util.c
-+++ b/net/mac80211/util.c
-@@ -1252,7 +1252,7 @@ void ieee80211_send_auth(struct ieee80211_sub_if_data *sdata,
- 	mgmt->u.auth.auth_transaction = cpu_to_le16(transaction);
- 	mgmt->u.auth.status_code = cpu_to_le16(status);
- 	if (extra)
--		memcpy(skb_put(skb, extra_len), extra, extra_len);
-+		skb_put_data(skb, extra, extra_len);
- 
- 	if (auth_alg == WLAN_AUTH_SHARED_KEY && transaction == 3) {
- 		mgmt->frame_control |= cpu_to_le16(IEEE80211_FCTL_PROTECTED);
-@@ -1292,8 +1292,7 @@ void ieee80211_send_deauth_disassoc(struct ieee80211_sub_if_data *sdata,
- 		skb_reserve(skb, local->hw.extra_tx_headroom);
- 
- 		/* copy in frame */
--		memcpy(skb_put(skb, IEEE80211_DEAUTH_FRAME_LEN),
--		       mgmt, IEEE80211_DEAUTH_FRAME_LEN);
-+		skb_put_data(skb, mgmt, IEEE80211_DEAUTH_FRAME_LEN);
- 
- 		if (sdata->vif.type != NL80211_IFTYPE_STATION ||
- 		    !(sdata->u.mgd.flags & IEEE80211_STA_MFP_ENABLED))
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 7586d446d7dc..bd24a975fd49 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -170,7 +170,7 @@ static struct sk_buff *netlink_to_full_skb(const struct sk_buff *skb,
- 	NETLINK_CB(new).dst_group = NETLINK_CB(skb).dst_group;
- 	NETLINK_CB(new).creds = NETLINK_CB(skb).creds;
- 
--	memcpy(skb_put(new, len), skb->data, len);
-+	skb_put_data(new, skb->data, len);
- 	return new;
- }
- 
-diff --git a/net/nfc/digital_dep.c b/net/nfc/digital_dep.c
-index f864ce19e13d..f44f75a2a4d5 100644
---- a/net/nfc/digital_dep.c
-+++ b/net/nfc/digital_dep.c
-@@ -226,8 +226,7 @@ digital_send_dep_data_prep(struct nfc_digital_dev *ddev, struct sk_buff *skb,
- 			return ERR_PTR(-ENOMEM);
- 		}
- 
--		memcpy(skb_put(new_skb, ddev->remote_payload_max), skb->data,
--		       ddev->remote_payload_max);
-+		skb_put_data(new_skb, skb->data, ddev->remote_payload_max);
- 		skb_pull(skb, ddev->remote_payload_max);
- 
- 		ddev->chaining_skb = skb;
-@@ -277,8 +276,7 @@ digital_recv_dep_data_gather(struct nfc_digital_dev *ddev, u8 pfb,
- 			ddev->chaining_skb = new_skb;
- 		}
- 
--		memcpy(skb_put(ddev->chaining_skb, resp->len), resp->data,
--		       resp->len);
-+		skb_put_data(ddev->chaining_skb, resp->data, resp->len);
- 
- 		kfree_skb(resp);
- 		resp = NULL;
-@@ -525,7 +523,7 @@ int digital_in_send_atr_req(struct nfc_digital_dev *ddev,
- 
- 	if (gb_len) {
- 		atr_req->pp |= DIGITAL_GB_BIT;
--		memcpy(skb_put(skb, gb_len), gb, gb_len);
-+		skb_put_data(skb, gb, gb_len);
+ 	case MICROREAD_GATE_ID_MREAD_NFC_T3:
+ 		control_bits = 0xDB;
+diff --git a/drivers/nfc/nfcmrvl/fw_dnld.c b/drivers/nfc/nfcmrvl/fw_dnld.c
+index 7c710458568e..788599de9d8a 100644
+--- a/drivers/nfc/nfcmrvl/fw_dnld.c
++++ b/drivers/nfc/nfcmrvl/fw_dnld.c
+@@ -92,7 +92,7 @@ static struct sk_buff *alloc_lc_skb(struct nfcmrvl_private *priv, uint8_t plen)
+ 		return NULL;
  	}
  
- 	digital_skb_push_dep_sod(ddev, skb);
-@@ -1012,8 +1010,7 @@ static int digital_tg_send_ack(struct nfc_digital_dev *ddev,
- 	if (ddev->did) {
- 		dep_res->pfb |= DIGITAL_NFC_DEP_PFB_DID_BIT;
- 
--		memcpy(skb_put(skb, sizeof(ddev->did)), &ddev->did,
--		       sizeof(ddev->did));
-+		skb_put_data(skb, &ddev->did, sizeof(ddev->did));
- 	}
- 
- 	ddev->curr_nfc_dep_pni =
-@@ -1057,8 +1054,7 @@ static int digital_tg_send_atn(struct nfc_digital_dev *ddev)
- 	if (ddev->did) {
- 		dep_res->pfb |= DIGITAL_NFC_DEP_PFB_DID_BIT;
- 
--		memcpy(skb_put(skb, sizeof(ddev->did)), &ddev->did,
--		       sizeof(ddev->did));
-+		skb_put_data(skb, &ddev->did, sizeof(ddev->did));
- 	}
- 
- 	digital_skb_push_dep_sod(ddev, skb);
-@@ -1325,8 +1321,7 @@ int digital_tg_send_dep_res(struct nfc_digital_dev *ddev, struct sk_buff *skb)
- 	if (ddev->did) {
- 		dep_res->pfb |= DIGITAL_NFC_DEP_PFB_DID_BIT;
- 
--		memcpy(skb_put(skb, sizeof(ddev->did)), &ddev->did,
--		       sizeof(ddev->did));
-+		skb_put_data(skb, &ddev->did, sizeof(ddev->did));
- 	}
- 
- 	ddev->curr_nfc_dep_pni =
-diff --git a/net/nfc/hci/core.c b/net/nfc/hci/core.c
-index 2b0f0ac498d2..8741ad47a6fb 100644
---- a/net/nfc/hci/core.c
-+++ b/net/nfc/hci/core.c
-@@ -878,9 +878,9 @@ static void nfc_hci_recv_from_llc(struct nfc_hci_dev *hdev, struct sk_buff *skb)
- 
- 		skb_queue_walk(&hdev->rx_hcp_frags, frag_skb) {
- 			msg_len = frag_skb->len - NFC_HCI_HCP_PACKET_HEADER_LEN;
--			memcpy(skb_put(hcp_skb, msg_len),
--			       frag_skb->data + NFC_HCI_HCP_PACKET_HEADER_LEN,
--			       msg_len);
-+			skb_put_data(hcp_skb,
-+				     frag_skb->data + NFC_HCI_HCP_PACKET_HEADER_LEN,
-+				     msg_len);
- 		}
- 
- 		skb_queue_purge(&hdev->rx_hcp_frags);
-diff --git a/net/nfc/llcp_commands.c b/net/nfc/llcp_commands.c
-index c5959ce503e6..367d8c027101 100644
---- a/net/nfc/llcp_commands.c
-+++ b/net/nfc/llcp_commands.c
-@@ -298,7 +298,7 @@ static struct sk_buff *llcp_add_header(struct sk_buff *pdu,
- 
- 	pr_debug("header 0x%x 0x%x\n", header[0], header[1]);
- 
--	memcpy(skb_put(pdu, LLCP_HEADER_SIZE), header, LLCP_HEADER_SIZE);
-+	skb_put_data(pdu, header, LLCP_HEADER_SIZE);
- 
- 	return pdu;
- }
-@@ -311,7 +311,7 @@ static struct sk_buff *llcp_add_tlv(struct sk_buff *pdu, u8 *tlv,
- 	if (tlv == NULL)
+-	hdr = (struct nci_data_hdr *) skb_put(skb, NCI_DATA_HDR_SIZE);
++	hdr = skb_put(skb, NCI_DATA_HDR_SIZE);
+ 	hdr->conn_id = NCI_CORE_LC_CONNID_PROP_FW_DL;
+ 	hdr->rfu = 0;
+ 	hdr->plen = plen;
+@@ -292,7 +292,7 @@ static int process_state_fw_dnld(struct nfcmrvl_private *priv,
+ 			out_skb = alloc_lc_skb(priv, 1);
+ 			if (!out_skb)
+ 				return -ENOMEM;
+-			*skb_put(out_skb, 1) = 0xBF;
++			*(u8 *)skb_put(out_skb, 1) = 0xBF;
+ 			nci_send_frame(priv->ndev, out_skb);
+ 			priv->fw_dnld.substate = SUBSTATE_WAIT_NACK_CREDIT;
+ 			return 0;
+@@ -301,7 +301,7 @@ static int process_state_fw_dnld(struct nfcmrvl_private *priv,
+ 		out_skb = alloc_lc_skb(priv, 1);
+ 		if (!out_skb)
+ 			return -ENOMEM;
+-		*skb_put(out_skb, 1) = HELPER_ACK_PACKET_FORMAT;
++		*(u8 *)skb_put(out_skb, 1) = HELPER_ACK_PACKET_FORMAT;
+ 		nci_send_frame(priv->ndev, out_skb);
+ 		priv->fw_dnld.substate = SUBSTATE_WAIT_ACK_CREDIT;
+ 		break;
+diff --git a/drivers/nfc/pn533/pn533.c b/drivers/nfc/pn533/pn533.c
+index 9200bb308e42..68a3cd0287f6 100644
+--- a/drivers/nfc/pn533/pn533.c
++++ b/drivers/nfc/pn533/pn533.c
+@@ -1032,7 +1032,7 @@ static struct sk_buff *pn533_alloc_poll_tg_frame(struct pn533 *dev)
  		return NULL;
  
--	memcpy(skb_put(pdu, tlv_length), tlv, tlv_length);
-+	skb_put_data(pdu, tlv, tlv_length);
+ 	/* DEP support only */
+-	*skb_put(skb, 1) = PN533_INIT_TARGET_DEP;
++	*(u8 *)skb_put(skb, 1) = PN533_INIT_TARGET_DEP;
  
- 	return pdu;
+ 	/* MIFARE params */
+ 	skb_put_data(skb, mifare_params, 6);
+@@ -1046,12 +1046,12 @@ static struct sk_buff *pn533_alloc_poll_tg_frame(struct pn533 *dev)
+ 	memcpy(nfcid3, felica, 8);
+ 
+ 	/* General bytes */
+-	*skb_put(skb, 1) = gbytes_len;
++	*(u8 *)skb_put(skb, 1) = gbytes_len;
+ 
+ 	gb = skb_put_data(skb, gbytes, gbytes_len);
+ 
+ 	/* Len Tk */
+-	*skb_put(skb, 1) = 0;
++	*(u8 *)skb_put(skb, 1) = 0;
+ 
+ 	return skb;
  }
-@@ -549,7 +549,7 @@ int nfc_llcp_send_snl_sdres(struct nfc_llcp_local *local,
- 		return PTR_ERR(skb);
+@@ -1280,8 +1280,8 @@ static void pn533_wq_rf(struct work_struct *work)
+ 	if (!skb)
+ 		return;
  
- 	hlist_for_each_entry_safe(sdp, n, tlv_list, node) {
--		memcpy(skb_put(skb, sdp->tlv_len), sdp->tlv, sdp->tlv_len);
-+		skb_put_data(skb, sdp->tlv, sdp->tlv_len);
+-	*skb_put(skb, 1) = PN533_CFGITEM_RF_FIELD;
+-	*skb_put(skb, 1) = PN533_CFGITEM_RF_FIELD_AUTO_RFCA;
++	*(u8 *)skb_put(skb, 1) = PN533_CFGITEM_RF_FIELD;
++	*(u8 *)skb_put(skb, 1) = PN533_CFGITEM_RF_FIELD_AUTO_RFCA;
  
- 		hlist_del(&sdp->node);
+ 	rc = pn533_send_cmd_async(dev, PN533_CMD_RF_CONFIGURATION, skb,
+ 				  pn533_rf_complete, NULL);
+@@ -1375,8 +1375,8 @@ static int pn533_poll_dep(struct nfc_dev *nfc_dev)
+ 	if (!skb)
+ 		return -ENOMEM;
  
-@@ -581,8 +581,7 @@ int nfc_llcp_send_snl_sdreq(struct nfc_llcp_local *local,
- 	hlist_for_each_entry_safe(sdreq, n, tlv_list, node) {
- 		pr_debug("tid %d for %s\n", sdreq->tid, sdreq->uri);
+-	*skb_put(skb, 1) = 0x01;  /* Active */
+-	*skb_put(skb, 1) = 0x02;  /* 424 kbps */
++	*(u8 *)skb_put(skb, 1) = 0x01;  /* Active */
++	*(u8 *)skb_put(skb, 1) = 0x02;  /* 424 kbps */
  
--		memcpy(skb_put(skb, sdreq->tlv_len), sdreq->tlv,
--		       sdreq->tlv_len);
-+		skb_put_data(skb, sdreq->tlv, sdreq->tlv_len);
+ 	next = skb_put(skb, 1);  /* Next */
+ 	*next = 0;
+@@ -1620,8 +1620,8 @@ static int pn533_activate_target_nfcdep(struct pn533 *dev)
+ 	if (!skb)
+ 		return -ENOMEM;
  
- 		hlist_del(&sdreq->node);
+-	*skb_put(skb, sizeof(u8)) = 1; /* TG */
+-	*skb_put(skb, sizeof(u8)) = 0; /* Next */
++	*(u8 *)skb_put(skb, sizeof(u8)) = 1; /* TG */
++	*(u8 *)skb_put(skb, sizeof(u8)) = 0; /* Next */
  
-@@ -622,7 +621,7 @@ int nfc_llcp_send_dm(struct nfc_llcp_local *local, u8 ssap, u8 dsap, u8 reason)
+ 	resp = pn533_send_cmd_sync(dev, PN533_CMD_IN_ATR, skb);
+ 	if (IS_ERR(resp))
+@@ -1737,7 +1737,7 @@ static void pn533_deactivate_target(struct nfc_dev *nfc_dev,
+ 	if (!skb)
+ 		return;
  
- 	skb = llcp_add_header(skb, dsap, ssap, LLCP_PDU_DM);
+-	*skb_put(skb, 1) = 1; /* TG*/
++	*(u8 *)skb_put(skb, 1) = 1; /* TG*/
  
--	memcpy(skb_put(skb, 1), &reason, 1);
-+	skb_put_data(skb, &reason, 1);
+ 	rc = pn533_send_cmd_async(dev, PN533_CMD_IN_RELEASE, skb,
+ 				  pn533_deactivate_target_complete, NULL);
+@@ -1848,8 +1848,8 @@ static int pn533_dep_link_up(struct nfc_dev *nfc_dev, struct nfc_target *target,
+ 	if (!skb)
+ 		return -ENOMEM;
  
- 	skb_queue_head(&local->tx_queue, skb);
+-	*skb_put(skb, 1) = !comm_mode;  /* ActPass */
+-	*skb_put(skb, 1) = 0x02;  /* 424 kbps */
++	*(u8 *)skb_put(skb, 1) = !comm_mode;  /* ActPass */
++	*(u8 *)skb_put(skb, 1) = 0x02;  /* 424 kbps */
  
-@@ -693,7 +692,7 @@ int nfc_llcp_send_i_frame(struct nfc_llcp_sock *sock,
- 		skb_put(pdu, LLCP_SEQUENCE_SIZE);
+ 	next = skb_put(skb, 1);  /* Next */
+ 	*next = 0;
+@@ -2274,7 +2274,7 @@ static void pn533_wq_mi_recv(struct work_struct *work)
+ 			break;
+ 		}
+ 	default:
+-		*skb_put(skb, sizeof(u8)) =  1; /*TG*/
++		*(u8 *)skb_put(skb, sizeof(u8)) =  1; /*TG*/
  
- 		if (likely(frag_len > 0))
--			memcpy(skb_put(pdu, frag_len), msg_ptr, frag_len);
-+			skb_put_data(pdu, msg_ptr, frag_len);
+ 		rc = pn533_send_cmd_direct_async(dev,
+ 						 PN533_CMD_IN_DATA_EXCHANGE,
+@@ -2370,7 +2370,7 @@ static int pn533_set_configuration(struct pn533 *dev, u8 cfgitem, u8 *cfgdata,
+ 	if (!skb)
+ 		return -ENOMEM;
  
- 		skb_queue_tail(&sock->tx_queue, pdu);
+-	*skb_put(skb, sizeof(cfgitem)) = cfgitem;
++	*(u8 *)skb_put(skb, sizeof(cfgitem)) = cfgitem;
+ 	skb_put_data(skb, cfgdata, cfgdata_len);
  
-@@ -759,7 +758,7 @@ int nfc_llcp_send_ui_frame(struct nfc_llcp_sock *sock, u8 ssap, u8 dsap,
- 		pdu = llcp_add_header(pdu, dsap, ssap, LLCP_PDU_UI);
+ 	resp = pn533_send_cmd_sync(dev, PN533_CMD_RF_CONFIGURATION, skb);
+@@ -2415,7 +2415,7 @@ static int pn533_pasori_fw_reset(struct pn533 *dev)
+ 	if (!skb)
+ 		return -ENOMEM;
  
- 		if (likely(frag_len > 0))
--			memcpy(skb_put(pdu, frag_len), msg_ptr, frag_len);
-+			skb_put_data(pdu, msg_ptr, frag_len);
+-	*skb_put(skb, sizeof(u8)) = 0x1;
++	*(u8 *)skb_put(skb, sizeof(u8)) = 0x1;
  
- 		/* No need to check for the peer RW for UI frames */
- 		skb_queue_tail(&local->tx_queue, pdu);
-diff --git a/net/nfc/llcp_core.c b/net/nfc/llcp_core.c
-index e69786c6804c..02eef5cf3cce 100644
---- a/net/nfc/llcp_core.c
-+++ b/net/nfc/llcp_core.c
-@@ -1390,7 +1390,7 @@ static void nfc_llcp_recv_agf(struct nfc_llcp_local *local, struct sk_buff *skb)
+ 	resp = pn533_send_cmd_sync(dev, 0x18, skb);
+ 	if (IS_ERR(resp))
+@@ -2454,7 +2454,7 @@ static int pn532_sam_configuration(struct nfc_dev *nfc_dev)
+ 	if (!skb)
+ 		return -ENOMEM;
+ 
+-	*skb_put(skb, 1) = 0x01;
++	*(u8 *)skb_put(skb, 1) = 0x01;
+ 
+ 	resp = pn533_send_cmd_sync(dev, PN533_CMD_SAM_CONFIGURATION, skb);
+ 	if (IS_ERR(resp))
+diff --git a/drivers/nfc/pn544/i2c.c b/drivers/nfc/pn544/i2c.c
+index 71ac0836c9f4..dc1e3768cee6 100644
+--- a/drivers/nfc/pn544/i2c.c
++++ b/drivers/nfc/pn544/i2c.c
+@@ -287,8 +287,8 @@ static void pn544_hci_i2c_add_len_crc(struct sk_buff *skb)
+ 
+ 	crc = crc_ccitt(0xffff, skb->data, skb->len);
+ 	crc = ~crc;
+-	*skb_put(skb, 1) = crc & 0xff;
+-	*skb_put(skb, 1) = crc >> 8;
++	*(u8 *)skb_put(skb, 1) = crc & 0xff;
++	*(u8 *)skb_put(skb, 1) = crc >> 8;
+ }
+ 
+ static void pn544_hci_i2c_remove_len_crc(struct sk_buff *skb)
+@@ -391,7 +391,7 @@ static int pn544_hci_i2c_read(struct pn544_i2c_phy *phy, struct sk_buff **skb)
+ 		goto flush;
+ 	}
+ 
+-	*skb_put(*skb, 1) = len;
++	*(u8 *)skb_put(*skb, 1) = len;
+ 
+ 	r = i2c_master_recv(client, skb_put(*skb, len), len);
+ 	if (r != len) {
+diff --git a/drivers/nfc/port100.c b/drivers/nfc/port100.c
+index e1260da73d45..5fa3cf0fabd6 100644
+--- a/drivers/nfc/port100.c
++++ b/drivers/nfc/port100.c
+@@ -991,7 +991,7 @@ static int port100_set_command_type(struct port100 *dev, u8 command_type)
+ 	if (!skb)
+ 		return -ENOMEM;
+ 
+-	*skb_put(skb, sizeof(u8)) = command_type;
++	*(u8 *)skb_put(skb, sizeof(u8)) = command_type;
+ 
+ 	resp = port100_send_cmd_sync(dev, PORT100_CMD_SET_COMMAND_TYPE, skb);
+ 	if (IS_ERR(resp))
+@@ -1059,7 +1059,7 @@ static int port100_switch_rf(struct nfc_digital_dev *ddev, bool on)
+ 	if (!skb)
+ 		return -ENOMEM;
+ 
+-	*skb_put(skb, 1) = on ? 1 : 0;
++	*(u8 *)skb_put(skb, 1) = on ? 1 : 0;
+ 
+ 	/* Cancel the last command if the device is being switched off */
+ 	if (!on)
+diff --git a/drivers/nfc/st21nfca/i2c.c b/drivers/nfc/st21nfca/i2c.c
+index 94d0b913b627..c36f0e0afdfd 100644
+--- a/drivers/nfc/st21nfca/i2c.c
++++ b/drivers/nfc/st21nfca/i2c.c
+@@ -177,10 +177,10 @@ static void st21nfca_hci_add_len_crc(struct sk_buff *skb)
+ 	crc = ~crc;
+ 
+ 	tmp = crc & 0x00ff;
+-	*skb_put(skb, 1) = tmp;
++	*(u8 *)skb_put(skb, 1) = tmp;
+ 
+ 	tmp = (crc >> 8) & 0x00ff;
+-	*skb_put(skb, 1) = tmp;
++	*(u8 *)skb_put(skb, 1) = tmp;
+ }
+ 
+ static void st21nfca_hci_remove_len_crc(struct sk_buff *skb)
+@@ -214,7 +214,7 @@ static int st21nfca_hci_i2c_write(void *phy_id, struct sk_buff *skb)
+ 	st21nfca_hci_add_len_crc(skb);
+ 
+ 	/* add ST21NFCA_SOF_EOF on tail */
+-	*skb_put(skb, 1) = ST21NFCA_SOF_EOF;
++	*(u8 *)skb_put(skb, 1) = ST21NFCA_SOF_EOF;
+ 	/* add ST21NFCA_SOF_EOF on head */
+ 	*skb_push(skb, 1) = ST21NFCA_SOF_EOF;
+ 
+diff --git a/drivers/nfc/st95hf/core.c b/drivers/nfc/st95hf/core.c
+index c2840e412962..168adcc46cb8 100644
+--- a/drivers/nfc/st95hf/core.c
++++ b/drivers/nfc/st95hf/core.c
+@@ -949,7 +949,7 @@ static int st95hf_in_send_cmd(struct nfc_digital_dev *ddev,
+ 	switch (stcontext->current_rf_tech) {
+ 	case NFC_DIGITAL_RF_TECH_106A:
+ 		len_data_to_tag = skb->len + 1;
+-		*skb_put(skb, 1) = stcontext->sendrcv_trflag;
++		*(u8 *)skb_put(skb, 1) = stcontext->sendrcv_trflag;
+ 		break;
+ 	case NFC_DIGITAL_RF_TECH_106B:
+ 	case NFC_DIGITAL_RF_TECH_ISO15693:
+diff --git a/drivers/scsi/bnx2fc/bnx2fc_fcoe.c b/drivers/scsi/bnx2fc/bnx2fc_fcoe.c
+index 902722dc4ce3..b025ee5da1ba 100644
+--- a/drivers/scsi/bnx2fc/bnx2fc_fcoe.c
++++ b/drivers/scsi/bnx2fc/bnx2fc_fcoe.c
+@@ -351,7 +351,7 @@ static int bnx2fc_xmit(struct fc_lport *lport, struct fc_frame *fp)
+ 		frag = &skb_shinfo(skb)->frags[skb_shinfo(skb)->nr_frags - 1];
+ 		cp = kmap_atomic(skb_frag_page(frag)) + frag->page_offset;
+ 	} else {
+-		cp = (struct fcoe_crc_eof *)skb_put(skb, tlen);
++		cp = skb_put(skb, tlen);
+ 	}
+ 
+ 	memset(cp, 0, sizeof(*cp));
+diff --git a/drivers/scsi/fcoe/fcoe.c b/drivers/scsi/fcoe/fcoe.c
+index 90939f66bc0d..539e23ec0e59 100644
+--- a/drivers/scsi/fcoe/fcoe.c
++++ b/drivers/scsi/fcoe/fcoe.c
+@@ -1543,7 +1543,7 @@ static int fcoe_xmit(struct fc_lport *lport, struct fc_frame *fp)
+ 		cp = kmap_atomic(skb_frag_page(frag))
+ 			+ frag->page_offset;
+ 	} else {
+-		cp = (struct fcoe_crc_eof *)skb_put(skb, tlen);
++		cp = skb_put(skb, tlen);
+ 	}
+ 
+ 	memset(cp, 0, sizeof(*cp));
+diff --git a/drivers/scsi/qedf/qedf_main.c b/drivers/scsi/qedf/qedf_main.c
+index b97405ed6cae..da0fcce6f842 100644
+--- a/drivers/scsi/qedf/qedf_main.c
++++ b/drivers/scsi/qedf/qedf_main.c
+@@ -874,7 +874,7 @@ static int qedf_xmit(struct fc_lport *lport, struct fc_frame *fp)
+ 		frag = &skb_shinfo(skb)->frags[skb_shinfo(skb)->nr_frags - 1];
+ 		cp = kmap_atomic(skb_frag_page(frag)) + frag->page_offset;
+ 	} else {
+-		cp = (struct fcoe_crc_eof *)skb_put(skb, tlen);
++		cp = skb_put(skb, tlen);
+ 	}
+ 
+ 	memset(cp, 0, sizeof(*cp));
+diff --git a/drivers/staging/rtl8192e/rtl819x_BAProc.c b/drivers/staging/rtl8192e/rtl819x_BAProc.c
+index 1d3963136295..1720e1b6ae04 100644
+--- a/drivers/staging/rtl8192e/rtl819x_BAProc.c
++++ b/drivers/staging/rtl8192e/rtl819x_BAProc.c
+@@ -95,8 +95,7 @@ static struct sk_buff *rtllib_ADDBA(struct rtllib_device *ieee, u8 *Dst,
+ 
+ 	skb_reserve(skb, ieee->tx_headroom);
+ 
+-	BAReq = (struct rtllib_hdr_3addr *)skb_put(skb,
+-		 sizeof(struct rtllib_hdr_3addr));
++	BAReq = skb_put(skb, sizeof(struct rtllib_hdr_3addr));
+ 
+ 	ether_addr_copy(BAReq->addr1, Dst);
+ 	ether_addr_copy(BAReq->addr2, ieee->dev->dev_addr);
+@@ -104,7 +103,7 @@ static struct sk_buff *rtllib_ADDBA(struct rtllib_device *ieee, u8 *Dst,
+ 	ether_addr_copy(BAReq->addr3, ieee->current_network.bssid);
+ 	BAReq->frame_ctl = cpu_to_le16(RTLLIB_STYPE_MANAGE_ACT);
+ 
+-	tag = (u8 *)skb_put(skb, 9);
++	tag = skb_put(skb, 9);
+ 	*tag++ = ACT_CAT_BA;
+ 	*tag++ = type;
+ 	*tag++ = pBA->DialogToken;
+@@ -159,15 +158,14 @@ static struct sk_buff *rtllib_DELBA(struct rtllib_device *ieee, u8 *dst,
+ 
+ 	skb_reserve(skb, ieee->tx_headroom);
+ 
+-	Delba = (struct rtllib_hdr_3addr *) skb_put(skb,
+-		 sizeof(struct rtllib_hdr_3addr));
++	Delba = skb_put(skb, sizeof(struct rtllib_hdr_3addr));
+ 
+ 	ether_addr_copy(Delba->addr1, dst);
+ 	ether_addr_copy(Delba->addr2, ieee->dev->dev_addr);
+ 	ether_addr_copy(Delba->addr3, ieee->current_network.bssid);
+ 	Delba->frame_ctl = cpu_to_le16(RTLLIB_STYPE_MANAGE_ACT);
+ 
+-	tag = (u8 *)skb_put(skb, 6);
++	tag = skb_put(skb, 6);
+ 
+ 	*tag++ = ACT_CAT_BA;
+ 	*tag++ = ACT_DELBA;
+diff --git a/drivers/staging/rtl8192e/rtllib_softmac.c b/drivers/staging/rtl8192e/rtllib_softmac.c
+index 60d07d0bb4eb..5f2751d4d464 100644
+--- a/drivers/staging/rtl8192e/rtllib_softmac.c
++++ b/drivers/staging/rtl8192e/rtllib_softmac.c
+@@ -351,8 +351,7 @@ static inline struct sk_buff *rtllib_probe_req(struct rtllib_device *ieee)
+ 
+ 	skb_reserve(skb, ieee->tx_headroom);
+ 
+-	req = (struct rtllib_probe_request *) skb_put(skb,
+-	      sizeof(struct rtllib_probe_request));
++	req = skb_put(skb, sizeof(struct rtllib_probe_request));
+ 	req->header.frame_ctl = cpu_to_le16(RTLLIB_STYPE_PROBE_REQ);
+ 	req->header.duration_id = 0;
+ 
+@@ -360,7 +359,7 @@ static inline struct sk_buff *rtllib_probe_req(struct rtllib_device *ieee)
+ 	ether_addr_copy(req->header.addr2, ieee->dev->dev_addr);
+ 	eth_broadcast_addr(req->header.addr3);
+ 
+-	tag = (u8 *) skb_put(skb, len + 2 + rate_len);
++	tag = skb_put(skb, len + 2 + rate_len);
+ 
+ 	*tag++ = MFIE_TYPE_SSID;
+ 	*tag++ = len;
+@@ -789,8 +788,7 @@ rtllib_authentication_req(struct rtllib_network *beacon,
+ 
+ 	skb_reserve(skb, ieee->tx_headroom);
+ 
+-	auth = (struct rtllib_authentication *)
+-		skb_put(skb, sizeof(struct rtllib_authentication));
++	auth = skb_put(skb, sizeof(struct rtllib_authentication));
+ 
+ 	auth->header.frame_ctl = cpu_to_le16(RTLLIB_STYPE_AUTH);
+ 	if (challengelen)
+@@ -889,8 +887,7 @@ static struct sk_buff *rtllib_probe_resp(struct rtllib_device *ieee,
+ 
+ 	skb_reserve(skb, ieee->tx_headroom);
+ 
+-	beacon_buf = (struct rtllib_probe_response *) skb_put(skb,
+-		     (beacon_size - ieee->tx_headroom));
++	beacon_buf = skb_put(skb, (beacon_size - ieee->tx_headroom));
+ 	ether_addr_copy(beacon_buf->header.addr1, dest);
+ 	ether_addr_copy(beacon_buf->header.addr2, ieee->dev->dev_addr);
+ 	ether_addr_copy(beacon_buf->header.addr3, ieee->current_network.bssid);
+@@ -984,8 +981,7 @@ static struct sk_buff *rtllib_assoc_resp(struct rtllib_device *ieee, u8 *dest)
+ 
+ 	skb_reserve(skb, ieee->tx_headroom);
+ 
+-	assoc = (struct rtllib_assoc_response_frame *)
+-		skb_put(skb, sizeof(struct rtllib_assoc_response_frame));
++	assoc = skb_put(skb, sizeof(struct rtllib_assoc_response_frame));
+ 
+ 	assoc->header.frame_ctl = cpu_to_le16(RTLLIB_STYPE_ASSOC_RESP);
+ 	ether_addr_copy(assoc->header.addr1, dest);
+@@ -1016,7 +1012,7 @@ static struct sk_buff *rtllib_assoc_resp(struct rtllib_device *ieee, u8 *dest)
+ 	else
+ 		ieee->assoc_id++;
+ 
+-	tag = (u8 *) skb_put(skb, rate_len);
++	tag = skb_put(skb, rate_len);
+ 	rtllib_MFIE_Brate(ieee, &tag);
+ 	rtllib_MFIE_Grate(ieee, &tag);
+ 
+@@ -1038,8 +1034,7 @@ static struct sk_buff *rtllib_auth_resp(struct rtllib_device *ieee, int status,
+ 
+ 	skb_reserve(skb, ieee->tx_headroom);
+ 
+-	auth = (struct rtllib_authentication *)
+-		skb_put(skb, sizeof(struct rtllib_authentication));
++	auth = skb_put(skb, sizeof(struct rtllib_authentication));
+ 
+ 	auth->status = cpu_to_le16(status);
+ 	auth->transaction = cpu_to_le16(2);
+@@ -1065,8 +1060,7 @@ static struct sk_buff *rtllib_null_func(struct rtllib_device *ieee, short pwr)
+ 
+ 	skb_reserve(skb, ieee->tx_headroom);
+ 
+-	hdr = (struct rtllib_hdr_3addr *)skb_put(skb,
+-	      sizeof(struct rtllib_hdr_3addr));
++	hdr = skb_put(skb, sizeof(struct rtllib_hdr_3addr));
+ 
+ 	ether_addr_copy(hdr->addr1, ieee->current_network.bssid);
+ 	ether_addr_copy(hdr->addr2, ieee->dev->dev_addr);
+@@ -1092,8 +1086,7 @@ static struct sk_buff *rtllib_pspoll_func(struct rtllib_device *ieee)
+ 
+ 	skb_reserve(skb, ieee->tx_headroom);
+ 
+-	hdr = (struct rtllib_pspoll_hdr *)skb_put(skb,
+-	      sizeof(struct rtllib_pspoll_hdr));
++	hdr = skb_put(skb, sizeof(struct rtllib_pspoll_hdr));
+ 
+ 	ether_addr_copy(hdr->bssid, ieee->current_network.bssid);
+ 	ether_addr_copy(hdr->ta, ieee->dev->dev_addr);
+@@ -1243,8 +1236,7 @@ rtllib_association_req(struct rtllib_network *beacon,
+ 
+ 	skb_reserve(skb, ieee->tx_headroom);
+ 
+-	hdr = (struct rtllib_assoc_request_frame *)
+-		skb_put(skb, sizeof(struct rtllib_assoc_request_frame) + 2);
++	hdr = skb_put(skb, sizeof(struct rtllib_assoc_request_frame) + 2);
+ 
+ 
+ 	hdr->header.frame_ctl = cpu_to_le16(RTLLIB_STYPE_ASSOC_REQ);
+@@ -3414,8 +3406,7 @@ rtllib_disauth_skb(struct rtllib_network *beacon,
+ 
+ 	skb_reserve(skb, ieee->tx_headroom);
+ 
+-	disauth = (struct rtllib_disauth *) skb_put(skb,
+-		  sizeof(struct rtllib_disauth));
++	disauth = skb_put(skb, sizeof(struct rtllib_disauth));
+ 	disauth->header.frame_ctl = cpu_to_le16(RTLLIB_STYPE_DEAUTH);
+ 	disauth->header.duration_id = 0;
+ 
+@@ -3442,8 +3433,7 @@ rtllib_disassociate_skb(struct rtllib_network *beacon,
+ 
+ 	skb_reserve(skb, ieee->tx_headroom);
+ 
+-	disass = (struct rtllib_disassoc *) skb_put(skb,
+-					 sizeof(struct rtllib_disassoc));
++	disass = skb_put(skb, sizeof(struct rtllib_disassoc));
+ 	disass->header.frame_ctl = cpu_to_le16(RTLLIB_STYPE_DISASSOC);
+ 	disass->header.duration_id = 0;
+ 
+diff --git a/drivers/staging/rtl8192u/ieee80211/ieee80211_softmac.c b/drivers/staging/rtl8192u/ieee80211/ieee80211_softmac.c
+index 903a1d0269df..107069180ed2 100644
+--- a/drivers/staging/rtl8192u/ieee80211/ieee80211_softmac.c
++++ b/drivers/staging/rtl8192u/ieee80211/ieee80211_softmac.c
+@@ -341,7 +341,7 @@ static inline struct sk_buff *ieee80211_probe_req(struct ieee80211_device *ieee)
+ 
+ 	skb_reserve(skb, ieee->tx_headroom);
+ 
+-	req = (struct ieee80211_probe_request *) skb_put(skb,sizeof(struct ieee80211_probe_request));
++	req = skb_put(skb, sizeof(struct ieee80211_probe_request));
+ 	req->header.frame_ctl = cpu_to_le16(IEEE80211_STYPE_PROBE_REQ);
+ 	req->header.duration_id = 0; /* FIXME: is this OK? */
+ 
+@@ -349,7 +349,7 @@ static inline struct sk_buff *ieee80211_probe_req(struct ieee80211_device *ieee)
+ 	memcpy(req->header.addr2, ieee->dev->dev_addr, ETH_ALEN);
+ 	eth_broadcast_addr(req->header.addr3);
+ 
+-	tag = (u8 *) skb_put(skb,len+2+rate_len);
++	tag = skb_put(skb, len + 2 + rate_len);
+ 
+ 	*tag++ = MFIE_TYPE_SSID;
+ 	*tag++ = len;
+@@ -659,8 +659,7 @@ ieee80211_authentication_req(struct ieee80211_network *beacon,
+ 	if (!skb) return NULL;
+ 
+ 	skb_reserve(skb, ieee->tx_headroom);
+-	auth = (struct ieee80211_authentication *)
+-		skb_put(skb, sizeof(struct ieee80211_authentication));
++	auth = skb_put(skb, sizeof(struct ieee80211_authentication));
+ 
+ 	if (challengelen)
+ 		auth->header.frame_ctl = cpu_to_le16(IEEE80211_STYPE_AUTH
+@@ -768,7 +767,7 @@ static struct sk_buff *ieee80211_probe_resp(struct ieee80211_device *ieee, u8 *d
+ 	if (!skb)
+ 		return NULL;
+ 	skb_reserve(skb, ieee->tx_headroom);
+-	beacon_buf = (struct ieee80211_probe_response *) skb_put(skb, (beacon_size - ieee->tx_headroom));
++	beacon_buf = skb_put(skb, (beacon_size - ieee->tx_headroom));
+ 	memcpy (beacon_buf->header.addr1, dest,ETH_ALEN);
+ 	memcpy (beacon_buf->header.addr2, ieee->dev->dev_addr, ETH_ALEN);
+ 	memcpy (beacon_buf->header.addr3, ieee->current_network.bssid, ETH_ALEN);
+@@ -864,8 +863,7 @@ static struct sk_buff *ieee80211_assoc_resp(struct ieee80211_device *ieee,
+ 
+ 	skb_reserve(skb, ieee->tx_headroom);
+ 
+-	assoc = (struct ieee80211_assoc_response_frame *)
+-		skb_put(skb, sizeof(struct ieee80211_assoc_response_frame));
++	assoc = skb_put(skb, sizeof(struct ieee80211_assoc_response_frame));
+ 
+ 	assoc->header.frame_ctl = cpu_to_le16(IEEE80211_STYPE_ASSOC_RESP);
+ 	memcpy(assoc->header.addr1, dest,ETH_ALEN);
+@@ -892,7 +890,7 @@ static struct sk_buff *ieee80211_assoc_resp(struct ieee80211_device *ieee,
+ 	if (ieee->assoc_id == 0x2007) ieee->assoc_id=0;
+ 	else ieee->assoc_id++;
+ 
+-	tag = (u8 *) skb_put(skb, rate_len);
++	tag = skb_put(skb, rate_len);
+ 
+ 	ieee80211_MFIE_Brate(ieee, &tag);
+ 	ieee80211_MFIE_Grate(ieee, &tag);
+@@ -940,7 +938,7 @@ static struct sk_buff *ieee80211_null_func(struct ieee80211_device *ieee,
+ 	if (!skb)
+ 		return NULL;
+ 
+-	hdr = (struct rtl_80211_hdr_3addr *)skb_put(skb,sizeof(struct rtl_80211_hdr_3addr));
++	hdr = skb_put(skb, sizeof(struct rtl_80211_hdr_3addr));
+ 
+ 	memcpy(hdr->addr1, ieee->current_network.bssid, ETH_ALEN);
+ 	memcpy(hdr->addr2, ieee->dev->dev_addr, ETH_ALEN);
+@@ -1086,8 +1084,7 @@ ieee80211_association_req(struct ieee80211_network *beacon,
+ 
+ 	skb_reserve(skb, ieee->tx_headroom);
+ 
+-	hdr = (struct ieee80211_assoc_request_frame *)
+-		skb_put(skb, sizeof(struct ieee80211_assoc_request_frame)+2);
++	hdr = skb_put(skb, sizeof(struct ieee80211_assoc_request_frame) + 2);
+ 
+ 
+ 	hdr->header.frame_ctl = IEEE80211_STYPE_ASSOC_REQ;
+@@ -3110,7 +3107,7 @@ static inline struct sk_buff *ieee80211_disassociate_skb(
+ 	if (!skb)
+ 		return NULL;
+ 
+-	disass = (struct ieee80211_disassoc *) skb_put(skb, sizeof(struct ieee80211_disassoc));
++	disass = skb_put(skb, sizeof(struct ieee80211_disassoc));
+ 	disass->header.frame_ctl = cpu_to_le16(IEEE80211_STYPE_DISASSOC);
+ 	disass->header.duration_id = 0;
+ 
+diff --git a/drivers/staging/rtl8192u/ieee80211/rtl819x_BAProc.c b/drivers/staging/rtl8192u/ieee80211/rtl819x_BAProc.c
+index e82b5073c3f1..8aa38dcf0dfd 100644
+--- a/drivers/staging/rtl8192u/ieee80211/rtl819x_BAProc.c
++++ b/drivers/staging/rtl8192u/ieee80211/rtl819x_BAProc.c
+@@ -125,7 +125,7 @@ static struct sk_buff *ieee80211_ADDBA(struct ieee80211_device *ieee, u8 *Dst, P
+ 	memset(skb->data, 0, sizeof( struct rtl_80211_hdr_3addr));	//I wonder whether it's necessary. Apparently kernel will not do it when alloc a skb.
+ 	skb_reserve(skb, ieee->tx_headroom);
+ 
+-	BAReq = ( struct rtl_80211_hdr_3addr *) skb_put(skb,sizeof( struct rtl_80211_hdr_3addr));
++	BAReq = skb_put(skb, sizeof(struct rtl_80211_hdr_3addr));
+ 
+ 	memcpy(BAReq->addr1, Dst, ETH_ALEN);
+ 	memcpy(BAReq->addr2, ieee->dev->dev_addr, ETH_ALEN);
+@@ -135,7 +135,7 @@ static struct sk_buff *ieee80211_ADDBA(struct ieee80211_device *ieee, u8 *Dst, P
+ 	BAReq->frame_ctl = cpu_to_le16(IEEE80211_STYPE_MANAGE_ACT); //action frame
+ 
+ 	//tag += sizeof( struct rtl_80211_hdr_3addr); //move to action field
+-	tag = (u8 *)skb_put(skb, 9);
++	tag = skb_put(skb, 9);
+ 	*tag ++= ACT_CAT_BA;
+ 	*tag ++= type;
+ 	// Dialog Token
+@@ -209,14 +209,14 @@ static struct sk_buff *ieee80211_DELBA(
+ //	memset(skb->data, 0, len+sizeof( struct rtl_80211_hdr_3addr));
+ 	skb_reserve(skb, ieee->tx_headroom);
+ 
+-	Delba = ( struct rtl_80211_hdr_3addr *) skb_put(skb,sizeof( struct rtl_80211_hdr_3addr));
++	Delba = skb_put(skb, sizeof(struct rtl_80211_hdr_3addr));
+ 
+ 	memcpy(Delba->addr1, dst, ETH_ALEN);
+ 	memcpy(Delba->addr2, ieee->dev->dev_addr, ETH_ALEN);
+ 	memcpy(Delba->addr3, ieee->current_network.bssid, ETH_ALEN);
+ 	Delba->frame_ctl = cpu_to_le16(IEEE80211_STYPE_MANAGE_ACT); //action frame
+ 
+-	tag = (u8 *)skb_put(skb, 6);
++	tag = skb_put(skb, 6);
+ 
+ 	*tag ++= ACT_CAT_BA;
+ 	*tag ++= ACT_DELBA;
+diff --git a/drivers/target/iscsi/cxgbit/cxgbit_cm.c b/drivers/target/iscsi/cxgbit/cxgbit_cm.c
+index 939c6ec51e4d..15cd1e33b16b 100644
+--- a/drivers/target/iscsi/cxgbit/cxgbit_cm.c
++++ b/drivers/target/iscsi/cxgbit/cxgbit_cm.c
+@@ -1085,7 +1085,7 @@ cxgbit_pass_accept_rpl(struct cxgbit_sock *csk, struct cpl_pass_accept_req *req)
+ 		return;
+ 	}
+ 
+-	rpl5 = (struct cpl_t5_pass_accept_rpl *)__skb_put(skb, len);
++	rpl5 = __skb_put(skb, len);
+ 	memset(rpl5, 0, len);
+ 
+ 	INIT_TP_WR(rpl5, csk->tid);
+@@ -1367,7 +1367,7 @@ u32 cxgbit_send_tx_flowc_wr(struct cxgbit_sock *csk)
+ 	flowclen16 = cxgbit_tx_flowc_wr_credits(csk, &nparams, &flowclen);
+ 
+ 	skb = __skb_dequeue(&csk->skbq);
+-	flowc = (struct fw_flowc_wr *)__skb_put(skb, flowclen);
++	flowc = __skb_put(skb, flowclen);
+ 	memset(flowc, 0, flowclen);
+ 
+ 	flowc->op_to_nparams = cpu_to_be32(FW_WR_OP_V(FW_FLOWC_WR) |
+@@ -1439,7 +1439,7 @@ int cxgbit_setup_conn_digest(struct cxgbit_sock *csk)
+ 		return -ENOMEM;
+ 
+ 	/*  set up ulp submode */
+-	req = (struct cpl_set_tcb_field *)__skb_put(skb, len);
++	req = __skb_put(skb, len);
+ 	memset(req, 0, len);
+ 
+ 	INIT_TP_WR(req, csk->tid);
+@@ -1476,7 +1476,7 @@ int cxgbit_setup_conn_pgidx(struct cxgbit_sock *csk, u32 pg_idx)
+ 	if (!skb)
+ 		return -ENOMEM;
+ 
+-	req = (struct cpl_set_tcb_field *)__skb_put(skb, len);
++	req = __skb_put(skb, len);
+ 	memset(req, 0, len);
+ 
+ 	INIT_TP_WR(req, csk->tid);
+diff --git a/drivers/target/iscsi/cxgbit/cxgbit_ddp.c b/drivers/target/iscsi/cxgbit/cxgbit_ddp.c
+index 5d78bdb7fc64..5fdb57cac968 100644
+--- a/drivers/target/iscsi/cxgbit/cxgbit_ddp.c
++++ b/drivers/target/iscsi/cxgbit/cxgbit_ddp.c
+@@ -79,7 +79,7 @@ cxgbit_ppod_init_idata(struct cxgbit_device *cdev, struct cxgbi_ppm *ppm,
+ 	if (!skb)
+ 		return NULL;
+ 
+-	req = (struct ulp_mem_io *)__skb_put(skb, wr_len);
++	req = __skb_put(skb, wr_len);
+ 	INIT_ULPTX_WR(req, wr_len, 0, tid);
+ 	req->wr.wr_hi = htonl(FW_WR_OP_V(FW_ULPTX_WR) |
+ 		FW_WR_ATOMIC_V(0));
+diff --git a/drivers/usb/gadget/function/f_ncm.c b/drivers/usb/gadget/function/f_ncm.c
+index 630616aaa861..a9c28c72c1c7 100644
+--- a/drivers/usb/gadget/function/f_ncm.c
++++ b/drivers/usb/gadget/function/f_ncm.c
+@@ -1047,7 +1047,7 @@ static struct sk_buff *ncm_wrap_ntb(struct gether *port,
+ 			crc = ~crc32_le(~0,
+ 					skb->data,
+ 					skb->len);
+-			crc_pos = (void *) skb_put(skb, sizeof(uint32_t));
++			crc_pos = skb_put(skb, sizeof(uint32_t));
+ 			put_unaligned_le32(crc, crc_pos);
+ 		}
+ 
+@@ -1097,8 +1097,7 @@ static struct sk_buff *ncm_wrap_ntb(struct gether *port,
+ 				goto err;
+ 
+ 			ncm->skb_tx_ndp->dev = ncm->netdev;
+-			ntb_ndp = (void *) skb_put(ncm->skb_tx_ndp,
+-						    opts->ndp_size);
++			ntb_ndp = skb_put(ncm->skb_tx_ndp, opts->ndp_size);
+ 			memset(ntb_ndp, 0, ncb_len);
+ 			/* dwSignature */
+ 			put_unaligned_le32(ncm->ndp_sign, ntb_ndp);
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 5af5385a0e72..454ea37dddbb 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1893,11 +1893,11 @@ static inline void skb_set_tail_pointer(struct sk_buff *skb, const int offset)
+ /*
+  *	Add data to an sk_buff
+  */
+-unsigned char *pskb_put(struct sk_buff *skb, struct sk_buff *tail, int len);
+-unsigned char *skb_put(struct sk_buff *skb, unsigned int len);
+-static inline unsigned char *__skb_put(struct sk_buff *skb, unsigned int len)
++void *pskb_put(struct sk_buff *skb, struct sk_buff *tail, int len);
++void *skb_put(struct sk_buff *skb, unsigned int len);
++static inline void *__skb_put(struct sk_buff *skb, unsigned int len)
+ {
+-	unsigned char *tmp = skb_tail_pointer(skb);
++	void *tmp = skb_tail_pointer(skb);
+ 	SKB_LINEAR_ASSERT(skb);
+ 	skb->tail += len;
+ 	skb->len  += len;
+diff --git a/lib/nlattr.c b/lib/nlattr.c
+index ab15a6c095d3..a0c738aa6a79 100644
+--- a/lib/nlattr.c
++++ b/lib/nlattr.c
+@@ -352,7 +352,7 @@ struct nlattr *__nla_reserve(struct sk_buff *skb, int attrtype, int attrlen)
+ {
+ 	struct nlattr *nla;
+ 
+-	nla = (struct nlattr *) skb_put(skb, nla_total_size(attrlen));
++	nla = skb_put(skb, nla_total_size(attrlen));
+ 	nla->nla_type = attrtype;
+ 	nla->nla_len = nla_attr_size(attrlen);
+ 
+diff --git a/net/802/garp.c b/net/802/garp.c
+index b38ee6dcba45..a9a266569293 100644
+--- a/net/802/garp.c
++++ b/net/802/garp.c
+@@ -221,7 +221,7 @@ static int garp_pdu_init(struct garp_applicant *app)
+ 	skb->protocol = htons(ETH_P_802_2);
+ 	skb_reserve(skb, LL_RESERVED_SPACE(app->dev) + LLC_RESERVE);
+ 
+-	gp = (struct garp_pdu_hdr *)__skb_put(skb, sizeof(*gp));
++	gp = __skb_put(skb, sizeof(*gp));
+ 	put_unaligned(htons(GARP_PROTOCOL_ID), &gp->protocol);
+ 
+ 	app->pdu = skb;
+@@ -268,7 +268,7 @@ static int garp_pdu_append_msg(struct garp_applicant *app, u8 attrtype)
+ 
+ 	if (skb_tailroom(app->pdu) < sizeof(*gm))
+ 		return -1;
+-	gm = (struct garp_msg_hdr *)__skb_put(app->pdu, sizeof(*gm));
++	gm = __skb_put(app->pdu, sizeof(*gm));
+ 	gm->attrtype = attrtype;
+ 	garp_cb(app->pdu)->cur_type = attrtype;
+ 	return 0;
+@@ -299,7 +299,7 @@ static int garp_pdu_append_attr(struct garp_applicant *app,
+ 	len = sizeof(*ga) + attr->dlen;
+ 	if (skb_tailroom(app->pdu) < len)
+ 		goto queue;
+-	ga = (struct garp_attr_hdr *)__skb_put(app->pdu, len);
++	ga = __skb_put(app->pdu, len);
+ 	ga->len   = len;
+ 	ga->event = event;
+ 	memcpy(ga->data, attr->data, attr->dlen);
+diff --git a/net/802/mrp.c b/net/802/mrp.c
+index 72db2785ef2c..be4dd3165347 100644
+--- a/net/802/mrp.c
++++ b/net/802/mrp.c
+@@ -311,7 +311,7 @@ static int mrp_pdu_init(struct mrp_applicant *app)
+ 	skb_reset_network_header(skb);
+ 	skb_reset_transport_header(skb);
+ 
+-	ph = (struct mrp_pdu_hdr *)__skb_put(skb, sizeof(*ph));
++	ph = __skb_put(skb, sizeof(*ph));
+ 	ph->version = app->app->version;
+ 
+ 	app->pdu = skb;
+@@ -324,7 +324,7 @@ static int mrp_pdu_append_end_mark(struct mrp_applicant *app)
+ 
+ 	if (skb_tailroom(app->pdu) < sizeof(*endmark))
+ 		return -1;
+-	endmark = (__be16 *)__skb_put(app->pdu, sizeof(*endmark));
++	endmark = __skb_put(app->pdu, sizeof(*endmark));
+ 	put_unaligned(MRP_END_MARK, endmark);
+ 	return 0;
+ }
+@@ -368,7 +368,7 @@ static int mrp_pdu_append_msg_hdr(struct mrp_applicant *app,
+ 
+ 	if (skb_tailroom(app->pdu) < sizeof(*mh))
+ 		return -1;
+-	mh = (struct mrp_msg_hdr *)__skb_put(app->pdu, sizeof(*mh));
++	mh = __skb_put(app->pdu, sizeof(*mh));
+ 	mh->attrtype = attrtype;
+ 	mh->attrlen = attrlen;
+ 	mrp_cb(app->pdu)->mh = mh;
+@@ -382,8 +382,7 @@ static int mrp_pdu_append_vecattr_hdr(struct mrp_applicant *app,
+ 
+ 	if (skb_tailroom(app->pdu) < sizeof(*vah) + attrlen)
+ 		return -1;
+-	vah = (struct mrp_vecattr_hdr *)__skb_put(app->pdu,
+-						  sizeof(*vah) + attrlen);
++	vah = __skb_put(app->pdu, sizeof(*vah) + attrlen);
+ 	put_unaligned(0, &vah->lenflags);
+ 	memcpy(vah->firstattrvalue, firstattrvalue, attrlen);
+ 	mrp_cb(app->pdu)->vah = vah;
+@@ -435,7 +434,7 @@ static int mrp_pdu_append_vecattr_event(struct mrp_applicant *app,
+ 	if (!pos) {
+ 		if (skb_tailroom(app->pdu) < sizeof(u8))
+ 			goto queue;
+-		vaevents = (u8 *)__skb_put(app->pdu, sizeof(u8));
++		vaevents = __skb_put(app->pdu, sizeof(u8));
+ 	} else {
+ 		vaevents = (u8 *)(skb_tail_pointer(app->pdu) - sizeof(u8));
+ 	}
+diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
+index 465cc24b41e5..c7af6dc70fa2 100644
+--- a/net/appletalk/ddp.c
++++ b/net/appletalk/ddp.c
+@@ -1647,7 +1647,7 @@ static int atalk_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
+ 
+ 	SOCK_DEBUG(sk, "SK %p: Begin build.\n", sk);
+ 
+-	ddp = (struct ddpehdr *)skb_put(skb, sizeof(struct ddpehdr));
++	ddp = skb_put(skb, sizeof(struct ddpehdr));
+ 	ddp->deh_len_hops  = htons(len + sizeof(*ddp));
+ 	ddp->deh_dnet  = usat->sat_addr.s_net;
+ 	ddp->deh_snet  = at->src_net;
+diff --git a/net/atm/clip.c b/net/atm/clip.c
+index ec527b62f79d..a7e4018370b4 100644
+--- a/net/atm/clip.c
++++ b/net/atm/clip.c
+@@ -60,7 +60,7 @@ static int to_atmarpd(enum atmarp_ctrl_type type, int itf, __be32 ip)
+ 	skb = alloc_skb(sizeof(struct atmarp_ctrl), GFP_ATOMIC);
+ 	if (!skb)
+ 		return -ENOMEM;
+-	ctrl = (struct atmarp_ctrl *)skb_put(skb, sizeof(struct atmarp_ctrl));
++	ctrl = skb_put(skb, sizeof(struct atmarp_ctrl));
+ 	ctrl->type = type;
+ 	ctrl->itf_num = itf;
+ 	ctrl->ip = ip;
+diff --git a/net/batman-adv/icmp_socket.c b/net/batman-adv/icmp_socket.c
+index 6308c9f0fd96..8ead292886d1 100644
+--- a/net/batman-adv/icmp_socket.c
++++ b/net/batman-adv/icmp_socket.c
+@@ -207,7 +207,7 @@ static ssize_t batadv_socket_write(struct file *file, const char __user *buff,
+ 
+ 	skb->priority = TC_PRIO_CONTROL;
+ 	skb_reserve(skb, ETH_HLEN);
+-	icmp_header = (struct batadv_icmp_header *)skb_put(skb, packet_len);
++	icmp_header = skb_put(skb, packet_len);
+ 
+ 	if (copy_from_user(icmp_header, buff, packet_len)) {
+ 		len = -EFAULT;
+diff --git a/net/batman-adv/tp_meter.c b/net/batman-adv/tp_meter.c
+index e3e2585d0977..bfe8effe9238 100644
+--- a/net/batman-adv/tp_meter.c
++++ b/net/batman-adv/tp_meter.c
+@@ -595,7 +595,7 @@ static int batadv_tp_send_msg(struct batadv_tp_vars *tp_vars, const u8 *src,
+ 		return BATADV_TP_REASON_MEMORY_ERROR;
+ 
+ 	skb_reserve(skb, ETH_HLEN);
+-	icmp = (struct batadv_icmp_tp_packet *)skb_put(skb, sizeof(*icmp));
++	icmp = skb_put(skb, sizeof(*icmp));
+ 
+ 	/* fill the icmp header */
+ 	ether_addr_copy(icmp->dst, orig_node->orig);
+@@ -612,7 +612,7 @@ static int batadv_tp_send_msg(struct batadv_tp_vars *tp_vars, const u8 *src,
+ 	icmp->timestamp = htonl(timestamp);
+ 
+ 	data_len = len - sizeof(*icmp);
+-	data = (u8 *)skb_put(skb, data_len);
++	data = skb_put(skb, data_len);
+ 	batadv_tp_fill_prerandom(tp_vars, data, data_len);
+ 
+ 	r = batadv_send_skb_to_orig(skb, orig_node, NULL);
+@@ -1190,7 +1190,7 @@ static int batadv_tp_send_ack(struct batadv_priv *bat_priv, const u8 *dst,
+ 	}
+ 
+ 	skb_reserve(skb, ETH_HLEN);
+-	icmp = (struct batadv_icmp_tp_packet *)skb_put(skb, sizeof(*icmp));
++	icmp = skb_put(skb, sizeof(*icmp));
+ 	icmp->packet_type = BATADV_ICMP;
+ 	icmp->version = BATADV_COMPAT_VERSION;
+ 	icmp->ttl = BATADV_TTL;
+diff --git a/net/bluetooth/hci_request.c b/net/bluetooth/hci_request.c
+index 4e4105a932bd..b73ac149de34 100644
+--- a/net/bluetooth/hci_request.c
++++ b/net/bluetooth/hci_request.c
+@@ -299,7 +299,7 @@ struct sk_buff *hci_prepare_cmd(struct hci_dev *hdev, u16 opcode, u32 plen,
+ 	if (!skb)
+ 		return NULL;
+ 
+-	hdr = (struct hci_command_hdr *) skb_put(skb, HCI_COMMAND_HDR_SIZE);
++	hdr = skb_put(skb, HCI_COMMAND_HDR_SIZE);
+ 	hdr->opcode = cpu_to_le16(opcode);
+ 	hdr->plen   = plen;
+ 
+diff --git a/net/bluetooth/hci_sock.c b/net/bluetooth/hci_sock.c
+index 083e87f26a0f..1301a8786d8d 100644
+--- a/net/bluetooth/hci_sock.c
++++ b/net/bluetooth/hci_sock.c
+@@ -410,7 +410,7 @@ static struct sk_buff *create_monitor_event(struct hci_dev *hdev, int event)
+ 		if (!skb)
+ 			return NULL;
+ 
+-		ni = (void *)skb_put(skb, HCI_MON_NEW_INDEX_SIZE);
++		ni = skb_put(skb, HCI_MON_NEW_INDEX_SIZE);
+ 		ni->type = hdev->dev_type;
+ 		ni->bus = hdev->bus;
+ 		bacpy(&ni->bdaddr, &hdev->bdaddr);
+@@ -438,7 +438,7 @@ static struct sk_buff *create_monitor_event(struct hci_dev *hdev, int event)
+ 		if (!skb)
+ 			return NULL;
+ 
+-		ii = (void *)skb_put(skb, HCI_MON_INDEX_INFO_SIZE);
++		ii = skb_put(skb, HCI_MON_INDEX_INFO_SIZE);
+ 		bacpy(&ii->bdaddr, &hdev->bdaddr);
+ 		ii->manufacturer = cpu_to_le16(hdev->manufacturer);
+ 
+@@ -517,7 +517,7 @@ static struct sk_buff *create_monitor_ctrl_open(struct sock *sk)
+ 	put_unaligned_le16(format, skb_put(skb, 2));
+ 	skb_put_data(skb, ver, sizeof(ver));
+ 	put_unaligned_le32(flags, skb_put(skb, 4));
+-	*skb_put(skb, 1) = TASK_COMM_LEN;
++	*(u8 *)skb_put(skb, 1) = TASK_COMM_LEN;
+ 	skb_put_data(skb, hci_pi(sk)->comm, TASK_COMM_LEN);
+ 
+ 	__net_timestamp(skb);
+@@ -616,7 +616,7 @@ send_monitor_note(struct sock *sk, const char *fmt, ...)
+ 
+ 	va_start(args, fmt);
+ 	vsprintf(skb_put(skb, len), fmt, args);
+-	*skb_put(skb, 1) = 0;
++	*(u8 *)skb_put(skb, 1) = 0;
+ 	va_end(args);
+ 
+ 	__net_timestamp(skb);
+@@ -703,11 +703,11 @@ static void hci_si_event(struct hci_dev *hdev, int type, int dlen, void *data)
+ 	if (!skb)
+ 		return;
+ 
+-	hdr = (void *)skb_put(skb, HCI_EVENT_HDR_SIZE);
++	hdr = skb_put(skb, HCI_EVENT_HDR_SIZE);
+ 	hdr->evt  = HCI_EV_STACK_INTERNAL;
+ 	hdr->plen = sizeof(*ev) + dlen;
+ 
+-	ev  = (void *)skb_put(skb, sizeof(*ev) + dlen);
++	ev = skb_put(skb, sizeof(*ev) + dlen);
+ 	ev->type = type;
+ 	memcpy(ev->data, data, dlen);
+ 
+diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
+index 9e83713262e8..c0d0832a023d 100644
+--- a/net/bluetooth/hidp/core.c
++++ b/net/bluetooth/hidp/core.c
+@@ -112,7 +112,7 @@ static int hidp_send_message(struct hidp_session *session, struct socket *sock,
+ 		return -ENOMEM;
+ 	}
+ 
+-	*skb_put(skb, 1) = hdr;
++	*(u8 *)skb_put(skb, 1) = hdr;
+ 	if (data && size > 0)
+ 		skb_put_data(skb, data, size);
+ 
+diff --git a/net/bluetooth/l2cap_core.c b/net/bluetooth/l2cap_core.c
+index fe6a5529bdf5..303c779bfe38 100644
+--- a/net/bluetooth/l2cap_core.c
++++ b/net/bluetooth/l2cap_core.c
+@@ -1048,7 +1048,7 @@ static struct sk_buff *l2cap_create_sframe_pdu(struct l2cap_chan *chan,
+ 	if (!skb)
+ 		return ERR_PTR(-ENOMEM);
+ 
+-	lh = (struct l2cap_hdr *) skb_put(skb, L2CAP_HDR_SIZE);
++	lh = skb_put(skb, L2CAP_HDR_SIZE);
+ 	lh->len = cpu_to_le16(hlen - L2CAP_HDR_SIZE);
+ 	lh->cid = cpu_to_le16(chan->dcid);
+ 
+@@ -2182,7 +2182,7 @@ static struct sk_buff *l2cap_create_connless_pdu(struct l2cap_chan *chan,
+ 		return skb;
+ 
+ 	/* Create L2CAP header */
+-	lh = (struct l2cap_hdr *) skb_put(skb, L2CAP_HDR_SIZE);
++	lh = skb_put(skb, L2CAP_HDR_SIZE);
+ 	lh->cid = cpu_to_le16(chan->dcid);
+ 	lh->len = cpu_to_le16(len + L2CAP_PSMLEN_SIZE);
+ 	put_unaligned(chan->psm, (__le16 *) skb_put(skb, L2CAP_PSMLEN_SIZE));
+@@ -2213,7 +2213,7 @@ static struct sk_buff *l2cap_create_basic_pdu(struct l2cap_chan *chan,
+ 		return skb;
+ 
+ 	/* Create L2CAP header */
+-	lh = (struct l2cap_hdr *) skb_put(skb, L2CAP_HDR_SIZE);
++	lh = skb_put(skb, L2CAP_HDR_SIZE);
+ 	lh->cid = cpu_to_le16(chan->dcid);
+ 	lh->len = cpu_to_le16(len);
+ 
+@@ -2255,7 +2255,7 @@ static struct sk_buff *l2cap_create_iframe_pdu(struct l2cap_chan *chan,
+ 		return skb;
+ 
+ 	/* Create L2CAP header */
+-	lh = (struct l2cap_hdr *) skb_put(skb, L2CAP_HDR_SIZE);
++	lh = skb_put(skb, L2CAP_HDR_SIZE);
+ 	lh->cid = cpu_to_le16(chan->dcid);
+ 	lh->len = cpu_to_le16(len + (hlen - L2CAP_HDR_SIZE));
+ 
+@@ -2373,7 +2373,7 @@ static struct sk_buff *l2cap_create_le_flowctl_pdu(struct l2cap_chan *chan,
+ 		return skb;
+ 
+ 	/* Create L2CAP header */
+-	lh = (struct l2cap_hdr *) skb_put(skb, L2CAP_HDR_SIZE);
++	lh = skb_put(skb, L2CAP_HDR_SIZE);
+ 	lh->cid = cpu_to_le16(chan->dcid);
+ 	lh->len = cpu_to_le16(len + (hlen - L2CAP_HDR_SIZE));
+ 
+@@ -2908,7 +2908,7 @@ static struct sk_buff *l2cap_build_cmd(struct l2cap_conn *conn, u8 code,
+ 	if (!skb)
+ 		return NULL;
+ 
+-	lh = (struct l2cap_hdr *) skb_put(skb, L2CAP_HDR_SIZE);
++	lh = skb_put(skb, L2CAP_HDR_SIZE);
+ 	lh->len = cpu_to_le16(L2CAP_CMD_HDR_SIZE + dlen);
+ 
+ 	if (conn->hcon->type == LE_LINK)
+@@ -2916,7 +2916,7 @@ static struct sk_buff *l2cap_build_cmd(struct l2cap_conn *conn, u8 code,
+ 	else
+ 		lh->cid = cpu_to_le16(L2CAP_CID_SIGNALING);
+ 
+-	cmd = (struct l2cap_cmd_hdr *) skb_put(skb, L2CAP_CMD_HDR_SIZE);
++	cmd = skb_put(skb, L2CAP_CMD_HDR_SIZE);
+ 	cmd->code  = code;
+ 	cmd->ident = ident;
+ 	cmd->len   = cpu_to_le16(dlen);
+diff --git a/net/bluetooth/mgmt_util.c b/net/bluetooth/mgmt_util.c
+index 11d0ca64402b..d057113e0d4b 100644
+--- a/net/bluetooth/mgmt_util.c
++++ b/net/bluetooth/mgmt_util.c
+@@ -66,7 +66,7 @@ int mgmt_send_event(u16 event, struct hci_dev *hdev, unsigned short channel,
+ 	if (!skb)
+ 		return -ENOMEM;
+ 
+-	hdr = (void *) skb_put(skb, sizeof(*hdr));
++	hdr = skb_put(skb, sizeof(*hdr));
+ 	hdr->opcode = cpu_to_le16(event);
+ 	if (hdev)
+ 		hdr->index = cpu_to_le16(hdev->id);
+@@ -103,13 +103,13 @@ int mgmt_cmd_status(struct sock *sk, u16 index, u16 cmd, u8 status)
+ 	if (!skb)
+ 		return -ENOMEM;
+ 
+-	hdr = (void *) skb_put(skb, sizeof(*hdr));
++	hdr = skb_put(skb, sizeof(*hdr));
+ 
+ 	hdr->opcode = cpu_to_le16(MGMT_EV_CMD_STATUS);
+ 	hdr->index = cpu_to_le16(index);
+ 	hdr->len = cpu_to_le16(sizeof(*ev));
+ 
+-	ev = (void *) skb_put(skb, sizeof(*ev));
++	ev = skb_put(skb, sizeof(*ev));
+ 	ev->status = status;
+ 	ev->opcode = cpu_to_le16(cmd);
+ 
+@@ -147,13 +147,13 @@ int mgmt_cmd_complete(struct sock *sk, u16 index, u16 cmd, u8 status,
+ 	if (!skb)
+ 		return -ENOMEM;
+ 
+-	hdr = (void *) skb_put(skb, sizeof(*hdr));
++	hdr = skb_put(skb, sizeof(*hdr));
+ 
+ 	hdr->opcode = cpu_to_le16(MGMT_EV_CMD_COMPLETE);
+ 	hdr->index = cpu_to_le16(index);
+ 	hdr->len = cpu_to_le16(sizeof(*ev) + rp_len);
+ 
+-	ev = (void *) skb_put(skb, sizeof(*ev) + rp_len);
++	ev = skb_put(skb, sizeof(*ev) + rp_len);
+ 	ev->opcode = cpu_to_le16(cmd);
+ 	ev->status = status;
+ 
+diff --git a/net/bluetooth/rfcomm/core.c b/net/bluetooth/rfcomm/core.c
+index 8ebca9033d60..1a9b906c5a35 100644
+--- a/net/bluetooth/rfcomm/core.c
++++ b/net/bluetooth/rfcomm/core.c
+@@ -863,7 +863,7 @@ static int rfcomm_queue_disc(struct rfcomm_dlc *d)
+ 	if (!skb)
+ 		return -ENOMEM;
+ 
+-	cmd = (void *) __skb_put(skb, sizeof(*cmd));
++	cmd = __skb_put(skb, sizeof(*cmd));
+ 	cmd->addr = d->addr;
+ 	cmd->ctrl = __ctrl(RFCOMM_DISC, 1);
+ 	cmd->len  = __len8(0);
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 8860ad985d68..b8bcf9021329 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -2714,7 +2714,7 @@ static void pktgen_finalize_skb(struct pktgen_dev *pkt_dev, struct sk_buff *skb,
+ 	struct timeval timestamp;
+ 	struct pktgen_hdr *pgh;
+ 
+-	pgh = (struct pktgen_hdr *)skb_put(skb, sizeof(*pgh));
++	pgh = skb_put(skb, sizeof(*pgh));
+ 	datalen -= sizeof(*pgh);
+ 
+ 	if (pkt_dev->nfrags <= 0) {
+@@ -2845,33 +2845,34 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
+ 
+ 	/*  Reserve for ethernet and IP header  */
+ 	eth = (__u8 *) skb_push(skb, 14);
+-	mpls = (__be32 *)skb_put(skb, pkt_dev->nr_labels*sizeof(__u32));
++	mpls = skb_put(skb, pkt_dev->nr_labels * sizeof(__u32));
+ 	if (pkt_dev->nr_labels)
+ 		mpls_push(mpls, pkt_dev);
+ 
+ 	if (pkt_dev->vlan_id != 0xffff) {
+ 		if (pkt_dev->svlan_id != 0xffff) {
+-			svlan_tci = (__be16 *)skb_put(skb, sizeof(__be16));
++			svlan_tci = skb_put(skb, sizeof(__be16));
+ 			*svlan_tci = build_tci(pkt_dev->svlan_id,
+ 					       pkt_dev->svlan_cfi,
+ 					       pkt_dev->svlan_p);
+-			svlan_encapsulated_proto = (__be16 *)skb_put(skb, sizeof(__be16));
++			svlan_encapsulated_proto = skb_put(skb,
++							   sizeof(__be16));
+ 			*svlan_encapsulated_proto = htons(ETH_P_8021Q);
+ 		}
+-		vlan_tci = (__be16 *)skb_put(skb, sizeof(__be16));
++		vlan_tci = skb_put(skb, sizeof(__be16));
+ 		*vlan_tci = build_tci(pkt_dev->vlan_id,
+ 				      pkt_dev->vlan_cfi,
+ 				      pkt_dev->vlan_p);
+-		vlan_encapsulated_proto = (__be16 *)skb_put(skb, sizeof(__be16));
++		vlan_encapsulated_proto = skb_put(skb, sizeof(__be16));
+ 		*vlan_encapsulated_proto = htons(ETH_P_IP);
+ 	}
+ 
+ 	skb_reset_mac_header(skb);
+ 	skb_set_network_header(skb, skb->len);
+-	iph = (struct iphdr *) skb_put(skb, sizeof(struct iphdr));
++	iph = skb_put(skb, sizeof(struct iphdr));
+ 
+ 	skb_set_transport_header(skb, skb->len);
+-	udph = (struct udphdr *) skb_put(skb, sizeof(struct udphdr));
++	udph = skb_put(skb, sizeof(struct udphdr));
+ 	skb_set_queue_mapping(skb, queue_map);
+ 	skb->priority = pkt_dev->skb_priority;
+ 
+@@ -2972,33 +2973,34 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
+ 
+ 	/*  Reserve for ethernet and IP header  */
+ 	eth = (__u8 *) skb_push(skb, 14);
+-	mpls = (__be32 *)skb_put(skb, pkt_dev->nr_labels*sizeof(__u32));
++	mpls = skb_put(skb, pkt_dev->nr_labels * sizeof(__u32));
+ 	if (pkt_dev->nr_labels)
+ 		mpls_push(mpls, pkt_dev);
+ 
+ 	if (pkt_dev->vlan_id != 0xffff) {
+ 		if (pkt_dev->svlan_id != 0xffff) {
+-			svlan_tci = (__be16 *)skb_put(skb, sizeof(__be16));
++			svlan_tci = skb_put(skb, sizeof(__be16));
+ 			*svlan_tci = build_tci(pkt_dev->svlan_id,
+ 					       pkt_dev->svlan_cfi,
+ 					       pkt_dev->svlan_p);
+-			svlan_encapsulated_proto = (__be16 *)skb_put(skb, sizeof(__be16));
++			svlan_encapsulated_proto = skb_put(skb,
++							   sizeof(__be16));
+ 			*svlan_encapsulated_proto = htons(ETH_P_8021Q);
+ 		}
+-		vlan_tci = (__be16 *)skb_put(skb, sizeof(__be16));
++		vlan_tci = skb_put(skb, sizeof(__be16));
+ 		*vlan_tci = build_tci(pkt_dev->vlan_id,
+ 				      pkt_dev->vlan_cfi,
+ 				      pkt_dev->vlan_p);
+-		vlan_encapsulated_proto = (__be16 *)skb_put(skb, sizeof(__be16));
++		vlan_encapsulated_proto = skb_put(skb, sizeof(__be16));
+ 		*vlan_encapsulated_proto = htons(ETH_P_IPV6);
+ 	}
+ 
+ 	skb_reset_mac_header(skb);
+ 	skb_set_network_header(skb, skb->len);
+-	iph = (struct ipv6hdr *) skb_put(skb, sizeof(struct ipv6hdr));
++	iph = skb_put(skb, sizeof(struct ipv6hdr));
+ 
+ 	skb_set_transport_header(skb, skb->len);
+-	udph = (struct udphdr *) skb_put(skb, sizeof(struct udphdr));
++	udph = skb_put(skb, sizeof(struct udphdr));
+ 	skb_set_queue_mapping(skb, queue_map);
+ 	skb->priority = pkt_dev->skb_priority;
+ 
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index c4d2c1f824bb..0baa7f2dd8ef 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1421,7 +1421,7 @@ EXPORT_SYMBOL(skb_pad);
+  *	returned.
+  */
+ 
+-unsigned char *pskb_put(struct sk_buff *skb, struct sk_buff *tail, int len)
++void *pskb_put(struct sk_buff *skb, struct sk_buff *tail, int len)
+ {
+ 	if (tail != skb) {
+ 		skb->data_len += len;
+@@ -1440,9 +1440,9 @@ EXPORT_SYMBOL_GPL(pskb_put);
+  *	exceed the total buffer size the kernel will panic. A pointer to the
+  *	first byte of the extra data is returned.
+  */
+-unsigned char *skb_put(struct sk_buff *skb, unsigned int len)
++void *skb_put(struct sk_buff *skb, unsigned int len)
+ {
+-	unsigned char *tmp = skb_tail_pointer(skb);
++	void *tmp = skb_tail_pointer(skb);
+ 	SKB_LINEAR_ASSERT(skb);
+ 	skb->tail += len;
+ 	skb->len  += len;
+diff --git a/net/decnet/dn_dev.c b/net/decnet/dn_dev.c
+index 9017a9a73ab5..1d84f6dae315 100644
+--- a/net/decnet/dn_dev.c
++++ b/net/decnet/dn_dev.c
+@@ -846,7 +846,7 @@ static void dn_send_endnode_hello(struct net_device *dev, struct dn_ifaddr *ifa)
+ 
+ 	skb->dev = dev;
+ 
+-	msg = (struct endnode_hello_message *)skb_put(skb,sizeof(*msg));
++	msg = skb_put(skb, sizeof(*msg));
+ 
+ 	msg->msgflg  = 0x0D;
+ 	memcpy(msg->tiver, dn_eco_version, 3);
+diff --git a/net/decnet/dn_nsp_out.c b/net/decnet/dn_nsp_out.c
+index b8a558715395..7e054b2f270a 100644
+--- a/net/decnet/dn_nsp_out.c
++++ b/net/decnet/dn_nsp_out.c
+@@ -484,7 +484,7 @@ void dn_send_conn_ack (struct sock *sk)
+ 	if ((skb = dn_alloc_skb(sk, 3, sk->sk_allocation)) == NULL)
+ 		return;
+ 
+-	msg = (struct nsp_conn_ack_msg *)skb_put(skb, 3);
++	msg = skb_put(skb, 3);
+ 	msg->msgflg = 0x24;
+ 	msg->dstaddr = scp->addrrem;
+ 
+@@ -522,7 +522,7 @@ void dn_send_conn_conf(struct sock *sk, gfp_t gfp)
+ 	if ((skb = dn_alloc_skb(sk, 50 + len, gfp)) == NULL)
+ 		return;
+ 
+-	msg = (struct nsp_conn_init_msg *)skb_put(skb, sizeof(*msg));
++	msg = skb_put(skb, sizeof(*msg));
+ 	msg->msgflg = 0x28;
+ 	msg->dstaddr = scp->addrrem;
+ 	msg->srcaddr = scp->addrloc;
+@@ -530,7 +530,7 @@ void dn_send_conn_conf(struct sock *sk, gfp_t gfp)
+ 	msg->info = scp->info_loc;
+ 	msg->segsize = cpu_to_le16(scp->segsize_loc);
+ 
+-	*skb_put(skb,1) = len;
++	*(u8 *)skb_put(skb, 1) = len;
+ 
+ 	if (len > 0)
+ 		skb_put_data(skb, scp->conndata_out.opt_data, len);
+@@ -662,7 +662,7 @@ void dn_nsp_send_conninit(struct sock *sk, unsigned char msgflg)
+ 		return;
+ 
+ 	cb  = DN_SKB_CB(skb);
+-	msg = (struct nsp_conn_init_msg *)skb_put(skb,sizeof(*msg));
++	msg = skb_put(skb, sizeof(*msg));
+ 
+ 	msg->msgflg	= msgflg;
+ 	msg->dstaddr	= 0x0000;		/* Remote Node will assign it*/
+@@ -686,25 +686,25 @@ void dn_nsp_send_conninit(struct sock *sk, unsigned char msgflg)
+ 	if (scp->peer.sdn_flags & SDF_UICPROXY)
+ 		menuver |= DN_MENUVER_UIC;
+ 
+-	*skb_put(skb, 1) = menuver;	/* Menu Version		*/
++	*(u8 *)skb_put(skb, 1) = menuver;	/* Menu Version		*/
+ 
+ 	aux = scp->accessdata.acc_userl;
+-	*skb_put(skb, 1) = aux;
++	*(u8 *)skb_put(skb, 1) = aux;
+ 	if (aux > 0)
+ 		skb_put_data(skb, scp->accessdata.acc_user, aux);
+ 
+ 	aux = scp->accessdata.acc_passl;
+-	*skb_put(skb, 1) = aux;
++	*(u8 *)skb_put(skb, 1) = aux;
+ 	if (aux > 0)
+ 		skb_put_data(skb, scp->accessdata.acc_pass, aux);
+ 
+ 	aux = scp->accessdata.acc_accl;
+-	*skb_put(skb, 1) = aux;
++	*(u8 *)skb_put(skb, 1) = aux;
+ 	if (aux > 0)
+ 		skb_put_data(skb, scp->accessdata.acc_acc, aux);
+ 
+ 	aux = (__u8)le16_to_cpu(scp->conndata_out.opt_optl);
+-	*skb_put(skb, 1) = aux;
++	*(u8 *)skb_put(skb, 1) = aux;
+ 	if (aux > 0)
+ 		skb_put_data(skb, scp->conndata_out.opt_data, aux);
+ 
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index a651c53260ec..8b52179ddc6e 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -539,7 +539,7 @@ struct sk_buff *arp_create(int type, int ptype, __be32 dest_ip,
+ 
+ 	skb_reserve(skb, hlen);
+ 	skb_reset_network_header(skb);
+-	arp = (struct arphdr *) skb_put(skb, arp_hdr_len(dev));
++	arp = skb_put(skb, arp_hdr_len(dev));
+ 	skb->dev = dev;
+ 	skb->protocol = htons(ETH_P_ARP);
+ 	if (!src_hw)
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index 8f6b5bbcbf69..2202edf31884 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -414,7 +414,7 @@ static struct sk_buff *add_grhead(struct sk_buff *skb, struct ip_mc_list *pmc,
+ 		skb = igmpv3_newpack(dev, dev->mtu);
+ 	if (!skb)
+ 		return NULL;
+-	pgr = (struct igmpv3_grec *)skb_put(skb, sizeof(struct igmpv3_grec));
++	pgr = skb_put(skb, sizeof(struct igmpv3_grec));
+ 	pgr->grec_type = type;
+ 	pgr->grec_auxwords = 0;
+ 	pgr->grec_nsrcs = 0;
+@@ -508,7 +508,7 @@ static struct sk_buff *add_grec(struct sk_buff *skb, struct ip_mc_list *pmc,
+ 		}
+ 		if (!skb)
+ 			return NULL;
+-		psrc = (__be32 *)skb_put(skb, sizeof(__be32));
++		psrc = skb_put(skb, sizeof(__be32));
+ 		*psrc = psf->sf_inaddr;
+ 		scount++; stotal++;
+ 		if ((type == IGMPV3_ALLOW_NEW_SOURCES ||
+@@ -742,7 +742,7 @@ static int igmp_send_report(struct in_device *in_dev, struct ip_mc_list *pmc,
+ 	((u8 *)&iph[1])[2] = 0;
+ 	((u8 *)&iph[1])[3] = 0;
+ 
+-	ih = (struct igmphdr *)skb_put(skb, sizeof(struct igmphdr));
++	ih = skb_put(skb, sizeof(struct igmphdr));
+ 	ih->type = type;
+ 	ih->code = 0;
+ 	ih->csum = 0;
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index a1199895b8a6..abbd7c992960 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -1044,7 +1044,7 @@ static int ipmr_cache_report(struct mr_table *mrt,
+ 		msg->im_vif = vifi;
+ 		skb_dst_set(skb, dst_clone(skb_dst(pkt)));
+ 		/* Add our header */
+-		igmp = (struct igmphdr *)skb_put(skb, sizeof(struct igmphdr));
++		igmp = skb_put(skb, sizeof(struct igmphdr));
+ 		igmp->type = assert;
+ 		msg->im_msgtype = assert;
+ 		igmp->code = 0;
+diff --git a/net/ipv4/netfilter/ipt_SYNPROXY.c b/net/ipv4/netfilter/ipt_SYNPROXY.c
+index af2b69b6895f..f1528f7175a8 100644
+--- a/net/ipv4/netfilter/ipt_SYNPROXY.c
++++ b/net/ipv4/netfilter/ipt_SYNPROXY.c
+@@ -24,7 +24,7 @@ synproxy_build_ip(struct net *net, struct sk_buff *skb, __be32 saddr,
+ 	struct iphdr *iph;
+ 
+ 	skb_reset_network_header(skb);
+-	iph = (struct iphdr *)skb_put(skb, sizeof(*iph));
++	iph = skb_put(skb, sizeof(*iph));
+ 	iph->version	= 4;
+ 	iph->ihl	= sizeof(*iph) / 4;
+ 	iph->tos	= 0;
+@@ -91,7 +91,7 @@ synproxy_send_client_synack(struct net *net,
+ 	niph = synproxy_build_ip(net, nskb, iph->daddr, iph->saddr);
+ 
+ 	skb_reset_transport_header(nskb);
+-	nth = (struct tcphdr *)skb_put(nskb, tcp_hdr_size);
++	nth = skb_put(nskb, tcp_hdr_size);
+ 	nth->source	= th->dest;
+ 	nth->dest	= th->source;
+ 	nth->seq	= htonl(__cookie_v4_init_sequence(iph, th, &mss));
+@@ -133,7 +133,7 @@ synproxy_send_server_syn(struct net *net,
+ 	niph = synproxy_build_ip(net, nskb, iph->saddr, iph->daddr);
+ 
+ 	skb_reset_transport_header(nskb);
+-	nth = (struct tcphdr *)skb_put(nskb, tcp_hdr_size);
++	nth = skb_put(nskb, tcp_hdr_size);
+ 	nth->source	= th->source;
+ 	nth->dest	= th->dest;
+ 	nth->seq	= htonl(recv_seq - 1);
+@@ -178,7 +178,7 @@ synproxy_send_server_ack(struct net *net,
+ 	niph = synproxy_build_ip(net, nskb, iph->daddr, iph->saddr);
+ 
+ 	skb_reset_transport_header(nskb);
+-	nth = (struct tcphdr *)skb_put(nskb, tcp_hdr_size);
++	nth = skb_put(nskb, tcp_hdr_size);
+ 	nth->source	= th->dest;
+ 	nth->dest	= th->source;
+ 	nth->seq	= htonl(ntohl(th->ack_seq));
+@@ -216,7 +216,7 @@ synproxy_send_client_ack(struct net *net,
+ 	niph = synproxy_build_ip(net, nskb, iph->saddr, iph->daddr);
+ 
+ 	skb_reset_transport_header(nskb);
+-	nth = (struct tcphdr *)skb_put(nskb, tcp_hdr_size);
++	nth = skb_put(nskb, tcp_hdr_size);
+ 	nth->source	= th->source;
+ 	nth->dest	= th->dest;
+ 	nth->seq	= htonl(ntohl(th->seq) + 1);
+diff --git a/net/ipv4/netfilter/nf_reject_ipv4.c b/net/ipv4/netfilter/nf_reject_ipv4.c
+index 52b7dcc5aaf3..eeacbdaf7cdf 100644
+--- a/net/ipv4/netfilter/nf_reject_ipv4.c
++++ b/net/ipv4/netfilter/nf_reject_ipv4.c
+@@ -51,7 +51,7 @@ struct iphdr *nf_reject_iphdr_put(struct sk_buff *nskb,
+ 	struct iphdr *niph, *oiph = ip_hdr(oldskb);
+ 
+ 	skb_reset_network_header(nskb);
+-	niph = (struct iphdr *)skb_put(nskb, sizeof(struct iphdr));
++	niph = skb_put(nskb, sizeof(struct iphdr));
+ 	niph->version	= 4;
+ 	niph->ihl	= sizeof(struct iphdr) / 4;
+ 	niph->tos	= 0;
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index b64046ccae69..e2221135858b 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -1692,7 +1692,7 @@ static struct sk_buff *add_grhead(struct sk_buff *skb, struct ifmcaddr6 *pmc,
+ 		skb = mld_newpack(pmc->idev, dev->mtu);
+ 	if (!skb)
+ 		return NULL;
+-	pgr = (struct mld2_grec *)skb_put(skb, sizeof(struct mld2_grec));
++	pgr = skb_put(skb, sizeof(struct mld2_grec));
+ 	pgr->grec_type = type;
+ 	pgr->grec_auxwords = 0;
+ 	pgr->grec_nsrcs = 0;
+@@ -1784,7 +1784,7 @@ static struct sk_buff *add_grec(struct sk_buff *skb, struct ifmcaddr6 *pmc,
+ 		}
+ 		if (!skb)
+ 			return NULL;
+-		psrc = (struct in6_addr *)skb_put(skb, sizeof(*psrc));
++		psrc = skb_put(skb, sizeof(*psrc));
+ 		*psrc = psf->sf_addr;
+ 		scount++; stotal++;
+ 		if ((type == MLD2_ALLOW_NEW_SOURCES ||
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index d310dc41209a..0327c1f2e6fc 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -528,7 +528,7 @@ void ndisc_send_na(struct net_device *dev, const struct in6_addr *daddr,
+ 	if (!skb)
+ 		return;
+ 
+-	msg = (struct nd_msg *)skb_put(skb, sizeof(*msg));
++	msg = skb_put(skb, sizeof(*msg));
+ 	*msg = (struct nd_msg) {
+ 		.icmph = {
+ 			.icmp6_type = NDISC_NEIGHBOUR_ADVERTISEMENT,
+@@ -597,7 +597,7 @@ void ndisc_send_ns(struct net_device *dev, const struct in6_addr *solicit,
+ 	if (!skb)
+ 		return;
+ 
+-	msg = (struct nd_msg *)skb_put(skb, sizeof(*msg));
++	msg = skb_put(skb, sizeof(*msg));
+ 	*msg = (struct nd_msg) {
+ 		.icmph = {
+ 			.icmp6_type = NDISC_NEIGHBOUR_SOLICITATION,
+@@ -657,7 +657,7 @@ void ndisc_send_rs(struct net_device *dev, const struct in6_addr *saddr,
+ 	if (!skb)
+ 		return;
+ 
+-	msg = (struct rs_msg *)skb_put(skb, sizeof(*msg));
++	msg = skb_put(skb, sizeof(*msg));
+ 	*msg = (struct rs_msg) {
+ 		.icmph = {
+ 			.icmp6_type = NDISC_ROUTER_SOLICITATION,
+@@ -1633,7 +1633,7 @@ void ndisc_send_redirect(struct sk_buff *skb, const struct in6_addr *target)
+ 	if (!buff)
+ 		goto release;
+ 
+-	msg = (struct rd_msg *)skb_put(buff, sizeof(*msg));
++	msg = skb_put(buff, sizeof(*msg));
+ 	*msg = (struct rd_msg) {
+ 		.icmph = {
+ 			.icmp6_type = NDISC_REDIRECT,
+diff --git a/net/ipv6/netfilter/ip6t_SYNPROXY.c b/net/ipv6/netfilter/ip6t_SYNPROXY.c
+index d3c4daa708b9..ce203dd729e0 100644
+--- a/net/ipv6/netfilter/ip6t_SYNPROXY.c
++++ b/net/ipv6/netfilter/ip6t_SYNPROXY.c
+@@ -27,7 +27,7 @@ synproxy_build_ip(struct net *net, struct sk_buff *skb,
+ 	struct ipv6hdr *iph;
+ 
+ 	skb_reset_network_header(skb);
+-	iph = (struct ipv6hdr *)skb_put(skb, sizeof(*iph));
++	iph = skb_put(skb, sizeof(*iph));
+ 	ip6_flow_hdr(iph, 0, 0);
+ 	iph->hop_limit	= net->ipv6.devconf_all->hop_limit;
+ 	iph->nexthdr	= IPPROTO_TCP;
+@@ -105,7 +105,7 @@ synproxy_send_client_synack(struct net *net,
+ 	niph = synproxy_build_ip(net, nskb, &iph->daddr, &iph->saddr);
+ 
+ 	skb_reset_transport_header(nskb);
+-	nth = (struct tcphdr *)skb_put(nskb, tcp_hdr_size);
++	nth = skb_put(nskb, tcp_hdr_size);
+ 	nth->source	= th->dest;
+ 	nth->dest	= th->source;
+ 	nth->seq	= htonl(__cookie_v6_init_sequence(iph, th, &mss));
+@@ -147,7 +147,7 @@ synproxy_send_server_syn(struct net *net,
+ 	niph = synproxy_build_ip(net, nskb, &iph->saddr, &iph->daddr);
+ 
+ 	skb_reset_transport_header(nskb);
+-	nth = (struct tcphdr *)skb_put(nskb, tcp_hdr_size);
++	nth = skb_put(nskb, tcp_hdr_size);
+ 	nth->source	= th->source;
+ 	nth->dest	= th->dest;
+ 	nth->seq	= htonl(recv_seq - 1);
+@@ -192,7 +192,7 @@ synproxy_send_server_ack(struct net *net,
+ 	niph = synproxy_build_ip(net, nskb, &iph->daddr, &iph->saddr);
+ 
+ 	skb_reset_transport_header(nskb);
+-	nth = (struct tcphdr *)skb_put(nskb, tcp_hdr_size);
++	nth = skb_put(nskb, tcp_hdr_size);
+ 	nth->source	= th->dest;
+ 	nth->dest	= th->source;
+ 	nth->seq	= htonl(ntohl(th->ack_seq));
+@@ -230,7 +230,7 @@ synproxy_send_client_ack(struct net *net,
+ 	niph = synproxy_build_ip(net, nskb, &iph->saddr, &iph->daddr);
+ 
+ 	skb_reset_transport_header(nskb);
+-	nth = (struct tcphdr *)skb_put(nskb, tcp_hdr_size);
++	nth = skb_put(nskb, tcp_hdr_size);
+ 	nth->source	= th->source;
+ 	nth->dest	= th->dest;
+ 	nth->seq	= htonl(ntohl(th->seq) + 1);
+diff --git a/net/ipv6/netfilter/nf_reject_ipv6.c b/net/ipv6/netfilter/nf_reject_ipv6.c
+index f63b18e05c69..24858402e374 100644
+--- a/net/ipv6/netfilter/nf_reject_ipv6.c
++++ b/net/ipv6/netfilter/nf_reject_ipv6.c
+@@ -95,7 +95,7 @@ void nf_reject_ip6_tcphdr_put(struct sk_buff *nskb,
+ 	int needs_ack;
+ 
+ 	skb_reset_transport_header(nskb);
+-	tcph = (struct tcphdr *)skb_put(nskb, sizeof(struct tcphdr));
++	tcph = skb_put(nskb, sizeof(struct tcphdr));
+ 	/* Truncate to length (no data) */
+ 	tcph->doff = sizeof(struct tcphdr)/4;
+ 	tcph->source = oth->dest;
+diff --git a/net/irda/irlap_frame.c b/net/irda/irlap_frame.c
+index bf56ac7dba96..82e71e5622c2 100644
+--- a/net/irda/irlap_frame.c
++++ b/net/irda/irlap_frame.c
+@@ -133,7 +133,7 @@ void irlap_send_snrm_frame(struct irlap_cb *self, struct qos_info *qos)
+ 	if (!tx_skb)
+ 		return;
+ 
+-	frame = (struct snrm_frame *) skb_put(tx_skb, 2);
++	frame = skb_put(tx_skb, 2);
+ 
+ 	/* Insert connection address field */
+ 	if (qos)
+@@ -228,7 +228,7 @@ void irlap_send_ua_response_frame(struct irlap_cb *self, struct qos_info *qos)
+ 	if (!tx_skb)
+ 		return;
+ 
+-	frame = (struct ua_frame *) skb_put(tx_skb, 10);
++	frame = skb_put(tx_skb, 10);
+ 
+ 	/* Build UA response */
+ 	frame->caddr = self->caddr;
+@@ -268,7 +268,7 @@ void irlap_send_dm_frame( struct irlap_cb *self)
+ 	if (!tx_skb)
+ 		return;
+ 
+-	frame = (struct dm_frame *)skb_put(tx_skb, 2);
++	frame = skb_put(tx_skb, 2);
+ 
+ 	if (self->state == LAP_NDM)
+ 		frame->caddr = CBROADCAST;
+@@ -298,7 +298,7 @@ void irlap_send_disc_frame(struct irlap_cb *self)
+ 	if (!tx_skb)
+ 		return;
+ 
+-	frame = (struct disc_frame *)skb_put(tx_skb, 2);
++	frame = skb_put(tx_skb, 2);
+ 
+ 	frame->caddr = self->caddr | CMD_FRAME;
+ 	frame->control = DISC_CMD | PF_BIT;
+@@ -587,7 +587,7 @@ void irlap_send_rr_frame(struct irlap_cb *self, int command)
+ 	if (!tx_skb)
+ 		return;
+ 
+-	frame = (struct rr_frame *)skb_put(tx_skb, 2);
++	frame = skb_put(tx_skb, 2);
+ 
+ 	frame->caddr = self->caddr;
+ 	frame->caddr |= (command) ? CMD_FRAME : 0;
+@@ -612,7 +612,7 @@ void irlap_send_rd_frame(struct irlap_cb *self)
+ 	if (!tx_skb)
+ 		return;
+ 
+-	frame = (struct rd_frame *)skb_put(tx_skb, 2);
++	frame = skb_put(tx_skb, 2);
+ 
+ 	frame->caddr = self->caddr;
+ 	frame->control = RD_RSP | PF_BIT;
+@@ -1202,14 +1202,13 @@ void irlap_send_test_frame(struct irlap_cb *self, __u8 caddr, __u32 daddr,
+ 
+ 	/* Broadcast frames must include saddr and daddr fields */
+ 	if (caddr == CBROADCAST) {
+-		frame = (struct test_frame *)
+-			skb_put(tx_skb, sizeof(struct test_frame));
++		frame = skb_put(tx_skb, sizeof(struct test_frame));
+ 
+ 		/* Insert the swapped addresses */
+ 		frame->saddr = cpu_to_le32(self->saddr);
+ 		frame->daddr = cpu_to_le32(daddr);
+ 	} else
+-		frame = (struct test_frame *) skb_put(tx_skb, LAP_ADDR_HEADER + LAP_CTRL_HEADER);
++		frame = skb_put(tx_skb, LAP_ADDR_HEADER + LAP_CTRL_HEADER);
+ 
+ 	frame->caddr = caddr;
+ 	frame->control = TEST_RSP | PF_BIT;
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 3ebb4268973b..daa4e90dc4db 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -349,7 +349,7 @@ static int pfkey_error(const struct sadb_msg *orig, int err, struct sock *sk)
+ 		err = EINVAL;
+ 	BUG_ON(err <= 0 || err >= 256);
+ 
+-	hdr = (struct sadb_msg *) skb_put(skb, sizeof(struct sadb_msg));
++	hdr = skb_put(skb, sizeof(struct sadb_msg));
+ 	pfkey_hdr_dup(hdr, orig);
+ 	hdr->sadb_msg_errno = (uint8_t) err;
+ 	hdr->sadb_msg_len = (sizeof(struct sadb_msg) /
+@@ -810,12 +810,12 @@ static struct sk_buff *__pfkey_xfrm_state2msg(const struct xfrm_state *x,
+ 		return ERR_PTR(-ENOBUFS);
+ 
+ 	/* call should fill header later */
+-	hdr = (struct sadb_msg *) skb_put(skb, sizeof(struct sadb_msg));
++	hdr = skb_put(skb, sizeof(struct sadb_msg));
+ 	memset(hdr, 0, size);	/* XXX do we need this ? */
+ 	hdr->sadb_msg_len = size / sizeof(uint64_t);
+ 
+ 	/* sa */
+-	sa = (struct sadb_sa *)  skb_put(skb, sizeof(struct sadb_sa));
++	sa = skb_put(skb, sizeof(struct sadb_sa));
+ 	sa->sadb_sa_len = sizeof(struct sadb_sa)/sizeof(uint64_t);
+ 	sa->sadb_sa_exttype = SADB_EXT_SA;
+ 	sa->sadb_sa_spi = x->id.spi;
+@@ -862,8 +862,7 @@ static struct sk_buff *__pfkey_xfrm_state2msg(const struct xfrm_state *x,
+ 
+ 	/* hard time */
+ 	if (hsc & 2) {
+-		lifetime = (struct sadb_lifetime *)  skb_put(skb,
+-							     sizeof(struct sadb_lifetime));
++		lifetime = skb_put(skb, sizeof(struct sadb_lifetime));
+ 		lifetime->sadb_lifetime_len =
+ 			sizeof(struct sadb_lifetime)/sizeof(uint64_t);
+ 		lifetime->sadb_lifetime_exttype = SADB_EXT_LIFETIME_HARD;
+@@ -874,8 +873,7 @@ static struct sk_buff *__pfkey_xfrm_state2msg(const struct xfrm_state *x,
+ 	}
+ 	/* soft time */
+ 	if (hsc & 1) {
+-		lifetime = (struct sadb_lifetime *)  skb_put(skb,
+-							     sizeof(struct sadb_lifetime));
++		lifetime = skb_put(skb, sizeof(struct sadb_lifetime));
+ 		lifetime->sadb_lifetime_len =
+ 			sizeof(struct sadb_lifetime)/sizeof(uint64_t);
+ 		lifetime->sadb_lifetime_exttype = SADB_EXT_LIFETIME_SOFT;
+@@ -885,8 +883,7 @@ static struct sk_buff *__pfkey_xfrm_state2msg(const struct xfrm_state *x,
+ 		lifetime->sadb_lifetime_usetime = x->lft.soft_use_expires_seconds;
+ 	}
+ 	/* current time */
+-	lifetime = (struct sadb_lifetime *)  skb_put(skb,
+-						     sizeof(struct sadb_lifetime));
++	lifetime = skb_put(skb, sizeof(struct sadb_lifetime));
+ 	lifetime->sadb_lifetime_len =
+ 		sizeof(struct sadb_lifetime)/sizeof(uint64_t);
+ 	lifetime->sadb_lifetime_exttype = SADB_EXT_LIFETIME_CURRENT;
+@@ -895,8 +892,7 @@ static struct sk_buff *__pfkey_xfrm_state2msg(const struct xfrm_state *x,
+ 	lifetime->sadb_lifetime_addtime = x->curlft.add_time;
+ 	lifetime->sadb_lifetime_usetime = x->curlft.use_time;
+ 	/* src address */
+-	addr = (struct sadb_address*) skb_put(skb,
+-					      sizeof(struct sadb_address)+sockaddr_size);
++	addr = skb_put(skb, sizeof(struct sadb_address) + sockaddr_size);
+ 	addr->sadb_address_len =
+ 		(sizeof(struct sadb_address)+sockaddr_size)/
+ 			sizeof(uint64_t);
+@@ -915,8 +911,7 @@ static struct sk_buff *__pfkey_xfrm_state2msg(const struct xfrm_state *x,
+ 		BUG();
+ 
+ 	/* dst address */
+-	addr = (struct sadb_address*) skb_put(skb,
+-					      sizeof(struct sadb_address)+sockaddr_size);
++	addr = skb_put(skb, sizeof(struct sadb_address) + sockaddr_size);
+ 	addr->sadb_address_len =
+ 		(sizeof(struct sadb_address)+sockaddr_size)/
+ 			sizeof(uint64_t);
+@@ -933,8 +928,8 @@ static struct sk_buff *__pfkey_xfrm_state2msg(const struct xfrm_state *x,
+ 
+ 	if (!xfrm_addr_equal(&x->sel.saddr, &x->props.saddr,
+ 			     x->props.family)) {
+-		addr = (struct sadb_address*) skb_put(skb,
+-			sizeof(struct sadb_address)+sockaddr_size);
++		addr = skb_put(skb,
++			       sizeof(struct sadb_address) + sockaddr_size);
+ 		addr->sadb_address_len =
+ 			(sizeof(struct sadb_address)+sockaddr_size)/
+ 			sizeof(uint64_t);
+@@ -951,8 +946,7 @@ static struct sk_buff *__pfkey_xfrm_state2msg(const struct xfrm_state *x,
+ 
+ 	/* auth key */
+ 	if (add_keys && auth_key_size) {
+-		key = (struct sadb_key *) skb_put(skb,
+-						  sizeof(struct sadb_key)+auth_key_size);
++		key = skb_put(skb, sizeof(struct sadb_key) + auth_key_size);
+ 		key->sadb_key_len = (sizeof(struct sadb_key) + auth_key_size) /
+ 			sizeof(uint64_t);
+ 		key->sadb_key_exttype = SADB_EXT_KEY_AUTH;
+@@ -962,8 +956,7 @@ static struct sk_buff *__pfkey_xfrm_state2msg(const struct xfrm_state *x,
+ 	}
+ 	/* encrypt key */
+ 	if (add_keys && encrypt_key_size) {
+-		key = (struct sadb_key *) skb_put(skb,
+-						  sizeof(struct sadb_key)+encrypt_key_size);
++		key = skb_put(skb, sizeof(struct sadb_key) + encrypt_key_size);
+ 		key->sadb_key_len = (sizeof(struct sadb_key) +
+ 				     encrypt_key_size) / sizeof(uint64_t);
+ 		key->sadb_key_exttype = SADB_EXT_KEY_ENCRYPT;
+@@ -974,7 +967,7 @@ static struct sk_buff *__pfkey_xfrm_state2msg(const struct xfrm_state *x,
+ 	}
+ 
+ 	/* sa */
+-	sa2 = (struct sadb_x_sa2 *)  skb_put(skb, sizeof(struct sadb_x_sa2));
++	sa2 = skb_put(skb, sizeof(struct sadb_x_sa2));
+ 	sa2->sadb_x_sa2_len = sizeof(struct sadb_x_sa2)/sizeof(uint64_t);
+ 	sa2->sadb_x_sa2_exttype = SADB_X_EXT_SA2;
+ 	if ((mode = pfkey_mode_from_xfrm(x->props.mode)) < 0) {
+@@ -992,7 +985,7 @@ static struct sk_buff *__pfkey_xfrm_state2msg(const struct xfrm_state *x,
+ 		struct sadb_x_nat_t_port *n_port;
+ 
+ 		/* type */
+-		n_type = (struct sadb_x_nat_t_type*) skb_put(skb, sizeof(*n_type));
++		n_type = skb_put(skb, sizeof(*n_type));
+ 		n_type->sadb_x_nat_t_type_len = sizeof(*n_type)/sizeof(uint64_t);
+ 		n_type->sadb_x_nat_t_type_exttype = SADB_X_EXT_NAT_T_TYPE;
+ 		n_type->sadb_x_nat_t_type_type = natt->encap_type;
+@@ -1001,14 +994,14 @@ static struct sk_buff *__pfkey_xfrm_state2msg(const struct xfrm_state *x,
+ 		n_type->sadb_x_nat_t_type_reserved[2] = 0;
+ 
+ 		/* source port */
+-		n_port = (struct sadb_x_nat_t_port*) skb_put(skb, sizeof (*n_port));
++		n_port = skb_put(skb, sizeof(*n_port));
+ 		n_port->sadb_x_nat_t_port_len = sizeof(*n_port)/sizeof(uint64_t);
+ 		n_port->sadb_x_nat_t_port_exttype = SADB_X_EXT_NAT_T_SPORT;
+ 		n_port->sadb_x_nat_t_port_port = natt->encap_sport;
+ 		n_port->sadb_x_nat_t_port_reserved = 0;
+ 
+ 		/* dest port */
+-		n_port = (struct sadb_x_nat_t_port*) skb_put(skb, sizeof (*n_port));
++		n_port = skb_put(skb, sizeof(*n_port));
+ 		n_port->sadb_x_nat_t_port_len = sizeof(*n_port)/sizeof(uint64_t);
+ 		n_port->sadb_x_nat_t_port_exttype = SADB_X_EXT_NAT_T_DPORT;
+ 		n_port->sadb_x_nat_t_port_port = natt->encap_dport;
+@@ -1017,8 +1010,8 @@ static struct sk_buff *__pfkey_xfrm_state2msg(const struct xfrm_state *x,
+ 
+ 	/* security context */
+ 	if (xfrm_ctx) {
+-		sec_ctx = (struct sadb_x_sec_ctx *) skb_put(skb,
+-				sizeof(struct sadb_x_sec_ctx) + ctx_size);
++		sec_ctx = skb_put(skb,
++				  sizeof(struct sadb_x_sec_ctx) + ctx_size);
+ 		sec_ctx->sadb_x_sec_len =
+ 		  (sizeof(struct sadb_x_sec_ctx) + ctx_size) / sizeof(uint64_t);
+ 		sec_ctx->sadb_x_sec_exttype = SADB_X_EXT_SEC_CTX;
+@@ -1617,7 +1610,7 @@ static struct sk_buff *compose_sadb_supported(const struct sadb_msg *orig,
+ 	if (!skb)
+ 		goto out_put_algs;
+ 
+-	hdr = (struct sadb_msg *) skb_put(skb, sizeof(*hdr));
++	hdr = skb_put(skb, sizeof(*hdr));
+ 	pfkey_hdr_dup(hdr, orig);
+ 	hdr->sadb_msg_errno = 0;
+ 	hdr->sadb_msg_len = len / sizeof(uint64_t);
+@@ -1626,7 +1619,7 @@ static struct sk_buff *compose_sadb_supported(const struct sadb_msg *orig,
+ 		struct sadb_supported *sp;
+ 		struct sadb_alg *ap;
+ 
+-		sp = (struct sadb_supported *) skb_put(skb, auth_len);
++		sp = skb_put(skb, auth_len);
+ 		ap = (struct sadb_alg *) (sp + 1);
+ 
+ 		sp->sadb_supported_len = auth_len / sizeof(uint64_t);
+@@ -1647,7 +1640,7 @@ static struct sk_buff *compose_sadb_supported(const struct sadb_msg *orig,
+ 		struct sadb_supported *sp;
+ 		struct sadb_alg *ap;
+ 
+-		sp = (struct sadb_supported *) skb_put(skb, enc_len);
++		sp = skb_put(skb, enc_len);
+ 		ap = (struct sadb_alg *) (sp + 1);
+ 
+ 		sp->sadb_supported_len = enc_len / sizeof(uint64_t);
+@@ -1721,7 +1714,7 @@ static int key_notify_sa_flush(const struct km_event *c)
+ 	skb = alloc_skb(sizeof(struct sadb_msg) + 16, GFP_ATOMIC);
+ 	if (!skb)
+ 		return -ENOBUFS;
+-	hdr = (struct sadb_msg *) skb_put(skb, sizeof(struct sadb_msg));
++	hdr = skb_put(skb, sizeof(struct sadb_msg));
+ 	hdr->sadb_msg_satype = pfkey_proto2satype(c->data.proto);
+ 	hdr->sadb_msg_type = SADB_FLUSH;
+ 	hdr->sadb_msg_seq = c->seq;
+@@ -2046,12 +2039,11 @@ static int pfkey_xfrm_policy2msg(struct sk_buff *skb, const struct xfrm_policy *
+ 	size = pfkey_xfrm_policy2msg_size(xp);
+ 
+ 	/* call should fill header later */
+-	hdr = (struct sadb_msg *) skb_put(skb, sizeof(struct sadb_msg));
++	hdr = skb_put(skb, sizeof(struct sadb_msg));
+ 	memset(hdr, 0, size);	/* XXX do we need this ? */
+ 
+ 	/* src address */
+-	addr = (struct sadb_address*) skb_put(skb,
+-					      sizeof(struct sadb_address)+sockaddr_size);
++	addr = skb_put(skb, sizeof(struct sadb_address) + sockaddr_size);
+ 	addr->sadb_address_len =
+ 		(sizeof(struct sadb_address)+sockaddr_size)/
+ 			sizeof(uint64_t);
+@@ -2066,8 +2058,7 @@ static int pfkey_xfrm_policy2msg(struct sk_buff *skb, const struct xfrm_policy *
+ 		BUG();
+ 
+ 	/* dst address */
+-	addr = (struct sadb_address*) skb_put(skb,
+-					      sizeof(struct sadb_address)+sockaddr_size);
++	addr = skb_put(skb, sizeof(struct sadb_address) + sockaddr_size);
+ 	addr->sadb_address_len =
+ 		(sizeof(struct sadb_address)+sockaddr_size)/
+ 			sizeof(uint64_t);
+@@ -2081,8 +2072,7 @@ static int pfkey_xfrm_policy2msg(struct sk_buff *skb, const struct xfrm_policy *
+ 			    xp->family);
+ 
+ 	/* hard time */
+-	lifetime = (struct sadb_lifetime *)  skb_put(skb,
+-						     sizeof(struct sadb_lifetime));
++	lifetime = skb_put(skb, sizeof(struct sadb_lifetime));
+ 	lifetime->sadb_lifetime_len =
+ 		sizeof(struct sadb_lifetime)/sizeof(uint64_t);
+ 	lifetime->sadb_lifetime_exttype = SADB_EXT_LIFETIME_HARD;
+@@ -2091,8 +2081,7 @@ static int pfkey_xfrm_policy2msg(struct sk_buff *skb, const struct xfrm_policy *
+ 	lifetime->sadb_lifetime_addtime = xp->lft.hard_add_expires_seconds;
+ 	lifetime->sadb_lifetime_usetime = xp->lft.hard_use_expires_seconds;
+ 	/* soft time */
+-	lifetime = (struct sadb_lifetime *)  skb_put(skb,
+-						     sizeof(struct sadb_lifetime));
++	lifetime = skb_put(skb, sizeof(struct sadb_lifetime));
+ 	lifetime->sadb_lifetime_len =
+ 		sizeof(struct sadb_lifetime)/sizeof(uint64_t);
+ 	lifetime->sadb_lifetime_exttype = SADB_EXT_LIFETIME_SOFT;
+@@ -2101,8 +2090,7 @@ static int pfkey_xfrm_policy2msg(struct sk_buff *skb, const struct xfrm_policy *
+ 	lifetime->sadb_lifetime_addtime = xp->lft.soft_add_expires_seconds;
+ 	lifetime->sadb_lifetime_usetime = xp->lft.soft_use_expires_seconds;
+ 	/* current time */
+-	lifetime = (struct sadb_lifetime *)  skb_put(skb,
+-						     sizeof(struct sadb_lifetime));
++	lifetime = skb_put(skb, sizeof(struct sadb_lifetime));
+ 	lifetime->sadb_lifetime_len =
+ 		sizeof(struct sadb_lifetime)/sizeof(uint64_t);
+ 	lifetime->sadb_lifetime_exttype = SADB_EXT_LIFETIME_CURRENT;
+@@ -2111,7 +2099,7 @@ static int pfkey_xfrm_policy2msg(struct sk_buff *skb, const struct xfrm_policy *
+ 	lifetime->sadb_lifetime_addtime = xp->curlft.add_time;
+ 	lifetime->sadb_lifetime_usetime = xp->curlft.use_time;
+ 
+-	pol = (struct sadb_x_policy *)  skb_put(skb, sizeof(struct sadb_x_policy));
++	pol = skb_put(skb, sizeof(struct sadb_x_policy));
+ 	pol->sadb_x_policy_len = sizeof(struct sadb_x_policy)/sizeof(uint64_t);
+ 	pol->sadb_x_policy_exttype = SADB_X_EXT_POLICY;
+ 	pol->sadb_x_policy_type = IPSEC_POLICY_DISCARD;
+@@ -2139,7 +2127,7 @@ static int pfkey_xfrm_policy2msg(struct sk_buff *skb, const struct xfrm_policy *
+ 		} else {
+ 			size -= 2*socklen;
+ 		}
+-		rq = (void*)skb_put(skb, req_size);
++		rq = skb_put(skb, req_size);
+ 		pol->sadb_x_policy_len += req_size/8;
+ 		memset(rq, 0, sizeof(*rq));
+ 		rq->sadb_x_ipsecrequest_len = req_size;
+@@ -2169,7 +2157,7 @@ static int pfkey_xfrm_policy2msg(struct sk_buff *skb, const struct xfrm_policy *
+ 	if ((xfrm_ctx = xp->security)) {
+ 		int ctx_size = pfkey_xfrm_policy2sec_ctx_size(xp);
+ 
+-		sec_ctx = (struct sadb_x_sec_ctx *) skb_put(skb, ctx_size);
++		sec_ctx = skb_put(skb, ctx_size);
+ 		sec_ctx->sadb_x_sec_len = ctx_size / sizeof(uint64_t);
+ 		sec_ctx->sadb_x_sec_exttype = SADB_X_EXT_SEC_CTX;
+ 		sec_ctx->sadb_x_ctx_doi = xfrm_ctx->ctx_doi;
+@@ -2733,7 +2721,7 @@ static int key_notify_policy_flush(const struct km_event *c)
+ 	skb_out = alloc_skb(sizeof(struct sadb_msg) + 16, GFP_ATOMIC);
+ 	if (!skb_out)
+ 		return -ENOBUFS;
+-	hdr = (struct sadb_msg *) skb_put(skb_out, sizeof(struct sadb_msg));
++	hdr = skb_put(skb_out, sizeof(struct sadb_msg));
+ 	hdr->sadb_msg_type = SADB_X_SPDFLUSH;
+ 	hdr->sadb_msg_seq = c->seq;
+ 	hdr->sadb_msg_pid = c->portid;
+@@ -2917,7 +2905,7 @@ static void dump_ah_combs(struct sk_buff *skb, const struct xfrm_tmpl *t)
+ 	struct sadb_prop *p;
+ 	int i;
+ 
+-	p = (struct sadb_prop*)skb_put(skb, sizeof(struct sadb_prop));
++	p = skb_put(skb, sizeof(struct sadb_prop));
+ 	p->sadb_prop_len = sizeof(struct sadb_prop)/8;
+ 	p->sadb_prop_exttype = SADB_EXT_PROPOSAL;
+ 	p->sadb_prop_replay = 32;
+@@ -2951,7 +2939,7 @@ static void dump_esp_combs(struct sk_buff *skb, const struct xfrm_tmpl *t)
+ 	struct sadb_prop *p;
+ 	int i, k;
+ 
+-	p = (struct sadb_prop*)skb_put(skb, sizeof(struct sadb_prop));
++	p = skb_put(skb, sizeof(struct sadb_prop));
+ 	p->sadb_prop_len = sizeof(struct sadb_prop)/8;
+ 	p->sadb_prop_exttype = SADB_EXT_PROPOSAL;
+ 	p->sadb_prop_replay = 32;
+@@ -2977,7 +2965,7 @@ static void dump_esp_combs(struct sk_buff *skb, const struct xfrm_tmpl *t)
+ 				continue;
+ 			if (!(aalg_tmpl_set(t, aalg) && aalg->available))
+ 				continue;
+-			c = (struct sadb_comb*)skb_put(skb, sizeof(struct sadb_comb));
++			c = skb_put(skb, sizeof(struct sadb_comb));
+ 			memset(c, 0, sizeof(*c));
+ 			p->sadb_prop_len += sizeof(struct sadb_comb)/8;
+ 			c->sadb_comb_auth = aalg->desc.sadb_alg_id;
+@@ -3144,7 +3132,7 @@ static int pfkey_send_acquire(struct xfrm_state *x, struct xfrm_tmpl *t, struct
+ 	if (skb == NULL)
+ 		return -ENOMEM;
+ 
+-	hdr = (struct sadb_msg *) skb_put(skb, sizeof(struct sadb_msg));
++	hdr = skb_put(skb, sizeof(struct sadb_msg));
+ 	hdr->sadb_msg_version = PF_KEY_V2;
+ 	hdr->sadb_msg_type = SADB_ACQUIRE;
+ 	hdr->sadb_msg_satype = pfkey_proto2satype(x->id.proto);
+@@ -3155,8 +3143,7 @@ static int pfkey_send_acquire(struct xfrm_state *x, struct xfrm_tmpl *t, struct
+ 	hdr->sadb_msg_pid = 0;
+ 
+ 	/* src address */
+-	addr = (struct sadb_address*) skb_put(skb,
+-					      sizeof(struct sadb_address)+sockaddr_size);
++	addr = skb_put(skb, sizeof(struct sadb_address) + sockaddr_size);
+ 	addr->sadb_address_len =
+ 		(sizeof(struct sadb_address)+sockaddr_size)/
+ 			sizeof(uint64_t);
+@@ -3171,8 +3158,7 @@ static int pfkey_send_acquire(struct xfrm_state *x, struct xfrm_tmpl *t, struct
+ 		BUG();
+ 
+ 	/* dst address */
+-	addr = (struct sadb_address*) skb_put(skb,
+-					      sizeof(struct sadb_address)+sockaddr_size);
++	addr = skb_put(skb, sizeof(struct sadb_address) + sockaddr_size);
+ 	addr->sadb_address_len =
+ 		(sizeof(struct sadb_address)+sockaddr_size)/
+ 			sizeof(uint64_t);
+@@ -3186,7 +3172,7 @@ static int pfkey_send_acquire(struct xfrm_state *x, struct xfrm_tmpl *t, struct
+ 	if (!addr->sadb_address_prefixlen)
+ 		BUG();
+ 
+-	pol = (struct sadb_x_policy *)  skb_put(skb, sizeof(struct sadb_x_policy));
++	pol = skb_put(skb, sizeof(struct sadb_x_policy));
+ 	pol->sadb_x_policy_len = sizeof(struct sadb_x_policy)/sizeof(uint64_t);
+ 	pol->sadb_x_policy_exttype = SADB_X_EXT_POLICY;
+ 	pol->sadb_x_policy_type = IPSEC_POLICY_IPSEC;
+@@ -3203,8 +3189,8 @@ static int pfkey_send_acquire(struct xfrm_state *x, struct xfrm_tmpl *t, struct
+ 
+ 	/* security context */
+ 	if (xfrm_ctx) {
+-		sec_ctx = (struct sadb_x_sec_ctx *) skb_put(skb,
+-				sizeof(struct sadb_x_sec_ctx) + ctx_size);
++		sec_ctx = skb_put(skb,
++				  sizeof(struct sadb_x_sec_ctx) + ctx_size);
+ 		sec_ctx->sadb_x_sec_len =
+ 		  (sizeof(struct sadb_x_sec_ctx) + ctx_size) / sizeof(uint64_t);
+ 		sec_ctx->sadb_x_sec_exttype = SADB_X_EXT_SEC_CTX;
+@@ -3346,7 +3332,7 @@ static int pfkey_send_new_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr,
+ 	if (skb == NULL)
+ 		return -ENOMEM;
+ 
+-	hdr = (struct sadb_msg *) skb_put(skb, sizeof(struct sadb_msg));
++	hdr = skb_put(skb, sizeof(struct sadb_msg));
+ 	hdr->sadb_msg_version = PF_KEY_V2;
+ 	hdr->sadb_msg_type = SADB_X_NAT_T_NEW_MAPPING;
+ 	hdr->sadb_msg_satype = satype;
+@@ -3357,7 +3343,7 @@ static int pfkey_send_new_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr,
+ 	hdr->sadb_msg_pid = 0;
+ 
+ 	/* SA */
+-	sa = (struct sadb_sa *) skb_put(skb, sizeof(struct sadb_sa));
++	sa = skb_put(skb, sizeof(struct sadb_sa));
+ 	sa->sadb_sa_len = sizeof(struct sadb_sa)/sizeof(uint64_t);
+ 	sa->sadb_sa_exttype = SADB_EXT_SA;
+ 	sa->sadb_sa_spi = x->id.spi;
+@@ -3368,8 +3354,7 @@ static int pfkey_send_new_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr,
+ 	sa->sadb_sa_flags = 0;
+ 
+ 	/* ADDRESS_SRC (old addr) */
+-	addr = (struct sadb_address*)
+-		skb_put(skb, sizeof(struct sadb_address)+sockaddr_size);
++	addr = skb_put(skb, sizeof(struct sadb_address) + sockaddr_size);
+ 	addr->sadb_address_len =
+ 		(sizeof(struct sadb_address)+sockaddr_size)/
+ 			sizeof(uint64_t);
+@@ -3384,15 +3369,14 @@ static int pfkey_send_new_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr,
+ 		BUG();
+ 
+ 	/* NAT_T_SPORT (old port) */
+-	n_port = (struct sadb_x_nat_t_port*) skb_put(skb, sizeof (*n_port));
++	n_port = skb_put(skb, sizeof(*n_port));
+ 	n_port->sadb_x_nat_t_port_len = sizeof(*n_port)/sizeof(uint64_t);
+ 	n_port->sadb_x_nat_t_port_exttype = SADB_X_EXT_NAT_T_SPORT;
+ 	n_port->sadb_x_nat_t_port_port = natt->encap_sport;
+ 	n_port->sadb_x_nat_t_port_reserved = 0;
+ 
+ 	/* ADDRESS_DST (new addr) */
+-	addr = (struct sadb_address*)
+-		skb_put(skb, sizeof(struct sadb_address)+sockaddr_size);
++	addr = skb_put(skb, sizeof(struct sadb_address) + sockaddr_size);
+ 	addr->sadb_address_len =
+ 		(sizeof(struct sadb_address)+sockaddr_size)/
+ 			sizeof(uint64_t);
+@@ -3407,7 +3391,7 @@ static int pfkey_send_new_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr,
+ 		BUG();
+ 
+ 	/* NAT_T_DPORT (new port) */
+-	n_port = (struct sadb_x_nat_t_port*) skb_put(skb, sizeof (*n_port));
++	n_port = skb_put(skb, sizeof(*n_port));
+ 	n_port->sadb_x_nat_t_port_len = sizeof(*n_port)/sizeof(uint64_t);
+ 	n_port->sadb_x_nat_t_port_exttype = SADB_X_EXT_NAT_T_DPORT;
+ 	n_port->sadb_x_nat_t_port_port = sport;
+@@ -3421,7 +3405,7 @@ static int set_sadb_address(struct sk_buff *skb, int sasize, int type,
+ 			    const struct xfrm_selector *sel)
+ {
+ 	struct sadb_address *addr;
+-	addr = (struct sadb_address *)skb_put(skb, sizeof(struct sadb_address) + sasize);
++	addr = skb_put(skb, sizeof(struct sadb_address) + sasize);
+ 	addr->sadb_address_len = (sizeof(struct sadb_address) + sasize)/8;
+ 	addr->sadb_address_exttype = type;
+ 	addr->sadb_address_proto = sel->proto;
+@@ -3553,7 +3537,7 @@ static int pfkey_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 	if (skb == NULL)
+ 		return -ENOMEM;
+ 
+-	hdr = (struct sadb_msg *)skb_put(skb, sizeof(struct sadb_msg));
++	hdr = skb_put(skb, sizeof(struct sadb_msg));
+ 	hdr->sadb_msg_version = PF_KEY_V2;
+ 	hdr->sadb_msg_type = SADB_X_MIGRATE;
+ 	hdr->sadb_msg_satype = pfkey_proto2satype(m->proto);
+@@ -3574,7 +3558,7 @@ static int pfkey_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 	set_sadb_address(skb, sasize_sel, SADB_EXT_ADDRESS_DST, sel);
+ 
+ 	/* policy information */
+-	pol = (struct sadb_x_policy *)skb_put(skb, sizeof(struct sadb_x_policy));
++	pol = skb_put(skb, sizeof(struct sadb_x_policy));
+ 	pol->sadb_x_policy_len = size_pol / 8;
+ 	pol->sadb_x_policy_exttype = SADB_X_EXT_POLICY;
+ 	pol->sadb_x_policy_type = IPSEC_POLICY_IPSEC;
+diff --git a/net/mac80211/cfg.c b/net/mac80211/cfg.c
+index f9eb2486d550..a354f1939e49 100644
+--- a/net/mac80211/cfg.c
++++ b/net/mac80211/cfg.c
+@@ -1107,7 +1107,7 @@ static void ieee80211_send_layer2_update(struct sta_info *sta)
+ 	skb = dev_alloc_skb(sizeof(*msg));
+ 	if (!skb)
+ 		return;
+-	msg = (struct iapp_layer2_update *)skb_put(skb, sizeof(*msg));
++	msg = skb_put(skb, sizeof(*msg));
+ 
+ 	/* 802.2 Type 1 Logical Link Control (LLC) Exchange Identifier (XID)
+ 	 * Update response frame; IEEE Std 802.2-1998, 5.4.1.2.1 */
+@@ -3414,7 +3414,7 @@ static int ieee80211_probe_client(struct wiphy *wiphy, struct net_device *dev,
+ 
+ 	skb_reserve(skb, local->hw.extra_tx_headroom);
+ 
+-	nullfunc = (void *) skb_put(skb, size);
++	nullfunc = skb_put(skb, size);
+ 	nullfunc->frame_control = fc;
+ 	nullfunc->duration_id = 0;
+ 	memcpy(nullfunc->addr1, sta->sta.addr, ETH_ALEN);
+diff --git a/net/mac80211/ht.c b/net/mac80211/ht.c
+index 927215d4dd8f..c92df492e898 100644
+--- a/net/mac80211/ht.c
++++ b/net/mac80211/ht.c
+@@ -459,7 +459,7 @@ int ieee80211_send_smps_action(struct ieee80211_sub_if_data *sdata,
+ 		return -ENOMEM;
+ 
+ 	skb_reserve(skb, local->hw.extra_tx_headroom);
+-	action_frame = (void *)skb_put(skb, 27);
++	action_frame = skb_put(skb, 27);
+ 	memcpy(action_frame->da, da, ETH_ALEN);
+ 	memcpy(action_frame->sa, sdata->dev->dev_addr, ETH_ALEN);
+ 	memcpy(action_frame->bssid, bssid, ETH_ALEN);
+diff --git a/net/mac80211/mesh.c b/net/mac80211/mesh.c
+index 861697f2d75b..a550c707cd8a 100644
+--- a/net/mac80211/mesh.c
++++ b/net/mac80211/mesh.c
+@@ -1265,7 +1265,7 @@ static int mesh_fwd_csa_frame(struct ieee80211_sub_if_data *sdata,
+ 	if (!skb)
+ 		return -ENOMEM;
+ 	skb_reserve(skb, local->tx_headroom);
+-	mgmt_fwd = (struct ieee80211_mgmt *) skb_put(skb, len);
++	mgmt_fwd = skb_put(skb, len);
+ 
+ 	/* offset_ttl is based on whether the secondary channel
+ 	 * offset is available or not. Subtract 1 from the mesh TTL
+diff --git a/net/mac80211/mesh_ps.c b/net/mac80211/mesh_ps.c
+index 96c987e641b3..d8cd91424175 100644
+--- a/net/mac80211/mesh_ps.c
++++ b/net/mac80211/mesh_ps.c
+@@ -30,7 +30,7 @@ static struct sk_buff *mps_qos_null_get(struct sta_info *sta)
+ 		return NULL;
+ 	skb_reserve(skb, local->hw.extra_tx_headroom);
+ 
+-	nullfunc = (struct ieee80211_hdr *) skb_put(skb, size);
++	nullfunc = skb_put(skb, size);
+ 	fc = cpu_to_le16(IEEE80211_FTYPE_DATA | IEEE80211_STYPE_QOS_NULLFUNC);
+ 	ieee80211_fill_mesh_addresses(nullfunc, &fc, sta->sta.addr,
+ 				      sdata->vif.addr);
+diff --git a/net/mac80211/sta_info.c b/net/mac80211/sta_info.c
+index 46e1809356f6..69615016d5bf 100644
+--- a/net/mac80211/sta_info.c
++++ b/net/mac80211/sta_info.c
+@@ -1312,7 +1312,7 @@ static void ieee80211_send_null_response(struct sta_info *sta, int tid,
+ 
+ 	skb_reserve(skb, local->hw.extra_tx_headroom);
+ 
+-	nullfunc = (void *) skb_put(skb, size);
++	nullfunc = skb_put(skb, size);
+ 	nullfunc->frame_control = fc;
+ 	nullfunc->duration_id = 0;
+ 	memcpy(nullfunc->addr1, sta->sta.addr, ETH_ALEN);
+diff --git a/net/mac80211/tdls.c b/net/mac80211/tdls.c
+index 86740670102d..709ef02fe67e 100644
+--- a/net/mac80211/tdls.c
++++ b/net/mac80211/tdls.c
+@@ -49,7 +49,7 @@ static void ieee80211_tdls_add_ext_capab(struct ieee80211_sub_if_data *sdata,
+ 			  !ifmgd->tdls_wider_bw_prohibited;
+ 	struct ieee80211_supported_band *sband = ieee80211_get_sband(sdata);
+ 	bool vht = sband && sband->vht_cap.vht_supported;
+-	u8 *pos = (void *)skb_put(skb, 10);
++	u8 *pos = skb_put(skb, 10);
+ 
+ 	*pos++ = WLAN_EID_EXT_CAPABILITY;
+ 	*pos++ = 8; /* len */
+@@ -168,7 +168,7 @@ static void ieee80211_tdls_add_oper_classes(struct ieee80211_sub_if_data *sdata,
+ 
+ static void ieee80211_tdls_add_bss_coex_ie(struct sk_buff *skb)
+ {
+-	u8 *pos = (void *)skb_put(skb, 3);
++	u8 *pos = skb_put(skb, 3);
+ 
+ 	*pos++ = WLAN_EID_BSS_COEX_2040;
+ 	*pos++ = 1; /* len */
+@@ -209,7 +209,7 @@ static void ieee80211_tdls_add_link_ie(struct ieee80211_sub_if_data *sdata,
+ 		rsp_addr = sdata->vif.addr;
+ 	}
+ 
+-	lnkid = (void *)skb_put(skb, sizeof(struct ieee80211_tdls_lnkie));
++	lnkid = skb_put(skb, sizeof(struct ieee80211_tdls_lnkie));
+ 
+ 	lnkid->ie_type = WLAN_EID_LINK_ID;
+ 	lnkid->ie_len = sizeof(struct ieee80211_tdls_lnkie) - 2;
+@@ -223,7 +223,7 @@ static void
+ ieee80211_tdls_add_aid(struct ieee80211_sub_if_data *sdata, struct sk_buff *skb)
+ {
+ 	struct ieee80211_if_managed *ifmgd = &sdata->u.mgd;
+-	u8 *pos = (void *)skb_put(skb, 4);
++	u8 *pos = skb_put(skb, 4);
+ 
+ 	*pos++ = WLAN_EID_AID;
+ 	*pos++ = 2; /* len */
+@@ -745,7 +745,7 @@ ieee80211_prep_tdls_encap_data(struct wiphy *wiphy, struct net_device *dev,
+ 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+ 	struct ieee80211_tdls_data *tf;
+ 
+-	tf = (void *)skb_put(skb, offsetof(struct ieee80211_tdls_data, u));
++	tf = skb_put(skb, offsetof(struct ieee80211_tdls_data, u));
+ 
+ 	memcpy(tf->da, peer, ETH_ALEN);
+ 	memcpy(tf->sa, sdata->vif.addr, ETH_ALEN);
+diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
+index 18c5d6e6305d..ec5a9a72797e 100644
+--- a/net/mac80211/tx.c
++++ b/net/mac80211/tx.c
+@@ -3874,7 +3874,7 @@ static void __ieee80211_beacon_add_tim(struct ieee80211_sub_if_data *sdata,
+ 			ps->dtim_count--;
+ 	}
+ 
+-	tim = pos = (u8 *) skb_put(skb, 6);
++	tim = pos = skb_put(skb, 6);
+ 	*pos++ = WLAN_EID_TIM;
+ 	*pos++ = 4;
+ 	*pos++ = ps->dtim_count;
+diff --git a/net/mac80211/wpa.c b/net/mac80211/wpa.c
+index cc19614ff4e6..0d722ea98a1b 100644
+--- a/net/mac80211/wpa.c
++++ b/net/mac80211/wpa.c
+@@ -949,7 +949,7 @@ ieee80211_crypto_aes_cmac_encrypt(struct ieee80211_tx_data *tx)
+ 	if (WARN_ON(skb_tailroom(skb) < sizeof(*mmie)))
+ 		return TX_DROP;
+ 
+-	mmie = (struct ieee80211_mmie *) skb_put(skb, sizeof(*mmie));
++	mmie = skb_put(skb, sizeof(*mmie));
+ 	mmie->element_id = WLAN_EID_MMIE;
+ 	mmie->length = sizeof(*mmie) - 2;
+ 	mmie->key_id = cpu_to_le16(key->conf.keyidx);
+@@ -993,7 +993,7 @@ ieee80211_crypto_aes_cmac_256_encrypt(struct ieee80211_tx_data *tx)
+ 	if (WARN_ON(skb_tailroom(skb) < sizeof(*mmie)))
+ 		return TX_DROP;
+ 
+-	mmie = (struct ieee80211_mmie_16 *)skb_put(skb, sizeof(*mmie));
++	mmie = skb_put(skb, sizeof(*mmie));
+ 	mmie->element_id = WLAN_EID_MMIE;
+ 	mmie->length = sizeof(*mmie) - 2;
+ 	mmie->key_id = cpu_to_le16(key->conf.keyidx);
+@@ -1138,7 +1138,7 @@ ieee80211_crypto_aes_gmac_encrypt(struct ieee80211_tx_data *tx)
+ 	if (WARN_ON(skb_tailroom(skb) < sizeof(*mmie)))
+ 		return TX_DROP;
+ 
+-	mmie = (struct ieee80211_mmie_16 *)skb_put(skb, sizeof(*mmie));
++	mmie = skb_put(skb, sizeof(*mmie));
+ 	mmie->element_id = WLAN_EID_MMIE;
+ 	mmie->length = sizeof(*mmie) - 2;
+ 	mmie->key_id = cpu_to_le16(key->conf.keyidx);
+diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
+index da9704971a83..94ec0d0765a8 100644
+--- a/net/netfilter/nfnetlink_log.c
++++ b/net/netfilter/nfnetlink_log.c
+@@ -590,7 +590,7 @@ __build_packet_message(struct nfnl_log_net *log,
+ 		if (skb_tailroom(inst->skb) < nla_total_size(data_len))
+ 			goto nla_put_failure;
+ 
+-		nla = (struct nlattr *)skb_put(inst->skb, nla_total_size(data_len));
++		nla = skb_put(inst->skb, nla_total_size(data_len));
+ 		nla->nla_type = NFULA_PAYLOAD;
+ 		nla->nla_len = size;
+ 
+diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
+index 8a0f218b7938..1b17a1b445a3 100644
+--- a/net/netfilter/nfnetlink_queue.c
++++ b/net/netfilter/nfnetlink_queue.c
+@@ -589,7 +589,7 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
+ 		if (skb_tailroom(skb) < sizeof(*nla) + hlen)
+ 			goto nla_put_failure;
+ 
+-		nla = (struct nlattr *)skb_put(skb, sizeof(*nla));
++		nla = skb_put(skb, sizeof(*nla));
+ 		nla->nla_type = NFQA_PAYLOAD;
+ 		nla->nla_len = nla_attr_size(data_len);
+ 
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index bd24a975fd49..a88745e4b7df 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -2104,7 +2104,7 @@ __nlmsg_put(struct sk_buff *skb, u32 portid, u32 seq, int type, int len, int fla
+ 	struct nlmsghdr *nlh;
+ 	int size = nlmsg_msg_size(len);
+ 
+-	nlh = (struct nlmsghdr *)skb_put(skb, NLMSG_ALIGN(size));
++	nlh = skb_put(skb, NLMSG_ALIGN(size));
+ 	nlh->nlmsg_type = type;
+ 	nlh->nlmsg_len = size;
+ 	nlh->nlmsg_flags = flags;
+diff --git a/net/nfc/digital_core.c b/net/nfc/digital_core.c
+index 0fd5518bf252..fec47a7d0092 100644
+--- a/net/nfc/digital_core.c
++++ b/net/nfc/digital_core.c
+@@ -74,8 +74,8 @@ void digital_skb_add_crc(struct sk_buff *skb, crc_func_t crc_func, u16 init,
+ 	if (msb_first)
+ 		crc = __fswab16(crc);
+ 
+-	*skb_put(skb, 1) = crc & 0xFF;
+-	*skb_put(skb, 1) = (crc >> 8) & 0xFF;
++	*(u8 *)skb_put(skb, 1) = crc & 0xFF;
++	*(u8 *)skb_put(skb, 1) = (crc >> 8) & 0xFF;
+ }
+ 
+ int digital_skb_check_crc(struct sk_buff *skb, crc_func_t crc_func,
+diff --git a/net/nfc/digital_dep.c b/net/nfc/digital_dep.c
+index f44f75a2a4d5..82471af5553e 100644
+--- a/net/nfc/digital_dep.c
++++ b/net/nfc/digital_dep.c
+@@ -654,7 +654,7 @@ static int digital_in_send_rtox(struct nfc_digital_dev *ddev,
+ 	if (!skb)
+ 		return -ENOMEM;
+ 
+-	*skb_put(skb, 1) = rtox;
++	*(u8 *)skb_put(skb, 1) = rtox;
+ 
+ 	skb_push(skb, sizeof(struct digital_dep_req_res));
+ 
+diff --git a/net/nfc/digital_technology.c b/net/nfc/digital_technology.c
+index d9080dec5d27..fae6d31b377c 100644
+--- a/net/nfc/digital_technology.c
++++ b/net/nfc/digital_technology.c
+@@ -266,8 +266,8 @@ static int digital_in_send_rats(struct nfc_digital_dev *ddev,
+ 	if (!skb)
+ 		return -ENOMEM;
+ 
+-	*skb_put(skb, 1) = DIGITAL_RATS_BYTE1;
+-	*skb_put(skb, 1) = DIGITAL_RATS_PARAM;
++	*(u8 *)skb_put(skb, 1) = DIGITAL_RATS_BYTE1;
++	*(u8 *)skb_put(skb, 1) = DIGITAL_RATS_PARAM;
+ 
+ 	rc = digital_in_send_cmd(ddev, skb, 30, digital_in_recv_ats,
+ 				 target);
+@@ -470,8 +470,8 @@ static int digital_in_send_sdd_req(struct nfc_digital_dev *ddev,
+ 	else
+ 		sel_cmd = DIGITAL_CMD_SEL_REQ_CL3;
+ 
+-	*skb_put(skb, sizeof(u8)) = sel_cmd;
+-	*skb_put(skb, sizeof(u8)) = DIGITAL_SDD_REQ_SEL_PAR;
++	*(u8 *)skb_put(skb, sizeof(u8)) = sel_cmd;
++	*(u8 *)skb_put(skb, sizeof(u8)) = DIGITAL_SDD_REQ_SEL_PAR;
+ 
+ 	return digital_in_send_cmd(ddev, skb, 30, digital_in_recv_sdd_res,
+ 				   target);
+@@ -541,7 +541,7 @@ int digital_in_send_sens_req(struct nfc_digital_dev *ddev, u8 rf_tech)
+ 	if (!skb)
+ 		return -ENOMEM;
+ 
+-	*skb_put(skb, sizeof(u8)) = DIGITAL_CMD_SENS_REQ;
++	*(u8 *)skb_put(skb, sizeof(u8)) = DIGITAL_CMD_SENS_REQ;
+ 
+ 	rc = digital_in_send_cmd(ddev, skb, 30, digital_in_recv_sens_res, NULL);
+ 	if (rc)
+@@ -625,8 +625,7 @@ static int digital_in_send_attrib_req(struct nfc_digital_dev *ddev,
+ 	if (!skb)
+ 		return -ENOMEM;
+ 
+-	attrib_req = (struct digital_attrib_req *)skb_put(skb,
+-							  sizeof(*attrib_req));
++	attrib_req = skb_put(skb, sizeof(*attrib_req));
+ 
+ 	attrib_req->cmd = DIGITAL_CMD_ATTRIB_REQ;
+ 	memcpy(attrib_req->nfcid0, sensb_res->nfcid0,
+@@ -730,8 +729,7 @@ int digital_in_send_sensb_req(struct nfc_digital_dev *ddev, u8 rf_tech)
+ 	if (!skb)
+ 		return -ENOMEM;
+ 
+-	sensb_req = (struct digital_sensb_req *)skb_put(skb,
+-							sizeof(*sensb_req));
++	sensb_req = skb_put(skb, sizeof(*sensb_req));
+ 
+ 	sensb_req->cmd = DIGITAL_CMD_SENSB_REQ;
+ 	sensb_req->afi = 0x00; /* All families and sub-families */
+@@ -939,7 +937,7 @@ static int digital_tg_send_sel_res(struct nfc_digital_dev *ddev)
+ 	if (!skb)
+ 		return -ENOMEM;
+ 
+-	*skb_put(skb, 1) = DIGITAL_SEL_RES_NFC_DEP;
++	*(u8 *)skb_put(skb, 1) = DIGITAL_SEL_RES_NFC_DEP;
+ 
+ 	if (!DIGITAL_DRV_CAPS_TG_CRC(ddev))
+ 		digital_skb_add_crc_a(skb);
+diff --git a/net/nfc/hci/core.c b/net/nfc/hci/core.c
+index 8741ad47a6fb..3a0c94590411 100644
+--- a/net/nfc/hci/core.c
++++ b/net/nfc/hci/core.c
+@@ -874,7 +874,7 @@ static void nfc_hci_recv_from_llc(struct nfc_hci_dev *hdev, struct sk_buff *skb)
  			return;
  		}
  
--		memcpy(skb_put(new_skb, pdu_len), skb->data, pdu_len);
-+		skb_put_data(new_skb, skb->data, pdu_len);
+-		*skb_put(hcp_skb, NFC_HCI_HCP_PACKET_HEADER_LEN) = pipe;
++		*(u8 *)skb_put(hcp_skb, NFC_HCI_HCP_PACKET_HEADER_LEN) = pipe;
  
- 		nfc_llcp_rx_skb(local, new_skb);
- 
-diff --git a/net/nfc/nci/core.c b/net/nfc/nci/core.c
-index 61fff422424f..17b9f1ce23db 100644
---- a/net/nfc/nci/core.c
-+++ b/net/nfc/nci/core.c
-@@ -462,7 +462,7 @@ int nci_nfcc_loopback(struct nci_dev *ndev, void *data, size_t data_len,
+ 		skb_queue_walk(&hdev->rx_hcp_frags, frag_skb) {
+ 			msg_len = frag_skb->len - NFC_HCI_HCP_PACKET_HEADER_LEN;
+diff --git a/net/nfc/hci/llc_shdlc.c b/net/nfc/hci/llc_shdlc.c
+index 401c7e255273..9ab4a05f086f 100644
+--- a/net/nfc/hci/llc_shdlc.c
++++ b/net/nfc/hci/llc_shdlc.c
+@@ -382,8 +382,8 @@ static int llc_shdlc_connect_initiate(struct llc_shdlc *shdlc)
+ 	if (skb == NULL)
  		return -ENOMEM;
  
- 	skb_reserve(skb, NCI_DATA_HDR_SIZE);
--	memcpy(skb_put(skb, data_len), data, data_len);
-+	skb_put_data(skb, data, data_len);
+-	*skb_put(skb, 1) = SHDLC_MAX_WINDOW;
+-	*skb_put(skb, 1) = SHDLC_SREJ_SUPPORT ? 1 : 0;
++	*(u8 *)skb_put(skb, 1) = SHDLC_MAX_WINDOW;
++	*(u8 *)skb_put(skb, 1) = SHDLC_SREJ_SUPPORT ? 1 : 0;
  
- 	loopback_data.conn_id = conn_id;
- 	loopback_data.data = skb;
-@@ -1350,7 +1350,7 @@ int nci_send_cmd(struct nci_dev *ndev, __u16 opcode, __u8 plen, void *payload)
- 	nci_pbf_set((__u8 *)hdr, NCI_PBF_LAST);
+ 	return llc_shdlc_send_u_frame(shdlc, skb, U_FRAME_RSET);
+ }
+diff --git a/net/nfc/nci/core.c b/net/nfc/nci/core.c
+index 17b9f1ce23db..a3dac34cf790 100644
+--- a/net/nfc/nci/core.c
++++ b/net/nfc/nci/core.c
+@@ -1341,7 +1341,7 @@ int nci_send_cmd(struct nci_dev *ndev, __u16 opcode, __u8 plen, void *payload)
+ 		return -ENOMEM;
+ 	}
  
- 	if (plen)
--		memcpy(skb_put(skb, plen), payload, plen);
-+		skb_put_data(skb, payload, plen);
- 
- 	skb_queue_tail(&ndev->cmd_q, skb);
- 	queue_work(ndev->cmd_wq, &ndev->cmd_work);
-diff --git a/net/nfc/nci/data.c b/net/nfc/nci/data.c
-index dbd24254412a..2488d9241f1d 100644
---- a/net/nfc/nci/data.c
-+++ b/net/nfc/nci/data.c
-@@ -138,7 +138,7 @@ static int nci_queue_tx_data_frags(struct nci_dev *ndev,
- 		skb_reserve(skb_frag, NCI_DATA_HDR_SIZE);
- 
- 		/* first, copy the data */
--		memcpy(skb_put(skb_frag, frag_len), data, frag_len);
-+		skb_put_data(skb_frag, data, frag_len);
- 
- 		/* second, set the header */
- 		nci_push_data_hdr(ndev, conn_id, skb_frag,
+-	hdr = (struct nci_ctrl_hdr *) skb_put(skb, NCI_CTRL_HDR_SIZE);
++	hdr = skb_put(skb, NCI_CTRL_HDR_SIZE);
+ 	hdr->gid = nci_opcode_gid(opcode);
+ 	hdr->oid = nci_opcode_oid(opcode);
+ 	hdr->plen = plen;
 diff --git a/net/nfc/nci/hci.c b/net/nfc/nci/hci.c
-index a0ab26d535dc..d4a53ce818c3 100644
+index d4a53ce818c3..d1119bb35f24 100644
 --- a/net/nfc/nci/hci.c
 +++ b/net/nfc/nci/hci.c
-@@ -187,7 +187,7 @@ static int nci_hci_send_data(struct nci_dev *ndev, u8 pipe,
- 		*skb_push(skb, 1) = cb;
+@@ -472,7 +472,7 @@ void nci_hci_data_received_cb(void *context,
+ 			return;
+ 		}
  
- 		if (len > 0)
--			memcpy(skb_put(skb, len), data + i, len);
-+			skb_put_data(skb, data + i, len);
- 
- 		r = nci_send_data(ndev, conn_info->conn_id, skb);
- 		if (r < 0)
-@@ -476,8 +476,9 @@ void nci_hci_data_received_cb(void *context,
+-		*skb_put(hcp_skb, NCI_HCI_HCP_PACKET_HEADER_LEN) = pipe;
++		*(u8 *)skb_put(hcp_skb, NCI_HCI_HCP_PACKET_HEADER_LEN) = pipe;
  
  		skb_queue_walk(&ndev->hci_dev->rx_hcp_frags, frag_skb) {
  			msg_len = frag_skb->len - NCI_HCI_HCP_PACKET_HEADER_LEN;
--			memcpy(skb_put(hcp_skb, msg_len), frag_skb->data +
--			       NCI_HCI_HCP_PACKET_HEADER_LEN, msg_len);
-+			skb_put_data(hcp_skb,
-+				     frag_skb->data + NCI_HCI_HCP_PACKET_HEADER_LEN,
-+				     msg_len);
- 		}
+diff --git a/net/nfc/nci/spi.c b/net/nfc/nci/spi.c
+index d904cd2f1442..a502a334918a 100644
+--- a/net/nfc/nci/spi.c
++++ b/net/nfc/nci/spi.c
+@@ -86,8 +86,8 @@ int nci_spi_send(struct nci_spi *nspi,
+ 		u16 crc;
  
- 		skb_queue_purge(&ndev->hci_dev->rx_hcp_frags);
+ 		crc = crc_ccitt(CRC_INIT, skb->data, skb->len);
+-		*skb_put(skb, 1) = crc >> 8;
+-		*skb_put(skb, 1) = crc & 0xFF;
++		*(u8 *)skb_put(skb, 1) = crc >> 8;
++		*(u8 *)skb_put(skb, 1) = crc & 0xFF;
+ 	}
+ 
+ 	if (write_handshake_completion)	{
+@@ -172,8 +172,8 @@ static int send_acknowledge(struct nci_spi *nspi, u8 acknowledge)
+ 	hdr[3] = 0;
+ 
+ 	crc = crc_ccitt(CRC_INIT, skb->data, skb->len);
+-	*skb_put(skb, 1) = crc >> 8;
+-	*skb_put(skb, 1) = crc & 0xFF;
++	*(u8 *)skb_put(skb, 1) = crc >> 8;
++	*(u8 *)skb_put(skb, 1) = crc & 0xFF;
+ 
+ 	ret = __nci_spi_send(nspi, skb, 0);
+ 
 diff --git a/net/nfc/nci/uart.c b/net/nfc/nci/uart.c
-index c468eabd6943..cfa7f352c1c3 100644
+index cfa7f352c1c3..442f8eadfc76 100644
 --- a/net/nfc/nci/uart.c
 +++ b/net/nfc/nci/uart.c
-@@ -371,7 +371,7 @@ static int nci_uart_default_recv_buf(struct nci_uart *nu, const u8 *data,
- 		chunk_len = nu->rx_packet_len - nu->rx_skb->len;
- 		if (count < chunk_len)
- 			chunk_len = count;
--		memcpy(skb_put(nu->rx_skb, chunk_len), data, chunk_len);
-+		skb_put_data(nu->rx_skb, data, chunk_len);
- 		data += chunk_len;
- 		count -= chunk_len;
+@@ -355,7 +355,7 @@ static int nci_uart_default_recv_buf(struct nci_uart *nu, const u8 *data,
+ 
+ 		/* Eat byte after byte till full packet header is received */
+ 		if (nu->rx_skb->len < NCI_CTRL_HDR_SIZE) {
+-			*skb_put(nu->rx_skb, 1) = *data++;
++			*(u8 *)skb_put(nu->rx_skb, 1) = *data++;
+ 			--count;
+ 			continue;
+ 		}
+diff --git a/net/psample/psample.c b/net/psample/psample.c
+index 8aa58a918783..3a6ad0f438dc 100644
+--- a/net/psample/psample.c
++++ b/net/psample/psample.c
+@@ -264,7 +264,7 @@ void psample_sample_packet(struct psample_group *group, struct sk_buff *skb,
+ 		int nla_len = nla_total_size(data_len);
+ 		struct nlattr *nla;
+ 
+-		nla = (struct nlattr *)skb_put(nl_skb, nla_len);
++		nla = skb_put(nl_skb, nla_len);
+ 		nla->nla_type = PSAMPLE_ATTR_DATA;
+ 		nla->nla_len = nla_attr_size(data_len);
  
 diff --git a/net/qrtr/qrtr.c b/net/qrtr/qrtr.c
-index 825f97671591..cff679167bdc 100644
+index cff679167bdc..5586609afa27 100644
 --- a/net/qrtr/qrtr.c
 +++ b/net/qrtr/qrtr.c
-@@ -239,7 +239,7 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
- 		return -ENOMEM;
- 
+@@ -259,7 +259,7 @@ static struct sk_buff *qrtr_alloc_ctrl_packet(u32 type, size_t pkt_len,
+ 		return NULL;
  	skb_reset_transport_header(skb);
--	memcpy(skb_put(skb, len), data, len);
-+	skb_put_data(skb, data, len);
  
- 	skb_queue_tail(&node->rx_queue, skb);
- 	schedule_work(&node->work);
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index c339c682675a..febcc350cf00 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -469,8 +469,7 @@ static int sctp_packet_pack(struct sctp_packet *packet,
- 				auth = (struct sctp_auth_chunk *)
- 							skb_tail_pointer(nskb);
- 
--			memcpy(skb_put(nskb, chunk->skb->len), chunk->skb->data,
--			       chunk->skb->len);
-+			skb_put_data(nskb, chunk->skb->data, chunk->skb->len);
- 
- 			pr_debug("*** Chunk:%p[%s] %s 0x%x, length:%d, chunk->skb->len:%d, rtt_in_progress:%d\n",
- 				 chunk,
+-	hdr = (struct qrtr_hdr *)skb_put(skb, QRTR_HDR_SIZE);
++	hdr = skb_put(skb, QRTR_HDR_SIZE);
+ 	hdr->version = cpu_to_le32(QRTR_PROTO_VER);
+ 	hdr->type = cpu_to_le32(type);
+ 	hdr->src_node_id = cpu_to_le32(src_node);
 diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index aaac2660aaf7..034e916362cf 100644
+index 034e916362cf..2c196b3e9cd3 100644
 --- a/net/sctp/sm_make_chunk.c
 +++ b/net/sctp/sm_make_chunk.c
-@@ -1479,9 +1479,7 @@ void *sctp_addto_chunk(struct sctp_chunk *chunk, int len, const void *data)
- 	int padlen = SCTP_PAD4(chunklen) - chunklen;
+@@ -1389,7 +1389,7 @@ static struct sctp_chunk *_sctp_make_chunk(const struct sctp_association *asoc,
+ 		goto nodata;
  
- 	padding = skb_put_zero(chunk->skb, padlen);
--	target = skb_put(chunk->skb, len);
--
--	memcpy(target, data, len);
-+	target = skb_put_data(chunk->skb, data, len);
+ 	/* Make room for the chunk header.  */
+-	chunk_hdr = (sctp_chunkhdr_t *)skb_put(skb, sizeof(sctp_chunkhdr_t));
++	chunk_hdr = skb_put(skb, sizeof(sctp_chunkhdr_t));
+ 	chunk_hdr->type	  = type;
+ 	chunk_hdr->flags  = flags;
+ 	chunk_hdr->length = htons(sizeof(sctp_chunkhdr_t));
+diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
+index ec2b3e013c2f..e361f0b57fb6 100644
+--- a/net/sctp/ulpevent.c
++++ b/net/sctp/ulpevent.c
+@@ -167,8 +167,7 @@ struct sctp_ulpevent  *sctp_ulpevent_make_assoc_change(
+ 			goto fail;
  
- 	/* Adjust the chunk length field.  */
- 	chunk->chunk_hdr->length = htons(chunklen + padlen + len);
+ 		skb = sctp_event2skb(event);
+-		sac = (struct sctp_assoc_change *) skb_put(skb,
+-					sizeof(struct sctp_assoc_change));
++		sac = skb_put(skb, sizeof(struct sctp_assoc_change));
+ 	}
+ 
+ 	/* Socket Extensions for SCTP
+@@ -270,8 +269,7 @@ struct sctp_ulpevent *sctp_ulpevent_make_peer_addr_change(
+ 		goto fail;
+ 
+ 	skb = sctp_event2skb(event);
+-	spc = (struct sctp_paddr_change *)
+-		skb_put(skb, sizeof(struct sctp_paddr_change));
++	spc = skb_put(skb, sizeof(struct sctp_paddr_change));
+ 
+ 	/* Sockets API Extensions for SCTP
+ 	 * Section 5.3.1.2 SCTP_PEER_ADDR_CHANGE
+@@ -549,8 +547,7 @@ struct sctp_ulpevent *sctp_ulpevent_make_shutdown_event(
+ 		goto fail;
+ 
+ 	skb = sctp_event2skb(event);
+-	sse = (struct sctp_shutdown_event *)
+-		skb_put(skb, sizeof(struct sctp_shutdown_event));
++	sse = skb_put(skb, sizeof(struct sctp_shutdown_event));
+ 
+ 	/* Socket Extensions for SCTP
+ 	 * 5.3.1.5 SCTP_SHUTDOWN_EVENT
+@@ -612,8 +609,7 @@ struct sctp_ulpevent *sctp_ulpevent_make_adaptation_indication(
+ 		goto fail;
+ 
+ 	skb = sctp_event2skb(event);
+-	sai = (struct sctp_adaptation_event *)
+-		skb_put(skb, sizeof(struct sctp_adaptation_event));
++	sai = skb_put(skb, sizeof(struct sctp_adaptation_event));
+ 
+ 	sai->sai_type = SCTP_ADAPTATION_INDICATION;
+ 	sai->sai_flags = 0;
+@@ -751,8 +747,7 @@ struct sctp_ulpevent *sctp_ulpevent_make_pdapi(
+ 		goto fail;
+ 
+ 	skb = sctp_event2skb(event);
+-	pd = (struct sctp_pdapi_event *)
+-		skb_put(skb, sizeof(struct sctp_pdapi_event));
++	pd = skb_put(skb, sizeof(struct sctp_pdapi_event));
+ 
+ 	/* pdapi_type
+ 	 *   It should be SCTP_PARTIAL_DELIVERY_EVENT
+@@ -803,8 +798,7 @@ struct sctp_ulpevent *sctp_ulpevent_make_authkey(
+ 		goto fail;
+ 
+ 	skb = sctp_event2skb(event);
+-	ak = (struct sctp_authkey_event *)
+-		skb_put(skb, sizeof(struct sctp_authkey_event));
++	ak = skb_put(skb, sizeof(struct sctp_authkey_event));
+ 
+ 	ak->auth_type = SCTP_AUTHENTICATION_EVENT;
+ 	ak->auth_flags = 0;
+@@ -842,8 +836,7 @@ struct sctp_ulpevent *sctp_ulpevent_make_sender_dry_event(
+ 		return NULL;
+ 
+ 	skb = sctp_event2skb(event);
+-	sdry = (struct sctp_sender_dry_event *)
+-		skb_put(skb, sizeof(struct sctp_sender_dry_event));
++	sdry = skb_put(skb, sizeof(struct sctp_sender_dry_event));
+ 
+ 	sdry->sender_dry_type = SCTP_SENDER_DRY_EVENT;
+ 	sdry->sender_dry_flags = 0;
+@@ -869,7 +862,7 @@ struct sctp_ulpevent *sctp_ulpevent_make_stream_reset_event(
+ 		return NULL;
+ 
+ 	skb = sctp_event2skb(event);
+-	sreset = (struct sctp_stream_reset_event *)skb_put(skb, length);
++	sreset = skb_put(skb, length);
+ 
+ 	sreset->strreset_type = SCTP_STREAM_RESET_EVENT;
+ 	sreset->strreset_flags = flags;
+@@ -897,8 +890,7 @@ struct sctp_ulpevent *sctp_ulpevent_make_assoc_reset_event(
+ 		return NULL;
+ 
+ 	skb = sctp_event2skb(event);
+-	areset = (struct sctp_assoc_reset_event *)
+-		skb_put(skb, sizeof(struct sctp_assoc_reset_event));
++	areset = skb_put(skb, sizeof(struct sctp_assoc_reset_event));
+ 
+ 	areset->assocreset_type = SCTP_ASSOC_RESET_EVENT;
+ 	areset->assocreset_flags = flags;
+@@ -925,8 +917,7 @@ struct sctp_ulpevent *sctp_ulpevent_make_stream_change_event(
+ 		return NULL;
+ 
+ 	skb = sctp_event2skb(event);
+-	schange = (struct sctp_stream_change_event *)
+-		skb_put(skb, sizeof(struct sctp_stream_change_event));
++	schange = skb_put(skb, sizeof(struct sctp_stream_change_event));
+ 
+ 	schange->strchange_type = SCTP_STREAM_CHANGE_EVENT;
+ 	schange->strchange_flags = flags;
 diff --git a/net/vmw_vsock/virtio_transport_common.c b/net/vmw_vsock/virtio_transport_common.c
-index 18e24793659f..24e2054bfbaf 100644
+index 24e2054bfbaf..7d6ee03f2762 100644
 --- a/net/vmw_vsock/virtio_transport_common.c
 +++ b/net/vmw_vsock/virtio_transport_common.c
-@@ -132,12 +132,10 @@ static struct sk_buff *virtio_transport_build_skb(void *opaque)
- 		break;
- 	}
+@@ -99,7 +99,7 @@ static struct sk_buff *virtio_transport_build_skb(void *opaque)
+ 	if (!skb)
+ 		return NULL;
  
--	t_hdr = skb_put(skb, sizeof(pkt->hdr));
--	memcpy(t_hdr, &pkt->hdr, sizeof(pkt->hdr));
-+	t_hdr = skb_put_data(skb, &pkt->hdr, sizeof(pkt->hdr));
+-	hdr = (struct af_vsockmon_hdr *)skb_put(skb, sizeof(*hdr));
++	hdr = skb_put(skb, sizeof(*hdr));
  
- 	if (pkt->len) {
--		payload = skb_put(skb, pkt->len);
--		memcpy(payload, pkt->buf, pkt->len);
-+		payload = skb_put_data(skb, pkt->buf, pkt->len);
- 	}
- 
- 	return skb;
-diff --git a/net/x25/x25_subr.c b/net/x25/x25_subr.c
-index 6b5af65f491f..eb466ece1730 100644
---- a/net/x25/x25_subr.c
-+++ b/net/x25/x25_subr.c
-@@ -188,17 +188,14 @@ void x25_write_internal(struct sock *sk, int frametype)
- 			*dptr++ = X25_CALL_REQUEST;
- 			len     = x25_addr_aton(addresses, &x25->dest_addr,
- 						&x25->source_addr);
--			dptr    = skb_put(skb, len);
--			memcpy(dptr, addresses, len);
-+			dptr = skb_put_data(skb, addresses, len);
- 			len     = x25_create_facilities(facilities,
- 					&x25->facilities,
- 					&x25->dte_facilities,
- 					x25->neighbour->global_facil_mask);
--			dptr    = skb_put(skb, len);
--			memcpy(dptr, facilities, len);
--			dptr = skb_put(skb, x25->calluserdata.cudlength);
--			memcpy(dptr, x25->calluserdata.cuddata,
--			       x25->calluserdata.cudlength);
-+			dptr = skb_put_data(skb, facilities, len);
-+			dptr = skb_put_data(skb, x25->calluserdata.cuddata,
-+					    x25->calluserdata.cudlength);
- 			x25->calluserdata.cudlength = 0;
- 			break;
- 
-@@ -210,17 +207,15 @@ void x25_write_internal(struct sock *sk, int frametype)
- 							&x25->facilities,
- 							&x25->dte_facilities,
- 							x25->vc_facil_mask);
--			dptr    = skb_put(skb, len);
--			memcpy(dptr, facilities, len);
-+			dptr = skb_put_data(skb, facilities, len);
- 
- 			/* fast select with no restriction on response
- 				allows call user data. Userland must
- 				ensure it is ours and not theirs */
- 			if(x25->facilities.reverse & 0x80) {
--				dptr = skb_put(skb,
--					x25->calluserdata.cudlength);
--				memcpy(dptr, x25->calluserdata.cuddata,
--				       x25->calluserdata.cudlength);
-+				dptr = skb_put_data(skb,
-+						    x25->calluserdata.cuddata,
-+						    x25->calluserdata.cudlength);
- 			}
- 			x25->calluserdata.cudlength = 0;
- 			break;
+ 	/* pkt->hdr is little-endian so no need to byteswap here */
+ 	hdr->src_cid = pkt->hdr.src_cid;
 -- 
 2.11.0
