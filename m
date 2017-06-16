@@ -1,45 +1,55 @@
-From: Richard Kuo <rkuo@codeaurora.org>
-Subject: Re: [PATCH 31/44] hexagon: remove arch-specific dma_supported
- implementation
-Date: Thu, 15 Jun 2017 19:20:16 -0500
-Message-ID: <20170616002016.GB7343@codeaurora.org>
-References: <20170608132609.32662-1-hch@lst.de>
- <20170608132609.32662-32-hch@lst.de>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [PATCH v3 net-next 5/9] bpf: bnxt: Report bpf_prog ID during XDP_QUERY_PROG
+Date: Thu, 15 Jun 2017 17:29:13 -0700
+Message-ID: <20170616002917.2976329-6-kafai@fb.com>
+References: <20170616002917.2976329-1-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: x86@kernel.org, linux-arm-kernel@lists.infradead.org,
-        xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
-        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
-        linux-mips@linux-mips.org, openrisc@lists.librecores.org,
-        linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
-        linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
-        linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
-        linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
-        linux-samsung-soc@vger.kernel.org,
-        iommu@lists.linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Christoph Hellwig <hch@lst.de>
-Return-path: <linux-hexagon-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170608132609.32662-32-hch@lst.de>
-Sender: linux-hexagon-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>, <kernel-team@fb.com>,
+        Michael Chan <michael.chan@broadcom.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:39693 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751845AbdFPA3U (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2017 20:29:20 -0400
+Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5G0OwlM011879
+        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 17:29:20 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 2b42harcr5-2
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Thu, 15 Jun 2017 17:29:20 -0700
+Received: from facebook.com (2401:db00:11:d09a:face:0:41:0)     by
+ mx-out.facebook.com (2401:db00:2050:5102:face:0000:0037:0000) with ESMTP       id
+ d625a170522a11e78faa75369c678944-fc9368f0 for <netdev@vger.kernel.org>;        Thu,
+ 15 Jun 2017 17:29:19 -0700
+In-Reply-To: <20170616002917.2976329-1-kafai@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 08, 2017 at 03:25:56PM +0200, Christoph Hellwig wrote:
-> This implementation is simply bogus - hexagon only has a simple
-> direct mapped DMA implementation and thus doesn't care about the
-> address.
-> 
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
-> ---
->  arch/hexagon/include/asm/dma-mapping.h | 2 --
->  arch/hexagon/kernel/dma.c              | 9 ---------
->  2 files changed, 11 deletions(-)
-> 
+Add support to bnxt to report bpf_prog ID during XDP_QUERY_PROG.
 
-Acked-by: Richard Kuo <rkuo@codeaurora.org>
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Cc: Michael Chan <michael.chan@broadcom.com>
+Acked-by: Alexei Starovoitov <ast@fb.com>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c | 1 +
+ 1 file changed, 1 insertion(+)
 
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
+index 8ce793a0d030..7d67552e70d7 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
+@@ -218,6 +218,7 @@ int bnxt_xdp(struct net_device *dev, struct netdev_xdp *xdp)
+ 		break;
+ 	case XDP_QUERY_PROG:
+ 		xdp->prog_attached = !!bp->xdp_prog;
++		xdp->prog_id = bp->xdp_prog ? bp->xdp_prog->aux->id : 0;
+ 		rc = 0;
+ 		break;
+ 	default:
 -- 
-Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum, 
-a Linux Foundation Collaborative Project
+2.9.3
