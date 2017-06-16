@@ -1,98 +1,115 @@
-From: Serhey Popovych <serhe.popovych@gmail.com>
-Subject: fib_rules: Resolve goto rules target on delete
-Date: Fri, 16 Jun 2017 15:44:47 +0300
-Message-ID: <1497617087-26386-1-git-send-email-serhe.popovych@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f68.google.com ([209.85.215.68]:36810 "EHLO
-        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753500AbdFPMpA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 08:45:00 -0400
-Received: by mail-lf0-f68.google.com with SMTP id x81so4081959lfb.3
-        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 05:44:59 -0700 (PDT)
-Received: from tuxracer.synapse.com ([195.238.92.77])
-        by smtp.gmail.com with ESMTPSA id g41sm581520lfi.31.2017.06.16.05.44.57
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Fri, 16 Jun 2017 05:44:57 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH v2 03/11] tty: kbd: reduce stack size with KASAN
+Date: Fri, 16 Jun 2017 15:02:15 +0200
+Message-ID: <20170616130215.GC31057@kroah.com>
+References: <20170614211556.2062728-1-arnd@arndb.de>
+ <20170614211556.2062728-4-arnd@arndb.de>
+ <20170615045221.GA26687@kroah.com>
+ <20170615045347.GA26913@kroah.com>
+ <CAK8P3a32abgm7H7s=dOTkLus3K9o79hRJ31s0eyEVZW30E9p7g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+        kasan-dev <kasan-dev@googlegroups.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Andrey Ryabinin <aryabinin@virtuozzo.com>,
+        Networking <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Jiri Slaby <jslaby@suse.com>,
+        Samuel Thibault <samuel.thibault@ens-lyon.org>,
+        Dmitry Torokhov <dmitry.torokhov@gmail.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAK8P3a32abgm7H7s=dOTkLus3K9o79hRJ31s0eyEVZW30E9p7g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We should avoid marking goto rules unresolved when their
-target is actually reachable after rule deletion.
+On Fri, Jun 16, 2017 at 02:01:57PM +0200, Arnd Bergmann wrote:
+> On Thu, Jun 15, 2017 at 6:53 AM, Greg Kroah-Hartman
+> <gregkh@linuxfoundation.org> wrote:
+> > On Thu, Jun 15, 2017 at 06:52:21AM +0200, Greg Kroah-Hartman wrote:
+> >> On Wed, Jun 14, 2017 at 11:15:38PM +0200, Arnd Bergmann wrote:
+> >> > As reported by kernelci, some functions in the VT code use significant
+> >> > amounts of kernel stack when local variables get inlined into the caller
+> >> > multiple times:
+> >> >
+> >> > drivers/tty/vt/keyboard.c: In function 'kbd_keycode':
+> >> > drivers/tty/vt/keyboard.c:1452:1: error: the frame size of 2240 bytes is larger than 2048 bytes [-Werror=frame-larger-than=]
+> >> >
+> >> > Annotating those functions as noinline_if_stackbloat prevents the inlining
+> >> > and reduces the overall stack usage in this driver.
+> >> >
+> >> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> >> > ---
+> >> >  drivers/tty/vt/keyboard.c | 6 +++---
+> >> >  1 file changed, 3 insertions(+), 3 deletions(-)
+> >> >
+> >> > diff --git a/drivers/tty/vt/keyboard.c b/drivers/tty/vt/keyboard.c
+> >> > index f4166263bb3a..c0d111444a0e 100644
+> >> > --- a/drivers/tty/vt/keyboard.c
+> >> > +++ b/drivers/tty/vt/keyboard.c
+> >> > @@ -301,13 +301,13 @@ int kbd_rate(struct kbd_repeat *rpt)
+> >> >  /*
+> >> >   * Helper Functions.
+> >> >   */
+> >> > -static void put_queue(struct vc_data *vc, int ch)
+> >> > +static noinline_if_stackbloat void put_queue(struct vc_data *vc, int ch)
+> >> >  {
+> >> >     tty_insert_flip_char(&vc->port, ch, 0);
+> >> >     tty_schedule_flip(&vc->port);
+> >> >  }
+> >>
+> >> Ugh, really?  We have to start telling gcc not to be stupid here?
+> >> That's not going to be easy, and will just entail us doing this all over
+> >> the place, right?
+> >>
+> >> The code isn't asking to be inlined, so why is gcc allowing it to be
+> >> done that way?  Doesn't that imply gcc is the problem here?
+> >
+> > Wait, you are now, in this patch, _asking_ for it to be inlined.  How is
+> > that solving anything?
+> 
+> The three functions that gain the attribute are all those that gcc decided
+> to inline for itself. Usually gcc makes reasonable inlining decisions, so
+> I left the existing behavior my marking them as 'inline' without
+> CONFIG_KASAN and 'noinline' when KASAN is enabled.
 
-Consolder following sample scenario:
+But why should we have to care about this?  If gcc wanted to inline
+them, and it did so in a way that blows up the stack, that would be a
+gcc bug, right?  Why do I have to tell gcc "don't inline", when really,
+I never told it to inline it in the first place?
 
-  # ip -4 ru sh
-  0:      from all lookup local
-  32000:  from all goto 32100
-  32100:  from all lookup main
-  32100:  from all lookup default
-  32766:  from all lookup main
-  32767:  from all lookup default
+> Would you rather see this patch instead?
+> 
+> diff --git a/include/linux/tty_flip.h b/include/linux/tty_flip.h
+> index c28dd523f96e..25348c5ffcb7 100644
+> --- a/include/linux/tty_flip.h
+> +++ b/include/linux/tty_flip.h
+> @@ -13,8 +13,8 @@ extern int tty_prepare_flip_string(struct tty_port *port,
+>  extern void tty_flip_buffer_push(struct tty_port *port);
+>  void tty_schedule_flip(struct tty_port *port);
+> 
+> -static inline int tty_insert_flip_char(struct tty_port *port,
+> -                                       unsigned char ch, char flag)
+> +static noinline_if_stackbloat int
+> +tty_insert_flip_char(struct tty_port *port, unsigned char ch, char flag)
+>  {
+>         struct tty_buffer *tb = port->buf.tail;
+>         int change;
+> 
+> This is just as good at eliminating the crazy stack usage in vt/keyboard.o,
+> but it will also impact all other users of that function.
 
-  # ip -4 ru del pref 32100 table main
-  # ip -4 ru sh
-  0:      from all lookup local
-  32000:  from all goto 32100 [unresolved]
-  32100:  from all lookup default
-  32766:  from all lookup main
-  32767:  from all lookup default
+How is this function blowing up the stack?  We have 2 variables being
+added, that's it.  Are we really that low on stack that 2 words is too
+much?
 
-After removal of first rule with preference 32100 we
-mark all goto rules as unreachable, even when rule with
-same preference as removed one still present.
+And no, we shouldn't need to do this.  It sounds like ksan is the
+problem here...
 
-Check if next rule with same preference is available
-and make all rules with goto action pointing to it.
+thanks,
 
-Signed-off-by: Serhey Popovych <serhe.popovych@gmail.com>
----
- net/core/fib_rules.c | 21 ++++++++++++++-------
- 1 file changed, 14 insertions(+), 7 deletions(-)
-
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index f21c4d3..3bba291 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -568,7 +568,7 @@ int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	struct net *net = sock_net(skb->sk);
- 	struct fib_rule_hdr *frh = nlmsg_data(nlh);
- 	struct fib_rules_ops *ops = NULL;
--	struct fib_rule *rule, *tmp;
-+	struct fib_rule *rule, *r;
- 	struct nlattr *tb[FRA_MAX+1];
- 	struct fib_kuid_range range;
- 	int err = -EINVAL;
-@@ -668,16 +668,23 @@ int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr *nlh,
- 
- 		/*
- 		 * Check if this rule is a target to any of them. If so,
-+		 * adjust to the next one with the same preference or
- 		 * disable them. As this operation is eventually very
--		 * expensive, it is only performed if goto rules have
--		 * actually been added.
-+		 * expensive, it is only performed if goto rules, except
-+		 * current if it is goto rule, have actually been added.
- 		 */
- 		if (ops->nr_goto_rules > 0) {
--			list_for_each_entry(tmp, &ops->rules_list, list) {
--				if (rtnl_dereference(tmp->ctarget) == rule) {
--					RCU_INIT_POINTER(tmp->ctarget, NULL);
-+			struct fib_rule *n;
-+
-+			n = list_next_entry(rule, list);
-+			if (&n->list == &ops->rules_list || n->pref != rule->pref)
-+				n = NULL;
-+			list_for_each_entry(r, &ops->rules_list, list) {
-+				if (rtnl_dereference(r->ctarget) != rule)
-+					continue;
-+				rcu_assign_pointer(r->ctarget, n);
-+				if (!n)
- 					ops->unresolved_rules++;
--				}
- 			}
- 		}
- 
--- 
-1.8.3.1
+greg k-h
