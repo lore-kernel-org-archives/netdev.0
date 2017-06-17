@@ -1,95 +1,35 @@
-From: Wei Wang <tracywwnj@gmail.com>
-Subject: [PATCH v2 net-next 07/21] ipv4: call dst_dev_put() properly
-Date: Sat, 17 Jun 2017 10:42:30 -0700
-Message-ID: <20170617174244.132862-8-tracywwnj@gmail.com>
-References: <20170617174244.132862-1-tracywwnj@gmail.com>
-Cc: Eric Dumazet <edumazet@google.com>,
-        Martin KaFai Lau <kafai@fb.com>, Wei Wang <weiwan@google.com>
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next] net: dsa: Fix legacy probing
+Date: Sat, 17 Jun 2017 13:52:04 -0400
+Message-ID: <87d1a2pkmz.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170616234211.20341-1-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: davem@davemloft.net, andrew@lunn.ch, jcobham@questertangent.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:34084 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752502AbdFQRni (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Jun 2017 13:43:38 -0400
-Received: by mail-pg0-f67.google.com with SMTP id j186so10593175pge.1
-        for <netdev@vger.kernel.org>; Sat, 17 Jun 2017 10:43:38 -0700 (PDT)
-In-Reply-To: <20170617174244.132862-1-tracywwnj@gmail.com>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:46306 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752125AbdFQRyU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 17 Jun 2017 13:54:20 -0400
+In-Reply-To: <20170616234211.20341-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Wang <weiwan@google.com>
+Florian Fainelli <f.fainelli@gmail.com> writes:
 
-As the intend of this patch series is to completely remove dst gc,
-we need to call dst_dev_put() to release the reference to dst->dev
-when removing routes from fib because we won't keep the gc list anymore
-and will lose the dst pointer right after removing the routes.
-Without the gc list, there is no way to find all the dst's that have
-dst->dev pointing to the going-down dev.
-Hence, we are doing dst_dev_put() immediately before we lose the last
-reference of the dst from the routing code. The next dst_check() will
-trigger a route re-lookup to find another route (if there is any).
+> After commit 6d3c8c0dd88a ("net: dsa: Remove master_netdev and
+> use dst->cpu_dp->netdev") and a29342e73911 ("net: dsa: Associate
+> slave network device with CPU port") we would be seeing NULL pointer
+> dereferences when accessing dst->cpu_dp->netdev too early. In the legacy
+> code, we actually know early in advance the master network device, so
+> pass it down to the relevant functions.
+>
+> Fixes: 6d3c8c0dd88a ("net: dsa: Remove master_netdev and use dst->cpu_dp->netdev")
+> Fixes: a29342e73911 ("net: dsa: Associate slave network device with CPU port")
+> Reported-by: Jason Cobham <jcobham@questertangent.com>
+> Tested-by: Jason Cobham <jcobham@questertangent.com>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Signed-off-by: Wei Wang <weiwan@google.com>
-Acked-by: Martin KaFai Lau <kafai@fb.com>
----
- net/ipv4/fib_semantics.c | 2 ++
- net/ipv4/route.c         | 4 ++++
- 2 files changed, 6 insertions(+)
-
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 53b3e9c2da4c..f163fa0a1164 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -152,6 +152,7 @@ static void rt_fibinfo_free(struct rtable __rcu **rtp)
- 	 * free_fib_info_rcu()
- 	 */
- 
-+	dst_dev_put(&rt->dst);
- 	dst_release(&rt->dst);
- 	dst_free(&rt->dst);
- }
-@@ -196,6 +197,7 @@ static void rt_fibinfo_free_cpus(struct rtable __rcu * __percpu *rtp)
- 
- 		rt = rcu_dereference_protected(*per_cpu_ptr(rtp, cpu), 1);
- 		if (rt) {
-+			dst_dev_put(&rt->dst);
- 			dst_release(&rt->dst);
- 			dst_free(&rt->dst);
- 		}
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 3dee0043117e..d986d80258d2 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -603,12 +603,14 @@ static void fnhe_flush_routes(struct fib_nh_exception *fnhe)
- 	rt = rcu_dereference(fnhe->fnhe_rth_input);
- 	if (rt) {
- 		RCU_INIT_POINTER(fnhe->fnhe_rth_input, NULL);
-+		dst_dev_put(&rt->dst);
- 		dst_release(&rt->dst);
- 		rt_free(rt);
- 	}
- 	rt = rcu_dereference(fnhe->fnhe_rth_output);
- 	if (rt) {
- 		RCU_INIT_POINTER(fnhe->fnhe_rth_output, NULL);
-+		dst_dev_put(&rt->dst);
- 		dst_release(&rt->dst);
- 		rt_free(rt);
- 	}
-@@ -1337,6 +1339,7 @@ static bool rt_bind_exception(struct rtable *rt, struct fib_nh_exception *fnhe,
- 			dst_hold(&rt->dst);
- 			rcu_assign_pointer(*porig, rt);
- 			if (orig) {
-+				dst_dev_put(&orig->dst);
- 				dst_release(&orig->dst);
- 				rt_free(orig);
- 			}
-@@ -1369,6 +1372,7 @@ static bool rt_cache_route(struct fib_nh *nh, struct rtable *rt)
- 	prev = cmpxchg(p, orig, rt);
- 	if (prev == orig) {
- 		if (orig) {
-+			dst_dev_put(&orig->dst);
- 			dst_release(&orig->dst);
- 			rt_free(orig);
- 		}
--- 
-2.13.1.518.g3df882009-goog
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
