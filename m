@@ -1,259 +1,323 @@
 From: Wei Wang <tracywwnj@gmail.com>
-Subject: [PATCH v2 net-next 19/21] net: remove DST_NOCACHE flag
-Date: Sat, 17 Jun 2017 10:42:42 -0700
-Message-ID: <20170617174244.132862-20-tracywwnj@gmail.com>
+Subject: [PATCH v2 net-next 17/21] net: remove dst gc related code
+Date: Sat, 17 Jun 2017 10:42:40 -0700
+Message-ID: <20170617174244.132862-18-tracywwnj@gmail.com>
 References: <20170617174244.132862-1-tracywwnj@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
         Martin KaFai Lau <kafai@fb.com>, Wei Wang <weiwan@google.com>
 To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35011 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752824AbdFQRny (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Jun 2017 13:43:54 -0400
-Received: by mail-pf0-f193.google.com with SMTP id s66so11093670pfs.2
-        for <netdev@vger.kernel.org>; Sat, 17 Jun 2017 10:43:54 -0700 (PDT)
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35923 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752755AbdFQRnx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 17 Jun 2017 13:43:53 -0400
+Received: by mail-pg0-f65.google.com with SMTP id e187so1835408pgc.3
+        for <netdev@vger.kernel.org>; Sat, 17 Jun 2017 10:43:52 -0700 (PDT)
 In-Reply-To: <20170617174244.132862-1-tracywwnj@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Wei Wang <weiwan@google.com>
 
-DST_NOCACHE flag check has been removed from dst_release() and
-dst_hold_safe() in a previous patch because all the dst are now ref
-counted properly and can be released based on refcnt only.
-Looking at the rest of the DST_NOCACHE use, all of them can now be
-removed or replaced with other checks.
-So this patch gets rid of all the DST_NOCACHE usage and remove this flag
-completely.
+This patch removes all dst gc related code and all the dst free
+functions
 
 Signed-off-by: Wei Wang <weiwan@google.com>
 Acked-by: Martin KaFai Lau <kafai@fb.com>
 ---
- drivers/net/vrf.c      |  2 +-
- include/net/dst.h      |  1 -
- include/net/ip6_fib.h  |  2 +-
- net/core/dst.c         |  2 +-
- net/ipv4/route.c       | 23 +++++++++++------------
- net/ipv6/ip6_fib.c     |  4 +---
- net/ipv6/route.c       |  7 ++-----
- net/xfrm/xfrm_policy.c |  1 -
- 8 files changed, 17 insertions(+), 25 deletions(-)
+ include/net/dst.h |  21 ------
+ net/core/dev.c    |   1 -
+ net/core/dst.c    | 213 ------------------------------------------------------
+ 3 files changed, 235 deletions(-)
 
-diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-index d038927acfca..997ef25189fd 100644
---- a/drivers/net/vrf.c
-+++ b/drivers/net/vrf.c
-@@ -563,7 +563,7 @@ static void vrf_rt6_release(struct net_device *dev, struct net_vrf *vrf)
- 
- static int vrf_rt6_create(struct net_device *dev)
- {
--	int flags = DST_HOST | DST_NOPOLICY | DST_NOXFRM | DST_NOCACHE;
-+	int flags = DST_HOST | DST_NOPOLICY | DST_NOXFRM;
- 	struct net_vrf *vrf = netdev_priv(dev);
- 	struct net *net = dev_net(dev);
- 	struct fib6_table *rt6i_table;
 diff --git a/include/net/dst.h b/include/net/dst.h
-index 1be82f672c37..642483ed4edf 100644
+index 88ebb87ad312..0c56d1fc4d7f 100644
 --- a/include/net/dst.h
 +++ b/include/net/dst.h
-@@ -51,7 +51,6 @@ struct dst_entry {
- #define DST_HOST		0x0001
- #define DST_NOXFRM		0x0002
- #define DST_NOPOLICY		0x0004
--#define DST_NOCACHE		0x0010
- #define DST_NOCOUNT		0x0020
- #define DST_FAKE_RTABLE		0x0040
- #define DST_XFRM_TUNNEL		0x0080
-diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index aa50e2e6fa2a..1a88008cc6f5 100644
---- a/include/net/ip6_fib.h
-+++ b/include/net/ip6_fib.h
-@@ -170,7 +170,7 @@ static inline void rt6_update_expires(struct rt6_info *rt0, int timeout)
- static inline u32 rt6_get_cookie(const struct rt6_info *rt)
- {
- 	if (rt->rt6i_flags & RTF_PCPU ||
--	    (unlikely(rt->dst.flags & DST_NOCACHE) && rt->dst.from))
-+	    (unlikely(!list_empty(&rt->rt6i_uncached)) && rt->dst.from))
- 		rt = (struct rt6_info *)(rt->dst.from);
+@@ -425,28 +425,9 @@ void *dst_alloc(struct dst_ops *ops, struct net_device *dev, int initial_ref,
+ void dst_init(struct dst_entry *dst, struct dst_ops *ops,
+ 	      struct net_device *dev, int initial_ref, int initial_obsolete,
+ 	      unsigned short flags);
+-void __dst_free(struct dst_entry *dst);
+ struct dst_entry *dst_destroy(struct dst_entry *dst);
+ void dst_dev_put(struct dst_entry *dst);
  
- 	return rt->rt6i_node ? rt->rt6i_node->fn_sernum : 0;
+-static inline void dst_free(struct dst_entry *dst)
+-{
+-	if (dst->obsolete > 0)
+-		return;
+-	if (!atomic_read(&dst->__refcnt)) {
+-		dst = dst_destroy(dst);
+-		if (!dst)
+-			return;
+-	}
+-	__dst_free(dst);
+-}
+-
+-static inline void dst_rcu_free(struct rcu_head *head)
+-{
+-	struct dst_entry *dst = container_of(head, struct dst_entry, rcu_head);
+-	dst_free(dst);
+-}
+-
+ static inline void dst_confirm(struct dst_entry *dst)
+ {
+ }
+@@ -508,8 +489,6 @@ static inline struct dst_entry *dst_check(struct dst_entry *dst, u32 cookie)
+ 	return dst;
+ }
+ 
+-void dst_subsys_init(void);
+-
+ /* Flags for xfrm_lookup flags argument. */
+ enum {
+ 	XFRM_LOOKUP_ICMP = 1 << 0,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index b8d6dd9e8b5c..5d1830b8d2cf 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -8681,7 +8681,6 @@ static int __init net_dev_init(void)
+ 	rc = cpuhp_setup_state_nocalls(CPUHP_NET_DEV_DEAD, "net/dev:dead",
+ 				       NULL, dev_cpu_dead);
+ 	WARN_ON(rc < 0);
+-	dst_subsys_init();
+ 	rc = 0;
+ out:
+ 	return rc;
 diff --git a/net/core/dst.c b/net/core/dst.c
-index 70543dabb797..f851adb9ec9b 100644
+index 64056ecca5b8..30bea01d2262 100644
 --- a/net/core/dst.c
 +++ b/net/core/dst.c
-@@ -270,7 +270,7 @@ static void __metadata_dst_init(struct metadata_dst *md_dst, u8 optslen)
- 
- 	dst = &md_dst->dst;
- 	dst_init(dst, &md_dst_ops, NULL, 1, DST_OBSOLETE_NONE,
--		 DST_METADATA | DST_NOCACHE | DST_NOCOUNT);
-+		 DST_METADATA | DST_NOCOUNT);
- 
- 	dst->input = dst_md_discard;
- 	dst->output = dst_md_discard_out;
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 9a0f496f8bf4..c816cd53f7fc 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1299,7 +1299,7 @@ static struct fib_nh_exception *find_exception(struct fib_nh *nh, __be32 daddr)
- }
- 
- static bool rt_bind_exception(struct rtable *rt, struct fib_nh_exception *fnhe,
--			      __be32 daddr)
-+			      __be32 daddr, const bool do_cache)
- {
- 	bool ret = false;
- 
-@@ -1328,7 +1328,7 @@ static bool rt_bind_exception(struct rtable *rt, struct fib_nh_exception *fnhe,
- 		if (!rt->rt_gateway)
- 			rt->rt_gateway = daddr;
- 
--		if (!(rt->dst.flags & DST_NOCACHE)) {
-+		if (do_cache) {
- 			dst_hold(&rt->dst);
- 			rcu_assign_pointer(*porig, rt);
- 			if (orig) {
-@@ -1441,7 +1441,8 @@ static bool rt_cache_valid(const struct rtable *rt)
- static void rt_set_nexthop(struct rtable *rt, __be32 daddr,
- 			   const struct fib_result *res,
- 			   struct fib_nh_exception *fnhe,
--			   struct fib_info *fi, u16 type, u32 itag)
-+			   struct fib_info *fi, u16 type, u32 itag,
-+			   const bool do_cache)
- {
- 	bool cached = false;
- 
-@@ -1462,8 +1463,8 @@ static void rt_set_nexthop(struct rtable *rt, __be32 daddr,
- #endif
- 		rt->dst.lwtstate = lwtstate_get(nh->nh_lwtstate);
- 		if (unlikely(fnhe))
--			cached = rt_bind_exception(rt, fnhe, daddr);
--		else if (!(rt->dst.flags & DST_NOCACHE))
-+			cached = rt_bind_exception(rt, fnhe, daddr, do_cache);
-+		else if (do_cache)
- 			cached = rt_cache_route(nh, rt);
- 		if (unlikely(!cached)) {
- 			/* Routes we intend to cache in nexthop exception or
-@@ -1471,7 +1472,6 @@ static void rt_set_nexthop(struct rtable *rt, __be32 daddr,
- 			 * However, if we are unsuccessful at storing this
- 			 * route into the cache we really need to set it.
- 			 */
--			rt->dst.flags |= DST_NOCACHE;
- 			if (!rt->rt_gateway)
- 				rt->rt_gateway = daddr;
- 			rt_add_uncached_list(rt);
-@@ -1494,7 +1494,7 @@ struct rtable *rt_dst_alloc(struct net_device *dev,
- 	struct rtable *rt;
- 
- 	rt = dst_alloc(&ipv4_dst_ops, dev, 1, DST_OBSOLETE_FORCE_CHK,
--		       (will_cache ? 0 : (DST_HOST | DST_NOCACHE)) |
-+		       (will_cache ? 0 : DST_HOST) |
- 		       (nopolicy ? DST_NOPOLICY : 0) |
- 		       (noxfrm ? DST_NOXFRM : 0));
- 
-@@ -1738,7 +1738,8 @@ static int __mkroute_input(struct sk_buff *skb,
- 
- 	rth->dst.input = ip_forward;
- 
--	rt_set_nexthop(rth, daddr, res, fnhe, res->fi, res->type, itag);
-+	rt_set_nexthop(rth, daddr, res, fnhe, res->fi, res->type, itag,
-+		       do_cache);
- 	set_lwt_redirect(rth);
- 	skb_dst_set(skb, &rth->dst);
- out:
-@@ -2026,10 +2027,8 @@ out:	return err;
- 			rth->dst.input = lwtunnel_input;
- 		}
- 
--		if (unlikely(!rt_cache_route(nh, rth))) {
--			rth->dst.flags |= DST_NOCACHE;
-+		if (unlikely(!rt_cache_route(nh, rth)))
- 			rt_add_uncached_list(rth);
+@@ -42,108 +42,6 @@
+  * to dirty as few cache lines as possible in __dst_free().
+  * As this is not a very strong hint, we dont force an alignment on SMP.
+  */
+-static struct {
+-	spinlock_t		lock;
+-	struct dst_entry	*list;
+-	unsigned long		timer_inc;
+-	unsigned long		timer_expires;
+-} dst_garbage = {
+-	.lock = __SPIN_LOCK_UNLOCKED(dst_garbage.lock),
+-	.timer_inc = DST_GC_MAX,
+-};
+-static void dst_gc_task(struct work_struct *work);
+-static void ___dst_free(struct dst_entry *dst);
+-
+-static DECLARE_DELAYED_WORK(dst_gc_work, dst_gc_task);
+-
+-static DEFINE_MUTEX(dst_gc_mutex);
+-/*
+- * long lived entries are maintained in this list, guarded by dst_gc_mutex
+- */
+-static struct dst_entry         *dst_busy_list;
+-
+-static void dst_gc_task(struct work_struct *work)
+-{
+-	int    delayed = 0;
+-	int    work_performed = 0;
+-	unsigned long expires = ~0L;
+-	struct dst_entry *dst, *next, head;
+-	struct dst_entry *last = &head;
+-
+-	mutex_lock(&dst_gc_mutex);
+-	next = dst_busy_list;
+-
+-loop:
+-	while ((dst = next) != NULL) {
+-		next = dst->next;
+-		prefetch(&next->next);
+-		cond_resched();
+-		if (likely(atomic_read(&dst->__refcnt))) {
+-			last->next = dst;
+-			last = dst;
+-			delayed++;
+-			continue;
 -		}
- 	}
- 	skb_dst_set(skb, &rth->dst);
- 	err = 0;
-@@ -2260,7 +2259,7 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
- #endif
- 	}
- 
--	rt_set_nexthop(rth, fl4->daddr, res, fnhe, fi, type, 0);
-+	rt_set_nexthop(rth, fl4->daddr, res, fnhe, fi, type, 0, do_cache);
- 	set_lwt_redirect(rth);
- 
- 	return rth;
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index c67ec79bf0da..4f3e4657f2d6 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -975,8 +975,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt,
- 	int replace_required = 0;
- 	int sernum = fib6_new_sernum(info->nl_net);
- 
--	if (WARN_ON_ONCE((rt->dst.flags & DST_NOCACHE) &&
--			 !atomic_read(&rt->dst.__refcnt)))
-+	if (WARN_ON_ONCE(!atomic_read(&rt->dst.__refcnt)))
- 		return -EINVAL;
- 
- 	if (info->nlh) {
-@@ -1073,7 +1072,6 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt,
- 		fib6_start_gc(info->nl_net, rt);
- 		if (!(rt->rt6i_flags & RTF_CACHE))
- 			fib6_prune_clones(info->nl_net, pn);
--		rt->dst.flags &= ~DST_NOCACHE;
- 	}
- 
- out:
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 6b6528fa3292..2e4490076061 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -128,7 +128,6 @@ static void rt6_uncached_list_add(struct rt6_info *rt)
+-		work_performed++;
+-
+-		dst = dst_destroy(dst);
+-		if (dst) {
+-			/* NOHASH and still referenced. Unless it is already
+-			 * on gc list, invalidate it and add to gc list.
+-			 *
+-			 * Note: this is temporary. Actually, NOHASH dst's
+-			 * must be obsoleted when parent is obsoleted.
+-			 * But we do not have state "obsoleted, but
+-			 * referenced by parent", so it is right.
+-			 */
+-			if (dst->obsolete > 0)
+-				continue;
+-
+-			___dst_free(dst);
+-			dst->next = next;
+-			next = dst;
+-		}
+-	}
+-
+-	spin_lock_bh(&dst_garbage.lock);
+-	next = dst_garbage.list;
+-	if (next) {
+-		dst_garbage.list = NULL;
+-		spin_unlock_bh(&dst_garbage.lock);
+-		goto loop;
+-	}
+-	last->next = NULL;
+-	dst_busy_list = head.next;
+-	if (!dst_busy_list)
+-		dst_garbage.timer_inc = DST_GC_MAX;
+-	else {
+-		/*
+-		 * if we freed less than 1/10 of delayed entries,
+-		 * we can sleep longer.
+-		 */
+-		if (work_performed <= delayed/10) {
+-			dst_garbage.timer_expires += dst_garbage.timer_inc;
+-			if (dst_garbage.timer_expires > DST_GC_MAX)
+-				dst_garbage.timer_expires = DST_GC_MAX;
+-			dst_garbage.timer_inc += DST_GC_INC;
+-		} else {
+-			dst_garbage.timer_inc = DST_GC_INC;
+-			dst_garbage.timer_expires = DST_GC_MIN;
+-		}
+-		expires = dst_garbage.timer_expires;
+-		/*
+-		 * if the next desired timer is more than 4 seconds in the
+-		 * future then round the timer to whole seconds
+-		 */
+-		if (expires > 4*HZ)
+-			expires = round_jiffies_relative(expires);
+-		schedule_delayed_work(&dst_gc_work, expires);
+-	}
+-
+-	spin_unlock_bh(&dst_garbage.lock);
+-	mutex_unlock(&dst_gc_mutex);
+-}
+-
+ int dst_discard_out(struct net *net, struct sock *sk, struct sk_buff *skb)
  {
- 	struct uncached_list *ul = raw_cpu_ptr(&rt6_uncached_list);
- 
--	rt->dst.flags |= DST_NOCACHE;
- 	rt->rt6i_uncached_list = ul;
- 
- 	spin_lock_bh(&ul->lock);
-@@ -1326,7 +1325,7 @@ static struct dst_entry *ip6_dst_check(struct dst_entry *dst, u32 cookie)
- 	rt6_dst_from_metrics_check(rt);
- 
- 	if (rt->rt6i_flags & RTF_PCPU ||
--	    (unlikely(dst->flags & DST_NOCACHE) && rt->dst.from))
-+	    (unlikely(!list_empty(&rt->rt6i_uncached)) && rt->dst.from))
- 		return rt6_dst_from_check(rt, cookie);
- 	else
- 		return rt6_check(rt, cookie);
-@@ -2130,8 +2129,7 @@ static int __ip6_del_rt(struct rt6_info *rt, struct nl_info *info)
- 	struct fib6_table *table;
- 	struct net *net = dev_net(rt->dst.dev);
- 
--	if (rt == net->ipv6.ip6_null_entry ||
--	    rt->dst.flags & DST_NOCACHE) {
-+	if (rt == net->ipv6.ip6_null_entry) {
- 		err = -ENOENT;
- 		goto out;
- 	}
-@@ -2722,7 +2720,6 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
- 	rt->rt6i_dst.plen = 128;
- 	tb_id = l3mdev_fib_table(idev->dev) ? : RT6_TABLE_LOCAL;
- 	rt->rt6i_table = fib6_get_table(net, tb_id);
--	rt->dst.flags |= DST_NOCACHE;
- 
- 	return rt;
+ 	kfree_skb(skb);
+@@ -216,34 +114,6 @@ void *dst_alloc(struct dst_ops *ops, struct net_device *dev,
  }
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 3f7e77f11112..af8e38f47b5b 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -2231,7 +2231,6 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
- 			}
+ EXPORT_SYMBOL(dst_alloc);
  
- 			dst_hold(&xdst->u.dst);
--			xdst->u.dst.flags |= DST_NOCACHE;
- 			route = xdst->route;
- 		}
- 	}
+-static void ___dst_free(struct dst_entry *dst)
+-{
+-	/* The first case (dev==NULL) is required, when
+-	   protocol module is unloaded.
+-	 */
+-	if (dst->dev == NULL || !(dst->dev->flags&IFF_UP)) {
+-		dst->input = dst_discard;
+-		dst->output = dst_discard_out;
+-	}
+-	dst->obsolete = DST_OBSOLETE_DEAD;
+-}
+-
+-void __dst_free(struct dst_entry *dst)
+-{
+-	spin_lock_bh(&dst_garbage.lock);
+-	___dst_free(dst);
+-	dst->next = dst_garbage.list;
+-	dst_garbage.list = dst;
+-	if (dst_garbage.timer_inc > DST_GC_INC) {
+-		dst_garbage.timer_inc = DST_GC_INC;
+-		dst_garbage.timer_expires = DST_GC_MIN;
+-		mod_delayed_work(system_wq, &dst_gc_work,
+-				 dst_garbage.timer_expires);
+-	}
+-	spin_unlock_bh(&dst_garbage.lock);
+-}
+-EXPORT_SYMBOL(__dst_free);
+-
+ struct dst_entry *dst_destroy(struct dst_entry * dst)
+ {
+ 	struct dst_entry *child;
+@@ -448,86 +318,3 @@ struct metadata_dst __percpu *metadata_dst_alloc_percpu(u8 optslen, gfp_t flags)
+ 	return md_dst;
+ }
+ EXPORT_SYMBOL_GPL(metadata_dst_alloc_percpu);
+-
+-/* Dirty hack. We did it in 2.2 (in __dst_free),
+- * we have _very_ good reasons not to repeat
+- * this mistake in 2.3, but we have no choice
+- * now. _It_ _is_ _explicit_ _deliberate_
+- * _race_ _condition_.
+- *
+- * Commented and originally written by Alexey.
+- */
+-static void dst_ifdown(struct dst_entry *dst, struct net_device *dev,
+-		       int unregister)
+-{
+-	if (dst->ops->ifdown)
+-		dst->ops->ifdown(dst, dev, unregister);
+-
+-	if (dev != dst->dev)
+-		return;
+-
+-	if (!unregister) {
+-		dst->input = dst_discard;
+-		dst->output = dst_discard_out;
+-	} else {
+-		dst->dev = dev_net(dst->dev)->loopback_dev;
+-		dev_hold(dst->dev);
+-		dev_put(dev);
+-	}
+-}
+-
+-static int dst_dev_event(struct notifier_block *this, unsigned long event,
+-			 void *ptr)
+-{
+-	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+-	struct dst_entry *dst, *last = NULL;
+-
+-	switch (event) {
+-	case NETDEV_UNREGISTER_FINAL:
+-	case NETDEV_DOWN:
+-		mutex_lock(&dst_gc_mutex);
+-		for (dst = dst_busy_list; dst; dst = dst->next) {
+-			last = dst;
+-			dst_ifdown(dst, dev, event != NETDEV_DOWN);
+-		}
+-
+-		spin_lock_bh(&dst_garbage.lock);
+-		dst = dst_garbage.list;
+-		dst_garbage.list = NULL;
+-		/* The code in dst_ifdown places a hold on the loopback device.
+-		 * If the gc entry processing is set to expire after a lengthy
+-		 * interval, this hold can cause netdev_wait_allrefs() to hang
+-		 * out and wait for a long time -- until the the loopback
+-		 * interface is released.  If we're really unlucky, it'll emit
+-		 * pr_emerg messages to console too.  Reset the interval here,
+-		 * so dst cleanups occur in a more timely fashion.
+-		 */
+-		if (dst_garbage.timer_inc > DST_GC_INC) {
+-			dst_garbage.timer_inc = DST_GC_INC;
+-			dst_garbage.timer_expires = DST_GC_MIN;
+-			mod_delayed_work(system_wq, &dst_gc_work,
+-					 dst_garbage.timer_expires);
+-		}
+-		spin_unlock_bh(&dst_garbage.lock);
+-
+-		if (last)
+-			last->next = dst;
+-		else
+-			dst_busy_list = dst;
+-		for (; dst; dst = dst->next)
+-			dst_ifdown(dst, dev, event != NETDEV_DOWN);
+-		mutex_unlock(&dst_gc_mutex);
+-		break;
+-	}
+-	return NOTIFY_DONE;
+-}
+-
+-static struct notifier_block dst_dev_notifier = {
+-	.notifier_call	= dst_dev_event,
+-	.priority = -10, /* must be called after other network notifiers */
+-};
+-
+-void __init dst_subsys_init(void)
+-{
+-	register_netdevice_notifier(&dst_dev_notifier);
+-}
 -- 
 2.13.1.518.g3df882009-goog
