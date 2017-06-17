@@ -1,78 +1,95 @@
 From: Wei Wang <tracywwnj@gmail.com>
-Subject: [PATCH v2 net-next 08/21] ipv4: call dst_hold_safe() properly
-Date: Sat, 17 Jun 2017 10:42:31 -0700
-Message-ID: <20170617174244.132862-9-tracywwnj@gmail.com>
+Subject: [PATCH v2 net-next 07/21] ipv4: call dst_dev_put() properly
+Date: Sat, 17 Jun 2017 10:42:30 -0700
+Message-ID: <20170617174244.132862-8-tracywwnj@gmail.com>
 References: <20170617174244.132862-1-tracywwnj@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
         Martin KaFai Lau <kafai@fb.com>, Wei Wang <weiwan@google.com>
 To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:36198 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752653AbdFQRnj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Jun 2017 13:43:39 -0400
-Received: by mail-pf0-f193.google.com with SMTP id y7so11097011pfd.3
-        for <netdev@vger.kernel.org>; Sat, 17 Jun 2017 10:43:39 -0700 (PDT)
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:34084 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752502AbdFQRni (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 17 Jun 2017 13:43:38 -0400
+Received: by mail-pg0-f67.google.com with SMTP id j186so10593175pge.1
+        for <netdev@vger.kernel.org>; Sat, 17 Jun 2017 10:43:38 -0700 (PDT)
 In-Reply-To: <20170617174244.132862-1-tracywwnj@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Wei Wang <weiwan@google.com>
 
-This patch checks all the calls to
-dst_hold()/skb_dst_force()/dst_clone()/dst_use() to see if
-dst_hold_safe() is needed to avoid double free issue if dst
-gc is removed and dst_release() directly destroys dst when
-dst->__refcnt drops to 0.
-
-In tx path, TCP hold sk->sk_rx_dst ref count and also hold sock_lock().
-UDP and other similar protocols always hold refcount for
-skb->_skb_refdst. So both paths seem to be safe.
-
-In rx path, as it is lockless and skb_dst_set_noref() is likely to be
-used, dst_hold_safe() should always be used when trying to hold dst.
-
-In the routing code, if dst is held during an rcu protected session, it
-is necessary to call dst_hold_safe() as the current dst might be in its
-rcu grace period.
+As the intend of this patch series is to completely remove dst gc,
+we need to call dst_dev_put() to release the reference to dst->dev
+when removing routes from fib because we won't keep the gc list anymore
+and will lose the dst pointer right after removing the routes.
+Without the gc list, there is no way to find all the dst's that have
+dst->dev pointing to the going-down dev.
+Hence, we are doing dst_dev_put() immediately before we lose the last
+reference of the dst from the routing code. The next dst_check() will
+trigger a route re-lookup to find another route (if there is any).
 
 Signed-off-by: Wei Wang <weiwan@google.com>
 Acked-by: Martin KaFai Lau <kafai@fb.com>
 ---
- include/net/route.h | 4 +++-
- net/ipv4/route.c    | 4 +---
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ net/ipv4/fib_semantics.c | 2 ++
+ net/ipv4/route.c         | 4 ++++
+ 2 files changed, 6 insertions(+)
 
-diff --git a/include/net/route.h b/include/net/route.h
-index 08e689f23365..cb0a76d9dde1 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -190,7 +190,9 @@ static inline int ip_route_input(struct sk_buff *skb, __be32 dst, __be32 src,
- 	rcu_read_lock();
- 	err = ip_route_input_noref(skb, dst, src, tos, devin);
- 	if (!err)
--		skb_dst_force(skb);
-+		skb_dst_force_safe(skb);
-+	if (!skb_dst(skb))
-+		err = -EINVAL;
- 	rcu_read_unlock();
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 53b3e9c2da4c..f163fa0a1164 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -152,6 +152,7 @@ static void rt_fibinfo_free(struct rtable __rcu **rtp)
+ 	 * free_fib_info_rcu()
+ 	 */
  
- 	return err;
++	dst_dev_put(&rt->dst);
+ 	dst_release(&rt->dst);
+ 	dst_free(&rt->dst);
+ }
+@@ -196,6 +197,7 @@ static void rt_fibinfo_free_cpus(struct rtable __rcu * __percpu *rtp)
+ 
+ 		rt = rcu_dereference_protected(*per_cpu_ptr(rtp, cpu), 1);
+ 		if (rt) {
++			dst_dev_put(&rt->dst);
+ 			dst_release(&rt->dst);
+ 			dst_free(&rt->dst);
+ 		}
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index d986d80258d2..903a12c601ac 100644
+index 3dee0043117e..d986d80258d2 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -2234,10 +2234,8 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
- 		rth = rcu_dereference(*prth);
- 
- rt_cache:
--		if (rt_cache_valid(rth)) {
--			dst_hold(&rth->dst);
-+		if (rt_cache_valid(rth) && dst_hold_safe(&rth->dst))
- 			return rth;
--		}
+@@ -603,12 +603,14 @@ static void fnhe_flush_routes(struct fib_nh_exception *fnhe)
+ 	rt = rcu_dereference(fnhe->fnhe_rth_input);
+ 	if (rt) {
+ 		RCU_INIT_POINTER(fnhe->fnhe_rth_input, NULL);
++		dst_dev_put(&rt->dst);
+ 		dst_release(&rt->dst);
+ 		rt_free(rt);
  	}
- 
- add:
+ 	rt = rcu_dereference(fnhe->fnhe_rth_output);
+ 	if (rt) {
+ 		RCU_INIT_POINTER(fnhe->fnhe_rth_output, NULL);
++		dst_dev_put(&rt->dst);
+ 		dst_release(&rt->dst);
+ 		rt_free(rt);
+ 	}
+@@ -1337,6 +1339,7 @@ static bool rt_bind_exception(struct rtable *rt, struct fib_nh_exception *fnhe,
+ 			dst_hold(&rt->dst);
+ 			rcu_assign_pointer(*porig, rt);
+ 			if (orig) {
++				dst_dev_put(&orig->dst);
+ 				dst_release(&orig->dst);
+ 				rt_free(orig);
+ 			}
+@@ -1369,6 +1372,7 @@ static bool rt_cache_route(struct fib_nh *nh, struct rtable *rt)
+ 	prev = cmpxchg(p, orig, rt);
+ 	if (prev == orig) {
+ 		if (orig) {
++			dst_dev_put(&orig->dst);
+ 			dst_release(&orig->dst);
+ 			rt_free(orig);
+ 		}
 -- 
 2.13.1.518.g3df882009-goog
