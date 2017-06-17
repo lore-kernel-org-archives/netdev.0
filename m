@@ -1,35 +1,59 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next] net: dsa: Fix legacy probing
-Date: Sat, 17 Jun 2017 13:52:04 -0400
-Message-ID: <87d1a2pkmz.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170616234211.20341-1-f.fainelli@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH V3 net-next 1/8] net: hns3: Add support of HNS3 Ethernet
+ Driver for hip08 SoC
+Date: Sat, 17 Jun 2017 19:54:18 +0200
+Message-ID: <20170617175418.GB1974@lunn.ch>
+References: <20170617172431.177044-1-salil.mehta@huawei.com>
+ <20170617172431.177044-2-salil.mehta@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: davem@davemloft.net, andrew@lunn.ch, jcobham@questertangent.com,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:46306 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752125AbdFQRyU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Jun 2017 13:54:20 -0400
-In-Reply-To: <20170616234211.20341-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, yisen.zhuang@huawei.com,
+        huangdaode@hisilicon.com, lipeng321@huawei.com,
+        mehta.salil.lnk@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linuxarm@huawei.com
+To: Salil Mehta <salil.mehta@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170617172431.177044-2-salil.mehta@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Florian Fainelli <f.fainelli@gmail.com> writes:
+> +static int hns3_nic_net_up(struct net_device *ndev)
+> +{
+> +	struct hns3_nic_priv *priv = netdev_priv(ndev);
+> +	struct hnae3_handle *h = priv->ae_handle;
+> +	int i, j;
+> +	int ret;
+> +
+> +	ret = hns3_nic_init_irq(priv);
+> +	if (ret != 0) {
 
-> After commit 6d3c8c0dd88a ("net: dsa: Remove master_netdev and
-> use dst->cpu_dp->netdev") and a29342e73911 ("net: dsa: Associate
-> slave network device with CPU port") we would be seeing NULL pointer
-> dereferences when accessing dst->cpu_dp->netdev too early. In the legacy
-> code, we actually know early in advance the master network device, so
-> pass it down to the relevant functions.
->
-> Fixes: 6d3c8c0dd88a ("net: dsa: Remove master_netdev and use dst->cpu_dp->netdev")
-> Fixes: a29342e73911 ("net: dsa: Associate slave network device with CPU port")
-> Reported-by: Jason Cobham <jcobham@questertangent.com>
-> Tested-by: Jason Cobham <jcobham@questertangent.com>
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+  	if (ret)
 
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+No need to compare with zero.
+
+> +		netdev_err(ndev, "hns init irq failed! ret=%d\n", ret);
+> +		return ret;
+
+> +static int hns3_nic_net_open(struct net_device *ndev)
+> +{
+> +	struct hns3_nic_priv *priv = netdev_priv(ndev);
+> +	struct hnae3_handle *h = priv->ae_handle;
+> +	int ret;
+> +
+> +	netif_carrier_off(ndev);
+> +
+> +	ret = netif_set_real_num_tx_queues(ndev, h->kinfo.num_tqps);
+> +	if (ret < 0) {
+> +		netdev_err(ndev, "netif_set_real_num_tx_queues fail, ret=%d!\n",
+> +			   ret);
+> +		return ret;
+> +	}
+
+In general, functions return 0 for success, and something else for an
+error. So there is no need to do a comparison. Please remove all
+comparisons, unless it is really needed. It also makes the code look
+consistent. At the moment you sometime have < 0, sometime !=0, and
+sometimes no comparison at all.
+
+	  Andrew
