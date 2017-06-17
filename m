@@ -1,131 +1,65 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 42/44] powerpc/cell: use the dma_supported method for
- ops switching
-Date: Sun, 18 Jun 2017 06:50:27 +1000
-Message-ID: <1497732627.2897.128.camel@kernel.crashing.org>
-References: <20170616181059.19206-1-hch@lst.de>
- <20170616181059.19206-43-hch@lst.de>
+From: Lawrence Brakmo <brakmo@fb.com>
+Subject: Re: [RFC PATCH net-next v2 01/15] bpf: BPF support for socket ops
+Date: Sat, 17 Jun 2017 21:48:47 +0000
+Message-ID: <EFA12996-9C47-444F-9E09-B87F673DCCB0@fb.com>
+References: <20170615200844.2752485-1-brakmo@fb.com>
+ <20170615200844.2752485-2-brakmo@fb.com> <5943CA1A.2060006@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: Christoph Hellwig <hch@lst.de>, x86@kernel.org,
- linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org,
- linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org,
- linux-ia64@vger.kernel.org, linux-mips@linux-mips.org,
- openrisc@lists.librecores.org, linuxppc-dev@lists.ozlabs.org,
- linux-s390@vger.kernel.org, linux-sh@vger.kernel.org,
- sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org,
- dmaengine@vger.kernel.org, linux-tegra@vger.kernel.org,
- dri-devel@lists.freedesktop.org, linux-samsung-soc@vger.kernel.org,
- iommu@lists.linux-foundation.org, netdev@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20170616181059.19206-43-hch@lst.de>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Kernel Team <Kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
+        "Alexei Starovoitov" <ast@fb.com>,
+        David Ahern <dsa@cumulusnetworks.com>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+        netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:38476 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751622AbdFQVtZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 17 Jun 2017 17:49:25 -0400
+In-Reply-To: <5943CA1A.2060006@iogearbox.net>
+Content-Language: en-US
+Content-ID: <F80D75F1EF96D040968A0A6FAC1A321B@namprd15.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-06-16 at 20:10 +0200, Christoph Hellwig wrote:
-> Besides removing the last instance of the set_dma_mask method this also
-> reduced the code duplication.
-
-What is your rationale here ? (I have missed patch 0 it seems).
-
-dma_supported() was supposed to be pretty much a "const" function
-simply informing whether a given setup is possible. Having it perform
-an actual switch of ops seems to be pushing it...
-
-What if a driver wants to test various dma masks and then pick one ?
-
-Where does the API documents that if a driver calls dma_supported() it
-then *must* set the corresponding mask and use that ?
-
-I don't like a function that is a "boolean query" like this one to have
-such a major side effect.
-
->From an API standpoint, dma_set_mask() is when the mask is established,
-and thus when the ops switch should happen.
-
-Ben.
-
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
-> ---
->  arch/powerpc/platforms/cell/iommu.c | 25 +++++++++----------------
->  1 file changed, 9 insertions(+), 16 deletions(-)
-> 
-> diff --git a/arch/powerpc/platforms/cell/iommu.c b/arch/powerpc/platforms/cell/iommu.c
-> index 497bfbdbd967..29d4f96ed33e 100644
-> --- a/arch/powerpc/platforms/cell/iommu.c
-> +++ b/arch/powerpc/platforms/cell/iommu.c
-> @@ -644,20 +644,14 @@ static void dma_fixed_unmap_sg(struct device *dev, struct scatterlist *sg,
->  				   direction, attrs);
->  }
->  
-> -static int dma_fixed_dma_supported(struct device *dev, u64 mask)
-> -{
-> -	return mask == DMA_BIT_MASK(64);
-> -}
-> -
-> -static int dma_set_mask_and_switch(struct device *dev, u64 dma_mask);
-> +static int dma_suported_and_switch(struct device *dev, u64 dma_mask);
->  
->  static const struct dma_map_ops dma_iommu_fixed_ops = {
->  	.alloc          = dma_fixed_alloc_coherent,
->  	.free           = dma_fixed_free_coherent,
->  	.map_sg         = dma_fixed_map_sg,
->  	.unmap_sg       = dma_fixed_unmap_sg,
-> -	.dma_supported  = dma_fixed_dma_supported,
-> -	.set_dma_mask   = dma_set_mask_and_switch,
-> +	.dma_supported  = dma_suported_and_switch,
->  	.map_page       = dma_fixed_map_page,
->  	.unmap_page     = dma_fixed_unmap_page,
->  	.mapping_error	= dma_iommu_mapping_error,
-> @@ -952,11 +946,8 @@ static u64 cell_iommu_get_fixed_address(struct device *dev)
->  	return dev_addr;
->  }
->  
-> -static int dma_set_mask_and_switch(struct device *dev, u64 dma_mask)
-> +static int dma_suported_and_switch(struct device *dev, u64 dma_mask)
->  {
-> -	if (!dev->dma_mask || !dma_supported(dev, dma_mask))
-> -		return -EIO;
-> -
->  	if (dma_mask == DMA_BIT_MASK(64) &&
->  	    cell_iommu_get_fixed_address(dev) != OF_BAD_ADDR) {
->  		u64 addr = cell_iommu_get_fixed_address(dev) +
-> @@ -965,14 +956,16 @@ static int dma_set_mask_and_switch(struct device *dev, u64 dma_mask)
->  		dev_dbg(dev, "iommu: fixed addr = %llx\n", addr);
->  		set_dma_ops(dev, &dma_iommu_fixed_ops);
->  		set_dma_offset(dev, addr);
-> -	} else {
-> +		return 1;
-> +	}
-> +
-> +	if (dma_iommu_dma_supported(dev, dma_mask)) {
->  		dev_dbg(dev, "iommu: not 64-bit, using default ops\n");
->  		set_dma_ops(dev, get_pci_dma_ops());
->  		cell_dma_dev_setup(dev);
-> +		return 1;
->  	}
->  
-> -	*dev->dma_mask = dma_mask;
-> -
->  	return 0;
->  }
->  
-> @@ -1127,7 +1120,7 @@ static int __init cell_iommu_fixed_mapping_init(void)
->  		cell_iommu_setup_window(iommu, np, dbase, dsize, 0);
->  	}
->  
-> -	dma_iommu_ops.set_dma_mask = dma_set_mask_and_switch;
-> +	dma_iommu_ops.dma_supported = dma_suported_and_switch;
->  	set_pci_dma_ops(&dma_iommu_ops);
->  
->  	return 0;
+T24gNi8xNi8xNywgNTowNyBBTSwgIkRhbmllbCBCb3JrbWFubiIgPGRhbmllbEBpb2dlYXJib3gu
+bmV0PiB3cm90ZToNCg0KICAgIE9uIDA2LzE1LzIwMTcgMTA6MDggUE0sIExhd3JlbmNlIEJyYWtt
+byB3cm90ZToNCiAgICA+IFR3byBuZXcgY29ycmVzcG9uZGluZyBzdHJ1Y3RzIChvbmUgZm9yIHRo
+ZSBrZXJuZWwgb25lIGZvciB0aGUgdXNlci9CUEYNCiAgICA+IHByb2dyYW0pOg0KICAgID4NCiAg
+ICA+IC8qIGtlcm5lbCB2ZXJzaW9uICovDQogICAgPiBzdHJ1Y3QgYnBmX3NvY2tldF9vcHNfa2Vy
+biB7DQogICAgPiAgICAgICAgICBzdHJ1Y3Qgc29jayAqc2s7DQogICAgPiAJX191MzIgIGlzX3Jl
+cV9zb2NrOjE7DQogICAgPiAgICAgICAgICBfX3UzMiAgb3A7DQogICAgPiAgICAgICAgICB1bmlv
+biB7DQogICAgPiAgICAgICAgICAgICAgICAgIF9fdTMyIHJlcGx5Ow0KICAgID4gICAgICAgICAg
+ICAgICAgICBfX3UzMiByZXBseWxvbmdbNF07DQogICAgPiAgICAgICAgICB9Ow0KICAgID4gfTsN
+CiAgICA+DQogICAgPiAvKiB1c2VyIHZlcnNpb24gKi8NCiAgICA+IHN0cnVjdCBicGZfc29ja2V0
+X29wcyB7DQogICAgPiAgICAgICAgICBfX3UzMiBvcDsNCiAgICA+ICAgICAgICAgIHVuaW9uIHsN
+CiAgICA+ICAgICAgICAgICAgICAgICAgX191MzIgcmVwbHk7DQogICAgPiAgICAgICAgICAgICAg
+ICAgIF9fdTMyIHJlcGx5bG9uZ1s0XTsNCiAgICA+ICAgICAgICAgIH07DQogICAgPiAgICAgICAg
+ICBfX3UzMiBmYW1pbHk7DQogICAgPiAgICAgICAgICBfX3UzMiByZW1vdGVfaXA0Ow0KICAgID4g
+ICAgICAgICAgX191MzIgbG9jYWxfaXA0Ow0KICAgID4gICAgICAgICAgX191MzIgcmVtb3RlX2lw
+Nls0XTsNCiAgICA+ICAgICAgICAgIF9fdTMyIGxvY2FsX2lwNls0XTsNCiAgICA+ICAgICAgICAg
+IF9fdTMyIHJlbW90ZV9wb3J0Ow0KICAgID4gICAgICAgICAgX191MzIgbG9jYWxfcG9ydDsNCiAg
+ICA+IH07DQogICAgDQogICAgQWJvdmUgYW5kIC4uLg0KICAgIA0KICAgIHN0cnVjdCBicGZfc29j
+ayB7DQogICAgCV9fdTMyIGJvdW5kX2Rldl9pZjsNCiAgICAJX191MzIgZmFtaWx5Ow0KICAgIAlf
+X3UzMiB0eXBlOw0KICAgIAlfX3UzMiBwcm90b2NvbDsNCiAgICB9Ow0KICAgIA0KICAgIC4uLiB3
+b3VsZCByZXN1bHQgaW4gdHdvIEJQRiBzb2NrIHVzZXIgdmVyc2lvbnMuIEl0J3Mgb2theWlzaCwg
+YnV0DQogICAgZ2l2ZW4gc3RydWN0IGJwZl9zb2NrIGlzIHF1aXRlIGdlbmVyaWMsIGNvdWxkbid0
+IHdlIG1lcmdlIHRoZSBtZW1iZXJzDQogICAgZnJvbSBzdHJ1Y3QgYnBmX3NvY2tldF9vcHMgaW50
+byBzdHJ1Y3QgYnBmX3NvY2sgaW5zdGVhZD8NCiAgICANCiAgICBJZGVhIHdvdWxkIGJlIHRoYXQg
+c29ja19maWx0ZXJfaXNfdmFsaWRfYWNjZXNzKCkgZm9yIGNncm91cHMgd291bGQNCiAgICB0aGVu
+IGNoZWNrIG9mZiA8IDAgfHwgb2ZmICsgc2l6ZSA+IG9mZnNldG9mZW5kKHN0cnVjdCBicGZfc29j
+aywgcHJvdG9jb2wpDQogICAgdG8gZGlzYWxsb3cgbmV3IG1lbWJlcnMsIGFuZCB5b3VyIHNvY2tl
+dF9vcHNfaXNfdmFsaWRfYWNjZXNzKCkgY291bGQNCiAgICBhbGxvdyBhbmQgeGxhdGUgdGhlIGZ1
+bGwgcmFuZ2UuIFRoZSBmYW1pbHkgbWVtYmVyIGlzIGFscmVhZHkgZHVwbGljYXRlDQogICAgYW5k
+IHRoZSBvdGhlcnMgY291bGQgdGhlbiBiZSBhY2Nlc3NlZCBmcm9tIHRoZXNlIGtpbmQgb2YgQlBG
+IHByb2dzIGFzDQogICAgd2VsbCwgcGx1cyB3ZSBoYXZlIGEgc2luZ2xlIHVzZXIgcmVwcmVzZW50
+YXRpb24gc2ltaWxhciBhcyB3aXRoIF9fc2tfYnVmZg0KICAgIHRoYXQgbXVsdGlwbGUgdHlwZXMg
+d2lsbCB1c2UuDQogICAgDQpJIGFtIGNvbmNlcm5lZCB0aGF0IGl0IGNvdWxkIG1ha2UgdXNhZ2Ug
+bW9yZSBjb25mdXNpbmcuIE9uZSB0eXBlIG9mIA0Kc29jayBwcm9ncmFtIChjZ3JvdXApIGNvdWxk
+IG9ubHkgdXNlIGEgc3Vic2V0IG9mIHRoZSBmaWVsZHMgd2hpbGUgdGhlDQpvdGhlciB0eXBlIChz
+b2NrZXRfb3BzKSBjb3VsZCB1c2UgYWxsIChvciBhIGRpZmZlcmVudCBzdWJzZXQpLiBUaGVuIHdo
+YXQNCmhhcHBlbnMgaWYgdGhlcmUgaXMgYSBuZWVkIHRvIGFkZCBhIG5ldyBmaWVsZCB0byBjZ3Jv
+dXAgdHlwZSBzb2NrIHByb2dyYW0/DQpJbiBhZGRpdGlvbiwgaW4gdGhlIG5lYXIgZnV0dXJlIEkg
+d2lsbCBoYXZlIGEgcGF0Y2ggdG8gYXR0YWNoIHNvY2tldF9vcHMNCnByb2dyYW1zIHRvIGNncm91
+cHMuDQpJIHJhdGhlciBsZWF2ZSBpdCBhcyBpdCBpcy4NCg0K
