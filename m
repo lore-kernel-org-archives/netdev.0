@@ -1,15 +1,20 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: RE: [PATCH V2 net-next 7/8] net: hns3: Add Ethtool support to HNS3
- driver
-Date: Sat, 17 Jun 2017 11:05:27 +0000
-Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F93B7B2C11@FRAEML521-MBS.china.huawei.com>
-References: <20170613231035.494020-1-salil.mehta@huawei.com>
-        <20170613231035.494020-8-salil.mehta@huawei.com>
- <20170613165514.757eb40f@xeon-e3>
+Subject: RE: [PATCH net-next 6/9] net: hns3: Add MDIO support to HNS3
+ Ethernet driver for hip08 SoC
+Date: Sat, 17 Jun 2017 11:10:32 +0000
+Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F93B7B2C24@FRAEML521-MBS.china.huawei.com>
+References: <20170610034630.493852-1-salil.mehta@huawei.com>
+ <20170610034630.493852-7-salil.mehta@huawei.com>
+ <ba416774-9ccc-e6b6-3518-fb492b8b2858@gmail.com>
+ <F4CC6FACFEB3C54C9141D49AD221F7F93B7A2554@FRAEML521-MBX.china.huawei.com>
+ <20170613224042.GF15847@lunn.ch>
+ <F4CC6FACFEB3C54C9141D49AD221F7F93B7A26E1@FRAEML521-MBX.china.huawei.com>
+ <20170614011022.GE23384@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
         "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
         huangdaode <huangdaode@hisilicon.com>,
         "lipeng (Y)" <lipeng321@huawei.com>,
@@ -17,74 +22,44 @@ Cc: "davem@davemloft.net" <davem@davemloft.net>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
         "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
         Linuxarm <linuxarm@huawei.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170613165514.757eb40f@xeon-e3>
+In-Reply-To: <20170614011022.GE23384@lunn.ch>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Stephen
+Hi Andrew
 
 > -----Original Message-----
-> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
-> Sent: Wednesday, June 14, 2017 12:55 AM
+> From: Andrew Lunn [mailto:andrew@lunn.ch]
+> Sent: Wednesday, June 14, 2017 2:10 AM
 > To: Salil Mehta
-> Cc: davem@davemloft.net; Zhuangyuzeng (Yisen); huangdaode; lipeng (Y);
-> mehta.salil.lnk@gmail.com; netdev@vger.kernel.org; linux-
-> kernel@vger.kernel.org; Linuxarm
-> Subject: Re: [PATCH V2 net-next 7/8] net: hns3: Add Ethtool support to
-> HNS3 driver
+> Cc: Florian Fainelli; davem@davemloft.net; Zhuangyuzeng (Yisen);
+> huangdaode; lipeng (Y); mehta.salil.lnk@gmail.com;
+> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Linuxarm
+> Subject: Re: [PATCH net-next 6/9] net: hns3: Add MDIO support to HNS3
+> Ethernet driver for hip08 SoC
 > 
-> On Wed, 14 Jun 2017 00:10:34 +0100
-> Salil Mehta <salil.mehta@huawei.com> wrote:
+> > Since I would be touching the core, lots of drivers will get impacted
+> and will
+> > have to wait till everyone gives clean signal. This will impact our
+> internal
+> > deadlines. But as I said I am eager to cooperate & contribute :)
 > 
-> > +/* netdev related stats */
-> > +#define HNS3_NETDEV_STAT(_string, _member)			\
-> > +	{ _string,						\
-> > +	  FIELD_SIZEOF(struct rtnl_link_stats64, _member),	\
-> > +	  offsetof(struct rtnl_link_stats64, _member),		\
-> > +	}
-> > +
-> > +static const struct hns3_stats hns3_netdev_stats[] = {
-> > +	/* misc. Rx/Tx statistics */
-> > +	HNS3_NETDEV_STAT("rx_packets", rx_packets),
-> > +	HNS3_NETDEV_STAT("tx_packets", tx_packets),
-> > +	HNS3_NETDEV_STAT("rx_bytes", rx_bytes),
-> > +	HNS3_NETDEV_STAT("tx_bytes", tx_bytes),
-> > +	HNS3_NETDEV_STAT("rx_errors", rx_errors),
-> > +	HNS3_NETDEV_STAT("tx_errors", tx_errors),
-> > +	HNS3_NETDEV_STAT("rx_dropped", rx_dropped),
-> > +	HNS3_NETDEV_STAT("tx_dropped", tx_dropped),
-> > +	HNS3_NETDEV_STAT("multicast", multicast),
-> > +	HNS3_NETDEV_STAT("collisions", collisions),
-> > +
-> > +	/* detailed Rx errors */
-> > +	HNS3_NETDEV_STAT("rx_length_errors", rx_length_errors),
-> > +	HNS3_NETDEV_STAT("rx_over_errors", rx_over_errors),
-> > +	HNS3_NETDEV_STAT("rx_crc_errors", rx_crc_errors),
-> > +	HNS3_NETDEV_STAT("rx_frame_errors", rx_frame_errors),
-> > +	HNS3_NETDEV_STAT("rx_fifo_errors", rx_fifo_errors),
-> > +	HNS3_NETDEV_STAT("rx_missed_errors", rx_missed_errors),
-> > +
-> > +	/* detailed Tx errors */
-> > +	HNS3_NETDEV_STAT("tx_aborted_errors", tx_aborted_errors),
-> > +	HNS3_NETDEV_STAT("tx_carrier_errors", tx_carrier_errors),
-> > +	HNS3_NETDEV_STAT("tx_fifo_errors", tx_fifo_errors),
-> > +	HNS3_NETDEV_STAT("tx_heartbeat_errors", tx_heartbeat_errors),
-> > +	HNS3_NETDEV_STAT("tx_window_errors", tx_window_errors),
-> > +
+> Just as an FYI.
 > 
-> Ethtool statistics should be reserved for device specific values and
-> should not be used just to clone statistics that already exist in
-> the network device.
-We saw an example from some of the existing drivers like netronome, apm,
-intel etc. in the mainline and so thought this can be done. 
-But your point about ethtool to be used only for device specific stats
-definitely makes sense to me. 
-Do you think We can live with this for now or do you wish to change it?
+> Your internal deadlines are irrelevant. We will reject your patches
+> until we are happy with it. We probably won't accept a hack around a
+> core feature limitation. We will want you to fix the core limitation
+> and then do it right in the driver.
+> 
+>     Andrew
 
-Many thanks!
+We are dropping the support of C45 in our driver till we fix the issue
+just commented upon. I will try to fix this issue and would soon float
+a  separate patch for that. Later, we shall re-introduce the support of
+C45 in our HNS3 driver once the PHY core fix has been reviewed and accepted.
 
-Best regards
+Thanks
 Salil
