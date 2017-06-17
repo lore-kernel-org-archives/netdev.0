@@ -1,115 +1,87 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [RFC net-next 2/8] xdp: add HW offload mode flag for installing programs
-Date: Fri, 16 Jun 2017 16:57:40 -0700
-Message-ID: <20170616235746.16337-3-jakub.kicinski@netronome.com>
-References: <20170616235746.16337-1-jakub.kicinski@netronome.com>
-Cc: davem@davemloft.net, kafai@fb.com, daniel@iogearbox.net,
-        netoptimizer@brouer.com, oss-drivers@netronome.com,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:34883 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750967AbdFPX6Z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2017 19:58:25 -0400
-Received: by mail-pg0-f50.google.com with SMTP id k71so26290788pgd.2
-        for <netdev@vger.kernel.org>; Fri, 16 Jun 2017 16:58:25 -0700 (PDT)
-In-Reply-To: <20170616235746.16337-1-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Christoph Paasch <christoph.paasch@gmail.com>
+Subject: Re: [PATCH v3 net-next 1/4] tcp: ULP infrastructure
+Date: Fri, 16 Jun 2017 17:14:55 -0700
+Message-ID: <20170617001455.GB82626@Chimay.local>
+References: <cover.1497465295.git.davejwatson@fb.com>
+ <20170614183714.GA80310@davejwatson-mba.dhcp.thefacebook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Ilya Lesokhin <ilyal@mellanox.com>,
+        Aviad Yehezkel <aviadye@mellanox.com>,
+        Boris Pismenny <borisp@mellanox.com>,
+        Liran Liss <liranl@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        Tom Herbert <tom@herbertland.com>, herbert@gondor.apana.org.au,
+        linux-crypto@vger.kernel.org,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        nmav@gnutls.org, fridolin.pokorny@gmail.com
+To: Dave Watson <davejwatson@fb.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170614183714.GA80310@davejwatson-mba.dhcp.thefacebook.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add an installation-time flag for requesting that the program
-be installed only if it can be offloaded to HW.
+Hello,
 
-Internally new command for ndo_xdp is added, this way we avoid
-putting checks into drivers since they all return -EINVAL on
-an unknown command.
+On 14/06/17 - 11:37:14, Dave Watson wrote:
+> Add the infrustructure for attaching Upper Layer Protocols (ULPs) over TCP
+> sockets. Based on a similar infrastructure in tcp_cong.  The idea is that any
+> ULP can add its own logic by changing the TCP proto_ops structure to its own
+> methods.
+> 
+> Example usage:
+> 
+> setsockopt(sock, SOL_TCP, TCP_ULP, "tls", sizeof("tls"));
+> 
+> modules will call:
+> tcp_register_ulp(&tcp_tls_ulp_ops);
+> 
+> to register/unregister their ulp, with an init function and name.
+> 
+> A list of registered ulps will be returned by tcp_get_available_ulp, which is
+> hooked up to /proc.  Example:
+> 
+> $ cat /proc/sys/net/ipv4/tcp_available_ulp
+> tls
+> 
+> There is currently no functionality to remove or chain ULPs, but
+> it should be possible to add these in the future if needed.
+> 
+> Signed-off-by: Boris Pismenny <borisp@mellanox.com>
+> Signed-off-by: Dave Watson <davejwatson@fb.com>
+> ---
+>  include/net/inet_connection_sock.h |   4 ++
+>  include/net/tcp.h                  |  25 +++++++
+>  include/uapi/linux/tcp.h           |   1 +
+>  net/ipv4/Makefile                  |   2 +-
+>  net/ipv4/sysctl_net_ipv4.c         |  25 +++++++
+>  net/ipv4/tcp.c                     |  28 ++++++++
+>  net/ipv4/tcp_ipv4.c                |   2 +
+>  net/ipv4/tcp_ulp.c                 | 134 +++++++++++++++++++++++++++++++++++++
+>  8 files changed, 220 insertions(+), 1 deletion(-)
+>  create mode 100644 net/ipv4/tcp_ulp.c
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
----
- include/linux/netdevice.h    | 1 +
- include/uapi/linux/if_link.h | 7 +++++--
- net/core/dev.c               | 7 +++++--
- net/core/rtnetlink.c         | 4 ++--
- 4 files changed, 13 insertions(+), 6 deletions(-)
+I know I'm pretty late to the game (and maybe this has already been
+discussed but I couldn't find anything in the archives), but I am wondering
+what the take is on potential races of the setsockopt() vs other system-calls.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index b194817631de..a838591aad28 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -807,6 +807,7 @@ enum xdp_netdev_command {
- 	 * when it is no longer used.
- 	 */
- 	XDP_SETUP_PROG,
-+	XDP_SETUP_PROG_HW,
- 	/* Check if a bpf program is set on the device.  The callee should
- 	 * return true if a program is currently attached and running.
- 	 */
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index dd88375a6580..ce777ec88e1e 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -891,9 +891,12 @@ enum {
- #define XDP_FLAGS_UPDATE_IF_NOEXIST	(1U << 0)
- #define XDP_FLAGS_SKB_MODE		(1U << 1)
- #define XDP_FLAGS_DRV_MODE		(1U << 2)
-+#define XDP_FLAGS_HW_MODE		(1U << 3)
-+#define XDP_FLAGS_MODES			(XDP_FLAGS_SKB_MODE | \
-+					 XDP_FLAGS_DRV_MODE | \
-+					 XDP_FLAGS_HW_MODE)
- #define XDP_FLAGS_MASK			(XDP_FLAGS_UPDATE_IF_NOEXIST | \
--					 XDP_FLAGS_SKB_MODE | \
--					 XDP_FLAGS_DRV_MODE)
-+					 XDP_FLAGS_MODES)
- 
- /* These are stored into IFLA_XDP_ATTACHED on dump. */
- enum {
-diff --git a/net/core/dev.c b/net/core/dev.c
-index a04db264aa1c..05cec8e2cd82 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6959,7 +6959,10 @@ static int dev_xdp_install(struct net_device *dev, xdp_op_t xdp_op,
- 	struct netdev_xdp xdp;
- 
- 	memset(&xdp, 0, sizeof(xdp));
--	xdp.command = XDP_SETUP_PROG;
-+	if (flags & XDP_FLAGS_HW_MODE)
-+		xdp.command = XDP_SETUP_PROG_HW;
-+	else
-+		xdp.command = XDP_SETUP_PROG;
- 	xdp.extack = extack;
- 	xdp.flags = flags;
- 	xdp.prog = prog;
-@@ -6987,7 +6990,7 @@ int dev_change_xdp_fd(struct net_device *dev, struct netlink_ext_ack *extack,
- 	ASSERT_RTNL();
- 
- 	xdp_op = xdp_chk = ops->ndo_xdp;
--	if (!xdp_op && (flags & XDP_FLAGS_DRV_MODE))
-+	if (!xdp_op && (flags & (XDP_FLAGS_DRV_MODE | XDP_FLAGS_HW_MODE)))
- 		return -EOPNOTSUPP;
- 	if (!xdp_op || (flags & XDP_FLAGS_SKB_MODE))
- 		xdp_op = generic_xdp_install;
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 3aa57848a895..daf3b39be649 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -16,6 +16,7 @@
-  *	Vitaly E. Lavrov		RTA_OK arithmetics was wrong.
-  */
- 
-+#include <linux/bitops.h>
- #include <linux/errno.h>
- #include <linux/module.h>
- #include <linux/types.h>
-@@ -2251,8 +2252,7 @@ static int do_setlink(const struct sk_buff *skb,
- 				err = -EINVAL;
- 				goto errout;
- 			}
--			if ((xdp_flags & XDP_FLAGS_SKB_MODE) &&
--			    (xdp_flags & XDP_FLAGS_DRV_MODE)) {
-+			if (hweight32(xdp_flags & XDP_FLAGS_MODES) > 1) {
- 				err = -EINVAL;
- 				goto errout;
- 			}
--- 
-2.11.0
+For example one might race the setsockopt() with a sendmsg() and the sendmsg
+might end up blocking on the lock_sock in tcp_sendmsg, waiting for
+tcp_set_ulp() to finish changing sk_prot. When the setsockopt() finishes, we
+are then inside tcp_sendmsg() coming directly from sendmsg(), while we
+should have been in the ULP's sendmsg.
+
+It seems like TLS-ULP is resilient to this (or at least, won't cause a panic),
+but there might be more exotic users of ULP in the future, that change other
+callbacks and then things might go wrong.
+
+
+Thoughts?
+
+
+Thanks,
+Christoph
