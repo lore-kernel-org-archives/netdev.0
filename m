@@ -1,107 +1,57 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 0/3] ipmr/ip6mr: add Netlink notifications on
- cache reports
-Date: Sat, 17 Jun 2017 16:35:44 +0300
-Message-ID: <dda70f88-9942-15fd-9b95-aaf994e594d7@cumulusnetworks.com>
-References: <20170613170822.16310-1-julien@arista.com>
- <891d876f-18fb-706b-c269-ec8892d2f6ff@cumulusnetworks.com>
- <7b133850-bbdc-594c-f7f3-62e9d4adf1f3@arista.com>
- <2d412677-d31a-7740-952c-b1b007bbf075@cumulusnetworks.com>
- <01588135-b3d6-bc92-be31-0ae86310d904@cumulusnetworks.com>
- <f36d3b05-0598-38a4-0ffa-b6e73986a679@cumulusnetworks.com>
- <c5c5df94-dd57-41ca-d5ea-e9daf5b1b284@arista.com>
+From: Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>
+Subject: [PATCH 0/4] net-next: stmmac: dwmac-sun8i: add support
+ for V3s
+Date: Sat, 17 Jun 2017 22:07:33 +0800
+Message-ID: <20170617140737.41951-1-icenowy@aosc.io>
+Reply-To: icenowy-h8G6r0blFSE@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-        Donald Sharp <sharpd@cumulusnetworks.com>
-To: Julien Gomes <julien@arista.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f171.google.com ([209.85.128.171]:34721 "EHLO
-        mail-wr0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752990AbdFQNfr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Jun 2017 09:35:47 -0400
-Received: by mail-wr0-f171.google.com with SMTP id 77so50638824wrb.1
-        for <netdev@vger.kernel.org>; Sat, 17 Jun 2017 06:35:46 -0700 (PDT)
-In-Reply-To: <c5c5df94-dd57-41ca-d5ea-e9daf5b1b284@arista.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+	Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>
+To: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+Return-path: <linux-sunxi+bncBDS6XAN6ZADRB7HPSTFAKGQEKUKHDII-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-On 16/06/17 22:26, Julien Gomes wrote:
-> On 06/15/2017 06:00 AM, Nikolay Aleksandrov wrote:
->> On 15/06/17 14:44, Nikolay Aleksandrov wrote:
->>> On 15/06/17 14:33, Nikolay Aleksandrov wrote:
->>>> On 15/06/17 00:51, Julien Gomes wrote:
->>>>> Hi Nikolay,
->>>>>
->>>>> On 06/14/2017 05:04 AM, Nikolay Aleksandrov wrote:
->>>>>
->>>>>> This has been on our todo list and I'm definitely interested in the implementation.
->>>>>> A few things that need careful consideration from my POV. First are the security
->>>>>> implications - this sends rtnl multicast messages but the rtnl socket has
->>>>>> the NL_CFG_F_NONROOT_RECV flag thus allowing any user on the system to listen in.
->>>>>> This would allow them to see the full packets and all reports (granted they can see
->>>>>> the notifications even now), but the full packet is like giving them the opportunity
->>>>>> to tcpdump the PIM traffic.
->>>>> I definitely see how this can be an issue.
->>>>> From what I see, this means that either the packet should be
->>>>> transmitted another way, or another Netlink family should be used.
->>>>>
->>>>> NETLINK_ROUTE looks to be the logical family to choose though,
->>>>> but then I do not see a proper other way to handle this.
->>>> Right, currently me neither, unless it provides a bind callback when registering
->>>> the kernel socket.
->>>>
->>>>> However I may just not be looking into the right direction,
->>>>> maybe you currently have another approach in mind?
->>>> I haven't gotten around to make (or even try) them but I was thinking about 2 options
->>>> ending up with a similar result:
->>>>
->>>> 1) genetlink
->>>>  It also has the NONROOT_RECV flag, but it also allows for a callback - mcast_bind()
->>>>  which can be used to filter.
->>>>
->>>> or
->>>>
->>>> 2) Providing a bind callback to the NETLINK_ROUTE socket.
->>>>
->>> Ah nevermind, these cannot be used for filtering currently, so it seems
->>> the netlink interface would need to be extended too if going down this road.
->>>
->> Sorry for the multiple emails, just to be thorough - again if going down this
->> road all of these would obviously require a different group to bind to in order
->> to be able to filter on it, because users must keep receiving their notifications
->> for the ipmr one.
-> 
-> Actually, using a bind callback for NETLINK_ROUTE with a new group,
-> without netlink interface extension, could  work.
-> 
-> I quickly tested something like this:
->> static int rtnetlink_bind(struct net *net, int group)
->> {
->>     switch (group) {
->>     case RTNLGRP_IPV4_MROUTE_R:
->>     case RTNLGRP_IPV6_MROUTE_R:
->>        if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
->>            return -EPERM;
->>        break;
->>     }
->>     return 0;
->> }
-> 
-> With the addition of one/two groups this does restrict the reports'
-> potential listeners.
-> The group names here are just placeholders, I am not especially fixed
-> on these ones.
-> 
-> It is not perfect as this would introduce groups with specific
-> requirements in NETLINK_ROUTE, but I think it can be decent.
-> 
-> What do you think about this?
-> 
+Allwinner V3s features an EMAC like the on in H3, but without external MII
+interfaces, so being not able really to use RMII/RGMII.
 
-Oh yes, that is exactly what I had in mind. I missed that the netns is passed
-to the bind function.
+And it has a different default value of syscon (0x38000 instead of 0x58000
+on H3), which shows a problem that the EMAC clock freq should be 24MHz.
+(Both H3 and V3s SoCs doesn't have extra xtal input for EPHY, and the
+main xtal is 24MHz. The default value of H3 is set to 24MHz, but the V3s
+default value is set to 25MHz).
 
-Thanks,
- Nik
+First two patches are device tree binding patches, the third forces
+the frequency to 24MHz and the fourth really add the V3s support.
+
+Icenowy Zheng (4):
+  dt-bindings: net-next: Add DT bindings documentation for Allwinner V3s
+    EMAC
+  dt-bindings: syscon: Add DT bindings documentation for Allwinner V3s
+    syscon
+  net-next: stmmac: dwmac-sun8i: force EPHY clock freq to 24MHz
+  net-next: stmmac: dwmac-sun8i: add support for V3s EMAC
+
+ Documentation/devicetree/bindings/misc/allwinner,syscon.txt |  1 +
+ Documentation/devicetree/bindings/net/dwmac-sun8i.txt       | 10 ++++++++--
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c           | 12 ++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c       |  1 +
+ 4 files changed, 22 insertions(+), 2 deletions(-)
+
+-- 
+2.13.0
