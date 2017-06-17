@@ -1,8 +1,7 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V3 net-next 8/8] net: hns3: Add HNS3 driver to kernel build framework & MAINTAINERS
-Date: Sat, 17 Jun 2017 18:24:31 +0100
-Message-ID: <20170617172431.177044-9-salil.mehta@huawei.com>
-References: <20170617172431.177044-1-salil.mehta@huawei.com>
+Subject: [PATCH V3 net-next 0/8] Hisilicon Network Subsystem 3 Ethernet Driver
+Date: Sat, 17 Jun 2017 18:24:23 +0100
+Message-ID: <20170617172431.177044-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
@@ -11,126 +10,111 @@ Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
         <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
 To: <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170617172431.177044-1-salil.mehta@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch updates the MAINTAINERS file with HNS3 Ethernet driver
-maintainers names and other details. This also introduces the new
-Makefiles required to build the HNS3 Ethernet driver and updates
-the existing Kconfig file in the hisilicon folder.
+This patch-set contains the support of the HNS3 (Hisilicon Network Subsystem 3)
+Ethernet driver for hip08 family of SoCs and future upcoming SoCs.
 
-Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
----
-Patch V3: Addressed below errors:
- 1. Intel kbuild: https://lkml.org/lkml/2017/6/14/313
- 2. Intel Kbuild: https://lkml.org/lkml/2017/6/14/636
-Patch V2: No change
-Patch V1: Initial Submit
----
- MAINTAINERS                                        |  8 +++++++
- drivers/net/ethernet/hisilicon/Kconfig             | 27 ++++++++++++++++++++++
- drivers/net/ethernet/hisilicon/Makefile            |  1 +
- drivers/net/ethernet/hisilicon/hns3/Makefile       |  7 ++++++
- .../net/ethernet/hisilicon/hns3/hns3pf/Makefile    | 11 +++++++++
- 5 files changed, 54 insertions(+)
+Hisilicon's new hip08 SoCs have integrated ethernet based on PCI Express and
+hence there was a need of new driver over the previous HNS driver which is 
+already part of the Linux mainline. This new driver is NOT backward
+compatible with HNS.
+
+This current driver is meant to control the Physical Function and there would
+soon be a support of a separate driver for Virtual Function once this base PF
+driver has been accepted. Also, this driver is the ongoing development work and
+HNS3 Ethernet driver would be incrementally enhanced with more new features.
+
+High Level Architecture:
+
+        [ Ethtool ]
+	   ^  |
+           |  | 
+       [Ethernet Client]  [RoCE Client] . . . [ Ethernet Client ]     
+    ---------------------------------------------     |
+                         |                            |
+     [ HNAE3 Framework (Register/unregister) ]        |
+                         |                            |
+    ---------------------------------------------     |
+                   [ HNAE Device ]                    |
+                         |                            |
+                   [ HCLGE Layer]                     |
+         ________________|_________________           |
+        |                |                 |          |
+    [ MDIO ]    [ Scheduler/Shaper ]  [ Debugfs ]     |
+        |                |                 |          |
+        |________________|_________________|          |     
+                         |                            |
+             [ IMP command Interface ]                |
+    ---------------------------------------------     |
+              HIP08  H A R D W A R E                  *
+
+
+Current patch-set broadly adds the support of the following PF functionality:
+ 1. Basic Rx and Tx functionality 
+ 2. TSO support
+ 3. Ethtool support
+ 4. HNAE framework and hardware compatability layer
+ 5. Scheduler and Shaper support in transmit function
+ 6. MDIO support
+ 7. kernel build supporrt, Makefiles, Kconfig etc.
+
+Change Log:
+V2->V3: Addressed comments
+        * Yuval Mintz: Removal of redundant userprio-to-tc code
+        * Stephen Hemminger: Ethtool & interuupt enable
+        * Andrew Lunn: On C45/C22 PHy support, HNAE, ethtool
+        * Florian Fainelli: C45/C22 and phy_connect/attach
+        * Intel kbuild errors
+V1->V2: Addressed some comments by kbuild, Yuval MIntz, Andrew Lunn &
+        Florian Fainelli in the following patches:
+        * Add support of HNS3 Ethernet Driver for hip08 SoC
+        * Add MDIO support to HNS3 Ethernet driver for hip08 SoC
+        * Add support of debugfs interface to HNS3 driver
+
+Salil Mehta (8):
+  net: hns3: Add support of HNS3 Ethernet Driver for hip08 SoC
+  net: hns3: Add support of the HNAE3 framework
+  net: hns3: Add HNS3 IMP(Integrated Mgmt Proc) Cmd Interface Support
+  net: hns3: Add HNS3 Acceleration Engine & Compatibility Layer Support
+  net: hns3: Add support of TX Scheduler & Shaper to HNS3 driver
+  net: hns3: Add MDIO support to HNS3 Ethernet driver for hip08 SoC
+  net: hns3: Add Ethtool support to HNS3 driver
+  net: hns3: Add HNS3 driver to kernel build framework & MAINTAINERS
+
+ MAINTAINERS                                        |    8 +
+ drivers/net/ethernet/hisilicon/Kconfig             |   27 +
+ drivers/net/ethernet/hisilicon/Makefile            |    1 +
+ drivers/net/ethernet/hisilicon/hns3/Makefile       |    7 +
+ drivers/net/ethernet/hisilicon/hns3/hnae3.c        |  305 ++
+ drivers/net/ethernet/hisilicon/hns3/hnae3.h        |  449 +++
+ .../net/ethernet/hisilicon/hns3/hns3pf/Makefile    |   11 +
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c |  347 ++
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h |  742 ++++
+ .../ethernet/hisilicon/hns3/hns3pf/hclge_main.c    | 4246 ++++++++++++++++++++
+ .../ethernet/hisilicon/hns3/hns3pf/hclge_main.h    |  493 +++
+ .../ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c    |  249 ++
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c  | 1018 +++++
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h  |  108 +
+ .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c | 2838 +++++++++++++
+ .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h |  585 +++
+ .../ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c  |  878 ++++
+ 17 files changed, 12312 insertions(+)
  create mode 100644 drivers/net/ethernet/hisilicon/hns3/Makefile
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hnae3.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hnae3.h
  create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/Makefile
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 8b8249b..cda0e80 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -6070,6 +6070,14 @@ S:	Maintained
- F:	drivers/net/ethernet/hisilicon/
- F:	Documentation/devicetree/bindings/net/hisilicon*.txt
- 
-+HISILICON NETWORK SUBSYSTEM 3 DRIVER (HNS3)
-+M:	Yisen Zhuang <yisen.zhuang@huawei.com>
-+M:	Salil Mehta <salil.mehta@huawei.com>
-+L:	netdev@vger.kernel.org
-+W:	http://www.hisilicon.com
-+S:	Maintained
-+F:	drivers/net/ethernet/hisilicon/hns3/
-+
- HISILICON ROCE DRIVER
- M:	Lijun Ou <oulijun@huawei.com>
- M:	Wei Hu(Xavier) <xavier.huwei@huawei.com>
-diff --git a/drivers/net/ethernet/hisilicon/Kconfig b/drivers/net/ethernet/hisilicon/Kconfig
-index d11287e..9f8ea28 100644
---- a/drivers/net/ethernet/hisilicon/Kconfig
-+++ b/drivers/net/ethernet/hisilicon/Kconfig
-@@ -76,4 +76,31 @@ config HNS_ENET
- 	  This selects the general ethernet driver for HNS.  This module make
- 	  use of any HNS AE driver, such as HNS_DSAF
- 
-+config HNS3
-+	tristate "Hisilicon Network Subsystem Support HNS3 (Framework)"
-+    depends on PCI
-+	---help---
-+	  This selects the framework support for Hisilicon Network Subsystem 3.
-+	  This layer facilitates clients like ENET, RoCE and user-space ethernet
-+	  drivers(like ODP)to register with HNAE devices and their associated
-+	  operations.
-+
-+config HNS3_HCLGE
-+	tristate "Hisilicon HNS3 HCLGE Acceleration Engine & Compatibility Layer Support"
-+    depends on PCI_MSI
-+	select HNS3
-+	---help---
-+	  This selects the HNS3_HCLGE network acceleration engine & its hardware
-+	  compatibility layer. The engine would be used in Hisilicon hip08 family of
-+	  SoCs and further upcoming SoCs.
-+
-+config HNS3_ENET
-+	tristate "Hisilicon HNS3 Ethernet Device Support"
-+    depends on 64BIT && PCI
-+	select HNS3
-+	---help---
-+	  This selects the Ethernet Driver for Hisilicon Network Subsystem 3 for hip08
-+	  family of SoCs. This module depends upon HNAE3 driver to access the HNAE3
-+	  devices and their associated operations.
-+
- endif # NET_VENDOR_HISILICON
-diff --git a/drivers/net/ethernet/hisilicon/Makefile b/drivers/net/ethernet/hisilicon/Makefile
-index 8661695..3828c43 100644
---- a/drivers/net/ethernet/hisilicon/Makefile
-+++ b/drivers/net/ethernet/hisilicon/Makefile
-@@ -6,4 +6,5 @@ obj-$(CONFIG_HIX5HD2_GMAC) += hix5hd2_gmac.o
- obj-$(CONFIG_HIP04_ETH) += hip04_eth.o
- obj-$(CONFIG_HNS_MDIO) += hns_mdio.o
- obj-$(CONFIG_HNS) += hns/
-+obj-$(CONFIG_HNS3) += hns3/
- obj-$(CONFIG_HISI_FEMAC) += hisi_femac.o
-diff --git a/drivers/net/ethernet/hisilicon/hns3/Makefile b/drivers/net/ethernet/hisilicon/hns3/Makefile
-new file mode 100644
-index 0000000..5e53735
---- /dev/null
-+++ b/drivers/net/ethernet/hisilicon/hns3/Makefile
-@@ -0,0 +1,7 @@
-+#
-+# Makefile for the HISILICON network device drivers.
-+#
-+
-+obj-$(CONFIG_HNS3) += hns3pf/
-+
-+obj-$(CONFIG_HNS3) +=hnae3.o
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/Makefile b/drivers/net/ethernet/hisilicon/hns3/hns3pf/Makefile
-new file mode 100644
-index 0000000..c0a92b5
---- /dev/null
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/Makefile
-@@ -0,0 +1,11 @@
-+#
-+# Makefile for the HISILICON network device drivers.
-+#
-+
-+ccflags-y := -Idrivers/net/ethernet/hisilicon/hns3
-+
-+obj-$(CONFIG_HNS3_HCLGE) += hclge.o
-+hclge-objs =hclge_main.o hclge_cmd.o hclge_mdio.o hclge_tm.o
-+
-+obj-$(CONFIG_HNS3_ENET) += hns3.o
-+hns3-objs = hns3_enet.o hns3_ethtool.o
 -- 
 2.7.4
