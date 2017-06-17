@@ -1,7 +1,7 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V3 net-next 7/8] net: hns3: Add Ethtool support to HNS3 driver
-Date: Sat, 17 Jun 2017 18:24:30 +0100
-Message-ID: <20170617172431.177044-8-salil.mehta@huawei.com>
+Subject: [PATCH V3 net-next 3/8] net: hns3: Add HNS3 IMP(Integrated Mgmt Proc) Cmd Interface Support
+Date: Sat, 17 Jun 2017 18:24:26 +0100
+Message-ID: <20170617172431.177044-4-salil.mehta@huawei.com>
 References: <20170617172431.177044-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,40 +11,45 @@ Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
         <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([45.249.212.187]:8747 "EHLO
-        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752577AbdFQRZq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Jun 2017 13:25:46 -0400
+Received: from szxga03-in.huawei.com ([45.249.212.189]:7883 "EHLO
+        szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752024AbdFQRZh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 17 Jun 2017 13:25:37 -0400
 In-Reply-To: <20170617172431.177044-1-salil.mehta@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the support of the Ethtool interface to
-the HNS3 Ethernet driver. Various commands to read the
-statistics, configure the offloading, loopback selftest etc.
-are supported.
+This patch adds the support of IMP (Integrated Management Processor)
+command interface to the HNS3 driver.
+
+Each PF/VF has support of CQP(Command Queue Pair) ring interface.
+Each CQP consis of send queue CSQ and receive queue CRQ.
+There are various commands a PF/VF may support, like for Flow Table
+manipulation, Device management, Packet buffer allocation, Forwarding,
+VLANs config, Tunneling/Overlays etc.
+
+This patch contains code to initialize the command queue, manage the
+command queue descriptors and Rx/Tx protocol with the command processor
+in the form of various commands/results and acknowledgements.
 
 Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
 Signed-off-by: lipeng <lipeng321@huawei.com>
 Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
 Signed-off-by: Yisen Zhuang <yisen.zhuang@huawei.com>
 ---
-Patch V3: Address below comments:
- 1. Stephen Hemminger: https://lkml.org/lkml/2017/6/13/974
- 2. Andrew Lunn: https://lkml.org/lkml/2017/6/13/1037
-Patch V2: No change
-Patch V1: Initial Submit
 ---
- .../ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c  | 878 +++++++++++++++++++++
- 1 file changed, 878 insertions(+)
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c | 347 ++++++++++
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h | 742 +++++++++++++++++++++
+ 2 files changed, 1089 insertions(+)
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
 
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c
 new file mode 100644
-index 0000000..9cc7712
+index 0000000..ec20ec4
 --- /dev/null
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c
-@@ -0,0 +1,878 @@
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c
+@@ -0,0 +1,347 @@
 +/*
 + * Copyright (c) 2016~2017 Hisilicon Limited.
 + *
@@ -54,874 +59,1091 @@ index 0000000..9cc7712
 + * (at your option) any later version.
 + */
 +
-+#include <linux/etherdevice.h>
-+#include "hns3_enet.h"
++#include <linux/dma-mapping.h>
++#include <linux/slab.h>
++#include <linux/pci.h>
++#include <linux/device.h>
++#include <linux/err.h>
++#include <linux/dma-direction.h>
++#include "hclge_cmd.h"
++#include "hnae3.h"
++#include "hclge_main.h"
 +
-+struct hns3_stats {
-+	char stats_string[ETH_GSTRING_LEN];
-+	int stats_size;
-+	int stats_offset;
-+};
++#define hclge_is_csq(ring) ((ring)->flag & HCLGE_TYPE_CSQ)
++#define hclge_ring_to_dma_dir(ring) (hclge_is_csq(ring) ? \
++	DMA_TO_DEVICE : DMA_FROM_DEVICE)
++#define cmq_ring_to_dev(ring)   (&(ring)->dev->pdev->dev)
 +
-+/* netdev related stats */
-+#define HNS3_NETDEV_STAT(_string, _member)			\
-+	{ _string,						\
-+	  FIELD_SIZEOF(struct rtnl_link_stats64, _member),	\
-+	  offsetof(struct rtnl_link_stats64, _member),		\
-+	}
++static int hclge_ring_space(struct hclge_cmq_ring *ring)
++{
++	int ntu = ring->next_to_use;
++	int ntc = ring->next_to_clean;
++	int used = (ntu - ntc + ring->desc_num) % ring->desc_num;
 +
-+static const struct hns3_stats hns3_netdev_stats[] = {
-+	/* misc. Rx/Tx statistics */
-+	HNS3_NETDEV_STAT("rx_packets", rx_packets),
-+	HNS3_NETDEV_STAT("tx_packets", tx_packets),
-+	HNS3_NETDEV_STAT("rx_bytes", rx_bytes),
-+	HNS3_NETDEV_STAT("tx_bytes", tx_bytes),
-+	HNS3_NETDEV_STAT("rx_errors", rx_errors),
-+	HNS3_NETDEV_STAT("tx_errors", tx_errors),
-+	HNS3_NETDEV_STAT("rx_dropped", rx_dropped),
-+	HNS3_NETDEV_STAT("tx_dropped", tx_dropped),
-+	HNS3_NETDEV_STAT("multicast", multicast),
-+	HNS3_NETDEV_STAT("collisions", collisions),
-+
-+	/* detailed Rx errors */
-+	HNS3_NETDEV_STAT("rx_length_errors", rx_length_errors),
-+	HNS3_NETDEV_STAT("rx_over_errors", rx_over_errors),
-+	HNS3_NETDEV_STAT("rx_crc_errors", rx_crc_errors),
-+	HNS3_NETDEV_STAT("rx_frame_errors", rx_frame_errors),
-+	HNS3_NETDEV_STAT("rx_fifo_errors", rx_fifo_errors),
-+	HNS3_NETDEV_STAT("rx_missed_errors", rx_missed_errors),
-+
-+	/* detailed Tx errors */
-+	HNS3_NETDEV_STAT("tx_aborted_errors", tx_aborted_errors),
-+	HNS3_NETDEV_STAT("tx_carrier_errors", tx_carrier_errors),
-+	HNS3_NETDEV_STAT("tx_fifo_errors", tx_fifo_errors),
-+	HNS3_NETDEV_STAT("tx_heartbeat_errors", tx_heartbeat_errors),
-+	HNS3_NETDEV_STAT("tx_window_errors", tx_window_errors),
-+
-+	/* for cslip etc */
-+	HNS3_NETDEV_STAT("rx_compressed", rx_compressed),
-+	HNS3_NETDEV_STAT("tx_compressed", tx_compressed),
-+};
-+
-+#define HNS3_NETDEV_STATS_COUNT ARRAY_SIZE(hns3_netdev_stats)
-+
-+/* tqp related stats */
-+#define HNS3_TQP_STAT(_string, _member)				\
-+	{ _string,						\
-+	  FIELD_SIZEOF(struct ring_stats, _member),		\
-+	  offsetof(struct hns3_enet_ring, stats),	\
-+	}
-+
-+static const struct hns3_stats hns3_txq_stats[] = {
-+	/* Tx per-queue statistics */
-+	HNS3_TQP_STAT("tx_io_err_cnt", io_err_cnt),
-+	HNS3_TQP_STAT("tx_sw_err_cnt", sw_err_cnt),
-+	HNS3_TQP_STAT("tx_seg_pkt_cnt", seg_pkt_cnt),
-+	HNS3_TQP_STAT("tx_pkts", tx_pkts),
-+	HNS3_TQP_STAT("tx_bytes", tx_bytes),
-+	HNS3_TQP_STAT("tx_err_cnt", tx_err_cnt),
-+	HNS3_TQP_STAT("tx_restart_queue", restart_queue),
-+	HNS3_TQP_STAT("tx_busy", tx_busy),
-+};
-+
-+#define HNS3_TXQ_STATS_COUNT ARRAY_SIZE(hns3_txq_stats)
-+
-+static const struct hns3_stats hns3_rxq_stats[] = {
-+	/* Rx per-queue statistics */
-+	HNS3_TQP_STAT("rx_io_err_cnt", io_err_cnt),
-+	HNS3_TQP_STAT("rx_sw_err_cnt", sw_err_cnt),
-+	HNS3_TQP_STAT("rx_seg_pkt_cnt", seg_pkt_cnt),
-+	HNS3_TQP_STAT("rx_pkts", rx_pkts),
-+	HNS3_TQP_STAT("rx_bytes", rx_bytes),
-+	HNS3_TQP_STAT("rx_err_cnt", rx_err_cnt),
-+	HNS3_TQP_STAT("rx_reuse_pg_cnt", reuse_pg_cnt),
-+	HNS3_TQP_STAT("rx_err_pkt_len", err_pkt_len),
-+	HNS3_TQP_STAT("rx_non_vld_descs", non_vld_descs),
-+	HNS3_TQP_STAT("rx_err_bd_num", err_bd_num),
-+	HNS3_TQP_STAT("rx_l2_err", l2_err),
-+	HNS3_TQP_STAT("rx_l3l4_csum_err", l3l4_csum_err),
-+};
-+
-+#define HNS3_RXQ_STATS_COUNT ARRAY_SIZE(hns3_rxq_stats)
-+
-+#define HNS3_TQP_STATS_COUNT (HNS3_TXQ_STATS_COUNT + HNS3_RXQ_STATS_COUNT)
-+
-+struct hns3_link_mode_mapping {
-+	u32 hns3_link_mode;
-+	u32 ethtool_link_mode;
-+};
-+
-+static const struct hns3_link_mode_mapping hns3_lm_map[] = {
-+	{HNS3_LM_FIBRE_BIT, ETHTOOL_LINK_MODE_FIBRE_BIT},
-+	{HNS3_LM_AUTONEG_BIT, ETHTOOL_LINK_MODE_Autoneg_BIT},
-+	{HNS3_LM_TP_BIT, ETHTOOL_LINK_MODE_TP_BIT},
-+	{HNS3_LM_PAUSE_BIT, ETHTOOL_LINK_MODE_Pause_BIT},
-+	{HNS3_LM_BACKPLANE_BIT, ETHTOOL_LINK_MODE_Backplane_BIT},
-+	{HNS3_LM_10BASET_HALF_BIT, ETHTOOL_LINK_MODE_10baseT_Half_BIT},
-+	{HNS3_LM_10BASET_FULL_BIT, ETHTOOL_LINK_MODE_10baseT_Full_BIT},
-+	{HNS3_LM_100BASET_HALF_BIT, ETHTOOL_LINK_MODE_100baseT_Half_BIT},
-+	{HNS3_LM_100BASET_FULL_BIT, ETHTOOL_LINK_MODE_100baseT_Full_BIT},
-+	{HNS3_LM_1000BASET_FULL_BIT, ETHTOOL_LINK_MODE_1000baseT_Full_BIT},
-+};
-+
-+#define HNS3_DRV_TO_ETHTOOL_CAPS(caps, lk_ksettings, name)	\
-+{								\
-+	int i;							\
-+								\
-+	for (i = 0; i < ARRAY_SIZE(hns3_lm_map); i++) {		\
-+		if ((caps) & hns3_lm_map[i].hns3_link_mode)	\
-+			__set_bit(hns3_lm_map[i].ethtool_link_mode,\
-+				  (lk_ksettings)->link_modes.name); \
-+	}							\
++	return ring->desc_num - used - 1;
 +}
 +
-+static int hns3_lp_setup(struct net_device *ndev, enum hnae3_loop loop)
++static int hclge_alloc_cmd_desc(struct hclge_cmq_ring *ring)
 +{
-+	struct hns3_nic_priv *priv = netdev_priv(ndev);
-+	struct hnae3_handle *h = priv->ae_handle;
-+	struct hnae3_ae_ops *ops = h->ae_algo->ops;
-+	int ret = 0;
++	int size  = ring->desc_num * sizeof(struct hclge_desc);
 +
-+	switch (loop) {
-+	case HNAE3_MAC_INTER_LOOP_MAC:
-+		if (ops->set_loopback)
-+			ret = ops->set_loopback(h, loop, true);
-+		break;
-+	case HNAE3_MAC_LOOP_NONE:
-+		if (ops->set_loopback)
-+			ret = ops->set_loopback(h,
-+				HNAE3_MAC_INTER_LOOP_MAC, false);
-+		break;
-+	default:
-+		ret = -EINVAL;
-+		break;
++	ring->desc = kzalloc(size, GFP_KERNEL);
++	if (!ring->desc)
++		return -ENOMEM;
++
++	ring->desc_dma_addr = dma_map_single(cmq_ring_to_dev(ring), ring->desc,
++					     size, DMA_BIDIRECTIONAL);
++	if (dma_mapping_error(cmq_ring_to_dev(ring), ring->desc_dma_addr)) {
++		ring->desc_dma_addr = 0;
++		kfree(ring->desc);
++		ring->desc = NULL;
++		return -ENOMEM;
 +	}
 +
-+	if (!ret) {
-+		if (loop == HNAE3_MAC_LOOP_NONE)
-+			ops->set_promisc_mode(h, ndev->flags & IFF_PROMISC);
-+		else
-+			ops->set_promisc_mode(h, 1);
++	return 0;
++}
++
++static void hclge_free_cmd_desc(struct hclge_cmq_ring *ring)
++{
++	dma_unmap_single(cmq_ring_to_dev(ring), ring->desc_dma_addr,
++			 ring->desc_num * sizeof(ring->desc[0]),
++			 DMA_BIDIRECTIONAL);
++
++	ring->desc_dma_addr = 0;
++	kfree(ring->desc);
++	ring->desc = NULL;
++}
++
++static int hclge_init_cmd_queue(struct hclge_dev *hdev, int ring_type)
++{
++	struct hclge_hw *hw = &hdev->hw;
++	struct hclge_cmq_ring *ring =
++		(ring_type == HCLGE_TYPE_CSQ) ? &hw->cmq.csq : &hw->cmq.crq;
++	int ret;
++
++	ring->flag = ring_type;
++	ring->dev = hdev;
++
++	ret = hclge_alloc_cmd_desc(ring);
++	if (ret) {
++		dev_err(&hdev->pdev->dev, "descriptor %s alloc error %d\n",
++			(ring_type == HCLGE_TYPE_CSQ) ? "CSQ" : "CRQ", ret);
++		return ret;
 +	}
++
++	ring->next_to_clean = 0;
++	ring->next_to_use = 0;
++
++	return 0;
++}
++
++void hclge_cmd_reuse_desc(struct hclge_desc *desc, bool is_read)
++{
++	desc->flag = cpu_to_le16(HCLGE_CMD_FLAG_NO_INTR | HCLGE_CMD_FLAG_IN);
++	if (is_read)
++		desc->flag |= cpu_to_le16(HCLGE_CMD_FLAG_WR);
++	else
++		desc->flag &= cpu_to_le16(~HCLGE_CMD_FLAG_WR);
++}
++
++void hclge_cmd_setup_basic_desc(struct hclge_desc *desc,
++				enum hclge_opcode_type opcode, bool is_read)
++{
++	memset((void *)desc, 0, sizeof(struct hclge_desc));
++	desc->opcode = cpu_to_le16(opcode);
++	desc->flag = cpu_to_le16(HCLGE_CMD_FLAG_NO_INTR | HCLGE_CMD_FLAG_IN);
++
++	if (is_read)
++		desc->flag |= cpu_to_le16(HCLGE_CMD_FLAG_WR);
++	else
++		desc->flag &= cpu_to_le16(~HCLGE_CMD_FLAG_WR);
++}
++
++static void hclge_cmd_config_regs(struct hclge_cmq_ring *ring)
++{
++	dma_addr_t dma = ring->desc_dma_addr;
++	struct hclge_dev *hdev = ring->dev;
++	struct hclge_hw *hw = &hdev->hw;
++
++	if (ring->flag == HCLGE_TYPE_CSQ) {
++		hclge_write_dev(hw, HCLGE_NIC_CSQ_BASEADDR_L_REG,
++				(u32)dma);
++		hclge_write_dev(hw, HCLGE_NIC_CSQ_BASEADDR_H_REG,
++				(u32)((dma >> 31) >> 1));
++		hclge_write_dev(hw, HCLGE_NIC_CSQ_DEPTH_REG,
++				(ring->desc_num >> HCLGE_NIC_CMQ_DESC_NUM_S) |
++				HCLGE_NIC_CMQ_ENABLE);
++		hclge_write_dev(hw, HCLGE_NIC_CSQ_TAIL_REG, 0);
++		hclge_write_dev(hw, HCLGE_NIC_CSQ_HEAD_REG, 0);
++	} else {
++		hclge_write_dev(hw, HCLGE_NIC_CRQ_BASEADDR_L_REG,
++				(u32)dma);
++		hclge_write_dev(hw, HCLGE_NIC_CRQ_BASEADDR_H_REG,
++				(u32)((dma >> 31) >> 1));
++		hclge_write_dev(hw, HCLGE_NIC_CRQ_DEPTH_REG,
++				(ring->desc_num >> HCLGE_NIC_CMQ_DESC_NUM_S) |
++				HCLGE_NIC_CMQ_ENABLE);
++		hclge_write_dev(hw, HCLGE_NIC_CRQ_TAIL_REG, 0);
++		hclge_write_dev(hw, HCLGE_NIC_CRQ_HEAD_REG, 0);
++	}
++}
++
++static void hclge_cmd_init_regs(struct hclge_hw *hw)
++{
++	hclge_cmd_config_regs(&hw->cmq.csq);
++	hclge_cmd_config_regs(&hw->cmq.crq);
++}
++
++static int hclge_cmd_csq_clean(struct hclge_hw *hw)
++{
++	struct hclge_cmq_ring *csq = &hw->cmq.csq;
++	u16 ntc = csq->next_to_clean;
++	struct hclge_desc *desc;
++	int clean = 0;
++	u32 head;
++
++	desc = &csq->desc[ntc];
++	head = hclge_read_dev(hw, HCLGE_NIC_CSQ_HEAD_REG);
++
++	while (head != ntc) {
++		memset(desc, 0, sizeof(*desc));
++		ntc++;
++		if (ntc == csq->desc_num)
++			ntc = 0;
++		desc = &csq->desc[ntc];
++		clean++;
++	}
++	csq->next_to_clean = ntc;
++
++	return clean;
++}
++
++static int hclge_cmd_csq_done(struct hclge_hw *hw)
++{
++	u32 head = hclge_read_dev(hw, HCLGE_NIC_CSQ_HEAD_REG);
++	return head == hw->cmq.csq.next_to_use;
++}
++
++/**
++ * hclge_cmd_send - send command to command queue
++ * @hw: pointer to the hw struct
++ * @desc: prefilled descriptor for describing the command
++ * @num : the number of descriptors to be sent
++ *
++ * This is the main send command for command queue, it
++ * sends the queue, cleans the queue, etc
++ **/
++enum hclge_cmd_status hclge_cmd_send(struct hclge_hw *hw,
++				     struct hclge_desc *desc, int num)
++{
++	struct hclge_dev *hdev = (struct hclge_dev *)hw->back;
++	enum hclge_cmd_status status = 0;
++	struct hclge_desc *desc_to_use;
++	bool complete = false;
++	u32 timeout = 0;
++	int handle = 0;
++	u16 retval;
++	int ntc;
++
++	spin_lock_bh(&hw->cmq.csq.lock);
++
++	if (num > hclge_ring_space(&hw->cmq.csq)) {
++		spin_unlock_bh(&hw->cmq.csq.lock);
++		return HCLGE_ERR_CSQ_FULL;
++	}
++
++	/**
++	 * Record the location of desc in the ring for this time
++	 * which will be use for hardware to write back
++	 */
++	ntc = hw->cmq.csq.next_to_use;
++
++	while (handle < num) {
++		desc_to_use = &hw->cmq.csq.desc[hw->cmq.csq.next_to_use];
++		*desc_to_use = desc[handle];
++		(hw->cmq.csq.next_to_use)++;
++		if (hw->cmq.csq.next_to_use == hw->cmq.csq.desc_num)
++			hw->cmq.csq.next_to_use = 0;
++		handle++;
++	}
++
++	/* Write to hardware */
++	hclge_write_dev(hw, HCLGE_NIC_CSQ_TAIL_REG, hw->cmq.csq.next_to_use);
++
++	/**
++	 * If the command is sync, wait for the firmware to write back,
++	 * if multi descriptors to be sent, use the first one to check
++	 */
++	if (HCLGE_SEND_SYNC(desc->flag)) {
++		do {
++			if (hclge_cmd_csq_done(hw))
++				break;
++			udelay(1);
++			timeout++;
++		} while (timeout < hw->cmq.tx_timeout);
++	}
++
++	if (hclge_cmd_csq_done(hw)) {
++		complete = true;
++		handle = 0;
++		while (handle < num) {
++			/* Get the result of hardware write back */
++			desc_to_use = &hw->cmq.csq.desc[ntc];
++			desc[handle] = *desc_to_use;
++			retval = desc[handle].retval;
++			if ((enum hclge_cmd_return_status)retval ==
++			    HCLGE_CMD_EXEC_SUCCESS)
++				status = 0;
++			else
++				status = HCLGE_ERR_CSQ_ERROR;
++			hw->cmq.last_status = (enum hclge_cmd_status)retval;
++			ntc++;
++			handle++;
++			if (ntc == hw->cmq.csq.desc_num)
++				ntc = 0;
++		}
++	}
++
++	if (!complete)
++		status = HCLGE_ERR_CSQ_TIMEOUT;
++
++	/* Clean the command send queue */
++	handle = hclge_cmd_csq_clean(hw);
++	if (handle != num) {
++		dev_warn(&hdev->pdev->dev,
++			 "cleaned %d, need to clean %d\n", handle, num);
++	}
++
++	spin_unlock_bh(&hw->cmq.csq.lock);
++
++	return status;
++}
++
++enum hclge_cmd_status hclge_cmd_query_firmware_version(struct hclge_hw *hw,
++						       u32 *version)
++{
++	struct hclge_query_version *resp;
++	enum hclge_cmd_status status;
++	struct hclge_desc desc;
++
++	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_QUERY_FW_VER, 1);
++	resp = (struct hclge_query_version *)desc.data;
++
++	status = hclge_cmd_send(hw, &desc, 1);
++	if (!status)
++		*version = le32_to_cpu(resp->firmware);
++
++	return status;
++}
++
++int hclge_cmd_init(struct hclge_dev *hdev)
++{
++	u32 version;
++	int ret;
++
++	/* Setup the queue entries for use cmd queue */
++	hdev->hw.cmq.csq.desc_num = HCLGE_NIC_CMQ_DESC_NUM;
++	hdev->hw.cmq.crq.desc_num = HCLGE_NIC_CMQ_DESC_NUM;
++
++	/* Setup the lock for command queue */
++	spin_lock_init(&hdev->hw.cmq.csq.lock);
++	spin_lock_init(&hdev->hw.cmq.crq.lock);
++
++	/* Setup Tx write back timeout */
++	hdev->hw.cmq.tx_timeout = HCLGE_CMDQ_TX_TIMEOUT;
++
++	/* Setup queue rings */
++	ret = hclge_init_cmd_queue(hdev, HCLGE_TYPE_CSQ);
++	if (ret) {
++		dev_err(&hdev->pdev->dev,
++			"CSQ ring setup error %d\n", ret);
++		return ret;
++	}
++
++	ret = hclge_init_cmd_queue(hdev, HCLGE_TYPE_CRQ);
++	if (ret) {
++		dev_err(&hdev->pdev->dev,
++			"CRQ ring setup error %d\n", ret);
++		goto err_csq;
++	}
++
++	hclge_cmd_init_regs(&hdev->hw);
++
++	ret = hclge_cmd_query_firmware_version(&hdev->hw, &version);
++	if (ret) {
++		dev_err(&hdev->pdev->dev,
++			"firmware version query failed %d\n", ret);
++		return ret;
++	}
++	hdev->fw_version = version;
++
++	dev_info(&hdev->pdev->dev, "The firware version is %08x\n", version);
++
++	return 0;
++err_csq:
++	hclge_free_cmd_desc(&hdev->hw.cmq.csq);
 +	return ret;
 +}
 +
-+static int hns3_lp_up(struct net_device *ndev, enum hnae3_loop loop_mode)
++static void hclge_destroy_queue(struct hclge_cmq_ring *ring)
 +{
-+	struct hns3_nic_priv *priv = netdev_priv(ndev);
-+	struct hnae3_handle *h = priv->ae_handle;
-+	struct hnae3_ae_ops *ops = h->ae_algo->ops;
-+	int ret;
-+
-+	if (ops->start) {
-+		ret = ops->start(h);
-+		if (ret) {
-+			netdev_err(ndev,
-+				   "error: hns3_lb_up start ops return error:%d\n",
-+				   ret);
-+			return ret;
-+		}
-+	} else {
-+		netdev_err(ndev, "error: hns3_lb_up ops do NOT have start\n");
-+	}
-+
-+	ret = hns3_lp_setup(ndev, loop_mode);
-+	if (ret)
-+		return ret;
-+
-+	msleep(200);
-+
-+	return 0;
++	spin_lock_bh(&ring->lock);
++	hclge_free_cmd_desc(ring);
++	spin_unlock_bh(&ring->lock);
 +}
 +
-+static int hns3_lp_down(struct net_device *ndev)
++void hclge_destroy_cmd_queue(struct hclge_hw *hw)
 +{
-+	struct hns3_nic_priv *priv = netdev_priv(ndev);
-+	struct hnae3_handle *h = priv->ae_handle;
-+	int ret;
-+
-+	ret = hns3_lp_setup(ndev, HNAE3_MAC_LOOP_NONE);
-+	if (ret)
-+		netdev_err(ndev, "lb_setup return error(%d)!\n",
-+			   ret);
-+
-+	if (h->ae_algo->ops->stop)
-+		h->ae_algo->ops->stop(h);
-+
-+	usleep_range(10000, 20000);
-+
-+	return 0;
++	hclge_destroy_queue(&hw->cmq.csq);
++	hclge_destroy_queue(&hw->cmq.crq);
 +}
-+
-+static void hns3_lp_setup_skb(struct sk_buff *skb)
-+{
-+	struct hns3_nic_priv *priv;
-+	unsigned int frame_size;
-+	struct net_device *ndev;
-+
-+	ndev = skb->dev;
-+	priv = netdev_priv(ndev);
-+	frame_size = skb->len;
-+	memset(skb->data, 0xFF, frame_size);
-+	ether_addr_copy(skb->data, ndev->dev_addr);
-+	skb->data[5] += 0x1f;
-+	frame_size &= ~1ul;
-+	memset(&skb->data[frame_size / 2], 0xAA, frame_size / 2 - 1);
-+	memset(&skb->data[frame_size / 2 + 10], 0xBE, frame_size / 2 - 11);
-+	memset(&skb->data[frame_size / 2 + 12], 0xAF, frame_size / 2 - 13);
-+}
-+
-+static bool hns3_lb_check_skb_data(struct sk_buff *skb)
-+{
-+	unsigned int frame_size;
-+	char buff[33]; /* 32B data and the last character '\0' */
-+	int check_ok;
-+	u32 i;
-+
-+	frame_size = skb->len;
-+	frame_size &= ~1ul;
-+	check_ok = 0;
-+	if (*(skb->data + 10) == 0xFF) { /* for rx check frame*/
-+		if ((*(skb->data + frame_size / 2 + 10) == 0xBE) &&
-+		    (*(skb->data + frame_size / 2 + 12) == 0xAF))
-+			check_ok = 1;
-+	}
-+
-+	if (!check_ok) {
-+		for (i = 0; i < skb->len; i++) {
-+			snprintf(buff + i % 16 * 2, 3, /* tailing \0*/
-+				 "%02x", *(skb->data + i));
-+			if ((i % 16 == 15) || (i == skb->len - 1))
-+				pr_info("%s\n", buff);
-+		}
-+		return false;
-+	}
-+	return true;
-+}
-+
-+static u32 hns3_lb_check_rx_ring(struct hns3_nic_priv *priv,
-+				 u32 start_ringid,
-+				 u32 end_ringid,
-+				 u32 budget)
-+{
-+	struct hns3_enet_ring *ring;
-+	struct sk_buff *skb = NULL;
-+	u32 rcv_good_pkt_cnt = 0;
-+	int status;
-+	u32 i;
-+
-+	struct net_device *ndev = priv->netdev;
-+	unsigned long rx_packets = ndev->stats.rx_packets;
-+	unsigned long rx_bytes = ndev->stats.rx_bytes;
-+	unsigned long rx_frame_errors = ndev->stats.rx_frame_errors;
-+
-+	for (i = start_ringid; i <= end_ringid; i++) {
-+		skb = NULL;
-+		ring = priv->ring_data[i].ring;
-+		status = hns3_clean_rx_ring_ex(ring, &skb, budget);
-+		if (status > 0 && skb) {
-+			if (hns3_lb_check_skb_data(skb))
-+				rcv_good_pkt_cnt += 1;
-+
-+			dev_kfree_skb_any(skb);
-+		}
-+	}
-+	ndev->stats.rx_packets = rx_packets;
-+	ndev->stats.rx_bytes = rx_bytes;
-+	ndev->stats.rx_frame_errors = rx_frame_errors;
-+	return rcv_good_pkt_cnt;
-+}
-+
-+static void hns3_lb_clear_tx_ring(struct hns3_nic_priv *priv,
-+				  u32 start_ringid,
-+				  u32 end_ringid,
-+				  u32 budget)
-+{
-+	struct net_device *ndev = priv->netdev;
-+	unsigned long rx_frame_errors = ndev->stats.rx_frame_errors;
-+	unsigned long rx_packets = ndev->stats.rx_packets;
-+	unsigned long rx_bytes = ndev->stats.rx_bytes;
-+	struct netdev_queue *dev_queue;
-+	struct hns3_enet_ring *ring;
-+	int status;
-+	u32 i;
-+
-+	for (i = start_ringid; i <= end_ringid; i++) {
-+		ring = priv->ring_data[i].ring;
-+		status = hns3_clean_tx_ring(ring, budget);
-+		if (status)
-+			dev_err(priv->dev,
-+				"hns3_clean_tx_ring failed ,status:%d\n",
-+				status);
-+
-+		dev_queue = netdev_get_tx_queue(ndev,
-+						priv->ring_data[i].queue_index);
-+		netdev_tx_reset_queue(dev_queue);
-+	}
-+
-+	ndev->stats.rx_packets = rx_packets;
-+	ndev->stats.rx_bytes = rx_bytes;
-+	ndev->stats.rx_frame_errors = rx_frame_errors;
-+}
-+
-+/* hns3_lp_run_test -  run loopback test
-+ * @ndev: net device
-+ * @mode: loopback type
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
+new file mode 100644
+index 0000000..6699fb0
+--- /dev/null
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
+@@ -0,0 +1,742 @@
++/*
++ * Copyright (c) 2016~2017 Hisilicon Limited.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
 + */
-+static int hns3_lp_run_test(struct net_device *ndev, enum hnae3_loop mode)
-+{
-+#define HNS3_NIC_LB_TEST_PKT_NUM 1
-+#define HNS3_NIC_LB_TEST_RING_ID 0
-+#define HNS3_NIC_LB_TEST_FRAME_SIZE 128
-+/* Nic loopback test err  */
-+#define HNS3_NIC_LB_TEST_NO_MEM_ERR 1
-+#define HNS3_NIC_LB_TEST_TX_CNT_ERR 2
-+#define HNS3_NIC_LB_TEST_RX_CNT_ERR 3
-+#define HNS3_NIC_LB_TEST_RX_PKG_ERR 4
-+	struct hns3_nic_priv *priv = netdev_priv(ndev);
-+	struct hnae3_handle *h = priv->ae_handle;
-+	struct hnae3_knic_private_info *kinfo = &h->kinfo;
-+	int i, j, lc, good_cnt;
-+	netdev_tx_t tx_ret_val;
-+	struct sk_buff *skb;
-+	unsigned int size;
-+	int ret_val = 0;
 +
-+	size = HNS3_NIC_LB_TEST_FRAME_SIZE;
-+	/* Allocate test skb */
-+	skb = alloc_skb(size, GFP_KERNEL);
-+	if (!skb)
-+		return HNS3_NIC_LB_TEST_NO_MEM_ERR;
++#ifndef __HCLGE_CMD_H
++#define __HCLGE_CMD_H
++#include <linux/types.h>
++#include <linux/io.h>
 +
-+	/* Place data into test skb */
-+	(void)skb_put(skb, size);
-+	skb->dev = ndev;
-+	hns3_lp_setup_skb(skb);
-+	skb->queue_mapping = HNS3_NIC_LB_TEST_RING_ID;
-+	lc = 1;
-+	for (j = 0; j < lc; j++) {
-+		/* Reset count of good packets */
-+		good_cnt = 0;
-+		/* Place 64 packets on the transmit queue */
-+		for (i = 0; i < HNS3_NIC_LB_TEST_PKT_NUM; i++) {
-+			(void)skb_get(skb);
-+			tx_ret_val = (netdev_tx_t)hns3_nic_net_xmit_hw(
-+							ndev, skb,
-+							&tx_ring_data(priv,
-+							skb->queue_mapping));
-+			if (tx_ret_val == NETDEV_TX_OK) {
-+				good_cnt++;
-+			} else {
-+				dev_err(priv->dev,
-+					"hns3_lb_run_test hns3_nic_net_xmit_hw FAILED %d\n",
-+					tx_ret_val);
-+				break;
-+			}
-+		}
-+		if (good_cnt != HNS3_NIC_LB_TEST_PKT_NUM) {
-+			ret_val = HNS3_NIC_LB_TEST_TX_CNT_ERR;
-+			dev_err(priv->dev, "mode %d sent fail, cnt=0x%x, budget=0x%x\n",
-+				mode, good_cnt,
-+				HNS3_NIC_LB_TEST_PKT_NUM);
-+			break;
-+		}
++#define HCLGE_CMDQ_TX_TIMEOUT		200
 +
-+		/* Allow 100 milliseconds for packets to go from Tx to Rx */
-+		msleep(100);
++struct hclge_dev;
++struct hclge_desc {
++	__le16 opcode;
 +
-+		good_cnt = hns3_lb_check_rx_ring(priv,
-+						 kinfo->num_tqps,
-+						 kinfo->num_tqps * 2 - 1,
-+				HNS3_NIC_LB_TEST_PKT_NUM);
-+		if (good_cnt != HNS3_NIC_LB_TEST_PKT_NUM) {
-+			ret_val = HNS3_NIC_LB_TEST_RX_CNT_ERR;
-+			dev_err(priv->dev, "mode %d recv fail, cnt=0x%x, budget=0x%x\n",
-+				mode, good_cnt,
-+				HNS3_NIC_LB_TEST_PKT_NUM);
-+			break;
-+		}
-+		hns3_lb_clear_tx_ring(priv,
-+				      HNS3_NIC_LB_TEST_RING_ID,
-+				      HNS3_NIC_LB_TEST_RING_ID,
-+				      HNS3_NIC_LB_TEST_PKT_NUM);
-+	}
++#define HCLGE_CMDQ_RX_INVLD_B		0
++#define HCLGE_CMDQ_RX_OUTVLD_B		1
 +
-+	/* Free the original skb */
-+	kfree_skb(skb);
-+
-+	return ret_val;
-+}
-+
-+/* hns_nic_self_test - self test
-+ * @ndev: net device
-+ * @eth_test: test cmd
-+ * @data: test result
-+ */
-+static void hns3_self_test(struct net_device *ndev,
-+			   struct ethtool_test *eth_test, u64 *data)
-+{
-+#define HNS3_SELF_TEST_TPYE_NUM 3
-+
-+	struct hns3_nic_priv *priv = netdev_priv(ndev);
-+	struct hnae3_handle *h = priv->ae_handle;
-+	int st_param[HNS3_SELF_TEST_TPYE_NUM][2];
-+	bool if_running = netif_running(ndev);
-+	int test_index = 0;
-+	int i;
-+
-+	st_param[0][0] = HNAE3_MAC_INTER_LOOP_MAC; /* XGE not supported lb */
-+	st_param[0][1] = h->flags & HNAE3_SUPPORT_MAC_LOOPBACK;
-+	st_param[1][0] = HNAE3_MAC_INTER_LOOP_SERDES;
-+	st_param[1][1] = h->flags & HNAE3_SUPPORT_SERDES_LOOPBACK;
-+	st_param[2][0] = HNAE3_MAC_INTER_LOOP_PHY;
-+	st_param[2][1] = h->flags & HNAE3_SUPPORT_PHY_LOOPBACK;
-+
-+	if (eth_test->flags == ETH_TEST_FL_OFFLINE) {
-+		set_bit(HNS3_NIC_STATE_TESTING, &priv->state);
-+
-+		if (if_running)
-+			(void)dev_close(ndev);
-+
-+		for (i = 0; i < HNS3_SELF_TEST_TPYE_NUM; i++) {
-+			if (!st_param[i][1])
-+				continue;	/* NEXT testing */
-+
-+			data[test_index] = hns3_lp_up(ndev,
-+					(enum hnae3_loop)st_param[i][0]);
-+			if (!data[test_index]) {
-+				data[test_index] = hns3_lp_run_test(
-+					ndev,
-+					(enum hnae3_loop)st_param[i][0]);
-+				(void)hns3_lp_down(ndev);
-+			}
-+
-+			if (data[test_index])
-+				eth_test->flags |= ETH_TEST_FL_FAILED;
-+
-+			test_index++;
-+		}
-+
-+		clear_bit(HNS3_NIC_STATE_TESTING, &priv->state);
-+
-+		if (if_running)
-+			(void)dev_open(ndev);
-+	}
-+	(void)msleep_interruptible(4 * 1000);
-+}
-+
-+static int hns3_get_sset_count(struct net_device *netdev, int stringset)
-+{
-+	struct hns3_nic_priv *priv = netdev_priv(netdev);
-+	struct hnae3_handle *h = priv->ae_handle;
-+	struct hnae3_ae_ops *ops = h->ae_algo->ops;
-+
-+	if (!ops->get_sset_count) {
-+		netdev_err(netdev, "could not get string set count\n");
-+		return -EOPNOTSUPP;
-+	}
-+
-+	switch (stringset) {
-+	case ETH_SS_STATS:
-+		return (HNS3_NETDEV_STATS_COUNT +
-+			(HNS3_TQP_STATS_COUNT * h->kinfo.num_tqps) +
-+			ops->get_sset_count(h, stringset));
-+
-+	case ETH_SS_TEST:
-+		return ops->get_sset_count(h, stringset);
-+	}
-+
-+	return 0;
-+}
-+
-+static u8 *hns3_get_strings_netdev(u8 *data)
-+{
-+	int i;
-+
-+	for (i = 0; i < HNS3_NETDEV_STATS_COUNT; i++) {
-+		memcpy(data, hns3_netdev_stats[i].stats_string,
-+		       ETH_GSTRING_LEN);
-+		data += ETH_GSTRING_LEN;
-+	}
-+
-+	return data;
-+}
-+
-+static u8 *hns3_get_strings_tqps(struct hnae3_handle *handle, u8 *data)
-+{
-+	struct hnae3_knic_private_info *kinfo = &handle->kinfo;
-+	int i, j;
-+
-+	/* get strings for Tx */
-+	for (i = 0; i < kinfo->num_tqps; i++) {
-+		for (j = 0; j < HNS3_TXQ_STATS_COUNT; j++) {
-+			u8 gstr[ETH_GSTRING_LEN];
-+
-+			sprintf(gstr, "rcb_q%d_", i);
-+			strcat(gstr, hns3_txq_stats[j].stats_string);
-+
-+			memcpy(data, gstr, ETH_GSTRING_LEN);
-+			data += ETH_GSTRING_LEN;
-+		}
-+	}
-+
-+	/* get strings for Rx */
-+	for (i = 0; i < kinfo->num_tqps; i++) {
-+		for (j = 0; j < HNS3_RXQ_STATS_COUNT; j++) {
-+			u8 gstr[ETH_GSTRING_LEN];
-+
-+			sprintf(gstr, "rcb_q%d_", i);
-+			strcat(gstr, hns3_rxq_stats[j].stats_string);
-+
-+			memcpy(data, gstr, ETH_GSTRING_LEN);
-+			data += ETH_GSTRING_LEN;
-+		}
-+	}
-+
-+	return data;
-+}
-+
-+static void hns3_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
-+{
-+	struct hns3_nic_priv *priv = netdev_priv(netdev);
-+	struct hnae3_handle *h = priv->ae_handle;
-+	struct hnae3_ae_ops *ops = h->ae_algo->ops;
-+	char *buff = (char *)data;
-+
-+	if (!ops->get_strings) {
-+		netdev_err(netdev, "could not get strings!\n");
-+		return;
-+	}
-+
-+	switch (stringset) {
-+	case ETH_SS_STATS:
-+		buff = hns3_get_strings_netdev(buff);
-+		buff = hns3_get_strings_tqps(h, buff);
-+		h->ae_algo->ops->get_strings(h, stringset, (u8 *)buff);
-+		break;
-+	case ETH_SS_TEST:
-+		ops->get_strings(h, stringset, data);
-+		break;
-+	}
-+}
-+
-+static u64 *hns3_get_stats_netdev(struct net_device *netdev, u64 *data)
-+{
-+	const struct rtnl_link_stats64 *net_stats;
-+	struct rtnl_link_stats64 temp;
-+	u8 *stat;
-+	int i;
-+
-+	net_stats = dev_get_stats(netdev, &temp);
-+
-+	for (i = 0; i < HNS3_NETDEV_STATS_COUNT; i++) {
-+		stat = (u8 *)net_stats + hns3_netdev_stats[i].stats_offset;
-+		*data++ = *(u64 *)stat;
-+	}
-+
-+	return data;
-+}
-+
-+static u64 *hns3_get_stats_tqps(struct hnae3_handle *handle, u64 *data)
-+{
-+	struct hns3_nic_priv *nic_priv = (struct hns3_nic_priv *)handle->priv;
-+	struct hnae3_knic_private_info *kinfo = &handle->kinfo;
-+	struct hns3_enet_ring *ring;
-+	u8 *stat;
-+	int i;
-+
-+	/* get stats for Tx */
-+	for (i = 0; i < kinfo->num_tqps; i++) {
-+		ring = nic_priv->ring_data[i].ring;
-+		for (i = 0; i < HNS3_TXQ_STATS_COUNT; i++) {
-+			stat = (u8 *)ring + hns3_txq_stats[i].stats_offset;
-+			*data++ = *(u64 *)stat;
-+		}
-+	}
-+
-+	/* get stats for Rx */
-+	for (i = 0; i < kinfo->num_tqps; i++) {
-+		ring = nic_priv->ring_data[i + kinfo->num_tqps].ring;
-+		for (i = 0; i < HNS3_RXQ_STATS_COUNT; i++) {
-+			stat = (u8 *)ring + hns3_rxq_stats[i].stats_offset;
-+			*data++ = *(u64 *)stat;
-+		}
-+	}
-+
-+	return data;
-+}
-+
-+/* hns3_get_stats - get detail statistics.
-+ * @netdev: net device
-+ * @stats: statistics info.
-+ * @data: statistics data.
-+ */
-+void hns3_get_stats(struct net_device *netdev, struct ethtool_stats *stats,
-+		    u64 *data)
-+{
-+	struct hns3_nic_priv *priv = netdev_priv(netdev);
-+	struct hnae3_handle *h = priv->ae_handle;
-+	u64 *p = data;
-+
-+	if (!h->ae_algo->ops->get_stats || !h->ae_algo->ops->update_stats) {
-+		netdev_err(netdev, "could not get any statistics\n");
-+		return;
-+	}
-+
-+	h->ae_algo->ops->update_stats(h, &netdev->stats);
-+
-+	/* get netdev related stats */
-+	p = hns3_get_stats_netdev(netdev, p);
-+
-+	/* get per-queue stats */
-+	p = hns3_get_stats_tqps(h, p);
-+
-+	/* get MAC & other misc hardware stats */
-+	h->ae_algo->ops->get_stats(h, p);
-+}
-+
-+static void hns3_get_drvinfo(struct net_device *net_dev,
-+			     struct ethtool_drvinfo *drvinfo)
-+{
-+	struct hns3_nic_priv *priv = netdev_priv(net_dev);
-+	struct hnae3_handle *h = priv->ae_handle;
-+
-+	strncpy(drvinfo->version, HNAE_DRIVER_VERSION,
-+		sizeof(drvinfo->version));
-+	drvinfo->version[sizeof(drvinfo->version) - 1] = '\0';
-+
-+	strncpy(drvinfo->driver, HNAE_DRIVER_NAME, sizeof(drvinfo->driver));
-+	drvinfo->driver[sizeof(drvinfo->driver) - 1] = '\0';
-+
-+	strncpy(drvinfo->bus_info, priv->dev->bus->name,
-+		sizeof(drvinfo->bus_info));
-+	drvinfo->bus_info[ETHTOOL_BUSINFO_LEN - 1] = '\0';
-+
-+	snprintf(drvinfo->fw_version, sizeof(drvinfo->fw_version), "0x%08x",
-+		 priv->ae_handle->ae_algo->ops->get_fw_version(h));
-+}
-+
-+static u32 hns3_get_link(struct net_device *net_dev)
-+{
-+	struct hns3_nic_priv *priv = netdev_priv(net_dev);
-+	struct hnae3_handle *h;
-+
-+	h = priv->ae_handle;
-+
-+	if (h->ae_algo && h->ae_algo->ops && h->ae_algo->ops->get_status)
-+		return h->ae_algo->ops->get_status(h);
-+	else
-+		return 0;
-+}
-+
-+static void hns3_get_ringparam(struct net_device *net_dev,
-+			       struct ethtool_ringparam *param)
-+{
-+	struct hns3_nic_priv *priv = netdev_priv(net_dev);
-+	int queue_num = priv->ae_handle->kinfo.num_tqps;
-+
-+	param->tx_max_pending = HNS3_RING_MAX_PENDING;
-+	param->rx_max_pending = HNS3_RING_MAX_PENDING;
-+
-+	param->tx_pending = priv->ring_data[0].ring->desc_num;
-+	param->rx_pending = priv->ring_data[queue_num].ring->desc_num;
-+}
-+
-+static void hns3_get_pauseparam(struct net_device *net_dev,
-+				struct ethtool_pauseparam *param)
-+{
-+	struct hns3_nic_priv *priv = netdev_priv(net_dev);
-+	struct hnae3_handle *h = priv->ae_handle;
-+
-+	if (h->ae_algo && h->ae_algo->ops && h->ae_algo->ops->get_pauseparam)
-+		h->ae_algo->ops->get_pauseparam(h, &param->autoneg,
-+			&param->rx_pause, &param->tx_pause);
-+}
-+
-+static int hns3_get_link_ksettings(struct net_device *net_dev,
-+				   struct ethtool_link_ksettings *cmd)
-+{
-+	struct hns3_nic_priv *priv = netdev_priv(net_dev);
-+	struct hnae3_handle *h = priv->ae_handle;
-+	u32 supported_caps;
-+	u32 advertised_caps;
-+	u8 media_type;
-+	u8 link_stat;
-+	u8 auto_neg;
-+	u8 duplex;
-+	u32 speed;
-+
-+	if (!h->ae_algo || !h->ae_algo->ops)
-+		return -ESRCH;
-+
-+	/* 1.auto_neg&speed&duplex from cmd */
-+	if (h->ae_algo->ops->get_ksettings_an_result) {
-+		h->ae_algo->ops->get_ksettings_an_result(h, &auto_neg,
-+							 &speed, &duplex);
-+		cmd->base.autoneg = auto_neg;
-+		cmd->base.speed = speed;
-+		cmd->base.duplex = duplex;
-+
-+		link_stat = hns3_get_link(net_dev);
-+		if (!link_stat) {
-+			cmd->base.speed = (u32)SPEED_UNKNOWN;
-+			cmd->base.duplex = DUPLEX_UNKNOWN;
-+		}
-+	}
-+
-+	/* 2.media_type get from bios parameter block */
-+	if (h->ae_algo->ops->get_media_type)
-+		h->ae_algo->ops->get_media_type(h, &media_type);
-+
-+	switch (media_type) {
-+	case HNAE3_MEDIA_TYPE_FIBER:
-+		cmd->base.port = PORT_FIBRE;
-+		supported_caps = HNS3_LM_FIBRE_BIT | HNS3_LM_AUTONEG_BIT |
-+			HNS3_LM_PAUSE_BIT | HNS3_LM_1000BASET_FULL_BIT;
-+
-+		advertised_caps = supported_caps;
-+		break;
-+	case HNAE3_MEDIA_TYPE_COPPER:
-+		cmd->base.port = PORT_TP;
-+		supported_caps = HNS3_LM_TP_BIT | HNS3_LM_AUTONEG_BIT |
-+			HNS3_LM_PAUSE_BIT | HNS3_LM_1000BASET_FULL_BIT |
-+			HNS3_LM_100BASET_FULL_BIT | HNS3_LM_100BASET_HALF_BIT |
-+			HNS3_LM_10BASET_FULL_BIT | HNS3_LM_10BASET_HALF_BIT;
-+		advertised_caps = supported_caps;
-+		break;
-+	case HNAE3_MEDIA_TYPE_BACKPLANE:
-+		cmd->base.port = PORT_NONE;
-+		supported_caps = HNS3_LM_BACKPLANE_BIT | HNS3_LM_PAUSE_BIT |
-+			HNS3_LM_AUTONEG_BIT | HNS3_LM_1000BASET_FULL_BIT |
-+			HNS3_LM_100BASET_FULL_BIT | HNS3_LM_100BASET_HALF_BIT |
-+			HNS3_LM_10BASET_FULL_BIT | HNS3_LM_10BASET_HALF_BIT;
-+
-+		advertised_caps = supported_caps;
-+		break;
-+	case HNAE3_MEDIA_TYPE_UNKNOWN:
-+	default:
-+		cmd->base.port = PORT_OTHER;
-+		supported_caps = 0;
-+		advertised_caps = 0;
-+		break;
-+	}
-+
-+	ethtool_link_ksettings_zero_link_mode(cmd, supported);
-+	HNS3_DRV_TO_ETHTOOL_CAPS(supported_caps, cmd, supported)
-+
-+	ethtool_link_ksettings_zero_link_mode(cmd, advertising);
-+	HNS3_DRV_TO_ETHTOOL_CAPS(advertised_caps, cmd, advertising)
-+
-+	/* 3.mdix_ctrl&mdix get from phy reg */
-+	if (h->ae_algo->ops->get_mdix_mode)
-+		h->ae_algo->ops->get_mdix_mode(h, &cmd->base.eth_tp_mdix_ctrl,
-+			&cmd->base.eth_tp_mdix);
-+	/* 4.mdio_support */
-+	cmd->base.mdio_support = ETH_MDIO_SUPPORTS_C22;
-+
-+	return 0;
-+}
-+
-+static u32 hns3_get_rss_key_size(struct net_device *netdev)
-+{
-+	struct hns3_nic_priv *priv = netdev_priv(netdev);
-+	struct hnae3_handle *h = priv->ae_handle;
-+
-+	if (!h->ae_algo || !h->ae_algo->ops ||
-+	    !h->ae_algo->ops->get_rss_key_size)
-+		return -EOPNOTSUPP;
-+
-+	return h->ae_algo->ops->get_rss_key_size(h);
-+}
-+
-+static u32 hns3_get_rss_indir_size(struct net_device *netdev)
-+{
-+	struct hns3_nic_priv *priv = netdev_priv(netdev);
-+	struct hnae3_handle *h = priv->ae_handle;
-+
-+	if (!h->ae_algo || !h->ae_algo->ops ||
-+	    !h->ae_algo->ops->get_rss_indir_size)
-+		return -EOPNOTSUPP;
-+
-+	return h->ae_algo->ops->get_rss_indir_size(h);
-+}
-+
-+static int hns3_get_rss(struct net_device *netdev, u32 *indir, u8 *key,
-+			u8 *hfunc)
-+{
-+	struct hns3_nic_priv *priv = netdev_priv(netdev);
-+	struct hnae3_handle *h = priv->ae_handle;
-+
-+	if (!h->ae_algo || !h->ae_algo->ops || !h->ae_algo->ops->get_rss)
-+		return -EOPNOTSUPP;
-+
-+	return h->ae_algo->ops->get_rss(h, indir, key, hfunc);
-+}
-+
-+static int hns3_set_rss(struct net_device *netdev, const u32 *indir,
-+			const u8 *key, const u8 hfunc)
-+{
-+	struct hns3_nic_priv *priv = netdev_priv(netdev);
-+	struct hnae3_handle *h = priv->ae_handle;
-+
-+	if (!h->ae_algo || !h->ae_algo->ops || !h->ae_algo->ops->set_rss)
-+		return -EOPNOTSUPP;
-+
-+	/* currently we only support Toeplitz hash */
-+	if ((hfunc != ETH_RSS_HASH_NO_CHANGE) && (hfunc != ETH_RSS_HASH_TOP)) {
-+		netdev_err(netdev,
-+			   "hash func not supported (only Toeplitz hash)\n");
-+		return -EOPNOTSUPP;
-+	}
-+	if (!indir) {
-+		netdev_err(netdev,
-+			   "set rss failed for indir is empty\n");
-+		return -EOPNOTSUPP;
-+	}
-+
-+	return h->ae_algo->ops->set_rss(h, indir, key, hfunc);
-+}
-+
-+static int hns3_get_rxnfc(struct net_device *netdev,
-+			  struct ethtool_rxnfc *cmd,
-+			  u32 *rule_locs)
-+{
-+	struct hns3_nic_priv *priv = netdev_priv(netdev);
-+	struct hnae3_handle *h = priv->ae_handle;
-+
-+	if (!h->ae_algo || !h->ae_algo->ops || !h->ae_algo->ops->get_tc_size)
-+		return -EOPNOTSUPP;
-+
-+	switch (cmd->cmd) {
-+	case ETHTOOL_GRXRINGS:
-+		cmd->data = h->ae_algo->ops->get_tc_size(h);
-+		break;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+
-+	return 0;
-+}
-+
-+static const struct ethtool_ops hns3_ethtool_ops = {
-+	.get_drvinfo = hns3_get_drvinfo,
-+	.get_link = hns3_get_link,
-+	.get_ringparam = hns3_get_ringparam,
-+	.get_pauseparam = hns3_get_pauseparam,
-+	.self_test = hns3_self_test,
-+	.get_strings = hns3_get_strings,
-+	.get_ethtool_stats = hns3_get_stats,
-+	.get_sset_count = hns3_get_sset_count,
-+	.get_rxnfc = hns3_get_rxnfc,
-+	.get_rxfh_key_size = hns3_get_rss_key_size,
-+	.get_rxfh_indir_size = hns3_get_rss_indir_size,
-+	.get_rxfh = hns3_get_rss,
-+	.set_rxfh = hns3_set_rss,
-+	.get_link_ksettings = hns3_get_link_ksettings,
++	__le16 flag;
++	__le16 retval;
++	__le16 rsv;
++	__le32 data[6];
 +};
 +
-+void hns3_ethtool_set_ops(struct net_device *ndev)
++struct hclge_desc_cb {
++	dma_addr_t dma;
++	void *va;
++	u32 length;
++};
++
++struct hclge_cmq_ring {
++	dma_addr_t desc_dma_addr;
++	struct hclge_desc *desc;
++	struct hclge_desc_cb *desc_cb;
++	struct hclge_dev  *dev;
++	u32 head;
++	u32 tail;
++
++	u16 buf_size;
++	u16 desc_num;
++	int next_to_use;
++	int next_to_clean;
++	u8 flag;
++	spinlock_t lock; /* Command queue lock */
++};
++
++enum hclge_cmd_return_status {
++	HCLGE_CMD_EXEC_SUCCESS	= 0,
++	HCLGE_CMD_NO_AUTH	= 1,
++	HCLGE_CMD_NOT_EXEC	= 2,
++	HCLGE_CMD_QUEUE_FULL	= 3,
++};
++
++enum hclge_cmd_status {
++	HCLGE_STATUS_SUCCESS	= 0,
++	HCLGE_ERR_CSQ_FULL	= -1,
++	HCLGE_ERR_CSQ_TIMEOUT	= -2,
++	HCLGE_ERR_CSQ_ERROR	= -3,
++};
++
++struct hclge_cmq {
++	struct hclge_cmq_ring csq;
++	struct hclge_cmq_ring crq;
++	u16 tx_timeout; /* Tx timeout */
++	enum hclge_cmd_status last_status;
++};
++
++#define HCLGE_CMD_FLAG_IN_VALID_SHIFT	0
++#define HCLGE_CMD_FLAG_OUT_VALID_SHIFT	1
++#define HCLGE_CMD_FLAG_NEXT_SHIFT	2
++#define HCLGE_CMD_FLAG_WR_OR_RD_SHIFT	3
++#define HCLGE_CMD_FLAG_NO_INTR_SHIFT	4
++#define HCLGE_CMD_FLAG_ERR_INTR_SHIFT	5
++
++#define HCLGE_CMD_FLAG_IN	BIT(HCLGE_CMD_FLAG_IN_VALID_SHIFT)
++#define HCLGE_CMD_FLAG_OUT	BIT(HCLGE_CMD_FLAG_OUT_VALID_SHIFT)
++#define HCLGE_CMD_FLAG_NEXT	BIT(HCLGE_CMD_FLAG_NEXT_SHIFT)
++#define HCLGE_CMD_FLAG_WR	BIT(HCLGE_CMD_FLAG_WR_OR_RD_SHIFT)
++#define HCLGE_CMD_FLAG_NO_INTR	BIT(HCLGE_CMD_FLAG_NO_INTR_SHIFT)
++#define HCLGE_CMD_FLAG_ERR_INTR	BIT(HCLGE_CMD_FLAG_ERR_INTR_SHIFT)
++
++enum hclge_opcode_type {
++	/* Generic command */
++	HCLGE_OPC_QUERY_FW_VER		= 0x0001,
++	HCLGE_OPC_CFG_RST_TRIGGER	= 0x0020,
++	HCLGE_OPC_GBL_RST_STATUS	= 0x0021,
++	HCLGE_OPC_QUERY_FUNC_STATUS	= 0x0022,
++	HCLGE_OPC_QUERY_PF_RSRC		= 0x0023,
++	HCLGE_OPC_QUERY_VF_RSRC		= 0x0024,
++	HCLGE_OPC_GET_CFG_PARAM		= 0x0025,
++
++	HCLGE_OPC_STATS_64_BIT		= 0x0030,
++	HCLGE_OPC_STATS_32_BIT		= 0x0031,
++	HCLGE_OPC_STATS_MAC		= 0x0032,
++	/* Device management command */
++
++	/* MAC commond */
++	HCLGE_OPC_CONFIG_MAC_MODE	= 0x0301,
++	HCLGE_OPC_CONFIG_AN_MODE	= 0x0304,
++	HCLGE_OPC_QUERY_AN_RESULT	= 0x0306,
++	HCLGE_OPC_QUERY_LINK_STATUS	= 0x0307,
++	HCLGE_OPC_CONFIG_MAX_FRM_SIZE	= 0x0308,
++	HCLGE_OPC_CONFIG_SPEED_DUP	= 0x0309,
++	/* MACSEC command */
++
++	/* PFC/Pause CMD*/
++	HCLGE_OPC_CFG_MAC_PAUSE_EN      = 0x0701,
++	HCLGE_OPC_CFG_PFC_PAUSE_EN      = 0x0702,
++	HCLGE_OPC_CFG_MAC_PARA          = 0x0703,
++	HCLGE_OPC_CFG_PFC_PARA          = 0x0704,
++	HCLGE_OPC_QUERY_MAC_TX_PKT_CNT  = 0x0705,
++	HCLGE_OPC_QUERY_MAC_RX_PKT_CNT  = 0x0706,
++	HCLGE_OPC_QUERY_PFC_TX_PKT_CNT  = 0x0707,
++	HCLGE_OPC_QUERY_PFC_RX_PKT_CNT  = 0x0708,
++	HCLGE_OPC_PRI_TO_TC_MAPPING     = 0x0709,
++	HCLGE_OPC_QOS_MAP               = 0x070A,
++
++	/* ETS/scheduler commands */
++	HCLGE_OPC_TM_PG_TO_PRI_LINK	= 0x0804,
++	HCLGE_OPC_TM_QS_TO_PRI_LINK     = 0x0805,
++	HCLGE_OPC_TM_NQ_TO_QS_LINK      = 0x0806,
++	HCLGE_OPC_TM_RQ_TO_QS_LINK      = 0x0807,
++	HCLGE_OPC_TM_PORT_WEIGHT        = 0x0808,
++	HCLGE_OPC_TM_PG_WEIGHT          = 0x0809,
++	HCLGE_OPC_TM_QS_WEIGHT          = 0x080A,
++	HCLGE_OPC_TM_PRI_WEIGHT         = 0x080B,
++	HCLGE_OPC_TM_PRI_C_SHAPPING     = 0x080C,
++	HCLGE_OPC_TM_PRI_P_SHAPPING     = 0x080D,
++	HCLGE_OPC_TM_PG_C_SHAPPING      = 0x080E,
++	HCLGE_OPC_TM_PG_P_SHAPPING      = 0x080F,
++	HCLGE_OPC_TM_PORT_SHAPPING      = 0x0810,
++	HCLGE_OPC_TM_PG_SCH_MODE_CFG    = 0x0812,
++	HCLGE_OPC_TM_PRI_SCH_MODE_CFG   = 0x0813,
++	HCLGE_OPC_TM_QS_SCH_MODE_CFG    = 0x0814,
++	HCLGE_OPC_TM_BP_TO_QSET_MAPPING = 0x0815,
++
++	/* Packet buffer allocate command */
++	HCLGE_OPC_TX_BUFF_ALLOC		= 0x0901,
++	HCLGE_OPC_RX_PRIV_BUFF_ALLOC	= 0x0902,
++	HCLGE_OPC_RX_PRIV_WL_ALLOC	= 0x0903,
++	HCLGE_OPC_RX_COM_THRD_ALLOC	= 0x0904,
++	HCLGE_OPC_RX_COM_WL_ALLOC	= 0x0905,
++	HCLGE_OPC_RX_GBL_PKT_CNT	= 0x0906,
++
++	/* PTP command */
++	/* TQP management command */
++	HCLGE_OPC_SET_TQP_MAP		= 0x0A01,
++
++	/* TQP command */
++	HCLGE_OPC_CFG_TX_QUEUE		= 0x0B01,
++	HCLGE_OPC_QUERY_TX_POINTER	= 0x0B02,
++	HCLGE_OPC_QUERY_TX_STATUS	= 0x0B03,
++	HCLGE_OPC_CFG_RX_QUEUE		= 0x0B11,
++	HCLGE_OPC_QUERY_RX_POINTER	= 0x0B12,
++	HCLGE_OPC_QUERY_RX_STATUS	= 0x0B13,
++	HCLGE_OPC_STASH_RX_QUEUE_LRO	= 0x0B16,
++	HCLGE_OPC_CFG_RX_QUEUE_LRO	= 0x0B17,
++	HCLGE_OPC_CFG_COM_TQP_QUEUE	= 0x0B20,
++	HCLGE_OPC_RESET_TQP_QUEUE	= 0x0B22,
++
++	/* TSO cmd */
++	HCLGE_OPC_TSO_GENERIC_CONFIG	= 0x0C01,
++
++	/* RSS cmd */
++	HCLGE_OPC_RSS_GENERIC_CONFIG	= 0x0D01,
++	HCLGE_OPC_RSS_INDIR_TABLE	= 0x0D07,
++	HCLGE_OPC_RSS_TC_MODE		= 0x0D08,
++	HCLGE_OPC_RSS_INPUT_TUPLE	= 0x0D02,
++
++	/* Promisuous mode command */
++	HCLGE_OPC_CFG_PROMISC_MODE	= 0x0E01,
++
++	/* Interrupts cmd */
++	HCLGE_OPC_ADD_RING_TO_VECTOR	= 0x1503,
++	HCLGE_OPC_DEL_RING_TO_VECTOR	= 0x1504,
++
++	/* MAC command */
++	HCLGE_OPC_MAC_VLAN_ADD		    = 0x1000,
++	HCLGE_OPC_MAC_VLAN_REMOVE	    = 0x1001,
++	HCLGE_OPC_MAC_VLAN_TYPE_ID	    = 0x1002,
++	HCLGE_OPC_MAC_VLAN_INSERT	    = 0x1003,
++	HCLGE_OPC_MAC_ETHTYPE_ADD	    = 0x1010,
++	HCLGE_OPC_MAC_ETHTYPE_REMOVE	= 0x1011,
++
++	/* Multicast linear table cmd */
++	HCLGE_OPC_MTA_MAC_MODE_CFG	    = 0x1020,
++	HCLGE_OPC_MTA_MAC_FUNC_CFG	    = 0x1021,
++	HCLGE_OPC_MTA_TBL_ITEM_CFG	    = 0x1022,
++	HCLGE_OPC_MTA_TBL_ITEM_QUERY	= 0x1023,
++
++	/* VLAN command */
++	HCLGE_OPC_VLAN_FILTER_CTRL	    = 0x1100,
++	HCLGE_OPC_VLAN_FILTER_PF_CFG	= 0x1101,
++	HCLGE_OPC_VLAN_FILTER_VF_CFG	= 0x1102,
++
++	/* MDIO command */
++	HCLGE_OPC_MDIO_CONFIG		= 0x1900,
++
++	/* QCN command */
++	HCLGE_OPC_QCN_MOD_CFG		= 0x1A01,
++	HCLGE_OPC_QCN_GRP_TMPLT_CFG	= 0x1A02,
++	HCLGE_OPC_QCN_SHAPPING_IR_CFG	= 0x1A03,
++	HCLGE_OPC_QCN_SHAPPING_BS_CFG	= 0x1A04,
++	HCLGE_OPC_QCN_QSET_LINK_CFG	= 0x1A05,
++	HCLGE_OPC_QCN_RP_STATUS_GET	= 0x1A06,
++	HCLGE_OPC_QCN_AJUST_INIT	= 0x1A07,
++	HCLGE_OPC_QCN_DFX_CNT_STATUS    = 0x1A08,
++
++	/* Mailbox cmd */
++	HCLGEVF_OPC_MBX_PF_TO_VF	= 0x2000,
++};
++
++#define HCLGE_TQP_REG_OFFSET		0x80000
++#define HCLGE_TQP_REG_SIZE		0x200
++
++#define HCLGE_RCB_INIT_QUERY_TIMEOUT	10
++#define HCLGE_RCB_INIT_FLAG_EN_B	0
++#define HCLGE_RCB_INIT_FLAG_FINI_B	8
++struct hclge_config_rcb_init {
++	__le16 rcb_init_flag;
++	u8 rsv[22];
++};
++
++struct hclge_tqp_map {
++	__le16 tqp_id;	/* Absolute tqp id for in this pf */
++	u8 tqp_vf;	/* VF id */
++#define HCLGE_TQP_MAP_TYPE_PF		0
++#define HCLGE_TQP_MAP_TYPE_VF		1
++#define HCLGE_TQP_MAP_TYPE_B		0
++#define HCLGE_TQP_MAP_EN_B		1
++	u8 tqp_flag;	/* Indicate it's pf or vf tqp */
++	__le16 tqp_vid; /* Virtual id in this pf/vf */
++	u8 rsv[18];
++};
++
++#define HCLGE_VECTOR_ELEMENTS_PER_CMD	11
++
++enum hclge_int_type {
++	HCLGE_INT_TX,
++	HCLGE_INT_RX,
++	HCLGE_INT_EVENT,
++};
++
++struct hclge_ctrl_vector_chain {
++	u8 int_vector_id;
++	u8 int_cause_num;
++#define HCLGE_INT_TYPE_S	0
++#define HCLGE_INT_TYPE_M	0x3
++#define HCLGE_TQP_ID_S		2
++#define HCLGE_TQP_ID_M		(0x3fff << HCLGE_TQP_ID_S)
++	__le16 tqp_type_and_id[HCLGE_VECTOR_ELEMENTS_PER_CMD];
++};
++
++#define HCLGE_TC_NUM		8
++#define HCLGE_TC0_PRI_BUF_EN_B	15 /* Bit 15 indicate enable or not */
++#define HCLGE_BUF_UNIT_S	7  /* Buf size is united by 128 bytes */
++struct hclge_tx_buff_alloc {
++	__le16 tx_pkt_buff[HCLGE_TC_NUM];
++	u8 tx_buff_rsv[8];
++};
++
++struct hclge_rx_priv_buff {
++	__le16 buf_num[HCLGE_TC_NUM];
++	u8 rsv[8];
++};
++
++struct hclge_query_version {
++	__le32 firmware;
++	__le32 firmware_rsv[5];
++};
++
++#define HCLGE_RX_PRIV_EN_B	15
++#define HCLGE_TC_NUM_ONE_DESC	4
++struct hclge_priv_wl {
++	__le16 high;
++	__le16 low;
++};
++
++struct hclge_rx_priv_wl_buf {
++	struct hclge_priv_wl tc_wl[HCLGE_TC_NUM_ONE_DESC];
++};
++
++struct hclge_rx_com_thrd {
++	struct hclge_priv_wl com_thrd[HCLGE_TC_NUM_ONE_DESC];
++};
++
++struct hclge_rx_com_wl {
++	struct hclge_priv_wl com_wl;
++};
++
++struct hclge_waterline {
++	u32 low;
++	u32 high;
++};
++
++struct hclge_tc_thrd {
++	u32 low;
++	u32 high;
++};
++
++struct hclge_priv_buf {
++	struct hclge_waterline wl;	/* Waterline for low and high*/
++	u32 buf_size;	/* TC private buffer size */
++	u32 enable;	/* Enable TC private buffer or not */
++};
++
++#define HCLGE_MAX_TC_NUM	8
++struct hclge_shared_buf {
++	struct hclge_waterline self;
++	struct hclge_tc_thrd tc_thrd[HCLGE_MAX_TC_NUM];
++	u32 buf_size;
++};
++
++#define HCLGE_RX_COM_WL_EN_B	15
++struct hclge_rx_com_wl_buf {
++	__le16 high_wl;
++	__le16 low_wl;
++	u8 rsv[20];
++};
++
++#define HCLGE_RX_PKT_EN_B	15
++struct hclge_rx_pkt_buf {
++	__le16 high_pkt;
++	__le16 low_pkt;
++	u8 rsv[20];
++};
++
++#define HCLGE_PF_STATE_DONE_B	0
++#define HCLGE_PF_STATE_MAIN_B	1
++#define HCLGE_PF_STATE_BOND_B	2
++#define HCLGE_PF_STATE_MAC_N_B	6
++#define HCLGE_PF_MAC_NUM_MASK	0x3
++#define HCLGE_PF_STATE_MAIN	BIT(HCLGE_PF_STATE_MAIN_B)
++#define HCLGE_PF_STATE_DONE	BIT(HCLGE_PF_STATE_DONE_B)
++struct hclge_func_status {
++	__le32  vf_rst_state[4];
++	u8 pf_state;
++	u8 mac_id;
++	u8 rsv1;
++	u8 pf_cnt_in_mac;
++	u8 pf_num;
++	u8 vf_num;
++	u8 rsv[2];
++};
++
++struct hclge_pf_res {
++	__le16 tqp_num;
++	__le16 buf_size;
++	__le16 msixcap_localid_ba_nic;
++	__le16 msixcap_localid_ba_rocee;
++#define HCLGE_PF_VEC_NUM_S		0
++#define HCLGE_PF_VEC_NUM_M		(0xff << HCLGE_PF_VEC_NUM_S)
++	__le16 pf_intr_vector_number;
++	__le16 pf_own_fun_number;
++	__le32 rsv[3];
++};
++
++#define HCLGE_CFG_OFFSET_S	0
++#define HCLGE_CFG_OFFSET_M	0xfffff /* Byte (8-10.3) */
++#define HCLGE_CFG_RD_LEN_S	24
++#define HCLGE_CFG_RD_LEN_M	(0xf << HCLGE_CFG_RD_LEN_S)
++#define HCLGE_CFG_RD_LEN_BYTES	16
++#define HCLGE_CFG_RD_LEN_UNIT	4
++
++#define HCLGE_CFG_VMDQ_S	0
++#define HCLGE_CFG_VMDQ_M	(0xff << HCLGE_CFG_VMDQ_S)
++#define HCLGE_CFG_TC_NUM_S	8
++#define HCLGE_CFG_TC_NUM_M	(0xff << HCLGE_CFG_TC_NUM_S)
++#define HCLGE_CFG_TQP_DESC_N_S	16
++#define HCLGE_CFG_TQP_DESC_N_M	(0xffff << HCLGE_CFG_TQP_DESC_N_S)
++#define HCLGE_CFG_PHY_ADDR_S	0
++#define HCLGE_CFG_PHY_ADDR_M	(0x1f << HCLGE_CFG_PHY_ADDR_S)
++#define HCLGE_CFG_MEDIA_TP_S	8
++#define HCLGE_CFG_MEDIA_TP_M	(0xff << HCLGE_CFG_MEDIA_TP_S)
++#define HCLGE_CFG_RX_BUF_LEN_S	16
++#define HCLGE_CFG_RX_BUF_LEN_M	(0xffff << HCLGE_CFG_RX_BUF_LEN_S)
++#define HCLGE_CFG_MAC_ADDR_H_S	0
++#define HCLGE_CFG_MAC_ADDR_H_M	(0xffff << HCLGE_CFG_MAC_ADDR_H_S)
++#define HCLGE_CFG_DEFAULT_SPEED_S	16
++#define HCLGE_CFG_DEFAULT_SPEED_M	(0xff << HCLGE_CFG_DEFAULT_SPEED_S)
++
++struct hclge_cfg_param {
++	__le32 offset;
++	__le32 rsv;
++	__le32 param[4];
++};
++
++#define HCLGE_MAC_MODE		0x0
++#define HCLGE_DESC_NUM		0x40
++
++#define HCLGE_ALLOC_VALID_B	0
++struct hclge_vf_num {
++	u8 alloc_valid;
++	u8 rsv[23];
++};
++
++#define HCLGE_RSS_DEFAULT_OUTPORT_B	4
++#define HCLGE_RSS_HASH_KEY_OFFSET_B	4
++#define HCLGE_RSS_HASH_KEY_NUM		16
++struct hclge_rss_config {
++	u8 hash_config;
++	u8 rsv[7];
++	u8 hash_key[HCLGE_RSS_HASH_KEY_NUM];
++};
++
++struct hclge_rss_input_tuple {
++	u8 ipv4_tcp_en;
++	u8 ipv4_udp_en;
++	u8 ipv4_sctp_en;
++	u8 ipv4_fragment_en;
++	u8 ipv6_tcp_en;
++	u8 ipv6_udp_en;
++	u8 ipv6_sctp_en;
++	u8 ipv6_fragment_en;
++	u8 rsv[16];
++};
++
++#define HCLGE_RSS_CFG_TBL_SIZE	16
++
++struct hclge_rss_indirection_table {
++	u16 start_table_index;
++	u16 rss_set_bitmap;
++	u8 rsv[4];
++	u8 rss_result[HCLGE_RSS_CFG_TBL_SIZE];
++};
++
++#define HCLGE_RSS_TC_OFFSET_S		0
++#define HCLGE_RSS_TC_OFFSET_M		(0x3ff << HCLGE_RSS_TC_OFFSET_S)
++#define HCLGE_RSS_TC_SIZE_S		12
++#define HCLGE_RSS_TC_SIZE_M		(0x7 << HCLGE_RSS_TC_SIZE_S)
++#define HCLGE_RSS_TC_VALID_B		15
++struct hclge_rss_tc_mode {
++	u16 rss_tc_mode[HCLGE_MAX_TC_NUM];
++	u8 rsv[8];
++};
++
++#define HCLGE_LINK_STS_B	0
++#define HCLGE_LINK_STATUS	BIT(HCLGE_LINK_STS_B)
++struct hclge_link_status {
++	u8 status;
++	u8 rsv[23];
++};
++
++struct hclge_promisc_param {
++	u8 vf_id;
++	u8 enable;
++};
++
++#define HCLGE_PROMISC_EN_B	1
++#define HCLGE_PROMISC_EN_ALL	0x7
++#define HCLGE_PROMISC_EN_UC	0x1
++#define HCLGE_PROMISC_EN_MC	0x2
++#define HCLGE_PROMISC_EN_BC	0x4
++struct hclge_promisc_cfg {
++	u8 flag;
++	u8 vf_id;
++	__le16 rsv0;
++	u8 rsv1[20];
++};
++
++enum hclge_promisc_type {
++	HCLGE_UNICAST	= 1,
++	HCLGE_MULTICAST	= 2,
++	HCLGE_BROADCAST	= 3,
++};
++
++#define HCLGE_MAC_TX_EN_B	6
++#define HCLGE_MAC_RX_EN_B	7
++#define HCLGE_MAC_PAD_TX_B	11
++#define HCLGE_MAC_PAD_RX_B	12
++#define HCLGE_MAC_1588_TX_B	13
++#define HCLGE_MAC_1588_RX_B	14
++#define HCLGE_MAC_APP_LP_B	15
++#define HCLGE_MAC_LINE_LP_B	16
++#define HCLGE_MAC_FCS_TX_B	17
++#define HCLGE_MAC_RX_OVERSIZE_TRUNCATE_B	18
++#define HCLGE_MAC_RX_FCS_STRIP_B	19
++#define HCLGE_MAC_RX_FCS_B	20
++#define HCLGE_MAC_TX_UNDER_MIN_ERR_B		21
++#define HCLGE_MAC_TX_OVERSIZE_TRUNCATE_B	22
++
++struct hclge_config_mac_mode {
++	__le32 txrx_pad_fcs_loop_en;
++	u8 rsv[20];
++};
++
++#define HCLGE_CFG_SPEED_S		0
++#define HCLGE_CFG_SPEED_M		(0x3f << HCLGE_CFG_SPEED_S)
++
++#define HCLGE_CFG_DUPLEX_B		7
++#define HCLGE_CFG_DUPLEX_M		BIT(HCLGE_CFG_DUPLEX_B)
++
++struct hclge_config_mac_speed_dup {
++	u8 speed_dup;
++
++#define HCLGE_CFG_MAC_SPEED_CHANGE_EN_B	0
++	u8 mac_change_fec_en;
++	u8 rsv[22];
++};
++
++#define HCLGE_QUERY_SPEED_S		3
++#define HCLGE_QUERY_AN_B		0
++#define HCLGE_QUERY_DUPLEX_B		2
++
++#define HCLGE_QUERY_SPEED_M		(0x1f << HCLGE_QUERY_SPEED_S)
++#define HCLGE_QUERY_AN_M		BIT(HCLGE_QUERY_AN_B)
++#define HCLGE_QUERY_DUPLEX_M		BIT(HCLGE_QUERY_DUPLEX_B)
++
++struct hclge_query_an_speed_dup {
++	u8 an_syn_dup_speed;
++	u8 pause;
++	u8 rsv[23];
++};
++
++#define HCLGE_RING_ID_MASK		0x3ff
++#define HCLGE_TQP_ENABLE_B		0
++
++#define HCLGE_MAC_CFG_AN_EN_B		0
++#define HCLGE_MAC_CFG_AN_INT_EN_B	1
++#define HCLGE_MAC_CFG_AN_INT_MSK_B	2
++#define HCLGE_MAC_CFG_AN_INT_CLR_B	3
++#define HCLGE_MAC_CFG_AN_RST_B		4
++
++#define HCLGE_MAC_CFG_AN_EN	BIT(HCLGE_MAC_CFG_AN_EN_B)
++
++struct hclge_config_auto_neg {
++	__le32  cfg_an_cmd_flag;
++	u8      rsv[20];
++};
++
++#define HCLGE_MAC_MIN_MTU		64
++#define HCLGE_MAC_MAX_MTU		9728
++#define HCLGE_MAC_UPLINK_PORT		0x100
++
++struct hclge_config_max_frm_size {
++	__le16  max_frm_size;
++	u8      rsv[22];
++};
++
++enum hclge_mac_vlan_tbl_opcode {
++	HCLGE_MAC_VLAN_ADD,	/* Add new or modify mac_vlan */
++	HCLGE_MAC_VLAN_UPDATE,  /* Modify other fields of this table */
++	HCLGE_MAC_VLAN_REMOVE,  /* Remove a entry through mac_vlan key */
++	HCLGE_MAC_VLAN_LKUP,    /* Lookup a entry through mac_vlan key */
++};
++
++#define HCLGE_MAC_VLAN_BIT0_EN_B	0x0
++#define HCLGE_MAC_VLAN_BIT1_EN_B	0x1
++#define HCLGE_MAC_EPORT_SW_EN_B		0xc
++#define HCLGE_MAC_EPORT_TYPE_B		0xb
++#define HCLGE_MAC_EPORT_VFID_S		0x3
++#define HCLGE_MAC_EPORT_VFID_M		(0xff << HCLGE_MAC_EPORT_VFID_S)
++#define HCLGE_MAC_EPORT_PFID_S		0x0
++#define HCLGE_MAC_EPORT_PFID_M		(0x7 << HCLGE_MAC_EPORT_PFID_S)
++struct hclge_mac_vlan_tbl_entry {
++	u8	flags;
++	u8      resp_code;
++	__le16  vlan_tag;
++	__le32  mac_addr_hi32;
++	__le16  mac_addr_lo16;
++	__le16  rsv1;
++	u8      entry_type;
++	u8      mc_mac_en;
++	__le16  egress_port;
++	__le16  egress_queue;
++	u8      rsv2[6];
++};
++
++#define HCLGE_CFG_MTA_MAC_SEL_S		0x0
++#define HCLGE_CFG_MTA_MAC_SEL_M		(0x3 << HCLGE_CFG_MTA_MAC_SEL_S)
++#define HCLGE_CFG_MTA_MAC_EN_B		0x7
++struct hclge_mta_filter_mode {
++	u8	dmac_sel_en; /* Use lowest 2 bit as sel_mode, bit 7 as enable */
++	u8      rsv[23];
++};
++
++#define HCLGE_CFG_FUNC_MTA_ACCEPT_B	0x0
++struct hclge_cfg_func_mta_filter {
++	u8	accept; /* Only used lowest 1 bit */
++	u8      function_id;
++	u8      rsv[22];
++};
++
++#define HCLGE_CFG_MTA_ITEM_ACCEPT_B	0x0
++#define HCLGE_CFG_MTA_ITEM_IDX_S	0x0
++#define HCLGE_CFG_MTA_ITEM_IDX_M	(0xfff << HCLGE_CFG_MTA_ITEM_IDX_S)
++struct hclge_cfg_func_mta_item {
++	u16	item_idx; /* Only used lowest 12 bit */
++	u8      accept;   /* Only used lowest 1 bit */
++	u8      rsv[21];
++};
++
++struct hclge_mac_vlan_add {
++	__le16  flags;
++	__le16  mac_addr_hi16;
++	__le32  mac_addr_lo32;
++	__le32  mac_addr_msk_hi32;
++	__le16  mac_addr_msk_lo16;
++	__le16  vlan_tag;
++	__le16  ingress_port;
++	__le16  egress_port;
++	u8      rsv[4];
++};
++
++#define HNS3_MAC_VLAN_CFG_FLAG_BIT 0
++struct hclge_mac_vlan_remove {
++	__le16  flags;
++	__le16  mac_addr_hi16;
++	__le32  mac_addr_lo32;
++	__le32  mac_addr_msk_hi32;
++	__le16  mac_addr_msk_lo16;
++	__le16  vlan_tag;
++	__le16  ingress_port;
++	__le16  egress_port;
++	u8      rsv[4];
++};
++
++struct hclge_vlan_filter_ctrl {
++	u8 vlan_type;
++	u8 vlan_fe;
++	u8 rsv[22];
++};
++
++struct hclge_vlan_filter_pf_cfg {
++	u8 vlan_offset;
++	u8 vlan_cfg;
++	u8 rsv[2];
++	u8 vlan_offset_bitmap[20];
++};
++
++struct hclge_vlan_filter_vf_cfg {
++	u16 vlan_id;
++	u8  resp_code;
++	u8  rsv;
++	u8  vlan_cfg;
++	u8  rsv1[3];
++	u8  vf_bitmap[16];
++};
++
++struct hclge_cfg_com_tqp_queue {
++	__le16 tqp_id;
++	__le16 stream_id;
++	u8 enable;
++	u8 rsv[19];
++};
++
++struct hclge_cfg_tx_queue_pointer {
++	__le16 tqp_id;
++	__le16 tx_tail;
++	__le16 tx_head;
++	__le16 fbd_num;
++	__le16 ring_offset;
++	u8 rsv[14];
++};
++
++#define HCLGE_TSO_MSS_MIN_S	0
++#define HCLGE_TSO_MSS_MIN_M	(0x3FFF << HCLGE_TSO_MSS_MIN_S)
++
++#define HCLGE_TSO_MSS_MAX_S	16
++#define HCLGE_TSO_MSS_MAX_M	(0x3FFF << HCLGE_TSO_MSS_MAX_S)
++
++struct hclge_cfg_tso_status {
++	__le16 tso_mss_min;
++	__le16 tso_mss_max;
++	u8 rsv[20];
++};
++
++#define HCLGE_TSO_MSS_MIN	256
++#define HCLGE_TSO_MSS_MAX	9668
++
++#define HCLGE_TQP_RESET_B	0
++struct hclge_reset_tqp_queue {
++	__le16 tqp_id;
++	u8 reset_req;
++	u8 ready_to_reset;
++	u8 rsv[20];
++};
++
++#define HCLGE_DEFAULT_TX_BUF		0x4000	 /* 16k  bytes */
++#define HCLGE_TOTAL_PKT_BUF		0x108000 /* 1.03125M bytes */
++#define HCLGE_DEFAULT_DV		0xA000	 /* 40k byte */
++
++#define HCLGE_TYPE_CRQ			0
++#define HCLGE_TYPE_CSQ			1
++#define HCLGE_NIC_CSQ_BASEADDR_L_REG	0x27000
++#define HCLGE_NIC_CSQ_BASEADDR_H_REG	0x27004
++#define HCLGE_NIC_CSQ_DEPTH_REG		0x27008
++#define HCLGE_NIC_CSQ_TAIL_REG		0x27010
++#define HCLGE_NIC_CSQ_HEAD_REG		0x27014
++#define HCLGE_NIC_CRQ_BASEADDR_L_REG	0x27018
++#define HCLGE_NIC_CRQ_BASEADDR_H_REG	0x2701c
++#define HCLGE_NIC_CRQ_DEPTH_REG		0x27020
++#define HCLGE_NIC_CRQ_TAIL_REG		0x27024
++#define HCLGE_NIC_CRQ_HEAD_REG		0x27028
++#define HCLGE_NIC_CMQ_EN_B		16
++#define HCLGE_NIC_CMQ_ENABLE		BIT(HCLGE_NIC_CMQ_EN_B)
++#define HCLGE_NIC_CMQ_DESC_NUM		1024
++#define HCLGE_NIC_CMQ_DESC_NUM_S	3
++
++int hclge_cmd_init(struct hclge_dev *hdev);
++static inline void hclge_write_reg(void __iomem *base, u32 reg, u32 value)
 +{
-+	ndev->ethtool_ops = &hns3_ethtool_ops;
++	writel(value, base + reg);
 +}
++
++#define hclge_write_dev(a, reg, value) \
++	hclge_write_reg((a)->io_base, (reg), (value))
++#define hclge_read_dev(a, reg) \
++	hclge_read_reg((a)->io_base, (reg))
++
++static inline u32 hclge_read_reg(u8 __iomem *base, u32 reg)
++{
++	u8 __iomem *reg_addr = READ_ONCE(base);
++
++	return readl(reg_addr + reg);
++}
++
++#define HCLGE_SEND_SYNC(flag) \
++	((flag) & HCLGE_CMD_FLAG_NO_INTR)
++
++struct hclge_hw;
++enum hclge_cmd_status hclge_cmd_send(struct hclge_hw *hw,
++				     struct hclge_desc *desc, int num);
++void hclge_cmd_setup_basic_desc(struct hclge_desc *desc,
++				enum hclge_opcode_type opcode, bool is_read);
++
++void hclge_cmd_reuse_desc(struct hclge_desc *desc, bool is_read);
++int hclge_cmd_set_promisc_mode(struct hclge_dev *hdev,
++			       struct hclge_promisc_param *param);
++
++enum hclge_cmd_status hclge_cmd_mdio_write(struct hclge_hw *hw,
++					   struct hclge_desc *desc);
++enum hclge_cmd_status hclge_cmd_mdio_read(struct hclge_hw *hw,
++					  struct hclge_desc *desc);
++
++void hclge_destroy_cmd_queue(struct hclge_hw *hw);
++#endif
 -- 
 2.7.4
