@@ -1,54 +1,67 @@
-From: Girish Moodalbail <girish.moodalbail@oracle.com>
-Subject: Re: [PATCH net 0/4] macvlan: Fix some issues with changing mac
- addresses
-Date: Fri, 16 Jun 2017 22:23:41 -0700
-Message-ID: <106769ec-3721-b461-43d4-65dea397a197@oracle.com>
-References: <20170616133649.24622-1-vyasevic@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Vladislav Yasevich <vyasevic@redhat.com>
-To: Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: ensure ep is not destroyed before doing the dump
+Date: Sat, 17 Jun 2017 16:10:27 +0800
+Message-ID: <6861fd3fc029ccba569fabccf7e05f6a52f28415.1497687027.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:28774 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750896AbdFQFXr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Jun 2017 01:23:47 -0400
-In-Reply-To: <20170616133649.24622-1-vyasevic@redhat.com>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:34392 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752301AbdFQIKh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 17 Jun 2017 04:10:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/16/17 6:36 AM, Vladislav Yasevich wrote:
-> There are some issues in macvlan wrt to changing it's mac address.
-> * An error is returned in the specified address is the same as an already
->   assigned address.
-> * In passthru mode, the mac address of the macvlan device doesn't change.
-> * After changing the mac address of a passthru macvlan and then removing it,
->   the mac address of the physical device remains changed.
->
-> This patch series attempts to resolve these issues.
->
-> Thanks
-> -vlad
->
-> Vladislav Yasevich (4):
->   macvlan: Do not return error when setting the same mac address
->   macvlan: Fix passthru macvlan mac address inheritance
->   macvlan: convert port passthru to flags.
+Now before dumping a sock in sctp_diag, it only holds the sock while
+the ep may be already destroyed. It can cause a use-after-free panic
+when accessing ep->asocs.
 
-Above 3 patches looks good to me, so
+This patch is to set sctp_sk(sk)->ep NULL in sctp_endpoint_destroy,
+and check if this ep is already destroyed before dumping this ep.
 
-Reviewed-by: Girish Moodalbail <girish.moodalbail@oracle.com>
+Suggested-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/endpointola.c | 1 +
+ net/sctp/sctp_diag.c   | 5 +++--
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-
->   macvlan: Let passthru macvlan correctly restore lower mac address
-
-However, I have few questions/comments on the above patch.
-
-thanks,
-~Girish
-
->
->  drivers/net/macvlan.c | 85 ++++++++++++++++++++++++++++++++++++++++++---------
->  1 file changed, 71 insertions(+), 14 deletions(-)
->
+diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
+index 8c58923..3dcd0ec 100644
+--- a/net/sctp/endpointola.c
++++ b/net/sctp/endpointola.c
+@@ -275,6 +275,7 @@ static void sctp_endpoint_destroy(struct sctp_endpoint *ep)
+ 		if (sctp_sk(sk)->bind_hash)
+ 			sctp_put_port(sk);
+ 
++		sctp_sk(sk)->ep = NULL;
+ 		sock_put(sk);
+ 	}
+ 
+diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
+index 048954e..9a64721 100644
+--- a/net/sctp/sctp_diag.c
++++ b/net/sctp/sctp_diag.c
+@@ -278,7 +278,6 @@ static int sctp_tsp_dump_one(struct sctp_transport *tsp, void *p)
+ 
+ static int sctp_sock_dump(struct sock *sk, void *p)
+ {
+-	struct sctp_endpoint *ep = sctp_sk(sk)->ep;
+ 	struct sctp_comm_param *commp = p;
+ 	struct sk_buff *skb = commp->skb;
+ 	struct netlink_callback *cb = commp->cb;
+@@ -287,7 +286,9 @@ static int sctp_sock_dump(struct sock *sk, void *p)
+ 	int err = 0;
+ 
+ 	lock_sock(sk);
+-	list_for_each_entry(assoc, &ep->asocs, asocs) {
++	if (!sctp_sk(sk)->ep)
++		goto release;
++	list_for_each_entry(assoc, &sctp_sk(sk)->ep->asocs, asocs) {
+ 		if (cb->args[4] < cb->args[1])
+ 			goto next;
+ 
+-- 
+2.1.0
