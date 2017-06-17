@@ -1,110 +1,89 @@
 From: Wei Wang <tracywwnj@gmail.com>
-Subject: [PATCH v2 net-next 00/21] remove dst garbage collector logic
-Date: Sat, 17 Jun 2017 10:42:23 -0700
-Message-ID: <20170617174244.132862-1-tracywwnj@gmail.com>
+Subject: [PATCH v2 net-next 05/21] net: introduce a new function dst_dev_put()
+Date: Sat, 17 Jun 2017 10:42:28 -0700
+Message-ID: <20170617174244.132862-6-tracywwnj@gmail.com>
+References: <20170617174244.132862-1-tracywwnj@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
         Martin KaFai Lau <kafai@fb.com>, Wei Wang <weiwan@google.com>
 To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34022 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751995AbdFQRn0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Jun 2017 13:43:26 -0400
-Received: by mail-pg0-f66.google.com with SMTP id j186so10592795pge.1
-        for <netdev@vger.kernel.org>; Sat, 17 Jun 2017 10:43:25 -0700 (PDT)
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34941 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752502AbdFQRnh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 17 Jun 2017 13:43:37 -0400
+Received: by mail-pf0-f195.google.com with SMTP id s66so11093269pfs.2
+        for <netdev@vger.kernel.org>; Sat, 17 Jun 2017 10:43:36 -0700 (PDT)
+In-Reply-To: <20170617174244.132862-1-tracywwnj@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Wei Wang <weiwan@google.com>
 
-The current mechanism of dst release is a bit complicated. It is because
-the users of dst get divided into 2 situations:
-  1. Most users take the reference count when using a dst and release the
-     reference count when done.
-  2. Exceptional users like IPv4/IPv6/decnet/xfrm routing code do not take
-     reference count when referencing to a dst due to some histotic reasons.
+This function should be called when removing routes from fib tree after
+the dst gc is no longer in use.
+We first mark DST_OBSOLETE_DEAD on this dst to make sure next
+dst_ops->check() fails and returns NULL.
+Secondly, as we no longer keep the gc_list, we need to properly
+release dst->dev right at the moment when the dst is removed from
+the fib/fib6 tree.
+It does the following:
+1. change dst->input and output pointers to dst_discard/dst_dscard_out to
+   discard all packets
+2. replace dst->dev with loopback interface
 
-Due to those exceptional use cases in 2, reference count being 0 is not an
-adequate evidence to indicate that no user is using this dst. So users in 1
-can't free the dst simply based on reference count being 0 because users in
-2 might still hold reference to it.
-Instead, a dst garbage list is needed to hold the dst entries that already
-get removed by the users in 2 but are still held by users in 1. And a periodic
-garbage collector task is run to check all the dst entries in the list to see
-if the users in 1 have released the reference to those dst entries.
-If so, the dst is now ready to be freed.
+Signed-off-by: Wei Wang <weiwan@google.com>
+Acked-by: Martin KaFai Lau <kafai@fb.com>
+---
+ include/net/dst.h |  1 +
+ net/core/dst.c    | 24 ++++++++++++++++++++++++
+ 2 files changed, 25 insertions(+)
 
-This logic introduces unnecessary complications in the dst code which makes it
-hard to understand and to debug.
-
-In order to get rid of the whole dst garbage collector (gc) and make the dst
-code more unified and simplified, we can make the users in 2 also take reference
-count on the dst and release it properly when done.
-This way, dst can be safely freed once the refcount drops to 0 and no gc
-thread is needed anymore.
-
-This patch series' target is to completely get rid of dst gc logic and free
-dst based on reference count only.
-Patch 1-3 are preparation patches to do some cleanup/improvement on the existing
-code to make later work easier.
-Patch 4-21 are real implementations.
-In these patches, a temporary flag DST_NOGC is used to help transition
-those exceptional users one by one. Once every component is transitioned,
-this temporary flag is removed.
-By the end of this patch series, all dst are refcounted when being used
-and released when done. And dst will be freed when its refcount drops to 0.
-No dst gc task is running anymore.
-
-Note: This patch series depends on the decnet fix that was sent right before:
-      "decnet: always not take dst->__refcnt when inserting dst into hash table"
-
-
-v2:
-  add curly braces in udp_v4/6_early_demux() in patch 02
-  add EXPORT_SYMBOL() for dst_dev_put() in patch 05
-
-Wei Wang (21):
-  ipv6: remove unnecessary dst_hold() in ip6_fragment()
-  udp: call dst_hold_safe() in udp_sk_rx_set_dst()
-  net: use loopback dev when generating blackhole route
-  net: introduce DST_NOGC in dst_release() to destroy dst based on
-    refcnt
-  net: introduce a new function dst_dev_put()
-  ipv4: take dst->__refcnt when caching dst in fib
-  ipv4: call dst_dev_put() properly
-  ipv4: call dst_hold_safe() properly
-  ipv4: mark DST_NOGC and remove the operation of dst_free()
-  ipv6: take dst->__refcnt for insertion into fib6 tree
-  ipv6: call dst_dev_put() properly
-  ipv6: call dst_hold_safe() properly
-  ipv6: mark DST_NOGC and remove the operation of dst_free()
-  ipv6: get rid of icmp6 dst garbage collector
-  xfrm: take refcnt of dst when creating struct xfrm_dst bundle
-  decnet: take dst->__refcnt when struct dn_route is created
-  net: remove dst gc related code
-  net: remove DST_NOGC flag
-  net: remove DST_NOCACHE flag
-  net: reorder all the dst flags
-  net: add debug atomic_inc_not_zero() in dst_hold()
-
- drivers/net/vrf.c        |   6 +-
- include/net/dst.h        |  43 ++------
- include/net/ip6_fib.h    |   2 +-
- include/net/ip6_route.h  |   1 -
- include/net/route.h      |   4 +-
- net/core/dev.c           |   1 -
- net/core/dst.c           | 276 ++++++++---------------------------------------
- net/decnet/dn_route.c    |  34 +++---
- net/ipv4/fib_semantics.c |   9 +-
- net/ipv4/route.c         |  62 ++++++-----
- net/ipv4/udp.c           |  19 ++--
- net/ipv6/addrconf.c      |   4 +-
- net/ipv6/ip6_fib.c       |  32 +++---
- net/ipv6/ip6_output.c    |   4 -
- net/ipv6/route.c         | 127 ++++++++--------------
- net/ipv6/udp.c           |  11 +-
- net/xfrm/xfrm_policy.c   |  49 +++++----
- 17 files changed, 218 insertions(+), 466 deletions(-)
-
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 2735d5a1e774..11d779803c0d 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -428,6 +428,7 @@ void dst_init(struct dst_entry *dst, struct dst_ops *ops,
+ 	      unsigned short flags);
+ void __dst_free(struct dst_entry *dst);
+ struct dst_entry *dst_destroy(struct dst_entry *dst);
++void dst_dev_put(struct dst_entry *dst);
+ 
+ static inline void dst_free(struct dst_entry *dst)
+ {
+diff --git a/net/core/dst.c b/net/core/dst.c
+index 551834c3363f..56998f69b84e 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -296,6 +296,30 @@ static void dst_destroy_rcu(struct rcu_head *head)
+ 		__dst_free(dst);
+ }
+ 
++/* Operations to mark dst as DEAD and clean up the net device referenced
++ * by dst:
++ * 1. put the dst under loopback interface and discard all tx/rx packets
++ *    on this route.
++ * 2. release the net_device
++ * This function should be called when removing routes from the fib tree
++ * in preparation for a NETDEV_DOWN/NETDEV_UNREGISTER event and also to
++ * make the next dst_ops->check() fail.
++ */
++void dst_dev_put(struct dst_entry *dst)
++{
++	struct net_device *dev = dst->dev;
++
++	dst->obsolete = DST_OBSOLETE_DEAD;
++	if (dst->ops->ifdown)
++		dst->ops->ifdown(dst, dev, true);
++	dst->input = dst_discard;
++	dst->output = dst_discard_out;
++	dst->dev = dev_net(dst->dev)->loopback_dev;
++	dev_hold(dst->dev);
++	dev_put(dev);
++}
++EXPORT_SYMBOL(dst_dev_put);
++
+ void dst_release(struct dst_entry *dst)
+ {
+ 	if (dst) {
 -- 
 2.13.1.518.g3df882009-goog
