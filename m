@@ -1,108 +1,74 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: RE: [PATCH V2 net-next 6/8] net: hns3: Add MDIO support to HNS3
- Ethernet driver for hip08 SoC
-Date: Sat, 17 Jun 2017 10:40:58 +0000
-Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F93B7B2BCF@FRAEML521-MBS.china.huawei.com>
+Subject: RE: [PATCH V2 net-next 1/8] net: hns3: Add support of HNS3 Ethernet
+ Driver for hip08 SoC
+Date: Sat, 17 Jun 2017 10:47:43 +0000
+Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F93B7B2BE1@FRAEML521-MBS.china.huawei.com>
 References: <20170613231035.494020-1-salil.mehta@huawei.com>
- <20170613231035.494020-7-salil.mehta@huawei.com>
- <cc35a067-3395-7653-e2c7-46c60644f0ad@gmail.com>
+        <20170613231035.494020-2-salil.mehta@huawei.com>
+ <20170613165303.7a096821@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
         huangdaode <huangdaode@hisilicon.com>,
         "lipeng (Y)" <lipeng321@huawei.com>,
         "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
         "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
         Linuxarm <linuxarm@huawei.com>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([45.249.212.188]:8321 "EHLO
-        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752699AbdFQKlR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Jun 2017 06:41:17 -0400
-In-Reply-To: <cc35a067-3395-7653-e2c7-46c60644f0ad@gmail.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170613165303.7a096821@xeon-e3>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-SGkgRmxvcmlhbg0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEZsb3Jp
-YW4gRmFpbmVsbGkgW21haWx0bzpmLmZhaW5lbGxpQGdtYWlsLmNvbV0NCj4gU2VudDogV2VkbmVz
-ZGF5LCBKdW5lIDE0LCAyMDE3IDEyOjQ2IEFNDQo+IFRvOiBTYWxpbCBNZWh0YTsgZGF2ZW1AZGF2
-ZW1sb2Z0Lm5ldA0KPiBDYzogWmh1YW5neXV6ZW5nIChZaXNlbik7IGh1YW5nZGFvZGU7IGxpcGVu
-ZyAoWSk7DQo+IG1laHRhLnNhbGlsLmxua0BnbWFpbC5jb207IG5ldGRldkB2Z2VyLmtlcm5lbC5v
-cmc7IGxpbnV4LQ0KPiBrZXJuZWxAdmdlci5rZXJuZWwub3JnOyBMaW51eGFybQ0KPiBTdWJqZWN0
-OiBSZTogW1BBVENIIFYyIG5ldC1uZXh0IDYvOF0gbmV0OiBobnMzOiBBZGQgTURJTyBzdXBwb3J0
-IHRvDQo+IEhOUzMgRXRoZXJuZXQgZHJpdmVyIGZvciBoaXAwOCBTb0MNCj4gDQo+IE9uIDA2LzEz
-LzIwMTcgMDQ6MTAgUE0sIFNhbGlsIE1laHRhIHdyb3RlOg0KPiA+IFRoaXMgcGF0Y2ggYWRkcyB0
-aGUgc3VwcG9ydCBvZiBNRElPIGJ1cyBpbnRlcmZhY2UgZm9yIEhOUzMgZHJpdmVyLg0KPiA+IENv
-ZGUgcHJvdmlkZXMgdmFyaW91cyBpbnRlcmZhY2VzIHRvIHN0YXJ0IGFuZCBzdG9wIHRoZSBQSFkg
-bGF5ZXINCj4gPiBhbmQgdG8gcmVhZCBhbmQgd3JpdGUgdGhlIE1ESU8gYnVzIG9yIFBIWS4NCj4g
-Pg0KPiA+IFNpZ25lZC1vZmYtYnk6IERhb2RlIEh1YW5nIDxodWFuZ2Rhb2RlQGhpc2lsaWNvbi5j
-b20+DQo+ID4gU2lnbmVkLW9mZi1ieTogbGlwZW5nIDxsaXBlbmczMjFAaHVhd2VpLmNvbT4NCj4g
-PiBTaWduZWQtb2ZmLWJ5OiBTYWxpbCBNZWh0YSA8c2FsaWwubWVodGFAaHVhd2VpLmNvbT4NCj4g
-PiBTaWduZWQtb2ZmLWJ5OiBZaXNlbiBaaHVhbmcgPHlpc2VuLnpodWFuZ0BodWF3ZWkuY29tPg0K
-PiA+IC0tLQ0KPiANCj4gPiArCXBoeSA9IGdldF9waHlfZGV2aWNlKG1kaW9fYnVzLCBtYWMtPnBo
-eV9hZGRyLCBtYWMtPmlzX2M0NSk7DQo+ID4gKwlpZiAoIXBoeSB8fCBJU19FUlIocGh5KSkgew0K
-PiA+ICsJCWRldl9lcnIobWRpb19idXMtPnBhcmVudCwgIkZhaWxlZCB0byBnZXQgcGh5IGRldmlj
-ZVxuIik7DQo+ID4gKwkJcmV0ID0gLUVJTzsNCj4gPiArCQlnb3RvIGVycl9tZGlvX3JlZ2lzdGVy
-Ow0KPiA+ICsJfQ0KPiA+ICsNCj4gPiArCXBoeS0+aXJxID0gbWRpb19idXMtPmlycVttYWMtPnBo
-eV9hZGRyXTsNCj4gPiArDQo+ID4gKwkvKiBBbGwgZGF0YSBpcyBub3cgc3RvcmVkIGluIHRoZSBw
-aHkgc3RydWN0Ow0KPiA+ICsJICogcmVnaXN0ZXIgaXQNCj4gPiArCSAqLw0KPiA+ICsJcmV0ID0g
-cGh5X2RldmljZV9yZWdpc3RlcihwaHkpOw0KPiA+ICsJaWYgKHJldCkgew0KPiA+ICsJCXJldCA9
-IC1FTk9ERVY7DQo+ID4gKwkJZ290byBlcnJfcGh5X3JlZ2lzdGVyOw0KPiA+ICsJfQ0KPiANCj4g
-VW50aWwgdGhpcyBnZXRzIGZpeGVkIGluIHRoZSBjb3JlIFBIWSBsaWJyYXJ5LCBpdCdzIG9rYXkg
-dG8gZG8gdGhhdCwNCj4gYnV0DQo+IHBsZWFzZSBmaXggdGhlDQpGb3Igbm93IHdlIGFyZSBwbGFu
-bmluZyB0byBkcm9wIHRoZSBzdXBwb3J0IG9mIEM0NSB0aWxsIHdlIGZpeCB0aGlzIGlzc3VlDQpp
-biB0aGUgY29yZS4gSSBXaWxsIHRyeSB0byBhZGRyZXNzIHRoaXMgYXMgYSBzZXBhcmF0ZSBwYXRj
-aC4NCg0KVGhhbmtzDQpTYWxpbA0KPiANCj4gPiArDQo+ID4gKwltYWMtPnBoeV9kZXYgPSBwaHk7
-DQo+ID4gKw0KPiA+ICsJcmV0dXJuIDA7DQo+ID4gKw0KPiA+ICtlcnJfcGh5X3JlZ2lzdGVyOg0K
-PiA+ICsJcGh5X2RldmljZV9mcmVlKHBoeSk7DQo+ID4gKw0KPiA+ICtlcnJfbWRpb19yZWdpc3Rl
-cjoNCj4gPiArCW1kaW9idXNfdW5yZWdpc3RlcihtZGlvX2J1cyk7DQo+ID4gKwltZGlvYnVzX2Zy
-ZWUobWRpb19idXMpOw0KPiA+ICtlcnJfbWlpYnVzX2FsbG9jOg0KPiA+ICsJcmV0dXJuIHJldDsN
-Cj4gPiArfQ0KPiA+ICsNCj4gPiArc3RhdGljIHZvaWQgaGNsZ2VfbWFjX2FkanVzdF9saW5rKHN0
-cnVjdCBuZXRfZGV2aWNlICpuZXRfZGV2KQ0KPiA+ICt7DQo+ID4gKwlpbnQgZHVwbGV4Ow0KPiA+
-ICsJaW50IHNwZWVkOw0KPiA+ICsJc3RydWN0IGhjbGdlX21hYyAqaHdfbWFjOw0KPiA+ICsJc3Ry
-dWN0IGhjbGdlX2h3ICpodzsNCj4gPiArCXN0cnVjdCBoY2xnZV9kZXYgKmhkZXY7DQo+ID4gKw0K
-PiA+ICsJaWYgKCFuZXRfZGV2KQ0KPiA+ICsJCXJldHVybjsNCj4gPiArDQo+ID4gKwlod19tYWMg
-PSBjb250YWluZXJfb2YobmV0X2Rldiwgc3RydWN0IGhjbGdlX21hYywgbmRldik7DQo+ID4gKwlo
-dyA9IGNvbnRhaW5lcl9vZihod19tYWMsIHN0cnVjdCBoY2xnZV9odywgbWFjKTsNCj4gPiArCWhk
-ZXYgPSBody0+YmFjazsNCj4gPiArDQo+ID4gKwlzcGVlZCA9IGh3X21hYy0+cGh5X2Rldi0+c3Bl
-ZWQ7DQo+ID4gKwlkdXBsZXggPSBod19tYWMtPnBoeV9kZXYtPmR1cGxleDsNCj4gPiArDQo+ID4g
-KwkvKiB1cGRhdGUgYW50b25lZy4gKi8NCj4gPiArCWh3X21hYy0+YXV0b25lZyA9IGh3X21hYy0+
-cGh5X2Rldi0+YXV0b25lZzsNCj4gPiArDQo+ID4gKwlpZiAoKGh3X21hYy0+c3BlZWQgIT0gc3Bl
-ZWQpIHx8IChod19tYWMtPmR1cGxleCAhPSBkdXBsZXgpKQ0KPiA+ICsJCSh2b2lkKWhjbGdlX2Nm
-Z19tYWNfc3BlZWRfZHVwKGhkZXYsIHNwZWVkLCAhIWR1cGxleCk7DQo+ID4gK30NCj4gPiArDQo+
-ID4gK2ludCBoY2xnZV9tYWNfc3RhcnRfcGh5KHN0cnVjdCBoY2xnZV9kZXYgKmhkZXYpDQo+ID4g
-K3sNCj4gPiArCXN0cnVjdCBoY2xnZV9tYWMgKm1hYyA9ICZoZGV2LT5ody5tYWM7DQo+ID4gKwlz
-dHJ1Y3QgcGh5X2RldmljZSAqcGh5X2RldiA9IG1hYy0+cGh5X2RldjsNCj4gPiArCWludCByZXQ7
-DQo+ID4gKw0KPiA+ICsJaWYgKCFwaHlfZGV2KQ0KPiA+ICsJCXJldHVybiAwOw0KPiA+ICsNCj4g
-PiArCWlmIChtYWMtPnBoeV9pZiAhPSBQSFlfSU5URVJGQUNFX01PREVfWEdNSUkpIHsNCj4gPiAr
-CQlwaHlfZGV2LT5kZXZfZmxhZ3MgPSAwOw0KPiA+ICsNCj4gPiArCQlyZXQgPSBwaHlfY29ubmVj
-dF9kaXJlY3QoJm1hYy0+bmRldiwgcGh5X2RldiwNCj4gPiArCQkJCQkgaGNsZ2VfbWFjX2FkanVz
-dF9saW5rLA0KPiA+ICsJCQkJCSBtYWMtPnBoeV9pZik7DQo+ID4gKwkJcGh5X2Rldi0+c3VwcG9y
-dGVkID0gU1VQUE9SVEVEXzEwYmFzZVRfSGFsZiB8DQo+ID4gKwkJCQlTVVBQT1JURURfMTBiYXNl
-VF9GdWxsIHwNCj4gPiArCQkJCVNVUFBPUlRFRF8xMDBiYXNlVF9IYWxmIHwNCj4gPiArCQkJCVNV
-UFBPUlRFRF8xMDBiYXNlVF9GdWxsIHwNCj4gPiArCQkJCVNVUFBPUlRFRF9BdXRvbmVnIHwNCj4g
-PiArCQkJCVNVUFBPUlRFRF8xMDAwYmFzZVRfRnVsbDsNCj4gPiArDQo+ID4gKwkJcGh5X2Rldi0+
-YXV0b25lZyA9IGZhbHNlOw0KPiA+ICsJfSBlbHNlIHsNCj4gPiArCQlyZXQgPSBwaHlfYXR0YWNo
-X2RpcmVjdCgmbWFjLT5uZGV2LCBwaHlfZGV2LCAwLCBtYWMtDQo+ID5waHlfaWYpOw0KPiA+ICsJ
-CXBoeV9kZXYtPnN1cHBvcnRlZCA9IFNVUFBPUlRFRF8xMDAwMGJhc2VSX0ZFQyB8DQo+ID4gKwkJ
-CQlTVVBQT1JURURfMTAwMDBiYXNlS1JfRnVsbDsNCj4gPiArCX0NCj4gDQo+IEkgcmVhbGx5IGRv
-bid0IHNlZSB3aHkgeW91IGRvbid0IHRha2UgdGhlIGV4YWN0IHNhbWUgcGF0aCB3aGV0aGVyIGl0
-J3MNCj4gWEdNSUkgb3Igbm90LCBqdXN0IGxpa2UgeW91IGFyZSBub3QgbWFza2luZyB3aXRoIHRo
-YXQgdGhlIFBIWSBkcml2ZXINCj4gYWxyZWFkeSBzdXBwb3J0cywgdGhpcyBuZWVkcyBmaXhpbmcu
-DQpTdXJlIHdpbGwgZml4IGl0IGluIG5leHQgVjMgcGF0Y2guDQoNClRoYW5rcw0KU2FsaWwNCj4g
-DQo+ID4gKwlpZiAodW5saWtlbHkocmV0KSkNCj4gPiArCQlyZXR1cm4gLUVOT0RFVjsNCj4gPiAr
-DQo+ID4gKwlwaHlfc3RhcnQocGh5X2Rldik7DQo+ID4gKw0KPiA+ICsJcmV0dXJuIDA7DQo+ID4g
-K30NCj4gPiArDQo+ID4gK3ZvaWQgaGNsZ2VfbWFjX3N0b3BfcGh5KHN0cnVjdCBoY2xnZV9kZXYg
-KmhkZXYpDQo+ID4gK3sNCj4gPiArCXN0cnVjdCBoY2xnZV9tYWMgKm1hYyA9ICZoZGV2LT5ody5t
-YWM7DQo+ID4gKwlzdHJ1Y3QgcGh5X2RldmljZSAqcGh5X2RldiA9IG1hYy0+cGh5X2RldjsNCj4g
-PiArDQo+ID4gKwlpZiAoIXBoeV9kZXYpDQo+ID4gKwkJcmV0dXJuOw0KPiA+ICsNCj4gPiArCXBo
-eV9zdG9wKHBoeV9kZXYpOw0KPiA+ICsNCj4gPiArCWlmIChtYWMtPnBoeV9pZiAhPSBQSFlfSU5U
-RVJGQUNFX01PREVfWEdNSUkpDQo+ID4gKwkJcGh5X2Rpc2Nvbm5lY3QocGh5X2Rldik7DQo+ID4g
-KwllbHNlDQo+ID4gKwkJcGh5X2RldGFjaChwaHlfZGV2KTsNCj4gDQo+IFNhbWUgaGVyZS4NCldp
-bGwgZml4IGl0IGluIG5leHQgVjMgcGF0Y2guDQoNClRoYW5rcw0KU2FsaWwNCj4gLS0NCj4gRmxv
-cmlhbg0K
+Hi Stephen
+
+> -----Original Message-----
+> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
+> Sent: Wednesday, June 14, 2017 12:53 AM
+> To: Salil Mehta
+> Cc: davem@davemloft.net; Zhuangyuzeng (Yisen); huangdaode; lipeng (Y);
+> mehta.salil.lnk@gmail.com; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org; Linuxarm
+> Subject: Re: [PATCH V2 net-next 1/8] net: hns3: Add support of HNS3
+> Ethernet Driver for hip08 SoC
+> 
+> On Wed, 14 Jun 2017 00:10:28 +0100
+> Salil Mehta <salil.mehta@huawei.com> wrote:
+> 
+> > +static irqreturn_t hns3_irq_handle(int irq, void *dev)
+> > +{
+> > +	struct hns3_enet_tqp_vector *tqp_vector = dev;
+> > +
+> > +	napi_schedule(&tqp_vector->napi);
+> 
+> In order to do NAPI correctly, the IRQ must be disabled.
+> If you are using MSI, then hardware will do it for you.
+Yes, you are correct. They get auto disabled in our case.
+
+> 
+> But I don't see you ever enable MSI or MSI-x in this driver.
+
+We are enabling them again in common poll:
+
+static int hns3_nic_common_poll(struct napi_struct *napi, int budget)
+{
+	struct hns3_enet_ring *ring;
+	int rx_pkt_total = 0;
+
+      [....]
+
+	hns3_mask_vector_irq(tqp_vector, 1);---> this re-enables the interrupts on NIC.
+
+	return rx_pkt_total;
+}
+
+> Are you just assuming that the driver only works on one platform
+> and that platform has PCI MSI-X?
+We support both MSI and MSI-X. Hope I answered this completely?
+
+Best regards
+Salil
