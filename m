@@ -1,56 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 10/13] net: ena: add mtu limitation in
- ena_change_mtu()
-Date: Sun, 18 Jun 2017 12:21:03 -0400 (EDT)
-Message-ID: <20170618.122103.1131376179675660541.davem@davemloft.net>
-References: <1497785298-13468-1-git-send-email-netanel@amazon.com>
-        <1497785298-13468-11-git-send-email-netanel@amazon.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v2 net-next 0/7] qed*: RDMA and infrastructure for iWARP
+Date: Sun, 18 Jun 2017 12:29:01 -0400 (EDT)
+Message-ID: <20170618.122901.124548969151925362.davem@davemloft.net>
+References: <20170618115035.2156-1-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dwmw@amazon.com, zorik@amazon.com,
-        matua@amazon.com, saeedb@amazon.com, msw@amazon.com,
-        aliguori@amazon.com, nafea@amazon.com, evgenys@amazon.com
-To: netanel@amazon.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60406 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752950AbdFRQVH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Jun 2017 12:21:07 -0400
-In-Reply-To: <1497785298-13468-11-git-send-email-netanel@amazon.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170618115035.2156-1-Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: <netanel@amazon.com>
-Date: Sun, 18 Jun 2017 14:28:15 +0300
+From: Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Date: Sun, 18 Jun 2017 14:50:28 +0300
 
-> From: Netanel Belgazal <netanel@amazon.com>
-> 
-> Signed-off-by: Netanel Belgazal <netanel@amazon.com>
+> Changes from previous versions
+> ------------------------------
+>  - V2: Add several inclusion into qede_rdma.h to have proper declarations
+>    of all variable types used in it
 
-I don't understand this at all.
+I'm still not happy at all.
 
-This whole reason we have those:
+You failed the address the specific thing I asked to be fixed.
 
-> @@ -3008,8 +3015,6 @@ static void ena_set_conf_feat_params(struct ena_adapter *adapter,
->  	ena_set_dev_offloads(feat, netdev);
->  
->  	adapter->max_mtu = feat->dev_attr.max_mtu;
-> -	netdev->max_mtu = adapter->max_mtu;
-> -	netdev->min_mtu = ENA_MIN_MTU;
->  }
->  
+In patch #4, the rename, you just say in your commit message
+that you are "renaming".
 
-assignments you are removing is so that the core networking can
-validate the request and therefore individual drivers don't have to.
+But in the qedr/main.c part of the change, you are _REMOVING_
+the include.
 
-If it's just to get that silly driver message out when the MTU asked
-for is too large, that's not a good reason to bypass the
-infrastructure for MTU changes that we've provided for drivers in the
-core.
+And I said that can't be right if all you are doing is renaming the
+files.
 
-I don't like this change at all.
+So either fix that part of the change to actually rename the include
+header, rather than removing the include, or explain _IN DETAIL_ in
+the commit log message why removing it is the right thing to do and
+especially _WHY_ it is appropriate for it to be done as part of the
+renaming patch.
 
-You could have helped things a lot by actually writing a commit log
-message explaining what you are really doing, and why you are doing
-it.  Empty commit log messages are never a good idea.
+Can you understand how inconsistent it is to have a patch that says
+nothing more than "I'm renaming files" and yet have other stuff
+happening?
+
+THanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
