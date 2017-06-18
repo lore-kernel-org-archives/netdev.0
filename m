@@ -1,42 +1,30 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] [PATCH v2 net-next] bonding: Convert multiple
- netdev_info messages to netdev_dbg
-Date: Tue, 20 Jun 2017 16:28:02 -0700
-Message-ID: <1498001282.12185.2.camel@perches.com>
-References: <1497996331-24500-1-git-send-email-michael.j.dilmore@gmail.com>
+From: "HDD Investment Co." <info@ap-mail.jp>
+Subject: Investment portfolio
+Date: Mon, 19 Jun 2017 01:18:20 +0200
+Message-ID: <1497853098102131123@apdc-wd01>
+Reply-To: hassan.dako@yandex.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: vfalico@gmail.com, andy@greyhouse.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Michael J Dilmore <michael.j.dilmore@gmail.com>,
-        j.vosburgh@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1497996331-24500-1-git-send-email-michael.j.dilmore@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <info@ap-mail.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 122x218x102x10.ap122.ftth.ucom.ne.jp ([122.218.102.10]:54041
+        "EHLO maildomain.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752921AbdFUBNE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 21:13:04 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-06-20 at 23:05 +0100, Michael J Dilmore wrote:
-> The bond_options.c file contains several netdev_info messages that clutter kernel output. This patch changes all netdev_info messages
-> to netdev_dbg and adds a netdev debug for the packets per slave parameter.
+Hello,
 
-Hey Michael.
+How are you today?
 
-You should realign the multiple-line statements
-to the open parentheses.
+we have the financial capability to finance any investment portfolio as far as is genuine, all we need is a capable business partner that possesses investment strategies or profitable business information for good turn over within 10-20years.
 
-cheers, Joe
+We can provide proof of funds on demand Please write me back if you can work with me on this project.
 
-> diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-[]
-> @@ -721,13 +721,13 @@ static int bond_option_mode_set(struct bonding *bond,
->  				const struct bond_opt_value *newval)
->  {
->  	if (!bond_mode_uses_arp(newval->value) && bond->params.arp_interval) {
-> -		netdev_info(bond->dev, "%s mode is incompatible with arp monitoring, start mii monitoring\n",
-> +		netdev_dbg(bond->dev, "%s mode is incompatible with arp monitoring, start mii monitoring\n",
->  			    newval->string);
+Thank You,
 
-Now all these are not aligned properly.
-
-etc...
+Best Regards
+Hassan Dako
