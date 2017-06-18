@@ -1,37 +1,76 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: RXFH manual configuration
-Date: Sun, 18 Jun 2017 11:32:10 +0300
-Message-ID: <f78d2a7c-3dc1-009c-9b06-37ed8e87090e@mellanox.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH 42/44] powerpc/cell: use the dma_supported method for
+ ops switching
+Date: Sun, 18 Jun 2017 19:54:02 +1000
+Message-ID: <1497779642.31581.6.camel@kernel.crashing.org>
+References: <20170616181059.19206-1-hch@lst.de>
+ <20170616181059.19206-43-hch@lst.de>
+ <1497732627.2897.128.camel@kernel.crashing.org>
+ <20170618071344.GB18526@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Eran Ben Elisha <eranbe@mellanox.com>
-To: Jacob Keller <jacob.e.keller@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0051.outbound.protection.outlook.com ([104.47.0.51]:5856
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750968AbdFRIcS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 18 Jun 2017 04:32:18 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linux-mips@linux-mips.org, linux-samsung-soc@vger.kernel.org,
+ linux-ia64@vger.kernel.org, linux-c6x-dev@linux-c6x.org,
+ linux-s390@vger.kernel.org, linux-sh@vger.kernel.org,
+ linux-hexagon@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org,
+ linux-tegra@vger.kernel.org, linux-kernel@vger.kernel.org,
+ dri-devel@lists.freedesktop.org, dmaengine@vger.kernel.org,
+ iommu@lists.linux-foundation.org, openrisc@lists.librecores.org,
+ netdev@vger.kernel.org, sparclinux@vger.kernel.org,
+ xen-devel@lists.xenproject.org, linuxppc-dev@lists.ozlabs.org,
+ Christoph Hellwig <hch@lst.de>, linux-arm-kernel@lists.infradead.org
+To: Christoph Hellwig <hch@infradead.org>
+Return-path: <dri-devel-bounces@lists.freedesktop.org>
+In-Reply-To: <20170618071344.GB18526@infradead.org>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
+List-Post: <mailto:dri-devel@lists.freedesktop.org>
+List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: dri-devel-bounces@lists.freedesktop.org
+Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
+List-Id: netdev.vger.kernel.org
 
-Hi Jacob,
-
-I am looking at your patch:
-d4ab4286276f ethtool: correctly ensure {GS}CHANNELS doesn't conflict ...
-
-I wonder - if I want to configure the number of channels (ethtool -L), 
-without being aware to the history of indirection table (manually set or 
-not), how can I know what is the expected behavior?
-I should be able, from userspace, to query the value of 
-netif_is_rxfh_configured() in order to decide whether the outcome of an 
-ethtool -L command is correct or not.
-
-Do you know if this indication exists?
-
-Thanks,
-Tariq
+T24gU3VuLCAyMDE3LTA2LTE4IGF0IDAwOjEzIC0wNzAwLCBDaHJpc3RvcGggSGVsbHdpZyB3cm90
+ZToKPiBPbiBTdW4sIEp1biAxOCwgMjAxNyBhdCAwNjo1MDoyN0FNICsxMDAwLCBCZW5qYW1pbiBI
+ZXJyZW5zY2htaWR0IHdyb3RlOgo+ID4gV2hhdCBpcyB5b3VyIHJhdGlvbmFsZSBoZXJlID8gKEkg
+aGF2ZSBtaXNzZWQgcGF0Y2ggMCBpdCBzZWVtcykuCj4gCj4gTGVzcyBjb2RlIGR1cGxpY2F0aW9u
+LCBtb3JlIG1vZHVsYXIgZG1hX21hcF9vcHMgaW5zdGVhbmNlLgo+IAo+ID4gZG1hX3N1cHBvcnRl
+ZCgpIHdhcyBzdXBwb3NlZCB0byBiZSBwcmV0dHkgbXVjaCBhICJjb25zdCIgZnVuY3Rpb24KPiA+
+IHNpbXBseSBpbmZvcm1pbmcgd2hldGhlciBhIGdpdmVuIHNldHVwIGlzIHBvc3NpYmxlLiBIYXZp
+bmcgaXQgcGVyZm9ybQo+ID4gYW4gYWN0dWFsIHN3aXRjaCBvZiBvcHMgc2VlbXMgdG8gYmUgcHVz
+aGluZyBpdC4uLgo+IAo+IGRtYV9zdXBwb3J0ZWQoKSBpcyBhbHJlYWR5IGdvbmUgZnJvbSB0aGUg
+cHVibGljIERNQSBBUEkgYXMgaXQgZG9lc24ndAo+IG1ha2Ugc2Vuc2UgdG8gYmUgY2FsbGVkIHNl
+cGFyYXRlbHkgZnJvbSBzZXRfZG1hX21hc2suICBJdCB3aWxsIGJlCj4gZW50aXJlbHkgZ29uZSBp
+biB0aGUgbmV4dCBzZXJpZXMgYWZ0ZXIgdGhpcyBvbmUuCgpBaCBvaywgaW4gdGhhdCBjYXNlIGl0
+IG1ha2VzIG11Y2ggbW9yZSBzZW5zZSwgd2UgY2FuIHJlbmFtZSBpdCB0aGVuLgoKPiA+IFdoYXQg
+aWYgYSBkcml2ZXIgd2FudHMgdG8gdGVzdCB2YXJpb3VzIGRtYSBtYXNrcyBhbmQgdGhlbiBwaWNr
+IG9uZSA/Cj4gPiAKPiA+IFdoZXJlIGRvZXMgdGhlIEFQSSBkb2N1bWVudHMgdGhhdCBpZiBhIGRy
+aXZlciBjYWxscyBkbWFfc3VwcG9ydGVkKCkgaXQKPiA+IHRoZW4gKm11c3QqIHNldCB0aGUgY29y
+cmVzcG9uZGluZyBtYXNrIGFuZCB1c2UgdGhhdCA/Cj4gCj4gV2hlcmUgaXMgdGhlIEFQSSBkb2N1
+bWVudCBmb3IgX2FueV8gb2YgdGhlIGRtYSByb3V0aW5lcz8gKEE6IHdvcmsgaW4KPiBwcm9ncmVz
+cyBieSBtZSwgYnV0IEkgbmVlZCB0byBjbGVhbiB1cCB0aGUgbWVzcyBvZiBhcmNoIGhvb2tzIGJl
+Zm9yZQo+IGl0IGNhbiBtYWtlIGFueSBzZW5zZSkKCkhlaCBmYWlyIGVub3VnaC4KCj4gPiBJIGRv
+bid0IGxpa2UgYSBmdW5jdGlvbiB0aGF0IGlzIGEgImJvb2xlYW4gcXVlcnkiIGxpa2UgdGhpcyBv
+bmUgdG8gaGF2ZQo+ID4gc3VjaCBhIG1ham9yIHNpZGUgZWZmZWN0Lgo+ID4gCj4gPiA+IEZyb20g
+YW4gQVBJIHN0YW5kcG9pbnQsIGRtYV9zZXRfbWFzaygpIGlzIHdoZW4gdGhlIG1hc2sgaXMgZXN0
+YWJsaXNoZWQsCj4gPiAKPiA+IGFuZCB0aHVzIHdoZW4gdGhlIG9wcyBzd2l0Y2ggc2hvdWxkIGhh
+cHBlbi4KPiAKPiBBbmQgdGhhdCdzIGV4YWN0bHkgd2hhdCBoYXBwZW5zIGF0IHRoZSBkcml2ZXIg
+QVBJIGxldmVsLiAgSXQganVzdCB0dXJucwo+IG91dCB0aGUgZG1hX2NhcGFibGUgbWV0aG9kIGlz
+IHRoZXkgd2F5IGJldHRlciBwbGFjZSB0byBhY3R1YWxseQo+IGltcGxlbWVudCBpdCwgYXMgdGhl
+IC0+c2V0X2RtYV9tYXNrIG1ldGhvZCByZXF1aXJlcyBsb3RzIG9mIGNvZGUKPiBkdXBsaWNhdGlv
+biB3aGlsZSBub3Qgb2ZmZXJpbmcgYW55IGFjdHVhbCBiZW5lZml0IG92ZXIgLT5kbWFfY2FwYWJs
+ZS4KPiBBbmQgYmVjYXVzZSBvZiB0aGF0IGl0J3MgZ29uZSBhZnRlciB0aGlzIHNlcmllcy4KPiAK
+PiBJbiB0aGVvcnkgd2UgY291bGQgcmVuYW1lIC0+ZG1hX2NhcGFibGUgbm93LCBidXQgaXQgd291
+bGQgcmVxdWlyZSBhCj4gX2xvdF8gb2YgY2h1cm4uICBHaXZlIG1lIGFub3RoZXIgbWVyZ2Ugd2lu
+ZG93IG9yIHR3byBhbmQgd2Ugc2hvdWxkCj4gYmUgZG93biB0byBiZSBhYm91dCAyIGhhbmRmdWwg
+b2YgZG1hX21hcF9vcHMgaW5zdGFuY2UsIGF0IHdoaWNoIHBvaW50Cj4gd2UgY291bGQgZG8gYWxs
+IHRoaXMgZ3JhdGlvdXMgcmVuYW1pbmcgYSBsb3QgbW9yZSBlYXNpbHkgOikKClN1cmUsIEkgZ2V0
+IGl0IG5vdywgYXMgbG9uZyBhcyBpdCdzIG5vdCBwdWJsaWNseSBleHBvc2VkIHRvIGRyaXZlcnMK
+d2UgYXJlIGZpbmUuCgpDaGVlcnMsCkJlbi4KCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fCmRyaS1kZXZlbCBtYWlsaW5nIGxpc3QKZHJpLWRldmVsQGxpc3Rz
+LmZyZWVkZXNrdG9wLm9yZwpodHRwczovL2xpc3RzLmZyZWVkZXNrdG9wLm9yZy9tYWlsbWFuL2xp
+c3RpbmZvL2RyaS1kZXZlbAo=
