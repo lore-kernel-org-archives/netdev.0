@@ -1,17 +1,17 @@
 From: "HDD Investment Co." <info@dex.ne.jp>
 Subject: Investment portfolio
-Date: Sun, 18 Jun 2017 15:48:12 -0700
-Message-ID: <20170618224616.6AD12230CC1@smtp.dex.ne.jp>
+Date: Sun, 18 Jun 2017 20:37:54 +0200
+Message-ID: <20170619014022.674F923209E@smtp.dex.ne.jp>
 Reply-To: hassan.dako@yandex.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: 8BIT
 To: Recipients <info@dex.ne.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate01.dex.ne.jp ([122.212.159.195]:43259 "EHLO smtp.dex.ne.jp"
+Received: from gate01.dex.ne.jp ([122.212.159.195]:52710 "EHLO smtp.dex.ne.jp"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753258AbdFSBxv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 18 Jun 2017 21:53:51 -0400
+        id S1753241AbdFSCE2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 18 Jun 2017 22:04:28 -0400
 Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
