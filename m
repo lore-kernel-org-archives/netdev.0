@@ -1,7 +1,7 @@
 From: <netanel@amazon.com>
-Subject: [PATCH net-next 03/13] net: ena: change sizeof() argument to be the type pointer
-Date: Sun, 18 Jun 2017 14:28:08 +0300
-Message-ID: <1497785298-13468-4-git-send-email-netanel@amazon.com>
+Subject: [PATCH net-next 05/13] net: ena: add support for out of order rx buffers refill
+Date: Sun, 18 Jun 2017 14:28:10 +0300
+Message-ID: <1497785298-13468-6-git-send-email-netanel@amazon.com>
 References: <1497785298-13468-1-git-send-email-netanel@amazon.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,94 +11,276 @@ Cc: Netanel Belgazal <netanel@amazon.com>, <dwmw@amazon.com>,
         <evgenys@amazon.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-fw-9101.amazon.com ([207.171.184.25]:15647 "EHLO
+Received: from smtp-fw-9101.amazon.com ([207.171.184.25]:44933 "EHLO
         smtp-fw-9101.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752825AbdFRLa2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Jun 2017 07:30:28 -0400
+        with ESMTP id S1752865AbdFRLah (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Jun 2017 07:30:37 -0400
 In-Reply-To: <1497785298-13468-1-git-send-email-netanel@amazon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Netanel Belgazal <netanel@amazon.com>
 
-Instead of using:
-memset(ptr, 0x0, sizeof(struct ...))
-use:
-memset(ptr, 0x0, sizeor(*ptr))
+ENA driver post Rx buffers through the Rx submission queue
+for the ENA device to fill them with receive packets.
+Each Rx buffer is marked with req_id in the Rx descriptor.
+
+Newer ENA devices could consume the posted Rx buffer in out of order,
+and as result the corresponding Rx completion queue will have Rx
+completion descriptors with non contiguous req_id(s)
+
+In this change the driver holds two rings.
+The first ring (called free_rx_ids) is a mapping ring.
+It holds all the unused request ids.
+The values in this ring are from 0 to ring_size -1.
+
+When the driver wants to allocate a new Rx buffer it uses the head of
+free_rx_ids and uses it's value as the index for rx_buffer_info ring.
+The req_id is also written to the Rx descriptor
+
+Upon Rx completion,
+The driver took the req_id from the completion descriptor and uses it
+as index in rx_buffer_info.
+The req_id is then return to the free_rx_ids ring.
+
+This patch also adds statistics to inform when the driver receive out
+of range or unused req_id.
+
+Note:
+free_rx_ids is only accessible from the napi handler, so no locking is
+required
 
 Signed-off-by: Netanel Belgazal <netanel@amazon.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_com.c | 16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_eth_com.c |  5 ++
+ drivers/net/ethernet/amazon/ena/ena_ethtool.c |  1 +
+ drivers/net/ethernet/amazon/ena/ena_netdev.c  | 83 ++++++++++++++++++++++-----
+ drivers/net/ethernet/amazon/ena/ena_netdev.h  | 11 +++-
+ 4 files changed, 83 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
-index 65d53d501139..2721c70492a1 100644
---- a/drivers/net/ethernet/amazon/ena/ena_com.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_com.c
-@@ -329,7 +329,7 @@ static int ena_com_init_io_sq(struct ena_com_dev *ena_dev,
- 	size_t size;
- 	int dev_node = 0;
+diff --git a/drivers/net/ethernet/amazon/ena/ena_eth_com.c b/drivers/net/ethernet/amazon/ena/ena_eth_com.c
+index f999305e1363..b11e573ad57a 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_eth_com.c
++++ b/drivers/net/ethernet/amazon/ena/ena_eth_com.c
+@@ -493,6 +493,11 @@ int ena_com_tx_comp_req_id_get(struct ena_com_io_cq *io_cq, u16 *req_id)
+ 	if (cdesc_phase != expected_phase)
+ 		return -EAGAIN;
  
--	memset(&io_sq->desc_addr, 0x0, sizeof(struct ena_com_io_desc_addr));
-+	memset(&io_sq->desc_addr, 0x0, sizeof(io_sq->desc_addr));
++	if (unlikely(cdesc->req_id >= io_cq->q_depth)) {
++		pr_err("Invalid req id %d\n", cdesc->req_id);
++		return -EINVAL;
++	}
++
+ 	ena_com_cq_inc_head(io_cq);
  
- 	io_sq->desc_entry_size =
- 		(io_sq->direction == ENA_COM_IO_QUEUE_DIRECTION_TX) ?
-@@ -383,7 +383,7 @@ static int ena_com_init_io_cq(struct ena_com_dev *ena_dev,
- 	size_t size;
- 	int prev_node = 0;
+ 	*req_id = READ_ONCE(cdesc->req_id);
+diff --git a/drivers/net/ethernet/amazon/ena/ena_ethtool.c b/drivers/net/ethernet/amazon/ena/ena_ethtool.c
+index d51a67f4df02..b1212debc2e1 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_ethtool.c
++++ b/drivers/net/ethernet/amazon/ena/ena_ethtool.c
+@@ -93,6 +93,7 @@ static const struct ena_stats ena_stats_rx_strings[] = {
+ 	ENA_STAT_RX_ENTRY(dma_mapping_err),
+ 	ENA_STAT_RX_ENTRY(bad_desc_num),
+ 	ENA_STAT_RX_ENTRY(rx_copybreak_pkt),
++	ENA_STAT_RX_ENTRY(bad_req_id),
+ 	ENA_STAT_RX_ENTRY(empty_rx_ring),
+ };
  
--	memset(&io_cq->cdesc_addr, 0x0, sizeof(struct ena_com_io_desc_addr));
-+	memset(&io_cq->cdesc_addr, 0x0, sizeof(io_cq->cdesc_addr));
+diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+index 0d35a4cc3525..fcbcd188a132 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
++++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+@@ -304,6 +304,24 @@ static void ena_free_all_io_tx_resources(struct ena_adapter *adapter)
+ 		ena_free_tx_resources(adapter, i);
+ }
  
- 	/* Use the basic completion descriptor for Rx */
- 	io_cq->cdesc_entry_size_in_bytes =
-@@ -685,7 +685,7 @@ static int ena_com_destroy_io_sq(struct ena_com_dev *ena_dev,
- 	u8 direction;
- 	int ret;
++static inline int validate_rx_req_id(struct ena_ring *rx_ring, u16 req_id)
++{
++	if (likely(req_id < rx_ring->ring_size))
++		return 0;
++
++	netif_err(rx_ring->adapter, rx_err, rx_ring->netdev,
++		  "Invalid rx req_id: %hu\n", req_id);
++
++	u64_stats_update_begin(&rx_ring->syncp);
++	rx_ring->rx_stats.bad_req_id++;
++	u64_stats_update_end(&rx_ring->syncp);
++
++	/* Trigger device reset */
++	rx_ring->adapter->reset_reason = ENA_REGS_RESET_INV_RX_REQ_ID;
++	set_bit(ENA_FLAG_TRIGGER_RESET, &rx_ring->adapter->flags);
++	return -EFAULT;
++}
++
+ /* ena_setup_rx_resources - allocate I/O Rx resources (Descriptors)
+  * @adapter: network interface device structure
+  * @qid: queue index
+@@ -315,7 +333,7 @@ static int ena_setup_rx_resources(struct ena_adapter *adapter,
+ {
+ 	struct ena_ring *rx_ring = &adapter->rx_ring[qid];
+ 	struct ena_irq *ena_irq = &adapter->irq_tbl[ENA_IO_IRQ_IDX(qid)];
+-	int size, node;
++	int size, node, i;
  
--	memset(&destroy_cmd, 0x0, sizeof(struct ena_admin_aq_destroy_sq_cmd));
-+	memset(&destroy_cmd, 0x0, sizeof(destroy_cmd));
+ 	if (rx_ring->rx_buffer_info) {
+ 		netif_err(adapter, ifup, adapter->netdev,
+@@ -336,6 +354,20 @@ static int ena_setup_rx_resources(struct ena_adapter *adapter,
+ 			return -ENOMEM;
+ 	}
  
- 	if (io_sq->direction == ENA_COM_IO_QUEUE_DIRECTION_TX)
- 		direction = ENA_ADMIN_SQ_DIRECTION_TX;
-@@ -967,7 +967,7 @@ static int ena_com_create_io_sq(struct ena_com_dev *ena_dev,
- 	u8 direction;
- 	int ret;
++	size = sizeof(u16) * rx_ring->ring_size;
++	rx_ring->free_rx_ids = vzalloc_node(size, node);
++	if (!rx_ring->free_rx_ids) {
++		rx_ring->free_rx_ids = vzalloc(size);
++		if (!rx_ring->free_rx_ids) {
++			vfree(rx_ring->rx_buffer_info);
++			return -ENOMEM;
++		}
++	}
++
++	/* Req id ring for receiving RX pkts out of order */
++	for (i = 0; i < rx_ring->ring_size; i++)
++		rx_ring->free_rx_ids[i] = i;
++
+ 	/* Reset rx statistics */
+ 	memset(&rx_ring->rx_stats, 0x0, sizeof(rx_ring->rx_stats));
  
--	memset(&create_cmd, 0x0, sizeof(struct ena_admin_aq_create_sq_cmd));
-+	memset(&create_cmd, 0x0, sizeof(create_cmd));
+@@ -359,6 +391,9 @@ static void ena_free_rx_resources(struct ena_adapter *adapter,
  
- 	create_cmd.aq_common_descriptor.opcode = ENA_ADMIN_CREATE_SQ;
+ 	vfree(rx_ring->rx_buffer_info);
+ 	rx_ring->rx_buffer_info = NULL;
++
++	vfree(rx_ring->free_rx_ids);
++	rx_ring->free_rx_ids = NULL;
+ }
  
-@@ -1159,7 +1159,7 @@ int ena_com_create_io_cq(struct ena_com_dev *ena_dev,
- 	struct ena_admin_acq_create_cq_resp_desc cmd_completion;
- 	int ret;
+ /* ena_setup_all_rx_resources - allocate I/O Rx queues resources for all queues
+@@ -464,15 +499,22 @@ static void ena_free_rx_page(struct ena_ring *rx_ring,
  
--	memset(&create_cmd, 0x0, sizeof(struct ena_admin_aq_create_cq_cmd));
-+	memset(&create_cmd, 0x0, sizeof(create_cmd));
+ static int ena_refill_rx_bufs(struct ena_ring *rx_ring, u32 num)
+ {
+-	u16 next_to_use;
++	u16 next_to_use, req_id;
+ 	u32 i;
+ 	int rc;
  
- 	create_cmd.aq_common_descriptor.opcode = ENA_ADMIN_CREATE_CQ;
+ 	next_to_use = rx_ring->next_to_use;
  
-@@ -1267,7 +1267,7 @@ int ena_com_destroy_io_cq(struct ena_com_dev *ena_dev,
- 	struct ena_admin_acq_destroy_cq_resp_desc destroy_resp;
- 	int ret;
+ 	for (i = 0; i < num; i++) {
+-		struct ena_rx_buffer *rx_info =
+-			&rx_ring->rx_buffer_info[next_to_use];
++		struct ena_rx_buffer *rx_info;
++
++		req_id = rx_ring->free_rx_ids[next_to_use];
++		rc = validate_rx_req_id(rx_ring, req_id);
++		if (unlikely(rc < 0))
++			break;
++
++		rx_info = &rx_ring->rx_buffer_info[req_id];
++
  
--	memset(&destroy_cmd, 0x0, sizeof(struct ena_admin_aq_destroy_sq_cmd));
-+	memset(&destroy_cmd, 0x0, sizeof(destroy_cmd));
+ 		rc = ena_alloc_rx_page(rx_ring, rx_info,
+ 				       __GFP_COLD | GFP_ATOMIC | __GFP_COMP);
+@@ -484,7 +526,7 @@ static int ena_refill_rx_bufs(struct ena_ring *rx_ring, u32 num)
+ 		}
+ 		rc = ena_com_add_single_rx_desc(rx_ring->ena_com_io_sq,
+ 						&rx_info->ena_buf,
+-						next_to_use);
++						req_id);
+ 		if (unlikely(rc)) {
+ 			netif_warn(rx_ring->adapter, rx_status, rx_ring->netdev,
+ 				   "failed to add buffer for rx queue %d\n",
+@@ -789,13 +831,14 @@ static struct sk_buff *ena_rx_skb(struct ena_ring *rx_ring,
+ 				  u16 *next_to_clean)
+ {
+ 	struct sk_buff *skb;
+-	struct ena_rx_buffer *rx_info =
+-		&rx_ring->rx_buffer_info[*next_to_clean];
+-	u32 len;
+-	u32 buf = 0;
++	struct ena_rx_buffer *rx_info;
++	u16 len, req_id, buf = 0;
+ 	void *va;
  
- 	destroy_cmd.cq_idx = io_cq->idx;
- 	destroy_cmd.aq_common_descriptor.opcode = ENA_ADMIN_DESTROY_CQ;
-@@ -1623,8 +1623,8 @@ int ena_com_create_io_queue(struct ena_com_dev *ena_dev,
- 	io_sq = &ena_dev->io_sq_queues[ctx->qid];
- 	io_cq = &ena_dev->io_cq_queues[ctx->qid];
+-	len = ena_bufs[0].len;
++	len = ena_bufs[buf].len;
++	req_id = ena_bufs[buf].req_id;
++	rx_info = &rx_ring->rx_buffer_info[req_id];
++
+ 	if (unlikely(!rx_info->page)) {
+ 		netif_err(rx_ring->adapter, rx_err, rx_ring->netdev,
+ 			  "Page is NULL\n");
+@@ -867,13 +910,18 @@ static struct sk_buff *ena_rx_skb(struct ena_ring *rx_ring,
+ 			  skb->len, skb->data_len);
  
--	memset(io_sq, 0x0, sizeof(struct ena_com_io_sq));
--	memset(io_cq, 0x0, sizeof(struct ena_com_io_cq));
-+	memset(io_sq, 0x0, sizeof(*io_sq));
-+	memset(io_cq, 0x0, sizeof(*io_cq));
+ 		rx_info->page = NULL;
++
++		rx_ring->free_rx_ids[*next_to_clean] = req_id;
+ 		*next_to_clean =
+ 			ENA_RX_RING_IDX_NEXT(*next_to_clean,
+ 					     rx_ring->ring_size);
+ 		if (likely(--descs == 0))
+ 			break;
+-		rx_info = &rx_ring->rx_buffer_info[*next_to_clean];
+-		len = ena_bufs[++buf].len;
++
++		buf++;
++		len = ena_bufs[buf].len;
++		req_id = ena_bufs[buf].req_id;
++		rx_info = &rx_ring->rx_buffer_info[req_id];
+ 	} while (1);
  
- 	/* Init CQ */
- 	io_cq->q_depth = ctx->queue_size;
+ 	return skb;
+@@ -974,6 +1022,7 @@ static int ena_clean_rx_irq(struct ena_ring *rx_ring, struct napi_struct *napi,
+ 	int rc = 0;
+ 	int total_len = 0;
+ 	int rx_copybreak_pkt = 0;
++	int i;
+ 
+ 	netif_dbg(rx_ring->adapter, rx_status, rx_ring->netdev,
+ 		  "%s qid %d\n", __func__, rx_ring->qid);
+@@ -1003,9 +1052,13 @@ static int ena_clean_rx_irq(struct ena_ring *rx_ring, struct napi_struct *napi,
+ 
+ 		/* exit if we failed to retrieve a buffer */
+ 		if (unlikely(!skb)) {
+-			next_to_clean = ENA_RX_RING_IDX_ADD(next_to_clean,
+-							    ena_rx_ctx.descs,
+-							    rx_ring->ring_size);
++			for (i = 0; i < ena_rx_ctx.descs; i++) {
++				rx_ring->free_tx_ids[next_to_clean] =
++					rx_ring->ena_bufs[i].req_id;
++				next_to_clean =
++					ENA_RX_RING_IDX_NEXT(next_to_clean,
++							     rx_ring->ring_size);
++			}
+ 			break;
+ 		}
+ 
+diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.h b/drivers/net/ethernet/amazon/ena/ena_netdev.h
+index ccbb14cc3038..5edc3da96ce5 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_netdev.h
++++ b/drivers/net/ethernet/amazon/ena/ena_netdev.h
+@@ -194,12 +194,19 @@ struct ena_stats_rx {
+ 	u64 dma_mapping_err;
+ 	u64 bad_desc_num;
+ 	u64 rx_copybreak_pkt;
++	u64 bad_req_id;
+ 	u64 empty_rx_ring;
+ };
+ 
+ struct ena_ring {
+-	/* Holds the empty requests for TX out of order completions */
+-	u16 *free_tx_ids;
++	union {
++		/* Holds the empty requests for TX/RX
++		 * out of order completions
++		 */
++		u16 *free_tx_ids;
++		u16 *free_rx_ids;
++	};
++
+ 	union {
+ 		struct ena_tx_buffer *tx_buffer_info;
+ 		struct ena_rx_buffer *rx_buffer_info;
 -- 
 2.7.4
