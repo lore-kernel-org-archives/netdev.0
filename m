@@ -1,529 +1,81 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next] liquidio: replace info-pointer mode with
- buffer-pointer-only mode
-Date: Sun, 18 Jun 2017 05:04:11 -0700
-Message-ID: <20170618120411.GA1401@felix-thinkpad.cavium.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next 1/1] net: reflect mark on tcp syn ack packets
+Date: Sun, 18 Jun 2017 08:45:12 -0400
+Message-ID: <40a9a6b3-927d-32c9-2037-0db3a75bf0ec@mojatatu.com>
+References: <1497101461-20921-1-git-send-email-jhs@emojatatu.com>
+ <CAKD1Yr1uGL-OPUJ76D=md8kCT0psreew20Em=BokHWEYdP9xOg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        prasad.kanneganti@cavium.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        mrv@mojatatu.com, Jamal Hadi Salim <hadi@mojatatu.com>
+To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0048.outbound.protection.outlook.com ([104.47.34.48]:28402
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751956AbdFRMEX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 18 Jun 2017 08:04:23 -0400
-Content-Disposition: inline
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:34485 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753073AbdFRMpO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Jun 2017 08:45:14 -0400
+Received: by mail-qt0-f195.google.com with SMTP id o21so16580970qtb.1
+        for <netdev@vger.kernel.org>; Sun, 18 Jun 2017 05:45:14 -0700 (PDT)
+In-Reply-To: <CAKD1Yr1uGL-OPUJ76D=md8kCT0psreew20Em=BokHWEYdP9xOg@mail.gmail.com>
+Content-Language: en-GB
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Prasad Kanneganti <prasad.kanneganti@cavium.com>
 
-Each Octeon output ring can DMA packets to host memory in two modes:  info-
-pointer mode and buffer-pointer-only mode.  In info-pointer mode, Octeon
-takes two buffer pointers for each packet and places the length of the
-packet along with specified number of bytes from the beginning of the
-packet into one buffer and the rest of the packet in a separate buffer.  In
-buffer-pointer-only mode, Octeon takes single buffer pointer and places the
-length of the packet at the beginning of the buffer followed by the packet
-data.
+Sorry for the latency.
 
-This patch switches all Octeon output rings from info-pointer mode to
-buffer-pointer-only mode.  This results in fewer DMA setups and cache line
-snoops.
+On 17-06-13 09:58 AM, Lorenzo Colitti wrote:
+> On Sat, Jun 10, 2017 at 10:31 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+>>          skb->priority = sk->sk_priority;
+>> -       skb->mark = sk->sk_mark;
+>> +       if (!skb->mark)
+>> +               skb->mark = sk->sk_mark;
+> 
+> It looks a bit iffy to take sk->sk_mark only if skb->mark is zero
+> instead of relying on the callers to tell this function what they
+> want. I think the patch is correct, but it might be better to fix the
+> other callers (dccp_make_response and dccp_ctl_make_reset) to set
+> skb->mark to what they want. Either way. 
+>
 
-Signed-off-by: Prasad Kanneganti <pkanneganti@cavium.com>
-Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
-Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
----
- .../ethernet/cavium/liquidio/cn23xx_pf_device.c    | 10 +++---
- .../ethernet/cavium/liquidio/cn23xx_vf_device.c    |  7 ++--
- .../net/ethernet/cavium/liquidio/cn66xx_device.c   |  8 ++---
- drivers/net/ethernet/cavium/liquidio/lio_main.c    |  7 ++--
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c |  5 +--
- .../net/ethernet/cavium/liquidio/liquidio_common.h |  2 ++
- .../net/ethernet/cavium/liquidio/octeon_config.h   | 13 ++------
- .../net/ethernet/cavium/liquidio/octeon_device.c   | 10 +++---
- drivers/net/ethernet/cavium/liquidio/octeon_droq.c | 37 ++++++----------------
- drivers/net/ethernet/cavium/liquidio/octeon_droq.h | 18 ++---------
- .../net/ethernet/cavium/liquidio/octeon_network.h  | 29 -----------------
- 11 files changed, 37 insertions(+), 109 deletions(-)
+I saw the DCCP call - but the systcl says "tcp" on it and the feature
+is not used by dccp currently. i.e it looked like an unreasonably large
+change to update ip_build_and_send_pkt() params in particular when
+the skb already had the mark.
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
-index 962dcbc..6081c31 100644
---- a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
-+++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
-@@ -493,9 +493,8 @@ static void cn23xx_pf_setup_global_output_regs(struct octeon_device *oct)
- 	for (q_no = srn; q_no < ern; q_no++) {
- 		reg_val = octeon_read_csr(oct, CN23XX_SLI_OQ_PKT_CONTROL(q_no));
- 
--		/* set IPTR & DPTR */
--		reg_val |=
--		    (CN23XX_PKT_OUTPUT_CTL_IPTR | CN23XX_PKT_OUTPUT_CTL_DPTR);
-+		/* set DPTR */
-+		reg_val |= CN23XX_PKT_OUTPUT_CTL_DPTR;
- 
- 		/* reset BMODE */
- 		reg_val &= ~(CN23XX_PKT_OUTPUT_CTL_BMODE);
-@@ -638,7 +637,7 @@ static void cn23xx_setup_oq_regs(struct octeon_device *oct, u32 oq_no)
- 	octeon_write_csr(oct, CN23XX_SLI_OQ_SIZE(oq_no), droq->max_count);
- 
- 	octeon_write_csr(oct, CN23XX_SLI_OQ_BUFF_INFO_SIZE(oq_no),
--			 (droq->buffer_size | (OCT_RH_SIZE << 16)));
-+			 droq->buffer_size);
- 
- 	/* Get the mapped address of the pkt_sent and pkts_credit regs */
- 	droq->pkts_sent_reg =
-@@ -1343,8 +1342,7 @@ int validate_cn23xx_pf_config_info(struct octeon_device *oct,
- 		return 1;
- 	}
- 
--	if (!(CFG_GET_OQ_INFO_PTR(conf23xx)) ||
--	    !(CFG_GET_OQ_REFILL_THRESHOLD(conf23xx))) {
-+	if (!CFG_GET_OQ_REFILL_THRESHOLD(conf23xx)) {
- 		dev_err(&oct->pci_dev->dev, "%s: Invalid parameter for OQ\n",
- 			__func__);
- 		return 1;
-diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.c b/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.c
-index 20f3d2a..9338a00 100644
---- a/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.c
-+++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.c
-@@ -165,9 +165,8 @@ static void cn23xx_vf_setup_global_output_regs(struct octeon_device *oct)
- 		reg_val =
- 		    octeon_read_csr(oct, CN23XX_VF_SLI_OQ_PKT_CONTROL(q_no));
- 
--		/* set IPTR & DPTR */
--		reg_val |=
--		    (CN23XX_PKT_OUTPUT_CTL_IPTR | CN23XX_PKT_OUTPUT_CTL_DPTR);
-+		/* set DPTR */
-+		reg_val |= CN23XX_PKT_OUTPUT_CTL_DPTR;
- 
- 		/* reset BMODE */
- 		reg_val &= ~(CN23XX_PKT_OUTPUT_CTL_BMODE);
-@@ -249,7 +248,7 @@ static void cn23xx_setup_vf_oq_regs(struct octeon_device *oct, u32 oq_no)
- 	octeon_write_csr(oct, CN23XX_VF_SLI_OQ_SIZE(oq_no), droq->max_count);
- 
- 	octeon_write_csr(oct, CN23XX_VF_SLI_OQ_BUFF_INFO_SIZE(oq_no),
--			 (droq->buffer_size | (OCT_RH_SIZE << 16)));
-+			 droq->buffer_size);
- 
- 	/* Get the mapped address of the pkt_sent and pkts_credit regs */
- 	droq->pkts_sent_reg =
-diff --git a/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c b/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c
-index bdec051..b28253c 100644
---- a/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c
-+++ b/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c
-@@ -209,9 +209,6 @@ void lio_cn6xxx_setup_global_output_regs(struct octeon_device *oct)
- 		octeon_write_csr64(oct, CN6XXX_SLI_OQ_WMARK, 0);
- 	}
- 
--	/* / Select Info Ptr for length & data */
--	octeon_write_csr(oct, CN6XXX_SLI_PKT_IPTR, 0xFFFFFFFF);
--
- 	/* / Select Packet count instead of bytes for SLI_PKTi_CNTS[CNT] */
- 	octeon_write_csr(oct, CN6XXX_SLI_PKT_OUT_BMODE, 0);
- 
-@@ -314,7 +311,7 @@ void lio_cn6xxx_setup_oq_regs(struct octeon_device *oct, u32 oq_no)
- 	octeon_write_csr(oct, CN6XXX_SLI_OQ_SIZE(oq_no), droq->max_count);
- 
- 	octeon_write_csr(oct, CN6XXX_SLI_OQ_BUFF_INFO_SIZE(oq_no),
--			 (droq->buffer_size | (OCT_RH_SIZE << 16)));
-+			 droq->buffer_size);
- 
- 	/* Get the mapped address of the pkt_sent and pkts_credit regs */
- 	droq->pkts_sent_reg =
-@@ -734,8 +731,7 @@ int lio_validate_cn6xxx_config_info(struct octeon_device *oct,
- 			__func__);
- 		return 1;
- 	}
--	if (!(CFG_GET_OQ_INFO_PTR(conf6xxx)) ||
--	    !(CFG_GET_OQ_REFILL_THRESHOLD(conf6xxx))) {
-+	if (!CFG_GET_OQ_REFILL_THRESHOLD(conf6xxx)) {
- 		dev_err(&oct->pci_dev->dev, "%s: Invalid parameter for OQ\n",
- 			__func__);
- 		return 1;
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index ba01242..7618a18 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -3884,7 +3884,7 @@ static int lio_nic_info(struct octeon_recv_info *recv_info, void *buf)
- 	union oct_link_status *ls;
- 	int i;
- 
--	if (recv_pkt->buffer_size[0] != sizeof(*ls)) {
-+	if (recv_pkt->buffer_size[0] != (sizeof(*ls) + OCT_DROQ_INFO_SIZE)) {
- 		dev_err(&oct->pci_dev->dev, "Malformed NIC_INFO, len=%d, ifidx=%d\n",
- 			recv_pkt->buffer_size[0],
- 			recv_pkt->rh.r_nic_info.gmxport);
-@@ -3892,7 +3892,8 @@ static int lio_nic_info(struct octeon_recv_info *recv_info, void *buf)
- 	}
- 
- 	gmxport = recv_pkt->rh.r_nic_info.gmxport;
--	ls = (union oct_link_status *)get_rbd(recv_pkt->buffer_ptr[0]);
-+	ls = (union oct_link_status *)(get_rbd(recv_pkt->buffer_ptr[0]) +
-+		OCT_DROQ_INFO_SIZE);
- 
- 	octeon_swap_8B_data((u64 *)ls, (sizeof(union oct_link_status)) >> 3);
- 	for (i = 0; i < oct->ifcount; i++) {
-@@ -4449,7 +4450,7 @@ octeon_recv_vf_drv_notice(struct octeon_recv_info *recv_info, void *buf)
- 	u64 *data, vf_num;
- 
- 	notice = recv_pkt->rh.r.ossp;
--	data = (u64 *)get_rbd(recv_pkt->buffer_ptr[0]);
-+	data = (u64 *)(get_rbd(recv_pkt->buffer_ptr[0]) + OCT_DROQ_INFO_SIZE);
- 
- 	/* the first 64-bit word of data is the vf_num */
- 	vf_num = data[0];
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index 1f70326..9b24710 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -2718,7 +2718,7 @@ static int lio_nic_info(struct octeon_recv_info *recv_info, void *buf)
- 	int gmxport = 0;
- 	int i;
- 
--	if (recv_pkt->buffer_size[0] != sizeof(*ls)) {
-+	if (recv_pkt->buffer_size[0] != (sizeof(*ls) + OCT_DROQ_INFO_SIZE)) {
- 		dev_err(&oct->pci_dev->dev, "Malformed NIC_INFO, len=%d, ifidx=%d\n",
- 			recv_pkt->buffer_size[0],
- 			recv_pkt->rh.r_nic_info.gmxport);
-@@ -2726,7 +2726,8 @@ static int lio_nic_info(struct octeon_recv_info *recv_info, void *buf)
- 	}
- 
- 	gmxport = recv_pkt->rh.r_nic_info.gmxport;
--	ls = (union oct_link_status *)get_rbd(recv_pkt->buffer_ptr[0]);
-+	ls = (union oct_link_status *)(get_rbd(recv_pkt->buffer_ptr[0]) +
-+		OCT_DROQ_INFO_SIZE);
- 
- 	octeon_swap_8B_data((u64 *)ls, (sizeof(union oct_link_status)) >> 3);
- 
-diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-index 8ea2323..90ca140 100644
---- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-+++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-@@ -173,6 +173,8 @@ static inline void add_sg_size(struct octeon_sg_entry *sg_entry,
- 
- /*------------------------- End Scatter/Gather ---------------------------*/
- 
-+#define   OCTNET_FRM_LENGTH_SIZE      8
-+
- #define   OCTNET_FRM_PTP_HEADER_SIZE  8
- 
- #define   OCTNET_FRM_HEADER_SIZE     22 /* VLAN + Ethernet */
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_config.h b/drivers/net/ethernet/cavium/liquidio/octeon_config.h
-index d29ebc5..f229d79 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_config.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_config.h
-@@ -47,7 +47,7 @@
- /* CN6xxx OQ configuration macros */
- #define   CN6XXX_MAX_OUTPUT_QUEUES     32
- #define   CN6XXX_MAX_OQ_DESCRIPTORS    2048
--#define   CN6XXX_OQ_BUF_SIZE           1536
-+#define   CN6XXX_OQ_BUF_SIZE           1664
- #define   CN6XXX_OQ_PKTSPER_INTR       ((CN6XXX_MAX_OQ_DESCRIPTORS < 512) ? \
- 					(CN6XXX_MAX_OQ_DESCRIPTORS / 4) : 128)
- #define   CN6XXX_OQ_REFIL_THRESHOLD    ((CN6XXX_MAX_OQ_DESCRIPTORS < 512) ? \
-@@ -78,7 +78,7 @@
- 
- #define   CN23XX_MAX_OUTPUT_QUEUES	CN23XX_MAX_RINGS_PER_PF
- #define   CN23XX_MAX_OQ_DESCRIPTORS	512
--#define   CN23XX_OQ_BUF_SIZE		1536
-+#define   CN23XX_OQ_BUF_SIZE		1664
- #define   CN23XX_OQ_PKTSPER_INTR	128
- /*#define CAVIUM_ONLY_CN23XX_RX_PERF*/
- #define   CN23XX_OQ_REFIL_THRESHOLD	16
-@@ -98,8 +98,6 @@
- #define   OCTEON_32BYTE_INSTR          32
- #define   OCTEON_64BYTE_INSTR          64
- #define   OCTEON_MAX_BASE_IOQ          4
--#define   OCTEON_OQ_BUFPTR_MODE        0
--#define   OCTEON_OQ_INFOPTR_MODE       1
- 
- #define   OCTEON_DMA_INTR_PKT          64
- #define   OCTEON_DMA_INTR_TIME         1000
-@@ -125,7 +123,6 @@
- #define CFG_SET_IQ_INTR_PKT(cfg, val)            (cfg)->iq.iq_intr_pkt = val
- 
- #define CFG_GET_OQ_MAX_Q(cfg)                    ((cfg)->oq.max_oqs)
--#define CFG_GET_OQ_INFO_PTR(cfg)                 ((cfg)->oq.info_ptr)
- #define CFG_GET_OQ_PKTS_PER_INTR(cfg)            ((cfg)->oq.pkts_per_intr)
- #define CFG_GET_OQ_REFILL_THRESHOLD(cfg)         ((cfg)->oq.refill_threshold)
- #define CFG_GET_OQ_INTR_PKT(cfg)                 ((cfg)->oq.oq_intr_pkt)
-@@ -266,9 +263,6 @@ struct octeon_oq_config {
- 	 */
- 	u64 refill_threshold:16;
- 
--	/** If set, the Output queue uses info-pointer mode. (Default: 1) */
--	u64 info_ptr:32;
--
- 	/* Max number of OQs available */
- 	u64 max_oqs:8;
- 
-@@ -276,9 +270,6 @@ struct octeon_oq_config {
- 	/* Max number of OQs available */
- 	u64 max_oqs:8;
- 
--	/** If set, the Output queue uses info-pointer mode. (Default: 1) */
--	u64 info_ptr:32;
--
- 	/** The number of buffers that were consumed during packet processing by
- 	 *   the driver on this Output queue before the driver attempts to
- 	 *   replenish
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.c b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-index 3b7cc93..623e28c 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-@@ -51,7 +51,6 @@ static struct octeon_config default_cn66xx_conf = {
- 	/** OQ attributes */
- 	.oq					= {
- 		.max_oqs			= CN6XXX_CFG_IO_QUEUES,
--		.info_ptr			= OCTEON_OQ_INFOPTR_MODE,
- 		.refill_threshold		= CN6XXX_OQ_REFIL_THRESHOLD,
- 		.oq_intr_pkt			= CN6XXX_OQ_INTR_PKT,
- 		.oq_intr_time			= CN6XXX_OQ_INTR_TIME,
-@@ -161,7 +160,6 @@ static struct octeon_config default_cn68xx_conf = {
- 	/** OQ attributes */
- 	.oq					= {
- 		.max_oqs			= CN6XXX_CFG_IO_QUEUES,
--		.info_ptr			= OCTEON_OQ_INFOPTR_MODE,
- 		.refill_threshold		= CN6XXX_OQ_REFIL_THRESHOLD,
- 		.oq_intr_pkt			= CN6XXX_OQ_INTR_PKT,
- 		.oq_intr_time			= CN6XXX_OQ_INTR_TIME,
-@@ -328,7 +326,6 @@ static struct octeon_config default_cn68xx_210nv_conf = {
- 	/** OQ attributes */
- 	.oq					= {
- 		.max_oqs			= CN6XXX_CFG_IO_QUEUES,
--		.info_ptr			= OCTEON_OQ_INFOPTR_MODE,
- 		.refill_threshold		= CN6XXX_OQ_REFIL_THRESHOLD,
- 		.oq_intr_pkt			= CN6XXX_OQ_INTR_PKT,
- 		.oq_intr_time			= CN6XXX_OQ_INTR_TIME,
-@@ -432,7 +429,6 @@ static struct octeon_config default_cn23xx_conf = {
- 	/** OQ attributes */
- 	.oq = {
- 		.max_oqs		= CN23XX_CFG_IO_QUEUES,
--		.info_ptr		= OCTEON_OQ_INFOPTR_MODE,
- 		.pkts_per_intr	= CN23XX_OQ_PKTSPER_INTR,
- 		.refill_threshold	= CN23XX_OQ_REFIL_THRESHOLD,
- 		.oq_intr_pkt	= CN23XX_OQ_INTR_PKT,
-@@ -1236,13 +1232,15 @@ int octeon_core_drv_init(struct octeon_recv_info *recv_info, void *buf)
- 
- 	cs = &core_setup[oct->octeon_id];
- 
--	if (recv_pkt->buffer_size[0] != sizeof(*cs)) {
-+	if (recv_pkt->buffer_size[0] != (sizeof(*cs) + OCT_DROQ_INFO_SIZE)) {
- 		dev_dbg(&oct->pci_dev->dev, "Core setup bytes expected %u found %d\n",
- 			(u32)sizeof(*cs),
- 			recv_pkt->buffer_size[0]);
- 	}
- 
--	memcpy(cs, get_rbd(recv_pkt->buffer_ptr[0]), sizeof(*cs));
-+	memcpy(cs, get_rbd(
-+	       recv_pkt->buffer_ptr[0]) + OCT_DROQ_INFO_SIZE, sizeof(*cs));
-+
- 	strncpy(oct->boardinfo.name, cs->boardname, OCT_BOARD_NAME);
- 	strncpy(oct->boardinfo.serial_number, cs->board_serial_number,
- 		OCT_SERIAL_LEN);
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_droq.c b/drivers/net/ethernet/cavium/liquidio/octeon_droq.c
-index d3a6a1c..2e190de 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_droq.c
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_droq.c
-@@ -181,10 +181,7 @@ octeon_droq_setup_ring_buffers(struct octeon_device *oct,
- 
- 		droq->recv_buf_list[i].buffer = buf;
- 		droq->recv_buf_list[i].data = get_rbd(buf);
--		droq->info_list[i].length = 0;
--
--		/* map ring buffers into memory */
--		desc_ring[i].info_ptr = lio_map_ring_info(droq, i);
-+		desc_ring[i].info_ptr = 0;
- 		desc_ring[i].buffer_ptr =
- 			lio_map_ring(droq->recv_buf_list[i].buffer);
- 	}
-@@ -205,9 +202,6 @@ int octeon_delete_droq(struct octeon_device *oct, u32 q_no)
- 	octeon_droq_destroy_ring_buffers(oct, droq);
- 	vfree(droq->recv_buf_list);
- 
--	if (droq->info_base_addr)
--		lio_free_info_buffer(oct, droq);
--
- 	if (droq->desc_ring)
- 		lio_dma_free(oct, (droq->max_count * OCT_DROQ_DESC_SIZE),
- 			     droq->desc_ring, droq->desc_ring_dma);
-@@ -280,14 +274,6 @@ int octeon_init_droq(struct octeon_device *oct,
- 	dev_dbg(&oct->pci_dev->dev, "droq[%d]: num_desc: %d\n", q_no,
- 		droq->max_count);
- 
--	droq->info_list = lio_alloc_info_buffer(oct, droq);
--	if (!droq->info_list) {
--		dev_err(&oct->pci_dev->dev, "Cannot allocate memory for info list.\n");
--		lio_dma_free(oct, (droq->max_count * OCT_DROQ_DESC_SIZE),
--			     droq->desc_ring, droq->desc_ring_dma);
--		return 1;
--	}
--
- 	droq->recv_buf_list = (struct octeon_recv_buffer *)
- 			      vmalloc_node(droq->max_count *
- 						OCT_DROQ_RECVBUF_SIZE,
-@@ -357,7 +343,7 @@ static inline struct octeon_recv_info *octeon_create_recv_info(
- 	u32 i, bytes_left;
- 	struct octeon_skb_page_info *pg_info;
- 
--	info = &droq->info_list[idx];
-+	info = (struct octeon_droq_info *)droq->recv_buf_list[idx].data;
- 
- 	recv_info = octeon_alloc_recv_info(sizeof(struct __dispatch));
- 	if (!recv_info)
-@@ -491,8 +477,6 @@ octeon_droq_refill(struct octeon_device *octeon_dev, struct octeon_droq *droq)
- 		desc_ring[droq->refill_idx].buffer_ptr =
- 			lio_map_ring(droq->recv_buf_list[
- 				     droq->refill_idx].buffer);
--		/* Reset any previous values in the length field. */
--		droq->info_list[droq->refill_idx].length = 0;
- 
- 		droq->refill_idx = incr_index(droq->refill_idx, 1,
- 					      droq->max_count);
-@@ -541,11 +525,7 @@ void octeon_droq_check_oom(struct octeon_droq *droq)
- static inline u32
- octeon_droq_get_bufcount(u32 buf_size, u32 total_len)
- {
--	u32 buf_cnt = 0;
--
--	while (total_len > (buf_size * buf_cnt))
--		buf_cnt++;
--	return buf_cnt;
-+	return ((total_len + buf_size - 1) / buf_size);
- }
- 
- static int
-@@ -593,11 +573,12 @@ static inline void octeon_droq_drop_packets(struct octeon_device *oct,
- 	struct octeon_droq_info *info;
- 
- 	for (i = 0; i < cnt; i++) {
--		info = &droq->info_list[droq->read_idx];
-+		info = (struct octeon_droq_info *)
-+			droq->recv_buf_list[droq->read_idx].data;
- 		octeon_swap_8B_data((u64 *)info, 2);
- 
- 		if (info->length) {
--			info->length -= OCT_RH_SIZE;
-+			info->length += OCTNET_FRM_LENGTH_SIZE;
- 			droq->stats.bytes_received += info->length;
- 			buf_cnt = octeon_droq_get_bufcount(droq->buffer_size,
- 							   (u32)info->length);
-@@ -629,7 +610,8 @@ octeon_droq_fast_process_packets(struct octeon_device *oct,
- 		struct octeon_skb_page_info *pg_info;
- 		void *buf;
- 
--		info = &droq->info_list[droq->read_idx];
-+		info = (struct octeon_droq_info *)
-+			droq->recv_buf_list[droq->read_idx].data;
- 		octeon_swap_8B_data((u64 *)info, 2);
- 
- 		if (!info->length) {
-@@ -643,9 +625,10 @@ octeon_droq_fast_process_packets(struct octeon_device *oct,
- 		}
- 
- 		/* Len of resp hdr in included in the received data len. */
--		info->length -= OCT_RH_SIZE;
- 		rh = &info->rh;
- 
-+		info->length += OCTNET_FRM_LENGTH_SIZE;
-+		rh->r_dh.len += (ROUNDUP8(OCT_DROQ_INFO_SIZE) / sizeof(u64));
- 		total_len += (u32)info->length;
- 		if (opcode_slow_path(rh)) {
- 			u32 buf_cnt;
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_droq.h b/drivers/net/ethernet/cavium/liquidio/octeon_droq.h
-index 9781577..6efd139 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_droq.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_droq.h
-@@ -51,11 +51,11 @@ struct octeon_droq_desc {
-  *  about the packet.
-  */
- struct octeon_droq_info {
--	/** The Output Receive Header. */
--	union octeon_rh rh;
--
- 	/** The Length of the packet. */
- 	u64 length;
-+
-+	/** The Output Receive Header. */
-+	union octeon_rh rh;
- };
- 
- #define OCT_DROQ_INFO_SIZE   (sizeof(struct octeon_droq_info))
-@@ -294,9 +294,6 @@ struct octeon_droq {
- 	 */
- 	u32 max_empty_descs;
- 
--	/** The 8B aligned info ptrs begin from this address. */
--	struct octeon_droq_info *info_list;
--
- 	/** The receive buffer list. This list has the virtual addresses of the
- 	 * buffers.
- 	 */
-@@ -324,15 +321,6 @@ struct octeon_droq {
- 	/** DMA mapped address of the DROQ descriptor ring. */
- 	size_t desc_ring_dma;
- 
--	/** Info ptr list are allocated at this virtual address. */
--	void *info_base_addr;
--
--	/** DMA mapped address of the info list */
--	dma_addr_t info_list_dma;
--
--	/** Allocated size of info list. */
--	u32 info_alloc_size;
--
- 	/** application context */
- 	void *app_ctx;
- 
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_network.h b/drivers/net/ethernet/cavium/liquidio/octeon_network.h
-index 4b35079..ec8504b 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_network.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_network.h
-@@ -356,29 +356,6 @@ static inline void tx_buffer_free(void *buffer)
- #define lio_dma_free(oct, size, virt_addr, dma_addr) \
- 	dma_free_coherent(&(oct)->pci_dev->dev, size, virt_addr, dma_addr)
- 
--static inline void *
--lio_alloc_info_buffer(struct octeon_device *oct,
--		      struct octeon_droq *droq)
--{
--	void *virt_ptr;
--
--	virt_ptr = lio_dma_alloc(oct, (droq->max_count * OCT_DROQ_INFO_SIZE),
--				 &droq->info_list_dma);
--	if (virt_ptr) {
--		droq->info_alloc_size = droq->max_count * OCT_DROQ_INFO_SIZE;
--		droq->info_base_addr = virt_ptr;
--	}
--
--	return virt_ptr;
--}
--
--static inline void lio_free_info_buffer(struct octeon_device *oct,
--					struct octeon_droq *droq)
--{
--	lio_dma_free(oct, droq->info_alloc_size, droq->info_base_addr,
--		     droq->info_list_dma);
--}
--
- static inline
- void *get_rbd(struct sk_buff *skb)
- {
-@@ -392,12 +369,6 @@ void *get_rbd(struct sk_buff *skb)
- }
- 
- static inline u64
--lio_map_ring_info(struct octeon_droq *droq, u32 i)
--{
--	return droq->info_list_dma + (i * sizeof(struct octeon_droq_info));
--}
--
--static inline u64
- lio_map_ring(void *buf)
- {
- 	dma_addr_t dma_addr;
+>>          tcp_ecn_make_synack(req, th);
+>>          th->source = htons(ireq->ir_num);
+>>          th->dest = ireq->ir_rmt_port;
+>> +       if (sock_net(sk)->ipv4.sysctl_tcp_fwmark_accept)
+>> +               skb->mark = ireq->ir_mark;
+> 
+> I think checking the sysctl here is unnecessary. It seems to me that
+> ir_mark already takes that into account. Its semantics (see
+> inet_request_mark) are:
+> 
+> - If listen socket has a nonzero mark, use that
+> - Else if sysctl_tcp_fwmark_accept is set and inbound SYN packet has
+> mark, use that
+> - Else zero.
+> 
+> which is what you want.
+
+I see it. I'll fix this part in next version.
+
+
+> 
+> Other than that,
+> 
+> Reviewed-By: Lorenzo Colitti <lorenzo@google.com>
+> 
+> Please disregard my earlier comment about fwmark_reflect - I didn't
+> notice that the code sets ir_mark based on tcp_fwmark_accept, and
+> doesn't look at fwmark_reflect at all.
+> 
+
+np.
+
+cheers,
+jamal
