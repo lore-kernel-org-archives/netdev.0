@@ -1,501 +1,98 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 01/10] net: dsa: mv88e6xxx: add irl_init_all op
-Date: Sat, 17 Jun 2017 23:06:32 -0400
-Message-ID: <20170618030641.32463-2-vivien.didelot@savoirfairelinux.com>
-References: <20170618030641.32463-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH V3 net-next 0/8] Hisilicon Network Subsystem 3 Ethernet
+ Driver
+Date: Sun, 18 Jun 2017 09:07:36 +0300
+Message-ID: <20170618060736.GH17846@mtr-leonro.local>
+References: <20170617172431.177044-1-salil.mehta@huawei.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="4LFBTxd4L5NLO6ly"
+Cc: davem@davemloft.net, yisen.zhuang@huawei.com,
+        huangdaode@hisilicon.com, lipeng321@huawei.com,
+        mehta.salil.lnk@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linuxarm@huawei.com
+To: Salil Mehta <salil.mehta@huawei.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170618030641.32463-1-vivien.didelot@savoirfairelinux.com>
+Content-Disposition: inline
+In-Reply-To: <20170617172431.177044-1-salil.mehta@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some Marvell chips have an Ingress Rate Limit unit. But the command
-values slightly differs between models: 88E6352 use 3-bit for operations
-while 88E6390 use different 2-bit operations.
 
-This commit kills the IRL flags in favor of a new operation implementing
-the "Init all resources to the initial state" operation.
+--4LFBTxd4L5NLO6ly
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-This fixes the operation of 88E6390 family where 0x1000 means Read the
-selected resource 0, register 0 on port 16, instead of init all.
+On Sat, Jun 17, 2017 at 06:24:23PM +0100, Salil Mehta wrote:
+> This patch-set contains the support of the HNS3 (Hisilicon Network Subsystem 3)
+> Ethernet driver for hip08 family of SoCs and future upcoming SoCs.
+>
+> Hisilicon's new hip08 SoCs have integrated ethernet based on PCI Express and
+> hence there was a need of new driver over the previous HNS driver which is
+> already part of the Linux mainline. This new driver is NOT backward
+> compatible with HNS.
+>
+> This current driver is meant to control the Physical Function and there would
+> soon be a support of a separate driver for Virtual Function once this base PF
+> driver has been accepted. Also, this driver is the ongoing development work and
+> HNS3 Ethernet driver would be incrementally enhanced with more new features.
+>
+> High Level Architecture:
+>
+>         [ Ethtool ]
+> 	   ^  |
+>            |  |
+>        [Ethernet Client]  [RoCE Client] . . . [ Ethernet Client ]
+>     ---------------------------------------------     |
+>                          |                            |
+>      [ HNAE3 Framework (Register/unregister) ]        |
+>                          |                            |
+>     ---------------------------------------------     |
+>                    [ HNAE Device ]                    |
+>                          |                            |
+>                    [ HCLGE Layer]                     |
+>          ________________|_________________           |
+>         |                |                 |          |
+>     [ MDIO ]    [ Scheduler/Shaper ]  [ Debugfs ]     |
+>         |                |                 |          |
+>         |________________|_________________|          |
+>                          |                            |
+>              [ IMP command Interface ]                |
+>     ---------------------------------------------     |
+>               HIP08  H A R D W A R E                  *
+>
+>
+> Current patch-set broadly adds the support of the following PF functionality:
+>  1. Basic Rx and Tx functionality
+>  2. TSO support
+>  3. Ethtool support
+>  4. HNAE framework and hardware compatability layer
+>  5. Scheduler and Shaper support in transmit function
+>  6. MDIO support
+>  7. kernel build supporrt, Makefiles, Kconfig etc.
 
-A mv88e6xxx_irl_setup helper is added to wrap the operation call.
+Since it is RoCE too, it will be handy to CC: linux-rdma@ for this too.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx/chip.c    | 47 +++++++++++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx/chip.h    | 19 +++-----------
- drivers/net/dsa/mv88e6xxx/global2.c | 52 ++++++++++++++++++-------------------
- drivers/net/dsa/mv88e6xxx/global2.h | 44 ++++++++++++++++++++++++++-----
- 4 files changed, 113 insertions(+), 49 deletions(-)
+Thanks
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 19772e3dd67e..53b088166c28 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -941,6 +941,26 @@ static int mv88e6xxx_atu_setup(struct mv88e6xxx_chip *chip)
- 	return mv88e6xxx_g1_atu_set_age_time(chip, 300000);
- }
- 
-+static int mv88e6xxx_irl_setup(struct mv88e6xxx_chip *chip)
-+{
-+	int port;
-+	int err;
-+
-+	if (!chip->info->ops->irl_init_all)
-+		return 0;
-+
-+	for (port = 0; port < mv88e6xxx_num_ports(chip); port++) {
-+		/* Disable ingress rate limiting by resetting all per port
-+		 * ingress rate limit resources to their initial state.
-+		 */
-+		err = chip->info->ops->irl_init_all(chip, port);
-+		if (err)
-+			return err;
-+	}
-+
-+	return 0;
-+}
-+
- static int mv88e6xxx_pvt_map(struct mv88e6xxx_chip *chip, int dev, int port)
- {
- 	u16 pvlan = 0;
-@@ -2102,6 +2122,10 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
- 			goto unlock;
- 	}
- 
-+	err = mv88e6xxx_irl_setup(chip);
-+	if (err)
-+		goto unlock;
-+
- 	err = mv88e6xxx_phy_setup(chip);
- 	if (err)
- 		goto unlock;
-@@ -2339,6 +2363,7 @@ static int mv88e6xxx_set_eeprom(struct dsa_switch *ds,
- 
- static const struct mv88e6xxx_ops mv88e6085_ops = {
- 	/* MV88E6XXX_FAMILY_6097 */
-+	.irl_init_all = mv88e6352_g2_irl_init_all,
- 	.set_switch_mac = mv88e6xxx_g1_set_switch_mac,
- 	.phy_read = mv88e6185_phy_ppu_read,
- 	.phy_write = mv88e6185_phy_ppu_write,
-@@ -2393,6 +2418,7 @@ static const struct mv88e6xxx_ops mv88e6095_ops = {
- 
- static const struct mv88e6xxx_ops mv88e6097_ops = {
- 	/* MV88E6XXX_FAMILY_6097 */
-+	.irl_init_all = mv88e6352_g2_irl_init_all,
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
- 	.phy_read = mv88e6xxx_g2_smi_phy_read,
- 	.phy_write = mv88e6xxx_g2_smi_phy_write,
-@@ -2423,6 +2449,7 @@ static const struct mv88e6xxx_ops mv88e6097_ops = {
- 
- static const struct mv88e6xxx_ops mv88e6123_ops = {
- 	/* MV88E6XXX_FAMILY_6165 */
-+	.irl_init_all = mv88e6352_g2_irl_init_all,
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
- 	.phy_read = mv88e6xxx_g2_smi_phy_read,
- 	.phy_write = mv88e6xxx_g2_smi_phy_write,
-@@ -2479,6 +2506,7 @@ static const struct mv88e6xxx_ops mv88e6131_ops = {
- 
- static const struct mv88e6xxx_ops mv88e6141_ops = {
- 	/* MV88E6XXX_FAMILY_6341 */
-+	.irl_init_all = mv88e6352_g2_irl_init_all,
- 	.get_eeprom = mv88e6xxx_g2_get_eeprom8,
- 	.set_eeprom = mv88e6xxx_g2_set_eeprom8,
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
-@@ -2512,6 +2540,7 @@ static const struct mv88e6xxx_ops mv88e6141_ops = {
- 
- static const struct mv88e6xxx_ops mv88e6161_ops = {
- 	/* MV88E6XXX_FAMILY_6165 */
-+	.irl_init_all = mv88e6352_g2_irl_init_all,
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
- 	.phy_read = mv88e6xxx_g2_smi_phy_read,
- 	.phy_write = mv88e6xxx_g2_smi_phy_write,
-@@ -2542,6 +2571,7 @@ static const struct mv88e6xxx_ops mv88e6161_ops = {
- 
- static const struct mv88e6xxx_ops mv88e6165_ops = {
- 	/* MV88E6XXX_FAMILY_6165 */
-+	.irl_init_all = mv88e6352_g2_irl_init_all,
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
- 	.phy_read = mv88e6165_phy_read,
- 	.phy_write = mv88e6165_phy_write,
-@@ -2565,6 +2595,7 @@ static const struct mv88e6xxx_ops mv88e6165_ops = {
- 
- static const struct mv88e6xxx_ops mv88e6171_ops = {
- 	/* MV88E6XXX_FAMILY_6351 */
-+	.irl_init_all = mv88e6352_g2_irl_init_all,
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
- 	.phy_read = mv88e6xxx_g2_smi_phy_read,
- 	.phy_write = mv88e6xxx_g2_smi_phy_write,
-@@ -2596,6 +2627,7 @@ static const struct mv88e6xxx_ops mv88e6171_ops = {
- 
- static const struct mv88e6xxx_ops mv88e6172_ops = {
- 	/* MV88E6XXX_FAMILY_6352 */
-+	.irl_init_all = mv88e6352_g2_irl_init_all,
- 	.get_eeprom = mv88e6xxx_g2_get_eeprom16,
- 	.set_eeprom = mv88e6xxx_g2_set_eeprom16,
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
-@@ -2630,6 +2662,7 @@ static const struct mv88e6xxx_ops mv88e6172_ops = {
- 
- static const struct mv88e6xxx_ops mv88e6175_ops = {
- 	/* MV88E6XXX_FAMILY_6351 */
-+	.irl_init_all = mv88e6352_g2_irl_init_all,
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
- 	.phy_read = mv88e6xxx_g2_smi_phy_read,
- 	.phy_write = mv88e6xxx_g2_smi_phy_write,
-@@ -2661,6 +2694,7 @@ static const struct mv88e6xxx_ops mv88e6175_ops = {
- 
- static const struct mv88e6xxx_ops mv88e6176_ops = {
- 	/* MV88E6XXX_FAMILY_6352 */
-+	.irl_init_all = mv88e6352_g2_irl_init_all,
- 	.get_eeprom = mv88e6xxx_g2_get_eeprom16,
- 	.set_eeprom = mv88e6xxx_g2_set_eeprom16,
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
-@@ -2722,6 +2756,7 @@ static const struct mv88e6xxx_ops mv88e6185_ops = {
- 
- static const struct mv88e6xxx_ops mv88e6190_ops = {
- 	/* MV88E6XXX_FAMILY_6390 */
-+	.irl_init_all = mv88e6390_g2_irl_init_all,
- 	.get_eeprom = mv88e6xxx_g2_get_eeprom8,
- 	.set_eeprom = mv88e6xxx_g2_set_eeprom8,
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
-@@ -2755,6 +2790,7 @@ static const struct mv88e6xxx_ops mv88e6190_ops = {
- 
- static const struct mv88e6xxx_ops mv88e6190x_ops = {
- 	/* MV88E6XXX_FAMILY_6390 */
-+	.irl_init_all = mv88e6390_g2_irl_init_all,
- 	.get_eeprom = mv88e6xxx_g2_get_eeprom8,
- 	.set_eeprom = mv88e6xxx_g2_set_eeprom8,
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
-@@ -2788,6 +2824,7 @@ static const struct mv88e6xxx_ops mv88e6190x_ops = {
- 
- static const struct mv88e6xxx_ops mv88e6191_ops = {
- 	/* MV88E6XXX_FAMILY_6390 */
-+	.irl_init_all = mv88e6390_g2_irl_init_all,
- 	.get_eeprom = mv88e6xxx_g2_get_eeprom8,
- 	.set_eeprom = mv88e6xxx_g2_set_eeprom8,
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
-@@ -2821,6 +2858,7 @@ static const struct mv88e6xxx_ops mv88e6191_ops = {
- 
- static const struct mv88e6xxx_ops mv88e6240_ops = {
- 	/* MV88E6XXX_FAMILY_6352 */
-+	.irl_init_all = mv88e6352_g2_irl_init_all,
- 	.get_eeprom = mv88e6xxx_g2_get_eeprom16,
- 	.set_eeprom = mv88e6xxx_g2_set_eeprom16,
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
-@@ -2855,6 +2893,7 @@ static const struct mv88e6xxx_ops mv88e6240_ops = {
- 
- static const struct mv88e6xxx_ops mv88e6290_ops = {
- 	/* MV88E6XXX_FAMILY_6390 */
-+	.irl_init_all = mv88e6390_g2_irl_init_all,
- 	.get_eeprom = mv88e6xxx_g2_get_eeprom8,
- 	.set_eeprom = mv88e6xxx_g2_set_eeprom8,
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
-@@ -2889,6 +2928,7 @@ static const struct mv88e6xxx_ops mv88e6290_ops = {
- 
- static const struct mv88e6xxx_ops mv88e6320_ops = {
- 	/* MV88E6XXX_FAMILY_6320 */
-+	.irl_init_all = mv88e6352_g2_irl_init_all,
- 	.get_eeprom = mv88e6xxx_g2_get_eeprom16,
- 	.set_eeprom = mv88e6xxx_g2_set_eeprom16,
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
-@@ -2920,6 +2960,7 @@ static const struct mv88e6xxx_ops mv88e6320_ops = {
- 
- static const struct mv88e6xxx_ops mv88e6321_ops = {
- 	/* MV88E6XXX_FAMILY_6321 */
-+	.irl_init_all = mv88e6352_g2_irl_init_all,
- 	.get_eeprom = mv88e6xxx_g2_get_eeprom16,
- 	.set_eeprom = mv88e6xxx_g2_set_eeprom16,
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
-@@ -2950,6 +2991,7 @@ static const struct mv88e6xxx_ops mv88e6321_ops = {
- 
- static const struct mv88e6xxx_ops mv88e6341_ops = {
- 	/* MV88E6XXX_FAMILY_6341 */
-+	.irl_init_all = mv88e6352_g2_irl_init_all,
- 	.get_eeprom = mv88e6xxx_g2_get_eeprom8,
- 	.set_eeprom = mv88e6xxx_g2_set_eeprom8,
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
-@@ -2983,6 +3025,7 @@ static const struct mv88e6xxx_ops mv88e6341_ops = {
- 
- static const struct mv88e6xxx_ops mv88e6350_ops = {
- 	/* MV88E6XXX_FAMILY_6351 */
-+	.irl_init_all = mv88e6352_g2_irl_init_all,
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
- 	.phy_read = mv88e6xxx_g2_smi_phy_read,
- 	.phy_write = mv88e6xxx_g2_smi_phy_write,
-@@ -3014,6 +3057,7 @@ static const struct mv88e6xxx_ops mv88e6350_ops = {
- 
- static const struct mv88e6xxx_ops mv88e6351_ops = {
- 	/* MV88E6XXX_FAMILY_6351 */
-+	.irl_init_all = mv88e6352_g2_irl_init_all,
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
- 	.phy_read = mv88e6xxx_g2_smi_phy_read,
- 	.phy_write = mv88e6xxx_g2_smi_phy_write,
-@@ -3045,6 +3089,7 @@ static const struct mv88e6xxx_ops mv88e6351_ops = {
- 
- static const struct mv88e6xxx_ops mv88e6352_ops = {
- 	/* MV88E6XXX_FAMILY_6352 */
-+	.irl_init_all = mv88e6352_g2_irl_init_all,
- 	.get_eeprom = mv88e6xxx_g2_get_eeprom16,
- 	.set_eeprom = mv88e6xxx_g2_set_eeprom16,
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
-@@ -3079,6 +3124,7 @@ static const struct mv88e6xxx_ops mv88e6352_ops = {
- 
- static const struct mv88e6xxx_ops mv88e6390_ops = {
- 	/* MV88E6XXX_FAMILY_6390 */
-+	.irl_init_all = mv88e6390_g2_irl_init_all,
- 	.get_eeprom = mv88e6xxx_g2_get_eeprom8,
- 	.set_eeprom = mv88e6xxx_g2_set_eeprom8,
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
-@@ -3115,6 +3161,7 @@ static const struct mv88e6xxx_ops mv88e6390_ops = {
- 
- static const struct mv88e6xxx_ops mv88e6390x_ops = {
- 	/* MV88E6XXX_FAMILY_6390 */
-+	.irl_init_all = mv88e6390_g2_irl_init_all,
- 	.get_eeprom = mv88e6xxx_g2_get_eeprom8,
- 	.set_eeprom = mv88e6xxx_g2_set_eeprom8,
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.h b/drivers/net/dsa/mv88e6xxx/chip.h
-index 409452ebc4b9..086444016352 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.h
-+++ b/drivers/net/dsa/mv88e6xxx/chip.h
-@@ -121,8 +121,6 @@ enum mv88e6xxx_cap {
- 	MV88E6XXX_CAP_G2_INT,		/* (0x00) Interrupt Status */
- 	MV88E6XXX_CAP_G2_MGMT_EN_2X,	/* (0x02) MGMT Enable Register 2x */
- 	MV88E6XXX_CAP_G2_MGMT_EN_0X,	/* (0x03) MGMT Enable Register 0x */
--	MV88E6XXX_CAP_G2_IRL_CMD,	/* (0x09) Ingress Rate Command */
--	MV88E6XXX_CAP_G2_IRL_DATA,	/* (0x0a) Ingress Rate Data */
- 	MV88E6XXX_CAP_G2_POT,		/* (0x0f) Priority Override Table */
- 
- 	/* Per VLAN Spanning Tree Unit (STU).
-@@ -149,15 +147,8 @@ enum mv88e6xxx_cap {
- #define MV88E6XXX_FLAG_G2_INT		BIT_ULL(MV88E6XXX_CAP_G2_INT)
- #define MV88E6XXX_FLAG_G2_MGMT_EN_2X	BIT_ULL(MV88E6XXX_CAP_G2_MGMT_EN_2X)
- #define MV88E6XXX_FLAG_G2_MGMT_EN_0X	BIT_ULL(MV88E6XXX_CAP_G2_MGMT_EN_0X)
--#define MV88E6XXX_FLAG_G2_IRL_CMD	BIT_ULL(MV88E6XXX_CAP_G2_IRL_CMD)
--#define MV88E6XXX_FLAG_G2_IRL_DATA	BIT_ULL(MV88E6XXX_CAP_G2_IRL_DATA)
- #define MV88E6XXX_FLAG_G2_POT		BIT_ULL(MV88E6XXX_CAP_G2_POT)
- 
--/* Ingress Rate Limit unit */
--#define MV88E6XXX_FLAGS_IRL		\
--	(MV88E6XXX_FLAG_G2_IRL_CMD |	\
--	 MV88E6XXX_FLAG_G2_IRL_DATA)
--
- /* Multi-chip Addressing Mode */
- #define MV88E6XXX_FLAGS_MULTI_CHIP	\
- 	(MV88E6XXX_FLAG_SMI_CMD |	\
-@@ -175,7 +166,6 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
- 	 MV88E6XXX_FLAG_G2_POT |	\
--	 MV88E6XXX_FLAGS_IRL |		\
- 	 MV88E6XXX_FLAGS_MULTI_CHIP)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6165	\
-@@ -185,7 +175,6 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
- 	 MV88E6XXX_FLAG_G2_POT |	\
--	 MV88E6XXX_FLAGS_IRL |		\
- 	 MV88E6XXX_FLAGS_MULTI_CHIP)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6185	\
-@@ -200,7 +189,6 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
- 	 MV88E6XXX_FLAG_G2_POT |	\
--	 MV88E6XXX_FLAGS_IRL |		\
- 	 MV88E6XXX_FLAGS_MULTI_CHIP)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6341	\
-@@ -209,7 +197,6 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_GLOBAL2 |	\
- 	 MV88E6XXX_FLAG_G2_INT |	\
- 	 MV88E6XXX_FLAG_G2_POT |	\
--	 MV88E6XXX_FLAGS_IRL |		\
- 	 MV88E6XXX_FLAGS_MULTI_CHIP)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6351	\
-@@ -219,7 +206,6 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
- 	 MV88E6XXX_FLAG_G2_POT |	\
--	 MV88E6XXX_FLAGS_IRL |		\
- 	 MV88E6XXX_FLAGS_MULTI_CHIP)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6352	\
-@@ -230,14 +216,12 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
- 	 MV88E6XXX_FLAG_G2_POT |	\
--	 MV88E6XXX_FLAGS_IRL |		\
- 	 MV88E6XXX_FLAGS_MULTI_CHIP)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6390	\
- 	(MV88E6XXX_FLAG_EEE |		\
- 	 MV88E6XXX_FLAG_GLOBAL2 |	\
- 	 MV88E6XXX_FLAG_G2_INT |        \
--	 MV88E6XXX_FLAGS_IRL |		\
- 	 MV88E6XXX_FLAGS_MULTI_CHIP)
- 
- struct mv88e6xxx_ops;
-@@ -358,6 +342,9 @@ struct mv88e6xxx_mdio_bus {
- };
- 
- struct mv88e6xxx_ops {
-+	/* Ingress Rate Limit unit (IRL) operations */
-+	int (*irl_init_all)(struct mv88e6xxx_chip *chip, int port);
-+
- 	int (*get_eeprom)(struct mv88e6xxx_chip *chip,
- 			  struct ethtool_eeprom *eeprom, u8 *data);
- 	int (*set_eeprom)(struct mv88e6xxx_chip *chip,
-diff --git a/drivers/net/dsa/mv88e6xxx/global2.c b/drivers/net/dsa/mv88e6xxx/global2.c
-index 8e8bc4ee464f..baa86b1abad3 100644
---- a/drivers/net/dsa/mv88e6xxx/global2.c
-+++ b/drivers/net/dsa/mv88e6xxx/global2.c
-@@ -149,27 +149,36 @@ static int mv88e6xxx_g2_clear_trunk(struct mv88e6xxx_chip *chip)
-  * Offset 0x0A: Ingress Rate Data register
-  */
- 
--static int mv88e6xxx_g2_clear_irl(struct mv88e6xxx_chip *chip)
-+static int mv88e6xxx_g2_irl_wait(struct mv88e6xxx_chip *chip)
- {
--	int port, err;
-+	return mv88e6xxx_g2_wait(chip, MV88E6XXX_G2_IRL_CMD,
-+				 MV88E6XXX_G2_IRL_CMD_BUSY);
-+}
- 
--	/* Init all Ingress Rate Limit resources of all ports */
--	for (port = 0; port < mv88e6xxx_num_ports(chip); ++port) {
--		/* XXX newer chips (like 88E6390) have different 2-bit ops */
--		err = mv88e6xxx_g2_write(chip, GLOBAL2_IRL_CMD,
--					 GLOBAL2_IRL_CMD_OP_INIT_ALL |
--					 (port << 8));
--		if (err)
--			break;
-+static int mv88e6xxx_g2_irl_op(struct mv88e6xxx_chip *chip, u16 op, int port,
-+			       int res, int reg)
-+{
-+	int err;
-+
-+	err = mv88e6xxx_g2_write(chip, MV88E6XXX_G2_IRL_CMD,
-+				 MV88E6XXX_G2_IRL_CMD_BUSY | op | (port << 8) |
-+				 (res << 5) | reg);
-+	if (err)
-+		return err;
- 
--		/* Wait for the operation to complete */
--		err = mv88e6xxx_g2_wait(chip, GLOBAL2_IRL_CMD,
--					GLOBAL2_IRL_CMD_BUSY);
--		if (err)
--			break;
--	}
-+	return mv88e6xxx_g2_irl_wait(chip);
-+}
- 
--	return err;
-+int mv88e6352_g2_irl_init_all(struct mv88e6xxx_chip *chip, int port)
-+{
-+	return mv88e6xxx_g2_irl_op(chip, MV88E6352_G2_IRL_CMD_OP_INIT_ALL, port,
-+				   0, 0);
-+}
-+
-+int mv88e6390_g2_irl_init_all(struct mv88e6xxx_chip *chip, int port)
-+{
-+	return mv88e6xxx_g2_irl_op(chip, MV88E6390_G2_IRL_CMD_OP_INIT_ALL, port,
-+				   0, 0);
- }
- 
- /* Offset 0x0B: Cross-chip Port VLAN (Addr) Register
-@@ -1030,15 +1039,6 @@ int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
- 	if (err)
- 		return err;
- 
--	if (mv88e6xxx_has(chip, MV88E6XXX_FLAGS_IRL)) {
--		/* Disable ingress rate limiting by resetting all per port
--		 * ingress rate limit resources to their initial state.
--		 */
--		err = mv88e6xxx_g2_clear_irl(chip);
--			if (err)
--				return err;
--	}
--
- 	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G2_POT)) {
- 		/* Clear the priority override table. */
- 		err = mv88e6xxx_g2_clear_pot(chip);
-diff --git a/drivers/net/dsa/mv88e6xxx/global2.h b/drivers/net/dsa/mv88e6xxx/global2.h
-index 479d42971706..fb1871d4569c 100644
---- a/drivers/net/dsa/mv88e6xxx/global2.h
-+++ b/drivers/net/dsa/mv88e6xxx/global2.h
-@@ -42,13 +42,30 @@
- #define GLOBAL2_TRUNK_MAPPING	0x08
- #define GLOBAL2_TRUNK_MAPPING_UPDATE		BIT(15)
- #define GLOBAL2_TRUNK_MAPPING_ID_SHIFT		11
--#define GLOBAL2_IRL_CMD		0x09
--#define GLOBAL2_IRL_CMD_BUSY	BIT(15)
--#define GLOBAL2_IRL_CMD_OP_INIT_ALL	((0x001 << 12) | GLOBAL2_IRL_CMD_BUSY)
--#define GLOBAL2_IRL_CMD_OP_INIT_SEL	((0x010 << 12) | GLOBAL2_IRL_CMD_BUSY)
--#define GLOBAL2_IRL_CMD_OP_WRITE_SEL	((0x011 << 12) | GLOBAL2_IRL_CMD_BUSY)
--#define GLOBAL2_IRL_CMD_OP_READ_SEL	((0x100 << 12) | GLOBAL2_IRL_CMD_BUSY)
--#define GLOBAL2_IRL_DATA	0x0a
-+
-+/* Offset 0x09: Ingress Rate Command Register */
-+#define MV88E6XXX_G2_IRL_CMD			0x09
-+#define MV88E6XXX_G2_IRL_CMD_BUSY		0x8000
-+#define MV88E6352_G2_IRL_CMD_OP_MASK		0x7000
-+#define MV88E6352_G2_IRL_CMD_OP_NOOP		0x0000
-+#define MV88E6352_G2_IRL_CMD_OP_INIT_ALL	0x1000
-+#define MV88E6352_G2_IRL_CMD_OP_INIT_RES	0x2000
-+#define MV88E6352_G2_IRL_CMD_OP_WRITE_REG	0x3000
-+#define MV88E6352_G2_IRL_CMD_OP_READ_REG	0x4000
-+#define MV88E6390_G2_IRL_CMD_OP_MASK		0x6000
-+#define MV88E6390_G2_IRL_CMD_OP_READ_REG	0x0000
-+#define MV88E6390_G2_IRL_CMD_OP_INIT_ALL	0x2000
-+#define MV88E6390_G2_IRL_CMD_OP_INIT_RES	0x4000
-+#define MV88E6390_G2_IRL_CMD_OP_WRITE_REG	0x6000
-+#define MV88E6352_G2_IRL_CMD_PORT_MASK		0x0f00
-+#define MV88E6390_G2_IRL_CMD_PORT_MASK		0x1f00
-+#define MV88E6XXX_G2_IRL_CMD_RES_MASK		0x00e0
-+#define MV88E6XXX_G2_IRL_CMD_REG_MASK		0x000f
-+
-+/* Offset 0x0A: Ingress Rate Data Register */
-+#define MV88E6XXX_G2_IRL_DATA		0x0a
-+#define MV88E6XXX_G2_IRL_DATA_MASK	0xffff
-+
- #define GLOBAL2_PVT_ADDR	0x0b
- #define GLOBAL2_PVT_ADDR_BUSY	BIT(15)
- #define GLOBAL2_PVT_ADDR_OP_INIT_ONES	((0x01 << 12) | GLOBAL2_PVT_ADDR_BUSY)
-@@ -127,6 +144,9 @@ static inline int mv88e6xxx_g2_require(struct mv88e6xxx_chip *chip)
- 	return 0;
- }
- 
-+int mv88e6352_g2_irl_init_all(struct mv88e6xxx_chip *chip, int port);
-+int mv88e6390_g2_irl_init_all(struct mv88e6xxx_chip *chip, int port);
-+
- int mv88e6xxx_g2_smi_phy_read(struct mv88e6xxx_chip *chip,
- 			      struct mii_bus *bus,
- 			      int addr, int reg, u16 *val);
-@@ -169,6 +189,16 @@ static inline int mv88e6xxx_g2_require(struct mv88e6xxx_chip *chip)
- 	return 0;
- }
- 
-+int mv88e6352_g2_irl_init_all(struct mv88e6xxx_chip *chip, int port)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+int mv88e6390_g2_irl_init_all(struct mv88e6xxx_chip *chip, int port)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
- static inline int mv88e6xxx_g2_smi_phy_read(struct mv88e6xxx_chip *chip,
- 					    struct mii_bus *bus,
- 					    int addr, int reg, u16 *val)
--- 
-2.13.1
+--4LFBTxd4L5NLO6ly
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAllGGKgACgkQ5GN7iDZy
+WKdcmg/9F5HP3YMuf6AYKxNFV87he/yquVoOmFcV692lEEgjYHnOC7iCIwSoiLhn
++rlvYqTVmuDHMde7AaI/N8XftES5rI/HuDif76KLE/p7B3KSoIJMwSaMufgOyBqd
+V+ipIWiY8l86KktDhL/qRnhnO3+C+uxITP97ruVGH4xnlSqB6iqzHs7yF3is1ac3
+ytkWn82c50PMV+Vaf1hF/iL2SJfNJpFDvHCorPHkAleoXnKJ27iq5xnuma+o+jQY
+6Argj4iJeKXCakQ56MWWjuCfxJliWwC8cBaENYD9Z3Xekzklfu6RrJrRUIMY8+fb
+JZsGs/NM5kw8CAI+P+OBqRyP59JL8jJJo+ChJ2wL0rygR4o6o5wIrmBvl/YjTWo5
+Y02FZ/jmqxm/nMNtDZb81lKezWG2IxBv6jQhG8JKdqjzaEAtgqq/TEBOabwoYlCA
+lzGdgFtM9Y+kzGBzf0CMpJyw1n0Rb8cwI9kMTqcNrgXNxzZUWViwrjtBQMpQsFwW
+n7xZiM6SAghGOM9RdxtrHEqpHi1LAUVsKDx0cf3KOJg4B/RVQviqtt0j6XtIAKHH
+n+YR7d2CGPF/yOi/OdsHbuoz7s47bhFL2QXgaEGqcpw/R5J5an8odNPkkI88V5Xd
+qztRL0XsZiadyAsUs5nyb+U7A5jzcFEhEsqrJK0FSKcV3/ozUmo=
+=cgDx
+-----END PGP SIGNATURE-----
+
+--4LFBTxd4L5NLO6ly--
