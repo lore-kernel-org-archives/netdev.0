@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 09/10] net: dsa: mv88e6xxx: prefix Global 2 Watchdog macros
-Date: Sat, 17 Jun 2017 23:06:40 -0400
-Message-ID: <20170618030641.32463-10-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 05/10] net: dsa: mv88e6xxx: prefix Global 2 MGMT macros
+Date: Sat, 17 Jun 2017 23:06:36 -0400
+Message-ID: <20170618030641.32463-6-vivien.didelot@savoirfairelinux.com>
 References: <20170618030641.32463-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,172 +14,86 @@ In-Reply-To: <20170618030641.32463-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The Marvell 88E6352 family has a Global 2 register dedicated to the
-watchdog setup. But the 88E6390 turned it into an indirect table.
-
-Prefix and document that.
+Prefix and document the Global 2 MGMT registers macros.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/global2.c | 48 +++++++++++++++++++------------------
- drivers/net/dsa/mv88e6xxx/global2.h | 47 ++++++++++++++++++++----------------
- 2 files changed, 52 insertions(+), 43 deletions(-)
+ drivers/net/dsa/mv88e6xxx/global2.c | 11 ++++++-----
+ drivers/net/dsa/mv88e6xxx/global2.h | 23 +++++++++++++++--------
+ 2 files changed, 21 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx/global2.c b/drivers/net/dsa/mv88e6xxx/global2.c
-index 0977ba1697a6..ab72eaa92cc3 100644
+index d5239c4f3a9b..718bc9bf430d 100644
 --- a/drivers/net/dsa/mv88e6xxx/global2.c
 +++ b/drivers/net/dsa/mv88e6xxx/global2.c
-@@ -752,7 +752,7 @@ static int mv88e6097_watchdog_action(struct mv88e6xxx_chip *chip, int irq)
- {
- 	u16 reg;
+@@ -52,7 +52,7 @@ int mv88e6095_g2_mgmt_rsvd2cpu(struct mv88e6xxx_chip *chip)
+ 	 * addresses matching 01:80:c2:00:00:2x as MGMT.
+ 	 */
+ 	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G2_MGMT_EN_2X)) {
+-		err = mv88e6xxx_g2_write(chip, GLOBAL2_MGMT_EN_2X, 0xffff);
++		err = mv88e6xxx_g2_write(chip, MV88E6XXX_G2_MGMT_EN_2X, 0xffff);
+ 		if (err)
+ 			return err;
+ 	}
+@@ -61,7 +61,8 @@ int mv88e6095_g2_mgmt_rsvd2cpu(struct mv88e6xxx_chip *chip)
+ 	 * addresses matching 01:80:c2:00:00:0x as MGMT.
+ 	 */
+ 	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G2_MGMT_EN_0X))
+-		return mv88e6xxx_g2_write(chip, GLOBAL2_MGMT_EN_0X, 0xffff);
++		return mv88e6xxx_g2_write(chip, MV88E6XXX_G2_MGMT_EN_0X,
++					  0xffff);
  
--	mv88e6xxx_g2_read(chip, GLOBAL2_WDOG_CONTROL, &reg);
-+	mv88e6xxx_g2_read(chip, MV88E6352_G2_WDOG_CTL, &reg);
- 
- 	dev_info(chip->dev, "Watchdog event: 0x%04x", reg);
- 
-@@ -763,20 +763,20 @@ static void mv88e6097_watchdog_free(struct mv88e6xxx_chip *chip)
- {
- 	u16 reg;
- 
--	mv88e6xxx_g2_read(chip, GLOBAL2_WDOG_CONTROL, &reg);
-+	mv88e6xxx_g2_read(chip, MV88E6352_G2_WDOG_CTL, &reg);
- 
--	reg &= ~(GLOBAL2_WDOG_CONTROL_EGRESS_ENABLE |
--		 GLOBAL2_WDOG_CONTROL_QC_ENABLE);
-+	reg &= ~(MV88E6352_G2_WDOG_CTL_EGRESS_ENABLE |
-+		 MV88E6352_G2_WDOG_CTL_QC_ENABLE);
- 
--	mv88e6xxx_g2_write(chip, GLOBAL2_WDOG_CONTROL, reg);
-+	mv88e6xxx_g2_write(chip, MV88E6352_G2_WDOG_CTL, reg);
+ 	return 0;
  }
+@@ -1056,11 +1057,11 @@ int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
+ 	 * highest, and send all special multicast frames to the CPU
+ 	 * port at the highest priority.
+ 	 */
+-	reg = GLOBAL2_SWITCH_MGMT_FORCE_FLOW_CTRL_PRI | (0x7 << 4);
++	reg = MV88E6XXX_G2_SWITCH_MGMT_FORCE_FLOW_CTL_PRI | (0x7 << 4);
+ 	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G2_MGMT_EN_0X) ||
+ 	    mv88e6xxx_has(chip, MV88E6XXX_FLAG_G2_MGMT_EN_2X))
+-		reg |= GLOBAL2_SWITCH_MGMT_RSVD2CPU | 0x7;
+-	err = mv88e6xxx_g2_write(chip, GLOBAL2_SWITCH_MGMT, reg);
++		reg |= MV88E6XXX_G2_SWITCH_MGMT_RSVD2CPU | 0x7;
++	err = mv88e6xxx_g2_write(chip, MV88E6XXX_G2_SWITCH_MGMT, reg);
+ 	if (err)
+ 		return err;
  
- static int mv88e6097_watchdog_setup(struct mv88e6xxx_chip *chip)
- {
--	return mv88e6xxx_g2_write(chip, GLOBAL2_WDOG_CONTROL,
--				  GLOBAL2_WDOG_CONTROL_EGRESS_ENABLE |
--				  GLOBAL2_WDOG_CONTROL_QC_ENABLE |
--				  GLOBAL2_WDOG_CONTROL_SWRESET);
-+	return mv88e6xxx_g2_write(chip, MV88E6352_G2_WDOG_CTL,
-+				  MV88E6352_G2_WDOG_CTL_EGRESS_ENABLE |
-+				  MV88E6352_G2_WDOG_CTL_QC_ENABLE |
-+				  MV88E6352_G2_WDOG_CTL_SWRESET);
- }
- 
- const struct mv88e6xxx_irq_ops mv88e6097_watchdog_ops = {
-@@ -787,12 +787,12 @@ const struct mv88e6xxx_irq_ops mv88e6097_watchdog_ops = {
- 
- static int mv88e6390_watchdog_setup(struct mv88e6xxx_chip *chip)
- {
--	return mv88e6xxx_g2_update(chip, GLOBAL2_WDOG_CONTROL,
--				   GLOBAL2_WDOG_INT_ENABLE |
--				   GLOBAL2_WDOG_CUT_THROUGH |
--				   GLOBAL2_WDOG_QUEUE_CONTROLLER |
--				   GLOBAL2_WDOG_EGRESS |
--				   GLOBAL2_WDOG_FORCE_IRQ);
-+	return mv88e6xxx_g2_update(chip, MV88E6390_G2_WDOG_CTL,
-+				   MV88E6390_G2_WDOG_CTL_PTR_INT_ENABLE |
-+				   MV88E6390_G2_WDOG_CTL_CUT_THROUGH |
-+				   MV88E6390_G2_WDOG_CTL_QUEUE_CONTROLLER |
-+				   MV88E6390_G2_WDOG_CTL_EGRESS |
-+				   MV88E6390_G2_WDOG_CTL_FORCE_IRQ);
- }
- 
- static int mv88e6390_watchdog_action(struct mv88e6xxx_chip *chip, int irq)
-@@ -800,17 +800,19 @@ static int mv88e6390_watchdog_action(struct mv88e6xxx_chip *chip, int irq)
- 	int err;
- 	u16 reg;
- 
--	mv88e6xxx_g2_write(chip, GLOBAL2_WDOG_CONTROL, GLOBAL2_WDOG_EVENT);
--	err = mv88e6xxx_g2_read(chip, GLOBAL2_WDOG_CONTROL, &reg);
-+	mv88e6xxx_g2_write(chip, MV88E6390_G2_WDOG_CTL,
-+			   MV88E6390_G2_WDOG_CTL_PTR_EVENT);
-+	err = mv88e6xxx_g2_read(chip, MV88E6390_G2_WDOG_CTL, &reg);
- 
- 	dev_info(chip->dev, "Watchdog event: 0x%04x",
--		 reg & GLOBAL2_WDOG_DATA_MASK);
-+		 reg & MV88E6390_G2_WDOG_CTL_DATA_MASK);
- 
--	mv88e6xxx_g2_write(chip, GLOBAL2_WDOG_CONTROL, GLOBAL2_WDOG_HISTORY);
--	err = mv88e6xxx_g2_read(chip, GLOBAL2_WDOG_CONTROL, &reg);
-+	mv88e6xxx_g2_write(chip, MV88E6390_G2_WDOG_CTL,
-+			   MV88E6390_G2_WDOG_CTL_PTR_HISTORY);
-+	err = mv88e6xxx_g2_read(chip, MV88E6390_G2_WDOG_CTL, &reg);
- 
- 	dev_info(chip->dev, "Watchdog history: 0x%04x",
--		 reg & GLOBAL2_WDOG_DATA_MASK);
-+		 reg & MV88E6390_G2_WDOG_CTL_DATA_MASK);
- 
- 	/* Trigger a software reset to try to recover the switch */
- 	if (chip->info->ops->reset)
-@@ -823,8 +825,8 @@ static int mv88e6390_watchdog_action(struct mv88e6xxx_chip *chip, int irq)
- 
- static void mv88e6390_watchdog_free(struct mv88e6xxx_chip *chip)
- {
--	mv88e6xxx_g2_update(chip, GLOBAL2_WDOG_CONTROL,
--			    GLOBAL2_WDOG_INT_ENABLE);
-+	mv88e6xxx_g2_update(chip, MV88E6390_G2_WDOG_CTL,
-+			    MV88E6390_G2_WDOG_CTL_PTR_INT_ENABLE);
- }
- 
- const struct mv88e6xxx_irq_ops mv88e6390_watchdog_ops = {
 diff --git a/drivers/net/dsa/mv88e6xxx/global2.h b/drivers/net/dsa/mv88e6xxx/global2.h
-index b3561a9fac2d..211e136dd7d9 100644
+index 21a865225e63..7312e1723058 100644
 --- a/drivers/net/dsa/mv88e6xxx/global2.h
 +++ b/drivers/net/dsa/mv88e6xxx/global2.h
-@@ -156,26 +156,33 @@
- #define GLOBAL2_SCRATCH_BUSY		BIT(15)
- #define GLOBAL2_SCRATCH_REGISTER_SHIFT	8
- #define GLOBAL2_SCRATCH_VALUE_MASK	0xff
--#define GLOBAL2_WDOG_CONTROL	0x1b
--#define GLOBAL2_WDOG_CONTROL_EGRESS_EVENT	BIT(7)
--#define GLOBAL2_WDOG_CONTROL_RMU_TIMEOUT	BIT(6)
--#define GLOBAL2_WDOG_CONTROL_QC_ENABLE		BIT(5)
--#define GLOBAL2_WDOG_CONTROL_EGRESS_HISTORY	BIT(4)
--#define GLOBAL2_WDOG_CONTROL_EGRESS_ENABLE	BIT(3)
--#define GLOBAL2_WDOG_CONTROL_FORCE_IRQ		BIT(2)
--#define GLOBAL2_WDOG_CONTROL_HISTORY		BIT(1)
--#define GLOBAL2_WDOG_CONTROL_SWRESET		BIT(0)
--#define GLOBAL2_WDOG_UPDATE			BIT(15)
--#define GLOBAL2_WDOG_INT_SOURCE			(0x00 << 8)
--#define GLOBAL2_WDOG_INT_STATUS			(0x10 << 8)
--#define GLOBAL2_WDOG_INT_ENABLE			(0x11 << 8)
--#define GLOBAL2_WDOG_EVENT			(0x12 << 8)
--#define GLOBAL2_WDOG_HISTORY			(0x13 << 8)
--#define GLOBAL2_WDOG_DATA_MASK			0xff
--#define GLOBAL2_WDOG_CUT_THROUGH		BIT(3)
--#define GLOBAL2_WDOG_QUEUE_CONTROLLER		BIT(2)
--#define GLOBAL2_WDOG_EGRESS			BIT(1)
--#define GLOBAL2_WDOG_FORCE_IRQ			BIT(0)
+@@ -22,15 +22,22 @@
+ #define GLOBAL2_INT_SOURCE	0x00
+ #define GLOBAL2_INT_SOURCE_WATCHDOG	15
+ #define GLOBAL2_INT_MASK	0x01
+-#define GLOBAL2_MGMT_EN_2X	0x02
+-#define GLOBAL2_MGMT_EN_0X	0x03
 +
-+/* Offset 0x1B: Watch Dog Control Register */
-+#define MV88E6352_G2_WDOG_CTL			0x1b
-+#define MV88E6352_G2_WDOG_CTL_EGRESS_EVENT	0x0080
-+#define MV88E6352_G2_WDOG_CTL_RMU_TIMEOUT	0x0040
-+#define MV88E6352_G2_WDOG_CTL_QC_ENABLE		0x0020
-+#define MV88E6352_G2_WDOG_CTL_EGRESS_HISTORY	0x0010
-+#define MV88E6352_G2_WDOG_CTL_EGRESS_ENABLE	0x0008
-+#define MV88E6352_G2_WDOG_CTL_FORCE_IRQ		0x0004
-+#define MV88E6352_G2_WDOG_CTL_HISTORY		0x0002
-+#define MV88E6352_G2_WDOG_CTL_SWRESET		0x0001
++/* Offset 0x02: MGMT Enable Register 2x */
++#define MV88E6XXX_G2_MGMT_EN_2X		0x02
 +
-+/* Offset 0x1B: Watch Dog Control Register */
-+#define MV88E6390_G2_WDOG_CTL				0x1b
-+#define MV88E6390_G2_WDOG_CTL_UPDATE			0x8000
-+#define MV88E6390_G2_WDOG_CTL_PTR_MASK			0x7f00
-+#define MV88E6390_G2_WDOG_CTL_PTR_INT_SOURCE		0x0000
-+#define MV88E6390_G2_WDOG_CTL_PTR_INT_STS		0x1000
-+#define MV88E6390_G2_WDOG_CTL_PTR_INT_ENABLE		0x1100
-+#define MV88E6390_G2_WDOG_CTL_PTR_EVENT			0x1200
-+#define MV88E6390_G2_WDOG_CTL_PTR_HISTORY		0x1300
-+#define MV88E6390_G2_WDOG_CTL_DATA_MASK			0x00ff
-+#define MV88E6390_G2_WDOG_CTL_CUT_THROUGH		0x0008
-+#define MV88E6390_G2_WDOG_CTL_QUEUE_CONTROLLER		0x0004
-+#define MV88E6390_G2_WDOG_CTL_EGRESS			0x0002
-+#define MV88E6390_G2_WDOG_CTL_FORCE_IRQ			0x0001
++/* Offset 0x03: MGMT Enable Register 0x */
++#define MV88E6XXX_G2_MGMT_EN_0X		0x03
 +
- #define GLOBAL2_QOS_WEIGHT	0x1c
- #define GLOBAL2_MISC		0x1d
- #define GLOBAL2_MISC_5_BIT_PORT	BIT(14)
+ #define GLOBAL2_FLOW_CONTROL	0x04
+-#define GLOBAL2_SWITCH_MGMT	0x05
+-#define GLOBAL2_SWITCH_MGMT_USE_DOUBLE_TAG_DATA	BIT(15)
+-#define GLOBAL2_SWITCH_MGMT_PREVENT_LOOPS	BIT(14)
+-#define GLOBAL2_SWITCH_MGMT_FLOW_CONTROL_MSG	BIT(13)
+-#define GLOBAL2_SWITCH_MGMT_FORCE_FLOW_CTRL_PRI	BIT(7)
+-#define GLOBAL2_SWITCH_MGMT_RSVD2CPU		BIT(3)
++
++/* Offset 0x05: Switch Management Register */
++#define MV88E6XXX_G2_SWITCH_MGMT			0x05
++#define MV88E6XXX_G2_SWITCH_MGMT_USE_DOUBLE_TAG_DATA	0x8000
++#define MV88E6XXX_G2_SWITCH_MGMT_PREVENT_LOOPS		0x4000
++#define MV88E6XXX_G2_SWITCH_MGMT_FLOW_CTL_MSG		0x2000
++#define MV88E6XXX_G2_SWITCH_MGMT_FORCE_FLOW_CTL_PRI	0x0080
++#define MV88E6XXX_G2_SWITCH_MGMT_RSVD2CPU		0x0008
+ 
+ /* Offset 0x06: Device Mapping Table Register */
+ #define MV88E6XXX_G2_DEVICE_MAPPING		0x06
 -- 
 2.13.1
