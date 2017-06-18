@@ -1,8 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 06/10] net: dsa: mv88e6xxx: prefix Global 2 PVT macros
-Date: Sat, 17 Jun 2017 23:06:37 -0400
-Message-ID: <20170618030641.32463-7-vivien.didelot@savoirfairelinux.com>
-References: <20170618030641.32463-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next] net: dsa: mv88e6xxx: better IEEE Prio Mapping Table description
+Date: Sat, 17 Jun 2017 23:07:14 -0400
+Message-ID: <20170618030714.32667-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
@@ -10,94 +9,72 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170618030641.32463-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Prefix and document the Global 2 Cross-chip Port VLAN registers macros.
+Kill the remaining shift macro in favor of calculating at compile time
+its value from the more descriptive mask, which gives us a better
+representation of the register layout.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/global2.c | 14 ++++++++------
- drivers/net/dsa/mv88e6xxx/global2.h | 19 +++++++++++++------
- 2 files changed, 21 insertions(+), 12 deletions(-)
+ drivers/net/dsa/mv88e6xxx/port.c | 11 +++++------
+ drivers/net/dsa/mv88e6xxx/port.h |  4 +++-
+ 2 files changed, 8 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/global2.c b/drivers/net/dsa/mv88e6xxx/global2.c
-index 718bc9bf430d..dc6c0f5fd605 100644
---- a/drivers/net/dsa/mv88e6xxx/global2.c
-+++ b/drivers/net/dsa/mv88e6xxx/global2.c
-@@ -188,7 +188,8 @@ int mv88e6390_g2_irl_init_all(struct mv88e6xxx_chip *chip, int port)
+diff --git a/drivers/net/dsa/mv88e6xxx/port.c b/drivers/net/dsa/mv88e6xxx/port.c
+index 73d825e08be3..a7801f6668a5 100644
+--- a/drivers/net/dsa/mv88e6xxx/port.c
++++ b/drivers/net/dsa/mv88e6xxx/port.c
+@@ -12,6 +12,7 @@
+  * (at your option) any later version.
+  */
  
- static int mv88e6xxx_g2_pvt_op_wait(struct mv88e6xxx_chip *chip)
- {
--	return mv88e6xxx_g2_wait(chip, GLOBAL2_PVT_ADDR, GLOBAL2_PVT_ADDR_BUSY);
-+	return mv88e6xxx_g2_wait(chip, MV88E6XXX_G2_PVT_ADDR,
-+				 MV88E6XXX_G2_PVT_ADDR_BUSY);
++#include <linux/bitfield.h>
+ #include <linux/if_bridge.h>
+ #include <linux/phy.h>
+ 
+@@ -912,15 +913,13 @@ int mv88e6095_port_tag_remap(struct mv88e6xxx_chip *chip, int port)
  }
  
- static int mv88e6xxx_g2_pvt_op(struct mv88e6xxx_chip *chip, int src_dev,
-@@ -196,13 +197,14 @@ static int mv88e6xxx_g2_pvt_op(struct mv88e6xxx_chip *chip, int src_dev,
+ static int mv88e6xxx_port_ieeepmt_write(struct mv88e6xxx_chip *chip,
+-					int port, u16 table,
+-					u8 pointer, u16 data)
++					int port, u16 table, u8 ptr, u16 data)
  {
- 	int err;
+ 	u16 reg;
  
--	/* 9-bit Cross-chip PVT pointer: with GLOBAL2_MISC_5_BIT_PORT cleared,
--	 * source device is 5-bit, source port is 4-bit.
-+	/* 9-bit Cross-chip PVT pointer: with MV88E6XXX_G2_MISC_5_BIT_PORT
-+	 * cleared, source device is 5-bit, source port is 4-bit.
- 	 */
-+	op |= MV88E6XXX_G2_PVT_ADDR_BUSY;
- 	op |= (src_dev & 0x1f) << 4;
- 	op |= (src_port & 0xf);
+-	reg = MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_UPDATE |
+-		table |
+-		(pointer << MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_POINTER_SHIFT) |
+-		data;
++	reg = MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_UPDATE | table |
++		(ptr << __bf_shf(MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_PTR_MASK)) |
++		(data & MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_DATA_MASK);
  
--	err = mv88e6xxx_g2_write(chip, GLOBAL2_PVT_ADDR, op);
-+	err = mv88e6xxx_g2_write(chip, MV88E6XXX_G2_PVT_ADDR, op);
- 	if (err)
- 		return err;
+ 	return mv88e6xxx_port_write(chip, port,
+ 				    MV88E6390_PORT_IEEE_PRIO_MAP_TABLE, reg);
+diff --git a/drivers/net/dsa/mv88e6xxx/port.h b/drivers/net/dsa/mv88e6xxx/port.h
+index 8a34ea7c868a..8f3991bf1851 100644
+--- a/drivers/net/dsa/mv88e6xxx/port.h
++++ b/drivers/net/dsa/mv88e6xxx/port.h
+@@ -222,6 +222,7 @@
+ /* Offset 0x18: IEEE Priority Mapping Table */
+ #define MV88E6390_PORT_IEEE_PRIO_MAP_TABLE			0x18
+ #define MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_UPDATE		0x8000
++#define MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_MASK			0x7000
+ #define MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_INGRESS_PCP		0x0000
+ #define MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_EGRESS_GREEN_PCP	0x1000
+ #define MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_EGRESS_YELLOW_PCP	0x2000
+@@ -229,7 +230,8 @@
+ #define MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_EGRESS_GREEN_DSCP	0x5000
+ #define MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_EGRESS_YELLOW_DSCP	0x6000
+ #define MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_EGRESS_AVB_DSCP	0x7000
+-#define MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_POINTER_SHIFT	9
++#define MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_PTR_MASK		0x0e00
++#define MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_DATA_MASK		0x01ff
  
-@@ -218,12 +220,12 @@ int mv88e6xxx_g2_pvt_write(struct mv88e6xxx_chip *chip, int src_dev,
- 	if (err)
- 		return err;
- 
--	err = mv88e6xxx_g2_write(chip, GLOBAL2_PVT_DATA, data);
-+	err = mv88e6xxx_g2_write(chip, MV88E6XXX_G2_PVT_DATA, data);
- 	if (err)
- 		return err;
- 
- 	return mv88e6xxx_g2_pvt_op(chip, src_dev, src_port,
--				   GLOBAL2_PVT_ADDR_OP_WRITE_PVLAN);
-+				   MV88E6XXX_G2_PVT_ADDR_OP_WRITE_PVLAN);
- }
- 
- /* Offset 0x0D: Switch MAC/WoL/WoF register */
-diff --git a/drivers/net/dsa/mv88e6xxx/global2.h b/drivers/net/dsa/mv88e6xxx/global2.h
-index 7312e1723058..be2e2a30cd0a 100644
---- a/drivers/net/dsa/mv88e6xxx/global2.h
-+++ b/drivers/net/dsa/mv88e6xxx/global2.h
-@@ -79,12 +79,19 @@
- #define MV88E6XXX_G2_IRL_DATA		0x0a
- #define MV88E6XXX_G2_IRL_DATA_MASK	0xffff
- 
--#define GLOBAL2_PVT_ADDR	0x0b
--#define GLOBAL2_PVT_ADDR_BUSY	BIT(15)
--#define GLOBAL2_PVT_ADDR_OP_INIT_ONES	((0x01 << 12) | GLOBAL2_PVT_ADDR_BUSY)
--#define GLOBAL2_PVT_ADDR_OP_WRITE_PVLAN	((0x03 << 12) | GLOBAL2_PVT_ADDR_BUSY)
--#define GLOBAL2_PVT_ADDR_OP_READ	((0x04 << 12) | GLOBAL2_PVT_ADDR_BUSY)
--#define GLOBAL2_PVT_DATA	0x0c
-+/* Offset 0x0B: Cross-chip Port VLAN Register */
-+#define MV88E6XXX_G2_PVT_ADDR			0x0b
-+#define MV88E6XXX_G2_PVT_ADDR_BUSY		0x8000
-+#define MV88E6XXX_G2_PVT_ADDR_OP_MASK		0x7000
-+#define MV88E6XXX_G2_PVT_ADDR_OP_INIT_ONES	0x1000
-+#define MV88E6XXX_G2_PVT_ADDR_OP_WRITE_PVLAN	0x3000
-+#define MV88E6XXX_G2_PVT_ADDR_OP_READ		0x4000
-+#define MV88E6XXX_G2_PVT_ADDR_PTR_MASK		0x01ff
-+
-+/* Offset 0x0C: Cross-chip Port VLAN Data Register */
-+#define MV88E6XXX_G2_PVT_DATA		0x0c
-+#define MV88E6XXX_G2_PVT_DATA_MASK	0x7f
-+
- #define GLOBAL2_SWITCH_MAC	0x0d
- #define GLOBAL2_ATU_STATS	0x0e
- #define GLOBAL2_PRIO_OVERRIDE	0x0f
+ /* Offset 0x18: Port IEEE Priority Remapping Registers (0-3) */
+ #define MV88E6095_PORT_IEEE_PRIO_REMAP_0123	0x18
 -- 
 2.13.1
