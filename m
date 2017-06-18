@@ -1,7 +1,7 @@
 From: <netanel@amazon.com>
-Subject: [PATCH net-next 10/13] net: ena: add mtu limitation in ena_change_mtu()
-Date: Sun, 18 Jun 2017 14:28:15 +0300
-Message-ID: <1497785298-13468-11-git-send-email-netanel@amazon.com>
+Subject: [PATCH net-next 13/13] net: ena: update ena driver to version 1.2.0
+Date: Sun, 18 Jun 2017 14:28:18 +0300
+Message-ID: <1497785298-13468-14-git-send-email-netanel@amazon.com>
 References: <1497785298-13468-1-git-send-email-netanel@amazon.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,10 +11,10 @@ Cc: Netanel Belgazal <netanel@amazon.com>, <dwmw@amazon.com>,
         <evgenys@amazon.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-fw-9101.amazon.com ([207.171.184.25]:60855 "EHLO
-        smtp-fw-9101.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752812AbdFRLar (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Jun 2017 07:30:47 -0400
+Received: from smtp-fw-9102.amazon.com ([207.171.184.29]:9358 "EHLO
+        smtp-fw-9102.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752812AbdFRLaw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Jun 2017 07:30:52 -0400
 In-Reply-To: <1497785298-13468-1-git-send-email-netanel@amazon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -23,35 +23,31 @@ From: Netanel Belgazal <netanel@amazon.com>
 
 Signed-off-by: Netanel Belgazal <netanel@amazon.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_netdev.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_netdev.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-index 7dee448157bb..7f31f4ce7b8e 100644
---- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-@@ -108,6 +108,13 @@ static int ena_change_mtu(struct net_device *dev, int new_mtu)
- 	struct ena_adapter *adapter = netdev_priv(dev);
- 	int ret;
+diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.h b/drivers/net/ethernet/amazon/ena/ena_netdev.h
+index 86b0f0dbae65..29bb5704260b 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_netdev.h
++++ b/drivers/net/ethernet/amazon/ena/ena_netdev.h
+@@ -44,15 +44,15 @@
+ #include "ena_eth_com.h"
  
-+	if ((new_mtu > adapter->max_mtu) || (new_mtu < ENA_MIN_MTU)) {
-+		netif_err(adapter, drv, dev,
-+			  "Invalid MTU setting. new_mtu: %d max mtu: %d min mtu: %d\n",
-+			  new_mtu, adapter->max_mtu, ENA_MIN_MTU);
-+		return -EINVAL;
-+	}
-+
- 	ret = ena_com_set_dev_mtu(adapter->ena_dev, new_mtu);
- 	if (!ret) {
- 		netif_dbg(adapter, drv, dev, "set MTU to %d\n", new_mtu);
-@@ -3008,8 +3015,6 @@ static void ena_set_conf_feat_params(struct ena_adapter *adapter,
- 	ena_set_dev_offloads(feat, netdev);
+ #define DRV_MODULE_VER_MAJOR	1
+-#define DRV_MODULE_VER_MINOR	1
+-#define DRV_MODULE_VER_SUBMINOR 7
++#define DRV_MODULE_VER_MINOR	2
++#define DRV_MODULE_VER_SUBMINOR 0
  
- 	adapter->max_mtu = feat->dev_attr.max_mtu;
--	netdev->max_mtu = adapter->max_mtu;
--	netdev->min_mtu = ENA_MIN_MTU;
- }
+ #define DRV_MODULE_NAME		"ena"
+ #ifndef DRV_MODULE_VERSION
+ #define DRV_MODULE_VERSION \
+ 	__stringify(DRV_MODULE_VER_MAJOR) "."	\
+ 	__stringify(DRV_MODULE_VER_MINOR) "."	\
+-	__stringify(DRV_MODULE_VER_SUBMINOR)
++	__stringify(DRV_MODULE_VER_SUBMINOR) "k"
+ #endif
  
- static int ena_rss_init_default(struct ena_adapter *adapter)
+ #define DEVICE_NAME	"Elastic Network Adapter (ENA)"
 -- 
 2.7.4
