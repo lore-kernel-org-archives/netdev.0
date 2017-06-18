@@ -1,216 +1,281 @@
-From: Willem de Bruijn <willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next 06/13] sock: MSG_ZEROCOPY notification coalescing
-Date: Sun, 18 Jun 2017 18:44:07 -0400
-Message-ID: <20170618224414.59012-7-willemdebruijn.kernel@gmail.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next 05/13] sock: enable MSG_ZEROCOPY
+Date: Sun, 18 Jun 2017 18:44:06 -0400
+Message-ID: <20170618224414.59012-6-willemdebruijn.kernel@gmail.com>
 References: <20170618224414.59012-1-willemdebruijn.kernel@gmail.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170618224414.59012-1-willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, linux-api@vger.kernel.org,
+        Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:34378 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753261AbdFRWoY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Jun 2017 18:44:24 -0400
+In-Reply-To: <20170618224414.59012-1-willemdebruijn.kernel@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+From: Willem de Bruijn <willemb@google.com>
 
-In the simple case, each sendmsg() call generates data and eventually
-a zerocopy ready notification N, where N indicates the Nth successful
-invocation of sendmsg() with the MSG_ZEROCOPY flag on this socket.
+Prepare the datapath for refcounted ubuf_info. Clone ubuf_info with
+skb_zerocopy_clone() wherever needed due to skb split, merge, resize
+or clone.
 
-TCP and corked sockets can cause send() calls to append new data to an
-existing sk_buff and, thus, ubuf_info. In that case the notification
-must hold a range. odify ubuf_info to store a inclusive range [N..N+m]
-and add skb_zerocopy_realloc() to optionally extend an existing range.
+Split skb_orphan_frags into two variants. The split, merge, .. paths
+support reference counted zerocopy buffers, so do not do a deep copy.
+Add skb_orphan_frags_rx for paths that may loop packets to receive
+sockets. That is not allowed, as it may cause unbounded latency.
+Deep copy all zerocopy copy buffers, ref-counted or not, in this path.
 
-Also coalesce notifications in this common case: if a notification
-[1, 1] is about to be queued while [0, 0] is the queue tail, just modify
-the head of the queue to read [0, 1].
+The exact locations to modify were chosen by exhaustively searching
+through all code that might modify skb_frag references and/or the
+the SKBTX_DEV_ZEROCOPY tx_flags bit.
 
-Coalescing is limited to a few TSO frames worth of data to bound
-notification latency.
+The changes err on the safe side, in two ways.
 
-Signed-off-by: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+(1) legacy ubuf_info paths virtio and tap are not modified. They keep
+    a 1:1 ubuf_info to sk_buff relationship. Calls to skb_orphan_frags
+    still call skb_copy_ubufs and thus copy frags in this case.
+
+(2) not all copies deep in the stack are addressed yet. skb_shift,
+    skb_split and skb_try_coalesce can be refined to avoid copying.
+    These are not in the hot path and this patch is hairy enough as
+    is, so that is left for future refinement.
+
+Signed-off-by: Willem de Bruijn <willemb@google.com>
 ---
- include/linux/skbuff.h | 15 ++++++--
- net/core/skbuff.c      | 98 ++++++++++++++++++++++++++++++++++++++++++++++----
- 2 files changed, 104 insertions(+), 9 deletions(-)
+ drivers/net/tun.c      |  2 +-
+ drivers/vhost/net.c    |  1 +
+ include/linux/skbuff.h | 14 +++++++++++++-
+ net/core/dev.c         |  4 ++--
+ net/core/skbuff.c      | 47 +++++++++++++++++++----------------------------
+ 5 files changed, 36 insertions(+), 32 deletions(-)
 
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index ae49f4b99b67..9b1225cf555f 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -892,7 +892,7 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	    sk_filter(tfile->socket.sk, skb))
+ 		goto drop;
+ 
+-	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
++	if (unlikely(skb_orphan_frags_rx(skb, GFP_ATOMIC)))
+ 		goto drop;
+ 
+ 	skb_tx_timestamp(skb);
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index e3d7ea1288c6..614a577a0a66 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -533,6 +533,7 @@ static void handle_tx(struct vhost_net *net)
+ 			ubuf->callback = vhost_zerocopy_callback;
+ 			ubuf->ctx = nvq->ubufs;
+ 			ubuf->desc = nvq->upend_idx;
++			atomic_set(&ubuf->refcnt, 1);
+ 			msg.msg_control = ubuf;
+ 			msg.msg_controllen = sizeof(ubuf);
+ 			ubufs = nvq->ubufs;
 diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 0be25226b725..1d842860f074 100644
+index 0d1b088f1c9f..0be25226b725 100644
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
-@@ -408,14 +408,25 @@ enum {
+@@ -2473,7 +2473,17 @@ static inline void skb_orphan(struct sk_buff *skb)
   */
- struct ubuf_info {
- 	void (*callback)(struct ubuf_info *, bool zerocopy_success);
--	void *ctx;
--	unsigned long desc;
-+	union {
-+		struct {
-+			unsigned long desc;
-+			void *ctx;
-+		};
-+		struct {
-+			u32 id;
-+			u16 len;
-+			u32 bytelen;
-+		};
-+	};
- 	atomic_t refcnt;
- };
- 
- #define skb_uarg(SKB)	((struct ubuf_info *)(skb_shinfo(SKB)->destructor_arg))
- 
- struct ubuf_info *sock_zerocopy_alloc(struct sock *sk, size_t size);
-+struct ubuf_info *sock_zerocopy_realloc(struct sock *sk, size_t size,
-+					struct ubuf_info *uarg);
- 
- static inline void sock_zerocopy_get(struct ubuf_info *uarg)
+ static inline int skb_orphan_frags(struct sk_buff *skb, gfp_t gfp_mask)
  {
+-	if (likely(!(skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY)))
++	if (likely(!skb_zcopy(skb)))
++		return 0;
++	if (skb_uarg(skb)->callback == sock_zerocopy_callback)
++		return 0;
++	return skb_copy_ubufs(skb, gfp_mask);
++}
++
++/* Frags must be orphaned, even if refcounted, if skb might loop to rx path */
++static inline int skb_orphan_frags_rx(struct sk_buff *skb, gfp_t gfp_mask)
++{
++	if (likely(!skb_zcopy(skb)))
+ 		return 0;
+ 	return skb_copy_ubufs(skb, gfp_mask);
+ }
+@@ -2905,6 +2915,8 @@ static inline int skb_add_data(struct sk_buff *skb,
+ static inline bool skb_can_coalesce(struct sk_buff *skb, int i,
+ 				    const struct page *page, int off)
+ {
++	if (skb_zcopy(skb))
++		return false;
+ 	if (i) {
+ 		const struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[i - 1];
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 5d1830b8d2cf..c0b4c54f3b52 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1860,7 +1860,7 @@ static inline int deliver_skb(struct sk_buff *skb,
+ 			      struct packet_type *pt_prev,
+ 			      struct net_device *orig_dev)
+ {
+-	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
++	if (unlikely(skb_orphan_frags_rx(skb, GFP_ATOMIC)))
+ 		return -ENOMEM;
+ 	atomic_inc(&skb->users);
+ 	return pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
+@@ -4292,7 +4292,7 @@ static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc)
+ 	}
+ 
+ 	if (pt_prev) {
+-		if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
++		if (unlikely(skb_orphan_frags_rx(skb, GFP_ATOMIC)))
+ 			goto drop;
+ 		else
+ 			ret = pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 89ba5ad024a5..41fedc4e651f 100644
+index 54437a1eed32..89ba5ad024a5 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
-@@ -941,7 +941,9 @@ struct ubuf_info *sock_zerocopy_alloc(struct sock *sk, size_t size)
- 	uarg = (void *)skb->cb;
+@@ -592,21 +592,10 @@ static void skb_release_data(struct sk_buff *skb)
+ 	for (i = 0; i < shinfo->nr_frags; i++)
+ 		__skb_frag_unref(&shinfo->frags[i]);
  
- 	uarg->callback = sock_zerocopy_callback;
--	uarg->desc = atomic_inc_return(&sk->sk_zckey) - 1;
-+	uarg->id = ((u32)atomic_inc_return(&sk->sk_zckey)) - 1;
-+	uarg->len = 1;
-+	uarg->bytelen = size;
- 	atomic_set(&uarg->refcnt, 0);
- 	sock_hold(sk);
+-	/*
+-	 * If skb buf is from userspace, we need to notify the caller
+-	 * the lower device DMA has done;
+-	 */
+-	if (shinfo->tx_flags & SKBTX_DEV_ZEROCOPY) {
+-		struct ubuf_info *uarg;
+-
+-		uarg = shinfo->destructor_arg;
+-		if (uarg->callback)
+-			uarg->callback(uarg, true);
+-	}
+-
+ 	if (shinfo->frag_list)
+ 		kfree_skb_list(shinfo->frag_list);
  
-@@ -954,24 +956,98 @@ static inline struct sk_buff *skb_from_uarg(struct ubuf_info *uarg)
- 	return container_of((void *)uarg, struct sk_buff, cb);
++	skb_zcopy_clear(skb, true);
+ 	skb_free_head(skb);
  }
  
-+struct ubuf_info *sock_zerocopy_realloc(struct sock *sk, size_t size,
-+					struct ubuf_info *uarg)
-+{
-+	if (uarg) {
-+		const u32 byte_limit = 1 << 19;		/* limit to a few TSO */
-+		u32 bytelen, next;
-+
-+		/* realloc only when socket is locked (TCP, UDP cork),
-+		 * so uarg->len and sk_zckey access is serialized
-+		 */
-+		if (!sock_owned_by_user(sk)) {
-+			WARN_ON_ONCE(1);
-+			return NULL;
-+		}
-+
-+		bytelen = uarg->bytelen + size;
-+		if (uarg->len == USHRT_MAX - 1 || bytelen > byte_limit) {
-+			/* TCP can create new skb to attach new uarg */
-+			if (sk->sk_type == SOCK_STREAM)
-+				goto new_alloc;
-+			return NULL;
-+		}
-+
-+		next = (u32)atomic_read(&sk->sk_zckey);
-+		if ((u32)(uarg->id + uarg->len) == next) {
-+			uarg->len++;
-+			uarg->bytelen = bytelen;
-+			atomic_set(&sk->sk_zckey, ++next);
-+			return uarg;
-+		}
-+	}
-+
-+new_alloc:
-+	return sock_zerocopy_alloc(sk, size);
-+}
-+EXPORT_SYMBOL_GPL(sock_zerocopy_realloc);
-+
-+static bool skb_zerocopy_notify_extend(struct sk_buff *skb, u32 lo, u16 len)
-+{
-+	struct sock_exterr_skb *serr = SKB_EXT_ERR(skb);
-+	u64 sum_len;
-+	u32 old_lo, old_hi;
-+
-+	old_lo = serr->ee.ee_info;
-+	old_hi = serr->ee.ee_data;
-+	sum_len = old_hi - old_lo + 1ULL + len;
-+
-+	if (sum_len >= (1ULL << 32))
-+		return false;
-+
-+	if (lo != old_hi + 1)
-+		return false;
-+
-+	serr->ee.ee_data += len;
-+	return true;
-+}
-+
- void sock_zerocopy_callback(struct ubuf_info *uarg, bool success)
+@@ -720,14 +709,7 @@ EXPORT_SYMBOL(kfree_skb_list);
+  */
+ void skb_tx_error(struct sk_buff *skb)
  {
- 	struct sock_exterr_skb *serr;
--	struct sk_buff *skb = skb_from_uarg(uarg);
-+	struct sk_buff *tail, *skb = skb_from_uarg(uarg);
- 	struct sock *sk = skb->sk;
--	u16 id = uarg->desc;
-+	struct sk_buff_head *q = &sk->sk_error_queue;
-+	unsigned long flags;
-+	u32 lo, hi;
-+	u16 len;
+-	if (skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY) {
+-		struct ubuf_info *uarg;
+-
+-		uarg = skb_shinfo(skb)->destructor_arg;
+-		if (uarg->callback)
+-			uarg->callback(uarg, false);
+-		skb_shinfo(skb)->tx_flags &= ~SKBTX_DEV_ZEROCOPY;
+-	}
++	skb_zcopy_clear(skb, true);
+ }
+ EXPORT_SYMBOL(skb_tx_error);
  
--	if (sock_flag(sk, SOCK_DEAD))
-+	/* if !len, there was only 1 call, and it was aborted
-+	 * so do not queue a completion notification
-+	 */
-+	if (!uarg->len || sock_flag(sk, SOCK_DEAD))
- 		goto release;
+@@ -1079,9 +1061,7 @@ int skb_zerocopy_iter_stream(struct sock *sk, struct sk_buff *skb,
+ }
+ EXPORT_SYMBOL_GPL(skb_zerocopy_iter_stream);
  
-+	len = uarg->len;
-+	lo = uarg->id;
-+	hi = uarg->id + len - 1;
-+
- 	serr = SKB_EXT_ERR(skb);
- 	memset(serr, 0, sizeof(*serr));
- 	serr->ee.ee_errno = 0;
- 	serr->ee.ee_origin = SO_EE_ORIGIN_ZEROCOPY;
--	serr->ee.ee_data = id;
-+	serr->ee.ee_data = hi;
-+	serr->ee.ee_info = lo;
- 
--	skb_queue_tail(&sk->sk_error_queue, skb);
--	skb = NULL;
-+	spin_lock_irqsave(&q->lock, flags);
-+	tail = skb_peek_tail(q);
-+	if (!tail || SKB_EXT_ERR(tail)->ee.ee_origin != SO_EE_ORIGIN_ZEROCOPY ||
-+	    !skb_zerocopy_notify_extend(tail, lo, len)) {
-+		__skb_queue_tail(q, skb);
-+		skb = NULL;
-+	}
-+	spin_unlock_irqrestore(&q->lock, flags);
- 
- 	sk->sk_error_report(sk);
- 
-@@ -998,6 +1074,7 @@ void sock_zerocopy_put_abort(struct ubuf_info *uarg)
- 		struct sock *sk = skb_from_uarg(uarg)->sk;
- 
- 		atomic_dec(&sk->sk_zckey);
-+		uarg->len--;
- 
- 		/* sock_zerocopy_put expects a ref. Most sockets take one per
- 		 * skb, which is zero on abort. tcp_sendmsg holds one extra, to
-@@ -1045,9 +1122,16 @@ int skb_zerocopy_iter_stream(struct sock *sk, struct sk_buff *skb,
- 			     struct msghdr *msg, int len,
- 			     struct ubuf_info *uarg)
+-/* unused only until next patch in the series; will remove attribute */
+-static int __attribute__((unused))
+-	   skb_zerocopy_clone(struct sk_buff *nskb, struct sk_buff *orig,
++static int skb_zerocopy_clone(struct sk_buff *nskb, struct sk_buff *orig,
+ 			      gfp_t gfp_mask)
  {
-+	struct ubuf_info *orig_uarg = skb_zcopy(skb);
- 	struct iov_iter orig_iter = msg->msg_iter;
- 	int err, orig_len = skb->len;
+ 	if (skb_zcopy(orig)) {
+@@ -1173,8 +1153,6 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
+ 	for (i = 0; i < num_frags; i++)
+ 		skb_frag_unref(skb, i);
  
-+	/* An skb can only point to one uarg. This edge case happens when
-+	 * TCP appends to an skb, but zerocopy_realloc triggered a new alloc.
-+	 */
-+	if (orig_uarg && uarg != orig_uarg)
-+		return -EEXIST;
+-	uarg->callback(uarg, false);
+-
+ 	/* skb frags point to kernel buffers */
+ 	for (i = 0; i < new_frags - 1; i++) {
+ 		__skb_fill_page_desc(skb, i, head, 0, PAGE_SIZE);
+@@ -1183,7 +1161,7 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
+ 	__skb_fill_page_desc(skb, new_frags - 1, head, 0, d_off);
+ 	skb_shinfo(skb)->nr_frags = new_frags;
+ 
+-	skb_shinfo(skb)->tx_flags &= ~SKBTX_DEV_ZEROCOPY;
++	skb_zcopy_clear(skb, false);
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(skb_copy_ubufs);
+@@ -1344,7 +1322,8 @@ struct sk_buff *__pskb_copy_fclone(struct sk_buff *skb, int headroom,
+ 	if (skb_shinfo(skb)->nr_frags) {
+ 		int i;
+ 
+-		if (skb_orphan_frags(skb, gfp_mask)) {
++		if (skb_orphan_frags(skb, gfp_mask) ||
++		    skb_zerocopy_clone(n, skb, gfp_mask)) {
+ 			kfree_skb(n);
+ 			n = NULL;
+ 			goto out;
+@@ -1421,9 +1400,10 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+ 	 * be since all we did is relocate the values
+ 	 */
+ 	if (skb_cloned(skb)) {
+-		/* copy this zero copy skb frags */
+ 		if (skb_orphan_frags(skb, gfp_mask))
+ 			goto nofrags;
++		if (skb_zcopy(skb))
++			atomic_inc(&skb_uarg(skb)->refcnt);
+ 		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
+ 			skb_frag_ref(skb, i);
+ 
+@@ -1915,6 +1895,9 @@ void *__pskb_pull_tail(struct sk_buff *skb, int delta)
+ 	skb->tail     += delta;
+ 	skb->data_len -= delta;
+ 
++	if (!skb->data_len)
++		skb_zcopy_clear(skb, false);
 +
- 	err = __zerocopy_sg_from_iter(sk, skb, &msg->msg_iter, len);
- 	if (err == -EFAULT || (err == -EMSGSIZE && skb->len == orig_len)) {
- 		/* Streams do not free skb on error. Reset to prev state. */
+ 	return skb_tail_pointer(skb);
+ }
+ EXPORT_SYMBOL(__pskb_pull_tail);
+@@ -2546,6 +2529,7 @@ skb_zerocopy(struct sk_buff *to, struct sk_buff *from, int len, int hlen)
+ 		skb_tx_error(from);
+ 		return -ENOMEM;
+ 	}
++	skb_zerocopy_clone(to, from, GFP_ATOMIC);
+ 
+ 	for (i = 0; i < skb_shinfo(from)->nr_frags; i++) {
+ 		if (!len)
+@@ -2843,6 +2827,7 @@ void skb_split(struct sk_buff *skb, struct sk_buff *skb1, const u32 len)
+ 
+ 	skb_shinfo(skb1)->tx_flags |= skb_shinfo(skb)->tx_flags &
+ 				      SKBTX_SHARED_FRAG;
++	skb_zerocopy_clone(skb1, skb, 0);
+ 	if (len < pos)	/* Split line is inside header. */
+ 		skb_split_inside_header(skb, skb1, len, pos);
+ 	else		/* Second chunk has no header, nothing to copy. */
+@@ -2886,6 +2871,8 @@ int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen)
+ 
+ 	if (skb_headlen(skb))
+ 		return 0;
++	if (skb_zcopy(tgt) || skb_zcopy(skb))
++		return 0;
+ 
+ 	todo = shiftlen;
+ 	from = 0;
+@@ -3459,6 +3446,8 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
+ 
+ 		skb_shinfo(nskb)->tx_flags |= skb_shinfo(head_skb)->tx_flags &
+ 					      SKBTX_SHARED_FRAG;
++		if (skb_zerocopy_clone(nskb, head_skb, GFP_ATOMIC))
++			goto err;
+ 
+ 		while (pos < offset + len) {
+ 			if (i >= nfrags) {
+@@ -4582,6 +4571,8 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
+ 
+ 	if (skb_has_frag_list(to) || skb_has_frag_list(from))
+ 		return false;
++	if (skb_zcopy(to) || skb_zcopy(from))
++		return false;
+ 
+ 	if (skb_headlen(from) != 0) {
+ 		struct page *page;
 -- 
 2.13.1.518.g3df882009-goog
