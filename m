@@ -1,7 +1,7 @@
 From: <netanel@amazon.com>
-Subject: [PATCH net-next 02/13] net: ena: add hardware hints capability to the driver
-Date: Sun, 18 Jun 2017 14:28:07 +0300
-Message-ID: <1497785298-13468-3-git-send-email-netanel@amazon.com>
+Subject: [PATCH net-next 03/13] net: ena: change sizeof() argument to be the type pointer
+Date: Sun, 18 Jun 2017 14:28:08 +0300
+Message-ID: <1497785298-13468-4-git-send-email-netanel@amazon.com>
 References: <1497785298-13468-1-git-send-email-netanel@amazon.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,394 +11,94 @@ Cc: Netanel Belgazal <netanel@amazon.com>, <dwmw@amazon.com>,
         <evgenys@amazon.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-fw-33001.amazon.com ([207.171.190.10]:50505 "EHLO
-        smtp-fw-33001.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752102AbdFRLaU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Jun 2017 07:30:20 -0400
+Received: from smtp-fw-9101.amazon.com ([207.171.184.25]:15647 "EHLO
+        smtp-fw-9101.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752825AbdFRLa2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Jun 2017 07:30:28 -0400
 In-Reply-To: <1497785298-13468-1-git-send-email-netanel@amazon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Netanel Belgazal <netanel@amazon.com>
 
-With this patch, ENA device can update the ena driver about
-the desired timeout values:
-These values are part of the "hardware hints" which are transmitted
-to the driver as Asynchronous event through ENA async
-event notification queue.
-
-In case the ENA device does not support this capability,
-the driver will use its own default values.
+Instead of using:
+memset(ptr, 0x0, sizeof(struct ...))
+use:
+memset(ptr, 0x0, sizeor(*ptr))
 
 Signed-off-by: Netanel Belgazal <netanel@amazon.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_admin_defs.h | 31 +++++++++++
- drivers/net/ethernet/amazon/ena/ena_com.c        | 38 +++++++++++---
- drivers/net/ethernet/amazon/ena/ena_com.h        |  6 +++
- drivers/net/ethernet/amazon/ena/ena_netdev.c     | 66 ++++++++++++++++++++++--
- drivers/net/ethernet/amazon/ena/ena_netdev.h     |  5 ++
- drivers/net/ethernet/amazon/ena/ena_regs_defs.h  |  2 +
- 6 files changed, 137 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_com.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_admin_defs.h b/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
-index 5b6509d59716..305dc1996b4e 100644
---- a/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
-+++ b/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
-@@ -70,6 +70,8 @@ enum ena_admin_aq_feature_id {
- 
- 	ENA_ADMIN_MAX_QUEUES_NUM		= 2,
- 
-+	ENA_ADMIN_HW_HINTS			= 3,
-+
- 	ENA_ADMIN_RSS_HASH_FUNCTION		= 10,
- 
- 	ENA_ADMIN_STATELESS_OFFLOAD_CONFIG	= 11,
-@@ -749,6 +751,31 @@ struct ena_admin_feature_rss_ind_table {
- 	struct ena_admin_rss_ind_table_entry inline_entry;
- };
- 
-+/* When hint value is 0, driver should use it's own predefined value */
-+struct ena_admin_ena_hw_hints {
-+	/* value in ms */
-+	u16 mmio_read_timeout;
-+
-+	/* value in ms */
-+	u16 driver_watchdog_timeout;
-+
-+	/* Per packet tx completion timeout. value in ms */
-+	u16 missing_tx_completion_timeout;
-+
-+	u16 missed_tx_completion_count_threshold_to_reset;
-+
-+	/* value in ms */
-+	u16 admin_completion_tx_timeout;
-+
-+	u16 netdev_wd_timeout;
-+
-+	u16 max_tx_sgl_size;
-+
-+	u16 max_rx_sgl_size;
-+
-+	u16 reserved[8];
-+};
-+
- struct ena_admin_get_feat_cmd {
- 	struct ena_admin_aq_common_desc aq_common_descriptor;
- 
-@@ -782,6 +809,8 @@ struct ena_admin_get_feat_resp {
- 		struct ena_admin_feature_rss_ind_table ind_table;
- 
- 		struct ena_admin_feature_intr_moder_desc intr_moderation;
-+
-+		struct ena_admin_ena_hw_hints hw_hints;
- 	} u;
- };
- 
-@@ -857,6 +886,8 @@ enum ena_admin_aenq_notification_syndrom {
- 	ENA_ADMIN_SUSPEND	= 0,
- 
- 	ENA_ADMIN_RESUME	= 1,
-+
-+	ENA_ADMIN_UPDATE_HINTS	= 2,
- };
- 
- struct ena_admin_aenq_entry {
 diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
-index 02752d5b5b60..65d53d501139 100644
+index 65d53d501139..2721c70492a1 100644
 --- a/drivers/net/ethernet/amazon/ena/ena_com.c
 +++ b/drivers/net/ethernet/amazon/ena/ena_com.c
-@@ -511,7 +511,7 @@ static int ena_com_wait_and_process_admin_cq_polling(struct ena_comp_ctx *comp_c
- 	unsigned long flags, timeout;
+@@ -329,7 +329,7 @@ static int ena_com_init_io_sq(struct ena_com_dev *ena_dev,
+ 	size_t size;
+ 	int dev_node = 0;
+ 
+-	memset(&io_sq->desc_addr, 0x0, sizeof(struct ena_com_io_desc_addr));
++	memset(&io_sq->desc_addr, 0x0, sizeof(io_sq->desc_addr));
+ 
+ 	io_sq->desc_entry_size =
+ 		(io_sq->direction == ENA_COM_IO_QUEUE_DIRECTION_TX) ?
+@@ -383,7 +383,7 @@ static int ena_com_init_io_cq(struct ena_com_dev *ena_dev,
+ 	size_t size;
+ 	int prev_node = 0;
+ 
+-	memset(&io_cq->cdesc_addr, 0x0, sizeof(struct ena_com_io_desc_addr));
++	memset(&io_cq->cdesc_addr, 0x0, sizeof(io_cq->cdesc_addr));
+ 
+ 	/* Use the basic completion descriptor for Rx */
+ 	io_cq->cdesc_entry_size_in_bytes =
+@@ -685,7 +685,7 @@ static int ena_com_destroy_io_sq(struct ena_com_dev *ena_dev,
+ 	u8 direction;
  	int ret;
  
--	timeout = jiffies + ADMIN_CMD_TIMEOUT_US;
-+	timeout = jiffies + usecs_to_jiffies(admin_queue->completion_timeout);
+-	memset(&destroy_cmd, 0x0, sizeof(struct ena_admin_aq_destroy_sq_cmd));
++	memset(&destroy_cmd, 0x0, sizeof(destroy_cmd));
  
- 	while (1) {
- 		spin_lock_irqsave(&admin_queue->q_lock, flags);
-@@ -561,7 +561,8 @@ static int ena_com_wait_and_process_admin_cq_interrupts(struct ena_comp_ctx *com
+ 	if (io_sq->direction == ENA_COM_IO_QUEUE_DIRECTION_TX)
+ 		direction = ENA_ADMIN_SQ_DIRECTION_TX;
+@@ -967,7 +967,7 @@ static int ena_com_create_io_sq(struct ena_com_dev *ena_dev,
+ 	u8 direction;
  	int ret;
  
- 	wait_for_completion_timeout(&comp_ctx->wait_event,
--				    usecs_to_jiffies(ADMIN_CMD_TIMEOUT_US));
-+				    usecs_to_jiffies(
-+					    admin_queue->completion_timeout));
+-	memset(&create_cmd, 0x0, sizeof(struct ena_admin_aq_create_sq_cmd));
++	memset(&create_cmd, 0x0, sizeof(create_cmd));
  
- 	/* In case the command wasn't completed find out the root cause.
- 	 * There might be 2 kinds of errors
-@@ -601,12 +602,15 @@ static u32 ena_com_reg_bar_read32(struct ena_com_dev *ena_dev, u16 offset)
- 	struct ena_com_mmio_read *mmio_read = &ena_dev->mmio_read;
- 	volatile struct ena_admin_ena_mmio_req_read_less_resp *read_resp =
- 		mmio_read->read_resp;
--	u32 mmio_read_reg, ret;
-+	u32 mmio_read_reg, ret, i;
- 	unsigned long flags;
--	int i;
-+	u32 timeout = mmio_read->reg_read_to;
+ 	create_cmd.aq_common_descriptor.opcode = ENA_ADMIN_CREATE_SQ;
  
- 	might_sleep();
+@@ -1159,7 +1159,7 @@ int ena_com_create_io_cq(struct ena_com_dev *ena_dev,
+ 	struct ena_admin_acq_create_cq_resp_desc cmd_completion;
+ 	int ret;
  
-+	if (timeout == 0)
-+		timeout = ENA_REG_READ_TIMEOUT;
-+
- 	/* If readless is disabled, perform regular read */
- 	if (!mmio_read->readless_supported)
- 		return readl(ena_dev->reg_bar + offset);
-@@ -627,14 +631,14 @@ static u32 ena_com_reg_bar_read32(struct ena_com_dev *ena_dev, u16 offset)
+-	memset(&create_cmd, 0x0, sizeof(struct ena_admin_aq_create_cq_cmd));
++	memset(&create_cmd, 0x0, sizeof(create_cmd));
  
- 	writel(mmio_read_reg, ena_dev->reg_bar + ENA_REGS_MMIO_REG_READ_OFF);
+ 	create_cmd.aq_common_descriptor.opcode = ENA_ADMIN_CREATE_CQ;
  
--	for (i = 0; i < ENA_REG_READ_TIMEOUT; i++) {
-+	for (i = 0; i < timeout; i++) {
- 		if (read_resp->req_id == mmio_read->seq_num)
- 			break;
+@@ -1267,7 +1267,7 @@ int ena_com_destroy_io_cq(struct ena_com_dev *ena_dev,
+ 	struct ena_admin_acq_destroy_cq_resp_desc destroy_resp;
+ 	int ret;
  
- 		udelay(1);
- 	}
+-	memset(&destroy_cmd, 0x0, sizeof(struct ena_admin_aq_destroy_sq_cmd));
++	memset(&destroy_cmd, 0x0, sizeof(destroy_cmd));
  
--	if (unlikely(i == ENA_REG_READ_TIMEOUT)) {
-+	if (unlikely(i == timeout)) {
- 		pr_err("reading reg failed for timeout. expected: req id[%hu] offset[%hu] actual: req id[%hu] offset[%hu]\n",
- 		       mmio_read->seq_num, offset, read_resp->req_id,
- 		       read_resp->reg_off);
-@@ -1730,6 +1734,20 @@ int ena_com_get_dev_attr_feat(struct ena_com_dev *ena_dev,
- 	memcpy(&get_feat_ctx->offload, &get_resp.u.offload,
- 	       sizeof(get_resp.u.offload));
+ 	destroy_cmd.cq_idx = io_cq->idx;
+ 	destroy_cmd.aq_common_descriptor.opcode = ENA_ADMIN_DESTROY_CQ;
+@@ -1623,8 +1623,8 @@ int ena_com_create_io_queue(struct ena_com_dev *ena_dev,
+ 	io_sq = &ena_dev->io_sq_queues[ctx->qid];
+ 	io_cq = &ena_dev->io_cq_queues[ctx->qid];
  
-+	/* Driver hints isn't mandatory admin command. So in case the
-+	 * command isn't supported set driver hints to 0
-+	 */
-+	rc = ena_com_get_feature(ena_dev, &get_resp, ENA_ADMIN_HW_HINTS);
-+
-+	if (!rc)
-+		memcpy(&get_feat_ctx->hw_hints, &get_resp.u.hw_hints,
-+		       sizeof(get_resp.u.hw_hints));
-+	else if (rc == -EOPNOTSUPP)
-+		memset(&get_feat_ctx->hw_hints, 0x0,
-+		       sizeof(get_feat_ctx->hw_hints));
-+	else
-+		return rc;
-+
- 	return 0;
- }
+-	memset(io_sq, 0x0, sizeof(struct ena_com_io_sq));
+-	memset(io_cq, 0x0, sizeof(struct ena_com_io_cq));
++	memset(io_sq, 0x0, sizeof(*io_sq));
++	memset(io_cq, 0x0, sizeof(*io_cq));
  
-@@ -1855,6 +1873,14 @@ int ena_com_dev_reset(struct ena_com_dev *ena_dev)
- 		return rc;
- 	}
- 
-+	timeout = (cap & ENA_REGS_CAPS_ADMIN_CMD_TO_MASK) >>
-+		ENA_REGS_CAPS_ADMIN_CMD_TO_SHIFT;
-+	if (timeout)
-+		/* the resolution of timeout reg is 100ms */
-+		ena_dev->admin_queue.completion_timeout = timeout * 100000;
-+	else
-+		ena_dev->admin_queue.completion_timeout = ADMIN_CMD_TIMEOUT_US;
-+
- 	return 0;
- }
- 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_com.h b/drivers/net/ethernet/amazon/ena/ena_com.h
-index c9b33ee5f258..630c09ad35a5 100644
---- a/drivers/net/ethernet/amazon/ena/ena_com.h
-+++ b/drivers/net/ethernet/amazon/ena/ena_com.h
-@@ -97,6 +97,8 @@
- #define ENA_INTR_MODER_LEVEL_STRIDE			2
- #define ENA_INTR_BYTE_COUNT_NOT_SUPPORTED		0xFFFFFF
- 
-+#define ENA_HW_HINTS_NO_TIMEOUT				0xFFFF
-+
- enum ena_intr_moder_level {
- 	ENA_INTR_MODER_LOWEST = 0,
- 	ENA_INTR_MODER_LOW,
-@@ -232,7 +234,9 @@ struct ena_com_stats_admin {
- struct ena_com_admin_queue {
- 	void *q_dmadev;
- 	spinlock_t q_lock; /* spinlock for the admin queue */
-+
- 	struct ena_comp_ctx *comp_ctx;
-+	u32 completion_timeout;
- 	u16 q_depth;
- 	struct ena_com_admin_cq cq;
- 	struct ena_com_admin_sq sq;
-@@ -267,6 +271,7 @@ struct ena_com_aenq {
- struct ena_com_mmio_read {
- 	struct ena_admin_ena_mmio_req_read_less_resp *read_resp;
- 	dma_addr_t read_resp_dma_addr;
-+	u32 reg_read_to; /* in us */
- 	u16 seq_num;
- 	bool readless_supported;
- 	/* spin lock to ensure a single outstanding read */
-@@ -336,6 +341,7 @@ struct ena_com_dev_get_features_ctx {
- 	struct ena_admin_device_attr_feature_desc dev_attr;
- 	struct ena_admin_feature_aenq_desc aenq;
- 	struct ena_admin_feature_offload_desc offload;
-+	struct ena_admin_ena_hw_hints hw_hints;
- };
- 
- struct ena_com_create_io_ctx {
-diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-index 8d4f65ea985c..1ee06e11654c 100644
---- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-@@ -2577,7 +2577,7 @@ static int check_missing_comp_in_queue(struct ena_adapter *adapter,
- 		tx_buf = &tx_ring->tx_buffer_info[i];
- 		last_jiffies = tx_buf->last_jiffies;
- 		if (unlikely(last_jiffies &&
--			     time_is_before_jiffies(last_jiffies + TX_TIMEOUT))) {
-+			     time_is_before_jiffies(last_jiffies + adapter->missing_tx_completion_to))) {
- 			if (!tx_buf->print_once)
- 				netif_notice(adapter, tx_err, adapter->netdev,
- 					     "Found a Tx that wasn't completed on time, qid %d, index %d.\n",
-@@ -2586,10 +2586,11 @@ static int check_missing_comp_in_queue(struct ena_adapter *adapter,
- 			tx_buf->print_once = 1;
- 			missed_tx++;
- 
--			if (unlikely(missed_tx > MAX_NUM_OF_TIMEOUTED_PACKETS)) {
-+			if (unlikely(missed_tx > adapter->missing_tx_completion_threshold)) {
- 				netif_err(adapter, tx_err, adapter->netdev,
- 					  "The number of lost tx completions is above the threshold (%d > %d). Reset the device\n",
--					  missed_tx, MAX_NUM_OF_TIMEOUTED_PACKETS);
-+					  missed_tx,
-+					  adapter->missing_tx_completion_threshold);
- 				set_bit(ENA_FLAG_TRIGGER_RESET, &adapter->flags);
- 				return -EIO;
- 			}
-@@ -2613,6 +2614,9 @@ static void check_for_missing_tx_completions(struct ena_adapter *adapter)
- 	if (test_bit(ENA_FLAG_TRIGGER_RESET, &adapter->flags))
- 		return;
- 
-+	if (adapter->missing_tx_completion_to == ENA_HW_HINTS_NO_TIMEOUT)
-+		return;
-+
- 	budget = ENA_MONITORED_TX_QUEUES;
- 
- 	for (i = adapter->last_monitored_tx_qid; i < adapter->num_queues; i++) {
-@@ -2690,8 +2694,11 @@ static void check_for_missing_keep_alive(struct ena_adapter *adapter)
- 	if (!adapter->wd_state)
- 		return;
- 
--	keep_alive_expired = round_jiffies(adapter->last_keep_alive_jiffies
--					   + ENA_DEVICE_KALIVE_TIMEOUT);
-+	if (adapter->keep_alive_timeout == ENA_HW_HINTS_NO_TIMEOUT)
-+		return;
-+
-+	keep_alive_expired = round_jiffies(adapter->last_keep_alive_jiffies +
-+					   adapter->keep_alive_timeout);
- 	if (unlikely(time_is_before_jiffies(keep_alive_expired))) {
- 		netif_err(adapter, drv, adapter->netdev,
- 			  "Keep alive watchdog timeout.\n");
-@@ -2714,6 +2721,44 @@ static void check_for_admin_com_state(struct ena_adapter *adapter)
- 	}
- }
- 
-+static void ena_update_hints(struct ena_adapter *adapter,
-+			     struct ena_admin_ena_hw_hints *hints)
-+{
-+	struct net_device *netdev = adapter->netdev;
-+
-+	if (hints->admin_completion_tx_timeout)
-+		adapter->ena_dev->admin_queue.completion_timeout =
-+			hints->admin_completion_tx_timeout * 1000;
-+
-+	if (hints->mmio_read_timeout)
-+		/* convert to usec */
-+		adapter->ena_dev->mmio_read.reg_read_to =
-+			hints->mmio_read_timeout * 1000;
-+
-+	if (hints->missed_tx_completion_count_threshold_to_reset)
-+		adapter->missing_tx_completion_threshold =
-+			hints->missed_tx_completion_count_threshold_to_reset;
-+
-+	if (hints->missing_tx_completion_timeout) {
-+		if (hints->missing_tx_completion_timeout == ENA_HW_HINTS_NO_TIMEOUT)
-+			adapter->missing_tx_completion_to = ENA_HW_HINTS_NO_TIMEOUT;
-+		else
-+			adapter->missing_tx_completion_to =
-+				msecs_to_jiffies(hints->missing_tx_completion_timeout);
-+	}
-+
-+	if (hints->netdev_wd_timeout)
-+		netdev->watchdog_timeo = msecs_to_jiffies(hints->netdev_wd_timeout);
-+
-+	if (hints->driver_watchdog_timeout) {
-+		if (hints->driver_watchdog_timeout == ENA_HW_HINTS_NO_TIMEOUT)
-+			adapter->keep_alive_timeout = ENA_HW_HINTS_NO_TIMEOUT;
-+		else
-+			adapter->keep_alive_timeout =
-+				msecs_to_jiffies(hints->driver_watchdog_timeout);
-+	}
-+}
-+
- static void ena_update_host_info(struct ena_admin_host_info *host_info,
- 				 struct net_device *netdev)
- {
-@@ -3136,6 +3181,11 @@ static int ena_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	INIT_WORK(&adapter->reset_task, ena_fw_reset_device);
- 
- 	adapter->last_keep_alive_jiffies = jiffies;
-+	adapter->keep_alive_timeout = ENA_DEVICE_KALIVE_TIMEOUT;
-+	adapter->missing_tx_completion_to = TX_TIMEOUT;
-+	adapter->missing_tx_completion_threshold = MAX_NUM_OF_TIMEOUTED_PACKETS;
-+
-+	ena_update_hints(adapter, &get_feat_ctx.hw_hints);
- 
- 	setup_timer(&adapter->timer_service, ena_timer_service,
- 		    (unsigned long)adapter);
-@@ -3337,6 +3387,7 @@ static void ena_notification(void *adapter_data,
- 			     struct ena_admin_aenq_entry *aenq_e)
- {
- 	struct ena_adapter *adapter = (struct ena_adapter *)adapter_data;
-+	struct ena_admin_ena_hw_hints *hints;
- 
- 	WARN(aenq_e->aenq_common_desc.group != ENA_ADMIN_NOTIFICATION,
- 	     "Invalid group(%x) expected %x\n",
-@@ -3354,6 +3405,11 @@ static void ena_notification(void *adapter_data,
- 	case ENA_ADMIN_RESUME:
- 		queue_work(ena_wq, &adapter->resume_io_task);
- 		break;
-+	case ENA_ADMIN_UPDATE_HINTS:
-+		hints = (struct ena_admin_ena_hw_hints *)
-+			(&aenq_e->inline_data_w4);
-+		ena_update_hints(adapter, hints);
-+		break;
- 	default:
- 		netif_err(adapter, drv, adapter->netdev,
- 			  "Invalid aenq notification link state %d\n",
-diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.h b/drivers/net/ethernet/amazon/ena/ena_netdev.h
-index a4d3d5e21068..c5fe4aa926ae 100644
---- a/drivers/net/ethernet/amazon/ena/ena_netdev.h
-+++ b/drivers/net/ethernet/amazon/ena/ena_netdev.h
-@@ -280,6 +280,8 @@ struct ena_adapter {
- 
- 	int msix_vecs;
- 
-+	u32 missing_tx_completion_threshold;
-+
- 	u32 tx_usecs, rx_usecs; /* interrupt moderation */
- 	u32 tx_frames, rx_frames; /* interrupt moderation */
- 
-@@ -293,6 +295,9 @@ struct ena_adapter {
- 
- 	u8 mac_addr[ETH_ALEN];
- 
-+	unsigned long keep_alive_timeout;
-+	unsigned long missing_tx_completion_to;
-+
- 	char name[ENA_NAME_MAX_LEN];
- 
- 	unsigned long flags;
-diff --git a/drivers/net/ethernet/amazon/ena/ena_regs_defs.h b/drivers/net/ethernet/amazon/ena/ena_regs_defs.h
-index 26097a2b6030..c3891c521075 100644
---- a/drivers/net/ethernet/amazon/ena/ena_regs_defs.h
-+++ b/drivers/net/ethernet/amazon/ena/ena_regs_defs.h
-@@ -78,6 +78,8 @@
- #define ENA_REGS_CAPS_RESET_TIMEOUT_MASK		0x3e
- #define ENA_REGS_CAPS_DMA_ADDR_WIDTH_SHIFT		8
- #define ENA_REGS_CAPS_DMA_ADDR_WIDTH_MASK		0xff00
-+#define ENA_REGS_CAPS_ADMIN_CMD_TO_SHIFT		16
-+#define ENA_REGS_CAPS_ADMIN_CMD_TO_MASK		0xf0000
- 
- /* aq_caps register */
- #define ENA_REGS_AQ_CAPS_AQ_DEPTH_MASK		0xffff
+ 	/* Init CQ */
+ 	io_cq->q_depth = ctx->queue_size;
 -- 
 2.7.4
