@@ -1,34 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/7] qed*: RDMA and infrastructure for iWARP
-Date: Sun, 18 Jun 2017 21:40:41 -0400 (EDT)
-Message-ID: <20170618.214041.682320908274865753.davem@davemloft.net>
-References: <20170618115035.2156-1-Yuval.Mintz@cavium.com>
-        <20170618.122901.124548969151925362.davem@davemloft.net>
-        <BLUPR0701MB20047CD16002072436A61EA38DC70@BLUPR0701MB2004.namprd07.prod.outlook.com>
+From: "HDD Investment Co." <info@dex.ne.jp>
+Subject: Investment portfolio
+Date: Sun, 18 Jun 2017 15:48:12 -0700
+Message-ID: <20170618224616.6AD12230CC1@smtp.dex.ne.jp>
+Reply-To: hassan.dako@yandex.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Michal.Kalderon@cavium.com,
-        linux-rdma@vger.kernel.org
-To: Yuval.Mintz@cavium.com
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <info@dex.ne.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41888 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753236AbdFSBkp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Jun 2017 21:40:45 -0400
-In-Reply-To: <BLUPR0701MB20047CD16002072436A61EA38DC70@BLUPR0701MB2004.namprd07.prod.outlook.com>
+Received: from gate01.dex.ne.jp ([122.212.159.195]:43259 "EHLO smtp.dex.ne.jp"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753258AbdFSBxv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 18 Jun 2017 21:53:51 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Date: Sun, 18 Jun 2017 17:54:49 +0000
+Hello,
 
-> I can't really say I understand who would benefit from adding "while
-> at it remove redundant inclusion of header file" to the commit log
-> message [And even less from splitting this into its own patch].
+How are you today?
 
-Because it helps people understand why you are making a change.
+we have the financial capability to finance any investment portfolio as far as is genuine, all we need is a capable business partner that possesses investment strategies or profitable business information for good turn over within 10-20years.
 
-It's not obvious from just reading it.
+We can provide proof of funds on demand Please write me back if you can work with me on this project.
 
-That's why.
+Thank You,
+
+Best Regards
+Hassan Dako
