@@ -1,134 +1,100 @@
-From: Robin Murphy <robin.murphy-5wv7dgnIgG8@public.gmane.org>
-Subject: Re: [PATCH 06/44] iommu/dma: don't rely on DMA_ERROR_CODE
-Date: Mon, 19 Jun 2017 16:12:32 +0100
-Message-ID: <18ff1d49-4a13-3dea-8a4d-fb778aec37dc@arm.com>
-References: <20170616181059.19206-1-hch@lst.de>
-	<20170616181059.19206-7-hch@lst.de>
+From: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Subject: Re: [PATCH net-next 3/4] s390/diag: add diag26c support
+Date: Mon, 19 Jun 2017 17:34:25 +0200
+Message-ID: <20170619173425.4d537667@mschwideX1>
+References: <20170619112225.30471-1-jwi@linux.vnet.ibm.com>
+        <20170619112225.30471-4-jwi@linux.vnet.ibm.com>
+        <20170619.104726.1778743929564587843.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org,
-	linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
-	openrisc-cunTk1MwBs9a3B2Vnqf2dGD2FQJk+8+b@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org,
-	dmaengine-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, linux-samsung-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <20170616181059.19206-7-hch-jcswGhMUV9g@public.gmane.org>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
-List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: jwi@linux.vnet.ibm.com, netdev@vger.kernel.org,
+        linux-s390@vger.kernel.org, heiko.carstens@de.ibm.com,
+        raspl@linux.vnet.ibm.com, ubraun@linux.vnet.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:43885 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1754239AbdFSPeu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 11:34:50 -0400
+Received: from pps.filterd (m0098416.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5JFYY03144270
+        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 11:34:39 -0400
+Received: from e06smtp13.uk.ibm.com (e06smtp13.uk.ibm.com [195.75.94.109])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 2b64sdkbxr-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 11:34:39 -0400
+Received: from localhost
+        by e06smtp13.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <schwidefsky@de.ibm.com>;
+        Mon, 19 Jun 2017 16:34:37 +0100
+In-Reply-To: <20170619.104726.1778743929564587843.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 16/06/17 19:10, Christoph Hellwig wrote:
-> DMA_ERROR_CODE is not a public API and will go away soon.  dma dma-iommu
-> driver already implements a proper ->mapping_error method, so it's only
-> using the value internally.  Add a new local define using the value
-> that arm64 which is the only current user of dma-iommu.
+Hi Dave,
 
-I was angling at just open-coding 0/!dma_addr/etc. for simplicity rather
-than having anything #defined at all - nothing except the 4th and final
-hunks actually have any relevance to  dma_mapping_error(), and I reckon
-it's plenty clear enough in context. The rest is just proactively
-blatting address arguments with "arbitrary definitely-invalid value",
-which is more paranoia than anything else (and arguably unnecessary).
+On Mon, 19 Jun 2017 10:47:26 -0400 (EDT)
+David Miller <davem@davemloft.net> wrote:
 
-It's not the biggest deal, though, so either way:
-
-Reviewed-by: Robin Murphy <robin.murphy-5wv7dgnIgG8@public.gmane.org>
-
-> Signed-off-by: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
-> ---
->  drivers/iommu/dma-iommu.c | 18 ++++++++++--------
->  1 file changed, 10 insertions(+), 8 deletions(-)
+> From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+> Date: Mon, 19 Jun 2017 13:22:24 +0200
 > 
-> diff --git a/drivers/iommu/dma-iommu.c b/drivers/iommu/dma-iommu.c
-> index 62618e77bedc..9403336f1fa6 100644
-> --- a/drivers/iommu/dma-iommu.c
-> +++ b/drivers/iommu/dma-iommu.c
-> @@ -31,6 +31,8 @@
->  #include <linux/scatterlist.h>
->  #include <linux/vmalloc.h>
->  
-> +#define IOMMU_MAPPING_ERROR	0
-> +
->  struct iommu_dma_msi_page {
->  	struct list_head	list;
->  	dma_addr_t		iova;
-> @@ -500,7 +502,7 @@ void iommu_dma_free(struct device *dev, struct page **pages, size_t size,
->  {
->  	__iommu_dma_unmap(iommu_get_domain_for_dev(dev), *handle, size);
->  	__iommu_dma_free_pages(pages, PAGE_ALIGN(size) >> PAGE_SHIFT);
-> -	*handle = DMA_ERROR_CODE;
-> +	*handle = IOMMU_MAPPING_ERROR;
->  }
->  
->  /**
-> @@ -533,7 +535,7 @@ struct page **iommu_dma_alloc(struct device *dev, size_t size, gfp_t gfp,
->  	dma_addr_t iova;
->  	unsigned int count, min_size, alloc_sizes = domain->pgsize_bitmap;
->  
-> -	*handle = DMA_ERROR_CODE;
-> +	*handle = IOMMU_MAPPING_ERROR;
->  
->  	min_size = alloc_sizes & -alloc_sizes;
->  	if (min_size < PAGE_SIZE) {
-> @@ -627,11 +629,11 @@ static dma_addr_t __iommu_dma_map(struct device *dev, phys_addr_t phys,
->  
->  	iova = iommu_dma_alloc_iova(domain, size, dma_get_mask(dev), dev);
->  	if (!iova)
-> -		return DMA_ERROR_CODE;
-> +		return IOMMU_MAPPING_ERROR;
->  
->  	if (iommu_map(domain, iova, phys - iova_off, size, prot)) {
->  		iommu_dma_free_iova(cookie, iova, size);
-> -		return DMA_ERROR_CODE;
-> +		return IOMMU_MAPPING_ERROR;
->  	}
->  	return iova + iova_off;
->  }
-> @@ -671,7 +673,7 @@ static int __finalise_sg(struct device *dev, struct scatterlist *sg, int nents,
->  
->  		s->offset += s_iova_off;
->  		s->length = s_length;
-> -		sg_dma_address(s) = DMA_ERROR_CODE;
-> +		sg_dma_address(s) = IOMMU_MAPPING_ERROR;
->  		sg_dma_len(s) = 0;
->  
->  		/*
-> @@ -714,11 +716,11 @@ static void __invalidate_sg(struct scatterlist *sg, int nents)
->  	int i;
->  
->  	for_each_sg(sg, s, nents, i) {
-> -		if (sg_dma_address(s) != DMA_ERROR_CODE)
-> +		if (sg_dma_address(s) != IOMMU_MAPPING_ERROR)
->  			s->offset += sg_dma_address(s);
->  		if (sg_dma_len(s))
->  			s->length = sg_dma_len(s);
-> -		sg_dma_address(s) = DMA_ERROR_CODE;
-> +		sg_dma_address(s) = IOMMU_MAPPING_ERROR;
->  		sg_dma_len(s) = 0;
->  	}
->  }
-> @@ -836,7 +838,7 @@ void iommu_dma_unmap_resource(struct device *dev, dma_addr_t handle,
->  
->  int iommu_dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
->  {
-> -	return dma_addr == DMA_ERROR_CODE;
-> +	return dma_addr == IOMMU_MAPPING_ERROR;
->  }
->  
->  static struct iommu_dma_msi_page *iommu_dma_get_msi_page(struct device *dev,
+> > +#define DIAG26C_GET_MAC	0x0000
+> > +struct diag26c_mac_req {
+> > +	u32	resp_buf_len;
+> > +	u32	resp_version;
+> > +	u16	op_code;
+> > +	u16	devno;
+> > +	u8	res[4];
+> > +} __packed;  
 > 
+> The packed attribute is not necessary here, the structure will be
+> perfectly packed together because of the types used and the order of
+> the members.
+
+We (as in the s390 guys) tend to add __packed to hardware and hypervisor
+structures even if the attribute is not strictly necessary. Most of the
+diagnose related structures look that way. Dunno if it is worth to change
+them.
+
+I agree that __packed should be avoided for software defined structures.
+
+> __packed is to be used only in the last possible resort for
+> correctness and every effort whatsoever should be used to avoid using
+> it.
+> 
+> > +
+> > +struct diag26c_mac_resp {
+> > +	u32	version;
+> > +	u8	mac[ETH_ALEN];
+> > +	u16	res;
+> > +} __packed __aligned(8);  
+> 
+> Using packed with an 8 byte alignment is even more unnecessary.
+> 
+> Again, it is not needed, so please don't use it.
+
+The diag26c struct needs to be aligned on a doubleword boundary, the
+__aligned(8) is necessary. The __packed attribute is again superfluous but
+follows along the lines of the other diag structures.
+
+I do not mind the extra __packed attributes, but if you care about them
+we could remove them from the structures in diag.h.
+
+> > + */
+> > +static inline int __diag26c(void *req, void *resp, enum diag26c_sc subcode)  
+> 
+> Do not mark functions inline in *.c files, let the compiler decide.
+> 
+
+Here I disagree. Basically all of our functions with assembly code are
+static inline, it is a common pattern even in C files. Sometimes the compiler
+*is* stupid and won't inline a function. And on s390 function calls do not
+come for free.
+
+-- 
+blue skies,
+   Martin.
+
+"Reality continues to ruin my life." - Calvin.
