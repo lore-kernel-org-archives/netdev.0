@@ -1,74 +1,68 @@
-From: "Belgazal, Netanel" <netanel@amazon.com>
-Subject: Re: [PATCH net-next 09/13] net: ena: adding missing cast in
- ena_com_mem_addr_set()
-Date: Mon, 19 Jun 2017 12:45:08 +0000
-Message-ID: <1497876308540.71961@amazon.com>
-References: <1497785298-13468-1-git-send-email-netanel@amazon.com>
- <1497785298-13468-10-git-send-email-netanel@amazon.com>,<20170619050009.GK17846@mtr-leonro.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Woodhouse, David" <dwmw@amazon.co.uk>,
-        "Machulsky, Zorik" <zorik@amazon.com>,
-        "Matushevsky, Alexander" <matua@amazon.com>,
-        "BSHARA, Said" <saeedb@amazon.com>,
-        "Wilson, Matt" <msw@amazon.com>,
-        "Liguori, Anthony" <aliguori@amazon.com>,
-        "Bshara, Nafea" <nafea@amazon.com>,
-        "Schmeilin, Evgeny" <evgenys@amazon.com>
-To: Leon Romanovsky <leon@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-fw-9102.amazon.com ([207.171.184.29]:54771 "EHLO
-        smtp-fw-9102.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753696AbdFSMrn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 08:47:43 -0400
-In-Reply-To: <20170619050009.GK17846@mtr-leonro.local>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?utf-8?B?5Lil5rW35Y+M?= <yanhaishuang@cmss.chinamobile.com>
+Subject: Re: [PATCH v2 1/2] ip_tunnel: fix ip tunnel lookup in collect_md mode
+Date: Mon, 19 Jun 2017 21:13:52 +0800
+Message-ID: <B544BC96-63E4-4998-A5EA-36C37DBAA2F6@cmss.chinamobile.com>
+References: <1497670031-2971-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+ <CAOrHB_AFrCiYGyLdYpeYf7UJPgWuA-VFObGt13tAqoC56+x4=g@mail.gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Alexei Starovoitov <ast@fb.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        linux-kernel@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>
+To: Pravin Shelar <pshelar@ovn.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAOrHB_AFrCiYGyLdYpeYf7UJPgWuA-VFObGt13tAqoC56+x4=g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ack,=0A=
-=0A=
-Will use the proposed functions.=0A=
-________________________________________=0A=
-From: Leon Romanovsky <leon@kernel.org>=0A=
-Sent: Monday, June 19, 2017 8:00 AM=0A=
-To: Belgazal, Netanel=0A=
-Cc: davem@davemloft.net; netdev@vger.kernel.org; Woodhouse, David; Machulsk=
-y, Zorik; Matushevsky, Alexander; BSHARA, Said; Wilson, Matt; Liguori, Anth=
-ony; Bshara, Nafea; Schmeilin, Evgeny=0A=
-Subject: Re: [PATCH net-next 09/13] net: ena: adding missing cast in ena_co=
-m_mem_addr_set()=0A=
-=0A=
-On Sun, Jun 18, 2017 at 02:28:14PM +0300, netanel@amazon.com wrote:=0A=
-> From: Netanel Belgazal <netanel@amazon.com>=0A=
->=0A=
-> Signed-off-by: Netanel Belgazal <netanel@amazon.com>=0A=
-> ---=0A=
->  drivers/net/ethernet/amazon/ena/ena_com.c | 2 +-=0A=
->  1 file changed, 1 insertion(+), 1 deletion(-)=0A=
->=0A=
-> diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethe=
-rnet/amazon/ena/ena_com.c=0A=
-> index f6e1d30523a6..8efb85e25a42 100644=0A=
-> --- a/drivers/net/ethernet/amazon/ena/ena_com.c=0A=
-> +++ b/drivers/net/ethernet/amazon/ena/ena_com.c=0A=
-> @@ -100,7 +100,7 @@ static inline int ena_com_mem_addr_set(struct ena_com=
-_dev *ena_dev,=0A=
->       }=0A=
->=0A=
->       ena_addr->mem_addr_low =3D (u32)addr;=0A=
-> -     ena_addr->mem_addr_high =3D (u64)addr >> 32;=0A=
-> +     ena_addr->mem_addr_high =3D (u16)((u64)addr >> 32);=0A=
-=0A=
-We have macro for getting upper 32 bits - upper_32_bits(addr), the same=0A=
-goes for lower 32 bits.=0A=
-=0A=
->=0A=
->       return 0;=0A=
->  }=0A=
-> --=0A=
-> 2.7.4=0A=
->=0A=
+
+
+> On 19 Jun 2017, at 1:43 PM, Pravin Shelar <pshelar@ovn.org> wrote:
+> 
+> On Fri, Jun 16, 2017 at 8:27 PM, Haishuang Yan
+> <yanhaishuang@cmss.chinamobile.com> wrote:
+>> In collect_md mode, if the tun dev is down, it still can call
+>> ip_tunnel_rcv to receive on packets, and the rx statistics increase
+>> improperly.
+>> 
+>> Fixes: 2e15ea390e6f ("ip_gre: Add support to collect tunnel metadata.")
+>> Cc: Pravin B Shelar <pshelar@nicira.com>
+>> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+>> 
+>> ---
+>> Change since v2:
+>>  * Fix wrong recipient addresss
+>> ---
+>> net/ipv4/ip_tunnel.c | 2 +-
+>> 1 file changed, 1 insertion(+), 1 deletion(-)
+>> 
+>> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+>> index 0f1d876..a3caba1 100644
+>> --- a/net/ipv4/ip_tunnel.c
+>> +++ b/net/ipv4/ip_tunnel.c
+>> @@ -176,7 +176,7 @@ struct ip_tunnel *ip_tunnel_lookup(struct ip_tunnel_net *itn,
+>>                return cand;
+>> 
+>>        t = rcu_dereference(itn->collect_md_tun);
+>> -       if (t)
+>> +       if (t && (t->dev->flags & IFF_UP))
+>>                return t;
+>> 
+> It would be nice if we could increment drop count if tunnel device is not up.
+> 
+Hi Pravin
+
+I think it’s not necessary, for example as gre tunnel, if ipgre_rcv fails, it would trigger send an icmp unreachable
+message:
+
+	if (ipgre_rcv(skb, &tpi, hdr_len) == PACKET_RCVD)
+		return 0;
+
+	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
+
+Since the tunnel device didn’t touch the packets, so increase drop statistics is not necessary.
+
+Thanks
