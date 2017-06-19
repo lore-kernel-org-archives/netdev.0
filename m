@@ -1,64 +1,105 @@
-From: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-Subject: [PATCH net-next] net: phy: lxt: Export link partner advertising
-Date: Mon, 19 Jun 2017 16:00:22 +0200
-Message-ID: <20170619141308.9417A508705@solo.franken.de>
-To: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Subject: [PATCH net v2] cxgb4: notify uP to route ctrlq compl to rdma rspq
+Date: Mon, 19 Jun 2017 19:46:00 +0530
+Message-ID: <1497881760-10240-1-git-send-email-ganeshgr@chelsio.com>
+Cc: nirranjan@chelsio.com, indranil@chelsio.com, venkatesh@chelsio.com,
+        Raju Rangoju <rajur@chelsio.com>,
+        Stable <stable@vger.kernel.org>,
+        Ganesh Goudar <ganeshgr@chelsio.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thomas Bogendoerfer <tbogendoerfer@suse.de>
+From: Raju Rangoju <rajur@chelsio.com>
 
-Provide link partner advertising information.
-Removed testing for gigabit modes, which is useless for a fast ethernet phy.
+During the module initialisation there is a possible race
+(basically race between uld and lld) where neither the uld
+nor lld notifies the uP about where to route the ctrl queue
+completions. LLD skips notifying uP as the rdma queues were
+not created by then (will leave it to ULD to notify the uP).
+As the ULD comes up, it also skips notifying the uP as the
+flag FULL_INIT_DONE is not set yet (ULD assumes that the
+interface is not up yet).
 
-Signed-off-by: Thomas Bogendoerfer <tbogendoerfer@suse.de>
+Consequently, this race between uld and lld leaves uP
+unnotified about where to send the ctrl queue completions
+to, leading to iwarp RI_RES WR failure.
+
+Here is the race:
+
+CPU 0                                   CPU1
+
+- allocates nic rx queus
+- t4_sge_alloc_ctrl_txq()
+(if rdma rsp queues exists,
+tell uP to route ctrl queue
+compl to rdma rspq)
+                                - acquires the mutex_lock
+                                - allocates rdma response queues
+                                - if FULL_INIT_DONE set,
+                                  tell uP to route ctrl queue compl
+                                  to rdma rspq
+                                - relinquishes mutex_lock
+- acquires the mutex_lock
+- enable_rx()
+- set FULL_INIT_DONE
+- relinquishes mutex_lock
+
+This patch fixes the above issue.
+
+Fixes: e7519f9926f1('cxgb4: avoid enabling napi twice to the same queue')
+Signed-off-by: Raju Rangoju <rajur@chelsio.com>
+Acked-by: Steve Wise <swise@opengridcomputing.com>
+CC: Stable <stable@vger.kernel.org> # 4.9+
+Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 ---
- drivers/net/phy/lxt.c | 11 ++++-------
- 1 file changed, 4 insertions(+), 7 deletions(-)
+V2: sending to net tree
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/phy/lxt.c b/drivers/net/phy/lxt.c
-index 8d198a1f0031..09d215177fff 100644
---- a/drivers/net/phy/lxt.c
-+++ b/drivers/net/phy/lxt.c
-@@ -152,7 +152,6 @@ static int lxt973a2_read_status(struct phy_device *phydev)
- 	int adv;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index ea1bfcf..53309f6 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -2171,9 +2171,10 @@ static int cxgb_up(struct adapter *adap)
+ {
  	int err;
- 	int lpa;
--	int lpagb = 0;
  
- 	/* Update the link, but return if there was an error */
- 	err = lxt973a2_update_link(phydev);
-@@ -178,18 +177,15 @@ static int lxt973a2_read_status(struct phy_device *phydev)
- 			*/
- 		} while (lpa == adv && retry--);
- 
-+		phydev->lp_advertising = mii_lpa_to_ethtool_lpa_t(lpa);
-+
- 		lpa &= adv;
- 
- 		phydev->speed = SPEED_10;
- 		phydev->duplex = DUPLEX_HALF;
- 		phydev->pause = phydev->asym_pause = 0;
- 
--		if (lpagb & (LPA_1000FULL | LPA_1000HALF)) {
--			phydev->speed = SPEED_1000;
--
--			if (lpagb & LPA_1000FULL)
--				phydev->duplex = DUPLEX_FULL;
--		} else if (lpa & (LPA_100FULL | LPA_100HALF)) {
-+		if (lpa & (LPA_100FULL | LPA_100HALF)) {
- 			phydev->speed = SPEED_100;
- 
- 			if (lpa & LPA_100FULL)
-@@ -222,6 +218,7 @@ static int lxt973a2_read_status(struct phy_device *phydev)
- 			phydev->speed = SPEED_10;
- 
- 		phydev->pause = phydev->asym_pause = 0;
-+		phydev->lp_advertising = 0;
++	mutex_lock(&uld_mutex);
+ 	err = setup_sge_queues(adap);
+ 	if (err)
+-		goto out;
++		goto rel_lock;
+ 	err = setup_rss(adap);
+ 	if (err)
+ 		goto freeq;
+@@ -2197,7 +2198,6 @@ static int cxgb_up(struct adapter *adap)
+ 			goto irq_err;
  	}
  
- 	return 0;
+-	mutex_lock(&uld_mutex);
+ 	enable_rx(adap);
+ 	t4_sge_start(adap);
+ 	t4_intr_enable(adap);
+@@ -2210,13 +2210,15 @@ static int cxgb_up(struct adapter *adap)
+ #endif
+ 	/* Initialize hash mac addr list*/
+ 	INIT_LIST_HEAD(&adap->mac_hlist);
+- out:
+ 	return err;
++
+  irq_err:
+ 	dev_err(adap->pdev_dev, "request_irq failed, err %d\n", err);
+  freeq:
+ 	t4_free_sge_resources(adap);
+-	goto out;
++ rel_lock:
++	mutex_unlock(&uld_mutex);
++	return err;
+ }
+ 
+ static void cxgb_down(struct adapter *adapter)
 -- 
-2.12.3
+2.1.0
