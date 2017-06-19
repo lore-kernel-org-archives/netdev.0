@@ -1,77 +1,50 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net] netfilter: do not hold dev in ipt_CLUSTERIP
-Date: Mon, 19 Jun 2017 19:08:37 +0200
-Message-ID: <20170619170837.GA4763@salvia>
-References: <cc6ebc3f8784d8d537737a1e18b443a2e0c7313a.1495271286.git.lucien.xin@gmail.com>
+Subject: Re: [PATCH nf-next] netns: add and use net_ns_barrier
+Date: Mon, 19 Jun 2017 19:10:40 +0200
+Message-ID: <20170619171040.GB4975@salvia>
+References: <20170530093812.10712-1-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>,
-        netfilter-devel@vger.kernel.org, davem@davemloft.net, fw@strlen.de
-To: Xin Long <lucien.xin@gmail.com>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+        "Eric W. Biederman" <ebiederm@xmission.com>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:55252 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:56098 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750913AbdFSRIm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 19 Jun 2017 13:08:42 -0400
+        id S1750863AbdFSRKp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 19 Jun 2017 13:10:45 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 95D1E2E7848
-        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 19:08:31 +0200 (CEST)
+        by mail.us.es (Postfix) with ESMTP id 1CD802E7846
+        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 19:10:35 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 855B38F48
-        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 19:08:31 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 067A3FF6F2
+        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 19:10:35 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 56BB21850F
-        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 19:08:29 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 182FE10078C
+        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 19:10:33 +0200 (CEST)
 Content-Disposition: inline
-In-Reply-To: <cc6ebc3f8784d8d537737a1e18b443a2e0c7313a.1495271286.git.lucien.xin@gmail.com>
+In-Reply-To: <20170530093812.10712-1-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 20, 2017 at 05:08:06PM +0800, Xin Long wrote:
-> It's a terrible thing to hold dev in iptables target. When the dev is
-> being removed, unregister_netdevice has to wait for the dev to become
-> free. dmesg will keep logging the err:
+On Tue, May 30, 2017 at 11:38:12AM +0200, Florian Westphal wrote:
+> Quoting Joe Stringer:
+>   If a user loads nf_conntrack_ftp, sends FTP traffic through a network
+>   namespace, destroys that namespace then unloads the FTP helper module,
+>   then the kernel will crash.
 > 
->   kernel:unregister_netdevice: waiting for veth0_in to become free. \
->   Usage count = 1
+> Events that lead to the crash:
+> 1. conntrack is created with ftp helper in netns x
+> 2. This netns is destroyed
+> 3. netns destruction is scheduled
+> 4. netns destruction wq starts, removes netns from global list
+> 5. ftp helper is unloaded, which resets all helpers of the conntracks
+> via for_each_net()
 > 
-> until iptables rules with this target are removed manually.
+> but because netns is already gone from list the for_each_net() loop
+> doesn't include it, therefore all of these conntracks are unaffected.
 > 
-> The worse thing is when deleting a netns, a virtual nic will be deleted
-> instead of reset to init_net in default_device_ops exit/exit_batch. As
-> it is earlier than to flush the iptables rules in iptable_filter_net_ops
-> exit, unregister_netdevice will block to wait for the nic to become free.
-> 
-> As unregister_netdevice is actually waiting for iptables rules flushing
-> while iptables rules have to be flushed after unregister_netdevice. This
-> 'dead lock' will cause unregister_netdevice to block there forever. As
-> the netns is not available to operate at that moment, iptables rules can
-> not even be flushed manually either.
-> 
-> The reproducer can be:
-> 
->   # ip netns add test
->   # ip link add veth0_in type veth peer name veth0_out
->   # ip link set veth0_in netns test
->   # ip netns exec test ip link set lo up
->   # ip netns exec test ip link set veth0_in up
->   # ip netns exec test iptables -I INPUT -d 1.2.3.4 -i veth0_in -j \
->     CLUSTERIP --new --clustermac 89:d4:47:eb:9a:fa --total-nodes 3 \
->     --local-node 1 --hashmode sourceip-sourceport
->   # ip netns del test
-> 
-> This issue can be triggered by all virtual nics with ipt_CLUSTERIP.
-> 
-> This patch is to fix it by not holding dev in ipt_CLUSTERIP, but only
-> save dev->ifindex instead of dev. When removing the mc from the dev,
-> it will get dev by c->ifindex through dev_get_by_index.
-> 
-> Note that it doesn't save dev->name but dev->ifindex, as a dev->name
-> can be changed, it will confuse ipt_CLUSTERIP.
+> 6. helper module unload finishes
+> 7. netns wq invokes destructor for rmmod'ed helper
 
-Applied to nf-next.
-
-This problem has been there since day 1, and it's a large patch, so I
-prefer we follow nf-next path.
-
-Thanks!
+Applied, thanks everyone.
