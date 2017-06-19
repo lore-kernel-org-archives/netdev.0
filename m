@@ -1,80 +1,144 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: Re: [PATCH net-next 09/13] net: ena: adding missing cast in
- ena_com_mem_addr_set()
-Date: Mon, 19 Jun 2017 08:00:09 +0300
-Message-ID: <20170619050009.GK17846@mtr-leonro.local>
-References: <1497785298-13468-1-git-send-email-netanel@amazon.com>
- <1497785298-13468-10-git-send-email-netanel@amazon.com>
+From: Govindarajulu Varadarajan <gvaradar@cisco.com>
+Subject: [PATCH net-next] enic: use kasprintf instead of snprintf
+Date: Sun, 18 Jun 2017 22:05:37 -0700
+Message-ID: <20170619050537.6393-1-gvaradar@cisco.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="M0YLxmUXciMpOLPE"
-Cc: davem@davemloft.net, netdev@vger.kernel.org, dwmw@amazon.com,
-        zorik@amazon.com, matua@amazon.com, saeedb@amazon.com,
-        msw@amazon.com, aliguori@amazon.com, nafea@amazon.com,
-        evgenys@amazon.com
-To: netanel@amazon.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: benve@cisco.com, Govindarajulu Varadarajan <gvaradar@cisco.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.99]:50874 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750790AbdFSFAN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 19 Jun 2017 01:00:13 -0400
-Content-Disposition: inline
-In-Reply-To: <1497785298-13468-10-git-send-email-netanel@amazon.com>
+Received: from alln-iport-7.cisco.com ([173.37.142.94]:48608 "EHLO
+        alln-iport-7.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750790AbdFSFG2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 01:06:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+With -Wformat-truncation=, gcc throws the following warning. Instead of
+using snprintf, use kasprintf and allocate string size as needed.
 
---M0YLxmUXciMpOLPE
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+drivers/net/ethernet/cisco/enic/enic_main.c: In function ‘enic_open’:
+drivers/net/ethernet/cisco/enic/enic_main.c:1740:15: warning: ‘%u’ directive output may be truncated writing between 1 and 2 bytes into a region of size between 1 and 12 [-Wformat-truncation=]
+     "%.11s-rx-%u", netdev->name, i);
+               ^~
+drivers/net/ethernet/cisco/enic/enic_main.c:1740:5: note: directive argument in the range [0, 16]
+     "%.11s-rx-%u", netdev->name, i);
+     ^~~~~~~~~~~~~
+drivers/net/ethernet/cisco/enic/enic_main.c:1738:4: note: ‘snprintf’ output between 6 and 18 bytes into a destination of size 16
+    snprintf(enic->msix[intr].devname,
+    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     sizeof(enic->msix[intr].devname),
+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     "%.11s-rx-%u", netdev->name, i);
+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+drivers/net/ethernet/cisco/enic/enic_main.c:1751:5: warning: ‘snprintf’ output may be truncated before the last format character [-Wformat-truncation=]
+     "%.11s-tx-%u", netdev->name, i);
+     ^~~~~~~~~~~~~
 
-On Sun, Jun 18, 2017 at 02:28:14PM +0300, netanel@amazon.com wrote:
-> From: Netanel Belgazal <netanel@amazon.com>
->
-> Signed-off-by: Netanel Belgazal <netanel@amazon.com>
-> ---
->  drivers/net/ethernet/amazon/ena/ena_com.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
-> index f6e1d30523a6..8efb85e25a42 100644
-> --- a/drivers/net/ethernet/amazon/ena/ena_com.c
-> +++ b/drivers/net/ethernet/amazon/ena/ena_com.c
-> @@ -100,7 +100,7 @@ static inline int ena_com_mem_addr_set(struct ena_com_dev *ena_dev,
->  	}
->
->  	ena_addr->mem_addr_low = (u32)addr;
-> -	ena_addr->mem_addr_high = (u64)addr >> 32;
-> +	ena_addr->mem_addr_high = (u16)((u64)addr >> 32);
+also increment the version.
 
-We have macro for getting upper 32 bits - upper_32_bits(addr), the same
-goes for lower 32 bits.
+Signed-off-by: Govindarajulu Varadarajan <gvaradar@cisco.com>
+---
+ drivers/net/ethernet/cisco/enic/enic.h      |  4 +--
+ drivers/net/ethernet/cisco/enic/enic_main.c | 38 +++++++++++++++++++----------
+ 2 files changed, 27 insertions(+), 15 deletions(-)
 
->
->  	return 0;
->  }
-> --
-> 2.7.4
->
-
---M0YLxmUXciMpOLPE
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAllHWlkACgkQ5GN7iDZy
-WKdn5g/+LJZKfiWg3jD8tV9MGgApj/sQk3njFJ297bIztFN52XAV239lu3dLcgCZ
-1EWTHakwSGoCjTUlNIM5r1BYFkL9/dFVWy0pojTQedN3d3eecl9RKo6SjM9M8P3G
-iRdhaLKJW9yLEr/wXJv+q1dMEvHwWDkwDyBZiv9T+qpOwXRWBfBnbeVfTPOsficz
-qmKJzS4LtYGnsUqZI+WGZbtLluUQTOtxuukMWjbOllOu/R9p6RuN4rQQS/B6lwvp
-cNpIkpSEKxWv9k9zn1ZR9g+kk3dWKUeH5T3y4J7tY7hrjQ5vegpuaVvHtUt7kGWS
-g76htmTkZO2Hcwk9vGT8Aj/f7buCb+melH5HkMNDPVx/040L7B4UPdSlmNN1yi+z
-nxBz5zMVicQsZKOw14ECPUK1Q4sQxE2ucxNKMc2wr+BRQuVEi6c/if37LjuKp9Xe
-VRmNqdga/GGVn4/NhE4ptNg4eloh/g+aUfeF9i1MzisEnzMwvMw5I0IRPTNELJY0
-nRfWEaRyeqFRvwbXt9N3LA0xguzhByfoEqfsMfzGdh5oN2DDuVO1OI7WhKwt4w6n
-//piPEFszMGLvNLr2h5zP/DXMbaCzeF5LaQAg/26lspm6HRlP4d7VROFqH6ifIOq
-VLF0MBkYHZTwo74BxzXZepwPw2lKHMG1CfdYupLVVa4m6uyGrbo=
-=bIij
------END PGP SIGNATURE-----
-
---M0YLxmUXciMpOLPE--
+diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
+index 2b23f46b34d3..b8de2813119f 100644
+--- a/drivers/net/ethernet/cisco/enic/enic.h
++++ b/drivers/net/ethernet/cisco/enic/enic.h
+@@ -33,7 +33,7 @@
+ 
+ #define DRV_NAME		"enic"
+ #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
+-#define DRV_VERSION		"2.3.0.31"
++#define DRV_VERSION		"2.3.0.42"
+ #define DRV_COPYRIGHT		"Copyright 2008-2013 Cisco Systems, Inc"
+ 
+ #define ENIC_BARS_MAX		6
+@@ -47,7 +47,7 @@
+ 
+ struct enic_msix_entry {
+ 	int requested;
+-	char devname[IFNAMSIZ];
++	char *devname;
+ 	irqreturn_t (*isr)(int, void *);
+ 	void *devid;
+ 	cpumask_var_t affinity_mask;
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index 6a9c8878aca0..11b79f26af75 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -1701,9 +1701,11 @@ static void enic_free_intr(struct enic *enic)
+ 		break;
+ 	case VNIC_DEV_INTR_MODE_MSIX:
+ 		for (i = 0; i < ARRAY_SIZE(enic->msix); i++)
+-			if (enic->msix[i].requested)
++			if (enic->msix[i].requested) {
+ 				free_irq(enic->msix_entry[i].vector,
+ 					enic->msix[i].devid);
++				kfree(enic->msix[i].devname);
++			}
+ 		break;
+ 	default:
+ 		break;
+@@ -1735,9 +1737,12 @@ static int enic_request_intr(struct enic *enic)
+ 
+ 		for (i = 0; i < enic->rq_count; i++) {
+ 			intr = enic_msix_rq_intr(enic, i);
+-			snprintf(enic->msix[intr].devname,
+-				sizeof(enic->msix[intr].devname),
+-				"%.11s-rx-%u", netdev->name, i);
++			enic->msix[intr].devname = kasprintf(GFP_KERNEL,
++							     "%s-rx-%u",
++							     netdev->name, i);
++			if (!enic->msix[intr].devname)
++				netdev_warn(netdev, "name alloc failed for intr %d",
++					    intr);
+ 			enic->msix[intr].isr = enic_isr_msix;
+ 			enic->msix[intr].devid = &enic->napi[i];
+ 		}
+@@ -1746,24 +1751,31 @@ static int enic_request_intr(struct enic *enic)
+ 			int wq = enic_cq_wq(enic, i);
+ 
+ 			intr = enic_msix_wq_intr(enic, i);
+-			snprintf(enic->msix[intr].devname,
+-				sizeof(enic->msix[intr].devname),
+-				"%.11s-tx-%u", netdev->name, i);
++			enic->msix[intr].devname = kasprintf(GFP_KERNEL,
++							     "%s-tx-%u",
++							     netdev->name, i);
++			if (!enic->msix[intr].devname)
++				netdev_warn(netdev, "name alloc failed for intr %d",
++					    intr);
+ 			enic->msix[intr].isr = enic_isr_msix;
+ 			enic->msix[intr].devid = &enic->napi[wq];
+ 		}
+ 
+ 		intr = enic_msix_err_intr(enic);
+-		snprintf(enic->msix[intr].devname,
+-			sizeof(enic->msix[intr].devname),
+-			"%.11s-err", netdev->name);
++		enic->msix[intr].devname = kasprintf(GFP_KERNEL, "%s-err",
++						     netdev->name);
++		if (!enic->msix[intr].devname)
++			netdev_warn(netdev, "name alloc failed for intr %d",
++				    intr);
+ 		enic->msix[intr].isr = enic_isr_msix_err;
+ 		enic->msix[intr].devid = enic;
+ 
+ 		intr = enic_msix_notify_intr(enic);
+-		snprintf(enic->msix[intr].devname,
+-			sizeof(enic->msix[intr].devname),
+-			"%.11s-notify", netdev->name);
++		enic->msix[intr].devname = kasprintf(GFP_KERNEL, "%s-notify",
++						     netdev->name);
++		if (!enic->msix[intr].devname)
++			netdev_warn(netdev, "name alloc failed for intr %d",
++				    intr);
+ 		enic->msix[intr].isr = enic_isr_msix_notify;
+ 		enic->msix[intr].devid = enic;
+ 
+-- 
+2.13.1
