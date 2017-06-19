@@ -1,185 +1,98 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 07/10] net: dsa: mv88e6xxx: prefix Global 2 EEPROM macros
-Date: Mon, 19 Jun 2017 10:55:42 -0400
-Message-ID: <20170619145545.26697-8-vivien.didelot@savoirfairelinux.com>
-References: <20170619145545.26697-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net] net: account for current skb length when deciding
+ about UFO
+Date: Mon, 19 Jun 2017 10:59:16 -0400
+Message-ID: <9547a50c-2b2c-1772-2944-098b21eefa40@redhat.com>
+References: <20170619110343.7CB5EA1377@unicorn.suse.cz>
+Reply-To: vyasevic@redhat.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Zheng Li <james.z.li@ericsson.com>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+To: Michal Kubecek <mkubecek@suse.cz>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170619145545.26697-1-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <20170619110343.7CB5EA1377@unicorn.suse.cz>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Prefix and document the Global 2 EEPROM registers macros.
+On 06/19/2017 07:03 AM, Michal Kubecek wrote:
+> Our customer encountered stuck NFS writes for blocks starting at specific
+> offsets w.r.t. page boundary caused by networking stack sending packets via
+> UFO enabled device with wrong checksum. The problem can be reproduced by
+> composing a long UDP datagram from multiple parts using MSG_MORE flag:
+> 
+>   sendto(sd, buff, 1000, MSG_MORE, ...);
+>   sendto(sd, buff, 1000, MSG_MORE, ...);
+>   sendto(sd, buff, 3000, 0, ...);
+> 
+> Assume this packet is to be routed via a device with MTU 1500 and
+> NETIF_F_UFO enabled. When second sendto() gets into __ip_append_data(),
+> this condition is tested (among others) to decide whether to call
+> ip_ufo_append_data():
+> 
+>   ((length + fragheaderlen) > mtu) || (skb && skb_is_gso(skb))
+> 
+> At the moment, we already have skb with 1028 bytes of data which is not
+> marked for GSO so that the test is false (fragheaderlen is usually 20).
+> Thus we append second 1000 bytes to this skb without invoking UFO. Third
+> sendto(), however, has sufficient length to trigger the UFO path so that we
+> end up with non-UFO skb followed by a UFO one. Later on, udp_send_skb()
+> uses udp_csum() to calculate the checksum but that assumes all fragments
+> have correct checksum in skb->csum which is not true for UFO fragments.
+> 
+> When checking against MTU, we need to add skb->len to length of new segment
+> if we already have a partially filled skb and fragheaderlen only if there
+> isn't one.
+> 
+> In the IPv6 case, skb can only be null if this is the first segment so that
+> we have to use headersize (length of the first IPv6 header) rather than
+> fragheaderlen (length of IPv6 header of further fragments) for skb == NULL.
+> 
+> Fixes: e89e9cf539a2 ("[IPv4/IPv6]: UFO Scatter-gather approach")
+> Fixes: e4c5e13aa45c ("ipv6: Should use consistent conditional judgement for
+> 	ip6 fragment between __ip6_append_data and ip6_finish_output")
+> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx/global2.c | 32 +++++++++++++++++---------------
- drivers/net/dsa/mv88e6xxx/global2.h | 31 +++++++++++++++++++++----------
- 2 files changed, 38 insertions(+), 25 deletions(-)
+LGTM.
 
-diff --git a/drivers/net/dsa/mv88e6xxx/global2.c b/drivers/net/dsa/mv88e6xxx/global2.c
-index dc6c0f5fd605..8621f5893406 100644
---- a/drivers/net/dsa/mv88e6xxx/global2.c
-+++ b/drivers/net/dsa/mv88e6xxx/global2.c
-@@ -282,16 +282,17 @@ static int mv88e6xxx_g2_clear_pot(struct mv88e6xxx_chip *chip)
- 
- static int mv88e6xxx_g2_eeprom_wait(struct mv88e6xxx_chip *chip)
- {
--	return mv88e6xxx_g2_wait(chip, GLOBAL2_EEPROM_CMD,
--				 GLOBAL2_EEPROM_CMD_BUSY |
--				 GLOBAL2_EEPROM_CMD_RUNNING);
-+	return mv88e6xxx_g2_wait(chip, MV88E6XXX_G2_EEPROM_CMD,
-+				 MV88E6XXX_G2_EEPROM_CMD_BUSY |
-+				 MV88E6XXX_G2_EEPROM_CMD_RUNNING);
- }
- 
- static int mv88e6xxx_g2_eeprom_cmd(struct mv88e6xxx_chip *chip, u16 cmd)
- {
- 	int err;
- 
--	err = mv88e6xxx_g2_write(chip, GLOBAL2_EEPROM_CMD, cmd);
-+	err = mv88e6xxx_g2_write(chip, MV88E6XXX_G2_EEPROM_CMD,
-+				 MV88E6XXX_G2_EEPROM_CMD_BUSY | cmd);
- 	if (err)
- 		return err;
- 
-@@ -301,14 +302,14 @@ static int mv88e6xxx_g2_eeprom_cmd(struct mv88e6xxx_chip *chip, u16 cmd)
- static int mv88e6xxx_g2_eeprom_read8(struct mv88e6xxx_chip *chip,
- 				     u16 addr, u8 *data)
- {
--	u16 cmd = GLOBAL2_EEPROM_CMD_OP_READ;
-+	u16 cmd = MV88E6XXX_G2_EEPROM_CMD_OP_READ;
- 	int err;
- 
- 	err = mv88e6xxx_g2_eeprom_wait(chip);
- 	if (err)
- 		return err;
- 
--	err = mv88e6xxx_g2_write(chip, GLOBAL2_EEPROM_ADDR, addr);
-+	err = mv88e6xxx_g2_write(chip, MV88E6390_G2_EEPROM_ADDR, addr);
- 	if (err)
- 		return err;
- 
-@@ -316,7 +317,7 @@ static int mv88e6xxx_g2_eeprom_read8(struct mv88e6xxx_chip *chip,
- 	if (err)
- 		return err;
- 
--	err = mv88e6xxx_g2_read(chip, GLOBAL2_EEPROM_CMD, &cmd);
-+	err = mv88e6xxx_g2_read(chip, MV88E6XXX_G2_EEPROM_CMD, &cmd);
- 	if (err)
- 		return err;
- 
-@@ -328,14 +329,15 @@ static int mv88e6xxx_g2_eeprom_read8(struct mv88e6xxx_chip *chip,
- static int mv88e6xxx_g2_eeprom_write8(struct mv88e6xxx_chip *chip,
- 				      u16 addr, u8 data)
- {
--	u16 cmd = GLOBAL2_EEPROM_CMD_OP_WRITE | GLOBAL2_EEPROM_CMD_WRITE_EN;
-+	u16 cmd = MV88E6XXX_G2_EEPROM_CMD_OP_WRITE |
-+		MV88E6XXX_G2_EEPROM_CMD_WRITE_EN;
- 	int err;
- 
- 	err = mv88e6xxx_g2_eeprom_wait(chip);
- 	if (err)
- 		return err;
- 
--	err = mv88e6xxx_g2_write(chip, GLOBAL2_EEPROM_ADDR, addr);
-+	err = mv88e6xxx_g2_write(chip, MV88E6390_G2_EEPROM_ADDR, addr);
- 	if (err)
- 		return err;
- 
-@@ -345,7 +347,7 @@ static int mv88e6xxx_g2_eeprom_write8(struct mv88e6xxx_chip *chip,
- static int mv88e6xxx_g2_eeprom_read16(struct mv88e6xxx_chip *chip,
- 				      u8 addr, u16 *data)
- {
--	u16 cmd = GLOBAL2_EEPROM_CMD_OP_READ | addr;
-+	u16 cmd = MV88E6XXX_G2_EEPROM_CMD_OP_READ | addr;
- 	int err;
- 
- 	err = mv88e6xxx_g2_eeprom_wait(chip);
-@@ -356,20 +358,20 @@ static int mv88e6xxx_g2_eeprom_read16(struct mv88e6xxx_chip *chip,
- 	if (err)
- 		return err;
- 
--	return mv88e6xxx_g2_read(chip, GLOBAL2_EEPROM_DATA, data);
-+	return mv88e6xxx_g2_read(chip, MV88E6352_G2_EEPROM_DATA, data);
- }
- 
- static int mv88e6xxx_g2_eeprom_write16(struct mv88e6xxx_chip *chip,
- 				       u8 addr, u16 data)
- {
--	u16 cmd = GLOBAL2_EEPROM_CMD_OP_WRITE | addr;
-+	u16 cmd = MV88E6XXX_G2_EEPROM_CMD_OP_WRITE | addr;
- 	int err;
- 
- 	err = mv88e6xxx_g2_eeprom_wait(chip);
- 	if (err)
- 		return err;
- 
--	err = mv88e6xxx_g2_write(chip, GLOBAL2_EEPROM_DATA, data);
-+	err = mv88e6xxx_g2_write(chip, MV88E6352_G2_EEPROM_DATA, data);
- 	if (err)
- 		return err;
- 
-@@ -481,11 +483,11 @@ int mv88e6xxx_g2_set_eeprom16(struct mv88e6xxx_chip *chip,
- 	int err;
- 
- 	/* Ensure the RO WriteEn bit is set */
--	err = mv88e6xxx_g2_read(chip, GLOBAL2_EEPROM_CMD, &val);
-+	err = mv88e6xxx_g2_read(chip, MV88E6XXX_G2_EEPROM_CMD, &val);
- 	if (err)
- 		return err;
- 
--	if (!(val & GLOBAL2_EEPROM_CMD_WRITE_EN))
-+	if (!(val & MV88E6XXX_G2_EEPROM_CMD_WRITE_EN))
- 		return -EROFS;
- 
- 	eeprom->len = 0;
-diff --git a/drivers/net/dsa/mv88e6xxx/global2.h b/drivers/net/dsa/mv88e6xxx/global2.h
-index 0133c1cdfd6c..a0a6cb3cb6fe 100644
---- a/drivers/net/dsa/mv88e6xxx/global2.h
-+++ b/drivers/net/dsa/mv88e6xxx/global2.h
-@@ -99,16 +99,27 @@
- #define GLOBAL2_PRIO_OVERRIDE_SNOOP_SHIFT	4
- #define GLOBAL2_PRIO_OVERRIDE_FORCE_ARP		BIT(3)
- #define GLOBAL2_PRIO_OVERRIDE_ARP_SHIFT		0
--#define GLOBAL2_EEPROM_CMD		0x14
--#define GLOBAL2_EEPROM_CMD_BUSY		BIT(15)
--#define GLOBAL2_EEPROM_CMD_OP_WRITE	((0x3 << 12) | GLOBAL2_EEPROM_CMD_BUSY)
--#define GLOBAL2_EEPROM_CMD_OP_READ	((0x4 << 12) | GLOBAL2_EEPROM_CMD_BUSY)
--#define GLOBAL2_EEPROM_CMD_OP_LOAD	((0x6 << 12) | GLOBAL2_EEPROM_CMD_BUSY)
--#define GLOBAL2_EEPROM_CMD_RUNNING	BIT(11)
--#define GLOBAL2_EEPROM_CMD_WRITE_EN	BIT(10)
--#define GLOBAL2_EEPROM_CMD_ADDR_MASK	0xff
--#define GLOBAL2_EEPROM_DATA	0x15
--#define GLOBAL2_EEPROM_ADDR	0x15 /* 6390, 6341 */
-+
-+/* Offset 0x14: EEPROM Command */
-+#define MV88E6XXX_G2_EEPROM_CMD			0x14
-+#define MV88E6XXX_G2_EEPROM_CMD_BUSY		0x8000
-+#define MV88E6XXX_G2_EEPROM_CMD_OP_MASK		0x7000
-+#define MV88E6XXX_G2_EEPROM_CMD_OP_WRITE	0x3000
-+#define MV88E6XXX_G2_EEPROM_CMD_OP_READ		0x4000
-+#define MV88E6XXX_G2_EEPROM_CMD_OP_LOAD		0x6000
-+#define MV88E6XXX_G2_EEPROM_CMD_RUNNING		0x0800
-+#define MV88E6XXX_G2_EEPROM_CMD_WRITE_EN	0x0400
-+#define MV88E6352_G2_EEPROM_CMD_ADDR_MASK	0x00ff
-+#define MV88E6390_G2_EEPROM_CMD_DATA_MASK	0x00ff
-+
-+/* Offset 0x15: EEPROM Data */
-+#define MV88E6352_G2_EEPROM_DATA	0x15
-+#define MV88E6352_G2_EEPROM_DATA_MASK	0xffff
-+
-+/* Offset 0x15: EEPROM Addr */
-+#define MV88E6390_G2_EEPROM_ADDR	0x15
-+#define MV88E6390_G2_EEPROM_ADDR_MASK	0xffff
-+
- #define GLOBAL2_PTP_AVB_OP	0x16
- #define GLOBAL2_PTP_AVB_DATA	0x17
- 
--- 
-2.13.1
+Acked-by: Vlad Yasevich <vyasevic@redhat.com>
+
+-vlad
+
+> ---
+>  net/ipv4/ip_output.c  | 3 ++-
+>  net/ipv6/ip6_output.c | 2 +-
+>  2 files changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+> index 7a3fd25e8913..532b36e9ce2a 100644
+> --- a/net/ipv4/ip_output.c
+> +++ b/net/ipv4/ip_output.c
+> @@ -964,7 +964,8 @@ static int __ip_append_data(struct sock *sk,
+>  		csummode = CHECKSUM_PARTIAL;
+>  
+>  	cork->length += length;
+> -	if ((((length + fragheaderlen) > mtu) || (skb && skb_is_gso(skb))) &&
+> +	if ((((length + (skb ? skb->len : fragheaderlen)) > mtu) ||
+> +	     (skb && skb_is_gso(skb))) &&
+>  	    (sk->sk_protocol == IPPROTO_UDP) &&
+>  	    (rt->dst.dev->features & NETIF_F_UFO) && !dst_xfrm(&rt->dst) &&
+>  	    (sk->sk_type == SOCK_DGRAM) && !sk->sk_no_check_tx) {
+> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+> index bf8a58a1c32d..1699acb2fa2c 100644
+> --- a/net/ipv6/ip6_output.c
+> +++ b/net/ipv6/ip6_output.c
+> @@ -1390,7 +1390,7 @@ static int __ip6_append_data(struct sock *sk,
+>  	 */
+>  
+>  	cork->length += length;
+> -	if ((((length + fragheaderlen) > mtu) ||
+> +	if ((((length + (skb ? skb->len : headersize)) > mtu) ||
+>  	     (skb && skb_is_gso(skb))) &&
+>  	    (sk->sk_protocol == IPPROTO_UDP) &&
+>  	    (rt->dst.dev->features & NETIF_F_UFO) && !dst_xfrm(&rt->dst) &&
+> 
