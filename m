@@ -1,51 +1,39 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH V2 net-next 1/8] net: hns3: Add support of HNS3 Ethernet
- Driver for hip08 SoC
-Date: Mon, 19 Jun 2017 08:48:01 -0700
-Message-ID: <20170619084801.7920e30d@xeon-e3>
-References: <20170613231035.494020-1-salil.mehta@huawei.com>
-        <20170613231035.494020-2-salil.mehta@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <yisen.zhuang@huawei.com>,
-        <huangdaode@hisilicon.com>, <lipeng321@huawei.com>,
-        <mehta.salil.lnk@gmail.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
-To: Salil Mehta <salil.mehta@huawei.com>
+From: Krzysztof Kozlowski <krzk@kernel.org>
+Subject: [PATCH] dt-bindings: net: sms911x: Add missing optional VDD regulators
+Date: Mon, 19 Jun 2017 18:05:41 +0200
+Message-ID: <20170619160541.5155-1-krzk@kernel.org>
+To: Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Linus Walleij <linus.walleij@linaro.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Krzysztof Kozlowski <krzk@kernel.org>, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170613231035.494020-2-salil.mehta@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 14 Jun 2017 00:10:28 +0100
-Salil Mehta <salil.mehta@huawei.com> wrote:
+The lan911x family of devices require supplying from 3.3 V power
+supplies (connected to VDD_IO, VDD_A and VREG_3.3 pins).  The existing
+driver however obtains only VDD_IO and VDD_A regulators in an optional
+way so document this in bindings.
 
-> +hns3_nic_get_stats64(struct net_device *ndev, struct rtnl_link_stats64 *stats)
-> +{
-> +	struct hns3_nic_priv *priv = netdev_priv(ndev);
-> +	int queue_num = priv->ae_handle->kinfo.num_tqps;
-> +	u64 tx_bytes = 0;
-> +	u64 rx_bytes = 0;
-> +	u64 tx_pkts = 0;
-> +	u64 rx_pkts = 0;
-> +	int idx = 0;
-unnecessary initialization
+Signed-off-by: Krzysztof Kozlowski <krzk@kernel.org>
+---
+ Documentation/devicetree/bindings/net/smsc911x.txt | 1 +
+ 1 file changed, 1 insertion(+)
 
-> +
-> +	for (idx = 0; idx < queue_num; idx++) {
-> +		tx_bytes += priv->ring_data[idx].ring->stats.tx_bytes;
-> +		tx_pkts += priv->ring_data[idx].ring->stats.tx_pkts;
-> +		rx_bytes +=
-> +			priv->ring_data[idx + queue_num].ring->stats.rx_bytes;
-> +		rx_pkts += priv->ring_data[idx + queue_num].ring->stats.rx_pkts;
-> +	}
-> +
-
-Since rx_bytes and other statistics are 64 bit values. You need to use
-something to ensure that updates to these values are atomic on 32 bit
-platforms.  The most common way to handle this is with the u64_stats_sync
-mechanism which is a nop on 64 bit architectures, and uses a seqcount
-to do updates on 32 bit CPU's.
-
-  
+diff --git a/Documentation/devicetree/bindings/net/smsc911x.txt b/Documentation/devicetree/bindings/net/smsc911x.txt
+index 16c3a9501f5d..acfafc8e143c 100644
+--- a/Documentation/devicetree/bindings/net/smsc911x.txt
++++ b/Documentation/devicetree/bindings/net/smsc911x.txt
+@@ -27,6 +27,7 @@ Optional properties:
+   of the device. On many systems this is wired high so the device goes
+   out of reset at power-on, but if it is under program control, this
+   optional GPIO can wake up in response to it.
++- vdd33a-supply, vddvario-supply : 3.3V analog and IO logic power supplies
+ 
+ Examples:
+ 
+-- 
+2.9.3
