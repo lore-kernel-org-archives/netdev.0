@@ -1,118 +1,87 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 5/5] realtek: rtlwifi: drivers: Use the rtl_btc convenience macro
-Date: Mon, 19 Jun 2017 13:18:18 -0700
-Message-ID: <b70dcaa00cc18869fe82894537941693db37be5d.1497903396.git.joe@perches.com>
+Subject: [PATCH 4/5] realtek: btcoexist: Make the rtl_btc_ops struct const
+Date: Mon, 19 Jun 2017 13:18:17 -0700
+Message-ID: <b71e1465b0ca58d748229392ab1bcdbaf65d762d.1497903396.git.joe@perches.com>
 References: <cover.1497903396.git.joe@perches.com>
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+        Chaoming Li <chaoming_li@realsil.com.cn>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1497903396.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Convert the uses of the btcoexist.<funcs> to the rtl_btc macro to
-save a few lines of code.
+Avoid allowing a write into what should be const.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/wireless/realtek/rtlwifi/rtl8192ee/hw.c      | 3 +--
- drivers/net/wireless/realtek/rtlwifi/rtl8723ae/hal_btc.c | 4 +---
- drivers/net/wireless/realtek/rtlwifi/rtl8723ae/hw.c      | 3 +--
- drivers/net/wireless/realtek/rtlwifi/rtl8723be/hw.c      | 3 +--
- drivers/net/wireless/realtek/rtlwifi/rtl8821ae/fw.c      | 6 ++----
- drivers/net/wireless/realtek/rtlwifi/rtl8821ae/hw.c      | 3 +--
- 6 files changed, 7 insertions(+), 15 deletions(-)
+ drivers/net/wireless/realtek/rtlwifi/btcoexist/rtl_btc.c | 4 ++--
+ drivers/net/wireless/realtek/rtlwifi/btcoexist/rtl_btc.h | 2 +-
+ drivers/net/wireless/realtek/rtlwifi/pci.c               | 2 +-
+ drivers/net/wireless/realtek/rtlwifi/wifi.h              | 2 +-
+ 4 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/hw.c b/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/hw.c
-index 11d97fa0e921..9fc3e79e5a43 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/hw.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/hw.c
-@@ -2572,8 +2572,7 @@ void rtl92ee_bt_hw_init(struct ieee80211_hw *hw)
- {
- 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+diff --git a/drivers/net/wireless/realtek/rtlwifi/btcoexist/rtl_btc.c b/drivers/net/wireless/realtek/rtlwifi/btcoexist/rtl_btc.c
+index 3ab0cfe26513..19a95b69255d 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/btcoexist/rtl_btc.c
++++ b/drivers/net/wireless/realtek/rtlwifi/btcoexist/rtl_btc.c
+@@ -29,7 +29,7 @@
+ #include "rtl_btc.h"
+ #include "halbt_precomp.h"
  
--	if (rtlpriv->cfg->ops->get_btc_status())
--		rtlpriv->btcoexist.btc_ops->btc_init_hw_config(rtlpriv);
-+	rtl_btc(rtlpriv, rtlpriv->cfg->ops, btc_init_hw_config(rtlpriv));
+-static struct rtl_btc_ops rtl_btc_operation = {
++static const struct rtl_btc_ops rtl_btc_operation = {
+ 	.btc_init_variables = rtl_btc_init_variables,
+ 	.btc_init_hal_vars = rtl_btc_init_hal_vars,
+ 	.btc_init_hw_config = rtl_btc_init_hw_config,
+@@ -161,7 +161,7 @@ void rtl_btc_special_packet_notify(struct rtl_priv *rtlpriv, u8 pkt_type)
+ 	return exhalbtc_special_packet_notify(&gl_bt_coexist, pkt_type);
  }
  
- void rtl92ee_suspend(struct ieee80211_hw *hw)
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8723ae/hal_btc.c b/drivers/net/wireless/realtek/rtlwifi/rtl8723ae/hal_btc.c
-index ec9bcf32f0ab..8621ea8f6644 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8723ae/hal_btc.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8723ae/hal_btc.c
-@@ -1767,9 +1767,7 @@ void rtl_8723e_c2h_command_handle(struct ieee80211_hw *hw)
+-struct rtl_btc_ops *rtl_btc_get_ops_pointer(void)
++const struct rtl_btc_ops *rtl_btc_get_ops_pointer(void)
+ {
+ 	return &rtl_btc_operation;
+ }
+diff --git a/drivers/net/wireless/realtek/rtlwifi/btcoexist/rtl_btc.h b/drivers/net/wireless/realtek/rtlwifi/btcoexist/rtl_btc.h
+index fff5117e1c4e..83c5bb2d6ad8 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/btcoexist/rtl_btc.h
++++ b/drivers/net/wireless/realtek/rtlwifi/btcoexist/rtl_btc.h
+@@ -44,7 +44,7 @@ bool rtl_btc_is_disable_edca_turbo(struct rtl_priv *rtlpriv);
+ bool rtl_btc_is_bt_disabled(struct rtl_priv *rtlpriv);
+ void rtl_btc_special_packet_notify(struct rtl_priv *rtlpriv, u8 pkt_type);
  
- 		rtl8723e_dm_bt_parse_bt_info(hw, ptmp_buf, c2h_event.cmd_len);
+-struct rtl_btc_ops *rtl_btc_get_ops_pointer(void);
++const struct rtl_btc_ops *rtl_btc_get_ops_pointer(void);
  
--		if (rtlpriv->cfg->ops->get_btc_status())
--			rtlpriv->btcoexist.btc_ops->btc_periodical(rtlpriv);
--
-+		rtl_btc(rtlpriv, rtlpriv->cfg->ops, btc_periodical(rtlpriv));
- 		break;
- 	default:
- 		break;
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8723ae/hw.c b/drivers/net/wireless/realtek/rtlwifi/rtl8723ae/hw.c
-index 5ac7b815648a..3b6d140bb863 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8723ae/hw.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8723ae/hw.c
-@@ -2419,8 +2419,7 @@ void rtl8723e_bt_hw_init(struct ieee80211_hw *hw)
+ u8 rtl_get_hwpg_bt_exist(struct rtl_priv *rtlpriv);
+ u8 rtl_get_hwpg_bt_type(struct rtl_priv *rtlpriv);
+diff --git a/drivers/net/wireless/realtek/rtlwifi/pci.c b/drivers/net/wireless/realtek/rtlwifi/pci.c
+index fa93401acdab..8000894c4212 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/pci.c
++++ b/drivers/net/wireless/realtek/rtlwifi/pci.c
+@@ -1814,7 +1814,7 @@ static int rtl_pci_start(struct ieee80211_hw *hw)
  {
  	struct rtl_priv *rtlpriv = rtl_priv(hw);
+ 	struct rtl_hal_ops *ops = rtlpriv->cfg->ops;
+-	struct rtl_btc_ops *btc_ops = rtlpriv->btcoexist.btc_ops;
++	const struct rtl_btc_ops *btc_ops = rtlpriv->btcoexist.btc_ops;
+ 	struct rtl_hal *rtlhal = rtl_hal(rtl_priv(hw));
+ 	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
+ 	struct rtl_ps_ctl *ppsc = rtl_psc(rtl_priv(hw));
+diff --git a/drivers/net/wireless/realtek/rtlwifi/wifi.h b/drivers/net/wireless/realtek/rtlwifi/wifi.h
+index 9a916188a703..d03f0ca92530 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/wifi.h
++++ b/drivers/net/wireless/realtek/rtlwifi/wifi.h
+@@ -2475,7 +2475,7 @@ struct rtl_btc_info {
+ };
  
--	if (rtlpriv->cfg->ops->get_btc_status())
--		rtlpriv->btcoexist.btc_ops->btc_init_hw_config(rtlpriv);
-+	rtl_btc(rtlpriv, rtlpriv->cfg->ops, btc_init_hw_config(rtlpriv));
- }
- 
- void rtl8723e_suspend(struct ieee80211_hw *hw)
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8723be/hw.c b/drivers/net/wireless/realtek/rtlwifi/rtl8723be/hw.c
-index a79f936bb394..bddc4f56832d 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8723be/hw.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8723be/hw.c
-@@ -2719,8 +2719,7 @@ void rtl8723be_bt_hw_init(struct ieee80211_hw *hw)
- {
- 	struct rtl_priv *rtlpriv = rtl_priv(hw);
- 
--	if (rtlpriv->cfg->ops->get_btc_status())
--		rtlpriv->btcoexist.btc_ops->btc_init_hw_config(rtlpriv);
-+	rtl_btc(rtlpriv, rtlpriv->cfg->ops, btc_init_hw_config(rtlpriv));
- 
- }
- 
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/fw.c b/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/fw.c
-index 73350103b736..a7a537716a8e 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/fw.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/fw.c
-@@ -1879,10 +1879,8 @@ void rtl8821ae_c2h_content_parsing(struct ieee80211_hw *hw,
- 	case C2H_8812_BT_INFO:
- 		RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD,
- 			 "[C2H], C2H_8812_BT_INFO!!\n");
--		if (rtlpriv->cfg->ops->get_btc_status())
--			rtlpriv->btcoexist.btc_ops->btc_btinfo_notify(rtlpriv,
--								      tmp_buf,
--								      c2h_cmd_len);
-+		rtl_btc(rtlpriv, rtlpriv->cfg->ops,
-+			btc_btinfo_notify(rtlpriv, tmp_buf, c2h_cmd_len));
- 		break;
- 	default:
- 		break;
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/hw.c b/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/hw.c
-index 2bc6bace069c..f76c64570d16 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/hw.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/hw.c
-@@ -4012,8 +4012,7 @@ void rtl8821ae_bt_hw_init(struct ieee80211_hw *hw)
- {
- 	struct rtl_priv *rtlpriv = rtl_priv(hw);
- 
--	if (rtlpriv->cfg->ops->get_btc_status())
--		rtlpriv->btcoexist.btc_ops->btc_init_hw_config(rtlpriv);
-+	rtl_btc(rtlpriv, rtlpriv->cfg->ops, btc_init_hw_config(rtlpriv));
- }
- 
- void rtl8821ae_suspend(struct ieee80211_hw *hw)
+ struct bt_coexist_info {
+-	struct rtl_btc_ops *btc_ops;
++	const struct rtl_btc_ops *btc_ops;
+ 	struct rtl_btc_info btc_info;
+ 	/* EEPROM BT info. */
+ 	u8 eeprom_bt_coexist;
 -- 
 2.10.0.rc2.1.g053435c
