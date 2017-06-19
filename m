@@ -1,113 +1,71 @@
-From: Govindarajulu Varadarajan <gvaradar@cisco.com>
-Subject: [PATCH net-next v2] enic: Fix format truncation warning
-Date: Mon, 19 Jun 2017 16:28:44 -0700
-Message-ID: <20170619232844.34916-1-gvaradar@cisco.com>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [RFC net-next 5/8] nfp: bpf: take a reference on offloaded
+ programs
+Date: Mon, 19 Jun 2017 16:34:41 -0700
+Message-ID: <20170619163441.17c29f77@cakuba.netronome.com>
+References: <20170616235746.16337-1-jakub.kicinski@netronome.com>
+        <20170616235746.16337-6-jakub.kicinski@netronome.com>
+        <59485CD9.10003@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: benve@cisco.com, Govindarajulu Varadarajan <gvaradar@cisco.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, kafai@fb.com,
+        brouer@redhat.com, oss-drivers@netronome.com
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alln-iport-5.cisco.com ([173.37.142.92]:19353 "EHLO
-        alln-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752289AbdFSX3u (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 19:29:50 -0400
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:35618 "EHLO
+        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752289AbdFSXeo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 19:34:44 -0400
+Received: by mail-pf0-f172.google.com with SMTP id c73so584253pfk.2
+        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 16:34:44 -0700 (PDT)
+In-Reply-To: <59485CD9.10003@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With -Wformat-truncation, gcc throws the following warning.
+On Tue, 20 Jun 2017 01:23:05 +0200, Daniel Borkmann wrote:
+> On 06/17/2017 01:57 AM, Jakub Kicinski wrote:
+> > The xdp_prog member of the adapter's data path structure is used
+> > for XDP in driver mode.  In case a XDP program is loaded with in
+> > HW-only mode, we need to store it somewhere else.  Add a new XDP
+> > prog pointer in the main structure and use that when we need to
+> > know whether any XDP program is loaded, not only a driver mode
+> > one.  Only release our reference on adapter free instead of
+> > immediately after netdev unregister to allow offload to be disabled
+> > first.
+> >
+> > Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>  
+> [...]
+> > @@ -3327,6 +3323,10 @@ nfp_net_xdp_setup(struct nfp_net *nn, struct bpf_prog 
+> >   		return err;
+> >
+> >   	nfp_app_xdp_offload(nn->app, nn, offload_prog);
+> > +
+> > +	if (nn->xdp_prog)
+> > +		bpf_prog_put(nn->xdp_prog);
+> > +	nn->xdp_prog = prog;
+> >   	nn->xdp_flags = flags;
+> >
+> >   	return 0;  
+> 
+> Can you elaborate on the extra reference on the prog? 
 
-Fix this by increasing the size of devname to accommodate 15 character
-netdev interface name and description.
+Sorry, this patch went through a few revisions and the subject doesn't
+express the intent too well any more :S  Originally it was about making
+sure we have a reference on the program when it's offloaded but not
+loaded in the driver, but I realized the we have the reference from 
+dev_change_xdp_fd() already, so now the patch just releases the
+reference on the offloaded program.
 
-Remove length format precision for %s. We can fit entire name.
+> So in nfp_net_xdp_setup(), assuming a prog was already loaded on
+> driver side: after your set, nfp_net_xdp_setup_drv() will then
+> do the xchg() on nn->dp.xdp_prog, bpf_prog_put() this one and
+> later back in nfp_net_xdp_setup() we check nn->xdp_prog and
+> bpf_prog_put() it if it existed before and update nn->xdp_prog
+> to the current prog. So you end up with two puts on the same
+> program, but I don't see where you take the one additional ref
+> aside from the ref that you already get from dev_change_xdp_fd().
+> What am I missing?
 
-Also increment the version.
-
-drivers/net/ethernet/cisco/enic/enic_main.c: In function ‘enic_open’:
-drivers/net/ethernet/cisco/enic/enic_main.c:1740:15: warning: ‘%u’ directive output may be truncated writing between 1 and 2 bytes into a region of size between 1 and 12 [-Wformat-truncation=]
-     "%.11s-rx-%u", netdev->name, i);
-               ^~
-drivers/net/ethernet/cisco/enic/enic_main.c:1740:5: note: directive argument in the range [0, 16]
-     "%.11s-rx-%u", netdev->name, i);
-     ^~~~~~~~~~~~~
-drivers/net/ethernet/cisco/enic/enic_main.c:1738:4: note: ‘snprintf’ output between 6 and 18 bytes into a destination of size 16
-    snprintf(enic->msix[intr].devname,
-    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     sizeof(enic->msix[intr].devname),
-     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     "%.11s-rx-%u", netdev->name, i);
-     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Signed-off-by: Govindarajulu Varadarajan <gvaradar@cisco.com>
----
-v2: dont use kasprintf, increase the devname size
-    http://patchwork.ozlabs.org/patch/777568/
-
- drivers/net/ethernet/cisco/enic/enic.h      | 4 ++--
- drivers/net/ethernet/cisco/enic/enic_main.c | 8 ++++----
- 2 files changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
-index 2b23f46b34d3..ba032ac9ae86 100644
---- a/drivers/net/ethernet/cisco/enic/enic.h
-+++ b/drivers/net/ethernet/cisco/enic/enic.h
-@@ -33,7 +33,7 @@
- 
- #define DRV_NAME		"enic"
- #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
--#define DRV_VERSION		"2.3.0.31"
-+#define DRV_VERSION		"2.3.0.42"
- #define DRV_COPYRIGHT		"Copyright 2008-2013 Cisco Systems, Inc"
- 
- #define ENIC_BARS_MAX		6
-@@ -47,7 +47,7 @@
- 
- struct enic_msix_entry {
- 	int requested;
--	char devname[IFNAMSIZ];
-+	char devname[IFNAMSIZ + 8];
- 	irqreturn_t (*isr)(int, void *);
- 	void *devid;
- 	cpumask_var_t affinity_mask;
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index 6a9c8878aca0..d24ee1ad3be1 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -1737,7 +1737,7 @@ static int enic_request_intr(struct enic *enic)
- 			intr = enic_msix_rq_intr(enic, i);
- 			snprintf(enic->msix[intr].devname,
- 				sizeof(enic->msix[intr].devname),
--				"%.11s-rx-%u", netdev->name, i);
-+				"%s-rx-%u", netdev->name, i);
- 			enic->msix[intr].isr = enic_isr_msix;
- 			enic->msix[intr].devid = &enic->napi[i];
- 		}
-@@ -1748,7 +1748,7 @@ static int enic_request_intr(struct enic *enic)
- 			intr = enic_msix_wq_intr(enic, i);
- 			snprintf(enic->msix[intr].devname,
- 				sizeof(enic->msix[intr].devname),
--				"%.11s-tx-%u", netdev->name, i);
-+				"%s-tx-%u", netdev->name, i);
- 			enic->msix[intr].isr = enic_isr_msix;
- 			enic->msix[intr].devid = &enic->napi[wq];
- 		}
-@@ -1756,14 +1756,14 @@ static int enic_request_intr(struct enic *enic)
- 		intr = enic_msix_err_intr(enic);
- 		snprintf(enic->msix[intr].devname,
- 			sizeof(enic->msix[intr].devname),
--			"%.11s-err", netdev->name);
-+			"%s-err", netdev->name);
- 		enic->msix[intr].isr = enic_isr_msix_err;
- 		enic->msix[intr].devid = enic;
- 
- 		intr = enic_msix_notify_intr(enic);
- 		snprintf(enic->msix[intr].devname,
- 			sizeof(enic->msix[intr].devname),
--			"%.11s-notify", netdev->name);
-+			"%s-notify", netdev->name);
- 		enic->msix[intr].isr = enic_isr_msix_notify;
- 		enic->msix[intr].devid = enic;
- 
--- 
-2.13.1
+You are right, I missed there were two spots where I was doing a
+bpf_prog_put() in nfp_net_xdp_setup_drv(), thanks!
