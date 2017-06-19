@@ -1,90 +1,45 @@
-From: Jason Lixfeld <jason@lixfeld.ca>
-Subject: Re: [Bug 196093] New: dot1q S-VLAN frame on dot1ad configured
- interface is accepted
-Date: Mon, 19 Jun 2017 11:57:09 -0400
-Message-ID: <103FD5F2-1506-4B54-A3A3-A533F39496D7@lixfeld.ca>
-References: <20170616084001.711f687c@xeon-e3>
- <23a32c50-a3e5-7b9e-43f1-04f835be2059@lab.ntt.co.jp>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        jason-kernelbugzilla@lixfeld.ca
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 3/4] s390/diag: add diag26c support
+Date: Mon, 19 Jun 2017 13:37:43 -0400 (EDT)
+Message-ID: <20170619.133743.1638444891079509192.davem@davemloft.net>
+References: <20170619112225.30471-4-jwi@linux.vnet.ibm.com>
+        <20170619.104726.1778743929564587843.davem@davemloft.net>
+        <20170619173425.4d537667@mschwideX1>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jwi@linux.vnet.ibm.com, netdev@vger.kernel.org,
+        linux-s390@vger.kernel.org, heiko.carstens@de.ibm.com,
+        raspl@linux.vnet.ibm.com, ubraun@linux.vnet.ibm.com
+To: schwidefsky@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting1.tor1.ariohosts.ca ([158.85.85.179]:36911 "EHLO
-        hosting1.tor1.ariohosts.ca" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750990AbdFSRLE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 13:11:04 -0400
-In-Reply-To: <23a32c50-a3e5-7b9e-43f1-04f835be2059@lab.ntt.co.jp>
+Received: from shards.monkeyblade.net ([184.105.139.130]:35090 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750952AbdFSRhr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 13:37:47 -0400
+In-Reply-To: <20170619173425.4d537667@mschwideX1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Confirmed.  Works with 1.8.1-3 on Debian via unstable.
+From: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Date: Mon, 19 Jun 2017 17:34:25 +0200
 
-> On Jun 18, 2017, at 10:35 PM, Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp> wrote:
-> 
-> Hi,
-> 
-> On 2017/06/17 0:40, Stephen Hemminger wrote:
->> I suspect that VLAN offload on this Intel NIC is allowing any of the VLAN types.
->> 
->> Begin forwarded message:
->> 
->> Date: Fri, 16 Jun 2017 15:33:35 +0000
->> From: bugzilla-daemon@bugzilla.kernel.org
->> To: stephen@networkplumber.org
->> Subject: [Bug 196093] New: dot1q S-VLAN frame on dot1ad configured interface is accepted
->> 
->> 
->> https://bugzilla.kernel.org/show_bug.cgi?id=196093
->> 
->>            Bug ID: 196093
->>           Summary: dot1q S-VLAN frame on dot1ad configured interface is
->>                    accepted
->>           Product: Networking
->>           Version: 2.5
->>    Kernel Version: 3.16.0 and 4.9.0
->>          Hardware: Intel
->>                OS: Linux
->>              Tree: Mainline
->>            Status: NEW
->>          Severity: normal
->>          Priority: P1
->>         Component: Other
->>          Assignee: stephen@networkplumber.org
->>          Reporter: jason-kernelbugzilla@lixfeld.ca
->>        Regression: No
->> 
->> Using the following configuration on an Intel 82599 port.  Tested in Debian 8
->> with Kernel 3.16.0 and 4.9.0:
->> 
->> ip link set dev eth4 up
->> ip link add link eth4 eth4.100ad type vlan proto 802.1ad id 100
->> ip link add link eth4.100ad eth4.100ad.10q type vlan proto 802.1Q id 10
->> ip link set dev eth4 netns nni-ad
->> ip link set dev eth4.100ad netns nni-ad
->> ip link set dev eth4.100ad.10q netns nni-ad
->> ip netns exec nni-ad ip link set dev eth4 up
->> ip netns exec nni-ad ip link set dev eth4.100ad up
->> ip netns exec nni-ad ip link set dev eth4.100ad.10q up
->> ip netns exec nni-ad ip addr add 10.4.100.10/8 dev eth4.100ad.10q
->> 
->> Ping to 10.4.100.10 while doing tcpdump on eth4 shows the frame has ether type
->> 0x8100 (dot1q) on the S-VLAN, not 0x88a8 (dot1ad), yet the frame is still
-> 
-> libpcap was not reliable in vlan protocol parsing.
-> https://github.com/the-tcpdump-group/libpcap/pull/346
-> AFAIK libpcap 1.7.2 is required to parse it correctly.
-> 
->> accepted, and an echo reply is generated.
->> 
->> The echo reply has the correct ethertype on the S-VLAN (0x88a8).  My
->> understanding is that if the frame received on the wire does not match the
->> ether type of the configured interface, the frame should be dropped?
-> 
-> Yes, it should.
-> 
-> Toshiaki Makita
-> 
+> We (as in the s390 guys) tend to add __packed to hardware and hypervisor
+> structures even if the attribute is not strictly necessary. Most of the
+> diagnose related structures look that way. Dunno if it is worth to change
+> them.
+
+It causes gcc to generate bad code on certain platforms (yes, probably not
+yours) and is in general something to avoid.
+
+Please do not use __packed unless absolutely necessary.
+
+> The diag26c struct needs to be aligned on a doubleword boundary, the
+> __aligned(8) is necessary.
+
+That's fine.
+
+> The __packed attribute is again superfluous but follows along the
+> lines of the other diag structures.
+
+Please remove it.
