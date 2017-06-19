@@ -1,35 +1,40 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [RFC net-next 2/8] xdp: add HW offload mode flag for installing
- programs
-Date: Tue, 20 Jun 2017 01:36:21 +0200
-Message-ID: <59485FF5.7010308@iogearbox.net>
-References: <20170616235746.16337-1-jakub.kicinski@netronome.com>       <20170616235746.16337-3-jakub.kicinski@netronome.com>   <5948566D.40803@iogearbox.net> <20170619162455.466ca63e@cakuba.netronome.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next 0/1] Introduction of the tc tests
+Date: Mon, 19 Jun 2017 16:37:29 -0700
+Message-ID: <CAM_iQpUxfGrLTv+8J_=n2-zOOd5fqwrNSvF7Ro1EyRyBBNb_8w@mail.gmail.com>
+References: <1497648155-25521-1-git-send-email-lucasb@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kafai@fb.com,
-        oss-drivers@netronome.com, brouer@redhat.com
-To: Jakub Kicinski <kubakici@wp.pl>
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Jiri Pirko <jiri@resnulli.us>, Roman Mashak <mrv@mojatatu.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Lucas Bates <lucasb@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:60917 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752289AbdFSXg3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 19:36:29 -0400
-In-Reply-To: <20170619162455.466ca63e@cakuba.netronome.com>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33220 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752546AbdFSXhv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 19:37:51 -0400
+Received: by mail-wm0-f68.google.com with SMTP id f90so19651992wmh.0
+        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 16:37:50 -0700 (PDT)
+In-Reply-To: <1497648155-25521-1-git-send-email-lucasb@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/20/2017 01:24 AM, Jakub Kicinski wrote:
-[...]
-> The XDP_SETUP_PROG_HW command is purely for convenience of drivers
-> without an offload.  I felt it's not appropriate to burden all drivers
-> with:
->
-> if (xdp->flags & XDP_FLAGS_HW_MODE)
-> 	return -EOPNOTSUPP;
->
-> But, I do have a patch which does it, so I'm happy to drop the new
-> command if it's preferred.
+Hi,
 
-Ahh, that makes sense, yep. I was only focused on reviewing this in
-the context of nfp driver. Lack of coffee. ;)
+On Fri, Jun 16, 2017 at 2:22 PM, Lucas Bates <lucasb@mojatatu.com> wrote:
+> Apologies for sending this as one big patch. I've been sitting on this a little
+> too long, but it's ready and I wanted to get it out.
+>
+> There are a limited number of tests to start - I plan to add more on a regular
+> basis.
+>
+> Lucas Bates (1):
+>   selftests: Introduce tc testsuite
+
+Nice work!
+
+Is there any particular reason you want to put these tests in kernel tree
+especially tools/testing/selftests/ ?
