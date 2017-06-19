@@ -1,84 +1,35 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH net] net: account for current skb length when deciding about
- UFO
-Date: Mon, 19 Jun 2017 13:03:43 +0200 (CEST)
-Message-ID: <20170619110343.7CB5EA1377@unicorn.suse.cz>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Ananda Raju <ananda.raju@neterion.com>,
-        Zheng Li <james.z.li@ericsson.com>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+Subject: Re: [PATCH 03/11] au1100fb: remove a bogus dma_free_nonconsistent
+ call
+Date: Mon, 19 Jun 2017 13:15:04 +0200
+Message-ID: <8727942.IUH8e0tH8t@amdc3058>
+References: <20170616071716.17321-1-hch@lst.de>
+        <20170616071716.17321-4-hch@lst.de>
+        <CGME20170619111507epcas5p47fd18b90a02d827da256ff4ebbda8089@epcas5p4.samsung.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-scsi@vger.kernel.org, linux-serial@vger.kernel.org,
+        netdev@vger.kernel.org, linux-metag@vger.kernel.org,
+        nios2-dev@lists.rocketboards.org, linux-fbdev@vger.kernel.org,
+        alsa-devel@alsa-project.org, linux-kernel@vger.kernel.org
+To: Christoph Hellwig <hch@lst.de>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-reply-to: <20170616071716.17321-4-hch@lst.de>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Our customer encountered stuck NFS writes for blocks starting at specific
-offsets w.r.t. page boundary caused by networking stack sending packets via
-UFO enabled device with wrong checksum. The problem can be reproduced by
-composing a long UDP datagram from multiple parts using MSG_MORE flag:
+On Friday, June 16, 2017 09:17:08 AM Christoph Hellwig wrote:
+> au1100fb is using managed dma allocations, so it doesn't need to
+> explicitly free the dma memory in the error path (and if it did
+> it would have to use the managed version).
+> 
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
 
-  sendto(sd, buff, 1000, MSG_MORE, ...);
-  sendto(sd, buff, 1000, MSG_MORE, ...);
-  sendto(sd, buff, 3000, 0, ...);
+Acked-by: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
 
-Assume this packet is to be routed via a device with MTU 1500 and
-NETIF_F_UFO enabled. When second sendto() gets into __ip_append_data(),
-this condition is tested (among others) to decide whether to call
-ip_ufo_append_data():
-
-  ((length + fragheaderlen) > mtu) || (skb && skb_is_gso(skb))
-
-At the moment, we already have skb with 1028 bytes of data which is not
-marked for GSO so that the test is false (fragheaderlen is usually 20).
-Thus we append second 1000 bytes to this skb without invoking UFO. Third
-sendto(), however, has sufficient length to trigger the UFO path so that we
-end up with non-UFO skb followed by a UFO one. Later on, udp_send_skb()
-uses udp_csum() to calculate the checksum but that assumes all fragments
-have correct checksum in skb->csum which is not true for UFO fragments.
-
-When checking against MTU, we need to add skb->len to length of new segment
-if we already have a partially filled skb and fragheaderlen only if there
-isn't one.
-
-In the IPv6 case, skb can only be null if this is the first segment so that
-we have to use headersize (length of the first IPv6 header) rather than
-fragheaderlen (length of IPv6 header of further fragments) for skb == NULL.
-
-Fixes: e89e9cf539a2 ("[IPv4/IPv6]: UFO Scatter-gather approach")
-Fixes: e4c5e13aa45c ("ipv6: Should use consistent conditional judgement for
-	ip6 fragment between __ip6_append_data and ip6_finish_output")
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
----
- net/ipv4/ip_output.c  | 3 ++-
- net/ipv6/ip6_output.c | 2 +-
- 2 files changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 7a3fd25e8913..532b36e9ce2a 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -964,7 +964,8 @@ static int __ip_append_data(struct sock *sk,
- 		csummode = CHECKSUM_PARTIAL;
- 
- 	cork->length += length;
--	if ((((length + fragheaderlen) > mtu) || (skb && skb_is_gso(skb))) &&
-+	if ((((length + (skb ? skb->len : fragheaderlen)) > mtu) ||
-+	     (skb && skb_is_gso(skb))) &&
- 	    (sk->sk_protocol == IPPROTO_UDP) &&
- 	    (rt->dst.dev->features & NETIF_F_UFO) && !dst_xfrm(&rt->dst) &&
- 	    (sk->sk_type == SOCK_DGRAM) && !sk->sk_no_check_tx) {
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index bf8a58a1c32d..1699acb2fa2c 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1390,7 +1390,7 @@ static int __ip6_append_data(struct sock *sk,
- 	 */
- 
- 	cork->length += length;
--	if ((((length + fragheaderlen) > mtu) ||
-+	if ((((length + (skb ? skb->len : headersize)) > mtu) ||
- 	     (skb && skb_is_gso(skb))) &&
- 	    (sk->sk_protocol == IPPROTO_UDP) &&
- 	    (rt->dst.dev->features & NETIF_F_UFO) && !dst_xfrm(&rt->dst) &&
--- 
-2.13.1
+Best regards,
+--
+Bartlomiej Zolnierkiewicz
+Samsung R&D Institute Poland
+Samsung Electronics
