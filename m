@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cxgb4: fix a NULL dereference
-Date: Mon, 19 Jun 2017 00:02:41 -0400 (EDT)
-Message-ID: <20170619.000241.140276409473549816.davem@davemloft.net>
-References: <1497607569-7273-1-git-send-email-ganeshgr@chelsio.com>
+Subject: Re: pull-request: mac80211 2017-06-16
+Date: Mon, 19 Jun 2017 00:05:21 -0400 (EDT)
+Message-ID: <20170619.000521.1966902961112226460.davem@davemloft.net>
+References: <20170616071936.4515-1-johannes@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nirranjan@chelsio.com,
-        indranil@chelsio.com, venkatesh@chelsio.com
-To: ganeshgr@chelsio.com
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44478 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:44490 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750790AbdFSECn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 00:02:43 -0400
-In-Reply-To: <1497607569-7273-1-git-send-email-ganeshgr@chelsio.com>
+        with ESMTP id S1750790AbdFSEFi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 00:05:38 -0400
+In-Reply-To: <20170616071936.4515-1-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Date: Fri, 16 Jun 2017 15:36:09 +0530
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Fri, 16 Jun 2017 09:19:35 +0200
 
-> Avoid NULL dereference in setup_sge_queues() when the adapter is
-> in non offload mode.
+> Here I just have the cleanups with the fix for that ancient bug
+> I sent the RFC patches for.
 > 
-> Fixes: 0fbc81b3ad51 ('chcr/cxgb4i/cxgbit/RDMA/cxgb4: Allocate resources dynamically for all cxgb4 ULD's')
-> Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+> Please pull and let me know if there's any problem.
 
-Applied.
+Pulled, thanks Johannes.
