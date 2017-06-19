@@ -1,7 +1,7 @@
 From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
-Subject: [PATCH net-next 2/4] s390/qeth: fix packing buffer statistics
-Date: Mon, 19 Jun 2017 13:22:23 +0200
-Message-ID: <20170619112225.30471-3-jwi@linux.vnet.ibm.com>
+Subject: [PATCH net-next 3/4] s390/diag: add diag26c support
+Date: Mon, 19 Jun 2017 13:22:24 +0200
+Message-ID: <20170619112225.30471-4-jwi@linux.vnet.ibm.com>
 References: <20170619112225.30471-1-jwi@linux.vnet.ibm.com>
 Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
         Martin Schwidefsky <schwidefsky@de.ibm.com>,
@@ -11,83 +11,135 @@ Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
         Julian Wiedmann <jwi@linux.vnet.ibm.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:58785 "EHLO
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:51478 "EHLO
         mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753894AbdFSLWn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 07:22:43 -0400
-Received: from pps.filterd (m0098393.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5JBKPjT138460
-        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 07:22:42 -0400
-Received: from e06smtp10.uk.ibm.com (e06smtp10.uk.ibm.com [195.75.94.106])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2b6chcc0r9-1
+        by vger.kernel.org with ESMTP id S1753905AbdFSLWo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 07:22:44 -0400
+Received: from pps.filterd (m0098410.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5JBJo0C059403
+        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 07:22:44 -0400
+Received: from e06smtp13.uk.ibm.com (e06smtp13.uk.ibm.com [195.75.94.109])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2b6d8jsj41-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 07:22:42 -0400
+        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 07:22:44 -0400
 Received: from localhost
-        by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e06smtp13.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <jwi@linux.vnet.ibm.com>;
-        Mon, 19 Jun 2017 12:22:39 +0100
+        Mon, 19 Jun 2017 12:22:41 +0100
 In-Reply-To: <20170619112225.30471-1-jwi@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There's two spots in qeth_send_packet() where we don't accurately
-account for transmitted packing buffers in qeth's performance
-statistics:
+Implement support for the hypervisor diagnose 0x26c
+('Access Certain System Information').
+It passes a request buffer and a subfunction code, and receives
+a response buffer and a return code.
 
-1) when flushing the current buffer due to insufficient size,
-   and the next buffer is not EMPTY, we need to account for that
-   flushed buffer.
-2) when synchronizing with the TX completion code, we reset
-   flush_count and thus forget to account for any previously
-   flushed buffers.
+Also add the scaffolding for the 'MAC Services' subfunction.
+It may be used by network devices to obtain a hypervisor-managed
+MAC address.
 
-Reported-by: Nils Hoppmann <niho@de.ibm.com>
 Signed-off-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+Acked-by: Heiko Carstens <heiko.carstens@de.ibm.com>
 ---
- drivers/s390/net/qeth_core_main.c | 17 ++++++++++-------
- 1 file changed, 10 insertions(+), 7 deletions(-)
+ arch/s390/include/asm/diag.h | 26 ++++++++++++++++++++++++++
+ arch/s390/kernel/diag.c      | 29 +++++++++++++++++++++++++++++
+ 2 files changed, 55 insertions(+)
 
-diff --git a/drivers/s390/net/qeth_core_main.c b/drivers/s390/net/qeth_core_main.c
-index 08338f27c82c..13a55f1dee7a 100644
---- a/drivers/s390/net/qeth_core_main.c
-+++ b/drivers/s390/net/qeth_core_main.c
-@@ -4103,7 +4103,8 @@ int qeth_do_send_packet(struct qeth_card *card, struct qeth_qdio_out_q *queue,
- 							   flush_count);
- 				atomic_set(&queue->state,
- 						QETH_OUT_Q_UNLOCKED);
--				return -EBUSY;
-+				rc = -EBUSY;
-+				goto out;
- 			}
- 		}
- 	}
-@@ -4122,19 +4123,21 @@ int qeth_do_send_packet(struct qeth_card *card, struct qeth_qdio_out_q *queue,
- 	 * In that case we will enter this loop
- 	 */
- 	while (atomic_dec_return(&queue->state)) {
--		flush_count = 0;
- 		start_index = queue->next_buf_to_fill;
- 		/* check if we can go back to non-packing state */
--		flush_count += qeth_switch_to_nonpacking_if_needed(queue);
-+		tmp = qeth_switch_to_nonpacking_if_needed(queue);
- 		/*
- 		 * check if we need to flush a packing buffer to get a pci
- 		 * flag out on the queue
- 		 */
--		if (!flush_count && !atomic_read(&queue->set_pci_flags_count))
--			flush_count += qeth_prep_flush_pack_buffer(queue);
--		if (flush_count)
--			qeth_flush_buffers(queue, start_index, flush_count);
-+		if (!tmp && !atomic_read(&queue->set_pci_flags_count))
-+			tmp = qeth_prep_flush_pack_buffer(queue);
-+		if (tmp) {
-+			qeth_flush_buffers(queue, start_index, tmp);
-+			flush_count += tmp;
-+		}
- 	}
-+out:
- 	/* at this point the queue is UNLOCKED again */
- 	if (queue->card->options.performance_stats && do_pack)
- 		queue->card->perf_stats.bufs_sent_pack += flush_count;
+diff --git a/arch/s390/include/asm/diag.h b/arch/s390/include/asm/diag.h
+index 8acf482162ed..96abd80528fc 100644
+--- a/arch/s390/include/asm/diag.h
++++ b/arch/s390/include/asm/diag.h
+@@ -8,6 +8,7 @@
+ #ifndef _ASM_S390_DIAG_H
+ #define _ASM_S390_DIAG_H
+ 
++#include <linux/if_ether.h>
+ #include <linux/percpu.h>
+ 
+ enum diag_stat_enum {
+@@ -24,6 +25,7 @@ enum diag_stat_enum {
+ 	DIAG_STAT_X224,
+ 	DIAG_STAT_X250,
+ 	DIAG_STAT_X258,
++	DIAG_STAT_X26C,
+ 	DIAG_STAT_X288,
+ 	DIAG_STAT_X2C4,
+ 	DIAG_STAT_X2FC,
+@@ -225,6 +227,30 @@ struct diag204_x_phys_block {
+ 	struct diag204_x_phys_cpu cpus[];
+ } __packed;
+ 
++enum diag26c_sc {
++	DIAG26C_MAC_SERVICES = 0x00000030
++};
++
++enum diag26c_version {
++	DIAG26C_VERSION2 = 0x00000002	/* z/VM 5.4.0 */
++};
++
++#define DIAG26C_GET_MAC	0x0000
++struct diag26c_mac_req {
++	u32	resp_buf_len;
++	u32	resp_version;
++	u16	op_code;
++	u16	devno;
++	u8	res[4];
++} __packed;
++
++struct diag26c_mac_resp {
++	u32	version;
++	u8	mac[ETH_ALEN];
++	u16	res;
++} __packed __aligned(8);
++
+ int diag204(unsigned long subcode, unsigned long size, void *addr);
+ int diag224(void *ptr);
++int diag26c(void *req, void *resp, enum diag26c_sc subcode);
+ #endif /* _ASM_S390_DIAG_H */
+diff --git a/arch/s390/kernel/diag.c b/arch/s390/kernel/diag.c
+index ac6abcd3fe6a..349914571772 100644
+--- a/arch/s390/kernel/diag.c
++++ b/arch/s390/kernel/diag.c
+@@ -38,6 +38,7 @@ static const struct diag_desc diag_map[NR_DIAG_STAT] = {
+ 	[DIAG_STAT_X224] = { .code = 0x224, .name = "EBCDIC-Name Table" },
+ 	[DIAG_STAT_X250] = { .code = 0x250, .name = "Block I/O" },
+ 	[DIAG_STAT_X258] = { .code = 0x258, .name = "Page-Reference Services" },
++	[DIAG_STAT_X26C] = { .code = 0x26c, .name = "Certain System Information" },
+ 	[DIAG_STAT_X288] = { .code = 0x288, .name = "Time Bomb" },
+ 	[DIAG_STAT_X2C4] = { .code = 0x2c4, .name = "FTP Services" },
+ 	[DIAG_STAT_X2FC] = { .code = 0x2fc, .name = "Guest Performance Data" },
+@@ -236,3 +237,31 @@ int diag224(void *ptr)
+ 	return rc;
+ }
+ EXPORT_SYMBOL(diag224);
++
++/*
++ * Diagnose 26C: Access Certain System Information
++ */
++static inline int __diag26c(void *req, void *resp, enum diag26c_sc subcode)
++{
++	register unsigned long _req asm("2") = (addr_t) req;
++	register unsigned long _resp asm("3") = (addr_t) resp;
++	register unsigned long _subcode asm("4") = subcode;
++	register unsigned long _rc asm("5") = -EOPNOTSUPP;
++
++	asm volatile(
++		"	sam31\n"
++		"	diag	%[rx],%[ry],0x26c\n"
++		"0:	sam64\n"
++		EX_TABLE(0b,0b)
++		: "+d" (_rc)
++		: [rx] "d" (_req), "d" (_resp), [ry] "d" (_subcode)
++		: "cc", "memory");
++	return _rc;
++}
++
++int diag26c(void *req, void *resp, enum diag26c_sc subcode)
++{
++	diag_stat_inc(DIAG_STAT_X26C);
++	return __diag26c(req, resp, subcode);
++}
++EXPORT_SYMBOL(diag26c);
 -- 
 2.11.2
