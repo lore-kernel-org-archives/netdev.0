@@ -1,128 +1,103 @@
 From: Matthias Schiffer <mschiffer@universe-factory.net>
-Subject: [PATCH net-next v3 3/6] vxlan: improve validation of address family configuration
-Date: Mon, 19 Jun 2017 10:03:57 +0200
-Message-ID: <c7e6e666f63206660d22183870b1bef50266c796.1497825555.git.mschiffer@universe-factory.net>
+Subject: [PATCH net-next v3 5/6] vxlan: fix snooping for link-local IPv6 addresses
+Date: Mon, 19 Jun 2017 10:03:59 +0200
+Message-ID: <df6d72176502df802508c2525d5edb25b38e18b4.1497825555.git.mschiffer@universe-factory.net>
 References: <cover.1497825555.git.mschiffer@universe-factory.net>
 Cc: netdev@vger.kernel.org, dev@openvswitch.org,
         linux-kernel@vger.kernel.org
 To: davem@davemloft.net, jbenc@redhat.com, hannes@stressinduktion.org,
         pshelar@ovn.org, aduyck@mirantis.com, roopa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from chaos.universe-factory.net ([31.24.148.19]:55158 "EHLO
-        chaos.universe-factory.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750952AbdFSIEJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 04:04:09 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1497825555.git.mschiffer@universe-factory.net>
 In-Reply-To: <cover.1497825555.git.mschiffer@universe-factory.net>
 References: <cover.1497825555.git.mschiffer@universe-factory.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Address families of source and destination addresses must match, and
-changelink operations can't change the address family.
+If VXLAN is run over link-local IPv6 addresses, it is necessary to store
+the ifindex in the FDB entries. Otherwise, the used interface is undefined
+and unicast communication will most likely fail.
 
-In addition, always use the VXLAN_F_IPV6 to check if a VXLAN device uses
-IPv4 or IPv6.
+Support for link-local IPv4 addresses should be possible as well, but as
+the semantics aren't as well defined as for IPv6, and there doesn't seem to
+be much interest in having the support, it's not implemented for now.
 
 Signed-off-by: Matthias Schiffer <mschiffer@universe-factory.net>
 ---
 
 Notes:
-    v2: new patch
-    v3: rebase
+    v2: use u32 instead of __u32
+    v3: rebase, add note about IPv4 to commit message
 
- drivers/net/vxlan.c | 39 ++++++++++++++++++++++++++++-----------
- 1 file changed, 28 insertions(+), 11 deletions(-)
+ drivers/net/vxlan.c | 20 +++++++++++++++-----
+ 1 file changed, 15 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index b4fce3b29647..00680cc597ac 100644
+index d6d57317cbd5..45a8a5475f3d 100644
 --- a/drivers/net/vxlan.c
 +++ b/drivers/net/vxlan.c
-@@ -2484,10 +2484,7 @@ static int vxlan_change_mtu(struct net_device *dev, int new_mtu)
- 	struct vxlan_rdst *dst = &vxlan->default_dst;
- 	struct net_device *lowerdev = __dev_get_by_index(vxlan->net,
- 							 dst->remote_ifindex);
--	bool use_ipv6 = false;
--
--	if (dst->remote_ip.sa.sa_family == AF_INET6)
--		use_ipv6 = true;
-+	bool use_ipv6 = !!(vxlan->cfg.flags & VXLAN_F_IPV6);
+@@ -957,16 +957,24 @@ static int vxlan_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
+  */
+ static bool vxlan_snoop(struct net_device *dev,
+ 			union vxlan_addr *src_ip, const u8 *src_mac,
+-			__be32 vni)
++			u32 src_ifindex, __be32 vni)
+ {
+ 	struct vxlan_dev *vxlan = netdev_priv(dev);
+ 	struct vxlan_fdb *f;
++	u32 ifindex = 0;
++
++#if IS_ENABLED(CONFIG_IPV6)
++	if (src_ip->sa.sa_family == AF_INET6 &&
++	    (ipv6_addr_type(&src_ip->sin6.sin6_addr) & IPV6_ADDR_LINKLOCAL))
++		ifindex = src_ifindex;
++#endif
  
- 	/* This check is different than dev->max_mtu, because it looks at
- 	 * the lowerdev->mtu, rather than the static dev->max_mtu
-@@ -2897,11 +2894,20 @@ static int vxlan_config_validate(struct net *src_net, struct vxlan_config *conf,
- 		}
+ 	f = vxlan_find_mac(vxlan, src_mac, vni);
+ 	if (likely(f)) {
+ 		struct vxlan_rdst *rdst = first_remote_rcu(f);
+ 
+-		if (likely(vxlan_addr_equal(&rdst->remote_ip, src_ip)))
++		if (likely(vxlan_addr_equal(&rdst->remote_ip, src_ip) &&
++			   rdst->remote_ifindex == ifindex))
+ 			return false;
+ 
+ 		/* Don't migrate static entries, drop packets */
+@@ -993,7 +1001,7 @@ static bool vxlan_snoop(struct net_device *dev,
+ 					 vxlan->cfg.dst_port,
+ 					 vni,
+ 					 vxlan->default_dst.remote_vni,
+-					 0, NTF_SELF);
++					 ifindex, NTF_SELF);
+ 		spin_unlock(&vxlan->hash_lock);
  	}
  
--	if (!conf->remote_ip.sa.sa_family)
-+	if (!conf->remote_ip.sa.sa_family && !conf->saddr.sa.sa_family) {
-+		/* Unless IPv6 is explicitly requested, assume IPv4 */
- 		conf->remote_ip.sa.sa_family = AF_INET;
-+		conf->saddr.sa.sa_family = AF_INET;
-+	} else if (!conf->remote_ip.sa.sa_family) {
-+		conf->remote_ip.sa.sa_family = conf->saddr.sa.sa_family;
-+	} else if (!conf->saddr.sa.sa_family) {
-+		conf->saddr.sa.sa_family = conf->remote_ip.sa.sa_family;
-+	}
-+
-+	if (conf->saddr.sa.sa_family != conf->remote_ip.sa.sa_family)
-+		return -EINVAL;
+@@ -1264,6 +1272,7 @@ static bool vxlan_set_mac(struct vxlan_dev *vxlan,
+ 			  struct sk_buff *skb, __be32 vni)
+ {
+ 	union vxlan_addr saddr;
++	u32 ifindex = skb->dev->ifindex;
  
--	if (conf->remote_ip.sa.sa_family == AF_INET6 ||
--	    conf->saddr.sa.sa_family == AF_INET6) {
-+	if (conf->saddr.sa.sa_family == AF_INET6) {
- 		if (!IS_ENABLED(CONFIG_IPV6))
- 			return -EPFNOSUPPORT;
- 		use_ipv6 = true;
-@@ -2949,11 +2955,9 @@ static int vxlan_config_validate(struct net *src_net, struct vxlan_config *conf,
- 			continue;
- 
- 		if (tmp->cfg.vni == conf->vni &&
--		    (tmp->default_dst.remote_ip.sa.sa_family == AF_INET6 ||
--		     tmp->cfg.saddr.sa.sa_family == AF_INET6) == use_ipv6 &&
- 		    tmp->cfg.dst_port == conf->dst_port &&
--		    (tmp->cfg.flags & VXLAN_F_RCV_FLAGS) ==
--		    (conf->flags & VXLAN_F_RCV_FLAGS))
-+		    (tmp->cfg.flags & (VXLAN_F_RCV_FLAGS | VXLAN_F_IPV6)) ==
-+		    (conf->flags & (VXLAN_F_RCV_FLAGS | VXLAN_F_IPV6)))
- 			return -EEXIST;
+ 	skb_reset_mac_header(skb);
+ 	skb->protocol = eth_type_trans(skb, vxlan->dev);
+@@ -1285,7 +1294,7 @@ static bool vxlan_set_mac(struct vxlan_dev *vxlan,
  	}
  
-@@ -3084,22 +3088,35 @@ static int vxlan_nl2conf(struct nlattr *tb[], struct nlattr *data[],
+ 	if ((vxlan->cfg.flags & VXLAN_F_LEARN) &&
+-	    vxlan_snoop(skb->dev, &saddr, eth_hdr(skb)->h_source, vni))
++	    vxlan_snoop(skb->dev, &saddr, eth_hdr(skb)->h_source, ifindex, vni))
+ 		return false;
+ 
+ 	return true;
+@@ -1994,7 +2003,8 @@ static void vxlan_encap_bypass(struct sk_buff *skb, struct vxlan_dev *src_vxlan,
  	}
  
- 	if (data[IFLA_VXLAN_GROUP]) {
-+		if (changelink && (conf->remote_ip.sa.sa_family != AF_INET))
-+			return -EOPNOTSUPP;
-+
- 		conf->remote_ip.sin.sin_addr.s_addr = nla_get_in_addr(data[IFLA_VXLAN_GROUP]);
-+		conf->remote_ip.sa.sa_family = AF_INET;
- 	} else if (data[IFLA_VXLAN_GROUP6]) {
- 		if (!IS_ENABLED(CONFIG_IPV6))
- 			return -EPFNOSUPPORT;
+ 	if (dst_vxlan->cfg.flags & VXLAN_F_LEARN)
+-		vxlan_snoop(skb->dev, &loopback, eth_hdr(skb)->h_source, vni);
++		vxlan_snoop(skb->dev, &loopback, eth_hdr(skb)->h_source, 0,
++			    vni);
  
-+		if (changelink && (conf->remote_ip.sa.sa_family != AF_INET6))
-+			return -EOPNOTSUPP;
-+
- 		conf->remote_ip.sin6.sin6_addr = nla_get_in6_addr(data[IFLA_VXLAN_GROUP6]);
- 		conf->remote_ip.sa.sa_family = AF_INET6;
- 	}
- 
- 	if (data[IFLA_VXLAN_LOCAL]) {
-+		if (changelink && (conf->saddr.sa.sa_family != AF_INET))
-+			return -EOPNOTSUPP;
-+
- 		conf->saddr.sin.sin_addr.s_addr = nla_get_in_addr(data[IFLA_VXLAN_LOCAL]);
- 		conf->saddr.sa.sa_family = AF_INET;
- 	} else if (data[IFLA_VXLAN_LOCAL6]) {
- 		if (!IS_ENABLED(CONFIG_IPV6))
- 			return -EPFNOSUPPORT;
- 
-+		if (changelink && (conf->saddr.sa.sa_family != AF_INET6))
-+			return -EOPNOTSUPP;
-+
- 		/* TODO: respect scope id */
- 		conf->saddr.sin6.sin6_addr = nla_get_in6_addr(data[IFLA_VXLAN_LOCAL6]);
- 		conf->saddr.sa.sa_family = AF_INET6;
+ 	u64_stats_update_begin(&tx_stats->syncp);
+ 	tx_stats->tx_packets++;
 -- 
 2.13.1
