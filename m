@@ -1,7 +1,7 @@
 From: Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
 Subject: [PATCH v3 net-next 0/7] qed*: RDMA and infrastructure for iWARP
-Date: Mon, 19 Jun 2017 10:41:32 +0300
-Message-ID: <20170619074139.30014-1-Yuval.Mintz@cavium.com>
+Date: Mon, 19 Jun 2017 10:42:30 +0300
+Message-ID: <20170619074237.30249-1-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
@@ -46,7 +46,7 @@ Changes from previous versions
    of all variable types used in it
 
 Michal Kalderon (3):
-  qed*: Rename qede_roce.[ch]
+  qed*: qede_roce.[ch] -> qede_rdma.[ch]
   qed*: Set rdma generic functions prefix
   qed: Wait for resources before FUNC_CLOSE
   qed: SPQ async callback registration
