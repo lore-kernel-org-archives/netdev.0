@@ -1,86 +1,63 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [RFC PATCH net-next v2 10/15] bpf: Add support for changing congestion
- control
-Date: Tue, 20 Jun 2017 00:34:06 +0200
-Message-ID: <5948515E.1090607@iogearbox.net>
-References: <20170615200844.2752485-1-brakmo@fb.com> <20170615200844.2752485-11-brakmo@fb.com> <5943E41F.2050006@iogearbox.net> <59B6F12A-9740-4177-BCB3-72CD65EB1225@fb.com>
+Subject: Re: [RFC net-next 2/8] xdp: add HW offload mode flag for installing
+ programs
+Date: Tue, 20 Jun 2017 00:55:41 +0200
+Message-ID: <5948566D.40803@iogearbox.net>
+References: <20170616235746.16337-1-jakub.kicinski@netronome.com> <20170616235746.16337-3-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Kernel Team <Kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
-        Alexei Starovoitov <ast@fb.com>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: Lawrence Brakmo <brakmo@fb.com>, netdev <netdev@vger.kernel.org>
+Cc: davem@davemloft.net, kafai@fb.com, netoptimizer@brouer.com,
+        oss-drivers@netronome.com
+To: Jakub Kicinski <jakub.kicinski@netronome.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:55341 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:57308 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750903AbdFSWe3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 18:34:29 -0400
-In-Reply-To: <59B6F12A-9740-4177-BCB3-72CD65EB1225@fb.com>
+        with ESMTP id S1752366AbdFSWzq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 18:55:46 -0400
+In-Reply-To: <20170616235746.16337-3-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/18/2017 04:39 AM, Lawrence Brakmo wrote:
-> On 6/16/17, 6:58 AM, "Daniel Borkmann" <daniel@iogearbox.net> wrote:
+On 06/17/2017 01:57 AM, Jakub Kicinski wrote:
+> Add an installation-time flag for requesting that the program
+> be installed only if it can be offloaded to HW.
+>
+> Internally new command for ndo_xdp is added, this way we avoid
+> putting checks into drivers since they all return -EINVAL on
+> an unknown command.
+>
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 [...]
->      >   /* Change congestion control for socket */
->      > -int tcp_set_congestion_control(struct sock *sk, const char *name)
->      > +int tcp_set_congestion_control(struct sock *sk, const char *name, bool load)
->      >   {
->      >   	struct inet_connection_sock *icsk = inet_csk(sk);
->      >   	const struct tcp_congestion_ops *ca;
->      > @@ -344,7 +344,10 @@ int tcp_set_congestion_control(struct sock *sk, const char *name)
->      >   		return -EPERM;
->      >
->      >   	rcu_read_lock();
->      > -	ca = __tcp_ca_find_autoload(name);
->      > +	if (!load)
->      > +		ca = tcp_ca_find(name);
->      > +	else
->      > +		ca = __tcp_ca_find_autoload(name);
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index a04db264aa1c..05cec8e2cd82 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -6959,7 +6959,10 @@ static int dev_xdp_install(struct net_device *dev, xdp_op_t xdp_op,
+>   	struct netdev_xdp xdp;
 >
->       From BPF program side, we call with !load since we're not allowed
->      to sleep under RCU, that's correct ...
->
->      >   	/* No change asking for existing value */
->      >   	if (ca == icsk->icsk_ca_ops) {
->      >   		icsk->icsk_ca_setsockopt = 1;
->      > @@ -352,8 +355,10 @@ int tcp_set_congestion_control(struct sock *sk, const char *name)
->      >   	}
->      >   	if (!ca)
->      >   		err = -ENOENT;
->      > +	else if (!load)
->      > +		icsk->icsk_ca_ops = ca;
->
->      ... but don't we also need to hold a module ref in this case as done
->      below?
->
->      Meaning, tcp_ca_find() could return a ca that was previously loaded
->      to the tcp_cong_list as module, then resulting in ref count imbalance
->      when set from BPF?
->
-> As I mentioned above, this can be called before congestion has been
-> initialized (op <= BPF_SOCKET_OPS_NEEDS_ECN) in which case
-> tcp_init_congestion_control will be called later. If op > ..OPS_NEEDS_ECN
-> then bpf_setsockopt() will call the reinit_congestion_control().
->
-> But this points to an issue where someone else could call
-> tcp_set_congestion_control() with load == false not knowing they
-> need to call either init or reinit. I will add a comment to the function
-> to make it clear.
+>   	memset(&xdp, 0, sizeof(xdp));
+> -	xdp.command = XDP_SETUP_PROG;
+> +	if (flags & XDP_FLAGS_HW_MODE)
+> +		xdp.command = XDP_SETUP_PROG_HW;
+> +	else
+> +		xdp.command = XDP_SETUP_PROG;
+>   	xdp.extack = extack;
+>   	xdp.flags = flags;
+>   	xdp.prog = prog;
 
-Hm, I'm not sure it answers my question. What I meant was that from BPF
-prog, you're setting tcp_set_congestion_control(..., false) so if
-tcp_ca_find() returns a ca that was loaded earlier as a from a module
-(so it becomes available in tcp_cong_list), the above...
+One thing I'm not sure I follow is that while you pass flags to the ndo
+in patch 1, add a new XDP_SETUP_PROG_HW command here in patch 2 based on
+the flags, and later on in patch 6, you don't really make use of it, but
+look at the flags anyway? Then, why adding separate XDP_SETUP_PROG_HW
+in the first place?
 
-   [...]
-   else if (!load)
-       icsk->icsk_ca_ops = ca;
-   [...]
+[patch 6:]
+@@ -3338,6 +3341,7 @@ static int nfp_net_xdp(struct net_device *netdev, struct netdev_xdp *xdp)
 
-... will basically prevent the later try_module_get() on the ca. So any
-later tcp_reinit_congestion_control() or tcp_init_congestion_control()
-will still run not having the refcount held on the owner module. Meaning
-a module unload would let the machine crash due to the refcnt imbalance?
-What am I missing?
+  	switch (xdp->command) {
+  	case XDP_SETUP_PROG:
++	case XDP_SETUP_PROG_HW:
+  		return nfp_net_xdp_setup(nn, xdp->prog, xdp->flags,
+  					 xdp->extack);
