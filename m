@@ -1,112 +1,84 @@
-From: Nicolas Ferre <nicolas.ferre@microchip.com>
-Subject: Re: [PATCH] net: macb: add fixed-link node support
-Date: Mon, 19 Jun 2017 12:54:10 +0200
-Message-ID: <f9b2d4f7-3751-af45-c347-5f996586b15e@microchip.com>
-References: <20170616085536.20442-1-m.grzeschik@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: <kernel@pengutronix.de>
-To: Michael Grzeschik <m.grzeschik@pengutronix.de>,
-        <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa2.microchip.iphmx.com ([68.232.149.84]:9614 "EHLO
-        esa2.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753650AbdFSKxk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 06:53:40 -0400
-In-Reply-To: <20170616085536.20442-1-m.grzeschik@pengutronix.de>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCH net] net: account for current skb length when deciding about
+ UFO
+Date: Mon, 19 Jun 2017 13:03:43 +0200 (CEST)
+Message-ID: <20170619110343.7CB5EA1377@unicorn.suse.cz>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Ananda Raju <ananda.raju@neterion.com>,
+        Zheng Li <james.z.li@ericsson.com>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 16/06/2017 à 10:55, Michael Grzeschik a écrit :
-> In case the MACB is directly connected to a
-> non-mdio PHY/device, it should be possible to provide
-> a fixed link configuration in the DT.
-> 
-> Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
-> ---
->  drivers/net/ethernet/cadence/macb.c | 21 +++++++++++++++++++++
->  drivers/net/ethernet/cadence/macb.h |  2 +-
->  2 files changed, 22 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-> index 91f7492623d3f..91e36efe1d5fb 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -425,6 +425,16 @@ static int macb_mii_probe(struct net_device *dev)
->  	int phy_irq;
->  	int ret;
->  
-> +	if (bp->phy_node) {
-> +		phydev = of_phy_connect(dev, bp->phy_node,
-> +					&macb_handle_link_change, 0,
-> +					bp->phy_interface);
-> +		if (!phydev)
-> +			return -ENODEV;
-> +
-> +		return 0;
+Our customer encountered stuck NFS writes for blocks starting at specific
+offsets w.r.t. page boundary caused by networking stack sending packets via
+UFO enabled device with wrong checksum. The problem can be reproduced by
+composing a long UDP datagram from multiple parts using MSG_MORE flag:
 
-I understand that we can avoid the part with phy_connect_direct() of the
-remaining of this function, but what about the way to amend the phy
-features with the possibilities of the MAC
-(phydev->supported/advertising). The bp fields initialization seem
-redundant and handled elsewhere anyway.
+  sendto(sd, buff, 1000, MSG_MORE, ...);
+  sendto(sd, buff, 1000, MSG_MORE, ...);
+  sendto(sd, buff, 3000, 0, ...);
 
-> +	}
-> +
->  	phydev = phy_find_first(bp->mii_bus);
->  	if (!phydev) {
->  		netdev_err(dev, "no PHY found\n");
-> @@ -498,6 +508,17 @@ static int macb_mii_init(struct macb *bp)
->  	dev_set_drvdata(&bp->dev->dev, bp->mii_bus);
->  
->  	np = bp->pdev->dev.of_node;
-> +	if (of_phy_is_fixed_link(np)) {
+Assume this packet is to be routed via a device with MTU 1500 and
+NETIF_F_UFO enabled. When second sendto() gets into __ip_append_data(),
+this condition is tested (among others) to decide whether to call
+ip_ufo_append_data():
 
-For now, we are not sure that the np is != NULL.
-The PCI support for this driver does use the pdata.
-(Cf: 83a77e9ec415 (net: macb: Added PCI wrapper for Platform Driver.)
-).
+  ((length + fragheaderlen) > mtu) || (skb && skb_is_gso(skb))
 
+At the moment, we already have skb with 1028 bytes of data which is not
+marked for GSO so that the test is false (fragheaderlen is usually 20).
+Thus we append second 1000 bytes to this skb without invoking UFO. Third
+sendto(), however, has sufficient length to trigger the UFO path so that we
+end up with non-UFO skb followed by a UFO one. Later on, udp_send_skb()
+uses udp_csum() to calculate the checksum but that assumes all fragments
+have correct checksum in skb->csum which is not true for UFO fragments.
 
-> +		if (of_phy_register_fixed_link(np) < 0) {
-> +			dev_err(&bp->pdev->dev,
-> +				"broken fixed-link specification\n");
-> +			goto err_out_unregister_bus;
-> +		}
-> +		bp->phy_node = of_node_get(np);
-> +
-> +		np = NULL;
-> +	}
-> +
->  	if (np) {
+When checking against MTU, we need to add skb->len to length of new segment
+if we already have a partially filled skb and fragheaderlen only if there
+isn't one.
 
-Even if the case np == NULL is catch somewhere in
-of_phy_register_fixed_link(), why not put the  code here?
+In the IPv6 case, skb can only be null if this is the first segment so that
+we have to use headersize (length of the first IPv6 header) rather than
+fragheaderlen (length of IPv6 header of further fragments) for skb == NULL.
 
->  		/* try dt phy registration */
->  		err = of_mdiobus_register(bp->mii_bus, np);
-> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-> index ec037b0fa2a4d..7efc726e0a113 100644
-> --- a/drivers/net/ethernet/cadence/macb.h
-> +++ b/drivers/net/ethernet/cadence/macb.h
-> @@ -928,7 +928,7 @@ struct macb {
->  	dma_addr_t		rx_buffers_dma;
->  
->  	struct macb_or_gem_ops	macbgem_ops;
-> -
+Fixes: e89e9cf539a2 ("[IPv4/IPv6]: UFO Scatter-gather approach")
+Fixes: e4c5e13aa45c ("ipv6: Should use consistent conditional judgement for
+	ip6 fragment between __ip6_append_data and ip6_finish_output")
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+---
+ net/ipv4/ip_output.c  | 3 ++-
+ net/ipv6/ip6_output.c | 2 +-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
-Nit: no need to remove the empty line.
-
-> +	struct device_node	*phy_node;
->  	struct mii_bus		*mii_bus;
->  	int 			link;
->  	int 			speed;
-> 
-
-Thanks for your patch.
-
-Best regards,
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 7a3fd25e8913..532b36e9ce2a 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -964,7 +964,8 @@ static int __ip_append_data(struct sock *sk,
+ 		csummode = CHECKSUM_PARTIAL;
+ 
+ 	cork->length += length;
+-	if ((((length + fragheaderlen) > mtu) || (skb && skb_is_gso(skb))) &&
++	if ((((length + (skb ? skb->len : fragheaderlen)) > mtu) ||
++	     (skb && skb_is_gso(skb))) &&
+ 	    (sk->sk_protocol == IPPROTO_UDP) &&
+ 	    (rt->dst.dev->features & NETIF_F_UFO) && !dst_xfrm(&rt->dst) &&
+ 	    (sk->sk_type == SOCK_DGRAM) && !sk->sk_no_check_tx) {
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index bf8a58a1c32d..1699acb2fa2c 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1390,7 +1390,7 @@ static int __ip6_append_data(struct sock *sk,
+ 	 */
+ 
+ 	cork->length += length;
+-	if ((((length + fragheaderlen) > mtu) ||
++	if ((((length + (skb ? skb->len : headersize)) > mtu) ||
+ 	     (skb && skb_is_gso(skb))) &&
+ 	    (sk->sk_protocol == IPPROTO_UDP) &&
+ 	    (rt->dst.dev->features & NETIF_F_UFO) && !dst_xfrm(&rt->dst) &&
 -- 
-Nicolas Ferre
+2.13.1
