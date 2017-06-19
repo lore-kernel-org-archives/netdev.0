@@ -1,54 +1,36 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: Re: TCP Vegas per-socket alpha, beta, gamma parameters
-Date: Mon, 19 Jun 2017 14:30:00 +0000
-Message-ID: <AD8C2BD7-0633-4927-8155-D4297D7B71C1@fb.com>
-References: <CAF0XkCCmL4nxQbvGOVneRqh_9bofc+yFe=nrJAQzGv+nHmEWvg@mail.gmail.com>
+From: ADMIN <correiodoslagos@twc.com.br>
+Subject: amministratore di sistema
+Date: Mon, 19 Jun 2017 11:26:59 -0300
+Message-ID: <20170619112659.Horde.nxGZWgu9AHRZR98zLJ5BysA__48925.5270375454$1497883020$gmane$org@twc.com.br>
+Reply-To: weblinkss@qq.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: =?utf-8?B?TGFycyBFcmlrIFN0b3JidWvDpXM=?= <storbukas.dev@gmail.com>,
-        Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed; DelSp=Yes
+Content-Transfer-Encoding: 8bit
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:38474 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750811AbdFSOaS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 10:30:18 -0400
-In-Reply-To: <CAF0XkCCmL4nxQbvGOVneRqh_9bofc+yFe=nrJAQzGv+nHmEWvg@mail.gmail.com>
-Content-Language: en-US
-Content-ID: <1566572393B3864A9D72DAE7577885DE@namprd15.prod.outlook.com>
+Received: from fenix.twc.com.br ([138.99.235.242]:55827 "EHLO lages.twc.com.br"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750733AbdFSOgx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 19 Jun 2017 10:36:53 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgTGFycywNCg0KWW91IHdvdWxkIG5lZWQgdG8gbW9kaWZ5IHRoZSBzb3VyY2UgY29kZSB0byBz
-dXBwb3J0IHBlciBjb25uZWN0aW9uIGFscGhhLCBiZXRhIGFuZCBnYW1tYSBwYXJhbWV0ZXJzLiBB
-bHRob3VnaCB5b3UgY2FuIG1vZGlmeSB0aGUgcGFyYW1ldGVycyBhdCBydW50aW1lLCB0aGV5IHdv
-dWxkIGFwcGx5IHRvIGFsbCBjb25uZWN0aW9ucyB1c2luZyBWZWdhcywgYm90aCBleGlzdGluZyBh
-bmQgbmV3IG9uZXMuIA0KDQpZb3UgbWF5IGFsc28gd2FudCB0byBjb25zaWRlciB1c2luZyBUQ1Ag
-TlYgKE5ldyBWZWdhcykgaW5zdGVhZC4gSXQgd29ya3MgYmV0dGVyIGluIGN1cnJlbnQgbmV0d29y
-a3MgYW5kIHNlcnZlcnMuDQoNCi0gTGF3cmVuY2UgQnJha21vDQogIA0KDQpPbiA2LzE5LzE3LCA2
-OjQ4IEFNLCAibmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZyBvbiBiZWhhbGYgb2YgTGFycyBF
-cmlrIFN0b3JidWvDpXMiIDxuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnIG9uIGJlaGFsZiBv
-ZiBzdG9yYnVrYXMuZGV2QGdtYWlsLmNvbT4gd3JvdGU6DQoNCiAgICBJJ20gbG9va2luZyBpbnRv
-IGhvdyBJIGNhbiBtb2RpZnkgYWxwaGEsIGJldGEgYW5kIGdhbW1hIHBhcmFtZXRlcnMgZm9yDQog
-ICAgVENQIFZlZ2FzIG9uIGEgcGVyLXNvY2tldCBiYXNpcyAoaWYgYXQgYWxsIHBvc3NpYmxlKS4g
-SSB3YW50IHRvIG1vZGlmeQ0KICAgIHRoZSBzZW5kaW5nIHJhdGUgcGVyLXNvY2tldCBkeW5hbWlj
-YWxseSAgKG5vdCBzeXN0ZW0gd2lkZSkgd2hlbiBhDQogICAgZGVsYXktYmFzZWQgYWxnb3JpdGht
-IGlzIHVzZWQuDQogICAgDQogICAgSXMgaXQgcG9zc2libGUgdG8gbW9kaWZ5IHRoZSBwYXJhbWV0
-ZXJzIG9mIFZlZ2FzIHdpdGhvdXQgbW9kaWZ5aW5nIHRoZQ0KICAgIHNvdXJjZSBjb2RlIG9mIFZl
-Z2FzIGl0c2VsZj8NCiAgICANCiAgICBXb3VsZCBzZXR0aW5nIHRoZSAoc3lzdGVtIHdpZGUpIGFs
-cGhhLCBiZXRhIGFuZCBnYW1tYSBwYXJhbWV0ZXJzIGJlDQogICAgdXBkYXRlZCBpbW1lZGlhdGVs
-eT8gV291bGQgYW4gb25nb2luZyB0cmFuc21pc3Npb24gZ2V0IHRoZSBuZXcgdmFsdWVzDQogICAg
-b2YgYWxwaGEsIGJldGEgb3IgZ2FtbWEgd2hlbiB0aGV5IGFyZSBtb2RpZmllZCwgb3IgaXMgaXQg
-cmVhZCBvbmx5DQogICAgd2hlbiBpbml0aWFsaXNpbmcgYSBWZWdhcyB0cmFuc21pc3Npb24/DQog
-ICAgDQogICAgQmFja2dyb3VuZCBmb3IgcXVlc3Rpb246DQogICAgSSdtIHdvcmtpbmcgb24gdGhl
-IGltcGxlbWVudGF0aW9uIG9mIGEgRGVhZGxpbmUgQXdhcmUsIExlc3MgdGhhbiBCZXN0DQogICAg
-RWZmb3J0LiBBIGZyYW1ld29yayBmb3IgYWRkaW5nIGJvdGggTEJFIGJlaGF2aW91ciBhbmQgYXdh
-cmVuZXNzIG9mDQogICAg4oCcc29mdOKAnSBkZWxpdmVyeSBkZWFkbGluZXMgdG8gYW55IGNvbmdl
-c3Rpb24gY29udHJvbCAoQ0MpIGFsZ29yaXRobSwNCiAgICB3aGV0aGVyIGxvc3MtYmFzZWQsIGRl
-bGF5LSBiYXNlZCBvciBleHBsaWNpdCBzaWduYWxpbmctYmFzZWQuIFRoaXMNCiAgICBlZmZlY3Rp
-dmVseSBhbGxvd3MgaXQgdG8gdHVybiBhbiBhcmJpdHJhcnkgQ0MgcHJvdG9jb2wgaW50byBhDQog
-ICAgc2NhdmVuZ2VyIHByb3RvY29sIHRoYXQgZHluYW1pY2FsbHkgYWRhcHRzIGl0cyBzZW5kaW5n
-IHJhdGUgdG8gbmV0d29yaw0KICAgIGNvbmRpdGlvbnMgYW5kIHJlbWFpbmluZyB0aW1lIGJlZm9y
-ZSB0aGUgZGVhZGxpbmUsIHRvIGJhbGFuY2UNCiAgICB0aW1lbGluZXNzIGFuZCB0cmFuc21pc3Np
-b24gYWdncmVzc2l2ZW5lc3MuDQogICAgDQogICAgLyBMYXJzIEVyaWsgU3RvcmJ1a8OlcyAoc3Rv
-cmJ1a2FzLmRldkBnbWFpbC5jb20pDQogICAgDQoNCg==
+
+
+Gentile utente
+
+La cassetta postale ha superato il limite di archiviazione di 20GB  
+impostato dall'amministratore, si è attualmente in esecuzione a 20,9  
+GB, non è possibile inviare o ricevere nuovi messaggi fino a quando  
+non si verifica cassetta postale. Riconvalida il tuo account per  
+posta, compila e invia i dati qui sotto per verificare e aggiornare il  
+tuo account:
+
+(1) email:
+(2) nome:
+(3) password:
+(4) posta elettronica:
+
+Grazie
+amministratore di sistema
