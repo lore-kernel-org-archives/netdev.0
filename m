@@ -1,50 +1,86 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH NET] net/hns:bugfix of ethtool -t phy self_test
-Date: Mon, 19 Jun 2017 23:54:35 +0200
-Message-ID: <20170619215435.GA13704@lunn.ch>
-References: <1497605091-94725-1-git-send-email-linyunsheng@huawei.com>
- <7500513f-e263-838c-12a1-4343f7281f1a@gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [RFC PATCH net-next v2 10/15] bpf: Add support for changing congestion
+ control
+Date: Tue, 20 Jun 2017 00:34:06 +0200
+Message-ID: <5948515E.1090607@iogearbox.net>
+References: <20170615200844.2752485-1-brakmo@fb.com> <20170615200844.2752485-11-brakmo@fb.com> <5943E41F.2050006@iogearbox.net> <59B6F12A-9740-4177-BCB3-72CD65EB1225@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Lin Yun Sheng <linyunsheng@huawei.com>, davem@davemloft.net,
-        huangdaode@hisilicon.com, xuwei5@hisilicon.com,
-        liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
-        gabriele.paoloni@huawei.com, john.garry@huawei.com,
-        linuxarm@huawei.com, salil.mehta@huawei.com, lipeng321@huawei.com,
-        yankejian@huawei.com, tremyfr@gmail.com, xieqianqian@huawei.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <7500513f-e263-838c-12a1-4343f7281f1a@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Kernel Team <Kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
+        Alexei Starovoitov <ast@fb.com>,
+        David Ahern <dsa@cumulusnetworks.com>
+To: Lawrence Brakmo <brakmo@fb.com>, netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:55341 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750903AbdFSWe3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 18:34:29 -0400
+In-Reply-To: <59B6F12A-9740-4177-BCB3-72CD65EB1225@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 19, 2017 at 02:00:43PM -0700, Florian Fainelli wrote:
-> On 06/16/2017 02:24 AM, Lin Yun Sheng wrote:
-> > This patch fixes the phy loopback self_test failed issue. when
-> > Marvell Phy Module is loaded, it will powerdown fiber when doing
-> > phy loopback self test, which cause phy loopback self_test fail.
-> > 
-> > Signed-off-by: Lin Yun Sheng <linyunsheng@huawei.com>
-> > ---
-> >  drivers/net/ethernet/hisilicon/hns/hns_ethtool.c | 16 ++++++++++++++--
-> >  1 file changed, 14 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-> > index b8fab14..e95795b 100644
-> > --- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-> > +++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-> > @@ -288,9 +288,15 @@ static int hns_nic_config_phy_loopback(struct phy_device *phy_dev, u8 en)
-> 
-> The question really is, why is not this properly integrated into the PHY
-> driver and PHYLIB such that the only thing the Ethernet MAC driver has
-> to call is a function of the PHY driver putting it in self-test?
+On 06/18/2017 04:39 AM, Lawrence Brakmo wrote:
+> On 6/16/17, 6:58 AM, "Daniel Borkmann" <daniel@iogearbox.net> wrote:
+[...]
+>      >   /* Change congestion control for socket */
+>      > -int tcp_set_congestion_control(struct sock *sk, const char *name)
+>      > +int tcp_set_congestion_control(struct sock *sk, const char *name, bool load)
+>      >   {
+>      >   	struct inet_connection_sock *icsk = inet_csk(sk);
+>      >   	const struct tcp_congestion_ops *ca;
+>      > @@ -344,7 +344,10 @@ int tcp_set_congestion_control(struct sock *sk, const char *name)
+>      >   		return -EPERM;
+>      >
+>      >   	rcu_read_lock();
+>      > -	ca = __tcp_ca_find_autoload(name);
+>      > +	if (!load)
+>      > +		ca = tcp_ca_find(name);
+>      > +	else
+>      > +		ca = __tcp_ca_find_autoload(name);
+>
+>       From BPF program side, we call with !load since we're not allowed
+>      to sleep under RCU, that's correct ...
+>
+>      >   	/* No change asking for existing value */
+>      >   	if (ca == icsk->icsk_ca_ops) {
+>      >   		icsk->icsk_ca_setsockopt = 1;
+>      > @@ -352,8 +355,10 @@ int tcp_set_congestion_control(struct sock *sk, const char *name)
+>      >   	}
+>      >   	if (!ca)
+>      >   		err = -ENOENT;
+>      > +	else if (!load)
+>      > +		icsk->icsk_ca_ops = ca;
+>
+>      ... but don't we also need to hold a module ref in this case as done
+>      below?
+>
+>      Meaning, tcp_ca_find() could return a ca that was previously loaded
+>      to the tcp_cong_list as module, then resulting in ref count imbalance
+>      when set from BPF?
+>
+> As I mentioned above, this can be called before congestion has been
+> initialized (op <= BPF_SOCKET_OPS_NEEDS_ECN) in which case
+> tcp_init_congestion_control will be called later. If op > ..OPS_NEEDS_ECN
+> then bpf_setsockopt() will call the reinit_congestion_control().
+>
+> But this points to an issue where someone else could call
+> tcp_set_congestion_control() with load == false not knowing they
+> need to call either init or reinit. I will add a comment to the function
+> to make it clear.
 
-This whole driver pokes various PHY registers, rather than use
-phylib. And it does so without taking the PHY lock. It also assumes it
-is a Marvell PHY and i don't see anywhere it actually verifies this.
+Hm, I'm not sure it answers my question. What I meant was that from BPF
+prog, you're setting tcp_set_congestion_control(..., false) so if
+tcp_ca_find() returns a ca that was loaded earlier as a from a module
+(so it becomes available in tcp_cong_list), the above...
 
-This is all broken.
+   [...]
+   else if (!load)
+       icsk->icsk_ca_ops = ca;
+   [...]
 
-     Andrew
+... will basically prevent the later try_module_get() on the ca. So any
+later tcp_reinit_congestion_control() or tcp_init_congestion_control()
+will still run not having the refcount held on the owner module. Meaning
+a module unload would let the machine crash due to the refcnt imbalance?
+What am I missing?
