@@ -1,62 +1,102 @@
-From: Julien Gomes <julien@arista.com>
-Subject: [PATCH net-next v2 1/4] rtnetlink: add NEWCACHEREPORT message type
-Date: Mon, 19 Jun 2017 13:44:14 -0700
-Message-ID: <20170619204417.13230-2-julien@arista.com>
-References: <20170619204417.13230-1-julien@arista.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        sharpd@cumulusnetworks.com, nicolas.dichtel@6wind.com,
-        Julien Gomes <julien@arista.com>
-To: davem@davemloft.net, nikolay@cumulusnetworks.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170619204417.13230-1-julien@arista.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Lawrence Brakmo <brakmo@fb.com>
+Subject: Re: [RFC PATCH net-next v2 01/15] bpf: BPF support for socket ops
+Date: Mon, 19 Jun 2017 20:49:24 +0000
+Message-ID: <C2BE07F9-90D9-4985-9332-AB3D257C77CF@fb.com>
+References: <20170615200844.2752485-1-brakmo@fb.com>
+ <20170615200844.2752485-2-brakmo@fb.com> <5943CA1A.2060006@iogearbox.net>
+ <1274D98B-287D-492C-88CC-A14617EB8AAC@fb.com>
+ <59481B72.2050307@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Kernel Team <Kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
+        "Alexei Starovoitov" <ast@fb.com>,
+        David Ahern <dsa@cumulusnetworks.com>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+        netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:35490 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751761AbdFSUtt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 16:49:49 -0400
+In-Reply-To: <59481B72.2050307@iogearbox.net>
+Content-Language: en-US
+Content-ID: <B3303DB566A03D468F31BB050292C69F@namprd15.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-New NEWCACHEREPORT message type to be used for cache reports sent
-via Netlink, effectively allowing splitting cache report reception from
-mroute programming.
-
-Suggested-by: Ryan Halbrook <halbrook@arista.com>
-Signed-off-by: Julien Gomes <julien@arista.com>
----
- include/uapi/linux/rtnetlink.h | 3 +++
- security/selinux/nlmsgtab.c    | 3 ++-
- 2 files changed, 5 insertions(+), 1 deletion(-)
-
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index 564790e854f7..cd1afb900929 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -146,6 +146,9 @@ enum {
- 	RTM_GETSTATS = 94,
- #define RTM_GETSTATS RTM_GETSTATS
- 
-+	RTM_NEWCACHEREPORT = 96,
-+#define RTM_NEWCACHEREPORT RTM_NEWCACHEREPORT
-+
- 	__RTM_MAX,
- #define RTM_MAX		(((__RTM_MAX + 3) & ~3) - 1)
- };
-diff --git a/security/selinux/nlmsgtab.c b/security/selinux/nlmsgtab.c
-index 5aeaf30b7a13..7b7433a1a34c 100644
---- a/security/selinux/nlmsgtab.c
-+++ b/security/selinux/nlmsgtab.c
-@@ -79,6 +79,7 @@ static const struct nlmsg_perm nlmsg_route_perms[] =
- 	{ RTM_GETNSID,		NETLINK_ROUTE_SOCKET__NLMSG_READ  },
- 	{ RTM_NEWSTATS,		NETLINK_ROUTE_SOCKET__NLMSG_READ },
- 	{ RTM_GETSTATS,		NETLINK_ROUTE_SOCKET__NLMSG_READ  },
-+	{ RTM_NEWCACHEREPORT,	NETLINK_ROUTE_SOCKET__NLMSG_READ },
- };
- 
- static const struct nlmsg_perm nlmsg_tcpdiag_perms[] =
-@@ -158,7 +159,7 @@ int selinux_nlmsg_lookup(u16 sclass, u16 nlmsg_type, u32 *perm)
- 	switch (sclass) {
- 	case SECCLASS_NETLINK_ROUTE_SOCKET:
- 		/* RTM_MAX always point to RTM_SETxxxx, ie RTM_NEWxxx + 3 */
--		BUILD_BUG_ON(RTM_MAX != (RTM_NEWSTATS + 3));
-+		BUILD_BUG_ON(RTM_MAX != (RTM_NEWCACHEREPORT + 3));
- 		err = nlmsg_perm(nlmsg_type, perm, nlmsg_route_perms,
- 				 sizeof(nlmsg_route_perms));
- 		break;
--- 
-2.13.1
+DQpPbiA2LzE5LzE3LCAxMTo0NCBBTSwgIkRhbmllbCBCb3JrbWFubiIgPGRhbmllbEBpb2dlYXJi
+b3gubmV0PiB3cm90ZToNCg0KICAgIE9uIDA2LzE3LzIwMTcgMDE6NDEgQU0sIExhd3JlbmNlIEJy
+YWttbyB3cm90ZToNCiAgICA+IE9uIDYvMTYvMTcsIDU6MDcgQU0sICJEYW5pZWwgQm9ya21hbm4i
+IDxkYW5pZWxAaW9nZWFyYm94Lm5ldD4gd3JvdGU6DQogICAgWy4uLl0NCiAgICA+IEkgc2VlLiBZ
+b3UgYXJlIHNheWluZyBoYXZlIG9uZSBzdHJ1Y3QgaW4gY29tbW9uIGJ1dCBzdGlsbCBrZWVwIHRo
+ZSB0d28NCiAgICA+IFBST0dfVFlQRVM/IFRoYXQgbWFrZXMgc2Vuc2UuIERvIHdlIHJlYWxseSBu
+ZWVkIHR3byBkaWZmZXJlbnQNCiAgICA+IGlzX3ZhbGlkX2FjY2VzcyBmdW5jdGlvbnM/IEJvdGgg
+dHlwZXMgc2hvdWxkIGJlIGFibGUgdG8gc2VlIGFsbA0KICAgID4gdGhlIGZpZWxkcyAob3RoZXJ3
+aXNlIGFkZGluZyBuZXcgZmllbGRzIGJlY29tZXMgbWVzc3kpLg0KICAgIA0KICAgIFdvdWxkIHBy
+b2JhYmx5IGxlYXZlIHRoZSB0d28gaXNfdmFsaWRfYWNjZXNzKCkgc2VwYXJhdGUgaW5pdGlhbGx5
+LCBhbmQNCiAgICBvbmNlIHBlb3BsZSBhc2sgZm9yIGl0IHdlIGNvdWxkIHBvdGVudGlhbGx5IG9w
+ZW4gdGhpcyB1cCB0byBzb21lIG9mDQogICAgdGhlIG90aGVyIGZpZWxkcyB0aGF0IGFyZSBhdmFp
+bGFibGUgYXQgdGhhdCB0aW1lLg0KDQpBcyBkaXNjdXNzZWQgaW4gdGhlIG90aGVyIHRocmVhZCwg
+SSB3aWxsIGtlZXAgdGhlIDIgc3RydWN0cw0KICAgIA0KICAgID4gICAgICA+IEN1cnJlbnRseSB0
+aGVyZSBhcmUgdHdvIHR5cGVzIG9mIG9wcy4gVGhlIGZpcnN0IHR5cGUgZXhwZWN0cyB0aGUgQlBG
+DQogICAgPiAgICAgID4gcHJvZ3JhbSB0byByZXR1cm4gYSB2YWx1ZSB3aGljaCBpcyB0aGVuIHVz
+ZWQgYnkgdGhlIGNhbGxlciAob3IgYQ0KICAgID4gICAgICA+IG5lZ2F0aXZlIHZhbHVlIHRvIGlu
+ZGljYXRlIHRoZSBvcGVyYXRpb24gaXMgbm90IHN1cHBvcnRlZCkuIFRoZSBzZWNvbmQNCiAgICA+
+ICAgICAgPiB0eXBlIGV4cGVjdHMgc3RhdGUgY2hhbmdlcyB0byBiZSBkb25lIGJ5IHRoZSBCUEYg
+cHJvZ3JhbSwgZm9yIGV4YW1wbGUNCiAgICA+ICAgICAgPiB0aHJvdWdoIGEgc2V0c29ja29wdCBC
+UEYgaGVscGVyIGZ1bmN0aW9uLCBhbmQgdGhleSBpZ25vcmUgdGhlIHJldHVybg0KICAgID4gICAg
+ICA+IHZhbHVlLg0KICAgIFsuLi5dDQogICAgPiAgICAgID4gKy8qIENhbGwgQlBGX1NPQ0tFVF9P
+UFMgcHJvZ3JhbSB0aGF0IHJldHVybnMgYW4gaW50LiBJZiB0aGUgcmV0dXJuIHZhbHVlDQogICAg
+PiAgICAgID4gKyAqIGlzIDwgMCwgdGhlbiB0aGUgQlBGIG9wIGZhaWxlZCAoZm9yIGV4YW1wbGUg
+aWYgdGhlIGxvYWRlZCBCUEYNCiAgICA+ICAgICAgPiArICogcHJvZ3JhbSBkb2VzIG5vdCBzdXBw
+b3J0IHRoZSBjaG9zZW4gb3BlcmF0aW9uIG9yIHRoZXJlIGlzIG5vIEJQRg0KICAgID4gICAgICA+
+ICsgKiBwcm9ncmFtIGxvYWRlZCkuDQogICAgPiAgICAgID4gKyAqLw0KICAgID4gICAgICA+ICsj
+aWZkZWYgQ09ORklHX0JQRg0KICAgID4gICAgICA+ICtzdGF0aWMgaW5saW5lIGludCB0Y3BfY2Fs
+bF9icGYoc3RydWN0IHNvY2sgKnNrLCBib29sIGlzX3JlcV9zb2NrLCBpbnQgb3ApDQogICAgPiAg
+ICAgID4gK3sNCiAgICA+ICAgICAgPiArCXN0cnVjdCBicGZfc29ja2V0X29wc19rZXJuIHNvY2tl
+dF9vcHM7DQogICAgPiAgICAgID4gKw0KICAgID4gICAgICA+ICsJbWVtc2V0KCZzb2NrZXRfb3Bz
+LCAwLCBzaXplb2Yoc29ja2V0X29wcykpOw0KICAgID4gICAgICA+ICsJc29ja2V0X29wcy5zayA9
+IHNrOw0KICAgID4gICAgICA+ICsJc29ja2V0X29wcy5pc19yZXFfc29jayA9IGlzX3JlcV9zb2Nr
+ID8gMSA6IDA7DQogICAgPg0KICAgID4gICAgICBJcyBpc19yZXFfc29jayBhY3R1YWxseSB1c2Vk
+IGhlcmUgaW4gdGhpcyBwYXRjaCAoYXBhcnQgZnJvbSBzZXR0aW5nIGl0KT8NCiAgICA+ICAgICAg
+Tm90IHNlZWluZyB0aGF0IEJQRiBwcm9nIHdpbGwgYWNjZXNzIGl0LCBpZiBpdCBhbHNvIHNob3Vs
+ZG4ndCBhY2Nlc3MgaXQsDQogICAgPiAgICAgIHRoZW4gYm9vbCB0eXBlIHdvdWxkIGJlIGJldHRl
+ci4NCiAgICA+DQogICAgPiBUaGUgb25seSByZWFzb24gSSB1c2VkIGEgYml0IHdhcyBpbiBjYXNl
+IEkgd2FudGVkIHRvIGFkZCBtb3JlIGZpZWxkcyBsYXRlciBvbi4NCiAgICA+IERvZXMgaXQgbWFr
+ZSBzZW5zZSBvciBzaG91bGQgSSBqdXN0IHVzZSBib29sPw0KICAgIA0KICAgIERpZG4ndCBrbm93
+IHRoYXQsIGJ1dCBJIHRoaW5rIHN0YXJ0aW5nIG91dCB3aXRoIGJvb2wgc2VlbXMgYSBiaXQNCiAg
+ICBjbGVhbmVyLCBpZiBuZWVkZWQgd2UgY291bGQgbGF0ZXIgc3RpbGwgc3dpdGNoIHRvIGJpdGZp
+ZWxkLg0KDQpEb25lLg0KICAgIA0KICAgID4gICAgICA+ICsJc29ja2V0X29wcy5vcCA9IG9wOw0K
+ICAgID4gICAgICA+ICsNCiAgICA+ICAgICAgPiArCXJldHVybiBicGZfc29ja2V0X29wc19jYWxs
+KCZzb2NrZXRfb3BzKTsNCiAgICA+ICAgICAgPiArfQ0KICAgIFsuLi5dDQogICAgPiAgICAgID4g
+Ky8qIEdsb2JhbCBCUEYgcHJvZ3JhbSBmb3Igc29ja2V0cyAqLw0KICAgID4gICAgICA+ICtzdGF0
+aWMgc3RydWN0IGJwZl9wcm9nICpicGZfc29ja2V0X29wc19wcm9nOw0KICAgID4gICAgICA+ICtz
+dGF0aWMgREVGSU5FX1JXTE9DSyhicGZfc29ja2V0X29wc19sb2NrKTsNCiAgICA+ICAgICAgPiAr
+DQogICAgPiAgICAgID4gK2ludCBicGZfc29ja2V0X29wc19zZXRfcHJvZyhpbnQgZmQpDQogICAg
+PiAgICAgID4gK3sNCiAgICA+ICAgICAgPiArCWludCBlcnIgPSAwOw0KICAgID4gICAgICA+ICsN
+CiAgICA+ICAgICAgPiArCXdyaXRlX2xvY2soJmJwZl9zb2NrZXRfb3BzX2xvY2spOw0KICAgID4g
+ICAgICA+ICsJaWYgKGJwZl9zb2NrZXRfb3BzX3Byb2cpIHsNCiAgICA+ICAgICAgPiArCQlicGZf
+cHJvZ19wdXQoYnBmX3NvY2tldF9vcHNfcHJvZyk7DQogICAgPiAgICAgID4gKwkJYnBmX3NvY2tl
+dF9vcHNfcHJvZyA9IE5VTEw7DQogICAgPiAgICAgID4gKwl9DQogICAgPiAgICAgID4gKw0KICAg
+ID4gICAgICA+ICsJLyogZmQgb2YgemVybyBpcyB1c2VkIGFzIGEgc2lnbmFsIHRvIHJlbW92ZSB0
+aGUgY3VycmVudA0KICAgID4gICAgICA+ICsJICogYnBmX3NvY2tldF9vcHNfcHJvZy4NCiAgICA+
+ICAgICAgPiArCSAqLw0KICAgID4gICAgICA+ICsJaWYgKGZkID09IDApIHsNCiAgICA+DQogICAg
+PiAgICAgIENhbiB3ZSBtYWtlIHRoZSBmZCByZWxhdGVkIHNlbWFudGljcyBzaW1pbGFyIHRvIGRl
+dl9jaGFuZ2VfeGRwX2ZkKCk/DQogICAgPg0KICAgID4gRG8geW91IG1lYW4gcmVtb3ZlIHByb2dy
+YW0gaXMgZmQgPCAwIGluc3RlYWQgb2YgPT0gMD8NCiAgICANCiAgICBZZXMsIHRoYXQgYW5kIGFs
+c28gdGhlIG9yZGVyaW5nIG9mIGRyb3BwaW5nIHRoZSByZWYgb2YgdGhlIGV4aXN0aW5nDQogICAg
+YnBmX3NvY2tldF9vcHNfcHJvZyBwcm9ncmFtIHdpdGggc2V0dGluZyB0aGUgbmV3IG9uZSwgc28g
+eW91IGNhbg0KICAgIGNvbnZlcnQgYnBmX3NvY2tldF9vcHNfcHJvZyB0byBSQ1UgbW9yZSBlYXNp
+bHkuDQoNCkkgbWFkZSBsb3RzIG9mIGNoYW5nZXMgdG8gaG93IHdlIHNldC9hdHRhY2ggdGhlIGds
+b2JhbF9zb2NrX29wcyBwcm9ncmFtDQphZmZlY3RpbmcgdGhlIGZpbGVzIGtlcm5lbC9icGYvc3lz
+Y2FsbC5jLCBuZXQvY29yZS9zb2NrX2JwZm9wcy5jIGFuZA0Kc2FtcGxlcy9icGYvdGNwX2JwZi5j
+LiBUaGUgcGF0Y2ggc2V0IHdpbGwgYmUgc3VibWl0dGVkIGxhdGVyIHRvZGF5Lg0KICAgIA0KICAg
+ID4gICAgICA+ICsJCXdyaXRlX3VubG9jaygmYnBmX3NvY2tldF9vcHNfbG9jayk7DQogICAgPiAg
+ICAgID4gKwkJcmV0dXJuIDE7DQogICAgPiAgICAgID4gKwl9DQogICAgPiAgICAgID4gKw0KICAg
+ID4gICAgICA+ICsJYnBmX3NvY2tldF9vcHNfcHJvZyA9IGJwZl9wcm9nX2dldF90eXBlKGZkLCBC
+UEZfUFJPR19UWVBFX1NPQ0tFVF9PUFMpOw0KICAgID4gICAgICA+ICsJaWYgKElTX0VSUihicGZf
+c29ja2V0X29wc19wcm9nKSkgew0KICAgID4gICAgICA+ICsJCWJwZl9wcm9nX3B1dChicGZfc29j
+a2V0X29wc19wcm9nKTsNCiAgICA+DQogICAgPiAgICAgIFRoaXMgd2lsbCBjcmFzaCB0aGUga2Vy
+bmVsLCBwYXNzaW5nIGVyciB2YWx1ZSB0byBicGZfcHJvZ19wdXQoKS4NCiAgICBbLi4uXQ0KICAg
+IA0KVGhhbmtzIGFnYWluIGZvciB0aGUgZmVlZGJhY2suDQoNCg==
