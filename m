@@ -1,37 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] liquidio: implement vlan filter enable and
- disable
-Date: Sun, 18 Jun 2017 23:53:29 -0400 (EDT)
-Message-ID: <20170618.235329.870474653336509002.davem@davemloft.net>
-References: <20170618194134.GA1249@felix-thinkpad.cavium.com>
+Subject: Re: [PATCH] pptp: Remove unused variable in pptp_release()
+Date: Sun, 18 Jun 2017 23:54:13 -0400 (EDT)
+Message-ID: <20170618.235413.1021692693636326315.davem@davemloft.net>
+References: <1497800500-17897-1-git-send-email-chris.gekas@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        prasad.kanneganti@cavium.com
-To: felix.manlunas@cavium.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44286 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751768AbdFSDxp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Jun 2017 23:53:45 -0400
-In-Reply-To: <20170618194134.GA1249@felix-thinkpad.cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: xeb@mail.ru, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: chris.gekas@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1497800500-17897-1-git-send-email-chris.gekas@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Date: Sun, 18 Jun 2017 12:41:34 -0700
+From: Christos Gkekas <chris.gekas@gmail.com>
+Date: Sun, 18 Jun 2017 16:41:40 +0100
 
-> From: Prasad Kanneganti <prasad.kanneganti@cavium.com>
+> Variable opt in pptp_release() is set but never used, thus needs to be
+> removed.
 > 
-> Add implementation to support ethtool -K ethX rx-vlan-filter on/off.
-> Rename OCTNET_CMD_ENABLE_VLAN_FILTER command to OCTNET_CMD_VLAN_FILTER_CTL
-> and add OCTNET_CMD_VLAN_FILTER_ENABLE and OCTNET_CMD_VLAN_FILTER_DISABLE
-> parameters so that it can be used to enable or disable the filter.
-> 
-> Signed-off-by: Prasad Kanneganti <prasad.kanneganti@cavium.com>
-> Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
-> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+> Signed-off-by: Christos Gkekas <chris.gekas@gmail.com>
 
-Applied.
+Applied to net-next.
