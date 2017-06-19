@@ -1,78 +1,77 @@
-From: Davide Caratti <dcaratti@redhat.com>
-Subject: Re: [PATCH net-next] net/mlx4_en: don't set CHECKSUM_COMPLETE on
- SCTP packets
-Date: Mon, 19 Jun 2017 19:04:10 +0200
-Message-ID: <1497891850.2600.9.camel@redhat.com>
-References: <eed45546c689875c5e57a7716fc1f06089f6b7d3.1497621301.git.dcaratti@redhat.com>
-         <bc64924a-a9cd-737e-b63d-27011445d230@mellanox.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net] netfilter: do not hold dev in ipt_CLUSTERIP
+Date: Mon, 19 Jun 2017 19:08:37 +0200
+Message-ID: <20170619170837.GA4763@salvia>
+References: <cc6ebc3f8784d8d537737a1e18b443a2e0c7313a.1495271286.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: "David S . Miller" <davem@davemloft.net>
-To: Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>,
+        netfilter-devel@vger.kernel.org, davem@davemloft.net, fw@strlen.de
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43140 "EHLO mx1.redhat.com"
+Received: from mail.us.es ([193.147.175.20]:55252 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750913AbdFSREX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 19 Jun 2017 13:04:23 -0400
-In-Reply-To: <bc64924a-a9cd-737e-b63d-27011445d230@mellanox.com>
+        id S1750913AbdFSRIm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 19 Jun 2017 13:08:42 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 95D1E2E7848
+        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 19:08:31 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 855B38F48
+        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 19:08:31 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 56BB21850F
+        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 19:08:29 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <cc6ebc3f8784d8d537737a1e18b443a2e0c7313a.1495271286.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-hello Tariq,
-On Sun, 2017-06-18 at 14:10 +0300, Tariq Toukan wrote:
-> > @@ -624,12 +632,13 @@ static int check_csum(struct mlx4_cqe *cqe, struct sk_buff *skb, void *va,
-> >                hdr += sizeof(struct vlan_hdr);
-> >        }
-> >    
-> > -     if (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPV4))
-> > -             get_fixed_ipv4_csum(hw_checksum, skb, hdr);
-> > +     if ((cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPV4)) &&
-> > +         (unlikely(get_fixed_ipv4_csum(hw_checksum, skb, hdr))))
+On Sat, May 20, 2017 at 05:08:06PM +0800, Xin Long wrote:
+> It's a terrible thing to hold dev in iptables target. When the dev is
+> being removed, unregister_netdevice has to wait for the dev to become
+> free. dmesg will keep logging the err:
 > 
-> No! The lazy evaluation trick is wrong here.
-> This way you'll end up going almost always to the else (ipv6) for the 
-> wrong reason.
-
-you are right! thanks for spotting this.
-
-> > +             return -1;
-> >    #if IS_ENABLED(CONFIG_IPV6)
-> > -     else if (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPV6))
-> > -             if (unlikely(get_fixed_ipv6_csum(hw_checksum, skb, hdr)))
-> > -                     return -1;
-> > +     else if ((cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPV6)) &&
-> > +              (unlikely(get_fixed_ipv6_csum(hw_checksum, skb, hdr))))
-> > +             return -1;
+>   kernel:unregister_netdevice: waiting for veth0_in to become free. \
+>   Usage count = 1
 > 
-> Let's not change this, might cause future bugs, similarly to the one above.
-> >    #endif
-> >        return 0;
-> >    }
+> until iptables rules with this target are removed manually.
+> 
+> The worse thing is when deleting a netns, a virtual nic will be deleted
+> instead of reset to init_net in default_device_ops exit/exit_batch. As
+> it is earlier than to flush the iptables rules in iptable_filter_net_ops
+> exit, unregister_netdevice will block to wait for the nic to become free.
+> 
+> As unregister_netdevice is actually waiting for iptables rules flushing
+> while iptables rules have to be flushed after unregister_netdevice. This
+> 'dead lock' will cause unregister_netdevice to block there forever. As
+> the netns is not available to operate at that moment, iptables rules can
+> not even be flushed manually either.
+> 
+> The reproducer can be:
+> 
+>   # ip netns add test
+>   # ip link add veth0_in type veth peer name veth0_out
+>   # ip link set veth0_in netns test
+>   # ip netns exec test ip link set lo up
+>   # ip netns exec test ip link set veth0_in up
+>   # ip netns exec test iptables -I INPUT -d 1.2.3.4 -i veth0_in -j \
+>     CLUSTERIP --new --clustermac 89:d4:47:eb:9a:fa --total-nodes 3 \
+>     --local-node 1 --hashmode sourceip-sourceport
+>   # ip netns del test
+> 
+> This issue can be triggered by all virtual nics with ipt_CLUSTERIP.
+> 
+> This patch is to fix it by not holding dev in ipt_CLUSTERIP, but only
+> save dev->ifindex instead of dev. When removing the mc from the dev,
+> it will get dev by c->ifindex through dev_get_by_index.
+> 
+> Note that it doesn't save dev->name but dev->ifindex, as a dev->name
+> can be changed, it will confuse ipt_CLUSTERIP.
 
-maybe we can avoid adding braces, remove that 'else' keyword and the nested 'if',
-thus saving one line, given that check_csum() returns the same set of values as
-get_fixed_ipv{4,6}_checksum(), with the same meaning (-1 => go with CHECKSUM_NONE,
-0 => go with CHECKSUM_COMPLETE).
+Applied to nf-next.
 
----- >8 ----
-@@ -625,11 +633,10 @@ static int check_csum(struct mlx4_cqe *cqe, struct sk_buff *skb, void *va,
- 	}
- 
- 	if (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPV4))
--		get_fixed_ipv4_csum(hw_checksum, skb, hdr);
-+		return get_fixed_ipv4_csum(hw_checksum, skb, hdr);
- #if IS_ENABLED(CONFIG_IPV6)
--	else if (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPV6))
--		if (unlikely(get_fixed_ipv6_csum(hw_checksum, skb, hdr)))
--			return -1;
-+	if (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPV6))
-+		return get_fixed_ipv6_csum(hw_checksum, skb, hdr);
- #endif
- 	return 0;
- }
----- 8< ----
+This problem has been there since day 1, and it's a large patch, so I
+prefer we follow nf-next path.
 
-I will test and repost a v2 with this modification, unless you have any
-objections. Thank you in advance!
-regards
+Thanks!
