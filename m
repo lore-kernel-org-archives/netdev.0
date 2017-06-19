@@ -1,100 +1,51 @@
-From: Martin Schwidefsky <schwidefsky@de.ibm.com>
-Subject: Re: [PATCH net-next 3/4] s390/diag: add diag26c support
-Date: Mon, 19 Jun 2017 17:34:25 +0200
-Message-ID: <20170619173425.4d537667@mschwideX1>
-References: <20170619112225.30471-1-jwi@linux.vnet.ibm.com>
-        <20170619112225.30471-4-jwi@linux.vnet.ibm.com>
-        <20170619.104726.1778743929564587843.davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH V2 net-next 1/8] net: hns3: Add support of HNS3 Ethernet
+ Driver for hip08 SoC
+Date: Mon, 19 Jun 2017 08:48:01 -0700
+Message-ID: <20170619084801.7920e30d@xeon-e3>
+References: <20170613231035.494020-1-salil.mehta@huawei.com>
+        <20170613231035.494020-2-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jwi@linux.vnet.ibm.com, netdev@vger.kernel.org,
-        linux-s390@vger.kernel.org, heiko.carstens@de.ibm.com,
-        raspl@linux.vnet.ibm.com, ubraun@linux.vnet.ibm.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:43885 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1754239AbdFSPeu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 11:34:50 -0400
-Received: from pps.filterd (m0098416.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5JFYY03144270
-        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 11:34:39 -0400
-Received: from e06smtp13.uk.ibm.com (e06smtp13.uk.ibm.com [195.75.94.109])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 2b64sdkbxr-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 11:34:39 -0400
-Received: from localhost
-        by e06smtp13.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <schwidefsky@de.ibm.com>;
-        Mon, 19 Jun 2017 16:34:37 +0100
-In-Reply-To: <20170619.104726.1778743929564587843.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <davem@davemloft.net>, <yisen.zhuang@huawei.com>,
+        <huangdaode@hisilicon.com>, <lipeng321@huawei.com>,
+        <mehta.salil.lnk@gmail.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
+To: Salil Mehta <salil.mehta@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170613231035.494020-2-salil.mehta@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+On Wed, 14 Jun 2017 00:10:28 +0100
+Salil Mehta <salil.mehta@huawei.com> wrote:
 
-On Mon, 19 Jun 2017 10:47:26 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
+> +hns3_nic_get_stats64(struct net_device *ndev, struct rtnl_link_stats64 *stats)
+> +{
+> +	struct hns3_nic_priv *priv = netdev_priv(ndev);
+> +	int queue_num = priv->ae_handle->kinfo.num_tqps;
+> +	u64 tx_bytes = 0;
+> +	u64 rx_bytes = 0;
+> +	u64 tx_pkts = 0;
+> +	u64 rx_pkts = 0;
+> +	int idx = 0;
+unnecessary initialization
 
-> From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
-> Date: Mon, 19 Jun 2017 13:22:24 +0200
-> 
-> > +#define DIAG26C_GET_MAC	0x0000
-> > +struct diag26c_mac_req {
-> > +	u32	resp_buf_len;
-> > +	u32	resp_version;
-> > +	u16	op_code;
-> > +	u16	devno;
-> > +	u8	res[4];
-> > +} __packed;  
-> 
-> The packed attribute is not necessary here, the structure will be
-> perfectly packed together because of the types used and the order of
-> the members.
+> +
+> +	for (idx = 0; idx < queue_num; idx++) {
+> +		tx_bytes += priv->ring_data[idx].ring->stats.tx_bytes;
+> +		tx_pkts += priv->ring_data[idx].ring->stats.tx_pkts;
+> +		rx_bytes +=
+> +			priv->ring_data[idx + queue_num].ring->stats.rx_bytes;
+> +		rx_pkts += priv->ring_data[idx + queue_num].ring->stats.rx_pkts;
+> +	}
+> +
 
-We (as in the s390 guys) tend to add __packed to hardware and hypervisor
-structures even if the attribute is not strictly necessary. Most of the
-diagnose related structures look that way. Dunno if it is worth to change
-them.
+Since rx_bytes and other statistics are 64 bit values. You need to use
+something to ensure that updates to these values are atomic on 32 bit
+platforms.  The most common way to handle this is with the u64_stats_sync
+mechanism which is a nop on 64 bit architectures, and uses a seqcount
+to do updates on 32 bit CPU's.
 
-I agree that __packed should be avoided for software defined structures.
-
-> __packed is to be used only in the last possible resort for
-> correctness and every effort whatsoever should be used to avoid using
-> it.
-> 
-> > +
-> > +struct diag26c_mac_resp {
-> > +	u32	version;
-> > +	u8	mac[ETH_ALEN];
-> > +	u16	res;
-> > +} __packed __aligned(8);  
-> 
-> Using packed with an 8 byte alignment is even more unnecessary.
-> 
-> Again, it is not needed, so please don't use it.
-
-The diag26c struct needs to be aligned on a doubleword boundary, the
-__aligned(8) is necessary. The __packed attribute is again superfluous but
-follows along the lines of the other diag structures.
-
-I do not mind the extra __packed attributes, but if you care about them
-we could remove them from the structures in diag.h.
-
-> > + */
-> > +static inline int __diag26c(void *req, void *resp, enum diag26c_sc subcode)  
-> 
-> Do not mark functions inline in *.c files, let the compiler decide.
-> 
-
-Here I disagree. Basically all of our functions with assembly code are
-static inline, it is a common pattern even in C files. Sometimes the compiler
-*is* stupid and won't inline a function. And on s390 function calls do not
-come for free.
-
--- 
-blue skies,
-   Martin.
-
-"Reality continues to ruin my life." - Calvin.
+  
