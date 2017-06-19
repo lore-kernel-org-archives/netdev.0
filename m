@@ -1,34 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH NET] net/hns:bugfix of ethtool -t phy self_test
-Date: Mon, 19 Jun 2017 14:21:01 -0400 (EDT)
-Message-ID: <20170619.142101.1820559309951882720.davem@davemloft.net>
-References: <1497605091-94725-1-git-send-email-linyunsheng@huawei.com>
+Subject: Re: ipv6: Do not leak throw route references
+Date: Mon, 19 Jun 2017 14:25:48 -0400 (EDT)
+Message-ID: <20170619.142548.1263352241205374623.davem@davemloft.net>
+References: <1497613337-24027-1-git-send-email-serhe.popovych@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: huangdaode@hisilicon.com, xuwei5@hisilicon.com,
-        liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
-        gabriele.paoloni@huawei.com, john.garry@huawei.com,
-        linuxarm@huawei.com, salil.mehta@huawei.com, lipeng321@huawei.com,
-        yankejian@huawei.com, tremyfr@gmail.com, xieqianqian@huawei.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: linyunsheng@huawei.com
+Cc: netdev@vger.kernel.org
+To: serhe.popovych@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36240 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:36376 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751075AbdFSSVE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 14:21:04 -0400
-In-Reply-To: <1497605091-94725-1-git-send-email-linyunsheng@huawei.com>
+        with ESMTP id S1750757AbdFSSZu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 14:25:50 -0400
+In-Reply-To: <1497613337-24027-1-git-send-email-serhe.popovych@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lin Yun Sheng <linyunsheng@huawei.com>
-Date: Fri, 16 Jun 2017 17:24:51 +0800
+From: Serhey Popovych <serhe.popovych@gmail.com>
+Date: Fri, 16 Jun 2017 14:42:17 +0300
 
-> This patch fixes the phy loopback self_test failed issue. when
-> Marvell Phy Module is loaded, it will powerdown fiber when doing
-> phy loopback self test, which cause phy loopback self_test fail.
+> While commit 73ba57b (ipv6: fix backtracking for throw routes)
+> does good job on error propagation to the fib_rules_lookup()
+> in fib rules core framework that also corrects throw routes
+> handling, it does not solve route reference leakage problem
+> happened when we return -EAGAIN to the fib_rules_lookup()
+> and leave routing table entry referenced in arg->result.
 > 
-> Signed-off-by: Lin Yun Sheng <linyunsheng@huawei.com>
+> If rule with matched throw route isn't last matched in the
+> list we overwrite arg->result loosing reference on throw
+> route stored previously forever.
+> 
+> We also partially revert commit ab997ad (ipv6: fix the
+> incorrect return value of throw route) since we never return
+> routing table entry with dst.error == -EAGAIN when
+> CONFIG_IPV6_MULTIPLE_TABLES is on. Also there is no point
+> to check for RTF_REJECT flag since it is always set throw
+> route.
+> 
+> Fixes: 73ba57b (ipv6: fix backtracking for throw routes)
+> Signed-off-by: Serhey Popovych <serhe.popovych@gmail.com>
 
-Applied.
+This does not apply cleanly to the net tree, please respin.
