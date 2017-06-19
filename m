@@ -1,85 +1,77 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: Re: [RFC PATCH net-next v2 01/15] bpf: BPF support for socket ops
-Date: Mon, 19 Jun 2017 20:49:31 +0000
-Message-ID: <C2FB7BC3-1599-48E3-9AD5-894692B60BDF@fb.com>
-References: <20170615200844.2752485-1-brakmo@fb.com>
- <20170615200844.2752485-2-brakmo@fb.com> <5943CA1A.2060006@iogearbox.net>
- <EFA12996-9C47-444F-9E09-B87F673DCCB0@fb.com>
- <59481D81.8080505@iogearbox.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH NET] net/hns:bugfix of ethtool -t phy self_test
+Date: Mon, 19 Jun 2017 14:00:43 -0700
+Message-ID: <7500513f-e263-838c-12a1-4343f7281f1a@gmail.com>
+References: <1497605091-94725-1-git-send-email-linyunsheng@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Kernel Team <Kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
-        "Alexei Starovoitov" <ast@fb.com>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:35495 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751761AbdFSUtz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 16:49:55 -0400
-In-Reply-To: <59481D81.8080505@iogearbox.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: huangdaode@hisilicon.com, xuwei5@hisilicon.com,
+        liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
+        gabriele.paoloni@huawei.com, john.garry@huawei.com,
+        linuxarm@huawei.com, salil.mehta@huawei.com, lipeng321@huawei.com,
+        yankejian@huawei.com, tremyfr@gmail.com, xieqianqian@huawei.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Andrew Lunn <andrew@lunn.ch>
+To: Lin Yun Sheng <linyunsheng@huawei.com>, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1497605091-94725-1-git-send-email-linyunsheng@huawei.com>
 Content-Language: en-US
-Content-ID: <990B16897484E64191B56855D3992834@namprd15.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQpPbiA2LzE5LzE3LCAxMTo1MiBBTSwgIkRhbmllbCBCb3JrbWFubiIgPGRhbmllbEBpb2dlYXJi
-b3gubmV0PiB3cm90ZToNCg0KICAgIE9uIDA2LzE3LzIwMTcgMTE6NDggUE0sIExhd3JlbmNlIEJy
-YWttbyB3cm90ZToNCiAgICA+IE9uIDYvMTYvMTcsIDU6MDcgQU0sICJEYW5pZWwgQm9ya21hbm4i
-IDxkYW5pZWxAaW9nZWFyYm94Lm5ldD4gd3JvdGU6DQogICAgPg0KICAgID4gICAgICBPbiAwNi8x
-NS8yMDE3IDEwOjA4IFBNLCBMYXdyZW5jZSBCcmFrbW8gd3JvdGU6DQogICAgPiAgICAgID4gVHdv
-IG5ldyBjb3JyZXNwb25kaW5nIHN0cnVjdHMgKG9uZSBmb3IgdGhlIGtlcm5lbCBvbmUgZm9yIHRo
-ZSB1c2VyL0JQRg0KICAgID4gICAgICA+IHByb2dyYW0pOg0KICAgID4gICAgICA+DQogICAgPiAg
-ICAgID4gLyoga2VybmVsIHZlcnNpb24gKi8NCiAgICA+ICAgICAgPiBzdHJ1Y3QgYnBmX3NvY2tl
-dF9vcHNfa2VybiB7DQogICAgPiAgICAgID4gICAgICAgICAgc3RydWN0IHNvY2sgKnNrOw0KICAg
-ID4gICAgICA+IAlfX3UzMiAgaXNfcmVxX3NvY2s6MTsNCiAgICA+ICAgICAgPiAgICAgICAgICBf
-X3UzMiAgb3A7DQogICAgPiAgICAgID4gICAgICAgICAgdW5pb24gew0KICAgID4gICAgICA+ICAg
-ICAgICAgICAgICAgICAgX191MzIgcmVwbHk7DQogICAgPiAgICAgID4gICAgICAgICAgICAgICAg
-ICBfX3UzMiByZXBseWxvbmdbNF07DQogICAgPiAgICAgID4gICAgICAgICAgfTsNCiAgICA+ICAg
-ICAgPiB9Ow0KICAgID4gICAgICA+DQogICAgPiAgICAgID4gLyogdXNlciB2ZXJzaW9uICovDQog
-ICAgPiAgICAgID4gc3RydWN0IGJwZl9zb2NrZXRfb3BzIHsNCiAgICA+ICAgICAgPiAgICAgICAg
-ICBfX3UzMiBvcDsNCiAgICA+ICAgICAgPiAgICAgICAgICB1bmlvbiB7DQogICAgPiAgICAgID4g
-ICAgICAgICAgICAgICAgICBfX3UzMiByZXBseTsNCiAgICA+ICAgICAgPiAgICAgICAgICAgICAg
-ICAgIF9fdTMyIHJlcGx5bG9uZ1s0XTsNCiAgICA+ICAgICAgPiAgICAgICAgICB9Ow0KICAgID4g
-ICAgICA+ICAgICAgICAgIF9fdTMyIGZhbWlseTsNCiAgICA+ICAgICAgPiAgICAgICAgICBfX3Uz
-MiByZW1vdGVfaXA0Ow0KICAgID4gICAgICA+ICAgICAgICAgIF9fdTMyIGxvY2FsX2lwNDsNCiAg
-ICA+ICAgICAgPiAgICAgICAgICBfX3UzMiByZW1vdGVfaXA2WzRdOw0KICAgID4gICAgICA+ICAg
-ICAgICAgIF9fdTMyIGxvY2FsX2lwNls0XTsNCiAgICA+ICAgICAgPiAgICAgICAgICBfX3UzMiBy
-ZW1vdGVfcG9ydDsNCiAgICA+ICAgICAgPiAgICAgICAgICBfX3UzMiBsb2NhbF9wb3J0Ow0KICAg
-ID4gICAgICA+IH07DQogICAgPg0KICAgID4gICAgICBBYm92ZSBhbmQgLi4uDQogICAgPg0KICAg
-ID4gICAgICBzdHJ1Y3QgYnBmX3NvY2sgew0KICAgID4gICAgICAJX191MzIgYm91bmRfZGV2X2lm
-Ow0KICAgID4gICAgICAJX191MzIgZmFtaWx5Ow0KICAgID4gICAgICAJX191MzIgdHlwZTsNCiAg
-ICA+ICAgICAgCV9fdTMyIHByb3RvY29sOw0KICAgID4gICAgICB9Ow0KICAgID4NCiAgICA+ICAg
-ICAgLi4uIHdvdWxkIHJlc3VsdCBpbiB0d28gQlBGIHNvY2sgdXNlciB2ZXJzaW9ucy4gSXQncyBv
-a2F5aXNoLCBidXQNCiAgICA+ICAgICAgZ2l2ZW4gc3RydWN0IGJwZl9zb2NrIGlzIHF1aXRlIGdl
-bmVyaWMsIGNvdWxkbid0IHdlIG1lcmdlIHRoZSBtZW1iZXJzDQogICAgPiAgICAgIGZyb20gc3Ry
-dWN0IGJwZl9zb2NrZXRfb3BzIGludG8gc3RydWN0IGJwZl9zb2NrIGluc3RlYWQ/DQogICAgPg0K
-ICAgID4gICAgICBJZGVhIHdvdWxkIGJlIHRoYXQgc29ja19maWx0ZXJfaXNfdmFsaWRfYWNjZXNz
-KCkgZm9yIGNncm91cHMgd291bGQNCiAgICA+ICAgICAgdGhlbiBjaGVjayBvZmYgPCAwIHx8IG9m
-ZiArIHNpemUgPiBvZmZzZXRvZmVuZChzdHJ1Y3QgYnBmX3NvY2ssIHByb3RvY29sKQ0KICAgID4g
-ICAgICB0byBkaXNhbGxvdyBuZXcgbWVtYmVycywgYW5kIHlvdXIgc29ja2V0X29wc19pc192YWxp
-ZF9hY2Nlc3MoKSBjb3VsZA0KICAgID4gICAgICBhbGxvdyBhbmQgeGxhdGUgdGhlIGZ1bGwgcmFu
-Z2UuIFRoZSBmYW1pbHkgbWVtYmVyIGlzIGFscmVhZHkgZHVwbGljYXRlDQogICAgPiAgICAgIGFu
-ZCB0aGUgb3RoZXJzIGNvdWxkIHRoZW4gYmUgYWNjZXNzZWQgZnJvbSB0aGVzZSBraW5kIG9mIEJQ
-RiBwcm9ncyBhcw0KICAgID4gICAgICB3ZWxsLCBwbHVzIHdlIGhhdmUgYSBzaW5nbGUgdXNlciBy
-ZXByZXNlbnRhdGlvbiBzaW1pbGFyIGFzIHdpdGggX19za19idWZmDQogICAgPiAgICAgIHRoYXQg
-bXVsdGlwbGUgdHlwZXMgd2lsbCB1c2UuDQogICAgPg0KICAgID4gSSBhbSBjb25jZXJuZWQgdGhh
-dCBpdCBjb3VsZCBtYWtlIHVzYWdlIG1vcmUgY29uZnVzaW5nLiBPbmUgdHlwZSBvZg0KICAgID4g
-c29jayBwcm9ncmFtIChjZ3JvdXApIGNvdWxkIG9ubHkgdXNlIGEgc3Vic2V0IG9mIHRoZSBmaWVs
-ZHMgd2hpbGUgdGhlDQogICAgPiBvdGhlciB0eXBlIChzb2NrZXRfb3BzKSBjb3VsZCB1c2UgYWxs
-IChvciBhIGRpZmZlcmVudCBzdWJzZXQpLiBUaGVuIHdoYXQNCiAgICA+IGhhcHBlbnMgaWYgdGhl
-cmUgaXMgYSBuZWVkIHRvIGFkZCBhIG5ldyBmaWVsZCB0byBjZ3JvdXAgdHlwZSBzb2NrIHByb2dy
-YW0/DQogICAgPiBJbiBhZGRpdGlvbiwgaW4gdGhlIG5lYXIgZnV0dXJlIEkgd2lsbCBoYXZlIGEg
-cGF0Y2ggdG8gYXR0YWNoIHNvY2tldF9vcHMNCiAgICA+IHByb2dyYW1zIHRvIGNncm91cHMuDQog
-ICAgPiBJIHJhdGhlciBsZWF2ZSBpdCBhcyBpdCBpcy4NCiAgICANCiAgICBPa2F5LCBJJ20gZmlu
-ZSB3aXRoIHRoYXQgYXMgd2VsbC4gRm9yIHRoZSBfX3NrX2J1ZmYsIHdlIGFsc28gaGF2ZSB0aGUN
-CiAgICBjYXNlIHRoYXQgc29tZSBtZW1iZXJzIGFyZSBub3QgYXZhaWxhYmxlIGZvciBhbGwgcHJv
-Z3JhbSB0eXBlcyBsaWtlDQogICAgdGNfY2xhc3NpZCwgc28gaXQncyBzaW1pbGFyIHRoZXJlLiBC
-dXQgaWYgaW5kZWVkIHRoZSBtYWpvcml0eSBvZiBtZW1iZXJzDQogICAgY2Fubm90IGJlIHN1cHBv
-cnRlZCBmb3IgdGhlIG1vc3QgcGFydHMgKD8pIHRoZW4gaGF2aW5nIGRpZmZlcmVudCBzdHJ1Y3Rz
-DQogICAgc2VlbXMgb2theSwgcHJvYmFibHkgZWFzaWVyIHRvIHVzZSwgYnV0IHdlIHNob3VsZCB0
-cnkgaGFyZCB0byBub3QgZW5kaW5nDQogICAgdXAgd2l0aCAxMCBkaWZmZXJlbnQgdWFwaSBzb2Nr
-ZXQgc3RydWN0cyB0aGF0IGFwcGx5IHRvIHByb2dyYW0gdHlwZXMNCiAgICB3b3JraW5nIG9uIHNv
-Y2tldHMgaW4gb25lIHdheSBvciBhbm90aGVyLg0KDQpBZ3JlZSAxMDAlLiAgICANCg0K
+On 06/16/2017 02:24 AM, Lin Yun Sheng wrote:
+> This patch fixes the phy loopback self_test failed issue. when
+> Marvell Phy Module is loaded, it will powerdown fiber when doing
+> phy loopback self test, which cause phy loopback self_test fail.
+> 
+> Signed-off-by: Lin Yun Sheng <linyunsheng@huawei.com>
+> ---
+>  drivers/net/ethernet/hisilicon/hns/hns_ethtool.c | 16 ++++++++++++++--
+>  1 file changed, 14 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+> index b8fab14..e95795b 100644
+> --- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+> +++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+> @@ -288,9 +288,15 @@ static int hns_nic_config_phy_loopback(struct phy_device *phy_dev, u8 en)
+
+The question really is, why is not this properly integrated into the PHY
+driver and PHYLIB such that the only thing the Ethernet MAC driver has
+to call is a function of the PHY driver putting it in self-test?
+
+>  
+>  		/* Force 1000M Link, Default is 0x0200 */
+>  		phy_write(phy_dev, 7, 0x20C);
+> -		phy_write(phy_dev, HNS_PHY_PAGE_REG, 0);
+>  
+> -		/* Enable PHY loop-back */
+> +		/* Powerup Fiber */
+> +		phy_write(phy_dev, HNS_PHY_PAGE_REG, 1);
+> +		val = phy_read(phy_dev, COPPER_CONTROL_REG);
+> +		val &= ~PHY_POWER_DOWN;
+> +		phy_write(phy_dev, COPPER_CONTROL_REG, val);
+> +
+> +		/* Enable Phy Loopback */
+> +		phy_write(phy_dev, HNS_PHY_PAGE_REG, 0);
+>  		val = phy_read(phy_dev, COPPER_CONTROL_REG);
+>  		val |= PHY_LOOP_BACK;
+>  		val &= ~PHY_POWER_DOWN;
+> @@ -299,6 +305,12 @@ static int hns_nic_config_phy_loopback(struct phy_device *phy_dev, u8 en)
+>  		phy_write(phy_dev, HNS_PHY_PAGE_REG, 0xFA);
+>  		phy_write(phy_dev, 1, 0x400);
+>  		phy_write(phy_dev, 7, 0x200);
+> +
+> +		phy_write(phy_dev, HNS_PHY_PAGE_REG, 1);
+> +		val = phy_read(phy_dev, COPPER_CONTROL_REG);
+> +		val |= PHY_POWER_DOWN;
+> +		phy_write(phy_dev, COPPER_CONTROL_REG, val);
+> +
+>  		phy_write(phy_dev, HNS_PHY_PAGE_REG, 0);
+>  		phy_write(phy_dev, 9, 0xF00);
+>  
+> 
+
+
+-- 
+Florian
