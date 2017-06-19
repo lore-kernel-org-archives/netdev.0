@@ -1,36 +1,84 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH v2 net-next 0/7] qed*: RDMA and infrastructure for iWARP
-Date: Mon, 19 Jun 2017 04:36:31 +0200
-Message-ID: <20170619023631.GB13292@lunn.ch>
-References: <20170618115035.2156-1-Yuval.Mintz@cavium.com>
- <20170618.122901.124548969151925362.davem@davemloft.net>
- <BLUPR0701MB20047CD16002072436A61EA38DC70@BLUPR0701MB2004.namprd07.prod.outlook.com>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: Fw: [Bug 196093] New: dot1q S-VLAN frame on dot1ad configured
+ interface is accepted
+Date: Mon, 19 Jun 2017 11:35:26 +0900
+Message-ID: <23a32c50-a3e5-7b9e-43f1-04f835be2059@lab.ntt.co.jp>
+References: <20170616084001.711f687c@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "Kalderon, Michal" <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Mintz, Yuval" <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <BLUPR0701MB20047CD16002072436A61EA38DC70-v5ruerSQ/oj1oiTf6dR/AE5OhdzP3rhOnBOFsp37pqbUKgpGm//BTAC/G2K4zDHf@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Stephen Hemminger <stephen@networkplumber.org>,
+        netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        jason-kernelbugzilla@lixfeld.ca
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:56044 "EHLO
+        tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753227AbdFSChA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Jun 2017 22:37:00 -0400
+In-Reply-To: <20170616084001.711f687c@xeon-e3>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> I can't really say I understand who would benefit from adding 
-> "while at it remove redundant inclusion of header file"
-> to the commit log message [And even less from splitting this into its own patch].
+Hi,
 
-Part of it is trust.
+On 2017/06/17 0:40, Stephen Hemminger wrote:
+> I suspect that VLAN offload on this Intel NIC is allowing any of the VLAN types.
+> 
+> Begin forwarded message:
+> 
+> Date: Fri, 16 Jun 2017 15:33:35 +0000
+> From: bugzilla-daemon@bugzilla.kernel.org
+> To: stephen@networkplumber.org
+> Subject: [Bug 196093] New: dot1q S-VLAN frame on dot1ad configured interface is accepted
+> 
+> 
+> https://bugzilla.kernel.org/show_bug.cgi?id=196093
+> 
+>             Bug ID: 196093
+>            Summary: dot1q S-VLAN frame on dot1ad configured interface is
+>                     accepted
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 3.16.0 and 4.9.0
+>           Hardware: Intel
+>                 OS: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>           Assignee: stephen@networkplumber.org
+>           Reporter: jason-kernelbugzilla@lixfeld.ca
+>         Regression: No
+> 
+> Using the following configuration on an Intel 82599 port.  Tested in Debian 8
+> with Kernel 3.16.0 and 4.9.0:
+> 
+> ip link set dev eth4 up
+> ip link add link eth4 eth4.100ad type vlan proto 802.1ad id 100
+> ip link add link eth4.100ad eth4.100ad.10q type vlan proto 802.1Q id 10
+> ip link set dev eth4 netns nni-ad
+> ip link set dev eth4.100ad netns nni-ad
+> ip link set dev eth4.100ad.10q netns nni-ad
+> ip netns exec nni-ad ip link set dev eth4 up
+> ip netns exec nni-ad ip link set dev eth4.100ad up
+> ip netns exec nni-ad ip link set dev eth4.100ad.10q up
+> ip netns exec nni-ad ip addr add 10.4.100.10/8 dev eth4.100ad.10q
+> 
+> Ping to 10.4.100.10 while doing tcpdump on eth4 shows the frame has ether type
+> 0x8100 (dot1q) on the S-VLAN, not 0x88a8 (dot1ad), yet the frame is still
 
-If you say you are just renaming, not making any change, reviewers
-will not look too deep at the change. But if you do make a change, but
-not say anything about it, we loose trust in what you are saying.
+libpcap was not reliable in vlan protocol parsing.
+https://github.com/the-tcpdump-group/libpcap/pull/346
+AFAIK libpcap 1.7.2 is required to parse it correctly.
 
-    Andrew
+> accepted, and an echo reply is generated.
+> 
+> The echo reply has the correct ethertype on the S-VLAN (0x88a8).  My
+> understanding is that if the frame received on the wire does not match the
+> ether type of the configured interface, the frame should be dropped?
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Yes, it should.
+
+Toshiaki Makita
