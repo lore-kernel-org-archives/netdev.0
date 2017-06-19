@@ -1,70 +1,41 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [PATCH v2 1/2] ip_tunnel: fix ip tunnel lookup in collect_md mode
-Date: Mon, 19 Jun 2017 11:08:15 -0700
-Message-ID: <CAOrHB_Dxha=GY8aUzy2Cg_Js0r3_Z+891uLsi7zSyd5SJ=7JFA@mail.gmail.com>
-References: <1497670031-2971-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
- <CAOrHB_AFrCiYGyLdYpeYf7UJPgWuA-VFObGt13tAqoC56+x4=g@mail.gmail.com> <B544BC96-63E4-4998-A5EA-36C37DBAA2F6@cmss.chinamobile.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: 8021q: Fix one possible panic caused by
+ BUG_ON in free_netdev
+Date: Mon, 19 Jun 2017 14:10:36 -0400 (EDT)
+Message-ID: <20170619.141036.665343734571702647.davem@davemloft.net>
+References: <1497596402-81457-1-git-send-email-gfree.wind@vip.163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Paolo Abeni <pabeni@redhat.com>,
-        Alexei Starovoitov <ast@fb.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        linux-kernel@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>
-To: =?UTF-8?B?5Lil5rW35Y+M?= <yanhaishuang@cmss.chinamobile.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <B544BC96-63E4-4998-A5EA-36C37DBAA2F6@cmss.chinamobile.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: gfree.wind@vip.163.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:35982 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750869AbdFSSKi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 14:10:38 -0400
+In-Reply-To: <1497596402-81457-1-git-send-email-gfree.wind@vip.163.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 19, 2017 at 6:13 AM, 严海双 <yanhaishuang@cmss.chinamobile.com> wrote:
->
->
->> On 19 Jun 2017, at 1:43 PM, Pravin Shelar <pshelar@ovn.org> wrote:
->>
->> On Fri, Jun 16, 2017 at 8:27 PM, Haishuang Yan
->> <yanhaishuang@cmss.chinamobile.com> wrote:
->>> In collect_md mode, if the tun dev is down, it still can call
->>> ip_tunnel_rcv to receive on packets, and the rx statistics increase
->>> improperly.
->>>
->>> Fixes: 2e15ea390e6f ("ip_gre: Add support to collect tunnel metadata.")
->>> Cc: Pravin B Shelar <pshelar@nicira.com>
->>> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
->>>
->>> ---
->>> Change since v2:
->>>  * Fix wrong recipient addresss
->>> ---
->>> net/ipv4/ip_tunnel.c | 2 +-
->>> 1 file changed, 1 insertion(+), 1 deletion(-)
->>>
->>> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
->>> index 0f1d876..a3caba1 100644
->>> --- a/net/ipv4/ip_tunnel.c
->>> +++ b/net/ipv4/ip_tunnel.c
->>> @@ -176,7 +176,7 @@ struct ip_tunnel *ip_tunnel_lookup(struct ip_tunnel_net *itn,
->>>                return cand;
->>>
->>>        t = rcu_dereference(itn->collect_md_tun);
->>> -       if (t)
->>> +       if (t && (t->dev->flags & IFF_UP))
->>>                return t;
->>>
->> It would be nice if we could increment drop count if tunnel device is not up.
->>
-> Hi Pravin
->
-> I think it’s not necessary, for example as gre tunnel, if ipgre_rcv fails, it would trigger send an icmp unreachable
-> message:
->
->         if (ipgre_rcv(skb, &tpi, hdr_len) == PACKET_RCVD)
->                 return 0;
->
->         icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
->
-> Since the tunnel device didn’t touch the packets, so increase drop statistics is not necessary.
->
-icmp err packets are not reliable on all networks. device stats are
-much more convenient during debugging connectivity issues.
+From: gfree.wind@vip.163.com
+Date: Fri, 16 Jun 2017 15:00:02 +0800
+
+> From: Gao Feng <gfree.wind@vip.163.com>
+> 
+> The register_vlan_device would invoke free_netdev directly, when
+> register_vlan_dev failed. It would trigger the BUG_ON in free_netdev
+> if the dev was already registered. In this case, the netdev would be
+> freed in netdev_run_todo later.
+> 
+> So add one condition check now. Only when dev is not registered, then
+> free it directly.
+> 
+> The following is the part coredump when netdev_upper_dev_link failed
+> in register_vlan_dev. I removed the lines which are too long.
+ ...
+> Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
+
+Ok, I guess this is how we will have to fix this.
+
+Applied, thanks.
