@@ -1,77 +1,48 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net] sctp: ensure ep is not destroyed before doing the
- dump
-Date: Mon, 19 Jun 2017 07:28:33 -0400
-Message-ID: <20170619112833.GA6487@hmswarspite.think-freely.org>
-References: <6861fd3fc029ccba569fabccf7e05f6a52f28415.1497687027.git.lucien.xin@gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v4 03/11] net: mvmdio: use GENMASK for masks
+Date: Mon, 19 Jun 2017 11:57:51 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0025C9A@AcuExch.aculab.com>
+References: <20170614154911.14510-1-antoine.tenart@free-electrons.com>
+ <20170614154911.14510-4-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "thomas.petazzoni@free-electrons.com"
+        <thomas.petazzoni@free-electrons.com>,
+        "nadavh@marvell.com" <nadavh@marvell.com>,
+        "mw@semihalf.com" <mw@semihalf.com>,
+        "linux@armlinux.org.uk" <linux@armlinux.org.uk>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>
+To: 'Antoine Tenart' <antoine.tenart@free-electrons.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "jason@lakedaemon.net" <jason@lakedaemon.net>,
+        "andrew@lunn.ch" <andrew@lunn.ch>,
+        "gregory.clement@free-electrons.com"
+        <gregory.clement@free-electrons.com>,
+        "sebastian.hesselbarth@gmail.com" <sebastian.hesselbarth@gmail.com>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:43028 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753711AbdFSL2k (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 07:28:40 -0400
-Content-Disposition: inline
-In-Reply-To: <6861fd3fc029ccba569fabccf7e05f6a52f28415.1497687027.git.lucien.xin@gmail.com>
+Received: from smtp-out6.electric.net ([192.162.217.195]:64017 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753845AbdFSL6B (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 07:58:01 -0400
+In-Reply-To: <20170614154911.14510-4-antoine.tenart@free-electrons.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 17, 2017 at 04:10:27PM +0800, Xin Long wrote:
-> Now before dumping a sock in sctp_diag, it only holds the sock while
-> the ep may be already destroyed. It can cause a use-after-free panic
-> when accessing ep->asocs.
-> 
-> This patch is to set sctp_sk(sk)->ep NULL in sctp_endpoint_destroy,
-> and check if this ep is already destroyed before dumping this ep.
-> 
-> Suggested-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> ---
->  net/sctp/endpointola.c | 1 +
->  net/sctp/sctp_diag.c   | 5 +++--
->  2 files changed, 4 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
-> index 8c58923..3dcd0ec 100644
-> --- a/net/sctp/endpointola.c
-> +++ b/net/sctp/endpointola.c
-> @@ -275,6 +275,7 @@ static void sctp_endpoint_destroy(struct sctp_endpoint *ep)
->  		if (sctp_sk(sk)->bind_hash)
->  			sctp_put_port(sk);
->  
-> +		sctp_sk(sk)->ep = NULL;
->  		sock_put(sk);
->  	}
->  
-> diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
-> index 048954e..9a64721 100644
-> --- a/net/sctp/sctp_diag.c
-> +++ b/net/sctp/sctp_diag.c
-> @@ -278,7 +278,6 @@ static int sctp_tsp_dump_one(struct sctp_transport *tsp, void *p)
->  
->  static int sctp_sock_dump(struct sock *sk, void *p)
->  {
-> -	struct sctp_endpoint *ep = sctp_sk(sk)->ep;
->  	struct sctp_comm_param *commp = p;
->  	struct sk_buff *skb = commp->skb;
->  	struct netlink_callback *cb = commp->cb;
-> @@ -287,7 +286,9 @@ static int sctp_sock_dump(struct sock *sk, void *p)
->  	int err = 0;
->  
->  	lock_sock(sk);
-> -	list_for_each_entry(assoc, &ep->asocs, asocs) {
-> +	if (!sctp_sk(sk)->ep)
-> +		goto release;
-> +	list_for_each_entry(assoc, &sctp_sk(sk)->ep->asocs, asocs) {
->  		if (cb->args[4] < cb->args[1])
->  			goto next;
->  
-> -- 
-> 2.1.0
-> 
-> 
-Acked-by: Neil Horman <nhorman@tuxdrver.com>
+From: Antoine Tenart
+> Sent: 14 June 2017 16:49
+> Cosmetic patch to use the GENMASK helper for masks.
+...
+> -	ret = val & 0xFFFF;
+> +	ret = val & GENMASK(15, 0);
+
+My 2c: It isn't at all clear to me that changes like this in anyway
+improve the code readability.
+In some sense the '15' should be a named constant - but that just makes
+it even less obvious what is going on.
+
+	David
