@@ -1,49 +1,73 @@
 From: Julien Gomes <julien@arista.com>
-Subject: [PATCH net-next v2 0/4] ipmr/ip6mr: add Netlink notifications on cache reports
-Date: Mon, 19 Jun 2017 13:44:13 -0700
-Message-ID: <20170619204417.13230-1-julien@arista.com>
+Subject: [PATCH net-next v2 2/4] rtnetlink: add restricted rtnl groups for ipv4 and ipv6 mroute
+Date: Mon, 19 Jun 2017 13:44:15 -0700
+Message-ID: <20170619204417.13230-3-julien@arista.com>
+References: <20170619204417.13230-1-julien@arista.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         sharpd@cumulusnetworks.com, nicolas.dichtel@6wind.com,
         Julien Gomes <julien@arista.com>
 To: davem@davemloft.net, nikolay@cumulusnetworks.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170619204417.13230-1-julien@arista.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currently, all ipmr/ip6mr cache reports are sent through the
-mroute/mroute6 socket only.
-This forces the use of a single socket for mroute programming, cache
-reports and, regarding ipmr, IGMP messages without Router Alert option
-reception.
+Add RTNLGRP_{IPV4,IPV6}_MROUTE_R as two new restricted groups for the
+NETLINK_ROUTE family.
+Binding to these groups specifically requires CAP_NET_ADMIN to allow
+multicast of sensitive messages (e.g. mroute cache reports).
 
-The present patches are aiming to send Netlink notifications in addition
-to the existing igmpmsg/mrt6msg to give user programs a way to handle
-cache reports in parallel with multiple sockets other than the
-mroute/mroute6 socket.
+Signed-off-by: Julien Gomes <julien@arista.com>
+---
+ include/uapi/linux/rtnetlink.h |  4 ++++
+ net/core/rtnetlink.c           | 13 +++++++++++++
+ 2 files changed, 17 insertions(+)
 
-Changes in v2:
-- Changed attributes naming from {IPMRA,IP6MRA}_CACHEREPORTA_* to
-  {IPMRA,IP6MRA}_CREPORT_*
-- Improved packet data copy to handle non-linear packets in
-  ipmr/ip6mr cache report Netlink notification creation
-- Added two rtnetlink groups with restricted-binding
-- Changed cache report notified groups from RTNL_{IPV4,IPV6}_MROUTE to
-  the new restricted groups in ipmr/ip6mr
-
-Julien Gomes (4):
-  rtnetlink: add NEWCACHEREPORT message type
-  rtnetlink: add restricted rtnl groups for ipv4 and ipv6 mroute
-  ipmr: add netlink notifications on igmpmsg cache reports
-  ip6mr: add netlink notifications on mrt6msg cache reports
-
- include/uapi/linux/mroute.h    | 12 ++++++++
- include/uapi/linux/mroute6.h   | 12 ++++++++
- include/uapi/linux/rtnetlink.h |  7 +++++
- net/core/rtnetlink.c           | 13 ++++++++
- net/ipv4/ipmr.c                | 67 ++++++++++++++++++++++++++++++++++++++++--
- net/ipv6/ip6mr.c               | 67 ++++++++++++++++++++++++++++++++++++++++--
- security/selinux/nlmsgtab.c    |  3 +-
- 7 files changed, 176 insertions(+), 5 deletions(-)
-
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index cd1afb900929..d148505010a7 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -669,6 +669,10 @@ enum rtnetlink_groups {
+ #define RTNLGRP_NSID		RTNLGRP_NSID
+ 	RTNLGRP_MPLS_NETCONF,
+ #define RTNLGRP_MPLS_NETCONF	RTNLGRP_MPLS_NETCONF
++	RTNLGRP_IPV4_MROUTE_R,
++#define RTNLGRP_IPV4_MROUTE_R	RTNLGRP_IPV4_MROUTE_R
++	RTNLGRP_IPV6_MROUTE_R,
++#define RTNLGRP_IPV6_MROUTE_R	RTNLGRP_IPV6_MROUTE_R
+ 	__RTNLGRP_MAX
+ };
+ #define RTNLGRP_MAX	(__RTNLGRP_MAX - 1)
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 3aa57848a895..4aefa5a2625f 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -4218,6 +4218,18 @@ static void rtnetlink_rcv(struct sk_buff *skb)
+ 	rtnl_unlock();
+ }
+ 
++static int rtnetlink_bind(struct net *net, int group)
++{
++	switch (group) {
++	case RTNLGRP_IPV4_MROUTE_R:
++	case RTNLGRP_IPV6_MROUTE_R:
++		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
++			return -EPERM;
++		break;
++	}
++	return 0;
++}
++
+ static int rtnetlink_event(struct notifier_block *this, unsigned long event, void *ptr)
+ {
+ 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+@@ -4252,6 +4264,7 @@ static int __net_init rtnetlink_net_init(struct net *net)
+ 		.input		= rtnetlink_rcv,
+ 		.cb_mutex	= &rtnl_mutex,
+ 		.flags		= NL_CFG_F_NONROOT_RECV,
++		.bind		= rtnetlink_bind,
+ 	};
+ 
+ 	sk = netlink_kernel_create(net, NETLINK_ROUTE, &cfg);
 -- 
 2.13.1
