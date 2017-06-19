@@ -1,28 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: mac80211 2017-06-16
-Date: Mon, 19 Jun 2017 00:05:21 -0400 (EDT)
-Message-ID: <20170619.000521.1966902961112226460.davem@davemloft.net>
-References: <20170616071936.4515-1-johannes@sipsolutions.net>
+Subject: Re: [PATCH net-next repost] nfp: add VLAN filtering support
+Date: Mon, 19 Jun 2017 00:12:05 -0400 (EDT)
+Message-ID: <20170619.001205.795471539180645122.davem@davemloft.net>
+References: <20170615232215.20073-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: johannes@sipsolutions.net
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
+        pablo.cascon@netronome.com
+To: jakub.kicinski@netronome.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44490 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:44698 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750790AbdFSEFi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 00:05:38 -0400
-In-Reply-To: <20170616071936.4515-1-johannes@sipsolutions.net>
+        with ESMTP id S1750790AbdFSEMI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 00:12:08 -0400
+In-Reply-To: <20170615232215.20073-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Fri, 16 Jun 2017 09:19:35 +0200
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Date: Thu, 15 Jun 2017 16:22:15 -0700
 
-> Here I just have the cleanups with the fix for that ancient bug
-> I sent the RFC patches for.
+> From: Pablo Cascón <pablo.cascon@netronome.com>
 > 
-> Please pull and let me know if there's any problem.
+> Add general use per-vNIC mailbox area and use it for VLAN filtering
+> support.  Initially proto is hardcoded to 802.1q.
+> 
+> Signed-off-by: Pablo Cascón <pablo.cascon@netronome.com>
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 
-Pulled, thanks Johannes.
+Applied.
