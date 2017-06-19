@@ -1,35 +1,61 @@
-From: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
-Subject: Re: [PATCH 03/11] au1100fb: remove a bogus dma_free_nonconsistent
- call
-Date: Mon, 19 Jun 2017 13:15:04 +0200
-Message-ID: <8727942.IUH8e0tH8t@amdc3058>
-References: <20170616071716.17321-1-hch@lst.de>
-        <20170616071716.17321-4-hch@lst.de>
-        <CGME20170619111507epcas5p47fd18b90a02d827da256ff4ebbda8089@epcas5p4.samsung.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-scsi@vger.kernel.org, linux-serial@vger.kernel.org,
-        netdev@vger.kernel.org, linux-metag@vger.kernel.org,
-        nios2-dev@lists.rocketboards.org, linux-fbdev@vger.kernel.org,
-        alsa-devel@alsa-project.org, linux-kernel@vger.kernel.org
-To: Christoph Hellwig <hch@lst.de>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-reply-to: <20170616071716.17321-4-hch@lst.de>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+Subject: [PATCH net-next 0/4] s390/net updates, part 2
+Date: Mon, 19 Jun 2017 13:22:21 +0200
+Message-ID: <20170619112225.30471-1-jwi@linux.vnet.ibm.com>
+Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
+        Martin Schwidefsky <schwidefsky@de.ibm.com>,
+        Heiko Carstens <heiko.carstens@de.ibm.com>,
+        Stefan Raspl <raspl@linux.vnet.ibm.com>,
+        Ursula Braun <ubraun@linux.vnet.ibm.com>,
+        Julian Wiedmann <jwi@linux.vnet.ibm.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:37656 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1753711AbdFSLWk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 07:22:40 -0400
+Received: from pps.filterd (m0098416.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5JBK28N151523
+        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 07:22:39 -0400
+Received: from e06smtp11.uk.ibm.com (e06smtp11.uk.ibm.com [195.75.94.107])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 2b64sd6nnt-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 07:22:39 -0400
+Received: from localhost
+        by e06smtp11.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <jwi@linux.vnet.ibm.com>;
+        Mon, 19 Jun 2017 12:22:38 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday, June 16, 2017 09:17:08 AM Christoph Hellwig wrote:
-> au1100fb is using managed dma allocations, so it doesn't need to
-> explicitly free the dma memory in the error path (and if it did
-> it would have to use the managed version).
-> 
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
+Hi Dave,
 
-Acked-by: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+some additional qeth patches for net-next, please apply.
 
-Best regards,
---
-Bartlomiej Zolnierkiewicz
-Samsung R&D Institute Poland
-Samsung Electronics
+Note: there's one out-of-topic modification to arch/s390 that
+adds a new hypervisor call, for use in qeth. Heiko acked to upstream
+this via your tree.
+
+Thanks,
+Julian
+
+
+Julian Wiedmann (3):
+  s390/qeth: fix packing buffer statistics
+  s390/diag: add diag26c support
+  s390/qeth: use diag26c to get MAC address on L2
+
+Kittipon Meesompop (1):
+  s390/qeth: add ipa return codes for bridgeport
+
+ arch/s390/include/asm/diag.h      | 26 +++++++++++++
+ arch/s390/kernel/diag.c           | 29 +++++++++++++++
+ drivers/s390/net/qeth_core.h      |  1 +
+ drivers/s390/net/qeth_core_main.c | 78 +++++++++++++++++++++++++++++++++++----
+ drivers/s390/net/qeth_core_mpc.c  | 14 +++++++
+ drivers/s390/net/qeth_core_mpc.h  | 18 +++++++++
+ drivers/s390/net/qeth_l2_main.c   | 50 +++++++++++++++----------
+ 7 files changed, 190 insertions(+), 26 deletions(-)
+
+-- 
+2.11.2
