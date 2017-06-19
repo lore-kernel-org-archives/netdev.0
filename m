@@ -1,51 +1,55 @@
-From: John Allen <jallen@linux.vnet.ibm.com>
-Subject: [PATCH net-next] ibmvnic: Return from ibmvnic_resume if not in
- VNIC_OPEN state
-Date: Mon, 19 Jun 2017 11:27:53 -0500
-Message-ID: <b9b5f82f-c59b-4816-b745-31080c6cdf78@linux.vnet.ibm.com>
+From: Niklas Cassel <niklas.cassel@axis.com>
+Subject: [PATCH net-next] net: stmmac: enable TSO for IPv6
+Date: Mon, 19 Jun 2017 18:36:44 +0200
+Message-ID: <20170619163645.28764-1-niklas.cassel@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Nathan Fontenot <nfont@linux.vnet.ibm.com>,
-        Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:51704 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750952AbdFSQ16 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 12:27:58 -0400
-Received: from pps.filterd (m0098396.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5JGOKYe031181
-        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 12:27:57 -0400
-Received: from e38.co.us.ibm.com (e38.co.us.ibm.com [32.97.110.159])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2b64rsww42-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 12:27:57 -0400
-Received: from localhost
-        by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <jallen@linux.vnet.ibm.com>;
-        Mon, 19 Jun 2017 10:27:56 -0600
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Niklas Cassel <niklass@axis.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If the ibmvnic driver is not in the VNIC_OPEN state, return from
-ibmvnic_resume callback. If we are not in the VNIC_OPEN state, interrupts
-may not be initialized and directly calling the interrupt handler will
-cause a crash.
+There is nothing in the IP that prevents us from enabling TSO for IPv6.
 
-Signed-off-by: John Allen <jallen@linux.vnet.ibm.com>
+Before patch:
+ftp fe80::2aa:bbff:fecc:1336%eth0
+ftp> get /dev/zero
+882512708 bytes received in 00:14 (56.11 MiB/s)
+
+After patch:
+ftp fe80::2aa:bbff:fecc:1336%eth0
+ftp> get /dev/zero
+1203326784 bytes received in 00:12 (94.52 MiB/s)
+
+Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
 ---
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index 722daf5..0135095 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -3859,6 +3859,9 @@ static int ibmvnic_resume(struct device *dev)
- 	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
- 	int i;
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-+	if (adapter->state != VNIC_OPEN)
-+		return 0;
-+
- 	/* kick the interrupt handlers just in case we lost an interrupt */
- 	for (i = 0; i < adapter->req_rx_queues; i++)
- 		ibmvnic_interrupt_rx(adapter->rx_scrq[i]->irq,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 6a1cb59728fe..fefbf817399a 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -2965,7 +2965,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	/* Manage oversized TCP frames for GMAC4 device */
+ 	if (skb_is_gso(skb) && priv->tso) {
+-		if (ip_hdr(skb)->protocol == IPPROTO_TCP)
++		if (skb_shinfo(skb)->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6))
+ 			return stmmac_tso_xmit(skb, dev);
+ 	}
+ 
+@@ -4126,7 +4126,7 @@ int stmmac_dvr_probe(struct device *device,
+ 			    NETIF_F_RXCSUM;
+ 
+ 	if ((priv->plat->tso_en) && (priv->dma_cap.tsoen)) {
+-		ndev->hw_features |= NETIF_F_TSO;
++		ndev->hw_features |= NETIF_F_TSO | NETIF_F_TSO6;
+ 		priv->tso = true;
+ 		dev_info(priv->device, "TSO feature enabled\n");
+ 	}
+-- 
+2.11.0
