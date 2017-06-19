@@ -1,75 +1,73 @@
-From: "Belgazal, Netanel" <netanel@amazon.com>
-Subject: Re: [PATCH net-next 10/13] net: ena: add mtu limitation in
- ena_change_mtu()
-Date: Mon, 19 Jun 2017 12:26:08 +0000
-Message-ID: <1497875168290.26033@amazon.com>
-References: <1497785298-13468-1-git-send-email-netanel@amazon.com>
-        <1497785298-13468-11-git-send-email-netanel@amazon.com>,<20170618.122103.1131376179675660541.davem@davemloft.net>
+From: yuan linyu <cugyly@163.com>
+Subject: [PATCH net-next] net: raw: assign delivered after receive success
+Date: Mon, 19 Jun 2017 20:37:38 +0800
+Message-ID: <1497875858-22402-1-git-send-email-cugyly@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Woodhouse, David" <dwmw@amazon.co.uk>,
-        "Machulsky, Zorik" <zorik@amazon.com>,
-        "Matushevsky, Alexander" <matua@amazon.com>,
-        "BSHARA, Said" <saeedb@amazon.com>,
-        "Wilson, Matt" <msw@amazon.com>,
-        "Liguori, Anthony" <aliguori@amazon.com>,
-        "Bshara, Nafea" <nafea@amazon.com>,
-        "Schmeilin, Evgeny" <evgenys@amazon.com>
-To: David Miller <davem@davemloft.net>
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-fw-6002.amazon.com ([52.95.49.90]:29892 "EHLO
-        smtp-fw-6002.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753669AbdFSM0R (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 08:26:17 -0400
-In-Reply-To: <20170618.122103.1131376179675660541.davem@davemloft.net>
-Content-Language: en-US
+Received: from m12-14.163.com ([220.181.12.14]:51657 "EHLO m12-14.163.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753942AbdFSMiI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 19 Jun 2017 08:38:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'll discard this patch.=0A=
-________________________________________=0A=
-From: David Miller <davem@davemloft.net>=0A=
-Sent: Sunday, June 18, 2017 7:21 PM=0A=
-To: Belgazal, Netanel=0A=
-Cc: netdev@vger.kernel.org; Woodhouse, David; Machulsky, Zorik; Matushevsky=
-, Alexander; BSHARA, Said; Wilson, Matt; Liguori, Anthony; Bshara, Nafea; S=
-chmeilin, Evgeny=0A=
-Subject: Re: [PATCH net-next 10/13] net: ena: add mtu limitation in ena_cha=
-nge_mtu()=0A=
-=0A=
-From: <netanel@amazon.com>=0A=
-Date: Sun, 18 Jun 2017 14:28:15 +0300=0A=
-=0A=
-> From: Netanel Belgazal <netanel@amazon.com>=0A=
->=0A=
-> Signed-off-by: Netanel Belgazal <netanel@amazon.com>=0A=
-=0A=
-I don't understand this at all.=0A=
-=0A=
-This whole reason we have those:=0A=
-=0A=
-> @@ -3008,8 +3015,6 @@ static void ena_set_conf_feat_params(struct ena_ada=
-pter *adapter,=0A=
->       ena_set_dev_offloads(feat, netdev);=0A=
->=0A=
->       adapter->max_mtu =3D feat->dev_attr.max_mtu;=0A=
-> -     netdev->max_mtu =3D adapter->max_mtu;=0A=
-> -     netdev->min_mtu =3D ENA_MIN_MTU;=0A=
->  }=0A=
->=0A=
-=0A=
-assignments you are removing is so that the core networking can=0A=
-validate the request and therefore individual drivers don't have to.=0A=
-=0A=
-If it's just to get that silly driver message out when the MTU asked=0A=
-for is too large, that's not a good reason to bypass the=0A=
-infrastructure for MTU changes that we've provided for drivers in the=0A=
-core.=0A=
-=0A=
-I don't like this change at all.=0A=
-=0A=
-You could have helped things a lot by actually writing a commit log=0A=
-message explaining what you are really doing, and why you are doing=0A=
-it.  Empty commit log messages are never a good idea.=0A=
+From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+
+it's not reasonable to assign delivered if packet match no RAW sock
+
+Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+---
+ net/ipv4/raw.c | 5 ++---
+ net/ipv6/raw.c | 4 ++--
+ 2 files changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index bdffad8..fa39894 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -187,15 +187,14 @@ static int raw_v4_input(struct sk_buff *skb, const struct iphdr *iph, int hash)
+ 			     skb->dev->ifindex);
+ 
+ 	while (sk) {
+-		delivered = 1;
+ 		if ((iph->protocol != IPPROTO_ICMP || !icmp_filter(sk, skb)) &&
+ 		    ip_mc_sf_allow(sk, iph->daddr, iph->saddr,
+ 				   skb->dev->ifindex)) {
+ 			struct sk_buff *clone = skb_clone(skb, GFP_ATOMIC);
+ 
+ 			/* Not releasing hash table! */
+-			if (clone)
+-				raw_rcv(sk, clone);
++			if (clone && raw_rcv(sk, clone) == NET_RX_SUCCESS)
++				delivered = 1;
+ 		}
+ 		sk = __raw_v4_lookup(net, sk_next(sk), iph->protocol,
+ 				     iph->saddr, iph->daddr,
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 60be012..de9483e 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -183,7 +183,6 @@ static bool ipv6_raw_deliver(struct sk_buff *skb, int nexthdr)
+ 	while (sk) {
+ 		int filtered;
+ 
+-		delivered = true;
+ 		switch (nexthdr) {
+ 		case IPPROTO_ICMPV6:
+ 			filtered = icmpv6_filter(sk, skb);
+@@ -218,7 +217,8 @@ static bool ipv6_raw_deliver(struct sk_buff *skb, int nexthdr)
+ 			/* Not releasing hash table! */
+ 			if (clone) {
+ 				nf_reset(clone);
+-				rawv6_rcv(sk, clone);
++				if (rawv6_rcv(sk, clone) == NET_RX_SUCCESS)
++					delivered = true;
+ 			}
+ 		}
+ 		sk = __raw_v6_lookup(net, sk_next(sk), nexthdr, daddr, saddr,
+-- 
+2.7.4
