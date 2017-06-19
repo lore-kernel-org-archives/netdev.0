@@ -1,39 +1,51 @@
-From: Krzysztof Kozlowski <krzk@kernel.org>
-Subject: [PATCH] dt-bindings: net: sms911x: Add missing optional VDD regulators
-Date: Mon, 19 Jun 2017 18:05:41 +0200
-Message-ID: <20170619160541.5155-1-krzk@kernel.org>
-To: Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Linus Walleij <linus.walleij@linaro.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Krzysztof Kozlowski <krzk@kernel.org>, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: John Allen <jallen@linux.vnet.ibm.com>
+Subject: [PATCH net-next] ibmvnic: Return from ibmvnic_resume if not in
+ VNIC_OPEN state
+Date: Mon, 19 Jun 2017 11:27:53 -0500
+Message-ID: <b9b5f82f-c59b-4816-b745-31080c6cdf78@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Nathan Fontenot <nfont@linux.vnet.ibm.com>,
+        Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:51704 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750952AbdFSQ16 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 12:27:58 -0400
+Received: from pps.filterd (m0098396.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5JGOKYe031181
+        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 12:27:57 -0400
+Received: from e38.co.us.ibm.com (e38.co.us.ibm.com [32.97.110.159])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2b64rsww42-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 12:27:57 -0400
+Received: from localhost
+        by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <jallen@linux.vnet.ibm.com>;
+        Mon, 19 Jun 2017 10:27:56 -0600
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The lan911x family of devices require supplying from 3.3 V power
-supplies (connected to VDD_IO, VDD_A and VREG_3.3 pins).  The existing
-driver however obtains only VDD_IO and VDD_A regulators in an optional
-way so document this in bindings.
+If the ibmvnic driver is not in the VNIC_OPEN state, return from
+ibmvnic_resume callback. If we are not in the VNIC_OPEN state, interrupts
+may not be initialized and directly calling the interrupt handler will
+cause a crash.
 
-Signed-off-by: Krzysztof Kozlowski <krzk@kernel.org>
+Signed-off-by: John Allen <jallen@linux.vnet.ibm.com>
 ---
- Documentation/devicetree/bindings/net/smsc911x.txt | 1 +
- 1 file changed, 1 insertion(+)
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
+index 722daf5..0135095 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.c
++++ b/drivers/net/ethernet/ibm/ibmvnic.c
+@@ -3859,6 +3859,9 @@ static int ibmvnic_resume(struct device *dev)
+ 	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
+ 	int i;
 
-diff --git a/Documentation/devicetree/bindings/net/smsc911x.txt b/Documentation/devicetree/bindings/net/smsc911x.txt
-index 16c3a9501f5d..acfafc8e143c 100644
---- a/Documentation/devicetree/bindings/net/smsc911x.txt
-+++ b/Documentation/devicetree/bindings/net/smsc911x.txt
-@@ -27,6 +27,7 @@ Optional properties:
-   of the device. On many systems this is wired high so the device goes
-   out of reset at power-on, but if it is under program control, this
-   optional GPIO can wake up in response to it.
-+- vdd33a-supply, vddvario-supply : 3.3V analog and IO logic power supplies
- 
- Examples:
- 
--- 
-2.9.3
++	if (adapter->state != VNIC_OPEN)
++		return 0;
++
+ 	/* kick the interrupt handlers just in case we lost an interrupt */
+ 	for (i = 0; i < adapter->req_rx_queues; i++)
+ 		ibmvnic_interrupt_rx(adapter->rx_scrq[i]->irq,
