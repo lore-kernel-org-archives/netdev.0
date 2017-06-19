@@ -1,36 +1,39 @@
-From: Roman Mashak <mrv@mojatatu.com>
-Subject: [PATCH iproute2 1/1] tc: fixed typo in usage text.
-Date: Mon, 19 Jun 2017 15:52:25 -0400
-Message-ID: <1497901945-25508-1-git-send-email-mrv@mojatatu.com>
-Cc: netdev@vger.kernel.org, Roman Mashak <mrv@mojatatu.com>
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:35109 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751119AbdFSTwk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 15:52:40 -0400
-Received: by mail-io0-f195.google.com with SMTP id f79so12440200ioi.2
-        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 12:52:40 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 0/5] rtlwifi: Neatening
+Date: Mon, 19 Jun 2017 13:18:13 -0700
+Message-ID: <cover.1497903396.git.joe@perches.com>
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+        Chaoming Li <chaoming_li@realsil.com.cn>,
+        Kalle Valo <kvalo@codeaurora.org>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: linux-wireless@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Roman Mashak <mrv@mojatatu.com>
----
- tc/f_u32.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Joe Perches (5):
+  rtlwifi: Use temporary ops variable to reduce code size
+  rtlwifi: Use temporary variable btc_ops for rtlpriv->btcoexist.btc_ops
+  rtlwifi: Add and use convenience macro rtl_btc
+  realtek: btcoexist: Make the rtl_btc_ops struct const
+  realtek: rtlwifi: drivers: Use the rtl_btc convenience macro
 
-diff --git a/tc/f_u32.c b/tc/f_u32.c
-index ff700e9..b272c2c 100644
---- a/tc/f_u32.c
-+++ b/tc/f_u32.c
-@@ -34,7 +34,7 @@ static void explain(void)
- 		"Usage: ... u32 [ match SELECTOR ... ] [ link HTID ] [ classid CLASSID ]\n"
- 		"               [ action ACTION_SPEC ] [ offset OFFSET_SPEC ]\n"
- 		"               [ ht HTID ] [ hashkey HASHKEY_SPEC ]\n"
--		"               [ sample SAMPLE ] [skip-hw | skip-sw]\n"
-+		"               [ sample SAMPLE ] [skip_hw | skip_sw]\n"
- 		"or         u32 divisor DIVISOR\n"
- 		"\n"
- 		"Where: SELECTOR := SAMPLE SAMPLE ...\n"
+ drivers/net/wireless/realtek/rtlwifi/base.c        |  46 ++--
+ .../wireless/realtek/rtlwifi/btcoexist/rtl_btc.c   |   4 +-
+ .../wireless/realtek/rtlwifi/btcoexist/rtl_btc.h   |   2 +-
+ drivers/net/wireless/realtek/rtlwifi/core.c        | 189 ++++++++--------
+ drivers/net/wireless/realtek/rtlwifi/efuse.c       |   9 +-
+ drivers/net/wireless/realtek/rtlwifi/pci.c         | 242 +++++++++++----------
+ drivers/net/wireless/realtek/rtlwifi/ps.c          |  83 +++----
+ .../net/wireless/realtek/rtlwifi/rtl8192ee/hw.c    |   3 +-
+ .../wireless/realtek/rtlwifi/rtl8723ae/hal_btc.c   |   4 +-
+ .../net/wireless/realtek/rtlwifi/rtl8723ae/hw.c    |   3 +-
+ .../net/wireless/realtek/rtlwifi/rtl8723be/hw.c    |   3 +-
+ .../net/wireless/realtek/rtlwifi/rtl8821ae/fw.c    |   6 +-
+ .../net/wireless/realtek/rtlwifi/rtl8821ae/hw.c    |   3 +-
+ drivers/net/wireless/realtek/rtlwifi/usb.c         |  40 ++--
+ drivers/net/wireless/realtek/rtlwifi/wifi.h        |   9 +-
+ 15 files changed, 336 insertions(+), 310 deletions(-)
+
 -- 
-1.9.1
+2.10.0.rc2.1.g053435c
