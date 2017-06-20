@@ -1,43 +1,51 @@
-From: "Chickles, Derek" <Derek.Chickles@cavium.com>
-Subject: RE: [PATCH] liquidio: stop using huge static buffer, save 4096k in
- .data
-Date: Tue, 20 Jun 2017 20:15:34 +0000
-Message-ID: <MWHPR07MB29434F09FBC054D2E0310D6FF3C50@MWHPR07MB2943.namprd07.prod.outlook.com>
-References: <20170619195052.13176-1-dvlasenk@redhat.com>
- <20170620.152142.1443468587541525646.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Manlunas, Felix" <Felix.Manlunas@cavium.com>,
-        "Kanneganti, Prasad" <Prasad.Kanneganti@cavium.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-        "dvlasenk@redhat.com" <dvlasenk@redhat.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] net: phy: smsc: fix buffer overflow in memcpy
+Date: Tue, 20 Jun 2017 22:40:46 +0200
+Message-ID: <20170620204059.790066-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Timur Tabi <timur@codeaurora.org>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170620.152142.1443468587541525646.davem@davemloft.net>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Tuesday, June 20, 2017 12:22 PM
->=20
-> From: Denys Vlasenko <dvlasenk@redhat.com>
-> Date: Mon, 19 Jun 2017 21:50:52 +0200
->=20
-> > Only compile-tested - I don't have the hardware.
-> >
-> > From code inspection, octeon_pci_write_core_mem() appears to be safe wr=
-t
-> > unaligned source. In any case, u8 fbuf[] was not guaranteed to be align=
-ed
-> > anyway.
-> >
-> > Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
->=20
-> Looks good to me but I'll let one of the liquidio guys review this first
-> before I apply it.
+The memcpy annotation triggers for a fixed-length buffer copy:
 
-Felix is going to try this out this week to confirm. Let's wait for his ack=
-.
+In file included from /git/arm-soc/arch/arm64/include/asm/processor.h:30:0,
+                 from /git/arm-soc/arch/arm64/include/asm/spinlock.h:21,
+                 from /git/arm-soc/include/linux/spinlock.h:87,
+                 from /git/arm-soc/include/linux/seqlock.h:35,
+                 from /git/arm-soc/include/linux/time.h:5,
+                 from /git/arm-soc/include/linux/stat.h:21,
+                 from /git/arm-soc/include/linux/module.h:10,
+                 from /git/arm-soc/drivers/net/phy/smsc.c:20:
+In function 'memcpy',
+    inlined from 'smsc_get_strings' at /git/arm-soc/drivers/net/phy/smsc.c:166:3:
+/git/arm-soc/include/linux/string.h:309:4: error: call to '__read_overflow2' declared with attribute error: detected read beyond size of object passed as 2nd parameter
+
+Using strncpy instead of memcpy should do the right thing here.
+
+Fixes: 030a89028db0 ("net: phy: smsc: Implement PHY statistics")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/phy/smsc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
+index 1b8204be064c..2306bfae057f 100644
+--- a/drivers/net/phy/smsc.c
++++ b/drivers/net/phy/smsc.c
+@@ -163,7 +163,7 @@ static void smsc_get_strings(struct phy_device *phydev, u8 *data)
+ 	int i;
+ 
+ 	for (i = 0; i < ARRAY_SIZE(smsc_hw_stats); i++) {
+-		memcpy(data + i * ETH_GSTRING_LEN,
++		strncpy(data + i * ETH_GSTRING_LEN,
+ 		       smsc_hw_stats[i].string, ETH_GSTRING_LEN);
+ 	}
+ }
+-- 
+2.9.0
