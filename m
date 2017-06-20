@@ -1,44 +1,36 @@
-From: Zach Brown <zach.brown@ni.com>
-Subject: [PATCH v2] net/phy: micrel: configure intterupts after autoneg workaround
-Date: Tue, 20 Jun 2017 12:48:11 -0500
-Message-ID: <1497980891-10495-1-git-send-email-zach.brown@ni.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC 2/2] net-next: mt7530: add nh and proto offsets to the ops
+ struct
+Date: Tue, 20 Jun 2017 20:02:31 +0200
+Message-ID: <20170620180231.GD12383@lunn.ch>
+References: <20170620080655.7251-1-john@phrozen.org>
+ <20170620080655.7251-2-john@phrozen.org>
+ <20170620135439.GA12383@lunn.ch>
+ <0c30b590-19b1-8648-eea1-943724c60941@phrozen.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <andrew@lunn.ch>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Sean Wang <sean.wang@mediatek.com>, netdev@vger.kernel.org
+To: John Crispin <john@phrozen.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:57522 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750927AbdFTSCx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 20 Jun 2017 14:02:53 -0400
+Content-Disposition: inline
+In-Reply-To: <0c30b590-19b1-8648-eea1-943724c60941@phrozen.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The commit ("net/phy: micrel: Add workaround for bad autoneg") fixes an
-autoneg failure case by resetting the hardware. This turns off
-intterupts. Things will work themselves out if the phy polls, as it will
-figure out it's state during a poll. However if the phy uses only
-intterupts, the phy will stall, since interrupts are off. This patch
-fixes the issue by calling config_intr after resetting the phy.
+> #include "../dsa/dsa_priv.h"
+> 
+> I was not sure if this is ok or if we would need to move the struct
+> definition to include/net/dsa.h in that case
 
-Fixes: d2fd719bcb0e ("net/phy: micrel: Add workaround for bad autoneg ")
-Signed-off-by: Zach Brown <zach.brown@ni.com>
----
-v2:
- * Check phy_intterupt_is_valid before calling config_intr
+Hi John
 
- drivers/net/phy/micrel.c | 2 ++
- 1 file changed, 2 insertions(+)
+Please move the structure.
 
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 9365b07..fdb43dd 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -620,6 +620,8 @@ static int ksz9031_read_status(struct phy_device *phydev)
- 	if ((regval & 0xFF) == 0xFF) {
- 		phy_init_hw(phydev);
- 		phydev->link = 0;
-+		if (phydev->drv->config_intr && phy_interrupt_is_valid(phydev))
-+			phydev->drv->config_intr(phydev);
- 	}
- 
- 	return 0;
--- 
-2.7.4
+       Andrew
