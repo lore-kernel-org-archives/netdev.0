@@ -1,64 +1,94 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next 0/1] Introduction of the tc tests
-Date: Mon, 19 Jun 2017 22:40:27 -0700
-Message-ID: <20170619224027.133c3578@plumbers-lap.home.lan>
-References: <1497648155-25521-1-git-send-email-lucasb@mojatatu.com>
-        <CAM_iQpUxfGrLTv+8J_=n2-zOOd5fqwrNSvF7Ro1EyRyBBNb_8w@mail.gmail.com>
-        <20170619.234819.333574326143678552.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, lucasb@mojatatu.com,
-        netdev@vger.kernel.org, jiri@resnulli.us, mrv@mojatatu.com,
-        jhs@mojatatu.com
-To: David Miller <davem@davemloft.net>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH net-next 00/12] nfp: add flower app with representors
+Date: Tue, 20 Jun 2017 07:51:38 +0200
+Message-ID: <1497937910-32059-1-git-send-email-simon.horman@netronome.com>
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
+        Simon Horman <simon.horman@netronome.com>
+To: David Miller <davem@davemloft.net>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:35324 "EHLO
-        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750992AbdFTFkk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 01:40:40 -0400
-Received: by mail-pf0-f179.google.com with SMTP id c73so4353750pfk.2
-        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 22:40:39 -0700 (PDT)
-In-Reply-To: <20170619.234819.333574326143678552.davem@davemloft.net>
+Received: from mail-qk0-f174.google.com ([209.85.220.174]:36008 "EHLO
+        mail-qk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750884AbdFTFwL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 01:52:11 -0400
+Received: by mail-qk0-f174.google.com with SMTP id g83so49637942qkb.3
+        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 22:52:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 19 Jun 2017 23:48:19 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
+Hi,
 
-> From: Cong Wang <xiyou.wangcong@gmail.com>
-> Date: Mon, 19 Jun 2017 16:37:29 -0700
-> 
-> > Hi,
-> > 
-> > On Fri, Jun 16, 2017 at 2:22 PM, Lucas Bates <lucasb@mojatatu.com> wrote:  
-> >> Apologies for sending this as one big patch. I've been sitting on this a little
-> >> too long, but it's ready and I wanted to get it out.
-> >>
-> >> There are a limited number of tests to start - I plan to add more on a regular
-> >> basis.
-> >>
-> >> Lucas Bates (1):
-> >>   selftests: Introduce tc testsuite  
-> > 
-> > Nice work!
-> > 
-> > Is there any particular reason you want to put these tests in kernel tree
-> > especially tools/testing/selftests/ ?  
-> 
-> Yeah, it would be absolutely terrible if we had more tests in the
-> kernel selftests area for networking.
-> 
-> More seriously, we need more, not less, tests in the kernel networking
-> selftests directory.
-> 
-> It doesn't belong in iproute2 because we want a place to put things
-> that automatically get tested when someone makes kernel changes and
-> can be integrated into the kernel development workflow.
-> 
-> I want as many tests as possible under there, so I'm really surprised
-> that you're asking "why" tests are being added there.
+this series adds a flower app to the NFP driver.
+It initialises four types of netdevs:
 
-The "Occum's razor" for deciding where tests belong should be does
-the test need to change to respond to kernel change? Don't want to have
-iproute2 tests that have if (kernel_version > ...)
+* PF netdev - lower-device for communication of packets to device
+* PF representor netdev
+* VF representor netdevs
+* Phys port representor netdevs
+
+The PF netdev acts as a lower-device which sends and receives packets to
+and from the firmware. The representors act as upper-devices. For TX
+representors attach a metadata dst to the skb which is used by the PF
+netdev to prepend metadata to the packet before forwarding the firmware. On
+RX the PF netdev looks up the representor based on the prepended metadata
+recieved from the firmware and forwards the skb to the representor after
+removing the metadata.
+
+Control queues are used to send and receive control messages which are
+used to communicate configuration information with the firmware. These
+are in separate vNIC to the queues belonging to the PF netdev. The control
+queues are not exposed to use-space via a netdev or any other means.
+
+As the name implies this app is targeted at providing offload of TC flower.
+That will be added by follow-up work. This patchset focuses on adding phys
+port and VF representor netdevs to which flower classifiers may be attached.
+
+Jakub Kicinski (3):
+  net: store port/representator id in metadata_dst
+  nfp: devlink add support for getting eswitch mode
+  nfp: move physical port init into a helper
+
+Simon Horman (9):
+  nfp: map mac_stats and vf_cfg BARs
+  nfp: general representor implementation
+  nfp: add stats and xmit helpers for representors
+  nfp: app callbacks for SRIOV
+  nfp: provide nfp_port to of nfp_net_get_mac_addr()
+  nfp: add support for tx/rx with metadata portid
+  nfp: add support for control messages for flower app
+  nfp: add flower app
+  nfp: add VF and PF representors to flower app
+
+ drivers/net/ethernet/netronome/nfp/Makefile        |   3 +
+ drivers/net/ethernet/netronome/nfp/flower/cmsg.c   | 159 +++++++++
+ drivers/net/ethernet/netronome/nfp/flower/cmsg.h   | 116 +++++++
+ drivers/net/ethernet/netronome/nfp/flower/main.c   | 376 +++++++++++++++++++++
+ drivers/net/ethernet/netronome/nfp/nfp_app.c       |  26 +-
+ drivers/net/ethernet/netronome/nfp/nfp_app.h       |  58 +++-
+ drivers/net/ethernet/netronome/nfp/nfp_app_nic.c   |  25 +-
+ drivers/net/ethernet/netronome/nfp/nfp_devlink.c   |  18 +
+ drivers/net/ethernet/netronome/nfp/nfp_main.c      |  42 ++-
+ drivers/net/ethernet/netronome/nfp/nfp_main.h      |  11 +-
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |   1 +
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    |  57 +++-
+ drivers/net/ethernet/netronome/nfp/nfp_net_main.c  | 141 +++++---
+ drivers/net/ethernet/netronome/nfp/nfp_net_repr.c  | 352 +++++++++++++++++++
+ drivers/net/ethernet/netronome/nfp/nfp_net_repr.h  | 120 +++++++
+ drivers/net/ethernet/netronome/nfp/nfp_port.c      |  25 ++
+ drivers/net/ethernet/netronome/nfp/nfp_port.h      |  63 ++++
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h   |   2 +
+ .../ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c   |   5 +-
+ include/net/dst_metadata.h                         |  41 ++-
+ net/core/dst.c                                     |  15 +-
+ net/core/filter.c                                  |   1 +
+ net/ipv4/ip_tunnel_core.c                          |   6 +-
+ net/openvswitch/flow_netlink.c                     |   4 +-
+ 24 files changed, 1574 insertions(+), 93 deletions(-)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/flower/cmsg.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/flower/cmsg.h
+ create mode 100644 drivers/net/ethernet/netronome/nfp/flower/main.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_net_repr.h
+
+-- 
+2.1.4
