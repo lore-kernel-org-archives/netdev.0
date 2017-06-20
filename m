@@ -1,55 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] igmp: add a missing spin_lock_init()
-Date: Tue, 20 Jun 2017 15:52:29 -0400 (EDT)
-Message-ID: <20170620.155229.1782557175397900375.davem@davemloft.net>
-References: <1497980787-4040-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Arend van Spriel <arend.vanspriel@broadcom.com>
+Subject: Re: [PATCH] cfg80211: Fix a memory leak in error handling path in
+ 'brcmf_cfg80211_attach'
+Date: Tue, 20 Jun 2017 21:53:15 +0200
+Message-ID: <2343c662-f70d-1e76-d863-5f6bb66c269b@broadcom.com>
+References: <20170620062205.16078-1-christophe.jaillet@wanadoo.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andreyknvl@google.com
-To: xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42846 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751959AbdFTTwa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 15:52:30 -0400
-In-Reply-To: <1497980787-4040-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org,
+        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>,
+        franky.lin@broadcom.com, hante.meuleman@broadcom.com,
+        kvalo@codeaurora.org, rafal@milecki.pl,
+        pieter-paul.giesberts@broadcom.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170620062205.16078-1-christophe.jaillet@wanadoo.fr>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Tue, 20 Jun 2017 10:46:27 -0700
 
-> Andrey reported a lockdep warning on non-initialized
-> spinlock:
-> 
->  INFO: trying to register non-static key.
->  the code is fine but needs lockdep annotation.
->  turning off the locking correctness validator.
->  CPU: 1 PID: 4099 Comm: a.out Not tainted 4.12.0-rc6+ #9
->  Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
->  Call Trace:
->   __dump_stack lib/dump_stack.c:16
->   dump_stack+0x292/0x395 lib/dump_stack.c:52
->   register_lock_class+0x717/0x1aa0 kernel/locking/lockdep.c:755
->   ? 0xffffffffa0000000
->   __lock_acquire+0x269/0x3690 kernel/locking/lockdep.c:3255
->   lock_acquire+0x22d/0x560 kernel/locking/lockdep.c:3855
->   __raw_spin_lock_bh ./include/linux/spinlock_api_smp.h:135
->   _raw_spin_lock_bh+0x36/0x50 kernel/locking/spinlock.c:175
->   spin_lock_bh ./include/linux/spinlock.h:304
->   ip_mc_clear_src+0x27/0x1e0 net/ipv4/igmp.c:2076
->   igmpv3_clear_delrec+0xee/0x4f0 net/ipv4/igmp.c:1194
->   ip_mc_destroy_dev+0x4e/0x190 net/ipv4/igmp.c:1736
-> 
-> We miss a spin_lock_init() in igmpv3_add_delrec(), probably
-> because previously we never use it on this code path. Since
-> we already unlink it from the global mc_tomb list, it is
-> probably safe not to acquire this spinlock here. It does not
-> harm to have it although, to avoid conditional locking.
-> 
-> Fixes: c38b7d327aaf ("igmp: acquire pmc lock for ip_mc_clear_src()")
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Applied and queued up for -stable, thank you.
+On 20-06-17 08:22, Christophe JAILLET wrote:
+> If 'wiphy_new()' fails, we leak 'ops'. Add a new label in the error
+> handling path to free it in such a case.
+
+Thanks. Please add the following tags:
+
+Cc: stable@vger.kernel.org
+> Fixes: 5c22fb85102a7 ("brcmfmac: add wowl gtk rekeying offload support")
+Acked-by: Arend van Spriel <arend.vanspriel@broadcom.com>
+> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+> ---
+>  drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
