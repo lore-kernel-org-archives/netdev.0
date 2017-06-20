@@ -1,7 +1,7 @@
 From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next v3 03/15] bpf: Support for per connection  SYN/SYN-ACK RTOs
-Date: Mon, 19 Jun 2017 20:00:36 -0700
-Message-ID: <20170620030048.3275347-4-brakmo@fb.com>
+Subject: [PATCH net-next v3 08/15] bpf: Add TCP connection BPF callbacks
+Date: Mon, 19 Jun 2017 20:00:41 -0700
+Message-ID: <20170620030048.3275347-9-brakmo@fb.com>
 References: <20170620030048.3275347-1-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,98 +11,107 @@ Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:51757 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751071AbdFTDAy (ORCPT
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:44161 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750992AbdFTDAy (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 23:00:54 -0400
-Received: from pps.filterd (m0109331.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5K2w3rF024384
+Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5K2xiQO008582
         for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 20:00:53 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2b6nvx8r6q-4
+        by mx0a-00082601.pphosted.com with ESMTP id 2b6t4q857y-2
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
         for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 20:00:53 -0700
 Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
- mx-out.facebook.com (2401:db00:2050:5102:face:0000:0037:0000) with ESMTP       id
- aae460c2556411e79fcee32f9c16277d-aef368f0 for <netdev@vger.kernel.org>;        Mon,
- 19 Jun 2017 20:00:51 -0700
+ mx-out.facebook.com (10.212.232.63) with ESMTP id
+ abce6d84556411e7a3da0002c992ebde-4d1408f0 for <netdev@vger.kernel.org>;        Mon,
+ 19 Jun 2017 20:00:52 -0700
 In-Reply-To: <20170620030048.3275347-1-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for setting a per connection SYN and
-SYN_ACK RTOs from within a BPF_SOCK_OPS program. For example,
-to set small RTOs when it is known both hosts are within a
-datacenter.
+Added callbacks to BPF SOCK_OPS type program before an active
+connection is intialized and after a passive or active connection is
+established.
+
+The following patch demostrates how they can be used to set send and
+receive buffer sizes.
 
 Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
 ---
- include/net/tcp.h        | 11 +++++++++++
- include/uapi/linux/bpf.h |  3 +++
- net/ipv4/tcp_input.c     |  3 ++-
- net/ipv4/tcp_output.c    |  2 +-
- 4 files changed, 17 insertions(+), 2 deletions(-)
+ include/uapi/linux/bpf.h | 11 +++++++++++
+ net/ipv4/tcp_fastopen.c  |  1 +
+ net/ipv4/tcp_input.c     |  4 +++-
+ net/ipv4/tcp_output.c    |  1 +
+ 4 files changed, 16 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index f6f415c..bdf6bfd 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -2051,4 +2051,15 @@ static inline int tcp_call_bpf(struct sock *sk, bool is_req_sock, int op)
- }
- #endif
- 
-+static inline u32 tcp_timeout_init(struct sock *sk, bool is_req_sock)
-+{
-+	int timeout;
-+
-+	timeout = tcp_call_bpf(sk, is_req_sock, BPF_SOCK_OPS_TIMEOUT_INIT);
-+
-+	if (timeout <= 0)
-+		timeout = TCP_TIMEOUT_INIT;
-+	return timeout;
-+}
-+
- #endif	/* _TCP_H */
 diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 861dbe9..4532c31 100644
+index 86595f9..4856d16 100644
 --- a/include/uapi/linux/bpf.h
 +++ b/include/uapi/linux/bpf.h
-@@ -746,6 +746,9 @@ struct bpf_sock_ops {
-  */
- enum {
- 	BPF_SOCK_OPS_VOID,
-+	BPF_SOCK_OPS_TIMEOUT_INIT,	/* Should return SYN-RTO value to use or
-+					 * -1 if default value should be used
+@@ -765,6 +765,17 @@ enum {
+ 					 * window (in packets) or -1 if default
+ 					 * value should be used
+ 					 */
++	BPF_SOCK_OPS_TCP_CONNECT_CB,	/* Calls BPF program right before an
++					 * active connection is initialized
 +					 */
++	BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB,	/* Calls BPF program when an
++						 * active connection is
++						 * established
++						 */
++	BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB,	/* Calls BPF program when a
++						 * passive connection is
++						 * established
++						 */
  };
  
  #endif /* _UAPI__LINUX_BPF_H__ */
+diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
+index 4af82b9..ed6b549 100644
+--- a/net/ipv4/tcp_fastopen.c
++++ b/net/ipv4/tcp_fastopen.c
+@@ -221,6 +221,7 @@ static struct sock *tcp_fastopen_create_child(struct sock *sk,
+ 	tcp_init_congestion_control(child);
+ 	tcp_mtup_init(child);
+ 	tcp_init_metrics(child);
++	tcp_call_bpf(child, false, BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB);
+ 	tcp_init_buffer_space(child);
+ 
+ 	tp->rcv_nxt = TCP_SKB_CB(skb)->seq + 1;
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 2ab7e2f..0867b05 100644
+index 0867b05..1b868ae 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -6406,7 +6406,8 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
- 	} else {
- 		tcp_rsk(req)->tfo_listener = false;
- 		if (!want_cookie)
--			inet_csk_reqsk_queue_hash_add(sk, req, TCP_TIMEOUT_INIT);
-+			inet_csk_reqsk_queue_hash_add(sk, req,
-+				tcp_timeout_init((struct sock *)req, true));
- 		af_ops->send_synack(sk, dst, &fl, req, &foc,
- 				    !want_cookie ? TCP_SYNACK_NORMAL :
- 						   TCP_SYNACK_COOKIE);
+@@ -5571,7 +5571,7 @@ void tcp_finish_connect(struct sock *sk, struct sk_buff *skb)
+ 	icsk->icsk_af_ops->rebuild_header(sk);
+ 
+ 	tcp_init_metrics(sk);
+-
++	tcp_call_bpf(sk, false, BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB);
+ 	tcp_init_congestion_control(sk);
+ 
+ 	/* Prevent spurious tcp_cwnd_restart() on first data
+@@ -5977,6 +5977,8 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
+ 		} else {
+ 			/* Make sure socket is routed, for correct metrics. */
+ 			icsk->icsk_af_ops->rebuild_header(sk);
++			tcp_call_bpf(sk, false,
++				     BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB);
+ 			tcp_init_congestion_control(sk);
+ 
+ 			tcp_mtup_init(sk);
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 9a9c395..5e478a1 100644
+index e5f623f..958edc8 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
-@@ -3327,7 +3327,7 @@ static void tcp_connect_init(struct sock *sk)
- 	tp->rcv_wup = tp->rcv_nxt;
- 	tp->copied_seq = tp->rcv_nxt;
+@@ -3445,6 +3445,7 @@ int tcp_connect(struct sock *sk)
+ 	struct sk_buff *buff;
+ 	int err;
  
--	inet_csk(sk)->icsk_rto = TCP_TIMEOUT_INIT;
-+	inet_csk(sk)->icsk_rto = tcp_timeout_init(sk, false);
- 	inet_csk(sk)->icsk_retransmits = 0;
- 	tcp_clear_retrans(tp);
- }
++	tcp_call_bpf(sk, false, BPF_SOCK_OPS_TCP_CONNECT_CB);
+ 	tcp_connect_init(sk);
+ 
+ 	if (unlikely(tp->repair)) {
 -- 
 2.9.3
