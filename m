@@ -1,93 +1,34 @@
-From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
-Subject: [PATCH net-next 2/4] s390/qeth: fix packing buffer statistics
-Date: Tue, 20 Jun 2017 16:00:32 +0200
-Message-ID: <20170620140034.89661-3-jwi@linux.vnet.ibm.com>
-References: <20170620140034.89661-1-jwi@linux.vnet.ibm.com>
-Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
-        Martin Schwidefsky <schwidefsky@de.ibm.com>,
-        Heiko Carstens <heiko.carstens@de.ibm.com>,
-        Stefan Raspl <raspl@linux.vnet.ibm.com>,
-        Ursula Braun <ubraun@linux.vnet.ibm.com>,
-        Julian Wiedmann <jwi@linux.vnet.ibm.com>
-To: David Miller <davem@davemloft.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC 1/2] net-next: fix DSA flow_disection
+Date: Tue, 20 Jun 2017 16:01:40 +0200
+Message-ID: <20170620140140.GB12383@lunn.ch>
+References: <20170620080655.7251-1-john@phrozen.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Sean Wang <sean.wang@mediatek.com>, netdev@vger.kernel.org
+To: John Crispin <john@phrozen.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:38630 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752006AbdFTOAo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 10:00:44 -0400
-Received: from pps.filterd (m0098419.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5KDwp9A091770
-        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 10:00:43 -0400
-Received: from e06smtp13.uk.ibm.com (e06smtp13.uk.ibm.com [195.75.94.109])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 2b70ybce7f-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 10:00:43 -0400
-Received: from localhost
-        by e06smtp13.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <jwi@linux.vnet.ibm.com>;
-        Tue, 20 Jun 2017 15:00:41 +0100
-In-Reply-To: <20170620140034.89661-1-jwi@linux.vnet.ibm.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:57147 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751094AbdFTOBu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 20 Jun 2017 10:01:50 -0400
+Content-Disposition: inline
+In-Reply-To: <20170620080655.7251-1-john@phrozen.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There's two spots in qeth_send_packet() where we don't accurately
-account for transmitted packing buffers in qeth's performance
-statistics:
+On Tue, Jun 20, 2017 at 10:06:54AM +0200, John Crispin wrote:
+> RPS and probably other kernel features are currently broken on some if not
+> all DSA devices. The root cause of this that skb_hash will call the
+> flow_disector.
 
-1) when flushing the current buffer due to insufficient size,
-   and the next buffer is not EMPTY, we need to account for that
-   flushed buffer.
-2) when synchronizing with the TX completion code, we reset
-   flush_count and thus forget to account for any previously
-   flushed buffers.
+Hi John
 
-Reported-by: Nils Hoppmann <niho@de.ibm.com>
-Signed-off-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
----
- drivers/s390/net/qeth_core_main.c | 17 ++++++++++-------
- 1 file changed, 10 insertions(+), 7 deletions(-)
+What is the call path when the flow_disector is called? I'm wondering
+if we can defer this, and call it later, after the tag code has
+removed the header.
 
-diff --git a/drivers/s390/net/qeth_core_main.c b/drivers/s390/net/qeth_core_main.c
-index 08338f27c82c..13a55f1dee7a 100644
---- a/drivers/s390/net/qeth_core_main.c
-+++ b/drivers/s390/net/qeth_core_main.c
-@@ -4103,7 +4103,8 @@ int qeth_do_send_packet(struct qeth_card *card, struct qeth_qdio_out_q *queue,
- 							   flush_count);
- 				atomic_set(&queue->state,
- 						QETH_OUT_Q_UNLOCKED);
--				return -EBUSY;
-+				rc = -EBUSY;
-+				goto out;
- 			}
- 		}
- 	}
-@@ -4122,19 +4123,21 @@ int qeth_do_send_packet(struct qeth_card *card, struct qeth_qdio_out_q *queue,
- 	 * In that case we will enter this loop
- 	 */
- 	while (atomic_dec_return(&queue->state)) {
--		flush_count = 0;
- 		start_index = queue->next_buf_to_fill;
- 		/* check if we can go back to non-packing state */
--		flush_count += qeth_switch_to_nonpacking_if_needed(queue);
-+		tmp = qeth_switch_to_nonpacking_if_needed(queue);
- 		/*
- 		 * check if we need to flush a packing buffer to get a pci
- 		 * flag out on the queue
- 		 */
--		if (!flush_count && !atomic_read(&queue->set_pci_flags_count))
--			flush_count += qeth_prep_flush_pack_buffer(queue);
--		if (flush_count)
--			qeth_flush_buffers(queue, start_index, flush_count);
-+		if (!tmp && !atomic_read(&queue->set_pci_flags_count))
-+			tmp = qeth_prep_flush_pack_buffer(queue);
-+		if (tmp) {
-+			qeth_flush_buffers(queue, start_index, tmp);
-+			flush_count += tmp;
-+		}
- 	}
-+out:
- 	/* at this point the queue is UNLOCKED again */
- 	if (queue->card->options.performance_stats && do_pack)
- 		queue->card->perf_stats.bufs_sent_pack += flush_count;
--- 
-2.11.2
+	Andrew
