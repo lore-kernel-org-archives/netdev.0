@@ -1,62 +1,83 @@
-From: Alexandre Belloni <alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH 00/51] rtc: stop using rtc deprecated functions
-Date: Tue, 20 Jun 2017 14:24:00 +0200
-Message-ID: <20170620122400.sm7qqvwyj6cuzarw@piout.net>
-References: <1497951359-13334-1-git-send-email-benjamin.gaignard@linaro.org>
- <20170620100348.zh4ygvjjgnhxvmvl@piout.net>
- <20170620121011.GA13221@amd>
+From: Niklas Cassel <niklas.cassel@axis.com>
+Subject: [PATCH net] net: stmmac: free an skb first when there are no longer any descriptors using it
+Date: Tue, 20 Jun 2017 14:32:41 +0200
+Message-ID: <20170620123241.5677-1-niklas.cassel@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Benjamin Gaignard <benjamin.gaignard-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-        linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org,
-        adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-        Alessandro Zummo <a.zummo-BfzFCNDTiLLj+vYz1yj4TQ@public.gmane.org>,
-        Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>,
-        John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-        Michael Chan <michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
-        Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Support Opensource <support.opensource-WBD+wuPFNBhBDgjK7y7TUQ@public.gmane.org>,
-        Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-        Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>,
-        Hans Ulli Kroll <ulli.kroll@googlemail.
-To: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
-Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170620121011.GA13221@amd>
-Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Cc: Niklas Cassel <niklass@axis.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 20/06/2017 at 14:10:11 +0200, Pavel Machek wrote:
-> On Tue 2017-06-20 12:03:48, Alexandre Belloni wrote:
-> > On 20/06/2017 at 11:35:08 +0200, Benjamin Gaignard wrote:
-> > > rtc_time_to_tm() and rtc_tm_to_time() are deprecated because they
-> > > rely on 32bits variables and that will make rtc break in y2038/2016.
-> > 
-> > Please don't, because this hide the fact that the hardware will not
-> > handle dates in y2038 anyway and as pointed by Russell a few month ago,
-> > rtc_time_to_tm will be able to catch it but the 64 bit version will
-> > silently ignore it.
-> 
-> Reference? Because rtc on PCs stores date in binary coded decimal, so
-> it is likely to break in 2100, not 2038...
+When having the skb pointer in the first descriptor, stmmac_tx_clean
+can get called at a moment where the IP has only cleared the own bit
+of the first descriptor, thus freeing the skb, even though there can
+be several descriptors whose buffers point into the same skb.
 
-I'm not saying it should be done but clearly, that is not the correct
-thing to do for RTCs that are using a single 32 bits register to store
-the time.
-You give one example, I can give you three: armada38x, at91sam9,
-at32ap700x and that just in the beginning of the series.
+By simply moving the skb pointer from the first descriptor to the last
+descriptor, a skb will get freed only when the IP has cleared the
+own bit of all the descriptors that are using that skb.
 
-And yes, on PC, they will break in 2100, other in 2106, some in 2070.
-I've delayed the tree wide patching until I manage to finish reworking
-the infrastructure needed to handle the limits of the RTCs.
+Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 20 ++++++++++++++++----
+ 1 file changed, 16 insertions(+), 4 deletions(-)
 
-
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 6a1cb59728fe..3c73227ba04c 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -2830,7 +2830,6 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	tx_q->tx_skbuff_dma[first_entry].buf = des;
+ 	tx_q->tx_skbuff_dma[first_entry].len = skb_headlen(skb);
+-	tx_q->tx_skbuff[first_entry] = skb;
+ 
+ 	first->des0 = cpu_to_le32(des);
+ 
+@@ -2864,6 +2863,14 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	tx_q->tx_skbuff_dma[tx_q->cur_tx].last_segment = true;
+ 
++	/* Only the last descriptor gets to point to the skb. */
++	tx_q->tx_skbuff[tx_q->cur_tx] = skb;
++
++	/* We've used all descriptors we need for this skb, however,
++	 * advance cur_tx so that it references a fresh descriptor.
++	 * ndo_start_xmit will fill this descriptor the next time it's
++	 * called and stmmac_tx_clean may clean up to this descriptor.
++	 */
+ 	tx_q->cur_tx = STMMAC_GET_ENTRY(tx_q->cur_tx, DMA_TX_SIZE);
+ 
+ 	if (unlikely(stmmac_tx_avail(priv, queue) <= (MAX_SKB_FRAGS + 1))) {
+@@ -2996,8 +3003,6 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	first = desc;
+ 
+-	tx_q->tx_skbuff[first_entry] = skb;
+-
+ 	enh_desc = priv->plat->enh_desc;
+ 	/* To program the descriptors according to the size of the frame */
+ 	if (enh_desc)
+@@ -3045,8 +3050,15 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 						skb->len);
+ 	}
+ 
+-	entry = STMMAC_GET_ENTRY(entry, DMA_TX_SIZE);
++	/* Only the last descriptor gets to point to the skb. */
++	tx_q->tx_skbuff[entry] = skb;
+ 
++	/* We've used all descriptors we need for this skb, however,
++	 * advance cur_tx so that it references a fresh descriptor.
++	 * ndo_start_xmit will fill this descriptor the next time it's
++	 * called and stmmac_tx_clean may clean up to this descriptor.
++	 */
++	entry = STMMAC_GET_ENTRY(entry, DMA_TX_SIZE);
+ 	tx_q->cur_tx = entry;
+ 
+ 	if (netif_msg_pktdata(priv)) {
 -- 
-Alexandre Belloni, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+2.11.0
