@@ -1,209 +1,87 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next v3 07/15] bpf: Add setsockopt helper function to bpf
-Date: Mon, 19 Jun 2017 20:00:40 -0700
-Message-ID: <20170620030048.3275347-8-brakmo@fb.com>
-References: <20170620030048.3275347-1-brakmo@fb.com>
+From: l00371289 <linyunsheng@huawei.com>
+Subject: Re: [PATCH NET] net/hns:bugfix of ethtool -t phy self_test
+Date: Tue, 20 Jun 2017 11:05:54 +0800
+Message-ID: <08ef77fc-29ab-8262-2126-c547960d5628@huawei.com>
+References: <1497605091-94725-1-git-send-email-linyunsheng@huawei.com>
+ <7500513f-e263-838c-12a1-4343f7281f1a@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
-        Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:51758 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751104AbdFTDAy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 23:00:54 -0400
-Received: from pps.filterd (m0109331.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5K2w3rG024384
-        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 20:00:54 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2b6nvx8r6q-5
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 20:00:54 -0700
-Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
- mx-out.facebook.com (10.212.236.89) with ESMTP id
- ab8c66d2556411e79f300002c95209d8-faf358f0 for <netdev@vger.kernel.org>;        Mon,
- 19 Jun 2017 20:00:52 -0700
-In-Reply-To: <20170620030048.3275347-1-brakmo@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
+        <liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
+        <gabriele.paoloni@huawei.com>, <john.garry@huawei.com>,
+        <linuxarm@huawei.com>, <salil.mehta@huawei.com>,
+        <lipeng321@huawei.com>, <yankejian@huawei.com>,
+        <tremyfr@gmail.com>, <xieqianqian@huawei.com>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        Andrew Lunn <andrew@lunn.ch>
+To: Florian Fainelli <f.fainelli@gmail.com>, <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <7500513f-e263-838c-12a1-4343f7281f1a@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Added support for calling a subset of socket setsockopts from
-BPF_PROG_TYPE_SOCK_OPS programs. The code was duplicated rather
-than making the changes to call the socket setsockopt function because
-the changes required would have been larger.
+hi, Florian
 
-The ops supported are:
-  SO_RCVBUF
-  SO_SNDBUF
-  SO_MAX_PACING_RATE
-  SO_PRIORITY
-  SO_RCVLOWAT
-  SO_MARK
+On 2017/6/20 5:00, Florian Fainelli wrote:
+> On 06/16/2017 02:24 AM, Lin Yun Sheng wrote:
+>> This patch fixes the phy loopback self_test failed issue. when
+>> Marvell Phy Module is loaded, it will powerdown fiber when doing
+>> phy loopback self test, which cause phy loopback self_test fail.
+>>
+>> Signed-off-by: Lin Yun Sheng <linyunsheng@huawei.com>
+>> ---
+>>  drivers/net/ethernet/hisilicon/hns/hns_ethtool.c | 16 ++++++++++++++--
+>>  1 file changed, 14 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+>> index b8fab14..e95795b 100644
+>> --- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+>> +++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+>> @@ -288,9 +288,15 @@ static int hns_nic_config_phy_loopback(struct phy_device *phy_dev, u8 en)
+> 
+> The question really is, why is not this properly integrated into the PHY
+> driver and PHYLIB such that the only thing the Ethernet MAC driver has
+> to call is a function of the PHY driver putting it in self-test?
+Do you meaning calling phy_dev->drv->resume and phy_dev->drv->suspend function?
+I tried it, but it failed. if that is what you mean, I will look into it why it fail.
 
-Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
----
- include/uapi/linux/bpf.h  | 14 ++++++++-
- net/core/filter.c         | 77 ++++++++++++++++++++++++++++++++++++++++++++++-
- samples/bpf/bpf_helpers.h |  3 ++
- 3 files changed, 92 insertions(+), 2 deletions(-)
+Thanks for your reply.
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 314fdf3..86595f9 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -520,6 +520,17 @@ union bpf_attr {
-  *     Set full skb->hash.
-  *     @skb: pointer to skb
-  *     @hash: hash to set
-+ *
-+ * int bpf_setsockopt(bpf_socket, level, optname, optval, optlen)
-+ *     Calls setsockopt. Not all opts are available, only those with
-+ *     integer optvals plus TCP_CONGESTION.
-+ *     Supported levels: SOL_SOCKET and IPROTO_TCP
-+ *     @bpf_socket: pointer to bpf_socket
-+ *     @level: SOL_SOCKET or IPROTO_TCP
-+ *     @optname: option name
-+ *     @optval: pointer to option value
-+ *     @optlen: length of optval in byes
-+ *     Return: 0 or negative error
-  */
- #define __BPF_FUNC_MAPPER(FN)		\
- 	FN(unspec),			\
-@@ -570,7 +581,8 @@ union bpf_attr {
- 	FN(probe_read_str),		\
- 	FN(get_socket_cookie),		\
- 	FN(get_socket_uid),		\
--	FN(set_hash),
-+	FN(set_hash),			\
-+	FN(setsockopt),
- 
- /* integer value in 'imm' field of BPF_CALL instruction selects which helper
-  * function eBPF program intends to call
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 7d69d16..b114ae1 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -54,6 +54,7 @@
- #include <net/dst.h>
- #include <net/sock_reuseport.h>
- #include <net/busy_poll.h>
-+#include <net/tcp.h>
- 
- /**
-  *	sk_filter_trim_cap - run a packet through a socket filter
-@@ -2671,6 +2672,69 @@ static const struct bpf_func_proto bpf_get_socket_uid_proto = {
- 	.arg1_type      = ARG_PTR_TO_CTX,
- };
- 
-+BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
-+	   int, level, int, optname, char *, optval, int, optlen)
-+{
-+	struct sock *sk = bpf_sock->sk;
-+	int ret = 0;
-+	int val;
-+
-+	if (bpf_sock->is_req_sock)
-+		return -EINVAL;
-+
-+	if (level == SOL_SOCKET) {
-+		/* Only some socketops are supported */
-+		val = *((int *)optval);
-+
-+		switch (optname) {
-+		case SO_RCVBUF:
-+			sk->sk_userlocks |= SOCK_RCVBUF_LOCK;
-+			sk->sk_rcvbuf = max_t(int, val * 2, SOCK_MIN_RCVBUF);
-+			break;
-+		case SO_SNDBUF:
-+			sk->sk_userlocks |= SOCK_SNDBUF_LOCK;
-+			sk->sk_sndbuf = max_t(int, val * 2, SOCK_MIN_SNDBUF);
-+			break;
-+		case SO_MAX_PACING_RATE:
-+			sk->sk_max_pacing_rate = val;
-+			sk->sk_pacing_rate = min(sk->sk_pacing_rate,
-+						 sk->sk_max_pacing_rate);
-+			break;
-+		case SO_PRIORITY:
-+			sk->sk_priority = val;
-+			break;
-+		case SO_RCVLOWAT:
-+			if (val < 0)
-+				val = INT_MAX;
-+			sk->sk_rcvlowat = val ? : 1;
-+			break;
-+		case SO_MARK:
-+			sk->sk_mark = val;
-+			break;
-+		default:
-+			ret = -EINVAL;
-+		}
-+	} else if (level == SOL_TCP &&
-+		   sk->sk_prot->setsockopt == tcp_setsockopt) {
-+		/* Place holder */
-+		ret = -EINVAL;
-+	} else {
-+		ret = -EINVAL;
-+	}
-+	return ret;
-+}
-+
-+static const struct bpf_func_proto bpf_setsockopt_proto = {
-+	.func		= bpf_setsockopt,
-+	.gpl_only	= true,
-+	.ret_type	= RET_INTEGER,
-+	.arg1_type	= ARG_PTR_TO_CTX,
-+	.arg2_type	= ARG_ANYTHING,
-+	.arg3_type	= ARG_ANYTHING,
-+	.arg4_type	= ARG_PTR_TO_MEM,
-+	.arg5_type	= ARG_CONST_SIZE_OR_ZERO,
-+};
-+
- static const struct bpf_func_proto *
- bpf_base_func_proto(enum bpf_func_id func_id)
- {
-@@ -2822,6 +2886,17 @@ lwt_inout_func_proto(enum bpf_func_id func_id)
- }
- 
- static const struct bpf_func_proto *
-+	sock_ops_func_proto(enum bpf_func_id func_id)
-+{
-+	switch (func_id) {
-+	case BPF_FUNC_setsockopt:
-+		return &bpf_setsockopt_proto;
-+	default:
-+		return bpf_base_func_proto(func_id);
-+	}
-+}
-+
-+static const struct bpf_func_proto *
- lwt_xmit_func_proto(enum bpf_func_id func_id)
- {
- 	switch (func_id) {
-@@ -3578,7 +3653,7 @@ const struct bpf_verifier_ops cg_sock_prog_ops = {
- };
- 
- const struct bpf_verifier_ops sock_ops_prog_ops = {
--	.get_func_proto		= bpf_base_func_proto,
-+	.get_func_proto		= sock_ops_func_proto,
- 	.is_valid_access	= sock_ops_is_valid_access,
- 	.convert_ctx_access	= sock_ops_convert_ctx_access,
- };
-diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
-index f4840b8..d50ac34 100644
---- a/samples/bpf/bpf_helpers.h
-+++ b/samples/bpf/bpf_helpers.h
-@@ -60,6 +60,9 @@ static unsigned long long (*bpf_get_prandom_u32)(void) =
- 	(void *) BPF_FUNC_get_prandom_u32;
- static int (*bpf_xdp_adjust_head)(void *ctx, int offset) =
- 	(void *) BPF_FUNC_xdp_adjust_head;
-+static int (*bpf_setsockopt)(void *ctx, int level, int optname, void *optval,
-+			     int optlen) =
-+	(void *) BPF_FUNC_setsockopt;
- 
- /* llvm builtin functions that eBPF C program may use to
-  * emit BPF_LD_ABS and BPF_LD_IND instructions
--- 
-2.9.3
+Best regards
+YunSheng Lin
+> 
+>>  
+>>  		/* Force 1000M Link, Default is 0x0200 */
+>>  		phy_write(phy_dev, 7, 0x20C);
+>> -		phy_write(phy_dev, HNS_PHY_PAGE_REG, 0);
+>>  
+>> -		/* Enable PHY loop-back */
+>> +		/* Powerup Fiber */
+>> +		phy_write(phy_dev, HNS_PHY_PAGE_REG, 1);
+>> +		val = phy_read(phy_dev, COPPER_CONTROL_REG);
+>> +		val &= ~PHY_POWER_DOWN;
+>> +		phy_write(phy_dev, COPPER_CONTROL_REG, val);
+>> +
+>> +		/* Enable Phy Loopback */
+>> +		phy_write(phy_dev, HNS_PHY_PAGE_REG, 0);
+>>  		val = phy_read(phy_dev, COPPER_CONTROL_REG);
+>>  		val |= PHY_LOOP_BACK;
+>>  		val &= ~PHY_POWER_DOWN;
+>> @@ -299,6 +305,12 @@ static int hns_nic_config_phy_loopback(struct phy_device *phy_dev, u8 en)
+>>  		phy_write(phy_dev, HNS_PHY_PAGE_REG, 0xFA);
+>>  		phy_write(phy_dev, 1, 0x400);
+>>  		phy_write(phy_dev, 7, 0x200);
+>> +
+>> +		phy_write(phy_dev, HNS_PHY_PAGE_REG, 1);
+>> +		val = phy_read(phy_dev, COPPER_CONTROL_REG);
+>> +		val |= PHY_POWER_DOWN;
+>> +		phy_write(phy_dev, COPPER_CONTROL_REG, val);
+>> +
+>>  		phy_write(phy_dev, HNS_PHY_PAGE_REG, 0);
+>>  		phy_write(phy_dev, 9, 0xF00);
+>>  
+>>
+> 
+> 
