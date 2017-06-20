@@ -1,208 +1,165 @@
-From: Benjamin Gaignard <benjamin.gaignard-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH 00/51] rtc: stop using rtc deprecated functions
-Date: Tue, 20 Jun 2017 11:35:08 +0200
-Message-ID: <1497951359-13334-1-git-send-email-benjamin.gaignard@linaro.org>
-Reply-To: rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2 4/4] ip6mr: add netlink notifications on
+ mrt6msg cache reports
+Date: Tue, 20 Jun 2017 12:37:39 +0300
+Message-ID: <200784c5-0e9f-9d92-776f-dd2072d1cefb@cumulusnetworks.com>
+References: <20170619204417.13230-1-julien@arista.com>
+ <20170619204417.13230-5-julien@arista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org,
-	adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	Alessandro Zummo <a.zummo-BfzFCNDTiLLj+vYz1yj4TQ@public.gmane.org>,
-	Alexandre Belloni <alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>,
-	John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Michael Chan <michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
-	Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Support Opensource <support.opensource-WBD+wuPFNBhBDgjK7y7TUQ@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-	x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>,
-	Hans Ulli Kroll <ulli.kroll-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
-	Vladimir Zapolskiy <vz-ChpfBGZJDbMAvxtiuMwx3w@public.gmane.org>,
-	Sylvain Lemieux <slemieux.tyco-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Barry Song <ba
-To: benjamin.gaignard-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org
-Return-path: <rtc-linux+bncBDKNBMNKRMJRBOOZUPFAKGQECFFMLLY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Post: <https://groups.google.com/group/rtc-linux/post>, <mailto:rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:rtc-linux+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/rtc-linux
-List-Subscribe: <https://groups.google.com/group/rtc-linux/subscribe>, <mailto:rtc-linux+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+712029733259+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/rtc-linux/subscribe>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        sharpd@cumulusnetworks.com, nicolas.dichtel@6wind.com
+To: Julien Gomes <julien@arista.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:36686 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752539AbdFTJhw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 05:37:52 -0400
+Received: by mail-wm0-f51.google.com with SMTP id m125so16098848wmm.1
+        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 02:37:46 -0700 (PDT)
+In-Reply-To: <20170619204417.13230-5-julien@arista.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-rtc_time_to_tm() and rtc_tm_to_time() are deprecated because they
-rely on 32bits variables and that will make rtc break in y2038/2016.
+On 19/06/17 23:44, Julien Gomes wrote:
+> Add Netlink notifications on cache reports in ip6mr, in addition to the
+> existing mrt6msg sent to mroute6_sk.
+> Send RTM_NEWCACHEREPORT notifications to RTNLGRP_IPV6_MROUTE_R.
+> 
+> MSGTYPE, MIF_ID, SRC_ADDR and DST_ADDR Netlink attributes contain the
+> same data as their equivalent fields in the mrt6msg header.
+> PKT attribute is the packet sent to mroute6_sk, without the added
+> mrt6msg header.
+> 
+> Suggested-by: Ryan Halbrook <halbrook@arista.com>
+> Signed-off-by: Julien Gomes <julien@arista.com>
+> ---
+>  include/uapi/linux/mroute6.h | 12 ++++++++
+>  net/ipv6/ip6mr.c             | 67 ++++++++++++++++++++++++++++++++++++++++++--
+>  2 files changed, 77 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/uapi/linux/mroute6.h b/include/uapi/linux/mroute6.h
+> index ed5721148768..e4746816c855 100644
+> --- a/include/uapi/linux/mroute6.h
+> +++ b/include/uapi/linux/mroute6.h
+> @@ -133,4 +133,16 @@ struct mrt6msg {
+>  	struct in6_addr	im6_src, im6_dst;
+>  };
+>  
+> +/* ip6mr netlink cache report attributes */
+> +enum {
+> +	IP6MRA_CREPORT_UNSPEC,
+> +	IP6MRA_CREPORT_MSGTYPE,
+> +	IP6MRA_CREPORT_MIF_ID,
+> +	IP6MRA_CREPORT_SRC_ADDR,
+> +	IP6MRA_CREPORT_DST_ADDR,
+> +	IP6MRA_CREPORT_PKT,
+> +	__IP6MRA_CREPORT_MAX
+> +};
+> +#define IP6MRA_CREPORT_MAX (__IP6MRA_CREPORT_MAX - 1)
+> +
+>  #endif /* _UAPI__LINUX_MROUTE6_H */
+> diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+> index b0e2bf1f4212..28a1fb49f12e 100644
+> --- a/net/ipv6/ip6mr.c
+> +++ b/net/ipv6/ip6mr.c
+> @@ -116,6 +116,7 @@ static int __ip6mr_fill_mroute(struct mr6_table *mrt, struct sk_buff *skb,
+>  			       struct mfc6_cache *c, struct rtmsg *rtm);
+>  static void mr6_netlink_event(struct mr6_table *mrt, struct mfc6_cache *mfc,
+>  			      int cmd);
+> +static void mrt6msg_netlink_event(struct mr6_table *mrt, struct sk_buff *pkt);
+>  static int ip6mr_rtm_dumproute(struct sk_buff *skb,
+>  			       struct netlink_callback *cb);
+>  static void mroute_clean_tables(struct mr6_table *mrt, bool all);
+> @@ -1125,8 +1126,7 @@ static void ip6mr_cache_resolve(struct net *net, struct mr6_table *mrt,
+>  }
+>  
+>  /*
+> - *	Bounce a cache query up to pim6sd. We could use netlink for this but pim6sd
+> - *	expects the following bizarre scheme.
+> + *	Bounce a cache query up to pim6sd and netlink.
+>   *
+>   *	Called under mrt_lock.
+>   */
+> @@ -1208,6 +1208,8 @@ static int ip6mr_cache_report(struct mr6_table *mrt, struct sk_buff *pkt,
+>  		return -EINVAL;
+>  	}
+>  
+> +	mrt6msg_netlink_event(mrt, skb);
+> +
+>  	/*
+>  	 *	Deliver to user space multicast routing algorithms
+>  	 */
+> @@ -2457,6 +2459,67 @@ static void mr6_netlink_event(struct mr6_table *mrt, struct mfc6_cache *mfc,
+>  		rtnl_set_sk_err(net, RTNLGRP_IPV6_MROUTE, err);
+>  }
+>  
+> +static void mrt6msg_netlink_event(struct mr6_table *mrt, struct sk_buff *pkt)
+> +{
+> +	struct net *net = read_pnet(&mrt->net);
+> +	struct nlmsghdr *nlh;
+> +	struct rtgenmsg *rtgenm;
+> +	struct mrt6msg *msg;
+> +	struct sk_buff *skb;
+> +	struct nlattr *nla;
+> +	int payloadlen;
+> +	int msgsize;
+> +
+> +	payloadlen = pkt->len - sizeof(struct mrt6msg);
+> +	msg = (struct mrt6msg *)skb_transport_header(pkt);
+> +	msgsize = NLMSG_ALIGN(sizeof(struct rtgenmsg))
+> +			+ nla_total_size(1)
+> +					/* IP6MRA_CREPORT_MSGTYPE */
+> +			+ nla_total_size(2)
+> +					/* IP6MRA_CREPORT_MIF_ID */
+> +			+ nla_total_size(sizeof(struct in6_addr))
+> +					/* IP6MRA_CREPORT_SRC_ADDR */
+> +			+ nla_total_size(sizeof(struct in6_addr))
+> +					/* IP6MRA_CREPORT_DST_ADDR */
+> +			+ nla_total_size(payloadlen)
+> +					/* IP6MRA_CREPORT_PKT */
+> +			;
 
-The goal of this series of patches is ti stop using those two functions
-and use instead to safer 64bits ones.
+Same as patch 03, this calculation could be in a separate function.
 
-It also remove change .set_mmss to set_mmss64 callback for the same reasons.
-
-Those 51 patches almost clean all the drivers except the few that I haven't
-been able to compile because of cross-toolchains issues (au1xxx, mpc5121, ps3,
-puv3, sun4v, tx4939, starfire, ls1x ...)
-
-Obviously I don't have all those hardwares in my hands so I have only check
-that the patches compile without warnings but it up to each maintainer to
-valid them on real hardware.
-
-Benjamin Gaignard (51):
-  x86: rtc: stop using rtc deprecated functions
-  x86: intel-mid: vrtc: stop using rtc deprecated functions
-  net: broadcom: stop using rtc deprecated functions
-  rtc: 88pm80x: stop using rtc deprecated functions
-  rtc: 88pm860x: stop using rtc deprecated functions
-  rtc: ab-b5ze-s3: stop using rtc deprecated functions
-  rtc: ab8500: stop using rtc deprecated functions
-  rtc: armada38x: stop using rtc deprecated functions
-  rtc: at32ap700x: stop using rtc deprecated functions
-  rtc: at91sam9: stop using rtc deprecated functions
-  rtc: bfin: stop using rtc deprecated functions
-  rtc: coh901331: stop using rtc deprecated functions
-  rtc: cpcap: stop using rtc deprecated functions
-  rtc: da9063: stop using rtc deprecated functions
-  rtc: da9063: stop using rtc deprecated functions
-  rtc: davinci: stop using rtc deprecated functions
-  rtc: digicolor: stop using rtc deprecated functions
-  rtc: dm355evm: stop using rtc deprecated functions
-  rtc: ds1305: stop using rtc deprecated functions
-  rtc: ds1374: stop using rtc deprecated functions
-  rtc: ds1511: stop using rtc deprecated functions
-  rtc: ds1553: stop using rtc deprecated functions
-  rtc: ds1672: stop using rtc deprecated functions
-  rtc: ds2404: stop using rtc deprecated functions
-  rtc: ep93xx: stop using rtc deprecated functions
-  rtc: gemini: stop using rtc deprecated functions
-  rtc: imxdi: stop using rtc deprecated functions
-  rtc: jz4740: stop using rtc deprecated functions
-  rtc: lpc32xx: stop using rtc deprecated functions
-  rtc: mv: stop using rtc deprecated functions
-  rtc: omap: stop using rtc deprecated functions
-  rtc: pcap: stop using rtc deprecated functions
-  rtc: pl030: stop using rtc deprecated functions
-  rtc: pl031: stop using rtc deprecated functions
-  rtc: pm8xxx: stop using rtc deprecated functions
-  rtc: rs5c348: stop using rtc deprecated functions
-  rtc: sa1100: stop using rtc deprecated functions
-  rtc: sh: stop using rtc deprecated functions
-  rtc: sirfsoc: stop using rtc deprecated functions
-  rtc: snvs: stop using rtc deprecated functions
-  rtc: stk17ta8: stop using rtc deprecated functions
-  rtc: stmp3xxx: stop using rtc deprecated functions
-  rtc: sun6i: stop using rtc deprecated functions
-  rtc: sysfs: stop using rtc deprecated functions
-  rtc: tegra stop using rtc deprecated functions
-  rtc: test: stop using rtc deprecated functions
-  rtc: tps6586: stop using rtc deprecated functions
-  rtc: vr41xx: stop using rtc deprecated functions
-  rtc: wm831x: stop using rtc deprecated functions
-  rtc: xgene stop using rtc deprecated functions
-  power: suspend test: stop using rtc deprecated functions
-
- arch/x86/kernel/rtc.c                        |  6 ++--
- arch/x86/platform/intel-mid/intel_mid_vrtc.c |  2 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt.c    |  2 +-
- drivers/rtc/rtc-88pm80x.c                    | 44 +++++++++++++--------------
- drivers/rtc/rtc-88pm860x.c                   | 40 ++++++++++++-------------
- drivers/rtc/rtc-ab-b5ze-s3.c                 | 45 ++++++++--------------------
- drivers/rtc/rtc-ab8500.c                     | 26 ++++++++--------
- drivers/rtc/rtc-armada38x.c                  | 34 +++++++++------------
- drivers/rtc/rtc-at32ap700x.c                 | 29 ++++++++----------
- drivers/rtc/rtc-at91sam9.c                   | 18 ++++-------
- drivers/rtc/rtc-bfin.c                       | 24 +++++++--------
- drivers/rtc/rtc-coh901331.c                  | 14 +++++----
- drivers/rtc/rtc-cpcap.c                      |  8 ++---
- drivers/rtc/rtc-da9052.c                     |  8 ++---
- drivers/rtc/rtc-da9063.c                     |  8 ++---
- drivers/rtc/rtc-davinci.c                    |  8 ++---
- drivers/rtc/rtc-digicolor.c                  |  4 +--
- drivers/rtc/rtc-dm355evm.c                   |  6 ++--
- drivers/rtc/rtc-ds1305.c                     | 11 +++----
- drivers/rtc/rtc-ds1374.c                     |  6 ++--
- drivers/rtc/rtc-ds1511.c                     |  2 +-
- drivers/rtc/rtc-ds1553.c                     |  2 +-
- drivers/rtc/rtc-ds1672.c                     |  8 ++---
- drivers/rtc/rtc-ds2404.c                     |  8 ++---
- drivers/rtc/rtc-ep93xx.c                     | 10 +++----
- drivers/rtc/rtc-gemini.c                     |  8 ++---
- drivers/rtc/rtc-imxdi.c                      | 16 +++++-----
- drivers/rtc/rtc-jz4740.c                     | 12 ++++----
- drivers/rtc/rtc-lpc32xx.c                    | 19 +++++-------
- drivers/rtc/rtc-mv.c                         |  2 +-
- drivers/rtc/rtc-omap.c                       |  6 ++--
- drivers/rtc/rtc-pcap.c                       | 16 +++++-----
- drivers/rtc/rtc-pl030.c                      | 24 +++++++--------
- drivers/rtc/rtc-pl031.c                      | 31 ++++++++-----------
- drivers/rtc/rtc-pm8xxx.c                     | 22 +++++++-------
- drivers/rtc/rtc-rs5c348.c                    |  4 +--
- drivers/rtc/rtc-sa1100.c                     | 25 +++++++---------
- drivers/rtc/rtc-sh.c                         |  2 +-
- drivers/rtc/rtc-sirfsoc.c                    | 18 +++++------
- drivers/rtc/rtc-snvs.c                       | 14 ++++-----
- drivers/rtc/rtc-stk17ta8.c                   |  2 +-
- drivers/rtc/rtc-stmp3xxx.c                   | 12 ++++----
- drivers/rtc/rtc-sun6i.c                      | 14 ++++-----
- drivers/rtc/rtc-sysfs.c                      | 25 ++++++++--------
- drivers/rtc/rtc-tegra.c                      | 22 +++++++-------
- drivers/rtc/rtc-test.c                       | 17 +----------
- drivers/rtc/rtc-tps6586x.c                   | 26 ++++++++--------
- drivers/rtc/rtc-vr41xx.c                     |  6 ++--
- drivers/rtc/rtc-wm831x.c                     | 28 +++++++----------
- drivers/rtc/rtc-xgene.c                      | 12 ++++----
- kernel/power/suspend_test.c                  |  6 ++--
- 51 files changed, 342 insertions(+), 420 deletions(-)
-
--- 
-CC: adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-CC: Alessandro Zummo <a.zummo-BfzFCNDTiLLj+vYz1yj4TQ@public.gmane.org>
-CC: Alexandre Belloni <alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-CC: Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-CC: Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-CC: Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>
-CC: John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-CC: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-CC: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-CC: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-CC: Michael Chan <michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-CC: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-CC: rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-CC: Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-CC: Support Opensource <support.opensource-WBD+wuPFNBhBDgjK7y7TUQ@public.gmane.org>
-CC: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-CC: x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-CC: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
-CC: Hans Ulli Kroll <ulli.kroll-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-CC: Vladimir Zapolskiy <vz-ChpfBGZJDbMAvxtiuMwx3w@public.gmane.org>
-CC: Sylvain Lemieux <slemieux.tyco-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-CC: Barry Song <baohua-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-CC: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-CC: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-CC: Thierry Reding <thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-CC: Jonathan Hunter <jonathanh-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
-CC: linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-CC: patches-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org
-CC: "Rafael J. Wysocki" <rjw-LthD3rsA81gm4RdzfppkhA@public.gmane.org>
-CC: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
-CC: Len Brown <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-CC: linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-
-1.9.1
-
--- 
-You received this message because you are subscribed to "rtc-linux".
-Membership options at http://groups.google.com/group/rtc-linux .
-Please read http://groups.google.com/group/rtc-linux/web/checklist
-before submitting a driver.
---- 
-You received this message because you are subscribed to the Google Groups "rtc-linux" group.
-To unsubscribe from this group and stop receiving emails from it, send an email to rtc-linux+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-For more options, visit https://groups.google.com/d/optout.
+> +
+> +	skb = nlmsg_new(msgsize, GFP_ATOMIC);
+> +	if (!skb)
+> +		goto errout;
+> +
+> +	nlh = nlmsg_put(skb, 0, 0, RTM_NEWCACHEREPORT,
+> +			sizeof(struct rtgenmsg), 0);
+> +	if (!nlh)
+> +		goto errout;
+> +	rtgenm = nlmsg_data(nlh);
+> +	rtgenm->rtgen_family = RTNL_FAMILY_IP6MR;
+> +	if (nla_put_u8(skb, IP6MRA_CREPORT_MSGTYPE, msg->im6_msgtype) ||
+> +	    nla_put_u16(skb, IP6MRA_CREPORT_MIF_ID, msg->im6_mif) ||
+> +	    nla_put_in6_addr(skb, IP6MRA_CREPORT_SRC_ADDR,
+> +			     &msg->im6_src) ||
+> +	    nla_put_in6_addr(skb, IP6MRA_CREPORT_DST_ADDR,
+> +			     &msg->im6_dst))
+> +		goto nla_put_failure;
+> +
+> +	nla = nla_reserve(skb, IP6MRA_CREPORT_PKT, payloadlen);
+> +	if (!nla || skb_copy_bits(pkt, sizeof(struct mrt6msg),
+> +				  nla_data(nla), payloadlen))
+> +		goto nla_put_failure;
+> +
+> +	nlmsg_end(skb, nlh);
+> +
+> +	rtnl_notify(skb, net, 0, RTNLGRP_IPV6_MROUTE_R, NULL, GFP_ATOMIC);
+> +	return;
+> +
+> +nla_put_failure:
+> +	nlmsg_cancel(skb, nlh);
+> +errout:
+> +	kfree_skb(skb);
+> +	rtnl_set_sk_err(net, RTNLGRP_IPV6_MROUTE_R, -ENOBUFS);
+> +}
+> +
+>  static int ip6mr_rtm_dumproute(struct sk_buff *skb, struct netlink_callback *cb)
+>  {
+>  	struct net *net = sock_net(skb->sk);
+> 
