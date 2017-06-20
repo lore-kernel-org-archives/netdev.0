@@ -1,7 +1,7 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net-next v2 07/12] nfp: app callbacks for SRIOV
-Date: Tue, 20 Jun 2017 23:36:15 +0200
-Message-ID: <1497994580-6271-8-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH net-next v2 09/12] nfp: add support for tx/rx with metadata portid
+Date: Tue, 20 Jun 2017 23:36:17 +0200
+Message-ID: <1497994580-6271-10-git-send-email-simon.horman@netronome.com>
 References: <1497994580-6271-1-git-send-email-simon.horman@netronome.com>
 Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
         Or Gerlitz <gerlitz.or@gmail.com>,
@@ -9,176 +9,176 @@ Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
 To: David Miller <davem@davemloft.net>,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f182.google.com ([209.85.216.182]:33433 "EHLO
-        mail-qt0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752533AbdFTVhB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 17:37:01 -0400
-Received: by mail-qt0-f182.google.com with SMTP id u12so143976041qth.0
-        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 14:36:55 -0700 (PDT)
+Received: from mail-qt0-f176.google.com ([209.85.216.176]:33461 "EHLO
+        mail-qt0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752515AbdFTVhF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 17:37:05 -0400
+Received: by mail-qt0-f176.google.com with SMTP id u12so143977247qth.0
+        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 14:37:05 -0700 (PDT)
 In-Reply-To: <1497994580-6271-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add app-callbacks for app-specific initialisation of SRIOV.
-
-Disabling SRIOV is brought forward in nfp_pci_remove()
-so that nfp_app_sriov_disable is called while the app still exists.
-
-This is intended to be used to implement representor netdevs for virtual
-ports.
+Allow tx/rx with metadata port id. This will be used for tx/rx of
+representor netdevs acting as upper-devices while a pf netdev acts
+as a lower-device.
 
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
 Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_app.h  | 18 ++++++++++++
- drivers/net/ethernet/netronome/nfp/nfp_main.c | 42 +++++++++++++++++++++++----
- 2 files changed, 55 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |  1 +
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 57 +++++++++++++++++++---
+ 2 files changed, 52 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.h b/drivers/net/ethernet/netronome/nfp/nfp_app.h
-index af023a0491e7..ff2d43615808 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_app.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_app.h
-@@ -75,6 +75,8 @@ extern const struct nfp_app_type app_bpf;
-  * @tc_busy:	TC HW offload busy (rules loaded)
-  * @xdp_offload:    offload an XDP program
-  * @eswitch_mode_get:    get SR-IOV eswitch mode
-+ * @sriov_enable: app-specific sriov initialisation
-+ * @sriov_disable: app-specific sriov clean-up
-  * @repr_get:	get representor netdev
-  */
- struct nfp_app_type {
-@@ -102,6 +104,9 @@ struct nfp_app_type {
- 	int (*xdp_offload)(struct nfp_app *app, struct nfp_net *nn,
- 			   struct bpf_prog *prog);
- 
-+	int (*sriov_enable)(struct nfp_app *app, int num_vfs);
-+	void (*sriov_disable)(struct nfp_app *app);
-+
- 	enum devlink_eswitch_mode (*eswitch_mode_get)(struct nfp_app *app);
- 	struct net_device *(*repr_get)(struct nfp_app *app, u32 id);
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+index 02fd8d4e253c..96c8ea476c05 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+@@ -318,6 +318,7 @@ struct nfp_meta_parsed {
+ 	u8 csum_type;
+ 	u32 hash;
+ 	u32 mark;
++	u32 portid;
+ 	__wsum csum;
  };
-@@ -237,6 +242,19 @@ static inline int nfp_app_eswitch_mode_get(struct nfp_app *app, u16 *mode)
- 	return 0;
+ 
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+index 2bdddd1ae666..49b8bc937ad8 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+@@ -755,6 +755,26 @@ static void nfp_net_tx_xmit_more_flush(struct nfp_net_tx_ring *tx_ring)
+ 	tx_ring->wr_ptr_add = 0;
  }
  
-+static inline int nfp_app_sriov_enable(struct nfp_app *app, int num_vfs)
++static int nfp_net_prep_port_id(struct sk_buff *skb)
 +{
-+	if (!app || !app->type->sriov_enable)
-+		return -EOPNOTSUPP;
-+	return app->type->sriov_enable(app, num_vfs);
++	struct metadata_dst *md_dst = skb_metadata_dst(skb);
++	unsigned char *data;
++
++	if (likely(!md_dst))
++		return 0;
++	if (unlikely(md_dst->type != METADATA_HW_PORT_MUX))
++		return 0;
++
++	if (unlikely(skb_cow_head(skb, 8)))
++		return -ENOMEM;
++
++	data = skb_push(skb, 8);
++	put_unaligned_be32(NFP_NET_META_PORTID, data);
++	put_unaligned_be32(md_dst->u.port_info.port_id, data + 4);
++
++	return 8;
 +}
 +
-+static inline void nfp_app_sriov_disable(struct nfp_app *app)
-+{
-+	if (app && app->type->sriov_disable)
-+		app->type->sriov_disable(app);
-+}
-+
- static inline struct net_device *nfp_app_repr_get(struct nfp_app *app, u32 id)
- {
- 	if (unlikely(!app || !app->type->repr_get))
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.c b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-index 4e59dcb78c36..748e54cc885e 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-@@ -54,6 +54,7 @@
+ /**
+  * nfp_net_tx() - Main transmit entry point
+  * @skb:    SKB to transmit
+@@ -767,6 +787,7 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
+ 	struct nfp_net *nn = netdev_priv(netdev);
+ 	const struct skb_frag_struct *frag;
+ 	struct nfp_net_tx_desc *txd, txdg;
++	int f, nr_frags, wr_idx, md_bytes;
+ 	struct nfp_net_tx_ring *tx_ring;
+ 	struct nfp_net_r_vector *r_vec;
+ 	struct nfp_net_tx_buf *txbuf;
+@@ -774,8 +795,6 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
+ 	struct nfp_net_dp *dp;
+ 	dma_addr_t dma_addr;
+ 	unsigned int fsize;
+-	int f, nr_frags;
+-	int wr_idx;
+ 	u16 qidx;
  
- #include "nfpcore/nfp6000_pcie.h"
+ 	dp = &nn->dp;
+@@ -797,6 +816,13 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
+ 		return NETDEV_TX_BUSY;
+ 	}
  
-+#include "nfp_app.h"
- #include "nfp_main.h"
- #include "nfp_net.h"
- 
-@@ -97,28 +98,45 @@ static int nfp_pcie_sriov_enable(struct pci_dev *pdev, int num_vfs)
- 	struct nfp_pf *pf = pci_get_drvdata(pdev);
- 	int err;
- 
-+	mutex_lock(&pf->lock);
-+
- 	if (num_vfs > pf->limit_vfs) {
- 		nfp_info(pf->cpp, "Firmware limits number of VFs to %u\n",
- 			 pf->limit_vfs);
--		return -EINVAL;
-+		err = -EINVAL;
-+		goto err_unlock;
++	md_bytes = nfp_net_prep_port_id(skb);
++	if (unlikely(md_bytes < 0)) {
++		nfp_net_tx_xmit_more_flush(tx_ring);
++		dev_kfree_skb_any(skb);
++		return NETDEV_TX_OK;
 +	}
 +
-+	err = nfp_app_sriov_enable(pf->app, num_vfs);
-+	if (err) {
-+		dev_warn(&pdev->dev, "App specific PCI sriov configuration failed: %d\n",
-+			 err);
-+		goto err_unlock;
- 	}
+ 	/* Start with the head skbuf */
+ 	dma_addr = dma_map_single(dp->dev, skb->data, skb_headlen(skb),
+ 				  DMA_TO_DEVICE);
+@@ -815,7 +841,7 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
  
- 	err = pci_enable_sriov(pdev, num_vfs);
- 	if (err) {
- 		dev_warn(&pdev->dev, "Failed to enable PCI sriov: %d\n", err);
--		return err;
-+		goto err_app_sriov_disable;
- 	}
+ 	/* Build TX descriptor */
+ 	txd = &tx_ring->txds[wr_idx];
+-	txd->offset_eop = (nr_frags == 0) ? PCIE_DESC_TX_EOP : 0;
++	txd->offset_eop = (nr_frags ? 0 : PCIE_DESC_TX_EOP) | md_bytes;
+ 	txd->dma_len = cpu_to_le16(skb_headlen(skb));
+ 	nfp_desc_set_dma_addr(txd, dma_addr);
+ 	txd->data_len = cpu_to_le16(skb->len);
+@@ -855,7 +881,7 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
+ 			*txd = txdg;
+ 			txd->dma_len = cpu_to_le16(fsize);
+ 			nfp_desc_set_dma_addr(txd, dma_addr);
+-			txd->offset_eop =
++			txd->offset_eop |=
+ 				(f == nr_frags - 1) ? PCIE_DESC_TX_EOP : 0;
+ 		}
  
- 	pf->num_vfs = num_vfs;
+@@ -1450,6 +1476,10 @@ nfp_net_parse_meta(struct net_device *netdev, struct nfp_meta_parsed *meta,
+ 			meta->mark = get_unaligned_be32(data);
+ 			data += 4;
+ 			break;
++		case NFP_NET_META_PORTID:
++			meta->portid = get_unaligned_be32(data);
++			data += 4;
++			break;
+ 		case NFP_NET_META_CSUM:
+ 			meta->csum_type = CHECKSUM_COMPLETE;
+ 			meta->csum =
+@@ -1594,6 +1624,7 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
+ 		struct nfp_net_rx_buf *rxbuf;
+ 		struct nfp_net_rx_desc *rxd;
+ 		struct nfp_meta_parsed meta;
++		struct net_device *netdev;
+ 		dma_addr_t new_dma_addr;
+ 		void *new_frag;
  
- 	dev_dbg(&pdev->dev, "Created %d VFs.\n", pf->num_vfs);
+@@ -1672,7 +1703,7 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
+ 		}
  
-+	mutex_unlock(&pf->lock);
- 	return num_vfs;
+ 		if (xdp_prog && !(rxd->rxd.flags & PCIE_DESC_RX_BPF &&
+-				  dp->bpf_offload_xdp)) {
++				  dp->bpf_offload_xdp) && !meta.portid) {
+ 			unsigned int dma_off;
+ 			void *hard_start;
+ 			int act;
+@@ -1718,6 +1749,20 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
+ 			continue;
+ 		}
+ 
++		if (likely(!meta.portid)) {
++			netdev = dp->netdev;
++		} else {
++			struct nfp_net *nn;
 +
-+err_app_sriov_disable:
-+	nfp_app_sriov_disable(pf->app);
-+err_unlock:
-+	mutex_unlock(&pf->lock);
-+	return err;
- #endif
- 	return 0;
- }
- 
--static int nfp_pcie_sriov_disable(struct pci_dev *pdev)
-+static int __nfp_pcie_sriov_disable(struct pci_dev *pdev)
- {
- #ifdef CONFIG_PCI_IOV
- 	struct nfp_pf *pf = pci_get_drvdata(pdev);
-@@ -132,6 +150,8 @@ static int nfp_pcie_sriov_disable(struct pci_dev *pdev)
- 		return -EPERM;
- 	}
- 
-+	nfp_app_sriov_disable(pf->app);
++			nn = netdev_priv(dp->netdev);
++			netdev = nfp_app_repr_get(nn->app, meta.portid);
++			if (unlikely(!netdev)) {
++				nfp_net_rx_drop(dp, r_vec, rx_ring, rxbuf, skb);
++				continue;
++			}
++			nfp_repr_inc_rx_stats(netdev, pkt_len);
++		}
 +
- 	pf->num_vfs = 0;
+ 		nfp_net_dma_unmap_rx(dp, rxbuf->dma_addr);
  
- 	pci_disable_sriov(pdev);
-@@ -140,6 +160,18 @@ static int nfp_pcie_sriov_disable(struct pci_dev *pdev)
- 	return 0;
- }
+ 		nfp_net_rx_give_one(dp, rx_ring, new_frag, new_dma_addr);
+@@ -1729,7 +1774,7 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
+ 		skb_set_hash(skb, meta.hash, meta.hash_type);
  
-+static int nfp_pcie_sriov_disable(struct pci_dev *pdev)
-+{
-+	struct nfp_pf *pf = pci_get_drvdata(pdev);
-+	int err;
-+
-+	mutex_lock(&pf->lock);
-+	err = __nfp_pcie_sriov_disable(pdev);
-+	mutex_unlock(&pf->lock);
-+
-+	return err;
-+}
-+
- static int nfp_pcie_sriov_configure(struct pci_dev *pdev, int num_vfs)
- {
- 	if (num_vfs == 0)
-@@ -431,11 +463,11 @@ static void nfp_pci_remove(struct pci_dev *pdev)
+ 		skb_record_rx_queue(skb, rx_ring->idx);
+-		skb->protocol = eth_type_trans(skb, dp->netdev);
++		skb->protocol = eth_type_trans(skb, netdev);
  
- 	devlink = priv_to_devlink(pf);
+ 		nfp_net_rx_csum(dp, r_vec, rxd, &meta, skb);
  
--	nfp_net_pci_remove(pf);
--
- 	nfp_pcie_sriov_disable(pdev);
- 	pci_sriov_set_totalvfs(pf->pdev, 0);
- 
-+	nfp_net_pci_remove(pf);
-+
- 	devlink_unregister(devlink);
- 
- 	kfree(pf->rtbl);
 -- 
 2.1.4
