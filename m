@@ -1,33 +1,32 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] dt-bindings: net: sms911x: Add missing optional VDD
- regulators
-Date: Tue, 20 Jun 2017 15:15:10 -0400 (EDT)
-Message-ID: <20170620.151510.700768032261377502.davem@davemloft.net>
-References: <20170619160541.5155-1-krzk@kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ibmvnic: Return from ibmvnic_resume if not in
+ VNIC_OPEN state
+Date: Tue, 20 Jun 2017 15:17:20 -0400 (EDT)
+Message-ID: <20170620.151720.500309763541776829.davem@davemloft.net>
+References: <b9b5f82f-c59b-4816-b745-31080c6cdf78@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
-        arnd-r2nGTMty4D4@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: krzk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170619160541.5155-1-krzk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nfont@linux.vnet.ibm.com,
+        tlfalcon@linux.vnet.ibm.com
+To: jallen@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41994 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751002AbdFTTRV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 15:17:21 -0400
+In-Reply-To: <b9b5f82f-c59b-4816-b745-31080c6cdf78@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Krzysztof Kozlowski <krzk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Date: Mon, 19 Jun 2017 18:05:41 +0200
+From: John Allen <jallen@linux.vnet.ibm.com>
+Date: Mon, 19 Jun 2017 11:27:53 -0500
 
-> The lan911x family of devices require supplying from 3.3 V power
-> supplies (connected to VDD_IO, VDD_A and VREG_3.3 pins).  The existing
-> driver however obtains only VDD_IO and VDD_A regulators in an optional
-> way so document this in bindings.
+> If the ibmvnic driver is not in the VNIC_OPEN state, return from
+> ibmvnic_resume callback. If we are not in the VNIC_OPEN state, interrupts
+> may not be initialized and directly calling the interrupt handler will
+> cause a crash.
 > 
-> Signed-off-by: Krzysztof Kozlowski <krzk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> Signed-off-by: John Allen <jallen@linux.vnet.ibm.com>
 
-Applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied.
