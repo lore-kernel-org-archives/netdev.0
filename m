@@ -1,86 +1,77 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 07/10] net/mlx5e: IPoIB, Handle change_mtu
-Date: Tue, 20 Jun 2017 17:13:11 +0300
-Message-ID: <20170620141314.25620-8-saeedm@mellanox.com>
+Subject: [net-next 01/10] net/mlx5e: IPoIB, Move to a separate directory
+Date: Tue, 20 Jun 2017 17:13:05 +0300
+Message-ID: <20170620141314.25620-2-saeedm@mellanox.com>
 References: <20170620141314.25620-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Erez Shitrit <erezsh@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:42058 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:42036 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751959AbdFTONd (ORCPT
+        with ESMTP id S1751174AbdFTONd (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 10:13:33 -0400
 In-Reply-To: <20170620141314.25620-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Erez Shitrit <erezsh@mellanox.com>
+IPoIB netdevice driver was only introduced in previous kernel release
+and it is growing in terms of features and LOC, move it to a separate
+directory.
 
-Add the ndo that supports change mtu for IPoIB.
-The callback called from the ipoib ULP driver, that gives the ability to
-change the SW and HW resources accordingly in the lower driver.
-
-Signed-off-by: Erez Shitrit <erezsh@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c  | 31 ++++++++++++++++++++++
- 1 file changed, 31 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile            | 2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c             | 2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c             | 2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/{ => ipoib}/ipoib.c | 0
+ drivers/net/ethernet/mellanox/mlx5/core/{ => ipoib}/ipoib.h | 0
+ 5 files changed, 3 insertions(+), 3 deletions(-)
+ rename drivers/net/ethernet/mellanox/mlx5/core/{ => ipoib}/ipoib.c (100%)
+ rename drivers/net/ethernet/mellanox/mlx5/core/{ => ipoib}/ipoib.h (100%)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
-index 9cf5f465caae..52a58af571a2 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
-@@ -42,12 +42,14 @@ static int mlx5i_open(struct net_device *netdev);
- static int mlx5i_close(struct net_device *netdev);
- static int  mlx5i_dev_init(struct net_device *dev);
- static void mlx5i_dev_cleanup(struct net_device *dev);
-+static int mlx5i_change_mtu(struct net_device *netdev, int new_mtu);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+index 12556c03eec4..59b87b30e438 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+@@ -15,4 +15,4 @@ mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o eswitch_offloads.o \
  
- static const struct net_device_ops mlx5i_netdev_ops = {
- 	.ndo_open                = mlx5i_open,
- 	.ndo_stop                = mlx5i_close,
- 	.ndo_init                = mlx5i_dev_init,
- 	.ndo_uninit              = mlx5i_dev_cleanup,
-+	.ndo_change_mtu          = mlx5i_change_mtu,
- };
+ mlx5_core-$(CONFIG_MLX5_CORE_EN_DCB) +=  en_dcbnl.o
  
- /* IPoIB mlx5 netdev profile */
-@@ -312,6 +314,35 @@ static const struct mlx5e_profile mlx5i_nic_profile = {
+-mlx5_core-$(CONFIG_MLX5_CORE_IPOIB) += ipoib.o
++mlx5_core-$(CONFIG_MLX5_CORE_IPOIB) += ipoib/ipoib.o
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index 66b5fec15313..806139d62139 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -40,7 +40,7 @@
+ #include "en_tc.h"
+ #include "eswitch.h"
+ #include "en_rep.h"
+-#include "ipoib.h"
++#include "ipoib/ipoib.h"
  
- /* mlx5i netdev NDos */
- 
-+static int mlx5i_change_mtu(struct net_device *netdev, int new_mtu)
-+{
-+	struct mlx5e_priv *priv = mlx5i_epriv(netdev);
-+	struct mlx5e_channels new_channels = {};
-+	int curr_mtu;
-+	int err = 0;
-+
-+	mutex_lock(&priv->state_lock);
-+
-+	curr_mtu    = netdev->mtu;
-+	netdev->mtu = new_mtu;
-+
-+	if (!test_bit(MLX5E_STATE_OPENED, &priv->state))
-+		goto out;
-+
-+	new_channels.params = priv->channels.params;
-+	err = mlx5e_open_channels(priv, &new_channels);
-+	if (err) {
-+		netdev->mtu = curr_mtu;
-+		goto out;
-+	}
-+
-+	mlx5e_switch_priv_channels(priv, &new_channels, NULL);
-+
-+out:
-+	mutex_unlock(&priv->state_lock);
-+	return err;
-+}
-+
- static int mlx5i_dev_init(struct net_device *dev)
+ static inline bool mlx5e_rx_hw_stamp(struct mlx5e_tstamp *tstamp)
  {
- 	struct mlx5e_priv    *priv   = mlx5i_epriv(dev);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+index ef3e1918d8cc..354f474322ce 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+@@ -33,7 +33,7 @@
+ #include <linux/tcp.h>
+ #include <linux/if_vlan.h>
+ #include "en.h"
+-#include "ipoib.h"
++#include "ipoib/ipoib.h"
+ 
+ #define MLX5E_SQ_NOPS_ROOM  MLX5_SEND_WQE_MAX_WQEBBS
+ #define MLX5E_SQ_STOP_ROOM (MLX5_SEND_WQE_MAX_WQEBBS +\
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
+similarity index 100%
+rename from drivers/net/ethernet/mellanox/mlx5/core/ipoib.c
+rename to drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib.h b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.h
+similarity index 100%
+rename from drivers/net/ethernet/mellanox/mlx5/core/ipoib.h
+rename to drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.h
 -- 
 2.11.0
