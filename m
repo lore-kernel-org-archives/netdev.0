@@ -1,45 +1,48 @@
-From: Myron Stowe <myron.stowe@redhat.com>
-Subject: [PATCH v2] net/mlx5e: Use device ID defines
-Date: Tue, 20 Jun 2017 11:21:26 -0600
-Message-ID: <20170620172126.784.3849.stgit@amt.stowe>
+From: John Crispin <john@phrozen.org>
+Subject: Re: [RFC 2/2] net-next: mt7530: add nh and proto offsets to the ops
+ struct
+Date: Tue, 20 Jun 2017 19:27:23 +0200
+Message-ID: <0c30b590-19b1-8648-eea1-943724c60941@phrozen.org>
+References: <20170620080655.7251-1-john@phrozen.org>
+ <20170620080655.7251-2-john@phrozen.org> <20170620135439.GA12383@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: noaos@mellanox.com, saeedm@mellanox.com, davem@davemloft.net,
-        linux-kernel@vger.kernel.org, tariqt@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Sean Wang <sean.wang@mediatek.com>, netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbd.name ([46.4.11.11]:54210 "EHLO nbd.name"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751025AbdFTR1z (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 20 Jun 2017 13:27:55 -0400
+In-Reply-To: <20170620135439.GA12383@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use Mellanox device ID definitions in the driver's mlx5 ID table so tools
-such as 'grep' and 'cscope' can be used to help find correlated material
-(such as INTx Masking quirks: d76d2fe05fd PCI: Convert Mellanox broken
-INTx quirks to be for listed devices only).
 
-No functional change intended.
 
-Signed-off-by: Myron Stowe <myron.stowe@redhat.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/main.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+On 20/06/17 15:54, Andrew Lunn wrote:
+> On Tue, Jun 20, 2017 at 10:06:55AM +0200, John Crispin wrote:
+>> The MT7530 inserts the 4 magic header in between the 802.3 address and
+>> protocol field. The patch defines these header such that the flow_disector
+>> can properly parse the packet and thus allows hashing to function properly.
+> This is to do with tagging, not the switch driver. The Marvell switch
+> driver can be used with two different tagging protocols.
+>
+> So i would put these fields in the dsa_device_ops.
+>
+>     Andrew
+Hi Andrew,
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index 0c123d5..8a4e292 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -1508,11 +1508,11 @@ static void shutdown(struct pci_dev *pdev)
- }
- 
- static const struct pci_device_id mlx5_core_pci_table[] = {
--	{ PCI_VDEVICE(MELLANOX, 0x1011) },			/* Connect-IB */
-+	{ PCI_VDEVICE(MELLANOX, PCI_DEVICE_ID_MELLANOX_CONNECTIB) },
- 	{ PCI_VDEVICE(MELLANOX, 0x1012), MLX5_PCI_DEV_IS_VF},	/* Connect-IB VF */
--	{ PCI_VDEVICE(MELLANOX, 0x1013) },			/* ConnectX-4 */
-+	{ PCI_VDEVICE(MELLANOX, PCI_DEVICE_ID_MELLANOX_CONNECTX4) },
- 	{ PCI_VDEVICE(MELLANOX, 0x1014), MLX5_PCI_DEV_IS_VF},	/* ConnectX-4 VF */
--	{ PCI_VDEVICE(MELLANOX, 0x1015) },			/* ConnectX-4LX */
-+	{ PCI_VDEVICE(MELLANOX, PCI_DEVICE_ID_MELLANOX_CONNECTX4_LX) },
- 	{ PCI_VDEVICE(MELLANOX, 0x1016), MLX5_PCI_DEV_IS_VF},	/* ConnectX-4LX VF */
- 	{ PCI_VDEVICE(MELLANOX, 0x1017) },			/* ConnectX-5, PCIe 3.0 */
- 	{ PCI_VDEVICE(MELLANOX, 0x1018), MLX5_PCI_DEV_IS_VF},	/* ConnectX-5 VF */
+i originally did so but struct dsa_device_ops is defined inside 
+net/dsa/dsa_priv.h so flow_dissector.c would need a
+
+#include "../dsa/dsa_priv.h"
+
+I was not sure if this is ok or if we would need to move the struct 
+definition to include/net/dsa.h in that case
+
+     John
