@@ -1,51 +1,85 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] net: phy: smsc: fix buffer overflow in memcpy
-Date: Tue, 20 Jun 2017 22:40:46 +0200
-Message-ID: <20170620204059.790066-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Timur Tabi <timur@codeaurora.org>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH net-next 06/12] nfp: add stats and xmit helpers for
+ representors
+Date: Tue, 20 Jun 2017 22:48:05 +0200
+Message-ID: <20170620204804.GA6157@vergenet.net>
+References: <1497937910-32059-7-git-send-email-simon.horman@netronome.com>
+ <201706210132.VUFkNyd8%fengguang.wu@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: kbuild-all@01.org, David Miller <davem@davemloft.net>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        netdev@vger.kernel.org, oss-drivers@netronome.com
+To: kbuild test robot <lkp@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f182.google.com ([209.85.128.182]:33043 "EHLO
+        mail-wr0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751131AbdFTUsJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 16:48:09 -0400
+Received: by mail-wr0-f182.google.com with SMTP id r103so107141657wrb.0
+        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 13:48:09 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <201706210132.VUFkNyd8%fengguang.wu@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The memcpy annotation triggers for a fixed-length buffer copy:
+On Wed, Jun 21, 2017 at 01:15:05AM +0800, kbuild test robot wrote:
+> Hi Simon,
+> 
+> [auto build test ERROR on net-next/master]
+> 
+> url:    https://github.com/0day-ci/linux/commits/Simon-Horman/nfp-add-flower-app-with-representors/20170620-233831
+> config: arm-allmodconfig (attached as .config)
+> compiler: arm-linux-gnueabi-gcc (Debian 6.1.1-9) 6.1.1 20160705
+> reproduce:
+>         wget https://raw.githubusercontent.com/01org/lkp-tests/master/sbin/make.cross -O ~/bin/make.cross
+>         chmod +x ~/bin/make.cross
+>         # save the attached .config to linux build tree
+>         make.cross ARCH=arm 
 
-In file included from /git/arm-soc/arch/arm64/include/asm/processor.h:30:0,
-                 from /git/arm-soc/arch/arm64/include/asm/spinlock.h:21,
-                 from /git/arm-soc/include/linux/spinlock.h:87,
-                 from /git/arm-soc/include/linux/seqlock.h:35,
-                 from /git/arm-soc/include/linux/time.h:5,
-                 from /git/arm-soc/include/linux/stat.h:21,
-                 from /git/arm-soc/include/linux/module.h:10,
-                 from /git/arm-soc/drivers/net/phy/smsc.c:20:
-In function 'memcpy',
-    inlined from 'smsc_get_strings' at /git/arm-soc/drivers/net/phy/smsc.c:166:3:
-/git/arm-soc/include/linux/string.h:309:4: error: call to '__read_overflow2' declared with attribute error: detected read beyond size of object passed as 2nd parameter
+It seems that I forgot to add
 
-Using strncpy instead of memcpy should do the right thing here.
+#include <linux/io-64-nonatomic-hi-lo.h>
 
-Fixes: 030a89028db0 ("net: phy: smsc: Implement PHY statistics")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/phy/smsc.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I will do so in v2.
 
-diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
-index 1b8204be064c..2306bfae057f 100644
---- a/drivers/net/phy/smsc.c
-+++ b/drivers/net/phy/smsc.c
-@@ -163,7 +163,7 @@ static void smsc_get_strings(struct phy_device *phydev, u8 *data)
- 	int i;
- 
- 	for (i = 0; i < ARRAY_SIZE(smsc_hw_stats); i++) {
--		memcpy(data + i * ETH_GSTRING_LEN,
-+		strncpy(data + i * ETH_GSTRING_LEN,
- 		       smsc_hw_stats[i].string, ETH_GSTRING_LEN);
- 	}
- }
--- 
-2.9.0
+> 
+> All errors (new ones prefixed by >>):
+> 
+>    drivers/net//ethernet/netronome/nfp/nfp_net_repr.c: In function 'nfp_repr_phy_port_get_stats64':
+> >> drivers/net//ethernet/netronome/nfp/nfp_net_repr.c:88:22: error: implicit declaration of function 'readq' [-Werror=implicit-function-declaration]
+>      stats->tx_packets = readq(mem + NFP_MAC_STATS_RX_FRAMES_RECEIVED_OK);
+>                          ^~~~~
+>    cc1: some warnings being treated as errors
+> 
+> vim +/readq +88 drivers/net//ethernet/netronome/nfp/nfp_net_repr.c
+> 
+>     72		stats->rx_packets++;
+>     73		stats->rx_bytes += len;
+>     74		u64_stats_update_end(&stats->syncp);
+>     75	}
+>     76	
+>     77	void
+>     78	nfp_repr_phy_port_get_stats64(const struct nfp_app *app, u8 phy_port,
+>     79				      struct rtnl_link_stats64 *stats)
+>     80	{
+>     81		u8 __iomem *mem;
+>     82	
+>     83		mem = app->pf->mac_stats_mem + phy_port * NFP_MAC_STATS_SIZE;
+>     84	
+>     85		/* TX and RX stats are flipped as we are returning the stats as seen
+>     86		 * at the switch port corresponding to the phys port.
+>     87		 */
+>   > 88		stats->tx_packets = readq(mem + NFP_MAC_STATS_RX_FRAMES_RECEIVED_OK);
+>     89		stats->tx_bytes = readq(mem + NFP_MAC_STATS_RX_IN_OCTETS);
+>     90		stats->tx_dropped = readq(mem + NFP_MAC_STATS_RX_IN_ERRORS);
+>     91	
+>     92		stats->rx_packets = readq(mem + NFP_MAC_STATS_TX_FRAMES_TRANSMITTED_OK);
+>     93		stats->rx_bytes = readq(mem + NFP_MAC_STATS_TX_OUT_OCTETS);
+>     94		stats->rx_dropped = readq(mem + NFP_MAC_STATS_TX_OUT_ERRORS);
+>     95	}
+>     96	
+> 
+> ---
+> 0-DAY kernel test infrastructure                Open Source Technology Center
+> https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
