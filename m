@@ -1,57 +1,43 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [net-next PATCH] tcp: md5: hide unused variable
-Date: Tue, 20 Jun 2017 22:11:21 +0200
-Message-ID: <20170620201203.121119-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>, Ivan Delalande <colona@arista.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>
+From: "Chickles, Derek" <Derek.Chickles@cavium.com>
+Subject: RE: [PATCH] liquidio: stop using huge static buffer, save 4096k in
+ .data
+Date: Tue, 20 Jun 2017 20:15:34 +0000
+Message-ID: <MWHPR07MB29434F09FBC054D2E0310D6FF3C50@MWHPR07MB2943.namprd07.prod.outlook.com>
+References: <20170619195052.13176-1-dvlasenk@redhat.com>
+ <20170620.152142.1443468587541525646.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Manlunas, Felix" <Felix.Manlunas@cavium.com>,
+        "Kanneganti, Prasad" <Prasad.Kanneganti@cavium.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+        "dvlasenk@redhat.com" <dvlasenk@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170620.152142.1443468587541525646.davem@davemloft.net>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Changing from a memcpy to per-member comparison left the
-size variable unused:
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Tuesday, June 20, 2017 12:22 PM
+>=20
+> From: Denys Vlasenko <dvlasenk@redhat.com>
+> Date: Mon, 19 Jun 2017 21:50:52 +0200
+>=20
+> > Only compile-tested - I don't have the hardware.
+> >
+> > From code inspection, octeon_pci_write_core_mem() appears to be safe wr=
+t
+> > unaligned source. In any case, u8 fbuf[] was not guaranteed to be align=
+ed
+> > anyway.
+> >
+> > Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
+>=20
+> Looks good to me but I'll let one of the liquidio guys review this first
+> before I apply it.
 
-net/ipv4/tcp_ipv4.c: In function 'tcp_md5_do_lookup':
-net/ipv4/tcp_ipv4.c:910:15: error: unused variable 'size' [-Werror=unused-variable]
-
-This does not show up when CONFIG_IPV6 is enabled, but the
-variable can be removed either way, along with the now unused
-assignment.
-
-Fixes: 6797318e623d ("tcp: md5: add an address prefix for key lookup")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- net/ipv4/tcp_ipv4.c | 6 +-----
- 1 file changed, 1 insertion(+), 5 deletions(-)
-
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index bf407f3e20dd..e20bcf0061af 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -907,7 +907,6 @@ struct tcp_md5sig_key *tcp_md5_do_lookup(const struct sock *sk,
- {
- 	const struct tcp_sock *tp = tcp_sk(sk);
- 	struct tcp_md5sig_key *key;
--	unsigned int size = sizeof(struct in_addr);
- 	const struct tcp_md5sig_info *md5sig;
- 	__be32 mask;
- 	struct tcp_md5sig_key *best_match = NULL;
-@@ -918,10 +917,7 @@ struct tcp_md5sig_key *tcp_md5_do_lookup(const struct sock *sk,
- 				       lockdep_sock_is_held(sk));
- 	if (!md5sig)
- 		return NULL;
--#if IS_ENABLED(CONFIG_IPV6)
--	if (family == AF_INET6)
--		size = sizeof(struct in6_addr);
--#endif
-+
- 	hlist_for_each_entry_rcu(key, &md5sig->head, node) {
- 		if (key->family != family)
- 			continue;
--- 
-2.9.0
+Felix is going to try this out this week to confirm. Let's wait for his ack=
+.
