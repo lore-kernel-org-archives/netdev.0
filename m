@@ -1,69 +1,51 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: Re: [PATCH net-next 09/10] net/mlx4_en: Replace TXBB_SIZE
- multiplications with shift operations
-Date: Tue, 20 Jun 2017 13:53:31 +0300
-Message-ID: <d1bcb5cf-6854-066f-74c1-335fc3d02a21@mellanox.com>
-References: <1497526540-30028-1-git-send-email-tariqt@mellanox.com>
- <1497526540-30028-10-git-send-email-tariqt@mellanox.com>
- <063D6719AE5E284EB5DD2968C1650D6DD0026944@AcuExch.aculab.com>
+From: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+Subject: Re: [PATCH 03/11] au1100fb: remove a bogus
+ dma_free_nonconsistent call
+Date: Tue, 20 Jun 2017 12:58:02 +0200
+Message-ID: <2219033.M9DERpzktn@amdc3058>
+References: <20170616071716.17321-1-hch@lst.de>
+ <8727942.IUH8e0tH8t@amdc3058> <20170620091045.GA10272@lst.de>
+ <CGME20170620105805epcas1p4ea41a72356c35f2a16197b970939fb65@epcas1p4.samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Eran Ben Elisha <eranbe@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        "kernel-team@fb.com" <kernel-team@fb.com>,
-        Eric Dumazet <edumazet@google.com>
-To: David Laight <David.Laight@ACULAB.COM>,
-        'Tariq Toukan' <tariqt@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0080.outbound.protection.outlook.com ([104.47.2.80]:4742
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751021AbdFTKxo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 20 Jun 2017 06:53:44 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD0026944@AcuExch.aculab.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-fbdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+ netdev@vger.kernel.org, alsa-devel@alsa-project.org,
+ linux-kernel@vger.kernel.org, linux-serial@vger.kernel.org,
+ nios2-dev@lists.rocketboards.org, linux-metag@vger.kernel.org
+To: Christoph Hellwig <hch@lst.de>
+Return-path: <alsa-devel-bounces@alsa-project.org>
+In-reply-to: <20170620091045.GA10272@lst.de>
+List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
+List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
+List-Post: <mailto:alsa-devel@alsa-project.org>
+List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
+List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
+Errors-To: alsa-devel-bounces@alsa-project.org
+Sender: alsa-devel-bounces@alsa-project.org
+List-Id: netdev.vger.kernel.org
 
-
-
-On 20/06/2017 11:45 AM, David Laight wrote:
-> From: Tariq Toukan
->> Sent: 15 June 2017 12:36
->> Define LOG_TXBB_SIZE, log of TXBB_SIZE, and use it with a shift
->> operation instead of a multiplication with TXBB_SIZE.
->> Operations are equivalent as TXBB_SIZE is a power of two.
->>
->> Performance tests:
->> Tested on ConnectX3Pro, Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz
->>
->> Gain is too small to be measurable, no degradation sensed.
->> Results are similar for IPv4 and IPv6.
+On Tuesday, June 20, 2017 11:10:45 AM Christoph Hellwig wrote:
+> On Mon, Jun 19, 2017 at 01:15:04PM +0200, Bartlomiej Zolnierkiewicz wrote:
+> > On Friday, June 16, 2017 09:17:08 AM Christoph Hellwig wrote:
+> > > au1100fb is using managed dma allocations, so it doesn't need to
+> > > explicitly free the dma memory in the error path (and if it did
+> > > it would have to use the managed version).
+> > > 
+> > > Signed-off-by: Christoph Hellwig <hch@lst.de>
+> > 
+> > Acked-by: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
 > 
-> I can't imagine there is any difference at all.
-> The compiler will use a shift for a 'multiply by a constant power of 2'.
-Yeah i guess my compiler does that, because it's a constant known at 
-compile-time.
+> Are you fine with picking this up through the new dma-mapping tree?
 
-> 
-> ...
-> If you want to save a few cycles I think the loop:
->> -		for (i = 0; i < tx_info->nr_txbb * TXBB_SIZE;
->> +		for (i = 0; i < tx_info->nr_txbb << LOG_TXBB_SIZE;
-> requires the compiler generate code to read nr_txbb every
-> iteration.
-> Caching the values might help (unless it causes a different
-> register spill).
+Yes, this is why Ack-ed it.
 
-That sounds good!
-I'll prepare and send this after testing.
-I'll also look for similar cases in driver.
+If you prefer me to merge it through fbdev for 4.13 please let me know.
 
-> 
-> 	David
-> 
-
-Thank you David!
+Best regards,
+--
+Bartlomiej Zolnierkiewicz
+Samsung R&D Institute Poland
+Samsung Electronics
