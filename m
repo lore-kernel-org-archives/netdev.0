@@ -1,7 +1,7 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH v4 net-next 2/7] qed: RoCE EDPM to honor PFC
-Date: Tue, 20 Jun 2017 16:00:01 +0300
-Message-ID: <20170620130006.307-3-Yuval.Mintz@cavium.com>
+Subject: [PATCH v4 net-next 3/7] qed: Disable RoCE dpm when DCBx change occurs
+Date: Tue, 20 Jun 2017 16:00:02 +0300
+Message-ID: <20170620130006.307-4-Yuval.Mintz@cavium.com>
 References: <20170620130006.307-1-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,67 +9,131 @@ Cc: <Michal.Kalderon@cavium.com>, <linux-rdma@vger.kernel.org>,
         Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0057.outbound.protection.outlook.com ([104.47.40.57]:28889
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+Received: from mail-cys01nam02on0055.outbound.protection.outlook.com ([104.47.37.55]:23792
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751090AbdFTNBb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 20 Jun 2017 09:01:31 -0400
+        id S1751095AbdFTNBl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 20 Jun 2017 09:01:41 -0400
 In-Reply-To: <20170620130006.307-1-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Configure device according to DCBx results so that EDPMs
-made by RoCE would honor flow-control.
+If DCBx update occurs while QPs are open, stop sending edpms until all
+QPs are closed.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_dcbx.c     | 16 ++++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_reg_addr.h |  6 ++++++
- 2 files changed, 22 insertions(+)
+ drivers/net/ethernet/qlogic/qed/qed_dcbx.c |  8 +++++++
+ drivers/net/ethernet/qlogic/qed/qed_roce.c | 36 ++++++++++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_roce.h |  5 +++++
+ 3 files changed, 49 insertions(+)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_dcbx.c b/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
-index e2a62c0..15b516a 100644
+index 15b516a..f888045 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
-@@ -896,6 +896,22 @@ qed_dcbx_mib_update_event(struct qed_hwfn *p_hwfn,
+@@ -44,6 +44,7 @@
+ #include "qed_hsi.h"
+ #include "qed_sp.h"
+ #include "qed_sriov.h"
++#include "qed_roce.h"
+ #ifdef CONFIG_DCB
+ #include <linux/qed/qed_eth_if.h>
+ #endif
+@@ -892,6 +893,13 @@ qed_dcbx_mib_update_event(struct qed_hwfn *p_hwfn,
+ 
+ 			/* update storm FW with negotiation results */
+ 			qed_sp_pf_update(p_hwfn);
++
++			/* for roce PFs, we may want to enable/disable DPM
++			 * when DCBx change occurs
++			 */
++			if (p_hwfn->hw_info.personality ==
++			    QED_PCI_ETH_ROCE)
++				qed_roce_dpm_dcbx(p_hwfn, p_ptt);
+ 		}
  	}
  
- 	qed_dcbx_get_params(p_hwfn, &p_hwfn->p_dcbx_info->get, type);
-+
-+	if (type == QED_DCBX_OPERATIONAL_MIB) {
-+		struct qed_dcbx_results *p_data;
-+		u16 val;
-+
-+		/* Configure in NIG which protocols support EDPM and should
-+		 * honor PFC.
-+		 */
-+		p_data = &p_hwfn->p_dcbx_info->results;
-+		val = (0x1 << p_data->arr[DCBX_PROTOCOL_ROCE].tc) |
-+		      (0x1 << p_data->arr[DCBX_PROTOCOL_ROCE_V2].tc);
-+		val <<= NIG_REG_TX_EDPM_CTRL_TX_EDPM_TC_EN_SHIFT;
-+		val |= NIG_REG_TX_EDPM_CTRL_TX_EDPM_EN;
-+		qed_wr(p_hwfn, p_ptt, NIG_REG_TX_EDPM_CTRL, val);
-+	}
-+
- 	qed_dcbx_aen(p_hwfn, type);
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_roce.c b/drivers/net/ethernet/qlogic/qed/qed_roce.c
+index 4bc2f6c..8419dcc 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_roce.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_roce.c
+@@ -162,6 +162,11 @@ static int qed_bmap_test_id(struct qed_hwfn *p_hwfn,
+ 	return test_bit(id_num, bmap->bitmap);
+ }
  
- 	return rc;
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-index 7e4639c..0cdb433 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-@@ -1564,6 +1564,12 @@
- #define NIG_REG_TSGEN_FREECNT_UPDATE_K2 0x509008UL
- #define CNIG_REG_NIG_PORT0_CONF_K2 0x218200UL
- 
-+#define NIG_REG_TX_EDPM_CTRL 0x501f0cUL
-+#define NIG_REG_TX_EDPM_CTRL_TX_EDPM_EN (0x1 << 0)
-+#define NIG_REG_TX_EDPM_CTRL_TX_EDPM_EN_SHIFT 0
-+#define NIG_REG_TX_EDPM_CTRL_TX_EDPM_TC_EN (0xff << 1)
-+#define NIG_REG_TX_EDPM_CTRL_TX_EDPM_TC_EN_SHIFT 1
++static bool qed_bmap_is_empty(struct qed_bmap *bmap)
++{
++	return bmap->max_count == find_first_bit(bmap->bitmap, bmap->max_count);
++}
 +
- #define PRS_REG_SEARCH_GFT 0x1f11bcUL
- #define PRS_REG_CM_HDR_GFT 0x1f11c8UL
- #define PRS_REG_GFT_CAM 0x1f1100UL
+ static u32 qed_rdma_get_sb_id(void *p_hwfn, u32 rel_sb_id)
+ {
+ 	/* First sb id for RoCE is after all the l2 sb */
+@@ -2638,6 +2643,23 @@ static void *qed_rdma_get_rdma_ctx(struct qed_dev *cdev)
+ 	return QED_LEADING_HWFN(cdev);
+ }
+ 
++static bool qed_rdma_allocated_qps(struct qed_hwfn *p_hwfn)
++{
++	bool result;
++
++	/* if rdma info has not been allocated, naturally there are no qps */
++	if (!p_hwfn->p_rdma_info)
++		return false;
++
++	spin_lock_bh(&p_hwfn->p_rdma_info->lock);
++	if (!p_hwfn->p_rdma_info->cid_map.bitmap)
++		result = false;
++	else
++		result = !qed_bmap_is_empty(&p_hwfn->p_rdma_info->cid_map);
++	spin_unlock_bh(&p_hwfn->p_rdma_info->lock);
++	return result;
++}
++
+ static void qed_rdma_dpm_conf(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+ {
+ 	u32 val;
+@@ -2650,6 +2672,20 @@ static void qed_rdma_dpm_conf(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+ 		   val, p_hwfn->dcbx_no_edpm, p_hwfn->db_bar_no_edpm);
+ }
+ 
++void qed_roce_dpm_dcbx(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
++{
++	u8 val;
++
++	/* if any QPs are already active, we want to disable DPM, since their
++	 * context information contains information from before the latest DCBx
++	 * update. Otherwise enable it.
++	 */
++	val = qed_rdma_allocated_qps(p_hwfn) ? true : false;
++	p_hwfn->dcbx_no_edpm = (u8)val;
++
++	qed_rdma_dpm_conf(p_hwfn, p_ptt);
++}
++
+ void qed_rdma_dpm_bar(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+ {
+ 	p_hwfn->db_bar_no_edpm = true;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_roce.h b/drivers/net/ethernet/qlogic/qed/qed_roce.h
+index 94be3b5..ddd7761 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_roce.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_roce.h
+@@ -168,10 +168,15 @@ struct qed_rdma_qp {
+ 
+ #if IS_ENABLED(CONFIG_QED_RDMA)
+ void qed_rdma_dpm_bar(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt);
++void qed_roce_dpm_dcbx(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt);
+ void qed_roce_async_event(struct qed_hwfn *p_hwfn,
+ 			  u8 fw_event_code, union rdma_eqe_data *rdma_data);
+ #else
+ static inline void qed_rdma_dpm_bar(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt) {}
++
++static inline void qed_roce_dpm_dcbx(struct qed_hwfn *p_hwfn,
++				     struct qed_ptt *p_ptt) {}
++
+ static inline void qed_roce_async_event(struct qed_hwfn *p_hwfn,
+ 					u8 fw_event_code,
+ 					union rdma_eqe_data *rdma_data) {}
 -- 
 2.9.4
