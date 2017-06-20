@@ -1,62 +1,136 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Repeatable inet6_dump_fib crash in stock 4.12.0-rc4+
-Date: Tue, 20 Jun 2017 07:12:27 -0700
-Message-ID: <09a00004-da54-dc8f-5806-9576bbf577c7@candelatech.com>
-References: <bbfa5208-3a04-c87a-a6e1-ee0ae73965d0@candelatech.com>
- <a5733c67-e3a3-9cc0-0862-40ef6fc03de3@gmail.com>
- <1496795269.736.21.camel@edumazet-glaptop3.roam.corp.google.com>
- <da189b9d-760f-0591-2acf-1a6b7910e227@gmail.com>
- <1496809166.736.25.camel@edumazet-glaptop3.roam.corp.google.com>
- <94bcc041-6402-d0ce-b9cf-3b46aa622f34@candelatech.com>
- <CAM_iQpXM3G=J0tw=n1_mKno=i41Kmoxb00+nDyBWofWskj5P_A@mail.gmail.com>
- <7e0c97fa-cd6e-ed0f-bf99-0e4af40fbd2f@gmail.com>
- <1497043557.736.94.camel@edumazet-glaptop3.roam.corp.google.com>
- <9cb61ef0-37c0-8f35-bb5c-e3d8e63cbe2f@candelatech.com>
- <CAM_iQpV8u=aqn-AjeRw8CKQ=0Q6_gBvCCaYi2v3pJbYNL2WhJw@mail.gmail.com>
- <3230b360-528b-0ae0-8731-7906e57ee993@gmail.com>
- <4b65e262-e727-010a-ce1f-eb45fcef8e42@candelatech.com>
- <8630b942-2684-2f21-fdb9-8474aba71528@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        netdev <netdev@vger.kernel.org>
-To: David Ahern <dsahern@gmail.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [net-next 04/10] net/mlx5e: Add new profile function update_carrier
+Date: Tue, 20 Jun 2017 17:13:08 +0300
+Message-ID: <20170620141314.25620-5-saeedm@mellanox.com>
+References: <20170620141314.25620-1-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Erez Shitrit <erezsh@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:35730 "EHLO
-        mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751989AbdFTOM3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 10:12:29 -0400
-In-Reply-To: <8630b942-2684-2f21-fdb9-8474aba71528@gmail.com>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:42047 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751223AbdFTONd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 10:13:33 -0400
+In-Reply-To: <20170620141314.25620-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Erez Shitrit <erezsh@mellanox.com>
 
+Updating the carrier involves specific HW setting, each profile should
+use its own function for that.
 
-On 06/14/2017 03:25 PM, David Ahern wrote:
-> On 6/14/17 4:23 PM, Ben Greear wrote:
->> On 06/13/2017 07:27 PM, David Ahern wrote:
->>
->>> Let's try a targeted debug patch. See attached
->>
->> I had to change it to pr_err so it would go to our serial console
->> since the system locked hard on crash,
->> and that appears to be enough to change the timing where we can no longer
->> reproduce the problem.
->
->
-> ok, let's figure out which one is doing that. There are 3 debug
-> statements. I suspect fib6_del_route is the one setting the state to
-> FWS_U. Can you remove the debug prints in fib6_repair_tree and
-> fib6_walk_continue and try again?
+Both IPoIB and VF representor don't need carrier update function, since
+VF representor has only a logical link to VF and IPoIB manages its own
+link via ib_core upper layer.
 
-We cannot reproduce with just that one printf in the kernel either.  It
-must change the timing too much to trigger the bug.
+Signed-off-by: Erez Shitrit <erezsh@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h          |  1 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c     | 14 ++++++++++----
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c      |  1 +
+ drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c |  2 ++
+ 4 files changed, 14 insertions(+), 4 deletions(-)
 
-Thanks,
-Ben
-
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 49c5fe9fdff0..a223a8e15ece 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -782,6 +782,7 @@ struct mlx5e_profile {
+ 	void	(*enable)(struct mlx5e_priv *priv);
+ 	void	(*disable)(struct mlx5e_priv *priv);
+ 	void	(*update_stats)(struct mlx5e_priv *priv);
++	void	(*update_carrier)(struct mlx5e_priv *priv);
+ 	int	(*max_nch)(struct mlx5_core_dev *mdev);
+ 	struct {
+ 		mlx5e_fp_handle_rx_cqe handle_rx_cqe;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 06eb7a8b487c..343be65621db 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -143,7 +143,8 @@ static void mlx5e_update_carrier_work(struct work_struct *work)
+ 
+ 	mutex_lock(&priv->state_lock);
+ 	if (test_bit(MLX5E_STATE_OPENED, &priv->state))
+-		mlx5e_update_carrier(priv);
++		if (priv->profile->update_carrier)
++			priv->profile->update_carrier(priv);
+ 	mutex_unlock(&priv->state_lock);
+ }
+ 
+@@ -2598,9 +2599,10 @@ void mlx5e_switch_priv_channels(struct mlx5e_priv *priv,
+ {
+ 	struct net_device *netdev = priv->netdev;
+ 	int new_num_txqs;
+-
++	int carrier_ok;
+ 	new_num_txqs = new_chs->num * new_chs->params.num_tc;
+ 
++	carrier_ok = netif_carrier_ok(netdev);
+ 	netif_carrier_off(netdev);
+ 
+ 	if (new_num_txqs < netdev->real_num_tx_queues)
+@@ -2618,7 +2620,9 @@ void mlx5e_switch_priv_channels(struct mlx5e_priv *priv,
+ 	mlx5e_refresh_tirs(priv, false);
+ 	mlx5e_activate_priv_channels(priv);
+ 
+-	mlx5e_update_carrier(priv);
++	/* return carrier back if needed */
++	if (carrier_ok)
++		netif_carrier_on(netdev);
+ }
+ 
+ int mlx5e_open_locked(struct net_device *netdev)
+@@ -2634,7 +2638,8 @@ int mlx5e_open_locked(struct net_device *netdev)
+ 
+ 	mlx5e_refresh_tirs(priv, false);
+ 	mlx5e_activate_priv_channels(priv);
+-	mlx5e_update_carrier(priv);
++	if (priv->profile->update_carrier)
++		priv->profile->update_carrier(priv);
+ 	mlx5e_timestamp_init(priv);
+ 
+ 	if (priv->profile->update_stats)
+@@ -4215,6 +4220,7 @@ static const struct mlx5e_profile mlx5e_nic_profile = {
+ 	.disable	   = mlx5e_nic_disable,
+ 	.update_stats	   = mlx5e_update_ndo_stats,
+ 	.max_nch	   = mlx5e_get_max_num_channels,
++	.update_carrier	   = mlx5e_update_carrier,
+ 	.rx_handlers.handle_rx_cqe       = mlx5e_handle_rx_cqe,
+ 	.rx_handlers.handle_rx_cqe_mpwqe = mlx5e_handle_rx_cqe_mpwrq,
+ 	.max_tc		   = MLX5E_MAX_NUM_TC,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+index 01798e1ab667..a39873bd88a6 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+@@ -916,6 +916,7 @@ static struct mlx5e_profile mlx5e_rep_profile = {
+ 	.cleanup_tx		= mlx5e_cleanup_nic_tx,
+ 	.update_stats           = mlx5e_rep_update_stats,
+ 	.max_nch		= mlx5e_get_rep_max_num_channels,
++	.update_carrier		= NULL,
+ 	.rx_handlers.handle_rx_cqe       = mlx5e_handle_rx_cqe_rep,
+ 	.rx_handlers.handle_rx_cqe_mpwqe = NULL /* Not supported */,
+ 	.max_tc			= 1,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
+index fdeb426d4751..cc9ff4014e5c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
+@@ -291,6 +291,7 @@ static const struct mlx5e_profile mlx5i_nic_profile = {
+ 	.disable	   = NULL, /* mlx5i_disable */
+ 	.update_stats	   = NULL, /* mlx5i_update_stats */
+ 	.max_nch	   = mlx5e_get_max_num_channels,
++	.update_carrier    = NULL, /* no HW update in IB link */
+ 	.rx_handlers.handle_rx_cqe       = mlx5i_handle_rx_cqe,
+ 	.rx_handlers.handle_rx_cqe_mpwqe = NULL, /* Not supported */
+ 	.max_tc		   = MLX5I_MAX_NUM_TC,
+@@ -337,6 +338,7 @@ static int mlx5i_open(struct net_device *netdev)
+ 
+ 	mlx5e_refresh_tirs(priv, false);
+ 	mlx5e_activate_priv_channels(priv);
++
+ 	mutex_unlock(&priv->state_lock);
+ 	return 0;
+ 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+2.11.0
