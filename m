@@ -1,87 +1,76 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
+From: Robin Murphy <robin.murphy@arm.com>
 Subject: Re: new dma-mapping tree, was Re: clean up and modularize arch
  dma_mapping interface V2
-Date: Tue, 20 Jun 2017 23:04:00 +1000
-Message-ID: <20170620230400.1a5ae889@canb.auug.org.au>
-References: <20170616181059.19206-1-hch@lst.de>
-        <20170620124140.GA27163@lst.de>
+Date: Tue, 20 Jun 2017 14:14:36 +0100
+Message-ID: <6025d4d4-1975-9598-c16d-26d17d029ec7@arm.com>
+References: <20170620124140.GA27163@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>, x86@kernel.org,
-        linux-arm-kernel@lists.infradead.org,
-        xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
-        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
-        linux-mips@linux-mips.org, openrisc@lists.librecores.org,
-        linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
-        linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
-        linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
-        linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
-        linux-samsung-soc@vger.kernel.org,
-        iommu@lists.linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Marek Szyprowski <m.szyprowski@samsung.com>,
-        Kyungmin Park <kyungmin.park@samsung.com>
-To: Christoph Hellwig <hch@lst.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:47745 "EHLO ozlabs.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751046AbdFTNEG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 20 Jun 2017 09:04:06 -0400
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linux-kernel@vger.kernel.org
+To: Christoph Hellwig <hch@lst.de>, Stephen Rothwell <sfr@canb.auug.org.au>,
+ Linus Torvalds <torvalds@linux-foundation.org>, x86@kernel.org,
+ linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org,
+ linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org,
+ linux-ia64@vger.kernel.org, linux-mips@linux-mips.org,
+ openrisc@lists.librecores.org, linuxppc-dev@lists.ozlabs.org,
+ linux-s390@vger.kernel.org, linux-sh@vger.kernel.org,
+ sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org,
+ dmaengine@vger.kernel.org, linux-tegra@vger.kernel.org,
+ dri-devel@lists.freedesktop.org, linux-samsung-soc@vger.kernel.org,
+ iommu@lists.linux-foundation.org, netdev@vger.kernel.org
+Return-path: <dri-devel-bounces@lists.freedesktop.org>
 In-Reply-To: <20170620124140.GA27163@lst.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
+List-Post: <mailto:dri-devel@lists.freedesktop.org>
+List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: dri-devel-bounces@lists.freedesktop.org
+Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
+List-Id: netdev.vger.kernel.org
 
-Hi Christoph,
-
-On Tue, 20 Jun 2017 14:41:40 +0200 Christoph Hellwig <hch@lst.de> wrote:
->
-> On Fri, Jun 16, 2017 at 08:10:15PM +0200, Christoph Hellwig wrote:
-> > I plan to create a new dma-mapping tree to collect all this work.
-> > Any volunteers for co-maintainers, especially from the iommu gang?  
-> 
-> Ok, I've created the new tree:
-> 
->    git://git.infradead.org/users/hch/dma-mapping.git for-next
-> 
-> Gitweb:
-> 
->    http://git.infradead.org/users/hch/dma-mapping.git/shortlog/refs/heads/for-next
-> 
-> And below is the patch to add the MAINTAINERS entry, additions welcome.
-> 
-> Stephen, can you add this to linux-next?
-
-Added from tomorrow.
-
-I have another tree called dma-mapping:
-
-git://git.linaro.org/people/mszyprowski/linux-dma-mapping.git#dma-mapping-next
-
-Contacts: Marek Szyprowski and Kyungmin Park (cc'd)
-
-I have called your tree dma-mapping-hch for now.  The other tree has
-not been updated since 4.9-rc1 and I am not sure how general it is.
-Marek, Kyungmin, any comments?
-
-Thanks for adding your subsystem tree as a participant of linux-next.  As
-you may know, this is not a judgement of your code.  The purpose of
-linux-next is for integration testing and to lower the impact of
-conflicts between subsystems in the next merge window. 
-
-You will need to ensure that the patches/commits in your tree/series have
-been:
-     * submitted under GPL v2 (or later) and include the Contributor's
-        Signed-off-by,
-     * posted to the relevant mailing list,
-     * reviewed by you (or another maintainer of your subsystem tree),
-     * successfully unit tested, and 
-     * destined for the current or next Linux merge window.
-
-Basically, this should be just what you would send to Linus (or ask him
-to fetch).  It is allowed to be rebased if you deem it necessary.
-
--- 
-Cheers,
-Stephen Rothwell 
-sfr@canb.auug.org.au
+SGkgQ2hyaXN0b3BoLAoKT24gMjAvMDYvMTcgMTM6NDEsIENocmlzdG9waCBIZWxsd2lnIHdyb3Rl
+Ogo+IE9uIEZyaSwgSnVuIDE2LCAyMDE3IGF0IDA4OjEwOjE1UE0gKzAyMDAsIENocmlzdG9waCBI
+ZWxsd2lnIHdyb3RlOgo+PiBJIHBsYW4gdG8gY3JlYXRlIGEgbmV3IGRtYS1tYXBwaW5nIHRyZWUg
+dG8gY29sbGVjdCBhbGwgdGhpcyB3b3JrLgo+PiBBbnkgdm9sdW50ZWVycyBmb3IgY28tbWFpbnRh
+aW5lcnMsIGVzcGVjaWFsbHkgZnJvbSB0aGUgaW9tbXUgZ2FuZz8KPiAKPiBPaywgSSd2ZSBjcmVh
+dGVkIHRoZSBuZXcgdHJlZToKPiAKPiAgICBnaXQ6Ly9naXQuaW5mcmFkZWFkLm9yZy91c2Vycy9o
+Y2gvZG1hLW1hcHBpbmcuZ2l0IGZvci1uZXh0Cj4gCj4gR2l0d2ViOgo+IAo+ICAgIGh0dHA6Ly9n
+aXQuaW5mcmFkZWFkLm9yZy91c2Vycy9oY2gvZG1hLW1hcHBpbmcuZ2l0L3Nob3J0bG9nL3JlZnMv
+aGVhZHMvZm9yLW5leHQKPiAKPiBBbmQgYmVsb3cgaXMgdGhlIHBhdGNoIHRvIGFkZCB0aGUgTUFJ
+TlRBSU5FUlMgZW50cnksIGFkZGl0aW9ucyB3ZWxjb21lLgoKSSdtIGhhcHB5IHRvIGJlIGEgcmV2
+aWV3ZXIsIHNpbmNlIEkndmUgYmVlbiB3b3JraW5nIGluIHRoaXMgYXJlYSBmb3IKc29tZSB0aW1l
+LCBwYXJ0aWN1bGFybHkgd2l0aCB0aGUgZG1hLWlvbW11IGNvZGUgYW5kIGFybTY0IERNQSBvcHMu
+CgpSb2Jpbi4KCj4gU3RlcGhlbiwgY2FuIHlvdSBhZGQgdGhpcyB0byBsaW51eC1uZXh0Pwo+IAo+
+IC0tLQo+IEZyb20gMzM1OTc5YzQxOTEyZTZjMTAxYTIwYjcxOTg2MmIyZDgzNzM3MGRmMSBNb24g
+U2VwIDE3IDAwOjAwOjAwIDIwMDEKPiBGcm9tOiBDaHJpc3RvcGggSGVsbHdpZyA8aGNoQGxzdC5k
+ZT4KPiBEYXRlOiBUdWUsIDIwIEp1biAyMDE3IDExOjE3OjMwICswMjAwCj4gU3ViamVjdDogTUFJ
+TlRBSU5FUlM6IGFkZCBlbnRyeSBmb3IgZG1hIG1hcHBpbmcgaGVscGVycwo+IAo+IFRoaXMgY29k
+ZSBoYXMgYmVlbiBzcHJlYWQgYmV0d2VlbiBnZXR0aW5nIGluIHRocm91Z2ggYXJjaCB0cmVlcywg
+dGhlIGlvbW11Cj4gdHJlZSwgLW1tIGFuZCB0aGUgZHJpdmVycyB0cmVlLiAgVGhlcmUgd2lsbCBi
+ZSBhIGxvdCBvZiB3b3JrIGluIHRoaXMgYXJlYSwKPiBpbmNsdWRpbmcgY29uc29saWRhdGluZyB2
+YXJpb3VzIGFyY2ggaW1wbGVtZW50YXRpb25zIGludG8gbW9yZSBjb21tb24KPiBjb2RlLCBzbyBl
+bnN1cmUgd2UgaGF2ZSBhIHByb3BlciBnaXQgdHJlZSB0aGF0IGZhY2lsaXRhdGVzIGNvb3BlcmF0
+aW9uIHdpdGgKPiB0aGUgYXJjaGl0ZWN0dXJlIG1haW50YWluZXJzLgo+IAo+IFNpZ25lZC1vZmYt
+Ynk6IENocmlzdG9waCBIZWxsd2lnIDxoY2hAbHN0LmRlPgo+IC0tLQo+ICBNQUlOVEFJTkVSUyB8
+IDEzICsrKysrKysrKysrKysKPiAgMSBmaWxlIGNoYW5nZWQsIDEzIGluc2VydGlvbnMoKykKPiAK
+PiBkaWZmIC0tZ2l0IGEvTUFJTlRBSU5FUlMgYi9NQUlOVEFJTkVSUwo+IGluZGV4IDA5YjVhYjZh
+OGE1Yy4uNTY4NTlkNTNhNDI0IDEwMDY0NAo+IC0tLSBhL01BSU5UQUlORVJTCj4gKysrIGIvTUFJ
+TlRBSU5FUlMKPiBAQCAtMjU5NSw2ICsyNTk1LDE5IEBAIFM6CU1haW50YWluZWQKPiAgRjoJbmV0
+L2JsdWV0b290aC8KPiAgRjoJaW5jbHVkZS9uZXQvYmx1ZXRvb3RoLwo+ICAKPiArRE1BIE1BUFBJ
+TkcgSEVMUEVSUwo+ICtNOglDaHJpc3RvcGggSGVsbHdpZyA8aGNoQGxzdC5kZT4KPiArTDoJbGlu
+dXgta2VybmVsQHZnZXIua2VybmVsLm9yZwo+ICtUOglnaXQgZ2l0Oi8vZ2l0LmluZnJhZGVhZC5v
+cmcvdXNlcnMvaGNoL2RtYS1tYXBwaW5nLmdpdAo+ICtXOglodHRwOi8vZ2l0LmluZnJhZGVhZC5v
+cmcvdXNlcnMvaGNoL2RtYS1tYXBwaW5nLmdpdAo+ICtTOglTdXBwb3J0ZWQKPiArRjoJbGliL2Rt
+YS1kZWJ1Zy5jCj4gK0Y6CWxpYi9kbWEtbm9vcC5jCj4gK0Y6CWxpYi9kbWEtdmlydC5jCj4gK0Y6
+CWRyaXZlcnMvYmFzZS9kbWEtbWFwcGluZy5jCj4gK0Y6CWRyaXZlcnMvYmFzZS9kbWEtY29oZXJl
+bnQuYwo+ICtGOglpbmNsdWRlL2xpbnV4L2RtYS1tYXBwaW5nLmgKPiArCj4gIEJPTkRJTkcgRFJJ
+VkVSCj4gIE06CUpheSBWb3NidXJnaCA8ai52b3NidXJnaEBnbWFpbC5jb20+Cj4gIE06CVZlYWNl
+c2xhdiBGYWxpY28gPHZmYWxpY29AZ21haWwuY29tPgo+IAoKX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX18KZHJpLWRldmVsIG1haWxpbmcgbGlzdApkcmktZGV2
+ZWxAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCmh0dHBzOi8vbGlzdHMuZnJlZWRlc2t0b3Aub3JnL21h
+aWxtYW4vbGlzdGluZm8vZHJpLWRldmVsCg==
