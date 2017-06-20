@@ -1,40 +1,166 @@
-From: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
-Subject: Re: clean up and modularize arch dma_mapping interface
-Date: Tue, 20 Jun 2017 15:17:11 +0200
-Message-ID: <20170620131711.GC30769@lst.de>
-References: <20170608132609.32662-1-hch@lst.de>
-	<20170620091902.2dldmf43vhazq6yh@phenom.ffwll.local>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next] sctp: handle errors when updating asoc
+Date: Tue, 20 Jun 2017 09:21:38 -0400
+Message-ID: <20170620132138.GA10596@hmswarspite.think-freely.org>
+References: <a6aa86ed657155e13c72c246b79cf297159a8765.1497945911.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org,
-	linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, openrisc-cunTk1MwBs9a3B2Vnqf2dGD2FQJk+8+b@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, dmaengine-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
-	linux-samsung-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        davem@davemloft.net
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:38611 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751025AbdFTNV5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 09:21:57 -0400
 Content-Disposition: inline
-In-Reply-To: <20170620091902.2dldmf43vhazq6yh-dv86pmgwkMBes7Z6vYuT8azUEOm+Xw19@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
-List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <a6aa86ed657155e13c72c246b79cf297159a8765.1497945911.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 20, 2017 at 11:19:02AM +0200, Daniel Vetter wrote:
-> Ack for the 2 drm patches, but I can also pick them up through drm-misc if
-> you prefer that (but then it'll be 4.14).
-
-Nah, I'll plan to set up a dma-mapping tree so that we'll have common
-place for dma-mapping work.
+On Tue, Jun 20, 2017 at 04:05:11PM +0800, Xin Long wrote:
+> It's a bad thing not to handle errors when updating asoc. The memory
+> allocation failure in any of the functions called in sctp_assoc_update()
+> would cause sctp to work unexpectedly.
+> 
+> This patch is to fix it by aborting the asoc and reporting the error when
+> any of these functions fails.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  include/net/sctp/structs.h |  4 ++--
+>  net/sctp/associola.c       | 25 ++++++++++++++-----------
+>  net/sctp/sm_sideeffect.c   | 24 +++++++++++++++++++++++-
+>  3 files changed, 39 insertions(+), 14 deletions(-)
+> 
+> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+> index 5051317..e26763b 100644
+> --- a/include/net/sctp/structs.h
+> +++ b/include/net/sctp/structs.h
+> @@ -1953,8 +1953,8 @@ struct sctp_transport *sctp_assoc_is_match(struct sctp_association *,
+>  					   const union sctp_addr *,
+>  					   const union sctp_addr *);
+>  void sctp_assoc_migrate(struct sctp_association *, struct sock *);
+> -void sctp_assoc_update(struct sctp_association *old,
+> -		       struct sctp_association *new);
+> +int sctp_assoc_update(struct sctp_association *old,
+> +		      struct sctp_association *new);
+>  
+>  __u32 sctp_association_get_next_tsn(struct sctp_association *);
+>  
+> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+> index 72b07dd..757be41 100644
+> --- a/net/sctp/associola.c
+> +++ b/net/sctp/associola.c
+> @@ -1112,8 +1112,8 @@ void sctp_assoc_migrate(struct sctp_association *assoc, struct sock *newsk)
+>  }
+>  
+>  /* Update an association (possibly from unexpected COOKIE-ECHO processing).  */
+> -void sctp_assoc_update(struct sctp_association *asoc,
+> -		       struct sctp_association *new)
+> +int sctp_assoc_update(struct sctp_association *asoc,
+> +		      struct sctp_association *new)
+>  {
+>  	struct sctp_transport *trans;
+>  	struct list_head *pos, *temp;
+> @@ -1124,8 +1124,10 @@ void sctp_assoc_update(struct sctp_association *asoc,
+>  	asoc->peer.sack_needed = new->peer.sack_needed;
+>  	asoc->peer.auth_capable = new->peer.auth_capable;
+>  	asoc->peer.i = new->peer.i;
+> -	sctp_tsnmap_init(&asoc->peer.tsn_map, SCTP_TSN_MAP_INITIAL,
+> -			 asoc->peer.i.initial_tsn, GFP_ATOMIC);
+> +
+> +	if (!sctp_tsnmap_init(&asoc->peer.tsn_map, SCTP_TSN_MAP_INITIAL,
+> +			      asoc->peer.i.initial_tsn, GFP_ATOMIC))
+> +		return -ENOMEM;
+>  
+>  	/* Remove any peer addresses not present in the new association. */
+>  	list_for_each_safe(pos, temp, &asoc->peer.transport_addr_list) {
+> @@ -1169,11 +1171,11 @@ void sctp_assoc_update(struct sctp_association *asoc,
+>  	} else {
+>  		/* Add any peer addresses from the new association. */
+>  		list_for_each_entry(trans, &new->peer.transport_addr_list,
+> -				transports) {
+> -			if (!sctp_assoc_lookup_paddr(asoc, &trans->ipaddr))
+> -				sctp_assoc_add_peer(asoc, &trans->ipaddr,
+> -						    GFP_ATOMIC, trans->state);
+> -		}
+> +				    transports)
+> +			if (!sctp_assoc_lookup_paddr(asoc, &trans->ipaddr) &&
+> +			    !sctp_assoc_add_peer(asoc, &trans->ipaddr,
+> +						 GFP_ATOMIC, trans->state))
+> +				return -ENOMEM;
+>  
+>  		asoc->ctsn_ack_point = asoc->next_tsn - 1;
+>  		asoc->adv_peer_ack_point = asoc->ctsn_ack_point;
+> @@ -1182,7 +1184,8 @@ void sctp_assoc_update(struct sctp_association *asoc,
+>  			sctp_stream_update(&asoc->stream, &new->stream);
+>  
+>  		/* get a new assoc id if we don't have one yet. */
+> -		sctp_assoc_set_id(asoc, GFP_ATOMIC);
+> +		if (sctp_assoc_set_id(asoc, GFP_ATOMIC))
+> +			return -ENOMEM;
+>  	}
+>  
+>  	/* SCTP-AUTH: Save the peer parameters from the new associations
+> @@ -1200,7 +1203,7 @@ void sctp_assoc_update(struct sctp_association *asoc,
+>  	asoc->peer.peer_hmacs = new->peer.peer_hmacs;
+>  	new->peer.peer_hmacs = NULL;
+>  
+> -	sctp_auth_asoc_init_active_key(asoc, GFP_ATOMIC);
+> +	return sctp_auth_asoc_init_active_key(asoc, GFP_ATOMIC);
+>  }
+>  
+>  /* Update the retran path for sending a retransmitted packet.
+> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+> index 7623566..dfe1fcb 100644
+> --- a/net/sctp/sm_sideeffect.c
+> +++ b/net/sctp/sm_sideeffect.c
+> @@ -818,6 +818,28 @@ static void sctp_cmd_setup_t2(sctp_cmd_seq_t *cmds,
+>  	asoc->timeouts[SCTP_EVENT_TIMEOUT_T2_SHUTDOWN] = t->rto;
+>  }
+>  
+> +static void sctp_cmd_assoc_update(sctp_cmd_seq_t *cmds,
+> +				  struct sctp_association *asoc,
+> +				  struct sctp_association *new)
+> +{
+> +	struct net *net = sock_net(asoc->base.sk);
+> +	struct sctp_chunk *abort;
+> +
+> +	if (!sctp_assoc_update(asoc, new))
+> +		return;
+> +
+> +	abort = sctp_make_abort(asoc, NULL, sizeof(sctp_errhdr_t));
+> +	if (abort) {
+> +		sctp_init_cause(abort, SCTP_ERROR_RSRC_LOW, 0);
+> +		sctp_add_cmd_sf(cmds, SCTP_CMD_REPLY, SCTP_CHUNK(abort));
+> +	}
+> +	sctp_add_cmd_sf(cmds, SCTP_CMD_SET_SK_ERR, SCTP_ERROR(ECONNABORTED));
+> +	sctp_add_cmd_sf(cmds, SCTP_CMD_ASSOC_FAILED,
+> +			SCTP_PERR(SCTP_ERROR_RSRC_LOW));
+> +	SCTP_INC_STATS(net, SCTP_MIB_ABORTEDS);
+> +	SCTP_DEC_STATS(net, SCTP_MIB_CURRESTAB);
+> +}
+> +
+>  /* Helper function to change the state of an association. */
+>  static void sctp_cmd_new_state(sctp_cmd_seq_t *cmds,
+>  			       struct sctp_association *asoc,
+> @@ -1294,7 +1316,7 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
+>  			break;
+>  
+>  		case SCTP_CMD_UPDATE_ASSOC:
+> -		       sctp_assoc_update(asoc, cmd->obj.asoc);
+> +		       sctp_cmd_assoc_update(commands, asoc, cmd->obj.asoc);
+>  		       break;
+>  
+>  		case SCTP_CMD_PURGE_OUTQUEUE:
+> -- 
+> 2.1.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
