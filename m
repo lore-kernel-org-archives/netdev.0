@@ -1,44 +1,47 @@
-From: John Crispin <john@phrozen.org>
-Subject: [RFC 2/2] net-next: mt7530: add nh and proto offsets to the ops struct
-Date: Tue, 20 Jun 2017 10:06:55 +0200
-Message-ID: <20170620080655.7251-2-john@phrozen.org>
-References: <20170620080655.7251-1-john@phrozen.org>
-Cc: netdev@vger.kernel.org, John Crispin <john@phrozen.org>
-To: Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Sean Wang <sean.wang@mediatek.com>
+From: Michael Grzeschik <mgr@pengutronix.de>
+Subject: Re: [PATCH] net: macb: add fixed-link node support
+Date: Tue, 20 Jun 2017 10:33:48 +0200
+Message-ID: <20170620083347.usamcuycyctitmcw@pengutronix.de>
+References: <20170616085536.20442-1-m.grzeschik@pengutronix.de>
+ <f9b2d4f7-3751-af45-c347-5f996586b15e@microchip.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, kernel@pengutronix.de
+To: Nicolas Ferre <nicolas.ferre@microchip.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:45220 "EHLO nbd.name"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752085AbdFTIHV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 20 Jun 2017 04:07:21 -0400
-In-Reply-To: <20170620080655.7251-1-john@phrozen.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:50115 "EHLO
+        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751078AbdFTIdu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 04:33:50 -0400
+Content-Disposition: inline
+In-Reply-To: <f9b2d4f7-3751-af45-c347-5f996586b15e@microchip.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The MT7530 inserts the 4 magic header in between the 802.3 address and
-protocol field. The patch defines these header such that the flow_disector
-can properly parse the packet and thus allows hashing to function properly.
+Hi Nicolas,
 
-Signed-off-by: John Crispin <john@phrozen.org>
----
- drivers/net/dsa/mt7530.c | 2 ++
- 1 file changed, 2 insertions(+)
+On Mon, Jun 19, 2017 at 12:54:10PM +0200, Nicolas Ferre wrote:
+> Le 16/06/2017 à 10:55, Michael Grzeschik a écrit :
+> > In case the MACB is directly connected to a
+> > non-mdio PHY/device, it should be possible to provide
+> > a fixed link configuration in the DT.
+> > 
+> > Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
+> > ---
 
-diff --git a/drivers/net/dsa/mt7530.c b/drivers/net/dsa/mt7530.c
-index 1e46418a3b74..b5385e554601 100644
---- a/drivers/net/dsa/mt7530.c
-+++ b/drivers/net/dsa/mt7530.c
-@@ -1019,6 +1019,8 @@ static struct dsa_switch_ops mt7530_switch_ops = {
- 	.port_fdb_add		= mt7530_port_fdb_add,
- 	.port_fdb_del		= mt7530_port_fdb_del,
- 	.port_fdb_dump		= mt7530_port_fdb_dump,
-+	.hash_nh_off		= 4,
-+	.hash_nh_proto		= 2,
- };
- 
- static int
+I just found a similar patch from Moritz Fischer today:
+
+Would you prefer to take his instead?
+
+http://www.spinics.net/lists/kernel/msg2205491.html
+
+Thanks for the review!
+Michael
+
+
 -- 
-2.11.0
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
