@@ -1,166 +1,116 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next] sctp: handle errors when updating asoc
-Date: Tue, 20 Jun 2017 09:21:38 -0400
-Message-ID: <20170620132138.GA10596@hmswarspite.think-freely.org>
-References: <a6aa86ed657155e13c72c246b79cf297159a8765.1497945911.git.lucien.xin@gmail.com>
+From: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
+Subject: Re: [PATCH 00/51] rtc: stop using rtc deprecated functions
+Date: Tue, 20 Jun 2017 15:26:20 +0200
+Message-ID: <20170620132620.GA16881@amd>
+References: <1497951359-13334-1-git-send-email-benjamin.gaignard@linaro.org>
+ <20170620100348.zh4ygvjjgnhxvmvl@piout.net>
+ <20170620121011.GA13221@amd>
+ <20170620122400.sm7qqvwyj6cuzarw@piout.net>
+Reply-To: rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        davem@davemloft.net
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:38611 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751025AbdFTNV5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 09:21:57 -0400
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="PEIAKu/WMn1b1Hv9"
+Cc: Benjamin Gaignard <benjamin.gaignard-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org,
+	adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	Alessandro Zummo <a.zummo-BfzFCNDTiLLj+vYz1yj4TQ@public.gmane.org>,
+	Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>,
+	John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Michael Chan <michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+	Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Support Opensource <support.opensource-WBD+wuPFNBhBDgjK7y7TUQ@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>,
+	Hans Ulli Kroll <ulli.kroll-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+	Vladimir Zapolskiy <vz-ChpfBGZJDbMAvxtiuMwx3w@public.gmane.org>,
+	Sylvain Lemieux <slemieux.tyco-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Barry Song <baohua@kernel.
+To: Alexandre Belloni <alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Return-path: <rtc-linux+bncBDZKLXNI4ACBB7OEUTFAKGQEUCTQ7SY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Content-Disposition: inline
-In-Reply-To: <a6aa86ed657155e13c72c246b79cf297159a8765.1497945911.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170620122400.sm7qqvwyj6cuzarw-m++hUPXGwpdeoWH0uzbU5w@public.gmane.org>
+List-Post: <https://groups.google.com/group/rtc-linux/post>, <mailto:rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:rtc-linux+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/rtc-linux
+List-Subscribe: <https://groups.google.com/group/rtc-linux/subscribe>, <mailto:rtc-linux+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+712029733259+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/rtc-linux/subscribe>
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 20, 2017 at 04:05:11PM +0800, Xin Long wrote:
-> It's a bad thing not to handle errors when updating asoc. The memory
-> allocation failure in any of the functions called in sctp_assoc_update()
-> would cause sctp to work unexpectedly.
+
+--PEIAKu/WMn1b1Hv9
+Content-Type: text/plain; charset="UTF-8"
+Content-Disposition: inline
+
+On Tue 2017-06-20 14:24:00, Alexandre Belloni wrote:
+> On 20/06/2017 at 14:10:11 +0200, Pavel Machek wrote:
+> > On Tue 2017-06-20 12:03:48, Alexandre Belloni wrote:
+> > > On 20/06/2017 at 11:35:08 +0200, Benjamin Gaignard wrote:
+> > > > rtc_time_to_tm() and rtc_tm_to_time() are deprecated because they
+> > > > rely on 32bits variables and that will make rtc break in y2038/2016.
+> > > 
+> > > Please don't, because this hide the fact that the hardware will not
+> > > handle dates in y2038 anyway and as pointed by Russell a few month ago,
+> > > rtc_time_to_tm will be able to catch it but the 64 bit version will
+> > > silently ignore it.
+> > 
+> > Reference? Because rtc on PCs stores date in binary coded decimal, so
+> > it is likely to break in 2100, not 2038...
 > 
-> This patch is to fix it by aborting the asoc and reporting the error when
-> any of these functions fails.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> ---
->  include/net/sctp/structs.h |  4 ++--
->  net/sctp/associola.c       | 25 ++++++++++++++-----------
->  net/sctp/sm_sideeffect.c   | 24 +++++++++++++++++++++++-
->  3 files changed, 39 insertions(+), 14 deletions(-)
-> 
-> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> index 5051317..e26763b 100644
-> --- a/include/net/sctp/structs.h
-> +++ b/include/net/sctp/structs.h
-> @@ -1953,8 +1953,8 @@ struct sctp_transport *sctp_assoc_is_match(struct sctp_association *,
->  					   const union sctp_addr *,
->  					   const union sctp_addr *);
->  void sctp_assoc_migrate(struct sctp_association *, struct sock *);
-> -void sctp_assoc_update(struct sctp_association *old,
-> -		       struct sctp_association *new);
-> +int sctp_assoc_update(struct sctp_association *old,
-> +		      struct sctp_association *new);
->  
->  __u32 sctp_association_get_next_tsn(struct sctp_association *);
->  
-> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> index 72b07dd..757be41 100644
-> --- a/net/sctp/associola.c
-> +++ b/net/sctp/associola.c
-> @@ -1112,8 +1112,8 @@ void sctp_assoc_migrate(struct sctp_association *assoc, struct sock *newsk)
->  }
->  
->  /* Update an association (possibly from unexpected COOKIE-ECHO processing).  */
-> -void sctp_assoc_update(struct sctp_association *asoc,
-> -		       struct sctp_association *new)
-> +int sctp_assoc_update(struct sctp_association *asoc,
-> +		      struct sctp_association *new)
->  {
->  	struct sctp_transport *trans;
->  	struct list_head *pos, *temp;
-> @@ -1124,8 +1124,10 @@ void sctp_assoc_update(struct sctp_association *asoc,
->  	asoc->peer.sack_needed = new->peer.sack_needed;
->  	asoc->peer.auth_capable = new->peer.auth_capable;
->  	asoc->peer.i = new->peer.i;
-> -	sctp_tsnmap_init(&asoc->peer.tsn_map, SCTP_TSN_MAP_INITIAL,
-> -			 asoc->peer.i.initial_tsn, GFP_ATOMIC);
-> +
-> +	if (!sctp_tsnmap_init(&asoc->peer.tsn_map, SCTP_TSN_MAP_INITIAL,
-> +			      asoc->peer.i.initial_tsn, GFP_ATOMIC))
-> +		return -ENOMEM;
->  
->  	/* Remove any peer addresses not present in the new association. */
->  	list_for_each_safe(pos, temp, &asoc->peer.transport_addr_list) {
-> @@ -1169,11 +1171,11 @@ void sctp_assoc_update(struct sctp_association *asoc,
->  	} else {
->  		/* Add any peer addresses from the new association. */
->  		list_for_each_entry(trans, &new->peer.transport_addr_list,
-> -				transports) {
-> -			if (!sctp_assoc_lookup_paddr(asoc, &trans->ipaddr))
-> -				sctp_assoc_add_peer(asoc, &trans->ipaddr,
-> -						    GFP_ATOMIC, trans->state);
-> -		}
-> +				    transports)
-> +			if (!sctp_assoc_lookup_paddr(asoc, &trans->ipaddr) &&
-> +			    !sctp_assoc_add_peer(asoc, &trans->ipaddr,
-> +						 GFP_ATOMIC, trans->state))
-> +				return -ENOMEM;
->  
->  		asoc->ctsn_ack_point = asoc->next_tsn - 1;
->  		asoc->adv_peer_ack_point = asoc->ctsn_ack_point;
-> @@ -1182,7 +1184,8 @@ void sctp_assoc_update(struct sctp_association *asoc,
->  			sctp_stream_update(&asoc->stream, &new->stream);
->  
->  		/* get a new assoc id if we don't have one yet. */
-> -		sctp_assoc_set_id(asoc, GFP_ATOMIC);
-> +		if (sctp_assoc_set_id(asoc, GFP_ATOMIC))
-> +			return -ENOMEM;
->  	}
->  
->  	/* SCTP-AUTH: Save the peer parameters from the new associations
-> @@ -1200,7 +1203,7 @@ void sctp_assoc_update(struct sctp_association *asoc,
->  	asoc->peer.peer_hmacs = new->peer.peer_hmacs;
->  	new->peer.peer_hmacs = NULL;
->  
-> -	sctp_auth_asoc_init_active_key(asoc, GFP_ATOMIC);
-> +	return sctp_auth_asoc_init_active_key(asoc, GFP_ATOMIC);
->  }
->  
->  /* Update the retran path for sending a retransmitted packet.
-> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-> index 7623566..dfe1fcb 100644
-> --- a/net/sctp/sm_sideeffect.c
-> +++ b/net/sctp/sm_sideeffect.c
-> @@ -818,6 +818,28 @@ static void sctp_cmd_setup_t2(sctp_cmd_seq_t *cmds,
->  	asoc->timeouts[SCTP_EVENT_TIMEOUT_T2_SHUTDOWN] = t->rto;
->  }
->  
-> +static void sctp_cmd_assoc_update(sctp_cmd_seq_t *cmds,
-> +				  struct sctp_association *asoc,
-> +				  struct sctp_association *new)
-> +{
-> +	struct net *net = sock_net(asoc->base.sk);
-> +	struct sctp_chunk *abort;
-> +
-> +	if (!sctp_assoc_update(asoc, new))
-> +		return;
-> +
-> +	abort = sctp_make_abort(asoc, NULL, sizeof(sctp_errhdr_t));
-> +	if (abort) {
-> +		sctp_init_cause(abort, SCTP_ERROR_RSRC_LOW, 0);
-> +		sctp_add_cmd_sf(cmds, SCTP_CMD_REPLY, SCTP_CHUNK(abort));
-> +	}
-> +	sctp_add_cmd_sf(cmds, SCTP_CMD_SET_SK_ERR, SCTP_ERROR(ECONNABORTED));
-> +	sctp_add_cmd_sf(cmds, SCTP_CMD_ASSOC_FAILED,
-> +			SCTP_PERR(SCTP_ERROR_RSRC_LOW));
-> +	SCTP_INC_STATS(net, SCTP_MIB_ABORTEDS);
-> +	SCTP_DEC_STATS(net, SCTP_MIB_CURRESTAB);
-> +}
-> +
->  /* Helper function to change the state of an association. */
->  static void sctp_cmd_new_state(sctp_cmd_seq_t *cmds,
->  			       struct sctp_association *asoc,
-> @@ -1294,7 +1316,7 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
->  			break;
->  
->  		case SCTP_CMD_UPDATE_ASSOC:
-> -		       sctp_assoc_update(asoc, cmd->obj.asoc);
-> +		       sctp_cmd_assoc_update(commands, asoc, cmd->obj.asoc);
->  		       break;
->  
->  		case SCTP_CMD_PURGE_OUTQUEUE:
-> -- 
-> 2.1.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> I'm not saying it should be done but clearly, that is not the correct
+> thing to do for RTCs that are using a single 32 bits register to store
+> the time.
+> You give one example, I can give you three: armada38x, at91sam9,
+> at32ap700x and that just in the beginning of the series.
+
+I wanted reference to Russell's mail.
+
+> And yes, on PC, they will break in 2100, other in 2106, some in 2070.
+> I've delayed the tree wide patching until I manage to finish reworking
+> the infrastructure needed to handle the limits of the RTCs.
+
+Kernel does not know if it has working RTC or not, so it should use
+64bit variables. Merging this -- does not hide anything. Yes, some
+drivers still may have problems -- so we fix the drivers.
+
+You said:
+
+> > > rtc_time_to_tm will be able to catch it but the 64 bit will
+> > > silently ignore it.
+
+If that's the case, we may need 64bit version to be smarter.. but
+we'll still need 64bit variables in the kernel.
+									Pavel
+
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+
+-- 
+You received this message because you are subscribed to "rtc-linux".
+Membership options at http://groups.google.com/group/rtc-linux .
+Please read http://groups.google.com/group/rtc-linux/web/checklist
+before submitting a driver.
+--- 
+You received this message because you are subscribed to the Google Groups "rtc-linux" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rtc-linux+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+
+--PEIAKu/WMn1b1Hv9
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAllJInwACgkQMOfwapXb+vKvOACfa+kGFBRxWhkRpGKLgcPlEMXc
+Xp4An1BROF4v4jttS9yXrXm9FyxGRyLs
+=CY2S
+-----END PGP SIGNATURE-----
+
+--PEIAKu/WMn1b1Hv9--
