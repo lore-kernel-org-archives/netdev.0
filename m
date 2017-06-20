@@ -1,7 +1,8 @@
 From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
-Subject: [PATCH net-next 0/4] s390/net updates, part 2 (v2)
-Date: Tue, 20 Jun 2017 16:00:30 +0200
-Message-ID: <20170620140034.89661-1-jwi@linux.vnet.ibm.com>
+Subject: [PATCH net-next 1/4] s390/qeth: add ipa return codes for bridgeport
+Date: Tue, 20 Jun 2017 16:00:31 +0200
+Message-ID: <20170620140034.89661-2-jwi@linux.vnet.ibm.com>
+References: <20170620140034.89661-1-jwi@linux.vnet.ibm.com>
 Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
         Martin Schwidefsky <schwidefsky@de.ibm.com>,
         Heiko Carstens <heiko.carstens@de.ibm.com>,
@@ -10,49 +11,202 @@ Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
         Julian Wiedmann <jwi@linux.vnet.ibm.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:46047 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751148AbdFTOAl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 10:00:41 -0400
-Received: from pps.filterd (m0098414.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5KDx1g7083927
-        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 10:00:40 -0400
-Received: from e06smtp10.uk.ibm.com (e06smtp10.uk.ibm.com [195.75.94.106])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 2b734apk3q-1
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:48087 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751148AbdFTOAo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 10:00:44 -0400
+Received: from pps.filterd (m0098396.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5KDwqv5102401
+        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 10:00:43 -0400
+Received: from e06smtp14.uk.ibm.com (e06smtp14.uk.ibm.com [195.75.94.110])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2b6u1tacxd-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 10:00:40 -0400
+        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 10:00:43 -0400
 Received: from localhost
-        by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <jwi@linux.vnet.ibm.com>;
-        Tue, 20 Jun 2017 15:00:38 +0100
+        Tue, 20 Jun 2017 15:00:40 +0100
+In-Reply-To: <20170620140034.89661-1-jwi@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Kittipon Meesompop <kmeesomp@linux.vnet.ibm.com>
 
-thanks for the feedback. Here's an updated patchset that honours
-the reverse christmas tree and drops the __packed attribute. Please apply.
+add ipa return codes for Bridgeport (HiperSockets and OSA) according to
+system level design.
 
-Thanks,
-Julian
+Signed-off-by: Kittipon Meesompop <kmeesomp@linux.vnet.ibm.com>
+Reviewed-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+Reviewed-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Signed-off-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+---
+ drivers/s390/net/qeth_core_mpc.c | 14 ++++++++++++++
+ drivers/s390/net/qeth_core_mpc.h | 18 ++++++++++++++++++
+ drivers/s390/net/qeth_l2_main.c  | 34 +++++++++++++++++-----------------
+ 3 files changed, 49 insertions(+), 17 deletions(-)
 
-
-Julian Wiedmann (3):
-  s390/qeth: fix packing buffer statistics
-  s390/diag: add diag26c support
-  s390/qeth: use diag26c to get MAC address on L2
-
-Kittipon Meesompop (1):
-  s390/qeth: add ipa return codes for bridgeport
-
- arch/s390/include/asm/diag.h      | 26 +++++++++++++
- arch/s390/kernel/diag.c           | 29 +++++++++++++++
- drivers/s390/net/qeth_core.h      |  1 +
- drivers/s390/net/qeth_core_main.c | 78 +++++++++++++++++++++++++++++++++++----
- drivers/s390/net/qeth_core_mpc.c  | 14 +++++++
- drivers/s390/net/qeth_core_mpc.h  | 18 +++++++++
- drivers/s390/net/qeth_l2_main.c   | 50 +++++++++++++++----------
- 7 files changed, 190 insertions(+), 26 deletions(-)
-
+diff --git a/drivers/s390/net/qeth_core_mpc.c b/drivers/s390/net/qeth_core_mpc.c
+index ab9b1376467f..6dd7d05e5693 100644
+--- a/drivers/s390/net/qeth_core_mpc.c
++++ b/drivers/s390/net/qeth_core_mpc.c
+@@ -170,12 +170,18 @@ static struct ipa_rc_msg qeth_ipa_rc_msg[] = {
+ 	{IPA_RC_TRACE_ALREADY_ACTIVE,	"trace already active"},
+ 	{IPA_RC_INVALID_FORMAT,		"invalid format or length"},
+ 	{IPA_RC_DUP_IPV6_REMOTE, "ipv6 address already registered remote"},
++	{IPA_RC_SBP_IQD_NOT_CONFIGURED,	"Not configured for bridgeport"},
+ 	{IPA_RC_DUP_IPV6_HOME,		"ipv6 address already registered"},
+ 	{IPA_RC_UNREGISTERED_ADDR,	"Address not registered"},
+ 	{IPA_RC_NO_ID_AVAILABLE,	"No identifiers available"},
+ 	{IPA_RC_ID_NOT_FOUND,		"Identifier not found"},
++	{IPA_RC_SBP_IQD_ANO_DEV_PRIMARY, "Primary bridgeport exists already"},
++	{IPA_RC_SBP_IQD_CURRENT_SECOND,	"Bridgeport is currently secondary"},
++	{IPA_RC_SBP_IQD_LIMIT_SECOND, "Limit of secondary bridgeports reached"},
+ 	{IPA_RC_INVALID_IP_VERSION,	"IP version incorrect"},
++	{IPA_RC_SBP_IQD_CURRENT_PRIMARY, "Bridgeport is currently primary"},
+ 	{IPA_RC_LAN_FRAME_MISMATCH,	"LAN and frame mismatch"},
++	{IPA_RC_SBP_IQD_NO_QDIO_QUEUES,	"QDIO queues not established"},
+ 	{IPA_RC_L2_UNSUPPORTED_CMD,	"Unsupported layer 2 command"},
+ 	{IPA_RC_L2_DUP_MAC,		"Duplicate MAC address"},
+ 	{IPA_RC_L2_ADDR_TABLE_FULL,	"Layer2 address table full"},
+@@ -187,6 +193,14 @@ static struct ipa_rc_msg qeth_ipa_rc_msg[] = {
+ 	{IPA_RC_L2_INVALID_VLAN_ID,	"L2 invalid vlan id"},
+ 	{IPA_RC_L2_DUP_VLAN_ID,		"L2 duplicate vlan id"},
+ 	{IPA_RC_L2_VLAN_ID_NOT_FOUND,	"L2 vlan id not found"},
++	{IPA_RC_SBP_OSA_NOT_CONFIGURED,	"Not configured for bridgeport"},
++	{IPA_RC_SBP_OSA_OS_MISMATCH,	"OS mismatch"},
++	{IPA_RC_SBP_OSA_ANO_DEV_PRIMARY, "Primary bridgeport exists already"},
++	{IPA_RC_SBP_OSA_CURRENT_SECOND,	"Bridgeport is currently secondary"},
++	{IPA_RC_SBP_OSA_LIMIT_SECOND, "Limit of secondary bridgeports reached"},
++	{IPA_RC_SBP_OSA_NOT_AUTHD_BY_ZMAN, "Not authorized by zManager"},
++	{IPA_RC_SBP_OSA_CURRENT_PRIMARY, "Bridgeport is currently primary"},
++	{IPA_RC_SBP_OSA_NO_QDIO_QUEUES,	"QDIO queues not established"},
+ 	{IPA_RC_DATA_MISMATCH,		"Data field mismatch (v4/v6 mixed)"},
+ 	{IPA_RC_INVALID_MTU_SIZE,	"Invalid MTU size"},
+ 	{IPA_RC_INVALID_LANTYPE,	"Invalid LAN type"},
+diff --git a/drivers/s390/net/qeth_core_mpc.h b/drivers/s390/net/qeth_core_mpc.h
+index 45bbea2843bf..912e0107de8f 100644
+--- a/drivers/s390/net/qeth_core_mpc.h
++++ b/drivers/s390/net/qeth_core_mpc.h
+@@ -142,12 +142,18 @@ enum qeth_ipa_return_codes {
+ 	IPA_RC_TRACE_ALREADY_ACTIVE	= 0x0005,
+ 	IPA_RC_INVALID_FORMAT		= 0x0006,
+ 	IPA_RC_DUP_IPV6_REMOTE		= 0x0008,
++	IPA_RC_SBP_IQD_NOT_CONFIGURED	= 0x000C,
+ 	IPA_RC_DUP_IPV6_HOME		= 0x0010,
+ 	IPA_RC_UNREGISTERED_ADDR	= 0x0011,
+ 	IPA_RC_NO_ID_AVAILABLE		= 0x0012,
+ 	IPA_RC_ID_NOT_FOUND		= 0x0013,
++	IPA_RC_SBP_IQD_ANO_DEV_PRIMARY	= 0x0014,
++	IPA_RC_SBP_IQD_CURRENT_SECOND	= 0x0018,
++	IPA_RC_SBP_IQD_LIMIT_SECOND	= 0x001C,
+ 	IPA_RC_INVALID_IP_VERSION	= 0x0020,
++	IPA_RC_SBP_IQD_CURRENT_PRIMARY	= 0x0024,
+ 	IPA_RC_LAN_FRAME_MISMATCH	= 0x0040,
++	IPA_RC_SBP_IQD_NO_QDIO_QUEUES	= 0x00EB,
+ 	IPA_RC_L2_UNSUPPORTED_CMD	= 0x2003,
+ 	IPA_RC_L2_DUP_MAC		= 0x2005,
+ 	IPA_RC_L2_ADDR_TABLE_FULL	= 0x2006,
+@@ -159,6 +165,14 @@ enum qeth_ipa_return_codes {
+ 	IPA_RC_L2_INVALID_VLAN_ID	= 0x2015,
+ 	IPA_RC_L2_DUP_VLAN_ID		= 0x2016,
+ 	IPA_RC_L2_VLAN_ID_NOT_FOUND	= 0x2017,
++	IPA_RC_SBP_OSA_NOT_CONFIGURED	= 0x2B0C,
++	IPA_RC_SBP_OSA_OS_MISMATCH	= 0x2B10,
++	IPA_RC_SBP_OSA_ANO_DEV_PRIMARY	= 0x2B14,
++	IPA_RC_SBP_OSA_CURRENT_SECOND	= 0x2B18,
++	IPA_RC_SBP_OSA_LIMIT_SECOND	= 0x2B1C,
++	IPA_RC_SBP_OSA_NOT_AUTHD_BY_ZMAN = 0x2B20,
++	IPA_RC_SBP_OSA_CURRENT_PRIMARY	= 0x2B24,
++	IPA_RC_SBP_OSA_NO_QDIO_QUEUES	= 0x2BEB,
+ 	IPA_RC_DATA_MISMATCH		= 0xe001,
+ 	IPA_RC_INVALID_MTU_SIZE		= 0xe002,
+ 	IPA_RC_INVALID_LANTYPE		= 0xe003,
+@@ -187,6 +201,10 @@ enum qeth_ipa_return_codes {
+ #define IPA_RC_INVALID_SUBCMD		IPA_RC_IP_TABLE_FULL
+ #define IPA_RC_HARDWARE_AUTH_ERROR	IPA_RC_UNKNOWN_ERROR
+ 
++/* for SETBRIDGEPORT (double occupancies) */
++#define IPA_RC_SBP_IQD_OS_MISMATCH	 IPA_RC_DUP_IPV6_HOME
++#define IPA_RC_SBP_IQD_NOT_AUTHD_BY_ZMAN IPA_RC_INVALID_IP_VERSION
++
+ /* IPA function flags; each flag marks availability of respective function */
+ enum qeth_ipa_funcs {
+ 	IPA_ARP_PROCESSING      = 0x00000001L,
+diff --git a/drivers/s390/net/qeth_l2_main.c b/drivers/s390/net/qeth_l2_main.c
+index c6bc63b8b295..9e7f12aba55e 100644
+--- a/drivers/s390/net/qeth_l2_main.c
++++ b/drivers/s390/net/qeth_l2_main.c
+@@ -1650,27 +1650,27 @@ static int qeth_bridgeport_makerc(struct qeth_card *card,
+ 	if ((is_iqd && (cbctl->ipa_rc == IPA_RC_SUCCESS)) ||
+ 	    (!is_iqd && (cbctl->ipa_rc == cbctl->cmd_rc)))
+ 		switch (cbctl->cmd_rc) {
+-		case 0x0000:
++		case IPA_RC_SUCCESS:
+ 			rc = 0;
+ 			break;
+-		case 0x2B04:
+-		case 0x0004:
++		case IPA_RC_L2_UNSUPPORTED_CMD:
++		case IPA_RC_UNSUPPORTED_COMMAND:
+ 			rc = -EOPNOTSUPP;
+ 			break;
+-		case 0x2B0C:
+-		case 0x000C: /* Not configured as bridge Port */
++		case IPA_RC_SBP_OSA_NOT_CONFIGURED:
++		case IPA_RC_SBP_IQD_NOT_CONFIGURED:
+ 			rc = -ENODEV; /* maybe not the best code here? */
+ 			dev_err(&card->gdev->dev,
+ 	"The device is not configured as a Bridge Port\n");
+ 			break;
+-		case 0x2B10:
+-		case 0x0010: /* OS mismatch */
++		case IPA_RC_SBP_OSA_OS_MISMATCH:
++		case IPA_RC_SBP_IQD_OS_MISMATCH:
+ 			rc = -EPERM;
+ 			dev_err(&card->gdev->dev,
+ 	"A Bridge Port is already configured by a different operating system\n");
+ 			break;
+-		case 0x2B14:
+-		case 0x0014: /* Another device is Primary */
++		case IPA_RC_SBP_OSA_ANO_DEV_PRIMARY:
++		case IPA_RC_SBP_IQD_ANO_DEV_PRIMARY:
+ 			switch (setcmd) {
+ 			case IPA_SBP_SET_PRIMARY_BRIDGE_PORT:
+ 				rc = -EEXIST;
+@@ -1686,26 +1686,26 @@ static int qeth_bridgeport_makerc(struct qeth_card *card,
+ 				rc = -EIO;
+ 			}
+ 			break;
+-		case 0x2B18:
+-		case 0x0018: /* This device is currently Secondary */
++		case IPA_RC_SBP_OSA_CURRENT_SECOND:
++		case IPA_RC_SBP_IQD_CURRENT_SECOND:
+ 			rc = -EBUSY;
+ 			dev_err(&card->gdev->dev,
+ 	"The device is already a secondary Bridge Port\n");
+ 			break;
+-		case 0x2B1C:
+-		case 0x001C: /* Limit for Secondary devices reached */
++		case IPA_RC_SBP_OSA_LIMIT_SECOND:
++		case IPA_RC_SBP_IQD_LIMIT_SECOND:
+ 			rc = -EEXIST;
+ 			dev_err(&card->gdev->dev,
+ 	"The LAN cannot have more secondary Bridge Ports\n");
+ 			break;
+-		case 0x2B24:
+-		case 0x0024: /* This device is currently Primary */
++		case IPA_RC_SBP_OSA_CURRENT_PRIMARY:
++		case IPA_RC_SBP_IQD_CURRENT_PRIMARY:
+ 			rc = -EBUSY;
+ 			dev_err(&card->gdev->dev,
+ 	"The device is already a primary Bridge Port\n");
+ 			break;
+-		case 0x2B20:
+-		case 0x0020: /* Not authorized by zManager */
++		case IPA_RC_SBP_OSA_NOT_AUTHD_BY_ZMAN:
++		case IPA_RC_SBP_IQD_NOT_AUTHD_BY_ZMAN:
+ 			rc = -EACCES;
+ 			dev_err(&card->gdev->dev,
+ 	"The device is not authorized to be a Bridge Port\n");
 -- 
 2.11.2
