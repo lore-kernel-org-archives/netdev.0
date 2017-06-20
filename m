@@ -1,60 +1,44 @@
-From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Subject: Re: [PATCH net-next] ibmvnic: Return from ibmvnic_resume if not in
- VNIC_OPEN state
-Date: Tue, 20 Jun 2017 12:36:23 -0500
-Message-ID: <3d0baa3a-6c7a-8c12-f695-ec73c15159f2@linux.vnet.ibm.com>
-References: <b9b5f82f-c59b-4816-b745-31080c6cdf78@linux.vnet.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3 0/6] vxlan: cleanup and IPv6 link-local
+ support
+Date: Tue, 20 Jun 2017 13:37:27 -0400 (EDT)
+Message-ID: <20170620.133727.1870813949229996297.davem@davemloft.net>
+References: <cover.1497825555.git.mschiffer@universe-factory.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-To: John Allen <jallen@linux.vnet.ibm.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:41105 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1750923AbdFTRg2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 13:36:28 -0400
-Received: from pps.filterd (m0098421.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5KHXoD1120512
-        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 13:36:28 -0400
-Received: from e13.ny.us.ibm.com (e13.ny.us.ibm.com [129.33.205.203])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2b6mknt6x2-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 13:36:28 -0400
-Received: from localhost
-        by e13.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
-        Tue, 20 Jun 2017 13:36:27 -0400
-In-Reply-To: <b9b5f82f-c59b-4816-b745-31080c6cdf78@linux.vnet.ibm.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jbenc@redhat.com, hannes@stressinduktion.org, pshelar@ovn.org,
+        aduyck@mirantis.com, roopa@cumulusnetworks.com,
+        netdev@vger.kernel.org, dev@openvswitch.org,
+        linux-kernel@vger.kernel.org
+To: mschiffer@universe-factory.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1497825555.git.mschiffer@universe-factory.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Matthias Schiffer <mschiffer@universe-factory.net>
+Date: Mon, 19 Jun 2017 10:03:54 +0200
 
-
-On 06/19/2017 11:27 AM, John Allen wrote:
-> If the ibmvnic driver is not in the VNIC_OPEN state, return from
-> ibmvnic_resume callback. If we are not in the VNIC_OPEN state, interrupts
-> may not be initialized and directly calling the interrupt handler will
-> cause a crash.
+> Running VXLANs over IPv6 link-local addresses allows to use them as a
+> drop-in replacement for VLANs, avoiding to allocate additional outer IP
+> addresses to run the VXLAN over.
 > 
-> Signed-off-by: John Allen <jallen@linux.vnet.ibm.com>
-
-Reviewed-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-
-> ---
-> diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-> index 722daf5..0135095 100644
-> --- a/drivers/net/ethernet/ibm/ibmvnic.c
-> +++ b/drivers/net/ethernet/ibm/ibmvnic.c
-> @@ -3859,6 +3859,9 @@ static int ibmvnic_resume(struct device *dev)
->  	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
->  	int i;
+> Since v1, I have added a lot more consistency checks to the address
+> configuration, making sure address families and scopes match. To simplify
+> the implementation, I also did some general refactoring of the
+> configuration handling in the new first patch of the series.
 > 
-> +	if (adapter->state != VNIC_OPEN)
-> +		return 0;
-> +
->  	/* kick the interrupt handlers just in case we lost an interrupt */
->  	for (i = 0; i < adapter->req_rx_queues; i++)
->  		ibmvnic_interrupt_rx(adapter->rx_scrq[i]->irq,
+> The second patch is more cleanup; is slightly touches OVS code, so that
+> list is in CC this time, too.
 > 
+> As in v1, the last two patches actually make VXLAN over IPv6 link-local
+> work, and allow multiple VXLANs with the same VNI and port, as long as
+> link-local addresses on different interfaces are used. As suggested, I now
+> store in the flags field if the VXLAN uses link-local addresses or not.
+> 
+> v3 removes log messages as suggested by Roopa Prabhu (as it is very unusual
+> for errors in netlink requests to be printed to the kernel log.) The commit
+> message of patch 5 has been extended to add a note about IPv4.
+
+Series applied, thanks Matthias.
