@@ -1,7 +1,7 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net-next v2 02/12] nfp: devlink add support for getting eswitch mode
-Date: Tue, 20 Jun 2017 23:36:10 +0200
-Message-ID: <1497994580-6271-3-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH net-next v2 04/12] nfp: map mac_stats and vf_cfg BARs
+Date: Tue, 20 Jun 2017 23:36:12 +0200
+Message-ID: <1497994580-6271-5-git-send-email-simon.horman@netronome.com>
 References: <1497994580-6271-1-git-send-email-simon.horman@netronome.com>
 Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
         Or Gerlitz <gerlitz.or@gmail.com>,
@@ -9,107 +9,347 @@ Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
 To: David Miller <davem@davemloft.net>,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f175.google.com ([209.85.216.175]:33368 "EHLO
-        mail-qt0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752477AbdFTVgp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 17:36:45 -0400
-Received: by mail-qt0-f175.google.com with SMTP id u12so143973008qth.0
-        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 14:36:45 -0700 (PDT)
+Received: from mail-qt0-f174.google.com ([209.85.216.174]:36001 "EHLO
+        mail-qt0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752477AbdFTVgt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 17:36:49 -0400
+Received: by mail-qt0-f174.google.com with SMTP id u19so143922340qta.3
+        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 14:36:49 -0700 (PDT)
 In-Reply-To: <1497994580-6271-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
+If present map mac_stats and vf_cfg BARs. These will be used by
+representor netdevs to read statistics for phys port and vf representors.
 
-Add app callback for reporting eswitch mode.  Non-SRIOV apps
-should not implement this callback, nfp_app code will then
-respond with -EOPNOTSUPP.
+Also provide defines describing the layout of the mac_stats area.
+Similar defines are already present for the cf_cfg area.
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Based in part on work by Jakub Kicinski.
+
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
+Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_app.h     | 15 +++++++++++++++
- drivers/net/ethernet/netronome/nfp/nfp_devlink.c | 18 ++++++++++++++++++
- 2 files changed, 33 insertions(+)
+ drivers/net/ethernet/netronome/nfp/nfp_main.h      |   8 ++
+ drivers/net/ethernet/netronome/nfp/nfp_net_main.c  | 116 +++++++++++++++------
+ drivers/net/ethernet/netronome/nfp/nfp_port.h      |  60 +++++++++++
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h   |   2 +
+ .../ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c   |   5 +-
+ 5 files changed, 161 insertions(+), 30 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.h b/drivers/net/ethernet/netronome/nfp/nfp_app.h
-index f5e373fa8c3b..0fee14ffa081 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_app.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_app.h
-@@ -34,6 +34,8 @@
- #ifndef _NFP_APP_H
- #define _NFP_APP_H 1
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.h b/drivers/net/ethernet/netronome/nfp/nfp_main.h
+index 88724f8d0dcd..aa69d4101eb9 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_main.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_main.h
+@@ -68,6 +68,10 @@ struct nfp_rtsym_table;
+  * @data_vnic_bar:	Pointer to the CPP area for the data vNICs' BARs
+  * @ctrl_vnic_bar:	Pointer to the CPP area for the ctrl vNIC's BAR
+  * @qc_area:		Pointer to the CPP area for the queues
++ * @mac_stats_bar:	Pointer to the CPP area for the MAC stats
++ * @mac_stats_mem:	Pointer to mapped MAC stats area
++ * @vf_cfg_bar:		Pointer to the CPP area for the VF configuration BAR
++ * @vf_cfg_mem:		Pointer to mapped VF configuration area
+  * @irq_entries:	Array of MSI-X entries for all vNICs
+  * @limit_vfs:		Number of VFs supported by firmware (~0 for PCI limit)
+  * @num_vfs:		Number of SR-IOV VFs enabled
+@@ -97,6 +101,10 @@ struct nfp_pf {
+ 	struct nfp_cpp_area *data_vnic_bar;
+ 	struct nfp_cpp_area *ctrl_vnic_bar;
+ 	struct nfp_cpp_area *qc_area;
++	struct nfp_cpp_area *mac_stats_bar;
++	u8 __iomem *mac_stats_mem;
++	struct nfp_cpp_area *vf_cfg_bar;
++	u8 __iomem *vf_cfg_mem;
  
-+#include <net/devlink.h>
-+
- struct bpf_prog;
- struct net_device;
- struct pci_dev;
-@@ -70,6 +72,7 @@ extern const struct nfp_app_type app_bpf;
-  * @setup_tc:	setup TC ndo
-  * @tc_busy:	TC HW offload busy (rules loaded)
-  * @xdp_offload:    offload an XDP program
-+ * @eswitch_mode_get:    get SR-IOV eswitch mode
-  */
- struct nfp_app_type {
- 	enum nfp_app_id id;
-@@ -95,6 +98,8 @@ struct nfp_app_type {
- 	bool (*tc_busy)(struct nfp_app *app, struct nfp_net *nn);
- 	int (*xdp_offload)(struct nfp_app *app, struct nfp_net *nn,
- 			   struct bpf_prog *prog);
-+
-+	enum devlink_eswitch_mode (*eswitch_mode_get)(struct nfp_app *app);
- };
+ 	struct msix_entry *irq_entries;
  
- /**
-@@ -216,6 +221,16 @@ static inline void nfp_app_ctrl_rx(struct nfp_app *app, struct sk_buff *skb)
- 	app->type->ctrl_msg_rx(app, skb);
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
+index bc2bc0886176..eb87e1c08bb1 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
+@@ -570,6 +570,79 @@ static void nfp_net_pf_app_stop(struct nfp_pf *pf)
+ 	nfp_net_pf_app_stop_ctrl(pf);
  }
  
-+static inline int nfp_app_eswitch_mode_get(struct nfp_app *app, u16 *mode)
++static void nfp_net_pci_unmap_mem(struct nfp_pf *pf)
 +{
-+	if (!app->type->eswitch_mode_get)
-+		return -EOPNOTSUPP;
++	if (pf->vf_cfg_bar)
++		nfp_cpp_area_release_free(pf->vf_cfg_bar);
++	if (pf->mac_stats_bar)
++		nfp_cpp_area_release_free(pf->mac_stats_bar);
++	nfp_cpp_area_release_free(pf->qc_area);
++	nfp_cpp_area_release_free(pf->data_vnic_bar);
++}
 +
-+	*mode = app->type->eswitch_mode_get(app);
++static int nfp_net_pci_map_mem(struct nfp_pf *pf)
++{
++	u32 ctrl_bar_sz;
++	u8 __iomem *mem;
++	int err;
++
++	ctrl_bar_sz = pf->max_data_vnics * NFP_PF_CSR_SLICE_SIZE;
++	mem = nfp_net_pf_map_rtsym(pf, "net.ctrl", "_pf%d_net_bar0",
++				   ctrl_bar_sz, &pf->data_vnic_bar);
++	if (IS_ERR(mem)) {
++		err = PTR_ERR(mem);
++		if (!pf->fw_loaded && err == -ENOENT)
++			err = -EPROBE_DEFER;
++		return err;
++	}
++
++	pf->mac_stats_mem = nfp_net_pf_map_rtsym(pf, "net.macstats",
++						 "_mac_stats",
++						 NFP_MAC_STATS_SIZE *
++						 (pf->eth_tbl->max_index + 1),
++						 &pf->mac_stats_bar);
++	if (IS_ERR(pf->mac_stats_mem)) {
++		if (PTR_ERR(pf->mac_stats_mem) != -ENOENT) {
++			err = PTR_ERR(pf->mac_stats_mem);
++			goto err_unmap_ctrl;
++		}
++		pf->mac_stats_mem = NULL;
++	}
++
++	pf->vf_cfg_mem = nfp_net_pf_map_rtsym(pf, "net.vfcfg",
++					      "_pf%d_net_vf_bar",
++					      NFP_NET_CFG_BAR_SZ *
++					      pf->limit_vfs, &pf->vf_cfg_bar);
++	if (IS_ERR(pf->vf_cfg_mem)) {
++		if (PTR_ERR(pf->vf_cfg_mem) != -ENOENT) {
++			err = PTR_ERR(pf->vf_cfg_mem);
++			goto err_unmap_mac_stats;
++		}
++		pf->vf_cfg_mem = NULL;
++	}
++
++	mem = nfp_net_map_area(pf->cpp, "net.qc", 0, 0,
++			       NFP_PCIE_QUEUE(0), NFP_QCP_QUEUE_AREA_SZ,
++			       &pf->qc_area);
++	if (IS_ERR(mem)) {
++		nfp_err(pf->cpp, "Failed to map Queue Controller area.\n");
++		err = PTR_ERR(mem);
++		goto err_unmap_vf_cfg;
++	}
 +
 +	return 0;
++
++err_unmap_vf_cfg:
++	if (pf->vf_cfg_bar)
++		nfp_cpp_area_release_free(pf->vf_cfg_bar);
++err_unmap_mac_stats:
++	if (pf->mac_stats_bar)
++		nfp_cpp_area_release_free(pf->mac_stats_bar);
++err_unmap_ctrl:
++	nfp_cpp_area_release_free(pf->data_vnic_bar);
++	return err;
 +}
 +
- const char *nfp_app_mip_name(struct nfp_app *app);
- struct sk_buff *nfp_app_ctrl_msg_alloc(struct nfp_app *app, unsigned int size);
+ static void nfp_net_pci_remove_finish(struct nfp_pf *pf)
+ {
+ 	nfp_net_pf_app_stop(pf);
+@@ -577,11 +650,8 @@ static void nfp_net_pci_remove_finish(struct nfp_pf *pf)
+ 	nfp_net_debugfs_dir_clean(&pf->ddir);
  
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_devlink.c b/drivers/net/ethernet/netronome/nfp/nfp_devlink.c
-index 2609a0f28e81..6c9f29c2e975 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_devlink.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_devlink.c
-@@ -149,9 +149,27 @@ nfp_devlink_port_unsplit(struct devlink *devlink, unsigned int port_index)
- 	return ret;
+ 	nfp_net_pf_free_irqs(pf);
+-
+ 	nfp_net_pf_app_clean(pf);
+-
+-	nfp_cpp_area_release_free(pf->qc_area);
+-	nfp_cpp_area_release_free(pf->data_vnic_bar);
++	nfp_net_pci_unmap_mem(pf);
  }
  
-+static int nfp_devlink_eswitch_mode_get(struct devlink *devlink, u16 *mode)
-+{
-+	struct nfp_pf *pf = devlink_priv(devlink);
-+	int ret;
-+
-+	mutex_lock(&pf->lock);
-+	if (!pf->app) {
-+		ret = -EBUSY;
-+		goto out;
-+	}
-+	ret = nfp_app_eswitch_mode_get(pf->app, mode);
-+out:
-+	mutex_unlock(&pf->lock);
-+
-+	return ret;
-+}
-+
- const struct devlink_ops nfp_devlink_ops = {
- 	.port_split		= nfp_devlink_port_split,
- 	.port_unsplit		= nfp_devlink_port_unsplit,
-+	.eswitch_mode_get	= nfp_devlink_eswitch_mode_get,
- };
+ static int
+@@ -706,7 +776,6 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
+ {
+ 	struct nfp_net_fw_version fw_ver;
+ 	u8 __iomem *ctrl_bar, *qc_bar;
+-	u32 ctrl_bar_sz;
+ 	int stride;
+ 	int err;
  
- int nfp_devlink_port_register(struct nfp_app *app, struct nfp_port *port)
+@@ -725,14 +794,15 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
+ 		goto err_unlock;
+ 	}
+ 
+-	ctrl_bar_sz = pf->max_data_vnics * NFP_PF_CSR_SLICE_SIZE;
+-	ctrl_bar = nfp_net_pf_map_rtsym(pf, "net.ctrl", "_pf%d_net_bar0",
+-					ctrl_bar_sz, &pf->data_vnic_bar);
+-	if (IS_ERR(ctrl_bar)) {
+-		err = PTR_ERR(ctrl_bar);
+-		if (!pf->fw_loaded && err == -ENOENT)
+-			err = -EPROBE_DEFER;
++	err = nfp_net_pci_map_mem(pf);
++	if (err)
+ 		goto err_unlock;
++
++	ctrl_bar = nfp_cpp_area_iomem(pf->data_vnic_bar);
++	qc_bar = nfp_cpp_area_iomem(pf->qc_area);
++	if (!ctrl_bar || !qc_bar) {
++		err = -EIO;
++		goto err_unmap;
+ 	}
+ 
+ 	nfp_net_get_fw_version(&fw_ver, ctrl_bar);
+@@ -740,7 +810,7 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
+ 		nfp_err(pf->cpp, "Unknown Firmware ABI %d.%d.%d.%d\n",
+ 			fw_ver.resv, fw_ver.class, fw_ver.major, fw_ver.minor);
+ 		err = -EINVAL;
+-		goto err_ctrl_unmap;
++		goto err_unmap;
+ 	}
+ 
+ 	/* Determine stride */
+@@ -757,23 +827,13 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
+ 				fw_ver.resv, fw_ver.class,
+ 				fw_ver.major, fw_ver.minor);
+ 			err = -EINVAL;
+-			goto err_ctrl_unmap;
++			goto err_unmap;
+ 		}
+ 	}
+ 
+-	/* Map queues */
+-	qc_bar = nfp_net_map_area(pf->cpp, "net.qc", 0, 0,
+-				  NFP_PCIE_QUEUE(0), NFP_QCP_QUEUE_AREA_SZ,
+-				  &pf->qc_area);
+-	if (IS_ERR(qc_bar)) {
+-		nfp_err(pf->cpp, "Failed to map Queue Controller area.\n");
+-		err = PTR_ERR(qc_bar);
+-		goto err_ctrl_unmap;
+-	}
+-
+ 	err = nfp_net_pf_app_init(pf, qc_bar, stride);
+ 	if (err)
+-		goto err_unmap_qc;
++		goto err_unmap;
+ 
+ 	pf->ddir = nfp_net_debugfs_device_add(pf->pdev);
+ 
+@@ -807,10 +867,8 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
+ err_clean_ddir:
+ 	nfp_net_debugfs_dir_clean(&pf->ddir);
+ 	nfp_net_pf_app_clean(pf);
+-err_unmap_qc:
+-	nfp_cpp_area_release_free(pf->qc_area);
+-err_ctrl_unmap:
+-	nfp_cpp_area_release_free(pf->data_vnic_bar);
++err_unmap:
++	nfp_net_pci_unmap_mem(pf);
+ err_unlock:
+ 	mutex_unlock(&pf->lock);
+ 	cancel_work_sync(&pf->port_refresh_work);
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_port.h b/drivers/net/ethernet/netronome/nfp/nfp_port.h
+index fb28c7071987..f472bea4ec2b 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_port.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_port.h
+@@ -114,4 +114,64 @@ int nfp_net_refresh_port_table_sync(struct nfp_pf *pf);
+ int nfp_devlink_port_register(struct nfp_app *app, struct nfp_port *port);
+ void nfp_devlink_port_unregister(struct nfp_port *port);
+ 
++/**
++ * Mac stats (0x0000 - 0x0200)
++ * all counters are 64bit.
++ */
++#define NFP_MAC_STATS_BASE                0x0000
++#define NFP_MAC_STATS_SIZE                0x0200
++
++#define NFP_MAC_STATS_RX_IN_OCTETS			(NFP_MAC_STATS_BASE + 0x000)
++#define NFP_MAC_STATS_RX_FRAME_TOO_LONG_ERRORS		(NFP_MAC_STATS_BASE + 0x010)
++#define NFP_MAC_STATS_RX_RANGE_LENGTH_ERRORS		(NFP_MAC_STATS_BASE + 0x018)
++#define NFP_MAC_STATS_RX_VLAN_REVEIVE_OK		(NFP_MAC_STATS_BASE + 0x020)
++#define NFP_MAC_STATS_RX_IN_ERRORS			(NFP_MAC_STATS_BASE + 0x028)
++#define NFP_MAC_STATS_RX_IN_BROADCAST_PKTS		(NFP_MAC_STATS_BASE + 0x030)
++#define NFP_MAC_STATS_RX_STATS_DROP_EVENTS		(NFP_MAC_STATS_BASE + 0x038)
++#define NFP_MAC_STATS_RX_ALIGNMENT_ERRORS		(NFP_MAC_STATS_BASE + 0x040)
++#define NFP_MAC_STATS_RX_PAUSE_MAC_CTRL_FRAMES		(NFP_MAC_STATS_BASE + 0x048)
++#define NFP_MAC_STATS_RX_FRAMES_RECEIVED_OK		(NFP_MAC_STATS_BASE + 0x050)
++#define NFP_MAC_STATS_RX_FRAME_CHECK_SEQUENCE_ERRORS	(NFP_MAC_STATS_BASE + 0x058)
++#define NFP_MAC_STATS_RX_UNICAST_PKTS			(NFP_MAC_STATS_BASE + 0x060)
++#define NFP_MAC_STATS_RX_MULTICAST_PKTS			(NFP_MAC_STATS_BASE + 0x068)
++#define NFP_MAC_STATS_RX_STATS_PKTS			(NFP_MAC_STATS_BASE + 0x070)
++#define NFP_MAC_STATS_RX_STATS_UNDERSIZE_PKTS		(NFP_MAC_STATS_BASE + 0x078)
++#define NFP_MAC_STATS_RX_STATS_PKTS_64_OCTETS		(NFP_MAC_STATS_BASE + 0x080)
++#define NFP_MAC_STATS_RX_STATS_PKTS_65_TO_127_OCTETS	(NFP_MAC_STATS_BASE + 0x088)
++#define NFP_MAC_STATS_RX_STATS_PKTS_512_TO_1023_OCTETS	(NFP_MAC_STATS_BASE + 0x090)
++#define NFP_MAC_STATS_RX_STATS_PKTS_1024_TO_1518_OCTETS	(NFP_MAC_STATS_BASE + 0x098)
++#define NFP_MAC_STATS_RX_STATS_JABBERS			(NFP_MAC_STATS_BASE + 0x0a0)
++#define NFP_MAC_STATS_RX_STATS_FRAGMENTS		(NFP_MAC_STATS_BASE + 0x0a8)
++#define NFP_MAC_STATS_RX_PAUSE_FRAMES_CLASS2		(NFP_MAC_STATS_BASE + 0x0b0)
++#define NFP_MAC_STATS_RX_PAUSE_FRAMES_CLASS3		(NFP_MAC_STATS_BASE + 0x0b8)
++#define NFP_MAC_STATS_RX_STATS_PKTS_128_TO_255_OCTETS	(NFP_MAC_STATS_BASE + 0x0c0)
++#define NFP_MAC_STATS_RX_STATS_PKTS_256_TO_511_OCTETS	(NFP_MAC_STATS_BASE + 0x0c8)
++#define NFP_MAC_STATS_RX_STATS_PKTS_1519_TO_MAX_OCTETS	(NFP_MAC_STATS_BASE + 0x0d0)
++#define NFP_MAC_STATS_RX_OVERSIZE_PKTS			(NFP_MAC_STATS_BASE + 0x0d8)
++#define NFP_MAC_STATS_RX_PAUSE_FRAMES_CLASS0		(NFP_MAC_STATS_BASE + 0x0e0)
++#define NFP_MAC_STATS_RX_PAUSE_FRAMES_CLASS1		(NFP_MAC_STATS_BASE + 0x0e8)
++#define NFP_MAC_STATS_RX_PAUSE_FRAMES_CLASS4		(NFP_MAC_STATS_BASE + 0x0f0)
++#define NFP_MAC_STATS_RX_PAUSE_FRAMES_CLASS5		(NFP_MAC_STATS_BASE + 0x0f8)
++#define NFP_MAC_STATS_RX_PAUSE_FRAMES_CLASS6		(NFP_MAC_STATS_BASE + 0x100)
++#define NFP_MAC_STATS_RX_PAUSE_FRAMES_CLASS7		(NFP_MAC_STATS_BASE + 0x108)
++#define NFP_MAC_STATS_RX_MAC_CTRL_FRAMES_RECEIVED	(NFP_MAC_STATS_BASE + 0x110)
++#define NFP_MAC_STATS_RX_MAC_HEAD_DROP			(NFP_MAC_STATS_BASE + 0x118)
++
++#define NFP_MAC_STATS_TX_QUEUE_DROP			(NFP_MAC_STATS_BASE + 0x138)
++#define NFP_MAC_STATS_TX_OUT_OCTETS			(NFP_MAC_STATS_BASE + 0x140)
++#define NFP_MAC_STATS_TX_VLAN_TRANSMITTED_OK		(NFP_MAC_STATS_BASE + 0x150)
++#define NFP_MAC_STATS_TX_OUT_ERRORS			(NFP_MAC_STATS_BASE + 0x158)
++#define NFP_MAC_STATS_TX_BROADCAST_PKTS			(NFP_MAC_STATS_BASE + 0x160)
++#define NFP_MAC_STATS_TX_PKTS_64_OCTETS			(NFP_MAC_STATS_BASE + 0x168)
++#define NFP_MAC_STATS_TX_PKTS_256_TO_511_OCTETS		(NFP_MAC_STATS_BASE + 0x170)
++#define NFP_MAC_STATS_TX_PKTS_512_TO_1023_OCTETS	(NFP_MAC_STATS_BASE + 0x178)
++#define NFP_MAC_STATS_TX_PAUSE_MAC_CTRL_FRAMES		(NFP_MAC_STATS_BASE + 0x180)
++#define NFP_MAC_STATS_TX_FRAMES_TRANSMITTED_OK		(NFP_MAC_STATS_BASE + 0x188)
++#define NFP_MAC_STATS_TX_UNICAST_PKTS			(NFP_MAC_STATS_BASE + 0x190)
++#define NFP_MAC_STATS_TX_MULTICAST_PKTS			(NFP_MAC_STATS_BASE + 0x198)
++#define NFP_MAC_STATS_TX_PKTS_65_TO_127_OCTETS		(NFP_MAC_STATS_BASE + 0x1a0)
++#define NFP_MAC_STATS_TX_PKTS_127_TO_512_OCTETS		(NFP_MAC_STATS_BASE + 0x1a8)
++#define NFP_MAC_STATS_TX_PKTS_128_TO_1518_OCTETS	(NFP_MAC_STATS_BASE + 0x1b0)
++#define NFP_MAC_STATS_TX_PKTS_1518_TO_MAX_OCTETS	(NFP_MAC_STATS_BASE + 0x1b8)
++
+ #endif
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h
+index 26d7dcea4fd9..e2f028027c6f 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h
+@@ -76,6 +76,7 @@ enum nfp_eth_aneg {
+ /**
+  * struct nfp_eth_table - ETH table information
+  * @count:	number of table entries
++ * @max_index:	max of @index fields of all @ports
+  * @ports:	table of ports
+  *
+  * @eth_index:	port index according to legacy ethX numbering
+@@ -101,6 +102,7 @@ enum nfp_eth_aneg {
+  */
+ struct nfp_eth_table {
+ 	unsigned int count;
++	unsigned int max_index;
+ 	struct nfp_eth_table_port {
+ 		unsigned int eth_index;
+ 		unsigned int index;
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
+index b0f8785c064f..c2bc36e8649f 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
+@@ -190,7 +190,9 @@ nfp_eth_calc_port_geometry(struct nfp_cpp *cpp, struct nfp_eth_table *table)
+ {
+ 	unsigned int i, j;
+ 
+-	for (i = 0; i < table->count; i++)
++	for (i = 0; i < table->count; i++) {
++		table->max_index = max(table->max_index, table->ports[i].index);
++
+ 		for (j = 0; j < table->count; j++) {
+ 			if (table->ports[i].label_port !=
+ 			    table->ports[j].label_port)
+@@ -208,6 +210,7 @@ nfp_eth_calc_port_geometry(struct nfp_cpp *cpp, struct nfp_eth_table *table)
+ 
+ 			table->ports[i].is_split = true;
+ 		}
++	}
+ }
+ 
+ static void
 -- 
 2.1.4
