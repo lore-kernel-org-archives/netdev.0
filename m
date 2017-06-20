@@ -1,54 +1,156 @@
 From: Julien Gomes <julien@arista.com>
-Subject: [PATCH net-next v3 0/4] ipmr/ip6mr: add Netlink notifications on cache reports
-Date: Tue, 20 Jun 2017 13:54:14 -0700
-Message-ID: <20170620205418.1648-1-julien@arista.com>
+Subject: [PATCH net-next v3 3/4] ipmr: add netlink notifications on igmpmsg cache reports
+Date: Tue, 20 Jun 2017 13:54:17 -0700
+Message-ID: <20170620205418.1648-4-julien@arista.com>
+References: <20170620205418.1648-1-julien@arista.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         sharpd@cumulusnetworks.com, nicolas.dichtel@6wind.com,
         Julien Gomes <julien@arista.com>
 To: davem@davemloft.net, nikolay@cumulusnetworks.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170620205418.1648-1-julien@arista.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currently, all ipmr/ip6mr cache reports are sent through the
-mroute/mroute6 socket only.
-This forces the use of a single socket for mroute programming, cache
-reports and, regarding ipmr, IGMP messages without Router Alert option
-reception.
+Add Netlink notifications on cache reports in ipmr, in addition to the
+existing igmpmsg sent to mroute_sk.
+Send RTM_NEWCACHEREPORT notifications to RTNLGRP_IPV4_MROUTE_R.
 
-The present patches are aiming to send Netlink notifications in addition
-to the existing igmpmsg/mrt6msg to give user programs a way to handle
-cache reports in parallel with multiple sockets other than the
-mroute/mroute6 socket.
+MSGTYPE, VIF_ID, SRC_ADDR and DST_ADDR Netlink attributes contain the
+same data as their equivalent fields in the igmpmsg header.
+PKT attribute is the packet sent to mroute_sk, without the added igmpmsg
+header.
 
-Changes in v2:
-- Changed attributes naming from {IPMRA,IP6MRA}_CACHEREPORTA_* to
-  {IPMRA,IP6MRA}_CREPORT_*
-- Improved packet data copy to handle non-linear packets in
-  ipmr/ip6mr cache report Netlink notification creation
-- Added two rtnetlink groups with restricted-binding
-- Changed cache report notified groups from RTNL_{IPV4,IPV6}_MROUTE to
-  the new restricted groups in ipmr/ip6mr
+Suggested-by: Ryan Halbrook <halbrook@arista.com>
+Signed-off-by: Julien Gomes <julien@arista.com>
+---
+ include/uapi/linux/mroute.h | 12 ++++++++
+ net/ipv4/ipmr.c             | 69 +++++++++++++++++++++++++++++++++++++++++++--
+ 2 files changed, 79 insertions(+), 2 deletions(-)
 
-Changes in v3:
-- Put message size calculation for {igmp,mrt6}msg_netlink_event in separate
-  functions
-- Increased vif id attributes size from u8 to u32
-
-Julien Gomes (4):
-  rtnetlink: add NEWCACHEREPORT message type
-  rtnetlink: add restricted rtnl groups for ipv4 and ipv6 mroute
-  ipmr: add netlink notifications on igmpmsg cache reports
-  ip6mr: add netlink notifications on mrt6msg cache reports
-
- include/uapi/linux/mroute.h    | 12 +++++++
- include/uapi/linux/mroute6.h   | 12 +++++++
- include/uapi/linux/rtnetlink.h |  7 +++++
- net/core/rtnetlink.c           | 13 ++++++++
- net/ipv4/ipmr.c                | 69 ++++++++++++++++++++++++++++++++++++++--
- net/ipv6/ip6mr.c               | 71 ++++++++++++++++++++++++++++++++++++++++--
- security/selinux/nlmsgtab.c    |  3 +-
- 7 files changed, 182 insertions(+), 5 deletions(-)
-
+diff --git a/include/uapi/linux/mroute.h b/include/uapi/linux/mroute.h
+index f904367c0cee..e8e5041dea8e 100644
+--- a/include/uapi/linux/mroute.h
++++ b/include/uapi/linux/mroute.h
+@@ -152,6 +152,18 @@ enum {
+ };
+ #define IPMRA_VIFA_MAX (__IPMRA_VIFA_MAX - 1)
+ 
++/* ipmr netlink cache report attributes */
++enum {
++	IPMRA_CREPORT_UNSPEC,
++	IPMRA_CREPORT_MSGTYPE,
++	IPMRA_CREPORT_VIF_ID,
++	IPMRA_CREPORT_SRC_ADDR,
++	IPMRA_CREPORT_DST_ADDR,
++	IPMRA_CREPORT_PKT,
++	__IPMRA_CREPORT_MAX
++};
++#define IPMRA_CREPORT_MAX (__IPMRA_CREPORT_MAX - 1)
++
+ /* That's all usermode folks */
+ 
+ #define MFC_ASSERT_THRESH (3*HZ)		/* Maximal freq. of asserts */
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 3e7454aa49e8..a1d521be612b 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -109,6 +109,7 @@ static int __ipmr_fill_mroute(struct mr_table *mrt, struct sk_buff *skb,
+ 			      struct mfc_cache *c, struct rtmsg *rtm);
+ static void mroute_netlink_event(struct mr_table *mrt, struct mfc_cache *mfc,
+ 				 int cmd);
++static void igmpmsg_netlink_event(struct mr_table *mrt, struct sk_buff *pkt);
+ static void mroute_clean_tables(struct mr_table *mrt, bool all);
+ static void ipmr_expire_process(unsigned long arg);
+ 
+@@ -995,8 +996,7 @@ static void ipmr_cache_resolve(struct net *net, struct mr_table *mrt,
+ 	}
+ }
+ 
+-/* Bounce a cache query up to mrouted. We could use netlink for this but mrouted
+- * expects the following bizarre scheme.
++/* Bounce a cache query up to mrouted and netlink.
+  *
+  * Called under mrt_lock.
+  */
+@@ -1062,6 +1062,8 @@ static int ipmr_cache_report(struct mr_table *mrt,
+ 		return -EINVAL;
+ 	}
+ 
++	igmpmsg_netlink_event(mrt, skb);
++
+ 	/* Deliver to mrouted */
+ 	ret = sock_queue_rcv_skb(mroute_sk, skb);
+ 	rcu_read_unlock();
+@@ -2341,6 +2343,69 @@ static void mroute_netlink_event(struct mr_table *mrt, struct mfc_cache *mfc,
+ 		rtnl_set_sk_err(net, RTNLGRP_IPV4_MROUTE, err);
+ }
+ 
++static size_t igmpmsg_netlink_msgsize(size_t payloadlen)
++{
++	size_t len =
++		NLMSG_ALIGN(sizeof(struct rtgenmsg))
++		+ nla_total_size(1)	/* IPMRA_CREPORT_MSGTYPE */
++		+ nla_total_size(4)	/* IPMRA_CREPORT_VIF_ID */
++		+ nla_total_size(4)	/* IPMRA_CREPORT_SRC_ADDR */
++		+ nla_total_size(4)	/* IPMRA_CREPORT_DST_ADDR */
++					/* IPMRA_CREPORT_PKT */
++		+ nla_total_size(payloadlen)
++		;
++
++	return len;
++}
++
++static void igmpmsg_netlink_event(struct mr_table *mrt, struct sk_buff *pkt)
++{
++	struct net *net = read_pnet(&mrt->net);
++	struct nlmsghdr *nlh;
++	struct rtgenmsg *rtgenm;
++	struct igmpmsg *msg;
++	struct sk_buff *skb;
++	struct nlattr *nla;
++	int payloadlen;
++
++	payloadlen = pkt->len - sizeof(struct igmpmsg);
++	msg = (struct igmpmsg *)skb_network_header(pkt);
++
++	skb = nlmsg_new(igmpmsg_netlink_msgsize(payloadlen), GFP_ATOMIC);
++	if (!skb)
++		goto errout;
++
++	nlh = nlmsg_put(skb, 0, 0, RTM_NEWCACHEREPORT,
++			sizeof(struct rtgenmsg), 0);
++	if (!nlh)
++		goto errout;
++	rtgenm = nlmsg_data(nlh);
++	rtgenm->rtgen_family = RTNL_FAMILY_IPMR;
++	if (nla_put_u8(skb, IPMRA_CREPORT_MSGTYPE, msg->im_msgtype) ||
++	    nla_put_u32(skb, IPMRA_CREPORT_VIF_ID, msg->im_vif) ||
++	    nla_put_in_addr(skb, IPMRA_CREPORT_SRC_ADDR,
++			    msg->im_src.s_addr) ||
++	    nla_put_in_addr(skb, IPMRA_CREPORT_DST_ADDR,
++			    msg->im_dst.s_addr))
++		goto nla_put_failure;
++
++	nla = nla_reserve(skb, IPMRA_CREPORT_PKT, payloadlen);
++	if (!nla || skb_copy_bits(pkt, sizeof(struct igmpmsg),
++				  nla_data(nla), payloadlen))
++		goto nla_put_failure;
++
++	nlmsg_end(skb, nlh);
++
++	rtnl_notify(skb, net, 0, RTNLGRP_IPV4_MROUTE_R, NULL, GFP_ATOMIC);
++	return;
++
++nla_put_failure:
++	nlmsg_cancel(skb, nlh);
++errout:
++	kfree_skb(skb);
++	rtnl_set_sk_err(net, RTNLGRP_IPV4_MROUTE_R, -ENOBUFS);
++}
++
+ static int ipmr_rtm_dumproute(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+ 	struct net *net = sock_net(skb->sk);
 -- 
 2.13.1
