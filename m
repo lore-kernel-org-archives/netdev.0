@@ -1,8 +1,7 @@
 From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
-Subject: [PATCH net-next 3/4] s390/diag: add diag26c support
-Date: Tue, 20 Jun 2017 16:00:33 +0200
-Message-ID: <20170620140034.89661-4-jwi@linux.vnet.ibm.com>
-References: <20170620140034.89661-1-jwi@linux.vnet.ibm.com>
+Subject: [PATCH net-next 0/4] s390/net updates, part 2 (v2)
+Date: Tue, 20 Jun 2017 16:00:30 +0200
+Message-ID: <20170620140034.89661-1-jwi@linux.vnet.ibm.com>
 Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
         Martin Schwidefsky <schwidefsky@de.ibm.com>,
         Heiko Carstens <heiko.carstens@de.ibm.com>,
@@ -11,135 +10,49 @@ Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
         Julian Wiedmann <jwi@linux.vnet.ibm.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:57878 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752068AbdFTOAr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 10:00:47 -0400
-Received: from pps.filterd (m0098399.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5KDwqAR008333
-        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 10:00:47 -0400
-Received: from e06smtp15.uk.ibm.com (e06smtp15.uk.ibm.com [195.75.94.111])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2b6ykx813n-1
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:46047 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751148AbdFTOAl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 10:00:41 -0400
+Received: from pps.filterd (m0098414.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5KDx1g7083927
+        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 10:00:40 -0400
+Received: from e06smtp10.uk.ibm.com (e06smtp10.uk.ibm.com [195.75.94.106])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 2b734apk3q-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 10:00:47 -0400
+        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 10:00:40 -0400
 Received: from localhost
-        by e06smtp15.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <jwi@linux.vnet.ibm.com>;
-        Tue, 20 Jun 2017 15:00:43 +0100
-In-Reply-To: <20170620140034.89661-1-jwi@linux.vnet.ibm.com>
+        Tue, 20 Jun 2017 15:00:38 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implement support for the hypervisor diagnose 0x26c
-('Access Certain System Information').
-It passes a request buffer and a subfunction code, and receives
-a response buffer and a return code.
+Hi Dave,
 
-Also add the scaffolding for the 'MAC Services' subfunction.
-It may be used by network devices to obtain a hypervisor-managed
-MAC address.
+thanks for the feedback. Here's an updated patchset that honours
+the reverse christmas tree and drops the __packed attribute. Please apply.
 
-Signed-off-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
-Acked-by: Heiko Carstens <heiko.carstens@de.ibm.com>
----
- arch/s390/include/asm/diag.h | 26 ++++++++++++++++++++++++++
- arch/s390/kernel/diag.c      | 29 +++++++++++++++++++++++++++++
- 2 files changed, 55 insertions(+)
+Thanks,
+Julian
 
-diff --git a/arch/s390/include/asm/diag.h b/arch/s390/include/asm/diag.h
-index 8acf482162ed..88162bb5c190 100644
---- a/arch/s390/include/asm/diag.h
-+++ b/arch/s390/include/asm/diag.h
-@@ -8,6 +8,7 @@
- #ifndef _ASM_S390_DIAG_H
- #define _ASM_S390_DIAG_H
- 
-+#include <linux/if_ether.h>
- #include <linux/percpu.h>
- 
- enum diag_stat_enum {
-@@ -24,6 +25,7 @@ enum diag_stat_enum {
- 	DIAG_STAT_X224,
- 	DIAG_STAT_X250,
- 	DIAG_STAT_X258,
-+	DIAG_STAT_X26C,
- 	DIAG_STAT_X288,
- 	DIAG_STAT_X2C4,
- 	DIAG_STAT_X2FC,
-@@ -225,6 +227,30 @@ struct diag204_x_phys_block {
- 	struct diag204_x_phys_cpu cpus[];
- } __packed;
- 
-+enum diag26c_sc {
-+	DIAG26C_MAC_SERVICES = 0x00000030
-+};
-+
-+enum diag26c_version {
-+	DIAG26C_VERSION2 = 0x00000002	/* z/VM 5.4.0 */
-+};
-+
-+#define DIAG26C_GET_MAC	0x0000
-+struct diag26c_mac_req {
-+	u32	resp_buf_len;
-+	u32	resp_version;
-+	u16	op_code;
-+	u16	devno;
-+	u8	res[4];
-+};
-+
-+struct diag26c_mac_resp {
-+	u32	version;
-+	u8	mac[ETH_ALEN];
-+	u8	res[2];
-+} __aligned(8);
-+
- int diag204(unsigned long subcode, unsigned long size, void *addr);
- int diag224(void *ptr);
-+int diag26c(void *req, void *resp, enum diag26c_sc subcode);
- #endif /* _ASM_S390_DIAG_H */
-diff --git a/arch/s390/kernel/diag.c b/arch/s390/kernel/diag.c
-index ac6abcd3fe6a..349914571772 100644
---- a/arch/s390/kernel/diag.c
-+++ b/arch/s390/kernel/diag.c
-@@ -38,6 +38,7 @@ static const struct diag_desc diag_map[NR_DIAG_STAT] = {
- 	[DIAG_STAT_X224] = { .code = 0x224, .name = "EBCDIC-Name Table" },
- 	[DIAG_STAT_X250] = { .code = 0x250, .name = "Block I/O" },
- 	[DIAG_STAT_X258] = { .code = 0x258, .name = "Page-Reference Services" },
-+	[DIAG_STAT_X26C] = { .code = 0x26c, .name = "Certain System Information" },
- 	[DIAG_STAT_X288] = { .code = 0x288, .name = "Time Bomb" },
- 	[DIAG_STAT_X2C4] = { .code = 0x2c4, .name = "FTP Services" },
- 	[DIAG_STAT_X2FC] = { .code = 0x2fc, .name = "Guest Performance Data" },
-@@ -236,3 +237,31 @@ int diag224(void *ptr)
- 	return rc;
- }
- EXPORT_SYMBOL(diag224);
-+
-+/*
-+ * Diagnose 26C: Access Certain System Information
-+ */
-+static inline int __diag26c(void *req, void *resp, enum diag26c_sc subcode)
-+{
-+	register unsigned long _req asm("2") = (addr_t) req;
-+	register unsigned long _resp asm("3") = (addr_t) resp;
-+	register unsigned long _subcode asm("4") = subcode;
-+	register unsigned long _rc asm("5") = -EOPNOTSUPP;
-+
-+	asm volatile(
-+		"	sam31\n"
-+		"	diag	%[rx],%[ry],0x26c\n"
-+		"0:	sam64\n"
-+		EX_TABLE(0b,0b)
-+		: "+d" (_rc)
-+		: [rx] "d" (_req), "d" (_resp), [ry] "d" (_subcode)
-+		: "cc", "memory");
-+	return _rc;
-+}
-+
-+int diag26c(void *req, void *resp, enum diag26c_sc subcode)
-+{
-+	diag_stat_inc(DIAG_STAT_X26C);
-+	return __diag26c(req, resp, subcode);
-+}
-+EXPORT_SYMBOL(diag26c);
+
+Julian Wiedmann (3):
+  s390/qeth: fix packing buffer statistics
+  s390/diag: add diag26c support
+  s390/qeth: use diag26c to get MAC address on L2
+
+Kittipon Meesompop (1):
+  s390/qeth: add ipa return codes for bridgeport
+
+ arch/s390/include/asm/diag.h      | 26 +++++++++++++
+ arch/s390/kernel/diag.c           | 29 +++++++++++++++
+ drivers/s390/net/qeth_core.h      |  1 +
+ drivers/s390/net/qeth_core_main.c | 78 +++++++++++++++++++++++++++++++++++----
+ drivers/s390/net/qeth_core_mpc.c  | 14 +++++++
+ drivers/s390/net/qeth_core_mpc.h  | 18 +++++++++
+ drivers/s390/net/qeth_l2_main.c   | 50 +++++++++++++++----------
+ 7 files changed, 190 insertions(+), 26 deletions(-)
+
 -- 
 2.11.2
