@@ -1,64 +1,85 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [RFC net-next 6/8] nfp: bpf: add support for XDP_FLAGS_HW_MODE
-Date: Tue, 20 Jun 2017 02:09:54 +0200
-Message-ID: <594867D2.4030306@iogearbox.net>
-References: <20170616235746.16337-1-jakub.kicinski@netronome.com>        <20170616235746.16337-7-jakub.kicinski@netronome.com>        <59486339.8080003@iogearbox.net> <20170619170123.1fc13a70@cakuba.netronome.com>
+From: Lawrence Brakmo <brakmo@fb.com>
+Subject: Re: [RFC PATCH net-next v2 10/15] bpf: Add support for changing
+ congestion control
+Date: Tue, 20 Jun 2017 00:35:16 +0000
+Message-ID: <11D23E4A-3068-42A7-9B35-5125C9B1087D@fb.com>
+References: <20170615200844.2752485-1-brakmo@fb.com>
+ <20170615200844.2752485-11-brakmo@fb.com> <5943E41F.2050006@iogearbox.net>
+ <59B6F12A-9740-4177-BCB3-72CD65EB1225@fb.com>
+ <5948515E.1090607@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kafai@fb.com,
-        brouer@redhat.com, oss-drivers@netronome.com
-To: Jakub Kicinski <kubakici@wp.pl>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Kernel Team <Kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
+        "Alexei Starovoitov" <ast@fb.com>,
+        David Ahern <dsa@cumulusnetworks.com>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+        netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:35146 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753259AbdFTAJ7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 20:09:59 -0400
-In-Reply-To: <20170619170123.1fc13a70@cakuba.netronome.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:49481 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752598AbdFTAfe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 20:35:34 -0400
+In-Reply-To: <5948515E.1090607@iogearbox.net>
+Content-Language: en-US
+Content-ID: <BE3F9994396BCA46B3A91B95553D50C2@namprd15.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/20/2017 02:01 AM, Jakub Kicinski wrote:
-> On Tue, 20 Jun 2017 01:50:17 +0200, Daniel Borkmann wrote:
->> On 06/17/2017 01:57 AM, Jakub Kicinski wrote:
->>> Respect the XDP_FLAGS_HW_MODE.  When it's set install the program
->>> on the NIC and skip enabling XDP in the driver.
->>>
->>> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
->>> ---
->>>    drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 10 +++++++---
->>>    1 file changed, 7 insertions(+), 3 deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
->>> index 68648e312129..c5903b6e58c5 100644
->>> --- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
->>> +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
->>> @@ -3310,19 +3310,22 @@ static int
->>>    nfp_net_xdp_setup(struct nfp_net *nn, struct bpf_prog *prog, u32 flags,
->>>    		  struct netlink_ext_ack *extack)
->>>    {
->>> -	struct bpf_prog *offload_prog;
->>> +	struct bpf_prog *drv_prog, *offload_prog;
->>>    	int err;
->>>
->>>    	if (nn->xdp_prog && (flags ^ nn->xdp_flags) & XDP_FLAGS_MODES)
->>>    		return -EBUSY;
->>>
->>> +	drv_prog     = flags & XDP_FLAGS_HW_MODE  ? NULL : prog;
->>>    	offload_prog = flags & XDP_FLAGS_DRV_MODE ? NULL : prog;
->>
->> Can you make this assumption here? If dev_change_xdp_fd() is called
->> without XDP_FLAGS_HW_MODE or XDP_FLAGS_DRV_MODE flags, then we set prog
->> to both, drv_prog and offload_prog. Is this expected?
->>
->> Maybe in nfp_net_xdp_setup() check for !hweight32(xdp_flags & XDP_FLAGS_MODES)
->> and then set flags |= XDP_FLAGS_DRV_MODE before both assignments?
->
-> I thought we did want both.  In case the program is loaded to both the
-> HW/FW will mark the packets with BPF bit in the descriptor so that they
-> are not processed twice.  But the driver path will be configured for
-> running bpf and when user replaces the program with one which cannot be
-> offloaded the driver will not have to reconfigure itself.
-
-Okay, that's a good point ... so that you can just use xchg() later on.
-Probably worth explaining this rationale in a short comment.
+DQpPbiA2LzE5LzE3LCAzOjM0IFBNLCAiRGFuaWVsIEJvcmttYW5uIiA8ZGFuaWVsQGlvZ2VhcmJv
+eC5uZXQ+IHdyb3RlOg0KDQogICAgT24gMDYvMTgvMjAxNyAwNDozOSBBTSwgTGF3cmVuY2UgQnJh
+a21vIHdyb3RlOg0KICAgID4gT24gNi8xNi8xNywgNjo1OCBBTSwgIkRhbmllbCBCb3JrbWFubiIg
+PGRhbmllbEBpb2dlYXJib3gubmV0PiB3cm90ZToNCiAgICBbLi4uXQ0KICAgID4gICAgICA+ICAg
+LyogQ2hhbmdlIGNvbmdlc3Rpb24gY29udHJvbCBmb3Igc29ja2V0ICovDQogICAgPiAgICAgID4g
+LWludCB0Y3Bfc2V0X2Nvbmdlc3Rpb25fY29udHJvbChzdHJ1Y3Qgc29jayAqc2ssIGNvbnN0IGNo
+YXIgKm5hbWUpDQogICAgPiAgICAgID4gK2ludCB0Y3Bfc2V0X2Nvbmdlc3Rpb25fY29udHJvbChz
+dHJ1Y3Qgc29jayAqc2ssIGNvbnN0IGNoYXIgKm5hbWUsIGJvb2wgbG9hZCkNCiAgICA+ICAgICAg
+PiAgIHsNCiAgICA+ICAgICAgPiAgIAlzdHJ1Y3QgaW5ldF9jb25uZWN0aW9uX3NvY2sgKmljc2sg
+PSBpbmV0X2Nzayhzayk7DQogICAgPiAgICAgID4gICAJY29uc3Qgc3RydWN0IHRjcF9jb25nZXN0
+aW9uX29wcyAqY2E7DQogICAgPiAgICAgID4gQEAgLTM0NCw3ICszNDQsMTAgQEAgaW50IHRjcF9z
+ZXRfY29uZ2VzdGlvbl9jb250cm9sKHN0cnVjdCBzb2NrICpzaywgY29uc3QgY2hhciAqbmFtZSkN
+CiAgICA+ICAgICAgPiAgIAkJcmV0dXJuIC1FUEVSTTsNCiAgICA+ICAgICAgPg0KICAgID4gICAg
+ICA+ICAgCXJjdV9yZWFkX2xvY2soKTsNCiAgICA+ICAgICAgPiAtCWNhID0gX190Y3BfY2FfZmlu
+ZF9hdXRvbG9hZChuYW1lKTsNCiAgICA+ICAgICAgPiArCWlmICghbG9hZCkNCiAgICA+ICAgICAg
+PiArCQljYSA9IHRjcF9jYV9maW5kKG5hbWUpOw0KICAgID4gICAgICA+ICsJZWxzZQ0KICAgID4g
+ICAgICA+ICsJCWNhID0gX190Y3BfY2FfZmluZF9hdXRvbG9hZChuYW1lKTsNCiAgICA+DQogICAg
+PiAgICAgICBGcm9tIEJQRiBwcm9ncmFtIHNpZGUsIHdlIGNhbGwgd2l0aCAhbG9hZCBzaW5jZSB3
+ZSdyZSBub3QgYWxsb3dlZA0KICAgID4gICAgICB0byBzbGVlcCB1bmRlciBSQ1UsIHRoYXQncyBj
+b3JyZWN0IC4uLg0KICAgID4NCiAgICA+ICAgICAgPiAgIAkvKiBObyBjaGFuZ2UgYXNraW5nIGZv
+ciBleGlzdGluZyB2YWx1ZSAqLw0KICAgID4gICAgICA+ICAgCWlmIChjYSA9PSBpY3NrLT5pY3Nr
+X2NhX29wcykgew0KICAgID4gICAgICA+ICAgCQlpY3NrLT5pY3NrX2NhX3NldHNvY2tvcHQgPSAx
+Ow0KICAgID4gICAgICA+IEBAIC0zNTIsOCArMzU1LDEwIEBAIGludCB0Y3Bfc2V0X2Nvbmdlc3Rp
+b25fY29udHJvbChzdHJ1Y3Qgc29jayAqc2ssIGNvbnN0IGNoYXIgKm5hbWUpDQogICAgPiAgICAg
+ID4gICAJfQ0KICAgID4gICAgICA+ICAgCWlmICghY2EpDQogICAgPiAgICAgID4gICAJCWVyciA9
+IC1FTk9FTlQ7DQogICAgPiAgICAgID4gKwllbHNlIGlmICghbG9hZCkNCiAgICA+ICAgICAgPiAr
+CQlpY3NrLT5pY3NrX2NhX29wcyA9IGNhOw0KICAgID4NCiAgICA+ICAgICAgLi4uIGJ1dCBkb24n
+dCB3ZSBhbHNvIG5lZWQgdG8gaG9sZCBhIG1vZHVsZSByZWYgaW4gdGhpcyBjYXNlIGFzIGRvbmUN
+CiAgICA+ICAgICAgYmVsb3c/DQogICAgPg0KICAgID4gICAgICBNZWFuaW5nLCB0Y3BfY2FfZmlu
+ZCgpIGNvdWxkIHJldHVybiBhIGNhIHRoYXQgd2FzIHByZXZpb3VzbHkgbG9hZGVkDQogICAgPiAg
+ICAgIHRvIHRoZSB0Y3BfY29uZ19saXN0IGFzIG1vZHVsZSwgdGhlbiByZXN1bHRpbmcgaW4gcmVm
+IGNvdW50IGltYmFsYW5jZQ0KICAgID4gICAgICB3aGVuIHNldCBmcm9tIEJQRj8NCiAgICA+DQog
+ICAgPiBBcyBJIG1lbnRpb25lZCBhYm92ZSwgdGhpcyBjYW4gYmUgY2FsbGVkIGJlZm9yZSBjb25n
+ZXN0aW9uIGhhcyBiZWVuDQogICAgPiBpbml0aWFsaXplZCAob3AgPD0gQlBGX1NPQ0tFVF9PUFNf
+TkVFRFNfRUNOKSBpbiB3aGljaCBjYXNlDQogICAgPiB0Y3BfaW5pdF9jb25nZXN0aW9uX2NvbnRy
+b2wgd2lsbCBiZSBjYWxsZWQgbGF0ZXIuIElmIG9wID4gLi5PUFNfTkVFRFNfRUNODQogICAgPiB0
+aGVuIGJwZl9zZXRzb2Nrb3B0KCkgd2lsbCBjYWxsIHRoZSByZWluaXRfY29uZ2VzdGlvbl9jb250
+cm9sKCkuDQogICAgPg0KICAgID4gQnV0IHRoaXMgcG9pbnRzIHRvIGFuIGlzc3VlIHdoZXJlIHNv
+bWVvbmUgZWxzZSBjb3VsZCBjYWxsDQogICAgPiB0Y3Bfc2V0X2Nvbmdlc3Rpb25fY29udHJvbCgp
+IHdpdGggbG9hZCA9PSBmYWxzZSBub3Qga25vd2luZyB0aGV5DQogICAgPiBuZWVkIHRvIGNhbGwg
+ZWl0aGVyIGluaXQgb3IgcmVpbml0LiBJIHdpbGwgYWRkIGEgY29tbWVudCB0byB0aGUgZnVuY3Rp
+b24NCiAgICA+IHRvIG1ha2UgaXQgY2xlYXIuDQogICAgDQogICAgSG0sIEknbSBub3Qgc3VyZSBp
+dCBhbnN3ZXJzIG15IHF1ZXN0aW9uLiBXaGF0IEkgbWVhbnQgd2FzIHRoYXQgZnJvbSBCUEYNCiAg
+ICBwcm9nLCB5b3UncmUgc2V0dGluZyB0Y3Bfc2V0X2Nvbmdlc3Rpb25fY29udHJvbCguLi4sIGZh
+bHNlKSBzbyBpZg0KICAgIHRjcF9jYV9maW5kKCkgcmV0dXJucyBhIGNhIHRoYXQgd2FzIGxvYWRl
+ZCBlYXJsaWVyIGFzIGEgZnJvbSBhIG1vZHVsZQ0KICAgIChzbyBpdCBiZWNvbWVzIGF2YWlsYWJs
+ZSBpbiB0Y3BfY29uZ19saXN0KSwgdGhlIGFib3ZlLi4uDQogICAgDQogICAgICAgWy4uLl0NCiAg
+ICAgICBlbHNlIGlmICghbG9hZCkNCiAgICAgICAgICAgaWNzay0+aWNza19jYV9vcHMgPSBjYTsN
+CiAgICAgICBbLi4uXQ0KICAgIA0KICAgIC4uLiB3aWxsIGJhc2ljYWxseSBwcmV2ZW50IHRoZSBs
+YXRlciB0cnlfbW9kdWxlX2dldCgpIG9uIHRoZSBjYS4gU28gYW55DQogICAgbGF0ZXIgdGNwX3Jl
+aW5pdF9jb25nZXN0aW9uX2NvbnRyb2woKSBvciB0Y3BfaW5pdF9jb25nZXN0aW9uX2NvbnRyb2wo
+KQ0KICAgIHdpbGwgc3RpbGwgcnVuIG5vdCBoYXZpbmcgdGhlIHJlZmNvdW50IGhlbGQgb24gdGhl
+IG93bmVyIG1vZHVsZS4gTWVhbmluZw0KICAgIGEgbW9kdWxlIHVubG9hZCB3b3VsZCBsZXQgdGhl
+IG1hY2hpbmUgY3Jhc2ggZHVlIHRvIHRoZSByZWZjbnQgaW1iYWxhbmNlPw0KICAgIFdoYXQgYW0g
+SSBtaXNzaW5nPw0KDQpOb3RoaW5nLCB5b3UgYXJlIGNvcnJlY3QuIEkgd2FzIG1pc3Rha2VubHkg
+dGhpbmtpbmcgdGhhdCB0aGUgcmVmY291bnQgdXBkYXRlDQp3YXMgYmVpbmcgZG9uZSBpbiB0Y3Bf
+aW5pdF9jb25nZXN0aW9uX2NvbnRyb2wuIERvbmUuICAgICANCg0K
