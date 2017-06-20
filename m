@@ -1,325 +1,413 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net-next 06/12] nfp: add stats and xmit helpers for representors
-Date: Tue, 20 Jun 2017 07:51:44 +0200
-Message-ID: <1497937910-32059-7-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH net-next 05/12] nfp: general representor implementation
+Date: Tue, 20 Jun 2017 07:51:43 +0200
+Message-ID: <1497937910-32059-6-git-send-email-simon.horman@netronome.com>
 References: <1497937910-32059-1-git-send-email-simon.horman@netronome.com>
 Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
         Simon Horman <simon.horman@netronome.com>
 To: David Miller <davem@davemloft.net>,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f179.google.com ([209.85.220.179]:33599 "EHLO
-        mail-qk0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751762AbdFTFw3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 01:52:29 -0400
-Received: by mail-qk0-f179.google.com with SMTP id r62so49886887qkf.0
-        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 22:52:28 -0700 (PDT)
+Received: from mail-qt0-f182.google.com ([209.85.216.182]:36169 "EHLO
+        mail-qt0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751124AbdFTFwW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 01:52:22 -0400
+Received: by mail-qt0-f182.google.com with SMTP id u19so126121943qta.3
+        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 22:52:21 -0700 (PDT)
 In-Reply-To: <1497937910-32059-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Provide helpers for stats and xmit on representor netdevs.
+Provide infrastructure to create and destroy representors of a given type.
 
-Parts based on work by Bert van Leeuwen, Benjamin LaHaise and
-Jakub Kicinski.
+Parts based on work by Bert van Leeuwen, Benjamin LaHaise,
+and Jakub Kicinski.
 
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
 Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net_repr.c | 198 +++++++++++++++++++++-
- drivers/net/ethernet/netronome/nfp/nfp_net_repr.h |  28 +++
- 2 files changed, 225 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/netronome/nfp/Makefile       |   1 +
+ drivers/net/ethernet/netronome/nfp/nfp_app.c      |  20 +++
+ drivers/net/ethernet/netronome/nfp/nfp_app.h      |  18 +++
+ drivers/net/ethernet/netronome/nfp/nfp_net_repr.c | 156 ++++++++++++++++++++++
+ drivers/net/ethernet/netronome/nfp/nfp_net_repr.h |  92 +++++++++++++
+ 5 files changed, 287 insertions(+)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_net_repr.h
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
-index bdd34d206d22..a97bb6f2cc12 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
-@@ -38,9 +38,191 @@
- #include "nfpcore/nfp_cpp.h"
+diff --git a/drivers/net/ethernet/netronome/nfp/Makefile b/drivers/net/ethernet/netronome/nfp/Makefile
+index 5ad9a557f06a..a401113035f5 100644
+--- a/drivers/net/ethernet/netronome/nfp/Makefile
++++ b/drivers/net/ethernet/netronome/nfp/Makefile
+@@ -22,6 +22,7 @@ nfp-objs := \
+ 	    nfp_net_common.o \
+ 	    nfp_net_ethtool.o \
+ 	    nfp_net_main.o \
++	    nfp_net_repr.o \
+ 	    nfp_netvf_main.o \
+ 	    nfp_port.o \
+ 	    bpf/main.o \
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.c b/drivers/net/ethernet/netronome/nfp/nfp_app.c
+index 396b93f54823..c9ccb0f94604 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_app.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_app.c
+@@ -38,6 +38,7 @@
+ #include "nfpcore/nfp_nffw.h"
  #include "nfp_app.h"
  #include "nfp_main.h"
-+#include "nfp_net_ctrl.h"
- #include "nfp_net_repr.h"
- #include "nfp_port.h"
++#include "nfp_net_repr.h"
  
-+static void
-+nfp_repr_inc_tx_stats(struct net_device *netdev, unsigned int len,
-+		      int tx_status)
-+{
-+	struct nfp_repr *repr = netdev_priv(netdev);
-+	struct nfp_repr_pcpu_stats *stats;
-+
-+	if (unlikely(tx_status != NET_XMIT_SUCCESS &&
-+		     tx_status != NET_XMIT_CN)) {
-+		this_cpu_inc(repr->stats->tx_drops);
-+		return;
-+	}
-+
-+	stats = this_cpu_ptr(repr->stats);
-+	u64_stats_update_begin(&stats->syncp);
-+	stats->tx_packets++;
-+	stats->tx_bytes += len;
-+	u64_stats_update_end(&stats->syncp);
-+}
-+
-+void nfp_repr_inc_rx_stats(struct net_device *netdev, unsigned int len)
-+{
-+	struct nfp_repr *repr = netdev_priv(netdev);
-+	struct nfp_repr_pcpu_stats *stats;
-+
-+	stats = this_cpu_ptr(repr->stats);
-+	u64_stats_update_begin(&stats->syncp);
-+	stats->rx_packets++;
-+	stats->rx_bytes += len;
-+	u64_stats_update_end(&stats->syncp);
-+}
-+
-+void
-+nfp_repr_phy_port_get_stats64(const struct nfp_app *app, u8 phy_port,
-+			      struct rtnl_link_stats64 *stats)
-+{
-+	u8 __iomem *mem;
-+
-+	mem = app->pf->mac_stats_mem + phy_port * NFP_MAC_STATS_SIZE;
-+
-+	/* TX and RX stats are flipped as we are returning the stats as seen
-+	 * at the switch port corresponding to the phys port.
-+	 */
-+	stats->tx_packets = readq(mem + NFP_MAC_STATS_RX_FRAMES_RECEIVED_OK);
-+	stats->tx_bytes = readq(mem + NFP_MAC_STATS_RX_IN_OCTETS);
-+	stats->tx_dropped = readq(mem + NFP_MAC_STATS_RX_IN_ERRORS);
-+
-+	stats->rx_packets = readq(mem + NFP_MAC_STATS_TX_FRAMES_TRANSMITTED_OK);
-+	stats->rx_bytes = readq(mem + NFP_MAC_STATS_TX_OUT_OCTETS);
-+	stats->rx_dropped = readq(mem + NFP_MAC_STATS_TX_OUT_ERRORS);
-+}
-+
-+void
-+nfp_repr_vf_get_stats64(const struct nfp_app *app, u8 vf,
-+			struct rtnl_link_stats64 *stats)
-+{
-+	u8 __iomem *mem;
-+
-+	mem = app->pf->vf_cfg_mem + vf * NFP_NET_CFG_BAR_SZ;
-+
-+	/* TX and RX stats are flipped as we are returning the stats as seen
-+	 * at the switch port corresponding to the VF.
-+	 */
-+	stats->tx_packets = readq(mem + NFP_NET_CFG_STATS_RX_FRAMES);
-+	stats->tx_bytes = readq(mem + NFP_NET_CFG_STATS_RX_OCTETS);
-+	stats->tx_dropped = readq(mem + NFP_NET_CFG_STATS_RX_DISCARDS);
-+
-+	stats->rx_packets = readq(mem + NFP_NET_CFG_STATS_TX_FRAMES);
-+	stats->rx_bytes = readq(mem + NFP_NET_CFG_STATS_TX_OCTETS);
-+	stats->rx_dropped = readq(mem + NFP_NET_CFG_STATS_TX_DISCARDS);
-+}
-+
-+void
-+nfp_repr_pf_get_stats64(const struct nfp_app *app, u8 pf,
-+			struct rtnl_link_stats64 *stats)
-+{
-+	u8 __iomem *mem;
-+
-+	if (pf)
-+		return;
-+
-+	mem = nfp_cpp_area_iomem(app->pf->data_vnic_bar);
-+
-+	stats->tx_packets = readq(mem + NFP_NET_CFG_STATS_RX_FRAMES);
-+	stats->tx_bytes = readq(mem + NFP_NET_CFG_STATS_RX_OCTETS);
-+	stats->tx_dropped = readq(mem + NFP_NET_CFG_STATS_RX_DISCARDS);
-+
-+	stats->rx_packets = readq(mem + NFP_NET_CFG_STATS_TX_FRAMES);
-+	stats->rx_bytes = readq(mem + NFP_NET_CFG_STATS_TX_OCTETS);
-+	stats->rx_dropped = readq(mem + NFP_NET_CFG_STATS_TX_DISCARDS);
-+}
-+
-+void
-+nfp_repr_get_stats64(const struct nfp_app *app, enum nfp_repr_type type,
-+		     u8 port, struct rtnl_link_stats64 *stats)
-+{
-+	switch (type) {
-+	case NFP_REPR_TYPE_PHYS_PORT:
-+		nfp_repr_phy_port_get_stats64(app, port, stats);
-+		break;
-+	case NFP_REPR_TYPE_PF:
-+		nfp_repr_pf_get_stats64(app, port, stats);
-+		break;
-+	case NFP_REPR_TYPE_VF:
-+		nfp_repr_vf_get_stats64(app, port, stats);
-+	default:
-+		break;
-+	}
-+}
-+
-+bool
-+nfp_repr_has_offload_stats(const struct net_device *dev, int attr_id)
-+{
-+	switch (attr_id) {
-+	case IFLA_OFFLOAD_XSTATS_CPU_HIT:
-+		return true;
-+	}
-+
-+	return false;
-+}
-+
-+static int
-+nfp_repr_get_host_stats64(const struct net_device *netdev,
-+			  struct rtnl_link_stats64 *stats)
-+{
-+	struct nfp_repr *repr = netdev_priv(netdev);
-+	int i;
-+
-+	for_each_possible_cpu(i) {
-+		u64 tbytes, tpkts, tdrops, rbytes, rpkts;
-+		struct nfp_repr_pcpu_stats *repr_stats;
-+		unsigned int start;
-+
-+		repr_stats = per_cpu_ptr(repr->stats, i);
-+		do {
-+			start = u64_stats_fetch_begin_irq(&repr_stats->syncp);
-+			tbytes = repr_stats->tx_bytes;
-+			tpkts = repr_stats->tx_packets;
-+			tdrops = repr_stats->tx_drops;
-+			rbytes = repr_stats->rx_bytes;
-+			rpkts = repr_stats->rx_packets;
-+		} while (u64_stats_fetch_retry_irq(&repr_stats->syncp, start));
-+
-+		stats->tx_bytes += tbytes;
-+		stats->tx_packets += tpkts;
-+		stats->tx_dropped += tdrops;
-+		stats->rx_bytes += rbytes;
-+		stats->rx_packets += rpkts;
-+	}
-+
-+	return 0;
-+}
-+
-+int nfp_repr_get_offload_stats(int attr_id, const struct net_device *dev,
-+			       void *stats)
-+{
-+	switch (attr_id) {
-+	case IFLA_OFFLOAD_XSTATS_CPU_HIT:
-+		return nfp_repr_get_host_stats64(dev, stats);
-+	}
-+
-+	return -EINVAL;
-+}
-+
-+netdev_tx_t nfp_repr_xmit(struct sk_buff *skb, struct net_device *netdev)
-+{
-+	struct nfp_repr *repr = netdev_priv(netdev);
-+	unsigned int len = skb->len;
-+	int ret;
-+
-+	skb_dst_drop(skb);
-+	dst_hold((struct dst_entry *)repr->dst);
-+	skb_dst_set(skb, (struct dst_entry *)repr->dst);
-+	skb->dev = repr->dst->u.port_info.lower_dev;
-+
-+	ret = dev_queue_xmit(skb);
-+	nfp_repr_inc_tx_stats(netdev, len, ret);
-+
-+	return ret;
-+}
-+
- static void nfp_repr_clean(struct nfp_repr *repr)
- {
- 	unregister_netdev(repr->netdev);
-@@ -93,6 +275,12 @@ int nfp_repr_init(struct nfp_app *app, struct net_device *netdev,
- 	return err;
+ static const struct nfp_app_type *apps[] = {
+ 	&app_nic,
+@@ -68,6 +69,25 @@ struct sk_buff *nfp_app_ctrl_msg_alloc(struct nfp_app *app, unsigned int size)
+ 	return skb;
  }
  
-+static void nfp_repr_free(struct nfp_repr *repr)
++struct nfp_reprs *
++nfp_app_reprs_set(struct nfp_app *app, enum nfp_repr_type type,
++		  struct nfp_reprs *reprs)
 +{
-+	free_percpu(repr->stats);
++	struct nfp_reprs *old;
++
++	old = rcu_dereference_protected(app->reprs[type],
++					lockdep_is_held(&app->pf->lock));
++	if (reprs && old) {
++		old = ERR_PTR(-EBUSY);
++		goto exit_unlock;
++	}
++
++	rcu_assign_pointer(app->reprs[type], reprs);
++
++exit_unlock:
++	return old;
++}
++
+ struct nfp_app *nfp_app_alloc(struct nfp_pf *pf, enum nfp_app_id id)
+ {
+ 	struct nfp_app *app;
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.h b/drivers/net/ethernet/netronome/nfp/nfp_app.h
+index 0fee14ffa081..af023a0491e7 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_app.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_app.h
+@@ -36,6 +36,8 @@
+ 
+ #include <net/devlink.h>
+ 
++#include "nfp_net_repr.h"
++
+ struct bpf_prog;
+ struct net_device;
+ struct pci_dev;
+@@ -73,6 +75,7 @@ extern const struct nfp_app_type app_bpf;
+  * @tc_busy:	TC HW offload busy (rules loaded)
+  * @xdp_offload:    offload an XDP program
+  * @eswitch_mode_get:    get SR-IOV eswitch mode
++ * @repr_get:	get representor netdev
+  */
+ struct nfp_app_type {
+ 	enum nfp_app_id id;
+@@ -100,6 +103,7 @@ struct nfp_app_type {
+ 			   struct bpf_prog *prog);
+ 
+ 	enum devlink_eswitch_mode (*eswitch_mode_get)(struct nfp_app *app);
++	struct net_device *(*repr_get)(struct nfp_app *app, u32 id);
+ };
+ 
+ /**
+@@ -108,6 +112,7 @@ struct nfp_app_type {
+  * @pf:		backpointer to NFP PF structure
+  * @cpp:	pointer to the CPP handle
+  * @ctrl:	pointer to ctrl vNIC struct
++ * @reprs:	array of pointers to representors
+  * @type:	pointer to const application ops and info
+  */
+ struct nfp_app {
+@@ -116,6 +121,7 @@ struct nfp_app {
+ 	struct nfp_cpp *cpp;
+ 
+ 	struct nfp_net *ctrl;
++	struct nfp_reprs __rcu *reprs[NFP_REPR_TYPE_MAX + 1];
+ 
+ 	const struct nfp_app_type *type;
+ };
+@@ -231,6 +237,18 @@ static inline int nfp_app_eswitch_mode_get(struct nfp_app *app, u16 *mode)
+ 	return 0;
+ }
+ 
++static inline struct net_device *nfp_app_repr_get(struct nfp_app *app, u32 id)
++{
++	if (unlikely(!app || !app->type->repr_get))
++		return NULL;
++
++	return app->type->repr_get(app, id);
++}
++
++struct nfp_reprs *
++nfp_app_reprs_set(struct nfp_app *app, enum nfp_repr_type type,
++		  struct nfp_reprs *reprs);
++
+ const char *nfp_app_mip_name(struct nfp_app *app);
+ struct sk_buff *nfp_app_ctrl_msg_alloc(struct nfp_app *app, unsigned int size);
+ 
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
+new file mode 100644
+index 000000000000..bdd34d206d22
+--- /dev/null
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
+@@ -0,0 +1,156 @@
++/*
++ * Copyright (C) 2017 Netronome Systems, Inc.
++ *
++ * This software is dual licensed under the GNU General License Version 2,
++ * June 1991 as shown in the file COPYING in the top-level directory of this
++ * source tree or the BSD 2-Clause License provided below.  You have the
++ * option to license this software under the complete terms of either license.
++ *
++ * The BSD 2-Clause License:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      1. Redistributions of source code must retain the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer.
++ *
++ *      2. Redistributions in binary form must reproduce the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer in the documentation and/or other materials
++ *         provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include <linux/etherdevice.h>
++#include <linux/lockdep.h>
++#include <net/dst_metadata.h>
++
++#include "nfpcore/nfp_cpp.h"
++#include "nfp_app.h"
++#include "nfp_main.h"
++#include "nfp_net_repr.h"
++#include "nfp_port.h"
++
++static void nfp_repr_clean(struct nfp_repr *repr)
++{
++	unregister_netdev(repr->netdev);
++	dst_release((struct dst_entry *)repr->dst);
++	nfp_port_free(repr->port);
++}
++
++static struct lock_class_key nfp_repr_netdev_xmit_lock_key;
++static struct lock_class_key nfp_repr_netdev_addr_lock_key;
++
++static void nfp_repr_set_lockdep_class_one(struct net_device *dev,
++					   struct netdev_queue *txq,
++					   void *_unused)
++{
++	lockdep_set_class(&txq->_xmit_lock, &nfp_repr_netdev_xmit_lock_key);
++}
++
++static void nfp_repr_set_lockdep_class(struct net_device *dev)
++{
++	lockdep_set_class(&dev->addr_list_lock, &nfp_repr_netdev_addr_lock_key);
++	netdev_for_each_tx_queue(dev, nfp_repr_set_lockdep_class_one, NULL);
++}
++
++int nfp_repr_init(struct nfp_app *app, struct net_device *netdev,
++		  const struct net_device_ops *netdev_ops, u32 cmsg_port_id,
++		  struct nfp_port *port, struct net_device *pf_netdev)
++{
++	struct nfp_repr *repr = netdev_priv(netdev);
++	int err;
++
++	nfp_repr_set_lockdep_class(netdev);
++
++	repr->port = port;
++	repr->dst = metadata_dst_alloc(0, METADATA_HW_PORT_MUX, GFP_KERNEL);
++	if (!repr->dst)
++		return -ENOMEM;
++	repr->dst->u.port_info.port_id = cpu_to_be32(cmsg_port_id);
++	repr->dst->u.port_info.lower_dev = pf_netdev;
++
++	netdev->netdev_ops = netdev_ops;
++
++	err = register_netdev(netdev);
++	if (err)
++		goto err_clean;
++
++	return 0;
++
++err_clean:
++	dst_release((struct dst_entry *)repr->dst);
++	return err;
++}
++
++struct net_device *nfp_repr_alloc(struct nfp_app *app)
++{
++	struct net_device *netdev;
++	struct nfp_repr *repr;
++
++	netdev = alloc_etherdev(sizeof(*repr));
++	if (!netdev)
++		return NULL;
++
++	repr = netdev_priv(netdev);
++	repr->netdev = netdev;
++	repr->app = app;
++
++	return netdev;
++}
++
++static void nfp_repr_clean_and_free(struct nfp_repr *repr)
++{
++	nfp_info(repr->app->cpp, "Destroying Representor(%s)\n",
++		 repr->netdev->name);
++	nfp_repr_clean(repr);
 +	free_netdev(repr->netdev);
 +}
 +
- struct net_device *nfp_repr_alloc(struct nfp_app *app)
- {
- 	struct net_device *netdev;
-@@ -106,7 +294,15 @@ struct net_device *nfp_repr_alloc(struct nfp_app *app)
- 	repr->netdev = netdev;
- 	repr->app = app;
- 
-+	repr->stats = netdev_alloc_pcpu_stats(struct nfp_repr_pcpu_stats);
-+	if (!repr->stats)
-+		goto err_free_netdev;
++void nfp_reprs_clean_and_free(struct nfp_reprs *reprs)
++{
++	unsigned int i;
 +
- 	return netdev;
++	for (i = 0; i < reprs->num_reprs; i++)
++		if (reprs->reprs[i])
++			nfp_repr_clean_and_free(netdev_priv(reprs->reprs[i]));
 +
-+err_free_netdev:
-+	free_netdev(netdev);
-+	return NULL;
- }
- 
- static void nfp_repr_clean_and_free(struct nfp_repr *repr)
-@@ -114,7 +310,7 @@ static void nfp_repr_clean_and_free(struct nfp_repr *repr)
- 	nfp_info(repr->app->cpp, "Destroying Representor(%s)\n",
- 		 repr->netdev->name);
- 	nfp_repr_clean(repr);
--	free_netdev(repr->netdev);
-+	nfp_repr_free(repr);
- }
- 
- void nfp_reprs_clean_and_free(struct nfp_reprs *reprs)
++	kfree(reprs);
++}
++
++void
++nfp_reprs_clean_and_free_by_type(struct nfp_app *app,
++				 enum nfp_repr_type type)
++{
++	struct nfp_reprs *reprs;
++
++	reprs = nfp_app_reprs_set(app, type, NULL);
++	if (!reprs)
++		return;
++
++	synchronize_rcu();
++	nfp_reprs_clean_and_free(reprs);
++}
++
++struct nfp_reprs *nfp_reprs_alloc(unsigned int num_reprs)
++{
++	struct nfp_reprs *reprs;
++
++	reprs = kzalloc(sizeof(*reprs) +
++			num_reprs * sizeof(struct net_device *), GFP_KERNEL);
++	if (!reprs)
++		return NULL;
++	reprs->num_reprs = num_reprs;
++
++	return reprs;
++}
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_repr.h b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.h
-index 98064f3c2623..c5ed6611f708 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_repr.h
+new file mode 100644
+index 000000000000..98064f3c2623
+--- /dev/null
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.h
-@@ -49,17 +49,37 @@ struct nfp_reprs {
- };
- 
- /**
-+ * struct nfp_repr_pcpu_stats
-+ * @rx_packets:	Received packets
-+ * @rx_bytes:	Received bytes
-+ * @tx_packets:	Transmitted packets
-+ * @tx_bytes:	Transmitted dropped
-+ * @tx_drops:	Packets dropped on transmit
-+ * @syncp:	Reference count
+@@ -0,0 +1,92 @@
++/*
++ * Copyright (C) 2017 Netronome Systems, Inc.
++ *
++ * This software is dual licensed under the GNU General License Version 2,
++ * June 1991 as shown in the file COPYING in the top-level directory of this
++ * source tree or the BSD 2-Clause License provided below.  You have the
++ * option to license this software under the complete terms of either license.
++ *
++ * The BSD 2-Clause License:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      1. Redistributions of source code must retain the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer.
++ *
++ *      2. Redistributions in binary form must reproduce the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer in the documentation and/or other materials
++ *         provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
 + */
-+struct nfp_repr_pcpu_stats {
-+	u64 rx_packets;
-+	u64 rx_bytes;
-+	u64 tx_packets;
-+	u64 tx_bytes;
-+	u64 tx_drops;
-+	struct u64_stats_sync syncp;
++
++#ifndef NFP_NET_REPR_H
++#define NFP_NET_REPR_H
++
++struct metadata_dst;
++struct nfp_net;
++struct nfp_port;
++
++/**
++ * struct nfp_reprs - container for representor netdevs
++ * @num_reprs:	Number of elements in reprs array
++ * @reprs:	Array of representor netdevs
++ */
++struct nfp_reprs {
++	unsigned int num_reprs;
++	struct net_device *reprs[0];
 +};
 +
 +/**
-  * struct nfp_repr - priv data for representor netdevs
-  * @netdev:	Back pointer to netdev
-  * @dst:	Destination for packet TX
-  * @port:	Port of representor
-  * @app:	APP handle
-+ * @stats:	Statistic of packets hitting CPU
-  */
- struct nfp_repr {
- 	struct net_device *netdev;
- 	struct metadata_dst *dst;
- 	struct nfp_port *port;
- 	struct nfp_app *app;
-+	struct nfp_repr_pcpu_stats __percpu *stats;
- };
- 
- /**
-@@ -77,6 +97,14 @@ enum nfp_repr_type {
- };
- #define NFP_REPR_TYPE_MAX (__NFP_REPR_TYPE_MAX - 1)
- 
-+void nfp_repr_inc_rx_stats(struct net_device *netdev, unsigned int len);
++ * struct nfp_repr - priv data for representor netdevs
++ * @netdev:	Back pointer to netdev
++ * @dst:	Destination for packet TX
++ * @port:	Port of representor
++ * @app:	APP handle
++ */
++struct nfp_repr {
++	struct net_device *netdev;
++	struct metadata_dst *dst;
++	struct nfp_port *port;
++	struct nfp_app *app;
++};
++
++/**
++ * enum nfp_repr_type - type of representor
++ * @NFP_REPR_TYPE_PHYS_PORT:	external NIC port
++ * @NFP_REPR_TYPE_PF:		physical function
++ * @NFP_REPR_TYPE_VF:		virtual function
++ */
++enum nfp_repr_type {
++	NFP_REPR_TYPE_PHYS_PORT,
++	NFP_REPR_TYPE_PF,
++	NFP_REPR_TYPE_VF,
++
++	__NFP_REPR_TYPE_MAX,
++};
++#define NFP_REPR_TYPE_MAX (__NFP_REPR_TYPE_MAX - 1)
++
++int nfp_repr_init(struct nfp_app *app, struct net_device *netdev,
++		  const struct net_device_ops *netdev_ops,
++		  u32 cmsg_port_id, struct nfp_port *port,
++		  struct net_device *pf_netdev);
++struct net_device *nfp_repr_alloc(struct nfp_app *app);
 +void
-+nfp_repr_get_stats64(const struct nfp_app *app, enum nfp_repr_type type,
-+		     u8 port, struct rtnl_link_stats64 *stats);
-+bool nfp_repr_has_offload_stats(const struct net_device *dev, int attr_id);
-+int nfp_repr_get_offload_stats(int attr_id, const struct net_device *dev,
-+			       void *stats);
-+netdev_tx_t nfp_repr_xmit(struct sk_buff *skb, struct net_device *netdev);
- int nfp_repr_init(struct nfp_app *app, struct net_device *netdev,
- 		  const struct net_device_ops *netdev_ops,
- 		  u32 cmsg_port_id, struct nfp_port *port,
++nfp_reprs_clean_and_free(struct nfp_reprs *reprs);
++void
++nfp_reprs_clean_and_free_by_type(struct nfp_app *app,
++				 enum nfp_repr_type type);
++struct nfp_reprs *nfp_reprs_alloc(unsigned int num_reprs);
++
++#endif /* NFP_NET_REPR_H */
 -- 
 2.1.4
