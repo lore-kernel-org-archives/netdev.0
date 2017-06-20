@@ -1,55 +1,45 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [oss-drivers] Re: [PATCH net-next 00/12] nfp: add flower app
- with representors
-Date: Tue, 20 Jun 2017 12:24:17 -0700
-Message-ID: <20170620122417.0c60582e@cakuba.netronome.com>
-References: <1497937910-32059-1-git-send-email-simon.horman@netronome.com>
-        <CAJ3xEMgPWdg8gnAuGgufuxeYt4qDKrs8g+LBgm3BBG9KHnjGsQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] enic: Fix format truncation warning
+Date: Tue, 20 Jun 2017 15:27:14 -0400 (EDT)
+Message-ID: <20170620.152714.351257547066260274.davem@davemloft.net>
+References: <20170619232844.34916-1-gvaradar@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <simon.horman@netronome.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        oss-drivers@netronome.com
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, benve@cisco.com
+To: gvaradar@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:33151 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751090AbdFTTYU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 15:24:20 -0400
-Received: by mail-pg0-f54.google.com with SMTP id f185so66772669pgc.0
-        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 12:24:20 -0700 (PDT)
-In-Reply-To: <CAJ3xEMgPWdg8gnAuGgufuxeYt4qDKrs8g+LBgm3BBG9KHnjGsQ@mail.gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42300 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752601AbdFTT1Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 15:27:16 -0400
+In-Reply-To: <20170619232844.34916-1-gvaradar@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 20 Jun 2017 19:13:43 +0300, Or Gerlitz wrote:
-> > Control queues are used to send and receive control messages which are
-> > used to communicate configuration information with the firmware. These
-> > are in separate vNIC to the queues belonging to the PF netdev. The control
-> > queues are not exposed to use-space via a netdev or any other means.  
-> 
-> Do you have documentation for the control channel or I should look on
-> earlier commits?
-
-Hi Or!
-
-We don't have any docs, the ctrl channel was merged in e5c5180a2302
-("Merge branch 'nfp-ctrl-vNIC'").  The "control channel" is essentially
-a normal data queue which is specially marked as carrying control
-messages.
-
-> The control messages you describe here are also the ones that are used
-> to load/unload specific app?
-
-No, the app loading, PHY port management and other low-level tasks are
-handled by management FW.  The control messages are an application FW
-construct.  The control messages are transported by the datapath and
-since the datapath is entirely under control of apps the management FW
-can't depend on it.  The apps today also completely reload the PCIe
-datapath implementation (which is software defined), so we need to use
-raw memory mappings to communicate with management FW.
-
-The control messages are mostly used for populating tables and reading
-statistics, because those two need to be fast and low overhead.
+RnJvbTogR292aW5kYXJhanVsdSBWYXJhZGFyYWphbiA8Z3ZhcmFkYXJAY2lzY28uY29tPg0KRGF0
+ZTogTW9uLCAxOSBKdW4gMjAxNyAxNjoyODo0NCAtMDcwMA0KDQo+IFdpdGggLVdmb3JtYXQtdHJ1
+bmNhdGlvbiwgZ2NjIHRocm93cyB0aGUgZm9sbG93aW5nIHdhcm5pbmcuDQo+IA0KPiBGaXggdGhp
+cyBieSBpbmNyZWFzaW5nIHRoZSBzaXplIG9mIGRldm5hbWUgdG8gYWNjb21tb2RhdGUgMTUgY2hh
+cmFjdGVyDQo+IG5ldGRldiBpbnRlcmZhY2UgbmFtZSBhbmQgZGVzY3JpcHRpb24uDQo+IA0KPiBS
+ZW1vdmUgbGVuZ3RoIGZvcm1hdCBwcmVjaXNpb24gZm9yICVzLiBXZSBjYW4gZml0IGVudGlyZSBu
+YW1lLg0KPiANCj4gQWxzbyBpbmNyZW1lbnQgdGhlIHZlcnNpb24uDQo+IA0KPiBkcml2ZXJzL25l
+dC9ldGhlcm5ldC9jaXNjby9lbmljL2VuaWNfbWFpbi5jOiBJbiBmdW5jdGlvbiChZW5pY19vcGVu
+ojoNCj4gZHJpdmVycy9uZXQvZXRoZXJuZXQvY2lzY28vZW5pYy9lbmljX21haW4uYzoxNzQwOjE1
+OiB3YXJuaW5nOiChJXWiIGRpcmVjdGl2ZSBvdXRwdXQgbWF5IGJlIHRydW5jYXRlZCB3cml0aW5n
+IGJldHdlZW4gMSBhbmQgMiBieXRlcyBpbnRvIGEgcmVnaW9uIG9mIHNpemUgYmV0d2VlbiAxIGFu
+ZCAxMiBbLVdmb3JtYXQtdHJ1bmNhdGlvbj1dDQo+ICAgICAgIiUuMTFzLXJ4LSV1IiwgbmV0ZGV2
+LT5uYW1lLCBpKTsNCj4gICAgICAgICAgICAgICAgXn4NCj4gZHJpdmVycy9uZXQvZXRoZXJuZXQv
+Y2lzY28vZW5pYy9lbmljX21haW4uYzoxNzQwOjU6IG5vdGU6IGRpcmVjdGl2ZSBhcmd1bWVudCBp
+biB0aGUgcmFuZ2UgWzAsIDE2XQ0KPiAgICAgICIlLjExcy1yeC0ldSIsIG5ldGRldi0+bmFtZSwg
+aSk7DQo+ICAgICAgXn5+fn5+fn5+fn5+fg0KPiBkcml2ZXJzL25ldC9ldGhlcm5ldC9jaXNjby9l
+bmljL2VuaWNfbWFpbi5jOjE3Mzg6NDogbm90ZTogoXNucHJpbnRmoiBvdXRwdXQgYmV0d2VlbiA2
+IGFuZCAxOCBieXRlcyBpbnRvIGEgZGVzdGluYXRpb24gb2Ygc2l6ZSAxNg0KPiAgICAgc25wcmlu
+dGYoZW5pYy0+bXNpeFtpbnRyXS5kZXZuYW1lLA0KPiAgICAgXn5+fn5+fn5+fn5+fn5+fn5+fn5+
+fn5+fn5+fn5+fn5+fg0KPiAgICAgIHNpemVvZihlbmljLT5tc2l4W2ludHJdLmRldm5hbWUpLA0K
+PiAgICAgIH5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fg0KPiAgICAgICIlLjExcy1y
+eC0ldSIsIG5ldGRldi0+bmFtZSwgaSk7DQo+ICAgICAgfn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+
+fn5+fn5+fg0KPiANCj4gU2lnbmVkLW9mZi1ieTogR292aW5kYXJhanVsdSBWYXJhZGFyYWphbiA8
+Z3ZhcmFkYXJAY2lzY28uY29tPg0KPiAtLS0NCj4gdjI6IGRvbnQgdXNlIGthc3ByaW50ZiwgaW5j
+cmVhc2UgdGhlIGRldm5hbWUgc2l6ZQ0KPiAgICAgaHR0cDovL3BhdGNod29yay5vemxhYnMub3Jn
+L3BhdGNoLzc3NzU2OC8NCg0KQXBwbGllZCwgdGhhbmsgeW91Lg0K
