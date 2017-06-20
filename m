@@ -1,85 +1,80 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net-next 06/12] nfp: add stats and xmit helpers for
- representors
-Date: Tue, 20 Jun 2017 22:48:05 +0200
-Message-ID: <20170620204804.GA6157@vergenet.net>
-References: <1497937910-32059-7-git-send-email-simon.horman@netronome.com>
- <201706210132.VUFkNyd8%fengguang.wu@intel.com>
+From: Scott Branden <scott.branden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v1 1/2] dt-binding: ptp: add bindings document for dte
+ based ptp clock
+Date: Tue, 20 Jun 2017 13:48:18 -0700
+Message-ID: <74b85a32-63c5-b7c5-47a2-831504be318e@broadcom.com>
+References: <1497299161-6458-1-git-send-email-arun.parameswaran@broadcom.com>
+ <1497299161-6458-2-git-send-email-arun.parameswaran@broadcom.com>
+ <20170618140449.aek7vag22i5lnbhl@rob-hp-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, David Miller <davem@davemloft.net>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        netdev@vger.kernel.org, oss-drivers@netronome.com
-To: kbuild test robot <lkp@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f182.google.com ([209.85.128.182]:33043 "EHLO
-        mail-wr0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751131AbdFTUsJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 16:48:09 -0400
-Received: by mail-wr0-f182.google.com with SMTP id r103so107141657wrb.0
-        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 13:48:09 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <201706210132.VUFkNyd8%fengguang.wu@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
+To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Arun Parameswaran <arun.parameswaran-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170618140449.aek7vag22i5lnbhl@rob-hp-laptop>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 21, 2017 at 01:15:05AM +0800, kbuild test robot wrote:
-> Hi Simon,
-> 
-> [auto build test ERROR on net-next/master]
-> 
-> url:    https://github.com/0day-ci/linux/commits/Simon-Horman/nfp-add-flower-app-with-representors/20170620-233831
-> config: arm-allmodconfig (attached as .config)
-> compiler: arm-linux-gnueabi-gcc (Debian 6.1.1-9) 6.1.1 20160705
-> reproduce:
->         wget https://raw.githubusercontent.com/01org/lkp-tests/master/sbin/make.cross -O ~/bin/make.cross
->         chmod +x ~/bin/make.cross
->         # save the attached .config to linux build tree
->         make.cross ARCH=arm 
+Hi Rob,
 
-It seems that I forgot to add
 
-#include <linux/io-64-nonatomic-hi-lo.h>
+On 17-06-18 07:04 AM, Rob Herring wrote:
+> On Mon, Jun 12, 2017 at 01:26:00PM -0700, Arun Parameswaran wrote:
+>> Add device tree binding documentation for the Broadcom DTE
+>> PTP clock driver.
+>>
+>> Signed-off-by: Arun Parameswaran <arun.parameswaran-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+>> ---
+>>   Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt | 13 +++++++++++++
+>>   1 file changed, 13 insertions(+)
+>>   create mode 100644 Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
+>>
+>> diff --git a/Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt b/Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
+>> new file mode 100644
+>> index 0000000..07590bc
+>> --- /dev/null
+>> +++ b/Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
+>> @@ -0,0 +1,13 @@
+>> +* Broadcom Digital Timing Engine(DTE) based PTP clock driver
+> Bindings describe h/w, not drivers.
+>
+>> +
+>> +Required properties:
+>> +- compatible: should be "brcm,ptp-dte"
+> Looks too generic. You need SoC specific compatible strings.
 
-I will do so in v2.
+Rob, could you please help me understand the use of adding SoC specific 
+compatible strings.
+I still don't get it.
 
-> 
-> All errors (new ones prefixed by >>):
-> 
->    drivers/net//ethernet/netronome/nfp/nfp_net_repr.c: In function 'nfp_repr_phy_port_get_stats64':
-> >> drivers/net//ethernet/netronome/nfp/nfp_net_repr.c:88:22: error: implicit declaration of function 'readq' [-Werror=implicit-function-declaration]
->      stats->tx_packets = readq(mem + NFP_MAC_STATS_RX_FRAMES_RECEIVED_OK);
->                          ^~~~~
->    cc1: some warnings being treated as errors
-> 
-> vim +/readq +88 drivers/net//ethernet/netronome/nfp/nfp_net_repr.c
-> 
->     72		stats->rx_packets++;
->     73		stats->rx_bytes += len;
->     74		u64_stats_update_end(&stats->syncp);
->     75	}
->     76	
->     77	void
->     78	nfp_repr_phy_port_get_stats64(const struct nfp_app *app, u8 phy_port,
->     79				      struct rtnl_link_stats64 *stats)
->     80	{
->     81		u8 __iomem *mem;
->     82	
->     83		mem = app->pf->mac_stats_mem + phy_port * NFP_MAC_STATS_SIZE;
->     84	
->     85		/* TX and RX stats are flipped as we are returning the stats as seen
->     86		 * at the switch port corresponding to the phys port.
->     87		 */
->   > 88		stats->tx_packets = readq(mem + NFP_MAC_STATS_RX_FRAMES_RECEIVED_OK);
->     89		stats->tx_bytes = readq(mem + NFP_MAC_STATS_RX_IN_OCTETS);
->     90		stats->tx_dropped = readq(mem + NFP_MAC_STATS_RX_IN_ERRORS);
->     91	
->     92		stats->rx_packets = readq(mem + NFP_MAC_STATS_TX_FRAMES_TRANSMITTED_OK);
->     93		stats->rx_bytes = readq(mem + NFP_MAC_STATS_TX_OUT_OCTETS);
->     94		stats->rx_dropped = readq(mem + NFP_MAC_STATS_TX_OUT_ERRORS);
->     95	}
->     96	
-> 
-> ---
-> 0-DAY kernel test infrastructure                Open Source Technology Center
-> https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+It's my understanding that the SoC compatibility string is to future 
+proof against bugs/incompatibilities
+between different versions of the hardware block due to integration 
+issues or any other reason.
+You can then compare in your driver because the strings were already 
+used in the dtb.
+
+That would make sense if you can't already differentiate what SoC you 
+are running on.
+But the SoC is already specified in the root of the device tree in the 
+compatible string?
+Why can't you just use of_machine_is_compatible inside your driver when 
+needed?
+
+Please explain what I'm missing.  I see other drivers already following 
+the of_machine_is_compatible
+approach and it makes more sense to me than adding SoC specific 
+compatible strings into every
+driver.
+
+Regards,
+  Scott
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
