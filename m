@@ -1,51 +1,79 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [net,v2] ipv6: reorder ip6_route_dev_notifier after ipv6_dev_notf
-Date: Tue, 20 Jun 2017 11:45:10 -0700
-Message-ID: <CAM_iQpWk_mno_RjieO4UMZVXtudX7sSvxQLUNLF4OpEejuRtOg@mail.gmail.com>
-References: <1493919363-19989-1-git-send-email-xiyou.wangcong@gmail.com>
- <59489369.8000309@rock-chips.com> <CAM_iQpWN6qFsQ_oAMXjC7k00pf0j90zxdx6hzUS58MFn29QSbg@mail.gmail.com>
- <5948C290.6050409@rock-chips.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next] sctp: uncork the old asoc before changing to
+ the new one
+Date: Tue, 20 Jun 2017 15:01:22 -0400
+Message-ID: <20170620190122.GE10596@hmswarspite.think-freely.org>
+References: <99205651b831cf7fd7b847f9b5c904fbf57ce416.1497945715.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        David Ahern <dsahern@gmail.com>,
-        Brian Norris <briannorris@chromium.org>,
-        Douglas Anderson <dianders@chromium.org>
-To: jeffy <jeffy.chen@rock-chips.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        davem@davemloft.net
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f180.google.com ([209.85.128.180]:34236 "EHLO
-        mail-wr0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750951AbdFTSpc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 14:45:32 -0400
-Received: by mail-wr0-f180.google.com with SMTP id 77so102817517wrb.1
-        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 11:45:31 -0700 (PDT)
-In-Reply-To: <5948C290.6050409@rock-chips.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:44090 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751002AbdFTTBd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 15:01:33 -0400
+Content-Disposition: inline
+In-Reply-To: <99205651b831cf7fd7b847f9b5c904fbf57ce416.1497945715.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 19, 2017 at 11:37 PM, jeffy <jeffy.chen@rock-chips.com> wrote:
-> Hi Cong Wang,
->
->
-> On 06/20/2017 12:54 PM, Cong Wang wrote:
->>
->> Interesting, I didn't notice this corner-case, because normally
->> we would hit the one in rollback_registered_many(). Probably
->> we need to add a check
->>
->> if (dev->reg_state == NETREG_UNREGISTERING)
->>
->> in ip6_route_dev_notify(). Can you give it a try?
->
-> the NETREG_UNREGISTERING check works for my test:)
->
-> but i saw dev_change_net_namespace also call NETDEV_UNREGISTER &
-> NETDEV_REGISTER:
-
-Yes we should call it in this case too, only netdev_wait_allrefs()
-is an exceptional case here.
-
-I just sent out a formal patch with you Cc'ed.
-
-Thanks!
+On Tue, Jun 20, 2017 at 04:01:55PM +0800, Xin Long wrote:
+> local_cork is used to decide if it should uncork asoc outq after processing
+> some cmds, and it is set when replying or sending msgs. local_cork should
+> always have the same value with current asoc q->cork in some way.
+> 
+> The thing is when changing to a new asoc by cmd SET_ASOC, local_cork may
+> not be consistent with the current asoc any more. The cmd seqs can be:
+> 
+>   SCTP_CMD_UPDATE_ASSOC (asoc)
+>   SCTP_CMD_REPLY (asoc)
+>   SCTP_CMD_SET_ASOC (new_asoc)
+>   SCTP_CMD_DELETE_TCB (new_asoc)
+>   SCTP_CMD_SET_ASOC (asoc)
+>   SCTP_CMD_REPLY (asoc)
+> 
+> The 1st REPLY makes OLD asoc q->cork and local_cork both are 1, and the cmd
+> DELETE_TCB clears NEW asoc q->cork and local_cork. After asoc goes back to
+> OLD asoc, q->cork is still 1 while local_cork is 0. The 2nd REPLY will not
+> set local_cork because q->cork is already set and it can't be uncorked and
+> sent out because of this.
+> 
+> To keep local_cork consistent with the current asoc q->cork, this patch is
+> to uncork the old asoc if local_cork is set before changing to the new one.
+> 
+> Note that the above cmd seqs will be used in the next patch when updating
+> asoc and handling errors in it.
+> 
+> Suggested-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  net/sctp/sm_sideeffect.c | 4 ++++
+>  1 file changed, 4 insertions(+)
+> 
+> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+> index 25384fa..7623566 100644
+> --- a/net/sctp/sm_sideeffect.c
+> +++ b/net/sctp/sm_sideeffect.c
+> @@ -1748,6 +1748,10 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
+>  			break;
+>  
+>  		case SCTP_CMD_SET_ASOC:
+> +			if (asoc && local_cork) {
+> +				sctp_outq_uncork(&asoc->outqueue, gfp);
+> +				local_cork = 0;
+> +			}
+>  			asoc = cmd->obj.asoc;
+>  			break;
+>  
+> -- 
+> 2.1.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
