@@ -1,30 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sfc: remove duplicate up_write on VF filter_sem
-Date: Tue, 20 Jun 2017 15:40:21 -0400 (EDT)
-Message-ID: <20170620.154021.1071172261400917698.davem@davemloft.net>
-References: <b718af2e-5737-3d98-0f45-cfbb25d43349@solarflare.com>
+Subject: Re: [PATCH net] net: stmmac: free an skb first when there are no
+ longer any descriptors using it
+Date: Tue, 20 Jun 2017 15:41:23 -0400 (EDT)
+Message-ID: <20170620.154123.561428545995150660.davem@davemloft.net>
+References: <20170620123241.5677-1-niklas.cassel@axis.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
-To: ecree@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42596 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751082AbdFTTkW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 15:40:22 -0400
-In-Reply-To: <b718af2e-5737-3d98-0f45-cfbb25d43349@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com, niklass@axis.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: niklas.cassel@axis.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170620123241.5677-1-niklas.cassel@axis.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Edward Cree <ecree@solarflare.com>
-Date: Tue, 20 Jun 2017 13:08:51 +0100
+From: Niklas Cassel <niklas.cassel@axis.com>
+Date: Tue, 20 Jun 2017 14:32:41 +0200
 
-> Somehow two copies of the line 'up_write(&vf->efx->filter_sem);' got into
->  efx_ef10_sriov_set_vf_vlan().  This would put the mutex in a bad state and
->  cause all subsequent down attempts to hang.
+> When having the skb pointer in the first descriptor, stmmac_tx_clean
+> can get called at a moment where the IP has only cleared the own bit
+> of the first descriptor, thus freeing the skb, even though there can
+> be several descriptors whose buffers point into the same skb.
 > 
-> Fixes: 671b53eec2ed ("sfc: Ensure down_write(&filter_sem) and up_write() are matched before calling efx_net_open()")
-> Signed-off-by: Edward Cree <ecree@solarflare.com>
+> By simply moving the skb pointer from the first descriptor to the last
+> descriptor, a skb will get freed only when the IP has cleared the
+> own bit of all the descriptors that are using that skb.
+> 
+> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
 
-Applied and queued up for -stable.
+Applied and queued up for -stable, thanks.
