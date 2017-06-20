@@ -1,54 +1,42 @@
-From: Serhey Popovych <serhe.popovych@gmail.com>
-Subject: [PATCH] rtnetlink: add IFLA_GROUP to ifla_policy
-Date: Tue, 20 Jun 2017 14:35:23 +0300
-Message-ID: <1497958523-9015-1-git-send-email-serhe.popovych@gmail.com>
-References: <20170619.144843.29898198404383350.davem@davemloft.net>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Edward Cree <ecree@solarflare.com>
+Subject: [PATCH net] sfc: remove duplicate up_write on VF filter_sem
+Date: Tue, 20 Jun 2017 13:08:51 +0100
+Message-ID: <b718af2e-5737-3d98-0f45-cfbb25d43349@solarflare.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: <linux-net-drivers@solarflare.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35214 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751130AbdFTLfe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 07:35:34 -0400
-Received: by mail-wm0-f66.google.com with SMTP id d64so22482869wmf.2
-        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 04:35:33 -0700 (PDT)
-In-Reply-To: <20170619.144843.29898198404383350.davem@davemloft.net>
+Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:38417 "EHLO
+        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751133AbdFTMJD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 08:09:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Network interface groups support added while ago, however
-there is no IFLA_GROUP attribute description in policy
-and netlink message size calculations until now.
+Somehow two copies of the line 'up_write(&vf->efx->filter_sem);' got into
+ efx_ef10_sriov_set_vf_vlan().  This would put the mutex in a bad state and
+ cause all subsequent down attempts to hang.
 
-Add IFLA_GROUP attribute to the policy.
-
-Fixes: cbda10fa97d7 ("net_device: add support for network device groups")
-Signed-off-by: Serhey Popovych <serhe.popovych@gmail.com>
+Fixes: 671b53eec2ed ("sfc: Ensure down_write(&filter_sem) and up_write() are matched before calling efx_net_open()")
+Signed-off-by: Edward Cree <ecree@solarflare.com>
 ---
- v2: Rebased to kernel/git/davem/net.git
- 
- net/core/rtnetlink.c | 2 ++
- 1 file changed, 2 insertions(+)
+This should probably go to stable kernels as well.
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 5e61456..467a2f4 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -931,6 +931,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
- 	       + nla_total_size(1) /* IFLA_LINKMODE */
- 	       + nla_total_size(4) /* IFLA_CARRIER_CHANGES */
- 	       + nla_total_size(4) /* IFLA_LINK_NETNSID */
-+	       + nla_total_size(4) /* IFLA_GROUP */
- 	       + nla_total_size(ext_filter_mask
- 			        & RTEXT_FILTER_VF ? 4 : 0) /* IFLA_NUM_VF */
- 	       + rtnl_vfinfo_size(dev, ext_filter_mask) /* IFLA_VFINFO_LIST */
-@@ -1468,6 +1469,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 	[IFLA_LINK_NETNSID]	= { .type = NLA_S32 },
- 	[IFLA_PROTO_DOWN]	= { .type = NLA_U8 },
- 	[IFLA_XDP]		= { .type = NLA_NESTED },
-+	[IFLA_GROUP]		= { .type = NLA_U32 },
- };
+ drivers/net/ethernet/sfc/ef10_sriov.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/sfc/ef10_sriov.c b/drivers/net/ethernet/sfc/ef10_sriov.c
+index b7e4345..019cef1 100644
+--- a/drivers/net/ethernet/sfc/ef10_sriov.c
++++ b/drivers/net/ethernet/sfc/ef10_sriov.c
+@@ -661,8 +661,6 @@ int efx_ef10_sriov_set_vf_vlan(struct efx_nic *efx, int vf_i, u16 vlan,
+ 		up_write(&vf->efx->filter_sem);
+ 		mutex_unlock(&vf->efx->mac_lock);
  
- static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
--- 
-1.8.3.1
+-		up_write(&vf->efx->filter_sem);
+-
+ 		rc2 = efx_net_open(vf->efx->net_dev);
+ 		if (rc2)
+ 			goto reset_nic;
