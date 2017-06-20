@@ -1,44 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/6] vxlan: cleanup and IPv6 link-local
- support
-Date: Tue, 20 Jun 2017 13:37:27 -0400 (EDT)
-Message-ID: <20170620.133727.1870813949229996297.davem@davemloft.net>
-References: <cover.1497825555.git.mschiffer@universe-factory.net>
+From: John Crispin <john@phrozen.org>
+Subject: Re: [RFC 1/2] net-next: fix DSA flow_disection
+Date: Tue, 20 Jun 2017 19:37:35 +0200
+Message-ID: <390b4235-1bd4-89d2-3a5f-bc51e3599247@phrozen.org>
+References: <20170620080655.7251-1-john@phrozen.org>
+ <20170620140140.GB12383@lunn.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jbenc@redhat.com, hannes@stressinduktion.org, pshelar@ovn.org,
-        aduyck@mirantis.com, roopa@cumulusnetworks.com,
-        netdev@vger.kernel.org, dev@openvswitch.org,
-        linux-kernel@vger.kernel.org
-To: mschiffer@universe-factory.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1497825555.git.mschiffer@universe-factory.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Sean Wang <sean.wang@mediatek.com>, netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbd.name ([46.4.11.11]:54347 "EHLO nbd.name"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751641AbdFTRhu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 20 Jun 2017 13:37:50 -0400
+In-Reply-To: <20170620140140.GB12383@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Matthias Schiffer <mschiffer@universe-factory.net>
-Date: Mon, 19 Jun 2017 10:03:54 +0200
 
-> Running VXLANs over IPv6 link-local addresses allows to use them as a
-> drop-in replacement for VLANs, avoiding to allocate additional outer IP
-> addresses to run the VXLAN over.
-> 
-> Since v1, I have added a lot more consistency checks to the address
-> configuration, making sure address families and scopes match. To simplify
-> the implementation, I also did some general refactoring of the
-> configuration handling in the new first patch of the series.
-> 
-> The second patch is more cleanup; is slightly touches OVS code, so that
-> list is in CC this time, too.
-> 
-> As in v1, the last two patches actually make VXLAN over IPv6 link-local
-> work, and allow multiple VXLANs with the same VNI and port, as long as
-> link-local addresses on different interfaces are used. As suggested, I now
-> store in the flags field if the VXLAN uses link-local addresses or not.
-> 
-> v3 removes log messages as suggested by Roopa Prabhu (as it is very unusual
-> for errors in netlink requests to be printed to the kernel log.) The commit
-> message of patch 5 has been extended to add a note about IPv4.
 
-Series applied, thanks Matthias.
+On 20/06/17 16:01, Andrew Lunn wrote:
+> On Tue, Jun 20, 2017 at 10:06:54AM +0200, John Crispin wrote:
+>> RPS and probably other kernel features are currently broken on some if not
+>> all DSA devices. The root cause of this that skb_hash will call the
+>> flow_disector.
+> Hi John
+>
+> What is the call path when the flow_disector is called? I'm wondering
+> if we can defer this, and call it later, after the tag code has
+> removed the header.
+>
+> 	Andrew
+
+Hi Andrew,
+
+the ethernet driver receives the frame and passes it down the line. 
+Eventually it ends up inside netif_receive_skb_internal() where it gets 
+added to the backlog. At this point get_rps_cpu() is called. Inside 
+get_rps_cpu() the skb_get_hash() is called which utilizes the 
+flow_dissector() ... which is broken for DSA devices. get_rps_cpu() will 
+always return the same hash for all flows and the frame is always added 
+to the backlog on the same core. Once inside the backlog it will 
+traverse through the dsa layer and end up inside the tag driver and be 
+passed to the slave device for further processing and keep its bad flow 
+hash for its whole life cycle.
+
+In theory we could reset the hash inside the tag driver but ideally the 
+whole life cycle of the frame should happen on the same core to avoid 
+possible reordering issues. In addition RPS is broken until the frame 
+reaches the tag driver. In the case of the mediatek mt7623 we only have 
+1 RX IRQ and in the worst case the RPS of the frame while still inside 
+ethX will happen on the same core as where we handle IRQs. This will 
+increase the IRQ latency and reduce the free cpu time, thus reducing 
+maximum throughput. I did test resetting the hash inside the tag driver. 
+Calculating the correct hash from the start did yield a huge performance 
+difference however, at least on mt7623. We are talking about 30% extra 
+max throughput. This might not be such a big problem if the SoC has a 
+multi queue ethernet core but on mt7623 it does make a huge difference 
+if we can use RPS to delegate all frame processing away from the core 
+handling the IRQs.
+
+     John
