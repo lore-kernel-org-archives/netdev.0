@@ -1,7 +1,7 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
 Subject: Re: [PATCH net-next 0/1] Introduction of the tc tests
-Date: Mon, 19 Jun 2017 22:38:33 -0700
-Message-ID: <20170619223833.43181625@plumbers-lap.home.lan>
+Date: Mon, 19 Jun 2017 22:40:27 -0700
+Message-ID: <20170619224027.133c3578@plumbers-lap.home.lan>
 References: <1497648155-25521-1-git-send-email-lucasb@mojatatu.com>
         <CAM_iQpUxfGrLTv+8J_=n2-zOOd5fqwrNSvF7Ro1EyRyBBNb_8w@mail.gmail.com>
         <20170619.234819.333574326143678552.davem@davemloft.net>
@@ -13,12 +13,12 @@ Cc: xiyou.wangcong@gmail.com, lucasb@mojatatu.com,
         jhs@mojatatu.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:34458 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750869AbdFTFio (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 01:38:44 -0400
-Received: by mail-pf0-f178.google.com with SMTP id s66so64480924pfs.1
-        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 22:38:44 -0700 (PDT)
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:35324 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750992AbdFTFkk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 01:40:40 -0400
+Received: by mail-pf0-f179.google.com with SMTP id c73so4353750pfk.2
+        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 22:40:39 -0700 (PDT)
 In-Reply-To: <20170619.234819.333574326143678552.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -59,6 +59,6 @@ David Miller <davem@davemloft.net> wrote:
 > I want as many tests as possible under there, so I'm really surprised
 > that you're asking "why" tests are being added there.
 
-I agree these tests should be more about kernel behavior and updated when kernel
-changes. Iproute2 has some outdated tests of its own, but these are more functional
-tests for the command portion.
+The "Occum's razor" for deciding where tests belong should be does
+the test need to change to respond to kernel change? Don't want to have
+iproute2 tests that have if (kernel_version > ...)
