@@ -1,57 +1,224 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net-next 11/12] nfp: add flower app
-Date: Tue, 20 Jun 2017 07:51:49 +0200
-Message-ID: <1497937910-32059-12-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH net-next 10/12] nfp: add support for control messages for flower app
+Date: Tue, 20 Jun 2017 07:51:48 +0200
+Message-ID: <1497937910-32059-11-git-send-email-simon.horman@netronome.com>
 References: <1497937910-32059-1-git-send-email-simon.horman@netronome.com>
 Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
         Simon Horman <simon.horman@netronome.com>
 To: David Miller <davem@davemloft.net>,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f180.google.com ([209.85.216.180]:34738 "EHLO
-        mail-qt0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751223AbdFTFwk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 01:52:40 -0400
-Received: by mail-qt0-f180.google.com with SMTP id v20so10128456qtg.1
-        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 22:52:34 -0700 (PDT)
+Received: from mail-qt0-f170.google.com ([209.85.216.170]:33329 "EHLO
+        mail-qt0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751095AbdFTFwd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 01:52:33 -0400
+Received: by mail-qt0-f170.google.com with SMTP id u12so126244299qth.0
+        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 22:52:32 -0700 (PDT)
 In-Reply-To: <1497937910-32059-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add app for flower offload. At this point the PF netdev and phys port
-representor netdevs are initialised. Follow-up work will add support for
-VF and PF representors and beyond that offloading the flower classifier.
+In preparation for adding a new flower app - targeted at offloading
+the flower classifier - provide support for control message that it will
+use to communicate with the NFP.
 
-Based in part on work by Benjamin LaHaise and Bert van Leeuwen.
+Based in part on work by Bert van Leeuwen.
 
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
 Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
  drivers/net/ethernet/netronome/nfp/Makefile      |   1 +
- drivers/net/ethernet/netronome/nfp/flower/main.c | 294 +++++++++++++++++++++++
- drivers/net/ethernet/netronome/nfp/nfp_app.c     |   1 +
- drivers/net/ethernet/netronome/nfp/nfp_app.h     |   4 +
- 4 files changed, 300 insertions(+)
- create mode 100644 drivers/net/ethernet/netronome/nfp/flower/main.c
+ drivers/net/ethernet/netronome/nfp/flower/cmsg.c | 159 +++++++++++++++++++++++
+ drivers/net/ethernet/netronome/nfp/flower/cmsg.h | 116 +++++++++++++++++
+ drivers/net/ethernet/netronome/nfp/nfp_app.c     |   5 +-
+ drivers/net/ethernet/netronome/nfp/nfp_app.h     |   3 +-
+ 5 files changed, 281 insertions(+), 3 deletions(-)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/flower/cmsg.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/flower/cmsg.h
 
 diff --git a/drivers/net/ethernet/netronome/nfp/Makefile b/drivers/net/ethernet/netronome/nfp/Makefile
-index e14f62863add..10b556b2c59d 100644
+index a401113035f5..e14f62863add 100644
 --- a/drivers/net/ethernet/netronome/nfp/Makefile
 +++ b/drivers/net/ethernet/netronome/nfp/Makefile
-@@ -28,6 +28,7 @@ nfp-objs := \
+@@ -27,6 +27,7 @@ nfp-objs := \
+ 	    nfp_port.o \
  	    bpf/main.o \
  	    bpf/offload.o \
- 	    flower/cmsg.o \
-+	    flower/main.o \
++	    flower/cmsg.o \
  	    nic/main.o
  
  ifeq ($(CONFIG_BPF_SYSCALL),y)
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/main.c b/drivers/net/ethernet/netronome/nfp/flower/main.c
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/cmsg.c b/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
 new file mode 100644
-index 000000000000..01864840a21b
+index 000000000000..523ae03b49c5
 --- /dev/null
-+++ b/drivers/net/ethernet/netronome/nfp/flower/main.c
-@@ -0,0 +1,294 @@
++++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
+@@ -0,0 +1,159 @@
++/*
++ * Copyright (C) 2015-2017 Netronome Systems, Inc.
++ *
++ * This software is dual licensed under the GNU General License Version 2,
++ * June 1991 as shown in the file COPYING in the top-level directory of this
++ * source tree or the BSD 2-Clause License provided below.  You have the
++ * option to license this software under the complete terms of either license.
++ *
++ * The BSD 2-Clause License:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      1. Redistributions of source code must retain the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer.
++ *
++ *      2. Redistributions in binary form must reproduce the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer in the documentation and/or other materials
++ *         provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include <linux/bitfield.h>
++#include <linux/netdevice.h>
++#include <linux/skbuff.h>
++#include <net/dst_metadata.h>
++
++#include "../nfpcore/nfp_cpp.h"
++#include "../nfp_net_repr.h"
++#include "./cmsg.h"
++
++#define nfp_flower_cmsg_warn(app, fmt, args...)				\
++	do {								\
++		if (net_ratelimit())					\
++			nfp_warn((app)->cpp, fmt, ## args);		\
++	} while (0)
++
++static struct nfp_flower_cmsg_hdr *
++nfp_flower_cmsg_get_hdr(struct sk_buff *skb)
++{
++	return (struct nfp_flower_cmsg_hdr *)skb->data;
++}
++
++static void *nfp_flower_cmsg_get_data(struct sk_buff *skb)
++{
++	return (unsigned char *)skb->data + NFP_FLOWER_CMSG_HLEN;
++}
++
++static struct sk_buff *
++nfp_flower_cmsg_alloc(struct nfp_app *app, unsigned int size,
++		      enum nfp_flower_cmsg_type_port type)
++{
++	struct nfp_flower_cmsg_hdr *ch;
++	struct sk_buff *skb;
++
++	size += NFP_FLOWER_CMSG_HLEN;
++
++	skb = nfp_app_ctrl_msg_alloc(app, size, GFP_KERNEL);
++	if (!skb)
++		return NULL;
++
++	ch = nfp_flower_cmsg_get_hdr(skb);
++	ch->pad = 0;
++	ch->version = NFP_FLOWER_CMSG_VER1;
++	ch->type = type;
++	skb_put(skb, size);
++
++	return skb;
++}
++
++int nfp_flower_cmsg_portmod(struct net_device *netdev)
++{
++	struct nfp_repr *repr = netdev_priv(netdev);
++	struct nfp_flower_cmsg_portmod *msg;
++	struct sk_buff *skb;
++
++	skb = nfp_flower_cmsg_alloc(repr->app, sizeof(*msg),
++				    NFP_FLOWER_CMSG_TYPE_PORT_MOD);
++	if (!skb)
++		return -ENOMEM;
++
++	msg = nfp_flower_cmsg_get_data(skb);
++	msg->portnum = repr->dst->u.port_info.port_id;
++	msg->reserved = 0;
++	msg->info = netif_carrier_ok(netdev);
++	msg->mtu = cpu_to_be16(netdev->mtu);
++
++	nfp_ctrl_tx(repr->app->ctrl, skb);
++
++	return 0;
++}
++
++static void
++nfp_flower_cmsg_portmod_rx(struct nfp_app *app, struct sk_buff *skb)
++{
++	struct nfp_flower_cmsg_portmod *msg;
++	struct net_device *netdev;
++	bool link;
++
++	msg = nfp_flower_cmsg_get_data(skb);
++	link = msg->info & NFP_FLOWER_CMSG_PORTMOD_INFO_LINK;
++
++	rcu_read_lock();
++	netdev = nfp_app_repr_get(app, msg->portnum);
++	if (!netdev) {
++		nfp_flower_cmsg_warn(app, "ctrl msg for unknown port 0x%08x\n",
++				     be32_to_cpu(msg->portnum));
++		rcu_read_unlock();
++		return;
++	}
++
++	if (link) {
++		netif_carrier_on(netdev);
++		rtnl_lock();
++		dev_set_mtu(netdev, be16_to_cpu(msg->mtu));
++		rtnl_unlock();
++	} else {
++		netif_carrier_off(netdev);
++	}
++	rcu_read_unlock();
++}
++
++void nfp_flower_cmsg_rx(struct nfp_app *app, struct sk_buff *skb)
++{
++	struct nfp_flower_cmsg_hdr *cmsg_hdr;
++	enum nfp_flower_cmsg_type_port type;
++
++	cmsg_hdr = nfp_flower_cmsg_get_hdr(skb);
++
++	if (unlikely(cmsg_hdr->version != NFP_FLOWER_CMSG_VER1)) {
++		nfp_flower_cmsg_warn(app, "Cannot handle repr control version %u\n",
++				     cmsg_hdr->version);
++		goto out;
++	}
++
++	type = cmsg_hdr->type;
++	switch (type) {
++	case NFP_FLOWER_CMSG_TYPE_PORT_MOD:
++		nfp_flower_cmsg_portmod_rx(app, skb);
++		break;
++	default:
++		nfp_flower_cmsg_warn(app, "Cannot handle invalid repr control type %u\n",
++				     type);
++	}
++
++out:
++	dev_kfree_skb_any(skb);
++}
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
+new file mode 100644
+index 000000000000..9849329c8d37
+--- /dev/null
++++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
+@@ -0,0 +1,116 @@
 +/*
 + * Copyright (C) 2017 Netronome Systems, Inc.
 + *
@@ -85,311 +252,124 @@ index 000000000000..01864840a21b
 + * SOFTWARE.
 + */
 +
-+#include <linux/etherdevice.h>
-+#include <linux/pci.h>
++#ifndef NFP_FLOWER_CMSG_H
++#define NFP_FLOWER_CMSG_H
++
++#include <linux/bitfield.h>
 +#include <linux/skbuff.h>
-+#include <net/devlink.h>
-+#include <net/dst_metadata.h>
++#include <linux/types.h>
 +
-+#include "../nfpcore/nfp_cpp.h"
-+#include "../nfpcore/nfp_nsp.h"
 +#include "../nfp_app.h"
-+#include "../nfp_main.h"
-+#include "../nfp_net.h"
-+#include "../nfp_net_repr.h"
-+#include "../nfp_port.h"
-+#include "./cmsg.h"
 +
-+/**
-+ * struct nfp_flower_priv - Flower APP per-vNIC priv data
-+ * @nn:		     Pointer to vNIC
++/* The base header for a control message packet.
++ * Defines an 8-bit version, and an 8-bit type, padded
++ * to a 32-bit word. Rest of the packet is type-specific.
 + */
-+struct nfp_flower_priv {
-+	struct nfp_net *nn;
++struct nfp_flower_cmsg_hdr {
++	__be16 pad;
++	u8 type;
++	u8 version;
 +};
 +
-+static const char *nfp_flower_extra_cap(struct nfp_app *app, struct nfp_net *nn)
-+{
-+	return "FLOWER";
-+}
++#define NFP_FLOWER_CMSG_HLEN		sizeof(struct nfp_flower_cmsg_hdr)
++#define NFP_FLOWER_CMSG_VER1		1
 +
-+static enum devlink_eswitch_mode eswitch_mode_get(struct nfp_app *app)
-+{
-+	return DEVLINK_ESWITCH_MODE_SWITCHDEV;
-+}
-+
-+static enum nfp_repr_type
-+nfp_flower_repr_get_type_and_port(struct nfp_app *app, u32 port_id, u8 *port)
-+{
-+	switch (FIELD_GET(NFP_FLOWER_CMSG_PORT_TYPE, port_id)) {
-+	case NFP_FLOWER_CMSG_PORT_TYPE_PHYS_PORT:
-+		*port = FIELD_GET(NFP_FLOWER_CMSG_PORT_PHYS_PORT_NUM,
-+				  port_id);
-+		return NFP_REPR_TYPE_PHYS_PORT;
-+
-+	case NFP_FLOWER_CMSG_PORT_TYPE_PCIE_PORT:
-+		*port = FIELD_GET(NFP_FLOWER_CMSG_PORT_VNIC, port_id);
-+		if (FIELD_GET(NFP_FLOWER_CMSG_PORT_VNIC_TYPE, port_id) ==
-+		    NFP_FLOWER_CMSG_PORT_VNIC_TYPE_PF)
-+			return NFP_REPR_TYPE_PF;
-+		else
-+			return NFP_REPR_TYPE_VF;
-+	}
-+
-+	return NFP_FLOWER_CMSG_PORT_TYPE_UNSPEC;
-+}
-+
-+static struct net_device *
-+nfp_flower_repr_get(struct nfp_app *app, u32 port_id)
-+{
-+	enum nfp_repr_type repr_type;
-+	struct nfp_reprs *reprs;
-+	u8 port = 0;
-+
-+	repr_type = nfp_flower_repr_get_type_and_port(app, port_id, &port);
-+
-+	reprs = rcu_dereference(app->reprs[repr_type]);
-+	if (!reprs)
-+		return NULL;
-+
-+	if (port >= reprs->num_reprs)
-+		return NULL;
-+
-+	return reprs->reprs[port];
-+}
-+
-+static void
-+nfp_flower_repr_netdev_get_stats64(struct net_device *netdev,
-+				   struct rtnl_link_stats64 *stats)
-+{
-+	struct nfp_repr *repr = netdev_priv(netdev);
-+	enum nfp_repr_type type;
-+	u32 port_id;
-+	u8 port = 0;
-+
-+	port_id = be32_to_cpu(repr->dst->u.port_info.port_id);
-+	type = nfp_flower_repr_get_type_and_port(repr->app, port_id, &port);
-+	nfp_repr_get_stats64(repr->app, type, port, stats);
-+}
-+
-+static int nfp_flower_repr_netdev_open(struct net_device *netdev)
-+{
-+	int err;
-+
-+	err = nfp_flower_cmsg_portmod(netdev);
-+	if (err)
-+		return err;
-+
-+	netif_carrier_on(netdev);
-+	netif_tx_wake_all_queues(netdev);
-+
-+	return 0;
-+}
-+
-+static int nfp_flower_repr_netdev_stop(struct net_device *netdev)
-+{
-+	netif_carrier_off(netdev);
-+	netif_tx_disable(netdev);
-+
-+	return nfp_flower_cmsg_portmod(netdev);
-+}
-+
-+static const struct net_device_ops nfp_flower_repr_netdev_ops = {
-+	.ndo_open		= nfp_flower_repr_netdev_open,
-+	.ndo_stop		= nfp_flower_repr_netdev_stop,
-+	.ndo_start_xmit		= nfp_repr_xmit,
-+	.ndo_get_stats64	= nfp_flower_repr_netdev_get_stats64,
-+	.ndo_has_offload_stats	= nfp_repr_has_offload_stats,
-+	.ndo_get_offload_stats	= nfp_repr_get_offload_stats,
++/* Types defined for port related control messages  */
++enum nfp_flower_cmsg_type_port {
++	NFP_FLOWER_CMSG_TYPE_PORT_MOD =		8,
++	NFP_FLOWER_CMSG_TYPE_PORT_ECHO =	16,
++	NFP_FLOWER_CMSG_TYPE_MAX =		32,
 +};
 +
-+static void nfp_flower_stop(struct nfp_app *app)
-+{
-+	nfp_reprs_clean_and_free_by_type(app, NFP_REPR_TYPE_PHYS_PORT);
-+}
-+
-+static int nfp_flower_start(struct nfp_app *app)
-+{
-+	struct nfp_eth_table *eth_tbl = app->pf->eth_tbl;
-+	struct nfp_flower_priv *priv = app->priv;
-+	struct nfp_reprs *reprs, *old_reprs;
-+	unsigned int i;
-+	int err;
-+
-+	reprs = nfp_reprs_alloc(eth_tbl->max_index + 1);
-+	if (!reprs)
-+		return -ENOMEM;
-+
-+	for (i = 0; i < eth_tbl->count; i++) {
-+		int phys_port = eth_tbl->ports[i].index;
-+		struct nfp_port *port;
-+		u32 cmsg_port_id;
-+
-+		reprs->reprs[phys_port] = nfp_repr_alloc(app);
-+		if (!reprs->reprs[phys_port]) {
-+			err = -ENOMEM;
-+			goto err_reprs_clean;
-+		}
-+
-+		port = nfp_port_alloc(app, NFP_PORT_PHYS_PORT,
-+				      reprs->reprs[phys_port]);
-+		if (IS_ERR(port)) {
-+			err = PTR_ERR(port);
-+			goto err_reprs_clean;
-+		}
-+		err = nfp_port_init_phy_port(app->pf, app, port, i);
-+		if (err) {
-+			nfp_port_free(port);
-+			goto err_reprs_clean;
-+		}
-+
-+		SET_NETDEV_DEV(reprs->reprs[phys_port], &priv->nn->pdev->dev);
-+		nfp_net_get_mac_addr(app->pf, port,
-+				     eth_tbl->ports[i].eth_index);
-+
-+		cmsg_port_id = nfp_flower_cmsg_phys_port(phys_port);
-+		err = nfp_repr_init(app, reprs->reprs[phys_port],
-+				    &nfp_flower_repr_netdev_ops,
-+				    cmsg_port_id, port, priv->nn->dp.netdev);
-+		if (err) {
-+			nfp_port_free(port);
-+			goto err_reprs_clean;
-+		}
-+
-+		nfp_info(app->cpp, "Phys Port %d Representor(%s) created\n",
-+			 phys_port, reprs->reprs[phys_port]->name);
-+	}
-+
-+	old_reprs = nfp_app_reprs_set(app, NFP_REPR_TYPE_PHYS_PORT, reprs);
-+	if (IS_ERR(old_reprs)) {
-+		err = PTR_ERR(old_reprs);
-+		goto err_reprs_clean;
-+	}
-+
-+	return 0;
-+err_reprs_clean:
-+	nfp_reprs_clean_and_free(reprs);
-+	return err;
-+}
-+
-+static void nfp_flower_vnic_clean(struct nfp_app *app, struct nfp_net *nn)
-+{
-+	kfree(app->priv);
-+	app->priv = NULL;
-+}
-+
-+static int nfp_flower_vnic_init(struct nfp_app *app, struct nfp_net *nn,
-+				unsigned int id)
-+{
-+	struct nfp_flower_priv *priv;
-+
-+	if (id > 0) {
-+		nfp_warn(app->cpp, "FlowerNIC doesn't support more than one data vNIC\n");
-+		goto err_invalid_port;
-+	}
-+
-+	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
-+	if (!priv)
-+		return -ENOMEM;
-+	app->priv = priv;
-+	priv->nn = nn;
-+
-+	eth_hw_addr_random(nn->dp.netdev);
-+	netif_keep_dst(nn->dp.netdev);
-+
-+	return 0;
-+
-+err_invalid_port:
-+	nn->port = nfp_port_alloc(app, NFP_PORT_INVALID, nn->dp.netdev);
-+	return PTR_ERR_OR_ZERO(nn->port);
-+}
-+
-+static int nfp_flower_init(struct nfp_app *app)
-+{
-+	const struct nfp_pf *pf = app->pf;
-+
-+	if (!pf->eth_tbl) {
-+		nfp_warn(app->cpp, "FlowerNIC requires eth table\n");
-+		return -EINVAL;
-+	}
-+
-+	if (!pf->mac_stats_bar) {
-+		nfp_warn(app->cpp, "FlowerNIC requires mac_stats BAR\n");
-+		return -EINVAL;
-+	}
-+
-+	if (!pf->vf_cfg_bar) {
-+		nfp_warn(app->cpp, "FlowerNIC requires vf_cfg BAR\n");
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+const struct nfp_app_type app_flower = {
-+	.id		= NFP_APP_FLOWER_NIC,
-+	.name		= "flower",
-+	.ctrl_has_meta	= true,
-+
-+	.extra_cap	= nfp_flower_extra_cap,
-+
-+	.init		= nfp_flower_init,
-+
-+	.vnic_init	= nfp_flower_vnic_init,
-+	.vnic_clean	= nfp_flower_vnic_clean,
-+
-+	.start		= nfp_flower_start,
-+	.stop		= nfp_flower_stop,
-+
-+	.ctrl_msg_rx	= nfp_flower_cmsg_rx,
-+
-+	.eswitch_mode_get  = eswitch_mode_get,
-+	.repr_get	= nfp_flower_repr_get,
++/* NFP_FLOWER_CMSG_TYPE_PORT_MOD */
++struct nfp_flower_cmsg_portmod {
++	__be32 portnum;
++	u8 reserved;
++	u8 info;
++	__be16 mtu;
 +};
++
++#define NFP_FLOWER_CMSG_PORTMOD_INFO_LINK	BIT(0)
++
++enum nfp_flower_cmsg_port_type {
++	NFP_FLOWER_CMSG_PORT_TYPE_UNSPEC =	0x0,
++	NFP_FLOWER_CMSG_PORT_TYPE_PHYS_PORT =	0x1,
++	NFP_FLOWER_CMSG_PORT_TYPE_PCIE_PORT =	0x2,
++};
++
++enum nfp_flower_cmsg_port_vnic_type {
++	NFP_FLOWER_CMSG_PORT_VNIC_TYPE_VF =	0x0,
++	NFP_FLOWER_CMSG_PORT_VNIC_TYPE_PF =	0x1,
++	NFP_FLOWER_CMSG_PORT_VNIC_TYPE_CTRL =	0x2,
++};
++
++#define NFP_FLOWER_CMSG_PORT_TYPE		GENMASK(31, 28)
++#define NFP_FLOWER_CMSG_PORT_SYS_ID		GENMASK(27, 24)
++#define NFP_FLOWER_CMSG_PORT_NFP_ID		GENMASK(23, 22)
++#define NFP_FLOWER_CMSG_PORT_PCI		GENMASK(15, 14)
++#define NFP_FLOWER_CMSG_PORT_VNIC_TYPE		GENMASK(13, 12)
++#define NFP_FLOWER_CMSG_PORT_VNIC		GENMASK(11, 6)
++#define NFP_FLOWER_CMSG_PORT_PCIE_Q		GENMASK(5, 0)
++#define NFP_FLOWER_CMSG_PORT_PHYS_PORT_NUM	GENMASK(7, 0)
++
++static inline u32 nfp_flower_cmsg_phys_port(u8 phys_port)
++{
++	return FIELD_PREP(NFP_FLOWER_CMSG_PORT_PHYS_PORT_NUM, phys_port) |
++		FIELD_PREP(NFP_FLOWER_CMSG_PORT_TYPE,
++			   NFP_FLOWER_CMSG_PORT_TYPE_PHYS_PORT);
++}
++
++static inline u32
++nfp_flower_cmsg_pcie_port(u8 nfp_pcie, enum nfp_flower_cmsg_port_vnic_type type,
++			  u8 vnic, u8 q)
++{
++	return FIELD_PREP(NFP_FLOWER_CMSG_PORT_PCI, nfp_pcie) |
++		FIELD_PREP(NFP_FLOWER_CMSG_PORT_VNIC_TYPE, type) |
++		FIELD_PREP(NFP_FLOWER_CMSG_PORT_VNIC, vnic) |
++		FIELD_PREP(NFP_FLOWER_CMSG_PORT_PCIE_Q, q) |
++		FIELD_PREP(NFP_FLOWER_CMSG_PORT_TYPE,
++			   NFP_FLOWER_CMSG_PORT_TYPE_PCIE_PORT);
++}
++
++int nfp_flower_cmsg_portmod(struct net_device *netdev);
++void nfp_flower_cmsg_rx(struct nfp_app *app, struct sk_buff *skb);
++
++#endif
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.c b/drivers/net/ethernet/netronome/nfp/nfp_app.c
-index 2b71050dc5e4..5620de05c996 100644
+index c9ccb0f94604..2b71050dc5e4 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_app.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_app.c
-@@ -43,6 +43,7 @@
- static const struct nfp_app_type *apps[] = {
- 	&app_nic,
- 	&app_bpf,
-+	&app_flower,
- };
+@@ -52,14 +52,15 @@ const char *nfp_app_mip_name(struct nfp_app *app)
+ 	return nfp_mip_name(app->pf->mip);
+ }
  
- const char *nfp_app_mip_name(struct nfp_app *app)
+-struct sk_buff *nfp_app_ctrl_msg_alloc(struct nfp_app *app, unsigned int size)
++struct sk_buff *
++nfp_app_ctrl_msg_alloc(struct nfp_app *app, unsigned int size, gfp_t priority)
+ {
+ 	struct sk_buff *skb;
+ 
+ 	if (nfp_app_ctrl_has_meta(app))
+ 		size += 8;
+ 
+-	skb = alloc_skb(size, GFP_ATOMIC);
++	skb = alloc_skb(size, priority);
+ 	if (!skb)
+ 		return NULL;
+ 
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.h b/drivers/net/ethernet/netronome/nfp/nfp_app.h
-index 36949b3e91c1..ae2d02753d1a 100644
+index ff2d43615808..36949b3e91c1 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_app.h
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_app.h
-@@ -52,10 +52,12 @@ struct nfp_net;
- enum nfp_app_id {
- 	NFP_APP_CORE_NIC	= 0x1,
- 	NFP_APP_BPF_NIC		= 0x2,
-+	NFP_APP_FLOWER_NIC	= 0x3,
- };
+@@ -268,7 +268,8 @@ nfp_app_reprs_set(struct nfp_app *app, enum nfp_repr_type type,
+ 		  struct nfp_reprs *reprs);
  
- extern const struct nfp_app_type app_nic;
- extern const struct nfp_app_type app_bpf;
-+extern const struct nfp_app_type app_flower;
+ const char *nfp_app_mip_name(struct nfp_app *app);
+-struct sk_buff *nfp_app_ctrl_msg_alloc(struct nfp_app *app, unsigned int size);
++struct sk_buff *
++nfp_app_ctrl_msg_alloc(struct nfp_app *app, unsigned int size, gfp_t priority);
  
- /**
-  * struct nfp_app_type - application definition
-@@ -119,6 +121,7 @@ struct nfp_app_type {
-  * @ctrl:	pointer to ctrl vNIC struct
-  * @reprs:	array of pointers to representors
-  * @type:	pointer to const application ops and info
-+ * @priv:	app-specific priv data
-  */
- struct nfp_app {
- 	struct pci_dev *pdev;
-@@ -129,6 +132,7 @@ struct nfp_app {
- 	struct nfp_reprs __rcu *reprs[NFP_REPR_TYPE_MAX + 1];
- 
- 	const struct nfp_app_type *type;
-+	void *priv;
- };
- 
- bool nfp_ctrl_tx(struct nfp_net *nn, struct sk_buff *skb);
+ struct nfp_app *nfp_app_alloc(struct nfp_pf *pf, enum nfp_app_id id);
+ void nfp_app_free(struct nfp_app *app);
 -- 
 2.1.4
