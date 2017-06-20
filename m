@@ -1,31 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] liquidio: stop using huge static buffer, save 4096k in
- .data
-Date: Tue, 20 Jun 2017 15:21:42 -0400 (EDT)
-Message-ID: <20170620.152142.1443468587541525646.davem@davemloft.net>
-References: <20170619195052.13176-1-dvlasenk@redhat.com>
+Subject: Re: [PATCH net-next v2 0/4] ipmr/ip6mr: add Netlink notifications
+ on cache reports
+Date: Tue, 20 Jun 2017 15:22:44 -0400 (EDT)
+Message-ID: <20170620.152244.1055779320531168153.davem@davemloft.net>
+References: <20170619204417.13230-1-julien@arista.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, felix.manlunas@cavium.com,
-        prasad.kanneganti@cavium.com, derek.chickles@cavium.com,
-        linux-kernel@vger.kernel.org
-To: dvlasenk@redhat.com
+Cc: nikolay@cumulusnetworks.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, sharpd@cumulusnetworks.com,
+        nicolas.dichtel@6wind.com
+To: julien@arista.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170619195052.13176-1-dvlasenk@redhat.com>
+In-Reply-To: <20170619204417.13230-1-julien@arista.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Denys Vlasenko <dvlasenk@redhat.com>
-Date: Mon, 19 Jun 2017 21:50:52 +0200
+From: Julien Gomes <julien@arista.com>
+Date: Mon, 19 Jun 2017 13:44:13 -0700
 
-> Only compile-tested - I don't have the hardware.
+> Currently, all ipmr/ip6mr cache reports are sent through the
+> mroute/mroute6 socket only.
+> This forces the use of a single socket for mroute programming, cache
+> reports and, regarding ipmr, IGMP messages without Router Alert option
+> reception.
 > 
-> From code inspection, octeon_pci_write_core_mem() appears to be safe wrt
-> unaligned source. In any case, u8 fbuf[] was not guaranteed to be aligned
-> anyway.
+> The present patches are aiming to send Netlink notifications in addition
+> to the existing igmpmsg/mrt6msg to give user programs a way to handle
+> cache reports in parallel with multiple sockets other than the
+> mroute/mroute6 socket.
 > 
-> Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
+> Changes in v2:
+> - Changed attributes naming from {IPMRA,IP6MRA}_CACHEREPORTA_* to
+>   {IPMRA,IP6MRA}_CREPORT_*
+> - Improved packet data copy to handle non-linear packets in
+>   ipmr/ip6mr cache report Netlink notification creation
+> - Added two rtnetlink groups with restricted-binding
+> - Changed cache report notified groups from RTNL_{IPV4,IPV6}_MROUTE to
+>   the new restricted groups in ipmr/ip6mr
 
-Looks good to me but I'll let one of the liquidio guys review this first
-before I apply it.
+Please address Nikolay's feedback about interface number limits etc.
+
+Thanks.
