@@ -1,85 +1,43 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: Re: [RFC PATCH net-next v2 10/15] bpf: Add support for changing
- congestion control
-Date: Tue, 20 Jun 2017 00:35:16 +0000
-Message-ID: <11D23E4A-3068-42A7-9B35-5125C9B1087D@fb.com>
-References: <20170615200844.2752485-1-brakmo@fb.com>
- <20170615200844.2752485-11-brakmo@fb.com> <5943E41F.2050006@iogearbox.net>
- <59B6F12A-9740-4177-BCB3-72CD65EB1225@fb.com>
- <5948515E.1090607@iogearbox.net>
+From: Shubham Bansal <illusionist.neo@gmail.com>
+Subject: Re: [PATCH v2] arm: eBPF JIT compiler
+Date: Tue, 20 Jun 2017 07:04:54 +0530
+Message-ID: <CAHgaXdLtX6yLdU3bMvS=g8FZ79sM_BW_+hHTMH=Mfk4TZqUnpw@mail.gmail.com>
+References: <1495754003-21099-1-git-send-email-illusionist.neo@gmail.com>
+ <CAGXu5jKmLNMR+uhM9Ov2XPW6kCjip_SjScgEH0fTFp6fQtKFiA@mail.gmail.com>
+ <593E6B0F.8070901@iogearbox.net> <CAHgaXd+DW2bggto=2S9hOdMrtPTvhD2QN4rPf2V8iHewQpg-YA@mail.gmail.com>
+ <CAHgaXdJrvKdzr3fJ1TMkC4foeVsZJDSVEwhDOeZGxQVsmoK2cQ@mail.gmail.com>
+ <59419D1E.2060303@iogearbox.net> <CAHgaXdKMbFPgy-kKF0iDSAYo4CqLn9FRu9HwM+OfM-JWb9fNRQ@mail.gmail.com>
+ <594813AA.5010001@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Kernel Team <Kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
-        "Alexei Starovoitov" <ast@fb.com>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:49481 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752598AbdFTAfe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 20:35:34 -0400
-In-Reply-To: <5948515E.1090607@iogearbox.net>
-Content-Language: en-US
-Content-ID: <BE3F9994396BCA46B3A91B95553D50C2@namprd15.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Kees Cook <keescook@chromium.org>,
+        Network Development <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Russell King <linux@armlinux.org.uk>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        LKML <linux-kernel@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <594813AA.5010001@iogearbox.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQpPbiA2LzE5LzE3LCAzOjM0IFBNLCAiRGFuaWVsIEJvcmttYW5uIiA8ZGFuaWVsQGlvZ2VhcmJv
-eC5uZXQ+IHdyb3RlOg0KDQogICAgT24gMDYvMTgvMjAxNyAwNDozOSBBTSwgTGF3cmVuY2UgQnJh
-a21vIHdyb3RlOg0KICAgID4gT24gNi8xNi8xNywgNjo1OCBBTSwgIkRhbmllbCBCb3JrbWFubiIg
-PGRhbmllbEBpb2dlYXJib3gubmV0PiB3cm90ZToNCiAgICBbLi4uXQ0KICAgID4gICAgICA+ICAg
-LyogQ2hhbmdlIGNvbmdlc3Rpb24gY29udHJvbCBmb3Igc29ja2V0ICovDQogICAgPiAgICAgID4g
-LWludCB0Y3Bfc2V0X2Nvbmdlc3Rpb25fY29udHJvbChzdHJ1Y3Qgc29jayAqc2ssIGNvbnN0IGNo
-YXIgKm5hbWUpDQogICAgPiAgICAgID4gK2ludCB0Y3Bfc2V0X2Nvbmdlc3Rpb25fY29udHJvbChz
-dHJ1Y3Qgc29jayAqc2ssIGNvbnN0IGNoYXIgKm5hbWUsIGJvb2wgbG9hZCkNCiAgICA+ICAgICAg
-PiAgIHsNCiAgICA+ICAgICAgPiAgIAlzdHJ1Y3QgaW5ldF9jb25uZWN0aW9uX3NvY2sgKmljc2sg
-PSBpbmV0X2Nzayhzayk7DQogICAgPiAgICAgID4gICAJY29uc3Qgc3RydWN0IHRjcF9jb25nZXN0
-aW9uX29wcyAqY2E7DQogICAgPiAgICAgID4gQEAgLTM0NCw3ICszNDQsMTAgQEAgaW50IHRjcF9z
-ZXRfY29uZ2VzdGlvbl9jb250cm9sKHN0cnVjdCBzb2NrICpzaywgY29uc3QgY2hhciAqbmFtZSkN
-CiAgICA+ICAgICAgPiAgIAkJcmV0dXJuIC1FUEVSTTsNCiAgICA+ICAgICAgPg0KICAgID4gICAg
-ICA+ICAgCXJjdV9yZWFkX2xvY2soKTsNCiAgICA+ICAgICAgPiAtCWNhID0gX190Y3BfY2FfZmlu
-ZF9hdXRvbG9hZChuYW1lKTsNCiAgICA+ICAgICAgPiArCWlmICghbG9hZCkNCiAgICA+ICAgICAg
-PiArCQljYSA9IHRjcF9jYV9maW5kKG5hbWUpOw0KICAgID4gICAgICA+ICsJZWxzZQ0KICAgID4g
-ICAgICA+ICsJCWNhID0gX190Y3BfY2FfZmluZF9hdXRvbG9hZChuYW1lKTsNCiAgICA+DQogICAg
-PiAgICAgICBGcm9tIEJQRiBwcm9ncmFtIHNpZGUsIHdlIGNhbGwgd2l0aCAhbG9hZCBzaW5jZSB3
-ZSdyZSBub3QgYWxsb3dlZA0KICAgID4gICAgICB0byBzbGVlcCB1bmRlciBSQ1UsIHRoYXQncyBj
-b3JyZWN0IC4uLg0KICAgID4NCiAgICA+ICAgICAgPiAgIAkvKiBObyBjaGFuZ2UgYXNraW5nIGZv
-ciBleGlzdGluZyB2YWx1ZSAqLw0KICAgID4gICAgICA+ICAgCWlmIChjYSA9PSBpY3NrLT5pY3Nr
-X2NhX29wcykgew0KICAgID4gICAgICA+ICAgCQlpY3NrLT5pY3NrX2NhX3NldHNvY2tvcHQgPSAx
-Ow0KICAgID4gICAgICA+IEBAIC0zNTIsOCArMzU1LDEwIEBAIGludCB0Y3Bfc2V0X2Nvbmdlc3Rp
-b25fY29udHJvbChzdHJ1Y3Qgc29jayAqc2ssIGNvbnN0IGNoYXIgKm5hbWUpDQogICAgPiAgICAg
-ID4gICAJfQ0KICAgID4gICAgICA+ICAgCWlmICghY2EpDQogICAgPiAgICAgID4gICAJCWVyciA9
-IC1FTk9FTlQ7DQogICAgPiAgICAgID4gKwllbHNlIGlmICghbG9hZCkNCiAgICA+ICAgICAgPiAr
-CQlpY3NrLT5pY3NrX2NhX29wcyA9IGNhOw0KICAgID4NCiAgICA+ICAgICAgLi4uIGJ1dCBkb24n
-dCB3ZSBhbHNvIG5lZWQgdG8gaG9sZCBhIG1vZHVsZSByZWYgaW4gdGhpcyBjYXNlIGFzIGRvbmUN
-CiAgICA+ICAgICAgYmVsb3c/DQogICAgPg0KICAgID4gICAgICBNZWFuaW5nLCB0Y3BfY2FfZmlu
-ZCgpIGNvdWxkIHJldHVybiBhIGNhIHRoYXQgd2FzIHByZXZpb3VzbHkgbG9hZGVkDQogICAgPiAg
-ICAgIHRvIHRoZSB0Y3BfY29uZ19saXN0IGFzIG1vZHVsZSwgdGhlbiByZXN1bHRpbmcgaW4gcmVm
-IGNvdW50IGltYmFsYW5jZQ0KICAgID4gICAgICB3aGVuIHNldCBmcm9tIEJQRj8NCiAgICA+DQog
-ICAgPiBBcyBJIG1lbnRpb25lZCBhYm92ZSwgdGhpcyBjYW4gYmUgY2FsbGVkIGJlZm9yZSBjb25n
-ZXN0aW9uIGhhcyBiZWVuDQogICAgPiBpbml0aWFsaXplZCAob3AgPD0gQlBGX1NPQ0tFVF9PUFNf
-TkVFRFNfRUNOKSBpbiB3aGljaCBjYXNlDQogICAgPiB0Y3BfaW5pdF9jb25nZXN0aW9uX2NvbnRy
-b2wgd2lsbCBiZSBjYWxsZWQgbGF0ZXIuIElmIG9wID4gLi5PUFNfTkVFRFNfRUNODQogICAgPiB0
-aGVuIGJwZl9zZXRzb2Nrb3B0KCkgd2lsbCBjYWxsIHRoZSByZWluaXRfY29uZ2VzdGlvbl9jb250
-cm9sKCkuDQogICAgPg0KICAgID4gQnV0IHRoaXMgcG9pbnRzIHRvIGFuIGlzc3VlIHdoZXJlIHNv
-bWVvbmUgZWxzZSBjb3VsZCBjYWxsDQogICAgPiB0Y3Bfc2V0X2Nvbmdlc3Rpb25fY29udHJvbCgp
-IHdpdGggbG9hZCA9PSBmYWxzZSBub3Qga25vd2luZyB0aGV5DQogICAgPiBuZWVkIHRvIGNhbGwg
-ZWl0aGVyIGluaXQgb3IgcmVpbml0LiBJIHdpbGwgYWRkIGEgY29tbWVudCB0byB0aGUgZnVuY3Rp
-b24NCiAgICA+IHRvIG1ha2UgaXQgY2xlYXIuDQogICAgDQogICAgSG0sIEknbSBub3Qgc3VyZSBp
-dCBhbnN3ZXJzIG15IHF1ZXN0aW9uLiBXaGF0IEkgbWVhbnQgd2FzIHRoYXQgZnJvbSBCUEYNCiAg
-ICBwcm9nLCB5b3UncmUgc2V0dGluZyB0Y3Bfc2V0X2Nvbmdlc3Rpb25fY29udHJvbCguLi4sIGZh
-bHNlKSBzbyBpZg0KICAgIHRjcF9jYV9maW5kKCkgcmV0dXJucyBhIGNhIHRoYXQgd2FzIGxvYWRl
-ZCBlYXJsaWVyIGFzIGEgZnJvbSBhIG1vZHVsZQ0KICAgIChzbyBpdCBiZWNvbWVzIGF2YWlsYWJs
-ZSBpbiB0Y3BfY29uZ19saXN0KSwgdGhlIGFib3ZlLi4uDQogICAgDQogICAgICAgWy4uLl0NCiAg
-ICAgICBlbHNlIGlmICghbG9hZCkNCiAgICAgICAgICAgaWNzay0+aWNza19jYV9vcHMgPSBjYTsN
-CiAgICAgICBbLi4uXQ0KICAgIA0KICAgIC4uLiB3aWxsIGJhc2ljYWxseSBwcmV2ZW50IHRoZSBs
-YXRlciB0cnlfbW9kdWxlX2dldCgpIG9uIHRoZSBjYS4gU28gYW55DQogICAgbGF0ZXIgdGNwX3Jl
-aW5pdF9jb25nZXN0aW9uX2NvbnRyb2woKSBvciB0Y3BfaW5pdF9jb25nZXN0aW9uX2NvbnRyb2wo
-KQ0KICAgIHdpbGwgc3RpbGwgcnVuIG5vdCBoYXZpbmcgdGhlIHJlZmNvdW50IGhlbGQgb24gdGhl
-IG93bmVyIG1vZHVsZS4gTWVhbmluZw0KICAgIGEgbW9kdWxlIHVubG9hZCB3b3VsZCBsZXQgdGhl
-IG1hY2hpbmUgY3Jhc2ggZHVlIHRvIHRoZSByZWZjbnQgaW1iYWxhbmNlPw0KICAgIFdoYXQgYW0g
-SSBtaXNzaW5nPw0KDQpOb3RoaW5nLCB5b3UgYXJlIGNvcnJlY3QuIEkgd2FzIG1pc3Rha2VubHkg
-dGhpbmtpbmcgdGhhdCB0aGUgcmVmY291bnQgdXBkYXRlDQp3YXMgYmVpbmcgZG9uZSBpbiB0Y3Bf
-aW5pdF9jb25nZXN0aW9uX2NvbnRyb2wuIERvbmUuICAgICANCg0K
+Hi Daniel,
+
+>
+> Sorry, had a travel over the weekend, so didn't read it in time.
+>
+> What is the issue with imitating in JIT what the interpreter is
+> doing as a starting point? That should be generic enough to handle
+> any case.
+>
+> Otherwise you'd need some sort of reverse mapping since verifier
+> already converted BPF_CALL insns into relative helper addresses
+> in imm part.
+>
+Sorry but I don't get what you are trying to say. Can you explain it
+with an example?
+
+-Shubham
