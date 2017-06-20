@@ -1,76 +1,100 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] dccp: call inet_add_protocol after register_pernet_subsys in dccp_v6_init
-Date: Tue, 20 Jun 2017 15:44:44 +0800
-Message-ID: <50ab32d7b798e943090fc86b3c96181507907704.1497944684.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, hannes@stressinduktion.org
-To: network dev <netdev@vger.kernel.org>
+From: Tariq Toukan <ttoukan.linux@gmail.com>
+Subject: Re: [PATCH net-next] net/mlx4_en: don't set CHECKSUM_COMPLETE on SCTP
+ packets
+Date: Tue, 20 Jun 2017 10:52:02 +0300
+Message-ID: <0132c295-3134-94f1-1aea-8574cdb7d344@gmail.com>
+References: <eed45546c689875c5e57a7716fc1f06089f6b7d3.1497621301.git.dcaratti@redhat.com>
+ <bc64924a-a9cd-737e-b63d-27011445d230@mellanox.com>
+ <1497891850.2600.9.camel@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem@davemloft.net>
+To: Davide Caratti <dcaratti@redhat.com>,
+        Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:33442 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750990AbdFTHox (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 03:44:53 -0400
-Received: by mail-pg0-f68.google.com with SMTP id u62so14231947pgb.0
-        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 00:44:53 -0700 (PDT)
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:35844 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750863AbdFTHwF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 03:52:05 -0400
+Received: by mail-wr0-f196.google.com with SMTP id 77so16306061wrb.3
+        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 00:52:05 -0700 (PDT)
+In-Reply-To: <1497891850.2600.9.camel@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patch "call inet_add_protocol after register_pernet_subsys in dccp_v4_init"
-fixed a null pointer dereference issue for dccp_ipv4 module.
 
-The same fix is needed for dccp_ipv6 module.
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/dccp/ipv6.c | 20 ++++++++++----------
- 1 file changed, 10 insertions(+), 10 deletions(-)
+On 19/06/2017 8:04 PM, Davide Caratti wrote:
+> hello Tariq,
+> On Sun, 2017-06-18 at 14:10 +0300, Tariq Toukan wrote:
+>>> @@ -624,12 +632,13 @@ static int check_csum(struct mlx4_cqe *cqe, struct sk_buff *skb, void *va,
+>>>                 hdr += sizeof(struct vlan_hdr);
+>>>         }
+>>>     
+>>> -     if (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPV4))
+>>> -             get_fixed_ipv4_csum(hw_checksum, skb, hdr);
+>>> +     if ((cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPV4)) &&
+>>> +         (unlikely(get_fixed_ipv4_csum(hw_checksum, skb, hdr))))
+>>
+>> No! The lazy evaluation trick is wrong here.
+>> This way you'll end up going almost always to the else (ipv6) for the
+>> wrong reason.
+> 
+> you are right! thanks for spotting this.
+> 
+>>> +             return -1;
+>>>     #if IS_ENABLED(CONFIG_IPV6)
+>>> -     else if (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPV6))
+>>> -             if (unlikely(get_fixed_ipv6_csum(hw_checksum, skb, hdr)))
+>>> -                     return -1;
+>>> +     else if ((cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPV6)) &&
+>>> +              (unlikely(get_fixed_ipv6_csum(hw_checksum, skb, hdr))))
+>>> +             return -1;
+>>
+>> Let's not change this, might cause future bugs, similarly to the one above.
+>>>     #endif
+>>>         return 0;
+>>>     }
+> 
+> maybe we can avoid adding braces, remove that 'else' keyword and the nested 'if',
+> thus saving one line, given that check_csum() returns the same set of values as
+> get_fixed_ipv{4,6}_checksum(), with the same meaning (-1 => go with CHECKSUM_NONE,
+> 0 => go with CHECKSUM_COMPLETE).
+> 
+Yeah this sounds good.
 
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index 9926211..4fccc0c 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -1098,33 +1098,33 @@ static int __init dccp_v6_init(void)
- {
- 	int err = proto_register(&dccp_v6_prot, 1);
- 
--	if (err != 0)
-+	if (err)
- 		goto out;
- 
--	err = inet6_add_protocol(&dccp_v6_protocol, IPPROTO_DCCP);
--	if (err != 0)
--		goto out_unregister_proto;
--
- 	inet6_register_protosw(&dccp_v6_protosw);
- 
- 	err = register_pernet_subsys(&dccp_v6_ops);
--	if (err != 0)
-+	if (err)
- 		goto out_destroy_ctl_sock;
-+
-+	err = inet6_add_protocol(&dccp_v6_protocol, IPPROTO_DCCP);
-+	if (err)
-+		goto out_unregister_proto;
-+
- out:
- 	return err;
--
-+out_unregister_proto:
-+	unregister_pernet_subsys(&dccp_v6_ops);
- out_destroy_ctl_sock:
--	inet6_del_protocol(&dccp_v6_protocol, IPPROTO_DCCP);
- 	inet6_unregister_protosw(&dccp_v6_protosw);
--out_unregister_proto:
- 	proto_unregister(&dccp_v6_prot);
- 	goto out;
- }
- 
- static void __exit dccp_v6_exit(void)
- {
--	unregister_pernet_subsys(&dccp_v6_ops);
- 	inet6_del_protocol(&dccp_v6_protocol, IPPROTO_DCCP);
-+	unregister_pernet_subsys(&dccp_v6_ops);
- 	inet6_unregister_protosw(&dccp_v6_protosw);
- 	proto_unregister(&dccp_v6_prot);
- }
--- 
-2.1.0
+> ---- >8 ----
+> @@ -625,11 +633,10 @@ static int check_csum(struct mlx4_cqe *cqe, struct sk_buff *skb, void *va,
+>   	}
+>   
+>   	if (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPV4))
+> -		get_fixed_ipv4_csum(hw_checksum, skb, hdr);
+> +		return get_fixed_ipv4_csum(hw_checksum, skb, hdr);
+>   #if IS_ENABLED(CONFIG_IPV6)
+> -	else if (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPV6))
+> -		if (unlikely(get_fixed_ipv6_csum(hw_checksum, skb, hdr)))
+> -			return -1;
+> +	if (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPV6))
+> +		return get_fixed_ipv6_csum(hw_checksum, skb, hdr);
+>   #endif
+>   	return 0;
+>   }
+> ---- 8< ----
+
+Looks good to me.
+
+> 
+> I will test and repost a v2 with this modification, unless you have any
+> objections. Thank you in advance!
+> regards
+> --
+> davide
+> 
+> 
+> 
+Thank you Davide.
+
+Regards,
+Tariq
