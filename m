@@ -1,43 +1,65 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: Re: [PATCH 03/11] au1100fb: remove a bogus
-	dma_free_nonconsistent	call
-Date: Tue, 20 Jun 2017 11:10:45 +0200
-Message-ID: <20170620091045.GA10272@lst.de>
-References: <20170616071716.17321-1-hch@lst.de>
- <20170616071716.17321-4-hch@lst.de>
- <CGME20170619111507epcas5p47fd18b90a02d827da256ff4ebbda8089@epcas5p4.samsung.com>
- <8727942.IUH8e0tH8t@amdc3058>
+From: Daniel Vetter <daniel@ffwll.ch>
+Subject: Re: clean up and modularize arch dma_mapping interface
+Date: Tue, 20 Jun 2017 11:19:02 +0200
+Message-ID: <20170620091902.2dldmf43vhazq6yh@phenom.ffwll.local>
+References: <20170608132609.32662-1-hch@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-fbdev@vger.kernel.org, linux-scsi@vger.kernel.org,
- netdev@vger.kernel.org, alsa-devel@alsa-project.org,
- Christoph Hellwig <hch@lst.de>, linux-serial@vger.kernel.org,
- nios2-dev@lists.rocketboards.org, linux-metag@vger.kernel.org,
- linux-kernel@vger.kernel.org
-To: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
-Return-path: <alsa-devel-bounces@alsa-project.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linux-mips@linux-mips.org, linux-samsung-soc@vger.kernel.org,
+ linux-ia64@vger.kernel.org, linux-c6x-dev@linux-c6x.org,
+ linux-s390@vger.kernel.org, linux-sh@vger.kernel.org,
+ linux-hexagon@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org,
+ linux-tegra@vger.kernel.org, linux-kernel@vger.kernel.org,
+ dri-devel@lists.freedesktop.org, dmaengine@vger.kernel.org,
+ iommu@lists.linux-foundation.org, openrisc@lists.librecores.org,
+ netdev@vger.kernel.org, sparclinux@vger.kernel.org,
+ xen-devel@lists.xenproject.org, linuxppc-dev@lists.ozlabs.org,
+ linux-arm-kernel@lists.infradead.org
+To: Christoph Hellwig <hch@lst.de>
+Return-path: <dri-devel-bounces@lists.freedesktop.org>
 Content-Disposition: inline
-In-Reply-To: <8727942.IUH8e0tH8t@amdc3058>
-List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
-List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
-List-Post: <mailto:alsa-devel@alsa-project.org>
-List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
-List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
-Errors-To: alsa-devel-bounces@alsa-project.org
-Sender: alsa-devel-bounces@alsa-project.org
+In-Reply-To: <20170608132609.32662-1-hch@lst.de>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
+List-Post: <mailto:dri-devel@lists.freedesktop.org>
+List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: dri-devel-bounces@lists.freedesktop.org
+Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 19, 2017 at 01:15:04PM +0200, Bartlomiej Zolnierkiewicz wrote:
-> On Friday, June 16, 2017 09:17:08 AM Christoph Hellwig wrote:
-> > au1100fb is using managed dma allocations, so it doesn't need to
-> > explicitly free the dma memory in the error path (and if it did
-> > it would have to use the managed version).
-> > 
-> > Signed-off-by: Christoph Hellwig <hch@lst.de>
-> 
-> Acked-by: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
-
-Are you fine with picking this up through the new dma-mapping tree?
+T24gVGh1LCBKdW4gMDgsIDIwMTcgYXQgMDM6MjU6MjVQTSArMDIwMCwgQ2hyaXN0b3BoIEhlbGx3
+aWcgd3JvdGU6Cj4gSGkgYWxsLAo+IAo+IGZvciBhIHdoaWxlIHdlIGhhdmUgYSBnZW5lcmljIGlt
+cGxlbWVudGF0aW9uIG9mIHRoZSBkbWEgbWFwcGluZyByb3V0aW5lcwo+IHRoYXQgY2FsbCBpbnRv
+IHBlci1hcmNoIG9yIHBlci1kZXZpY2Ugb3BlcmF0aW9ucy4gIEJ1dCByaWdodCBub3cgdGhlcmUK
+PiBzdGlsbCBhcmUgdmFyaW91cyBiaXRzIGluIHRoZSBpbnRlcmZhY2VzIHdoZXJlIGRvbid0IGNs
+ZWFybHkgb3BlcmF0ZQo+IG9uIHRoZXNlIG9wcy4gIFRoaXMgc2VyaWVzIHRyaWVzIHRvIGNsZWFu
+IHVwIGEgbG90IG9mIHRob3NlIChidXQgbm90IGFsbAo+IHlldCwgYnV0IHRoZSBzZXJpZXMgaXMg
+YmlnIGVub3VnaCkuICBJdCBnZXRzIHJpZCBvZiB0aGUgRE1BX0VSUk9SX0NPREUKPiB3YXkgb2Yg
+c2lnbmFsaW5nIGZhaWx1cmVzIG9mIHRoZSBtYXBwaW5nIHJvdXRpbmVzIGZyb20gdGhlCj4gaW1w
+bGVtZW50YXRpb25zIHRvIHRoZSBnZW5lcmljIGNvZGUgKGFuZCBjbGVhbnMgdXAgdmFyaW91cyBk
+cml2ZXJzIHRoYXQKPiB3ZXJlIGluY29ycmVjdGx5IHVzaW5nIGl0KSwgYW5kIGdldHMgcmlkIG9m
+IHRoZSAtPnNldF9kbWFfbWFzayByb3V0aW5lCj4gaW4gZmF2b3Igb2YgcmVseWluZyBvbiB0aGUg
+LT5kbWFfY2FwYWJsZSBtZXRob2QgdGhhdCBjYW4gYmUgdXNlZCBpbgo+IHRoZSBzYW1lIHdheSwg
+YnV0IHdoaWNoIHJlcXVpcmVzIGxlc3MgY29kZSBkdXBsaWNhdGlvbi4KPiAKPiBCdHcsIHdlIGRv
+bid0IHNlZW0gdG8gaGF2ZSBhIHRyZWUgZXZlcnktZ3Jvd2luZyBhbW91bnQgb2YgY29tbW9uIGRt
+YQo+IG1hcHBpbmcgY29kZSwgYW5kIGdpdmVuIHRoYXQgSSBoYXZlIGEgZmFpciBhbW91bnQgb2Yg
+YWxsIG92ZXIgdGhlIHRyZWUKPiB3b3JrIGluIHRoYXQgYXJlYSBpbiBteSBwbGF0ZSBJJ2QgbGlr
+ZSB0byBzdGFydCBvbmUuICBBbnkgZ29vZCByZWFzb24KPiB0byB0aGF0PyAgQW55b25lIHdpbGxp
+bmcgdG8gdm9sdW50ZWVyIGFzIGNvIG1haW50YWluZXI/Cj4gCj4gVGhlIHdob2xlIHNlcmllcyBp
+cyBhbHNvIGF2YWlsYWJsZSBpbiBnaXQ6Cj4gCj4gICAgIGdpdDovL2dpdC5pbmZyYWRlYWQub3Jn
+L3VzZXJzL2hjaC9taXNjLmdpdCBkbWEtbWFwCgpBY2sgZm9yIHRoZSAyIGRybSBwYXRjaGVzLCBi
+dXQgSSBjYW4gYWxzbyBwaWNrIHRoZW0gdXAgdGhyb3VnaCBkcm0tbWlzYyBpZgp5b3UgcHJlZmVy
+IHRoYXQgKGJ1dCB0aGVuIGl0J2xsIGJlIDQuMTQpLgotRGFuaWVsCgo+IAo+IEdpdHdlYjoKPiAK
+PiAgICAgaHR0cDovL2dpdC5pbmZyYWRlYWQub3JnL3VzZXJzL2hjaC9taXNjLmdpdC9zaG9ydGxv
+Zy9yZWZzL2hlYWRzL2RtYS1tYXAKPiBfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fXwo+IGRyaS1kZXZlbCBtYWlsaW5nIGxpc3QKPiBkcmktZGV2ZWxAbGlzdHMu
+ZnJlZWRlc2t0b3Aub3JnCj4gaHR0cHM6Ly9saXN0cy5mcmVlZGVza3RvcC5vcmcvbWFpbG1hbi9s
+aXN0aW5mby9kcmktZGV2ZWwKCi0tIApEYW5pZWwgVmV0dGVyClNvZnR3YXJlIEVuZ2luZWVyLCBJ
+bnRlbCBDb3Jwb3JhdGlvbgpodHRwOi8vYmxvZy5mZndsbC5jaApfX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkcmktZGV2ZWwgbWFpbGluZyBsaXN0CmRyaS1k
+ZXZlbEBsaXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0cHM6Ly9saXN0cy5mcmVlZGVza3RvcC5vcmcv
+bWFpbG1hbi9saXN0aW5mby9kcmktZGV2ZWwK
