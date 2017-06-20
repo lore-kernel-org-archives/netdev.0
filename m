@@ -1,80 +1,47 @@
-From: Scott Branden <scott.branden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v1 1/2] dt-binding: ptp: add bindings document for dte
- based ptp clock
-Date: Tue, 20 Jun 2017 13:48:18 -0700
-Message-ID: <74b85a32-63c5-b7c5-47a2-831504be318e@broadcom.com>
-References: <1497299161-6458-1-git-send-email-arun.parameswaran@broadcom.com>
- <1497299161-6458-2-git-send-email-arun.parameswaran@broadcom.com>
- <20170618140449.aek7vag22i5lnbhl@rob-hp-laptop>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: Re: [PATCH] liquidio: stop using huge static buffer, save 4096k in
+ .data
+Date: Tue, 20 Jun 2017 13:51:25 -0700
+Message-ID: <20170620205125.GA1364@felix-thinkpad.cavium.com>
+References: <20170619195052.13176-1-dvlasenk@redhat.com>
+ <20170620.152142.1443468587541525646.davem@davemloft.net>
+ <MWHPR07MB29434F09FBC054D2E0310D6FF3C50@MWHPR07MB2943.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
-To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Arun Parameswaran <arun.parameswaran-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170618140449.aek7vag22i5lnbhl@rob-hp-laptop>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        "dvlasenk@redhat.com" <dvlasenk@redhat.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Kanneganti, Prasad" <Prasad.Kanneganti@cavium.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Derek Chickles <Derek.Chickles@cavium.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <MWHPR07MB29434F09FBC054D2E0310D6FF3C50@MWHPR07MB2943.namprd07.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Rob,
+From: Derek Chickles <Derek.Chickles@cavium.com>
+Date: Tue, 20 Jun 2017 13:15:34 -0700
 
+> > From: David Miller [mailto:davem@davemloft.net]
+> > Sent: Tuesday, June 20, 2017 12:22 PM
+> > 
+> > From: Denys Vlasenko <dvlasenk@redhat.com>
+> > Date: Mon, 19 Jun 2017 21:50:52 +0200
+> > 
+> > > Only compile-tested - I don't have the hardware.
+> > >
+> > > From code inspection, octeon_pci_write_core_mem() appears to be safe wrt
+> > > unaligned source. In any case, u8 fbuf[] was not guaranteed to be aligned
+> > > anyway.
+> > >
+> > > Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
+> > 
+> > Looks good to me but I'll let one of the liquidio guys review this first
+> > before I apply it.
+> 
+> Felix is going to try this out this week to confirm. Let's wait for his ack.
 
-On 17-06-18 07:04 AM, Rob Herring wrote:
-> On Mon, Jun 12, 2017 at 01:26:00PM -0700, Arun Parameswaran wrote:
->> Add device tree binding documentation for the Broadcom DTE
->> PTP clock driver.
->>
->> Signed-off-by: Arun Parameswaran <arun.parameswaran-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
->> ---
->>   Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt | 13 +++++++++++++
->>   1 file changed, 13 insertions(+)
->>   create mode 100644 Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
->>
->> diff --git a/Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt b/Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
->> new file mode 100644
->> index 0000000..07590bc
->> --- /dev/null
->> +++ b/Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
->> @@ -0,0 +1,13 @@
->> +* Broadcom Digital Timing Engine(DTE) based PTP clock driver
-> Bindings describe h/w, not drivers.
->
->> +
->> +Required properties:
->> +- compatible: should be "brcm,ptp-dte"
-> Looks too generic. You need SoC specific compatible strings.
+This patch works.  I tested it with a LiquidIO II adapter.
 
-Rob, could you please help me understand the use of adding SoC specific 
-compatible strings.
-I still don't get it.
-
-It's my understanding that the SoC compatibility string is to future 
-proof against bugs/incompatibilities
-between different versions of the hardware block due to integration 
-issues or any other reason.
-You can then compare in your driver because the strings were already 
-used in the dtb.
-
-That would make sense if you can't already differentiate what SoC you 
-are running on.
-But the SoC is already specified in the root of the device tree in the 
-compatible string?
-Why can't you just use of_machine_is_compatible inside your driver when 
-needed?
-
-Please explain what I'm missing.  I see other drivers already following 
-the of_machine_is_compatible
-approach and it makes more sense to me than adding SoC specific 
-compatible strings into every
-driver.
-
-Regards,
-  Scott
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ACK
