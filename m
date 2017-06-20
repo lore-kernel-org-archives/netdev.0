@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rtnetlink: add IFLA_GROUP to ifla_policy
-Date: Tue, 20 Jun 2017 15:36:39 -0400 (EDT)
-Message-ID: <20170620.153639.1035357696332838525.davem@davemloft.net>
-References: <20170619.144843.29898198404383350.davem@davemloft.net>
-        <1497958523-9015-1-git-send-email-serhe.popovych@gmail.com>
+Subject: Re: [PATCH net] sfc: remove duplicate up_write on VF filter_sem
+Date: Tue, 20 Jun 2017 15:40:21 -0400 (EDT)
+Message-ID: <20170620.154021.1071172261400917698.davem@davemloft.net>
+References: <b718af2e-5737-3d98-0f45-cfbb25d43349@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: serhe.popovych@gmail.com
+Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
+To: ecree@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42556 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:42596 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751025AbdFTTgk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 15:36:40 -0400
-In-Reply-To: <1497958523-9015-1-git-send-email-serhe.popovych@gmail.com>
+        with ESMTP id S1751082AbdFTTkW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 15:40:22 -0400
+In-Reply-To: <b718af2e-5737-3d98-0f45-cfbb25d43349@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Serhey Popovych <serhe.popovych@gmail.com>
-Date: Tue, 20 Jun 2017 14:35:23 +0300
+From: Edward Cree <ecree@solarflare.com>
+Date: Tue, 20 Jun 2017 13:08:51 +0100
 
-> Network interface groups support added while ago, however
-> there is no IFLA_GROUP attribute description in policy
-> and netlink message size calculations until now.
+> Somehow two copies of the line 'up_write(&vf->efx->filter_sem);' got into
+>  efx_ef10_sriov_set_vf_vlan().  This would put the mutex in a bad state and
+>  cause all subsequent down attempts to hang.
 > 
-> Add IFLA_GROUP attribute to the policy.
-> 
-> Fixes: cbda10fa97d7 ("net_device: add support for network device groups")
-> Signed-off-by: Serhey Popovych <serhe.popovych@gmail.com>
-> ---
->  v2: Rebased to kernel/git/davem/net.git
+> Fixes: 671b53eec2ed ("sfc: Ensure down_write(&filter_sem) and up_write() are matched before calling efx_net_open()")
+> Signed-off-by: Edward Cree <ecree@solarflare.com>
 
 Applied and queued up for -stable.
