@@ -1,34 +1,43 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2 2/4] rtnetlink: add restricted rtnl groups for
- ipv4 and ipv6 mroute
-Date: Tue, 20 Jun 2017 11:56:03 +0300
-Message-ID: <ceaf9d29-3c75-90a6-83c9-1356ac8216a5@cumulusnetworks.com>
-References: <20170619204417.13230-1-julien@arista.com>
- <20170619204417.13230-3-julien@arista.com>
+From: Christoph Hellwig <hch@lst.de>
+Subject: Re: [PATCH 03/11] au1100fb: remove a bogus
+	dma_free_nonconsistent	call
+Date: Tue, 20 Jun 2017 11:10:45 +0200
+Message-ID: <20170620091045.GA10272@lst.de>
+References: <20170616071716.17321-1-hch@lst.de>
+ <20170616071716.17321-4-hch@lst.de>
+ <CGME20170619111507epcas5p47fd18b90a02d827da256ff4ebbda8089@epcas5p4.samsung.com>
+ <8727942.IUH8e0tH8t@amdc3058>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        sharpd@cumulusnetworks.com, nicolas.dichtel@6wind.com
-To: Julien Gomes <julien@arista.com>, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170619204417.13230-3-julien@arista.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-fbdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+ netdev@vger.kernel.org, alsa-devel@alsa-project.org,
+ Christoph Hellwig <hch@lst.de>, linux-serial@vger.kernel.org,
+ nios2-dev@lists.rocketboards.org, linux-metag@vger.kernel.org,
+ linux-kernel@vger.kernel.org
+To: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+Return-path: <alsa-devel-bounces@alsa-project.org>
+Content-Disposition: inline
+In-Reply-To: <8727942.IUH8e0tH8t@amdc3058>
+List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
+List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
+List-Post: <mailto:alsa-devel@alsa-project.org>
+List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
+List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
+Errors-To: alsa-devel-bounces@alsa-project.org
+Sender: alsa-devel-bounces@alsa-project.org
 List-Id: netdev.vger.kernel.org
 
-On 19/06/17 23:44, Julien Gomes wrote:
-> Add RTNLGRP_{IPV4,IPV6}_MROUTE_R as two new restricted groups for the
-> NETLINK_ROUTE family.
-> Binding to these groups specifically requires CAP_NET_ADMIN to allow
-> multicast of sensitive messages (e.g. mroute cache reports).
+On Mon, Jun 19, 2017 at 01:15:04PM +0200, Bartlomiej Zolnierkiewicz wrote:
+> On Friday, June 16, 2017 09:17:08 AM Christoph Hellwig wrote:
+> > au1100fb is using managed dma allocations, so it doesn't need to
+> > explicitly free the dma memory in the error path (and if it did
+> > it would have to use the managed version).
+> > 
+> > Signed-off-by: Christoph Hellwig <hch@lst.de>
 > 
-> Signed-off-by: Julien Gomes <julien@arista.com>
-> ---
->  include/uapi/linux/rtnetlink.h |  4 ++++
->  net/core/rtnetlink.c           | 13 +++++++++++++
->  2 files changed, 17 insertions(+)
+> Acked-by: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
 
-Thanks!
-
-Suggested-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Are you fine with picking this up through the new dma-mapping tree?
