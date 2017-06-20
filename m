@@ -1,360 +1,87 @@
-From: Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v4 net-next 7/7] qed: SPQ async callback registration
-Date: Tue, 20 Jun 2017 16:00:06 +0300
-Message-ID: <20170620130006.307-8-Yuval.Mintz@cavium.com>
-References: <20170620130006.307-1-Yuval.Mintz@cavium.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: new dma-mapping tree, was Re: clean up and modularize arch
+ dma_mapping interface V2
+Date: Tue, 20 Jun 2017 23:04:00 +1000
+Message-ID: <20170620230400.1a5ae889@canb.auug.org.au>
+References: <20170616181059.19206-1-hch@lst.de>
+        <20170620124140.GA27163@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170620130006.307-1-Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>, x86@kernel.org,
+        linux-arm-kernel@lists.infradead.org,
+        xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
+        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
+        linux-mips@linux-mips.org, openrisc@lists.librecores.org,
+        linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
+        linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
+        linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
+        linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
+        linux-samsung-soc@vger.kernel.org,
+        iommu@lists.linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Marek Szyprowski <m.szyprowski@samsung.com>,
+        Kyungmin Park <kyungmin.park@samsung.com>
+To: Christoph Hellwig <hch@lst.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([103.22.144.67]:47745 "EHLO ozlabs.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751046AbdFTNEG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 20 Jun 2017 09:04:06 -0400
+In-Reply-To: <20170620124140.GA27163@lst.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Hi Christoph,
 
-Whenever firmware indicates that there's an async indication it needs
-to handle, there's a switch-case where the right functionality is called
-based on function's personality and information.
+On Tue, 20 Jun 2017 14:41:40 +0200 Christoph Hellwig <hch@lst.de> wrote:
+>
+> On Fri, Jun 16, 2017 at 08:10:15PM +0200, Christoph Hellwig wrote:
+> > I plan to create a new dma-mapping tree to collect all this work.
+> > Any volunteers for co-maintainers, especially from the iommu gang?  
+> 
+> Ok, I've created the new tree:
+> 
+>    git://git.infradead.org/users/hch/dma-mapping.git for-next
+> 
+> Gitweb:
+> 
+>    http://git.infradead.org/users/hch/dma-mapping.git/shortlog/refs/heads/for-next
+> 
+> And below is the patch to add the MAINTAINERS entry, additions welcome.
+> 
+> Stephen, can you add this to linux-next?
 
-Before iWARP is added [as yet another client], switch over the SPQ into
-a callback-registered mechanism, allowing registration of the relevant
-event-processing logic based on the function's personality. This allows
-us to tidy the code by removing protocol-specifics from a common file.
+Added from tomorrow.
 
-Signed-off-by: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
----
- drivers/net/ethernet/qlogic/qed/qed_iscsi.c | 24 ++++++++++++-
- drivers/net/ethernet/qlogic/qed/qed_roce.c  | 16 ++++++---
- drivers/net/ethernet/qlogic/qed/qed_roce.h  |  6 ----
- drivers/net/ethernet/qlogic/qed/qed_sp.h    | 17 +++++++++
- drivers/net/ethernet/qlogic/qed/qed_spq.c   | 54 ++++++++++++++++-------------
- drivers/net/ethernet/qlogic/qed/qed_sriov.c | 16 +++++++--
- drivers/net/ethernet/qlogic/qed/qed_sriov.h | 18 ----------
- 7 files changed, 96 insertions(+), 55 deletions(-)
+I have another tree called dma-mapping:
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_iscsi.c b/drivers/net/ethernet/qlogic/qed/qed_iscsi.c
-index 5a1ed05..813c77c 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_iscsi.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_iscsi.c
-@@ -62,6 +62,22 @@
- #include "qed_sriov.h"
- #include "qed_reg_addr.h"
- 
-+static int
-+qed_iscsi_async_event(struct qed_hwfn *p_hwfn,
-+		      u8 fw_event_code,
-+		      u16 echo, union event_ring_data *data, u8 fw_return_code)
-+{
-+	if (p_hwfn->p_iscsi_info->event_cb) {
-+		struct qed_iscsi_info *p_iscsi = p_hwfn->p_iscsi_info;
-+
-+		return p_iscsi->event_cb(p_iscsi->event_context,
-+					 fw_event_code, data);
-+	} else {
-+		DP_NOTICE(p_hwfn, "iSCSI async completion is not set\n");
-+		return -EINVAL;
-+	}
-+}
-+
- struct qed_iscsi_conn {
- 	struct list_head list_entry;
- 	bool free_on_delete;
-@@ -265,6 +281,9 @@ qed_sp_iscsi_func_start(struct qed_hwfn *p_hwfn,
- 	p_hwfn->p_iscsi_info->event_context = event_context;
- 	p_hwfn->p_iscsi_info->event_cb = async_event_cb;
- 
-+	qed_spq_register_async_cb(p_hwfn, PROTOCOLID_ISCSI,
-+				  qed_iscsi_async_event);
-+
- 	return qed_spq_post(p_hwfn, p_ent, NULL);
- }
- 
-@@ -631,7 +650,10 @@ static int qed_sp_iscsi_func_stop(struct qed_hwfn *p_hwfn,
- 	p_ramrod = &p_ent->ramrod.iscsi_destroy;
- 	p_ramrod->hdr.op_code = ISCSI_RAMROD_CMD_ID_DESTROY_FUNC;
- 
--	return qed_spq_post(p_hwfn, p_ent, NULL);
-+	rc = qed_spq_post(p_hwfn, p_ent, NULL);
-+
-+	qed_spq_unregister_async_cb(p_hwfn, PROTOCOLID_ISCSI);
-+	return rc;
- }
- 
- static void __iomem *qed_iscsi_get_db_addr(struct qed_hwfn *p_hwfn, u32 cid)
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_roce.c b/drivers/net/ethernet/qlogic/qed/qed_roce.c
-index 7482905..673f80a 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_roce.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_roce.c
-@@ -68,12 +68,14 @@
- 
- static void qed_roce_free_real_icid(struct qed_hwfn *p_hwfn, u16 icid);
- 
--void qed_roce_async_event(struct qed_hwfn *p_hwfn,
--			  u8 fw_event_code, union rdma_eqe_data *rdma_data)
-+static int
-+qed_roce_async_event(struct qed_hwfn *p_hwfn,
-+		     u8 fw_event_code,
-+		     u16 echo, union event_ring_data *data, u8 fw_return_code)
- {
- 	if (fw_event_code == ROCE_ASYNC_EVENT_DESTROY_QP_DONE) {
- 		u16 icid =
--		    (u16)le32_to_cpu(rdma_data->rdma_destroy_qp_data.cid);
-+		    (u16)le32_to_cpu(data->rdma_data.rdma_destroy_qp_data.cid);
- 
- 		/* icid release in this async event can occur only if the icid
- 		 * was offloaded to the FW. In case it wasn't offloaded this is
-@@ -85,8 +87,10 @@ void qed_roce_async_event(struct qed_hwfn *p_hwfn,
- 
- 		events->affiliated_event(p_hwfn->p_rdma_info->events.context,
- 					 fw_event_code,
--					 &rdma_data->async_handle);
-+				     (void *)&data->rdma_data.async_handle);
- 	}
-+
-+	return 0;
- }
- 
- static int qed_rdma_bmap_alloc(struct qed_hwfn *p_hwfn,
-@@ -686,6 +690,9 @@ static int qed_rdma_setup(struct qed_hwfn *p_hwfn,
- 	if (rc)
- 		return rc;
- 
-+	qed_spq_register_async_cb(p_hwfn, PROTOCOLID_ROCE,
-+				  qed_roce_async_event);
-+
- 	return qed_rdma_start_fw(p_hwfn, params, p_ptt);
- }
- 
-@@ -706,6 +713,7 @@ void qed_roce_stop(struct qed_hwfn *p_hwfn)
- 			break;
- 		}
- 	}
-+	qed_spq_unregister_async_cb(p_hwfn, PROTOCOLID_ROCE);
- }
- 
- static int qed_rdma_stop(void *rdma_cxt)
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_roce.h b/drivers/net/ethernet/qlogic/qed/qed_roce.h
-index ddd7761..b178d99 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_roce.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_roce.h
-@@ -169,16 +169,10 @@ struct qed_rdma_qp {
- #if IS_ENABLED(CONFIG_QED_RDMA)
- void qed_rdma_dpm_bar(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt);
- void qed_roce_dpm_dcbx(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt);
--void qed_roce_async_event(struct qed_hwfn *p_hwfn,
--			  u8 fw_event_code, union rdma_eqe_data *rdma_data);
- #else
- static inline void qed_rdma_dpm_bar(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt) {}
- 
- static inline void qed_roce_dpm_dcbx(struct qed_hwfn *p_hwfn,
- 				     struct qed_ptt *p_ptt) {}
--
--static inline void qed_roce_async_event(struct qed_hwfn *p_hwfn,
--					u8 fw_event_code,
--					union rdma_eqe_data *rdma_data) {}
- #endif
- #endif
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sp.h b/drivers/net/ethernet/qlogic/qed/qed_sp.h
-index 00dd50f..56c95fb 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sp.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sp.h
-@@ -174,6 +174,22 @@ struct qed_consq {
- 	struct qed_chain chain;
- };
- 
-+typedef int
-+(*qed_spq_async_comp_cb)(struct qed_hwfn *p_hwfn,
-+			 u8 opcode,
-+			 u16 echo,
-+			 union event_ring_data *data,
-+			 u8 fw_return_code);
-+
-+int
-+qed_spq_register_async_cb(struct qed_hwfn *p_hwfn,
-+			  enum protocol_type protocol_id,
-+			  qed_spq_async_comp_cb cb);
-+
-+void
-+qed_spq_unregister_async_cb(struct qed_hwfn *p_hwfn,
-+			    enum protocol_type protocol_id);
-+
- struct qed_spq {
- 	spinlock_t		lock; /* SPQ lock */
- 
-@@ -203,6 +219,7 @@ struct qed_spq {
- 	u32			comp_count;
- 
- 	u32			cid;
-+	qed_spq_async_comp_cb async_comp_cb[MAX_PROTOCOL_TYPE];
- };
- 
- /**
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_spq.c b/drivers/net/ethernet/qlogic/qed/qed_spq.c
-index a971916..78954d2 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_spq.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_spq.c
-@@ -302,32 +302,16 @@ static int
- qed_async_event_completion(struct qed_hwfn *p_hwfn,
- 			   struct event_ring_entry *p_eqe)
- {
--	switch (p_eqe->protocol_id) {
--#if IS_ENABLED(CONFIG_QED_RDMA)
--	case PROTOCOLID_ROCE:
--		qed_roce_async_event(p_hwfn, p_eqe->opcode,
--				     &p_eqe->data.rdma_data);
--		return 0;
--#endif
--	case PROTOCOLID_COMMON:
--		return qed_sriov_eqe_event(p_hwfn,
--					   p_eqe->opcode,
--					   p_eqe->echo, &p_eqe->data);
--	case PROTOCOLID_ISCSI:
--		if (!IS_ENABLED(CONFIG_QED_ISCSI))
--			return -EINVAL;
-+	qed_spq_async_comp_cb cb;
- 
--		if (p_hwfn->p_iscsi_info->event_cb) {
--			struct qed_iscsi_info *p_iscsi = p_hwfn->p_iscsi_info;
-+	if (!p_hwfn->p_spq || (p_eqe->protocol_id >= MAX_PROTOCOL_TYPE))
-+		return -EINVAL;
- 
--			return p_iscsi->event_cb(p_iscsi->event_context,
--						 p_eqe->opcode, &p_eqe->data);
--		} else {
--			DP_NOTICE(p_hwfn,
--				  "iSCSI async completion is not set\n");
--			return -EINVAL;
--		}
--	default:
-+	cb = p_hwfn->p_spq->async_comp_cb[p_eqe->protocol_id];
-+	if (cb) {
-+		return cb(p_hwfn, p_eqe->opcode, p_eqe->echo,
-+			  &p_eqe->data, p_eqe->fw_return_code);
-+	} else {
- 		DP_NOTICE(p_hwfn,
- 			  "Unknown Async completion for protocol: %d\n",
- 			  p_eqe->protocol_id);
-@@ -335,6 +319,28 @@ qed_async_event_completion(struct qed_hwfn *p_hwfn,
- 	}
- }
- 
-+int
-+qed_spq_register_async_cb(struct qed_hwfn *p_hwfn,
-+			  enum protocol_type protocol_id,
-+			  qed_spq_async_comp_cb cb)
-+{
-+	if (!p_hwfn->p_spq || (protocol_id >= MAX_PROTOCOL_TYPE))
-+		return -EINVAL;
-+
-+	p_hwfn->p_spq->async_comp_cb[protocol_id] = cb;
-+	return 0;
-+}
-+
-+void
-+qed_spq_unregister_async_cb(struct qed_hwfn *p_hwfn,
-+			    enum protocol_type protocol_id)
-+{
-+	if (!p_hwfn->p_spq || (protocol_id >= MAX_PROTOCOL_TYPE))
-+		return;
-+
-+	p_hwfn->p_spq->async_comp_cb[protocol_id] = NULL;
-+}
-+
- /***************************************************************************
- * EQ API
- ***************************************************************************/
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-index e39ad22..2cfd3bd 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-@@ -44,6 +44,11 @@
- #include "qed_sp.h"
- #include "qed_sriov.h"
- #include "qed_vf.h"
-+static int qed_sriov_eqe_event(struct qed_hwfn *p_hwfn,
-+			       u8 opcode,
-+			       __le16 echo,
-+			       union event_ring_data *data, u8 fw_return_code);
-+
- 
- static u8 qed_vf_calculate_legacy(struct qed_vf_info *p_vf)
- {
-@@ -565,6 +570,9 @@ int qed_iov_alloc(struct qed_hwfn *p_hwfn)
- 
- 	p_hwfn->pf_iov_info = p_sriov;
- 
-+	qed_spq_register_async_cb(p_hwfn, PROTOCOLID_COMMON,
-+				  qed_sriov_eqe_event);
-+
- 	return qed_iov_allocate_vfdb(p_hwfn);
- }
- 
-@@ -578,6 +586,8 @@ void qed_iov_setup(struct qed_hwfn *p_hwfn)
- 
- void qed_iov_free(struct qed_hwfn *p_hwfn)
- {
-+	qed_spq_unregister_async_cb(p_hwfn, PROTOCOLID_COMMON);
-+
- 	if (IS_PF_SRIOV_ALLOC(p_hwfn)) {
- 		qed_iov_free_vfdb(p_hwfn);
- 		kfree(p_hwfn->pf_iov_info);
-@@ -3833,8 +3843,10 @@ static void qed_sriov_vfpf_malicious(struct qed_hwfn *p_hwfn,
- 	}
- }
- 
--int qed_sriov_eqe_event(struct qed_hwfn *p_hwfn,
--			u8 opcode, __le16 echo, union event_ring_data *data)
-+static int qed_sriov_eqe_event(struct qed_hwfn *p_hwfn,
-+			       u8 opcode,
-+			       __le16 echo,
-+			       union event_ring_data *data, u8 fw_return_code)
- {
- 	switch (opcode) {
- 	case COMMON_EVENT_VF_PF_CHANNEL:
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.h b/drivers/net/ethernet/qlogic/qed/qed_sriov.h
-index 95f55ae..c2e44bc 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sriov.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.h
-@@ -344,17 +344,6 @@ void qed_iov_free(struct qed_hwfn *p_hwfn);
- void qed_iov_free_hw_info(struct qed_dev *cdev);
- 
- /**
-- * @brief qed_sriov_eqe_event - handle async sriov event arrived on eqe.
-- *
-- * @param p_hwfn
-- * @param opcode
-- * @param echo
-- * @param data
-- */
--int qed_sriov_eqe_event(struct qed_hwfn *p_hwfn,
--			u8 opcode, __le16 echo, union event_ring_data *data);
--
--/**
-  * @brief Mark structs of vfs that have been FLR-ed.
-  *
-  * @param p_hwfn
-@@ -418,13 +407,6 @@ static inline void qed_iov_free_hw_info(struct qed_dev *cdev)
- {
- }
- 
--static inline int qed_sriov_eqe_event(struct qed_hwfn *p_hwfn,
--				      u8 opcode,
--				      __le16 echo, union event_ring_data *data)
--{
--	return -EINVAL;
--}
--
- static inline bool qed_iov_mark_vf_flr(struct qed_hwfn *p_hwfn,
- 				       u32 *disabled_vfs)
- {
+git://git.linaro.org/people/mszyprowski/linux-dma-mapping.git#dma-mapping-next
+
+Contacts: Marek Szyprowski and Kyungmin Park (cc'd)
+
+I have called your tree dma-mapping-hch for now.  The other tree has
+not been updated since 4.9-rc1 and I am not sure how general it is.
+Marek, Kyungmin, any comments?
+
+Thanks for adding your subsystem tree as a participant of linux-next.  As
+you may know, this is not a judgement of your code.  The purpose of
+linux-next is for integration testing and to lower the impact of
+conflicts between subsystems in the next merge window. 
+
+You will need to ensure that the patches/commits in your tree/series have
+been:
+     * submitted under GPL v2 (or later) and include the Contributor's
+        Signed-off-by,
+     * posted to the relevant mailing list,
+     * reviewed by you (or another maintainer of your subsystem tree),
+     * successfully unit tested, and 
+     * destined for the current or next Linux merge window.
+
+Basically, this should be just what you would send to Linus (or ask him
+to fetch).  It is allowed to be rebased if you deem it necessary.
+
 -- 
-2.9.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cheers,
+Stephen Rothwell 
+sfr@canb.auug.org.au
