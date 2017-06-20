@@ -1,165 +1,97 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2 4/4] ip6mr: add netlink notifications on
- mrt6msg cache reports
-Date: Tue, 20 Jun 2017 12:37:39 +0300
-Message-ID: <200784c5-0e9f-9d92-776f-dd2072d1cefb@cumulusnetworks.com>
-References: <20170619204417.13230-1-julien@arista.com>
- <20170619204417.13230-5-julien@arista.com>
+From: =?UTF-8?Q?Lars_Erik_Storbuk=C3=A5s?= <larserik.storbukas@gmail.com>
+Subject: Re: TCP Vegas per-socket alpha, beta, gamma parameters
+Date: Tue, 20 Jun 2017 10:54:37 +0100
+Message-ID: <CA+yK=LvkLA+LV8K-oeEMKF9PdbwA-bnWi+6oOPstvtWxrGt4-Q@mail.gmail.com>
+References: <CAF0XkCCmL4nxQbvGOVneRqh_9bofc+yFe=nrJAQzGv+nHmEWvg@mail.gmail.com>
+ <AD8C2BD7-0633-4927-8155-D4297D7B71C1@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        sharpd@cumulusnetworks.com, nicolas.dichtel@6wind.com
-To: Julien Gomes <julien@arista.com>, davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: Netdev <netdev@vger.kernel.org>
+To: Lawrence Brakmo <brakmo@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:36686 "EHLO
-        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752539AbdFTJhw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 05:37:52 -0400
-Received: by mail-wm0-f51.google.com with SMTP id m125so16098848wmm.1
-        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 02:37:46 -0700 (PDT)
-In-Reply-To: <20170619204417.13230-5-julien@arista.com>
+Received: from mail-pg0-f45.google.com ([74.125.83.45]:34986 "EHLO
+        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751090AbdFTJyn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 05:54:43 -0400
+Received: by mail-pg0-f45.google.com with SMTP id 132so26800141pgb.2
+        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 02:54:43 -0700 (PDT)
+In-Reply-To: <AD8C2BD7-0633-4927-8155-D4297D7B71C1@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 19/06/17 23:44, Julien Gomes wrote:
-> Add Netlink notifications on cache reports in ip6mr, in addition to the
-> existing mrt6msg sent to mroute6_sk.
-> Send RTM_NEWCACHEREPORT notifications to RTNLGRP_IPV6_MROUTE_R.
-> 
-> MSGTYPE, MIF_ID, SRC_ADDR and DST_ADDR Netlink attributes contain the
-> same data as their equivalent fields in the mrt6msg header.
-> PKT attribute is the packet sent to mroute6_sk, without the added
-> mrt6msg header.
-> 
-> Suggested-by: Ryan Halbrook <halbrook@arista.com>
-> Signed-off-by: Julien Gomes <julien@arista.com>
-> ---
->  include/uapi/linux/mroute6.h | 12 ++++++++
->  net/ipv6/ip6mr.c             | 67 ++++++++++++++++++++++++++++++++++++++++++--
->  2 files changed, 77 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/uapi/linux/mroute6.h b/include/uapi/linux/mroute6.h
-> index ed5721148768..e4746816c855 100644
-> --- a/include/uapi/linux/mroute6.h
-> +++ b/include/uapi/linux/mroute6.h
-> @@ -133,4 +133,16 @@ struct mrt6msg {
->  	struct in6_addr	im6_src, im6_dst;
->  };
->  
-> +/* ip6mr netlink cache report attributes */
-> +enum {
-> +	IP6MRA_CREPORT_UNSPEC,
-> +	IP6MRA_CREPORT_MSGTYPE,
-> +	IP6MRA_CREPORT_MIF_ID,
-> +	IP6MRA_CREPORT_SRC_ADDR,
-> +	IP6MRA_CREPORT_DST_ADDR,
-> +	IP6MRA_CREPORT_PKT,
-> +	__IP6MRA_CREPORT_MAX
-> +};
-> +#define IP6MRA_CREPORT_MAX (__IP6MRA_CREPORT_MAX - 1)
-> +
->  #endif /* _UAPI__LINUX_MROUTE6_H */
-> diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-> index b0e2bf1f4212..28a1fb49f12e 100644
-> --- a/net/ipv6/ip6mr.c
-> +++ b/net/ipv6/ip6mr.c
-> @@ -116,6 +116,7 @@ static int __ip6mr_fill_mroute(struct mr6_table *mrt, struct sk_buff *skb,
->  			       struct mfc6_cache *c, struct rtmsg *rtm);
->  static void mr6_netlink_event(struct mr6_table *mrt, struct mfc6_cache *mfc,
->  			      int cmd);
-> +static void mrt6msg_netlink_event(struct mr6_table *mrt, struct sk_buff *pkt);
->  static int ip6mr_rtm_dumproute(struct sk_buff *skb,
->  			       struct netlink_callback *cb);
->  static void mroute_clean_tables(struct mr6_table *mrt, bool all);
-> @@ -1125,8 +1126,7 @@ static void ip6mr_cache_resolve(struct net *net, struct mr6_table *mrt,
->  }
->  
->  /*
-> - *	Bounce a cache query up to pim6sd. We could use netlink for this but pim6sd
-> - *	expects the following bizarre scheme.
-> + *	Bounce a cache query up to pim6sd and netlink.
->   *
->   *	Called under mrt_lock.
->   */
-> @@ -1208,6 +1208,8 @@ static int ip6mr_cache_report(struct mr6_table *mrt, struct sk_buff *pkt,
->  		return -EINVAL;
->  	}
->  
-> +	mrt6msg_netlink_event(mrt, skb);
-> +
->  	/*
->  	 *	Deliver to user space multicast routing algorithms
->  	 */
-> @@ -2457,6 +2459,67 @@ static void mr6_netlink_event(struct mr6_table *mrt, struct mfc6_cache *mfc,
->  		rtnl_set_sk_err(net, RTNLGRP_IPV6_MROUTE, err);
->  }
->  
-> +static void mrt6msg_netlink_event(struct mr6_table *mrt, struct sk_buff *pkt)
-> +{
-> +	struct net *net = read_pnet(&mrt->net);
-> +	struct nlmsghdr *nlh;
-> +	struct rtgenmsg *rtgenm;
-> +	struct mrt6msg *msg;
-> +	struct sk_buff *skb;
-> +	struct nlattr *nla;
-> +	int payloadlen;
-> +	int msgsize;
-> +
-> +	payloadlen = pkt->len - sizeof(struct mrt6msg);
-> +	msg = (struct mrt6msg *)skb_transport_header(pkt);
-> +	msgsize = NLMSG_ALIGN(sizeof(struct rtgenmsg))
-> +			+ nla_total_size(1)
-> +					/* IP6MRA_CREPORT_MSGTYPE */
-> +			+ nla_total_size(2)
-> +					/* IP6MRA_CREPORT_MIF_ID */
-> +			+ nla_total_size(sizeof(struct in6_addr))
-> +					/* IP6MRA_CREPORT_SRC_ADDR */
-> +			+ nla_total_size(sizeof(struct in6_addr))
-> +					/* IP6MRA_CREPORT_DST_ADDR */
-> +			+ nla_total_size(payloadlen)
-> +					/* IP6MRA_CREPORT_PKT */
-> +			;
+On Mon, Jun 19, 2017 at 3:30 PM, Lawrence Brakmo <brakmo@fb.com> wrote:
+> Hi Lars,
+>
+> You would need to modify the source code to support per connection alpha,=
+ beta and gamma parameters. Although you can modify the parameters at runti=
+me, they would apply to all connections using Vegas, both existing and new =
+ones.
+>
+> You may also want to consider using TCP NV (New Vegas) instead. It works =
+better in current networks and servers.
+>
+> - Lawrence Brakmo
+>
+>
+> On 6/19/17, 6:48 AM, "netdev-owner@vger.kernel.org on behalf of Lars Erik=
+ Storbuk=C3=A5s" <netdev-owner@vger.kernel.org on behalf of storbukas.dev@g=
+mail.com> wrote:
+>
+>     I'm looking into how I can modify alpha, beta and gamma parameters fo=
+r
+>     TCP Vegas on a per-socket basis (if at all possible). I want to modif=
+y
+>     the sending rate per-socket dynamically  (not system wide) when a
+>     delay-based algorithm is used.
+>
+>     Is it possible to modify the parameters of Vegas without modifying th=
+e
+>     source code of Vegas itself?
+>
+>     Would setting the (system wide) alpha, beta and gamma parameters be
+>     updated immediately? Would an ongoing transmission get the new values
+>     of alpha, beta or gamma when they are modified, or is it read only
+>     when initialising a Vegas transmission?
+>
+>     Background for question:
+>     I'm working on the implementation of a Deadline Aware, Less than Best
+>     Effort. A framework for adding both LBE behaviour and awareness of
+>     =E2=80=9Csoft=E2=80=9D delivery deadlines to any congestion control (=
+CC) algorithm,
+>     whether loss-based, delay- based or explicit signaling-based. This
+>     effectively allows it to turn an arbitrary CC protocol into a
+>     scavenger protocol that dynamically adapts its sending rate to networ=
+k
+>     conditions and remaining time before the deadline, to balance
+>     timeliness and transmission aggressiveness.
+>
+>     / Lars Erik Storbuk=C3=A5s (storbukas.dev@gmail.com)
+>
+>
 
-Same as patch 03, this calculation could be in a separate function.
+Thanks for a quick response!
 
-> +
-> +	skb = nlmsg_new(msgsize, GFP_ATOMIC);
-> +	if (!skb)
-> +		goto errout;
-> +
-> +	nlh = nlmsg_put(skb, 0, 0, RTM_NEWCACHEREPORT,
-> +			sizeof(struct rtgenmsg), 0);
-> +	if (!nlh)
-> +		goto errout;
-> +	rtgenm = nlmsg_data(nlh);
-> +	rtgenm->rtgen_family = RTNL_FAMILY_IP6MR;
-> +	if (nla_put_u8(skb, IP6MRA_CREPORT_MSGTYPE, msg->im6_msgtype) ||
-> +	    nla_put_u16(skb, IP6MRA_CREPORT_MIF_ID, msg->im6_mif) ||
-> +	    nla_put_in6_addr(skb, IP6MRA_CREPORT_SRC_ADDR,
-> +			     &msg->im6_src) ||
-> +	    nla_put_in6_addr(skb, IP6MRA_CREPORT_DST_ADDR,
-> +			     &msg->im6_dst))
-> +		goto nla_put_failure;
-> +
-> +	nla = nla_reserve(skb, IP6MRA_CREPORT_PKT, payloadlen);
-> +	if (!nla || skb_copy_bits(pkt, sizeof(struct mrt6msg),
-> +				  nla_data(nla), payloadlen))
-> +		goto nla_put_failure;
-> +
-> +	nlmsg_end(skb, nlh);
-> +
-> +	rtnl_notify(skb, net, 0, RTNLGRP_IPV6_MROUTE_R, NULL, GFP_ATOMIC);
-> +	return;
-> +
-> +nla_put_failure:
-> +	nlmsg_cancel(skb, nlh);
-> +errout:
-> +	kfree_skb(skb);
-> +	rtnl_set_sk_err(net, RTNLGRP_IPV6_MROUTE_R, -ENOBUFS);
-> +}
-> +
->  static int ip6mr_rtm_dumproute(struct sk_buff *skb, struct netlink_callback *cb)
->  {
->  	struct net *net = sock_net(skb->sk);
-> 
+I definetively see New Vegas as working better in current networks and
+servers. I do however, need to support Vegas when implementing this.
+
+Do you have any input of the best practice on how to provide (an
+optional) per-socket configuration for alpha, beta and gamma
+parameters? In other words when modifying the existing Vegas code.
+
+Maybe it's possible to do add a parameters struct like this:
+
+struct vegas {
+u8 enabled;
+u32 alpha;
+u32 beta;
+u32 gamma;
+}
+
+If vegas.enabled is set, it could use the per-socket parameters, and
+if not, then it will use the system wide settings. Does this seem
+logical?
+
+Any help is greatly appreciated.
+
+/ Lars Erik Storbuk=C3=A5s (storbukas.dev@gmail.com)
