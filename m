@@ -1,23 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: wireless-drivers 2017-06-20
-Date: Tue, 20 Jun 2017 15:42:37 -0400 (EDT)
-Message-ID: <20170620.154237.919288506912088847.davem@davemloft.net>
-References: <877f06ydzk.fsf@kamboji.qca.qualcomm.com>
+Subject: Re: [PATCH net-next 0/4] s390/net updates, part 2 (v2)
+Date: Tue, 20 Jun 2017 15:44:53 -0400 (EDT)
+Message-ID: <20170620.154453.875712255841333287.davem@davemloft.net>
+References: <20170620140034.89661-1-jwi@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: kvalo@codeaurora.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <877f06ydzk.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+        raspl@linux.vnet.ibm.com, ubraun@linux.vnet.ibm.com
+To: jwi@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42682 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751002AbdFTToz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 15:44:55 -0400
+In-Reply-To: <20170620140034.89661-1-jwi@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kalle Valo <kvalo@codeaurora.org>
-Date: Tue, 20 Jun 2017 16:39:59 +0300
+From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+Date: Tue, 20 Jun 2017 16:00:30 +0200
 
-> here's a pull request to net tree, few important fixes still I would
-> like to have in 4.12. Please let me know if there are any problems.
+> thanks for the feedback. Here's an updated patchset that honours
+> the reverse christmas tree and drops the __packed attribute. Please apply.
 
-Pulled, thanks Kalle.
+Series applied.
