@@ -1,7 +1,7 @@
 From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next v3 05/15] bpf: Support for setting initial receive window
-Date: Mon, 19 Jun 2017 20:00:38 -0700
-Message-ID: <20170620030048.3275347-6-brakmo@fb.com>
+Subject: [PATCH net-next v3 07/15] bpf: Add setsockopt helper function to bpf
+Date: Mon, 19 Jun 2017 20:00:40 -0700
+Message-ID: <20170620030048.3275347-8-brakmo@fb.com>
 References: <20170620030048.3275347-1-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,135 +11,199 @@ Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:57441 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751029AbdFTDAy (ORCPT
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:51758 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751104AbdFTDAy (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2017 23:00:54 -0400
-Received: from pps.filterd (m0109333.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5K2xKA6021813
-        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 20:00:53 -0700
+Received: from pps.filterd (m0109331.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5K2w3rG024384
+        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 20:00:54 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2b6m6ahabq-2
+        by mx0a-00082601.pphosted.com with ESMTP id 2b6nvx8r6q-5
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 20:00:53 -0700
+        for <netdev@vger.kernel.org>; Mon, 19 Jun 2017 20:00:54 -0700
 Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
- mx-out.facebook.com (10.212.236.87) with ESMTP id
- ab69c73a556411e7913c0002c9521c9e-6b9348f0 for <netdev@vger.kernel.org>;        Mon,
+ mx-out.facebook.com (10.212.236.89) with ESMTP id
+ ab8c66d2556411e79f300002c95209d8-faf358f0 for <netdev@vger.kernel.org>;        Mon,
  19 Jun 2017 20:00:52 -0700
 In-Reply-To: <20170620030048.3275347-1-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds suppport for setting the initial advertized window from
-within a BPF_SOCK_OPS program. This can be used to support larger
-initial cwnd values in environments where it is known to be safe.
+Added support for calling a subset of socket setsockopts from
+BPF_PROG_TYPE_SOCK_OPS programs. The code was duplicated rather
+than making the changes to call the socket setsockopt function because
+the changes required would have been larger.
+
+The ops supported are:
+  SO_RCVBUF
+  SO_SNDBUF
+  SO_MAX_PACING_RATE
+  SO_PRIORITY
+  SO_RCVLOWAT
+  SO_MARK
 
 Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
 ---
- include/net/tcp.h        | 10 ++++++++++
- include/uapi/linux/bpf.h |  4 ++++
- net/ipv4/tcp_minisocks.c |  9 ++++++++-
- net/ipv4/tcp_output.c    |  7 ++++++-
- 4 files changed, 28 insertions(+), 2 deletions(-)
+ include/uapi/linux/bpf.h  | 14 ++++++++-
+ net/core/filter.c         | 77 ++++++++++++++++++++++++++++++++++++++++++++++-
+ samples/bpf/bpf_helpers.h |  3 ++
+ 3 files changed, 92 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index bdf6bfd..ff806d7 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -2062,4 +2062,14 @@ static inline u32 tcp_timeout_init(struct sock *sk, bool is_req_sock)
- 	return timeout;
- }
- 
-+static inline u32 tcp_rwnd_init_bpf(struct sock *sk, bool is_req_sock)
-+{
-+	int rwnd;
-+
-+	rwnd = tcp_call_bpf(sk, is_req_sock, BPF_SOCK_OPS_RWND_INIT);
-+
-+	if (rwnd < 0)
-+		rwnd = 0;
-+	return rwnd;
-+}
- #endif	/* _TCP_H */
 diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 4532c31..314fdf3 100644
+index 314fdf3..86595f9 100644
 --- a/include/uapi/linux/bpf.h
 +++ b/include/uapi/linux/bpf.h
-@@ -749,6 +749,10 @@ enum {
- 	BPF_SOCK_OPS_TIMEOUT_INIT,	/* Should return SYN-RTO value to use or
- 					 * -1 if default value should be used
- 					 */
-+	BPF_SOCK_OPS_RWND_INIT,		/* Should return initial advertized
-+					 * window (in packets) or -1 if default
-+					 * value should be used
-+					 */
+@@ -520,6 +520,17 @@ union bpf_attr {
+  *     Set full skb->hash.
+  *     @skb: pointer to skb
+  *     @hash: hash to set
++ *
++ * int bpf_setsockopt(bpf_socket, level, optname, optval, optlen)
++ *     Calls setsockopt. Not all opts are available, only those with
++ *     integer optvals plus TCP_CONGESTION.
++ *     Supported levels: SOL_SOCKET and IPROTO_TCP
++ *     @bpf_socket: pointer to bpf_socket
++ *     @level: SOL_SOCKET or IPROTO_TCP
++ *     @optname: option name
++ *     @optval: pointer to option value
++ *     @optlen: length of optval in byes
++ *     Return: 0 or negative error
+  */
+ #define __BPF_FUNC_MAPPER(FN)		\
+ 	FN(unspec),			\
+@@ -570,7 +581,8 @@ union bpf_attr {
+ 	FN(probe_read_str),		\
+ 	FN(get_socket_cookie),		\
+ 	FN(get_socket_uid),		\
+-	FN(set_hash),
++	FN(set_hash),			\
++	FN(setsockopt),
+ 
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+  * function eBPF program intends to call
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 7d69d16..b114ae1 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -54,6 +54,7 @@
+ #include <net/dst.h>
+ #include <net/sock_reuseport.h>
+ #include <net/busy_poll.h>
++#include <net/tcp.h>
+ 
+ /**
+  *	sk_filter_trim_cap - run a packet through a socket filter
+@@ -2671,6 +2672,69 @@ static const struct bpf_func_proto bpf_get_socket_uid_proto = {
+ 	.arg1_type      = ARG_PTR_TO_CTX,
  };
  
- #endif /* _UAPI__LINUX_BPF_H__ */
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index d30ee31..bbaf3c6 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -351,6 +351,7 @@ void tcp_openreq_init_rwin(struct request_sock *req,
- 	int full_space = tcp_full_space(sk_listener);
- 	u32 window_clamp;
- 	__u8 rcv_wscale;
-+	u32 rcv_wnd;
- 	int mss;
- 
- 	mss = tcp_mss_clamp(tp, dst_metric_advmss(dst));
-@@ -363,6 +364,12 @@ void tcp_openreq_init_rwin(struct request_sock *req,
- 	    (req->rsk_window_clamp > full_space || req->rsk_window_clamp == 0))
- 		req->rsk_window_clamp = full_space;
- 
-+	rcv_wnd = tcp_rwnd_init_bpf((struct sock *)req, true);
-+	if (rcv_wnd == 0)
-+		rcv_wnd = dst_metric(dst, RTAX_INITRWND);
-+	else if (full_space < rcv_wnd * mss)
-+		full_space = rcv_wnd * mss;
++BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
++	   int, level, int, optname, char *, optval, int, optlen)
++{
++	struct sock *sk = bpf_sock->sk;
++	int ret = 0;
++	int val;
 +
- 	/* tcp_full_space because it is guaranteed to be the first packet */
- 	tcp_select_initial_window(full_space,
- 		mss - (ireq->tstamp_ok ? TCPOLEN_TSTAMP_ALIGNED : 0),
-@@ -370,7 +377,7 @@ void tcp_openreq_init_rwin(struct request_sock *req,
- 		&req->rsk_window_clamp,
- 		ireq->wscale_ok,
- 		&rcv_wscale,
--		dst_metric(dst, RTAX_INITRWND));
-+		rcv_wnd);
- 	ireq->rcv_wscale = rcv_wscale;
++	if (bpf_sock->is_req_sock)
++		return -EINVAL;
++
++	if (level == SOL_SOCKET) {
++		/* Only some socketops are supported */
++		val = *((int *)optval);
++
++		switch (optname) {
++		case SO_RCVBUF:
++			sk->sk_userlocks |= SOCK_RCVBUF_LOCK;
++			sk->sk_rcvbuf = max_t(int, val * 2, SOCK_MIN_RCVBUF);
++			break;
++		case SO_SNDBUF:
++			sk->sk_userlocks |= SOCK_SNDBUF_LOCK;
++			sk->sk_sndbuf = max_t(int, val * 2, SOCK_MIN_SNDBUF);
++			break;
++		case SO_MAX_PACING_RATE:
++			sk->sk_max_pacing_rate = val;
++			sk->sk_pacing_rate = min(sk->sk_pacing_rate,
++						 sk->sk_max_pacing_rate);
++			break;
++		case SO_PRIORITY:
++			sk->sk_priority = val;
++			break;
++		case SO_RCVLOWAT:
++			if (val < 0)
++				val = INT_MAX;
++			sk->sk_rcvlowat = val ? : 1;
++			break;
++		case SO_MARK:
++			sk->sk_mark = val;
++			break;
++		default:
++			ret = -EINVAL;
++		}
++	} else if (level == SOL_TCP &&
++		   sk->sk_prot->setsockopt == tcp_setsockopt) {
++		/* Place holder */
++		ret = -EINVAL;
++	} else {
++		ret = -EINVAL;
++	}
++	return ret;
++}
++
++static const struct bpf_func_proto bpf_setsockopt_proto = {
++	.func		= bpf_setsockopt,
++	.gpl_only	= true,
++	.ret_type	= RET_INTEGER,
++	.arg1_type	= ARG_PTR_TO_CTX,
++	.arg2_type	= ARG_ANYTHING,
++	.arg3_type	= ARG_ANYTHING,
++	.arg4_type	= ARG_PTR_TO_MEM,
++	.arg5_type	= ARG_CONST_SIZE_OR_ZERO,
++};
++
+ static const struct bpf_func_proto *
+ bpf_base_func_proto(enum bpf_func_id func_id)
+ {
+@@ -2822,6 +2886,17 @@ lwt_inout_func_proto(enum bpf_func_id func_id)
  }
- EXPORT_SYMBOL(tcp_openreq_init_rwin);
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 5e478a1..e5f623f 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -3267,6 +3267,7 @@ static void tcp_connect_init(struct sock *sk)
- 	const struct dst_entry *dst = __sk_dst_get(sk);
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	__u8 rcv_wscale;
-+	u32 rcv_wnd;
  
- 	/* We'll fix this up when we get a response from the other end.
- 	 * See tcp_input.c:tcp_rcv_state_process case TCP_SYN_SENT.
-@@ -3300,13 +3301,17 @@ static void tcp_connect_init(struct sock *sk)
- 	    (tp->window_clamp > tcp_full_space(sk) || tp->window_clamp == 0))
- 		tp->window_clamp = tcp_full_space(sk);
- 
-+	rcv_wnd = tcp_rwnd_init_bpf(sk, false);
-+	if (rcv_wnd == 0)
-+		rcv_wnd = dst_metric(dst, RTAX_INITRWND);
+ static const struct bpf_func_proto *
++	sock_ops_func_proto(enum bpf_func_id func_id)
++{
++	switch (func_id) {
++	case BPF_FUNC_setsockopt:
++		return &bpf_setsockopt_proto;
++	default:
++		return bpf_base_func_proto(func_id);
++	}
++}
 +
- 	tcp_select_initial_window(tcp_full_space(sk),
- 				  tp->advmss - (tp->rx_opt.ts_recent_stamp ? tp->tcp_header_len - sizeof(struct tcphdr) : 0),
- 				  &tp->rcv_wnd,
- 				  &tp->window_clamp,
- 				  sock_net(sk)->ipv4.sysctl_tcp_window_scaling,
- 				  &rcv_wscale,
--				  dst_metric(dst, RTAX_INITRWND));
-+				  rcv_wnd);
++static const struct bpf_func_proto *
+ lwt_xmit_func_proto(enum bpf_func_id func_id)
+ {
+ 	switch (func_id) {
+@@ -3578,7 +3653,7 @@ const struct bpf_verifier_ops cg_sock_prog_ops = {
+ };
  
- 	tp->rx_opt.rcv_wscale = rcv_wscale;
- 	tp->rcv_ssthresh = tp->rcv_wnd;
+ const struct bpf_verifier_ops sock_ops_prog_ops = {
+-	.get_func_proto		= bpf_base_func_proto,
++	.get_func_proto		= sock_ops_func_proto,
+ 	.is_valid_access	= sock_ops_is_valid_access,
+ 	.convert_ctx_access	= sock_ops_convert_ctx_access,
+ };
+diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
+index f4840b8..d50ac34 100644
+--- a/samples/bpf/bpf_helpers.h
++++ b/samples/bpf/bpf_helpers.h
+@@ -60,6 +60,9 @@ static unsigned long long (*bpf_get_prandom_u32)(void) =
+ 	(void *) BPF_FUNC_get_prandom_u32;
+ static int (*bpf_xdp_adjust_head)(void *ctx, int offset) =
+ 	(void *) BPF_FUNC_xdp_adjust_head;
++static int (*bpf_setsockopt)(void *ctx, int level, int optname, void *optval,
++			     int optlen) =
++	(void *) BPF_FUNC_setsockopt;
+ 
+ /* llvm builtin functions that eBPF C program may use to
+  * emit BPF_LD_ABS and BPF_LD_IND instructions
 -- 
 2.9.3
