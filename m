@@ -1,42 +1,93 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: Re: remove dma_alloc_noncoherent
-Date: Tue, 20 Jun 2017 12:44:03 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0026C08@AcuExch.aculab.com>
-References: <20170616071716.17321-1-hch@lst.de>
+From: Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH v4 net-next 0/7] qed*: RDMA and infrastructure for iWARP
+Date: Tue, 20 Jun 2017 15:59:59 +0300
+Message-ID: <20170620130006.307-1-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Christoph Hellwig' <hch@lst.de>, "linux-scsi@vger.kernel.org"
- <linux-scsi@vger.kernel.org>, "linux-serial@vger.kernel.org"
- <linux-serial@vger.kernel.org>, "netdev@vger.kernel.org"
- <netdev@vger.kernel.org>, "linux-metag@vger.kernel.org"
- <linux-metag@vger.kernel.org>, "nios2-dev@lists.rocketboards.org"
- <nios2-dev@lists.rocketboards.org>, "linux-fbdev@vger.kernel.org"
- <linux-fbdev@vger.kernel.org>, "alsa-devel@alsa-project.org"
- <alsa-devel@alsa-project.org>
-Return-path: <alsa-devel-bounces@alsa-project.org>
-In-Reply-To: <20170616071716.17321-1-hch@lst.de>
-Content-Language: en-US
-List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
-List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
-List-Post: <mailto:alsa-devel@alsa-project.org>
-List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
-List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
-Errors-To: alsa-devel-bounces@alsa-project.org
-Sender: alsa-devel-bounces@alsa-project.org
+Content-Type: text/plain
+Cc: <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Christoph Hellwig
-> Sent: 16 June 2017 08:17
->
-> For many years we've had the dma_alloc_attrs API that is more flexible
-> than dma_alloc_noncoherent.  This series moves the remaining users over
-> to the attrs API.
+This series focuses on RDMA in general with emphasis on required changes
+toward adding iWARP support. The vast majority of the changes introduced
+are in qed/qede, with a couple of small changes to qedr
+[mentioned below].
 
-And most of the callers probably only want to specify 'noncoherent'.
-Grepping the source for other uses is easier if the wrapper is left.
+The infrastructure changes:
+ - Patch #1 adds the ability to pass PBL memory externally for a newly
+created chain.
+ - Patches #4, #5 rename qede_roce.[ch] into qede_rdma.[ch] + change
+prefixes from _roce_ to _rdma_, as the API between qede and qedr is
+agnostic to the variant of the RDMA protocol used. These patches also
+touch qedr [basically to align it with the renaming, nothing more].
+ - Patch #7 replaces the current SPQ async mechanism into serving
+registered callbacks [before adding iWARP which would add another client
+in need of this sort of functionallity].
 
-	David
+The non-infrastrucutre changes:
+ - Patches #2, #3 contain DCB-related changes to better align RDMA with
+configured DCB.
+ - Patch #6 contains a minor [mostly theoretical fix] to release flow.
+
+Dave,
+
+Please consider applying this series to `net-next'.
+
+Thanks,
+Yuval
+
+Changes from previous versions
+------------------------------
+ - V4: This is actually a repost of V3 due to some confusion regarding
+   the sent cover-letter
+ - V3: Add commit log message in #4 indicating change in header inclusion
+ - V2: Add several inclusion into qede_rdma.h to have proper declarations
+   of all variable types used in it
+
+Michal Kalderon (3):
+  qed*: qede_roce.[ch] -> qede_rdma.[ch]
+  qed*: Set rdma generic functions prefix
+  qed: Wait for resources before FUNC_CLOSE
+  qed: SPQ async callback registration
+
+Yuval Mintz (4):
+  qed: Chain support for external PBL
+  qed: RoCE EDPM to honor PFC
+  qed: Disable RoCE dpm when DCBx change occurs
+
+ drivers/infiniband/hw/qedr/main.c                  |  10 +-
+ drivers/infiniband/hw/qedr/qedr.h                  |   2 +-
+ drivers/infiniband/hw/qedr/verbs.c                 |   6 +-
+ drivers/net/ethernet/qlogic/qed/qed_dcbx.c         |  24 ++++
+ drivers/net/ethernet/qlogic/qed/qed_dev.c          |  35 +++--
+ drivers/net/ethernet/qlogic/qed/qed_dev_api.h      |   5 +-
+ drivers/net/ethernet/qlogic/qed/qed_iscsi.c        |  30 ++++-
+ drivers/net/ethernet/qlogic/qed/qed_ll2.c          |   6 +-
+ drivers/net/ethernet/qlogic/qed/qed_reg_addr.h     |   6 +
+ drivers/net/ethernet/qlogic/qed/qed_roce.c         |  87 ++++++++++---
+ drivers/net/ethernet/qlogic/qed/qed_roce.h         |   9 +-
+ drivers/net/ethernet/qlogic/qed/qed_sp.h           |  17 +++
+ drivers/net/ethernet/qlogic/qed/qed_spq.c          |  60 +++++----
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c        |  16 ++-
+ drivers/net/ethernet/qlogic/qed/qed_sriov.h        |  18 ---
+ drivers/net/ethernet/qlogic/qede/Makefile          |   2 +-
+ drivers/net/ethernet/qlogic/qede/qede.h            |   5 +-
+ drivers/net/ethernet/qlogic/qede/qede_main.c       |  21 ++-
+ .../qlogic/qede/{qede_roce.c => qede_rdma.c}       | 144 ++++++++++-----------
+ include/linux/qed/qed_chain.h                      |   7 +
+ include/linux/qed/qed_if.h                         |   3 +-
+ include/linux/qed/{qede_roce.h => qede_rdma.h}     |  42 +++---
+ 22 files changed, 353 insertions(+), 202 deletions(-)
+ rename drivers/net/ethernet/qlogic/qede/{qede_roce.c => qede_rdma.c} (59%)
+ rename include/linux/qed/{qede_roce.h => qede_rdma.h} (65%)
+
+-- 
+2.9.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
