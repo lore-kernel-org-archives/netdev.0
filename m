@@ -1,32 +1,47 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2] net/phy: micrel: configure intterupts after autoneg
- workaround
-Date: Tue, 20 Jun 2017 14:41:46 -0700
-Message-ID: <ba3ef848-0f90-33f4-d204-d3a5dbe67f75@gmail.com>
-References: <1497980891-10495-1-git-send-email-zach.brown@ni.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: phy: smsc: fix buffer overflow in memcpy
+Date: Tue, 20 Jun 2017 23:46:15 +0200
+Message-ID: <20170620214615.GF12383@lunn.ch>
+References: <20170620204059.790066-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Timur Tabi <timur@codeaurora.org>, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-To: Zach Brown <zach.brown@ni.com>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1497980891-10495-1-git-send-email-zach.brown@ni.com>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <20170620204059.790066-1-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/20/2017 10:48 AM, Zach Brown wrote:
-> The commit ("net/phy: micrel: Add workaround for bad autoneg") fixes an
-> autoneg failure case by resetting the hardware. This turns off
-> intterupts. Things will work themselves out if the phy polls, as it will
-> figure out it's state during a poll. However if the phy uses only
-> intterupts, the phy will stall, since interrupts are off. This patch
-> fixes the issue by calling config_intr after resetting the phy.
+On Tue, Jun 20, 2017 at 10:40:46PM +0200, Arnd Bergmann wrote:
+> The memcpy annotation triggers for a fixed-length buffer copy:
 > 
-> Fixes: d2fd719bcb0e ("net/phy: micrel: Add workaround for bad autoneg ")
-> Signed-off-by: Zach Brown <zach.brown@ni.com>
+> In file included from /git/arm-soc/arch/arm64/include/asm/processor.h:30:0,
+>                  from /git/arm-soc/arch/arm64/include/asm/spinlock.h:21,
+>                  from /git/arm-soc/include/linux/spinlock.h:87,
+>                  from /git/arm-soc/include/linux/seqlock.h:35,
+>                  from /git/arm-soc/include/linux/time.h:5,
+>                  from /git/arm-soc/include/linux/stat.h:21,
+>                  from /git/arm-soc/include/linux/module.h:10,
+>                  from /git/arm-soc/drivers/net/phy/smsc.c:20:
+> In function 'memcpy',
+>     inlined from 'smsc_get_strings' at /git/arm-soc/drivers/net/phy/smsc.c:166:3:
+> /git/arm-soc/include/linux/string.h:309:4: error: call to '__read_overflow2' declared with attribute error: detected read beyond size of object passed as 2nd parameter
+> 
+> Using strncpy instead of memcpy should do the right thing here.
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
--- 
-Florian
+Hi Arnd
+
+You will find this pattern in number of phy drivers:
+
+bcm-phy-lib.c:	   	   memcpy(data + i * ETH_GSTRING_LEN,
+marvell.c:			       		   memcpy(data + i * ETH_GSTRING_LEN,
+micrel.c:   		memcpy(data + i * ETH_GSTRING_LEN,
+smsc.c:				    memcpy(data + i * ETH_GSTRING_LEN,
+
+They probably all need the same fix.
+
+     Andrew
