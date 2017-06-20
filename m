@@ -1,55 +1,51 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] ipv6: only call ip6_route_dev_notify() once for NETDEV_UNREGISTER
-Date: Tue, 20 Jun 2017 11:42:27 -0700
-Message-ID: <1497984147-15011-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: jeffy.chen@rock-chips.com, Cong Wang <xiyou.wangcong@gmail.com>,
-        David Ahern <dsahern@gmail.com>
-To: netdev@vger.kernel.org
+Subject: Re: [net,v2] ipv6: reorder ip6_route_dev_notifier after ipv6_dev_notf
+Date: Tue, 20 Jun 2017 11:45:10 -0700
+Message-ID: <CAM_iQpWk_mno_RjieO4UMZVXtudX7sSvxQLUNLF4OpEejuRtOg@mail.gmail.com>
+References: <1493919363-19989-1-git-send-email-xiyou.wangcong@gmail.com>
+ <59489369.8000309@rock-chips.com> <CAM_iQpWN6qFsQ_oAMXjC7k00pf0j90zxdx6hzUS58MFn29QSbg@mail.gmail.com>
+ <5948C290.6050409@rock-chips.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        David Ahern <dsahern@gmail.com>,
+        Brian Norris <briannorris@chromium.org>,
+        Douglas Anderson <dianders@chromium.org>
+To: jeffy <jeffy.chen@rock-chips.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:34287 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750951AbdFTSmg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 14:42:36 -0400
-Received: by mail-pg0-f67.google.com with SMTP id j186so23262314pge.1
-        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 11:42:36 -0700 (PDT)
+Received: from mail-wr0-f180.google.com ([209.85.128.180]:34236 "EHLO
+        mail-wr0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750951AbdFTSpc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 14:45:32 -0400
+Received: by mail-wr0-f180.google.com with SMTP id 77so102817517wrb.1
+        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 11:45:31 -0700 (PDT)
+In-Reply-To: <5948C290.6050409@rock-chips.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In commit 242d3a49a2a1 ("ipv6: reorder ip6_route_dev_notifier after ipv6_dev_notf")
-I assumed NETDEV_REGISTER and NETDEV_UNREGISTER are paired,
-unfortunately, as reported by jeffy, netdev_wait_allrefs()
-could rebroadcast NETDEV_UNREGISTER event until all refs are
-gone.
+On Mon, Jun 19, 2017 at 11:37 PM, jeffy <jeffy.chen@rock-chips.com> wrote:
+> Hi Cong Wang,
+>
+>
+> On 06/20/2017 12:54 PM, Cong Wang wrote:
+>>
+>> Interesting, I didn't notice this corner-case, because normally
+>> we would hit the one in rollback_registered_many(). Probably
+>> we need to add a check
+>>
+>> if (dev->reg_state == NETREG_UNREGISTERING)
+>>
+>> in ip6_route_dev_notify(). Can you give it a try?
+>
+> the NETREG_UNREGISTERING check works for my test:)
+>
+> but i saw dev_change_net_namespace also call NETDEV_UNREGISTER &
+> NETDEV_REGISTER:
 
-We have to add an additional check to avoid this corner case.
-For netdev_wait_allrefs() dev->reg_state is NETREG_UNREGISTERED,
-for dev_change_net_namespace(), dev->reg_state is
-NETREG_REGISTERED. So check for dev->reg_state != NETREG_UNREGISTERED.
+Yes we should call it in this case too, only netdev_wait_allrefs()
+is an exceptional case here.
 
-Fixes: 242d3a49a2a1 ("ipv6: reorder ip6_route_dev_notifier after ipv6_dev_notf")
-Reported-by: jeffy <jeffy.chen@rock-chips.com>
-Cc: David Ahern <dsahern@gmail.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/ipv6/route.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+I just sent out a formal patch with you Cc'ed.
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 7cebd95..322bd62 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -3722,7 +3722,11 @@ static int ip6_route_dev_notify(struct notifier_block *this,
- 		net->ipv6.ip6_blk_hole_entry->dst.dev = dev;
- 		net->ipv6.ip6_blk_hole_entry->rt6i_idev = in6_dev_get(dev);
- #endif
--	 } else if (event == NETDEV_UNREGISTER) {
-+	 } else if (event == NETDEV_UNREGISTER &&
-+		    dev->reg_state != NETREG_UNREGISTERED) {
-+		/* NETDEV_UNREGISTER could be fired for multiple times by
-+		 * netdev_wait_allrefs(). Make sure we only call this once.
-+		 */
- 		in6_dev_put(net->ipv6.ip6_null_entry->rt6i_idev);
- #ifdef CONFIG_IPV6_MULTIPLE_TABLES
- 		in6_dev_put(net->ipv6.ip6_prohibit_entry->rt6i_idev);
--- 
-2.5.5
+Thanks!
