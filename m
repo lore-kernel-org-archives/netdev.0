@@ -1,56 +1,47 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC PATCH net-next 1/3] ethtool: Add link down reason callback
-Date: Wed, 21 Jun 2017 08:43:17 -0700
-Message-ID: <20170621084317.45879939@xeon-e3>
-References: <1498050286-17141-1-git-send-email-galp@mellanox.com>
-        <1498050286-17141-2-git-send-email-galp@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3 0/4] ipmr/ip6mr: add Netlink notifications
+ on cache reports
+Date: Wed, 21 Jun 2017 11:23:10 -0400 (EDT)
+Message-ID: <20170621.112310.1172564089161295858.davem@davemloft.net>
+References: <20170620205418.1648-1-julien@arista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        "John W. Linville" <linville@tuxdriver.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        David Decotigny <decot@googlers.com>, kernel-team@fb.com
-To: Gal Pressman <galp@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:35916 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751795AbdFUQjb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 12:39:31 -0400
-Received: by mail-pf0-f176.google.com with SMTP id q86so3371534pfl.3
-        for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 09:39:25 -0700 (PDT)
-In-Reply-To: <1498050286-17141-2-git-send-email-galp@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nikolay@cumulusnetworks.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, sharpd@cumulusnetworks.com,
+        nicolas.dichtel@6wind.com
+To: julien@arista.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170620205418.1648-1-julien@arista.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 21 Jun 2017 16:04:44 +0300
-Gal Pressman <galp@mellanox.com> wrote:
+From: Julien Gomes <julien@arista.com>
+Date: Tue, 20 Jun 2017 13:54:14 -0700
 
-> +
-> +enum {
-> +	ETHTOOL_LINK_VENDOR_SPECIFIC = -1, /* Vendor specific issue provided in vendor_reason */
-> +	ETHTOOL_LINK_NO_ISSUE, /* No issue observed with link */
-> +	ETHTOOL_LINK_REASON_UNKNOWN, /* Unknown reason */
-> +	ETHTOOL_LINK_NETDEV_CARRIER_DOWN, /* Netdev carrier is down */
-> +	ETHTOOL_LINK_ADMIN_DOWN, /* Admin down */
-> +	ETHTOOL_LINK_AN_FAILED, /* Auto negotiation failed */
-> +	ETHTOOL_LINK_TRAINING_FAILED, /* Link training failed */
-> +	ETHTOOL_LINK_RMT_FAULT, /* Remote fault indication */
-> +	ETHTOOL_LINK_BAD_SIGNAL_INTEGRITY, /* Bad signal integrity */
-> +	ETHTOOL_LINK_CABLE_MISMATCH, /* Cable protocol mismatch */
-> +	ETHTOOL_LINK_INTERNAL_ERR, /* Internal error */
-> +	ETHTOOL_LINK_CABLE_UNPLUGGED, /* Cable unplugged */
-> +	ETHTOOL_LINK_UNSUPP_MODULE, /* Unsupported module */
-> +	ETHTOOL_LINK_I2C_BUS_ERR, /* I2C bus error */
-> +	ETHTOOL_LINK_UNSUPP_EEPROM, /* Unsupported EEPROM */
-> +	ETHTOOL_LINK_OVERTEMP, /* Over temperature */
-> +	ETHTOOL_LINK_PWR_BUDGET_EXC, /* Power budget exceeded */
-> +	ETHTOOL_LINK_MODULE_ADMIN_DOWN, /* Module admin down */
-> +
-> +	ETHTOOL_LINK_REASONS_COUNT
-> +};
+> Currently, all ipmr/ip6mr cache reports are sent through the
+> mroute/mroute6 socket only.
+> This forces the use of a single socket for mroute programming, cache
+> reports and, regarding ipmr, IGMP messages without Router Alert option
+> reception.
+> 
+> The present patches are aiming to send Netlink notifications in addition
+> to the existing igmpmsg/mrt6msg to give user programs a way to handle
+> cache reports in parallel with multiple sockets other than the
+> mroute/mroute6 socket.
+> 
+> Changes in v2:
+> - Changed attributes naming from {IPMRA,IP6MRA}_CACHEREPORTA_* to
+>   {IPMRA,IP6MRA}_CREPORT_*
+> - Improved packet data copy to handle non-linear packets in
+>   ipmr/ip6mr cache report Netlink notification creation
+> - Added two rtnetlink groups with restricted-binding
+> - Changed cache report notified groups from RTNL_{IPV4,IPV6}_MROUTE to
+>   the new restricted groups in ipmr/ip6mr
+> 
+> Changes in v3:
+> - Put message size calculation for {igmp,mrt6}msg_netlink_event in separate
+>   functions
+> - Increased vif id attributes size from u8 to u32
 
-Any enumerated list is going to get changed too often.
-Could the API just return a string?
+Series applied, thanks.
