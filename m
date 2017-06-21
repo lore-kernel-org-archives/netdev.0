@@ -1,77 +1,74 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH iproute2 net-next] bpf: Add support for IFLA_XDP_PROG_ID
-Date: Wed, 21 Jun 2017 14:29:42 -0700
-Message-ID: <20170621212942.2333878-1-kafai@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <ast@fb.com>, <davem@davemloft.net>,
-        <netdev@vger.kernel.org>
-To: <stephen@networkplumber.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] ipv6: avoid unregistering inet6_dev for loopback
+Date: Wed, 21 Jun 2017 14:34:58 -0700
+Message-ID: <1498080898-17338-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        Daniel Lezcano <dlezcano@fr.ibm.com>,
+        David Ahern <dsahern@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:44656 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751835AbdFUV3t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 17:29:49 -0400
-Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5LLTRxi011448
-        for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 14:29:44 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2b802p05wu-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 14:29:44 -0700
-Received: from facebook.com (2401:db00:11:d09a:face:0:41:0)     by
- mx-out.facebook.com (10.212.236.89) with ESMTP id
- bd902d2256c811e79f0c0002c95209d8-57b348f0 for <netdev@vger.kernel.org>;        Wed,
- 21 Jun 2017 14:29:43 -0700
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:36388 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751893AbdFUVfK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 17:35:10 -0400
+Received: by mail-pg0-f67.google.com with SMTP id e187so21331129pgc.3
+        for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 14:35:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support to the newly added IFLA_XDP_PROG_ID.
+The per netns loopback_dev->ip6_ptr is unregistered and set to
+NULL when its mtu is set to smaller than IPV6_MIN_MTU, this
+leads to that we could set rt->rt6i_idev NULL after a
+rt6_uncached_list_flush_dev() and then crash after another
+call.
 
-./ip link show dev eth0
-3: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdpgeneric/id:2 qdisc [...]
+In this case we should just bring its inet6_dev down, rather
+than unregistering it, at least prior to commit 176c39af29bc
+("netns: fix addrconf_ifdown kernel panic") we always
+override the case for loopback.
 
-Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Thanks a lot to Andrey for finding a reliable reproducer.
+
+Fixes: 176c39af29bc ("netns: fix addrconf_ifdown kernel panic")
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Cc: Andrey Konovalov <andreyknvl@google.com>
+Cc: Daniel Lezcano <dlezcano@fr.ibm.com>
+Cc: David Ahern <dsahern@gmail.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- include/linux/if_link.h |  1 +
- ip/iplink_xdp.c         | 12 +++++++++---
- 2 files changed, 10 insertions(+), 3 deletions(-)
+ net/ipv6/addrconf.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index a536a24b1c28..75e6824094e3 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -905,6 +905,7 @@ enum {
- 	IFLA_XDP_FD,
- 	IFLA_XDP_ATTACHED,
- 	IFLA_XDP_FLAGS,
-+	IFLA_XDP_PROG_ID,
- 	__IFLA_XDP_MAX,
- };
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 686c923..1d2dbac 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3369,6 +3369,7 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+ 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+ 	struct netdev_notifier_changeupper_info *info;
+ 	struct inet6_dev *idev = __in6_dev_get(dev);
++	struct net *net = dev_net(dev);
+ 	int run_pending = 0;
+ 	int err;
  
-diff --git a/ip/iplink_xdp.c b/ip/iplink_xdp.c
-index 98503fab7d3c..4857f50c80de 100644
---- a/ip/iplink_xdp.c
-+++ b/ip/iplink_xdp.c
-@@ -90,9 +90,15 @@ void xdp_dump(FILE *fp, struct rtattr *xdp)
- 	if (mode == XDP_ATTACHED_NONE)
- 		return;
- 	else if (mode == XDP_ATTACHED_DRV)
--		fprintf(fp, "xdp ");
-+		fprintf(fp, "xdp");
- 	else if (mode == XDP_ATTACHED_SKB)
--		fprintf(fp, "xdpgeneric ");
-+		fprintf(fp, "xdpgeneric");
- 	else
--		fprintf(fp, "xdp[%u] ", mode);
-+		fprintf(fp, "xdp[%u]", mode);
-+
-+	if (tb[IFLA_XDP_PROG_ID])
-+		fprintf(fp, "/id:%u",
-+			rta_getattr_u32(tb[IFLA_XDP_PROG_ID]));
-+
-+	fprintf(fp, " ");
- }
+@@ -3384,7 +3385,7 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+ 	case NETDEV_CHANGEMTU:
+ 		/* if MTU under IPV6_MIN_MTU stop IPv6 on this interface. */
+ 		if (dev->mtu < IPV6_MIN_MTU) {
+-			addrconf_ifdown(dev, 1);
++			addrconf_ifdown(dev, dev != net->loopback_dev);
+ 			break;
+ 		}
+ 
+@@ -3500,7 +3501,7 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+ 			 * IPV6_MIN_MTU stop IPv6 on this interface.
+ 			 */
+ 			if (dev->mtu < IPV6_MIN_MTU)
+-				addrconf_ifdown(dev, 1);
++				addrconf_ifdown(dev, dev != net->loopback_dev);
+ 		}
+ 		break;
+ 
 -- 
-2.9.3
+2.5.5
