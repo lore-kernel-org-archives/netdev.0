@@ -1,61 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] sunvnet: implement basic ethtool
- get_settings
-Date: Wed, 21 Jun 2017 17:28:40 -0400 (EDT)
-Message-ID: <20170621.172840.2117049575055680390.davem@davemloft.net>
-References: <1498061394-233018-3-git-send-email-shannon.nelson@oracle.com>
-        <20170621.150634.1121246733116528491.davem@davemloft.net>
-        <24dd8cf5-9fba-abb6-031f-b46b017e5e9f@oracle.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [PATCH iproute2 net-next] bpf: Add support for IFLA_XDP_PROG_ID
+Date: Wed, 21 Jun 2017 14:29:42 -0700
+Message-ID: <20170621212942.2333878-1-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sparclinux@vger.kernel.org
-To: shannon.nelson@oracle.com
+Content-Type: text/plain
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Alexei Starovoitov <ast@fb.com>, <davem@davemloft.net>,
+        <netdev@vger.kernel.org>
+To: <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46534 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752653AbdFUV2q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 17:28:46 -0400
-In-Reply-To: <24dd8cf5-9fba-abb6-031f-b46b017e5e9f@oracle.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:44656 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751835AbdFUV3t (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 17:29:49 -0400
+Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5LLTRxi011448
+        for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 14:29:44 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 2b802p05wu-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 14:29:44 -0700
+Received: from facebook.com (2401:db00:11:d09a:face:0:41:0)     by
+ mx-out.facebook.com (10.212.236.89) with ESMTP id
+ bd902d2256c811e79f0c0002c95209d8-57b348f0 for <netdev@vger.kernel.org>;        Wed,
+ 21 Jun 2017 14:29:43 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@oracle.com>
-Date: Wed, 21 Jun 2017 13:59:45 -0700
+This patch adds support to the newly added IFLA_XDP_PROG_ID.
 
-> On 6/21/2017 12:06 PM, David Miller wrote:
->> From: Shannon Nelson <shannon.nelson@oracle.com>
->> Date: Wed, 21 Jun 2017 09:09:54 -0700
->> 
->>> Add the get_settings callback so that both the ldmvsw and sunvnet
->>> drivers will give a little more information when asked for its
->>> basic settings.  These aren't necessarily very useful, but they
->>> make some users happier.  Also, a side effect is that the speed
->>> attribute in /sys/class/net/<dev> is now readable, which makes
->>> a couple of the ldom management tools happier.
->>>
->>> Orabug: 26175474
->>>
->>> Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
->> I would set the speed to something other than zero, and also
-> 
-> I kept looking at that and wasn't sure which value to pretend with.  I
-> looked at what was reported in the Solaris world and saw '0' so went
-> with that.  I suppose using SPEED_10000 shouldn't hurt anything, and
-> is close enough to observed client-to-client speeds.
-> 
->> consider the ramifications of this change upon things like
->> 'bonding' and 'team'.
-> 
-> The request I was responding to with this was really more targeted at
-> the ldmvsw (host) side of the connection, the vif device, which I
-> believe only ever gets connected to the vsw bridge.  You're right,
-> tho', because the eth0 in the ldom client *does* get sucked into
-> teams.  I may drop the sunvnet/client side of this patch and stick
-> with just the host/ldmvsw side.
+./ip link show dev eth0
+3: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdpgeneric/id:2 qdisc [...]
 
-Usually if possible you propagate the speed of the underlying physical
-layer, if applicable.
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+---
+ include/linux/if_link.h |  1 +
+ ip/iplink_xdp.c         | 12 +++++++++---
+ 2 files changed, 10 insertions(+), 3 deletions(-)
 
-You can see what some other software devices do in the case of ethtool
-link speed settings.
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index a536a24b1c28..75e6824094e3 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -905,6 +905,7 @@ enum {
+ 	IFLA_XDP_FD,
+ 	IFLA_XDP_ATTACHED,
+ 	IFLA_XDP_FLAGS,
++	IFLA_XDP_PROG_ID,
+ 	__IFLA_XDP_MAX,
+ };
+ 
+diff --git a/ip/iplink_xdp.c b/ip/iplink_xdp.c
+index 98503fab7d3c..4857f50c80de 100644
+--- a/ip/iplink_xdp.c
++++ b/ip/iplink_xdp.c
+@@ -90,9 +90,15 @@ void xdp_dump(FILE *fp, struct rtattr *xdp)
+ 	if (mode == XDP_ATTACHED_NONE)
+ 		return;
+ 	else if (mode == XDP_ATTACHED_DRV)
+-		fprintf(fp, "xdp ");
++		fprintf(fp, "xdp");
+ 	else if (mode == XDP_ATTACHED_SKB)
+-		fprintf(fp, "xdpgeneric ");
++		fprintf(fp, "xdpgeneric");
+ 	else
+-		fprintf(fp, "xdp[%u] ", mode);
++		fprintf(fp, "xdp[%u]", mode);
++
++	if (tb[IFLA_XDP_PROG_ID])
++		fprintf(fp, "/id:%u",
++			rta_getattr_u32(tb[IFLA_XDP_PROG_ID]));
++
++	fprintf(fp, " ");
+ }
+-- 
+2.9.3
