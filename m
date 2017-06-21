@@ -1,54 +1,59 @@
-From: l00371289 <linyunsheng@huawei.com>
-Subject: Re: [PATCH NET] net/hns:bugfix of ethtool -t phy self_test
-Date: Wed, 21 Jun 2017 10:06:10 +0800
-Message-ID: <199ec218-f7ab-4c6a-5896-e34bce262481@huawei.com>
-References: <1497605091-94725-1-git-send-email-linyunsheng@huawei.com>
- <7500513f-e263-838c-12a1-4343f7281f1a@gmail.com>
- <20170619215435.GA13704@lunn.ch>
- <f526345d-b0a4-1c45-8472-81c6c548950c@huawei.com>
- <20170620132857.GE13704@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>, <davem@davemloft.net>,
-        <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
-        <liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
-        <gabriele.paoloni@huawei.com>, <john.garry@huawei.com>,
-        <linuxarm@huawei.com>, <salil.mehta@huawei.com>,
-        <lipeng321@huawei.com>, <yankejian@huawei.com>,
-        <tremyfr@gmail.com>, <xieqianqian@huawei.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170620132857.GE13704@lunn.ch>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Chenbo Feng <chenbofeng.kernel@gmail.com>
+Subject: [PATCH net-next] Add a tcp_filter hook before handle ack packet
+Date: Tue, 20 Jun 2017 19:06:40 -0700
+Message-ID: <1498010800-3918-1-git-send-email-chenbofeng.kernel@gmail.com>
+Cc: Lorenzo Colitti <lorenzo@google.com>,
+        Chenbo Feng <fengc@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34469 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752983AbdFUCHy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 22:07:54 -0400
+Received: by mail-pf0-f195.google.com with SMTP id d5so26967805pfe.1
+        for <netdev@vger.kernel.org>; Tue, 20 Jun 2017 19:07:54 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi, Andrew
+From: Chenbo Feng <fengc@google.com>
 
-On 2017/6/20 21:28, Andrew Lunn wrote:
->>>> The question really is, why is not this properly integrated into the PHY
->>>> driver and PHYLIB such that the only thing the Ethernet MAC driver has
->>>> to call is a function of the PHY driver putting it in self-test?
->>>
->>> This whole driver pokes various PHY registers, rather than use
->>> phylib. And it does so without taking the PHY lock. 
->> I will consider using phylib as much as possible, thanks.
->>
->> It also assumes it
->>> is a Marvell PHY and i don't see anywhere it actually verifies this.
->> When it said Marvell Phy , I meant Marvell Phy with fibre support.
->> I will send anther patch to only setting bit in Fiber Control when
->> it is a Marvell Phy with fibre support.
-> 
-> There is a lot more broken than just that.
-> 
-> You really should remove all code which is accessing the PHY, and add
-> support to phylib and the drivers for what you need.
-> 
->     Andrew
-After adding genphy_loopback support, I will try it. Thanks for pointing out.
+Currently in both ipv4 and ipv6 code path, the ack packet received when
+sk at TCP_NEW_SYN_RECV state is not filtered by socket filter or cgroup
+filter since it is handled from tcp_child_process and never reaches the
+tcp_filter inside tcp_v4_rcv or tcp_v6_rcv. Adding a tcp_filter hooks
+here can make sure all the ingress tcp packet can be correctly filtered.
 
-Best Regards
-Yunsheng Lin
+Signed-off-by: Chenbo Feng <fengc@google.com>
+---
+ net/ipv4/tcp_ipv4.c | 2 ++
+ net/ipv6/tcp_ipv6.c | 2 ++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 1dc8c44..ca3afb0 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1675,6 +1675,8 @@ int tcp_v4_rcv(struct sk_buff *skb)
+ 		}
+ 		if (nsk == sk) {
+ 			reqsk_put(req);
++		} else if (tcp_filter(sk, skb)) {
++			goto discard_and_relse;
+ 		} else if (tcp_child_process(sk, nsk, skb)) {
+ 			tcp_v4_send_reset(nsk, skb);
+ 			goto discard_and_relse;
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 84ad502..565d89b 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1451,6 +1451,8 @@ static int tcp_v6_rcv(struct sk_buff *skb)
+ 		if (nsk == sk) {
+ 			reqsk_put(req);
+ 			tcp_v6_restore_cb(skb);
++		} else if (tcp_filter(sk, skb)) {
++			goto discard_and_relse;
+ 		} else if (tcp_child_process(sk, nsk, skb)) {
+ 			tcp_v6_send_reset(nsk, skb);
+ 			goto discard_and_relse;
+-- 
+2.7.4
