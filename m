@@ -1,130 +1,85 @@
 From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH net-next v2 09/13] tcp: enable MSG_ZEROCOPY
-Date: Wed, 21 Jun 2017 16:36:48 -0400
-Message-ID: <20170621203652.15306-10-willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next v2 01/13] sock: allocate skbs from optmem
+Date: Wed, 21 Jun 2017 16:36:40 -0400
+Message-ID: <20170621203652.15306-2-willemdebruijn.kernel@gmail.com>
 References: <20170621203652.15306-1-willemdebruijn.kernel@gmail.com>
 Cc: davem@davemloft.net, linux-api@vger.kernel.org,
         Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:36453 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751934AbdFUUhE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 16:37:04 -0400
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:34030 "EHLO
+        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751083AbdFUUg6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 16:36:58 -0400
 In-Reply-To: <20170621203652.15306-1-willemdebruijn.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Willem de Bruijn <willemb@google.com>
 
-Enable support for MSG_ZEROCOPY to the TCP stack. TSO and GSO are
-both supported. Only data sent to remote destinations is sent without
-copying. Packets looped onto a local destination have their payload
-copied to avoid unbounded latency.
+Add sock_omalloc and sock_ofree to be able to allocate control skbs,
+for instance for looping errors onto sk_error_queue.
 
-Tested:
-  A 10x TCP_STREAM between two hosts showed a reduction in netserver
-  process cycles by up to 70%, depending on packet size. Systemwide,
-  savings are of course much less pronounced, at up to 20% best case.
-
-  msg_zerocopy.sh 4 tcp:
-
-  without zerocopy
-    tx=121792 (7600 MB) txc=0 zc=n
-    rx=60458 (7600 MB)
-
-  with zerocopy
-    tx=286257 (17863 MB) txc=286257 zc=y
-    rx=140022 (17863 MB)
-
-  This test opens a pair of sockets over veth, one one calls send with
-  64KB and optionally MSG_ZEROCOPY and on the other reads the initial
-  bytes. The receiver truncates, so this is strictly an upper bound on
-  what is achievable. It is more representative of sending data out of
-  a physical NIC (when payload is not touched, either).
+The transmit budget (sk_wmem_alloc) is involved in transmit skb
+shaping, most notably in TCP Small Queues. Using this budget for
+control packets would impact transmission.
 
 Signed-off-by: Willem de Bruijn <willemb@google.com>
 ---
- net/ipv4/tcp.c | 32 +++++++++++++++++++++++++++++++-
- 1 file changed, 31 insertions(+), 1 deletion(-)
+ include/net/sock.h |  2 ++
+ net/core/sock.c    | 27 +++++++++++++++++++++++++++
+ 2 files changed, 29 insertions(+)
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 11e4ee281aa0..9cb66fb54fc9 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1149,6 +1149,7 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct sk_buff *skb;
- 	struct sockcm_cookie sockc;
-+	struct ubuf_info *uarg = NULL;
- 	int flags, err, copied = 0;
- 	int mss_now = 0, size_goal, copied_syn = 0;
- 	bool process_backlog = false;
-@@ -1158,6 +1159,26 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
- 	lock_sock(sk);
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 858891c36f94..6ab68442ceb9 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1524,6 +1524,8 @@ struct sk_buff *sock_wmalloc(struct sock *sk, unsigned long size, int force,
+ 			     gfp_t priority);
+ void __sock_wfree(struct sk_buff *skb);
+ void sock_wfree(struct sk_buff *skb);
++struct sk_buff *sock_omalloc(struct sock *sk, unsigned long size,
++			     gfp_t priority);
+ void skb_orphan_partial(struct sk_buff *skb);
+ void sock_rfree(struct sk_buff *skb);
+ void sock_efree(struct sk_buff *skb);
+diff --git a/net/core/sock.c b/net/core/sock.c
+index ad8a4bc84126..03261563f6a9 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1890,6 +1890,33 @@ struct sk_buff *sock_wmalloc(struct sock *sk, unsigned long size, int force,
+ }
+ EXPORT_SYMBOL(sock_wmalloc);
  
- 	flags = msg->msg_flags;
++static void sock_ofree(struct sk_buff *skb)
++{
++	struct sock *sk = skb->sk;
 +
-+	if (flags & MSG_ZEROCOPY && size) {
-+		if (sk->sk_state != TCP_ESTABLISHED) {
-+			err = -EINVAL;
-+			goto out_err;
-+		}
++	atomic_sub(skb->truesize, &sk->sk_omem_alloc);
++}
 +
-+		skb = tcp_send_head(sk) ? tcp_write_queue_tail(sk) : NULL;
-+		uarg = sock_zerocopy_realloc(sk, size, skb_zcopy(skb));
-+		if (!uarg) {
-+			err = -ENOBUFS;
-+			goto out_err;
-+		}
++struct sk_buff *sock_omalloc(struct sock *sk, unsigned long size,
++			     gfp_t priority)
++{
++	struct sk_buff *skb;
 +
-+		/* skb may be freed in main loop, keep extra ref on uarg */
-+		sock_zerocopy_get(uarg);
-+		if (!(sk_check_csum_caps(sk) && sk->sk_route_caps & NETIF_F_SG))
-+			uarg->zerocopy = 0;
-+	}
++	/* small safe race: SKB_TRUESIZE may differ from final skb->truesize */
++	if (atomic_read(&sk->sk_omem_alloc) + SKB_TRUESIZE(size) >
++	    sysctl_optmem_max)
++		return NULL;
 +
- 	if (unlikely(flags & MSG_FASTOPEN || inet_sk(sk)->defer_connect)) {
- 		err = tcp_sendmsg_fastopen(sk, msg, &copied_syn, size);
- 		if (err == -EINPROGRESS && copied_syn > 0)
-@@ -1281,7 +1302,7 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
- 			err = skb_add_data_nocache(sk, skb, &msg->msg_iter, copy);
- 			if (err)
- 				goto do_fault;
--		} else {
-+		} else if (!uarg || !uarg->zerocopy) {
- 			bool merge = true;
- 			int i = skb_shinfo(skb)->nr_frags;
- 			struct page_frag *pfrag = sk_page_frag(sk);
-@@ -1319,6 +1340,13 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
- 				page_ref_inc(pfrag->page);
- 			}
- 			pfrag->offset += copy;
-+		} else {
-+			err = skb_zerocopy_iter_stream(sk, skb, msg, copy, uarg);
-+			if (err == -EMSGSIZE || err == -EEXIST)
-+				goto new_segment;
-+			if (err < 0)
-+				goto do_error;
-+			copy = err;
- 		}
- 
- 		if (!copied)
-@@ -1365,6 +1393,7 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
- 		tcp_push(sk, flags, mss_now, tp->nonagle, size_goal);
- 	}
- out_nopush:
-+	sock_zerocopy_put(uarg);
- 	release_sock(sk);
- 	return copied + copied_syn;
- 
-@@ -1382,6 +1411,7 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
- 	if (copied + copied_syn)
- 		goto out;
- out_err:
-+	sock_zerocopy_put_abort(uarg);
- 	err = sk_stream_error(sk, flags, err);
- 	/* make sure we wake any epoll edge trigger waiter */
- 	if (unlikely(skb_queue_len(&sk->sk_write_queue) == 0 &&
++	skb = alloc_skb(size, priority);
++	if (!skb)
++		return NULL;
++
++	atomic_add(skb->truesize, &sk->sk_omem_alloc);
++	skb->sk = sk;
++	skb->destructor = sock_ofree;
++	return skb;
++}
++
+ /*
+  * Allocate a memory block from the socket's option memory buffer.
+  */
 -- 
 2.13.1.611.g7e3b11ae1-goog
