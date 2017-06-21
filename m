@@ -1,51 +1,58 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [RFC 2/2] phy: bcm-ns-usb3: fix MDIO_BUS dependency
-Date: Thu, 22 Jun 2017 00:06:07 +0200
-Message-ID: <20170621220626.46691-2-arnd@arndb.de>
-References: <20170621220626.46691-1-arnd@arndb.de>
-Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>,
-        Kishon Vijay Abraham I <kishon@ti.com>,
-        Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
-        "David S . Miller" <davem@davemloft.net>,
-        Arnd Bergmann <arnd@arndb.de>, linux-kernel@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH] netvsc: don't access netdev->num_rx_queues directly
+Date: Thu, 22 Jun 2017 00:16:37 +0200
+Message-ID: <20170621221714.278724-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        "K. Y. Srinivasan" <kys@microsoft.com>,
+        Haiyang Zhang <haiyangz@microsoft.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Simon Xiao <sixiao@microsoft.com>,
+        devel@linuxdriverproject.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Stephen Hemminger <sthemmin@microsoft.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170621220626.46691-1-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The driver attempts to 'select MDIO_DEVICE', but the code
-is actually a loadable module when PHYLIB=m:
+This structure member is hidden behind CONFIG_SYSFS, and we
+get a build error when that is disabled:
 
-drivers/phy/broadcom/phy-bcm-ns-usb3.o: In function `bcm_ns_usb3_mdiodev_phy_write':
-phy-bcm-ns-usb3.c:(.text.bcm_ns_usb3_mdiodev_phy_write+0x28): undefined reference to `mdiobus_write'
-drivers/phy/broadcom/phy-bcm-ns-usb3.o: In function `bcm_ns_usb3_module_exit':
-phy-bcm-ns-usb3.c:(.exit.text+0x18): undefined reference to `mdio_driver_unregister'
-drivers/phy/broadcom/phy-bcm-ns-usb3.o: In function `bcm_ns_usb3_module_init':
-phy-bcm-ns-usb3.c:(.init.text+0x18): undefined reference to `mdio_driver_register'
-phy-bcm-ns-usb3.c:(.init.text+0x38): undefined reference to `mdio_driver_unregister'
+drivers/net/hyperv/netvsc_drv.c: In function 'netvsc_set_channels':
+drivers/net/hyperv/netvsc_drv.c:754:49: error: 'struct net_device' has no member named 'num_rx_queues'; did you mean 'num_tx_queues'?
+drivers/net/hyperv/netvsc_drv.c: In function 'netvsc_set_rxfh':
+drivers/net/hyperv/netvsc_drv.c:1181:25: error: 'struct net_device' has no member named 'num_rx_queues'; did you mean 'num_tx_queues'?
 
-Using 'depends on MDIO_BUS' instead will avoid the link error.
+As the value is only set once to the argument of alloc_netdev_mq(),
+we can compare against that constant directly.
 
-Fixes: af850e14a7ae ("phy: bcm-ns-usb3: add MDIO driver using proper bus layer")
+Fixes: ff4a44199012 ("netvsc: allow get/set of RSS indirection table")
+Fixes: 2b01888d1b45 ("netvsc: allow more flexible setting of number of channels")
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/phy/broadcom/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/hyperv/netvsc_drv.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/phy/broadcom/Kconfig b/drivers/phy/broadcom/Kconfig
-index 37371b89b14f..64fc59c3ae6d 100644
---- a/drivers/phy/broadcom/Kconfig
-+++ b/drivers/phy/broadcom/Kconfig
-@@ -30,8 +30,8 @@ config PHY_BCM_NS_USB3
- 	tristate "Broadcom Northstar USB 3.0 PHY Driver"
- 	depends on ARCH_BCM_IPROC || COMPILE_TEST
- 	depends on HAS_IOMEM && OF
-+	depends on MDIO_BUS
- 	select GENERIC_PHY
--	select MDIO_DEVICE
- 	help
- 	  Enable this to support Broadcom USB 3.0 PHY connected to the USB
- 	  controller on Northstar family.
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 9a6c5864bc04..a284bfe991ba 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -751,7 +751,7 @@ static int netvsc_set_channels(struct net_device *net,
+ 	    channels->rx_count || channels->tx_count || channels->other_count)
+ 		return -EINVAL;
+ 
+-	if (count > net->num_tx_queues || count > net->num_rx_queues)
++	if (count > net->num_tx_queues || count > VRSS_CHANNEL_MAX)
+ 		return -EINVAL;
+ 
+ 	if (!nvdev || nvdev->destroy)
+@@ -1178,7 +1178,7 @@ static int netvsc_set_rxfh(struct net_device *dev, const u32 *indir,
+ 	rndis_dev = ndev->extension;
+ 	if (indir) {
+ 		for (i = 0; i < ITAB_NUM; i++)
+-			if (indir[i] >= dev->num_rx_queues)
++			if (indir[i] >= VRSS_CHANNEL_MAX)
+ 				return -EINVAL;
+ 
+ 		for (i = 0; i < ITAB_NUM; i++)
 -- 
 2.9.0
