@@ -1,79 +1,155 @@
-From: <morice.diane@gmail.com>
-Subject: (unknown)
-Date: Wed, 21 Jun 2017 20:10:20 -0000
-Message-ID: <149807582030.30693.7861029337697697383@poneytelecom.eu>
-Mime-Version: 1.0
-Content-Type: application/zip; name="281270036887.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next v2 02/13] sock: skb_copy_ubufs support for compound pages
+Date: Wed, 21 Jun 2017 16:36:41 -0400
+Message-ID: <20170621203652.15306-3-willemdebruijn.kernel@gmail.com>
+References: <20170621203652.15306-1-willemdebruijn.kernel@gmail.com>
+Cc: davem@davemloft.net, linux-api@vger.kernel.org,
+        Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 212-129-3-98.rev.poneytelecom.eu ([212.129.3.98]:37236 "HELO
-        poneytelecom.eu" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with SMTP id S1751106AbdFUUKY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 16:10:24 -0400
-Content-Disposition: attachment
-Subject: 
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:33490 "EHLO
+        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751093AbdFUUg6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 16:36:58 -0400
+In-Reply-To: <20170621203652.15306-1-willemdebruijn.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-AAEAAQBOAAAABw0AAAAA
+From: Willem de Bruijn <willemb@google.com>
+
+Refine skb_copy_ubufs to support compound pages. With upcoming TCP
+and UDP zerocopy sendmsg, such fragments may appear.
+
+The existing code replaces each page one for one. Splitting each
+compound page into an independent number of regular pages can result
+in exceeding limit MAX_SKB_FRAGS.
+
+Instead, fill all destination pages but the last to PAGE_SIZE.
+Split the existing alloc + copy loop into separate stages. Compute
+the bytelength and allocate the minimum number of pages needed to
+hold this. Revise the copy loop to fill each destination page.
+
+It is not safe to modify skb frags when the skbuff is shared. No
+existing codepath should hit this case.
+
+Eventually, this fragile function can perhaps be replaced with calls
+to skb_linearize -- when converted to not always require GFP_ATOMIC.
+
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ include/linux/skbuff.h |  9 +++++++--
+ net/core/skbuff.c      | 49 ++++++++++++++++++++++++++++++++++++++-----------
+ 2 files changed, 45 insertions(+), 13 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 852feacf4bbf..4f520cc9b914 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1783,13 +1783,18 @@ static inline unsigned int skb_headlen(const struct sk_buff *skb)
+ 	return skb->len - skb->data_len;
+ }
+ 
+-static inline unsigned int skb_pagelen(const struct sk_buff *skb)
++static inline unsigned int __skb_pagelen(const struct sk_buff *skb)
+ {
+ 	unsigned int i, len = 0;
+ 
+ 	for (i = skb_shinfo(skb)->nr_frags - 1; (int)i >= 0; i--)
+ 		len += skb_frag_size(&skb_shinfo(skb)->frags[i]);
+-	return len + skb_headlen(skb);
++	return len;
++}
++
++static inline unsigned int skb_pagelen(const struct sk_buff *skb)
++{
++	return skb_headlen(skb) + __skb_pagelen(skb);
+ }
+ 
+ /**
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index f75897a33fa4..96db26594192 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -958,15 +958,20 @@ EXPORT_SYMBOL_GPL(skb_morph);
+  */
+ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
+ {
+-	int i;
+ 	int num_frags = skb_shinfo(skb)->nr_frags;
+ 	struct page *page, *head = NULL;
+ 	struct ubuf_info *uarg = skb_shinfo(skb)->destructor_arg;
++	int i, new_frags;
++	u32 d_off;
+ 
+-	for (i = 0; i < num_frags; i++) {
+-		u8 *vaddr;
+-		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
++	if (!num_frags)
++		return 0;
+ 
++	if (skb_shared(skb) || skb_unclone(skb, gfp_mask))
++		return -EINVAL;
++
++	new_frags = (__skb_pagelen(skb) + PAGE_SIZE - 1) >> PAGE_SHIFT;
++	for (i = 0; i < new_frags; i++) {
+ 		page = alloc_page(gfp_mask);
+ 		if (!page) {
+ 			while (head) {
+@@ -976,14 +981,35 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
+ 			}
+ 			return -ENOMEM;
+ 		}
+-		vaddr = kmap_atomic(skb_frag_page(f));
+-		memcpy(page_address(page),
+-		       vaddr + f->page_offset, skb_frag_size(f));
+-		kunmap_atomic(vaddr);
+ 		set_page_private(page, (unsigned long)head);
+ 		head = page;
+ 	}
+ 
++	page = head;
++	d_off = 0;
++	for (i = 0; i < num_frags; i++) {
++		u8 *vaddr;
++		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
++		u32 f_off, f_size, copy;
++
++		f_off = f->page_offset;
++		f_size = f->size;
++
++		vaddr = kmap_atomic(skb_frag_page(f));
++		while (f_size) {
++			if (d_off == PAGE_SIZE) {
++				d_off = 0;
++				page = (struct page *)page_private(page);
++			}
++			copy = min_t(u32, PAGE_SIZE - d_off, f_size);
++			memcpy(page_address(page) + d_off, vaddr + f_off, copy);
++			f_size -= copy;
++			d_off += copy;
++			f_off += copy;
++		}
++		kunmap_atomic(vaddr);
++	}
++
+ 	/* skb frags release userspace buffers */
+ 	for (i = 0; i < num_frags; i++)
+ 		skb_frag_unref(skb, i);
+@@ -991,11 +1017,12 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
+ 	uarg->callback(uarg, false);
+ 
+ 	/* skb frags point to kernel buffers */
+-	for (i = num_frags - 1; i >= 0; i--) {
+-		__skb_fill_page_desc(skb, i, head, 0,
+-				     skb_shinfo(skb)->frags[i].size);
++	for (i = 0; i < new_frags - 1; i++) {
++		__skb_fill_page_desc(skb, i, head, 0, PAGE_SIZE);
+ 		head = (struct page *)page_private(head);
+ 	}
++	__skb_fill_page_desc(skb, new_frags - 1, head, 0, d_off);
++	skb_shinfo(skb)->nr_frags = new_frags;
+ 
+ 	skb_shinfo(skb)->tx_flags &= ~SKBTX_DEV_ZEROCOPY;
+ 	return 0;
+-- 
+2.13.1.611.g7e3b11ae1-goog
