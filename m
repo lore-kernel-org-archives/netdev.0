@@ -1,41 +1,101 @@
-From: "Steve Wise" <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-Subject: RE: [PATCH rdma-next 04/19] RDMA/netlink: Rename and remove redundant parameter from ibnl_multicast
-Date: Wed, 21 Jun 2017 09:03:08 -0500
-Message-ID: <021c01d2ea97$1c434e60$54c9eb20$@opengridcomputing.com>
-References: <20170621060528.3752-1-leon@kernel.org> <20170621060528.3752-5-leon@kernel.org>
+From: yuan linyu <cugyly@163.com>
+Subject: [PATCH] net: fib: fix fib_new_table() logical issue
+Date: Wed, 21 Jun 2017 22:02:24 +0800
+Message-ID: <1498053744-3217-1-git-send-email-cugyly@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "'Chien Tin Tung'" <chien.tin.tung-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "'Stephen Hemminger'" <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-        "'Jiri Pirko'" <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        "'Ariel Almog'" <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        "'Linux Netdev'" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "'Leon Romanovsky'" <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: "'Leon Romanovsky'" <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        "'Doug Ledford'" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170621060528.3752-5-leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Content-Language: en-us
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S . Miller" <davem@davemloft.net>,
+        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from m12-12.163.com ([220.181.12.12]:41217 "EHLO m12-12.163.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751042AbdFUODM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 21 Jun 2017 10:03:12 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-> 
-> The pointer to netlink header was not used in the ibnl_multicast
-> function, so let's remove it and simplify the function
-> signature.
-> 
-> Signed-off-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
 
-Looks good.
+when CONFIG_IP_MULTIPLE_TABLES defined,
+if id == RT_TABLE_LOCAL and !net->ipv4.fib_has_custom_rules,
+fib_new_table() call itself to get RT_TABLE_MAIN table,
+but if RT_TABLE_MAIN table not exist at this point,
+this function will become deadloop.
 
-Reviewed-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+the solution is move RT_TABLE_MAIN table create to per-net init.
+and call fib_get_table() to get RT_TABLE_MAIN table.
 
+Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+---
+ net/ipv4/fib_frontend.c | 12 ++----------
+ net/ipv4/fib_rules.c    | 11 +++++++++++
+ 2 files changed, 13 insertions(+), 10 deletions(-)
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 4e678fa..4606b4a 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -87,22 +87,14 @@ struct fib_table *fib_new_table(struct net *net, u32 id)
+ 		return tb;
+ 
+ 	if (id == RT_TABLE_LOCAL && !net->ipv4.fib_has_custom_rules)
+-		alias = fib_new_table(net, RT_TABLE_MAIN);
++		alias = fib_get_table(net, RT_TABLE_MAIN);
+ 
+ 	tb = fib_trie_table(id, alias);
+ 	if (!tb)
+ 		return NULL;
+ 
+-	switch (id) {
+-	case RT_TABLE_MAIN:
+-		rcu_assign_pointer(net->ipv4.fib_main, tb);
+-		break;
+-	case RT_TABLE_DEFAULT:
++	if (id == RT_TABLE_DEFAULT)
+ 		rcu_assign_pointer(net->ipv4.fib_default, tb);
+-		break;
+-	default:
+-		break;
+-	}
+ 
+ 	h = id & (FIB_TABLE_HASHSZ - 1);
+ 	hlist_add_head_rcu(&tb->tb_hlist, &net->ipv4.fib_table_hash[h]);
+diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
+index 778ecf9..a9796ac 100644
+--- a/net/ipv4/fib_rules.c
++++ b/net/ipv4/fib_rules.c
+@@ -402,8 +402,14 @@ static int fib_default_rules_init(struct fib_rules_ops *ops)
+ int __net_init fib4_rules_init(struct net *net)
+ {
+ 	int err;
++	unsigned int h;
++	struct fib_table *main_table;
+ 	struct fib_rules_ops *ops;
+ 
++	main_table = fib_trie_table(RT_TABLE_MAIN, NULL);
++	if (!main_table)
++		return -ENOMEM;
++
+ 	ops = fib_rules_register(&fib4_rules_ops_template, net);
+ 	if (IS_ERR(ops))
+ 		return PTR_ERR(ops);
+@@ -413,11 +419,16 @@ int __net_init fib4_rules_init(struct net *net)
+ 		goto fail;
+ 	net->ipv4.rules_ops = ops;
+ 	net->ipv4.fib_has_custom_rules = false;
++
++	rcu_assign_pointer(net->ipv4.fib_main, main_table);
++	h = RT_TABLE_MAIN & (FIB_TABLE_HASHSZ - 1);
++	hlist_add_head_rcu(&main_table->tb_hlist, &net->ipv4.fib_table_hash[h]);
+ 	return 0;
+ 
+ fail:
+ 	/* also cleans all rules already added */
+ 	fib_rules_unregister(ops);
++	fib_free_table(main_table);
+ 	return err;
+ }
+ 
+-- 
+2.7.4
