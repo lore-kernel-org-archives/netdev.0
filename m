@@ -1,50 +1,41 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next] bpf, i40e: Report bpf_prog id during XDP_QUERY_PROG
-Date: Wed, 21 Jun 2017 10:54:55 -0700
-Message-ID: <594AB2EF.2040809@gmail.com>
-References: <754b16a0b2d98a1c6a3796aaa6701fae0c4e2612.1498065586.git.daniel@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Martin KaFai Lau <kafai@fb.com>,
-        Alexander Duyck <alexander.h.duyck@intel.com>
-To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33427 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751487AbdFURzI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 13:55:08 -0400
-Received: by mail-pf0-f195.google.com with SMTP id w12so32091578pfk.0
-        for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 10:55:08 -0700 (PDT)
-In-Reply-To: <754b16a0b2d98a1c6a3796aaa6701fae0c4e2612.1498065586.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julien Gomes <julien@arista.com>
+Subject: [PATCH net-next 1/2] ipmr: restrict mroute "queue full" warning to related error values
+Date: Wed, 21 Jun 2017 10:58:10 -0700
+Message-ID: <20170621175811.16940-1-julien@arista.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Julien Gomes <julien@arista.com>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/21/2017 10:27 AM, Daniel Borkmann wrote:
-> Fill the bpf_prog with the id just like we do in other XDP enabled
-> drivers.
-> 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: Martin KaFai Lau <kafai@fb.com>
-> Cc: Alexander Duyck <alexander.h.duyck@intel.com>
-> ---
->  drivers/net/ethernet/intel/i40e/i40e_main.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> index 2db93d3..6f5adb5 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> @@ -9589,6 +9589,7 @@ static int i40e_xdp(struct net_device *dev,
->  		return i40e_xdp_setup(vsi, xdp->prog);
->  	case XDP_QUERY_PROG:
->  		xdp->prog_attached = i40e_enabled_xdp_vsi(vsi);
-> +		xdp->prog_id = xdp->prog_attached ? vsi->xdp_prog->aux->id : 0;
->  		return 0;
->  	default:
->  		return -EINVAL;
-> 
+When sending a cache report on mroute_sk, mroute will emit a
+"pending queue full" warning for every error value returned by
+sock_queue_rcv_skb().
+This warning can be misleading, for example on the EPERM error value
+that sk_filter() can return.
 
-Looks good to me.
+Restricting this warning to only ENOMEM or ENOBUFS seems more
+appropriate.
 
-Acked-by: John Fastabend <john.fastabend@gmail.com>
+Signed-off-by: Julien Gomes <julien@arista.com>
+---
+ net/ipv4/ipmr.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index a1d521be612b..ace12cddb9de 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -1068,7 +1068,8 @@ static int ipmr_cache_report(struct mr_table *mrt,
+ 	ret = sock_queue_rcv_skb(mroute_sk, skb);
+ 	rcu_read_unlock();
+ 	if (ret < 0) {
+-		net_warn_ratelimited("mroute: pending queue full, dropping entries\n");
++		if (ret == -ENOMEM || ret == -ENOBUFS)
++			net_warn_ratelimited("mroute: pending queue full, dropping entries\n");
+ 		kfree_skb(skb);
+ 	}
+ 
+-- 
+2.13.1
