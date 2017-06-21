@@ -1,32 +1,61 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH] qed*: Fix build for !QED_RDMA
-Date: Wed, 21 Jun 2017 13:52:38 +0000
-Message-ID: <BLUPR0701MB20045B29390DD15330D86DE98DDA0@BLUPR0701MB2004.namprd07.prod.outlook.com>
-References: <20170621104531.11071-1-broonie@kernel.org>
+From: Sergey Matyukevich <sergey.matyukevich.os@quantenna.com>
+Subject: Re: [PATCH][net-next] qtnfmac: fix uninitialized return code in ret
+Date: Wed, 21 Jun 2017 16:54:04 +0300
+Message-ID: <20170621135402.e4iwovvmdumarzqj@bars>
+References: <20170621132530.11937-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>
-To: Mark Brown <broonie@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0079.outbound.protection.outlook.com ([104.47.42.79]:18720
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750999AbdFUNwl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 21 Jun 2017 09:52:41 -0400
-In-Reply-To: <20170621104531.11071-1-broonie@kernel.org>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Igor Mitsyanko <imitsyanko@quantenna.com>,
+        Avinash Patil <avinashp@quantenna.com>,
+        Sergey Matyukevich <smatyukevich@quantenna.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        Bindu Therthala <btherthala@quantenna.com>,
+        Kamlesh Rath <krath@quantenna.com>,
+        Sergei Maksimenko <smaksimenko@quantenna.com>,
+        Johannes Berg <johannes.berg@intel.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170621132530.11937-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> A stray semicolon was introduced by bbfcd1e8e1677b (qed*: Set rdma
-> generic functions prefix), remove it.=09
+> The return value ret is unitialized and garbage is being returned
+> for the three different error conditions when setting up the PCIe
+> BARs. Fix this by initializing ret to  -ENOMEM to indicate that
+> the BARs failed to be setup correctly.
+> 
+> Detected by CoverityScan, CID#1437563 ("Unitialized scalar variable")
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> ---
+>  drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c b/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c
+> index f93b27f3a236..7fc4f0d6a9ad 100644
+> --- a/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c
+> +++ b/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c
+> @@ -247,7 +247,7 @@ static void qtnf_pcie_free_shm_ipc(struct qtnf_pcie_bus_priv *priv)
+> 
+>  static int qtnf_pcie_init_memory(struct qtnf_pcie_bus_priv *priv)
+>  {
+> -       int ret;
+> +       int ret = -ENOMEM;
+> 
+>         priv->sysctl_bar = qtnf_map_bar(priv, QTN_SYSCTL_BAR);
+>         if (IS_ERR_OR_NULL(priv->sysctl_bar)) {
+> --
 
-Hi Mark,
+Thanks !
 
-Thanks, but I've already sent the same
-http://marc.info/?l=3Dlinux-netdev&m=3D149802281509733&w=3D2
+Reviewed-by: Sergey Matyukevich <sergey.matyukevich.os@quantenna.com>
 
-Thanks,
-Yuval
+By the way, could you please use the recepient list suggested by
+get_maintainer.pl script from the kernel scripts directory.
+
+Regards,
+Sergey
