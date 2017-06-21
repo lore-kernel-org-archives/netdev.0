@@ -1,62 +1,80 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: Re: [PATCH] liquidio: stop using huge static buffer, save 4096k in
- .data
-Date: Tue, 20 Jun 2017 19:59:03 -0700
-Message-ID: <20170621025903.GA1261@felix-thinkpad.cavium.com>
-References: <20170620.152142.1443468587541525646.davem@davemloft.net>
- <MWHPR07MB29434F09FBC054D2E0310D6FF3C50@MWHPR07MB2943.namprd07.prod.outlook.com>
- <20170620205125.GA1364@felix-thinkpad.cavium.com>
- <20170620.211713.1253498659679389459.davem@davemloft.net>
+From: jeffy <jeffy.chen@rock-chips.com>
+Subject: Re: [Patch net] ipv6: only call ip6_route_dev_notify() once for NETDEV_UNREGISTER
+Date: Wed, 21 Jun 2017 11:01:14 +0800
+Message-ID: <5949E17A.4020508@rock-chips.com>
+References: <1497984147-15011-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Derek.Chickles@cavium.com, dvlasenk@redhat.com,
-        netdev@vger.kernel.org, Prasad.Kanneganti@cavium.com,
-        linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170620.211713.1253498659679389459.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Ahern <dsahern@gmail.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from regular1.263xmail.com ([211.150.99.131]:36848 "EHLO
+        regular1.263xmail.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752990AbdFUDB2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 23:01:28 -0400
+In-Reply-To: <1497984147-15011-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 20 Jun 2017 21:17:13 -0400
+Hi Cong Wang,
 
-> From: Felix Manlunas <felix.manlunas@cavium.com>
-> Date: Tue, 20 Jun 2017 13:51:25 -0700
-> 
-> > From: Derek Chickles <Derek.Chickles@cavium.com>
-> > Date: Tue, 20 Jun 2017 13:15:34 -0700
-> > 
-> >> > From: David Miller [mailto:davem@davemloft.net]
-> >> > Sent: Tuesday, June 20, 2017 12:22 PM
-> >> > 
-> >> > From: Denys Vlasenko <dvlasenk@redhat.com>
-> >> > Date: Mon, 19 Jun 2017 21:50:52 +0200
-> >> > 
-> >> > > Only compile-tested - I don't have the hardware.
-> >> > >
-> >> > > From code inspection, octeon_pci_write_core_mem() appears to be safe wrt
-> >> > > unaligned source. In any case, u8 fbuf[] was not guaranteed to be aligned
-> >> > > anyway.
-> >> > >
-> >> > > Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
-> >> > 
-> >> > Looks good to me but I'll let one of the liquidio guys review this first
-> >> > before I apply it.
-> >> 
-> >> Felix is going to try this out this week to confirm. Let's wait for his ack.
-> > 
-> > This patch works.  I tested it with a LiquidIO II adapter.
-> > 
-> > ACK
-> 
-> Please ACK patches in the standard way which is in the form of:
-> 
-> Acked-by: David S. Miller <davem@davemloft.net>
-> 
-> This tag is recognized by tools and in particular the patchwork
-> site where networking patches are maintained, automatically
-> including your ACK into the patch I apply.
+i don't know much about net core, maybe i'm misreading the code...but
 
-Acked-by: Felix Manlunas <felix.manlunas@cavium.com>
+On 06/21/2017 02:42 AM, Cong Wang wrote:
+> In commit 242d3a49a2a1 ("ipv6: reorder ip6_route_dev_notifier after ipv6_dev_notf")
+> I assumed NETDEV_REGISTER and NETDEV_UNREGISTER are paired,
+> unfortunately, as reported by jeffy, netdev_wait_allrefs()
+> could rebroadcast NETDEV_UNREGISTER event until all refs are
+> gone.
+>
+> We have to add an additional check to avoid this corner case.
+> For netdev_wait_allrefs() dev->reg_state is NETREG_UNREGISTERED,
+> for dev_change_net_namespace(), dev->reg_state is
+> NETREG_REGISTERED. So check for dev->reg_state != NETREG_UNREGISTERED.
+
+i saw we are calling NETDEV_REGISTER in these cases:
+1/ register_netdevice_notifier:
+the paired unregister would be:
+a) normal unregister: rollback_registered_many
+b) the error path:
+register_netdevice_notifier->rollback jump label
+
+2/ register_netdevice:
+the paired unregister would both be rollback_registered_many for 
+normal/error cases
+
+3/ dev_change_net_namespace:
+the paired unregister is the one right before the register notify
+
+i think we are handling all register notifies, but only unregister 
+notify from rollback_registered_many now?
+
+
+>
+> Fixes: 242d3a49a2a1 ("ipv6: reorder ip6_route_dev_notifier after ipv6_dev_notf")
+> Reported-by: jeffy <jeffy.chen@rock-chips.com>
+> Cc: David Ahern <dsahern@gmail.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
+>   net/ipv6/route.c | 6 +++++-
+>   1 file changed, 5 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index 7cebd95..322bd62 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -3722,7 +3722,11 @@ static int ip6_route_dev_notify(struct notifier_block *this,
+>   		net->ipv6.ip6_blk_hole_entry->dst.dev = dev;
+>   		net->ipv6.ip6_blk_hole_entry->rt6i_idev = in6_dev_get(dev);
+>   #endif
+> -	 } else if (event == NETDEV_UNREGISTER) {
+> +	 } else if (event == NETDEV_UNREGISTER &&
+> +		    dev->reg_state != NETREG_UNREGISTERED) {
+> +		/* NETDEV_UNREGISTER could be fired for multiple times by
+> +		 * netdev_wait_allrefs(). Make sure we only call this once.
+> +		 */
+>   		in6_dev_put(net->ipv6.ip6_null_entry->rt6i_idev);
+>   #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+>   		in6_dev_put(net->ipv6.ip6_prohibit_entry->rt6i_idev);
+>
