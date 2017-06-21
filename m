@@ -1,454 +1,61 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/15] i40e: add XDP support for pass and drop actions
-Date: Tue, 20 Jun 2017 18:17:48 -0700
-Message-ID: <20170621011802.81768-2-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/15] i40e: Support firmware CEE DCB UP to TC map re-definition
+Date: Tue, 20 Jun 2017 18:17:55 -0700
+Message-ID: <20170621011802.81768-9-jeffrey.t.kirsher@intel.com>
 References: <20170621011802.81768-1-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: =?UTF-8?q?Bj=C3=B6rn=20T=C3=B6pel?= <bjorn.topel@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Greg Bowers <gregory.j.bowers@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:40195 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:4752 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753016AbdFUBSJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 20 Jun 2017 21:18:09 -0400
+        id S1753143AbdFUBSQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 20 Jun 2017 21:18:16 -0400
 In-Reply-To: <20170621011802.81768-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Björn Töpel <bjorn.topel@intel.com>
+From: Greg Bowers <gregory.j.bowers@intel.com>
 
-This commit adds basic XDP support for i40e derived NICs. All XDP
-actions will end up in XDP_DROP.
+Changes parsing of FW 4.33 AQ command Get CEE DCBX OPER CFG (0x0A07).
+Change is required because FW now creates the oper_prio_tc
+nibbles reversed from those in the CEE Priority Group sub-TLV.
+This change will only apply to FW 4.33 as future FW versions will use a
+different function to parse the CEE data.
 
-Signed-off-by: Björn Töpel <bjorn.topel@intel.com>
+Signed-off-by: Greg Bowers <gregory.j.bowers@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      |   7 ++
- drivers/net/ethernet/intel/i40e/i40e_main.c |  87 +++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_txrx.c | 130 +++++++++++++++++++++-------
- drivers/net/ethernet/intel/i40e/i40e_txrx.h |   1 +
- 4 files changed, 194 insertions(+), 31 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_dcb.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 395ca94faf80..d3195b29d53c 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -645,6 +645,8 @@ struct i40e_vsi {
- 	u16 max_frame;
- 	u16 rx_buf_len;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_dcb.c b/drivers/net/ethernet/intel/i40e/i40e_dcb.c
+index bf1d67e184f7..55079fe3ed63 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_dcb.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_dcb.c
+@@ -620,14 +620,17 @@ static void i40e_cee_to_dcb_v1_config(
+ 	/* CEE PG data to ETS config */
+ 	dcbcfg->etscfg.maxtcs = cee_cfg->oper_num_tc;
  
-+	struct bpf_prog *xdp_prog;
-+
- 	/* List of q_vectors allocated to this VSI */
- 	struct i40e_q_vector **q_vectors;
- 	int num_q_vectors;
-@@ -972,4 +974,9 @@ i40e_status i40e_get_npar_bw_setting(struct i40e_pf *pf);
- i40e_status i40e_set_npar_bw_setting(struct i40e_pf *pf);
- i40e_status i40e_commit_npar_bw_setting(struct i40e_pf *pf);
- void i40e_print_link_message(struct i40e_vsi *vsi, bool isup);
-+
-+static inline bool i40e_enabled_xdp_vsi(struct i40e_vsi *vsi)
-+{
-+	return !!vsi->xdp_prog;
-+}
- #endif /* _I40E_H_ */
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 98fb644a580e..89bbe32a5934 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -27,6 +27,7 @@
- #include <linux/etherdevice.h>
- #include <linux/of_net.h>
- #include <linux/pci.h>
-+#include <linux/bpf.h>
- 
- /* Local includes */
- #include "i40e.h"
-@@ -2396,6 +2397,18 @@ static void i40e_sync_filters_subtask(struct i40e_pf *pf)
- }
- 
- /**
-+ * i40e_max_xdp_frame_size - returns the maximum allowed frame size for XDP
-+ * @vsi: the vsi
-+ **/
-+static int i40e_max_xdp_frame_size(struct i40e_vsi *vsi)
-+{
-+	if (PAGE_SIZE >= 8192 || (vsi->back->flags & I40E_FLAG_LEGACY_RX))
-+		return I40E_RXBUFFER_2048;
-+	else
-+		return I40E_RXBUFFER_3072;
-+}
-+
-+/**
-  * i40e_change_mtu - NDO callback to change the Maximum Transfer Unit
-  * @netdev: network interface device structure
-  * @new_mtu: new value for maximum frame size
-@@ -2408,6 +2421,13 @@ static int i40e_change_mtu(struct net_device *netdev, int new_mtu)
- 	struct i40e_vsi *vsi = np->vsi;
- 	struct i40e_pf *pf = vsi->back;
- 
-+	if (i40e_enabled_xdp_vsi(vsi)) {
-+		int frame_size = new_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
-+
-+		if (frame_size > i40e_max_xdp_frame_size(vsi))
-+			return -EINVAL;
-+	}
-+
- 	netdev_info(netdev, "changing MTU from %d to %d\n",
- 		    netdev->mtu, new_mtu);
- 	netdev->mtu = new_mtu;
-@@ -9311,6 +9331,72 @@ static netdev_features_t i40e_features_check(struct sk_buff *skb,
- 	return features & ~(NETIF_F_CSUM_MASK | NETIF_F_GSO_MASK);
- }
- 
-+/**
-+ * i40e_xdp_setup - add/remove an XDP program
-+ * @vsi: VSI to changed
-+ * @prog: XDP program
-+ **/
-+static int i40e_xdp_setup(struct i40e_vsi *vsi,
-+			  struct bpf_prog *prog)
-+{
-+	int frame_size = vsi->netdev->mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
-+	struct i40e_pf *pf = vsi->back;
-+	struct bpf_prog *old_prog;
-+	bool need_reset;
-+	int i;
-+
-+	/* Don't allow frames that span over multiple buffers */
-+	if (frame_size > vsi->rx_buf_len)
-+		return -EINVAL;
-+
-+	if (!i40e_enabled_xdp_vsi(vsi) && !prog)
-+		return 0;
-+
-+	/* When turning XDP on->off/off->on we reset and rebuild the rings. */
-+	need_reset = (i40e_enabled_xdp_vsi(vsi) != !!prog);
-+
-+	if (need_reset)
-+		i40e_prep_for_reset(pf, true);
-+
-+	old_prog = xchg(&vsi->xdp_prog, prog);
-+
-+	if (need_reset)
-+		i40e_reset_and_rebuild(pf, true, true);
-+
-+	for (i = 0; i < vsi->num_queue_pairs; i++)
-+		WRITE_ONCE(vsi->rx_rings[i]->xdp_prog, vsi->xdp_prog);
-+
-+	if (old_prog)
-+		bpf_prog_put(old_prog);
-+
-+	return 0;
-+}
-+
-+/**
-+ * i40e_xdp - implements ndo_xdp for i40e
-+ * @dev: netdevice
-+ * @xdp: XDP command
-+ **/
-+static int i40e_xdp(struct net_device *dev,
-+		    struct netdev_xdp *xdp)
-+{
-+	struct i40e_netdev_priv *np = netdev_priv(dev);
-+	struct i40e_vsi *vsi = np->vsi;
-+
-+	if (vsi->type != I40E_VSI_MAIN)
-+		return -EINVAL;
-+
-+	switch (xdp->command) {
-+	case XDP_SETUP_PROG:
-+		return i40e_xdp_setup(vsi, xdp->prog);
-+	case XDP_QUERY_PROG:
-+		xdp->prog_attached = i40e_enabled_xdp_vsi(vsi);
-+		return 0;
-+	default:
-+		return -EINVAL;
-+	}
-+}
-+
- static const struct net_device_ops i40e_netdev_ops = {
- 	.ndo_open		= i40e_open,
- 	.ndo_stop		= i40e_close,
-@@ -9343,6 +9429,7 @@ static const struct net_device_ops i40e_netdev_ops = {
- 	.ndo_features_check	= i40e_features_check,
- 	.ndo_bridge_getlink	= i40e_ndo_bridge_getlink,
- 	.ndo_bridge_setlink	= i40e_ndo_bridge_setlink,
-+	.ndo_xdp		= i40e_xdp,
- };
- 
- /**
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index af554f3cda19..f744f843bc72 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -26,6 +26,7 @@
- 
- #include <linux/prefetch.h>
- #include <net/busy_poll.h>
-+#include <linux/bpf_trace.h>
- #include "i40e.h"
- #include "i40e_trace.h"
- #include "i40e_prototype.h"
-@@ -1195,6 +1196,7 @@ void i40e_clean_rx_ring(struct i40e_ring *rx_ring)
- void i40e_free_rx_resources(struct i40e_ring *rx_ring)
- {
- 	i40e_clean_rx_ring(rx_ring);
-+	rx_ring->xdp_prog = NULL;
- 	kfree(rx_ring->rx_bi);
- 	rx_ring->rx_bi = NULL;
- 
-@@ -1241,6 +1243,8 @@ int i40e_setup_rx_descriptors(struct i40e_ring *rx_ring)
- 	rx_ring->next_to_clean = 0;
- 	rx_ring->next_to_use = 0;
- 
-+	rx_ring->xdp_prog = rx_ring->vsi->xdp_prog;
-+
- 	return 0;
- err:
- 	kfree(rx_ring->rx_bi);
-@@ -1593,6 +1597,7 @@ void i40e_process_skb_fields(struct i40e_ring *rx_ring,
-  * i40e_cleanup_headers - Correct empty headers
-  * @rx_ring: rx descriptor ring packet is being transacted on
-  * @skb: pointer to current skb being fixed
-+ * @rx_desc: pointer to the EOP Rx descriptor
-  *
-  * Also address the case where we are pulling data in on pages only
-  * and as such no data is present in the skb header.
-@@ -1602,8 +1607,25 @@ void i40e_process_skb_fields(struct i40e_ring *rx_ring,
-  *
-  * Returns true if an error was encountered and skb was freed.
-  **/
--static bool i40e_cleanup_headers(struct i40e_ring *rx_ring, struct sk_buff *skb)
-+static bool i40e_cleanup_headers(struct i40e_ring *rx_ring, struct sk_buff *skb,
-+				 union i40e_rx_desc *rx_desc)
-+
- {
-+	/* XDP packets use error pointer so abort at this point */
-+	if (IS_ERR(skb))
-+		return true;
-+
-+	/* ERR_MASK will only have valid bits if EOP set, and
-+	 * what we are doing here is actually checking
-+	 * I40E_RX_DESC_ERROR_RXE_SHIFT, since it is the zeroth bit in
-+	 * the error field
++	/* Note that the FW creates the oper_prio_tc nibbles reversed
++	 * from those in the CEE Priority Group sub-TLV.
 +	 */
-+	if (unlikely(i40e_test_staterr(rx_desc,
-+				       BIT(I40E_RXD_QW1_ERROR_SHIFT)))) {
-+		dev_kfree_skb_any(skb);
-+		return true;
-+	}
-+
- 	/* if eth_skb_pad returns an error the skb was freed */
- 	if (eth_skb_pad(skb))
- 		return true;
-@@ -1776,7 +1798,7 @@ static struct i40e_rx_buffer *i40e_get_rx_buffer(struct i40e_ring *rx_ring,
-  * i40e_construct_skb - Allocate skb and populate it
-  * @rx_ring: rx descriptor ring to transact packets on
-  * @rx_buffer: rx buffer to pull data from
-- * @size: size of buffer to add to skb
-+ * @xdp: xdp_buff pointing to the data
-  *
-  * This function allocates an skb.  It then populates it with the page
-  * data from the current receive descriptor, taking care to set up the
-@@ -1784,9 +1806,9 @@ static struct i40e_rx_buffer *i40e_get_rx_buffer(struct i40e_ring *rx_ring,
-  */
- static struct sk_buff *i40e_construct_skb(struct i40e_ring *rx_ring,
- 					  struct i40e_rx_buffer *rx_buffer,
--					  unsigned int size)
-+					  struct xdp_buff *xdp)
- {
--	void *va = page_address(rx_buffer->page) + rx_buffer->page_offset;
-+	unsigned int size = xdp->data_end - xdp->data;
- #if (PAGE_SIZE < 8192)
- 	unsigned int truesize = i40e_rx_pg_size(rx_ring) / 2;
- #else
-@@ -1796,9 +1818,9 @@ static struct sk_buff *i40e_construct_skb(struct i40e_ring *rx_ring,
- 	struct sk_buff *skb;
+ 	for (i = 0; i < 4; i++) {
+ 		tc = (u8)((cee_cfg->oper_prio_tc[i] &
+-			 I40E_CEE_PGID_PRIO_1_MASK) >>
+-			 I40E_CEE_PGID_PRIO_1_SHIFT);
+-		dcbcfg->etscfg.prioritytable[i*2] =  tc;
+-		tc = (u8)((cee_cfg->oper_prio_tc[i] &
+ 			 I40E_CEE_PGID_PRIO_0_MASK) >>
+ 			 I40E_CEE_PGID_PRIO_0_SHIFT);
++		dcbcfg->etscfg.prioritytable[i * 2] =  tc;
++		tc = (u8)((cee_cfg->oper_prio_tc[i] &
++			 I40E_CEE_PGID_PRIO_1_MASK) >>
++			 I40E_CEE_PGID_PRIO_1_SHIFT);
+ 		dcbcfg->etscfg.prioritytable[i*2 + 1] = tc;
+ 	}
  
- 	/* prefetch first cache line of first page */
--	prefetch(va);
-+	prefetch(xdp->data);
- #if L1_CACHE_BYTES < 128
--	prefetch(va + L1_CACHE_BYTES);
-+	prefetch(xdp->data + L1_CACHE_BYTES);
- #endif
- 
- 	/* allocate a skb to store the frags */
-@@ -1811,10 +1833,11 @@ static struct sk_buff *i40e_construct_skb(struct i40e_ring *rx_ring,
- 	/* Determine available headroom for copy */
- 	headlen = size;
- 	if (headlen > I40E_RX_HDR_SIZE)
--		headlen = eth_get_headlen(va, I40E_RX_HDR_SIZE);
-+		headlen = eth_get_headlen(xdp->data, I40E_RX_HDR_SIZE);
- 
- 	/* align pull length to size of long to optimize memcpy performance */
--	memcpy(__skb_put(skb, headlen), va, ALIGN(headlen, sizeof(long)));
-+	memcpy(__skb_put(skb, headlen), xdp->data,
-+	       ALIGN(headlen, sizeof(long)));
- 
- 	/* update all of the pointers */
- 	size -= headlen;
-@@ -1841,16 +1864,16 @@ static struct sk_buff *i40e_construct_skb(struct i40e_ring *rx_ring,
-  * i40e_build_skb - Build skb around an existing buffer
-  * @rx_ring: Rx descriptor ring to transact packets on
-  * @rx_buffer: Rx buffer to pull data from
-- * @size: size of buffer to add to skb
-+ * @xdp: xdp_buff pointing to the data
-  *
-  * This function builds an skb around an existing Rx buffer, taking care
-  * to set up the skb correctly and avoid any memcpy overhead.
-  */
- static struct sk_buff *i40e_build_skb(struct i40e_ring *rx_ring,
- 				      struct i40e_rx_buffer *rx_buffer,
--				      unsigned int size)
-+				      struct xdp_buff *xdp)
- {
--	void *va = page_address(rx_buffer->page) + rx_buffer->page_offset;
-+	unsigned int size = xdp->data_end - xdp->data;
- #if (PAGE_SIZE < 8192)
- 	unsigned int truesize = i40e_rx_pg_size(rx_ring) / 2;
- #else
-@@ -1860,12 +1883,12 @@ static struct sk_buff *i40e_build_skb(struct i40e_ring *rx_ring,
- 	struct sk_buff *skb;
- 
- 	/* prefetch first cache line of first page */
--	prefetch(va);
-+	prefetch(xdp->data);
- #if L1_CACHE_BYTES < 128
--	prefetch(va + L1_CACHE_BYTES);
-+	prefetch(xdp->data + L1_CACHE_BYTES);
- #endif
- 	/* build an skb around the page buffer */
--	skb = build_skb(va - I40E_SKB_PAD, truesize);
-+	skb = build_skb(xdp->data_hard_start, truesize);
- 	if (unlikely(!skb))
- 		return NULL;
- 
-@@ -1944,6 +1967,46 @@ static bool i40e_is_non_eop(struct i40e_ring *rx_ring,
- 	return true;
- }
- 
-+#define I40E_XDP_PASS 0
-+#define I40E_XDP_CONSUMED 1
-+
-+/**
-+ * i40e_run_xdp - run an XDP program
-+ * @rx_ring: Rx ring being processed
-+ * @xdp: XDP buffer containing the frame
-+ **/
-+static struct sk_buff *i40e_run_xdp(struct i40e_ring *rx_ring,
-+				    struct xdp_buff *xdp)
-+{
-+	int result = I40E_XDP_PASS;
-+	struct bpf_prog *xdp_prog;
-+	u32 act;
-+
-+	rcu_read_lock();
-+	xdp_prog = READ_ONCE(rx_ring->xdp_prog);
-+
-+	if (!xdp_prog)
-+		goto xdp_out;
-+
-+	act = bpf_prog_run_xdp(xdp_prog, xdp);
-+	switch (act) {
-+	case XDP_PASS:
-+		break;
-+	default:
-+		bpf_warn_invalid_xdp_action(act);
-+	case XDP_TX:
-+	case XDP_ABORTED:
-+		trace_xdp_exception(rx_ring->netdev, xdp_prog, act);
-+		/* fallthrough -- handle aborts by dropping packet */
-+	case XDP_DROP:
-+		result = I40E_XDP_CONSUMED;
-+		break;
-+	}
-+xdp_out:
-+	rcu_read_unlock();
-+	return ERR_PTR(-result);
-+}
-+
- /**
-  * i40e_clean_rx_irq - Clean completed descriptors from Rx ring - bounce buf
-  * @rx_ring: rx descriptor ring to transact packets on
-@@ -1966,6 +2029,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
- 	while (likely(total_rx_packets < budget)) {
- 		struct i40e_rx_buffer *rx_buffer;
- 		union i40e_rx_desc *rx_desc;
-+		struct xdp_buff xdp;
- 		unsigned int size;
- 		u16 vlan_tag;
- 		u8 rx_ptype;
-@@ -2006,12 +2070,27 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
- 		rx_buffer = i40e_get_rx_buffer(rx_ring, size);
- 
- 		/* retrieve a buffer from the ring */
--		if (skb)
-+		if (!skb) {
-+			xdp.data = page_address(rx_buffer->page) +
-+				   rx_buffer->page_offset;
-+			xdp.data_hard_start = xdp.data -
-+					      i40e_rx_offset(rx_ring);
-+			xdp.data_end = xdp.data + size;
-+
-+			skb = i40e_run_xdp(rx_ring, &xdp);
-+		}
-+
-+		if (IS_ERR(skb)) {
-+			total_rx_bytes += size;
-+			total_rx_packets++;
-+			rx_buffer->pagecnt_bias++;
-+		} else if (skb) {
- 			i40e_add_rx_frag(rx_ring, rx_buffer, skb, size);
--		else if (ring_uses_build_skb(rx_ring))
--			skb = i40e_build_skb(rx_ring, rx_buffer, size);
--		else
--			skb = i40e_construct_skb(rx_ring, rx_buffer, size);
-+		} else if (ring_uses_build_skb(rx_ring)) {
-+			skb = i40e_build_skb(rx_ring, rx_buffer, &xdp);
-+		} else {
-+			skb = i40e_construct_skb(rx_ring, rx_buffer, &xdp);
-+		}
- 
- 		/* exit if we failed to retrieve a buffer */
- 		if (!skb) {
-@@ -2026,18 +2105,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
- 		if (i40e_is_non_eop(rx_ring, rx_desc, skb))
- 			continue;
- 
--		/* ERR_MASK will only have valid bits if EOP set, and
--		 * what we are doing here is actually checking
--		 * I40E_RX_DESC_ERROR_RXE_SHIFT, since it is the zeroth bit in
--		 * the error field
--		 */
--		if (unlikely(i40e_test_staterr(rx_desc, BIT(I40E_RXD_QW1_ERROR_SHIFT)))) {
--			dev_kfree_skb_any(skb);
--			skb = NULL;
--			continue;
--		}
--
--		if (i40e_cleanup_headers(rx_ring, skb)) {
-+		if (i40e_cleanup_headers(rx_ring, skb, rx_desc)) {
- 			skb = NULL;
- 			continue;
- 		}
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-index f5de51124cae..31f0b162996f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-@@ -360,6 +360,7 @@ struct i40e_ring {
- 	void *desc;			/* Descriptor ring memory */
- 	struct device *dev;		/* Used for DMA mapping */
- 	struct net_device *netdev;	/* netdev ring maps to */
-+	struct bpf_prog *xdp_prog;
- 	union {
- 		struct i40e_tx_buffer *tx_bi;
- 		struct i40e_rx_buffer *rx_bi;
 -- 
 2.12.2
