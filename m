@@ -1,30 +1,56 @@
-From: "HDD Investment Co." <info@ap-mail.jp>
-Subject: Investment portfolio
-Date: Mon, 19 Jun 2017 01:18:20 +0200
-Message-ID: <1497853098102131123@apdc-wd01>
-Reply-To: hassan.dako@yandex.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] liquidio: stop using huge static buffer, save 4096k in
+ .data
+Date: Tue, 20 Jun 2017 21:17:13 -0400 (EDT)
+Message-ID: <20170620.211713.1253498659679389459.davem@davemloft.net>
+References: <20170620.152142.1443468587541525646.davem@davemloft.net>
+        <MWHPR07MB29434F09FBC054D2E0310D6FF3C50@MWHPR07MB2943.namprd07.prod.outlook.com>
+        <20170620205125.GA1364@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: Recipients <info@ap-mail.jp>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 122x218x102x10.ap122.ftth.ucom.ne.jp ([122.218.102.10]:54041
-        "EHLO maildomain.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752921AbdFUBNE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2017 21:13:04 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Derek.Chickles@cavium.com, dvlasenk@redhat.com,
+        netdev@vger.kernel.org, Prasad.Kanneganti@cavium.com,
+        linux-kernel@vger.kernel.org
+To: felix.manlunas@cavium.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170620205125.GA1364@felix-thinkpad.cavium.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Tue, 20 Jun 2017 13:51:25 -0700
 
-How are you today?
+> From: Derek Chickles <Derek.Chickles@cavium.com>
+> Date: Tue, 20 Jun 2017 13:15:34 -0700
+> 
+>> > From: David Miller [mailto:davem@davemloft.net]
+>> > Sent: Tuesday, June 20, 2017 12:22 PM
+>> > 
+>> > From: Denys Vlasenko <dvlasenk@redhat.com>
+>> > Date: Mon, 19 Jun 2017 21:50:52 +0200
+>> > 
+>> > > Only compile-tested - I don't have the hardware.
+>> > >
+>> > > From code inspection, octeon_pci_write_core_mem() appears to be safe wrt
+>> > > unaligned source. In any case, u8 fbuf[] was not guaranteed to be aligned
+>> > > anyway.
+>> > >
+>> > > Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
+>> > 
+>> > Looks good to me but I'll let one of the liquidio guys review this first
+>> > before I apply it.
+>> 
+>> Felix is going to try this out this week to confirm. Let's wait for his ack.
+> 
+> This patch works.  I tested it with a LiquidIO II adapter.
+> 
+> ACK
 
-we have the financial capability to finance any investment portfolio as far as is genuine, all we need is a capable business partner that possesses investment strategies or profitable business information for good turn over within 10-20years.
+Please ACK patches in the standard way which is in the form of:
 
-We can provide proof of funds on demand Please write me back if you can work with me on this project.
+Acked-by: David S. Miller <davem@davemloft.net>
 
-Thank You,
-
-Best Regards
-Hassan Dako
+This tag is recognized by tools and in particular the patchwork
+site where networking patches are maintained, automatically
+including your ACK into the patch I apply.
