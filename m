@@ -1,43 +1,73 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] qede: fix typo in qede_rdma_dev_add declaration
-Date: Wed, 21 Jun 2017 23:59:41 +0200
-Message-ID: <20170621220004.4073594-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Michal Kalderon <Michal.Kalderon@cavium.com>,
-        Ram Amrani <Ram.Amrani@caviumnetworks.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Yuval Mintz <Yuval.Mintz@cavium.com>,
-        Ariel Elior <Ariel.Elior@cavium.com>,
-        everest-linux-l2@cavium.com
+Subject: [RFC 1/2] net: phy: rework Kconfig settings for MDIO_BUS
+Date: Thu, 22 Jun 2017 00:06:06 +0200
+Message-ID: <20170621220626.46691-1-arnd@arndb.de>
+Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>,
+        Kishon Vijay Abraham I <kishon@ti.com>,
+        Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+        "David S . Miller" <davem@davemloft.net>,
+        Arnd Bergmann <arnd@arndb.de>, linux-kernel@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-An extraneous semicolon crept in, causing a build failure:
+I still see build errors in randconfig builds and have had this
+patch for a while to locally work around it:
 
-In file included from /git/arm-soc/drivers/net/ethernet/qlogic/qede/qede.h:43:0,
-                 from /git/arm-soc/drivers/net/ethernet/qlogic/qede/qede_main.c:63:
-include/linux/qed/qede_rdma.h:85:1: error: expected identifier or '(' before '{' token
+drivers/built-in.o: In function `xgene_mdio_probe':
+mux-core.c:(.text+0x352154): undefined reference to `of_mdiobus_register'
+mux-core.c:(.text+0x352168): undefined reference to `mdiobus_free'
+mux-core.c:(.text+0x3521c0): undefined reference to `mdiobus_alloc_size'
 
-Fixes: bbfcd1e8e167 ("qed*: Set rdma generic functions prefix")
+The idea is that CONFIG_MDIO_BUS now reflects whether the mdio_bus
+code is built-in or a module, and other drivers that use the core
+code can simply depend on that, instead of having a complex
+dependency line.
+
+Fixes: 90eff9096c01 ("net: phy: Allow splitting MDIO bus/device support from PHYs")
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- include/linux/qed/qede_rdma.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/phy/Kconfig | 13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/qed/qede_rdma.h b/include/linux/qed/qede_rdma.h
-index 1348a16e5e4b..9904617a9730 100644
---- a/include/linux/qed/qede_rdma.h
-+++ b/include/linux/qed/qede_rdma.h
-@@ -81,7 +81,7 @@ void qede_rdma_dev_remove(struct qede_dev *dev);
- void qede_rdma_event_changeaddr(struct qede_dev *edr);
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 2dda72004a7d..928fd892f167 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -7,7 +7,16 @@ menuconfig MDIO_DEVICE
+ 	help
+ 	   MDIO devices and driver infrastructure code.
  
- #else
--static inline int qede_rdma_dev_add(struct qede_dev *dev);
-+static inline int qede_rdma_dev_add(struct qede_dev *dev)
- {
- 	return 0;
- }
+-if MDIO_DEVICE
++config MDIO_BUS
++	tristate
++	default m if PHYLIB=m
++	default MDIO_DEVICE
++	help
++	  This internal symbol is used for link time dependencies and it
++	  reflects whether the mdio_bus/mdio_device code is built as a
++	  loadable module or built-in.
++
++if MDIO_BUS
+ 
+ config MDIO_BCM_IPROC
+ 	tristate "Broadcom iProc MDIO bus controller"
+@@ -28,7 +37,6 @@ config MDIO_BCM_UNIMAC
+ 
+ config MDIO_BITBANG
+ 	tristate "Bitbanged MDIO buses"
+-	depends on !(MDIO_DEVICE=y && PHYLIB=m)
+ 	help
+ 	  This module implements the MDIO bus protocol in software,
+ 	  for use by low level drivers that export the ability to
+@@ -127,7 +135,6 @@ config MDIO_THUNDER
+ 	tristate "ThunderX SOCs MDIO buses"
+ 	depends on 64BIT
+ 	depends on PCI
+-	depends on !(MDIO_DEVICE=y && PHYLIB=m)
+ 	select MDIO_CAVIUM
+ 	help
+ 	  This driver supports the MDIO interfaces found on Cavium
 -- 
 2.9.0
