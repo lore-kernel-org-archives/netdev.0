@@ -1,73 +1,64 @@
-From: Denys Vlasenko <dvlasenk@redhat.com>
-Subject: Re: [PATCH v2] net/sctp/ulpevent.c: Deinline sctp_ulpevent_set_owner,
- save 1616 bytes
-Date: Wed, 21 Jun 2017 21:45:04 +0200
-Message-ID: <8d25a6ac-8733-8ab6-7edf-601d45402d53@redhat.com>
-References: <20170621170327.4873-1-dvlasenk@redhat.com>
- <20170621192442.GH18138@localhost.localdomain>
+From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next] ibmvnic: Correct return code checking for
+ ibmvnic_init during probe
+Date: Wed, 21 Jun 2017 14:48:06 -0500
+Message-ID: <199365a2-50ce-1d16-8192-0eb4157c215f@linux.vnet.ibm.com>
+References: <20170620212154.46216.80460.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+ <20170621.153936.1668683376357645391.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170621192442.GH18138@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jallen@linux.vnet.ibm.com,
+        tlfalcon@linux.vnet.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:54870 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751083AbdFUTsK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 15:48:10 -0400
+Received: from pps.filterd (m0098421.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5LJheGO018059
+        for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 15:48:10 -0400
+Received: from e32.co.us.ibm.com (e32.co.us.ibm.com [32.97.110.150])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2b7p1knmda-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 15:48:09 -0400
+Received: from localhost
+        by e32.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
+        Wed, 21 Jun 2017 13:48:09 -0600
+In-Reply-To: <20170621.153936.1668683376357645391.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/21/2017 09:24 PM, Marcelo Ricardo Leitner wrote:
-> On Wed, Jun 21, 2017 at 07:03:27PM +0200, Denys Vlasenko wrote:
->> This function compiles to 147 bytes of machine code. 13 callsites.
->>
->> I'm no expert on SCTP events, but quick reading of SCTP docs tells me that
->> SCTP events are not happening on every packet.
->> They are ASSOC_CHANGE, PEER_ADDR_CHANGE, REMOTE_ERROR and such.
->> Does not look performance critical.
->>
->> Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
->> CC: Vlad Yasevich <vyasevich@gmail.com>
->> CC: Neil Horman <nhorman@tuxdriver.com>
->> CC: David Miller <davem@davemloft.net>
->> CC: linux-sctp@vger.kernel.org
->> CC: netdev@vger.kernel.org
->> CC: linux-kernel@vger.kernel.org
->
-> Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
->
-> Just wondering, are you conducting further research on this topic?
-> Because we probably could use such review on SCTP stack.
+On 06/21/2017 02:39 PM, David Miller wrote:
+> From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
+> Date: Tue, 20 Jun 2017 17:21:54 -0400
+> 
+>> Fixes: 6a2fb0e99f9c (ibmvnic: driver initialization for kdump/kexec)
+> 
+> I'm incredibly curious where you got the idea to put the Fixes: tag
+> at the beginning of the commit message.
 
-Here is the list of sctp inlines which has any (however small)
-benefit when deinlined.
+I have no excuse. As you mentioned I should have looked at what others
+had done when using the Fixes.
 
-filename:lineno:inline_name:lines_of_source_code:saved_bytes_by_deinlining:size_of_code_of_deinlined_function
+Would you like me to re-send with the Fixes tag corrected?
 
-include/net/sctp/command.h:228:sctp_add_cmd_sf:7:8306:38
-net/sctp/ulpevent.c:91:sctp_ulpevent_set_owner:13:1616:147
-include/net/sctp/sctp.h:414:sctp_skb_set_owner_r:10:934:75
-net/sctp/input.c:840:sctp_hash_key:13:896:359
-net/sctp/input.c:823:sctp_hash_obj:13:704:409
-include/net/sctp/checksum.h:60:sctp_compute_cksum:13:595:85
-net/sctp/input.c:800:sctp_hash_cmp:18:320:124
-net/sctp/socket.c:117:sctp_wspace:19:256:76
-include/net/sctp/sctp.h:272:sctp_max_rto:7:204:68
-net/sctp/socket.c:173:sctp_verify_addr:15:192:72
-include/net/sctp/checksum.h:46:sctp_csum_update:4:147:21
-include/net/sctp/sctp.h:519:param_type2af:8:134:35
-include/net/sctp/sctp.h:399:sctp_list_dequeue:7:123:59
-include/net/sctp/sctp.h:596:sctp_transport_dst_check:4:120:60
-include/net/sctp/sctp.h:435:sctp_frag_point:12:65:65
-net/sctp/outqueue.c:82:sctp_outq_dequeue_data:10:64:87
-include/net/sctp/command.h:243:sctp_next_cmd:4:64:37
-include/net/sctp/sm.h:347:sctp_data_size:6:19:19
+-Nathan
 
-For .c files, the patches are trivial and I have them auto-generated,
-I'll send them to you privately to save you the mechanical work.
-
-Unfortunately, for inlines in .h files this does not work
-(a human is needed to decide where to more the function).
-
-Of course, not every deinlining makes sense.
+> 
+> Have you seen anyone else submitting patches on netdev do this?
+> 
+> It helps to operate by example, and look at how other people do
+> things.
+> 
+> The correct location for the Fixes: tag is at the beginning of the
+> singoffs and acks at the end of the commit message.
+> 
+> There shall be no empty lines between the Fixes: tag and those
+> signoffs and acks.
+> 
+> Thank you.
+> 
