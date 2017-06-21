@@ -1,30 +1,45 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v2] arm: eBPF JIT compiler
-Date: Wed, 21 Jun 2017 18:32:37 +0200
-Message-ID: <594A9FA5.1080003@iogearbox.net>
-References: <1495754003-21099-1-git-send-email-illusionist.neo@gmail.com> <CAGXu5jKmLNMR+uhM9Ov2XPW6kCjip_SjScgEH0fTFp6fQtKFiA@mail.gmail.com> <593E6B0F.8070901@iogearbox.net> <CAHgaXd+DW2bggto=2S9hOdMrtPTvhD2QN4rPf2V8iHewQpg-YA@mail.gmail.com> <CAHgaXdJrvKdzr3fJ1TMkC4foeVsZJDSVEwhDOeZGxQVsmoK2cQ@mail.gmail.com> <59419D1E.2060303@iogearbox.net> <CAHgaXdKMbFPgy-kKF0iDSAYo4CqLn9FRu9HwM+OfM-JWb9fNRQ@mail.gmail.com> <594813AA.5010001@iogearbox.net> <CAHgaXdLtX6yLdU3bMvS=g8FZ79sM_BW_+hHTMH=Mfk4TZqUnpw@mail.gmail.com> <59495367.3080402@iogearbox.net> <CAHgaXdKGJFh8jO44gwCqe0cijoztf39bK9k8ioBtYDjzb4vvZw@mail.gmail.com>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [PATCH rdma-next 13/19] RDMA/netlink: Add netlink device
+ definitions to UAPI
+Date: Wed, 21 Jun 2017 10:11:49 -0600
+Message-ID: <20170621161149.GB10200@obsidianresearch.com>
+References: <20170621060528.3752-1-leon@kernel.org>
+ <20170621060528.3752-14-leon@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Kees Cook <keescook@chromium.org>,
-        Network Development <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Russell King <linux@armlinux.org.uk>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        LKML <linux-kernel@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: Shubham Bansal <illusionist.neo@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHgaXdKGJFh8jO44gwCqe0cijoztf39bK9k8ioBtYDjzb4vvZw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Doug Ledford <dledford@redhat.com>, linux-rdma@vger.kernel.org,
+        Chien Tin Tung <chien.tin.tung@intel.com>,
+        Steve Wise <swise@opengridcomputing.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Ariel Almog <ariela@mellanox.com>,
+        Linux Netdev <netdev@vger.kernel.org>,
+        Leon Romanovsky <leonro@mellanox.com>
+To: Leon Romanovsky <leon@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from quartz.orcorp.ca ([184.70.90.242]:34986 "EHLO quartz.orcorp.ca"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751761AbdFUQdX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 21 Jun 2017 12:33:23 -0400
+Content-Disposition: inline
+In-Reply-To: <20170621060528.3752-14-leon@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/21/2017 04:26 PM, Shubham Bansal wrote:
-[...]
-> So ultimately, we call helper_function which takes u64 as arguments
-> only. I know its asking a lot, but can you please confirm this asap? I
-> would like to start implementing it.
+On Wed, Jun 21, 2017 at 09:05:22AM +0300, Leon Romanovsky wrote:
+>  	RDMA_NL_IWCM,
+>  	RDMA_NL_RSVD,
+>  	RDMA_NL_LS,	/* RDMA Local Services */
+> +	/*
+> +	 * RDMA_NL_I40IW not in use and it was added here by mistake,
+> +	 * but we need to keep it anyway, because it is UAPI and for
+> +	 * unknown reasons, someone in the field decided to replace "5"
+> +	 * with this define.
+> +	 */
+>  	RDMA_NL_I40IW,
 
-Yes, that is correct. I think it would be the better, more generic
-approach going forward to always assume that.
+Since this doesn't do anything, never did anything, I think you should
+just delete it. Anything in userspace that refers to this name is
+unconditionally broken and a compile failure is the better choice.
+
+Jason
