@@ -1,54 +1,41 @@
-From: Shubham Bansal <illusionist.neo@gmail.com>
-Subject: Re: [PATCH v2] arm: eBPF JIT compiler
-Date: Thu, 22 Jun 2017 01:07:16 +0530
-Message-ID: <CAHgaXdKm6atQ=XkrQf+ShKtPU7=H+pS2VvPsTXXhz2yzOFunmA@mail.gmail.com>
-References: <1495754003-21099-1-git-send-email-illusionist.neo@gmail.com>
- <CAGXu5jKmLNMR+uhM9Ov2XPW6kCjip_SjScgEH0fTFp6fQtKFiA@mail.gmail.com>
- <593E6B0F.8070901@iogearbox.net> <CAHgaXd+DW2bggto=2S9hOdMrtPTvhD2QN4rPf2V8iHewQpg-YA@mail.gmail.com>
- <CAHgaXdJrvKdzr3fJ1TMkC4foeVsZJDSVEwhDOeZGxQVsmoK2cQ@mail.gmail.com>
- <59419D1E.2060303@iogearbox.net> <CAHgaXdKMbFPgy-kKF0iDSAYo4CqLn9FRu9HwM+OfM-JWb9fNRQ@mail.gmail.com>
- <594813AA.5010001@iogearbox.net> <CAHgaXdLtX6yLdU3bMvS=g8FZ79sM_BW_+hHTMH=Mfk4TZqUnpw@mail.gmail.com>
- <59495367.3080402@iogearbox.net> <CAHgaXdKGJFh8jO44gwCqe0cijoztf39bK9k8ioBtYDjzb4vvZw@mail.gmail.com>
- <594A9FA5.1080003@iogearbox.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ibmvnic: Correct return code checking for
+ ibmvnic_init during probe
+Date: Wed, 21 Jun 2017 15:39:36 -0400 (EDT)
+Message-ID: <20170621.153936.1668683376357645391.davem@davemloft.net>
+References: <20170620212154.46216.80460.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Kees Cook <keescook@chromium.org>,
-        Network Development <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Russell King <linux@armlinux.org.uk>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        LKML <linux-kernel@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <594A9FA5.1080003@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jallen@linux.vnet.ibm.com,
+        tlfalcon@linux.vnet.ibm.com
+To: nfont@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44468 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751038AbdFUTji (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 15:39:38 -0400
+In-Reply-To: <20170620212154.46216.80460.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Daniel,
+From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
+Date: Tue, 20 Jun 2017 17:21:54 -0400
 
-Good news. Got the CALL to work.
+> Fixes: 6a2fb0e99f9c (ibmvnic: driver initialization for kdump/kexec)
 
-[  145.670882] test_bpf: Summary: 316 PASSED, 0 FAILED, [287/308 JIT'ed]
+I'm incredibly curious where you got the idea to put the Fixes: tag
+at the beginning of the commit message.
 
-Awesome. Do you think with this implementation, the patch could get
-accepted? If you think so, then I will send the patch in couple of
-days after some refactoring, if not, then do let me know what more is
-required?
+Have you seen anyone else submitting patches on netdev do this?
 
-Best,
-Shubham Bansal
+It helps to operate by example, and look at how other people do
+things.
 
+The correct location for the Fixes: tag is at the beginning of the
+singoffs and acks at the end of the commit message.
 
-On Wed, Jun 21, 2017 at 10:02 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> On 06/21/2017 04:26 PM, Shubham Bansal wrote:
-> [...]
->>
->> So ultimately, we call helper_function which takes u64 as arguments
->> only. I know its asking a lot, but can you please confirm this asap? I
->> would like to start implementing it.
->
->
-> Yes, that is correct. I think it would be the better, more generic
-> approach going forward to always assume that.
+There shall be no empty lines between the Fixes: tag and those
+signoffs and acks.
+
+Thank you.
