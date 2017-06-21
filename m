@@ -1,151 +1,130 @@
-From: Willem de Bruijn <willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v3 02/13] sock: skb_copy_ubufs support for compound pages
-Date: Wed, 21 Jun 2017 17:18:05 -0400
-Message-ID: <20170621211816.53837-3-willemdebruijn.kernel@gmail.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next v3 09/13] tcp: enable MSG_ZEROCOPY
+Date: Wed, 21 Jun 2017 17:18:12 -0400
+Message-ID: <20170621211816.53837-10-willemdebruijn.kernel@gmail.com>
 References: <20170621211816.53837-1-willemdebruijn.kernel@gmail.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170621211816.53837-1-willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, linux-api@vger.kernel.org,
+        Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:35632 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751818AbdFUVSc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 17:18:32 -0400
+In-Reply-To: <20170621211816.53837-1-willemdebruijn.kernel@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+From: Willem de Bruijn <willemb@google.com>
 
-Refine skb_copy_ubufs to support compound pages. With upcoming TCP
-and UDP zerocopy sendmsg, such fragments may appear.
+Enable support for MSG_ZEROCOPY to the TCP stack. TSO and GSO are
+both supported. Only data sent to remote destinations is sent without
+copying. Packets looped onto a local destination have their payload
+copied to avoid unbounded latency.
 
-The existing code replaces each page one for one. Splitting each
-compound page into an independent number of regular pages can result
-in exceeding limit MAX_SKB_FRAGS.
+Tested:
+  A 10x TCP_STREAM between two hosts showed a reduction in netserver
+  process cycles by up to 70%, depending on packet size. Systemwide,
+  savings are of course much less pronounced, at up to 20% best case.
 
-Instead, fill all destination pages but the last to PAGE_SIZE.
-Split the existing alloc + copy loop into separate stages. Compute
-the bytelength and allocate the minimum number of pages needed to
-hold this. Revise the copy loop to fill each destination page.
+  msg_zerocopy.sh 4 tcp:
 
-It is not safe to modify skb frags when the skbuff is shared. No
-existing codepath should hit this case.
+  without zerocopy
+    tx=121792 (7600 MB) txc=0 zc=n
+    rx=60458 (7600 MB)
 
-Eventually, this fragile function can perhaps be replaced with calls
-to skb_linearize -- when converted to not always require GFP_ATOMIC.
+  with zerocopy
+    tx=286257 (17863 MB) txc=286257 zc=y
+    rx=140022 (17863 MB)
 
-Signed-off-by: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+  This test opens a pair of sockets over veth, one one calls send with
+  64KB and optionally MSG_ZEROCOPY and on the other reads the initial
+  bytes. The receiver truncates, so this is strictly an upper bound on
+  what is achievable. It is more representative of sending data out of
+  a physical NIC (when payload is not touched, either).
+
+Signed-off-by: Willem de Bruijn <willemb@google.com>
 ---
- include/linux/skbuff.h |  9 +++++++--
- net/core/skbuff.c      | 49 ++++++++++++++++++++++++++++++++++++++-----------
- 2 files changed, 45 insertions(+), 13 deletions(-)
+ net/ipv4/tcp.c | 32 +++++++++++++++++++++++++++++++-
+ 1 file changed, 31 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index a17e235639ae..81c17bd41661 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1783,13 +1783,18 @@ static inline unsigned int skb_headlen(const struct sk_buff *skb)
- 	return skb->len - skb->data_len;
- }
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 058f509ca98e..02a91ac8d71b 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1149,6 +1149,7 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct sk_buff *skb;
+ 	struct sockcm_cookie sockc;
++	struct ubuf_info *uarg = NULL;
+ 	int flags, err, copied = 0;
+ 	int mss_now = 0, size_goal, copied_syn = 0;
+ 	bool process_backlog = false;
+@@ -1158,6 +1159,26 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+ 	lock_sock(sk);
  
--static inline unsigned int skb_pagelen(const struct sk_buff *skb)
-+static inline unsigned int __skb_pagelen(const struct sk_buff *skb)
- {
- 	unsigned int i, len = 0;
- 
- 	for (i = skb_shinfo(skb)->nr_frags - 1; (int)i >= 0; i--)
- 		len += skb_frag_size(&skb_shinfo(skb)->frags[i]);
--	return len + skb_headlen(skb);
-+	return len;
-+}
+ 	flags = msg->msg_flags;
 +
-+static inline unsigned int skb_pagelen(const struct sk_buff *skb)
-+{
-+	return skb_headlen(skb) + __skb_pagelen(skb);
- }
- 
- /**
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index f75897a33fa4..96db26594192 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -958,15 +958,20 @@ EXPORT_SYMBOL_GPL(skb_morph);
-  */
- int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
- {
--	int i;
- 	int num_frags = skb_shinfo(skb)->nr_frags;
- 	struct page *page, *head = NULL;
- 	struct ubuf_info *uarg = skb_shinfo(skb)->destructor_arg;
-+	int i, new_frags;
-+	u32 d_off;
- 
--	for (i = 0; i < num_frags; i++) {
--		u8 *vaddr;
--		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
-+	if (!num_frags)
-+		return 0;
- 
-+	if (skb_shared(skb) || skb_unclone(skb, gfp_mask))
-+		return -EINVAL;
-+
-+	new_frags = (__skb_pagelen(skb) + PAGE_SIZE - 1) >> PAGE_SHIFT;
-+	for (i = 0; i < new_frags; i++) {
- 		page = alloc_page(gfp_mask);
- 		if (!page) {
- 			while (head) {
-@@ -976,14 +981,35 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
- 			}
- 			return -ENOMEM;
- 		}
--		vaddr = kmap_atomic(skb_frag_page(f));
--		memcpy(page_address(page),
--		       vaddr + f->page_offset, skb_frag_size(f));
--		kunmap_atomic(vaddr);
- 		set_page_private(page, (unsigned long)head);
- 		head = page;
- 	}
- 
-+	page = head;
-+	d_off = 0;
-+	for (i = 0; i < num_frags; i++) {
-+		u8 *vaddr;
-+		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
-+		u32 f_off, f_size, copy;
-+
-+		f_off = f->page_offset;
-+		f_size = f->size;
-+
-+		vaddr = kmap_atomic(skb_frag_page(f));
-+		while (f_size) {
-+			if (d_off == PAGE_SIZE) {
-+				d_off = 0;
-+				page = (struct page *)page_private(page);
-+			}
-+			copy = min_t(u32, PAGE_SIZE - d_off, f_size);
-+			memcpy(page_address(page) + d_off, vaddr + f_off, copy);
-+			f_size -= copy;
-+			d_off += copy;
-+			f_off += copy;
++	if (flags & MSG_ZEROCOPY && size) {
++		if (sk->sk_state != TCP_ESTABLISHED) {
++			err = -EINVAL;
++			goto out_err;
 +		}
-+		kunmap_atomic(vaddr);
++
++		skb = tcp_send_head(sk) ? tcp_write_queue_tail(sk) : NULL;
++		uarg = sock_zerocopy_realloc(sk, size, skb_zcopy(skb));
++		if (!uarg) {
++			err = -ENOBUFS;
++			goto out_err;
++		}
++
++		/* skb may be freed in main loop, keep extra ref on uarg */
++		sock_zerocopy_get(uarg);
++		if (!(sk_check_csum_caps(sk) && sk->sk_route_caps & NETIF_F_SG))
++			uarg->zerocopy = 0;
 +	}
 +
- 	/* skb frags release userspace buffers */
- 	for (i = 0; i < num_frags; i++)
- 		skb_frag_unref(skb, i);
-@@ -991,11 +1017,12 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
- 	uarg->callback(uarg, false);
+ 	if (unlikely(flags & MSG_FASTOPEN || inet_sk(sk)->defer_connect)) {
+ 		err = tcp_sendmsg_fastopen(sk, msg, &copied_syn, size);
+ 		if (err == -EINPROGRESS && copied_syn > 0)
+@@ -1281,7 +1302,7 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+ 			err = skb_add_data_nocache(sk, skb, &msg->msg_iter, copy);
+ 			if (err)
+ 				goto do_fault;
+-		} else {
++		} else if (!uarg || !uarg->zerocopy) {
+ 			bool merge = true;
+ 			int i = skb_shinfo(skb)->nr_frags;
+ 			struct page_frag *pfrag = sk_page_frag(sk);
+@@ -1319,6 +1340,13 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+ 				page_ref_inc(pfrag->page);
+ 			}
+ 			pfrag->offset += copy;
++		} else {
++			err = skb_zerocopy_iter_stream(sk, skb, msg, copy, uarg);
++			if (err == -EMSGSIZE || err == -EEXIST)
++				goto new_segment;
++			if (err < 0)
++				goto do_error;
++			copy = err;
+ 		}
  
- 	/* skb frags point to kernel buffers */
--	for (i = num_frags - 1; i >= 0; i--) {
--		__skb_fill_page_desc(skb, i, head, 0,
--				     skb_shinfo(skb)->frags[i].size);
-+	for (i = 0; i < new_frags - 1; i++) {
-+		__skb_fill_page_desc(skb, i, head, 0, PAGE_SIZE);
- 		head = (struct page *)page_private(head);
+ 		if (!copied)
+@@ -1365,6 +1393,7 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+ 		tcp_push(sk, flags, mss_now, tp->nonagle, size_goal);
  	}
-+	__skb_fill_page_desc(skb, new_frags - 1, head, 0, d_off);
-+	skb_shinfo(skb)->nr_frags = new_frags;
+ out_nopush:
++	sock_zerocopy_put(uarg);
+ 	release_sock(sk);
+ 	return copied + copied_syn;
  
- 	skb_shinfo(skb)->tx_flags &= ~SKBTX_DEV_ZEROCOPY;
- 	return 0;
+@@ -1382,6 +1411,7 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+ 	if (copied + copied_syn)
+ 		goto out;
+ out_err:
++	sock_zerocopy_put_abort(uarg);
+ 	err = sk_stream_error(sk, flags, err);
+ 	/* make sure we wake any epoll edge trigger waiter */
+ 	if (unlikely(skb_queue_len(&sk->sk_write_queue) == 0 &&
 -- 
 2.13.1.611.g7e3b11ae1-goog
