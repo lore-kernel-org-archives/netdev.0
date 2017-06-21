@@ -1,40 +1,44 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next] bpf, i40e: Report bpf_prog id during XDP_QUERY_PROG
-Date: Wed, 21 Jun 2017 19:27:06 +0200
-Message-ID: <754b16a0b2d98a1c6a3796aaa6701fae0c4e2612.1498065586.git.daniel@iogearbox.net>
-Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Alexander Duyck <alexander.h.duyck@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:45495 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751106AbdFUR1T (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 13:27:19 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Shannon Nelson <shannon.nelson@oracle.com>
+Subject: [PATCH net-next 0/2] sunvnet: add to ethtool data
+Date: Wed, 21 Jun 2017 09:09:52 -0700
+Message-ID: <1498061394-233018-1-git-send-email-shannon.nelson@oracle.com>
+Cc: sparclinux@vger.kernel.org
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <sparclinux-owner@vger.kernel.org>
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fill the bpf_prog with the id just like we do in other XDP enabled
-drivers.
+The first patch gets some driver-specific information available for
+use by the LDom management utilities through the drvinfo service: the
+lowlevel vio version into firmware-version field, and, most importantly,
+the remote-mac address into the bus-info field.
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Cc: Martin KaFai Lau <kafai@fb.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_main.c | 1 +
- 1 file changed, 1 insertion(+)
+When creating the LDoms and their network connections, there currently
+isn't a good way to match the vif netdev to the client LDom that it
+services.  By having the vif device print the remote-mac address from
+the mdesc used to build the connection, the userland tools can correlate
+which vif services which LDom.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 2db93d3..6f5adb5 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -9589,6 +9589,7 @@ static int i40e_xdp(struct net_device *dev,
- 		return i40e_xdp_setup(vsi, xdp->prog);
- 	case XDP_QUERY_PROG:
- 		xdp->prog_attached = i40e_enabled_xdp_vsi(vsi);
-+		xdp->prog_id = xdp->prog_attached ? vsi->xdp_prog->aux->id : 0;
- 		return 0;
- 	default:
- 		return -EINVAL;
--- 
-1.9.3
+There was some discussion about adding a 'remote-mac' element into the
+/sys/class/net/<dev>/ model, but our thinking was that this might be
+too specific to our devices and not fit well into the general model.
+We're open to going back to that if others in the community think it
+would be a better place for this data.
+
+The second patch implements the get_settings service.  This might seem
+moot as these primarily describe a hardware port connection which doesn't
+make much sense in a virtualized network connection.  However, there are a
+couple of userland LDom management tools that work better if this data is
+filled out.  One specific example is that the /sys/class/net/<dev>/speed
+attribute becomes readable.
+
+Shannon Nelson (2):
+  ldmvsw: add vio version and remote-mac to ethtool info
+  sunvnet: implement basic ethtool get_settings
+
+ drivers/net/ethernet/sun/ldmvsw.c         |    8 ++++++++
+ drivers/net/ethernet/sun/sunvnet.c        |    1 +
+ drivers/net/ethernet/sun/sunvnet_common.c |   11 +++++++++++
+ drivers/net/ethernet/sun/sunvnet_common.h |    2 ++
+ 4 files changed, 22 insertions(+), 0 deletions(-)
+
