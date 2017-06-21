@@ -1,24 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] r8152: correct the definition
-Date: Wed, 21 Jun 2017 11:33:23 -0400 (EDT)
-Message-ID: <20170621.113323.1446978942398484275.davem@davemloft.net>
-References: <1394712342-15778-282-Taiwan-albertk@realtek.com>
+Subject: Re: [net-next 00/15][pull request] 40GbE Intel Wired LAN Driver
+ Updates 2017-06-20
+Date: Wed, 21 Jun 2017 11:32:07 -0400 (EDT)
+Message-ID: <20170621.113207.2289040889051021938.davem@davemloft.net>
+References: <20170621011802.81768-1-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-282-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41104 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751143AbdFUQur (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 12:50:47 -0400
+In-Reply-To: <20170621011802.81768-1-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Wed, 21 Jun 2017 11:25:18 +0800
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 20 Jun 2017 18:17:47 -0700
 
-> Replace VLAN_HLEN and CRC_SIZE with ETH_FCS_LEN.
-> 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> This series contains updates to i40e and i40evf only.
 
-Applied.
+Pulled, thanks Jeff.
+
+ ...
+> Björn adds additional XDP support for i40e, by adding pass and drop actions
+> and XDP_TX action support.
+
+So nice to see this.
