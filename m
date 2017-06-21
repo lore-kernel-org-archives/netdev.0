@@ -1,33 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] idsn: fix wrong skb_put() used
-Date: Wed, 21 Jun 2017 09:52:07 -0400 (EDT)
-Message-ID: <20170621.095207.1836095159650465700.davem@davemloft.net>
-References: <1498046680-22872-1-git-send-email-cugyly@163.com>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH] qed*: Fix build for !QED_RDMA
+Date: Wed, 21 Jun 2017 13:52:38 +0000
+Message-ID: <BLUPR0701MB20045B29390DD15330D86DE98DDA0@BLUPR0701MB2004.namprd07.prod.outlook.com>
+References: <20170621104531.11071-1-broonie@kernel.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Linyu.Yuan@alcatel-sbell.com.cn
-To: cugyly@163.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>
+To: Mark Brown <broonie@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36406 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750999AbdFUNwL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 09:52:11 -0400
-In-Reply-To: <1498046680-22872-1-git-send-email-cugyly@163.com>
+Received: from mail-by2nam03on0079.outbound.protection.outlook.com ([104.47.42.79]:18720
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750999AbdFUNwl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 21 Jun 2017 09:52:41 -0400
+In-Reply-To: <20170621104531.11071-1-broonie@kernel.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: yuan linyu <cugyly@163.com>
-Date: Wed, 21 Jun 2017 20:04:40 +0800
+> A stray semicolon was introduced by bbfcd1e8e1677b (qed*: Set rdma
+> generic functions prefix), remove it.=09
 
-> From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-> 
-> in my commit b952f4dff2751252db073c27c0f8a16a416a2ddc,
-> -	*(u8 *)skb_put(skb_out, 1) = (u8)(accm >> 24);	\
-> +	skb_put(skb_out, (u8)(accm >> 24));	\
-> it should skb_put_u8()
-> 
-> Fixes: b952f4dff275 ("net: manual clean code which call skb_put_[data:zero])")
-> Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+Hi Mark,
 
-Applied.
+Thanks, but I've already sent the same
+http://marc.info/?l=3Dlinux-netdev&m=3D149802281509733&w=3D2
+
+Thanks,
+Yuval
