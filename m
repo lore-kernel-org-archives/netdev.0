@@ -1,64 +1,119 @@
 From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next] bpf, i40e: Report bpf_prog id during XDP_QUERY_PROG
-Date: Wed, 21 Jun 2017 11:23:34 -0700
-Message-ID: <CAKgT0Ucr2WANKLhXFfo2wearoeeNAMqNATMXkVLwxbDtrwKs9A@mail.gmail.com>
-References: <754b16a0b2d98a1c6a3796aaa6701fae0c4e2612.1498065586.git.daniel@iogearbox.net>
- <594AB2EF.2040809@gmail.com>
+Subject: Re: [PATCH v5 3/3] net/cxgb4: Use new PCI_DEV_FLAGS_NO_RELAXED_ORDERING
+ flag
+Date: Wed, 21 Jun 2017 11:28:33 -0700
+Message-ID: <CAKgT0UdJ_zseo9O7SiU9U2m__OZeF_Z8eVjsA5N8ZK39rdK2fA@mail.gmail.com>
+References: <1497855239-18560-1-git-send-email-dingtianhong@huawei.com> <1497855239-18560-4-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
+Cc: Casey Leedom <leedom@chelsio.com>, Ashok Raj <ashok.raj@intel.com>,
+        Bjorn Helgaas <helgaas@kernel.org>,
+        Michael Werner <werner@chelsio.com>,
+        Ganesh Goudar <ganeshgr@chelsio.com>,
+        Asit K Mallick <asit.k.mallick@intel.com>,
+        Patrick J Cramer <patrick.j.cramer@intel.com>,
+        Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
+        Bob Shaw <Bob.Shaw@amd.com>, h <l.stach@pengutronix.de>,
+        Amir Ancel <amira@mellanox.com>,
+        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
+        David Laight <David.Laight@aculab.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will.deacon@arm.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Robin Murphy <robin.murphy@arm.com>,
         David Miller <davem@davemloft.net>,
-        Netdev <netdev@vger.kernel.org>, Martin KaFai Lau <kafai@fb.com>,
-        Alexander Duyck <alexander.h.duyck@intel.com>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:33469 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751668AbdFUSXf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 14:23:35 -0400
-Received: by mail-qt0-f194.google.com with SMTP id c20so4427882qte.0
-        for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 11:23:35 -0700 (PDT)
-In-Reply-To: <594AB2EF.2040809@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        linux-arm-kernel@lists.inf
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1497855239-18560-4-git-send-email-dingtianhong@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 21, 2017 at 10:54 AM, John Fastabend
-<john.fastabend@gmail.com> wrote:
-> On 06/21/2017 10:27 AM, Daniel Borkmann wrote:
->> Fill the bpf_prog with the id just like we do in other XDP enabled
->> drivers.
->>
->> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
->> Cc: Martin KaFai Lau <kafai@fb.com>
->> Cc: Alexander Duyck <alexander.h.duyck@intel.com>
->> ---
->>  drivers/net/ethernet/intel/i40e/i40e_main.c | 1 +
->>  1 file changed, 1 insertion(+)
->>
->> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
->> index 2db93d3..6f5adb5 100644
->> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
->> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
->> @@ -9589,6 +9589,7 @@ static int i40e_xdp(struct net_device *dev,
->>               return i40e_xdp_setup(vsi, xdp->prog);
->>       case XDP_QUERY_PROG:
->>               xdp->prog_attached = i40e_enabled_xdp_vsi(vsi);
->> +             xdp->prog_id = xdp->prog_attached ? vsi->xdp_prog->aux->id : 0;
->>               return 0;
->>       default:
->>               return -EINVAL;
->>
+On Sun, Jun 18, 2017 at 11:53 PM, Ding Tianhong <dingtianhong@huawei.com> wrote:
+> From: Casey Leedom <leedom@chelsio.com>
 >
-> Looks good to me.
+> cxgb4 Ethernet driver now queries PCIe configuration space to determine
+> if it can send TLPs to it with the Relaxed Ordering Attribute set.
 >
-> Acked-by: John Fastabend <john.fastabend@gmail.com>
+> Signed-off-by: Casey Leedom <leedom@chelsio.com>
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> ---
+>  drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  1 +
+>  drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 17 +++++++++++++++++
+>  drivers/net/ethernet/chelsio/cxgb4/sge.c        |  5 +++--
+>  3 files changed, 21 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+> index e88c180..478f25a 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+> @@ -521,6 +521,7 @@ enum {                                 /* adapter flags */
+>         USING_SOFT_PARAMS  = (1 << 6),
+>         MASTER_PF          = (1 << 7),
+>         FW_OFLD_CONN       = (1 << 9),
+> +       ROOT_NO_RELAXED_ORDERING = (1 << 10),
+>  };
+>
+>  enum {
+> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> index ea1bfcf..7cd4e1b 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> @@ -4735,6 +4735,23 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>         adapter->msg_enable = DFLT_MSG_ENABLE;
+>         memset(adapter->chan_map, 0xff, sizeof(adapter->chan_map));
+>
+> +       /* If possible, we use PCIe Relaxed Ordering Attribute to deliver
+> +        * Ingress Packet Data to Free List Buffers in order to allow for
+> +        * chipset performance optimizations between the Root Complex and
+> +        * Memory Controllers.  (Messages to the associated Ingress Queue
+> +        * notifying new Packet Placement in the Free Lists Buffers will be
+> +        * send without the Relaxed Ordering Attribute thus guaranteeing that
+> +        * all preceding PCIe Transaction Layer Packets will be processed
+> +        * first.)  But some Root Complexes have various issues with Upstream
+> +        * Transaction Layer Packets with the Relaxed Ordering Attribute set.
+> +        * The PCIe devices which under the Root Complexes will be cleared the
+> +        * Relaxed Ordering bit in the configuration space, So we check our
+> +        * PCIe configuration space to see if it's flagged with advice against
+> +        * using Relaxed Ordering.
+> +        */
+> +       if (pcie_relaxed_ordering_supported(pdev))
+> +               adapter->flags |= ROOT_NO_RELAXED_ORDERING;
+> +
 
-My preference would be to test for vsi->xdp_prog instead of
-xdp->prog_attached since it is more obvious what is going on in that
-case. We might even want to look at getting rid of the call to
-i40e_enabled_xdp_vsi eventually. But that is probably follow-up work
-for later.
+Looks like you have a typo here. It should be
+"!pcie_relaxed_ordering_supported(pdev)" that you are testing for to
+set this flag shouldn't it? Right now it appears the flag is getting
+set if relaxed ordering is supported.
 
-This should work assuming the RTNL lock is always held when this call is made.
-
-Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
+>         spin_lock_init(&adapter->stats_lock);
+>         spin_lock_init(&adapter->tid_release_lock);
+>         spin_lock_init(&adapter->win0_lock);
+> diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+> index f05f0d4..ac229a3 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
+> +++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+> @@ -2571,6 +2571,7 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+>         struct fw_iq_cmd c;
+>         struct sge *s = &adap->sge;
+>         struct port_info *pi = netdev_priv(dev);
+> +       int relaxed = !(adap->flags & ROOT_NO_RELAXED_ORDERING);
+>
+>         /* Size needs to be multiple of 16, including status entry. */
+>         iq->size = roundup(iq->size, 16);
+> @@ -2624,8 +2625,8 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+>
+>                 flsz = fl->size / 8 + s->stat_len / sizeof(struct tx_desc);
+>                 c.iqns_to_fl0congen |= htonl(FW_IQ_CMD_FL0PACKEN_F |
+> -                                            FW_IQ_CMD_FL0FETCHRO_F |
+> -                                            FW_IQ_CMD_FL0DATARO_F |
+> +                                            FW_IQ_CMD_FL0FETCHRO_V(relaxed) |
+> +                                            FW_IQ_CMD_FL0DATARO_V(relaxed) |
+>                                              FW_IQ_CMD_FL0PADEN_F);
+>                 if (cong >= 0)
+>                         c.iqns_to_fl0congen |=
+> --
+> 1.9.0
+>
+>
