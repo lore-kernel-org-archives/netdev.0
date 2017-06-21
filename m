@@ -1,68 +1,84 @@
-From: Serhey Popovych <serhe.popovych@gmail.com>
-Subject: Re: [PATCH] loopback: Force LOOPBACK_IFINDEX for registration
-Date: Wed, 21 Jun 2017 12:35:12 +0300
-Message-ID: <f79075f1-3c95-8bb3-6600-c6dd2ce7e1ce@gmail.com>
-References: <1497615003-24762-1-git-send-email-serhe.popovych@gmail.com>
- <20170619.144123.2070662074449196481.davem@davemloft.net>
- <60e546b5-2548-5eef-ebc6-4cf0ca44da27@gmail.com>
+From: Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
+Subject: Re: [PATCH 00/51] rtc: stop using rtc deprecated functions
+Date: Wed, 21 Jun 2017 10:35:49 +0100
+Message-ID: <20170621093549.GQ4902@n2100.armlinux.org.uk>
+References: <20170620100348.zh4ygvjjgnhxvmvl@piout.net>
+ <20170620121011.GA13221@amd>
+ <20170620122400.sm7qqvwyj6cuzarw@piout.net>
+ <20170620132620.GA16881@amd>
+ <6ED8E3B22081A4459DAC7699F3695FB7018CD96FCD@SW-EX-MBX02.diasemi.com>
+ <20170620134458.GA10104@amd>
+ <20170620134827.ubvzhh25klaotupv@piout.net>
+ <CA+M3ks68+z6nDtYM8CDpso7SxjB6Nt5E=rOc1yxx=kDz6PUeVQ@mail.gmail.com>
+ <20170620211536.GM4902@n2100.armlinux.org.uk>
+ <063D6719AE5E284EB5DD2968C1650D6DD00278C0@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:35371 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751069AbdFUJfQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 05:35:16 -0400
-Received: by mail-wr0-f193.google.com with SMTP id z45so24907453wrb.2
-        for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 02:35:15 -0700 (PDT)
-In-Reply-To: <60e546b5-2548-5eef-ebc6-4cf0ca44da27@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Benjamin Gaignard <benjamin.gaignard-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        Alexandre Belloni <alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>,
+        "patches-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org"
+        <patches-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org>,
+        Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        "linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Thierry Reding <thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>,
+        Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+        "x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Jonathan Hunter <jonathanh-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
+        Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Sylvain Lemieux <slemieux.tyco-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Len Brown <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        "linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org" <linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org>
+To: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD00278C0-VkEWCZq2GCInGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
+Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-
+On Wed, Jun 21, 2017 at 09:26:51AM +0000, David Laight wrote:
+> From: Russell King - ARM Linux
+> > Sent: 20 June 2017 22:16
+> ..
+> > Consider that at the moment, we define the 32-bit RTC representation to
+> > start at a well known epoch.  We _could_ decide that when it wraps to
+> > 0x80000000 seconds, we'll define the lower 0x40000000 seconds to mean
+> > dates in the future - and keep rolling that forward each time we cross
+> > another 0x40000000 seconds.  Unless someone invents a real time machine,
+> > we shouldn't need to set a modern RTC back to 1970.
 > 
->> From: Serhey Popovych <serhe.popovych@gmail.com>
->> Date: Fri, 16 Jun 2017 15:10:03 +0300
->>
->>> Now with commit 9c7dafb (net: Allow to create links with
->>> given ifindex) support registration of network devices
->>> with specific ifindex is added.
->>>
->>> We can force loopback network device index before call to
->>> register_netdev() to ensure we always configure it with
->>> LOOPBACK_IFINDEX.
->>>
->>> Kill BUG_ON() since system can continue without network
->>> namespace failed in loopback init path, unless it is
->>> init_net namespace where we panic() anyway.
->>>
->>> Signed-off-by: Serhey Popovych <serhe.popovych@gmail.com>
->>
->> Is the BUG_ON() triggering, if so why?
->>
->> It looks to me that unless there is a bug, this assignment
->> is unnecessary.
->>
-> Okay, get your position, thanks!
-> 
+> True, just treating the value as unsigned gives another 67 years.
 
-Sorry for raising again, but my objectives following:
+We _already_ do treat it as an unsigned number, so already the panicing
+about 2038 is complete and utter nonsense - that's why I've been
+consistently stating the 2106 date.
 
-BUG_ON() might be compiled out when CONFIG_BUG=n.
-That's open possibility in buggy setups to have
-"lo" with ->ifindex other than LOOPBACK_IFINDEX.
+> If a 32bit RTC is programmed with the low 32bits of the 64bit 'seconds
+> since 1970' the kernel should have no real difficulty sorting out the
+> high bits from other available information.
 
-By forcing register_netdevice() via setting
-ifindex = LOOPBACK_IFINDEX we address CONFIG_BUG=n
-case.
+Right, but converting all the 32-bit conversion functions to 64-bit
+means that rather than "sorting out" that from the core RTC driver,
+we have to implement solutions in each and every driver.
 
-We can leave BUG_ON(), but add ifindex = LOOPBACK_IFINDEX
-to ensure register_netdevice() operates properly.
+While that may appear to be a good idea, many RTCs that are 32-bit
+counters do not themselves have additional non-volatile storage, so
+it means that we're ending up with a lot of RTC specific hacks to
+go and get the additional information from some other driver elsewhere
+in the system.
 
-What do you think?
+> Problems with things like the x86 bios setting the rtc to stupid values
+> are another matter.
+
+Forget x86, the RTC there does not store time as a 32-bit integer, it's
+stored as its component values, and there's non-volatile memory attached
+to the RTC.  Hence, it's out of scope of "what to do about RTCs that
+store time in 32-bit format" and also out of scope of "what to do about
+RTC drivers that use the 32-bit time conversion function."
 
 -- 
-Thanks, Serhey
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
