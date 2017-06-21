@@ -1,73 +1,39 @@
-From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
-Subject: [PATCH net-next,1/2] hv_netvsc: Remove unnecessary var link_state from struct netvsc_device_info
-Date: Wed, 21 Jun 2017 16:40:46 -0700
-Message-ID: <1498088447-27282-1-git-send-email-haiyangz@exchange.microsoft.com>
-Reply-To: haiyangz@microsoft.com
-Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
-        vkuznets@redhat.com, linux-kernel@vger.kernel.org
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: YUAN Linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+Subject: RE: [PATCH] net: fib: fix fib_new_table() logical issue
+Date: Wed, 21 Jun 2017 23:48:44 +0000
+Message-ID: <8729016553E3654398EA69218DA29EEF15BCDA5D@cnshjmbx02>
+References: <1498053744-3217-1-git-send-email-cugyly@163.com>
+ <CAM_iQpWAeYVkyxKtLFzg7J0H8VcB8VFoU+EUQMQM-2DzMjo04g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "David S . Miller" <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>, yuan linyu <cugyly@163.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cnshjsmin03.alcatel-sbell.com.cn ([116.246.26.71]:42089 "EHLO
+        cnshjsmin03.alcatel-sbell.com.cn" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751988AbdFUXsr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 19:48:47 -0400
+In-Reply-To: <CAM_iQpWAeYVkyxKtLFzg7J0H8VcB8VFoU+EUQMQM-2DzMjo04g@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-
-We simply use rndis_device->link_state in the netdev_dbg. The variable,
-link_state from struct netvsc_device_info, is not used anywhere else.
-
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
----
- drivers/net/hyperv/hyperv_net.h   |    5 +++--
- drivers/net/hyperv/rndis_filter.c |    4 +---
- 2 files changed, 4 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index b30a3c2..ced947d 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -146,7 +146,6 @@ struct hv_netvsc_packet {
- 
- struct netvsc_device_info {
- 	unsigned char mac_adr[ETH_ALEN];
--	bool link_state;	/* 0 - link up, 1 - link down */
- 	int  ring_size;
- 	u32  max_num_vrss_chns;
- 	u32  num_chn;
-@@ -165,7 +164,7 @@ struct rndis_device {
- 	struct net_device *ndev;
- 
- 	enum rndis_device_state state;
--	bool link_state;
-+
- 	atomic_t new_req_id;
- 
- 	spinlock_t request_lock;
-@@ -173,6 +172,8 @@ struct rndis_device {
- 
- 	struct work_struct mcast_work;
- 
-+	bool link_state;        /* 0 - link up, 1 - link down */
-+
- 	u8 hw_mac_adr[ETH_ALEN];
- 	u8 rss_key[NETVSC_HASH_KEYLEN];
- 	u16 ind_table[ITAB_NUM];
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index cb79cd0..85c00e1 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -1185,11 +1185,9 @@ int rndis_filter_device_add(struct hv_device *dev,
- 
- 	rndis_filter_query_device_link_status(rndis_device);
- 
--	device_info->link_state = rndis_device->link_state;
--
- 	netdev_dbg(net, "Device MAC %pM link state %s\n",
- 		   rndis_device->hw_mac_adr,
--		   device_info->link_state ? "down" : "up");
-+		   rndis_device->link_state ? "down" : "up");
- 
- 	if (net_device->nvsp_version < NVSP_PROTOCOL_VERSION_5)
- 		return 0;
--- 
-1.7.1
+U29ycnksIGl0J3Mgbm90IGRlYWQgbG9vcCwgSSByZWFsaXplZCBpdCBidXQgSSB0cmllZCB0byBz
+ZW5kIHRvIG1haWwgdG8gbm90ZSBpdCBvbiBteSBwaG9uZSwgaXQgZmFpbGVkLiANCg0KPiAtLS0t
+LU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBDb25nIFdhbmcgW21haWx0bzp4aXlvdS53
+YW5nY29uZ0BnbWFpbC5jb21dDQo+IFNlbnQ6IFRodXJzZGF5LCBKdW5lIDIyLCAyMDE3IDY6NTQg
+QU0NCj4gVG86IHl1YW4gbGlueXUNCj4gQ2M6IExpbnV4IEtlcm5lbCBOZXR3b3JrIERldmVsb3Bl
+cnM7IERhdmlkIFMgLiBNaWxsZXI7IFlVQU4gTGlueXUNCj4gU3ViamVjdDogUmU6IFtQQVRDSF0g
+bmV0OiBmaWI6IGZpeCBmaWJfbmV3X3RhYmxlKCkgbG9naWNhbCBpc3N1ZQ0KPiANCj4gT24gV2Vk
+LCBKdW4gMjEsIDIwMTcgYXQgNzowMiBBTSwgeXVhbiBsaW55dSA8Y3VneWx5QDE2My5jb20+IHdy
+b3RlOg0KPiA+IEZyb206IHl1YW4gbGlueXUgPExpbnl1Lll1YW5AYWxjYXRlbC1zYmVsbC5jb20u
+Y24+DQo+ID4NCj4gPiB3aGVuIENPTkZJR19JUF9NVUxUSVBMRV9UQUJMRVMgZGVmaW5lZCwNCj4g
+PiBpZiBpZCA9PSBSVF9UQUJMRV9MT0NBTCBhbmQgIW5ldC0+aXB2NC5maWJfaGFzX2N1c3RvbV9y
+dWxlcywNCj4gPiBmaWJfbmV3X3RhYmxlKCkgY2FsbCBpdHNlbGYgdG8gZ2V0IFJUX1RBQkxFX01B
+SU4gdGFibGUsDQo+ID4gYnV0IGlmIFJUX1RBQkxFX01BSU4gdGFibGUgbm90IGV4aXN0IGF0IHRo
+aXMgcG9pbnQsDQo+ID4gdGhpcyBmdW5jdGlvbiB3aWxsIGJlY29tZSBkZWFkbG9vcC4NCj4gDQo+
+IFdoeSBkZWFkbG9vcCBoZXJlPyBJZiBmaWJfbmV3X3RhYmxlKCkgaXMgY2FsbGVkIHJlY3Vyc2l2
+ZWx5LA0KPiB0aGVuIG1haW4gdGFibGUgaXMgY3JlYXRlZCBieSBmaWJfdHJpZV90YWJsZSgpIGFu
+ZCB3ZSByZXR1cm4uDQo=
