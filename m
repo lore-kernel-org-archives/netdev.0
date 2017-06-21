@@ -1,67 +1,58 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/15] i40e: clear only cause_ena bit
-Date: Tue, 20 Jun 2017 18:18:00 -0700
-Message-ID: <20170621011802.81768-14-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/15] i40e: Fix potential out of bound array access
+Date: Tue, 20 Jun 2017 18:17:54 -0700
+Message-ID: <20170621011802.81768-8-jeffrey.t.kirsher@intel.com>
 References: <20170621011802.81768-1-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Mitch Williams <mitch.a.williams@intel.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Sudheer Mogilappagari <sudheer.mogilappagari@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([192.55.52.115]:7623 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753147AbdFUBSS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 20 Jun 2017 21:18:18 -0400
+        id S1753017AbdFUBSQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 20 Jun 2017 21:18:16 -0400
 In-Reply-To: <20170621011802.81768-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Sudheer Mogilappagari <sudheer.mogilappagari@intel.com>
 
-When disabling interrupts, we should only be clearing the CAUSE_ENA bit,
-not clearing the whole register.  Clearing the whole register sets the
-NEXTQ_IDX field to 0 instead of 0x7ff which can confuse the Firmware in
-some reset sequences.
+This is a fix for the static code analysis issue where dcbcfg->numapps
+could be greater than size of array (i.e dcbcfg->app[I40E_DCBX_MAX_APPS]).
+The fix makes sure that the array is not accessed past the size of
+of the array (i.e. I40E_DCBX_MAX_APPS).
 
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Copyright updated to 2017.
+
+Signed-off-by: Sudheer Mogilappagari <sudheer.mogilappagari@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 14 ++++++++++++--
- 1 file changed, 12 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_dcb.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index b743eca879d5..5d82ff54c7b0 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -3588,14 +3588,24 @@ static void i40e_vsi_disable_irq(struct i40e_vsi *vsi)
- 	int base = vsi->base_vector;
- 	int i;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_dcb.c b/drivers/net/ethernet/intel/i40e/i40e_dcb.c
+index 0fab3a9b51d9..bf1d67e184f7 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_dcb.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_dcb.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 - 2014 Intel Corporation.
++ * Copyright(c) 2013 - 2017 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -390,6 +390,8 @@ static void i40e_parse_cee_app_tlv(struct i40e_cee_feat_tlv *tlv,
  
-+	/* disable interrupt causation from each queue */
- 	for (i = 0; i < vsi->num_queue_pairs; i++) {
--		wr32(hw, I40E_QINT_TQCTL(vsi->tx_rings[i]->reg_idx), 0);
--		wr32(hw, I40E_QINT_RQCTL(vsi->rx_rings[i]->reg_idx), 0);
-+		u32 val;
-+
-+		val = rd32(hw, I40E_QINT_TQCTL(vsi->tx_rings[i]->reg_idx));
-+		val &= ~I40E_QINT_TQCTL_CAUSE_ENA_MASK;
-+		wr32(hw, I40E_QINT_TQCTL(vsi->tx_rings[i]->reg_idx), val);
-+
-+		val = rd32(hw, I40E_QINT_RQCTL(vsi->rx_rings[i]->reg_idx));
-+		val &= ~I40E_QINT_RQCTL_CAUSE_ENA_MASK;
-+		wr32(hw, I40E_QINT_RQCTL(vsi->rx_rings[i]->reg_idx), val);
-+
- 		if (!i40e_enabled_xdp_vsi(vsi))
- 			continue;
- 		wr32(hw, I40E_QINT_TQCTL(vsi->xdp_rings[i]->reg_idx), 0);
- 	}
+ 	if (!dcbcfg->numapps)
+ 		return;
++	if (dcbcfg->numapps > I40E_DCBX_MAX_APPS)
++		dcbcfg->numapps = I40E_DCBX_MAX_APPS;
  
-+	/* disable each interrupt */
- 	if (pf->flags & I40E_FLAG_MSIX_ENABLED) {
- 		for (i = vsi->base_vector;
- 		     i < (vsi->num_q_vectors + vsi->base_vector); i++)
+ 	for (i = 0; i < dcbcfg->numapps; i++) {
+ 		u8 up, selector;
 -- 
 2.12.2
