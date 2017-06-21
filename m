@@ -1,43 +1,90 @@
-From: Julien Gomes <julien@arista.com>
-Subject: [PATCH net-next 2/2] ip6mr: restrict mroute6 "queue full" warning to related error values
-Date: Wed, 21 Jun 2017 10:58:11 -0700
-Message-ID: <20170621175811.16940-2-julien@arista.com>
-References: <20170621175811.16940-1-julien@arista.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Julien Gomes <julien@arista.com>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170621175811.16940-1-julien@arista.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Shannon Nelson <shannon.nelson@oracle.com>
+Subject: [PATCH net-next 2/2] sunvnet: implement basic ethtool get_settings
+Date: Wed, 21 Jun 2017 09:09:54 -0700
+Message-ID: <1498061394-233018-3-git-send-email-shannon.nelson@oracle.com>
+References: <1498061394-233018-1-git-send-email-shannon.nelson@oracle.com>
+Cc: sparclinux@vger.kernel.org
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1050.oracle.com ([156.151.31.82]:23150 "EHLO
+        userp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752010AbdFUR7k (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 13:59:40 -0400
+In-Reply-To: <1498061394-233018-1-git-send-email-shannon.nelson@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When sending a cache report on mroute6_sk, mroute6 will emit a
-"pending queue full" warning for every error value returned by
-sock_queue_rcv_skb().
-This warning can be misleading, for example on the EPERM error value
-that sk_filter() can return.
+Add the get_settings callback so that both the ldmvsw and sunvnet
+drivers will give a little more information when asked for its
+basic settings.  These aren't necessarily very useful, but they
+make some users happier.  Also, a side effect is that the speed
+attribute in /sys/class/net/<dev> is now readable, which makes
+a couple of the ldom management tools happier.
 
-Restricting this warning to only ENOMEM or ENOBUFS seems more
-appropriate.
+Orabug: 26175474
 
-Signed-off-by: Julien Gomes <julien@arista.com>
+Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
 ---
- net/ipv6/ip6mr.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/sun/ldmvsw.c         |    1 +
+ drivers/net/ethernet/sun/sunvnet.c        |    1 +
+ drivers/net/ethernet/sun/sunvnet_common.c |   11 +++++++++++
+ drivers/net/ethernet/sun/sunvnet_common.h |    2 ++
+ 4 files changed, 15 insertions(+), 0 deletions(-)
 
-diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index 7454850f2098..62fe5fd64f22 100644
---- a/net/ipv6/ip6mr.c
-+++ b/net/ipv6/ip6mr.c
-@@ -1215,7 +1215,8 @@ static int ip6mr_cache_report(struct mr6_table *mrt, struct sk_buff *pkt,
- 	 */
- 	ret = sock_queue_rcv_skb(mrt->mroute6_sk, skb);
- 	if (ret < 0) {
--		net_warn_ratelimited("mroute6: pending queue full, dropping entries\n");
-+		if (ret == -ENOMEM || ret == -ENOBUFS)
-+			net_warn_ratelimited("mroute6: pending queue full, dropping entries\n");
- 		kfree_skb(skb);
- 	}
+diff --git a/drivers/net/ethernet/sun/ldmvsw.c b/drivers/net/ethernet/sun/ldmvsw.c
+index de512ef..0ac389b 100644
+--- a/drivers/net/ethernet/sun/ldmvsw.c
++++ b/drivers/net/ethernet/sun/ldmvsw.c
+@@ -88,6 +88,7 @@ static void vsw_set_msglevel(struct net_device *dev, u32 value)
+ }
  
+ static const struct ethtool_ops vsw_ethtool_ops = {
++	.get_settings		= sunvnet_get_settings,
+ 	.get_drvinfo		= vsw_get_drvinfo,
+ 	.get_msglevel		= vsw_get_msglevel,
+ 	.set_msglevel		= vsw_set_msglevel,
+diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
+index 75b167e..d16c351 100644
+--- a/drivers/net/ethernet/sun/sunvnet.c
++++ b/drivers/net/ethernet/sun/sunvnet.c
+@@ -189,6 +189,7 @@ static void vnet_get_ethtool_stats(struct net_device *dev,
+ }
+ 
+ static const struct ethtool_ops vnet_ethtool_ops = {
++	.get_settings		= sunvnet_get_settings,
+ 	.get_drvinfo		= vnet_get_drvinfo,
+ 	.get_msglevel		= vnet_get_msglevel,
+ 	.set_msglevel		= vnet_set_msglevel,
+diff --git a/drivers/net/ethernet/sun/sunvnet_common.c b/drivers/net/ethernet/sun/sunvnet_common.c
+index 9e86833..6ca27b0 100644
+--- a/drivers/net/ethernet/sun/sunvnet_common.c
++++ b/drivers/net/ethernet/sun/sunvnet_common.c
+@@ -1759,3 +1759,14 @@ void sunvnet_port_rm_txq_common(struct vnet_port *port)
+ 	port->q_index = 0;
+ }
+ EXPORT_SYMBOL_GPL(sunvnet_port_rm_txq_common);
++
++int sunvnet_get_settings(struct net_device *netdev,
++			 struct ethtool_cmd *ecmd)
++{
++	ethtool_cmd_speed_set(ecmd, 0);
++	ecmd->duplex = DUPLEX_FULL;
++	ecmd->port = PORT_NONE;
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(sunvnet_get_settings);
+diff --git a/drivers/net/ethernet/sun/sunvnet_common.h b/drivers/net/ethernet/sun/sunvnet_common.h
+index b20d6fa..c566ec9 100644
+--- a/drivers/net/ethernet/sun/sunvnet_common.h
++++ b/drivers/net/ethernet/sun/sunvnet_common.h
+@@ -151,5 +151,7 @@ int sunvnet_start_xmit_common(struct sk_buff *skb, struct net_device *dev,
+ bool sunvnet_port_is_up_common(struct vnet_port *vnet);
+ void sunvnet_port_add_txq_common(struct vnet_port *port);
+ void sunvnet_port_rm_txq_common(struct vnet_port *port);
++int sunvnet_get_settings(struct net_device *netdev,
++			 struct ethtool_cmd *ecmd);
+ 
+ #endif /* _SUNVNETCOMMON_H */
 -- 
-2.13.1
+1.7.1
