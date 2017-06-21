@@ -1,47 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/4] ipmr/ip6mr: add Netlink notifications
- on cache reports
-Date: Wed, 21 Jun 2017 11:23:10 -0400 (EDT)
-Message-ID: <20170621.112310.1172564089161295858.davem@davemloft.net>
-References: <20170620205418.1648-1-julien@arista.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 1/1] tc: fixed typo in usage text.
+Date: Wed, 21 Jun 2017 08:35:46 -0700
+Message-ID: <20170621083546.48a47a9b@xeon-e3>
+References: <1497901945-25508-1-git-send-email-mrv@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: nikolay@cumulusnetworks.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, sharpd@cumulusnetworks.com,
-        nicolas.dichtel@6wind.com
-To: julien@arista.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170620205418.1648-1-julien@arista.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Roman Mashak <mrv@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:36446 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752454AbdFUQlW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 12:41:22 -0400
+Received: by mail-pf0-f179.google.com with SMTP id q86so3395895pfl.3
+        for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 09:41:22 -0700 (PDT)
+In-Reply-To: <1497901945-25508-1-git-send-email-mrv@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julien Gomes <julien@arista.com>
-Date: Tue, 20 Jun 2017 13:54:14 -0700
+On Mon, 19 Jun 2017 15:52:25 -0400
+Roman Mashak <mrv@mojatatu.com> wrote:
 
-> Currently, all ipmr/ip6mr cache reports are sent through the
-> mroute/mroute6 socket only.
-> This forces the use of a single socket for mroute programming, cache
-> reports and, regarding ipmr, IGMP messages without Router Alert option
-> reception.
-> 
-> The present patches are aiming to send Netlink notifications in addition
-> to the existing igmpmsg/mrt6msg to give user programs a way to handle
-> cache reports in parallel with multiple sockets other than the
-> mroute/mroute6 socket.
-> 
-> Changes in v2:
-> - Changed attributes naming from {IPMRA,IP6MRA}_CACHEREPORTA_* to
->   {IPMRA,IP6MRA}_CREPORT_*
-> - Improved packet data copy to handle non-linear packets in
->   ipmr/ip6mr cache report Netlink notification creation
-> - Added two rtnetlink groups with restricted-binding
-> - Changed cache report notified groups from RTNL_{IPV4,IPV6}_MROUTE to
->   the new restricted groups in ipmr/ip6mr
-> 
-> Changes in v3:
-> - Put message size calculation for {igmp,mrt6}msg_netlink_event in separate
->   functions
-> - Increased vif id attributes size from u8 to u32
+> Signed-off-by: Roman Mashak <mrv@mojatatu.com>
 
-Series applied, thanks.
+Applied
