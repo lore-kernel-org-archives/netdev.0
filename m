@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] sunvnet: implement basic ethtool
- get_settings
-Date: Wed, 21 Jun 2017 15:06:34 -0400 (EDT)
-Message-ID: <20170621.150634.1121246733116528491.davem@davemloft.net>
-References: <1498061394-233018-1-git-send-email-shannon.nelson@oracle.com>
-        <1498061394-233018-3-git-send-email-shannon.nelson@oracle.com>
+Subject: Re: [PATCH net-next] bpf: expose prog id for cls_bpf and act_bpf
+Date: Wed, 21 Jun 2017 15:14:40 -0400 (EDT)
+Message-ID: <20170621.151440.424326589634772993.davem@davemloft.net>
+References: <66b50f95666de97e7f067471d409fce8d316ad43.1498068442.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sparclinux@vger.kernel.org
-To: shannon.nelson@oracle.com
-Return-path: <sparclinux-owner@vger.kernel.org>
-In-Reply-To: <1498061394-233018-3-git-send-email-shannon.nelson@oracle.com>
-Sender: sparclinux-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: john.fastabend@gmail.com, kafai@fb.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43874 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751028AbdFUTOm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 15:14:42 -0400
+In-Reply-To: <66b50f95666de97e7f067471d409fce8d316ad43.1498068442.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@oracle.com>
-Date: Wed, 21 Jun 2017 09:09:54 -0700
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Wed, 21 Jun 2017 20:16:11 +0200
 
-> Add the get_settings callback so that both the ldmvsw and sunvnet
-> drivers will give a little more information when asked for its
-> basic settings.  These aren't necessarily very useful, but they
-> make some users happier.  Also, a side effect is that the speed
-> attribute in /sys/class/net/<dev> is now readable, which makes
-> a couple of the ldom management tools happier.
+> In order to be able to retrieve the attached programs from cls_bpf
+> and act_bpf, we need to expose the prog ids via netlink so that
+> an application can later on get an fd based on the id through the
+> BPF_PROG_GET_FD_BY_ID command, and dump related prog info via
+> BPF_OBJ_GET_INFO_BY_FD command for bpf(2).
 > 
-> Orabug: 26175474
-> 
-> Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-I would set the speed to something other than zero, and also
-consider the ramifications of this change upon things like
-'bonding' and 'team'.
+Applied, thanks Daniel.
