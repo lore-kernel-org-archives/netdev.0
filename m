@@ -1,120 +1,70 @@
-From: Alexandre Belloni <alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH 00/51] rtc: stop using rtc deprecated functions
-Date: Wed, 21 Jun 2017 14:35:35 +0200
-Message-ID: <20170621123535.b5fvwlydfhnhuqll@piout.net>
-References: <20170620213507.urobmtg34vzubrdq@piout.net>
- <alpine.DEB.2.20.1706202343120.2157@nanos>
- <20170621075152.GA15996@amd>
- <20170621083907.y3gadsmsoufa5niv@piout.net>
- <20170621063443.GA4862@localhost>
-Reply-To: rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-	Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
-	Benjamin Gaignard <benjamin.gaignard-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>,
-	"patches-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org" <patches-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org>,
-	Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	"linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Thierry Reding <thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Jonathan Hunter <jonathanh-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
-	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Sylvain Lemieux <slemieux.tyco-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Len Brown <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org" <linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org>,
-	Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>,
-	"rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org" <rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
-	"linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-pm-u79uwXL29TaqPxH82wqD4g@public.gmane.org
-To: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
-Return-path: <rtc-linux+bncBCKYNX7Y3IMBBI6QVHFAKGQEVXY45VQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Content-Disposition: inline
-In-Reply-To: <20170621063443.GA4862@localhost>
-List-Post: <https://groups.google.com/group/rtc-linux/post>, <mailto:rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:rtc-linux+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/rtc-linux
-List-Subscribe: <https://groups.google.com/group/rtc-linux/subscribe>, <mailto:rtc-linux+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+712029733259+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/rtc-linux/subscribe>
-List-Id: netdev.vger.kernel.org
+From: Gal Pressman <galp@mellanox.com>
+Subject: [RFC PATCH net-next 0/3] ethtool: Add link down reason reporting
+Date: Wed, 21 Jun 2017 16:04:43 +0300
+Message-ID: <1498050286-17141-1-git-send-email-galp@mellanox.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        "John W. Linville" <linville@tuxdriver.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        David Decotigny <decot@googlers.com>, kernel-team@fb.com,
+        Gal Pressman <galp@mellanox.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34594 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751004AbdFUNFU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 09:05:20 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 21/06/2017 at 08:34:43 +0200, Pavel Machek wrote:
-> Hi!
-> 
-> > > > > I think tglx had a plan for offsetting the time at some point so 32-bit
-> > > > > platform can pass 2038 properly.
-> > > > 
-> > > > Yes, but there are still quite some issues to solve there:
-> > > > 
-> > > >      1) How do you tell the system that it should apply the offset in the
-> > > >      	first place, i.e at boot time before NTP or any other mechanism can
-> > > >      	correct it?
-> > > 
-> > > I'd not do offset. Instead, I'd select a threshold (perhaps year of
-> > > release of given kernel?) and
-> > > 
-> > > 	if (rtc_time < year_of_release_of_kernel)
-> > > 	   rtc_time += 0x100000000;
-> > > 
-> > > Ok, we'll have to move away from "rtc_time == 0 indicates zero", as
-> > > seen in some drivers.
-> > > 
-> > > >      2) Deal with creative vendors who have their own idea about the 'start
-> > > >      	of the epoch'
-> > > 
-> > > If someone uses different threshold, well, there will be
-> > > confusion. But only for users that have their rtc set to the past,
-> > > which is quite unusual.
-> > > 
-> > 
-> > Or not, having an RTC set in the past is actually quite common. I'd find
-> > it weird to have a new device boot and be set to a date in the future.
-> 
-> ...but still better than board stuck in the past, no?
-> 
-> > Also note that the threshold or offset thing may seem like a good idea
-> > but fails with many RTCs because of how they handle leap years.
-> 
-> Well, you can still convert time from rtc to unix time, then do adjustment
-> there.
-> 
+Hi All,
 
-You can only if your machine is running when that happens. If that is
-not the case, then you lost and your time is not correct anymore.
+Currently, drivers can only tell whether the link is up/down through
+ETHTOOL_GLINK callback, but no additional information is given in case
+of link down/failure.
 
-There is currently one rtc doing that kind of trick but it is used as a
-simple time counter from the beginning. Transitioning is the difficult
-part.
+This series provides an infrastructure to ethtool that allows 
+netdevice drivers to hint the user with the reason why the link is down,
+in order to ease the debug process.
 
-> Anyway, I guess it would be cool for rtc drivers to annotate what limits
-> underlying storage has to the common code, so that we can do fixups once
-> per class, not once per driver.
+In addition two more mlx5 patches to demonstrate the usage.
 
-Yes, I'm in the middle of the whole rework that allows that.
+Reasons are separated to two types, generic and vendor specific.
+Drivers can reply with a generic reason using the predefined enums 
+(and the ones that will be added in the future), which will be
+translated to strings by the userspace ethtool.
+In case of a vendor specific reason, drivers can reply with
+ETHTOOL_VENDOR_SPECIFIC reason, in this case the vendor_reason field
+should be filled with a vendor specific status code which will be parsed
+by the vendor specific userspace parser if one is available.
 
-I don't understand the sudden urgency of fixing that and the amount of
-bikeshedding, seeing that the closest cutoff date is actually 31st of
-december 2069 in the rtc subsystem and that anyway the current 32bit
-userspace will explode in february 2038.
+This kind of information can save system administrators precious time,
+which will not be wasted trying to understand why the link won't go up.
+    
+For example, when the cable is unplugged:
+    $ ethtool ethXX
+    ...
+    Link detected: no (Cable unplugged)
 
-My plan from the beginning was to have something for the next stable. I
-know nobody can read my mind but again, I don't think there is currently
-any urgency to change anything.
+Thanks,
+Gal.
+
+Gal Pressman (3):
+  ethtool: Add link down reason callback
+  net/mlx5: Add PDDR register infrastructure
+  net/mlx5e: Expose link down reason to ethtool
+
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 107 +++++++++++++++++++++
+ .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |  33 +++++++
+ drivers/net/ethernet/mellanox/mlx5/core/port.c     |  39 ++++++++
+ include/linux/ethtool.h                            |   2 +
+ include/linux/mlx5/device.h                        |   3 +
+ include/linux/mlx5/driver.h                        |   1 +
+ include/linux/mlx5/mlx5_ifc.h                      |  51 ++++++++++
+ include/uapi/linux/ethtool.h                       |  33 +++++++
+ net/core/ethtool.c                                 |  24 +++++
+ 9 files changed, 293 insertions(+)
 
 -- 
-Alexandre Belloni, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
-
--- 
-You received this message because you are subscribed to "rtc-linux".
-Membership options at http://groups.google.com/group/rtc-linux .
-Please read http://groups.google.com/group/rtc-linux/web/checklist
-before submitting a driver.
---- 
-You received this message because you are subscribed to the Google Groups "rtc-linux" group.
-To unsubscribe from this group and stop receiving emails from it, send an email to rtc-linux+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-For more options, visit https://groups.google.com/d/optout.
+2.7.4
