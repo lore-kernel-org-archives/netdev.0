@@ -1,220 +1,321 @@
 From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH net-next v2 06/13] sock: MSG_ZEROCOPY notification coalescing
-Date: Wed, 21 Jun 2017 16:36:45 -0400
-Message-ID: <20170621203652.15306-7-willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next v2 10/13] udp: enable MSG_ZEROCOPY
+Date: Wed, 21 Jun 2017 16:36:49 -0400
+Message-ID: <20170621203652.15306-11-willemdebruijn.kernel@gmail.com>
 References: <20170621203652.15306-1-willemdebruijn.kernel@gmail.com>
 Cc: davem@davemloft.net, linux-api@vger.kernel.org,
         Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:33421 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751083AbdFUUhC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 16:37:02 -0400
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:34613 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751994AbdFUUhF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 16:37:05 -0400
 In-Reply-To: <20170621203652.15306-1-willemdebruijn.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Willem de Bruijn <willemb@google.com>
 
-In the simple case, each sendmsg() call generates data and eventually
-a zerocopy ready notification N, where N indicates the Nth successful
-invocation of sendmsg() with the MSG_ZEROCOPY flag on this socket.
+Add MSG_ZEROCOPY support to INET(6). This includes UDP, but also
+RAW sockets that do not take the raw_send_hdrinc() path.
 
-TCP and corked sockets can cause send() calls to append new data to an
-existing sk_buff and, thus, ubuf_info. In that case the notification
-must hold a range. odify ubuf_info to store a inclusive range [N..N+m]
-and add skb_zerocopy_realloc() to optionally extend an existing range.
+Zerocopy is only effective when payload is not touched at all. Limit
+it to paths that support both checksum offload and scatter-gather.
 
-Also coalesce notifications in this common case: if a notification
-[1, 1] is about to be queued while [0, 0] is the queue tail, just modify
-the head of the queue to read [0, 1].
+When a caller passes MSG_ZEROCOPY to send and it returns a positive
+result, the caller must always receive a completion notification.
+Therefore, attach the structure even when zerocopy is not possible.
+Also in edge cases, such as corking with mixed zc/non-zc calls.
 
-Coalescing is limited to a few TSO frames worth of data to bound
-notification latency.
+Tested:
+  msg_zerocopy.sh 4 udp:
+
+  without zerocopy
+    tx=146127 (9118 MB) txc=0 zc=n
+    rx=146127 (9118 MB)
+
+  with zerocopy
+    tx=335789 (20954 MB) txc=335789 zc=y
+    rx=335789 (20954 MB)
+
+  msg_zerocopy.sh 4 raw:
+
+  without zerocopy
+    tx=106461 (6643 MB) txc=0 zc=n
+    rx=106461 (6643 MB)
+
+  with zerocopy
+    tx=296082 (18476 MB) txc=296082 zc=y
+    rx=296082 (18476 MB)
 
 Signed-off-by: Willem de Bruijn <willemb@google.com>
 ---
- include/linux/skbuff.h | 15 ++++++--
- net/core/skbuff.c      | 98 ++++++++++++++++++++++++++++++++++++++++++++++----
- 2 files changed, 104 insertions(+), 9 deletions(-)
+ net/core/skbuff.c     |  4 ++++
+ net/ipv4/ip_output.c  | 37 ++++++++++++++++++++++++++++++-------
+ net/ipv6/ip6_output.c | 40 +++++++++++++++++++++++++++++++++-------
+ 3 files changed, 67 insertions(+), 14 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 0be25226b725..1d842860f074 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -408,14 +408,25 @@ enum {
-  */
- struct ubuf_info {
- 	void (*callback)(struct ubuf_info *, bool zerocopy_success);
--	void *ctx;
--	unsigned long desc;
-+	union {
-+		struct {
-+			unsigned long desc;
-+			void *ctx;
-+		};
-+		struct {
-+			u32 id;
-+			u16 len;
-+			u32 bytelen;
-+		};
-+	};
- 	atomic_t refcnt;
- };
- 
- #define skb_uarg(SKB)	((struct ubuf_info *)(skb_shinfo(SKB)->destructor_arg))
- 
- struct ubuf_info *sock_zerocopy_alloc(struct sock *sk, size_t size);
-+struct ubuf_info *sock_zerocopy_realloc(struct sock *sk, size_t size,
-+					struct ubuf_info *uarg);
- 
- static inline void sock_zerocopy_get(struct ubuf_info *uarg)
- {
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 89ba5ad024a5..41fedc4e651f 100644
+index 0beaf961f79c..7d4c12316df6 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
-@@ -941,7 +941,9 @@ struct ubuf_info *sock_zerocopy_alloc(struct sock *sk, size_t size)
- 	uarg = (void *)skb->cb;
- 
- 	uarg->callback = sock_zerocopy_callback;
--	uarg->desc = atomic_inc_return(&sk->sk_zckey) - 1;
-+	uarg->id = ((u32)atomic_inc_return(&sk->sk_zckey)) - 1;
-+	uarg->len = 1;
-+	uarg->bytelen = size;
- 	atomic_set(&uarg->refcnt, 0);
- 	sock_hold(sk);
- 
-@@ -954,24 +956,98 @@ static inline struct sk_buff *skb_from_uarg(struct ubuf_info *uarg)
- 	return container_of((void *)uarg, struct sk_buff, cb);
+@@ -1145,6 +1145,10 @@ extern int __zerocopy_sg_from_iter(struct sock *sk, struct sk_buff *skb,
+ int skb_zerocopy_iter(struct sock *sk, struct sk_buff *skb, struct msghdr *msg,
+ 		      int len)
+ {
++	/* raw has extra indirection in raw_frag_vec */
++	if (sk->sk_type == SOCK_RAW && sk->sk_family != PF_PACKET)
++		msg = *(struct msghdr **)msg;
++
+ 	return __zerocopy_sg_from_iter(sk, skb, &msg->msg_iter, len);
  }
+ EXPORT_SYMBOL_GPL(skb_zerocopy_iter);
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 7a3fd25e8913..3ff425f7ded6 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -919,7 +919,7 @@ static int __ip_append_data(struct sock *sk,
+ {
+ 	struct inet_sock *inet = inet_sk(sk);
+ 	struct sk_buff *skb;
+-
++	struct ubuf_info *uarg = NULL;
+ 	struct ip_options *opt = cork->opt;
+ 	int hh_len;
+ 	int exthdrlen;
+@@ -963,9 +963,21 @@ static int __ip_append_data(struct sock *sk,
+ 	    !exthdrlen)
+ 		csummode = CHECKSUM_PARTIAL;
  
-+struct ubuf_info *sock_zerocopy_realloc(struct sock *sk, size_t size,
-+					struct ubuf_info *uarg)
-+{
-+	if (uarg) {
-+		const u32 byte_limit = 1 << 19;		/* limit to a few TSO */
-+		u32 bytelen, next;
++	if (flags & MSG_ZEROCOPY && length) {
++		uarg = sock_zerocopy_realloc(sk, length, skb_zcopy(skb));
++		if (!uarg)
++			return -ENOBUFS;
 +
-+		/* realloc only when socket is locked (TCP, UDP cork),
-+		 * so uarg->len and sk_zckey access is serialized
-+		 */
-+		if (!sock_owned_by_user(sk)) {
-+			WARN_ON_ONCE(1);
-+			return NULL;
-+		}
-+
-+		bytelen = uarg->bytelen + size;
-+		if (uarg->len == USHRT_MAX - 1 || bytelen > byte_limit) {
-+			/* TCP can create new skb to attach new uarg */
-+			if (sk->sk_type == SOCK_STREAM)
-+				goto new_alloc;
-+			return NULL;
-+		}
-+
-+		next = (u32)atomic_read(&sk->sk_zckey);
-+		if ((u32)(uarg->id + uarg->len) == next) {
-+			uarg->len++;
-+			uarg->bytelen = bytelen;
-+			atomic_set(&sk->sk_zckey, ++next);
-+			return uarg;
++		if (!(rt->dst.dev->features & NETIF_F_SG) ||
++		    (sk->sk_type == SOCK_DGRAM && csummode == CHECKSUM_NONE)) {
++			uarg->zerocopy = 0;
++			skb_zcopy_set(skb, uarg);
 +		}
 +	}
 +
-+new_alloc:
-+	return sock_zerocopy_alloc(sk, size);
-+}
-+EXPORT_SYMBOL_GPL(sock_zerocopy_realloc);
-+
-+static bool skb_zerocopy_notify_extend(struct sk_buff *skb, u32 lo, u16 len)
-+{
-+	struct sock_exterr_skb *serr = SKB_EXT_ERR(skb);
-+	u64 sum_len;
-+	u32 old_lo, old_hi;
-+
-+	old_lo = serr->ee.ee_info;
-+	old_hi = serr->ee.ee_data;
-+	sum_len = old_hi - old_lo + 1ULL + len;
-+
-+	if (sum_len >= (1ULL << 32))
-+		return false;
-+
-+	if (lo != old_hi + 1)
-+		return false;
-+
-+	serr->ee.ee_data += len;
-+	return true;
-+}
-+
- void sock_zerocopy_callback(struct ubuf_info *uarg, bool success)
- {
- 	struct sock_exterr_skb *serr;
--	struct sk_buff *skb = skb_from_uarg(uarg);
-+	struct sk_buff *tail, *skb = skb_from_uarg(uarg);
- 	struct sock *sk = skb->sk;
--	u16 id = uarg->desc;
-+	struct sk_buff_head *q = &sk->sk_error_queue;
-+	unsigned long flags;
-+	u32 lo, hi;
-+	u16 len;
+ 	cork->length += length;
+ 	if ((((length + fragheaderlen) > mtu) || (skb && skb_is_gso(skb))) &&
+-	    (sk->sk_protocol == IPPROTO_UDP) &&
++	    (sk->sk_protocol == IPPROTO_UDP) && !uarg &&
+ 	    (rt->dst.dev->features & NETIF_F_UFO) && !dst_xfrm(&rt->dst) &&
+ 	    (sk->sk_type == SOCK_DGRAM) && !sk->sk_no_check_tx) {
+ 		err = ip_ufo_append_data(sk, queue, getfrag, from, length,
+@@ -997,6 +1009,7 @@ static int __ip_append_data(struct sock *sk,
+ 			unsigned int fraglen;
+ 			unsigned int fraggap;
+ 			unsigned int alloclen;
++			unsigned int zcopylen = 0;
+ 			struct sk_buff *skb_prev;
+ alloc_new_skb:
+ 			skb_prev = skb;
+@@ -1017,8 +1030,12 @@ static int __ip_append_data(struct sock *sk,
+ 			if ((flags & MSG_MORE) &&
+ 			    !(rt->dst.dev->features&NETIF_F_SG))
+ 				alloclen = mtu;
+-			else
++			else if (!uarg || !uarg->zerocopy)
+ 				alloclen = fraglen;
++			else {
++				alloclen = min_t(int, fraglen, MAX_HEADER);
++				zcopylen = fraglen - alloclen;
++			}
  
--	if (sock_flag(sk, SOCK_DEAD))
-+	/* if !len, there was only 1 call, and it was aborted
-+	 * so do not queue a completion notification
-+	 */
-+	if (!uarg->len || sock_flag(sk, SOCK_DEAD))
- 		goto release;
+ 			alloclen += exthdrlen;
  
-+	len = uarg->len;
-+	lo = uarg->id;
-+	hi = uarg->id + len - 1;
+@@ -1059,11 +1076,12 @@ static int __ip_append_data(struct sock *sk,
+ 			cork->tx_flags = 0;
+ 			skb_shinfo(skb)->tskey = tskey;
+ 			tskey = 0;
++			skb_zcopy_set(skb, uarg);
+ 
+ 			/*
+ 			 *	Find where to start putting bytes.
+ 			 */
+-			data = skb_put(skb, fraglen + exthdrlen);
++			data = skb_put(skb, fraglen + exthdrlen - zcopylen);
+ 			skb_set_network_header(skb, exthdrlen);
+ 			skb->transport_header = (skb->network_header +
+ 						 fragheaderlen);
+@@ -1079,7 +1097,7 @@ static int __ip_append_data(struct sock *sk,
+ 				pskb_trim_unique(skb_prev, maxfraglen);
+ 			}
+ 
+-			copy = datalen - transhdrlen - fraggap;
++			copy = datalen - transhdrlen - fraggap - zcopylen;
+ 			if (copy > 0 && getfrag(from, data + transhdrlen, offset, copy, fraggap, skb) < 0) {
+ 				err = -EFAULT;
+ 				kfree_skb(skb);
+@@ -1087,7 +1105,7 @@ static int __ip_append_data(struct sock *sk,
+ 			}
+ 
+ 			offset += copy;
+-			length -= datalen - fraggap;
++			length -= copy + transhdrlen;
+ 			transhdrlen = 0;
+ 			exthdrlen = 0;
+ 			csummode = CHECKSUM_NONE;
+@@ -1115,7 +1133,7 @@ static int __ip_append_data(struct sock *sk,
+ 				err = -EFAULT;
+ 				goto error;
+ 			}
+-		} else {
++		} else if (!uarg || !uarg->zerocopy) {
+ 			int i = skb_shinfo(skb)->nr_frags;
+ 
+ 			err = -ENOMEM;
+@@ -1145,6 +1163,10 @@ static int __ip_append_data(struct sock *sk,
+ 			skb->data_len += copy;
+ 			skb->truesize += copy;
+ 			atomic_add(copy, &sk->sk_wmem_alloc);
++		} else {
++			err = skb_zerocopy_iter(sk, skb, from, copy);
++			if (err)
++				goto error;
+ 		}
+ 		offset += copy;
+ 		length -= copy;
+@@ -1155,6 +1177,7 @@ static int __ip_append_data(struct sock *sk,
+ error_efault:
+ 	err = -EFAULT;
+ error:
++	sock_zerocopy_put_abort(uarg);
+ 	cork->length -= length;
+ 	IP_INC_STATS(sock_net(sk), IPSTATS_MIB_OUTDISCARDS);
+ 	return err;
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 5baa6fab4b97..38d9722d4e3c 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1307,6 +1307,7 @@ static int __ip6_append_data(struct sock *sk,
+ 	struct ipv6_txoptions *opt = v6_cork->opt;
+ 	int csummode = CHECKSUM_NONE;
+ 	unsigned int maxnonfragsize, headersize;
++	struct ubuf_info *uarg = NULL;
+ 
+ 	skb = skb_peek_tail(queue);
+ 	if (!skb) {
+@@ -1368,6 +1369,18 @@ static int __ip6_append_data(struct sock *sk,
+ 			tskey = sk->sk_tskey++;
+ 	}
+ 
++	if (flags & MSG_ZEROCOPY && length) {
++		uarg = sock_zerocopy_realloc(sk, length, skb_zcopy(skb));
++		if (!uarg)
++			return -ENOBUFS;
 +
- 	serr = SKB_EXT_ERR(skb);
- 	memset(serr, 0, sizeof(*serr));
- 	serr->ee.ee_errno = 0;
- 	serr->ee.ee_origin = SO_EE_ORIGIN_ZEROCOPY;
--	serr->ee.ee_data = id;
-+	serr->ee.ee_data = hi;
-+	serr->ee.ee_info = lo;
- 
--	skb_queue_tail(&sk->sk_error_queue, skb);
--	skb = NULL;
-+	spin_lock_irqsave(&q->lock, flags);
-+	tail = skb_peek_tail(q);
-+	if (!tail || SKB_EXT_ERR(tail)->ee.ee_origin != SO_EE_ORIGIN_ZEROCOPY ||
-+	    !skb_zerocopy_notify_extend(tail, lo, len)) {
-+		__skb_queue_tail(q, skb);
-+		skb = NULL;
++		if (!(rt->dst.dev->features & NETIF_F_SG) ||
++		    (sk->sk_type == SOCK_DGRAM && csummode == CHECKSUM_NONE)) {
++			uarg->zerocopy = 0;
++			skb_zcopy_set(skb, uarg);
++		}
 +	}
-+	spin_unlock_irqrestore(&q->lock, flags);
- 
- 	sk->sk_error_report(sk);
- 
-@@ -998,6 +1074,7 @@ void sock_zerocopy_put_abort(struct ubuf_info *uarg)
- 		struct sock *sk = skb_from_uarg(uarg)->sk;
- 
- 		atomic_dec(&sk->sk_zckey);
-+		uarg->len--;
- 
- 		/* sock_zerocopy_put expects a ref. Most sockets take one per
- 		 * skb, which is zero on abort. tcp_sendmsg holds one extra, to
-@@ -1045,9 +1122,16 @@ int skb_zerocopy_iter_stream(struct sock *sk, struct sk_buff *skb,
- 			     struct msghdr *msg, int len,
- 			     struct ubuf_info *uarg)
- {
-+	struct ubuf_info *orig_uarg = skb_zcopy(skb);
- 	struct iov_iter orig_iter = msg->msg_iter;
- 	int err, orig_len = skb->len;
- 
-+	/* An skb can only point to one uarg. This edge case happens when
-+	 * TCP appends to an skb, but zerocopy_realloc triggered a new alloc.
-+	 */
-+	if (orig_uarg && uarg != orig_uarg)
-+		return -EEXIST;
 +
- 	err = __zerocopy_sg_from_iter(sk, skb, &msg->msg_iter, len);
- 	if (err == -EFAULT || (err == -EMSGSIZE && skb->len == orig_len)) {
- 		/* Streams do not free skb on error. Reset to prev state. */
+ 	/*
+ 	 * Let's try using as much space as possible.
+ 	 * Use MTU if total length of the message fits into the MTU.
+@@ -1387,7 +1400,7 @@ static int __ip6_append_data(struct sock *sk,
+ 	cork->length += length;
+ 	if ((((length + fragheaderlen) > mtu) ||
+ 	     (skb && skb_is_gso(skb))) &&
+-	    (sk->sk_protocol == IPPROTO_UDP) &&
++	    (sk->sk_protocol == IPPROTO_UDP) && !uarg &&
+ 	    (rt->dst.dev->features & NETIF_F_UFO) && !dst_xfrm(&rt->dst) &&
+ 	    (sk->sk_type == SOCK_DGRAM) && !udp_get_no_check6_tx(sk)) {
+ 		err = ip6_ufo_append_data(sk, queue, getfrag, from, length,
+@@ -1413,6 +1426,7 @@ static int __ip6_append_data(struct sock *sk,
+ 			unsigned int fraglen;
+ 			unsigned int fraggap;
+ 			unsigned int alloclen;
++			unsigned int zcopylen = 0;
+ alloc_new_skb:
+ 			/* There's no room in the current skb */
+ 			if (skb)
+@@ -1435,11 +1449,17 @@ static int __ip6_append_data(struct sock *sk,
+ 
+ 			if (datalen > (cork->length <= mtu && !(cork->flags & IPCORK_ALLFRAG) ? mtu : maxfraglen) - fragheaderlen)
+ 				datalen = maxfraglen - fragheaderlen - rt->dst.trailer_len;
++			fraglen = datalen + fragheaderlen;
++
+ 			if ((flags & MSG_MORE) &&
+ 			    !(rt->dst.dev->features&NETIF_F_SG))
+ 				alloclen = mtu;
+-			else
+-				alloclen = datalen + fragheaderlen;
++			else if (!uarg || !uarg->zerocopy)
++				alloclen = fraglen;
++			else {
++				alloclen = min_t(int, fraglen, MAX_HEADER);
++				zcopylen = fraglen - alloclen;
++			}
+ 
+ 			alloclen += dst_exthdrlen;
+ 
+@@ -1461,7 +1481,7 @@ static int __ip6_append_data(struct sock *sk,
+ 			 */
+ 			alloclen += sizeof(struct frag_hdr);
+ 
+-			copy = datalen - transhdrlen - fraggap;
++			copy = datalen - transhdrlen - fraggap - zcopylen;
+ 			if (copy < 0) {
+ 				err = -EINVAL;
+ 				goto error;
+@@ -1497,11 +1517,12 @@ static int __ip6_append_data(struct sock *sk,
+ 			tx_flags = 0;
+ 			skb_shinfo(skb)->tskey = tskey;
+ 			tskey = 0;
++			skb_zcopy_set(skb, uarg);
+ 
+ 			/*
+ 			 *	Find where to start putting bytes
+ 			 */
+-			data = skb_put(skb, fraglen);
++			data = skb_put(skb, fraglen - zcopylen);
+ 			skb_set_network_header(skb, exthdrlen);
+ 			data += fragheaderlen;
+ 			skb->transport_header = (skb->network_header +
+@@ -1524,7 +1545,7 @@ static int __ip6_append_data(struct sock *sk,
+ 			}
+ 
+ 			offset += copy;
+-			length -= datalen - fraggap;
++			length -= copy + transhdrlen;
+ 			transhdrlen = 0;
+ 			exthdrlen = 0;
+ 			dst_exthdrlen = 0;
+@@ -1552,7 +1573,7 @@ static int __ip6_append_data(struct sock *sk,
+ 				err = -EFAULT;
+ 				goto error;
+ 			}
+-		} else {
++		} else if (!uarg || !uarg->zerocopy) {
+ 			int i = skb_shinfo(skb)->nr_frags;
+ 
+ 			err = -ENOMEM;
+@@ -1582,6 +1603,10 @@ static int __ip6_append_data(struct sock *sk,
+ 			skb->data_len += copy;
+ 			skb->truesize += copy;
+ 			atomic_add(copy, &sk->sk_wmem_alloc);
++		} else {
++			err = skb_zerocopy_iter(sk, skb, from, copy);
++			if (err)
++				goto error;
+ 		}
+ 		offset += copy;
+ 		length -= copy;
+@@ -1592,6 +1617,7 @@ static int __ip6_append_data(struct sock *sk,
+ error_efault:
+ 	err = -EFAULT;
+ error:
++	sock_zerocopy_put_abort(uarg);
+ 	cork->length -= length;
+ 	IP6_INC_STATS(sock_net(sk), rt->rt6i_idev, IPSTATS_MIB_OUTDISCARDS);
+ 	return err;
 -- 
 2.13.1.611.g7e3b11ae1-goog
