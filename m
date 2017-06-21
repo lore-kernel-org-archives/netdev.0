@@ -1,137 +1,94 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH net-next v2 12/13] packet: enable MSG_ZEROCOPY
-Date: Wed, 21 Jun 2017 16:36:51 -0400
-Message-ID: <20170621203652.15306-13-willemdebruijn.kernel@gmail.com>
+From: Willem de Bruijn <willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next v2 07/13] sock: add ee_code SO_EE_CODE_ZEROCOPY_COPIED
+Date: Wed, 21 Jun 2017 16:36:46 -0400
+Message-ID: <20170621203652.15306-8-willemdebruijn.kernel@gmail.com>
 References: <20170621203652.15306-1-willemdebruijn.kernel@gmail.com>
-Cc: davem@davemloft.net, linux-api@vger.kernel.org,
-        Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:33547 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751865AbdFUUhM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 16:37:12 -0400
-In-Reply-To: <20170621203652.15306-1-willemdebruijn.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170621203652.15306-1-willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Willem de Bruijn <willemb@google.com>
+From: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
 
-Support MSG_ZEROCOPY on PF_PACKET transmission.
+A send request with MSG_ZEROCOPY falls back to copying when a request
+cannot be completed in zerocopy mode.
 
-Tested:
+Notify processes when the call reverted to copying through a new bit
+in the completion notification, so that they can optionally decline
+passing the flag on subsequent calls on the same path.
 
-  msg_zerocopy.sh 4 packet:
-
-  without zerocopy
-    tx=121543 (7588 MB) txc=0 zc=n
-    rx=121543 (7584 MB)
-
-  with zerocopy
-    tx=338252 (21119 MB) txc=338252 zc=y
-    rx=338252 (21108 MB)
-
-  msg_zerocopy.sh 4 packet_dgram:
-
-  without zerocopy
-    tx=122699 (7659 MB) txc=0 zc=n
-    rx=122699 (7656 MB)
-
-  with zerocopy
-    tx=340390 (21248 MB) txc=340390 zc=y
-    rx=340390 (21241 MB)
-
-Signed-off-by: Willem de Bruijn <willemb@google.com>
+Signed-off-by: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
 ---
- net/packet/af_packet.c | 36 ++++++++++++++++++++++++++----------
- 1 file changed, 26 insertions(+), 10 deletions(-)
+ include/linux/skbuff.h        | 2 ++
+ include/uapi/linux/errqueue.h | 2 ++
+ net/core/skbuff.c             | 5 ++++-
+ 3 files changed, 8 insertions(+), 1 deletion(-)
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index f9349a495caf..a04791fd81f2 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -2795,30 +2795,39 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 1d842860f074..24479da9905c 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -416,6 +416,7 @@ struct ubuf_info {
+ 		struct {
+ 			u32 id;
+ 			u16 len;
++			u16 zerocopy:1;
+ 			u32 bytelen;
+ 		};
+ 	};
+@@ -1257,6 +1258,7 @@ static inline void skb_zcopy_clear(struct sk_buff *skb, bool zerocopy)
+ 	struct ubuf_info *uarg = skb_zcopy(skb);
  
- static struct sk_buff *packet_alloc_skb(struct sock *sk, size_t prepad,
- 				        size_t reserve, size_t len,
--				        size_t linear, int noblock,
-+					size_t linear, int flags,
- 				        int *err)
- {
- 	struct sk_buff *skb;
-+	size_t data_len;
- 
--	/* Under a page?  Don't bother with paged skb. */
--	if (prepad + len < PAGE_SIZE || !linear)
--		linear = len;
-+	if (flags & MSG_ZEROCOPY) {
-+		/* Minimize linear, but respect header lower bound */
-+		linear = reserve + min(len, max_t(size_t, linear, MAX_HEADER));
-+		data_len = 0;
-+	} else {
-+		/* Under a page? Don't bother with paged skb. */
-+		if (prepad + len < PAGE_SIZE || !linear)
-+			linear = len;
-+		data_len = len - linear;
-+	}
- 
--	skb = sock_alloc_send_pskb(sk, prepad + linear, len - linear, noblock,
--				   err, 0);
-+	skb = sock_alloc_send_pskb(sk, prepad + linear, data_len,
-+				   flags & MSG_DONTWAIT, err, 0);
- 	if (!skb)
- 		return NULL;
- 
- 	skb_reserve(skb, reserve);
- 	skb_put(skb, linear);
--	skb->data_len = len - linear;
--	skb->len += len - linear;
-+	skb->data_len = data_len;
-+	skb->len += data_len;
- 
- 	return skb;
- }
- 
- static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
- {
-+	struct iov_iter *from = &msg->msg_iter;
- 	struct sock *sk = sock->sk;
- 	DECLARE_SOCKADDR(struct sockaddr_ll *, saddr, msg->msg_name);
- 	struct sk_buff *skb;
-@@ -2894,7 +2903,7 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
- 	linear = __virtio16_to_cpu(vio_le(), vnet_hdr.hdr_len);
- 	linear = max(linear, min_t(int, len, dev->hard_header_len));
- 	skb = packet_alloc_skb(sk, hlen + tlen, hlen, len, linear,
--			       msg->msg_flags & MSG_DONTWAIT, &err);
-+			       msg->msg_flags, &err);
- 	if (skb == NULL)
- 		goto out_unlock;
- 
-@@ -2908,10 +2917,16 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+ 	if (uarg) {
++		uarg->zerocopy = uarg->zerocopy && zerocopy;
+ 		sock_zerocopy_put(uarg);
+ 		skb_shinfo(skb)->tx_flags &= ~SKBTX_ZEROCOPY_FRAG;
  	}
+diff --git a/include/uapi/linux/errqueue.h b/include/uapi/linux/errqueue.h
+index 0f15a77c9e39..78fdf52d6b2f 100644
+--- a/include/uapi/linux/errqueue.h
++++ b/include/uapi/linux/errqueue.h
+@@ -23,6 +23,8 @@ struct sock_extended_err {
  
- 	/* Returns -EFAULT on error */
--	err = skb_copy_datagram_from_iter(skb, offset, &msg->msg_iter, len);
-+	err = skb_copy_datagram_from_iter(skb, offset, from, skb->len - offset);
- 	if (err)
- 		goto out_free;
+ #define SO_EE_OFFENDER(ee)	((struct sockaddr*)((ee)+1))
  
-+	if (msg->msg_flags & MSG_ZEROCOPY && len) {
-+		err = skb_zerocopy_iter_alloc(skb, msg, iov_iter_count(from));
-+		if (err)
-+			goto out_free;
-+	}
++#define SO_EE_CODE_ZEROCOPY_COPIED	1
 +
- 	if (sock->type == SOCK_RAW &&
- 	    !dev_validate_header(dev, skb->data, len)) {
- 		err = -EINVAL;
-@@ -2954,6 +2969,7 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
- 	return len;
+ /**
+  *	struct scm_timestamping - timestamps exposed through cmsg
+  *
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 41fedc4e651f..35a7a7b1192f 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -943,6 +943,7 @@ struct ubuf_info *sock_zerocopy_alloc(struct sock *sk, size_t size)
+ 	uarg->callback = sock_zerocopy_callback;
+ 	uarg->id = ((u32)atomic_inc_return(&sk->sk_zckey)) - 1;
+ 	uarg->len = 1;
++	uarg->zerocopy = 1;
+ 	uarg->bytelen = size;
+ 	atomic_set(&uarg->refcnt, 0);
+ 	sock_hold(sk);
+@@ -1039,6 +1040,8 @@ void sock_zerocopy_callback(struct ubuf_info *uarg, bool success)
+ 	serr->ee.ee_origin = SO_EE_ORIGIN_ZEROCOPY;
+ 	serr->ee.ee_data = hi;
+ 	serr->ee.ee_info = lo;
++	if (!success)
++		serr->ee.ee_code |= SO_EE_CODE_ZEROCOPY_COPIED;
  
- out_free:
-+	skb_zcopy_abort(skb);
- 	kfree_skb(skb);
- out_unlock:
- 	if (dev)
+ 	spin_lock_irqsave(&q->lock, flags);
+ 	tail = skb_peek_tail(q);
+@@ -1061,7 +1064,7 @@ void sock_zerocopy_put(struct ubuf_info *uarg)
+ {
+ 	if (uarg && atomic_dec_and_test(&uarg->refcnt)) {
+ 		if (uarg->callback)
+-			uarg->callback(uarg, true);
++			uarg->callback(uarg, uarg->zerocopy);
+ 		else
+ 			consume_skb(skb_from_uarg(uarg));
+ 	}
 -- 
 2.13.1.611.g7e3b11ae1-goog
