@@ -1,31 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bpf: expose prog id for cls_bpf and act_bpf
-Date: Wed, 21 Jun 2017 15:14:40 -0400 (EDT)
-Message-ID: <20170621.151440.424326589634772993.davem@davemloft.net>
-References: <66b50f95666de97e7f067471d409fce8d316ad43.1498068442.git.daniel@iogearbox.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net/sctp/ulpevent.c: Deinline sctp_ulpevent_set_owner,
+ save 1616 bytes
+Date: Wed, 21 Jun 2017 12:19:10 -0700
+Message-ID: <1498072750.3337.4.camel@perches.com>
+References: <20170621162809.4305-1-dvlasenk@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: john.fastabend@gmail.com, kafai@fb.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43874 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751028AbdFUTOm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 15:14:42 -0400
-In-Reply-To: <66b50f95666de97e7f067471d409fce8d316ad43.1498068442.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Denys Vlasenko <dvlasenk@redhat.com>, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170621162809.4305-1-dvlasenk@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Wed, 21 Jun 2017 20:16:11 +0200
-
-> In order to be able to retrieve the attached programs from cls_bpf
-> and act_bpf, we need to expose the prog ids via netlink so that
-> an application can later on get an fd based on the id through the
-> BPF_PROG_GET_FD_BY_ID command, and dump related prog info via
-> BPF_OBJ_GET_INFO_BY_FD command for bpf(2).
+On Wed, 2017-06-21 at 18:28 +0200, Denys Vlasenko wrote:
+> This function compiles to 147 bytes of machine code. 13 callsites.
 > 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> I'm no expert on SCTP events, but quick reading of SCTP docs tells me that
+> SCTP events are not happening on every packet.
+> They are ASSOC_CHANGE, PEER_ADDR_CHANGE, REMOTE_ERROR and such.
+> Does not look performance critical.
 
-Applied, thanks Daniel.
+Thanks.
+
+But:
+
+> diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
+[]
+> @@ -88,7 +88,7 @@ int sctp_ulpevent_is_notification(const struct sctp_ulpevent *event)
+>  /* Hold the association in case the msg_name needs read out of
+>   * the association.
+>   */
+> -static inline void sctp_ulpevent_set_owner(struct sctp_ulpevent *event,
+> +static void sctp_ulpevent_set_owner(struct sctp_ulpevent *event,
+>  					   const struct sctp_association *asoc)
+>  {
+>  	struct sctp_chunk *chunk = event->chunk;
+
+This now misaligns the next line after the inline removal.
+
+Can you please run your patches through checkpatch?
+
+$ ./scripts/checkpatch.pl -
+CHECK: Alignment should match open parenthesis
+#86: FILE: net/sctp/ulpevent.c:92:
++static void sctp_ulpevent_set_owner(struct sctp_ulpevent *event,
+ 					   const struct sctp_association *asoc)
