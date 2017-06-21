@@ -1,58 +1,33 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: [PATCH] Convert BUG_ON to WARN_ON in bond_options.c
-Date: Wed, 21 Jun 2017 15:39:28 -0700
-Message-ID: <24691.1498084768@famine>
-References: <CALRmy5sYL_gJsiLzQQn-2FbWowi=Bj4DkYdcOdrOHeSs4jQ3Xg@mail.gmail.com> <20170621.173655.1945994342723484710.davem@davemloft.net> <CALRmy5tn6cgWF5LP5i7w+UTwP1UJCyQoC7Mx7=RvETBUVD-yuw@mail.gmail.com> <20170621.175651.854625612625047729.davem@davemloft.net> <125b4ae9-2cb7-3532-5391-24404cf6eaec@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] net: fib: fix fib_new_table() logical issue
+Date: Wed, 21 Jun 2017 15:53:52 -0700
+Message-ID: <CAM_iQpWAeYVkyxKtLFzg7J0H8VcB8VFoU+EUQMQM-2DzMjo04g@mail.gmail.com>
+References: <1498053744-3217-1-git-send-email-cugyly@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: David Miller <davem@davemloft.net>, vfalico@gmail.com,
-        andy@greyhouse.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, joe@perches.com
-To: Michael J Dilmore <michael.j.dilmore@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <125b4ae9-2cb7-3532-5391-24404cf6eaec@gmail.com>
-Content-ID: <24690.1498084768.1@famine>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+To: yuan linyu <cugyly@163.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:33638 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750981AbdFUWyO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 18:54:14 -0400
+Received: by mail-wr0-f193.google.com with SMTP id x23so30573082wrb.0
+        for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 15:54:13 -0700 (PDT)
+In-Reply-To: <1498053744-3217-1-git-send-email-cugyly@163.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Michael J Dilmore <michael.j.dilmore@gmail.com> wrote:
-
->On 21/06/17 22:56, David Miller wrote:
+On Wed, Jun 21, 2017 at 7:02 AM, yuan linyu <cugyly@163.com> wrote:
+> From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
 >
->> From: Michael D <michael.j.dilmore@gmail.com>
->> Date: Wed, 21 Jun 2017 22:41:07 +0100
->>
->>> I don't think you can stop it being dereferenced... you just need to
->>> prevent an attacker from exploiting the null pointer dereference
->>> vulnerability right? And this is done by returning the function right
->>> away?
->> What's all of this about an "attacker"?
->>
->> If there is a bug, we dererence a NULL pointer, and we should
->> fix that bug.
->>
->> The BUG_ON() helps us see where the problem is while at the
->> same time stopping the kernel before the NULL deref happens.
->Ok this is starting to make sense now - went a bit off track but think my
->general thinking is ok - i.e. if we return the function with an error code
->before the dereference then this basically does the same thing as BUG_ON
->but without crashing the kernel.
->
->Something like:
->
->if (WARN_ON(!new_active_slave) {
->    netdev_dbg("Can't add new active slave - pointer null");
->    return ERROR_CODE
->}
+> when CONFIG_IP_MULTIPLE_TABLES defined,
+> if id == RT_TABLE_LOCAL and !net->ipv4.fib_has_custom_rules,
+> fib_new_table() call itself to get RT_TABLE_MAIN table,
+> but if RT_TABLE_MAIN table not exist at this point,
+> this function will become deadloop.
 
-	In general, yes, but in this case, the condition should be
-impossible to hit, so BUG_ON seems appropriate.
-
-	If bond_slave_get_rtnl/rcu() returns NULL for an actual bonding
-slave, other code paths (bond_fill_slave_info, bond_handle_frame) will
-likely crash before getting to this one.
-
-	-J
-
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+Why deadloop here? If fib_new_table() is called recursively,
+then main table is created by fib_trie_table() and we return.
