@@ -1,52 +1,203 @@
 From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Subject: [PATCH 1/2 net-next] ibmvnic: Fix incorrectly defined ibmvnic_request_map_rsp structure
-Date: Wed, 21 Jun 2017 14:53:00 -0500
-Message-ID: <1498074781-17565-2-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Subject: [PATCH 2/2 net-next] ibmvnic: Fix error handling when registering long-term-mapped buffers
+Date: Wed, 21 Jun 2017 14:53:01 -0500
+Message-ID: <1498074781-17565-3-git-send-email-tlfalcon@linux.vnet.ibm.com>
 References: <1498074781-17565-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Cc: nfont@linux.vnet.ibm.com, jallen@linux.vnet.ibm.com,
         Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:49894 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751038AbdFUTxM (ORCPT
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:42556 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751098AbdFUTxM (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 15:53:12 -0400
-Received: from pps.filterd (m0098404.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5LJnY9R037605
+Received: from pps.filterd (m0098414.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5LJnVTv146341
         for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 15:53:11 -0400
-Received: from e33.co.us.ibm.com (e33.co.us.ibm.com [32.97.110.151])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2b7uyf1pux-1
+Received: from e31.co.us.ibm.com (e31.co.us.ibm.com [32.97.110.149])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 2b7ts760re-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
         for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 15:53:11 -0400
 Received: from localhost
-        by e33.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e31.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
         Wed, 21 Jun 2017 13:53:10 -0600
 In-Reply-To: <1498074781-17565-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reserved area should be eight bytes in length instead of four.
-As a result, the return codes in the REQUEST_MAP_RSP descriptors
-were not being properly handled.
+The patch stores the return code of the REQUEST_MAP_RSP sub-CRQ command
+in the private data structure, where it can be later checked during
+device open or a reset.
+
+In the case of a reset, the mapping request to the vNIC Server may fail,
+especially in the case of a partition migration. The driver attempts to
+handle this by re-allocating the buffer and re-sending the mapping request.
+
+The original error handling implementation was removed. The separate
+function handling the REQUEST_MAP response message was also removed,
+since it is now simple enough to be handled in the ibmvnic_handle_crq
+function.
 
 Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
 ---
- drivers/net/ethernet/ibm/ibmvnic.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/ibm/ibmvnic.c | 79 ++++++++++++++++----------------------
+ drivers/net/ethernet/ibm/ibmvnic.h |  1 +
+ 2 files changed, 35 insertions(+), 45 deletions(-)
 
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
+index ba4c79d..28f9e2d 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.c
++++ b/drivers/net/ethernet/ibm/ibmvnic.c
+@@ -163,16 +163,6 @@ static long h_reg_sub_crq(unsigned long unit_address, unsigned long token,
+ 	return rc;
+ }
+ 
+-static void reset_long_term_buff(struct ibmvnic_adapter *adapter,
+-				 struct ibmvnic_long_term_buff *ltb)
+-{
+-	memset(ltb->buff, 0, ltb->size);
+-
+-	init_completion(&adapter->fw_done);
+-	send_request_map(adapter, ltb->addr, ltb->size, ltb->map_id);
+-	wait_for_completion(&adapter->fw_done);
+-}
+-
+ static int alloc_long_term_buff(struct ibmvnic_adapter *adapter,
+ 				struct ibmvnic_long_term_buff *ltb, int size)
+ {
+@@ -193,6 +183,12 @@ static int alloc_long_term_buff(struct ibmvnic_adapter *adapter,
+ 	send_request_map(adapter, ltb->addr,
+ 			 ltb->size, ltb->map_id);
+ 	wait_for_completion(&adapter->fw_done);
++
++	if (adapter->fw_done_rc) {
++		dev_err(dev, "Couldn't map long term buffer,rc = %d\n",
++			adapter->fw_done_rc);
++		return -1;
++	}
+ 	return 0;
+ }
+ 
+@@ -210,6 +206,24 @@ static void free_long_term_buff(struct ibmvnic_adapter *adapter,
+ 	dma_free_coherent(dev, ltb->size, ltb->buff, ltb->addr);
+ }
+ 
++static int reset_long_term_buff(struct ibmvnic_adapter *adapter,
++				struct ibmvnic_long_term_buff *ltb)
++{
++	memset(ltb->buff, 0, ltb->size);
++
++	init_completion(&adapter->fw_done);
++	send_request_map(adapter, ltb->addr, ltb->size, ltb->map_id);
++	wait_for_completion(&adapter->fw_done);
++
++	if (adapter->fw_done_rc) {
++		dev_info(&adapter->vdev->dev,
++			 "Reset failed, attempting to free and reallocate buffer\n");
++		free_long_term_buff(adapter, ltb);
++		return alloc_long_term_buff(adapter, ltb, ltb->size);
++	}
++	return 0;
++}
++
+ static void deactivate_rx_pools(struct ibmvnic_adapter *adapter)
+ {
+ 	int i;
+@@ -366,13 +380,15 @@ static int reset_rx_pools(struct ibmvnic_adapter *adapter)
+ {
+ 	struct ibmvnic_rx_pool *rx_pool;
+ 	int rx_scrqs;
+-	int i, j;
++	int i, j, rc;
+ 
+ 	rx_scrqs = be32_to_cpu(adapter->login_rsp_buf->num_rxadd_subcrqs);
+ 	for (i = 0; i < rx_scrqs; i++) {
+ 		rx_pool = &adapter->rx_pool[i];
+ 
+-		reset_long_term_buff(adapter, &rx_pool->long_term_buff);
++		rc = reset_long_term_buff(adapter, &rx_pool->long_term_buff);
++		if (rc)
++			return rc;
+ 
+ 		for (j = 0; j < rx_pool->size; j++)
+ 			rx_pool->free_map[j] = j;
+@@ -494,13 +510,15 @@ static int reset_tx_pools(struct ibmvnic_adapter *adapter)
+ {
+ 	struct ibmvnic_tx_pool *tx_pool;
+ 	int tx_scrqs;
+-	int i, j;
++	int i, j, rc;
+ 
+ 	tx_scrqs = be32_to_cpu(adapter->login_rsp_buf->num_txsubm_subcrqs);
+ 	for (i = 0; i < tx_scrqs; i++) {
+ 		tx_pool = &adapter->tx_pool[i];
+ 
+-		reset_long_term_buff(adapter, &tx_pool->long_term_buff);
++		rc = reset_long_term_buff(adapter, &tx_pool->long_term_buff);
++		if (rc)
++			return rc;
+ 
+ 		memset(tx_pool->tx_buff, 0,
+ 		       adapter->req_tx_entries_per_subcrq *
+@@ -3062,36 +3080,6 @@ static int handle_login_rsp(union ibmvnic_crq *login_rsp_crq,
+ 	return 0;
+ }
+ 
+-static void handle_request_map_rsp(union ibmvnic_crq *crq,
+-				   struct ibmvnic_adapter *adapter)
+-{
+-	struct device *dev = &adapter->vdev->dev;
+-	u8 map_id = crq->request_map_rsp.map_id;
+-	int tx_subcrqs;
+-	int rx_subcrqs;
+-	long rc;
+-	int i;
+-
+-	tx_subcrqs = be32_to_cpu(adapter->login_rsp_buf->num_txsubm_subcrqs);
+-	rx_subcrqs = be32_to_cpu(adapter->login_rsp_buf->num_rxadd_subcrqs);
+-
+-	rc = crq->request_map_rsp.rc.code;
+-	if (rc) {
+-		dev_err(dev, "Error %ld in REQUEST_MAP_RSP\n", rc);
+-		adapter->map_id--;
+-		/* need to find and zero tx/rx_pool map_id */
+-		for (i = 0; i < tx_subcrqs; i++) {
+-			if (adapter->tx_pool[i].long_term_buff.map_id == map_id)
+-				adapter->tx_pool[i].long_term_buff.map_id = 0;
+-		}
+-		for (i = 0; i < rx_subcrqs; i++) {
+-			if (adapter->rx_pool[i].long_term_buff.map_id == map_id)
+-				adapter->rx_pool[i].long_term_buff.map_id = 0;
+-		}
+-	}
+-	complete(&adapter->fw_done);
+-}
+-
+ static void handle_request_unmap_rsp(union ibmvnic_crq *crq,
+ 				     struct ibmvnic_adapter *adapter)
+ {
+@@ -3372,7 +3360,8 @@ static void ibmvnic_handle_crq(union ibmvnic_crq *crq,
+ 		handle_query_map_rsp(crq, adapter);
+ 		break;
+ 	case REQUEST_MAP_RSP:
+-		handle_request_map_rsp(crq, adapter);
++		adapter->fw_done_rc = crq->request_map_rsp.rc.code;
++		complete(&adapter->fw_done);
+ 		break;
+ 	case REQUEST_UNMAP_RSP:
+ 		handle_request_unmap_rsp(crq, adapter);
 diff --git a/drivers/net/ethernet/ibm/ibmvnic.h b/drivers/net/ethernet/ibm/ibmvnic.h
-index 7e2300e..2d525c7 100644
+index 2d525c7..8eff6e1 100644
 --- a/drivers/net/ethernet/ibm/ibmvnic.h
 +++ b/drivers/net/ethernet/ibm/ibmvnic.h
-@@ -595,7 +595,7 @@ struct ibmvnic_request_map_rsp {
- 	u8 cmd;
- 	u8 reserved1;
- 	u8 map_id;
--	u8 reserved2[4];
-+	u8 reserved2[8];
- 	struct ibmvnic_rc rc;
- } __packed __aligned(8);
+@@ -988,6 +988,7 @@ struct ibmvnic_adapter {
+ 	spinlock_t error_list_lock;
  
+ 	struct completion fw_done;
++	int fw_done_rc;
+ 
+ 	/* partner capabilities */
+ 	u64 min_tx_queues;
 -- 
 1.8.5.6
