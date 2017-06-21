@@ -1,70 +1,85 @@
-From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: Re: [PATCH] netxen: Fix a sleep-in-atomic bug in netxen_nic_pci_mem_access_direct
-Date: Wed, 21 Jun 2017 14:33:03 +0800
-Message-ID: <594A131F.9040300@163.com>
-References: <1497840533-4894-1-git-send-email-baijiaju1990@163.com> <20170620.133530.1607963470682255531.davem@davemloft.net> <87d19xooo0.fsf@purkki.adurom.net>
+From: Serhey Popovych <serhe.popovych@gmail.com>
+Subject: Re: fib_rules: Resolve goto rules target on delete
+Date: Wed, 21 Jun 2017 10:44:47 +0300
+Message-ID: <11d8ff28-a667-8d2d-9b90-304ee76ee94a@gmail.com>
+References: <1497617087-26386-1-git-send-email-serhe.popovych@gmail.com>
+ <20170620.124040.491492963882254347.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, manish.chopra@cavium.com,
-        rahul.verma@cavium.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87d19xooo0.fsf@purkki.adurom.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f68.google.com ([209.85.215.68]:34845 "EHLO
+        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750876AbdFUHov (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 03:44:51 -0400
+Received: by mail-lf0-f68.google.com with SMTP id n136so7639754lfn.2
+        for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 00:44:50 -0700 (PDT)
+Received: from tuxracer.local ([195.238.92.77])
+        by smtp.gmail.com with ESMTPSA id 131sm3528845ljf.29.2017.06.21.00.44.48
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Wed, 21 Jun 2017 00:44:48 -0700 (PDT)
+In-Reply-To: <20170620.124040.491492963882254347.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/21/2017 02:11 PM, Kalle Valo wrote:
-> David Miller<davem@davemloft.net>  writes:
->
->> From: Jia-Ju Bai<baijiaju1990@163.com>
->> Date: Mon, 19 Jun 2017 10:48:53 +0800
->>
->>> The driver may sleep under a spin lock, and the function call path is:
->>> netxen_nic_pci_mem_access_direct (acquire the lock by spin_lock)
->>>    ioremap -->  may sleep
->>>
->>> To fix it, the lock is released before "ioremap", and the lock is
->>> acquired again after this function.
->>>
->>> Signed-off-by: Jia-Ju Bai<baijiaju1990@163.com>
->> This style of change you are making is really starting to be a
->> problem.
->>
->> You can't just drop locks like this, especially without explaining
->> why it's ok, and why the mutual exclusion this code was trying to
->> achieve is still going to be OK afterwards.
->>
->> In fact, I see zero analysis of the locking situation here, why
->> it was needed in the first place, and why your change is OK in
->> that context.
->>
->> Any locking change is delicate, and you must put the greatest of
->> care and consideration into it.
->>
->> Just putting "unlock/lock" around the sleeping operation shows a
->> very low level of consideration for the implications of the change
->> you are making.
->>
->> This isn't like making whitespace fixes, sorry...
-> We already tried to explain this to Jia-Ju during review of a wireless
-> patch:
->
-> https://patchwork.kernel.org/patch/9756585/
->
-> Jia-Ju, you should listen to feedback. If you continue submitting random
-> patches like this makes it hard for maintainers to trust your patches
-> anymore.
->
-Hi,
 
-I am quite sorry for my incorrect patches, and I will listen carefully 
-to your advice.
-In fact, for some bugs and patches which I have reported before, I have 
-not received the feedback of them, so I resent them a few days ago, 
-including this patch.
-Sorry for my mistake again.
+> From: Serhey Popovych <serhe.popovych@gmail.com>
+> Date: Fri, 16 Jun 2017 15:44:47 +0300
+> 
+>> We should avoid marking goto rules unresolved when their
+>> target is actually reachable after rule deletion.
+>>
+>> Consolder following sample scenario:
+>>
+>>   # ip -4 ru sh
+>>   0:      from all lookup local
+>>   32000:  from all goto 32100
+>>   32100:  from all lookup main
+>>   32100:  from all lookup default
+>>   32766:  from all lookup main
+>>   32767:  from all lookup default
+>>
+>>   # ip -4 ru del pref 32100 table main
+>>   # ip -4 ru sh
+>>   0:      from all lookup local
+>>   32000:  from all goto 32100 [unresolved]
+>>   32100:  from all lookup default
+>>   32766:  from all lookup main
+>>   32767:  from all lookup default
+>>
+>> After removal of first rule with preference 32100 we
+>> mark all goto rules as unreachable, even when rule with
+>> same preference as removed one still present.
+>>
+>> Check if next rule with same preference is available
+>> and make all rules with goto action pointing to it.
+>>
+>> Signed-off-by: Serhey Popovych <serhe.popovych@gmail.com>
+> 
+> Applied, thanks.
+> 
+> It would be awesome if you could distill the above into a test case that
+> could be run under tools/testing/selftests/networking.
+Yes, I already think about testing too.
 
-Thanks,
-Jia-Ju Bai
+Actually I have series of  patches to improve fib_rules support both in
+core and per protocol (merge suppress, callback, reduce per network
+namespace memory consumption - useful for docker setups, more precise
+validation of netlink configuration messages, additional matching
+facilities etc) so testing is  definitely required before my changes
+went upstream!
+
+About testing implementation: I see there is no infrastructure
+to test netlink based configuration in tools/testing. How to make
+this better? Use libnl, write scripts that use iproute2 utilities?
+Where I can get additional to Documentation/kselftest.txt information?
+
+> 
+> Thanks!
+> 
+
+-- 
+Thanks, Serhey
