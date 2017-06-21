@@ -1,37 +1,104 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v2] arm: eBPF JIT compiler
-Date: Wed, 21 Jun 2017 21:53:27 +0200
-Message-ID: <594ACEB7.2030707@iogearbox.net>
-References: <1495754003-21099-1-git-send-email-illusionist.neo@gmail.com> <CAGXu5jKmLNMR+uhM9Ov2XPW6kCjip_SjScgEH0fTFp6fQtKFiA@mail.gmail.com> <593E6B0F.8070901@iogearbox.net> <CAHgaXd+DW2bggto=2S9hOdMrtPTvhD2QN4rPf2V8iHewQpg-YA@mail.gmail.com> <CAHgaXdJrvKdzr3fJ1TMkC4foeVsZJDSVEwhDOeZGxQVsmoK2cQ@mail.gmail.com> <59419D1E.2060303@iogearbox.net> <CAHgaXdKMbFPgy-kKF0iDSAYo4CqLn9FRu9HwM+OfM-JWb9fNRQ@mail.gmail.com> <594813AA.5010001@iogearbox.net> <CAHgaXdLtX6yLdU3bMvS=g8FZ79sM_BW_+hHTMH=Mfk4TZqUnpw@mail.gmail.com> <59495367.3080402@iogearbox.net> <CAHgaXdKGJFh8jO44gwCqe0cijoztf39bK9k8ioBtYDjzb4vvZw@mail.gmail.com> <594A9FA5.1080003@iogearbox.net> <CAHgaXdKm6atQ=XkrQf+ShKtPU7=H+pS2VvPsTXXhz2yzOFunmA@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: Possible DEADLOCK in rtnl_lock(v4.1.40)
+Date: Wed, 21 Jun 2017 13:03:43 -0700
+Message-ID: <CAM_iQpU1SVtQZpXdSJ9FKOweeiOR3B1SoESv4g=SZL16tAa2LQ@mail.gmail.com>
+References: <CAJsXRPFnNA30Y5V+XN=1kM9jEDqNr0VkAf0-oAEr-kDBNk5FTg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Kees Cook <keescook@chromium.org>,
-        Network Development <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Ahern <dsahern@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
         Alexei Starovoitov <ast@kernel.org>,
-        Russell King <linux@armlinux.org.uk>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        LKML <linux-kernel@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: Shubham Bansal <illusionist.neo@gmail.com>
+        Sabrina Dubroca <sd@queasysnail.net>,
+        Zhang Shengju <zhangshengju@cmss.chinamobile.com>,
+        Nogah Frankel <nogahf@mellanox.com>,
+        Vladislav Yasevich <vyasevich@gmail.com>, bblanco@plumgrid.com,
+        moshe@mellanox.com, Roopa Prabhu <roopa@cumulusnetworks.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Dison River <pwn2river@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHgaXdKm6atQ=XkrQf+ShKtPU7=H+pS2VvPsTXXhz2yzOFunmA@mail.gmail.com>
+In-Reply-To: <CAJsXRPFnNA30Y5V+XN=1kM9jEDqNr0VkAf0-oAEr-kDBNk5FTg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/21/2017 09:37 PM, Shubham Bansal wrote:
-> Hi Daniel,
->
-> Good news. Got the CALL to work.
->
-> [  145.670882] test_bpf: Summary: 316 PASSED, 0 FAILED, [287/308 JIT'ed]
->
-> Awesome. Do you think with this implementation, the patch could get
-> accepted? If you think so, then I will send the patch in couple of
-> days after some refactoring, if not, then do let me know what more is
-> required?
+Hi,
 
-Nice, it's ultimately up to the arm folks to review the set in-depth,
-but feel free to send out the patch once you're done refactoring. With
-BPF_CALL support that looks quite good from pov of supported insns.
+On Wed, Jun 21, 2017 at 2:22 AM, Dison River <pwn2river@gmail.com> wrote:
+> Hi:
+>     I've got the following error report while fuzzing the kernel with
+> syzkaller on v4.1.40
+>
+>
+> Syzkaller hit 'possible deadlock in rtnl_lock' bug on commit .
+>
+> The guilty file is: /home/river/git_new/linux-stable/net/core/rtnetlink.c.
+>
+>
+> ======================================================
+> [ INFO: possible circular locking dependency detected ]
+> 4.1.40 #4 Not tainted
+> -------------------------------------------------------
+> syz-executor1/4765 is trying to acquire lock:
+>  (rtnl_mutex){+.+.+.}, at: [<ffffffff82734b62>] rtnl_lock+0x12/0x20
+> /home/river/git_new/linux-stable/net/core/rtnetlink.c:70
+>
+> but task is already holding lock:
+>  (sk_lock-AF_INET){+.+.+.}, at: [<ffffffff82848a75>] lock_sock
+> /home/river/git_new/linux-stable/include/net/sock.h:1497 [inline]
+>  (sk_lock-AF_INET){+.+.+.}, at: [<ffffffff82848a75>]
+> do_ip_getsockopt.part.9+0xf5/0x1210
+> /home/river/git_new/linux-stable/net/ipv4/ip_sockglue.c:1270
+>
+> which lock already depends on the new lock.
+>
+>
+> the existing dependency chain (in reverse order) is:
+>
+>        [<ffffffff811da5dd>] lock_acquire+0x13d/0x4d0
+> /home/river/git_new/linux-stable/kernel/locking/lockdep.c:3623
+>        [<ffffffff826ab259>] lock_sock_nested+0xb9/0x110
+> /home/river/git_new/linux-stable/net/core/sock.c:2376
+>        [<ffffffff8284ad8f>] lock_sock
+> /home/river/git_new/linux-stable/include/net/sock.h:1497 [inline]
+>        [<ffffffff8284ad8f>] do_ip_setsockopt.isra.12+0x15f/0x24f0
+> /home/river/git_new/linux-stable/net/ipv4/ip_sockglue.c:622
+>        [<ffffffff8284d14f>] ip_setsockopt+0x2f/0xb0
+> /home/river/git_new/linux-stable/net/ipv4/ip_sockglue.c:1200
+>        [<ffffffff826a95a3>] sock_common_setsockopt+0x73/0xf0
+> /home/river/git_new/linux-stable/net/core/sock.c:2575
+>        [<ffffffff826a6910>] SYSC_setsockopt
+> /home/river/git_new/linux-stable/net/socket.c:1761 [inline]
+>        [<ffffffff826a6910>] SyS_setsockopt+0x130/0x200
+> /home/river/git_new/linux-stable/net/socket.c:1740
+>        [<ffffffff82eb9fd7>] system_call_fastpath+0x12/0x6f
+>
+>        [<ffffffff811d6c91>] check_prev_add
+> /home/river/git_new/linux-stable/kernel/locking/lockdep.c:1853
+> [inline]
+>        [<ffffffff811d6c91>] check_prevs_add
+> /home/river/git_new/linux-stable/kernel/locking/lockdep.c:1958
+> [inline]
+>        [<ffffffff811d6c91>] validate_chain
+> /home/river/git_new/linux-stable/kernel/locking/lockdep.c:2144
+> [inline]
+>        [<ffffffff811d6c91>] __lock_acquire+0x3551/0x51f0
+> /home/river/git_new/linux-stable/kernel/locking/lockdep.c:3205
+>        [<ffffffff811da5dd>] lock_acquire+0x13d/0x4d0
+> /home/river/git_new/linux-stable/kernel/locking/lockdep.c:3623
+>        [<ffffffff82eb0e50>] __mutex_lock_common
+> /home/river/git_new/linux-stable/kernel/locking/mutex.c:521 [inline]
+>        [<ffffffff82eb0e50>] mutex_lock_nested+0xc0/0x9c0
+> /home/river/git_new/linux-stable/kernel/locking/mutex.c:620
+>        [<ffffffff82734b62>] rtnl_lock+0x12/0x20
+> /home/river/git_new/linux-stable/net/core/rtnetlink.c:70
+>        [<ffffffff8294598d>] ip_mc_msfget+0xdd/0x5b0
+
+
+Do you have this fix in your kernel?
+
+commit 87e9f0315952b0dd8b5e51ba04beda03efc009d9
+Author: WANG Cong <xiyou.wangcong@gmail.com>
+Date:   Tue Nov 3 15:41:16 2015 -0800
+
+    ipv4: fix a potential deadlock in mcast getsockopt() path
