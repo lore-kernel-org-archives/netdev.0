@@ -1,85 +1,81 @@
-From: Serhey Popovych <serhe.popovych@gmail.com>
-Subject: veth: Be more robust on network device creation when no attributes
-Date: Wed, 21 Jun 2017 12:12:24 +0300
-Message-ID: <1498036344-10301-1-git-send-email-serhe.popovych@gmail.com>
-References: <1498035736-9330-1-git-send-email-serhe.popovych@gmail.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:35037 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752579AbdFUJMi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 05:12:38 -0400
-Received: by mail-wr0-f194.google.com with SMTP id z45so24758524wrb.2
-        for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 02:12:38 -0700 (PDT)
-In-Reply-To: <1498035736-9330-1-git-send-email-serhe.popovych@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Benjamin Gaignard <benjamin.gaignard-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 00/51] rtc: stop using rtc deprecated functions
+Date: Wed, 21 Jun 2017 11:14:34 +0200
+Message-ID: <CA+M3ks58dO0m+XdQ=3rZvr+Vfj7RcrBON-KC4a-ThNhq+e7V_Q@mail.gmail.com>
+References: <1497951359-13334-1-git-send-email-benjamin.gaignard@linaro.org>
+ <20170620100348.zh4ygvjjgnhxvmvl@piout.net> <20170620121011.GA13221@amd>
+ <20170620122400.sm7qqvwyj6cuzarw@piout.net> <20170620132620.GA16881@amd>
+ <6ED8E3B22081A4459DAC7699F3695FB7018CD96FCD@SW-EX-MBX02.diasemi.com>
+ <20170620134458.GA10104@amd> <20170620134827.ubvzhh25klaotupv@piout.net>
+ <CA+M3ks68+z6nDtYM8CDpso7SxjB6Nt5E=rOc1yxx=kDz6PUeVQ@mail.gmail.com> <20170620220805.GA11195@amd>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Alexandre Belloni <alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        Steve Twiss <stwiss.opensource-WBD+wuPFNBhBDgjK7y7TUQ@public.gmane.org>,
+        "linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org" <linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org>,
+        "adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org"
+        <adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+        Alessandro Zummo <a.zummo-BfzFCNDTiLLj+vYz1yj4TQ@public.gmane.org>,
+        Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>,
+        John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        Michael Chan <michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org"
+To: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
+Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170620220805.GA11195@amd>
+Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-There are number of problems with configuration peer
-network device in absence of IFLA_VETH_PEER attributes
-where attributes for main network device shared with
-peer.
+2017-06-21 0:08 GMT+02:00 Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>:
+> Hi!
+>
+>> >> > This is it.
+>> >> > https://patchwork.kernel.org/patch/6219401/
+>> >>
+>> >> Thanks.
+>> >>
+>> >> Yes, that's argument against changing rtc _drivers_ for hardware that
+>> >> can not do better than 32bit. For generic code (such as 44/51 sysfs,
+>> >> 51/51 suspend test), the change still makes sense.
+>>
+>> What I had in mind when writing those patches was to remove the limitations
+>> coming from those functions usage, even more since they been marked has
+>> deprecated.
+>>
+>> I agree that will change nothing of hardware limitation but at least
+>> the limit will
+>> not come from the framework.
+>
+>> > Yes, we agree on that but I won't cherry pick working patches from a 51
+>> > patches series.
+>
+> Well, it would be actually nice for you to do the cherry
+> picking. That's something maintainers do, because it is hard for
+> contributors to guess maintainer's taste.
+>
+> Anyway, it looks like someone should go through all the RTC drivers,
+> and document their limitations of each driver (date in future when
+> hardware ceases to be useful). If Benjamin has time to do that, I
+> guess that removes all the objections to the series.
 
-First it is not feasible to configure both network
-devices with same MAC address since this makes
-communication in such configuration problematic.
+Without the datasheet I can check in driver code what they do in read/set
+time functions to understand their limitations. All drivers using BCD
+like system
+or spliting day and time should be fixed. I can do a subset of my patches
+including those driver + the acked ones.
 
-This case can be reproduced with following sequence:
+Alexandre does that sound reasonable for you ?
 
-  # ip link add address 02:11:22:33:44:55 type veth
-  # ip li sh
-  ...
-  26: veth0@veth1: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc \
-  noop state DOWN mode DEFAULT qlen 1000
-      link/ether 00:11:22:33:44:55 brd ff:ff:ff:ff:ff:ff
-  27: veth1@veth0: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc \
-  noop state DOWN mode DEFAULT qlen 1000
-      link/ether 00:11:22:33:44:55 brd ff:ff:ff:ff:ff:ff
 
-Second it is not possible to register both main and
-peer network devices with same name, that happens
-when name for main interface is given with IFLA_IFNAME
-and same attribute reused for peer.
-
-This case can be reproduced with following sequence:
-
-  # ip link add dev veth1a type veth
-  RTNETLINK answers: File exists
-
-To fix both of the cases check if corresponding netlink
-attributes are taken from peer_tb when valid or
-name based on rtnl ops kind and random address is used.
-
-Signed-off-by: Serhey Popovych <serhe.popovych@gmail.com>
----
- v3: Really rebase to kernel/davem/net.git
- v2: Rebase to kernel/davem/net.git
- 
- drivers/net/veth.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index 0156fe8..364fa9d 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -383,7 +383,7 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
- 		tbp = tb;
- 	}
- 
--	if (tbp[IFLA_IFNAME]) {
-+	if (ifmp && tbp[IFLA_IFNAME]) {
- 		nla_strlcpy(ifname, tbp[IFLA_IFNAME], IFNAMSIZ);
- 		name_assign_type = NET_NAME_USER;
- 	} else {
-@@ -402,7 +402,7 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
- 		return PTR_ERR(peer);
- 	}
- 
--	if (tbp[IFLA_ADDRESS] == NULL)
-+	if (!ifmp || !tbp[IFLA_ADDRESS])
- 		eth_hw_addr_random(peer);
- 
- 	if (ifmp && (dev->ifindex != 0))
--- 
-1.8.3.1
+> Regards,
+>                                                                         Pavel
+> --
+> (english) http://www.livejournal.com/~pavelmachek
+> (cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
