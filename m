@@ -1,53 +1,62 @@
-From: Ethan Zhao <ethan.kernel@gmail.com>
-Subject: Re: [PATCH] net: intel: e1000e: add check on e1e_wphy() return value
-Date: Wed, 21 Jun 2017 10:44:16 +0800
-Message-ID: <CABawtvMeV9=_hhECX1hkVE5+fOytBdaf2pYtSU9xAfY_yPK-Uw@mail.gmail.com>
-References: <20170518172223.Horde.5kLLwxMJWThQKv0bAxTsk4D@gator4166.hostgator.com>
- <20170620212234.GA10957@embeddedgus>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: Re: [PATCH] liquidio: stop using huge static buffer, save 4096k in
+ .data
+Date: Tue, 20 Jun 2017 19:59:03 -0700
+Message-ID: <20170621025903.GA1261@felix-thinkpad.cavium.com>
+References: <20170620.152142.1443468587541525646.davem@davemloft.net>
+ <MWHPR07MB29434F09FBC054D2E0310D6FF3C50@MWHPR07MB2943.namprd07.prod.outlook.com>
+ <20170620205125.GA1364@felix-thinkpad.cavium.com>
+ <20170620.211713.1253498659679389459.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan@lists.osuosl.org, netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Derek.Chickles@cavium.com, dvlasenk@redhat.com,
+        netdev@vger.kernel.org, Prasad.Kanneganti@cavium.com,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170620212234.GA10957@embeddedgus>
+Content-Disposition: inline
+In-Reply-To: <20170620.211713.1253498659679389459.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Gustavo,
+From: David Miller <davem@davemloft.net>
+Date: Tue, 20 Jun 2017 21:17:13 -0400
 
-   The return value of ret_val seems used to check if the access to PHY/NVM
-got its semaphore,  generally speaking, it is needed for every PHY
-access of this driver.
+> From: Felix Manlunas <felix.manlunas@cavium.com>
+> Date: Tue, 20 Jun 2017 13:51:25 -0700
+> 
+> > From: Derek Chickles <Derek.Chickles@cavium.com>
+> > Date: Tue, 20 Jun 2017 13:15:34 -0700
+> > 
+> >> > From: David Miller [mailto:davem@davemloft.net]
+> >> > Sent: Tuesday, June 20, 2017 12:22 PM
+> >> > 
+> >> > From: Denys Vlasenko <dvlasenk@redhat.com>
+> >> > Date: Mon, 19 Jun 2017 21:50:52 +0200
+> >> > 
+> >> > > Only compile-tested - I don't have the hardware.
+> >> > >
+> >> > > From code inspection, octeon_pci_write_core_mem() appears to be safe wrt
+> >> > > unaligned source. In any case, u8 fbuf[] was not guaranteed to be aligned
+> >> > > anyway.
+> >> > >
+> >> > > Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
+> >> > 
+> >> > Looks good to me but I'll let one of the liquidio guys review this first
+> >> > before I apply it.
+> >> 
+> >> Felix is going to try this out this week to confirm. Let's wait for his ack.
+> > 
+> > This patch works.  I tested it with a LiquidIO II adapter.
+> > 
+> > ACK
+> 
+> Please ACK patches in the standard way which is in the form of:
+> 
+> Acked-by: David S. Miller <davem@davemloft.net>
+> 
+> This tag is recognized by tools and in particular the patchwork
+> site where networking patches are maintained, automatically
+> including your ACK into the patch I apply.
 
-Reviewed-by: Ethan Zhao <ethan.zhao@oracle.com>
-
-On Wed, Jun 21, 2017 at 5:22 AM, Gustavo A. R. Silva
-<garsilva@embeddedor.com> wrote:
-> Check return value from call to e1e_wphy(). This value is being
-> checked during previous calls to function e1e_wphy() and it seems
-> a check was missing here.
->
-> Addresses-Coverity-ID: 1226905
-> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
-> ---
->  drivers/net/ethernet/intel/e1000e/ich8lan.c | 2 ++
->  1 file changed, 2 insertions(+)
->
-> diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-> index 68ea8b4..d6d4ed7 100644
-> --- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-> +++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-> @@ -2437,6 +2437,8 @@ static s32 e1000_hv_phy_workarounds_ich8lan(struct e1000_hw *hw)
->                 if (hw->phy.revision < 2) {
->                         e1000e_phy_sw_reset(hw);
->                         ret_val = e1e_wphy(hw, MII_BMCR, 0x3140);
-> +                       if (ret_val)
-> +                               return ret_val;
->                 }
->         }
->
-> --
-> 2.5.0
->
+Acked-by: Felix Manlunas <felix.manlunas@cavium.com>
