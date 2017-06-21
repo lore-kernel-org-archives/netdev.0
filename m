@@ -1,47 +1,30 @@
-From: Denys Vlasenko <dvlasenk@redhat.com>
-Subject: [PATCH] net/sctp/ulpevent.c: Deinline sctp_ulpevent_set_owner, save 1616 bytes
-Date: Wed, 21 Jun 2017 18:28:09 +0200
-Message-ID: <20170621162809.4305-1-dvlasenk@redhat.com>
-Cc: Denys Vlasenko <dvlasenk@redhat.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
-        netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v2] arm: eBPF JIT compiler
+Date: Wed, 21 Jun 2017 18:32:37 +0200
+Message-ID: <594A9FA5.1080003@iogearbox.net>
+References: <1495754003-21099-1-git-send-email-illusionist.neo@gmail.com> <CAGXu5jKmLNMR+uhM9Ov2XPW6kCjip_SjScgEH0fTFp6fQtKFiA@mail.gmail.com> <593E6B0F.8070901@iogearbox.net> <CAHgaXd+DW2bggto=2S9hOdMrtPTvhD2QN4rPf2V8iHewQpg-YA@mail.gmail.com> <CAHgaXdJrvKdzr3fJ1TMkC4foeVsZJDSVEwhDOeZGxQVsmoK2cQ@mail.gmail.com> <59419D1E.2060303@iogearbox.net> <CAHgaXdKMbFPgy-kKF0iDSAYo4CqLn9FRu9HwM+OfM-JWb9fNRQ@mail.gmail.com> <594813AA.5010001@iogearbox.net> <CAHgaXdLtX6yLdU3bMvS=g8FZ79sM_BW_+hHTMH=Mfk4TZqUnpw@mail.gmail.com> <59495367.3080402@iogearbox.net> <CAHgaXdKGJFh8jO44gwCqe0cijoztf39bK9k8ioBtYDjzb4vvZw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Kees Cook <keescook@chromium.org>,
+        Network Development <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Russell King <linux@armlinux.org.uk>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        LKML <linux-kernel@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: Shubham Bansal <illusionist.neo@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHgaXdKGJFh8jO44gwCqe0cijoztf39bK9k8ioBtYDjzb4vvZw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This function compiles to 147 bytes of machine code. 13 callsites.
+On 06/21/2017 04:26 PM, Shubham Bansal wrote:
+[...]
+> So ultimately, we call helper_function which takes u64 as arguments
+> only. I know its asking a lot, but can you please confirm this asap? I
+> would like to start implementing it.
 
-I'm no expert on SCTP events, but quick reading of SCTP docs tells me that
-SCTP events are not happening on every packet.
-They are ASSOC_CHANGE, PEER_ADDR_CHANGE, REMOTE_ERROR and such.
-Does not look performance critical.
-
-Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
-CC: Vlad Yasevich <vyasevich@gmail.com>
-CC: Neil Horman <nhorman@tuxdriver.com>
-CC: David Miller <davem@davemloft.net>
-CC: linux-sctp@vger.kernel.org
-CC: netdev@vger.kernel.org
-CC: linux-kernel@vger.kernel.org
----
- net/sctp/ulpevent.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
-index ec2b3e0..049aa5a 100644
---- a/net/sctp/ulpevent.c
-+++ b/net/sctp/ulpevent.c
-@@ -88,7 +88,7 @@ int sctp_ulpevent_is_notification(const struct sctp_ulpevent *event)
- /* Hold the association in case the msg_name needs read out of
-  * the association.
-  */
--static inline void sctp_ulpevent_set_owner(struct sctp_ulpevent *event,
-+static void sctp_ulpevent_set_owner(struct sctp_ulpevent *event,
- 					   const struct sctp_association *asoc)
- {
- 	struct sctp_chunk *chunk = event->chunk;
--- 
-1.8.3.1
+Yes, that is correct. I think it would be the better, more generic
+approach going forward to always assume that.
