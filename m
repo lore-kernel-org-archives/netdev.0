@@ -1,85 +1,106 @@
-From: Serhey Popovych <serhe.popovych@gmail.com>
-Subject: Re: fib_rules: Resolve goto rules target on delete
-Date: Wed, 21 Jun 2017 10:44:47 +0300
-Message-ID: <11d8ff28-a667-8d2d-9b90-304ee76ee94a@gmail.com>
-References: <1497617087-26386-1-git-send-email-serhe.popovych@gmail.com>
- <20170620.124040.491492963882254347.davem@davemloft.net>
+From: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
+Subject: Re: [PATCH 00/51] rtc: stop using rtc deprecated functions
+Date: Wed, 21 Jun 2017 09:51:52 +0200
+Message-ID: <20170621075152.GA15996@amd>
+References: <20170620213507.urobmtg34vzubrdq@piout.net>
+ <alpine.DEB.2.20.1706202343120.2157@nanos>
+Reply-To: rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f68.google.com ([209.85.215.68]:34845 "EHLO
-        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750876AbdFUHov (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 03:44:51 -0400
-Received: by mail-lf0-f68.google.com with SMTP id n136so7639754lfn.2
-        for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 00:44:50 -0700 (PDT)
-Received: from tuxracer.local ([195.238.92.77])
-        by smtp.gmail.com with ESMTPSA id 131sm3528845ljf.29.2017.06.21.00.44.48
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Wed, 21 Jun 2017 00:44:48 -0700 (PDT)
-In-Reply-To: <20170620.124040.491492963882254347.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="3MwIy2ne0vdjdPXF"
+Cc: Alexandre Belloni <alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
+	Benjamin Gaignard <benjamin.gaignard-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>,
+	"patches-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org" <patches-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org>,
+	Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	"linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Thierry Reding <thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Jonathan Hunter <jonathanh-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
+	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Sylvain Lemieux <slemieux.tyco-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Len Brown <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org" <linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org>,
+	Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>,
+	"rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org" <rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+	"linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <lin
+To: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+Return-path: <rtc-linux+bncBDZKLXNI4ACBBGOLVDFAKGQERASD3ZI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.20.1706202343120.2157@nanos>
+List-Post: <https://groups.google.com/group/rtc-linux/post>, <mailto:rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:rtc-linux+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/rtc-linux
+List-Subscribe: <https://groups.google.com/group/rtc-linux/subscribe>, <mailto:rtc-linux+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+712029733259+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/rtc-linux/subscribe>
+List-Id: netdev.vger.kernel.org
 
 
-> From: Serhey Popovych <serhe.popovych@gmail.com>
-> Date: Fri, 16 Jun 2017 15:44:47 +0300
-> 
->> We should avoid marking goto rules unresolved when their
->> target is actually reachable after rule deletion.
->>
->> Consolder following sample scenario:
->>
->>   # ip -4 ru sh
->>   0:      from all lookup local
->>   32000:  from all goto 32100
->>   32100:  from all lookup main
->>   32100:  from all lookup default
->>   32766:  from all lookup main
->>   32767:  from all lookup default
->>
->>   # ip -4 ru del pref 32100 table main
->>   # ip -4 ru sh
->>   0:      from all lookup local
->>   32000:  from all goto 32100 [unresolved]
->>   32100:  from all lookup default
->>   32766:  from all lookup main
->>   32767:  from all lookup default
->>
->> After removal of first rule with preference 32100 we
->> mark all goto rules as unreachable, even when rule with
->> same preference as removed one still present.
->>
->> Check if next rule with same preference is available
->> and make all rules with goto action pointing to it.
->>
->> Signed-off-by: Serhey Popovych <serhe.popovych@gmail.com>
-> 
-> Applied, thanks.
-> 
-> It would be awesome if you could distill the above into a test case that
-> could be run under tools/testing/selftests/networking.
-Yes, I already think about testing too.
+--3MwIy2ne0vdjdPXF
+Content-Type: text/plain; charset="UTF-8"
+Content-Disposition: inline
 
-Actually I have series of  patches to improve fib_rules support both in
-core and per protocol (merge suppress, callback, reduce per network
-namespace memory consumption - useful for docker setups, more precise
-validation of netlink configuration messages, additional matching
-facilities etc) so testing is  definitely required before my changes
-went upstream!
+Hi!
 
-About testing implementation: I see there is no infrastructure
-to test netlink based configuration in tools/testing. How to make
-this better? Use libnl, write scripts that use iproute2 utilities?
-Where I can get additional to Documentation/kselftest.txt information?
+> > I agree with that but not the android guys. They seem to mandate an RTC
+> > that can store time from 01/01/1970. I don't know much more than that
+> > because they never cared to explain why that was actually necessary
+> > (apart from a laconic "this will result in a bad user experience")
+> > 
+> > I think tglx had a plan for offsetting the time at some point so 32-bit
+> > platform can pass 2038 properly.
+> 
+> Yes, but there are still quite some issues to solve there:
+> 
+>      1) How do you tell the system that it should apply the offset in the
+>      	first place, i.e at boot time before NTP or any other mechanism can
+>      	correct it?
 
-> 
-> Thanks!
-> 
+I'd not do offset. Instead, I'd select a threshold (perhaps year of
+release of given kernel?) and
+
+	if (rtc_time < year_of_release_of_kernel)
+	   rtc_time += 0x100000000;
+
+Ok, we'll have to move away from "rtc_time == 0 indicates zero", as
+seen in some drivers.
+
+>      2) Deal with creative vendors who have their own idea about the 'start
+>      	of the epoch'
+
+If someone uses different threshold, well, there will be
+confusion. But only for users that have their rtc set to the past,
+which is quite unusual.
+
+									Pavel
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
 
 -- 
-Thanks, Serhey
+You received this message because you are subscribed to "rtc-linux".
+Membership options at http://groups.google.com/group/rtc-linux .
+Please read http://groups.google.com/group/rtc-linux/web/checklist
+before submitting a driver.
+--- 
+You received this message because you are subscribed to the Google Groups "rtc-linux" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rtc-linux+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+
+--3MwIy2ne0vdjdPXF
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAllKJZgACgkQMOfwapXb+vKcSACeKjx9YgZ8vE/6kkH+mZDPeoMx
+BPIAnRnqcPYJuL+92glv1bkWRQ7bPmio
+=FHDU
+-----END PGP SIGNATURE-----
+
+--3MwIy2ne0vdjdPXF--
