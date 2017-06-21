@@ -1,41 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ibmvnic: Correct return code checking for
- ibmvnic_init during probe
-Date: Wed, 21 Jun 2017 15:39:36 -0400 (EDT)
-Message-ID: <20170621.153936.1668683376357645391.davem@davemloft.net>
-References: <20170620212154.46216.80460.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+Subject: Re: [PATCH net-next v2 00/12] nfp: add flower app with representors
+Date: Wed, 21 Jun 2017 15:40:21 -0400 (EDT)
+Message-ID: <20170621.154021.1131884877414381697.davem@davemloft.net>
+References: <1497994580-6271-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jallen@linux.vnet.ibm.com,
-        tlfalcon@linux.vnet.ibm.com
-To: nfont@linux.vnet.ibm.com
+Cc: jakub.kicinski@netronome.com, netdev@vger.kernel.org,
+        oss-drivers@netronome.com, gerlitz.or@gmail.com
+To: simon.horman@netronome.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44468 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:44478 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751038AbdFUTji (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 15:39:38 -0400
-In-Reply-To: <20170620212154.46216.80460.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+        with ESMTP id S1751640AbdFUTkX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 15:40:23 -0400
+In-Reply-To: <1497994580-6271-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Date: Tue, 20 Jun 2017 17:21:54 -0400
 
-> Fixes: 6a2fb0e99f9c (ibmvnic: driver initialization for kdump/kexec)
+Simon it looks like Or has some more questions about how these
+representers will work and operate.
 
-I'm incredibly curious where you got the idea to put the Fixes: tag
-at the beginning of the commit message.
-
-Have you seen anyone else submitting patches on netdev do this?
-
-It helps to operate by example, and look at how other people do
-things.
-
-The correct location for the Fixes: tag is at the beginning of the
-singoffs and acks at the end of the commit message.
-
-There shall be no empty lines between the Fixes: tag and those
-signoffs and acks.
+So I'm going to mark this series as "deferred" in patchwork while
+you two sort out that conversation.
 
 Thank you.
