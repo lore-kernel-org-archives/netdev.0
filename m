@@ -1,28 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: introduce SO_PEERGROUPS getsockopt
-Date: Wed, 21 Jun 2017 11:41:29 -0400 (EDT)
-Message-ID: <20170621.114129.1938918065517274748.davem@davemloft.net>
-References: <20170621084715.17772-1-dh.herrmann@gmail.com>
+Subject: Re: [PATCH net-next] udp: prefetch rmem_alloc in
+ udp_queue_rcv_skb()
+Date: Wed, 21 Jun 2017 11:41:55 -0400 (EDT)
+Message-ID: <20170621.114155.502883498671476879.davem@davemloft.net>
+References: <ec963336242664e99c2f47f399c621aa7f5e2885.1498033422.git.pabeni@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, teg@jklm.no, msekleta@redhat.com,
-        simon.mcvittie@collabora.co.uk
-To: dh.herrmann@gmail.com
+Cc: netdev@vger.kernel.org
+To: pabeni@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40454 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:40502 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752990AbdFUQUs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 12:20:48 -0400
-In-Reply-To: <20170621084715.17772-1-dh.herrmann@gmail.com>
+        with ESMTP id S1752993AbdFUQUt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 12:20:49 -0400
+In-Reply-To: <ec963336242664e99c2f47f399c621aa7f5e2885.1498033422.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Herrmann <dh.herrmann@gmail.com>
-Date: Wed, 21 Jun 2017 10:47:15 +0200
+From: Paolo Abeni <pabeni@redhat.com>
+Date: Wed, 21 Jun 2017 10:24:40 +0200
 
-> This adds the new getsockopt(2) option SO_PEERGROUPS on SOL_SOCKET to
-> retrieve the auxiliary groups of the remote peer.
- ...
+> On UDP packets processing, if the BH is the bottle-neck, it
+> always sees a cache miss while updating rmem_alloc; try to
+> avoid it prefetching the value as soon as we have the socket
+> available.
+> 
+> Performances under flood with multiple NIC rx queues used are
+> unaffected, but when a single NIC rx queue is in use, this
+> gives ~10% performance improvement.
+> 
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 
-Looks good, applied, thanks.
+Applied, but what about ipv6?
