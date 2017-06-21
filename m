@@ -1,43 +1,38 @@
-From: "Steve Wise" <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-Subject: RE: [PATCH rdma-next 01/19] RDMA/netlink: Add flag to consolidate common handing
-Date: Wed, 21 Jun 2017 09:01:22 -0500
-Message-ID: <021601d2ea96$dd85c090$989141b0$@opengridcomputing.com>
-References: <20170621060528.3752-1-leon@kernel.org> <20170621060528.3752-2-leon@kernel.org>
+From: "Steve Wise" <swise@opengridcomputing.com>
+Subject: RE: [PATCH rdma-next 02/19] RDMA/netlink: Simplify the put_msg and put_attr
+Date: Wed, 21 Jun 2017 09:01:29 -0500
+Message-ID: <021801d2ea96$e1810a10$a4831e30$@opengridcomputing.com>
+References: <20170621060528.3752-1-leon@kernel.org> <20170621060528.3752-3-leon@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
         charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "'Chien Tin Tung'" <chien.tin.tung-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "'Stephen Hemminger'" <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-        "'Jiri Pirko'" <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        "'Ariel Almog'" <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        "'Linux Netdev'" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "'Leon Romanovsky'" <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: "'Leon Romanovsky'" <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        "'Doug Ledford'" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170621060528.3752-2-leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Cc: <linux-rdma@vger.kernel.org>,
+        "'Chien Tin Tung'" <chien.tin.tung@intel.com>,
+        "'Stephen Hemminger'" <stephen@networkplumber.org>,
+        "'Jiri Pirko'" <jiri@mellanox.com>,
+        "'Ariel Almog'" <ariela@mellanox.com>,
+        "'Linux Netdev'" <netdev@vger.kernel.org>,
+        "'Leon Romanovsky'" <leonro@mellanox.com>
+To: "'Leon Romanovsky'" <leon@kernel.org>,
+        "'Doug Ledford'" <dledford@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.opengridcomputing.com ([72.48.136.20]:52479 "EHLO
+        smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751041AbdFUOB0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 10:01:26 -0400
+In-Reply-To: <20170621060528.3752-3-leon@kernel.org>
 Content-Language: en-us
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> From: Leon Romanovsky <leonro@mellanox.com>
 > 
-> Add ability to provide flags to control RDMA netlink callbacks
-> and convert addr.c and sa_query.c to be first users of such
-> infrastructure. It allows to move their CAP_NET_ADMIN checks
-> into netlink core.
+> Reuse standard macros to cancel the netlink message
+> in case of error.
 > 
-> Signed-off-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
 
-Looks fine.
+Looks good.
 
-Reviewed-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Reviewed-by: Steve Wise <swise@opengridcomputing.com>
