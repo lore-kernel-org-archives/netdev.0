@@ -1,8 +1,8 @@
 From: "Steve Wise" <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-Subject: RE: [PATCH rdma-next 17/19] RDMA/netlink: Add nldev port dumpit implementation
-Date: Wed, 21 Jun 2017 09:28:12 -0500
-Message-ID: <023a01d2ea9a$9d1fb610$d75f2230$@opengridcomputing.com>
-References: <20170621060528.3752-1-leon@kernel.org> <20170621060528.3752-18-leon@kernel.org>
+Subject: RE: [PATCH rdma-next 18/19] RDMA/netlink: Implement nldev port doit callback
+Date: Wed, 21 Jun 2017 09:29:37 -0500
+Message-ID: <023c01d2ea9a$cf821e40$6e865ac0$@opengridcomputing.com>
+References: <20170621060528.3752-1-leon@kernel.org> <20170621060528.3752-19-leon@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
         charset="us-ascii"
@@ -17,21 +17,16 @@ Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 To: "'Leon Romanovsky'" <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
         "'Doug Ledford'" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170621060528.3752-18-leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+In-Reply-To: <20170621060528.3752-19-leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 Content-Language: en-us
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 > From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 > 
-> This patch implements the query interface to get all
-> ports data for the specific device.
+> Provide ability to get specific to device and port information.
 > 
 > Signed-off-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-
-The fill_port/dev_info is just filling in names and indexes.  Shouldn't it have
-all kinds of goodies about the port/dev?  Will this be enhanced going forward as
-needed?
 
 Reviewed-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
 
