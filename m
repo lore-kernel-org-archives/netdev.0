@@ -1,451 +1,261 @@
-From: Willem de Bruijn <willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v2 03/13] sock: add MSG_ZEROCOPY
-Date: Wed, 21 Jun 2017 16:36:42 -0400
-Message-ID: <20170621203652.15306-4-willemdebruijn.kernel@gmail.com>
-References: <20170621203652.15306-1-willemdebruijn.kernel@gmail.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170621203652.15306-1-willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next v2 00/13] socket sendmsg MSG_ZEROCOPY
+Date: Wed, 21 Jun 2017 16:36:39 -0400
+Message-ID: <20170621203652.15306-1-willemdebruijn.kernel@gmail.com>
+Cc: davem@davemloft.net, linux-api@vger.kernel.org,
+        Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:33385 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751041AbdFUUg5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 16:36:57 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+From: Willem de Bruijn <willemb@google.com>
 
-The kernel supports zerocopy sendmsg in virtio and tap. Expand the
-infrastructure to support other socket types. Introduce a completion
-notification channel over the socket error queue. Notifications are
-returned with ee_origin SO_EE_ORIGIN_ZEROCOPY. ee_errno is 0 to avoid
-blocking the send/recv path on receiving notifications.
+Introduce zerocopy socket send flag MSG_ZEROCOPY. This extends the
+shared page support (SKBTX_SHARED_FRAG) from sendpage to sendmsg.
+Implement the feature for TCP, UDP, RAW and packet sockets.
 
-Add reference counting, to support the skb split, merge, resize and
-clone operations possible with SOCK_STREAM and other socket types.
+On a send call with MSG_ZEROCOPY, the kernel pins user pages and
+links these directly into the skbuff frags[] array.
 
-The patch does not yet modify any datapaths.
+Each send call with MSG_ZEROCOPY that transmits data will eventually
+queue a completion notification on the error queue: a per-socket u32
+incremented on each such call. A request may have to revert to copy
+to succeed, for instance when a device cannot support scatter-gather
+IO. In that case a flag is passed along to notify that the operation
+succeeded without zerocopy optimization.
 
-Signed-off-by: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
----
- include/linux/skbuff.h        |  61 ++++++++++++++++
- include/linux/socket.h        |   1 +
- include/net/sock.h            |   2 +
- include/uapi/linux/errqueue.h |   1 +
- net/core/datagram.c           |  55 +++++++++------
- net/core/skbuff.c             | 157 ++++++++++++++++++++++++++++++++++++++++++
- net/core/sock.c               |   2 +
- 7 files changed, 258 insertions(+), 21 deletions(-)
+The implementation extends the existing zerocopy infra for tuntap,
+vhost and xen with features needed for TCP, notably reference
+counting to handle cloning on retransmit and GSO.
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 4f520cc9b914..0d1b088f1c9f 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -393,6 +393,7 @@ enum {
- 	SKBTX_SCHED_TSTAMP = 1 << 6,
- };
- 
-+#define SKBTX_ZEROCOPY_FRAG	(SKBTX_DEV_ZEROCOPY | SKBTX_SHARED_FRAG)
- #define SKBTX_ANY_SW_TSTAMP	(SKBTX_SW_TSTAMP    | \
- 				 SKBTX_SCHED_TSTAMP)
- #define SKBTX_ANY_TSTAMP	(SKBTX_HW_TSTAMP | SKBTX_ANY_SW_TSTAMP)
-@@ -409,8 +410,30 @@ struct ubuf_info {
- 	void (*callback)(struct ubuf_info *, bool zerocopy_success);
- 	void *ctx;
- 	unsigned long desc;
-+	atomic_t refcnt;
- };
- 
-+#define skb_uarg(SKB)	((struct ubuf_info *)(skb_shinfo(SKB)->destructor_arg))
-+
-+struct ubuf_info *sock_zerocopy_alloc(struct sock *sk, size_t size);
-+
-+static inline void sock_zerocopy_get(struct ubuf_info *uarg)
-+{
-+	atomic_inc(&uarg->refcnt);
-+}
-+
-+void sock_zerocopy_put(struct ubuf_info *uarg);
-+void sock_zerocopy_put_abort(struct ubuf_info *uarg);
-+
-+void sock_zerocopy_callback(struct ubuf_info *uarg, bool success);
-+
-+int skb_zerocopy_iter(struct sock *sk, struct sk_buff *skb, struct msghdr *msg,
-+		      int len);
-+int skb_zerocopy_iter_alloc(struct sk_buff *skb, struct msghdr *msg, int len);
-+int skb_zerocopy_iter_stream(struct sock *sk, struct sk_buff *skb,
-+			     struct msghdr *msg, int len,
-+			     struct ubuf_info *uarg);
-+
- /* This data is invariant across clones and lives at
-  * the end of the header data, ie. at skb->end.
-  */
-@@ -1201,6 +1224,44 @@ static inline struct skb_shared_hwtstamps *skb_hwtstamps(struct sk_buff *skb)
- 	return &skb_shinfo(skb)->hwtstamps;
- }
- 
-+static inline struct ubuf_info *skb_zcopy(struct sk_buff *skb)
-+{
-+	bool is_zcopy = skb && skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY;
-+
-+	return is_zcopy ? skb_uarg(skb) : NULL;
-+}
-+
-+static inline void skb_zcopy_set(struct sk_buff *skb, struct ubuf_info *uarg)
-+{
-+	if (skb && uarg && !skb_zcopy(skb)) {
-+		sock_zerocopy_get(uarg);
-+		skb_shinfo(skb)->destructor_arg = uarg;
-+		skb_shinfo(skb)->tx_flags |= SKBTX_ZEROCOPY_FRAG;
-+	}
-+}
-+
-+/* Release a reference on a zerocopy structure */
-+static inline void skb_zcopy_clear(struct sk_buff *skb, bool zerocopy)
-+{
-+	struct ubuf_info *uarg = skb_zcopy(skb);
-+
-+	if (uarg) {
-+		sock_zerocopy_put(uarg);
-+		skb_shinfo(skb)->tx_flags &= ~SKBTX_ZEROCOPY_FRAG;
-+	}
-+}
-+
-+/* Abort a zerocopy operation and revert zckey on error in send syscall */
-+static inline void skb_zcopy_abort(struct sk_buff *skb)
-+{
-+	struct ubuf_info *uarg = skb_zcopy(skb);
-+
-+	if (uarg) {
-+		sock_zerocopy_put_abort(uarg);
-+		skb_shinfo(skb)->tx_flags &= ~SKBTX_ZEROCOPY_FRAG;
-+	}
-+}
-+
- /**
-  *	skb_queue_empty - check if a queue is empty
-  *	@list: queue head
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index 8b13db5163cc..8ad963cdc88c 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -287,6 +287,7 @@ struct ucred {
- #define MSG_BATCH	0x40000 /* sendmmsg(): more messages coming */
- #define MSG_EOF         MSG_FIN
- 
-+#define MSG_ZEROCOPY	0x4000000	/* Use user data in kernel path */
- #define MSG_FASTOPEN	0x20000000	/* Send data in TCP SYN */
- #define MSG_CMSG_CLOEXEC 0x40000000	/* Set close_on_exec for file
- 					   descriptor received through
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 6ab68442ceb9..cb6467b88083 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -290,6 +290,7 @@ struct sock_common {
-   *	@sk_stamp: time stamp of last packet received
-   *	@sk_tsflags: SO_TIMESTAMPING socket options
-   *	@sk_tskey: counter to disambiguate concurrent tstamp requests
-+  *	@sk_zckey: counter to order MSG_ZEROCOPY notifications
-   *	@sk_socket: Identd and reporting IO signals
-   *	@sk_user_data: RPC layer private data
-   *	@sk_frag: cached page frag
-@@ -458,6 +459,7 @@ struct sock {
- 	u16			sk_tsflags;
- 	u8			sk_shutdown;
- 	u32			sk_tskey;
-+	atomic_t		sk_zckey;
- 	struct socket		*sk_socket;
- 	void			*sk_user_data;
- #ifdef CONFIG_SECURITY
-diff --git a/include/uapi/linux/errqueue.h b/include/uapi/linux/errqueue.h
-index 07bdce1f444a..0f15a77c9e39 100644
---- a/include/uapi/linux/errqueue.h
-+++ b/include/uapi/linux/errqueue.h
-@@ -18,6 +18,7 @@ struct sock_extended_err {
- #define SO_EE_ORIGIN_ICMP	2
- #define SO_EE_ORIGIN_ICMP6	3
- #define SO_EE_ORIGIN_TXSTATUS	4
-+#define SO_EE_ORIGIN_ZEROCOPY	5
- #define SO_EE_ORIGIN_TIMESTAMPING SO_EE_ORIGIN_TXSTATUS
- 
- #define SO_EE_OFFENDER(ee)	((struct sockaddr*)((ee)+1))
-diff --git a/net/core/datagram.c b/net/core/datagram.c
-index e5311a7c70da..2a1a52971630 100644
---- a/net/core/datagram.c
-+++ b/net/core/datagram.c
-@@ -573,27 +573,12 @@ int skb_copy_datagram_from_iter(struct sk_buff *skb, int offset,
- }
- EXPORT_SYMBOL(skb_copy_datagram_from_iter);
- 
--/**
-- *	zerocopy_sg_from_iter - Build a zerocopy datagram from an iov_iter
-- *	@skb: buffer to copy
-- *	@from: the source to copy from
-- *
-- *	The function will first copy up to headlen, and then pin the userspace
-- *	pages and build frags through them.
-- *
-- *	Returns 0, -EFAULT or -EMSGSIZE.
-- */
--int zerocopy_sg_from_iter(struct sk_buff *skb, struct iov_iter *from)
-+int __zerocopy_sg_from_iter(struct sock *sk, struct sk_buff *skb,
-+			    struct iov_iter *from, size_t length)
- {
--	int len = iov_iter_count(from);
--	int copy = min_t(int, skb_headlen(skb), len);
--	int frag = 0;
-+	int frag = skb_shinfo(skb)->nr_frags;
- 
--	/* copy up to skb headlen */
--	if (skb_copy_datagram_from_iter(skb, 0, from, copy))
--		return -EFAULT;
--
--	while (iov_iter_count(from)) {
-+	while (length && iov_iter_count(from)) {
- 		struct page *pages[MAX_SKB_FRAGS];
- 		size_t start;
- 		ssize_t copied;
-@@ -603,18 +588,24 @@ int zerocopy_sg_from_iter(struct sk_buff *skb, struct iov_iter *from)
- 		if (frag == MAX_SKB_FRAGS)
- 			return -EMSGSIZE;
- 
--		copied = iov_iter_get_pages(from, pages, ~0U,
-+		copied = iov_iter_get_pages(from, pages, length,
- 					    MAX_SKB_FRAGS - frag, &start);
- 		if (copied < 0)
- 			return -EFAULT;
- 
- 		iov_iter_advance(from, copied);
-+		length -= copied;
- 
- 		truesize = PAGE_ALIGN(copied + start);
- 		skb->data_len += copied;
- 		skb->len += copied;
- 		skb->truesize += truesize;
--		atomic_add(truesize, &skb->sk->sk_wmem_alloc);
-+		if (sk && sk->sk_type == SOCK_STREAM) {
-+			sk->sk_wmem_queued += truesize;
-+			sk_mem_charge(sk, truesize);
-+		} else {
-+			atomic_add(truesize, &skb->sk->sk_wmem_alloc);
-+		}
- 		while (copied) {
- 			int size = min_t(int, copied, PAGE_SIZE - start);
- 			skb_fill_page_desc(skb, frag++, pages[n], start, size);
-@@ -625,6 +616,28 @@ int zerocopy_sg_from_iter(struct sk_buff *skb, struct iov_iter *from)
- 	}
- 	return 0;
- }
-+EXPORT_SYMBOL(__zerocopy_sg_from_iter);
-+
-+/**
-+ *	zerocopy_sg_from_iter - Build a zerocopy datagram from an iov_iter
-+ *	@skb: buffer to copy
-+ *	@from: the source to copy from
-+ *
-+ *	The function will first copy up to headlen, and then pin the userspace
-+ *	pages and build frags through them.
-+ *
-+ *	Returns 0, -EFAULT or -EMSGSIZE.
-+ */
-+int zerocopy_sg_from_iter(struct sk_buff *skb, struct iov_iter *from)
-+{
-+	int copy = min_t(int, skb_headlen(skb), iov_iter_count(from));
-+
-+	/* copy up to skb headlen */
-+	if (skb_copy_datagram_from_iter(skb, 0, from, copy))
-+		return -EFAULT;
-+
-+	return __zerocopy_sg_from_iter(NULL, skb, from, ~0U);
-+}
- EXPORT_SYMBOL(zerocopy_sg_from_iter);
- 
- static int skb_copy_and_csum_datagram(const struct sk_buff *skb, int offset,
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 96db26594192..31e31185c557 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -941,6 +941,163 @@ struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src)
- }
- EXPORT_SYMBOL_GPL(skb_morph);
- 
-+struct ubuf_info *sock_zerocopy_alloc(struct sock *sk, size_t size)
-+{
-+	struct sk_buff *skb;
-+	struct ubuf_info *uarg;
-+
-+	WARN_ON_ONCE(!in_task());
-+
-+	skb = sock_omalloc(sk, 0, GFP_KERNEL);
-+	if (!skb)
-+		return NULL;
-+
-+	BUILD_BUG_ON(sizeof(*uarg) > sizeof(skb->cb));
-+	uarg = (void *)skb->cb;
-+
-+	uarg->callback = sock_zerocopy_callback;
-+	uarg->desc = atomic_inc_return(&sk->sk_zckey) - 1;
-+	atomic_set(&uarg->refcnt, 0);
-+	sock_hold(sk);
-+
-+	return uarg;
-+}
-+EXPORT_SYMBOL_GPL(sock_zerocopy_alloc);
-+
-+static inline struct sk_buff *skb_from_uarg(struct ubuf_info *uarg)
-+{
-+	return container_of((void *)uarg, struct sk_buff, cb);
-+}
-+
-+void sock_zerocopy_callback(struct ubuf_info *uarg, bool success)
-+{
-+	struct sock_exterr_skb *serr;
-+	struct sk_buff *skb = skb_from_uarg(uarg);
-+	struct sock *sk = skb->sk;
-+	u16 id = uarg->desc;
-+
-+	if (sock_flag(sk, SOCK_DEAD))
-+		goto release;
-+
-+	serr = SKB_EXT_ERR(skb);
-+	memset(serr, 0, sizeof(*serr));
-+	serr->ee.ee_errno = 0;
-+	serr->ee.ee_origin = SO_EE_ORIGIN_ZEROCOPY;
-+	serr->ee.ee_data = id;
-+
-+	skb_queue_tail(&sk->sk_error_queue, skb);
-+	skb = NULL;
-+
-+	sk->sk_error_report(sk);
-+
-+release:
-+	consume_skb(skb);
-+	sock_put(sk);
-+}
-+EXPORT_SYMBOL_GPL(sock_zerocopy_callback);
-+
-+void sock_zerocopy_put(struct ubuf_info *uarg)
-+{
-+	if (uarg && atomic_dec_and_test(&uarg->refcnt)) {
-+		if (uarg->callback)
-+			uarg->callback(uarg, true);
-+		else
-+			consume_skb(skb_from_uarg(uarg));
-+	}
-+}
-+EXPORT_SYMBOL_GPL(sock_zerocopy_put);
-+
-+void sock_zerocopy_put_abort(struct ubuf_info *uarg)
-+{
-+	if (uarg) {
-+		struct sock *sk = skb_from_uarg(uarg)->sk;
-+
-+		atomic_dec(&sk->sk_zckey);
-+
-+		/* sock_zerocopy_put expects a ref. Most sockets take one per
-+		 * skb, which is zero on abort. tcp_sendmsg holds one extra, to
-+		 * avoid an skb send inside the main loop triggering uarg free.
-+		 */
-+		if (sk->sk_type != SOCK_STREAM)
-+			atomic_inc(&uarg->refcnt);
-+
-+		sock_zerocopy_put(uarg);
-+	}
-+}
-+EXPORT_SYMBOL_GPL(sock_zerocopy_put_abort);
-+
-+extern int __zerocopy_sg_from_iter(struct sock *sk, struct sk_buff *skb,
-+				   struct iov_iter *from, size_t length);
-+
-+int skb_zerocopy_iter(struct sock *sk, struct sk_buff *skb, struct msghdr *msg,
-+		      int len)
-+{
-+	return __zerocopy_sg_from_iter(sk, skb, &msg->msg_iter, len);
-+}
-+EXPORT_SYMBOL_GPL(skb_zerocopy_iter);
-+
-+int skb_zerocopy_iter_alloc(struct sk_buff *skb, struct msghdr *msg, int len)
-+{
-+	struct ubuf_info *uarg;
-+	int err;
-+
-+	uarg = sock_zerocopy_alloc(skb->sk, len);
-+	if (!uarg)
-+		return -ENOBUFS;
-+
-+	err = skb_zerocopy_iter(skb->sk, skb, msg, len);
-+	if (err) {
-+		sock_zerocopy_put_abort(uarg);
-+		return err;
-+	}
-+
-+	skb_zcopy_set(skb, uarg);
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(skb_zerocopy_iter_alloc);
-+
-+int skb_zerocopy_iter_stream(struct sock *sk, struct sk_buff *skb,
-+			     struct msghdr *msg, int len,
-+			     struct ubuf_info *uarg)
-+{
-+	struct iov_iter orig_iter = msg->msg_iter;
-+	int err, orig_len = skb->len;
-+
-+	err = __zerocopy_sg_from_iter(sk, skb, &msg->msg_iter, len);
-+	if (err == -EFAULT || (err == -EMSGSIZE && skb->len == orig_len)) {
-+		/* Streams do not free skb on error. Reset to prev state. */
-+		msg->msg_iter = orig_iter;
-+		___pskb_trim(skb, orig_len);
-+		return err;
-+	}
-+
-+	skb_zcopy_set(skb, uarg);
-+	return skb->len - orig_len;
-+}
-+EXPORT_SYMBOL_GPL(skb_zerocopy_iter_stream);
-+
-+/* unused only until next patch in the series; will remove attribute */
-+static int __attribute__((unused))
-+	   skb_zerocopy_clone(struct sk_buff *nskb, struct sk_buff *orig,
-+			      gfp_t gfp_mask)
-+{
-+	if (skb_zcopy(orig)) {
-+		if (skb_zcopy(nskb)) {
-+			/* !gfp_mask callers are verified to !skb_zcopy(nskb) */
-+			if (!gfp_mask) {
-+				WARN_ON_ONCE(1);
-+				return -ENOMEM;
-+			}
-+			if (skb_uarg(nskb) == skb_uarg(orig))
-+				return 0;
-+			if (skb_copy_ubufs(nskb, GFP_ATOMIC))
-+				return -EIO;
-+		}
-+		skb_zcopy_set(nskb, skb_uarg(orig));
-+	}
-+	return 0;
-+}
-+
- /**
-  *	skb_copy_ubufs	-	copy userspace skb frags buffers to kernel
-  *	@skb: the skb to modify
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 03261563f6a9..d1309d6f9f3d 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1637,6 +1637,7 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
- 		atomic_set(&newsk->sk_drops, 0);
- 		newsk->sk_send_head	= NULL;
- 		newsk->sk_userlocks	= sk->sk_userlocks & ~SOCK_BINDPORT_LOCK;
-+		atomic_set(&newsk->sk_zckey, 0);
- 
- 		sock_reset_flag(newsk, SOCK_DONE);
- 
-@@ -2667,6 +2668,7 @@ void sock_init_data(struct socket *sock, struct sock *sk)
- 	sk->sk_sndtimeo		=	MAX_SCHEDULE_TIMEOUT;
- 
- 	sk->sk_stamp = SK_DEFAULT_STAMP;
-+	atomic_set(&sk->sk_zckey, 0);
- 
- #ifdef CONFIG_NET_RX_BUSY_POLL
- 	sk->sk_napi_id		=	0;
+For more details, see also the netdev 2.1 paper and presentation at
+https://netdevconf.org/2.1/session.html?debruijn
+
+Changelog:
+
+  v1 -> v2:
+    - fix (kbuild-bot): do not remove uarg until patch 5
+    - fix (kbuild-bot): move zerocopy_sg_from_iter doc with function
+    - fix: remove unused extern in header file
+
+  RFCv2 -> v1:
+    - patch 2
+        - review comment: in skb_copy_ubufs, always allocate order-0
+            page, also when replacing compound source pages.
+    - patch 3
+        - fix: always queue completion notification on MSG_ZEROCOPY,
+	    also if revert to copy.
+	- fix: on syscall abort, correctly revert notification state
+	- minor: skip queue notification on SOCK_DEAD
+	- minor: replace BUG_ON with WARN_ON in recoverable error
+    - patch 4
+        - new: add socket option SOCK_ZEROCOPY.
+	    only honor MSG_ZEROCOPY if set, ignore for legacy apps.
+    - patch 5
+        - fix: clear zerocopy state on skb_linearize
+    - patch 6
+        - fix: only coalesce if prev errqueue elem is zerocopy
+	- minor: try coalescing with list tail instead of head
+        - minor: merge bytelen limit patch
+    - patch 7
+        - new: signal when data had to be copied
+    - patch 8 (tcp)
+        - optimize: avoid setting PSH bit when exceeding max frags.
+	    that limits GRO on the client. do not goto new_segment.
+	- fix: fail on MSG_ZEROCOPY | MSG_FASTOPEN
+	- minor: do not wait for memory: does not work for optmem
+	- minor: simplify alloc
+    - patch 9 (udp)
+        - new: add PF_INET6
+        - fix: attach zerocopy notification even if revert to copy
+	- minor: simplify alloc size arithmetic
+    - patch 10 (raw hdrinc)
+        - new: add PF_INET6
+    - patch 11 (pf_packet)
+        - minor: simplify slightly
+    - patch 12
+        - new msg_zerocopy regression test: use veth pair to test
+	    all protocols: ipv4/ipv6/packet, tcp/udp/raw, cork
+	    all relevant ethtool settings: rx off, sg off
+	    all relevant packet lengths: 0, <MAX_HEADER, max size
+
+  RFC -> RFCv2:
+    - review comment: do not loop skb with zerocopy frags onto rx:
+          add skb_orphan_frags_rx to orphan even refcounted frags
+	  call this in __netif_receive_skb_core, deliver_skb and tun:
+	  the same as 1080e512d44d ("net: orphan frags on receive")
+    - fix: hold an explicit sk reference on each notification skb.
+          previously relied on the reference (or wmem) held by the
+	  data skb that would trigger notification, but this breaks
+	  on skb_orphan.
+    - fix: when aborting a send, do not inc the zerocopy counter
+          this caused gaps in the notification chain
+    - fix: in packet with SOCK_DGRAM, pull ll headers before calling
+          zerocopy_sg_from_iter
+    - fix: if sock_zerocopy_realloc does not allow coalescing,
+          do not fail, just allocate a new ubuf
+    - fix: in tcp, check return value of second allocation attempt
+    - chg: allocate notification skbs from optmem
+          to avoid affecting tcp write queue accounting (TSQ)
+    - chg: limit #locked pages (ulimit) per user instead of per process
+    - chg: grow notification ids from 16 to 32 bit
+      - pass range [lo, hi] through 32 bit fields ee_info and ee_data
+    - chg: rebased to davem-net-next on top of v4.10-rc7
+    - add: limit notification coalescing
+          sharing ubufs limits overhead, but delays notification until
+	  the last packet is released, possibly unbounded. Add a cap. 
+    - tests: add snd_zerocopy_lo pf_packet test
+    - tests: two bugfixes (add do_flush_tcp, ++sent not only in debug)
+
+Limitations / Known Issues:
+    - TCP may build slightly smaller than max TSO packets due to
+      exceeding MAX_SKB_FRAGS frags when zerocopy pages are unaligned.
+    - All SKBTX_SHARED_FRAG may require additional __skb_linearize or
+      skb_copy_ubufs calls in u32, skb_find_text, similar to
+      skb_checksum_help.
+    - UDP and RAW may be of limited use without loopback due to
+      MTU being too small to see copy avoidance gains.
+
+Notification skbuffs are allocated from optmem. For sockets that
+cannot effectively coalesce notifications, the optmem max may need
+to be increased to avoid hitting -ENOBUFS:
+
+  sysctl -w net.core.optmem_max=1048576
+
+In application load, copy avoidance shows a roughly 5% systemwide
+reduction in cycles when streaming large flows and a 4-8% reduction in
+wall clock time on early tensorflow test workloads.
+
+For the single-machine veth tests to succeed, loopback support has to
+be temporarily enabled by making skb_orphan_frags_rx map to
+skb_orphan_frags.
+
+* Performance
+
+The below table shows cycles reported by perf for a netperf process
+sending a single 10 Gbps TCP_STREAM. The first three columns show
+Mcycles spent in the netperf process context. The second three columns
+show time spent systemwide (-a -C A,B) on the two cpus that run the
+process and interrupt handler. Reported is the median of at least 3
+runs. std is a standard netperf, zc uses zerocopy and % is the ratio.
+Netperf is pinned to cpu 2, network interrupts to cpu3, rps and rfs
+are disabled and the kernel is booted with idle=halt.
+
+NETPERF=./netperf -t TCP_STREAM -H $host -T 2 -l 30 -- -m $size
+
+perf stat -e cycles $NETPERF
+perf stat -C 2,3 -a -e cycles $NETPERF
+
+        --process cycles--      ----cpu cycles----
+           std      zc   %      std         zc   %
+4K      27,609  11,217  41      49,217  39,175  79
+16K     21,370   3,823  18      43,540  29,213  67
+64K     20,557   2,312  11      42,189  26,910  64
+256K    21,110   2,134  10      43,006  27,104  63
+1M      20,987   1,610   8      42,759  25,931  61
+
+Perf record indicates the main source of these differences. Process
+cycles only at 1M writes (perf record; perf report -n):
+
+std:
+Samples: 42K of event 'cycles', Event count (approx.): 21258597313                                                   
+ 79.41%         33884  netperf  [kernel.kallsyms]  [k] copy_user_generic_string
+  3.27%          1396  netperf  [kernel.kallsyms]  [k] tcp_sendmsg
+  1.66%           694  netperf  [kernel.kallsyms]  [k] get_page_from_freelist
+  0.79%           325  netperf  [kernel.kallsyms]  [k] tcp_ack
+  0.43%           188  netperf  [kernel.kallsyms]  [k] __alloc_skb
+
+zc:
+Samples: 1K of event 'cycles', Event count (approx.): 1439509124                                                     
+ 30.36%           584  netperf.zerocop  [kernel.kallsyms]  [k] gup_pte_range
+ 14.63%           284  netperf.zerocop  [kernel.kallsyms]  [k] __zerocopy_sg_from_iter
+  8.03%           159  netperf.zerocop  [kernel.kallsyms]  [k] skb_zerocopy_add_frags_iter
+  4.84%            96  netperf.zerocop  [kernel.kallsyms]  [k] __alloc_skb
+  3.10%            60  netperf.zerocop  [kernel.kallsyms]  [k] kmem_cache_alloc_node
+
+
+* Safety
+
+The number of pages that can be pinned on behalf of a user with
+MSG_ZEROCOPY is bound by the locked memory ulimit.
+
+While the kernel holds process memory pinned, a process cannot safely
+reuse those pages for other purposes. Packets looped onto the receive
+stack and queued to a socket can be held indefinitely. Avoid unbounded
+notification latency by restricting user pages to egress paths only.
+skb_orphan_frags_rx() will create a private copy of pages even for
+refcounted packets when these are looped, as did skb_orphan_frags for
+the original tun zerocopy implementation.
+
+Pages are not remapped read-only. Processes can modify packet contents
+while packets are in flight in the kernel path. Bytes on which kernel
+control flow depends (headers) are copied to avoid TOCTTOU attacks.
+Datapath integrity does not otherwise depend on payload, with three
+exceptions: checksums, optional sk_filter/tc u32/.. and device +
+driver logic. The effect of wrong checksums is limited to the
+misbehaving process. TC filters that access contents may have to be
+excluded by adding an skb_orphan_frags_rx. 
+
+Processes can also safely avoid OOM conditions by bounding the number
+of bytes passed with MSG_ZEROCOPY and by removing shared pages after
+transmission from their own memory map.
+
+
+Willem de Bruijn (13):
+  sock: allocate skbs from optmem
+  sock: skb_copy_ubufs support for compound pages
+  sock: add MSG_ZEROCOPY
+  sock: add SOCK_ZEROCOPY sockopt
+  sock: enable MSG_ZEROCOPY
+  sock: MSG_ZEROCOPY notification coalescing
+  sock: add ee_code SO_EE_CODE_ZEROCOPY_COPIED
+  sock: ulimit on MSG_ZEROCOPY pages
+  tcp: enable MSG_ZEROCOPY
+  udp: enable MSG_ZEROCOPY
+  raw: enable MSG_ZEROCOPY with IP_HDRINCL
+  packet: enable MSG_ZEROCOPY
+  test: add msg_zerocopy test
+
+ arch/alpha/include/uapi/asm/socket.h        |   2 +
+ arch/frv/include/uapi/asm/socket.h          |   2 +
+ arch/ia64/include/uapi/asm/socket.h         |   2 +
+ arch/m32r/include/uapi/asm/socket.h         |   2 +
+ arch/mips/include/uapi/asm/socket.h         |   2 +
+ arch/mn10300/include/uapi/asm/socket.h      |   2 +
+ arch/parisc/include/uapi/asm/socket.h       |   2 +
+ arch/s390/include/uapi/asm/socket.h         |   2 +
+ arch/sparc/include/uapi/asm/socket.h        |   2 +
+ arch/xtensa/include/uapi/asm/socket.h       |   2 +
+ drivers/net/tun.c                           |   2 +-
+ drivers/vhost/net.c                         |   1 +
+ include/linux/sched/user.h                  |   3 +-
+ include/linux/skbuff.h                      | 106 ++++-
+ include/linux/socket.h                      |   1 +
+ include/net/sock.h                          |   4 +
+ include/uapi/asm-generic/socket.h           |   2 +
+ include/uapi/linux/errqueue.h               |   3 +
+ net/core/datagram.c                         |  55 ++-
+ net/core/dev.c                              |   4 +-
+ net/core/skbuff.c                           | 390 ++++++++++++++--
+ net/core/sock.c                             |  43 ++
+ net/ipv4/ip_output.c                        |  37 +-
+ net/ipv4/raw.c                              |  23 +-
+ net/ipv4/tcp.c                              |  32 +-
+ net/ipv6/ip6_output.c                       |  40 +-
+ net/ipv6/raw.c                              |  20 +-
+ net/packet/af_packet.c                      |  36 +-
+ tools/testing/selftests/net/.gitignore      |   1 +
+ tools/testing/selftests/net/Makefile        |   2 +-
+ tools/testing/selftests/net/msg_zerocopy.c  | 697 ++++++++++++++++++++++++++++
+ tools/testing/selftests/net/msg_zerocopy.sh | 113 +++++
+ 32 files changed, 1535 insertions(+), 100 deletions(-)
+ create mode 100644 tools/testing/selftests/net/msg_zerocopy.c
+ create mode 100755 tools/testing/selftests/net/msg_zerocopy.sh
+
 -- 
 2.13.1.611.g7e3b11ae1-goog
