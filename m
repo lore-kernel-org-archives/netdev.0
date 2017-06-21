@@ -1,174 +1,122 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/15] i40e: Add support for OEM firmware version
-Date: Tue, 20 Jun 2017 18:17:58 -0700
-Message-ID: <20170621011802.81768-12-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 15/15] i40e: don't hold RTNL lock for the entire reset
+Date: Tue, 20 Jun 2017 18:18:02 -0700
+Message-ID: <20170621011802.81768-16-jeffrey.t.kirsher@intel.com>
 References: <20170621011802.81768-1-jeffrey.t.kirsher@intel.com>
-Cc: Filip Sadowski <filip.sadowski@intel.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:9449 "EHLO mga03.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:40195 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753017AbdFUBSO (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 20 Jun 2017 21:18:14 -0400
+        id S1753118AbdFUBSX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 20 Jun 2017 21:18:23 -0400
 In-Reply-To: <20170621011802.81768-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Filip Sadowski <filip.sadowski@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-This patch adds support for OEM firmware version. If OEM specific
-adapter is detected ethtool reports OEM product version in firmware
-version string instead of etrack id.
+We recently refactored i40e_do_reset() and its friends to be able to
+hold the RTNL lock only for the portions that actually need to be
+protected. However, a separate refactoring added several new callers of
+these functions during the PCIe error recovery and suspend/resume
+cycles.
 
-Signed-off-by: Filip Sadowski <filip.sadowski@intel.com>
+When merging the changes together, it was not noticed that we could
+reduce the RTNL scope by letting the reset function handle the lock
+itself, as previously it was not possible.
+
+Fix this by replacing these call sites to indicate that the reset
+function should handle its own lock. This enables multiple PFs to reset
+or resume simultaneously without serializing the resets via the RTNL
+lock. The end result is that on systems with lots of PFs and VFs the
+resets don't stall waiting for each other to finish.
+
+It is probable that we can also do the same for i40e_do_reset_safe, but
+this author did not research that change carefully enough to be
+confident.
+
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      | 48 ++++++++++++++++++++---------
- drivers/net/ethernet/intel/i40e/i40e_main.c | 47 ++++++++++++++++++++++++++++
- 2 files changed, 81 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 27 +++++++--------------------
+ 1 file changed, 7 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 76395e695007..d616f698e155 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -103,6 +103,12 @@
- 	(I40E_AQ_PHY_DEBUG_DISABLE_LINK_FW | \
- 	I40E_AQ_PHY_DEBUG_DISABLE_ALL_LINK_FW)
- 
-+#define I40E_OEM_EETRACK_ID		0xffffffff
-+#define I40E_OEM_GEN_SHIFT		24
-+#define I40E_OEM_SNAP_MASK		0x00ff0000
-+#define I40E_OEM_SNAP_SHIFT		16
-+#define I40E_OEM_RELEASE_MASK		0x0000ffff
-+
- /* The values in here are decimal coded as hex as is the case in the NVM map*/
- #define I40E_CURRENT_NVM_VERSION_HI	0x2
- #define I40E_CURRENT_NVM_VERSION_LO	0x40
-@@ -734,22 +740,36 @@ static inline char *i40e_nvm_version_str(struct i40e_hw *hw)
- {
- 	static char buf[32];
- 	u32 full_ver;
--	u8 ver, patch;
--	u16 build;
- 
- 	full_ver = hw->nvm.oem_ver;
--	ver = (u8)(full_ver >> I40E_OEM_VER_SHIFT);
--	build = (u16)((full_ver >> I40E_OEM_VER_BUILD_SHIFT) &
--		 I40E_OEM_VER_BUILD_MASK);
--	patch = (u8)(full_ver & I40E_OEM_VER_PATCH_MASK);
--
--	snprintf(buf, sizeof(buf),
--		 "%x.%02x 0x%x %d.%d.%d",
--		 (hw->nvm.version & I40E_NVM_VERSION_HI_MASK) >>
--			I40E_NVM_VERSION_HI_SHIFT,
--		 (hw->nvm.version & I40E_NVM_VERSION_LO_MASK) >>
--			I40E_NVM_VERSION_LO_SHIFT,
--		 hw->nvm.eetrack, ver, build, patch);
-+
-+	if (hw->nvm.eetrack == I40E_OEM_EETRACK_ID) {
-+		u8 gen, snap;
-+		u16 release;
-+
-+		gen = (u8)(full_ver >> I40E_OEM_GEN_SHIFT);
-+		snap = (u8)((full_ver & I40E_OEM_SNAP_MASK) >>
-+			I40E_OEM_SNAP_SHIFT);
-+		release = (u16)(full_ver & I40E_OEM_RELEASE_MASK);
-+
-+		snprintf(buf, sizeof(buf), "%x.%x.%x", gen, snap, release);
-+	} else {
-+		u8 ver, patch;
-+		u16 build;
-+
-+		ver = (u8)(full_ver >> I40E_OEM_VER_SHIFT);
-+		build = (u16)((full_ver >> I40E_OEM_VER_BUILD_SHIFT) &
-+			 I40E_OEM_VER_BUILD_MASK);
-+		patch = (u8)(full_ver & I40E_OEM_VER_PATCH_MASK);
-+
-+		snprintf(buf, sizeof(buf),
-+			 "%x.%02x 0x%x %d.%d.%d",
-+			 (hw->nvm.version & I40E_NVM_VERSION_HI_MASK) >>
-+				I40E_NVM_VERSION_HI_SHIFT,
-+			 (hw->nvm.version & I40E_NVM_VERSION_LO_MASK) >>
-+				I40E_NVM_VERSION_LO_SHIFT,
-+			 hw->nvm.eetrack, ver, build, patch);
-+	}
- 
- 	return buf;
- }
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 8d7bd85933bb..8af6420826d1 100644
+index c4328b4bec95..2db93d3f6d23 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -7108,6 +7108,51 @@ static void i40e_send_version(struct i40e_pf *pf)
+@@ -6566,9 +6566,7 @@ static void i40e_reset_subtask(struct i40e_pf *pf)
+ 	if (reset_flags &&
+ 	    !test_bit(__I40E_DOWN, pf->state) &&
+ 	    !test_bit(__I40E_CONFIG_BUSY, pf->state)) {
+-		rtnl_lock();
+-		i40e_do_reset(pf, reset_flags, true);
+-		rtnl_unlock();
++		i40e_do_reset(pf, reset_flags, false);
+ 	}
+ }
+ 
+@@ -11906,11 +11904,8 @@ static pci_ers_result_t i40e_pci_error_detected(struct pci_dev *pdev,
+ 	}
+ 
+ 	/* shutdown all operations */
+-	if (!test_bit(__I40E_SUSPENDED, pf->state)) {
+-		rtnl_lock();
+-		i40e_prep_for_reset(pf, true);
+-		rtnl_unlock();
+-	}
++	if (!test_bit(__I40E_SUSPENDED, pf->state))
++		i40e_prep_for_reset(pf, false);
+ 
+ 	/* Request a slot reset */
+ 	return PCI_ERS_RESULT_NEED_RESET;
+@@ -11976,9 +11971,7 @@ static void i40e_pci_error_resume(struct pci_dev *pdev)
+ 	if (test_bit(__I40E_SUSPENDED, pf->state))
+ 		return;
+ 
+-	rtnl_lock();
+-	i40e_handle_reset_warning(pf, true);
+-	rtnl_unlock();
++	i40e_handle_reset_warning(pf, false);
  }
  
  /**
-+ * i40e_get_oem_version - get OEM specific version information
-+ * @hw: pointer to the hardware structure
-+ **/
-+static void i40e_get_oem_version(struct i40e_hw *hw)
-+{
-+	u16 block_offset = 0xffff;
-+	u16 block_length = 0;
-+	u16 capabilities = 0;
-+	u16 gen_snap = 0;
-+	u16 release = 0;
-+
-+#define I40E_SR_NVM_OEM_VERSION_PTR		0x1B
-+#define I40E_NVM_OEM_LENGTH_OFFSET		0x00
-+#define I40E_NVM_OEM_CAPABILITIES_OFFSET	0x01
-+#define I40E_NVM_OEM_GEN_OFFSET			0x02
-+#define I40E_NVM_OEM_RELEASE_OFFSET		0x03
-+#define I40E_NVM_OEM_CAPABILITIES_MASK		0x000F
-+#define I40E_NVM_OEM_LENGTH			3
-+
-+	/* Check if pointer to OEM version block is valid. */
-+	i40e_read_nvm_word(hw, I40E_SR_NVM_OEM_VERSION_PTR, &block_offset);
-+	if (block_offset == 0xffff)
-+		return;
-+
-+	/* Check if OEM version block has correct length. */
-+	i40e_read_nvm_word(hw, block_offset + I40E_NVM_OEM_LENGTH_OFFSET,
-+			   &block_length);
-+	if (block_length < I40E_NVM_OEM_LENGTH)
-+		return;
-+
-+	/* Check if OEM version format is as expected. */
-+	i40e_read_nvm_word(hw, block_offset + I40E_NVM_OEM_CAPABILITIES_OFFSET,
-+			   &capabilities);
-+	if ((capabilities & I40E_NVM_OEM_CAPABILITIES_MASK) != 0)
-+		return;
-+
-+	i40e_read_nvm_word(hw, block_offset + I40E_NVM_OEM_GEN_OFFSET,
-+			   &gen_snap);
-+	i40e_read_nvm_word(hw, block_offset + I40E_NVM_OEM_RELEASE_OFFSET,
-+			   &release);
-+	hw->nvm.oem_ver = (gen_snap << I40E_OEM_SNAP_SHIFT) | release;
-+	hw->nvm.eetrack = I40E_OEM_EETRACK_ID;
-+}
-+
-+/**
-  * i40e_reset - wait for core reset to finish reset, reset pf if corer not seen
-  * @pf: board private structure
-  **/
-@@ -7154,6 +7199,7 @@ static void i40e_rebuild(struct i40e_pf *pf, bool reinit, bool lock_acquired)
- 			 i40e_aq_str(&pf->hw, pf->hw.aq.asq_last_status));
- 		goto clear_recovery;
+@@ -12058,9 +12051,7 @@ static void i40e_shutdown(struct pci_dev *pdev)
+ 	if (pf->wol_en && (pf->flags & I40E_FLAG_WOL_MC_MAGIC_PKT_WAKE))
+ 		i40e_enable_mc_magic_wake(pf);
+ 
+-	rtnl_lock();
+-	i40e_prep_for_reset(pf, true);
+-	rtnl_unlock();
++	i40e_prep_for_reset(pf, false);
+ 
+ 	wr32(hw, I40E_PFPM_APM,
+ 	     (pf->wol_en ? I40E_PFPM_APM_APME_MASK : 0));
+@@ -12092,9 +12083,7 @@ static int i40e_suspend(struct pci_dev *pdev, pm_message_t state)
+ 	if (pf->wol_en && (pf->flags & I40E_FLAG_WOL_MC_MAGIC_PKT_WAKE))
+ 		i40e_enable_mc_magic_wake(pf);
+ 
+-	rtnl_lock();
+-	i40e_prep_for_reset(pf, true);
+-	rtnl_unlock();
++	i40e_prep_for_reset(pf, false);
+ 
+ 	wr32(hw, I40E_PFPM_APM, (pf->wol_en ? I40E_PFPM_APM_APME_MASK : 0));
+ 	wr32(hw, I40E_PFPM_WUFC, (pf->wol_en ? I40E_PFPM_WUFC_MAG_MASK : 0));
+@@ -12140,9 +12129,7 @@ static int i40e_resume(struct pci_dev *pdev)
+ 	/* handling the reset will rebuild the device state */
+ 	if (test_and_clear_bit(__I40E_SUSPENDED, pf->state)) {
+ 		clear_bit(__I40E_DOWN, pf->state);
+-		rtnl_lock();
+-		i40e_reset_and_rebuild(pf, false, true);
+-		rtnl_unlock();
++		i40e_reset_and_rebuild(pf, false, false);
  	}
-+	i40e_get_oem_version(&pf->hw);
  
- 	/* re-verify the eeprom if we just had an EMP reset */
- 	if (test_and_clear_bit(__I40E_EMP_RESET_INTR_RECEIVED, pf->state))
-@@ -11338,6 +11384,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 		goto err_pf_reset;
- 	}
-+	i40e_get_oem_version(hw);
- 
- 	/* provide nvm, fw, api versions */
- 	dev_info(&pdev->dev, "fw %d.%d.%05d api %d.%d nvm %s\n",
+ 	return 0;
 -- 
 2.12.2
