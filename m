@@ -1,85 +1,84 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [oss-drivers] Re: [PATCH net-next 00/12] nfp: add flower app with representors
-Date: Wed, 21 Jun 2017 12:00:50 +0300
-Message-ID: <CAJ3xEMjTLs0aDLY_zDerm8o0yPmJktzBDE2rJ=QwXQZeS1+qCg@mail.gmail.com>
-References: <1497937910-32059-1-git-send-email-simon.horman@netronome.com>
- <CAJ3xEMgPWdg8gnAuGgufuxeYt4qDKrs8g+LBgm3BBG9KHnjGsQ@mail.gmail.com> <20170620122417.0c60582e@cakuba.netronome.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        oss-drivers@netronome.com
-To: Jakub Kicinski <jakub.kicinski@netronome.com>,
-        Simon Horman <simon.horman@netronome.com>
+From: Serhey Popovych <serhe.popovych@gmail.com>
+Subject: veth: Be more robust on network device creation when no attributes
+Date: Wed, 21 Jun 2017 12:02:16 +0300
+Message-ID: <1498035736-9330-1-git-send-email-serhe.popovych@gmail.com>
+References: <20170620.124059.822096659295374001.davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f53.google.com ([209.85.218.53]:35913 "EHLO
-        mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751093AbdFUJAv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 05:00:51 -0400
-Received: by mail-oi0-f53.google.com with SMTP id p187so28532960oif.3
-        for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 02:00:51 -0700 (PDT)
-In-Reply-To: <20170620122417.0c60582e@cakuba.netronome.com>
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:36756 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750927AbdFUJC2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 05:02:28 -0400
+Received: by mail-wr0-f193.google.com with SMTP id 77so24667653wrb.3
+        for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 02:02:27 -0700 (PDT)
+In-Reply-To: <20170620.124059.822096659295374001.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 20, 2017 at 10:24 PM, Jakub Kicinski
-<jakub.kicinski@netronome.com> wrote:
-> On Tue, 20 Jun 2017 19:13:43 +0300, Or Gerlitz wrote:
+There are number of problems with configuration peer
+network device in absence of IFLA_VETH_PEER attributes
+where attributes for main network device shared with
+peer.
 
->>> Control queues are used to send and receive control messages which are
->>> used to communicate configuration information with the firmware. These
->>> are in separate vNIC to the queues belonging to the PF netdev. The control
->>> queues are not exposed to use-space via a netdev or any other means.
+First it is not feasible to configure both network
+devices with same MAC address since this makes
+communication in such configuration problematic.
 
->> Do you have documentation for the control channel or I should look on
->> earlier commits?
+This case can be reproduced with following sequence:
 
-> We don't have any docs, the ctrl channel was merged in e5c5180a2302
-> ("Merge branch 'nfp-ctrl-vNIC'").  The "control channel" is essentially
-> a normal data queue which is specially marked as carrying control
-> messages.
+  # ip link add address 02:11:22:33:44:55 type veth
+  # ip li sh
+  ...
+  26: veth0@veth1: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc \
+  noop state DOWN mode DEFAULT qlen 1000
+      link/ether 00:11:22:33:44:55 brd ff:ff:ff:ff:ff:ff
+  27: veth1@veth0: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc \
+  noop state DOWN mode DEFAULT qlen 1000
+      link/ether 00:11:22:33:44:55 brd ff:ff:ff:ff:ff:ff
 
->> The control messages you describe here are also the ones that are used
->> to load/unload specific app?
+Second it is not possible to register both main and
+peer network devices with same name, that happens
+when name for main interface is given with IFLA_IFNAME
+and same attribute reused for peer.
 
-> No, the app loading, PHY port management and other low-level tasks are
-> handled by management FW.  The control messages are an application FW
-> construct.  The control messages are transported by the datapath and
-> since the datapath is entirely under control of apps the management FW
-> can't depend on it.  The apps today also completely reload the PCIe
-> datapath implementation (which is software defined), so we need to use
-> raw memory mappings to communicate with management FW.
+This case can be reproduced with following sequence:
 
-> The control messages are mostly used for populating tables and reading
-> statistics, because those two need to be fast and low overhead.
+  # ip link add dev veth1a type veth
+  RTNETLINK answers: File exists
 
-Thanks Jakub for that clarification -- I still not sure to see the
-high level picture -
-will appreciate if you can make a simple  text based sketch here of the
-source/dest/sequence of calls/messages (say) from the time the driver is loaded
-to when sriov is set with VFs and VF reps
+To fix both of the cases check if corresponding netlink
+attributes are taken from peer_tb when valid or
+name based on rtnl ops kind and random address is used.
 
-The VF reps where introduced hand in hand with the devlink way to create/destroy
-them -- e.g the devlink eswitch commands (mode change, show, enable encap, etc).
+Signed-off-by: Serhey Popovych <serhe.popovych@gmail.com>
+---
+ v2: Rebase to kernel/davem/net.git
+ 
+ drivers/net/veth.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Taking your comment that the channels are mostly used for table
-population and such,
-is there any real reason for you not to use devlink for applying the
-configuration? you can
-communicate with the FW from your devlink callbacks, isn't that?
-
-Simon, another comment on this series/app, is that the VF reps can
-apply for more
-use cases beyond flower offload -- e.g FDB or FIB offloads and also
-the other way
-around, flower offloads can apply to more use cases beyond SRIOV, as any easy
-example, you can offload native NIC RX TC rule (drop, header re-write, etc).
-
-Indeed your current app code doesn't have any relation to flower beyond the
-name... maybe you can just make a rename and this way it will be less
-confusing for you.. when coming to apply more use-cases?
-
-As for flower offloads being applicable beyond SRIOV, lets see if/how
-you re-name/phrase the VF reps.
-
-Or.
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index 0689433..17714db 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -383,7 +383,7 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
+ 		tbp = tb;
+ 	}
+ 
+-	if (tbp[IFLA_IFNAME]) {
++	if (ifmp && tbp[IFLA_IFNAME]) {
+ 		nla_strlcpy(ifname, tbp[IFLA_IFNAME], IFNAMSIZ);
+ 		name_assign_type = NET_NAME_USER;
+ 	} else {
+@@ -402,7 +402,7 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
+ 		return PTR_ERR(peer);
+ 	}
+ 
+-	if (tbp[IFLA_ADDRESS] == NULL)
++	if (!ifmp || !tbp[IFLA_ADDRESS])
+ 		eth_hw_addr_random(peer);
+ 
+ 	if (ifmp && dev->ifindex > 0)
+-- 
+1.8.3.1
