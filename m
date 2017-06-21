@@ -1,43 +1,41 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC PATCH net-next 3/3] net/mlx5e: Expose link down reason to
- ethtool
-Date: Wed, 21 Jun 2017 16:03:18 +0200
-Message-ID: <20170621140318.GD27585@lunn.ch>
-References: <1498050286-17141-1-git-send-email-galp@mellanox.com>
- <1498050286-17141-4-git-send-email-galp@mellanox.com>
+From: "Steve Wise" <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Subject: RE: [PATCH rdma-next 05/19] RDMA/netlink: Simplify and rename ibnl_chk_listeners
+Date: Wed, 21 Jun 2017 09:04:09 -0500
+Message-ID: <021e01d2ea97$41162fa0$c3428ee0$@opengridcomputing.com>
+References: <20170621060528.3752-1-leon@kernel.org> <20170621060528.3752-6-leon@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        "John W. Linville" <linville@tuxdriver.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        David Decotigny <decot@googlers.com>, kernel-team@fb.com
-To: Gal Pressman <galp@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:58673 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751042AbdFUODV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 21 Jun 2017 10:03:21 -0400
-Content-Disposition: inline
-In-Reply-To: <1498050286-17141-4-git-send-email-galp@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+        charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "'Chien Tin Tung'" <chien.tin.tung-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        "'Stephen Hemminger'" <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+        "'Jiri Pirko'" <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        "'Ariel Almog'" <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        "'Linux Netdev'" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "'Leon Romanovsky'" <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: "'Leon Romanovsky'" <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        "'Doug Ledford'" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170621060528.3752-6-leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Content-Language: en-us
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> +static int mlx5e_get_link_down_reason(struct net_device *netdev,
-> +				      struct ethtool_link_down_reason *ldr)
-> +{
-> +	struct mlx5e_priv *priv = netdev_priv(netdev);
-> +	u16 monitor_opcode;
-> +	int err;
-> +
-> +	if (!netif_running(netdev)) {
-> +		ldr->reason = ETHTOOL_LINK_NETDEV_CARRIER_DOWN;
-> +		return 0;
-> +	}
+> From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> 
+> Make ibnl_chk_listeners function to be one line by removing
+> unneeded comparison.
+> 
+> Rename that function to be complaint to other functions in RDMA netlink.
+> 
+> Signed-off-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
-This is generic, will work for any interface. The same is true for
-ADMIN_DOWN. Either it is not required at all, since the information is
-available via other means, or it should be in the core.
 
-	  Andrew
+Reviewed-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
