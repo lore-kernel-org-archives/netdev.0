@@ -1,139 +1,130 @@
-From: Willem de Bruijn <willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v2 08/13] sock: ulimit on MSG_ZEROCOPY pages
-Date: Wed, 21 Jun 2017 16:36:47 -0400
-Message-ID: <20170621203652.15306-9-willemdebruijn.kernel@gmail.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next v2 09/13] tcp: enable MSG_ZEROCOPY
+Date: Wed, 21 Jun 2017 16:36:48 -0400
+Message-ID: <20170621203652.15306-10-willemdebruijn.kernel@gmail.com>
 References: <20170621203652.15306-1-willemdebruijn.kernel@gmail.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170621203652.15306-1-willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, linux-api@vger.kernel.org,
+        Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:36453 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751934AbdFUUhE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 16:37:04 -0400
+In-Reply-To: <20170621203652.15306-1-willemdebruijn.kernel@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+From: Willem de Bruijn <willemb@google.com>
 
-Bound the number of pages that a user may pin.
+Enable support for MSG_ZEROCOPY to the TCP stack. TSO and GSO are
+both supported. Only data sent to remote destinations is sent without
+copying. Packets looped onto a local destination have their payload
+copied to avoid unbounded latency.
 
-Follow the lead of perf tools to maintain a per-user bound on memory
-locked pages commit 789f90fcf6b0 ("perf_counter: per user mlock gift")
+Tested:
+  A 10x TCP_STREAM between two hosts showed a reduction in netserver
+  process cycles by up to 70%, depending on packet size. Systemwide,
+  savings are of course much less pronounced, at up to 20% best case.
 
-Signed-off-by: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+  msg_zerocopy.sh 4 tcp:
+
+  without zerocopy
+    tx=121792 (7600 MB) txc=0 zc=n
+    rx=60458 (7600 MB)
+
+  with zerocopy
+    tx=286257 (17863 MB) txc=286257 zc=y
+    rx=140022 (17863 MB)
+
+  This test opens a pair of sockets over veth, one one calls send with
+  64KB and optionally MSG_ZEROCOPY and on the other reads the initial
+  bytes. The receiver truncates, so this is strictly an upper bound on
+  what is achievable. It is more representative of sending data out of
+  a physical NIC (when payload is not touched, either).
+
+Signed-off-by: Willem de Bruijn <willemb@google.com>
 ---
- include/linux/sched/user.h |  3 ++-
- include/linux/skbuff.h     |  5 +++++
- net/core/skbuff.c          | 48 ++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 55 insertions(+), 1 deletion(-)
+ net/ipv4/tcp.c | 32 +++++++++++++++++++++++++++++++-
+ 1 file changed, 31 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/sched/user.h b/include/linux/sched/user.h
-index 5d5415e129d4..3c07e4135127 100644
---- a/include/linux/sched/user.h
-+++ b/include/linux/sched/user.h
-@@ -36,7 +36,8 @@ struct user_struct {
- 	struct hlist_node uidhash_node;
- 	kuid_t uid;
- 
--#if defined(CONFIG_PERF_EVENTS) || defined(CONFIG_BPF_SYSCALL)
-+#if defined(CONFIG_PERF_EVENTS) || defined(CONFIG_BPF_SYSCALL) || \
-+    defined(CONFIG_NET)
- 	atomic_long_t locked_vm;
- #endif
- };
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 24479da9905c..044046e22722 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -421,6 +421,11 @@ struct ubuf_info {
- 		};
- 	};
- 	atomic_t refcnt;
-+
-+	struct mmpin {
-+		struct user_struct *user;
-+		unsigned int num_pg;
-+	} mmp;
- };
- 
- #define skb_uarg(SKB)	((struct ubuf_info *)(skb_shinfo(SKB)->destructor_arg))
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 35a7a7b1192f..0beaf961f79c 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -923,6 +923,44 @@ struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src)
- }
- EXPORT_SYMBOL_GPL(skb_morph);
- 
-+static int mm_account_pinned_pages(struct mmpin *mmp, size_t size)
-+{
-+	unsigned long max_pg, num_pg, new_pg, old_pg;
-+	struct user_struct *user;
-+
-+	if (capable(CAP_IPC_LOCK) || !size)
-+		return 0;
-+
-+	num_pg = (size >> PAGE_SHIFT) + 2;	/* worst case */
-+	max_pg = rlimit(RLIMIT_MEMLOCK) >> PAGE_SHIFT;
-+	user = mmp->user ? : current_user();
-+
-+	do {
-+		old_pg = atomic_long_read(&user->locked_vm);
-+		new_pg = old_pg + num_pg;
-+		if (new_pg > max_pg)
-+			return -ENOBUFS;
-+	} while (atomic_long_cmpxchg(&user->locked_vm, old_pg, new_pg) !=
-+		 old_pg);
-+
-+	if (!mmp->user) {
-+		mmp->user = get_uid(user);
-+		mmp->num_pg = num_pg;
-+	} else {
-+		mmp->num_pg += num_pg;
-+	}
-+
-+	return 0;
-+}
-+
-+static void mm_unaccount_pinned_pages(struct mmpin *mmp)
-+{
-+	if (mmp->user) {
-+		atomic_long_sub(mmp->num_pg, &mmp->user->locked_vm);
-+		free_uid(mmp->user);
-+	}
-+}
-+
- struct ubuf_info *sock_zerocopy_alloc(struct sock *sk, size_t size)
- {
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 11e4ee281aa0..9cb66fb54fc9 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1149,6 +1149,7 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+ 	struct tcp_sock *tp = tcp_sk(sk);
  	struct sk_buff *skb;
-@@ -939,6 +977,12 @@ struct ubuf_info *sock_zerocopy_alloc(struct sock *sk, size_t size)
+ 	struct sockcm_cookie sockc;
++	struct ubuf_info *uarg = NULL;
+ 	int flags, err, copied = 0;
+ 	int mss_now = 0, size_goal, copied_syn = 0;
+ 	bool process_backlog = false;
+@@ -1158,6 +1159,26 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+ 	lock_sock(sk);
  
- 	BUILD_BUG_ON(sizeof(*uarg) > sizeof(skb->cb));
- 	uarg = (void *)skb->cb;
-+	uarg->mmp.user = NULL;
+ 	flags = msg->msg_flags;
 +
-+	if (mm_account_pinned_pages(&uarg->mmp, size)) {
-+		kfree_skb(skb);
-+		return NULL;
++	if (flags & MSG_ZEROCOPY && size) {
++		if (sk->sk_state != TCP_ESTABLISHED) {
++			err = -EINVAL;
++			goto out_err;
++		}
++
++		skb = tcp_send_head(sk) ? tcp_write_queue_tail(sk) : NULL;
++		uarg = sock_zerocopy_realloc(sk, size, skb_zcopy(skb));
++		if (!uarg) {
++			err = -ENOBUFS;
++			goto out_err;
++		}
++
++		/* skb may be freed in main loop, keep extra ref on uarg */
++		sock_zerocopy_get(uarg);
++		if (!(sk_check_csum_caps(sk) && sk->sk_route_caps & NETIF_F_SG))
++			uarg->zerocopy = 0;
 +	}
- 
- 	uarg->callback = sock_zerocopy_callback;
- 	uarg->id = ((u32)atomic_inc_return(&sk->sk_zckey)) - 1;
-@@ -982,6 +1026,8 @@ struct ubuf_info *sock_zerocopy_realloc(struct sock *sk, size_t size,
- 
- 		next = (u32)atomic_read(&sk->sk_zckey);
- 		if ((u32)(uarg->id + uarg->len) == next) {
-+			if (mm_account_pinned_pages(&uarg->mmp, size))
-+				return NULL;
- 			uarg->len++;
- 			uarg->bytelen = bytelen;
- 			atomic_set(&sk->sk_zckey, ++next);
-@@ -1063,6 +1109,8 @@ EXPORT_SYMBOL_GPL(sock_zerocopy_callback);
- void sock_zerocopy_put(struct ubuf_info *uarg)
- {
- 	if (uarg && atomic_dec_and_test(&uarg->refcnt)) {
-+		mm_unaccount_pinned_pages(&uarg->mmp);
 +
- 		if (uarg->callback)
- 			uarg->callback(uarg, uarg->zerocopy);
- 		else
+ 	if (unlikely(flags & MSG_FASTOPEN || inet_sk(sk)->defer_connect)) {
+ 		err = tcp_sendmsg_fastopen(sk, msg, &copied_syn, size);
+ 		if (err == -EINPROGRESS && copied_syn > 0)
+@@ -1281,7 +1302,7 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+ 			err = skb_add_data_nocache(sk, skb, &msg->msg_iter, copy);
+ 			if (err)
+ 				goto do_fault;
+-		} else {
++		} else if (!uarg || !uarg->zerocopy) {
+ 			bool merge = true;
+ 			int i = skb_shinfo(skb)->nr_frags;
+ 			struct page_frag *pfrag = sk_page_frag(sk);
+@@ -1319,6 +1340,13 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+ 				page_ref_inc(pfrag->page);
+ 			}
+ 			pfrag->offset += copy;
++		} else {
++			err = skb_zerocopy_iter_stream(sk, skb, msg, copy, uarg);
++			if (err == -EMSGSIZE || err == -EEXIST)
++				goto new_segment;
++			if (err < 0)
++				goto do_error;
++			copy = err;
+ 		}
+ 
+ 		if (!copied)
+@@ -1365,6 +1393,7 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+ 		tcp_push(sk, flags, mss_now, tp->nonagle, size_goal);
+ 	}
+ out_nopush:
++	sock_zerocopy_put(uarg);
+ 	release_sock(sk);
+ 	return copied + copied_syn;
+ 
+@@ -1382,6 +1411,7 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+ 	if (copied + copied_syn)
+ 		goto out;
+ out_err:
++	sock_zerocopy_put_abort(uarg);
+ 	err = sk_stream_error(sk, flags, err);
+ 	/* make sure we wake any epoll edge trigger waiter */
+ 	if (unlikely(skb_queue_len(&sk->sk_write_queue) == 0 &&
 -- 
 2.13.1.611.g7e3b11ae1-goog
