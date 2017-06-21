@@ -1,74 +1,103 @@
-From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-Subject: RE: [PATCH 00/51] rtc: stop using rtc deprecated functions
-Date: Wed, 21 Jun 2017 09:26:51 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD00278C0@AcuExch.aculab.com>
-References: <1497951359-13334-1-git-send-email-benjamin.gaignard@linaro.org>
- <20170620100348.zh4ygvjjgnhxvmvl@piout.net> <20170620121011.GA13221@amd>
- <20170620122400.sm7qqvwyj6cuzarw@piout.net> <20170620132620.GA16881@amd>
- <6ED8E3B22081A4459DAC7699F3695FB7018CD96FCD@SW-EX-MBX02.diasemi.com>
- <20170620134458.GA10104@amd> <20170620134827.ubvzhh25klaotupv@piout.net>
- <CA+M3ks68+z6nDtYM8CDpso7SxjB6Nt5E=rOc1yxx=kDz6PUeVQ@mail.gmail.com>
- <20170620211536.GM4902@n2100.armlinux.org.uk>
-Reply-To: rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [oss-drivers] Re: [PATCH net-next 00/12] nfp: add flower app
+ with representors
+Date: Wed, 21 Jun 2017 11:32:17 +0200
+Message-ID: <20170621093212.GA3656@vergenet.net>
+References: <1497937910-32059-1-git-send-email-simon.horman@netronome.com>
+ <CAJ3xEMgPWdg8gnAuGgufuxeYt4qDKrs8g+LBgm3BBG9KHnjGsQ@mail.gmail.com>
+ <20170620122417.0c60582e@cakuba.netronome.com>
+ <CAJ3xEMjTLs0aDLY_zDerm8o0yPmJktzBDE2rJ=QwXQZeS1+qCg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Alexandre Belloni <alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>, Baruch Siach
-	<baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>, "patches-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org"
-	<patches-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org>, Linus Walleij
-	<linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, "linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
-	<linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Thierry Reding <thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-	"x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Jonathan Hunter <jonathanh-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
-	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Sylvain Lemieux
-	<slemieux.tyco-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Sebastian Hesselbarth
-	<sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Len Brown <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org" <linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org>, "Jason
- Cooper" <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>, "rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org"
-	<rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>, "linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
-	<linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Hans Ulli K
-To: 'Russell King - ARM Linux' <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>, Benjamin Gaignard
-	<benjamin.gaignard-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <rtc-linux+bncBC27HSOJ44LBB3XXVDFAKGQEMAEDLHA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <20170620211536.GM4902-l+eeeJia6m9URfEZ8mYm6t73F7V6hmMc@public.gmane.org>
-Content-Language: en-US
-List-Post: <https://groups.google.com/group/rtc-linux/post>, <mailto:rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:rtc-linux+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/rtc-linux
-List-Subscribe: <https://groups.google.com/group/rtc-linux/subscribe>, <mailto:rtc-linux+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+712029733259+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/rtc-linux/subscribe>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
+        David Miller <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        oss-drivers@netronome.com
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f173.google.com ([209.85.216.173]:34464 "EHLO
+        mail-qt0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752137AbdFUJce (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 05:32:34 -0400
+Received: by mail-qt0-f173.google.com with SMTP id v20so36641624qtg.1
+        for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 02:32:34 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAJ3xEMjTLs0aDLY_zDerm8o0yPmJktzBDE2rJ=QwXQZeS1+qCg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Russell King - ARM Linux
-> Sent: 20 June 2017 22:16
-..
-> Consider that at the moment, we define the 32-bit RTC representation to
-> start at a well known epoch.  We _could_ decide that when it wraps to
-> 0x80000000 seconds, we'll define the lower 0x40000000 seconds to mean
-> dates in the future - and keep rolling that forward each time we cross
-> another 0x40000000 seconds.  Unless someone invents a real time machine,
-> we shouldn't need to set a modern RTC back to 1970.
+On Wed, Jun 21, 2017 at 12:00:50PM +0300, Or Gerlitz wrote:
+> On Tue, Jun 20, 2017 at 10:24 PM, Jakub Kicinski
+> <jakub.kicinski@netronome.com> wrote:
+> > On Tue, 20 Jun 2017 19:13:43 +0300, Or Gerlitz wrote:
+> 
+> >>> Control queues are used to send and receive control messages which are
+> >>> used to communicate configuration information with the firmware. These
+> >>> are in separate vNIC to the queues belonging to the PF netdev. The control
+> >>> queues are not exposed to use-space via a netdev or any other means.
+> 
+> >> Do you have documentation for the control channel or I should look on
+> >> earlier commits?
+> 
+> > We don't have any docs, the ctrl channel was merged in e5c5180a2302
+> > ("Merge branch 'nfp-ctrl-vNIC'").  The "control channel" is essentially
+> > a normal data queue which is specially marked as carrying control
+> > messages.
+> 
+> >> The control messages you describe here are also the ones that are used
+> >> to load/unload specific app?
+> 
+> > No, the app loading, PHY port management and other low-level tasks are
+> > handled by management FW.  The control messages are an application FW
+> > construct.  The control messages are transported by the datapath and
+> > since the datapath is entirely under control of apps the management FW
+> > can't depend on it.  The apps today also completely reload the PCIe
+> > datapath implementation (which is software defined), so we need to use
+> > raw memory mappings to communicate with management FW.
+> 
+> > The control messages are mostly used for populating tables and reading
+> > statistics, because those two need to be fast and low overhead.
+> 
+> Thanks Jakub for that clarification -- I still not sure to see the
+> high level picture -
+> will appreciate if you can make a simple  text based sketch here of the
+> source/dest/sequence of calls/messages (say) from the time the driver is loaded
+> to when sriov is set with VFs and VF reps
+> 
+> The VF reps where introduced hand in hand with the devlink way to create/destroy
+> them -- e.g the devlink eswitch commands (mode change, show, enable encap, etc).
+> 
+> Taking your comment that the channels are mostly used for table
+> population and such,
+> is there any real reason for you not to use devlink for applying the
+> configuration? you can
+> communicate with the FW from your devlink callbacks, isn't that?
 
-True, just treating the value as unsigned gives another 67 years.
+I will leave Jakub to respond to this question.
 
-If a 32bit RTC is programmed with the low 32bits of the 64bit 'seconds
-since 1970' the kernel should have no real difficulty sorting out the
-high bits from other available information.
+> Simon, another comment on this series/app, is that the VF reps can
+> apply for more
+> use cases beyond flower offload -- e.g FDB or FIB offloads and also
+> the other way
+> around, flower offloads can apply to more use cases beyond SRIOV, as any easy
+> example, you can offload native NIC RX TC rule (drop, header re-write, etc).
+>
+> Indeed your current app code doesn't have any relation to flower beyond the
+> name... maybe you can just make a rename and this way it will be less
+> confusing for you.. when coming to apply more use-cases?
+>
+> As for flower offloads being applicable beyond SRIOV, lets see if/how
+> you re-name/phrase the VF reps.
 
-Problems with things like the x86 bios setting the rtc to stupid values
-are another matter.
-ISTR the rtc chip has a bit for 'summertime' that is never set, on a
-multi-os system you can get multiple summer time changes.
+This patchset is in two parts.
 
-	David
+The first 9 patches add code to allow representors to be instantiated
+etc... The remaining patches provide the beginning of a flower app which
+makes use of this infrastructure. So I think there is a clear separation
+between representor code, in .../nfp/ and app code that uses representors,
+in this case .../nfp/flower/.
 
--- 
-You received this message because you are subscribed to "rtc-linux".
-Membership options at http://groups.google.com/group/rtc-linux .
-Please read http://groups.google.com/group/rtc-linux/web/checklist
-before submitting a driver.
---- 
-You received this message because you are subscribed to the Google Groups "rtc-linux" group.
-To unsubscribe from this group and stop receiving emails from it, send an email to rtc-linux+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-For more options, visit https://groups.google.com/d/optout.
+I could have supplied a test app to demonstrate using representors - and
+that is really what the flower app is as of this patchset. But I chose to
+name it flower as it we have follow-up work to make the app actually
+offload flower and at that point that will be come its dominant feature.
