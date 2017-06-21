@@ -1,57 +1,49 @@
-From: John Crispin <john@phrozen.org>
-Subject: Re: [RFC 1/2] net-next: fix DSA flow_disection
-Date: Wed, 21 Jun 2017 06:33:25 +0200
-Message-ID: <e6570fed-3a8b-4d1b-ce0f-857ff000638a@phrozen.org>
-References: <20170620080655.7251-1-john@phrozen.org>
- <20170620140140.GB12383@lunn.ch>
- <390b4235-1bd4-89d2-3a5f-bc51e3599247@phrozen.org>
- <20170620215230.GG12383@lunn.ch>
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next] qede: Fix compilation without QED_RDMA
+Date: Wed, 21 Jun 2017 08:26:34 +0300
+Message-ID: <20170621052634.20984-1-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Sean Wang <sean.wang@mediatek.com>, netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: <Michal.Kalderon@cavium.com>, Chad Dupuis <chad.dupuis@cavium.com>,
+        Yuval Mintz <Yuval.Mintz@cavium.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:35331 "EHLO nbd.name"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750707AbdFUEdc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 21 Jun 2017 00:33:32 -0400
-In-Reply-To: <20170620215230.GG12383@lunn.ch>
+Received: from mail-sn1nam02on0075.outbound.protection.outlook.com ([104.47.36.75]:11520
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751069AbdFUF0s (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 21 Jun 2017 01:26:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Chad Dupuis <chad.dupuis@cavium.com>
 
+When CONFIG_QED_RDMA isn't defined, we'd hit the following:
 
-On 20/06/17 23:52, Andrew Lunn wrote:
->> On Tue, Jun 20, 2017 at 07:37:35PM +0200, John Crispin wrote:
->>
->>
->> On 20/06/17 16:01, Andrew Lunn wrote:
->>> On Tue, Jun 20, 2017 at 10:06:54AM +0200, John Crispin wrote:
->>>> RPS and probably other kernel features are currently broken on some if not
->>>> all DSA devices. The root cause of this that skb_hash will call the
->>>> flow_disector.
->>> Hi John
->>>
->>> What is the call path when the flow_disector is called? I'm wondering
->>> if we can defer this, and call it later, after the tag code has
->>> removed the header.
->>>
->>> 	Andrew
-> Hi John
->
-> I follow your logic of doing the hash early
->
-> Is there any value in including the DSA header in the hash? That might
-> allow frames from different ingress ports to be spread over CPUs?
->
->        Andrew
-Hi Andrew,
+ /include/linux/qed/qede_rdma.h:84:19:
+ warning: ‘qede_rdma_dev_add’ used but never defined [enabled by default]
+ static inline int qede_rdma_dev_add(struct qede_dev *dev);
 
-adding the DSA header wont make any difference and would still require a 
-patch to the flow dissector.
+Fixes: bbfcd1e8e167 ("qed*: Set rdma generic functions prefix")
+Signed-off-by: Chad Dupuis <chad.dupuis@cavium.com>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+---
+ include/linux/qed/qede_rdma.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-     John
+diff --git a/include/linux/qed/qede_rdma.h b/include/linux/qed/qede_rdma.h
+index 1348a16..9904617 100644
+--- a/include/linux/qed/qede_rdma.h
++++ b/include/linux/qed/qede_rdma.h
+@@ -81,7 +81,7 @@ void qede_rdma_dev_remove(struct qede_dev *dev);
+ void qede_rdma_event_changeaddr(struct qede_dev *edr);
+ 
+ #else
+-static inline int qede_rdma_dev_add(struct qede_dev *dev);
++static inline int qede_rdma_dev_add(struct qede_dev *dev)
+ {
+ 	return 0;
+ }
+-- 
+2.9.4
