@@ -1,85 +1,112 @@
-From: Alexandre Belloni <alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH 00/51] rtc: stop using rtc deprecated functions
-Date: Wed, 21 Jun 2017 11:41:46 +0200
-Message-ID: <20170621094146.ebq5hxuvtmfdgekz@piout.net>
-References: <20170620213507.urobmtg34vzubrdq@piout.net>
- <alpine.DEB.2.20.1706202343120.2157@nanos>
- <20170621075152.GA15996@amd>
- <20170621083907.y3gadsmsoufa5niv@piout.net>
- <20170621091948.GP4902@n2100.armlinux.org.uk>
-Reply-To: rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [PATCH net-next 00/12] nfp: add flower app with representors
+Date: Wed, 21 Jun 2017 02:42:38 -0700
+Message-ID: <20170621024238.021e1f77@cakuba.netronome.com>
+References: <1497937910-32059-1-git-send-email-simon.horman@netronome.com>
+        <CAJ3xEMgPWdg8gnAuGgufuxeYt4qDKrs8g+LBgm3BBG9KHnjGsQ@mail.gmail.com>
+        <20170620122417.0c60582e@cakuba.netronome.com>
+        <CAJ3xEMjTLs0aDLY_zDerm8o0yPmJktzBDE2rJ=QwXQZeS1+qCg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-	Benjamin Gaignard <benjamin.gaignard-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>,
-	"patches-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org" <patches-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org>,
-	Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	"linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Thierry Reding <thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Jonathan Hunter <jonathanh-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
-	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Sylvain Lemieux <slemieux.tyco-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Len Brown <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org" <linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org>,
-	Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>,
-	"rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org" <rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
-	"linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Hans Ulli Kroll <
-To: Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
-Return-path: <rtc-linux+bncBCKYNX7Y3IMBBZP6VDFAKGQEPTF2TBY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Content-Disposition: inline
-In-Reply-To: <20170621091948.GP4902-l+eeeJia6m9URfEZ8mYm6t73F7V6hmMc@public.gmane.org>
-List-Post: <https://groups.google.com/group/rtc-linux/post>, <mailto:rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:rtc-linux+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/rtc-linux
-List-Subscribe: <https://groups.google.com/group/rtc-linux/subscribe>, <mailto:rtc-linux+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+712029733259+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/rtc-linux/subscribe>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Simon Horman <simon.horman@netronome.com>,
+        David Miller <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        oss-drivers@netronome.com
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx3.wp.pl ([212.77.101.9]:6335 "EHLO mx3.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751434AbdFUJmt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 21 Jun 2017 05:42:49 -0400
+In-Reply-To: <CAJ3xEMjTLs0aDLY_zDerm8o0yPmJktzBDE2rJ=QwXQZeS1+qCg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 21/06/2017 at 10:19:49 +0100, Russell King - ARM Linux wrote:
-> On Wed, Jun 21, 2017 at 10:39:07AM +0200, Alexandre Belloni wrote:
-> > On 21/06/2017 at 09:51:52 +0200, Pavel Machek wrote:
-> > > If someone uses different threshold, well, there will be
-> > > confusion. But only for users that have their rtc set to the past,
-> > > which is quite unusual.
-> > > 
-> > 
-> > Or not, having an RTC set in the past is actually quite common. I'd find
-> > it weird to have a new device boot and be set to a date in the future.
+On Wed, 21 Jun 2017 12:00:50 +0300, Or Gerlitz wrote:
+> On Tue, Jun 20, 2017 at 10:24 PM, Jakub Kicinski
+> <jakub.kicinski@netronome.com> wrote:
+> > On Tue, 20 Jun 2017 19:13:43 +0300, Or Gerlitz wrote:  
 > 
-> ... and that basically means you can't use hardware that stores RTC
-> time as a 32-bit number of seconds past 2106.
+> >>> Control queues are used to send and receive control messages which are
+> >>> used to communicate configuration information with the firmware. These
+> >>> are in separate vNIC to the queues belonging to the PF netdev. The control
+> >>> queues are not exposed to use-space via a netdev or any other means.  
 > 
-
-And I guess it will not matter much for us anyway ;)
-
-> > Also note that the threshold or offset thing may seem like a good idea
-> > but fails with many RTCs because of how they handle leap years.
+> >> Do you have documentation for the control channel or I should look on
+> >> earlier commits?  
 > 
-> Not for the case being discussed.  A 32-bit counter of seconds knows
-> nothing about leap years - all that is handled by the conversion
-> functions.
+> > We don't have any docs, the ctrl channel was merged in e5c5180a2302
+> > ("Merge branch 'nfp-ctrl-vNIC'").  The "control channel" is essentially
+> > a normal data queue which is specially marked as carrying control
+> > messages.  
 > 
+> >> The control messages you describe here are also the ones that are used
+> >> to load/unload specific app?  
+> 
+> > No, the app loading, PHY port management and other low-level tasks are
+> > handled by management FW.  The control messages are an application FW
+> > construct.  The control messages are transported by the datapath and
+> > since the datapath is entirely under control of apps the management FW
+> > can't depend on it.  The apps today also completely reload the PCIe
+> > datapath implementation (which is software defined), so we need to use
+> > raw memory mappings to communicate with management FW.  
+> 
+> > The control messages are mostly used for populating tables and reading
+> > statistics, because those two need to be fast and low overhead.  
+> 
+> Thanks Jakub for that clarification -- I still not sure to see the
+> high level picture -
+> will appreciate if you can make a simple  text based sketch here of the
+> source/dest/sequence of calls/messages (say) from the time the driver is loaded
+> to when sriov is set with VFs and VF reps
 
-Well, the patch series touches some RTCs that are not using 32 bit
-counter so I though I might as well raise the issue now.
+Let me try to describe it a bit more instead.  Sorry but I'm not great
+at ASCII art at this level of complexity and while having to stay
+within 80 chars ;)
 
--- 
-Alexandre Belloni, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+Driver communicates with the Management FW via a mailbox.
 
--- 
-You received this message because you are subscribed to "rtc-linux".
-Membership options at http://groups.google.com/group/rtc-linux .
-Please read http://groups.google.com/group/rtc-linux/web/checklist
-before submitting a driver.
---- 
-You received this message because you are subscribed to the Google Groups "rtc-linux" group.
-To unsubscribe from this group and stop receiving emails from it, send an email to rtc-linux+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-For more options, visit https://groups.google.com/d/optout.
+Driver loads, it gets the Application FW from disk.  It pushes the
+entire FW to the mailbox and tells the Management FW to load it.  At
+this point the PCIe datapath is loaded and driver discovers what
+other communication channels are available.
+
+Driver checks which FW is loaded and finds appropriate nfp_app callbacks
+for that FW.  If the nfp_app requires control message channel it will
+map the control message queue/vNIC.  Driver spawn netdevs for
+data vNICs.  Flower nfp_app may upon init spawn physical port
+representors (single NFP chip supports tens of ports so they are not
+all guaranteed a full vNIC in many designs).  Whenever representor is
+spawned Application FW is notified with a control message.
+
+When user enables SR-IOV nfp_app sriov callback will be invoked and
+flower nfp_app will respond by spawning VF reprs.  First version of the
+Flower APP targets only the switchdev mode.  We plan to add legacy mode
+and automatically pre-populate the rules if there is user interest.
+Although I personally hope that people interested in legacy SR-IOV will
+use our simpler CoreNIC app FW...  Flower APP will initially come up in
+switchdev mode, no rules installed, all traffic will simply end up at
+representors.
+
+> The VF reps where introduced hand in hand with the devlink way to create/destroy
+> them -- e.g the devlink eswitch commands (mode change, show, enable encap, etc).
+
+Yes, indeed.  FWIW for programmable HW the question of mode of
+operation is more complex than selection between eswitch modes.  We
+are planning on extending devlink and our driver to handle more
+configurations as well as to expose more useful info.  But we need to
+start somewhere :)  We felt like this set with representors will
+establish a good base.  Next set will introduce basic Flower offload
+(~populating tables and reading stats).  And we can build on top of
+that.
+
+> Taking your comment that the channels are mostly used for table
+> population and such,
+> is there any real reason for you not to use devlink for applying the
+> configuration? you can
+> communicate with the FW from your devlink callbacks, isn't that?
+
+I think you're referring to the fact that we start in switchdev mode?
+I thought you would be happy to see a driver which doesn't even bother
+with the legacy mode ;)
