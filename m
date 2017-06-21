@@ -1,58 +1,101 @@
-From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Subject: [PATCH net-next V2] ibmvnic: Correct return code checking for
- ibmvnic_init during probe
-Date: Wed, 21 Jun 2017 15:41:02 -0500
-Message-ID: <149807766247.32243.8342302161340985903.stgit@mudbug>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: jallen@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH net-next 2/2] rds: tcp: set linger to 1 when unloading a rds-tcp
+Date: Wed, 21 Jun 2017 13:40:13 -0700
+Message-ID: <f30cec61cb806c600cf3a3648f934561f3a5f54b.1498074496.git.sowmini.varadhan@oracle.com>
+References: <cover.1498074496.git.sowmini.varadhan@oracle.com>
+Cc: davem@davemloft.net, sowmini.varadhan@oracle.com,
+        santosh.shilimkar@oracle.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:47956 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751108AbdFUUlJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 16:41:09 -0400
-Received: from pps.filterd (m0098417.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5LKcbmf065917
-        for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 16:41:07 -0400
-Received: from e16.ny.us.ibm.com (e16.ny.us.ibm.com [129.33.205.206])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2b7ycw9kny-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 16:41:06 -0400
-Received: from localhost
-        by e16.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
-        Wed, 21 Jun 2017 16:41:06 -0400
+Received: from userp1040.oracle.com ([156.151.31.81]:42114 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751865AbdFUUmd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 16:42:33 -0400
+In-Reply-To: <cover.1498074496.git.sowmini.varadhan@oracle.com>
+In-Reply-To: <cover.1498074496.git.sowmini.varadhan@oracle.com>
+References: <cover.1498074496.git.sowmini.varadhan@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The update to ibmvnic_init to allow an EAGAIN return code broke
-the calling of ibmvnic_init from ibmvnic_probe. The code now
-will return from this point in the probe routine if anything
-other than EAGAIN is returned. The check should be to see if rc
-is non-zero and not equal to EAGAIN.
+If we are unloading the rds_tcp module, we can set linger to 1
+and drop pending packets to accelerate reconnect. The peer will
+end up resetting the connection based on new generation numbers
+of the new incarnation, so hanging on to unsent TCP packets via
+linger is mostly pointless in this case.
 
-Without this fix, the vNIC driver can return 0 (success) from
-its probe routine due to ibmvnic_init returning zero, but before
-completing the probe process and registering with the netdev layer.
-
-Fixes: 6a2fb0e99f9c (ibmvnic: driver initialization for kdump/kexec)
-Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Tested-by: Jenny Xu <jenny.x.xu@oracle.com>
 ---
- drivers/net/ethernet/ibm/ibmvnic.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/rds/connection.c  |    1 +
+ net/rds/rds.h         |    3 ++-
+ net/rds/tcp.h         |    1 +
+ net/rds/tcp_connect.c |    2 ++
+ net/rds/tcp_listen.c  |    2 +-
+ 5 files changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index 0135095..05edf19 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -3737,7 +3737,7 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
+diff --git a/net/rds/connection.c b/net/rds/connection.c
+index 382443b..50a3789 100644
+--- a/net/rds/connection.c
++++ b/net/rds/connection.c
+@@ -412,6 +412,7 @@ void rds_conn_destroy(struct rds_connection *conn)
+ 		 "%pI4\n", conn, &conn->c_laddr,
+ 		 &conn->c_faddr);
  
- 	do {
- 		rc = ibmvnic_init(adapter);
--		if (rc != EAGAIN) {
-+		if (rc && rc != EAGAIN) {
- 			free_netdev(netdev);
- 			return rc;
- 		}
++	conn->c_destroy_in_prog = 1;
+ 	/* Ensure conn will not be scheduled for reconnect */
+ 	spin_lock_irq(&rds_conn_lock);
+ 	hlist_del_init_rcu(&conn->c_hash_node);
+diff --git a/net/rds/rds.h b/net/rds/rds.h
+index aa696b3..4a25db7 100644
+--- a/net/rds/rds.h
++++ b/net/rds/rds.h
+@@ -137,7 +137,8 @@ struct rds_connection {
+ 	__be32			c_faddr;
+ 	unsigned int		c_loopback:1,
+ 				c_ping_triggered:1,
+-				c_pad_to_32:30;
++				c_destroy_in_prog:1,
++				c_pad_to_32:29;
+ 	int			c_npaths;
+ 	struct rds_connection	*c_passive;
+ 	struct rds_transport	*c_trans;
+diff --git a/net/rds/tcp.h b/net/rds/tcp.h
+index 56ea662..f8800b7 100644
+--- a/net/rds/tcp.h
++++ b/net/rds/tcp.h
+@@ -71,6 +71,7 @@ void rds_tcp_restore_callbacks(struct socket *sock,
+ int rds_tcp_accept_one(struct socket *sock);
+ int rds_tcp_keepalive(struct socket *sock);
+ void *rds_tcp_listen_sock_def_readable(struct net *net);
++void rds_tcp_set_linger(struct socket *sock);
+ 
+ /* tcp_recv.c */
+ int rds_tcp_recv_init(void);
+diff --git a/net/rds/tcp_connect.c b/net/rds/tcp_connect.c
+index 5a62a08..cbe08a1 100644
+--- a/net/rds/tcp_connect.c
++++ b/net/rds/tcp_connect.c
+@@ -170,6 +170,8 @@ void rds_tcp_conn_path_shutdown(struct rds_conn_path *cp)
+ 		 cp->cp_conn, tc, sock);
+ 
+ 	if (sock) {
++		if (cp->cp_conn->c_destroy_in_prog)
++			rds_tcp_set_linger(sock);
+ 		sock->ops->shutdown(sock, RCV_SHUTDOWN | SEND_SHUTDOWN);
+ 		lock_sock(sock->sk);
+ 		rds_tcp_restore_callbacks(sock, tc); /* tc->tc_sock = NULL */
+diff --git a/net/rds/tcp_listen.c b/net/rds/tcp_listen.c
+index 6089e9a..c6dc8ca 100644
+--- a/net/rds/tcp_listen.c
++++ b/net/rds/tcp_listen.c
+@@ -112,7 +112,7 @@ struct rds_tcp_connection *rds_tcp_accept_one_path(struct rds_connection *conn)
+ 	return NULL;
+ }
+ 
+-static void rds_tcp_set_linger(struct socket *sock)
++void rds_tcp_set_linger(struct socket *sock)
+ {
+ 	struct linger no_linger = {
+ 		.l_onoff = 1,
+-- 
+1.7.1
