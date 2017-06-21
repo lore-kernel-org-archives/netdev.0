@@ -1,40 +1,95 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] netvsc: don't access netdev->num_rx_queues directly
-Date: Wed, 21 Jun 2017 16:19:05 -0700
-Message-ID: <20170621161905.340c2be2@xeon-e3>
-References: <20170621221714.278724-1-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <sthemmin@microsoft.com>, netdev@vger.kernel.org,
-        Haiyang Zhang <haiyangz@microsoft.com>,
-        linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
-        "David S. Miller" <davem@davemloft.net>
-To: Arnd Bergmann <arnd@arndb.de>
+From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
+Subject: [PATCH net-next,2/2] hv_netvsc: Fix the carrier state error when data path is off
+Date: Wed, 21 Jun 2017 16:40:47 -0700
+Message-ID: <1498088447-27282-2-git-send-email-haiyangz@exchange.microsoft.com>
+References: <1498088447-27282-1-git-send-email-haiyangz@exchange.microsoft.com>
+Reply-To: haiyangz@microsoft.com
+Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
+        vkuznets@redhat.com, linux-kernel@vger.kernel.org
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170621221714.278724-1-arnd@arndb.de>
+In-Reply-To: <1498088447-27282-1-git-send-email-haiyangz@exchange.microsoft.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 22 Jun 2017 00:16:37 +0200
-Arnd Bergmann <arnd@arndb.de> wrote:
+From: Haiyang Zhang <haiyangz@microsoft.com>
 
-> This structure member is hidden behind CONFIG_SYSFS, and we
-> get a build error when that is disabled:
-> 
-> drivers/net/hyperv/netvsc_drv.c: In function 'netvsc_set_channels':
-> drivers/net/hyperv/netvsc_drv.c:754:49: error: 'struct net_device' has no member named 'num_rx_queues'; did you mean 'num_tx_queues'?
-> drivers/net/hyperv/netvsc_drv.c: In function 'netvsc_set_rxfh':
-> drivers/net/hyperv/netvsc_drv.c:1181:25: error: 'struct net_device' has no member named 'num_rx_queues'; did you mean 'num_tx_queues'?
-> 
-> As the value is only set once to the argument of alloc_netdev_mq(),
-> we can compare against that constant directly.
-> 
-> Fixes: ff4a44199012 ("netvsc: allow get/set of RSS indirection table")
-> Fixes: 2b01888d1b45 ("netvsc: allow more flexible setting of number of channels")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+When the VF NIC is opened, the synthetic NIC's carrier state is set to
+off. This tells the host to transitions data path to the VF device. But
+if startup script or user manipulates the admin state of the netvsc
+device directly for example:
+        # ifconfig eth0 down
+	# ifconfig eth0 up
+Then the carrier state of the synthetic NIC would be on, even though the
+data path was still over the VF NIC. This patch sets the carrier state
+of synthetic NIC with consideration of the related VF state.
 
-Yes this makes sense. The checks when changing values with ethtool are to avoid
-to large a value > 64.
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h |    2 ++
+ drivers/net/hyperv/netvsc.c     |    2 ++
+ drivers/net/hyperv/netvsc_drv.c |    8 +++++---
+ 3 files changed, 9 insertions(+), 3 deletions(-)
 
-Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index ced947d..d6c2558 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -717,6 +717,8 @@ struct net_device_context {
+ 	u32 vf_alloc;
+ 	/* Serial number of the VF to team with */
+ 	u32 vf_serial;
++
++	bool datapath;	/* 0 - synthetic, 1 - VF nic */
+ };
+ 
+ /* Per channel data */
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 7c5ed8f..0a9167d 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -57,6 +57,8 @@ void netvsc_switch_datapath(struct net_device *ndev, bool vf)
+ 			       sizeof(struct nvsp_message),
+ 			       (unsigned long)init_pkt,
+ 			       VM_PKT_DATA_INBAND, 0);
++
++	net_device_ctx->datapath = vf;
+ }
+ 
+ static struct netvsc_device *alloc_net_device(void)
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 9a6c586..9913721 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -68,7 +68,8 @@ static void netvsc_set_multicast_list(struct net_device *net)
+ 
+ static int netvsc_open(struct net_device *net)
+ {
+-	struct netvsc_device *nvdev = net_device_to_netvsc_device(net);
++	struct net_device_context *ndev_ctx = netdev_priv(net);
++	struct netvsc_device *nvdev = ndev_ctx->nvdev;
+ 	struct rndis_device *rdev;
+ 	int ret = 0;
+ 
+@@ -84,7 +85,7 @@ static int netvsc_open(struct net_device *net)
+ 	netif_tx_wake_all_queues(net);
+ 
+ 	rdev = nvdev->extension;
+-	if (!rdev->link_state)
++	if (!rdev->link_state && !ndev_ctx->datapath)
+ 		netif_carrier_on(net);
+ 
+ 	return ret;
+@@ -1284,7 +1285,8 @@ static void netvsc_link_change(struct work_struct *w)
+ 	case RNDIS_STATUS_MEDIA_CONNECT:
+ 		if (rdev->link_state) {
+ 			rdev->link_state = false;
+-			netif_carrier_on(net);
++			if (!ndev_ctx->datapath)
++				netif_carrier_on(net);
+ 			netif_tx_wake_all_queues(net);
+ 		} else {
+ 			notify = true;
+-- 
+1.7.1
