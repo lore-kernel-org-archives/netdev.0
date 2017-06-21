@@ -1,83 +1,64 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: Re: [PATCH net-next v3 07/15] bpf: Add setsockopt helper function to
- bpf
-Date: Wed, 21 Jun 2017 16:51:08 +0000
-Message-ID: <02369759-BBB8-4B16-835A-D12A58526DFF@fb.com>
-References: <20170620030048.3275347-1-brakmo@fb.com>
- <20170620030048.3275347-8-brakmo@fb.com>
- <CAEfhGiyi4xb6HmfUJmXxgvCUGmW6p37yoqVio=PcUn091hBUsA@mail.gmail.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH] net/sctp/ulpevent.c: Deinline sctp_ulpevent_set_owner,
+ save 1616 bytes
+Date: Wed, 21 Jun 2017 13:57:35 -0300
+Message-ID: <20170621165734.GF18138@localhost.localdomain>
+References: <20170621162809.4305-1-dvlasenk@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>, Kernel Team <Kernel-team@fb.com>,
-        "Blake Matheny" <bmatheny@fb.com>, Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: Craig Gallek <kraigatgoog@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:50228 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752371AbdFUQv1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 12:51:27 -0400
-In-Reply-To: <CAEfhGiyi4xb6HmfUJmXxgvCUGmW6p37yoqVio=PcUn091hBUsA@mail.gmail.com>
-Content-Language: en-US
-Content-ID: <4EB0B5B27CED7C478C7D7BB81BABAD6D@namprd15.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Denys Vlasenko <dvlasenk@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170621162809.4305-1-dvlasenk@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQpPbiA2LzIwLzE3LCAyOjI1IFBNLCAiQ3JhaWcgR2FsbGVrIiA8a3JhaWdhdGdvb2dAZ21haWwu
-Y29tPiB3cm90ZToNCg0KICAgIE9uIE1vbiwgSnVuIDE5LCAyMDE3IGF0IDExOjAwIFBNLCBMYXdy
-ZW5jZSBCcmFrbW8gPGJyYWttb0BmYi5jb20+IHdyb3RlOg0KICAgID4gQWRkZWQgc3VwcG9ydCBm
-b3IgY2FsbGluZyBhIHN1YnNldCBvZiBzb2NrZXQgc2V0c29ja29wdHMgZnJvbQ0KICAgID4gQlBG
-X1BST0dfVFlQRV9TT0NLX09QUyBwcm9ncmFtcy4gVGhlIGNvZGUgd2FzIGR1cGxpY2F0ZWQgcmF0
-aGVyDQogICAgPiB0aGFuIG1ha2luZyB0aGUgY2hhbmdlcyB0byBjYWxsIHRoZSBzb2NrZXQgc2V0
-c29ja29wdCBmdW5jdGlvbiBiZWNhdXNlDQogICAgPiB0aGUgY2hhbmdlcyByZXF1aXJlZCB3b3Vs
-ZCBoYXZlIGJlZW4gbGFyZ2VyLg0KICAgID4NCiAgICA+IEBAIC0yNjcxLDYgKzI2NzIsNjkgQEAg
-c3RhdGljIGNvbnN0IHN0cnVjdCBicGZfZnVuY19wcm90byBicGZfZ2V0X3NvY2tldF91aWRfcHJv
-dG8gPSB7DQogICAgPiAgICAgICAgIC5hcmcxX3R5cGUgICAgICA9IEFSR19QVFJfVE9fQ1RYLA0K
-ICAgID4gIH07DQogICAgPg0KICAgID4gK0JQRl9DQUxMXzUoYnBmX3NldHNvY2tvcHQsIHN0cnVj
-dCBicGZfc29ja19vcHNfa2VybiAqLCBicGZfc29jaywNCiAgICA+ICsgICAgICAgICAgaW50LCBs
-ZXZlbCwgaW50LCBvcHRuYW1lLCBjaGFyICosIG9wdHZhbCwgaW50LCBvcHRsZW4pDQogICAgPiAr
-ew0KICAgID4gKyAgICAgICBzdHJ1Y3Qgc29jayAqc2sgPSBicGZfc29jay0+c2s7DQogICAgPiAr
-ICAgICAgIGludCByZXQgPSAwOw0KICAgID4gKyAgICAgICBpbnQgdmFsOw0KICAgID4gKw0KICAg
-ID4gKyAgICAgICBpZiAoYnBmX3NvY2stPmlzX3JlcV9zb2NrKQ0KICAgID4gKyAgICAgICAgICAg
-ICAgIHJldHVybiAtRUlOVkFMOw0KICAgID4gKw0KICAgID4gKyAgICAgICBpZiAobGV2ZWwgPT0g
-U09MX1NPQ0tFVCkgew0KICAgID4gKyAgICAgICAgICAgICAgIC8qIE9ubHkgc29tZSBzb2NrZXRv
-cHMgYXJlIHN1cHBvcnRlZCAqLw0KICAgID4gKyAgICAgICAgICAgICAgIHZhbCA9ICooKGludCAq
-KW9wdHZhbCk7DQogICAgPiArDQogICAgPiArICAgICAgICAgICAgICAgc3dpdGNoIChvcHRuYW1l
-KSB7DQogICAgPiArICAgICAgICAgICAgICAgY2FzZSBTT19SQ1ZCVUY6DQogICAgPiArICAgICAg
-ICAgICAgICAgICAgICAgICBzay0+c2tfdXNlcmxvY2tzIHw9IFNPQ0tfUkNWQlVGX0xPQ0s7DQog
-ICAgPiArICAgICAgICAgICAgICAgICAgICAgICBzay0+c2tfcmN2YnVmID0gbWF4X3QoaW50LCB2
-YWwgKiAyLCBTT0NLX01JTl9SQ1ZCVUYpOw0KICAgID4gKyAgICAgICAgICAgICAgICAgICAgICAg
-YnJlYWs7DQogICAgPiArICAgICAgICAgICAgICAgY2FzZSBTT19TTkRCVUY6DQogICAgPiArICAg
-ICAgICAgICAgICAgICAgICAgICBzay0+c2tfdXNlcmxvY2tzIHw9IFNPQ0tfU05EQlVGX0xPQ0s7
-DQogICAgPiArICAgICAgICAgICAgICAgICAgICAgICBzay0+c2tfc25kYnVmID0gbWF4X3QoaW50
-LCB2YWwgKiAyLCBTT0NLX01JTl9TTkRCVUYpOw0KICAgID4gKyAgICAgICAgICAgICAgICAgICAg
-ICAgYnJlYWs7DQogICAgPiArICAgICAgICAgICAgICAgY2FzZSBTT19NQVhfUEFDSU5HX1JBVEU6
-DQogICAgPiArICAgICAgICAgICAgICAgICAgICAgICBzay0+c2tfbWF4X3BhY2luZ19yYXRlID0g
-dmFsOw0KICAgID4gKyAgICAgICAgICAgICAgICAgICAgICAgc2stPnNrX3BhY2luZ19yYXRlID0g
-bWluKHNrLT5za19wYWNpbmdfcmF0ZSwNCiAgICA+ICsgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICBzay0+c2tfbWF4X3BhY2luZ19yYXRlKTsNCiAgICA+ICsg
-ICAgICAgICAgICAgICAgICAgICAgIGJyZWFrOw0KICAgID4gKyAgICAgICAgICAgICAgIGNhc2Ug
-U09fUFJJT1JJVFk6DQogICAgPiArICAgICAgICAgICAgICAgICAgICAgICBzay0+c2tfcHJpb3Jp
-dHkgPSB2YWw7DQogICAgPiArICAgICAgICAgICAgICAgICAgICAgICBicmVhazsNCiAgICA+ICsg
-ICAgICAgICAgICAgICBjYXNlIFNPX1JDVkxPV0FUOg0KICAgID4gKyAgICAgICAgICAgICAgICAg
-ICAgICAgaWYgKHZhbCA8IDApDQogICAgPiArICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-IHZhbCA9IElOVF9NQVg7DQogICAgPiArICAgICAgICAgICAgICAgICAgICAgICBzay0+c2tfcmN2
-bG93YXQgPSB2YWwgPyA6IDE7DQogICAgPiArICAgICAgICAgICAgICAgICAgICAgICBicmVhazsN
-CiAgICA+ICsgICAgICAgICAgICAgICBjYXNlIFNPX01BUks6DQogICAgPiArICAgICAgICAgICAg
-ICAgICAgICAgICBzay0+c2tfbWFyayA9IHZhbDsNCiAgICA+ICsgICAgICAgICAgICAgICAgICAg
-ICAgIGJyZWFrOw0KICAgIA0KICAgIElzbid0IHRoZSBzb2NrZXQgbG9jayByZXF1aXJlZCB3aGVu
-IG1hbmlwdWxhdGluZyB0aGVzZSBmaWVsZHM/ICBJdCdzDQogICAgbm90IG9idmlvdXMgdGhhdCB0
-aGUgbG9jayBpcyBoZWxkIGZyb20gZXZlcnkgYnBmIGhvb2sgcG9pbnQgdGhhdCBjb3VsZA0KICAg
-IHRyaWdnZXIgdGhpcyBmdW5jdGlvbi4uLg0KICAgIA0KVGhlIHNvY2tfb3BzIEJQRiBwcm9ncmFt
-cyBhcmUgYmVpbmcgY2FsbGVkIGZyb20gd2l0aGluIHRoZSBuZXR3b3JrDQpzdGFjayBhbmQgbXkg
-dW5kZXJzdGFuZGluZyBpcyB0aGF0ICBsb2NrIGhhcyBhbHJlYWR5IGJlZW4gdGFrZW4uIA0KQ3Vy
-cmVudGx5IHRoZXkgYXJlIG9ubHkgY2FsbGVkOg0KKDEpIGFmdGVyIGEgcGFja2V0IGlzIHJlY2Vp
-dmVkLCB3aGVyZSB0aGVyZSBpcyB0aGUgY2FsbCB0bw0KYmhfbG9ja19zb2NrX25lc3RlZCgpIGlu
-IHRjcF92NF9yY3YoKSBiZWZvcmUgY2FsbGluZw0KdGNwX3Y0X2RvX3JjdigpLg0KKDIpIGluIHRj
-cF9jb25uZWN0KCksIHdoZXJlIHRoZXJlIHNob3VsZCBiZSBubyBpc3N1ZQ0KDQpKdXN0IGluIGNh
-c2UgSSBhZGRlZCBhIGNoZWNrIOKAnHNvY2tfb3duZWRfYnlfbWUoc2sp4oCdIGluIHRjcF9jYWxs
-X2JwZigpDQpEbyB5b3UgdGhpbmsgdGhpcyBpcyBlbm91Z2gsIG9yIHNob3VsZCBJIGV4cGxpY2l0
-bHkgYWRkIGEgYmhfbG9ja19zb2NrX25lc3RlZA0KaW4gdGhlIGJwZl9zZXRzb2Nrb3B0IGZ1bmN0
-aW9uPw0KDQo=
+On Wed, Jun 21, 2017 at 06:28:09PM +0200, Denys Vlasenko wrote:
+> This function compiles to 147 bytes of machine code. 13 callsites.
+> 
+> I'm no expert on SCTP events, but quick reading of SCTP docs tells me that
+> SCTP events are not happening on every packet.
+> They are ASSOC_CHANGE, PEER_ADDR_CHANGE, REMOTE_ERROR and such.
+> Does not look performance critical.
+> 
+> Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
+> CC: Vlad Yasevich <vyasevich@gmail.com>
+> CC: Neil Horman <nhorman@tuxdriver.com>
+> CC: David Miller <davem@davemloft.net>
+> CC: linux-sctp@vger.kernel.org
+> CC: netdev@vger.kernel.org
+> CC: linux-kernel@vger.kernel.org
+> ---
+>  net/sctp/ulpevent.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
+> index ec2b3e0..049aa5a 100644
+> --- a/net/sctp/ulpevent.c
+> +++ b/net/sctp/ulpevent.c
+> @@ -88,7 +88,7 @@ int sctp_ulpevent_is_notification(const struct sctp_ulpevent *event)
+>  /* Hold the association in case the msg_name needs read out of
+>   * the association.
+>   */
+> -static inline void sctp_ulpevent_set_owner(struct sctp_ulpevent *event,
+> +static void sctp_ulpevent_set_owner(struct sctp_ulpevent *event,
+>  					   const struct sctp_association *asoc)
+
+Please fix the alignment here  --------^
+the const should start after the '(' column, as it was before the patch.
+Thanks
+
+>  {
+>  	struct sctp_chunk *chunk = event->chunk;
+> -- 
+> 1.8.3.1
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
