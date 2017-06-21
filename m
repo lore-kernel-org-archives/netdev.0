@@ -1,51 +1,46 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][net-next] qtnfmac: fix uninitialized return code in ret
-Date: Wed, 21 Jun 2017 14:25:30 +0100
-Message-ID: <20170621132530.11937-1-colin.king@canonical.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: linux-next: manual merge of the net-next tree with the pci tree
+Date: Wed, 21 Jun 2017 16:29:29 +0300
+Message-ID: <877f05v58m.fsf@kamboji.qca.qualcomm.com>
+References: <20170621115443.3e10f0bc@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Igor Mitsyanko <imitsyanko@quantenna.com>,
-        Avinash Patil <avinashp@quantenna.com>,
-        Sergey Matyukevich <smatyukevich@quantenna.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        Bindu Therthala <btherthala@quantenna.com>,
-        Kamlesh Rath <krath@quantenna.com>,
-        Sergei Maksimenko <smaksimenko@quantenna.com>,
-        Johannes Berg <johannes.berg@intel.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        Bjorn Helgaas <bhelgaas@google.com>,
+        Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Christoph Hellwig <hch@lst.de>,
+        Brian Norris <briannorris@chromium.org>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170621115443.3e10f0bc@canb.auug.org.au> (Stephen Rothwell's
+        message of "Wed, 21 Jun 2017 11:54:43 +1000")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+Stephen Rothwell <sfr@canb.auug.org.au> writes:
 
-The return value ret is unitialized and garbage is being returned
-for the three different error conditions when setting up the PCIe
-BARs. Fix this by initializing ret to  -ENOMEM to indicate that
-the BARs failed to be setup correctly.
+> Today's linux-next merge of the net-next tree got a conflict in:
+>
+>   drivers/net/wireless/marvell/mwifiex/pcie.c
+>
+> between commit:
+>
+>   c336cc0ee4eb ("PCI: Split ->reset_notify() method into
+> ->reset_prepare() and ->reset_done()")
+>
+> from the pci tree and commit:
+>
+>   68efd0386988 ("mwifiex: pcie: stop setting/clearing 'surprise_removed'")
+>
+> from the net-next tree.
+>
+> I fixed it up (see below) and can carry the fix as necessary.
 
-Detected by CoverityScan, CID#1437563 ("Unitialized scalar variable")
+Thanks, the fix looks good to me. I guess there's nothing I can do at
+the moment and Linus needs to fix this when he pulls from Dave (or
+Bjorn, whichever is the last)?
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c b/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c
-index f93b27f3a236..7fc4f0d6a9ad 100644
---- a/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c
-+++ b/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c
-@@ -247,7 +247,7 @@ static void qtnf_pcie_free_shm_ipc(struct qtnf_pcie_bus_priv *priv)
- 
- static int qtnf_pcie_init_memory(struct qtnf_pcie_bus_priv *priv)
- {
--	int ret;
-+	int ret = -ENOMEM;
- 
- 	priv->sysctl_bar = qtnf_map_bar(priv, QTN_SYSCTL_BAR);
- 	if (IS_ERR_OR_NULL(priv->sysctl_bar)) {
 -- 
-2.11.0
+Kalle Valo
