@@ -1,110 +1,76 @@
-From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: Re: [PATCH] netxen: Fix a sleep-in-atomic bug in
- netxen_nic_pci_mem_access_direct
-Date: Wed, 21 Jun 2017 22:32:26 +0800
-Message-ID: <45634474-780d-4047-cdf0-7b5768179fb2@163.com>
-References: <1497840533-4894-1-git-send-email-baijiaju1990@163.com>
- <20170620.133530.1607963470682255531.davem@davemloft.net>
- <87d19xooo0.fsf@purkki.adurom.net> <594A131F.9040300@163.com>
- <8737atv4pm.fsf@kamboji.qca.qualcomm.com>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH rdma-next 17/19] RDMA/netlink: Add nldev port dumpit
+ implementation
+Date: Wed, 21 Jun 2017 17:42:11 +0300
+Message-ID: <20170621144211.GE1248@mtr-leonro.local>
+References: <20170621060528.3752-1-leon@kernel.org>
+ <20170621060528.3752-18-leon@kernel.org>
+ <023a01d2ea9a$9d1fb610$d75f2230$@opengridcomputing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, manish.chopra@cavium.com,
-        rahul.verma@cavium.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Dan Carpenter <dan.carpenter@oracle.com>
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-13.163.com ([220.181.12.13]:59698 "EHLO m12-13.163.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751806AbdFUOcs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 21 Jun 2017 10:32:48 -0400
-In-Reply-To: <8737atv4pm.fsf@kamboji.qca.qualcomm.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="maH1Gajj2nflutpK"
+Cc: 'Doug Ledford' <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        'Chien Tin Tung' <chien.tin.tung-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        'Stephen Hemminger' <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+        'Jiri Pirko' <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        'Ariel Almog' <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        'Linux Netdev' <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <023a01d2ea9a$9d1fb610$d75f2230$@opengridcomputing.com>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 2017/6/21 21:40, Kalle Valo wrote:
 
-> Jia-Ju Bai <baijiaju1990@163.com> writes:
+--maH1Gajj2nflutpK
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Wed, Jun 21, 2017 at 09:28:12AM -0500, Steve Wise wrote:
+> > From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> >
+> > This patch implements the query interface to get all
+> > ports data for the specific device.
+> >
+> > Signed-off-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 >
->> On 06/21/2017 02:11 PM, Kalle Valo wrote:
->>> David Miller<davem@davemloft.net>  writes:
->>>
->>>> From: Jia-Ju Bai<baijiaju1990@163.com>
->>>> Date: Mon, 19 Jun 2017 10:48:53 +0800
->>>>
->>>>> The driver may sleep under a spin lock, and the function call path is:
->>>>> netxen_nic_pci_mem_access_direct (acquire the lock by spin_lock)
->>>>>     ioremap -->  may sleep
->>>>>
->>>>> To fix it, the lock is released before "ioremap", and the lock is
->>>>> acquired again after this function.
->>>>>
->>>>> Signed-off-by: Jia-Ju Bai<baijiaju1990@163.com>
->>>> This style of change you are making is really starting to be a
->>>> problem.
->>>>
->>>> You can't just drop locks like this, especially without explaining
->>>> why it's ok, and why the mutual exclusion this code was trying to
->>>> achieve is still going to be OK afterwards.
->>>>
->>>> In fact, I see zero analysis of the locking situation here, why
->>>> it was needed in the first place, and why your change is OK in
->>>> that context.
->>>>
->>>> Any locking change is delicate, and you must put the greatest of
->>>> care and consideration into it.
->>>>
->>>> Just putting "unlock/lock" around the sleeping operation shows a
->>>> very low level of consideration for the implications of the change
->>>> you are making.
->>>>
->>>> This isn't like making whitespace fixes, sorry...
->>> We already tried to explain this to Jia-Ju during review of a wireless
->>> patch:
->>>
->>> https://patchwork.kernel.org/patch/9756585/
->>>
->>> Jia-Ju, you should listen to feedback. If you continue submitting random
->>> patches like this makes it hard for maintainers to trust your patches
->>> anymore.
->>>
->> Hi,
->>
->> I am quite sorry for my incorrect patches, and I will listen carefully
->> to your advice. In fact, for some bugs and patches which I have
->> reported before, I have not received the feedback of them, so I resent
->> them a few days ago, including this patch.
-> Yeah, it is likely that some of your reports will not get any response.
-> For that I only suggest being persistent and providing more information
-> about the issue and suggestions how it might be possible to fix it. Also
-> Dan Carpenter (Cced) might have some suggestions.
+> The fill_port/dev_info is just filling in names and indexes.  Shouldn't it have
+> all kinds of goodies about the port/dev?  Will this be enhanced going forward as
+> needed?
+
+Yes, exactly.
+
 >
-> But trying to "fix" it by just silencing the warning without proper
-> analysis is totally the wrong approach, you do more harm than good.
+> Reviewed-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+
+Thank you a lot for your review.
+
 >
-> What tool do you use to find these issues? Is it publically available?
 >
 
-Hi,
+--maH1Gajj2nflutpK
+Content-Type: application/pgp-signature; name="signature.asc"
 
-Thanks a lot for your advice. And I am very glad to see that you may be 
-interested in my work :)
-This static tool is written by myself, instead of using or improving 
-existing tools. A reason why I write it is that I have encountered some 
-sleep-in-atomic bugs in my driver development :( .
-However, due to preliminary implementation, this tool still has some 
-limitations which can produce some false positives or negatives, and it 
-may be not very easy to use. Thus, I am still improving this tool, 
-checking more code and collecting results now. By the way, I apologize 
-again for my incorrect patches of trying to "fix" the detected bugs.
-In fact, I am very glad to make this tool available to effectively and 
-conveniently check more system code. After I finish the improvements and 
-perform more evaluation, I will make it publicly available.
-If you have any suggestion or comment on my work, please feel free to 
-contact me :)
+-----BEGIN PGP SIGNATURE-----
 
-Thanks,
-Jia-Ju Bai
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAllKhcMACgkQ5GN7iDZy
+WKfwug//TJYMvnZkC9hOnW/XZXezXWq7Kdf0uxMdL655lWa/VZQonaUcIhhHxRv6
+aAYU2BLXID4OzS1qqYt5QdnUZdtXD+RytvwVq0fwxt7er1YI0bUiApHIrM2vubdD
+NP9P8kb4GzkASTsyBVX3kPg/5DLtGWhcq//nV2zbfKvI8hJyLh45ov5Ghe52KeLt
+T379QWd+vR5sRKc+WRf1c1Evdv0PKFiDgjPlooES8zbGcxsxopIXolj1WDWsX4jd
+f3KSzyT8Z3tGOfFdUQt/W4uN4iEUxFtSXPPNx6xxCf9aVSQLoNp/GpdpBpt+YrsD
+ljjCxuDWR5qZkFfCxLI7E5m9axEND+ChN7DuO1h863jaQH00gpVe/Wi0D60e0nYk
+eonTr9wEhvC5S4euE8u+ZnmulxFq0tOh9A44Pe/q96cr4yCrgKMS7BFzaYGP6CMd
+AboqHJQ9eUGWQqBWXSNNvWe7gaMGgFPz0LOX8iKZVpS0rhOpXhTYNl510QvEeMJM
+yo+0tc2pJR2wbhO/eez+JGXU9/lPh8qc8Krzo4PGfEKpv/NXLsvWo3nWpcRw+37t
+FE9pqVvMxLY7EhXkw7HH55aGkgXZmomxdAdkqvsYt2gISzHFfFImN0WpeimyPhX6
+1J2VwusqpVLJfERckwhINZ/TVRFIUyXO0LKG/KKsA3FDA6wlICI=
+=vSib
+-----END PGP SIGNATURE-----
+
+--maH1Gajj2nflutpK--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
