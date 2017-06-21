@@ -1,70 +1,84 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH v2] net/sctp/ulpevent.c: Deinline
- sctp_ulpevent_set_owner, save 1616 bytes
-Date: Wed, 21 Jun 2017 16:24:42 -0300
-Message-ID: <20170621192442.GH18138@localhost.localdomain>
-References: <20170621170327.4873-1-dvlasenk@redhat.com>
+From: tndave <tushar.n.dave@oracle.com>
+Subject: Re: clean up and modularize arch dma_mapping interface V2
+Date: Wed, 21 Jun 2017 12:24:28 -0700
+Message-ID: <162d7932-5766-4c29-5471-07d1b699190a@oracle.com>
+References: <20170616181059.19206-1-hch@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Denys Vlasenko <dvlasenk@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170621170327.4873-1-dvlasenk@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org
+To: Christoph Hellwig <hch@lst.de>, x86@kernel.org,
+        linux-arm-kernel@lists.infradead.org,
+        xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org,
+        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
+        linux-mips@linux-mips.org, openrisc@lists.librecores.org,
+        linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
+        linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
+        linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org,
+        linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org,
+        linux-samsung-soc@vger.kernel.org,
+        iommu@lists.linux-foundation.org, netdev@vger.kernel.org
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <20170616181059.19206-1-hch@lst.de>
+Content-Language: en-US
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 21, 2017 at 07:03:27PM +0200, Denys Vlasenko wrote:
-> This function compiles to 147 bytes of machine code. 13 callsites.
-> 
-> I'm no expert on SCTP events, but quick reading of SCTP docs tells me that
-> SCTP events are not happening on every packet.
-> They are ASSOC_CHANGE, PEER_ADDR_CHANGE, REMOTE_ERROR and such.
-> Does not look performance critical.
-> 
-> Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
-> CC: Vlad Yasevich <vyasevich@gmail.com>
-> CC: Neil Horman <nhorman@tuxdriver.com>
-> CC: David Miller <davem@davemloft.net>
-> CC: linux-sctp@vger.kernel.org
-> CC: netdev@vger.kernel.org
-> CC: linux-kernel@vger.kernel.org
 
-Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-Just wondering, are you conducting further research on this topic?
-Because we probably could use such review on SCTP stack.
+On 06/16/2017 11:10 AM, Christoph Hellwig wrote:
+> Hi all,
+> 
+> for a while we have a generic implementation of the dma mapping routines
+> that call into per-arch or per-device operations.  But right now there
+> still are various bits in the interfaces where don't clearly operate
+> on these ops.  This series tries to clean up a lot of those (but not all
+> yet, but the series is big enough).  It gets rid of the DMA_ERROR_CODE
+> way of signaling failures of the mapping routines from the
+> implementations to the generic code (and cleans up various drivers that
+> were incorrectly using it), and gets rid of the ->set_dma_mask routine
+> in favor of relying on the ->dma_capable method that can be used in
+> the same way, but which requires less code duplication.
+Chris,
 
-> ---
-> Changed since v1:
-> * reindented function argument list
+Thanks for doing this.
+So archs can still have their own definition for dma_set_mask() if 
+HAVE_ARCH_DMA_SET_MASK is y?
+(and similarly for dma_set_coherent_mask() when 
+CONFIG_ARCH_HAS_DMA_SET_COHERENT_MASK is y)
+Any plan to change these?
+
+I'm in a process of making some changes to SPARC iommu so it would be 
+good to know. Thanks.
+
+-Tushar
+
 > 
->  net/sctp/ulpevent.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> I've got a good number of reviews last time, but a few are still missing.
+> I'd love to not have to re-spam everyone with this patchbomb, so early
+> ACKs (or complaints) are welcome.
 > 
-> diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
-> index ec2b3e0..bc3f495 100644
-> --- a/net/sctp/ulpevent.c
-> +++ b/net/sctp/ulpevent.c
-> @@ -88,8 +88,8 @@ int sctp_ulpevent_is_notification(const struct sctp_ulpevent *event)
->  /* Hold the association in case the msg_name needs read out of
->   * the association.
->   */
-> -static inline void sctp_ulpevent_set_owner(struct sctp_ulpevent *event,
-> -					   const struct sctp_association *asoc)
-> +static void sctp_ulpevent_set_owner(struct sctp_ulpevent *event,
-> +				    const struct sctp_association *asoc)
->  {
->  	struct sctp_chunk *chunk = event->chunk;
->  	struct sk_buff *skb;
-> -- 
-> 1.8.3.1
+> I plan to create a new dma-mapping tree to collect all this work.
+> Any volunteers for co-maintainers, especially from the iommu gang?
 > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> The whole series is also available in git:
+> 
+>      git://git.infradead.org/users/hch/misc.git dma-map
+> 
+> Gitweb:
+> 
+>      http://git.infradead.org/users/hch/misc.git/shortlog/refs/heads/dma-map
+> 
+> Changes since V1:
+>   - remove two lines of code from arm dmabounce
+>   - a few commit message tweaks
+>   - lots of ACKs
 > 
