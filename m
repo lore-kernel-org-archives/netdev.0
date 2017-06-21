@@ -1,70 +1,65 @@
-From: Colin Ian King <colin.king@canonical.com>
-Subject: Re: [PATCH][net-next] qtnfmac: fix uninitialized return code in ret
-Date: Wed, 21 Jun 2017 14:55:44 +0100
-Message-ID: <36a321a5-5134-9284-ca3d-663723880156@canonical.com>
-References: <20170621132530.11937-1-colin.king@canonical.com>
- <20170621135402.e4iwovvmdumarzqj@bars>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC PATCH net-next 1/3] ethtool: Add link down reason callback
+Date: Wed, 21 Jun 2017 15:58:09 +0200
+Message-ID: <20170621135809.GC27585@lunn.ch>
+References: <1498050286-17141-1-git-send-email-galp@mellanox.com>
+ <1498050286-17141-2-git-send-email-galp@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-To: Igor Mitsyanko <imitsyanko@quantenna.com>,
-        Avinash Patil <avinashp@quantenna.com>,
-        Sergey Matyukevich <smatyukevich@quantenna.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        Bindu Therthala <btherthala@quantenna.com>,
-        Kamlesh Rath <krath@quantenna.com>,
-        Sergei Maksimenko <smaksimenko@quantenna.com>,
-        Johannes Berg <johannes.berg@intel.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        "John W. Linville" <linville@tuxdriver.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        David Decotigny <decot@googlers.com>, kernel-team@fb.com
+To: Gal Pressman <galp@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:45774 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751677AbdFUNzs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 09:55:48 -0400
-In-Reply-To: <20170621135402.e4iwovvmdumarzqj@bars>
+Received: from vps0.lunn.ch ([178.209.37.122]:58656 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751754AbdFUN6N (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 21 Jun 2017 09:58:13 -0400
+Content-Disposition: inline
+In-Reply-To: <1498050286-17141-2-git-send-email-galp@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 21/06/17 14:54, Sergey Matyukevich wrote:
->> The return value ret is unitialized and garbage is being returned
->> for the three different error conditions when setting up the PCIe
->> BARs. Fix this by initializing ret to  -ENOMEM to indicate that
->> the BARs failed to be setup correctly.
->>
->> Detected by CoverityScan, CID#1437563 ("Unitialized scalar variable")
->>
->> Signed-off-by: Colin Ian King <colin.king@canonical.com>
->> ---
->>  drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c b/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c
->> index f93b27f3a236..7fc4f0d6a9ad 100644
->> --- a/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c
->> +++ b/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c
->> @@ -247,7 +247,7 @@ static void qtnf_pcie_free_shm_ipc(struct qtnf_pcie_bus_priv *priv)
->>
->>  static int qtnf_pcie_init_memory(struct qtnf_pcie_bus_priv *priv)
->>  {
->> -       int ret;
->> +       int ret = -ENOMEM;
->>
->>         priv->sysctl_bar = qtnf_map_bar(priv, QTN_SYSCTL_BAR);
->>         if (IS_ERR_OR_NULL(priv->sysctl_bar)) {
->> --
-> 
-> Thanks !
-> 
-> Reviewed-by: Sergey Matyukevich <sergey.matyukevich.os@quantenna.com>
-> 
-> By the way, could you please use the recepient list suggested by
-> get_maintainer.pl script from the kernel scripts directory.
+> +enum {
+> +	ETHTOOL_LINK_VENDOR_SPECIFIC = -1, /* Vendor specific issue provided in vendor_reason */
+> +	ETHTOOL_LINK_NO_ISSUE, /* No issue observed with link */
+> +	ETHTOOL_LINK_REASON_UNKNOWN, /* Unknown reason */
 
-Yep, I did.
+I think OTHER would be better that UNKNOWN. 
 
-> 
-> Regards,
-> Sergey
-> 
+> +	ETHTOOL_LINK_NETDEV_CARRIER_DOWN, /* Netdev carrier is down */
+> +	ETHTOOL_LINK_ADMIN_DOWN, /* Admin down */
+
+These two are interesting. We have that information already. Why do we
+want it again?
+
+> +	ETHTOOL_LINK_AN_FAILED, /* Auto negotiation failed */
+> +	ETHTOOL_LINK_TRAINING_FAILED, /* Link training failed */
+> +	ETHTOOL_LINK_RMT_FAULT, /* Remote fault indication */
+> +	ETHTOOL_LINK_BAD_SIGNAL_INTEGRITY, /* Bad signal integrity */
+> +	ETHTOOL_LINK_CABLE_MISMATCH, /* Cable protocol mismatch */
+> +	ETHTOOL_LINK_INTERNAL_ERR, /* Internal error */
+
+How does an internet error differ from an UNKNOWN?
+
+> +	ETHTOOL_LINK_CABLE_UNPLUGGED, /* Cable unplugged */
+> +	ETHTOOL_LINK_UNSUPP_MODULE, /* Unsupported module */
+> +	ETHTOOL_LINK_I2C_BUS_ERR, /* I2C bus error */
+
+Which I2C bus? What about MDIO BUS errors?
+
+> +	ETHTOOL_LINK_UNSUPP_EEPROM, /* Unsupported EEPROM */
+
+Which EEPROM?
+
+> +	ETHTOOL_LINK_OVERTEMP, /* Over temperature */
+> +	ETHTOOL_LINK_PWR_BUDGET_EXC, /* Power budget exceeded */
+> +	ETHTOOL_LINK_MODULE_ADMIN_DOWN, /* Module admin down */
+
+It seems like these last 6 are all SFP issues? How about putting SFP
+into the name?
+
+     Andrew
