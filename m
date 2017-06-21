@@ -1,36 +1,51 @@
-From: Lukas Braun <koomi@moshbit.net>
-Subject: [PATCH] man: ip-route.8: Mention that lower metric means higher priority
-Date: Wed, 21 Jun 2017 21:59:45 +0200
-Message-ID: <1498075185-19228-1-git-send-email-koomi@moshbit.net>
-Cc: netdev@vger.kernel.org, Lukas Braun <koomi@moshbit.net>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moshbit.net ([62.210.136.156]:49054 "EHLO mail.lukas-braun.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751093AbdFUUI2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 21 Jun 2017 16:08:28 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net/ipv6: GPF in rt6_ifdown
+Date: Wed, 21 Jun 2017 13:08:39 -0700
+Message-ID: <CAM_iQpWeWTqBzjj1iju_Vxr5vgr58wRUn-xuSrLqmsd98HpxcQ@mail.gmail.com>
+References: <CAAeHK+z0TdpY83FiMtHBMChEQgE+0-+8roNFVzM5Uo-duCgpVA@mail.gmail.com>
+ <CAAeHK+wuKeG6HhvuP89DNXYE+Okq7HDdJ+OgYGoK+FN-k=w+fA@mail.gmail.com> <CAAeHK+xGdXtfTxNE0g71-Ffkvj+6qy4At15WisvBbXMQ4EUqNQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Andrey Konovalov <andreyknvl@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAAeHK+xGdXtfTxNE0g71-Ffkvj+6qy4At15WisvBbXMQ4EUqNQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is quite counter-intuitive when using the 'preference' keyword.
+On Wed, Jun 21, 2017 at 10:53 AM, Andrey Konovalov
+<andreyknvl@google.com> wrote:
+> On Wed, Jun 21, 2017 at 3:09 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
+>> On Wed, Jun 21, 2017 at 2:08 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
+>>> Hi,
+>>>
+>>> I've got the following error report while fuzzing the kernel with syzkaller.
+>>>
+>>> On commit 9705596d08ac87c18aee32cc97f2783b7d14624e (4.12-rc6+).
+>>>
+>>> It might be related to:
+>>> https://groups.google.com/forum/#!topic/syzkaller/ZJaqAiFLe3k
+>>>
+>>> I only have a reproducer in the form of a syzkaller program, attached
+>>> together with my .config.
+>>
+>> I now have a C reproducer as well, attached.
+>
+> And here's a much simpler reproducer.
 
-Signed-off-by: Lukas Braun <koomi@moshbit.net>
----
- man/man8/ip-route.8.in | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Thanks a lot for your reproducer!
 
-diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
-index c8eb38a..d74e2a8 100644
---- a/man/man8/ip-route.8.in
-+++ b/man/man8/ip-route.8.in
-@@ -380,7 +380,7 @@ from
- .BI preference " NUMBER"
- the preference value of the route.
- .I NUMBER
--is an arbitrary 32bit number.
-+is an arbitrary 32bit number, where routes with lower values are preferred.
- 
- .TP
- .BI table " TABLEID"
--- 
-2.1.4
+I added a few printk's, and find that we somehow have rt->rt6i_idev set
+to NULL but still keep it in the uncached list. ip6_dst_destroy() unlinks
+it before NULL'ing, so it should not be that case.
