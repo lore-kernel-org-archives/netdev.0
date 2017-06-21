@@ -1,53 +1,59 @@
-From: Shannon Nelson <shannon.nelson@oracle.com>
-Subject: Re: [PATCH net-next 2/2] sunvnet: implement basic ethtool
- get_settings
-Date: Wed, 21 Jun 2017 13:59:45 -0700
-Message-ID: <24dd8cf5-9fba-abb6-031f-b46b017e5e9f@oracle.com>
-References: <1498061394-233018-1-git-send-email-shannon.nelson@oracle.com>
- <1498061394-233018-3-git-send-email-shannon.nelson@oracle.com>
- <20170621.150634.1121246733116528491.davem@davemloft.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net/ipv6: GPF in rt6_ifdown
+Date: Wed, 21 Jun 2017 14:01:03 -0700
+Message-ID: <CAM_iQpWkUMVNb+MyQCMKFeXFo9TW5-TjzhKyugrVy=GBDNKBgg@mail.gmail.com>
+References: <CAAeHK+z0TdpY83FiMtHBMChEQgE+0-+8roNFVzM5Uo-duCgpVA@mail.gmail.com>
+ <CAAeHK+wuKeG6HhvuP89DNXYE+Okq7HDdJ+OgYGoK+FN-k=w+fA@mail.gmail.com>
+ <CAAeHK+xGdXtfTxNE0g71-Ffkvj+6qy4At15WisvBbXMQ4EUqNQ@mail.gmail.com> <CAM_iQpWeWTqBzjj1iju_Vxr5vgr58wRUn-xuSrLqmsd98HpxcQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sparclinux@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <sparclinux-owner@vger.kernel.org>
-In-Reply-To: <20170621.150634.1121246733116528491.davem@davemloft.net>
-Content-Language: en-US
-Sender: sparclinux-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Andrey Konovalov <andreyknvl@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpWeWTqBzjj1iju_Vxr5vgr58wRUn-xuSrLqmsd98HpxcQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 6/21/2017 12:06 PM, David Miller wrote:
-> From: Shannon Nelson <shannon.nelson@oracle.com>
-> Date: Wed, 21 Jun 2017 09:09:54 -0700
-> 
->> Add the get_settings callback so that both the ldmvsw and sunvnet
->> drivers will give a little more information when asked for its
->> basic settings.  These aren't necessarily very useful, but they
->> make some users happier.  Also, a side effect is that the speed
->> attribute in /sys/class/net/<dev> is now readable, which makes
->> a couple of the ldom management tools happier.
+On Wed, Jun 21, 2017 at 1:08 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> On Wed, Jun 21, 2017 at 10:53 AM, Andrey Konovalov
+> <andreyknvl@google.com> wrote:
+>> On Wed, Jun 21, 2017 at 3:09 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
+>>> On Wed, Jun 21, 2017 at 2:08 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
+>>>> Hi,
+>>>>
+>>>> I've got the following error report while fuzzing the kernel with syzkaller.
+>>>>
+>>>> On commit 9705596d08ac87c18aee32cc97f2783b7d14624e (4.12-rc6+).
+>>>>
+>>>> It might be related to:
+>>>> https://groups.google.com/forum/#!topic/syzkaller/ZJaqAiFLe3k
+>>>>
+>>>> I only have a reproducer in the form of a syzkaller program, attached
+>>>> together with my .config.
+>>>
+>>> I now have a C reproducer as well, attached.
 >>
->> Orabug: 26175474
->>
->> Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
-> 
-> I would set the speed to something other than zero, and also
+>> And here's a much simpler reproducer.
+>
+> Thanks a lot for your reproducer!
+>
+> I added a few printk's, and find that we somehow have rt->rt6i_idev set
+> to NULL but still keep it in the uncached list. ip6_dst_destroy() unlinks
+> it before NULL'ing, so it should not be that case.
 
-I kept looking at that and wasn't sure which value to pretend with.  I 
-looked at what was reported in the Solaris world and saw '0' so went 
-with that.  I suppose using SPEED_10000 shouldn't hurt anything, and is 
-close enough to observed client-to-client speeds.
+Heck... The loopback_dev->ip6_ptr is set to NULL because of
+its mtu is set to smaller than IPV6_MIN_MTU, this is why we
+have rt->rt6i_idev NULL after a rt6_uncached_list_flush_dev()...
 
-> consider the ramifications of this change upon things like
-> 'bonding' and 'team'.
-
-The request I was responding to with this was really more targeted at 
-the ldmvsw (host) side of the connection, the vif device, which I 
-believe only ever gets connected to the vsw bridge.  You're right, tho', 
-because the eth0 in the ldom client *does* get sucked into teams.  I may 
-drop the sunvnet/client side of this patch and stick with just the 
-host/ldmvsw side.
-
-Thanks,
-sln
+I am thinking about a right fix.
