@@ -1,8 +1,8 @@
 From: "Steve Wise" <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-Subject: RE: [PATCH rdma-next 07/19] RDMA/core: Add iterator over ib_devices
-Date: Wed, 21 Jun 2017 09:07:35 -0500
-Message-ID: <022201d2ea97$bb622b60$32268220$@opengridcomputing.com>
-References: <20170621060528.3752-1-leon@kernel.org> <20170621060528.3752-8-leon@kernel.org>
+Subject: RE: [PATCH rdma-next 08/19] RDMA/core: Expose translation from device name to ib_device
+Date: Wed, 21 Jun 2017 09:09:27 -0500
+Message-ID: <022401d2ea97$fe0ecdb0$fa2c6910$@opengridcomputing.com>
+References: <20170621060528.3752-1-leon@kernel.org> <20170621060528.3752-9-leon@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
         charset="us-ascii"
@@ -17,26 +17,52 @@ Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 To: "'Leon Romanovsky'" <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
         "'Doug Ledford'" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170621060528.3752-8-leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+In-Reply-To: <20170621060528.3752-9-leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 Content-Language: en-us
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 > From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 > 
-> The coming nldev needs iterate over all IB devices in the system
-> and in order do not expose the ib_devices list outside the devices.c,
-> it is necessary to provide function iterator.
-
-nit: "needs iterate over" -> "needs to iterate over..."
-nit: "order do" -> "order to"
-
-> 
-> Current version is written explicitly for nldev callback to avoid
-> over-engineering at this stage, but it can be easily extended for
-> other types.
+> Provide ability to convert from device name to ib_device for the
+> IB/core users.
 > 
 > Signed-off-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> ---
+>  drivers/infiniband/core/core_priv.h | 1 +
+>  drivers/infiniband/core/device.c    | 3 +--
+>  2 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/infiniband/core/core_priv.h
+> b/drivers/infiniband/core/core_priv.h
+> index 4a150c4be175..049ccbfca988 100644
+> --- a/drivers/infiniband/core/core_priv.h
+> +++ b/drivers/infiniband/core/core_priv.h
+> @@ -184,4 +184,5 @@ int ib_nl_handle_set_timeout(struct sk_buff *skb,
+>  int ib_nl_handle_ip_res_resp(struct sk_buff *skb,
+>  			     struct netlink_callback *cb);
+> 
+> +struct ib_device *__ib_device_get_by_name(const char *name);
+>  #endif /* _CORE_PRIV_H */
+> diff --git a/drivers/infiniband/core/device.c
+b/drivers/infiniband/core/device.c
+> index 7a799fc90348..4ec1b24258de 100644
+> --- a/drivers/infiniband/core/device.c
+> +++ b/drivers/infiniband/core/device.c
+> @@ -124,7 +124,7 @@ static int ib_device_check_mandatory(struct ib_device
+> *device)
+>  	return 0;
+>  }
+> 
+> -static struct ib_device *__ib_device_get_by_name(const char *name)
+> +struct ib_device *__ib_device_get_by_name(const char *name)
+>  {
+>  	struct ib_device *device;
+> 
+>
+
+Nit: Why is this function prefixed with __?   Perhaps now it should just be
+ib_device_get_by_name()?
 
 
 Reviewed-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
