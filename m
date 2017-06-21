@@ -1,83 +1,64 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next] bpf: expose prog id for cls_bpf and act_bpf
-Date: Wed, 21 Jun 2017 20:16:11 +0200
-Message-ID: <66b50f95666de97e7f067471d409fce8d316ad43.1498068442.git.daniel@iogearbox.net>
-Cc: john.fastabend@gmail.com, kafai@fb.com, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net-next] bpf, i40e: Report bpf_prog id during XDP_QUERY_PROG
+Date: Wed, 21 Jun 2017 11:23:34 -0700
+Message-ID: <CAKgT0Ucr2WANKLhXFfo2wearoeeNAMqNATMXkVLwxbDtrwKs9A@mail.gmail.com>
+References: <754b16a0b2d98a1c6a3796aaa6701fae0c4e2612.1498065586.git.daniel@iogearbox.net>
+ <594AB2EF.2040809@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        David Miller <davem@davemloft.net>,
+        Netdev <netdev@vger.kernel.org>, Martin KaFai Lau <kafai@fb.com>,
+        Alexander Duyck <alexander.h.duyck@intel.com>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:58737 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751754AbdFUSQW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 14:16:22 -0400
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:33469 "EHLO
+        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751668AbdFUSXf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 14:23:35 -0400
+Received: by mail-qt0-f194.google.com with SMTP id c20so4427882qte.0
+        for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 11:23:35 -0700 (PDT)
+In-Reply-To: <594AB2EF.2040809@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In order to be able to retrieve the attached programs from cls_bpf
-and act_bpf, we need to expose the prog ids via netlink so that
-an application can later on get an fd based on the id through the
-BPF_PROG_GET_FD_BY_ID command, and dump related prog info via
-BPF_OBJ_GET_INFO_BY_FD command for bpf(2).
+On Wed, Jun 21, 2017 at 10:54 AM, John Fastabend
+<john.fastabend@gmail.com> wrote:
+> On 06/21/2017 10:27 AM, Daniel Borkmann wrote:
+>> Fill the bpf_prog with the id just like we do in other XDP enabled
+>> drivers.
+>>
+>> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+>> Cc: Martin KaFai Lau <kafai@fb.com>
+>> Cc: Alexander Duyck <alexander.h.duyck@intel.com>
+>> ---
+>>  drivers/net/ethernet/intel/i40e/i40e_main.c | 1 +
+>>  1 file changed, 1 insertion(+)
+>>
+>> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+>> index 2db93d3..6f5adb5 100644
+>> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
+>> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+>> @@ -9589,6 +9589,7 @@ static int i40e_xdp(struct net_device *dev,
+>>               return i40e_xdp_setup(vsi, xdp->prog);
+>>       case XDP_QUERY_PROG:
+>>               xdp->prog_attached = i40e_enabled_xdp_vsi(vsi);
+>> +             xdp->prog_id = xdp->prog_attached ? vsi->xdp_prog->aux->id : 0;
+>>               return 0;
+>>       default:
+>>               return -EINVAL;
+>>
+>
+> Looks good to me.
+>
+> Acked-by: John Fastabend <john.fastabend@gmail.com>
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- include/uapi/linux/pkt_cls.h       | 1 +
- include/uapi/linux/tc_act/tc_bpf.h | 1 +
- net/sched/act_bpf.c                | 3 +++
- net/sched/cls_bpf.c                | 3 +++
- 4 files changed, 8 insertions(+)
+My preference would be to test for vsi->xdp_prog instead of
+xdp->prog_attached since it is more obvious what is going on in that
+case. We might even want to look at getting rid of the call to
+i40e_enabled_xdp_vsi eventually. But that is probably follow-up work
+for later.
 
-diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
-index 2055783..d5e2bf6 100644
---- a/include/uapi/linux/pkt_cls.h
-+++ b/include/uapi/linux/pkt_cls.h
-@@ -369,6 +369,7 @@ enum {
- 	TCA_BPF_FLAGS,
- 	TCA_BPF_FLAGS_GEN,
- 	TCA_BPF_TAG,
-+	TCA_BPF_ID,
- 	__TCA_BPF_MAX,
- };
- 
-diff --git a/include/uapi/linux/tc_act/tc_bpf.h b/include/uapi/linux/tc_act/tc_bpf.h
-index 975b50d..8dc2ac0 100644
---- a/include/uapi/linux/tc_act/tc_bpf.h
-+++ b/include/uapi/linux/tc_act/tc_bpf.h
-@@ -28,6 +28,7 @@ enum {
- 	TCA_ACT_BPF_NAME,
- 	TCA_ACT_BPF_PAD,
- 	TCA_ACT_BPF_TAG,
-+	TCA_ACT_BPF_ID,
- 	__TCA_ACT_BPF_MAX,
- };
- #define TCA_ACT_BPF_MAX (__TCA_ACT_BPF_MAX - 1)
-diff --git a/net/sched/act_bpf.c b/net/sched/act_bpf.c
-index d33947d..9afe133 100644
---- a/net/sched/act_bpf.c
-+++ b/net/sched/act_bpf.c
-@@ -123,6 +123,9 @@ static int tcf_bpf_dump_ebpf_info(const struct tcf_bpf *prog,
- 	    nla_put_string(skb, TCA_ACT_BPF_NAME, prog->bpf_name))
- 		return -EMSGSIZE;
- 
-+	if (nla_put_u32(skb, TCA_ACT_BPF_ID, prog->filter->aux->id))
-+		return -EMSGSIZE;
-+
- 	nla = nla_reserve(skb, TCA_ACT_BPF_TAG, sizeof(prog->filter->tag));
- 	if (nla == NULL)
- 		return -EMSGSIZE;
-diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-index be0cfdf..f57bd53 100644
---- a/net/sched/cls_bpf.c
-+++ b/net/sched/cls_bpf.c
-@@ -566,6 +566,9 @@ static int cls_bpf_dump_ebpf_info(const struct cls_bpf_prog *prog,
- 	    nla_put_string(skb, TCA_BPF_NAME, prog->bpf_name))
- 		return -EMSGSIZE;
- 
-+	if (nla_put_u32(skb, TCA_BPF_ID, prog->filter->aux->id))
-+		return -EMSGSIZE;
-+
- 	nla = nla_reserve(skb, TCA_BPF_TAG, sizeof(prog->filter->tag));
- 	if (nla == NULL)
- 		return -EMSGSIZE;
--- 
-1.9.3
+This should work assuming the RTNL lock is always held when this call is made.
+
+Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
