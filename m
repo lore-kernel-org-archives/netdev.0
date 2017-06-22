@@ -1,30 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] net: mvpp2: misc improvements
-Date: Thu, 22 Jun 2017 13:43:18 -0400 (EDT)
-Message-ID: <20170622.134318.539372844883566088.davem@davemloft.net>
-References: <20170622122320.32676-1-thomas.petazzoni@free-electrons.com>
+From: Jan Kiszka <jan.kiszka@siemens.com>
+Subject: Re: [PATCH v5 0/5] stmmac: pci: Refactor DMI probing
+Date: Thu, 22 Jun 2017 19:43:51 +0200
+Message-ID: <5d4f15dc-057c-dbc0-b3cf-27163e4e6347@siemens.com>
+References: <cover.1498112281.git.jan.kiszka@siemens.com>
+ <20170622.134031.1966602928075071150.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nadavh@marvell.com, hannah@marvell.com,
-        yehuday@marvell.com, antoine.tenart@free-electrons.com,
-        miquel.raynal@free-electrons.com, jason@lakedaemon.net,
-        andrew@lunn.ch, sebastian.hesselbarth@gmail.com,
-        gregory.clement@free-electrons.com
-To: thomas.petazzoni@free-electrons.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39150 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752066AbdFVRnU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 13:43:20 -0400
-In-Reply-To: <20170622122320.32676-1-thomas.petazzoni@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        andy.shevchenko@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170622.134031.1966602928075071150.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Date: Thu, 22 Jun 2017 14:23:17 +0200
+On 2017-06-22 19:40, David Miller wrote:
+> From: Jan Kiszka <jan.kiszka@siemens.com>
+> Date: Thu, 22 Jun 2017 08:17:56 +0200
+> 
+>> Some cleanups of the way we probe DMI platforms in the driver. Reduces
+>> a bit of open-coding and makes the logic easier reusable for any
+>> potential DMI platform != Quark.
+>>
+>> Tested on IOT2000 and Galileo Gen2.
+>>
+>> Changes in v5:
+>>  - fixed a remaining issue in patch 5
+>>  - dropped patch 6 for now
+> 
+> Series applied to net-next.
+> 
+> Any chance the DMI table can be marked const as well?
+> 
 
-> Here are a few patches making various small improvements/refactoring
-> in the mvpp2 driver. They are based on today's net-next.
+Hmm, they are all const - or which one do you mean?
 
-Series applied to net-next, thanks.
+Jan
+
+-- 
+Siemens AG, Corporate Technology, CT RDA ITP SES-DE
+Corporate Competence Center Embedded Linux
