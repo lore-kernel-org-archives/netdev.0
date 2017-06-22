@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 0/5] stmmac: pci: Refactor DMI probing
-Date: Thu, 22 Jun 2017 13:40:31 -0400 (EDT)
-Message-ID: <20170622.134031.1966602928075071150.davem@davemloft.net>
-References: <cover.1498112281.git.jan.kiszka@siemens.com>
+Subject: Re: [PATCH net] sfc: Fix MCDI command size for filter operations
+Date: Thu, 22 Jun 2017 13:42:09 -0400 (EDT)
+Message-ID: <20170622.134209.1369507682216811264.davem@davemloft.net>
+References: <89eade1b-405f-07f6-3f0b-ffeeb74ea618@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        andy.shevchenko@gmail.com
-To: jan.kiszka@siemens.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1498112281.git.jan.kiszka@siemens.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
+To: mhabets@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:39140 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751156AbdFVRmK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 13:42:10 -0400
+In-Reply-To: <89eade1b-405f-07f6-3f0b-ffeeb74ea618@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jan Kiszka <jan.kiszka@siemens.com>
-Date: Thu, 22 Jun 2017 08:17:56 +0200
+From: Martin Habets <mhabets@solarflare.com>
+Date: Thu, 22 Jun 2017 10:50:41 +0100
 
-> Some cleanups of the way we probe DMI platforms in the driver. Reduces
-> a bit of open-coding and makes the logic easier reusable for any
-> potential DMI platform != Quark.
+> The 8000 series adapters uses catch-all filters for encapsulated traffic
+> to support filtering VXLAN, NVGRE and GENEVE traffic.
+> This new filter functionality requires a longer MCDI command.
+> This patch increases the size of buffers on stack that were missed, which
+> fixes a kernel panic from the stack protector.
 > 
-> Tested on IOT2000 and Galileo Gen2.
-> 
-> Changes in v5:
->  - fixed a remaining issue in patch 5
->  - dropped patch 6 for now
+> Fixes: 9b41080125176 ("sfc: insert catch-all filters for encapsulated traffic")
+> Signed-off-by: Martin Habets <mhabets@solarflare.com>
+> Acked-by: Edward Cree <ecree@solarflare.com>
+> Acked-by: Bert Kenward bkenward@solarflare.com
 
-Series applied to net-next.
-
-Any chance the DMI table can be marked const as well?
+Applied and queued up for -stable.
