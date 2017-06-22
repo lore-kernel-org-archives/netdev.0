@@ -1,45 +1,48 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net-next] udp/v6: prefetch rmem_alloc in
- udp6_queue_rcv_skb()
-Date: Thu, 22 Jun 2017 19:59:11 +0200
-Message-ID: <1498154351.2503.13.camel@redhat.com>
-References: <9152ab05a2fe6b6230b44b7a23056b367ca19f5e.1498127002.git.pabeni@redhat.com>
-         <20170622.134420.722849803202881288.davem@davemloft.net>
+From: Wei Wang <weiwan@google.com>
+Subject: Re: [PATCH net] udp: ipv6: reset daddr and dport in sk if connect() fails
+Date: Thu, 22 Jun 2017 11:00:42 -0700
+Message-ID: <CAEA6p_DxFKuiW4+tGzFNnB7qhcBiNEAk0LTLqEV=OppHYKaeHw@mail.gmail.com>
+References: <20170621213631.145600-1-tracywwnj@gmail.com> <20170622.132500.2137901400094983652.davem@davemloft.net>
+ <CAEA6p_Ba+b3s-H-kM1SCu5f2T413EF0Z8sOP-tfbDDJm3YotVw@mail.gmail.com> <20170622.135408.293309819386939085.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: =?UTF-8?B?546L6JSa?= <tracywwnj@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        subashab@codeaurora.org,
+        =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51982 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751221AbdFVR7O (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 22 Jun 2017 13:59:14 -0400
-In-Reply-To: <20170622.134420.722849803202881288.davem@davemloft.net>
+Received: from mail-ua0-f182.google.com ([209.85.217.182]:35475 "EHLO
+        mail-ua0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751221AbdFVSAo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 14:00:44 -0400
+Received: by mail-ua0-f182.google.com with SMTP id j53so23295328uaa.2
+        for <netdev@vger.kernel.org>; Thu, 22 Jun 2017 11:00:44 -0700 (PDT)
+In-Reply-To: <20170622.135408.293309819386939085.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-06-22 at 13:44 -0400, David Miller wrote:
-> From: Paolo Abeni <pabeni@redhat.com>
-> Date: Thu, 22 Jun 2017 15:01:22 +0200
-> 
-> > very similar to commit dd99e425be23 ("udp: prefetch
-> > rmem_alloc in udp_queue_rcv_skb()"), this allows saving a cache
-> > miss when the BH is bottle-neck for UDP over ipv6 packet
-> > processing, e.g. for small packets when a single RX NIC ingress
-> > queue is in use.
-> > 
-> > Performances under flood when multiple NIC RX queues used are
-> > unaffected, but when a single NIC rx queue is in use, this
-> > gives ~8% performance improvement.
-> > 
-> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> 
-> Applied but please look into that DNS lookup regression which was
-> reported today.
+On Thu, Jun 22, 2017 at 10:54 AM, David Miller <davem@davemloft.net> wrote:
+> From: Wei Wang <weiwan@google.com>
+> Date: Thu, 22 Jun 2017 10:49:24 -0700
+>
+>> On Thu, Jun 22, 2017 at 10:25 AM, David Miller <davem@davemloft.net> wrote:
+>>> From: Wei Wang <tracywwnj@gmail.com>
+>>> Date: Wed, 21 Jun 2017 14:36:31 -0700
+>>>
+>>>> +             memset(&sk->sk_v6_daddr, 0 sizeof(sk->sk_v6_daddr);
+>>>
+>>> Tell me how that compiles.
+>>
+>> Really sorry about that. I ported over the change manually from
+>> another branch and made the stupid mistake...
+>> Will send out v2 shortly.
+>
+> Misporting the change isn't stupid.
+>
+> Not build and functionally testing your change is.
 
-Sure! I'm on it right now.
-
-Cheers,
-
-Paolo
+Yes. Agree...
+I did the testing on the other branch but did not do it again after
+porting the change over.
+Will definitely remember to do it next time. Really sorry about it...
