@@ -1,55 +1,43 @@
-From: ilant@mellanox.com
-Subject: [PATCH net-next 4/4] esp6: Fix RX checksum after header pull
-Date: Thu, 22 Jun 2017 15:31:59 +0300
-Message-ID: <20170622123159.8348-5-ilant@mellanox.com>
-References: <20170622123159.8348-1-ilant@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, Yossi Kuperman <yossiku@mellanox.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net-next] udp/v6: prefetch rmem_alloc in udp6_queue_rcv_skb()
+Date: Thu, 22 Jun 2017 15:01:22 +0200
+Message-ID: <9152ab05a2fe6b6230b44b7a23056b367ca19f5e.1498127002.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr10041.outbound.protection.outlook.com ([40.107.1.41]:36016
-        "EHLO EUR02-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751118AbdFVMc2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 22 Jun 2017 08:32:28 -0400
-In-Reply-To: <20170622123159.8348-1-ilant@mellanox.com>
+Received: from mx1.redhat.com ([209.132.183.28]:55992 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751149AbdFVNEE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 22 Jun 2017 09:04:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yossi Kuperman <yossiku@mellanox.com>
+very similar to commit dd99e425be23 ("udp: prefetch
+rmem_alloc in udp_queue_rcv_skb()"), this allows saving a cache
+miss when the BH is bottle-neck for UDP over ipv6 packet
+processing, e.g. for small packets when a single RX NIC ingress
+queue is in use.
 
-Both ip6_input_finish (non-GRO) and esp6_gro_receive (GRO) strip
-the IPv6 header without adjusting skb->csum accordingly. As a
-result CHECKSUM_COMPLETE breaks and "hw csum failure" is written
-to the kernel log by netdev_rx_csum_fault (dev.c).
+Performances under flood when multiple NIC RX queues used are
+unaffected, but when a single NIC rx queue is in use, this
+gives ~8% performance improvement.
 
-Fix skb->csum by substracting the checksum value of the pulled IPv6
-header using a call to skb_postpull_rcsum.
-
-This affects both transport and tunnel modes.
-
-Note that the fix occurs far from the place that the header was
-pulled. This is based on existing code, see:
-ipv6_srh_rcv() in exthdrs.c and rawv6_rcv() in raw.c
-
-Signed-off-by: Yossi Kuperman <yossiku@mellanox.com>
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 ---
- net/ipv6/esp6.c | 2 ++
- 1 file changed, 2 insertions(+)
+ net/ipv6/udp.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index f872bb16cc9d..3fed3947acf9 100644
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -500,6 +500,8 @@ int esp6_input_done2(struct sk_buff *skb, int err)
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 2b33847..d1d7288 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -630,6 +630,7 @@ static int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 		}
+ 	}
  
- 	trimlen = alen + padlen + 2;
- 	if (skb->ip_summed == CHECKSUM_COMPLETE) {
-+		skb_postpull_rcsum(skb, skb_network_header(skb),
-+				   skb_network_header_len(skb));
- 		csumdiff = skb_checksum(skb, skb->len - trimlen, trimlen, 0);
- 		skb->csum = csum_block_sub(skb->csum, csumdiff,
- 					   skb->len - trimlen);
++	prefetch(&sk->sk_rmem_alloc);
+ 	if (rcu_access_pointer(sk->sk_filter) &&
+ 	    udp_lib_checksum_complete(skb))
+ 		goto csum_error;
 -- 
-2.11.0
+2.9.4
