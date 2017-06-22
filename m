@@ -1,7 +1,7 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH v3 03/11] rocker: mark rocker_tlv_put_* functions as noinline_if_stackbloat
-Date: Thu, 22 Jun 2017 19:13:47 +0200
-Message-ID: <20170622171355.267192-4-arnd@arndb.de>
+Subject: [PATCH v3 01/11] compiler: introduce noinline_if_stackbloat annotation
+Date: Thu, 22 Jun 2017 19:13:45 +0200
+Message-ID: <20170622171355.267192-2-arnd@arndb.de>
 References: <20170622171355.267192-1-arnd@arndb.de>
 Cc: kasan-dev@googlegroups.com, Dmitry Vyukov <dvyukov@google.com>,
         Alexander Potapenko <glider@google.com>,
@@ -24,74 +24,43 @@ In-Reply-To: <20170622171355.267192-1-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Inlining these functions creates lots of stack variables when KASAN is
-enabled, leading to this warning about potential stack overflow:
+When CONFIG_KASAN is set, we can run into some code that uses incredible
+amounts of kernel stack:
 
-drivers/net/ethernet/rocker/rocker_ofdpa.c: In function 'ofdpa_cmd_flow_tbl_add':
-drivers/net/ethernet/rocker/rocker_ofdpa.c:621:1: error: the frame size of 2752 bytes is larger than 1536 bytes [-Werror=frame-larger-than=]
+drivers/staging/dgnc/dgnc_neo.c:1056:1: error: the frame size of 11112 bytes is larger than 2048 bytes [-Werror=frame-larger-than=]
+drivers/media/i2c/cx25840/cx25840-core.c:4960:1: error: the frame size of 94000 bytes is larger than 2048 bytes [-Werror=frame-larger-than=]
+drivers/media/dvb-frontends/stv090x.c:3430:1: error: the frame size of 5312 bytes is larger than 3072 bytes [-Werror=frame-larger-than=]
 
-This marks all of them noinline_if_stackbloat, which solves the problem by
-keeping the redzone inside of the separate stack frames.
+This happens when a sanitizer uses stack memory each time an inline function
+gets called. This introduces a new annotation for those functions to make
+them either 'inline' or 'noinline' dependning on the CONFIG_KASAN symbol.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/ethernet/rocker/rocker_tlv.h | 24 ++++++++++++------------
- 1 file changed, 12 insertions(+), 12 deletions(-)
+ include/linux/compiler.h | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-diff --git a/drivers/net/ethernet/rocker/rocker_tlv.h b/drivers/net/ethernet/rocker/rocker_tlv.h
-index a63ef82e7c72..8970a414eb5b 100644
---- a/drivers/net/ethernet/rocker/rocker_tlv.h
-+++ b/drivers/net/ethernet/rocker/rocker_tlv.h
-@@ -139,38 +139,38 @@ rocker_tlv_start(struct rocker_desc_info *desc_info)
- int rocker_tlv_put(struct rocker_desc_info *desc_info,
- 		   int attrtype, int attrlen, const void *data);
+diff --git a/include/linux/compiler.h b/include/linux/compiler.h
+index 219f82f3ec1a..a402c43c07d2 100644
+--- a/include/linux/compiler.h
++++ b/include/linux/compiler.h
+@@ -412,6 +412,17 @@ static __always_inline void __write_once_size(volatile void *p, void *res, int s
+  */
+ #define noinline_for_stack noinline
  
--static inline int rocker_tlv_put_u8(struct rocker_desc_info *desc_info,
--				    int attrtype, u8 value)
-+static noinline_if_stackbloat int
-+rocker_tlv_put_u8(struct rocker_desc_info *desc_info, int attrtype, u8 value)
- {
- 	return rocker_tlv_put(desc_info, attrtype, sizeof(u8), &value);
- }
- 
--static inline int rocker_tlv_put_u16(struct rocker_desc_info *desc_info,
--				     int attrtype, u16 value)
-+static noinline_if_stackbloat int
-+rocker_tlv_put_u16(struct rocker_desc_info *desc_info, int attrtype, u16 value)
- {
- 	return rocker_tlv_put(desc_info, attrtype, sizeof(u16), &value);
- }
- 
--static inline int rocker_tlv_put_be16(struct rocker_desc_info *desc_info,
--				      int attrtype, __be16 value)
-+static noinline_if_stackbloat int
-+rocker_tlv_put_be16(struct rocker_desc_info *desc_info, int attrtype, __be16 value)
- {
- 	return rocker_tlv_put(desc_info, attrtype, sizeof(__be16), &value);
- }
- 
--static inline int rocker_tlv_put_u32(struct rocker_desc_info *desc_info,
--				     int attrtype, u32 value)
-+static noinline_if_stackbloat int
-+rocker_tlv_put_u32(struct rocker_desc_info *desc_info, int attrtype, u32 value)
- {
- 	return rocker_tlv_put(desc_info, attrtype, sizeof(u32), &value);
- }
- 
--static inline int rocker_tlv_put_be32(struct rocker_desc_info *desc_info,
--				      int attrtype, __be32 value)
-+static noinline_if_stackbloat int
-+rocker_tlv_put_be32(struct rocker_desc_info *desc_info, int attrtype, __be32 value)
- {
- 	return rocker_tlv_put(desc_info, attrtype, sizeof(__be32), &value);
- }
- 
--static inline int rocker_tlv_put_u64(struct rocker_desc_info *desc_info,
--				     int attrtype, u64 value)
-+static noinline_if_stackbloat int
-+rocker_tlv_put_u64(struct rocker_desc_info *desc_info, int attrtype, u64 value)
- {
- 	return rocker_tlv_put(desc_info, attrtype, sizeof(u64), &value);
- }
++/*
++ * CONFIG_KASAN can lead to extreme stack usage with certain patterns when
++ * one function gets inlined many times and each instance requires a stack
++ * ckeck.
++ */
++#ifdef CONFIG_KASAN
++#define noinline_if_stackbloat noinline __maybe_unused
++#else
++#define noinline_if_stackbloat inline
++#endif
++
+ #ifndef __always_inline
+ #define __always_inline inline
+ #endif
 -- 
 2.9.0
