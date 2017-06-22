@@ -1,81 +1,89 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH net-next 3/3] net: mvpp2: remove mvpp2_pool_refill()
-Date: Thu, 22 Jun 2017 14:23:20 +0200
-Message-ID: <20170622122320.32676-4-thomas.petazzoni@free-electrons.com>
-References: <20170622122320.32676-1-thomas.petazzoni@free-electrons.com>
-Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
-        Yehuda Yitschak <yehuday@marvell.com>,
-        Antoine Tenart <antoine.tenart@free-electrons.com>,
-        =?UTF-8?q?Miqu=C3=A8l=20Raynal?= <miquel.raynal@free-electrons.com>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: ilant@mellanox.com
+Subject: [PATCH net-next 1/4] esp4: Support RX checksum with crypto offload
+Date: Thu, 22 Jun 2017 15:31:56 +0300
+Message-ID: <20170622123159.8348-2-ilant@mellanox.com>
+References: <20170622123159.8348-1-ilant@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, Ilan Tayari <ilant@mellanox.com>,
+        Ariel Levkovich <lariel@mellanox.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:38169 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751858AbdFVMXj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 08:23:39 -0400
-In-Reply-To: <20170622122320.32676-1-thomas.petazzoni@free-electrons.com>
+Received: from mail-eopbgr10041.outbound.protection.outlook.com ([40.107.1.41]:36016
+        "EHLO EUR02-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751835AbdFVMcU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 22 Jun 2017 08:32:20 -0400
+In-Reply-To: <20170622123159.8348-1-ilant@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When all a function does is calling another function with the exact same
-arguments, in the exact same order, you know it's time to remove said
-function. Which is exactly what this commit does.
+From: Ilan Tayari <ilant@mellanox.com>
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Keep the device's reported ip_summed indication in case crypto
+was offloaded by the device. Subtract the csum values of the
+stripped parts (esp header+iv, esp trailer+auth_data) to keep
+value correct.
+
+Note: CHECKSUM_COMPLETE should be indicated only if skb->csum
+has the post-decryption offload csum value.
+
+Signed-off-by: Ariel Levkovich <lariel@mellanox.com>
+Signed-off-by: Ilan Tayari <ilant@mellanox.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 14 +++-----------
- 1 file changed, 3 insertions(+), 11 deletions(-)
+ net/ipv4/esp4.c         | 13 +++++++++++--
+ net/ipv4/esp4_offload.c |  4 +++-
+ 2 files changed, 14 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index aad763c..48d21c1 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -3953,14 +3953,6 @@ static inline void mvpp2_bm_pool_put(struct mvpp2_port *port, int pool,
- 	put_cpu();
- }
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index 1f18b4650253..2eab0992b127 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -510,7 +510,8 @@ int esp_input_done2(struct sk_buff *skb, int err)
+ 	int elen = skb->len - hlen;
+ 	int ihl;
+ 	u8 nexthdr[2];
+-	int padlen;
++	int padlen, trimlen;
++	__wsum csumdiff;
  
--/* Refill BM pool */
--static void mvpp2_pool_refill(struct mvpp2_port *port, int pool,
--			      dma_addr_t dma_addr,
--			      phys_addr_t phys_addr)
--{
--	mvpp2_bm_pool_put(port, pool, dma_addr, phys_addr);
--}
--
- /* Allocate buffers for the pool */
- static int mvpp2_bm_bufs_add(struct mvpp2_port *port,
- 			     struct mvpp2_bm_pool *bm_pool, int buf_num)
-@@ -5015,7 +5007,7 @@ static void mvpp2_rxq_drop_pkts(struct mvpp2_port *port,
- 		pool = (status & MVPP2_RXD_BM_POOL_ID_MASK) >>
- 			MVPP2_RXD_BM_POOL_ID_OFFS;
- 
--		mvpp2_pool_refill(port, pool,
-+		mvpp2_bm_pool_put(port, pool,
- 				  mvpp2_rxdesc_dma_addr_get(port, rx_desc),
- 				  mvpp2_rxdesc_cookie_get(port, rx_desc));
+ 	if (!xo || (xo && !(xo->flags & CRYPTO_DONE)))
+ 		kfree(ESP_SKB_CB(skb)->tmp);
+@@ -568,7 +569,15 @@ int esp_input_done2(struct sk_buff *skb, int err)
+ 			skb->ip_summed = CHECKSUM_UNNECESSARY;
  	}
-@@ -5469,7 +5461,7 @@ static int mvpp2_rx_refill(struct mvpp2_port *port,
- 	if (!buf)
- 		return -ENOMEM;
  
--	mvpp2_pool_refill(port, pool, dma_addr, phys_addr);
-+	mvpp2_bm_pool_put(port, pool, dma_addr, phys_addr);
+-	pskb_trim(skb, skb->len - alen - padlen - 2);
++	trimlen = alen + padlen + 2;
++	if (skb->ip_summed == CHECKSUM_COMPLETE) {
++		csumdiff = skb_checksum(skb, skb->len - trimlen, trimlen, 0);
++		skb->csum = csum_block_sub(skb->csum, csumdiff,
++					   skb->len - trimlen);
++		skb_postpull_rcsum(skb, skb->data, hlen);
++	}
++
++	pskb_trim(skb, skb->len - trimlen);
+ 	__skb_pull(skb, hlen);
+ 	if (x->props.mode == XFRM_MODE_TUNNEL)
+ 		skb_reset_transport_header(skb);
+diff --git a/net/ipv4/esp4_offload.c b/net/ipv4/esp4_offload.c
+index e0666016a764..05831dea00f4 100644
+--- a/net/ipv4/esp4_offload.c
++++ b/net/ipv4/esp4_offload.c
+@@ -182,11 +182,13 @@ static struct sk_buff *esp4_gso_segment(struct sk_buff *skb,
+ static int esp_input_tail(struct xfrm_state *x, struct sk_buff *skb)
+ {
+ 	struct crypto_aead *aead = x->data;
++	struct xfrm_offload *xo = xfrm_offload(skb);
  
- 	return 0;
+ 	if (!pskb_may_pull(skb, sizeof(struct ip_esp_hdr) + crypto_aead_ivsize(aead)))
+ 		return -EINVAL;
+ 
+-	skb->ip_summed = CHECKSUM_NONE;
++	if (!(xo->flags & CRYPTO_DONE))
++		skb->ip_summed = CHECKSUM_NONE;
+ 
+ 	return esp_input_done2(skb, 0);
  }
-@@ -5553,7 +5545,7 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
- 			dev->stats.rx_errors++;
- 			mvpp2_rx_error(port, rx_desc);
- 			/* Return the buffer to the pool */
--			mvpp2_pool_refill(port, pool, dma_addr, phys_addr);
-+			mvpp2_bm_pool_put(port, pool, dma_addr, phys_addr);
- 			continue;
- 		}
- 
 -- 
-2.9.4
+2.11.0
