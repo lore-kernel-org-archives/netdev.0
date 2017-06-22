@@ -1,122 +1,51 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH rdma-next V1 17/19] RDMA/netlink: Add nldev port dumpit implementation
-Date: Thu, 22 Jun 2017 16:24:32 +0300
-Message-ID: <20170622132434.1327-18-leon@kernel.org>
-References: <20170622132434.1327-1-leon@kernel.org>
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Chien Tin Tung <chien.tin.tung-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
-        Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-        Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
-        Jiri Pirko <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Ariel Almog <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Linux Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170622132434.1327-1-leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC PATCH net-next 1/3] ethtool: Add link down reason callback
+Date: Thu, 22 Jun 2017 15:34:04 +0200
+Message-ID: <20170622133404.GB20038@lunn.ch>
+References: <1498050286-17141-1-git-send-email-galp@mellanox.com>
+ <1498050286-17141-2-git-send-email-galp@mellanox.com>
+ <20170621135809.GC27585@lunn.ch>
+ <8e7ffead-350e-bd7f-c7ea-fe057969d0d3@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        "John W. Linville" <linville@tuxdriver.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        David Decotigny <decot@googlers.com>, kernel-team@fb.com
+To: Gal Pressman <galp@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:59990 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752918AbdFVNeJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 22 Jun 2017 09:34:09 -0400
+Content-Disposition: inline
+In-Reply-To: <8e7ffead-350e-bd7f-c7ea-fe057969d0d3@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> The I2C bus that's connected to this module (interface).
+> We can add another reason for MDIO BUS errors or merge to one BUS error reason.
+> >> +	ETHTOOL_LINK_UNSUPP_EEPROM, /* Unsupported EEPROM */
+> > Which EEPROM?
+> 
+> Module EEPROM.
 
-This patch implements the query interface to get all
-ports data for the specific device.
+Which module? This is all very vague. Some of the Marvell 10G PHYs
+have an EEPROM to boot from, for example. Would that count? Or are you
+talking about the SFP 'EEPROM', which is not actually an EEPROM, in
+that it is not Electrically Erasable, not is it a ROM, since things
+like temperature changes with time.
 
-Signed-off-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Reviewed-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
----
- drivers/infiniband/core/nldev.c | 61 +++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 61 insertions(+)
+> >> +	ETHTOOL_LINK_OVERTEMP, /* Over temperature */
+> >> +	ETHTOOL_LINK_PWR_BUDGET_EXC, /* Power budget exceeded */
+> >> +	ETHTOOL_LINK_MODULE_ADMIN_DOWN, /* Module admin down */
+> > It seems like these last 6 are all SFP issues? How about putting SFP
+> > into the name?
+> 
+> Might be a QSFP issue for example, we can put module in the name though.
 
-diff --git a/drivers/infiniband/core/nldev.c b/drivers/infiniband/core/nldev.c
-index 666940f2b49a..4413eda8c435 100644
---- a/drivers/infiniband/core/nldev.c
-+++ b/drivers/infiniband/core/nldev.c
-@@ -53,6 +53,18 @@ static int fill_dev_info(struct sk_buff *msg, struct ib_device *device)
- 	return 0;
- }
- 
-+static int fill_port_info(struct sk_buff *msg,
-+			  struct ib_device *device, u32 port)
-+{
-+	if (nla_put_u32(msg, RDMA_NLDEV_ATTR_DEV_INDEX, device->index))
-+		return -EMSGSIZE;
-+	if (nla_put_string(msg, RDMA_NLDEV_ATTR_DEV_NAME, device->name))
-+		return -EMSGSIZE;
-+	if (nla_put_u32(msg, RDMA_NLDEV_ATTR_PORT_INDEX, port))
-+		return -EMSGSIZE;
-+	return 0;
-+}
-+
- static int nldev_get_doit(struct sk_buff *skb, struct nlmsghdr *nlh,
- 			  struct netlink_ext_ack *extack)
- {
-@@ -129,11 +141,60 @@ static int nldev_get_dumpit(struct sk_buff *skb, struct netlink_callback *cb)
- 	return ib_enum_all_devs(_nldev_get_dumpit, skb, cb);
- }
- 
-+static int nldev_port_get_dumpit(struct sk_buff *skb,
-+				 struct netlink_callback *cb)
-+{
-+	struct nlattr *tb[RDMA_NLDEV_ATTR_MAX];
-+	struct ib_device *device;
-+	int start = cb->args[0];
-+	struct nlmsghdr *nlh;
-+	u32 idx = 0;
-+	u32 ifindex;
-+	int err;
-+	u32 p;
-+
-+	err = nlmsg_parse(cb->nlh, 0, tb, RDMA_NLDEV_ATTR_MAX - 1,
-+			  nldev_policy, NULL);
-+	if (err || !tb[RDMA_NLDEV_ATTR_DEV_INDEX])
-+		return -EINVAL;
-+
-+	ifindex = nla_get_u32(tb[RDMA_NLDEV_ATTR_DEV_INDEX]);
-+	device = __ib_device_get_by_index(ifindex);
-+	if (!device)
-+		return -EINVAL;
-+
-+	for (p = rdma_start_port(device); p <= rdma_end_port(device); ++p) {
-+		if (idx < start) {
-+			idx++;
-+			continue;
-+		}
-+
-+		nlh = nlmsg_put(skb, NETLINK_CB(cb->skb).portid,
-+				cb->nlh->nlmsg_seq,
-+				RDMA_NL_GET_TYPE(RDMA_NL_NLDEV,
-+						 RDMA_NLDEV_CMD_PORT_GET),
-+				0, NLM_F_MULTI);
-+
-+		if (fill_port_info(skb, device, p)) {
-+			nlmsg_cancel(skb, nlh);
-+			goto out;
-+		}
-+		idx++;
-+		nlmsg_end(skb, nlh);
-+	}
-+
-+out:	cb->args[0] = idx;
-+	return skb->len;
-+}
-+
- static const struct rdma_nl_cbs nldev_cb_table[] = {
- 	[RDMA_NLDEV_CMD_GET] = {
- 		.doit = nldev_get_doit,
- 		.dump = nldev_get_dumpit,
- 	},
-+	[RDMA_NLDEV_CMD_PORT_GET] = {
-+		.dump = nldev_port_get_dumpit,
-+	},
- };
- 
- void __init nldev_init(void)
--- 
-2.13.1
+What is the generic name of SFP, SFP+ QSFP, SFF?
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+     Andrew
