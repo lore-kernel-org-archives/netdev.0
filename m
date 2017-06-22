@@ -1,29 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net/mlx5e: Use device ID defines
-Date: Thu, 22 Jun 2017 11:04:35 -0400 (EDT)
-Message-ID: <20170622.110435.1749883933517811245.davem@davemloft.net>
-References: <20170620172126.784.3849.stgit@amt.stowe>
+Subject: Re: [PATCH v2] net/phy: micrel: configure intterupts after autoneg
+ workaround
+Date: Thu, 22 Jun 2017 11:07:14 -0400 (EDT)
+Message-ID: <20170622.110714.778230283978724620.davem@davemloft.net>
+References: <1497980891-10495-1-git-send-email-zach.brown@ni.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, noaos@mellanox.com, saeedm@mellanox.com,
-        linux-kernel@vger.kernel.org, tariqt@mellanox.com
-To: myron.stowe@redhat.com
+Cc: f.fainelli@gmail.com, andrew@lunn.ch, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: zach.brown@ni.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170620172126.784.3849.stgit@amt.stowe>
+In-Reply-To: <1497980891-10495-1-git-send-email-zach.brown@ni.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Myron Stowe <myron.stowe@redhat.com>
-Date: Tue, 20 Jun 2017 11:21:26 -0600
+From: Zach Brown <zach.brown@ni.com>
+Date: Tue, 20 Jun 2017 12:48:11 -0500
 
-> Use Mellanox device ID definitions in the driver's mlx5 ID table so tools
-> such as 'grep' and 'cscope' can be used to help find correlated material
-> (such as INTx Masking quirks: d76d2fe05fd PCI: Convert Mellanox broken
-> INTx quirks to be for listed devices only).
+> The commit ("net/phy: micrel: Add workaround for bad autoneg") fixes an
+> autoneg failure case by resetting the hardware. This turns off
+> intterupts. Things will work themselves out if the phy polls, as it will
+> figure out it's state during a poll. However if the phy uses only
+> intterupts, the phy will stall, since interrupts are off. This patch
+> fixes the issue by calling config_intr after resetting the phy.
 > 
-> No functional change intended.
-> 
-> Signed-off-by: Myron Stowe <myron.stowe@redhat.com>
+> Fixes: d2fd719bcb0e ("net/phy: micrel: Add workaround for bad autoneg ")
+> Signed-off-by: Zach Brown <zach.brown@ni.com>
 
-Applied to net-next, thanks.
+Applied and queued up for -stable.
