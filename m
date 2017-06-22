@@ -1,232 +1,38 @@
 From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Subject: [PATCH 1/8] arcnet: change irq handler to lock irqsave
-Date: Thu, 22 Jun 2017 17:31:03 +0200
-Message-ID: <20170622153110.4079-2-m.grzeschik@pengutronix.de>
+Subject: [PATCH 4/8] arcnet: com20020-pci: add missing pdev setup in netdev structure
+Date: Thu, 22 Jun 2017 17:31:06 +0200
+Message-ID: <20170622153110.4079-5-m.grzeschik@pengutronix.de>
 References: <20170622153110.4079-1-m.grzeschik@pengutronix.de>
 Cc: netdev@vger.kernel.org, kernel@pengutronix.de
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:51003 "EHLO
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:50387 "EHLO
         metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751224AbdFVPbT (ORCPT
+        by vger.kernel.org with ESMTP id S1752366AbdFVPbT (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 11:31:19 -0400
 In-Reply-To: <20170622153110.4079-1-m.grzeschik@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch prevents the arcnet driver from the following deadlock.
-
-[   41.273910] ======================================================
-[   41.280397] [ INFO: SOFTIRQ-safe -> SOFTIRQ-unsafe lock order detected ]
-[   41.287433] 4.4.0-00034-gc0ae784 #536 Not tainted
-[   41.292366] ------------------------------------------------------
-[   41.298863] arcecho/233 [HC0[0]:SC0[2]:HE0:SE0] is trying to acquire:
-[   41.305628]  (&(&lp->lock)->rlock){+.+...}, at: [<bf083bc8>] arcnet_send_packet+0x60/0x1c0 [arcnet]
-[   41.315199]
-[   41.315199] and this task is already holding:
-[   41.321324]  (_xmit_ARCNET#2){+.-...}, at: [<c06b934c>] packet_direct_xmit+0xfc/0x1c8
-[   41.329593] which would create a new lock dependency:
-[   41.334893]  (_xmit_ARCNET#2){+.-...} -> (&(&lp->lock)->rlock){+.+...}
-[   41.341801]
-[   41.341801] but this new dependency connects a SOFTIRQ-irq-safe lock:
-[   41.350108]  (_xmit_ARCNET#2){+.-...}
-... which became SOFTIRQ-irq-safe at:
-[   41.357539]   [<c06f8fc8>] _raw_spin_lock+0x30/0x40
-[   41.362677]   [<c063ab8c>] dev_watchdog+0x5c/0x264
-[   41.367723]   [<c0094edc>] call_timer_fn+0x6c/0xf4
-[   41.372759]   [<c00950b8>] run_timer_softirq+0x154/0x210
-[   41.378340]   [<c0036b30>] __do_softirq+0x144/0x298
-[   41.383469]   [<c0036fb4>] irq_exit+0xcc/0x130
-[   41.388138]   [<c0085c50>] __handle_domain_irq+0x60/0xb4
-[   41.393728]   [<c0014578>] __irq_svc+0x58/0x78
-[   41.398402]   [<c0010274>] arch_cpu_idle+0x24/0x3c
-[   41.403443]   [<c007127c>] cpu_startup_entry+0x1f8/0x25c
-[   41.409029]   [<c09adc90>] start_kernel+0x3c0/0x3cc
-[   41.414170]
-[   41.414170] to a SOFTIRQ-irq-unsafe lock:
-[   41.419931]  (&(&lp->lock)->rlock){+.+...}
-... which became SOFTIRQ-irq-unsafe at:
-[   41.427996] ...  [<c06f8fc8>] _raw_spin_lock+0x30/0x40
-[   41.433409]   [<bf083d54>] arcnet_interrupt+0x2c/0x800 [arcnet]
-[   41.439646]   [<c0089120>] handle_nested_irq+0x8c/0xec
-[   41.445063]   [<c03c1170>] regmap_irq_thread+0x190/0x314
-[   41.450661]   [<c0087244>] irq_thread_fn+0x1c/0x34
-[   41.455700]   [<c0087548>] irq_thread+0x13c/0x1dc
-[   41.460649]   [<c0050f10>] kthread+0xe4/0xf8
-[   41.465158]   [<c000f810>] ret_from_fork+0x14/0x24
-[   41.470207]
-[   41.470207] other info that might help us debug this:
-[   41.470207]
-[   41.478627]  Possible interrupt unsafe locking scenario:
-[   41.478627]
-[   41.485763]        CPU0                    CPU1
-[   41.490521]        ----                    ----
-[   41.495279]   lock(&(&lp->lock)->rlock);
-[   41.499414]                                local_irq_disable();
-[   41.505636]                                lock(_xmit_ARCNET#2);
-[   41.511967]                                lock(&(&lp->lock)->rlock);
-[   41.518741]   <Interrupt>
-[   41.521490]     lock(_xmit_ARCNET#2);
-[   41.525356]
-[   41.525356]  *** DEADLOCK ***
-[   41.525356]
-[   41.531587] 1 lock held by arcecho/233:
-[   41.535617]  #0:  (_xmit_ARCNET#2){+.-...}, at: [<c06b934c>] packet_direct_xmit+0xfc/0x1c8
-[   41.544355]
-the dependencies between SOFTIRQ-irq-safe lock and the holding lock:
-[   41.552362] -> (_xmit_ARCNET#2){+.-...} ops: 27 {
-[   41.557357]    HARDIRQ-ON-W at:
-[   41.560664]                     [<c06f8fc8>] _raw_spin_lock+0x30/0x40
-[   41.567445]                     [<c063ba28>] dev_deactivate_many+0x114/0x304
-[   41.574866]                     [<c063bc3c>] dev_deactivate+0x24/0x38
-[   41.581646]                     [<c0630374>] linkwatch_do_dev+0x40/0x74
-[   41.588613]                     [<c06305d8>] __linkwatch_run_queue+0xec/0x140
-[   41.596120]                     [<c0630658>] linkwatch_event+0x2c/0x34
-[   41.602991]                     [<c004af30>] process_one_work+0x188/0x40c
-[   41.610131]                     [<c004b200>] worker_thread+0x4c/0x480
-[   41.616912]                     [<c0050f10>] kthread+0xe4/0xf8
-[   41.623048]                     [<c000f810>] ret_from_fork+0x14/0x24
-[   41.629735]    IN-SOFTIRQ-W at:
-[   41.633039]                     [<c06f8fc8>] _raw_spin_lock+0x30/0x40
-[   41.639820]                     [<c063ab8c>] dev_watchdog+0x5c/0x264
-[   41.646508]                     [<c0094edc>] call_timer_fn+0x6c/0xf4
-[   41.653190]                     [<c00950b8>] run_timer_softirq+0x154/0x210
-[   41.660425]                     [<c0036b30>] __do_softirq+0x144/0x298
-[   41.667201]                     [<c0036fb4>] irq_exit+0xcc/0x130
-[   41.673518]                     [<c0085c50>] __handle_domain_irq+0x60/0xb4
-[   41.680754]                     [<c0014578>] __irq_svc+0x58/0x78
-[   41.687077]                     [<c0010274>] arch_cpu_idle+0x24/0x3c
-[   41.693769]                     [<c007127c>] cpu_startup_entry+0x1f8/0x25c
-[   41.701006]                     [<c09adc90>] start_kernel+0x3c0/0x3cc
-[   41.707791]    INITIAL USE at:
-[   41.711003]                    [<c06f8fc8>] _raw_spin_lock+0x30/0x40
-[   41.717696]                    [<c063ba28>] dev_deactivate_many+0x114/0x304
-[   41.725026]                    [<c063bc3c>] dev_deactivate+0x24/0x38
-[   41.731718]                    [<c0630374>] linkwatch_do_dev+0x40/0x74
-[   41.738593]                    [<c06305d8>] __linkwatch_run_queue+0xec/0x140
-[   41.746011]                    [<c0630658>] linkwatch_event+0x2c/0x34
-[   41.752789]                    [<c004af30>] process_one_work+0x188/0x40c
-[   41.759847]                    [<c004b200>] worker_thread+0x4c/0x480
-[   41.766541]                    [<c0050f10>] kthread+0xe4/0xf8
-[   41.772596]                    [<c000f810>] ret_from_fork+0x14/0x24
-[   41.779198]  }
-[   41.780945]  ... key      at: [<c124d620>] netdev_xmit_lock_key+0x38/0x1c8
-[   41.788192]  ... acquired at:
-[   41.791309]    [<c007bed8>] lock_acquire+0x70/0x90
-[   41.796361]    [<c06f9140>] _raw_spin_lock_irqsave+0x40/0x54
-[   41.802324]    [<bf083bc8>] arcnet_send_packet+0x60/0x1c0 [arcnet]
-[   41.808844]    [<c06b9380>] packet_direct_xmit+0x130/0x1c8
-[   41.814622]    [<c06bc7e4>] packet_sendmsg+0x3b8/0x680
-[   41.820034]    [<c05fe8b0>] sock_sendmsg+0x14/0x24
-[   41.825091]    [<c05ffd68>] SyS_sendto+0xb8/0xe0
-[   41.829956]    [<c05ffda8>] SyS_send+0x18/0x20
-[   41.834638]    [<c000f780>] ret_fast_syscall+0x0/0x1c
-[   41.839954]
-[   41.841514]
-the dependencies between the lock to be acquired and SOFTIRQ-irq-unsafe lock:
-[   41.850302] -> (&(&lp->lock)->rlock){+.+...} ops: 5 {
-[   41.855644]    HARDIRQ-ON-W at:
-[   41.858945]                     [<c06f8fc8>] _raw_spin_lock+0x30/0x40
-[   41.865726]                     [<bf083d54>] arcnet_interrupt+0x2c/0x800 [arcnet]
-[   41.873607]                     [<c0089120>] handle_nested_irq+0x8c/0xec
-[   41.880666]                     [<c03c1170>] regmap_irq_thread+0x190/0x314
-[   41.887901]                     [<c0087244>] irq_thread_fn+0x1c/0x34
-[   41.894593]                     [<c0087548>] irq_thread+0x13c/0x1dc
-[   41.901195]                     [<c0050f10>] kthread+0xe4/0xf8
-[   41.907338]                     [<c000f810>] ret_from_fork+0x14/0x24
-[   41.914025]    SOFTIRQ-ON-W at:
-[   41.917328]                     [<c06f8fc8>] _raw_spin_lock+0x30/0x40
-[   41.924106]                     [<bf083d54>] arcnet_interrupt+0x2c/0x800 [arcnet]
-[   41.931981]                     [<c0089120>] handle_nested_irq+0x8c/0xec
-[   41.939028]                     [<c03c1170>] regmap_irq_thread+0x190/0x314
-[   41.946264]                     [<c0087244>] irq_thread_fn+0x1c/0x34
-[   41.952954]                     [<c0087548>] irq_thread+0x13c/0x1dc
-[   41.959548]                     [<c0050f10>] kthread+0xe4/0xf8
-[   41.965689]                     [<c000f810>] ret_from_fork+0x14/0x24
-[   41.972379]    INITIAL USE at:
-[   41.975595]                    [<c06f8fc8>] _raw_spin_lock+0x30/0x40
-[   41.982283]                    [<bf083d54>] arcnet_interrupt+0x2c/0x800 [arcnet]
-[   41.990063]                    [<c0089120>] handle_nested_irq+0x8c/0xec
-[   41.997027]                    [<c03c1170>] regmap_irq_thread+0x190/0x314
-[   42.004172]                    [<c0087244>] irq_thread_fn+0x1c/0x34
-[   42.010766]                    [<c0087548>] irq_thread+0x13c/0x1dc
-[   42.017267]                    [<c0050f10>] kthread+0xe4/0xf8
-[   42.023314]                    [<c000f810>] ret_from_fork+0x14/0x24
-[   42.029903]  }
-[   42.031648]  ... key      at: [<bf0854cc>] __key.42091+0x0/0xfffff0f8 [arcnet]
-[   42.039255]  ... acquired at:
-[   42.042372]    [<c007bed8>] lock_acquire+0x70/0x90
-[   42.047413]    [<c06f9140>] _raw_spin_lock_irqsave+0x40/0x54
-[   42.053364]    [<bf083bc8>] arcnet_send_packet+0x60/0x1c0 [arcnet]
-[   42.059872]    [<c06b9380>] packet_direct_xmit+0x130/0x1c8
-[   42.065634]    [<c06bc7e4>] packet_sendmsg+0x3b8/0x680
-[   42.071030]    [<c05fe8b0>] sock_sendmsg+0x14/0x24
-[   42.076069]    [<c05ffd68>] SyS_sendto+0xb8/0xe0
-[   42.080926]    [<c05ffda8>] SyS_send+0x18/0x20
-[   42.085601]    [<c000f780>] ret_fast_syscall+0x0/0x1c
-[   42.090918]
-[   42.092481]
-[   42.092481] stack backtrace:
-[   42.097065] CPU: 0 PID: 233 Comm: arcecho Not tainted 4.4.0-00034-gc0ae784 #536
-[   42.104751] Hardware name: Generic AM33XX (Flattened Device Tree)
-[   42.111183] [<c0017ec8>] (unwind_backtrace) from [<c00139d0>] (show_stack+0x10/0x14)
-[   42.119337] [<c00139d0>] (show_stack) from [<c02a82c4>] (dump_stack+0x8c/0x9c)
-[   42.126937] [<c02a82c4>] (dump_stack) from [<c0078260>] (check_usage+0x4bc/0x63c)
-[   42.134815] [<c0078260>] (check_usage) from [<c0078438>] (check_irq_usage+0x58/0xb0)
-[   42.142964] [<c0078438>] (check_irq_usage) from [<c007aaa0>] (__lock_acquire+0x1524/0x20b0)
-[   42.151740] [<c007aaa0>] (__lock_acquire) from [<c007bed8>] (lock_acquire+0x70/0x90)
-[   42.159886] [<c007bed8>] (lock_acquire) from [<c06f9140>] (_raw_spin_lock_irqsave+0x40/0x54)
-[   42.168768] [<c06f9140>] (_raw_spin_lock_irqsave) from [<bf083bc8>] (arcnet_send_packet+0x60/0x1c0 [arcnet])
-[   42.179115] [<bf083bc8>] (arcnet_send_packet [arcnet]) from [<c06b9380>] (packet_direct_xmit+0x130/0x1c8)
-[   42.189182] [<c06b9380>] (packet_direct_xmit) from [<c06bc7e4>] (packet_sendmsg+0x3b8/0x680)
-[   42.198059] [<c06bc7e4>] (packet_sendmsg) from [<c05fe8b0>] (sock_sendmsg+0x14/0x24)
-[   42.206199] [<c05fe8b0>] (sock_sendmsg) from [<c05ffd68>] (SyS_sendto+0xb8/0xe0)
-[   42.213978] [<c05ffd68>] (SyS_sendto) from [<c05ffda8>] (SyS_send+0x18/0x20)
-[   42.221388] [<c05ffda8>] (SyS_send) from [<c000f780>] (ret_fast_syscall+0x0/0x1c)
+We add the pdev data to the pci devices netdev structure. This way
+the interface get consistent device names in the userspace (udev).
 
 Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
 ---
- drivers/net/arcnet/arcnet.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ drivers/net/arcnet/com20020-pci.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/arcnet/arcnet.c b/drivers/net/arcnet/arcnet.c
-index 62ee439d58829..794faa8ee1d20 100644
---- a/drivers/net/arcnet/arcnet.c
-+++ b/drivers/net/arcnet/arcnet.c
-@@ -756,6 +756,7 @@ irqreturn_t arcnet_interrupt(int irq, void *dev_id)
- 	struct net_device *dev = dev_id;
- 	struct arcnet_local *lp;
- 	int recbuf, status, diagstatus, didsomething, boguscount;
-+	unsigned long flags = 0;
- 	int retval = IRQ_NONE;
+diff --git a/drivers/net/arcnet/com20020-pci.c b/drivers/net/arcnet/com20020-pci.c
+index 239de38fbd6a5..bfbde568e7dc6 100644
+--- a/drivers/net/arcnet/com20020-pci.c
++++ b/drivers/net/arcnet/com20020-pci.c
+@@ -166,6 +166,7 @@ static int com20020pci_probe(struct pci_dev *pdev,
+ 		arcnet_outb(0x00, ioaddr, COM20020_REG_W_COMMAND);
+ 		arcnet_inb(ioaddr, COM20020_REG_R_DIAGSTAT);
  
- 	arc_printk(D_DURING, dev, "\n");
-@@ -765,7 +766,7 @@ irqreturn_t arcnet_interrupt(int irq, void *dev_id)
- 	lp = netdev_priv(dev);
- 	BUG_ON(!lp);
- 
--	spin_lock(&lp->lock);
-+	spin_lock_irqsave(&lp->lock, flags);
- 
- 	/* RESET flag was enabled - if device is not running, we must
- 	 * clear it right away (but nothing else).
-@@ -774,7 +775,7 @@ irqreturn_t arcnet_interrupt(int irq, void *dev_id)
- 		if (lp->hw.status(dev) & RESETflag)
- 			lp->hw.command(dev, CFLAGScmd | RESETclear);
- 		lp->hw.intmask(dev, 0);
--		spin_unlock(&lp->lock);
-+		spin_unlock_irqrestore(&lp->lock, flags);
- 		return retval;
- 	}
- 
-@@ -998,7 +999,7 @@ irqreturn_t arcnet_interrupt(int irq, void *dev_id)
- 	udelay(1);
- 	lp->hw.intmask(dev, lp->intmask);
- 
--	spin_unlock(&lp->lock);
-+	spin_unlock_irqrestore(&lp->lock, flags);
- 	return retval;
- }
- EXPORT_SYMBOL(arcnet_interrupt);
++		SET_NETDEV_DEV(dev, &pdev->dev);
+ 		dev->base_addr = ioaddr;
+ 		dev->dev_addr[0] = node;
+ 		dev->irq = pdev->irq;
 -- 
 2.11.0
