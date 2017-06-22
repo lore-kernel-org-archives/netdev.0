@@ -1,46 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 0/5] stmmac: pci: Refactor DMI probing
-Date: Thu, 22 Jun 2017 13:53:23 -0400 (EDT)
-Message-ID: <20170622.135323.1313544868939478875.davem@davemloft.net>
-References: <cover.1498112281.git.jan.kiszka@siemens.com>
-        <20170622.134031.1966602928075071150.davem@davemloft.net>
-        <5d4f15dc-057c-dbc0-b3cf-27163e4e6347@siemens.com>
+Subject: Re: [PATCH net] udp: ipv6: reset daddr and dport in sk if
+ connect() fails
+Date: Thu, 22 Jun 2017 13:54:08 -0400 (EDT)
+Message-ID: <20170622.135408.293309819386939085.davem@davemloft.net>
+References: <20170621213631.145600-1-tracywwnj@gmail.com>
+        <20170622.132500.2137901400094983652.davem@davemloft.net>
+        <CAEA6p_Ba+b3s-H-kM1SCu5f2T413EF0Z8sOP-tfbDDJm3YotVw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        andy.shevchenko@gmail.com
-To: jan.kiszka@siemens.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5d4f15dc-057c-dbc0-b3cf-27163e4e6347@siemens.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: tracywwnj@gmail.com, netdev@vger.kernel.org,
+        subashab@codeaurora.org, maze@google.com
+To: weiwan@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:39426 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753298AbdFVRyJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 13:54:09 -0400
+In-Reply-To: <CAEA6p_Ba+b3s-H-kM1SCu5f2T413EF0Z8sOP-tfbDDJm3YotVw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jan Kiszka <jan.kiszka@siemens.com>
-Date: Thu, 22 Jun 2017 19:43:51 +0200
+From: Wei Wang <weiwan@google.com>
+Date: Thu, 22 Jun 2017 10:49:24 -0700
 
-> On 2017-06-22 19:40, David Miller wrote:
->> From: Jan Kiszka <jan.kiszka@siemens.com>
->> Date: Thu, 22 Jun 2017 08:17:56 +0200
->> 
->>> Some cleanups of the way we probe DMI platforms in the driver. Reduces
->>> a bit of open-coding and makes the logic easier reusable for any
->>> potential DMI platform != Quark.
->>>
->>> Tested on IOT2000 and Galileo Gen2.
->>>
->>> Changes in v5:
->>>  - fixed a remaining issue in patch 5
->>>  - dropped patch 6 for now
->> 
->> Series applied to net-next.
->> 
->> Any chance the DMI table can be marked const as well?
->> 
+> On Thu, Jun 22, 2017 at 10:25 AM, David Miller <davem@davemloft.net> wrote:
+>> From: Wei Wang <tracywwnj@gmail.com>
+>> Date: Wed, 21 Jun 2017 14:36:31 -0700
+>>
+>>> +             memset(&sk->sk_v6_daddr, 0 sizeof(sk->sk_v6_daddr);
+>>
+>> Tell me how that compiles.
 > 
-> Hmm, they are all const - or which one do you mean?
+> Really sorry about that. I ported over the change manually from
+> another branch and made the stupid mistake...
+> Will send out v2 shortly.
 
-Indeed, they are, I misread the patches.
+Misporting the change isn't stupid.
 
-Nothing to see here, move along :)
+Not build and functionally testing your change is.
