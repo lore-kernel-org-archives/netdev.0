@@ -1,48 +1,39 @@
 From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Subject: [GIT PULL] arcnet: fixes and features
-Date: Thu, 22 Jun 2017 17:31:02 +0200
-Message-ID: <20170622153110.4079-1-m.grzeschik@pengutronix.de>
+Subject: [PATCH 7/8] arcnet: com20020-pci: handle backplane mode depending on card type
+Date: Thu, 22 Jun 2017 17:31:09 +0200
+Message-ID: <20170622153110.4079-8-m.grzeschik@pengutronix.de>
+References: <20170622153110.4079-1-m.grzeschik@pengutronix.de>
 Cc: netdev@vger.kernel.org, kernel@pengutronix.de
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:53693 "EHLO
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:55161 "EHLO
         metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752384AbdFVPbT (ORCPT
+        by vger.kernel.org with ESMTP id S1752234AbdFVPbT (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 11:31:19 -0400
+In-Reply-To: <20170622153110.4079-1-m.grzeschik@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following changes since commit 3d09198243b89457649241fb63f809a96a22a8ce:
+We read the backplane mode of each subcard from bits 2 and 3 of the misc
+register.
 
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2017-06-21 17:35:22 -0400)
+Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
+---
+ drivers/net/arcnet/com20020-pci.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-are available in the git repository at:
-
-  public@git.pengutronix.de:/mgr/linux.git tags/arcnet-for-mainline
-
-for you to fetch changes up to 496890c2c34787290adaa50e204293d4fc4c98fc:
-
-  arcnet: com20020-pci: add support for PCIFB2 card (2017-06-22 17:21:16 +0200)
-
-----------------------------------------------------------------
-arcnet: fixes and features
-
-----------------------------------------------------------------
-Michael Grzeschik (8):
-      arcnet: change irq handler to lock irqsave
-      arcnet: add err_skb package for package status feedback
-      arcnet: com20020: remove needless base_addr assignment
-      arcnet: com20020-pci: add missing pdev setup in netdev structure
-      arcnet: com20020-pci: fix dev_id calculation
-      arcnet: com20020-pci: add attribute to readback backplane status
-      arcnet: com20020-pci: handle backplane mode depending on card type
-      arcnet: com20020-pci: add support for PCIFB2 card
-
- drivers/net/arcnet/arcdevice.h    |  4 ++++
- drivers/net/arcnet/arcnet.c       | 81 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++-------------
- drivers/net/arcnet/com20020-pci.c | 64 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++--
- drivers/net/arcnet/com20020.c     |  2 --
- 4 files changed, 134 insertions(+), 17 deletions(-)
-
+diff --git a/drivers/net/arcnet/com20020-pci.c b/drivers/net/arcnet/com20020-pci.c
+index 3f85a4d5f8c90..7a2d64739fe58 100644
+--- a/drivers/net/arcnet/com20020-pci.c
++++ b/drivers/net/arcnet/com20020-pci.c
+@@ -201,6 +201,8 @@ static int com20020pci_probe(struct pci_dev *pdev,
+ 		lp->timeout = timeout;
+ 		lp->hw.owner = THIS_MODULE;
+ 
++		lp->backplane = (inb(priv->misc) >> (2 + i)) & 0x1;
++
+ 		/* Get the dev_id from the PLX rotary coder */
+ 		if (!strncmp(ci->name, "EAE PLX-PCI MA1", 15))
+ 			dev_id_mask = 0x3;
 -- 
 2.11.0
