@@ -1,49 +1,50 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] rsi: add in missing RSI_FSM_STATES into array fsm_state
-Date: Thu, 22 Jun 2017 17:58:04 +0100
-Message-ID: <20170622165804.24379-1-colin.king@canonical.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next v3 02/13] sock: skb_copy_ubufs support for
+ compound pages
+Date: Thu, 22 Jun 2017 13:05:28 -0400 (EDT)
+Message-ID: <20170622.130528.1762873686654379973.davem@davemloft.net>
+References: <20170621211816.53837-1-willemdebruijn.kernel@gmail.com>
+        <20170621211816.53837-3-willemdebruijn.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>,
-        Colin Ian King <colin.king@canonical.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org
+To: willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170621211816.53837-3-willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+From: Willem de Bruijn <willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Wed, 21 Jun 2017 17:18:05 -0400
 
-Two recent commits added new RSI_FSM_STATES (namely FSM_FW_NOT_LOADED
-and FSM_COMMON_DEV_PARAMS_SENT) and the corresponding table fsm_state
-was not updated to match. This can lead to an array overrun when
-accessing the latter two states in fsm_state. Fix this by adding in
-the missing states.
+> @@ -958,15 +958,20 @@ EXPORT_SYMBOL_GPL(skb_morph);
+>   */
+>  int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
+>  {
+> -	int i;
+>  	int num_frags = skb_shinfo(skb)->nr_frags;
+>  	struct page *page, *head = NULL;
+>  	struct ubuf_info *uarg = skb_shinfo(skb)->destructor_arg;
+> +	int i, new_frags;
+> +	u32 d_off;
 
-Detected by CoverityScan, CID#1398379 ("Illegal address computation")
+Reverse christmas tree with the local variable declarations.
 
-Fixes: 9920322ccd8e04 ("rsi: add tx frame for common device configuration")
-Fixes: 015e367494c1d5 ("rsi: Register interrupt handler before firmware load")
+> +	page = head;
+> +	d_off = 0;
+> +	for (i = 0; i < num_frags; i++) {
+> +		u8 *vaddr;
+> +		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
+> +		u32 f_off, f_size, copy;
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/wireless/rsi/rsi_91x_debugfs.c | 2 ++
- 1 file changed, 2 insertions(+)
+Likewise.
 
-diff --git a/drivers/net/wireless/rsi/rsi_91x_debugfs.c b/drivers/net/wireless/rsi/rsi_91x_debugfs.c
-index 828a042f903f..4c0a493bd44e 100644
---- a/drivers/net/wireless/rsi/rsi_91x_debugfs.c
-+++ b/drivers/net/wireless/rsi/rsi_91x_debugfs.c
-@@ -125,7 +125,9 @@ static int rsi_stats_read(struct seq_file *seq, void *data)
- 	struct rsi_common *common = seq->private;
- 
- 	unsigned char fsm_state[][32] = {
-+		"FSM_FW_NOT_LOADED",
- 		"FSM_CARD_NOT_READY",
-+		"FSM_COMMON_DEV_PARAMS_SENT",
- 		"FSM_BOOT_PARAMS_SENT",
- 		"FSM_EEPROM_READ_MAC_ADDR",
- 		"FSM_RESET_MAC_SENT",
--- 
-2.11.0
+> +		f_off = f->page_offset;
+> +		f_size = f->size;
+> +
+> +		vaddr = kmap_atomic(skb_frag_page(f));
+
+I looked at some kmap_atomic() implementations and I do not think
+it supports compound pages.
