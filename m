@@ -1,62 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: veth: Be more robust on network device creation when no
- attributes
-Date: Thu, 22 Jun 2017 11:16:42 -0400 (EDT)
-Message-ID: <20170622.111642.1304217851524877946.davem@davemloft.net>
-References: <1498035736-9330-1-git-send-email-serhe.popovych@gmail.com>
-        <1498036344-10301-1-git-send-email-serhe.popovych@gmail.com>
+Subject: Re: [PATCH net] xen-netback: correctly schedule rate-limited queues
+Date: Thu, 22 Jun 2017 11:16:48 -0400 (EDT)
+Message-ID: <20170622.111648.301858879592718577.davem@davemloft.net>
+References: <20170621092122.694-1-wei.liu2@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: serhe.popovych@gmail.com
+Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
+        Paul.Durrant@citrix.com, jean-louis@dupond.be
+To: wei.liu2@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35956 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:35962 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752563AbdFVPQn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 11:16:43 -0400
-In-Reply-To: <1498036344-10301-1-git-send-email-serhe.popovych@gmail.com>
+        with ESMTP id S1752015AbdFVPQ7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 11:16:59 -0400
+In-Reply-To: <20170621092122.694-1-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Serhey Popovych <serhe.popovych@gmail.com>
-Date: Wed, 21 Jun 2017 12:12:24 +0300
+From: Wei Liu <wei.liu2@citrix.com>
+Date: Wed, 21 Jun 2017 10:21:22 +0100
 
-> There are number of problems with configuration peer
-> network device in absence of IFLA_VETH_PEER attributes
-> where attributes for main network device shared with
-> peer.
+> Add a flag to indicate if a queue is rate-limited. Test the flag in
+> NAPI poll handler and avoid rescheduling the queue if true, otherwise
+> we risk locking up the host. The rescheduling will be done in the
+> timer callback function.
 > 
-> First it is not feasible to configure both network
-> devices with same MAC address since this makes
-> communication in such configuration problematic.
-> 
-> This case can be reproduced with following sequence:
-> 
->   # ip link add address 02:11:22:33:44:55 type veth
->   # ip li sh
->   ...
->   26: veth0@veth1: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc \
->   noop state DOWN mode DEFAULT qlen 1000
->       link/ether 00:11:22:33:44:55 brd ff:ff:ff:ff:ff:ff
->   27: veth1@veth0: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc \
->   noop state DOWN mode DEFAULT qlen 1000
->       link/ether 00:11:22:33:44:55 brd ff:ff:ff:ff:ff:ff
-> 
-> Second it is not possible to register both main and
-> peer network devices with same name, that happens
-> when name for main interface is given with IFLA_IFNAME
-> and same attribute reused for peer.
-> 
-> This case can be reproduced with following sequence:
-> 
->   # ip link add dev veth1a type veth
->   RTNETLINK answers: File exists
-> 
-> To fix both of the cases check if corresponding netlink
-> attributes are taken from peer_tb when valid or
-> name based on rtnl ops kind and random address is used.
-> 
-> Signed-off-by: Serhey Popovych <serhe.popovych@gmail.com>
+> Reported-by: Jean-Louis Dupond <jean-louis@dupond.be>
+> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+> Tested-by: Jean-Louis Dupond <jean-louis@dupond.be>
 
 Applied.
