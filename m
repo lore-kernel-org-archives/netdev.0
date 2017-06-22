@@ -1,34 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sfc: Fix MCDI command size for filter operations
-Date: Thu, 22 Jun 2017 13:42:09 -0400 (EDT)
-Message-ID: <20170622.134209.1369507682216811264.davem@davemloft.net>
-References: <89eade1b-405f-07f6-3f0b-ffeeb74ea618@solarflare.com>
+Subject: Re: [PATCH net-next 0/3] net: mvpp2: misc improvements
+Date: Thu, 22 Jun 2017 13:43:18 -0400 (EDT)
+Message-ID: <20170622.134318.539372844883566088.davem@davemloft.net>
+References: <20170622122320.32676-1-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
-To: mhabets@solarflare.com
+Cc: netdev@vger.kernel.org, nadavh@marvell.com, hannah@marvell.com,
+        yehuday@marvell.com, antoine.tenart@free-electrons.com,
+        miquel.raynal@free-electrons.com, jason@lakedaemon.net,
+        andrew@lunn.ch, sebastian.hesselbarth@gmail.com,
+        gregory.clement@free-electrons.com
+To: thomas.petazzoni@free-electrons.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39140 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:39150 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751156AbdFVRmK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 13:42:10 -0400
-In-Reply-To: <89eade1b-405f-07f6-3f0b-ffeeb74ea618@solarflare.com>
+        with ESMTP id S1752066AbdFVRnU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 13:43:20 -0400
+In-Reply-To: <20170622122320.32676-1-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Martin Habets <mhabets@solarflare.com>
-Date: Thu, 22 Jun 2017 10:50:41 +0100
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Date: Thu, 22 Jun 2017 14:23:17 +0200
 
-> The 8000 series adapters uses catch-all filters for encapsulated traffic
-> to support filtering VXLAN, NVGRE and GENEVE traffic.
-> This new filter functionality requires a longer MCDI command.
-> This patch increases the size of buffers on stack that were missed, which
-> fixes a kernel panic from the stack protector.
-> 
-> Fixes: 9b41080125176 ("sfc: insert catch-all filters for encapsulated traffic")
-> Signed-off-by: Martin Habets <mhabets@solarflare.com>
-> Acked-by: Edward Cree <ecree@solarflare.com>
-> Acked-by: Bert Kenward bkenward@solarflare.com
+> Here are a few patches making various small improvements/refactoring
+> in the mvpp2 driver. They are based on today's net-next.
 
-Applied and queued up for -stable.
+Series applied to net-next, thanks.
