@@ -1,102 +1,81 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v1 1/2] dt-binding: ptp: add bindings document for dte
- based ptp clock
-Date: Wed, 21 Jun 2017 22:19:10 -0500
-Message-ID: <CAL_JsqKddhWMXEaoxt=3_d+-STFH-OataxSgnnj9Q4A0Eqqwxg@mail.gmail.com>
-References: <1497299161-6458-1-git-send-email-arun.parameswaran@broadcom.com>
- <1497299161-6458-2-git-send-email-arun.parameswaran@broadcom.com>
- <20170618140449.aek7vag22i5lnbhl@rob-hp-laptop> <74b85a32-63c5-b7c5-47a2-831504be318e@broadcom.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH NET] net/hns:bugfix of ethtool -t phy self_test
+Date: Thu, 22 Jun 2017 05:35:05 +0200
+Message-ID: <20170622033505.GA4813@lunn.ch>
+References: <1497605091-94725-1-git-send-email-linyunsheng@huawei.com>
+ <7500513f-e263-838c-12a1-4343f7281f1a@gmail.com>
+ <08ef77fc-29ab-8262-2126-c547960d5628@huawei.com>
+ <20170620132705.GD13704@lunn.ch>
+ <524e1181-f90d-0f05-200a-44cfa179dbf3@huawei.com>
+ <20170621031320.GA1487@lunn.ch>
+ <2a0e4db4-759d-4ce9-f42c-12303898b2c9@huawei.com>
+ <20170621133449.GB27585@lunn.ch>
+ <ea80ee9c-f2e5-72ae-5c53-fda1dd755a45@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Arun Parameswaran <arun.parameswaran-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org"
-        <bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-To: Scott Branden <scott.branden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <74b85a32-63c5-b7c5-47a2-831504be318e-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>, davem@davemloft.net,
+        huangdaode@hisilicon.com, xuwei5@hisilicon.com,
+        liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
+        gabriele.paoloni@huawei.com, john.garry@huawei.com,
+        linuxarm@huawei.com, salil.mehta@huawei.com, lipeng321@huawei.com,
+        yankejian@huawei.com, tremyfr@gmail.com, xieqianqian@huawei.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: l00371289 <linyunsheng@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <ea80ee9c-f2e5-72ae-5c53-fda1dd755a45@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 20, 2017 at 3:48 PM, Scott Branden
-<scott.branden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> wrote:
-> Hi Rob,
->
->
-> On 17-06-18 07:04 AM, Rob Herring wrote:
->>
->> On Mon, Jun 12, 2017 at 01:26:00PM -0700, Arun Parameswaran wrote:
->>>
->>> Add device tree binding documentation for the Broadcom DTE
->>> PTP clock driver.
->>>
->>> Signed-off-by: Arun Parameswaran <arun.parameswaran-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
->>> ---
->>>   Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt | 13
->>> +++++++++++++
->>>   1 file changed, 13 insertions(+)
->>>   create mode 100644
->>> Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
->>>
->>> diff --git a/Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
->>> b/Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
->>> new file mode 100644
->>> index 0000000..07590bc
->>> --- /dev/null
->>> +++ b/Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
->>> @@ -0,0 +1,13 @@
->>> +* Broadcom Digital Timing Engine(DTE) based PTP clock driver
->>
->> Bindings describe h/w, not drivers.
->>
->>> +
->>> +Required properties:
->>> +- compatible: should be "brcm,ptp-dte"
->>
->> Looks too generic. You need SoC specific compatible strings.
->
->
-> Rob, could you please help me understand the use of adding SoC specific
-> compatible strings.
-> I still don't get it.
->
-> It's my understanding that the SoC compatibility string is to future proof
-> against bugs/incompatibilities
-> between different versions of the hardware block due to integration issues
-> or any other reason.
-> You can then compare in your driver because the strings were already used in
-> the dtb.
->
-> That would make sense if you can't already differentiate what SoC you are
-> running on.
-> But the SoC is already specified in the root of the device tree in the
-> compatible string?
-> Why can't you just use of_machine_is_compatible inside your driver when
-> needed?
+> I don't think returning to user space is an option, because it mean
+> ethtool phy self test would fail because if availability of some software
+> resoure, which is not some application would expect. here is what I can
+> think of:
+> 
+> driver/net/ethernet/hisilicon/hns/hns_ethtool.c
+> int phy_loopback_selftest(struct phy_device *dev)
+> {
+> 	int err;
+> 
+> 	mutex_lock(dev->mutex);
+> 
+> 	if (dev->drv->loopback)
+> 		err = dev->drv->loopback(dev, 1);
+> 
+> 	if (err)
+> 		goto out;
+> 	
+> 	/* mac driver do the test*/
+> 	.................
+> 
+> 
+> 	if (dev->drv->loopback)
+> 		err = dev->drv->loopback(dev, 0);
+> 
+> 	if (err)
+> 		goto out;
+> 
+> out:
+> 	mutex_unlock(dev->mutex);
+> 	return err;
+> }
 
-Use of of_machine_is_compatible in drivers will result in the same
-mess we had with machine_is_X defines pre-DT. It practically
-guarantees that you must update the driver for a new SoC (with
-fallback compatibles you don't). Plus the matching logic for
-of_machine_is_compatible is open coded logic in every driver which is
-worse IMO than having a standard match table.
+I don't think you need a mutex here. dev_ioctl.c:
 
->
-> Please explain what I'm missing.  I see other drivers already following the
-> of_machine_is_compatible
-> approach and it makes more sense to me than adding SoC specific compatible
-> strings into every
-> driver.
+       case SIOCETHTOOL:
+                dev_load(net, ifr.ifr_name);
+                rtnl_lock();
+                ret = dev_ethtool(net, &ifr);
+                rtnl_unlock();
+ 
+So all ethtool operations are protected by the rtnl. You cannot have
+two tests running at once.
 
-If the IP blocks are all the same, you don't have to add them to any
-drivers, just add fallback compatibles.
+> One question I can think of is that, how do we ensure mac driver enable and
+> disable phy loopback in pair, enable loopback after dev->mutex is taken,
+> disable loopback  before dev->mutex is released?
+> I hope I am not missing something obvious, any suggestion and idea?
 
-Rob
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+You cannot ensure this. But it would be a pretty obvious bug.
+
+    Andrew
