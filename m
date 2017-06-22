@@ -1,41 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] ipv6: only call ip6_route_dev_notify() once for
- NETDEV_UNREGISTER
-Date: Thu, 22 Jun 2017 11:07:23 -0400 (EDT)
-Message-ID: <20170622.110723.1095460318299544942.davem@davemloft.net>
-References: <1497984147-15011-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] net: phy: smsc: fix buffer overflow in memcpy
+Date: Thu, 22 Jun 2017 11:12:59 -0400 (EDT)
+Message-ID: <20170622.111259.2189237581775204039.davem@davemloft.net>
+References: <20170620204059.790066-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffy.chen@rock-chips.com,
-        dsahern@gmail.com
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35720 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752302AbdFVPHk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 11:07:40 -0400
-In-Reply-To: <1497984147-15011-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: andrew@lunn.ch, f.fainelli@gmail.com, timur@codeaurora.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170620204059.790066-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Tue, 20 Jun 2017 11:42:27 -0700
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Tue, 20 Jun 2017 22:40:46 +0200
 
-> In commit 242d3a49a2a1 ("ipv6: reorder ip6_route_dev_notifier after ipv6_dev_notf")
-> I assumed NETDEV_REGISTER and NETDEV_UNREGISTER are paired,
-> unfortunately, as reported by jeffy, netdev_wait_allrefs()
-> could rebroadcast NETDEV_UNREGISTER event until all refs are
-> gone.
+> The memcpy annotation triggers for a fixed-length buffer copy:
 > 
-> We have to add an additional check to avoid this corner case.
-> For netdev_wait_allrefs() dev->reg_state is NETREG_UNREGISTERED,
-> for dev_change_net_namespace(), dev->reg_state is
-> NETREG_REGISTERED. So check for dev->reg_state != NETREG_UNREGISTERED.
+> In file included from /git/arm-soc/arch/arm64/include/asm/processor.h:30:0,
+>                  from /git/arm-soc/arch/arm64/include/asm/spinlock.h:21,
+>                  from /git/arm-soc/include/linux/spinlock.h:87,
+>                  from /git/arm-soc/include/linux/seqlock.h:35,
+>                  from /git/arm-soc/include/linux/time.h:5,
+>                  from /git/arm-soc/include/linux/stat.h:21,
+>                  from /git/arm-soc/include/linux/module.h:10,
+>                  from /git/arm-soc/drivers/net/phy/smsc.c:20:
+> In function 'memcpy',
+>     inlined from 'smsc_get_strings' at /git/arm-soc/drivers/net/phy/smsc.c:166:3:
+> /git/arm-soc/include/linux/string.h:309:4: error: call to '__read_overflow2' declared with attribute error: detected read beyond size of object passed as 2nd parameter
 > 
-> Fixes: 242d3a49a2a1 ("ipv6: reorder ip6_route_dev_notifier after ipv6_dev_notf")
-> Reported-by: jeffy <jeffy.chen@rock-chips.com>
-> Cc: David Ahern <dsahern@gmail.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Using strncpy instead of memcpy should do the right thing here.
+> 
+> Fixes: 030a89028db0 ("net: phy: smsc: Implement PHY statistics")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Applied.
+APplied to net-next, thanks Arnd.
