@@ -1,7 +1,7 @@
 From: Leon Romanovsky <leon@kernel.org>
-Subject: [PATCH rdma-next V1 18/19] RDMA/netlink: Implement nldev port doit callback
-Date: Thu, 22 Jun 2017 16:24:33 +0300
-Message-ID: <20170622132434.1327-19-leon@kernel.org>
+Subject: [PATCH rdma-next V1 15/19] RDMA/netlink: Implement nldev device dumpit calback
+Date: Thu, 22 Jun 2017 16:24:30 +0300
+Message-ID: <20170622132434.1327-16-leon@kernel.org>
 References: <20170622132434.1327-1-leon@kernel.org>
 Cc: linux-rdma@vger.kernel.org,
         Chien Tin Tung <chien.tin.tung@intel.com>,
@@ -14,85 +14,105 @@ Cc: linux-rdma@vger.kernel.org,
         Leon Romanovsky <leonro@mellanox.com>
 To: Doug Ledford <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.99]:60966 "EHLO mail.kernel.org"
+Received: from mail.kernel.org ([198.145.29.99]:60878 "EHLO mail.kernel.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753078AbdFVNZy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 22 Jun 2017 09:25:54 -0400
+        id S1751858AbdFVNZo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 22 Jun 2017 09:25:44 -0400
 In-Reply-To: <20170622132434.1327-1-leon@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Leon Romanovsky <leonro@mellanox.com>
 
-Provide ability to get specific to device and port information.
+This patch adds the ability to return all available devices
+together with their properties.
 
 Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
 Reviewed-by: Steve Wise <swise@opengridcomputing.com>
 ---
- drivers/infiniband/core/nldev.c | 44 +++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 44 insertions(+)
+ drivers/infiniband/core/nldev.c | 64 ++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 63 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/infiniband/core/nldev.c b/drivers/infiniband/core/nldev.c
-index 4413eda8c435..2489ad9d9211 100644
+index 1d1e4f214874..4b8b0f5d5344 100644
 --- a/drivers/infiniband/core/nldev.c
 +++ b/drivers/infiniband/core/nldev.c
-@@ -141,6 +141,49 @@ static int nldev_get_dumpit(struct sk_buff *skb, struct netlink_callback *cb)
- 	return ib_enum_all_devs(_nldev_get_dumpit, skb, cb);
- }
+@@ -30,13 +30,75 @@
+  * POSSIBILITY OF SUCH DAMAGE.
+  */
  
-+static int nldev_port_get_doit(struct sk_buff *skb, struct nlmsghdr *nlh,
-+			       struct netlink_ext_ack *extack)
++#include <net/netlink.h>
+ #include <rdma/rdma_netlink.h>
+ 
+ #include "core_priv.h"
+ 
++static const struct nla_policy nldev_policy[RDMA_NLDEV_ATTR_MAX] = {
++	[RDMA_NLDEV_ATTR_DEV_INDEX]     = { .type = NLA_U32 },
++	[RDMA_NLDEV_ATTR_DEV_NAME]	= { .type = NLA_NUL_STRING,
++					    .len = IB_DEVICE_NAME_MAX - 1},
++	[RDMA_NLDEV_ATTR_PORT_INDEX]	= { .type = NLA_U32 },
++};
++
++static int fill_dev_info(struct sk_buff *msg, struct ib_device *device)
 +{
-+	struct nlattr *tb[RDMA_NLDEV_ATTR_MAX];
-+	struct ib_device *device;
-+	struct sk_buff *msg;
-+	u32 index;
-+	u32 port;
-+	int err;
-+
-+	err = nlmsg_parse(nlh, 0, tb, RDMA_NLDEV_ATTR_MAX - 1,
-+			  nldev_policy, extack);
-+	if (err || !tb[RDMA_NLDEV_ATTR_PORT_INDEX])
-+		return -EINVAL;
-+
-+	index = nla_get_u32(tb[RDMA_NLDEV_ATTR_DEV_INDEX]);
-+	device = __ib_device_get_by_index(index);
-+	if (!device)
-+		return -EINVAL;
-+
-+	port = nla_get_u32(tb[RDMA_NLDEV_ATTR_PORT_INDEX]);
-+	if (rdma_is_port_valid(device, port))
-+		return -EINVAL;
-+
-+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+	if (!msg)
-+		return -ENOMEM;
-+
-+	nlh = nlmsg_put(msg, NETLINK_CB(skb).portid, nlh->nlmsg_seq,
-+			RDMA_NL_GET_TYPE(RDMA_NL_NLDEV, RDMA_NLDEV_CMD_GET),
-+			0, 0);
-+
-+	err = fill_port_info(msg, device, port);
-+	if (err) {
-+		nlmsg_free(msg);
-+		return err;
-+	}
-+
-+	nlmsg_end(msg, nlh);
-+
-+	return rdma_nl_unicast(msg, NETLINK_CB(skb).portid);
++	if (nla_put_u32(msg, RDMA_NLDEV_ATTR_DEV_INDEX, device->index))
++		return -EMSGSIZE;
++	if (nla_put_string(msg, RDMA_NLDEV_ATTR_DEV_NAME, device->name))
++		return -EMSGSIZE;
++	if (nla_put_u32(msg, RDMA_NLDEV_ATTR_PORT_INDEX, rdma_end_port(device)))
++		return -EMSGSIZE;
++	return 0;
 +}
 +
- static int nldev_port_get_dumpit(struct sk_buff *skb,
- 				 struct netlink_callback *cb)
++static int _nldev_get_dumpit(struct ib_device *device,
++			     struct sk_buff *skb,
++			     struct netlink_callback *cb,
++			     unsigned int idx)
++{
++	int start = cb->args[0];
++	struct nlmsghdr *nlh;
++
++	if (idx < start)
++		return 0;
++
++	nlh = nlmsg_put(skb, NETLINK_CB(cb->skb).portid, cb->nlh->nlmsg_seq,
++			RDMA_NL_GET_TYPE(RDMA_NL_NLDEV, RDMA_NLDEV_CMD_GET),
++			0, NLM_F_MULTI);
++
++	if (fill_dev_info(skb, device)) {
++		nlmsg_cancel(skb, nlh);
++		goto out;
++	}
++
++	nlmsg_end(skb, nlh);
++
++	idx++;
++
++out:	cb->args[0] = idx;
++	return skb->len;
++}
++
++static int nldev_get_dumpit(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	/*
++	 * There is no need to take lock, because
++	 * we are relying on ib_core's lists_rwsem
++	 */
++	return ib_enum_all_devs(_nldev_get_dumpit, skb, cb);
++}
++
++static const struct rdma_nl_cbs nldev_cb_table[] = {
++	[RDMA_NLDEV_CMD_GET] = {
++		.dump = nldev_get_dumpit,
++	},
++};
++
+ void __init nldev_init(void)
  {
-@@ -193,6 +236,7 @@ static const struct rdma_nl_cbs nldev_cb_table[] = {
- 		.dump = nldev_get_dumpit,
- 	},
- 	[RDMA_NLDEV_CMD_PORT_GET] = {
-+		.doit = nldev_port_get_doit,
- 		.dump = nldev_port_get_dumpit,
- 	},
- };
+-	rdma_nl_register(RDMA_NL_NLDEV, NULL);
++	rdma_nl_register(RDMA_NL_NLDEV, nldev_cb_table);
+ }
+ 
+ void __exit nldev_exit(void)
 -- 
 2.13.1
