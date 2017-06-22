@@ -1,74 +1,113 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH v2] of: update ePAPR references to point to Devicetree
- Specification
-Date: Thu, 22 Jun 2017 11:22:21 -0500
-Message-ID: <20170622162221.qxglzqdxpzt6hoho@rob-hp-laptop>
-References: <1498148139-12770-1-git-send-email-frowand.list@gmail.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: DNS (?) not working on G5 (64-bit powerpc) (was
+ [net-next,v3,3/3] udp: try to avoid 2 cache miss on dequeue)
+Date: Thu, 22 Jun 2017 18:43:55 +0200
+Message-ID: <1498149835.2503.1.camel@redhat.com>
+References: <87shisqihz.fsf@concordia.ellerman.id.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mark Rutland <mark.rutland@arm.com>, horia.geanta@nxp.com,
-        Dan Douglass <dan.douglass@nxp.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Marc Zyngier <marc.zyngier@arm.com>,
-        Scott Wood <oss@buserror.net>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Paul Mackerras <paulus@samba.org>,
-        Michael Ellerman <mpe@ellerman.id.au>,
-        Jonathan Corbet <corbet@lwn.net>, devicetree@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
-        netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-        linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org
-To: frowand.list@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1498148139-12770-1-git-send-email-frowand.list@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+        linuxppc-dev@lists.ozlabs.org
+To: Michael Ellerman <mpe@ellerman.id.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51620 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752123AbdFVQoE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 22 Jun 2017 12:44:04 -0400
+In-Reply-To: <87shisqihz.fsf@concordia.ellerman.id.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 22, 2017 at 09:15:39AM -0700, frowand.list@gmail.com wrote:
-> From: Frank Rowand <frank.rowand@sony.com>
+On Thu, 2017-06-22 at 23:06 +1000, Michael Ellerman wrote:
+> Paolo wrote:
+> > when udp_recvmsg() is executed, on x86_64 and other archs, most skb
+> > fields are on cold cachelines.
+> > If the skb are linear and the kernel don't need to compute the udp
+> > csum, only a handful of skb fields are required by udp_recvmsg().
+> > Since we already use skb->dev_scratch to cache hot data, and
+> > there are 32 bits unused on 64 bit archs, use such field to cache
+> > as much data as we can, and try to prefetch on dequeue the relevant
+> > fields that are left out.
+> > 
+> > This can save up to 2 cache miss per packet.
+> > 
+> > v1 -> v2:
+> >   - changed udp_dev_scratch fields types to u{32,16} variant,
+> >     replaced bitfiled with bool
+> > 
+> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> > Acked-by: Eric Dumazet <edumazet@google.com>
+> > ---
+> >  net/ipv4/udp.c | 114 +++++++++++++++++++++++++++++++++++++++++++++++++++------
+> >  1 file changed, 103 insertions(+), 11 deletions(-)
 > 
-> The Devicetree Specification has superseded the ePAPR as the
-> base specification for bindings.  Update files in Documentation
-> to reference the new document.
+> This appears to break wget on one of my machines.
 > 
-> First reference to ePAPR in Documentation/devicetree/bindings/arm/cci.txt
-> is generic, remove it.
+> Networking in general is working, I'm able to SSH in, but then I can't
+> do a wget.
 > 
-> Some files are not updated because there is no hypervisor chapter
-> in the Devicetree Specification:
->    Documentation/devicetree/bindings/powerpc/fsl/msi-pic.txt
->    Documenation/virtual/kvm/api.txt
->    Documenation/virtual/kvm/ppc-pv.txt
+> eg:
 > 
-> Signed-off-by: Frank Rowand <frank.rowand@sony.com>
-> ---
+> $ wget google.com
+> --2017-06-22 22:45:39--  http://google.com/
+> Resolving proxy.pmdw.com (proxy.pmdw.com)... failed: Temporary failure in name resolution.
+> wget: unable to resolve host address ‘proxy.pmdw.com’
 > 
-> changes from v1:
->    - remove boilerplat ePAPR reference from cci.txt
+> $ host proxy.pmdw.com
+> proxy.pmdw.com is an alias for raven.pmdw.com.
+> raven.pmdw.com has address 10.1.2.3
 > 
->  Documentation/devicetree/bindings/arm/cci.txt             | 15 ++++-----------
->  Documentation/devicetree/bindings/arm/cpus.txt            | 13 +++++++------
->  Documentation/devicetree/bindings/arm/idle-states.txt     |  4 ++--
->  Documentation/devicetree/bindings/arm/l2c2x0.txt          |  4 ++--
->  Documentation/devicetree/bindings/arm/topology.txt        |  4 ++--
->  Documentation/devicetree/bindings/bus/simple-pm-bus.txt   |  2 +-
->  Documentation/devicetree/bindings/chosen.txt              |  3 ++-
->  Documentation/devicetree/bindings/common-properties.txt   |  2 +-
->  Documentation/devicetree/bindings/crypto/fsl-sec4.txt     |  4 ++--
->  Documentation/devicetree/bindings/crypto/fsl-sec6.txt     |  4 ++--
->  .../devicetree/bindings/interrupt-controller/open-pic.txt |  5 ++---
->  Documentation/devicetree/bindings/net/ethernet.txt        |  9 ++++++---
->  Documentation/devicetree/bindings/powerpc/fsl/cpus.txt    |  6 +++---
->  Documentation/devicetree/bindings/powerpc/fsl/l2cache.txt |  2 +-
->  .../devicetree/bindings/powerpc/fsl/srio-rmu.txt          |  4 ++--
->  Documentation/devicetree/bindings/powerpc/fsl/srio.txt    |  3 ++-
->  Documentation/devicetree/booting-without-of.txt           |  2 +-
->  Documentation/devicetree/usage-model.txt                  |  2 +-
->  Documentation/xtensa/mmu.txt                              |  6 +++---
->  19 files changed, 46 insertions(+), 48 deletions(-)
+> $ wget google.com
+> --2017-06-22 22:52:08--  http://google.com/
+> Resolving proxy.pmdw.com (proxy.pmdw.com)... failed: Temporary failure in name resolution.
+> wget: unable to resolve host address ‘proxy.pmdw.com’
+> 
+> Maybe host is using TCP but the man page says it doesn't?
+> 
+> 
+> Everything is OK if I boot back to the previous commit 0a463c78d25b
+> ("udp: avoid a cache miss on dequeue"):
+> 
+> $ wget google.com
+> --2017-06-22 23:00:01--  http://google.com/
+> Resolving proxy.pmdw.com (proxy.pmdw.com)... 10.1.2.3
+> Connecting to proxy.pmdw.com (proxy.pmdw.com)|10.1.2.3|:3128... connected.
+> Proxy request sent, awaiting response... 302 Found
+> Location: http://www.google.com.au/?gfe_rd=cr&ei=Ub9LWbPbLujDXrH1uPgE [following]
+> --2017-06-22 23:00:01--  http://www.google.com.au/?gfe_rd=cr&ei=Ub9LWbPbLujDXrH1uPgE
+> Reusing existing connection to proxy.pmdw.com:3128.
+> Proxy request sent, awaiting response... 200 OK
+> Length: unspecified [text/html]
+> Saving to: ‘index.html’
+> 
+> index.html                      [ <=>                                       ]  11.37K  --.-KB/s    in 0.001s  
+> 
+> 2017-06-22 23:00:01 (22.0 MB/s) - ‘index.html’ saved [11640]
+> 
+> $ uname -a
+> Linux 4.12.0-rc4-gcc6-00988-g0a463c7 #88 SMP Thu Jun 22 22:55:12 AEST 2017 ppc64 GNU/Linux
+> 
+> 
+> Haven't had time to debug any further. Any ideas?
 
-Applied.
+Thank you for this report.
+
+Can you please specify features of the relevant NIC ? (ethtool -k
+<name>) 
+
+I'll try to replicate the issue as soon I'll get hands on suitable HW,
+meanwhile can you please try to trace the system behavior with perf?
+
+Something like:
+
+perf probe -a __udp_enqueue_schedule_skb
+perf probe -a udp_recvmsg
+perf probe -a udpv6_recvmsg
+perf record -e probe:__udp_enqueue_schedule_skb -e probe:udp_recvmsg -e probe:udpv6_recvmsg -ag wget google.com
+perf report --stdio
+
+Thanks,
+
+Paolo
