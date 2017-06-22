@@ -1,33 +1,62 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers: net: cpsw-common: Fix reading of mac address
- for am43 SoCs
-Date: Thu, 22 Jun 2017 11:16:35 -0400 (EDT)
-Message-ID: <20170622.111635.1512769508376550536.davem@davemloft.net>
-References: <20170621084204.1512-1-lokeshvutla@ti.com>
+Subject: Re: veth: Be more robust on network device creation when no
+ attributes
+Date: Thu, 22 Jun 2017 11:16:42 -0400 (EDT)
+Message-ID: <20170622.111642.1304217851524877946.davem@davemloft.net>
+References: <1498035736-9330-1-git-send-email-serhe.popovych@gmail.com>
+        <1498036344-10301-1-git-send-email-serhe.popovych@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: grygorii.strashko@ti.com, netdev@vger.kernel.org, t-kristo@ti.com,
-        nsekhar@ti.com, linux-omap@vger.kernel.org, d-gerlach@ti.com
-To: lokeshvutla@ti.com
+Cc: netdev@vger.kernel.org
+To: serhe.popovych@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35952 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:35956 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752563AbdFVPQi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 11:16:38 -0400
-In-Reply-To: <20170621084204.1512-1-lokeshvutla@ti.com>
+        with ESMTP id S1752563AbdFVPQn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 11:16:43 -0400
+In-Reply-To: <1498036344-10301-1-git-send-email-serhe.popovych@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lokesh Vutla <lokeshvutla@ti.com>
-Date: Wed, 21 Jun 2017 14:12:04 +0530
+From: Serhey Popovych <serhe.popovych@gmail.com>
+Date: Wed, 21 Jun 2017 12:12:24 +0300
 
-> cpsw driver tries to get macid for am43xx SoCs using the compatible
-> ti,am4372. But not all variants of am43x uses this complatible like
-> epos evm uses ti,am438x. So use a generic compatible ti,am43 to get
-> macid for all am43 based platforms.
+> There are number of problems with configuration peer
+> network device in absence of IFLA_VETH_PEER attributes
+> where attributes for main network device shared with
+> peer.
 > 
-> Reviewed-by: Dave Gerlach <d-gerlach@ti.com>
-> Signed-off-by: Lokesh Vutla <lokeshvutla@ti.com>
+> First it is not feasible to configure both network
+> devices with same MAC address since this makes
+> communication in such configuration problematic.
+> 
+> This case can be reproduced with following sequence:
+> 
+>   # ip link add address 02:11:22:33:44:55 type veth
+>   # ip li sh
+>   ...
+>   26: veth0@veth1: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc \
+>   noop state DOWN mode DEFAULT qlen 1000
+>       link/ether 00:11:22:33:44:55 brd ff:ff:ff:ff:ff:ff
+>   27: veth1@veth0: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc \
+>   noop state DOWN mode DEFAULT qlen 1000
+>       link/ether 00:11:22:33:44:55 brd ff:ff:ff:ff:ff:ff
+> 
+> Second it is not possible to register both main and
+> peer network devices with same name, that happens
+> when name for main interface is given with IFLA_IFNAME
+> and same attribute reused for peer.
+> 
+> This case can be reproduced with following sequence:
+> 
+>   # ip link add dev veth1a type veth
+>   RTNETLINK answers: File exists
+> 
+> To fix both of the cases check if corresponding netlink
+> attributes are taken from peer_tb when valid or
+> name based on rtnl ops kind and random address is used.
+> 
+> Signed-off-by: Serhey Popovych <serhe.popovych@gmail.com>
 
 Applied.
