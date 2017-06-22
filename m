@@ -1,33 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] Add a tcp_filter hook before handle ack packet
-Date: Thu, 22 Jun 2017 11:13:52 -0400 (EDT)
-Message-ID: <20170622.111352.1727281113882870166.davem@davemloft.net>
-References: <1498010800-3918-1-git-send-email-chenbofeng.kernel@gmail.com>
+Subject: Re: [PATCH] drivers: net: cpsw-common: Fix reading of mac address
+ for am43 SoCs
+Date: Thu, 22 Jun 2017 11:16:35 -0400 (EDT)
+Message-ID: <20170622.111635.1512769508376550536.davem@davemloft.net>
+References: <20170621084204.1512-1-lokeshvutla@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lorenzo@google.com, fengc@google.com
-To: chenbofeng.kernel@gmail.com
+Cc: grygorii.strashko@ti.com, netdev@vger.kernel.org, t-kristo@ti.com,
+        nsekhar@ti.com, linux-omap@vger.kernel.org, d-gerlach@ti.com
+To: lokeshvutla@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35896 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:35952 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751288AbdFVPOE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 11:14:04 -0400
-In-Reply-To: <1498010800-3918-1-git-send-email-chenbofeng.kernel@gmail.com>
+        with ESMTP id S1752563AbdFVPQi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 11:16:38 -0400
+In-Reply-To: <20170621084204.1512-1-lokeshvutla@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chenbo Feng <chenbofeng.kernel@gmail.com>
-Date: Tue, 20 Jun 2017 19:06:40 -0700
+From: Lokesh Vutla <lokeshvutla@ti.com>
+Date: Wed, 21 Jun 2017 14:12:04 +0530
 
-> From: Chenbo Feng <fengc@google.com>
+> cpsw driver tries to get macid for am43xx SoCs using the compatible
+> ti,am4372. But not all variants of am43x uses this complatible like
+> epos evm uses ti,am438x. So use a generic compatible ti,am43 to get
+> macid for all am43 based platforms.
 > 
-> Currently in both ipv4 and ipv6 code path, the ack packet received when
-> sk at TCP_NEW_SYN_RECV state is not filtered by socket filter or cgroup
-> filter since it is handled from tcp_child_process and never reaches the
-> tcp_filter inside tcp_v4_rcv or tcp_v6_rcv. Adding a tcp_filter hooks
-> here can make sure all the ingress tcp packet can be correctly filtered.
-> 
-> Signed-off-by: Chenbo Feng <fengc@google.com>
+> Reviewed-by: Dave Gerlach <d-gerlach@ti.com>
+> Signed-off-by: Lokesh Vutla <lokeshvutla@ti.com>
 
-Applied, thanks.
+Applied.
