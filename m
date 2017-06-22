@@ -1,66 +1,80 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH][net-next] qtnfmac: fix uninitialized return code in ret
-Date: Thu, 22 Jun 2017 08:10:41 +0300
-Message-ID: <20170622051041.6vclukrzlq4zbdhm@mwanda>
-References: <20170621132530.11937-1-colin.king@canonical.com>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH rdma-next 08/19] RDMA/core: Expose translation from
+ device name to ib_device
+Date: Thu, 22 Jun 2017 08:31:25 +0300
+Message-ID: <20170622053125.GK1248@mtr-leonro.local>
+References: <20170621060528.3752-1-leon@kernel.org>
+ <20170621060528.3752-9-leon@kernel.org>
+ <20170621160748.GA10200@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Igor Mitsyanko <imitsyanko@quantenna.com>,
-        Avinash Patil <avinashp@quantenna.com>,
-        Sergey Matyukevich <smatyukevich@quantenna.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        Bindu Therthala <btherthala@quantenna.com>,
-        Kamlesh Rath <krath@quantenna.com>,
-        Sergei Maksimenko <smaksimenko@quantenna.com>,
-        Johannes Berg <johannes.berg@intel.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:29047 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751139AbdFVFLM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 01:11:12 -0400
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="gBYU9MM4gf8jKg2V"
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Chien Tin Tung <chien.tin.tung-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+        Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+        Jiri Pirko <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Ariel Almog <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Linux Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20170621132530.11937-1-colin.king@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170621160748.GA10200-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 21, 2017 at 02:25:30PM +0100, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
-> 
-> The return value ret is unitialized and garbage is being returned
-> for the three different error conditions when setting up the PCIe
-> BARs. Fix this by initializing ret to  -ENOMEM to indicate that
-> the BARs failed to be setup correctly.
-> 
-> Detected by CoverityScan, CID#1437563 ("Unitialized scalar variable")
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> ---
->  drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c b/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c
-> index f93b27f3a236..7fc4f0d6a9ad 100644
-> --- a/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c
-> +++ b/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c
-> @@ -247,7 +247,7 @@ static void qtnf_pcie_free_shm_ipc(struct qtnf_pcie_bus_priv *priv)
->  
->  static int qtnf_pcie_init_memory(struct qtnf_pcie_bus_priv *priv)
->  {
-> -	int ret;
-> +	int ret = -ENOMEM;
->  
->  	priv->sysctl_bar = qtnf_map_bar(priv, QTN_SYSCTL_BAR);
->  	if (IS_ERR_OR_NULL(priv->sysctl_bar)) {
 
-Not related to your patch but qtnf_map_bar() should be changed not to
-return NULL.  When functions return both NULL and error pointers the
-NULL is supposed to be a special type of success return.  Here it is
-just a fail return where we forgot to set the error code to
-ERR_PTR(-ENOMEM).
+--gBYU9MM4gf8jKg2V
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-regards,
-dan carpenter
+On Wed, Jun 21, 2017 at 10:07:48AM -0600, Jason Gunthorpe wrote:
+> On Wed, Jun 21, 2017 at 09:05:17AM +0300, Leon Romanovsky wrote:
+> > From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> >
+> > Provide ability to convert from device name to ib_device for the
+> > IB/core users.
+>
+> FWIW, as a general comment, we really need to start using some kind of
+> device index like netdev does instead of the name. I'd like the see
+> the new netlink interface be index based.
+
+I can do it, but it won't be full solution as I would like to have.
+
+At this stage, IB doesn't support namespaces yet and to implement them
+is a little bit overkill for rdmatool.
+
+>
+> As we saw in a past discussion there is a desire to have stable device
+> naming, which means renaming...
+
+If I recall correctly, after your proposal the participants disappeared :).
+
+>
+> Jason
+
+--gBYU9MM4gf8jKg2V
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAllLViwACgkQ5GN7iDZy
+WKdPdhAAkyTEVfUS+LqhK001A6g2TzxLCp9Z9Ypss2GjWIFGuBXbyJeIukPO/C7N
+196r0EHZnaVF4keNbageS7EC15anYp8ek1WgX5ZPTOpXKNC0kOREx8CbgV0PCogE
+8wkpKSfflDgh5POqT+Q0MlSRL5K9dJl2TW9j8aMFKp7p6y4FyE/uDUgzxFo9WpkO
+4BnjMr1SuCCxPWmmzaEvvtsNAcSFCPAaJscZAVj5z20+iBBo37RY8UEK73kFZuWq
+ZVeDf1ZJWVzW4DOaLMh09VfIMFHDmOLsL/HJqr3OtpmR2FdkRsgzvHQG2zusHdV+
+1FvvXguMaZGmPF3icBj6dGYBFGY/MJvcloQYUvt+XROswFmUXzmVcQ3+YeYa75Nu
+OnCWG75w+vlBAv9h8wu2sETbwUvW3OfpKS8djH4vTUkY2rhYslL7whUCScHL8ZwJ
+SaH6S8L3gvmjCKUoitezmZzF9o4EcfX5FWavO5+f+8dK2bNvD1Cy+DdA2JLCT3Gx
+Jy85VLqu6kgU+3Ji9GQRnjdKdVXE7upaAxODHTS6LmKNZwsyY84SmBInpAzwD6nC
+aPyAhYYkpR+0Mv0RbDIAU3SrTCI3purt7aQHy61blEcBlf4I4h/ueN4C5DvZ+k4a
+BJStugwsXwtpieoKUcZ5qfTse267HFi3pzZWwWUBxDwK/M7J3EA=
+=Lyak
+-----END PGP SIGNATURE-----
+
+--gBYU9MM4gf8jKg2V--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
