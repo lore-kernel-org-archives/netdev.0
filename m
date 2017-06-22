@@ -1,44 +1,66 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
+From: Lawrence Brakmo <brakmo@fb.com>
 Subject: Re: [PATCH net-next v3 01/15] bpf: BPF support for sock_ops
-Date: Fri, 23 Jun 2017 01:19:01 +0200
-Message-ID: <594C5065.2010900@iogearbox.net>
-References: <20170620030048.3275347-1-brakmo@fb.com> <20170620030048.3275347-2-brakmo@fb.com> <594C47A1.1080102@iogearbox.net> <B03E3B5A-50E2-4291-B091-23927AF6846F@fb.com>
+Date: Thu, 22 Jun 2017 23:57:27 +0000
+Message-ID: <82AC8CB1-F770-4EFA-9223-E2C94626582F@fb.com>
+References: <20170620030048.3275347-1-brakmo@fb.com>
+ <20170620030048.3275347-2-brakmo@fb.com> <594C47A1.1080102@iogearbox.net>
+ <B03E3B5A-50E2-4291-B091-23927AF6846F@fb.com>
+ <594C5065.2010900@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: Kernel Team <Kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
-        Alexei Starovoitov <ast@fb.com>,
+        "Alexei Starovoitov" <ast@fb.com>,
         David Ahern <dsa@cumulusnetworks.com>
-To: Lawrence Brakmo <brakmo@fb.com>, netdev <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+        netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:48441 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753672AbdFVXTG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 19:19:06 -0400
-In-Reply-To: <B03E3B5A-50E2-4291-B091-23927AF6846F@fb.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:43678 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753999AbdFVX5v (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 19:57:51 -0400
+In-Reply-To: <594C5065.2010900@iogearbox.net>
+Content-Language: en-US
+Content-ID: <B8004608A4C74E408CCAB7AE9710C1D7@namprd15.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/23/2017 12:58 AM, Lawrence Brakmo wrote:
-[...]
-> Daniel, I see value for having a global program, so I would like to keep that. When
-> this patchset is accepted, I will submit one that adds support for per cgroup
-> sock_ops programs, with the option to use the global one if none is
-> specified for a cgroup. We could also have the option of the cgroup sock_ops
-> program choosing if the global program should run for a particular op based on
-> its return value. We can iron it out the details when that patch is submitted.
-
-Hm, could you elaborate on the value part compared to per cgroups ops?
-My understanding is that per cgroup would already be a proper superset
-of just the global one anyway, so why not going with that in the first
-place since you're working on it?
-
-What would be the additional value? How would global vs per cgroup one
-interact with each other in terms of enforcement e.g., there's already
-semantics in place for cgroups descendants, would it be that we set
-TCP parameters twice or would you disable the global one altogether?
-Just wondering as you could avoid these altogether with going via cgroups
-initially.
-
-Thanks,
-Daniel
+DQpPbiA2LzIyLzE3LCA0OjE5IFBNLCAibmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZyBvbiBi
+ZWhhbGYgb2YgRGFuaWVsIEJvcmttYW5uIiA8bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZyBv
+biBiZWhhbGYgb2YgZGFuaWVsQGlvZ2VhcmJveC5uZXQ+IHdyb3RlOg0KDQogICAgT24gMDYvMjMv
+MjAxNyAxMjo1OCBBTSwgTGF3cmVuY2UgQnJha21vIHdyb3RlOg0KICAgIFsuLi5dDQogICAgPiBE
+YW5pZWwsIEkgc2VlIHZhbHVlIGZvciBoYXZpbmcgYSBnbG9iYWwgcHJvZ3JhbSwgc28gSSB3b3Vs
+ZCBsaWtlIHRvIGtlZXAgdGhhdC4gV2hlbg0KICAgID4gdGhpcyBwYXRjaHNldCBpcyBhY2NlcHRl
+ZCwgSSB3aWxsIHN1Ym1pdCBvbmUgdGhhdCBhZGRzIHN1cHBvcnQgZm9yIHBlciBjZ3JvdXANCiAg
+ICA+IHNvY2tfb3BzIHByb2dyYW1zLCB3aXRoIHRoZSBvcHRpb24gdG8gdXNlIHRoZSBnbG9iYWwg
+b25lIGlmIG5vbmUgaXMNCiAgICA+IHNwZWNpZmllZCBmb3IgYSBjZ3JvdXAuIFdlIGNvdWxkIGFs
+c28gaGF2ZSB0aGUgb3B0aW9uIG9mIHRoZSBjZ3JvdXAgc29ja19vcHMNCiAgICA+IHByb2dyYW0g
+Y2hvb3NpbmcgaWYgdGhlIGdsb2JhbCBwcm9ncmFtIHNob3VsZCBydW4gZm9yIGEgcGFydGljdWxh
+ciBvcCBiYXNlZCBvbg0KICAgID4gaXRzIHJldHVybiB2YWx1ZS4gV2UgY2FuIGlyb24gaXQgb3V0
+IHRoZSBkZXRhaWxzIHdoZW4gdGhhdCBwYXRjaCBpcyBzdWJtaXR0ZWQuDQogICAgDQogICAgSG0s
+IGNvdWxkIHlvdSBlbGFib3JhdGUgb24gdGhlIHZhbHVlIHBhcnQgY29tcGFyZWQgdG8gcGVyIGNn
+cm91cHMgb3BzPw0KICAgIE15IHVuZGVyc3RhbmRpbmcgaXMgdGhhdCBwZXIgY2dyb3VwIHdvdWxk
+IGFscmVhZHkgYmUgYSBwcm9wZXIgc3VwZXJzZXQNCiAgICBvZiBqdXN0IHRoZSBnbG9iYWwgb25l
+IGFueXdheSwgc28gd2h5IG5vdCBnb2luZyB3aXRoIHRoYXQgaW4gdGhlIGZpcnN0DQogICAgcGxh
+Y2Ugc2luY2UgeW91J3JlIHdvcmtpbmcgb24gaXQ/DQogICAgDQogICAgV2hhdCB3b3VsZCBiZSB0
+aGUgYWRkaXRpb25hbCB2YWx1ZT8gSG93IHdvdWxkIGdsb2JhbCB2cyBwZXIgY2dyb3VwIG9uZQ0K
+ICAgIGludGVyYWN0IHdpdGggZWFjaCBvdGhlciBpbiB0ZXJtcyBvZiBlbmZvcmNlbWVudCBlLmcu
+LCB0aGVyZSdzIGFscmVhZHkNCiAgICBzZW1hbnRpY3MgaW4gcGxhY2UgZm9yIGNncm91cHMgZGVz
+Y2VuZGFudHMsIHdvdWxkIGl0IGJlIHRoYXQgd2Ugc2V0DQogICAgVENQIHBhcmFtZXRlcnMgdHdp
+Y2Ugb3Igd291bGQgeW91IGRpc2FibGUgdGhlIGdsb2JhbCBvbmUgYWx0b2dldGhlcj8NCiAgICBK
+dXN0IHdvbmRlcmluZyBhcyB5b3UgY291bGQgYXZvaWQgdGhlc2UgYWx0b2dldGhlciB3aXRoIGdv
+aW5nIHZpYSBjZ3JvdXBzDQogICAgaW5pdGlhbGx5Lg0KICAgIA0KICAgIFRoYW5rcywNCiAgICBE
+YW5pZWwNCiAgICANCldlbGwsIGZvciBzdGFydGVycyB0aGUgZ2xvYmFsIHByb2dyYW0gd2lsbCB3
+b3JrIGV2ZW4gaWYgQ09ORklHX0NHUk9VUF9CUEYgaXMNCm5vdCBkZWZpbmVkLiBJdCBpcyBhbHNv
+IGFuIGVhc2llciBjb25jZXB0IGZvciB3aGVuIGEgZ2xvYmFsIHByb2dyYW0gaXMgYWxsIHRoYXQN
+CmlzIHJlcXVpcmVkLiBCdXQgSSBhbHNvIGhhZCBpbiBtaW5kIHRoYXQgYmVoYXZpb3JzIHRoYXQg
+d2VyZSBpbiBjb21tb24gZm9yDQptb3N0IGNncm91cCBwcm9ncmFtcyBjb3VsZCBiZSBoYW5kbGVk
+IGJ5IHRoZSBnbG9iYWwgcHJvZ3JhbSBpbnN0ZWFkIG9mDQphZGRpbmcgaXQgdG8gYWxsIGNncm91
+cCBwcm9ncmFtcy4gSW4gdGhpcyBzY2VuYXJpbyB0aGUgZ2xvYmFsIHByb2dyYW0NCnJlcHJlc2Vu
+dHMgdGhlIGRlZmF1bHQgYmVoYXZpb3IgdGhhdCBjYW4gYmUgb3ZlcnJpZGUgYnkgdGhlIGNncm91
+cA0KcHJvZ3JhbSAocGVyIG9wKS4gRm9yIGV4YW1wbGUsIHRoZSBjZ3JvdXAgcHJvZ3JhbSBjb3Vs
+ZCByZXR1cm4gYSB2YWx1ZQ0KdG8gaW5kaWNhdGUgdGhhdCB0aGF0IG9wIHNob3VsZCBiZSBwYXNz
+ZWQgdG8gdGhlIGdsb2JhbCBwcm9ncmFtLiANCg0KSSBhZ3JlZSAxMDAlIHdpdGggeW91IG9uIHRo
+ZSB2YWx1ZSBvZiBjZ3JvdXAgcHJvZ3JhbXMsIGJ1dCBJIGp1c3QgaGFwcGVuDQp0byB0aGluayB0
+aGVyZSBpcyBhbHNvIHZhbHVlIGluIHRoZSBnbG9iYWwgcHJvZ3JhbS4NCg0KVGhhbmtzLA0KTGF3
+cmVuY2UNCg0K
