@@ -1,54 +1,128 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [oss-drivers] Re: [PATCH net-next 00/12] nfp: add flower app
- with representors
-Date: Thu, 22 Jun 2017 21:09:59 +0200
-Message-ID: <20170622190957.GB29904@vergenet.net>
-References: <1497937910-32059-1-git-send-email-simon.horman@netronome.com>
- <CAJ3xEMgPWdg8gnAuGgufuxeYt4qDKrs8g+LBgm3BBG9KHnjGsQ@mail.gmail.com>
- <20170620122417.0c60582e@cakuba.netronome.com>
- <CAJ3xEMjTLs0aDLY_zDerm8o0yPmJktzBDE2rJ=QwXQZeS1+qCg@mail.gmail.com>
- <20170621093212.GA3656@vergenet.net>
- <CAJ3xEMiqCd9RQYBEANikw0cJRBR9cBRrucRZ1bPZQb2ML7V3PA@mail.gmail.com>
+From: Boris Brezillon <boris.brezillon@free-electrons.com>
+Subject: Re: [PATCH] dt-bindings: gpmc: Correct location of generic gpmc
+ binding
+Date: Thu, 22 Jun 2017 21:14:52 +0200
+Message-ID: <20170622211452.50617c4e@bbrezillon>
+References: <1498047294-31075-1-git-send-email-trini@konsulko.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        oss-drivers@netronome.com
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-mtd@lists.infradead.org, devicetree@vger.kernel.org,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        Mark Rutland <mark.rutland@arm.com>,
+        Richard Weinberger <richard@nod.at>,
+        Marek Vasut <marek.vasut@gmail.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Cyrille Pitchen <cyrille.pitchen@wedev4u.fr>,
+        Brian Norris <computersforpeace@gmail.com>,
+        David Woodhouse <dwmw2@infradead.org>
+To: Tom Rini <trini@konsulko.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f174.google.com ([209.85.128.174]:36196 "EHLO
-        mail-wr0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752429AbdFVTKM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 15:10:12 -0400
-Received: by mail-wr0-f174.google.com with SMTP id c11so35932584wrc.3
-        for <netdev@vger.kernel.org>; Thu, 22 Jun 2017 12:10:11 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAJ3xEMiqCd9RQYBEANikw0cJRBR9cBRrucRZ1bPZQb2ML7V3PA@mail.gmail.com>
+Received: from mail.free-electrons.com ([62.4.15.54]:50261 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752392AbdFVTO7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 15:14:59 -0400
+In-Reply-To: <1498047294-31075-1-git-send-email-trini@konsulko.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 22, 2017 at 05:39:09PM +0300, Or Gerlitz wrote:
-> On Wed, Jun 21, 2017 at 12:32 PM, Simon Horman
-> <simon.horman@netronome.com> wrote:
-> 
-> > This patchset is in two parts.
-> >
-> > The first 9 patches add code to allow representors to be instantiated
-> > etc... The remaining patches provide the beginning of a flower app which
-> > makes use of this infrastructure. So I think there is a clear separation
-> > between representor code, in .../nfp/ and app code that uses representors,
-> > in this case .../nfp/flower/.
-> 
-> indeed, got it.
-> 
-> > I could have supplied a test app to demonstrate using representors - and
-> > that is really what the flower app is as of this patchset. But I chose to
-> > name it flower as it we have follow-up work to make the app actually
-> > offload flower and at that point that will be come its dominant feature.
-> 
-> As you stated, the separation is there. If got you right, it will be possible to
-> use representors in non flower apps, and probably also possible to have
-> the flower app used in a non-SRIOV environment, just fine.
+On Wed, 21 Jun 2017 08:14:54 -0400
+Tom Rini <trini@konsulko.com> wrote:
 
-Yes, that is correct.
+> The binding bus/ti-gpmc.txt has been moved to
+> memory-controllers/omap-gpmc.txt.  Update all references to this in
+> order to make reading and understanding a given binding easier.
+> 
+> Cc: David Woodhouse <dwmw2@infradead.org>
+> Cc: Brian Norris <computersforpeace@gmail.com>
+> Cc:Boris Brezillon <boris.brezillon@free-electrons.com>
+> Cc: Marek Vasut <marek.vasut@gmail.com>
+> Cc: Richard Weinberger <richard@nod.at>
+> Cc: Cyrille Pitchen <cyrille.pitchen@wedev4u.fr>
+> Cc: Rob Herring <robh+dt@kernel.org>
+> Cc: Mark Rutland <mark.rutland@arm.com>
+> Signed-off-by: Tom Rini <trini@konsulko.com>
+
+Applied.
+
+Thanks,
+
+Boris
+
+> ---
+>  Documentation/devicetree/bindings/mtd/gpmc-nand.txt    | 2 +-
+>  Documentation/devicetree/bindings/mtd/gpmc-nor.txt     | 4 ++--
+>  Documentation/devicetree/bindings/mtd/gpmc-onenand.txt | 2 +-
+>  Documentation/devicetree/bindings/net/gpmc-eth.txt     | 4 ++--
+>  4 files changed, 6 insertions(+), 6 deletions(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/mtd/gpmc-nand.txt b/Documentation/devicetree/bindings/mtd/gpmc-nand.txt
+> index 174f68c26c1b..dd559045593d 100644
+> --- a/Documentation/devicetree/bindings/mtd/gpmc-nand.txt
+> +++ b/Documentation/devicetree/bindings/mtd/gpmc-nand.txt
+> @@ -5,7 +5,7 @@ the GPMC controller with a name of "nand".
+>  
+>  All timing relevant properties as well as generic gpmc child properties are
+>  explained in a separate documents - please refer to
+> -Documentation/devicetree/bindings/bus/ti-gpmc.txt
+> +Documentation/devicetree/bindings/memory-controllers/omap-gpmc.txt
+>  
+>  For NAND specific properties such as ECC modes or bus width, please refer to
+>  Documentation/devicetree/bindings/mtd/nand.txt
+> diff --git a/Documentation/devicetree/bindings/mtd/gpmc-nor.txt b/Documentation/devicetree/bindings/mtd/gpmc-nor.txt
+> index 4828c17bb784..131d3a74d0bd 100644
+> --- a/Documentation/devicetree/bindings/mtd/gpmc-nor.txt
+> +++ b/Documentation/devicetree/bindings/mtd/gpmc-nor.txt
+> @@ -5,7 +5,7 @@ child nodes of the GPMC controller with a name of "nor".
+>  
+>  All timing relevant properties as well as generic GPMC child properties are
+>  explained in a separate documents. Please refer to
+> -Documentation/devicetree/bindings/bus/ti-gpmc.txt
+> +Documentation/devicetree/bindings/memory-controllers/omap-gpmc.txt
+>  
+>  Required properties:
+>  - bank-width: 		Width of NOR flash in bytes. GPMC supports 8-bit and
+> @@ -28,7 +28,7 @@ Required properties:
+>  
+>  Optional properties:
+>  - gpmc,XXX		Additional GPMC timings and settings parameters. See
+> -			Documentation/devicetree/bindings/bus/ti-gpmc.txt
+> +			Documentation/devicetree/bindings/memory-controllers/omap-gpmc.txt
+>  
+>  Optional properties for partition table parsing:
+>  - #address-cells: should be set to 1
+> diff --git a/Documentation/devicetree/bindings/mtd/gpmc-onenand.txt b/Documentation/devicetree/bindings/mtd/gpmc-onenand.txt
+> index 5d8fa527c496..b6e8bfd024f4 100644
+> --- a/Documentation/devicetree/bindings/mtd/gpmc-onenand.txt
+> +++ b/Documentation/devicetree/bindings/mtd/gpmc-onenand.txt
+> @@ -5,7 +5,7 @@ the GPMC controller with a name of "onenand".
+>  
+>  All timing relevant properties as well as generic gpmc child properties are
+>  explained in a separate documents - please refer to
+> -Documentation/devicetree/bindings/bus/ti-gpmc.txt
+> +Documentation/devicetree/bindings/memory-controllers/omap-gpmc.txt
+>  
+>  Required properties:
+>  
+> diff --git a/Documentation/devicetree/bindings/net/gpmc-eth.txt b/Documentation/devicetree/bindings/net/gpmc-eth.txt
+> index ace4a64b3695..f7da3d73ca1b 100644
+> --- a/Documentation/devicetree/bindings/net/gpmc-eth.txt
+> +++ b/Documentation/devicetree/bindings/net/gpmc-eth.txt
+> @@ -9,7 +9,7 @@ the GPMC controller with an "ethernet" name.
+>  
+>  All timing relevant properties as well as generic GPMC child properties are
+>  explained in a separate documents. Please refer to
+> -Documentation/devicetree/bindings/bus/ti-gpmc.txt
+> +Documentation/devicetree/bindings/memory-controllers/omap-gpmc.txt
+>  
+>  For the properties relevant to the ethernet controller connected to the GPMC
+>  refer to the binding documentation of the device. For example, the documentation
+> @@ -43,7 +43,7 @@ Required properties:
+>  
+>  Optional properties:
+>  - gpmc,XXX		Additional GPMC timings and settings parameters. See
+> -			Documentation/devicetree/bindings/bus/ti-gpmc.txt
+> +			Documentation/devicetree/bindings/memory-controllers/omap-gpmc.txt
+>  
+>  Example:
+>  
