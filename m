@@ -1,42 +1,46 @@
-From: Gal Pressman <galp@mellanox.com>
-Subject: Re: [RFC PATCH net-next 1/3] ethtool: Add link down reason callback
-Date: Thu, 22 Jun 2017 13:33:16 +0300
-Message-ID: <b6a2be2f-3bcc-128c-35fb-1ae00940b462@mellanox.com>
-References: <1498050286-17141-1-git-send-email-galp@mellanox.com>
- <1498050286-17141-2-git-send-email-galp@mellanox.com>
- <20170621084317.45879939@xeon-e3>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net v2 2/2] esp6_offload: Fix IP6CB(skb)->nhoff for ESP
+ GRO
+Date: Thu, 22 Jun 2017 12:52:13 +0200
+Message-ID: <20170622105213.GW2631@secunet.com>
+References: <1498120631-4291-1-git-send-email-yossiku@mellanox.com>
+ <1498120631-4291-2-git-send-email-yossiku@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        "John W. Linville" <linville@tuxdriver.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        David Decotigny <decot@googlers.com>, kernel-team@fb.com
-To: Stephen Hemminger <stephen@networkplumber.org>,
-        Gal Pressman <galp@mellanox.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, Herbert Xu <herbert@gondor.apana.org.au>,
+        Yevgeny Kliteynik <kliteyn@mellanox.com>,
+        Boris Pismenny <borisp@mellanox.com>,
+        Ilan Tayari <ilant@mellanox.com>
+To: <yossiku@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr00042.outbound.protection.outlook.com ([40.107.0.42]:54654
-        "EHLO EUR02-AM5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752719AbdFVKda (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 22 Jun 2017 06:33:30 -0400
-In-Reply-To: <20170621084317.45879939@xeon-e3>
-Content-Language: en-US
+Received: from a.mx.secunet.com ([62.96.220.36]:51186 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751818AbdFVKwQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 22 Jun 2017 06:52:16 -0400
+Content-Disposition: inline
+In-Reply-To: <1498120631-4291-2-git-send-email-yossiku@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Jun 22, 2017 at 11:37:11AM +0300, yossiku@mellanox.com wrote:
+> From: Yossi Kuperman <yossiku@mellanox.com>
+> 
+> IP6CB(skb)->nhoff is the offset of the nexthdr field in an IPv6
+> header, unless there are extension headers present, in which case
+> nhoff points to the nexthdr field of the last extension header.
+> 
+> In non-GRO code path, nhoff is set by ipv6_rcv before any XFRM code
+> is executed. Conversely, in GRO code path (when esp6_offload is loaded),
+> nhoff is not set. The following functions fail to read the correct value
+> and eventually the packet is dropped:
+> 
+>     xfrm6_transport_finish
+>     xfrm6_tunnel_input
+>     xfrm6_rcv_tnl
+> 
+> Set nhoff to the proper offset of nexthdr in esp6_gro_receive.
+> 
+> Fixes: 7785bba299a8 ("esp: Add a software GRO codepath")
+> Signed-off-by: Yossi Kuperman <yossiku@mellanox.com>
 
->> +	ETHTOOL_LINK_PWR_BUDGET_EXC, /* Power budget exceeded */
->> +	ETHTOOL_LINK_MODULE_ADMIN_DOWN, /* Module admin down */
->> +
->> +	ETHTOOL_LINK_REASONS_COUNT
->> +};
-> Any enumerated list is going to get changed too often.
-> Could the API just return a string?
-
-The motivation for the enumerated list is to make this API as generic as possible and compatible
-with all ethernet drivers.
-
-Returning a string is a good idea, maybe change the vendor specific opcode to a string?
+Both patches applied, thanks for your work Yossi!
