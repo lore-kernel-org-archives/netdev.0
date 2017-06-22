@@ -1,65 +1,49 @@
-From: Tushar Dave <tushar.n.dave@oracle.com>
-Subject: [next-queue PATCH] i40evf: Use le32_to_cpu before evaluating HW desc fields
-Date: Thu, 22 Jun 2017 09:44:32 -0700
-Message-ID: <1498149872-16623-1-git-send-email-tushar.n.dave@oracle.com>
-To: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:38140 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753187AbdFVQpH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 12:45:07 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] rsi: add in missing RSI_FSM_STATES into array fsm_state
+Date: Thu, 22 Jun 2017 17:58:04 +0100
+Message-ID: <20170622165804.24379-1-colin.king@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>,
+        Colin Ian King <colin.king@canonical.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-i40e hardware descriptor fields are in little-endian format. Driver
-must use le32_to_cpu while evaluating these fields otherwise on
-big-endian arch we end up evaluating incorrect values, cause errors
-like:
-i40evf 0000:03:0a.0: Expected response 24 from PF, received 402653184
-i40evf 0000:03:0a.1: Expected response 7 from PF, received 117440512
+From: Colin Ian King <colin.king@canonical.com>
 
-Signed-off-by: Tushar Dave <tushar.n.dave@oracle.com>
-Reviewed-by: Shannon Nelson <shannon.nelson@oracle.com>
+Two recent commits added new RSI_FSM_STATES (namely FSM_FW_NOT_LOADED
+and FSM_COMMON_DEV_PARAMS_SENT) and the corresponding table fsm_state
+was not updated to match. This can lead to an array overrun when
+accessing the latter two states in fsm_state. Fix this by adding in
+the missing states.
+
+Detected by CoverityScan, CID#1398379 ("Illegal address computation")
+
+Fixes: 9920322ccd8e04 ("rsi: add tx frame for common device configuration")
+Fixes: 015e367494c1d5 ("rsi: Register interrupt handler before firmware load")
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+ drivers/net/wireless/rsi/rsi_91x_debugfs.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 7c213a3..93536b9 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -1957,8 +1957,8 @@ static void i40evf_adminq_task(struct work_struct *work)
- 		container_of(work, struct i40evf_adapter, adminq_task);
- 	struct i40e_hw *hw = &adapter->hw;
- 	struct i40e_arq_event_info event;
--	struct virtchnl_msg *v_msg;
--	i40e_status ret;
-+	enum virtchnl_ops v_op;
-+	i40e_status ret, v_ret;
- 	u32 val, oldval;
- 	u16 pending;
+diff --git a/drivers/net/wireless/rsi/rsi_91x_debugfs.c b/drivers/net/wireless/rsi/rsi_91x_debugfs.c
+index 828a042f903f..4c0a493bd44e 100644
+--- a/drivers/net/wireless/rsi/rsi_91x_debugfs.c
++++ b/drivers/net/wireless/rsi/rsi_91x_debugfs.c
+@@ -125,7 +125,9 @@ static int rsi_stats_read(struct seq_file *seq, void *data)
+ 	struct rsi_common *common = seq->private;
  
-@@ -1970,15 +1970,15 @@ static void i40evf_adminq_task(struct work_struct *work)
- 	if (!event.msg_buf)
- 		goto out;
- 
--	v_msg = (struct virtchnl_msg *)&event.desc;
- 	do {
- 		ret = i40evf_clean_arq_element(hw, &event, &pending);
--		if (ret || !v_msg->v_opcode)
-+		v_op = (enum virtchnl_ops)le32_to_cpu(event.desc.cookie_high);
-+		v_ret = (i40e_status)le32_to_cpu(event.desc.cookie_low);
-+
-+		if (ret || !v_op)
- 			break; /* No event to process or error cleaning ARQ */
- 
--		i40evf_virtchnl_completion(adapter, v_msg->v_opcode,
--					   (i40e_status)v_msg->v_retval,
--					   event.msg_buf,
-+		i40evf_virtchnl_completion(adapter, v_op, v_ret, event.msg_buf,
- 					   event.msg_len);
- 		if (pending != 0)
- 			memset(event.msg_buf, 0, I40EVF_MAX_AQ_BUF_SIZE);
+ 	unsigned char fsm_state[][32] = {
++		"FSM_FW_NOT_LOADED",
+ 		"FSM_CARD_NOT_READY",
++		"FSM_COMMON_DEV_PARAMS_SENT",
+ 		"FSM_BOOT_PARAMS_SENT",
+ 		"FSM_EEPROM_READ_MAC_ADDR",
+ 		"FSM_RESET_MAC_SENT",
 -- 
-1.9.1
+2.11.0
