@@ -1,91 +1,59 @@
-From: l00371289 <linyunsheng@huawei.com>
-Subject: Re: [PATCH NET] net/hns:bugfix of ethtool -t phy self_test
-Date: Thu, 22 Jun 2017 11:49:46 +0800
-Message-ID: <fa145870-9233-dff7-e4aa-1efc0e666191@huawei.com>
-References: <1497605091-94725-1-git-send-email-linyunsheng@huawei.com>
- <7500513f-e263-838c-12a1-4343f7281f1a@gmail.com>
- <08ef77fc-29ab-8262-2126-c547960d5628@huawei.com>
- <20170620132705.GD13704@lunn.ch>
- <524e1181-f90d-0f05-200a-44cfa179dbf3@huawei.com>
- <20170621031320.GA1487@lunn.ch>
- <2a0e4db4-759d-4ce9-f42c-12303898b2c9@huawei.com>
- <20170621133449.GB27585@lunn.ch>
- <ea80ee9c-f2e5-72ae-5c53-fda1dd755a45@huawei.com>
- <20170622033505.GA4813@lunn.ch>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [RFC PATCH net-next 0/3] ethtool: Add link down reason
+ reporting
+Date: Wed, 21 Jun 2017 21:14:43 -0700
+Message-ID: <20170621211443.674e18a6@cakuba.netronome.com>
+References: <1498050286-17141-1-git-send-email-galp@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>, <davem@davemloft.net>,
-        <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
-        <liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
-        <gabriele.paoloni@huawei.com>, <john.garry@huawei.com>,
-        <linuxarm@huawei.com>, <salil.mehta@huawei.com>,
-        <lipeng321@huawei.com>, <yankejian@huawei.com>,
-        <tremyfr@gmail.com>, <xieqianqian@huawei.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170622033505.GA4813@lunn.ch>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        "John W. Linville" <linville@tuxdriver.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        David Decotigny <decot@googlers.com>, kernel-team@fb.com
+To: Gal Pressman <galp@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx3.wp.pl ([212.77.101.10]:10758 "EHLO mx3.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750924AbdFVEOw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 22 Jun 2017 00:14:52 -0400
+In-Reply-To: <1498050286-17141-1-git-send-email-galp@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi, Andrew
+On Wed, 21 Jun 2017 16:04:43 +0300, Gal Pressman wrote:
+> Hi All,
+> 
+> Currently, drivers can only tell whether the link is up/down through
+> ETHTOOL_GLINK callback, but no additional information is given in case
+> of link down/failure.
+> 
+> This series provides an infrastructure to ethtool that allows 
+> netdevice drivers to hint the user with the reason why the link is down,
+> in order to ease the debug process.
+> 
+> In addition two more mlx5 patches to demonstrate the usage.
+> 
+> Reasons are separated to two types, generic and vendor specific.
+> Drivers can reply with a generic reason using the predefined enums 
+> (and the ones that will be added in the future), which will be
+> translated to strings by the userspace ethtool.
+> In case of a vendor specific reason, drivers can reply with
+> ETHTOOL_VENDOR_SPECIFIC reason, in this case the vendor_reason field
+> should be filled with a vendor specific status code which will be parsed
+> by the vendor specific userspace parser if one is available.
+> 
+> This kind of information can save system administrators precious time,
+> which will not be wasted trying to understand why the link won't go up.
+>     
+> For example, when the cable is unplugged:
+>     $ ethtool ethXX
+>     ...
+>     Link detected: no (Cable unplugged)
 
-On 2017/6/22 11:35, Andrew Lunn wrote:
->> I don't think returning to user space is an option, because it mean
->> ethtool phy self test would fail because if availability of some software
->> resoure, which is not some application would expect. here is what I can
->> think of:
->>
->> driver/net/ethernet/hisilicon/hns/hns_ethtool.c
->> int phy_loopback_selftest(struct phy_device *dev)
->> {
->> 	int err;
->>
->> 	mutex_lock(dev->mutex);
->>
->> 	if (dev->drv->loopback)
->> 		err = dev->drv->loopback(dev, 1);
->>
->> 	if (err)
->> 		goto out;
->> 	
->> 	/* mac driver do the test*/
->> 	.................
->>
->>
->> 	if (dev->drv->loopback)
->> 		err = dev->drv->loopback(dev, 0);
->>
->> 	if (err)
->> 		goto out;
->>
->> out:
->> 	mutex_unlock(dev->mutex);
->> 	return err;
->> }
-> 
-> I don't think you need a mutex here. dev_ioctl.c:
-> 
->        case SIOCETHTOOL:
->                 dev_load(net, ifr.ifr_name);
->                 rtnl_lock();
->                 ret = dev_ethtool(net, &ifr);
->                 rtnl_unlock();
->  
-> So all ethtool operations are protected by the rtnl. You cannot have
-> two tests running at once.
-> 
->> One question I can think of is that, how do we ensure mac driver enable and
->> disable phy loopback in pair, enable loopback after dev->mutex is taken,
->> disable loopback  before dev->mutex is released?
->> I hope I am not missing something obvious, any suggestion and idea?
-> 
-> You cannot ensure this. But it would be a pretty obvious bug.
-> 
-Thanks for your reply, I will send a new patch based on the discussion above.
-Please let me know if there is anything else need changing.
-
-Best Regards
-Yunsheng Lin
+Any particular reason for implementing this ABI in ethtool rather than
+via some netlink-based interface?  Devlink naturally comes to mind,
+given that cabling problems are not really related to the L2 and netdev
+shouldn't be required for diagnostics..
