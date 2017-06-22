@@ -1,75 +1,74 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] net: stmmac: make some functions static
-Date: Thu, 22 Jun 2017 17:17:29 +0100
-Message-ID: <20170622161729.23602-1-colin.king@canonical.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH v2] of: update ePAPR references to point to Devicetree
+ Specification
+Date: Thu, 22 Jun 2017 11:22:21 -0500
+Message-ID: <20170622162221.qxglzqdxpzt6hoho@rob-hp-laptop>
+References: <1498148139-12770-1-git-send-email-frowand.list@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        netdev@vger.kernel.org
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Mark Rutland <mark.rutland@arm.com>, horia.geanta@nxp.com,
+        Dan Douglass <dan.douglass@nxp.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Marc Zyngier <marc.zyngier@arm.com>,
+        Scott Wood <oss@buserror.net>,
+        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        Paul Mackerras <paulus@samba.org>,
+        Michael Ellerman <mpe@ellerman.id.au>,
+        Jonathan Corbet <corbet@lwn.net>, devicetree@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
+        netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+        linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org
+To: frowand.list@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1498148139-12770-1-git-send-email-frowand.list@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+On Thu, Jun 22, 2017 at 09:15:39AM -0700, frowand.list@gmail.com wrote:
+> From: Frank Rowand <frank.rowand@sony.com>
+> 
+> The Devicetree Specification has superseded the ePAPR as the
+> base specification for bindings.  Update files in Documentation
+> to reference the new document.
+> 
+> First reference to ePAPR in Documentation/devicetree/bindings/arm/cci.txt
+> is generic, remove it.
+> 
+> Some files are not updated because there is no hypervisor chapter
+> in the Devicetree Specification:
+>    Documentation/devicetree/bindings/powerpc/fsl/msi-pic.txt
+>    Documenation/virtual/kvm/api.txt
+>    Documenation/virtual/kvm/ppc-pv.txt
+> 
+> Signed-off-by: Frank Rowand <frank.rowand@sony.com>
+> ---
+> 
+> changes from v1:
+>    - remove boilerplat ePAPR reference from cci.txt
+> 
+>  Documentation/devicetree/bindings/arm/cci.txt             | 15 ++++-----------
+>  Documentation/devicetree/bindings/arm/cpus.txt            | 13 +++++++------
+>  Documentation/devicetree/bindings/arm/idle-states.txt     |  4 ++--
+>  Documentation/devicetree/bindings/arm/l2c2x0.txt          |  4 ++--
+>  Documentation/devicetree/bindings/arm/topology.txt        |  4 ++--
+>  Documentation/devicetree/bindings/bus/simple-pm-bus.txt   |  2 +-
+>  Documentation/devicetree/bindings/chosen.txt              |  3 ++-
+>  Documentation/devicetree/bindings/common-properties.txt   |  2 +-
+>  Documentation/devicetree/bindings/crypto/fsl-sec4.txt     |  4 ++--
+>  Documentation/devicetree/bindings/crypto/fsl-sec6.txt     |  4 ++--
+>  .../devicetree/bindings/interrupt-controller/open-pic.txt |  5 ++---
+>  Documentation/devicetree/bindings/net/ethernet.txt        |  9 ++++++---
+>  Documentation/devicetree/bindings/powerpc/fsl/cpus.txt    |  6 +++---
+>  Documentation/devicetree/bindings/powerpc/fsl/l2cache.txt |  2 +-
+>  .../devicetree/bindings/powerpc/fsl/srio-rmu.txt          |  4 ++--
+>  Documentation/devicetree/bindings/powerpc/fsl/srio.txt    |  3 ++-
+>  Documentation/devicetree/booting-without-of.txt           |  2 +-
+>  Documentation/devicetree/usage-model.txt                  |  2 +-
+>  Documentation/xtensa/mmu.txt                              |  6 +++---
+>  19 files changed, 46 insertions(+), 48 deletions(-)
 
-The functions dwmac4_dma_init_rx_chan, dwmac4_dma_init_tx_chan and
-dwmac4_dma_init_channel do not need to be in global scope, so them
-static.
-
-Cleans up sparse warnings:
-"symbol 'dwmac4_dma_init_rx_chan' was not declared. Should it be static?"
-"symbol 'dwmac4_dma_init_tx_chan' was not declared. Should it be static?"
-"symbol 'dwmac4_dma_init_channel' was not declared. Should it be static?"
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c | 16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-index eec8463057fd..e84831e1b63b 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-@@ -71,9 +71,9 @@ static void dwmac4_dma_axi(void __iomem *ioaddr, struct stmmac_axi *axi)
- 	writel(value, ioaddr + DMA_SYS_BUS_MODE);
- }
- 
--void dwmac4_dma_init_rx_chan(void __iomem *ioaddr,
--			     struct stmmac_dma_cfg *dma_cfg,
--			     u32 dma_rx_phy, u32 chan)
-+static void dwmac4_dma_init_rx_chan(void __iomem *ioaddr,
-+				    struct stmmac_dma_cfg *dma_cfg,
-+				    u32 dma_rx_phy, u32 chan)
- {
- 	u32 value;
- 	u32 rxpbl = dma_cfg->rxpbl ?: dma_cfg->pbl;
-@@ -85,9 +85,9 @@ void dwmac4_dma_init_rx_chan(void __iomem *ioaddr,
- 	writel(dma_rx_phy, ioaddr + DMA_CHAN_RX_BASE_ADDR(chan));
- }
- 
--void dwmac4_dma_init_tx_chan(void __iomem *ioaddr,
--			     struct stmmac_dma_cfg *dma_cfg,
--			     u32 dma_tx_phy, u32 chan)
-+static void dwmac4_dma_init_tx_chan(void __iomem *ioaddr,
-+				    struct stmmac_dma_cfg *dma_cfg,
-+				    u32 dma_tx_phy, u32 chan)
- {
- 	u32 value;
- 	u32 txpbl = dma_cfg->txpbl ?: dma_cfg->pbl;
-@@ -99,8 +99,8 @@ void dwmac4_dma_init_tx_chan(void __iomem *ioaddr,
- 	writel(dma_tx_phy, ioaddr + DMA_CHAN_TX_BASE_ADDR(chan));
- }
- 
--void dwmac4_dma_init_channel(void __iomem *ioaddr,
--			     struct stmmac_dma_cfg *dma_cfg, u32 chan)
-+static void dwmac4_dma_init_channel(void __iomem *ioaddr,
-+				    struct stmmac_dma_cfg *dma_cfg, u32 chan)
- {
- 	u32 value;
- 
--- 
-2.11.0
-
+Applied.
