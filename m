@@ -1,126 +1,138 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: Re: [PATCH net-next v3 07/15] bpf: Add setsockopt helper function to
- bpf
-Date: Wed, 21 Jun 2017 23:55:36 +0000
-Message-ID: <AEEC7BD8-7913-4D5C-A3D6-0AA384BF6FB4@fb.com>
-References: <20170620030048.3275347-1-brakmo@fb.com>
- <20170620030048.3275347-8-brakmo@fb.com>
- <CAEfhGiyi4xb6HmfUJmXxgvCUGmW6p37yoqVio=PcUn091hBUsA@mail.gmail.com>
- <02369759-BBB8-4B16-835A-D12A58526DFF@fb.com>
- <CAEfhGizMrrAnjHwa8LFGxZWnkBT=dJKKUqL7Q7i71eTPjDjAQw@mail.gmail.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH v5 3/3] net/cxgb4: Use new
+ PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+Date: Thu, 22 Jun 2017 09:10:38 +0800
+Message-ID: <3aa59c4a-62ad-dcb0-14d0-e0955b0005d2@huawei.com>
+References: <1497855239-18560-1-git-send-email-dingtianhong@huawei.com>
+ <1497855239-18560-4-git-send-email-dingtianhong@huawei.com>
+ <CAKgT0UdJ_zseo9O7SiU9U2m__OZeF_Z8eVjsA5N8ZK39rdK2fA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>, Kernel Team <Kernel-team@fb.com>,
-        "Blake Matheny" <bmatheny@fb.com>, Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: Craig Gallek <kraigatgoog@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:33669 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751835AbdFUXz4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 19:55:56 -0400
-In-Reply-To: <CAEfhGizMrrAnjHwa8LFGxZWnkBT=dJKKUqL7Q7i71eTPjDjAQw@mail.gmail.com>
-Content-Language: en-US
-Content-ID: <2F5B59AD2E7BFA428A9C34D6D8D7F63D@namprd15.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland@arm.com>,
+        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
+        Asit K Mallick <asit.k.mallick@intel.com>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will.deacon@arm.com>,
+        Ashok Raj <ashok.raj@intel.com>,
+        Bjorn Helgaas <helgaas@kernel.org>,
+        "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>,
+        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+        Ganesh Goudar <ganeshgr@chelsio.com>,
+        Bob Shaw <Bob.Shaw@amd.com>, Casey Leedom <leedom@chelsio.com>,
+        Patrick J Cramer <patrick.j.cramer@intel.com>,
+        Michael Werner <werner@chelsio.com>,
+        <linux-arm-kernel@lists.infradead.org>,
+        Amir Ancel <amira@mellanox.com>,
+        Netdev <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        David Laight <David.Laight@
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <CAKgT0UdJ_zseo9O7SiU9U2m__OZeF_Z8eVjsA5N8ZK39rdK2fA@mail.gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQpPbiA2LzIxLzE3LCAxMDoxMyBBTSwgIkNyYWlnIEdhbGxlayIgPGtyYWlnYXRnb29nQGdtYWls
-LmNvbT4gd3JvdGU6DQoNCiAgICBPbiBXZWQsIEp1biAyMSwgMjAxNyBhdCAxMjo1MSBQTSwgTGF3
-cmVuY2UgQnJha21vIDxicmFrbW9AZmIuY29tPiB3cm90ZToNCiAgICA+DQogICAgPiBPbiA2LzIw
-LzE3LCAyOjI1IFBNLCAiQ3JhaWcgR2FsbGVrIiA8a3JhaWdhdGdvb2dAZ21haWwuY29tPiB3cm90
-ZToNCiAgICA+DQogICAgPiAgICAgT24gTW9uLCBKdW4gMTksIDIwMTcgYXQgMTE6MDAgUE0sIExh
-d3JlbmNlIEJyYWttbyA8YnJha21vQGZiLmNvbT4gd3JvdGU6DQogICAgPiAgICAgPiBBZGRlZCBz
-dXBwb3J0IGZvciBjYWxsaW5nIGEgc3Vic2V0IG9mIHNvY2tldCBzZXRzb2Nrb3B0cyBmcm9tDQog
-ICAgPiAgICAgPiBCUEZfUFJPR19UWVBFX1NPQ0tfT1BTIHByb2dyYW1zLiBUaGUgY29kZSB3YXMg
-ZHVwbGljYXRlZCByYXRoZXINCiAgICA+ICAgICA+IHRoYW4gbWFraW5nIHRoZSBjaGFuZ2VzIHRv
-IGNhbGwgdGhlIHNvY2tldCBzZXRzb2Nrb3B0IGZ1bmN0aW9uIGJlY2F1c2UNCiAgICA+ICAgICA+
-IHRoZSBjaGFuZ2VzIHJlcXVpcmVkIHdvdWxkIGhhdmUgYmVlbiBsYXJnZXIuDQogICAgPiAgICAg
-Pg0KICAgID4gICAgID4gQEAgLTI2NzEsNiArMjY3Miw2OSBAQCBzdGF0aWMgY29uc3Qgc3RydWN0
-IGJwZl9mdW5jX3Byb3RvIGJwZl9nZXRfc29ja2V0X3VpZF9wcm90byA9IHsNCiAgICA+ICAgICA+
-ICAgICAgICAgLmFyZzFfdHlwZSAgICAgID0gQVJHX1BUUl9UT19DVFgsDQogICAgPiAgICAgPiAg
-fTsNCiAgICA+ICAgICA+DQogICAgPiAgICAgPiArQlBGX0NBTExfNShicGZfc2V0c29ja29wdCwg
-c3RydWN0IGJwZl9zb2NrX29wc19rZXJuICosIGJwZl9zb2NrLA0KICAgID4gICAgID4gKyAgICAg
-ICAgICBpbnQsIGxldmVsLCBpbnQsIG9wdG5hbWUsIGNoYXIgKiwgb3B0dmFsLCBpbnQsIG9wdGxl
-bikNCiAgICA+ICAgICA+ICt7DQogICAgPiAgICAgPiArICAgICAgIHN0cnVjdCBzb2NrICpzayA9
-IGJwZl9zb2NrLT5zazsNCiAgICA+ICAgICA+ICsgICAgICAgaW50IHJldCA9IDA7DQogICAgPiAg
-ICAgPiArICAgICAgIGludCB2YWw7DQogICAgPiAgICAgPiArDQogICAgPiAgICAgPiArICAgICAg
-IGlmIChicGZfc29jay0+aXNfcmVxX3NvY2spDQogICAgPiAgICAgPiArICAgICAgICAgICAgICAg
-cmV0dXJuIC1FSU5WQUw7DQogICAgPiAgICAgPiArDQogICAgPiAgICAgPiArICAgICAgIGlmIChs
-ZXZlbCA9PSBTT0xfU09DS0VUKSB7DQogICAgPiAgICAgPiArICAgICAgICAgICAgICAgLyogT25s
-eSBzb21lIHNvY2tldG9wcyBhcmUgc3VwcG9ydGVkICovDQogICAgPiAgICAgPiArICAgICAgICAg
-ICAgICAgdmFsID0gKigoaW50ICopb3B0dmFsKTsNCiAgICA+ICAgICA+ICsNCiAgICA+ICAgICA+
-ICsgICAgICAgICAgICAgICBzd2l0Y2ggKG9wdG5hbWUpIHsNCiAgICA+ICAgICA+ICsgICAgICAg
-ICAgICAgICBjYXNlIFNPX1JDVkJVRjoNCiAgICA+ICAgICA+ICsgICAgICAgICAgICAgICAgICAg
-ICAgIHNrLT5za191c2VybG9ja3MgfD0gU09DS19SQ1ZCVUZfTE9DSzsNCiAgICA+ICAgICA+ICsg
-ICAgICAgICAgICAgICAgICAgICAgIHNrLT5za19yY3ZidWYgPSBtYXhfdChpbnQsIHZhbCAqIDIs
-IFNPQ0tfTUlOX1JDVkJVRik7DQogICAgPiAgICAgPiArICAgICAgICAgICAgICAgICAgICAgICBi
-cmVhazsNCiAgICA+ICAgICA+ICsgICAgICAgICAgICAgICBjYXNlIFNPX1NOREJVRjoNCiAgICA+
-ICAgICA+ICsgICAgICAgICAgICAgICAgICAgICAgIHNrLT5za191c2VybG9ja3MgfD0gU09DS19T
-TkRCVUZfTE9DSzsNCiAgICA+ICAgICA+ICsgICAgICAgICAgICAgICAgICAgICAgIHNrLT5za19z
-bmRidWYgPSBtYXhfdChpbnQsIHZhbCAqIDIsIFNPQ0tfTUlOX1NOREJVRik7DQogICAgPiAgICAg
-PiArICAgICAgICAgICAgICAgICAgICAgICBicmVhazsNCiAgICA+ICAgICA+ICsgICAgICAgICAg
-ICAgICBjYXNlIFNPX01BWF9QQUNJTkdfUkFURToNCiAgICA+ICAgICA+ICsgICAgICAgICAgICAg
-ICAgICAgICAgIHNrLT5za19tYXhfcGFjaW5nX3JhdGUgPSB2YWw7DQogICAgPiAgICAgPiArICAg
-ICAgICAgICAgICAgICAgICAgICBzay0+c2tfcGFjaW5nX3JhdGUgPSBtaW4oc2stPnNrX3BhY2lu
-Z19yYXRlLA0KICAgID4gICAgID4gKyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgIHNrLT5za19tYXhfcGFjaW5nX3JhdGUpOw0KICAgID4gICAgID4gKyAgICAg
-ICAgICAgICAgICAgICAgICAgYnJlYWs7DQogICAgPiAgICAgPiArICAgICAgICAgICAgICAgY2Fz
-ZSBTT19QUklPUklUWToNCiAgICA+ICAgICA+ICsgICAgICAgICAgICAgICAgICAgICAgIHNrLT5z
-a19wcmlvcml0eSA9IHZhbDsNCiAgICA+ICAgICA+ICsgICAgICAgICAgICAgICAgICAgICAgIGJy
-ZWFrOw0KICAgID4gICAgID4gKyAgICAgICAgICAgICAgIGNhc2UgU09fUkNWTE9XQVQ6DQogICAg
-PiAgICAgPiArICAgICAgICAgICAgICAgICAgICAgICBpZiAodmFsIDwgMCkNCiAgICA+ICAgICA+
-ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgdmFsID0gSU5UX01BWDsNCiAgICA+ICAg
-ICA+ICsgICAgICAgICAgICAgICAgICAgICAgIHNrLT5za19yY3Zsb3dhdCA9IHZhbCA/IDogMTsN
-CiAgICA+ICAgICA+ICsgICAgICAgICAgICAgICAgICAgICAgIGJyZWFrOw0KICAgID4gICAgID4g
-KyAgICAgICAgICAgICAgIGNhc2UgU09fTUFSSzoNCiAgICA+ICAgICA+ICsgICAgICAgICAgICAg
-ICAgICAgICAgIHNrLT5za19tYXJrID0gdmFsOw0KICAgID4gICAgID4gKyAgICAgICAgICAgICAg
-ICAgICAgICAgYnJlYWs7DQogICAgPg0KICAgID4gICAgIElzbid0IHRoZSBzb2NrZXQgbG9jayBy
-ZXF1aXJlZCB3aGVuIG1hbmlwdWxhdGluZyB0aGVzZSBmaWVsZHM/ICBJdCdzDQogICAgPiAgICAg
-bm90IG9idmlvdXMgdGhhdCB0aGUgbG9jayBpcyBoZWxkIGZyb20gZXZlcnkgYnBmIGhvb2sgcG9p
-bnQgdGhhdCBjb3VsZA0KICAgID4gICAgIHRyaWdnZXIgdGhpcyBmdW5jdGlvbi4uLg0KICAgID4N
-CiAgICA+IFRoZSBzb2NrX29wcyBCUEYgcHJvZ3JhbXMgYXJlIGJlaW5nIGNhbGxlZCBmcm9tIHdp
-dGhpbiB0aGUgbmV0d29yaw0KICAgID4gc3RhY2sgYW5kIG15IHVuZGVyc3RhbmRpbmcgaXMgdGhh
-dCAgbG9jayBoYXMgYWxyZWFkeSBiZWVuIHRha2VuLg0KICAgID4gQ3VycmVudGx5IHRoZXkgYXJl
-IG9ubHkgY2FsbGVkOg0KICAgID4gKDEpIGFmdGVyIGEgcGFja2V0IGlzIHJlY2VpdmVkLCB3aGVy
-ZSB0aGVyZSBpcyB0aGUgY2FsbCB0bw0KICAgID4gYmhfbG9ja19zb2NrX25lc3RlZCgpIGluIHRj
-cF92NF9yY3YoKSBiZWZvcmUgY2FsbGluZw0KICAgID4gdGNwX3Y0X2RvX3JjdigpLg0KICAgID4g
-KDIpIGluIHRjcF9jb25uZWN0KCksIHdoZXJlIHRoZXJlIHNob3VsZCBiZSBubyBpc3N1ZQ0KICAg
-IFNvbWVvbmUgd2hvIHVuZGVyc3RhbmRzIHRoZSBUQ1Agc3RhY2sgYmV0dGVyIHRoYW4gSSBzaG91
-bGQgdmVyaWZ5DQogICAgdGhpcywgYnV0IGV2ZW4gaWYgaXQncyBPSyB0byBkbyBpbiB0aGVzZSBz
-cGVjaWZpYyBzcG90cywgaXQncyBub3QNCiAgICB1bnJlYXNvbmFibGUgdG8gYmVsaWV2ZSB0aGF0
-IHNvbWVvbmUgd2lsbCBhZGQgYW5vdGhlciBzb2NrZXQtY29udGV4dA0KICAgIGJwZiBob29rIGlu
-IHRoZSBmdXR1cmUgd2hlcmUgaXQgd291bGQgbm90IGJlIHNhZmUuICBXaXRob3V0IHNvbWUNCiAg
-ICBhZGRpdGlvbmFsIGNoZWNrIHRvIHByZXZlbnQgdGhpcyBzZXRzb2Nrb3B0IGZ1bmN0aW9uIGZy
-b20gYmVpbmcgY2FsbGVkDQogICAgaW4gdGhvc2Ugc3BvdHMsIHdlIGNvdWxkIHJ1biBpbnRvIHRy
-b3VibGUuICBUaGUgb25seSBvdGhlcg0KICAgIHNvY2tldC1jb250ZXh0IHBvaW50IGN1cnJlbnRs
-eSBpcyB0aGUgY2dyb3VwIG9uZSwgd2hpY2ggaGFwcGVucyBkdXJpbmcNCiAgICBzb2NrZXQgY3Jl
-YXRpb24gYW5kIHNob3VsZCBhbHNvIGJlIHNhZmUuDQoNClRoZSBjZ3JvdXAgc29ja2V0IChCUEZf
-UFJPR19UWVBFX0NHUk9VUF9TT0NLKSBpcyBhIGRpZmZlcmVudCBwcm9nIHR5cGUNCnRoYW4gQlBG
-X1BST0dfVFlQRV9TT0NLX09QUyBhbmQgaXQgY2Fubm90IGNhbGwgdGhlIGJwZl9zZXRzb2Nrb3Bz
-IGZ1bmN0aW9uLg0KQW5kIGl0IHNob3VsZCBub3QgYmVjYXVzZSB0aGUgY29udGV4dCBhcmd1bWVu
-dHMgYXJlIGRpZmZlcmVudCAoc3RydWN0IHNvY2sgKg0KdnMuIHN0cnVjdCBicGZfc29ja3Nfb3Bz
-X2tlcm4gKikgDQogIA0KICAgID4gSnVzdCBpbiBjYXNlIEkgYWRkZWQgYSBjaGVjayDigJxzb2Nr
-X293bmVkX2J5X21lKHNrKeKAnSBpbiB0Y3BfY2FsbF9icGYoKQ0KICAgID4gRG8geW91IHRoaW5r
-IHRoaXMgaXMgZW5vdWdoLCBvciBzaG91bGQgSSBleHBsaWNpdGx5IGFkZCBhIGJoX2xvY2tfc29j
-a19uZXN0ZWQNCiAgICA+IGluIHRoZSBicGZfc2V0c29ja29wdCBmdW5jdGlvbj8NCiAgICBBZGRp
-bmcgdGhlIGNoZWNrIGlzIGNlcnRhaW5seSBhIHdheSB0byB0ZXN0IHRoZSBiZWhhdmlvciBhcw0K
-ICAgIGltcGxlbWVudGVkLCBidXQgdGhpcyBicGYgZnVuY3Rpb24gY291bGQgYmUgY2FsbGVkIGJ5
-IGFueQ0KICAgIHNvY2tldC1jb250ZXh0IGJwZiAobm90IGp1c3QgdGhlIHRjcF9jYWxsX2JwZiBv
-bmVzKS4gIEkgYmVsaWV2ZSB0aGUNCg0KQ2FuIG9ubHkgYmUgY2FsbGVkIGJ5IHRjcF9jYWxsX2Jw
-ZiBvbmVzDQoNCiAgICBjdXJyZW50IGJwZiBob29rIHBvaW50cyBvbmx5IGd1YXJhbnRlZSBSQ1Ug
-cmVhZC1zaWRlIGxvY2suICBBZGRpbmcgYW4NCiAgICBhZGRpdGlvbmFsIGxvY2sgZ3VhcmFudGVl
-IG1heSBoYXZlIHVuZGVzaXJhYmxlIHBlcmZvcm1hbmNlDQogICAgaW1wbGljYXRpb25zLiAgSWYg
-dGhpcyBpcyBqdXN0IGZvciBzb2NrZXQgY3JlYXRpb24gb3Igb3RoZXIgcmFyZQ0KICAgIGV2ZW50
-cyBpdCdzIHByb2JhYmx5IG5vdCBhIGJpZyBkZWFsLCBidXQgaWYgaXQncyBmb3IgYSBob29rIGlu
-IHRoZQ0KICAgIGZhc3QgcGF0aCBpdCdzIHByb2JhYmx5IGEgbm9uLXN0YXJ0ZXIuDQoNCkkgYWdy
-ZWUNCiAgICANCiAgICBJIGd1ZXNzIHRoZSBoaWdoZXIgbGV2ZWwgcXVlc3Rpb24gaXMgd2hhdCBz
-aG91bGQgdGhlIGxvY2tpbmcNCiAgICBndWFyYW50ZWVzIGZvciBzb2NrZXQtY29udGV4dCBicGYg
-cHJvZ3JhbXMgYmU/DQoNClNpbmNlIHRoZSB3aG9sZSBwb2ludCBvZiB0aGlzIG5ldyBicGYgcHJv
-ZyB0eXBlIGlzIHRvIGJlIGFibGUgdG8NCm1vZGlmeSBzb2NrIGFuZCBUQ1AgcGFyYW1ldGVycywg
-d2Ugc2hvdWxkIGluc3VyZSB0aGF0DQp0Y3BfY2FsbF9icGYgaXMgb25seSBjYWxsZWQgd2hlbiBp
-dCBpcyBzYWZlIHRvIGNoYW5nZSB0Y3Agc29jayBzdGF0ZQ0KKGVpdGhlciBiZWNhdXNlIHRoZSBz
-b2NrIGxvY2sgaXMgaGVsZCBvciBiZWNhdXNlIGl0IGlzIHNhZmUgZm9yDQpvdGhlciByZWFzb25z
-KS4NCg0K
+
+
+On 2017/6/22 2:28, Alexander Duyck wrote:
+> On Sun, Jun 18, 2017 at 11:53 PM, Ding Tianhong <dingtianhong@huawei.com> wrote:
+>> From: Casey Leedom <leedom@chelsio.com>
+>>
+>> cxgb4 Ethernet driver now queries PCIe configuration space to determine
+>> if it can send TLPs to it with the Relaxed Ordering Attribute set.
+>>
+>> Signed-off-by: Casey Leedom <leedom@chelsio.com>
+>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>> ---
+>>  drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  1 +
+>>  drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 17 +++++++++++++++++
+>>  drivers/net/ethernet/chelsio/cxgb4/sge.c        |  5 +++--
+>>  3 files changed, 21 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+>> index e88c180..478f25a 100644
+>> --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+>> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+>> @@ -521,6 +521,7 @@ enum {                                 /* adapter flags */
+>>         USING_SOFT_PARAMS  = (1 << 6),
+>>         MASTER_PF          = (1 << 7),
+>>         FW_OFLD_CONN       = (1 << 9),
+>> +       ROOT_NO_RELAXED_ORDERING = (1 << 10),
+>>  };
+>>
+>>  enum {
+>> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+>> index ea1bfcf..7cd4e1b 100644
+>> --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+>> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+>> @@ -4735,6 +4735,23 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>>         adapter->msg_enable = DFLT_MSG_ENABLE;
+>>         memset(adapter->chan_map, 0xff, sizeof(adapter->chan_map));
+>>
+>> +       /* If possible, we use PCIe Relaxed Ordering Attribute to deliver
+>> +        * Ingress Packet Data to Free List Buffers in order to allow for
+>> +        * chipset performance optimizations between the Root Complex and
+>> +        * Memory Controllers.  (Messages to the associated Ingress Queue
+>> +        * notifying new Packet Placement in the Free Lists Buffers will be
+>> +        * send without the Relaxed Ordering Attribute thus guaranteeing that
+>> +        * all preceding PCIe Transaction Layer Packets will be processed
+>> +        * first.)  But some Root Complexes have various issues with Upstream
+>> +        * Transaction Layer Packets with the Relaxed Ordering Attribute set.
+>> +        * The PCIe devices which under the Root Complexes will be cleared the
+>> +        * Relaxed Ordering bit in the configuration space, So we check our
+>> +        * PCIe configuration space to see if it's flagged with advice against
+>> +        * using Relaxed Ordering.
+>> +        */
+>> +       if (pcie_relaxed_ordering_supported(pdev))
+>> +               adapter->flags |= ROOT_NO_RELAXED_ORDERING;
+>> +
+> 
+> Looks like you have a typo here. It should be
+> "!pcie_relaxed_ordering_supported(pdev)" that you are testing for to
+> set this flag shouldn't it? Right now it appears the flag is getting
+> set if relaxed ordering is supported.
+> 
+
+Yes, I made a mistake here, thanks for correcting.
+
+Ding
+
+>>         spin_lock_init(&adapter->stats_lock);
+>>         spin_lock_init(&adapter->tid_release_lock);
+>>         spin_lock_init(&adapter->win0_lock);
+>> diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+>> index f05f0d4..ac229a3 100644
+>> --- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
+>> +++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+>> @@ -2571,6 +2571,7 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+>>         struct fw_iq_cmd c;
+>>         struct sge *s = &adap->sge;
+>>         struct port_info *pi = netdev_priv(dev);
+>> +       int relaxed = !(adap->flags & ROOT_NO_RELAXED_ORDERING);
+>>
+>>         /* Size needs to be multiple of 16, including status entry. */
+>>         iq->size = roundup(iq->size, 16);
+>> @@ -2624,8 +2625,8 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+>>
+>>                 flsz = fl->size / 8 + s->stat_len / sizeof(struct tx_desc);
+>>                 c.iqns_to_fl0congen |= htonl(FW_IQ_CMD_FL0PACKEN_F |
+>> -                                            FW_IQ_CMD_FL0FETCHRO_F |
+>> -                                            FW_IQ_CMD_FL0DATARO_F |
+>> +                                            FW_IQ_CMD_FL0FETCHRO_V(relaxed) |
+>> +                                            FW_IQ_CMD_FL0DATARO_V(relaxed) |
+>>                                              FW_IQ_CMD_FL0PADEN_F);
+>>                 if (cong >= 0)
+>>                         c.iqns_to_fl0congen |=
+>> --
+>> 1.9.0
+>>
+>>
+> 
+> _______________________________________________
+> linux-arm-kernel mailing list
+> linux-arm-kernel@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+> 
+> .
+> 
