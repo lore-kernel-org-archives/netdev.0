@@ -1,40 +1,103 @@
-From: Gal Pressman <galp@mellanox.com>
-Subject: Re: [RFC PATCH net-next 0/3] ethtool: Add link down reason reporting
-Date: Thu, 22 Jun 2017 14:37:26 +0300
-Message-ID: <daf82b38-3642-6f4a-d9c0-c4cf806d6b7f@mellanox.com>
-References: <1498050286-17141-1-git-send-email-galp@mellanox.com>
- <20170621211443.674e18a6@cakuba.netronome.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH v6 3/3] net/cxgb4: Use new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+Date: Thu, 22 Jun 2017 20:15:21 +0800
+Message-ID: <1498133721-21152-4-git-send-email-dingtianhong@huawei.com>
+References: <1498133721-21152-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        "John W. Linville" <linville@tuxdriver.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        David Decotigny <decot@googlers.com>, kernel-team@fb.com
-To: Jakub Kicinski <kubakici@wp.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr10078.outbound.protection.outlook.com ([40.107.1.78]:53109
-        "EHLO EUR02-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750852AbdFVLhh (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 22 Jun 2017 07:37:37 -0400
-In-Reply-To: <20170621211443.674e18a6@cakuba.netronome.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Ding Tianhong <dingtianhong@huawei.com>
+To: <leedom@chelsio.com>, <ashok.raj@intel.com>, <helgaas@kernel.org>,
+        <werner@chelsio.com>, <ganeshgr@chelsio.com>,
+        <asit.k.mallick@intel.com>, <patrick.j.cramer@intel.com>,
+        <Suravee.Suthikulpanit@amd.com>, <Bob.Shaw@amd.com>,
+        <l.stach@pengutronix.de>, <amira@mellanox.com>,
+        <gabriele.paoloni@huawei.com>, <David.Laight@aculab.com>,
+        <jeffrey.t.kirsher@intel.com>, <catalin.marinas@arm.com>,
+        <will.deacon@arm.com>, <mark.rutland@arm.com>,
+        <robin.murphy@arm.com>, <davem@davemloft.net>,
+        <alexander.duyck@gmail.com>,
+        <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+        <linux-pci@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1498133721-21152-1-git-send-email-dingtianhong@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Casey Leedom <leedom@chelsio.com>
 
-> Any particular reason for implementing this ABI in ethtool rather than
-> via some netlink-based interface?  Devlink naturally comes to mind,
-> given that cabling problems are not really related to the L2 and netdev
-> shouldn't be required for diagnostics..
+cxgb4 Ethernet driver now queries PCIe configuration space to determine
+if it can send TLPs to it with the Relaxed Ordering Attribute set.
 
-ethtool is already used for reporting and handling of link related stuff through get/set_link_ksettings.
-How is reporting the link modes/port type/speed/etc different from this?
-This feature is only an extension of the already existent "link detected" field.
+Signed-off-by: Casey Leedom <leedom@chelsio.com>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  1 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 17 +++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        |  5 +++--
+ 3 files changed, 21 insertions(+), 2 deletions(-)
 
-Implementing this ABI in devlink is a good idea, but it shouldn't be instead of ethtool but in addition to ethtool.
-Many users already use ethtool for this kind of info, we can tell them to use devlink to check why their link is down,
-but I think it's nicer to have it all in one place.
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index e88c180..478f25a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -521,6 +521,7 @@ enum {                                 /* adapter flags */
+ 	USING_SOFT_PARAMS  = (1 << 6),
+ 	MASTER_PF          = (1 << 7),
+ 	FW_OFLD_CONN       = (1 << 9),
++	ROOT_NO_RELAXED_ORDERING = (1 << 10),
+ };
+ 
+ enum {
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index ea1bfcf..0c4a6e9 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -4735,6 +4735,23 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	adapter->msg_enable = DFLT_MSG_ENABLE;
+ 	memset(adapter->chan_map, 0xff, sizeof(adapter->chan_map));
+ 
++	/* If possible, we use PCIe Relaxed Ordering Attribute to deliver
++	 * Ingress Packet Data to Free List Buffers in order to allow for
++	 * chipset performance optimizations between the Root Complex and
++	 * Memory Controllers.  (Messages to the associated Ingress Queue
++	 * notifying new Packet Placement in the Free Lists Buffers will be
++	 * send without the Relaxed Ordering Attribute thus guaranteeing that
++	 * all preceding PCIe Transaction Layer Packets will be processed
++	 * first.)  But some Root Complexes have various issues with Upstream
++	 * Transaction Layer Packets with the Relaxed Ordering Attribute set.
++	 * The PCIe devices which under the Root Complexes will be cleared the
++	 * Relaxed Ordering bit in the configuration space, So we check our
++	 * PCIe configuration space to see if it's flagged with advice against
++	 * using Relaxed Ordering.
++	 */
++	if (!pcie_relaxed_ordering_supported(pdev))
++		adapter->flags |= ROOT_NO_RELAXED_ORDERING;
++
+ 	spin_lock_init(&adapter->stats_lock);
+ 	spin_lock_init(&adapter->tid_release_lock);
+ 	spin_lock_init(&adapter->win0_lock);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index f05f0d4..ac229a3 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -2571,6 +2571,7 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+ 	struct fw_iq_cmd c;
+ 	struct sge *s = &adap->sge;
+ 	struct port_info *pi = netdev_priv(dev);
++	int relaxed = !(adap->flags & ROOT_NO_RELAXED_ORDERING);
+ 
+ 	/* Size needs to be multiple of 16, including status entry. */
+ 	iq->size = roundup(iq->size, 16);
+@@ -2624,8 +2625,8 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+ 
+ 		flsz = fl->size / 8 + s->stat_len / sizeof(struct tx_desc);
+ 		c.iqns_to_fl0congen |= htonl(FW_IQ_CMD_FL0PACKEN_F |
+-					     FW_IQ_CMD_FL0FETCHRO_F |
+-					     FW_IQ_CMD_FL0DATARO_F |
++					     FW_IQ_CMD_FL0FETCHRO_V(relaxed) |
++					     FW_IQ_CMD_FL0DATARO_V(relaxed) |
+ 					     FW_IQ_CMD_FL0PADEN_F);
+ 		if (cong >= 0)
+ 			c.iqns_to_fl0congen |=
+-- 
+1.9.0
