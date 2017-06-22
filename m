@@ -1,40 +1,43 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] Convert BUG_ON to WARN_ON in bond_options.c
-Date: Thu, 22 Jun 2017 10:14:31 +0200
-Message-ID: <87o9tg1lso.fsf@miraculix.mork.no>
-References: <CALRmy5sYL_gJsiLzQQn-2FbWowi=Bj4DkYdcOdrOHeSs4jQ3Xg@mail.gmail.com>
-        <20170621.173655.1945994342723484710.davem@davemloft.net>
-        <CALRmy5tn6cgWF5LP5i7w+UTwP1UJCyQoC7Mx7=RvETBUVD-yuw@mail.gmail.com>
-        <20170621.175651.854625612625047729.davem@davemloft.net>
-        <125b4ae9-2cb7-3532-5391-24404cf6eaec@gmail.com>
-        <24691.1498084768@famine>
+From: Gal Pressman <galp.dev@gmail.com>
+Subject: Re: [RFC PATCH net-next 3/3] net/mlx5e: Expose link down reason to
+ ethtool
+Date: Thu, 22 Jun 2017 11:17:13 +0300
+Message-ID: <6c8de38c-5df4-279e-f653-4efd822f6dad@gmail.com>
+References: <1498050286-17141-1-git-send-email-galp@mellanox.com>
+ <1498050286-17141-4-git-send-email-galp@mellanox.com>
+ <20170621140318.GD27585@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Michael J Dilmore <michael.j.dilmore@gmail.com>,
-        David Miller <davem@davemloft.net>, vfalico@gmail.com,
-        andy@greyhouse.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, joe@perches.com
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <24691.1498084768@famine> (Jay Vosburgh's message of "Wed, 21 Jun
-        2017 15:39:28 -0700")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        "John W. Linville" <linville@tuxdriver.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        David Decotigny <decot@googlers.com>, kernel-team@fb.com
+To: Andrew Lunn <andrew@lunn.ch>, Gal Pressman <galp@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:34588 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751161AbdFVIRQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 04:17:16 -0400
+Received: by mail-wr0-f196.google.com with SMTP id k67so2687380wrc.1
+        for <netdev@vger.kernel.org>; Thu, 22 Jun 2017 01:17:16 -0700 (PDT)
+In-Reply-To: <20170621140318.GD27585@lunn.ch>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jay Vosburgh <jay.vosburgh@canonical.com> writes:
-> Michael J Dilmore <michael.j.dilmore@gmail.com> wrote:
+
+>> +	if (!netif_running(netdev)) {
+>> +		ldr->reason = ETHTOOL_LINK_NETDEV_CARRIER_DOWN;
+>> +		return 0;
+>> +	}
+> This is generic, will work for any interface. The same is true for
+> ADMIN_DOWN. Either it is not required at all, since the information is
+> available via other means, or it should be in the core.
+
+I agree, will move it to the core.
+
 >
->>if (WARN_ON(!new_active_slave) {
->>    netdev_dbg("Can't add new active slave - pointer null");
->>    return ERROR_CODE
->>}
->
-> 	In general, yes, but in this case, the condition should be
-> impossible to hit, so BUG_ON seems appropriate.
-
-If it really is impossible then you should simply remove the test. No
-need to test for the impossible, is there?
-
-
-Bj=C3=B8rn
+> 	  Andrew
