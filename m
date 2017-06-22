@@ -1,43 +1,33 @@
-From: Gal Pressman <galp.dev@gmail.com>
-Subject: Re: [RFC PATCH net-next 3/3] net/mlx5e: Expose link down reason to
- ethtool
-Date: Thu, 22 Jun 2017 11:17:13 +0300
-Message-ID: <6c8de38c-5df4-279e-f653-4efd822f6dad@gmail.com>
-References: <1498050286-17141-1-git-send-email-galp@mellanox.com>
- <1498050286-17141-4-git-send-email-galp@mellanox.com>
- <20170621140318.GD27585@lunn.ch>
+From: Lin Yun Sheng <linyunsheng@huawei.com>
+Subject: [PATCH NET 0/2] Add loopback support in phy_driver and hns ethtool fix
+Date: Thu, 22 Jun 2017 16:53:16 +0800
+Message-ID: <1498121596-64145-1-git-send-email-linyunsheng@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        "John W. Linville" <linville@tuxdriver.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        David Decotigny <decot@googlers.com>, kernel-team@fb.com
-To: Andrew Lunn <andrew@lunn.ch>, Gal Pressman <galp@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:34588 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751161AbdFVIRQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 04:17:16 -0400
-Received: by mail-wr0-f196.google.com with SMTP id k67so2687380wrc.1
-        for <netdev@vger.kernel.org>; Thu, 22 Jun 2017 01:17:16 -0700 (PDT)
-In-Reply-To: <20170621140318.GD27585@lunn.ch>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
+        <liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
+        <gabriele.paoloni@huawei.com>, <john.garry@huawei.com>,
+        <linuxarm@huawei.com>, <yisen.zhuang@huawei.com>,
+        <salil.mehta@huawei.com>, <lipeng321@huawei.com>,
+        <tremyfr@gmail.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: <davem@davemloft.net>, <andrew@lunn.ch>, <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+This Patch Set add set_loopback in phy_driver and use it to setup loopback
+when doing ethtool phy self_test.
 
->> +	if (!netif_running(netdev)) {
->> +		ldr->reason = ETHTOOL_LINK_NETDEV_CARRIER_DOWN;
->> +		return 0;
->> +	}
-> This is generic, will work for any interface. The same is true for
-> ADMIN_DOWN. Either it is not required at all, since the information is
-> available via other means, or it should be in the core.
+Lin Yun Sheng (2):
+  net: phy: Add phy loopback support in net phy framework
+  net: hns: Use phy_driver to setup Phy loopback
 
-I agree, will move it to the core.
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c | 64 ++++--------------------
+ drivers/net/phy/marvell.c                        |  1 +
+ drivers/net/phy/phy_device.c                     | 23 +++++++++
+ include/linux/phy.h                              |  2 +
+ 4 files changed, 36 insertions(+), 54 deletions(-)
 
->
-> 	  Andrew
+-- 
+1.9.1
