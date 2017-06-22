@@ -1,7 +1,7 @@
 From: Lin Yun Sheng <linyunsheng@huawei.com>
-Subject: [PATCH NET 2/2] net: hns: Use phy_driver to setup Phy loopback
-Date: Thu, 22 Jun 2017 16:53:33 +0800
-Message-ID: <1498121613-64572-1-git-send-email-linyunsheng@huawei.com>
+Subject: [PATCH NET 1/2] net: phy: Add phy loopback support in net phy framework
+Date: Thu, 22 Jun 2017 16:53:22 +0800
+Message-ID: <1498121602-64322-1-git-send-email-linyunsheng@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
@@ -16,94 +16,97 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use function set_loopback in phy_driver to setup phy loopback
-when doing ethtool self test.
+This patch add set_loopback in phy_driver, which is used by Mac
+driver to enable or disable a phy. it also add a generic
+genphy_loopback function, which use BMCR loopback bit to enable
+or disable a phy.
 
 Signed-off-by: Lin Yun Sheng <linyunsheng@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_ethtool.c | 64 ++++--------------------
- 1 file changed, 10 insertions(+), 54 deletions(-)
+ drivers/net/phy/marvell.c    |  1 +
+ drivers/net/phy/phy_device.c | 23 +++++++++++++++++++++++
+ include/linux/phy.h          |  2 ++
+ 3 files changed, 26 insertions(+)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-index e95795b..660b51e 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-@@ -259,66 +259,22 @@ static int hns_nic_set_link_ksettings(struct net_device *net_dev,
- 
- static int hns_nic_config_phy_loopback(struct phy_device *phy_dev, u8 en)
- {
--#define COPPER_CONTROL_REG 0
--#define PHY_POWER_DOWN BIT(11)
--#define PHY_LOOP_BACK BIT(14)
--	u16 val = 0;
- 
--	if (phy_dev->is_c45) /* c45 branch adding for XGE PHY */
-+	if (phy_dev->is_c45 || !phy_dev->drv)
-+		return -ENOTSUPP;
-+
-+	if (!phy_dev->drv->resume || !phy_dev->drv->suspend ||
-+	    !phy_dev->drv->set_loopback)
- 		return -ENOTSUPP;
- 
- 	if (en) {
--		/* speed : 1000M */
--		phy_write(phy_dev, HNS_PHY_PAGE_REG, 2);
--		phy_write(phy_dev, 21, 0x1046);
--
--		phy_write(phy_dev, HNS_PHY_PAGE_REG, 0);
--		/* Force Master */
--		phy_write(phy_dev, 9, 0x1F00);
--
--		/* Soft-reset */
--		phy_write(phy_dev, 0, 0x9140);
--		/* If autoneg disabled,two soft-reset operations */
--		phy_write(phy_dev, 0, 0x9140);
--
--		phy_write(phy_dev, HNS_PHY_PAGE_REG, 0xFA);
--
--		/* Default is 0x0400 */
--		phy_write(phy_dev, 1, 0x418);
--
--		/* Force 1000M Link, Default is 0x0200 */
--		phy_write(phy_dev, 7, 0x20C);
--
--		/* Powerup Fiber */
--		phy_write(phy_dev, HNS_PHY_PAGE_REG, 1);
--		val = phy_read(phy_dev, COPPER_CONTROL_REG);
--		val &= ~PHY_POWER_DOWN;
--		phy_write(phy_dev, COPPER_CONTROL_REG, val);
--
--		/* Enable Phy Loopback */
--		phy_write(phy_dev, HNS_PHY_PAGE_REG, 0);
--		val = phy_read(phy_dev, COPPER_CONTROL_REG);
--		val |= PHY_LOOP_BACK;
--		val &= ~PHY_POWER_DOWN;
--		phy_write(phy_dev, COPPER_CONTROL_REG, val);
-+		phy_dev->drv->resume(phy_dev);
-+		phy_dev->drv->set_loopback(phy_dev, 1);
- 	} else {
--		phy_write(phy_dev, HNS_PHY_PAGE_REG, 0xFA);
--		phy_write(phy_dev, 1, 0x400);
--		phy_write(phy_dev, 7, 0x200);
--
--		phy_write(phy_dev, HNS_PHY_PAGE_REG, 1);
--		val = phy_read(phy_dev, COPPER_CONTROL_REG);
--		val |= PHY_POWER_DOWN;
--		phy_write(phy_dev, COPPER_CONTROL_REG, val);
--
--		phy_write(phy_dev, HNS_PHY_PAGE_REG, 0);
--		phy_write(phy_dev, 9, 0xF00);
--
--		val = phy_read(phy_dev, COPPER_CONTROL_REG);
--		val &= ~PHY_LOOP_BACK;
--		val |= PHY_POWER_DOWN;
--		phy_write(phy_dev, COPPER_CONTROL_REG, val);
-+		phy_dev->drv->set_loopback(phy_dev, 0);
-+		phy_dev->drv->suspend(phy_dev);
- 	}
-+
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index 57297ba..01a1586 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -2094,6 +2094,7 @@ static int m88e1510_probe(struct phy_device *phydev)
+ 		.get_sset_count = marvell_get_sset_count,
+ 		.get_strings = marvell_get_strings,
+ 		.get_stats = marvell_get_stats,
++		.set_loopback = genphy_loopback,
+ 	},
+ 	{
+ 		.phy_id = MARVELL_PHY_ID_88E1540,
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 1219eea..13b36fa 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -1628,6 +1628,27 @@ static int gen10g_resume(struct phy_device *phydev)
  	return 0;
  }
  
++int genphy_loopback(struct phy_device *phydev, bool enable)
++{
++	int value;
++
++	if (enable) {
++		value = phy_read(phydev, MII_BMCR);
++		phy_write(phydev, MII_BMCR, value | BMCR_LOOPBACK);
++	} else {
++		value = phy_read(phydev, MII_BMCR);
++		phy_write(phydev, MII_BMCR, value & ~BMCR_LOOPBACK);
++	}
++
++	return 0;
++}
++EXPORT_SYMBOL(genphy_loopback);
++
++static int gen10g_loopback(struct phy_device *phydev, bool enable)
++{
++	return 0;
++}
++
+ static int __set_phy_supported(struct phy_device *phydev, u32 max_speed)
+ {
+ 	/* The default values for phydev->supported are provided by the PHY
+@@ -1874,6 +1895,7 @@ void phy_drivers_unregister(struct phy_driver *drv, int n)
+ 	.read_status	= genphy_read_status,
+ 	.suspend	= genphy_suspend,
+ 	.resume		= genphy_resume,
++	.set_loopback	= genphy_loopback,
+ }, {
+ 	.phy_id         = 0xffffffff,
+ 	.phy_id_mask    = 0xffffffff,
+@@ -1885,6 +1907,7 @@ void phy_drivers_unregister(struct phy_driver *drv, int n)
+ 	.read_status    = gen10g_read_status,
+ 	.suspend        = gen10g_suspend,
+ 	.resume         = gen10g_resume,
++	.set_loopback	= gen10g_loopback,
+ } };
+ 
+ static int __init phy_init(void)
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index e76e4ad..9362e22 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -639,6 +639,7 @@ struct phy_driver {
+ 	int (*set_tunable)(struct phy_device *dev,
+ 			    struct ethtool_tunable *tuna,
+ 			    const void *data);
++	int (*set_loopback)(struct phy_device *dev, bool enable);
+ };
+ #define to_phy_driver(d) container_of(to_mdio_common_driver(d),		\
+ 				      struct phy_driver, mdiodrv)
+@@ -825,6 +826,7 @@ void phy_attached_print(struct phy_device *phydev, const char *fmt, ...)
+ int genphy_read_status(struct phy_device *phydev);
+ int genphy_suspend(struct phy_device *phydev);
+ int genphy_resume(struct phy_device *phydev);
++int genphy_loopback(struct phy_device *phydev, bool enable);
+ int genphy_soft_reset(struct phy_device *phydev);
+ static inline int genphy_no_soft_reset(struct phy_device *phydev)
+ {
 -- 
 1.9.1
