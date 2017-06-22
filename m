@@ -1,95 +1,121 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 3/8] nfp: xdp: move driver XDP setup into a separate function
-Date: Wed, 21 Jun 2017 18:25:05 -0700
-Message-ID: <20170622012510.5286-4-jakub.kicinski@netronome.com>
-References: <20170622012510.5286-1-jakub.kicinski@netronome.com>
-Cc: oss-drivers@netronome.com, kafai@fb.com, daniel@iogearbox.net,
-        davem@davemloft.net, Jakub Kicinski <jakub.kicinski@netronome.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:33819 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752111AbdFVBZ7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 21:25:59 -0400
-Received: by mail-pf0-f178.google.com with SMTP id s66so1349030pfs.1
-        for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 18:25:59 -0700 (PDT)
-In-Reply-To: <20170622012510.5286-1-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: l00371289 <linyunsheng@huawei.com>
+Subject: Re: [PATCH NET] net/hns:bugfix of ethtool -t phy self_test
+Date: Thu, 22 Jun 2017 09:41:33 +0800
+Message-ID: <ea80ee9c-f2e5-72ae-5c53-fda1dd755a45@huawei.com>
+References: <1497605091-94725-1-git-send-email-linyunsheng@huawei.com>
+ <7500513f-e263-838c-12a1-4343f7281f1a@gmail.com>
+ <08ef77fc-29ab-8262-2126-c547960d5628@huawei.com>
+ <20170620132705.GD13704@lunn.ch>
+ <524e1181-f90d-0f05-200a-44cfa179dbf3@huawei.com>
+ <20170621031320.GA1487@lunn.ch>
+ <2a0e4db4-759d-4ce9-f42c-12303898b2c9@huawei.com>
+ <20170621133449.GB27585@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>, <davem@davemloft.net>,
+        <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
+        <liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
+        <gabriele.paoloni@huawei.com>, <john.garry@huawei.com>,
+        <linuxarm@huawei.com>, <salil.mehta@huawei.com>,
+        <lipeng321@huawei.com>, <yankejian@huawei.com>,
+        <tremyfr@gmail.com>, <xieqianqian@huawei.com>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170621133449.GB27585@lunn.ch>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In preparation of XDP offload flags move the driver setup into
-a function.  Otherwise the number of conditions in one function
-would make it slightly hard to follow.  The offload handler may
-now be called with NULL prog, even if no offload is currently
-active, but that's fine, offload code can handle that.
+Hi, Andrew
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
----
- .../net/ethernet/netronome/nfp/nfp_net_common.c    | 23 +++++++++++++++++-----
- 1 file changed, 18 insertions(+), 5 deletions(-)
+On 2017/6/21 21:34, Andrew Lunn wrote:
+>> drivers/net/ph/marvell.c
+>> marvell_set_loopback(struct phy_device *dev, bool enable)
+>> {
+>> 	/* do some device specific setting */
+>> 	........
+>>
+>> 	return genphy_loopback(dev, enable);
+>> }
+>>
+>> I don't know if this makes sense or not?
+> 
+> Nope, you want something in phy.c like this. Not compiled, not
+> tested....
+> 
+> int phy_loopback(struct phy_device *dev, bool enable)
+> {
+> 
+> 	int err;
+> 
+> 	mutex_lock(dev->mutex);
+> 
+> 	if (enable && dev->loopback_enabled) {
+> 	   err = -EBUSY;
+> 	   goto out;
+> 	}
+> 
+> 	if (!enable && !dev->loopback_enabled) {
+> 	   err = -EINVAL;
+> 	   goto out;
+> 	}
+> 
+> 	if (dev->drv->loopback)
+> 	   err = dev->drv->loopback(dev, enable);
+> 
+> 	if (!err)
+> 	   dev->loopback_enabled = enable
+> 
+> 	mutex_unlock(dev->mutex);
+> 
+> out:
+> 	return err;
+> }
+> EXPORT_SYMBOL(phy_loopback);
+> 
+> The interesting part is how to handle two attempts to enable loopback.
+> Should the MAC driver be responsible for preventing that? Or do it in
+> the PHY driver? And what will the MAC driver do if it gets EBUSY?
+> Return it to user space?
+I don't think returning to user space is an option, because it mean
+ethtool phy self test would fail because if availability of some software
+resoure, which is not some application would expect. here is what I can
+think of:
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index 2bdddd1ae666..f2188b9c3628 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -3274,10 +3274,11 @@ static void nfp_net_del_vxlan_port(struct net_device *netdev,
- 		nfp_net_set_vxlan_port(nn, idx, 0);
- }
- 
--static int nfp_net_xdp_setup(struct nfp_net *nn, struct netdev_xdp *xdp)
-+static int
-+nfp_net_xdp_setup_drv(struct nfp_net *nn, struct bpf_prog *prog,
-+		      struct netlink_ext_ack *extack)
- {
- 	struct bpf_prog *old_prog = nn->dp.xdp_prog;
--	struct bpf_prog *prog = xdp->prog;
- 	struct nfp_net_dp *dp;
- 	int err;
- 
-@@ -3286,7 +3287,6 @@ static int nfp_net_xdp_setup(struct nfp_net *nn, struct netdev_xdp *xdp)
- 	if (prog && nn->dp.xdp_prog) {
- 		prog = xchg(&nn->dp.xdp_prog, prog);
- 		bpf_prog_put(prog);
--		nfp_app_xdp_offload(nn->app, nn, nn->dp.xdp_prog);
- 		return 0;
- 	}
- 
-@@ -3300,13 +3300,26 @@ static int nfp_net_xdp_setup(struct nfp_net *nn, struct netdev_xdp *xdp)
- 	dp->rx_dma_off = prog ? XDP_PACKET_HEADROOM - nn->dp.rx_offset : 0;
- 
- 	/* We need RX reconfig to remap the buffers (BIDIR vs FROM_DEV) */
--	err = nfp_net_ring_reconfig(nn, dp, xdp->extack);
-+	err = nfp_net_ring_reconfig(nn, dp, extack);
- 	if (err)
- 		return err;
- 
- 	if (old_prog)
- 		bpf_prog_put(old_prog);
- 
-+	return 0;
-+}
-+
-+static int
-+nfp_net_xdp_setup(struct nfp_net *nn, struct bpf_prog *prog,
-+		  struct netlink_ext_ack *extack)
-+{
-+	int err;
-+
-+	err = nfp_net_xdp_setup_drv(nn, prog, extack);
-+	if (err)
-+		return err;
-+
- 	nfp_app_xdp_offload(nn->app, nn, nn->dp.xdp_prog);
- 
- 	return 0;
-@@ -3318,7 +3331,7 @@ static int nfp_net_xdp(struct net_device *netdev, struct netdev_xdp *xdp)
- 
- 	switch (xdp->command) {
- 	case XDP_SETUP_PROG:
--		return nfp_net_xdp_setup(nn, xdp);
-+		return nfp_net_xdp_setup(nn, xdp->prog, xdp->extack);
- 	case XDP_QUERY_PROG:
- 		xdp->prog_attached = !!nn->dp.xdp_prog;
- 		xdp->prog_id = nn->dp.xdp_prog ? nn->dp.xdp_prog->aux->id : 0;
--- 
-2.11.0
+driver/net/ethernet/hisilicon/hns/hns_ethtool.c
+int phy_loopback_selftest(struct phy_device *dev)
+{
+	int err;
+
+	mutex_lock(dev->mutex);
+
+	if (dev->drv->loopback)
+		err = dev->drv->loopback(dev, 1);
+
+	if (err)
+		goto out;
+	
+	/* mac driver do the test*/
+	.................
+
+
+	if (dev->drv->loopback)
+		err = dev->drv->loopback(dev, 0);
+
+	if (err)
+		goto out;
+
+out:
+	mutex_unlock(dev->mutex);
+	return err;
+}
+
+One question I can think of is that, how do we ensure mac driver enable and
+disable phy loopback in pair, enable loopback after dev->mutex is taken,
+disable loopback  before dev->mutex is released?
+I hope I am not missing something obvious, any suggestion and idea?
+
+Best Regards
+Yunsheng Lin
