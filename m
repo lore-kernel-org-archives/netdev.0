@@ -1,98 +1,115 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 4/8] nfp: bpf: don't offload XDP programs in DRV_MODE
-Date: Wed, 21 Jun 2017 18:25:06 -0700
-Message-ID: <20170622012510.5286-5-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 2/8] xdp: add HW offload mode flag for installing programs
+Date: Wed, 21 Jun 2017 18:25:04 -0700
+Message-ID: <20170622012510.5286-3-jakub.kicinski@netronome.com>
 References: <20170622012510.5286-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com, kafai@fb.com, daniel@iogearbox.net,
         davem@davemloft.net, Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f47.google.com ([74.125.83.47]:35421 "EHLO
-        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752124AbdFVB0A (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 21:26:00 -0400
-Received: by mail-pg0-f47.google.com with SMTP id 132so1195004pgb.2
-        for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 18:25:59 -0700 (PDT)
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:36710 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751096AbdFVBZ6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2017 21:25:58 -0400
+Received: by mail-pf0-f180.google.com with SMTP id q86so1321789pfl.3
+        for <netdev@vger.kernel.org>; Wed, 21 Jun 2017 18:25:58 -0700 (PDT)
 In-Reply-To: <20170622012510.5286-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DRV_MODE means that user space wants the program to be run in
-the driver.  Do not try to offload.  Only offload if no mode
-flags have been specified.
+Add an installation-time flag for requesting that the program
+be installed only if it can be offloaded to HW.
 
-Remember what the mode is when the program is installed and refuse
-new setup requests if there is already a program loaded in a
-different mode.  This should leave it open for us to implement
-simultaneous loading of two programs - one in the drv path and
-another to the NIC later.
+Internally new command for ndo_xdp is added, this way we avoid
+putting checks into drivers since they all return -EINVAL on
+an unknown command.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net.h        |  3 +++
- drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 14 +++++++++++---
- 2 files changed, 14 insertions(+), 3 deletions(-)
+ include/linux/netdevice.h    | 1 +
+ include/uapi/linux/if_link.h | 7 +++++--
+ net/core/dev.c               | 7 +++++--
+ net/core/rtnetlink.c         | 4 ++--
+ 4 files changed, 13 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-index 02fd8d4e253c..7952fbfb94d6 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-@@ -541,6 +541,7 @@ struct nfp_net_dp {
-  * @rss_cfg:            RSS configuration
-  * @rss_key:            RSS secret key
-  * @rss_itbl:           RSS indirection table
-+ * @xdp_flags:		Flags with which XDP prog was loaded
-  * @max_r_vecs:		Number of allocated interrupt vectors for RX/TX
-  * @max_tx_rings:       Maximum number of TX rings supported by the Firmware
-  * @max_rx_rings:       Maximum number of RX rings supported by the Firmware
-@@ -590,6 +591,8 @@ struct nfp_net {
- 	u8 rss_key[NFP_NET_CFG_RSS_KEY_SZ];
- 	u8 rss_itbl[NFP_NET_CFG_RSS_ITBL_SZ];
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index b194817631de..a838591aad28 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -807,6 +807,7 @@ enum xdp_netdev_command {
+ 	 * when it is no longer used.
+ 	 */
+ 	XDP_SETUP_PROG,
++	XDP_SETUP_PROG_HW,
+ 	/* Check if a bpf program is set on the device.  The callee should
+ 	 * return true if a program is currently attached and running.
+ 	 */
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index dd88375a6580..ce777ec88e1e 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -891,9 +891,12 @@ enum {
+ #define XDP_FLAGS_UPDATE_IF_NOEXIST	(1U << 0)
+ #define XDP_FLAGS_SKB_MODE		(1U << 1)
+ #define XDP_FLAGS_DRV_MODE		(1U << 2)
++#define XDP_FLAGS_HW_MODE		(1U << 3)
++#define XDP_FLAGS_MODES			(XDP_FLAGS_SKB_MODE | \
++					 XDP_FLAGS_DRV_MODE | \
++					 XDP_FLAGS_HW_MODE)
+ #define XDP_FLAGS_MASK			(XDP_FLAGS_UPDATE_IF_NOEXIST | \
+-					 XDP_FLAGS_SKB_MODE | \
+-					 XDP_FLAGS_DRV_MODE)
++					 XDP_FLAGS_MODES)
  
-+	u32 xdp_flags;
-+
- 	unsigned int max_tx_rings;
- 	unsigned int max_rx_rings;
+ /* These are stored into IFLA_XDP_ATTACHED on dump. */
+ enum {
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 09f9e99f4a3e..cd885e9e3363 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6957,7 +6957,10 @@ static int dev_xdp_install(struct net_device *dev, xdp_op_t xdp_op,
+ 	struct netdev_xdp xdp;
  
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index f2188b9c3628..9563615cf4b7 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -3311,16 +3311,23 @@ nfp_net_xdp_setup_drv(struct nfp_net *nn, struct bpf_prog *prog,
- }
+ 	memset(&xdp, 0, sizeof(xdp));
+-	xdp.command = XDP_SETUP_PROG;
++	if (flags & XDP_FLAGS_HW_MODE)
++		xdp.command = XDP_SETUP_PROG_HW;
++	else
++		xdp.command = XDP_SETUP_PROG;
+ 	xdp.extack = extack;
+ 	xdp.flags = flags;
+ 	xdp.prog = prog;
+@@ -6985,7 +6988,7 @@ int dev_change_xdp_fd(struct net_device *dev, struct netlink_ext_ack *extack,
+ 	ASSERT_RTNL();
  
- static int
--nfp_net_xdp_setup(struct nfp_net *nn, struct bpf_prog *prog,
-+nfp_net_xdp_setup(struct nfp_net *nn, struct bpf_prog *prog, u32 flags,
- 		  struct netlink_ext_ack *extack)
- {
-+	struct bpf_prog *offload_prog;
- 	int err;
+ 	xdp_op = xdp_chk = ops->ndo_xdp;
+-	if (!xdp_op && (flags & XDP_FLAGS_DRV_MODE))
++	if (!xdp_op && (flags & (XDP_FLAGS_DRV_MODE | XDP_FLAGS_HW_MODE)))
+ 		return -EOPNOTSUPP;
+ 	if (!xdp_op || (flags & XDP_FLAGS_SKB_MODE))
+ 		xdp_op = generic_xdp_install;
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 8da89c1136e5..a5bedd03a63e 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -16,6 +16,7 @@
+  *	Vitaly E. Lavrov		RTA_OK arithmetics was wrong.
+  */
  
-+	if (nn->dp.xdp_prog && (flags ^ nn->xdp_flags) & XDP_FLAGS_MODES)
-+		return -EBUSY;
-+
-+	offload_prog = flags & XDP_FLAGS_DRV_MODE ? NULL : prog;
-+
- 	err = nfp_net_xdp_setup_drv(nn, prog, extack);
- 	if (err)
- 		return err;
- 
--	nfp_app_xdp_offload(nn->app, nn, nn->dp.xdp_prog);
-+	nfp_app_xdp_offload(nn->app, nn, offload_prog);
-+	nn->xdp_flags = flags;
- 
- 	return 0;
- }
-@@ -3331,7 +3338,8 @@ static int nfp_net_xdp(struct net_device *netdev, struct netdev_xdp *xdp)
- 
- 	switch (xdp->command) {
- 	case XDP_SETUP_PROG:
--		return nfp_net_xdp_setup(nn, xdp->prog, xdp->extack);
-+		return nfp_net_xdp_setup(nn, xdp->prog, xdp->flags,
-+					 xdp->extack);
- 	case XDP_QUERY_PROG:
- 		xdp->prog_attached = !!nn->dp.xdp_prog;
- 		xdp->prog_id = nn->dp.xdp_prog ? nn->dp.xdp_prog->aux->id : 0;
++#include <linux/bitops.h>
+ #include <linux/errno.h>
+ #include <linux/module.h>
+ #include <linux/types.h>
+@@ -2253,8 +2254,7 @@ static int do_setlink(const struct sk_buff *skb,
+ 				err = -EINVAL;
+ 				goto errout;
+ 			}
+-			if ((xdp_flags & XDP_FLAGS_SKB_MODE) &&
+-			    (xdp_flags & XDP_FLAGS_DRV_MODE)) {
++			if (hweight32(xdp_flags & XDP_FLAGS_MODES) > 1) {
+ 				err = -EINVAL;
+ 				goto errout;
+ 			}
 -- 
 2.11.0
