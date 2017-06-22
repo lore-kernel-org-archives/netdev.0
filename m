@@ -1,7 +1,7 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [Patch net] ipv6: avoid unregistering inet6_dev for loopback
-Date: Thu, 22 Jun 2017 13:22:32 -0400 (EDT)
-Message-ID: <20170622.132232.558497530705704974.davem@davemloft.net>
+Date: Thu, 22 Jun 2017 13:24:49 -0400 (EDT)
+Message-ID: <20170622.132449.27833256808523188.davem@davemloft.net>
 References: <1498080898-17338-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
@@ -10,10 +10,10 @@ Cc: netdev@vger.kernel.org, andreyknvl@google.com, dlezcano@fr.ibm.com,
         dsahern@gmail.com
 To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38576 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38610 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751224AbdFVRWf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 13:22:35 -0400
+        with ESMTP id S1751598AbdFVRYv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 13:24:51 -0400
 In-Reply-To: <1498080898-17338-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -41,4 +41,4 @@ Date: Wed, 21 Jun 2017 14:34:58 -0700
 > Cc: David Ahern <dsahern@gmail.com>
 > Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Applied and queued up for -stable.
+Applied, thanks.
