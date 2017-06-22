@@ -1,37 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 net 0/4] macvlan: Fix some issues with changing mac
- addresses
-Date: Thu, 22 Jun 2017 11:17:58 -0400 (EDT)
-Message-ID: <20170622.111758.886152844955675351.davem@davemloft.net>
-References: <20170621115919.28165-1-vyasevic@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, girish.moodalbail@oracle.com,
-        vyasevic@redhat.com
-To: vyasevich@gmail.com
+From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+Subject: [PATCH 6/8] arcnet: com20020-pci: add attribute to readback backplane status
+Date: Thu, 22 Jun 2017 17:31:08 +0200
+Message-ID: <20170622153110.4079-7-m.grzeschik@pengutronix.de>
+References: <20170622153110.4079-1-m.grzeschik@pengutronix.de>
+Cc: netdev@vger.kernel.org, kernel@pengutronix.de
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35990 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751434AbdFVPSA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 11:18:00 -0400
-In-Reply-To: <20170621115919.28165-1-vyasevic@redhat.com>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:55011 "EHLO
+        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752374AbdFVPbT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 11:31:19 -0400
+In-Reply-To: <20170622153110.4079-1-m.grzeschik@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Date: Wed, 21 Jun 2017 07:59:15 -0400
+We add the sysfs interface the read back the backplane
+status of the interface.
 
-> There are some issues in macvlan wrt to changing it's mac address.
-> * An error is returned in the specified address is the same as an already
->   assigned address.
-> * In passthru mode, the mac address of the macvlan device doesn't change.
-> * After changing the mac address of a passthru macvlan and then removing it,
->   the mac address of the physical device remains changed.
-> 
-> This patch series attempts to resolve these issues.
-> 
-> V2: Address a small issue in p4 where we save the address from the lowerdev
->     (from girish.moodalbail@oracle.com)
+Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
+---
+ drivers/net/arcnet/com20020-pci.c | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
 
-Series applied, thanks.
+diff --git a/drivers/net/arcnet/com20020-pci.c b/drivers/net/arcnet/com20020-pci.c
+index 47f80b83dcf42..3f85a4d5f8c90 100644
+--- a/drivers/net/arcnet/com20020-pci.c
++++ b/drivers/net/arcnet/com20020-pci.c
+@@ -93,6 +93,27 @@ static void led_recon_set(struct led_classdev *led_cdev,
+ 	outb(!!value, priv->misc + ci->leds[card->index].red);
+ }
+ 
++static ssize_t backplane_mode_show(struct device *dev,
++				   struct device_attribute *attr,
++				   char *buf)
++{
++	struct net_device *net_dev = to_net_dev(dev);
++	struct arcnet_local *lp = netdev_priv(net_dev);
++
++	return sprintf(buf, "%s\n", lp->backplane ? "true" : "false");
++}
++static DEVICE_ATTR_RO(backplane_mode);
++
++static struct attribute *com20020_state_attrs[] = {
++	&dev_attr_backplane_mode.attr,
++	NULL,
++};
++
++static struct attribute_group com20020_state_group = {
++	.name = NULL,
++	.attrs = com20020_state_attrs,
++};
++
+ static void com20020pci_remove(struct pci_dev *pdev);
+ 
+ static int com20020pci_probe(struct pci_dev *pdev,
+@@ -170,6 +191,7 @@ static int com20020pci_probe(struct pci_dev *pdev,
+ 		SET_NETDEV_DEV(dev, &pdev->dev);
+ 		dev->base_addr = ioaddr;
+ 		dev->dev_addr[0] = node;
++		dev->sysfs_groups[0] = &com20020_state_group;
+ 		dev->irq = pdev->irq;
+ 		lp->card_name = "PCI COM20020";
+ 		lp->card_flags = ci->flags;
+-- 
+2.11.0
