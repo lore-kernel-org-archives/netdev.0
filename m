@@ -1,66 +1,116 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [PATCH net-next 00/12] nfp: add flower app with representors
-Date: Thu, 22 Jun 2017 22:50:14 -0700
-Message-ID: <20170622225014.59d673c6@cakuba.netronome.com>
-References: <1497937910-32059-1-git-send-email-simon.horman@netronome.com>
-        <CAJ3xEMgPWdg8gnAuGgufuxeYt4qDKrs8g+LBgm3BBG9KHnjGsQ@mail.gmail.com>
-        <20170620122417.0c60582e@cakuba.netronome.com>
-        <CAJ3xEMjTLs0aDLY_zDerm8o0yPmJktzBDE2rJ=QwXQZeS1+qCg@mail.gmail.com>
-        <20170621024238.021e1f77@cakuba.netronome.com>
-        <CAJ3xEMhyOiQX_jTpD5zWKY0oNkBoU1jyG3SMTpA091O8TbrjLA@mail.gmail.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: DNS (?) not working on G5 (64-bit powerpc) (was
+ [net-next,v3,3/3] udp: try to avoid 2 cache miss on dequeue)
+Date: Thu, 22 Jun 2017 22:27:49 +0200
+Message-ID: <1498163269.2503.18.camel@redhat.com>
+References: <87shisqihz.fsf@concordia.ellerman.id.au>
+         <1498149835.2503.1.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <simon.horman@netronome.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        oss-drivers@netronome.com
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+        linuxppc-dev@lists.ozlabs.org
+To: Michael Ellerman <mpe@ellerman.id.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.wp.pl ([212.77.101.9]:11189 "EHLO mx3.wp.pl"
+Received: from mx1.redhat.com ([209.132.183.28]:40314 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754529AbdFWFuV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 23 Jun 2017 01:50:21 -0400
-In-Reply-To: <CAJ3xEMhyOiQX_jTpD5zWKY0oNkBoU1jyG3SMTpA091O8TbrjLA@mail.gmail.com>
+        id S1754467AbdFWG5a (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Jun 2017 02:57:30 -0400
+In-Reply-To: <1498149835.2503.1.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 22 Jun 2017 17:28:25 +0300, Or Gerlitz wrote:
-> On Wed, Jun 21, 2017 at 12:42 PM, Jakub Kicinski <kubakici@wp.pl> wrote:
+On Thu, 2017-06-22 at 18:43 +0200, Paolo Abeni wrote:
+> On Thu, 2017-06-22 at 23:06 +1000, Michael Ellerman wrote:
+> > Paolo wrote:
+> > > when udp_recvmsg() is executed, on x86_64 and other archs, most skb
+> > > fields are on cold cachelines.
+> > > If the skb are linear and the kernel don't need to compute the udp
+> > > csum, only a handful of skb fields are required by udp_recvmsg().
+> > > Since we already use skb->dev_scratch to cache hot data, and
+> > > there are 32 bits unused on 64 bit archs, use such field to cache
+> > > as much data as we can, and try to prefetch on dequeue the relevant
+> > > fields that are left out.
+> > > 
+> > > This can save up to 2 cache miss per packet.
+> > > 
+> > > v1 -> v2:
+> > >   - changed udp_dev_scratch fields types to u{32,16} variant,
+> > >     replaced bitfiled with bool
+> > > 
+> > > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> > > Acked-by: Eric Dumazet <edumazet@google.com>
+> > > ---
+> > >  net/ipv4/udp.c | 114 +++++++++++++++++++++++++++++++++++++++++++++++++++------
+> > >  1 file changed, 103 insertions(+), 11 deletions(-)
+> > 
+> > This appears to break wget on one of my machines.
+> > 
+> > Networking in general is working, I'm able to SSH in, but then I can't
+> > do a wget.
+> > 
+> > eg:
+> > 
+> > $ wget google.com
+> > --2017-06-22 22:45:39--  http://google.com/
+> > Resolving proxy.pmdw.com (proxy.pmdw.com)... failed: Temporary failure in name resolution.
+> > wget: unable to resolve host address ‘proxy.pmdw.com’
+> > 
+> > $ host proxy.pmdw.com
+> > proxy.pmdw.com is an alias for raven.pmdw.com.
+> > raven.pmdw.com has address 10.1.2.3
+> > 
+> > $ wget google.com
+> > --2017-06-22 22:52:08--  http://google.com/
+> > Resolving proxy.pmdw.com (proxy.pmdw.com)... failed: Temporary failure in name resolution.
+> > wget: unable to resolve host address ‘proxy.pmdw.com’
+> > 
+> > Maybe host is using TCP but the man page says it doesn't?
+> > 
+> > 
+> > Everything is OK if I boot back to the previous commit 0a463c78d25b
+> > ("udp: avoid a cache miss on dequeue"):
+> > 
+> > $ wget google.com
+> > --2017-06-22 23:00:01--  http://google.com/
+> > Resolving proxy.pmdw.com (proxy.pmdw.com)... 10.1.2.3
+> > Connecting to proxy.pmdw.com (proxy.pmdw.com)|10.1.2.3|:3128... connected.
+> > Proxy request sent, awaiting response... 302 Found
+> > Location: http://www.google.com.au/?gfe_rd=cr&ei=Ub9LWbPbLujDXrH1uPgE [following]
+> > --2017-06-22 23:00:01--  http://www.google.com.au/?gfe_rd=cr&ei=Ub9LWbPbLujDXrH1uPgE
+> > Reusing existing connection to proxy.pmdw.com:3128.
+> > Proxy request sent, awaiting response... 200 OK
+> > Length: unspecified [text/html]
+> > Saving to: ‘index.html’
+> > 
+> > index.html                      [ <=>                                       ]  11.37K  --.-KB/s    in 0.001s  
+> > 
+> > 2017-06-22 23:00:01 (22.0 MB/s) - ‘index.html’ saved [11640]
+> > 
+> > $ uname -a
+> > Linux 4.12.0-rc4-gcc6-00988-g0a463c7 #88 SMP Thu Jun 22 22:55:12 AEST 2017 ppc64 GNU/Linux
+> > 
+> > 
+> > Haven't had time to debug any further. Any ideas?
 > 
-> > Let me try to describe it a bit more instead.  Sorry but I'm not great
-> > at ASCII art at this level of complexity and while having to stay
-> > within 80 chars ;)
-> >
-> > Driver communicates with the Management FW via a mailbox.
-> >
-> > Driver loads, it gets the Application FW from disk.  It pushes the
-> > entire FW to the mailbox and tells the Management FW to load it.  At
-> > this point the PCIe datapath is loaded and driver discovers what
-> > other communication channels are available.
-> >
-> > Driver checks which FW is loaded and finds appropriate nfp_app callbacks
-> > for that FW.  If the nfp_app requires control message channel it will
-> > map the control message queue/vNIC.  Driver spawn netdevs for
-> > data vNICs.  Flower nfp_app may upon init spawn physical port
-> > representors (single NFP chip supports tens of ports so they are not
-> > all guaranteed a full vNIC in many designs).  Whenever representor is
-> > spawned Application FW is notified with a control message.
-> >
-> > When user enables SR-IOV nfp_app sriov callback will be invoked and
-> > flower nfp_app will respond by spawning VF reprs.  First version of the
-> > Flower APP targets only the switchdev mode.  We plan to add legacy mode
-> > and automatically pre-populate the rules if there is user interest.
-> > Although I personally hope that people interested in legacy SR-IOV will
-> > use our simpler CoreNIC app FW...  Flower APP will initially come up in
-> > switchdev mode, no rules installed, all traffic will simply end up at
-> > representors.  
+> Thank you for this report.
 > 
-> This is much clearer now, thanks for explaining that over. Will be happy
-> if you can elaborate a bit on the automatic tables pre-population for
-> legacy mode emulation, sounds interesting.
+> Can you please specify features of the relevant NIC ? (ethtool -k
+> <name>) 
+> 
+> I'll try to replicate the issue as soon I'll get hands on suitable HW,
 
-Oh, I just meant that if someone wants to switch between legacy and
-switchdev mode without changing the app FW - driver could hide the
-representors and populate MAC/VLAN forwarding rules to get the same
-behaviour as "legacy" cards have.
+I had my hands on power7, but I can't trivially reproduce the issue so
+I'm going to bug you for more info. 
+
+Can you please specify the host CPU, the NIC in use (ethtool -i
+<name>), the compiler version used to build the kernel and possibly
+provide a tcpdump of the DNS packets received/sent while running wget
+and while running the host command?
+
+Do you have the relevant kernel running on others PPC hosts?
+
+Thank you,
+
+Paolo
