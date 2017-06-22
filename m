@@ -1,7 +1,7 @@
 From: Leon Romanovsky <leon@kernel.org>
-Subject: [PATCH rdma-next V1 16/19] RDMA/netlink: Add nldev device doit implementation
-Date: Thu, 22 Jun 2017 16:24:31 +0300
-Message-ID: <20170622132434.1327-17-leon@kernel.org>
+Subject: [PATCH rdma-next V1 07/19] RDMA/core: Add iterator over ib_devices
+Date: Thu, 22 Jun 2017 16:24:22 +0300
+Message-ID: <20170622132434.1327-8-leon@kernel.org>
 References: <20170622132434.1327-1-leon@kernel.org>
 Cc: linux-rdma@vger.kernel.org,
         Chien Tin Tung <chien.tin.tung@intel.com>,
@@ -14,81 +14,85 @@ Cc: linux-rdma@vger.kernel.org,
         Leon Romanovsky <leonro@mellanox.com>
 To: Doug Ledford <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.99]:60600 "EHLO mail.kernel.org"
+Received: from mail.kernel.org ([198.145.29.99]:60654 "EHLO mail.kernel.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752124AbdFVNZK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 22 Jun 2017 09:25:10 -0400
+        id S1752124AbdFVNZN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 22 Jun 2017 09:25:13 -0400
 In-Reply-To: <20170622132434.1327-1-leon@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Leon Romanovsky <leonro@mellanox.com>
 
-Provide ability to query specific device.
+The coming nldev needs to iterate over all IB devices in the system
+and in order to not expose the ib_devices list outside the devices.c,
+it is necessary to provide function iterator.
+
+Current version is written explicitly for nldev callback to avoid
+over-engineering at this stage, but it can be easily extended for
+other types.
 
 Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
 Reviewed-by: Steve Wise <swise@opengridcomputing.com>
 ---
- drivers/infiniband/core/nldev.c | 40 ++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 40 insertions(+)
+ drivers/infiniband/core/core_priv.h |  8 ++++++++
+ drivers/infiniband/core/device.c    | 25 +++++++++++++++++++++++++
+ 2 files changed, 33 insertions(+)
 
-diff --git a/drivers/infiniband/core/nldev.c b/drivers/infiniband/core/nldev.c
-index 4b8b0f5d5344..666940f2b49a 100644
---- a/drivers/infiniband/core/nldev.c
-+++ b/drivers/infiniband/core/nldev.c
-@@ -53,6 +53,45 @@ static int fill_dev_info(struct sk_buff *msg, struct ib_device *device)
- 	return 0;
+diff --git a/drivers/infiniband/core/core_priv.h b/drivers/infiniband/core/core_priv.h
+index cb7d372e4bdf..4a150c4be175 100644
+--- a/drivers/infiniband/core/core_priv.h
++++ b/drivers/infiniband/core/core_priv.h
+@@ -92,6 +92,14 @@ void ib_enum_all_roce_netdevs(roce_netdev_filter filter,
+ 			      roce_netdev_callback cb,
+ 			      void *cookie);
+ 
++typedef int (*nldev_callback)(struct ib_device *device,
++			      struct sk_buff *skb,
++			      struct netlink_callback *cb,
++			      unsigned int idx);
++
++int ib_enum_all_devs(nldev_callback nldev_cb, struct sk_buff *skb,
++		     struct netlink_callback *cb);
++
+ enum ib_cache_gid_default_mode {
+ 	IB_CACHE_GID_DEFAULT_MODE_SET,
+ 	IB_CACHE_GID_DEFAULT_MODE_DELETE
+diff --git a/drivers/infiniband/core/device.c b/drivers/infiniband/core/device.c
+index 5326dcc6ede7..7a799fc90348 100644
+--- a/drivers/infiniband/core/device.c
++++ b/drivers/infiniband/core/device.c
+@@ -815,6 +815,31 @@ void ib_enum_all_roce_netdevs(roce_netdev_filter filter,
  }
  
-+static int nldev_get_doit(struct sk_buff *skb, struct nlmsghdr *nlh,
-+			  struct netlink_ext_ack *extack)
+ /**
++ * ib_enum_all_devs - enumerate all ib_devices
++ * @cb: Callback to call for each found ib_device
++ *
++ * Enumerates all ib_devices and calls callback() on each device.
++ */
++int ib_enum_all_devs(nldev_callback nldev_cb, struct sk_buff *skb,
++		     struct netlink_callback *cb)
 +{
-+	struct nlattr *tb[RDMA_NLDEV_ATTR_MAX];
-+	struct ib_device *device;
-+	struct sk_buff *msg;
-+	u32 index;
-+	int err;
++	struct ib_device *dev;
++	unsigned int idx = 0;
++	int ret = 0;
 +
-+	err = nlmsg_parse(nlh, 0, tb, RDMA_NLDEV_ATTR_MAX - 1,
-+			  nldev_policy, extack);
-+	if (err || !tb[RDMA_NLDEV_ATTR_DEV_INDEX])
-+		return -EINVAL;
-+
-+	index = nla_get_u32(tb[RDMA_NLDEV_ATTR_DEV_INDEX]);
-+
-+	device = __ib_device_get_by_index(index);
-+	if (!device)
-+		return -EINVAL;
-+
-+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+	if (!msg)
-+		return -ENOMEM;
-+
-+	nlh = nlmsg_put(msg, NETLINK_CB(skb).portid, nlh->nlmsg_seq,
-+			RDMA_NL_GET_TYPE(RDMA_NL_NLDEV, RDMA_NLDEV_CMD_GET),
-+			0, 0);
-+
-+	err = fill_dev_info(msg, device);
-+	if (err) {
-+		nlmsg_free(msg);
-+		return err;
++	down_read(&lists_rwsem);
++	list_for_each_entry(dev, &device_list, core_list) {
++		ret = nldev_cb(dev, skb, cb, idx);
++		if (ret)
++			break;
++		idx++;
 +	}
 +
-+	nlmsg_end(msg, nlh);
-+
-+	return rdma_nl_unicast(msg, NETLINK_CB(skb).portid);
++	up_read(&lists_rwsem);
++	return ret;
 +}
 +
- static int _nldev_get_dumpit(struct ib_device *device,
- 			     struct sk_buff *skb,
- 			     struct netlink_callback *cb,
-@@ -92,6 +131,7 @@ static int nldev_get_dumpit(struct sk_buff *skb, struct netlink_callback *cb)
- 
- static const struct rdma_nl_cbs nldev_cb_table[] = {
- 	[RDMA_NLDEV_CMD_GET] = {
-+		.doit = nldev_get_doit,
- 		.dump = nldev_get_dumpit,
- 	},
- };
++/**
+  * ib_query_pkey - Get P_Key table entry
+  * @device:Device to query
+  * @port_num:Port number to query
 -- 
 2.13.1
