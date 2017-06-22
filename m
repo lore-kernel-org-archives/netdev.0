@@ -1,36 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netvsc: don't access netdev->num_rx_queues directly
-Date: Thu, 22 Jun 2017 13:28:23 -0400 (EDT)
-Message-ID: <20170622.132823.1130047650794574808.davem@davemloft.net>
-References: <20170621221714.278724-1-arnd@arndb.de>
+Subject: Re: [PATCH net-next,1/2] hv_netvsc: Remove unnecessary var
+ link_state from struct netvsc_device_info
+Date: Thu, 22 Jun 2017 13:30:46 -0400 (EDT)
+Message-ID: <20170622.133046.2053486147865271098.davem@davemloft.net>
+References: <1498088447-27282-1-git-send-email-haiyangz@exchange.microsoft.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sthemmin@microsoft.com, kys@microsoft.com, haiyangz@microsoft.com,
-        sixiao@microsoft.com, devel@linuxdriverproject.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: arnd@arndb.de
+Cc: netdev@vger.kernel.org, kys@microsoft.com, olaf@aepfle.de,
+        vkuznets@redhat.com, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com, haiyangz@exchange.microsoft.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170621221714.278724-1-arnd@arndb.de>
+In-Reply-To: <1498088447-27282-1-git-send-email-haiyangz@exchange.microsoft.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Thu, 22 Jun 2017 00:16:37 +0200
+From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
+Date: Wed, 21 Jun 2017 16:40:46 -0700
 
-> This structure member is hidden behind CONFIG_SYSFS, and we
-> get a build error when that is disabled:
+> From: Haiyang Zhang <haiyangz@microsoft.com>
 > 
-> drivers/net/hyperv/netvsc_drv.c: In function 'netvsc_set_channels':
-> drivers/net/hyperv/netvsc_drv.c:754:49: error: 'struct net_device' has no member named 'num_rx_queues'; did you mean 'num_tx_queues'?
-> drivers/net/hyperv/netvsc_drv.c: In function 'netvsc_set_rxfh':
-> drivers/net/hyperv/netvsc_drv.c:1181:25: error: 'struct net_device' has no member named 'num_rx_queues'; did you mean 'num_tx_queues'?
+> We simply use rndis_device->link_state in the netdev_dbg. The variable,
+> link_state from struct netvsc_device_info, is not used anywhere else.
 > 
-> As the value is only set once to the argument of alloc_netdev_mq(),
-> we can compare against that constant directly.
-> 
-> Fixes: ff4a44199012 ("netvsc: allow get/set of RSS indirection table")
-> Fixes: 2b01888d1b45 ("netvsc: allow more flexible setting of number of channels")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
 
-Applied and queued up for -stable, thank you.
+Applied.
