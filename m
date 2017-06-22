@@ -1,39 +1,66 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [RFC PATCH net-next 3/3] net/mlx5e: Expose link down reason to
- ethtool
-Date: Wed, 21 Jun 2017 21:33:53 -0700
-Message-ID: <20170621213353.318e5d37@cakuba.netronome.com>
-References: <1498050286-17141-1-git-send-email-galp@mellanox.com>
-        <1498050286-17141-4-git-send-email-galp@mellanox.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH][net-next] qtnfmac: fix uninitialized return code in ret
+Date: Thu, 22 Jun 2017 08:10:41 +0300
+Message-ID: <20170622051041.6vclukrzlq4zbdhm@mwanda>
+References: <20170621132530.11937-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        "John W. Linville" <linville@tuxdriver.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        David Decotigny <decot@googlers.com>, kernel-team@fb.com
-To: Gal Pressman <galp@mellanox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Igor Mitsyanko <imitsyanko@quantenna.com>,
+        Avinash Patil <avinashp@quantenna.com>,
+        Sergey Matyukevich <smatyukevich@quantenna.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        Bindu Therthala <btherthala@quantenna.com>,
+        Kamlesh Rath <krath@quantenna.com>,
+        Sergei Maksimenko <smaksimenko@quantenna.com>,
+        Johannes Berg <johannes.berg@intel.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.wp.pl ([212.77.101.10]:33944 "EHLO mx3.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750852AbdFVEeB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 22 Jun 2017 00:34:01 -0400
-In-Reply-To: <1498050286-17141-4-git-send-email-galp@mellanox.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:29047 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751139AbdFVFLM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 01:11:12 -0400
+Content-Disposition: inline
+In-Reply-To: <20170621132530.11937-1-colin.king@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 21 Jun 2017 16:04:46 +0300, Gal Pressman wrote:
-> Use the new ethtool link down reason api, and expose troubleshooting
-> info regarding the link status.
+On Wed, Jun 21, 2017 at 02:25:30PM +0100, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Signed-off-by: Gal Pressman <galp@mellanox.com>
-> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+> The return value ret is unitialized and garbage is being returned
+> for the three different error conditions when setting up the PCIe
+> BARs. Fix this by initializing ret to  -ENOMEM to indicate that
+> the BARs failed to be setup correctly.
+> 
+> Detected by CoverityScan, CID#1437563 ("Unitialized scalar variable")
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> ---
+>  drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c b/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c
+> index f93b27f3a236..7fc4f0d6a9ad 100644
+> --- a/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c
+> +++ b/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c
+> @@ -247,7 +247,7 @@ static void qtnf_pcie_free_shm_ipc(struct qtnf_pcie_bus_priv *priv)
+>  
+>  static int qtnf_pcie_init_memory(struct qtnf_pcie_bus_priv *priv)
+>  {
+> -	int ret;
+> +	int ret = -ENOMEM;
+>  
+>  	priv->sysctl_bar = qtnf_map_bar(priv, QTN_SYSCTL_BAR);
+>  	if (IS_ERR_OR_NULL(priv->sysctl_bar)) {
 
-Is my reading correct that in case the reason is not in the
-pddr2ethtool_table opaque binary data will be passed from the firmware
-to user space?  Is there any particular reason to allow for this?  If
-it's just for the rare scenario where a new error code needs to be
-added perhaps it would be enough to dump the FW-provided message to the
-logs?
+Not related to your patch but qtnf_map_bar() should be changed not to
+return NULL.  When functions return both NULL and error pointers the
+NULL is supposed to be a special type of success return.  Here it is
+just a fail return where we forgot to set the error code to
+ERR_PTR(-ENOMEM).
+
+regards,
+dan carpenter
