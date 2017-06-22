@@ -1,36 +1,174 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH] netxen: Fix a sleep-in-atomic bug in
- netxen_nic_pci_mem_access_direct
-Date: Thu, 22 Jun 2017 09:08:10 +0300
-Message-ID: <20170622060809.jvnuewiicuwtlzb4@mwanda>
-References: <1497840533-4894-1-git-send-email-baijiaju1990@163.com>
- <20170620.133530.1607963470682255531.davem@davemloft.net>
- <87d19xooo0.fsf@purkki.adurom.net>
- <594A131F.9040300@163.com>
- <8737atv4pm.fsf@kamboji.qca.qualcomm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jia-Ju Bai <baijiaju1990@163.com>,
-        David Miller <davem@davemloft.net>, manish.chopra@cavium.com,
-        rahul.verma@cavium.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>
+From: Jan Kiszka <jan.kiszka@siemens.com>
+Subject: [PATCH v5 4/5] stmmac: pci: Select quark_pci_dmi_data from quark_default_data
+Date: Thu, 22 Jun 2017 08:18:00 +0200
+Message-ID: <30fa1840d915f2cfa83647c908afce29e6c0e4a1.1498112281.git.jan.kiszka@siemens.com>
+References: <cover.1498112281.git.jan.kiszka@siemens.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Andy Shevchenko <andy.shevchenko@gmail.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <8737atv4pm.fsf@kamboji.qca.qualcomm.com>
+In-Reply-To: <cover.1498112281.git.jan.kiszka@siemens.com>
+In-Reply-To: <cover.1498112281.git.jan.kiszka@siemens.com>
+References: <cover.1498112281.git.jan.kiszka@siemens.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We should probably add a might_sleep() to ioremap() to prevent these
-bugs in the future.
+From: Jan Kiszka <jan.kiszka@siemens.com>
 
-This bug is eight years old.  You can report it, but it's going to hard
-to get anyone to fix it.  I sometimes ignore ancient bugs.  On the other
-hand, netxen is fairly well supported so it doesn't hurt to try.
+No need to carry this reference in stmmac_pci_info - the Quark-specific
+setup handler knows that it needs to use the Quark-specific DMI table.
+This also allows to drop the stmmac_pci_info reference from the setup
+handler parameter list.
 
-I try to report bugs as soon as they are introduced.  I report it to
-the author and CC the relevant list.  If people don't respond to my
-email after a month then I complain again.
+Signed-off-by: Jan Kiszka <jan.kiszka@siemens.com>
+Reviewed-by: Andy Shevchenko <andy.shevchenko@gmail.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c | 83 +++++++++++-------------
+ 1 file changed, 39 insertions(+), 44 deletions(-)
 
-regards,
-dan carpenter
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+index f44ae49eb11c..a6e10d3ced5c 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+@@ -38,13 +38,11 @@ struct stmmac_pci_dmi_data {
+ };
+ 
+ struct stmmac_pci_info {
+-	int (*setup)(struct pci_dev *pdev, struct plat_stmmacenet_data *plat,
+-		     const struct stmmac_pci_info *info);
+-	struct stmmac_pci_dmi_data *dmi;
++	int (*setup)(struct pci_dev *pdev, struct plat_stmmacenet_data *plat);
+ };
+ 
+ static int stmmac_pci_find_phy_addr(struct pci_dev *pdev,
+-				    const struct stmmac_pci_info *info)
++				    struct stmmac_pci_dmi_data *dmi_data)
+ {
+ 	const char *name = dmi_get_system_info(DMI_BOARD_NAME);
+ 	const char *asset_tag = dmi_get_system_info(DMI_BOARD_ASSET_TAG);
+@@ -54,7 +52,7 @@ static int stmmac_pci_find_phy_addr(struct pci_dev *pdev,
+ 	if (!name)
+ 		return -ENODEV;
+ 
+-	for (dmi = info->dmi; dmi->name && *dmi->name; dmi++) {
++	for (dmi = dmi_data; dmi->name && *dmi->name; dmi++) {
+ 		if (!strcmp(dmi->name, name) && dmi->func == func) {
+ 			/* If asset tag is provided, match on it as well. */
+ 			if (dmi->asset_tag && strcmp(dmi->asset_tag, asset_tag))
+@@ -97,8 +95,7 @@ static void common_default_data(struct plat_stmmacenet_data *plat)
+ }
+ 
+ static int stmmac_default_data(struct pci_dev *pdev,
+-			       struct plat_stmmacenet_data *plat,
+-			       const struct stmmac_pci_info *info)
++			       struct plat_stmmacenet_data *plat)
+ {
+ 	/* Set common default data first */
+ 	common_default_data(plat);
+@@ -118,9 +115,40 @@ static const struct stmmac_pci_info stmmac_pci_info = {
+ 	.setup = stmmac_default_data,
+ };
+ 
++static struct stmmac_pci_dmi_data quark_pci_dmi_data[] = {
++	{
++		.name = "Galileo",
++		.func = 6,
++		.phy_addr = 1,
++	},
++	{
++		.name = "GalileoGen2",
++		.func = 6,
++		.phy_addr = 1,
++	},
++	{
++		.name = "SIMATIC IOT2000",
++		.asset_tag = "6ES7647-0AA00-0YA2",
++		.func = 6,
++		.phy_addr = 1,
++	},
++	{
++		.name = "SIMATIC IOT2000",
++		.asset_tag = "6ES7647-0AA00-1YA2",
++		.func = 6,
++		.phy_addr = 1,
++	},
++	{
++		.name = "SIMATIC IOT2000",
++		.asset_tag = "6ES7647-0AA00-1YA2",
++		.func = 7,
++		.phy_addr = 1,
++	},
++	{}
++};
++
+ static int quark_default_data(struct pci_dev *pdev,
+-			      struct plat_stmmacenet_data *plat,
+-			      const struct stmmac_pci_info *info)
++			      struct plat_stmmacenet_data *plat)
+ {
+ 	int ret;
+ 
+@@ -131,7 +159,7 @@ static int quark_default_data(struct pci_dev *pdev,
+ 	 * Refuse to load the driver and register net device if MAC controller
+ 	 * does not connect to any PHY interface.
+ 	 */
+-	ret = stmmac_pci_find_phy_addr(pdev, info);
++	ret = stmmac_pci_find_phy_addr(pdev, quark_pci_dmi_data);
+ 	if (ret < 0) {
+ 		/* Return error to the caller on DMI enabled boards. */
+ 		if (dmi_get_system_info(DMI_BOARD_NAME))
+@@ -157,41 +185,8 @@ static int quark_default_data(struct pci_dev *pdev,
+ 	return 0;
+ }
+ 
+-static struct stmmac_pci_dmi_data quark_pci_dmi_data[] = {
+-	{
+-		.name = "Galileo",
+-		.func = 6,
+-		.phy_addr = 1,
+-	},
+-	{
+-		.name = "GalileoGen2",
+-		.func = 6,
+-		.phy_addr = 1,
+-	},
+-	{
+-		.name = "SIMATIC IOT2000",
+-		.asset_tag = "6ES7647-0AA00-0YA2",
+-		.func = 6,
+-		.phy_addr = 1,
+-	},
+-	{
+-		.name = "SIMATIC IOT2000",
+-		.asset_tag = "6ES7647-0AA00-1YA2",
+-		.func = 6,
+-		.phy_addr = 1,
+-	},
+-	{
+-		.name = "SIMATIC IOT2000",
+-		.asset_tag = "6ES7647-0AA00-1YA2",
+-		.func = 7,
+-		.phy_addr = 1,
+-	},
+-	{}
+-};
+-
+ static const struct stmmac_pci_info quark_pci_info = {
+ 	.setup = quark_default_data,
+-	.dmi = quark_pci_dmi_data,
+ };
+ 
+ /**
+@@ -250,7 +245,7 @@ static int stmmac_pci_probe(struct pci_dev *pdev,
+ 
+ 	pci_set_master(pdev);
+ 
+-	ret = info->setup(pdev, plat, info);
++	ret = info->setup(pdev, plat);
+ 	if (ret)
+ 		return ret;
+ 
+-- 
+2.12.3
