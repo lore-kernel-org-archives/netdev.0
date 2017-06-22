@@ -1,176 +1,122 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
+From: Lawrence Brakmo <brakmo@fb.com>
 Subject: Re: [PATCH net-next v3 01/15] bpf: BPF support for sock_ops
-Date: Fri, 23 Jun 2017 00:41:37 +0200
-Message-ID: <594C47A1.1080102@iogearbox.net>
-References: <20170620030048.3275347-1-brakmo@fb.com> <20170620030048.3275347-2-brakmo@fb.com>
+Date: Thu, 22 Jun 2017 22:58:52 +0000
+Message-ID: <B03E3B5A-50E2-4291-B091-23927AF6846F@fb.com>
+References: <20170620030048.3275347-1-brakmo@fb.com>
+ <20170620030048.3275347-2-brakmo@fb.com> <594C47A1.1080102@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
-        Alexei Starovoitov <ast@fb.com>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Kernel Team <Kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
+        "Alexei Starovoitov" <ast@fb.com>,
         David Ahern <dsa@cumulusnetworks.com>
-To: Lawrence Brakmo <brakmo@fb.com>, netdev <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+        netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:44849 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753611AbdFVWll (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 18:41:41 -0400
-In-Reply-To: <20170620030048.3275347-2-brakmo@fb.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:40353 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752714AbdFVW7k (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 18:59:40 -0400
+In-Reply-To: <594C47A1.1080102@iogearbox.net>
+Content-Language: en-US
+Content-ID: <73458DE4C6E8C640862EEFBCE5C88B3D@namprd15.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/20/2017 05:00 AM, Lawrence Brakmo wrote:
-[...]
-> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-> index f94b48b..861dbe9 100644
-> --- a/include/uapi/linux/bpf.h
-> +++ b/include/uapi/linux/bpf.h
-> @@ -120,12 +120,14 @@ enum bpf_prog_type {
->   	BPF_PROG_TYPE_LWT_IN,
->   	BPF_PROG_TYPE_LWT_OUT,
->   	BPF_PROG_TYPE_LWT_XMIT,
-> +	BPF_PROG_TYPE_SOCK_OPS,
->   };
->
->   enum bpf_attach_type {
->   	BPF_CGROUP_INET_INGRESS,
->   	BPF_CGROUP_INET_EGRESS,
->   	BPF_CGROUP_INET_SOCK_CREATE,
-> +	BPF_GLOBAL_SOCK_OPS,
->   	__MAX_BPF_ATTACH_TYPE
->   };
-[...]
->   #endif /* _UAPI__LINUX_BPF_H__ */
-> diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-> index 8942c82..e02831f 100644
-> --- a/kernel/bpf/syscall.c
-> +++ b/kernel/bpf/syscall.c
-[...]
-> +static int bpf_prog_attach(const union bpf_attr *attr)
-> +{
-> +	if (!capable(CAP_NET_ADMIN))
-> +		return -EPERM;
-> +
-> +	if (CHECK_ATTR(BPF_PROG_ATTACH))
-> +		return -EINVAL;
-> +
-> +	if (attr->attach_type == BPF_GLOBAL_SOCK_OPS)
-> +		return bpf_sock_ops_attach_global_prog(attr->attach_bpf_fd);
-> +	else
-> +		return bpf_prog_attach_cgroup(attr);
-> +}
-> +
-[...]
-> +static int bpf_prog_detach(const union bpf_attr *attr)
-> +{
-> +	if (!capable(CAP_NET_ADMIN))
-> +		return -EPERM;
-> +
-> +	if (CHECK_ATTR(BPF_PROG_DETACH))
-> +		return -EINVAL;
-> +
-> +	if (attr->attach_type == BPF_GLOBAL_SOCK_OPS)
-> +		return bpf_sock_ops_detach_global_prog();
-> +	else
-> +		return bpf_prog_detach_cgroup(attr);
-> +}
->
->   #define BPF_PROG_TEST_RUN_LAST_FIELD test.duration
->
-> @@ -1431,14 +1467,12 @@ SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, siz
->   	case BPF_OBJ_GET:
->   		err = bpf_obj_get(&attr);
->   		break;
-> -#ifdef CONFIG_CGROUP_BPF
->   	case BPF_PROG_ATTACH:
->   		err = bpf_prog_attach(&attr);
->   		break;
->   	case BPF_PROG_DETACH:
->   		err = bpf_prog_detach(&attr);
->   		break;
-> -#endif
->   	case BPF_PROG_TEST_RUN:
->   		err = bpf_prog_test_run(&attr, uattr);
->   		break;
-[...]
-> diff --git a/net/core/sock_bpfops.c b/net/core/sock_bpfops.c
-> new file mode 100644
-> index 0000000..06f4a64
-> --- /dev/null
-> +++ b/net/core/sock_bpfops.c
-> @@ -0,0 +1,65 @@
-> +/*
-> + * BPF support for sockets
-> + *
-> + * Copyright (c) 2016 Lawrence Brakmo <brakmo@fb.com>
-> + *
-> + * This program is free software; you can redistribute it and/or modify
-> + * it under the terms of the GNU General Public License version 2
-> + * as published by the Free Software Foundation.
-> + */
-> +
-> +#include <net/sock.h>
-> +#include <linux/skbuff.h>
-> +#include <linux/bpf.h>
-> +#include <linux/filter.h>
-> +#include <linux/errno.h>
-> +#ifdef CONFIG_NET_NS
-> +#include <net/net_namespace.h>
-> +#include <linux/proc_ns.h>
-> +#endif
-> +
-> +/* Global BPF program for sockets */
-> +static struct bpf_prog *bpf_global_sock_ops_prog;
-> +
-> +int bpf_sock_ops_detach_global_prog(void)
-> +{
-> +	struct bpf_prog *old_prog;
-> +
-> +	old_prog = xchg(&bpf_global_sock_ops_prog, NULL);
-> +
-> +	if (old_prog)
-> +		bpf_prog_put(old_prog);
-> +
-> +	return 0;
-> +}
-> +
-> +int bpf_sock_ops_attach_global_prog(int fd)
-> +{
-> +	struct bpf_prog *prog, *old_prog;
-> +	int err = 0;
-> +
-> +	prog = bpf_prog_get_type(fd, BPF_PROG_TYPE_SOCK_OPS);
-> +	if (IS_ERR(prog))
-> +		return PTR_ERR(prog);
-> +
-> +	old_prog = xchg(&bpf_global_sock_ops_prog, prog);
-> +	if (old_prog)
-> +		bpf_prog_put(old_prog);
-> +	return err;
-> +}
-> +
-> +int bpf_sock_ops_call(struct bpf_sock_ops_kern *bpf_sock)
-> +{
-> +	struct bpf_prog *prog;
-> +	int ret;
-> +
-> +	rcu_read_lock();
-> +	prog =  READ_ONCE(bpf_global_sock_ops_prog);
-> +	if (prog)
-> +		ret = BPF_PROG_RUN(prog, bpf_sock);
-> +	else
-> +		ret = -1;
-> +	rcu_read_unlock();
-> +
-> +	return ret;
-> +}
-
-Now that we integrate with BPF_PROG_ATTACH/DETACH, can you make all
-the above also per cgroup as we have with all other BPF_CGROUP_INET_*
-progs? It seems kind of weird that we have one single global program
-doing the enforcement of TCP and congctl options. Something on a more
-fine-grained level like cgroups would be more suited wrt containers,
-etc. Right now there's no notion of global program of such kind.
-
-Thanks,
-Daniel
+DQpPbiA2LzIyLzE3LCAzOjQxIFBNLCAiRGFuaWVsIEJvcmttYW5uIiA8ZGFuaWVsQGlvZ2VhcmJv
+eC5uZXQ+IHdyb3RlOg0KDQogICAgT24gMDYvMjAvMjAxNyAwNTowMCBBTSwgTGF3cmVuY2UgQnJh
+a21vIHdyb3RlOg0KICAgIFsuLi5dDQogICAgPiBkaWZmIC0tZ2l0IGEvaW5jbHVkZS91YXBpL2xp
+bnV4L2JwZi5oIGIvaW5jbHVkZS91YXBpL2xpbnV4L2JwZi5oDQogICAgPiBpbmRleCBmOTRiNDhi
+Li44NjFkYmU5IDEwMDY0NA0KICAgID4gLS0tIGEvaW5jbHVkZS91YXBpL2xpbnV4L2JwZi5oDQog
+ICAgPiArKysgYi9pbmNsdWRlL3VhcGkvbGludXgvYnBmLmgNCiAgICA+IEBAIC0xMjAsMTIgKzEy
+MCwxNCBAQCBlbnVtIGJwZl9wcm9nX3R5cGUgew0KICAgID4gICAJQlBGX1BST0dfVFlQRV9MV1Rf
+SU4sDQogICAgPiAgIAlCUEZfUFJPR19UWVBFX0xXVF9PVVQsDQogICAgPiAgIAlCUEZfUFJPR19U
+WVBFX0xXVF9YTUlULA0KICAgID4gKwlCUEZfUFJPR19UWVBFX1NPQ0tfT1BTLA0KICAgID4gICB9
+Ow0KICAgID4NCiAgICA+ICAgZW51bSBicGZfYXR0YWNoX3R5cGUgew0KICAgID4gICAJQlBGX0NH
+Uk9VUF9JTkVUX0lOR1JFU1MsDQogICAgPiAgIAlCUEZfQ0dST1VQX0lORVRfRUdSRVNTLA0KICAg
+ID4gICAJQlBGX0NHUk9VUF9JTkVUX1NPQ0tfQ1JFQVRFLA0KICAgID4gKwlCUEZfR0xPQkFMX1NP
+Q0tfT1BTLA0KICAgID4gICAJX19NQVhfQlBGX0FUVEFDSF9UWVBFDQogICAgPiAgIH07DQogICAg
+Wy4uLl0NCiAgICA+ICAgI2VuZGlmIC8qIF9VQVBJX19MSU5VWF9CUEZfSF9fICovDQogICAgPiBk
+aWZmIC0tZ2l0IGEva2VybmVsL2JwZi9zeXNjYWxsLmMgYi9rZXJuZWwvYnBmL3N5c2NhbGwuYw0K
+ICAgID4gaW5kZXggODk0MmM4Mi4uZTAyODMxZiAxMDA2NDQNCiAgICA+IC0tLSBhL2tlcm5lbC9i
+cGYvc3lzY2FsbC5jDQogICAgPiArKysgYi9rZXJuZWwvYnBmL3N5c2NhbGwuYw0KICAgIFsuLi5d
+DQogICAgPiArc3RhdGljIGludCBicGZfcHJvZ19hdHRhY2goY29uc3QgdW5pb24gYnBmX2F0dHIg
+KmF0dHIpDQogICAgPiArew0KICAgID4gKwlpZiAoIWNhcGFibGUoQ0FQX05FVF9BRE1JTikpDQog
+ICAgPiArCQlyZXR1cm4gLUVQRVJNOw0KICAgID4gKw0KICAgID4gKwlpZiAoQ0hFQ0tfQVRUUihC
+UEZfUFJPR19BVFRBQ0gpKQ0KICAgID4gKwkJcmV0dXJuIC1FSU5WQUw7DQogICAgPiArDQogICAg
+PiArCWlmIChhdHRyLT5hdHRhY2hfdHlwZSA9PSBCUEZfR0xPQkFMX1NPQ0tfT1BTKQ0KICAgID4g
+KwkJcmV0dXJuIGJwZl9zb2NrX29wc19hdHRhY2hfZ2xvYmFsX3Byb2coYXR0ci0+YXR0YWNoX2Jw
+Zl9mZCk7DQogICAgPiArCWVsc2UNCiAgICA+ICsJCXJldHVybiBicGZfcHJvZ19hdHRhY2hfY2dy
+b3VwKGF0dHIpOw0KICAgID4gK30NCiAgICA+ICsNCiAgICBbLi4uXQ0KICAgID4gK3N0YXRpYyBp
+bnQgYnBmX3Byb2dfZGV0YWNoKGNvbnN0IHVuaW9uIGJwZl9hdHRyICphdHRyKQ0KICAgID4gK3sN
+CiAgICA+ICsJaWYgKCFjYXBhYmxlKENBUF9ORVRfQURNSU4pKQ0KICAgID4gKwkJcmV0dXJuIC1F
+UEVSTTsNCiAgICA+ICsNCiAgICA+ICsJaWYgKENIRUNLX0FUVFIoQlBGX1BST0dfREVUQUNIKSkN
+CiAgICA+ICsJCXJldHVybiAtRUlOVkFMOw0KICAgID4gKw0KICAgID4gKwlpZiAoYXR0ci0+YXR0
+YWNoX3R5cGUgPT0gQlBGX0dMT0JBTF9TT0NLX09QUykNCiAgICA+ICsJCXJldHVybiBicGZfc29j
+a19vcHNfZGV0YWNoX2dsb2JhbF9wcm9nKCk7DQogICAgPiArCWVsc2UNCiAgICA+ICsJCXJldHVy
+biBicGZfcHJvZ19kZXRhY2hfY2dyb3VwKGF0dHIpOw0KICAgID4gK30NCiAgICA+DQogICAgPiAg
+ICNkZWZpbmUgQlBGX1BST0dfVEVTVF9SVU5fTEFTVF9GSUVMRCB0ZXN0LmR1cmF0aW9uDQogICAg
+Pg0KICAgID4gQEAgLTE0MzEsMTQgKzE0NjcsMTIgQEAgU1lTQ0FMTF9ERUZJTkUzKGJwZiwgaW50
+LCBjbWQsIHVuaW9uIGJwZl9hdHRyIF9fdXNlciAqLCB1YXR0ciwgdW5zaWduZWQgaW50LCBzaXoN
+CiAgICA+ICAgCWNhc2UgQlBGX09CSl9HRVQ6DQogICAgPiAgIAkJZXJyID0gYnBmX29ial9nZXQo
+JmF0dHIpOw0KICAgID4gICAJCWJyZWFrOw0KICAgID4gLSNpZmRlZiBDT05GSUdfQ0dST1VQX0JQ
+Rg0KICAgID4gICAJY2FzZSBCUEZfUFJPR19BVFRBQ0g6DQogICAgPiAgIAkJZXJyID0gYnBmX3By
+b2dfYXR0YWNoKCZhdHRyKTsNCiAgICA+ICAgCQlicmVhazsNCiAgICA+ICAgCWNhc2UgQlBGX1BS
+T0dfREVUQUNIOg0KICAgID4gICAJCWVyciA9IGJwZl9wcm9nX2RldGFjaCgmYXR0cik7DQogICAg
+PiAgIAkJYnJlYWs7DQogICAgPiAtI2VuZGlmDQogICAgPiAgIAljYXNlIEJQRl9QUk9HX1RFU1Rf
+UlVOOg0KICAgID4gICAJCWVyciA9IGJwZl9wcm9nX3Rlc3RfcnVuKCZhdHRyLCB1YXR0cik7DQog
+ICAgPiAgIAkJYnJlYWs7DQogICAgWy4uLl0NCiAgICA+IGRpZmYgLS1naXQgYS9uZXQvY29yZS9z
+b2NrX2JwZm9wcy5jIGIvbmV0L2NvcmUvc29ja19icGZvcHMuYw0KICAgID4gbmV3IGZpbGUgbW9k
+ZSAxMDA2NDQNCiAgICA+IGluZGV4IDAwMDAwMDAuLjA2ZjRhNjQNCiAgICA+IC0tLSAvZGV2L251
+bGwNCiAgICA+ICsrKyBiL25ldC9jb3JlL3NvY2tfYnBmb3BzLmMNCiAgICA+IEBAIC0wLDAgKzEs
+NjUgQEANCiAgICA+ICsvKg0KICAgID4gKyAqIEJQRiBzdXBwb3J0IGZvciBzb2NrZXRzDQogICAg
+PiArICoNCiAgICA+ICsgKiBDb3B5cmlnaHQgKGMpIDIwMTYgTGF3cmVuY2UgQnJha21vIDxicmFr
+bW9AZmIuY29tPg0KICAgID4gKyAqDQogICAgPiArICogVGhpcyBwcm9ncmFtIGlzIGZyZWUgc29m
+dHdhcmU7IHlvdSBjYW4gcmVkaXN0cmlidXRlIGl0IGFuZC9vciBtb2RpZnkNCiAgICA+ICsgKiBp
+dCB1bmRlciB0aGUgdGVybXMgb2YgdGhlIEdOVSBHZW5lcmFsIFB1YmxpYyBMaWNlbnNlIHZlcnNp
+b24gMg0KICAgID4gKyAqIGFzIHB1Ymxpc2hlZCBieSB0aGUgRnJlZSBTb2Z0d2FyZSBGb3VuZGF0
+aW9uLg0KICAgID4gKyAqLw0KICAgID4gKw0KICAgID4gKyNpbmNsdWRlIDxuZXQvc29jay5oPg0K
+ICAgID4gKyNpbmNsdWRlIDxsaW51eC9za2J1ZmYuaD4NCiAgICA+ICsjaW5jbHVkZSA8bGludXgv
+YnBmLmg+DQogICAgPiArI2luY2x1ZGUgPGxpbnV4L2ZpbHRlci5oPg0KICAgID4gKyNpbmNsdWRl
+IDxsaW51eC9lcnJuby5oPg0KICAgID4gKyNpZmRlZiBDT05GSUdfTkVUX05TDQogICAgPiArI2lu
+Y2x1ZGUgPG5ldC9uZXRfbmFtZXNwYWNlLmg+DQogICAgPiArI2luY2x1ZGUgPGxpbnV4L3Byb2Nf
+bnMuaD4NCiAgICA+ICsjZW5kaWYNCiAgICA+ICsNCiAgICA+ICsvKiBHbG9iYWwgQlBGIHByb2dy
+YW0gZm9yIHNvY2tldHMgKi8NCiAgICA+ICtzdGF0aWMgc3RydWN0IGJwZl9wcm9nICpicGZfZ2xv
+YmFsX3NvY2tfb3BzX3Byb2c7DQogICAgPiArDQogICAgPiAraW50IGJwZl9zb2NrX29wc19kZXRh
+Y2hfZ2xvYmFsX3Byb2codm9pZCkNCiAgICA+ICt7DQogICAgPiArCXN0cnVjdCBicGZfcHJvZyAq
+b2xkX3Byb2c7DQogICAgPiArDQogICAgPiArCW9sZF9wcm9nID0geGNoZygmYnBmX2dsb2JhbF9z
+b2NrX29wc19wcm9nLCBOVUxMKTsNCiAgICA+ICsNCiAgICA+ICsJaWYgKG9sZF9wcm9nKQ0KICAg
+ID4gKwkJYnBmX3Byb2dfcHV0KG9sZF9wcm9nKTsNCiAgICA+ICsNCiAgICA+ICsJcmV0dXJuIDA7
+DQogICAgPiArfQ0KICAgID4gKw0KICAgID4gK2ludCBicGZfc29ja19vcHNfYXR0YWNoX2dsb2Jh
+bF9wcm9nKGludCBmZCkNCiAgICA+ICt7DQogICAgPiArCXN0cnVjdCBicGZfcHJvZyAqcHJvZywg
+Km9sZF9wcm9nOw0KICAgID4gKwlpbnQgZXJyID0gMDsNCiAgICA+ICsNCiAgICA+ICsJcHJvZyA9
+IGJwZl9wcm9nX2dldF90eXBlKGZkLCBCUEZfUFJPR19UWVBFX1NPQ0tfT1BTKTsNCiAgICA+ICsJ
+aWYgKElTX0VSUihwcm9nKSkNCiAgICA+ICsJCXJldHVybiBQVFJfRVJSKHByb2cpOw0KICAgID4g
+Kw0KICAgID4gKwlvbGRfcHJvZyA9IHhjaGcoJmJwZl9nbG9iYWxfc29ja19vcHNfcHJvZywgcHJv
+Zyk7DQogICAgPiArCWlmIChvbGRfcHJvZykNCiAgICA+ICsJCWJwZl9wcm9nX3B1dChvbGRfcHJv
+Zyk7DQogICAgPiArCXJldHVybiBlcnI7DQogICAgPiArfQ0KICAgID4gKw0KICAgID4gK2ludCBi
+cGZfc29ja19vcHNfY2FsbChzdHJ1Y3QgYnBmX3NvY2tfb3BzX2tlcm4gKmJwZl9zb2NrKQ0KICAg
+ID4gK3sNCiAgICA+ICsJc3RydWN0IGJwZl9wcm9nICpwcm9nOw0KICAgID4gKwlpbnQgcmV0Ow0K
+ICAgID4gKw0KICAgID4gKwlyY3VfcmVhZF9sb2NrKCk7DQogICAgPiArCXByb2cgPSAgUkVBRF9P
+TkNFKGJwZl9nbG9iYWxfc29ja19vcHNfcHJvZyk7DQogICAgPiArCWlmIChwcm9nKQ0KICAgID4g
+KwkJcmV0ID0gQlBGX1BST0dfUlVOKHByb2csIGJwZl9zb2NrKTsNCiAgICA+ICsJZWxzZQ0KICAg
+ID4gKwkJcmV0ID0gLTE7DQogICAgPiArCXJjdV9yZWFkX3VubG9jaygpOw0KICAgID4gKw0KICAg
+ID4gKwlyZXR1cm4gcmV0Ow0KICAgID4gK30NCiAgICANCiAgICBOb3cgdGhhdCB3ZSBpbnRlZ3Jh
+dGUgd2l0aCBCUEZfUFJPR19BVFRBQ0gvREVUQUNILCBjYW4geW91IG1ha2UgYWxsDQogICAgdGhl
+IGFib3ZlIGFsc28gcGVyIGNncm91cCBhcyB3ZSBoYXZlIHdpdGggYWxsIG90aGVyIEJQRl9DR1JP
+VVBfSU5FVF8qDQogICAgcHJvZ3M/IEl0IHNlZW1zIGtpbmQgb2Ygd2VpcmQgdGhhdCB3ZSBoYXZl
+IG9uZSBzaW5nbGUgZ2xvYmFsIHByb2dyYW0NCiAgICBkb2luZyB0aGUgZW5mb3JjZW1lbnQgb2Yg
+VENQIGFuZCBjb25nY3RsIG9wdGlvbnMuIFNvbWV0aGluZyBvbiBhIG1vcmUNCiAgICBmaW5lLWdy
+YWluZWQgbGV2ZWwgbGlrZSBjZ3JvdXBzIHdvdWxkIGJlIG1vcmUgc3VpdGVkIHdydCBjb250YWlu
+ZXJzLA0KICAgIGV0Yy4gUmlnaHQgbm93IHRoZXJlJ3Mgbm8gbm90aW9uIG9mIGdsb2JhbCBwcm9n
+cmFtIG9mIHN1Y2gga2luZC4NCiAgICANCiAgICBUaGFua3MsDQogICAgRGFuaWVsDQoNCg0KRGFu
+aWVsLCBJIHNlZSB2YWx1ZSBmb3IgaGF2aW5nIGEgZ2xvYmFsIHByb2dyYW0sIHNvIEkgd291bGQg
+bGlrZSB0byBrZWVwIHRoYXQuIFdoZW4NCnRoaXMgcGF0Y2hzZXQgaXMgYWNjZXB0ZWQsIEkgd2ls
+bCBzdWJtaXQgb25lIHRoYXQgYWRkcyBzdXBwb3J0IGZvciBwZXIgY2dyb3VwDQpzb2NrX29wcyBw
+cm9ncmFtcywgd2l0aCB0aGUgb3B0aW9uIHRvIHVzZSB0aGUgZ2xvYmFsIG9uZSBpZiBub25lIGlz
+DQpzcGVjaWZpZWQgZm9yIGEgY2dyb3VwLiBXZSBjb3VsZCBhbHNvIGhhdmUgdGhlIG9wdGlvbiBv
+ZiB0aGUgY2dyb3VwIHNvY2tfb3BzDQpwcm9ncmFtIGNob29zaW5nIGlmIHRoZSBnbG9iYWwgcHJv
+Z3JhbSBzaG91bGQgcnVuIGZvciBhIHBhcnRpY3VsYXIgb3AgYmFzZWQgb24NCml0cyByZXR1cm4g
+dmFsdWUuIFdlIGNhbiBpcm9uIGl0IG91dCB0aGUgZGV0YWlscyB3aGVuIHRoYXQgcGF0Y2ggaXMg
+c3VibWl0dGVkLg0KDQpJcyBpdCBhY2NlcHRhYmxlPw0KDQpUaGFua3MsDQpMYXdyZW5jZSAgICAN
+Cg0K
