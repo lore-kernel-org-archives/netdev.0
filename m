@@ -1,86 +1,49 @@
 From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next 00/12] nfp: add flower app with representors
-Date: Thu, 22 Jun 2017 17:28:25 +0300
-Message-ID: <CAJ3xEMhyOiQX_jTpD5zWKY0oNkBoU1jyG3SMTpA091O8TbrjLA@mail.gmail.com>
+Subject: Re: [oss-drivers] Re: [PATCH net-next 00/12] nfp: add flower app with representors
+Date: Thu, 22 Jun 2017 17:39:09 +0300
+Message-ID: <CAJ3xEMiqCd9RQYBEANikw0cJRBR9cBRrucRZ1bPZQb2ML7V3PA@mail.gmail.com>
 References: <1497937910-32059-1-git-send-email-simon.horman@netronome.com>
  <CAJ3xEMgPWdg8gnAuGgufuxeYt4qDKrs8g+LBgm3BBG9KHnjGsQ@mail.gmail.com>
  <20170620122417.0c60582e@cakuba.netronome.com> <CAJ3xEMjTLs0aDLY_zDerm8o0yPmJktzBDE2rJ=QwXQZeS1+qCg@mail.gmail.com>
- <20170621024238.021e1f77@cakuba.netronome.com>
+ <20170621093212.GA3656@vergenet.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Simon Horman <simon.horman@netronome.com>,
+Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
         David Miller <davem@davemloft.net>,
         Linux Netdev List <netdev@vger.kernel.org>,
         oss-drivers@netronome.com
-To: Jakub Kicinski <kubakici@wp.pl>
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f44.google.com ([209.85.218.44]:35710 "EHLO
-        mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752037AbdFVO20 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 10:28:26 -0400
-Received: by mail-oi0-f44.google.com with SMTP id c189so9827097oia.2
-        for <netdev@vger.kernel.org>; Thu, 22 Jun 2017 07:28:26 -0700 (PDT)
-In-Reply-To: <20170621024238.021e1f77@cakuba.netronome.com>
+Received: from mail-ot0-f180.google.com ([74.125.82.180]:35494 "EHLO
+        mail-ot0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750812AbdFVOjK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 10:39:10 -0400
+Received: by mail-ot0-f180.google.com with SMTP id u13so12362397otd.2
+        for <netdev@vger.kernel.org>; Thu, 22 Jun 2017 07:39:10 -0700 (PDT)
+In-Reply-To: <20170621093212.GA3656@vergenet.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 21, 2017 at 12:42 PM, Jakub Kicinski <kubakici@wp.pl> wrote:
+On Wed, Jun 21, 2017 at 12:32 PM, Simon Horman
+<simon.horman@netronome.com> wrote:
 
-> Let me try to describe it a bit more instead.  Sorry but I'm not great
-> at ASCII art at this level of complexity and while having to stay
-> within 80 chars ;)
+> This patchset is in two parts.
 >
-> Driver communicates with the Management FW via a mailbox.
->
-> Driver loads, it gets the Application FW from disk.  It pushes the
-> entire FW to the mailbox and tells the Management FW to load it.  At
-> this point the PCIe datapath is loaded and driver discovers what
-> other communication channels are available.
->
-> Driver checks which FW is loaded and finds appropriate nfp_app callbacks
-> for that FW.  If the nfp_app requires control message channel it will
-> map the control message queue/vNIC.  Driver spawn netdevs for
-> data vNICs.  Flower nfp_app may upon init spawn physical port
-> representors (single NFP chip supports tens of ports so they are not
-> all guaranteed a full vNIC in many designs).  Whenever representor is
-> spawned Application FW is notified with a control message.
->
-> When user enables SR-IOV nfp_app sriov callback will be invoked and
-> flower nfp_app will respond by spawning VF reprs.  First version of the
-> Flower APP targets only the switchdev mode.  We plan to add legacy mode
-> and automatically pre-populate the rules if there is user interest.
-> Although I personally hope that people interested in legacy SR-IOV will
-> use our simpler CoreNIC app FW...  Flower APP will initially come up in
-> switchdev mode, no rules installed, all traffic will simply end up at
-> representors.
+> The first 9 patches add code to allow representors to be instantiated
+> etc... The remaining patches provide the beginning of a flower app which
+> makes use of this infrastructure. So I think there is a clear separation
+> between representor code, in .../nfp/ and app code that uses representors,
+> in this case .../nfp/flower/.
 
-This is much clearer now, thanks for explaining that over. Will be happy
-if you can elaborate a bit on the automatic tables pre-population for
-legacy mode emulation, sounds interesting.
+indeed, got it.
 
+> I could have supplied a test app to demonstrate using representors - and
+> that is really what the flower app is as of this patchset. But I chose to
+> name it flower as it we have follow-up work to make the app actually
+> offload flower and at that point that will be come its dominant feature.
 
->> The VF reps where introduced hand in hand with the devlink way to create/destroy
->> them -- e.g the devlink eswitch commands (mode change, show, enable encap, etc).
-
-> Yes, indeed.  FWIW for programmable HW the question of mode of
-> operation is more complex than selection between eswitch modes.  We
-> are planning on extending devlink and our driver to handle more
-> configurations as well as to expose more useful info.  But we need to
-> start somewhere :)  We felt like this set with representors will
-> establish a good base.  Next set will introduce basic Flower offload
-> (~populating tables and reading stats).  And we can build on top of that.
-
-I think you got it, when sriov is set on the NIC and you load this app,
-we're in switchdev mode, so the devlink eswitch mode set need not be
-called by user-space. But, further configuration eswitch changes could
-(and would) be done through devlink callbacks.
-
-> I think you're referring to the fact that we start in switchdev mode?
-> I thought you would be happy to see a driver which doesn't even bother
-> with the legacy mode ;)
-
-YES, I am happy to see that you start in switchdev mode. I wasn't sure
-why the devlink way of further configuring the eswitch can't apply for npf,
-but now you made that clear it does apply.
+As you stated, the separation is there. If got you right, it will be possible to
+use representors in non flower apps, and probably also possible to have
+the flower app used in a non-SRIOV environment, just fine.
 
 Or.
