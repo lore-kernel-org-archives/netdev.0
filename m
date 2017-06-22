@@ -1,35 +1,43 @@
-From: Samuel Ortiz <sameo@linux.intel.com>
-Subject: Re: [PATCH] nfc: Ensure presence of required attributes in the
- activate_target netlink handler
-Date: Fri, 23 Jun 2017 00:29:35 +0200
-Message-ID: <20170622222935.GF21214@zurbaran.ger.intel.com>
-References: <20170524104226.14841-1-mjurczyk@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, security@kernel.org
-To: Mateusz Jurczyk <mjurczyk@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170524104226.14841-1-mjurczyk@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] sit: use __GFP_NOWARN for user controlled allocation
+Date: Thu, 22 Jun 2017 15:29:33 -0700
+Message-ID: <1498170573-24082-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Andrey Konovalov <andreyknvl@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:32893 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753919AbdFVWaC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 18:30:02 -0400
+Received: by mail-pf0-f193.google.com with SMTP id w12so4865532pfk.0
+        for <netdev@vger.kernel.org>; Thu, 22 Jun 2017 15:30:02 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Mateusz,
+The memory allocation size is controlled by user-space,
+if it is too large just fail silently and return NULL,
+not to mention there is a fallback allocation later.
 
-On Wed, May 24, 2017 at 12:42:26PM +0200, Mateusz Jurczyk wrote:
-> Check that the NFC_ATTR_TARGET_INDEX and NFC_ATTR_PROTOCOLS attributes (in
-> addition to NFC_ATTR_DEVICE_INDEX) are provided by the netlink client
-> prior to accessing them. This prevents potential unhandled NULL pointer
-> dereference exceptions which can be triggered by malicious user-mode
-> programs, if they omit one or both of these attributes.
-> 
-> Signed-off-by: Mateusz Jurczyk <mjurczyk@google.com>
-> ---
->  net/nfc/netlink.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-Applied, thanks.
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Cc: Andrey Konovalov <andreyknvl@google.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/ipv6/sit.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Cheers,
-Samuel.
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 2378503..f8ad158 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -305,7 +305,7 @@ static int ipip6_tunnel_get_prl(struct ip_tunnel *t,
+ 	 * we try harder to allocate.
+ 	 */
+ 	kp = (cmax <= 1 || capable(CAP_NET_ADMIN)) ?
+-		kcalloc(cmax, sizeof(*kp), GFP_KERNEL) :
++		kcalloc(cmax, sizeof(*kp), GFP_KERNEL | __GFP_NOWARN) :
+ 		NULL;
+ 
+ 	rcu_read_lock();
+-- 
+2.5.5
