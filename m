@@ -1,43 +1,35 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] sit: use __GFP_NOWARN for user controlled allocation
-Date: Thu, 22 Jun 2017 15:29:33 -0700
-Message-ID: <1498170573-24082-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Andrey Konovalov <andreyknvl@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:32893 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753919AbdFVWaC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 18:30:02 -0400
-Received: by mail-pf0-f193.google.com with SMTP id w12so4865532pfk.0
-        for <netdev@vger.kernel.org>; Thu, 22 Jun 2017 15:30:02 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: Re: [PATCH] nfc: nci: remove unnecessary null check
+Date: Fri, 23 Jun 2017 00:35:24 +0200
+Message-ID: <20170622223524.GG21214@zurbaran.ger.intel.com>
+References: <28317503-e721-2564-a9ff-82182aa0644a@roeck-us.net>
+ <20170613163718.GA5375@embeddedgus>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
+To: "Gustavo A. R. Silva" <garsilva-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170613163718.GA5375@embeddedgus>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The memory allocation size is controlled by user-space,
-if it is too large just fail silently and return NULL,
-not to mention there is a fallback allocation later.
+Hi Gustavo,
 
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Cc: Andrey Konovalov <andreyknvl@google.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/ipv6/sit.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On Tue, Jun 13, 2017 at 11:37:18AM -0500, Gustavo A. R. Silva wrote:
+> Remove unnecessary NULL check for pointer conn_info.
+> conn_info is set in list_for_each_entry() using container_of(),
+> which is never NULL.
+> 
+> Addresses-Coverity-ID: 1362349
+> Cc: Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
+> Signed-off-by: Gustavo A. R. Silva <garsilva-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org>
+> ---
+>  net/nfc/nci/core.c | 9 ++++-----
+>  1 file changed, 4 insertions(+), 5 deletions(-)
+Applied to nfc-next, thanks.
 
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 2378503..f8ad158 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -305,7 +305,7 @@ static int ipip6_tunnel_get_prl(struct ip_tunnel *t,
- 	 * we try harder to allocate.
- 	 */
- 	kp = (cmax <= 1 || capable(CAP_NET_ADMIN)) ?
--		kcalloc(cmax, sizeof(*kp), GFP_KERNEL) :
-+		kcalloc(cmax, sizeof(*kp), GFP_KERNEL | __GFP_NOWARN) :
- 		NULL;
- 
- 	rcu_read_lock();
--- 
-2.5.5
+Cheers,
+Samuel.
