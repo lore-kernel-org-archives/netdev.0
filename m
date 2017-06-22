@@ -1,42 +1,46 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next v3 06/13] sock: MSG_ZEROCOPY notification
- coalescing
-Date: Thu, 22 Jun 2017 13:07:41 -0400 (EDT)
-Message-ID: <20170622.130741.873016534812693988.davem@davemloft.net>
-References: <20170621211816.53837-1-willemdebruijn.kernel@gmail.com>
-        <20170621211816.53837-7-willemdebruijn.kernel@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org
-To: willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170621211816.53837-7-willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Tushar Dave <tushar.n.dave@oracle.com>
+Subject: [next-queue PATCH] i40evf: remove unnecessary __packed
+Date: Thu, 22 Jun 2017 10:12:11 -0700
+Message-ID: <1498151531-18508-1-git-send-email-tushar.n.dave@oracle.com>
+To: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:39516 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752564AbdFVRMR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 13:12:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Wed, 21 Jun 2017 17:18:09 -0400
+This is similar to 'commit 9588397d24eec ("i40e: remove unnecessary
+__packed")' to avoid unaligned access.
 
-> +static bool skb_zerocopy_notify_extend(struct sk_buff *skb, u32 lo, u16 len)
-> +{
-> +	struct sock_exterr_skb *serr = SKB_EXT_ERR(skb);
-> +	u64 sum_len;
-> +	u32 old_lo, old_hi;
+Signed-off-by: Tushar Dave <tushar.n.dave@oracle.com>
+---
+ drivers/net/ethernet/intel/i40evf/i40e_osdep.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Reverse christmas tree.
-
->  void sock_zerocopy_callback(struct ubuf_info *uarg, bool success)
->  {
->  	struct sock_exterr_skb *serr;
-> -	struct sk_buff *skb = skb_from_uarg(uarg);
-> +	struct sk_buff *tail, *skb = skb_from_uarg(uarg);
->  	struct sock *sk = skb->sk;
-> -	u16 id = uarg->desc;
-> +	struct sk_buff_head *q = &sk->sk_error_queue;
-> +	unsigned long flags;
-> +	u32 lo, hi;
-> +	u16 len;
-
-Likewise.
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_osdep.h b/drivers/net/ethernet/intel/i40evf/i40e_osdep.h
+index 5e314fd..a907377 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_osdep.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_osdep.h
+@@ -54,7 +54,7 @@ struct i40e_dma_mem {
+ 	void *va;
+ 	dma_addr_t pa;
+ 	u32 size;
+-} __packed;
++};
+ 
+ #define i40e_allocate_dma_mem(h, m, unused, s, a) \
+ 	i40evf_allocate_dma_mem_d(h, m, s, a)
+@@ -63,7 +63,7 @@ struct i40e_dma_mem {
+ struct i40e_virt_mem {
+ 	void *va;
+ 	u32 size;
+-} __packed;
++};
+ #define i40e_allocate_virt_mem(h, m, s) i40evf_allocate_virt_mem_d(h, m, s)
+ #define i40e_free_virt_mem(h, m) i40evf_free_virt_mem_d(h, m)
+ 
+-- 
+1.9.1
