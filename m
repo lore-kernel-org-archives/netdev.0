@@ -1,61 +1,71 @@
 From: Timur Tabi <timur@codeaurora.org>
-Subject: [PATCH 1/3] net: qcom/emac: add shutdown function
-Date: Thu, 22 Jun 2017 13:05:30 -0500
-Message-ID: <1498154732-19854-2-git-send-email-timur@codeaurora.org>
+Subject: [PATCH 3/3] net: qcom/emac: add support for emulation systems
+Date: Thu, 22 Jun 2017 13:05:32 -0500
+Message-ID: <1498154732-19854-4-git-send-email-timur@codeaurora.org>
 References: <1498154732-19854-1-git-send-email-timur@codeaurora.org>
 Cc: timur@codeaurora.org
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:48680 "EHLO
+Received: from smtp.codeaurora.org ([198.145.29.96]:48794 "EHLO
         smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752374AbdFVSF4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 14:05:56 -0400
+        with ESMTP id S1752741AbdFVSF5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 14:05:57 -0400
 In-Reply-To: <1498154732-19854-1-git-send-email-timur@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The shutdown function halts all DMA and interrupts, so that all
-operations are discontinued when the system shuts down, e.g. via
-kexec or a forced reboot.
+On emulation systems, the EMAC's internal PHY ("SGMII") is not present,
+but is not needed for network functionality.  So just display a warning
+message and ignore the SGMII.
 
-Tested-by: Tyler Baicar <tbaicar@codeaurora.org>
+Tested-by: Philip Elcan <pelcan@codeaurora.org>
+Tested-by: Adam Wallis <awallis@codeaurora.org>
 Signed-off-by: Timur Tabi <timur@codeaurora.org>
 ---
- drivers/net/ethernet/qualcomm/emac/emac.c | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+ drivers/net/ethernet/qualcomm/emac/emac-sgmii.c | 23 +++++++++++++++++++++--
+ 1 file changed, 21 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac.c b/drivers/net/ethernet/qualcomm/emac/emac.c
-index 98a326f..77c5c92 100644
---- a/drivers/net/ethernet/qualcomm/emac/emac.c
-+++ b/drivers/net/ethernet/qualcomm/emac/emac.c
-@@ -762,6 +762,19 @@ static int emac_remove(struct platform_device *pdev)
- 	return 0;
- }
- 
-+static void emac_shutdown(struct platform_device *pdev)
-+{
-+	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
-+	struct emac_adapter *adpt = netdev_priv(netdev);
-+	struct emac_sgmii *sgmii = &adpt->phy;
-+
-+	/* Closing the SGMII turns off its interrupts */
-+	sgmii->close(adpt);
-+
-+	/* Resetting the MAC turns off all DMA and its interrupts */
-+	emac_mac_reset(adpt);
-+}
-+
- static struct platform_driver emac_platform_driver = {
- 	.probe	= emac_probe,
- 	.remove	= emac_remove,
-@@ -770,6 +783,7 @@ static int emac_remove(struct platform_device *pdev)
- 		.of_match_table = emac_dt_match,
- 		.acpi_match_table = ACPI_PTR(emac_acpi_match),
- 	},
-+	.shutdown = emac_shutdown,
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c b/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
+index 18c184e..29ba37a 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
+@@ -297,6 +297,14 @@ static int emac_sgmii_acpi_match(struct device *dev, void *data)
+ 	{}
  };
  
- module_platform_driver(emac_platform_driver);
++/* Dummy function for systems without an internal PHY. This avoids having
++ * to check for NULL pointers before calling the functions.
++ */
++static int emac_sgmii_dummy(struct emac_adapter *adpt)
++{
++	return 0;
++}
++
+ int emac_sgmii_config(struct platform_device *pdev, struct emac_adapter *adpt)
+ {
+ 	struct platform_device *sgmii_pdev = NULL;
+@@ -311,8 +319,19 @@ int emac_sgmii_config(struct platform_device *pdev, struct emac_adapter *adpt)
+ 					emac_sgmii_acpi_match);
+ 
+ 		if (!dev) {
+-			dev_err(&pdev->dev, "cannot find internal phy node\n");
+-			return -ENODEV;
++			dev_warn(&pdev->dev, "cannot find internal phy node\n");
++			/* There is typically no internal PHY on emulation
++			 * systems, so if we can't find the node, assume
++			 * we are on an emulation system and stub-out
++			 * support for the internal PHY.  These systems only
++			 * use ACPI.
++			 */
++			phy->open = emac_sgmii_dummy;
++			phy->close = emac_sgmii_dummy;
++			phy->link_up = emac_sgmii_dummy;
++			phy->link_down = emac_sgmii_dummy;
++
++			return 0;
+ 		}
+ 
+ 		sgmii_pdev = to_platform_device(dev);
 -- 
 Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
 Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
