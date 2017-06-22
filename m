@@ -1,7 +1,7 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH v3 11/11] kasan: rework Kconfig settings
-Date: Thu, 22 Jun 2017 19:13:55 +0200
-Message-ID: <20170622171355.267192-12-arnd@arndb.de>
+Subject: [PATCH v3 04/11] mtd: cfi: reduce stack size with KASAN
+Date: Thu, 22 Jun 2017 19:13:48 +0200
+Message-ID: <20170622171355.267192-5-arnd@arndb.de>
 References: <20170622171355.267192-1-arnd@arndb.de>
 Cc: kasan-dev@googlegroups.com, Dmitry Vyukov <dvyukov@google.com>,
         Alexander Potapenko <glider@google.com>,
@@ -24,137 +24,103 @@ In-Reply-To: <20170622171355.267192-1-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We get a lot of very large stack frames using gcc-7.0.1 with the default
--fsanitize-address-use-after-scope --param asan-stack=1 options, which
-can easily cause an overflow of the kernel stack, e.g.
+When CONFIG_KASAN is used, we consume a lot of extra stack space:
 
-drivers/acpi/nfit/core.c:2686:1: warning: the frame size of 4080 bytes is larger than 2048 bytes [-Wframe-larger-than=]
-drivers/gpu/drm/amd/amdgpu/si.c:1756:1: warning: the frame size of 7304 bytes is larger than 2048 bytes [-Wframe-larger-than=]
-drivers/gpu/drm/i915/gvt/handlers.c:2200:1: warning: the frame size of 43752 bytes is larger than 2048 bytes [-Wframe-larger-than=]
-drivers/gpu/drm/vmwgfx/vmwgfx_drv.c:952:1: warning: the frame size of 6032 bytes is larger than 2048 bytes [-Wframe-larger-than=]
-drivers/isdn/hardware/avm/b1.c:637:1: warning: the frame size of 13200 bytes is larger than 2048 bytes [-Wframe-larger-than=]
-drivers/media/dvb-frontends/stv090x.c:3089:1: warning: the frame size of 5880 bytes is larger than 2048 bytes [-Wframe-larger-than=]
-drivers/media/i2c/cx25840/cx25840-core.c:4964:1: warning: the frame size of 93992 bytes is larger than 2048 bytes [-Wframe-larger-than=]
-drivers/net/wireless/ralink/rt2x00/rt2800lib.c:4994:1: warning: the frame size of 23928 bytes is larger than 2048 bytes [-Wframe-larger-than=]
-drivers/staging/dgnc/dgnc_tty.c:2788:1: warning: the frame size of 7072 bytes is larger than 2048 bytes [-Wframe-larger-than=]
-fs/ntfs/mft.c:2762:1: warning: the frame size of 7432 bytes is larger than 2048 bytes [-Wframe-larger-than=]
-lib/atomic64_test.c:242:1: warning: the frame size of 12648 bytes is larger than 2048 bytes [-Wframe-larger-than=]
+drivers/mtd/chips/cfi_cmdset_0020.c: In function 'do_write_buffer':
+drivers/mtd/chips/cfi_cmdset_0020.c:603:1: error: the frame size of 2184 bytes is larger than 1536 bytes [-Werror=frame-larger-than=]
+drivers/mtd/chips/cfi_cmdset_0020.c: In function 'cfi_staa_erase_varsize':
+drivers/mtd/chips/cfi_cmdset_0020.c:972:1: error: the frame size of 1936 bytes is larger than 1536 bytes [-Werror=frame-larger-than=]
+drivers/mtd/chips/cfi_cmdset_0001.c: In function 'do_write_buffer':
+drivers/mtd/chips/cfi_cmdset_0001.c:1841:1: error: the frame size of 1776 bytes is larger than 1536 bytes [-Werror=frame-larger-than=]
 
-To reduce this risk, -fsanitize-address-use-after-scope is now split out
-into a separate Kconfig option, vhich cannot be selected at the same
-time as KMEMCHECK, leading to stack frames that are smaller than 2
-kilobytes most of the time on x86_64. An earlier version of this
-patch also prevented combining KASAN_EXTRA with KASAN_INLINE, but that
-is no longer necessary with gcc-7.0.1.
-
-A lot of warnings with KASAN_EXTRA go away if we disable KMEMCHECK,
-as -fsanitize-address-use-after-scope seems to understand the builtin
-memcpy, but adds checking code around an extern memcpy call. I had
-to work around a circular dependency, as DEBUG_SLAB/SLUB depended
-on !KMEMCHECK, while KASAN did it the other way round. Now we handle
-both the same way.
-
-All patches to get the frame size below 2048 bytes with CONFIG_KASAN=y
-and CONFIG_KASAN_EXTRA=n have been submitted along with this patch,
-so we can bring back that default now. KASAN_EXTRA=y still causes lots
-of warnings but now defaults to !COMPILE_TEST to disable it in
-allmodconfig, and it remains disabled in all other defconfigs since
-it is a new option.
-
-This reverts parts of commit commit 3f181b4 ("lib/Kconfig.debug:
-disable -Wframe-larger-than warnings with KASAN=y").
-
-I experimented a bit more with smaller stack frames and have another
-follow-up series that reduces the warning limit for 64-bit architectures
-to 1280 bytes and 1536 when CONFIG_KASAN (but not KASAN_EXTRA) is
-enabled, this requires another ~25 patches to address the additional
-warnings. I also have patches for all KASAN_EXTRA warnings, but we
-should look at those separately and then decide whether to remove
-it completely, leaving out -fsanitize-address-use-after-scope.
+This marks some functions as noinline_if_stackbloat to keep reduce the
+overall stack size.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- lib/Kconfig.debug      |  4 ++--
- lib/Kconfig.kasan      | 11 ++++++++++-
- lib/Kconfig.kmemcheck  |  1 +
- scripts/Makefile.kasan |  3 +++
- 4 files changed, 16 insertions(+), 3 deletions(-)
+ drivers/mtd/chips/cfi_cmdset_0020.c | 8 ++++----
+ include/linux/mtd/map.h             | 8 ++++----
+ 2 files changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
-index ddbef2cac189..02ec4a4da7b1 100644
---- a/lib/Kconfig.debug
-+++ b/lib/Kconfig.debug
-@@ -217,7 +217,7 @@ config ENABLE_MUST_CHECK
- config FRAME_WARN
- 	int "Warn for stack frames larger than (needs gcc 4.4)"
- 	range 0 8192
--	default 0 if KASAN
-+	default 3072 if KASAN_EXTRA
- 	default 2048 if GCC_PLUGIN_LATENT_ENTROPY
- 	default 1024 if !64BIT
- 	default 2048 if 64BIT
-@@ -500,7 +500,7 @@ config DEBUG_OBJECTS_ENABLE_DEFAULT
+diff --git a/drivers/mtd/chips/cfi_cmdset_0020.c b/drivers/mtd/chips/cfi_cmdset_0020.c
+index 7d342965f392..5eee5e883f55 100644
+--- a/drivers/mtd/chips/cfi_cmdset_0020.c
++++ b/drivers/mtd/chips/cfi_cmdset_0020.c
+@@ -244,7 +244,7 @@ static struct mtd_info *cfi_staa_setup(struct map_info *map)
+ }
  
- config DEBUG_SLAB
- 	bool "Debug slab memory allocations"
--	depends on DEBUG_KERNEL && SLAB && !KMEMCHECK
-+	depends on DEBUG_KERNEL && SLAB && !KMEMCHECK && !KASAN
- 	help
- 	  Say Y here to have the kernel do limited verification on memory
- 	  allocation as well as poisoning memory on free to catch use of freed
-diff --git a/lib/Kconfig.kasan b/lib/Kconfig.kasan
-index bd38aab05929..4d17a8f4742f 100644
---- a/lib/Kconfig.kasan
-+++ b/lib/Kconfig.kasan
-@@ -5,7 +5,7 @@ if HAVE_ARCH_KASAN
  
- config KASAN
- 	bool "KASan: runtime memory debugger"
--	depends on SLUB || (SLAB && !DEBUG_SLAB)
-+	depends on SLUB || SLAB
- 	select CONSTRUCTORS
- 	select STACKDEPOT
- 	help
-@@ -20,6 +20,15 @@ config KASAN
- 	  Currently CONFIG_KASAN doesn't work with CONFIG_DEBUG_SLAB
- 	  (the resulting kernel does not boot).
+-static inline int do_read_onechip(struct map_info *map, struct flchip *chip, loff_t adr, size_t len, u_char *buf)
++static noinline_if_stackbloat int do_read_onechip(struct map_info *map, struct flchip *chip, loff_t adr, size_t len, u_char *buf)
+ {
+ 	map_word status, status_OK;
+ 	unsigned long timeo;
+@@ -728,7 +728,7 @@ cfi_staa_writev(struct mtd_info *mtd, const struct kvec *vecs,
+ }
  
-+config KASAN_EXTRA
-+	bool "KAsan: extra checks"
-+	depends on KASAN && !COMPILE_TEST
-+	help
-+	  This enables further checks in the kernel address sanitizer, for now
-+	  it only includes the address-use-after-scope check that can lead
-+	  to excessive kernel stack usage, frame size warnings and longer
-+	  compile time.
-+
- choice
- 	prompt "Instrumentation type"
- 	depends on KASAN
-diff --git a/lib/Kconfig.kmemcheck b/lib/Kconfig.kmemcheck
-index 846e039a86b4..58b9f3f81dc8 100644
---- a/lib/Kconfig.kmemcheck
-+++ b/lib/Kconfig.kmemcheck
-@@ -7,6 +7,7 @@ menuconfig KMEMCHECK
- 	bool "kmemcheck: trap use of uninitialized memory"
- 	depends on DEBUG_KERNEL
- 	depends on !X86_USE_3DNOW
-+	depends on !KASAN
- 	depends on SLUB || SLAB
- 	depends on !CC_OPTIMIZE_FOR_SIZE
- 	depends on !FUNCTION_TRACER
-diff --git a/scripts/Makefile.kasan b/scripts/Makefile.kasan
-index 9576775a86f6..3b3148faf866 100644
---- a/scripts/Makefile.kasan
-+++ b/scripts/Makefile.kasan
-@@ -29,5 +29,8 @@ else
-     endif
- endif
  
-+ifdef CONFIG_KASAN_EXTRA
- CFLAGS_KASAN += $(call cc-option, -fsanitize-address-use-after-scope)
- endif
-+
-+endif
+-static inline int do_erase_oneblock(struct map_info *map, struct flchip *chip, unsigned long adr)
++static noinline_if_stackbloat int do_erase_oneblock(struct map_info *map, struct flchip *chip, unsigned long adr)
+ {
+ 	struct cfi_private *cfi = map->fldrv_priv;
+ 	map_word status, status_OK;
+@@ -1029,7 +1029,7 @@ static void cfi_staa_sync (struct mtd_info *mtd)
+ 	}
+ }
+ 
+-static inline int do_lock_oneblock(struct map_info *map, struct flchip *chip, unsigned long adr)
++static noinline_if_stackbloat int do_lock_oneblock(struct map_info *map, struct flchip *chip, unsigned long adr)
+ {
+ 	struct cfi_private *cfi = map->fldrv_priv;
+ 	map_word status, status_OK;
+@@ -1175,7 +1175,7 @@ static int cfi_staa_lock(struct mtd_info *mtd, loff_t ofs, uint64_t len)
+ 	}
+ 	return 0;
+ }
+-static inline int do_unlock_oneblock(struct map_info *map, struct flchip *chip, unsigned long adr)
++static noinline_if_stackbloat int do_unlock_oneblock(struct map_info *map, struct flchip *chip, unsigned long adr)
+ {
+ 	struct cfi_private *cfi = map->fldrv_priv;
+ 	map_word status, status_OK;
+diff --git a/include/linux/mtd/map.h b/include/linux/mtd/map.h
+index 3aa56e3104bb..29db74314db8 100644
+--- a/include/linux/mtd/map.h
++++ b/include/linux/mtd/map.h
+@@ -316,7 +316,7 @@ static inline map_word map_word_or(struct map_info *map, map_word val1, map_word
+ 	return r;
+ }
+ 
+-static inline int map_word_andequal(struct map_info *map, map_word val1, map_word val2, map_word val3)
++static noinline_if_stackbloat int map_word_andequal(struct map_info *map, map_word val1, map_word val2, map_word val3)
+ {
+ 	int i;
+ 
+@@ -328,7 +328,7 @@ static inline int map_word_andequal(struct map_info *map, map_word val1, map_wor
+ 	return 1;
+ }
+ 
+-static inline int map_word_bitsset(struct map_info *map, map_word val1, map_word val2)
++static noinline_if_stackbloat int map_word_bitsset(struct map_info *map, map_word val1, map_word val2)
+ {
+ 	int i;
+ 
+@@ -362,7 +362,7 @@ static inline map_word map_word_load(struct map_info *map, const void *ptr)
+ 	return r;
+ }
+ 
+-static inline map_word map_word_load_partial(struct map_info *map, map_word orig, const unsigned char *buf, int start, int len)
++static noinline_if_stackbloat map_word map_word_load_partial(struct map_info *map, map_word orig, const unsigned char *buf, int start, int len)
+ {
+ 	int i;
+ 
+@@ -392,7 +392,7 @@ static inline map_word map_word_load_partial(struct map_info *map, map_word orig
+ #define MAP_FF_LIMIT 8
+ #endif
+ 
+-static inline map_word map_word_ff(struct map_info *map)
++static noinline_if_stackbloat map_word map_word_ff(struct map_info *map)
+ {
+ 	map_word r;
+ 	int i;
 -- 
 2.9.0
