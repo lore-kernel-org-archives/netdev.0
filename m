@@ -1,105 +1,137 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net-next v3 00/12] nfp: add flower app with representors
-Date: Fri, 23 Jun 2017 22:11:57 +0200
-Message-ID: <1498248729-375-1-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH net-next v3 03/12] nfp: move physical port init into a helper
+Date: Fri, 23 Jun 2017 22:12:00 +0200
+Message-ID: <1498248729-375-4-git-send-email-simon.horman@netronome.com>
+References: <1498248729-375-1-git-send-email-simon.horman@netronome.com>
 Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
         Or Gerlitz <gerlitz.or@gmail.com>,
         Simon Horman <simon.horman@netronome.com>
 To: David Miller <davem@davemloft.net>,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f169.google.com ([209.85.128.169]:34192 "EHLO
-        mail-wr0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754804AbdFWUMW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 16:12:22 -0400
-Received: by mail-wr0-f169.google.com with SMTP id 77so79604002wrb.1
-        for <netdev@vger.kernel.org>; Fri, 23 Jun 2017 13:12:21 -0700 (PDT)
+Received: from mail-wr0-f173.google.com ([209.85.128.173]:36166 "EHLO
+        mail-wr0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754903AbdFWUM2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 16:12:28 -0400
+Received: by mail-wr0-f173.google.com with SMTP id c11so79489464wrc.3
+        for <netdev@vger.kernel.org>; Fri, 23 Jun 2017 13:12:27 -0700 (PDT)
+In-Reply-To: <1498248729-375-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
 
-this series adds a flower app to the NFP driver.
-It initialises four types of netdevs:
+Move MAC/PHY port init into a helper to make it easier to reuse
+it in the representor code.
 
-* PF netdev - lower-device for communication of packets to device
-* PF representor netdev
-* VF representor netdevs
-* Phys port representor netdevs
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
+---
+ drivers/net/ethernet/netronome/nfp/nfp_app_nic.c | 23 ++++++----------------
+ drivers/net/ethernet/netronome/nfp/nfp_port.c    | 25 ++++++++++++++++++++++++
+ drivers/net/ethernet/netronome/nfp/nfp_port.h    |  3 +++
+ 3 files changed, 34 insertions(+), 17 deletions(-)
 
-The PF netdev acts as a lower-device which sends and receives packets to
-and from the firmware. The representors act as upper-devices. For TX
-representors attach a metadata dst to the skb which is used by the PF
-netdev to prepend metadata to the packet before forwarding the firmware. On
-RX the PF netdev looks up the representor based on the prepended metadata
-received from the firmware and forwards the skb to the representor after
-removing the metadata.
-
-Control queues are used to send and receive control messages which are
-used to communicate configuration information with the firmware. These
-are in separate vNIC to the queues belonging to the PF netdev. The control
-queues are not exposed to use-space via a netdev or any other means.
-
-The first 9 patches of this series provide app-independent infrastructure
-to instantiate representors and the remaining 3 patches provide an app
-which uses this infrastructure.
-
-As the name implies this app is targeted at providing offload of TC flower.
-Flower offload - allowing classifiers to be attached to representor netdevs
-- is intended to be provided by follow-up patches at which point it will
-become the dominant feature of the app.
-
-Minor changes since v2 noted in changelogs of individual patches.
-Review of v1 and v2 of this patchset have been addressed either
-through discussion on-list or changes in this patchset.
-
-
-Jakub Kicinski (3):
-  net: store port/representator id in metadata_dst
-  nfp: devlink add support for getting eswitch mode
-  nfp: move physical port init into a helper
-
-Simon Horman (9):
-  nfp: map mac_stats and vf_cfg BARs
-  nfp: general representor implementation
-  nfp: add stats and xmit helpers for representors
-  nfp: app callbacks for SRIOV
-  nfp: provide nfp_port to of nfp_net_get_mac_addr()
-  nfp: add support for tx/rx with metadata portid
-  nfp: add support for control messages for flower app
-  nfp: add flower app
-  nfp: add VF and PF representors to flower app
-
- drivers/net/ethernet/netronome/nfp/Makefile        |   3 +
- drivers/net/ethernet/netronome/nfp/flower/cmsg.c   | 159 +++++++++
- drivers/net/ethernet/netronome/nfp/flower/cmsg.h   | 116 +++++++
- drivers/net/ethernet/netronome/nfp/flower/main.c   | 375 +++++++++++++++++++++
- drivers/net/ethernet/netronome/nfp/nfp_app.c       |  26 +-
- drivers/net/ethernet/netronome/nfp/nfp_app.h       |  58 +++-
- drivers/net/ethernet/netronome/nfp/nfp_app_nic.c   |  25 +-
- drivers/net/ethernet/netronome/nfp/nfp_devlink.c   |  18 +
- drivers/net/ethernet/netronome/nfp/nfp_main.c      |  42 ++-
- drivers/net/ethernet/netronome/nfp/nfp_main.h      |  11 +-
- drivers/net/ethernet/netronome/nfp/nfp_net.h       |   1 +
- .../net/ethernet/netronome/nfp/nfp_net_common.c    |  57 +++-
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c  | 147 +++++---
- drivers/net/ethernet/netronome/nfp/nfp_net_repr.c  | 353 +++++++++++++++++++
- drivers/net/ethernet/netronome/nfp/nfp_net_repr.h  | 120 +++++++
- drivers/net/ethernet/netronome/nfp/nfp_port.c      |  25 ++
- drivers/net/ethernet/netronome/nfp/nfp_port.h      |  63 ++++
- .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h   |   2 +
- .../ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c   |   5 +-
- include/net/dst_metadata.h                         |  41 ++-
- net/core/dst.c                                     |  15 +-
- net/core/filter.c                                  |   1 +
- net/ipv4/ip_tunnel_core.c                          |   6 +-
- net/openvswitch/flow_netlink.c                     |   4 +-
- 24 files changed, 1577 insertions(+), 96 deletions(-)
- create mode 100644 drivers/net/ethernet/netronome/nfp/flower/cmsg.c
- create mode 100644 drivers/net/ethernet/netronome/nfp/flower/cmsg.h
- create mode 100644 drivers/net/ethernet/netronome/nfp/flower/main.c
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_net_repr.h
-
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app_nic.c b/drivers/net/ethernet/netronome/nfp/nfp_app_nic.c
+index 83c65e6291ee..7b966bd3d214 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_app_nic.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_app_nic.c
+@@ -42,6 +42,8 @@ static int
+ nfp_app_nic_vnic_init_phy_port(struct nfp_pf *pf, struct nfp_app *app,
+ 			       struct nfp_net *nn, unsigned int id)
+ {
++	int err;
++
+ 	if (!pf->eth_tbl)
+ 		return 0;
+ 
+@@ -49,26 +51,13 @@ nfp_app_nic_vnic_init_phy_port(struct nfp_pf *pf, struct nfp_app *app,
+ 	if (IS_ERR(nn->port))
+ 		return PTR_ERR(nn->port);
+ 
+-	nn->port->eth_id = id;
+-	nn->port->eth_port = nfp_net_find_port(pf->eth_tbl, id);
+-
+-	/* Check if vNIC has external port associated and cfg is OK */
+-	if (!nn->port->eth_port) {
+-		nfp_err(app->cpp,
+-			"NSP port entries don't match vNICs (no entry for port #%d)\n",
+-			id);
++	err = nfp_port_init_phy_port(pf, app, nn->port, id);
++	if (err) {
+ 		nfp_port_free(nn->port);
+-		return -EINVAL;
+-	}
+-	if (nn->port->eth_port->override_changed) {
+-		nfp_warn(app->cpp,
+-			 "Config changed for port #%d, reboot required before port will be operational\n",
+-			 id);
+-		nn->port->type = NFP_PORT_INVALID;
+-		return 1;
++		return err;
+ 	}
+ 
+-	return 0;
++	return nn->port->type == NFP_PORT_INVALID;
+ }
+ 
+ int nfp_app_nic_vnic_init(struct nfp_app *app, struct nfp_net *nn,
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_port.c b/drivers/net/ethernet/netronome/nfp/nfp_port.c
+index a17410ac01ab..19bceeb82225 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_port.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_port.c
+@@ -33,6 +33,7 @@
+ 
+ #include <linux/lockdep.h>
+ 
++#include "nfpcore/nfp_cpp.h"
+ #include "nfpcore/nfp_nsp.h"
+ #include "nfp_app.h"
+ #include "nfp_main.h"
+@@ -112,6 +113,30 @@ nfp_port_get_phys_port_name(struct net_device *netdev, char *name, size_t len)
+ 	return 0;
+ }
+ 
++int nfp_port_init_phy_port(struct nfp_pf *pf, struct nfp_app *app,
++			   struct nfp_port *port, unsigned int id)
++{
++	port->eth_id = id;
++	port->eth_port = nfp_net_find_port(pf->eth_tbl, id);
++
++	/* Check if vNIC has external port associated and cfg is OK */
++	if (!port->eth_port) {
++		nfp_err(app->cpp,
++			"NSP port entries don't match vNICs (no entry for port #%d)\n",
++			id);
++		return -EINVAL;
++	}
++	if (port->eth_port->override_changed) {
++		nfp_warn(app->cpp,
++			 "Config changed for port #%d, reboot required before port will be operational\n",
++			 id);
++		port->type = NFP_PORT_INVALID;
++		return 0;
++	}
++
++	return 0;
++}
++
+ struct nfp_port *
+ nfp_port_alloc(struct nfp_app *app, enum nfp_port_type type,
+ 	       struct net_device *netdev)
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_port.h b/drivers/net/ethernet/netronome/nfp/nfp_port.h
+index 4d1a9b3fed41..fb28c7071987 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_port.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_port.h
+@@ -104,6 +104,9 @@ nfp_port_alloc(struct nfp_app *app, enum nfp_port_type type,
+ 	       struct net_device *netdev);
+ void nfp_port_free(struct nfp_port *port);
+ 
++int nfp_port_init_phy_port(struct nfp_pf *pf, struct nfp_app *app,
++			   struct nfp_port *port, unsigned int id);
++
+ int nfp_net_refresh_eth_port(struct nfp_port *port);
+ void nfp_net_refresh_port_table(struct nfp_port *port);
+ int nfp_net_refresh_port_table_sync(struct nfp_pf *pf);
 -- 
 2.1.4
