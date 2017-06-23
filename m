@@ -1,44 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] udp: fix poll()
-Date: Fri, 23 Jun 2017 11:18:58 -0400 (EDT)
-Message-ID: <20170623.111858.1724599210974760106.davem@davemloft.net>
-References: <00735477ae8ffcc075e382ab45f6568ab158a0bf.1498220186.git.pabeni@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
-        edumazet@google.com, mpe@ellerman.id.au,
-        linuxppc-dev@lists.ozlabs.org
-To: pabeni@redhat.com
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH net] net: dp83640: Avoid NULL pointer dereference.
+Date: Fri, 23 Jun 2017 17:51:31 +0200
+Message-ID: <20170623155131.21427-1-richardcochran@gmail.com>
+Cc: David Miller <davem@davemloft.net>,
+        Manfred Rudigier <Manfred.Rudigier@omicron.at>,
+        =?UTF-8?q?Stefan=20S=C3=B8rensen?=
+        <stefan.sorensen@spectralink.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60398 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752878AbdFWPTA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 11:19:00 -0400
-In-Reply-To: <00735477ae8ffcc075e382ab45f6568ab158a0bf.1498220186.git.pabeni@redhat.com>
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:34468 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752170AbdFWPx0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 11:53:26 -0400
+Received: by mail-wr0-f195.google.com with SMTP id k67so13446041wrc.1
+        for <netdev@vger.kernel.org>; Fri, 23 Jun 2017 08:53:25 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paolo Abeni <pabeni@redhat.com>
-Date: Fri, 23 Jun 2017 14:19:51 +0200
+The function, skb_complete_tx_timestamp(), used to allow passing in a
+NULL pointer for the time stamps, but that was changed in commit
+62bccb8cdb69051b95a55ab0c489e3cab261c8ef ("net-timestamp: Make the
+clone operation stand-alone from phy timestamping"), and the existing
+call sites, all of which are in the dp83640 driver, were fixed up.
 
-> Michael reported an UDP breakage caused by the commit b65ac44674dd
-> ("udp: try to avoid 2 cache miss on dequeue").
-> The function __first_packet_length() can update the checksum bits
-> of the pending skb, making the scratched area out-of-sync, and
-> setting skb->csum, if the skb was previously in need of checksum
-> validation.
-> 
-> On later recvmsg() for such skb, checksum validation will be
-> invoked again - due to the wrong udp_skb_csum_unnecessary()
-> value - and will fail, causing the valid skb to be dropped.
-> 
-> This change addresses the issue refreshing the scratch area in
-> __first_packet_length() after the possible checksum update.
-> 
-> Fixes: b65ac44674dd ("udp: try to avoid 2 cache miss on dequeue")
-> Reported-by: Michael Ellerman <mpe@ellerman.id.au>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Even though the kernel-doc was subsequently updated in commit
+7a76a021cd5a292be875fbc616daf03eab1e6996 ("net-timestamp: Update
+skb_complete_tx_timestamp comment"), still a bug fix from Manfred
+Rudigier came into the driver using the old semantics.  Probably
+Manfred derived that patch from an older kernel version.
 
-Thanks for fixing this so quickly, applied.
+This fix should be applied to the stable trees as well.
+
+Fixes: 81e8f2e930fe ("net: dp83640: Fix tx timestamp overflow handling.")
+Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+---
+ drivers/net/phy/dp83640.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
+index ed0d10f54f26..c3065236ffcc 100644
+--- a/drivers/net/phy/dp83640.c
++++ b/drivers/net/phy/dp83640.c
+@@ -908,7 +908,7 @@ static void decode_txts(struct dp83640_private *dp83640,
+ 	if (overflow) {
+ 		pr_debug("tx timestamp queue overflow, count %d\n", overflow);
+ 		while (skb) {
+-			skb_complete_tx_timestamp(skb, NULL);
++			kfree_skb(skb);
+ 			skb = skb_dequeue(&dp83640->tx_queue);
+ 		}
+ 		return;
+-- 
+2.11.0
