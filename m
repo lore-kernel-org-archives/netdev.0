@@ -1,78 +1,89 @@
-From: Wei Wang <tracywwnj@gmail.com>
-Subject: [PATCH v3 net] net: ipv6: reset daddr and dport in sk if connect() fails
-Date: Fri, 23 Jun 2017 15:25:37 -0700
-Message-ID: <20170623222537.130493-1-tracywwnj@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: BUG: KASAN: use-after-free in free_old_xmit_skbs
+Date: Fri, 23 Jun 2017 15:32:37 -0700
+Message-ID: <CAM_iQpXhW___-iP3kdv9MJcW=hroyp2SuMzAZdx3KCpc9-W76g@mail.gmail.com>
+References: <d2e8cf65-ea3d-7db2-9382-a063daf1168a@gmail.com>
+ <20170605050423-mutt-send-email-mst@kernel.org> <20170606024211-mutt-send-email-mst@kernel.org>
+ <CAOTcU=u_HSMQiwDF3Snv5P8mT-b_Aepeb=Z9gbLd1j=2P+Yy+A@mail.gmail.com>
+ <20170622215125-mutt-send-email-mst@kernel.org> <4f6d4342-8476-882e-e7a8-b3f0ebd20d95@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
-        Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
-        Wei Wang <weiwan@google.com>
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+        jean-philippe menil <jpmenil@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        John Fastabend <john.fastabend@gmail.com>,
+        virtualization@lists.linux-foundation.org,
+        qemu-devel Developers <qemu-devel@nongnu.org>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:33007 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752606AbdFWWZp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 18:25:45 -0400
-Received: by mail-pf0-f196.google.com with SMTP id w12so9220547pfk.0
-        for <netdev@vger.kernel.org>; Fri, 23 Jun 2017 15:25:45 -0700 (PDT)
+Received: from mail-wr0-f169.google.com ([209.85.128.169]:35463 "EHLO
+        mail-wr0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752170AbdFWWc7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 18:32:59 -0400
+Received: by mail-wr0-f169.google.com with SMTP id k67so82516072wrc.2
+        for <netdev@vger.kernel.org>; Fri, 23 Jun 2017 15:32:58 -0700 (PDT)
+In-Reply-To: <4f6d4342-8476-882e-e7a8-b3f0ebd20d95@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Wang <weiwan@google.com>
+On Fri, Jun 23, 2017 at 1:43 AM, Jason Wang <jasowang@redhat.com> wrote:
+>
+>
+> On 2017=E5=B9=B406=E6=9C=8823=E6=97=A5 02:53, Michael S. Tsirkin wrote:
+>>
+>> On Thu, Jun 22, 2017 at 08:15:58AM +0200, jean-philippe menil wrote:
+>>>
+>>> Hi Michael,
+>>>
+>>> from what i see, the race appear when we hit virtnet_reset in
+>>> virtnet_xdp_set.
+>>> virtnet_reset
+>>>    _remove_vq_common
+>>>      virtnet_del_vqs
+>>>        virtnet_free_queues
+>>>          kfree(vi->sq)
+>>> when the xdp program (with two instances of the program to trigger it
+>>> faster)
+>>> is added or removed.
+>>>
+>>> It's easily repeatable, with 2 cpus and 4 queues on the qemu command
+>>> line,
+>>> running the xdp_ttl tool from Jesper.
+>>>
+>>> For now, i'm able to continue my qualification, testing if xdp_qp is no=
+t
+>>> null,
+>>> but do not seem to be a sustainable trick.
+>>> if (xdp_qp && vi->xdp_queues_pairs !=3D xdp_qp)
+>>>
+>>> Maybe it will be more clear to you with theses informations.
+>>>
+>>> Best regards.
+>>>
+>>> Jean-Philippe
+>>
+>>
+>> I'm pretty clear about the issue here, I was trying to figure out a fix.
+>> Jason, any thoughts?
+>>
+>>
+>
+> Hi Jean:
+>
+> Does the following fix this issue? (I can't reproduce it locally through
+> xdp_ttl)
 
-In __ip6_datagram_connect(), reset sk->sk_v6_daddr and inet->dport if
-error occurs.
-In udp_v6_early_demux(), check for sk_state to make sure it is in
-TCP_ESTABLISHED state.
-Together, it makes sure unconnected UDP socket won't be considered as a
-valid candidate for early demux.
+It is tricky here.
 
-Fixes: 5425077d73e0 ("net: ipv6: Add early demux handler for UDP unicast")
+>From my understanding of the code base, the tx_lock is not sufficient
+here, because in virtnet_del_vqs() all vqs are deleted and one vp
+maps to one txq.
 
-v3: add TCP_ESTABLISHED state check in udp_v6_early_demux()
-v2: fix compilation error
+I am afraid you have to add a spinlock somewhere to serialized
+free_old_xmit_skbs() vs. vring_del_virtqueue(). As you can see
+they are in different layers, so it is hard to figure out where to add
+it...
 
-Signed-off-by: Wei Wang <weiwan@google.com>
-Acked-by: Maciej Żenczykowski <maze@google.com>
----
- net/ipv6/datagram.c | 8 +++++++-
- net/ipv6/udp.c      | 3 ++-
- 2 files changed, 9 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index e011122ebd43..5c786f5ab961 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -250,8 +250,14 @@ int __ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr,
- 	 */
- 
- 	err = ip6_datagram_dst_update(sk, true);
--	if (err)
-+	if (err) {
-+		/* Reset daddr and dport so that udp_v6_early_demux()
-+		 * fails to find this socket
-+		 */
-+		memset(&sk->sk_v6_daddr, 0, sizeof(sk->sk_v6_daddr));
-+		inet->inet_dport = 0;
- 		goto out;
-+	}
- 
- 	sk->sk_state = TCP_ESTABLISHED;
- 	sk_set_txhash(sk);
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 2b33847bf931..d494b2621b11 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -880,7 +880,8 @@ static struct sock *__udp6_lib_demux_lookup(struct net *net,
- 	struct sock *sk;
- 
- 	udp_portaddr_for_each_entry_rcu(sk, &hslot2->head) {
--		if (INET6_MATCH(sk, net, rmt_addr, loc_addr, ports, dif))
-+		if (sk->sk_state == TCP_ESTABLISHED &&
-+		    INET6_MATCH(sk, net, rmt_addr, loc_addr, ports, dif))
- 			return sk;
- 		/* Only check first socket in chain */
- 		break;
--- 
-2.13.1.611.g7e3b11ae1-goog
+Also, make sure we don't sleep inside the spinlock, I see a
+synchronize_net().
