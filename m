@@ -1,49 +1,48 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: Re: [PATCH] nfc: nci: remove unnecessary null check
-Date: Thu, 22 Jun 2017 20:25:52 -0500
-Message-ID: <20170622202552.Horde.GxVvc-eDjUx8yLnS-c2r82L@gator4166.hostgator.com>
-References: <28317503-e721-2564-a9ff-82182aa0644a@roeck-us.net>
- <20170613163718.GA5375@embeddedgus>
- <20170622223524.GG21214@zurbaran.ger.intel.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next v3 02/13] sock: skb_copy_ubufs support for
+ compound pages
+Date: Thu, 22 Jun 2017 21:36:46 -0400 (EDT)
+Message-ID: <20170622.213646.1398197704798474384.davem@davemloft.net>
+References: <20170621211816.53837-3-willemdebruijn.kernel@gmail.com>
+        <20170622.130528.1762873686654379973.davem@davemloft.net>
+        <CAF=yD-+WQ1b9BytG4JuhgHCR8gAKvUVJPUfi4t-u_DqAFnVrkA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
-Cc: "David S. Miller" <davem@davemloft.net>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>
-To: Samuel Ortiz <sameo@linux.intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway23.websitewelcome.com ([192.185.48.251]:29276 "EHLO
-        gateway23.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752832AbdFWBZz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 21:25:55 -0400
-Received: from cm11.websitewelcome.com (cm11.websitewelcome.com [100.42.49.5])
-        by gateway23.websitewelcome.com (Postfix) with ESMTP id B33DE17AC8
-        for <netdev@vger.kernel.org>; Thu, 22 Jun 2017 20:25:52 -0500 (CDT)
-In-Reply-To: <20170622223524.GG21214@zurbaran.ger.intel.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org
+To: willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAF=yD-+WQ1b9BytG4JuhgHCR8gAKvUVJPUfi4t-u_DqAFnVrkA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Samuel,
+From: Willem de Bruijn <willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Thu, 22 Jun 2017 16:57:07 -0400
 
-Quoting Samuel Ortiz <sameo@linux.intel.com>:
-
-> Hi Gustavo,
->
-> On Tue, Jun 13, 2017 at 11:37:18AM -0500, Gustavo A. R. Silva wrote:
->> Remove unnecessary NULL check for pointer conn_info.
->> conn_info is set in list_for_each_entry() using container_of(),
->> which is never NULL.
 >>
->> Addresses-Coverity-ID: 1362349
->> Cc: Guenter Roeck <linux@roeck-us.net>
->> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
->> ---
->>  net/nfc/nci/core.c | 9 ++++-----
->>  1 file changed, 4 insertions(+), 5 deletions(-)
-> Applied to nfc-next, thanks.
->
+>> Likewise.
+>>
+>>> +             f_off = f->page_offset;
+>>> +             f_size = f->size;
+>>> +
+>>> +             vaddr = kmap_atomic(skb_frag_page(f));
+>>
+>> I looked at some kmap_atomic() implementations and I do not think
+>> it supports compound pages.
+> 
+> Indeed. Thanks. It appears that I can do the obvious thing and
+> kmap the individual page that is being copied inside the loop:
+> 
+>   kmap_atomic(skb_frag_page(f) + (f_off >> PAGE_SHIFT));
+> 
+> This is similar to existing logic in copy_huge_page_from_user
+> and __flush_dcache_page in arch/arm/mm/flush.c
+> 
+> But, this also applies to other skb operations that call kmap_atomic,
+> such as skb_copy_bits and __skb_checksum. Not all can be called
+> from a codepath with a compound user page, but I have to address
+> the ones that can.
 
-Absolutely, glad to help.
-
-Thanks
+Yeah that's quite a mess, it looks like this assumption that
+kmap can handle compound pages exists in quite a few places.
