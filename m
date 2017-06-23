@@ -1,91 +1,45 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: BUG: KASAN: use-after-free in free_old_xmit_skbs
-Date: Fri, 23 Jun 2017 16:43:13 +0800
-Message-ID: <4f6d4342-8476-882e-e7a8-b3f0ebd20d95@redhat.com>
-References: <d2e8cf65-ea3d-7db2-9382-a063daf1168a@gmail.com>
-	<20170605050423-mutt-send-email-mst@kernel.org>
-	<20170606024211-mutt-send-email-mst@kernel.org>
-	<CAOTcU=u_HSMQiwDF3Snv5P8mT-b_Aepeb=Z9gbLd1j=2P+Yy+A@mail.gmail.com>
-	<20170622215125-mutt-send-email-mst@kernel.org>
+From: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next v3 1/6] vxlan: refactor verification
+ and application of configuration
+Date: Fri, 23 Jun 2017 10:52:20 +0200
+Message-ID: <20170623105220.18561f34@griffin>
+References: <cover.1497825555.git.mschiffer@universe-factory.net>
+	<6e2c8bb77be42834f1da5a3ca79f5e455574a136.1497825555.git.mschiffer@universe-factory.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, John Fastabend <john.fastabend@gmail.com>,
-	qemu-devel@nongnu.org, virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>,
-	jean-philippe menil <jpmenil@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170622215125-mutt-send-email-mst@kernel.org>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Matthias Schiffer <mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <6e2c8bb77be42834f1da5a3ca79f5e455574a136.1497825555.git.mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-CgpPbiAyMDE35bm0MDbmnIgyM+aXpSAwMjo1MywgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
-IE9uIFRodSwgSnVuIDIyLCAyMDE3IGF0IDA4OjE1OjU4QU0gKzAyMDAsIGplYW4tcGhpbGlwcGUg
-bWVuaWwgd3JvdGU6Cj4+IDIwMTctMDYtMDYgMTo1MiBHTVQrMDI6MDAgTWljaGFlbCBTLiBUc2ly
-a2luIDxtc3RAcmVkaGF0LmNvbT46Cj4+Cj4+ICAgICAgT24gTW9uLCBKdW4gMDUsIDIwMTcgYXQg
-MDU6MDg6MjVBTSArMDMwMCwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+PiAgICAgID4gT24g
-TW9uLCBKdW4gMDUsIDIwMTcgYXQgMTI6NDg6NTNBTSArMDIwMCwgSmVhbi1QaGlsaXBwZSBNZW5p
-bCB3cm90ZToKPj4gICAgICA+ID4gSGksCj4+ICAgICAgPiA+Cj4+ICAgICAgPiA+IHdoaWxlIHBs
-YXlpbmcgd2l0aCB4ZHAgYW5kIGVicGYsIGknbSBoaXR0aW5nIHRoZSBmb2xsb3dpbmc6Cj4+ICAg
-ICAgPiA+Cj4+ICAgICAgPiA+IFsgIDMwOS45OTMxMzZdCj4+ICAgICAgPiA+ID09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQo+
-PiAgICAgID4gPiBbICAzMDkuOTk0NzM1XSBCVUc6IEtBU0FOOiB1c2UtYWZ0ZXItZnJlZSBpbgo+
-PiAgICAgID4gPiBmcmVlX29sZF94bWl0X3NrYnMuaXNyYS4yOSsweDJiNy8weDJlMCBbdmlydGlv
-X25ldF0KPj4gICAgICA+ID4gWyAgMzA5Ljk5ODM5Nl0gUmVhZCBvZiBzaXplIDggYXQgYWRkciBm
-ZmZmODgwMDZhYTY0MjIwIGJ5IHRhc2sgc3NoZC8zMjMKPj4gICAgICA+ID4gWyAgMzEwLjAwMDY1
-MF0KPj4gICAgICA+ID4gWyAgMzEwLjAwMjMwNV0gQ1BVOiAxIFBJRDogMzIzIENvbW06IHNzaGQg
-Tm90IHRhaW50ZWQgNC4xMi4wLXJjMysgIzIKPj4gICAgICA+ID4gWyAgMzEwLjAwNDAxOF0gSGFy
-ZHdhcmUgbmFtZTogUUVNVSBTdGFuZGFyZCBQQyAoaTQ0MEZYICsgUElJWCwgMTk5NiksCj4+ICAg
-ICAgQklPUwo+PiAgICAgID4gPiAxLjEwLjItMjAxNzAyMjhfMTAxODI4LWFuYXRvbCAwNC8wMS8y
-MDE0Cj4gLi4uCj4KPj4gICAgICA+Cj4+ICAgICAgPiBTaW5jZSBjb21taXQgNjgwNTU3Y2Y3OWY4
-MjYyM2UyYzRmZDQyNzMzMDc3ZDYwYTg0MzUxMwo+PiAgICAgID4gICAgIHZpcnRpb19uZXQ6IHJl
-d29yayBtZXJnZWFibGUgYnVmZmVyIGhhbmRsaW5nCj4+ICAgICAgPgo+PiAgICAgID4gd2Ugbm8g
-bG9uZ2VyIG11c3QgZG8gdGhlIHJlc2V0cywgd2Ugbm93IGhhdmUgZW5vdWdoIHNwYWNlCj4+ICAg
-ICAgPiB0byBzdG9yZSBhIGJpdCBzYXlpbmcgd2hldGhlciBhIGJ1ZmZlciBpcyB4ZHAgb25lIG9y
-IG5vdC4KPj4gICAgICA+Cj4+ICAgICAgPiBBbmQgdGhhdCdzIHByb2JhYmx5IGEgY2xlYW5lciB3
-YXkgdG8gZml4IHRoZXNlIGlzc3VlcyB0aGFuCj4+ICAgICAgPiB0cnkgdG8gZmluZCBhbmQgZml4
-IHRoZSByYWNlIGNvbmRpdGlvbi4KPj4gICAgICA+Cj4+ICAgICAgPiBKb2huPwo+PiAgICAgID4K
-Pj4gICAgICA+IC0tCj4+ICAgICAgPiBNU1QKPj4KPj4KPj4gICAgICBJIHRoaW5rIEkgc2VlIHRo
-ZSBzb3VyY2Ugb2YgdGhlIHJhY2UuIHZpcnRpbyBuZXQgY2FsbHMKPj4gICAgICBuZXRpZl9kZXZp
-Y2VfZGV0YWNoIGFuZCBhc3N1bWVzIG5vIHBhY2tldHMgd2lsbCBiZSBzZW50IGFmdGVyCj4+ICAg
-ICAgdGhpcyBwb2ludC4gSG93ZXZlciwgYWxsIGl0IGRvZXMgaXMgc3RvcCBhbGwgcXVldWVzIHNv
-Cj4+ICAgICAgbm8gbmV3IHBhY2tldHMgd2lsbCBiZSB0cmFuc21pdHRlZC4KPj4KPj4gICAgICBU
-cnkgbG9ja2luZyB3aXRoIEhBUkRfVFhfTE9DSz8KPj4gICAgIAo+Pgo+PiAgICAgIC0tCj4+ICAg
-ICAgTVNUCj4+Cj4+Cj4+IEhpIE1pY2hhZWwsCj4+Cj4+IGZyb20gd2hhdCBpIHNlZSwgdGhlIHJh
-Y2UgYXBwZWFyIHdoZW4gd2UgaGl0IHZpcnRuZXRfcmVzZXQgaW4gdmlydG5ldF94ZHBfc2V0Lgo+
-PiB2aXJ0bmV0X3Jlc2V0Cj4+ICAgIF9yZW1vdmVfdnFfY29tbW9uCj4+ICAgICAgdmlydG5ldF9k
-ZWxfdnFzCj4+ICAgICAgICB2aXJ0bmV0X2ZyZWVfcXVldWVzCj4+ICAgICAgICAgIGtmcmVlKHZp
-LT5zcSkKPj4gd2hlbiB0aGUgeGRwIHByb2dyYW0gKHdpdGggdHdvIGluc3RhbmNlcyBvZiB0aGUg
-cHJvZ3JhbSB0byB0cmlnZ2VyIGl0IGZhc3RlcikKPj4gaXMgYWRkZWQgb3IgcmVtb3ZlZC4KPj4K
-Pj4gSXQncyBlYXNpbHkgcmVwZWF0YWJsZSwgd2l0aCAyIGNwdXMgYW5kIDQgcXVldWVzIG9uIHRo
-ZSBxZW11IGNvbW1hbmQgbGluZSwKPj4gcnVubmluZyB0aGUgeGRwX3R0bCB0b29sIGZyb20gSmVz
-cGVyLgo+Pgo+PiBGb3Igbm93LCBpJ20gYWJsZSB0byBjb250aW51ZSBteSBxdWFsaWZpY2F0aW9u
-LCB0ZXN0aW5nIGlmIHhkcF9xcCBpcyBub3QgbnVsbCwKPj4gYnV0IGRvIG5vdCBzZWVtIHRvIGJl
-IGEgc3VzdGFpbmFibGUgdHJpY2suCj4+IGlmICh4ZHBfcXAgJiYgdmktPnhkcF9xdWV1ZXNfcGFp
-cnMgIT0geGRwX3FwKQo+Pgo+PiBNYXliZSBpdCB3aWxsIGJlIG1vcmUgY2xlYXIgdG8geW91IHdp
-dGggdGhlc2VzIGluZm9ybWF0aW9ucy4KPj4KPj4gQmVzdCByZWdhcmRzLgo+Pgo+PiBKZWFuLVBo
-aWxpcHBlCj4KPiBJJ20gcHJldHR5IGNsZWFyIGFib3V0IHRoZSBpc3N1ZSBoZXJlLCBJIHdhcyB0
-cnlpbmcgdG8gZmlndXJlIG91dCBhIGZpeC4KPiBKYXNvbiwgYW55IHRob3VnaHRzPwo+Cj4KCkhp
-IEplYW46CgpEb2VzIHRoZSBmb2xsb3dpbmcgZml4IHRoaXMgaXNzdWU/IChJIGNhbid0IHJlcHJv
-ZHVjZSBpdCBsb2NhbGx5IHRocm91Z2ggCnhkcF90dGwpCgpUaGFua3MKCmRpZmYgLS1naXQgYS9k
-cml2ZXJzL25ldC92aXJ0aW9fbmV0LmMgYi9kcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMKaW5kZXgg
-MWY4YzE1Yy4uM2U2NWMzZiAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCisr
-KyBiL2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYwpAQCAtMTgwMSw3ICsxODAxLDkgQEAgc3RhdGlj
-IHZvaWQgdmlydG5ldF9mcmVlemVfZG93bihzdHJ1Y3QgCnZpcnRpb19kZXZpY2UgKnZkZXYpCiAg
-ICAgICAgIC8qIE1ha2Ugc3VyZSBubyB3b3JrIGhhbmRsZXIgaXMgYWNjZXNzaW5nIHRoZSBkZXZp
-Y2UgKi8KICAgICAgICAgZmx1c2hfd29yaygmdmktPmNvbmZpZ193b3JrKTsKCisgICAgICAgbmV0
-aWZfdHhfbG9ja19iaCh2aS0+ZGV2KTsKICAgICAgICAgbmV0aWZfZGV2aWNlX2RldGFjaCh2aS0+
-ZGV2KTsKKyAgICAgICBuZXRpZl90eF91bmxvY2tfYmgodmktPmRldik7CiAgICAgICAgIGNhbmNl
-bF9kZWxheWVkX3dvcmtfc3luYygmdmktPnJlZmlsbCk7CgpfX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmly
-dHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51
-eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
+This patchset looks good overall (would send my Acked-by for most of
+this but I'm late).
+
+On Mon, 19 Jun 2017 10:03:55 +0200, Matthias Schiffer wrote:
+> Log messages in these
+> functions are removed, as it is generally unexpected to find error output
+> for netlink requests in the kernel log. Userspace should be able to handle
+> errors based on the error codes returned via netlink just fine.
+
+However, this is not really true. It's impossible to find out what went
+wrong when you use e.g. iproute2 to configure a vxlan link.
+
+We really need to convert the kernel log messages to the extended
+netlink errors. Since you removed them prematurely, could you please
+work on that?
+
+Thanks,
+
+ Jiri
