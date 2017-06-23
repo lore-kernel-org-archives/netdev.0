@@ -1,47 +1,59 @@
-From: Yunsheng Lin <linyunsheng@huawei.com>
-Subject: Re: [PATCH NET v2 0/2] Add loopback support in phy_driver and hns
- ethtool fix
-Date: Fri, 23 Jun 2017 16:18:53 +0800
-Message-ID: <2c145fde-eb2a-a3e6-4c3e-53b3c00ee830@huawei.com>
-References: <1498204473-194648-1-git-send-email-linyunsheng@huawei.com>
+From: <netanel@amazon.com>
+Subject: [PATCH V2 net-next 00/11] update ena ethernet driver to version 1.2.0
+Date: Fri, 23 Jun 2017 11:21:49 +0300
+Message-ID: <1498206120-13805-1-git-send-email-netanel@amazon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <liguozhu@hisilicon.com>, <linuxarm@huawei.com>,
-        <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <tremyfr@gmail.com>
-To: <davem@davemloft.net>, <andrew@lunn.ch>, <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1498204473-194648-1-git-send-email-linyunsheng@huawei.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Netanel Belgazal <netanel@amazon.com>, <dwmw@amazon.com>,
+        <zorik@amazon.com>, <matua@amazon.com>, <saeedb@amazon.com>,
+        <msw@amazon.com>, <aliguori@amazon.com>, <nafea@amazon.com>,
+        <evgenys@amazon.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-fw-9102.amazon.com ([207.171.184.29]:31002 "EHLO
+        smtp-fw-9102.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751217AbdFWIWe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 04:22:34 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-My apology, this patch set have a bug in hns mac driver which is not
-calling phy_loopback enable and disable in pair, I will send a v3 to
-fix it. Please ignore this patch set.
+From: Netanel Belgazal <netanel@amazon.com>
 
-Best Regards
-Yunsheng Lin
+This patchset contains some new features/improvements that were added
+to the ENA driver to increase its robustness and are based on
+experience of wide ENA deployment.
 
-On 2017/6/23 15:54, Lin Yun Sheng wrote:
-> This Patch Set add set_loopback in phy_driver and use it to setup loopback
-> when doing ethtool phy self_test.
-> 
-> Patch V2:
-> 	1. Add phy_loopback in phy_device.c.
-> 	2. Do error checking and do the read and write once in genphy_loopback.
-> 	3. Remove gen10g_loopback in phy_device.c.
-> 
-> Patch V1: Initial Submit
-> 
-> Lin Yun Sheng (2):
->   net: phy: Add phy loopback support in net phy framework
->   net: hns: Use phy_driver to setup Phy loopback
-> 
->  drivers/net/ethernet/hisilicon/hns/hns_ethtool.c | 68 +++++-------------------
->  drivers/net/phy/marvell.c                        |  1 +
->  drivers/net/phy/phy_device.c                     | 41 ++++++++++++++
->  include/linux/phy.h                              |  5 ++
->  4 files changed, 61 insertions(+), 54 deletions(-)
-> 
+Change log:
+
+V2:
+* Remove patch that add inline to C-file static function (contradict coding style).
+* Remove patch that moves MTU parameter validation in ena_change_mtu() instead of
+using the network stack.
+* Use upper_32_bits()/lower_32_bits() instead of casting.
+
+Netanel Belgazal (11):
+  net: ena: change return value for unsupported features unsupported
+    return value
+  net: ena: add hardware hints capability to the driver
+  net: ena: change sizeof() argument to be the type pointer
+  net: ena: add reset reason for each device FLR
+  net: ena: add support for out of order rx buffers refill
+  net: ena: allow the driver to work with small number of msix vectors
+  net: ena: use napi_schedule_irqoff when possible
+  net: ena: separate skb allocation to dedicated function
+  net: ena: use lower_32_bits()/upper_32_bits() to split dma address
+  net: ena: update driver's rx drop statistics
+  net: ena: update ena driver to version 1.2.0
+
+ drivers/net/ethernet/amazon/ena/ena_admin_defs.h |  31 +++
+ drivers/net/ethernet/amazon/ena/ena_com.c        |  85 ++++---
+ drivers/net/ethernet/amazon/ena/ena_com.h        |  10 +-
+ drivers/net/ethernet/amazon/ena/ena_eth_com.c    |   5 +
+ drivers/net/ethernet/amazon/ena/ena_ethtool.c    |  11 +-
+ drivers/net/ethernet/amazon/ena/ena_netdev.c     | 306 +++++++++++++++++------
+ drivers/net/ethernet/amazon/ena/ena_netdev.h     |  30 ++-
+ drivers/net/ethernet/amazon/ena/ena_regs_defs.h  |  34 +++
+ 8 files changed, 399 insertions(+), 113 deletions(-)
+
+-- 
+2.7.4
