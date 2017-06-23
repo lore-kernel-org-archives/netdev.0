@@ -1,125 +1,96 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Subject: Re: DNS (?) not working on G5 (64-bit powerpc) (was [net-next,v3,3/3] udp: try to avoid 2 cache miss on dequeue)
-Date: Fri, 23 Jun 2017 16:59:06 +1000
-Message-ID: <87r2ybp4ud.fsf@concordia.ellerman.id.au>
-References: <87shisqihz.fsf@concordia.ellerman.id.au> <1498165026.2503.21.camel@redhat.com> <1498166297.111795.1018373424.5E414246@webmail.messagingengine.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH 6/6] esp6_offload: Fix IP6CB(skb)->nhoff for ESP GRO
+Date: Fri, 23 Jun 2017 09:06:34 +0200
+Message-ID: <1498201594-10835-7-git-send-email-steffen.klassert@secunet.com>
+References: <1498201594-10835-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-        linuxppc-dev@lists.ozlabs.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Paolo Abeni <pabeni@redhat.com>
+Content-Type: text/plain
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:41805 "EHLO ozlabs.org"
+Received: from a.mx.secunet.com ([62.96.220.36]:47088 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754467AbdFWG7I (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 23 Jun 2017 02:59:08 -0400
-In-Reply-To: <1498166297.111795.1018373424.5E414246@webmail.messagingengine.com>
+        id S1751238AbdFWHGo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Jun 2017 03:06:44 -0400
+In-Reply-To: <1498201594-10835-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
+From: Yossi Kuperman <yossiku@mellanox.com>
 
-> On Thu, Jun 22, 2017, at 22:57, Paolo Abeni wrote:
->> 
->> Can you please check if the following patch fixes the issue? Only
->> compiled tested here.
->> 
->> Thanks!!!
->> ---
->> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
->> index 067a607..80d89fe 100644
->> --- a/net/ipv4/udp.c
->> +++ b/net/ipv4/udp.c
->> @@ -1446,16 +1446,19 @@ static struct sk_buff
->> *__first_packet_length(struct sock *sk,
->>  {
->>  	struct sk_buff *skb;
->>  
->> -       while ((skb = skb_peek(rcvq)) != NULL &&
->> -              udp_lib_checksum_complete(skb)) {
->> -               __UDP_INC_STATS(sock_net(sk), UDP_MIB_CSUMERRORS,
->> -                               IS_UDPLITE(sk));
->> -               __UDP_INC_STATS(sock_net(sk), UDP_MIB_INERRORS,
->> -                               IS_UDPLITE(sk));
->> -               atomic_inc(&sk->sk_drops);
->> -               __skb_unlink(skb, rcvq);
->> -               *total += skb->truesize;
->> -               kfree_skb(skb);
->> +       while ((skb = skb_peek(rcvq)) != NULL) {
->> +               if (udp_lib_checksum_complete(skb)) {
->> +                       __UDP_INC_STATS(sock_net(sk), UDP_MIB_CSUMERRORS,
->> +                                       IS_UDPLITE(sk));
->> +                       __UDP_INC_STATS(sock_net(sk), UDP_MIB_INERRORS,
->> +                                       IS_UDPLITE(sk));
->> +                       atomic_inc(&sk->sk_drops);
->> +                       __skb_unlink(skb, rcvq);
->> +                       *total += skb->truesize;
->> +                       kfree_skb(skb);
->> +               } else {
->> +                       udp_set_dev_scratch(skb);
->
-> It needs a "break;" here.
->
->> +               }
->>  	}
->>  	return skb;
->>  }
+IP6CB(skb)->nhoff is the offset of the nexthdr field in an IPv6
+header, unless there are extension headers present, in which case
+nhoff points to the nexthdr field of the last extension header.
 
-That works!
+In non-GRO code path, nhoff is set by ipv6_rcv before any XFRM code
+is executed. Conversely, in GRO code path (when esp6_offload is loaded),
+nhoff is not set. The following functions fail to read the correct value
+and eventually the packet is dropped:
 
-$ wget google.com
---2017-06-23 16:56:31--  http://google.com/
-Resolving proxy.pmdw.com (proxy.pmdw.com)... 10.1.2.3
-Connecting to proxy.pmdw.com (proxy.pmdw.com)|10.1.2.3|:3128... connected.
-Proxy request sent, awaiting response... 302 Found
-Location: http://www.google.com.au/?gfe_rd=cr&ei=n7tMWeb9JYPr8wfg4LXYAQ [following]
---2017-06-23 16:56:31--  http://www.google.com.au/?gfe_rd=cr&ei=n7tMWeb9JYPr8wfg4LXYAQ
-Reusing existing connection to proxy.pmdw.com:3128.
-Proxy request sent, awaiting response... 200 OK
-Length: unspecified [text/html]
-Saving to: ‘index.html’
+    xfrm6_transport_finish
+    xfrm6_tunnel_input
+    xfrm6_rcv_tnl
 
+Set nhoff to the proper offset of nexthdr in esp6_gro_receive.
 
-The patch had whitespace issues or something and I had to apply it by
-hand, here's what I actually tested.
+Fixes: 7785bba299a8 ("esp: Add a software GRO codepath")
+Signed-off-by: Yossi Kuperman <yossiku@mellanox.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/ipv6/esp6_offload.c | 25 +++++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
 
-cheers
-
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 067a607917f9..d3227c1bbe8e 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1446,16 +1446,20 @@ static struct sk_buff *__first_packet_length(struct sock *sk,
- {
- 	struct sk_buff *skb;
+diff --git a/net/ipv6/esp6_offload.c b/net/ipv6/esp6_offload.c
+index d950d43..f02f131 100644
+--- a/net/ipv6/esp6_offload.c
++++ b/net/ipv6/esp6_offload.c
+@@ -30,6 +30,25 @@
+ #include <net/ipv6.h>
+ #include <linux/icmpv6.h>
  
--	while ((skb = skb_peek(rcvq)) != NULL &&
--	       udp_lib_checksum_complete(skb)) {
--		__UDP_INC_STATS(sock_net(sk), UDP_MIB_CSUMERRORS,
--				IS_UDPLITE(sk));
--		__UDP_INC_STATS(sock_net(sk), UDP_MIB_INERRORS,
--				IS_UDPLITE(sk));
--		atomic_inc(&sk->sk_drops);
--		__skb_unlink(skb, rcvq);
--		*total += skb->truesize;
--		kfree_skb(skb);
-+	while ((skb = skb_peek(rcvq)) != NULL) {
-+		if (udp_lib_checksum_complete(skb)) {
-+			__UDP_INC_STATS(sock_net(sk), UDP_MIB_CSUMERRORS,
-+					IS_UDPLITE(sk));
-+			__UDP_INC_STATS(sock_net(sk), UDP_MIB_INERRORS,
-+					IS_UDPLITE(sk));
-+			atomic_inc(&sk->sk_drops);
-+			__skb_unlink(skb, rcvq);
-+			*total += skb->truesize;
-+			kfree_skb(skb);
-+		} else {
-+			udp_set_dev_scratch(skb);
-+			break;
-+		}
- 	}
- 	return skb;
- }
++static __u16 esp6_nexthdr_esp_offset(struct ipv6hdr *ipv6_hdr, int nhlen)
++{
++	int off = sizeof(struct ipv6hdr);
++	struct ipv6_opt_hdr *exthdr;
++
++	if (likely(ipv6_hdr->nexthdr == NEXTHDR_ESP))
++		return offsetof(struct ipv6hdr, nexthdr);
++
++	while (off < nhlen) {
++		exthdr = (void *)ipv6_hdr + off;
++		if (exthdr->nexthdr == NEXTHDR_ESP)
++			return off;
++
++		off += ipv6_optlen(exthdr);
++	}
++
++	return 0;
++}
++
+ static struct sk_buff **esp6_gro_receive(struct sk_buff **head,
+ 					 struct sk_buff *skb)
+ {
+@@ -38,6 +57,7 @@ static struct sk_buff **esp6_gro_receive(struct sk_buff **head,
+ 	struct xfrm_state *x;
+ 	__be32 seq;
+ 	__be32 spi;
++	int nhoff;
+ 	int err;
+ 
+ 	skb_pull(skb, offset);
+@@ -72,6 +92,11 @@ static struct sk_buff **esp6_gro_receive(struct sk_buff **head,
+ 
+ 	xo->flags |= XFRM_GRO;
+ 
++	nhoff = esp6_nexthdr_esp_offset(ipv6_hdr(skb), offset);
++	if (!nhoff)
++		goto out;
++
++	IP6CB(skb)->nhoff = nhoff;
+ 	XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6 = NULL;
+ 	XFRM_SPI_SKB_CB(skb)->family = AF_INET6;
+ 	XFRM_SPI_SKB_CB(skb)->daddroff = offsetof(struct ipv6hdr, daddr);
+-- 
+2.7.4
