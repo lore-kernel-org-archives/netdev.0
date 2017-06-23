@@ -1,7 +1,7 @@
 From: <netanel@amazon.com>
-Subject: [PATCH V2 net-next 03/11] net: ena: change sizeof() argument to be the type pointer
-Date: Fri, 23 Jun 2017 11:21:52 +0300
-Message-ID: <1498206120-13805-4-git-send-email-netanel@amazon.com>
+Subject: [PATCH V2 net-next 06/11] net: ena: allow the driver to work with small number of msix vectors
+Date: Fri, 23 Jun 2017 11:21:55 +0300
+Message-ID: <1498206120-13805-7-git-send-email-netanel@amazon.com>
 References: <1498206120-13805-1-git-send-email-netanel@amazon.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,94 +11,194 @@ Cc: Netanel Belgazal <netanel@amazon.com>, <dwmw@amazon.com>,
         <evgenys@amazon.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-fw-6001.amazon.com ([52.95.48.154]:32412 "EHLO
+Received: from smtp-fw-6001.amazon.com ([52.95.48.154]:13634 "EHLO
         smtp-fw-6001.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753891AbdFWIWt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 04:22:49 -0400
+        with ESMTP id S1753891AbdFWIW5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 04:22:57 -0400
 In-Reply-To: <1498206120-13805-1-git-send-email-netanel@amazon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Netanel Belgazal <netanel@amazon.com>
 
-Instead of using:
-memset(ptr, 0x0, sizeof(struct ...))
-use:
-memset(ptr, 0x0, sizeor(*ptr))
+Current driver tries to allocate msix vectors as the number of the
+negotiated io queues. (with another msix vector for management).
+If pci_alloc_irq_vectors() fails, the driver aborts the probe
+and the ENA network device is never brought up.
+
+With this patch, the driver's logic will reduce the number of IO
+queues to the number of allocated msix vectors (minus one for management)
+instead of failing probe().
 
 Signed-off-by: Netanel Belgazal <netanel@amazon.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_com.c | 16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_netdev.c | 65 ++++++++++++++++++++--------
+ drivers/net/ethernet/amazon/ena/ena_netdev.h |  6 ++-
+ 2 files changed, 51 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
-index 65d53d501139..2721c70492a1 100644
---- a/drivers/net/ethernet/amazon/ena/ena_com.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_com.c
-@@ -329,7 +329,7 @@ static int ena_com_init_io_sq(struct ena_com_dev *ena_dev,
- 	size_t size;
- 	int dev_node = 0;
+diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+index fcbcd188a132..04aade842097 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
++++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+@@ -1269,9 +1269,20 @@ static irqreturn_t ena_intr_msix_io(int irq, void *data)
+ 	return IRQ_HANDLED;
+ }
  
--	memset(&io_sq->desc_addr, 0x0, sizeof(struct ena_com_io_desc_addr));
-+	memset(&io_sq->desc_addr, 0x0, sizeof(io_sq->desc_addr));
++/* Reserve a single MSI-X vector for management (admin + aenq).
++ * plus reserve one vector for each potential io queue.
++ * the number of potential io queues is the minimum of what the device
++ * supports and the number of vCPUs.
++ */
+ static int ena_enable_msix(struct ena_adapter *adapter, int num_queues)
+ {
+-	int msix_vecs, rc;
++	int msix_vecs, irq_cnt;
++
++	if (test_bit(ENA_FLAG_MSIX_ENABLED, &adapter->flags)) {
++		netif_err(adapter, probe, adapter->netdev,
++			  "Error, MSI-X is already enabled\n");
++		return -EPERM;
++	}
  
- 	io_sq->desc_entry_size =
- 		(io_sq->direction == ENA_COM_IO_QUEUE_DIRECTION_TX) ?
-@@ -383,7 +383,7 @@ static int ena_com_init_io_cq(struct ena_com_dev *ena_dev,
- 	size_t size;
- 	int prev_node = 0;
+ 	/* Reserved the max msix vectors we might need */
+ 	msix_vecs = ENA_MAX_MSIX_VEC(num_queues);
+@@ -1279,25 +1290,28 @@ static int ena_enable_msix(struct ena_adapter *adapter, int num_queues)
+ 	netif_dbg(adapter, probe, adapter->netdev,
+ 		  "trying to enable MSI-X, vectors %d\n", msix_vecs);
  
--	memset(&io_cq->cdesc_addr, 0x0, sizeof(struct ena_com_io_desc_addr));
-+	memset(&io_cq->cdesc_addr, 0x0, sizeof(io_cq->cdesc_addr));
+-	rc = pci_alloc_irq_vectors(adapter->pdev, msix_vecs, msix_vecs,
+-			PCI_IRQ_MSIX);
+-	if (rc < 0) {
++	irq_cnt = pci_alloc_irq_vectors(adapter->pdev, ENA_MIN_MSIX_VEC,
++					msix_vecs, PCI_IRQ_MSIX);
++
++	if (irq_cnt < 0) {
+ 		netif_err(adapter, probe, adapter->netdev,
+-			  "Failed to enable MSI-X, vectors %d rc %d\n",
+-			  msix_vecs, rc);
++			  "Failed to enable MSI-X. irq_cnt %d\n", irq_cnt);
+ 		return -ENOSPC;
+ 	}
  
- 	/* Use the basic completion descriptor for Rx */
- 	io_cq->cdesc_entry_size_in_bytes =
-@@ -685,7 +685,7 @@ static int ena_com_destroy_io_sq(struct ena_com_dev *ena_dev,
- 	u8 direction;
- 	int ret;
+-	netif_dbg(adapter, probe, adapter->netdev, "enable MSI-X, vectors %d\n",
+-		  msix_vecs);
+-
+-	if (msix_vecs >= 1) {
+-		if (ena_init_rx_cpu_rmap(adapter))
+-			netif_warn(adapter, probe, adapter->netdev,
+-				   "Failed to map IRQs to CPUs\n");
++	if (irq_cnt != msix_vecs) {
++		netif_notice(adapter, probe, adapter->netdev,
++			     "enable only %d MSI-X (out of %d), reduce the number of queues\n",
++			     irq_cnt, msix_vecs);
++		adapter->num_queues = irq_cnt - ENA_ADMIN_MSIX_VEC;
+ 	}
  
--	memset(&destroy_cmd, 0x0, sizeof(struct ena_admin_aq_destroy_sq_cmd));
-+	memset(&destroy_cmd, 0x0, sizeof(destroy_cmd));
+-	adapter->msix_vecs = msix_vecs;
++	if (ena_init_rx_cpu_rmap(adapter))
++		netif_warn(adapter, probe, adapter->netdev,
++			   "Failed to map IRQs to CPUs\n");
++
++	adapter->msix_vecs = irq_cnt;
++	set_bit(ENA_FLAG_MSIX_ENABLED, &adapter->flags);
  
- 	if (io_sq->direction == ENA_COM_IO_QUEUE_DIRECTION_TX)
- 		direction = ENA_ADMIN_SQ_DIRECTION_TX;
-@@ -967,7 +967,7 @@ static int ena_com_create_io_sq(struct ena_com_dev *ena_dev,
- 	u8 direction;
- 	int ret;
+ 	return 0;
+ }
+@@ -1374,6 +1388,12 @@ static int ena_request_io_irq(struct ena_adapter *adapter)
+ 	struct ena_irq *irq;
+ 	int rc = 0, i, k;
  
--	memset(&create_cmd, 0x0, sizeof(struct ena_admin_aq_create_sq_cmd));
-+	memset(&create_cmd, 0x0, sizeof(create_cmd));
++	if (!test_bit(ENA_FLAG_MSIX_ENABLED, &adapter->flags)) {
++		netif_err(adapter, ifup, adapter->netdev,
++			  "Failed to request I/O IRQ: MSI-X is not enabled\n");
++		return -EINVAL;
++	}
++
+ 	for (i = ENA_IO_IRQ_FIRST_IDX; i < adapter->msix_vecs; i++) {
+ 		irq = &adapter->irq_tbl[i];
+ 		rc = request_irq(irq->vector, irq->handler, flags, irq->name,
+@@ -1432,6 +1452,12 @@ static void ena_free_io_irq(struct ena_adapter *adapter)
+ 	}
+ }
  
- 	create_cmd.aq_common_descriptor.opcode = ENA_ADMIN_CREATE_SQ;
++static void ena_disable_msix(struct ena_adapter *adapter)
++{
++	if (test_and_clear_bit(ENA_FLAG_MSIX_ENABLED, &adapter->flags))
++		pci_free_irq_vectors(adapter->pdev);
++}
++
+ static void ena_disable_io_intr_sync(struct ena_adapter *adapter)
+ {
+ 	int i;
+@@ -2520,7 +2546,8 @@ static int ena_enable_msix_and_set_admin_interrupts(struct ena_adapter *adapter,
+ 	return 0;
  
-@@ -1159,7 +1159,7 @@ int ena_com_create_io_cq(struct ena_com_dev *ena_dev,
- 	struct ena_admin_acq_create_cq_resp_desc cmd_completion;
- 	int ret;
+ err_disable_msix:
+-	pci_free_irq_vectors(adapter->pdev);
++	ena_disable_msix(adapter);
++
+ 	return rc;
+ }
  
--	memset(&create_cmd, 0x0, sizeof(struct ena_admin_aq_create_cq_cmd));
-+	memset(&create_cmd, 0x0, sizeof(create_cmd));
+@@ -2558,7 +2585,7 @@ static void ena_fw_reset_device(struct work_struct *work)
  
- 	create_cmd.aq_common_descriptor.opcode = ENA_ADMIN_CREATE_CQ;
+ 	ena_free_mgmnt_irq(adapter);
  
-@@ -1267,7 +1267,7 @@ int ena_com_destroy_io_cq(struct ena_com_dev *ena_dev,
- 	struct ena_admin_acq_destroy_cq_resp_desc destroy_resp;
- 	int ret;
+-	pci_free_irq_vectors(adapter->pdev);
++	ena_disable_msix(adapter);
  
--	memset(&destroy_cmd, 0x0, sizeof(struct ena_admin_aq_destroy_sq_cmd));
-+	memset(&destroy_cmd, 0x0, sizeof(destroy_cmd));
+ 	ena_com_abort_admin_commands(ena_dev);
  
- 	destroy_cmd.cq_idx = io_cq->idx;
- 	destroy_cmd.aq_common_descriptor.opcode = ENA_ADMIN_DESTROY_CQ;
-@@ -1623,8 +1623,8 @@ int ena_com_create_io_queue(struct ena_com_dev *ena_dev,
- 	io_sq = &ena_dev->io_sq_queues[ctx->qid];
- 	io_cq = &ena_dev->io_cq_queues[ctx->qid];
+@@ -2610,7 +2637,7 @@ static void ena_fw_reset_device(struct work_struct *work)
+ 	return;
+ err_disable_msix:
+ 	ena_free_mgmnt_irq(adapter);
+-	pci_free_irq_vectors(adapter->pdev);
++	ena_disable_msix(adapter);
+ err_device_destroy:
+ 	ena_com_admin_destroy(ena_dev);
+ err:
+@@ -3269,7 +3296,7 @@ static int ena_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ err_free_msix:
+ 	ena_com_dev_reset(ena_dev, ENA_REGS_RESET_INIT_ERR);
+ 	ena_free_mgmnt_irq(adapter);
+-	pci_free_irq_vectors(adapter->pdev);
++	ena_disable_msix(adapter);
+ err_worker_destroy:
+ 	ena_com_destroy_interrupt_moderation(ena_dev);
+ 	del_timer(&adapter->timer_service);
+@@ -3354,7 +3381,7 @@ static void ena_remove(struct pci_dev *pdev)
  
--	memset(io_sq, 0x0, sizeof(struct ena_com_io_sq));
--	memset(io_cq, 0x0, sizeof(struct ena_com_io_cq));
-+	memset(io_sq, 0x0, sizeof(*io_sq));
-+	memset(io_cq, 0x0, sizeof(*io_cq));
+ 	ena_free_mgmnt_irq(adapter);
  
- 	/* Init CQ */
- 	io_cq->q_depth = ctx->queue_size;
+-	pci_free_irq_vectors(adapter->pdev);
++	ena_disable_msix(adapter);
+ 
+ 	free_netdev(netdev);
+ 
+diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.h b/drivers/net/ethernet/amazon/ena/ena_netdev.h
+index 5edc3da96ce5..86b0f0dbae65 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_netdev.h
++++ b/drivers/net/ethernet/amazon/ena/ena_netdev.h
+@@ -58,7 +58,10 @@
+ #define DEVICE_NAME	"Elastic Network Adapter (ENA)"
+ 
+ /* 1 for AENQ + ADMIN */
+-#define ENA_MAX_MSIX_VEC(io_queues)	(1 + (io_queues))
++#define ENA_ADMIN_MSIX_VEC		1
++#define ENA_MAX_MSIX_VEC(io_queues)	(ENA_ADMIN_MSIX_VEC + (io_queues))
++
++#define ENA_MIN_MSIX_VEC		2
+ 
+ #define ENA_REG_BAR			0
+ #define ENA_MEM_BAR			2
+@@ -267,6 +270,7 @@ enum ena_flags_t {
+ 	ENA_FLAG_DEVICE_RUNNING,
+ 	ENA_FLAG_DEV_UP,
+ 	ENA_FLAG_LINK_UP,
++	ENA_FLAG_MSIX_ENABLED,
+ 	ENA_FLAG_TRIGGER_RESET
+ };
+ 
 -- 
 2.7.4
