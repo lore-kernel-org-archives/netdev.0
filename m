@@ -1,99 +1,172 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 04/15] net/mlx5e: Relocate the TC match on ip tos offload code section
-Date: Fri, 23 Jun 2017 17:26:11 +0300
-Message-ID: <20170623142622.16565-5-saeedm@mellanox.com>
-References: <20170623142622.16565-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+Subject: [PATCH v2] net: macb: add fixed-link node support
+Date: Fri, 23 Jun 2017 16:54:10 +0200
+Message-ID: <20170623145410.581-1-m.grzeschik@pengutronix.de>
+Cc: nicolas.ferre@microchip.com, kernel@pengutronix.de
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54039 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753447AbdFWO1m (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 10:27:42 -0400
-In-Reply-To: <20170623142622.16565-1-saeedm@mellanox.com>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:53689 "EHLO
+        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750932AbdFWOyR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 10:54:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
+In case the MACB is directly connected to a
+non-mdio PHY/device, it should be possible to provide
+a fixed link configuration in the DT.
 
-The code section for offloading matches on ip tos (L3) should come
-before and not after the one that deals with tcp/udp (L4) matches.
-
-Otherwise, we might come up with wrong min-inline requirement, when
-one attempts to match on both L3 and L4.
-
-Fixes: fd7da28b280d ('net/mlx5e: Offload TC matching on ip tos / traffic-class')
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Reviewed-by: Paul Blakey <paulb@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 46 ++++++++++++-------------
- 1 file changed, 23 insertions(+), 23 deletions(-)
+  v1 -> v2: - moved of_phy_connect case and phy_connect_direct into if else cases
+            - moved of_pphy_register_fixed_link into if(np) case
+	    - added of_node_put(bp->phy_node); into macb_remove
+---
+ drivers/net/ethernet/cadence/macb.c | 98 ++++++++++++++++++++++---------------
+ drivers/net/ethernet/cadence/macb.h |  1 +
+ 2 files changed, 60 insertions(+), 39 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index b9170c5e7a82..633a91a71218 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -888,6 +888,29 @@ static int __parse_cls_flower(struct mlx5e_priv *priv,
- 			*min_inline = MLX5_INLINE_MODE_IP;
- 	}
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 91f7492623d3f..5781f1ede8c6e 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -425,32 +425,40 @@ static int macb_mii_probe(struct net_device *dev)
+ 	int phy_irq;
+ 	int ret;
  
-+	if (dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_IP)) {
-+		struct flow_dissector_key_ip *key =
-+			skb_flow_dissector_target(f->dissector,
-+						  FLOW_DISSECTOR_KEY_IP,
-+						  f->key);
-+		struct flow_dissector_key_ip *mask =
-+			skb_flow_dissector_target(f->dissector,
-+						  FLOW_DISSECTOR_KEY_IP,
-+						  f->mask);
-+
-+		MLX5_SET(fte_match_set_lyr_2_4, headers_c, ip_ecn, mask->tos & 0x3);
-+		MLX5_SET(fte_match_set_lyr_2_4, headers_v, ip_ecn, key->tos & 0x3);
-+
-+		MLX5_SET(fte_match_set_lyr_2_4, headers_c, ip_dscp, mask->tos >> 2);
-+		MLX5_SET(fte_match_set_lyr_2_4, headers_v, ip_dscp, key->tos  >> 2);
-+
-+		if (mask->tos)
-+			*min_inline = MLX5_INLINE_MODE_IP;
-+
-+		if (mask->ttl) /* currently not supported */
-+			return -EOPNOTSUPP;
-+	}
-+
- 	if (dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_PORTS)) {
- 		struct flow_dissector_key_ports *key =
- 			skb_flow_dissector_target(f->dissector,
-@@ -931,29 +954,6 @@ static int __parse_cls_flower(struct mlx5e_priv *priv,
- 			*min_inline = MLX5_INLINE_MODE_TCP_UDP;
- 	}
- 
--	if (dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_IP)) {
--		struct flow_dissector_key_ip *key =
--			skb_flow_dissector_target(f->dissector,
--						  FLOW_DISSECTOR_KEY_IP,
--						  f->key);
--		struct flow_dissector_key_ip *mask =
--			skb_flow_dissector_target(f->dissector,
--						  FLOW_DISSECTOR_KEY_IP,
--						  f->mask);
--
--		MLX5_SET(fte_match_set_lyr_2_4, headers_c, ip_ecn, mask->tos & 0x3);
--		MLX5_SET(fte_match_set_lyr_2_4, headers_v, ip_ecn, key->tos & 0x3);
--
--		MLX5_SET(fte_match_set_lyr_2_4, headers_c, ip_dscp, mask->tos >> 2);
--		MLX5_SET(fte_match_set_lyr_2_4, headers_v, ip_dscp, key->tos  >> 2);
--
--		if (mask->tos)
--			*min_inline = MLX5_INLINE_MODE_IP;
--
--		if (mask->ttl) /* currently not supported */
--			return -EOPNOTSUPP;
+-	phydev = phy_find_first(bp->mii_bus);
+-	if (!phydev) {
+-		netdev_err(dev, "no PHY found\n");
+-		return -ENXIO;
 -	}
++	if (bp->phy_node) {
++		phydev = of_phy_connect(dev, bp->phy_node,
++					&macb_handle_link_change, 0,
++					bp->phy_interface);
++		if (!phydev)
++			return -ENODEV;
++	} else {
++		phydev = phy_find_first(bp->mii_bus);
++		if (!phydev) {
++			netdev_err(dev, "no PHY found\n");
++			return -ENXIO;
++		}
+ 
+-	pdata = dev_get_platdata(&bp->pdev->dev);
+-	if (pdata) {
+-		if (gpio_is_valid(pdata->phy_irq_pin)) {
+-			ret = devm_gpio_request(&bp->pdev->dev,
+-						pdata->phy_irq_pin, "phy int");
+-			if (!ret) {
+-				phy_irq = gpio_to_irq(pdata->phy_irq_pin);
+-				phydev->irq = (phy_irq < 0) ? PHY_POLL : phy_irq;
++		pdata = dev_get_platdata(&bp->pdev->dev);
++		if (pdata) {
++			if (gpio_is_valid(pdata->phy_irq_pin)) {
++				ret = devm_gpio_request(&bp->pdev->dev,
++							pdata->phy_irq_pin, "phy int");
++				if (!ret) {
++					phy_irq = gpio_to_irq(pdata->phy_irq_pin);
++					phydev->irq = (phy_irq < 0) ? PHY_POLL : phy_irq;
++				}
++			} else {
++				phydev->irq = PHY_POLL;
+ 			}
+-		} else {
+-			phydev->irq = PHY_POLL;
+ 		}
+-	}
+ 
+-	/* attach the mac to the phy */
+-	ret = phy_connect_direct(dev, phydev, &macb_handle_link_change,
+-				 bp->phy_interface);
+-	if (ret) {
+-		netdev_err(dev, "Could not attach to PHY\n");
+-		return ret;
++		/* attach the mac to the phy */
++		ret = phy_connect_direct(dev, phydev, &macb_handle_link_change,
++					 bp->phy_interface);
++		if (ret) {
++			netdev_err(dev, "Could not attach to PHY\n");
++			return ret;
++		}
+ 	}
+ 
+ 	/* mask with MAC supported features */
+@@ -499,26 +507,37 @@ static int macb_mii_init(struct macb *bp)
+ 
+ 	np = bp->pdev->dev.of_node;
+ 	if (np) {
+-		/* try dt phy registration */
+-		err = of_mdiobus_register(bp->mii_bus, np);
++		if (of_phy_is_fixed_link(np)) {
++			if (of_phy_register_fixed_link(np) < 0) {
++				dev_err(&bp->pdev->dev,
++					"broken fixed-link specification\n");
++				goto err_out_unregister_bus;
++			}
++			bp->phy_node = of_node_get(np);
+ 
+-		/* fallback to standard phy registration if no phy were
+-		 * found during dt phy registration
+-		 */
+-		if (!err && !phy_find_first(bp->mii_bus)) {
+-			for (i = 0; i < PHY_MAX_ADDR; i++) {
+-				struct phy_device *phydev;
 -
- 	if (dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_TCP)) {
- 		struct flow_dissector_key_tcp *key =
- 			skb_flow_dissector_target(f->dissector,
+-				phydev = mdiobus_scan(bp->mii_bus, i);
+-				if (IS_ERR(phydev) &&
+-				    PTR_ERR(phydev) != -ENODEV) {
+-					err = PTR_ERR(phydev);
+-					break;
++			err = mdiobus_register(bp->mii_bus);
++		} else {
++			/* try dt phy registration */
++			err = of_mdiobus_register(bp->mii_bus, np);
++
++			/* fallback to standard phy registration if no phy were
++			 * found during dt phy registration
++			 */
++			if (!err && !phy_find_first(bp->mii_bus)) {
++				for (i = 0; i < PHY_MAX_ADDR; i++) {
++					struct phy_device *phydev;
++
++					phydev = mdiobus_scan(bp->mii_bus, i);
++					if (IS_ERR(phydev) &&
++					    PTR_ERR(phydev) != -ENODEV) {
++						err = PTR_ERR(phydev);
++						break;
++					}
+ 				}
+-			}
+ 
+-			if (err)
+-				goto err_out_unregister_bus;
++				if (err)
++					goto err_out_unregister_bus;
++			}
+ 		}
+ 	} else {
+ 		for (i = 0; i < PHY_MAX_ADDR; i++)
+@@ -3438,6 +3457,7 @@ static int macb_remove(struct platform_device *pdev)
+ 		clk_disable_unprepare(bp->hclk);
+ 		clk_disable_unprepare(bp->pclk);
+ 		clk_disable_unprepare(bp->rx_clk);
++		of_node_put(bp->phy_node);
+ 		free_netdev(dev);
+ 	}
+ 
+diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+index ec037b0fa2a4d..2510661102bad 100644
+--- a/drivers/net/ethernet/cadence/macb.h
++++ b/drivers/net/ethernet/cadence/macb.h
+@@ -930,6 +930,7 @@ struct macb {
+ 	struct macb_or_gem_ops	macbgem_ops;
+ 
+ 	struct mii_bus		*mii_bus;
++	struct device_node	*phy_node;
+ 	int 			link;
+ 	int 			speed;
+ 	int 			duplex;
 -- 
 2.11.0
