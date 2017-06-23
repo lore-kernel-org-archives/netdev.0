@@ -1,40 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 net-next 00/11] update ena ethernet driver to
- version 1.2.0
-Date: Fri, 23 Jun 2017 14:16:37 -0400 (EDT)
-Message-ID: <20170623.141637.194178237902883118.davem@davemloft.net>
-References: <1498206120-13805-1-git-send-email-netanel@amazon.com>
+Subject: Re: pull request (net-next): ipsec-next 2017-06-23
+Date: Fri, 23 Jun 2017 14:18:19 -0400 (EDT)
+Message-ID: <20170623.141819.1988940567947681365.davem@davemloft.net>
+References: <1498207110-22520-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dwmw@amazon.com, zorik@amazon.com,
-        matua@amazon.com, saeedb@amazon.com, msw@amazon.com,
-        aliguori@amazon.com, nafea@amazon.com, evgenys@amazon.com
-To: netanel@amazon.com
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35078 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:35090 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754237AbdFWSQj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 14:16:39 -0400
-In-Reply-To: <1498206120-13805-1-git-send-email-netanel@amazon.com>
+        with ESMTP id S1754718AbdFWSSV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 14:18:21 -0400
+In-Reply-To: <1498207110-22520-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <netanel@amazon.com>
-Date: Fri, 23 Jun 2017 11:21:49 +0300
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Fri, 23 Jun 2017 10:38:24 +0200
 
-> From: Netanel Belgazal <netanel@amazon.com>
+> 1) Use memdup_user to spmlify xfrm_user_policy.
+>    From Geliang Tang.
 > 
-> This patchset contains some new features/improvements that were added
-> to the ENA driver to increase its robustness and are based on
-> experience of wide ENA deployment.
+> 2) Make xfrm_dev_register static to silence a sparse warning.
+>    From Wei Yongjun.
 > 
-> Change log:
+> 3) Use crypto_memneq to check the ICV in the AH protocol.
+>    From Sabrina Dubroca.
 > 
-> V2:
-> * Remove patch that add inline to C-file static function (contradict coding style).
-> * Remove patch that moves MTU parameter validation in ena_change_mtu() instead of
-> using the network stack.
-> * Use upper_32_bits()/lower_32_bits() instead of casting.
+> 4) Remove some unused variables in esp6.
+>    From Stephen Hemminger.
+> 
+> 5) Extend XFRM MIGRATE to allow to change the UDP encapsulation port.
+>    From Antony Antony.
+> 
+> 6) Include the UDP encapsulation port to km_migrate announcements.
+>    From Antony Antony.
+> 
+> Please pull or let me know if there are problems.
 
-Series applied, thanks.
+Pulled, thank you very much.
