@@ -1,55 +1,51 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 2/4] net: phy: Support "internal" PHY interface
-Date: Fri, 23 Jun 2017 10:33:14 -0700
-Message-ID: <20170623173316.23017-3-f.fainelli@gmail.com>
-References: <20170623173316.23017-1-f.fainelli@gmail.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Sean Wang <sean.wang@mediatek.com>,
-        Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
-        Russell King <rmk+kernel@armlinux.org.uk>,
-        devicetree@vger.kernel.org (open list:OPEN FIRMWARE AND FLATTENED
-        DEVICE TREE BINDINGS), linux-kernel@vger.kernel.org (open list),
-        david.wu@rock-chips.com, opendmb@gmail.com
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] PATCH v3 Convert multiple netdev_info messages to
+ netdev_dbg
+Date: Fri, 23 Jun 2017 13:33:52 -0400 (EDT)
+Message-ID: <20170623.133352.2059206023839972118.davem@davemloft.net>
+References: <1498010934-27703-1-git-send-email-michael.j.dilmore@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: j.vosburgh@gmail.com, vfalico@gmail.com, andy@greyhouse.net,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        joe@perches.com
+To: michael.j.dilmore@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170623173316.23017-1-f.fainelli@gmail.com>
+In-Reply-To: <1498010934-27703-1-git-send-email-michael.j.dilmore@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Now that the Device Tree binding has been updated, update the PHY
-library phy_interface_t and phy_modes to support the "internal" PHY
-interface type.
+From: Michael J Dilmore <michael.j.dilmore@gmail.com>
+Date: Wed, 21 Jun 2017 03:08:54 +0100
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- include/linux/phy.h | 3 +++
- 1 file changed, 3 insertions(+)
+> The bond_options.c file contains multiple netdev_info messages that
+> clutter kernel output. This patches replaces these with netdev_dbg messages
+> and adds a netdev_dbg for packets for slave.
+> 
+> Signed-off-by: Michael J Dilmore <michael.j.dilmore@gmail.com>
+> Suggested-by: Joe Perches <joe@perches.com>
 
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 23d2e46dd322..1d8d70193782 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -64,6 +64,7 @@
- /* Interface Mode definitions */
- typedef enum {
- 	PHY_INTERFACE_MODE_NA,
-+	PHY_INTERFACE_MODE_INTERNAL,
- 	PHY_INTERFACE_MODE_MII,
- 	PHY_INTERFACE_MODE_GMII,
- 	PHY_INTERFACE_MODE_SGMII,
-@@ -114,6 +115,8 @@ static inline const char *phy_modes(phy_interface_t interface)
- 	switch (interface) {
- 	case PHY_INTERFACE_MODE_NA:
- 		return "";
-+	case PHY_INTERFACE_MODE_INTERNAL:
-+		return "internal";
- 	case PHY_INTERFACE_MODE_MII:
- 		return "mii";
- 	case PHY_INTERFACE_MODE_GMII:
--- 
-2.9.3
+This falls under the category of "very low quality patch submission"
+I'm afraid.
+
+First of all your Subject lines need to be done more properly.
+
+Puting "PATCH" twice in there is pointless, just once inside of the
+brackets is enough.  The "v3" belongs inside of the brackets too.
+
+Seriously, just look at how other developer format their Subject lines
+on this mailing list, and you are less likely to go wrong.  Doing thing
+your own unique way is asking for trouble.
+
+But more importantly, your commit log message says you are converting
+netdev_info calls into netdev_dbg ones, but that is not at all what
+this patch does.
+
+>  		netdev_dbg(bond->dev, "%s mode is incompatible with arp monitoring, start mii monitoring\n",
+> -			    newval->string);
+> +			   newval->string);
+
+You're simply adjusting indentation of the code.
+
+There are no "conversions" going on here at all.
