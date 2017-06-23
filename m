@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 2/6] xfrm: move xfrm_garbage_collect out of xfrm_policy_flush
-Date: Fri, 23 Jun 2017 09:06:30 +0200
-Message-ID: <1498201594-10835-3-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 5/6] xfrm6: Fix IPv6 payload_len in xfrm6_transport_finish
+Date: Fri, 23 Jun 2017 09:06:33 +0200
+Message-ID: <1498201594-10835-6-git-send-email-steffen.klassert@secunet.com>
 References: <1498201594-10835-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,89 +10,46 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:47066 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:47080 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751162AbdFWHGn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1751240AbdFWHGn (ORCPT <rfc822;netdev@vger.kernel.org>);
         Fri, 23 Jun 2017 03:06:43 -0400
 In-Reply-To: <1498201594-10835-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hangbin Liu <liuhangbin@gmail.com>
+From: Yossi Kuperman <yossiku@mellanox.com>
 
-Now we will force to do garbage collection if any policy removed in
-xfrm_policy_flush(). But during xfrm_net_exit(). We call flow_cache_fini()
-first and set set fc->percpu to NULL. Then after we call xfrm_policy_fini()
--> frxm_policy_flush() -> flow_cache_flush(), we will get NULL pointer
-dereference when check percpu_empty. The code path looks like:
+IPv6 payload length indicates the size of the payload, including any
+extension headers.
 
-flow_cache_fini()
-  - fc->percpu = NULL
-xfrm_policy_fini()
-  - xfrm_policy_flush()
-    - xfrm_garbage_collect()
-      - flow_cache_flush()
-        - flow_cache_percpu_empty()
-	  - fcp = per_cpu_ptr(fc->percpu, cpu)
+In xfrm6_transport_finish, ipv6_hdr(skb)->payload_len is set to the
+payload size only, regardless of the presence of any extension headers.
+After ESP GRO transport mode decapsulation, ipv6_rcv trims the packet
+according to the wrong payload_len, thus corrupting the packet.
 
-To reproduce, just add ipsec in netns and then remove the netns.
+Set payload_len to account for extension headers as well.
 
-v2:
-As Xin Long suggested, since only two other places need to call it. move
-xfrm_garbage_collect() outside xfrm_policy_flush().
-
-v3:
-Fix subject mismatch after v2 fix.
-
-Fixes: 35db06912189 ("xfrm: do the garbage collection after flushing policy")
-Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
-Reviewed-by: Xin Long <lucien.xin@gmail.com>
+Fixes: 7785bba299a8 ("esp: Add a software GRO codepath")
+Signed-off-by: Yossi Kuperman <yossiku@mellanox.com>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/key/af_key.c       | 2 ++
- net/xfrm/xfrm_policy.c | 4 ----
- net/xfrm/xfrm_user.c   | 1 +
- 3 files changed, 3 insertions(+), 4 deletions(-)
+ net/ipv6/xfrm6_input.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 512dc43..5103f92 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -2755,6 +2755,8 @@ static int pfkey_spdflush(struct sock *sk, struct sk_buff *skb, const struct sad
- 	int err, err2;
+diff --git a/net/ipv6/xfrm6_input.c b/net/ipv6/xfrm6_input.c
+index 08a807b..3ef5d91 100644
+--- a/net/ipv6/xfrm6_input.c
++++ b/net/ipv6/xfrm6_input.c
+@@ -43,8 +43,8 @@ int xfrm6_transport_finish(struct sk_buff *skb, int async)
+ 		return 1;
+ #endif
  
- 	err = xfrm_policy_flush(net, XFRM_POLICY_TYPE_MAIN, true);
-+	if (!err)
-+		xfrm_garbage_collect(net);
- 	err2 = unicast_flush_resp(sk, hdr);
- 	if (err || err2) {
- 		if (err == -ESRCH) /* empty table - old silent behavior */
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index ed4e52d..643a18f 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1006,10 +1006,6 @@ int xfrm_policy_flush(struct net *net, u8 type, bool task_valid)
- 		err = -ESRCH;
- out:
- 	spin_unlock_bh(&net->xfrm.xfrm_policy_lock);
--
--	if (cnt)
--		xfrm_garbage_collect(net);
--
- 	return err;
- }
- EXPORT_SYMBOL(xfrm_policy_flush);
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 38614df..86116e9 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -2027,6 +2027,7 @@ static int xfrm_flush_policy(struct sk_buff *skb, struct nlmsghdr *nlh,
- 			return 0;
- 		return err;
- 	}
-+	xfrm_garbage_collect(net);
+-	ipv6_hdr(skb)->payload_len = htons(skb->len);
+ 	__skb_push(skb, skb->data - skb_network_header(skb));
++	ipv6_hdr(skb)->payload_len = htons(skb->len - sizeof(struct ipv6hdr));
  
- 	c.data.type = type;
- 	c.event = nlh->nlmsg_type;
+ 	if (xo && (xo->flags & XFRM_GRO)) {
+ 		skb_mac_header_rebuild(skb);
 -- 
 2.7.4
