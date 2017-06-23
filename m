@@ -1,36 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL] arcnet: fixes and features
-Date: Fri, 23 Jun 2017 13:54:03 -0400 (EDT)
-Message-ID: <20170623.135403.778221185468261150.davem@davemloft.net>
-References: <20170622153110.4079-1-m.grzeschik@pengutronix.de>
+Subject: Re: [PATCH] net: stmmac: make some functions static
+Date: Fri, 23 Jun 2017 13:58:52 -0400 (EDT)
+Message-ID: <20170623.135852.116857192416960869.davem@davemloft.net>
+References: <20170622161729.23602-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel@pengutronix.de
-To: m.grzeschik@pengutronix.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34628 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754343AbdFWRyK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 13:54:10 -0400
-In-Reply-To: <20170622153110.4079-1-m.grzeschik@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170622161729.23602-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Date: Thu, 22 Jun 2017 17:31:02 +0200
+From: Colin King <colin.king@canonical.com>
+Date: Thu, 22 Jun 2017 17:17:29 +0100
 
-> are available in the git repository at:
+> From: Colin Ian King <colin.king@canonical.com>
 > 
->   public@git.pengutronix.de:/mgr/linux.git tags/arcnet-for-mainline
+> The functions dwmac4_dma_init_rx_chan, dwmac4_dma_init_tx_chan and
+> dwmac4_dma_init_channel do not need to be in global scope, so them
+> static.
+> 
+> Cleans up sparse warnings:
+> "symbol 'dwmac4_dma_init_rx_chan' was not declared. Should it be static?"
+> "symbol 'dwmac4_dma_init_tx_chan' was not declared. Should it be static?"
+> "symbol 'dwmac4_dma_init_channel' was not declared. Should it be static?"
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-I'm not pulling from that address, either setup a properl kernel.org
-GIT account or we work with just plain patches.
-
-Next, you need to provide a proper commit message in a
-"[PATCH 0/N] " posting explaining at a high level what
-the patch series is doing as a unit, how it is doing it,
-and why it is doing it that way.
-
-Finally, in patch #1 the assignment of "flags" to "0" in the
-declaration is unnecessary please remove it.
+Applied to net-next, thanks.
