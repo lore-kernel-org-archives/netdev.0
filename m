@@ -1,32 +1,48 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: fs, net: deadlock between bind/splice on af_unix
-Date: Fri, 23 Jun 2017 09:30:57 -0700
-Message-ID: <CAM_iQpVaqHSN3vVMZqe7=Bc924Vtm4ERVD8ZjorwLH1O9fXPQw@mail.gmail.com>
-References: <CACT4Y+Z981V+QLHr=PnQy1Dvxrpp-nCDhQtf+5HuNAusH+Vqxw@mail.gmail.com>
- <065031f0-27c5-443d-82f9-2f475fcef8c3@googlegroups.com>
+From: Mary Andrews <mandrews@aimdigitalpros.com>
+Subject: Motorcycle Owners List
+Date: Fri, 23 Jun 2017 12:17:03 -0400
+Message-ID: <5ad43daa-f6a3-70d8-db74-de56fab31acf@aimdigitalpros.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: syzkaller <syzkaller@googlegroups.com>,
-        Al Viro <viro@zeniv.linux.org.uk>,
-        linux-fsdevel@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>
-To: kodamagulla.kalyan@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <065031f0-27c5-443d-82f9-2f475fcef8c3@googlegroups.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:33717 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752756AbdFWQmp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 12:42:45 -0400
+Received: by mail-pf0-f178.google.com with SMTP id e7so25824844pfk.0
+        for <netdev@vger.kernel.org>; Fri, 23 Jun 2017 09:42:45 -0700 (PDT)
+Received: from [192.168.0.16] ([103.6.157.159])
+        by smtp.gmail.com with ESMTPSA id r90sm10893734pfj.37.2017.06.23.09.42.43
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Fri, 23 Jun 2017 09:42:43 -0700 (PDT)
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
 
 Hi,
 
-On Thu, Jun 22, 2017 at 10:49 AM,  <kodamagulla.kalyan@gmail.com> wrote:
-> I was getting below crash while running mp4.
+Hope all's well,
 
-Are you sure your 3.14 kernel has my patch in this thread?
-commit 0fb44559ffd67de8517098 is merged in 4.10.
+Would you be interested in acquiring an email list of “ Motorcycle Owners List ” from USA?
 
-Also, your crash is on unix_dgram_sendmsg() path, not
-unix_bind().
+Each record in the list contains Contact Name (First, Middle and Last Name), Mailing Address, List type and Opt-in email address.
+
+All the contacts are opt-in verified, 100% permission based and can be used for unlimited multi-channel marketing.
+
+We also have data for:
+(1)Frequent Travelers List   (2)RV/BoatOwners List
+(3)Cycling Enthusiasts List  (4)Sail boat Owners List
+(5)Power Boat Owners List    (6)Harley Davidson Owners List
+(7)Travelers List            (8)Cruise Travelers List
+(9)Wine Enthusiasts List     (10)Car Owners List
+
+Let me know if you'd be interested in hearing more about it.
+
+Waiting for your valuable and sincere reply.
+
+Best Regards,
+Mary Andrews
