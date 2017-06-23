@@ -1,7 +1,7 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net-next v3 04/12] nfp: map mac_stats and vf_cfg BARs
-Date: Fri, 23 Jun 2017 22:12:01 +0200
-Message-ID: <1498248729-375-5-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH net-next v3 06/12] nfp: add stats and xmit helpers for representors
+Date: Fri, 23 Jun 2017 22:12:03 +0200
+Message-ID: <1498248729-375-7-git-send-email-simon.horman@netronome.com>
 References: <1498248729-375-1-git-send-email-simon.horman@netronome.com>
 Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
         Or Gerlitz <gerlitz.or@gmail.com>,
@@ -9,371 +9,325 @@ Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
 To: David Miller <davem@davemloft.net>,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f174.google.com ([209.85.128.174]:33261 "EHLO
-        mail-wr0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754928AbdFWUMa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 16:12:30 -0400
-Received: by mail-wr0-f174.google.com with SMTP id r103so79656864wrb.0
-        for <netdev@vger.kernel.org>; Fri, 23 Jun 2017 13:12:29 -0700 (PDT)
+Received: from mail-wr0-f176.google.com ([209.85.128.176]:35392 "EHLO
+        mail-wr0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754980AbdFWUMk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 16:12:40 -0400
+Received: by mail-wr0-f176.google.com with SMTP id k67so79097859wrc.2
+        for <netdev@vger.kernel.org>; Fri, 23 Jun 2017 13:12:39 -0700 (PDT)
 In-Reply-To: <1498248729-375-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If present map mac_stats and vf_cfg BARs. These will be used by
-representor netdevs to read statistics for phys port and vf representors.
+Provide helpers for stats and xmit on representor netdevs.
 
-Also provide defines describing the layout of the mac_stats area.
-Similar defines are already present for the cf_cfg area.
-
-Based in part on work by Jakub Kicinski.
+Parts based on work by Bert van Leeuwen, Benjamin LaHaise and
+Jakub Kicinski.
 
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
 Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
-v3
-* Do not log an error if optional symbols are not found
----
- drivers/net/ethernet/netronome/nfp/nfp_main.h      |   8 ++
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c  | 122 +++++++++++++++------
- drivers/net/ethernet/netronome/nfp/nfp_port.h      |  60 ++++++++++
- .../net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h   |   2 +
- .../ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c   |   5 +-
- 5 files changed, 164 insertions(+), 33 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_net_repr.c | 199 +++++++++++++++++++++-
+ drivers/net/ethernet/netronome/nfp/nfp_net_repr.h |  28 +++
+ 2 files changed, 226 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.h b/drivers/net/ethernet/netronome/nfp/nfp_main.h
-index 88724f8d0dcd..aa69d4101eb9 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_main.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_main.h
-@@ -68,6 +68,10 @@ struct nfp_rtsym_table;
-  * @data_vnic_bar:	Pointer to the CPP area for the data vNICs' BARs
-  * @ctrl_vnic_bar:	Pointer to the CPP area for the ctrl vNIC's BAR
-  * @qc_area:		Pointer to the CPP area for the queues
-+ * @mac_stats_bar:	Pointer to the CPP area for the MAC stats
-+ * @mac_stats_mem:	Pointer to mapped MAC stats area
-+ * @vf_cfg_bar:		Pointer to the CPP area for the VF configuration BAR
-+ * @vf_cfg_mem:		Pointer to mapped VF configuration area
-  * @irq_entries:	Array of MSI-X entries for all vNICs
-  * @limit_vfs:		Number of VFs supported by firmware (~0 for PCI limit)
-  * @num_vfs:		Number of SR-IOV VFs enabled
-@@ -97,6 +101,10 @@ struct nfp_pf {
- 	struct nfp_cpp_area *data_vnic_bar;
- 	struct nfp_cpp_area *ctrl_vnic_bar;
- 	struct nfp_cpp_area *qc_area;
-+	struct nfp_cpp_area *mac_stats_bar;
-+	u8 __iomem *mac_stats_mem;
-+	struct nfp_cpp_area *vf_cfg_bar;
-+	u8 __iomem *vf_cfg_mem;
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
+index 8e02f843ae92..44adcc5df11e 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
+@@ -32,15 +32,198 @@
+  */
  
- 	struct msix_entry *irq_entries;
+ #include <linux/etherdevice.h>
++#include <linux/io-64-nonatomic-hi-lo.h>
+ #include <linux/lockdep.h>
+ #include <net/dst_metadata.h>
  
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index bc2bc0886176..911b764d7641 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -235,10 +235,8 @@ nfp_net_pf_map_rtsym(struct nfp_pf *pf, const char *name, const char *sym_fmt,
- 		 nfp_cppcore_pcie_unit(pf->cpp));
+ #include "nfpcore/nfp_cpp.h"
+ #include "nfp_app.h"
+ #include "nfp_main.h"
++#include "nfp_net_ctrl.h"
+ #include "nfp_net_repr.h"
+ #include "nfp_port.h"
  
- 	sym = nfp_rtsym_lookup(pf->rtbl, pf_symbol);
--	if (!sym) {
--		nfp_err(pf->cpp, "Failed to find PF symbol %s\n", pf_symbol);
-+	if (!sym)
- 		return (u8 __iomem *)ERR_PTR(-ENOENT);
--	}
- 
- 	if (sym->size < min_size) {
- 		nfp_err(pf->cpp, "PF symbol %s too small\n", pf_symbol);
-@@ -486,6 +484,7 @@ nfp_net_pf_app_init(struct nfp_pf *pf, u8 __iomem *qc_bar, unsigned int stride)
- 					NFP_PF_CSR_SLICE_SIZE,
- 					&pf->ctrl_vnic_bar);
- 	if (IS_ERR(ctrl_bar)) {
-+		nfp_err(pf->cpp, "Failed to find data vNIC memory symbol\n");
- 		err = PTR_ERR(ctrl_bar);
- 		goto err_free;
- 	}
-@@ -570,6 +569,80 @@ static void nfp_net_pf_app_stop(struct nfp_pf *pf)
- 	nfp_net_pf_app_stop_ctrl(pf);
- }
- 
-+static void nfp_net_pci_unmap_mem(struct nfp_pf *pf)
++static void
++nfp_repr_inc_tx_stats(struct net_device *netdev, unsigned int len,
++		      int tx_status)
 +{
-+	if (pf->vf_cfg_bar)
-+		nfp_cpp_area_release_free(pf->vf_cfg_bar);
-+	if (pf->mac_stats_bar)
-+		nfp_cpp_area_release_free(pf->mac_stats_bar);
-+	nfp_cpp_area_release_free(pf->qc_area);
-+	nfp_cpp_area_release_free(pf->data_vnic_bar);
++	struct nfp_repr *repr = netdev_priv(netdev);
++	struct nfp_repr_pcpu_stats *stats;
++
++	if (unlikely(tx_status != NET_XMIT_SUCCESS &&
++		     tx_status != NET_XMIT_CN)) {
++		this_cpu_inc(repr->stats->tx_drops);
++		return;
++	}
++
++	stats = this_cpu_ptr(repr->stats);
++	u64_stats_update_begin(&stats->syncp);
++	stats->tx_packets++;
++	stats->tx_bytes += len;
++	u64_stats_update_end(&stats->syncp);
 +}
 +
-+static int nfp_net_pci_map_mem(struct nfp_pf *pf)
++void nfp_repr_inc_rx_stats(struct net_device *netdev, unsigned int len)
 +{
-+	u32 ctrl_bar_sz;
++	struct nfp_repr *repr = netdev_priv(netdev);
++	struct nfp_repr_pcpu_stats *stats;
++
++	stats = this_cpu_ptr(repr->stats);
++	u64_stats_update_begin(&stats->syncp);
++	stats->rx_packets++;
++	stats->rx_bytes += len;
++	u64_stats_update_end(&stats->syncp);
++}
++
++static void
++nfp_repr_phy_port_get_stats64(const struct nfp_app *app, u8 phy_port,
++			      struct rtnl_link_stats64 *stats)
++{
 +	u8 __iomem *mem;
-+	int err;
 +
-+	ctrl_bar_sz = pf->max_data_vnics * NFP_PF_CSR_SLICE_SIZE;
-+	mem = nfp_net_pf_map_rtsym(pf, "net.ctrl", "_pf%d_net_bar0",
-+				   ctrl_bar_sz, &pf->data_vnic_bar);
-+	if (IS_ERR(mem)) {
-+		nfp_err(pf->cpp, "Failed to find data vNIC memory symbol\n");
-+		err = PTR_ERR(mem);
-+		if (!pf->fw_loaded && err == -ENOENT)
-+			err = -EPROBE_DEFER;
-+		return err;
++	mem = app->pf->mac_stats_mem + phy_port * NFP_MAC_STATS_SIZE;
++
++	/* TX and RX stats are flipped as we are returning the stats as seen
++	 * at the switch port corresponding to the phys port.
++	 */
++	stats->tx_packets = readq(mem + NFP_MAC_STATS_RX_FRAMES_RECEIVED_OK);
++	stats->tx_bytes = readq(mem + NFP_MAC_STATS_RX_IN_OCTETS);
++	stats->tx_dropped = readq(mem + NFP_MAC_STATS_RX_IN_ERRORS);
++
++	stats->rx_packets = readq(mem + NFP_MAC_STATS_TX_FRAMES_TRANSMITTED_OK);
++	stats->rx_bytes = readq(mem + NFP_MAC_STATS_TX_OUT_OCTETS);
++	stats->rx_dropped = readq(mem + NFP_MAC_STATS_TX_OUT_ERRORS);
++}
++
++static void
++nfp_repr_vf_get_stats64(const struct nfp_app *app, u8 vf,
++			struct rtnl_link_stats64 *stats)
++{
++	u8 __iomem *mem;
++
++	mem = app->pf->vf_cfg_mem + vf * NFP_NET_CFG_BAR_SZ;
++
++	/* TX and RX stats are flipped as we are returning the stats as seen
++	 * at the switch port corresponding to the VF.
++	 */
++	stats->tx_packets = readq(mem + NFP_NET_CFG_STATS_RX_FRAMES);
++	stats->tx_bytes = readq(mem + NFP_NET_CFG_STATS_RX_OCTETS);
++	stats->tx_dropped = readq(mem + NFP_NET_CFG_STATS_RX_DISCARDS);
++
++	stats->rx_packets = readq(mem + NFP_NET_CFG_STATS_TX_FRAMES);
++	stats->rx_bytes = readq(mem + NFP_NET_CFG_STATS_TX_OCTETS);
++	stats->rx_dropped = readq(mem + NFP_NET_CFG_STATS_TX_DISCARDS);
++}
++
++static void
++nfp_repr_pf_get_stats64(const struct nfp_app *app, u8 pf,
++			struct rtnl_link_stats64 *stats)
++{
++	u8 __iomem *mem;
++
++	if (pf)
++		return;
++
++	mem = nfp_cpp_area_iomem(app->pf->data_vnic_bar);
++
++	stats->tx_packets = readq(mem + NFP_NET_CFG_STATS_RX_FRAMES);
++	stats->tx_bytes = readq(mem + NFP_NET_CFG_STATS_RX_OCTETS);
++	stats->tx_dropped = readq(mem + NFP_NET_CFG_STATS_RX_DISCARDS);
++
++	stats->rx_packets = readq(mem + NFP_NET_CFG_STATS_TX_FRAMES);
++	stats->rx_bytes = readq(mem + NFP_NET_CFG_STATS_TX_OCTETS);
++	stats->rx_dropped = readq(mem + NFP_NET_CFG_STATS_TX_DISCARDS);
++}
++
++void
++nfp_repr_get_stats64(const struct nfp_app *app, enum nfp_repr_type type,
++		     u8 port, struct rtnl_link_stats64 *stats)
++{
++	switch (type) {
++	case NFP_REPR_TYPE_PHYS_PORT:
++		nfp_repr_phy_port_get_stats64(app, port, stats);
++		break;
++	case NFP_REPR_TYPE_PF:
++		nfp_repr_pf_get_stats64(app, port, stats);
++		break;
++	case NFP_REPR_TYPE_VF:
++		nfp_repr_vf_get_stats64(app, port, stats);
++	default:
++		break;
++	}
++}
++
++bool
++nfp_repr_has_offload_stats(const struct net_device *dev, int attr_id)
++{
++	switch (attr_id) {
++	case IFLA_OFFLOAD_XSTATS_CPU_HIT:
++		return true;
 +	}
 +
-+	pf->mac_stats_mem = nfp_net_pf_map_rtsym(pf, "net.macstats",
-+						 "_mac_stats",
-+						 NFP_MAC_STATS_SIZE *
-+						 (pf->eth_tbl->max_index + 1),
-+						 &pf->mac_stats_bar);
-+	if (IS_ERR(pf->mac_stats_mem)) {
-+		if (PTR_ERR(pf->mac_stats_mem) != -ENOENT) {
-+			err = PTR_ERR(pf->mac_stats_mem);
-+			goto err_unmap_ctrl;
-+		}
-+		pf->mac_stats_mem = NULL;
-+	}
++	return false;
++}
 +
-+	pf->vf_cfg_mem = nfp_net_pf_map_rtsym(pf, "net.vfcfg",
-+					      "_pf%d_net_vf_bar",
-+					      NFP_NET_CFG_BAR_SZ *
-+					      pf->limit_vfs, &pf->vf_cfg_bar);
-+	if (IS_ERR(pf->vf_cfg_mem)) {
-+		if (PTR_ERR(pf->vf_cfg_mem) != -ENOENT) {
-+			err = PTR_ERR(pf->vf_cfg_mem);
-+			goto err_unmap_mac_stats;
-+		}
-+		pf->vf_cfg_mem = NULL;
-+	}
++static int
++nfp_repr_get_host_stats64(const struct net_device *netdev,
++			  struct rtnl_link_stats64 *stats)
++{
++	struct nfp_repr *repr = netdev_priv(netdev);
++	int i;
 +
-+	mem = nfp_net_map_area(pf->cpp, "net.qc", 0, 0,
-+			       NFP_PCIE_QUEUE(0), NFP_QCP_QUEUE_AREA_SZ,
-+			       &pf->qc_area);
-+	if (IS_ERR(mem)) {
-+		nfp_err(pf->cpp, "Failed to map Queue Controller area.\n");
-+		err = PTR_ERR(mem);
-+		goto err_unmap_vf_cfg;
++	for_each_possible_cpu(i) {
++		u64 tbytes, tpkts, tdrops, rbytes, rpkts;
++		struct nfp_repr_pcpu_stats *repr_stats;
++		unsigned int start;
++
++		repr_stats = per_cpu_ptr(repr->stats, i);
++		do {
++			start = u64_stats_fetch_begin_irq(&repr_stats->syncp);
++			tbytes = repr_stats->tx_bytes;
++			tpkts = repr_stats->tx_packets;
++			tdrops = repr_stats->tx_drops;
++			rbytes = repr_stats->rx_bytes;
++			rpkts = repr_stats->rx_packets;
++		} while (u64_stats_fetch_retry_irq(&repr_stats->syncp, start));
++
++		stats->tx_bytes += tbytes;
++		stats->tx_packets += tpkts;
++		stats->tx_dropped += tdrops;
++		stats->rx_bytes += rbytes;
++		stats->rx_packets += rpkts;
 +	}
 +
 +	return 0;
-+
-+err_unmap_vf_cfg:
-+	if (pf->vf_cfg_bar)
-+		nfp_cpp_area_release_free(pf->vf_cfg_bar);
-+err_unmap_mac_stats:
-+	if (pf->mac_stats_bar)
-+		nfp_cpp_area_release_free(pf->mac_stats_bar);
-+err_unmap_ctrl:
-+	nfp_cpp_area_release_free(pf->data_vnic_bar);
-+	return err;
 +}
 +
- static void nfp_net_pci_remove_finish(struct nfp_pf *pf)
- {
- 	nfp_net_pf_app_stop(pf);
-@@ -577,11 +650,8 @@ static void nfp_net_pci_remove_finish(struct nfp_pf *pf)
- 	nfp_net_debugfs_dir_clean(&pf->ddir);
- 
- 	nfp_net_pf_free_irqs(pf);
--
- 	nfp_net_pf_app_clean(pf);
--
--	nfp_cpp_area_release_free(pf->qc_area);
--	nfp_cpp_area_release_free(pf->data_vnic_bar);
-+	nfp_net_pci_unmap_mem(pf);
- }
- 
- static int
-@@ -706,7 +776,6 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
- {
- 	struct nfp_net_fw_version fw_ver;
- 	u8 __iomem *ctrl_bar, *qc_bar;
--	u32 ctrl_bar_sz;
- 	int stride;
- 	int err;
- 
-@@ -725,14 +794,15 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
- 		goto err_unlock;
- 	}
- 
--	ctrl_bar_sz = pf->max_data_vnics * NFP_PF_CSR_SLICE_SIZE;
--	ctrl_bar = nfp_net_pf_map_rtsym(pf, "net.ctrl", "_pf%d_net_bar0",
--					ctrl_bar_sz, &pf->data_vnic_bar);
--	if (IS_ERR(ctrl_bar)) {
--		err = PTR_ERR(ctrl_bar);
--		if (!pf->fw_loaded && err == -ENOENT)
--			err = -EPROBE_DEFER;
-+	err = nfp_net_pci_map_mem(pf);
-+	if (err)
- 		goto err_unlock;
-+
-+	ctrl_bar = nfp_cpp_area_iomem(pf->data_vnic_bar);
-+	qc_bar = nfp_cpp_area_iomem(pf->qc_area);
-+	if (!ctrl_bar || !qc_bar) {
-+		err = -EIO;
-+		goto err_unmap;
- 	}
- 
- 	nfp_net_get_fw_version(&fw_ver, ctrl_bar);
-@@ -740,7 +810,7 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
- 		nfp_err(pf->cpp, "Unknown Firmware ABI %d.%d.%d.%d\n",
- 			fw_ver.resv, fw_ver.class, fw_ver.major, fw_ver.minor);
- 		err = -EINVAL;
--		goto err_ctrl_unmap;
-+		goto err_unmap;
- 	}
- 
- 	/* Determine stride */
-@@ -757,23 +827,13 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
- 				fw_ver.resv, fw_ver.class,
- 				fw_ver.major, fw_ver.minor);
- 			err = -EINVAL;
--			goto err_ctrl_unmap;
-+			goto err_unmap;
- 		}
- 	}
- 
--	/* Map queues */
--	qc_bar = nfp_net_map_area(pf->cpp, "net.qc", 0, 0,
--				  NFP_PCIE_QUEUE(0), NFP_QCP_QUEUE_AREA_SZ,
--				  &pf->qc_area);
--	if (IS_ERR(qc_bar)) {
--		nfp_err(pf->cpp, "Failed to map Queue Controller area.\n");
--		err = PTR_ERR(qc_bar);
--		goto err_ctrl_unmap;
--	}
--
- 	err = nfp_net_pf_app_init(pf, qc_bar, stride);
- 	if (err)
--		goto err_unmap_qc;
-+		goto err_unmap;
- 
- 	pf->ddir = nfp_net_debugfs_device_add(pf->pdev);
- 
-@@ -807,10 +867,8 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
- err_clean_ddir:
- 	nfp_net_debugfs_dir_clean(&pf->ddir);
- 	nfp_net_pf_app_clean(pf);
--err_unmap_qc:
--	nfp_cpp_area_release_free(pf->qc_area);
--err_ctrl_unmap:
--	nfp_cpp_area_release_free(pf->data_vnic_bar);
-+err_unmap:
-+	nfp_net_pci_unmap_mem(pf);
- err_unlock:
- 	mutex_unlock(&pf->lock);
- 	cancel_work_sync(&pf->port_refresh_work);
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_port.h b/drivers/net/ethernet/netronome/nfp/nfp_port.h
-index fb28c7071987..f472bea4ec2b 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_port.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_port.h
-@@ -114,4 +114,64 @@ int nfp_net_refresh_port_table_sync(struct nfp_pf *pf);
- int nfp_devlink_port_register(struct nfp_app *app, struct nfp_port *port);
- void nfp_devlink_port_unregister(struct nfp_port *port);
- 
-+/**
-+ * Mac stats (0x0000 - 0x0200)
-+ * all counters are 64bit.
-+ */
-+#define NFP_MAC_STATS_BASE                0x0000
-+#define NFP_MAC_STATS_SIZE                0x0200
-+
-+#define NFP_MAC_STATS_RX_IN_OCTETS			(NFP_MAC_STATS_BASE + 0x000)
-+#define NFP_MAC_STATS_RX_FRAME_TOO_LONG_ERRORS		(NFP_MAC_STATS_BASE + 0x010)
-+#define NFP_MAC_STATS_RX_RANGE_LENGTH_ERRORS		(NFP_MAC_STATS_BASE + 0x018)
-+#define NFP_MAC_STATS_RX_VLAN_REVEIVE_OK		(NFP_MAC_STATS_BASE + 0x020)
-+#define NFP_MAC_STATS_RX_IN_ERRORS			(NFP_MAC_STATS_BASE + 0x028)
-+#define NFP_MAC_STATS_RX_IN_BROADCAST_PKTS		(NFP_MAC_STATS_BASE + 0x030)
-+#define NFP_MAC_STATS_RX_STATS_DROP_EVENTS		(NFP_MAC_STATS_BASE + 0x038)
-+#define NFP_MAC_STATS_RX_ALIGNMENT_ERRORS		(NFP_MAC_STATS_BASE + 0x040)
-+#define NFP_MAC_STATS_RX_PAUSE_MAC_CTRL_FRAMES		(NFP_MAC_STATS_BASE + 0x048)
-+#define NFP_MAC_STATS_RX_FRAMES_RECEIVED_OK		(NFP_MAC_STATS_BASE + 0x050)
-+#define NFP_MAC_STATS_RX_FRAME_CHECK_SEQUENCE_ERRORS	(NFP_MAC_STATS_BASE + 0x058)
-+#define NFP_MAC_STATS_RX_UNICAST_PKTS			(NFP_MAC_STATS_BASE + 0x060)
-+#define NFP_MAC_STATS_RX_MULTICAST_PKTS			(NFP_MAC_STATS_BASE + 0x068)
-+#define NFP_MAC_STATS_RX_STATS_PKTS			(NFP_MAC_STATS_BASE + 0x070)
-+#define NFP_MAC_STATS_RX_STATS_UNDERSIZE_PKTS		(NFP_MAC_STATS_BASE + 0x078)
-+#define NFP_MAC_STATS_RX_STATS_PKTS_64_OCTETS		(NFP_MAC_STATS_BASE + 0x080)
-+#define NFP_MAC_STATS_RX_STATS_PKTS_65_TO_127_OCTETS	(NFP_MAC_STATS_BASE + 0x088)
-+#define NFP_MAC_STATS_RX_STATS_PKTS_512_TO_1023_OCTETS	(NFP_MAC_STATS_BASE + 0x090)
-+#define NFP_MAC_STATS_RX_STATS_PKTS_1024_TO_1518_OCTETS	(NFP_MAC_STATS_BASE + 0x098)
-+#define NFP_MAC_STATS_RX_STATS_JABBERS			(NFP_MAC_STATS_BASE + 0x0a0)
-+#define NFP_MAC_STATS_RX_STATS_FRAGMENTS		(NFP_MAC_STATS_BASE + 0x0a8)
-+#define NFP_MAC_STATS_RX_PAUSE_FRAMES_CLASS2		(NFP_MAC_STATS_BASE + 0x0b0)
-+#define NFP_MAC_STATS_RX_PAUSE_FRAMES_CLASS3		(NFP_MAC_STATS_BASE + 0x0b8)
-+#define NFP_MAC_STATS_RX_STATS_PKTS_128_TO_255_OCTETS	(NFP_MAC_STATS_BASE + 0x0c0)
-+#define NFP_MAC_STATS_RX_STATS_PKTS_256_TO_511_OCTETS	(NFP_MAC_STATS_BASE + 0x0c8)
-+#define NFP_MAC_STATS_RX_STATS_PKTS_1519_TO_MAX_OCTETS	(NFP_MAC_STATS_BASE + 0x0d0)
-+#define NFP_MAC_STATS_RX_OVERSIZE_PKTS			(NFP_MAC_STATS_BASE + 0x0d8)
-+#define NFP_MAC_STATS_RX_PAUSE_FRAMES_CLASS0		(NFP_MAC_STATS_BASE + 0x0e0)
-+#define NFP_MAC_STATS_RX_PAUSE_FRAMES_CLASS1		(NFP_MAC_STATS_BASE + 0x0e8)
-+#define NFP_MAC_STATS_RX_PAUSE_FRAMES_CLASS4		(NFP_MAC_STATS_BASE + 0x0f0)
-+#define NFP_MAC_STATS_RX_PAUSE_FRAMES_CLASS5		(NFP_MAC_STATS_BASE + 0x0f8)
-+#define NFP_MAC_STATS_RX_PAUSE_FRAMES_CLASS6		(NFP_MAC_STATS_BASE + 0x100)
-+#define NFP_MAC_STATS_RX_PAUSE_FRAMES_CLASS7		(NFP_MAC_STATS_BASE + 0x108)
-+#define NFP_MAC_STATS_RX_MAC_CTRL_FRAMES_RECEIVED	(NFP_MAC_STATS_BASE + 0x110)
-+#define NFP_MAC_STATS_RX_MAC_HEAD_DROP			(NFP_MAC_STATS_BASE + 0x118)
-+
-+#define NFP_MAC_STATS_TX_QUEUE_DROP			(NFP_MAC_STATS_BASE + 0x138)
-+#define NFP_MAC_STATS_TX_OUT_OCTETS			(NFP_MAC_STATS_BASE + 0x140)
-+#define NFP_MAC_STATS_TX_VLAN_TRANSMITTED_OK		(NFP_MAC_STATS_BASE + 0x150)
-+#define NFP_MAC_STATS_TX_OUT_ERRORS			(NFP_MAC_STATS_BASE + 0x158)
-+#define NFP_MAC_STATS_TX_BROADCAST_PKTS			(NFP_MAC_STATS_BASE + 0x160)
-+#define NFP_MAC_STATS_TX_PKTS_64_OCTETS			(NFP_MAC_STATS_BASE + 0x168)
-+#define NFP_MAC_STATS_TX_PKTS_256_TO_511_OCTETS		(NFP_MAC_STATS_BASE + 0x170)
-+#define NFP_MAC_STATS_TX_PKTS_512_TO_1023_OCTETS	(NFP_MAC_STATS_BASE + 0x178)
-+#define NFP_MAC_STATS_TX_PAUSE_MAC_CTRL_FRAMES		(NFP_MAC_STATS_BASE + 0x180)
-+#define NFP_MAC_STATS_TX_FRAMES_TRANSMITTED_OK		(NFP_MAC_STATS_BASE + 0x188)
-+#define NFP_MAC_STATS_TX_UNICAST_PKTS			(NFP_MAC_STATS_BASE + 0x190)
-+#define NFP_MAC_STATS_TX_MULTICAST_PKTS			(NFP_MAC_STATS_BASE + 0x198)
-+#define NFP_MAC_STATS_TX_PKTS_65_TO_127_OCTETS		(NFP_MAC_STATS_BASE + 0x1a0)
-+#define NFP_MAC_STATS_TX_PKTS_127_TO_512_OCTETS		(NFP_MAC_STATS_BASE + 0x1a8)
-+#define NFP_MAC_STATS_TX_PKTS_128_TO_1518_OCTETS	(NFP_MAC_STATS_BASE + 0x1b0)
-+#define NFP_MAC_STATS_TX_PKTS_1518_TO_MAX_OCTETS	(NFP_MAC_STATS_BASE + 0x1b8)
-+
- #endif
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h
-index 26d7dcea4fd9..e2f028027c6f 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.h
-@@ -76,6 +76,7 @@ enum nfp_eth_aneg {
- /**
-  * struct nfp_eth_table - ETH table information
-  * @count:	number of table entries
-+ * @max_index:	max of @index fields of all @ports
-  * @ports:	table of ports
-  *
-  * @eth_index:	port index according to legacy ethX numbering
-@@ -101,6 +102,7 @@ enum nfp_eth_aneg {
-  */
- struct nfp_eth_table {
- 	unsigned int count;
-+	unsigned int max_index;
- 	struct nfp_eth_table_port {
- 		unsigned int eth_index;
- 		unsigned int index;
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
-index b0f8785c064f..c2bc36e8649f 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
-@@ -190,7 +190,9 @@ nfp_eth_calc_port_geometry(struct nfp_cpp *cpp, struct nfp_eth_table *table)
- {
- 	unsigned int i, j;
- 
--	for (i = 0; i < table->count; i++)
-+	for (i = 0; i < table->count; i++) {
-+		table->max_index = max(table->max_index, table->ports[i].index);
-+
- 		for (j = 0; j < table->count; j++) {
- 			if (table->ports[i].label_port !=
- 			    table->ports[j].label_port)
-@@ -208,6 +210,7 @@ nfp_eth_calc_port_geometry(struct nfp_cpp *cpp, struct nfp_eth_table *table)
- 
- 			table->ports[i].is_split = true;
- 		}
++int nfp_repr_get_offload_stats(int attr_id, const struct net_device *dev,
++			       void *stats)
++{
++	switch (attr_id) {
++	case IFLA_OFFLOAD_XSTATS_CPU_HIT:
++		return nfp_repr_get_host_stats64(dev, stats);
 +	}
++
++	return -EINVAL;
++}
++
++netdev_tx_t nfp_repr_xmit(struct sk_buff *skb, struct net_device *netdev)
++{
++	struct nfp_repr *repr = netdev_priv(netdev);
++	unsigned int len = skb->len;
++	int ret;
++
++	skb_dst_drop(skb);
++	dst_hold((struct dst_entry *)repr->dst);
++	skb_dst_set(skb, (struct dst_entry *)repr->dst);
++	skb->dev = repr->dst->u.port_info.lower_dev;
++
++	ret = dev_queue_xmit(skb);
++	nfp_repr_inc_tx_stats(netdev, len, ret);
++
++	return ret;
++}
++
+ static void nfp_repr_clean(struct nfp_repr *repr)
+ {
+ 	unregister_netdev(repr->netdev);
+@@ -93,6 +276,12 @@ int nfp_repr_init(struct nfp_app *app, struct net_device *netdev,
+ 	return err;
  }
  
- static void
++static void nfp_repr_free(struct nfp_repr *repr)
++{
++	free_percpu(repr->stats);
++	free_netdev(repr->netdev);
++}
++
+ struct net_device *nfp_repr_alloc(struct nfp_app *app)
+ {
+ 	struct net_device *netdev;
+@@ -106,7 +295,15 @@ struct net_device *nfp_repr_alloc(struct nfp_app *app)
+ 	repr->netdev = netdev;
+ 	repr->app = app;
+ 
++	repr->stats = netdev_alloc_pcpu_stats(struct nfp_repr_pcpu_stats);
++	if (!repr->stats)
++		goto err_free_netdev;
++
+ 	return netdev;
++
++err_free_netdev:
++	free_netdev(netdev);
++	return NULL;
+ }
+ 
+ static void nfp_repr_clean_and_free(struct nfp_repr *repr)
+@@ -114,7 +311,7 @@ static void nfp_repr_clean_and_free(struct nfp_repr *repr)
+ 	nfp_info(repr->app->cpp, "Destroying Representor(%s)\n",
+ 		 repr->netdev->name);
+ 	nfp_repr_clean(repr);
+-	free_netdev(repr->netdev);
++	nfp_repr_free(repr);
+ }
+ 
+ void nfp_reprs_clean_and_free(struct nfp_reprs *reprs)
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_repr.h b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.h
+index 98064f3c2623..c5ed6611f708 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_repr.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.h
+@@ -49,17 +49,37 @@ struct nfp_reprs {
+ };
+ 
+ /**
++ * struct nfp_repr_pcpu_stats
++ * @rx_packets:	Received packets
++ * @rx_bytes:	Received bytes
++ * @tx_packets:	Transmitted packets
++ * @tx_bytes:	Transmitted dropped
++ * @tx_drops:	Packets dropped on transmit
++ * @syncp:	Reference count
++ */
++struct nfp_repr_pcpu_stats {
++	u64 rx_packets;
++	u64 rx_bytes;
++	u64 tx_packets;
++	u64 tx_bytes;
++	u64 tx_drops;
++	struct u64_stats_sync syncp;
++};
++
++/**
+  * struct nfp_repr - priv data for representor netdevs
+  * @netdev:	Back pointer to netdev
+  * @dst:	Destination for packet TX
+  * @port:	Port of representor
+  * @app:	APP handle
++ * @stats:	Statistic of packets hitting CPU
+  */
+ struct nfp_repr {
+ 	struct net_device *netdev;
+ 	struct metadata_dst *dst;
+ 	struct nfp_port *port;
+ 	struct nfp_app *app;
++	struct nfp_repr_pcpu_stats __percpu *stats;
+ };
+ 
+ /**
+@@ -77,6 +97,14 @@ enum nfp_repr_type {
+ };
+ #define NFP_REPR_TYPE_MAX (__NFP_REPR_TYPE_MAX - 1)
+ 
++void nfp_repr_inc_rx_stats(struct net_device *netdev, unsigned int len);
++void
++nfp_repr_get_stats64(const struct nfp_app *app, enum nfp_repr_type type,
++		     u8 port, struct rtnl_link_stats64 *stats);
++bool nfp_repr_has_offload_stats(const struct net_device *dev, int attr_id);
++int nfp_repr_get_offload_stats(int attr_id, const struct net_device *dev,
++			       void *stats);
++netdev_tx_t nfp_repr_xmit(struct sk_buff *skb, struct net_device *netdev);
+ int nfp_repr_init(struct nfp_app *app, struct net_device *netdev,
+ 		  const struct net_device_ops *netdev_ops,
+ 		  u32 cmsg_port_id, struct nfp_port *port,
 -- 
 2.1.4
