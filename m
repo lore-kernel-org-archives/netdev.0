@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 1/6] xfrm: fix xfrm_dev_event() missing when compile without CONFIG_XFRM_OFFLOAD
-Date: Fri, 23 Jun 2017 09:06:29 +0200
-Message-ID: <1498201594-10835-2-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 2/6] xfrm: move xfrm_garbage_collect out of xfrm_policy_flush
+Date: Fri, 23 Jun 2017 09:06:30 +0200
+Message-ID: <1498201594-10835-3-git-send-email-steffen.klassert@secunet.com>
 References: <1498201594-10835-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,9 +10,9 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:47072 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:47066 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751180AbdFWHGn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1751162AbdFWHGn (ORCPT <rfc822;netdev@vger.kernel.org>);
         Fri, 23 Jun 2017 03:06:43 -0400
 In-Reply-To: <1498201594-10835-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
@@ -20,85 +20,79 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Hangbin Liu <liuhangbin@gmail.com>
 
-In commit d77e38e612a0 ("xfrm: Add an IPsec hardware offloading API") we
-make xfrm_device.o only compiled when enable option CONFIG_XFRM_OFFLOAD.
-But this will make xfrm_dev_event() missing if we only enable default XFRM
-options.
+Now we will force to do garbage collection if any policy removed in
+xfrm_policy_flush(). But during xfrm_net_exit(). We call flow_cache_fini()
+first and set set fc->percpu to NULL. Then after we call xfrm_policy_fini()
+-> frxm_policy_flush() -> flow_cache_flush(), we will get NULL pointer
+dereference when check percpu_empty. The code path looks like:
 
-Then if we set down and unregister an interface with IPsec on it. there
-will no xfrm_garbage_collect(), which will cause dev usage count hold and
-get error like:
+flow_cache_fini()
+  - fc->percpu = NULL
+xfrm_policy_fini()
+  - xfrm_policy_flush()
+    - xfrm_garbage_collect()
+      - flow_cache_flush()
+        - flow_cache_percpu_empty()
+	  - fcp = per_cpu_ptr(fc->percpu, cpu)
 
-unregister_netdevice: waiting for <dev> to become free. Usage count = 4
+To reproduce, just add ipsec in netns and then remove the netns.
 
-Fixes: d77e38e612a0 ("xfrm: Add an IPsec hardware offloading API")
+v2:
+As Xin Long suggested, since only two other places need to call it. move
+xfrm_garbage_collect() outside xfrm_policy_flush().
+
+v3:
+Fix subject mismatch after v2 fix.
+
+Fixes: 35db06912189 ("xfrm: do the garbage collection after flushing policy")
 Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+Reviewed-by: Xin Long <lucien.xin@gmail.com>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/net/xfrm.h     | 7 ++-----
- net/xfrm/Makefile      | 3 +--
- net/xfrm/xfrm_device.c | 2 ++
- 3 files changed, 5 insertions(+), 7 deletions(-)
+ net/key/af_key.c       | 2 ++
+ net/xfrm/xfrm_policy.c | 4 ----
+ net/xfrm/xfrm_user.c   | 1 +
+ 3 files changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 7e7e2b0..62f5a25 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1850,8 +1850,9 @@ static inline struct xfrm_offload *xfrm_offload(struct sk_buff *skb)
- }
- #endif
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 512dc43..5103f92 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -2755,6 +2755,8 @@ static int pfkey_spdflush(struct sock *sk, struct sk_buff *skb, const struct sad
+ 	int err, err2;
  
--#ifdef CONFIG_XFRM_OFFLOAD
- void __net_init xfrm_dev_init(void);
-+
-+#ifdef CONFIG_XFRM_OFFLOAD
- int validate_xmit_xfrm(struct sk_buff *skb, netdev_features_t features);
- int xfrm_dev_state_add(struct net *net, struct xfrm_state *x,
- 		       struct xfrm_user_offload *xuo);
-@@ -1877,10 +1878,6 @@ static inline void xfrm_dev_state_free(struct xfrm_state *x)
- 	}
- }
- #else
--static inline void __net_init xfrm_dev_init(void)
--{
--}
+ 	err = xfrm_policy_flush(net, XFRM_POLICY_TYPE_MAIN, true);
++	if (!err)
++		xfrm_garbage_collect(net);
+ 	err2 = unicast_flush_resp(sk, hdr);
+ 	if (err || err2) {
+ 		if (err == -ESRCH) /* empty table - old silent behavior */
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index ed4e52d..643a18f 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1006,10 +1006,6 @@ int xfrm_policy_flush(struct net *net, u8 type, bool task_valid)
+ 		err = -ESRCH;
+ out:
+ 	spin_unlock_bh(&net->xfrm.xfrm_policy_lock);
 -
- static inline int validate_xmit_xfrm(struct sk_buff *skb, netdev_features_t features)
- {
- 	return 0;
-diff --git a/net/xfrm/Makefile b/net/xfrm/Makefile
-index abf81b3..55b2ac3 100644
---- a/net/xfrm/Makefile
-+++ b/net/xfrm/Makefile
-@@ -4,8 +4,7 @@
- 
- obj-$(CONFIG_XFRM) := xfrm_policy.o xfrm_state.o xfrm_hash.o \
- 		      xfrm_input.o xfrm_output.o \
--		      xfrm_sysctl.o xfrm_replay.o
--obj-$(CONFIG_XFRM_OFFLOAD) += xfrm_device.o
-+		      xfrm_sysctl.o xfrm_replay.o xfrm_device.o
- obj-$(CONFIG_XFRM_STATISTICS) += xfrm_proc.o
- obj-$(CONFIG_XFRM_ALGO) += xfrm_algo.o
- obj-$(CONFIG_XFRM_USER) += xfrm_user.o
-diff --git a/net/xfrm/xfrm_device.c b/net/xfrm/xfrm_device.c
-index 574e6f3..5aba036 100644
---- a/net/xfrm/xfrm_device.c
-+++ b/net/xfrm/xfrm_device.c
-@@ -22,6 +22,7 @@
- #include <net/xfrm.h>
- #include <linux/notifier.h>
- 
-+#ifdef CONFIG_XFRM_OFFLOAD
- int validate_xmit_xfrm(struct sk_buff *skb, netdev_features_t features)
- {
- 	int err;
-@@ -137,6 +138,7 @@ bool xfrm_dev_offload_ok(struct sk_buff *skb, struct xfrm_state *x)
- 	return true;
+-	if (cnt)
+-		xfrm_garbage_collect(net);
+-
+ 	return err;
  }
- EXPORT_SYMBOL_GPL(xfrm_dev_offload_ok);
-+#endif
+ EXPORT_SYMBOL(xfrm_policy_flush);
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 38614df..86116e9 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -2027,6 +2027,7 @@ static int xfrm_flush_policy(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 			return 0;
+ 		return err;
+ 	}
++	xfrm_garbage_collect(net);
  
- int xfrm_dev_register(struct net_device *dev)
- {
+ 	c.data.type = type;
+ 	c.event = nlh->nlmsg_type;
 -- 
 2.7.4
