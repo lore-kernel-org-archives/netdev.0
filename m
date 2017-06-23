@@ -1,26 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] tcp: add mode parameter to tcp_proc_register
-Date: Fri, 23 Jun 2017 00:27:58 -0400 (EDT)
-Message-ID: <20170623.002758.1129050083018969879.davem@davemloft.net>
-References: <20170623014028.28257-1-colona@arista.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: colona@arista.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170623014028.28257-1-colona@arista.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Subject: [PATCH 00/11] Add the mac internal ephy support
+Date: Fri, 23 Jun 2017 12:41:58 +0800
+Message-ID: <1498192929-7519-1-git-send-email-david.wu@rock-chips.com>
+Cc: andrew-g2DYL2Zd6BY@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org, huangtao-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
+        hwg-TNX95d0MmH7DzftRWevZcw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+        mark.rutland-5wv7dgnIgG8@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
+        olof-nZhT3qVonbNeoWH0uzbU5w@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Ivan Delalande <colona@arista.com>
-Date: Thu, 22 Jun 2017 18:40:27 -0700
+The rk3228 and rk3328 support internal mac phy inside, let's enable
+it to work. And the internal phy need to do some special setting, so
+register the rockchip mac internal phy driver, not use the genphy driver. 
 
-> This will be used to create a proc file that regular users cannot read.
-> 
-> Signed-off-by: Ivan Delalande <colona@arista.com>
+David Wu (11):
+  net: phy: Add rockchip phy driver support
+  multi_v7_defconfig: Make rockchip mac phy built-in
+  arm64: defconfig: Enable CONFIG_ROCKCHIP_MAC_PHY
+  net: stmmac: dwmac-rk: Remove unwanted code for rk3328_set_to_rmii()
+  net: stmmac: dwmac-rk: Add internal phy support
+  net: stmmac: dwmac-rk: Add internal phy support for rk3228
+  net: stmmac: dwmac-rk: Add internal phy supprot for rk3328
+  ARM: dts: rk322x: Add support internal phy for gmac
+  ARM: dts: rk3228-evb: Enable the internal phy for gmac
+  ARM64: dts: rockchip: Add gmac2phy node support for rk3328
+  ARM64: dts: rockchip: Enable gmac2phy for rk3328-evb
 
-/proc is deprecated.
+ .../devicetree/bindings/net/rockchip-dwmac.txt     |   3 +
+ arch/arm/boot/dts/rk3228-evb.dts                   |  20 ++++
+ arch/arm/boot/dts/rk322x.dtsi                      |   8 +-
+ arch/arm/configs/multi_v7_defconfig                |   1 +
+ arch/arm64/boot/dts/rockchip/rk3328-evb.dts        |  17 +++
+ arch/arm64/boot/dts/rockchip/rk3328.dtsi           |  25 +++++
+ arch/arm64/configs/defconfig                       |   1 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     | 123 ++++++++++++++++++++-
+ drivers/net/phy/Kconfig                            |   4 +
+ drivers/net/phy/Makefile                           |   1 +
+ drivers/net/phy/rockchip.c                         |  94 ++++++++++++++++
+ 11 files changed, 287 insertions(+), 10 deletions(-)
+ create mode 100644 drivers/net/phy/rockchip.c
 
-Export this information via inet_diag.
+-- 
+1.9.1
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
