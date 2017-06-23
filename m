@@ -1,53 +1,36 @@
-From: Julien Gomes <julien@arista.com>
-Subject: Re: [PATCH net-next 1/2] ipmr: restrict mroute "queue full" warning
- to related error values
-Date: Fri, 23 Jun 2017 10:52:26 -0700
-Message-ID: <bc8a9605-2df7-821f-5103-e9acb4482f3a@arista.com>
-References: <20170621175811.16940-1-julien@arista.com>
- <20170623.133947.433422648753848462.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT PULL] arcnet: fixes and features
+Date: Fri, 23 Jun 2017 13:54:03 -0400 (EDT)
+Message-ID: <20170623.135403.778221185468261150.davem@davemloft.net>
+References: <20170622153110.4079-1-m.grzeschik@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170623.133947.433422648753848462.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kernel@pengutronix.de
+To: m.grzeschik@pengutronix.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34628 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754343AbdFWRyK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 13:54:10 -0400
+In-Reply-To: <20170622153110.4079-1-m.grzeschik@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/23/2017 10:39 AM, David Miller wrote:
+From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+Date: Thu, 22 Jun 2017 17:31:02 +0200
 
-> From: Julien Gomes <julien@arista.com>
-> Date: Wed, 21 Jun 2017 10:58:10 -0700
->
->> When sending a cache report on mroute_sk, mroute will emit a
->> "pending queue full" warning for every error value returned by
->> sock_queue_rcv_skb().
->> This warning can be misleading, for example on the EPERM error value
->> that sk_filter() can return.
->>
->> Restricting this warning to only ENOMEM or ENOBUFS seems more
->> appropriate.
->>
->> Signed-off-by: Julien Gomes <julien@arista.com>
-> Incorrect, no other error codes are possible.
->
-> We never attach a socket filter to these kernel internal sockets,
-> therefore sk_filter() is not even applicable in this analysis.
->
-> Therefore, -ENOBUFS and -ENOMEM are the only errors we can ever see
-> returned from sock_queue_rcv_skb().
->
-> This goes for your second patch as well.
+> are available in the git repository at:
+> 
+>   public@git.pengutronix.de:/mgr/linux.git tags/arcnet-for-mainline
 
-Up to now I would agree, but now that cache reports are also sent
-through Netlink, wouldn't it make sense to allow the user of mroute_sk
-to attach a filter to it in order to not receive cache reports on it?
+I'm not pulling from that address, either setup a properl kernel.org
+GIT account or we work with just plain patches.
 
-I agree this is not crucial in any way, but this could be a way to let
-the user program choose whether it receives the reports through one
-of the mediums, and not inevitably both.
+Next, you need to provide a proper commit message in a
+"[PATCH 0/N] " posting explaining at a high level what
+the patch series is doing as a unit, how it is doing it,
+and why it is doing it that way.
 
--- 
-Julien Gomes
+Finally, in patch #1 the assignment of "flags" to "0" in the
+declaration is unnecessary please remove it.
