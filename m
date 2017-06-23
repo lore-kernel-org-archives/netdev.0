@@ -1,66 +1,126 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: Re: [PATCH net-next v3 01/15] bpf: BPF support for sock_ops
-Date: Thu, 22 Jun 2017 23:57:27 +0000
-Message-ID: <82AC8CB1-F770-4EFA-9223-E2C94626582F@fb.com>
-References: <20170620030048.3275347-1-brakmo@fb.com>
- <20170620030048.3275347-2-brakmo@fb.com> <594C47A1.1080102@iogearbox.net>
- <B03E3B5A-50E2-4291-B091-23927AF6846F@fb.com>
- <594C5065.2010900@iogearbox.net>
+From: Scott Branden <scott.branden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v1 1/2] dt-binding: ptp: add bindings document for dte
+ based ptp clock
+Date: Thu, 22 Jun 2017 17:42:19 -0700
+Message-ID: <1abad545-ee20-e047-8cb6-b130ad037213@broadcom.com>
+References: <1497299161-6458-1-git-send-email-arun.parameswaran@broadcom.com>
+ <1497299161-6458-2-git-send-email-arun.parameswaran@broadcom.com>
+ <20170618140449.aek7vag22i5lnbhl@rob-hp-laptop>
+ <74b85a32-63c5-b7c5-47a2-831504be318e@broadcom.com>
+ <CAL_JsqKddhWMXEaoxt=3_d+-STFH-OataxSgnnj9Q4A0Eqqwxg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Kernel Team <Kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
-        "Alexei Starovoitov" <ast@fb.com>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:43678 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753999AbdFVX5v (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 19:57:51 -0400
-In-Reply-To: <594C5065.2010900@iogearbox.net>
-Content-Language: en-US
-Content-ID: <B8004608A4C74E408CCAB7AE9710C1D7@namprd15.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Arun Parameswaran <arun.parameswaran-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org"
+        <bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAL_JsqKddhWMXEaoxt=3_d+-STFH-OataxSgnnj9Q4A0Eqqwxg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-DQpPbiA2LzIyLzE3LCA0OjE5IFBNLCAibmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZyBvbiBi
-ZWhhbGYgb2YgRGFuaWVsIEJvcmttYW5uIiA8bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZyBv
-biBiZWhhbGYgb2YgZGFuaWVsQGlvZ2VhcmJveC5uZXQ+IHdyb3RlOg0KDQogICAgT24gMDYvMjMv
-MjAxNyAxMjo1OCBBTSwgTGF3cmVuY2UgQnJha21vIHdyb3RlOg0KICAgIFsuLi5dDQogICAgPiBE
-YW5pZWwsIEkgc2VlIHZhbHVlIGZvciBoYXZpbmcgYSBnbG9iYWwgcHJvZ3JhbSwgc28gSSB3b3Vs
-ZCBsaWtlIHRvIGtlZXAgdGhhdC4gV2hlbg0KICAgID4gdGhpcyBwYXRjaHNldCBpcyBhY2NlcHRl
-ZCwgSSB3aWxsIHN1Ym1pdCBvbmUgdGhhdCBhZGRzIHN1cHBvcnQgZm9yIHBlciBjZ3JvdXANCiAg
-ICA+IHNvY2tfb3BzIHByb2dyYW1zLCB3aXRoIHRoZSBvcHRpb24gdG8gdXNlIHRoZSBnbG9iYWwg
-b25lIGlmIG5vbmUgaXMNCiAgICA+IHNwZWNpZmllZCBmb3IgYSBjZ3JvdXAuIFdlIGNvdWxkIGFs
-c28gaGF2ZSB0aGUgb3B0aW9uIG9mIHRoZSBjZ3JvdXAgc29ja19vcHMNCiAgICA+IHByb2dyYW0g
-Y2hvb3NpbmcgaWYgdGhlIGdsb2JhbCBwcm9ncmFtIHNob3VsZCBydW4gZm9yIGEgcGFydGljdWxh
-ciBvcCBiYXNlZCBvbg0KICAgID4gaXRzIHJldHVybiB2YWx1ZS4gV2UgY2FuIGlyb24gaXQgb3V0
-IHRoZSBkZXRhaWxzIHdoZW4gdGhhdCBwYXRjaCBpcyBzdWJtaXR0ZWQuDQogICAgDQogICAgSG0s
-IGNvdWxkIHlvdSBlbGFib3JhdGUgb24gdGhlIHZhbHVlIHBhcnQgY29tcGFyZWQgdG8gcGVyIGNn
-cm91cHMgb3BzPw0KICAgIE15IHVuZGVyc3RhbmRpbmcgaXMgdGhhdCBwZXIgY2dyb3VwIHdvdWxk
-IGFscmVhZHkgYmUgYSBwcm9wZXIgc3VwZXJzZXQNCiAgICBvZiBqdXN0IHRoZSBnbG9iYWwgb25l
-IGFueXdheSwgc28gd2h5IG5vdCBnb2luZyB3aXRoIHRoYXQgaW4gdGhlIGZpcnN0DQogICAgcGxh
-Y2Ugc2luY2UgeW91J3JlIHdvcmtpbmcgb24gaXQ/DQogICAgDQogICAgV2hhdCB3b3VsZCBiZSB0
-aGUgYWRkaXRpb25hbCB2YWx1ZT8gSG93IHdvdWxkIGdsb2JhbCB2cyBwZXIgY2dyb3VwIG9uZQ0K
-ICAgIGludGVyYWN0IHdpdGggZWFjaCBvdGhlciBpbiB0ZXJtcyBvZiBlbmZvcmNlbWVudCBlLmcu
-LCB0aGVyZSdzIGFscmVhZHkNCiAgICBzZW1hbnRpY3MgaW4gcGxhY2UgZm9yIGNncm91cHMgZGVz
-Y2VuZGFudHMsIHdvdWxkIGl0IGJlIHRoYXQgd2Ugc2V0DQogICAgVENQIHBhcmFtZXRlcnMgdHdp
-Y2Ugb3Igd291bGQgeW91IGRpc2FibGUgdGhlIGdsb2JhbCBvbmUgYWx0b2dldGhlcj8NCiAgICBK
-dXN0IHdvbmRlcmluZyBhcyB5b3UgY291bGQgYXZvaWQgdGhlc2UgYWx0b2dldGhlciB3aXRoIGdv
-aW5nIHZpYSBjZ3JvdXBzDQogICAgaW5pdGlhbGx5Lg0KICAgIA0KICAgIFRoYW5rcywNCiAgICBE
-YW5pZWwNCiAgICANCldlbGwsIGZvciBzdGFydGVycyB0aGUgZ2xvYmFsIHByb2dyYW0gd2lsbCB3
-b3JrIGV2ZW4gaWYgQ09ORklHX0NHUk9VUF9CUEYgaXMNCm5vdCBkZWZpbmVkLiBJdCBpcyBhbHNv
-IGFuIGVhc2llciBjb25jZXB0IGZvciB3aGVuIGEgZ2xvYmFsIHByb2dyYW0gaXMgYWxsIHRoYXQN
-CmlzIHJlcXVpcmVkLiBCdXQgSSBhbHNvIGhhZCBpbiBtaW5kIHRoYXQgYmVoYXZpb3JzIHRoYXQg
-d2VyZSBpbiBjb21tb24gZm9yDQptb3N0IGNncm91cCBwcm9ncmFtcyBjb3VsZCBiZSBoYW5kbGVk
-IGJ5IHRoZSBnbG9iYWwgcHJvZ3JhbSBpbnN0ZWFkIG9mDQphZGRpbmcgaXQgdG8gYWxsIGNncm91
-cCBwcm9ncmFtcy4gSW4gdGhpcyBzY2VuYXJpbyB0aGUgZ2xvYmFsIHByb2dyYW0NCnJlcHJlc2Vu
-dHMgdGhlIGRlZmF1bHQgYmVoYXZpb3IgdGhhdCBjYW4gYmUgb3ZlcnJpZGUgYnkgdGhlIGNncm91
-cA0KcHJvZ3JhbSAocGVyIG9wKS4gRm9yIGV4YW1wbGUsIHRoZSBjZ3JvdXAgcHJvZ3JhbSBjb3Vs
-ZCByZXR1cm4gYSB2YWx1ZQ0KdG8gaW5kaWNhdGUgdGhhdCB0aGF0IG9wIHNob3VsZCBiZSBwYXNz
-ZWQgdG8gdGhlIGdsb2JhbCBwcm9ncmFtLiANCg0KSSBhZ3JlZSAxMDAlIHdpdGggeW91IG9uIHRo
-ZSB2YWx1ZSBvZiBjZ3JvdXAgcHJvZ3JhbXMsIGJ1dCBJIGp1c3QgaGFwcGVuDQp0byB0aGluayB0
-aGVyZSBpcyBhbHNvIHZhbHVlIGluIHRoZSBnbG9iYWwgcHJvZ3JhbS4NCg0KVGhhbmtzLA0KTGF3
-cmVuY2UNCg0K
+
+
+On 17-06-21 08:19 PM, Rob Herring wrote:
+> On Tue, Jun 20, 2017 at 3:48 PM, Scott Branden
+> <scott.branden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> wrote:
+>> Hi Rob,
+>>
+>>
+>> On 17-06-18 07:04 AM, Rob Herring wrote:
+>>> On Mon, Jun 12, 2017 at 01:26:00PM -0700, Arun Parameswaran wrote:
+>>>> Add device tree binding documentation for the Broadcom DTE
+>>>> PTP clock driver.
+>>>>
+>>>> Signed-off-by: Arun Parameswaran <arun.parameswaran-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+>>>> ---
+>>>>    Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt | 13
+>>>> +++++++++++++
+>>>>    1 file changed, 13 insertions(+)
+>>>>    create mode 100644
+>>>> Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
+>>>>
+>>>> diff --git a/Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
+>>>> b/Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
+>>>> new file mode 100644
+>>>> index 0000000..07590bc
+>>>> --- /dev/null
+>>>> +++ b/Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
+>>>> @@ -0,0 +1,13 @@
+>>>> +* Broadcom Digital Timing Engine(DTE) based PTP clock driver
+>>> Bindings describe h/w, not drivers.
+>>>
+>>>> +
+>>>> +Required properties:
+>>>> +- compatible: should be "brcm,ptp-dte"
+>>> Looks too generic. You need SoC specific compatible strings.
+>>
+>> Rob, could you please help me understand the use of adding SoC specific
+>> compatible strings.
+>> I still don't get it.
+>>
+>> It's my understanding that the SoC compatibility string is to future proof
+>> against bugs/incompatibilities
+>> between different versions of the hardware block due to integration issues
+>> or any other reason.
+>> You can then compare in your driver because the strings were already used in
+>> the dtb.
+>>
+>> That would make sense if you can't already differentiate what SoC you are
+>> running on.
+>> But the SoC is already specified in the root of the device tree in the
+>> compatible string?
+>> Why can't you just use of_machine_is_compatible inside your driver when
+>> needed?
+> Use of of_machine_is_compatible in drivers will result in the same
+> mess we had with machine_is_X defines pre-DT. It practically
+> guarantees that you must update the driver for a new SoC (with
+> fallback compatibles you don't). Plus the matching logic for
+> of_machine_is_compatible is open coded logic in every driver which is
+> worse IMO than having a standard match table.
+I don't understand what you mean by fallback compatible then.
+
+Let's say I have 3 SoCs that each contain the same ip block.
+You want us to add a fallback compatibility per SoC, is that correct?
+
+Then, if there is a workaround discovered in a particular SoC the driver 
+can be updated in the future without changing the dtb.
+
+Then, the block gets added to a 4th SoC.
+You want us to another new compatibility string for the new SoC?
+If the new SoC has a bug then the driver has to be updated whether it is 
+in uses the fallback compatible or machine_is_compatible string.
+
+There is no difference in amount of code added to a driver when a new 
+SoC is introduced into the system that has bugs that need to be handled 
+by the driver.
+
+The difference is in your recommendation we need to go through all the 
+drivers used by the new SoC and add fallback compatibility strings.
+Then, we have to modify all the devicetree documentation for all the 
+drivers.  Then, we have to ensure that all dts files populate this new 
+fallback string (even if it is unused).  We don't see the benefit in 
+doing any of that.  Using machine_is_compatible and having less 
+compatibility strings to deal appears much cleaner and more foolproof 
+for all situations.
+>> Please explain what I'm missing.  I see other drivers already following the
+>> of_machine_is_compatible
+>> approach and it makes more sense to me than adding SoC specific compatible
+>> strings into every
+>> driver.
+> If the IP blocks are all the same, you don't have to add them to any
+> drivers, just add fallback compatibles.
+
+> Rob
+Regards,
+Scott
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
