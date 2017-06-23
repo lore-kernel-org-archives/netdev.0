@@ -1,77 +1,90 @@
-From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
-Subject: [PATCH net-next 2/2] af_iucv: Move sockaddr length checks to before accessing sa_family in bind and connect handlers
-Date: Fri, 23 Jun 2017 19:32:28 +0200
-Message-ID: <20170623173228.70128-3-jwi@linux.vnet.ibm.com>
-References: <20170623173228.70128-1-jwi@linux.vnet.ibm.com>
-Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
-        Martin Schwidefsky <schwidefsky@de.ibm.com>,
-        Heiko Carstens <heiko.carstens@de.ibm.com>,
-        Stefan Raspl <raspl@linux.vnet.ibm.com>,
-        Ursula Braun <ubraun@linux.vnet.ibm.com>,
-        Julian Wiedmann <jwi@linux.vnet.ibm.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:44806 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1754849AbdFWRcx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 13:32:53 -0400
-Received: from pps.filterd (m0098421.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5NHTK6C004494
-        for <netdev@vger.kernel.org>; Fri, 23 Jun 2017 13:32:42 -0400
-Received: from e06smtp10.uk.ibm.com (e06smtp10.uk.ibm.com [195.75.94.106])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2b93r6jb9t-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 23 Jun 2017 13:32:42 -0400
-Received: from localhost
-        by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <jwi@linux.vnet.ibm.com>;
-        Fri, 23 Jun 2017 18:32:40 +0100
-In-Reply-To: <20170623173228.70128-1-jwi@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH 3/4] net: bcmgenet: Remove special handling of "internal" phy-mode
+Date: Fri, 23 Jun 2017 10:31:34 -0700
+Message-ID: <20170623173135.22912-4-f.fainelli@gmail.com>
+References: <20170623173135.22912-1-f.fainelli@gmail.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Sean Wang <sean.wang@mediatek.com>,
+        Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
+        Russell King <rmk+kernel@armlinux.org.uk>,
+        netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
+        devicetree@vger.kernel.org (open list:OPEN FIRMWARE AND FLATTENED
+        DEVICE TREE BINDINGS), linux-kernel@vger.kernel.org (open list),
+        david.wu@rock-chips.com, opendmb@gmail.com
+To: netdev@ver.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170623173135.22912-1-f.fainelli@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mateusz Jurczyk <mjurczyk@google.com>
+The PHY library now supports an "internal" phy-mode, thus making our
+custom parsing code now unnecessary.
 
-Verify that the caller-provided sockaddr structure is large enough to
-contain the sa_family field, before accessing it in bind() and connect()
-handlers of the AF_IUCV socket. Since neither syscall enforces a minimum
-size of the corresponding memory region, very short sockaddrs (zero or
-one byte long) result in operating on uninitialized memory while
-referencing .sa_family.
-
-Fixes: 52a82e23b9f2 ("af_iucv: Validate socket address length in iucv_sock_bind()")
-Signed-off-by: Mateusz Jurczyk <mjurczyk@google.com>
-[jwi: removed unneeded null-check for addr]
-Signed-off-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- net/iucv/af_iucv.c | 8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/broadcom/genet/bcmmii.c | 24 ++++++++----------------
+ 1 file changed, 8 insertions(+), 16 deletions(-)
 
-diff --git a/net/iucv/af_iucv.c b/net/iucv/af_iucv.c
-index 05112094d76b..ac033e413bc5 100644
---- a/net/iucv/af_iucv.c
-+++ b/net/iucv/af_iucv.c
-@@ -715,10 +715,8 @@ static int iucv_sock_bind(struct socket *sock, struct sockaddr *addr,
- 	char uid[9];
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+index 285676f8da6b..071fcbd14e6a 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+@@ -251,11 +251,8 @@ int bcmgenet_mii_config(struct net_device *dev)
+ 	priv->ext_phy = !priv->internal_phy &&
+ 			(priv->phy_interface != PHY_INTERFACE_MODE_MOCA);
  
- 	/* Verify the input sockaddr */
--	if (!addr || addr->sa_family != AF_IUCV)
--		return -EINVAL;
+-	if (priv->internal_phy)
+-		priv->phy_interface = PHY_INTERFACE_MODE_NA;
 -
--	if (addr_len < sizeof(struct sockaddr_iucv))
-+	if (addr_len < sizeof(struct sockaddr_iucv) ||
-+	    addr->sa_family != AF_IUCV)
- 		return -EINVAL;
+ 	switch (priv->phy_interface) {
+-	case PHY_INTERFACE_MODE_NA:
++	case PHY_INTERFACE_MODE_INTERNAL:
+ 	case PHY_INTERFACE_MODE_MOCA:
+ 		/* Irrespective of the actually configured PHY speed (100 or
+ 		 * 1000) GENETv4 only has an internal GPHY so we will just end
+@@ -471,7 +468,6 @@ static int bcmgenet_mii_of_init(struct bcmgenet_priv *priv)
+ {
+ 	struct device_node *dn = priv->pdev->dev.of_node;
+ 	struct device *kdev = &priv->pdev->dev;
+-	const char *phy_mode_str = NULL;
+ 	struct phy_device *phydev = NULL;
+ 	char *compat;
+ 	int phy_mode;
+@@ -510,23 +506,19 @@ static int bcmgenet_mii_of_init(struct bcmgenet_priv *priv)
  
- 	lock_sock(sk);
-@@ -862,7 +860,7 @@ static int iucv_sock_connect(struct socket *sock, struct sockaddr *addr,
- 	struct iucv_sock *iucv = iucv_sk(sk);
- 	int err;
+ 	/* Get the link mode */
+ 	phy_mode = of_get_phy_mode(dn);
++	if (phy_mode < 0) {
++		dev_err(kdev, "invalid PHY mode property\n");
++		return phy_mode;
++	}
++
+ 	priv->phy_interface = phy_mode;
  
--	if (addr->sa_family != AF_IUCV || alen < sizeof(struct sockaddr_iucv))
-+	if (alen < sizeof(struct sockaddr_iucv) || addr->sa_family != AF_IUCV)
- 		return -EINVAL;
+ 	/* We need to specifically look up whether this PHY interface is internal
+ 	 * or not *before* we even try to probe the PHY driver over MDIO as we
+ 	 * may have shut down the internal PHY for power saving purposes.
+ 	 */
+-	if (phy_mode < 0) {
+-		ret = of_property_read_string(dn, "phy-mode", &phy_mode_str);
+-		if (ret < 0) {
+-			dev_err(kdev, "invalid PHY mode property\n");
+-			return ret;
+-		}
+-
+-		priv->phy_interface = PHY_INTERFACE_MODE_NA;
+-		if (!strcasecmp(phy_mode_str, "internal"))
+-			priv->internal_phy = true;
+-	}
++	if (priv->phy_interface == PHY_INTERFACE_MODE_INTERNAL)
++		priv->internal_phy = true;
  
- 	if (sk->sk_state != IUCV_OPEN && sk->sk_state != IUCV_BOUND)
+ 	/* Make sure we initialize MoCA PHYs with a link down */
+ 	if (phy_mode == PHY_INTERFACE_MODE_MOCA) {
 -- 
-2.11.2
+2.9.3
