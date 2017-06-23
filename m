@@ -1,15 +1,16 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 07/15] net/mlx5e: Add header re-write offloading of IPv6 hop-limit
-Date: Fri, 23 Jun 2017 17:26:14 +0300
-Message-ID: <20170623142622.16565-8-saeedm@mellanox.com>
+Subject: [net-next 11/15] net/mlx5: Add helper functions to set/query MCC/MCDA/MCQI registers
+Date: Fri, 23 Jun 2017 17:26:18 +0300
+Message-ID: <20170623142622.16565-12-saeedm@mellanox.com>
 References: <20170623142622.16565-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+        Yotam Gigi <yotamg@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54056 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54074 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1754048AbdFWO1m (ORCPT
+        with ESMTP id S1754083AbdFWO1m (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 10:27:42 -0400
 In-Reply-To: <20170623142622.16565-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -17,39 +18,136 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Or Gerlitz <ogerlitz@mellanox.com>
 
-For environments where flow-based ipv6 router is offloaded.
+To be used by the mlx5 callbacks exposed to the mlxfw module.
 
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Reviewed-by: Paul Blakey <paulb@mellanox.com>
+Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 1 +
- include/linux/mlx5/mlx5_ifc.h                   | 1 +
- 2 files changed, 2 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/fw.c | 114 +++++++++++++++++++++++++++
+ 1 file changed, 114 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index 0318d6f6e1da..3c536f560dd2 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -1081,6 +1081,7 @@ static struct mlx5_fields fields[] = {
- 	OFFLOAD(DIPV6_95_64,  4, ip6.daddr.s6_addr32[1], 0),
- 	OFFLOAD(DIPV6_63_32,  4, ip6.daddr.s6_addr32[2], 0),
- 	OFFLOAD(DIPV6_31_0,   4, ip6.daddr.s6_addr32[3], 0),
-+	OFFLOAD(IPV6_HOPLIMIT, 1, ip6.hop_limit, 0),
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fw.c b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
+index e9489e8d08bb..3a3c4fbc7168 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
+@@ -223,3 +223,117 @@ int mlx5_cmd_force_teardown_hca(struct mlx5_core_dev *dev)
  
- 	OFFLOAD(TCP_SPORT, 2, tcp.source,  0),
- 	OFFLOAD(TCP_DPORT, 2, tcp.dest,    0),
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index 694f51d388d9..4b547f551a2e 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -4620,6 +4620,7 @@ enum {
- 	MLX5_ACTION_IN_FIELD_OUT_DIPV6_31_0    = 0x14,
- 	MLX5_ACTION_IN_FIELD_OUT_SIPV4         = 0x15,
- 	MLX5_ACTION_IN_FIELD_OUT_DIPV4         = 0x16,
-+	MLX5_ACTION_IN_FIELD_OUT_IPV6_HOPLIMIT = 0x47,
- };
- 
- struct mlx5_ifc_alloc_modify_header_context_out_bits {
+ 	return 0;
+ }
++
++enum mlxsw_reg_mcc_instruction {
++	MLX5_REG_MCC_INSTRUCTION_LOCK_UPDATE_HANDLE = 0x01,
++	MLX5_REG_MCC_INSTRUCTION_RELEASE_UPDATE_HANDLE = 0x02,
++	MLX5_REG_MCC_INSTRUCTION_UPDATE_COMPONENT = 0x03,
++	MLX5_REG_MCC_INSTRUCTION_VERIFY_COMPONENT = 0x04,
++	MLX5_REG_MCC_INSTRUCTION_ACTIVATE = 0x06,
++	MLX5_REG_MCC_INSTRUCTION_CANCEL = 0x08,
++};
++
++static int mlx5_reg_mcc_set(struct mlx5_core_dev *dev,
++			    enum mlxsw_reg_mcc_instruction instr,
++			    u16 component_index, u32 update_handle,
++			    u32 component_size)
++{
++	u32 out[MLX5_ST_SZ_DW(mcc_reg)];
++	u32 in[MLX5_ST_SZ_DW(mcc_reg)];
++
++	memset(in, 0, sizeof(in));
++
++	MLX5_SET(mcc_reg, in, instruction, instr);
++	MLX5_SET(mcc_reg, in, component_index, component_index);
++	MLX5_SET(mcc_reg, in, update_handle, update_handle);
++	MLX5_SET(mcc_reg, in, component_size, component_size);
++
++	return mlx5_core_access_reg(dev, in, sizeof(in), out,
++				    sizeof(out), MLX5_REG_MCC, 0, 1);
++}
++
++static int mlx5_reg_mcc_query(struct mlx5_core_dev *dev,
++			      u32 *update_handle, u8 *error_code,
++			      u8 *control_state)
++{
++	u32 out[MLX5_ST_SZ_DW(mcc_reg)];
++	u32 in[MLX5_ST_SZ_DW(mcc_reg)];
++	int err;
++
++	memset(in, 0, sizeof(in));
++	memset(out, 0, sizeof(out));
++	MLX5_SET(mcc_reg, in, update_handle, *update_handle);
++
++	err = mlx5_core_access_reg(dev, in, sizeof(in), out,
++				   sizeof(out), MLX5_REG_MCC, 0, 0);
++	if (err)
++		goto out;
++
++	*update_handle = MLX5_GET(mcc_reg, out, update_handle);
++	*error_code = MLX5_GET(mcc_reg, out, error_code);
++	*control_state = MLX5_GET(mcc_reg, out, control_state);
++
++out:
++	return err;
++}
++
++static int mlx5_reg_mcda_set(struct mlx5_core_dev *dev,
++			     u32 update_handle,
++			     u32 offset, u16 size,
++			     u8 *data)
++{
++	int err, in_size = MLX5_ST_SZ_BYTES(mcda_reg) + size;
++	u32 out[MLX5_ST_SZ_DW(mcda_reg)];
++	int i, j, dw_size = size >> 2;
++	__be32 data_element;
++	u32 *in;
++
++	in = kzalloc(in_size, GFP_KERNEL);
++	if (!in)
++		return -ENOMEM;
++
++	MLX5_SET(mcda_reg, in, update_handle, update_handle);
++	MLX5_SET(mcda_reg, in, offset, offset);
++	MLX5_SET(mcda_reg, in, size, size);
++
++	for (i = 0; i < dw_size; i++) {
++		j = i * 4;
++		data_element = htonl(*(u32 *)&data[j]);
++		memcpy(MLX5_ADDR_OF(mcda_reg, in, data) + j, &data_element, 4);
++	}
++
++	err = mlx5_core_access_reg(dev, in, in_size, out,
++				   sizeof(out), MLX5_REG_MCDA, 0, 1);
++	kfree(in);
++	return err;
++}
++
++static int mlx5_reg_mcqi_query(struct mlx5_core_dev *dev,
++			       u16 component_index,
++			       u32 *max_component_size,
++			       u8 *log_mcda_word_size,
++			       u16 *mcda_max_write_size)
++{
++	u32 out[MLX5_ST_SZ_DW(mcqi_reg) + MLX5_ST_SZ_DW(mcqi_cap)];
++	int offset = MLX5_ST_SZ_DW(mcqi_reg);
++	u32 in[MLX5_ST_SZ_DW(mcqi_reg)];
++	int err;
++
++	memset(in, 0, sizeof(in));
++	memset(out, 0, sizeof(out));
++
++	MLX5_SET(mcqi_reg, in, component_index, component_index);
++	MLX5_SET(mcqi_reg, in, data_size, MLX5_ST_SZ_BYTES(mcqi_cap));
++
++	err = mlx5_core_access_reg(dev, in, sizeof(in), out,
++				   sizeof(out), MLX5_REG_MCQI, 0, 0);
++	if (err)
++		goto out;
++
++	*max_component_size = MLX5_GET(mcqi_cap, out + offset, max_component_size);
++	*log_mcda_word_size = MLX5_GET(mcqi_cap, out + offset, log_mcda_word_size);
++	*mcda_max_write_size = MLX5_GET(mcqi_cap, out + offset, mcda_max_write_size);
++
++out:
++	return err;
++}
 -- 
 2.11.0
