@@ -1,38 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] cxgb4: Use Firmware params to get
- buffer-group map
-Date: Fri, 23 Jun 2017 14:23:02 -0400 (EDT)
-Message-ID: <20170623.142302.617436337536411857.davem@davemloft.net>
-References: <1498225477-20960-1-git-send-email-ganeshgr@chelsio.com>
-        <1498225477-20960-2-git-send-email-ganeshgr@chelsio.com>
+Subject: Re: [pull request][net-next 00/15] Mellanox, mlx5 updates
+ 2017-06-23
+Date: Fri, 23 Jun 2017 14:30:31 -0400 (EDT)
+Message-ID: <20170623.143031.1566483048424998652.davem@davemloft.net>
+References: <20170623142622.16565-1-saeedm@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nirranjan@chelsio.com,
-        indranil@chelsio.com, venkatesh@chelsio.com, leedom@chelsio.com,
-        arjun@chelsio.com
-To: ganeshgr@chelsio.com
+Cc: netdev@vger.kernel.org
+To: saeedm@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35176 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:35320 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754327AbdFWSXE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 14:23:04 -0400
-In-Reply-To: <1498225477-20960-2-git-send-email-ganeshgr@chelsio.com>
+        with ESMTP id S1754633AbdFWSad (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 14:30:33 -0400
+In-Reply-To: <20170623142622.16565-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Date: Fri, 23 Jun 2017 19:14:37 +0530
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Fri, 23 Jun 2017 17:26:07 +0300
 
-> From: Arjun Vynipadath <arjun@chelsio.com>
+> This series mainly from Tariq and Or includes updates to mlx5 core and
+> netdevice dirvers.
 > 
-> Buffer group mappings can be obtained using FW_PARAMs cmd for newer FW.
+> From Tariq, RX path improvments.
+> From Or, header re-write updates and FW flash support.
+> For more detalis please see tag log below.
 > 
-> Since some of the bg_maps are obtained in atomic context, created another
-> t4_query_params_ns(), that wont sleep when awaiting mbox cmd completion.
-> 
-> Signed-off-by: Casey Leedom <leedom@chelsio.com>
-> Signed-off-by: Arjun Vynipadath <arjun@chelsio.com>
-> Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+> Please pull and let me know if there's any problem.
 
-Applied.
+Pulled, thanks Saeed.
