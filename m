@@ -1,48 +1,57 @@
-From: jeffy <jeffy.chen@rock-chips.com>
-Subject: Re: Bluetooth: might sleep error in hidp_session_thread
-Date: Fri, 23 Jun 2017 20:38:54 +0800
-Message-ID: <594D0BDE.10102@rock-chips.com>
-References: <7be134d7f9904082a35a9cc926ec24d3@HQMAIL106.nvidia.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH net-next v3 1/6] vxlan: refactor verification
+ and application of configuration
+Date: Fri, 23 Jun 2017 15:31:08 +0200
+Message-ID: <1498224668.2595.5.camel@sipsolutions.net>
+References: <cover.1497825555.git.mschiffer@universe-factory.net>
+	<6e2c8bb77be42834f1da5a3ca79f5e455574a136.1497825555.git.mschiffer@universe-factory.net>
+	<20170623105220.18561f34@griffin>
+	<113c3fe1-f490-d92d-2b4a-69b7115d8115@universe-factory.net>
+	<1498213402.2595.3.camel@sipsolutions.net>
+	<a250dc2b-1249-2cfe-6f39-06b7f0874f59@universe-factory.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Brian Norris <briannorris@chromium.org>,
-        Douglas Anderson <dianders@chromium.org>,
-        Johan Hedberg <johan.hedberg@intel.com>,
-        Peter Hurley <peter@hurleysoftware.com>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Marcel Holtmann <marcel@holtmann.org>,
-        Gustavo Padovan <gustavo@padovan.org>
-To: Rohit Vaswani <rvaswani@nvidia.com>,
-        "linux-bluetooth@vger.kernel.org" <linux-bluetooth@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7be134d7f9904082a35a9cc926ec24d3@HQMAIL106.nvidia.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Matthias Schiffer <mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>, Jiri Benc
+	<jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <a250dc2b-1249-2cfe-6f39-06b7f0874f59-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Rohit,
-
-Thanx for your reply, and sorry to the delay, somehow your mail was 
-marked as spam by the mail server :(
-
-On 06/13/2017 02:31 AM, Rohit Vaswani wrote:
-> Hi Jeffy,
->
-> I was looking into the patch from Jeffy Chen from February 14 2017  :
->   [v4,3/3] Bluetooth: hidp: fix possible might sleep error in hidp_session_thread: https://patchwork.kernel.org/patch/9570931/
->
-> We faced a similar issue and this patch seems to fix the problem in our preliminary test.
-> I am trying to check if there was a reason this wasn't merged earlier ?
-
-hmm, i'm not sure why, but please feel free to add your test-by~
->
-> Thanks,
-> Rohit
->
-> nvpublic
->
->
->
+T24gRnJpLCAyMDE3LTA2LTIzIGF0IDE0OjAyICswMjAwLCBNYXR0aGlhcyBTY2hpZmZlciB3cm90
+ZToKPiAKPiBJdCBzZWVtcyB0aG91Z2ggdGhhdCBydG5sX2xpbmtfb3BzLm5ld2xpbmsvY2hhbmdl
+bGluayBkb24ndCBhbGxvdwo+IHBhc3NpbmcgdGhlIGV4dGFjayB5ZXQuLi4gaG93IGRvIHdlIHBy
+b2NlZWQgaGVyZT8gVHJlZXdpZGUgY2hhbmdlCj4gKG1heWJlIGJ5IHNvbWVvbmUgd2hvIGtub3dz
+IHRoZWlyIENvY2NpbmVsbGUtZnU/KSwgb3Igd291bGQgdGhlCj4gaW50cm9kdWN0aW9uIG9mIG5l
+dyB2ZXJzaW9ucyBvZiB0aGUgbmV3bGluayBhbmQgY2hhbmdlbGluayBmaWVsZHMgYmUKPiBtb3Jl
+IGFjY2VwdGFibGUsIHNvIGRyaXZlcnMgY2FuIGJlIG1vdmVkIHRvIHRoZSBuZXcgQVBJIG9uZSBi
+eSBvbmU/CgpJIHRoaW5rIHRyZWV3aWRlIGNoYW5nZSBpcyBlYXN5IGVub3VnaCwgdGhpcyBzZWVt
+cyB0byB3b3JrOgoKQG9wczFACmlkZW50aWZpZXIgbmV3Zm4sIG9wczsKQEAKc3RhdGljIHN0cnVj
+dCBydG5sX2xpbmtfb3BzIG9wcyA9IHsKCS5uZXdsaW5rID0gbmV3Zm4sCi4uLgp9OwoKQEAKaWRl
+bnRpZmllciBvcHMxLm5ld2ZuOwppZGVudGlmaWVyIHNyY19uZXQsIGRldiwgdGIsIGRhdGE7CkBA
+Ci1pbnQgbmV3Zm4oc3RydWN0IG5ldCAqc3JjX25ldCwgc3RydWN0IG5ldF9kZXZpY2UgKmRldiwK
+LQnCoMKgwqBzdHJ1Y3QgbmxhdHRyICp0YltdLCBzdHJ1Y3QgbmxhdHRyICpkYXRhW10pCitpbnQg
+bmV3Zm4oc3RydWN0IG5ldCAqc3JjX25ldCwgc3RydWN0IG5ldF9kZXZpY2UgKmRldiwKKwnCoMKg
+wqBzdHJ1Y3QgbmxhdHRyICp0YltdLCBzdHJ1Y3QgbmxhdHRyICpkYXRhW10sCisJwqDCoMKgc3Ry
+dWN0IG5ldGxpbmtfZXh0X2FjayAqZXh0YWNrKQp7Li4ufQoKQG9wczJACmlkZW50aWZpZXIgY2hm
+biwgb3BzOwpAQApzdGF0aWMgc3RydWN0IHJ0bmxfbGlua19vcHMgb3BzID0gewoJLmNoYW5nZWxp
+bmsgPSBjaGZuLAouLi4KfTsKCkBACmlkZW50aWZpZXIgb3BzMi5jaGZuOwppZGVudGlmaWVyIGRl
+diwgdGIsIGRhdGE7CkBACi1pbnQgY2hmbihzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LAotCcKgwqBz
+dHJ1Y3QgbmxhdHRyICp0YltdLCBzdHJ1Y3QgbmxhdHRyICpkYXRhW10pCitpbnQgY2hmbihzdHJ1
+Y3QgbmV0X2RldmljZSAqZGV2LAorCcKgwqBzdHJ1Y3QgbmxhdHRyICp0YltdLCBzdHJ1Y3Qgbmxh
+dHRyICpkYXRhW10sCisJwqDCoHN0cnVjdCBuZXRsaW5rX2V4dF9hY2sgKmV4dGFjaykKey4uLn0K
+CkkgZ3Vlc3MgaWYgdGhlcmUgYXJlIGFueSBzdHJhZ2dsZXJzIHlvdSdkIGZpbmQgdGhlbSBieSBj
+b21waWxlLXRlc3RpbmcKOikKCmpvaGFubmVzCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpo
+dHRwczovL21haWwub3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vb3ZzLWRldgo=
