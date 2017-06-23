@@ -1,78 +1,72 @@
-From: Julien Gomes <julien@arista.com>
-Subject: Re: [PATCH net-next 1/2] ipmr: restrict mroute "queue full" warning
- to related error values
-Date: Fri, 23 Jun 2017 13:17:31 -0700
-Message-ID: <ef5f803e-d9ac-e0da-0443-d7b6c68d0fd0@arista.com>
-References: <20170621175811.16940-1-julien@arista.com>
- <20170623.133947.433422648753848462.davem@davemloft.net>
- <bc8a9605-2df7-821f-5103-e9acb4482f3a@arista.com>
- <20170623.144739.1791220360024944932.davem@davemloft.net>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH v3 07/11] tty: improve tty_insert_flip_char() fast path
+Date: Sat, 24 Jun 2017 00:07:58 +0800
+Message-ID: <20170623160758.GA19961@kroah.com>
+References: <20170622171355.267192-1-arnd@arndb.de>
+ <20170622171355.267192-8-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+        kasan-dev@googlegroups.com, Dmitry Vyukov <dvyukov@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Andrey Ryabinin <aryabinin@virtuozzo.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Masahiro Yamada <yamada.masahiro@socionext.com>,
+        Michal Marek <mmarek@suse.com>,
+        Kees Cook <keescook@chromium.org>,
+        Ingo Molnar <mingo@kernel.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        linux-kbuild@vger.kernel.org,
+        Samuel Thibault <samuel.thibault@ens-lyon.org>,
+        Jiri Slaby <jslaby@suse.com>, stable@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170623.144739.1791220360024944932.davem@davemloft.net>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <20170622171355.267192-8-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/23/2017 11:47 AM, David Miller wrote:
+On Thu, Jun 22, 2017 at 07:13:51PM +0200, Arnd Bergmann wrote:
+> kernelci.org reports a crazy stack usage for the VT code when CONFIG_KASAN
+> is enabled:
+> 
+> drivers/tty/vt/keyboard.c: In function 'kbd_keycode':
+> drivers/tty/vt/keyboard.c:1452:1: error: the frame size of 2240 bytes is larger than 2048 bytes [-Werror=frame-larger-than=]
+> 
+> The problem is that tty_insert_flip_char() gets inlined many times into
+> kbd_keycode(), and also into other functions, and each copy requires 128
+> bytes for stack redzone to check for a possible out-of-bounds access on
+> the 'ch' and 'flags' arguments that are passed into
+> tty_insert_flip_string_flags as a variable-length string.
+> 
+> This introduces a new __tty_insert_flip_char() function for the slow
+> path, which receives the two arguments by value. This completely avoids
+> the problem and the stack usage goes back down to around 100 bytes.
+> 
+> Without KASAN, this is also slightly better, as we don't have to
+> spill the arguments to the stack but can simply pass 'ch' and 'flag'
+> in registers, saving a few bytes in .text for each call site.
+> 
+> This should be backported to linux-4.0 or later, which first introduced
+> the stack sanitizer in the kernel.
+> 
+> Cc: stable@vger.kernel.org
+> Fixes: c420f167db8c ("kasan: enable stack instrumentation")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> ---
+> I already submitted this separately to Greg, but he hasn't replied
+> yet. I assume that it's fine if Andrew picks it up along with the
+> other patches and drops it again in case Greg applies it to linux-next.
 
-> From: Julien Gomes <julien@arista.com>
-> Date: Fri, 23 Jun 2017 10:52:26 -0700
->
->> On 06/23/2017 10:39 AM, David Miller wrote:
->>
->>> From: Julien Gomes <julien@arista.com>
->>> Date: Wed, 21 Jun 2017 10:58:10 -0700
->>>
->>>> When sending a cache report on mroute_sk, mroute will emit a
->>>> "pending queue full" warning for every error value returned by
->>>> sock_queue_rcv_skb().
->>>> This warning can be misleading, for example on the EPERM error value
->>>> that sk_filter() can return.
->>>>
->>>> Restricting this warning to only ENOMEM or ENOBUFS seems more
->>>> appropriate.
->>>>
->>>> Signed-off-by: Julien Gomes <julien@arista.com>
->>> Incorrect, no other error codes are possible.
->>>
->>> We never attach a socket filter to these kernel internal sockets,
->>> therefore sk_filter() is not even applicable in this analysis.
->>>
->>> Therefore, -ENOBUFS and -ENOMEM are the only errors we can ever see
->>> returned from sock_queue_rcv_skb().
->>>
->>> This goes for your second patch as well.
->> Up to now I would agree, but now that cache reports are also sent
->> through Netlink, wouldn't it make sense to allow the user of mroute_sk
->> to attach a filter to it in order to not receive cache reports on it?
-> There is not visibility of this socket outside of the kernel.
+I've been traveling in China this week, give me a chance to catch up
+please.
 
-Hmm, maybe we are not talking about the same thing.
+And no, I don't like this patch either, I think kasan needs to be fixed
+here, not work around it in odd ways in code that is completly
+acceptable to "sane" compilers.  But give me a week to catch up on my
+pending stuff first...
 
-The value of this socket pointer is set by the MRT_INIT sockopt.
-The socket is definitely visible outside of the kernel as it is first
-created and used by the user for kernel-user communications
-via the sockopts and the messages sent by the kernel to the user
-through it.
+thanks,
 
-
-The typical user setup up to now was to create this socket,
-MRT_INIT to register it in ipmr, and handle the incoming packets,
-including the cache reports.
-
-Now that the cache reports are also sent through another medium,
-the user should be able to decide whether it also wants the
-reports on this socket, which, once again, it is already using.
-And if the user wants to get the reports only through Netlink,
-the kernel will currently emit those unrelated warnings.
-
-Once again, we are not in the case of a purely internal kernel socket,
-as this socket is used for internal kernel-user communications.
-
--- 
-Julien Gomes
+greg k-h
