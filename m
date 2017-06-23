@@ -1,53 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] net: qcom/emac: do not reset the EMAC during
- initialization
-Date: Fri, 23 Jun 2017 14:54:23 -0400 (EDT)
-Message-ID: <20170623.145423.192194307144112349.davem@davemloft.net>
-References: <1498154732-19854-3-git-send-email-timur@codeaurora.org>
-        <20170623.140031.865751442887165393.davem@davemloft.net>
-        <b0bbdab5-7c3d-b02e-3e69-a0cb4e214ef2@codeaurora.org>
+Subject: Re: [PATCH net-next 0/4] net: phy: Support "internal" PHY interface
+Date: Fri, 23 Jun 2017 15:07:05 -0400 (EDT)
+Message-ID: <20170623.150705.237882810208849414.davem@davemloft.net>
+References: <20170623173316.23017-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: timur@codeaurora.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35688 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754706AbdFWSyY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 14:54:24 -0400
-In-Reply-To: <b0bbdab5-7c3d-b02e-3e69-a0cb4e214ef2@codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, robh+dt@kernel.org, mark.rutland@arm.com,
+        andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        sean.wang@mediatek.com, martin.blumenstingl@googlemail.com,
+        rmk+kernel@armlinux.org.uk, devicetree@vger.kernel.org,
+        linux-kernel@vger.kernel.org, david.wu@rock-chips.com,
+        opendmb@gmail.com
+To: f.fainelli@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170623173316.23017-1-f.fainelli@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Timur Tabi <timur@codeaurora.org>
-Date: Fri, 23 Jun 2017 13:37:58 -0500
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Fri, 23 Jun 2017 10:33:12 -0700
 
-> On 06/23/2017 01:00 PM, David Miller wrote:
->> What if the boot loader or something else left the chip in
->> a weird state?
-> 
-> We depend on the boot loader leaving the NIC in a very specific state
-> already, otherwise the driver can't initialize the hardware.  The
-> firmware has to pre-initialize the EMAC for us.
-> 
-> Not only that, but the driver was resetting the MAC *after*
-> programming the clocks (on non-ACPI systems) and initializing both
-> PHYs.
-> 
->> I'm not applying this.
->> If it's correct, the explanation in this commit message need
->> to be imporved.  The change must be better justified.
-> 
-> Since this is for ACPI systems, I could do this:
-> 
-> 	if (!has_acpi_companion(&pdev->dev))
-> 		emac_mac_reset(adpt);
-> 
-> But at the very least, the call should be moved to earlier in the
-> function.
+> This makes the "internal" phy-mode property generally available and
+> documented and this allows us to remove some custom parsing code
+> we had for bcmgenet and bcm_sf2 which both used that specific value.
 
-Please just explain the ACPI situation in the commit log message
-and resubmit the series.
+Nice cleanup.
 
-Thanks.
+Series applied, thanks.
