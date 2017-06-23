@@ -1,31 +1,121 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net 0/2] bnxt_en: Error handling and netpoll fixes.
-Date: Fri, 23 Jun 2017 14:00:59 -0400
-Message-ID: <1498240861-17730-1-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net 2/2] bnxt_en: Fix netpoll handling.
+Date: Fri, 23 Jun 2017 14:01:01 -0400
+Message-ID: <1498240861-17730-3-git-send-email-michael.chan@broadcom.com>
+References: <1498240861-17730-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f175.google.com ([209.85.220.175]:32836 "EHLO
-        mail-qk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754014AbdFWSBP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 14:01:15 -0400
-Received: by mail-qk0-f175.google.com with SMTP id r62so41549799qkf.0
-        for <netdev@vger.kernel.org>; Fri, 23 Jun 2017 11:01:15 -0700 (PDT)
+Received: from mail-qk0-f169.google.com ([209.85.220.169]:34564 "EHLO
+        mail-qk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754014AbdFWSBR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 14:01:17 -0400
+Received: by mail-qk0-f169.google.com with SMTP id d78so7982979qkb.1
+        for <netdev@vger.kernel.org>; Fri, 23 Jun 2017 11:01:17 -0700 (PDT)
+In-Reply-To: <1498240861-17730-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add missing error handling and fix netpoll handling.  The current code
-handles RX and TX events in netpoll mode and is causing lots of warnings
-and errors in the RX code path in netpoll mode.  The fix is to only handle
-TX events in netpoll mode.
+To handle netpoll properly, the driver must only handle TX packets
+during NAPI.  Handling RX events cause warnings and errors in
+netpoll mode. The ndo_poll_controller() method should call
+napi_schedule() directly so that a NAPI weight of zero will be used
+during netpoll mode.
 
-Michael Chan (2):
-  bnxt_en: Add missing logic to handle TPA end error conditions.
-  bnxt_en: Fix netpoll handling.
+The bnxt_en driver supports 2 ring modes: combined, and separate rx/tx.
+In separate rx/tx mode, the ndo_poll_controller() method will only
+process the tx rings.  In combined mode, the rx and tx completion
+entries are mixed in the completion ring and we need to drop the rx
+entries and recycle the rx buffers.
 
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 61 ++++++++++++++++++++++++++-----
- drivers/net/ethernet/broadcom/bnxt/bnxt.h |  6 ++-
- 2 files changed, 57 insertions(+), 10 deletions(-)
+Add a function bnxt_force_rx_discard() to handle this in netpoll mode
+when we see rx entries in combined ring mode.
 
+Reported-by: Calvin Owens <calvinowens@fb.com>
+Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 54 +++++++++++++++++++++++++++----
+ 1 file changed, 48 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index f5ba8ec..74e8e21 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -1563,6 +1563,45 @@ static int bnxt_rx_pkt(struct bnxt *bp, struct bnxt_napi *bnapi, u32 *raw_cons,
+ 	return rc;
+ }
+ 
++/* In netpoll mode, if we are using a combined completion ring, we need to
++ * discard the rx packets and recycle the buffers.
++ */
++static int bnxt_force_rx_discard(struct bnxt *bp, struct bnxt_napi *bnapi,
++				 u32 *raw_cons, u8 *event)
++{
++	struct bnxt_cp_ring_info *cpr = &bnapi->cp_ring;
++	u32 tmp_raw_cons = *raw_cons;
++	struct rx_cmp_ext *rxcmp1;
++	struct rx_cmp *rxcmp;
++	u16 cp_cons;
++	u8 cmp_type;
++
++	cp_cons = RING_CMP(tmp_raw_cons);
++	rxcmp = (struct rx_cmp *)
++			&cpr->cp_desc_ring[CP_RING(cp_cons)][CP_IDX(cp_cons)];
++
++	tmp_raw_cons = NEXT_RAW_CMP(tmp_raw_cons);
++	cp_cons = RING_CMP(tmp_raw_cons);
++	rxcmp1 = (struct rx_cmp_ext *)
++			&cpr->cp_desc_ring[CP_RING(cp_cons)][CP_IDX(cp_cons)];
++
++	if (!RX_CMP_VALID(rxcmp1, tmp_raw_cons))
++		return -EBUSY;
++
++	cmp_type = RX_CMP_TYPE(rxcmp);
++	if (cmp_type == CMP_TYPE_RX_L2_CMP) {
++		rxcmp1->rx_cmp_cfa_code_errors_v2 |=
++			cpu_to_le32(RX_CMPL_ERRORS_CRC_ERROR);
++	} else if (cmp_type == CMP_TYPE_RX_L2_TPA_END_CMP) {
++		struct rx_tpa_end_cmp_ext *tpa_end1;
++
++		tpa_end1 = (struct rx_tpa_end_cmp_ext *)rxcmp1;
++		tpa_end1->rx_tpa_end_cmp_errors_v2 |=
++			cpu_to_le32(RX_TPA_END_CMP_ERRORS);
++	}
++	return bnxt_rx_pkt(bp, bnapi, raw_cons, event);
++}
++
+ #define BNXT_GET_EVENT_PORT(data)	\
+ 	((data) &			\
+ 	 ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_PORT_ID_MASK)
+@@ -1745,7 +1784,11 @@ static int bnxt_poll_work(struct bnxt *bp, struct bnxt_napi *bnapi, int budget)
+ 			if (unlikely(tx_pkts > bp->tx_wake_thresh))
+ 				rx_pkts = budget;
+ 		} else if ((TX_CMP_TYPE(txcmp) & 0x30) == 0x10) {
+-			rc = bnxt_rx_pkt(bp, bnapi, &raw_cons, &event);
++			if (likely(budget))
++				rc = bnxt_rx_pkt(bp, bnapi, &raw_cons, &event);
++			else
++				rc = bnxt_force_rx_discard(bp, bnapi, &raw_cons,
++							   &event);
+ 			if (likely(rc >= 0))
+ 				rx_pkts += rc;
+ 			else if (rc == -EBUSY)	/* partial completion */
+@@ -6664,12 +6707,11 @@ static void bnxt_poll_controller(struct net_device *dev)
+ 	struct bnxt *bp = netdev_priv(dev);
+ 	int i;
+ 
+-	for (i = 0; i < bp->cp_nr_rings; i++) {
+-		struct bnxt_irq *irq = &bp->irq_tbl[i];
++	/* Only process tx rings/combined rings in netpoll mode. */
++	for (i = 0; i < bp->tx_nr_rings; i++) {
++		struct bnxt_tx_ring_info *txr = &bp->tx_ring[i];
+ 
+-		disable_irq(irq->vector);
+-		irq->handler(irq->vector, bp->bnapi[i]);
+-		enable_irq(irq->vector);
++		napi_schedule(&txr->bnapi->napi);
+ 	}
+ }
+ #endif
 -- 
 1.8.3.1
