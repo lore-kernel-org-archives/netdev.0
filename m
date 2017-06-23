@@ -1,488 +1,225 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 03/15] net/mlx5e: Introduce RX Page-Reuse
-Date: Fri, 23 Jun 2017 17:26:10 +0300
-Message-ID: <20170623142622.16565-4-saeedm@mellanox.com>
+Subject: [net-next 12/15] net/mlx5: Add mlxfw callbacks
+Date: Fri, 23 Jun 2017 17:26:19 +0300
+Message-ID: <20170623142622.16565-13-saeedm@mellanox.com>
 References: <20170623142622.16565-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+        Yotam Gigi <yotamg@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54029 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54109 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751488AbdFWO1w (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 10:27:52 -0400
+        with ESMTP id S1754229AbdFWO1z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 10:27:55 -0400
 In-Reply-To: <20170623142622.16565-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tariq Toukan <tariqt@mellanox.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
 
-Introduce a Page-Reuse mechanism in non-Striding RQ RX datapath.
+Add mlx5 implementation for the ones defined by the mlxfw
+shared module to be used while flashing the device firmware.
 
-A WQE (RX descriptor) buffer is a page, that in most cases was fully
-wasted on a packet that is much smaller, requiring a new page for
-the next round.
+The callbacks do their job through the MCQI, MCC and MCDA registers.
 
-In this patch, we implement a page-reuse mechanism, that resembles a
-`SW Striding RQ`.
-We allow the WQE to reuse its allocated page as much as it could,
-until the page is fully consumed.  In each round, the WQE is capable
-of receiving packet of maximal size (MTU). Yet, upon the reception of
-a packet, the WQE knows the actual packet size, and consumes the exact
-amount of memory needed to build a linear SKB. Then, it updates the
-buffer pointer within the page accordingly, for the next round.
-
-Feature is mutually exclusive with XDP (packet-per-page)
-and LRO (session size is a power of two, needs unused page).
-
-Performance tests:
-iperf tcp tests show huge gain:
-
---------------------------------------------
-num streams | BW before | BW after | ratio |
-          1 |      22.2 |     30.9 | 1.39x |
-          8 |      64.2 |     93.6 | 1.46x |
-         64 |      56.7 |     91.4 | 1.61x |
---------------------------------------------
-
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  12 ++-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  28 +++--
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    | 119 ++++++++++++++++-----
- drivers/net/ethernet/mellanox/mlx5/core/en_stats.h |   4 +
- 4 files changed, 126 insertions(+), 37 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/fw.c       | 154 +++++++++++++++++++++
+ .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |   3 +
+ 2 files changed, 157 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 00ff2a1651e7..709f500ef16f 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -448,6 +448,11 @@ struct mlx5e_dma_info {
- 	dma_addr_t	addr;
- };
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fw.c b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
+index 3a3c4fbc7168..fa33d59ab485 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
+@@ -34,6 +34,7 @@
+ #include <linux/mlx5/cmd.h>
+ #include <linux/module.h>
+ #include "mlx5_core.h"
++#include "../../mlxfw/mlxfw.h"
  
-+struct mlx5e_wqe_frag_info {
-+	struct mlx5e_dma_info di;
-+	u32 offset;
+ static int mlx5_cmd_query_adapter(struct mlx5_core_dev *dev, u32 *out,
+ 				  int outlen)
+@@ -337,3 +338,156 @@ static int mlx5_reg_mcqi_query(struct mlx5_core_dev *dev,
+ out:
+ 	return err;
+ }
++
++struct mlx5_mlxfw_dev {
++	struct mlxfw_dev mlxfw_dev;
++	struct mlx5_core_dev *mlx5_core_dev;
 +};
 +
- struct mlx5e_umr_dma_info {
- 	__be64                *mtt;
- 	dma_addr_t             mtt_addr;
-@@ -509,7 +514,12 @@ struct mlx5e_rq {
- 	struct mlx5_wq_ll      wq;
- 
- 	union {
--		struct mlx5e_dma_info *dma_info;
-+		struct {
-+			struct mlx5e_wqe_frag_info *frag_info;
-+			u32 frag_sz;	/* max possible skb frag_sz */
-+			bool page_reuse;
-+			bool xdp_xmit;
-+		} wqe;
- 		struct {
- 			struct mlx5e_mpw_info *info;
- 			void                  *mtt_no_align;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 66173e5545ce..9f99f624004f 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -200,6 +200,7 @@ static void mlx5e_update_sw_counters(struct mlx5e_priv *priv)
- 		s->rx_buff_alloc_err += rq_stats->buff_alloc_err;
- 		s->rx_cqe_compress_blks += rq_stats->cqe_compress_blks;
- 		s->rx_cqe_compress_pkts += rq_stats->cqe_compress_pkts;
-+		s->rx_page_reuse  += rq_stats->page_reuse;
- 		s->rx_cache_reuse += rq_stats->cache_reuse;
- 		s->rx_cache_full  += rq_stats->cache_full;
- 		s->rx_cache_empty += rq_stats->cache_empty;
-@@ -550,7 +551,6 @@ static int mlx5e_alloc_rq(struct mlx5e_channel *c,
- 	void *rqc = rqp->rqc;
- 	void *rqc_wq = MLX5_ADDR_OF(rqc, rqc, wq);
- 	u32 byte_count;
--	u32 frag_sz;
- 	int npages;
- 	int wq_sz;
- 	int err;
-@@ -614,9 +614,10 @@ static int mlx5e_alloc_rq(struct mlx5e_channel *c,
- 			goto err_destroy_umr_mkey;
- 		break;
- 	default: /* MLX5_WQ_TYPE_LINKED_LIST */
--		rq->dma_info = kzalloc_node(wq_sz * sizeof(*rq->dma_info),
--					    GFP_KERNEL, cpu_to_node(c->cpu));
--		if (!rq->dma_info) {
-+		rq->wqe.frag_info =
-+			kzalloc_node(wq_sz * sizeof(*rq->wqe.frag_info),
-+				     GFP_KERNEL, cpu_to_node(c->cpu));
-+		if (!rq->wqe.frag_info) {
- 			err = -ENOMEM;
- 			goto err_rq_wq_destroy;
- 		}
-@@ -625,7 +626,7 @@ static int mlx5e_alloc_rq(struct mlx5e_channel *c,
- 
- 		rq->handle_rx_cqe = c->priv->profile->rx_handlers.handle_rx_cqe;
- 		if (!rq->handle_rx_cqe) {
--			kfree(rq->dma_info);
-+			kfree(rq->wqe.frag_info);
- 			err = -EINVAL;
- 			netdev_err(c->netdev, "RX handler of RQ is not set, err %d\n", err);
- 			goto err_rq_wq_destroy;
-@@ -634,11 +635,12 @@ static int mlx5e_alloc_rq(struct mlx5e_channel *c,
- 		rq->buff.wqe_sz = params->lro_en  ?
- 				params->lro_wqe_sz :
- 				MLX5E_SW2HW_MTU(c->priv, c->netdev->mtu);
-+		rq->wqe.page_reuse = !params->xdp_prog && !params->lro_en;
- 		byte_count = rq->buff.wqe_sz;
- 
- 		/* calc the required page order */
--		frag_sz = MLX5_SKB_FRAG_SZ(rq->rx_headroom + byte_count);
--		npages = DIV_ROUND_UP(frag_sz, PAGE_SIZE);
-+		rq->wqe.frag_sz = MLX5_SKB_FRAG_SZ(rq->rx_headroom + byte_count);
-+		npages = DIV_ROUND_UP(rq->wqe.frag_sz, PAGE_SIZE);
- 		rq->buff.page_order = order_base_2(npages);
- 
- 		byte_count |= MLX5_HW_START_PADDING;
-@@ -683,7 +685,7 @@ static void mlx5e_free_rq(struct mlx5e_rq *rq)
- 		mlx5_core_destroy_mkey(rq->mdev, &rq->umr_mkey);
- 		break;
- 	default: /* MLX5_WQ_TYPE_LINKED_LIST */
--		kfree(rq->dma_info);
-+		kfree(rq->wqe.frag_info);
- 	}
- 
- 	for (i = rq->page_cache.head; i != rq->page_cache.tail;
-@@ -865,6 +867,16 @@ static void mlx5e_free_rx_descs(struct mlx5e_rq *rq)
- 		mlx5_wq_ll_pop(&rq->wq, wqe_ix_be,
- 			       &wqe->next.next_wqe_index);
- 	}
-+
-+	if (rq->wq_type == MLX5_WQ_TYPE_LINKED_LIST && rq->wqe.page_reuse) {
-+		/* Clean outstanding pages on handled WQEs that decided to do page-reuse,
-+		 * but yet to be re-posted.
-+		 */
-+		int wq_sz = mlx5_wq_ll_get_size(&rq->wq);
-+
-+		for (wqe_ix = 0; wqe_ix < wq_sz; wqe_ix++)
-+			rq->dealloc_wqe(rq, wqe_ix);
-+	}
- }
- 
- static int mlx5e_open_rq(struct mlx5e_channel *c,
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index 2eef4e701ab3..5f3c138c948d 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -160,6 +160,11 @@ static inline u32 mlx5e_decompress_cqes_start(struct mlx5e_rq *rq,
- 
- #define RQ_PAGE_SIZE(rq) ((1 << rq->buff.page_order) << PAGE_SHIFT)
- 
-+static inline bool mlx5e_page_is_reserved(struct page *page)
++static int mlx5_component_query(struct mlxfw_dev *mlxfw_dev,
++				u16 component_index, u32 *p_max_size,
++				u8 *p_align_bits, u16 *p_max_write_size)
 +{
-+	return page_is_pfmemalloc(page) || page_to_nid(page) != numa_node_id();
++	struct mlx5_mlxfw_dev *mlx5_mlxfw_dev =
++		container_of(mlxfw_dev, struct mlx5_mlxfw_dev, mlxfw_dev);
++	struct mlx5_core_dev *dev = mlx5_mlxfw_dev->mlx5_core_dev;
++
++	return mlx5_reg_mcqi_query(dev, component_index, p_max_size,
++				   p_align_bits, p_max_write_size);
 +}
 +
- static inline bool mlx5e_rx_cache_put(struct mlx5e_rq *rq,
- 				      struct mlx5e_dma_info *dma_info)
- {
-@@ -238,22 +243,54 @@ void mlx5e_page_release(struct mlx5e_rq *rq, struct mlx5e_dma_info *dma_info,
- 	put_page(dma_info->page);
- }
- 
-+static inline bool mlx5e_page_reuse(struct mlx5e_rq *rq,
-+				    struct mlx5e_wqe_frag_info *wi)
++static int mlx5_fsm_lock(struct mlxfw_dev *mlxfw_dev, u32 *fwhandle)
 +{
-+	return rq->wqe.page_reuse && wi->di.page &&
-+		(wi->offset + rq->wqe.frag_sz <= RQ_PAGE_SIZE(rq)) &&
-+		!mlx5e_page_is_reserved(wi->di.page);
++	struct mlx5_mlxfw_dev *mlx5_mlxfw_dev =
++		container_of(mlxfw_dev, struct mlx5_mlxfw_dev, mlxfw_dev);
++	struct mlx5_core_dev *dev = mlx5_mlxfw_dev->mlx5_core_dev;
++	u8 control_state, error_code;
++	int err;
++
++	*fwhandle = 0;
++	err = mlx5_reg_mcc_query(dev, fwhandle, &error_code, &control_state);
++	if (err)
++		return err;
++
++	if (control_state != MLXFW_FSM_STATE_IDLE)
++		return -EBUSY;
++
++	return mlx5_reg_mcc_set(dev, MLX5_REG_MCC_INSTRUCTION_LOCK_UPDATE_HANDLE,
++				0, *fwhandle, 0);
 +}
 +
- int mlx5e_alloc_rx_wqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe, u16 ix)
- {
--	struct mlx5e_dma_info *di = &rq->dma_info[ix];
-+	struct mlx5e_wqe_frag_info *wi = &rq->wqe.frag_info[ix];
- 
--	if (unlikely(mlx5e_page_alloc_mapped(rq, di)))
--		return -ENOMEM;
-+	/* check if page exists, hence can be reused */
-+	if (!wi->di.page) {
-+		if (unlikely(mlx5e_page_alloc_mapped(rq, &wi->di)))
-+			return -ENOMEM;
-+		wi->offset = 0;
-+	}
- 
--	wqe->data.addr = cpu_to_be64(di->addr + rq->rx_headroom);
-+	wqe->data.addr = cpu_to_be64(wi->di.addr + wi->offset +
-+				     rq->rx_headroom);
- 	return 0;
- }
- 
-+static inline void mlx5e_free_rx_wqe(struct mlx5e_rq *rq,
-+				     struct mlx5e_wqe_frag_info *wi)
++static int mlx5_fsm_component_update(struct mlxfw_dev *mlxfw_dev, u32 fwhandle,
++				     u16 component_index, u32 component_size)
 +{
-+	mlx5e_page_release(rq, &wi->di, true);
-+	wi->di.page = NULL;
++	struct mlx5_mlxfw_dev *mlx5_mlxfw_dev =
++		container_of(mlxfw_dev, struct mlx5_mlxfw_dev, mlxfw_dev);
++	struct mlx5_core_dev *dev = mlx5_mlxfw_dev->mlx5_core_dev;
++
++	return mlx5_reg_mcc_set(dev, MLX5_REG_MCC_INSTRUCTION_UPDATE_COMPONENT,
++				component_index, fwhandle, component_size);
 +}
 +
-+static inline void mlx5e_free_rx_wqe_reuse(struct mlx5e_rq *rq,
-+					   struct mlx5e_wqe_frag_info *wi)
++static int mlx5_fsm_block_download(struct mlxfw_dev *mlxfw_dev, u32 fwhandle,
++				   u8 *data, u16 size, u32 offset)
 +{
-+	if (mlx5e_page_reuse(rq, wi)) {
-+		rq->stats.page_reuse++;
-+		return;
-+	}
++	struct mlx5_mlxfw_dev *mlx5_mlxfw_dev =
++		container_of(mlxfw_dev, struct mlx5_mlxfw_dev, mlxfw_dev);
++	struct mlx5_core_dev *dev = mlx5_mlxfw_dev->mlx5_core_dev;
 +
-+	mlx5e_free_rx_wqe(rq, wi);
++	return mlx5_reg_mcda_set(dev, fwhandle, offset, size, data);
 +}
 +
- void mlx5e_dealloc_rx_wqe(struct mlx5e_rq *rq, u16 ix)
- {
--	struct mlx5e_dma_info *di = &rq->dma_info[ix];
-+	struct mlx5e_wqe_frag_info *wi = &rq->wqe.frag_info[ix];
- 
--	mlx5e_page_release(rq, di, true);
-+	if (wi->di.page)
-+		mlx5e_free_rx_wqe(rq, wi);
- }
- 
- static inline int mlx5e_mpwqe_strides_per_page(struct mlx5e_rq *rq)
-@@ -650,7 +687,6 @@ static inline bool mlx5e_xmit_xdp_frame(struct mlx5e_rq *rq,
- 	if (unlikely(dma_len < MLX5E_XDP_MIN_INLINE ||
- 		     MLX5E_SW2HW_MTU(rq->channel->priv, rq->netdev->mtu) < dma_len)) {
- 		rq->stats.xdp_drop++;
--		mlx5e_page_release(rq, di, true);
- 		return false;
- 	}
- 
-@@ -661,7 +697,6 @@ static inline bool mlx5e_xmit_xdp_frame(struct mlx5e_rq *rq,
- 			sq->db.doorbell = false;
- 		}
- 		rq->stats.xdp_tx_full++;
--		mlx5e_page_release(rq, di, true);
- 		return false;
- 	}
- 
-@@ -686,10 +721,15 @@ static inline bool mlx5e_xmit_xdp_frame(struct mlx5e_rq *rq,
- 
- 	cseg->opmod_idx_opcode = cpu_to_be32((sq->pc << 8) | MLX5_OPCODE_SEND);
- 
-+	/* move page to reference to sq responsibility,
-+	 * and mark so it's not put back in page-cache.
-+	 */
-+	rq->wqe.xdp_xmit = true;
- 	sq->db.di[pi] = *di;
- 	sq->pc++;
- 
- 	sq->db.doorbell = true;
++static int mlx5_fsm_component_verify(struct mlxfw_dev *mlxfw_dev, u32 fwhandle,
++				     u16 component_index)
++{
++	struct mlx5_mlxfw_dev *mlx5_mlxfw_dev =
++		container_of(mlxfw_dev, struct mlx5_mlxfw_dev, mlxfw_dev);
++	struct mlx5_core_dev *dev = mlx5_mlxfw_dev->mlx5_core_dev;
 +
- 	rq->stats.xdp_tx++;
- 	return true;
- }
-@@ -726,36 +766,34 @@ static inline int mlx5e_xdp_handle(struct mlx5e_rq *rq,
- 		trace_xdp_exception(rq->netdev, prog, act);
- 	case XDP_DROP:
- 		rq->stats.xdp_drop++;
--		mlx5e_page_release(rq, di, true);
- 		return true;
- 	}
- }
- 
- static inline
- struct sk_buff *skb_from_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe,
--			     u16 wqe_counter, u32 cqe_bcnt)
-+			     struct mlx5e_wqe_frag_info *wi, u32 cqe_bcnt)
- {
--	struct mlx5e_dma_info *di;
-+	struct mlx5e_dma_info *di = &wi->di;
- 	struct sk_buff *skb;
- 	void *va, *data;
- 	u16 rx_headroom = rq->rx_headroom;
- 	bool consumed;
- 	u32 frag_size;
- 
--	di             = &rq->dma_info[wqe_counter];
--	va             = page_address(di->page);
-+	va             = page_address(di->page) + wi->offset;
- 	data           = va + rx_headroom;
-+	frag_size      = MLX5_SKB_FRAG_SZ(rx_headroom + cqe_bcnt);
- 
- 	dma_sync_single_range_for_cpu(rq->pdev,
--				      di->addr,
--				      rx_headroom,
--				      rq->buff.wqe_sz,
-+				      di->addr + wi->offset,
-+				      0, frag_size,
- 				      DMA_FROM_DEVICE);
- 	prefetch(data);
-+	wi->offset += frag_size;
- 
- 	if (unlikely((cqe->op_own >> 4) != MLX5_CQE_RESP_SEND)) {
- 		rq->stats.wqe_err++;
--		mlx5e_page_release(rq, di, true);
- 		return NULL;
- 	}
- 
-@@ -765,17 +803,14 @@ struct sk_buff *skb_from_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe,
- 	if (consumed)
- 		return NULL; /* page/packet was consumed by XDP */
- 
--	frag_size = MLX5_SKB_FRAG_SZ(rx_headroom + cqe_bcnt);
- 	skb = build_skb(va, frag_size);
- 	if (unlikely(!skb)) {
- 		rq->stats.buff_alloc_err++;
--		mlx5e_page_release(rq, di, true);
- 		return NULL;
- 	}
- 
--	/* queue up for recycling ..*/
-+	/* queue up for recycling/reuse */
- 	page_ref_inc(di->page);
--	mlx5e_page_release(rq, di, true);
- 
- 	skb_reserve(skb, rx_headroom);
- 	skb_put(skb, cqe_bcnt);
-@@ -785,6 +820,7 @@ struct sk_buff *skb_from_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe,
- 
- void mlx5e_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
- {
-+	struct mlx5e_wqe_frag_info *wi;
- 	struct mlx5e_rx_wqe *wqe;
- 	__be16 wqe_counter_be;
- 	struct sk_buff *skb;
-@@ -794,15 +830,27 @@ void mlx5e_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
- 	wqe_counter_be = cqe->wqe_counter;
- 	wqe_counter    = be16_to_cpu(wqe_counter_be);
- 	wqe            = mlx5_wq_ll_get_wqe(&rq->wq, wqe_counter);
-+	wi             = &rq->wqe.frag_info[wqe_counter];
- 	cqe_bcnt       = be32_to_cpu(cqe->byte_cnt);
- 
--	skb = skb_from_cqe(rq, cqe, wqe_counter, cqe_bcnt);
--	if (!skb)
-+	skb = skb_from_cqe(rq, cqe, wi, cqe_bcnt);
-+	if (!skb) {
-+		/* probably for XDP */
-+		if (rq->wqe.xdp_xmit) {
-+			wi->di.page = NULL;
-+			rq->wqe.xdp_xmit = false;
-+			/* do not return page to cache, it will be returned on XDP_TX completion */
-+			goto wq_ll_pop;
-+		}
-+		/* probably an XDP_DROP, save the page-reuse checks */
-+		mlx5e_free_rx_wqe(rq, wi);
- 		goto wq_ll_pop;
++	return mlx5_reg_mcc_set(dev, MLX5_REG_MCC_INSTRUCTION_VERIFY_COMPONENT,
++				component_index, fwhandle, 0);
++}
++
++static int mlx5_fsm_activate(struct mlxfw_dev *mlxfw_dev, u32 fwhandle)
++{
++	struct mlx5_mlxfw_dev *mlx5_mlxfw_dev =
++		container_of(mlxfw_dev, struct mlx5_mlxfw_dev, mlxfw_dev);
++	struct mlx5_core_dev *dev = mlx5_mlxfw_dev->mlx5_core_dev;
++
++	return mlx5_reg_mcc_set(dev, MLX5_REG_MCC_INSTRUCTION_ACTIVATE,	0,
++				fwhandle, 0);
++}
++
++static int mlx5_fsm_query_state(struct mlxfw_dev *mlxfw_dev, u32 fwhandle,
++				enum mlxfw_fsm_state *fsm_state,
++				enum mlxfw_fsm_state_err *fsm_state_err)
++{
++	struct mlx5_mlxfw_dev *mlx5_mlxfw_dev =
++		container_of(mlxfw_dev, struct mlx5_mlxfw_dev, mlxfw_dev);
++	struct mlx5_core_dev *dev = mlx5_mlxfw_dev->mlx5_core_dev;
++	u8 control_state, error_code;
++	int err;
++
++	err = mlx5_reg_mcc_query(dev, &fwhandle, &error_code, &control_state);
++	if (err)
++		return err;
++
++	*fsm_state = control_state;
++	*fsm_state_err = min_t(enum mlxfw_fsm_state_err, error_code,
++			       MLXFW_FSM_STATE_ERR_MAX);
++	return 0;
++}
++
++static void mlx5_fsm_cancel(struct mlxfw_dev *mlxfw_dev, u32 fwhandle)
++{
++	struct mlx5_mlxfw_dev *mlx5_mlxfw_dev =
++		container_of(mlxfw_dev, struct mlx5_mlxfw_dev, mlxfw_dev);
++	struct mlx5_core_dev *dev = mlx5_mlxfw_dev->mlx5_core_dev;
++
++	mlx5_reg_mcc_set(dev, MLX5_REG_MCC_INSTRUCTION_CANCEL, 0, fwhandle, 0);
++}
++
++static void mlx5_fsm_release(struct mlxfw_dev *mlxfw_dev, u32 fwhandle)
++{
++	struct mlx5_mlxfw_dev *mlx5_mlxfw_dev =
++		container_of(mlxfw_dev, struct mlx5_mlxfw_dev, mlxfw_dev);
++	struct mlx5_core_dev *dev = mlx5_mlxfw_dev->mlx5_core_dev;
++
++	mlx5_reg_mcc_set(dev, MLX5_REG_MCC_INSTRUCTION_RELEASE_UPDATE_HANDLE, 0,
++			 fwhandle, 0);
++}
++
++static const struct mlxfw_dev_ops mlx5_mlxfw_dev_ops = {
++	.component_query	= mlx5_component_query,
++	.fsm_lock		= mlx5_fsm_lock,
++	.fsm_component_update	= mlx5_fsm_component_update,
++	.fsm_block_download	= mlx5_fsm_block_download,
++	.fsm_component_verify	= mlx5_fsm_component_verify,
++	.fsm_activate		= mlx5_fsm_activate,
++	.fsm_query_state	= mlx5_fsm_query_state,
++	.fsm_cancel		= mlx5_fsm_cancel,
++	.fsm_release		= mlx5_fsm_release
++};
++
++int mlx5_firmware_flash(struct mlx5_core_dev *dev,
++			const struct firmware *firmware)
++{
++	struct mlx5_mlxfw_dev mlx5_mlxfw_dev = {
++		.mlxfw_dev = {
++			.ops = &mlx5_mlxfw_dev_ops,
++			.psid = dev->board_id,
++			.psid_size = strlen(dev->board_id),
++		},
++		.mlx5_core_dev = dev
++	};
++
++	if (!MLX5_CAP_GEN(dev, mcam_reg)  ||
++	    !MLX5_CAP_MCAM_REG(dev, mcqi) ||
++	    !MLX5_CAP_MCAM_REG(dev, mcc)  ||
++	    !MLX5_CAP_MCAM_REG(dev, mcda)) {
++		pr_info("%s flashing isn't supported by the running FW\n", __func__);
++		return -EOPNOTSUPP;
 +	}
++
++	return mlxfw_firmware_flash(&mlx5_mlxfw_dev.mlxfw_dev, firmware);
++}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+index 5ccdf43e58a6..6a3d6bef7dd4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+@@ -37,6 +37,7 @@
+ #include <linux/kernel.h>
+ #include <linux/sched.h>
+ #include <linux/if_link.h>
++#include <linux/firmware.h>
  
- 	mlx5e_complete_rx_cqe(rq, cqe, cqe_bcnt, skb);
- 	napi_gro_receive(rq->cq.napi, skb);
+ #define DRIVER_NAME "mlx5_core"
+ #define DRIVER_VERSION "5.0-0"
+@@ -153,6 +154,8 @@ int mlx5_set_mtpps(struct mlx5_core_dev *mdev, u32 *mtpps, u32 mtpps_size);
+ int mlx5_query_mtppse(struct mlx5_core_dev *mdev, u8 pin, u8 *arm, u8 *mode);
+ int mlx5_set_mtppse(struct mlx5_core_dev *mdev, u8 pin, u8 arm, u8 mode);
  
-+	mlx5e_free_rx_wqe_reuse(rq, wi);
- wq_ll_pop:
- 	mlx5_wq_ll_pop(&rq->wq, wqe_counter_be,
- 		       &wqe->next.next_wqe_index);
-@@ -814,6 +862,7 @@ void mlx5e_handle_rx_cqe_rep(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
- 	struct mlx5e_priv *priv = netdev_priv(netdev);
- 	struct mlx5e_rep_priv *rpriv  = priv->ppriv;
- 	struct mlx5_eswitch_rep *rep = rpriv->rep;
-+	struct mlx5e_wqe_frag_info *wi;
- 	struct mlx5e_rx_wqe *wqe;
- 	struct sk_buff *skb;
- 	__be16 wqe_counter_be;
-@@ -823,11 +872,21 @@ void mlx5e_handle_rx_cqe_rep(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
- 	wqe_counter_be = cqe->wqe_counter;
- 	wqe_counter    = be16_to_cpu(wqe_counter_be);
- 	wqe            = mlx5_wq_ll_get_wqe(&rq->wq, wqe_counter);
-+	wi             = &rq->wqe.frag_info[wqe_counter];
- 	cqe_bcnt       = be32_to_cpu(cqe->byte_cnt);
++int mlx5_firmware_flash(struct mlx5_core_dev *dev, const struct firmware *fw);
++
+ void mlx5e_init(void);
+ void mlx5e_cleanup(void);
  
--	skb = skb_from_cqe(rq, cqe, wqe_counter, cqe_bcnt);
--	if (!skb)
-+	skb = skb_from_cqe(rq, cqe, wi, cqe_bcnt);
-+	if (!skb) {
-+		if (rq->wqe.xdp_xmit) {
-+			wi->di.page = NULL;
-+			rq->wqe.xdp_xmit = false;
-+			/* do not return page to cache, it will be returned on XDP_TX completion */
-+			goto wq_ll_pop;
-+		}
-+		/* probably an XDP_DROP, save the page-reuse checks */
-+		mlx5e_free_rx_wqe(rq, wi);
- 		goto wq_ll_pop;
-+	}
- 
- 	mlx5e_complete_rx_cqe(rq, cqe, cqe_bcnt, skb);
- 
-@@ -836,6 +895,7 @@ void mlx5e_handle_rx_cqe_rep(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
- 
- 	napi_gro_receive(rq->cq.napi, skb);
- 
-+	mlx5e_free_rx_wqe_reuse(rq, wi);
- wq_ll_pop:
- 	mlx5_wq_ll_pop(&rq->wq, wqe_counter_be,
- 		       &wqe->next.next_wqe_index);
-@@ -1096,6 +1156,7 @@ static inline void mlx5i_complete_rx_cqe(struct mlx5e_rq *rq,
- 
- void mlx5i_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
- {
-+	struct mlx5e_wqe_frag_info *wi;
- 	struct mlx5e_rx_wqe *wqe;
- 	__be16 wqe_counter_be;
- 	struct sk_buff *skb;
-@@ -1105,16 +1166,18 @@ void mlx5i_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
- 	wqe_counter_be = cqe->wqe_counter;
- 	wqe_counter    = be16_to_cpu(wqe_counter_be);
- 	wqe            = mlx5_wq_ll_get_wqe(&rq->wq, wqe_counter);
-+	wi             = &rq->wqe.frag_info[wqe_counter];
- 	cqe_bcnt       = be32_to_cpu(cqe->byte_cnt);
- 
--	skb = skb_from_cqe(rq, cqe, wqe_counter, cqe_bcnt);
-+	skb = skb_from_cqe(rq, cqe, wi, cqe_bcnt);
- 	if (!skb)
--		goto wq_ll_pop;
-+		goto wq_free_wqe;
- 
- 	mlx5i_complete_rx_cqe(rq, cqe, cqe_bcnt, skb);
- 	napi_gro_receive(rq->cq.napi, skb);
- 
--wq_ll_pop:
-+wq_free_wqe:
-+	mlx5e_free_rx_wqe_reuse(rq, wi);
- 	mlx5_wq_ll_pop(&rq->wq, wqe_counter_be,
- 		       &wqe->next.next_wqe_index);
- }
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
-index fda247587ff6..e65517eafc58 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
-@@ -79,6 +79,7 @@ struct mlx5e_sw_stats {
- 	u64 rx_buff_alloc_err;
- 	u64 rx_cqe_compress_blks;
- 	u64 rx_cqe_compress_pkts;
-+	u64 rx_page_reuse;
- 	u64 rx_cache_reuse;
- 	u64 rx_cache_full;
- 	u64 rx_cache_empty;
-@@ -117,6 +118,7 @@ static const struct counter_desc sw_stats_desc[] = {
- 	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_buff_alloc_err) },
- 	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_cqe_compress_blks) },
- 	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_cqe_compress_pkts) },
-+	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_page_reuse) },
- 	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_cache_reuse) },
- 	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_cache_full) },
- 	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_cache_empty) },
-@@ -319,6 +321,7 @@ struct mlx5e_rq_stats {
- 	u64 buff_alloc_err;
- 	u64 cqe_compress_blks;
- 	u64 cqe_compress_pkts;
-+	u64 page_reuse;
- 	u64 cache_reuse;
- 	u64 cache_full;
- 	u64 cache_empty;
-@@ -341,6 +344,7 @@ static const struct counter_desc rq_stats_desc[] = {
- 	{ MLX5E_DECLARE_RX_STAT(struct mlx5e_rq_stats, buff_alloc_err) },
- 	{ MLX5E_DECLARE_RX_STAT(struct mlx5e_rq_stats, cqe_compress_blks) },
- 	{ MLX5E_DECLARE_RX_STAT(struct mlx5e_rq_stats, cqe_compress_pkts) },
-+	{ MLX5E_DECLARE_RX_STAT(struct mlx5e_rq_stats, page_reuse) },
- 	{ MLX5E_DECLARE_RX_STAT(struct mlx5e_rq_stats, cache_reuse) },
- 	{ MLX5E_DECLARE_RX_STAT(struct mlx5e_rq_stats, cache_full) },
- 	{ MLX5E_DECLARE_RX_STAT(struct mlx5e_rq_stats, cache_empty) },
 -- 
 2.11.0
