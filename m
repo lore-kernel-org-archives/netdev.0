@@ -1,58 +1,176 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 01/11] net: phy: Add rockchip phy driver support
-Date: Fri, 23 Jun 2017 15:55:45 +0200
-Message-ID: <20170623135545.GB21943@lunn.ch>
-References: <1498192929-7519-1-git-send-email-david.wu@rock-chips.com>
- <1498192929-7519-2-git-send-email-david.wu@rock-chips.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, heiko@sntech.de, robh+dt@kernel.org,
-        mark.rutland@arm.com, catalin.marinas@arm.com, will.deacon@arm.com,
-        olof@lixom.net, linux@armlinux.org.uk, arnd@arndb.de,
-        f.fainelli@gmail.com, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, huangtao@rock-chips.com,
-        hwg@rock-chips.com, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org,
-        linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: David Wu <david.wu@rock-chips.com>
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Subject: [PATCH net-next 1/2] cxgb4: Update T6 Buffer Group and Channel Mappings
+Date: Fri, 23 Jun 2017 19:14:36 +0530
+Message-ID: <1498225477-20960-1-git-send-email-ganeshgr@chelsio.com>
+Cc: nirranjan@chelsio.com, indranil@chelsio.com, venkatesh@chelsio.com,
+        leedom@chelsio.com, Arjun Vynipadath <arjun@chelsio.com>,
+        Ganesh Goudar <ganeshgr@chelsio.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:32969 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752066AbdFWN4P (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 23 Jun 2017 09:56:15 -0400
-Content-Disposition: inline
-In-Reply-To: <1498192929-7519-2-git-send-email-david.wu@rock-chips.com>
+Received: from stargate.chelsio.com ([12.32.117.8]:50416 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753905AbdFWOCc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 10:02:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 23, 2017 at 12:41:59PM +0800, David Wu wrote:
-> Support internal ephy currently.
-> 
-> Signed-off-by: David Wu <david.wu@rock-chips.com>
-> ---
->  drivers/net/phy/Kconfig    |  4 ++
->  drivers/net/phy/Makefile   |  1 +
->  drivers/net/phy/rockchip.c | 94 ++++++++++++++++++++++++++++++++++++++++++++++
->  3 files changed, 99 insertions(+)
->  create mode 100644 drivers/net/phy/rockchip.c
-> 
-> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-> index c360dd6..86010d4 100644
-> --- a/drivers/net/phy/Kconfig
-> +++ b/drivers/net/phy/Kconfig
-> @@ -350,6 +350,10 @@ config XILINX_GMII2RGMII
->           the Reduced Gigabit Media Independent Interface(RGMII) between
->           Ethernet physical media devices and the Gigabit Ethernet controller.
->  
-> +config ROCKCHIP_MAC_PHY
-> +	tristate "Drivers for ROCKCHIP MAC PHY"
-> +	---help---
-> +	  Currently supports the mac internal ephy.
->  endif # PHYLIB
+From: Arjun Vynipadath <arjun@chelsio.com>
 
-Alphabetic order please for Kconfig and Makefile.
+We were using t4_get_mps_bg_map() for both t4_get_port_stats()
+to determine which MPS Buffer Groups to report statistics on for a given
+Port, and also for t4_sge_alloc_rxq() to provide a TP Ingress Channel
+Congestion Map.  For T4/T5 these are actually the same values (because they
+are ~somewhat~ related), but for T6 they should return different values
+(T6 has Port 0 associated with MPS Buffer Group 0 (with MPS Buffer Group 1
+silently cascading off) and Port 1 is associated with MPS Buffer Group 2
+(with 3 cascading off)).
 
-I will review the rest later today/tomorrow.
+Based on the original work by Casey Leedom <leedom@chelsio.com>
+Signed-off-by: Arjun Vynipadath <arjun@chelsio.com>
+Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  3 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  4 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      | 91 +++++++++++++++++++++----
+ 3 files changed, 80 insertions(+), 18 deletions(-)
 
-  Andrew
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index b7a92eb..f60a64b 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -1434,7 +1434,8 @@ void t4_read_rss_vf_config(struct adapter *adapter, unsigned int index,
+ u32 t4_read_rss_pf_map(struct adapter *adapter);
+ u32 t4_read_rss_pf_mask(struct adapter *adapter);
+ 
+-unsigned int t4_get_mps_bg_map(struct adapter *adapter, int idx);
++unsigned int t4_get_mps_bg_map(struct adapter *adapter, int pidx);
++unsigned int t4_get_tp_ch_map(struct adapter *adapter, int pidx);
+ void t4_pmtx_get_stats(struct adapter *adap, u32 cnt[], u64 cycles[]);
+ void t4_pmrx_get_stats(struct adapter *adap, u32 cnt[], u64 cycles[]);
+ int t4_read_cim_ibq(struct adapter *adap, unsigned int qid, u32 *data,
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index b3753ed..f41507e 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -843,8 +843,8 @@ static int setup_sge_queues(struct adapter *adap)
+ 					       adap->msi_idx, &q->fl,
+ 					       t4_ethrx_handler,
+ 					       NULL,
+-					       t4_get_mps_bg_map(adap,
+-								 pi->tx_chan));
++					       t4_get_tp_ch_map(adap,
++								pi->tx_chan));
+ 			if (err)
+ 				goto freeout;
+ 			q->rspq.idx = j;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index d5e316d..4d9ef3f 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -5442,28 +5442,89 @@ void t4_pmrx_get_stats(struct adapter *adap, u32 cnt[], u64 cycles[])
+ /**
+  *	t4_get_mps_bg_map - return the buffer groups associated with a port
+  *	@adap: the adapter
+- *	@idx: the port index
++ *	@pidx: the port index
+  *
+  *	Returns a bitmap indicating which MPS buffer groups are associated
+  *	with the given port.  Bit i is set if buffer group i is used by the
+  *	port.
+  */
+-unsigned int t4_get_mps_bg_map(struct adapter *adap, int idx)
++unsigned int t4_get_mps_bg_map(struct adapter *adap, int pidx)
+ {
+-	u32 n = NUMPORTS_G(t4_read_reg(adap, MPS_CMN_CTL_A));
++	unsigned int nports = 1 << NUMPORTS_G(t4_read_reg(adap, MPS_CMN_CTL_A));
++	unsigned int chip_version = CHELSIO_CHIP_VERSION(adap->params.chip);
+ 
+-	if (n == 0)
+-		return idx == 0 ? 0xf : 0;
+-	/* In T6 (which is a 2 port card),
+-	 * port 0 is mapped to channel 0 and port 1 is mapped to channel 1.
+-	 * For 2 port T4/T5 adapter,
+-	 * port 0 is mapped to channel 0 and 1,
+-	 * port 1 is mapped to channel 2 and 3.
+-	 */
+-	if ((n == 1) &&
+-	    (CHELSIO_CHIP_VERSION(adap->params.chip) <= CHELSIO_T5))
+-		return idx < 2 ? (3 << (2 * idx)) : 0;
+-	return 1 << idx;
++	if (pidx >= nports) {
++		dev_warn(adap->pdev_dev, "MPS Port Index %d >= Nports %d\n",
++			 pidx, nports);
++		return 0;
++	}
++
++	switch (chip_version) {
++	case CHELSIO_T4:
++	case CHELSIO_T5:
++		switch (nports) {
++		case 1: return 0xf;
++		case 2: return 3 << (2 * pidx);
++		case 4: return 1 << pidx;
++		}
++		break;
++
++	case CHELSIO_T6:
++		switch (nports) {
++		case 2: return 1 << (2 * pidx);
++		}
++		break;
++	}
++
++	dev_err(adap->pdev_dev, "Need MPS Buffer Group Map for Chip %0x, Nports %d\n",
++		chip_version, nports);
++	return 0;
++}
++
++/**
++ *	t4_get_tp_ch_map - return TP ingress channels associated with a port
++ *	@adapter: the adapter
++ *	@pidx: the port index
++ *
++ *	Returns a bitmap indicating which TP Ingress Channels are associated
++ *	with a given Port.  Bit i is set if TP Ingress Channel i is used by
++ *	the Port.
++ */
++unsigned int t4_get_tp_ch_map(struct adapter *adap, int pidx)
++{
++	unsigned int chip_version = CHELSIO_CHIP_VERSION(adap->params.chip);
++	unsigned int nports = 1 << NUMPORTS_G(t4_read_reg(adap, MPS_CMN_CTL_A));
++
++	if (pidx >= nports) {
++		dev_warn(adap->pdev_dev, "TP Port Index %d >= Nports %d\n",
++			 pidx, nports);
++		return 0;
++	}
++
++	switch (chip_version) {
++	case CHELSIO_T4:
++	case CHELSIO_T5:
++		/* Note that this happens to be the same values as the MPS
++		 * Buffer Group Map for these Chips.  But we replicate the code
++		 * here because they're really separate concepts.
++		 */
++		switch (nports) {
++		case 1: return 0xf;
++		case 2: return 3 << (2 * pidx);
++		case 4: return 1 << pidx;
++		}
++		break;
++
++	case CHELSIO_T6:
++		switch (nports) {
++		case 2: return 1 << pidx;
++		}
++		break;
++	}
++
++	dev_err(adap->pdev_dev, "Need TP Channel Map for Chip %0x, Nports %d\n",
++		chip_version, nports);
++	return 0;
+ }
+ 
+ /**
+-- 
+2.1.0
