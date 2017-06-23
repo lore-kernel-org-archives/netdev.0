@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 4/4] net: dsa: bcm_sf2: Remove special handling of "internal" phy-mode
-Date: Fri, 23 Jun 2017 10:33:16 -0700
-Message-ID: <20170623173316.23017-5-f.fainelli@gmail.com>
+Subject: [PATCH net-next 1/4] dt-bindings: Add "internal" as a valid 'phy-mode' property
+Date: Fri, 23 Jun 2017 10:33:13 -0700
+Message-ID: <20170623173316.23017-2-f.fainelli@gmail.com>
 References: <20170623173316.23017-1-f.fainelli@gmail.com>
 Cc: Florian Fainelli <f.fainelli@gmail.com>,
         Rob Herring <robh+dt@kernel.org>,
@@ -21,49 +21,26 @@ In-Reply-To: <20170623173316.23017-1-f.fainelli@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The PHY library now supports an "internal" phy-mode, thus making our
-custom parsing code now unnecessary.
+A number of Ethernet MACs have internal Ethernet PHYs and the internal
+wiring makes it so that this knowledge needs to be available using the
+standard 'phy-mode' property.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/dsa/bcm_sf2.c | 16 +++++-----------
- 1 file changed, 5 insertions(+), 11 deletions(-)
+ Documentation/devicetree/bindings/net/ethernet.txt | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index 76e98e8ed315..648f91b58d1e 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -498,10 +498,8 @@ static void bcm_sf2_identify_ports(struct bcm_sf2_priv *priv,
- 				   struct device_node *dn)
- {
- 	struct device_node *port;
--	const char *phy_mode_str;
- 	int mode;
- 	unsigned int port_num;
--	int ret;
- 
- 	priv->moca_port = -1;
- 
-@@ -515,15 +513,11 @@ static void bcm_sf2_identify_ports(struct bcm_sf2_priv *priv,
- 		 * time
- 		 */
- 		mode = of_get_phy_mode(port);
--		if (mode < 0) {
--			ret = of_property_read_string(port, "phy-mode",
--						      &phy_mode_str);
--			if (ret < 0)
--				continue;
--
--			if (!strcasecmp(phy_mode_str, "internal"))
--				priv->int_phy_mask |= 1 << port_num;
--		}
-+		if (mode < 0)
-+			continue;
-+
-+		if (mode == PHY_INTERFACE_MODE_INTERNAL)
-+			priv->int_phy_mask |= 1 << port_num;
- 
- 		if (mode == PHY_INTERFACE_MODE_MOCA)
- 			priv->moca_port = port_num;
+diff --git a/Documentation/devicetree/bindings/net/ethernet.txt b/Documentation/devicetree/bindings/net/ethernet.txt
+index d4abe9a98109..edd7fd2bbbf9 100644
+--- a/Documentation/devicetree/bindings/net/ethernet.txt
++++ b/Documentation/devicetree/bindings/net/ethernet.txt
+@@ -11,6 +11,7 @@ The following properties are common to the Ethernet controllers:
+   the maximum frame size (there's contradiction in ePAPR).
+ - phy-mode: string, operation mode of the PHY interface. This is now a de-facto
+   standard property; supported values are:
++  * "internal"
+   * "mii"
+   * "gmii"
+   * "sgmii"
 -- 
 2.9.3
