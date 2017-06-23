@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH 2/4] net: phy: Support "internal" PHY interface
-Date: Fri, 23 Jun 2017 10:31:33 -0700
-Message-ID: <20170623173135.22912-3-f.fainelli@gmail.com>
+Subject: [PATCH 1/4] dt-bindings: Add "internal" as a valid 'phy-mode' property
+Date: Fri, 23 Jun 2017 10:31:32 -0700
+Message-ID: <20170623173135.22912-2-f.fainelli@gmail.com>
 References: <20170623173135.22912-1-f.fainelli@gmail.com>
 Cc: Florian Fainelli <f.fainelli@gmail.com>,
         Rob Herring <robh+dt@kernel.org>,
@@ -22,35 +22,26 @@ In-Reply-To: <20170623173135.22912-1-f.fainelli@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Now that the Device Tree binding has been updated, update the PHY
-library phy_interface_t and phy_modes to support the "internal" PHY
-interface type.
+A number of Ethernet MACs have internal Ethernet PHYs and the internal
+wiring makes it so that this knowledge needs to be available using the
+standard 'phy-mode' property.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- include/linux/phy.h | 3 +++
- 1 file changed, 3 insertions(+)
+ Documentation/devicetree/bindings/net/ethernet.txt | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 23d2e46dd322..1d8d70193782 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -64,6 +64,7 @@
- /* Interface Mode definitions */
- typedef enum {
- 	PHY_INTERFACE_MODE_NA,
-+	PHY_INTERFACE_MODE_INTERNAL,
- 	PHY_INTERFACE_MODE_MII,
- 	PHY_INTERFACE_MODE_GMII,
- 	PHY_INTERFACE_MODE_SGMII,
-@@ -114,6 +115,8 @@ static inline const char *phy_modes(phy_interface_t interface)
- 	switch (interface) {
- 	case PHY_INTERFACE_MODE_NA:
- 		return "";
-+	case PHY_INTERFACE_MODE_INTERNAL:
-+		return "internal";
- 	case PHY_INTERFACE_MODE_MII:
- 		return "mii";
- 	case PHY_INTERFACE_MODE_GMII:
+diff --git a/Documentation/devicetree/bindings/net/ethernet.txt b/Documentation/devicetree/bindings/net/ethernet.txt
+index d4abe9a98109..edd7fd2bbbf9 100644
+--- a/Documentation/devicetree/bindings/net/ethernet.txt
++++ b/Documentation/devicetree/bindings/net/ethernet.txt
+@@ -11,6 +11,7 @@ The following properties are common to the Ethernet controllers:
+   the maximum frame size (there's contradiction in ePAPR).
+ - phy-mode: string, operation mode of the PHY interface. This is now a de-facto
+   standard property; supported values are:
++  * "internal"
+   * "mii"
+   * "gmii"
+   * "sgmii"
 -- 
 2.9.3
