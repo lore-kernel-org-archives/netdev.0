@@ -1,77 +1,81 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 10/15] net/mlx5: Enhance MCAM reg to allow query on access reg support
-Date: Fri, 23 Jun 2017 17:26:17 +0300
-Message-ID: <20170623142622.16565-11-saeedm@mellanox.com>
+Subject: [net-next 05/15] net/mlx5e: Offload TC matching on ip ttl
+Date: Fri, 23 Jun 2017 17:26:12 +0300
+Message-ID: <20170623142622.16565-6-saeedm@mellanox.com>
 References: <20170623142622.16565-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54065 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54045 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1754098AbdFWO1n (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 10:27:43 -0400
+        with ESMTP id S1753528AbdFWO1m (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 10:27:42 -0400
 In-Reply-To: <20170623142622.16565-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Or Gerlitz <ogerlitz@mellanox.com>
 
-Enhance MCAM to allow the driver to query which access regs are
-supported. For now, expose the regs needed for FW flashing.
+Enable offloading of TC matching on ip ttl / hop-limit
+
+As matching on ttl is supported only by newer HW brands (ConnectX-5),
+we should do capability check before attempting to offload that.
 
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Reviewed-by: Gal Pressman <galp@mellanox.com>
+Reviewed-by: Paul Blakey <paulb@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- include/linux/mlx5/device.h   |  3 +++
- include/linux/mlx5/mlx5_ifc.h | 13 +++++++++++++
- 2 files changed, 16 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 11 ++++++++---
+ include/linux/mlx5/mlx5_ifc.h                   |  5 +++--
+ 2 files changed, 11 insertions(+), 5 deletions(-)
 
-diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
-index b26a478930eb..556e1c31b5d0 100644
---- a/include/linux/mlx5/device.h
-+++ b/include/linux/mlx5/device.h
-@@ -1094,6 +1094,9 @@ enum mlx5_mcam_feature_groups {
- #define MLX5_CAP_PCAM_FEATURE(mdev, fld) \
- 	MLX5_GET(pcam_reg, (mdev)->caps.pcam, feature_cap_mask.enhanced_features.fld)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index 633a91a71218..382dede903a3 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -904,11 +904,16 @@ static int __parse_cls_flower(struct mlx5e_priv *priv,
+ 		MLX5_SET(fte_match_set_lyr_2_4, headers_c, ip_dscp, mask->tos >> 2);
+ 		MLX5_SET(fte_match_set_lyr_2_4, headers_v, ip_dscp, key->tos  >> 2);
  
-+#define MLX5_CAP_MCAM_REG(mdev, reg) \
-+	MLX5_GET(mcam_reg, (mdev)->caps.mcam, mng_access_reg_cap_mask.access_regs.reg)
+-		if (mask->tos)
+-			*min_inline = MLX5_INLINE_MODE_IP;
++		MLX5_SET(fte_match_set_lyr_2_4, headers_c, ttl_hoplimit, mask->ttl);
++		MLX5_SET(fte_match_set_lyr_2_4, headers_v, ttl_hoplimit, key->ttl);
+ 
+-		if (mask->ttl) /* currently not supported */
++		if (mask->ttl &&
++		    !MLX5_CAP_ESW_FLOWTABLE_FDB(priv->mdev,
++						ft_field_support.outer_ipv4_ttl))
+ 			return -EOPNOTSUPP;
 +
- #define MLX5_CAP_MCAM_FEATURE(mdev, fld) \
- 	MLX5_GET(mcam_reg, (mdev)->caps.mcam, mng_feature_cap_mask.enhanced_features.fld)
++		if (mask->tos || mask->ttl)
++			*min_inline = MLX5_INLINE_MODE_IP;
+ 	}
  
+ 	if (dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_PORTS)) {
 diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index 28468ad804be..8f197b070cea 100644
+index e86ef880a149..694f51d388d9 100644
 --- a/include/linux/mlx5/mlx5_ifc.h
 +++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -7745,6 +7745,18 @@ struct mlx5_ifc_mcam_enhanced_features_bits {
- 	u8         pcie_performance_group[0x1];
- };
+@@ -243,7 +243,7 @@ struct mlx5_ifc_flow_table_fields_supported_bits {
+ 	u8         outer_first_prio[0x1];
+ 	u8         outer_first_cfi[0x1];
+ 	u8         outer_first_vid[0x1];
+-	u8         reserved_at_7[0x1];
++	u8         outer_ipv4_ttl[0x1];
+ 	u8         outer_second_prio[0x1];
+ 	u8         outer_second_cfi[0x1];
+ 	u8         outer_second_vid[0x1];
+@@ -380,7 +380,8 @@ struct mlx5_ifc_fte_match_set_lyr_2_4_bits {
+ 	u8         tcp_sport[0x10];
+ 	u8         tcp_dport[0x10];
  
-+struct mlx5_ifc_mcam_access_reg_bits {
-+	u8         reserved_at_0[0x1c];
-+	u8         mcda[0x1];
-+	u8         mcc[0x1];
-+	u8         mcqi[0x1];
-+	u8         reserved_at_1f[0x1];
-+
-+	u8         regs_95_to_64[0x20];
-+	u8         regs_63_to_32[0x20];
-+	u8         regs_31_to_0[0x20];
-+};
-+
- struct mlx5_ifc_mcam_reg_bits {
- 	u8         reserved_at_0[0x8];
- 	u8         feature_group[0x8];
-@@ -7754,6 +7766,7 @@ struct mlx5_ifc_mcam_reg_bits {
- 	u8         reserved_at_20[0x20];
+-	u8         reserved_at_c0[0x20];
++	u8         reserved_at_c0[0x18];
++	u8         ttl_hoplimit[0x8];
  
- 	union {
-+		struct mlx5_ifc_mcam_access_reg_bits access_regs;
- 		u8         reserved_at_0[0x80];
- 	} mng_access_reg_cap_mask;
- 
+ 	u8         udp_sport[0x10];
+ 	u8         udp_dport[0x10];
 -- 
 2.11.0
