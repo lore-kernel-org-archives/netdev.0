@@ -1,72 +1,58 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC PATCH net-next 1/3] ethtool: Add link down reason callback
-Date: Fri, 23 Jun 2017 15:52:48 +0200
-Message-ID: <20170623135248.GA21943@lunn.ch>
-References: <1498050286-17141-1-git-send-email-galp@mellanox.com>
- <1498050286-17141-2-git-send-email-galp@mellanox.com>
- <20170621135809.GC27585@lunn.ch>
- <8e7ffead-350e-bd7f-c7ea-fe057969d0d3@mellanox.com>
- <20170622133404.GB20038@lunn.ch>
- <b6bbfe70-b4df-fbba-21d9-ddb3ce1eaebd@mellanox.com>
+Subject: Re: [PATCH 01/11] net: phy: Add rockchip phy driver support
+Date: Fri, 23 Jun 2017 15:55:45 +0200
+Message-ID: <20170623135545.GB21943@lunn.ch>
+References: <1498192929-7519-1-git-send-email-david.wu@rock-chips.com>
+ <1498192929-7519-2-git-send-email-david.wu@rock-chips.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        "John W. Linville" <linville@tuxdriver.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        David Decotigny <decot@googlers.com>, kernel-team@fb.com
-To: Gal Pressman <galp@mellanox.com>
+Cc: davem@davemloft.net, heiko@sntech.de, robh+dt@kernel.org,
+        mark.rutland@arm.com, catalin.marinas@arm.com, will.deacon@arm.com,
+        olof@lixom.net, linux@armlinux.org.uk, arnd@arndb.de,
+        f.fainelli@gmail.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, huangtao@rock-chips.com,
+        hwg@rock-chips.com, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org,
+        linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Wu <david.wu@rock-chips.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:32946 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:32969 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751999AbdFWNwy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 23 Jun 2017 09:52:54 -0400
+        id S1752066AbdFWN4P (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Jun 2017 09:56:15 -0400
 Content-Disposition: inline
-In-Reply-To: <b6bbfe70-b4df-fbba-21d9-ddb3ce1eaebd@mellanox.com>
+In-Reply-To: <1498192929-7519-2-git-send-email-david.wu@rock-chips.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 23, 2017 at 11:23:17AM +0300, Gal Pressman wrote:
-> >> The I2C bus that's connected to this module (interface).
-> >> We can add another reason for MDIO BUS errors or merge to one BUS error reason.
-> >>>> +	ETHTOOL_LINK_UNSUPP_EEPROM, /* Unsupported EEPROM */
-> >>> Which EEPROM?
-> >> Module EEPROM.
-> > Which module? This is all very vague. Some of the Marvell 10G PHYs
-> > have an EEPROM to boot from, for example. Would that count? Or are you
-> > talking about the SFP 'EEPROM', which is not actually an EEPROM, in
-> > that it is not Electrically Erasable, not is it a ROM, since things
-> > like temperature changes with time.
+On Fri, Jun 23, 2017 at 12:41:59PM +0800, David Wu wrote:
+> Support internal ephy currently.
 > 
-
-> I am referring to the optical/electrical module EEPROM which is
-> exposed through standard interface such as SFF 8472. Might not be an
-> actual EEPROM but that's how the SFF committee decided to refer to
-> it :).
-
-Right, so at a minimum, put a comment: The following properties
-referring to the optical/electrical module EEPROM which is exposed
-through standard interface such as SFF 8472.
-
-That makes it a lot less ambiguous.
-
+> Signed-off-by: David Wu <david.wu@rock-chips.com>
+> ---
+>  drivers/net/phy/Kconfig    |  4 ++
+>  drivers/net/phy/Makefile   |  1 +
+>  drivers/net/phy/rockchip.c | 94 ++++++++++++++++++++++++++++++++++++++++++++++
+>  3 files changed, 99 insertions(+)
+>  create mode 100644 drivers/net/phy/rockchip.c
 > 
-> >
-> >>>> +	ETHTOOL_LINK_OVERTEMP, /* Over temperature */
-> >>>> +	ETHTOOL_LINK_PWR_BUDGET_EXC, /* Power budget exceeded */
-> >>>> +	ETHTOOL_LINK_MODULE_ADMIN_DOWN, /* Module admin down */
-> >>> It seems like these last 6 are all SFP issues? How about putting SFP
-> >>> into the name?
-> >> Might be a QSFP issue for example, we can put module in the name though.
-> > What is the generic name of SFP, SFP+ QSFP, SFF?
-> 
-> AFAIK, the name is module.
+> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+> index c360dd6..86010d4 100644
+> --- a/drivers/net/phy/Kconfig
+> +++ b/drivers/net/phy/Kconfig
+> @@ -350,6 +350,10 @@ config XILINX_GMII2RGMII
+>           the Reduced Gigabit Media Independent Interface(RGMII) between
+>           Ethernet physical media devices and the Gigabit Ethernet controller.
+>  
+> +config ROCKCHIP_MAC_PHY
+> +	tristate "Drivers for ROCKCHIP MAC PHY"
+> +	---help---
+> +	  Currently supports the mac internal ephy.
+>  endif # PHYLIB
 
-And as a term, module is overloaded. If the standard is called SFF
-8472, then i would suggest putting SFF in these macros.
+Alphabetic order please for Kconfig and Makefile.
 
-This is all assuming we actually decide to expose this information
-this way....
+I will review the rest later today/tomorrow.
 
-     Andrew
+  Andrew
