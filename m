@@ -1,176 +1,249 @@
 From: Ganesh Goudar <ganeshgr@chelsio.com>
-Subject: [PATCH net-next 1/2] cxgb4: Update T6 Buffer Group and Channel Mappings
-Date: Fri, 23 Jun 2017 19:14:36 +0530
-Message-ID: <1498225477-20960-1-git-send-email-ganeshgr@chelsio.com>
+Subject: [PATCH net-next 2/2] cxgb4: Use Firmware params to get buffer-group map
+Date: Fri, 23 Jun 2017 19:14:37 +0530
+Message-ID: <1498225477-20960-2-git-send-email-ganeshgr@chelsio.com>
+References: <1498225477-20960-1-git-send-email-ganeshgr@chelsio.com>
 Cc: nirranjan@chelsio.com, indranil@chelsio.com, venkatesh@chelsio.com,
         leedom@chelsio.com, Arjun Vynipadath <arjun@chelsio.com>,
         Ganesh Goudar <ganeshgr@chelsio.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:50416 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:21677 "EHLO
         stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753905AbdFWOCc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 10:02:32 -0400
+        with ESMTP id S1753905AbdFWOCo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 10:02:44 -0400
+In-Reply-To: <1498225477-20960-1-git-send-email-ganeshgr@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Arjun Vynipadath <arjun@chelsio.com>
 
-We were using t4_get_mps_bg_map() for both t4_get_port_stats()
-to determine which MPS Buffer Groups to report statistics on for a given
-Port, and also for t4_sge_alloc_rxq() to provide a TP Ingress Channel
-Congestion Map.  For T4/T5 these are actually the same values (because they
-are ~somewhat~ related), but for T6 they should return different values
-(T6 has Port 0 associated with MPS Buffer Group 0 (with MPS Buffer Group 1
-silently cascading off) and Port 1 is associated with MPS Buffer Group 2
-(with 3 cascading off)).
+Buffer group mappings can be obtained using FW_PARAMs cmd for newer FW.
 
-Based on the original work by Casey Leedom <leedom@chelsio.com>
+Since some of the bg_maps are obtained in atomic context, created another
+t4_query_params_ns(), that wont sleep when awaiting mbox cmd completion.
+
+Signed-off-by: Casey Leedom <leedom@chelsio.com>
 Signed-off-by: Arjun Vynipadath <arjun@chelsio.com>
 Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  3 +-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  4 +-
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      | 91 +++++++++++++++++++++----
- 3 files changed, 80 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h    |  10 ++-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c    | 108 ++++++++++++++++++++++----
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h |   1 +
+ 3 files changed, 101 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index b7a92eb..f60a64b 100644
+index f60a64b..451c138 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -1434,7 +1434,8 @@ void t4_read_rss_vf_config(struct adapter *adapter, unsigned int index,
- u32 t4_read_rss_pf_map(struct adapter *adapter);
- u32 t4_read_rss_pf_mask(struct adapter *adapter);
+@@ -362,6 +362,11 @@ struct adapter_params {
+ 	unsigned int max_ordird_qp;       /* Max read depth per RDMA QP */
+ 	unsigned int max_ird_adapter;     /* Max read depth per adapter */
+ 	bool fr_nsmr_tpte_wr_support;	  /* FW support for FR_NSMR_TPTE_WR */
++
++	/* MPS Buffer Group Map[per Port].  Bit i is set if buffer group i is
++	 * used by the Port
++	 */
++	u8 mps_bg_map[MAX_NPORTS];	/* MPS Buffer Group Map */
+ };
  
--unsigned int t4_get_mps_bg_map(struct adapter *adapter, int idx);
-+unsigned int t4_get_mps_bg_map(struct adapter *adapter, int pidx);
-+unsigned int t4_get_tp_ch_map(struct adapter *adapter, int pidx);
- void t4_pmtx_get_stats(struct adapter *adap, u32 cnt[], u64 cycles[]);
- void t4_pmrx_get_stats(struct adapter *adap, u32 cnt[], u64 cycles[]);
- int t4_read_cim_ibq(struct adapter *adap, unsigned int qid, u32 *data,
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index b3753ed..f41507e 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -843,8 +843,8 @@ static int setup_sge_queues(struct adapter *adap)
- 					       adap->msi_idx, &q->fl,
- 					       t4_ethrx_handler,
- 					       NULL,
--					       t4_get_mps_bg_map(adap,
--								 pi->tx_chan));
-+					       t4_get_tp_ch_map(adap,
-+								pi->tx_chan));
- 			if (err)
- 				goto freeout;
- 			q->rspq.idx = j;
+ /* State needed to monitor the forward progress of SGE Ingress DMA activities
+@@ -1495,9 +1500,12 @@ int t4_fw_initialize(struct adapter *adap, unsigned int mbox);
+ int t4_query_params(struct adapter *adap, unsigned int mbox, unsigned int pf,
+ 		    unsigned int vf, unsigned int nparams, const u32 *params,
+ 		    u32 *val);
++int t4_query_params_ns(struct adapter *adap, unsigned int mbox, unsigned int pf,
++		       unsigned int vf, unsigned int nparams, const u32 *params,
++		       u32 *val);
+ int t4_query_params_rw(struct adapter *adap, unsigned int mbox, unsigned int pf,
+ 		       unsigned int vf, unsigned int nparams, const u32 *params,
+-		       u32 *val, int rw);
++		       u32 *val, int rw, bool sleep_ok);
+ int t4_set_params_timeout(struct adapter *adap, unsigned int mbox,
+ 			  unsigned int pf, unsigned int vf,
+ 			  unsigned int nparams, const u32 *params,
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index d5e316d..4d9ef3f 100644
+index 4d9ef3f..82bf7aa 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -5442,28 +5442,89 @@ void t4_pmrx_get_stats(struct adapter *adap, u32 cnt[], u64 cycles[])
- /**
-  *	t4_get_mps_bg_map - return the buffer groups associated with a port
-  *	@adap: the adapter
-- *	@idx: the port index
-+ *	@pidx: the port index
-  *
-  *	Returns a bitmap indicating which MPS buffer groups are associated
-  *	with the given port.  Bit i is set if buffer group i is used by the
-  *	port.
-  */
--unsigned int t4_get_mps_bg_map(struct adapter *adap, int idx)
-+unsigned int t4_get_mps_bg_map(struct adapter *adap, int pidx)
- {
--	u32 n = NUMPORTS_G(t4_read_reg(adap, MPS_CMN_CTL_A));
-+	unsigned int nports = 1 << NUMPORTS_G(t4_read_reg(adap, MPS_CMN_CTL_A));
-+	unsigned int chip_version = CHELSIO_CHIP_VERSION(adap->params.chip);
- 
--	if (n == 0)
--		return idx == 0 ? 0xf : 0;
--	/* In T6 (which is a 2 port card),
--	 * port 0 is mapped to channel 0 and port 1 is mapped to channel 1.
--	 * For 2 port T4/T5 adapter,
--	 * port 0 is mapped to channel 0 and 1,
--	 * port 1 is mapped to channel 2 and 3.
--	 */
--	if ((n == 1) &&
--	    (CHELSIO_CHIP_VERSION(adap->params.chip) <= CHELSIO_T5))
--		return idx < 2 ? (3 << (2 * idx)) : 0;
--	return 1 << idx;
-+	if (pidx >= nports) {
-+		dev_warn(adap->pdev_dev, "MPS Port Index %d >= Nports %d\n",
-+			 pidx, nports);
-+		return 0;
-+	}
-+
-+	switch (chip_version) {
-+	case CHELSIO_T4:
-+	case CHELSIO_T5:
-+		switch (nports) {
-+		case 1: return 0xf;
-+		case 2: return 3 << (2 * pidx);
-+		case 4: return 1 << pidx;
-+		}
-+		break;
-+
-+	case CHELSIO_T6:
-+		switch (nports) {
-+		case 2: return 1 << (2 * pidx);
-+		}
-+		break;
-+	}
-+
-+	dev_err(adap->pdev_dev, "Need MPS Buffer Group Map for Chip %0x, Nports %d\n",
-+		chip_version, nports);
-+	return 0;
-+}
-+
-+/**
-+ *	t4_get_tp_ch_map - return TP ingress channels associated with a port
-+ *	@adapter: the adapter
-+ *	@pidx: the port index
-+ *
-+ *	Returns a bitmap indicating which TP Ingress Channels are associated
-+ *	with a given Port.  Bit i is set if TP Ingress Channel i is used by
-+ *	the Port.
-+ */
-+unsigned int t4_get_tp_ch_map(struct adapter *adap, int pidx)
-+{
-+	unsigned int chip_version = CHELSIO_CHIP_VERSION(adap->params.chip);
-+	unsigned int nports = 1 << NUMPORTS_G(t4_read_reg(adap, MPS_CMN_CTL_A));
-+
-+	if (pidx >= nports) {
-+		dev_warn(adap->pdev_dev, "TP Port Index %d >= Nports %d\n",
-+			 pidx, nports);
-+		return 0;
-+	}
-+
-+	switch (chip_version) {
-+	case CHELSIO_T4:
-+	case CHELSIO_T5:
-+		/* Note that this happens to be the same values as the MPS
-+		 * Buffer Group Map for these Chips.  But we replicate the code
-+		 * here because they're really separate concepts.
-+		 */
-+		switch (nports) {
-+		case 1: return 0xf;
-+		case 2: return 3 << (2 * pidx);
-+		case 4: return 1 << pidx;
-+		}
-+		break;
-+
-+	case CHELSIO_T6:
-+		switch (nports) {
-+		case 2: return 1 << pidx;
-+		}
-+		break;
-+	}
-+
-+	dev_err(adap->pdev_dev, "Need TP Channel Map for Chip %0x, Nports %d\n",
-+		chip_version, nports);
-+	return 0;
+@@ -3540,7 +3540,7 @@ int t4_load_phy_fw(struct adapter *adap,
+ 		 FW_PARAMS_PARAM_Z_V(FW_PARAMS_PARAM_DEV_PHYFW_DOWNLOAD));
+ 	val = phy_fw_size;
+ 	ret = t4_query_params_rw(adap, adap->mbox, adap->pf, 0, 1,
+-				 &param, &val, 1);
++				 &param, &val, 1, true);
+ 	if (ret < 0)
+ 		return ret;
+ 	mtype = val >> 8;
+@@ -5440,24 +5440,21 @@ void t4_pmrx_get_stats(struct adapter *adap, u32 cnt[], u64 cycles[])
  }
  
  /**
+- *	t4_get_mps_bg_map - return the buffer groups associated with a port
++ *	compute_mps_bg_map - compute the MPS Buffer Group Map for a Port
+  *	@adap: the adapter
+  *	@pidx: the port index
+  *
+- *	Returns a bitmap indicating which MPS buffer groups are associated
+- *	with the given port.  Bit i is set if buffer group i is used by the
+- *	port.
++ *	Computes and returns a bitmap indicating which MPS buffer groups are
++ *	associated with the given Port.  Bit i is set if buffer group i is
++ *	used by the Port.
+  */
+-unsigned int t4_get_mps_bg_map(struct adapter *adap, int pidx)
++static inline unsigned int compute_mps_bg_map(struct adapter *adapter,
++					      int pidx)
+ {
+-	unsigned int nports = 1 << NUMPORTS_G(t4_read_reg(adap, MPS_CMN_CTL_A));
+-	unsigned int chip_version = CHELSIO_CHIP_VERSION(adap->params.chip);
++	unsigned int chip_version, nports;
+ 
+-	if (pidx >= nports) {
+-		dev_warn(adap->pdev_dev, "MPS Port Index %d >= Nports %d\n",
+-			 pidx, nports);
+-		return 0;
+-	}
++	chip_version = CHELSIO_CHIP_VERSION(adapter->params.chip);
++	nports = 1 << NUMPORTS_G(t4_read_reg(adapter, MPS_CMN_CTL_A));
+ 
+ 	switch (chip_version) {
+ 	case CHELSIO_T4:
+@@ -5476,12 +5473,79 @@ unsigned int t4_get_mps_bg_map(struct adapter *adap, int pidx)
+ 		break;
+ 	}
+ 
+-	dev_err(adap->pdev_dev, "Need MPS Buffer Group Map for Chip %0x, Nports %d\n",
++	dev_err(adapter->pdev_dev, "Need MPS Buffer Group Map for Chip %0x, Nports %d\n",
+ 		chip_version, nports);
++
+ 	return 0;
+ }
+ 
+ /**
++ *	t4_get_mps_bg_map - return the buffer groups associated with a port
++ *	@adapter: the adapter
++ *	@pidx: the port index
++ *
++ *	Returns a bitmap indicating which MPS buffer groups are associated
++ *	with the given Port.  Bit i is set if buffer group i is used by the
++ *	Port.
++ */
++unsigned int t4_get_mps_bg_map(struct adapter *adapter, int pidx)
++{
++	u8 *mps_bg_map;
++	unsigned int nports;
++
++	nports = 1 << NUMPORTS_G(t4_read_reg(adapter, MPS_CMN_CTL_A));
++	if (pidx >= nports) {
++		CH_WARN(adapter, "MPS Port Index %d >= Nports %d\n",
++			pidx, nports);
++		return 0;
++	}
++
++	/* If we've already retrieved/computed this, just return the result.
++	 */
++	mps_bg_map = adapter->params.mps_bg_map;
++	if (mps_bg_map[pidx])
++		return mps_bg_map[pidx];
++
++	/* Newer Firmware can tell us what the MPS Buffer Group Map is.
++	 * If we're talking to such Firmware, let it tell us.  If the new
++	 * API isn't supported, revert back to old hardcoded way.  The value
++	 * obtained from Firmware is encoded in below format:
++	 *
++	 * val = (( MPSBGMAP[Port 3] << 24 ) |
++	 *        ( MPSBGMAP[Port 2] << 16 ) |
++	 *        ( MPSBGMAP[Port 1] <<  8 ) |
++	 *        ( MPSBGMAP[Port 0] <<  0 ))
++	 */
++	if (adapter->flags & FW_OK) {
++		u32 param, val;
++		int ret;
++
++		param = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DEV) |
++			 FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_DEV_MPSBGMAP));
++		ret = t4_query_params_ns(adapter, adapter->mbox, adapter->pf,
++					 0, 1, &param, &val);
++		if (!ret) {
++			int p;
++
++			/* Store the BG Map for all of the Ports in order to
++			 * avoid more calls to the Firmware in the future.
++			 */
++			for (p = 0; p < MAX_NPORTS; p++, val >>= 8)
++				mps_bg_map[p] = val & 0xff;
++
++			return mps_bg_map[pidx];
++		}
++	}
++
++	/* Either we're not talking to the Firmware or we're dealing with
++	 * older Firmware which doesn't support the new API to get the MPS
++	 * Buffer Group Map.  Fall back to computing it ourselves.
++	 */
++	mps_bg_map[pidx] = compute_mps_bg_map(adapter, pidx);
++	return mps_bg_map[pidx];
++}
++
++/**
+  *	t4_get_tp_ch_map - return TP ingress channels associated with a port
+  *	@adapter: the adapter
+  *	@pidx: the port index
+@@ -6639,13 +6703,14 @@ int t4_fw_initialize(struct adapter *adap, unsigned int mbox)
+  *	@params: the parameter names
+  *	@val: the parameter values
+  *	@rw: Write and read flag
++ *	@sleep_ok: if true, we may sleep awaiting mbox cmd completion
+  *
+  *	Reads the value of FW or device parameters.  Up to 7 parameters can be
+  *	queried at once.
+  */
+ int t4_query_params_rw(struct adapter *adap, unsigned int mbox, unsigned int pf,
+ 		       unsigned int vf, unsigned int nparams, const u32 *params,
+-		       u32 *val, int rw)
++		       u32 *val, int rw, bool sleep_ok)
+ {
+ 	int i, ret;
+ 	struct fw_params_cmd c;
+@@ -6668,7 +6733,7 @@ int t4_query_params_rw(struct adapter *adap, unsigned int mbox, unsigned int pf,
+ 		p++;
+ 	}
+ 
+-	ret = t4_wr_mbox(adap, mbox, &c, sizeof(c), &c);
++	ret = t4_wr_mbox_meat(adap, mbox, &c, sizeof(c), &c, sleep_ok);
+ 	if (ret == 0)
+ 		for (i = 0, p = &c.param[0].val; i < nparams; i++, p += 2)
+ 			*val++ = be32_to_cpu(*p);
+@@ -6679,7 +6744,16 @@ int t4_query_params(struct adapter *adap, unsigned int mbox, unsigned int pf,
+ 		    unsigned int vf, unsigned int nparams, const u32 *params,
+ 		    u32 *val)
+ {
+-	return t4_query_params_rw(adap, mbox, pf, vf, nparams, params, val, 0);
++	return t4_query_params_rw(adap, mbox, pf, vf, nparams, params, val, 0,
++				  true);
++}
++
++int t4_query_params_ns(struct adapter *adap, unsigned int mbox, unsigned int pf,
++		       unsigned int vf, unsigned int nparams, const u32 *params,
++		       u32 *val)
++{
++	return t4_query_params_rw(adap, mbox, pf, vf, nparams, params, val, 0,
++				  false);
+ }
+ 
+ /**
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+index f47461a..f2ffc1f 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+@@ -1123,6 +1123,7 @@ enum fw_params_param_dev {
+ 	FW_PARAMS_PARAM_DEV_ULPTX_MEMWRITE_DSGL = 0x17,
+ 	FW_PARAMS_PARAM_DEV_FWCACHE = 0x18,
+ 	FW_PARAMS_PARAM_DEV_RI_FR_NSMR_TPTE_WR	= 0x1C,
++	FW_PARAMS_PARAM_DEV_MPSBGMAP	= 0x1E,
+ };
+ 
+ /*
 -- 
 2.1.0
