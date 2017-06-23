@@ -1,80 +1,53 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next] udp: fix poll()
-Date: Fri, 23 Jun 2017 14:19:51 +0200
-Message-ID: <00735477ae8ffcc075e382ab45f6568ab158a0bf.1498220186.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Michael Ellerman <mpe@ellerman.id.au>,
-        linuxppc-dev@lists.ozlabs.org
-To: netdev@vger.kernel.org
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: [Patch net] sit: use __GFP_NOWARN for user controlled allocation
+Date: Fri, 23 Jun 2017 14:21:54 +0200
+Message-ID: <CAAeHK+yshaEMc0oR-jCFR-m_9dSOFK8U7v_8EUa-0M1W5qFxuA@mail.gmail.com>
+References: <1498170573-24082-1-git-send-email-xiyou.wangcong@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34036 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750932AbdFWMUW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 23 Jun 2017 08:20:22 -0400
+Received: from mail-yb0-f171.google.com ([209.85.213.171]:34523 "EHLO
+        mail-yb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751496AbdFWMVz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 08:21:55 -0400
+Received: by mail-yb0-f171.google.com with SMTP id e201so12755133ybb.1
+        for <netdev@vger.kernel.org>; Fri, 23 Jun 2017 05:21:55 -0700 (PDT)
+In-Reply-To: <1498170573-24082-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Michael reported an UDP breakage caused by the commit b65ac44674dd
-("udp: try to avoid 2 cache miss on dequeue").
-The function __first_packet_length() can update the checksum bits
-of the pending skb, making the scratched area out-of-sync, and
-setting skb->csum, if the skb was previously in need of checksum
-validation.
+On Fri, Jun 23, 2017 at 12:29 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> The memory allocation size is controlled by user-space,
+> if it is too large just fail silently and return NULL,
+> not to mention there is a fallback allocation later.
 
-On later recvmsg() for such skb, checksum validation will be
-invoked again - due to the wrong udp_skb_csum_unnecessary()
-value - and will fail, causing the valid skb to be dropped.
+Thanks!
 
-This change addresses the issue refreshing the scratch area in
-__first_packet_length() after the possible checksum update.
+Tested-by: Andrey Konovalov <andreyknvl.com>
 
-Fixes: b65ac44674dd ("udp: try to avoid 2 cache miss on dequeue")
-Reported-by: Michael Ellerman <mpe@ellerman.id.au>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- net/ipv4/udp.c | 27 +++++++++++++++++----------
- 1 file changed, 17 insertions(+), 10 deletions(-)
-
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 067a607..47c7aa0 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1446,16 +1446,23 @@ static struct sk_buff *__first_packet_length(struct sock *sk,
- {
- 	struct sk_buff *skb;
- 
--	while ((skb = skb_peek(rcvq)) != NULL &&
--	       udp_lib_checksum_complete(skb)) {
--		__UDP_INC_STATS(sock_net(sk), UDP_MIB_CSUMERRORS,
--				IS_UDPLITE(sk));
--		__UDP_INC_STATS(sock_net(sk), UDP_MIB_INERRORS,
--				IS_UDPLITE(sk));
--		atomic_inc(&sk->sk_drops);
--		__skb_unlink(skb, rcvq);
--		*total += skb->truesize;
--		kfree_skb(skb);
-+	while ((skb = skb_peek(rcvq)) != NULL) {
-+		if (udp_lib_checksum_complete(skb)) {
-+			__UDP_INC_STATS(sock_net(sk), UDP_MIB_CSUMERRORS,
-+					IS_UDPLITE(sk));
-+			__UDP_INC_STATS(sock_net(sk), UDP_MIB_INERRORS,
-+					IS_UDPLITE(sk));
-+			atomic_inc(&sk->sk_drops);
-+			__skb_unlink(skb, rcvq);
-+			*total += skb->truesize;
-+			kfree_skb(skb);
-+		} else {
-+			/* the csum related bits could be changed, refresh
-+			 * the scratch area
-+			 */
-+			udp_set_dev_scratch(skb);
-+			break;
-+		}
- 	}
- 	return skb;
- }
--- 
-2.9.4
+>
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Cc: Andrey Konovalov <andreyknvl@google.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
+>  net/ipv6/sit.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+> index 2378503..f8ad158 100644
+> --- a/net/ipv6/sit.c
+> +++ b/net/ipv6/sit.c
+> @@ -305,7 +305,7 @@ static int ipip6_tunnel_get_prl(struct ip_tunnel *t,
+>          * we try harder to allocate.
+>          */
+>         kp = (cmax <= 1 || capable(CAP_NET_ADMIN)) ?
+> -               kcalloc(cmax, sizeof(*kp), GFP_KERNEL) :
+> +               kcalloc(cmax, sizeof(*kp), GFP_KERNEL | __GFP_NOWARN) :
+>                 NULL;
+>
+>         rcu_read_lock();
+> --
+> 2.5.5
+>
