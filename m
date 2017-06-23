@@ -1,160 +1,51 @@
-From: Andrei Vagin <avagin@gmail.com>
-Subject: unregister_netdevice: waiting for lo to become free. Usage count = 1
-Date: Fri, 23 Jun 2017 14:49:58 -0700
-Message-ID: <CANaxB-xvAYaeb90HsO45vC3yQoGHaXnqQO_6SkRiRfo45R9y0A@mail.gmail.com>
+From: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
+ loading NVS calibration data
+Date: Fri, 23 Jun 2017 23:53:19 +0200
+Message-ID: <20170623215319.GU21846@wotan.suse.de>
+References: <0fd90416-f33c-a6be-14fd-5e964583e9cb@broadcom.com>
+ <20170515231339.GF17314@wotan.suse.de>
+ <0c43c825-df2a-b427-4b67-f17fd644667f@broadcom.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="001a1142b64e34a39a0552a795b2"
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Containers <containers@lists.linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Luis R. Rodriguez" <mcgrof@kernel.org>, Li@suse.de,
+        Yi <yi1.li@linux.intel.com>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        Pavel Machek <pavel@ucw.cz>, Daniel Wagner <wagi@monom.org>,
+        Tom Gundersen <teg@jklm.no>,
+        Pali =?iso-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        David Gnedt <david.gnedt@davizone.at>,
+        Tony Lindgren <tony@atomide.com>,
+        Sebastian Reichel <sre@kernel.org>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Takashi Iwai <tiwai@suse.de>,
+        AKASHI Takahiro <takahiro.akashi@linaro.org>,
+        David Woodhouse <dwmw2@infradead.org>,
+        Bjorn Andersson <bjorn.andersson@linaro.org>,
+        Grazvydas Ignotas <notasas@gmail.com>,
+        linux
+To: Arend Van Spriel <arend.vanspriel@broadcom.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <0c43c825-df2a-b427-4b67-f17fd644667f@broadcom.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---001a1142b64e34a39a0552a795b2
-Content-Type: text/plain; charset="UTF-8"
+On Tue, May 16, 2017 at 10:41:08AM +0200, Arend Van Spriel wrote:
+> On 16-5-2017 1:13, Luis R. Rodriguez wrote:
+> > Since no upstream delta is needed for firmwared I'd like to first encourage
+> > evaluating the above. While distributions don't carry it yet that may be seen as
+> > an issue but since what we are looking for are corner cases, only folks needing
+> > to deploy a specific solution would need it or a custom proprietary solution.
+> 
+> Ok. I will go try and run firmwared in OpenWrt on a router platform.
+> Have to steal one from a colleague :-p Will study firmwared.
 
-Hello Everyone,
+Arend, curious how this effort goes. Its important to me as we know then that
+if this works its a good approach to recommend moving forward which should also
+prove less complex than that soup we had with the custom fallback stuff.
 
-Today I've met a problem, when any attempts to create a new network
-namespace hang up.
-I see that one of previous namespaces can't be destroyed, because a
-usage count for one
-of its devices isn't zero. To reproduce the problem, you need to
-executed an attached program
-in a separate network namespace:
-
-[root@fc24 net]# cat run.sh
-ip link set up dev lo
-./tcp-bug
-[root@fc24 net]# unshare -n sh run.sh
-[root@fc24 net]# echo $?
-0
-[root@fc24 ~]# cat /proc/40/stack
-[<ffffffffa211989e>] msleep+0x3e/0x50
-[<ffffffffa2786eea>] netdev_run_todo+0x12a/0x320
-[<ffffffffa279542e>] rtnl_unlock+0xe/0x10
-[<ffffffffa277d56a>] default_device_exit_batch+0x14a/0x170
-[<ffffffffa2772d12>] ops_exit_list.isra.6+0x52/0x60
-[<ffffffffa277402e>] cleanup_net+0x1ee/0x2f0
-[<ffffffffa20ac9f5>] process_one_work+0x205/0x620
-[<ffffffffa20ace5e>] worker_thread+0x4e/0x3b0
-[<ffffffffa20b4344>] kthread+0x114/0x150
-[<ffffffffa29619fa>] ret_from_fork+0x2a/0x40
-[<ffffffffffffffff>] 0xffffffffffffffff
-[root@fc24 ~]# dmesg | tail
-[   97.071533] unregister_netdevice: waiting for lo to become free.
-Usage count = 1
-[   97.079561] systemd-journald[180]: Sent WATCHDOG=1 notification.
-[  107.319260] unregister_netdevice: waiting for lo to become free.
-Usage count = 1
-[  117.567180] unregister_netdevice: waiting for lo to become free.
-Usage count = 1
-[  127.807401] unregister_netdevice: waiting for lo to become free.
-Usage count = 1
-[  138.055324] unregister_netdevice: waiting for lo to become free.
-Usage count = 1
-[  148.303308] unregister_netdevice: waiting for lo to become free.
-Usage count = 1
-[  158.559118] unregister_netdevice: waiting for lo to become free.
-Usage count = 1
-[  168.807423] unregister_netdevice: waiting for lo to become free.
-Usage count = 1
-[  179.055590] unregister_netdevice: waiting for lo to become free.
-Usage count = 1
-
-This program creates a server tcp socket, then it creates a pair of
-connected tcp sockets
-and then it does actions which trigger this problem. It calls
-connect() with AF_UNSPEC
-for one of connected sockets and then call connect() with the address
-of the server socket.
-
-
-Thanks,
-Andrei
-
---001a1142b64e34a39a0552a795b2
-Content-Type: text/x-csrc; charset="US-ASCII"; name="tcp-bug.c"
-Content-Disposition: attachment; filename="tcp-bug.c"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_j4adhv6l0
-
-I2luY2x1ZGUgPHN0cmluZy5oPgojaW5jbHVkZSA8c3lzL3NvY2tldC5oPgojaW5jbHVkZSA8YXJw
-YS9pbmV0Lmg+ICAvKiBmb3Igc29ja2FkZHJfaW4gYW5kIGluZXRfbnRvYSgpICovCgojaW5jbHVk
-ZSA8c3RkaW8uaD4KI2luY2x1ZGUgPHN5cy90eXBlcy5oPgojaW5jbHVkZSA8dW5pc3RkLmg+CiNp
-bmNsdWRlIDxzdHJpbmcuaD4KI2luY2x1ZGUgPGVycm5vLmg+CiNpbmNsdWRlIDxzdGRsaWIuaD4K
-I2luY2x1ZGUgPHNpZ25hbC5oPgojaW5jbHVkZSA8bmV0aW5ldC90Y3AuaD4KI2luY2x1ZGUgPGFy
-cGEvaW5ldC5oPgoKCiNkZWZpbmUgcHJfZXJyKGZtdCwgLi4uKSAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICBcCiAgICAgICAgcHJpbnRmKCJFcnJvcjogIiBmbXQsICMj
-X19WQV9BUkdTX18pCgojZGVmaW5lIHByX3BlcnJvcihmbXQsIC4uLikgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICBcCiAgICAgICAgcHJfZXJyKGZtdCAiOiAlc1xu
-IiwgIyNfX1ZBX0FSR1NfXywgc3RyZXJyb3IoZXJybm8pKQoKI2RlZmluZSBmYWlsKGZtdCwgLi4u
-KSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFwKICAgICAgICBw
-cl9lcnIoZm10ICI6ICVzXG4iLCAjI19fVkFfQVJHU19fLCBzdHJlcnJvcihlcnJubykpCgp1bmlv
-biBzb2NrYWRkcl9pbmV0IHsKCXN0cnVjdCBzb2NrYWRkciBhZGRyOwoJc3RydWN0IHNvY2thZGRy
-X2luIHY0OwoJc3RydWN0IHNvY2thZGRyX2luNiB2NjsKfTsKCmludCB0Y3BfaW5pdF9zZXJ2ZXIo
-aW50IGZhbWlseSwgaW50ICpwb3J0KQp7Cgl1bmlvbiBzb2NrYWRkcl9pbmV0IGFkZHI7CglpbnQg
-c29jazsKCWludCB5ZXMgPSAxLCByZXQ7CgoJbWVtc2V0KCZhZGRyLDAsc2l6ZW9mKGFkZHIpKTsK
-CWlmIChmYW1pbHkgPT0gQUZfSU5FVCkgewoJCWFkZHIudjQuc2luX2ZhbWlseSA9IGZhbWlseTsK
-CQlpbmV0X3B0b24oZmFtaWx5LCAiMC4wLjAuMCIsICYoYWRkci52NC5zaW5fYWRkcikpOwoJfSBl
-bHNlIGlmIChmYW1pbHkgPT0gQUZfSU5FVDYpewoJCWFkZHIudjYuc2luNl9mYW1pbHkgPSBmYW1p
-bHk7CgkJaW5ldF9wdG9uKGZhbWlseSwgIjo6MCIsICYoYWRkci52Ni5zaW42X2FkZHIpKTsKCX0g
-ZWxzZQoJCXJldHVybiAtMTsKCglzb2NrID0gc29ja2V0KGZhbWlseSwgU09DS19TVFJFQU0sIElQ
-UFJPVE9fVENQKTsKCWlmIChzb2NrID09IC0xKSB7CgkJcHJfcGVycm9yKCJzb2NrZXQoKSBmYWls
-ZWQiKTsKCQlyZXR1cm4gLTE7Cgl9CgoJaWYgKHNldHNvY2tvcHQoc29jaywgU09MX1NPQ0tFVCwg
-U09fUkVVU0VBRERSLCAmeWVzLCBzaXplb2YoaW50KSkgPT0gLTEgKSB7CgkJcHJfcGVycm9yKCJz
-ZXRzb2Nrb3B0KCkgZXJyb3IiKTsKCQlyZXR1cm4gLTE7Cgl9CgoJd2hpbGUgKDEpIHsKCQlpZiAo
-ZmFtaWx5ID09IEFGX0lORVQpCgkJCWFkZHIudjQuc2luX3BvcnQgPSBodG9ucygqcG9ydCk7CgkJ
-ZWxzZSBpZiAoZmFtaWx5ID09IEFGX0lORVQ2KQoJCQlhZGRyLnY2LnNpbjZfcG9ydCA9IGh0b25z
-KCpwb3J0KTsKCgkJcmV0ID0gYmluZChzb2NrLCAoc3RydWN0IHNvY2thZGRyICopICZhZGRyLCBz
-aXplb2YoYWRkcikpOwoKCQkvKiBjcml1IGRvZXNuJ3QgcmVzdG9yZSBzb2NrIG9wdHMsIHNvIHdl
-IG5lZWQgdGhpcyBoYWNrICovCgkJaWYgKHJldCA9PSAtMSAmJiBlcnJubyA9PSBFQUREUklOVVNF
-KSB7CgkJCSgqcG9ydCkrKzsKCQkJY29udGludWU7CgkJfQoJCWJyZWFrOwoJfQoKCWlmIChyZXQg
-PT0gLTEpIHsKCQlwcl9wZXJyb3IoImJpbmQoKSBmYWlsZWQiKTsKCQlyZXR1cm4gLTE7Cgl9CgoJ
-aWYgKGxpc3Rlbihzb2NrLCAxKSA9PSAtMSkgewoJCXByX3BlcnJvcigibGlzdGVuKCkgZmFpbGVk
-Iik7CgkJcmV0dXJuIC0xOwoJfQoJcmV0dXJuIHNvY2s7Cn0KCmludCB0Y3BfYWNjZXB0X3NlcnZl
-cihpbnQgc29jaykKewoJc3RydWN0IHNvY2thZGRyX2luIG1hZGRyOwoJaW50IHNvY2syOwoJc29j
-a2xlbl90IGFkZHJsZW47CiNpZmRlZiBERUJVRwoJdGVzdF9tc2cgKCJXYWl0aW5nIGZvciBjb25u
-ZWN0aW9uLi4uLi4uLi4uLlxuIik7CiNlbmRpZgoJYWRkcmxlbiA9IHNpemVvZihtYWRkcik7Cglz
-b2NrMiA9IGFjY2VwdChzb2NrLChzdHJ1Y3Qgc29ja2FkZHIgKikgJm1hZGRyLCAmYWRkcmxlbik7
-CgoJaWYgKHNvY2syID09IC0xKSB7CgkJcHJfcGVycm9yKCJhY2NlcHQoKSBmYWlsZWQiKTsKCQly
-ZXR1cm4gLTE7Cgl9CgojaWZkZWYgREVCVUcKCXRlc3RfbXNnICgiQ29ubmVjdGlvbiEhXG4iKTsK
-I2VuZGlmCglyZXR1cm4gc29jazI7Cn0KCmludCBfX3RjcF9pbml0X2NsaWVudChpbnQgc29jaywg
-aW50IGZhbWlseSwgY2hhciAqc2VydklQLCB1bnNpZ25lZCBzaG9ydCBzZXJ2UG9ydCkKewoJdW5p
-b24gc29ja2FkZHJfaW5ldCBzZXJ2QWRkcjsKCgkvKiBDb25zdHJ1Y3QgdGhlIHNlcnZlciBhZGRy
-ZXNzIHN0cnVjdHVyZSAqLwoJbWVtc2V0KCZzZXJ2QWRkciwgMCwgc2l6ZW9mKHNlcnZBZGRyKSk7
-CglpZiAoZmFtaWx5ID09IEFGX0lORVQpIHsKCQlzZXJ2QWRkci52NC5zaW5fZmFtaWx5ICAgICAg
-PSBBRl9JTkVUOwoJCXNlcnZBZGRyLnY0LnNpbl9wb3J0ICAgICAgICA9IGh0b25zKHNlcnZQb3J0
-KTsKCQlpbmV0X3B0b24oQUZfSU5FVCwgc2VydklQLCAmc2VydkFkZHIudjQuc2luX2FkZHIpOwoJ
-fSBlbHNlIHsKCQlzZXJ2QWRkci52Ni5zaW42X2ZhbWlseSAgICAgID0gQUZfSU5FVDY7CgkJc2Vy
-dkFkZHIudjYuc2luNl9wb3J0ICAgICAgICA9IGh0b25zKHNlcnZQb3J0KTsKCQlpbmV0X3B0b24o
-QUZfSU5FVDYsIHNlcnZJUCwgJnNlcnZBZGRyLnY2LnNpbjZfYWRkcik7Cgl9CglpZiAoY29ubmVj
-dChzb2NrLCAoc3RydWN0IHNvY2thZGRyICopICZzZXJ2QWRkciwgc2l6ZW9mKHNlcnZBZGRyKSkg
-PCAwKSB7CgkJcHJfcGVycm9yKCJjYW4ndCBjb25uZWN0IHRvIHNlcnZlciIpOwoJCXJldHVybiAt
-MTsKCX0KCXJldHVybiBzb2NrOwp9CgppbnQgdGNwX2luaXRfY2xpZW50KGludCBmYW1pbHksIGNo
-YXIgKnNlcnZJUCwgdW5zaWduZWQgc2hvcnQgc2VydlBvcnQpCnsKCWludCBzb2NrOwoKCWlmICgo
-c29jayA9IHNvY2tldChmYW1pbHksIFNPQ0tfU1RSRUFNLCBJUFBST1RPX1RDUCkpIDwgMCkgewoJ
-CXByX3BlcnJvcigiY2FuJ3QgY3JlYXRlIHNvY2tldCIpOwoJCXJldHVybiAtMTsKCX0KCXJldHVy
-biBfX3RjcF9pbml0X2NsaWVudChzb2NrLCBmYW1pbHksIHNlcnZJUCwgc2VydlBvcnQpOwp9Cgoj
-aWZkZWYgWkRUTV9JUFY2CiNkZWZpbmUgWkRUTV9GQU1JTFkgQUZfSU5FVDYKI2Vsc2UKI2RlZmlu
-ZSBaRFRNX0ZBTUlMWSBBRl9JTkVUCiNlbmRpZgpzdGF0aWMgaW50IHBvcnQgPSA4ODgwOwoKaW50
-IG1haW4oaW50IGFyZ2MsIGNoYXIgKiphcmd2KQp7CglpbnQgZmQsIGZkX3MsIGNsdCwgc2s7Cgl1
-bmlvbiBzb2NrYWRkcl9pbmV0IHNyY19hZGRyLCBkc3RfYWRkciwgYWRkcjsKCXNvY2tsZW5fdCBh
-dXg7CgljaGFyIGMgPSA1OwoKCXNrID0gc29ja2V0KFpEVE1fRkFNSUxZLCBTT0NLX1NUUkVBTSwg
-MCk7CglpZiAoc2sgPCAwKSB7CgkJcHJfcGVycm9yKCJzb2NrZXQiKTsKCQlyZXR1cm4gMTsKCX0K
-CglpZiAoKGZkX3MgPSB0Y3BfaW5pdF9zZXJ2ZXIoWkRUTV9GQU1JTFksICZwb3J0KSkgPCAwKSB7
-CgkJcHJfZXJyKCJpbml0aWFsaXppbmcgc2VydmVyIGZhaWxlZFxuIik7CgkJcmV0dXJuIDE7Cgl9
-CgoJY2x0ID0gdGNwX2luaXRfY2xpZW50KFpEVE1fRkFNSUxZLCAibG9jYWxob3N0IiwgcG9ydCk7
-CglpZiAoY2x0IDwgMCkKCQlyZXR1cm4gMTsKCgkvKgoJICogcGFyZW50IGlzIHNlcnZlciBvZiBU
-Q1AgY29ubmVjdGlvbgoJICovCglmZCA9IHRjcF9hY2NlcHRfc2VydmVyKGZkX3MpOwoJaWYgKGZk
-IDwgMCkgewoJCXByX2VycigiY2FuJ3QgYWNjZXB0IGNsaWVudCBjb25uZWN0aW9uXG4iKTsKCQly
-ZXR1cm4gMTsKCX0KCglzaHV0ZG93bihjbHQsIFNIVVRfV1IpOwoKCXsKCQl1bmlvbiBzb2NrYWRk
-cl9pbmV0IGFkZHI7CgkJaW50IGZkMTsKCgkJbWVtc2V0KCZhZGRyLCAwLCBzaXplb2YoYWRkcikp
-OwoJCWFkZHIudjQuc2luX2ZhbWlseSAgICAgID0gQUZfVU5TUEVDOwoJCWlmIChjb25uZWN0KGZk
-LCAoc3RydWN0IHNvY2thZGRyICopICZhZGRyLCBzaXplb2YoYWRkcikpKQoJCQlyZXR1cm4gMTsK
-CgkJaWYgKF9fdGNwX2luaXRfY2xpZW50KGZkLCBaRFRNX0ZBTUlMWSwgImxvY2FsaG9zdCIsIHBv
-cnQpIDwgMCkKCQkJcmV0dXJuIDE7CgoJCXJldHVybiAwOwoJCWZkMSA9IHRjcF9hY2NlcHRfc2Vy
-dmVyKGZkX3MpOwoJCWlmIChmZDEgPCAwKSB7CgkJCXByX2VycigiY2FuJ3QgYWNjZXB0IGNsaWVu
-dCBjb25uZWN0aW9uXG4iKTsKCQkJcmV0dXJuIDE7CgkJfQoJfQoKCXJldHVybiAwOwp9Cg==
---001a1142b64e34a39a0552a795b2--
+  Luis
