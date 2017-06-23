@@ -1,32 +1,26 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH NET 2/2] net: hns: Use phy_driver to setup Phy loopback
-Date: Fri, 23 Jun 2017 06:05:44 +0200
-Message-ID: <20170623040544.GC5432@lunn.ch>
-References: <1498121613-64572-1-git-send-email-linyunsheng@huawei.com>
- <20170623032011.GB5432@lunn.ch>
- <d4130f27-6373-b909-e23f-4c26520a9093@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] tcp: add mode parameter to tcp_proc_register
+Date: Fri, 23 Jun 2017 00:27:58 -0400 (EDT)
+Message-ID: <20170623.002758.1129050083018969879.davem@davemloft.net>
+References: <20170623014028.28257-1-colona@arista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, f.fainelli@gmail.com,
-        huangdaode@hisilicon.com, xuwei5@hisilicon.com,
-        liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
-        gabriele.paoloni@huawei.com, john.garry@huawei.com,
-        linuxarm@huawei.com, salil.mehta@huawei.com, lipeng321@huawei.com,
-        tremyfr@gmail.com, netdev@vger.kernel.org,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-To: Yunsheng Lin <linyunsheng@huawei.com>
+To: colona@arista.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <d4130f27-6373-b909-e23f-4c26520a9093@huawei.com>
+In-Reply-To: <20170623014028.28257-1-colona@arista.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> what should the Mac driver do when it receive the error? I assume that it
-> will return it to userspace. because the rtnl_lock ensure only one ethtool
-> is executing, if the function return error, it means some bug in the mac
-> driver, am I right?
+From: Ivan Delalande <colona@arista.com>
+Date: Thu, 22 Jun 2017 18:40:27 -0700
 
-Yes, return it. It could be there are other use cases of loopback,
-which are not protected by the rtnl_lock.
+> This will be used to create a proc file that regular users cannot read.
+> 
+> Signed-off-by: Ivan Delalande <colona@arista.com>
 
-      Andrew
+/proc is deprecated.
+
+Export this information via inet_diag.
