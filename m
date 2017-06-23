@@ -1,47 +1,56 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 0/4] net: phy: Support "internal" PHY interface
-Date: Fri, 23 Jun 2017 10:31:31 -0700
-Message-ID: <20170623173135.22912-1-f.fainelli@gmail.com>
-Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Vivien Didelot <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>,
-        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
-        Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:NETWORKING DRIVERS),
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:OPEN FIRMWARE AND FLATTENED
-        DEVICE TREE BINDINGS), linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list),
-        david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org, opendmb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: netdev-gepDB1WL6pn9qxiX1TGQuw@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH 2/4] net: phy: Support "internal" PHY interface
+Date: Fri, 23 Jun 2017 10:31:33 -0700
+Message-ID: <20170623173135.22912-3-f.fainelli@gmail.com>
+References: <20170623173135.22912-1-f.fainelli@gmail.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Sean Wang <sean.wang@mediatek.com>,
+        Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
+        Russell King <rmk+kernel@armlinux.org.uk>,
+        netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
+        devicetree@vger.kernel.org (open list:OPEN FIRMWARE AND FLATTENED
+        DEVICE TREE BINDINGS), linux-kernel@vger.kernel.org (open list),
+        david.wu@rock-chips.com, opendmb@gmail.com
+To: netdev@ver.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170623173135.22912-1-f.fainelli@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+Now that the Device Tree binding has been updated, update the PHY
+library phy_interface_t and phy_modes to support the "internal" PHY
+interface type.
 
-This makes the "internal" phy-mode property generally available and
-documented and this allows us to remove some custom parsing code
-we had for bcmgenet and bcm_sf2 which both used that specific value.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ include/linux/phy.h | 3 +++
+ 1 file changed, 3 insertions(+)
 
-Florian Fainelli (4):
-  dt-bindings: Add "internal" as a valid 'phy-mode' property
-  net: phy: Support "internal" PHY interface
-  net: bcmgenet: Remove special handling of "internal" phy-mode
-  net: dsa: bcm_sf2: Remove special handling of "internal" phy-mode
-
- Documentation/devicetree/bindings/net/ethernet.txt |  1 +
- drivers/net/dsa/bcm_sf2.c                          | 16 +++++----------
- drivers/net/ethernet/broadcom/genet/bcmmii.c       | 24 ++++++++--------------
- include/linux/phy.h                                |  3 +++
- 4 files changed, 17 insertions(+), 27 deletions(-)
-
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 23d2e46dd322..1d8d70193782 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -64,6 +64,7 @@
+ /* Interface Mode definitions */
+ typedef enum {
+ 	PHY_INTERFACE_MODE_NA,
++	PHY_INTERFACE_MODE_INTERNAL,
+ 	PHY_INTERFACE_MODE_MII,
+ 	PHY_INTERFACE_MODE_GMII,
+ 	PHY_INTERFACE_MODE_SGMII,
+@@ -114,6 +115,8 @@ static inline const char *phy_modes(phy_interface_t interface)
+ 	switch (interface) {
+ 	case PHY_INTERFACE_MODE_NA:
+ 		return "";
++	case PHY_INTERFACE_MODE_INTERNAL:
++		return "internal";
+ 	case PHY_INTERFACE_MODE_MII:
+ 		return "mii";
+ 	case PHY_INTERFACE_MODE_GMII:
 -- 
 2.9.3
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
