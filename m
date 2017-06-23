@@ -1,41 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: dp83640: Avoid NULL pointer dereference.
-Date: Fri, 23 Jun 2017 14:38:46 -0400 (EDT)
-Message-ID: <20170623.143846.888437777181372282.davem@davemloft.net>
-References: <20170623155131.21427-1-richardcochran@gmail.com>
+Subject: Re: [PATCH net-next 1/2] ipmr: restrict mroute "queue full"
+ warning to related error values
+Date: Fri, 23 Jun 2017 14:47:39 -0400 (EDT)
+Message-ID: <20170623.144739.1791220360024944932.davem@davemloft.net>
+References: <20170621175811.16940-1-julien@arista.com>
+        <20170623.133947.433422648753848462.davem@davemloft.net>
+        <bc8a9605-2df7-821f-5103-e9acb4482f3a@arista.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Manfred.Rudigier@omicron.at,
-        stefan.sorensen@spectralink.com
-To: richardcochran@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35432 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754327AbdFWSis (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 14:38:48 -0400
-In-Reply-To: <20170623155131.21427-1-richardcochran@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: julien@arista.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <bc8a9605-2df7-821f-5103-e9acb4482f3a@arista.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Richard Cochran <richardcochran@gmail.com>
-Date: Fri, 23 Jun 2017 17:51:31 +0200
+From: Julien Gomes <julien@arista.com>
+Date: Fri, 23 Jun 2017 10:52:26 -0700
 
-> The function, skb_complete_tx_timestamp(), used to allow passing in a
-> NULL pointer for the time stamps, but that was changed in commit
-> 62bccb8cdb69051b95a55ab0c489e3cab261c8ef ("net-timestamp: Make the
-> clone operation stand-alone from phy timestamping"), and the existing
-> call sites, all of which are in the dp83640 driver, were fixed up.
+> On 06/23/2017 10:39 AM, David Miller wrote:
 > 
-> Even though the kernel-doc was subsequently updated in commit
-> 7a76a021cd5a292be875fbc616daf03eab1e6996 ("net-timestamp: Update
-> skb_complete_tx_timestamp comment"), still a bug fix from Manfred
-> Rudigier came into the driver using the old semantics.  Probably
-> Manfred derived that patch from an older kernel version.
+>> From: Julien Gomes <julien@arista.com>
+>> Date: Wed, 21 Jun 2017 10:58:10 -0700
+>>
+>>> When sending a cache report on mroute_sk, mroute will emit a
+>>> "pending queue full" warning for every error value returned by
+>>> sock_queue_rcv_skb().
+>>> This warning can be misleading, for example on the EPERM error value
+>>> that sk_filter() can return.
+>>>
+>>> Restricting this warning to only ENOMEM or ENOBUFS seems more
+>>> appropriate.
+>>>
+>>> Signed-off-by: Julien Gomes <julien@arista.com>
+>> Incorrect, no other error codes are possible.
+>>
+>> We never attach a socket filter to these kernel internal sockets,
+>> therefore sk_filter() is not even applicable in this analysis.
+>>
+>> Therefore, -ENOBUFS and -ENOMEM are the only errors we can ever see
+>> returned from sock_queue_rcv_skb().
+>>
+>> This goes for your second patch as well.
 > 
-> This fix should be applied to the stable trees as well.
-> 
-> Fixes: 81e8f2e930fe ("net: dp83640: Fix tx timestamp overflow handling.")
-> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+> Up to now I would agree, but now that cache reports are also sent
+> through Netlink, wouldn't it make sense to allow the user of mroute_sk
+> to attach a filter to it in order to not receive cache reports on it?
 
-Applied and queued up for -stable, thank you.
+There is not visibility of this socket outside of the kernel.
+
+I doubt it would ever be exported in any way, and until it would
+be so worrying about this is truly a huge waste of time and developer
+resources.
+
+Thank you.
