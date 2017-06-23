@@ -1,74 +1,61 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH 4/4] net: dsa: bcm_sf2: Remove special handling of "internal" phy-mode
-Date: Fri, 23 Jun 2017 10:31:35 -0700
-Message-ID: <20170623173135.22912-5-f.fainelli@gmail.com>
-References: <20170623173135.22912-1-f.fainelli@gmail.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Sean Wang <sean.wang@mediatek.com>,
-        Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
-        Russell King <rmk+kernel@armlinux.org.uk>,
-        netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
-        devicetree@vger.kernel.org (open list:OPEN FIRMWARE AND FLATTENED
-        DEVICE TREE BINDINGS), linux-kernel@vger.kernel.org (open list),
-        david.wu@rock-chips.com, opendmb@gmail.com
-To: netdev@ver.kernel.org
+From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+Subject: [PATCH net-next 1/2] net/iucv: improve endianness handling
+Date: Fri, 23 Jun 2017 19:32:27 +0200
+Message-ID: <20170623173228.70128-2-jwi@linux.vnet.ibm.com>
+References: <20170623173228.70128-1-jwi@linux.vnet.ibm.com>
+Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
+        Martin Schwidefsky <schwidefsky@de.ibm.com>,
+        Heiko Carstens <heiko.carstens@de.ibm.com>,
+        Stefan Raspl <raspl@linux.vnet.ibm.com>,
+        Ursula Braun <ubraun@linux.vnet.ibm.com>,
+        Julian Wiedmann <jwi@linux.vnet.ibm.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:34335 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754209AbdFWRca (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 13:32:30 -0400
-In-Reply-To: <20170623173135.22912-1-f.fainelli@gmail.com>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:42623 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754345AbdFWRcn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 13:32:43 -0400
+Received: from pps.filterd (m0098394.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5NHUQ8s119085
+        for <netdev@vger.kernel.org>; Fri, 23 Jun 2017 13:32:42 -0400
+Received: from e06smtp10.uk.ibm.com (e06smtp10.uk.ibm.com [195.75.94.106])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2b8yueenug-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Fri, 23 Jun 2017 13:32:42 -0400
+Received: from localhost
+        by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <jwi@linux.vnet.ibm.com>;
+        Fri, 23 Jun 2017 18:32:39 +0100
+In-Reply-To: <20170623173228.70128-1-jwi@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The PHY library now supports an "internal" phy-mode, thus making our
-custom parsing code now unnecessary.
+From: Hans Wippel <hwippel@linux.vnet.ibm.com>
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Use proper endianness conversion for an skb protocol assignment. Given
+that IUCV is only available on big endian systems (s390), this simply
+avoids an endianness warning reported by sparse.
+
+Signed-off-by: Hans Wippel <hwippel@linux.vnet.ibm.com>
+Reviewed-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+Reviewed-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Signed-off-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
 ---
- drivers/net/dsa/bcm_sf2.c | 16 +++++-----------
- 1 file changed, 5 insertions(+), 11 deletions(-)
+ net/iucv/af_iucv.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index 76e98e8ed315..648f91b58d1e 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -498,10 +498,8 @@ static void bcm_sf2_identify_ports(struct bcm_sf2_priv *priv,
- 				   struct device_node *dn)
- {
- 	struct device_node *port;
--	const char *phy_mode_str;
- 	int mode;
- 	unsigned int port_num;
--	int ret;
- 
- 	priv->moca_port = -1;
- 
-@@ -515,15 +513,11 @@ static void bcm_sf2_identify_ports(struct bcm_sf2_priv *priv,
- 		 * time
- 		 */
- 		mode = of_get_phy_mode(port);
--		if (mode < 0) {
--			ret = of_property_read_string(port, "phy-mode",
--						      &phy_mode_str);
--			if (ret < 0)
--				continue;
--
--			if (!strcasecmp(phy_mode_str, "internal"))
--				priv->int_phy_mask |= 1 << port_num;
--		}
-+		if (mode < 0)
-+			continue;
-+
-+		if (mode == PHY_INTERFACE_MODE_INTERNAL)
-+			priv->int_phy_mask |= 1 << port_num;
- 
- 		if (mode == PHY_INTERFACE_MODE_MOCA)
- 			priv->moca_port = port_num;
+diff --git a/net/iucv/af_iucv.c b/net/iucv/af_iucv.c
+index 2cf9d59f1b72..05112094d76b 100644
+--- a/net/iucv/af_iucv.c
++++ b/net/iucv/af_iucv.c
+@@ -362,7 +362,7 @@ static int afiucv_hs_send(struct iucv_message *imsg, struct sock *sock,
+ 		else
+ 			skb_trim(skb, skb->dev->mtu);
+ 	}
+-	skb->protocol = ETH_P_AF_IUCV;
++	skb->protocol = cpu_to_be16(ETH_P_AF_IUCV);
+ 	nskb = skb_clone(skb, GFP_ATOMIC);
+ 	if (!nskb)
+ 		return -ENOMEM;
 -- 
-2.9.3
+2.11.2
