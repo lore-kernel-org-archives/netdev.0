@@ -1,44 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request (net): ipsec 2017-06-23
-Date: Fri, 23 Jun 2017 14:11:54 -0400 (EDT)
-Message-ID: <20170623.141154.1049063599656855226.davem@davemloft.net>
-References: <1498201594-10835-1-git-send-email-steffen.klassert@secunet.com>
+Subject: Re: [PATCH V2 net-next 00/11] update ena ethernet driver to
+ version 1.2.0
+Date: Fri, 23 Jun 2017 14:16:37 -0400 (EDT)
+Message-ID: <20170623.141637.194178237902883118.davem@davemloft.net>
+References: <1498206120-13805-1-git-send-email-netanel@amazon.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Cc: netdev@vger.kernel.org, dwmw@amazon.com, zorik@amazon.com,
+        matua@amazon.com, saeedb@amazon.com, msw@amazon.com,
+        aliguori@amazon.com, nafea@amazon.com, evgenys@amazon.com
+To: netanel@amazon.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35006 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:35078 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753786AbdFWSMC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 14:12:02 -0400
-In-Reply-To: <1498201594-10835-1-git-send-email-steffen.klassert@secunet.com>
+        with ESMTP id S1754237AbdFWSQj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 14:16:39 -0400
+In-Reply-To: <1498206120-13805-1-git-send-email-netanel@amazon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Fri, 23 Jun 2017 09:06:28 +0200
+From: <netanel@amazon.com>
+Date: Fri, 23 Jun 2017 11:21:49 +0300
 
-> 1) Fix xfrm garbage collecting when unregistering a netdevice.
->    From Hangbin Liu.
+> From: Netanel Belgazal <netanel@amazon.com>
 > 
-> 2) Fix NULL pointer derefernce when exiting a network namespace.
->    From Hangbin Liu.
+> This patchset contains some new features/improvements that were added
+> to the ENA driver to increase its robustness and are based on
+> experience of wide ENA deployment.
 > 
-> 3) Fix some error codes in pfkey to prevent a NULL pointer derefernce.
->    From Dan Carpenter.
+> Change log:
 > 
-> 4) Fix NULL pointer derefernce on allocation failure in pfkey.
->    From Dan Carpenter.
-> 
-> 5) Adjust IPv6 payload_len to include extension headers. Otherwise
->    we corrupt the packets when doing ESP GRO on transport mode.
->    From Yossi Kuperman.
-> 
-> 6) Set nhoff to the proper offset of the IPv6 nexthdr when doing ESP GRO.
->    From Yossi Kuperman.
-> 
-> Please pull or let me know if there are problems.
+> V2:
+> * Remove patch that add inline to C-file static function (contradict coding style).
+> * Remove patch that moves MTU parameter validation in ena_change_mtu() instead of
+> using the network stack.
+> * Use upper_32_bits()/lower_32_bits() instead of casting.
 
-Pulled, thanks Steffen!
+Series applied, thanks.
