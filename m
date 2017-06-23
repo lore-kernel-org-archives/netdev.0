@@ -1,99 +1,153 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [pull request][net-next 00/15] Mellanox, mlx5 updates 2017-06-23
-Date: Fri, 23 Jun 2017 17:26:07 +0300
-Message-ID: <20170623142622.16565-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
+Subject: [net-next 09/15] net/mlx5: Add MCC (Management Component Control) register definitions
+Date: Fri, 23 Jun 2017 17:26:16 +0300
+Message-ID: <20170623142622.16565-10-saeedm@mellanox.com>
+References: <20170623142622.16565-1-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+        Yotam Gigi <yotamg@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54006 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54075 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751488AbdFWO1q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 10:27:46 -0400
+        with ESMTP id S1753397AbdFWO1r (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 10:27:47 -0400
+In-Reply-To: <20170623142622.16565-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Or Gerlitz <ogerlitz@mellanox.com>
 
-This series mainly from Tariq and Or includes updates to mlx5 core and
-netdevice dirvers.
+MCC (Management Component Control) allows to control a firmware
+component update.
 
->From Tariq, RX path improvments.
->From Or, header re-write updates and FW flash support.
-For more detalis please see tag log below.
+MCDA (Management Component Data Access) allows to read and write
+a firmware component.
 
-Please pull and let me know if there's any problem.
+MCQI (Management Component Query Information) allows to query
+information about firmware components.
 
-Thanks,
-Saeed.
-
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
+ include/linux/mlx5/driver.h   |  3 ++
+ include/linux/mlx5/mlx5_ifc.h | 82 +++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 85 insertions(+)
 
-The following changes since commit 3d09198243b89457649241fb63f809a96a22a8ce:
-
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2017-06-21 17:35:22 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/saeed/linux.git tags/mlx5-updates-2017-06-23
-
-for you to fetch changes up to 137ffd15f71ec29ff1a57728081569698591225a:
-
-  net/mlx5: Fix offset of hca cap reserved field (2017-06-22 14:30:14 +0300)
-
-----------------------------------------------------------------
-mlx5-updates-2017-06-23
-
-This series provides some updates to the mlx5 core and netdevice drivers.
-
-Three patches from Tariq, Introduces page reuse mechanism in non-Striding
-RQ RX datapath, we allow the the RX descriptor to reuse its allocated page
-as much as it could, until the page is fully consumed. RX page reuse
-reduces the stress on page allocator and improves RX performance especially
-with high speeds (100Gb/s).
-
-Next four patches of the series from Or allows to offload tc flower matching
-on ttl/hoplimit and header re-write of hoplimit.
-
-The rest of  the series from Yotam and Or enhances mlx5 to support FW flashing
-through the mlxfw module, in a similar manner done by the mlxsw driver.
-Currently, only ethtool based flashing is implemented, where both Eth and IB ports
-are supported.
-
-Thanks,
-Saeed.
-
-----------------------------------------------------------------
-Or Gerlitz (12):
-      net/mlx5e: Relocate the TC match on ip tos offload code section
-      net/mlx5e: Offload TC matching on ip ttl
-      net/mlx5e: Use macro for TC header re-write offload field mapping
-      net/mlx5e: Add header re-write offloading of IPv6 hop-limit
-      mlxfw: Make the module selectable
-      net/mlx5: Add MCC (Management Component Control) register definitions
-      net/mlx5: Enhance MCAM reg to allow query on access reg support
-      net/mlx5: Add helper functions to set/query MCC/MCDA/MCQI registers
-      net/mlx5: Add mlxfw callbacks
-      net/mlx5e: Support the flash device ethtool callback
-      net/mlx5e: IPoIB, Support the flash device ethtool callback
-      net/mlx5: Fix offset of hca cap reserved field
-
-Tariq Toukan (3):
-      net/mlx5e: Build SKB with exact frag_size
-      net/mlx5e: Enhance RX SKB headroom logic
-      net/mlx5e: Introduce RX Page-Reuse
-
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  17 +-
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  35 +++
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  46 ++--
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    | 121 +++++++---
- drivers/net/ethernet/mellanox/mlx5/core/en_stats.h |   4 +
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    | 106 ++++----
- drivers/net/ethernet/mellanox/mlx5/core/fw.c       | 268 +++++++++++++++++++++
- .../ethernet/mellanox/mlx5/core/ipoib/ethtool.c    |   9 +
- .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |   3 +
- drivers/net/ethernet/mellanox/mlxfw/Kconfig        |   8 +-
- drivers/net/ethernet/mellanox/mlxfw/mlxfw.h        |   9 +
- include/linux/mlx5/device.h                        |   3 +
- include/linux/mlx5/driver.h                        |   3 +
- include/linux/mlx5/mlx5_ifc.h                      | 103 +++++++-
- 14 files changed, 634 insertions(+), 101 deletions(-)
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index bf15e87da8fa..750701b3b863 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -131,6 +131,9 @@ enum {
+ 	MLX5_REG_MPCNT		 = 0x9051,
+ 	MLX5_REG_MTPPS		 = 0x9053,
+ 	MLX5_REG_MTPPSE		 = 0x9054,
++	MLX5_REG_MCQI		 = 0x9061,
++	MLX5_REG_MCC		 = 0x9062,
++	MLX5_REG_MCDA		 = 0x9063,
+ 	MLX5_REG_MCAM		 = 0x907f,
+ };
+ 
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 4b547f551a2e..28468ad804be 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -8165,6 +8165,85 @@ struct mlx5_ifc_mtppse_reg_bits {
+ 	u8         reserved_at_40[0x40];
+ };
+ 
++struct mlx5_ifc_mcqi_cap_bits {
++	u8         supported_info_bitmask[0x20];
++
++	u8         component_size[0x20];
++
++	u8         max_component_size[0x20];
++
++	u8         log_mcda_word_size[0x4];
++	u8         reserved_at_64[0xc];
++	u8         mcda_max_write_size[0x10];
++
++	u8         rd_en[0x1];
++	u8         reserved_at_81[0x1];
++	u8         match_chip_id[0x1];
++	u8         match_psid[0x1];
++	u8         check_user_timestamp[0x1];
++	u8         match_base_guid_mac[0x1];
++	u8         reserved_at_86[0x1a];
++};
++
++struct mlx5_ifc_mcqi_reg_bits {
++	u8         read_pending_component[0x1];
++	u8         reserved_at_1[0xf];
++	u8         component_index[0x10];
++
++	u8         reserved_at_20[0x20];
++
++	u8         reserved_at_40[0x1b];
++	u8         info_type[0x5];
++
++	u8         info_size[0x20];
++
++	u8         offset[0x20];
++
++	u8         reserved_at_a0[0x10];
++	u8         data_size[0x10];
++
++	u8         data[0][0x20];
++};
++
++struct mlx5_ifc_mcc_reg_bits {
++	u8         reserved_at_0[0x4];
++	u8         time_elapsed_since_last_cmd[0xc];
++	u8         reserved_at_10[0x8];
++	u8         instruction[0x8];
++
++	u8         reserved_at_20[0x10];
++	u8         component_index[0x10];
++
++	u8         reserved_at_40[0x8];
++	u8         update_handle[0x18];
++
++	u8         handle_owner_type[0x4];
++	u8         handle_owner_host_id[0x4];
++	u8         reserved_at_68[0x1];
++	u8         control_progress[0x7];
++	u8         error_code[0x8];
++	u8         reserved_at_78[0x4];
++	u8         control_state[0x4];
++
++	u8         component_size[0x20];
++
++	u8         reserved_at_a0[0x60];
++};
++
++struct mlx5_ifc_mcda_reg_bits {
++	u8         reserved_at_0[0x8];
++	u8         update_handle[0x18];
++
++	u8         offset[0x20];
++
++	u8         reserved_at_40[0x10];
++	u8         size[0x10];
++
++	u8         reserved_at_60[0x20];
++
++	u8         data[0][0x20];
++};
++
+ union mlx5_ifc_ports_control_registers_document_bits {
+ 	struct mlx5_ifc_bufferx_reg_bits bufferx_reg;
+ 	struct mlx5_ifc_eth_2819_cntrs_grp_data_layout_bits eth_2819_cntrs_grp_data_layout;
+@@ -8214,6 +8293,9 @@ union mlx5_ifc_ports_control_registers_document_bits {
+ 	struct mlx5_ifc_mtppse_reg_bits mtppse_reg;
+ 	struct mlx5_ifc_fpga_ctrl_bits fpga_ctrl_bits;
+ 	struct mlx5_ifc_fpga_cap_bits fpga_cap_bits;
++	struct mlx5_ifc_mcqi_reg_bits mcqi_reg;
++	struct mlx5_ifc_mcc_reg_bits mcc_reg;
++	struct mlx5_ifc_mcda_reg_bits mcda_reg;
+ 	u8         reserved_at_0[0x60e0];
+ };
+ 
+-- 
+2.11.0
