@@ -1,57 +1,72 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH net-next v3 1/6] vxlan: refactor verification
- and application of configuration
-Date: Fri, 23 Jun 2017 15:31:08 +0200
-Message-ID: <1498224668.2595.5.camel@sipsolutions.net>
-References: <cover.1497825555.git.mschiffer@universe-factory.net>
-	<6e2c8bb77be42834f1da5a3ca79f5e455574a136.1497825555.git.mschiffer@universe-factory.net>
-	<20170623105220.18561f34@griffin>
-	<113c3fe1-f490-d92d-2b4a-69b7115d8115@universe-factory.net>
-	<1498213402.2595.3.camel@sipsolutions.net>
-	<a250dc2b-1249-2cfe-6f39-06b7f0874f59@universe-factory.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC PATCH net-next 1/3] ethtool: Add link down reason callback
+Date: Fri, 23 Jun 2017 15:52:48 +0200
+Message-ID: <20170623135248.GA21943@lunn.ch>
+References: <1498050286-17141-1-git-send-email-galp@mellanox.com>
+ <1498050286-17141-2-git-send-email-galp@mellanox.com>
+ <20170621135809.GC27585@lunn.ch>
+ <8e7ffead-350e-bd7f-c7ea-fe057969d0d3@mellanox.com>
+ <20170622133404.GB20038@lunn.ch>
+ <b6bbfe70-b4df-fbba-21d9-ddb3ce1eaebd@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Matthias Schiffer <mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>, Jiri Benc
-	<jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <a250dc2b-1249-2cfe-6f39-06b7f0874f59-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        "John W. Linville" <linville@tuxdriver.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        David Decotigny <decot@googlers.com>, kernel-team@fb.com
+To: Gal Pressman <galp@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:32946 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751999AbdFWNwy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Jun 2017 09:52:54 -0400
+Content-Disposition: inline
+In-Reply-To: <b6bbfe70-b4df-fbba-21d9-ddb3ce1eaebd@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCAyMDE3LTA2LTIzIGF0IDE0OjAyICswMjAwLCBNYXR0aGlhcyBTY2hpZmZlciB3cm90
-ZToKPiAKPiBJdCBzZWVtcyB0aG91Z2ggdGhhdCBydG5sX2xpbmtfb3BzLm5ld2xpbmsvY2hhbmdl
-bGluayBkb24ndCBhbGxvdwo+IHBhc3NpbmcgdGhlIGV4dGFjayB5ZXQuLi4gaG93IGRvIHdlIHBy
-b2NlZWQgaGVyZT8gVHJlZXdpZGUgY2hhbmdlCj4gKG1heWJlIGJ5IHNvbWVvbmUgd2hvIGtub3dz
-IHRoZWlyIENvY2NpbmVsbGUtZnU/KSwgb3Igd291bGQgdGhlCj4gaW50cm9kdWN0aW9uIG9mIG5l
-dyB2ZXJzaW9ucyBvZiB0aGUgbmV3bGluayBhbmQgY2hhbmdlbGluayBmaWVsZHMgYmUKPiBtb3Jl
-IGFjY2VwdGFibGUsIHNvIGRyaXZlcnMgY2FuIGJlIG1vdmVkIHRvIHRoZSBuZXcgQVBJIG9uZSBi
-eSBvbmU/CgpJIHRoaW5rIHRyZWV3aWRlIGNoYW5nZSBpcyBlYXN5IGVub3VnaCwgdGhpcyBzZWVt
-cyB0byB3b3JrOgoKQG9wczFACmlkZW50aWZpZXIgbmV3Zm4sIG9wczsKQEAKc3RhdGljIHN0cnVj
-dCBydG5sX2xpbmtfb3BzIG9wcyA9IHsKCS5uZXdsaW5rID0gbmV3Zm4sCi4uLgp9OwoKQEAKaWRl
-bnRpZmllciBvcHMxLm5ld2ZuOwppZGVudGlmaWVyIHNyY19uZXQsIGRldiwgdGIsIGRhdGE7CkBA
-Ci1pbnQgbmV3Zm4oc3RydWN0IG5ldCAqc3JjX25ldCwgc3RydWN0IG5ldF9kZXZpY2UgKmRldiwK
-LQnCoMKgwqBzdHJ1Y3QgbmxhdHRyICp0YltdLCBzdHJ1Y3QgbmxhdHRyICpkYXRhW10pCitpbnQg
-bmV3Zm4oc3RydWN0IG5ldCAqc3JjX25ldCwgc3RydWN0IG5ldF9kZXZpY2UgKmRldiwKKwnCoMKg
-wqBzdHJ1Y3QgbmxhdHRyICp0YltdLCBzdHJ1Y3QgbmxhdHRyICpkYXRhW10sCisJwqDCoMKgc3Ry
-dWN0IG5ldGxpbmtfZXh0X2FjayAqZXh0YWNrKQp7Li4ufQoKQG9wczJACmlkZW50aWZpZXIgY2hm
-biwgb3BzOwpAQApzdGF0aWMgc3RydWN0IHJ0bmxfbGlua19vcHMgb3BzID0gewoJLmNoYW5nZWxp
-bmsgPSBjaGZuLAouLi4KfTsKCkBACmlkZW50aWZpZXIgb3BzMi5jaGZuOwppZGVudGlmaWVyIGRl
-diwgdGIsIGRhdGE7CkBACi1pbnQgY2hmbihzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LAotCcKgwqBz
-dHJ1Y3QgbmxhdHRyICp0YltdLCBzdHJ1Y3QgbmxhdHRyICpkYXRhW10pCitpbnQgY2hmbihzdHJ1
-Y3QgbmV0X2RldmljZSAqZGV2LAorCcKgwqBzdHJ1Y3QgbmxhdHRyICp0YltdLCBzdHJ1Y3Qgbmxh
-dHRyICpkYXRhW10sCisJwqDCoHN0cnVjdCBuZXRsaW5rX2V4dF9hY2sgKmV4dGFjaykKey4uLn0K
-CkkgZ3Vlc3MgaWYgdGhlcmUgYXJlIGFueSBzdHJhZ2dsZXJzIHlvdSdkIGZpbmQgdGhlbSBieSBj
-b21waWxlLXRlc3RpbmcKOikKCmpvaGFubmVzCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpo
-dHRwczovL21haWwub3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vb3ZzLWRldgo=
+On Fri, Jun 23, 2017 at 11:23:17AM +0300, Gal Pressman wrote:
+> >> The I2C bus that's connected to this module (interface).
+> >> We can add another reason for MDIO BUS errors or merge to one BUS error reason.
+> >>>> +	ETHTOOL_LINK_UNSUPP_EEPROM, /* Unsupported EEPROM */
+> >>> Which EEPROM?
+> >> Module EEPROM.
+> > Which module? This is all very vague. Some of the Marvell 10G PHYs
+> > have an EEPROM to boot from, for example. Would that count? Or are you
+> > talking about the SFP 'EEPROM', which is not actually an EEPROM, in
+> > that it is not Electrically Erasable, not is it a ROM, since things
+> > like temperature changes with time.
+> 
+
+> I am referring to the optical/electrical module EEPROM which is
+> exposed through standard interface such as SFF 8472. Might not be an
+> actual EEPROM but that's how the SFF committee decided to refer to
+> it :).
+
+Right, so at a minimum, put a comment: The following properties
+referring to the optical/electrical module EEPROM which is exposed
+through standard interface such as SFF 8472.
+
+That makes it a lot less ambiguous.
+
+> 
+> >
+> >>>> +	ETHTOOL_LINK_OVERTEMP, /* Over temperature */
+> >>>> +	ETHTOOL_LINK_PWR_BUDGET_EXC, /* Power budget exceeded */
+> >>>> +	ETHTOOL_LINK_MODULE_ADMIN_DOWN, /* Module admin down */
+> >>> It seems like these last 6 are all SFP issues? How about putting SFP
+> >>> into the name?
+> >> Might be a QSFP issue for example, we can put module in the name though.
+> > What is the generic name of SFP, SFP+ QSFP, SFF?
+> 
+> AFAIK, the name is module.
+
+And as a term, module is overloaded. If the standard is called SFF
+8472, then i would suggest putting SFF in these macros.
+
+This is all assuming we actually decide to expose this information
+this way....
+
+     Andrew
