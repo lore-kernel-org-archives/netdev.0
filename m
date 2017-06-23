@@ -1,7 +1,7 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net-next v3 09/12] nfp: add support for tx/rx with metadata portid
-Date: Fri, 23 Jun 2017 22:12:06 +0200
-Message-ID: <1498248729-375-10-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH net-next v3 11/12] nfp: add flower app
+Date: Fri, 23 Jun 2017 22:12:08 +0200
+Message-ID: <1498248729-375-12-git-send-email-simon.horman@netronome.com>
 References: <1498248729-375-1-git-send-email-simon.horman@netronome.com>
 Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
         Or Gerlitz <gerlitz.or@gmail.com>,
@@ -9,176 +9,388 @@ Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
 To: David Miller <davem@davemloft.net>,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f176.google.com ([209.85.128.176]:35432 "EHLO
-        mail-wr0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755006AbdFWUMo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 16:12:44 -0400
-Received: by mail-wr0-f176.google.com with SMTP id k67so79099942wrc.2
-        for <netdev@vger.kernel.org>; Fri, 23 Jun 2017 13:12:44 -0700 (PDT)
+Received: from mail-wr0-f182.google.com ([209.85.128.182]:34408 "EHLO
+        mail-wr0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755015AbdFWUMs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 16:12:48 -0400
+Received: by mail-wr0-f182.google.com with SMTP id 77so79615500wrb.1
+        for <netdev@vger.kernel.org>; Fri, 23 Jun 2017 13:12:47 -0700 (PDT)
 In-Reply-To: <1498248729-375-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow tx/rx with metadata port id. This will be used for tx/rx of
-representor netdevs acting as upper-devices while a pf netdev acts
-as a lower-device.
+Add app for flower offload. At this point the PF netdev and phys port
+representor netdevs are initialised. Follow-up work will add support for
+VF and PF representors and beyond that offloading the flower classifier.
+
+Based in part on work by Benjamin LaHaise and Bert van Leeuwen.
 
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
 Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net.h       |  1 +
- .../net/ethernet/netronome/nfp/nfp_net_common.c    | 57 +++++++++++++++++++---
- 2 files changed, 52 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/netronome/nfp/Makefile      |   1 +
+ drivers/net/ethernet/netronome/nfp/flower/main.c | 294 +++++++++++++++++++++++
+ drivers/net/ethernet/netronome/nfp/nfp_app.c     |   1 +
+ drivers/net/ethernet/netronome/nfp/nfp_app.h     |   4 +
+ 4 files changed, 300 insertions(+)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/flower/main.c
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-index b7446793106d..b1fa77bd708b 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-@@ -318,6 +318,7 @@ struct nfp_meta_parsed {
- 	u8 csum_type;
- 	u32 hash;
- 	u32 mark;
-+	u32 portid;
- 	__wsum csum;
- };
+diff --git a/drivers/net/ethernet/netronome/nfp/Makefile b/drivers/net/ethernet/netronome/nfp/Makefile
+index e14f62863add..10b556b2c59d 100644
+--- a/drivers/net/ethernet/netronome/nfp/Makefile
++++ b/drivers/net/ethernet/netronome/nfp/Makefile
+@@ -28,6 +28,7 @@ nfp-objs := \
+ 	    bpf/main.o \
+ 	    bpf/offload.o \
+ 	    flower/cmsg.o \
++	    flower/main.o \
+ 	    nic/main.o
  
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index 2134493ec8a8..2e728543e840 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -755,6 +755,26 @@ static void nfp_net_tx_xmit_more_flush(struct nfp_net_tx_ring *tx_ring)
- 	tx_ring->wr_ptr_add = 0;
- }
- 
-+static int nfp_net_prep_port_id(struct sk_buff *skb)
+ ifeq ($(CONFIG_BPF_SYSCALL),y)
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/main.c b/drivers/net/ethernet/netronome/nfp/flower/main.c
+new file mode 100644
+index 000000000000..54d8180317ec
+--- /dev/null
++++ b/drivers/net/ethernet/netronome/nfp/flower/main.c
+@@ -0,0 +1,294 @@
++/*
++ * Copyright (C) 2017 Netronome Systems, Inc.
++ *
++ * This software is dual licensed under the GNU General License Version 2,
++ * June 1991 as shown in the file COPYING in the top-level directory of this
++ * source tree or the BSD 2-Clause License provided below.  You have the
++ * option to license this software under the complete terms of either license.
++ *
++ * The BSD 2-Clause License:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      1. Redistributions of source code must retain the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer.
++ *
++ *      2. Redistributions in binary form must reproduce the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer in the documentation and/or other materials
++ *         provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include <linux/etherdevice.h>
++#include <linux/pci.h>
++#include <linux/skbuff.h>
++#include <net/devlink.h>
++#include <net/dst_metadata.h>
++
++#include "../nfpcore/nfp_cpp.h"
++#include "../nfpcore/nfp_nsp.h"
++#include "../nfp_app.h"
++#include "../nfp_main.h"
++#include "../nfp_net.h"
++#include "../nfp_net_repr.h"
++#include "../nfp_port.h"
++#include "./cmsg.h"
++
++/**
++ * struct nfp_flower_priv - Flower APP per-vNIC priv data
++ * @nn:		     Pointer to vNIC
++ */
++struct nfp_flower_priv {
++	struct nfp_net *nn;
++};
++
++static const char *nfp_flower_extra_cap(struct nfp_app *app, struct nfp_net *nn)
 +{
-+	struct metadata_dst *md_dst = skb_metadata_dst(skb);
-+	unsigned char *data;
-+
-+	if (likely(!md_dst))
-+		return 0;
-+	if (unlikely(md_dst->type != METADATA_HW_PORT_MUX))
-+		return 0;
-+
-+	if (unlikely(skb_cow_head(skb, 8)))
-+		return -ENOMEM;
-+
-+	data = skb_push(skb, 8);
-+	put_unaligned_be32(NFP_NET_META_PORTID, data);
-+	put_unaligned_be32(md_dst->u.port_info.port_id, data + 4);
-+
-+	return 8;
++	return "FLOWER";
 +}
 +
- /**
-  * nfp_net_tx() - Main transmit entry point
-  * @skb:    SKB to transmit
-@@ -767,6 +787,7 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
- 	struct nfp_net *nn = netdev_priv(netdev);
- 	const struct skb_frag_struct *frag;
- 	struct nfp_net_tx_desc *txd, txdg;
-+	int f, nr_frags, wr_idx, md_bytes;
- 	struct nfp_net_tx_ring *tx_ring;
- 	struct nfp_net_r_vector *r_vec;
- 	struct nfp_net_tx_buf *txbuf;
-@@ -774,8 +795,6 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
- 	struct nfp_net_dp *dp;
- 	dma_addr_t dma_addr;
- 	unsigned int fsize;
--	int f, nr_frags;
--	int wr_idx;
- 	u16 qidx;
- 
- 	dp = &nn->dp;
-@@ -797,6 +816,13 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
- 		return NETDEV_TX_BUSY;
- 	}
- 
-+	md_bytes = nfp_net_prep_port_id(skb);
-+	if (unlikely(md_bytes < 0)) {
-+		nfp_net_tx_xmit_more_flush(tx_ring);
-+		dev_kfree_skb_any(skb);
-+		return NETDEV_TX_OK;
++static enum devlink_eswitch_mode eswitch_mode_get(struct nfp_app *app)
++{
++	return DEVLINK_ESWITCH_MODE_SWITCHDEV;
++}
++
++static enum nfp_repr_type
++nfp_flower_repr_get_type_and_port(struct nfp_app *app, u32 port_id, u8 *port)
++{
++	switch (FIELD_GET(NFP_FLOWER_CMSG_PORT_TYPE, port_id)) {
++	case NFP_FLOWER_CMSG_PORT_TYPE_PHYS_PORT:
++		*port = FIELD_GET(NFP_FLOWER_CMSG_PORT_PHYS_PORT_NUM,
++				  port_id);
++		return NFP_REPR_TYPE_PHYS_PORT;
++
++	case NFP_FLOWER_CMSG_PORT_TYPE_PCIE_PORT:
++		*port = FIELD_GET(NFP_FLOWER_CMSG_PORT_VNIC, port_id);
++		if (FIELD_GET(NFP_FLOWER_CMSG_PORT_VNIC_TYPE, port_id) ==
++		    NFP_FLOWER_CMSG_PORT_VNIC_TYPE_PF)
++			return NFP_REPR_TYPE_PF;
++		else
++			return NFP_REPR_TYPE_VF;
 +	}
 +
- 	/* Start with the head skbuf */
- 	dma_addr = dma_map_single(dp->dev, skb->data, skb_headlen(skb),
- 				  DMA_TO_DEVICE);
-@@ -815,7 +841,7 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
- 
- 	/* Build TX descriptor */
- 	txd = &tx_ring->txds[wr_idx];
--	txd->offset_eop = (nr_frags == 0) ? PCIE_DESC_TX_EOP : 0;
-+	txd->offset_eop = (nr_frags ? 0 : PCIE_DESC_TX_EOP) | md_bytes;
- 	txd->dma_len = cpu_to_le16(skb_headlen(skb));
- 	nfp_desc_set_dma_addr(txd, dma_addr);
- 	txd->data_len = cpu_to_le16(skb->len);
-@@ -855,7 +881,7 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
- 			*txd = txdg;
- 			txd->dma_len = cpu_to_le16(fsize);
- 			nfp_desc_set_dma_addr(txd, dma_addr);
--			txd->offset_eop =
-+			txd->offset_eop |=
- 				(f == nr_frags - 1) ? PCIE_DESC_TX_EOP : 0;
- 		}
- 
-@@ -1450,6 +1476,10 @@ nfp_net_parse_meta(struct net_device *netdev, struct nfp_meta_parsed *meta,
- 			meta->mark = get_unaligned_be32(data);
- 			data += 4;
- 			break;
-+		case NFP_NET_META_PORTID:
-+			meta->portid = get_unaligned_be32(data);
-+			data += 4;
-+			break;
- 		case NFP_NET_META_CSUM:
- 			meta->csum_type = CHECKSUM_COMPLETE;
- 			meta->csum =
-@@ -1594,6 +1624,7 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
- 		struct nfp_net_rx_buf *rxbuf;
- 		struct nfp_net_rx_desc *rxd;
- 		struct nfp_meta_parsed meta;
-+		struct net_device *netdev;
- 		dma_addr_t new_dma_addr;
- 		void *new_frag;
- 
-@@ -1672,7 +1703,7 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
- 		}
- 
- 		if (xdp_prog && !(rxd->rxd.flags & PCIE_DESC_RX_BPF &&
--				  dp->bpf_offload_xdp)) {
-+				  dp->bpf_offload_xdp) && !meta.portid) {
- 			unsigned int dma_off;
- 			void *hard_start;
- 			int act;
-@@ -1718,6 +1749,20 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
- 			continue;
- 		}
- 
-+		if (likely(!meta.portid)) {
-+			netdev = dp->netdev;
-+		} else {
-+			struct nfp_net *nn;
++	return NFP_FLOWER_CMSG_PORT_TYPE_UNSPEC;
++}
 +
-+			nn = netdev_priv(dp->netdev);
-+			netdev = nfp_app_repr_get(nn->app, meta.portid);
-+			if (unlikely(!netdev)) {
-+				nfp_net_rx_drop(dp, r_vec, rx_ring, rxbuf, skb);
-+				continue;
-+			}
-+			nfp_repr_inc_rx_stats(netdev, pkt_len);
++static struct net_device *
++nfp_flower_repr_get(struct nfp_app *app, u32 port_id)
++{
++	enum nfp_repr_type repr_type;
++	struct nfp_reprs *reprs;
++	u8 port = 0;
++
++	repr_type = nfp_flower_repr_get_type_and_port(app, port_id, &port);
++
++	reprs = rcu_dereference(app->reprs[repr_type]);
++	if (!reprs)
++		return NULL;
++
++	if (port >= reprs->num_reprs)
++		return NULL;
++
++	return reprs->reprs[port];
++}
++
++static void
++nfp_flower_repr_netdev_get_stats64(struct net_device *netdev,
++				   struct rtnl_link_stats64 *stats)
++{
++	struct nfp_repr *repr = netdev_priv(netdev);
++	enum nfp_repr_type type;
++	u32 port_id;
++	u8 port = 0;
++
++	port_id = repr->dst->u.port_info.port_id;
++	type = nfp_flower_repr_get_type_and_port(repr->app, port_id, &port);
++	nfp_repr_get_stats64(repr->app, type, port, stats);
++}
++
++static int nfp_flower_repr_netdev_open(struct net_device *netdev)
++{
++	int err;
++
++	err = nfp_flower_cmsg_portmod(netdev, true);
++	if (err)
++		return err;
++
++	netif_carrier_on(netdev);
++	netif_tx_wake_all_queues(netdev);
++
++	return 0;
++}
++
++static int nfp_flower_repr_netdev_stop(struct net_device *netdev)
++{
++	netif_carrier_off(netdev);
++	netif_tx_disable(netdev);
++
++	return nfp_flower_cmsg_portmod(netdev, false);
++}
++
++static const struct net_device_ops nfp_flower_repr_netdev_ops = {
++	.ndo_open		= nfp_flower_repr_netdev_open,
++	.ndo_stop		= nfp_flower_repr_netdev_stop,
++	.ndo_start_xmit		= nfp_repr_xmit,
++	.ndo_get_stats64	= nfp_flower_repr_netdev_get_stats64,
++	.ndo_has_offload_stats	= nfp_repr_has_offload_stats,
++	.ndo_get_offload_stats	= nfp_repr_get_offload_stats,
++};
++
++static void nfp_flower_stop(struct nfp_app *app)
++{
++	nfp_reprs_clean_and_free_by_type(app, NFP_REPR_TYPE_PHYS_PORT);
++}
++
++static int nfp_flower_start(struct nfp_app *app)
++{
++	struct nfp_eth_table *eth_tbl = app->pf->eth_tbl;
++	struct nfp_flower_priv *priv = app->priv;
++	struct nfp_reprs *reprs, *old_reprs;
++	unsigned int i;
++	int err;
++
++	reprs = nfp_reprs_alloc(eth_tbl->max_index + 1);
++	if (!reprs)
++		return -ENOMEM;
++
++	for (i = 0; i < eth_tbl->count; i++) {
++		int phys_port = eth_tbl->ports[i].index;
++		struct nfp_port *port;
++		u32 cmsg_port_id;
++
++		reprs->reprs[phys_port] = nfp_repr_alloc(app);
++		if (!reprs->reprs[phys_port]) {
++			err = -ENOMEM;
++			goto err_reprs_clean;
 +		}
 +
- 		nfp_net_dma_unmap_rx(dp, rxbuf->dma_addr);
++		port = nfp_port_alloc(app, NFP_PORT_PHYS_PORT,
++				      reprs->reprs[phys_port]);
++		if (IS_ERR(port)) {
++			err = PTR_ERR(port);
++			goto err_reprs_clean;
++		}
++		err = nfp_port_init_phy_port(app->pf, app, port, i);
++		if (err) {
++			nfp_port_free(port);
++			goto err_reprs_clean;
++		}
++
++		SET_NETDEV_DEV(reprs->reprs[phys_port], &priv->nn->pdev->dev);
++		nfp_net_get_mac_addr(app->pf, port,
++				     eth_tbl->ports[i].eth_index);
++
++		cmsg_port_id = nfp_flower_cmsg_phys_port(phys_port);
++		err = nfp_repr_init(app, reprs->reprs[phys_port],
++				    &nfp_flower_repr_netdev_ops,
++				    cmsg_port_id, port, priv->nn->dp.netdev);
++		if (err) {
++			nfp_port_free(port);
++			goto err_reprs_clean;
++		}
++
++		nfp_info(app->cpp, "Phys Port %d Representor(%s) created\n",
++			 phys_port, reprs->reprs[phys_port]->name);
++	}
++
++	old_reprs = nfp_app_reprs_set(app, NFP_REPR_TYPE_PHYS_PORT, reprs);
++	if (IS_ERR(old_reprs)) {
++		err = PTR_ERR(old_reprs);
++		goto err_reprs_clean;
++	}
++
++	return 0;
++err_reprs_clean:
++	nfp_reprs_clean_and_free(reprs);
++	return err;
++}
++
++static void nfp_flower_vnic_clean(struct nfp_app *app, struct nfp_net *nn)
++{
++	kfree(app->priv);
++	app->priv = NULL;
++}
++
++static int nfp_flower_vnic_init(struct nfp_app *app, struct nfp_net *nn,
++				unsigned int id)
++{
++	struct nfp_flower_priv *priv;
++
++	if (id > 0) {
++		nfp_warn(app->cpp, "FlowerNIC doesn't support more than one data vNIC\n");
++		goto err_invalid_port;
++	}
++
++	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
++	if (!priv)
++		return -ENOMEM;
++	app->priv = priv;
++	priv->nn = nn;
++
++	eth_hw_addr_random(nn->dp.netdev);
++	netif_keep_dst(nn->dp.netdev);
++
++	return 0;
++
++err_invalid_port:
++	nn->port = nfp_port_alloc(app, NFP_PORT_INVALID, nn->dp.netdev);
++	return PTR_ERR_OR_ZERO(nn->port);
++}
++
++static int nfp_flower_init(struct nfp_app *app)
++{
++	const struct nfp_pf *pf = app->pf;
++
++	if (!pf->eth_tbl) {
++		nfp_warn(app->cpp, "FlowerNIC requires eth table\n");
++		return -EINVAL;
++	}
++
++	if (!pf->mac_stats_bar) {
++		nfp_warn(app->cpp, "FlowerNIC requires mac_stats BAR\n");
++		return -EINVAL;
++	}
++
++	if (!pf->vf_cfg_bar) {
++		nfp_warn(app->cpp, "FlowerNIC requires vf_cfg BAR\n");
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++const struct nfp_app_type app_flower = {
++	.id		= NFP_APP_FLOWER_NIC,
++	.name		= "flower",
++	.ctrl_has_meta	= true,
++
++	.extra_cap	= nfp_flower_extra_cap,
++
++	.init		= nfp_flower_init,
++
++	.vnic_init	= nfp_flower_vnic_init,
++	.vnic_clean	= nfp_flower_vnic_clean,
++
++	.start		= nfp_flower_start,
++	.stop		= nfp_flower_stop,
++
++	.ctrl_msg_rx	= nfp_flower_cmsg_rx,
++
++	.eswitch_mode_get  = eswitch_mode_get,
++	.repr_get	= nfp_flower_repr_get,
++};
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.c b/drivers/net/ethernet/netronome/nfp/nfp_app.c
+index 2b71050dc5e4..5620de05c996 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_app.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_app.c
+@@ -43,6 +43,7 @@
+ static const struct nfp_app_type *apps[] = {
+ 	&app_nic,
+ 	&app_bpf,
++	&app_flower,
+ };
  
- 		nfp_net_rx_give_one(dp, rx_ring, new_frag, new_dma_addr);
-@@ -1729,7 +1774,7 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
- 		skb_set_hash(skb, meta.hash, meta.hash_type);
+ const char *nfp_app_mip_name(struct nfp_app *app)
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.h b/drivers/net/ethernet/netronome/nfp/nfp_app.h
+index 36949b3e91c1..ae2d02753d1a 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_app.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_app.h
+@@ -52,10 +52,12 @@ struct nfp_net;
+ enum nfp_app_id {
+ 	NFP_APP_CORE_NIC	= 0x1,
+ 	NFP_APP_BPF_NIC		= 0x2,
++	NFP_APP_FLOWER_NIC	= 0x3,
+ };
  
- 		skb_record_rx_queue(skb, rx_ring->idx);
--		skb->protocol = eth_type_trans(skb, dp->netdev);
-+		skb->protocol = eth_type_trans(skb, netdev);
+ extern const struct nfp_app_type app_nic;
+ extern const struct nfp_app_type app_bpf;
++extern const struct nfp_app_type app_flower;
  
- 		nfp_net_rx_csum(dp, r_vec, rxd, &meta, skb);
+ /**
+  * struct nfp_app_type - application definition
+@@ -119,6 +121,7 @@ struct nfp_app_type {
+  * @ctrl:	pointer to ctrl vNIC struct
+  * @reprs:	array of pointers to representors
+  * @type:	pointer to const application ops and info
++ * @priv:	app-specific priv data
+  */
+ struct nfp_app {
+ 	struct pci_dev *pdev;
+@@ -129,6 +132,7 @@ struct nfp_app {
+ 	struct nfp_reprs __rcu *reprs[NFP_REPR_TYPE_MAX + 1];
  
+ 	const struct nfp_app_type *type;
++	void *priv;
+ };
+ 
+ bool nfp_ctrl_tx(struct nfp_net *nn, struct sk_buff *skb);
 -- 
 2.1.4
