@@ -1,44 +1,51 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next] tcp: fix out-of-bounds access in ULP sysctl
-Date: Thu, 22 Jun 2017 18:57:55 -0700
-Message-ID: <20170623015755.23499-1-jakub.kicinski@netronome.com>
-Cc: Boris Pismenny <borisp@mellanox.com>,
-        Dave Watson <davejwatson@fb.com>, oss-drivers@netronome.com,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:33054 "EHLO
-        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753785AbdFWB6H (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 21:58:07 -0400
-Received: by mail-pf0-f171.google.com with SMTP id e7so16889623pfk.0
-        for <netdev@vger.kernel.org>; Thu, 22 Jun 2017 18:58:07 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH NET 1/2] net: phy: Add phy loopback support in net phy
+ framework
+Date: Fri, 23 Jun 2017 05:16:27 +0200
+Message-ID: <20170623031627.GA5432@lunn.ch>
+References: <1498121602-64322-1-git-send-email-linyunsheng@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, f.fainelli@gmail.com,
+        huangdaode@hisilicon.com, xuwei5@hisilicon.com,
+        liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
+        gabriele.paoloni@huawei.com, john.garry@huawei.com,
+        linuxarm@huawei.com, salil.mehta@huawei.com, lipeng321@huawei.com,
+        tremyfr@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Lin Yun Sheng <linyunsheng@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1498121602-64322-1-git-send-email-linyunsheng@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-KASAN reports out-of-bound access in proc_dostring() coming from
-proc_tcp_available_ulp() because in case TCP ULP list is empty
-the buffer allocated for the response will not have anything
-printed into it.  Set the first byte to zero to avoid strlen()
-going out-of-bounds.
+> +int genphy_loopback(struct phy_device *phydev, bool enable)
+> +{
+> +	int value;
+> +
+> +	if (enable) {
+> +		value = phy_read(phydev, MII_BMCR);
+> +		phy_write(phydev, MII_BMCR, value | BMCR_LOOPBACK);
+> +	} else {
+> +		value = phy_read(phydev, MII_BMCR);
+> +		phy_write(phydev, MII_BMCR, value & ~BMCR_LOOPBACK);
+> +	}
 
-Fixes: 734942cc4ea6 ("tcp: ULP infrastructure")
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
----
- net/ipv4/tcp_ulp.c | 1 +
- 1 file changed, 1 insertion(+)
+You should add error checking here. Both phy_read and phy_write can
+return an error. Also, do the read and write once.
 
-diff --git a/net/ipv4/tcp_ulp.c b/net/ipv4/tcp_ulp.c
-index e855ea70819b..2417f55374c5 100644
---- a/net/ipv4/tcp_ulp.c
-+++ b/net/ipv4/tcp_ulp.c
-@@ -88,6 +88,7 @@ void tcp_get_available_ulp(char *buf, size_t maxlen)
- 	struct tcp_ulp_ops *ulp_ops;
- 	size_t offs = 0;
- 
-+	*buf = '\0';
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(ulp_ops, &tcp_ulp_list, list) {
- 		offs += snprintf(buf + offs, maxlen - offs,
--- 
-2.11.0
+> +
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL(genphy_loopback);
+> +
+> +static int gen10g_loopback(struct phy_device *phydev, bool enable)
+> +{
+> +	return 0;
+> +}
+
+This is pointless. The core code in phy.c should first check if the
+function exists before calling it. So not having a 10g method is fine.
+
+	 Andrew
