@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 4/6] xfrm: NULL dereference on allocation failure
-Date: Fri, 23 Jun 2017 09:06:32 +0200
-Message-ID: <1498201594-10835-5-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 1/6] xfrm: fix xfrm_dev_event() missing when compile without CONFIG_XFRM_OFFLOAD
+Date: Fri, 23 Jun 2017 09:06:29 +0200
+Message-ID: <1498201594-10835-2-git-send-email-steffen.klassert@secunet.com>
 References: <1498201594-10835-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,40 +10,95 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:47086 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:47072 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751366AbdFWHGo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 23 Jun 2017 03:06:44 -0400
+        id S1751180AbdFWHGn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Jun 2017 03:06:43 -0400
 In-Reply-To: <1498201594-10835-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
+From: Hangbin Liu <liuhangbin@gmail.com>
 
-The default error code in pfkey_msg2xfrm_state() is -ENOBUFS.  We
-added a new call to security_xfrm_state_alloc() which sets "err" to zero
-so there several places where we can return ERR_PTR(0) if kmalloc()
-fails.  The caller is expecting error pointers so it leads to a NULL
-dereference.
+In commit d77e38e612a0 ("xfrm: Add an IPsec hardware offloading API") we
+make xfrm_device.o only compiled when enable option CONFIG_XFRM_OFFLOAD.
+But this will make xfrm_dev_event() missing if we only enable default XFRM
+options.
 
-Fixes: df71837d5024 ("[LSM-IPSec]: Security association restriction.")
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Then if we set down and unregister an interface with IPsec on it. there
+will no xfrm_garbage_collect(), which will cause dev usage count hold and
+get error like:
+
+unregister_netdevice: waiting for <dev> to become free. Usage count = 4
+
+Fixes: d77e38e612a0 ("xfrm: Add an IPsec hardware offloading API")
+Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/key/af_key.c | 1 +
- 1 file changed, 1 insertion(+)
+ include/net/xfrm.h     | 7 ++-----
+ net/xfrm/Makefile      | 3 +--
+ net/xfrm/xfrm_device.c | 2 ++
+ 3 files changed, 5 insertions(+), 7 deletions(-)
 
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 2b82ada..b1432b6 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -1157,6 +1157,7 @@ static struct xfrm_state * pfkey_msg2xfrm_state(struct net *net,
- 			goto out;
- 	}
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 7e7e2b0..62f5a25 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1850,8 +1850,9 @@ static inline struct xfrm_offload *xfrm_offload(struct sk_buff *skb)
+ }
+ #endif
  
-+	err = -ENOBUFS;
- 	key = ext_hdrs[SADB_EXT_KEY_AUTH - 1];
- 	if (sa->sadb_sa_auth) {
- 		int keysize = 0;
+-#ifdef CONFIG_XFRM_OFFLOAD
+ void __net_init xfrm_dev_init(void);
++
++#ifdef CONFIG_XFRM_OFFLOAD
+ int validate_xmit_xfrm(struct sk_buff *skb, netdev_features_t features);
+ int xfrm_dev_state_add(struct net *net, struct xfrm_state *x,
+ 		       struct xfrm_user_offload *xuo);
+@@ -1877,10 +1878,6 @@ static inline void xfrm_dev_state_free(struct xfrm_state *x)
+ 	}
+ }
+ #else
+-static inline void __net_init xfrm_dev_init(void)
+-{
+-}
+-
+ static inline int validate_xmit_xfrm(struct sk_buff *skb, netdev_features_t features)
+ {
+ 	return 0;
+diff --git a/net/xfrm/Makefile b/net/xfrm/Makefile
+index abf81b3..55b2ac3 100644
+--- a/net/xfrm/Makefile
++++ b/net/xfrm/Makefile
+@@ -4,8 +4,7 @@
+ 
+ obj-$(CONFIG_XFRM) := xfrm_policy.o xfrm_state.o xfrm_hash.o \
+ 		      xfrm_input.o xfrm_output.o \
+-		      xfrm_sysctl.o xfrm_replay.o
+-obj-$(CONFIG_XFRM_OFFLOAD) += xfrm_device.o
++		      xfrm_sysctl.o xfrm_replay.o xfrm_device.o
+ obj-$(CONFIG_XFRM_STATISTICS) += xfrm_proc.o
+ obj-$(CONFIG_XFRM_ALGO) += xfrm_algo.o
+ obj-$(CONFIG_XFRM_USER) += xfrm_user.o
+diff --git a/net/xfrm/xfrm_device.c b/net/xfrm/xfrm_device.c
+index 574e6f3..5aba036 100644
+--- a/net/xfrm/xfrm_device.c
++++ b/net/xfrm/xfrm_device.c
+@@ -22,6 +22,7 @@
+ #include <net/xfrm.h>
+ #include <linux/notifier.h>
+ 
++#ifdef CONFIG_XFRM_OFFLOAD
+ int validate_xmit_xfrm(struct sk_buff *skb, netdev_features_t features)
+ {
+ 	int err;
+@@ -137,6 +138,7 @@ bool xfrm_dev_offload_ok(struct sk_buff *skb, struct xfrm_state *x)
+ 	return true;
+ }
+ EXPORT_SYMBOL_GPL(xfrm_dev_offload_ok);
++#endif
+ 
+ int xfrm_dev_register(struct net_device *dev)
+ {
 -- 
 2.7.4
