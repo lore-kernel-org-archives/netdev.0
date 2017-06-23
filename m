@@ -1,7 +1,7 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net-next v3 07/12] nfp: app callbacks for SRIOV
-Date: Fri, 23 Jun 2017 22:12:04 +0200
-Message-ID: <1498248729-375-8-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH net-next v3 05/12] nfp: general representor implementation
+Date: Fri, 23 Jun 2017 22:12:02 +0200
+Message-ID: <1498248729-375-6-git-send-email-simon.horman@netronome.com>
 References: <1498248729-375-1-git-send-email-simon.horman@netronome.com>
 Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
         Or Gerlitz <gerlitz.or@gmail.com>,
@@ -9,176 +9,406 @@ Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
 To: David Miller <davem@davemloft.net>,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f182.google.com ([209.85.128.182]:35404 "EHLO
-        mail-wr0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754990AbdFWUMl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 16:12:41 -0400
-Received: by mail-wr0-f182.google.com with SMTP id k67so79098543wrc.2
-        for <netdev@vger.kernel.org>; Fri, 23 Jun 2017 13:12:41 -0700 (PDT)
+Received: from mail-wr0-f172.google.com ([209.85.128.172]:33338 "EHLO
+        mail-wr0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755006AbdFWUMt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 16:12:49 -0400
+Received: by mail-wr0-f172.google.com with SMTP id r103so79660732wrb.0
+        for <netdev@vger.kernel.org>; Fri, 23 Jun 2017 13:12:48 -0700 (PDT)
 In-Reply-To: <1498248729-375-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add app-callbacks for app-specific initialisation of SRIOV.
+Provide infrastructure to create and destroy representors of a given type.
 
-Disabling SRIOV is brought forward in nfp_pci_remove()
-so that nfp_app_sriov_disable is called while the app still exists.
-
-This is intended to be used to implement representor netdevs for virtual
-ports.
+Parts based on work by Bert van Leeuwen, Benjamin LaHaise,
+and Jakub Kicinski.
 
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
 Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_app.h  | 18 ++++++++++++
- drivers/net/ethernet/netronome/nfp/nfp_main.c | 42 +++++++++++++++++++++++----
- 2 files changed, 55 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/netronome/nfp/Makefile       |   1 +
+ drivers/net/ethernet/netronome/nfp/nfp_app.c      |  20 +++
+ drivers/net/ethernet/netronome/nfp/nfp_app.h      |  18 +++
+ drivers/net/ethernet/netronome/nfp/nfp_net_repr.c | 156 ++++++++++++++++++++++
+ drivers/net/ethernet/netronome/nfp/nfp_net_repr.h |  92 +++++++++++++
+ 5 files changed, 287 insertions(+)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_net_repr.h
 
+diff --git a/drivers/net/ethernet/netronome/nfp/Makefile b/drivers/net/ethernet/netronome/nfp/Makefile
+index 5ad9a557f06a..a401113035f5 100644
+--- a/drivers/net/ethernet/netronome/nfp/Makefile
++++ b/drivers/net/ethernet/netronome/nfp/Makefile
+@@ -22,6 +22,7 @@ nfp-objs := \
+ 	    nfp_net_common.o \
+ 	    nfp_net_ethtool.o \
+ 	    nfp_net_main.o \
++	    nfp_net_repr.o \
+ 	    nfp_netvf_main.o \
+ 	    nfp_port.o \
+ 	    bpf/main.o \
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.c b/drivers/net/ethernet/netronome/nfp/nfp_app.c
+index 396b93f54823..c9ccb0f94604 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_app.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_app.c
+@@ -38,6 +38,7 @@
+ #include "nfpcore/nfp_nffw.h"
+ #include "nfp_app.h"
+ #include "nfp_main.h"
++#include "nfp_net_repr.h"
+ 
+ static const struct nfp_app_type *apps[] = {
+ 	&app_nic,
+@@ -68,6 +69,25 @@ struct sk_buff *nfp_app_ctrl_msg_alloc(struct nfp_app *app, unsigned int size)
+ 	return skb;
+ }
+ 
++struct nfp_reprs *
++nfp_app_reprs_set(struct nfp_app *app, enum nfp_repr_type type,
++		  struct nfp_reprs *reprs)
++{
++	struct nfp_reprs *old;
++
++	old = rcu_dereference_protected(app->reprs[type],
++					lockdep_is_held(&app->pf->lock));
++	if (reprs && old) {
++		old = ERR_PTR(-EBUSY);
++		goto exit_unlock;
++	}
++
++	rcu_assign_pointer(app->reprs[type], reprs);
++
++exit_unlock:
++	return old;
++}
++
+ struct nfp_app *nfp_app_alloc(struct nfp_pf *pf, enum nfp_app_id id)
+ {
+ 	struct nfp_app *app;
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.h b/drivers/net/ethernet/netronome/nfp/nfp_app.h
-index af023a0491e7..ff2d43615808 100644
+index 0fee14ffa081..af023a0491e7 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_app.h
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_app.h
-@@ -75,6 +75,8 @@ extern const struct nfp_app_type app_bpf;
+@@ -36,6 +36,8 @@
+ 
+ #include <net/devlink.h>
+ 
++#include "nfp_net_repr.h"
++
+ struct bpf_prog;
+ struct net_device;
+ struct pci_dev;
+@@ -73,6 +75,7 @@ extern const struct nfp_app_type app_bpf;
   * @tc_busy:	TC HW offload busy (rules loaded)
   * @xdp_offload:    offload an XDP program
   * @eswitch_mode_get:    get SR-IOV eswitch mode
-+ * @sriov_enable: app-specific sriov initialisation
-+ * @sriov_disable: app-specific sriov clean-up
-  * @repr_get:	get representor netdev
++ * @repr_get:	get representor netdev
   */
  struct nfp_app_type {
-@@ -102,6 +104,9 @@ struct nfp_app_type {
- 	int (*xdp_offload)(struct nfp_app *app, struct nfp_net *nn,
+ 	enum nfp_app_id id;
+@@ -100,6 +103,7 @@ struct nfp_app_type {
  			   struct bpf_prog *prog);
  
-+	int (*sriov_enable)(struct nfp_app *app, int num_vfs);
-+	void (*sriov_disable)(struct nfp_app *app);
-+
  	enum devlink_eswitch_mode (*eswitch_mode_get)(struct nfp_app *app);
- 	struct net_device *(*repr_get)(struct nfp_app *app, u32 id);
++	struct net_device *(*repr_get)(struct nfp_app *app, u32 id);
  };
-@@ -237,6 +242,19 @@ static inline int nfp_app_eswitch_mode_get(struct nfp_app *app, u16 *mode)
+ 
+ /**
+@@ -108,6 +112,7 @@ struct nfp_app_type {
+  * @pf:		backpointer to NFP PF structure
+  * @cpp:	pointer to the CPP handle
+  * @ctrl:	pointer to ctrl vNIC struct
++ * @reprs:	array of pointers to representors
+  * @type:	pointer to const application ops and info
+  */
+ struct nfp_app {
+@@ -116,6 +121,7 @@ struct nfp_app {
+ 	struct nfp_cpp *cpp;
+ 
+ 	struct nfp_net *ctrl;
++	struct nfp_reprs __rcu *reprs[NFP_REPR_TYPE_MAX + 1];
+ 
+ 	const struct nfp_app_type *type;
+ };
+@@ -231,6 +237,18 @@ static inline int nfp_app_eswitch_mode_get(struct nfp_app *app, u16 *mode)
  	return 0;
  }
  
-+static inline int nfp_app_sriov_enable(struct nfp_app *app, int num_vfs)
++static inline struct net_device *nfp_app_repr_get(struct nfp_app *app, u32 id)
 +{
-+	if (!app || !app->type->sriov_enable)
-+		return -EOPNOTSUPP;
-+	return app->type->sriov_enable(app, num_vfs);
++	if (unlikely(!app || !app->type->repr_get))
++		return NULL;
++
++	return app->type->repr_get(app, id);
 +}
 +
-+static inline void nfp_app_sriov_disable(struct nfp_app *app)
-+{
-+	if (app && app->type->sriov_disable)
-+		app->type->sriov_disable(app);
-+}
++struct nfp_reprs *
++nfp_app_reprs_set(struct nfp_app *app, enum nfp_repr_type type,
++		  struct nfp_reprs *reprs);
 +
- static inline struct net_device *nfp_app_repr_get(struct nfp_app *app, u32 id)
- {
- 	if (unlikely(!app || !app->type->repr_get))
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.c b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-index 4e59dcb78c36..748e54cc885e 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-@@ -54,6 +54,7 @@
+ const char *nfp_app_mip_name(struct nfp_app *app);
+ struct sk_buff *nfp_app_ctrl_msg_alloc(struct nfp_app *app, unsigned int size);
  
- #include "nfpcore/nfp6000_pcie.h"
- 
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
+new file mode 100644
+index 000000000000..8e02f843ae92
+--- /dev/null
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
+@@ -0,0 +1,156 @@
++/*
++ * Copyright (C) 2017 Netronome Systems, Inc.
++ *
++ * This software is dual licensed under the GNU General License Version 2,
++ * June 1991 as shown in the file COPYING in the top-level directory of this
++ * source tree or the BSD 2-Clause License provided below.  You have the
++ * option to license this software under the complete terms of either license.
++ *
++ * The BSD 2-Clause License:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      1. Redistributions of source code must retain the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer.
++ *
++ *      2. Redistributions in binary form must reproduce the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer in the documentation and/or other materials
++ *         provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include <linux/etherdevice.h>
++#include <linux/lockdep.h>
++#include <net/dst_metadata.h>
++
++#include "nfpcore/nfp_cpp.h"
 +#include "nfp_app.h"
- #include "nfp_main.h"
- #include "nfp_net.h"
- 
-@@ -97,28 +98,45 @@ static int nfp_pcie_sriov_enable(struct pci_dev *pdev, int num_vfs)
- 	struct nfp_pf *pf = pci_get_drvdata(pdev);
- 	int err;
- 
-+	mutex_lock(&pf->lock);
++#include "nfp_main.h"
++#include "nfp_net_repr.h"
++#include "nfp_port.h"
 +
- 	if (num_vfs > pf->limit_vfs) {
- 		nfp_info(pf->cpp, "Firmware limits number of VFs to %u\n",
- 			 pf->limit_vfs);
--		return -EINVAL;
-+		err = -EINVAL;
-+		goto err_unlock;
-+	}
-+
-+	err = nfp_app_sriov_enable(pf->app, num_vfs);
-+	if (err) {
-+		dev_warn(&pdev->dev, "App specific PCI sriov configuration failed: %d\n",
-+			 err);
-+		goto err_unlock;
- 	}
- 
- 	err = pci_enable_sriov(pdev, num_vfs);
- 	if (err) {
- 		dev_warn(&pdev->dev, "Failed to enable PCI sriov: %d\n", err);
--		return err;
-+		goto err_app_sriov_disable;
- 	}
- 
- 	pf->num_vfs = num_vfs;
- 
- 	dev_dbg(&pdev->dev, "Created %d VFs.\n", pf->num_vfs);
- 
-+	mutex_unlock(&pf->lock);
- 	return num_vfs;
-+
-+err_app_sriov_disable:
-+	nfp_app_sriov_disable(pf->app);
-+err_unlock:
-+	mutex_unlock(&pf->lock);
-+	return err;
- #endif
- 	return 0;
- }
- 
--static int nfp_pcie_sriov_disable(struct pci_dev *pdev)
-+static int __nfp_pcie_sriov_disable(struct pci_dev *pdev)
- {
- #ifdef CONFIG_PCI_IOV
- 	struct nfp_pf *pf = pci_get_drvdata(pdev);
-@@ -132,6 +150,8 @@ static int nfp_pcie_sriov_disable(struct pci_dev *pdev)
- 		return -EPERM;
- 	}
- 
-+	nfp_app_sriov_disable(pf->app);
-+
- 	pf->num_vfs = 0;
- 
- 	pci_disable_sriov(pdev);
-@@ -140,6 +160,18 @@ static int nfp_pcie_sriov_disable(struct pci_dev *pdev)
- 	return 0;
- }
- 
-+static int nfp_pcie_sriov_disable(struct pci_dev *pdev)
++static void nfp_repr_clean(struct nfp_repr *repr)
 +{
-+	struct nfp_pf *pf = pci_get_drvdata(pdev);
++	unregister_netdev(repr->netdev);
++	dst_release((struct dst_entry *)repr->dst);
++	nfp_port_free(repr->port);
++}
++
++static struct lock_class_key nfp_repr_netdev_xmit_lock_key;
++static struct lock_class_key nfp_repr_netdev_addr_lock_key;
++
++static void nfp_repr_set_lockdep_class_one(struct net_device *dev,
++					   struct netdev_queue *txq,
++					   void *_unused)
++{
++	lockdep_set_class(&txq->_xmit_lock, &nfp_repr_netdev_xmit_lock_key);
++}
++
++static void nfp_repr_set_lockdep_class(struct net_device *dev)
++{
++	lockdep_set_class(&dev->addr_list_lock, &nfp_repr_netdev_addr_lock_key);
++	netdev_for_each_tx_queue(dev, nfp_repr_set_lockdep_class_one, NULL);
++}
++
++int nfp_repr_init(struct nfp_app *app, struct net_device *netdev,
++		  const struct net_device_ops *netdev_ops, u32 cmsg_port_id,
++		  struct nfp_port *port, struct net_device *pf_netdev)
++{
++	struct nfp_repr *repr = netdev_priv(netdev);
 +	int err;
 +
-+	mutex_lock(&pf->lock);
-+	err = __nfp_pcie_sriov_disable(pdev);
-+	mutex_unlock(&pf->lock);
++	nfp_repr_set_lockdep_class(netdev);
 +
++	repr->port = port;
++	repr->dst = metadata_dst_alloc(0, METADATA_HW_PORT_MUX, GFP_KERNEL);
++	if (!repr->dst)
++		return -ENOMEM;
++	repr->dst->u.port_info.port_id = cmsg_port_id;
++	repr->dst->u.port_info.lower_dev = pf_netdev;
++
++	netdev->netdev_ops = netdev_ops;
++
++	err = register_netdev(netdev);
++	if (err)
++		goto err_clean;
++
++	return 0;
++
++err_clean:
++	dst_release((struct dst_entry *)repr->dst);
 +	return err;
 +}
 +
- static int nfp_pcie_sriov_configure(struct pci_dev *pdev, int num_vfs)
- {
- 	if (num_vfs == 0)
-@@ -431,11 +463,11 @@ static void nfp_pci_remove(struct pci_dev *pdev)
- 
- 	devlink = priv_to_devlink(pf);
- 
--	nfp_net_pci_remove(pf);
--
- 	nfp_pcie_sriov_disable(pdev);
- 	pci_sriov_set_totalvfs(pf->pdev, 0);
- 
-+	nfp_net_pci_remove(pf);
++struct net_device *nfp_repr_alloc(struct nfp_app *app)
++{
++	struct net_device *netdev;
++	struct nfp_repr *repr;
 +
- 	devlink_unregister(devlink);
- 
- 	kfree(pf->rtbl);
++	netdev = alloc_etherdev(sizeof(*repr));
++	if (!netdev)
++		return NULL;
++
++	repr = netdev_priv(netdev);
++	repr->netdev = netdev;
++	repr->app = app;
++
++	return netdev;
++}
++
++static void nfp_repr_clean_and_free(struct nfp_repr *repr)
++{
++	nfp_info(repr->app->cpp, "Destroying Representor(%s)\n",
++		 repr->netdev->name);
++	nfp_repr_clean(repr);
++	free_netdev(repr->netdev);
++}
++
++void nfp_reprs_clean_and_free(struct nfp_reprs *reprs)
++{
++	unsigned int i;
++
++	for (i = 0; i < reprs->num_reprs; i++)
++		if (reprs->reprs[i])
++			nfp_repr_clean_and_free(netdev_priv(reprs->reprs[i]));
++
++	kfree(reprs);
++}
++
++void
++nfp_reprs_clean_and_free_by_type(struct nfp_app *app,
++				 enum nfp_repr_type type)
++{
++	struct nfp_reprs *reprs;
++
++	reprs = nfp_app_reprs_set(app, type, NULL);
++	if (!reprs)
++		return;
++
++	synchronize_rcu();
++	nfp_reprs_clean_and_free(reprs);
++}
++
++struct nfp_reprs *nfp_reprs_alloc(unsigned int num_reprs)
++{
++	struct nfp_reprs *reprs;
++
++	reprs = kzalloc(sizeof(*reprs) +
++			num_reprs * sizeof(struct net_device *), GFP_KERNEL);
++	if (!reprs)
++		return NULL;
++	reprs->num_reprs = num_reprs;
++
++	return reprs;
++}
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_repr.h b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.h
+new file mode 100644
+index 000000000000..98064f3c2623
+--- /dev/null
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.h
+@@ -0,0 +1,92 @@
++/*
++ * Copyright (C) 2017 Netronome Systems, Inc.
++ *
++ * This software is dual licensed under the GNU General License Version 2,
++ * June 1991 as shown in the file COPYING in the top-level directory of this
++ * source tree or the BSD 2-Clause License provided below.  You have the
++ * option to license this software under the complete terms of either license.
++ *
++ * The BSD 2-Clause License:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      1. Redistributions of source code must retain the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer.
++ *
++ *      2. Redistributions in binary form must reproduce the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer in the documentation and/or other materials
++ *         provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#ifndef NFP_NET_REPR_H
++#define NFP_NET_REPR_H
++
++struct metadata_dst;
++struct nfp_net;
++struct nfp_port;
++
++/**
++ * struct nfp_reprs - container for representor netdevs
++ * @num_reprs:	Number of elements in reprs array
++ * @reprs:	Array of representor netdevs
++ */
++struct nfp_reprs {
++	unsigned int num_reprs;
++	struct net_device *reprs[0];
++};
++
++/**
++ * struct nfp_repr - priv data for representor netdevs
++ * @netdev:	Back pointer to netdev
++ * @dst:	Destination for packet TX
++ * @port:	Port of representor
++ * @app:	APP handle
++ */
++struct nfp_repr {
++	struct net_device *netdev;
++	struct metadata_dst *dst;
++	struct nfp_port *port;
++	struct nfp_app *app;
++};
++
++/**
++ * enum nfp_repr_type - type of representor
++ * @NFP_REPR_TYPE_PHYS_PORT:	external NIC port
++ * @NFP_REPR_TYPE_PF:		physical function
++ * @NFP_REPR_TYPE_VF:		virtual function
++ */
++enum nfp_repr_type {
++	NFP_REPR_TYPE_PHYS_PORT,
++	NFP_REPR_TYPE_PF,
++	NFP_REPR_TYPE_VF,
++
++	__NFP_REPR_TYPE_MAX,
++};
++#define NFP_REPR_TYPE_MAX (__NFP_REPR_TYPE_MAX - 1)
++
++int nfp_repr_init(struct nfp_app *app, struct net_device *netdev,
++		  const struct net_device_ops *netdev_ops,
++		  u32 cmsg_port_id, struct nfp_port *port,
++		  struct net_device *pf_netdev);
++struct net_device *nfp_repr_alloc(struct nfp_app *app);
++void
++nfp_reprs_clean_and_free(struct nfp_reprs *reprs);
++void
++nfp_reprs_clean_and_free_by_type(struct nfp_app *app,
++				 enum nfp_repr_type type);
++struct nfp_reprs *nfp_reprs_alloc(unsigned int num_reprs);
++
++#endif /* NFP_NET_REPR_H */
 -- 
 2.1.4
