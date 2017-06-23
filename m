@@ -1,67 +1,49 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Fri, 23 Jun 2017 11:12:07 +1000
-Message-ID: <20170623111207.4c1663fa@canb.auug.org.au>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: Re: [PATCH] nfc: nci: remove unnecessary null check
+Date: Thu, 22 Jun 2017 20:25:52 -0500
+Message-ID: <20170622202552.Horde.GxVvc-eDjUx8yLnS-c2r82L@gator4166.hostgator.com>
+References: <28317503-e721-2564-a9ff-82182aa0644a@roeck-us.net>
+ <20170613163718.GA5375@embeddedgus>
+ <20170622223524.GG21214@zurbaran.ger.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
+Cc: "David S. Miller" <davem@davemloft.net>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>
+To: Samuel Ortiz <sameo@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gateway23.websitewelcome.com ([192.185.48.251]:29276 "EHLO
+        gateway23.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752832AbdFWBZz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2017 21:25:55 -0400
+Received: from cm11.websitewelcome.com (cm11.websitewelcome.com [100.42.49.5])
+        by gateway23.websitewelcome.com (Postfix) with ESMTP id B33DE17AC8
+        for <netdev@vger.kernel.org>; Thu, 22 Jun 2017 20:25:52 -0500 (CDT)
+In-Reply-To: <20170622223524.GG21214@zurbaran.ger.intel.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Hi Samuel,
 
-Today's linux-next merge of the net-next tree got a conflict in:
+Quoting Samuel Ortiz <sameo@linux.intel.com>:
 
-  drivers/net/macvlan.c
+> Hi Gustavo,
+>
+> On Tue, Jun 13, 2017 at 11:37:18AM -0500, Gustavo A. R. Silva wrote:
+>> Remove unnecessary NULL check for pointer conn_info.
+>> conn_info is set in list_for_each_entry() using container_of(),
+>> which is never NULL.
+>>
+>> Addresses-Coverity-ID: 1362349
+>> Cc: Guenter Roeck <linux@roeck-us.net>
+>> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+>> ---
+>>  net/nfc/nci/core.c | 9 ++++-----
+>>  1 file changed, 4 insertions(+), 5 deletions(-)
+> Applied to nfc-next, thanks.
+>
 
-between commits:
+Absolutely, glad to help.
 
-  e26f43faa0d7 ("macvlan: Do not return error when setting the same mac address")
-  18c8c54de9a6 ("macvlan: Let passthru macvlan correctly restore lower mac address")
-
-from the net tree and commit:
-
-  a88e2676a6cd ("macvlan: propagate the mac address change status for lowerdev")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
-
-diff --cc drivers/net/macvlan.c
-index 72b801803aa4,8ca274c6df3d..000000000000
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@@ -743,15 -703,8 +743,14 @@@ static int macvlan_set_mac_address(stru
-  	if (!is_valid_ether_addr(addr->sa_data))
-  		return -EADDRNOTAVAIL;
-  
- -	if (vlan->mode == MACVLAN_MODE_PASSTHRU)
- +	/* If the addresses are the same, this is a no-op */
- +	if (ether_addr_equal(dev->dev_addr, addr->sa_data))
- +		return 0;
- +
- +	if (vlan->mode == MACVLAN_MODE_PASSTHRU) {
- +		macvlan_set_addr_change(vlan->port);
-- 		dev_set_mac_address(vlan->lowerdev, addr);
-- 		return 0;
-+ 		return dev_set_mac_address(vlan->lowerdev, addr);
- +	}
-  
-  	return macvlan_sync_address(dev, addr->sa_data);
-  }
+Thanks
