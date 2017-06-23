@@ -1,73 +1,160 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next v3 01/15] bpf: BPF support for sock_ops
-Date: Fri, 23 Jun 2017 23:15:22 +0200
-Message-ID: <594D84EA.5080203@iogearbox.net>
-References: <20170620030048.3275347-1-brakmo@fb.com> <20170620030048.3275347-2-brakmo@fb.com> <594C47A1.1080102@iogearbox.net> <B03E3B5A-50E2-4291-B091-23927AF6846F@fb.com> <594C5065.2010900@iogearbox.net> <82AC8CB1-F770-4EFA-9223-E2C94626582F@fb.com>
+From: Andrei Vagin <avagin@gmail.com>
+Subject: unregister_netdevice: waiting for lo to become free. Usage count = 1
+Date: Fri, 23 Jun 2017 14:49:58 -0700
+Message-ID: <CANaxB-xvAYaeb90HsO45vC3yQoGHaXnqQO_6SkRiRfo45R9y0A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Kernel Team <Kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
-        Alexei Starovoitov <ast@fb.com>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: Lawrence Brakmo <brakmo@fb.com>, netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:55107 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751488AbdFWVP2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2017 17:15:28 -0400
-In-Reply-To: <82AC8CB1-F770-4EFA-9223-E2C94626582F@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="001a1142b64e34a39a0552a795b2"
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Containers <containers@lists.linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/23/2017 01:57 AM, Lawrence Brakmo wrote:
-> On 6/22/17, 4:19 PM, "netdev-owner@vger.kernel.org on behalf of Daniel Borkmann" <netdev-owner@vger.kernel.org on behalf of daniel@iogearbox.net> wrote:
->
->      On 06/23/2017 12:58 AM, Lawrence Brakmo wrote:
->      [...]
->      > Daniel, I see value for having a global program, so I would like to keep that. When
->      > this patchset is accepted, I will submit one that adds support for per cgroup
->      > sock_ops programs, with the option to use the global one if none is
->      > specified for a cgroup. We could also have the option of the cgroup sock_ops
->      > program choosing if the global program should run for a particular op based on
->      > its return value. We can iron it out the details when that patch is submitted.
->
->      Hm, could you elaborate on the value part compared to per cgroups ops?
->      My understanding is that per cgroup would already be a proper superset
->      of just the global one anyway, so why not going with that in the first
->      place since you're working on it?
->
->      What would be the additional value? How would global vs per cgroup one
->      interact with each other in terms of enforcement e.g., there's already
->      semantics in place for cgroups descendants, would it be that we set
->      TCP parameters twice or would you disable the global one altogether?
->      Just wondering as you could avoid these altogether with going via cgroups
->      initially.
->
->      Thanks,
->      Daniel
->
-> Well, for starters the global program will work even if CONFIG_CGROUP_BPF is
-> not defined. It is also an easier concept for when a global program is all that
+--001a1142b64e34a39a0552a795b2
+Content-Type: text/plain; charset="UTF-8"
 
-Otoh, major distros are highly likely to enable this on by default anyway.
+Hello Everyone,
 
-> is required. But I also had in mind that behaviors that were in common for
-> most cgroup programs could be handled by the global program instead of
-> adding it to all cgroup programs. In this scenario the global program
-> represents the default behavior that can be override by the cgroup
-> program (per op). For example, the cgroup program could return a value
-> to indicate that that op should be passed to the global program.
+Today I've met a problem, when any attempts to create a new network
+namespace hang up.
+I see that one of previous namespaces can't be destroyed, because a
+usage count for one
+of its devices isn't zero. To reproduce the problem, you need to
+executed an attached program
+in a separate network namespace:
 
-But then you would need to go through two program passes for setting
-such parameters? Other option could be to make the per cgroup ops more
-fine grained and use the effective one that was inherited for delegating
-to default ops. My gut feeling is just that this makes interactions to
-manage this and enforcement in combination with the later planned per
-cgroups ops more complex if the same use-case could indeed be resolved
-with per cgroups only.
+[root@fc24 net]# cat run.sh
+ip link set up dev lo
+./tcp-bug
+[root@fc24 net]# unshare -n sh run.sh
+[root@fc24 net]# echo $?
+0
+[root@fc24 ~]# cat /proc/40/stack
+[<ffffffffa211989e>] msleep+0x3e/0x50
+[<ffffffffa2786eea>] netdev_run_todo+0x12a/0x320
+[<ffffffffa279542e>] rtnl_unlock+0xe/0x10
+[<ffffffffa277d56a>] default_device_exit_batch+0x14a/0x170
+[<ffffffffa2772d12>] ops_exit_list.isra.6+0x52/0x60
+[<ffffffffa277402e>] cleanup_net+0x1ee/0x2f0
+[<ffffffffa20ac9f5>] process_one_work+0x205/0x620
+[<ffffffffa20ace5e>] worker_thread+0x4e/0x3b0
+[<ffffffffa20b4344>] kthread+0x114/0x150
+[<ffffffffa29619fa>] ret_from_fork+0x2a/0x40
+[<ffffffffffffffff>] 0xffffffffffffffff
+[root@fc24 ~]# dmesg | tail
+[   97.071533] unregister_netdevice: waiting for lo to become free.
+Usage count = 1
+[   97.079561] systemd-journald[180]: Sent WATCHDOG=1 notification.
+[  107.319260] unregister_netdevice: waiting for lo to become free.
+Usage count = 1
+[  117.567180] unregister_netdevice: waiting for lo to become free.
+Usage count = 1
+[  127.807401] unregister_netdevice: waiting for lo to become free.
+Usage count = 1
+[  138.055324] unregister_netdevice: waiting for lo to become free.
+Usage count = 1
+[  148.303308] unregister_netdevice: waiting for lo to become free.
+Usage count = 1
+[  158.559118] unregister_netdevice: waiting for lo to become free.
+Usage count = 1
+[  168.807423] unregister_netdevice: waiting for lo to become free.
+Usage count = 1
+[  179.055590] unregister_netdevice: waiting for lo to become free.
+Usage count = 1
 
-> I agree 100% with you on the value of cgroup programs, but I just happen
-> to think there is also value in the global program.
->
-> Thanks,
-> Lawrence
+This program creates a server tcp socket, then it creates a pair of
+connected tcp sockets
+and then it does actions which trigger this problem. It calls
+connect() with AF_UNSPEC
+for one of connected sockets and then call connect() with the address
+of the server socket.
+
+
+Thanks,
+Andrei
+
+--001a1142b64e34a39a0552a795b2
+Content-Type: text/x-csrc; charset="US-ASCII"; name="tcp-bug.c"
+Content-Disposition: attachment; filename="tcp-bug.c"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_j4adhv6l0
+
+I2luY2x1ZGUgPHN0cmluZy5oPgojaW5jbHVkZSA8c3lzL3NvY2tldC5oPgojaW5jbHVkZSA8YXJw
+YS9pbmV0Lmg+ICAvKiBmb3Igc29ja2FkZHJfaW4gYW5kIGluZXRfbnRvYSgpICovCgojaW5jbHVk
+ZSA8c3RkaW8uaD4KI2luY2x1ZGUgPHN5cy90eXBlcy5oPgojaW5jbHVkZSA8dW5pc3RkLmg+CiNp
+bmNsdWRlIDxzdHJpbmcuaD4KI2luY2x1ZGUgPGVycm5vLmg+CiNpbmNsdWRlIDxzdGRsaWIuaD4K
+I2luY2x1ZGUgPHNpZ25hbC5oPgojaW5jbHVkZSA8bmV0aW5ldC90Y3AuaD4KI2luY2x1ZGUgPGFy
+cGEvaW5ldC5oPgoKCiNkZWZpbmUgcHJfZXJyKGZtdCwgLi4uKSAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICBcCiAgICAgICAgcHJpbnRmKCJFcnJvcjogIiBmbXQsICMj
+X19WQV9BUkdTX18pCgojZGVmaW5lIHByX3BlcnJvcihmbXQsIC4uLikgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICBcCiAgICAgICAgcHJfZXJyKGZtdCAiOiAlc1xu
+IiwgIyNfX1ZBX0FSR1NfXywgc3RyZXJyb3IoZXJybm8pKQoKI2RlZmluZSBmYWlsKGZtdCwgLi4u
+KSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFwKICAgICAgICBw
+cl9lcnIoZm10ICI6ICVzXG4iLCAjI19fVkFfQVJHU19fLCBzdHJlcnJvcihlcnJubykpCgp1bmlv
+biBzb2NrYWRkcl9pbmV0IHsKCXN0cnVjdCBzb2NrYWRkciBhZGRyOwoJc3RydWN0IHNvY2thZGRy
+X2luIHY0OwoJc3RydWN0IHNvY2thZGRyX2luNiB2NjsKfTsKCmludCB0Y3BfaW5pdF9zZXJ2ZXIo
+aW50IGZhbWlseSwgaW50ICpwb3J0KQp7Cgl1bmlvbiBzb2NrYWRkcl9pbmV0IGFkZHI7CglpbnQg
+c29jazsKCWludCB5ZXMgPSAxLCByZXQ7CgoJbWVtc2V0KCZhZGRyLDAsc2l6ZW9mKGFkZHIpKTsK
+CWlmIChmYW1pbHkgPT0gQUZfSU5FVCkgewoJCWFkZHIudjQuc2luX2ZhbWlseSA9IGZhbWlseTsK
+CQlpbmV0X3B0b24oZmFtaWx5LCAiMC4wLjAuMCIsICYoYWRkci52NC5zaW5fYWRkcikpOwoJfSBl
+bHNlIGlmIChmYW1pbHkgPT0gQUZfSU5FVDYpewoJCWFkZHIudjYuc2luNl9mYW1pbHkgPSBmYW1p
+bHk7CgkJaW5ldF9wdG9uKGZhbWlseSwgIjo6MCIsICYoYWRkci52Ni5zaW42X2FkZHIpKTsKCX0g
+ZWxzZQoJCXJldHVybiAtMTsKCglzb2NrID0gc29ja2V0KGZhbWlseSwgU09DS19TVFJFQU0sIElQ
+UFJPVE9fVENQKTsKCWlmIChzb2NrID09IC0xKSB7CgkJcHJfcGVycm9yKCJzb2NrZXQoKSBmYWls
+ZWQiKTsKCQlyZXR1cm4gLTE7Cgl9CgoJaWYgKHNldHNvY2tvcHQoc29jaywgU09MX1NPQ0tFVCwg
+U09fUkVVU0VBRERSLCAmeWVzLCBzaXplb2YoaW50KSkgPT0gLTEgKSB7CgkJcHJfcGVycm9yKCJz
+ZXRzb2Nrb3B0KCkgZXJyb3IiKTsKCQlyZXR1cm4gLTE7Cgl9CgoJd2hpbGUgKDEpIHsKCQlpZiAo
+ZmFtaWx5ID09IEFGX0lORVQpCgkJCWFkZHIudjQuc2luX3BvcnQgPSBodG9ucygqcG9ydCk7CgkJ
+ZWxzZSBpZiAoZmFtaWx5ID09IEFGX0lORVQ2KQoJCQlhZGRyLnY2LnNpbjZfcG9ydCA9IGh0b25z
+KCpwb3J0KTsKCgkJcmV0ID0gYmluZChzb2NrLCAoc3RydWN0IHNvY2thZGRyICopICZhZGRyLCBz
+aXplb2YoYWRkcikpOwoKCQkvKiBjcml1IGRvZXNuJ3QgcmVzdG9yZSBzb2NrIG9wdHMsIHNvIHdl
+IG5lZWQgdGhpcyBoYWNrICovCgkJaWYgKHJldCA9PSAtMSAmJiBlcnJubyA9PSBFQUREUklOVVNF
+KSB7CgkJCSgqcG9ydCkrKzsKCQkJY29udGludWU7CgkJfQoJCWJyZWFrOwoJfQoKCWlmIChyZXQg
+PT0gLTEpIHsKCQlwcl9wZXJyb3IoImJpbmQoKSBmYWlsZWQiKTsKCQlyZXR1cm4gLTE7Cgl9CgoJ
+aWYgKGxpc3Rlbihzb2NrLCAxKSA9PSAtMSkgewoJCXByX3BlcnJvcigibGlzdGVuKCkgZmFpbGVk
+Iik7CgkJcmV0dXJuIC0xOwoJfQoJcmV0dXJuIHNvY2s7Cn0KCmludCB0Y3BfYWNjZXB0X3NlcnZl
+cihpbnQgc29jaykKewoJc3RydWN0IHNvY2thZGRyX2luIG1hZGRyOwoJaW50IHNvY2syOwoJc29j
+a2xlbl90IGFkZHJsZW47CiNpZmRlZiBERUJVRwoJdGVzdF9tc2cgKCJXYWl0aW5nIGZvciBjb25u
+ZWN0aW9uLi4uLi4uLi4uLlxuIik7CiNlbmRpZgoJYWRkcmxlbiA9IHNpemVvZihtYWRkcik7Cglz
+b2NrMiA9IGFjY2VwdChzb2NrLChzdHJ1Y3Qgc29ja2FkZHIgKikgJm1hZGRyLCAmYWRkcmxlbik7
+CgoJaWYgKHNvY2syID09IC0xKSB7CgkJcHJfcGVycm9yKCJhY2NlcHQoKSBmYWlsZWQiKTsKCQly
+ZXR1cm4gLTE7Cgl9CgojaWZkZWYgREVCVUcKCXRlc3RfbXNnICgiQ29ubmVjdGlvbiEhXG4iKTsK
+I2VuZGlmCglyZXR1cm4gc29jazI7Cn0KCmludCBfX3RjcF9pbml0X2NsaWVudChpbnQgc29jaywg
+aW50IGZhbWlseSwgY2hhciAqc2VydklQLCB1bnNpZ25lZCBzaG9ydCBzZXJ2UG9ydCkKewoJdW5p
+b24gc29ja2FkZHJfaW5ldCBzZXJ2QWRkcjsKCgkvKiBDb25zdHJ1Y3QgdGhlIHNlcnZlciBhZGRy
+ZXNzIHN0cnVjdHVyZSAqLwoJbWVtc2V0KCZzZXJ2QWRkciwgMCwgc2l6ZW9mKHNlcnZBZGRyKSk7
+CglpZiAoZmFtaWx5ID09IEFGX0lORVQpIHsKCQlzZXJ2QWRkci52NC5zaW5fZmFtaWx5ICAgICAg
+PSBBRl9JTkVUOwoJCXNlcnZBZGRyLnY0LnNpbl9wb3J0ICAgICAgICA9IGh0b25zKHNlcnZQb3J0
+KTsKCQlpbmV0X3B0b24oQUZfSU5FVCwgc2VydklQLCAmc2VydkFkZHIudjQuc2luX2FkZHIpOwoJ
+fSBlbHNlIHsKCQlzZXJ2QWRkci52Ni5zaW42X2ZhbWlseSAgICAgID0gQUZfSU5FVDY7CgkJc2Vy
+dkFkZHIudjYuc2luNl9wb3J0ICAgICAgICA9IGh0b25zKHNlcnZQb3J0KTsKCQlpbmV0X3B0b24o
+QUZfSU5FVDYsIHNlcnZJUCwgJnNlcnZBZGRyLnY2LnNpbjZfYWRkcik7Cgl9CglpZiAoY29ubmVj
+dChzb2NrLCAoc3RydWN0IHNvY2thZGRyICopICZzZXJ2QWRkciwgc2l6ZW9mKHNlcnZBZGRyKSkg
+PCAwKSB7CgkJcHJfcGVycm9yKCJjYW4ndCBjb25uZWN0IHRvIHNlcnZlciIpOwoJCXJldHVybiAt
+MTsKCX0KCXJldHVybiBzb2NrOwp9CgppbnQgdGNwX2luaXRfY2xpZW50KGludCBmYW1pbHksIGNo
+YXIgKnNlcnZJUCwgdW5zaWduZWQgc2hvcnQgc2VydlBvcnQpCnsKCWludCBzb2NrOwoKCWlmICgo
+c29jayA9IHNvY2tldChmYW1pbHksIFNPQ0tfU1RSRUFNLCBJUFBST1RPX1RDUCkpIDwgMCkgewoJ
+CXByX3BlcnJvcigiY2FuJ3QgY3JlYXRlIHNvY2tldCIpOwoJCXJldHVybiAtMTsKCX0KCXJldHVy
+biBfX3RjcF9pbml0X2NsaWVudChzb2NrLCBmYW1pbHksIHNlcnZJUCwgc2VydlBvcnQpOwp9Cgoj
+aWZkZWYgWkRUTV9JUFY2CiNkZWZpbmUgWkRUTV9GQU1JTFkgQUZfSU5FVDYKI2Vsc2UKI2RlZmlu
+ZSBaRFRNX0ZBTUlMWSBBRl9JTkVUCiNlbmRpZgpzdGF0aWMgaW50IHBvcnQgPSA4ODgwOwoKaW50
+IG1haW4oaW50IGFyZ2MsIGNoYXIgKiphcmd2KQp7CglpbnQgZmQsIGZkX3MsIGNsdCwgc2s7Cgl1
+bmlvbiBzb2NrYWRkcl9pbmV0IHNyY19hZGRyLCBkc3RfYWRkciwgYWRkcjsKCXNvY2tsZW5fdCBh
+dXg7CgljaGFyIGMgPSA1OwoKCXNrID0gc29ja2V0KFpEVE1fRkFNSUxZLCBTT0NLX1NUUkVBTSwg
+MCk7CglpZiAoc2sgPCAwKSB7CgkJcHJfcGVycm9yKCJzb2NrZXQiKTsKCQlyZXR1cm4gMTsKCX0K
+CglpZiAoKGZkX3MgPSB0Y3BfaW5pdF9zZXJ2ZXIoWkRUTV9GQU1JTFksICZwb3J0KSkgPCAwKSB7
+CgkJcHJfZXJyKCJpbml0aWFsaXppbmcgc2VydmVyIGZhaWxlZFxuIik7CgkJcmV0dXJuIDE7Cgl9
+CgoJY2x0ID0gdGNwX2luaXRfY2xpZW50KFpEVE1fRkFNSUxZLCAibG9jYWxob3N0IiwgcG9ydCk7
+CglpZiAoY2x0IDwgMCkKCQlyZXR1cm4gMTsKCgkvKgoJICogcGFyZW50IGlzIHNlcnZlciBvZiBU
+Q1AgY29ubmVjdGlvbgoJICovCglmZCA9IHRjcF9hY2NlcHRfc2VydmVyKGZkX3MpOwoJaWYgKGZk
+IDwgMCkgewoJCXByX2VycigiY2FuJ3QgYWNjZXB0IGNsaWVudCBjb25uZWN0aW9uXG4iKTsKCQly
+ZXR1cm4gMTsKCX0KCglzaHV0ZG93bihjbHQsIFNIVVRfV1IpOwoKCXsKCQl1bmlvbiBzb2NrYWRk
+cl9pbmV0IGFkZHI7CgkJaW50IGZkMTsKCgkJbWVtc2V0KCZhZGRyLCAwLCBzaXplb2YoYWRkcikp
+OwoJCWFkZHIudjQuc2luX2ZhbWlseSAgICAgID0gQUZfVU5TUEVDOwoJCWlmIChjb25uZWN0KGZk
+LCAoc3RydWN0IHNvY2thZGRyICopICZhZGRyLCBzaXplb2YoYWRkcikpKQoJCQlyZXR1cm4gMTsK
+CgkJaWYgKF9fdGNwX2luaXRfY2xpZW50KGZkLCBaRFRNX0ZBTUlMWSwgImxvY2FsaG9zdCIsIHBv
+cnQpIDwgMCkKCQkJcmV0dXJuIDE7CgoJCXJldHVybiAwOwoJCWZkMSA9IHRjcF9hY2NlcHRfc2Vy
+dmVyKGZkX3MpOwoJCWlmIChmZDEgPCAwKSB7CgkJCXByX2VycigiY2FuJ3QgYWNjZXB0IGNsaWVu
+dCBjb25uZWN0aW9uXG4iKTsKCQkJcmV0dXJuIDE7CgkJfQoJfQoKCXJldHVybiAwOwp9Cg==
+--001a1142b64e34a39a0552a795b2--
