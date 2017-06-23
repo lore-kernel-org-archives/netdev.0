@@ -1,45 +1,58 @@
-From: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next v3 1/6] vxlan: refactor verification
- and application of configuration
-Date: Fri, 23 Jun 2017 10:52:20 +0200
-Message-ID: <20170623105220.18561f34@griffin>
-References: <cover.1497825555.git.mschiffer@universe-factory.net>
-	<6e2c8bb77be42834f1da5a3ca79f5e455574a136.1497825555.git.mschiffer@universe-factory.net>
+From: Gal Pressman <galp@mellanox.com>
+Subject: Re: [RFC PATCH net-next 3/3] net/mlx5e: Expose link down reason to
+ ethtool
+Date: Fri, 23 Jun 2017 11:52:43 +0300
+Message-ID: <d812f75d-9ef1-99e0-527a-7a15be9a47a7@mellanox.com>
+References: <1498050286-17141-1-git-send-email-galp@mellanox.com>
+ <1498050286-17141-4-git-send-email-galp@mellanox.com>
+ <20170621213353.318e5d37@cakuba.netronome.com>
+ <311af079-cf95-b487-f59a-9566e17296bf@gmail.com>
+ <20170622153800.67f9635f@cakuba.netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Matthias Schiffer <mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <6e2c8bb77be42834f1da5a3ca79f5e455574a136.1497825555.git.mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Gal Pressman <galp@mellanox.com>, netdev@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        "John W. Linville" <linville@tuxdriver.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        David Decotigny <decot@googlers.com>, kernel-team@fb.com
+To: Jakub Kicinski <kubakici@wp.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ve1eur01on0047.outbound.protection.outlook.com ([104.47.1.47]:8364
+        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753759AbdFWIw5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Jun 2017 04:52:57 -0400
+In-Reply-To: <20170622153800.67f9635f@cakuba.netronome.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patchset looks good overall (would send my Acked-by for most of
-this but I'm late).
 
-On Mon, 19 Jun 2017 10:03:55 +0200, Matthias Schiffer wrote:
-> Log messages in these
-> functions are removed, as it is generally unexpected to find error output
-> for netlink requests in the kernel log. Userspace should be able to handle
-> errors based on the error codes returned via netlink just fine.
+> On Thu, 22 Jun 2017 11:33:39 +0300, Gal Pressman wrote:
+>>> Is my reading correct that in case the reason is not in the
+>>> pddr2ethtool_table opaque binary data will be passed from the firmware
+>>> to user space?  Is there any particular reason to allow for this?  If
+>>> it's just for the rare scenario where a new error code needs to be
+>>> added perhaps it would be enough to dump the FW-provided message to the
+>>> logs?  
+>> No binary data is passed in this patch, the monitor_opcode is simply a vendor specific
+>> 16 bit id that is used when the reason  is not generic enough to have it's own enum.
+> Sorry if I'm wrong, I thought this would potentially copy
+> ETH_GSTRING_LEN bytes to userspace:
+>
+> +	if (status_message)
+> +		memcpy(status_message,
+> +		       MLX5_ADDR_OF(pddr_reg, out, page_data.troubleshooting_info_page.status_message),
+> +		       ETH_GSTRING_LEN);
+>
+> I'm also still not sure why a reason would not be generic enough for
+> the enum, if it fits in the 16bit vendor enum... 
+Some reasons might be very specific, and only relevant to my hardware for example.
+In that case I'd like to avoid an enum entry that is not wide enough to be used by anyone else but me,
+and still have a way to pass it to the user.
 
-However, this is not really true. It's impossible to find out what went
-wrong when you use e.g. iproute2 to configure a vxlan link.
-
-We really need to convert the kernel log messages to the extended
-netlink errors. Since you removed them prematurely, could you please
-work on that?
-
-Thanks,
-
- Jiri
+The userspace patches will allow for a vendor parser (similar to ethtool regdump parsers) that can
+convert this 16bit id to a string.
