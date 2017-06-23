@@ -1,192 +1,91 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 5/6] xfrm: extend MIGRATE with UDP encapsulation port
-Date: Fri, 23 Jun 2017 10:38:29 +0200
-Message-ID: <1498207110-22520-6-git-send-email-steffen.klassert@secunet.com>
-References: <1498207110-22520-1-git-send-email-steffen.klassert@secunet.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: BUG: KASAN: use-after-free in free_old_xmit_skbs
+Date: Fri, 23 Jun 2017 16:43:13 +0800
+Message-ID: <4f6d4342-8476-882e-e7a8-b3f0ebd20d95@redhat.com>
+References: <d2e8cf65-ea3d-7db2-9382-a063daf1168a@gmail.com>
+	<20170605050423-mutt-send-email-mst@kernel.org>
+	<20170606024211-mutt-send-email-mst@kernel.org>
+	<CAOTcU=u_HSMQiwDF3Snv5P8mT-b_Aepeb=Z9gbLd1j=2P+Yy+A@mail.gmail.com>
+	<20170622215125-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:51154 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751217AbdFWIin (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 23 Jun 2017 04:38:43 -0400
-In-Reply-To: <1498207110-22520-1-git-send-email-steffen.klassert@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, John Fastabend <john.fastabend@gmail.com>,
+	qemu-devel@nongnu.org, virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+	jean-philippe menil <jpmenil@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170622215125-mutt-send-email-mst@kernel.org>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Antony Antony <antony@phenome.org>
-
-Add UDP encapsulation port to XFRM_MSG_MIGRATE using an optional
-netlink attribute XFRMA_ENCAP.
-
-The devices that support IKE MOBIKE extension (RFC-4555 Section 3.8)
-could go to sleep for a few minutes and wake up. When it wake up the
-NAT mapping could have expired, the device send a MOBIKE UPDATE_SA
-message to migrate the IPsec SA. The change could be a change UDP
-encapsulation port, IP address, or both.
-
-Reported-by: Paul Wouters <pwouters@redhat.com>
-Signed-off-by: Antony Antony <antony@phenome.org>
-Reviewed-by: Richard Guy Briggs <rgb@tricolour.ca>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- include/net/xfrm.h     |  6 ++++--
- net/key/af_key.c       |  2 +-
- net/xfrm/xfrm_policy.c | 11 ++++-------
- net/xfrm/xfrm_state.c  | 18 +++++++++++++-----
- net/xfrm/xfrm_user.c   | 14 ++++++++++++--
- 5 files changed, 34 insertions(+), 17 deletions(-)
-
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 6793a30c..1cc7172 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1688,10 +1688,12 @@ int km_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
- 	       const struct xfrm_kmaddress *k);
- struct xfrm_state *xfrm_migrate_state_find(struct xfrm_migrate *m, struct net *net);
- struct xfrm_state *xfrm_state_migrate(struct xfrm_state *x,
--				      struct xfrm_migrate *m);
-+				      struct xfrm_migrate *m,
-+				      struct xfrm_encap_tmpl *encap);
- int xfrm_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
- 		 struct xfrm_migrate *m, int num_bundles,
--		 struct xfrm_kmaddress *k, struct net *net);
-+		 struct xfrm_kmaddress *k, struct net *net,
-+		 struct xfrm_encap_tmpl *encap);
- #endif
- 
- int km_new_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr, __be16 sport);
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index c1950bb..3b130cb 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -2602,7 +2602,7 @@ static int pfkey_migrate(struct sock *sk, struct sk_buff *skb,
- 	}
- 
- 	return xfrm_migrate(&sel, dir, XFRM_POLICY_TYPE_MAIN, m, i,
--			    kma ? &k : NULL, net);
-+			    kma ? &k : NULL, net, NULL);
- 
-  out:
- 	return err;
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index b00a1d5..d47f055 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -3315,11 +3315,6 @@ static int xfrm_migrate_check(const struct xfrm_migrate *m, int num_migrate)
- 		return -EINVAL;
- 
- 	for (i = 0; i < num_migrate; i++) {
--		if (xfrm_addr_equal(&m[i].old_daddr, &m[i].new_daddr,
--				    m[i].old_family) &&
--		    xfrm_addr_equal(&m[i].old_saddr, &m[i].new_saddr,
--				    m[i].old_family))
--			return -EINVAL;
- 		if (xfrm_addr_any(&m[i].new_daddr, m[i].new_family) ||
- 		    xfrm_addr_any(&m[i].new_saddr, m[i].new_family))
- 			return -EINVAL;
-@@ -3343,7 +3338,8 @@ static int xfrm_migrate_check(const struct xfrm_migrate *m, int num_migrate)
- 
- int xfrm_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
- 		 struct xfrm_migrate *m, int num_migrate,
--		 struct xfrm_kmaddress *k, struct net *net)
-+		 struct xfrm_kmaddress *k, struct net *net,
-+		 struct xfrm_encap_tmpl *encap)
- {
- 	int i, err, nx_cur = 0, nx_new = 0;
- 	struct xfrm_policy *pol = NULL;
-@@ -3366,7 +3362,8 @@ int xfrm_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
- 		if ((x = xfrm_migrate_state_find(mp, net))) {
- 			x_cur[nx_cur] = x;
- 			nx_cur++;
--			if ((xc = xfrm_state_migrate(x, mp))) {
-+			xc = xfrm_state_migrate(x, mp, encap);
-+			if (xc) {
- 				x_new[nx_new] = xc;
- 				nx_new++;
- 			} else {
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 5780cda..b76e673 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -1309,7 +1309,8 @@ int xfrm_state_add(struct xfrm_state *x)
- EXPORT_SYMBOL(xfrm_state_add);
- 
- #ifdef CONFIG_XFRM_MIGRATE
--static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig)
-+static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig,
-+					   struct xfrm_encap_tmpl *encap)
- {
- 	struct net *net = xs_net(orig);
- 	struct xfrm_state *x = xfrm_state_alloc(net);
-@@ -1351,8 +1352,14 @@ static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig)
- 	}
- 	x->props.calgo = orig->props.calgo;
- 
--	if (orig->encap) {
--		x->encap = kmemdup(orig->encap, sizeof(*x->encap), GFP_KERNEL);
-+	if (encap || orig->encap) {
-+		if (encap)
-+			x->encap = kmemdup(encap, sizeof(*x->encap),
-+					GFP_KERNEL);
-+		else
-+			x->encap = kmemdup(orig->encap, sizeof(*x->encap),
-+					GFP_KERNEL);
-+
- 		if (!x->encap)
- 			goto error;
- 	}
-@@ -1440,11 +1447,12 @@ struct xfrm_state *xfrm_migrate_state_find(struct xfrm_migrate *m, struct net *n
- EXPORT_SYMBOL(xfrm_migrate_state_find);
- 
- struct xfrm_state *xfrm_state_migrate(struct xfrm_state *x,
--				      struct xfrm_migrate *m)
-+				      struct xfrm_migrate *m,
-+				      struct xfrm_encap_tmpl *encap)
- {
- 	struct xfrm_state *xc;
- 
--	xc = xfrm_state_clone(x);
-+	xc = xfrm_state_clone(x, encap);
- 	if (!xc)
- 		return NULL;
- 
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 38614df..fb98892 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -2243,6 +2243,7 @@ static int xfrm_do_migrate(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	int err;
- 	int n = 0;
- 	struct net *net = sock_net(skb->sk);
-+	struct xfrm_encap_tmpl  *encap = NULL;
- 
- 	if (attrs[XFRMA_MIGRATE] == NULL)
- 		return -EINVAL;
-@@ -2260,9 +2261,18 @@ static int xfrm_do_migrate(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	if (!n)
- 		return 0;
- 
--	xfrm_migrate(&pi->sel, pi->dir, type, m, n, kmp, net);
-+	if (attrs[XFRMA_ENCAP]) {
-+		encap = kmemdup(nla_data(attrs[XFRMA_ENCAP]),
-+				sizeof(*encap), GFP_KERNEL);
-+		if (!encap)
-+			return 0;
-+	}
- 
--	return 0;
-+	err = xfrm_migrate(&pi->sel, pi->dir, type, m, n, kmp, net, encap);
-+
-+	kfree(encap);
-+
-+	return err;
- }
- #else
- static int xfrm_do_migrate(struct sk_buff *skb, struct nlmsghdr *nlh,
--- 
-2.7.4
+CgpPbiAyMDE35bm0MDbmnIgyM+aXpSAwMjo1MywgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
+IE9uIFRodSwgSnVuIDIyLCAyMDE3IGF0IDA4OjE1OjU4QU0gKzAyMDAsIGplYW4tcGhpbGlwcGUg
+bWVuaWwgd3JvdGU6Cj4+IDIwMTctMDYtMDYgMTo1MiBHTVQrMDI6MDAgTWljaGFlbCBTLiBUc2ly
+a2luIDxtc3RAcmVkaGF0LmNvbT46Cj4+Cj4+ICAgICAgT24gTW9uLCBKdW4gMDUsIDIwMTcgYXQg
+MDU6MDg6MjVBTSArMDMwMCwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+PiAgICAgID4gT24g
+TW9uLCBKdW4gMDUsIDIwMTcgYXQgMTI6NDg6NTNBTSArMDIwMCwgSmVhbi1QaGlsaXBwZSBNZW5p
+bCB3cm90ZToKPj4gICAgICA+ID4gSGksCj4+ICAgICAgPiA+Cj4+ICAgICAgPiA+IHdoaWxlIHBs
+YXlpbmcgd2l0aCB4ZHAgYW5kIGVicGYsIGknbSBoaXR0aW5nIHRoZSBmb2xsb3dpbmc6Cj4+ICAg
+ICAgPiA+Cj4+ICAgICAgPiA+IFsgIDMwOS45OTMxMzZdCj4+ICAgICAgPiA+ID09PT09PT09PT09
+PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQo+
+PiAgICAgID4gPiBbICAzMDkuOTk0NzM1XSBCVUc6IEtBU0FOOiB1c2UtYWZ0ZXItZnJlZSBpbgo+
+PiAgICAgID4gPiBmcmVlX29sZF94bWl0X3NrYnMuaXNyYS4yOSsweDJiNy8weDJlMCBbdmlydGlv
+X25ldF0KPj4gICAgICA+ID4gWyAgMzA5Ljk5ODM5Nl0gUmVhZCBvZiBzaXplIDggYXQgYWRkciBm
+ZmZmODgwMDZhYTY0MjIwIGJ5IHRhc2sgc3NoZC8zMjMKPj4gICAgICA+ID4gWyAgMzEwLjAwMDY1
+MF0KPj4gICAgICA+ID4gWyAgMzEwLjAwMjMwNV0gQ1BVOiAxIFBJRDogMzIzIENvbW06IHNzaGQg
+Tm90IHRhaW50ZWQgNC4xMi4wLXJjMysgIzIKPj4gICAgICA+ID4gWyAgMzEwLjAwNDAxOF0gSGFy
+ZHdhcmUgbmFtZTogUUVNVSBTdGFuZGFyZCBQQyAoaTQ0MEZYICsgUElJWCwgMTk5NiksCj4+ICAg
+ICAgQklPUwo+PiAgICAgID4gPiAxLjEwLjItMjAxNzAyMjhfMTAxODI4LWFuYXRvbCAwNC8wMS8y
+MDE0Cj4gLi4uCj4KPj4gICAgICA+Cj4+ICAgICAgPiBTaW5jZSBjb21taXQgNjgwNTU3Y2Y3OWY4
+MjYyM2UyYzRmZDQyNzMzMDc3ZDYwYTg0MzUxMwo+PiAgICAgID4gICAgIHZpcnRpb19uZXQ6IHJl
+d29yayBtZXJnZWFibGUgYnVmZmVyIGhhbmRsaW5nCj4+ICAgICAgPgo+PiAgICAgID4gd2Ugbm8g
+bG9uZ2VyIG11c3QgZG8gdGhlIHJlc2V0cywgd2Ugbm93IGhhdmUgZW5vdWdoIHNwYWNlCj4+ICAg
+ICAgPiB0byBzdG9yZSBhIGJpdCBzYXlpbmcgd2hldGhlciBhIGJ1ZmZlciBpcyB4ZHAgb25lIG9y
+IG5vdC4KPj4gICAgICA+Cj4+ICAgICAgPiBBbmQgdGhhdCdzIHByb2JhYmx5IGEgY2xlYW5lciB3
+YXkgdG8gZml4IHRoZXNlIGlzc3VlcyB0aGFuCj4+ICAgICAgPiB0cnkgdG8gZmluZCBhbmQgZml4
+IHRoZSByYWNlIGNvbmRpdGlvbi4KPj4gICAgICA+Cj4+ICAgICAgPiBKb2huPwo+PiAgICAgID4K
+Pj4gICAgICA+IC0tCj4+ICAgICAgPiBNU1QKPj4KPj4KPj4gICAgICBJIHRoaW5rIEkgc2VlIHRo
+ZSBzb3VyY2Ugb2YgdGhlIHJhY2UuIHZpcnRpbyBuZXQgY2FsbHMKPj4gICAgICBuZXRpZl9kZXZp
+Y2VfZGV0YWNoIGFuZCBhc3N1bWVzIG5vIHBhY2tldHMgd2lsbCBiZSBzZW50IGFmdGVyCj4+ICAg
+ICAgdGhpcyBwb2ludC4gSG93ZXZlciwgYWxsIGl0IGRvZXMgaXMgc3RvcCBhbGwgcXVldWVzIHNv
+Cj4+ICAgICAgbm8gbmV3IHBhY2tldHMgd2lsbCBiZSB0cmFuc21pdHRlZC4KPj4KPj4gICAgICBU
+cnkgbG9ja2luZyB3aXRoIEhBUkRfVFhfTE9DSz8KPj4gICAgIAo+Pgo+PiAgICAgIC0tCj4+ICAg
+ICAgTVNUCj4+Cj4+Cj4+IEhpIE1pY2hhZWwsCj4+Cj4+IGZyb20gd2hhdCBpIHNlZSwgdGhlIHJh
+Y2UgYXBwZWFyIHdoZW4gd2UgaGl0IHZpcnRuZXRfcmVzZXQgaW4gdmlydG5ldF94ZHBfc2V0Lgo+
+PiB2aXJ0bmV0X3Jlc2V0Cj4+ICAgIF9yZW1vdmVfdnFfY29tbW9uCj4+ICAgICAgdmlydG5ldF9k
+ZWxfdnFzCj4+ICAgICAgICB2aXJ0bmV0X2ZyZWVfcXVldWVzCj4+ICAgICAgICAgIGtmcmVlKHZp
+LT5zcSkKPj4gd2hlbiB0aGUgeGRwIHByb2dyYW0gKHdpdGggdHdvIGluc3RhbmNlcyBvZiB0aGUg
+cHJvZ3JhbSB0byB0cmlnZ2VyIGl0IGZhc3RlcikKPj4gaXMgYWRkZWQgb3IgcmVtb3ZlZC4KPj4K
+Pj4gSXQncyBlYXNpbHkgcmVwZWF0YWJsZSwgd2l0aCAyIGNwdXMgYW5kIDQgcXVldWVzIG9uIHRo
+ZSBxZW11IGNvbW1hbmQgbGluZSwKPj4gcnVubmluZyB0aGUgeGRwX3R0bCB0b29sIGZyb20gSmVz
+cGVyLgo+Pgo+PiBGb3Igbm93LCBpJ20gYWJsZSB0byBjb250aW51ZSBteSBxdWFsaWZpY2F0aW9u
+LCB0ZXN0aW5nIGlmIHhkcF9xcCBpcyBub3QgbnVsbCwKPj4gYnV0IGRvIG5vdCBzZWVtIHRvIGJl
+IGEgc3VzdGFpbmFibGUgdHJpY2suCj4+IGlmICh4ZHBfcXAgJiYgdmktPnhkcF9xdWV1ZXNfcGFp
+cnMgIT0geGRwX3FwKQo+Pgo+PiBNYXliZSBpdCB3aWxsIGJlIG1vcmUgY2xlYXIgdG8geW91IHdp
+dGggdGhlc2VzIGluZm9ybWF0aW9ucy4KPj4KPj4gQmVzdCByZWdhcmRzLgo+Pgo+PiBKZWFuLVBo
+aWxpcHBlCj4KPiBJJ20gcHJldHR5IGNsZWFyIGFib3V0IHRoZSBpc3N1ZSBoZXJlLCBJIHdhcyB0
+cnlpbmcgdG8gZmlndXJlIG91dCBhIGZpeC4KPiBKYXNvbiwgYW55IHRob3VnaHRzPwo+Cj4KCkhp
+IEplYW46CgpEb2VzIHRoZSBmb2xsb3dpbmcgZml4IHRoaXMgaXNzdWU/IChJIGNhbid0IHJlcHJv
+ZHVjZSBpdCBsb2NhbGx5IHRocm91Z2ggCnhkcF90dGwpCgpUaGFua3MKCmRpZmYgLS1naXQgYS9k
+cml2ZXJzL25ldC92aXJ0aW9fbmV0LmMgYi9kcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMKaW5kZXgg
+MWY4YzE1Yy4uM2U2NWMzZiAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCisr
+KyBiL2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYwpAQCAtMTgwMSw3ICsxODAxLDkgQEAgc3RhdGlj
+IHZvaWQgdmlydG5ldF9mcmVlemVfZG93bihzdHJ1Y3QgCnZpcnRpb19kZXZpY2UgKnZkZXYpCiAg
+ICAgICAgIC8qIE1ha2Ugc3VyZSBubyB3b3JrIGhhbmRsZXIgaXMgYWNjZXNzaW5nIHRoZSBkZXZp
+Y2UgKi8KICAgICAgICAgZmx1c2hfd29yaygmdmktPmNvbmZpZ193b3JrKTsKCisgICAgICAgbmV0
+aWZfdHhfbG9ja19iaCh2aS0+ZGV2KTsKICAgICAgICAgbmV0aWZfZGV2aWNlX2RldGFjaCh2aS0+
+ZGV2KTsKKyAgICAgICBuZXRpZl90eF91bmxvY2tfYmgodmktPmRldik7CiAgICAgICAgIGNhbmNl
+bF9kZWxheWVkX3dvcmtfc3luYygmdmktPnJlZmlsbCk7CgpfX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmly
+dHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51
+eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
