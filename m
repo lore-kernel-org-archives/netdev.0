@@ -1,48 +1,28 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH NET v3 2/2] net: hns: Use phy_driver to setup Phy loopback
-Date: Sat, 24 Jun 2017 05:18:56 +0200
-Message-ID: <20170624031856.GH4875@lunn.ch>
-References: <1498211042-240816-1-git-send-email-linyunsheng@huawei.com>
- <1498211042-240816-3-git-send-email-linyunsheng@huawei.com>
+Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: fix error code in
+ mv88e6390_serdes_power()
+Date: Sat, 24 Jun 2017 05:21:24 +0200
+Message-ID: <20170624032124.GI4875@lunn.ch>
+References: <20170623151703.stzh2ur3wizbylbi@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, f.fainelli@gmail.com,
-        huangdaode@hisilicon.com, xuwei5@hisilicon.com,
-        liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
-        gabriele.paoloni@huawei.com, john.garry@huawei.com,
-        linuxarm@huawei.com, salil.mehta@huawei.com, lipeng321@huawei.com,
-        tremyfr@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Lin Yun Sheng <linyunsheng@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:33680 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754612AbdFXDTA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 23 Jun 2017 23:19:00 -0400
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1498211042-240816-3-git-send-email-linyunsheng@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170623151703.stzh2ur3wizbylbi@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->  static int hns_nic_config_phy_loopback(struct phy_device *phy_dev, u8 en)
->  {
-> -#define COPPER_CONTROL_REG 0
-> -#define PHY_POWER_DOWN BIT(11)
-> -#define PHY_LOOP_BACK BIT(14)
-> -	u16 val = 0;
-> +	int err;
->  
->  	if (phy_dev->is_c45) /* c45 branch adding for XGE PHY */
->  		return -ENOTSUPP;
+On Fri, Jun 23, 2017 at 06:17:04PM +0300, Dan Carpenter wrote:
+> We're accidentally returning the wrong variable.  "cmode" is
+> uninitialized at this point so it causes a static checker warning.
+> 
+> Fixes: 6335e9f2446b ("net: dsa: mv88e6xxx: mv88e6390X SERDES support")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-You should take this out as well. You want the core to tell you if
-loopback is supported or not. At some point, a c45 PHY could support
-loopback.
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-> +	case MAC_LOOP_PHY_NONE:
->  		if ((phy_dev) && (!phy_dev->is_c45))
->  			ret |= hns_nic_config_phy_loopback(phy_dev, 0x0);
-
-same here.
-
-     Andrew
+    Andrew
