@@ -1,52 +1,53 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC PATCH net-next 1/3] ethtool: Add link down reason callback
-Date: Sat, 24 Jun 2017 21:04:35 +0200
-Message-ID: <20170624190435.GN4875@lunn.ch>
-References: <1498050286-17141-1-git-send-email-galp@mellanox.com>
- <1498050286-17141-2-git-send-email-galp@mellanox.com>
- <20170621135809.GC27585@lunn.ch>
- <8e7ffead-350e-bd7f-c7ea-fe057969d0d3@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        "John W. Linville" <linville@tuxdriver.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        David Decotigny <decot@googlers.com>, kernel-team@fb.com
-To: Gal Pressman <galp@mellanox.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net-next 0/3] ethtool: support for forward error correction mode setting on a link
+Date: Sat, 24 Jun 2017 12:19:42 -0700
+Message-ID: <1498331985-8525-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, vidya.chowdary@gmail.com,
+        dustin@cumulusnetworks.com, olson@cumulusnetworks.com,
+        leedom@chelsio.com, manojmalviya@chelsio.com, santosh@chelsio.com,
+        yuval.mintz@qlogic.com, odedw@mellanox.com, ariela@mellanox.com,
+        galp@mellanox.com, jeffrey.t.kirsher@intel.com
+To: davem@davemloft.net, linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:34006 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751436AbdFXTEl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 24 Jun 2017 15:04:41 -0400
-Content-Disposition: inline
-In-Reply-To: <8e7ffead-350e-bd7f-c7ea-fe057969d0d3@mellanox.com>
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:33811 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751482AbdFXTTy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 24 Jun 2017 15:19:54 -0400
+Received: by mail-pg0-f54.google.com with SMTP id e187so33406712pgc.1
+        for <netdev@vger.kernel.org>; Sat, 24 Jun 2017 12:19:53 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 22, 2017 at 11:09:04AM +0300, Gal Pressman wrote:
-> 
-> >> +enum {
-> >> +	ETHTOOL_LINK_VENDOR_SPECIFIC = -1, /* Vendor specific issue provided in vendor_reason */
-> >> +	ETHTOOL_LINK_NO_ISSUE, /* No issue observed with link */
-> >> +	ETHTOOL_LINK_REASON_UNKNOWN, /* Unknown reason */
-> > I think OTHER would be better that UNKNOWN. 
-> 
-> Fine with me.
-> >> +	ETHTOOL_LINK_NETDEV_CARRIER_DOWN, /* Netdev carrier is down */
-> >> +	ETHTOOL_LINK_ADMIN_DOWN, /* Admin down */
-> > These two are interesting. We have that information already. Why do we
-> > want it again?
-> 
-> My goal is to gather all link issue reasons in one place.
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-I'm actually wondering if this is a user space problem. Nearly
-everything you list is already available. Some you get from ip link,
-others from ethtool or ethtool --module-info, including I2C bus
-error, since you would expect EIO or ETIMEOUT.
+Forward Error Correction (FEC) modes i.e Base-R
+and Reed-Solomon modes are introduced in 25G/40G/100G standards
+for providing good BER at high speeds. Various networking devices
+which support 25G/40G/100G provides ability to manage supported FEC
+modes and the lack of FEC encoding control and reporting today is a
+source for itneroperability issues for many vendors.
+FEC capability as well as specific FEC mode i.e. Base-R
+or RS modes can be requested or advertised through bits D44:47 of base link
+codeword.
 
-If you were to write a user space tool using the information what is
-currently available, what would be missing?
+This patch set intends to provide option under ethtool to manage and report
+FEC encoding settings for networking devices as per IEEE 802.3 bj, bm and by
+specs.
 
-	  Andrew
+Casey Leedom (2):
+  cxgb4: core hardware/firmware support for Forward Error Correction on
+    a link
+  cxgb4: ethtool forward error correction management support
+
+Vidya Sagar Ravipati (1):
+  net: ethtool: add support for forward error correction modes
+
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c |  99 ++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         | 151 ++++++++++++++++-----
+ include/linux/ethtool.h                            |   4 +
+ include/uapi/linux/ethtool.h                       |  48 ++++++-
+ net/core/ethtool.c                                 |  34 +++++
+ 5 files changed, 300 insertions(+), 36 deletions(-)
+
+-- 
+2.1.4
