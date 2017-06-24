@@ -1,10 +1,9 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH NET v3 1/2] net: phy: Add phy loopback support in net phy
- framework
-Date: Sat, 24 Jun 2017 05:12:31 +0200
-Message-ID: <20170624031231.GG4875@lunn.ch>
+Subject: Re: [PATCH NET v3 2/2] net: hns: Use phy_driver to setup Phy loopback
+Date: Sat, 24 Jun 2017 05:18:56 +0200
+Message-ID: <20170624031856.GH4875@lunn.ch>
 References: <1498211042-240816-1-git-send-email-linyunsheng@huawei.com>
- <1498211042-240816-2-git-send-email-linyunsheng@huawei.com>
+ <1498211042-240816-3-git-send-email-linyunsheng@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, f.fainelli@gmail.com,
@@ -15,42 +14,35 @@ Cc: davem@davemloft.net, f.fainelli@gmail.com,
         tremyfr@gmail.com, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
 To: Lin Yun Sheng <linyunsheng@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:33680 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754612AbdFXDTA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Jun 2017 23:19:00 -0400
 Content-Disposition: inline
-In-Reply-To: <1498211042-240816-2-git-send-email-linyunsheng@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1498211042-240816-3-git-send-email-linyunsheng@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> +int phy_loopback(struct phy_device *phydev, bool enable)
-> +{
-> +	struct phy_driver *phydrv = to_phy_driver(phydev->mdio.dev.driver);
-> +	int ret = 0;
-> +
-> +	if (enable && phydev->loopback_enabled)
-> +		return -EBUSY;
-> +
-> +	if (!enable && !phydev->loopback_enabled)
-> +		return -EINVAL;
-> +
-> +	if (phydev->drv && phydrv->set_loopback)
-> +		ret = phydrv->set_loopback(phydev, enable);
+>  static int hns_nic_config_phy_loopback(struct phy_device *phy_dev, u8 en)
+>  {
+> -#define COPPER_CONTROL_REG 0
+> -#define PHY_POWER_DOWN BIT(11)
+> -#define PHY_LOOP_BACK BIT(14)
+> -	u16 val = 0;
+> +	int err;
+>  
+>  	if (phy_dev->is_c45) /* c45 branch adding for XGE PHY */
+>  		return -ENOTSUPP;
 
-   	else
-		ret = -EOPNOTSUPP;
+You should take this out as well. You want the core to tell you if
+loopback is supported or not. At some point, a c45 PHY could support
+loopback.
 
-> +
-> +	if (ret)
-> +		return ret;
-> +
-> +	phydev->loopback_enabled = enable;
-> +
-> +	return 0;
-> +}
-> +EXPORT_SYMBOL(phy_loopback);
+> +	case MAC_LOOP_PHY_NONE:
+>  		if ((phy_dev) && (!phy_dev->is_c45))
+>  			ret |= hns_nic_config_phy_loopback(phy_dev, 0x0);
 
-One of the comments we made of the PHY code in the hns driver is that
-its locking is completely broken. You have made the same error
-here. The core needs to hold the mutex while calling into the PHY
-driver.
+same here.
 
-	Andrew
+     Andrew
