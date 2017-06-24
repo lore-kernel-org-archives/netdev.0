@@ -1,55 +1,52 @@
-From: Heiko Stuebner <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH 01/11] net: phy: Add rockchip phy driver support
-Date: Sat, 24 Jun 2017 18:05:35 +0200
-Message-ID: <8013275.fit4cPZyaE@phil>
-References: <1498192929-7519-1-git-send-email-david.wu@rock-chips.com> <2277908.rG2NXdikOp@phil> <20170624140406.GL4875@lunn.ch>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC PATCH net-next 1/3] ethtool: Add link down reason callback
+Date: Sat, 24 Jun 2017 21:04:35 +0200
+Message-ID: <20170624190435.GN4875@lunn.ch>
+References: <1498050286-17141-1-git-send-email-galp@mellanox.com>
+ <1498050286-17141-2-git-send-email-galp@mellanox.com>
+ <20170621135809.GC27585@lunn.ch>
+ <8e7ffead-350e-bd7f-c7ea-fe057969d0d3@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
-        will.deacon-5wv7dgnIgG8@public.gmane.org, olof-nZhT3qVonbNeoWH0uzbU5w@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org,
-        arnd-r2nGTMty4D4@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org, huangtao-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
-        hwg-TNX95d0MmH7DzftRWevZcw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170624140406.GL4875-g2DYL2Zd6BY@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        "John W. Linville" <linville@tuxdriver.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        David Decotigny <decot@googlers.com>, kernel-team@fb.com
+To: Gal Pressman <galp@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:34006 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751436AbdFXTEl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 24 Jun 2017 15:04:41 -0400
+Content-Disposition: inline
+In-Reply-To: <8e7ffead-350e-bd7f-c7ea-fe057969d0d3@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Samstag, 24. Juni 2017, 16:04:06 CEST schrieb Andrew Lunn:
-> > hmm, we do have quite a number of non-net phys in the phy subsystem
-> > (DP, PCIe, ...) and given that the above would be CONFIG_ROCKCHIP_PHY
-> > in a global sense, sounds like it could make things confusing.
-> > 
-> > So some addition sounds reasonable ... ROCKCHIP_ETH_PHY or so?
+On Thu, Jun 22, 2017 at 11:09:04AM +0300, Gal Pressman wrote:
 > 
-> I follow you reasoning, but generic phy is the new kid on the
-> block. It is well established that Ethernet PHYs are called
-> <MANUFACTURER>_PHY.
-
-Ok, then without further bikeshedding, let's just go with your
-naming then (ROCKCHIP_PHY) :-) .
-
-
-Heiko
-
-> If you do want to consider generic phy, the logical name would be
-> ROCKCHIP_PHY_PHY, since generic phy postfixes with _SATA, _USB, _PCIE,
-> etc. But that does leave an issues when we have an Ethernet PHY which
-> needs a generic PHY. In some sense, SERDES could be considered as
-> something supported by a generic PHY...
+> >> +enum {
+> >> +	ETHTOOL_LINK_VENDOR_SPECIFIC = -1, /* Vendor specific issue provided in vendor_reason */
+> >> +	ETHTOOL_LINK_NO_ISSUE, /* No issue observed with link */
+> >> +	ETHTOOL_LINK_REASON_UNKNOWN, /* Unknown reason */
+> > I think OTHER would be better that UNKNOWN. 
 > 
-> 	Andrew
+> Fine with me.
+> >> +	ETHTOOL_LINK_NETDEV_CARRIER_DOWN, /* Netdev carrier is down */
+> >> +	ETHTOOL_LINK_ADMIN_DOWN, /* Admin down */
+> > These two are interesting. We have that information already. Why do we
+> > want it again?
 > 
-> 
+> My goal is to gather all link issue reasons in one place.
 
+I'm actually wondering if this is a user space problem. Nearly
+everything you list is already available. Some you get from ip link,
+others from ethtool or ethtool --module-info, including I2C bus
+error, since you would expect EIO or ETIMEOUT.
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+If you were to write a user space tool using the information what is
+currently available, what would be missing?
+
+	  Andrew
