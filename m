@@ -1,32 +1,60 @@
-From: "IT" <zakeerhussai@careind.net>
-Subject: Verification
-Date: Sat, 24 Jun 2017 11:35:49 +0100
-Message-ID: <20170624102832.0D3A02850CDD@cams.careind.net>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: fix bug in soft reset failure detection
+Date: Sat, 24 Jun 2017 04:00:21 -0700
+Message-ID: <20170624110020.GA1247@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cams.careind.net ([1.23.164.19]:43019 "EHLO cams.careind.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751271AbdFXKjj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 24 Jun 2017 06:39:39 -0400
-Received: from localhost (localhost.localdomain [127.0.0.1])
-        by cams.careind.net (Postfix) with ESMTP id 5B9B728506EC
-        for <netdev@vger.kernel.org>; Sat, 24 Jun 2017 16:02:14 +0530 (IST)
-Received: from cams.careind.net ([127.0.0.1])
-        by localhost (cams.careind.net [127.0.0.1]) (amavisd-new, port 10024)
-        with ESMTP id dLe1fBQFA9CH for <netdev@vger.kernel.org>;
-        Sat, 24 Jun 2017 16:02:13 +0530 (IST)
-Received: from [192.168.10.100] (unknown [192.168.0.31])
-        by cams.careind.net (Postfix) with ESMTPSA id 0D3A02850CDD
-        for <netdev@vger.kernel.org>; Sat, 24 Jun 2017 15:58:31 +0530 (IST)
-Content-Description: Mail message body
+Received: from mail-sn1nam02on0051.outbound.protection.outlook.com ([104.47.36.51]:61984
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751272AbdFXLAe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 24 Jun 2017 07:00:34 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please click the link to verify your account http://www.beam.to/9687
+From: Derek Chickles <derek.chickles@cavium.com>
 
+The code that detects a failed soft reset of Octeon is comparing the wrong
+value against the reset value of the Octeon SLI_SCRATCH_1 register,
+resulting in an inability to detect a soft reset failure.  Fix it by using
+the correct value in the comparison.
+
+Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
 ---
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+ drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c | 2 +-
+ drivers/net/ethernet/cavium/liquidio/cn66xx_device.c    | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
+index 6081c31..3ab311f 100644
+--- a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
++++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
+@@ -221,7 +221,7 @@ static int cn23xx_pf_soft_reset(struct octeon_device *oct)
+ 	/* Wait for 100ms as Octeon resets. */
+ 	mdelay(100);
+ 
+-	if (octeon_read_csr64(oct, CN23XX_SLI_SCRATCH1) == 0x1234ULL) {
++	if (octeon_read_csr64(oct, CN23XX_SLI_SCRATCH1) != 0x0ULL) {
+ 		dev_err(&oct->pci_dev->dev, "OCTEON[%d]: Soft reset failed\n",
+ 			oct->octeon_id);
+ 		return 1;
+diff --git a/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c b/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c
+index b28253c..effd7ac 100644
+--- a/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c
++++ b/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c
+@@ -44,7 +44,7 @@ int lio_cn6xxx_soft_reset(struct octeon_device *oct)
+ 	/* Wait for 10ms as Octeon resets. */
+ 	mdelay(100);
+ 
+-	if (octeon_read_csr64(oct, CN6XXX_SLI_SCRATCH1) == 0x1234ULL) {
++	if (octeon_read_csr64(oct, CN6XXX_SLI_SCRATCH1) != 0x0ULL) {
+ 		dev_err(&oct->pci_dev->dev, "Soft reset failed\n");
+ 		return 1;
+ 	}
