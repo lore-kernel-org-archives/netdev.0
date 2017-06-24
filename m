@@ -1,91 +1,55 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: clean up and modularize arch dma_mapping interface V2
-Date: Sat, 24 Jun 2017 10:36:56 -0500
-Message-ID: <1498318616.31581.87.camel@kernel.crashing.org>
-References: <20170616181059.19206-1-hch@lst.de>
- <162d7932-5766-4c29-5471-07d1b699190a@oracle.com>
- <20170624071855.GD14580@lst.de>
+From: Heiko Stuebner <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>
+Subject: Re: [PATCH 01/11] net: phy: Add rockchip phy driver support
+Date: Sat, 24 Jun 2017 18:05:35 +0200
+Message-ID: <8013275.fit4cPZyaE@phil>
+References: <1498192929-7519-1-git-send-email-david.wu@rock-chips.com> <2277908.rG2NXdikOp@phil> <20170624140406.GL4875@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linux-mips@linux-mips.org, sparclinux@vger.kernel.org,
- linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org,
- linux-c6x-dev@linux-c6x.org, linux-sh@vger.kernel.org,
- linux-s390@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org,
- linux-kernel@vger.kernel.org, dri-devel@lists.freedesktop.org,
- dmaengine@vger.kernel.org, iommu@lists.linux-foundation.org,
- openrisc@lists.librecores.org, linux-hexagon@vger.kernel.org,
- linux-tegra@vger.kernel.org, xen-devel@lists.xenproject.org,
- linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org
-To: Christoph Hellwig <hch@lst.de>, tndave <tushar.n.dave@oracle.com>
-Return-path: <dri-devel-bounces@lists.freedesktop.org>
-In-Reply-To: <20170624071855.GD14580@lst.de>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: dri-devel-bounces@lists.freedesktop.org
-Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+        will.deacon-5wv7dgnIgG8@public.gmane.org, olof-nZhT3qVonbNeoWH0uzbU5w@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org,
+        arnd-r2nGTMty4D4@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org, huangtao-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
+        hwg-TNX95d0MmH7DzftRWevZcw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170624140406.GL4875-g2DYL2Zd6BY@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-T24gU2F0LCAyMDE3LTA2LTI0IGF0IDA5OjE4ICswMjAwLCBDaHJpc3RvcGggSGVsbHdpZyB3cm90
-ZToKPiBPbiBXZWQsIEp1biAyMSwgMjAxNyBhdCAxMjoyNDoyOFBNIC0wNzAwLCB0bmRhdmUgd3Jv
-dGU6Cj4gPiBUaGFua3MgZm9yIGRvaW5nIHRoaXMuCj4gPiBTbyBhcmNocyBjYW4gc3RpbGwgaGF2
-ZSB0aGVpciBvd24gZGVmaW5pdGlvbiBmb3IgZG1hX3NldF9tYXNrKCkgaWYgCj4gPiBIQVZFX0FS
-Q0hfRE1BX1NFVF9NQVNLIGlzIHk/Cj4gPiAoYW5kIHNpbWlsYXJseSBmb3IgZG1hX3NldF9jb2hl
-cmVudF9tYXNrKCkgd2hlbiAKPiA+IENPTkZJR19BUkNIX0hBU19ETUFfU0VUX0NPSEVSRU5UX01B
-U0sgaXMgeSkKPiA+IEFueSBwbGFuIHRvIGNoYW5nZSB0aGVzZT8KPiAKPiBZZXMsIHRob3NlIHNo
-b3VsZCBnbyBhd2F5LCBidXQgSSdtIG5vdCBlbnRpcmVseSBzdXJlIGhvdyB5ZXQuICBXZSdsbAo+
-IG5lZWQgc29tZSBob29rIGZvciBzd2l0Y2hpbmcgYmV0d2VlbiBhbiBJT01NVSBhbmQgYSBkaXJl
-Y3QgbWFwcGluZwo+IChJIGd1ZXNzIHRoYXQncyB3aGF0IHlvdSB3YW50IHRvIGRvIGZvciBzcGFy
-YyBhcyB3ZWxsPyksIGFuZCBJIG5lZWQKPiB0byBmaW5kIHRoZSBiZXN0IHdheSB0byBkbyB0aGF0
-LiAgUmVpbXBsZW1lbnRpbmcgYWxsIG9mIGRtYV9zZXRfbWFzawo+IGFuZCBkbWFfc2V0X2NvaGVy
-ZW50X21hc2sgaXMgc29tZXRoaW5nIHRoYXQgSSB3YW50IHRvIG1vdmUgYXdheSBmcm9tLgoKSSB0
-aGluayB3ZSBzdGlsbCBuZWVkIHRvIGRvIGl0LiBGb3IgZXhhbXBsZSB3ZSBoYXZlIGEgYnVuY2gg
-bmV3ICJmdW5reSIKY2FzZXMuCgpXZSBhbHJlYWR5IGhhdmUgdGhlIGNhc2Ugd2hlcmUgd2UgbWl4
-IHRoZSBkaXJlY3QgYW5kIGlvbW11IG1hcHBpbmdzLApvbiBzb21lIHBvd2VycGMgcGxhdGZvcm1z
-IHRoYXQgdHJhbnNsYXRlcyBpbiBhbiBpb21tdSBtYXBwaW5nIGRvd24gYXQKMCBmb3IgdGhlIDMy
-LWJpdCBzcGFjZSBhbmQgYSBkaXJlY3QgbWFwcGluZyBoaWdoIHVwIGluIHRoZSBQQ0kgYWRkcmVz
-cwpzcGFjZSAod2hpY2ggY3JvcHMgdGhlIHRvcCBiaXRzIGFuZCB0aHVzIGhpdHMgbWVtb3J5IGF0
-IDAgb253YXJkcykuCgpUaGlzIHR5cGUgb2YgaHlicmlkIGxheW91dCBpcyBuZWVkZWQgYnkgc29t
-ZSBhZGFwdGVycywgdHlwaWNhbGx5CnN0b3JhZ2UsIHdoaWNoIHdhbnQgdG8ga2VlcCB0aGUgImNv
-aGVyZW50IiBtYXNrIGF0IDMyLWJpdCBidXQgc3VwcG9ydAo2NC1iaXQgZm9yIHN0cmVhbWluZyBt
-YXNrcy4KCkFub3RoZXIgb25lIHdlIGFyZSB0cnlpbmcgdG8gZGVhbCBiZXR0ZXIgd2l0aCBhdCB0
-aGUgbW9tZW50IGlzIGRldmljZXMKd2l0aCBETUEgYWRkcmVzc2luZyBsaW1pdGF0aW9ucy4gU29t
-ZSBHUFVzIHR5cGljYWxseSAoYnV0IG5vdCBvbmx5KQpoYXZlIGxpbWl0cyB0aGF0IGdvIGFsbCBh
-Y2Nyb3NzIHRoZSBnYW11dCwgdHlwaWNhbGx5IEkndmUgc2VlbiA0MCBiaXRzLAo0NCBiaXRzIGFu
-ZCA0NyBiaXRzLi4uIEFuZCBvZiBjb3Vyc2UgdGhvc2UgYXJlICJoaWdoIHBlZm9ybWFuY2UiCmFk
-YXB0ZXJzIHNvIHdlIGRvbid0IHdhbnQgdG8gbGltaXQgdGhlbSB0byB0aGUgY29tcGFyYXRpdmVs
-eSBzbWFsbAppb21tdSBtYXBwaW5nIHdpdGggZXh0cmEgb3ZlcmhlYWQuCgpBdCB0aGUgbW9tZW50
-LCB3ZSdyZSBsb29raW5nIGF0IGEgZG1hX3NldF9tYXNrKCkgaG9vayB0aGF0IHdpbGwsIGZvcgp0
-aGVzZSBndXlzLCByZS1jb25maWd1cmUgdGhlIGlvbW11IG1hcHBpbmcgdG8gY3JlYXRlIGEgImNv
-bXByZXNzZWQiCmxpbmVhciBtYXBwaW5nIG9mIHN5c3RlbSBtZW1vcnkgKGllLCBza2lwcGluZyB0
-aGUgaG9sZXMgd2UgaGF2ZSBiZXR3ZWVuCmNoaXAgb24gUDkgZm9yIGV4YW1wbGUpIHVzaW5nIHRo
-ZSBsYXJnZXN0IHBvc3NpYmxlIGlvbW11IHBhZ2Ugc2l6ZQooMjU2TSBvbiBQOCwgMUcgb24gUDkp
-LgoKVGhpcyBpcyBtYWRlIHRyaWNreSBvZiBjb3Vyc2UgYmVjYXVzZSBzZXZlcmFsIGRldmljZXMg
-Y2FuIHBvdGVudGlhbGx5CnNoYXJlIGEgRE1BIGRvbWFpbiBiYXNlZCBvbiB2YXJpb3VzIHBsYXRm
-b3JtIHNwZWNpZmljIHJlYXNvbnMuIEFuZCBvZgpjb3Vyc2Ugd2UgaGF2ZSBubyB3YXkgdG8gZmln
-dXJlIG91dCB3aGF0J3MgdGhlICJjb21tb24gZGVub21pbmF0b3IiIG9mCmFsbCB0aG9zZSBkZXZp
-Y2VzIGJlZm9yZSB0aGV5IHN0YXJ0IGRvaW5nIERNQS4gQSBkcml2ZXIgY2FuIHN0YXJ0CmJlZm9y
-ZSB0aGUgbmVpZ2hib3VyIGlzIHByb2JlZCBhbmQgYSBkcml2ZXIgY2FuIHN0YXJ0IGRvaW5nIERN
-QXMgdXNpbmcKdGhlIHN0YW5kYXJkIDMyLWJpdCBtYXBwaW5nIHdpdGhvdXQgZG9pbmcgZG1hX3Nl
-dF9tYXNrKCkuCgpTbyBoZXVyaXN0aWNzIC4uLiB1Z2guIEJldHRlciBpZGVhcyB3ZWxjb21lIDot
-KSBBbGwgdGhhdCB0byBzYXkgdGhhdCB3ZQphcmUgZmFyIGZyb20gYmVpbmcgYWJsZSB0byBnZXQg
-cmlkIG9mIGRtYV9zZXRfbWFzaygpIGN1c3RvbQppbXBsZW1lbnRhdGlvbnMgKGFuZCBjb2hlcmVu
-dCBtYXNrIHRvbykuCgpJIHdhcyB0ZW1wdGVkIGF0IHNvbWUgcG9pbnQgcmV0aXJpbmcgdGhlIDMy
-LWJpdCBpb21tdSBtYXBwaW5nCmNvbXBsZXRlbHksIGp1c3QgZG9pbmcgdGhhdCAibGluZWFyIiB0
-aGluZyBJIG1lbnRpb25lZCBhYm92ZSBhbmQKc3dpb3RsYiBmb3IgdGhlIHJlc3QsIGFsb25nIHdp
-dGggaW50cm9kdWNpbmcgWk9ORV9ETUEzMiBvbiBwb3dlcnBjCih3aXRoIHRoZSByZWFsIDY0LWJp
-dCBieXBhc3Mgc3RpbGwgYXJvdW5kIGZvciBub24tbGltaXRlZCBkZXZpY2VzIGJ1dAp0aGF0J3Mg
-dGhlbiBqdXN0IGV4dHJhIHNwZWVkIGJ5IGJ5cGFzc2luZyB0aGUgaW9tbXUgeGxhdGUgJiBjYWNo
-ZSkuCgpCdXQgSSB3b3JyeSBvZiB0aGUgaW1wYWN0IG9uIHRob3NlIHNpbGx5IGFkYXB0ZXJzIHRo
-YXQgc2V0IHRoZSBjb2hlcmVudAptYXNrIHRvIDMyLWJpdHMgdG8ga2VlcCB0aGVpciBtaWNyb2Nv
-ZGUgJiBkZXNjcmlwdG9yIHJpbmcgZG93biBpbiAzMi0KYml0IHNwYWNlLiBJJ20gbm90IHN1cmUg
-aG93IHdlbGwgWk9ORV9ETUEzMiBiZWhhdmVzIGluIHRob3NlIGNhc2VzLgoKQ2hlZXJzLApCZW4u
-CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkcmktZGV2
-ZWwgbWFpbGluZyBsaXN0CmRyaS1kZXZlbEBsaXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0cHM6Ly9s
-aXN0cy5mcmVlZGVza3RvcC5vcmcvbWFpbG1hbi9saXN0aW5mby9kcmktZGV2ZWwK
+Am Samstag, 24. Juni 2017, 16:04:06 CEST schrieb Andrew Lunn:
+> > hmm, we do have quite a number of non-net phys in the phy subsystem
+> > (DP, PCIe, ...) and given that the above would be CONFIG_ROCKCHIP_PHY
+> > in a global sense, sounds like it could make things confusing.
+> > 
+> > So some addition sounds reasonable ... ROCKCHIP_ETH_PHY or so?
+> 
+> I follow you reasoning, but generic phy is the new kid on the
+> block. It is well established that Ethernet PHYs are called
+> <MANUFACTURER>_PHY.
+
+Ok, then without further bikeshedding, let's just go with your
+naming then (ROCKCHIP_PHY) :-) .
+
+
+Heiko
+
+> If you do want to consider generic phy, the logical name would be
+> ROCKCHIP_PHY_PHY, since generic phy postfixes with _SATA, _USB, _PCIE,
+> etc. But that does leave an issues when we have an Ethernet PHY which
+> needs a generic PHY. In some sense, SERDES could be considered as
+> something supported by a generic PHY...
+> 
+> 	Andrew
+> 
+> 
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
