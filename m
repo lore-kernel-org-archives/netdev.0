@@ -1,37 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] tcp: reset sk_rx_dst in tcp_disconnect()
-Date: Sun, 25 Jun 2017 12:23:35 -0400 (EDT)
-Message-ID: <20170625.122335.2262782871024243094.davem@davemloft.net>
-References: <1498373430-24807-1-git-send-email-xiyou.wangcong@gmail.com>
+From: <agar2000@hotmail.com>
+Subject: (unknown)
+Date: Sun, 25 Jun 2017 16:49:37 -0000
+Message-ID: <149840937794.8929.6250009148918968113@telenet.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, avagin@gmail.com, kaiwen.xu@hulu.com
-To: xiyou.wangcong@gmail.com
+Content-Type: application/zip; name="EMAIL_59044256431817_netdev.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40854 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751142AbdFYQXh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2017 12:23:37 -0400
-In-Reply-To: <1498373430-24807-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from 39.172-224-87.telenet.ru ([87.224.172.39]:59053 "HELO
+        telenet.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+        id S1751157AbdFYQtk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 25 Jun 2017 12:49:40 -0400
+Content-Disposition: attachment
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Sat, 24 Jun 2017 23:50:30 -0700
-
-> We have to reset the sk->sk_rx_dst when we disconnect a TCP
-> connection, because otherwise when we re-connect it this
-> dst reference is simply overridden in tcp_finish_connect().
-> 
-> This fixes a dst leak which leads to a loopback dev refcnt
-> leak. It is a long-standing bug, Kevin reported a very similar
-> (if not same) bug before. Thanks to Andrei for providing such
-> a reliable reproducer which greatly narrows down the problem.
-> 
-> Fixes: 41063e9dd119 ("ipv4: Early TCP socket demux.")
-> Reported-by: Andrei Vagin <avagin@gmail.com>
-> Reported-by: Kevin Xu <kaiwen.xu@hulu.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-
-Applied and queued up for -stable, thanks!
+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
