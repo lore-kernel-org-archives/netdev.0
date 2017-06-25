@@ -1,32 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: fix error code in
- mv88e6390_serdes_power()
-Date: Sun, 25 Jun 2017 11:40:46 -0400 (EDT)
-Message-ID: <20170625.114046.640050293672272051.davem@davemloft.net>
-References: <20170623151703.stzh2ur3wizbylbi@mwanda>
+Subject: Re: [PATCH net-next 1/2] net/iucv: improve endianness handling
+Date: Sun, 25 Jun 2017 11:43:11 -0400 (EDT)
+Message-ID: <20170625.114311.1334785519251494698.davem@davemloft.net>
+References: <20170623173228.70128-1-jwi@linux.vnet.ibm.com>
+        <20170623173228.70128-2-jwi@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+        raspl@linux.vnet.ibm.com, ubraun@linux.vnet.ibm.com
+To: jwi@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40292 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:40378 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751020AbdFYPks (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2017 11:40:48 -0400
-In-Reply-To: <20170623151703.stzh2ur3wizbylbi@mwanda>
+        with ESMTP id S1751020AbdFYPnN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2017 11:43:13 -0400
+In-Reply-To: <20170623173228.70128-2-jwi@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Fri, 23 Jun 2017 18:17:04 +0300
+From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+Date: Fri, 23 Jun 2017 19:32:27 +0200
 
-> We're accidentally returning the wrong variable.  "cmode" is
-> uninitialized at this point so it causes a static checker warning.
+> From: Hans Wippel <hwippel@linux.vnet.ibm.com>
 > 
-> Fixes: 6335e9f2446b ("net: dsa: mv88e6xxx: mv88e6390X SERDES support")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Use proper endianness conversion for an skb protocol assignment. Given
+> that IUCV is only available on big endian systems (s390), this simply
+> avoids an endianness warning reported by sparse.
+> 
+> Signed-off-by: Hans Wippel <hwippel@linux.vnet.ibm.com>
+> Reviewed-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+> Reviewed-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
+> Signed-off-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
 
-Applied, thanks.
+Applied.
