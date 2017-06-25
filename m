@@ -1,31 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull-request: wireless-drivers-next 2017-06-25
-Date: Sun, 25 Jun 2017 14:46:04 -0400 (EDT)
-Message-ID: <20170625.144604.1956287462869725311.davem@davemloft.net>
-References: <87k240rma3.fsf@kamboji.qca.qualcomm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net: macb: add fixed-link node support
+Date: Sun, 25 Jun 2017 15:22:13 -0400 (EDT)
+Message-ID: <20170625.152213.861250473268873472.davem@davemloft.net>
+References: <20170623145410.581-1-m.grzeschik@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87k240rma3.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nicolas.ferre@microchip.com,
+        kernel@pengutronix.de
+To: m.grzeschik@pengutronix.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42784 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751136AbdFYTWQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2017 15:22:16 -0400
+In-Reply-To: <20170623145410.581-1-m.grzeschik@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Date: Sun, 25 Jun 2017 20:48:36 +0300
+From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+Date: Fri, 23 Jun 2017 16:54:10 +0200
 
-> yet another pull request to net-next for 4.13, more info in the signed
-> tag below. While doing a test merge on net-next I noticed git doing
-> quite a lot of auto-merging, maybe because of mac80211 API changes, but
-> luckily no conflicts. But please do let me know if you have any
-> problems.
+> In case the MACB is directly connected to a
+> non-mdio PHY/device, it should be possible to provide
+> a fixed link configuration in the DT.
+> 
+> Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
 
-Pulled, thanks Kalle.
-
-> Patchwork shows me that I have over 100 patches still pending for review
-> so quite a lot still coming towards you some time next week.
-
-Have fun with that :)
+Applied, thanks.
