@@ -1,59 +1,71 @@
-From: Gal Pressman <galp@mellanox.com>
-Subject: Re: [RFC PATCH net-next 1/3] ethtool: Add link down reason callback
-Date: Sun, 25 Jun 2017 14:59:24 +0300
-Message-ID: <f216ad74-772b-0f6c-1303-ecb0c12afc96@mellanox.com>
-References: <1498050286-17141-1-git-send-email-galp@mellanox.com>
- <1498050286-17141-2-git-send-email-galp@mellanox.com>
- <20170621135809.GC27585@lunn.ch>
- <8e7ffead-350e-bd7f-c7ea-fe057969d0d3@mellanox.com>
- <20170624190435.GN4875@lunn.ch>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH] net: ethernet: stmmac: properly set PS bit in MII
+ configurations during reset
+Date: Sun, 25 Jun 2017 14:32:34 +0200
+Message-ID: <20170625143234.358a8ae8@windsurf.home>
+References: <1493286329-24448-1-git-send-email-thomas.petazzoni@free-electrons.com>
+        <deea272a-f0a9-ad0b-4ad6-387723938314@st.com>
+        <20170503143032.GA22106@Red>
+        <49297ed2-84dc-3e9b-8f40-af915476a091@st.com>
+        <20170508211230.58aeead9@free-electrons.com>
+        <e8151650-aa51-6713-f10c-b3663763ff78@st.com>
+        <20170510091817.58f4e843@free-electrons.com>
+        <20170515162734.187845dc@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        "John W. Linville" <linville@tuxdriver.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        David Decotigny <decot@googlers.com>, kernel-team@fb.com
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0045.outbound.protection.outlook.com ([104.47.1.45]:42713
-        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750975AbdFYL7e (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 25 Jun 2017 07:59:34 -0400
-In-Reply-To: <20170624190435.GN4875@lunn.ch>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Corentin Labbe <clabbe.montjoie@gmail.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        <netdev@vger.kernel.org>, <stable@vger.kernel.org>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20170515162734.187845dc@free-electrons.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hello Giuseppe,
 
-> On Thu, Jun 22, 2017 at 11:09:04AM +0300, Gal Pressman wrote:
->>>> +enum {
->>>> +	ETHTOOL_LINK_VENDOR_SPECIFIC = -1, /* Vendor specific issue provided in vendor_reason */
->>>> +	ETHTOOL_LINK_NO_ISSUE, /* No issue observed with link */
->>>> +	ETHTOOL_LINK_REASON_UNKNOWN, /* Unknown reason */
->>> I think OTHER would be better that UNKNOWN. 
->> Fine with me.
->>>> +	ETHTOOL_LINK_NETDEV_CARRIER_DOWN, /* Netdev carrier is down */
->>>> +	ETHTOOL_LINK_ADMIN_DOWN, /* Admin down */
->>> These two are interesting. We have that information already. Why do we
->>> want it again?
->> My goal is to gather all link issue reasons in one place.
-> I'm actually wondering if this is a user space problem. Nearly
-> everything you list is already available. Some you get from ip link,
-> others from ethtool or ethtool --module-info, including I2C bus
-> error, since you would expect EIO or ETIMEOUT.
->
-> If you were to write a user space tool using the information what is
-> currently available, what would be missing?
->
-> 	  Andrew
+On Mon, 15 May 2017 16:27:34 +0200, Thomas Petazzoni wrote:
 
-I think most of the reasons in this list would be missing.
-Auto negotiation failure, link training failure, remote fault indication, bad signal integrity, cable protocol mismatch, cable unplugged,
-over temperature, power budget exceeded..
+> On Wed, 10 May 2017 09:18:17 +0200, Thomas Petazzoni wrote:
+> 
+> > On Wed, 10 May 2017 09:03:12 +0200, Giuseppe CAVALLARO wrote:
+> >   
+> > > > Please, read again my patch and the description of the problem that I
+> > > > have sent. But basically, any solution that does not allow to set the
+> > > > PS bit between asserting the DMA reset bit and polling for it to clear
+> > > > will not work for MII PHYs.      
+> > > 
+> > > yes your point was clear to me, I was just wondering if we could find an 
+> > > easier way
+> > > to solve it w/o changing the API, adding  the set_ps and propagating the 
+> > > "interface"
+> > > inside the DMA reset.
+> > > 
+> > > Maybe this could be fixed in the glue-logic in some way. Let me know 
+> > > what do you think.    
+> > 
+> > Well, it's more up to you to tell me how you would like this be solved.
+> > We figured out what the problem was, but I don't know well enough the
+> > architecture of the driver to decide how the solution to this problem
+> > should be designed. I made an initial simple proposal to show what is
+> > needed, but I'm definitely open to suggestions.  
+> 
+> Do you have any suggestion on how to move forward with this?
 
-Keep in mind that this is just an initial list, not to mention the vendor reasons which are not part of any existing API.
-I don't see how a user space tool that expects ETIMEOUT/EIO is better than this suggestion.
+Another kind ping on this topic. I really would like to have the
+SPEAr600 network support work out of the box in mainline, which
+currently isn't the case with an MII PHY.
+
+I posted a patch that fixes the problem, see
+https://patchwork.ozlabs.org/patch/755926/, but the feedback I got so
+far does not give any direction on how to rework the patch to make it
+acceptable. Would it be possible to get some more feedback?
+
+Thanks a lot,
+
+Thomas
+-- 
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
