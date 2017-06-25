@@ -1,74 +1,59 @@
-From: Stefan Assmann <sassmann@kpanic.de>
-Subject: Re: [PATCH] i40e: handle setting administratively set MAC address
- back to zero
-Date: Sun, 25 Jun 2017 13:10:53 +0200
-Message-ID: <da4bf893-ae23-bd1d-c23f-45554e5964dd@kpanic.de>
-References: <20170623074624.32405-1-sassmann@kpanic.de>
- <20170625062108.GQ1248@mtr-leonro.local>
+From: Gal Pressman <galp@mellanox.com>
+Subject: Re: [RFC PATCH net-next 1/3] ethtool: Add link down reason callback
+Date: Sun, 25 Jun 2017 14:59:24 +0300
+Message-ID: <f216ad74-772b-0f6c-1303-ecb0c12afc96@mellanox.com>
+References: <1498050286-17141-1-git-send-email-galp@mellanox.com>
+ <1498050286-17141-2-git-send-email-galp@mellanox.com>
+ <20170621135809.GC27585@lunn.ch>
+ <8e7ffead-350e-bd7f-c7ea-fe057969d0d3@mellanox.com>
+ <20170624190435.GN4875@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-        davem@davemloft.net, jeffrey.t.kirsher@intel.com
-To: Leon Romanovsky <leon@kernel.org>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        "John W. Linville" <linville@tuxdriver.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        David Decotigny <decot@googlers.com>, kernel-team@fb.com
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.133]:62865 "EHLO
-        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751050AbdFYLLQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2017 07:11:16 -0400
-In-Reply-To: <20170625062108.GQ1248@mtr-leonro.local>
-Content-Language: de-DE
+Received: from mail-ve1eur01on0045.outbound.protection.outlook.com ([104.47.1.45]:42713
+        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750975AbdFYL7e (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 25 Jun 2017 07:59:34 -0400
+In-Reply-To: <20170624190435.GN4875@lunn.ch>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 25.06.2017 08:21, Leon Romanovsky wrote:
-> On Fri, Jun 23, 2017 at 09:46:24AM +0200, Stefan Assmann wrote:
->> When an administratively set MAC was previously set and should now be
->> switched back to 00:00:00:00:00:00 the pf_set_mac flag did not get
->> toggled back to false.
->> As a result VFs were still treated as if an administratively set MAC was
->> present.
->>
->> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
->> ---
->>  drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 12 ++++++++++--
->>  1 file changed, 10 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
->> index ecbe40e..af0ff61 100644
->> --- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
->> +++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
->> @@ -2764,7 +2764,6 @@ int i40e_ndo_set_vf_mac(struct net_device *netdev, int vf_id, u8 *mac)
->>
->>  	spin_unlock_bh(&vsi->mac_filter_hash_lock);
->>
->> -	dev_info(&pf->pdev->dev, "Setting MAC %pM on VF %d\n", mac, vf_id);
->>  	/* program mac filter */
->>  	if (i40e_sync_vsi_filters(vsi)) {
->>  		dev_err(&pf->pdev->dev, "Unable to program ucast filters\n");
->> @@ -2772,7 +2771,16 @@ int i40e_ndo_set_vf_mac(struct net_device *netdev, int vf_id, u8 *mac)
->>  		goto error_param;
->>  	}
->>  	ether_addr_copy(vf->default_lan_addr.addr, mac);
->> -	vf->pf_set_mac = true;
->> +
->> +	if (is_zero_ether_addr(mac)) {
->> +		vf->pf_set_mac = false;
->> +		dev_info(&pf->pdev->dev, "Removing MAC on VF %d\n", vf_id);
->> +	} else {
->> +		vf->pf_set_mac = true;
->> +		dev_info(&pf->pdev->dev, "Setting MAC %pM on VF %d\n",
->> +			 mac, vf_id);
->> +	}
->> +
-> 
-> It can be removed to be one line change, because I'm not sure that
-> dev_info prints are necessary here.
-> +	vf->pf_set_mac = is_zero_ether_addr(mac);
-> 
-> Thanks
 
-This matches ixgbe behavior, so I'd prefer to keep it this way.
-Thanks!
+> On Thu, Jun 22, 2017 at 11:09:04AM +0300, Gal Pressman wrote:
+>>>> +enum {
+>>>> +	ETHTOOL_LINK_VENDOR_SPECIFIC = -1, /* Vendor specific issue provided in vendor_reason */
+>>>> +	ETHTOOL_LINK_NO_ISSUE, /* No issue observed with link */
+>>>> +	ETHTOOL_LINK_REASON_UNKNOWN, /* Unknown reason */
+>>> I think OTHER would be better that UNKNOWN. 
+>> Fine with me.
+>>>> +	ETHTOOL_LINK_NETDEV_CARRIER_DOWN, /* Netdev carrier is down */
+>>>> +	ETHTOOL_LINK_ADMIN_DOWN, /* Admin down */
+>>> These two are interesting. We have that information already. Why do we
+>>> want it again?
+>> My goal is to gather all link issue reasons in one place.
+> I'm actually wondering if this is a user space problem. Nearly
+> everything you list is already available. Some you get from ip link,
+> others from ethtool or ethtool --module-info, including I2C bus
+> error, since you would expect EIO or ETIMEOUT.
+>
+> If you were to write a user space tool using the information what is
+> currently available, what would be missing?
+>
+> 	  Andrew
 
-  Stefan
+I think most of the reasons in this list would be missing.
+Auto negotiation failure, link training failure, remote fault indication, bad signal integrity, cable protocol mismatch, cable unplugged,
+over temperature, power budget exceeded..
+
+Keep in mind that this is just an initial list, not to mention the vendor reasons which are not part of any existing API.
+I don't see how a user space tool that expects ETIMEOUT/EIO is better than this suggestion.
