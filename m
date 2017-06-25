@@ -1,50 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: add netlink_ext_ack support to
- rtnl_link_ops
-Date: Sun, 25 Jun 2017 11:50:12 -0400 (EDT)
-Message-ID: <20170625.115012.1229577774043704298.davem@davemloft.net>
-References: <01256ebba091f2108ebeff43e61305bb533067d4.1498303258.git.mschiffer@universe-factory.net>
+From: Certitude Loan Firm <rajesh.ard@brri.gov.bd>
+Subject: Get Fast certified loan
+Date: Sun, 25 Jun 2017 21:50:16 +0600 (BDT)
+Message-ID: <740634718.48223.1498405816567.JavaMail.zimbra@brri.gov.bd>
+References: <1670843256.48222.1498405802403.JavaMail.zimbra@brri.gov.bd>
+Reply-To: " certitudeloansservices@outlook.com" <rajesh.ard@brri.gov.bd>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: dledford@redhat.com, sean.hefty@intel.com,
-        hal.rosenstock@gmail.com, j.vosburgh@gmail.com, vfalico@gmail.com,
-        andy@greyhouse.net, dmitry.tarnyagin@lockless.no,
-        wg@grandegger.com, mkl@pengutronix.de, pablo@netfilter.org,
-        laforge@gnumonks.org, paulus@samba.org, jiri@resnulli.us,
-        dsa@cumulusnetworks.com, shm@cumulusnetworks.com,
-        stephen@networkplumber.org, arvid.brodin@alten.se,
-        alex.aring@gmail.com, stefan@osg.samsung.com, kuznet@ms2.inr.ac.ru,
-        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-        steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-        johannes@sipsolutions.net, linux-rdma@vger.kernel.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-can@vger.kernel.org, osmocom-net-gprs@lists.osmocom.org,
-        linux-ppp@vger.kernel.org, linux-wpan@vger.kernel.org
-To: mschiffer@universe-factory.net
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40522 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751012AbdFYPuS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2017 11:50:18 -0400
-In-Reply-To: <01256ebba091f2108ebeff43e61305bb533067d4.1498303258.git.mschiffer@universe-factory.net>
+Received: from zimbra.bcc.gov.bd ([114.130.54.201]:35202 "EHLO
+        zimbra.bcc.gov.bd" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751020AbdFYQAj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2017 12:00:39 -0400
+In-Reply-To: <1670843256.48222.1498405802403.JavaMail.zimbra@brri.gov.bd>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthias Schiffer <mschiffer@universe-factory.net>
-Date: Sat, 24 Jun 2017 13:35:17 +0200
+Hello Mr. / Mrs,
 
-> The following functions are extended with a netlink_ext_ack argument to
-> allow extended error reporting:
-> 
-> * validate
-> * newlink
-> * changelink
-> * slave_validate
-> * slave_changelink
-> 
-> Signed-off-by: Matthias Schiffer <mschiffer@universe-factory.net>
+Certitude loan firm is a charity loan firm organize to help people in need of financial help.
+We give loans from the range of $1,000 - $70,000,000. Our loan is well insured and maximum
+security is our priority, Our interested rate is 2%.
 
-Like David Ahern, I think you should split this patch up.
+We offer the following types of loans to individuals-
 
-Thanks.
+* Commercial loans.
+* Personal Loans.
+* Business Loans.
+* And much more:
+
+Interested client should please fill our form below and send it to : certitudeloansservices@outlook.com
+
+1. Full name:
+2. Loan amount needed:
+3. Loan duration:
+4. Phone:
+5. Sex:
+6. Age:
+7. Occupation:
+
+
+Certitude Loan Firm
+RAJESH TAYLOR,
+Loan Account Executive
