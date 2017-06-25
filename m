@@ -1,95 +1,101 @@
 From: Leon Romanovsky <leon@kernel.org>
-Subject: Re: [PATCH net-next] liquidio: fix bug in soft reset failure
- detection
-Date: Sun, 25 Jun 2017 09:11:37 +0300
-Message-ID: <20170625061137.GP1248@mtr-leonro.local>
-References: <20170624110020.GA1247@felix-thinkpad.cavium.com>
+Subject: Re: [PATCH] i40e: handle setting administratively set MAC address
+ back to zero
+Date: Sun, 25 Jun 2017 09:21:08 +0300
+Message-ID: <20170625062108.GQ1248@mtr-leonro.local>
+References: <20170623074624.32405-1-sassmann@kpanic.de>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="1WN/MJ7JJGqVzwIW"
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        raghu.vatsavayi@cavium.com, derek.chickles@cavium.com,
-        satananda.burla@cavium.com
-To: Felix Manlunas <felix.manlunas@cavium.com>
+        protocol="application/pgp-signature"; boundary="zj18g9eElA7rRQh+"
+Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+        davem@davemloft.net, jeffrey.t.kirsher@intel.com
+To: Stefan Assmann <sassmann@kpanic.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.99]:40030 "EHLO mail.kernel.org"
+Received: from mail.kernel.org ([198.145.29.99]:41052 "EHLO mail.kernel.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751185AbdFYGLl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 25 Jun 2017 02:11:41 -0400
+        id S1751184AbdFYGVM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 25 Jun 2017 02:21:12 -0400
 Content-Disposition: inline
-In-Reply-To: <20170624110020.GA1247@felix-thinkpad.cavium.com>
+In-Reply-To: <20170623074624.32405-1-sassmann@kpanic.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---1WN/MJ7JJGqVzwIW
+--zj18g9eElA7rRQh+
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-On Sat, Jun 24, 2017 at 04:00:21AM -0700, Felix Manlunas wrote:
-> From: Derek Chickles <derek.chickles@cavium.com>
+On Fri, Jun 23, 2017 at 09:46:24AM +0200, Stefan Assmann wrote:
+> When an administratively set MAC was previously set and should now be
+> switched back to 00:00:00:00:00:00 the pf_set_mac flag did not get
+> toggled back to false.
+> As a result VFs were still treated as if an administratively set MAC was
+> present.
 >
-> The code that detects a failed soft reset of Octeon is comparing the wrong
-> value against the reset value of the Octeon SLI_SCRATCH_1 register,
-> resulting in an inability to detect a soft reset failure.  Fix it by using
-> the correct value in the comparison.
->
-> Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
-> Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
-> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
 > ---
->  drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c | 2 +-
->  drivers/net/ethernet/cavium/liquidio/cn66xx_device.c    | 2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
+>  drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 12 ++++++++++--
+>  1 file changed, 10 insertions(+), 2 deletions(-)
 >
-> diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
-> index 6081c31..3ab311f 100644
-> --- a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
-> +++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
-> @@ -221,7 +221,7 @@ static int cn23xx_pf_soft_reset(struct octeon_device *oct)
->  	/* Wait for 100ms as Octeon resets. */
->  	mdelay(100);
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+> index ecbe40e..af0ff61 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+> @@ -2764,7 +2764,6 @@ int i40e_ndo_set_vf_mac(struct net_device *netdev, int vf_id, u8 *mac)
 >
-> -	if (octeon_read_csr64(oct, CN23XX_SLI_SCRATCH1) == 0x1234ULL) {
-> +	if (octeon_read_csr64(oct, CN23XX_SLI_SCRATCH1) != 0x0ULL) {
-
-Zero is always zero, please drop this 0x0ULL and add fixes line to the commit message.
-
->  		dev_err(&oct->pci_dev->dev, "OCTEON[%d]: Soft reset failed\n",
->  			oct->octeon_id);
->  		return 1;
-> diff --git a/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c b/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c
-> index b28253c..effd7ac 100644
-> --- a/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c
-> +++ b/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c
-> @@ -44,7 +44,7 @@ int lio_cn6xxx_soft_reset(struct octeon_device *oct)
->  	/* Wait for 10ms as Octeon resets. */
->  	mdelay(100);
+>  	spin_unlock_bh(&vsi->mac_filter_hash_lock);
 >
-> -	if (octeon_read_csr64(oct, CN6XXX_SLI_SCRATCH1) == 0x1234ULL) {
-> +	if (octeon_read_csr64(oct, CN6XXX_SLI_SCRATCH1) != 0x0ULL) {
->  		dev_err(&oct->pci_dev->dev, "Soft reset failed\n");
->  		return 1;
+> -	dev_info(&pf->pdev->dev, "Setting MAC %pM on VF %d\n", mac, vf_id);
+>  	/* program mac filter */
+>  	if (i40e_sync_vsi_filters(vsi)) {
+>  		dev_err(&pf->pdev->dev, "Unable to program ucast filters\n");
+> @@ -2772,7 +2771,16 @@ int i40e_ndo_set_vf_mac(struct net_device *netdev, int vf_id, u8 *mac)
+>  		goto error_param;
 >  	}
+>  	ether_addr_copy(vf->default_lan_addr.addr, mac);
+> -	vf->pf_set_mac = true;
+> +
+> +	if (is_zero_ether_addr(mac)) {
+> +		vf->pf_set_mac = false;
+> +		dev_info(&pf->pdev->dev, "Removing MAC on VF %d\n", vf_id);
+> +	} else {
+> +		vf->pf_set_mac = true;
+> +		dev_info(&pf->pdev->dev, "Setting MAC %pM on VF %d\n",
+> +			 mac, vf_id);
+> +	}
+> +
 
---1WN/MJ7JJGqVzwIW
+It can be removed to be one line change, because I'm not sure that
+dev_info prints are necessary here.
++	vf->pf_set_mac = is_zero_ether_addr(mac);
+
+Thanks
+
+>  	/* Force the VF driver stop so it has to reload with new MAC address */
+>  	i40e_vc_disable_vf(pf, vf);
+>  	dev_info(&pf->pdev->dev, "Reload the VF driver to make this change effective.\n");
+> --
+> 2.9.4
+>
+
+--zj18g9eElA7rRQh+
 Content-Type: application/pgp-signature; name="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAllPVBkACgkQ5GN7iDZy
-WKfF2xAA02Mxq5f5SDXsuFQwyreWB52DmZ96/7yFzcaAHhttSybdDgqkeJnTYPYB
-c8Vjv8XRcfCBYX5828FrwYKYYmeQsO02pNzkfiM0DeM8w6MfYzwc577nC9YZ8MsZ
-CFfp6IUnWfeKCgY8itdLvrQBYZIfnYXwO/y2WtUw1jKN/AnzCtoM1CU98qkvbjnv
-oAJDwxHWldIovYegyWAiQDAG8dB30HAYmFMqFCYs5ssXvONRGeBIxeeJucRv8KaI
-DQdgGXlSlzffk5FzQMlkdQkFd/+bipOlqjW9+qYa2s4Sfzek1BzmrFCo60kdIJvR
-p5zIToUP7DeMPotin0Y68b4Z2Hl26OwEZcuF5ByP4EUwDofRG+FOCMBqgELNP4SK
-xasNP1jANuEGkJJmESkbokz5HvT2xHdqrpK8QbAxdm+HYPkYpCTgBFupl7256L4l
-WWom9ch3ECf5eKKr/9rsX50UhOXs4aQWhmWRzda2EcguRxUIcGX3gT20r+8JuIhG
-Hh73H+T7Agg6F0L/5mPKFMuPsLj1wMFVK9hJRI7wiEvJTkigtRjBcvhT7k2dTplM
-8QuJV1LEl2YR7XQoMA2jW5Q7QgbsVbLXzBlpCrNSep46XSuyHBG8bAour6hvFd0Z
-dewy9tJgSfz/xzawtaDyJb2gjmE+JTIOF5EvyEMTkKmw/orOUII=
-=pvyf
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAllPVlQACgkQ5GN7iDZy
+WKcZaw/7BvuZ0Qze88uKQ1OpSdpeOi7Opepxu48cLkrXR21CvtOqHaxJbXBHJW8k
+QvoaIhMhvMcwAM/j7fOlS4msB6km8nd9ZEhdCqOceLAkIKN7/8b5ItwBy5fc6ym4
+fsIiG6uxRGCaChzFcFYHwbeEiU1IWR6kiBAjjdIY4S/RhuDAQ4umuqHxwkr6NHFR
+7QgRfvBzAIzG3dK2iFgTLg31fQ4SiSIePx9hFEcDHPxXLhVn5cOo4WX4Kz7Yqu4Z
+0hu5u43KQYxSZztJ8xDpKWqdyNfPqDU0vi9Xw3eB0LKj2vxC2z4nZEfLmtt95Gek
+XYALJTmVEfUwVsFLHqhsKxDLf5Nq4zKRA3tiGjyuXsNprWJEAJvQvFLkXh5lGT18
+/oyE4tV3rIbekSixqNhoRJ7o4koRkBWiQcXtofHTcwWa3vr1Ddxn99nzptbKsVRf
+XD8v9M92X1kp6wsEU6tyz0Dy3gd/yimshfTNzIV4BIKrBZsoxEUjam1c+DD4w9oI
+nYced4QvRLRhYN124FgnnM0p5QZU2vNl60fbcEbZVEa0wgLuXwOIxmA2irJLcPwC
+ogU1u9VXUlxTViU+kqqevVXjonkSzQCO6abdX/S6osOVQPXkQG9fGKBkAfFRIh0D
+itWq65S4VlCJoQSu/VnyhBxPzh6wPQC88PNR+dqEk1RSfMVDoM4=
+=JTM0
 -----END PGP SIGNATURE-----
 
---1WN/MJ7JJGqVzwIW--
+--zj18g9eElA7rRQh+--
