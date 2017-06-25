@@ -1,50 +1,61 @@
-From: "IT" <jwatson@phrehab.com>
-Subject: Email Update
-Date: Sun, 25 Jun 2017 20:52:33 +0100
-Message-ID: <20170625195234.ED157D407B635@mail1.phrehab.com>
+From: Wei Wang <weiwan@google.com>
+Subject: Re: [PATCH v3 net] net: ipv6: reset daddr and dport in sk if
+ connect() fails
+Date: Sun, 25 Jun 2017 13:47:53 -0700
+Message-ID: <CAEA6p_AScKpmjBCKK4Eg=UNtAde2oti9ymXGcnkCW4fvmC9KKg@mail.gmail.com>
+References: <20170623222537.130493-1-tracywwnj@gmail.com> <20170625.114651.1973887687669104262.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
-To: netdev@vger.kernel.org
+Cc: =?UTF-8?B?546L6JSa?= <tracywwnj@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>,
+        Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f101.google.com ([209.85.218.101]:36079 "EHLO
-        mail-oi0-f101.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751334AbdFYUPb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2017 16:15:31 -0400
-Received: by mail-oi0-f101.google.com with SMTP id e191so408189oih.3
-        for <netdev@vger.kernel.org>; Sun, 25 Jun 2017 13:15:31 -0700 (PDT)
-Received: from mail1.phrehab.com ([52.168.178.138])
-        by smtp-relay.gmail.com with ESMTPS id h188sm1616603qke.3.2017.06.25.13.15.30
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Sun, 25 Jun 2017 13:15:30 -0700 (PDT)
-Received: from localhost (mail1 [127.0.0.1])
-        by mail1.phrehab.com (Postfix) with ESMTP id 4AFD0D4092768
-        for <netdev@vger.kernel.org>; Sun, 25 Jun 2017 15:15:30 -0500 (CDT)
-Received: from mail1.phrehab.com ([127.0.0.1])
-        by localhost (mail1.phrehab.com [127.0.0.1]) (amavisd-new, port 10032)
-        with ESMTP id lGNc5YRaqBmf for <netdev@vger.kernel.org>;
-        Sun, 25 Jun 2017 15:15:29 -0500 (CDT)
-Received: from localhost (mail1 [127.0.0.1])
-        by mail1.phrehab.com (Postfix) with ESMTP id 2AA25D4073E24
-        for <netdev@vger.kernel.org>; Sun, 25 Jun 2017 15:01:12 -0500 (CDT)
-Received: from mail1.phrehab.com ([127.0.0.1])
-        by localhost (mail1.phrehab.com [127.0.0.1]) (amavisd-new, port 10026)
-        with ESMTP id cXl20v26Vp_p for <netdev@vger.kernel.org>;
-        Sun, 25 Jun 2017 15:01:12 -0500 (CDT)
-Received: from [192.168.10.102] (unknown [169.159.88.203])
-        by mail1.phrehab.com (Postfix) with ESMTPSA id ED157D407B635
-        for <netdev@vger.kernel.org>; Sun, 25 Jun 2017 14:52:34 -0500 (CDT)
-Content-Description: Mail message body
+Received: from mail-vk0-f47.google.com ([209.85.213.47]:36095 "EHLO
+        mail-vk0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751343AbdFYUrz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2017 16:47:55 -0400
+Received: by mail-vk0-f47.google.com with SMTP id y70so32057731vky.3
+        for <netdev@vger.kernel.org>; Sun, 25 Jun 2017 13:47:54 -0700 (PDT)
+In-Reply-To: <20170625.114651.1973887687669104262.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Recently, we have detect some unusual activity on your account and as a res=
-ult, all email users are urged to update their email account within 24 hour=
-s of receiving this e-mail, please click the link  http://www.beam.to/9687 =
- to confirm that your email account is up to date with the institution requ=
-irement.
+On Sun, Jun 25, 2017 at 8:46 AM, David Miller <davem@davemloft.net> wrote:
+> From: Wei Wang <tracywwnj@gmail.com>
+> Date: Fri, 23 Jun 2017 15:25:37 -0700
+>
+>> From: Wei Wang <weiwan@google.com>
+>>
+>> In __ip6_datagram_connect(), reset sk->sk_v6_daddr and inet->dport if
+>> error occurs.
+>> In udp_v6_early_demux(), check for sk_state to make sure it is in
+>> TCP_ESTABLISHED state.
+>> Together, it makes sure unconnected UDP socket won't be considered as a
+>> valid candidate for early demux.
+>>
+>> Fixes: 5425077d73e0 ("net: ipv6: Add early demux handler for UDP unicast=
+")
+>>
+>> v3: add TCP_ESTABLISHED state check in udp_v6_early_demux()
+>> v2: fix compilation error
+>>
+>> Signed-off-by: Wei Wang <weiwan@google.com>
+>> Acked-by: Maciej =C5=BBenczykowski <maze@google.com>
+>
+> Please don't format the tag area like this, if you want to put a change
+> log put it first.
+>
+> Then put all of the tags (Fixes:, Signed-off-by:, Acked-by:, etc.)
+> together with no empty line separators, at the end.
+>
+> I fixed it up this time.
+>
+> Applied and queued up for -stable, thanks.
 
----
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+Got it. Will note it down.
+Thanks for taking care of it.
+
+Wei
