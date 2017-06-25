@@ -1,151 +1,48 @@
-From: "Levin, Alexander (Sasha Levin)" <alexander.levin@verizon.com>
-Subject: Re: [PATCH v3 net-next 1/4] tcp: ULP infrastructure
-Date: Sun, 25 Jun 2017 02:42:53 +0000
-Message-ID: <20170625024258.qoynefxset3cmdla@sasha-lappy>
-References: <cover.1497465295.git.davejwatson@fb.com>
- <20170614183714.GA80310@davejwatson-mba.dhcp.thefacebook.com>
+From: David Ahern <dsahern-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next] net: add netlink_ext_ack support to
+ rtnl_link_ops
+Date: Sat, 24 Jun 2017 20:50:24 -0600
+Message-ID: <1bfb7a80-a440-f960-1f35-a70542106cfb@gmail.com>
+References: <01256ebba091f2108ebeff43e61305bb533067d4.1498303258.git.mschiffer@universe-factory.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Ilya Lesokhin <ilyal@mellanox.com>,
-        Aviad Yehezkel <aviadye@mellanox.com>,
-        Boris Pismenny <borisp@mellanox.com>,
-        Liran Liss <liranl@mellanox.com>,
-        "Matan Barak" <matanb@mellanox.com>,
-        David Miller <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Tom Herbert <tom@herbertland.com>,
-        "herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-        "linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        "Alexei Starovoitov" <alexei.starovoitov@gmail.com>,
-        "nmav@gnutls.org" <nmav@gnutls.org>,
-        "fridolin.pokorny@gmail.com" <fridolin.pokorny@gmail.com>
-To: Dave Watson <davejwatson@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from omzsmtpe01.verizonbusiness.com ([199.249.25.210]:25818 "EHLO
-        omzsmtpe01.verizonbusiness.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751144AbdFYCnR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 24 Jun 2017 22:43:17 -0400
-In-Reply-To: <20170614183714.GA80310@davejwatson-mba.dhcp.thefacebook.com>
-Content-Language: en-US
-Content-ID: <43836D28FD4C2844962AFAC2F895E454@vzwcorp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        osmocom-net-gprs-qjLDD68F18N4m7O/Vxda39i2O/JbrIOy@public.gmane.org, linux-ppp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Matthias Schiffer <mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>,
+        dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+        hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, j.vosburgh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, vfalico-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org, dmitry.tarnyagin-0TCahj4L2NoXWF+eFR7m5Q@public.gmane.org,
+        wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
+        laforge-TgoAw6mPHtdg9hUCZPvPmw@public.gmane.org, paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org,
+        dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, shm-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
+        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org,
+        arvid.brodin-SVm98a2vdck@public.gmane.org, alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org, kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org, jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org,
+        yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+        steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org, herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org,
+        johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <01256ebba091f2108ebeff43e61305bb533067d4.1498303258.git.mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 14, 2017 at 11:37:14AM -0700, Dave Watson wrote:
->Add the infrustructure for attaching Upper Layer Protocols (ULPs) over TCP
->sockets. Based on a similar infrastructure in tcp_cong.  The idea is that =
-any
->ULP can add its own logic by changing the TCP proto_ops structure to its o=
-wn
->methods.
->
->Example usage:
->
->setsockopt(sock, SOL_TCP, TCP_ULP, "tls", sizeof("tls"));
->
->modules will call:
->tcp_register_ulp(&tcp_tls_ulp_ops);
->
->to register/unregister their ulp, with an init function and name.
->
->A list of registered ulps will be returned by tcp_get_available_ulp, which=
- is
->hooked up to /proc.  Example:
->
->$ cat /proc/sys/net/ipv4/tcp_available_ulp
->tls
->
->There is currently no functionality to remove or chain ULPs, but
->it should be possible to add these in the future if needed.
->
->Signed-off-by: Boris Pismenny <borisp@mellanox.com>
->Signed-off-by: Dave Watson <davejwatson@fb.com>
+On 6/24/17 5:35 AM, Matthias Schiffer wrote:
+> The following functions are extended with a netlink_ext_ack argument to
+> allow extended error reporting:
+> 
+> * validate
+> * newlink
+> * changelink
+> * slave_validate
+> * slave_changelink
 
-Hey Dave,
-
-I'm seeing the following while fuzzing, which was bisected to this commit:
-
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-BUG: KASAN: null-ptr-deref in copy_to_user include/linux/uaccess.h:168 [inl=
-ine]
-BUG: KASAN: null-ptr-deref in do_tcp_getsockopt.isra.33+0x24f/0x1e30 net/ip=
-v4/tcp.c:3057
-Read of size 4 at addr 0000000000000020 by task syz-executor1/15452
-
-CPU: 0 PID: 15452 Comm: syz-executor1 Not tainted 4.12.0-rc6-next-20170623+=
- #173
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.10.1-1ubuntu1=
- 04/01/2014
-Call Trace:
- __dump_stack lib/dump_stack.c:16 [inline]
- dump_stack+0x11d/0x1e5 lib/dump_stack.c:52
- kasan_report_error mm/kasan/report.c:349 [inline]
- kasan_report+0x15e/0x370 mm/kasan/report.c:408
- check_memory_region_inline mm/kasan/kasan.c:260 [inline]
- check_memory_region+0x14b/0x1a0 mm/kasan/kasan.c:267
- kasan_check_read+0x11/0x20 mm/kasan/kasan.c:272
- copy_to_user include/linux/uaccess.h:168 [inline]
- do_tcp_getsockopt.isra.33+0x24f/0x1e30 net/ipv4/tcp.c:3057
- tcp_getsockopt+0xb0/0xd0 net/ipv4/tcp.c:3194
- sock_common_getsockopt+0x95/0xd0 net/core/sock.c:2863
- SYSC_getsockopt net/socket.c:1869 [inline]
- SyS_getsockopt+0x180/0x360 net/socket.c:1851
- do_syscall_64+0x267/0x740 arch/x86/entry/common.c:284
- entry_SYSCALL64_slow_path+0x25/0x25
-RIP: 0033:0x451759
-RSP: 002b:00007f5dc2b1fc08 EFLAGS: 00000216 ORIG_RAX: 0000000000000037
-RAX: ffffffffffffffda RBX: 0000000000718000 RCX: 0000000000451759
-RDX: 000000000000001f RSI: 0000000000000006 RDI: 0000000000000005
-RBP: 0000000000000c30 R08: 00000000207bf000 R09: 0000000000000000
-R10: 0000000020000ffc R11: 0000000000000216 R12: 00000000004b824b
-R13: 00000000ffffffff R14: 0000000000000005 R15: 0000000000000006
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-Disabling lock debugging due to kernel taint
-Kernel panic - not syncing: panic_on_warn set ...
-
-CPU: 0 PID: 15452 Comm: syz-executor1 Tainted: G    B           4.12.0-rc6-=
-next-20170623+ #173
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.10.1-1ubuntu1=
- 04/01/2014
-Call Trace:
- __dump_stack lib/dump_stack.c:16 [inline]
- dump_stack+0x11d/0x1e5 lib/dump_stack.c:52
- panic+0x1bc/0x3ad kernel/panic.c:180
- kasan_end_report+0x47/0x4f mm/kasan/report.c:176
- kasan_report_error mm/kasan/report.c:356 [inline]
- kasan_report+0x167/0x370 mm/kasan/report.c:408
- check_memory_region_inline mm/kasan/kasan.c:260 [inline]
- check_memory_region+0x14b/0x1a0 mm/kasan/kasan.c:267
- kasan_check_read+0x11/0x20 mm/kasan/kasan.c:272
- copy_to_user include/linux/uaccess.h:168 [inline]
- do_tcp_getsockopt.isra.33+0x24f/0x1e30 net/ipv4/tcp.c:3057
- tcp_getsockopt+0xb0/0xd0 net/ipv4/tcp.c:3194
- sock_common_getsockopt+0x95/0xd0 net/core/sock.c:2863
- SYSC_getsockopt net/socket.c:1869 [inline]
- SyS_getsockopt+0x180/0x360 net/socket.c:1851
- do_syscall_64+0x267/0x740 arch/x86/entry/common.c:284
- entry_SYSCALL64_slow_path+0x25/0x25
-RIP: 0033:0x451759
-RSP: 002b:00007f5dc2b1fc08 EFLAGS: 00000216 ORIG_RAX: 0000000000000037
-RAX: ffffffffffffffda RBX: 0000000000718000 RCX: 0000000000451759
-RDX: 000000000000001f RSI: 0000000000000006 RDI: 0000000000000005
-RBP: 0000000000000c30 R08: 00000000207bf000 R09: 0000000000000000
-R10: 0000000020000ffc R11: 0000000000000216 R12: 00000000004b824b
-R13: 00000000ffffffff R14: 0000000000000005 R15: 0000000000000006
-Dumping ftrace buffer:
-   (ftrace buffer empty)
-Kernel Offset: 0x24800000 from 0xffffffff81000000 (relocation range: 0xffff=
-ffff80000000-0xffffffffbfffffff)
-Rebooting in 86400 seconds..
-
---=20
-
-Thanks,
-Sasha=
+I would prefer separate patches for validate, slave_validate, newlink,
+changelink, and slave_changelink. I do not believe there is a reason to
+lump them into 1 giant patch.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
