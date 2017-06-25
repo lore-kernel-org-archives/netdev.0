@@ -1,50 +1,64 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net] net: ipv6: reset daddr and dport in sk if
- connect() fails
-Date: Sun, 25 Jun 2017 11:46:51 -0400 (EDT)
-Message-ID: <20170625.114651.1973887687669104262.davem@davemloft.net>
-References: <20170623222537.130493-1-tracywwnj@gmail.com>
+Subject: Re: [PATCH] net/icmp: restore source address if packet is NATed
+Date: Sun, 25 Jun 2017 11:49:27 -0400 (EDT)
+Message-ID: <20170625.114927.1055286919675288173.davem@davemloft.net>
+References: <20170624021727.17835-1-Jason@zx2c4.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, maze@google.com, subashab@codeaurora.org,
-        weiwan@google.com
-To: tracywwnj@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40482 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751020AbdFYPq4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2017 11:46:56 -0400
-In-Reply-To: <20170623222537.130493-1-tracywwnj@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jason@zx2c4.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170624021727.17835-1-Jason@zx2c4.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Wang <tracywwnj@gmail.com>
-Date: Fri, 23 Jun 2017 15:25:37 -0700
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Date: Sat, 24 Jun 2017 04:17:27 +0200
 
-> From: Wei Wang <weiwan@google.com>
+> The ICMP routines use the source address for two reasons:
 > 
-> In __ip6_datagram_connect(), reset sk->sk_v6_daddr and inet->dport if
-> error occurs.
-> In udp_v6_early_demux(), check for sk_state to make sure it is in
-> TCP_ESTABLISHED state.
-> Together, it makes sure unconnected UDP socket won't be considered as a
-> valid candidate for early demux.
+>     1. Rate-limiting ICMP transmissions based on source address, so
+>        that one source address cannot provoke a flood of replies. If
+>        the source address is wrong, the rate limiting will be
+>        incorrectly applied.
 > 
-> Fixes: 5425077d73e0 ("net: ipv6: Add early demux handler for UDP unicast")
+>     2. Choosing the interface and hence new source address of the
+>        generated ICMP packet. If the original packet source address
+>        is wrong, ICMP replies will be sent from the wrong source
+>        address, resulting in either a misdelivery, infoleak, or just
+>        general network admin confusion.
 > 
-> v3: add TCP_ESTABLISHED state check in udp_v6_early_demux()
-> v2: fix compilation error
+> Most of the time, the icmp_send and icmpv6_send routines can just reach
+> down into the skb's IP header to determine the saddr. However, if
+> icmp_send or icmpv6_send is being called from a network device driver --
+> there are a few in the tree -- then it's possible that by the time
+> icmp_send or icmpv6_send looks at the packet, the packet's source
+> address has already been transformed by SNAT or MASQUERADE or some other
+> transformation that CONNTRACK knows about. In this case, the packet's
+> source address is most certainly the *wrong* source address to be used
+> for the purpose of ICMP replies.
 > 
-> Signed-off-by: Wei Wang <weiwan@google.com>
-> Acked-by: Maciej ¯enczykowski <maze@google.com>
+> Rather, the source address we want to use for ICMP replies is the
+> original one, from before the transformation occurred.
+> 
+> Fortunately, it's very easy to just ask CONNTRACK if it knows about this
+> packet, and if so, how to fix it up. The saddr is the only field in the
+> header we need to fix up, for the purposes of the subsequent processing
+> in the icmp_send and icmpv6_send functions, so we do the lookup very
+> early on, so that the rest of the ICMP machinery can progress as usual.
+> In my tests, this setup works very well.
+> 
+> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
 
-Please don't format the tag area like this, if you want to put a change
-log put it first.
+This violates things on so many levels.
 
-Then put all of the tags (Fixes:, Signed-off-by:, Acked-by:, etc.)
-together with no empty line separators, at the end.
+I think this kind of thing need to be hidden inside of netfilter,
+it can do the rate limiting and stuff like that in the spot
+where it makes the transformation and knows all of the original
+addressing and ports.
 
-I fixed it up this time.
+You definitely can't just rewrite header fields here either.  The
+SKB could be shared, for example.
 
-Applied and queued up for -stable, thanks.
+I'm definitely not applying this, sorry.
