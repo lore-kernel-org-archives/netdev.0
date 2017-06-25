@@ -1,79 +1,445 @@
-From: <agar2000@hotmail.com>
-Subject: (unknown)
-Date: Sun, 25 Jun 2017 16:49:37 -0000
-Message-ID: <149840937794.8929.6250009148918968113@telenet.ru>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: pull-request: wireless-drivers-next 2017-06-25
+Date: Sun, 25 Jun 2017 20:48:36 +0300
+Message-ID: <87k240rma3.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="EMAIL_59044256431817_netdev.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 39.172-224-87.telenet.ru ([87.224.172.39]:59053 "HELO
-        telenet.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-        id S1751157AbdFYQtk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 25 Jun 2017 12:49:40 -0400
-Content-Disposition: attachment
-Subject: 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-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
+Hi Dave,
+
+yet another pull request to net-next for 4.13, more info in the signed
+tag below. While doing a test merge on net-next I noticed git doing
+quite a lot of auto-merging, maybe because of mac80211 API changes, but
+luckily no conflicts. But please do let me know if you have any
+problems.
+
+Patchwork shows me that I have over 100 patches still pending for review
+so quite a lot still coming towards you some time next week.
+
+Kalle
+
+The following changes since commit 63a2f310d040a4e42f92d60762c8965cd6f2a5ed:
+
+  Merge tag 'wireless-drivers-next-for-davem-2017-06-12' of git://git.kerne=
+l.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers-next (2017-06-12 10:1=
+4:29 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers-next=
+.git tags/wireless-drivers-next-for-davem-2017-06-25
+
+for you to fetch changes up to 52f8c9380f2eb051581628782a4917f2c3f9751f:
+
+  Merge ath-next from git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/a=
+th.git (2017-06-22 16:29:52 +0300)
+
+----------------------------------------------------------------
+wireless-drivers-next patches for 4.13
+
+New features and bug fixes to quite a few different drivers, but
+nothing really special standing out.
+
+What makes me happy that we have now more vendors actively
+contributing to upstream drivers. In this pull request we have patches
+from Broadcom, Intel, Qualcomm, Realtek and Redpine Signals, and I
+still have patches from Marvell and Quantenna pending in patchwork. Now
+that's something comparing to how things looked 11 years ago in Jeff
+Garzik's "State of the Union: Wireless" email:
+
+https://lkml.org/lkml/2006/1/5/671
+
+Major changes:
+
+wil6210
+
+* add low level RF sector interface via nl80211 vendor commands
+
+* add module parameter ftm_mode to load separate firmware for factory
+  testing
+
+* support devices with different PCIe bar size
+
+* add support for PCIe D3hot in system suspend
+
+* remove ioctl interface which should not be in a wireless driver
+
+ath10k
+
+* go back to using dma_alloc_coherent() for firmware scratch memory
+
+* add per chain RSSI reporting
+
+brcmfmac
+
+* add support multi-scheduled scan
+
+* add scheduled scan support for specified BSSIDs
+
+* add support for brcm43430 revision 0
+
+wlcore
+
+* add wil1285 compatible
+
+rsi
+
+* add RS9113 USB support
+
+iwlwifi
+
+* FW API documentation improvements (for tools and htmldoc)
+
+* continuing work for the new A000 family
+
+* bump the maximum supported FW API to 31
+
+* improve the differentiation between 8000, 9000 and A000 families
+
+----------------------------------------------------------------
+Adrian Chadd (1):
+      ath10k: go back to using dma_alloc_coherent() for firmware scratch me=
+mory
+
+Amitkumar Karwar (1):
+      rsi: use enum for FSM states
+
+Anilkumar Kolli (1):
+      ath10k: add BMI parameters to fix calibration from DT/pre-cal
+
+Arend Van Spriel (3):
+      brcmfmac: add support multi-scheduled scan
+      brcmfmac: add mutex to protect pno requests
+      brcmfmac: add scheduled scan support for specified BSSIDs
+
+Ben Greear (5):
+      ath10k: increase BMI timeout
+      ath10k: log when longer bmi cmds happen
+      ath10k: initialize nbytes to 0
+      ath10k: use complete VHT chan width for 160MHz workaround
+      ath10k: configure rxnss_override for QCA9984
+
+Beni Lev (1):
+      iwlwifi: mvm: add TLV for NAN API differentiation
+
+Binoy Jayan (1):
+      mwifiex: Replace semaphore async_sem with mutex
+
+Caesar Wang (1):
+      mwifiex: fixes the unexpected be printed log by default
+
+Colin Ian King (3):
+      mwifiex: make function mwifiex_ret_pkt_aggr_ctrl static
+      qtnfmac: check band before allocating cmd_skb to avoid resource leak
+      ath6kl: fix spelling mistake: "Indicat" -> "Indicate"
+
+Dedy Lansky (1):
+      wil6210: prevent platform callbacks after uninit
+
+Gustavo A. R. Silva (2):
+      ath10k: remove unnecessary code
+      wlcore: spi: remove unnecessary variable
+
+Haim Dreyfuss (1):
+      iwlwifi: Add fw_name_pre_rf_next_step to support different rf steps
+
+Hamad Kadmany (2):
+      wil6210: add option to load FTM FW
+      wil6210: Improve AP stop handling
+
+Hans de Goede (1):
+      brcmfmac: Use separate firmware for revision 0 of the brcm43430 chip
+
+Johannes Berg (28):
+      iwlwifi: mvm: fix endianness in lq_cmd declaration
+      iwlwifi: mvm: document which group enums are used with which group ID
+      iwlwifi: mvm: use proper sta_addr in firmware API
+      iwlwifi: mvm: fix MCC endianness bug
+      iwlwifi: mvm: use u8 for reserved fields
+      iwlwifi: mvm: disentangle paging command structs
+      iwlwifi: mvm: add documentation to some WoWLAN commands
+      iwlwifi: mvm: fix some kernel-doc
+      iwlwifi: mvm: add documentation links to various fields
+      iwlwifi: mvm: disentangle binding command versions
+      iwlwifi: mvm: create/name various enums
+      iwlwifi: mvm: document structures used by commands
+      iwlwifi: mvm: remove unused TX_CMD_NEXT_FRAME_*
+      iwlwifi: kernel-doc: make proper links
+      iwlwifi: mvm: remove unused REPLY_MAX
+      iwlwifi: mvm: fix many kernel-doc warnings
+      iwlwifi: mvm: document RX structures
+      iwlwifi: mvm: check firmware is up in debugfs
+      iwlwifi: mvm: use schedule_delayed_work()
+      iwlwifi: mvm: add and use iwl_mvm_device_running()
+      iwlwifi: mvm: convert ucode_loaded to a status bit
+      iwlwifi: mvm: clear firmware running bit earlier
+      iwlwifi: fix a kernel-doc tag
+      iwlwifi: split firmware API from iwl-trans.h
+      iwlwifi: mvm: link queue cmd docs to A000 command structs
+      iwlwifi: mvm: document structures used for BEACON_TEMPLATE_CMD
+      iwlwifi: mvm: link to TX commands in documentation
+      iwlwifi: mvm: remove SCAN_GROUP
+
+Kalle Valo (2):
+      Merge tag 'iwlwifi-next-for-kalle-2017-06-06' of git://git.kernel.org=
+/.../iwlwifi/iwlwifi-next
+      Merge ath-next from git://git.kernel.org/.../kvalo/ath.git
+
+Kevin Lo (1):
+      rtlwifi: fix REG_USTIME_TSF register definition
+
+Liad Kaufman (5):
+      iwlwifi: mvm: remove wrt support of page dumps in gen2
+      iwlwifi: pcie: support page dumping in wrt in gen2
+      iwlwifi: mvm: support init flow debugging
+      iwlwifi: pcie: support dumping FH in a000 hw
+      iwlwifi: mvm: disable prph collection in a000 hw
+
+Lior David (1):
+      wil6210: low level RF sector API
+
+Luca Coelho (2):
+      iwlwifi: bump max FW API to 31
+      iwlwifi: remove unnecessary code in iwl_trans_alloc_tx_cmd
+
+Martin Michlmayr (1):
+      brcmfmac: Fix grammar issue in error message
+
+Maya Erez (3):
+      wil6210: support devices with different PCIe bar size
+      wil6210: add support for PCIe D3hot in system suspend
+      wil6210: remove ioctl interface
+
+Micha=C5=82 Miros=C5=82aw (1):
+      brcmfmac: initialize oob irq data before request_irq()
+
+Mordechai Goodstein (1):
+      iwlwifi: fw-api: cleanup cycle includes
+
+Norik Dzhandzhapanyan (1):
+      ath10k: add per chain RSSI reporting
+
+Peter S. Housel (1):
+      brcmfmac: Fix glom_skb leak in brcmf_sdiod_recv_chain
+
+Ping-Ke Shih (11):
+      rtlwifi: btcoex: call bind to setup btcoex
+      rtlwifi: btcoex: set correct interface type and parameter.
+      rtlwifi: btcoex: rtl8723be: fix ant_sel not work
+      rtlwifi: Correct power save capability while init mac80211
+      rtlwifi: extend debug_comp to u64
+      rtlwifi: Add TX report and disable key to force wait until report ack=
+ed.
+      rtlwifi: Revise special packet notification to be readable format.
+      rtlwifi: Add btcoex record_pwr_mode
+      rtlwifi: Add rx ampdu cfg for btcoexist.
+      rtlwifi: add btc_is_bt_lps_on() for btcoexist
+      rtlwifi: btcoexist control to enter/leave LPS
+
+Prameela Rani Garnepudi (5):
+      rsi: add usb RS9113 chipset support
+      rsi: Register interrupt handler before firmware load
+      rsi: receive path enhancement for RS9113
+      rsi: configure new boot parameters to device
+      rsi: add tx frame for common device configuration
+
+Ryan Hsu (1):
+      ath10k: fix the logic of limiting tdls peer counts
+
+Sara Sharon (12):
+      iwlwifi: mvm: flush per station for DQA mode
+      iwlwifi: mvm: support getting nvm data from firmware
+      iwlwifi: mvm: support old method of NVM parsing
+      iwlwifi: mvm: wait for the flushed queue only
+      iwlwifi: update device ID for a000 family
+      iwlwifi: add wait for tx queue empty
+      iwlwifi: mvm: add AMSDU flag to offload assist
+      iwlwifi: pcie: add AMSDU to gen2
+      iwlwifi: cleanup references to 8000 family in NVM code
+      iwlwifi: remove references to 8000 B-step devices
+      iwlwifi: add dbgc_supported to transport configuration
+      iwlwifi: add 9000 and A000 device families
+
+Sarada Prasanna Garnayak (1):
+      ath10k: define structures for CE ctrl/misc register
+
+Sebastian Reichel (1):
+      wlcore: add wl1285 compatible
+
+Shawn Lin (1):
+      mwifiex: debugfs: remove redunant check of mwifiex_dfs_dir
+
+Sven Eckelmann (2):
+      ath10k: fix reported HT MCS rates with NSS > 1
+      ath10k: set rxnss_override for QCA9888
+
+Yan-Hsuan Chuang (9):
+      rtlwifi: btcoex: add macros to check chip type
+      rtlwifi: btcoex: rename ex_halbtc*ant to ex_btc*ant
+      rtlwifi: btcoex: settings before firmware is downloaded
+      rtlwifi: btcoex: hook external PnP notify by chip for wifi driver
+      rtlwifi: btcoex: add settings before the hardware is ready
+      rtlwifi: btcoex: hook external functions for newer chips
+      rtlwifi: btcoex: bind BT coex information with wifi driver
+      rtlwifi: btcoex: remove unused display functions
+      rtlwifi: btcoex: let btcoex get wifi rssi and link status
+
+ .../devicetree/bindings/net/wireless/ti,wlcore.txt |   1 +
+ drivers/net/wireless/ath/ath10k/bmi.h              |   6 +-
+ drivers/net/wireless/ath/ath10k/ce.c               | 168 ++--
+ drivers/net/wireless/ath/ath10k/ce.h               | 132 ----
+ drivers/net/wireless/ath/ath10k/core.c             |  53 +-
+ drivers/net/wireless/ath/ath10k/core.h             |   1 +
+ drivers/net/wireless/ath/ath10k/htt_rx.c           |  27 +-
+ drivers/net/wireless/ath/ath10k/hw.c               | 137 ++++
+ drivers/net/wireless/ath/ath10k/hw.h               |  87 ++
+ drivers/net/wireless/ath/ath10k/mac.c              |  77 +-
+ drivers/net/wireless/ath/ath10k/pci.c              |  27 +-
+ drivers/net/wireless/ath/ath10k/wmi.c              |  51 +-
+ drivers/net/wireless/ath/ath10k/wmi.h              |   3 +
+ drivers/net/wireless/ath/ath6kl/htc_pipe.c         |   2 +-
+ drivers/net/wireless/ath/wil6210/Makefile          |   1 -
+ drivers/net/wireless/ath/wil6210/cfg80211.c        | 613 +++++++++++++++
+ drivers/net/wireless/ath/wil6210/debugfs.c         |  49 ++
+ drivers/net/wireless/ath/wil6210/interrupt.c       |   6 +
+ drivers/net/wireless/ath/wil6210/ioctl.c           | 180 -----
+ drivers/net/wireless/ath/wil6210/main.c            |   7 +-
+ drivers/net/wireless/ath/wil6210/netdev.c          |   8 -
+ drivers/net/wireless/ath/wil6210/pcie_bus.c        |  98 ++-
+ drivers/net/wireless/ath/wil6210/pm.c              | 228 +++++-
+ drivers/net/wireless/ath/wil6210/txrx.c            |  71 ++
+ drivers/net/wireless/ath/wil6210/wil6210.h         |  40 +-
+ drivers/net/wireless/ath/wil6210/wil_platform.h    |   7 +-
+ drivers/net/wireless/ath/wil6210/wmi.c             | 147 +++-
+ drivers/net/wireless/ath/wil6210/wmi.h             |  27 +-
+ .../wireless/broadcom/brcm80211/brcmfmac/bcmsdh.c  |  15 +-
+ .../broadcom/brcm80211/brcmfmac/cfg80211.c         |  69 +-
+ .../broadcom/brcm80211/brcmfmac/cfg80211.h         |   6 +-
+ .../wireless/broadcom/brcm80211/brcmfmac/core.c    |   1 +
+ .../wireless/broadcom/brcm80211/brcmfmac/debug.h   |   2 +
+ .../broadcom/brcm80211/brcmfmac/fwil_types.h       |  43 +-
+ .../net/wireless/broadcom/brcm80211/brcmfmac/pno.c | 444 +++++++++--
+ .../net/wireless/broadcom/brcm80211/brcmfmac/pno.h |  47 +-
+ .../wireless/broadcom/brcm80211/brcmfmac/sdio.c    |   7 +-
+ drivers/net/wireless/intel/iwlwifi/iwl-8000.c      |  10 +-
+ drivers/net/wireless/intel/iwlwifi/iwl-9000.c      |  14 +-
+ drivers/net/wireless/intel/iwlwifi/iwl-a000.c      |   8 +-
+ drivers/net/wireless/intel/iwlwifi/iwl-config.h    |  11 +-
+ drivers/net/wireless/intel/iwlwifi/iwl-csr.h       |   8 +-
+ drivers/net/wireless/intel/iwlwifi/iwl-drv.c       |   6 +-
+ drivers/net/wireless/intel/iwlwifi/iwl-drv.h       |  12 +-
+ drivers/net/wireless/intel/iwlwifi/iwl-fh.h        |   2 +
+ drivers/net/wireless/intel/iwlwifi/iwl-fw-api.h    | 205 +++++
+ .../net/wireless/intel/iwlwifi/iwl-fw-error-dump.h |   8 +-
+ drivers/net/wireless/intel/iwlwifi/iwl-fw-file.h   |  16 +-
+ drivers/net/wireless/intel/iwlwifi/iwl-io.c        |   4 +-
+ drivers/net/wireless/intel/iwlwifi/iwl-modparams.h |   2 +-
+ drivers/net/wireless/intel/iwlwifi/iwl-nvm-parse.c |  95 +--
+ drivers/net/wireless/intel/iwlwifi/iwl-trans.c     |   2 +
+ drivers/net/wireless/intel/iwlwifi/iwl-trans.h     | 167 +---
+ drivers/net/wireless/intel/iwlwifi/mvm/coex.c      |   3 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/constants.h |   1 +
+ drivers/net/wireless/intel/iwlwifi/mvm/debugfs.c   |  82 +-
+ .../net/wireless/intel/iwlwifi/mvm/fw-api-coex.h   |  10 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/fw-api-d3.h |  29 +-
+ .../net/wireless/intel/iwlwifi/mvm/fw-api-mac.h    |  10 +-
+ .../net/wireless/intel/iwlwifi/mvm/fw-api-power.h  |  45 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/fw-api-rs.h |   2 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/fw-api-rx.h |  88 ++-
+ .../net/wireless/intel/iwlwifi/mvm/fw-api-scan.h   |  34 +-
+ .../net/wireless/intel/iwlwifi/mvm/fw-api-sta.h    |  46 +-
+ .../net/wireless/intel/iwlwifi/mvm/fw-api-stats.h  |  29 +-
+ .../net/wireless/intel/iwlwifi/mvm/fw-api-tof.h    |  18 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/fw-api-tx.h |  67 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/fw-api.h    | 555 +++++++++++--
+ drivers/net/wireless/intel/iwlwifi/mvm/fw-dbg.c    |  52 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/fw.c        |  65 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/led.c       |   5 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/mac-ctxt.c  |   6 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/mac80211.c  |  42 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/mvm.h       |  25 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/nvm.c       | 133 +++-
+ drivers/net/wireless/intel/iwlwifi/mvm/ops.c       |  32 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/scan.c      |   4 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/sta.c       |  48 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/sta.h       |   2 +
+ drivers/net/wireless/intel/iwlwifi/mvm/tdls.c      |   3 +-
+ .../net/wireless/intel/iwlwifi/mvm/time-event.c    |   5 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/tof.c       |   6 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/tt.c        |  14 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/tx.c        |  27 +-
+ drivers/net/wireless/intel/iwlwifi/pcie/drv.c      |  12 +-
+ drivers/net/wireless/intel/iwlwifi/pcie/internal.h |   3 +
+ drivers/net/wireless/intel/iwlwifi/pcie/trans.c    | 135 +++-
+ drivers/net/wireless/intel/iwlwifi/pcie/tx-gen2.c  | 172 +++-
+ drivers/net/wireless/intel/iwlwifi/pcie/tx.c       |   5 +-
+ drivers/net/wireless/marvell/mwifiex/cfg80211.c    |   2 +-
+ drivers/net/wireless/marvell/mwifiex/cfp.c         |   2 +-
+ drivers/net/wireless/marvell/mwifiex/debugfs.c     |   3 +-
+ drivers/net/wireless/marvell/mwifiex/main.h        |   2 +-
+ drivers/net/wireless/marvell/mwifiex/scan.c        |   4 +-
+ drivers/net/wireless/marvell/mwifiex/sta_cmdresp.c |   4 +-
+ drivers/net/wireless/quantenna/qtnfmac/commands.c  |  12 +-
+ drivers/net/wireless/realtek/rtlwifi/base.c        | 180 ++++-
+ drivers/net/wireless/realtek/rtlwifi/base.h        |  14 +
+ .../realtek/rtlwifi/btcoexist/halbt_precomp.h      |  22 +
+ .../realtek/rtlwifi/btcoexist/halbtc8192e2ant.c    |   2 +-
+ .../realtek/rtlwifi/btcoexist/halbtc8192e2ant.h    |  32 +-
+ .../realtek/rtlwifi/btcoexist/halbtc8723b1ant.c    |  52 +-
+ .../realtek/rtlwifi/btcoexist/halbtc8723b1ant.h    |  41 +-
+ .../realtek/rtlwifi/btcoexist/halbtc8723b2ant.h    |   3 +
+ .../realtek/rtlwifi/btcoexist/halbtc8821a1ant.h    |  38 +-
+ .../realtek/rtlwifi/btcoexist/halbtc8821a2ant.h    |  26 +-
+ .../realtek/rtlwifi/btcoexist/halbtcoutsrc.c       | 871 ++++++++++++++++-=
+----
+ .../realtek/rtlwifi/btcoexist/halbtcoutsrc.h       |  45 +-
+ .../wireless/realtek/rtlwifi/btcoexist/rtl_btc.c   |  85 +-
+ .../wireless/realtek/rtlwifi/btcoexist/rtl_btc.h   |   7 +
+ drivers/net/wireless/realtek/rtlwifi/core.c        |   5 +-
+ drivers/net/wireless/realtek/rtlwifi/debug.c       |   2 +-
+ drivers/net/wireless/realtek/rtlwifi/debug.h       |   7 +-
+ .../net/wireless/realtek/rtlwifi/rtl8188ee/reg.h   |   2 +-
+ .../net/wireless/realtek/rtlwifi/rtl8188ee/sw.c    |   2 +-
+ .../net/wireless/realtek/rtlwifi/rtl8192ce/reg.h   |   2 +-
+ .../net/wireless/realtek/rtlwifi/rtl8192de/reg.h   |   2 +-
+ .../net/wireless/realtek/rtlwifi/rtl8192ee/fw.c    |  69 +-
+ .../net/wireless/realtek/rtlwifi/rtl8192ee/fw.h    |   4 +-
+ .../net/wireless/realtek/rtlwifi/rtl8192ee/sw.c    |   2 +-
+ .../net/wireless/realtek/rtlwifi/rtl8192ee/trx.c   |   3 +
+ .../net/wireless/realtek/rtlwifi/rtl8192ee/trx.h   |  14 +-
+ .../net/wireless/realtek/rtlwifi/rtl8723ae/reg.h   |   2 +-
+ .../net/wireless/realtek/rtlwifi/rtl8723be/fw.c    |  70 +-
+ .../net/wireless/realtek/rtlwifi/rtl8723be/fw.h    |   4 +-
+ .../net/wireless/realtek/rtlwifi/rtl8723be/hw.c    |   3 +
+ .../net/wireless/realtek/rtlwifi/rtl8723be/reg.h   |   2 +-
+ .../net/wireless/realtek/rtlwifi/rtl8723be/trx.c   |   3 +
+ .../net/wireless/realtek/rtlwifi/rtl8723be/trx.h   |  16 +-
+ .../net/wireless/realtek/rtlwifi/rtl8821ae/fw.c    |  72 +-
+ .../net/wireless/realtek/rtlwifi/rtl8821ae/fw.h    |   4 +-
+ .../net/wireless/realtek/rtlwifi/rtl8821ae/reg.h   |   2 +-
+ .../net/wireless/realtek/rtlwifi/rtl8821ae/trx.c   |   3 +
+ .../net/wireless/realtek/rtlwifi/rtl8821ae/trx.h   |  17 +-
+ drivers/net/wireless/realtek/rtlwifi/wifi.h        |  18 +
+ drivers/net/wireless/rsi/rsi_91x_hal.c             |   4 +-
+ drivers/net/wireless/rsi/rsi_91x_main.c            |   9 +-
+ drivers/net/wireless/rsi/rsi_91x_mgmt.c            | 120 ++-
+ drivers/net/wireless/rsi/rsi_91x_sdio.c            |  21 +-
+ drivers/net/wireless/rsi/rsi_91x_usb.c             |   1 +
+ drivers/net/wireless/rsi/rsi_boot_params.h         |  15 +-
+ drivers/net/wireless/rsi/rsi_hal.h                 |   3 +
+ drivers/net/wireless/rsi/rsi_main.h                |  28 +-
+ drivers/net/wireless/rsi/rsi_mgmt.h                |  76 ++
+ drivers/net/wireless/ti/wlcore/sdio.c              |   1 +
+ drivers/net/wireless/ti/wlcore/spi.c               |   8 +-
+ include/uapi/linux/wil6210_uapi.h                  |  87 --
+ 147 files changed, 5602 insertions(+), 1821 deletions(-)
+ delete mode 100644 drivers/net/wireless/ath/wil6210/ioctl.c
+ create mode 100644 drivers/net/wireless/intel/iwlwifi/iwl-fw-api.h
+ delete mode 100644 include/uapi/linux/wil6210_uapi.h
