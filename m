@@ -1,93 +1,78 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][-next] ath10k: fix a bunch of spelling mistakes in messages
-Date: Sun, 25 Jun 2017 22:29:32 +0100
-Message-ID: <20170625212932.29787-1-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@qca.qualcomm.com>, ath10k@lists.infradead.org,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Matthias Schiffer <mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
+Subject: [PATCH net-next v2 0/5] net: add netlink_ext_ack support to rtnl_link_ops
+Date: Sun, 25 Jun 2017 23:55:58 +0200
+Message-ID: <cover.1498425679.git.mschiffer@universe-factory.net>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-ppp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+        hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, j.vosburgh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, vfalico-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
+        pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, laforge-TgoAw6mPHtdg9hUCZPvPmw@public.gmane.org, paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org,
+        jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org, dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, shm-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
+        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org,
+        arvid.brodin-SVm98a2vdck@public.gmane.org, alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org, kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org, jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org,
+        yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+        steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org, herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org,
+        johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+Same changes as http://patchwork.ozlabs.org/patch/780351/ , split into
+separate patches for each rtnl_link_ops field as requested.
 
-Fix the following spelling mistakes in messages:
-  syncronise -> synchronize
-  unusally -> unusually
-  addrress -> address
-  inverval -> interval
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/wireless/ath/ath10k/mac.c     | 2 +-
- drivers/net/wireless/ath/ath10k/pci.c     | 2 +-
- drivers/net/wireless/ath/ath10k/sdio.c    | 4 ++--
- drivers/net/wireless/ath/ath10k/wmi-tlv.c | 2 +-
- 4 files changed, 5 insertions(+), 5 deletions(-)
+Matthias Schiffer (5):
+  net: add netlink_ext_ack argument to rtnl_link_ops.newlink
+  net: add netlink_ext_ack argument to rtnl_link_ops.changelink
+  net: add netlink_ext_ack argument to rtnl_link_ops.validate
+  net: add netlink_ext_ack argument to rtnl_link_ops.slave_changelink
+  net: add netlink_ext_ack argument to rtnl_link_ops.slave_validate
 
-diff --git a/drivers/net/wireless/ath/ath10k/mac.c b/drivers/net/wireless/ath/ath10k/mac.c
-index 4a71815490ae..55c808f03a84 100644
---- a/drivers/net/wireless/ath/ath10k/mac.c
-+++ b/drivers/net/wireless/ath/ath10k/mac.c
-@@ -1392,7 +1392,7 @@ static int ath10k_vdev_stop(struct ath10k_vif *arvif)
- 
- 	ret = ath10k_vdev_setup_sync(ar);
- 	if (ret) {
--		ath10k_warn(ar, "failed to syncronise setup for vdev %i: %d\n",
-+		ath10k_warn(ar, "failed to synchronize setup for vdev %i: %d\n",
- 			    arvif->vdev_id, ret);
- 		return ret;
- 	}
-diff --git a/drivers/net/wireless/ath/ath10k/pci.c b/drivers/net/wireless/ath/ath10k/pci.c
-index 4f3f513dac4f..7ebfc409018d 100644
---- a/drivers/net/wireless/ath/ath10k/pci.c
-+++ b/drivers/net/wireless/ath/ath10k/pci.c
-@@ -469,7 +469,7 @@ static int ath10k_pci_wake_wait(struct ath10k *ar)
- 	while (tot_delay < PCIE_WAKE_TIMEOUT) {
- 		if (ath10k_pci_is_awake(ar)) {
- 			if (tot_delay > PCIE_WAKE_LATE_US)
--				ath10k_warn(ar, "device wakeup took %d ms which is unusally long, otherwise it works normally.\n",
-+				ath10k_warn(ar, "device wakeup took %d ms which is unusually long, otherwise it works normally.\n",
- 					    tot_delay / 1000);
- 			return 0;
- 		}
-diff --git a/drivers/net/wireless/ath/ath10k/sdio.c b/drivers/net/wireless/ath/ath10k/sdio.c
-index 9e78fbae8413..859ed870bd97 100644
---- a/drivers/net/wireless/ath/ath10k/sdio.c
-+++ b/drivers/net/wireless/ath/ath10k/sdio.c
-@@ -1553,7 +1553,7 @@ static int ath10k_sdio_hif_diag_read(struct ath10k *ar, u32 address, void *buf,
- 	/* read the data */
- 	ret = ath10k_sdio_read(ar, MBOX_WINDOW_DATA_ADDRESS, buf, buf_len);
- 	if (ret) {
--		ath10k_warn(ar, "failed to read from mbox window data addrress: %d\n",
-+		ath10k_warn(ar, "failed to read from mbox window data address: %d\n",
- 			    ret);
- 		return ret;
- 	}
-@@ -1592,7 +1592,7 @@ static int ath10k_sdio_hif_diag_write_mem(struct ath10k *ar, u32 address,
- 	ret = ath10k_sdio_write(ar, MBOX_WINDOW_DATA_ADDRESS, data, nbytes);
- 	if (ret) {
- 		ath10k_warn(ar,
--			    "failed to write 0x%p to mbox window data addrress: %d\n",
-+			    "failed to write 0x%p to mbox window data address: %d\n",
- 			    data, ret);
- 		return ret;
- 	}
-diff --git a/drivers/net/wireless/ath/ath10k/wmi-tlv.c b/drivers/net/wireless/ath/ath10k/wmi-tlv.c
-index f9188027a6f6..7616c1c4bbd3 100644
---- a/drivers/net/wireless/ath/ath10k/wmi-tlv.c
-+++ b/drivers/net/wireless/ath/ath10k/wmi-tlv.c
-@@ -2022,7 +2022,7 @@ ath10k_wmi_tlv_op_gen_sta_keepalive(struct ath10k *ar,
- 	arp->dest_ip4_addr = arg->dest_ip4_addr;
- 	ether_addr_copy(arp->dest_mac_addr.addr, arg->dest_mac_addr);
- 
--	ath10k_dbg(ar, ATH10K_DBG_WMI, "wmi tlv sta keepalive vdev %d enabled %d method %d inverval %d\n",
-+	ath10k_dbg(ar, ATH10K_DBG_WMI, "wmi tlv sta keepalive vdev %d enabled %d method %d interval %d\n",
- 		   arg->vdev_id, arg->enabled, arg->method, arg->interval);
- 	return skb;
- }
+ drivers/infiniband/ulp/ipoib/ipoib_netlink.c | 10 ++++++----
+ drivers/net/bonding/bond_netlink.c           | 16 ++++++++++------
+ drivers/net/caif/caif_hsi.c                  |  6 ++++--
+ drivers/net/can/dev.c                        | 11 +++++++----
+ drivers/net/can/vxcan.c                      |  3 ++-
+ drivers/net/dummy.c                          |  3 ++-
+ drivers/net/geneve.c                         |  6 ++++--
+ drivers/net/gtp.c                            |  6 ++++--
+ drivers/net/ifb.c                            |  3 ++-
+ drivers/net/ipvlan/ipvlan.h                  |  3 ++-
+ drivers/net/ipvlan/ipvlan_main.c             |  9 ++++++---
+ drivers/net/ipvlan/ipvtap.c                  |  9 ++++-----
+ drivers/net/macsec.c                         |  9 ++++++---
+ drivers/net/macvlan.c                        |  9 ++++++---
+ drivers/net/macvtap.c                        |  7 +++----
+ drivers/net/nlmon.c                          |  3 ++-
+ drivers/net/ppp/ppp_generic.c                |  6 ++++--
+ drivers/net/team/team.c                      |  6 ++++--
+ drivers/net/tun.c                            |  3 ++-
+ drivers/net/veth.c                           |  8 +++++---
+ drivers/net/vrf.c                            |  6 ++++--
+ drivers/net/vxlan.c                          |  9 ++++++---
+ include/net/rtnetlink.h                      | 15 ++++++++++-----
+ net/8021q/vlan_netlink.c                     | 13 ++++++++-----
+ net/bridge/br_netlink.c                      | 15 ++++++++++-----
+ net/caif/chnl_net.c                          |  6 ++++--
+ net/core/rtnetlink.c                         | 13 ++++++++-----
+ net/hsr/hsr_netlink.c                        |  3 ++-
+ net/ieee802154/6lowpan/core.c                |  6 ++++--
+ net/ipv4/ip_gre.c                            | 16 ++++++++++------
+ net/ipv4/ip_vti.c                            |  9 ++++++---
+ net/ipv4/ipip.c                              |  9 ++++++---
+ net/ipv6/ip6_gre.c                           | 14 +++++++++-----
+ net/ipv6/ip6_tunnel.c                        |  9 ++++++---
+ net/ipv6/ip6_vti.c                           |  9 ++++++---
+ net/ipv6/sit.c                               |  9 ++++++---
+ 36 files changed, 190 insertions(+), 107 deletions(-)
+
 -- 
-2.11.0
+2.13.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
