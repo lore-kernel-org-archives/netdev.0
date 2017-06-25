@@ -1,46 +1,31 @@
-From: Certitude Loan Firm <rajesh.ard@brri.gov.bd>
-Subject: Get Fast certified loan
-Date: Sun, 25 Jun 2017 21:50:16 +0600 (BDT)
-Message-ID: <740634718.48223.1498405816567.JavaMail.zimbra@brri.gov.bd>
-References: <1670843256.48222.1498405802403.JavaMail.zimbra@brri.gov.bd>
-Reply-To: " certitudeloansservices@outlook.com" <rajesh.ard@brri.gov.bd>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Remove ndo_dfwd_start_xmit
+Date: Sun, 25 Jun 2017 12:18:44 -0400 (EDT)
+Message-ID: <20170625.121844.1813144353355058349.davem@davemloft.net>
+References: <20170625080912.27999-1-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
+Cc: netdev@vger.kernel.org, jasowang@redhat.com,
+        john.r.fastabend@intel.com
+To: Yuval.Mintz@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.bcc.gov.bd ([114.130.54.201]:35202 "EHLO
-        zimbra.bcc.gov.bd" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751020AbdFYQAj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2017 12:00:39 -0400
-In-Reply-To: <1670843256.48222.1498405802403.JavaMail.zimbra@brri.gov.bd>
+Received: from shards.monkeyblade.net ([184.105.139.130]:40810 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751142AbdFYQSt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2017 12:18:49 -0400
+In-Reply-To: <20170625080912.27999-1-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Mr. / Mrs,
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Date: Sun, 25 Jun 2017 11:09:12 +0300
 
-Certitude loan firm is a charity loan firm organize to help people in need of financial help.
-We give loans from the range of $1,000 - $70,000,000. Our loan is well insured and maximum
-security is our priority, Our interested rate is 2%.
+> Looks like commit f663dd9aaf9e ("net: core: explicitly select a txq before doing l2 forwarding")
+> has removed the need for this dedicated xmit function [it even explicitly
+> states so in its commit log message] but it hasn't removed the definition
+> of the ndo.
+> 
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 
-We offer the following types of loans to individuals-
-
-* Commercial loans.
-* Personal Loans.
-* Business Loans.
-* And much more:
-
-Interested client should please fill our form below and send it to : certitudeloansservices@outlook.com
-
-1. Full name:
-2. Loan amount needed:
-3. Loan duration:
-4. Phone:
-5. Sex:
-6. Age:
-7. Occupation:
-
-
-Certitude Loan Firm
-RAJESH TAYLOR,
-Loan Account Executive
+Looks good, applied, thanks.
