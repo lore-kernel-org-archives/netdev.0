@@ -1,34 +1,93 @@
-From: joshd@dfweliteautorental.com
-Subject: The best-selling weight loss aid pill on the market: you've been
- invited
-Date: Sun, 25 Jun 2017 14:24:03 +0200
-Message-ID: <ggei8if-auu5i5-10@dfweliteautorental.com>
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-To: nomonde.gwebushe@mrc.ac.za, nestor.medrano@listindiario.com,
-        moving@border.co.za, netdev@vger.kernel.org, paypal@land-fsbo.com,
-        nichols@ida.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rds.rdsrealestate.com ([192.254.152.71]:50090 "EHLO
-        rds.rdsrealestate.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751354AbdFYVZr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2017 17:25:47 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH][-next] ath10k: fix a bunch of spelling mistakes in messages
+Date: Sun, 25 Jun 2017 22:29:32 +0100
+Message-ID: <20170625212932.29787-1-colin.king@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@qca.qualcomm.com>, ath10k@lists.infradead.org,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-SW4gbW9zdCBjYXNlcywgd2VpZ2h0IGxvc3MgYWlkIHNvbHV0aW9ucyBhcmUgbWFkZSB3aXRoaW4g
-dGhlIGd1aWRlbGluZXMgc2V0IGJ5IHRoZSBGREEsIGJ1dCBvdXIgZGlldCBzb2x1dGlvbiBpcyBj
-b21wbGV0ZWx5IGRpZmZlcmVudC4NCg0KSXQncyBjb21wbGV0ZWx5IHNhZmUgYW5kIGNhdXNlcyBu
-byBzaWRlIGVmZmVjdHMuDQoNClRoZSB3ZWlnaHQgbG9zcyBwcm9jZXNzIGlzIG5vdCBmYXN0IGFu
-ZCBlYXN5LCBvdXIgc3VwcGxlbWVudHMgYXJlIGFtb25nIHRoZSBmYXN0ZXN0LXNlbGxpbmcgYXZh
-aWxhYmxlLg0KDQpZb3UgaGF2ZSBwcm9iYWJseSBuZXZlciByZWFkIG9mIHRoZW0sIGJlY2F1c2Ug
-d2UgZG9uJ3QgZG8gZW1haWwgbWFya2V0aW5nLCB3ZSBkbyBub3QgZG8gc29jaWFsIG1lZGlhIGNh
-bXBhaWducywgb3VyIHNvbHV0aW9uIGlzIG9ubHkgYXZhaWxhYmxlIGZvciBwdXJjaGFzZSB1c2lu
-ZyBhbiBpbnZpdGUtb25seSBzeXN0ZW0uDQoNCllvdSBhcmUgcmVjZWl2aW5nIHRoaXMgbGV0dGVy
-IGJlY2F1c2Ugb25lIG9mIHlvdXIgZnJpZW5kcyBoYXMgc2VudCB5b3UgYW4gaW52aXRhdGlvbiwg
-dGhhdCdzIGFsc28gd2h5IHdlIHdpbGwgbWFpbCB5b3UgYSAzMC1kYXkgc3VwcGx5IG9mIG91ciB3
-ZWlnaHQgbG9zcyBwcm9kdWN0IGZvciAkMjIuDQoNClRoaXMgaXMgdGhlIGxpbmsgb25seSBwcm92
-aWRlZCBmb3IgdGhpcyBQQw0KDQpUaGUgc3RvcmUgaXMgbGltaXRlZCwgbWFrZSBzdXJlIHRvIGdl
-dCB0aGVyZSBmYXN0Lg0KDQpodHRwOi8vaG91c3RvbnRheGF0dG9ybmV5Lm5ldC93cC1jb250ZW50
-L3BsdWdpbnMvd29yZHByZXNzLXNlby9zZXNzaW9uYXV0aC5pbmMucGhwP2JtOXRiMjVrWlM1bmQy
-VmlkWE5vWlVCdGNtTXVZV011ZW1FPQ0K
+From: Colin Ian King <colin.king@canonical.com>
+
+Fix the following spelling mistakes in messages:
+  syncronise -> synchronize
+  unusally -> unusually
+  addrress -> address
+  inverval -> interval
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/wireless/ath/ath10k/mac.c     | 2 +-
+ drivers/net/wireless/ath/ath10k/pci.c     | 2 +-
+ drivers/net/wireless/ath/ath10k/sdio.c    | 4 ++--
+ drivers/net/wireless/ath/ath10k/wmi-tlv.c | 2 +-
+ 4 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath10k/mac.c b/drivers/net/wireless/ath/ath10k/mac.c
+index 4a71815490ae..55c808f03a84 100644
+--- a/drivers/net/wireless/ath/ath10k/mac.c
++++ b/drivers/net/wireless/ath/ath10k/mac.c
+@@ -1392,7 +1392,7 @@ static int ath10k_vdev_stop(struct ath10k_vif *arvif)
+ 
+ 	ret = ath10k_vdev_setup_sync(ar);
+ 	if (ret) {
+-		ath10k_warn(ar, "failed to syncronise setup for vdev %i: %d\n",
++		ath10k_warn(ar, "failed to synchronize setup for vdev %i: %d\n",
+ 			    arvif->vdev_id, ret);
+ 		return ret;
+ 	}
+diff --git a/drivers/net/wireless/ath/ath10k/pci.c b/drivers/net/wireless/ath/ath10k/pci.c
+index 4f3f513dac4f..7ebfc409018d 100644
+--- a/drivers/net/wireless/ath/ath10k/pci.c
++++ b/drivers/net/wireless/ath/ath10k/pci.c
+@@ -469,7 +469,7 @@ static int ath10k_pci_wake_wait(struct ath10k *ar)
+ 	while (tot_delay < PCIE_WAKE_TIMEOUT) {
+ 		if (ath10k_pci_is_awake(ar)) {
+ 			if (tot_delay > PCIE_WAKE_LATE_US)
+-				ath10k_warn(ar, "device wakeup took %d ms which is unusally long, otherwise it works normally.\n",
++				ath10k_warn(ar, "device wakeup took %d ms which is unusually long, otherwise it works normally.\n",
+ 					    tot_delay / 1000);
+ 			return 0;
+ 		}
+diff --git a/drivers/net/wireless/ath/ath10k/sdio.c b/drivers/net/wireless/ath/ath10k/sdio.c
+index 9e78fbae8413..859ed870bd97 100644
+--- a/drivers/net/wireless/ath/ath10k/sdio.c
++++ b/drivers/net/wireless/ath/ath10k/sdio.c
+@@ -1553,7 +1553,7 @@ static int ath10k_sdio_hif_diag_read(struct ath10k *ar, u32 address, void *buf,
+ 	/* read the data */
+ 	ret = ath10k_sdio_read(ar, MBOX_WINDOW_DATA_ADDRESS, buf, buf_len);
+ 	if (ret) {
+-		ath10k_warn(ar, "failed to read from mbox window data addrress: %d\n",
++		ath10k_warn(ar, "failed to read from mbox window data address: %d\n",
+ 			    ret);
+ 		return ret;
+ 	}
+@@ -1592,7 +1592,7 @@ static int ath10k_sdio_hif_diag_write_mem(struct ath10k *ar, u32 address,
+ 	ret = ath10k_sdio_write(ar, MBOX_WINDOW_DATA_ADDRESS, data, nbytes);
+ 	if (ret) {
+ 		ath10k_warn(ar,
+-			    "failed to write 0x%p to mbox window data addrress: %d\n",
++			    "failed to write 0x%p to mbox window data address: %d\n",
+ 			    data, ret);
+ 		return ret;
+ 	}
+diff --git a/drivers/net/wireless/ath/ath10k/wmi-tlv.c b/drivers/net/wireless/ath/ath10k/wmi-tlv.c
+index f9188027a6f6..7616c1c4bbd3 100644
+--- a/drivers/net/wireless/ath/ath10k/wmi-tlv.c
++++ b/drivers/net/wireless/ath/ath10k/wmi-tlv.c
+@@ -2022,7 +2022,7 @@ ath10k_wmi_tlv_op_gen_sta_keepalive(struct ath10k *ar,
+ 	arp->dest_ip4_addr = arg->dest_ip4_addr;
+ 	ether_addr_copy(arp->dest_mac_addr.addr, arg->dest_mac_addr);
+ 
+-	ath10k_dbg(ar, ATH10K_DBG_WMI, "wmi tlv sta keepalive vdev %d enabled %d method %d inverval %d\n",
++	ath10k_dbg(ar, ATH10K_DBG_WMI, "wmi tlv sta keepalive vdev %d enabled %d method %d interval %d\n",
+ 		   arg->vdev_id, arg->enabled, arg->method, arg->interval);
+ 	return skb;
+ }
+-- 
+2.11.0
