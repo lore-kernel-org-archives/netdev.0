@@ -1,48 +1,92 @@
-From: David Ahern <dsahern-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next] net: add netlink_ext_ack support to
- rtnl_link_ops
-Date: Sat, 24 Jun 2017 20:50:24 -0600
-Message-ID: <1bfb7a80-a440-f960-1f35-a70542106cfb@gmail.com>
-References: <01256ebba091f2108ebeff43e61305bb533067d4.1498303258.git.mschiffer@universe-factory.net>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH net-next] liquidio: standardization: use min_t instead of
+ custom macro
+Date: Sun, 25 Jun 2017 09:09:06 +0300
+Message-ID: <20170625060906.GO1248@mtr-leonro.local>
+References: <20170624113156.GA1313@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        osmocom-net-gprs-qjLDD68F18N4m7O/Vxda39i2O/JbrIOy@public.gmane.org, linux-ppp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Matthias Schiffer <mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>,
-        dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-        hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, j.vosburgh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, vfalico-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org, dmitry.tarnyagin-0TCahj4L2NoXWF+eFR7m5Q@public.gmane.org,
-        wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
-        laforge-TgoAw6mPHtdg9hUCZPvPmw@public.gmane.org, paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org,
-        dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, shm-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
-        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org,
-        arvid.brodin-SVm98a2vdck@public.gmane.org, alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org, kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org, jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org,
-        yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-        steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org, herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org,
-        johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <01256ebba091f2108ebeff43e61305bb533067d4.1498303258.git.mschiffer-Nyw9WiXk/RKXhJHkyCwd5uTW4wlIGRCZ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="aMDdG8xNveJz2ruI"
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        raghu.vatsavayi@cavium.com, derek.chickles@cavium.com,
+        satananda.burla@cavium.com, ricardo.farrington@cavium.com
+To: Felix Manlunas <felix.manlunas@cavium.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.99]:39720 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751164AbdFYGJK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 25 Jun 2017 02:09:10 -0400
+Content-Disposition: inline
+In-Reply-To: <20170624113156.GA1313@felix-thinkpad.cavium.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 6/24/17 5:35 AM, Matthias Schiffer wrote:
-> The following functions are extended with a netlink_ext_ack argument to
-> allow extended error reporting:
-> 
-> * validate
-> * newlink
-> * changelink
-> * slave_validate
-> * slave_changelink
 
-I would prefer separate patches for validate, slave_validate, newlink,
-changelink, and slave_changelink. I do not believe there is a reason to
-lump them into 1 giant patch.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--aMDdG8xNveJz2ruI
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Sat, Jun 24, 2017 at 04:31:56AM -0700, Felix Manlunas wrote:
+> From: Rick Farrington <ricardo.farrington@cavium.com>
+>
+> Replaced custom MIN macro with use of standard 'min_t'.
+>
+> Signed-off-by: Rick Farrington <ricardo.farrington@cavium.com>
+> Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+> ---
+>  drivers/net/ethernet/cavium/liquidio/octeon_console.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_console.c b/drivers/net/ethernet/cavium/liquidio/octeon_console.c
+> index 53f38d0..2dc0e30 100644
+> --- a/drivers/net/ethernet/cavium/liquidio/octeon_console.c
+> +++ b/drivers/net/ethernet/cavium/liquidio/octeon_console.c
+> @@ -42,7 +42,6 @@ static int octeon_console_read(struct octeon_device *oct, u32 console_num,
+>  MODULE_PARM_DESC(console_bitmask,
+>  		 "Bitmask indicating which consoles have debug output redirected to syslog.");
+>
+> -#define MIN(a, b) min((a), (b))
+>  #define CAST_ULL(v) ((u64)(v))
+
+It will be awesome to drop this macro too. It is used in one place and
+hides important information.
+
+Thanks
+
+>
+>  #define BOOTLOADER_PCI_READ_BUFFER_DATA_ADDR    0x0006c008
+> @@ -704,7 +703,7 @@ static int octeon_console_read(struct octeon_device *oct, u32 console_num,
+>  	if (bytes_to_read <= 0)
+>  		return bytes_to_read;
+>
+> -	bytes_to_read = MIN(bytes_to_read, (s32)buf_size);
+> +	bytes_to_read = min_t(s32, bytes_to_read, buf_size);
+>
+>  	/* Check to see if what we want to read is not contiguous, and limit
+>  	 * ourselves to the contiguous block
+> --
+> 1.8.3.1
+>
+
+--aMDdG8xNveJz2ruI
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAllPU4IACgkQ5GN7iDZy
+WKedmxAArUEJGt2UUdOp+YB2wp2K9q5eybvoMrhs9pm5AN+8QRLfpVW4wnV4GGg0
+WOtnnp2W+jmr+J7BKA3X31wqNNIVhshY3MmkFgzPdwg5nG4NLrCe0LmZxgGSF+wM
+S1UnB6HO/EzMJpni6fSwRfdB4FcERFBxl61zRq0d3A82xWpEznWeYNMKDcyIfHAq
+6ANRrR6CMfTtz231eZHoAGm9sEYpVJBm9gH6V8TYdf7hwqVALUj4h+niz/EM9RiW
+mXACStL0NtAt5rDHmMGtJyy/04bMObozvu6rUPr3CUNJxWGxb9R11EIiJBSCRZBz
+amiBamt6kFidn8hZc4SElJfibq/OVMa1Dcy5eIXMIg8EU8i8aBZ7BMDtiGNZtgIP
+LHoJGBjmrSZiWK8E4BwRIZFTbAJrbsM4Mo0XCAxYm4lrreMpVtR4rtOqzXnBhyFC
+pkOLHKNit57P74s/pDUSZf+HCcO2e47lQ+OU2x72dbVIT4Ppi+/aYYNNKZYsUTbg
+9cxOcOmQycpCtCam6tQEJFQRb/QV5xzq5aIKQJ5maUKl6e04DL7Q0Pjqol/8MpfG
+lkdpfbw13BG9B4GYT8FKHokw/Sij77f1JmoY+cRfz2AfFAZlrTp8050tRgDIL6DJ
+DvR5cvqeX4Wn8ONyjXDjVtE9sK4V5Qbd5/uU2KPGFLeHZsxajiQ=
+=SNuS
+-----END PGP SIGNATURE-----
+
+--aMDdG8xNveJz2ruI--
