@@ -1,29 +1,37 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: Faster TCP keepalive
-Date: Mon, 26 Jun 2017 15:40:19 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD002B15F@AcuExch.aculab.com>
-References: <20170623195817.GA13904@ssuryaputra-desktop>
+From: Madalin Bucur <madalin.bucur@nxp.com>
+Subject: [PATCH v2] fsl/fman: add dependency on HAS_DMA
+Date: Mon, 26 Jun 2017 18:47:00 +0300
+Message-ID: <1498492020-17623-1-git-send-email-madalin.bucur@nxp.com>
+Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: 'Stephen Suryaputra Lin' <stephen.suryaputra.lin@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.192]:50277 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751366AbdFZPkY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2017 11:40:24 -0400
-In-Reply-To: <20170623195817.GA13904@ssuryaputra-desktop>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
+        Madalin Bucur <madalin.bucur@nxp.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+        <geert@linux-m68k.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> From: Stephen Suryaputra Lin
-> Sent: 23 June 2017 20:58
-...
-> Suggestions on other ways to quickly tearing down TCP connections to a
-> rebooted host in the application above are welcomed.
+A previous commit (5567e989198b5a8d) inserted a dependency on DMA
+API that requires HAS_DMA to be added in Kconfig.
 
-Arrange to send an RST for each connection during shutdown.
+Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
+---
+ drivers/net/ethernet/freescale/fman/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
 
-	David
+diff --git a/drivers/net/ethernet/freescale/fman/Kconfig b/drivers/net/ethernet/freescale/fman/Kconfig
+index dc0850b..8870a9a 100644
+--- a/drivers/net/ethernet/freescale/fman/Kconfig
++++ b/drivers/net/ethernet/freescale/fman/Kconfig
+@@ -2,6 +2,7 @@ config FSL_FMAN
+ 	tristate "FMan support"
+ 	depends on FSL_SOC || ARCH_LAYERSCAPE || COMPILE_TEST
+ 	select GENERIC_ALLOCATOR
++	depends on HAS_DMA
+ 	select PHYLIB
+ 	default n
+ 	help
+-- 
+2.1.0
