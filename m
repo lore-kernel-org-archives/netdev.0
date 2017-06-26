@@ -1,42 +1,60 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH] net: Remove ndo_dfwd_start_xmit
-Date: Mon, 26 Jun 2017 09:54:09 +0000
-Message-ID: <BLUPR0701MB2004CF8D2DC05A963F8548F88DDF0@BLUPR0701MB2004.namprd07.prod.outlook.com>
-References: <20170625080912.27999-1-Yuval.Mintz@cavium.com>
- <20170625.121844.1813144353355058349.davem@davemloft.net>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH] batman-adv: fix spelling mistake
+ "ourselve" -> "ourself"
+Date: Mon, 26 Jun 2017 13:01:09 +0300
+Message-ID: <ade9a7c5-6956-d614-afcc-5476070d025e@cogentembedded.com>
+References: <20170625215607.30401-1-colin.king@canonical.com>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-        "jasowang@redhat.com" <jasowang@redhat.com>,
-        "john.fastabend@gmail.com" <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0055.outbound.protection.outlook.com ([104.47.40.55]:44058
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751415AbdFZJyS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 26 Jun 2017 05:54:18 -0400
-In-Reply-To: <20170625.121844.1813144353355058349.davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+ Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>,
+ Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>, Antonio Quartulli <a@unstable.cc>,
+ "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20170625215607.30401-1-colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-> > Looks like commit f663dd9aaf9e ("net: core: explicitly select a txq
-> > before doing l2 forwarding") has removed the need for this dedicated
-> > xmit function [it even explicitly states so in its commit log message]
-> > but it hasn't removed the definition of the ndo.
-> >
-> > Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
->=20
-> Looks good, applied, thanks.
+Hello!
 
-BTW, I've came across this while looking at ndo_dfwd_(add|del)_station,
-but it Seems to me like there are simply not enough notification points to
-reliably base the macvlan network-topology on in the offloader view.
+On 6/26/2017 12:56 AM, Colin King wrote:
 
-Specifically, in case there is a mix of private/bridge macvlan instances
-over a single lower-device, I can't see how the offloader could know and
-prevent packets from being internally routed to the private instances.
+> From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> 
+> Trivial fix to spelling mistake in batadv_dbg debug message
+> 
+> Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> ---
+>   net/batman-adv/bat_v_ogm.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/batman-adv/bat_v_ogm.c b/net/batman-adv/bat_v_ogm.c
+> index 1e3dc374bfde..d6dbf67acbb5 100644
+> --- a/net/batman-adv/bat_v_ogm.c
+> +++ b/net/batman-adv/bat_v_ogm.c
+> @@ -200,7 +200,7 @@ static void batadv_v_ogm_send(struct work_struct *work)
+>   				type = "unknown";
+>   			}
+>   
+> -			batadv_dbg(BATADV_DBG_BATMAN, bat_priv, "OGM2 from ourselve on %s surpressed: %s\n",
+> +			batadv_dbg(BATADV_DBG_BATMAN, bat_priv, "OGM2 from ourself on %s surpressed: %s\n",
 
-Could someone perhaps clarify it a bit?
+    I think proper English is "ourselves"...
+
+[...]
+
+MBR, Sergei
