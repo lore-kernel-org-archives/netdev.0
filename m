@@ -1,53 +1,45 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 1/4] dt-bindings: Add "internal" as a valid 'phy-mode'
- property
-Date: Mon, 26 Jun 2017 12:44:36 -0700
-Message-ID: <e9a7d3d6-7431-015d-803d-f568e2afe6d2@gmail.com>
-References: <20170623173135.22912-1-f.fainelli@gmail.com>
- <20170623173135.22912-2-f.fainelli@gmail.com>
- <20170626194341.pi4zyxgkvhwuu4pb@rob-hp-laptop>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC] separate SIOCGIFCONF from the rest of dev_ioctl()
+Date: Mon, 26 Jun 2017 22:25:14 +0200
+Message-ID: <1498508714.24675.5.camel@sipsolutions.net>
+References: <20170626174033.GA10672@ZenIV.linux.org.uk>
+         (sfid-20170626_194046_038743_EA9764C4)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev-gepDB1WL6pn9qxiX1TGQuw@public.gmane.org, Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Vivien Didelot <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>,
-        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
-        Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
-        "open list:NETWORKING DRIVERS" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "open list:OPEN FIRMWARE AND FLATTENED DEVICE TREE BINDINGS"
-        <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org, opendmb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170626194341.pi4zyxgkvhwuu4pb@rob-hp-laptop>
-Content-Language: en-US
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: David Miller <davem@davemloft.net>
+To: Al Viro <viro@ZenIV.linux.org.uk>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:36770 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751403AbdFZUZS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 26 Jun 2017 16:25:18 -0400
+In-Reply-To: <20170626174033.GA10672@ZenIV.linux.org.uk> (sfid-20170626_194046_038743_EA9764C4)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/26/2017 12:43 PM, Rob Herring wrote:
-> On Fri, Jun 23, 2017 at 10:31:32AM -0700, Florian Fainelli wrote:
->> A number of Ethernet MACs have internal Ethernet PHYs and the internal
->> wiring makes it so that this knowledge needs to be available using the
->> standard 'phy-mode' property.
->>
->> Signed-off-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->> ---
->>  Documentation/devicetree/bindings/net/ethernet.txt | 1 +
->>  1 file changed, 1 insertion(+)
-> 
-> Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> 
-> I haven't checked, but this should probably go in the DT spec and we 
-> should update the kernel docs to just point to it.
+On Mon, 2017-06-26 at 18:40 +0100, Al Viro wrote:
 
-Will do, thanks!
--- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 	Only two of dev_ioctl() callers may pass SIOCGIFCONF to it.
+> Separating that codepath from the rest of dev_ioctl() allows both
+> to simplify dev_ioctl() itself (all other cases work with struct
+> ifreq *)
+> *and* seriously simplify the compat side of that beast: all it takes
+> is passing to inet_gifconf() an extra argument - the size of
+> individual
+> records (sizeof(struct ifreq) or sizeof(struct compat_ifreq)).  With
+> dev_ifconf() called directly from sock_do_ioctl()/compat_dev_ifconf()
+> that's easy to arrange.
+
+No objection from me; however, I just introduced another special case
+(in a bugfix for a >20yo bug ...) here:
+
+https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git/commit/?id=68dd02d19c811ca8ea60220a9d73e13b4bdad73a
+
+It would perhaps make sense to also pull that out into the caller,
+which could also get rid of the stupid way the #ifdef is placed in
+sock_ioctl(). For compat, it's already pulled out anyway, even a level
+up than where you're calling it for SIOCGIFCONF - might make sense to
+put the wext stuff into compat_sock_ioctl_trans() too.
+
+johannes
