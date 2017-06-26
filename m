@@ -1,10 +1,10 @@
 From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH net-next v2 4/5] net: add netlink_ext_ack argument to
- rtnl_link_ops.slave_changelink
-Date: Sun, 25 Jun 2017 22:04:30 -0600
-Message-ID: <b097a69e-4449-b124-c39e-4dbdbae7c218@gmail.com>
+Subject: Re: [PATCH net-next v2 5/5] net: add netlink_ext_ack argument to
+ rtnl_link_ops.slave_validate
+Date: Sun, 25 Jun 2017 22:05:15 -0600
+Message-ID: <2a529345-ab92-aa14-7f1e-f8af3a9026eb@gmail.com>
 References: <cover.1498425679.git.mschiffer@universe-factory.net>
- <498ff06f59d5ce13b2ad3e1c1902c3d348ca3c00.1498425679.git.mschiffer@universe-factory.net>
+ <ae78184571760c3430159ea5a654e3d08ba2479d.1498425679.git.mschiffer@universe-factory.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
@@ -24,7 +24,7 @@ To: Matthias Schiffer <mschiffer@universe-factory.net>,
         steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
         johannes@sipsolutions.net
 Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <498ff06f59d5ce13b2ad3e1c1902c3d348ca3c00.1498425679.git.mschiffer@universe-factory.net>
+In-Reply-To: <ae78184571760c3430159ea5a654e3d08ba2479d.1498425679.git.mschiffer@universe-factory.net>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -33,6 +33,5 @@ On 6/25/17 3:56 PM, Matthias Schiffer wrote:
 > 
 > Signed-off-by: Matthias Schiffer <mschiffer@universe-factory.net>
 > ---
-
 
 Acked-by: David Ahern <dsahern@gmail.com>
