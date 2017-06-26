@@ -1,52 +1,79 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH iproute2 3/5] rdma: Add device capability parsing
-Date: Mon, 26 Jun 2017 12:29:24 -0600
-Message-ID: <20170626182924.GB16026@obsidianresearch.com>
-References: <20170626182128.24964-1-leon@kernel.org>
- <20170626182128.24964-4-leon@kernel.org>
+From: <eremias@lrz.uni-muenchen.de>
+Subject: (unknown)
+Date: Mon, 26 Jun 2017 19:07:54 -0000
+Message-ID: <149850407468.12492.1641891215167972361@telenet.ru>
+Reply-To: <eremias@lrz.uni-muenchen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Ariel Almog <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Linux RDMA <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170626182128.24964-4-leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: application/zip; name="1851840_netdev.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 65.169-192-31.telenet.ru ([31.192.169.65]:47983 "HELO
+        telenet.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+        id S1751386AbdFZTH6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 26 Jun 2017 15:07:58 -0400
+Content-Disposition: attachment
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 26, 2017 at 09:21:26PM +0300, Leon Romanovsky wrote:
-> From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-> 
-> Add parsing interface for the device capability flags
-> 
-> $ rdma dev show
-> 1: mlx5_0: caps 0x1257e1c26
-
-This seems very un ip-like. I wouldn't show an undecoded hex value
-like that, it isn't really useful.
-
-> $ rdma dev show mlx5_4 caps
-> 5: mlx5_4: caps 0x1257e1c26
-> Bit	Description
->  01	DEVICE_BAD_PKEY_CNTR
->  02	DEVICE_BAD_QKEY_CNTR
-
-This table also seems un ip-like, the usual format is a list of words,
-I think.
-
-> $ rdma dev show mlx5_4 cap_flags
-> Unknown parameter 'caps_flags'.
-
-?
-
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+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
