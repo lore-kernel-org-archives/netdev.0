@@ -1,7 +1,7 @@
 From: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Subject: [RFC 17/19] RDMA/qedr: Add iWARP connection management qp related callbacks
-Date: Mon, 26 Jun 2017 21:07:07 +0300
-Message-ID: <1498500429-22557-18-git-send-email-Michal.Kalderon@cavium.com>
+Subject: [RFC 18/19] RDMA/qedr: Add iWARP connection management functions
+Date: Mon, 26 Jun 2017 21:07:08 +0300
+Message-ID: <1498500429-22557-19-git-send-email-Michal.Kalderon@cavium.com>
 References: <1498500429-22557-1-git-send-email-Michal.Kalderon@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,282 +17,876 @@ In-Reply-To: <1498500429-22557-1-git-send-email-Michal.Kalderon-YGCgFSpz5w/QT0dZ
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch implements the following iWARP callbacks:
-qp_add_ref
-qp_rem_ref
-get_qp
+Implements the iWARP connection management functions:
+connect, accept, create listener and destroy listener
 
 Signed-off-by: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Ram Amrani <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Ariel Elior <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
 
 ---
- drivers/infiniband/hw/qedr/Makefile     |  2 +-
- drivers/infiniband/hw/qedr/main.c       | 10 ++++++
- drivers/infiniband/hw/qedr/qedr.h       |  5 ++-
- drivers/infiniband/hw/qedr/qedr_iw_cm.c | 57 +++++++++++++++++++++++++++++++++
- drivers/infiniband/hw/qedr/qedr_iw_cm.h | 37 +++++++++++++++++++++
- drivers/infiniband/hw/qedr/verbs.c      | 38 ++++++++++++++++++++--
- 6 files changed, 145 insertions(+), 4 deletions(-)
- create mode 100644 drivers/infiniband/hw/qedr/qedr_iw_cm.c
- create mode 100644 drivers/infiniband/hw/qedr/qedr_iw_cm.h
+ drivers/infiniband/hw/qedr/main.c       |  11 +
+ drivers/infiniband/hw/qedr/qedr.h       |  21 +-
+ drivers/infiniband/hw/qedr/qedr_iw_cm.c | 689 ++++++++++++++++++++++++++++++++
+ drivers/infiniband/hw/qedr/qedr_iw_cm.h |  12 +
+ drivers/infiniband/hw/qedr/verbs.c      |  17 +
+ 5 files changed, 749 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/infiniband/hw/qedr/Makefile b/drivers/infiniband/hw/qedr/Makefile
-index 331a361..1c0bc4f 100644
---- a/drivers/infiniband/hw/qedr/Makefile
-+++ b/drivers/infiniband/hw/qedr/Makefile
-@@ -1,3 +1,3 @@
- obj-$(CONFIG_INFINIBAND_QEDR) := qedr.o
- 
--qedr-y := main.o verbs.o qedr_roce_cm.o
-+qedr-y := main.o verbs.o qedr_roce_cm.o qedr_iw_cm.o
 diff --git a/drivers/infiniband/hw/qedr/main.c b/drivers/infiniband/hw/qedr/main.c
-index ad227b5..ebac63f 100644
+index ebac63f..c594b11 100644
 --- a/drivers/infiniband/hw/qedr/main.c
 +++ b/drivers/infiniband/hw/qedr/main.c
-@@ -39,12 +39,14 @@
- #include <linux/iommu.h>
- #include <linux/pci.h>
- #include <net/addrconf.h>
-+#include <linux/idr.h>
- 
- #include <linux/qed/qed_chain.h>
- #include <linux/qed/qed_if.h>
- #include "qedr.h"
- #include "verbs.h"
- #include <rdma/qedr-abi.h>
-+#include "qedr_iw_cm.h"
- 
- MODULE_DESCRIPTION("QLogic 40G/100G ROCE Driver");
- MODULE_AUTHOR("QLogic Corporation");
-@@ -143,6 +145,9 @@ int qedr_iw_register_device(struct qedr_dev *dev)
+@@ -145,6 +145,12 @@ int qedr_iw_register_device(struct qedr_dev *dev)
  	dev->ibdev.iwcm = kzalloc(sizeof(*dev->ibdev.iwcm), GFP_KERNEL);
  	if (!dev->ibdev.iwcm)
  		return -ENOMEM;
-+	dev->ibdev.iwcm->add_ref = qedr_iw_qp_add_ref;
-+	dev->ibdev.iwcm->rem_ref = qedr_iw_qp_rem_ref;
-+	dev->ibdev.iwcm->get_qp = qedr_iw_get_qp;
- 
- 	memcpy(dev->ibdev.iwcm->ifname,
- 	       dev->ndev->name, sizeof(dev->ibdev.iwcm->ifname));
-@@ -315,6 +320,11 @@ static int qedr_alloc_resources(struct qedr_dev *dev)
- 
- 	spin_lock_init(&dev->sgid_lock);
- 
-+	if (IS_IWARP(dev)) {
-+		spin_lock_init(&dev->idr_lock);
-+		idr_init(&dev->qpidr);
-+	}
 +
++	dev->ibdev.iwcm->connect = qedr_iw_connect;
++	dev->ibdev.iwcm->accept = qedr_iw_accept;
++	dev->ibdev.iwcm->reject = qedr_iw_reject;
++	dev->ibdev.iwcm->create_listen = qedr_iw_create_listen;
++	dev->ibdev.iwcm->destroy_listen = qedr_iw_destroy_listen;
+ 	dev->ibdev.iwcm->add_ref = qedr_iw_qp_add_ref;
+ 	dev->ibdev.iwcm->rem_ref = qedr_iw_qp_rem_ref;
+ 	dev->ibdev.iwcm->get_qp = qedr_iw_get_qp;
+@@ -296,6 +302,9 @@ static void qedr_free_resources(struct qedr_dev *dev)
+ {
+ 	int i;
+ 
++	if (IS_IWARP(dev))
++		destroy_workqueue(dev->iwarp_wq);
++
+ 	for (i = 0; i < dev->num_cnq; i++) {
+ 		qedr_free_mem_sb(dev, &dev->sb_array[i], dev->sb_start + i);
+ 		dev->ops->common->chain_free(dev->cdev, &dev->cnq_array[i].pbl);
+@@ -323,6 +332,7 @@ static int qedr_alloc_resources(struct qedr_dev *dev)
+ 	if (IS_IWARP(dev)) {
+ 		spin_lock_init(&dev->idr_lock);
+ 		idr_init(&dev->qpidr);
++		dev->iwarp_wq = create_singlethread_workqueue("qedr_iwarpq");
+ 	}
+ 
  	/* Allocate Status blocks for CNQ */
- 	dev->sb_array = kcalloc(dev->num_cnq, sizeof(*dev->sb_array),
- 				GFP_KERNEL);
+@@ -800,6 +810,7 @@ static int qedr_init_hw(struct qedr_dev *dev)
+ 	in_params->events = &events;
+ 	in_params->cq_mode = QED_RDMA_CQ_MODE_32_BITS;
+ 	in_params->max_mtu = dev->ndev->mtu;
++	dev->iwarp_max_mtu = dev->ndev->mtu;
+ 	ether_addr_copy(&in_params->mac_addr[0], dev->ndev->dev_addr);
+ 
+ 	rc = dev->ops->rdma_init(dev->cdev, in_params);
 diff --git a/drivers/infiniband/hw/qedr/qedr.h b/drivers/infiniband/hw/qedr/qedr.h
-index 0c0a39a..5dd82d1 100644
+index 5dd82d1..7c7183a 100644
 --- a/drivers/infiniband/hw/qedr/qedr.h
 +++ b/drivers/infiniband/hw/qedr/qedr.h
-@@ -33,6 +33,7 @@
- #define __QEDR_H__
+@@ -60,6 +60,7 @@
+ #define QEDR_MSG_SQ   "  SQ"
+ #define QEDR_MSG_QP   "  QP"
+ #define QEDR_MSG_GSI  " GSI"
++#define QEDR_MSG_IWARP  " IW"
  
- #include <linux/pci.h>
-+#include <linux/idr.h>
- #include <rdma/ib_addr.h>
- #include <linux/qed/qed_if.h>
- #include <linux/qed/qed_chain.h>
-@@ -164,7 +165,8 @@ struct qedr_dev {
- 	struct qedr_cq		*gsi_rqcq;
- 	struct qedr_qp		*gsi_qp;
+ #define QEDR_CQ_MAGIC_NUMBER	(0x11223344)
+ 
+@@ -167,6 +168,8 @@ struct qedr_dev {
  	enum qed_rdma_type	rdma_type;
--
-+	spinlock_t		idr_lock; /* Protect qpidr data-structure */
-+	struct idr		qpidr;
+ 	spinlock_t		idr_lock; /* Protect qpidr data-structure */
+ 	struct idr		qpidr;
++	struct workqueue_struct *iwarp_wq;
++	u16			iwarp_max_mtu;
  	unsigned long enet_state;
  };
  
-@@ -399,6 +401,7 @@ struct qedr_qp {
- 	/* Relevant to qps created from user space only (applications) */
+@@ -344,7 +347,7 @@ enum qedr_qp_err_bitmap {
+ struct qedr_qp {
+ 	struct ib_qp ibqp;	/* must be first */
+ 	struct qedr_dev *dev;
+-
++	struct qedr_iw_ep *ep;
+ 	struct qedr_qp_hwq_info sq;
+ 	struct qedr_qp_hwq_info rq;
+ 
+@@ -402,6 +405,7 @@ struct qedr_qp {
  	struct qedr_userq usq;
  	struct qedr_userq urq;
-+	atomic_t refcnt;
+ 	atomic_t refcnt;
++	bool destroyed;
  };
  
  struct qedr_ah {
-diff --git a/drivers/infiniband/hw/qedr/qedr_iw_cm.c b/drivers/infiniband/hw/qedr/qedr_iw_cm.c
-new file mode 100644
-index 0000000..8811dbc
---- /dev/null
-+++ b/drivers/infiniband/hw/qedr/qedr_iw_cm.c
-@@ -0,0 +1,57 @@
-+/* QLogic qedr NIC Driver
-+ * Copyright (c) 2015-2017  QLogic Corporation
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+#include "qedr.h"
-+void qedr_iw_qp_add_ref(struct ib_qp *ibqp)
-+{
-+	struct qedr_qp *qp = get_qedr_qp(ibqp);
+@@ -482,6 +486,21 @@ static inline int qedr_get_dmac(struct qedr_dev *dev,
+ 	return 0;
+ }
+ 
++struct qedr_iw_listener {
++	struct qedr_dev *dev;
++	struct iw_cm_id *cm_id;
++	int		backlog;
++	void		*qed_handle;
++};
 +
-+	atomic_inc(&qp->refcnt);
++struct qedr_iw_ep {
++	struct qedr_dev	*dev;
++	struct iw_cm_id	*cm_id;
++	struct qedr_qp	*qp;
++	void		*qed_context;
++	u8		during_connect;
++};
++
+ static inline
+ struct qedr_ucontext *get_qedr_ucontext(struct ib_ucontext *ibucontext)
+ {
+diff --git a/drivers/infiniband/hw/qedr/qedr_iw_cm.c b/drivers/infiniband/hw/qedr/qedr_iw_cm.c
+index 8811dbc..fe9b2b6 100644
+--- a/drivers/infiniband/hw/qedr/qedr_iw_cm.c
++++ b/drivers/infiniband/hw/qedr/qedr_iw_cm.c
+@@ -29,7 +29,696 @@
+  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  * SOFTWARE.
+  */
++#include <net/ip.h>
++#include <net/ipv6.h>
++#include <net/udp.h>
++#include <net/addrconf.h>
++#include <net/route.h>
++#include <net/ip6_route.h>
++#include <net/flow.h>
+ #include "qedr.h"
++#include "qedr_iw_cm.h"
++
++static inline void
++qedr_fill_sockaddr4(const struct qed_iwarp_cm_info *cm_info,
++		    struct iw_cm_event *event)
++{
++	struct sockaddr_in *laddr = (struct sockaddr_in *)&event->local_addr;
++	struct sockaddr_in *raddr = (struct sockaddr_in *)&event->remote_addr;
++
++	laddr->sin_family = AF_INET;
++	raddr->sin_family = AF_INET;
++
++	laddr->sin_port = htons(cm_info->local_port);
++	raddr->sin_port = htons(cm_info->remote_port);
++
++	laddr->sin_addr.s_addr = htonl(cm_info->local_ip[0]);
++	raddr->sin_addr.s_addr = htonl(cm_info->remote_ip[0]);
 +}
 +
-+void qedr_iw_qp_rem_ref(struct ib_qp *ibqp)
++static inline void
++qedr_fill_sockaddr6(const struct qed_iwarp_cm_info *cm_info,
++		    struct iw_cm_event *event)
 +{
-+	struct qedr_qp *qp = get_qedr_qp(ibqp);
++	struct sockaddr_in6 *laddr6 = (struct sockaddr_in6 *)&event->local_addr;
++	struct sockaddr_in6 *raddr6 =
++	    (struct sockaddr_in6 *)&event->remote_addr;
++	int i;
 +
-+	if (atomic_dec_and_test(&qp->refcnt)) {
-+		spin_lock_irq(&qp->dev->idr_lock);
-+		idr_remove(&qp->dev->qpidr, qp->qp_id);
-+		spin_unlock_irq(&qp->dev->idr_lock);
-+		kfree(qp);
++	laddr6->sin6_family = AF_INET6;
++	raddr6->sin6_family = AF_INET6;
++
++	laddr6->sin6_port = htons(cm_info->local_port);
++	raddr6->sin6_port = htons(cm_info->remote_port);
++
++	for (i = 0; i < 4; i++) {
++		laddr6->sin6_addr.in6_u.u6_addr32[i] =
++		    htonl(cm_info->local_ip[i]);
++		raddr6->sin6_addr.in6_u.u6_addr32[i] =
++		    htonl(cm_info->remote_ip[i]);
 +	}
 +}
 +
-+struct ib_qp *qedr_iw_get_qp(struct ib_device *ibdev, int qpn)
++void
++qedr_iw_mpa_request(void *context, struct qed_iwarp_cm_event_params *params)
 +{
-+	struct qedr_dev *dev = get_qedr_dev(ibdev);
++	struct qedr_iw_listener *listener = (struct qedr_iw_listener *)context;
++	struct qedr_dev *dev = listener->dev;
++	struct iw_cm_event event;
++	struct qedr_iw_ep *ep;
 +
-+	return idr_find(&dev->qpidr, qpn);
-+}
-diff --git a/drivers/infiniband/hw/qedr/qedr_iw_cm.h b/drivers/infiniband/hw/qedr/qedr_iw_cm.h
-new file mode 100644
-index 0000000..ea6d17af
---- /dev/null
-+++ b/drivers/infiniband/hw/qedr/qedr_iw_cm.h
-@@ -0,0 +1,37 @@
-+/* QLogic qed NIC Driver
-+ * Copyright (c) 2015-2017  QLogic Corporation
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+#include <rdma/iw_cm.h>
-+void qedr_iw_qp_add_ref(struct ib_qp *qp);
-+
-+void qedr_iw_qp_rem_ref(struct ib_qp *qp);
-+
-+struct ib_qp *qedr_iw_get_qp(struct ib_device *dev, int qpn);
-diff --git a/drivers/infiniband/hw/qedr/verbs.c b/drivers/infiniband/hw/qedr/verbs.c
-index fc9ff13..cccae13 100644
---- a/drivers/infiniband/hw/qedr/verbs.c
-+++ b/drivers/infiniband/hw/qedr/verbs.c
-@@ -1272,6 +1272,7 @@ static void qedr_set_common_qp_params(struct qedr_dev *dev,
- 				      struct ib_qp_init_attr *attrs)
- {
- 	spin_lock_init(&qp->q_lock);
-+	atomic_set(&qp->refcnt, 1);
- 	qp->pd = pd;
- 	qp->qp_type = attrs->qp_type;
- 	qp->max_inline_data = attrs->cap.max_inline_data;
-@@ -1342,6 +1343,33 @@ static inline void qedr_qp_user_print(struct qedr_dev *dev, struct qedr_qp *qp)
- 		 qp->usq.buf_len, qp->urq.buf_addr, qp->urq.buf_len);
- }
- 
-+static int qedr_idr_add(struct qedr_dev *dev, void *ptr, u32 id)
-+{
-+	int rc;
-+
-+	if (!IS_IWARP(dev))
-+		return 0;
-+
-+	idr_preload(GFP_KERNEL);
-+	spin_lock_irq(&dev->idr_lock);
-+
-+	rc = idr_alloc(&dev->qpidr, ptr, id, id + 1, GFP_ATOMIC);
-+
-+	spin_unlock_irq(&dev->idr_lock);
-+	idr_preload_end();
-+
-+	return rc < 0 ? rc : 0;
-+}
-+
-+static void qedr_idr_remove(struct qedr_dev *dev, u32 id)
-+{
-+	if (!IS_IWARP(dev))
++	ep = kzalloc(sizeof(*ep), GFP_ATOMIC);
++	if (!ep)
 +		return;
 +
-+	spin_lock_irq(&dev->idr_lock);
-+	idr_remove(&dev->qpidr, id);
-+	spin_unlock_irq(&dev->idr_lock);
++	ep->dev = dev;
++	ep->qed_context = params->ep_context;
++
++	memset(&event, 0, sizeof(event));
++	event.event = IW_CM_EVENT_CONNECT_REQUEST;
++	event.status = params->status;
++
++	if (params->cm_info->ip_version == QED_TCP_IPV4)
++		qedr_fill_sockaddr4(params->cm_info, &event);
++	else
++		qedr_fill_sockaddr6(params->cm_info, &event);
++
++	event.provider_data = (void *)ep;
++	event.private_data = (void *)params->cm_info->private_data;
++	event.private_data_len = (u8)params->cm_info->private_data_len;
++	event.ord = params->cm_info->ord;
++	event.ird = params->cm_info->ird;
++
++	listener->cm_id->event_handler(listener->cm_id, &event);
 +}
- static void qedr_cleanup_user(struct qedr_dev *dev, struct qedr_qp *qp)
- {
- 	if (qp->usq.umem)
-@@ -1692,6 +1720,10 @@ struct ib_qp *qedr_create_qp(struct ib_pd *ibpd,
- 
- 	qp->ibqp.qp_num = qp->qp_id;
- 
-+	rc = qedr_idr_add(dev, qp, qp->qp_id);
++
++void
++qedr_iw_issue_event(void *context,
++		    struct qed_iwarp_cm_event_params *params,
++		    enum iw_cm_event_type event_type)
++{
++	struct qedr_iw_ep *ep = (struct qedr_iw_ep *)context;
++	struct iw_cm_event event;
++
++	memset(&event, 0, sizeof(event));
++	event.status = params->status;
++	event.event = event_type;
++
++	if (params->cm_info) {
++		event.ird = params->cm_info->ird;
++		event.ord = params->cm_info->ord;
++		event.private_data_len = params->cm_info->private_data_len;
++		event.private_data = (void *)params->cm_info->private_data;
++	}
++
++	if (ep->cm_id)
++		ep->cm_id->event_handler(ep->cm_id, &event);
++}
++
++void
++qedr_iw_close_event(void *context, struct qed_iwarp_cm_event_params *params)
++{
++	struct qedr_iw_ep *ep = (struct qedr_iw_ep *)context;
++
++	if (ep->cm_id) {
++		qedr_iw_issue_event(context, params, IW_CM_EVENT_CLOSE);
++
++		ep->cm_id->rem_ref(ep->cm_id);
++		ep->cm_id = NULL;
++	}
++}
++
++void
++qedr_iw_qp_event(void *context,
++		 struct qed_iwarp_cm_event_params *params,
++		 enum ib_event_type ib_event, char *str)
++{
++	struct qedr_iw_ep *ep = (struct qedr_iw_ep *)context;
++	struct qedr_dev *dev = ep->dev;
++	struct ib_qp *ibqp = &ep->qp->ibqp;
++	struct ib_event event;
++
++	DP_NOTICE(dev, "QP error received: %s\n", str);
++
++	if (ibqp->event_handler) {
++		event.event = ib_event;
++		event.device = ibqp->device;
++		event.element.qp = ibqp;
++		ibqp->event_handler(&event, ibqp->qp_context);
++	}
++}
++
++struct qedr_discon_work {
++	struct work_struct		work;
++	struct qedr_iw_ep		*ep;
++	enum qed_iwarp_event_type	event;
++	int				status;
++};
++
++static void qedr_iw_disconnect_worker(struct work_struct *work)
++{
++	struct qedr_discon_work *dwork =
++	    container_of(work, struct qedr_discon_work, work);
++	struct qed_rdma_modify_qp_in_params qp_params = { 0 };
++	struct qedr_iw_ep *ep = dwork->ep;
++	struct qedr_dev *dev = ep->dev;
++	struct qedr_qp *qp = ep->qp;
++	struct iw_cm_event event;
++
++	if (qp->destroyed) {
++		kfree(dwork);
++		qedr_iw_qp_rem_ref(&qp->ibqp);
++		return;
++	}
++
++	memset(&event, 0, sizeof(event));
++	event.status = dwork->status;
++	event.event = IW_CM_EVENT_DISCONNECT;
++
++	/* Success means graceful disconnect was requested. modifying
++	 * to SQD is translated to graceful disconnect. O/w reset is sent
++	 */
++	if (dwork->status)
++		qp_params.new_state = QED_ROCE_QP_STATE_ERR;
++	else
++		qp_params.new_state = QED_ROCE_QP_STATE_SQD;
++
++	kfree(dwork);
++
++	if (ep->cm_id)
++		ep->cm_id->event_handler(ep->cm_id, &event);
++
++	SET_FIELD(qp_params.modify_flags,
++		  QED_RDMA_MODIFY_QP_VALID_NEW_STATE, 1);
++
++	dev->ops->rdma_modify_qp(dev->rdma_ctx, qp->qed_qp, &qp_params);
++
++	qedr_iw_qp_rem_ref(&qp->ibqp);
++}
++
++void
++qedr_iw_disconnect_event(void *context,
++			 struct qed_iwarp_cm_event_params *params)
++{
++	struct qedr_discon_work *work;
++	struct qedr_iw_ep *ep = (struct qedr_iw_ep *)context;
++	struct qedr_dev *dev = ep->dev;
++	struct qedr_qp *qp = ep->qp;
++
++	work = kzalloc(sizeof(*work), GFP_ATOMIC);
++	if (!work)
++		return;
++
++	qedr_iw_qp_add_ref(&qp->ibqp);
++	work->ep = ep;
++	work->event = params->event;
++	work->status = params->status;
++
++	INIT_WORK(&work->work, qedr_iw_disconnect_worker);
++	queue_work(dev->iwarp_wq, &work->work);
++}
++
++static void
++qedr_iw_passive_complete(void *context,
++			 struct qed_iwarp_cm_event_params *params)
++{
++	struct qedr_iw_ep *ep = (struct qedr_iw_ep *)context;
++	struct qedr_dev *dev = ep->dev;
++
++	/* We will only reach the following state if MPA_REJECT was called on
++	 * passive. In this case there will be no associated QP.
++	 */
++	if ((params->status == -ECONNREFUSED) && (!ep->qp)) {
++		DP_DEBUG(dev, QEDR_MSG_IWARP,
++			 "PASSIVE connection refused releasing ep...\n");
++		kfree(ep);
++		return;
++	}
++
++	qedr_iw_issue_event(context, params, IW_CM_EVENT_ESTABLISHED);
++
++	if (params->status < 0)
++		qedr_iw_close_event(context, params);
++}
++
++int
++qedr_iw_mpa_reply(void *context, struct qed_iwarp_cm_event_params *params)
++{
++	struct qedr_iw_ep *ep = (struct qedr_iw_ep *)context;
++	struct qedr_dev *dev = ep->dev;
++	struct qed_iwarp_send_rtr_in rtr_in;
++
++	rtr_in.ep_context = params->ep_context;
++
++	return dev->ops->iwarp_send_rtr(dev->rdma_ctx, &rtr_in);
++}
++
++int
++qedr_iw_event_handler(void *context, struct qed_iwarp_cm_event_params *params)
++{
++	struct qedr_iw_ep *ep = (struct qedr_iw_ep *)context;
++	struct qedr_dev *dev = ep->dev;
++
++	switch (params->event) {
++	case QED_IWARP_EVENT_MPA_REQUEST:
++		qedr_iw_mpa_request(context, params);
++		break;
++	case QED_IWARP_EVENT_ACTIVE_MPA_REPLY:
++		qedr_iw_mpa_reply(context, params);
++		break;
++	case QED_IWARP_EVENT_PASSIVE_COMPLETE:
++		ep->during_connect = 0;
++		qedr_iw_passive_complete(context, params);
++		break;
++
++	case QED_IWARP_EVENT_ACTIVE_COMPLETE:
++		ep->during_connect = 0;
++		qedr_iw_issue_event(context,
++				    params,
++				    IW_CM_EVENT_CONNECT_REPLY);
++		if (params->status < 0) {
++			struct qedr_iw_ep *ep = (struct qedr_iw_ep *)context;
++
++			ep->cm_id->rem_ref(ep->cm_id);
++			ep->cm_id = NULL;
++		}
++		break;
++	case QED_IWARP_EVENT_DISCONNECT:
++		qedr_iw_disconnect_event(context, params);
++		break;
++	case QED_IWARP_EVENT_CLOSE:
++		ep->during_connect = 0;
++		qedr_iw_close_event(context, params);
++		break;
++	case QED_IWARP_EVENT_RQ_EMPTY:
++		qedr_iw_qp_event(context, params, IB_EVENT_QP_FATAL,
++				 "QED_IWARP_EVENT_RQ_EMPTY");
++		break;
++	case QED_IWARP_EVENT_IRQ_FULL:
++		qedr_iw_qp_event(context, params, IB_EVENT_QP_FATAL,
++				 "QED_IWARP_EVENT_IRQ_FULL");
++		break;
++	case QED_IWARP_EVENT_LLP_TIMEOUT:
++		qedr_iw_qp_event(context, params, IB_EVENT_QP_FATAL,
++				 "QED_IWARP_EVENT_LLP_TIMEOUT");
++		break;
++	case QED_IWARP_EVENT_REMOTE_PROTECTION_ERROR:
++		qedr_iw_qp_event(context, params, IB_EVENT_QP_ACCESS_ERR,
++				 "QED_IWARP_EVENT_REMOTE_PROTECTION_ERROR");
++		break;
++	case QED_IWARP_EVENT_CQ_OVERFLOW:
++		qedr_iw_qp_event(context, params, IB_EVENT_QP_FATAL,
++				 "QED_IWARP_EVENT_CQ_OVERFLOW");
++		break;
++	case QED_IWARP_EVENT_QP_CATASTROPHIC:
++		qedr_iw_qp_event(context, params, IB_EVENT_QP_FATAL,
++				 "QED_IWARP_EVENT_QP_CATASTROPHIC");
++		break;
++	case QED_IWARP_EVENT_LOCAL_ACCESS_ERROR:
++		qedr_iw_qp_event(context, params, IB_EVENT_QP_ACCESS_ERR,
++				 "QED_IWARP_EVENT_LOCAL_ACCESS_ERROR");
++		break;
++	case QED_IWARP_EVENT_REMOTE_OPERATION_ERROR:
++		qedr_iw_qp_event(context, params, IB_EVENT_QP_FATAL,
++				 "QED_IWARP_EVENT_REMOTE_OPERATION_ERROR");
++		break;
++	case QED_IWARP_EVENT_TERMINATE_RECEIVED:
++		DP_NOTICE(dev, "Got terminate message\n");
++		break;
++	default:
++		DP_NOTICE(dev, "Unknown event received %d\n", params->event);
++		break;
++	};
++	return 0;
++}
++
++static u16 qedr_iw_get_vlan_ipv4(struct qedr_dev *dev, u32 *addr)
++{
++	struct net_device *ndev;
++	u16 vlan_id = 0;
++
++	ndev = ip_dev_find(&init_net, htonl(addr[0]));
++
++	if (ndev) {
++		vlan_id = rdma_vlan_dev_vlan_id(ndev);
++		dev_put(ndev);
++	}
++	if (vlan_id == 0xffff)
++		vlan_id = 0;
++	return vlan_id;
++}
++
++static u16 qedr_iw_get_vlan_ipv6(u32 *addr)
++{
++	struct net_device *ndev = NULL;
++	struct in6_addr laddr6;
++	u16 vlan_id = 0;
++	int i;
++
++	if (!IS_ENABLED(CONFIG_IPV6))
++		return vlan_id;
++
++	for (i = 0; i < 4; i++)
++		laddr6.in6_u.u6_addr32[i] = htonl(addr[i]);
++
++	rcu_read_lock();
++	for_each_netdev_rcu(&init_net, ndev) {
++		if (ipv6_chk_addr(&init_net, &laddr6, ndev, 1)) {
++			vlan_id = rdma_vlan_dev_vlan_id(ndev);
++			break;
++		}
++	}
++
++	rcu_read_unlock();
++	if (vlan_id == 0xffff)
++		vlan_id = 0;
++
++	return vlan_id;
++}
++
++static int
++qedr_addr4_resolve(struct qedr_dev *dev,
++		   struct sockaddr_in *src_in,
++		   struct sockaddr_in *dst_in, u8 *dst_mac)
++{
++	__be32 src_ip = src_in->sin_addr.s_addr;
++	__be32 dst_ip = dst_in->sin_addr.s_addr;
++	struct neighbour *neigh = NULL;
++	struct rtable *rt = NULL;
++	int rc = 0;
++
++	rt = ip_route_output(&init_net, dst_ip, src_ip, 0, 0);
++	if (IS_ERR(rt)) {
++		DP_ERR(dev, "ip_route_output returned error\n");
++		return -EINVAL;
++	}
++
++	neigh = dst_neigh_lookup(&rt->dst, &dst_ip);
++
++	if (neigh) {
++		rcu_read_lock();
++		if (neigh->nud_state & NUD_VALID) {
++			ether_addr_copy(dst_mac, neigh->ha);
++			DP_DEBUG(dev, QEDR_MSG_QP, "mac_addr=[%pM]\n", dst_mac);
++		} else {
++			neigh_event_send(neigh, NULL);
++		}
++		rcu_read_unlock();
++		neigh_release(neigh);
++	}
++
++	ip_rt_put(rt);
++
++	return rc;
++}
++
++static int
++qedr_addr6_resolve(struct qedr_dev *dev,
++		   struct sockaddr_in6 *src_in,
++		   struct sockaddr_in6 *dst_in, u8 *dst_mac)
++{
++	struct neighbour *neigh = NULL;
++	struct dst_entry *dst;
++	struct flowi6 fl6;
++	int rc = 0;
++
++	memset(&fl6, 0, sizeof(fl6));
++	fl6.daddr = dst_in->sin6_addr;
++	fl6.saddr = src_in->sin6_addr;
++
++	dst = ip6_route_output(&init_net, NULL, &fl6);
++
++	if ((!dst) || dst->error) {
++		if (dst) {
++			dst_release(dst);
++			DP_ERR(dev,
++			       "ip6_route_output returned dst->error = %d\n",
++			       dst->error);
++		}
++		return -EINVAL;
++	}
++	neigh = dst_neigh_lookup(dst, &dst_in);
++
++	if (neigh) {
++		rcu_read_lock();
++		if (neigh->nud_state & NUD_VALID) {
++			ether_addr_copy(dst_mac, neigh->ha);
++			DP_DEBUG(dev, QEDR_MSG_QP, "mac_addr=[%pM]\n", dst_mac);
++		} else {
++			neigh_event_send(neigh, NULL);
++		}
++		rcu_read_unlock();
++		neigh_release(neigh);
++	}
++
++	dst_release(dst);
++
++	return rc;
++}
++
++int qedr_iw_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
++{
++	struct qedr_dev *dev = get_qedr_dev(cm_id->device);
++	struct qed_iwarp_connect_out out_params;
++	struct qed_iwarp_connect_in in_params;
++	struct qed_iwarp_cm_info *cm_info;
++	struct sockaddr_in6 *laddr6;
++	struct sockaddr_in6 *raddr6;
++	struct sockaddr_in *laddr;
++	struct sockaddr_in *raddr;
++	struct qedr_iw_ep *ep;
++	struct qedr_qp *qp;
++	int rc = 0;
++	int i;
++
++	qp = idr_find(&dev->qpidr, conn_param->qpn);
++
++	laddr = (struct sockaddr_in *)&cm_id->local_addr;
++	raddr = (struct sockaddr_in *)&cm_id->remote_addr;
++	laddr6 = (struct sockaddr_in6 *)&cm_id->local_addr;
++	raddr6 = (struct sockaddr_in6 *)&cm_id->remote_addr;
++
++	DP_DEBUG(dev, QEDR_MSG_IWARP,
++		 "Connect source address: %pISpc, remote address: %pISpc\n",
++		 &cm_id->local_addr, &cm_id->remote_addr);
++
++	if (!laddr->sin_port || !raddr->sin_port)
++		return -EINVAL;
++
++	ep = kzalloc(sizeof(*ep), GFP_KERNEL);
++	if (!ep)
++		return -ENOMEM;
++
++	ep->dev = dev;
++	ep->qp = qp;
++	qp->ep = ep;
++	cm_id->add_ref(cm_id);
++	ep->cm_id = cm_id;
++
++	in_params.event_cb = qedr_iw_event_handler;
++	in_params.cb_context = ep;
++
++	cm_info = &in_params.cm_info;
++	memset(cm_info->local_ip, 0, sizeof(cm_info->local_ip));
++	memset(cm_info->remote_ip, 0, sizeof(cm_info->remote_ip));
++
++	if (cm_id->remote_addr.ss_family == AF_INET) {
++		cm_info->ip_version = QED_TCP_IPV4;
++
++		cm_info->remote_ip[0] = ntohl(raddr->sin_addr.s_addr);
++		cm_info->local_ip[0] = ntohl(laddr->sin_addr.s_addr);
++		cm_info->remote_port = ntohs(raddr->sin_port);
++		cm_info->local_port = ntohs(laddr->sin_port);
++		cm_info->vlan = qedr_iw_get_vlan_ipv4(dev, cm_info->local_ip);
++
++		rc = qedr_addr4_resolve(dev, laddr, raddr,
++					(u8 *)in_params.remote_mac_addr);
++
++		in_params.mss = dev->iwarp_max_mtu -
++		    (sizeof(struct iphdr) + sizeof(struct tcphdr));
++
++	} else {
++		in_params.cm_info.ip_version = QED_TCP_IPV6;
++
++		for (i = 0; i < 4; i++) {
++			cm_info->remote_ip[i] =
++			    ntohl(raddr6->sin6_addr.in6_u.u6_addr32[i]);
++			cm_info->local_ip[i] =
++			    ntohl(laddr6->sin6_addr.in6_u.u6_addr32[i]);
++		}
++
++		cm_info->local_port = ntohs(laddr6->sin6_port);
++		cm_info->remote_port = ntohs(raddr6->sin6_port);
++
++		in_params.mss = dev->iwarp_max_mtu -
++		    (sizeof(struct ipv6hdr) + sizeof(struct tcphdr));
++
++		cm_info->vlan = qedr_iw_get_vlan_ipv6(cm_info->local_ip);
++
++		rc = qedr_addr6_resolve(dev, laddr6, raddr6,
++					(u8 *)in_params.remote_mac_addr);
++	}
 +	if (rc)
 +		goto err;
 +
- 	return &qp->ibqp;
- 
- err:
-@@ -2224,8 +2256,10 @@ int qedr_destroy_qp(struct ib_qp *ibqp)
- 
- 	qedr_free_qp_resources(dev, qp);
- 
--	kfree(qp);
--
-+	if (atomic_dec_and_test(&qp->refcnt)) {
-+		qedr_idr_remove(dev, qp->qp_id);
-+		kfree(qp);
++	DP_DEBUG(dev, QEDR_MSG_IWARP,
++		 "ord = %d ird=%d private_data=%p private_data_len=%d rq_psn=%d\n",
++		 conn_param->ord, conn_param->ird, conn_param->private_data,
++		 conn_param->private_data_len, qp->rq_psn);
++
++	cm_info->ord = conn_param->ord;
++	cm_info->ird = conn_param->ird;
++	cm_info->private_data = conn_param->private_data;
++	cm_info->private_data_len = conn_param->private_data_len;
++	in_params.qp = qp->qed_qp;
++	memcpy(in_params.local_mac_addr, dev->ndev->dev_addr, ETH_ALEN);
++
++	ep->during_connect = 1;
++	rc = dev->ops->iwarp_connect(dev->rdma_ctx, &in_params, &out_params);
++	if (rc)
++		goto err;
++
++	return rc;
++
++err:
++	cm_id->rem_ref(cm_id);
++	kfree(ep);
++	return rc;
++}
++
++int qedr_iw_create_listen(struct iw_cm_id *cm_id, int backlog)
++{
++	struct qedr_dev *dev = get_qedr_dev(cm_id->device);
++	struct qedr_iw_listener *listener;
++	struct qed_iwarp_listen_in iparams;
++	struct qed_iwarp_listen_out oparams;
++	struct sockaddr_in *laddr;
++	struct sockaddr_in6 *laddr6;
++	int rc;
++	int i;
++
++	laddr = (struct sockaddr_in *)&cm_id->local_addr;
++	laddr6 = (struct sockaddr_in6 *)&cm_id->local_addr;
++
++	DP_DEBUG(dev, QEDR_MSG_IWARP,
++		 "Create Listener address: %pISpc\n", &cm_id->local_addr);
++
++	listener = kzalloc(sizeof(*listener), GFP_KERNEL);
++	if (!listener)
++		return -ENOMEM;
++
++	listener->dev = dev;
++	cm_id->add_ref(cm_id);
++	listener->cm_id = cm_id;
++	listener->backlog = backlog;
++
++	iparams.cb_context = listener;
++	iparams.event_cb = qedr_iw_event_handler;
++	iparams.max_backlog = backlog;
++
++	if (cm_id->local_addr.ss_family == AF_INET) {
++		iparams.ip_version = QED_TCP_IPV4;
++		memset(iparams.ip_addr, 0, sizeof(iparams.ip_addr));
++
++		iparams.ip_addr[0] = ntohl(laddr->sin_addr.s_addr);
++		iparams.port = ntohs(laddr->sin_port);
++		iparams.vlan = qedr_iw_get_vlan_ipv4(dev, iparams.ip_addr);
++	} else {
++		iparams.ip_version = QED_TCP_IPV6;
++
++		for (i = 0; i < 4; i++) {
++			iparams.ip_addr[i] =
++			    ntohl(laddr6->sin6_addr.in6_u.u6_addr32[i]);
++		}
++
++		iparams.port = ntohs(laddr6->sin6_port);
++
++		iparams.vlan = qedr_iw_get_vlan_ipv6(iparams.ip_addr);
 +	}
- 	return rc;
- }
++	rc = dev->ops->iwarp_create_listen(dev->rdma_ctx, &iparams, &oparams);
++	if (rc)
++		goto err;
++
++	listener->qed_handle = oparams.handle;
++	cm_id->provider_data = listener;
++	return rc;
++
++err:
++	cm_id->rem_ref(cm_id);
++	kfree(listener);
++	return rc;
++}
++
++int qedr_iw_destroy_listen(struct iw_cm_id *cm_id)
++{
++	struct qedr_iw_listener *listener = cm_id->provider_data;
++	struct qedr_dev *dev = get_qedr_dev(cm_id->device);
++	int rc = 0;
++
++	if (listener->qed_handle)
++		rc = dev->ops->iwarp_destroy_listen(dev->rdma_ctx,
++						    listener->qed_handle);
++
++	cm_id->rem_ref(cm_id);
++	return rc;
++}
++
++int qedr_iw_accept(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
++{
++	struct qedr_iw_ep *ep = (struct qedr_iw_ep *)cm_id->provider_data;
++	struct qedr_dev *dev = ep->dev;
++	struct qedr_qp *qp;
++	struct qed_iwarp_accept_in params;
++	int rc;
++
++	DP_DEBUG(dev, QEDR_MSG_IWARP, "Accept on qpid=%d\n", conn_param->qpn);
++
++	qp = idr_find(&dev->qpidr, conn_param->qpn);
++	if (!qp) {
++		DP_ERR(dev, "Invalid QP number %d\n", conn_param->qpn);
++		return -EINVAL;
++	}
++
++	ep->qp = qp;
++	qp->ep = ep;
++	cm_id->add_ref(cm_id);
++	ep->cm_id = cm_id;
++
++	params.ep_context = ep->qed_context;
++	params.cb_context = ep;
++	params.qp = ep->qp->qed_qp;
++	params.private_data = conn_param->private_data;
++	params.private_data_len = conn_param->private_data_len;
++	params.ird = conn_param->ird;
++	params.ord = conn_param->ord;
++
++	ep->during_connect = 1;
++	rc = dev->ops->iwarp_accept(dev->rdma_ctx, &params);
++	if (rc)
++		goto err;
++
++	return rc;
++err:
++	ep->during_connect = 0;
++	cm_id->rem_ref(cm_id);
++	return rc;
++}
++
++int qedr_iw_reject(struct iw_cm_id *cm_id, const void *pdata, u8 pdata_len)
++{
++	struct qedr_iw_ep *ep = (struct qedr_iw_ep *)cm_id->provider_data;
++	struct qedr_dev *dev = ep->dev;
++	struct qed_iwarp_reject_in params;
++
++	params.ep_context = ep->qed_context;
++	params.cb_context = ep;
++	params.private_data = pdata;
++	params.private_data_len = pdata_len;
++	ep->qp = NULL;
++
++	return dev->ops->iwarp_reject(dev->rdma_ctx, &params);
++}
++
+ void qedr_iw_qp_add_ref(struct ib_qp *ibqp)
+ {
+ 	struct qedr_qp *qp = get_qedr_qp(ibqp);
+diff --git a/drivers/infiniband/hw/qedr/qedr_iw_cm.h b/drivers/infiniband/hw/qedr/qedr_iw_cm.h
+index ea6d17af..08f4b10 100644
+--- a/drivers/infiniband/hw/qedr/qedr_iw_cm.h
++++ b/drivers/infiniband/hw/qedr/qedr_iw_cm.h
+@@ -30,6 +30,18 @@
+  * SOFTWARE.
+  */
+ #include <rdma/iw_cm.h>
++
++int qedr_iw_connect(struct iw_cm_id *cm_id,
++		    struct iw_cm_conn_param *conn_param);
++
++int qedr_iw_create_listen(struct iw_cm_id *cm_id, int backlog);
++
++int qedr_iw_destroy_listen(struct iw_cm_id *cm_id);
++
++int qedr_iw_accept(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param);
++
++int qedr_iw_reject(struct iw_cm_id *cm_id, const void *pdata, u8 pdata_len);
++
+ void qedr_iw_qp_add_ref(struct ib_qp *qp);
  
+ void qedr_iw_qp_rem_ref(struct ib_qp *qp);
+diff --git a/drivers/infiniband/hw/qedr/verbs.c b/drivers/infiniband/hw/qedr/verbs.c
+index cccae13..229c63e 100644
+--- a/drivers/infiniband/hw/qedr/verbs.c
++++ b/drivers/infiniband/hw/qedr/verbs.c
+@@ -2249,6 +2249,23 @@ int qedr_destroy_qp(struct ib_qp *ibqp)
+ 			/* Change the QP state to ERROR */
+ 			qedr_modify_qp(ibqp, &attr, attr_mask, NULL);
+ 		}
++	} else {
++		/* Wait for the connect/accept to complete */
++		if (qp->ep) {
++			int wait_count = 1;
++
++			while (qp->ep->during_connect) {
++				DP_DEBUG(dev, QEDR_MSG_QP,
++					 "Still in during connect/accept\n");
++
++				msleep(100);
++				if (wait_count++ > 200) {
++					DP_NOTICE(dev,
++						  "during connect timeout\n");
++					break;
++				}
++			}
++		}
+ 	}
+ 
+ 	if (qp->qp_type == IB_QPT_GSI)
 -- 
 1.8.3.1
 
