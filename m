@@ -1,73 +1,31 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH 1/2] fsl/fman: propagate dma_ops
-Date: Mon, 26 Jun 2017 09:48:54 +0200
-Message-ID: <CAMuHMdU6hkU03s2ZBYEYdOqO3M1djbjZ0YKw8VbHYEvsNxLZxw@mail.gmail.com>
-References: <1497884657-3744-1-git-send-email-madalin.bucur@nxp.com> <1497884657-3744-2-git-send-email-madalin.bucur@nxp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: madalin.bucur@nxp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1497884657-3744-2-git-send-email-madalin.bucur@nxp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: andrew@pynesoft.com
+Subject: The greatest diet pill: we can help with your weight loss quest
+Date: Mon, 26 Jun 2017 09:14:38 +0200
+Message-ID: <2D562021.A01C5A9FA9F4D408@pynesoft.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+To: ptaylor@northcom.net, peter@pedabra.co.uk, pdae@bnu.edu.cn,
+        offpubl@sio.uio.no, paul@slice.co.zw, obermeyb@emporia.edu,
+        pvhuynh@pvfcco.com.vn, nomhlobon@agsa.co.za,
+        neerashan@stluks.co.za, nomonde.gwebushe@mrc.ac.za,
+        nestor.medrano@listindiario.com, moving@border.co.za,
+        netdev@vger.kernel.org, paypal@land-fsbo.com, nichols@ida.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns1.pynesoft.com ([77.68.40.121]:58295 "EHLO mail.pynesoft.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751353AbdFZICI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 26 Jun 2017 04:02:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Madalin,
-
-On Mon, Jun 19, 2017 at 5:04 PM, Madalin Bucur <madalin.bucur@nxp.com> wrot=
-e:
-> Make sure dma_ops are set, to be later used by the Ethernet driver.
->
-> Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
-> ---
->  drivers/net/ethernet/freescale/fman/mac.c | 2 ++
->  1 file changed, 2 insertions(+)
->
-> diff --git a/drivers/net/ethernet/freescale/fman/mac.c b/drivers/net/ethe=
-rnet/freescale/fman/mac.c
-> index 0b31f85..6e67d22f 100644
-> --- a/drivers/net/ethernet/freescale/fman/mac.c
-> +++ b/drivers/net/ethernet/freescale/fman/mac.c
-> @@ -623,6 +623,8 @@ static struct platform_device *dpaa_eth_add_device(in=
-t fman_id,
->                 goto no_mem;
->         }
->
-> +       set_dma_ops(&pdev->dev, get_dma_ops(priv->dev));
-> +
-
-When compile-testing with f NO_DMA=3Dy:
-
-    drivers/net/ethernet/freescale/fman/mac.c: In function
-=E2=80=98dpaa_eth_add_device=E2=80=99:
-    drivers/net/ethernet/freescale/fman/mac.c:626: error: implicit
-declaration of function =E2=80=98set_dma_ops=E2=80=99
-
-Reverting commit 5567e989198b5a8d fixes this regression in v4.12-rc7.
-
-Why is this change needed?
-There's no single other call to the DMA API in this file?
-
-If it's really needed, can't set_dma_ops() be called from the driver that
-needs it, cfr. your other patch "[PATCH 2/2] dpaa_eth: reuse the dma_ops
-provided by the FMan MAC device"?
-
-Thanks!
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k=
-.org
-
-In personal conversations with technical people, I call myself a hacker. Bu=
-t
-when I'm talking to journalists I just say "programmer" or something like t=
-hat.
-                                -- Linus Torvalds
+VXNlIG91ciBpbmNyZWRpYmxlIHdlaWdodC1sb3NzIHRhYnMgYXQgdGhlIHZlcnkgYmVnaW5uaW5n
+IG9mIHlvdXIgd2VpZ2h0IGxvc3MgcXVlc3QgdG8gaGVscCBhY2NlbGVyYXRlIHRoZSBwcm9ncmVz
+cywgaXQnbGwgYWxzbyBoZWxwIHlvdSBmbHVzaCBvdXQgYWxsIHRoZSB0b3hvaWRzLg0KDQogWW91
+ciB3ZWxsLWJlaW5nIGlzIG91ciB0b3AgcHJpb3JpdHksIHNvIHdlJ3JlIG5vdCBvbmx5IGhlbHBp
+bmcgeW91IGRlY3JlYXNlIGV4Y2Vzc2l2ZSBmYXQgdG8gZmVlbCBsaWdodGVyIGFuZCBmcmVzaCwg
+d2UgYWxzbyBtYWtlIHN1cmUgeW91ciBsb25nIHRlcm0gaGVhbHRoIGlzIHN1cHBvcnRlZC4NCg0K
+IE90aGVyIG5vdGFibGUgYWR2YW50YWdlcyBpbmNsdWRlOg0KDQo/QmV0dGVyIHNraW47DQo/RW5o
+YW5jZWQgZW5lcmd5IGxldmVscyBhbmQgaW50ZW5zaXR5Ow0KP0ltcHJvdmVkIGluZ2VzdGlvbi4N
+Cg0KQ2xpY2sgdGhpcyBVUkwgdG8gY2hhbmdlIHlvdXIgd2hvbGUgbGlmZQ0KDQpodHRwOi8vd3d3
+Lmx1eGVoYXBwZW5zLmNvbS93cC1pbmNsdWRlcy9TaW1wbGVQaWUvQ29udGVudC9mdW5jdGlvbnNf
+c2VuZG1haWwuaW5jLnBocD9jSFJoZVd4dmNrQnViM0owYUdOdmJTNXVaWFE9DQo=
