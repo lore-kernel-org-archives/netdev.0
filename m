@@ -1,62 +1,80 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [RFC] separate SIOCGIFCONF from the rest of dev_ioctl()
-Date: Mon, 26 Jun 2017 23:06:40 +0100
-Message-ID: <20170626220640.GC10672@ZenIV.linux.org.uk>
-References: <20170626174033.GA10672@ZenIV.linux.org.uk>
- <1498508714.24675.5.camel@sipsolutions.net>
+From: tndave <tushar.n.dave-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: clean up and modularize arch dma_mapping interface V2
+Date: Mon, 26 Jun 2017 15:06:25 -0700
+Message-ID: <91360640-546b-edab-9f4a-952c7a1d0061@oracle.com>
+References: <20170616181059.19206-1-hch@lst.de>
+	<162d7932-5766-4c29-5471-07d1b699190a@oracle.com>
+	<20170624071855.GD14580@lst.de>
+	<1498318616.31581.87.camel@kernel.crashing.org>
+	<20170626094739.GB13981@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:49196 "EHLO
-        ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751381AbdFZWGo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2017 18:06:44 -0400
-Content-Disposition: inline
-In-Reply-To: <1498508714.24675.5.camel@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-samsung-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org,
+	x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, dmaengine-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, openrisc-cunTk1MwBs9a3B2Vnqf2dGD2FQJk+8+b@public.gmane.org,
+	linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
+	Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <20170626094739.GB13981-jcswGhMUV9g@public.gmane.org>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 26, 2017 at 10:25:14PM +0200, Johannes Berg wrote:
-> On Mon, 2017-06-26 at 18:40 +0100, Al Viro wrote:
-> 
-> > 	Only two of dev_ioctl() callers may pass SIOCGIFCONF to it.
-> > Separating that codepath from the rest of dev_ioctl() allows both
-> > to simplify dev_ioctl() itself (all other cases work with struct
-> > ifreq *)
-> > *and* seriously simplify the compat side of that beast: all it takes
-> > is passing to inet_gifconf() an extra argument - the size of
-> > individual
-> > records (sizeof(struct ifreq) or sizeof(struct compat_ifreq)).  With
-> > dev_ifconf() called directly from sock_do_ioctl()/compat_dev_ifconf()
-> > that's easy to arrange.
-> 
-> No objection from me; however, I just introduced another special case
-> (in a bugfix for a >20yo bug ...) here:
-> 
-> https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git/commit/?id=68dd02d19c811ca8ea60220a9d73e13b4bdad73a
-> 
-> It would perhaps make sense to also pull that out into the caller,
-> which could also get rid of the stupid way the #ifdef is placed in
-> sock_ioctl(). For compat, it's already pulled out anyway, even a level
-> up than where you're calling it for SIOCGIFCONF - might make sense to
-> put the wext stuff into compat_sock_ioctl_trans() too.
 
-BTW, speaking of odd ioctls - e.g. SIOCGIFMETRIC does
-	* for AF_AX25, AF_X25, AF_IRDA, AF_NETROM, AF_ROSE: fail with -EINVAL
-	* everything else - store 0 in ifr->ifr_metric and succeed.
-Is there anything special about that set of families or is it just a cut'n'paste
-accident?  SIOCGIFNETMASK:
-	* AF_AX25, AF_X25, AF_IRDA, AF_NETROM, AF_ROSE, AF_IPX, AF_QIPCRTR: -EINVAL
-	* AF_INET: return ipv4 netmask associated with the interface in question.
-	* AF_PACKET: if CONFIG_INET => as AF_INET, otherwise -ENOIOCTLCMD
-	* everything else: -ENOTTY, as far as I can tell
-Again, what makes ax25 different from e.g. decnet?  netmask makes no sense for
-either, and AFAICS in exact same way.  And the set of -EINVAL ones is similar,
-but not identical to SIOCGIFMETRIC case...
 
-And then there's SIOCGSTAMP and friends; AFAICS, they are identical for everything
-that implements them, modulo differences in locking.  The set of those who have
-those also looks fairly random...
+On 06/26/2017 02:47 AM, Christoph Hellwig wrote:
+> On Sat, Jun 24, 2017 at 10:36:56AM -0500, Benjamin Herrenschmidt wrote:
+>> I think we still need to do it. For example we have a bunch new "funky"
+>> cases.
+> 
+> I have no plan to do away with the selection - I just want a better
+> interface than the current one.
+I agree we need better interface than the current one.
+Like Benjamin mentioned cases for powerpc , sparc also need some special
+treatment for ATU IOMMU depending on device's DMA mask.
+
+For sparc, I am in process of enabling one or more dedicated IOTSB (I/O
+Translation Storage Buffer) per PCI BDF (contrary to current design
+where all PCI device under root complex share a 32bit and/or 64bit IOTSB
+depending on 32bit and/or 64bit DMA). I am planning to use DMA set mask
+APIs as hook where based on device's dma mask values (dma_mask and
+coherent_dma_mask) one or more IOTSB resource will be allocated (and
+released [1]).
+
+Without set_dma_mask ops, I can still rely on HAVE_ARCH_DMA_SET_MASK and
+dma_supported() that allows me to distinguish if device is setting
+its streaming dma_mask and coherent_dma_mask respectively.
+
+-Tushar
+
+[1] By default, every PCI BDF will have one dedicated 32bit IOTSB. This
+is to support default case where some device drivers even don't bother
+to set DMA mask but instead are fine with default 32bit mask.
+A 64bit IOTSB will be allocated when device request 64bit dma_mask.
+However if device wants 64bit dma mask for both coherent and
+non-coherent, a default 32bit IOTSB will be released as well. Wasting an
+IOTSB is not a good idea because there is a hard limit on max number of
+IOTSB per guest domain per root complex.
+
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe sparclinux" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
