@@ -1,67 +1,37 @@
-From: Madalin-cristian Bucur <madalin.bucur@nxp.com>
-Subject: RE: [PATCH 1/2] fsl/fman: propagate dma_ops
-Date: Mon, 26 Jun 2017 14:55:08 +0000
-Message-ID: <AM5PR0402MB26914A0A9BB0877F420848B9ECDF0@AM5PR0402MB2691.eurprd04.prod.outlook.com>
-References: <1497884657-3744-1-git-send-email-madalin.bucur@nxp.com>
- <1497884657-3744-2-git-send-email-madalin.bucur@nxp.com>
- <CAMuHMdU6hkU03s2ZBYEYdOqO3M1djbjZ0YKw8VbHYEvsNxLZxw@mail.gmail.com>
+From: Madalin Bucur <madalin.bucur@nxp.com>
+Subject: [PATCH] fsl/fman: add dependency on HAS_DMA
+Date: Mon, 26 Jun 2017 18:12:27 +0300
+Message-ID: <1498489947-17272-1-git-send-email-madalin.bucur@nxp.com>
+Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
+Content-Type: text/plain
+Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
+        Madalin Bucur <madalin.bucur@nxp.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+        <geert@linux-m68k.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdU6hkU03s2ZBYEYdOqO3M1djbjZ0YKw8VbHYEvsNxLZxw@mail.gmail.com>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBnZWVydC51eXR0ZXJob2V2ZW5A
-Z21haWwuY29tIFttYWlsdG86Z2VlcnQudXl0dGVyaG9ldmVuQGdtYWlsLmNvbV0NCj4gT24gQmVo
-YWxmIE9mIEdlZXJ0IFV5dHRlcmhvZXZlbg0KPiBTZW50OiBNb25kYXksIEp1bmUgMjYsIDIwMTcg
-MTA6NDkgQU0NCj4gVG86IE1hZGFsaW4tY3Jpc3RpYW4gQnVjdXIgPG1hZGFsaW4uYnVjdXJAbnhw
-LmNvbT4NCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IERhdmlkIFMuIE1pbGxlciA8ZGF2
-ZW1AZGF2ZW1sb2Z0Lm5ldD47DQo+IGxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnOyBsaW51
-eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggMS8yXSBmc2wv
-Zm1hbjogcHJvcGFnYXRlIGRtYV9vcHMNCj4gDQo+IEhpIE1hZGFsaW4sDQo+IA0KPiBPbiBNb24s
-IEp1biAxOSwgMjAxNyBhdCA1OjA0IFBNLCBNYWRhbGluIEJ1Y3VyIDxtYWRhbGluLmJ1Y3VyQG54
-cC5jb20+DQo+IHdyb3RlOg0KPiA+IE1ha2Ugc3VyZSBkbWFfb3BzIGFyZSBzZXQsIHRvIGJlIGxh
-dGVyIHVzZWQgYnkgdGhlIEV0aGVybmV0IGRyaXZlci4NCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6
-IE1hZGFsaW4gQnVjdXIgPG1hZGFsaW4uYnVjdXJAbnhwLmNvbT4NCj4gPiAtLS0NCj4gPiAgZHJp
-dmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vbWFjLmMgfCAyICsrDQo+ID4gIDEgZmls
-ZSBjaGFuZ2VkLCAyIGluc2VydGlvbnMoKykNCj4gPg0KPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJz
-L25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9tYWMuYw0KPiBiL2RyaXZlcnMvbmV0L2V0aGVy
-bmV0L2ZyZWVzY2FsZS9mbWFuL21hYy5jDQo+ID4gaW5kZXggMGIzMWY4NS4uNmU2N2QyMmYgMTAw
-NjQ0DQo+ID4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vbWFjLmMN
-Cj4gPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9tYWMuYw0KPiA+
-IEBAIC02MjMsNiArNjIzLDggQEAgc3RhdGljIHN0cnVjdCBwbGF0Zm9ybV9kZXZpY2UNCj4gKmRw
-YWFfZXRoX2FkZF9kZXZpY2UoaW50IGZtYW5faWQsDQo+ID4gICAgICAgICAgICAgICAgIGdvdG8g
-bm9fbWVtOw0KPiA+ICAgICAgICAgfQ0KPiA+DQo+ID4gKyAgICAgICBzZXRfZG1hX29wcygmcGRl
-di0+ZGV2LCBnZXRfZG1hX29wcyhwcml2LT5kZXYpKTsNCj4gPiArDQo+IA0KPiBXaGVuIGNvbXBp
-bGUtdGVzdGluZyB3aXRoIGYgTk9fRE1BPXk6DQo+IA0KPiAgICAgZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvZnJlZXNjYWxlL2ZtYW4vbWFjLmM6IEluIGZ1bmN0aW9uDQo+IOKAmGRwYWFfZXRoX2FkZF9k
-ZXZpY2XigJk6DQo+ICAgICBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9tYWMu
-Yzo2MjY6IGVycm9yOiBpbXBsaWNpdA0KPiBkZWNsYXJhdGlvbiBvZiBmdW5jdGlvbiDigJhzZXRf
-ZG1hX29wc+KAmQ0KPiANCj4gUmV2ZXJ0aW5nIGNvbW1pdCA1NTY3ZTk4OTE5OGI1YThkIGZpeGVz
-IHRoaXMgcmVncmVzc2lvbiBpbiB2NC4xMi1yYzcuDQo+IA0KPiBXaHkgaXMgdGhpcyBjaGFuZ2Ug
-bmVlZGVkPw0KPiBUaGVyZSdzIG5vIHNpbmdsZSBvdGhlciBjYWxsIHRvIHRoZSBETUEgQVBJIGlu
-IHRoaXMgZmlsZT8NCg0KV2UncmUgc2V0dGluZyBoZXJlIHRoZSBkbWFfb3BzIHRoYXQgYXJlIGxh
-dGVyIHVzZWQgaW4gdGhlIG90aGVyIGRyaXZlci9wYXRjaC4NClRoZSBwcm9ibGVtIGlzIHdlIG5v
-dyBkZXBlbmQgdXBvbiBETUEgYnV0IGRvIG5vdCBleHBsaWNpdGx5IGRlY2xhcmUgaXQ6DQoNCjw8
-Q29kZSB0aGF0IGRlcGVuZHMgb24gdGhlIGRtYS1tYXBwaW5nIEFQSSBuZWVkcyB0byBzZXQgJ2Rl
-cGVuZHMgb24gSEFTX0RNQScNCmluIGl0cyBLY29uZmlnPj4NCg0KSSdsbCBuZWVkIHRvIGFkZCB0
-aGlzIHRvIHRoZSBGTWFuIGRyaXZlciBLY29uZmlnLiANCg0KPiBJZiBpdCdzIHJlYWxseSBuZWVk
-ZWQsIGNhbid0IHNldF9kbWFfb3BzKCkgYmUgY2FsbGVkIGZyb20gdGhlIGRyaXZlciB0aGF0DQo+
-IG5lZWRzIGl0LCBjZnIuIHlvdXIgb3RoZXIgcGF0Y2ggIltQQVRDSCAyLzJdIGRwYWFfZXRoOiBy
-ZXVzZSB0aGUgZG1hX29wcw0KPiBwcm92aWRlZCBieSB0aGUgRk1hbiBNQUMgZGV2aWNlIj8NCj4g
-DQo+IFRoYW5rcyENCj4gDQo+IEdye29ldGplLGVldGluZ31zLA0KPiANCj4gICAgICAgICAgICAg
-ICAgICAgICAgICAgR2VlcnQNCj4gDQo+IC0tDQo+IEdlZXJ0IFV5dHRlcmhvZXZlbiAtLSBUaGVy
-ZSdzIGxvdHMgb2YgTGludXggYmV5b25kIGlhMzIgLS0gZ2VlcnRAbGludXgtDQo+IG02OGsub3Jn
-DQo+IA0KPiBJbiBwZXJzb25hbCBjb252ZXJzYXRpb25zIHdpdGggdGVjaG5pY2FsIHBlb3BsZSwg
-SSBjYWxsIG15c2VsZiBhIGhhY2tlci4NCj4gQnV0DQo+IHdoZW4gSSdtIHRhbGtpbmcgdG8gam91
-cm5hbGlzdHMgSSBqdXN0IHNheSAicHJvZ3JhbW1lciIgb3Igc29tZXRoaW5nIGxpa2UNCj4gdGhh
-dC4NCj4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAtLSBMaW51cyBUb3J2YWxkcw0K
-DQpUaGFua3MsDQpNYWRhbGluDQo=
+A previous commit inserted a dependency on DMA API that requires
+HAS_DMA to be added in Kconfig.
+
+Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
+---
+ drivers/net/ethernet/freescale/fman/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/freescale/fman/Kconfig b/drivers/net/ethernet/freescale/fman/Kconfig
+index dc0850b..8870a9a 100644
+--- a/drivers/net/ethernet/freescale/fman/Kconfig
++++ b/drivers/net/ethernet/freescale/fman/Kconfig
+@@ -2,6 +2,7 @@ config FSL_FMAN
+ 	tristate "FMan support"
+ 	depends on FSL_SOC || ARCH_LAYERSCAPE || COMPILE_TEST
+ 	select GENERIC_ALLOCATOR
++	depends on HAS_DMA
+ 	select PHYLIB
+ 	default n
+ 	help
+-- 
+2.1.0
