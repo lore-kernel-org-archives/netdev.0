@@ -1,52 +1,92 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: Re: new dma-mapping tree, was Re: clean up and modularize arch
- dma_mapping interface V2
-Date: Mon, 26 Jun 2017 09:03:50 +0200
-Message-ID: <20170626070350.GB10544@lst.de>
-References: <20170616181059.19206-1-hch@lst.de>
- <20170620124140.GA27163@lst.de> <20170620230400.1a5ae889@canb.auug.org.au>
- <CGME20170620131628epcas1p4f21d821bd414cba7e2d49abcbe414365@epcas1p4.samsung.com>
- <20170620131623.GB30769@lst.de>
- <5425587c-73e8-e24a-86a3-8a65a7791dcb@samsung.com>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH 01/11] dma-mapping: remove dmam_free_noncoherent
+Date: Mon, 26 Jun 2017 00:07:15 -0700
+Message-ID: <20170626070715.GA12711@infradead.org>
+References: <20170616071716.17321-1-hch@lst.de>
+ <20170616071716.17321-2-hch@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linux-mips@linux-mips.org, linux-ia64@vger.kernel.org,
- linux-sh@vger.kernel.org, dri-devel@lists.freedesktop.org,
- sparclinux@vger.kernel.org, Christoph Hellwig <hch@lst.de>,
- Stephen Rothwell <sfr@canb.auug.org.au>, linux-samsung-soc@vger.kernel.org,
- linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, x86@kernel.org,
- Kyungmin Park <kyungmin.park@samsung.com>,
- Linus Torvalds <torvalds@linux-foundation.org>, xen-devel@lists.xenproject.org,
- linux-xtensa@linux-xtensa.org, linux-s390@vger.kernel.org,
- openrisc@lists.librecores.org, linux-tegra@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, iommu@lists.linux-foundation.org,
- dmaengine@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
-To: Marek Szyprowski <m.szyprowski@samsung.com>
-Return-path: <dri-devel-bounces@lists.freedesktop.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-scsi@vger.kernel.org, linux-serial@vger.kernel.org,
+        netdev@vger.kernel.org, linux-metag@vger.kernel.org,
+        nios2-dev@lists.rocketboards.org, linux-fbdev@vger.kernel.org,
+        alsa-devel@alsa-project.org, linux-kernel@vger.kernel.org,
+        Tejun Heo <tj@kernel.org>
+To: Christoph Hellwig <hch@lst.de>
+Return-path: <linux-scsi-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <5425587c-73e8-e24a-86a3-8a65a7791dcb@samsung.com>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: dri-devel-bounces@lists.freedesktop.org
-Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
+In-Reply-To: <20170616071716.17321-2-hch@lst.de>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gV2VkLCBKdW4gMjEsIDIwMTcgYXQgMDM6MzI6MzlQTSArMDIwMCwgTWFyZWsgU3p5cHJvd3Nr
-aSB3cm90ZToKPiBsaW51eC1uZXh0Cj4gd2FzIGEgc2lkZSBlZmZlY3Qgb2YgdGhhdC4gSSB0aGlu
-ayB0aGF0IGZvciBub3cgaXQgY2FuIGJlIGRyb3BwZWQgaW4gZmF2b3IgCj4gb2YKPiBDaHJpc3Rv
-cGgncyB0cmVlLiBJIGNhbiBhbHNvIGRvIHNvbWUgcmV2aWV3IGFuZCBoZWxwIGluIG1haW50YWlu
-ZXJzIHdvcmsgaWYKPiBuZWVkZWQsIGFsdGhvdWdoIEkgd2FzIHJlY2VudGx5IGJ1c3kgd2l0aCBv
-dGhlciBzdHVmZi4KPgo+IENocmlzdG9waDogQ291bGQgeW91IGFkZCBtZSB0byB5b3VyIE1BSU5U
-QUlORVJTIHBhdGNoLCBzbyBmdXJ0aGVyIAo+IGRtYS1tYXBwaW5nCj4gcmVsYXRlZCBwYXRjaGVz
-IGhvcGVmdWxseSB3aWxsIGJlIGFsc28gQ0M6IHRvIG1lPwoKSSd2ZSBhZGRlZCB5b3UgYXMgYSBj
-by1tYWludGFpbmVyLCB0aGFua3MhCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fCmRyaS1kZXZlbCBtYWlsaW5nIGxpc3QKZHJpLWRldmVsQGxpc3RzLmZyZWVk
-ZXNrdG9wLm9yZwpodHRwczovL2xpc3RzLmZyZWVkZXNrdG9wLm9yZy9tYWlsbWFuL2xpc3RpbmZv
-L2RyaS1kZXZlbAo=
+Tejun, does this look ok to you?
+
+On Fri, Jun 16, 2017 at 09:17:06AM +0200, Christoph Hellwig wrote:
+> This function was never used since it was added.
+> 
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
+> ---
+>  Documentation/driver-model/devres.txt |  1 -
+>  drivers/base/dma-mapping.c            | 20 --------------------
+>  include/linux/dma-mapping.h           |  2 --
+>  3 files changed, 23 deletions(-)
+> 
+> diff --git a/Documentation/driver-model/devres.txt b/Documentation/driver-model/devres.txt
+> index e72587fe477d..9070ff06b558 100644
+> --- a/Documentation/driver-model/devres.txt
+> +++ b/Documentation/driver-model/devres.txt
+> @@ -243,7 +243,6 @@ DMA
+>    dmam_alloc_noncoherent()
+>    dmam_declare_coherent_memory()
+>    dmam_free_coherent()
+> -  dmam_free_noncoherent()
+>    dmam_pool_create()
+>    dmam_pool_destroy()
+>  
+> diff --git a/drivers/base/dma-mapping.c b/drivers/base/dma-mapping.c
+> index f3deb6af42ad..5940c9dace36 100644
+> --- a/drivers/base/dma-mapping.c
+> +++ b/drivers/base/dma-mapping.c
+> @@ -148,26 +148,6 @@ void *dmam_alloc_noncoherent(struct device *dev, size_t size,
+>  }
+>  EXPORT_SYMBOL(dmam_alloc_noncoherent);
+>  
+> -/**
+> - * dmam_free_coherent - Managed dma_free_noncoherent()
+> - * @dev: Device to free noncoherent memory for
+> - * @size: Size of allocation
+> - * @vaddr: Virtual address of the memory to free
+> - * @dma_handle: DMA handle of the memory to free
+> - *
+> - * Managed dma_free_noncoherent().
+> - */
+> -void dmam_free_noncoherent(struct device *dev, size_t size, void *vaddr,
+> -			   dma_addr_t dma_handle)
+> -{
+> -	struct dma_devres match_data = { size, vaddr, dma_handle };
+> -
+> -	dma_free_noncoherent(dev, size, vaddr, dma_handle);
+> -	WARN_ON(!devres_destroy(dev, dmam_noncoherent_release, dmam_match,
+> -				&match_data));
+> -}
+> -EXPORT_SYMBOL(dmam_free_noncoherent);
+> -
+>  #ifdef CONFIG_HAVE_GENERIC_DMA_COHERENT
+>  
+>  static void dmam_coherent_decl_release(struct device *dev, void *res)
+> diff --git a/include/linux/dma-mapping.h b/include/linux/dma-mapping.h
+> index 4f3eecedca2d..830ec5f06a4f 100644
+> --- a/include/linux/dma-mapping.h
+> +++ b/include/linux/dma-mapping.h
+> @@ -749,8 +749,6 @@ extern void dmam_free_coherent(struct device *dev, size_t size, void *vaddr,
+>  			       dma_addr_t dma_handle);
+>  extern void *dmam_alloc_noncoherent(struct device *dev, size_t size,
+>  				    dma_addr_t *dma_handle, gfp_t gfp);
+> -extern void dmam_free_noncoherent(struct device *dev, size_t size, void *vaddr,
+> -				  dma_addr_t dma_handle);
+>  #ifdef CONFIG_HAVE_GENERIC_DMA_COHERENT
+>  extern int dmam_declare_coherent_memory(struct device *dev,
+>  					phys_addr_t phys_addr,
+> -- 
+> 2.11.0
+> 
+---end quoted text---
