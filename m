@@ -1,57 +1,49 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH net-next v2 4/5] net: add netlink_ext_ack argument to
- rtnl_link_ops.slave_changelink
-Date: Mon, 26 Jun 2017 07:33:50 -0600
-Message-ID: <27b8d607-7442-0a42-1389-9548840445dc@gmail.com>
-References: <cover.1498425679.git.mschiffer@universe-factory.net>
- <498ff06f59d5ce13b2ad3e1c1902c3d348ca3c00.1498425679.git.mschiffer@universe-factory.net>
- <b097a69e-4449-b124-c39e-4dbdbae7c218@gmail.com>
- <dd3f596b-4519-398c-a2ec-afdaf5f2f058@gmail.com>
- <15d2138d-5026-a35b-8a3c-2a88d05df688@universe-factory.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC PATCH net-next 1/3] ethtool: Add link down reason callback
+Date: Mon, 26 Jun 2017 15:34:39 +0200
+Message-ID: <20170626133439.GB2623@lunn.ch>
+References: <1498050286-17141-1-git-send-email-galp@mellanox.com>
+ <1498050286-17141-2-git-send-email-galp@mellanox.com>
+ <20170621135809.GC27585@lunn.ch>
+ <8e7ffead-350e-bd7f-c7ea-fe057969d0d3@mellanox.com>
+ <20170624190435.GN4875@lunn.ch>
+ <f216ad74-772b-0f6c-1303-ecb0c12afc96@mellanox.com>
+ <20170625151953.GA7799@lunn.ch>
+ <d5cd081c-9882-fce8-697c-2be062756962@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org, linux-can@vger.kernel.org,
-        linux-ppp@vger.kernel.org, linux-wpan@vger.kernel.org
-To: Matthias Schiffer <mschiffer@universe-factory.net>,
-        dledford@redhat.com, sean.hefty@intel.com,
-        hal.rosenstock@gmail.com, j.vosburgh@gmail.com, vfalico@gmail.com,
-        andy@greyhouse.net, wg@grandegger.com, mkl@pengutronix.de,
-        pablo@netfilter.org, laforge@gnumonks.org, paulus@samba.org,
-        jiri@resnulli.us, dsa@cumulusnetworks.com, shm@cumulusnetworks.com,
-        davem@davemloft.net, stephen@networkplumber.org,
-        arvid.brodin@alten.se, alex.aring@gmail.com,
-        stefan@osg.samsung.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        yoshfuji@linux-ipv6.org, kaber@trash.net,
-        steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-        johannes@sipsolutions.net
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <15d2138d-5026-a35b-8a3c-2a88d05df688@universe-factory.net>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        "John W. Linville" <linville@tuxdriver.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        David Decotigny <decot@googlers.com>, kernel-team@fb.com
+To: Gal Pressman <galp@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:35120 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752420AbdFZNe5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 26 Jun 2017 09:34:57 -0400
+Content-Disposition: inline
+In-Reply-To: <d5cd081c-9882-fce8-697c-2be062756962@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 6/26/17 2:43 AM, Matthias Schiffer wrote:
-> On 06/26/2017 06:08 AM, David Ahern wrote:
->> On 6/25/17 10:04 PM, David Ahern wrote:
->>> On 6/25/17 3:56 PM, Matthias Schiffer wrote:
->>>> Add support for extended error reporting.
->>>>
->>>> Signed-off-by: Matthias Schiffer <mschiffer@universe-factory.net>
->>>> ---
->>>
->>>
->>> Acked-by: David Ahern <dsahern@gmail.com>
->>>
->>
->> Actually, you are missing the chagne to br_port_slave_changelink.
->>
+> The driver has a good intimate information of his device
+> implementation, and hence an analysis done by the device vendor is
+> favorable.
+
+For a firmware based NIC, maybe. For a discrete NIC, making use of all
+the Linux subsystems, this is going to be hard from within the kernel.
+
+> The driver provider can perform the analysis inside the device (firmware) or in the driver according to his preferences.
+> We believe that since devices are becoming smarter, more analysis will be done by the device itself, which has more
+> information and faster access.
+> Smart NICs/SoCs are very popular this days and this API takes into account the different architectures.
 > 
-> I'm confused. I am changing br_port_slave_changelink? All my patches are
-> compile-tested.
-> 
+> Since this callback is optional, a user space analysis tool can be added in the future providing more generic analysis approach for
+> unsupported devices.
 
-You are changing the signature of slave_changelink, no?
+I still fear this is going to be an ethtool call with only one user.
 
-net/bridge/br_netlink.c:
-        .slave_changelink       = br_port_slave_changelink,
+  Andrew
