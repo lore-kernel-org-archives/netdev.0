@@ -1,66 +1,97 @@
-From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH] batman-adv: fix spelling mistake
- "ourselve" -> "ourself"
-Date: Mon, 26 Jun 2017 11:05:10 +0100
-Message-ID: <e2983c06-1183-56f8-c318-97445ed6d8b9@canonical.com>
-References: <20170625215607.30401-1-colin.king@canonical.com>
- <ade9a7c5-6956-d614-afcc-5476070d025e@cogentembedded.com>
- <fdaf388e-c2a4-bf3e-4b7e-a1169c72d9e4@cogentembedded.com>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH][V2] batman-adv: fix various spelling mistakes
+Date: Mon, 26 Jun 2017 11:26:44 +0100
+Message-ID: <20170626102644.11337-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
- Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>,
- Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>, Antonio Quartulli <a@unstable.cc>,
- "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <fdaf388e-c2a4-bf3e-4b7e-a1169c72d9e4-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: Marek Lindner <mareklindner@neomailbox.ch>,
+        Simon Wunderlich <sw@simonwunderlich.de>,
+        Antonio Quartulli <a@unstable.cc>,
+        "David S . Miller" <davem@davemloft.net>,
+        b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:35310 "EHLO
+        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751397AbdFZK0t (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2017 06:26:49 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 26/06/17 11:02, Sergei Shtylyov wrote:
-> On 6/26/2017 1:01 PM, Sergei Shtylyov wrote:
-> 
->>> From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
->>>
->>> Trivial fix to spelling mistake in batadv_dbg debug message
->>>
->>> Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
->>> ---
->>>   net/batman-adv/bat_v_ogm.c | 2 +-
->>>   1 file changed, 1 insertion(+), 1 deletion(-)
->>>
->>> diff --git a/net/batman-adv/bat_v_ogm.c b/net/batman-adv/bat_v_ogm.c
->>> index 1e3dc374bfde..d6dbf67acbb5 100644
->>> --- a/net/batman-adv/bat_v_ogm.c
->>> +++ b/net/batman-adv/bat_v_ogm.c
->>> @@ -200,7 +200,7 @@ static void batadv_v_ogm_send(struct work_struct
->>> *work)
->>>                   type = "unknown";
->>>               }
->>> -            batadv_dbg(BATADV_DBG_BATMAN, bat_priv, "OGM2 from
->>> ourselve on %s surpressed: %s\n",
->>> +            batadv_dbg(BATADV_DBG_BATMAN, bat_priv, "OGM2 from
->>> ourself on %s surpressed: %s\n",
->>
->>     I think proper English is "ourselves"...
-> 
->    Sorry. "ourself" also seems valid. :-)
-> 
->> [...]
-> 
-> MBR, Sergei
+From: Colin Ian King <colin.king@canonical.com>
 
-Yep, my bad grammar fail. I'll resend with some extra fixes.
+Trivial fix to spelling mistakes in batadv_dbg debug messages and
+also in a comment and ensure comment line is not wider than 80
+characters
+
+"ourselve" -> "ourselves"
+"surpressed" -> "suppressed"
+"troughput" -> "throughput"
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ net/batman-adv/bat_v_ogm.c | 12 ++++++------
+ net/batman-adv/send.c      |  2 +-
+ 2 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/net/batman-adv/bat_v_ogm.c b/net/batman-adv/bat_v_ogm.c
+index 1e3dc374bfde..a38b09347e2e 100644
+--- a/net/batman-adv/bat_v_ogm.c
++++ b/net/batman-adv/bat_v_ogm.c
+@@ -200,7 +200,7 @@ static void batadv_v_ogm_send(struct work_struct *work)
+ 				type = "unknown";
+ 			}
+ 
+-			batadv_dbg(BATADV_DBG_BATMAN, bat_priv, "OGM2 from ourselve on %s surpressed: %s\n",
++			batadv_dbg(BATADV_DBG_BATMAN, bat_priv, "OGM2 from ourselves on %s suppressed: %s\n",
+ 				   hard_iface->net_dev->name, type);
+ 
+ 			batadv_hardif_put(hard_iface);
+@@ -683,18 +683,18 @@ static void batadv_v_ogm_process(const struct sk_buff *skb, int ogm_offset,
+ 	ogm_throughput = ntohl(ogm_packet->throughput);
+ 
+ 	batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
+-		   "Received OGM2 packet via NB: %pM, IF: %s [%pM] (from OG: %pM, seqno %u, troughput %u, TTL %u, V %u, tvlv_len %u)\n",
++		   "Received OGM2 packet via NB: %pM, IF: %s [%pM] (from OG: %pM, seqno %u, throughput %u, TTL %u, V %u, tvlv_len %u)\n",
+ 		   ethhdr->h_source, if_incoming->net_dev->name,
+ 		   if_incoming->net_dev->dev_addr, ogm_packet->orig,
+ 		   ntohl(ogm_packet->seqno), ogm_throughput, ogm_packet->ttl,
+ 		   ogm_packet->version, ntohs(ogm_packet->tvlv_len));
+ 
+-	/* If the troughput metric is 0, immediately drop the packet. No need to
+-	 * create orig_node / neigh_node for an unusable route.
++	/* If the throughput metric is 0, immediately drop the packet. No need
++	 * to create orig_node / neigh_node for an unusable route.
+ 	 */
+ 	if (ogm_throughput == 0) {
+ 		batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
+-			   "Drop packet: originator packet with troughput metric of 0\n");
++			   "Drop packet: originator packet with throughput metric of 0\n");
+ 		return;
+ 	}
+ 
+@@ -762,7 +762,7 @@ static void batadv_v_ogm_process(const struct sk_buff *skb, int ogm_offset,
+ 				type = "unknown";
+ 			}
+ 
+-			batadv_dbg(BATADV_DBG_BATMAN, bat_priv, "OGM2 packet from %pM on %s surpressed: %s\n",
++			batadv_dbg(BATADV_DBG_BATMAN, bat_priv, "OGM2 packet from %pM on %s suppressed: %s\n",
+ 				   ogm_packet->orig, hard_iface->net_dev->name,
+ 				   type);
+ 
+diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
+index d239a9d72ac3..054a65e6eb68 100644
+--- a/net/batman-adv/send.c
++++ b/net/batman-adv/send.c
+@@ -911,7 +911,7 @@ static void batadv_send_outstanding_bcast_packet(struct work_struct *work)
+ 				type = "unknown";
+ 			}
+ 
+-			batadv_dbg(BATADV_DBG_BATMAN, bat_priv, "BCAST packet from orig %pM on %s surpressed: %s\n",
++			batadv_dbg(BATADV_DBG_BATMAN, bat_priv, "BCAST packet from orig %pM on %s suppressed: %s\n",
+ 				   bcast_packet->orig,
+ 				   hard_iface->net_dev->name, type);
+ 
+-- 
+2.11.0
