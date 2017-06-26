@@ -1,30 +1,38 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 01/11] dma-mapping: remove dmam_free_noncoherent
-Date: Mon, 26 Jun 2017 16:53:19 -0400
-Message-ID: <20170626205319.GB27428@htj.duckdns.org>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH 02/11] dma-mapping: replace
+ dmam_alloc_noncoherent with dmam_alloc_attrs
+Date: Mon, 26 Jun 2017 16:53:30 -0400
+Message-ID: <20170626205330.GC27428@htj.duckdns.org>
 References: <20170616071716.17321-1-hch@lst.de>
- <20170616071716.17321-2-hch@lst.de>
- <20170626070715.GA12711@infradead.org>
+ <20170616071716.17321-3-hch@lst.de>
+ <20170626070730.GB12711@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nios2-dev-g9ZBwUv/Ih/yUk5EbOjzuce+I+R0W71w@public.gmane.org,
-        linux-fbdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Return-path: <linux-metag-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-fbdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+ netdev@vger.kernel.org, alsa-devel@alsa-project.org,
+ Christoph Hellwig <hch@lst.de>, linux-serial@vger.kernel.org,
+ nios2-dev@lists.rocketboards.org, linux-metag@vger.kernel.org,
+ linux-kernel@vger.kernel.org
+To: Christoph Hellwig <hch@infradead.org>
+Return-path: <alsa-devel-bounces@alsa-project.org>
 Content-Disposition: inline
-In-Reply-To: <20170626070715.GA12711-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Sender: linux-metag-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <20170626070730.GB12711@infradead.org>
+List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
+List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
+List-Post: <mailto:alsa-devel@alsa-project.org>
+List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
+List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
+Errors-To: alsa-devel-bounces@alsa-project.org
+Sender: alsa-devel-bounces@alsa-project.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 26, 2017 at 12:07:15AM -0700, Christoph Hellwig wrote:
+On Mon, Jun 26, 2017 at 12:07:30AM -0700, Christoph Hellwig wrote:
 > Tejun, does this look ok to you?
 
-Sure,
-
-Acked-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Acked-by: Tejun Heo <tj@kernel.org>
 
 Thanks.
 
