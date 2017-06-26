@@ -1,50 +1,193 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net-next] netfilter: conntrack: add a new
- NF_CT_EXT_EXPAND extension
-Date: Mon, 26 Jun 2017 19:02:19 +0200
-Message-ID: <20170626170219.GA10628@salvia>
-References: <1498457446-30135-1-git-send-email-xiaolou4617@gmail.com>
- <20170626165309.GM29636@breakpoint.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Lin Zhang <xiaolou4617@gmail.com>, kadlec@blackhole.kfki.hu,
-        davem@davemloft.net, linux-kernel@vger.kernel.org,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net-next 1/2] udp: move scratch area helpers into the include file
+Date: Mon, 26 Jun 2017 19:01:50 +0200
+Message-ID: <3ec681d82c56f2d9dda340b9eca0371f47621c62.1498493975.git.pabeni@redhat.com>
+References: <cover.1498493975.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:35940 "EHLO mail.us.es"
+Received: from mx1.redhat.com ([209.132.183.28]:33078 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751544AbdFZRC2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 26 Jun 2017 13:02:28 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 6D90BE34FD
-        for <netdev@vger.kernel.org>; Mon, 26 Jun 2017 19:02:17 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 5A8A81B405C
-        for <netdev@vger.kernel.org>; Mon, 26 Jun 2017 19:02:17 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 3548A1B404A
-        for <netdev@vger.kernel.org>; Mon, 26 Jun 2017 19:02:12 +0200 (CEST)
-Content-Disposition: inline
-In-Reply-To: <20170626165309.GM29636@breakpoint.cc>
+        id S1751544AbdFZRCc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 26 Jun 2017 13:02:32 -0400
+In-Reply-To: <cover.1498493975.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 26, 2017 at 06:53:09PM +0200, Florian Westphal wrote:
-> Lin Zhang <xiaolou4617@gmail.com> wrote:
-> >   In the current conntrack extend code, if we want to add a new
-> > extension, we must be add a new extension id and recompile kernel.
-> > I think that is not be convenient for users, so i add a new extension named
-> > NF_CT_EXT_EXPAND for supporting dynamic register/unregister expansion
-> > in runtime that means if kernel support NF_CT_EXT_EXPAND extension,
-> > user could call nf_ct_expand_area_add() to register a new expansion
-> > but not need to predefine an id in enum nf_ct_ext_id.
-> 
-> We never did this because its only required for out of tree modules.
-> 
-> I would prefer if such extensions are discussed/proposed on nf-devel
-> instead, and then, if there is agreement that the extension is useful,
-> it can be submitted for inclusion in mainline kernel instead.
+So that they can be later used by the IPv6 code, too.
+Also lift the comments a bit.
 
-Indeed. So such extension would receive a bit a public scrutiny.
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ include/net/udp.h | 61 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv4/udp.c    | 60 ------------------------------------------------------
+ 2 files changed, 61 insertions(+), 60 deletions(-)
+
+diff --git a/include/net/udp.h b/include/net/udp.h
+index 1468dbd..972ce4b 100644
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -302,6 +302,67 @@ struct sock *__udp6_lib_lookup(struct net *net,
+ struct sock *udp6_lib_lookup_skb(struct sk_buff *skb,
+ 				 __be16 sport, __be16 dport);
+ 
++/* UDP uses skb->dev_scratch to cache as much information as possible and avoid
++ * possibly multiple cache miss on dequeue()
++ */
++#if BITS_PER_LONG == 64
++
++/* truesize, len and the bit needed to compute skb_csum_unnecessary will be on
++ * cold cache lines at recvmsg time.
++ * skb->len can be stored on 16 bits since the udp header has been already
++ * validated and pulled.
++ */
++struct udp_dev_scratch {
++	u32 truesize;
++	u16 len;
++	bool is_linear;
++	bool csum_unnecessary;
++};
++
++static inline unsigned int udp_skb_len(struct sk_buff *skb)
++{
++	return ((struct udp_dev_scratch *)&skb->dev_scratch)->len;
++}
++
++static inline bool udp_skb_csum_unnecessary(struct sk_buff *skb)
++{
++	return ((struct udp_dev_scratch *)&skb->dev_scratch)->csum_unnecessary;
++}
++
++static inline bool udp_skb_is_linear(struct sk_buff *skb)
++{
++	return ((struct udp_dev_scratch *)&skb->dev_scratch)->is_linear;
++}
++
++#else
++static inline unsigned int udp_skb_len(struct sk_buff *skb)
++{
++	return skb->len;
++}
++
++static inline bool udp_skb_csum_unnecessary(struct sk_buff *skb)
++{
++	return skb_csum_unnecessary(skb);
++}
++
++static inline bool udp_skb_is_linear(struct sk_buff *skb)
++{
++	return !skb_is_nonlinear(skb);
++}
++#endif
++
++static inline int copy_linear_skb(struct sk_buff *skb, int len, int off,
++				  struct iov_iter *to)
++{
++	int n, copy = len - off;
++
++	n = copy_to_iter(skb->data + off, copy, to);
++	if (n == copy)
++		return 0;
++
++	return -EFAULT;
++}
++
+ /*
+  * 	SNMP statistics for UDP and UDP-Lite
+  */
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 47c7aa0..86fad2a 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1163,24 +1163,7 @@ int udp_sendpage(struct sock *sk, struct page *page, int offset,
+ 	return ret;
+ }
+ 
+-/* Copy as much information as possible into skb->dev_scratch to avoid
+- * possibly multiple cache miss on dequeue();
+- */
+ #if BITS_PER_LONG == 64
+-
+-/* we can store multiple info here: truesize, len and the bit needed to
+- * compute skb_csum_unnecessary will be on cold cache lines at recvmsg
+- * time.
+- * skb->len can be stored on 16 bits since the udp header has been already
+- * validated and pulled.
+- */
+-struct udp_dev_scratch {
+-	u32 truesize;
+-	u16 len;
+-	bool is_linear;
+-	bool csum_unnecessary;
+-};
+-
+ static void udp_set_dev_scratch(struct sk_buff *skb)
+ {
+ 	struct udp_dev_scratch *scratch;
+@@ -1197,22 +1180,6 @@ static int udp_skb_truesize(struct sk_buff *skb)
+ {
+ 	return ((struct udp_dev_scratch *)&skb->dev_scratch)->truesize;
+ }
+-
+-static unsigned int udp_skb_len(struct sk_buff *skb)
+-{
+-	return ((struct udp_dev_scratch *)&skb->dev_scratch)->len;
+-}
+-
+-static bool udp_skb_csum_unnecessary(struct sk_buff *skb)
+-{
+-	return ((struct udp_dev_scratch *)&skb->dev_scratch)->csum_unnecessary;
+-}
+-
+-static bool udp_skb_is_linear(struct sk_buff *skb)
+-{
+-	return ((struct udp_dev_scratch *)&skb->dev_scratch)->is_linear;
+-}
+-
+ #else
+ static void udp_set_dev_scratch(struct sk_buff *skb)
+ {
+@@ -1223,21 +1190,6 @@ static int udp_skb_truesize(struct sk_buff *skb)
+ {
+ 	return skb->dev_scratch;
+ }
+-
+-static unsigned int udp_skb_len(struct sk_buff *skb)
+-{
+-	return skb->len;
+-}
+-
+-static bool udp_skb_csum_unnecessary(struct sk_buff *skb)
+-{
+-	return skb_csum_unnecessary(skb);
+-}
+-
+-static bool udp_skb_is_linear(struct sk_buff *skb)
+-{
+-	return !skb_is_nonlinear(skb);
+-}
+ #endif
+ 
+ /* fully reclaim rmem/fwd memory allocated for skb */
+@@ -1598,18 +1550,6 @@ struct sk_buff *__skb_recv_udp(struct sock *sk, unsigned int flags,
+ }
+ EXPORT_SYMBOL_GPL(__skb_recv_udp);
+ 
+-static int copy_linear_skb(struct sk_buff *skb, int len, int off,
+-			   struct iov_iter *to)
+-{
+-	int n, copy = len - off;
+-
+-	n = copy_to_iter(skb->data + off, copy, to);
+-	if (n == copy)
+-		return 0;
+-
+-	return -EFAULT;
+-}
+-
+ /*
+  * 	This should be easy, if there is something there we
+  * 	return it, otherwise we block.
+-- 
+2.9.4
