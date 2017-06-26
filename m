@@ -1,7 +1,7 @@
 From: Michal Kalderon <Michal.Kalderon@cavium.com>
-Subject: [RFC 02/19] qed: Implement iWARP initialization, teardown and qp operations
-Date: Mon, 26 Jun 2017 21:06:52 +0300
-Message-ID: <1498500429-22557-3-git-send-email-Michal.Kalderon@cavium.com>
+Subject: [RFC 03/19] qed: Rename some ll2 related defines
+Date: Mon, 26 Jun 2017 21:06:53 +0300
+Message-ID: <1498500429-22557-4-git-send-email-Michal.Kalderon@cavium.com>
 References: <1498500429-22557-1-git-send-email-Michal.Kalderon@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,1113 +13,178 @@ To: <michal.kalderon@cavium.com>, <ram.amrani@cavium.com>,
         <davem@davemloft.net>, <netdev@vger.kernel.org>,
         <linux-rdma@vger.kernel.org>, <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0050.outbound.protection.outlook.com ([104.47.36.50]:19456
-        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+Received: from mail-sn1nam01on0080.outbound.protection.outlook.com ([104.47.32.80]:31675
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751376AbdFZSJf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 26 Jun 2017 14:09:35 -0400
+        id S1751376AbdFZSJ5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 26 Jun 2017 14:09:57 -0400
 In-Reply-To: <1498500429-22557-1-git-send-email-Michal.Kalderon@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds iWARP support for flows that have common code
-between RoCE and iWARP, such as initialization, teardown and
-qp setup verbs: create, destroy, modify, query.
-It introduces the iWARP specific files qed_iwarp.[ch] and
-iwarp_common.h
+Make some names more generic as they will be used by iWARP too.
 
 Signed-off-by: Michal Kalderon <Michal.Kalderon@cavium.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 Signed-off-by: Ariel Elior <Ariel.Elior@cavium.com>
 
 ---
- drivers/net/ethernet/qlogic/qed/Makefile    |   2 +-
- drivers/net/ethernet/qlogic/qed/qed_dev.c   |   9 +-
- drivers/net/ethernet/qlogic/qed/qed_hsi.h   |   1 +
- drivers/net/ethernet/qlogic/qed/qed_iwarp.c | 531 ++++++++++++++++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_iwarp.h |  85 +++++
- drivers/net/ethernet/qlogic/qed/qed_rdma.c  | 133 +++++--
- drivers/net/ethernet/qlogic/qed/qed_rdma.h  |   3 +
- drivers/net/ethernet/qlogic/qed/qed_roce.c  |  20 ++
- drivers/net/ethernet/qlogic/qed/qed_sp.h    |   5 +-
- include/linux/qed/iwarp_common.h            |  53 +++
- include/linux/qed/qed_rdma_if.h             |   1 +
- 11 files changed, 803 insertions(+), 40 deletions(-)
- create mode 100644 drivers/net/ethernet/qlogic/qed/qed_iwarp.c
- create mode 100644 drivers/net/ethernet/qlogic/qed/qed_iwarp.h
- create mode 100644 include/linux/qed/iwarp_common.h
+ drivers/net/ethernet/qlogic/qed/qed.h     |  2 +-
+ drivers/net/ethernet/qlogic/qed/qed_ll2.c | 29 ++++++++++++++---------------
+ include/linux/qed/qed_ll2_if.h            |  2 +-
+ 3 files changed, 16 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/Makefile b/drivers/net/ethernet/qlogic/qed/Makefile
-index 6745238..82dd470 100644
---- a/drivers/net/ethernet/qlogic/qed/Makefile
-+++ b/drivers/net/ethernet/qlogic/qed/Makefile
-@@ -5,6 +5,6 @@ qed-y := qed_cxt.o qed_dev.o qed_hw.o qed_init_fw_funcs.o qed_init_ops.o \
- 	 qed_selftest.o qed_dcbx.o qed_debug.o qed_ptp.o
- qed-$(CONFIG_QED_SRIOV) += qed_sriov.o qed_vf.o
- qed-$(CONFIG_QED_LL2) += qed_ll2.o
--qed-$(CONFIG_QED_RDMA) += qed_roce.o qed_rdma.o
-+qed-$(CONFIG_QED_RDMA) += qed_roce.o qed_rdma.o qed_iwarp.o
- qed-$(CONFIG_QED_ISCSI) += qed_iscsi.o qed_ooo.o
- qed-$(CONFIG_QED_FCOE) += qed_fcoe.o
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index 68e6182..6c8505d 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -937,8 +937,15 @@ int qed_resc_alloc(struct qed_dev *cdev)
- 		/* EQ */
- 		n_eqes = qed_chain_get_capacity(&p_hwfn->p_spq->chain);
- 		if (QED_IS_RDMA_PERSONALITY(p_hwfn)) {
-+			enum protocol_type rdma_proto;
-+
-+			if (QED_IS_ROCE_PERSONALITY(p_hwfn))
-+				rdma_proto = PROTOCOLID_ROCE;
-+			else
-+				rdma_proto = PROTOCOLID_IWARP;
-+
- 			num_cons = qed_cxt_get_proto_cid_count(p_hwfn,
--							       PROTOCOLID_ROCE,
-+							       rdma_proto,
- 							       NULL) * 2;
- 			n_eqes += num_cons + 2 * MAX_NUM_VFS_BB;
- 		} else if (p_hwfn->hw_info.personality == QED_PCI_ISCSI) {
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-index 3bf3614..31fb0bf 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-@@ -46,6 +46,7 @@
- #include <linux/qed/fcoe_common.h>
- #include <linux/qed/eth_common.h>
- #include <linux/qed/iscsi_common.h>
-+#include <linux/qed/iwarp_common.h>
- #include <linux/qed/rdma_common.h>
- #include <linux/qed/roce_common.h>
- #include <linux/qed/qed_fcoe_if.h>
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-new file mode 100644
-index 0000000..a8bd5f8
---- /dev/null
-+++ b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-@@ -0,0 +1,531 @@
-+/* QLogic qed NIC Driver
-+ * Copyright (c) 2015-2017  QLogic Corporation
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+#include "qed_cxt.h"
-+#include "qed_hw.h"
-+#include "qed_rdma.h"
-+#include "qed_reg_addr.h"
-+#include "qed_sp.h"
-+
-+#define QED_IWARP_ORD_DEFAULT		32
-+#define QED_IWARP_IRD_DEFAULT		32
-+#define QED_IWARP_RCV_WND_SIZE_DEF	(256 * 1024)
-+#define QED_IWARP_RCV_WND_SIZE_MIN	(64 * 1024)
-+#define QED_IWARP_TS_EN			BIT(0)
-+#define QED_IWARP_PARAM_CRC_NEEDED	(1)
-+#define QED_IWARP_PARAM_P2P		(1)
-+
-+static int qed_iwarp_async_event(struct qed_hwfn *p_hwfn,
-+				 u8 fw_event_code, u16 echo,
-+				 union event_ring_data *data,
-+				 u8 fw_return_code);
-+
-+/* Override devinfo with iWARP specific values */
-+void qed_iwarp_init_devinfo(struct qed_hwfn *p_hwfn)
-+{
-+	struct qed_rdma_device *dev = p_hwfn->p_rdma_info->dev;
-+
-+	dev->max_inline = IWARP_REQ_MAX_INLINE_DATA_SIZE;
-+	dev->max_qp = min_t(u32,
-+			    IWARP_MAX_QPS,
-+			    p_hwfn->p_rdma_info->num_qps);
-+
-+	dev->max_cq = dev->max_qp;
-+
-+	dev->max_qp_resp_rd_atomic_resc = QED_IWARP_IRD_DEFAULT;
-+	dev->max_qp_req_rd_atomic_resc = QED_IWARP_ORD_DEFAULT;
-+}
-+
-+void qed_iwarp_init_hw(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
-+{
-+	p_hwfn->rdma_prs_search_reg = PRS_REG_SEARCH_TCP;
-+	qed_wr(p_hwfn, p_ptt, p_hwfn->rdma_prs_search_reg, 1);
-+	p_hwfn->b_rdma_enabled_in_prs = true;
-+}
-+
-+static void qed_iwarp_cid_cleaned(struct qed_hwfn *p_hwfn, u32 cid)
-+{
-+	cid -= qed_cxt_get_proto_cid_start(p_hwfn, p_hwfn->p_rdma_info->proto);
-+
-+	spin_lock_bh(&p_hwfn->p_rdma_info->lock);
-+	qed_bmap_release_id(p_hwfn, &p_hwfn->p_rdma_info->cid_map, cid);
-+	spin_unlock_bh(&p_hwfn->p_rdma_info->lock);
-+}
-+
-+static int qed_iwarp_alloc_cid(struct qed_hwfn *p_hwfn, u32 *cid)
-+{
-+	int rc;
-+
-+	spin_lock_bh(&p_hwfn->p_rdma_info->lock);
-+	rc = qed_rdma_bmap_alloc_id(p_hwfn, &p_hwfn->p_rdma_info->cid_map, cid);
-+	spin_unlock_bh(&p_hwfn->p_rdma_info->lock);
-+	if (rc) {
-+		DP_NOTICE(p_hwfn, "Failed in allocating iwarp cid\n");
-+		return rc;
-+	}
-+	*cid += qed_cxt_get_proto_cid_start(p_hwfn, p_hwfn->p_rdma_info->proto);
-+
-+	rc = qed_cxt_dynamic_ilt_alloc(p_hwfn, QED_ELEM_CXT, *cid);
-+	if (rc)
-+		qed_iwarp_cid_cleaned(p_hwfn, *cid);
-+
-+	return rc;
-+}
-+
-+int qed_iwarp_create_qp(struct qed_hwfn *p_hwfn,
-+			struct qed_rdma_qp *qp,
-+			struct qed_rdma_create_qp_out_params *out_params)
-+{
-+	struct iwarp_create_qp_ramrod_data *p_ramrod;
-+	struct qed_sp_init_data init_data;
-+	struct qed_spq_entry *p_ent;
-+	u16 physical_queue;
-+	u32 cid;
-+	int rc;
-+
-+	qp->shared_queue = dma_alloc_coherent(&p_hwfn->cdev->pdev->dev,
-+					      IWARP_SHARED_QUEUE_PAGE_SIZE,
-+					      &qp->shared_queue_phys_addr,
-+					      GFP_KERNEL);
-+	if (!qp->shared_queue)
-+		return -ENOMEM;
-+
-+	out_params->sq_pbl_virt = (u8 *)qp->shared_queue +
-+	    IWARP_SHARED_QUEUE_PAGE_SQ_PBL_OFFSET;
-+	out_params->sq_pbl_phys = qp->shared_queue_phys_addr +
-+	    IWARP_SHARED_QUEUE_PAGE_SQ_PBL_OFFSET;
-+	out_params->rq_pbl_virt = (u8 *)qp->shared_queue +
-+	    IWARP_SHARED_QUEUE_PAGE_RQ_PBL_OFFSET;
-+	out_params->rq_pbl_phys = qp->shared_queue_phys_addr +
-+	    IWARP_SHARED_QUEUE_PAGE_RQ_PBL_OFFSET;
-+
-+	rc = qed_iwarp_alloc_cid(p_hwfn, &cid);
-+	if (rc)
-+		goto err1;
-+
-+	qp->icid = (u16)cid;
-+
-+	memset(&init_data, 0, sizeof(init_data));
-+	init_data.opaque_fid = p_hwfn->hw_info.opaque_fid;
-+	init_data.cid = qp->icid;
-+	init_data.comp_mode = QED_SPQ_MODE_EBLOCK;
-+
-+	rc = qed_sp_init_request(p_hwfn, &p_ent,
-+				 IWARP_RAMROD_CMD_ID_CREATE_QP,
-+				 PROTOCOLID_IWARP, &init_data);
-+	if (rc)
-+		goto err2;
-+
-+	p_ramrod = &p_ent->ramrod.iwarp_create_qp;
-+
-+	SET_FIELD(p_ramrod->flags,
-+		  IWARP_CREATE_QP_RAMROD_DATA_FMR_AND_RESERVED_EN,
-+		  qp->fmr_and_reserved_lkey);
-+
-+	SET_FIELD(p_ramrod->flags,
-+		  IWARP_CREATE_QP_RAMROD_DATA_SIGNALED_COMP, qp->signal_all);
-+
-+	SET_FIELD(p_ramrod->flags,
-+		  IWARP_CREATE_QP_RAMROD_DATA_RDMA_RD_EN,
-+		  qp->incoming_rdma_read_en);
-+
-+	SET_FIELD(p_ramrod->flags,
-+		  IWARP_CREATE_QP_RAMROD_DATA_RDMA_WR_EN,
-+		  qp->incoming_rdma_write_en);
-+
-+	SET_FIELD(p_ramrod->flags,
-+		  IWARP_CREATE_QP_RAMROD_DATA_ATOMIC_EN,
-+		  qp->incoming_atomic_en);
-+
-+	SET_FIELD(p_ramrod->flags,
-+		  IWARP_CREATE_QP_RAMROD_DATA_SRQ_FLG, qp->use_srq);
-+
-+	p_ramrod->pd = qp->pd;
-+	p_ramrod->sq_num_pages = qp->sq_num_pages;
-+	p_ramrod->rq_num_pages = qp->rq_num_pages;
-+
-+	p_ramrod->qp_handle_for_cqe.hi = cpu_to_le32(qp->qp_handle.hi);
-+	p_ramrod->qp_handle_for_cqe.lo = cpu_to_le32(qp->qp_handle.lo);
-+
-+	p_ramrod->cq_cid_for_sq =
-+	    cpu_to_le32((p_hwfn->hw_info.opaque_fid << 16) | qp->sq_cq_id);
-+	p_ramrod->cq_cid_for_rq =
-+	    cpu_to_le32((p_hwfn->hw_info.opaque_fid << 16) | qp->rq_cq_id);
-+
-+	p_ramrod->dpi = cpu_to_le16(qp->dpi);
-+
-+	physical_queue = qed_get_cm_pq_idx(p_hwfn, PQ_FLAGS_OFLD);
-+	p_ramrod->physical_q0 = cpu_to_le16(physical_queue);
-+	physical_queue = qed_get_cm_pq_idx(p_hwfn, PQ_FLAGS_ACK);
-+	p_ramrod->physical_q1 = cpu_to_le16(physical_queue);
-+
-+	rc = qed_spq_post(p_hwfn, p_ent, NULL);
-+	if (rc)
-+		goto err2;
-+
-+	return rc;
-+
-+err2:
-+	qed_iwarp_cid_cleaned(p_hwfn, cid);
-+err1:
-+	dma_free_coherent(&p_hwfn->cdev->pdev->dev,
-+			  IWARP_SHARED_QUEUE_PAGE_SIZE,
-+			  qp->shared_queue, qp->shared_queue_phys_addr);
-+
-+	return rc;
-+}
-+
-+static int qed_iwarp_modify_fw(struct qed_hwfn *p_hwfn, struct qed_rdma_qp *qp)
-+{
-+	struct iwarp_modify_qp_ramrod_data *p_ramrod;
-+	struct qed_sp_init_data init_data;
-+	struct qed_spq_entry *p_ent;
-+	int rc;
-+
-+	/* Get SPQ entry */
-+	memset(&init_data, 0, sizeof(init_data));
-+	init_data.cid = qp->icid;
-+	init_data.opaque_fid = p_hwfn->hw_info.opaque_fid;
-+	init_data.comp_mode = QED_SPQ_MODE_EBLOCK;
-+
-+	rc = qed_sp_init_request(p_hwfn, &p_ent,
-+				 IWARP_RAMROD_CMD_ID_MODIFY_QP,
-+				 p_hwfn->p_rdma_info->proto, &init_data);
-+	if (rc)
-+		return rc;
-+
-+	p_ramrod = &p_ent->ramrod.iwarp_modify_qp;
-+	SET_FIELD(p_ramrod->flags, IWARP_MODIFY_QP_RAMROD_DATA_STATE_TRANS_EN,
-+		  0x1);
-+	if (qp->iwarp_state == QED_IWARP_QP_STATE_CLOSING)
-+		p_ramrod->transition_to_state = IWARP_MODIFY_QP_STATE_CLOSING;
-+	else
-+		p_ramrod->transition_to_state = IWARP_MODIFY_QP_STATE_ERROR;
-+
-+	rc = qed_spq_post(p_hwfn, p_ent, NULL);
-+
-+	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "QP(0x%x)rc=%d\n", qp->icid, rc);
-+
-+	return rc;
-+}
-+
-+enum qed_iwarp_qp_state qed_roce2iwarp_state(enum qed_roce_qp_state state)
-+{
-+	switch (state) {
-+	case QED_ROCE_QP_STATE_RESET:
-+	case QED_ROCE_QP_STATE_INIT:
-+	case QED_ROCE_QP_STATE_RTR:
-+		return QED_IWARP_QP_STATE_IDLE;
-+	case QED_ROCE_QP_STATE_RTS:
-+		return QED_IWARP_QP_STATE_RTS;
-+	case QED_ROCE_QP_STATE_SQD:
-+		return QED_IWARP_QP_STATE_CLOSING;
-+	case QED_ROCE_QP_STATE_ERR:
-+		return QED_IWARP_QP_STATE_ERROR;
-+	case QED_ROCE_QP_STATE_SQE:
-+		return QED_IWARP_QP_STATE_TERMINATE;
-+	default:
-+		return QED_IWARP_QP_STATE_ERROR;
-+	}
-+}
-+
-+static enum qed_roce_qp_state
-+qed_iwarp2roce_state(enum qed_iwarp_qp_state state)
-+{
-+	switch (state) {
-+	case QED_IWARP_QP_STATE_IDLE:
-+		return QED_ROCE_QP_STATE_INIT;
-+	case QED_IWARP_QP_STATE_RTS:
-+		return QED_ROCE_QP_STATE_RTS;
-+	case QED_IWARP_QP_STATE_TERMINATE:
-+		return QED_ROCE_QP_STATE_SQE;
-+	case QED_IWARP_QP_STATE_CLOSING:
-+		return QED_ROCE_QP_STATE_SQD;
-+	case QED_IWARP_QP_STATE_ERROR:
-+		return QED_ROCE_QP_STATE_ERR;
-+	default:
-+		return QED_ROCE_QP_STATE_ERR;
-+	}
-+}
-+
-+const char *iwarp_state_names[] = {
-+	"IDLE",
-+	"RTS",
-+	"TERMINATE",
-+	"CLOSING",
-+	"ERROR",
-+};
-+
-+int
-+qed_iwarp_modify_qp(struct qed_hwfn *p_hwfn,
-+		    struct qed_rdma_qp *qp,
-+		    enum qed_iwarp_qp_state new_state, bool internal)
-+{
-+	enum qed_iwarp_qp_state prev_iw_state;
-+	bool modify_fw = false;
-+	int rc = 0;
-+
-+	/* modify QP can be called from upper-layer or as a result of async
-+	 * RST/FIN... therefore need to protect
-+	 */
-+	spin_lock_bh(&p_hwfn->p_rdma_info->iwarp.qp_lock);
-+	prev_iw_state = qp->iwarp_state;
-+
-+	if (prev_iw_state == new_state) {
-+		spin_unlock_bh(&p_hwfn->p_rdma_info->iwarp.qp_lock);
-+		return 0;
-+	}
-+
-+	switch (prev_iw_state) {
-+	case QED_IWARP_QP_STATE_IDLE:
-+		switch (new_state) {
-+		case QED_IWARP_QP_STATE_RTS:
-+			qp->iwarp_state = QED_IWARP_QP_STATE_RTS;
-+			break;
-+		case QED_IWARP_QP_STATE_ERROR:
-+			qp->iwarp_state = QED_IWARP_QP_STATE_ERROR;
-+			if (!internal)
-+				modify_fw = true;
-+			break;
-+		default:
-+			break;
-+		}
-+		break;
-+	case QED_IWARP_QP_STATE_RTS:
-+		switch (new_state) {
-+		case QED_IWARP_QP_STATE_CLOSING:
-+			if (!internal)
-+				modify_fw = true;
-+
-+			qp->iwarp_state = QED_IWARP_QP_STATE_CLOSING;
-+			break;
-+		case QED_IWARP_QP_STATE_ERROR:
-+			if (!internal)
-+				modify_fw = true;
-+			qp->iwarp_state = QED_IWARP_QP_STATE_ERROR;
-+			break;
-+		default:
-+			break;
-+		}
-+		break;
-+	case QED_IWARP_QP_STATE_ERROR:
-+		switch (new_state) {
-+		case QED_IWARP_QP_STATE_IDLE:
-+
-+			qp->iwarp_state = new_state;
-+			break;
-+		case QED_IWARP_QP_STATE_CLOSING:
-+			/* could happen due to race... do nothing.... */
-+			break;
-+		default:
-+			rc = -EINVAL;
-+		}
-+		break;
-+	case QED_IWARP_QP_STATE_TERMINATE:
-+	case QED_IWARP_QP_STATE_CLOSING:
-+		qp->iwarp_state = new_state;
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "QP(0x%x) %s --> %s%s\n",
-+		   qp->icid,
-+		   iwarp_state_names[prev_iw_state],
-+		   iwarp_state_names[qp->iwarp_state],
-+		   internal ? "internal" : "");
-+
-+	spin_unlock_bh(&p_hwfn->p_rdma_info->iwarp.qp_lock);
-+
-+	if (modify_fw)
-+		rc = qed_iwarp_modify_fw(p_hwfn, qp);
-+
-+	return rc;
-+}
-+
-+int qed_iwarp_fw_destroy(struct qed_hwfn *p_hwfn, struct qed_rdma_qp *qp)
-+{
-+	struct qed_sp_init_data init_data;
-+	struct qed_spq_entry *p_ent;
-+	int rc;
-+
-+	/* Get SPQ entry */
-+	memset(&init_data, 0, sizeof(init_data));
-+	init_data.cid = qp->icid;
-+	init_data.opaque_fid = p_hwfn->hw_info.opaque_fid;
-+	init_data.comp_mode = QED_SPQ_MODE_EBLOCK;
-+
-+	rc = qed_sp_init_request(p_hwfn, &p_ent,
-+				 IWARP_RAMROD_CMD_ID_DESTROY_QP,
-+				 p_hwfn->p_rdma_info->proto, &init_data);
-+	if (rc)
-+		return rc;
-+
-+	rc = qed_spq_post(p_hwfn, p_ent, NULL);
-+
-+	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "QP(0x%x) rc = %d\n", qp->icid, rc);
-+
-+	return rc;
-+}
-+
-+int qed_iwarp_destroy_qp(struct qed_hwfn *p_hwfn, struct qed_rdma_qp *qp)
-+{
-+	int rc = 0;
-+
-+	if (qp->iwarp_state != QED_IWARP_QP_STATE_ERROR) {
-+		rc = qed_iwarp_modify_qp(p_hwfn, qp,
-+					 QED_IWARP_QP_STATE_ERROR, false);
-+		if (rc)
-+			return rc;
-+	}
-+
-+	rc = qed_iwarp_fw_destroy(p_hwfn, qp);
-+
-+	if (qp->shared_queue)
-+		dma_free_coherent(&p_hwfn->cdev->pdev->dev,
-+				  IWARP_SHARED_QUEUE_PAGE_SIZE,
-+				  qp->shared_queue, qp->shared_queue_phys_addr);
-+
-+	return rc;
-+}
-+
-+#define QED_IWARP_MAX_CID_CLEAN_TIME  100
-+#define QED_IWARP_MAX_NO_PROGRESS_CNT 5
-+
-+/* This function waits for all the bits of a bmap to be cleared, as long as
-+ * there is progress ( i.e. the number of bits left to be cleared decreases )
-+ * the function continues.
-+ */
-+static int
-+qed_iwarp_wait_cid_map_cleared(struct qed_hwfn *p_hwfn, struct qed_bmap *bmap)
-+{
-+	int prev_weight = 0;
-+	int wait_count = 0;
-+	int weight = 0;
-+
-+	weight = bitmap_weight(bmap->bitmap, bmap->max_count);
-+	prev_weight = weight;
-+
-+	while (weight) {
-+		msleep(QED_IWARP_MAX_CID_CLEAN_TIME);
-+
-+		weight = bitmap_weight(bmap->bitmap, bmap->max_count);
-+
-+		if (prev_weight == weight) {
-+			wait_count++;
-+		} else {
-+			prev_weight = weight;
-+			wait_count = 0;
-+		}
-+
-+		if (wait_count > QED_IWARP_MAX_NO_PROGRESS_CNT) {
-+			DP_NOTICE(p_hwfn,
-+				  "%s bitmap wait timed out (%d cids pending)\n",
-+				  bmap->name, weight);
-+			return -EBUSY;
-+		}
-+	}
-+	return 0;
-+}
-+
-+static int qed_iwarp_wait_for_all_cids(struct qed_hwfn *p_hwfn)
-+{
-+	/* Now wait for all cids to be completed */
-+	return qed_iwarp_wait_cid_map_cleared(p_hwfn,
-+					      &p_hwfn->p_rdma_info->cid_map);
-+}
-+
-+int qed_iwarp_alloc(struct qed_hwfn *p_hwfn)
-+{
-+	spin_lock_init(&p_hwfn->p_rdma_info->iwarp.iw_lock);
-+
-+	return 0;
-+}
-+
-+void qed_iwarp_resc_free(struct qed_hwfn *p_hwfn)
-+{
-+}
-+
-+int qed_iwarp_setup(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
-+		    struct qed_rdma_start_in_params *params)
-+{
-+	struct qed_iwarp_info *iwarp_info;
-+	u32 rcv_wnd_size;
-+	int rc = 0;
-+
-+	iwarp_info = &p_hwfn->p_rdma_info->iwarp;
-+
-+	iwarp_info->tcp_flags = QED_IWARP_TS_EN;
-+	rcv_wnd_size = QED_IWARP_RCV_WND_SIZE_DEF;
-+
-+	/* value 0 is used for ilog2(QED_IWARP_RCV_WND_SIZE_MIN) */
-+	iwarp_info->rcv_wnd_scale = ilog2(rcv_wnd_size) -
-+	    ilog2(QED_IWARP_RCV_WND_SIZE_MIN);
-+	iwarp_info->crc_needed = QED_IWARP_PARAM_CRC_NEEDED;
-+	iwarp_info->mpa_rev = MPA_NEGOTIATION_TYPE_ENHANCED;
-+
-+	iwarp_info->peer2peer = QED_IWARP_PARAM_P2P;
-+
-+	spin_lock_init(&p_hwfn->p_rdma_info->iwarp.qp_lock);
-+
-+	qed_spq_register_async_cb(p_hwfn, PROTOCOLID_IWARP,
-+				  qed_iwarp_async_event);
-+
-+	return rc;
-+}
-+
-+int qed_iwarp_stop(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
-+{
-+	int rc;
-+
-+	rc = qed_iwarp_wait_for_all_cids(p_hwfn);
-+	if (rc)
-+		return rc;
-+
-+	qed_spq_unregister_async_cb(p_hwfn, PROTOCOLID_IWARP);
-+
-+	return 0;
-+}
-+
-+static int qed_iwarp_async_event(struct qed_hwfn *p_hwfn,
-+				 u8 fw_event_code, u16 echo,
-+				 union event_ring_data *data,
-+				 u8 fw_return_code)
-+{
-+	return 0;
-+}
-+
-+void
-+qed_iwarp_query_qp(struct qed_rdma_qp *qp,
-+		   struct qed_rdma_query_qp_out_params *out_params)
-+{
-+	out_params->state = qed_iwarp2roce_state(qp->iwarp_state);
-+}
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_iwarp.h b/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
-new file mode 100644
-index 0000000..05e5e45
---- /dev/null
-+++ b/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
-@@ -0,0 +1,85 @@
-+/* QLogic qed NIC Driver
-+ * Copyright (c) 2015-2017  QLogic Corporation
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+#ifndef _QED_IWARP_H
-+#define _QED_IWARP_H
-+
-+enum qed_iwarp_qp_state {
-+	QED_IWARP_QP_STATE_IDLE,
-+	QED_IWARP_QP_STATE_RTS,
-+	QED_IWARP_QP_STATE_TERMINATE,
-+	QED_IWARP_QP_STATE_CLOSING,
-+	QED_IWARP_QP_STATE_ERROR,
-+};
-+
-+enum qed_iwarp_qp_state qed_roce2iwarp_state(enum qed_roce_qp_state state);
-+
-+struct qed_iwarp_info {
-+	spinlock_t iw_lock;	/* for iwarp resources */
-+	spinlock_t qp_lock;	/* for teardown races */
-+	u32 rcv_wnd_scale;
-+	u16 max_mtu;
-+	u8 mac_addr[ETH_ALEN];
-+	u8 crc_needed;
-+	u8 tcp_flags;
-+	u8 peer2peer;
-+	enum mpa_negotiation_mode mpa_rev;
-+	enum mpa_rtr_type rtr_type;
-+};
-+
-+int qed_iwarp_alloc(struct qed_hwfn *p_hwfn);
-+
-+int qed_iwarp_setup(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
-+		    struct qed_rdma_start_in_params *params);
-+
-+int qed_iwarp_stop(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt);
-+
-+void qed_iwarp_resc_free(struct qed_hwfn *p_hwfn);
-+
-+void qed_iwarp_init_devinfo(struct qed_hwfn *p_hwfn);
-+
-+void qed_iwarp_init_hw(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt);
-+
-+int qed_iwarp_create_qp(struct qed_hwfn *p_hwfn,
-+			struct qed_rdma_qp *qp,
-+			struct qed_rdma_create_qp_out_params *out_params);
-+
-+int qed_iwarp_modify_qp(struct qed_hwfn *p_hwfn, struct qed_rdma_qp *qp,
-+			enum qed_iwarp_qp_state new_state, bool internal);
-+
-+int qed_iwarp_destroy_qp(struct qed_hwfn *p_hwfn, struct qed_rdma_qp *qp);
-+
-+int qed_iwarp_fw_destroy(struct qed_hwfn *p_hwfn, struct qed_rdma_qp *qp);
-+
-+void qed_iwarp_query_qp(struct qed_rdma_qp *qp,
-+			struct qed_rdma_query_qp_out_params *out_params);
-+
-+#endif
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_rdma.c b/drivers/net/ethernet/qlogic/qed/qed_rdma.c
-index df76e21..ee6887f 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_rdma.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_rdma.c
-@@ -161,7 +161,10 @@ static int qed_rdma_alloc(struct qed_hwfn *p_hwfn,
- 	num_cons = qed_cxt_get_proto_cid_count(p_hwfn, p_rdma_info->proto,
- 					       NULL);
- 
--	p_rdma_info->num_qps = num_cons / 2;
-+	if (QED_IS_IWARP_PERSONALITY(p_hwfn))
-+		p_rdma_info->num_qps = num_cons;
-+	else
-+		p_rdma_info->num_qps = num_cons / 2; /* 2 cids per qp */
- 
- 	num_tasks = qed_cxt_get_proto_tid_count(p_hwfn, PROTOCOLID_ROCE);
- 
-@@ -252,6 +255,13 @@ static int qed_rdma_alloc(struct qed_hwfn *p_hwfn,
- 			   "Failed to allocate real cid bitmap, rc = %d\n", rc);
- 		goto free_cid_map;
- 	}
-+
-+	if (QED_IS_IWARP_PERSONALITY(p_hwfn))
-+		rc = qed_iwarp_alloc(p_hwfn);
-+
-+	if (rc)
-+		goto free_cid_map;
-+
- 	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "Allocation successful\n");
- 	return 0;
- 
-@@ -329,6 +339,9 @@ static void qed_rdma_resc_free(struct qed_hwfn *p_hwfn)
- {
- 	struct qed_rdma_info *p_rdma_info = p_hwfn->p_rdma_info;
- 
-+	if (QED_IS_IWARP_PERSONALITY(p_hwfn))
-+		qed_iwarp_resc_free(p_hwfn);
-+
- 	qed_rdma_bmap_free(p_hwfn, &p_hwfn->p_rdma_info->cid_map, 1);
- 	qed_rdma_bmap_free(p_hwfn, &p_hwfn->p_rdma_info->pd_map, 1);
- 	qed_rdma_bmap_free(p_hwfn, &p_hwfn->p_rdma_info->dpi_map, 1);
-@@ -470,6 +483,9 @@ static void qed_rdma_init_devinfo(struct qed_hwfn *p_hwfn,
- 
- 	if (pci_status_control & PCI_EXP_DEVCTL2_LTR_EN)
- 		SET_FIELD(dev->dev_caps, QED_RDMA_DEV_CAP_ATOMIC_OP, 1);
-+
-+	if (QED_IS_IWARP_PERSONALITY(p_hwfn))
-+		qed_iwarp_init_devinfo(p_hwfn);
+diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
+index 22e1171..fd8cd5e 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed.h
++++ b/drivers/net/ethernet/qlogic/qed/qed.h
+@@ -779,7 +779,7 @@ static inline u8 qed_concrete_to_sw_fid(struct qed_dev *cdev,
  }
  
- static void qed_rdma_init_port(struct qed_hwfn *p_hwfn)
-@@ -490,29 +506,17 @@ static void qed_rdma_init_port(struct qed_hwfn *p_hwfn)
+ #define PURE_LB_TC 8
+-#define OOO_LB_TC 9
++#define PKT_LB_TC 9
  
- static int qed_rdma_init_hw(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
- {
--	u32 ll2_ethertype_en;
-+	int rc = 0;
+ int qed_configure_vport_wfq(struct qed_dev *cdev, u16 vp_id, u32 rate);
+ void qed_configure_vp_wfq_on_link_change(struct qed_dev *cdev,
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.c b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
+index be66f19..e235fb2 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_ll2.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
+@@ -309,7 +309,7 @@ static void qed_ll2_txq_flush(struct qed_hwfn *p_hwfn, u8 connection_handle)
+ 		list_del(&p_pkt->list_entry);
+ 		b_last_packet = list_empty(&p_tx->active_descq);
+ 		list_add_tail(&p_pkt->list_entry, &p_tx->free_descq);
+-		if (p_ll2_conn->input.conn_type == QED_LL2_TYPE_ISCSI_OOO) {
++		if (p_ll2_conn->input.conn_type == QED_LL2_TYPE_OOO) {
+ 			struct qed_ooo_buffer *p_buffer;
  
- 	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "Initializing HW\n");
- 	p_hwfn->b_rdma_enabled_in_prs = false;
+ 			p_buffer = (struct qed_ooo_buffer *)p_pkt->cookie;
+@@ -532,7 +532,7 @@ static void qed_ll2_rxq_flush(struct qed_hwfn *p_hwfn, u8 connection_handle)
  
--	qed_wr(p_hwfn, p_ptt, PRS_REG_ROCE_DEST_QP_MAX_PF, 0);
-+	if (QED_IS_IWARP_PERSONALITY(p_hwfn))
-+		qed_iwarp_init_hw(p_hwfn, p_ptt);
-+	else
-+		rc = qed_roce_init_hw(p_hwfn, p_ptt);
+ 		list_move_tail(&p_pkt->list_entry, &p_rx->free_descq);
  
--	p_hwfn->rdma_prs_search_reg = PRS_REG_SEARCH_ROCE;
--
--	/* We delay writing to this reg until first cid is allocated. See
--	 * qed_cxt_dynamic_ilt_alloc function for more details
--	 */
--	ll2_ethertype_en = qed_rd(p_hwfn, p_ptt, PRS_REG_LIGHT_L2_ETHERTYPE_EN);
--	qed_wr(p_hwfn, p_ptt, PRS_REG_LIGHT_L2_ETHERTYPE_EN,
--	       (ll2_ethertype_en | 0x01));
--
--	if (qed_cxt_get_proto_cid_start(p_hwfn, PROTOCOLID_ROCE) % 2) {
--		DP_NOTICE(p_hwfn, "The first RoCE's cid should be even\n");
--		return -EINVAL;
--	}
--
--	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "Initializing HW - Done\n");
--	return 0;
-+	return rc;
- }
+-		if (p_ll2_conn->input.conn_type == QED_LL2_TYPE_ISCSI_OOO) {
++		if (p_ll2_conn->input.conn_type == QED_LL2_TYPE_OOO) {
+ 			struct qed_ooo_buffer *p_buffer;
  
- static int qed_rdma_start_fw(struct qed_hwfn *p_hwfn,
-@@ -544,7 +548,10 @@ static int qed_rdma_start_fw(struct qed_hwfn *p_hwfn,
- 	if (rc)
+ 			p_buffer = (struct qed_ooo_buffer *)p_pkt->cookie;
+@@ -893,8 +893,7 @@ static int qed_sp_ll2_rx_queue_start(struct qed_hwfn *p_hwfn,
+ 	p_ramrod->drop_ttl0_flg = p_ll2_conn->input.rx_drop_ttl0_flg;
+ 	p_ramrod->inner_vlan_removal_en = p_ll2_conn->input.rx_vlan_removal_en;
+ 	p_ramrod->queue_id = p_ll2_conn->queue_id;
+-	p_ramrod->main_func_queue = (conn_type == QED_LL2_TYPE_ISCSI_OOO) ? 0
+-									  : 1;
++	p_ramrod->main_func_queue = (conn_type == QED_LL2_TYPE_OOO) ? 0 : 1;
+ 
+ 	if ((IS_MF_DEFAULT(p_hwfn) || IS_MF_SI(p_hwfn)) &&
+ 	    p_ramrod->main_func_queue && (conn_type != QED_LL2_TYPE_ROCE)) {
+@@ -924,7 +923,7 @@ static int qed_sp_ll2_tx_queue_start(struct qed_hwfn *p_hwfn,
+ 	if (!QED_LL2_TX_REGISTERED(p_ll2_conn))
+ 		return 0;
+ 
+-	if (p_ll2_conn->input.conn_type == QED_LL2_TYPE_ISCSI_OOO)
++	if (p_ll2_conn->input.conn_type == QED_LL2_TYPE_OOO)
+ 		p_ll2_conn->tx_stats_en = 0;
+ 	else
+ 		p_ll2_conn->tx_stats_en = 1;
+@@ -955,10 +954,10 @@ static int qed_sp_ll2_tx_queue_start(struct qed_hwfn *p_hwfn,
+ 	p_ramrod->pbl_size = cpu_to_le16(pbl_size);
+ 
+ 	switch (p_ll2_conn->input.tx_tc) {
+-	case LB_TC:
++	case PURE_LB_TC:
+ 		pq_id = qed_get_cm_pq_idx(p_hwfn, PQ_FLAGS_LB);
+ 		break;
+-	case OOO_LB_TC:
++	case PKT_LB_TC:
+ 		pq_id = qed_get_cm_pq_idx(p_hwfn, PQ_FLAGS_OOO);
+ 		break;
+ 	default:
+@@ -973,7 +972,7 @@ static int qed_sp_ll2_tx_queue_start(struct qed_hwfn *p_hwfn,
+ 		p_ramrod->conn_type = PROTOCOLID_FCOE;
+ 		break;
+ 	case QED_LL2_TYPE_ISCSI:
+-	case QED_LL2_TYPE_ISCSI_OOO:
++	case QED_LL2_TYPE_OOO:
+ 		p_ramrod->conn_type = PROTOCOLID_ISCSI;
+ 		break;
+ 	case QED_LL2_TYPE_ROCE:
+@@ -1142,7 +1141,7 @@ static int qed_ll2_acquire_connection_tx(struct qed_hwfn *p_hwfn,
+ 	u16 buf_idx;
+ 	int rc = 0;
+ 
+-	if (p_ll2_info->input.conn_type != QED_LL2_TYPE_ISCSI_OOO)
++	if (p_ll2_info->input.conn_type != QED_LL2_TYPE_OOO)
  		return rc;
  
--	p_ramrod = &p_ent->ramrod.roce_init_func.rdma;
-+	if (QED_IS_IWARP_PERSONALITY(p_hwfn))
-+		p_ramrod = &p_ent->ramrod.iwarp_init_func.rdma;
-+	else
-+		p_ramrod = &p_ent->ramrod.roce_init_func.rdma;
+ 	/* Correct number of requested OOO buffers if needed */
+@@ -1280,7 +1279,7 @@ int qed_ll2_acquire_connection(void *cxt, struct qed_ll2_acquire_data *data)
+ 		goto q_allocate_fail;
  
- 	p_params_header = &p_ramrod->params_header;
- 	p_params_header->cnq_start_offset = (u8)RESC_START(p_hwfn,
-@@ -641,7 +648,15 @@ static int qed_rdma_setup(struct qed_hwfn *p_hwfn,
- 	if (rc)
- 		return rc;
- 
--	qed_roce_setup(p_hwfn);
-+	if (QED_IS_IWARP_PERSONALITY(p_hwfn)) {
-+		rc = qed_iwarp_setup(p_hwfn, p_ptt, params);
-+		if (rc)
-+			return rc;
-+	} else {
-+		rc = qed_roce_setup(p_hwfn);
-+		if (rc)
-+			return rc;
-+	}
- 
- 	return qed_rdma_start_fw(p_hwfn, params, p_ptt);
- }
-@@ -675,7 +690,16 @@ int qed_rdma_stop(void *rdma_cxt)
- 	qed_wr(p_hwfn, p_ptt, PRS_REG_LIGHT_L2_ETHERTYPE_EN,
- 	       (ll2_ethertype_en & 0xFFFE));
- 
--	qed_roce_stop(p_hwfn);
-+	if (QED_IS_IWARP_PERSONALITY(p_hwfn)) {
-+		rc = qed_iwarp_stop(p_hwfn, p_ptt);
-+		if (rc) {
-+			qed_ptt_release(p_hwfn, p_ptt);
-+			return rc;
-+		}
-+	} else {
-+		qed_roce_stop(p_hwfn);
-+	}
-+
- 	qed_ptt_release(p_hwfn, p_ptt);
- 
- 	/* Get SPQ entry */
-@@ -810,7 +834,9 @@ static int qed_fill_rdma_dev_info(struct qed_dev *cdev,
- 
- 	memset(info, 0, sizeof(*info));
- 
--	info->rdma_type = QED_RDMA_TYPE_ROCE;
-+	info->rdma_type = QED_IS_ROCE_PERSONALITY(p_hwfn) ?
-+	    QED_RDMA_TYPE_ROCE : QED_RDMA_TYPE_IWARP;
-+
- 	info->user_dpm_enabled = (p_hwfn->db_bar_no_edpm == 0);
- 
- 	qed_fill_dev_info(cdev, &info->common);
-@@ -1112,7 +1138,7 @@ static int qed_rdma_query_qp(void *rdma_cxt,
- 			     struct qed_rdma_query_qp_out_params *out_params)
+ 	/* Register callbacks for the Rx/Tx queues */
+-	if (data->input.conn_type == QED_LL2_TYPE_ISCSI_OOO) {
++	if (data->input.conn_type == QED_LL2_TYPE_OOO) {
+ 		comp_rx_cb = qed_ll2_lb_rxq_completion;
+ 		comp_tx_cb = qed_ll2_lb_txq_completion;
+ 	} else {
+@@ -1339,7 +1338,7 @@ static int qed_ll2_establish_connection_rx(struct qed_hwfn *p_hwfn,
+ qed_ll2_establish_connection_ooo(struct qed_hwfn *p_hwfn,
+ 				 struct qed_ll2_info *p_ll2_conn)
  {
- 	struct qed_hwfn *p_hwfn = (struct qed_hwfn *)rdma_cxt;
--	int rc;
-+	int rc = 0;
+-	if (p_ll2_conn->input.conn_type != QED_LL2_TYPE_ISCSI_OOO)
++	if (p_ll2_conn->input.conn_type != QED_LL2_TYPE_OOO)
+ 		return;
  
- 	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "icid = %08x\n", qp->icid);
- 
-@@ -1138,7 +1164,10 @@ static int qed_rdma_query_qp(void *rdma_cxt,
- 	out_params->max_dest_rd_atomic = qp->max_rd_atomic_resp;
- 	out_params->sqd_async = qp->sqd_async;
- 
--	rc = qed_roce_query_qp(p_hwfn, qp, out_params);
-+	if (QED_IS_IWARP_PERSONALITY(p_hwfn))
-+		qed_iwarp_query_qp(qp, out_params);
-+	else
-+		rc = qed_roce_query_qp(p_hwfn, qp, out_params);
- 
- 	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "Query QP, rc = %d\n", rc);
- 	return rc;
-@@ -1151,7 +1180,10 @@ static int qed_rdma_destroy_qp(void *rdma_cxt, struct qed_rdma_qp *qp)
- 
- 	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "icid = %08x\n", qp->icid);
- 
--	rc = qed_roce_destroy_qp(p_hwfn, qp);
-+	if (QED_IS_IWARP_PERSONALITY(p_hwfn))
-+		rc = qed_iwarp_destroy_qp(p_hwfn, qp);
-+	else
-+		rc = qed_roce_destroy_qp(p_hwfn, qp);
- 
- 	/* free qp params struct */
- 	kfree(qp);
-@@ -1190,20 +1222,27 @@ static int qed_rdma_destroy_qp(void *rdma_cxt, struct qed_rdma_qp *qp)
- 		return NULL;
+ 	qed_ooo_release_all_isles(p_hwfn, p_hwfn->p_ooo_info);
+@@ -1794,7 +1793,7 @@ int qed_ll2_terminate_connection(void *cxt, u8 connection_handle)
+ 		qed_ll2_rxq_flush(p_hwfn, connection_handle);
  	}
  
-+	if (QED_IS_IWARP_PERSONALITY(p_hwfn)) {
-+		if (in_params->sq_num_pages * sizeof(struct regpair) >
-+		    IWARP_SHARED_QUEUE_PAGE_SQ_PBL_MAX_SIZE) {
-+			DP_NOTICE(p_hwfn->cdev,
-+				  "Sq num pages: %d exceeds maximum\n",
-+				  in_params->sq_num_pages);
-+			return NULL;
-+		}
-+		if (in_params->rq_num_pages * sizeof(struct regpair) >
-+		    IWARP_SHARED_QUEUE_PAGE_RQ_PBL_MAX_SIZE) {
-+			DP_NOTICE(p_hwfn->cdev,
-+				  "Rq num pages: %d exceeds maximum\n",
-+				  in_params->rq_num_pages);
-+			return NULL;
-+		}
-+	}
-+
- 	qp = kzalloc(sizeof(*qp), GFP_KERNEL);
- 	if (!qp)
- 		return NULL;
+-	if (p_ll2_conn->input.conn_type == QED_LL2_TYPE_ISCSI_OOO)
++	if (p_ll2_conn->input.conn_type == QED_LL2_TYPE_OOO)
+ 		qed_ooo_release_all_isles(p_hwfn, p_hwfn->p_ooo_info);
  
--	rc = qed_roce_alloc_cid(p_hwfn, &qp->icid);
--	qp->qpid = ((0xFF << 16) | qp->icid);
--
--	DP_INFO(p_hwfn, "ROCE qpid=%x\n", qp->qpid);
--
--	if (rc) {
--		kfree(qp);
--		return NULL;
--	}
--
- 	qp->cur_state = QED_ROCE_QP_STATE_RESET;
- 	qp->qp_handle.hi = cpu_to_le32(in_params->qp_handle_hi);
- 	qp->qp_handle.lo = cpu_to_le32(in_params->qp_handle_lo);
-@@ -1226,6 +1265,19 @@ static int qed_rdma_destroy_qp(void *rdma_cxt, struct qed_rdma_qp *qp)
- 	qp->e2e_flow_control_en = qp->use_srq ? false : true;
- 	qp->stats_queue = in_params->stats_queue;
+ 	if (p_ll2_conn->input.conn_type == QED_LL2_TYPE_FCOE) {
+@@ -1816,7 +1815,7 @@ static void qed_ll2_release_connection_ooo(struct qed_hwfn *p_hwfn,
+ {
+ 	struct qed_ooo_buffer *p_buffer;
  
-+	if (QED_IS_IWARP_PERSONALITY(p_hwfn)) {
-+		rc = qed_iwarp_create_qp(p_hwfn, qp, out_params);
-+		qp->qpid = qp->icid;
-+	} else {
-+		rc = qed_roce_alloc_cid(p_hwfn, &qp->icid);
-+		qp->qpid = ((0xFF << 16) | qp->icid);
-+	}
-+
-+	if (rc) {
-+		kfree(qp);
-+		return NULL;
-+	}
-+
- 	out_params->icid = qp->icid;
- 	out_params->qp_id = qp->qpid;
+-	if (p_ll2_conn->input.conn_type != QED_LL2_TYPE_ISCSI_OOO)
++	if (p_ll2_conn->input.conn_type != QED_LL2_TYPE_OOO)
+ 		return;
  
-@@ -1324,7 +1376,14 @@ static int qed_rdma_modify_qp(void *rdma_cxt,
- 			   qp->cur_state);
- 	}
+ 	qed_ooo_release_all_isles(p_hwfn, p_hwfn->p_ooo_info);
+@@ -2063,7 +2062,7 @@ static void qed_ll2_set_conn_data(struct qed_dev *cdev,
+ 	ll2_cbs.cookie = QED_LEADING_HWFN(cdev);
  
--	rc = qed_roce_modify_qp(p_hwfn, qp, prev_state, params);
-+	if (QED_IS_IWARP_PERSONALITY(p_hwfn)) {
-+		enum qed_iwarp_qp_state new_state =
-+		    qed_roce2iwarp_state(qp->cur_state);
-+
-+		rc = qed_iwarp_modify_qp(p_hwfn, qp, new_state, 0);
-+	} else {
-+		rc = qed_roce_modify_qp(p_hwfn, qp, prev_state, params);
-+	}
+ 	if (lb) {
+-		data->input.tx_tc = OOO_LB_TC;
++		data->input.tx_tc = PKT_LB_TC;
+ 		data->input.tx_dest = QED_LL2_TX_DEST_LB;
+ 	} else {
+ 		data->input.tx_tc = 0;
+@@ -2080,7 +2079,7 @@ static int qed_ll2_start_ooo(struct qed_dev *cdev,
+ 	int rc;
  
- 	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "Modify QP, rc = %d\n", rc);
- 	return rc;
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_rdma.h b/drivers/net/ethernet/qlogic/qed/qed_rdma.h
-index d91e5c4..90e4e0f 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_rdma.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_rdma.h
-@@ -42,6 +42,7 @@
- #include "qed.h"
- #include "qed_dev_api.h"
- #include "qed_hsi.h"
-+#include "qed_iwarp.h"
- #include "qed_roce.h"
+ 	qed_ll2_set_conn_data(cdev, &data, params,
+-			      QED_LL2_TYPE_ISCSI_OOO, handle, true);
++			      QED_LL2_TYPE_OOO, handle, true);
  
- #define QED_RDMA_MAX_FMR                    (RDMA_MAX_TIDS)
-@@ -97,6 +98,7 @@ struct qed_rdma_info {
- 	u16 queue_zone_base;
- 	u16 max_queue_zones;
- 	enum protocol_type proto;
-+	struct qed_iwarp_info iwarp;
- };
- 
- struct qed_rdma_qp {
-@@ -105,6 +107,7 @@ struct qed_rdma_qp {
- 	u32 qpid;
- 	u16 icid;
- 	enum qed_roce_qp_state cur_state;
-+	enum qed_iwarp_qp_state iwarp_state;
- 	bool use_srq;
- 	bool signal_all;
- 	bool fmr_and_reserved_lkey;
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_roce.c b/drivers/net/ethernet/qlogic/qed/qed_roce.c
-index e53adc3..fb7c2d1 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_roce.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_roce.c
-@@ -1149,3 +1149,23 @@ int qed_roce_setup(struct qed_hwfn *p_hwfn)
- 					 qed_roce_async_event);
- }
- 
-+int qed_roce_init_hw(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
-+{
-+	u32 ll2_ethertype_en;
-+
-+	qed_wr(p_hwfn, p_ptt, PRS_REG_ROCE_DEST_QP_MAX_PF, 0);
-+
-+	p_hwfn->rdma_prs_search_reg = PRS_REG_SEARCH_ROCE;
-+
-+	ll2_ethertype_en = qed_rd(p_hwfn, p_ptt, PRS_REG_LIGHT_L2_ETHERTYPE_EN);
-+	qed_wr(p_hwfn, p_ptt, PRS_REG_LIGHT_L2_ETHERTYPE_EN,
-+	       (ll2_ethertype_en | 0x01));
-+
-+	if (qed_cxt_get_proto_cid_start(p_hwfn, PROTOCOLID_ROCE) % 2) {
-+		DP_NOTICE(p_hwfn, "The first RoCE's cid should be even\n");
-+		return -EINVAL;
-+	}
-+
-+	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "Initializing HW - Done\n");
-+	return 0;
-+}
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sp.h b/drivers/net/ethernet/qlogic/qed/qed_sp.h
-index 56c95fb..c3752c5 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sp.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sp.h
-@@ -104,12 +104,15 @@ int qed_eth_cqe_completion(struct qed_hwfn *p_hwfn,
- 	struct roce_query_qp_req_ramrod_data roce_query_qp_req;
- 	struct roce_destroy_qp_resp_ramrod_data roce_destroy_qp_resp;
- 	struct roce_destroy_qp_req_ramrod_data roce_destroy_qp_req;
-+	struct roce_init_func_ramrod_data roce_init_func;
- 	struct rdma_create_cq_ramrod_data rdma_create_cq;
- 	struct rdma_destroy_cq_ramrod_data rdma_destroy_cq;
- 	struct rdma_srq_create_ramrod_data rdma_create_srq;
- 	struct rdma_srq_destroy_ramrod_data rdma_destroy_srq;
- 	struct rdma_srq_modify_ramrod_data rdma_modify_srq;
--	struct roce_init_func_ramrod_data roce_init_func;
-+	struct iwarp_create_qp_ramrod_data iwarp_create_qp;
-+	struct iwarp_modify_qp_ramrod_data iwarp_modify_qp;
-+	struct iwarp_init_func_ramrod_data iwarp_init_func;
- 	struct fcoe_init_ramrod_params fcoe_init;
- 	struct fcoe_conn_offload_ramrod_params fcoe_conn_ofld;
- 	struct fcoe_conn_terminate_ramrod_params fcoe_conn_terminate;
-diff --git a/include/linux/qed/iwarp_common.h b/include/linux/qed/iwarp_common.h
-new file mode 100644
-index 0000000..b8b3e1c
---- /dev/null
-+++ b/include/linux/qed/iwarp_common.h
-@@ -0,0 +1,53 @@
-+/* QLogic qed NIC Driver
-+ * Copyright (c) 2015-2017  QLogic Corporation
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+#ifndef __IWARP_COMMON__
-+#define __IWARP_COMMON__
-+#include <linux/qed/rdma_common.h>
-+/************************/
-+/* IWARP FW CONSTANTS	*/
-+/************************/
-+
-+#define IWARP_ACTIVE_MODE 0
-+#define IWARP_PASSIVE_MODE 1
-+
-+#define IWARP_SHARED_QUEUE_PAGE_SIZE		(0x8000)
-+#define IWARP_SHARED_QUEUE_PAGE_RQ_PBL_OFFSET   (0x4000)
-+#define IWARP_SHARED_QUEUE_PAGE_RQ_PBL_MAX_SIZE (0x1000)
-+#define IWARP_SHARED_QUEUE_PAGE_SQ_PBL_OFFSET   (0x5000)
-+#define IWARP_SHARED_QUEUE_PAGE_SQ_PBL_MAX_SIZE (0x3000)
-+
-+#define IWARP_REQ_MAX_INLINE_DATA_SIZE          (128)
-+#define IWARP_REQ_MAX_SINGLE_SQ_WQE_SIZE        (176)
-+
-+#define IWARP_MAX_QPS                           (64 * 1024)
-+
-+#endif /* __IWARP_COMMON__ */
-diff --git a/include/linux/qed/qed_rdma_if.h b/include/linux/qed/qed_rdma_if.h
-index ff9be01..5b4bb09 100644
---- a/include/linux/qed/qed_rdma_if.h
-+++ b/include/linux/qed/qed_rdma_if.h
-@@ -491,6 +491,7 @@ struct qed_roce_ll2_packet {
- 
- enum qed_rdma_type {
- 	QED_RDMA_TYPE_ROCE,
-+	QED_RDMA_TYPE_IWARP
- };
- 
- struct qed_dev_rdma_info {
+ 	rc = qed_ll2_acquire_connection(hwfn, &data);
+ 	if (rc) {
+diff --git a/include/linux/qed/qed_ll2_if.h b/include/linux/qed/qed_ll2_if.h
+index 5958b45e..c9c56bc 100644
+--- a/include/linux/qed/qed_ll2_if.h
++++ b/include/linux/qed/qed_ll2_if.h
+@@ -47,7 +47,7 @@ enum qed_ll2_conn_type {
+ 	QED_LL2_TYPE_FCOE,
+ 	QED_LL2_TYPE_ISCSI,
+ 	QED_LL2_TYPE_TEST,
+-	QED_LL2_TYPE_ISCSI_OOO,
++	QED_LL2_TYPE_OOO,
+ 	QED_LL2_TYPE_RESERVED2,
+ 	QED_LL2_TYPE_ROCE,
+ 	QED_LL2_TYPE_RESERVED3,
 -- 
 1.8.3.1
