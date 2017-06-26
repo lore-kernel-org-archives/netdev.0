@@ -1,62 +1,54 @@
-From: Yunsheng Lin <linyunsheng@huawei.com>
-Subject: Re: [PATCH NET V4 1/2] net: phy: Add phy loopback support in net phy
- framework
-Date: Mon, 26 Jun 2017 09:26:52 +0800
-Message-ID: <9da50466-1a27-aeba-b0c5-b55fd7bb01ee@huawei.com>
-References: <1498290554-237317-1-git-send-email-linyunsheng@huawei.com>
- <1498290554-237317-2-git-send-email-linyunsheng@huawei.com>
- <20170624134436.GJ4875@lunn.ch>
+From: Lin Yun Sheng <linyunsheng@huawei.com>
+Subject: [PATCH NET V5 0/2] Add loopback support in phy_driver and hns ethtool fix
+Date: Mon, 26 Jun 2017 10:10:37 +0800
+Message-ID: <1498443039-134503-1-git-send-email-linyunsheng@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <f.fainelli@gmail.com>,
-        <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
+Content-Type: text/plain
+Cc: <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
         <liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
         <gabriele.paoloni@huawei.com>, <john.garry@huawei.com>,
-        <linuxarm@huawei.com>, <salil.mehta@huawei.com>,
-        <lipeng321@huawei.com>, <tremyfr@gmail.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
+        <linuxarm@huawei.com>, <yisen.zhuang@huawei.com>,
+        <salil.mehta@huawei.com>, <lipeng321@huawei.com>,
+        <tremyfr@gmail.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: <davem@davemloft.net>, <andrew@lunn.ch>, <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170624134436.GJ4875@lunn.ch>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, Andrew
+This Patch Set add set_loopback in phy_driver and use it to setup loopback
+when doing ethtool phy self_test.
 
-On 2017/6/24 21:44, Andrew Lunn wrote:
->> @@ -1087,7 +1087,7 @@ int phy_suspend(struct phy_device *phydev)
->>  {
->>  	struct phy_driver *phydrv = to_phy_driver(phydev->mdio.dev.driver);
->>  	struct ethtool_wolinfo wol = { .cmd = ETHTOOL_GWOL };
->> -	int ret = 0;
->> +	int ret = -EOPNOTSUPP;
->>  
->>  	/* If the device has WOL enabled, we cannot suspend the PHY */
->>  	phy_ethtool_get_wol(phydev, &wol);
->> @@ -1109,7 +1109,7 @@ int phy_suspend(struct phy_device *phydev)
->>  int phy_resume(struct phy_device *phydev)
->>  {
->>  	struct phy_driver *phydrv = to_phy_driver(phydev->mdio.dev.driver);
->> -	int ret = 0;
->> +	int ret = -EOPNOTSUPP;
->>  
->>  	if (phydev->drv && phydrv->resume)
->>  		ret = phydrv->resume(phydev);
->> @@ -1123,6 +1123,39 @@ int phy_resume(struct phy_device *phydev)
->>  }
-> 
-> These changes should be in a separate patch, since they have nothing
-> to do with loopback. You want lots of small patches, making them
-> easier to both describe the why it is needed, and easier to review.
-> 
-Thanks for pointing out. Will remove it next version.
-> What are the implications of this change? Are you sure the power core
-> code does not understand EOPNOTSUPP as being a real error?
-> I was thinking phy_suspend/resume was making the mistake not returing error when
-function point is null, as I did in phy_loopback. I am not sure if power core
-understand EOPNOTSUPP.
-But I think we should fix it if it is fixable, if not, then add a comment. because
-it is not consitent with other phy_* . For anyone who is not familiar with phy core,
-it is confusing.
+Patch V5:
+	Removing non loopback related code change.
+
+Patch V4:
+        1. Remove c45 checking
+        2. Add -ENOTSUPP when function pointer is null,
+           take mutex in phy_loopback.
+
+Patch V3:
+        Calling phy_loopback enable and disable in pair in hns mac driver.
+
+Patch V2:
+        1. Add phy_loopback in phy_device.c.
+        2. Do error checking and do the read and write once in 
+	   genphy_loopback.
+        3. Remove gen10g_loopback in phy_device.c.
+
+Patch V1:
+        Initial Submit
+
+Lin Yun Sheng (2):
+  net: phy: Add phy loopback support in net phy framework
+  net: hns: Use phy_driver to setup Phy loopback
+
+ drivers/net/ethernet/hisilicon/hns/hnae.h        |  1 +
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c | 92 +++++++-----------------
+ drivers/net/phy/marvell.c                        |  1 +
+ drivers/net/phy/phy_device.c                     | 51 +++++++++++++
+ include/linux/phy.h                              |  5 ++
+ 5 files changed, 83 insertions(+), 67 deletions(-)
+
+-- 
+1.9.1
