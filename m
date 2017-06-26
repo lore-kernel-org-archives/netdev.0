@@ -1,84 +1,79 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] Added SIOCSMIIREG (mii write) support to intel igb
- driver
-Date: Mon, 26 Jun 2017 14:11:52 -0700
-Message-ID: <1498511512.3237.7.camel@intel.com>
-References: <20170622132356.2567-1-michael.moese@men.de>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-        protocol="application/pgp-signature"; boundary="=-hYbq/CUZQ0w9R0bKQ35b"
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Andreas Werner <andreas.werner@men.de>
-To: Michael Moese <michael.moese@men.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170622132356.2567-1-michael.moese@men.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [net-next 2/6] ixgbe: Enable LASI interrupts for X552 devices
+Date: Mon, 26 Jun 2017 14:39:29 -0700
+Message-ID: <20170626213933.9635-3-jeffrey.t.kirsher@intel.com>
+References: <20170626213933.9635-1-jeffrey.t.kirsher@intel.com>
+Cc: Tony Nguyen <anthony.l.nguyen@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:39969 "EHLO mga14.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751739AbdFZVjl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 26 Jun 2017 17:39:41 -0400
+In-Reply-To: <20170626213933.9635-1-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Tony Nguyen <anthony.l.nguyen@intel.com>
 
---=-hYbq/CUZQ0w9R0bKQ35b
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Enable LASI interrupts on X552 devices in order to receive notifications of
+link configurations of the external PHY and support the configuration of
+the internal iXFI link since iXFI does not support auto-negotiation.  This
+is not required for X553 devices; add a check to avoid enabling LASI
+interrupts for X553 devices.
 
-On Thu, 2017-06-22 at 15:23 +0200, Michael Moese wrote:
-> From: Andreas Werner <andreas.werner@men.de>
->=20
-> Signed-off-by: Andreas Werner <andreas.werner@men.de>
-> ---
-> =C2=A0drivers/net/ethernet/intel/igb/igb_main.c | 4 ++++
-> =C2=A01 file changed, 4 insertions(+)
+Signed-off-by: Tony Nguyen <anthony.l.nguyen@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 31 +++++++++++++++++++--------
+ 1 file changed, 22 insertions(+), 9 deletions(-)
 
-NACK
-
-Why?  Your lack of patch description does not provide a reasoning on why we
-need this change.  I need a patch description that provides justification
-on why we need this change, before I add this to my queue for testing and
-acceptance upstream.
-
-Please resubmit with the requested information/change.
-
->=20
-> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c
-> b/drivers/net/ethernet/intel/igb/igb_main.c
-> index 1cf74aa4ebd9..87e496eeefb1 100644
-> --- a/drivers/net/ethernet/intel/igb/igb_main.c
-> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-> @@ -7716,6 +7716,10 @@ static int igb_mii_ioctl(struct net_device
-> *netdev, struct ifreq *ifr, int cmd)
-> =C2=A0			return -EIO;
-> =C2=A0		break;
-> =C2=A0	case SIOCSMIIREG:
-> +		if (igb_write_phy_reg(&adapter->hw, data->reg_num &
-> 0x1F,
-> +				=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0data->val_in))
-> +			return -EIO;
-> +		break;
-> =C2=A0	default:
-> =C2=A0		return -EOPNOTSUPP;
-> =C2=A0	}
-
---=-hYbq/CUZQ0w9R0bKQ35b
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJZUXiYAAoJEOVv75VaS+3OZngQAJ6xpQpoZfmbTWj0sLsKAuH+
-tJP3zlK5Du5wDnn4Izy4tCdlnXKwwL9ACVMQaFwTiTQjyn+I9a1h0B52dnKiNi2B
-obGK1r/oBL+fcHpE4Yrlpka6uDnsnY1fznd/rxJNUNyJrXhJTDBs3yKL56rmw0hY
-XMiiQNpuJMrDgy6M9Vp7D9necaQOWMCMSt4eZuqHz87hpqWdiJ+AigykgfEUFOL2
-G+TJD83vqfuOj50leDSxn4RB7I+5HBftEP/khFzcOInJ5/pSm90SkSDDAFIIffw/
-zixjf37A0t6lAqMwJOQN4f3YtHznuNKfv8uid8oUHup976ff6DU28yLIQ6nFVj+R
-aKGnVlNG4F75o1e9+vHHRULC1Ogc0+v159nY3ufzzJbCOylJwaytKFpSJI6KdGXq
-o+svHQ84CsvOBsOGpgI+nhShXxWNoFc04EfDJCdRSqQgINBI063e+FDxSG8yB60c
-RgmPf5+1Vm229bzTwvs3VlzQ205LDknHLa1366NNyIJVO4Q5F89O504SDB1uHVNj
-ZglKdB+cF9Fj39ljTnfFr+qveshzFKTwpNa7FIwRe1UcKUluNn9PoflYamiOEZpG
-LrDUvlXmdR5Tp6Cj+R0dc2k8AsRO5K6Ts1zAmUjDz+j43K8rcCVucnYOaIaBCQ8t
-UqqR2yQWoknVXeWtPSX1
-=m5+2
------END PGP SIGNATURE-----
-
---=-hYbq/CUZQ0w9R0bKQ35b--
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index 72d84a065e34..aa34e0b131bb 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -2404,17 +2404,30 @@ static s32 ixgbe_enable_lasi_ext_t_x550em(struct ixgbe_hw *hw)
+ 	status = ixgbe_get_lasi_ext_t_x550em(hw, &lsc);
+ 
+ 	/* Enable link status change alarm */
+-	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_PMA_TX_VEN_LASI_INT_MASK,
+-				      MDIO_MMD_AN, &reg);
+-	if (status)
+-		return status;
+ 
+-	reg |= IXGBE_MDIO_PMA_TX_VEN_LASI_INT_EN;
++	/* Enable the LASI interrupts on X552 devices to receive notifications
++	 * of the link configurations of the external PHY and correspondingly
++	 * support the configuration of the internal iXFI link, since iXFI does
++	 * not support auto-negotiation. This is not required for X553 devices
++	 * having KR support, which performs auto-negotiations and which is used
++	 * as the internal link to the external PHY. Hence adding a check here
++	 * to avoid enabling LASI interrupts for X553 devices.
++	 */
++	if (hw->mac.type != ixgbe_mac_x550em_a) {
++		status = hw->phy.ops.read_reg(hw,
++					    IXGBE_MDIO_PMA_TX_VEN_LASI_INT_MASK,
++					    MDIO_MMD_AN, &reg);
++		if (status)
++			return status;
++
++		reg |= IXGBE_MDIO_PMA_TX_VEN_LASI_INT_EN;
+ 
+-	status = hw->phy.ops.write_reg(hw, IXGBE_MDIO_PMA_TX_VEN_LASI_INT_MASK,
+-				       MDIO_MMD_AN, reg);
+-	if (status)
+-		return status;
++		status = hw->phy.ops.write_reg(hw,
++					    IXGBE_MDIO_PMA_TX_VEN_LASI_INT_MASK,
++					    MDIO_MMD_AN, reg);
++		if (status)
++			return status;
++	}
+ 
+ 	/* Enable high temperature failure and global fault alarms */
+ 	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_GLOBAL_INT_MASK,
+-- 
+2.12.2
