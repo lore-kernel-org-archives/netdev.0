@@ -1,52 +1,67 @@
-From: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH] net/mlx4: fix spelling mistake: "coalesing" ->
- "coalescing"
-Date: Mon, 26 Jun 2017 17:41:06 +0300
-Message-ID: <65224576-2bed-7f14-6aa5-0561094b62ee@mellanox.com>
-References: <20170626125346.22143-1-colin.king@canonical.com>
+From: Madalin-cristian Bucur <madalin.bucur@nxp.com>
+Subject: RE: [PATCH 1/2] fsl/fman: propagate dma_ops
+Date: Mon, 26 Jun 2017 14:55:08 +0000
+Message-ID: <AM5PR0402MB26914A0A9BB0877F420848B9ECDF0@AM5PR0402MB2691.eurprd04.prod.outlook.com>
+References: <1497884657-3744-1-git-send-email-madalin.bucur@nxp.com>
+ <1497884657-3744-2-git-send-email-madalin.bucur@nxp.com>
+ <CAMuHMdU6hkU03s2ZBYEYdOqO3M1djbjZ0YKw8VbHYEvsNxLZxw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-        Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170626125346.22143-1-colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdU6hkU03s2ZBYEYdOqO3M1djbjZ0YKw8VbHYEvsNxLZxw@mail.gmail.com>
 Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On 26/06/2017 3:53 PM, Colin King wrote:
-> From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-> 
-> Trivial fix to spelling mistake in en_dbg debug message
-> 
-> Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-> ---
->   drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> index 18252a79a074..9da76e3be2fc 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> @@ -1352,7 +1352,7 @@ static void mlx4_en_set_default_moderation(struct mlx4_en_priv *priv)
->   	priv->rx_usecs = MLX4_EN_RX_COAL_TIME;
->   	priv->tx_frames = MLX4_EN_TX_COAL_PKTS;
->   	priv->tx_usecs = MLX4_EN_TX_COAL_TIME;
-> -	en_dbg(INTR, priv, "Default coalesing params for mtu:%d - rx_frames:%d rx_usecs:%d\n",
-> +	en_dbg(INTR, priv, "Default coalescing params for mtu:%d - rx_frames:%d rx_usecs:%d\n",
->   	       priv->dev->mtu, priv->rx_frames, priv->rx_usecs);
->   
->   	/* Setup cq moderation params */
-> 
-Acked-by: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-
-Thanks Colin.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBnZWVydC51eXR0ZXJob2V2ZW5A
+Z21haWwuY29tIFttYWlsdG86Z2VlcnQudXl0dGVyaG9ldmVuQGdtYWlsLmNvbV0NCj4gT24gQmVo
+YWxmIE9mIEdlZXJ0IFV5dHRlcmhvZXZlbg0KPiBTZW50OiBNb25kYXksIEp1bmUgMjYsIDIwMTcg
+MTA6NDkgQU0NCj4gVG86IE1hZGFsaW4tY3Jpc3RpYW4gQnVjdXIgPG1hZGFsaW4uYnVjdXJAbnhw
+LmNvbT4NCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IERhdmlkIFMuIE1pbGxlciA8ZGF2
+ZW1AZGF2ZW1sb2Z0Lm5ldD47DQo+IGxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnOyBsaW51
+eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggMS8yXSBmc2wv
+Zm1hbjogcHJvcGFnYXRlIGRtYV9vcHMNCj4gDQo+IEhpIE1hZGFsaW4sDQo+IA0KPiBPbiBNb24s
+IEp1biAxOSwgMjAxNyBhdCA1OjA0IFBNLCBNYWRhbGluIEJ1Y3VyIDxtYWRhbGluLmJ1Y3VyQG54
+cC5jb20+DQo+IHdyb3RlOg0KPiA+IE1ha2Ugc3VyZSBkbWFfb3BzIGFyZSBzZXQsIHRvIGJlIGxh
+dGVyIHVzZWQgYnkgdGhlIEV0aGVybmV0IGRyaXZlci4NCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6
+IE1hZGFsaW4gQnVjdXIgPG1hZGFsaW4uYnVjdXJAbnhwLmNvbT4NCj4gPiAtLS0NCj4gPiAgZHJp
+dmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vbWFjLmMgfCAyICsrDQo+ID4gIDEgZmls
+ZSBjaGFuZ2VkLCAyIGluc2VydGlvbnMoKykNCj4gPg0KPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJz
+L25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9tYWMuYw0KPiBiL2RyaXZlcnMvbmV0L2V0aGVy
+bmV0L2ZyZWVzY2FsZS9mbWFuL21hYy5jDQo+ID4gaW5kZXggMGIzMWY4NS4uNmU2N2QyMmYgMTAw
+NjQ0DQo+ID4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vbWFjLmMN
+Cj4gPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9tYWMuYw0KPiA+
+IEBAIC02MjMsNiArNjIzLDggQEAgc3RhdGljIHN0cnVjdCBwbGF0Zm9ybV9kZXZpY2UNCj4gKmRw
+YWFfZXRoX2FkZF9kZXZpY2UoaW50IGZtYW5faWQsDQo+ID4gICAgICAgICAgICAgICAgIGdvdG8g
+bm9fbWVtOw0KPiA+ICAgICAgICAgfQ0KPiA+DQo+ID4gKyAgICAgICBzZXRfZG1hX29wcygmcGRl
+di0+ZGV2LCBnZXRfZG1hX29wcyhwcml2LT5kZXYpKTsNCj4gPiArDQo+IA0KPiBXaGVuIGNvbXBp
+bGUtdGVzdGluZyB3aXRoIGYgTk9fRE1BPXk6DQo+IA0KPiAgICAgZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvZnJlZXNjYWxlL2ZtYW4vbWFjLmM6IEluIGZ1bmN0aW9uDQo+IOKAmGRwYWFfZXRoX2FkZF9k
+ZXZpY2XigJk6DQo+ICAgICBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9tYWMu
+Yzo2MjY6IGVycm9yOiBpbXBsaWNpdA0KPiBkZWNsYXJhdGlvbiBvZiBmdW5jdGlvbiDigJhzZXRf
+ZG1hX29wc+KAmQ0KPiANCj4gUmV2ZXJ0aW5nIGNvbW1pdCA1NTY3ZTk4OTE5OGI1YThkIGZpeGVz
+IHRoaXMgcmVncmVzc2lvbiBpbiB2NC4xMi1yYzcuDQo+IA0KPiBXaHkgaXMgdGhpcyBjaGFuZ2Ug
+bmVlZGVkPw0KPiBUaGVyZSdzIG5vIHNpbmdsZSBvdGhlciBjYWxsIHRvIHRoZSBETUEgQVBJIGlu
+IHRoaXMgZmlsZT8NCg0KV2UncmUgc2V0dGluZyBoZXJlIHRoZSBkbWFfb3BzIHRoYXQgYXJlIGxh
+dGVyIHVzZWQgaW4gdGhlIG90aGVyIGRyaXZlci9wYXRjaC4NClRoZSBwcm9ibGVtIGlzIHdlIG5v
+dyBkZXBlbmQgdXBvbiBETUEgYnV0IGRvIG5vdCBleHBsaWNpdGx5IGRlY2xhcmUgaXQ6DQoNCjw8
+Q29kZSB0aGF0IGRlcGVuZHMgb24gdGhlIGRtYS1tYXBwaW5nIEFQSSBuZWVkcyB0byBzZXQgJ2Rl
+cGVuZHMgb24gSEFTX0RNQScNCmluIGl0cyBLY29uZmlnPj4NCg0KSSdsbCBuZWVkIHRvIGFkZCB0
+aGlzIHRvIHRoZSBGTWFuIGRyaXZlciBLY29uZmlnLiANCg0KPiBJZiBpdCdzIHJlYWxseSBuZWVk
+ZWQsIGNhbid0IHNldF9kbWFfb3BzKCkgYmUgY2FsbGVkIGZyb20gdGhlIGRyaXZlciB0aGF0DQo+
+IG5lZWRzIGl0LCBjZnIuIHlvdXIgb3RoZXIgcGF0Y2ggIltQQVRDSCAyLzJdIGRwYWFfZXRoOiBy
+ZXVzZSB0aGUgZG1hX29wcw0KPiBwcm92aWRlZCBieSB0aGUgRk1hbiBNQUMgZGV2aWNlIj8NCj4g
+DQo+IFRoYW5rcyENCj4gDQo+IEdye29ldGplLGVldGluZ31zLA0KPiANCj4gICAgICAgICAgICAg
+ICAgICAgICAgICAgR2VlcnQNCj4gDQo+IC0tDQo+IEdlZXJ0IFV5dHRlcmhvZXZlbiAtLSBUaGVy
+ZSdzIGxvdHMgb2YgTGludXggYmV5b25kIGlhMzIgLS0gZ2VlcnRAbGludXgtDQo+IG02OGsub3Jn
+DQo+IA0KPiBJbiBwZXJzb25hbCBjb252ZXJzYXRpb25zIHdpdGggdGVjaG5pY2FsIHBlb3BsZSwg
+SSBjYWxsIG15c2VsZiBhIGhhY2tlci4NCj4gQnV0DQo+IHdoZW4gSSdtIHRhbGtpbmcgdG8gam91
+cm5hbGlzdHMgSSBqdXN0IHNheSAicHJvZ3JhbW1lciIgb3Igc29tZXRoaW5nIGxpa2UNCj4gdGhh
+dC4NCj4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAtLSBMaW51cyBUb3J2YWxkcw0K
+DQpUaGFua3MsDQpNYWRhbGluDQo=
