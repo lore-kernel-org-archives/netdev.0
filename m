@@ -1,55 +1,47 @@
 From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH] ti: wl18xx: add checks on wl18xx_top_reg_write() return value
-Date: Mon, 26 Jun 2017 18:06:19 -0500
-Message-ID: <20170626230619.GA14831@embeddedgus>
+Subject: [PATCH] ath9k: remove useless variable assignment in ath_mci_intr()
+Date: Mon, 26 Jun 2017 18:26:58 -0500
+Message-ID: <20170626232658.GA17483@embeddedgus>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org,
         "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+To: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
+        Kalle Valo <kvalo@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gateway32.websitewelcome.com ([192.185.145.119]:37757 "EHLO
+        gateway32.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751388AbdFZX1C (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2017 19:27:02 -0400
+Received: from cm10.websitewelcome.com (cm10.websitewelcome.com [100.42.49.4])
+        by gateway32.websitewelcome.com (Postfix) with ESMTP id 59C90EFBD4
+        for <netdev@vger.kernel.org>; Mon, 26 Jun 2017 18:26:59 -0500 (CDT)
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Check return value from call to wl18xx_top_reg_write(),
-so in case of error jump to goto label out and return.
+Value assigned to variable offset at line 551 is overwritten at line 562,
+before it can be used. This makes such variable assignment useless.
 
-Also, remove unnecessary value check before goto label out.
-
-Addresses-Coverity-ID: 1226938
+Addresses-Coverity-ID: 1226941
 Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
 ---
- drivers/net/wireless/ti/wl18xx/main.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/wireless/ath/ath9k/mci.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/ti/wl18xx/main.c b/drivers/net/wireless/ti/wl18xx/main.c
-index d1aa3ee..0cf3b40 100644
---- a/drivers/net/wireless/ti/wl18xx/main.c
-+++ b/drivers/net/wireless/ti/wl18xx/main.c
-@@ -793,9 +793,13 @@ static int wl18xx_set_clk(struct wl1271 *wl)
- 		ret = wl18xx_top_reg_write(wl, PLLSH_WCS_PLL_P_FACTOR_CFG_2,
- 					(wl18xx_clk_table[clk_freq].p >> 16) &
- 					PLLSH_WCS_PLL_P_FACTOR_CFG_2_MASK);
-+		if (ret < 0)
-+			goto out;
- 	} else {
- 		ret = wl18xx_top_reg_write(wl, PLLSH_WCS_PLL_SWALLOW_EN,
- 					   PLLSH_WCS_PLL_SWALLOW_EN_VAL2);
-+		if (ret < 0)
-+			goto out;
+diff --git a/drivers/net/wireless/ath/ath9k/mci.c b/drivers/net/wireless/ath/ath9k/mci.c
+index 66596b9..cf23fd8 100644
+--- a/drivers/net/wireless/ath/ath9k/mci.c
++++ b/drivers/net/wireless/ath/ath9k/mci.c
+@@ -548,7 +548,7 @@ void ath_mci_intr(struct ath_softc *sc)
+ 
+ 	if (mci_int_rxmsg & AR_MCI_INTERRUPT_RX_MSG_SCHD_INFO) {
+ 		mci_int_rxmsg &= ~AR_MCI_INTERRUPT_RX_MSG_SCHD_INFO;
+-		offset = ar9003_mci_state(ah, MCI_STATE_LAST_SCHD_MSG_OFFSET);
++		ar9003_mci_state(ah, MCI_STATE_LAST_SCHD_MSG_OFFSET);
  	}
  
- 	/* choose WCS PLL */
-@@ -819,8 +823,6 @@ static int wl18xx_set_clk(struct wl1271 *wl)
- 	/* reset the swallowing logic */
- 	ret = wl18xx_top_reg_write(wl, PLLSH_COEX_PLL_SWALLOW_EN,
- 				   PLLSH_COEX_PLL_SWALLOW_EN_VAL2);
--	if (ret < 0)
--		goto out;
- 
- out:
- 	return ret;
+ 	if (mci_int_rxmsg & AR_MCI_INTERRUPT_RX_MSG_GPM) {
 -- 
 2.5.0
