@@ -1,76 +1,50 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: BUG: KASAN: use-after-free in free_old_xmit_skbs
-Date: Mon, 26 Jun 2017 10:50:53 +0800
-Message-ID: <9327ebf9-59db-f34e-b945-ef381ee95315@redhat.com>
-References: <d2e8cf65-ea3d-7db2-9382-a063daf1168a@gmail.com>
-	<20170605050423-mutt-send-email-mst@kernel.org>
-	<20170606024211-mutt-send-email-mst@kernel.org>
-	<CAOTcU=u_HSMQiwDF3Snv5P8mT-b_Aepeb=Z9gbLd1j=2P+Yy+A@mail.gmail.com>
-	<20170622215125-mutt-send-email-mst@kernel.org>
-	<4f6d4342-8476-882e-e7a8-b3f0ebd20d95@redhat.com>
-	<CAM_iQpXhW___-iP3kdv9MJcW=hroyp2SuMzAZdx3KCpc9-W76g@mail.gmail.com>
+From: "IT Department" <jwatson@phrehab.com>
+Subject: EMAIL UPDATE
+Date: Mon, 26 Jun 2017 02:51:42 +0100
+Message-ID: <20170626015144.6CFF8D403A05D@mail1.phrehab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	John Fastabend <john.fastabend@gmail.com>,
-	qemu-devel Developers <qemu-devel@nongnu.org>,
-	virtualization@lists.linux-foundation.org,
-	jean-philippe menil <jpmenil@gmail.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAM_iQpXhW___-iP3kdv9MJcW=hroyp2SuMzAZdx3KCpc9-W76g@mail.gmail.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f229.google.com ([209.85.216.229]:35339 "EHLO
+        mail-qt0-f229.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751689AbdFZDJb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2017 23:09:31 -0400
+Received: by mail-qt0-f229.google.com with SMTP id h15so3776310qte.2
+        for <netdev@vger.kernel.org>; Sun, 25 Jun 2017 20:09:31 -0700 (PDT)
+Received: from mail1.phrehab.com ([52.168.178.138])
+        by smtp-relay.gmail.com with ESMTPS id m72sm1702909qke.9.2017.06.25.20.09.31
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Sun, 25 Jun 2017 20:09:31 -0700 (PDT)
+Received: from localhost (mail1 [127.0.0.1])
+        by mail1.phrehab.com (Postfix) with ESMTP id CC53CD4052B24
+        for <netdev@vger.kernel.org>; Sun, 25 Jun 2017 21:39:33 -0500 (CDT)
+Received: from mail1.phrehab.com ([127.0.0.1])
+        by localhost (mail1.phrehab.com [127.0.0.1]) (amavisd-new, port 10032)
+        with ESMTP id q99mH-QZeR-Z for <netdev@vger.kernel.org>;
+        Sun, 25 Jun 2017 21:39:33 -0500 (CDT)
+Received: from localhost (mail1 [127.0.0.1])
+        by mail1.phrehab.com (Postfix) with ESMTP id 7BA46D412B83C
+        for <netdev@vger.kernel.org>; Sun, 25 Jun 2017 21:06:05 -0500 (CDT)
+Received: from mail1.phrehab.com ([127.0.0.1])
+        by localhost (mail1.phrehab.com [127.0.0.1]) (amavisd-new, port 10026)
+        with ESMTP id Ihlw6zzv1UJE for <netdev@vger.kernel.org>;
+        Sun, 25 Jun 2017 21:06:05 -0500 (CDT)
+Received: from [192.168.10.100] (unknown [169.159.88.203])
+        by mail1.phrehab.com (Postfix) with ESMTPSA id 6CFF8D403A05D
+        for <netdev@vger.kernel.org>; Sun, 25 Jun 2017 20:51:44 -0500 (CDT)
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE35bm0MDbmnIgyNOaXpSAwNjozMiwgQ29uZyBXYW5nIHdyb3RlOgo+IE9uIEZyaSwg
-SnVuIDIzLCAyMDE3IGF0IDE6NDMgQU0sIEphc29uIFdhbmcgPGphc293YW5nQHJlZGhhdC5jb20+
-IHdyb3RlOgo+Pgo+PiBPbiAyMDE35bm0MDbmnIgyM+aXpSAwMjo1MywgTWljaGFlbCBTLiBUc2ly
-a2luIHdyb3RlOgo+Pj4gT24gVGh1LCBKdW4gMjIsIDIwMTcgYXQgMDg6MTU6NThBTSArMDIwMCwg
-amVhbi1waGlsaXBwZSBtZW5pbCB3cm90ZToKPj4+PiBIaSBNaWNoYWVsLAo+Pj4+Cj4+Pj4gZnJv
-bSB3aGF0IGkgc2VlLCB0aGUgcmFjZSBhcHBlYXIgd2hlbiB3ZSBoaXQgdmlydG5ldF9yZXNldCBp
-bgo+Pj4+IHZpcnRuZXRfeGRwX3NldC4KPj4+PiB2aXJ0bmV0X3Jlc2V0Cj4+Pj4gICAgIF9yZW1v
-dmVfdnFfY29tbW9uCj4+Pj4gICAgICAgdmlydG5ldF9kZWxfdnFzCj4+Pj4gICAgICAgICB2aXJ0
-bmV0X2ZyZWVfcXVldWVzCj4+Pj4gICAgICAgICAgIGtmcmVlKHZpLT5zcSkKPj4+PiB3aGVuIHRo
-ZSB4ZHAgcHJvZ3JhbSAod2l0aCB0d28gaW5zdGFuY2VzIG9mIHRoZSBwcm9ncmFtIHRvIHRyaWdn
-ZXIgaXQKPj4+PiBmYXN0ZXIpCj4+Pj4gaXMgYWRkZWQgb3IgcmVtb3ZlZC4KPj4+Pgo+Pj4+IEl0
-J3MgZWFzaWx5IHJlcGVhdGFibGUsIHdpdGggMiBjcHVzIGFuZCA0IHF1ZXVlcyBvbiB0aGUgcWVt
-dSBjb21tYW5kCj4+Pj4gbGluZSwKPj4+PiBydW5uaW5nIHRoZSB4ZHBfdHRsIHRvb2wgZnJvbSBK
-ZXNwZXIuCj4+Pj4KPj4+PiBGb3Igbm93LCBpJ20gYWJsZSB0byBjb250aW51ZSBteSBxdWFsaWZp
-Y2F0aW9uLCB0ZXN0aW5nIGlmIHhkcF9xcCBpcyBub3QKPj4+PiBudWxsLAo+Pj4+IGJ1dCBkbyBu
-b3Qgc2VlbSB0byBiZSBhIHN1c3RhaW5hYmxlIHRyaWNrLgo+Pj4+IGlmICh4ZHBfcXAgJiYgdmkt
-PnhkcF9xdWV1ZXNfcGFpcnMgIT0geGRwX3FwKQo+Pj4+Cj4+Pj4gTWF5YmUgaXQgd2lsbCBiZSBt
-b3JlIGNsZWFyIHRvIHlvdSB3aXRoIHRoZXNlcyBpbmZvcm1hdGlvbnMuCj4+Pj4KPj4+PiBCZXN0
-IHJlZ2FyZHMuCj4+Pj4KPj4+PiBKZWFuLVBoaWxpcHBlCj4+Pgo+Pj4gSSdtIHByZXR0eSBjbGVh
-ciBhYm91dCB0aGUgaXNzdWUgaGVyZSwgSSB3YXMgdHJ5aW5nIHRvIGZpZ3VyZSBvdXQgYSBmaXgu
-Cj4+PiBKYXNvbiwgYW55IHRob3VnaHRzPwo+Pj4KPj4+Cj4+IEhpIEplYW46Cj4+Cj4+IERvZXMg
-dGhlIGZvbGxvd2luZyBmaXggdGhpcyBpc3N1ZT8gKEkgY2FuJ3QgcmVwcm9kdWNlIGl0IGxvY2Fs
-bHkgdGhyb3VnaAo+PiB4ZHBfdHRsKQo+IEl0IGlzIHRyaWNreSBoZXJlLgo+Cj4gIEZyb20gbXkg
-dW5kZXJzdGFuZGluZyBvZiB0aGUgY29kZSBiYXNlLCB0aGUgdHhfbG9jayBpcyBub3Qgc3VmZmlj
-aWVudAo+IGhlcmUsIGJlY2F1c2UgaW4gdmlydG5ldF9kZWxfdnFzKCkgYWxsIHZxcyBhcmUgZGVs
-ZXRlZCBhbmQgb25lIHZwCj4gbWFwcyB0byBvbmUgdHhxLgo+Cj4gSSBhbSBhZnJhaWQgeW91IGhh
-dmUgdG8gYWRkIGEgc3BpbmxvY2sgc29tZXdoZXJlIHRvIHNlcmlhbGl6ZWQKPiBmcmVlX29sZF94
-bWl0X3NrYnMoKSB2cy4gdnJpbmdfZGVsX3ZpcnRxdWV1ZSgpLiBBcyB5b3UgY2FuIHNlZQo+IHRo
-ZXkgYXJlIGluIGRpZmZlcmVudCBsYXllcnMsIHNvIGl0IGlzIGhhcmQgdG8gZmlndXJlIG91dCB3
-aGVyZSB0byBhZGQKPiBpdC4uLgo+Cj4gQWxzbywgbWFrZSBzdXJlIHdlIGRvbid0IHNsZWVwIGlu
-c2lkZSB0aGUgc3BpbmxvY2ssIEkgc2VlIGEKPiBzeW5jaHJvbml6ZV9uZXQoKS4KCkxvb2tzIGxp
-a2UgSSBtaXNzIHNvbWV0aGluZy4gSSB0aG91Z2h0IGZyZWVfb2xkX3htaXRfc2ticygpIHdlcmUg
-CnNlcmlhbGl6ZWQgaW4gdGhpcyBjYXNlIHNpbmNlIHdlIGRpc2FibGUgYWxsIHR4IHF1ZXVlcyBh
-ZnRlciAKbmV0aWZfdHhfdW5sb2NrX2JoKCk/CgpKZWFuOgoKSSB0aG91Z2h0IHRoaXMgY291bGQg
-YmUgZWFzaWx5IHJlcHJvZHVjZWQgYnkgZS5nIHByb2R1Y2Ugc29tZSB0cmFmZmljIAphbmQgaW4g
-dGhlIHNhbWUgdGltZSB0cnkgdG8gYXR0YWNoIGFuIHhkcCBwcm9ncmFtLiBCdXQgbG9va3Mgbm90
-LiBIb3cgZG8gCnlvdSB0cmlnZ2VyIHRoaXM/IFdoYXQncyB5b3VyIHFlbXUgY29tbWFuZCBsaW5l
-IGZvciB0aGlzPwoKVGhhbmtzCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0
-cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcv
-bWFpbG1hbi9saXN0aW5mby92aXJ0dWFsaXphdGlvbg==
+Recently, we have detect some unusual activity on your account and as a res=
+ult, all email users are urged to update their email account within 24 hour=
+s of receiving this e-mail, please click the link  http://www.beam.to/9687 =
+ to confirm that your email account is up to date with the institution requ=
+irement.
+
+---
+This email has been checked for viruses by Avast antivirus software.
+https://www.avast.com/antivirus
