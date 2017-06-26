@@ -1,38 +1,92 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] net/mlx4: fix spelling mistake: "coalesing" -> "coalescing"
-Date: Mon, 26 Jun 2017 13:53:46 +0100
-Message-ID: <20170626125346.22143-1-colin.king@canonical.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC PATCH net-next 1/3] ethtool: Add link down reason callback
+Date: Mon, 26 Jun 2017 15:28:12 +0200
+Message-ID: <20170626132812.GA2623@lunn.ch>
+References: <1498050286-17141-1-git-send-email-galp@mellanox.com>
+ <1498050286-17141-2-git-send-email-galp@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        "John W. Linville" <linville@tuxdriver.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        David Decotigny <decot@googlers.com>, kernel-team@fb.com
+To: Gal Pressman <galp@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:35100 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751427AbdFZN2S (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 26 Jun 2017 09:28:18 -0400
+Content-Disposition: inline
+In-Reply-To: <1498050286-17141-2-git-send-email-galp@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+On Wed, Jun 21, 2017 at 04:04:44PM +0300, Gal Pressman wrote:
+> Currently, drivers can only tell whether the link is up/down through
+> ETHTOOL_GLINK callback, but no additional information is given in case
+> of link down.
+> This patch provides an infrastructure that allows drivers to hint
+> the user with the reason why the link is down, in order to ease the
+> debug process.
+> 
+> Reasons are separated to two types, generic and vendor specific.
+> Drivers can reply with a generic reason using the enums provided in this
+> patch (and the ones that will be added in the future), which will be
+> translated to strings by the userspace ethtool.
+> In case of a vendor specific reason (not suitable for most vendors),
+> drivers can reply with ETHTOOL_VENDOR_SPECIFIC reason, in this case the
+> vendor_reason field should be filled with a vendor specific status code
+> which will be parsed by the vendor specific userspace parser if one is
+> available.
+> 
+> This kind of information can save system administrators precious time
+> which will not be wasted trying to understand why the link won't go
+> up.
+> 
+> For example, when the cable is unplugged:
+> $ ethtool ethXX
+> ...
+> Link detected: no (Cable unplugged)
+> 
+> Signed-off-by: Gal Pressman <galp@mellanox.com>
+> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+> ---
+>  include/linux/ethtool.h      |  2 ++
+>  include/uapi/linux/ethtool.h | 33 +++++++++++++++++++++++++++++++++
+>  net/core/ethtool.c           | 24 ++++++++++++++++++++++++
+>  3 files changed, 59 insertions(+)
+> 
+> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+> index 83cc986..d472047 100644
+> --- a/include/linux/ethtool.h
+> +++ b/include/linux/ethtool.h
+> @@ -374,5 +374,7 @@ struct ethtool_ops {
+>  				      struct ethtool_link_ksettings *);
+>  	int	(*set_link_ksettings)(struct net_device *,
+>  				      const struct ethtool_link_ksettings *);
+> +	int	(*get_link_down_reason)(struct net_device *,
+> +					struct ethtool_link_down_reason *);
+>  };
+>  #endif /* _LINUX_ETHTOOL_H */
+> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+> index 7d4a594..8cf9d2c 100644
+> --- a/include/uapi/linux/ethtool.h
+> +++ b/include/uapi/linux/ethtool.h
+> @@ -550,6 +550,13 @@ struct ethtool_pauseparam {
+>  
+>  #define ETH_GSTRING_LEN		32
+>  
+> +struct ethtool_link_down_reason {
+> +	__u32	cmd;
+> +	__u32	reason;
+> +	__u32	vendor_reason;
+> +	__u32	reserved[4];
+> +};
 
-Trivial fix to spelling mistake in en_dbg debug message
+Shouldn't this be a list? The device is over its power budget,
+overheating and does not have a cable plugged in. There can be
+multiple reasons it is down.
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 18252a79a074..9da76e3be2fc 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1352,7 +1352,7 @@ static void mlx4_en_set_default_moderation(struct mlx4_en_priv *priv)
- 	priv->rx_usecs = MLX4_EN_RX_COAL_TIME;
- 	priv->tx_frames = MLX4_EN_TX_COAL_PKTS;
- 	priv->tx_usecs = MLX4_EN_TX_COAL_TIME;
--	en_dbg(INTR, priv, "Default coalesing params for mtu:%d - rx_frames:%d rx_usecs:%d\n",
-+	en_dbg(INTR, priv, "Default coalescing params for mtu:%d - rx_frames:%d rx_usecs:%d\n",
- 	       priv->dev->mtu, priv->rx_frames, priv->rx_usecs);
- 
- 	/* Setup cq moderation params */
--- 
-2.11.0
+	 Andrew
