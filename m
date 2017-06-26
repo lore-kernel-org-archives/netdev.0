@@ -1,92 +1,57 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC PATCH net-next 1/3] ethtool: Add link down reason callback
-Date: Mon, 26 Jun 2017 15:28:12 +0200
-Message-ID: <20170626132812.GA2623@lunn.ch>
-References: <1498050286-17141-1-git-send-email-galp@mellanox.com>
- <1498050286-17141-2-git-send-email-galp@mellanox.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net-next v2 4/5] net: add netlink_ext_ack argument to
+ rtnl_link_ops.slave_changelink
+Date: Mon, 26 Jun 2017 07:33:50 -0600
+Message-ID: <27b8d607-7442-0a42-1389-9548840445dc@gmail.com>
+References: <cover.1498425679.git.mschiffer@universe-factory.net>
+ <498ff06f59d5ce13b2ad3e1c1902c3d348ca3c00.1498425679.git.mschiffer@universe-factory.net>
+ <b097a69e-4449-b124-c39e-4dbdbae7c218@gmail.com>
+ <dd3f596b-4519-398c-a2ec-afdaf5f2f058@gmail.com>
+ <15d2138d-5026-a35b-8a3c-2a88d05df688@universe-factory.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        "John W. Linville" <linville@tuxdriver.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        David Decotigny <decot@googlers.com>, kernel-team@fb.com
-To: Gal Pressman <galp@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:35100 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751427AbdFZN2S (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 26 Jun 2017 09:28:18 -0400
-Content-Disposition: inline
-In-Reply-To: <1498050286-17141-2-git-send-email-galp@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org, linux-can@vger.kernel.org,
+        linux-ppp@vger.kernel.org, linux-wpan@vger.kernel.org
+To: Matthias Schiffer <mschiffer@universe-factory.net>,
+        dledford@redhat.com, sean.hefty@intel.com,
+        hal.rosenstock@gmail.com, j.vosburgh@gmail.com, vfalico@gmail.com,
+        andy@greyhouse.net, wg@grandegger.com, mkl@pengutronix.de,
+        pablo@netfilter.org, laforge@gnumonks.org, paulus@samba.org,
+        jiri@resnulli.us, dsa@cumulusnetworks.com, shm@cumulusnetworks.com,
+        davem@davemloft.net, stephen@networkplumber.org,
+        arvid.brodin@alten.se, alex.aring@gmail.com,
+        stefan@osg.samsung.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        yoshfuji@linux-ipv6.org, kaber@trash.net,
+        steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
+        johannes@sipsolutions.net
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <15d2138d-5026-a35b-8a3c-2a88d05df688@universe-factory.net>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 21, 2017 at 04:04:44PM +0300, Gal Pressman wrote:
-> Currently, drivers can only tell whether the link is up/down through
-> ETHTOOL_GLINK callback, but no additional information is given in case
-> of link down.
-> This patch provides an infrastructure that allows drivers to hint
-> the user with the reason why the link is down, in order to ease the
-> debug process.
+On 6/26/17 2:43 AM, Matthias Schiffer wrote:
+> On 06/26/2017 06:08 AM, David Ahern wrote:
+>> On 6/25/17 10:04 PM, David Ahern wrote:
+>>> On 6/25/17 3:56 PM, Matthias Schiffer wrote:
+>>>> Add support for extended error reporting.
+>>>>
+>>>> Signed-off-by: Matthias Schiffer <mschiffer@universe-factory.net>
+>>>> ---
+>>>
+>>>
+>>> Acked-by: David Ahern <dsahern@gmail.com>
+>>>
+>>
+>> Actually, you are missing the chagne to br_port_slave_changelink.
+>>
 > 
-> Reasons are separated to two types, generic and vendor specific.
-> Drivers can reply with a generic reason using the enums provided in this
-> patch (and the ones that will be added in the future), which will be
-> translated to strings by the userspace ethtool.
-> In case of a vendor specific reason (not suitable for most vendors),
-> drivers can reply with ETHTOOL_VENDOR_SPECIFIC reason, in this case the
-> vendor_reason field should be filled with a vendor specific status code
-> which will be parsed by the vendor specific userspace parser if one is
-> available.
+> I'm confused. I am changing br_port_slave_changelink? All my patches are
+> compile-tested.
 > 
-> This kind of information can save system administrators precious time
-> which will not be wasted trying to understand why the link won't go
-> up.
-> 
-> For example, when the cable is unplugged:
-> $ ethtool ethXX
-> ...
-> Link detected: no (Cable unplugged)
-> 
-> Signed-off-by: Gal Pressman <galp@mellanox.com>
-> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-> ---
->  include/linux/ethtool.h      |  2 ++
->  include/uapi/linux/ethtool.h | 33 +++++++++++++++++++++++++++++++++
->  net/core/ethtool.c           | 24 ++++++++++++++++++++++++
->  3 files changed, 59 insertions(+)
-> 
-> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-> index 83cc986..d472047 100644
-> --- a/include/linux/ethtool.h
-> +++ b/include/linux/ethtool.h
-> @@ -374,5 +374,7 @@ struct ethtool_ops {
->  				      struct ethtool_link_ksettings *);
->  	int	(*set_link_ksettings)(struct net_device *,
->  				      const struct ethtool_link_ksettings *);
-> +	int	(*get_link_down_reason)(struct net_device *,
-> +					struct ethtool_link_down_reason *);
->  };
->  #endif /* _LINUX_ETHTOOL_H */
-> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-> index 7d4a594..8cf9d2c 100644
-> --- a/include/uapi/linux/ethtool.h
-> +++ b/include/uapi/linux/ethtool.h
-> @@ -550,6 +550,13 @@ struct ethtool_pauseparam {
->  
->  #define ETH_GSTRING_LEN		32
->  
-> +struct ethtool_link_down_reason {
-> +	__u32	cmd;
-> +	__u32	reason;
-> +	__u32	vendor_reason;
-> +	__u32	reserved[4];
-> +};
 
-Shouldn't this be a list? The device is over its power budget,
-overheating and does not have a cable plugged in. There can be
-multiple reasons it is down.
+You are changing the signature of slave_changelink, no?
 
-	 Andrew
+net/bridge/br_netlink.c:
+        .slave_changelink       = br_port_slave_changelink,
