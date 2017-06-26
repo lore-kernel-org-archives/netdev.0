@@ -1,97 +1,90 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][V2] batman-adv: fix various spelling mistakes
-Date: Mon, 26 Jun 2017 11:26:44 +0100
-Message-ID: <20170626102644.11337-1-colin.king@canonical.com>
+From: Gal Pressman <galp@mellanox.com>
+Subject: Re: [RFC PATCH net-next 1/3] ethtool: Add link down reason callback
+Date: Mon, 26 Jun 2017 14:52:39 +0300
+Message-ID: <d5cd081c-9882-fce8-697c-2be062756962@mellanox.com>
+References: <1498050286-17141-1-git-send-email-galp@mellanox.com>
+ <1498050286-17141-2-git-send-email-galp@mellanox.com>
+ <20170621135809.GC27585@lunn.ch>
+ <8e7ffead-350e-bd7f-c7ea-fe057969d0d3@mellanox.com>
+ <20170624190435.GN4875@lunn.ch>
+ <f216ad74-772b-0f6c-1303-ecb0c12afc96@mellanox.com>
+ <20170625151953.GA7799@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Marek Lindner <mareklindner@neomailbox.ch>,
-        Simon Wunderlich <sw@simonwunderlich.de>,
-        Antonio Quartulli <a@unstable.cc>,
-        "David S . Miller" <davem@davemloft.net>,
-        b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        "John W. Linville" <linville@tuxdriver.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        David Decotigny <decot@googlers.com>, kernel-team@fb.com
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:35310 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751397AbdFZK0t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2017 06:26:49 -0400
+Received: from mail-eopbgr00050.outbound.protection.outlook.com ([40.107.0.50]:44951
+        "EHLO EUR02-AM5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751391AbdFZLws (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 26 Jun 2017 07:52:48 -0400
+In-Reply-To: <20170625151953.GA7799@lunn.ch>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
 
-Trivial fix to spelling mistakes in batadv_dbg debug messages and
-also in a comment and ensure comment line is not wider than 80
-characters
+> On Sun, Jun 25, 2017 at 02:59:24PM +0300, Gal Pressman wrote:
+>>> On Thu, Jun 22, 2017 at 11:09:04AM +0300, Gal Pressman wrote:
+>>>>>> +enum {
+>>>>>> +	ETHTOOL_LINK_VENDOR_SPECIFIC = -1, /* Vendor specific issue provided in vendor_reason */
+>>>>>> +	ETHTOOL_LINK_NO_ISSUE, /* No issue observed with link */
+>>>>>> +	ETHTOOL_LINK_REASON_UNKNOWN, /* Unknown reason */
+>>>>> I think OTHER would be better that UNKNOWN. 
+>>>> Fine with me.
+>>>>>> +	ETHTOOL_LINK_NETDEV_CARRIER_DOWN, /* Netdev carrier is down */
+>>>>>> +	ETHTOOL_LINK_ADMIN_DOWN, /* Admin down */
+>>>>> These two are interesting. We have that information already. Why do we
+>>>>> want it again?
+>>>> My goal is to gather all link issue reasons in one place.
+>>> I'm actually wondering if this is a user space problem. Nearly
+>>> everything you list is already available. Some you get from ip link,
+>>> others from ethtool or ethtool --module-info, including I2C bus
+>>> error, since you would expect EIO or ETIMEOUT.
+>>>
+>>> If you were to write a user space tool using the information what is
+>>> currently available, what would be missing?
+>>>
+>>> 	  Andrew
+>> I think most of the reasons in this list would be missing.
+>> Auto negotiation failure,
+> You can probably get that from the PHY layer. You get both the local
+> and remote AN capabilities.
+>
+>> unplugged, over temperature, power budget exceeded..
+> Don't you get over temperature from the SFF data? Also power budget?
+You are right, but it depends on other resources that might fail such as BUS failure, invalid EEPROM, etc..
 
-"ourselve" -> "ourselves"
-"surpressed" -> "suppressed"
-"troughput" -> "throughput"
+> And what does cable unplugged actually mean? Do you have a micro
+> switch inside the socket? So that is maybe a gpio-key?
+No, some hardware devices can sense this state.
+We would like to expose this information when it's available.
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- net/batman-adv/bat_v_ogm.c | 12 ++++++------
- net/batman-adv/send.c      |  2 +-
- 2 files changed, 7 insertions(+), 7 deletions(-)
+> Another thing to remember is that your device is the exception to the
+> rule. You have some firmware doing a lot of the work bringing this all
+> together. But nearly every other Ethernet interface has a discrete MAC
+> and PHY, I2C bus driver, EEPROM driver, generic SFF decoder, HWMON
+> temperature sensor, etc. How does your call work in this normal
+> situation? How do you make calls into all these subsystems to get the
+> information? You want a generic solution which can be made to work for
+> everybody.
+The driver has a good intimate information of his device implementation, and hence an analysis done by the device vendor is favorable.
+The driver provider can perform the analysis inside the device (firmware) or in the driver according to his preferences.
+We believe that since devices are becoming smarter, more analysis will be done by the device itself, which has more
+information and faster access.
+Smart NICs/SoCs are very popular this days and this API takes into account the different architectures.
 
-diff --git a/net/batman-adv/bat_v_ogm.c b/net/batman-adv/bat_v_ogm.c
-index 1e3dc374bfde..a38b09347e2e 100644
---- a/net/batman-adv/bat_v_ogm.c
-+++ b/net/batman-adv/bat_v_ogm.c
-@@ -200,7 +200,7 @@ static void batadv_v_ogm_send(struct work_struct *work)
- 				type = "unknown";
- 			}
- 
--			batadv_dbg(BATADV_DBG_BATMAN, bat_priv, "OGM2 from ourselve on %s surpressed: %s\n",
-+			batadv_dbg(BATADV_DBG_BATMAN, bat_priv, "OGM2 from ourselves on %s suppressed: %s\n",
- 				   hard_iface->net_dev->name, type);
- 
- 			batadv_hardif_put(hard_iface);
-@@ -683,18 +683,18 @@ static void batadv_v_ogm_process(const struct sk_buff *skb, int ogm_offset,
- 	ogm_throughput = ntohl(ogm_packet->throughput);
- 
- 	batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
--		   "Received OGM2 packet via NB: %pM, IF: %s [%pM] (from OG: %pM, seqno %u, troughput %u, TTL %u, V %u, tvlv_len %u)\n",
-+		   "Received OGM2 packet via NB: %pM, IF: %s [%pM] (from OG: %pM, seqno %u, throughput %u, TTL %u, V %u, tvlv_len %u)\n",
- 		   ethhdr->h_source, if_incoming->net_dev->name,
- 		   if_incoming->net_dev->dev_addr, ogm_packet->orig,
- 		   ntohl(ogm_packet->seqno), ogm_throughput, ogm_packet->ttl,
- 		   ogm_packet->version, ntohs(ogm_packet->tvlv_len));
- 
--	/* If the troughput metric is 0, immediately drop the packet. No need to
--	 * create orig_node / neigh_node for an unusable route.
-+	/* If the throughput metric is 0, immediately drop the packet. No need
-+	 * to create orig_node / neigh_node for an unusable route.
- 	 */
- 	if (ogm_throughput == 0) {
- 		batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
--			   "Drop packet: originator packet with troughput metric of 0\n");
-+			   "Drop packet: originator packet with throughput metric of 0\n");
- 		return;
- 	}
- 
-@@ -762,7 +762,7 @@ static void batadv_v_ogm_process(const struct sk_buff *skb, int ogm_offset,
- 				type = "unknown";
- 			}
- 
--			batadv_dbg(BATADV_DBG_BATMAN, bat_priv, "OGM2 packet from %pM on %s surpressed: %s\n",
-+			batadv_dbg(BATADV_DBG_BATMAN, bat_priv, "OGM2 packet from %pM on %s suppressed: %s\n",
- 				   ogm_packet->orig, hard_iface->net_dev->name,
- 				   type);
- 
-diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
-index d239a9d72ac3..054a65e6eb68 100644
---- a/net/batman-adv/send.c
-+++ b/net/batman-adv/send.c
-@@ -911,7 +911,7 @@ static void batadv_send_outstanding_bcast_packet(struct work_struct *work)
- 				type = "unknown";
- 			}
- 
--			batadv_dbg(BATADV_DBG_BATMAN, bat_priv, "BCAST packet from orig %pM on %s surpressed: %s\n",
-+			batadv_dbg(BATADV_DBG_BATMAN, bat_priv, "BCAST packet from orig %pM on %s suppressed: %s\n",
- 				   bcast_packet->orig,
- 				   hard_iface->net_dev->name, type);
- 
--- 
-2.11.0
+Since this callback is optional, a user space analysis tool can be added in the future providing more generic analysis approach for
+unsupported devices.
+
+> 	Andrew
+>
+>> Keep in mind that this is just an initial list, not to mention the vendor reasons which are not part of any existing API.
+>> I don't see how a user space tool that expects ETIMEOUT/EIO is better than this suggestion.
