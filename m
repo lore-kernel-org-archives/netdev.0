@@ -1,47 +1,209 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: Re: [PATCH][V2] net/mlx4: fix spelling mistake: "enforcment" ->
- "enforcement"
-Date: Tue, 27 Jun 2017 14:37:58 +0300
-Message-ID: <f21314ac-ec0d-5529-d2b0-12616fb5f45c@mellanox.com>
-References: <20170627103649.16619-1-colin.king@canonical.com>
+From: Madalin-cristian Bucur <madalin.bucur@nxp.com>
+Subject: RE: [PATCH NET V6 1/2] net: phy: Add phy loopback support in net phy
+ framework
+Date: Tue, 27 Jun 2017 11:48:11 +0000
+Message-ID: <AM5PR0402MB269142CD14B8FDAB48F7A1ECECDC0@AM5PR0402MB2691.eurprd04.prod.outlook.com>
+References: <1498561245-93997-1-git-send-email-linyunsheng@huawei.com>
+ <1498561245-93997-2-git-send-email-linyunsheng@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Colin King <colin.king@canonical.com>,
-        Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
+        "xuwei5@hisilicon.com" <xuwei5@hisilicon.com>,
+        "liguozhu@hisilicon.com" <liguozhu@hisilicon.com>,
+        "Yisen.Zhuang@huawei.com" <Yisen.Zhuang@huawei.com>,
+        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
+        "john.garry@huawei.com" <john.garry@huawei.com>,
+        "linuxarm@huawei.com" <linuxarm@huawei.com>,
+        "yisen.zhuang@huawei.com" <yisen.zhuang@huawei.com>,
+        "salil.mehta@huawei.com" <salil.mehta@huawei.com>,
+        "lipeng321@huawei.com" <lipeng321@huawei.com>,
+        "tremyfr@gmail.com" <tremyfr@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Lin Yun Sheng <linyunsheng@huawei.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "andrew@lunn.ch" <andrew@lunn.ch>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170627103649.16619-1-colin.king@canonical.com>
+In-Reply-To: <1498561245-93997-2-git-send-email-linyunsheng@huawei.com>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+> On Behalf Of Lin Yun Sheng
+> Sent: Tuesday, June 27, 2017 2:01 PM
+> To: davem@davemloft.net; andrew@lunn.ch; f.fainelli@gmail.com
+> Cc: huangdaode@hisilicon.com; xuwei5@hisilicon.com;
+> liguozhu@hisilicon.com; Yisen.Zhuang@huawei.com;
+> gabriele.paoloni@huawei.com; john.garry@huawei.com; linuxarm@huawei.com;
+> yisen.zhuang@huawei.com; salil.mehta@huawei.com; lipeng321@huawei.com;
+> tremyfr@gmail.com; netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+> Subject: [PATCH NET V6 1/2] net: phy: Add phy loopback support in net phy
+> framework
+>=20
+> This patch add set_loopback in phy_driver, which is used by Mac
+> driver to enable or disable a phy. it also add a generic
+> genphy_loopback function, which use BMCR loopback bit to enable
+> or disable a phy.
 
+"disable a phy" or disable the PHY loopback function?
 
-On 27/06/2017 1:36 PM, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
-> 
-> Trivial fix to spelling mistake in mlx4_dbg debug message
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+>=20
+> Signed-off-by: Lin Yun Sheng <linyunsheng@huawei.com>
 > ---
->   drivers/net/ethernet/mellanox/mlx4/cmd.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-> index c1af47e45d3f..9e4c142c7ecd 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-> @@ -3280,7 +3280,7 @@ int mlx4_set_vf_link_state(struct mlx4_dev *dev, int port, int vf, int link_stat
->   
->   	if (mlx4_master_immediate_activate_vlan_qos(priv, slave, port))
->   		mlx4_dbg(dev,
-> -			 "updating vf %d port %d no link state HW enforcment\n",
-> +			 "updating vf %d port %d no link state HW enforcement\n",
->   			 vf, port);
->   	return 0;
->   }
-> 
-Acked-by: Tariq Toukan <tariqt@mellanox.com>
+>  drivers/net/phy/marvell.c    |  1 +
+>  drivers/net/phy/phy_device.c | 51
+> ++++++++++++++++++++++++++++++++++++++++++++
+>  include/linux/phy.h          |  5 +++++
+>  3 files changed, 57 insertions(+)
+>=20
+> diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+> index 57297ba..01a1586 100644
+> --- a/drivers/net/phy/marvell.c
+> +++ b/drivers/net/phy/marvell.c
+> @@ -2094,6 +2094,7 @@ static int m88e1510_probe(struct phy_device *phydev=
+)
+>  		.get_sset_count =3D marvell_get_sset_count,
+>  		.get_strings =3D marvell_get_strings,
+>  		.get_stats =3D marvell_get_stats,
+> +		.set_loopback =3D genphy_loopback,
+>  	},
+>  	{
+>  		.phy_id =3D MARVELL_PHY_ID_88E1540,
+> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+> index 1219eea..1e08d62 100644
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+> @@ -1123,6 +1123,39 @@ int phy_resume(struct phy_device *phydev)
+>  }
+>  EXPORT_SYMBOL(phy_resume);
+>=20
+> +int phy_loopback(struct phy_device *phydev, bool enable)
+> +{
+> +	struct phy_driver *phydrv =3D to_phy_driver(phydev->mdio.dev.driver);
+> +	int ret =3D 0;
+> +
+> +	mutex_lock(&phydev->lock);
+> +
+> +	if (enable && phydev->loopback_enabled) {
+> +		ret =3D -EBUSY;
+> +		goto out;
+> +	}
+> +
+> +	if (!enable && !phydev->loopback_enabled) {
+> +		ret =3D -EINVAL;
+> +		goto out;
+> +	}
+> +
 
-Thanks Colin.
+if (enable =3D=3D phydev->loopback_enabled)
+
+> +	if (phydev->drv && phydrv->set_loopback)
+> +		ret =3D phydrv->set_loopback(phydev, enable);
+> +	else
+> +		ret =3D -EOPNOTSUPP;
+> +
+> +	if (ret)
+> +		goto out;
+> +
+> +	phydev->loopback_enabled =3D enable;
+> +
+> +out:
+> +	mutex_unlock(&phydev->lock);
+> +	return ret;
+> +}
+> +EXPORT_SYMBOL(phy_loopback);
+> +
+>  /* Generic PHY support and helper functions */
+>=20
+>  /**
+> @@ -1628,6 +1661,23 @@ static int gen10g_resume(struct phy_device *phydev=
+)
+>  	return 0;
+>  }
+>=20
+> +int genphy_loopback(struct phy_device *phydev, bool enable)
+> +{
+> +	int value;
+> +
+> +	value =3D phy_read(phydev, MII_BMCR);
+> +	if (value < 0)
+> +		return value;
+> +
+> +	if (enable)
+> +		value |=3D BMCR_LOOPBACK;
+> +	else
+> +		value &=3D ~BMCR_LOOPBACK;
+> +
+> +	return phy_write(phydev, MII_BMCR, value);
+> +}
+> +EXPORT_SYMBOL(genphy_loopback);
+> +
+>  static int __set_phy_supported(struct phy_device *phydev, u32 max_speed)
+>  {
+>  	/* The default values for phydev->supported are provided by the PHY
+> @@ -1874,6 +1924,7 @@ void phy_drivers_unregister(struct phy_driver *drv,
+> int n)
+>  	.read_status	=3D genphy_read_status,
+>  	.suspend	=3D genphy_suspend,
+>  	.resume		=3D genphy_resume,
+> +	.set_loopback	=3D genphy_loopback,
+>  }, {
+>  	.phy_id         =3D 0xffffffff,
+>  	.phy_id_mask    =3D 0xffffffff,
+> diff --git a/include/linux/phy.h b/include/linux/phy.h
+> index e76e4ad..49c903dc 100644
+> --- a/include/linux/phy.h
+> +++ b/include/linux/phy.h
+> @@ -364,6 +364,7 @@ struct phy_c45_device_ids {
+>   * is_pseudo_fixed_link: Set to true if this phy is an Ethernet switch,
+> etc.
+>   * has_fixups: Set to true if this phy has fixups/quirks.
+>   * suspended: Set to true if this phy has been suspended successfully.
+> + * loopback_enabled: Set true if this phy has been loopbacked
+> successfully.
+>   * state: state of the PHY for management purposes
+>   * dev_flags: Device-specific flags used by the PHY driver.
+>   * link_timeout: The number of timer firings to wait before the
+> @@ -400,6 +401,7 @@ struct phy_device {
+>  	bool is_pseudo_fixed_link;
+>  	bool has_fixups;
+>  	bool suspended;
+> +	bool loopback_enabled;
+>=20
+>  	enum phy_state state;
+>=20
+> @@ -639,6 +641,7 @@ struct phy_driver {
+>  	int (*set_tunable)(struct phy_device *dev,
+>  			    struct ethtool_tunable *tuna,
+>  			    const void *data);
+> +	int (*set_loopback)(struct phy_device *dev, bool enable);
+>  };
+>  #define to_phy_driver(d) container_of(to_mdio_common_driver(d),		\
+>  				      struct phy_driver, mdiodrv)
+> @@ -774,6 +777,7 @@ static inline void phy_device_free(struct phy_device
+> *phydev) { }
+>  int phy_init_hw(struct phy_device *phydev);
+>  int phy_suspend(struct phy_device *phydev);
+>  int phy_resume(struct phy_device *phydev);
+> +int phy_loopback(struct phy_device *phydev, bool enable);
+>  struct phy_device *phy_attach(struct net_device *dev, const char *bus_id=
+,
+>  			      phy_interface_t interface);
+>  struct phy_device *phy_find_first(struct mii_bus *bus);
+> @@ -825,6 +829,7 @@ void phy_attached_print(struct phy_device *phydev,
+> const char *fmt, ...)
+>  int genphy_read_status(struct phy_device *phydev);
+>  int genphy_suspend(struct phy_device *phydev);
+>  int genphy_resume(struct phy_device *phydev);
+> +int genphy_loopback(struct phy_device *phydev, bool enable);
+>  int genphy_soft_reset(struct phy_device *phydev);
+>  static inline int genphy_no_soft_reset(struct phy_device *phydev)
+>  {
+> --
+> 1.9.1
+
+Madalin
