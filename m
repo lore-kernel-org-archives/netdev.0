@@ -1,167 +1,236 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 05/14] nfp: add nfp_app cleanup callback and make flower use it
-Date: Tue, 27 Jun 2017 00:50:19 -0700
-Message-ID: <20170627075028.4009-6-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 02/14] nfp: move area mapping helper into nfpcore
+Date: Tue, 27 Jun 2017 00:50:16 -0700
+Message-ID: <20170627075028.4009-3-jakub.kicinski@netronome.com>
 References: <20170627075028.4009-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:34736 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752533AbdF0HvL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 03:51:11 -0400
-Received: by mail-pf0-f172.google.com with SMTP id s66so12614417pfs.1
-        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 00:51:10 -0700 (PDT)
+Received: from mail-pg0-f45.google.com ([74.125.83.45]:36608 "EHLO
+        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752343AbdF0HvI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 03:51:08 -0400
+Received: by mail-pg0-f45.google.com with SMTP id u62so11961262pgb.3
+        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 00:51:08 -0700 (PDT)
 In-Reply-To: <20170627075028.4009-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a cleanup callback for undoing what app init callback did.
-Make flower allocate its private structure on init and free
-it from the new callback.
-
-While at it remember to set the app pointer to NULL on the
-error path to avoid any races while probe path unwinds.
+nfp_net_map_area() is a helper for mapping areas of NFP memory
+defined in nfp_net_main.c.  Move it to nfpcore to allow reuse
+and rename accordingly.  Create an additional helper -
+nfp_cpp_area_alloc_acquire() the opposite of already existing
+nfp_cpp_area_release_free().
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Reviewed-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/flower/main.c  | 24 +++++++++++------------
- drivers/net/ethernet/netronome/nfp/nfp_app.h      | 10 +++++++++-
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c |  6 +++++-
- 3 files changed, 26 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_net_main.c  | 56 +---------------------
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h   |  7 +++
+ .../ethernet/netronome/nfp/nfpcore/nfp_cppcore.c   | 35 ++++++++++++++
+ .../ethernet/netronome/nfp/nfpcore/nfp_cpplib.c    | 40 ++++++++++++++++
+ 4 files changed, 84 insertions(+), 54 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/main.c b/drivers/net/ethernet/netronome/nfp/flower/main.c
-index 8e5ca6b4bb33..54d42a7f0d75 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/main.c
-+++ b/drivers/net/ethernet/netronome/nfp/flower/main.c
-@@ -296,26 +296,16 @@ static int nfp_flower_start(struct nfp_app *app)
- 					   NFP_REPR_TYPE_PF, 1);
- }
- 
--static void nfp_flower_vnic_clean(struct nfp_app *app, struct nfp_net *nn)
--{
--	kfree(app->priv);
--	app->priv = NULL;
--}
--
- static int nfp_flower_vnic_init(struct nfp_app *app, struct nfp_net *nn,
- 				unsigned int id)
- {
--	struct nfp_flower_priv *priv;
-+	struct nfp_flower_priv *priv = app->priv;
- 
- 	if (id > 0) {
- 		nfp_warn(app->cpp, "FlowerNIC doesn't support more than one data vNIC\n");
- 		goto err_invalid_port;
- 	}
- 
--	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
--	if (!priv)
--		return -ENOMEM;
--	app->priv = priv;
- 	priv->nn = nn;
- 
- 	eth_hw_addr_random(nn->dp.netdev);
-@@ -347,9 +337,19 @@ static int nfp_flower_init(struct nfp_app *app)
- 		return -EINVAL;
- 	}
- 
-+	app->priv = kzalloc(sizeof(struct nfp_flower_priv), GFP_KERNEL);
-+	if (!app->priv)
-+		return -ENOMEM;
-+
- 	return 0;
- }
- 
-+static void nfp_flower_clean(struct nfp_app *app)
-+{
-+	kfree(app->priv);
-+	app->priv = NULL;
-+}
-+
- const struct nfp_app_type app_flower = {
- 	.id		= NFP_APP_FLOWER_NIC,
- 	.name		= "flower",
-@@ -358,9 +358,9 @@ const struct nfp_app_type app_flower = {
- 	.extra_cap	= nfp_flower_extra_cap,
- 
- 	.init		= nfp_flower_init,
-+	.clean		= nfp_flower_clean,
- 
- 	.vnic_init	= nfp_flower_vnic_init,
--	.vnic_clean	= nfp_flower_vnic_clean,
- 
- 	.start		= nfp_flower_start,
- 	.stop		= nfp_flower_stop,
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.h b/drivers/net/ethernet/netronome/nfp/nfp_app.h
-index ae2d02753d1a..2fb503a817d2 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_app.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_app.h
-@@ -66,7 +66,8 @@ extern const struct nfp_app_type app_flower;
-  * @ctrl_has_meta:  control messages have prepend of type:5/port:CTRL
-  *
-  * Callbacks
-- * @init:	perform basic app checks
-+ * @init:	perform basic app checks and init
-+ * @clean:	clean app state
-  * @extra_cap:	extra capabilities string
-  * @vnic_init:	init vNICs (assign port types, etc.)
-  * @vnic_clean:	clean up app's vNIC state
-@@ -88,6 +89,7 @@ struct nfp_app_type {
- 	bool ctrl_has_meta;
- 
- 	int (*init)(struct nfp_app *app);
-+	void (*clean)(struct nfp_app *app);
- 
- 	const char *(*extra_cap)(struct nfp_app *app, struct nfp_net *nn);
- 
-@@ -144,6 +146,12 @@ static inline int nfp_app_init(struct nfp_app *app)
- 	return app->type->init(app);
- }
- 
-+static inline void nfp_app_clean(struct nfp_app *app)
-+{
-+	if (app->type->clean)
-+		app->type->clean(app);
-+}
-+
- static inline int nfp_app_vnic_init(struct nfp_app *app, struct nfp_net *nn,
- 				    unsigned int id)
- {
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index 93d6ea183956..49c4910fbcc6 100644
+index 3169400dd474..16ee904db0cd 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -414,7 +414,7 @@ nfp_net_pf_app_init(struct nfp_pf *pf, u8 __iomem *qc_bar, unsigned int stride)
- 	if (IS_ERR(ctrl_bar)) {
- 		nfp_err(pf->cpp, "Failed to find data vNIC memory symbol\n");
- 		err = PTR_ERR(ctrl_bar);
--		goto err_free;
-+		goto err_app_clean;
+@@ -81,58 +81,6 @@ static int nfp_is_ready(struct nfp_pf *pf)
+ }
+ 
+ /**
+- * nfp_net_map_area() - Help function to map an area
+- * @cpp:    NFP CPP handler
+- * @name:   Name for the area
+- * @target: CPP target
+- * @addr:   CPP address
+- * @size:   Size of the area
+- * @area:   Area handle (returned).
+- *
+- * This function is primarily to simplify the code in the main probe
+- * function. To undo the effect of this functions call
+- * @nfp_cpp_area_release_free(*area);
+- *
+- * Return: Pointer to memory mapped area or ERR_PTR
+- */
+-static u8 __iomem *nfp_net_map_area(struct nfp_cpp *cpp,
+-				    const char *name, int isl, int target,
+-				    unsigned long long addr, unsigned long size,
+-				    struct nfp_cpp_area **area)
+-{
+-	u8 __iomem *res;
+-	u32 dest;
+-	int err;
+-
+-	dest = NFP_CPP_ISLAND_ID(target, NFP_CPP_ACTION_RW, 0, isl);
+-
+-	*area = nfp_cpp_area_alloc_with_name(cpp, dest, name, addr, size);
+-	if (!*area) {
+-		err = -EIO;
+-		goto err_area;
+-	}
+-
+-	err = nfp_cpp_area_acquire(*area);
+-	if (err < 0)
+-		goto err_acquire;
+-
+-	res = nfp_cpp_area_iomem(*area);
+-	if (!res) {
+-		err = -EIO;
+-		goto err_map;
+-	}
+-
+-	return res;
+-
+-err_map:
+-	nfp_cpp_area_release(*area);
+-err_acquire:
+-	nfp_cpp_area_free(*area);
+-err_area:
+-	return (u8 __iomem *)ERR_PTR(err);
+-}
+-
+-/**
+  * nfp_net_get_mac_addr() - Get the MAC address.
+  * @pf:       NFP PF handle
+  * @port:     NFP port structure
+@@ -242,7 +190,7 @@ nfp_net_pf_map_rtsym(struct nfp_pf *pf, const char *name, const char *sym_fmt,
+ 		return (u8 __iomem *)ERR_PTR(-EINVAL);
  	}
  
- 	pf->ctrl_vnic =	nfp_net_pf_alloc_vnic(pf, false, ctrl_bar, qc_bar,
-@@ -428,8 +428,11 @@ nfp_net_pf_app_init(struct nfp_pf *pf, u8 __iomem *qc_bar, unsigned int stride)
+-	mem = nfp_net_map_area(pf->cpp, name, sym->domain, sym->target,
++	mem = nfp_cpp_map_area(pf->cpp, name, sym->domain, sym->target,
+ 			       sym->addr, sym->size, area);
+ 	if (IS_ERR(mem)) {
+ 		nfp_err(pf->cpp, "Failed to map PF symbol %s: %ld\n",
+@@ -617,7 +565,7 @@ static int nfp_net_pci_map_mem(struct nfp_pf *pf)
+ 		pf->vf_cfg_mem = NULL;
+ 	}
  
- err_unmap:
- 	nfp_cpp_area_release_free(pf->ctrl_vnic_bar);
-+err_app_clean:
-+	nfp_app_clean(pf->app);
- err_free:
- 	nfp_app_free(pf->app);
-+	pf->app = NULL;
+-	mem = nfp_net_map_area(pf->cpp, "net.qc", 0, 0,
++	mem = nfp_cpp_map_area(pf->cpp, "net.qc", 0, 0,
+ 			       NFP_PCIE_QUEUE(0), NFP_QCP_QUEUE_AREA_SZ,
+ 			       &pf->qc_area);
+ 	if (IS_ERR(mem)) {
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
+index 25a967158ce9..235dd023d9b9 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
+@@ -230,6 +230,9 @@ struct nfp_cpp_area *nfp_cpp_area_alloc_with_name(struct nfp_cpp *cpp,
+ struct nfp_cpp_area *nfp_cpp_area_alloc(struct nfp_cpp *cpp, u32 cpp_id,
+ 					unsigned long long address,
+ 					unsigned long size);
++struct nfp_cpp_area *
++nfp_cpp_area_alloc_acquire(struct nfp_cpp *cpp, const char *name, u32 cpp_id,
++			   unsigned long long address, unsigned long size);
+ void nfp_cpp_area_free(struct nfp_cpp_area *area);
+ int nfp_cpp_area_acquire(struct nfp_cpp_area *area);
+ int nfp_cpp_area_acquire_nonblocking(struct nfp_cpp_area *area);
+@@ -278,6 +281,10 @@ int nfp_cpp_readq(struct nfp_cpp *cpp, u32 cpp_id,
+ int nfp_cpp_writeq(struct nfp_cpp *cpp, u32 cpp_id,
+ 		   unsigned long long address, u64 value);
+ 
++u8 __iomem *
++nfp_cpp_map_area(struct nfp_cpp *cpp, const char *name, int domain, int target,
++		 u64 addr, unsigned long size, struct nfp_cpp_area **area);
++
+ struct nfp_cpp_mutex;
+ 
+ int nfp_cpp_mutex_init(struct nfp_cpp *cpp, int target,
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
+index 9b69dcf87be9..7d5d7293efed 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
+@@ -361,6 +361,41 @@ nfp_cpp_area_alloc(struct nfp_cpp *cpp, u32 dest,
+ }
+ 
+ /**
++ * nfp_cpp_area_alloc_acquire() - allocate a new CPP area and lock it down
++ * @cpp:	CPP handle
++ * @name:	Name of region
++ * @dest:	CPP id
++ * @address:	Start address on CPP target
++ * @size:	Size of area
++ *
++ * Allocate and initialize a CPP area structure, and lock it down so
++ * that it can be accessed directly.
++ *
++ * NOTE: @address and @size must be 32-bit aligned values.
++ *
++ * NOTE: The area must also be 'released' when the structure is freed.
++ *
++ * Return: NFP CPP Area handle, or NULL
++ */
++struct nfp_cpp_area *
++nfp_cpp_area_alloc_acquire(struct nfp_cpp *cpp, const char *name, u32 dest,
++			   unsigned long long address, unsigned long size)
++{
++	struct nfp_cpp_area *area;
++
++	area = nfp_cpp_area_alloc_with_name(cpp, dest, name, address, size);
++	if (!area)
++		return NULL;
++
++	if (nfp_cpp_area_acquire(area)) {
++		nfp_cpp_area_free(area);
++		return NULL;
++	}
++
++	return area;
++}
++
++/**
+  * nfp_cpp_area_free() - free up the CPP area
+  * @area:	CPP area handle
+  *
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpplib.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpplib.c
+index 0ba0379b8f75..ab86bceb93f2 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpplib.c
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpplib.c
+@@ -279,3 +279,43 @@ int nfp_cpp_explicit_write(struct nfp_cpp *cpp, u32 cpp_id, u64 addr,
+ 
  	return err;
  }
- 
-@@ -439,6 +442,7 @@ static void nfp_net_pf_app_clean(struct nfp_pf *pf)
- 		nfp_net_pf_free_vnic(pf, pf->ctrl_vnic);
- 		nfp_cpp_area_release_free(pf->ctrl_vnic_bar);
- 	}
-+	nfp_app_clean(pf->app);
- 	nfp_app_free(pf->app);
- 	pf->app = NULL;
- }
++
++/**
++ * nfp_cpp_map_area() - Helper function to map an area
++ * @cpp:    NFP CPP handler
++ * @name:   Name for the area
++ * @domain: CPP domain
++ * @target: CPP target
++ * @addr:   CPP address
++ * @size:   Size of the area
++ * @area:   Area handle (output)
++ *
++ * Map an area of IOMEM access.  To undo the effect of this function call
++ * @nfp_cpp_area_release_free(*area).
++ *
++ * Return: Pointer to memory mapped area or ERR_PTR
++ */
++u8 __iomem *
++nfp_cpp_map_area(struct nfp_cpp *cpp, const char *name, int domain, int target,
++		 u64 addr, unsigned long size, struct nfp_cpp_area **area)
++{
++	u8 __iomem *res;
++	u32 dest;
++
++	dest = NFP_CPP_ISLAND_ID(target, NFP_CPP_ACTION_RW, 0, domain);
++
++	*area = nfp_cpp_area_alloc_acquire(cpp, name, dest, addr, size);
++	if (!*area)
++		goto err_eio;
++
++	res = nfp_cpp_area_iomem(*area);
++	if (!res)
++		goto err_release_free;
++
++	return res;
++
++err_release_free:
++	nfp_cpp_area_release_free(*area);
++err_eio:
++	return (u8 __iomem *)ERR_PTR(-EIO);
++}
 -- 
 2.11.0
