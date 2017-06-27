@@ -1,40 +1,82 @@
-From: Matthias Schiffer <mschiffer@universe-factory.net>
-Subject: [PATCH net-next] vxlan: fix incorrect nlattr access in MTU check
-Date: Tue, 27 Jun 2017 14:42:43 +0200
-Message-ID: <a6097db8a2ce4a13c108651c58a345ccff3505b0.1498565985.git.mschiffer@universe-factory.net>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net, jbenc@redhat.com, roopa@cumulusnetworks.com,
-        pshelar@ovn.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from chaos.universe-factory.net ([31.24.148.19]:39146 "EHLO
-        chaos.universe-factory.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752927AbdF0MnB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 08:43:01 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: [PATCH v3 net-next 00/12] bpf: rewrite value tracking
+	in verifier
+Date: Tue, 27 Jun 2017 13:53:18 +0100
+Message-ID: <adc11342-737f-4e06-bce3-f0a92b5594a5@solarflare.com>
+Reply-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The access to the wrong variable could lead to a NULL dereference and
-possibly other invalid memory reads in vxlan newlink/changelink requests
-with a IFLA_MTU attribute.
+This series simplifies alignment tracking, generalises bounds tracking and
+ fixes some bounds-tracking bugs in the BPF verifier.  Pointer arithmetic on
+ packet pointers, stack pointers, map value pointers and context pointers has
+ been unified, and bounds on these pointers are only checked when the pointer
+ is dereferenced.
+Operations on pointers which destroy all relation to the original pointer
+ (such as multiplies and shifts) are disallowed if !env->allow_ptr_leaks,
+ otherwise they convert the pointer to an unknown scalar and feed it to the
+ normal scalar arithmetic handling.
+Pointer types have been unified with the corresponding adjusted-pointer types
+ where those existed (e.g. PTR_TO_MAP_VALUE[_ADJ] or FRAME_PTR vs
+ PTR_TO_STACK); similarly, CONST_IMM and UNKNOWN_VALUE have been unified into
+ SCALAR_VALUE.
+Pointer types (except CONST_PTR_TO_MAP, PTR_TO_MAP_VALUE_OR_NULL and
+ PTR_TO_PACKET_END, which do not allow arithmetic) have a 'fixed offset' and
+ a 'variable offset'; the former is used when e.g. adding an immediate or a
+ known-constant register, as long as it does not overflow.  Otherwise the
+ latter is used, and any operation creating a new variable offset creates a
+ new 'id' (and, for PTR_TO_PACKET, clears the 'range').
+SCALAR_VALUEs use the 'variable offset' fields to track the range of possible
+ values; the 'fixed offset' should never be set on a scalar.
 
-Fixes: a985343ba906 "vxlan: refactor verification and application of configuration"
-Signed-off-by: Matthias Schiffer <mschiffer@universe-factory.net>
----
- drivers/net/vxlan.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+As of patch 12/12, all tests of tools/testing/selftests/bpf/test_verifier
+ and tools/testing/selftests/bpf/test_align pass.
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 0dafd8e6c665..fd0ff97e3d81 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -2727,7 +2727,7 @@ static int vxlan_validate(struct nlattr *tb[], struct nlattr *data[],
- 	}
- 
- 	if (tb[IFLA_MTU]) {
--		u32 mtu = nla_get_u32(data[IFLA_MTU]);
-+		u32 mtu = nla_get_u32(tb[IFLA_MTU]);
- 
- 		if (mtu < ETH_MIN_MTU || mtu > ETH_MAX_MTU)
- 			return -EINVAL;
--- 
-2.13.2
+v3: added a few more tests; removed RFC tags.
+
+v2: fixed nfp build, made test_align pass again and extended it with a few
+ new tests (though still need to add more).
+
+Edward Cree (12):
+  selftests/bpf: add test for mixed signed and unsigned bounds checks
+  bpf/verifier: rework value tracking
+  nfp: change bpf verifier hooks to match new verifier data structures
+  bpf/verifier: track signed and unsigned min/max values
+  bpf/verifier: more concise register state logs for constant var_off
+  selftests/bpf: change test_verifier expectations
+  selftests/bpf: rewrite test_align
+  selftests/bpf: add a test to test_align
+  selftests/bpf: add test for bogus operations on pointers
+  selftests/bpf: don't try to access past MAX_PACKET_OFF in
+    test_verifier
+  selftests/bpf: add tests for subtraction & negative numbers
+  selftests/bpf: variable offset negative tests
+
+ drivers/net/ethernet/netronome/nfp/bpf/verifier.c |   24 +-
+ include/linux/bpf.h                               |   34 +-
+ include/linux/bpf_verifier.h                      |   56 +-
+ include/linux/tnum.h                              |   81 +
+ kernel/bpf/Makefile                               |    2 +-
+ kernel/bpf/tnum.c                                 |  180 ++
+ kernel/bpf/verifier.c                             | 1943 ++++++++++++---------
+ tools/testing/selftests/bpf/test_align.c          |  462 ++++-
+ tools/testing/selftests/bpf/test_verifier.c       |  293 ++--
+ 9 files changed, 2034 insertions(+), 1041 deletions(-)
+ create mode 100644 include/linux/tnum.h
+ create mode 100644 kernel/bpf/tnum.c
