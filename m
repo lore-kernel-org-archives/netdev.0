@@ -1,53 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: RFC: sk leak in sock_graft?
-Date: Tue, 27 Jun 2017 15:38:16 -0400 (EDT)
-Message-ID: <20170627.153816.46774843898605825.davem@davemloft.net>
-References: <20170624130827.GD6901@oracle.com>
+Subject: Re: [PATCH net-next] tcp: fix null ptr deref in getsockopt(...,
+ TCP_ULP, ...)
+Date: Tue, 27 Jun 2017 15:39:27 -0400 (EDT)
+Message-ID: <20170627.153927.140891706842589227.davem@davemloft.net>
+References: <20170626153647.GA15170@achao-mbp1.DHCP.thefacebook.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sowmini.varadhan@oracle.com
+Cc: ilyal@mellanox.com, aviadye@mellanox.com, borisp@mellanox.com,
+        alexander.levin@verizon.com, netdev@vger.kernel.org
+To: davejwatson@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44638 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:44664 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753303AbdF0TiS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 15:38:18 -0400
-In-Reply-To: <20170624130827.GD6901@oracle.com>
+        with ESMTP id S1753303AbdF0Tj3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 15:39:29 -0400
+In-Reply-To: <20170626153647.GA15170@achao-mbp1.DHCP.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Sat, 24 Jun 2017 09:08:27 -0400
+From: Dave Watson <davejwatson@fb.com>
+Date: Mon, 26 Jun 2017 08:36:47 -0700
 
-> We're seeing a memleak when we run an infinite loop that 
-> loads/unloads rds-tcp, and runs some traffic between each 
-> load/unload.
+> If icsk_ulp_ops is unset, it dereferences a null ptr.
+> Add a null ptr check.
 > 
-> Analysis shows that this is happening for the following reason:
+> BUG: KASAN: null-ptr-deref in copy_to_user include/linux/uaccess.h:168 [inline]
+> BUG: KASAN: null-ptr-deref in do_tcp_getsockopt.isra.33+0x24f/0x1e30 net/ipv4/tcp.c:3057
+> Read of size 4 at addr 0000000000000020 by task syz-executor1/15452
 > 
-> inet_accept -> sock_graft does
-> 	parent->sk = sk
-> but if the parent->sk was previously pointing at some other
-> struct sock "old_sk" (happens in the case of rds_tcp_accept_one()
-> which has historically called sock_create_kern() to set up
-> the new_sock), we need to sock_put(old_sk), else we'd leak it.
-> 
-> In general, sock_graft() is cutting loose the parent->sk,
-> so it looks like it needs to release its refcnt on it?
-> 
-> Patch below takes care of the leak in our case, but I could use
-> some input on other locking considerations, and if this is ok
-> with other modules that use sock_graft()
+> Signed-off-by: Dave Watson <davejwatson@fb.com>
+> Reported-by: "Levin, Alexander (Sasha Levin)" <alexander.levin@verizon.com>
 
-It could simply be the case that rds-tcp is the first setup that
-created that situation where there is a parent->sk already.
-
-In all of the normal accept*() code paths, a plain struct socket
-is allocated and nothing sets newsock->sk to anything before that
-sock_graft() call.
-
-Why does rds-tcp need to call sock_graft() without those invariants
-met?
-
-Thanks.
+Applied, thanks.
