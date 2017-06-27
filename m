@@ -1,62 +1,59 @@
 From: thor.thayer@linux.intel.com
-Subject: [PATCH 1/2] ethtool: stmmac: Fix Designware ethtool register dump
-Date: Tue, 27 Jun 2017 16:51:14 -0500
-Message-ID: <1498600275-22334-2-git-send-email-thor.thayer@linux.intel.com>
-References: <1498600275-22334-1-git-send-email-thor.thayer@linux.intel.com>
+Subject: [PATCH] net: stmmac: Add additional registers for dwmac1000_dma ethtool
+Date: Tue, 27 Jun 2017 17:16:27 -0500
+Message-ID: <1498601787-17390-1-git-send-email-thor.thayer@linux.intel.com>
 Cc: netdev@vger.kernel.org, Thor Thayer <thor.thayer@linux.intel.com>
-To: linville@tuxdriver.com, peppe.cavallaro@st.com
+To: peppe.cavallaro@st.com, alexandre.torgue@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:23551 "EHLO mga04.intel.com"
+Received: from mga07.intel.com ([134.134.136.100]:29634 "EHLO mga07.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753866AbdF0VsT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 27 Jun 2017 17:48:19 -0400
-In-Reply-To: <1498600275-22334-1-git-send-email-thor.thayer@linux.intel.com>
+        id S1751724AbdF0WN2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 27 Jun 2017 18:13:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Thor Thayer <thor.thayer@linux.intel.com>
 
-The commit fbf68229ffe7 ("net: stmmac: unify registers dumps methods")
-
-modified the register dump to store the DMA registers at the DMA register
-offset (0x1000) but ethtool (stmmac.c) looks for the DMA registers after
-the MAC registers which is offset 12.
-This patch adds the DMA register offset so that indexing is correct.
+Version 3.70a of the Designware has additional DMA registers so
+add those to the ethtool DMA Register dump.
+Offset 9  - Receive Interrupt Watchdog Timer Register
+Offset 10 - AXI Bus Mode Register
+Offset 11 - AHB or AXI Status Register
+Offset 22 - HW Feature Register
 
 Signed-off-by: Thor Thayer <thor.thayer@linux.intel.com>
 ---
- stmmac.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c  | 4 ++--
+ drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/stmmac.c b/stmmac.c
-index fb69bfe..e1bb291 100644
---- a/stmmac.c
-+++ b/stmmac.c
-@@ -14,6 +14,9 @@
- #include <string.h>
- #include "internal.h"
- 
-+/* The DMA Registers start at offset 0x1000 in the DW IP */
-+#define DMA_REG_OFFSET	(0x1000 / 4)
-+
- int st_mac100_dump_regs(struct ethtool_drvinfo *info,
- 			struct ethtool_regs *regs)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
+index 471a9aa..22cf635 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
+@@ -205,8 +205,8 @@ static void dwmac1000_dump_dma_regs(void __iomem *ioaddr, u32 *reg_space)
  {
-@@ -36,6 +39,7 @@ int st_mac100_dump_regs(struct ethtool_drvinfo *info,
+ 	int i;
  
- 	fprintf(stdout, "\n");
- 	fprintf(stdout, "DMA Registers\n");
-+	stmmac_reg = (unsigned int *)regs->data + DMA_REG_OFFSET;
- 	for (i = 0; i < 9; i++)
- 		fprintf(stdout, "CSR%d  0x%08X\n", i, *stmmac_reg++);
+-	for (i = 0; i < 22; i++)
+-		if ((i < 9) || (i > 17))
++	for (i = 0; i < 23; i++)
++		if ((i < 12) || (i > 17))
+ 			reg_space[DMA_BUS_MODE / 4 + i] =
+ 				readl(ioaddr + DMA_BUS_MODE + i * 4);
+ }
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+index 743170d..babb39c 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+@@ -29,7 +29,7 @@
+ #include "stmmac.h"
+ #include "dwmac_dma.h"
  
-@@ -59,6 +63,7 @@ int st_gmac_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
- 
- 	fprintf(stdout, "\n");
- 	fprintf(stdout, "DMA Registers\n");
-+	stmmac_reg = (unsigned int *)regs->data + DMA_REG_OFFSET;
- 	for (i = 0; i < 22; i++)
- 		fprintf(stdout, "Reg%d  0x%08X\n", i, *stmmac_reg++);
+-#define REG_SPACE_SIZE	0x1054
++#define REG_SPACE_SIZE	0x1060
+ #define MAC100_ETHTOOL_NAME	"st_mac100"
+ #define GMAC_ETHTOOL_NAME	"st_gmac"
  
 -- 
 2.7.4
