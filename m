@@ -1,28 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vxlan: fix incorrect nlattr access in MTU
- check
-Date: Tue, 27 Jun 2017 14:40:52 -0400 (EDT)
-Message-ID: <20170627.144052.2228259665374094222.davem@davemloft.net>
-References: <a6097db8a2ce4a13c108651c58a345ccff3505b0.1498565985.git.mschiffer@universe-factory.net>
+Subject: Re: [net-next] net: remove policy-routing.txt documentation
+Date: Tue, 27 Jun 2017 14:43:14 -0400 (EDT)
+Message-ID: <20170627.144314.1676060126366586299.davem@davemloft.net>
+References: <20170627134257.2427-1-vincent@bernat.im>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jbenc@redhat.com, roopa@cumulusnetworks.com, pshelar@ovn.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: mschiffer@universe-factory.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <a6097db8a2ce4a13c108651c58a345ccff3505b0.1498565985.git.mschiffer@universe-factory.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: vincent@bernat.im
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44064 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752311AbdF0SnP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 14:43:15 -0400
+In-Reply-To: <20170627134257.2427-1-vincent@bernat.im>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Matthias Schiffer <mschiffer@universe-factory.net>
-Date: Tue, 27 Jun 2017 14:42:43 +0200
+From: Vincent Bernat <vincent@bernat.im>
+Date: Tue, 27 Jun 2017 15:42:57 +0200
 
-> The access to the wrong variable could lead to a NULL dereference and
-> possibly other invalid memory reads in vxlan newlink/changelink requests
-> with a IFLA_MTU attribute.
+> It dates back from 2.1.16 and is obsolete since 2.1.68 when the current
+> rule system has been introduced.
 > 
-> Fixes: a985343ba906 "vxlan: refactor verification and application of configuration"
-> Signed-off-by: Matthias Schiffer <mschiffer@universe-factory.net>
+> Signed-off-by: Vincent Bernat <vincent@bernat.im>
 
-Applied, thanks.
+Applied.  I am very surprised that document was still there :)
