@@ -1,67 +1,75 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 01/14] nfp: explicitly check if application FW is loaded
-Date: Tue, 27 Jun 2017 00:50:15 -0700
-Message-ID: <20170627075028.4009-2-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 04/14] nfp: remove unused nfp_cpp_area_check_range()
+Date: Tue, 27 Jun 2017 00:50:18 -0700
+Message-ID: <20170627075028.4009-5-jakub.kicinski@netronome.com>
 References: <20170627075028.4009-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:35929 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751659AbdF0HvH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 03:51:07 -0400
-Received: by mail-pf0-f172.google.com with SMTP id q86so12572547pfl.3
-        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 00:51:07 -0700 (PDT)
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:35183 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751498AbdF0HvK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 03:51:10 -0400
+Received: by mail-pf0-f169.google.com with SMTP id c73so12614556pfk.2
+        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 00:51:09 -0700 (PDT)
 In-Reply-To: <20170627075028.4009-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We support application FW being either loaded automatically at
-boot from flash or (more commonly) by the driver from disk.
-If FW is not found on disk and nothing is preloaded users are
-faced with this unintuitive error:
-
-nfp 0000:04:00.0: nfp: Failed to find PF symbol _pf0_net_bar0
-
-We can do better.  Since we rely on symbol table being present -
-check early if it could be correctly read out of from the device
-and if not print a more informative message.
+Remove unused nfp_cpp_area_check_range() function.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Reviewed-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c | 11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h    |  2 --
+ .../ethernet/netronome/nfp/nfpcore/nfp_cppcore.c    | 21 ---------------------
+ 2 files changed, 23 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index cfcbc3b9a9aa..3169400dd474 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -589,10 +589,7 @@ static int nfp_net_pci_map_mem(struct nfp_pf *pf)
- 				   ctrl_bar_sz, &pf->data_vnic_bar);
- 	if (IS_ERR(mem)) {
- 		nfp_err(pf->cpp, "Failed to find data vNIC memory symbol\n");
--		err = PTR_ERR(mem);
--		if (!pf->fw_loaded && err == -ENOENT)
--			err = -EPROBE_DEFER;
--		return err;
-+		return PTR_ERR(mem);
- 	}
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
+index 235dd023d9b9..5798adc57cbc 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
+@@ -242,8 +242,6 @@ int nfp_cpp_area_read(struct nfp_cpp_area *area, unsigned long offset,
+ 		      void *buffer, size_t length);
+ int nfp_cpp_area_write(struct nfp_cpp_area *area, unsigned long offset,
+ 		       const void *buffer, size_t length);
+-int nfp_cpp_area_check_range(struct nfp_cpp_area *area,
+-			     unsigned long long offset, unsigned long size);
+ const char *nfp_cpp_area_name(struct nfp_cpp_area *cpp_area);
+ void *nfp_cpp_area_priv(struct nfp_cpp_area *cpp_area);
+ struct nfp_cpp *nfp_cpp_area_cpp(struct nfp_cpp_area *cpp_area);
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
+index 7d5d7293efed..04dd5758ecf5 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
+@@ -571,27 +571,6 @@ int nfp_cpp_area_write(struct nfp_cpp_area *area,
+ }
  
- 	pf->mac_stats_mem = nfp_net_pf_map_rtsym(pf, "net.macstats",
-@@ -786,6 +783,12 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
- 		return -EINVAL;
- 	}
- 
-+	if (!pf->rtbl) {
-+		nfp_err(pf->cpp, "No %s, giving up.\n",
-+			pf->fw_loaded ? "symbol table" : "firmware found");
-+		return -EPROBE_DEFER;
-+	}
-+
- 	mutex_lock(&pf->lock);
- 	pf->max_data_vnics = nfp_net_pf_get_num_ports(pf);
- 	if ((int)pf->max_data_vnics < 0) {
+ /**
+- * nfp_cpp_area_check_range() - check if address range fits in CPP area
+- * @area:	CPP area handle
+- * @offset:	offset into CPP target
+- * @length:	size of address range in bytes
+- *
+- * Check if address range fits within CPP area.  Return 0 if area
+- * fits or -EFAULT on error.
+- *
+- * Return: 0, or -ERRNO
+- */
+-int nfp_cpp_area_check_range(struct nfp_cpp_area *area,
+-			     unsigned long long offset, unsigned long length)
+-{
+-	if (offset < area->offset ||
+-	    offset + length > area->offset + area->size)
+-		return -EFAULT;
+-
+-	return 0;
+-}
+-
+-/**
+  * nfp_cpp_area_name() - return name of a CPP area
+  * @cpp_area:	CPP area handle
+  *
 -- 
 2.11.0
