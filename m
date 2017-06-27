@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 06/16] net/mlx5: Add QP WQ support
-Date: Tue, 27 Jun 2017 17:28:46 +0300
-Message-ID: <20170627142856.9448-7-saeedm@mellanox.com>
+Subject: [net-next 08/16] net/mlx5: FPGA, Add FW commands for FPGA QPs
+Date: Tue, 27 Jun 2017 17:28:48 +0300
+Message-ID: <20170627142856.9448-9-saeedm@mellanox.com>
 References: <20170627142856.9448-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
         Ilan Tayari <ilant@mellanox.com>,
@@ -13,126 +13,436 @@ Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50589 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50613 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753195AbdF0OaX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 10:30:23 -0400
+        with ESMTP id S1753194AbdF0OaW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 10:30:22 -0400
 In-Reply-To: <20170627142856.9448-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ilan Tayari <ilant@mellanox.com>
 
-A QP in ConnectX is a concatenation of RQ and SQ which share a QP-number
-and work together.
-Add support for allocating and managing the work-queue buffer for a QP, in
-a similar way to how SQs and RQs are already supported.
+The FPGA QP is a high-bandwidth communication channel between the host
+CPU and the FPGA device. It allows performing DMA operations between
+host memory and the FPGA logic via the ConnectX chip.
+
+Add ConnectX FW commands which create and manipulate FPGA QPs.
 
 Signed-off-by: Ilan Tayari <ilant@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/wq.c | 46 ++++++++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/wq.h | 10 ++++++
- 2 files changed, 56 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c      |  10 ++
+ drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c |  98 ++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h |  21 +++
+ include/linux/mlx5/mlx5_ifc.h                      |   5 +
+ include/linux/mlx5/mlx5_ifc_fpga.h                 | 199 +++++++++++++++++++++
+ 5 files changed, 333 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/wq.c b/drivers/net/ethernet/mellanox/mlx5/core/wq.c
-index 921673c42bc9..6bcfc25350f5 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/wq.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/wq.c
-@@ -54,6 +54,12 @@ static u32 mlx5_wq_cyc_get_byte_size(struct mlx5_wq_cyc *wq)
- 	return mlx5_wq_cyc_get_size(wq) << wq->log_stride;
- }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+index 4d5bd01f1ebb..f5a2c605749f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+@@ -307,6 +307,7 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
+ 	case MLX5_CMD_OP_SET_FLOW_TABLE_ROOT:
+ 	case MLX5_CMD_OP_DEALLOC_ENCAP_HEADER:
+ 	case MLX5_CMD_OP_DEALLOC_MODIFY_HEADER_CONTEXT:
++	case MLX5_CMD_OP_FPGA_DESTROY_QP:
+ 		return MLX5_CMD_STAT_OK;
  
-+static u32 mlx5_wq_qp_get_byte_size(struct mlx5_wq_qp *wq)
+ 	case MLX5_CMD_OP_QUERY_HCA_CAP:
+@@ -419,6 +420,10 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
+ 	case MLX5_CMD_OP_QUERY_FLOW_COUNTER:
+ 	case MLX5_CMD_OP_ALLOC_ENCAP_HEADER:
+ 	case MLX5_CMD_OP_ALLOC_MODIFY_HEADER_CONTEXT:
++	case MLX5_CMD_OP_FPGA_CREATE_QP:
++	case MLX5_CMD_OP_FPGA_MODIFY_QP:
++	case MLX5_CMD_OP_FPGA_QUERY_QP:
++	case MLX5_CMD_OP_FPGA_QUERY_QP_COUNTERS:
+ 		*status = MLX5_DRIVER_STATUS_ABORTED;
+ 		*synd = MLX5_DRIVER_SYND;
+ 		return -EIO;
+@@ -585,6 +590,11 @@ const char *mlx5_command_str(int command)
+ 	MLX5_COMMAND_STR_CASE(DEALLOC_ENCAP_HEADER);
+ 	MLX5_COMMAND_STR_CASE(ALLOC_MODIFY_HEADER_CONTEXT);
+ 	MLX5_COMMAND_STR_CASE(DEALLOC_MODIFY_HEADER_CONTEXT);
++	MLX5_COMMAND_STR_CASE(FPGA_CREATE_QP);
++	MLX5_COMMAND_STR_CASE(FPGA_MODIFY_QP);
++	MLX5_COMMAND_STR_CASE(FPGA_QUERY_QP);
++	MLX5_COMMAND_STR_CASE(FPGA_QUERY_QP_COUNTERS);
++	MLX5_COMMAND_STR_CASE(FPGA_DESTROY_QP);
+ 	default: return "unknown command opcode";
+ 	}
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c
+index 99cba644b4fc..8308ccbad85a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c
+@@ -33,6 +33,7 @@
+ #include <linux/etherdevice.h>
+ #include <linux/mlx5/cmd.h>
+ #include <linux/mlx5/driver.h>
++#include <linux/mlx5/device.h>
+ 
+ #include "mlx5_core.h"
+ #include "fpga/cmd.h"
+@@ -62,3 +63,100 @@ int mlx5_fpga_query(struct mlx5_core_dev *dev, struct mlx5_fpga_query *query)
+ 	query->oper_image = MLX5_GET(fpga_ctrl, out, flash_select_oper);
+ 	return 0;
+ }
++
++int mlx5_fpga_create_qp(struct mlx5_core_dev *dev, void *fpga_qpc,
++			u32 *fpga_qpn)
 +{
-+	return mlx5_wq_cyc_get_byte_size(&wq->rq) +
-+	       mlx5_wq_cyc_get_byte_size(&wq->sq);
++	u32 in[MLX5_ST_SZ_DW(fpga_create_qp_in)] = {0};
++	u32 out[MLX5_ST_SZ_DW(fpga_create_qp_out)];
++	int ret;
++
++	MLX5_SET(fpga_create_qp_in, in, opcode, MLX5_CMD_OP_FPGA_CREATE_QP);
++	memcpy(MLX5_ADDR_OF(fpga_create_qp_in, in, fpga_qpc), fpga_qpc,
++	       MLX5_FLD_SZ_BYTES(fpga_create_qp_in, fpga_qpc));
++
++	ret = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
++	if (ret)
++		return ret;
++
++	memcpy(fpga_qpc, MLX5_ADDR_OF(fpga_create_qp_out, out, fpga_qpc),
++	       MLX5_FLD_SZ_BYTES(fpga_create_qp_out, fpga_qpc));
++	*fpga_qpn = MLX5_GET(fpga_create_qp_out, out, fpga_qpn);
++	return ret;
 +}
 +
- static u32 mlx5_cqwq_get_byte_size(struct mlx5_cqwq *wq)
- {
- 	return mlx5_cqwq_get_size(wq) << wq->log_stride;
-@@ -99,6 +105,46 @@ int mlx5_wq_cyc_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
- 	return err;
- }
- 
-+int mlx5_wq_qp_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
-+		      void *qpc, struct mlx5_wq_qp *wq,
-+		      struct mlx5_wq_ctrl *wq_ctrl)
++int mlx5_fpga_modify_qp(struct mlx5_core_dev *dev, u32 fpga_qpn,
++			enum mlx5_fpga_qpc_field_select fields,
++			void *fpga_qpc)
 +{
-+	int err;
++	u32 in[MLX5_ST_SZ_DW(fpga_modify_qp_in)] = {0};
++	u32 out[MLX5_ST_SZ_DW(fpga_modify_qp_out)];
 +
-+	wq->rq.log_stride = MLX5_GET(qpc, qpc, log_rq_stride) + 4;
-+	wq->rq.sz_m1 = (1 << MLX5_GET(qpc, qpc, log_rq_size)) - 1;
++	MLX5_SET(fpga_modify_qp_in, in, opcode, MLX5_CMD_OP_FPGA_MODIFY_QP);
++	MLX5_SET(fpga_modify_qp_in, in, field_select, fields);
++	MLX5_SET(fpga_modify_qp_in, in, fpga_qpn, fpga_qpn);
++	memcpy(MLX5_ADDR_OF(fpga_modify_qp_in, in, fpga_qpc), fpga_qpc,
++	       MLX5_FLD_SZ_BYTES(fpga_modify_qp_in, fpga_qpc));
 +
-+	wq->sq.log_stride = ilog2(MLX5_SEND_WQE_BB);
-+	wq->sq.sz_m1 = (1 << MLX5_GET(qpc, qpc, log_sq_size)) - 1;
-+
-+	err = mlx5_db_alloc_node(mdev, &wq_ctrl->db, param->db_numa_node);
-+	if (err) {
-+		mlx5_core_warn(mdev, "mlx5_db_alloc_node() failed, %d\n", err);
-+		return err;
-+	}
-+
-+	err = mlx5_buf_alloc_node(mdev, mlx5_wq_qp_get_byte_size(wq),
-+				  &wq_ctrl->buf, param->buf_numa_node);
-+	if (err) {
-+		mlx5_core_warn(mdev, "mlx5_buf_alloc_node() failed, %d\n", err);
-+		goto err_db_free;
-+	}
-+
-+	wq->rq.buf = wq_ctrl->buf.direct.buf;
-+	wq->sq.buf = wq->rq.buf + mlx5_wq_cyc_get_byte_size(&wq->rq);
-+	wq->rq.db  = &wq_ctrl->db.db[MLX5_RCV_DBR];
-+	wq->sq.db  = &wq_ctrl->db.db[MLX5_SND_DBR];
-+
-+	wq_ctrl->mdev = mdev;
-+
-+	return 0;
-+
-+err_db_free:
-+	mlx5_db_free(mdev, &wq_ctrl->db);
-+
-+	return err;
++	return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
 +}
 +
- int mlx5_cqwq_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
- 		     void *cqc, struct mlx5_cqwq *wq,
- 		     struct mlx5_frag_wq_ctrl *wq_ctrl)
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/wq.h b/drivers/net/ethernet/mellanox/mlx5/core/wq.h
-index 9ded5d40ce6b..718589d0cec2 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/wq.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/wq.h
-@@ -35,6 +35,7 @@
- 
- #include <linux/mlx5/mlx5_ifc.h>
- #include <linux/mlx5/cq.h>
-+#include <linux/mlx5/qp.h>
- 
- struct mlx5_wq_param {
- 	int		linear;
-@@ -61,6 +62,11 @@ struct mlx5_wq_cyc {
- 	u8			log_stride;
++int mlx5_fpga_query_qp(struct mlx5_core_dev *dev,
++		       u32 fpga_qpn, void *fpga_qpc)
++{
++	u32 in[MLX5_ST_SZ_DW(fpga_query_qp_in)] = {0};
++	u32 out[MLX5_ST_SZ_DW(fpga_query_qp_out)];
++	int ret;
++
++	MLX5_SET(fpga_query_qp_in, in, opcode, MLX5_CMD_OP_FPGA_QUERY_QP);
++	MLX5_SET(fpga_query_qp_in, in, fpga_qpn, fpga_qpn);
++
++	ret = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
++	if (ret)
++		return ret;
++
++	memcpy(fpga_qpc, MLX5_ADDR_OF(fpga_query_qp_out, in, fpga_qpc),
++	       MLX5_FLD_SZ_BYTES(fpga_query_qp_out, fpga_qpc));
++	return ret;
++}
++
++int mlx5_fpga_destroy_qp(struct mlx5_core_dev *dev, u32 fpga_qpn)
++{
++	u32 in[MLX5_ST_SZ_DW(fpga_destroy_qp_in)] = {0};
++	u32 out[MLX5_ST_SZ_DW(fpga_destroy_qp_out)];
++
++	MLX5_SET(fpga_destroy_qp_in, in, opcode, MLX5_CMD_OP_FPGA_DESTROY_QP);
++	MLX5_SET(fpga_destroy_qp_in, in, fpga_qpn, fpga_qpn);
++
++	return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
++}
++
++int mlx5_fpga_query_qp_counters(struct mlx5_core_dev *dev, u32 fpga_qpn,
++				bool clear, struct mlx5_fpga_qp_counters *data)
++{
++	u32 in[MLX5_ST_SZ_DW(fpga_query_qp_counters_in)] = {0};
++	u32 out[MLX5_ST_SZ_DW(fpga_query_qp_counters_out)];
++	int ret;
++
++	MLX5_SET(fpga_query_qp_counters_in, in, opcode,
++		 MLX5_CMD_OP_FPGA_QUERY_QP_COUNTERS);
++	MLX5_SET(fpga_query_qp_counters_in, in, clear, clear);
++	MLX5_SET(fpga_query_qp_counters_in, in, fpga_qpn, fpga_qpn);
++
++	ret = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
++	if (ret)
++		return ret;
++
++	data->rx_ack_packets = MLX5_GET64(fpga_query_qp_counters_out, out,
++					  rx_ack_packets);
++	data->rx_send_packets = MLX5_GET64(fpga_query_qp_counters_out, out,
++					   rx_send_packets);
++	data->tx_ack_packets = MLX5_GET64(fpga_query_qp_counters_out, out,
++					  tx_ack_packets);
++	data->tx_send_packets = MLX5_GET64(fpga_query_qp_counters_out, out,
++					   tx_send_packets);
++	data->rx_total_drop = MLX5_GET64(fpga_query_qp_counters_out, out,
++					 rx_total_drop);
++
++	return ret;
++}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h
+index a74396a61bc3..b851580d846f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h
+@@ -53,7 +53,28 @@ struct mlx5_fpga_query {
+ 	enum mlx5_fpga_status status;
  };
  
-+struct mlx5_wq_qp {
-+	struct mlx5_wq_cyc	rq;
-+	struct mlx5_wq_cyc	sq;
++enum mlx5_fpga_qpc_field_select {
++	MLX5_FPGA_QPC_STATE = BIT(0),
 +};
 +
- struct mlx5_cqwq {
- 	struct mlx5_frag_buf	frag_buf;
- 	__be32			*db;
-@@ -88,6 +94,10 @@ int mlx5_wq_cyc_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
- 		       struct mlx5_wq_ctrl *wq_ctrl);
- u32 mlx5_wq_cyc_get_size(struct mlx5_wq_cyc *wq);
- 
-+int mlx5_wq_qp_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
-+		      void *qpc, struct mlx5_wq_qp *wq,
-+		      struct mlx5_wq_ctrl *wq_ctrl);
++struct mlx5_fpga_qp_counters {
++	u64 rx_ack_packets;
++	u64 rx_send_packets;
++	u64 tx_ack_packets;
++	u64 tx_send_packets;
++	u64 rx_total_drop;
++};
 +
- int mlx5_cqwq_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
- 		     void *cqc, struct mlx5_cqwq *wq,
- 		     struct mlx5_frag_wq_ctrl *wq_ctrl);
+ int mlx5_fpga_caps(struct mlx5_core_dev *dev, u32 *caps);
+ int mlx5_fpga_query(struct mlx5_core_dev *dev, struct mlx5_fpga_query *query);
+ 
++int mlx5_fpga_create_qp(struct mlx5_core_dev *dev, void *fpga_qpc,
++			u32 *fpga_qpn);
++int mlx5_fpga_modify_qp(struct mlx5_core_dev *dev, u32 fpga_qpn,
++			enum mlx5_fpga_qpc_field_select fields, void *fpga_qpc);
++int mlx5_fpga_query_qp(struct mlx5_core_dev *dev, u32 fpga_qpn, void *fpga_qpc);
++int mlx5_fpga_query_qp_counters(struct mlx5_core_dev *dev, u32 fpga_qpn,
++				bool clear, struct mlx5_fpga_qp_counters *data);
++int mlx5_fpga_destroy_qp(struct mlx5_core_dev *dev, u32 fpga_qpn);
++
+ #endif /* __MLX5_FPGA_H__ */
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index d6b99d5d0f24..a8b3fcaa33ff 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -232,6 +232,11 @@ enum {
+ 	MLX5_CMD_OP_DEALLOC_ENCAP_HEADER          = 0x93e,
+ 	MLX5_CMD_OP_ALLOC_MODIFY_HEADER_CONTEXT   = 0x940,
+ 	MLX5_CMD_OP_DEALLOC_MODIFY_HEADER_CONTEXT = 0x941,
++	MLX5_CMD_OP_FPGA_CREATE_QP                = 0x960,
++	MLX5_CMD_OP_FPGA_MODIFY_QP                = 0x961,
++	MLX5_CMD_OP_FPGA_QUERY_QP                 = 0x962,
++	MLX5_CMD_OP_FPGA_DESTROY_QP               = 0x963,
++	MLX5_CMD_OP_FPGA_QUERY_QP_COUNTERS        = 0x964,
+ 	MLX5_CMD_OP_MAX
+ };
+ 
+diff --git a/include/linux/mlx5/mlx5_ifc_fpga.h b/include/linux/mlx5/mlx5_ifc_fpga.h
+index 0032d10ac6cf..30d4b697fab6 100644
+--- a/include/linux/mlx5/mlx5_ifc_fpga.h
++++ b/include/linux/mlx5/mlx5_ifc_fpga.h
+@@ -141,4 +141,203 @@ struct mlx5_ifc_fpga_error_event_bits {
+ 	u8         reserved_at_60[0x80];
+ };
+ 
++enum mlx5_ifc_fpga_qp_state {
++	MLX5_FPGA_QPC_STATE_INIT    = 0x0,
++	MLX5_FPGA_QPC_STATE_ACTIVE  = 0x1,
++	MLX5_FPGA_QPC_STATE_ERROR   = 0x2,
++};
++
++enum mlx5_ifc_fpga_qp_type {
++	MLX5_FPGA_QPC_QP_TYPE_SHELL_QP    = 0x0,
++	MLX5_FPGA_QPC_QP_TYPE_SANDBOX_QP  = 0x1,
++};
++
++enum mlx5_ifc_fpga_qp_service_type {
++	MLX5_FPGA_QPC_ST_RC  = 0x0,
++};
++
++struct mlx5_ifc_fpga_qpc_bits {
++	u8         state[0x4];
++	u8         reserved_at_4[0x1b];
++	u8         qp_type[0x1];
++
++	u8         reserved_at_20[0x4];
++	u8         st[0x4];
++	u8         reserved_at_28[0x10];
++	u8         traffic_class[0x8];
++
++	u8         ether_type[0x10];
++	u8         prio[0x3];
++	u8         dei[0x1];
++	u8         vid[0xc];
++
++	u8         reserved_at_60[0x20];
++
++	u8         reserved_at_80[0x8];
++	u8         next_rcv_psn[0x18];
++
++	u8         reserved_at_a0[0x8];
++	u8         next_send_psn[0x18];
++
++	u8         reserved_at_c0[0x10];
++	u8         pkey[0x10];
++
++	u8         reserved_at_e0[0x8];
++	u8         remote_qpn[0x18];
++
++	u8         reserved_at_100[0x15];
++	u8         rnr_retry[0x3];
++	u8         reserved_at_118[0x5];
++	u8         retry_count[0x3];
++
++	u8         reserved_at_120[0x20];
++
++	u8         reserved_at_140[0x10];
++	u8         remote_mac_47_32[0x10];
++
++	u8         remote_mac_31_0[0x20];
++
++	u8         remote_ip[16][0x8];
++
++	u8         reserved_at_200[0x40];
++
++	u8         reserved_at_240[0x10];
++	u8         fpga_mac_47_32[0x10];
++
++	u8         fpga_mac_31_0[0x20];
++
++	u8         fpga_ip[16][0x8];
++};
++
++struct mlx5_ifc_fpga_create_qp_in_bits {
++	u8         opcode[0x10];
++	u8         reserved_at_10[0x10];
++
++	u8         reserved_at_20[0x10];
++	u8         op_mod[0x10];
++
++	u8         reserved_at_40[0x40];
++
++	struct mlx5_ifc_fpga_qpc_bits fpga_qpc;
++};
++
++struct mlx5_ifc_fpga_create_qp_out_bits {
++	u8         status[0x8];
++	u8         reserved_at_8[0x18];
++
++	u8         syndrome[0x20];
++
++	u8         reserved_at_40[0x8];
++	u8         fpga_qpn[0x18];
++
++	u8         reserved_at_60[0x20];
++
++	struct mlx5_ifc_fpga_qpc_bits fpga_qpc;
++};
++
++struct mlx5_ifc_fpga_modify_qp_in_bits {
++	u8         opcode[0x10];
++	u8         reserved_at_10[0x10];
++
++	u8         reserved_at_20[0x10];
++	u8         op_mod[0x10];
++
++	u8         reserved_at_40[0x8];
++	u8         fpga_qpn[0x18];
++
++	u8         field_select[0x20];
++
++	struct mlx5_ifc_fpga_qpc_bits fpga_qpc;
++};
++
++struct mlx5_ifc_fpga_modify_qp_out_bits {
++	u8         status[0x8];
++	u8         reserved_at_8[0x18];
++
++	u8         syndrome[0x20];
++
++	u8         reserved_at_40[0x40];
++};
++
++struct mlx5_ifc_fpga_query_qp_in_bits {
++	u8         opcode[0x10];
++	u8         reserved_at_10[0x10];
++
++	u8         reserved_at_20[0x10];
++	u8         op_mod[0x10];
++
++	u8         reserved_at_40[0x8];
++	u8         fpga_qpn[0x18];
++
++	u8         reserved_at_60[0x20];
++};
++
++struct mlx5_ifc_fpga_query_qp_out_bits {
++	u8         status[0x8];
++	u8         reserved_at_8[0x18];
++
++	u8         syndrome[0x20];
++
++	u8         reserved_at_40[0x40];
++
++	struct mlx5_ifc_fpga_qpc_bits fpga_qpc;
++};
++
++struct mlx5_ifc_fpga_query_qp_counters_in_bits {
++	u8         opcode[0x10];
++	u8         reserved_at_10[0x10];
++
++	u8         reserved_at_20[0x10];
++	u8         op_mod[0x10];
++
++	u8         clear[0x1];
++	u8         reserved_at_41[0x7];
++	u8         fpga_qpn[0x18];
++
++	u8         reserved_at_60[0x20];
++};
++
++struct mlx5_ifc_fpga_query_qp_counters_out_bits {
++	u8         status[0x8];
++	u8         reserved_at_8[0x18];
++
++	u8         syndrome[0x20];
++
++	u8         reserved_at_40[0x40];
++
++	u8         rx_ack_packets[0x40];
++
++	u8         rx_send_packets[0x40];
++
++	u8         tx_ack_packets[0x40];
++
++	u8         tx_send_packets[0x40];
++
++	u8         rx_total_drop[0x40];
++
++	u8         reserved_at_1c0[0x1c0];
++};
++
++struct mlx5_ifc_fpga_destroy_qp_in_bits {
++	u8         opcode[0x10];
++	u8         reserved_at_10[0x10];
++
++	u8         reserved_at_20[0x10];
++	u8         op_mod[0x10];
++
++	u8         reserved_at_40[0x8];
++	u8         fpga_qpn[0x18];
++
++	u8         reserved_at_60[0x20];
++};
++
++struct mlx5_ifc_fpga_destroy_qp_out_bits {
++	u8         status[0x8];
++	u8         reserved_at_8[0x18];
++
++	u8         syndrome[0x20];
++
++	u8         reserved_at_40[0x40];
++};
++
+ #endif /* MLX5_IFC_FPGA_H */
 -- 
 2.11.0
