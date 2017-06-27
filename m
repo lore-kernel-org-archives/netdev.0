@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 11/16] net/mlx5: FPGA, Add SBU infrastructure
-Date: Tue, 27 Jun 2017 17:28:51 +0300
-Message-ID: <20170627142856.9448-12-saeedm@mellanox.com>
+Subject: [net-next 10/16] net/mlx5: FPGA, Add SBU bypass and reset flows
+Date: Tue, 27 Jun 2017 17:28:50 +0300
+Message-ID: <20170627142856.9448-11-saeedm@mellanox.com>
 References: <20170627142856.9448-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
         Ilan Tayari <ilant@mellanox.com>,
@@ -13,508 +13,167 @@ Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50444 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50415 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752198AbdF0OaT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 10:30:19 -0400
+        with ESMTP id S1753188AbdF0OaR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 10:30:17 -0400
 In-Reply-To: <20170627142856.9448-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ilan Tayari <ilant@mellanox.com>
 
-Add interface to initialize and interact with Innova FPGA SBU
-connections.
-A client driver may use these functions to set up a high-speed DMA
-connection with its SBU hardware logic, and send/receive messages
-over this connection.
+The Innova FPGA includes shell hardware and Sandbox-Unit (SBU) hardware.
+The shell hardware is handled by mlx5_core itself, while the SBU is
+handled by a client driver.
 
-A later patch in this patchset will make use of these functions for
-Innova IPSec offload in mlx5 Ethernet driver.
+Reset the SBU to a well-known initial state when initializing a new
+device, and set the FPGA to bypass mode when uninitializing a device.
+This allows the client driver to assume that its device has been
+reset when a new device is detected.
 
-Add commands to retrieve Innova FPGA SBU capabilities, and to
-read/write Innova FPGA configuration space registers and memory,
-over internal I2C.
+During SBU reset, the FPGA is put into SBU-bypass mode. In this mode
+packets do not pass through the SBU, so it cannot affect the network
+data stream at all.
 
-At high level, the FPGA configuration space is divided such:
- 0x00000000 - 0x007fffff is reserved for the SBU
- 0x00800000 - 0xffffffff is reserved for the Shell
-0x400000000 - ...        is DDR memory
-
-A later patchset will add support for accessing FPGA CrSpace and memory
-over a high-speed connection. This is the reason for the ACCESS_TYPE
-enumeration, which currently only supports I2C.
+A factory-image does not have an SBU, so skip these flows.
 
 Signed-off-by: Ilan Tayari <ilant@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   2 +-
- drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c |  65 ++++++++
- drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h |   3 +
- drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.c | 164 +++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.h |  98 ++++++++++++
- include/linux/mlx5/device.h                        |   3 +
- include/linux/mlx5/driver.h                        |   1 +
- include/linux/mlx5/mlx5_ifc.h                      |   1 +
- include/linux/mlx5/mlx5_ifc_fpga.h                 |  13 ++
- 9 files changed, 349 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.c
+ drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c | 11 ++++++
+ drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h |  1 +
+ .../net/ethernet/mellanox/mlx5/core/fpga/core.c    | 40 ++++++++++++++++++++++
+ include/linux/mlx5/mlx5_ifc_fpga.h                 |  9 +++++
+ 4 files changed, 61 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-index 5221b1235c47..676388fde239 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-@@ -6,7 +6,7 @@ mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
- 		mad.o transobj.o vport.o sriov.o fs_cmd.o fs_core.o \
- 		fs_counters.o rl.o lag.o dev.o lib/gid.o
- 
--mlx5_core-$(CONFIG_MLX5_FPGA) += fpga/cmd.o fpga/core.o fpga/conn.o
-+mlx5_core-$(CONFIG_MLX5_FPGA) += fpga/cmd.o fpga/core.o fpga/conn.o fpga/sdk.o
- 
- mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o eswitch_offloads.o \
- 		en_main.o en_common.o en_fs.o en_ethtool.o en_tx.o \
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c
-index a5fdb4cf0b9c..5cb855fd618f 100644
+index 8308ccbad85a..a5fdb4cf0b9c 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c
-@@ -38,6 +38,39 @@
- #include "mlx5_core.h"
- #include "fpga/cmd.h"
- 
-+#define MLX5_FPGA_ACCESS_REG_SZ (MLX5_ST_SZ_DW(fpga_access_reg) + \
-+				 MLX5_FPGA_ACCESS_REG_SIZE_MAX)
-+
-+int mlx5_fpga_access_reg(struct mlx5_core_dev *dev, u8 size, u64 addr,
-+			 void *buf, bool write)
-+{
-+	u32 in[MLX5_FPGA_ACCESS_REG_SZ] = {0};
-+	u32 out[MLX5_FPGA_ACCESS_REG_SZ];
-+	int err;
-+
-+	if (size & 3)
-+		return -EINVAL;
-+	if (addr & 3)
-+		return -EINVAL;
-+	if (size > MLX5_FPGA_ACCESS_REG_SIZE_MAX)
-+		return -EINVAL;
-+
-+	MLX5_SET(fpga_access_reg, in, size, size);
-+	MLX5_SET64(fpga_access_reg, in, address, addr);
-+	if (write)
-+		memcpy(MLX5_ADDR_OF(fpga_access_reg, in, data), buf, size);
-+
-+	err = mlx5_core_access_reg(dev, in, sizeof(in), out, sizeof(out),
-+				   MLX5_REG_FPGA_ACCESS_REG, 0, write);
-+	if (err)
-+		return err;
-+
-+	if (!write)
-+		memcpy(buf, MLX5_ADDR_OF(fpga_access_reg, out, data), size);
-+
-+	return 0;
-+}
-+
- int mlx5_fpga_caps(struct mlx5_core_dev *dev, u32 *caps)
- {
- 	u32 in[MLX5_ST_SZ_DW(fpga_cap)] = {0};
-@@ -58,6 +91,38 @@ int mlx5_fpga_ctrl_op(struct mlx5_core_dev *dev, u8 op)
- 				    MLX5_REG_FPGA_CTRL, 0, true);
+@@ -47,6 +47,17 @@ int mlx5_fpga_caps(struct mlx5_core_dev *dev, u32 *caps)
+ 				    MLX5_REG_FPGA_CAP, 0, 0);
  }
  
-+int mlx5_fpga_sbu_caps(struct mlx5_core_dev *dev, void *caps, int size)
++int mlx5_fpga_ctrl_op(struct mlx5_core_dev *dev, u8 op)
 +{
-+	unsigned int cap_size = MLX5_CAP_FPGA(dev, sandbox_extended_caps_len);
-+	u64 addr = MLX5_CAP64_FPGA(dev, sandbox_extended_caps_addr);
-+	unsigned int read;
-+	int ret = 0;
++	u32 in[MLX5_ST_SZ_DW(fpga_ctrl)] = {0};
++	u32 out[MLX5_ST_SZ_DW(fpga_ctrl)];
 +
-+	if (cap_size > size) {
-+		mlx5_core_warn(dev, "Not enough buffer %u for FPGA SBU caps %u",
-+			       size, cap_size);
-+		return -EINVAL;
-+	}
++	MLX5_SET(fpga_ctrl, in, operation, op);
 +
-+	while (cap_size > 0) {
-+		read = min_t(unsigned int, cap_size,
-+			     MLX5_FPGA_ACCESS_REG_SIZE_MAX);
-+
-+		ret = mlx5_fpga_access_reg(dev, read, addr, caps, false);
-+		if (ret) {
-+			mlx5_core_warn(dev, "Error reading FPGA SBU caps %u bytes at address 0x%llx: %d",
-+				       read, addr, ret);
-+			return ret;
-+		}
-+
-+		cap_size -= read;
-+		addr += read;
-+		caps += read;
-+	}
-+
-+	return ret;
++	return mlx5_core_access_reg(dev, in, sizeof(in), out, sizeof(out),
++				    MLX5_REG_FPGA_CTRL, 0, true);
 +}
 +
  int mlx5_fpga_query(struct mlx5_core_dev *dev, struct mlx5_fpga_query *query)
  {
  	u32 in[MLX5_ST_SZ_DW(fpga_ctrl)] = {0};
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h
-index 8943056163f3..94bdfd47c3f0 100644
+index b851580d846f..8943056163f3 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h
-@@ -68,6 +68,9 @@ struct mlx5_fpga_qp_counters {
+@@ -67,6 +67,7 @@ struct mlx5_fpga_qp_counters {
+ 
  int mlx5_fpga_caps(struct mlx5_core_dev *dev, u32 *caps);
  int mlx5_fpga_query(struct mlx5_core_dev *dev, struct mlx5_fpga_query *query);
- int mlx5_fpga_ctrl_op(struct mlx5_core_dev *dev, u8 op);
-+int mlx5_fpga_access_reg(struct mlx5_core_dev *dev, u8 size, u64 addr,
-+			 void *buf, bool write);
-+int mlx5_fpga_sbu_caps(struct mlx5_core_dev *dev, void *caps, int size);
++int mlx5_fpga_ctrl_op(struct mlx5_core_dev *dev, u8 op);
  
  int mlx5_fpga_create_qp(struct mlx5_core_dev *dev, void *fpga_qpc,
  			u32 *fpga_qpn);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.c b/drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.c
-new file mode 100644
-index 000000000000..3c11d6e2160a
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.c
-@@ -0,0 +1,164 @@
-+/*
-+ * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ *
-+ */
-+
-+#include <linux/mlx5/device.h>
-+
-+#include "fpga/core.h"
-+#include "fpga/conn.h"
-+#include "fpga/sdk.h"
-+
-+struct mlx5_fpga_conn *
-+mlx5_fpga_sbu_conn_create(struct mlx5_fpga_device *fdev,
-+			  struct mlx5_fpga_conn_attr *attr)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c b/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c
+index 7f859a3ad5d2..31e5a2627eb8 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c
+@@ -102,6 +102,29 @@ static int mlx5_fpga_device_load_check(struct mlx5_fpga_device *fdev)
+ 	return 0;
+ }
+ 
++int mlx5_fpga_device_brb(struct mlx5_fpga_device *fdev)
 +{
-+	return mlx5_fpga_conn_create(fdev, attr, MLX5_FPGA_QPC_QP_TYPE_SANDBOX_QP);
-+}
-+EXPORT_SYMBOL(mlx5_fpga_sbu_conn_create);
-+
-+void mlx5_fpga_sbu_conn_destroy(struct mlx5_fpga_conn *conn)
-+{
-+	mlx5_fpga_conn_destroy(conn);
-+}
-+EXPORT_SYMBOL(mlx5_fpga_sbu_conn_destroy);
-+
-+int mlx5_fpga_sbu_conn_sendmsg(struct mlx5_fpga_conn *conn,
-+			       struct mlx5_fpga_dma_buf *buf)
-+{
-+	return mlx5_fpga_conn_send(conn, buf);
-+}
-+EXPORT_SYMBOL(mlx5_fpga_sbu_conn_sendmsg);
-+
-+static int mlx5_fpga_mem_read_i2c(struct mlx5_fpga_device *fdev, size_t size,
-+				  u64 addr, u8 *buf)
-+{
-+	size_t max_size = MLX5_FPGA_ACCESS_REG_SIZE_MAX;
-+	size_t bytes_done = 0;
-+	u8 actual_size;
 +	int err;
++	struct mlx5_core_dev *mdev = fdev->mdev;
 +
-+	if (!fdev->mdev)
-+		return -ENOTCONN;
++	err = mlx5_fpga_ctrl_op(mdev, MLX5_FPGA_CTRL_OPERATION_SANDBOX_BYPASS_ON);
++	if (err) {
++		mlx5_fpga_err(fdev, "Failed to set bypass on: %d\n", err);
++		return err;
++	}
++	err = mlx5_fpga_ctrl_op(mdev, MLX5_FPGA_CTRL_OPERATION_RESET_SANDBOX);
++	if (err) {
++		mlx5_fpga_err(fdev, "Failed to reset SBU: %d\n", err);
++		return err;
++	}
++	err = mlx5_fpga_ctrl_op(mdev, MLX5_FPGA_CTRL_OPERATION_SANDBOX_BYPASS_OFF);
++	if (err) {
++		mlx5_fpga_err(fdev, "Failed to set bypass off: %d\n", err);
++		return err;
++	}
++	return 0;
++}
 +
-+	while (bytes_done < size) {
-+		actual_size = min(max_size, (size - bytes_done));
+ int mlx5_fpga_device_start(struct mlx5_core_dev *mdev)
+ {
+ 	struct mlx5_fpga_device *fdev = mdev->fpga;
+@@ -135,8 +158,17 @@ int mlx5_fpga_device_start(struct mlx5_core_dev *mdev)
+ 	if (err)
+ 		goto err_rsvd_gid;
+ 
++	if (fdev->last_oper_image == MLX5_FPGA_IMAGE_USER) {
++		err = mlx5_fpga_device_brb(fdev);
++		if (err)
++			goto err_conn_init;
++	}
 +
-+		err = mlx5_fpga_access_reg(fdev->mdev, actual_size,
-+					   addr + bytes_done,
-+					   buf + bytes_done, false);
-+		if (err) {
-+			mlx5_fpga_err(fdev, "Failed to read over I2C: %d\n",
+ 	goto out;
+ 
++err_conn_init:
++	mlx5_fpga_conn_device_cleanup(fdev);
++
+ err_rsvd_gid:
+ 	mlx5_core_unreserve_gids(mdev, max_num_qps);
+ out:
+@@ -172,6 +204,7 @@ void mlx5_fpga_device_stop(struct mlx5_core_dev *mdev)
+ 	struct mlx5_fpga_device *fdev = mdev->fpga;
+ 	unsigned int max_num_qps;
+ 	unsigned long flags;
++	int err;
+ 
+ 	if (!fdev)
+ 		return;
+@@ -184,6 +217,13 @@ void mlx5_fpga_device_stop(struct mlx5_core_dev *mdev)
+ 	fdev->state = MLX5_FPGA_STATUS_NONE;
+ 	spin_unlock_irqrestore(&fdev->state_lock, flags);
+ 
++	if (fdev->last_oper_image == MLX5_FPGA_IMAGE_USER) {
++		err = mlx5_fpga_ctrl_op(mdev, MLX5_FPGA_CTRL_OPERATION_SANDBOX_BYPASS_ON);
++		if (err)
++			mlx5_fpga_err(fdev, "Failed to re-set SBU bypass on: %d\n",
 +				      err);
-+			break;
-+		}
-+
-+		bytes_done += actual_size;
 +	}
 +
-+	return err;
-+}
-+
-+static int mlx5_fpga_mem_write_i2c(struct mlx5_fpga_device *fdev, size_t size,
-+				   u64 addr, u8 *buf)
-+{
-+	size_t max_size = MLX5_FPGA_ACCESS_REG_SIZE_MAX;
-+	size_t bytes_done = 0;
-+	u8 actual_size;
-+	int err;
-+
-+	if (!fdev->mdev)
-+		return -ENOTCONN;
-+
-+	while (bytes_done < size) {
-+		actual_size = min(max_size, (size - bytes_done));
-+
-+		err = mlx5_fpga_access_reg(fdev->mdev, actual_size,
-+					   addr + bytes_done,
-+					   buf + bytes_done, true);
-+		if (err) {
-+			mlx5_fpga_err(fdev, "Failed to write FPGA crspace\n");
-+			break;
-+		}
-+
-+		bytes_done += actual_size;
-+	}
-+
-+	return err;
-+}
-+
-+int mlx5_fpga_mem_read(struct mlx5_fpga_device *fdev, size_t size, u64 addr,
-+		       void *buf, enum mlx5_fpga_access_type access_type)
-+{
-+	int ret;
-+
-+	switch (access_type) {
-+	case MLX5_FPGA_ACCESS_TYPE_I2C:
-+		ret = mlx5_fpga_mem_read_i2c(fdev, size, addr, buf);
-+		if (ret)
-+			return ret;
-+		break;
-+	default:
-+		mlx5_fpga_warn(fdev, "Unexpected read access_type %u\n",
-+			       access_type);
-+		return -EACCES;
-+	}
-+
-+	return size;
-+}
-+EXPORT_SYMBOL(mlx5_fpga_mem_read);
-+
-+int mlx5_fpga_mem_write(struct mlx5_fpga_device *fdev, size_t size, u64 addr,
-+			void *buf, enum mlx5_fpga_access_type access_type)
-+{
-+	int ret;
-+
-+	switch (access_type) {
-+	case MLX5_FPGA_ACCESS_TYPE_I2C:
-+		ret = mlx5_fpga_mem_write_i2c(fdev, size, addr, buf);
-+		if (ret)
-+			return ret;
-+		break;
-+	default:
-+		mlx5_fpga_warn(fdev, "Unexpected write access_type %u\n",
-+			       access_type);
-+		return -EACCES;
-+	}
-+
-+	return size;
-+}
-+EXPORT_SYMBOL(mlx5_fpga_mem_write);
-+
-+int mlx5_fpga_get_sbu_caps(struct mlx5_fpga_device *fdev, int size, void *buf)
-+{
-+	return mlx5_fpga_sbu_caps(fdev->mdev, buf, size);
-+}
-+EXPORT_SYMBOL(mlx5_fpga_get_sbu_caps);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.h b/drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.h
-index 331798d99a37..baa537e54a49 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.h
-@@ -42,6 +42,11 @@
-  * This header defines the in-kernel API for Innova FPGA client drivers.
-  */
- 
-+enum mlx5_fpga_access_type {
-+	MLX5_FPGA_ACCESS_TYPE_I2C = 0x0,
-+	MLX5_FPGA_ACCESS_TYPE_DONTCARE = 0x0,
-+};
-+
- struct mlx5_fpga_conn;
- struct mlx5_fpga_device;
- 
-@@ -103,4 +108,97 @@ struct mlx5_fpga_conn_attr {
- 	void *cb_arg;
- };
- 
-+/**
-+ * mlx5_fpga_sbu_conn_create() - Initialize a new FPGA SBU connection
-+ * @fdev: The FPGA device
-+ * @attr: Attributes of the new connection
-+ *
-+ * Sets up a new FPGA SBU connection with the specified attributes.
-+ * The receive callback function may be called for incoming messages even
-+ * before this function returns.
-+ *
-+ * The caller must eventually destroy the connection by calling
-+ * mlx5_fpga_sbu_conn_destroy.
-+ *
-+ * Return: A new connection, or ERR_PTR() error value otherwise.
-+ */
-+struct mlx5_fpga_conn *
-+mlx5_fpga_sbu_conn_create(struct mlx5_fpga_device *fdev,
-+			  struct mlx5_fpga_conn_attr *attr);
-+
-+/**
-+ * mlx5_fpga_sbu_conn_destroy() - Destroy an FPGA SBU connection
-+ * @conn: The FPGA SBU connection to destroy
-+ *
-+ * Cleans up an FPGA SBU connection which was previously created with
-+ * mlx5_fpga_sbu_conn_create.
-+ */
-+void mlx5_fpga_sbu_conn_destroy(struct mlx5_fpga_conn *conn);
-+
-+/**
-+ * mlx5_fpga_sbu_conn_sendmsg() - Queue the transmission of a packet
-+ * @fdev: An FPGA SBU connection
-+ * @buf: The packet buffer
-+ *
-+ * Queues a packet for transmission over an FPGA SBU connection.
-+ * The buffer should not be modified or freed until completion.
-+ * Upon completion, the buf's complete() callback is invoked, indicating the
-+ * success or error status of the transmission.
-+ *
-+ * Return: 0 if successful, or an error value otherwise.
-+ */
-+int mlx5_fpga_sbu_conn_sendmsg(struct mlx5_fpga_conn *conn,
-+			       struct mlx5_fpga_dma_buf *buf);
-+
-+/**
-+ * mlx5_fpga_mem_read() - Read from FPGA memory address space
-+ * @fdev: The FPGA device
-+ * @size: Size of chunk to read, in bytes
-+ * @addr: Starting address to read from, in FPGA address space
-+ * @buf: Buffer to read into
-+ * @access_type: Method for reading
-+ *
-+ * Reads from the specified address into the specified buffer.
-+ * The address may point to configuration space or to DDR.
-+ * Large reads may be performed internally as several non-atomic operations.
-+ * This function may sleep, so should not be called from atomic contexts.
-+ *
-+ * Return: 0 if successful, or an error value otherwise.
-+ */
-+int mlx5_fpga_mem_read(struct mlx5_fpga_device *fdev, size_t size, u64 addr,
-+		       void *buf, enum mlx5_fpga_access_type access_type);
-+
-+/**
-+ * mlx5_fpga_mem_write() - Write to FPGA memory address space
-+ * @fdev: The FPGA device
-+ * @size: Size of chunk to write, in bytes
-+ * @addr: Starting address to write to, in FPGA address space
-+ * @buf: Buffer which contains data to write
-+ * @access_type: Method for writing
-+ *
-+ * Writes the specified buffer data to FPGA memory at the specified address.
-+ * The address may point to configuration space or to DDR.
-+ * Large writes may be performed internally as several non-atomic operations.
-+ * This function may sleep, so should not be called from atomic contexts.
-+ *
-+ * Return: 0 if successful, or an error value otherwise.
-+ */
-+int mlx5_fpga_mem_write(struct mlx5_fpga_device *fdev, size_t size, u64 addr,
-+			void *buf, enum mlx5_fpga_access_type access_type);
-+
-+/**
-+ * mlx5_fpga_get_sbu_caps() - Read the SBU capabilities
-+ * @fdev: The FPGA device
-+ * @size: Size of the buffer to read into
-+ * @buf: Buffer to read the capabilities into
-+ *
-+ * Reads the FPGA SBU capabilities into the specified buffer.
-+ * The format of the capabilities buffer is SBU-dependent.
-+ *
-+ * Return: 0 if successful
-+ *         -EINVAL if the buffer is not large enough to contain SBU caps
-+ *         or any other error value otherwise.
-+ */
-+int mlx5_fpga_get_sbu_caps(struct mlx5_fpga_device *fdev, int size, void *buf);
-+
- #endif /* MLX5_FPGA_SDK_H */
-diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
-index 556e1c31b5d0..f31a0b5377e1 100644
---- a/include/linux/mlx5/device.h
-+++ b/include/linux/mlx5/device.h
-@@ -1103,6 +1103,9 @@ enum mlx5_mcam_feature_groups {
- #define MLX5_CAP_FPGA(mdev, cap) \
- 	MLX5_GET(fpga_cap, (mdev)->caps.hca_cur[MLX5_CAP_FPGA], cap)
- 
-+#define MLX5_CAP64_FPGA(mdev, cap) \
-+	MLX5_GET64(fpga_cap, (mdev)->caps.hca_cur[MLX5_CAP_FPGA], cap)
-+
- enum {
- 	MLX5_CMD_STAT_OK			= 0x0,
- 	MLX5_CMD_STAT_INT_ERR			= 0x1,
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index 32b0835d4491..2ab4ae3e3a1a 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -111,6 +111,7 @@ enum {
- 	MLX5_REG_DCBX_APP        = 0x4021,
- 	MLX5_REG_FPGA_CAP	 = 0x4022,
- 	MLX5_REG_FPGA_CTRL	 = 0x4023,
-+	MLX5_REG_FPGA_ACCESS_REG = 0x4024,
- 	MLX5_REG_PCAP		 = 0x5001,
- 	MLX5_REG_PMTU		 = 0x5003,
- 	MLX5_REG_PTYS		 = 0x5004,
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index a8b3fcaa33ff..c72f9735119d 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -8309,6 +8309,7 @@ union mlx5_ifc_ports_control_registers_document_bits {
- 	struct mlx5_ifc_sltp_reg_bits sltp_reg;
- 	struct mlx5_ifc_mtpps_reg_bits mtpps_reg;
- 	struct mlx5_ifc_mtppse_reg_bits mtppse_reg;
-+	struct mlx5_ifc_fpga_access_reg_bits fpga_access_reg;
- 	struct mlx5_ifc_fpga_ctrl_bits fpga_ctrl_bits;
- 	struct mlx5_ifc_fpga_cap_bits fpga_cap_bits;
- 	struct mlx5_ifc_mcqi_reg_bits mcqi_reg;
+ 	mlx5_fpga_conn_device_cleanup(fdev);
+ 	max_num_qps = MLX5_CAP_FPGA(mdev, shell_caps.max_num_qps);
+ 	mlx5_core_unreserve_gids(mdev, max_num_qps);
 diff --git a/include/linux/mlx5/mlx5_ifc_fpga.h b/include/linux/mlx5/mlx5_ifc_fpga.h
-index 0694077c9634..a3576654179e 100644
+index 30d4b697fab6..0694077c9634 100644
 --- a/include/linux/mlx5/mlx5_ifc_fpga.h
 +++ b/include/linux/mlx5/mlx5_ifc_fpga.h
-@@ -150,6 +150,19 @@ struct mlx5_ifc_fpga_error_event_bits {
- 	u8         reserved_at_60[0x80];
+@@ -108,6 +108,15 @@ struct mlx5_ifc_fpga_cap_bits {
+ 	u8         reserved_at_500[0x300];
  };
  
-+#define MLX5_FPGA_ACCESS_REG_SIZE_MAX 64
-+
-+struct mlx5_ifc_fpga_access_reg_bits {
-+	u8         reserved_at_0[0x20];
-+
-+	u8         reserved_at_20[0x10];
-+	u8         size[0x10];
-+
-+	u8         address[0x40];
-+
-+	u8         data[0][0x8];
++enum {
++	MLX5_FPGA_CTRL_OPERATION_LOAD                = 0x1,
++	MLX5_FPGA_CTRL_OPERATION_RESET               = 0x2,
++	MLX5_FPGA_CTRL_OPERATION_FLASH_SELECT        = 0x3,
++	MLX5_FPGA_CTRL_OPERATION_SANDBOX_BYPASS_ON   = 0x4,
++	MLX5_FPGA_CTRL_OPERATION_SANDBOX_BYPASS_OFF  = 0x5,
++	MLX5_FPGA_CTRL_OPERATION_RESET_SANDBOX       = 0x6,
 +};
 +
- enum mlx5_ifc_fpga_qp_state {
- 	MLX5_FPGA_QPC_STATE_INIT    = 0x0,
- 	MLX5_FPGA_QPC_STATE_ACTIVE  = 0x1,
+ struct mlx5_ifc_fpga_ctrl_bits {
+ 	u8         reserved_at_0[0x8];
+ 	u8         operation[0x8];
 -- 
 2.11.0
