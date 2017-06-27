@@ -1,106 +1,82 @@
-From: Madalin-cristian Bucur <madalin.bucur@nxp.com>
-Subject: RE: [PATCH 1/2] fsl/fman: propagate dma_ops
-Date: Tue, 27 Jun 2017 06:49:06 +0000
-Message-ID: <AM5PR0402MB2691DEA503F55351B65EA433ECDC0@AM5PR0402MB2691.eurprd04.prod.outlook.com>
-References: <1497884657-3744-1-git-send-email-madalin.bucur@nxp.com>
- <1497884657-3744-2-git-send-email-madalin.bucur@nxp.com>
- <CAMuHMdU6hkU03s2ZBYEYdOqO3M1djbjZ0YKw8VbHYEvsNxLZxw@mail.gmail.com>
- <AM5PR0402MB26914A0A9BB0877F420848B9ECDF0@AM5PR0402MB2691.eurprd04.prod.outlook.com>
- <CAMuHMdXAKTBGiFc37jQjjCV_9Mb2SE2t7KHWASSwdMcFpFKmrA@mail.gmail.com>
+From: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+Subject: [PATCH] datapath: Avoid using stack larger than 1024.
+Date: Tue, 27 Jun 2017 00:03:03 -0700
+Message-ID: <1498546983-84649-1-git-send-email-xiangxia.m.yue@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr50046.outbound.protection.outlook.com ([40.107.5.46]:64384
-        "EHLO EUR03-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751492AbdF0GtK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 27 Jun 2017 02:49:10 -0400
-In-Reply-To: <CAMuHMdXAKTBGiFc37jQjjCV_9Mb2SE2t7KHWASSwdMcFpFKmrA@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35249 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752132AbdF0HD1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 03:03:27 -0400
+Received: by mail-pg0-f68.google.com with SMTP id f127so3196186pgc.2
+        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 00:03:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBnZWVydC51eXR0ZXJob2V2ZW5A
-Z21haWwuY29tIFttYWlsdG86Z2VlcnQudXl0dGVyaG9ldmVuQGdtYWlsLmNvbV0NCj4gT24gQmVo
-YWxmIE9mIEdlZXJ0IFV5dHRlcmhvZXZlbg0KPiBTZW50OiBNb25kYXksIEp1bmUgMjYsIDIwMTcg
-NzoyNCBQTQ0KPiBUbzogTWFkYWxpbi1jcmlzdGlhbiBCdWN1ciA8bWFkYWxpbi5idWN1ckBueHAu
-Y29tPg0KPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgRGF2aWQgUy4gTWlsbGVyIDxkYXZl
-bUBkYXZlbWxvZnQubmV0PjsNCj4gbGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmc7IGxpbnV4
-LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSCAxLzJdIGZzbC9m
-bWFuOiBwcm9wYWdhdGUgZG1hX29wcw0KPiANCj4gSGkgTWFkYWxpbiwNCj4gDQo+IE9uIE1vbiwg
-SnVuIDI2LCAyMDE3IGF0IDQ6NTUgUE0sIE1hZGFsaW4tY3Jpc3RpYW4gQnVjdXINCj4gPG1hZGFs
-aW4uYnVjdXJAbnhwLmNvbT4gd3JvdGU6DQo+ID4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0t
-DQo+ID4+IEZyb206IGdlZXJ0LnV5dHRlcmhvZXZlbkBnbWFpbC5jb20NCj4gW21haWx0bzpnZWVy
-dC51eXR0ZXJob2V2ZW5AZ21haWwuY29tXQ0KPiA+PiBPbiBCZWhhbGYgT2YgR2VlcnQgVXl0dGVy
-aG9ldmVuDQo+ID4+IFNlbnQ6IE1vbmRheSwgSnVuZSAyNiwgMjAxNyAxMDo0OSBBTQ0KPiA+PiBU
-bzogTWFkYWxpbi1jcmlzdGlhbiBCdWN1ciA8bWFkYWxpbi5idWN1ckBueHAuY29tPg0KPiA+PiBD
-YzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgRGF2aWQgUy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxv
-ZnQubmV0PjsNCj4gPj4gbGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmc7IGxpbnV4LWtlcm5l
-bEB2Z2VyLmtlcm5lbC5vcmcNCj4gPj4gU3ViamVjdDogUmU6IFtQQVRDSCAxLzJdIGZzbC9mbWFu
-OiBwcm9wYWdhdGUgZG1hX29wcw0KPiA+Pg0KPiA+IE9uIE1vbiwgSnVuIDE5LCAyMDE3IGF0IDU6
-MDQgUE0sIE1hZGFsaW4gQnVjdXIgPG1hZGFsaW4uYnVjdXJAbnhwLmNvbT4NCj4gPj4gd3JvdGU6
-DQo+ID4+ID4gTWFrZSBzdXJlIGRtYV9vcHMgYXJlIHNldCwgdG8gYmUgbGF0ZXIgdXNlZCBieSB0
-aGUgRXRoZXJuZXQgZHJpdmVyLg0KPiA+PiA+DQo+ID4+ID4gU2lnbmVkLW9mZi1ieTogTWFkYWxp
-biBCdWN1ciA8bWFkYWxpbi5idWN1ckBueHAuY29tPg0KPiA+PiA+IC0tLQ0KPiA+PiA+ICBkcml2
-ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9tYWMuYyB8IDIgKysNCj4gPj4gPiAgMSBm
-aWxlIGNoYW5nZWQsIDIgaW5zZXJ0aW9ucygrKQ0KPiA+PiA+DQo+ID4+ID4gZGlmZiAtLWdpdCBh
-L2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL21hYy5jDQo+ID4+IGIvZHJpdmVy
-cy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vbWFjLmMNCj4gPj4gPiBpbmRleCAwYjMxZjg1
-Li42ZTY3ZDIyZiAxMDA2NDQNCj4gPj4gPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVl
-c2NhbGUvZm1hbi9tYWMuYw0KPiA+PiA+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVz
-Y2FsZS9mbWFuL21hYy5jDQo+ID4+ID4gQEAgLTYyMyw2ICs2MjMsOCBAQCBzdGF0aWMgc3RydWN0
-IHBsYXRmb3JtX2RldmljZQ0KPiA+PiAqZHBhYV9ldGhfYWRkX2RldmljZShpbnQgZm1hbl9pZCwN
-Cj4gPj4gPiAgICAgICAgICAgICAgICAgZ290byBub19tZW07DQo+ID4+ID4gICAgICAgICB9DQo+
-ID4+ID4NCj4gPj4gPiArICAgICAgIHNldF9kbWFfb3BzKCZwZGV2LT5kZXYsIGdldF9kbWFfb3Bz
-KHByaXYtPmRldikpOw0KPiA+PiA+ICsNCj4gPj4NCj4gPj4gV2hlbiBjb21waWxlLXRlc3Rpbmcg
-d2l0aCBmIE5PX0RNQT15Og0KPiA+Pg0KPiA+PiAgICAgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJl
-ZXNjYWxlL2ZtYW4vbWFjLmM6IEluIGZ1bmN0aW9uDQo+ID4+IOKAmGRwYWFfZXRoX2FkZF9kZXZp
-Y2XigJk6DQo+ID4+ICAgICBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9tYWMu
-Yzo2MjY6IGVycm9yOiBpbXBsaWNpdA0KPiA+PiBkZWNsYXJhdGlvbiBvZiBmdW5jdGlvbiDigJhz
-ZXRfZG1hX29wc+KAmQ0KPiA+Pg0KPiA+PiBSZXZlcnRpbmcgY29tbWl0IDU1NjdlOTg5MTk4YjVh
-OGQgZml4ZXMgdGhpcyByZWdyZXNzaW9uIGluIHY0LjEyLXJjNy4NCj4gPj4NCj4gPj4gV2h5IGlz
-IHRoaXMgY2hhbmdlIG5lZWRlZD8NCj4gPj4gVGhlcmUncyBubyBzaW5nbGUgb3RoZXIgY2FsbCB0
-byB0aGUgRE1BIEFQSSBpbiB0aGlzIGZpbGU/DQo+ID4NCj4gPiBXZSdyZSBzZXR0aW5nIGhlcmUg
-dGhlIGRtYV9vcHMgdGhhdCBhcmUgbGF0ZXIgdXNlZCBpbiB0aGUgb3RoZXINCj4gZHJpdmVyL3Bh
-dGNoLg0KPiA+IFRoZSBwcm9ibGVtIGlzIHdlIG5vdyBkZXBlbmQgdXBvbiBETUEgYnV0IGRvIG5v
-dCBleHBsaWNpdGx5IGRlY2xhcmUgaXQ6DQo+ID4NCj4gPiA8PENvZGUgdGhhdCBkZXBlbmRzIG9u
-IHRoZSBkbWEtbWFwcGluZyBBUEkgbmVlZHMgdG8gc2V0ICdkZXBlbmRzIG9uDQo+IEhBU19ETUEn
-DQo+ID4gaW4gaXRzIEtjb25maWc+Pg0KPiANCj4gU3VyZS4gQnV0IG9ubHkgaWYgdGhlIGRyaXZl
-ciByZWFsbHkgdXNlcyBETUEuDQo+IEkgY2FuIHN0aWNrIGEgc2V0X2RtYV9vcHMoKSBjYWxsIGlu
-IHdoYXRldmVyIGRyaXZlciwgYnV0IHRoYXQgZG9lc24ndA0KPiBtZWFuIGl0IHdpbGwNCj4gc3Vk
-ZGVubHkgdXNlIERNQS4NCj4gV2h5IGRvZXMgdGhlIEZNYW4gZHJpdmVyIHN1ZGRlbmx5IGhhcyBh
-IGRlcGVuZGVuY3kgb24gRE1BLCBpZiBpdCBkb2Vzbid0DQo+IHVzZSBETUE/DQo+IA0KPiA+IEkn
-bGwgbmVlZCB0byBhZGQgdGhpcyB0byB0aGUgRk1hbiBkcml2ZXIgS2NvbmZpZy4NCj4gDQo+IFdo
-eSBkb2VzIHRoZSBGTWFuIGRyaXZlciBuZWVkIHRoaXM/DQo+IFdoeSBjYW4ndCBoaXMgY2FsbCBi
-ZSBkb25lIGluIHRoZSBkcml2ZXIgdGhhdCB1c2VzIHRoZSBETUEgQVBJTz8NCg0KVGhlIERQQUEg
-RXRoZXJuZXQgZHJpdmVyIG1ha2VzIHVzZSBvZiBETUEgb3BzLiBJdCB1c2VkIHRvIGdldCB0aGVt
-IGZyb20NCmFuIEFQSSBjYWxsIChhcmNoX3NldHVwX2RtYV9vcHMpIHRoYXQgd2FzIG5vdCBleHBv
-cnRlZC4gVGhlIERQQUEgRXRoZXJuZXQNCnRoYXQgbWFrZXMgdXNlIG9mIHRoZSBGTWFuIGRldmlj
-ZXMgZG9lcyBub3QgZ2V0IHRoZSBkbWFfb3BzIGFzIGl0IGRvZXMgbm90DQpwcm9iZSBuZWl0aGVy
-IGFzIGFuIE9GIHBsYXRmb3JtIGRldmljZSBub3IgdGhvcm91Z2ggQUNQSS4gSXQgcHJvYmVzIGFz
-IGENCnBsYXRmb3JtIGRldmljZSBiYXNlZCBvbiBpbmZvcm1hdGlvbiBwcmVwYXJlZCBieSB0aGUg
-Rk1hbiBkcml2ZXIuIFdoYXQgdGhlDQpGTWFuIGNoYW5nZSBbMV0gZG9lcyBpcyBzdXBwbGVtZW50
-IHRoZSBpbmZvcm1hdGlvbiBzaGFyZWQgd2l0aCB0aGUgRXRoZXJuZXQNCmRyaXZlciB3aXRoIHRo
-ZSBkbWFfb3BzIHRoYXQgdGhlIEZNYW4gZHJpdmVyIGdldHMgZHVyaW5nIE9GIHByb2JpbmcuIFRo
-ZXJlDQphcmUgbm8gc2NlbmFyaW9zIG9uZSBjYW4gdXNlIHRoZSBEUEFBIGRyaXZlcnMgd2l0aCBO
-T19ETUEsIGFzIGZhciBhcyBJIGtub3cuDQoNCkZvciBnZW5lcmFsIGluZm8gb24gdGhlIERQQUEg
-ZHJpdmVycyBwbGVhc2UgcmVmZXIgdG8gdGhlIGRvY3VtZW50YXRpb24NCmZvdW5kIGluIERvY3Vt
-ZW50YXRpb24vbmV0d29ya2luZy9kcGFhLnR4dC4gRm9yIHRoZSBwcm9iaW5nIG9mIHRoZSBFdGhl
-cm5ldA0KZHJpdmVyIHNlZSBjaGFuZ2UgWzJdIGFuZCBkcGFhX2V0aF9hZGRfZGV2aWNlKCkgaW4g
-ZnNsL2ZtYW4sIGRwYWFfZXRoX3Byb2JlKCkNCmluIGRwYWFfZXRoLg0KIA0KWzFdIDU1NjdlOTg5
-MTk4YjVhOGQgZnNsL2ZtYW46IHByb3BhZ2F0ZSBkbWFfb3BzDQpbMl0gZmI1MjcyOGE5Mjk0ZDk3
-ZCBkcGFhX2V0aDogcmV1c2UgdGhlIGRtYV9vcHMgcHJvdmlkZWQgYnkgdGhlIEZNYW4gTUFDIGRl
-dmljZQ0KDQo+IEdye29ldGplLGVldGluZ31zLA0KPiANCj4gICAgICAgICAgICAgICAgICAgICAg
-ICAgR2VlcnQNCj4gDQo+IC0tDQo+IEdlZXJ0IFV5dHRlcmhvZXZlbiAtLSBUaGVyZSdzIGxvdHMg
-b2YgTGludXggYmV5b25kIGlhMzIgLS0gZ2VlcnRAbGludXgtDQo+IG02OGsub3JnDQo+IA0KPiBJ
-biBwZXJzb25hbCBjb252ZXJzYXRpb25zIHdpdGggdGVjaG5pY2FsIHBlb3BsZSwgSSBjYWxsIG15
-c2VsZiBhIGhhY2tlci4NCj4gQnV0DQo+IHdoZW4gSSdtIHRhbGtpbmcgdG8gam91cm5hbGlzdHMg
-SSBqdXN0IHNheSAicHJvZ3JhbW1lciIgb3Igc29tZXRoaW5nIGxpa2UNCj4gdGhhdC4NCj4gICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAtLSBMaW51cyBUb3J2YWxkcw0KDQpUaGFua3Ms
-DQpNYWRhbGluDQo=
+When compiling OvS-master on 4.4.0-81 kernel,
+there is a warning:
+
+    CC [M]  /root/ovs/datapath/linux/datapath.o
+    /root/ovs/datapath/linux/datapath.c: In function
+    ‘ovs_flow_cmd_set’:
+    /root/ovs/datapath/linux/datapath.c:1221:1: warning:
+    the frame size of 1040 bytes is larger than 1024 bytes
+    [-Wframe-larger-than=]
+
+This patch use kmalloc to malloc mem for sw_flow_mask and
+avoid using stack.
+
+Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+---
+ datapath/datapath.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/datapath/datapath.c b/datapath/datapath.c
+index c85029c..da8cd68 100644
+--- a/datapath/datapath.c
++++ b/datapath/datapath.c
+@@ -1107,7 +1107,7 @@ static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
+ 	struct ovs_header *ovs_header = info->userhdr;
+ 	struct sw_flow_key key;
+ 	struct sw_flow *flow;
+-	struct sw_flow_mask mask;
++	struct sw_flow_mask *mask;
+ 	struct sk_buff *reply = NULL;
+ 	struct datapath *dp;
+ 	struct sw_flow_actions *old_acts = NULL, *acts = NULL;
+@@ -1120,7 +1120,11 @@ static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
+ 
+ 	ufid_present = ovs_nla_get_ufid(&sfid, a[OVS_FLOW_ATTR_UFID], log);
+ 	if (a[OVS_FLOW_ATTR_KEY]) {
+-		ovs_match_init(&match, &key, true, &mask);
++		mask = kmalloc(sizeof(struct sw_flow_mask), GFP_KERNEL);
++		if (!mask)
++			return -ENOMEM;
++
++		ovs_match_init(&match, &key, true, mask);
+ 		error = ovs_nla_get_match(net, &match, a[OVS_FLOW_ATTR_KEY],
+ 					  a[OVS_FLOW_ATTR_MASK], log);
+ 	} else if (!ufid_present) {
+@@ -1141,7 +1145,7 @@ static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
+ 		}
+ 
+ 		acts = get_flow_actions(net, a[OVS_FLOW_ATTR_ACTIONS], &key,
+-					&mask, log);
++					mask, log);
+ 		if (IS_ERR(acts)) {
+ 			error = PTR_ERR(acts);
+ 			goto error;
+@@ -1216,6 +1220,7 @@ err_unlock_ovs:
+ err_kfree_acts:
+ 	ovs_nla_free_flow_actions(acts);
+ error:
++	kfree(mask);
+ 	return error;
+ }
+ 
+-- 
+1.8.3.1
