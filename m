@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 14/16] net/mlx5e: IPSec, Add Innova IPSec offload RX data path
-Date: Tue, 27 Jun 2017 17:28:54 +0300
-Message-ID: <20170627142856.9448-15-saeedm@mellanox.com>
+Subject: [net-next 11/16] net/mlx5: FPGA, Add SBU infrastructure
+Date: Tue, 27 Jun 2017 17:28:51 +0300
+Message-ID: <20170627142856.9448-12-saeedm@mellanox.com>
 References: <20170627142856.9448-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
         Ilan Tayari <ilant@mellanox.com>,
@@ -13,127 +13,169 @@ Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50731 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50444 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752712AbdF0OaZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 10:30:25 -0400
+        with ESMTP id S1752198AbdF0OaT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 10:30:19 -0400
 In-Reply-To: <20170627142856.9448-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ilan Tayari <ilant@mellanox.com>
 
-In RX data path, the hardware prepends a special metadata ethertype
-which indicates that the packet underwent decryption, and the result of
-the authentication check.
+Add interface to initialize and interact with Innova FPGA SBU
+connections.
+A client driver may use these functions to set up a high-speed DMA
+connection with its SBU hardware logic, and send/receive messages
+over this connection.
 
-Communicate this to the stack in skb->sp.
+A later patch in this patchset will make use of these functions for
+Innova IPSec offload in mlx5 Ethernet driver.
 
-Make wqe_size large enough to account for the injected metadata.
+Add commands to retrieve Innova FPGA SBU capabilities, and to
+read/write Innova FPGA configuration space registers and memory,
+over internal I2C.
 
-Support only Linked-list RQ type.
+At high level, the FPGA configuration space is divided such:
+ 0x00000000 - 0x007fffff is reserved for the SBU
+ 0x00800000 - 0xffffffff is reserved for the Shell
+0x400000000 - ...        is DDR memory
 
-IPSec offload RX packets may have useful CHECKSUM_COMPLETE information,
-which the stack may not be able to use yet.
+A later patchset will add support for accessing FPGA CrSpace and memory
+over a high-speed connection. This is the reason for the ACCESS_TYPE
+enumeration, which currently only supports I2C.
 
 Signed-off-by: Ilan Tayari <ilant@mellanox.com>
-Signed-off-by: Yossi Kuperman <yossiku@mellanox.com>
-Signed-off-by: Yevgeny Kliteynik <kliteyn@mellanox.com>
-Signed-off-by: Boris Pismenny <borisp@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
  drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   2 +-
- .../ethernet/mellanox/mlx5/core/en_accel/ipsec.c   |  19 +++
- .../ethernet/mellanox/mlx5/core/en_accel/ipsec.h   |   9 ++
- .../mellanox/mlx5/core/en_accel/ipsec_rxtx.c       | 135 +++++++++++++++++++++
- .../mellanox/mlx5/core/en_accel/ipsec_rxtx.h       |  44 +++++++
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  22 +++-
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |  41 +++++++
- 7 files changed, 269 insertions(+), 3 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.h
+ drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c |  65 ++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h |   3 +
+ drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.c | 164 +++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.h |  98 ++++++++++++
+ include/linux/mlx5/device.h                        |   3 +
+ include/linux/mlx5/driver.h                        |   1 +
+ include/linux/mlx5/mlx5_ifc.h                      |   1 +
+ include/linux/mlx5/mlx5_ifc_fpga.h                 |  13 ++
+ 9 files changed, 349 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.c
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-index 7e81084a75ea..23cb8ba91e6f 100644
+index 5221b1235c47..676388fde239 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-@@ -20,4 +20,4 @@ mlx5_core-$(CONFIG_MLX5_CORE_EN_DCB) +=  en_dcbnl.o
+@@ -6,7 +6,7 @@ mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
+ 		mad.o transobj.o vport.o sriov.o fs_cmd.o fs_core.o \
+ 		fs_counters.o rl.o lag.o dev.o lib/gid.o
  
- mlx5_core-$(CONFIG_MLX5_CORE_IPOIB) += ipoib/ipoib.o ipoib/ethtool.o
+-mlx5_core-$(CONFIG_MLX5_FPGA) += fpga/cmd.o fpga/core.o fpga/conn.o
++mlx5_core-$(CONFIG_MLX5_FPGA) += fpga/cmd.o fpga/core.o fpga/conn.o fpga/sdk.o
  
--mlx5_core-$(CONFIG_MLX5_EN_IPSEC) += en_accel/ipsec.o
-+mlx5_core-$(CONFIG_MLX5_EN_IPSEC) += en_accel/ipsec.o en_accel/ipsec_rxtx.o
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.c b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.c
-index 06d9d6ad93ad..bb69660893ee 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.c
-@@ -40,6 +40,7 @@
- #include "en.h"
- #include "accel/ipsec.h"
- #include "en_accel/ipsec.h"
-+#include "en_accel/ipsec_rxtx.h"
+ mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o eswitch_offloads.o \
+ 		en_main.o en_common.o en_fs.o en_ethtool.o en_tx.o \
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c
+index a5fdb4cf0b9c..5cb855fd618f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c
+@@ -38,6 +38,39 @@
+ #include "mlx5_core.h"
+ #include "fpga/cmd.h"
  
- struct mlx5e_ipsec_sa_entry {
- 	struct hlist_node hlist; /* Item in SADB_RX hashtable */
-@@ -49,6 +50,24 @@ struct mlx5e_ipsec_sa_entry {
- 	void *context;
- };
- 
-+struct xfrm_state *mlx5e_ipsec_sadb_rx_lookup(struct mlx5e_ipsec *ipsec,
-+					      unsigned int handle)
-+{
-+	struct mlx5e_ipsec_sa_entry *sa_entry;
-+	struct xfrm_state *ret = NULL;
++#define MLX5_FPGA_ACCESS_REG_SZ (MLX5_ST_SZ_DW(fpga_access_reg) + \
++				 MLX5_FPGA_ACCESS_REG_SIZE_MAX)
 +
-+	rcu_read_lock();
-+	hash_for_each_possible_rcu(ipsec->sadb_rx, sa_entry, hlist, handle)
-+		if (sa_entry->handle == handle) {
-+			ret = sa_entry->x;
-+			xfrm_state_hold(ret);
-+			break;
++int mlx5_fpga_access_reg(struct mlx5_core_dev *dev, u8 size, u64 addr,
++			 void *buf, bool write)
++{
++	u32 in[MLX5_FPGA_ACCESS_REG_SZ] = {0};
++	u32 out[MLX5_FPGA_ACCESS_REG_SZ];
++	int err;
++
++	if (size & 3)
++		return -EINVAL;
++	if (addr & 3)
++		return -EINVAL;
++	if (size > MLX5_FPGA_ACCESS_REG_SIZE_MAX)
++		return -EINVAL;
++
++	MLX5_SET(fpga_access_reg, in, size, size);
++	MLX5_SET64(fpga_access_reg, in, address, addr);
++	if (write)
++		memcpy(MLX5_ADDR_OF(fpga_access_reg, in, data), buf, size);
++
++	err = mlx5_core_access_reg(dev, in, sizeof(in), out, sizeof(out),
++				   MLX5_REG_FPGA_ACCESS_REG, 0, write);
++	if (err)
++		return err;
++
++	if (!write)
++		memcpy(buf, MLX5_ADDR_OF(fpga_access_reg, out, data), size);
++
++	return 0;
++}
++
+ int mlx5_fpga_caps(struct mlx5_core_dev *dev, u32 *caps)
+ {
+ 	u32 in[MLX5_ST_SZ_DW(fpga_cap)] = {0};
+@@ -58,6 +91,38 @@ int mlx5_fpga_ctrl_op(struct mlx5_core_dev *dev, u8 op)
+ 				    MLX5_REG_FPGA_CTRL, 0, true);
+ }
+ 
++int mlx5_fpga_sbu_caps(struct mlx5_core_dev *dev, void *caps, int size)
++{
++	unsigned int cap_size = MLX5_CAP_FPGA(dev, sandbox_extended_caps_len);
++	u64 addr = MLX5_CAP64_FPGA(dev, sandbox_extended_caps_addr);
++	unsigned int read;
++	int ret = 0;
++
++	if (cap_size > size) {
++		mlx5_core_warn(dev, "Not enough buffer %u for FPGA SBU caps %u",
++			       size, cap_size);
++		return -EINVAL;
++	}
++
++	while (cap_size > 0) {
++		read = min_t(unsigned int, cap_size,
++			     MLX5_FPGA_ACCESS_REG_SIZE_MAX);
++
++		ret = mlx5_fpga_access_reg(dev, read, addr, caps, false);
++		if (ret) {
++			mlx5_core_warn(dev, "Error reading FPGA SBU caps %u bytes at address 0x%llx: %d",
++				       read, addr, ret);
++			return ret;
 +		}
-+	rcu_read_unlock();
++
++		cap_size -= read;
++		addr += read;
++		caps += read;
++	}
 +
 +	return ret;
 +}
 +
- static int mlx5e_ipsec_sadb_rx_add(struct mlx5e_ipsec_sa_entry *sa_entry)
+ int mlx5_fpga_query(struct mlx5_core_dev *dev, struct mlx5_fpga_query *query)
  {
- 	struct mlx5e_ipsec *ipsec = sa_entry->ipsec;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.h b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.h
-index b9423a2873e2..4d745d3dd4b1 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.h
-@@ -41,14 +41,23 @@
- #include <linux/idr.h>
+ 	u32 in[MLX5_ST_SZ_DW(fpga_ctrl)] = {0};
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h
+index 8943056163f3..94bdfd47c3f0 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h
+@@ -68,6 +68,9 @@ struct mlx5_fpga_qp_counters {
+ int mlx5_fpga_caps(struct mlx5_core_dev *dev, u32 *caps);
+ int mlx5_fpga_query(struct mlx5_core_dev *dev, struct mlx5_fpga_query *query);
+ int mlx5_fpga_ctrl_op(struct mlx5_core_dev *dev, u8 op);
++int mlx5_fpga_access_reg(struct mlx5_core_dev *dev, u8 size, u64 addr,
++			 void *buf, bool write);
++int mlx5_fpga_sbu_caps(struct mlx5_core_dev *dev, void *caps, int size);
  
- #define MLX5E_IPSEC_SADB_RX_BITS 10
-+#define MLX5E_METADATA_ETHER_TYPE (0x8CE4)
-+#define MLX5E_METADATA_ETHER_LEN 8
- 
- struct mlx5e_priv;
- 
-+struct mlx5e_ipsec_sw_stats {
-+	atomic64_t ipsec_rx_drop_sp_alloc;
-+	atomic64_t ipsec_rx_drop_sadb_miss;
-+	atomic64_t ipsec_rx_drop_syndrome;
-+};
-+
- struct mlx5e_ipsec {
- 	struct mlx5e_priv *en_priv;
- 	DECLARE_HASHTABLE(sadb_rx, MLX5E_IPSEC_SADB_RX_BITS);
- 	spinlock_t sadb_rx_lock; /* Protects sadb_rx and halloc */
- 	struct ida halloc;
-+	struct mlx5e_ipsec_sw_stats sw_stats;
- };
- 
- int mlx5e_ipsec_init(struct mlx5e_priv *priv);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.c
+ int mlx5_fpga_create_qp(struct mlx5_core_dev *dev, void *fpga_qpc,
+ 			u32 *fpga_qpn);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.c b/drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.c
 new file mode 100644
-index 000000000000..56ab2e80553e
+index 000000000000..3c11d6e2160a
 --- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.c
-@@ -0,0 +1,135 @@
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.c
+@@ -0,0 +1,164 @@
 +/*
 + * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
 + *
@@ -167,274 +209,312 @@ index 000000000000..56ab2e80553e
 + *
 + */
 +
-+#include <crypto/aead.h>
-+#include <net/xfrm.h>
++#include <linux/mlx5/device.h>
 +
-+#include "en_accel/ipsec_rxtx.h"
-+#include "en_accel/ipsec.h"
-+#include "en.h"
++#include "fpga/core.h"
++#include "fpga/conn.h"
++#include "fpga/sdk.h"
 +
-+enum {
-+	MLX5E_IPSEC_RX_SYNDROME_DECRYPTED = 0x11,
-+	MLX5E_IPSEC_RX_SYNDROME_AUTH_FAILED = 0x12,
-+};
-+
-+struct mlx5e_ipsec_rx_metadata {
-+	unsigned char   reserved;
-+	__be32		sa_handle;
-+} __packed;
-+
-+struct mlx5e_ipsec_metadata {
-+	unsigned char syndrome;
-+	union {
-+		unsigned char raw[5];
-+		/* from FPGA to host, on successful decrypt */
-+		struct mlx5e_ipsec_rx_metadata rx;
-+	} __packed content;
-+	/* packet type ID field	*/
-+	__be16 ethertype;
-+} __packed;
-+
-+static inline struct xfrm_state *
-+mlx5e_ipsec_build_sp(struct net_device *netdev, struct sk_buff *skb,
-+		     struct mlx5e_ipsec_metadata *mdata)
++struct mlx5_fpga_conn *
++mlx5_fpga_sbu_conn_create(struct mlx5_fpga_device *fdev,
++			  struct mlx5_fpga_conn_attr *attr)
 +{
-+	struct mlx5e_priv *priv = netdev_priv(netdev);
-+	struct xfrm_offload *xo;
-+	struct xfrm_state *xs;
-+	u32 sa_handle;
++	return mlx5_fpga_conn_create(fdev, attr, MLX5_FPGA_QPC_QP_TYPE_SANDBOX_QP);
++}
++EXPORT_SYMBOL(mlx5_fpga_sbu_conn_create);
 +
-+	skb->sp = secpath_dup(skb->sp);
-+	if (unlikely(!skb->sp)) {
-+		atomic64_inc(&priv->ipsec->sw_stats.ipsec_rx_drop_sp_alloc);
-+		return NULL;
++void mlx5_fpga_sbu_conn_destroy(struct mlx5_fpga_conn *conn)
++{
++	mlx5_fpga_conn_destroy(conn);
++}
++EXPORT_SYMBOL(mlx5_fpga_sbu_conn_destroy);
++
++int mlx5_fpga_sbu_conn_sendmsg(struct mlx5_fpga_conn *conn,
++			       struct mlx5_fpga_dma_buf *buf)
++{
++	return mlx5_fpga_conn_send(conn, buf);
++}
++EXPORT_SYMBOL(mlx5_fpga_sbu_conn_sendmsg);
++
++static int mlx5_fpga_mem_read_i2c(struct mlx5_fpga_device *fdev, size_t size,
++				  u64 addr, u8 *buf)
++{
++	size_t max_size = MLX5_FPGA_ACCESS_REG_SIZE_MAX;
++	size_t bytes_done = 0;
++	u8 actual_size;
++	int err;
++
++	if (!fdev->mdev)
++		return -ENOTCONN;
++
++	while (bytes_done < size) {
++		actual_size = min(max_size, (size - bytes_done));
++
++		err = mlx5_fpga_access_reg(fdev->mdev, actual_size,
++					   addr + bytes_done,
++					   buf + bytes_done, false);
++		if (err) {
++			mlx5_fpga_err(fdev, "Failed to read over I2C: %d\n",
++				      err);
++			break;
++		}
++
++		bytes_done += actual_size;
 +	}
 +
-+	sa_handle = be32_to_cpu(mdata->content.rx.sa_handle);
-+	xs = mlx5e_ipsec_sadb_rx_lookup(priv->ipsec, sa_handle);
-+	if (unlikely(!xs)) {
-+		atomic64_inc(&priv->ipsec->sw_stats.ipsec_rx_drop_sadb_miss);
-+		return NULL;
++	return err;
++}
++
++static int mlx5_fpga_mem_write_i2c(struct mlx5_fpga_device *fdev, size_t size,
++				   u64 addr, u8 *buf)
++{
++	size_t max_size = MLX5_FPGA_ACCESS_REG_SIZE_MAX;
++	size_t bytes_done = 0;
++	u8 actual_size;
++	int err;
++
++	if (!fdev->mdev)
++		return -ENOTCONN;
++
++	while (bytes_done < size) {
++		actual_size = min(max_size, (size - bytes_done));
++
++		err = mlx5_fpga_access_reg(fdev->mdev, actual_size,
++					   addr + bytes_done,
++					   buf + bytes_done, true);
++		if (err) {
++			mlx5_fpga_err(fdev, "Failed to write FPGA crspace\n");
++			break;
++		}
++
++		bytes_done += actual_size;
 +	}
 +
-+	skb->sp->xvec[skb->sp->len++] = xs;
-+	skb->sp->olen++;
++	return err;
++}
 +
-+	xo = xfrm_offload(skb);
-+	xo->flags = CRYPTO_DONE;
-+	switch (mdata->syndrome) {
-+	case MLX5E_IPSEC_RX_SYNDROME_DECRYPTED:
-+		xo->status = CRYPTO_SUCCESS;
-+		break;
-+	case MLX5E_IPSEC_RX_SYNDROME_AUTH_FAILED:
-+		xo->status = CRYPTO_TUNNEL_ESP_AUTH_FAILED;
++int mlx5_fpga_mem_read(struct mlx5_fpga_device *fdev, size_t size, u64 addr,
++		       void *buf, enum mlx5_fpga_access_type access_type)
++{
++	int ret;
++
++	switch (access_type) {
++	case MLX5_FPGA_ACCESS_TYPE_I2C:
++		ret = mlx5_fpga_mem_read_i2c(fdev, size, addr, buf);
++		if (ret)
++			return ret;
 +		break;
 +	default:
-+		atomic64_inc(&priv->ipsec->sw_stats.ipsec_rx_drop_syndrome);
-+		return NULL;
++		mlx5_fpga_warn(fdev, "Unexpected read access_type %u\n",
++			       access_type);
++		return -EACCES;
 +	}
-+	return xs;
-+}
 +
-+struct sk_buff *mlx5e_ipsec_handle_rx_skb(struct net_device *netdev,
-+					  struct sk_buff *skb)
++	return size;
++}
++EXPORT_SYMBOL(mlx5_fpga_mem_read);
++
++int mlx5_fpga_mem_write(struct mlx5_fpga_device *fdev, size_t size, u64 addr,
++			void *buf, enum mlx5_fpga_access_type access_type)
 +{
-+	struct mlx5e_ipsec_metadata *mdata;
-+	struct ethhdr *old_eth;
-+	struct ethhdr *new_eth;
-+	struct xfrm_state *xs;
-+	__be16 *ethtype;
++	int ret;
 +
-+	/* Detect inline metadata */
-+	if (skb->len < ETH_HLEN + MLX5E_METADATA_ETHER_LEN)
-+		return skb;
-+	ethtype = (__be16 *)(skb->data + ETH_ALEN * 2);
-+	if (*ethtype != cpu_to_be16(MLX5E_METADATA_ETHER_TYPE))
-+		return skb;
-+
-+	/* Use the metadata */
-+	mdata = (struct mlx5e_ipsec_metadata *)(skb->data + ETH_HLEN);
-+	xs = mlx5e_ipsec_build_sp(netdev, skb, mdata);
-+	if (unlikely(!xs)) {
-+		kfree_skb(skb);
-+		return NULL;
++	switch (access_type) {
++	case MLX5_FPGA_ACCESS_TYPE_I2C:
++		ret = mlx5_fpga_mem_write_i2c(fdev, size, addr, buf);
++		if (ret)
++			return ret;
++		break;
++	default:
++		mlx5_fpga_warn(fdev, "Unexpected write access_type %u\n",
++			       access_type);
++		return -EACCES;
 +	}
 +
-+	/* Remove the metadata from the buffer */
-+	old_eth = (struct ethhdr *)skb->data;
-+	new_eth = (struct ethhdr *)(skb->data + MLX5E_METADATA_ETHER_LEN);
-+	memmove(new_eth, old_eth, 2 * ETH_ALEN);
-+	/* Ethertype is already in its new place */
-+	skb_pull_inline(skb, MLX5E_METADATA_ETHER_LEN);
-+
-+	return skb;
++	return size;
 +}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.h b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.h
-new file mode 100644
-index 000000000000..4e2fab8c5d74
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.h
-@@ -0,0 +1,44 @@
-+/*
-+ * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
++EXPORT_SYMBOL(mlx5_fpga_mem_write);
++
++int mlx5_fpga_get_sbu_caps(struct mlx5_fpga_device *fdev, int size, void *buf)
++{
++	return mlx5_fpga_sbu_caps(fdev->mdev, buf, size);
++}
++EXPORT_SYMBOL(mlx5_fpga_get_sbu_caps);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.h b/drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.h
+index 331798d99a37..baa537e54a49 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.h
+@@ -42,6 +42,11 @@
+  * This header defines the in-kernel API for Innova FPGA client drivers.
+  */
+ 
++enum mlx5_fpga_access_type {
++	MLX5_FPGA_ACCESS_TYPE_I2C = 0x0,
++	MLX5_FPGA_ACCESS_TYPE_DONTCARE = 0x0,
++};
++
+ struct mlx5_fpga_conn;
+ struct mlx5_fpga_device;
+ 
+@@ -103,4 +108,97 @@ struct mlx5_fpga_conn_attr {
+ 	void *cb_arg;
+ };
+ 
++/**
++ * mlx5_fpga_sbu_conn_create() - Initialize a new FPGA SBU connection
++ * @fdev: The FPGA device
++ * @attr: Attributes of the new connection
 + *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
++ * Sets up a new FPGA SBU connection with the specified attributes.
++ * The receive callback function may be called for incoming messages even
++ * before this function returns.
 + *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
++ * The caller must eventually destroy the connection by calling
++ * mlx5_fpga_sbu_conn_destroy.
 + *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ *
++ * Return: A new connection, or ERR_PTR() error value otherwise.
 + */
++struct mlx5_fpga_conn *
++mlx5_fpga_sbu_conn_create(struct mlx5_fpga_device *fdev,
++			  struct mlx5_fpga_conn_attr *attr);
 +
-+#ifndef __MLX5E_IPSEC_RXTX_H__
-+#define __MLX5E_IPSEC_RXTX_H__
++/**
++ * mlx5_fpga_sbu_conn_destroy() - Destroy an FPGA SBU connection
++ * @conn: The FPGA SBU connection to destroy
++ *
++ * Cleans up an FPGA SBU connection which was previously created with
++ * mlx5_fpga_sbu_conn_create.
++ */
++void mlx5_fpga_sbu_conn_destroy(struct mlx5_fpga_conn *conn);
 +
-+#include <linux/skbuff.h>
-+#include "en.h"
++/**
++ * mlx5_fpga_sbu_conn_sendmsg() - Queue the transmission of a packet
++ * @fdev: An FPGA SBU connection
++ * @buf: The packet buffer
++ *
++ * Queues a packet for transmission over an FPGA SBU connection.
++ * The buffer should not be modified or freed until completion.
++ * Upon completion, the buf's complete() callback is invoked, indicating the
++ * success or error status of the transmission.
++ *
++ * Return: 0 if successful, or an error value otherwise.
++ */
++int mlx5_fpga_sbu_conn_sendmsg(struct mlx5_fpga_conn *conn,
++			       struct mlx5_fpga_dma_buf *buf);
 +
-+struct sk_buff *mlx5e_ipsec_handle_rx_skb(struct net_device *netdev,
-+					  struct sk_buff *skb);
-+void mlx5e_ipsec_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe);
++/**
++ * mlx5_fpga_mem_read() - Read from FPGA memory address space
++ * @fdev: The FPGA device
++ * @size: Size of chunk to read, in bytes
++ * @addr: Starting address to read from, in FPGA address space
++ * @buf: Buffer to read into
++ * @access_type: Method for reading
++ *
++ * Reads from the specified address into the specified buffer.
++ * The address may point to configuration space or to DDR.
++ * Large reads may be performed internally as several non-atomic operations.
++ * This function may sleep, so should not be called from atomic contexts.
++ *
++ * Return: 0 if successful, or an error value otherwise.
++ */
++int mlx5_fpga_mem_read(struct mlx5_fpga_device *fdev, size_t size, u64 addr,
++		       void *buf, enum mlx5_fpga_access_type access_type);
 +
-+#endif	/* __MLX5E_IPSEC_RXTX_H__ */
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index aa5a7aa59ff3..170a9378d1f7 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -40,6 +40,8 @@
- #include "en_tc.h"
- #include "en_rep.h"
- #include "en_accel/ipsec.h"
-+#include "en_accel/ipsec_rxtx.h"
-+#include "accel/ipsec.h"
- #include "vxlan.h"
++/**
++ * mlx5_fpga_mem_write() - Write to FPGA memory address space
++ * @fdev: The FPGA device
++ * @size: Size of chunk to write, in bytes
++ * @addr: Starting address to write to, in FPGA address space
++ * @buf: Buffer which contains data to write
++ * @access_type: Method for writing
++ *
++ * Writes the specified buffer data to FPGA memory at the specified address.
++ * The address may point to configuration space or to DDR.
++ * Large writes may be performed internally as several non-atomic operations.
++ * This function may sleep, so should not be called from atomic contexts.
++ *
++ * Return: 0 if successful, or an error value otherwise.
++ */
++int mlx5_fpga_mem_write(struct mlx5_fpga_device *fdev, size_t size, u64 addr,
++			void *buf, enum mlx5_fpga_access_type access_type);
++
++/**
++ * mlx5_fpga_get_sbu_caps() - Read the SBU capabilities
++ * @fdev: The FPGA device
++ * @size: Size of the buffer to read into
++ * @buf: Buffer to read the capabilities into
++ *
++ * Reads the FPGA SBU capabilities into the specified buffer.
++ * The format of the capabilities buffer is SBU-dependent.
++ *
++ * Return: 0 if successful
++ *         -EINVAL if the buffer is not large enough to contain SBU caps
++ *         or any other error value otherwise.
++ */
++int mlx5_fpga_get_sbu_caps(struct mlx5_fpga_device *fdev, int size, void *buf);
++
+ #endif /* MLX5_FPGA_SDK_H */
+diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
+index 556e1c31b5d0..f31a0b5377e1 100644
+--- a/include/linux/mlx5/device.h
++++ b/include/linux/mlx5/device.h
+@@ -1103,6 +1103,9 @@ enum mlx5_mcam_feature_groups {
+ #define MLX5_CAP_FPGA(mdev, cap) \
+ 	MLX5_GET(fpga_cap, (mdev)->caps.hca_cur[MLX5_CAP_FPGA], cap)
  
- struct mlx5e_rq_param {
-@@ -116,7 +118,7 @@ void mlx5e_set_rq_type_params(struct mlx5_core_dev *mdev,
- static void mlx5e_set_rq_params(struct mlx5_core_dev *mdev, struct mlx5e_params *params)
- {
- 	u8 rq_type = mlx5e_check_fragmented_striding_rq_cap(mdev) &&
--		    !params->xdp_prog ?
-+		    !params->xdp_prog && !MLX5_IPSEC_DEV(mdev) ?
- 		    MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ :
- 		    MLX5_WQ_TYPE_LINKED_LIST;
- 	mlx5e_set_rq_type_params(mdev, params, rq_type);
-@@ -593,6 +595,13 @@ static int mlx5e_alloc_rq(struct mlx5e_channel *c,
- 		rq->dealloc_wqe = mlx5e_dealloc_rx_mpwqe;
++#define MLX5_CAP64_FPGA(mdev, cap) \
++	MLX5_GET64(fpga_cap, (mdev)->caps.hca_cur[MLX5_CAP_FPGA], cap)
++
+ enum {
+ 	MLX5_CMD_STAT_OK			= 0x0,
+ 	MLX5_CMD_STAT_INT_ERR			= 0x1,
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index 32b0835d4491..2ab4ae3e3a1a 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -111,6 +111,7 @@ enum {
+ 	MLX5_REG_DCBX_APP        = 0x4021,
+ 	MLX5_REG_FPGA_CAP	 = 0x4022,
+ 	MLX5_REG_FPGA_CTRL	 = 0x4023,
++	MLX5_REG_FPGA_ACCESS_REG = 0x4024,
+ 	MLX5_REG_PCAP		 = 0x5001,
+ 	MLX5_REG_PMTU		 = 0x5003,
+ 	MLX5_REG_PTYS		 = 0x5004,
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index a8b3fcaa33ff..c72f9735119d 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -8309,6 +8309,7 @@ union mlx5_ifc_ports_control_registers_document_bits {
+ 	struct mlx5_ifc_sltp_reg_bits sltp_reg;
+ 	struct mlx5_ifc_mtpps_reg_bits mtpps_reg;
+ 	struct mlx5_ifc_mtppse_reg_bits mtppse_reg;
++	struct mlx5_ifc_fpga_access_reg_bits fpga_access_reg;
+ 	struct mlx5_ifc_fpga_ctrl_bits fpga_ctrl_bits;
+ 	struct mlx5_ifc_fpga_cap_bits fpga_cap_bits;
+ 	struct mlx5_ifc_mcqi_reg_bits mcqi_reg;
+diff --git a/include/linux/mlx5/mlx5_ifc_fpga.h b/include/linux/mlx5/mlx5_ifc_fpga.h
+index 0694077c9634..a3576654179e 100644
+--- a/include/linux/mlx5/mlx5_ifc_fpga.h
++++ b/include/linux/mlx5/mlx5_ifc_fpga.h
+@@ -150,6 +150,19 @@ struct mlx5_ifc_fpga_error_event_bits {
+ 	u8         reserved_at_60[0x80];
+ };
  
- 		rq->handle_rx_cqe = c->priv->profile->rx_handlers.handle_rx_cqe_mpwqe;
-+#ifdef CONFIG_MLX5_EN_IPSEC
-+		if (MLX5_IPSEC_DEV(mdev)) {
-+			err = -EINVAL;
-+			netdev_err(c->netdev, "MPWQE RQ with IPSec offload not supported\n");
-+			goto err_rq_wq_destroy;
-+		}
-+#endif
- 		if (!rq->handle_rx_cqe) {
- 			err = -EINVAL;
- 			netdev_err(c->netdev, "RX handler of MPWQE RQ is not set, err %d\n", err);
-@@ -625,7 +634,12 @@ static int mlx5e_alloc_rq(struct mlx5e_channel *c,
- 		rq->alloc_wqe = mlx5e_alloc_rx_wqe;
- 		rq->dealloc_wqe = mlx5e_dealloc_rx_wqe;
- 
--		rq->handle_rx_cqe = c->priv->profile->rx_handlers.handle_rx_cqe;
-+#ifdef CONFIG_MLX5_EN_IPSEC
-+		if (c->priv->ipsec)
-+			rq->handle_rx_cqe = mlx5e_ipsec_handle_rx_cqe;
-+		else
-+#endif
-+			rq->handle_rx_cqe = c->priv->profile->rx_handlers.handle_rx_cqe;
- 		if (!rq->handle_rx_cqe) {
- 			kfree(rq->wqe.frag_info);
- 			err = -EINVAL;
-@@ -636,6 +650,10 @@ static int mlx5e_alloc_rq(struct mlx5e_channel *c,
- 		rq->buff.wqe_sz = params->lro_en  ?
- 				params->lro_wqe_sz :
- 				MLX5E_SW2HW_MTU(c->priv, c->netdev->mtu);
-+#ifdef CONFIG_MLX5_EN_IPSEC
-+		if (MLX5_IPSEC_DEV(mdev))
-+			rq->buff.wqe_sz += MLX5E_METADATA_ETHER_LEN;
-+#endif
- 		rq->wqe.page_reuse = !params->xdp_prog && !params->lro_en;
- 		byte_count = rq->buff.wqe_sz;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index 574a96279340..325b2c8c1c6d 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -41,6 +41,7 @@
- #include "eswitch.h"
- #include "en_rep.h"
- #include "ipoib/ipoib.h"
-+#include "en_accel/ipsec_rxtx.h"
- 
- static inline bool mlx5e_rx_hw_stamp(struct mlx5e_tstamp *tstamp)
- {
-@@ -1183,3 +1184,43 @@ void mlx5i_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
- }
- 
- #endif /* CONFIG_MLX5_CORE_IPOIB */
++#define MLX5_FPGA_ACCESS_REG_SIZE_MAX 64
 +
-+#ifdef CONFIG_MLX5_EN_IPSEC
++struct mlx5_ifc_fpga_access_reg_bits {
++	u8         reserved_at_0[0x20];
 +
-+void mlx5e_ipsec_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
-+{
-+	struct mlx5e_wqe_frag_info *wi;
-+	struct mlx5e_rx_wqe *wqe;
-+	__be16 wqe_counter_be;
-+	struct sk_buff *skb;
-+	u16 wqe_counter;
-+	u32 cqe_bcnt;
++	u8         reserved_at_20[0x10];
++	u8         size[0x10];
 +
-+	wqe_counter_be = cqe->wqe_counter;
-+	wqe_counter    = be16_to_cpu(wqe_counter_be);
-+	wqe            = mlx5_wq_ll_get_wqe(&rq->wq, wqe_counter);
-+	wi             = &rq->wqe.frag_info[wqe_counter];
-+	cqe_bcnt       = be32_to_cpu(cqe->byte_cnt);
++	u8         address[0x40];
 +
-+	skb = skb_from_cqe(rq, cqe, wi, cqe_bcnt);
-+	if (unlikely(!skb)) {
-+		/* a DROP, save the page-reuse checks */
-+		mlx5e_free_rx_wqe(rq, wi);
-+		goto wq_ll_pop;
-+	}
-+	skb = mlx5e_ipsec_handle_rx_skb(rq->netdev, skb);
-+	if (unlikely(!skb)) {
-+		mlx5e_free_rx_wqe(rq, wi);
-+		goto wq_ll_pop;
-+	}
++	u8         data[0][0x8];
++};
 +
-+	mlx5e_complete_rx_cqe(rq, cqe, cqe_bcnt, skb);
-+	napi_gro_receive(rq->cq.napi, skb);
-+
-+	mlx5e_free_rx_wqe_reuse(rq, wi);
-+wq_ll_pop:
-+	mlx5_wq_ll_pop(&rq->wq, wqe_counter_be,
-+		       &wqe->next.next_wqe_index);
-+}
-+
-+#endif /* CONFIG_MLX5_EN_IPSEC */
+ enum mlx5_ifc_fpga_qp_state {
+ 	MLX5_FPGA_QPC_STATE_INIT    = 0x0,
+ 	MLX5_FPGA_QPC_STATE_ACTIVE  = 0x1,
 -- 
 2.11.0
