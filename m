@@ -1,7 +1,7 @@
 From: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
 Subject: Re: [PATCH iproute2 3/5] rdma: Add device capability parsing
-Date: Tue, 27 Jun 2017 15:16:03 -0700
-Message-ID: <20170627151603.509af242@xeon-e3>
+Date: Tue, 27 Jun 2017 15:18:59 -0700
+Message-ID: <20170627151859.524d1079@xeon-e3>
 References: <20170626182128.24964-1-leon@kernel.org>
         <20170626182128.24964-4-leon@kernel.org>
         <20170626182924.GB16026@obsidianresearch.com>
@@ -11,9 +11,11 @@ References: <20170626182128.24964-1-leon@kernel.org>
         <20170627092129.GR1248@mtr-leonro.local>
         <20170627164150.GA4288@obsidianresearch.com>
         <20170627173301.GS1248@mtr-leonro.local>
+        <20170627173735.GA5162@obsidianresearch.com>
+        <20170627174615.GV1248@mtr-leonro.local>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/+r6hNiYMvrohzCmdGvp0JKa"; protocol="application/pgp-signature"
+ boundary="Sig_/J+z9H3uox8kVBhsBx2358Y/"; protocol="application/pgp-signature"
 Cc: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
         Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
         Ariel Almog <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
@@ -22,91 +24,70 @@ Cc: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.or
         Linux Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170627173301.GS1248-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
+In-Reply-To: <20170627174615.GV1248-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---Sig_/+r6hNiYMvrohzCmdGvp0JKa
+--Sig_/J+z9H3uox8kVBhsBx2358Y/
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: quoted-printable
 
-On Tue, 27 Jun 2017 20:33:01 +0300
+On Tue, 27 Jun 2017 20:46:15 +0300
 Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
 
-> On Tue, Jun 27, 2017 at 10:41:50AM -0600, Jason Gunthorpe wrote:
-> > On Tue, Jun 27, 2017 at 12:21:29PM +0300, Leon Romanovsky wrote: =20
-> > > > What will be the output of such command?
-> > > >  $ rdma dev show mlx5_4 =20
-> > >
-> > > ip-like style:
-> > >
-> > > $ rdma dev show mlx5_4
-> > > 5: mlx5_4:
-> > >     caps: <BAD_PKEY_CNTR, BAD_QKEY_CNTR, CHANGE_PHY_PORT, PORT_ACTIVE=
-_EVENT, SYS_IMAGE_GUID, RC_RNR_NAK_GEN, MEM_WINDOW, UD_IP_CSUM, UD_TSO, XRC=
-, MEM_MGT_EXTENSIONS, BLOCK_MULTICAST_LOOPBACK, MEM_WINDOW_TYPE_2B, RAW_IP_=
-CSUM, SIGNATURE_HANDOVER, VIRTUAL_FUNCTION>
-> > > $ rdma link show mlx5_3
-> > > 4/1: mlx5_3/1:
-> > >     caps: <CM, IP_BASED_GIDS> =20
+> On Tue, Jun 27, 2017 at 11:37:35AM -0600, Jason Gunthorpe wrote:
+> > On Tue, Jun 27, 2017 at 08:33:01PM +0300, Leon Romanovsky wrote:
+> > =20
+> > > My initial plan was to put all parsers under their respective names, =
+in
+> > > the similar way as I did for caps: $ rdma dev show mlx5_4 caps =20
 > >
-> > I think that is better, maybe it should only show under some kind of
-> > verbose mode, I don't know, it depends what other stuff ends up being
-> > displayed..
+> > I think you should have a useful summary display similar to 'ip a' and
+> > other commands.
 > >
-> > Are you going to dump the gid table and pkey table too in one of these =
-commands? =20
+> > guid(s), subnet prefix or default gid for IB, lid/lmc, link state,
+> > speed, mtu, pkeys protocol(s) =20
 >=20
-> My initial plan was to put all parsers under their respective names, in
-> the similar way as I did for caps: $ rdma dev show mlx5_4 caps
+> It will, but before I would like to see this tool be a part of
+> iproute2, so other people will be able to extend it in addition
+> to me.
 >=20
-> So for large dumps, I'm going to use that technique again and maybe print=
- summary as a default.
-> For example, for gids, we can print utilization as a summary while whole
-> table if someone really wants it: $ rdma link show mlx5_4/1 gids <index>
+> Are you fine with the proposed code?
 >=20
-> Something like that.
->=20
-> Thanks
->=20
-> >
-> > Jason =20
 
-Agree with discussion so far.
+Output formats need to be nailed down. The output of iproute2 commands is a=
+lmost
+like an ABI. Users build scripts to parse it (whether that is a great idea =
+or not
+is debateable, it mostly shows the weakness in programatic API's). Therefor=
+e fully
+changing output formats in later revisions is likely to get users upset.
 
-For iproute2 style commands, the show and set commands need to have similar=
- arguments.
-Ideally, everything after the colon in the show would be parameters to set =
-command.
+The first version doesn't have to be perfect, just close to the overall goal
+of what is planned. =20
 
-Please consider having a concise form for normal users and a detail form (w=
-ith -d) for=20
-configuration and setup cases. The caps should not need to be displayed in =
-normal show
-output.
-
---Sig_/+r6hNiYMvrohzCmdGvp0JKa
+--Sig_/J+z9H3uox8kVBhsBx2358Y/
 Content-Type: application/pgp-signature
 Content-Description: OpenPGP digital signature
 
 -----BEGIN PGP SIGNATURE-----
 
-iQIzBAEBCAAdFiEEn2/DRbBb5+dmuDyPgKd/YJXN5H4FAllS2SMACgkQgKd/YJXN
-5H6kBQ/8CfgU7wcXQBh+2nN0gTiEDURx+BIGQrn924ryf7edn5v/LJxW01yAlJLi
-jYCF0Ne2A0fGj5r9BwodIsJULdCvxRh3YNwsdfoo8yMVwEEzYPS76VCS09Ak/RSO
-4xQ0BHbaVXv257PkRLi4apKMH/KlH8EOZB+lSLSaGQ6AjvsqEhVIWTXdo36x5qmd
-IfUVvUUIxKsYnB9TZfo7rBURZBHA9z8pods+OFckY7b+7LaPBae7+wJ7xAMKhjw+
-GW7i5PBkOMITPIk09PxaPI3M2djENDX6MEk2Zu5O2Y0Xhfbrkpn5ifGU9tdSMhDv
-jHYFGWrzwhdNAnmSDOz2rHkyQvO/ZleCc38e5iztRmgeOh4zQ92pJnG1uwjNDgnx
-+XngCobxz6I30UIXBpjRWQRSASy5gaN8Txl2+IF9qjoQH7kgm3FPH/5v6l4BRbsw
-mniDbt9yAMcBzutwt0zDaZhLRiwXgCW66Llrph8V3OWUjlzWDeh84rtDJMA2mAXZ
-MXbNb72VVgJd9Te8e54tahlz+Y78PdsOnFIcvTv1oFmFdVRf5M44GL+Q0LwhzEtM
-4XX2cRSP6goILWo8c6M+0ATJZ3pER/+PG3QaYct/iyURnsYYRby9aNQILY+GceCp
-xI6oG/bv5hMet3e4B/8+Bln6vD1yiMigQWe9o3szZLce1Kk9Nbk=
-=zMMW
+iQIzBAEBCAAdFiEEn2/DRbBb5+dmuDyPgKd/YJXN5H4FAllS2dMACgkQgKd/YJXN
+5H5J/hAArtEg3yhmau9GiMcz460llkvywZas7r5YSMj3rBqXUQu7XcU3xzdNtAVZ
+O63XtQBNlejyX//Rggw9kBt0DBGxpw8MGC7C4lpYz7J8gpDdxtIZqzdxkFi9jc13
+bXMctdbWms2qm1W5vpBnDDgmuDkT899iLKBVjJ1G26Ohgfm3aaENKB/4X3Hz2IW3
+drRuTUjpsHCyQGJDfnSWlIm00w/zPVOrGtZOJ7E3Uozhpg/OVUt4ju2WQnjfeQLx
+7ANNubT+lexkF+MiFbPFxjDRKKsbEowM7HPDkEzphhZUd6EnCKd3CWRk4AvFBpqz
+D4jGfluaKoknjnkMAP1KFSprPfpCAkpeJ4tCDfS85PAR3lYoLCjHVWumKO6ENXFI
+L7pP6yk5iFH7V3Gm4OzRuAGTOU613DT85iC/k0Rh6WbKUneIGAgYqSHvYYDpgm9T
+8BOd+LZlpj4tw7NY6/+i3ewCgYLvaOla13Y5xmWmR4Nbgh9Vur+oaTKs9V358THD
+SCScKMnzNpkwcQ1Ea4G4wTayTDB3PFAZd7O5+Efaf+MO5CRPTGX4rPPs87O0fskj
+3+gzu2u27nvQki5QUNINHZb68o3qkS9K8ythvLpVHKF4cKIUzRz9IGs4YZnbUYX4
+Wr6JDIaO/IO/TLXmGzOvhokZIAP9i4+mdT6tYP+CL6AcHojAzHU=
+=dWnk
 -----END PGP SIGNATURE-----
 
---Sig_/+r6hNiYMvrohzCmdGvp0JKa--
+--Sig_/J+z9H3uox8kVBhsBx2358Y/--
 --
 To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
