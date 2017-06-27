@@ -1,8 +1,9 @@
 From: Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: [PATCH v3 net-next 00/12] bpf: rewrite value tracking
-	in verifier
-Date: Tue, 27 Jun 2017 13:53:18 +0100
-Message-ID: <adc11342-737f-4e06-bce3-f0a92b5594a5@solarflare.com>
+Subject: [PATCH v3 net-next 01/12] selftests/bpf: add test for
+ mixed signed and unsigned bounds checks
+Date: Tue, 27 Jun 2017 13:56:27 +0100
+Message-ID: <12c14f90-153c-c2c2-b2e2-834185b7ec3f@solarflare.com>
+References: <adc11342-737f-4e06-bce3-f0a92b5594a5@solarflare.com>
 Reply-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -12,6 +13,7 @@ Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jO
 To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
 	Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
 Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <adc11342-737f-4e06-bce3-f0a92b5594a5-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
 	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
@@ -23,60 +25,47 @@ Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This series simplifies alignment tracking, generalises bounds tracking and
- fixes some bounds-tracking bugs in the BPF verifier.  Pointer arithmetic on
- packet pointers, stack pointers, map value pointers and context pointers has
- been unified, and bounds on these pointers are only checked when the pointer
- is dereferenced.
-Operations on pointers which destroy all relation to the original pointer
- (such as multiplies and shifts) are disallowed if !env->allow_ptr_leaks,
- otherwise they convert the pointer to an unknown scalar and feed it to the
- normal scalar arithmetic handling.
-Pointer types have been unified with the corresponding adjusted-pointer types
- where those existed (e.g. PTR_TO_MAP_VALUE[_ADJ] or FRAME_PTR vs
- PTR_TO_STACK); similarly, CONST_IMM and UNKNOWN_VALUE have been unified into
- SCALAR_VALUE.
-Pointer types (except CONST_PTR_TO_MAP, PTR_TO_MAP_VALUE_OR_NULL and
- PTR_TO_PACKET_END, which do not allow arithmetic) have a 'fixed offset' and
- a 'variable offset'; the former is used when e.g. adding an immediate or a
- known-constant register, as long as it does not overflow.  Otherwise the
- latter is used, and any operation creating a new variable offset creates a
- new 'id' (and, for PTR_TO_PACKET, clears the 'range').
-SCALAR_VALUEs use the 'variable offset' fields to track the range of possible
- values; the 'fixed offset' should never be set on a scalar.
+Currently fails due to bug in verifier bounds handling.
 
-As of patch 12/12, all tests of tools/testing/selftests/bpf/test_verifier
- and tools/testing/selftests/bpf/test_align pass.
+Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+---
+ tools/testing/selftests/bpf/test_verifier.c | 26 ++++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
 
-v3: added a few more tests; removed RFC tags.
-
-v2: fixed nfp build, made test_align pass again and extended it with a few
- new tests (though still need to add more).
-
-Edward Cree (12):
-  selftests/bpf: add test for mixed signed and unsigned bounds checks
-  bpf/verifier: rework value tracking
-  nfp: change bpf verifier hooks to match new verifier data structures
-  bpf/verifier: track signed and unsigned min/max values
-  bpf/verifier: more concise register state logs for constant var_off
-  selftests/bpf: change test_verifier expectations
-  selftests/bpf: rewrite test_align
-  selftests/bpf: add a test to test_align
-  selftests/bpf: add test for bogus operations on pointers
-  selftests/bpf: don't try to access past MAX_PACKET_OFF in
-    test_verifier
-  selftests/bpf: add tests for subtraction & negative numbers
-  selftests/bpf: variable offset negative tests
-
- drivers/net/ethernet/netronome/nfp/bpf/verifier.c |   24 +-
- include/linux/bpf.h                               |   34 +-
- include/linux/bpf_verifier.h                      |   56 +-
- include/linux/tnum.h                              |   81 +
- kernel/bpf/Makefile                               |    2 +-
- kernel/bpf/tnum.c                                 |  180 ++
- kernel/bpf/verifier.c                             | 1943 ++++++++++++---------
- tools/testing/selftests/bpf/test_align.c          |  462 ++++-
- tools/testing/selftests/bpf/test_verifier.c       |  293 ++--
- 9 files changed, 2034 insertions(+), 1041 deletions(-)
- create mode 100644 include/linux/tnum.h
- create mode 100644 kernel/bpf/tnum.c
+diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
+index c0af019..fceed67 100644
+--- a/tools/testing/selftests/bpf/test_verifier.c
++++ b/tools/testing/selftests/bpf/test_verifier.c
+@@ -5279,6 +5279,32 @@ static struct bpf_test tests[] = {
+ 		.errstr = "invalid bpf_context access",
+ 		.prog_type = BPF_PROG_TYPE_LWT_IN,
+ 	},
++	{
++		"bounds checks mixing signed and unsigned",
++		.insns = {
++			BPF_ST_MEM(BPF_DW, BPF_REG_10, -8, 0),
++			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
++				     BPF_FUNC_map_lookup_elem),
++			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 7),
++			BPF_ST_MEM(BPF_DW, BPF_REG_10, -16, -8),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_1, BPF_REG_10, -16),
++			BPF_MOV64_IMM(BPF_REG_2, -1),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_1, BPF_REG_2, 3),
++			BPF_JMP_IMM(BPF_JSGT, BPF_REG_1, 1, 2),
++			BPF_ALU64_REG(BPF_ADD, BPF_REG_0, BPF_REG_1),
++			BPF_ST_MEM(BPF_B, BPF_REG_0, 0, 0),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.fixup_map1 = { 3 },
++		.errstr_unpriv = "R0 pointer arithmetic prohibited",
++		.errstr = "R0 min value is negative, either use unsigned index or do a if (index >=0) check.",
++		.result = REJECT,
++		.result_unpriv = REJECT,
++	},
+ };
+ 
+ static int probe_filter_length(const struct bpf_insn *fp)
