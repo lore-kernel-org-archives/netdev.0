@@ -1,45 +1,43 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] net: atl1c: fix spelling mistake: "droppted" -> "dropped"
-Date: Tue, 27 Jun 2017 10:51:22 +0100
-Message-ID: <20170627095122.15699-1-colin.king@canonical.com>
+From: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: [PATCH] net/mlx4: fix spelling mistake: "enforcment" -> "enforcement"
+Date: Tue, 27 Jun 2017 11:02:43 +0100
+Message-ID: <20170627100243.15956-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Jay Cliburn <jcliburn@gmail.com>,
-        Chris Snook <chris.snook@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Jarod Wilson <jarod@redhat.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:33235 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751504AbdF0Jv2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 05:51:28 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 
-Trivial fix to spelling mistake in netif_info message
+Trivial fix to spelling mistake in mlx4_dbg debug message
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 ---
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c | 2 +-
+ drivers/net/ethernet/mellanox/mlx4/cmd.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index 7e913d8331c3..8c9986f3fc01 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -2252,7 +2252,7 @@ static netdev_tx_t atl1c_xmit_frame(struct sk_buff *skb,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+index c1af47e45d3f..9e4c142c7ecd 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+@@ -3280,7 +3280,7 @@ int mlx4_set_vf_link_state(struct mlx4_dev *dev, int port, int vf, int link_stat
  
- 	if (atl1c_tx_map(adapter, skb, tpd, type) < 0) {
- 		netif_info(adapter, tx_done, adapter->netdev,
--			   "tx-skb droppted due to dma error\n");
-+			   "tx-skb dropped due to dma error\n");
- 		/* roll back tpd/buffer */
- 		atl1c_tx_rollback(adapter, tpd, type);
- 		dev_kfree_skb_any(skb);
+ 	if (mlx4_master_immediate_activate_vlan_qos(priv, slave, port))
+ 		mlx4_dbg(dev,
+-			 "updating vf %d port %d no link state HW enforcment\n",
++			 "updating vf %d port %d no link state HW enforecment\n",
+ 			 vf, port);
+ 	return 0;
+ }
 -- 
 2.11.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
