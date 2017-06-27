@@ -1,83 +1,89 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH] man: Collect names of man pages automatically
-Date: Tue, 27 Jun 2017 21:00:25 +0200
-Message-ID: <20170627190025.450-1-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:44827 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752311AbdF0TAe (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 27 Jun 2017 15:00:34 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dave Airlie <airlied@gmail.com>
+Subject: Re: [Intel-wired-lan] [PATCH v2 1/1] e1000e: Undo e1000e_pm_freeze if
+ __e1000_shutdown fails
+Date: Wed, 28 Jun 2017 05:28:42 +1000
+Message-ID: <CAPM=9tzdpEDoMNYj7Z_ZM3Z0JsCpjfNW1Z+y-1p5z3HssJ5aaw@mail.gmail.com>
+References: <20170531.110833.1362264472730468352.davem@davemloft.net>
+ <20170531155043.3596-1-jani.nikula@intel.com>
+ <20170531155043.3596-2-jani.nikula@intel.com>
+ <20170602.141426.713378366601051907.davem@davemloft.net>
+ <1496781986.86439.3.camel@intel.com>
+ <309B89C4C689E141A5FF6A0C5FB2118B8C61D137@ORSMSX101.amr.corp.intel.com>
+ <20170620084958.7fxdn57p3o6eexbj@phenom.ffwll.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "daniel.vetter@ffwll.ch" <daniel.vetter@ffwll.ch>
+To: "Brown, Aaron F" <aaron.f.brown@intel.com>,
+ "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+ David Miller <davem@davemloft.net>,
+ "Nikula, Jani" <jani.nikula@intel.com>, "Ursulin,
+ Tvrtko" <tvrtko.ursulin@intel.com>,
+ "intel-gfx@lists.freedesktop.org" <intel-gfx@lists.freedesktop.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "jani.nikula@linux.intel.com" <jani.nikula@linux.intel.com>,
+ "chris@chris-wilson.co.uk" <chris@chris-wilson.co.uk>, "Ertman,
+ David M" <david.m.ertman@intel.com>,
+ "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+ "dri-devel@lists.freedesktop.org" <dri-devel@lists.freedesktop.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "airlied@gmail.com" <airlied@gmail.com>
+Return-path: <dri-devel-bounces@lists.freedesktop.org>
+In-Reply-To: <20170620084958.7fxdn57p3o6eexbj@phenom.ffwll.local>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
+List-Post: <mailto:dri-devel@lists.freedesktop.org>
+List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: dri-devel-bounces@lists.freedesktop.org
+Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
+List-Id: netdev.vger.kernel.org
 
-As it turned out, forgetting to add a man page to the respective
-Makefile when introducing it is a common mistake. Overcome this once and
-for all by using $(wildcard) function in Makefiles.
-
-Fixes: 7124942942e53 ("genl: add manpage")
-Fixes: 958cd210942c8 ("ifcfg: add manpage")
-Fixes: e1b7f883e50de ("man: add documentation for IPv6 SR commands")
-Fixes: 1949f82cdf62c ("Introduce ip vrf command")
-Fixes: 535194a172d23 ("tipc: add peer remove functionality")
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- man/man3/Makefile |  2 +-
- man/man7/Makefile |  2 +-
- man/man8/Makefile | 21 +--------------------
- 3 files changed, 3 insertions(+), 22 deletions(-)
-
-diff --git a/man/man3/Makefile b/man/man3/Makefile
-index bf55658c96746..a98741de29262 100644
---- a/man/man3/Makefile
-+++ b/man/man3/Makefile
-@@ -1,4 +1,4 @@
--MAN3PAGES=libnetlink.3
-+MAN3PAGES = $(wildcard *.3)
- 
- all:
- 
-diff --git a/man/man7/Makefile b/man/man7/Makefile
-index ccfd8398c5f29..689fc713b6729 100644
---- a/man/man7/Makefile
-+++ b/man/man7/Makefile
-@@ -1,4 +1,4 @@
--MAN7PAGES = tc-hfsc.7
-+MAN7PAGES = $(wildcard *.7)
- 
- all:
- 
-diff --git a/man/man8/Makefile b/man/man8/Makefile
-index f33186446819e..12af66be4bc73 100644
---- a/man/man8/Makefile
-+++ b/man/man8/Makefile
-@@ -1,25 +1,6 @@
- TARGETS = ip-address.8 ip-link.8 ip-route.8
- 
--MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 rtpr.8 ss.8 \
--	tc.8 tc-bfifo.8 tc-bpf.8 tc-cbq.8 tc-cbq-details.8 tc-choke.8 tc-codel.8 \
--	tc-fq.8 \
--	tc-drr.8 tc-ematch.8 tc-fq_codel.8 tc-hfsc.8 tc-htb.8 tc-pie.8 \
--	tc-mqprio.8 tc-netem.8 tc-pfifo.8 tc-pfifo_fast.8 tc-prio.8 tc-red.8 \
--	tc-sfb.8 tc-sfq.8 tc-stab.8 tc-tbf.8 \
--	bridge.8 rtstat.8 ctstat.8 nstat.8 routef.8 \
--	ip-addrlabel.8 ip-fou.8 ip-gue.8 ip-l2tp.8 ip-macsec.8 \
--	ip-maddress.8 ip-monitor.8 ip-mroute.8 ip-neighbour.8 \
--	ip-netns.8 ip-ntable.8 ip-rule.8 ip-tunnel.8 ip-xfrm.8 \
--	ip-tcp_metrics.8 ip-netconf.8 ip-token.8 \
--	tipc.8 tipc-bearer.8 tipc-link.8 tipc-media.8 tipc-nametable.8 \
--	tipc-node.8 tipc-socket.8 \
--	tc-basic.8 tc-cgroup.8 tc-flow.8 tc-flower.8 tc-fw.8 tc-route.8 \
--	tc-tcindex.8 tc-u32.8 tc-matchall.8 \
--	tc-connmark.8 tc-csum.8 tc-mirred.8 tc-nat.8 tc-pedit.8 tc-police.8 \
--	tc-simple.8 tc-skbedit.8 tc-vlan.8 tc-xt.8 tc-skbmod.8 tc-ife.8 \
--	tc-tunnel_key.8 tc-sample.8 \
--	devlink.8 devlink-dev.8 devlink-monitor.8 devlink-port.8 devlink-sb.8 \
--	ifstat.8
-+MAN8PAGES = $(TARGETS) $(filter-out $(TARGETS),$(wildcard *.8))
- 
- all: $(TARGETS)
- 
--- 
-2.13.1
+T24gMjAgSnVuZSAyMDE3IGF0IDE4OjQ5LCBEYW5pZWwgVmV0dGVyIDxkYW5pZWxAZmZ3bGwuY2g+
+IHdyb3RlOgo+IE9uIFdlZCwgSnVuIDA3LCAyMDE3IGF0IDAxOjA3OjMzQU0gKzAwMDAsIEJyb3du
+LCBBYXJvbiBGIHdyb3RlOgo+PiA+IEZyb206IEludGVsLXdpcmVkLWxhbiBbbWFpbHRvOmludGVs
+LXdpcmVkLWxhbi1ib3VuY2VzQG9zdW9zbC5vcmddIE9uIEJlaGFsZgo+PiA+IE9mIEplZmYgS2ly
+c2hlcgo+PiA+IFNlbnQ6IFR1ZXNkYXksIEp1bmUgNiwgMjAxNyAxOjQ2IFBNCj4+ID4gVG86IERh
+dmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD47IE5pa3VsYSwgSmFuaQo+PiA+IDxqYW5p
+Lm5pa3VsYUBpbnRlbC5jb20+Cj4+ID4gQ2M6IFVyc3VsaW4sIFR2cnRrbyA8dHZydGtvLnVyc3Vs
+aW5AaW50ZWwuY29tPjsgZGFuaWVsLnZldHRlckBmZndsbC5jaDsgaW50ZWwtCj4+ID4gZ2Z4QGxp
+c3RzLmZyZWVkZXNrdG9wLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsKPj4gPiBq
+YW5pLm5pa3VsYUBsaW51eC5pbnRlbC5jb207IGNocmlzQGNocmlzLXdpbHNvbi5jby51azsgRXJ0
+bWFuLCBEYXZpZCBNCj4+ID4gPGRhdmlkLm0uZXJ0bWFuQGludGVsLmNvbT47IGludGVsLXdpcmVk
+LWxhbkBsaXN0cy5vc3Vvc2wub3JnOyBkcmktCj4+ID4gZGV2ZWxAbGlzdHMuZnJlZWRlc2t0b3Au
+b3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBhaXJsaWVkQGdtYWlsLmNvbQo+PiA+IFN1Ympl
+Y3Q6IFJlOiBbSW50ZWwtd2lyZWQtbGFuXSBbUEFUQ0ggdjIgMS8xXSBlMTAwMGU6IFVuZG8KPj4g
+PiBlMTAwMGVfcG1fZnJlZXplIGlmIF9fZTEwMDBfc2h1dGRvd24gZmFpbHMKPj4gPgo+PiA+IE9u
+IEZyaSwgMjAxNy0wNi0wMiBhdCAxNDoxNCAtMDQwMCwgRGF2aWQgTWlsbGVyIHdyb3RlOgo+PiA+
+ID4gRnJvbTogSmFuaSBOaWt1bGEgPGphbmkubmlrdWxhQGludGVsLmNvbT4KPj4gPiA+IERhdGU6
+IFdlZCwgMzEgTWF5IDIwMTcgMTg6NTA6NDMgKzAzMDAKPj4gPiA+Cj4+ID4gPiA+IEZyb206IENo
+cmlzIFdpbHNvbiA8Y2hyaXNAY2hyaXMtd2lsc29uLmNvLnVrPgo+PiA+ID4gPgo+PiA+ID4gPiBB
+biBlcnJvciBkdXJpbmcgc3VzcGVuZCAoZTEwMGVfcG1fc3VzcGVuZCksCj4+ID4gPgo+PiA+ID4g
+IC4uLgo+PiA+ID4gPiBsZWFkIHRvIGNvbXBsZXRlIGZhaWx1cmU6Cj4+ID4gPgo+PiA+ID4gIC4u
+Lgo+PiA+ID4gPiBUaGUgdW53aW5kIGZhaWx1cmVzIHN0ZW1zIGZyb20gY29tbWl0IDI4MDAyMDk5
+OTRmOCAoImUxMDAwZToKPj4gPiA+ID4gUmVmYWN0b3IgUE0KPj4gPiA+ID4gZmxvd3MiKSwgYnV0
+IGl0IG1heSBiZSBhIGxhdGVyIHBhdGNoIHRoYXQgaW50cm9kdWNlZCB0aGUgbm9uLQo+PiA+ID4g
+PiByZWNvdmVyYWJsZQo+PiA+ID4gPiBiZWhhdmlvdXIuCj4+ID4gPiA+Cj4+ID4gPiA+IEZpeGVz
+OiAyODAwMjA5OTk0ZjggKCJlMTAwMGU6IFJlZmFjdG9yIFBNIGZsb3dzIikKPj4gPiA+ID4gQnVn
+emlsbGE6IGh0dHBzOi8vYnVncy5mcmVlZGVza3RvcC5vcmcvc2hvd19idWcuY2dpP2lkPTk5ODQ3
+Cj4+ID4gPiA+IENjOiBUdnJ0a28gVXJzdWxpbiA8dHZydGtvLnVyc3VsaW5AaW50ZWwuY29tPgo+
+PiA+ID4gPiBDYzogSmVmZiBLaXJzaGVyIDxqZWZmcmV5LnQua2lyc2hlckBpbnRlbC5jb20+Cj4+
+ID4gPiA+IENjOiBEYXZlIEVydG1hbiA8ZGF2aWR4Lm0uZXJ0bWFuQGludGVsLmNvbT4KPj4gPiA+
+ID4gQ2M6IEJydWNlIEFsbGFuIDxicnVjZS53LmFsbGFuQGludGVsLmNvbT4KPj4gPiA+ID4gQ2M6
+IGludGVsLXdpcmVkLWxhbkBsaXN0cy5vc3Vvc2wub3JnCj4+ID4gPiA+IENjOiBuZXRkZXZAdmdl
+ci5rZXJuZWwub3JnCj4+ID4gPiA+IFNpZ25lZC1vZmYtYnk6IENocmlzIFdpbHNvbiA8Y2hyaXNA
+Y2hyaXMtd2lsc29uLmNvLnVrPgo+PiA+ID4gPiBbSmFuaTogYmlrZXNoZWQgcmVwYWludGVkXQo+
+PiA+ID4gPiBTaWduZWQtb2ZmLWJ5OiBKYW5pIE5pa3VsYSA8amFuaS5uaWt1bGFAaW50ZWwuY29t
+Pgo+PiA+ID4KPj4gPiA+IEplZmYsIHBsZWFzZSBtYWtlIHN1cmUgdGhpcyBnZXRzIHN1Ym1pdHRl
+ZCB0byBtZSBzb29uLgo+PiA+Cj4+ID4gRXhwZWN0IGl0IGxhdGVyIHRvbmlnaHQsIGp1c3QgZmlu
+aXNoaW5nIHVwIHRlc3RpbmcuCj4+Cj4+IFRlc3RlZC1ieTogQWFyb24gQnJvd24gPGFhcm9uLmYu
+YnJvd25AaW50ZWwuY29tPgo+Cj4gSG0sIEkgc2VlbSB0byBiZSBibGluZCwgYnV0IEkgY2FuJ3Qg
+ZmluZCBpdCBhbnl3aGVyZSBpbiAtcmM2LiBEb2VzIHNvbWVvbmUKPiBoYXZlIHRoZSBzaGExIGZy
+b20gTGludXMnIGdpdCBmb3IgdGhpcyBwYXRjaD8KCkd1eXMgdGhpcyBpcyBhIHByZXR0eSBzZXJp
+b3VzIHJlZ3Jlc3Npb24sIGp1c3QgbGVmdCBibG93aW5nIGluIHRoZQp3aW5kLCBpcyBhbnlvbmUg
+cmVzcG9uc2libGUgZm9yIGUxMDAwZT8KCkRhdmUuCl9fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fCmRyaS1kZXZlbCBtYWlsaW5nIGxpc3QKZHJpLWRldmVsQGxp
+c3RzLmZyZWVkZXNrdG9wLm9yZwpodHRwczovL2xpc3RzLmZyZWVkZXNrdG9wLm9yZy9tYWlsbWFu
+L2xpc3RpbmZvL2RyaS1kZXZlbAo=
