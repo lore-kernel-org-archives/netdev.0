@@ -1,11 +1,8 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH/RFC net-next 3/9] nfp: provide infrastructure for offloading flower based TC filters
-Date: Wed, 28 Jun 2017 01:21:43 +0200
-Message-ID: <1498605709-22574-4-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH/RFC net-next 5/9] nfp: extend flower matching capabilities
+Date: Wed, 28 Jun 2017 01:21:45 +0200
+Message-ID: <1498605709-22574-6-git-send-email-simon.horman@netronome.com>
 References: <1498605709-22574-1-git-send-email-simon.horman@netronome.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
         Pieter Jansen van Vuuren
         <pieter.jansenvanvuuren@netronome.com>,
@@ -13,145 +10,89 @@ Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
 To: David Miller <davem@davemloft.net>,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f177.google.com ([209.85.220.177]:36543 "EHLO
-        mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754012AbdF0XWR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 19:22:17 -0400
-Received: by mail-qk0-f177.google.com with SMTP id p21so38315881qke.3
-        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 16:22:16 -0700 (PDT)
+Received: from mail-qk0-f181.google.com ([209.85.220.181]:33543 "EHLO
+        mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753984AbdF0XWW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 19:22:22 -0400
+Received: by mail-qk0-f181.google.com with SMTP id r62so38342282qkf.0
+        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 16:22:21 -0700 (PDT)
 In-Reply-To: <1498605709-22574-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
 
-Adds a flower based TC offload handler for representor devices, this
-is in addition to the bpf based offload handler. The changes in this
-patch will be used in a follow-up patch to add tc flower offload to
-the NFP.
-
-The flower app enables tc offloads on representors by default.
+Extends matching capabilities for flower offloads to include vlan,
+layer 2, layer 3 and layer 4 type matches. This includes both exact
+and wildcard matching.
 
 Signed-off-by: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/Makefile        |   3 +-
- drivers/net/ethernet/netronome/nfp/flower/main.c   |   9 ++
- drivers/net/ethernet/netronome/nfp/flower/main.h   |  48 +++++++
- .../net/ethernet/netronome/nfp/flower/offload.c    | 144 +++++++++++++++++++++
- drivers/net/ethernet/netronome/nfp/nfp_net_repr.c  |  18 +++
- 5 files changed, 221 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/netronome/nfp/flower/main.h
- create mode 100644 drivers/net/ethernet/netronome/nfp/flower/offload.c
+ drivers/net/ethernet/netronome/nfp/Makefile        |   1 +
+ drivers/net/ethernet/netronome/nfp/flower/cmsg.h   |   4 +
+ drivers/net/ethernet/netronome/nfp/flower/main.h   |   6 +
+ drivers/net/ethernet/netronome/nfp/flower/match.c  | 292 +++++++++++++++++++++
+ .../net/ethernet/netronome/nfp/flower/offload.c    |   5 +
+ drivers/net/ethernet/netronome/nfp/nfp_net_repr.h  |  10 +-
+ 6 files changed, 317 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/flower/match.c
 
 diff --git a/drivers/net/ethernet/netronome/nfp/Makefile b/drivers/net/ethernet/netronome/nfp/Makefile
-index 43bdbc228969..d7afd2b410fe 100644
+index d7afd2b410fe..018cef3fa10a 100644
 --- a/drivers/net/ethernet/netronome/nfp/Makefile
 +++ b/drivers/net/ethernet/netronome/nfp/Makefile
-@@ -32,7 +32,8 @@ nfp-objs := \
- ifeq ($(CONFIG_NFP_APP_FLOWER),y)
+@@ -33,6 +33,7 @@ ifeq ($(CONFIG_NFP_APP_FLOWER),y)
  nfp-objs += \
  	    flower/cmsg.o \
--	    flower/main.o
-+	    flower/main.o \
-+	    flower/offload.o
+ 	    flower/main.o \
++	    flower/match.o \
+ 	    flower/offload.o
  endif
  
- ifeq ($(CONFIG_BPF_SYSCALL),y)
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/main.c b/drivers/net/ethernet/netronome/nfp/flower/main.c
-index ab68a8f58862..7b27871f489c 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/main.c
-+++ b/drivers/net/ethernet/netronome/nfp/flower/main.c
-@@ -37,6 +37,7 @@
- #include <net/devlink.h>
- #include <net/dst_metadata.h>
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
+index 1b1888e8dc14..1956c1acf39f 100644
+--- a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
++++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
+@@ -52,6 +52,10 @@
+ #define NFP_FLOWER_LAYER_ETHER		BIT(3)
+ #define NFP_FLOWER_LAYER_ARP		BIT(4)
  
-+#include "main.h"
- #include "../nfpcore/nfp_cpp.h"
- #include "../nfpcore/nfp_nsp.h"
- #include "../nfp_app.h"
-@@ -303,8 +304,14 @@ static int nfp_flower_vnic_init(struct nfp_app *app, struct nfp_net *nn,
- 	eth_hw_addr_random(nn->dp.netdev);
- 	netif_keep_dst(nn->dp.netdev);
- 
-+	if (nfp_flower_repr_init(app))
-+		goto err_free_priv;
++#define NFP_FLOWER_MASK_VLAN_PRIO	GENMASK(15, 13)
++#define NFP_FLOWER_MASK_VLAN_CFI	BIT(12)
++#define NFP_FLOWER_MASK_VLAN_VID	GENMASK(11, 0)
 +
- 	return 0;
- 
-+err_free_priv:
-+	kfree(app->priv);
-+	app->priv = NULL;
- err_invalid_port:
- 	nn->port = nfp_port_alloc(app, NFP_PORT_INVALID, nn->dp.netdev);
- 	return PTR_ERR_OR_ZERO(nn->port);
-@@ -367,4 +374,6 @@ const struct nfp_app_type app_flower = {
- 
- 	.eswitch_mode_get  = eswitch_mode_get,
- 	.repr_get	= nfp_flower_repr_get,
-+
-+	.setup_tc	= nfp_flower_setup_tc,
- };
+ /* Metadata without L2 (1W/4B)
+  * ----------------------------------------------------------------
+  *    3                   2                   1
 diff --git a/drivers/net/ethernet/netronome/nfp/flower/main.h b/drivers/net/ethernet/netronome/nfp/flower/main.h
-new file mode 100644
-index 000000000000..119f66068c2b
---- /dev/null
+index b4e5d9b75c01..d2b2bf783f32 100644
+--- a/drivers/net/ethernet/netronome/nfp/flower/main.h
 +++ b/drivers/net/ethernet/netronome/nfp/flower/main.h
-@@ -0,0 +1,48 @@
-+/*
-+ * Copyright (C) 2017 Netronome Systems, Inc.
-+ *
-+ * This software is dual licensed under the GNU General License Version 2,
-+ * June 1991 as shown in the file COPYING in the top-level directory of this
-+ * source tree or the BSD 2-Clause License provided below.  You have the
-+ * option to license this software under the complete terms of either license.
-+ *
-+ * The BSD 2-Clause License:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      1. Redistributions of source code must retain the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer.
-+ *
-+ *      2. Redistributions in binary form must reproduce the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer in the documentation and/or other materials
-+ *         provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
+@@ -38,6 +38,7 @@
+ 
+ #define NFP_FLOWER_ALLOWED_VER 0x0001000000010000UL
+ 
++struct tc_cls_flower_offload;
+ struct tc_to_netdev;
+ struct net_device;
+ struct nfp_app;
+@@ -69,4 +70,9 @@ struct nfp_fl_payload {
+ int nfp_flower_repr_init(struct nfp_app *app);
+ int nfp_flower_setup_tc(struct nfp_app *app, struct net_device *netdev,
+ 			u32 handle, __be16 proto, struct tc_to_netdev *tc);
++int nfp_flower_compile_flow_match(struct tc_cls_flower_offload *flow,
++				  struct nfp_fl_key_ls *key_ls,
++				  struct net_device *netdev,
++				  struct nfp_fl_payload *nfp_flow);
 +
-+#ifndef __NFP_FLOWER_H__
-+#define __NFP_FLOWER_H__ 1
-+
-+#include <linux/types.h>
-+
-+#define NFP_FLOWER_ALLOWED_VER 0x0001000000010000UL
-+
-+struct tc_to_netdev;
-+struct net_device;
-+struct nfp_app;
-+
-+int nfp_flower_repr_init(struct nfp_app *app);
-+int nfp_flower_setup_tc(struct nfp_app *app, struct net_device *netdev,
-+			u32 handle, __be16 proto, struct tc_to_netdev *tc);
-+#endif
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/offload.c b/drivers/net/ethernet/netronome/nfp/flower/offload.c
+ #endif
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/match.c b/drivers/net/ethernet/netronome/nfp/flower/match.c
 new file mode 100644
-index 000000000000..9127c28ea9c3
+index 000000000000..b14c6b2be803
 --- /dev/null
-+++ b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-@@ -0,0 +1,144 @@
++++ b/drivers/net/ethernet/netronome/nfp/flower/match.c
+@@ -0,0 +1,292 @@
 +/*
 + * Copyright (C) 2017 Netronome Systems, Inc.
 + *
@@ -185,159 +126,311 @@ index 000000000000..9127c28ea9c3
 + * SOFTWARE.
 + */
 +
-+#include <linux/skbuff.h>
-+#include <net/devlink.h>
++#include <linux/bitfield.h>
 +#include <net/pkt_cls.h>
 +
 +#include "main.h"
 +#include "cmsg.h"
-+#include "../nfpcore/nfp_cpp.h"
-+#include "../nfpcore/nfp_nffw.h"
-+#include "../nfpcore/nfp_nsp.h"
-+#include "../nfp_app.h"
-+#include "../nfp_main.h"
-+#include "../nfp_net.h"
-+#include "../nfp_port.h"
 +
-+/**
-+ * nfp_flower_add_offload() - Adds a new flow to hardware.
-+ * @app:	Pointer to the APP handle
-+ * @netdev:	netdev structure.
-+ * @flow:	TC flower classifier offload structure.
-+ *
-+ * Adds a new flow to the repeated hash structure and action payload.
-+ *
-+ * Return: negative value on error, 0 if configured successfully.
-+ */
-+static int
-+nfp_flower_add_offload(struct nfp_app *app, struct net_device *netdev,
-+		       struct tc_cls_flower_offload *flow)
++static void
++nfp_flower_compile_meta_tci(struct nfp_flower_meta_two *frame,
++			    struct tc_cls_flower_offload *flow, u8 key_type,
++			    bool mask_version)
 +{
-+	return -EOPNOTSUPP;
-+}
++	struct flow_dissector_key_vlan *flow_vlan;
++	u16 tmp_tci;
 +
-+/**
-+ * nfp_flower_del_offload() - Removes a flow from hardware.
-+ * @app:	Pointer to the APP handle
-+ * @netdev:	netdev structure.
-+ * @flow:       TC flower classifier offload structure
-+ *
-+ * Removes a flow from the repeated hash structure and clears the
-+ * action payload.
-+ *
-+ * Return: negative value on error, 0 if removed successfully.
-+ */
-+static int
-+nfp_flower_del_offload(struct nfp_app *app, struct net_device *netdev,
-+		       struct tc_cls_flower_offload *flow)
-+{
-+	return -EOPNOTSUPP;
-+}
++	/* Populate the metadata frame. */
++	frame->nfp_flow_key_layer = key_type;
++	frame->mask_id = ~0;
 +
-+/**
-+ * nfp_flower_get_stats() - Populates flow stats obatain from hardware.
-+ * @app:	Pointer to the APP handle
-+ * @flow:       TC flower classifier offload structure
-+ *
-+ * Populates a flow statistics structure which which corresponds to a
-+ * specific flow.
-+ *
-+ * Return: negative value on error, 0 if stats populated successfully.
-+ */
-+static int
-+nfp_flower_get_stats(struct nfp_app *app, struct tc_cls_flower_offload *flow)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+static int
-+nfp_flower_repr_offload(struct nfp_app *app, struct net_device *netdev,
-+			struct tc_cls_flower_offload *flower)
-+{
-+	switch (flower->command) {
-+	case TC_CLSFLOWER_REPLACE:
-+		return nfp_flower_add_offload(app, netdev, flower);
-+	case TC_CLSFLOWER_DESTROY:
-+		return nfp_flower_del_offload(app, netdev, flower);
-+	case TC_CLSFLOWER_STATS:
-+		return nfp_flower_get_stats(app, flower);
++	if (mask_version) {
++		frame->tci = cpu_to_be16(~0);
++		return;
 +	}
 +
-+	return -EOPNOTSUPP;
++	flow_vlan = skb_flow_dissector_target(flow->dissector,
++					      FLOW_DISSECTOR_KEY_VLAN,
++					      flow->key);
++
++	/* Populate the tci field. */
++	if (!flow_vlan->vlan_id) {
++		tmp_tci = 0;
++	} else {
++		tmp_tci = FIELD_PREP(NFP_FLOWER_MASK_VLAN_PRIO,
++				     flow_vlan->vlan_priority) |
++			  FIELD_PREP(NFP_FLOWER_MASK_VLAN_VID,
++				     flow_vlan->vlan_id) |
++			  NFP_FLOWER_MASK_VLAN_CFI;
++	}
++	frame->tci = cpu_to_be16(tmp_tci);
 +}
 +
-+int nfp_flower_repr_init(struct nfp_app *app)
++static void
++nfp_flower_compile_meta(struct nfp_flower_meta_one *frame, u8 key_type)
 +{
-+	u64 version;
-+	int err;
++	frame->nfp_flow_key_layer = key_type;
++	frame->mask_id = 0;
++	frame->reserved = 0;
++}
 +
-+	version = nfp_rtsym_read_le(app->pf->rtbl, "hw_flower_version", &err);
-+	if (err)
-+		return -EINVAL;
++static int
++nfp_flower_compile_port(struct nfp_flower_in_port *frame, u32 cmsg_port,
++			bool mask_version)
++{
++	if (mask_version) {
++		frame->in_port = cpu_to_be32(~0);
++		return 0;
++	}
 +
-+	/* We need to ensure hardware has enough flower capabilities. */
-+	if (version != NFP_FLOWER_ALLOWED_VER)
-+		return -EINVAL;
++	frame->in_port = cpu_to_be32(cmsg_port);
 +
 +	return 0;
 +}
 +
-+int nfp_flower_setup_tc(struct nfp_app *app, struct net_device *netdev,
-+			u32 handle, __be16 proto, struct tc_to_netdev *tc)
++static void
++nfp_flower_compile_mac(struct nfp_flower_mac_mpls *frame,
++		       struct tc_cls_flower_offload *flow,
++		       bool mask_version)
 +{
-+	if (TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS))
-+		return -EOPNOTSUPP;
++	struct fl_flow_key *target = mask_version ? flow->mask : flow->key;
++	struct flow_dissector_key_eth_addrs *flow_mac;
 +
-+	if (!eth_proto_is_802_3(proto))
-+		return -EOPNOTSUPP;
++	flow_mac = skb_flow_dissector_target(flow->dissector,
++					     FLOW_DISSECTOR_KEY_ETH_ADDRS,
++					     target);
 +
-+	if (tc->type != TC_SETUP_CLSFLOWER)
-+		return -EINVAL;
++	memset(frame, 0, sizeof(struct nfp_flower_mac_mpls));
 +
-+	return nfp_flower_repr_offload(app, netdev, tc->cls_flower);
-+}
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
-index bc9108071e5b..a73b311c1f75 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
-@@ -250,6 +250,18 @@ static int nfp_repr_open(struct net_device *netdev)
- 	return nfp_app_repr_open(repr->app, repr);
- }
- 
-+static int
-+nfp_repr_setup_tc(struct net_device *netdev, u32 handle, u32 chain_index,
-+		  __be16 proto, struct tc_to_netdev *tc)
-+{
-+	struct nfp_repr *repr = netdev_priv(netdev);
++	/* Populate mac frame. */
++	ether_addr_copy(frame->mac_dst, &flow_mac->dst[0]);
++	ether_addr_copy(frame->mac_src, &flow_mac->src[0]);
 +
-+	if (chain_index)
-+		return -EOPNOTSUPP;
-+
-+	return nfp_app_setup_tc(repr->app, netdev, handle, proto, tc);
++	if (mask_version)
++		frame->mpls_lse = cpu_to_be32(~0);
 +}
 +
- const struct net_device_ops nfp_repr_netdev_ops = {
- 	.ndo_open		= nfp_repr_open,
- 	.ndo_stop		= nfp_repr_stop,
-@@ -258,6 +270,7 @@ const struct net_device_ops nfp_repr_netdev_ops = {
- 	.ndo_has_offload_stats	= nfp_repr_has_offload_stats,
- 	.ndo_get_offload_stats	= nfp_repr_get_offload_stats,
- 	.ndo_get_phys_port_name	= nfp_port_get_phys_port_name,
-+	.ndo_setup_tc		= nfp_repr_setup_tc,
- };
- 
- static void nfp_repr_clean(struct nfp_repr *repr)
-@@ -302,6 +315,11 @@ int nfp_repr_init(struct nfp_app *app, struct net_device *netdev,
- 	netdev->netdev_ops = &nfp_repr_netdev_ops;
- 	SWITCHDEV_SET_OPS(netdev, &nfp_port_switchdev_ops);
- 
-+	if (nfp_app_has_tc(app)) {
-+		netdev->features |= NETIF_F_HW_TC;
-+		netdev->hw_features |= NETIF_F_HW_TC;
++static void
++nfp_flower_compile_tport(struct nfp_flower_tp_ports *frame,
++			 struct tc_cls_flower_offload *flow,
++			 bool mask_version)
++{
++	struct fl_flow_key *target = mask_version ? flow->mask : flow->key;
++	struct flow_dissector_key_ports *flow_tp;
++
++	flow_tp = skb_flow_dissector_target(flow->dissector,
++					    FLOW_DISSECTOR_KEY_PORTS,
++					    target);
++
++	frame->port_src = flow_tp->src;
++	frame->port_dst = flow_tp->dst;
++}
++
++static void
++nfp_flower_compile_ipv4(struct nfp_flower_ipv4 *frame,
++			struct tc_cls_flower_offload *flow,
++			bool mask_version)
++{
++	struct fl_flow_key *target = mask_version ? flow->mask : flow->key;
++	struct flow_dissector_key_ipv4_addrs *flow_ipv4;
++	struct flow_dissector_key_basic *flow_basic;
++
++	flow_ipv4 = skb_flow_dissector_target(flow->dissector,
++					      FLOW_DISSECTOR_KEY_IPV4_ADDRS,
++					      target);
++
++	flow_basic = skb_flow_dissector_target(flow->dissector,
++					       FLOW_DISSECTOR_KEY_BASIC,
++					       target);
++
++	/* Populate IPv4 frame. */
++	frame->reserved = 0;
++	frame->ipv4_src = flow_ipv4->src;
++	frame->ipv4_dst = flow_ipv4->dst;
++	frame->proto = flow_basic->ip_proto;
++	/* Wildcard TOS/TTL as TC can't match them yet. */
++	frame->tos = 0;
++	frame->ttl = 0;
++}
++
++static void
++nfp_flower_compile_ipv6(struct nfp_flower_ipv6 *frame,
++			struct tc_cls_flower_offload *flow,
++			bool mask_version)
++{
++	struct fl_flow_key *target = mask_version ? flow->mask : flow->key;
++	struct flow_dissector_key_ipv6_addrs *flow_ipv6;
++	struct flow_dissector_key_basic *flow_basic;
++
++	flow_ipv6 = skb_flow_dissector_target(flow->dissector,
++					      FLOW_DISSECTOR_KEY_IPV6_ADDRS,
++					      target);
++
++	flow_basic = skb_flow_dissector_target(flow->dissector,
++					       FLOW_DISSECTOR_KEY_BASIC,
++					       target);
++
++	/* Populate IPv6 frame. */
++	frame->reserved = 0;
++	frame->ipv6_src = flow_ipv6->src;
++	frame->ipv6_dst = flow_ipv6->dst;
++	frame->proto = flow_basic->ip_proto;
++	/* Wildcard LABEL/TOS/TTL as TC can't match them yet. */
++	frame->ipv6_flow_label_exthdr = 0;
++	frame->tos = 0;
++	frame->ttl = 0;
++}
++
++int nfp_flower_compile_flow_match(struct tc_cls_flower_offload *flow,
++				  struct nfp_fl_key_ls *key_ls,
++				  struct net_device *netdev,
++				  struct nfp_fl_payload *nfp_flow)
++{
++	int err;
++	u8 *ext;
++	u8 *msk;
++
++	memset(nfp_flow->unmasked_data, 0, key_ls->key_size);
++	memset(nfp_flow->mask_data, 0, key_ls->key_size);
++
++	ext = nfp_flow->unmasked_data;
++	msk = nfp_flow->mask_data;
++	if (NFP_FLOWER_LAYER_PORT & key_ls->key_layer) {
++		/* Populate Exact Metadata. */
++		nfp_flower_compile_meta_tci((struct nfp_flower_meta_two *)ext,
++					    flow, key_ls->key_layer, false);
++		/* Populate Mask Metadata. */
++		nfp_flower_compile_meta_tci((struct nfp_flower_meta_two *)msk,
++					    flow, key_ls->key_layer, true);
++		ext += sizeof(struct nfp_flower_meta_two);
++		msk += sizeof(struct nfp_flower_meta_two);
++
++		/* Populate Exact Port data. */
++		err = nfp_flower_compile_port((struct nfp_flower_in_port *)ext,
++					      nfp_repr_get_port_id(netdev),
++					      false);
++		if (err)
++			return err;
++
++		/* Populate Mask Port Data. */
++		err = nfp_flower_compile_port((struct nfp_flower_in_port *)msk,
++					      nfp_repr_get_port_id(netdev),
++					      true);
++		if (err)
++			return err;
++
++		ext += sizeof(struct nfp_flower_in_port);
++		msk += sizeof(struct nfp_flower_in_port);
++	} else {
++		/* Populate Exact Metadata. */
++		nfp_flower_compile_meta((struct nfp_flower_meta_one *)ext,
++					key_ls->key_layer);
++		/* Populate Mask Metadata. */
++		nfp_flower_compile_meta((struct nfp_flower_meta_one *)msk,
++					key_ls->key_layer);
++		ext += sizeof(struct nfp_flower_meta_one);
++		msk += sizeof(struct nfp_flower_meta_one);
 +	}
 +
- 	err = register_netdev(netdev);
- 	if (err)
- 		goto err_clean;
++	if (NFP_FLOWER_LAYER_META & key_ls->key_layer) {
++		/* Additional Metadata Fields.
++		 * Currently unsupported.
++		 */
++		return -EOPNOTSUPP;
++	}
++
++	if (NFP_FLOWER_LAYER_MAC & key_ls->key_layer) {
++		/* Populate Exact MAC Data. */
++		nfp_flower_compile_mac((struct nfp_flower_mac_mpls *)ext,
++				       flow, false);
++		/* Populate Mask MAC Data. */
++		nfp_flower_compile_mac((struct nfp_flower_mac_mpls *)msk,
++				       flow, true);
++		ext += sizeof(struct nfp_flower_mac_mpls);
++		msk += sizeof(struct nfp_flower_mac_mpls);
++	}
++
++	if (NFP_FLOWER_LAYER_TP & key_ls->key_layer) {
++		/* Populate Exact TP Data. */
++		nfp_flower_compile_tport((struct nfp_flower_tp_ports *)ext,
++					 flow, false);
++		/* Populate Mask TP Data. */
++		nfp_flower_compile_tport((struct nfp_flower_tp_ports *)msk,
++					 flow, true);
++		ext += sizeof(struct nfp_flower_tp_ports);
++		msk += sizeof(struct nfp_flower_tp_ports);
++	}
++
++	if (NFP_FLOWER_LAYER_IPV4 & key_ls->key_layer) {
++		/* Populate Exact IPv4 Data. */
++		nfp_flower_compile_ipv4((struct nfp_flower_ipv4 *)ext,
++					flow, false);
++		/* Populate Mask IPv4 Data. */
++		nfp_flower_compile_ipv4((struct nfp_flower_ipv4 *)msk,
++					flow, true);
++		ext += sizeof(struct nfp_flower_ipv4);
++		msk += sizeof(struct nfp_flower_ipv4);
++	}
++
++	if (NFP_FLOWER_LAYER_IPV6 & key_ls->key_layer) {
++		/* Populate Exact IPv4 Data. */
++		nfp_flower_compile_ipv6((struct nfp_flower_ipv6 *)ext,
++					flow, false);
++		/* Populate Mask IPv4 Data. */
++		nfp_flower_compile_ipv6((struct nfp_flower_ipv6 *)msk,
++					flow, true);
++		ext += sizeof(struct nfp_flower_ipv6);
++		msk += sizeof(struct nfp_flower_ipv6);
++	}
++
++	return 0;
++}
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/offload.c b/drivers/net/ethernet/netronome/nfp/flower/offload.c
+index 8ad72f57493d..11d41aa6a1a4 100644
+--- a/drivers/net/ethernet/netronome/nfp/flower/offload.c
++++ b/drivers/net/ethernet/netronome/nfp/flower/offload.c
+@@ -216,9 +216,14 @@ nfp_flower_add_offload(struct nfp_app *app, struct net_device *netdev,
+ 		goto err_free_key_ls;
+ 	}
+ 
++	err = nfp_flower_compile_flow_match(flow, key_layer, netdev, flow_pay);
++	if (err)
++		goto err_destroy_flow;
++
+ 	/* TODO: Complete flower_add_offload. */
+ 	err = -EOPNOTSUPP;
+ 
++err_destroy_flow:
+ 	nfp_flower_deallocate_nfp(flow_pay);
+ 
+ err_free_key_ls:
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_repr.h b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.h
+index 6a6727816010..6f994a6ce32a 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_repr.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.h
+@@ -34,7 +34,8 @@
+ #ifndef NFP_NET_REPR_H
+ #define NFP_NET_REPR_H
+ 
+-struct metadata_dst;
++#include <net/dst_metadata.h>
++
+ struct nfp_net;
+ struct nfp_port;
+ 
+@@ -104,6 +105,13 @@ static inline bool nfp_netdev_is_nfp_repr(struct net_device *netdev)
+ 	return netdev->netdev_ops == &nfp_repr_netdev_ops;
+ }
+ 
++static inline int nfp_repr_get_port_id(struct net_device *netdev)
++{
++	struct nfp_repr *priv = netdev_priv(netdev);
++
++	return priv->dst->u.port_info.port_id;
++}
++
+ void nfp_repr_inc_rx_stats(struct net_device *netdev, unsigned int len);
+ int nfp_repr_init(struct nfp_app *app, struct net_device *netdev,
+ 		  u32 cmsg_port_id, struct nfp_port *port,
 -- 
 2.1.4
