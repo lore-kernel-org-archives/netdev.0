@@ -1,167 +1,80 @@
-From: Scott Branden <scott.branden@broadcom.com>
-Subject: Re: [PATCH v1 1/2] dt-binding: ptp: add bindings document for dte
- based ptp clock
-Date: Mon, 26 Jun 2017 22:10:57 -0700
-Message-ID: <7bb41c9b-20d8-6003-8a0f-b09f0071ed71@broadcom.com>
-References: <1497299161-6458-1-git-send-email-arun.parameswaran@broadcom.com>
- <1497299161-6458-2-git-send-email-arun.parameswaran@broadcom.com>
- <20170618140449.aek7vag22i5lnbhl@rob-hp-laptop>
- <74b85a32-63c5-b7c5-47a2-831504be318e@broadcom.com>
- <CAL_JsqKddhWMXEaoxt=3_d+-STFH-OataxSgnnj9Q4A0Eqqwxg@mail.gmail.com>
- <1abad545-ee20-e047-8cb6-b130ad037213@broadcom.com>
- <86c2b69e-a3f4-69d8-63c3-d3e73b4bde54@gmail.com>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [RFC 15/19] RDMA/qedr: Add iWARP support in existing verbs.
+Date: Tue, 27 Jun 2017 08:27:03 +0300
+Message-ID: <20170627052703.GL1248@mtr-leonro.local>
+References: <1498500429-22557-1-git-send-email-Michal.Kalderon@cavium.com>
+ <1498500429-22557-16-git-send-email-Michal.Kalderon@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Arun Parameswaran <arun.parameswaran@broadcom.com>,
-        Richard Cochran <richardcochran@gmail.com>,
-        Mark Rutland <mark.rutland@arm.com>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>,
-        "bcm-kernel-feedback-list@broadcom.com"
-        <bcm-kernel-feedback-list@broadcom.com>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Rob Herring <robh@kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="rxd0khGtqYUbFQFd"
+Cc: ram.amrani@cavium.com, yuval.mintz@cavium.com,
+        ariel.elior@cavium.com, davem@davemloft.net,
+        netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        dledford@redhat.com
+To: Michal Kalderon <Michal.Kalderon@cavium.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:36860 "EHLO
-        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751473AbdF0FLD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 01:11:03 -0400
-Received: by mail-wm0-f53.google.com with SMTP id 62so14068382wmw.1
-        for <netdev@vger.kernel.org>; Mon, 26 Jun 2017 22:11:03 -0700 (PDT)
-In-Reply-To: <86c2b69e-a3f4-69d8-63c3-d3e73b4bde54@gmail.com>
+Received: from mail.kernel.org ([198.145.29.99]:38880 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751312AbdF0F1K (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 27 Jun 2017 01:27:10 -0400
+Content-Disposition: inline
+In-Reply-To: <1498500429-22557-16-git-send-email-Michal.Kalderon@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Rob/Florian,
 
-Thanks for input but still don't see any need for SoC specific
-compatible stings.  IP revision specific yes.
+--rxd0khGtqYUbFQFd
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-On 17-06-22 06:04 PM, Florian Fainelli wrote:
-> On 06/22/2017 05:42 PM, Scott Branden wrote:
->>
->> On 17-06-21 08:19 PM, Rob Herring wrote:
->>> On Tue, Jun 20, 2017 at 3:48 PM, Scott Branden
->>> <scott.branden@broadcom.com> wrote:
->>>> Hi Rob,
->>>>
->>>>
->>>> On 17-06-18 07:04 AM, Rob Herring wrote:
->>>>> On Mon, Jun 12, 2017 at 01:26:00PM -0700, Arun Parameswaran wrote:
->>>>>> Add device tree binding documentation for the Broadcom DTE
->>>>>> PTP clock driver.
->>>>>>
->>>>>> Signed-off-by: Arun Parameswaran <arun.parameswaran@broadcom.com>
->>>>>> ---
->>>>>>     Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt | 13
->>>>>> +++++++++++++
->>>>>>     1 file changed, 13 insertions(+)
->>>>>>     create mode 100644
->>>>>> Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
->>>>>>
->>>>>> diff --git a/Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
->>>>>> b/Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
->>>>>> new file mode 100644
->>>>>> index 0000000..07590bc
->>>>>> --- /dev/null
->>>>>> +++ b/Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
->>>>>> @@ -0,0 +1,13 @@
->>>>>> +* Broadcom Digital Timing Engine(DTE) based PTP clock driver
->>>>> Bindings describe h/w, not drivers.
->>>>>
->>>>>> +
->>>>>> +Required properties:
->>>>>> +- compatible: should be "brcm,ptp-dte"
->>>>> Looks too generic. You need SoC specific compatible strings.
->>>> Rob, could you please help me understand the use of adding SoC specific
->>>> compatible strings.
->>>> I still don't get it.
->>>>
->>>> It's my understanding that the SoC compatibility string is to future
->>>> proof
->>>> against bugs/incompatibilities
->>>> between different versions of the hardware block due to integration
->>>> issues
->>>> or any other reason.
->>>> You can then compare in your driver because the strings were already
->>>> used in
->>>> the dtb.
->>>>
->>>> That would make sense if you can't already differentiate what SoC you
->>>> are
->>>> running on.
->>>> But the SoC is already specified in the root of the device tree in the
->>>> compatible string?
->>>> Why can't you just use of_machine_is_compatible inside your driver when
->>>> needed?
->>> Use of of_machine_is_compatible in drivers will result in the same
->>> mess we had with machine_is_X defines pre-DT. It practically
->>> guarantees that you must update the driver for a new SoC (with
->>> fallback compatibles you don't). Plus the matching logic for
->>> of_machine_is_compatible is open coded logic in every driver which is
->>> worse IMO than having a standard match table.
->> I don't understand what you mean by fallback compatible then.
->>
->> Let's say I have 3 SoCs that each contain the same ip block.
->> You want us to add a fallback compatibility per SoC, is that correct?
-> I think Rob meant a fallback compatibility for the particular block.
-> E.g: brcm,iproc-ptp is the fallback compatible string, but in your
-> SoC-specific DTS, you would have at least:
+On Mon, Jun 26, 2017 at 09:07:05PM +0300, Michal Kalderon wrote:
+> Make slight modifications to common RoCE/iWARP code.
+> Add additional doorbell for iWARP post_send.
+> iWARP QP pbl is allocated in qed and not in qedr.
 >
-> compatible = "brcm,cygnus-ptp", "brcm,iproc-ptp";
+> Signed-off-by: Michal Kalderon <Michal.Kalderon@cavium.com>
+> Signed-off-by: Ram Amrani <Ram.Amrani@cavium.com>
+> Signed-off-by: Ariel Elior <Ariel.Elior@cavium.com>
 >
-> Where cygnus-ptp is more specific than iproc-ptp
->> Then, if there is a workaround discovered in a particular SoC the driver
->> can be updated in the future without changing the dtb.
->>
->> Then, the block gets added to a 4th SoC.
->> You want us to another new compatibility string for the new SoC?
->> If the new SoC has a bug then the driver has to be updated whether it is
->> in uses the fallback compatible or machine_is_compatible string.
->>
->> There is no difference in amount of code added to a driver when a new
->> SoC is introduced into the system that has bugs that need to be handled
->> by the driver.
->>
->> The difference is in your recommendation we need to go through all the
->> drivers used by the new SoC and add fallback compatibility strings.
-> Not really, the fallback is what the driver should be matching by
-> default (hence the name fallback) and if and only if you need to have a
-> SoC-specific behavior in your driver (because of bugs, or slight
-> differences) would you be matching this SoC-specific compatible string
-> to capture that and key the driver behavior based off that.
+> ---
+>  drivers/infiniband/hw/qedr/qedr.h  |   3 +
+>  drivers/infiniband/hw/qedr/verbs.c | 171 +++++++++++++++++++++++++++++--------
+>  2 files changed, 139 insertions(+), 35 deletions(-)
 >
->> Then, we have to modify all the devicetree documentation for all the
->> drivers.  Then, we have to ensure that all dts files populate this new
->> fallback string (even if it is unused).  We don't see the benefit in
->> doing any of that.  Using machine_is_compatible and having less
->> compatibility strings to deal appears much cleaner and more foolproof
->> for all situations.
-> When you introduce a new SoC, you would update all the bindings for the
-> devices (not drivers) that are susceptible to be used by this SoC. If
-> all goes well, your SoC has little bugs, and your drivers don't even
-> need to see an update because they are already matching the fallback
-> compatible string.
->
-> That's what I understand from the suggestion but I may be totally off
-> rails here.
-In this particular case, the IP is integrated within and outside a 
-family of SoCs
-(the exact same block is in Capri for example).
-The only fallback compatablity string that makes sense is "brcm, 
-dte-ptp-v1".
-When we integrate a new version of this IP we would add "brcm, dte-ptp-v2".
+> diff --git a/drivers/infiniband/hw/qedr/qedr.h b/drivers/infiniband/hw/qedr/qedr.h
+> index c52fde0..0c0a39a 100644
+> --- a/drivers/infiniband/hw/qedr/qedr.h
+> +++ b/drivers/infiniband/hw/qedr/qedr.h
+> @@ -319,6 +319,9 @@ struct qedr_qp_hwq_info {
+>  	/* DB */
+>  	void __iomem *db;
+>  	union db_prod32 db_data;
+> +
+> +	void __iomem *iwarp_db2;
+> +	union db_prod32 iwarp_db2_data;
 
-Rob, I still see no need to define any other compatablity strings.
+Why do you need two doorbells?
 
-Everything else can be handled with machine_is_compatible
-with the exact same amount of code change to the driver?
-Adding the additional strings simply
-adds a need to change documentation and changes to dts that are otherwise
-completely unnecessary.  machine_is_compatible appears to be the cleaner
-and simpler solution?
+>  };
 
-Regards,
-  Scott
+--rxd0khGtqYUbFQFd
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAllR7KcACgkQ5GN7iDZy
+WKd5FA/+Ix/3PmSx3LAbLGdXQPauJ0j3hCTJqpyWQlL9tLltgu9FELQtenRzCGTi
+CmbLi8OKnEheaTp/njjfWxJ7tQBX2aLgIklfQExiSsoh/Mma2Fd2f90gjAqne+B6
+IDUIzIQwpuQ4SBP9gZPG78EsRGR7gwLwtqaK7F/mf/Gv6WDisWWzpR1NwCUdqzG9
+r47xWwsaUPMmwo6wU9E9NF7mET8yjmx/xBq4w7EA5+gZNTiUZvkCV7/zn0isAYtw
+sMDm8GIfukDhNH8gBVy99C+HnOmJNCXpJCBuovtAVvTOrEZqhHpG7LcY2DBx0gOI
+XtVC955oLNJrSIT8yLEf0cnHo/G5+mDjHDp8MOpg+4ABN+ftZyCnxro3h01Rvp+7
+bFp1NNN5KLfNAwpnCbxiSPibOwLquetM+Fqwjb91J8GlkBvDZ9BqmM8rNdX8BYJb
+bnOZuDpP/e1vq35RuULj//QNiz6xZ16WlCPA0ZI6moIOImU4FpnmEuMIdLmGENyX
+DwTZrXdh0NoQhZgSP0vuohAbkSbJ1e4hysuHP5/AXX+cA6Ob7SK7wlFLbNLHv6+4
+afi7qesoD0T9JawT5xyZzWeFRo7c3XCnEABGTwdsaxFvTw6K5dtV6JA0/O2AMVUW
+IDqoAYYKU2usU7B770o70FCS1bnZj/5oG+n4FG2VLE1MkGSCNqE=
+=zj3g
+-----END PGP SIGNATURE-----
+
+--rxd0khGtqYUbFQFd--
