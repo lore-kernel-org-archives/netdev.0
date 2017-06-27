@@ -1,209 +1,180 @@
-From: Madalin-cristian Bucur <madalin.bucur@nxp.com>
-Subject: RE: [PATCH NET V6 1/2] net: phy: Add phy loopback support in net phy
- framework
-Date: Tue, 27 Jun 2017 11:48:11 +0000
-Message-ID: <AM5PR0402MB269142CD14B8FDAB48F7A1ECECDC0@AM5PR0402MB2691.eurprd04.prod.outlook.com>
-References: <1498561245-93997-1-git-send-email-linyunsheng@huawei.com>
- <1498561245-93997-2-git-send-email-linyunsheng@huawei.com>
+From: Jean-Philippe Menil <jpmenil@gmail.com>
+Subject: Re: [Qemu-devel] BUG: KASAN: use-after-free in free_old_xmit_skbs
+Date: Tue, 27 Jun 2017 14:35:21 +0200
+Message-ID: <bc945405-7269-b71b-4e2a-6ba290af70ea@gmail.com>
+References: <d2e8cf65-ea3d-7db2-9382-a063daf1168a@gmail.com>
+ <20170605050423-mutt-send-email-mst@kernel.org>
+ <20170606024211-mutt-send-email-mst@kernel.org>
+ <CAOTcU=u_HSMQiwDF3Snv5P8mT-b_Aepeb=Z9gbLd1j=2P+Yy+A@mail.gmail.com>
+ <20170622215125-mutt-send-email-mst@kernel.org>
+ <4f6d4342-8476-882e-e7a8-b3f0ebd20d95@redhat.com>
+ <CAM_iQpXhW___-iP3kdv9MJcW=hroyp2SuMzAZdx3KCpc9-W76g@mail.gmail.com>
+ <9327ebf9-59db-f34e-b945-ef381ee95315@redhat.com>
+ <f91048e7-5567-cdf8-fd98-3077ca7ac9a3@gmail.com>
+ <56868f1a-b4d9-50ca-873b-8fe4f70846d6@redhat.com>
+Reply-To: jpmenil@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
-        "xuwei5@hisilicon.com" <xuwei5@hisilicon.com>,
-        "liguozhu@hisilicon.com" <liguozhu@hisilicon.com>,
-        "Yisen.Zhuang@huawei.com" <Yisen.Zhuang@huawei.com>,
-        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
-        "john.garry@huawei.com" <john.garry@huawei.com>,
-        "linuxarm@huawei.com" <linuxarm@huawei.com>,
-        "yisen.zhuang@huawei.com" <yisen.zhuang@huawei.com>,
-        "salil.mehta@huawei.com" <salil.mehta@huawei.com>,
-        "lipeng321@huawei.com" <lipeng321@huawei.com>,
-        "tremyfr@gmail.com" <tremyfr@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Lin Yun Sheng <linyunsheng@huawei.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "andrew@lunn.ch" <andrew@lunn.ch>,
-        "f.fainelli@gmail.com" <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1498561245-93997-2-git-send-email-linyunsheng@huawei.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        virtualization@lists.linux-foundation.org,
+        John Fastabend <john.fastabend@gmail.com>,
+        qemu-devel Developers <qemu-devel@nongnu.org>,
+        "Michael S. Tsirkin" <mst@redhat.com>
+To: Jason Wang <jasowang@redhat.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34635 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751699AbdF0MfZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 08:35:25 -0400
+Received: by mail-wm0-f66.google.com with SMTP id p204so712481wmg.1
+        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 05:35:24 -0700 (PDT)
+In-Reply-To: <56868f1a-b4d9-50ca-873b-8fe4f70846d6@redhat.com>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Lin Yun Sheng
-> Sent: Tuesday, June 27, 2017 2:01 PM
-> To: davem@davemloft.net; andrew@lunn.ch; f.fainelli@gmail.com
-> Cc: huangdaode@hisilicon.com; xuwei5@hisilicon.com;
-> liguozhu@hisilicon.com; Yisen.Zhuang@huawei.com;
-> gabriele.paoloni@huawei.com; john.garry@huawei.com; linuxarm@huawei.com;
-> yisen.zhuang@huawei.com; salil.mehta@huawei.com; lipeng321@huawei.com;
-> tremyfr@gmail.com; netdev@vger.kernel.org; linux-kernel@vger.kernel.org
-> Subject: [PATCH NET V6 1/2] net: phy: Add phy loopback support in net phy
-> framework
->=20
-> This patch add set_loopback in phy_driver, which is used by Mac
-> driver to enable or disable a phy. it also add a generic
-> genphy_loopback function, which use BMCR loopback bit to enable
-> or disable a phy.
+On 06/27/2017 04:13 AM, Jason Wang wrote:
+> 
+> 
+> On 2017年06月26日 15:35, Jean-Philippe Menil wrote:
+>> On 06/26/2017 04:50 AM, Jason Wang wrote:
+>>>
+>>>
+>>> On 2017年06月24日 06:32, Cong Wang wrote:
+>>>> On Fri, Jun 23, 2017 at 1:43 AM, Jason Wang <jasowang@redhat.com> 
+>>>> wrote:
+>>>>>
+>>>>> On 2017年06月23日 02:53, Michael S. Tsirkin wrote:
+>>>>>> On Thu, Jun 22, 2017 at 08:15:58AM +0200, jean-philippe menil wrote:
+>>>>>>> Hi Michael,
+>>>>>>>
+>>>>>>> from what i see, the race appear when we hit virtnet_reset in
+>>>>>>> virtnet_xdp_set.
+>>>>>>> virtnet_reset
+>>>>>>>     _remove_vq_common
+>>>>>>>       virtnet_del_vqs
+>>>>>>>         virtnet_free_queues
+>>>>>>>           kfree(vi->sq)
+>>>>>>> when the xdp program (with two instances of the program to 
+>>>>>>> trigger it
+>>>>>>> faster)
+>>>>>>> is added or removed.
+>>>>>>>
+>>>>>>> It's easily repeatable, with 2 cpus and 4 queues on the qemu command
+>>>>>>> line,
+>>>>>>> running the xdp_ttl tool from Jesper.
+>>>>>>>
+>>>>>>> For now, i'm able to continue my qualification, testing if xdp_qp 
+>>>>>>> is not
+>>>>>>> null,
+>>>>>>> but do not seem to be a sustainable trick.
+>>>>>>> if (xdp_qp && vi->xdp_queues_pairs != xdp_qp)
+>>>>>>>
+>>>>>>> Maybe it will be more clear to you with theses informations.
+>>>>>>>
+>>>>>>> Best regards.
+>>>>>>>
+>>>>>>> Jean-Philippe
+>>>>>>
+>>>>>> I'm pretty clear about the issue here, I was trying to figure out 
+>>>>>> a fix.
+>>>>>> Jason, any thoughts?
+>>>>>>
+>>>>>>
+>>>>> Hi Jean:
+>>>>>
+>>>>> Does the following fix this issue? (I can't reproduce it locally 
+>>>>> through
+>>>>> xdp_ttl)
+>>>> It is tricky here.
+>>>>
+>>>>  From my understanding of the code base, the tx_lock is not sufficient
+>>>> here, because in virtnet_del_vqs() all vqs are deleted and one vp
+>>>> maps to one txq.
+>>>>
+>>>> I am afraid you have to add a spinlock somewhere to serialized
+>>>> free_old_xmit_skbs() vs. vring_del_virtqueue(). As you can see
+>>>> they are in different layers, so it is hard to figure out where to add
+>>>> it...
+>>>>
+>>>> Also, make sure we don't sleep inside the spinlock, I see a
+>>>> synchronize_net().
+>>>
+>>> Looks like I miss something. I thought free_old_xmit_skbs() were 
+>>> serialized in this case since we disable all tx queues after 
+>>> netif_tx_unlock_bh()?
+>>>
+>>> Jean:
+>>>
+>>> I thought this could be easily reproduced by e.g produce some traffic 
+>>> and in the same time try to attach an xdp program. But looks not. How 
+>>> do you trigger this? What's your qemu command line for this?
+>>>
+>>> Thanks
+>>
+>> Hi Jason,
+>>
+>> this is how i trigger the bug:
+>> - on the guest, tcpdump on on the interface
+>> - on the guest, run iperf against the host
+>> - on the guest, cat /sys/kernel/debug/tracing/trace_pipe
+>> - on the guest, run one or two instances of xdp_ttl compiled with 
+>> DEBUG uncommented, that i start stop, until i trigger the bug.
+>>
+>> qemu command line is as follow:
+>>
+>> qemu-system-x86_64 -name ubuntu --enable-kvm -machine pc,accel=kvm 
+>> -smp 2 -drive file=/dev/LocalDisk/ubuntu,if=virtio,format=raw -m 2048 
+>> -rtc base=localtime,clock=host -usbdevice tablet --balloon virtio 
+>> -netdev 
+>> tap,id=ubuntu-0,ifname=ubuntu-0,script=/home/jenfi/WORK/jp/qemu/if-up,downscript=/home/jenfi/WORK/jp/qemu/if-down,vhost=on,queues=4 
+>> -device 
+>> virtio-net-pci,netdev=ubuntu-0,mac=de:ad:be:ef:01:03,mq=on,guest_tso4=off,guest_tso6=off,guest_ecn=off,guest_ufo=off,vectors=2 
+>> -vnc 127.0.0.1:3 -nographic -serial 
+>> file:/home/jenfi/WORK/jp/qemu/ubuntu.out -monitor 
+>> unix:/home/jenfi/WORK/jp/qemu/ubuntu.sock,server,nowait
+>>
+>> Notice, the smp 2, queues to 4 and vectors to 2.
+>> Seem that if fogot to mention that in the beginning of this thread, 
+>> sorry for that.
+>>
+>> Best regards.
+>>
+>> Jean-Philippe
+>>
+> 
+> Thanks Jean, I manage to reproduce the issue.
+> 
+> I thought netif_tx_unlock_bh() will do tx lock but looks not, that's why 
+> previous patch doesn't work.
+> 
+> Could you please this this patch? (At least it can't trigger the warning 
+> after more than 20 times of xdp start/stop).
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 1f8c15c..a18f859 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1802,6 +1802,7 @@ static void virtnet_freeze_down(struct 
+> virtio_device *vdev)
+>          flush_work(&vi->config_work);
+> 
+>          netif_device_detach(vi->dev);
+> +       netif_tx_disable(vi->dev);
+>          cancel_delayed_work_sync(&vi->refill);
+> 
+>          if (netif_running(vi->dev)) {
+> 
+> 
 
-"disable a phy" or disable the PHY loopback function?
+Hi Jason,
 
->=20
-> Signed-off-by: Lin Yun Sheng <linyunsheng@huawei.com>
-> ---
->  drivers/net/phy/marvell.c    |  1 +
->  drivers/net/phy/phy_device.c | 51
-> ++++++++++++++++++++++++++++++++++++++++++++
->  include/linux/phy.h          |  5 +++++
->  3 files changed, 57 insertions(+)
->=20
-> diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-> index 57297ba..01a1586 100644
-> --- a/drivers/net/phy/marvell.c
-> +++ b/drivers/net/phy/marvell.c
-> @@ -2094,6 +2094,7 @@ static int m88e1510_probe(struct phy_device *phydev=
-)
->  		.get_sset_count =3D marvell_get_sset_count,
->  		.get_strings =3D marvell_get_strings,
->  		.get_stats =3D marvell_get_stats,
-> +		.set_loopback =3D genphy_loopback,
->  	},
->  	{
->  		.phy_id =3D MARVELL_PHY_ID_88E1540,
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index 1219eea..1e08d62 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -1123,6 +1123,39 @@ int phy_resume(struct phy_device *phydev)
->  }
->  EXPORT_SYMBOL(phy_resume);
->=20
-> +int phy_loopback(struct phy_device *phydev, bool enable)
-> +{
-> +	struct phy_driver *phydrv =3D to_phy_driver(phydev->mdio.dev.driver);
-> +	int ret =3D 0;
-> +
-> +	mutex_lock(&phydev->lock);
-> +
-> +	if (enable && phydev->loopback_enabled) {
-> +		ret =3D -EBUSY;
-> +		goto out;
-> +	}
-> +
-> +	if (!enable && !phydev->loopback_enabled) {
-> +		ret =3D -EINVAL;
-> +		goto out;
-> +	}
-> +
+Seem to do the trick !
+with your patch, i'm unable to repeat the problem anymore (running more 
+than 2h without any issue).
 
-if (enable =3D=3D phydev->loopback_enabled)
+Best regards.
 
-> +	if (phydev->drv && phydrv->set_loopback)
-> +		ret =3D phydrv->set_loopback(phydev, enable);
-> +	else
-> +		ret =3D -EOPNOTSUPP;
-> +
-> +	if (ret)
-> +		goto out;
-> +
-> +	phydev->loopback_enabled =3D enable;
-> +
-> +out:
-> +	mutex_unlock(&phydev->lock);
-> +	return ret;
-> +}
-> +EXPORT_SYMBOL(phy_loopback);
-> +
->  /* Generic PHY support and helper functions */
->=20
->  /**
-> @@ -1628,6 +1661,23 @@ static int gen10g_resume(struct phy_device *phydev=
-)
->  	return 0;
->  }
->=20
-> +int genphy_loopback(struct phy_device *phydev, bool enable)
-> +{
-> +	int value;
-> +
-> +	value =3D phy_read(phydev, MII_BMCR);
-> +	if (value < 0)
-> +		return value;
-> +
-> +	if (enable)
-> +		value |=3D BMCR_LOOPBACK;
-> +	else
-> +		value &=3D ~BMCR_LOOPBACK;
-> +
-> +	return phy_write(phydev, MII_BMCR, value);
-> +}
-> +EXPORT_SYMBOL(genphy_loopback);
-> +
->  static int __set_phy_supported(struct phy_device *phydev, u32 max_speed)
->  {
->  	/* The default values for phydev->supported are provided by the PHY
-> @@ -1874,6 +1924,7 @@ void phy_drivers_unregister(struct phy_driver *drv,
-> int n)
->  	.read_status	=3D genphy_read_status,
->  	.suspend	=3D genphy_suspend,
->  	.resume		=3D genphy_resume,
-> +	.set_loopback	=3D genphy_loopback,
->  }, {
->  	.phy_id         =3D 0xffffffff,
->  	.phy_id_mask    =3D 0xffffffff,
-> diff --git a/include/linux/phy.h b/include/linux/phy.h
-> index e76e4ad..49c903dc 100644
-> --- a/include/linux/phy.h
-> +++ b/include/linux/phy.h
-> @@ -364,6 +364,7 @@ struct phy_c45_device_ids {
->   * is_pseudo_fixed_link: Set to true if this phy is an Ethernet switch,
-> etc.
->   * has_fixups: Set to true if this phy has fixups/quirks.
->   * suspended: Set to true if this phy has been suspended successfully.
-> + * loopback_enabled: Set true if this phy has been loopbacked
-> successfully.
->   * state: state of the PHY for management purposes
->   * dev_flags: Device-specific flags used by the PHY driver.
->   * link_timeout: The number of timer firings to wait before the
-> @@ -400,6 +401,7 @@ struct phy_device {
->  	bool is_pseudo_fixed_link;
->  	bool has_fixups;
->  	bool suspended;
-> +	bool loopback_enabled;
->=20
->  	enum phy_state state;
->=20
-> @@ -639,6 +641,7 @@ struct phy_driver {
->  	int (*set_tunable)(struct phy_device *dev,
->  			    struct ethtool_tunable *tuna,
->  			    const void *data);
-> +	int (*set_loopback)(struct phy_device *dev, bool enable);
->  };
->  #define to_phy_driver(d) container_of(to_mdio_common_driver(d),		\
->  				      struct phy_driver, mdiodrv)
-> @@ -774,6 +777,7 @@ static inline void phy_device_free(struct phy_device
-> *phydev) { }
->  int phy_init_hw(struct phy_device *phydev);
->  int phy_suspend(struct phy_device *phydev);
->  int phy_resume(struct phy_device *phydev);
-> +int phy_loopback(struct phy_device *phydev, bool enable);
->  struct phy_device *phy_attach(struct net_device *dev, const char *bus_id=
-,
->  			      phy_interface_t interface);
->  struct phy_device *phy_find_first(struct mii_bus *bus);
-> @@ -825,6 +829,7 @@ void phy_attached_print(struct phy_device *phydev,
-> const char *fmt, ...)
->  int genphy_read_status(struct phy_device *phydev);
->  int genphy_suspend(struct phy_device *phydev);
->  int genphy_resume(struct phy_device *phydev);
-> +int genphy_loopback(struct phy_device *phydev, bool enable);
->  int genphy_soft_reset(struct phy_device *phydev);
->  static inline int genphy_no_soft_reset(struct phy_device *phydev)
->  {
-> --
-> 1.9.1
-
-Madalin
+Jean-Philippe
