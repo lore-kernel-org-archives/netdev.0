@@ -1,149 +1,53 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH/RFC net-next 2/9] nfp: add phys_switch_id support
-Date: Wed, 28 Jun 2017 01:21:42 +0200
-Message-ID: <1498605709-22574-3-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH/RFC net-next 1/9] net: switchdev: add SET_SWITCHDEV_OPS helper
+Date: Wed, 28 Jun 2017 01:21:41 +0200
+Message-ID: <1498605709-22574-2-git-send-email-simon.horman@netronome.com>
 References: <1498605709-22574-1-git-send-email-simon.horman@netronome.com>
 Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
         Simon Horman <simon.horman@netronome.com>
 To: David Miller <davem@davemloft.net>,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f175.google.com ([209.85.220.175]:36533 "EHLO
-        mail-qk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753984AbdF0XWP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 19:22:15 -0400
-Received: by mail-qk0-f175.google.com with SMTP id p21so38315402qke.3
-        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 16:22:14 -0700 (PDT)
+Received: from mail-qk0-f182.google.com ([209.85.220.182]:33502 "EHLO
+        mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753980AbdF0XWN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 19:22:13 -0400
+Received: by mail-qk0-f182.google.com with SMTP id r62so38340509qkf.0
+        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 16:22:12 -0700 (PDT)
 In-Reply-To: <1498605709-22574-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add phys_switch_id support by allowing lookup of
-SWITCHDEV_ATTR_ID_PORT_PARENT_ID via the nfp_repr_port_attr_get
-switchdev operation.
-
-This is visible to user-space in the phys_switch_id attribute
-of a netdev.
-
-e.g.
-cd /sys/devices/pci0000:00/0000:00:01.0/0000:01:00.0
-find . -name phys_switch_id | xargs grep .
-./net/eth3/phys_switch_id:00154d1300bd
-./net/eth4/phys_switch_id:00154d1300bd
-./net/eth2/phys_switch_id:00154d1300bd
-grep: ./net/eth5/phys_switch_id: Operation not supported
-
-In the above eth2 and eth3 and representor netdevs for the first and second
-physical port. eth4 is the representor for the PF. And eth5 is the PF netdev.
+Add a helper to allow switchdev ops to be set if NET_SWITCHDEV is configured
+and do nothing otherwise. This allows for slightly cleaner code which
+uses switchdev but does not select NET_SWITCHDEV.
 
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
 ---
- .../net/ethernet/netronome/nfp/nfp_net_common.c    |  3 +++
- drivers/net/ethernet/netronome/nfp/nfp_net_repr.c  |  2 ++
- drivers/net/ethernet/netronome/nfp/nfp_port.c      | 28 ++++++++++++++++++++++
- drivers/net/ethernet/netronome/nfp/nfp_port.h      |  3 +++
- 4 files changed, 36 insertions(+)
+ include/net/switchdev.h | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index 2e728543e840..b5834525c5f0 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -64,6 +64,7 @@
- #include <linux/vmalloc.h>
- #include <linux/ktime.h>
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index c784a6ac6ef1..8ae9e3b6392e 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -217,6 +217,8 @@ void switchdev_port_fwd_mark_set(struct net_device *dev,
  
-+#include <net/switchdev.h>
- #include <net/vxlan.h>
- 
- #include "nfpcore/nfp_nsp.h"
-@@ -3703,6 +3704,8 @@ static void nfp_net_netdev_init(struct nfp_net *nn)
- 	netdev->netdev_ops = &nfp_net_netdev_ops;
- 	netdev->watchdog_timeo = msecs_to_jiffies(5 * 1000);
- 
-+	SWITCHDEV_SET_OPS(netdev, &nfp_port_switchdev_ops);
+ bool switchdev_port_same_parent_id(struct net_device *a,
+ 				   struct net_device *b);
 +
- 	/* MTU range: 68 - hw-specific max */
- 	netdev->min_mtu = ETH_MIN_MTU;
- 	netdev->max_mtu = nn->max_mtu;
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
-index 046b89eb4cf2..bc9108071e5b 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
-@@ -35,6 +35,7 @@
- #include <linux/io-64-nonatomic-hi-lo.h>
- #include <linux/lockdep.h>
- #include <net/dst_metadata.h>
-+#include <net/switchdev.h>
++#define SWITCHDEV_SET_OPS(netdev, ops) ((netdev)->switchdev_ops = (ops))
+ #else
  
- #include "nfpcore/nfp_cpp.h"
- #include "nfpcore/nfp_nsp.h"
-@@ -299,6 +300,7 @@ int nfp_repr_init(struct nfp_app *app, struct net_device *netdev,
- 	repr->dst->u.port_info.lower_dev = pf_netdev;
- 
- 	netdev->netdev_ops = &nfp_repr_netdev_ops;
-+	SWITCHDEV_SET_OPS(netdev, &nfp_port_switchdev_ops);
- 
- 	err = register_netdev(netdev);
- 	if (err)
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_port.c b/drivers/net/ethernet/netronome/nfp/nfp_port.c
-index 0b44952945d8..c95215eb87c2 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_port.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_port.c
-@@ -59,6 +59,34 @@ struct nfp_port *nfp_port_from_netdev(struct net_device *netdev)
- 	return NULL;
+ static inline void switchdev_deferred_process(void)
+@@ -322,6 +324,8 @@ static inline bool switchdev_port_same_parent_id(struct net_device *a,
+ 	return false;
  }
  
-+static int
-+nfp_port_attr_get(struct net_device *netdev, struct switchdev_attr *attr)
-+{
-+	struct nfp_port *port;
++#define SWITCHDEV_SET_OPS(netdev, ops) do {} while (0)
 +
-+	port = nfp_port_from_netdev(netdev);
-+	if (!port)
-+		return -EOPNOTSUPP;
-+
-+	switch (attr->id) {
-+	case SWITCHDEV_ATTR_ID_PORT_PARENT_ID: {
-+		const u8 *serial;
-+		/* N.B: attr->u.ppid.id is binary data */
-+		attr->u.ppid.id_len = nfp_cpp_serial(port->app->cpp, &serial);
-+		memcpy(&attr->u.ppid.id, serial, attr->u.ppid.id_len);
-+		break;
-+	}
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+
-+	return 0;
-+}
-+
-+const struct switchdev_ops nfp_port_switchdev_ops = {
-+	.switchdev_port_attr_get	= nfp_port_attr_get,
-+};
-+
- struct nfp_port *
- nfp_port_from_id(struct nfp_pf *pf, enum nfp_port_type type, unsigned int id)
- {
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_port.h b/drivers/net/ethernet/netronome/nfp/nfp_port.h
-index 57d852a4ca59..de60cacd3362 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_port.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_port.h
-@@ -35,6 +35,7 @@
- #define _NFP_PORT_H_
+ #endif
  
- #include <net/devlink.h>
-+#include <net/switchdev.h>
- 
- struct net_device;
- struct nfp_app;
-@@ -106,6 +107,8 @@ struct nfp_port {
- 	struct list_head port_list;
- };
- 
-+extern const struct switchdev_ops nfp_port_switchdev_ops;
-+
- struct nfp_port *nfp_port_from_netdev(struct net_device *netdev);
- struct nfp_port *
- nfp_port_from_id(struct nfp_pf *pf, enum nfp_port_type type, unsigned int id);
+ #endif /* _LINUX_SWITCHDEV_H_ */
 -- 
 2.1.4
