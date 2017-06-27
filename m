@@ -1,94 +1,35 @@
-From: Willem de Bruijn <willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v3 02/13] sock: skb_copy_ubufs support for
- compound pages
-Date: Tue, 27 Jun 2017 11:53:25 -0400
-Message-ID: <CAF=yD-LJ-EvWbKtxqrcK1D=nRSzWzpPcFVOX1poZ3+P=aa0QfA@mail.gmail.com>
-References: <20170621211816.53837-3-willemdebruijn.kernel@gmail.com>
- <20170622.130528.1762873686654379973.davem@davemloft.net> <CAF=yD-+WQ1b9BytG4JuhgHCR8gAKvUVJPUfi4t-u_DqAFnVrkA@mail.gmail.com>
- <20170622.213646.1398197704798474384.davem@davemloft.net> <CAF=yD-JGekEkBsFfgZa+-TN3-QBPy4sfK0QLPx83Uh3DAoodvg@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH v2] netfilter: nfnetlink: Improve input length
+ sanitization in nfnetlink_rcv
+Date: Tue, 27 Jun 2017 17:58:25 +0200
+Message-ID: <20170627155825.GA4885@salvia>
+References: <1496841821.736.35.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170607135038.1592-1-mjurczyk@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAF=yD-JGekEkBsFfgZa+-TN3-QBPy4sfK0QLPx83Uh3DAoodvg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Mateusz Jurczyk <mjurczyk@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170607135038.1592-1-mjurczyk@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->>>> I looked at some kmap_atomic() implementations and I do not think
->>>> it supports compound pages.
->>>
->>> Indeed. Thanks. It appears that I can do the obvious thing and
->>> kmap the individual page that is being copied inside the loop:
->>>
->>>   kmap_atomic(skb_frag_page(f) + (f_off >> PAGE_SHIFT));
->>>
->>> This is similar to existing logic in copy_huge_page_from_user
->>> and __flush_dcache_page in arch/arm/mm/flush.c
->>>
->>> But, this also applies to other skb operations that call kmap_atomic,
->>> such as skb_copy_bits and __skb_checksum. Not all can be called
->>> from a codepath with a compound user page, but I have to address
->>> the ones that can.
->>
->> Yeah that's quite a mess, it looks like this assumption that
->> kmap can handle compound pages exists in quite a few places.
->
-> I hadn't even considered that skbs can already hold compound
-> page frags without zerocopy.
->
-> Open coding all call sites to iterate is tedious and unnecessary
-> in the common case where a page is not highmem.
->
-> kmap_atomic has enough slots to map an entire order-3 compound
-> page at once. But kmap_atomic cannot fail and there may be edge
-> cases that are larger than order-3.
->
-> Packet rings allocate with __GFP_COMP and an order derived
-> from (user supplied) tp_block_size, for instance. But it links each
-> skb_frag_t from an individual page, so this case seems okay.
->
-> Perhaps calls to kmap_atomic can be replaced with a
-> kmap_compound(..) that checks
->
->  __this_cpu_read(__kmap_atomic_idx) +  (1 << compound_order(p)) < KM_TYPE_NR
->
-> before calling kmap_atomic on all pages in the compound page. In
-> the common case that the page is not high mem, a single call is
-> enough, as there is no per-page operation.
+On Wed, Jun 07, 2017 at 03:50:38PM +0200, Mateusz Jurczyk wrote:
+> Verify that the length of the socket buffer is sufficient to cover the
+> nlmsghdr structure before accessing the nlh->nlmsg_len field for further
+> input sanitization. If the client only supplies 1-3 bytes of data in
+> sk_buff, then nlh->nlmsg_len remains partially uninitialized and
+> contains leftover memory from the corresponding kernel allocation.
+> Operating on such data may result in indeterminate evaluation of the
+> nlmsg_len < NLMSG_HDRLEN expression.
+> 
+> The bug was discovered by a runtime instrumentation designed to detect
+> use of uninitialized memory in the kernel. The patch prevents this and
+> other similar tools (e.g. KMSAN) from flagging this behavior in the future.
 
-This does not work. Some callers, such as __skb_checksum, cannot
-fail, so neither can kmap_compound. Also, vaddr of consecutive
-kmap_atomic calls are not guaranteed to be in order. Indeed, on x86
-and arm vaddr appears to grows down: (FIXADDR_TOP - ((x) << PAGE_SHIFT))
-
-An alternative is to change the kmap_atomic callers in skbuff.c. To
-avoid open coding, we can wrap the kmap_atomic; op; kunmap_atomic
-in a macro that loops only if needed:
-
-static inline bool skb_frag_must_loop(struct page *p)
-{
-#if defined(CONFIG_HIGHMEM) || defined(CONFIG_X86_32)
-        if (PageHighMem(p))
-                return true;
-#endif
-        return false;
-}
-
-#define skb_frag_map_foreach(f, start, size, p, p_off, cp, copied)      \
-        for (p = skb_frag_page(f) + ((start) >> PAGE_SHIFT),            \
-             p_off = (start) & (PAGE_SIZE - 1),                         \
-             copied = 0,                                                \
-             cp = skb_frag_must_loop(p) ?                               \
-                    min_t(u32, size, PAGE_SIZE - p_off) : size;         \
-             copied < size;                                             \
-             copied += cp, p++, p_off = 0,                              \
-             cp = min_t(u32, size - copied, PAGE_SIZE))                 \
-
-This does not change behavior on machines without high mem
-or on low mem pages.
-
-skb_seq_read keeps a mapping between calls to the function,
-so will need a separate approach.
+Applied, thanks.
