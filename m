@@ -1,44 +1,82 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [net-next v2 6/6] ixgbe: Add malicious driver detection support
-Date: Tue, 27 Jun 2017 12:07:43 +0300
-Message-ID: <CAJ3xEMiEjGDUatUv47wNTfYPfCVo62+Jjs-xFU3ccN0iJm-5Gg@mail.gmail.com>
-References: <20170627085131.9831-1-jeffrey.t.kirsher@intel.com> <20170627085131.9831-7-jeffrey.t.kirsher@intel.com>
+From: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+Subject: [PATCH] datapath: Avoid using stack larger than 1024.
+Date: Tue, 27 Jun 2017 02:20:49 -0700
+Message-ID: <1498555249-112319-1-git-send-email-xiangxia.m.yue@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>,
-        Paul Greenwalt <paul.greenwalt@intel.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        "nhorman@redhat.com" <nhorman@redhat.com>,
-        "sassmann@redhat.com" <sassmann@redhat.com>,
-        "jogreene@redhat.com" <jogreene@redhat.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f42.google.com ([209.85.218.42]:35384 "EHLO
-        mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751553AbdF0JHo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 05:07:44 -0400
-Received: by mail-oi0-f42.google.com with SMTP id c189so14016227oia.2
-        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 02:07:44 -0700 (PDT)
-In-Reply-To: <20170627085131.9831-7-jeffrey.t.kirsher@intel.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33123 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751504AbdF0JVH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 05:21:07 -0400
+Received: by mail-pf0-f193.google.com with SMTP id e199so3966620pfh.0
+        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 02:21:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 27, 2017 at 11:51 AM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-> From: Paul Greenwalt <paul.greenwalt@intel.com>
->
-> Add malicious driver detection (MDD) support for X550, X550em_a,
-> and X550em_x devices.
->
-> MDD is a hardware SR-IOV security feature which the driver enables by
-> default, but can be controlled on|off by ethtool set-priv-flags
+When compiling OvS-master on 4.4.0-81 kernel,
+there is a warning:
 
-wait, we have the trusted vf concept, which you implement
-(ixgbe_ndo_set_vf_trust)
-so you can enable by default for all vfs and disable it for trusted
-ones, why create
-an ixgbe special config knob? IMHO we should max all possible efforts to avoid
-priv ethtool flags usage.
+    CC [M]  /root/ovs/datapath/linux/datapath.o
+    /root/ovs/datapath/linux/datapath.c: In function
+    ‘ovs_flow_cmd_set’:
+    /root/ovs/datapath/linux/datapath.c:1221:1: warning:
+    the frame size of 1040 bytes is larger than 1024 bytes
+    [-Wframe-larger-than=]
 
+This patch use kmalloc to malloc mem for sw_flow_mask and
+avoid using stack.
 
-Or.
+Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+---
+ net/openvswitch/datapath.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index c85029c..da8cd68 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -1107,7 +1107,7 @@ static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
+ 	struct ovs_header *ovs_header = info->userhdr;
+ 	struct sw_flow_key key;
+ 	struct sw_flow *flow;
+-	struct sw_flow_mask mask;
++	struct sw_flow_mask *mask;
+ 	struct sk_buff *reply = NULL;
+ 	struct datapath *dp;
+ 	struct sw_flow_actions *old_acts = NULL, *acts = NULL;
+@@ -1120,7 +1120,11 @@ static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
+ 
+ 	ufid_present = ovs_nla_get_ufid(&sfid, a[OVS_FLOW_ATTR_UFID], log);
+ 	if (a[OVS_FLOW_ATTR_KEY]) {
+-		ovs_match_init(&match, &key, true, &mask);
++		mask = kmalloc(sizeof(struct sw_flow_mask), GFP_KERNEL);
++		if (!mask)
++			return -ENOMEM;
++
++		ovs_match_init(&match, &key, true, mask);
+ 		error = ovs_nla_get_match(net, &match, a[OVS_FLOW_ATTR_KEY],
+ 					  a[OVS_FLOW_ATTR_MASK], log);
+ 	} else if (!ufid_present) {
+@@ -1141,7 +1145,7 @@ static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
+ 		}
+ 
+ 		acts = get_flow_actions(net, a[OVS_FLOW_ATTR_ACTIONS], &key,
+-					&mask, log);
++					mask, log);
+ 		if (IS_ERR(acts)) {
+ 			error = PTR_ERR(acts);
+ 			goto error;
+@@ -1216,6 +1220,7 @@ err_unlock_ovs:
+ err_kfree_acts:
+ 	ovs_nla_free_flow_actions(acts);
+ error:
++	kfree(mask);
+ 	return error;
+ }
+ 
+-- 
+1.8.3.1
