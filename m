@@ -1,50 +1,56 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [PATCH iproute2 3/5] rdma: Add device capability parsing
-Date: Tue, 27 Jun 2017 10:41:50 -0600
-Message-ID: <20170627164150.GA4288@obsidianresearch.com>
-References: <20170626182128.24964-1-leon@kernel.org>
- <20170626182128.24964-4-leon@kernel.org>
- <20170626182924.GB16026@obsidianresearch.com>
- <20170626192103.GH1248@mtr-leonro.local>
- <20170626203610.GB17892@obsidianresearch.com>
- <20170627040604.GI1248@mtr-leonro.local>
- <20170627092129.GR1248@mtr-leonro.local>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net PATCH] net: sched: Fix one possible panic when no destroy
+ callback
+Date: Tue, 27 Jun 2017 09:50:11 -0700
+Message-ID: <1498582211.736.118.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1498527333-86838-1-git-send-email-gfree.wind@vip.163.com>
+         <CAM_iQpXRy=cC2vuhju2Jf9=sJ+Yc6DvkzvFEU_DrRonyhW+E9w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        Doug Ledford <dledford@redhat.com>,
-        Ariel Almog <ariela@mellanox.com>,
-        Dennis Dalessandro <dennis.dalessandro@intel.com>,
-        Linux RDMA <linux-rdma@vger.kernel.org>,
-        Linux Netdev <netdev@vger.kernel.org>
-To: Leon Romanovsky <leon@kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: gfree.wind@vip.163.com, Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Pirko <jiri@resnulli.us>,
+        David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from quartz.orcorp.ca ([184.70.90.242]:36468 "EHLO quartz.orcorp.ca"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751639AbdF0Ql6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 27 Jun 2017 12:41:58 -0400
-Content-Disposition: inline
-In-Reply-To: <20170627092129.GR1248@mtr-leonro.local>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:34307 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751658AbdF0QuN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 12:50:13 -0400
+Received: by mail-pg0-f67.google.com with SMTP id j186so4953968pge.1
+        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 09:50:13 -0700 (PDT)
+In-Reply-To: <CAM_iQpXRy=cC2vuhju2Jf9=sJ+Yc6DvkzvFEU_DrRonyhW+E9w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 27, 2017 at 12:21:29PM +0300, Leon Romanovsky wrote:
-> > What will be the output of such command?
-> >  $ rdma dev show mlx5_4
+On Tue, 2017-06-27 at 09:30 -0700, Cong Wang wrote:
+> On Mon, Jun 26, 2017 at 6:35 PM,  <gfree.wind@vip.163.com> wrote:
+> > From: Gao Feng <gfree.wind@vip.163.com>
+> >
+> > When qdisc fail to init, qdisc_create would invoke the destroy callback
+> > to cleanup. But there is no check if the callback exists really. So it
+> > would cause the panic if there is no real destroy callback like these
+> > qdisc codel, pfifo, pfifo_fast, and so on.
+> >
+> > Now add one the check for destroy to avoid the possible panic.
+> >
+> > Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
 > 
-> ip-like style:
+> Looks good,
 > 
-> $ rdma dev show mlx5_4
-> 5: mlx5_4:
->     caps: <BAD_PKEY_CNTR, BAD_QKEY_CNTR, CHANGE_PHY_PORT, PORT_ACTIVE_EVENT, SYS_IMAGE_GUID, RC_RNR_NAK_GEN, MEM_WINDOW, UD_IP_CSUM, UD_TSO, XRC, MEM_MGT_EXTENSIONS, BLOCK_MULTICAST_LOOPBACK, MEM_WINDOW_TYPE_2B, RAW_IP_CSUM, SIGNATURE_HANDOVER, VIRTUAL_FUNCTION>
-> $ rdma link show mlx5_3
-> 4/1: mlx5_3/1:
->     caps: <CM, IP_BASED_GIDS>
+> Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
+> 
+> This is introduced by commit 87b60cfacf9f17cf71933c6e33b.
+> Please add proper Fixes tag next time.
 
-I think that is better, maybe it should only show under some kind of
-verbose mode, I don't know, it depends what other stuff ends up being
-displayed..
+Given that pfifo, pfifo_fast or codel can not fail their init,
+I do not see this patch as a net candidate, and the Fixes: tag seems not
+needed.
 
-Are you going to dump the gid table and pkey table too in one of these commands?
+Gao, have you really hit a bug, or is this patch some kind of cleanup or
+prep work ?
 
-Jason
+If yes, please properly identify which packet scheduler had an issue.
+
+Thanks.
