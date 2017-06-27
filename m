@@ -1,90 +1,113 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [net-next v2 6/6] ixgbe: Add malicious driver detection support
-Date: Tue, 27 Jun 2017 22:14:10 +0000
-Message-ID: <87618083B2453E4A8714035B62D67992B3E89F1D@FMSMSX105.amr.corp.intel.com>
-References: <20170627085131.9831-1-jeffrey.t.kirsher@intel.com>
- <20170627085131.9831-7-jeffrey.t.kirsher@intel.com>
- <CAJ3xEMiEjGDUatUv47wNTfYPfCVo62+Jjs-xFU3ccN0iJm-5Gg@mail.gmail.com>
- <87618083B2453E4A8714035B62D67992B3E89EA6@FMSMSX105.amr.corp.intel.com>
- <CAJ3xEMgT62xt=TdFyY9vfRG+eOqvcLT+5m1WSGPtexygyrcB+w@mail.gmail.com>
+From: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+Subject: Re: [PATCH iproute2 3/5] rdma: Add device capability parsing
+Date: Tue, 27 Jun 2017 15:16:03 -0700
+Message-ID: <20170627151603.509af242@xeon-e3>
+References: <20170626182128.24964-1-leon@kernel.org>
+        <20170626182128.24964-4-leon@kernel.org>
+        <20170626182924.GB16026@obsidianresearch.com>
+        <20170626192103.GH1248@mtr-leonro.local>
+        <20170626203610.GB17892@obsidianresearch.com>
+        <20170627040604.GI1248@mtr-leonro.local>
+        <20170627092129.GR1248@mtr-leonro.local>
+        <20170627164150.GA4288@obsidianresearch.com>
+        <20170627173301.GS1248@mtr-leonro.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-        David Miller <davem@davemloft.net>,
-        "Greenwalt, Paul" <paul.greenwalt@intel.com>,
-        "Linux Netdev List" <netdev@vger.kernel.org>,
-        "nhorman@redhat.com" <nhorman@redhat.com>,
-        "sassmann@redhat.com" <sassmann@redhat.com>,
-        "jogreene@redhat.com" <jogreene@redhat.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([134.134.136.100]:59256 "EHLO mga07.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753461AbdF0WOM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 27 Jun 2017 18:14:12 -0400
-In-Reply-To: <CAJ3xEMgT62xt=TdFyY9vfRG+eOqvcLT+5m1WSGPtexygyrcB+w@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/+r6hNiYMvrohzCmdGvp0JKa"; protocol="application/pgp-signature"
+Cc: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Ariel Almog <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Linux RDMA <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170627173301.GS1248-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogT3IgR2VybGl0eiBbbWFpbHRvOmdl
-cmxpdHoub3JAZ21haWwuY29tXQ0KPlNlbnQ6IFR1ZXNkYXksIEp1bmUgMjcsIDIwMTcgMjowNyBQ
-TQ0KPlRvOiBUYW50aWxvdiwgRW1pbCBTIDxlbWlsLnMudGFudGlsb3ZAaW50ZWwuY29tPg0KPkNj
-OiBLaXJzaGVyLCBKZWZmcmV5IFQgPGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT47IERhdmlk
-IE1pbGxlcg0KPjxkYXZlbUBkYXZlbWxvZnQubmV0PjsgR3JlZW53YWx0LCBQYXVsIDxwYXVsLmdy
-ZWVud2FsdEBpbnRlbC5jb20+OyBMaW51eA0KPk5ldGRldiBMaXN0IDxuZXRkZXZAdmdlci5rZXJu
-ZWwub3JnPjsgbmhvcm1hbkByZWRoYXQuY29tOw0KPnNhc3NtYW5uQHJlZGhhdC5jb207IGpvZ3Jl
-ZW5lQHJlZGhhdC5jb20NCj5TdWJqZWN0OiBSZTogW25ldC1uZXh0IHYyIDYvNl0gaXhnYmU6IEFk
-ZCBtYWxpY2lvdXMgZHJpdmVyIGRldGVjdGlvbg0KPnN1cHBvcnQNCj4NCj5PbiBUdWUsIEp1biAy
-NywgMjAxNyBhdCAxMTo1OSBQTSwgVGFudGlsb3YsIEVtaWwgUw0KPjxlbWlsLnMudGFudGlsb3ZA
-aW50ZWwuY29tPiB3cm90ZToNCj4+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+Pj5Gcm9t
-OiBuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIu
-a2VybmVsLm9yZ10NCj5Pbg0KPj4+QmVoYWxmIE9mIE9yIEdlcmxpdHoNCj4+PlNlbnQ6IFR1ZXNk
-YXksIEp1bmUgMjcsIDIwMTcgMjowOCBBTQ0KPj4+VG86IEtpcnNoZXIsIEplZmZyZXkgVCA8amVm
-ZnJleS50LmtpcnNoZXJAaW50ZWwuY29tPg0KPj4+Q2M6IERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2
-ZW1sb2Z0Lm5ldD47IEdyZWVud2FsdCwgUGF1bA0KPj4+PHBhdWwuZ3JlZW53YWx0QGludGVsLmNv
-bT47IExpbnV4IE5ldGRldiBMaXN0IDxuZXRkZXZAdmdlci5rZXJuZWwub3JnPjsNCj4+Pm5ob3Jt
-YW5AcmVkaGF0LmNvbTsgc2Fzc21hbm5AcmVkaGF0LmNvbTsgam9ncmVlbmVAcmVkaGF0LmNvbQ0K
-Pj4+U3ViamVjdDogUmU6IFtuZXQtbmV4dCB2MiA2LzZdIGl4Z2JlOiBBZGQgbWFsaWNpb3VzIGRy
-aXZlciBkZXRlY3Rpb24NCj4+PnN1cHBvcnQNCj4+Pg0KPj4+T24gVHVlLCBKdW4gMjcsIDIwMTcg
-YXQgMTE6NTEgQU0sIEplZmYgS2lyc2hlcg0KPj4+PGplZmZyZXkudC5raXJzaGVyQGludGVsLmNv
-bT4gd3JvdGU6DQo+Pj4+IEZyb206IFBhdWwgR3JlZW53YWx0IDxwYXVsLmdyZWVud2FsdEBpbnRl
-bC5jb20+DQo+Pj4+DQo+Pj4+IEFkZCBtYWxpY2lvdXMgZHJpdmVyIGRldGVjdGlvbiAoTUREKSBz
-dXBwb3J0IGZvciBYNTUwLCBYNTUwZW1fYSwNCj4+Pj4gYW5kIFg1NTBlbV94IGRldmljZXMuDQo+
-Pj4+DQo+Pj4+IE1ERCBpcyBhIGhhcmR3YXJlIFNSLUlPViBzZWN1cml0eSBmZWF0dXJlIHdoaWNo
-IHRoZSBkcml2ZXIgZW5hYmxlcyBieQ0KPj4+PiBkZWZhdWx0LCBidXQgY2FuIGJlIGNvbnRyb2xs
-ZWQgb258b2ZmIGJ5IGV0aHRvb2wgc2V0LXByaXYtZmxhZ3MNCj4+Pg0KPj4+d2FpdCwgd2UgaGF2
-ZSB0aGUgdHJ1c3RlZCB2ZiBjb25jZXB0LCB3aGljaCB5b3UgaW1wbGVtZW50DQo+Pj4oaXhnYmVf
-bmRvX3NldF92Zl90cnVzdCkNCj4+PnNvIHlvdSBjYW4gZW5hYmxlIGJ5IGRlZmF1bHQgZm9yIGFs
-bCB2ZnMgYW5kIGRpc2FibGUgaXQgZm9yIHRydXN0ZWQNCj4+Pm9uZXMsIHdoeSBjcmVhdGVbXSAg
-YW4gaXhnYmUgc3BlY2lhbCBjb25maWcga25vYj8gSU1ITyB3ZSBzaG91bGQgbWF4IGFsbA0KPnBv
-c3NpYmxlIGVmZm9ydHMgdG8NCj4+PmF2b2lkIHByaXYgZXRodG9vbCBmbGFncyB1c2FnZS4NCj4+
-DQo+PiBUaGUgInRydXN0ZWQiIG9wdGlvbiB3YXMgYWRkZWQgdG8gYWxsb3cgdXNlIGNhc2VzIHRo
-YXQgd2VyZSBub3QgcG9zc2libGUgaW4gdGhlDQo+PiBkZWZhdWx0IGRyaXZlciBjb25maWd1cmF0
-aW9uIGZvciBTUklPViAocHJvbWlzY3VvdXMgbW9kZSwgb3ZlcnJpZGluZyB0aGUgTUFDKS4NCj4+
-IFdoaWxlIHRoZXNlIG1vZGVzIGNhbiBsZWFkIHRvIGlzc3VlcyAocGVyZm9ybWFuY2Ugd2l0aCBw
-cm9taXNjKSB0aGV5IGNhbiBzdGlsbA0KPj4gYmUgdXNlZnVsIGZvciBjZXJ0YWluIGNvbmZpZ3Vy
-YXRpb25zLg0KPj4NCj4+IE1ERCBpcyBhIGNvbXBsZXRlbHkgZGlmZmVyZW50IHR5cGUgb2YgcHJv
-dGVjdGlvbiB0aGF0IGluY29ycG9yYXRlcyBjaGVja3MgZm9yDQo+PiBxdWV1ZSBjb250ZXh0LCBU
-eCBkZXNjcmlwdG9ycyBhbmQgb3V0LW9mLWJvdW5kcyBETUEvbWVtb3J5IGFjY2VzcyB0aGF0IGNh
-bg0KPj4gZGlzcnVwdCB0aGUgb3BlcmF0aW9uIG9mIHRoZSBpbnRlcmZhY2VzLiBZb3UgY2FuIHJl
-YWQgbW9yZSBhYm91dCBpdCBpbiB0aGUgWDU1MA0KPj4gZGF0YXNoZWV0IChzZWN0aW9uIDcuOS40
-LjMgbWFsaWNpb3VzIERyaXZlciBEZXRlY3Rpb24pOg0KPj4NCj5odHRwczovL3d3dy5pbnRlbC5j
-b20vY29udGVudC93d3cvdXMvZW4vZW1iZWRkZWQvcHJvZHVjdHMvbmV0d29ya2luZy9ldGhlcm4N
-Cj5ldC1jb250cm9sbGVyLXg1NTAtZmFtaWx5LWRvY3VtZW50YXRpb24uaHRtbA0KPj4NCj4+IEZv
-ciB0aGF0IHJlYXNvbiB3ZSBkbyBub3Qgd2FudCB0byBtYWtlIGl0IHBhcnQgb2YgdGhlICJ0cnVz
-dGVkIiBvcHRpb24uDQo+DQo+eW91IGNhbiBleHRlbmQgdGhlIHRydXN0ZWQgb3B0aW9uIHdpdGhv
-dXQgYnJlYWtpbmcgdGhlIFVBUEksIGN1cnJlbnRseQ0KPml0J3Mgb25lIGJpdCB5L24sIGJ1dCB5
-b3Ugc2hvdWxkIGhhdmUgdGhlcmUgYXQgbGVhc3Qgc2V2ZW4gbW9yZSBiaXRzDQo+dG8gdXNlLg0K
-Pg0KPj4gSW4gYWRkaXRpb24gTUREIGlzIGEgZ2xvYmFsIHNldHRpbmcgYW5kIGNhbm5vdCBiZSBj
-b25maWd1cmVkIHBlci1WRi4NCj4NCj5jYW4geW91IHN0YXRlIG1vcmUgY2xlYXJseSB3aHkgdXNl
-IHRoaW5rIHRoZSByaWdodCBjb25maWd1cmF0aW9uIGtub2INCj5oZXJlIGlzIHBlciBkcml2ZXIg
-ZXRodG9vbCBwcml2YXRlIGZsYWc/DQoNCk1haW5seSBiZWNhdXNlIEkgYW0gbm90IHN1cmUgdGhh
-dCBvdGhlciAobm9uLUludGVsKSBkcml2ZXJzIHdpbGwgYmVuZWZpdCBmcm9tDQpzdWNoIGFuIG9w
-dGlvbi4gSW4gbm9ybWFsIG9wZXJhdGlvbiB0aGlzIGZ1bmN0aW9uYWxpdHkgc2hvdWxkIG5vdCBj
-YXVzZSBpc3N1ZXMNCmFuZCBpZiBpdCBkb2Vzbid0IHdlIG1heSBiZSBhYmxlIHRvIGRlcHJlY2F0
-ZSB0aGUgcHJpdmF0ZSBmbGFnIGluIHRoZSBmdXR1cmUuDQoNCk9uIHRoZSBvdGhlciBoYW5kIGlm
-IHRoZSBzYW1lL3NpbWlsYXIgZmVhdHVyZSBleGlzdHMgaW4gb3RoZXIgZHJpdmVycyB0aGVuDQpp
-dCB3b3VsZCBwZXJoYXBzIG1ha2UgbW9yZSBzZW5zZSB0byBpbnRyb2R1Y2UgYSBuZXcgb3B0aW9u
-IGFsdG9nZXRoZXIuDQoNClRoYW5rcywNCkVtaWwNCg==
+--Sig_/+r6hNiYMvrohzCmdGvp0JKa
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, 27 Jun 2017 20:33:01 +0300
+Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
+
+> On Tue, Jun 27, 2017 at 10:41:50AM -0600, Jason Gunthorpe wrote:
+> > On Tue, Jun 27, 2017 at 12:21:29PM +0300, Leon Romanovsky wrote: =20
+> > > > What will be the output of such command?
+> > > >  $ rdma dev show mlx5_4 =20
+> > >
+> > > ip-like style:
+> > >
+> > > $ rdma dev show mlx5_4
+> > > 5: mlx5_4:
+> > >     caps: <BAD_PKEY_CNTR, BAD_QKEY_CNTR, CHANGE_PHY_PORT, PORT_ACTIVE=
+_EVENT, SYS_IMAGE_GUID, RC_RNR_NAK_GEN, MEM_WINDOW, UD_IP_CSUM, UD_TSO, XRC=
+, MEM_MGT_EXTENSIONS, BLOCK_MULTICAST_LOOPBACK, MEM_WINDOW_TYPE_2B, RAW_IP_=
+CSUM, SIGNATURE_HANDOVER, VIRTUAL_FUNCTION>
+> > > $ rdma link show mlx5_3
+> > > 4/1: mlx5_3/1:
+> > >     caps: <CM, IP_BASED_GIDS> =20
+> >
+> > I think that is better, maybe it should only show under some kind of
+> > verbose mode, I don't know, it depends what other stuff ends up being
+> > displayed..
+> >
+> > Are you going to dump the gid table and pkey table too in one of these =
+commands? =20
+>=20
+> My initial plan was to put all parsers under their respective names, in
+> the similar way as I did for caps: $ rdma dev show mlx5_4 caps
+>=20
+> So for large dumps, I'm going to use that technique again and maybe print=
+ summary as a default.
+> For example, for gids, we can print utilization as a summary while whole
+> table if someone really wants it: $ rdma link show mlx5_4/1 gids <index>
+>=20
+> Something like that.
+>=20
+> Thanks
+>=20
+> >
+> > Jason =20
+
+Agree with discussion so far.
+
+For iproute2 style commands, the show and set commands need to have similar=
+ arguments.
+Ideally, everything after the colon in the show would be parameters to set =
+command.
+
+Please consider having a concise form for normal users and a detail form (w=
+ith -d) for=20
+configuration and setup cases. The caps should not need to be displayed in =
+normal show
+output.
+
+--Sig_/+r6hNiYMvrohzCmdGvp0JKa
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEn2/DRbBb5+dmuDyPgKd/YJXN5H4FAllS2SMACgkQgKd/YJXN
+5H6kBQ/8CfgU7wcXQBh+2nN0gTiEDURx+BIGQrn924ryf7edn5v/LJxW01yAlJLi
+jYCF0Ne2A0fGj5r9BwodIsJULdCvxRh3YNwsdfoo8yMVwEEzYPS76VCS09Ak/RSO
+4xQ0BHbaVXv257PkRLi4apKMH/KlH8EOZB+lSLSaGQ6AjvsqEhVIWTXdo36x5qmd
+IfUVvUUIxKsYnB9TZfo7rBURZBHA9z8pods+OFckY7b+7LaPBae7+wJ7xAMKhjw+
+GW7i5PBkOMITPIk09PxaPI3M2djENDX6MEk2Zu5O2Y0Xhfbrkpn5ifGU9tdSMhDv
+jHYFGWrzwhdNAnmSDOz2rHkyQvO/ZleCc38e5iztRmgeOh4zQ92pJnG1uwjNDgnx
++XngCobxz6I30UIXBpjRWQRSASy5gaN8Txl2+IF9qjoQH7kgm3FPH/5v6l4BRbsw
+mniDbt9yAMcBzutwt0zDaZhLRiwXgCW66Llrph8V3OWUjlzWDeh84rtDJMA2mAXZ
+MXbNb72VVgJd9Te8e54tahlz+Y78PdsOnFIcvTv1oFmFdVRf5M44GL+Q0LwhzEtM
+4XX2cRSP6goILWo8c6M+0ATJZ3pER/+PG3QaYct/iyURnsYYRby9aNQILY+GceCp
+xI6oG/bv5hMet3e4B/8+Bln6vD1yiMigQWe9o3szZLce1Kk9Nbk=
+=zMMW
+-----END PGP SIGNATURE-----
+
+--Sig_/+r6hNiYMvrohzCmdGvp0JKa--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
