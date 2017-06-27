@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 07/16] net/mlx5: FPGA, Move FPGA init/cleanup to init_once
-Date: Tue, 27 Jun 2017 17:28:47 +0300
-Message-ID: <20170627142856.9448-8-saeedm@mellanox.com>
+Subject: [net-next 04/16] IB/mlx5: Respect mlx5_core reserved GIDs
+Date: Tue, 27 Jun 2017 17:28:44 +0300
+Message-ID: <20170627142856.9448-5-saeedm@mellanox.com>
 References: <20170627142856.9448-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
         Ilan Tayari <ilant@mellanox.com>,
@@ -13,9 +13,9 @@ Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50414 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50394 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753140AbdF0OaM (ORCPT
+        with ESMTP id S1752811AbdF0OaM (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 10:30:12 -0400
 In-Reply-To: <20170627142856.9448-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -23,133 +23,220 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Ilan Tayari <ilant@mellanox.com>
 
-The FPGA init and cleanup routines should be called just once per
-device.
-Move them to the init_once and cleanup_once routines.
+Reserved gids are taken by the mlx5_core, report smaller GID table
+size to IB core.
+
+Set mlx5_query_roce_port's return value back to int. In case of
+error, return an indication. This rolls back some of the change
+in commit 50f22fd8ecf9 ("IB/mlx5: Set mlx5_query_roce_port's return value to void")
+
+Change set_roce_addr to use gid_set function, instead of directly
+sending the command.
 
 Signed-off-by: Ilan Tayari <ilant@mellanox.com>
+Reviewed-by: Leon Romanovsky <leonro@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c |  4 ++--
- drivers/net/ethernet/mellanox/mlx5/core/fpga/core.h |  8 ++++----
- drivers/net/ethernet/mellanox/mlx5/core/main.c      | 21 ++++++++++-----------
- 3 files changed, 16 insertions(+), 17 deletions(-)
+ drivers/infiniband/hw/mlx5/main.c | 119 +++++++++++++++++---------------------
+ 1 file changed, 53 insertions(+), 66 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c b/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c
-index 92d8b1b6e598..c3bb4b865f01 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c
-@@ -135,7 +135,7 @@ int mlx5_fpga_device_start(struct mlx5_core_dev *mdev)
- 	return err;
- }
- 
--int mlx5_fpga_device_init(struct mlx5_core_dev *mdev)
-+int mlx5_fpga_init(struct mlx5_core_dev *mdev)
- {
- 	struct mlx5_fpga_device *fdev = NULL;
- 
-@@ -177,7 +177,7 @@ void mlx5_fpga_device_stop(struct mlx5_core_dev *mdev)
- 	mlx5_core_unreserve_gids(mdev, max_num_qps);
- }
- 
--void mlx5_fpga_device_cleanup(struct mlx5_core_dev *mdev)
-+void mlx5_fpga_cleanup(struct mlx5_core_dev *mdev)
- {
- 	struct mlx5_fpga_device *fdev = mdev->fpga;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.h b/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.h
-index 557d83973ade..db1d22c356e0 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.h
-@@ -68,20 +68,20 @@ struct mlx5_fpga_device {
- #define mlx5_fpga_info(__adev, format, ...) \
- 	dev_info(&(__adev)->mdev->pdev->dev, "FPGA: " format, ##__VA_ARGS__)
- 
--int mlx5_fpga_device_init(struct mlx5_core_dev *mdev);
--void mlx5_fpga_device_cleanup(struct mlx5_core_dev *mdev);
-+int mlx5_fpga_init(struct mlx5_core_dev *mdev);
-+void mlx5_fpga_cleanup(struct mlx5_core_dev *mdev);
- int mlx5_fpga_device_start(struct mlx5_core_dev *mdev);
- void mlx5_fpga_device_stop(struct mlx5_core_dev *mdev);
- void mlx5_fpga_event(struct mlx5_core_dev *mdev, u8 event, void *data);
- 
- #else
- 
--static inline int mlx5_fpga_device_init(struct mlx5_core_dev *mdev)
-+static inline int mlx5_fpga_init(struct mlx5_core_dev *mdev)
- {
+diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
+index 9f7e18612322..dc2f59e33971 100644
+--- a/drivers/infiniband/hw/mlx5/main.c
++++ b/drivers/infiniband/hw/mlx5/main.c
+@@ -223,8 +223,8 @@ static int translate_eth_proto_oper(u32 eth_proto_oper, u8 *active_speed,
  	return 0;
  }
  
--static inline void mlx5_fpga_device_cleanup(struct mlx5_core_dev *mdev)
-+static inline void mlx5_fpga_cleanup(struct mlx5_core_dev *mdev)
+-static void mlx5_query_port_roce(struct ib_device *device, u8 port_num,
+-				 struct ib_port_attr *props)
++static int mlx5_query_port_roce(struct ib_device *device, u8 port_num,
++				struct ib_port_attr *props)
  {
+ 	struct mlx5_ib_dev *dev = to_mdev(device);
+ 	struct mlx5_core_dev *mdev = dev->mdev;
+@@ -232,12 +232,14 @@ static void mlx5_query_port_roce(struct ib_device *device, u8 port_num,
+ 	enum ib_mtu ndev_ib_mtu;
+ 	u16 qkey_viol_cntr;
+ 	u32 eth_prot_oper;
++	int err;
+ 
+ 	/* Possible bad flows are checked before filling out props so in case
+ 	 * of an error it will still be zeroed out.
+ 	 */
+-	if (mlx5_query_port_eth_proto_oper(mdev, &eth_prot_oper, port_num))
+-		return;
++	err = mlx5_query_port_eth_proto_oper(mdev, &eth_prot_oper, port_num);
++	if (err)
++		return err;
+ 
+ 	translate_eth_proto_oper(eth_prot_oper, &props->active_speed,
+ 				 &props->active_width);
+@@ -258,7 +260,7 @@ static void mlx5_query_port_roce(struct ib_device *device, u8 port_num,
+ 
+ 	ndev = mlx5_ib_get_netdev(device, port_num);
+ 	if (!ndev)
+-		return;
++		return 0;
+ 
+ 	if (mlx5_lag_is_active(dev->mdev)) {
+ 		rcu_read_lock();
+@@ -281,75 +283,49 @@ static void mlx5_query_port_roce(struct ib_device *device, u8 port_num,
+ 	dev_put(ndev);
+ 
+ 	props->active_mtu	= min(props->max_mtu, ndev_ib_mtu);
++	return 0;
  }
  
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index 55f9fccfc394..684612778677 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -959,8 +959,16 @@ static int mlx5_init_once(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
- 		goto err_eswitch_cleanup;
- 	}
- 
-+	err = mlx5_fpga_init(dev);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to init fpga device %d\n", err);
-+		goto err_sriov_cleanup;
-+	}
-+
- 	return 0;
- 
-+err_sriov_cleanup:
-+	mlx5_sriov_cleanup(dev);
- err_eswitch_cleanup:
- #ifdef CONFIG_MLX5_CORE_EN
- 	mlx5_eswitch_cleanup(dev->priv.eswitch);
-@@ -984,6 +992,7 @@ static int mlx5_init_once(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
- 
- static void mlx5_cleanup_once(struct mlx5_core_dev *dev)
+-static void ib_gid_to_mlx5_roce_addr(const union ib_gid *gid,
+-				     const struct ib_gid_attr *attr,
+-				     void *mlx5_addr)
++static int set_roce_addr(struct mlx5_ib_dev *dev, u8 port_num,
++			 unsigned int index, const union ib_gid *gid,
++			 const struct ib_gid_attr *attr)
  {
-+	mlx5_fpga_cleanup(dev);
- 	mlx5_sriov_cleanup(dev);
- #ifdef CONFIG_MLX5_CORE_EN
- 	mlx5_eswitch_cleanup(dev->priv.eswitch);
-@@ -1121,16 +1130,10 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
- 		goto err_disable_msix;
+-#define MLX5_SET_RA(p, f, v) MLX5_SET(roce_addr_layout, p, f, v)
+-	char *mlx5_addr_l3_addr	= MLX5_ADDR_OF(roce_addr_layout, mlx5_addr,
+-					       source_l3_address);
+-	void *mlx5_addr_mac	= MLX5_ADDR_OF(roce_addr_layout, mlx5_addr,
+-					       source_mac_47_32);
+-
+-	if (!gid)
+-		return;
++	enum ib_gid_type gid_type = IB_GID_TYPE_IB;
++	u8 roce_version = 0;
++	u8 roce_l3_type = 0;
++	bool vlan = false;
++	u8 mac[ETH_ALEN];
++	u16 vlan_id = 0;
+ 
+-	ether_addr_copy(mlx5_addr_mac, attr->ndev->dev_addr);
++	if (gid) {
++		gid_type = attr->gid_type;
++		ether_addr_copy(mac, attr->ndev->dev_addr);
+ 
+-	if (is_vlan_dev(attr->ndev)) {
+-		MLX5_SET_RA(mlx5_addr, vlan_valid, 1);
+-		MLX5_SET_RA(mlx5_addr, vlan_id, vlan_dev_vlan_id(attr->ndev));
++		if (is_vlan_dev(attr->ndev)) {
++			vlan = true;
++			vlan_id = vlan_dev_vlan_id(attr->ndev);
++		}
  	}
  
--	err = mlx5_fpga_device_init(dev);
--	if (err) {
--		dev_err(&pdev->dev, "fpga device init failed %d\n", err);
--		goto err_put_uars;
+-	switch (attr->gid_type) {
++	switch (gid_type) {
+ 	case IB_GID_TYPE_IB:
+-		MLX5_SET_RA(mlx5_addr, roce_version, MLX5_ROCE_VERSION_1);
++		roce_version = MLX5_ROCE_VERSION_1;
+ 		break;
+ 	case IB_GID_TYPE_ROCE_UDP_ENCAP:
+-		MLX5_SET_RA(mlx5_addr, roce_version, MLX5_ROCE_VERSION_2);
++		roce_version = MLX5_ROCE_VERSION_2;
++		if (ipv6_addr_v4mapped((void *)gid))
++			roce_l3_type = MLX5_ROCE_L3_TYPE_IPV4;
++		else
++			roce_l3_type = MLX5_ROCE_L3_TYPE_IPV6;
+ 		break;
+ 
+ 	default:
+-		WARN_ON(true);
++		mlx5_ib_warn(dev, "Unexpected GID type %u\n", gid_type);
+ 	}
+ 
+-	if (attr->gid_type != IB_GID_TYPE_IB) {
+-		if (ipv6_addr_v4mapped((void *)gid))
+-			MLX5_SET_RA(mlx5_addr, roce_l3_type,
+-				    MLX5_ROCE_L3_TYPE_IPV4);
+-		else
+-			MLX5_SET_RA(mlx5_addr, roce_l3_type,
+-				    MLX5_ROCE_L3_TYPE_IPV6);
 -	}
 -
- 	err = mlx5_start_eqs(dev);
- 	if (err) {
- 		dev_err(&pdev->dev, "Failed to start pages and async EQs\n");
--		goto err_fpga_init;
-+		goto err_put_uars;
- 	}
- 
- 	err = alloc_comp_eqs(dev);
-@@ -1205,9 +1208,6 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
- err_stop_eqs:
- 	mlx5_stop_eqs(dev);
- 
--err_fpga_init:
--	mlx5_fpga_device_cleanup(dev);
+-	if ((attr->gid_type == IB_GID_TYPE_IB) ||
+-	    !ipv6_addr_v4mapped((void *)gid))
+-		memcpy(mlx5_addr_l3_addr, gid, sizeof(*gid));
+-	else
+-		memcpy(&mlx5_addr_l3_addr[12], &gid->raw[12], 4);
+-}
 -
- err_put_uars:
- 	mlx5_put_uars_page(dev, priv->uar);
+-static int set_roce_addr(struct ib_device *device, u8 port_num,
+-			 unsigned int index,
+-			 const union ib_gid *gid,
+-			 const struct ib_gid_attr *attr)
+-{
+-	struct mlx5_ib_dev *dev = to_mdev(device);
+-	u32  in[MLX5_ST_SZ_DW(set_roce_address_in)]  = {0};
+-	u32 out[MLX5_ST_SZ_DW(set_roce_address_out)] = {0};
+-	void *in_addr = MLX5_ADDR_OF(set_roce_address_in, in, roce_address);
+-	enum rdma_link_layer ll = mlx5_ib_port_link_layer(device, port_num);
+-
+-	if (ll != IB_LINK_LAYER_ETHERNET)
+-		return -EINVAL;
+-
+-	ib_gid_to_mlx5_roce_addr(gid, attr, in_addr);
+-
+-	MLX5_SET(set_roce_address_in, in, roce_address_index, index);
+-	MLX5_SET(set_roce_address_in, in, opcode, MLX5_CMD_OP_SET_ROCE_ADDRESS);
+-	return mlx5_cmd_exec(dev->mdev, in, sizeof(in), out, sizeof(out));
++	return mlx5_core_roce_gid_set(dev->mdev, index, roce_version,
++				      roce_l3_type, gid->raw, mac, vlan,
++				      vlan_id);
+ }
  
-@@ -1277,7 +1277,6 @@ static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
- 	mlx5_irq_clear_affinity_hints(dev);
- 	free_comp_eqs(dev);
- 	mlx5_stop_eqs(dev);
--	mlx5_fpga_device_cleanup(dev);
- 	mlx5_put_uars_page(dev, priv->uar);
- 	mlx5_disable_msix(dev);
- 	if (cleanup)
+ static int mlx5_ib_add_gid(struct ib_device *device, u8 port_num,
+@@ -357,13 +333,13 @@ static int mlx5_ib_add_gid(struct ib_device *device, u8 port_num,
+ 			   const struct ib_gid_attr *attr,
+ 			   __always_unused void **context)
+ {
+-	return set_roce_addr(device, port_num, index, gid, attr);
++	return set_roce_addr(to_mdev(device), port_num, index, gid, attr);
+ }
+ 
+ static int mlx5_ib_del_gid(struct ib_device *device, u8 port_num,
+ 			   unsigned int index, __always_unused void **context)
+ {
+-	return set_roce_addr(device, port_num, index, NULL, NULL);
++	return set_roce_addr(to_mdev(device), port_num, index, NULL, NULL);
+ }
+ 
+ __be16 mlx5_get_roce_udp_sport(struct mlx5_ib_dev *dev, u8 port_num,
+@@ -978,20 +954,31 @@ static int mlx5_query_hca_port(struct ib_device *ibdev, u8 port,
+ int mlx5_ib_query_port(struct ib_device *ibdev, u8 port,
+ 		       struct ib_port_attr *props)
+ {
++	unsigned int count;
++	int ret;
++
+ 	switch (mlx5_get_vport_access_method(ibdev)) {
+ 	case MLX5_VPORT_ACCESS_METHOD_MAD:
+-		return mlx5_query_mad_ifc_port(ibdev, port, props);
++		ret = mlx5_query_mad_ifc_port(ibdev, port, props);
++		break;
+ 
+ 	case MLX5_VPORT_ACCESS_METHOD_HCA:
+-		return mlx5_query_hca_port(ibdev, port, props);
++		ret = mlx5_query_hca_port(ibdev, port, props);
++		break;
+ 
+ 	case MLX5_VPORT_ACCESS_METHOD_NIC:
+-		mlx5_query_port_roce(ibdev, port, props);
+-		return 0;
++		ret = mlx5_query_port_roce(ibdev, port, props);
++		break;
+ 
+ 	default:
+-		return -EINVAL;
++		ret = -EINVAL;
++	}
++
++	if (!ret && props) {
++		count = mlx5_core_reserved_gids_count(to_mdev(ibdev)->mdev);
++		props->gid_tbl_len -= count;
+ 	}
++	return ret;
+ }
+ 
+ static int mlx5_ib_query_gid(struct ib_device *ibdev, u8 port, int index,
 -- 
 2.11.0
