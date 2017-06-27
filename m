@@ -1,79 +1,77 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [RFC 01/19] qed: Introduce iWARP personality
-Date: Tue, 27 Jun 2017 08:36:35 +0300
-Message-ID: <20170627053635.GM1248@mtr-leonro.local>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [RFC 02/19] qed: Implement iWARP initialization, teardown and qp
+ operations
+Date: Tue, 27 Jun 2017 08:45:41 +0300
+Message-ID: <20170627054541.GN1248@mtr-leonro.local>
 References: <1498500429-22557-1-git-send-email-Michal.Kalderon@cavium.com>
- <1498500429-22557-2-git-send-email-Michal.Kalderon@cavium.com>
+ <1498500429-22557-3-git-send-email-Michal.Kalderon@cavium.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="Ahst0DKxuyFxAqHk"
-Cc: ram.amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org, yuval.mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org,
-        ariel.elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+        protocol="application/pgp-signature"; boundary="hS2jB1L/urRucW8g"
+Cc: ram.amrani@cavium.com, yuval.mintz@cavium.com,
+        ariel.elior@cavium.com, davem@davemloft.net,
+        netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        dledford@redhat.com
+To: Michal Kalderon <Michal.Kalderon@cavium.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.99]:42140 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751460AbdF0Fps (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 27 Jun 2017 01:45:48 -0400
 Content-Disposition: inline
-In-Reply-To: <1498500429-22557-2-git-send-email-Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1498500429-22557-3-git-send-email-Michal.Kalderon@cavium.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---Ahst0DKxuyFxAqHk
+--hS2jB1L/urRucW8g
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-On Mon, Jun 26, 2017 at 09:06:51PM +0300, Michal Kalderon wrote:
-> iWARP personality introduced the need for differentiating in several
-> places in the code whether we are RoCE, iWARP or either. This
-> leads to introducing new macros for querying the personality.
+On Mon, Jun 26, 2017 at 09:06:52PM +0300, Michal Kalderon wrote:
+> This patch adds iWARP support for flows that have common code
+> between RoCE and iWARP, such as initialization, teardown and
+> qp setup verbs: create, destroy, modify, query.
+> It introduces the iWARP specific files qed_iwarp.[ch] and
+> iwarp_common.h
 >
-> Signed-off-by: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Ariel Elior <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Michal Kalderon <Michal.Kalderon@cavium.com>
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+> Signed-off-by: Ariel Elior <Ariel.Elior@cavium.com>
 >
 > ---
->  drivers/net/ethernet/qlogic/qed/qed.h      | 26 +++++++++++++++++++++++---
->  drivers/net/ethernet/qlogic/qed/qed_cxt.c  |  8 ++++----
->  drivers/net/ethernet/qlogic/qed/qed_dev.c  | 12 +++++-------
->  drivers/net/ethernet/qlogic/qed/qed_l2.c   |  3 +--
->  drivers/net/ethernet/qlogic/qed/qed_ll2.c  |  2 +-
->  drivers/net/ethernet/qlogic/qed/qed_main.c | 17 ++++++++---------
->  include/linux/qed/common_hsi.h             |  2 +-
->  7 files changed, 43 insertions(+), 27 deletions(-)
 
-I see that these changes are in Ethernet part of your driver, but for
-RDMA part, there are already available inline functions:
-rdma_protocol_iwarp, rdma_protocol_roce.
+<...>
 
-Please avoid introducing new IS_IWARP/IS_ROCE macros and the decision
-should be taken on port level and not on device, despite the fact that
-probably your ib_device has only one port.
+> +#define QED_IWARP_PARAM_P2P		(1)
+
+<...>
+
+> +
+> +	iwarp_info->peer2peer = QED_IWARP_PARAM_P2P;
+
+Can you shed a light what is it?
 
 Thanks
 
---Ahst0DKxuyFxAqHk
+--hS2jB1L/urRucW8g
 Content-Type: application/pgp-signature; name="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAllR7uMACgkQ5GN7iDZy
-WKcs9hAAzRctvpDcxhSkZ9y/PWccUW2HvMf81m41OdxDQS16YH8REK7DdZv3eXCB
-Ijjntur31VtIy5+iO1Y7aAqS01l2KIKzh/nh3e+5T6XONtlXs/2HK+qMyB4MtDqK
-TIpLEPKz+azTRisSYulpccrh0U7uAgQV23MNlFhryE/ghW/IQ+XjIgEAHoTjF7cC
-nPPamSPUmywx7PsC9hIjvdX1cuXyMkLIUmqIlAsP5K7fLQklhcwW+6Lr9YDbEqIi
-qFHZ0b96FWazDd7QRiKhaPIKzXtdRV3ZxQaFtmRfesE8iF5q2YFN7FMQPtOITUJY
-dtkOY5yUDg3d9323o5fApdV7iDT+874w3GHIbDUI8rLH++4MdHnPgh95cfxWon1V
-XMq7f0ZxGOKWwcgG1n74bzNrUZ14ubUCpFMB0ILZkpPuj0LXIa6pX0bpUH5+9AhU
-YGghQhSriUaqBSVcEJQBsE73UTGH3VTEwitU6tRPPiTGMkwIkXSu94jvqFd3u5B7
-Psm5L3mug9JzfOgKUOvcYHcKTp97KlFplrJDmF3VdP0tpvjRs2/5HgWrSx267Ig7
-wje0t63TVmUMdcnvhJN/Im1gkxLxDE3PC1rBBeeEM49Qomv3Dk0/CVfQmaU/FK8O
-2GJMLVxwdtOstFpIfUBTjlXMCSkYSeYfDvh5kUWXqk+KbAdaogo=
-=MopR
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAllR8QUACgkQ5GN7iDZy
+WKcObhAArCKBQF92riKXZP+fj+HGUuEaf/DVBlnqLTNKki7FOgbRCgG1boe7oXxh
+aNhFiSJDpe8ZwT6vsN7ZMozW2HNMBg5Cv2uenYMRnhycY1TrzFZmsr2itih9Y28c
+eUQy90eSn14gbiCPB6iEidUw3qxIhtgmU9gXCyfr48VSiL1N+AI/g4Vx+oLERYrv
+DfvKNr5IwI1aCAgf1l4UoC6gBGe4Gzg/3ztg1P2sw+hRWRKbiuikmdF2xpfz11jc
++AM6VJEAxNh13Q+Lk/im1h8CBqSAMic2jYbB6pk0PbMjNix8/asyo9Vq+VzYG+Sn
+aYbcSMqBU71yV2+13tT/Q75s9xMz8Ca2Zxn6FC4+2zBSRyeOdW2orw6DEgW4rS8u
+nqULFcUgUMKvxoqUvsU4aLnQbmsdkr73W7ciy1dRALKdD2VXFJ0rGEC5+za1URXo
+RkmRpsP4gsfZWgac3VnHvJ++tkI9XZzqBHBPA1KbcoiQD+I63ahEjFDOL02TlBDV
+AAlypvsFjXVy2EKgvKgcq4bWIAtwA/11iA6EVCuUqoIl0OJ1M9V6jaBgK6Uv/1iy
+kOpnac5fogIILgnQeW1nDDfPlGPMIWWJoLoUE1GomO7TsW8fR8ENQjfziifK8KlM
+guwsvea+dGkLjc0K3li5ButIyLYbhelHb8bNmoSGDt5Kf3vo+4A=
+=PeyU
 -----END PGP SIGNATURE-----
 
---Ahst0DKxuyFxAqHk--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--hS2jB1L/urRucW8g--
