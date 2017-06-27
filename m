@@ -1,45 +1,116 @@
-From: gfree.wind@vip.163.com
-Subject: [net PATCH] net: sched: Fix one possible panic when no destroy callback
-Date: Tue, 27 Jun 2017 09:35:33 +0800
-Message-ID: <1498527333-86838-1-git-send-email-gfree.wind@vip.163.com>
-Cc: Gao Feng <gfree.wind@vip.163.com>
-To: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-177180.vip.163.com ([123.58.177.180]:49166 "EHLO
-        mail-177180.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751467AbdF0Bge (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2017 21:36:34 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [Qemu-devel] BUG: KASAN: use-after-free in free_old_xmit_skbs
+Date: Tue, 27 Jun 2017 10:13:41 +0800
+Message-ID: <56868f1a-b4d9-50ca-873b-8fe4f70846d6@redhat.com>
+References: <d2e8cf65-ea3d-7db2-9382-a063daf1168a@gmail.com>
+	<20170605050423-mutt-send-email-mst@kernel.org>
+	<20170606024211-mutt-send-email-mst@kernel.org>
+	<CAOTcU=u_HSMQiwDF3Snv5P8mT-b_Aepeb=Z9gbLd1j=2P+Yy+A@mail.gmail.com>
+	<20170622215125-mutt-send-email-mst@kernel.org>
+	<4f6d4342-8476-882e-e7a8-b3f0ebd20d95@redhat.com>
+	<CAM_iQpXhW___-iP3kdv9MJcW=hroyp2SuMzAZdx3KCpc9-W76g@mail.gmail.com>
+	<9327ebf9-59db-f34e-b945-ef381ee95315@redhat.com>
+	<f91048e7-5567-cdf8-fd98-3077ca7ac9a3@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	qemu-devel Developers <qemu-devel@nongnu.org>,
+	virtualization@lists.linux-foundation.org
+To: jpmenil@gmail.com, Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <f91048e7-5567-cdf8-fd98-3077ca7ac9a3@gmail.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Gao Feng <gfree.wind@vip.163.com>
-
-When qdisc fail to init, qdisc_create would invoke the destroy callback
-to cleanup. But there is no check if the callback exists really. So it
-would cause the panic if there is no real destroy callback like these
-qdisc codel, pfifo, pfifo_fast, and so on.
-
-Now add one the check for destroy to avoid the possible panic.
-
-Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
----
- net/sched/sch_api.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index e88342f..cfdbfa1 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -1019,7 +1019,8 @@ static struct Qdisc *qdisc_create(struct net_device *dev,
- 		return sch;
- 	}
- 	/* ops->init() failed, we call ->destroy() like qdisc_create_dflt() */
--	ops->destroy(sch);
-+	if (ops->destroy)
-+		ops->destroy(sch);
- err_out3:
- 	dev_put(dev);
- 	kfree((char *) sch - sch->padded);
--- 
-1.9.1
+CgpPbiAyMDE35bm0MDbmnIgyNuaXpSAxNTozNSwgSmVhbi1QaGlsaXBwZSBNZW5pbCB3cm90ZToK
+PiBPbiAwNi8yNi8yMDE3IDA0OjUwIEFNLCBKYXNvbiBXYW5nIHdyb3RlOgo+Pgo+Pgo+PiBPbiAy
+MDE35bm0MDbmnIgyNOaXpSAwNjozMiwgQ29uZyBXYW5nIHdyb3RlOgo+Pj4gT24gRnJpLCBKdW4g
+MjMsIDIwMTcgYXQgMTo0MyBBTSwgSmFzb24gV2FuZyA8amFzb3dhbmdAcmVkaGF0LmNvbT4gCj4+
+PiB3cm90ZToKPj4+Pgo+Pj4+IE9uIDIwMTflubQwNuaciDIz5pelIDAyOjUzLCBNaWNoYWVsIFMu
+IFRzaXJraW4gd3JvdGU6Cj4+Pj4+IE9uIFRodSwgSnVuIDIyLCAyMDE3IGF0IDA4OjE1OjU4QU0g
+KzAyMDAsIGplYW4tcGhpbGlwcGUgbWVuaWwgd3JvdGU6Cj4+Pj4+PiBIaSBNaWNoYWVsLAo+Pj4+
+Pj4KPj4+Pj4+IGZyb20gd2hhdCBpIHNlZSwgdGhlIHJhY2UgYXBwZWFyIHdoZW4gd2UgaGl0IHZp
+cnRuZXRfcmVzZXQgaW4KPj4+Pj4+IHZpcnRuZXRfeGRwX3NldC4KPj4+Pj4+IHZpcnRuZXRfcmVz
+ZXQKPj4+Pj4+ICAgICBfcmVtb3ZlX3ZxX2NvbW1vbgo+Pj4+Pj4gICAgICAgdmlydG5ldF9kZWxf
+dnFzCj4+Pj4+PiAgICAgICAgIHZpcnRuZXRfZnJlZV9xdWV1ZXMKPj4+Pj4+ICAgICAgICAgICBr
+ZnJlZSh2aS0+c3EpCj4+Pj4+PiB3aGVuIHRoZSB4ZHAgcHJvZ3JhbSAod2l0aCB0d28gaW5zdGFu
+Y2VzIG9mIHRoZSBwcm9ncmFtIHRvIAo+Pj4+Pj4gdHJpZ2dlciBpdAo+Pj4+Pj4gZmFzdGVyKQo+
+Pj4+Pj4gaXMgYWRkZWQgb3IgcmVtb3ZlZC4KPj4+Pj4+Cj4+Pj4+PiBJdCdzIGVhc2lseSByZXBl
+YXRhYmxlLCB3aXRoIDIgY3B1cyBhbmQgNCBxdWV1ZXMgb24gdGhlIHFlbXUgY29tbWFuZAo+Pj4+
+Pj4gbGluZSwKPj4+Pj4+IHJ1bm5pbmcgdGhlIHhkcF90dGwgdG9vbCBmcm9tIEplc3Blci4KPj4+
+Pj4+Cj4+Pj4+PiBGb3Igbm93LCBpJ20gYWJsZSB0byBjb250aW51ZSBteSBxdWFsaWZpY2F0aW9u
+LCB0ZXN0aW5nIGlmIHhkcF9xcCAKPj4+Pj4+IGlzIG5vdAo+Pj4+Pj4gbnVsbCwKPj4+Pj4+IGJ1
+dCBkbyBub3Qgc2VlbSB0byBiZSBhIHN1c3RhaW5hYmxlIHRyaWNrLgo+Pj4+Pj4gaWYgKHhkcF9x
+cCAmJiB2aS0+eGRwX3F1ZXVlc19wYWlycyAhPSB4ZHBfcXApCj4+Pj4+Pgo+Pj4+Pj4gTWF5YmUg
+aXQgd2lsbCBiZSBtb3JlIGNsZWFyIHRvIHlvdSB3aXRoIHRoZXNlcyBpbmZvcm1hdGlvbnMuCj4+
+Pj4+Pgo+Pj4+Pj4gQmVzdCByZWdhcmRzLgo+Pj4+Pj4KPj4+Pj4+IEplYW4tUGhpbGlwcGUKPj4+
+Pj4KPj4+Pj4gSSdtIHByZXR0eSBjbGVhciBhYm91dCB0aGUgaXNzdWUgaGVyZSwgSSB3YXMgdHJ5
+aW5nIHRvIGZpZ3VyZSBvdXQgCj4+Pj4+IGEgZml4Lgo+Pj4+PiBKYXNvbiwgYW55IHRob3VnaHRz
+Pwo+Pj4+Pgo+Pj4+Pgo+Pj4+IEhpIEplYW46Cj4+Pj4KPj4+PiBEb2VzIHRoZSBmb2xsb3dpbmcg
+Zml4IHRoaXMgaXNzdWU/IChJIGNhbid0IHJlcHJvZHVjZSBpdCBsb2NhbGx5IAo+Pj4+IHRocm91
+Z2gKPj4+PiB4ZHBfdHRsKQo+Pj4gSXQgaXMgdHJpY2t5IGhlcmUuCj4+Pgo+Pj4gIEZyb20gbXkg
+dW5kZXJzdGFuZGluZyBvZiB0aGUgY29kZSBiYXNlLCB0aGUgdHhfbG9jayBpcyBub3Qgc3VmZmlj
+aWVudAo+Pj4gaGVyZSwgYmVjYXVzZSBpbiB2aXJ0bmV0X2RlbF92cXMoKSBhbGwgdnFzIGFyZSBk
+ZWxldGVkIGFuZCBvbmUgdnAKPj4+IG1hcHMgdG8gb25lIHR4cS4KPj4+Cj4+PiBJIGFtIGFmcmFp
+ZCB5b3UgaGF2ZSB0byBhZGQgYSBzcGlubG9jayBzb21ld2hlcmUgdG8gc2VyaWFsaXplZAo+Pj4g
+ZnJlZV9vbGRfeG1pdF9za2JzKCkgdnMuIHZyaW5nX2RlbF92aXJ0cXVldWUoKS4gQXMgeW91IGNh
+biBzZWUKPj4+IHRoZXkgYXJlIGluIGRpZmZlcmVudCBsYXllcnMsIHNvIGl0IGlzIGhhcmQgdG8g
+ZmlndXJlIG91dCB3aGVyZSB0byBhZGQKPj4+IGl0Li4uCj4+Pgo+Pj4gQWxzbywgbWFrZSBzdXJl
+IHdlIGRvbid0IHNsZWVwIGluc2lkZSB0aGUgc3BpbmxvY2ssIEkgc2VlIGEKPj4+IHN5bmNocm9u
+aXplX25ldCgpLgo+Pgo+PiBMb29rcyBsaWtlIEkgbWlzcyBzb21ldGhpbmcuIEkgdGhvdWdodCBm
+cmVlX29sZF94bWl0X3NrYnMoKSB3ZXJlIAo+PiBzZXJpYWxpemVkIGluIHRoaXMgY2FzZSBzaW5j
+ZSB3ZSBkaXNhYmxlIGFsbCB0eCBxdWV1ZXMgYWZ0ZXIgCj4+IG5ldGlmX3R4X3VubG9ja19iaCgp
+Pwo+Pgo+PiBKZWFuOgo+Pgo+PiBJIHRob3VnaHQgdGhpcyBjb3VsZCBiZSBlYXNpbHkgcmVwcm9k
+dWNlZCBieSBlLmcgcHJvZHVjZSBzb21lIHRyYWZmaWMgCj4+IGFuZCBpbiB0aGUgc2FtZSB0aW1l
+IHRyeSB0byBhdHRhY2ggYW4geGRwIHByb2dyYW0uIEJ1dCBsb29rcyBub3QuIEhvdyAKPj4gZG8g
+eW91IHRyaWdnZXIgdGhpcz8gV2hhdCdzIHlvdXIgcWVtdSBjb21tYW5kIGxpbmUgZm9yIHRoaXM/
+Cj4+Cj4+IFRoYW5rcwo+Cj4gSGkgSmFzb24sCj4KPiB0aGlzIGlzIGhvdyBpIHRyaWdnZXIgdGhl
+IGJ1ZzoKPiAtIG9uIHRoZSBndWVzdCwgdGNwZHVtcCBvbiBvbiB0aGUgaW50ZXJmYWNlCj4gLSBv
+biB0aGUgZ3Vlc3QsIHJ1biBpcGVyZiBhZ2FpbnN0IHRoZSBob3N0Cj4gLSBvbiB0aGUgZ3Vlc3Qs
+IGNhdCAvc3lzL2tlcm5lbC9kZWJ1Zy90cmFjaW5nL3RyYWNlX3BpcGUKPiAtIG9uIHRoZSBndWVz
+dCwgcnVuIG9uZSBvciB0d28gaW5zdGFuY2VzIG9mIHhkcF90dGwgY29tcGlsZWQgd2l0aCAKPiBE
+RUJVRyB1bmNvbW1lbnRlZCwgdGhhdCBpIHN0YXJ0IHN0b3AsIHVudGlsIGkgdHJpZ2dlciB0aGUg
+YnVnLgo+Cj4gcWVtdSBjb21tYW5kIGxpbmUgaXMgYXMgZm9sbG93Ogo+Cj4gcWVtdS1zeXN0ZW0t
+eDg2XzY0IC1uYW1lIHVidW50dSAtLWVuYWJsZS1rdm0gLW1hY2hpbmUgcGMsYWNjZWw9a3ZtIAo+
+IC1zbXAgMiAtZHJpdmUgZmlsZT0vZGV2L0xvY2FsRGlzay91YnVudHUsaWY9dmlydGlvLGZvcm1h
+dD1yYXcgLW0gMjA0OCAKPiAtcnRjIGJhc2U9bG9jYWx0aW1lLGNsb2NrPWhvc3QgLXVzYmRldmlj
+ZSB0YWJsZXQgLS1iYWxsb29uIHZpcnRpbyAKPiAtbmV0ZGV2IAo+IHRhcCxpZD11YnVudHUtMCxp
+Zm5hbWU9dWJ1bnR1LTAsc2NyaXB0PS9ob21lL2plbmZpL1dPUksvanAvcWVtdS9pZi11cCxkb3du
+c2NyaXB0PS9ob21lL2plbmZpL1dPUksvanAvcWVtdS9pZi1kb3duLHZob3N0PW9uLHF1ZXVlcz00
+IAo+IC1kZXZpY2UgCj4gdmlydGlvLW5ldC1wY2ksbmV0ZGV2PXVidW50dS0wLG1hYz1kZTphZDpi
+ZTplZjowMTowMyxtcT1vbixndWVzdF90c280PW9mZixndWVzdF90c282PW9mZixndWVzdF9lY249
+b2ZmLGd1ZXN0X3Vmbz1vZmYsdmVjdG9ycz0yIAo+IC12bmMgMTI3LjAuMC4xOjMgLW5vZ3JhcGhp
+YyAtc2VyaWFsIAo+IGZpbGU6L2hvbWUvamVuZmkvV09SSy9qcC9xZW11L3VidW50dS5vdXQgLW1v
+bml0b3IgCj4gdW5peDovaG9tZS9qZW5maS9XT1JLL2pwL3FlbXUvdWJ1bnR1LnNvY2ssc2VydmVy
+LG5vd2FpdAo+Cj4gTm90aWNlLCB0aGUgc21wIDIsIHF1ZXVlcyB0byA0IGFuZCB2ZWN0b3JzIHRv
+IDIuCj4gU2VlbSB0aGF0IGlmIGZvZ290IHRvIG1lbnRpb24gdGhhdCBpbiB0aGUgYmVnaW5uaW5n
+IG9mIHRoaXMgdGhyZWFkLCAKPiBzb3JyeSBmb3IgdGhhdC4KPgo+IEJlc3QgcmVnYXJkcy4KPgo+
+IEplYW4tUGhpbGlwcGUKPgoKVGhhbmtzIEplYW4sIEkgbWFuYWdlIHRvIHJlcHJvZHVjZSB0aGUg
+aXNzdWUuCgpJIHRob3VnaHQgbmV0aWZfdHhfdW5sb2NrX2JoKCkgd2lsbCBkbyB0eCBsb2NrIGJ1
+dCBsb29rcyBub3QsIHRoYXQncyB3aHkgCnByZXZpb3VzIHBhdGNoIGRvZXNuJ3Qgd29yay4KCkNv
+dWxkIHlvdSBwbGVhc2UgdGhpcyB0aGlzIHBhdGNoPyAoQXQgbGVhc3QgaXQgY2FuJ3QgdHJpZ2dl
+ciB0aGUgd2FybmluZyAKYWZ0ZXIgbW9yZSB0aGFuIDIwIHRpbWVzIG9mIHhkcCBzdGFydC9zdG9w
+KS4KCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMgYi9kcml2ZXJzL25ldC92
+aXJ0aW9fbmV0LmMKaW5kZXggMWY4YzE1Yy4uYTE4Zjg1OSAxMDA2NDQKLS0tIGEvZHJpdmVycy9u
+ZXQvdmlydGlvX25ldC5jCisrKyBiL2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYwpAQCAtMTgwMiw2
+ICsxODAyLDcgQEAgc3RhdGljIHZvaWQgdmlydG5ldF9mcmVlemVfZG93bihzdHJ1Y3QgCnZpcnRp
+b19kZXZpY2UgKnZkZXYpCiAgICAgICAgIGZsdXNoX3dvcmsoJnZpLT5jb25maWdfd29yayk7Cgog
+ICAgICAgICBuZXRpZl9kZXZpY2VfZGV0YWNoKHZpLT5kZXYpOworICAgICAgIG5ldGlmX3R4X2Rp
+c2FibGUodmktPmRldik7CiAgICAgICAgIGNhbmNlbF9kZWxheWVkX3dvcmtfc3luYygmdmktPnJl
+ZmlsbCk7CgogICAgICAgICBpZiAobmV0aWZfcnVubmluZyh2aS0+ZGV2KSkgewoKCl9fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClZpcnR1YWxpemF0aW9uIG1h
+aWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRw
+czovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby92aXJ0dWFsaXph
+dGlvbg==
