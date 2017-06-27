@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 15/16] net/mlx5e: IPSec, Add Innova IPSec offload TX data path
-Date: Tue, 27 Jun 2017 17:28:55 +0300
-Message-ID: <20170627142856.9448-16-saeedm@mellanox.com>
+Subject: [net-next 06/16] net/mlx5: Add QP WQ support
+Date: Tue, 27 Jun 2017 17:28:46 +0300
+Message-ID: <20170627142856.9448-7-saeedm@mellanox.com>
 References: <20170627142856.9448-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
         Ilan Tayari <ilant@mellanox.com>,
@@ -13,543 +13,126 @@ Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50649 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50589 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752514AbdF0OaW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 10:30:22 -0400
+        with ESMTP id S1753195AbdF0OaX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 10:30:23 -0400
 In-Reply-To: <20170627142856.9448-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ilan Tayari <ilant@mellanox.com>
 
-In the TX data path, prepend a special metadata ethertype which
-instructs the hardware to perform cryptography.
-
-In addition, fill Software-Parser segment in TX descriptor so
-that the hardware may parse the ESP protocol, and perform TX
-checksum offload on the inner payload.
-
-Support GSO, by providing the inverse of gso_size in the metadata.
-This allows the FPGA to update the ESP header (seqno and seqiv) on the
-resulting packets, by calculating the packet number within the GSO
-back from the TCP sequence number.
-
-Note that for GSO SKBs, the stack does not include an ESP trailer,
-unlike the non-GSO case.
+A QP in ConnectX is a concatenation of RQ and SQ which share a QP-number
+and work together.
+Add support for allocating and managing the work-queue buffer for a QP, in
+a similar way to how SQs and RQs are already supported.
 
 Signed-off-by: Ilan Tayari <ilant@mellanox.com>
-Signed-off-by: Yossi Kuperman <yossiku@mellanox.com>
-Signed-off-by: Yevgeny Kliteynik <kliteyn@mellanox.com>
-Signed-off-by: Boris Pismenny <borisp@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |   1 +
- .../ethernet/mellanox/mlx5/core/en_accel/ipsec.c   |  27 +++
- .../ethernet/mellanox/mlx5/core/en_accel/ipsec.h   |  10 +
- .../mellanox/mlx5/core/en_accel/ipsec_rxtx.c       | 243 +++++++++++++++++++++
- .../mellanox/mlx5/core/en_accel/ipsec_rxtx.h       |  13 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   9 +
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |  25 ++-
- 7 files changed, 319 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/wq.c | 46 ++++++++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/wq.h | 10 ++++++
+ 2 files changed, 56 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 535ffd78a34e..e1b7ddfecd01 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -328,6 +328,7 @@ struct mlx5e_sq_dma {
- 
- enum {
- 	MLX5E_SQ_STATE_ENABLED,
-+	MLX5E_SQ_STATE_IPSEC,
- };
- 
- struct mlx5e_sq_wqe_info {
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.c b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.c
-index bb69660893ee..bac5103efad3 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.c
-@@ -399,10 +399,26 @@ void mlx5e_ipsec_cleanup(struct mlx5e_priv *priv)
- 	priv->ipsec = NULL;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/wq.c b/drivers/net/ethernet/mellanox/mlx5/core/wq.c
+index 921673c42bc9..6bcfc25350f5 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/wq.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/wq.c
+@@ -54,6 +54,12 @@ static u32 mlx5_wq_cyc_get_byte_size(struct mlx5_wq_cyc *wq)
+ 	return mlx5_wq_cyc_get_size(wq) << wq->log_stride;
  }
  
-+static bool mlx5e_ipsec_offload_ok(struct sk_buff *skb, struct xfrm_state *x)
++static u32 mlx5_wq_qp_get_byte_size(struct mlx5_wq_qp *wq)
 +{
-+	if (x->props.family == AF_INET) {
-+		/* Offload with IPv4 options is not supported yet */
-+		if (ip_hdr(skb)->ihl > 5)
-+			return false;
-+	} else {
-+		/* Offload with IPv6 extension headers is not support yet */
-+		if (ipv6_ext_hdr(ipv6_hdr(skb)->nexthdr))
-+			return false;
-+	}
-+
-+	return true;
++	return mlx5_wq_cyc_get_byte_size(&wq->rq) +
++	       mlx5_wq_cyc_get_byte_size(&wq->sq);
 +}
 +
- static const struct xfrmdev_ops mlx5e_ipsec_xfrmdev_ops = {
- 	.xdo_dev_state_add	= mlx5e_xfrm_add_state,
- 	.xdo_dev_state_delete	= mlx5e_xfrm_del_state,
- 	.xdo_dev_state_free	= mlx5e_xfrm_free_state,
-+	.xdo_dev_offload_ok	= mlx5e_ipsec_offload_ok,
- };
- 
- void mlx5e_ipsec_build_netdev(struct mlx5e_priv *priv)
-@@ -431,4 +447,15 @@ void mlx5e_ipsec_build_netdev(struct mlx5e_priv *priv)
- 
- 	netdev->features |= NETIF_F_HW_ESP_TX_CSUM;
- 	netdev->hw_enc_features |= NETIF_F_HW_ESP_TX_CSUM;
-+
-+	if (!(mlx5_accel_ipsec_device_caps(mdev) & MLX5_ACCEL_IPSEC_LSO) ||
-+	    !MLX5_CAP_ETH(mdev, swp_lso)) {
-+		mlx5_core_dbg(mdev, "mlx5e: ESP LSO not supported\n");
-+		return;
-+	}
-+
-+	mlx5_core_dbg(mdev, "mlx5e: ESP GSO capability turned on\n");
-+	netdev->features |= NETIF_F_GSO_ESP;
-+	netdev->hw_features |= NETIF_F_GSO_ESP;
-+	netdev->hw_enc_features |= NETIF_F_GSO_ESP;
- }
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.h b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.h
-index 4d745d3dd4b1..ffc90b3c6ac7 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.h
-@@ -50,6 +50,11 @@ struct mlx5e_ipsec_sw_stats {
- 	atomic64_t ipsec_rx_drop_sp_alloc;
- 	atomic64_t ipsec_rx_drop_sadb_miss;
- 	atomic64_t ipsec_rx_drop_syndrome;
-+	atomic64_t ipsec_tx_drop_bundle;
-+	atomic64_t ipsec_tx_drop_no_state;
-+	atomic64_t ipsec_tx_drop_not_ip;
-+	atomic64_t ipsec_tx_drop_trailer;
-+	atomic64_t ipsec_tx_drop_metadata;
- };
- 
- struct mlx5e_ipsec {
-@@ -60,6 +65,7 @@ struct mlx5e_ipsec {
- 	struct mlx5e_ipsec_sw_stats sw_stats;
- };
- 
-+void mlx5e_ipsec_build_inverse_table(void);
- int mlx5e_ipsec_init(struct mlx5e_priv *priv);
- void mlx5e_ipsec_cleanup(struct mlx5e_priv *priv);
- void mlx5e_ipsec_build_netdev(struct mlx5e_priv *priv);
-@@ -69,6 +75,10 @@ struct xfrm_state *mlx5e_ipsec_sadb_rx_lookup(struct mlx5e_ipsec *dev,
- 
- #else
- 
-+static inline void mlx5e_ipsec_build_inverse_table(void)
-+{
-+}
-+
- static inline int mlx5e_ipsec_init(struct mlx5e_priv *priv)
+ static u32 mlx5_cqwq_get_byte_size(struct mlx5_cqwq *wq)
  {
- 	return 0;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.c
-index 56ab2e80553e..4a78aefdf157 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.c
-@@ -33,6 +33,7 @@
+ 	return mlx5_cqwq_get_size(wq) << wq->log_stride;
+@@ -99,6 +105,46 @@ int mlx5_wq_cyc_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
+ 	return err;
+ }
  
- #include <crypto/aead.h>
- #include <net/xfrm.h>
-+#include <net/esp.h>
++int mlx5_wq_qp_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
++		      void *qpc, struct mlx5_wq_qp *wq,
++		      struct mlx5_wq_ctrl *wq_ctrl)
++{
++	int err;
++
++	wq->rq.log_stride = MLX5_GET(qpc, qpc, log_rq_stride) + 4;
++	wq->rq.sz_m1 = (1 << MLX5_GET(qpc, qpc, log_rq_size)) - 1;
++
++	wq->sq.log_stride = ilog2(MLX5_SEND_WQE_BB);
++	wq->sq.sz_m1 = (1 << MLX5_GET(qpc, qpc, log_sq_size)) - 1;
++
++	err = mlx5_db_alloc_node(mdev, &wq_ctrl->db, param->db_numa_node);
++	if (err) {
++		mlx5_core_warn(mdev, "mlx5_db_alloc_node() failed, %d\n", err);
++		return err;
++	}
++
++	err = mlx5_buf_alloc_node(mdev, mlx5_wq_qp_get_byte_size(wq),
++				  &wq_ctrl->buf, param->buf_numa_node);
++	if (err) {
++		mlx5_core_warn(mdev, "mlx5_buf_alloc_node() failed, %d\n", err);
++		goto err_db_free;
++	}
++
++	wq->rq.buf = wq_ctrl->buf.direct.buf;
++	wq->sq.buf = wq->rq.buf + mlx5_wq_cyc_get_byte_size(&wq->rq);
++	wq->rq.db  = &wq_ctrl->db.db[MLX5_RCV_DBR];
++	wq->sq.db  = &wq_ctrl->db.db[MLX5_SND_DBR];
++
++	wq_ctrl->mdev = mdev;
++
++	return 0;
++
++err_db_free:
++	mlx5_db_free(mdev, &wq_ctrl->db);
++
++	return err;
++}
++
+ int mlx5_cqwq_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
+ 		     void *cqc, struct mlx5_cqwq *wq,
+ 		     struct mlx5_frag_wq_ctrl *wq_ctrl)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/wq.h b/drivers/net/ethernet/mellanox/mlx5/core/wq.h
+index 9ded5d40ce6b..718589d0cec2 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/wq.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/wq.h
+@@ -35,6 +35,7 @@
  
- #include "en_accel/ipsec_rxtx.h"
- #include "en_accel/ipsec.h"
-@@ -48,17 +49,228 @@ struct mlx5e_ipsec_rx_metadata {
- 	__be32		sa_handle;
- } __packed;
+ #include <linux/mlx5/mlx5_ifc.h>
+ #include <linux/mlx5/cq.h>
++#include <linux/mlx5/qp.h>
  
-+enum {
-+	MLX5E_IPSEC_TX_SYNDROME_OFFLOAD = 0x8,
-+	MLX5E_IPSEC_TX_SYNDROME_OFFLOAD_WITH_LSO_TCP = 0x9,
+ struct mlx5_wq_param {
+ 	int		linear;
+@@ -61,6 +62,11 @@ struct mlx5_wq_cyc {
+ 	u8			log_stride;
+ };
+ 
++struct mlx5_wq_qp {
++	struct mlx5_wq_cyc	rq;
++	struct mlx5_wq_cyc	sq;
 +};
 +
-+struct mlx5e_ipsec_tx_metadata {
-+	__be16 mss_inv;         /* 1/MSS in 16bit fixed point, only for LSO */
-+	__be16 seq;             /* LSBs of the first TCP seq, only for LSO */
-+	u8     esp_next_proto;  /* Next protocol of ESP */
-+} __packed;
-+
- struct mlx5e_ipsec_metadata {
- 	unsigned char syndrome;
- 	union {
- 		unsigned char raw[5];
- 		/* from FPGA to host, on successful decrypt */
- 		struct mlx5e_ipsec_rx_metadata rx;
-+		/* from host to FPGA */
-+		struct mlx5e_ipsec_tx_metadata tx;
- 	} __packed content;
- 	/* packet type ID field	*/
- 	__be16 ethertype;
- } __packed;
+ struct mlx5_cqwq {
+ 	struct mlx5_frag_buf	frag_buf;
+ 	__be32			*db;
+@@ -88,6 +94,10 @@ int mlx5_wq_cyc_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
+ 		       struct mlx5_wq_ctrl *wq_ctrl);
+ u32 mlx5_wq_cyc_get_size(struct mlx5_wq_cyc *wq);
  
-+#define MAX_LSO_MSS 2048
++int mlx5_wq_qp_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
++		      void *qpc, struct mlx5_wq_qp *wq,
++		      struct mlx5_wq_ctrl *wq_ctrl);
 +
-+/* Pre-calculated (Q0.16) fixed-point inverse 1/x function */
-+static __be16 mlx5e_ipsec_inverse_table[MAX_LSO_MSS];
-+
-+static inline __be16 mlx5e_ipsec_mss_inv(struct sk_buff *skb)
-+{
-+	return mlx5e_ipsec_inverse_table[skb_shinfo(skb)->gso_size];
-+}
-+
-+static struct mlx5e_ipsec_metadata *mlx5e_ipsec_add_metadata(struct sk_buff *skb)
-+{
-+	struct mlx5e_ipsec_metadata *mdata;
-+	struct ethhdr *eth;
-+
-+	if (unlikely(skb_cow_head(skb, sizeof(*mdata))))
-+		return ERR_PTR(-ENOMEM);
-+
-+	eth = (struct ethhdr *)skb_push(skb, sizeof(*mdata));
-+	skb->mac_header -= sizeof(*mdata);
-+	mdata = (struct mlx5e_ipsec_metadata *)(eth + 1);
-+
-+	memmove(skb->data, skb->data + sizeof(*mdata),
-+		2 * ETH_ALEN);
-+
-+	eth->h_proto = cpu_to_be16(MLX5E_METADATA_ETHER_TYPE);
-+
-+	memset(mdata->content.raw, 0, sizeof(mdata->content.raw));
-+	return mdata;
-+}
-+
-+static int mlx5e_ipsec_remove_trailer(struct sk_buff *skb, struct xfrm_state *x)
-+{
-+	unsigned int alen = crypto_aead_authsize(x->data);
-+	struct ipv6hdr *ipv6hdr = ipv6_hdr(skb);
-+	struct iphdr *ipv4hdr = ip_hdr(skb);
-+	unsigned int trailer_len;
-+	u8 plen;
-+	int ret;
-+
-+	ret = skb_copy_bits(skb, skb->len - alen - 2, &plen, 1);
-+	if (unlikely(ret))
-+		return ret;
-+
-+	trailer_len = alen + plen + 2;
-+
-+	pskb_trim(skb, skb->len - trailer_len);
-+	if (skb->protocol == htons(ETH_P_IP)) {
-+		ipv4hdr->tot_len = htons(ntohs(ipv4hdr->tot_len) - trailer_len);
-+		ip_send_check(ipv4hdr);
-+	} else {
-+		ipv6hdr->payload_len = htons(ntohs(ipv6hdr->payload_len) -
-+					     trailer_len);
-+	}
-+	return 0;
-+}
-+
-+static void mlx5e_ipsec_set_swp(struct sk_buff *skb,
-+				struct mlx5_wqe_eth_seg *eseg, u8 mode,
-+				struct xfrm_offload *xo)
-+{
-+	u8 proto;
-+
-+	/* Tunnel Mode:
-+	 * SWP:      OutL3       InL3  InL4
-+	 * Pkt: MAC  IP     ESP  IP    L4
-+	 *
-+	 * Transport Mode:
-+	 * SWP:      OutL3       InL4
-+	 *           InL3
-+	 * Pkt: MAC  IP     ESP  L4
-+	 *
-+	 * Offsets are in 2-byte words, counting from start of frame
-+	 */
-+	eseg->swp_outer_l3_offset = skb_network_offset(skb) / 2;
-+	if (skb->protocol == htons(ETH_P_IPV6))
-+		eseg->swp_flags |= MLX5_ETH_WQE_SWP_OUTER_L3_IPV6;
-+
-+	if (mode == XFRM_MODE_TUNNEL) {
-+		eseg->swp_inner_l3_offset = skb_inner_network_offset(skb) / 2;
-+		if (xo->proto == IPPROTO_IPV6) {
-+			eseg->swp_flags |= MLX5_ETH_WQE_SWP_INNER_L3_IPV6;
-+			proto = inner_ipv6_hdr(skb)->nexthdr;
-+		} else {
-+			proto = inner_ip_hdr(skb)->protocol;
-+		}
-+	} else {
-+		eseg->swp_inner_l3_offset = skb_network_offset(skb) / 2;
-+		if (skb->protocol == htons(ETH_P_IPV6))
-+			eseg->swp_flags |= MLX5_ETH_WQE_SWP_INNER_L3_IPV6;
-+		proto = xo->proto;
-+	}
-+	switch (proto) {
-+	case IPPROTO_UDP:
-+		eseg->swp_flags |= MLX5_ETH_WQE_SWP_INNER_L4_UDP;
-+		/* Fall through */
-+	case IPPROTO_TCP:
-+		eseg->swp_inner_l4_offset = skb_inner_transport_offset(skb) / 2;
-+		break;
-+	}
-+}
-+
-+static void mlx5e_ipsec_set_iv(struct sk_buff *skb, struct xfrm_offload *xo)
-+{
-+	int iv_offset;
-+	__be64 seqno;
-+
-+	/* Place the SN in the IV field */
-+	seqno = cpu_to_be64(xo->seq.low + ((u64)xo->seq.hi << 32));
-+	iv_offset = skb_transport_offset(skb) + sizeof(struct ip_esp_hdr);
-+	skb_store_bits(skb, iv_offset, &seqno, 8);
-+}
-+
-+static void mlx5e_ipsec_set_metadata(struct sk_buff *skb,
-+				     struct mlx5e_ipsec_metadata *mdata,
-+				     struct xfrm_offload *xo)
-+{
-+	struct ip_esp_hdr *esph;
-+	struct tcphdr *tcph;
-+
-+	if (skb_is_gso(skb)) {
-+		/* Add LSO metadata indication */
-+		esph = ip_esp_hdr(skb);
-+		tcph = inner_tcp_hdr(skb);
-+		netdev_dbg(skb->dev, "   Offloading GSO packet outer L3 %u; L4 %u; Inner L3 %u; L4 %u\n",
-+			   skb->network_header,
-+			   skb->transport_header,
-+			   skb->inner_network_header,
-+			   skb->inner_transport_header);
-+		netdev_dbg(skb->dev, "   Offloading GSO packet of len %u; mss %u; TCP sp %u dp %u seq 0x%x ESP seq 0x%x\n",
-+			   skb->len, skb_shinfo(skb)->gso_size,
-+			   ntohs(tcph->source), ntohs(tcph->dest),
-+			   ntohl(tcph->seq), ntohl(esph->seq_no));
-+		mdata->syndrome = MLX5E_IPSEC_TX_SYNDROME_OFFLOAD_WITH_LSO_TCP;
-+		mdata->content.tx.mss_inv = mlx5e_ipsec_mss_inv(skb);
-+		mdata->content.tx.seq = htons(ntohl(tcph->seq) & 0xFFFF);
-+	} else {
-+		mdata->syndrome = MLX5E_IPSEC_TX_SYNDROME_OFFLOAD;
-+	}
-+	mdata->content.tx.esp_next_proto = xo->proto;
-+
-+	netdev_dbg(skb->dev, "   TX metadata syndrome %u proto %u mss_inv %04x seq %04x\n",
-+		   mdata->syndrome, mdata->content.tx.esp_next_proto,
-+		   ntohs(mdata->content.tx.mss_inv),
-+		   ntohs(mdata->content.tx.seq));
-+}
-+
-+struct sk_buff *mlx5e_ipsec_handle_tx_skb(struct net_device *netdev,
-+					  struct mlx5e_tx_wqe *wqe,
-+					  struct sk_buff *skb)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(netdev);
-+	struct xfrm_offload *xo = xfrm_offload(skb);
-+	struct mlx5e_ipsec_metadata *mdata;
-+	struct xfrm_state *x;
-+
-+	if (!xo)
-+		return skb;
-+
-+	if (unlikely(skb->sp->len != 1)) {
-+		atomic64_inc(&priv->ipsec->sw_stats.ipsec_tx_drop_bundle);
-+		goto drop;
-+	}
-+
-+	x = xfrm_input_state(skb);
-+	if (unlikely(!x)) {
-+		atomic64_inc(&priv->ipsec->sw_stats.ipsec_tx_drop_no_state);
-+		goto drop;
-+	}
-+
-+	if (unlikely(!x->xso.offload_handle ||
-+		     (skb->protocol != htons(ETH_P_IP) &&
-+		      skb->protocol != htons(ETH_P_IPV6)))) {
-+		atomic64_inc(&priv->ipsec->sw_stats.ipsec_tx_drop_not_ip);
-+		goto drop;
-+	}
-+
-+	if (!skb_is_gso(skb))
-+		if (unlikely(mlx5e_ipsec_remove_trailer(skb, x))) {
-+			atomic64_inc(&priv->ipsec->sw_stats.ipsec_tx_drop_trailer);
-+			goto drop;
-+		}
-+	mdata = mlx5e_ipsec_add_metadata(skb);
-+	if (unlikely(IS_ERR(mdata))) {
-+		atomic64_inc(&priv->ipsec->sw_stats.ipsec_tx_drop_metadata);
-+		goto drop;
-+	}
-+	mlx5e_ipsec_set_swp(skb, &wqe->eth, x->props.mode, xo);
-+	mlx5e_ipsec_set_iv(skb, xo);
-+	mlx5e_ipsec_set_metadata(skb, mdata, xo);
-+
-+	return skb;
-+
-+drop:
-+	kfree_skb(skb);
-+	return NULL;
-+}
-+
- static inline struct xfrm_state *
- mlx5e_ipsec_build_sp(struct net_device *netdev, struct sk_buff *skb,
- 		     struct mlx5e_ipsec_metadata *mdata)
-@@ -133,3 +345,34 @@ struct sk_buff *mlx5e_ipsec_handle_rx_skb(struct net_device *netdev,
- 
- 	return skb;
- }
-+
-+bool mlx5e_ipsec_feature_check(struct sk_buff *skb, struct net_device *netdev,
-+			       netdev_features_t features)
-+{
-+	struct xfrm_state *x;
-+
-+	if (skb->sp && skb->sp->len) {
-+		x = skb->sp->xvec[0];
-+		if (x && x->xso.offload_handle)
-+			return true;
-+	}
-+	return false;
-+}
-+
-+void mlx5e_ipsec_build_inverse_table(void)
-+{
-+	u16 mss_inv;
-+	u32 mss;
-+
-+	/* Calculate 1/x inverse table for use in GSO data path.
-+	 * Using this table, we provide the IPSec accelerator with the value of
-+	 * 1/gso_size so that it can infer the position of each segment inside
-+	 * the GSO, and increment the ESP sequence number, and generate the IV.
-+	 * The HW needs this value in Q0.16 fixed-point number format
-+	 */
-+	mlx5e_ipsec_inverse_table[1] = htons(0xFFFF);
-+	for (mss = 2; mss < MAX_LSO_MSS; mss++) {
-+		mss_inv = ((1ULL << 32) / mss) >> 16;
-+		mlx5e_ipsec_inverse_table[mss] = htons(mss_inv);
-+	}
-+}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.h b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.h
-index 4e2fab8c5d74..e37ae2598dbb 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.h
-@@ -34,6 +34,8 @@
- #ifndef __MLX5E_IPSEC_RXTX_H__
- #define __MLX5E_IPSEC_RXTX_H__
- 
-+#ifdef CONFIG_MLX5_EN_IPSEC
-+
- #include <linux/skbuff.h>
- #include "en.h"
- 
-@@ -41,4 +43,13 @@ struct sk_buff *mlx5e_ipsec_handle_rx_skb(struct net_device *netdev,
- 					  struct sk_buff *skb);
- void mlx5e_ipsec_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe);
- 
--#endif	/* __MLX5E_IPSEC_RXTX_H__ */
-+void mlx5e_ipsec_inverse_table_init(void);
-+bool mlx5e_ipsec_feature_check(struct sk_buff *skb, struct net_device *netdev,
-+			       netdev_features_t features);
-+struct sk_buff *mlx5e_ipsec_handle_tx_skb(struct net_device *netdev,
-+					  struct mlx5e_tx_wqe *wqe,
-+					  struct sk_buff *skb);
-+
-+#endif /* CONFIG_MLX5_EN_IPSEC */
-+
-+#endif /* __MLX5E_IPSEC_RXTX_H__ */
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 170a9378d1f7..a037bd7edb46 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1114,6 +1114,8 @@ static int mlx5e_alloc_txqsq(struct mlx5e_channel *c,
- 	sq->uar_map   = mdev->mlx5e_res.bfreg.map;
- 	sq->max_inline      = params->tx_max_inline;
- 	sq->min_inline_mode = params->tx_min_inline_mode;
-+	if (MLX5_IPSEC_DEV(c->priv->mdev))
-+		set_bit(MLX5E_SQ_STATE_IPSEC, &sq->state);
- 
- 	param->wq.db_numa_node = cpu_to_node(c->cpu);
- 	err = mlx5_wq_cyc_create(mdev, &param->wq, sqc_wq, &sq->wq, &sq->wq_ctrl);
-@@ -1933,6 +1935,7 @@ static void mlx5e_build_sq_param(struct mlx5e_priv *priv,
- 
- 	mlx5e_build_sq_param_common(priv, param);
- 	MLX5_SET(wq, wq, log_wq_sz, params->log_sq_size);
-+	MLX5_SET(sqc, sqc, allow_swp, !!MLX5_IPSEC_DEV(priv->mdev));
- }
- 
- static void mlx5e_build_common_cq_param(struct mlx5e_priv *priv,
-@@ -3527,6 +3530,11 @@ static netdev_features_t mlx5e_features_check(struct sk_buff *skb,
- 	features = vlan_features_check(skb, features);
- 	features = vxlan_features_check(skb, features);
- 
-+#ifdef CONFIG_MLX5_EN_IPSEC
-+	if (mlx5e_ipsec_feature_check(skb, netdev, features))
-+		return features;
-+#endif
-+
- 	/* Validate if the tunneled packet is being offloaded by HW */
- 	if (skb->encapsulation &&
- 	    (features & NETIF_F_CSUM_MASK || features & NETIF_F_GSO_MASK))
-@@ -4505,6 +4513,7 @@ static struct mlx5_interface mlx5e_interface = {
- 
- void mlx5e_init(void)
- {
-+	mlx5e_ipsec_build_inverse_table();
- 	mlx5e_build_ptys2ethtool_map();
- 	mlx5_register_interface(&mlx5e_interface);
- }
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-index ccec3b00e17c..aaa0f4ebba9a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-@@ -34,6 +34,7 @@
- #include <linux/if_vlan.h>
- #include "en.h"
- #include "ipoib/ipoib.h"
-+#include "en_accel/ipsec_rxtx.h"
- 
- #define MLX5E_SQ_NOPS_ROOM  MLX5_SEND_WQE_MAX_WQEBBS
- #define MLX5E_SQ_STOP_ROOM (MLX5_SEND_WQE_MAX_WQEBBS +\
-@@ -299,12 +300,9 @@ mlx5e_txwqe_complete(struct mlx5e_txqsq *sq, struct sk_buff *skb,
- 	}
- }
- 
--static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_txqsq *sq, struct sk_buff *skb)
-+static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_txqsq *sq, struct sk_buff *skb,
-+				 struct mlx5e_tx_wqe *wqe, u16 pi)
- {
--	struct mlx5_wq_cyc       *wq   = &sq->wq;
--
--	u16 pi = sq->pc & wq->sz_m1;
--	struct mlx5e_tx_wqe      *wqe  = mlx5_wq_cyc_get_wqe(wq, pi);
- 	struct mlx5e_tx_wqe_info *wi   = &sq->db.wqe_info[pi];
- 
- 	struct mlx5_wqe_ctrl_seg *cseg = &wqe->ctrl;
-@@ -319,8 +317,6 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_txqsq *sq, struct sk_buff *skb)
- 	u16 ds_cnt;
- 	u16 ihs;
- 
--	memset(wqe, 0, sizeof(*wqe));
--
- 	mlx5e_txwqe_build_eseg_csum(sq, skb, eseg);
- 
- 	if (skb_is_gso(skb)) {
-@@ -375,8 +371,21 @@ netdev_tx_t mlx5e_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct mlx5e_priv *priv = netdev_priv(dev);
- 	struct mlx5e_txqsq *sq = priv->txq2sq[skb_get_queue_mapping(skb)];
-+	struct mlx5_wq_cyc *wq = &sq->wq;
-+	u16 pi = sq->pc & wq->sz_m1;
-+	struct mlx5e_tx_wqe *wqe = mlx5_wq_cyc_get_wqe(wq, pi);
-+
-+	memset(wqe, 0, sizeof(*wqe));
-+
-+#ifdef CONFIG_MLX5_EN_IPSEC
-+	if (sq->state & BIT(MLX5E_SQ_STATE_IPSEC)) {
-+		skb = mlx5e_ipsec_handle_tx_skb(dev, wqe, skb);
-+		if (unlikely(!skb))
-+			return NETDEV_TX_OK;
-+	}
-+#endif
- 
--	return mlx5e_sq_xmit(sq, skb);
-+	return mlx5e_sq_xmit(sq, skb, wqe, pi);
- }
- 
- bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq, int napi_budget)
+ int mlx5_cqwq_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
+ 		     void *cqc, struct mlx5_cqwq *wq,
+ 		     struct mlx5_frag_wq_ctrl *wq_ctrl);
 -- 
 2.11.0
