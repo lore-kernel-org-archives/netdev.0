@@ -1,35 +1,53 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] net: usb: asix88179_178a: Add support for the Belkin
- B2B128
-Date: Tue, 27 Jun 2017 15:47:29 -0400 (EDT)
-Message-ID: <20170627.154729.2093623572896295805.davem@davemloft.net>
-References: <20170626174120.1293-1-afd@ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/14] nfp: get_phys_port_name for
+ representors and SR-IOV reorder
+Date: Tue, 27 Jun 2017 15:51:17 -0400 (EDT)
+Message-ID: <20170627.155117.1691647324384235393.davem@davemloft.net>
+References: <20170627075028.4009-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org, geoffrey.tran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: afd-l0cyMroinI0@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170626174120.1293-1-afd-l0cyMroinI0@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com
+To: jakub.kicinski@netronome.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44872 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753444AbdF0TvT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 15:51:19 -0400
+In-Reply-To: <20170627075028.4009-1-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Andrew F. Davis" <afd-l0cyMroinI0@public.gmane.org>
-Date: Mon, 26 Jun 2017 12:41:20 -0500
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Date: Tue, 27 Jun 2017 00:50:14 -0700
 
-> The Belkin B2B128 is a USB 3.0 Hub + Gigabit Ethernet Adapter, the
-> Ethernet adapter uses the ASIX AX88179 USB 3.0 to Gigabit Ethernet
-> chip supported by this driver, add the USB ID for the same.
+> This series starts by making the error message if FW cannot be located
+> easier to understand.  Then I move some functions from PCI probe files
+> into library code (nfpcore) where they belong, and remove one function
+> which is never used.
 > 
-> This patch is based on work by Geoffrey Tran <geoffrey.tran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> who has indicated they would like this upstreamed by someone more
-> familiar with the upstreaming process.
+> Next few patches equip representors with nfp_port structure and make
+> their NDOs fully shared (not defined in apps), thanks to which we can 
+> easily determine which netdevs are NFP's by comparing the NDO pointers.
 > 
-> Signed-off-by: Andrew F. Davis <afd-l0cyMroinI0@public.gmane.org>
+> 10th patch makes use of the shared NDOs and nfp_ports to deliver
+> netdev-type independent .ndo_get_phys_port_name() implementation.
+> 
+> Patches 11 and 12 reorder the nfp_app SR-IOV callbacks with enabling
+> SR-IOV VFs.  Unfortunately due to how PCI subsystem works we can't
+> guarantee being able to disable SR-IOV at exit or that it will be
+> disabled when we first probe...  We must therefore make sure FW is
+> able to deal with being loaded while SR-IOV is already on.
+> 
+> Patch 13 fixes potential deadlock when enabling SR-IOV happens at
+> the same time as port state refresh.  Note that this can't happen
+> at this point, since Flower doesn't refresh ports... but lockdep 
+> doesn't know about such details and we will have to deal with this
+> sooner or later anyway.
+> 
+> Last but not least a new Kconfig is added to make sure those who 
+> don't care about flower offloads have a way of not including the 
+> code in their kernels.  Thanks to nfp_app separation this costs us
+> a single ifdef and excluding flower files from the build.
 
-Applied, thank you.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Series applied, thanks.
