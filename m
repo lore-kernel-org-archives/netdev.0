@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 10/16] net/mlx5: FPGA, Add SBU bypass and reset flows
-Date: Tue, 27 Jun 2017 17:28:50 +0300
-Message-ID: <20170627142856.9448-11-saeedm@mellanox.com>
+Subject: [net-next 02/16] net/mlx5: Add reserved-gids support
+Date: Tue, 27 Jun 2017 17:28:42 +0300
+Message-ID: <20170627142856.9448-3-saeedm@mellanox.com>
 References: <20170627142856.9448-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
         Ilan Tayari <ilant@mellanox.com>,
@@ -13,167 +13,468 @@ Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50415 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50428 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753188AbdF0OaR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 10:30:17 -0400
+        with ESMTP id S1752356AbdF0OaQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 10:30:16 -0400
 In-Reply-To: <20170627142856.9448-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ilan Tayari <ilant@mellanox.com>
 
-The Innova FPGA includes shell hardware and Sandbox-Unit (SBU) hardware.
-The shell hardware is handled by mlx5_core itself, while the SBU is
-handled by a client driver.
+Reserved GIDs are entries in the GID table in use by the mlx5_core
+and its submodules (e.g. FPGA, SRIOV, E-Swtich, netdev).
+The entries are reserved at the high indexes of the GID table.
 
-Reset the SBU to a well-known initial state when initializing a new
-device, and set the FPGA to bypass mode when uninitializing a device.
-This allows the client driver to assume that its device has been
-reset when a new device is detected.
+A mlx5 submodule may reserve a certain amount of GIDs for its own use
+during the load sequence by calling mlx5_core_reserve_gids, and must
+also take care to un-reserve these GIDs when it closes.
+Reservation is only allowed during the load sequence and before any
+interfaces (e.g. mlx5_ib or mlx5_en) are up.
 
-During SBU reset, the FPGA is put into SBU-bypass mode. In this mode
-packets do not pass through the SBU, so it cannot affect the network
-data stream at all.
+After reservation, a submodule may call mlx5_core_reserved_gid_alloc/
+free to allocate entries from the reserved GIDs pool.
 
-A factory-image does not have an SBU, so skip these flows.
+Reserve a GID table entry for every supported FPGA QP.
+
+A later patch in the patchset will remove them from being reported to
+IB core.
+Another such patch will make use of these for FPGA QPs in Innova NIC.
+
+Added lib/mlx5.h to serve as a library for mlx5 submodlues, and to
+expose only public mlx5 API, more mlx5 library files will be added in
+future submissions.
 
 Signed-off-by: Ilan Tayari <ilant@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c | 11 ++++++
- drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h |  1 +
- .../net/ethernet/mellanox/mlx5/core/fpga/core.c    | 40 ++++++++++++++++++++++
- include/linux/mlx5/mlx5_ifc_fpga.h                 |  9 +++++
- 4 files changed, 61 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   2 +-
+ .../net/ethernet/mellanox/mlx5/core/fpga/core.c    |  31 ++++-
+ .../net/ethernet/mellanox/mlx5/core/fpga/core.h    |   5 +
+ drivers/net/ethernet/mellanox/mlx5/core/lib/gid.c  | 154 +++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/lib/mlx5.h |  43 ++++++
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     |  11 +-
+ include/linux/mlx5/driver.h                        |  17 +++
+ 7 files changed, 260 insertions(+), 3 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/lib/gid.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/lib/mlx5.h
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c
-index 8308ccbad85a..a5fdb4cf0b9c 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c
-@@ -47,6 +47,17 @@ int mlx5_fpga_caps(struct mlx5_core_dev *dev, u32 *caps)
- 				    MLX5_REG_FPGA_CAP, 0, 0);
- }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+index 5ad093a21a6e..738867bab21f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+@@ -4,7 +4,7 @@ subdir-ccflags-y += -I$(src)
+ mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
+ 		health.o mcg.o cq.o srq.o alloc.o qp.o port.o mr.o pd.o \
+ 		mad.o transobj.o vport.o sriov.o fs_cmd.o fs_core.o \
+-		fs_counters.o rl.o lag.o dev.o
++		fs_counters.o rl.o lag.o dev.o lib/gid.o
  
-+int mlx5_fpga_ctrl_op(struct mlx5_core_dev *dev, u8 op)
-+{
-+	u32 in[MLX5_ST_SZ_DW(fpga_ctrl)] = {0};
-+	u32 out[MLX5_ST_SZ_DW(fpga_ctrl)];
-+
-+	MLX5_SET(fpga_ctrl, in, operation, op);
-+
-+	return mlx5_core_access_reg(dev, in, sizeof(in), out, sizeof(out),
-+				    MLX5_REG_FPGA_CTRL, 0, true);
-+}
-+
- int mlx5_fpga_query(struct mlx5_core_dev *dev, struct mlx5_fpga_query *query)
- {
- 	u32 in[MLX5_ST_SZ_DW(fpga_ctrl)] = {0};
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h
-index b851580d846f..8943056163f3 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h
-@@ -67,6 +67,7 @@ struct mlx5_fpga_qp_counters {
+ mlx5_core-$(CONFIG_MLX5_FPGA) += fpga/cmd.o fpga/core.o
  
- int mlx5_fpga_caps(struct mlx5_core_dev *dev, u32 *caps);
- int mlx5_fpga_query(struct mlx5_core_dev *dev, struct mlx5_fpga_query *query);
-+int mlx5_fpga_ctrl_op(struct mlx5_core_dev *dev, u8 op);
- 
- int mlx5_fpga_create_qp(struct mlx5_core_dev *dev, void *fpga_qpc,
- 			u32 *fpga_qpn);
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c b/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c
-index 7f859a3ad5d2..31e5a2627eb8 100644
+index d88b332e9669..92d8b1b6e598 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c
-@@ -102,6 +102,29 @@ static int mlx5_fpga_device_load_check(struct mlx5_fpga_device *fdev)
+@@ -35,6 +35,7 @@
+ #include <linux/mlx5/driver.h>
+ 
+ #include "mlx5_core.h"
++#include "lib/mlx5.h"
+ #include "fpga/core.h"
+ 
+ static const char *const mlx5_fpga_error_strings[] = {
+@@ -104,6 +105,7 @@ int mlx5_fpga_device_start(struct mlx5_core_dev *mdev)
+ {
+ 	struct mlx5_fpga_device *fdev = mdev->fpga;
+ 	unsigned long flags;
++	unsigned int max_num_qps;
+ 	int err;
+ 
+ 	if (!fdev)
+@@ -123,6 +125,9 @@ int mlx5_fpga_device_start(struct mlx5_core_dev *mdev)
+ 		       mlx5_fpga_image_name(fdev->last_oper_image),
+ 		       MLX5_CAP_FPGA(fdev->mdev, image_version));
+ 
++	max_num_qps = MLX5_CAP_FPGA(mdev, shell_caps.max_num_qps);
++	err = mlx5_core_reserve_gids(mdev, max_num_qps);
++
+ out:
+ 	spin_lock_irqsave(&fdev->state_lock, flags);
+ 	fdev->state = err ? MLX5_FPGA_STATUS_FAILURE : MLX5_FPGA_STATUS_SUCCESS;
+@@ -151,9 +156,33 @@ int mlx5_fpga_device_init(struct mlx5_core_dev *mdev)
  	return 0;
  }
  
-+int mlx5_fpga_device_brb(struct mlx5_fpga_device *fdev)
++void mlx5_fpga_device_stop(struct mlx5_core_dev *mdev)
 +{
-+	int err;
-+	struct mlx5_core_dev *mdev = fdev->mdev;
++	struct mlx5_fpga_device *fdev = mdev->fpga;
++	unsigned int max_num_qps;
++	unsigned long flags;
 +
-+	err = mlx5_fpga_ctrl_op(mdev, MLX5_FPGA_CTRL_OPERATION_SANDBOX_BYPASS_ON);
-+	if (err) {
-+		mlx5_fpga_err(fdev, "Failed to set bypass on: %d\n", err);
-+		return err;
++	if (!fdev)
++		return;
++
++	spin_lock_irqsave(&fdev->state_lock, flags);
++	if (fdev->state != MLX5_FPGA_STATUS_SUCCESS) {
++		spin_unlock_irqrestore(&fdev->state_lock, flags);
++		return;
 +	}
-+	err = mlx5_fpga_ctrl_op(mdev, MLX5_FPGA_CTRL_OPERATION_RESET_SANDBOX);
-+	if (err) {
-+		mlx5_fpga_err(fdev, "Failed to reset SBU: %d\n", err);
-+		return err;
++	fdev->state = MLX5_FPGA_STATUS_NONE;
++	spin_unlock_irqrestore(&fdev->state_lock, flags);
++
++	max_num_qps = MLX5_CAP_FPGA(mdev, shell_caps.max_num_qps);
++	mlx5_core_unreserve_gids(mdev, max_num_qps);
++}
++
+ void mlx5_fpga_device_cleanup(struct mlx5_core_dev *mdev)
+ {
+-	kfree(mdev->fpga);
++	struct mlx5_fpga_device *fdev = mdev->fpga;
++
++	mlx5_fpga_device_stop(mdev);
++	kfree(fdev);
+ 	mdev->fpga = NULL;
+ }
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.h b/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.h
+index c55044d66778..557d83973ade 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.h
+@@ -71,6 +71,7 @@ struct mlx5_fpga_device {
+ int mlx5_fpga_device_init(struct mlx5_core_dev *mdev);
+ void mlx5_fpga_device_cleanup(struct mlx5_core_dev *mdev);
+ int mlx5_fpga_device_start(struct mlx5_core_dev *mdev);
++void mlx5_fpga_device_stop(struct mlx5_core_dev *mdev);
+ void mlx5_fpga_event(struct mlx5_core_dev *mdev, u8 event, void *data);
+ 
+ #else
+@@ -89,6 +90,10 @@ static inline int mlx5_fpga_device_start(struct mlx5_core_dev *mdev)
+ 	return 0;
+ }
+ 
++static inline void mlx5_fpga_device_stop(struct mlx5_core_dev *mdev)
++{
++}
++
+ static inline void mlx5_fpga_event(struct mlx5_core_dev *mdev, u8 event,
+ 				   void *data)
+ {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/lib/gid.c b/drivers/net/ethernet/mellanox/mlx5/core/lib/gid.c
+new file mode 100644
+index 000000000000..4d0db481f6c4
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/lib/gid.c
+@@ -0,0 +1,154 @@
++/*
++ * Copyright (c) 2017, Mellanox Technologies. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include <linux/mlx5/driver.h>
++#include <linux/etherdevice.h>
++#include <linux/idr.h>
++#include "mlx5_core.h"
++
++void mlx5_init_reserved_gids(struct mlx5_core_dev *dev)
++{
++	unsigned int tblsz = MLX5_CAP_ROCE(dev, roce_address_table_size);
++
++	ida_init(&dev->roce.reserved_gids.ida);
++	dev->roce.reserved_gids.start = tblsz;
++	dev->roce.reserved_gids.count = 0;
++}
++
++void mlx5_cleanup_reserved_gids(struct mlx5_core_dev *dev)
++{
++	WARN_ON(!ida_is_empty(&dev->roce.reserved_gids.ida));
++	dev->roce.reserved_gids.start = 0;
++	dev->roce.reserved_gids.count = 0;
++	ida_destroy(&dev->roce.reserved_gids.ida);
++}
++
++int mlx5_core_reserve_gids(struct mlx5_core_dev *dev, unsigned int count)
++{
++	if (test_bit(MLX5_INTERFACE_STATE_UP, &dev->intf_state)) {
++		mlx5_core_err(dev, "Cannot reserve GIDs when interfaces are up\n");
++		return -EPERM;
 +	}
-+	err = mlx5_fpga_ctrl_op(mdev, MLX5_FPGA_CTRL_OPERATION_SANDBOX_BYPASS_OFF);
-+	if (err) {
-+		mlx5_fpga_err(fdev, "Failed to set bypass off: %d\n", err);
-+		return err;
++	if (dev->roce.reserved_gids.start < count) {
++		mlx5_core_warn(dev, "GID table exhausted attempting to reserve %d more GIDs\n",
++			       count);
++		return -ENOMEM;
 +	}
++	if (dev->roce.reserved_gids.count + count > MLX5_MAX_RESERVED_GIDS) {
++		mlx5_core_warn(dev, "Unable to reserve %d more GIDs\n", count);
++		return -ENOMEM;
++	}
++
++	dev->roce.reserved_gids.start -= count;
++	dev->roce.reserved_gids.count += count;
++	mlx5_core_dbg(dev, "Reserved %u GIDs starting at %u\n",
++		      dev->roce.reserved_gids.count,
++		      dev->roce.reserved_gids.start);
 +	return 0;
 +}
 +
- int mlx5_fpga_device_start(struct mlx5_core_dev *mdev)
- {
- 	struct mlx5_fpga_device *fdev = mdev->fpga;
-@@ -135,8 +158,17 @@ int mlx5_fpga_device_start(struct mlx5_core_dev *mdev)
- 	if (err)
- 		goto err_rsvd_gid;
- 
-+	if (fdev->last_oper_image == MLX5_FPGA_IMAGE_USER) {
-+		err = mlx5_fpga_device_brb(fdev);
-+		if (err)
-+			goto err_conn_init;
++void mlx5_core_unreserve_gids(struct mlx5_core_dev *dev, unsigned int count)
++{
++	WARN(test_bit(MLX5_INTERFACE_STATE_UP, &dev->intf_state), "Unreserving GIDs when interfaces are up");
++	WARN(count > dev->roce.reserved_gids.count, "Unreserving %u GIDs when only %u reserved",
++	     count, dev->roce.reserved_gids.count);
++
++	dev->roce.reserved_gids.start += count;
++	dev->roce.reserved_gids.count -= count;
++	mlx5_core_dbg(dev, "%u GIDs starting at %u left reserved\n",
++		      dev->roce.reserved_gids.count,
++		      dev->roce.reserved_gids.start);
++}
++
++int mlx5_core_reserved_gid_alloc(struct mlx5_core_dev *dev, int *gid_index)
++{
++	int end = dev->roce.reserved_gids.start +
++		  dev->roce.reserved_gids.count;
++	int index = 0;
++
++	index = ida_simple_get(&dev->roce.reserved_gids.ida,
++			       dev->roce.reserved_gids.start, end,
++			       GFP_KERNEL);
++	if (index < 0)
++		return index;
++
++	mlx5_core_dbg(dev, "Allodating reserved GID %u\n", index);
++	*gid_index = index;
++	return 0;
++}
++
++void mlx5_core_reserved_gid_free(struct mlx5_core_dev *dev, int gid_index)
++{
++	mlx5_core_dbg(dev, "Freeing reserved GID %u\n", gid_index);
++	ida_simple_remove(&dev->roce.reserved_gids.ida, gid_index);
++}
++
++unsigned int mlx5_core_reserved_gids_count(struct mlx5_core_dev *dev)
++{
++	return dev->roce.reserved_gids.count;
++}
++EXPORT_SYMBOL_GPL(mlx5_core_reserved_gids_count);
++
++int mlx5_core_roce_gid_set(struct mlx5_core_dev *dev, unsigned int index,
++			   u8 roce_version, u8 roce_l3_type, const u8 *gid,
++			   const u8 *mac, bool vlan, u16 vlan_id)
++{
++#define MLX5_SET_RA(p, f, v) MLX5_SET(roce_addr_layout, p, f, v)
++	u32  in[MLX5_ST_SZ_DW(set_roce_address_in)] = {0};
++	u32 out[MLX5_ST_SZ_DW(set_roce_address_out)] = {0};
++	void *in_addr = MLX5_ADDR_OF(set_roce_address_in, in, roce_address);
++	char *addr_l3_addr = MLX5_ADDR_OF(roce_addr_layout, in_addr,
++					  source_l3_address);
++	void *addr_mac = MLX5_ADDR_OF(roce_addr_layout, in_addr,
++				      source_mac_47_32);
++	int gidsz = MLX5_FLD_SZ_BYTES(roce_addr_layout, source_l3_address);
++
++	if (MLX5_CAP_GEN(dev, port_type) != MLX5_CAP_PORT_TYPE_ETH)
++		return -EINVAL;
++
++	if (gid) {
++		if (vlan) {
++			MLX5_SET_RA(in_addr, vlan_valid, 1);
++			MLX5_SET_RA(in_addr, vlan_id, vlan_id);
++		}
++
++		ether_addr_copy(addr_mac, mac);
++		MLX5_SET_RA(in_addr, roce_version, roce_version);
++		MLX5_SET_RA(in_addr, roce_l3_type, roce_l3_type);
++		memcpy(addr_l3_addr, gid, gidsz);
 +	}
 +
- 	goto out;
- 
-+err_conn_init:
-+	mlx5_fpga_conn_device_cleanup(fdev);
++	MLX5_SET(set_roce_address_in, in, roce_address_index, index);
++	MLX5_SET(set_roce_address_in, in, opcode, MLX5_CMD_OP_SET_ROCE_ADDRESS);
++	return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
++}
++EXPORT_SYMBOL(mlx5_core_roce_gid_set);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/lib/mlx5.h b/drivers/net/ethernet/mellanox/mlx5/core/lib/mlx5.h
+new file mode 100644
+index 000000000000..7550b1cc8c6a
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/lib/mlx5.h
+@@ -0,0 +1,43 @@
++/*
++ * Copyright (c) 2017, Mellanox Technologies, Ltd.  All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
 +
- err_rsvd_gid:
- 	mlx5_core_unreserve_gids(mdev, max_num_qps);
- out:
-@@ -172,6 +204,7 @@ void mlx5_fpga_device_stop(struct mlx5_core_dev *mdev)
- 	struct mlx5_fpga_device *fdev = mdev->fpga;
- 	unsigned int max_num_qps;
- 	unsigned long flags;
-+	int err;
- 
- 	if (!fdev)
- 		return;
-@@ -184,6 +217,13 @@ void mlx5_fpga_device_stop(struct mlx5_core_dev *mdev)
- 	fdev->state = MLX5_FPGA_STATUS_NONE;
- 	spin_unlock_irqrestore(&fdev->state_lock, flags);
- 
-+	if (fdev->last_oper_image == MLX5_FPGA_IMAGE_USER) {
-+		err = mlx5_fpga_ctrl_op(mdev, MLX5_FPGA_CTRL_OPERATION_SANDBOX_BYPASS_ON);
-+		if (err)
-+			mlx5_fpga_err(fdev, "Failed to re-set SBU bypass on: %d\n",
-+				      err);
-+	}
++#ifndef __LIB_MLX5_H__
++#define __LIB_MLX5_H__
 +
- 	mlx5_fpga_conn_device_cleanup(fdev);
- 	max_num_qps = MLX5_CAP_FPGA(mdev, shell_caps.max_num_qps);
- 	mlx5_core_unreserve_gids(mdev, max_num_qps);
-diff --git a/include/linux/mlx5/mlx5_ifc_fpga.h b/include/linux/mlx5/mlx5_ifc_fpga.h
-index 30d4b697fab6..0694077c9634 100644
---- a/include/linux/mlx5/mlx5_ifc_fpga.h
-+++ b/include/linux/mlx5/mlx5_ifc_fpga.h
-@@ -108,6 +108,15 @@ struct mlx5_ifc_fpga_cap_bits {
- 	u8         reserved_at_500[0x300];
++void mlx5_init_reserved_gids(struct mlx5_core_dev *dev);
++void mlx5_cleanup_reserved_gids(struct mlx5_core_dev *dev);
++int  mlx5_core_reserve_gids(struct mlx5_core_dev *dev, unsigned int count);
++void mlx5_core_unreserve_gids(struct mlx5_core_dev *dev, unsigned int count);
++int  mlx5_core_reserved_gid_alloc(struct mlx5_core_dev *dev, int *gid_index);
++void mlx5_core_reserved_gid_free(struct mlx5_core_dev *dev, int gid_index);
++
++#endif
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index 9a5a475d9e00..55f9fccfc394 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -56,6 +56,7 @@
+ #ifdef CONFIG_MLX5_CORE_EN
+ #include "eswitch.h"
+ #endif
++#include "lib/mlx5.h"
+ #include "fpga/core.h"
+ 
+ MODULE_AUTHOR("Eli Cohen <eli@mellanox.com>");
+@@ -936,6 +937,8 @@ static int mlx5_init_once(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
+ 
+ 	mlx5_init_mkey_table(dev);
+ 
++	mlx5_init_reserved_gids(dev);
++
+ 	err = mlx5_init_rl_table(dev);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "Failed to init rate limiting\n");
+@@ -986,6 +989,7 @@ static void mlx5_cleanup_once(struct mlx5_core_dev *dev)
+ 	mlx5_eswitch_cleanup(dev->priv.eswitch);
+ #endif
+ 	mlx5_cleanup_rl_table(dev);
++	mlx5_cleanup_reserved_gids(dev);
+ 	mlx5_cleanup_mkey_table(dev);
+ 	mlx5_cleanup_srq_table(dev);
+ 	mlx5_cleanup_qp_table(dev);
+@@ -1160,7 +1164,7 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
+ 	err = mlx5_fpga_device_start(dev);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "fpga device start failed %d\n", err);
+-		goto err_reg_dev;
++		goto err_fpga_start;
+ 	}
+ 
+ 	if (mlx5_device_registered(dev)) {
+@@ -1181,6 +1185,9 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
+ 	return 0;
+ 
+ err_reg_dev:
++	mlx5_fpga_device_stop(dev);
++
++err_fpga_start:
+ 	mlx5_sriov_detach(dev);
+ 
+ err_sriov:
+@@ -1260,6 +1267,8 @@ static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
+ 	if (mlx5_device_registered(dev))
+ 		mlx5_detach_device(dev);
+ 
++	mlx5_fpga_device_stop(dev);
++
+ 	mlx5_sriov_detach(dev);
+ #ifdef CONFIG_MLX5_CORE_EN
+ 	mlx5_eswitch_detach(dev->priv.eswitch);
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index 750701b3b863..08e99bd2cd77 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -44,6 +44,7 @@
+ #include <linux/workqueue.h>
+ #include <linux/mempool.h>
+ #include <linux/interrupt.h>
++#include <linux/idr.h>
+ 
+ #include <linux/mlx5/device.h>
+ #include <linux/mlx5/doorbell.h>
+@@ -737,6 +738,14 @@ struct mlx5e_resources {
+ 	struct mlx5_sq_bfreg       bfreg;
  };
  
-+enum {
-+	MLX5_FPGA_CTRL_OPERATION_LOAD                = 0x1,
-+	MLX5_FPGA_CTRL_OPERATION_RESET               = 0x2,
-+	MLX5_FPGA_CTRL_OPERATION_FLASH_SELECT        = 0x3,
-+	MLX5_FPGA_CTRL_OPERATION_SANDBOX_BYPASS_ON   = 0x4,
-+	MLX5_FPGA_CTRL_OPERATION_SANDBOX_BYPASS_OFF  = 0x5,
-+	MLX5_FPGA_CTRL_OPERATION_RESET_SANDBOX       = 0x6,
++#define MLX5_MAX_RESERVED_GIDS 8
++
++struct mlx5_rsvd_gids {
++	unsigned int start;
++	unsigned int count;
++	struct ida ida;
 +};
 +
- struct mlx5_ifc_fpga_ctrl_bits {
- 	u8         reserved_at_0[0x8];
- 	u8         operation[0x8];
+ struct mlx5_core_dev {
+ 	struct pci_dev	       *pdev;
+ 	/* sync pci state */
+@@ -766,6 +775,9 @@ struct mlx5_core_dev {
+ 	atomic_t		num_qps;
+ 	u32			issi;
+ 	struct mlx5e_resources  mlx5e_res;
++	struct {
++		struct mlx5_rsvd_gids	reserved_gids;
++	} roce;
+ #ifdef CONFIG_MLX5_FPGA
+ 	struct mlx5_fpga_device *fpga;
+ #endif
+@@ -1045,6 +1057,11 @@ int mlx5_alloc_bfreg(struct mlx5_core_dev *mdev, struct mlx5_sq_bfreg *bfreg,
+ 		     bool map_wc, bool fast_path);
+ void mlx5_free_bfreg(struct mlx5_core_dev *mdev, struct mlx5_sq_bfreg *bfreg);
+ 
++unsigned int mlx5_core_reserved_gids_count(struct mlx5_core_dev *dev);
++int mlx5_core_roce_gid_set(struct mlx5_core_dev *dev, unsigned int index,
++			   u8 roce_version, u8 roce_l3_type, const u8 *gid,
++			   const u8 *mac, bool vlan, u16 vlan_id);
++
+ static inline int fw_initializing(struct mlx5_core_dev *dev)
+ {
+ 	return ioread32be(&dev->iseg->initializing) >> 31;
 -- 
 2.11.0
