@@ -1,195 +1,264 @@
-From: crow <crow@linux.org.ba>
-Subject: Re: ARM GLX Khadas VIM Pro - Ethernet detected as only 10Mbps and
- stalled after some traffic
-Date: Tue, 27 Jun 2017 19:14:45 +0200
-Message-ID: <CAG_g8w4MXgP2P3NcEZAi2zu8Diazirjbf=e4+r17vOE=kwXFSA@mail.gmail.com>
-References: <CAG_g8w7PND+6r17cLoTG0rG0CqVDA-Z9kr8Zi+TOq5Qbpd9Gtw@mail.gmail.com>
- <CAG_g8w40V_u7JnX+EuNvCLmB2dAzuk_TgMkkKT9pn-SLBRi1pA@mail.gmail.com>
- <20170610152741.GB26740@lunn.ch> <CAG_g8w71SWc_X2U9pNWLVheO9Jf4ydPznAVp1x-Y9kwU3qhf1A@mail.gmail.com>
- <20170611152102.GA16021@lunn.ch> <CAG_g8w6iEiJ4V2M1=toWWqi1D7H2_p08ceWsbgZ1=PrEGQ2HkA@mail.gmail.com>
- <CAG_g8w7hEdrwspMsNifZ+m82R_-V5=bxv5oMURWy9PRAZU+hHQ@mail.gmail.com>
+From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH v6 05/21] net-next: stmmac: Add dwmac-sun8i
+Date: Tue, 27 Jun 2017 19:29:37 +0200
+Message-ID: <20170627172937.qrbcie347wlbo3z3@flea>
+References: <8e3d73a7-e9ff-d3e2-4bce-bcc79cdf86db@arm.com>
+ <20170627080529.GA2468@Red>
+ <CAGb2v65mhDN9vXe6DE2cZPW1BzgYPwK+D2U5VFgyr0wVVZZqDQ@mail.gmail.com>
+ <20170627082103.GB2468@Red>
+ <530f7b3e-247d-2e4d-8174-ce6195bacf5b@arm.com>
+ <20170627094111.supxmzf2k3n3ewec@flea.lan>
+ <44afb371-44d4-dbb5-0aac-4bbc55269344@arm.com>
+ <700A8221-3CEC-4657-900D-183398D25AE7@aosc.io>
+ <858b5361-fde5-8ab4-b9ba-aeb7859b9a7d@arm.com>
+ <20170627123748.GA8403@Red>
+Reply-To: maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="7gj62rxbovp5uu3a"
+Cc: Andre Przywara <andre.przywara-5wv7dgnIgG8@public.gmane.org>,
+	Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>, Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
+	Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
+	Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
+	Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+	alexandre.torgue-qxv4g6HH51o@public.gmane.org, devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+	linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+	Heiko =?iso-8859-1?Q?St=FCbner?= <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>
+To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-sunxi+bncBDSJBYGBRIMBBA5MZLFAKGQEYQSYIGA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Content-Disposition: inline
+In-Reply-To: <20170627123748.GA8403@Red>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
+
+
+--7gj62rxbovp5uu3a
 Content-Type: text/plain; charset="UTF-8"
-Cc: netdev@vger.kernel.org,
-        "open list:ARM/Amlogic Meson..." <linux-amlogic@lists.infradead.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f49.google.com ([209.85.214.49]:34220 "EHLO
-        mail-it0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751547AbdF0ROu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 13:14:50 -0400
-Received: by mail-it0-f49.google.com with SMTP id v202so3291493itb.1
-        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 10:14:46 -0700 (PDT)
-In-Reply-To: <CAG_g8w7hEdrwspMsNifZ+m82R_-V5=bxv5oMURWy9PRAZU+hHQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Hi,
-There are other user reporting same issue while using mainline kernel
-but using Ubuntu, so this is for sure not Distribution related. For me
-see the [0]. I hope someone would get time after 4.12 release to try
-fix this issue.
+On Tue, Jun 27, 2017 at 02:37:48PM +0200, Corentin Labbe wrote:
+> On Tue, Jun 27, 2017 at 11:33:56AM +0100, Andre Przywara wrote:
+> > Hi,
+> >=20
+> > On 27/06/17 11:23, Icenowy Zheng wrote:
+> > >=20
+> > >=20
+> > > =E4=BA=8E 2017=E5=B9=B46=E6=9C=8827=E6=97=A5 GMT+08:00 =E4=B8=8B=E5=
+=8D=886:15:58, Andre Przywara <andre.przywara-5wv7dgnIgG8@public.gmane.org> =E5=86=99=E5=88=B0:
+> > >> Hi,
+> > >>
+> > >> On 27/06/17 10:41, Maxime Ripard wrote:
+> > >>> On Tue, Jun 27, 2017 at 10:02:45AM +0100, Andre Przywara wrote:
+> > >>>> Hi,
+> > >>>>
+> > >>>> (CC:ing some people from that Rockchip dmwac series)
+> > >>>>
+> > >>>> On 27/06/17 09:21, Corentin Labbe wrote:
+> > >>>>> On Tue, Jun 27, 2017 at 04:11:21PM +0800, Chen-Yu Tsai wrote:
+> > >>>>>> On Tue, Jun 27, 2017 at 4:05 PM, Corentin Labbe
+> > >>>>>> <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> > >>>>>>> On Mon, Jun 26, 2017 at 01:18:23AM +0100, Andr=C3=A9 Przywara w=
+rote:
+> > >>>>>>>> On 31/05/17 08:18, Corentin Labbe wrote:
+> > >>>>>>>>> The dwmac-sun8i is a heavy hacked version of stmmac hardware =
+by
+> > >>>>>>>>> allwinner.
+> > >>>>>>>>> In fact the only common part is the descriptor management and
+> > >> the first
+> > >>>>>>>>> register function.
+> > >>>>>>>>
+> > >>>>>>>> Hi,
+> > >>>>>>>>
+> > >>>>>>>> I know I am a bit late with this, but while adapting the U-Boo=
+t
+> > >> driver
+> > >>>>>>>> to the new binding I was wondering about the internal PHY
+> > >> detection:
+> > >>>>>>>>
+> > >>>>>>>>
+> > >>>>>>>> So here you seem to deduce the usage of the internal PHY by th=
+e
+> > >> PHY
+> > >>>>>>>> interface specified in the DT (MII =3D internal, RGMII =3D
+> > >> external).
+> > >>>>>>>> I think I raised this question before, but isn't it perfectly
+> > >> legal for
+> > >>>>>>>> a board to use MII with an external PHY even on those SoCs tha=
+t
+> > >> feature
+> > >>>>>>>> an internal PHY?
+> > >>>>>>>> On the first glance that does not make too much sense, but apa=
+rt
+> > >> from
+> > >>>>>>>> not being the correct binding to describe all of the SoCs
+> > >> features I see
+> > >>>>>>>> two scenarios:
+> > >>>>>>>> 1) A board vendor might choose to not use the internal PHY
+> > >> because it
+> > >>>>>>>> has bugs, lacks features (configurability) or has other issues=
+.
+> > >> For
+> > >>>>>>>> instance I have heard reports that the internal PHY makes the
+> > >> SoC go
+> > >>>>>>>> rather hot, possibly limiting the CPU frequency. By using an
+> > >> external
+> > >>>>>>>> MII PHY (which are still cheaper than RGMII PHYs) this can be
+> > >> avoided.
+> > >>>>>>>> 2) A PHY does not necessarily need to be directly connected to
+> > >>>>>>>> magnetics. Indeed quite some boards use (RG)MII to connect to =
+a
+> > >> switch
+> > >>>>>>>> IC or some other network circuitry, for instance fibre
+> > >> connectors.
+> > >>>>>>>>
+> > >>>>>>>> So I was wondering if we would need an explicit:
+> > >>>>>>>>       allwinner,use-internal-phy;
+> > >>>>>>>> boolean DT property to signal the usage of the internal PHY?
+> > >>>>>>>> Alternatively we could go with the negative version:
+> > >>>>>>>>       allwinner,disable-internal-phy;
+> > >>>>>>>>
+> > >>>>>>>> Or what about introducing a new "allwinner,internal-mii-phy"
+> > >> compatible
+> > >>>>>>>> string for the *PHY* node and use that?
+> > >>>>>>>>
+> > >>>>>>>> I just want to avoid that we introduce a binding that causes u=
+s
+> > >>>>>>>> headaches later. I think we can still fix this with a followup
+> > >> patch
+> > >>>>>>>> before the driver and its binding hit a release kernel.
+> > >>>>>>>>
+> > >>>>>>>> Cheers,
+> > >>>>>>>> Andre.
+> > >>>>>>>>
+> > >>>>>>>
+> > >>>>>>> I just see some patch, where "phy-mode =3D internal" is valid.
+> > >>>>>>> I will try to find a way to use it
+> > >>>>>>
+> > >>>>>> Can you provide a link?
+> > >>>>>
+> > >>>>> https://lkml.org/lkml/2017/6/23/479
+> > >>>>>
+> > >>>>>>
+> > >>>>>> I'm not a fan of using phy-mode for this. There's no guarantee
+> > >> what
+> > >>>>>> mode the internal PHY uses. That's what phy-mode is for.
+> > >>>>
+> > >>>> I can understand Chen-Yu's concerns, but ...
+> > >>>>
+> > >>>>> For each soc the internal PHY mode is know and setted in
+> > >> emac_variant/internal_phy
+> > >>>>> So its not a problem.
+> > >>>>
+> > >>>> that is true as well, at least for now.
+> > >>>>
+> > >>>> So while I agree that having a separate property to indicate
+> > >>>> the usage of the internal PHY would be nice, I am bit tempted
+> > >>>> to use this easier approach and piggy back on the existing
+> > >>>> phy-mode property.
+> > >>>
+> > >>> We're trying to fix an issue that works for now too.
+> > >>>
+> > >>> If we want to consider future weird cases, then we must
+> > >>> consider all of them. And the phy mode changing is definitely
+> > >>> not really far fetched.
+> > >>>
+> > >>> I agree with Chen-Yu, and I really feel like the compatible
+> > >>> solution you suggested would cover both your concerns, and
+> > >>> ours.
+> > >>
+> > >> So something like this?
+> > >> 	emac: emac@1c30000 {
+> > >> 	    compatible =3D "allwinner,sun8i-h3-emac";
+> > >> 	    ...
+> > >> 	    phy-mode =3D "mii";
+> > >> 	    phy-handle =3D <&int_mii_phy>;
+> > >> 	    ...
+> > >>
+> > >> 	    mdio: mdio {
+> > >>                #address-cells =3D <1>;
+> > >>                #size-cells =3D <0>;
+> > >>                int_mii_phy: ethernet-phy@1 {
+> > >>                    compatible =3D "allwinner,sun8i-h3-ephy";
+> > >>                    syscon =3D <&syscon>;
+> > >=20
+> > > The MAC still needs to set some bits of syscon register.
+> >=20
+> > Yes, the syscon property needs also to be in the MAC node, that
+> > was meant to be somewhere in the second "..." ;-)
+> >=20
+> > But now since Chen-Yu mentioned that we need to set up the PHY *first*
+> > to make it actually discoverable via MDIO, I wonder if we could change
+> > this to:
+> > 1) have the DT as described here
+> > 2) Let the dwmac-sun8i driver peek into the node referenced by
+> > phy-handle and check the compatible string there.
+> > 3) If that matches some allwinner internal PHY name, it sets up the PHY
+> > to make it respond when the MDIO driver queries its bus.
+> >=20
+> > Or can a PHY driver set itself up (since we have clocks and resets
+> > properties in there) *before* the MDIO bus gets scanned?
+> > Chen-Yu's comment in the other mail hints at that this is not easily
+> > possible.
+>=20
+> I think adding phy compatible just make things more complex.
+>=20
+> I think the patch series I sent early fix all problems without more
+> complexity since:
+>
+> - it does not add more DT stuff
+> - it use an already used in tree DT phy-mode "internal" (and so phy
+>   mode PHY_INTERFACE_MODE_INTERNAL)
 
-Regards,
+  - it doesn't cover all the concerns we had
+  - it uses an undocumented value, with an unclear implication
 
-[0] http://forum.khadas.com/t/ubuntu-server-rom-linux-mainline-v170624-pre-alpha-version-emmc-installation/803/12
+Maxime
 
-On Thu, Jun 15, 2017 at 4:40 PM, crow <crow@linux.org.ba> wrote:
-> Hi,
->
-> On Sun, Jun 11, 2017 at 7:03 PM, crow <crow@linux.org.ba> wrote:
->> Hi Andrew,
->>
->> On Sun, Jun 11, 2017 at 5:21 PM, Andrew Lunn <andrew@lunn.ch> wrote:
->>>> Thank your for the suggestion, and thanks Martin to explaining me over
->>>> IRC what actually I should do.
->>>>
->>>> I recompiled mainline kernel 4.12-rc4 with the Amlogic driver:
->>>> replaced drivers/net/phy/meson-gxl.c with
->>>> https://github.com/khadas/linux/blob/ubuntu-4.9/drivers/amlogic/ethernet/phy/amlogic.c
->>>>
->>>> But this did not solve the issue. As soon as i start git clone i lose
->>>> network connection to device (no session timeout/disconnect this time,
->>>> but I am unable to reconnect over SSH or to get OK ping replay back).
->>>
->>
->> 1) First problem reported I can't reproduce anymore, every reboot/cold
->> boot with mainline kernel the Ethernet speed is detected as
->> "100Mbps/Full" , but as seen in first post there was this issue.
->
-> Once I did setup u-boot to have network in u-boot and did just an ping
-> to activate network. And after boot Ethernet was detected as 10Mbps.
-> But again was not able to reproduce it. I double check that I have 5E
-> cable.
->
-> in u-boot Ethernet is detected as below
-> kvim#ping x.x.x.x
-> Speed: 100, full duplex
-> Using dwmac.c9410000 device
-> host x.x.x.x is alive
-> kvim#
->
-> then I let ArchLinuxArm to boot and found out I can't connect to
-> device over SSH. Check over serial console and found:
->
-> # dmesg | tail -n 10
-> [    8.334790] meson8b-dwmac c9410000.ethernet eth0: device MAC
-> address 00:15:18:01:81:31
-> [    8.436668] Meson GXL Internal PHY 0.e40908ff:08: attached PHY
-> driver [Meson GXL Internal PHY] (mii_bus:phy_addr=0.e40908ff:08,
-> irq=-1)
-> [    8.535171] meson8b-dwmac c9410000.ethernet eth0: PTP not supported by HW
-> [   10.225264] brcmfmac: brcmf_c_preinit_dcmds: Firmware version =
-> wl0: Mar  1 2015 07:29:38 version 7.45.18 (r538002) FWID 01-6a2c8ad4
-> [   10.635703] meson8b-dwmac c9410000.ethernet eth0: Link is Up -
-> 10Mbps/Half - flow control off
-> # uname -a
-> Linux khadasvimpro 4.12.0-rc4-3-ARCH #1 SMP Thu Jun 8 00:17:20 CEST
-> 2017 aarch64 GNU/Linux
-> #
-> # mii-tool -vvv eth0
-> Using SIOCGMIIPHY=0x8947
-> eth0: no autonegotiation,, link ok
->   registers for MII PHY 8:
->     1000 782d 0181 4400 01e1 0001 0005 2001
->     ffff ffff ffff ffff ffff ffff ffff ffff
->     0040 0002 40e8 5400 1c1c 0000 0000 aaaa
->     fff0 ffff 0000 000a 1407 0040 0000 105a
->   product info: vendor 00:60:51, model 0 rev 0
->   basic mode:   autonegotiation enabled
->   basic status: autonegotiation complete, link ok
->   capabilities: 1000baseT-HD 1000baseT-FD 100baseTx-FD 100baseTx-HD
-> 10baseT-FD 10baseT-HD
->   advertising:  1000baseT-HD 1000baseT-FD 100baseTx-FD 100baseTx-HD
-> 10baseT-FD 10baseT-HD
-> #
-> # ifconfig eth0 down && ifconfig eth0 up
-> [ 1972.596690] Meson GXL Internal PHY 0.e40908ff:08: attached PHY
-> driver [Meson GXL Internal PHY] (mii_bus:phy_addr=0.e40908ff:08,
-> irq=-1)
-> [ 1972.704156] meson8b-dwmac c9410000.ethernet eth0: PTP not supported by HW
-> [ 1974.795698] meson8b-dwmac c9410000.ethernet eth0: Link is Up -
-> 100Mbps/Full - flow control off
-> #
-> # mii-tool -vvv eth0
-> Using SIOCGMIIPHY=0x8947
-> eth0: negotiated 1000baseT-HD flow-control, link ok
->   registers for MII PHY 8:
->     1000 782d 0181 4400 01e1 c1e1 000f 2001
->     ffff ffff ffff ffff ffff ffff ffff ffff
->     0040 0002 40e8 5400 1c1c 0000 0000 aaaa
->     fff0 ffff 0000 020a 1407 00ca 0000 105a
->   product info: vendor 00:60:51, model 0 rev 0
->   basic mode:   autonegotiation enabled
->   basic status: autonegotiation complete, link ok
->   capabilities: 1000baseT-HD 1000baseT-FD 100baseTx-FD 100baseTx-HD
-> 10baseT-FD 10baseT-HD
->   advertising:  1000baseT-HD 1000baseT-FD 100baseTx-FD 100baseTx-HD
-> 10baseT-FD 10baseT-HD
->   link partner: 1000baseT-HD 1000baseT-FD 100baseTx-FD 100baseTx-HD
-> 10baseT-FD 10baseT-HD
-> #
->
-> 2) see below
->> 2) see below
->>
->>> So this shows it is more than a PHY problem. The Ethernet MAC driver
->>> is probably also part of the problem.
->>
->> There are some stmmac fixes [1] in soon to be rc5, compiled current
->> master (without amlogic.c) with the fixes but for me the issue still
->> persist. I will compile once released rc5 with amlogic.c and report
->> back.
->>
->>> Are there any mainline kernels which work O.K?
->>
->> Khadas VIM support was added in 4.12-rc1. And I did test all four rc's
->> but without success.
->
-> I did test many Kernel builds but all test have failed when
-> downloading bigger files / doing git clone.
-> As Martin Blumenstingl suggested I start with first commit where
-> Khadas VIM support was added [0]. Then also Neil Armstrong suggested
-> [1]. Then all 4.12-rc1 - rc5.
-> Martin Blumenstingl have also found himself that: "I can reproduce the
-> Ethernet problem (tried downloading a 1GiB test file from leaseweb,
-> network got stuck after downloading ~70 MiB)". He suggested that I
-> should "play with the settings on your switch (disable jumbo frames,
-> etc.) to rule out the "exotic" stuff?". Well other device (x86_64)
-> connected on this same Switch port does not have any problem
-> downloading big files or doing git clone, as well as Khadas VIM with
-> Amlogic kernel. Also jumbo frames are not enabled, switch does have
-> only standard settings.
->
-> I also get questioned which qdisc I use:
-> And it seems I am already using fq_codel (ArchLinuxArm uses systemd):
-> $ tc -s -p qdisc
-> qdisc noqueue 0: dev lo root refcnt 2
->  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
->  backlog 0b 0p requeues 0
-> qdisc mq 0: dev eth0 root
->  Sent 7382956 bytes 60703 pkt (dropped 0, overlimits 0 requeues 18)
->  backlog 0b 0p requeues 18
-> qdisc fq_codel 0: dev eth0 parent :1 limit 10240p flows 1024 quantum
-> 1514 target 5.0ms interval 100.0ms memory_limit 32Mb ecn
->  Sent 7382956 bytes 60703 pkt (dropped 0, overlimits 0 requeues 18)
->  backlog 0b 0p requeues 18
->   maxpacket 54 drop_overlimit 0 new_flow_count 14 ecn_mark 0
->   new_flows_len 0 old_flows_len 0
-> $ pacman -Qi systemd
-> Name            : systemd
-> Version         : 232-8
-> Description     : system and service manager
-> Architecture    : aarch64
-> ...
-> $
->
->
-> Regards,
->
->>>     Andrew
->>
->> [1] https://github.com/torvalds/linux/commit/426849e6611f2092553f8d53372ae310818a6292
->
-> [0] https://github.com/torvalds/linux/commit/e15d2774b8c096f116bf7192b37e8652da71369e
-> [1] https://kernel.googlesource.com/pub/scm/linux/kernel/git/khilman/linux-amlogic/+/v4.12/integ
+--=20
+Maxime Ripard, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
+
+--=20
+You received this message because you are subscribed to the Google Groups "=
+linux-sunxi" group.
+To unsubscribe from this group and stop receiving emails from it, send an e=
+mail to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+
+--7gj62rxbovp5uu3a
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBAgAGBQJZUpYBAAoJEBx+YmzsjxAg89MP/A7da0tCunwzoh5PGmiTheeS
+kLF6f64NF9TUvgklvSEixvCOO74XfX2+BiWA5KeuO9mSooaEJxsw5Ip/I2SgMac5
+H+yfJ4HTGgu8asZ2ySYDaGhtcVRer5vIlP5t0BlUs1Lr2SvgsEOJh5BFSHjJi8Vu
+11i/prqjmSAKAHNqfEGd5eD/UVJ7jq6PJV34zzII7mYRt6/KiV0jwaPFecAzXTC/
+IbfcPO1K13wfMdjK/YlBiEOT+7eUh1s1XBLQDedt5Z+P3iZu0nqK3kjEc/pHPhA5
+TXPi2osqMjVYgJBBvJjTSvBcrQAAvZ4PsXqekuYEv/enEicig9HKcXQnou7OAwCR
+uN/CmEUj0hK8M1Q57W0ydcejo36/j1TCN6rCZBZQ9/8ZX/RGcplt9rGoLYLjDOi/
+bpQ0DTwyukIOEuWpJHoUdLJT3x8E14BDuw4mUabn3VEWTvL8iQ31xKJAldWmNz3R
+BBPV0+RJUYm6uzOpmCydP0DnDZP6/YmQGH+DJTWegmI5yVR1n1MZjxeDzASCkAhh
+qaC+d39x6vwMA8cBq0vxTYCML8UDyKQFgBOSwLO8I5MUVtqmEmYvq80qQmlxdGmi
+ja/VpyEUqRa/AzGTl18GBKR4Nx0PWErjUToCtxRrd1E80mFo3gBCZPvBfohM3Bq8
+G5GbQ1x6z2PGv/mAxK6g
+=R/6m
+-----END PGP SIGNATURE-----
+
+--7gj62rxbovp5uu3a--
