@@ -1,107 +1,129 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 3/6] ixgbe: Update NW_MNG_IF_SEL support for X553
-Date: Tue, 27 Jun 2017 01:51:28 -0700
-Message-ID: <20170627085131.9831-4-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 5/6] ixgbe: Disable flow control for XFI
+Date: Tue, 27 Jun 2017 01:51:30 -0700
+Message-ID: <20170627085131.9831-6-jeffrey.t.kirsher@intel.com>
 References: <20170627085131.9831-1-jeffrey.t.kirsher@intel.com>
 Cc: Tony Nguyen <anthony.l.nguyen@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Paul Greenwalt <paul.greenwalt@intel.com>,
+        Emil Tantilov <emil.s.tantilov@intel.com>,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:39368 "EHLO mga11.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752627AbdF0Ivi (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 27 Jun 2017 04:51:38 -0400
+        id S1752648AbdF0Ivj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 27 Jun 2017 04:51:39 -0400
 In-Reply-To: <20170627085131.9831-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Tony Nguyen <anthony.l.nguyen@intel.com>
 
-The MAC register NW_MNG_IF_SEL fields have been redefined for
-X553. These changes impact the iXFI driver code flow. Since iXFI is
-only supported in X552, add MAC checks for iXFI flows.
+Flow control autonegotiation is not supported for XFI.  Make sure that
+ixgbe_device_supports_autoneg_fc() returns false and
+hw->fc.disable_fc_autoneg is set to true to avoid running the fc_autoneg
+function for that device.
 
 Signed-off-by: Tony Nguyen <anthony.l.nguyen@intel.com>
-Signed-off-by: Paul Greenwalt <paul.greenwalt@intel.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |  4 ++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 14 +++++++++++---
- 3 files changed, 14 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  5 ++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c   | 57 ++++++++++++++-----------
+ 2 files changed, 35 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index f1dbdf26d8e1..4df921f8a48c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -386,7 +386,7 @@ u32 ixgbe_read_reg(struct ixgbe_hw *hw, u32 reg)
- 	if (ixgbe_removed(reg_addr))
- 		return IXGBE_FAILED_READ_REG;
- 	if (unlikely(hw->phy.nw_mng_if_sel &
--		     IXGBE_NW_MNG_IF_SEL_ENABLE_10_100M)) {
-+		     IXGBE_NW_MNG_IF_SEL_SGMII_ENABLE)) {
- 		struct ixgbe_adapter *adapter;
- 		int i;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 40ae7db468ea..2c19070d2a0b 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -97,7 +97,10 @@ bool ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw)
  
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 9c2460c5ef1b..ffa0ee5cd0f5 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -3778,8 +3778,8 @@ struct ixgbe_info {
- #define IXGBE_NW_MNG_IF_SEL_PHY_SPEED_1G	BIT(19)
- #define IXGBE_NW_MNG_IF_SEL_PHY_SPEED_2_5G	BIT(20)
- #define IXGBE_NW_MNG_IF_SEL_PHY_SPEED_10G	BIT(21)
--#define IXGBE_NW_MNG_IF_SEL_ENABLE_10_100M	BIT(23)
--#define IXGBE_NW_MNG_IF_SEL_INT_PHY_MODE	BIT(24)
-+#define IXGBE_NW_MNG_IF_SEL_SGMII_ENABLE	BIT(25)
-+#define IXGBE_NW_MNG_IF_SEL_INT_PHY_MODE	BIT(24) /* X552 only */
- #define IXGBE_NW_MNG_IF_SEL_MDIO_PHY_ADD_SHIFT	3
- #define IXGBE_NW_MNG_IF_SEL_MDIO_PHY_ADD	\
- 				(0x1F << IXGBE_NW_MNG_IF_SEL_MDIO_PHY_ADD_SHIFT)
+ 		break;
+ 	case ixgbe_media_type_backplane:
+-		supported = true;
++		if (hw->device_id == IXGBE_DEV_ID_X550EM_X_XFI)
++			supported = false;
++		else
++			supported = true;
+ 		break;
+ 	case ixgbe_media_type_copper:
+ 		/* only some copper devices support flow control autoneg */
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index aa34e0b131bb..95adbda36235 100644
+index 95adbda36235..19fbb2f28ea4 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -1555,9 +1555,14 @@ static s32 ixgbe_restart_an_internal_phy_x550em(struct ixgbe_hw *hw)
-  **/
- static s32 ixgbe_setup_ixfi_x550em(struct ixgbe_hw *hw, ixgbe_link_speed *speed)
+@@ -2843,7 +2843,7 @@ static s32 ixgbe_setup_fc_x550em(struct ixgbe_hw *hw)
  {
-+	struct ixgbe_mac_info *mac = &hw->mac;
- 	s32 status;
+ 	bool pause, asm_dir;
  	u32 reg_val;
+-	s32 rc;
++	s32 rc = 0;
  
-+	/* iXFI is only supported with X552 */
-+	if (mac->type != ixgbe_mac_X550EM_x)
-+		return IXGBE_ERR_LINK_SETUP;
-+
- 	/* Disable AN and force speed to 10G Serial. */
- 	status = ixgbe_read_iosf_sb_reg_x550(hw,
- 					IXGBE_KRM_LINK_CTRL_1(hw->bus.lan_id),
-@@ -1874,8 +1879,10 @@ static s32 ixgbe_setup_mac_link_t_X550em(struct ixgbe_hw *hw,
- 	else
- 		force_speed = IXGBE_LINK_SPEED_1GB_FULL;
- 
--	/* If internal link mode is XFI, then setup XFI internal link. */
--	if (!(hw->phy.nw_mng_if_sel & IXGBE_NW_MNG_IF_SEL_INT_PHY_MODE)) {
-+	/* If X552 and internal link mode is XFI, then setup XFI internal link.
-+	 */
-+	if (hw->mac.type == ixgbe_mac_X550EM_x &&
-+	    !(hw->phy.nw_mng_if_sel & IXGBE_NW_MNG_IF_SEL_INT_PHY_MODE)) {
- 		status = ixgbe_setup_ixfi_x550em(hw, &force_speed);
- 
- 		if (status)
-@@ -2628,7 +2635,8 @@ static s32 ixgbe_setup_internal_phy_t_x550em(struct ixgbe_hw *hw)
- 	if (hw->mac.ops.get_media_type(hw) != ixgbe_media_type_copper)
+ 	/* Validate the requested mode */
+ 	if (hw->fc.strict_ieee && hw->fc.requested_mode == ixgbe_fc_rx_pause) {
+@@ -2886,32 +2886,37 @@ static s32 ixgbe_setup_fc_x550em(struct ixgbe_hw *hw)
  		return IXGBE_ERR_CONFIG;
+ 	}
  
--	if (hw->phy.nw_mng_if_sel & IXGBE_NW_MNG_IF_SEL_INT_PHY_MODE) {
-+	if (!(hw->mac.type == ixgbe_mac_X550EM_x &&
-+	      !(hw->phy.nw_mng_if_sel & IXGBE_NW_MNG_IF_SEL_INT_PHY_MODE))) {
- 		speed = IXGBE_LINK_SPEED_10GB_FULL |
- 			IXGBE_LINK_SPEED_1GB_FULL;
- 		return ixgbe_setup_kr_speed_x550em(hw, speed);
+-	if (hw->device_id != IXGBE_DEV_ID_X550EM_X_KR &&
+-	    hw->device_id != IXGBE_DEV_ID_X550EM_A_KR &&
+-	    hw->device_id != IXGBE_DEV_ID_X550EM_A_KR_L)
+-		return 0;
+-
+-	rc = hw->mac.ops.read_iosf_sb_reg(hw,
+-					  IXGBE_KRM_AN_CNTL_1(hw->bus.lan_id),
+-					  IXGBE_SB_IOSF_TARGET_KR_PHY,
+-					  &reg_val);
+-	if (rc)
+-		return rc;
+-
+-	reg_val &= ~(IXGBE_KRM_AN_CNTL_1_SYM_PAUSE |
+-		     IXGBE_KRM_AN_CNTL_1_ASM_PAUSE);
+-	if (pause)
+-		reg_val |= IXGBE_KRM_AN_CNTL_1_SYM_PAUSE;
+-	if (asm_dir)
+-		reg_val |= IXGBE_KRM_AN_CNTL_1_ASM_PAUSE;
+-	rc = hw->mac.ops.write_iosf_sb_reg(hw,
+-					   IXGBE_KRM_AN_CNTL_1(hw->bus.lan_id),
+-					   IXGBE_SB_IOSF_TARGET_KR_PHY,
+-					   reg_val);
+-
+-	/* This device does not fully support AN. */
+-	hw->fc.disable_fc_autoneg = true;
++	switch (hw->device_id) {
++	case IXGBE_DEV_ID_X550EM_X_KR:
++	case IXGBE_DEV_ID_X550EM_A_KR:
++	case IXGBE_DEV_ID_X550EM_A_KR_L:
++		rc = hw->mac.ops.read_iosf_sb_reg(hw,
++					    IXGBE_KRM_AN_CNTL_1(hw->bus.lan_id),
++					    IXGBE_SB_IOSF_TARGET_KR_PHY,
++					    &reg_val);
++		if (rc)
++			return rc;
+ 
++		reg_val &= ~(IXGBE_KRM_AN_CNTL_1_SYM_PAUSE |
++			     IXGBE_KRM_AN_CNTL_1_ASM_PAUSE);
++		if (pause)
++			reg_val |= IXGBE_KRM_AN_CNTL_1_SYM_PAUSE;
++		if (asm_dir)
++			reg_val |= IXGBE_KRM_AN_CNTL_1_ASM_PAUSE;
++		rc = hw->mac.ops.write_iosf_sb_reg(hw,
++					    IXGBE_KRM_AN_CNTL_1(hw->bus.lan_id),
++					    IXGBE_SB_IOSF_TARGET_KR_PHY,
++					    reg_val);
++
++		/* This device does not fully support AN. */
++		hw->fc.disable_fc_autoneg = true;
++		break;
++	case IXGBE_DEV_ID_X550EM_X_XFI:
++		hw->fc.disable_fc_autoneg = true;
++		break;
++	default:
++		break;
++	}
+ 	return rc;
+ }
+ 
 -- 
 2.12.2
