@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 13/16] net/mlx5e: IPSec, Innova IPSec offload infrastructure
-Date: Tue, 27 Jun 2017 17:28:53 +0300
-Message-ID: <20170627142856.9448-14-saeedm@mellanox.com>
+Subject: [net-next 14/16] net/mlx5e: IPSec, Add Innova IPSec offload RX data path
+Date: Tue, 27 Jun 2017 17:28:54 +0300
+Message-ID: <20170627142856.9448-15-saeedm@mellanox.com>
 References: <20170627142856.9448-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
         Ilan Tayari <ilant@mellanox.com>,
@@ -13,29 +13,28 @@ Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50676 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50731 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752669AbdF0Oa1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 10:30:27 -0400
+        with ESMTP id S1752712AbdF0OaZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 10:30:25 -0400
 In-Reply-To: <20170627142856.9448-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ilan Tayari <ilant@mellanox.com>
 
-Add Innova IPSec ESP crypto offload configuration paths.
-Detect Innova IPSec device and set the NETIF_F_HW_ESP flag.
-Configure Security Associations using the API introduced in a previous
-patch.
+In RX data path, the hardware prepends a special metadata ethertype
+which indicates that the packet underwent decryption, and the result of
+the authentication check.
 
-Add Software-parser hardware descriptor layout
-Software-Parser (swp) is a hardware feature in ConnectX which allows the
-host software to specify protocol header offsets in the TX path, thus
-overriding the hardware parser.
-This is useful for protocols that the ASIC may not be able to parse on
-its own.
+Communicate this to the stack in skb->sp.
 
-Note that due to inline metadata, XDP is not supported in Innova IPSec.
+Make wqe_size large enough to account for the injected metadata.
+
+Support only Linked-list RQ type.
+
+IPSec offload RX packets may have useful CHECKSUM_COMPLETE information,
+which the stack may not be able to use yet.
 
 Signed-off-by: Ilan Tayari <ilant@mellanox.com>
 Signed-off-by: Yossi Kuperman <yossiku@mellanox.com>
@@ -43,511 +42,98 @@ Signed-off-by: Yevgeny Kliteynik <kliteyn@mellanox.com>
 Signed-off-by: Boris Pismenny <borisp@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- MAINTAINERS                                        |  10 +
- drivers/net/ethernet/mellanox/mlx5/core/Kconfig    |  12 +
- drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   2 +
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |   3 +
- .../ethernet/mellanox/mlx5/core/en_accel/ipsec.c   | 415 +++++++++++++++++++++
- .../ethernet/mellanox/mlx5/core/en_accel/ipsec.h   |  78 ++++
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  14 +
- include/linux/mlx5/mlx5_ifc.h                      |   8 +-
- include/linux/mlx5/qp.h                            |  14 +-
- 9 files changed, 552 insertions(+), 4 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.h
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   2 +-
+ .../ethernet/mellanox/mlx5/core/en_accel/ipsec.c   |  19 +++
+ .../ethernet/mellanox/mlx5/core/en_accel/ipsec.h   |   9 ++
+ .../mellanox/mlx5/core/en_accel/ipsec_rxtx.c       | 135 +++++++++++++++++++++
+ .../mellanox/mlx5/core/en_accel/ipsec_rxtx.h       |  44 +++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  22 +++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |  41 +++++++
+ 7 files changed, 269 insertions(+), 3 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.h
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 71a74555afdf..c324460d5042 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -8327,6 +8327,16 @@ Q:	http://patchwork.ozlabs.org/project/netdev/list/
- F:	drivers/net/ethernet/mellanox/mlx5/core/fpga/*
- F:	include/linux/mlx5/mlx5_ifc_fpga.h
- 
-+MELLANOX ETHERNET INNOVA IPSEC DRIVER
-+M:	Ilan Tayari <ilant@mellanox.com>
-+R:	Boris Pismenny <borisp@mellanox.com>
-+L:	netdev@vger.kernel.org
-+S:	Supported
-+W:	http://www.mellanox.com
-+Q:	http://patchwork.ozlabs.org/project/netdev/list/
-+F:	drivers/net/ethernet/mellanox/mlx5/core/en_ipsec/*
-+F:	drivers/net/ethernet/mellanox/mlx5/core/ipsec*
-+
- MELLANOX ETHERNET SWITCH DRIVERS
- M:	Jiri Pirko <jiri@mellanox.com>
- M:	Ido Schimmel <idosch@mellanox.com>
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-index d6c6cea8ebab..5aee05992f27 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-@@ -52,3 +52,15 @@ config MLX5_CORE_IPOIB
- 	default n
- 	---help---
- 	  MLX5 IPoIB offloads & acceleration support.
-+
-+config MLX5_EN_IPSEC
-+	bool "IPSec XFRM cryptography-offload accelaration"
-+	depends on MLX5_ACCEL
-+	depends on MLX5_CORE_EN
-+	depends on XFRM_OFFLOAD
-+	depends on INET_ESP_OFFLOAD || INET6_ESP_OFFLOAD
-+	default n
-+	---help---
-+	  Build support for IPsec cryptography-offload accelaration in the NIC.
-+	  Note: Support for hardware with this capability needs to be selected
-+	  for this option to become available.
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-index 33557526f597..7e81084a75ea 100644
+index 7e81084a75ea..23cb8ba91e6f 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-@@ -19,3 +19,5 @@ mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o eswitch_offloads.o \
- mlx5_core-$(CONFIG_MLX5_CORE_EN_DCB) +=  en_dcbnl.o
+@@ -20,4 +20,4 @@ mlx5_core-$(CONFIG_MLX5_CORE_EN_DCB) +=  en_dcbnl.o
  
  mlx5_core-$(CONFIG_MLX5_CORE_IPOIB) += ipoib/ipoib.o ipoib/ethtool.o
-+
-+mlx5_core-$(CONFIG_MLX5_EN_IPSEC) += en_accel/ipsec.o
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index f93f44d1d1cf..535ffd78a34e 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -784,6 +784,9 @@ struct mlx5e_priv {
  
- 	const struct mlx5e_profile *profile;
- 	void                      *ppriv;
-+#ifdef CONFIG_MLX5_EN_IPSEC
-+	struct mlx5e_ipsec        *ipsec;
-+#endif
+-mlx5_core-$(CONFIG_MLX5_EN_IPSEC) += en_accel/ipsec.o
++mlx5_core-$(CONFIG_MLX5_EN_IPSEC) += en_accel/ipsec.o en_accel/ipsec_rxtx.o
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.c b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.c
+index 06d9d6ad93ad..bb69660893ee 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.c
+@@ -40,6 +40,7 @@
+ #include "en.h"
+ #include "accel/ipsec.h"
+ #include "en_accel/ipsec.h"
++#include "en_accel/ipsec_rxtx.h"
+ 
+ struct mlx5e_ipsec_sa_entry {
+ 	struct hlist_node hlist; /* Item in SADB_RX hashtable */
+@@ -49,6 +50,24 @@ struct mlx5e_ipsec_sa_entry {
+ 	void *context;
  };
  
- struct mlx5e_profile {
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.c b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.c
-new file mode 100644
-index 000000000000..06d9d6ad93ad
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.c
-@@ -0,0 +1,415 @@
-+/*
-+ * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ *
-+ */
-+
-+#include <crypto/internal/geniv.h>
-+#include <crypto/aead.h>
-+#include <linux/inetdevice.h>
-+#include <linux/netdevice.h>
-+#include <linux/module.h>
-+
-+#include "en.h"
-+#include "accel/ipsec.h"
-+#include "en_accel/ipsec.h"
-+
-+struct mlx5e_ipsec_sa_entry {
-+	struct hlist_node hlist; /* Item in SADB_RX hashtable */
-+	unsigned int handle; /* Handle in SADB_RX */
-+	struct xfrm_state *x;
-+	struct mlx5e_ipsec *ipsec;
-+	void *context;
-+};
-+
-+static int mlx5e_ipsec_sadb_rx_add(struct mlx5e_ipsec_sa_entry *sa_entry)
++struct xfrm_state *mlx5e_ipsec_sadb_rx_lookup(struct mlx5e_ipsec *ipsec,
++					      unsigned int handle)
 +{
-+	struct mlx5e_ipsec *ipsec = sa_entry->ipsec;
-+	unsigned long flags;
-+	int ret;
++	struct mlx5e_ipsec_sa_entry *sa_entry;
++	struct xfrm_state *ret = NULL;
 +
-+	spin_lock_irqsave(&ipsec->sadb_rx_lock, flags);
-+	ret = ida_simple_get(&ipsec->halloc, 1, 0, GFP_KERNEL);
-+	if (ret < 0)
-+		goto out;
++	rcu_read_lock();
++	hash_for_each_possible_rcu(ipsec->sadb_rx, sa_entry, hlist, handle)
++		if (sa_entry->handle == handle) {
++			ret = sa_entry->x;
++			xfrm_state_hold(ret);
++			break;
++		}
++	rcu_read_unlock();
 +
-+	sa_entry->handle = ret;
-+	hash_add_rcu(ipsec->sadb_rx, &sa_entry->hlist, sa_entry->handle);
-+	ret = 0;
-+
-+out:
-+	spin_unlock_irqrestore(&ipsec->sadb_rx_lock, flags);
 +	return ret;
 +}
 +
-+static void mlx5e_ipsec_sadb_rx_del(struct mlx5e_ipsec_sa_entry *sa_entry)
-+{
-+	struct mlx5e_ipsec *ipsec = sa_entry->ipsec;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&ipsec->sadb_rx_lock, flags);
-+	hash_del_rcu(&sa_entry->hlist);
-+	spin_unlock_irqrestore(&ipsec->sadb_rx_lock, flags);
-+}
-+
-+static void mlx5e_ipsec_sadb_rx_free(struct mlx5e_ipsec_sa_entry *sa_entry)
-+{
-+	struct mlx5e_ipsec *ipsec = sa_entry->ipsec;
-+	unsigned long flags;
-+
-+	/* Wait for the hash_del_rcu call in sadb_rx_del to affect data path */
-+	synchronize_rcu();
-+	spin_lock_irqsave(&ipsec->sadb_rx_lock, flags);
-+	ida_simple_remove(&ipsec->halloc, sa_entry->handle);
-+	spin_unlock_irqrestore(&ipsec->sadb_rx_lock, flags);
-+}
-+
-+static enum mlx5_accel_ipsec_enc_mode mlx5e_ipsec_enc_mode(struct xfrm_state *x)
-+{
-+	unsigned int key_len = (x->aead->alg_key_len + 7) / 8 - 4;
-+
-+	switch (key_len) {
-+	case 16:
-+		return MLX5_IPSEC_SADB_MODE_AES_GCM_128_AUTH_128;
-+	case 32:
-+		return MLX5_IPSEC_SADB_MODE_AES_GCM_256_AUTH_128;
-+	default:
-+		netdev_warn(x->xso.dev, "Bad key len: %d for alg %s\n",
-+			    key_len, x->aead->alg_name);
-+		return -1;
-+	}
-+}
-+
-+static void mlx5e_ipsec_build_hw_sa(u32 op, struct mlx5e_ipsec_sa_entry *sa_entry,
-+				    struct mlx5_accel_ipsec_sa *hw_sa)
-+{
-+	struct xfrm_state *x = sa_entry->x;
-+	struct aead_geniv_ctx *geniv_ctx;
-+	unsigned int crypto_data_len;
-+	struct crypto_aead *aead;
-+	unsigned int key_len;
-+	int ivsize;
-+
-+	memset(hw_sa, 0, sizeof(*hw_sa));
-+
-+	if (op == MLX5_IPSEC_CMD_ADD_SA) {
-+		crypto_data_len = (x->aead->alg_key_len + 7) / 8;
-+		key_len = crypto_data_len - 4; /* 4 bytes salt at end */
-+		aead = x->data;
-+		geniv_ctx = crypto_aead_ctx(aead);
-+		ivsize = crypto_aead_ivsize(aead);
-+
-+		memcpy(&hw_sa->key_enc, x->aead->alg_key, key_len);
-+		/* Duplicate 128 bit key twice according to HW layout */
-+		if (key_len == 16)
-+			memcpy(&hw_sa->key_enc[16], x->aead->alg_key, key_len);
-+		memcpy(&hw_sa->gcm.salt_iv, geniv_ctx->salt, ivsize);
-+		hw_sa->gcm.salt = *((__be32 *)(x->aead->alg_key + key_len));
-+	}
-+
-+	hw_sa->cmd = htonl(op);
-+	hw_sa->flags |= MLX5_IPSEC_SADB_SA_VALID | MLX5_IPSEC_SADB_SPI_EN;
-+	if (x->props.family == AF_INET) {
-+		hw_sa->sip[3] = x->props.saddr.a4;
-+		hw_sa->dip[3] = x->id.daddr.a4;
-+		hw_sa->sip_masklen = 32;
-+		hw_sa->dip_masklen = 32;
-+	} else {
-+		memcpy(hw_sa->sip, x->props.saddr.a6, sizeof(hw_sa->sip));
-+		memcpy(hw_sa->dip, x->id.daddr.a6, sizeof(hw_sa->dip));
-+		hw_sa->sip_masklen = 128;
-+		hw_sa->dip_masklen = 128;
-+		hw_sa->flags |= MLX5_IPSEC_SADB_IPV6;
-+	}
-+	hw_sa->spi = x->id.spi;
-+	hw_sa->sw_sa_handle = htonl(sa_entry->handle);
-+	switch (x->id.proto) {
-+	case IPPROTO_ESP:
-+		hw_sa->flags |= MLX5_IPSEC_SADB_IP_ESP;
-+		break;
-+	case IPPROTO_AH:
-+		hw_sa->flags |= MLX5_IPSEC_SADB_IP_AH;
-+		break;
-+	default:
-+		break;
-+	}
-+	hw_sa->enc_mode = mlx5e_ipsec_enc_mode(x);
-+	if (!(x->xso.flags & XFRM_OFFLOAD_INBOUND))
-+		hw_sa->flags |= MLX5_IPSEC_SADB_DIR_SX;
-+}
-+
-+static inline int mlx5e_xfrm_validate_state(struct xfrm_state *x)
-+{
-+	struct net_device *netdev = x->xso.dev;
-+	struct mlx5e_priv *priv;
-+
-+	priv = netdev_priv(netdev);
-+
-+	if (x->props.aalgo != SADB_AALG_NONE) {
-+		netdev_info(netdev, "Cannot offload authenticated xfrm states\n");
-+		return -EINVAL;
-+	}
-+	if (x->props.ealgo != SADB_X_EALG_AES_GCM_ICV16) {
-+		netdev_info(netdev, "Only AES-GCM-ICV16 xfrm state may be offloaded\n");
-+		return -EINVAL;
-+	}
-+	if (x->props.calgo != SADB_X_CALG_NONE) {
-+		netdev_info(netdev, "Cannot offload compressed xfrm states\n");
-+		return -EINVAL;
-+	}
-+	if (x->props.flags & XFRM_STATE_ESN) {
-+		netdev_info(netdev, "Cannot offload ESN xfrm states\n");
-+		return -EINVAL;
-+	}
-+	if (x->props.family != AF_INET &&
-+	    x->props.family != AF_INET6) {
-+		netdev_info(netdev, "Only IPv4/6 xfrm states may be offloaded\n");
-+		return -EINVAL;
-+	}
-+	if (x->props.mode != XFRM_MODE_TRANSPORT &&
-+	    x->props.mode != XFRM_MODE_TUNNEL) {
-+		dev_info(&netdev->dev, "Only transport and tunnel xfrm states may be offloaded\n");
-+		return -EINVAL;
-+	}
-+	if (x->id.proto != IPPROTO_ESP) {
-+		netdev_info(netdev, "Only ESP xfrm state may be offloaded\n");
-+		return -EINVAL;
-+	}
-+	if (x->encap) {
-+		netdev_info(netdev, "Encapsulated xfrm state may not be offloaded\n");
-+		return -EINVAL;
-+	}
-+	if (!x->aead) {
-+		netdev_info(netdev, "Cannot offload xfrm states without aead\n");
-+		return -EINVAL;
-+	}
-+	if (x->aead->alg_icv_len != 128) {
-+		netdev_info(netdev, "Cannot offload xfrm states with AEAD ICV length other than 128bit\n");
-+		return -EINVAL;
-+	}
-+	if ((x->aead->alg_key_len != 128 + 32) &&
-+	    (x->aead->alg_key_len != 256 + 32)) {
-+		netdev_info(netdev, "Cannot offload xfrm states with AEAD key length other than 128/256 bit\n");
-+		return -EINVAL;
-+	}
-+	if (x->tfcpad) {
-+		netdev_info(netdev, "Cannot offload xfrm states with tfc padding\n");
-+		return -EINVAL;
-+	}
-+	if (!x->geniv) {
-+		netdev_info(netdev, "Cannot offload xfrm states without geniv\n");
-+		return -EINVAL;
-+	}
-+	if (strcmp(x->geniv, "seqiv")) {
-+		netdev_info(netdev, "Cannot offload xfrm states with geniv other than seqiv\n");
-+		return -EINVAL;
-+	}
-+	if (x->props.family == AF_INET6 &&
-+	    !(mlx5_accel_ipsec_device_caps(priv->mdev) & MLX5_ACCEL_IPSEC_IPV6)) {
-+		netdev_info(netdev, "IPv6 xfrm state offload is not supported by this device\n");
-+		return -EINVAL;
-+	}
-+	return 0;
-+}
-+
-+static int mlx5e_xfrm_add_state(struct xfrm_state *x)
-+{
-+	struct mlx5e_ipsec_sa_entry *sa_entry = NULL;
-+	struct net_device *netdev = x->xso.dev;
-+	struct mlx5_accel_ipsec_sa hw_sa;
-+	struct mlx5e_priv *priv;
-+	void *context;
-+	int err;
-+
-+	priv = netdev_priv(netdev);
-+
-+	err = mlx5e_xfrm_validate_state(x);
-+	if (err)
-+		return err;
-+
-+	sa_entry = kzalloc(sizeof(*sa_entry), GFP_KERNEL);
-+	if (!sa_entry) {
-+		err = -ENOMEM;
-+		goto out;
-+	}
-+
-+	sa_entry->x = x;
-+	sa_entry->ipsec = priv->ipsec;
-+
-+	/* Add the SA to handle processed incoming packets before the add SA
-+	 * completion was received
-+	 */
-+	if (x->xso.flags & XFRM_OFFLOAD_INBOUND) {
-+		err = mlx5e_ipsec_sadb_rx_add(sa_entry);
-+		if (err) {
-+			netdev_info(netdev, "Failed adding to SADB_RX: %d\n", err);
-+			goto err_entry;
-+		}
-+	}
-+
-+	mlx5e_ipsec_build_hw_sa(MLX5_IPSEC_CMD_ADD_SA, sa_entry, &hw_sa);
-+	context = mlx5_accel_ipsec_sa_cmd_exec(sa_entry->ipsec->en_priv->mdev, &hw_sa);
-+	if (IS_ERR(context)) {
-+		err = PTR_ERR(context);
-+		goto err_sadb_rx;
-+	}
-+
-+	err = mlx5_accel_ipsec_sa_cmd_wait(context);
-+	if (err)
-+		goto err_sadb_rx;
-+
-+	x->xso.offload_handle = (unsigned long)sa_entry;
-+	goto out;
-+
-+err_sadb_rx:
-+	if (x->xso.flags & XFRM_OFFLOAD_INBOUND) {
-+		mlx5e_ipsec_sadb_rx_del(sa_entry);
-+		mlx5e_ipsec_sadb_rx_free(sa_entry);
-+	}
-+err_entry:
-+	kfree(sa_entry);
-+out:
-+	return err;
-+}
-+
-+static void mlx5e_xfrm_del_state(struct xfrm_state *x)
-+{
-+	struct mlx5e_ipsec_sa_entry *sa_entry;
-+	struct mlx5_accel_ipsec_sa hw_sa;
-+	void *context;
-+
-+	if (!x->xso.offload_handle)
-+		return;
-+
-+	sa_entry = (struct mlx5e_ipsec_sa_entry *)x->xso.offload_handle;
-+	WARN_ON(sa_entry->x != x);
-+
-+	if (x->xso.flags & XFRM_OFFLOAD_INBOUND)
-+		mlx5e_ipsec_sadb_rx_del(sa_entry);
-+
-+	mlx5e_ipsec_build_hw_sa(MLX5_IPSEC_CMD_DEL_SA, sa_entry, &hw_sa);
-+	context = mlx5_accel_ipsec_sa_cmd_exec(sa_entry->ipsec->en_priv->mdev, &hw_sa);
-+	if (IS_ERR(context))
-+		return;
-+
-+	sa_entry->context = context;
-+}
-+
-+static void mlx5e_xfrm_free_state(struct xfrm_state *x)
-+{
-+	struct mlx5e_ipsec_sa_entry *sa_entry;
-+	int res;
-+
-+	if (!x->xso.offload_handle)
-+		return;
-+
-+	sa_entry = (struct mlx5e_ipsec_sa_entry *)x->xso.offload_handle;
-+	WARN_ON(sa_entry->x != x);
-+
-+	res = mlx5_accel_ipsec_sa_cmd_wait(sa_entry->context);
-+	sa_entry->context = NULL;
-+	if (res) {
-+		/* Leftover object will leak */
-+		return;
-+	}
-+
-+	if (x->xso.flags & XFRM_OFFLOAD_INBOUND)
-+		mlx5e_ipsec_sadb_rx_free(sa_entry);
-+
-+	kfree(sa_entry);
-+}
-+
-+int mlx5e_ipsec_init(struct mlx5e_priv *priv)
-+{
-+	struct mlx5e_ipsec *ipsec = NULL;
-+
-+	if (!MLX5_IPSEC_DEV(priv->mdev)) {
-+		netdev_dbg(priv->netdev, "Not an IPSec offload device\n");
-+		return 0;
-+	}
-+
-+	ipsec = kzalloc(sizeof(*ipsec), GFP_KERNEL);
-+	if (!ipsec)
-+		return -ENOMEM;
-+
-+	hash_init(ipsec->sadb_rx);
-+	spin_lock_init(&ipsec->sadb_rx_lock);
-+	ida_init(&ipsec->halloc);
-+	ipsec->en_priv = priv;
-+	ipsec->en_priv->ipsec = ipsec;
-+	netdev_dbg(priv->netdev, "IPSec attached to netdevice\n");
-+	return 0;
-+}
-+
-+void mlx5e_ipsec_cleanup(struct mlx5e_priv *priv)
-+{
-+	struct mlx5e_ipsec *ipsec = priv->ipsec;
-+
-+	if (!ipsec)
-+		return;
-+
-+	ida_destroy(&ipsec->halloc);
-+	kfree(ipsec);
-+	priv->ipsec = NULL;
-+}
-+
-+static const struct xfrmdev_ops mlx5e_ipsec_xfrmdev_ops = {
-+	.xdo_dev_state_add	= mlx5e_xfrm_add_state,
-+	.xdo_dev_state_delete	= mlx5e_xfrm_del_state,
-+	.xdo_dev_state_free	= mlx5e_xfrm_free_state,
+ static int mlx5e_ipsec_sadb_rx_add(struct mlx5e_ipsec_sa_entry *sa_entry)
+ {
+ 	struct mlx5e_ipsec *ipsec = sa_entry->ipsec;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.h b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.h
+index b9423a2873e2..4d745d3dd4b1 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.h
+@@ -41,14 +41,23 @@
+ #include <linux/idr.h>
+ 
+ #define MLX5E_IPSEC_SADB_RX_BITS 10
++#define MLX5E_METADATA_ETHER_TYPE (0x8CE4)
++#define MLX5E_METADATA_ETHER_LEN 8
+ 
+ struct mlx5e_priv;
+ 
++struct mlx5e_ipsec_sw_stats {
++	atomic64_t ipsec_rx_drop_sp_alloc;
++	atomic64_t ipsec_rx_drop_sadb_miss;
++	atomic64_t ipsec_rx_drop_syndrome;
 +};
 +
-+void mlx5e_ipsec_build_netdev(struct mlx5e_priv *priv)
-+{
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+	struct net_device *netdev = priv->netdev;
-+
-+	if (!priv->ipsec)
-+		return;
-+
-+	if (!(mlx5_accel_ipsec_device_caps(mdev) & MLX5_ACCEL_IPSEC_ESP) ||
-+	    !MLX5_CAP_ETH(mdev, swp)) {
-+		mlx5_core_dbg(mdev, "mlx5e: ESP and SWP offload not supported\n");
-+		return;
-+	}
-+
-+	mlx5_core_info(mdev, "mlx5e: IPSec ESP acceleration enabled\n");
-+	netdev->xfrmdev_ops = &mlx5e_ipsec_xfrmdev_ops;
-+	netdev->features |= NETIF_F_HW_ESP;
-+	netdev->hw_enc_features |= NETIF_F_HW_ESP;
-+
-+	if (!MLX5_CAP_ETH(mdev, swp_csum)) {
-+		mlx5_core_dbg(mdev, "mlx5e: SWP checksum not supported\n");
-+		return;
-+	}
-+
-+	netdev->features |= NETIF_F_HW_ESP_TX_CSUM;
-+	netdev->hw_enc_features |= NETIF_F_HW_ESP_TX_CSUM;
-+}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.h b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.h
+ struct mlx5e_ipsec {
+ 	struct mlx5e_priv *en_priv;
+ 	DECLARE_HASHTABLE(sadb_rx, MLX5E_IPSEC_SADB_RX_BITS);
+ 	spinlock_t sadb_rx_lock; /* Protects sadb_rx and halloc */
+ 	struct ida halloc;
++	struct mlx5e_ipsec_sw_stats sw_stats;
+ };
+ 
+ int mlx5e_ipsec_init(struct mlx5e_priv *priv);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.c
 new file mode 100644
-index 000000000000..b9423a2873e2
+index 000000000000..56ab2e80553e
 --- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.h
-@@ -0,0 +1,78 @@
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.c
+@@ -0,0 +1,135 @@
 +/*
 + * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
 + *
@@ -581,157 +167,274 @@ index 000000000000..b9423a2873e2
 + *
 + */
 +
-+#ifndef __MLX5E_IPSEC_H__
-+#define __MLX5E_IPSEC_H__
-+
-+#ifdef CONFIG_MLX5_EN_IPSEC
-+
-+#include <linux/mlx5/device.h>
++#include <crypto/aead.h>
 +#include <net/xfrm.h>
-+#include <linux/idr.h>
 +
-+#define MLX5E_IPSEC_SADB_RX_BITS 10
++#include "en_accel/ipsec_rxtx.h"
++#include "en_accel/ipsec.h"
++#include "en.h"
 +
-+struct mlx5e_priv;
-+
-+struct mlx5e_ipsec {
-+	struct mlx5e_priv *en_priv;
-+	DECLARE_HASHTABLE(sadb_rx, MLX5E_IPSEC_SADB_RX_BITS);
-+	spinlock_t sadb_rx_lock; /* Protects sadb_rx and halloc */
-+	struct ida halloc;
++enum {
++	MLX5E_IPSEC_RX_SYNDROME_DECRYPTED = 0x11,
++	MLX5E_IPSEC_RX_SYNDROME_AUTH_FAILED = 0x12,
 +};
 +
-+int mlx5e_ipsec_init(struct mlx5e_priv *priv);
-+void mlx5e_ipsec_cleanup(struct mlx5e_priv *priv);
-+void mlx5e_ipsec_build_netdev(struct mlx5e_priv *priv);
++struct mlx5e_ipsec_rx_metadata {
++	unsigned char   reserved;
++	__be32		sa_handle;
++} __packed;
 +
-+struct xfrm_state *mlx5e_ipsec_sadb_rx_lookup(struct mlx5e_ipsec *dev,
-+					      unsigned int handle);
++struct mlx5e_ipsec_metadata {
++	unsigned char syndrome;
++	union {
++		unsigned char raw[5];
++		/* from FPGA to host, on successful decrypt */
++		struct mlx5e_ipsec_rx_metadata rx;
++	} __packed content;
++	/* packet type ID field	*/
++	__be16 ethertype;
++} __packed;
 +
-+#else
-+
-+static inline int mlx5e_ipsec_init(struct mlx5e_priv *priv)
++static inline struct xfrm_state *
++mlx5e_ipsec_build_sp(struct net_device *netdev, struct sk_buff *skb,
++		     struct mlx5e_ipsec_metadata *mdata)
 +{
-+	return 0;
++	struct mlx5e_priv *priv = netdev_priv(netdev);
++	struct xfrm_offload *xo;
++	struct xfrm_state *xs;
++	u32 sa_handle;
++
++	skb->sp = secpath_dup(skb->sp);
++	if (unlikely(!skb->sp)) {
++		atomic64_inc(&priv->ipsec->sw_stats.ipsec_rx_drop_sp_alloc);
++		return NULL;
++	}
++
++	sa_handle = be32_to_cpu(mdata->content.rx.sa_handle);
++	xs = mlx5e_ipsec_sadb_rx_lookup(priv->ipsec, sa_handle);
++	if (unlikely(!xs)) {
++		atomic64_inc(&priv->ipsec->sw_stats.ipsec_rx_drop_sadb_miss);
++		return NULL;
++	}
++
++	skb->sp->xvec[skb->sp->len++] = xs;
++	skb->sp->olen++;
++
++	xo = xfrm_offload(skb);
++	xo->flags = CRYPTO_DONE;
++	switch (mdata->syndrome) {
++	case MLX5E_IPSEC_RX_SYNDROME_DECRYPTED:
++		xo->status = CRYPTO_SUCCESS;
++		break;
++	case MLX5E_IPSEC_RX_SYNDROME_AUTH_FAILED:
++		xo->status = CRYPTO_TUNNEL_ESP_AUTH_FAILED;
++		break;
++	default:
++		atomic64_inc(&priv->ipsec->sw_stats.ipsec_rx_drop_syndrome);
++		return NULL;
++	}
++	return xs;
 +}
 +
-+static inline void mlx5e_ipsec_cleanup(struct mlx5e_priv *priv)
++struct sk_buff *mlx5e_ipsec_handle_rx_skb(struct net_device *netdev,
++					  struct sk_buff *skb)
 +{
++	struct mlx5e_ipsec_metadata *mdata;
++	struct ethhdr *old_eth;
++	struct ethhdr *new_eth;
++	struct xfrm_state *xs;
++	__be16 *ethtype;
++
++	/* Detect inline metadata */
++	if (skb->len < ETH_HLEN + MLX5E_METADATA_ETHER_LEN)
++		return skb;
++	ethtype = (__be16 *)(skb->data + ETH_ALEN * 2);
++	if (*ethtype != cpu_to_be16(MLX5E_METADATA_ETHER_TYPE))
++		return skb;
++
++	/* Use the metadata */
++	mdata = (struct mlx5e_ipsec_metadata *)(skb->data + ETH_HLEN);
++	xs = mlx5e_ipsec_build_sp(netdev, skb, mdata);
++	if (unlikely(!xs)) {
++		kfree_skb(skb);
++		return NULL;
++	}
++
++	/* Remove the metadata from the buffer */
++	old_eth = (struct ethhdr *)skb->data;
++	new_eth = (struct ethhdr *)(skb->data + MLX5E_METADATA_ETHER_LEN);
++	memmove(new_eth, old_eth, 2 * ETH_ALEN);
++	/* Ethertype is already in its new place */
++	skb_pull_inline(skb, MLX5E_METADATA_ETHER_LEN);
++
++	return skb;
 +}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.h b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.h
+new file mode 100644
+index 000000000000..4e2fab8c5d74
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.h
+@@ -0,0 +1,44 @@
++/*
++ * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ *
++ */
 +
-+static inline void mlx5e_ipsec_build_netdev(struct mlx5e_priv *priv)
-+{
-+}
++#ifndef __MLX5E_IPSEC_RXTX_H__
++#define __MLX5E_IPSEC_RXTX_H__
 +
-+#endif
++#include <linux/skbuff.h>
++#include "en.h"
 +
-+#endif	/* __MLX5E_IPSEC_H__ */
++struct sk_buff *mlx5e_ipsec_handle_rx_skb(struct net_device *netdev,
++					  struct sk_buff *skb);
++void mlx5e_ipsec_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe);
++
++#endif	/* __MLX5E_IPSEC_RXTX_H__ */
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 9f99f624004f..aa5a7aa59ff3 100644
+index aa5a7aa59ff3..170a9378d1f7 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -39,6 +39,7 @@
- #include "en.h"
+@@ -40,6 +40,8 @@
  #include "en_tc.h"
  #include "en_rep.h"
-+#include "en_accel/ipsec.h"
+ #include "en_accel/ipsec.h"
++#include "en_accel/ipsec_rxtx.h"
++#include "accel/ipsec.h"
  #include "vxlan.h"
  
  struct mlx5e_rq_param {
-@@ -3555,6 +3556,12 @@ static int mlx5e_xdp_set(struct net_device *netdev, struct bpf_prog *prog)
- 		goto unlock;
- 	}
+@@ -116,7 +118,7 @@ void mlx5e_set_rq_type_params(struct mlx5_core_dev *mdev,
+ static void mlx5e_set_rq_params(struct mlx5_core_dev *mdev, struct mlx5e_params *params)
+ {
+ 	u8 rq_type = mlx5e_check_fragmented_striding_rq_cap(mdev) &&
+-		    !params->xdp_prog ?
++		    !params->xdp_prog && !MLX5_IPSEC_DEV(mdev) ?
+ 		    MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ :
+ 		    MLX5_WQ_TYPE_LINKED_LIST;
+ 	mlx5e_set_rq_type_params(mdev, params, rq_type);
+@@ -593,6 +595,13 @@ static int mlx5e_alloc_rq(struct mlx5e_channel *c,
+ 		rq->dealloc_wqe = mlx5e_dealloc_rx_mpwqe;
  
-+	if ((netdev->features & NETIF_F_HW_ESP) && prog) {
-+		netdev_warn(netdev, "can't set XDP with IPSec offload\n");
-+		err = -EINVAL;
-+		goto unlock;
+ 		rq->handle_rx_cqe = c->priv->profile->rx_handlers.handle_rx_cqe_mpwqe;
++#ifdef CONFIG_MLX5_EN_IPSEC
++		if (MLX5_IPSEC_DEV(mdev)) {
++			err = -EINVAL;
++			netdev_err(c->netdev, "MPWQE RQ with IPSec offload not supported\n");
++			goto err_rq_wq_destroy;
++		}
++#endif
+ 		if (!rq->handle_rx_cqe) {
+ 			err = -EINVAL;
+ 			netdev_err(c->netdev, "RX handler of MPWQE RQ is not set, err %d\n", err);
+@@ -625,7 +634,12 @@ static int mlx5e_alloc_rq(struct mlx5e_channel *c,
+ 		rq->alloc_wqe = mlx5e_alloc_rx_wqe;
+ 		rq->dealloc_wqe = mlx5e_dealloc_rx_wqe;
+ 
+-		rq->handle_rx_cqe = c->priv->profile->rx_handlers.handle_rx_cqe;
++#ifdef CONFIG_MLX5_EN_IPSEC
++		if (c->priv->ipsec)
++			rq->handle_rx_cqe = mlx5e_ipsec_handle_rx_cqe;
++		else
++#endif
++			rq->handle_rx_cqe = c->priv->profile->rx_handlers.handle_rx_cqe;
+ 		if (!rq->handle_rx_cqe) {
+ 			kfree(rq->wqe.frag_info);
+ 			err = -EINVAL;
+@@ -636,6 +650,10 @@ static int mlx5e_alloc_rq(struct mlx5e_channel *c,
+ 		rq->buff.wqe_sz = params->lro_en  ?
+ 				params->lro_wqe_sz :
+ 				MLX5E_SW2HW_MTU(c->priv, c->netdev->mtu);
++#ifdef CONFIG_MLX5_EN_IPSEC
++		if (MLX5_IPSEC_DEV(mdev))
++			rq->buff.wqe_sz += MLX5E_METADATA_ETHER_LEN;
++#endif
+ 		rq->wqe.page_reuse = !params->xdp_prog && !params->lro_en;
+ 		byte_count = rq->buff.wqe_sz;
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index 574a96279340..325b2c8c1c6d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -41,6 +41,7 @@
+ #include "eswitch.h"
+ #include "en_rep.h"
+ #include "ipoib/ipoib.h"
++#include "en_accel/ipsec_rxtx.h"
+ 
+ static inline bool mlx5e_rx_hw_stamp(struct mlx5e_tstamp *tstamp)
+ {
+@@ -1183,3 +1184,43 @@ void mlx5i_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
+ }
+ 
+ #endif /* CONFIG_MLX5_CORE_IPOIB */
++
++#ifdef CONFIG_MLX5_EN_IPSEC
++
++void mlx5e_ipsec_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
++{
++	struct mlx5e_wqe_frag_info *wi;
++	struct mlx5e_rx_wqe *wqe;
++	__be16 wqe_counter_be;
++	struct sk_buff *skb;
++	u16 wqe_counter;
++	u32 cqe_bcnt;
++
++	wqe_counter_be = cqe->wqe_counter;
++	wqe_counter    = be16_to_cpu(wqe_counter_be);
++	wqe            = mlx5_wq_ll_get_wqe(&rq->wq, wqe_counter);
++	wi             = &rq->wqe.frag_info[wqe_counter];
++	cqe_bcnt       = be32_to_cpu(cqe->byte_cnt);
++
++	skb = skb_from_cqe(rq, cqe, wi, cqe_bcnt);
++	if (unlikely(!skb)) {
++		/* a DROP, save the page-reuse checks */
++		mlx5e_free_rx_wqe(rq, wi);
++		goto wq_ll_pop;
++	}
++	skb = mlx5e_ipsec_handle_rx_skb(rq->netdev, skb);
++	if (unlikely(!skb)) {
++		mlx5e_free_rx_wqe(rq, wi);
++		goto wq_ll_pop;
 +	}
 +
- 	was_opened = test_bit(MLX5E_STATE_OPENED, &priv->state);
- 	/* no need for full reset when exchanging programs */
- 	reset = (!priv->channels.params.xdp_prog || !prog);
-@@ -4046,6 +4053,8 @@ static void mlx5e_build_nic_netdev(struct net_device *netdev)
- 	if (MLX5_CAP_GEN(mdev, vport_group_manager))
- 		netdev->switchdev_ops = &mlx5e_switchdev_ops;
- #endif
++	mlx5e_complete_rx_cqe(rq, cqe, cqe_bcnt, skb);
++	napi_gro_receive(rq->cq.napi, skb);
 +
-+	mlx5e_ipsec_build_netdev(priv);
- }
- 
- static void mlx5e_create_q_counter(struct mlx5e_priv *priv)
-@@ -4074,14 +4083,19 @@ static void mlx5e_nic_init(struct mlx5_core_dev *mdev,
- 			   void *ppriv)
- {
- 	struct mlx5e_priv *priv = netdev_priv(netdev);
-+	int err;
- 
- 	mlx5e_build_nic_netdev_priv(mdev, netdev, profile, ppriv);
-+	err = mlx5e_ipsec_init(priv);
-+	if (err)
-+		mlx5_core_err(mdev, "IPSec initialization failed, %d\n", err);
- 	mlx5e_build_nic_netdev(netdev);
- 	mlx5e_vxlan_init(priv);
- }
- 
- static void mlx5e_nic_cleanup(struct mlx5e_priv *priv)
- {
-+	mlx5e_ipsec_cleanup(priv);
- 	mlx5e_vxlan_cleanup(priv);
- 
- 	if (priv->channels.params.xdp_prog)
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index c72f9735119d..87869c04849a 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -605,7 +605,10 @@ struct mlx5_ifc_per_protocol_networking_offload_caps_bits {
- 	u8         tunnel_statless_gre[0x1];
- 	u8         tunnel_stateless_vxlan[0x1];
- 
--	u8         reserved_at_20[0x20];
-+	u8         swp[0x1];
-+	u8         swp_csum[0x1];
-+	u8         swp_lso[0x1];
-+	u8         reserved_at_23[0x1d];
- 
- 	u8         reserved_at_40[0x10];
- 	u8         lro_min_mss_size[0x10];
-@@ -2438,7 +2441,8 @@ struct mlx5_ifc_sqc_bits {
- 	u8	   min_wqe_inline_mode[0x3];
- 	u8         state[0x4];
- 	u8         reg_umr[0x1];
--	u8         reserved_at_d[0x13];
-+	u8         allow_swp[0x1];
-+	u8         reserved_at_e[0x12];
- 
- 	u8         reserved_at_20[0x8];
- 	u8         user_index[0x18];
-diff --git a/include/linux/mlx5/qp.h b/include/linux/mlx5/qp.h
-index 1f637f4d1265..6f41270d80c0 100644
---- a/include/linux/mlx5/qp.h
-+++ b/include/linux/mlx5/qp.h
-@@ -225,10 +225,20 @@ enum {
- 	MLX5_ETH_WQE_INSERT_VLAN        = 1 << 15,
- };
- 
-+enum {
-+	MLX5_ETH_WQE_SWP_INNER_L3_IPV6  = 1 << 0,
-+	MLX5_ETH_WQE_SWP_INNER_L4_UDP   = 1 << 1,
-+	MLX5_ETH_WQE_SWP_OUTER_L3_IPV6  = 1 << 4,
-+	MLX5_ETH_WQE_SWP_OUTER_L4_UDP   = 1 << 5,
-+};
++	mlx5e_free_rx_wqe_reuse(rq, wi);
++wq_ll_pop:
++	mlx5_wq_ll_pop(&rq->wq, wqe_counter_be,
++		       &wqe->next.next_wqe_index);
++}
 +
- struct mlx5_wqe_eth_seg {
--	u8              rsvd0[4];
-+	u8              swp_outer_l4_offset;
-+	u8              swp_outer_l3_offset;
-+	u8              swp_inner_l4_offset;
-+	u8              swp_inner_l3_offset;
- 	u8              cs_flags;
--	u8              rsvd1;
-+	u8              swp_flags;
- 	__be16          mss;
- 	__be32          rsvd2;
- 	union {
++#endif /* CONFIG_MLX5_EN_IPSEC */
 -- 
 2.11.0
