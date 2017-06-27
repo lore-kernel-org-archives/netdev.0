@@ -1,47 +1,44 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net: usb: asix88179_178a: Add support for the Belkin
- B2B128
-Date: Tue, 27 Jun 2017 09:01:07 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD002BA1A@AcuExch.aculab.com>
-References: <20170626174120.1293-1-afd@ti.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [net-next v2 6/6] ixgbe: Add malicious driver detection support
+Date: Tue, 27 Jun 2017 12:07:43 +0300
+Message-ID: <CAJ3xEMiEjGDUatUv47wNTfYPfCVo62+Jjs-xFU3ccN0iJm-5Gg@mail.gmail.com>
+References: <20170627085131.9831-1-jeffrey.t.kirsher@intel.com> <20170627085131.9831-7-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "'Andrew F. Davis'" <afd@ti.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Allan Chou <allan@asix.com.tw>,
-        Geoffrey Tran <geoffrey.tran@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>,
+        Paul Greenwalt <paul.greenwalt@intel.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        "nhorman@redhat.com" <nhorman@redhat.com>,
+        "sassmann@redhat.com" <sassmann@redhat.com>,
+        "jogreene@redhat.com" <jogreene@redhat.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.192]:62489 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752445AbdF0JB2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 05:01:28 -0400
-In-Reply-To: <20170626174120.1293-1-afd@ti.com>
-Content-Language: en-US
+Received: from mail-oi0-f42.google.com ([209.85.218.42]:35384 "EHLO
+        mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751553AbdF0JHo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 05:07:44 -0400
+Received: by mail-oi0-f42.google.com with SMTP id c189so14016227oia.2
+        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 02:07:44 -0700 (PDT)
+In-Reply-To: <20170627085131.9831-7-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew F. Davis
-> Sent: 26 June 2017 18:41
-> The Belkin B2B128 is a USB 3.0 Hub + Gigabit Ethernet Adapter, the
-> Ethernet adapter uses the ASIX AX88179 USB 3.0 to Gigabit Ethernet
-> chip supported by this driver, add the USB ID for the same.
-...
+On Tue, Jun 27, 2017 at 11:51 AM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+> From: Paul Greenwalt <paul.greenwalt@intel.com>
+>
+> Add malicious driver detection (MDD) support for X550, X550em_a,
+> and X550em_x devices.
+>
+> MDD is a hardware SR-IOV security feature which the driver enables by
+> default, but can be controlled on|off by ethtool set-priv-flags
 
-I've just had a look at the current version of ax88179_178a.c.
-It still makes me pull my hair out....
+wait, we have the trusted vf concept, which you implement
+(ixgbe_ndo_set_vf_trust)
+so you can enable by default for all vfs and disable it for trusted
+ones, why create
+an ixgbe special config knob? IMHO we should max all possible efforts to avoid
+priv ethtool flags usage.
 
-Not the least of the problems is that it lies about skb->truesize.
-All the receive skb are longer than 16k - so will be 64k, but
-it sets skb->truesize based on the actual receive frame size.
 
-A lot of the code is also 'over complicated' - making it slower
-that strictly necessary.
-
-There is also the more general problem that usbnet is horribly
-inefficient for anything trying to run at Ge speeds (never mind
-anything faster.
-
-	David
+Or.
