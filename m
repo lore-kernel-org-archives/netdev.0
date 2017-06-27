@@ -1,84 +1,64 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH iproute2 3/5] rdma: Add device capability parsing
-Date: Tue, 27 Jun 2017 20:46:15 +0300
-Message-ID: <20170627174615.GV1248@mtr-leonro.local>
-References: <20170626182128.24964-1-leon@kernel.org>
- <20170626182128.24964-4-leon@kernel.org>
- <20170626182924.GB16026@obsidianresearch.com>
- <20170626192103.GH1248@mtr-leonro.local>
- <20170626203610.GB17892@obsidianresearch.com>
- <20170627040604.GI1248@mtr-leonro.local>
- <20170627092129.GR1248@mtr-leonro.local>
- <20170627164150.GA4288@obsidianresearch.com>
- <20170627173301.GS1248@mtr-leonro.local>
- <20170627173735.GA5162@obsidianresearch.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net PATCH] net: sched: Fix one possible panic when no destroy
+ callback
+Date: Tue, 27 Jun 2017 10:49:50 -0700
+Message-ID: <1498585790.736.135.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1498527333-86838-1-git-send-email-gfree.wind@vip.163.com>
+         <CAM_iQpXRy=cC2vuhju2Jf9=sJ+Yc6DvkzvFEU_DrRonyhW+E9w@mail.gmail.com>
+         <1498582211.736.118.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpUx8d_vQT=1d06Ah-d+E5R_10pnvcy4Y9ac_=txanPBOw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="KI6XeYrntNhU1GwB"
-Cc: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Ariel Almog <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Linux RDMA <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170627173735.GA5162-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: gfree.wind@vip.163.com, Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Pirko <jiri@resnulli.us>,
+        David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35085 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752359AbdF0Rtw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 13:49:52 -0400
+Received: by mail-pg0-f68.google.com with SMTP id f127so5122148pgc.2
+        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 10:49:51 -0700 (PDT)
+In-Reply-To: <CAM_iQpUx8d_vQT=1d06Ah-d+E5R_10pnvcy4Y9ac_=txanPBOw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On Tue, 2017-06-27 at 10:08 -0700, Cong Wang wrote:
+> On Tue, Jun 27, 2017 at 9:50 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Tue, 2017-06-27 at 09:30 -0700, Cong Wang wrote:
+> >> On Mon, Jun 26, 2017 at 6:35 PM,  <gfree.wind@vip.163.com> wrote:
+> >> > From: Gao Feng <gfree.wind@vip.163.com>
+> >> >
+> >> > When qdisc fail to init, qdisc_create would invoke the destroy callback
+> >> > to cleanup. But there is no check if the callback exists really. So it
+> >> > would cause the panic if there is no real destroy callback like these
+> >> > qdisc codel, pfifo, pfifo_fast, and so on.
+> >> >
+> >> > Now add one the check for destroy to avoid the possible panic.
+> >> >
+> >> > Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
+> >>
+> >> Looks good,
+> >>
+> >> Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
+> >>
+> >> This is introduced by commit 87b60cfacf9f17cf71933c6e33b.
+> >> Please add proper Fixes tag next time.
+> >
+> > Given that pfifo, pfifo_fast or codel can not fail their init,
+> 
+> 
+> How about codel_init() -> codel_change() -> nla_parse_nested() ?
 
 
---KI6XeYrntNhU1GwB
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Yeah, with a malicious user space then (iproute2/tc is fine), codel
+could be problematic.
 
-On Tue, Jun 27, 2017 at 11:37:35AM -0600, Jason Gunthorpe wrote:
-> On Tue, Jun 27, 2017 at 08:33:01PM +0300, Leon Romanovsky wrote:
->
-> > My initial plan was to put all parsers under their respective names, in
-> > the similar way as I did for caps: $ rdma dev show mlx5_4 caps
->
-> I think you should have a useful summary display similar to 'ip a' and
-> other commands.
->
-> guid(s), subnet prefix or default gid for IB, lid/lmc, link state,
-> speed, mtu, pkeys protocol(s)
+pfifo and pfifo_fast can definitely not hit this bug.
 
-It will, but before I would like to see this tool be a part of
-iproute2, so other people will be able to extend it in addition
-to me.
+changelog needs a bit of attention, even if the bug is real.
 
-Are you fine with the proposed code?
-
->
-> A show gid table command makes sense for rocee where it can show the
-> gid and the IP binding for it, rocee mode, etc..
->
-> Jason
-
---KI6XeYrntNhU1GwB
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAllSmeYACgkQ5GN7iDZy
-WKfgSQ//RPxqGNDNipavmn5gMFYI/nbPee7mR9JdqFVw+CRO2votvVrYChh3oAl0
-c3LvUcQGqvG25O0PJVYPynMl+8qW3UT0dc3G1V/fJIavssY40knrdelU9n1QLkmF
-zV00H5vDwQRWRXeUdwZxJ58yKO2sMfF48qst04qEVHyfL0gWy1anNGKheIAT7x3y
-RYXnW8RBD5eRTA7AhB4QQOYabaKfq/QYN9CJgBRgYxJxX8B6X7HkZuwdBrfyOcPp
-e+eIH7YfE+L71XbSF6pOoegemCVyYagWGehMBBRLwnNgHkzMCnOML6BlMxOZQ7gP
-QlO5qgJOoX9i828G/Ek6xsR/EZ4dj8Z2zp7SI++qKgOwHvoSe0WSH6hURSZYKMcR
-DjeIdquxLGClzYBF0DPlw/GlgHBP9quoEV7klG5nc3LxBqvmu7Ezjy8IkZGA8IG0
-6zG+eJa7JPlGxvf2Rkq2xylElDo4mu/ljt/Daa5KJ1IH0omYWe1nnOtQjLsmZ2t8
-RKh9Z4tEJaTORb6Gc37eD1o7t1eRQGiQluMKEssvcsZAq8jeZ2WqBJEayfeayS4Q
-DglWIzjVcdAv4OJMf2fAp8gNvTeCgyjzOmvBLpjg7ZelEw38dFN1gqCkTibEctWU
-AQNVnNdME5Fdbd3QSIzX/6pex/DPqIcCdi6RjWneroMKG+il59Q=
-=tf41
------END PGP SIGNATURE-----
-
---KI6XeYrntNhU1GwB--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks.
