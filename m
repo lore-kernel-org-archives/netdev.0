@@ -1,47 +1,42 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Subject: [PATCH] rxrpc: remove unused static variables
-Date: Tue, 27 Jun 2017 18:18:18 +0200
-Message-ID: <20170627161818.30346-1-bigeasy@linutronix.de>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [net PATCH] net: sched: Fix one possible panic when no destroy callback
+Date: Tue, 27 Jun 2017 09:30:34 -0700
+Message-ID: <CAM_iQpXRy=cC2vuhju2Jf9=sJ+Yc6DvkzvFEU_DrRonyhW+E9w@mail.gmail.com>
+References: <1498527333-86838-1-git-send-email-gfree.wind@vip.163.com>
 Mime-Version: 1.0
-Content-Transfer-Encoding: quoted-printable
-Cc: tglx@linutronix.de,
-        Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
-        David Howells <dhowells@redhat.com>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>, Jiri Pirko <jiri@resnulli.us>,
+        David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: gfree.wind@vip.163.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Galois.linutronix.de ([146.0.238.70]:47204 "EHLO
-        Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751507AbdF0QSc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 12:18:32 -0400
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:35084 "EHLO
+        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751513AbdF0Qaz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 12:30:55 -0400
+Received: by mail-wm0-f41.google.com with SMTP id w126so29691797wme.0
+        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 09:30:55 -0700 (PDT)
+In-Reply-To: <1498527333-86838-1-git-send-email-gfree.wind@vip.163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The rxrpc_security_methods and rxrpc_security_sem user has been removed
-in 648af7fca159 ("rxrpc: Absorb the rxkad security module"). This was
-noticed by kbuild test robot for the -RT tree but is also true for !RT.
+On Mon, Jun 26, 2017 at 6:35 PM,  <gfree.wind@vip.163.com> wrote:
+> From: Gao Feng <gfree.wind@vip.163.com>
+>
+> When qdisc fail to init, qdisc_create would invoke the destroy callback
+> to cleanup. But there is no check if the callback exists really. So it
+> would cause the panic if there is no real destroy callback like these
+> qdisc codel, pfifo, pfifo_fast, and so on.
+>
+> Now add one the check for destroy to avoid the possible panic.
+>
+> Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
 
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: David Howells <dhowells@redhat.com>
-Cc: netdev@vger.kernel.org
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
----
- net/rxrpc/security.c | 3 ---
- 1 file changed, 3 deletions(-)
+Looks good,
 
-diff --git a/net/rxrpc/security.c b/net/rxrpc/security.c
-index 7d921e56e715..13df56a738e5 100644
---- a/net/rxrpc/security.c
-+++ b/net/rxrpc/security.c
-@@ -19,9 +19,6 @@
- #include <keys/rxrpc-type.h>
- #include "ar-internal.h"
-=20
--static LIST_HEAD(rxrpc_security_methods);
--static DECLARE_RWSEM(rxrpc_security_sem);
--
- static const struct rxrpc_security *rxrpc_security_types[] =3D {
- 	[RXRPC_SECURITY_NONE]	=3D &rxrpc_no_security,
- #ifdef CONFIG_RXKAD
---=20
-2.13.1
+Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
+
+This is introduced by commit 87b60cfacf9f17cf71933c6e33b.
+Please add proper Fixes tag next time.
+
+Thanks.
