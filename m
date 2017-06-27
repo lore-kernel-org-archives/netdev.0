@@ -1,65 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] tc: custom qdisc pkt size translation table
-Date: Tue, 27 Jun 2017 09:55:12 -0700
-Message-ID: <1498582512.736.119.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170627162917.20244-1-Robert.McCabe@rockwellcollins.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH v2] netfilter: nfnetlink: Improve input length
+ sanitization in nfnetlink_rcv
+Date: Tue, 27 Jun 2017 19:05:27 +0200
+Message-ID: <20170627170527.GA13513@salvia>
+References: <1496841821.736.35.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170607135038.1592-1-mjurczyk@google.com>
+ <20170627155825.GA4885@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, McCabe@rockwellcollins.com
-To: "McCabe, Robert J" <Robert.McCabe@rockwellcollins.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:33442 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752059AbdF0QzO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 12:55:14 -0400
-Received: by mail-pg0-f66.google.com with SMTP id u62so4975850pgb.0
-        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 09:55:14 -0700 (PDT)
-In-Reply-To: <20170627162917.20244-1-Robert.McCabe@rockwellcollins.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Mateusz Jurczyk <mjurczyk@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170627155825.GA4885@salvia>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-06-27 at 11:29 -0500, McCabe, Robert J wrote:
-> Added the "custom" linklayer qdisc stab option.
-> This allows the user to specify the pkt size translation
-> parameters from stdin.
-> Example:
->    tc qdisc add ... stab tsize 8 linklayer custom htb
->    Custom size table:
->    InputSizeStart -> IntputSizeEnd: Output Pkt Size
->    0 - 255: 400
->    256 - 511: 800
->    512 - 767: 1200
->    768 - 1023: 1600
->    1024 - 1279: 2000
->    1280 - 1535: 2400
->    1536 - 1791: 2800
->    1792 - 2047: 3200
+On Tue, Jun 27, 2017 at 05:58:25PM +0200, Pablo Neira Ayuso wrote:
+> On Wed, Jun 07, 2017 at 03:50:38PM +0200, Mateusz Jurczyk wrote:
+> > Verify that the length of the socket buffer is sufficient to cover the
+> > nlmsghdr structure before accessing the nlh->nlmsg_len field for further
+> > input sanitization. If the client only supplies 1-3 bytes of data in
+> > sk_buff, then nlh->nlmsg_len remains partially uninitialized and
+> > contains leftover memory from the corresponding kernel allocation.
+> > Operating on such data may result in indeterminate evaluation of the
+> > nlmsg_len < NLMSG_HDRLEN expression.
+> > 
+> > The bug was discovered by a runtime instrumentation designed to detect
+> > use of uninitialized memory in the kernel. The patch prevents this and
+> > other similar tools (e.g. KMSAN) from flagging this behavior in the future.
 > 
-> Signed-off-by: McCabe, Robert J <Robert.McCabe@rockwellcollins.com>
-> ---
->  include/linux/pkt_sched.h |  1 +
->  tc/tc_core.c              | 51 +++++++++++++++++++++++++++++++++++++++++++++++
->  tc/tc_core.h              |  2 +-
->  tc/tc_stab.c              |  4 +++-
->  tc/tc_util.c              |  5 +++++
->  5 files changed, 61 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-> index 099bf55..289bb81 100644
-> --- a/include/linux/pkt_sched.h
-> +++ b/include/linux/pkt_sched.h
-> @@ -82,6 +82,7 @@ enum tc_link_layer {
->  	TC_LINKLAYER_UNAWARE, /* Indicate unaware old iproute2 util */
->  	TC_LINKLAYER_ETHERNET,
->  	TC_LINKLAYER_ATM,
-> +	TC_LINKLAYER_CUSTOM,
->  };
->  #define TC_LINKLAYER_MASK 0x0F /* limit use to lower 4 bits */
->  
+> Applied, thanks.
 
+Wait, I keeping this back after closer look.
 
-You can not do this : This file is coming from the kernel
-( include/uapi/linux/pkt_sched.h )
+I think we have to remove this:
 
-Since your patch is user space only, you need to find another way ?
+        if (nlh->nlmsg_len < NLMSG_HDRLEN || <---
+            skb->len < NLMSG_HDRLEN + sizeof(struct nfgenmsg))
+                return;
+
+in nfnetlink_rcv_skb_batch()
+
+now that we make this unfront check from nfnetlink_rcv().
+
+P.S: Sorry I couldn't look at this any sooner, I've been busy in the
+last weeks preparing things for the upcoming Netfilter Workshop.
