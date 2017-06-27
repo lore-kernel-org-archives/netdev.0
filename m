@@ -1,7 +1,7 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH/RFC net-next 5/9] nfp: extend flower matching capabilities
-Date: Wed, 28 Jun 2017 01:21:45 +0200
-Message-ID: <1498605709-22574-6-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH/RFC net-next 6/9] nfp: add basic action capabilities to flower offloads
+Date: Wed, 28 Jun 2017 01:21:46 +0200
+Message-ID: <1498605709-22574-7-git-send-email-simon.horman@netronome.com>
 References: <1498605709-22574-1-git-send-email-simon.horman@netronome.com>
 Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
         Pieter Jansen van Vuuren
@@ -10,89 +10,50 @@ Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
 To: David Miller <davem@davemloft.net>,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f181.google.com ([209.85.220.181]:33543 "EHLO
-        mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753984AbdF0XWW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 19:22:22 -0400
-Received: by mail-qk0-f181.google.com with SMTP id r62so38342282qkf.0
-        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 16:22:21 -0700 (PDT)
+Received: from mail-qk0-f180.google.com ([209.85.220.180]:33554 "EHLO
+        mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754034AbdF0XWY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 19:22:24 -0400
+Received: by mail-qk0-f180.google.com with SMTP id r62so38342789qkf.0
+        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 16:22:23 -0700 (PDT)
 In-Reply-To: <1498605709-22574-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
 
-Extends matching capabilities for flower offloads to include vlan,
-layer 2, layer 3 and layer 4 type matches. This includes both exact
-and wildcard matching.
+Adds push vlan, pop vlan, output and drop action capabilities
+to flower offloads.
 
 Signed-off-by: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
 ---
  drivers/net/ethernet/netronome/nfp/Makefile        |   1 +
- drivers/net/ethernet/netronome/nfp/flower/cmsg.h   |   4 +
- drivers/net/ethernet/netronome/nfp/flower/main.h   |   6 +
- drivers/net/ethernet/netronome/nfp/flower/match.c  | 292 +++++++++++++++++++++
- .../net/ethernet/netronome/nfp/flower/offload.c    |   5 +
- drivers/net/ethernet/netronome/nfp/nfp_net_repr.h  |  10 +-
- 6 files changed, 317 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/netronome/nfp/flower/match.c
+ drivers/net/ethernet/netronome/nfp/flower/action.c | 210 +++++++++++++++++++++
+ drivers/net/ethernet/netronome/nfp/flower/cmsg.h   |  45 +++++
+ drivers/net/ethernet/netronome/nfp/flower/main.h   |   5 +
+ .../net/ethernet/netronome/nfp/flower/offload.c    |  11 ++
+ 5 files changed, 272 insertions(+)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/flower/action.c
 
 diff --git a/drivers/net/ethernet/netronome/nfp/Makefile b/drivers/net/ethernet/netronome/nfp/Makefile
-index d7afd2b410fe..018cef3fa10a 100644
+index 018cef3fa10a..1ba0ea78adc3 100644
 --- a/drivers/net/ethernet/netronome/nfp/Makefile
 +++ b/drivers/net/ethernet/netronome/nfp/Makefile
-@@ -33,6 +33,7 @@ ifeq ($(CONFIG_NFP_APP_FLOWER),y)
+@@ -31,6 +31,7 @@ nfp-objs := \
+ 
+ ifeq ($(CONFIG_NFP_APP_FLOWER),y)
  nfp-objs += \
++	    flower/action.o \
  	    flower/cmsg.o \
  	    flower/main.o \
-+	    flower/match.o \
- 	    flower/offload.o
- endif
- 
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
-index 1b1888e8dc14..1956c1acf39f 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
-+++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
-@@ -52,6 +52,10 @@
- #define NFP_FLOWER_LAYER_ETHER		BIT(3)
- #define NFP_FLOWER_LAYER_ARP		BIT(4)
- 
-+#define NFP_FLOWER_MASK_VLAN_PRIO	GENMASK(15, 13)
-+#define NFP_FLOWER_MASK_VLAN_CFI	BIT(12)
-+#define NFP_FLOWER_MASK_VLAN_VID	GENMASK(11, 0)
-+
- /* Metadata without L2 (1W/4B)
-  * ----------------------------------------------------------------
-  *    3                   2                   1
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/main.h b/drivers/net/ethernet/netronome/nfp/flower/main.h
-index b4e5d9b75c01..d2b2bf783f32 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/main.h
-+++ b/drivers/net/ethernet/netronome/nfp/flower/main.h
-@@ -38,6 +38,7 @@
- 
- #define NFP_FLOWER_ALLOWED_VER 0x0001000000010000UL
- 
-+struct tc_cls_flower_offload;
- struct tc_to_netdev;
- struct net_device;
- struct nfp_app;
-@@ -69,4 +70,9 @@ struct nfp_fl_payload {
- int nfp_flower_repr_init(struct nfp_app *app);
- int nfp_flower_setup_tc(struct nfp_app *app, struct net_device *netdev,
- 			u32 handle, __be16 proto, struct tc_to_netdev *tc);
-+int nfp_flower_compile_flow_match(struct tc_cls_flower_offload *flow,
-+				  struct nfp_fl_key_ls *key_ls,
-+				  struct net_device *netdev,
-+				  struct nfp_fl_payload *nfp_flow);
-+
- #endif
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/match.c b/drivers/net/ethernet/netronome/nfp/flower/match.c
+ 	    flower/match.o \
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/action.c b/drivers/net/ethernet/netronome/nfp/flower/action.c
 new file mode 100644
-index 000000000000..b14c6b2be803
+index 000000000000..391afb55504c
 --- /dev/null
-+++ b/drivers/net/ethernet/netronome/nfp/flower/match.c
-@@ -0,0 +1,292 @@
++++ b/drivers/net/ethernet/netronome/nfp/flower/action.c
+@@ -0,0 +1,210 @@
 +/*
 + * Copyright (C) 2017 Netronome Systems, Inc.
 + *
@@ -128,309 +89,298 @@ index 000000000000..b14c6b2be803
 +
 +#include <linux/bitfield.h>
 +#include <net/pkt_cls.h>
++#include <net/switchdev.h>
++#include <net/tc_act/tc_gact.h>
++#include <net/tc_act/tc_mirred.h>
++#include <net/tc_act/tc_vlan.h>
 +
 +#include "main.h"
-+#include "cmsg.h"
++#include "../nfp_net_repr.h"
 +
-+static void
-+nfp_flower_compile_meta_tci(struct nfp_flower_meta_two *frame,
-+			    struct tc_cls_flower_offload *flow, u8 key_type,
-+			    bool mask_version)
++static void nfp_fl_pop_vlan(struct nfp_fl_pop_vlan *pop_vlan)
 +{
-+	struct flow_dissector_key_vlan *flow_vlan;
-+	u16 tmp_tci;
++	size_t act_size = sizeof(struct nfp_fl_pop_vlan);
++	u16 tmp_pop_vlan_op;
 +
-+	/* Populate the metadata frame. */
-+	frame->nfp_flow_key_layer = key_type;
-+	frame->mask_id = ~0;
++	tmp_pop_vlan_op =
++		FIELD_PREP(NFP_FL_ACT_LEN_LW, act_size / NFP_FL_LW_SIZ) |
++		FIELD_PREP(NFP_FL_ACT_JMP_ID, NFP_FL_ACTION_OPCODE_POP_VLAN);
 +
-+	if (mask_version) {
-+		frame->tci = cpu_to_be16(~0);
-+		return;
-+	}
-+
-+	flow_vlan = skb_flow_dissector_target(flow->dissector,
-+					      FLOW_DISSECTOR_KEY_VLAN,
-+					      flow->key);
-+
-+	/* Populate the tci field. */
-+	if (!flow_vlan->vlan_id) {
-+		tmp_tci = 0;
-+	} else {
-+		tmp_tci = FIELD_PREP(NFP_FLOWER_MASK_VLAN_PRIO,
-+				     flow_vlan->vlan_priority) |
-+			  FIELD_PREP(NFP_FLOWER_MASK_VLAN_VID,
-+				     flow_vlan->vlan_id) |
-+			  NFP_FLOWER_MASK_VLAN_CFI;
-+	}
-+	frame->tci = cpu_to_be16(tmp_tci);
++	pop_vlan->a_op = cpu_to_be16(tmp_pop_vlan_op);
++	pop_vlan->reserved = 0;
 +}
 +
 +static void
-+nfp_flower_compile_meta(struct nfp_flower_meta_one *frame, u8 key_type)
++nfp_fl_push_vlan(struct nfp_fl_push_vlan *push_vlan,
++		 const struct tc_action *action)
 +{
-+	frame->nfp_flow_key_layer = key_type;
-+	frame->mask_id = 0;
-+	frame->reserved = 0;
++	size_t act_size = sizeof(struct nfp_fl_push_vlan);
++	struct tcf_vlan *vlan = to_vlan(action);
++	u16 tmp_push_vlan_tci;
++	u16 tmp_push_vlan_op;
++
++	tmp_push_vlan_op =
++		FIELD_PREP(NFP_FL_ACT_LEN_LW, act_size / NFP_FL_LW_SIZ) |
++		FIELD_PREP(NFP_FL_ACT_JMP_ID, NFP_FL_ACTION_OPCODE_PUSH_VLAN);
++
++	push_vlan->a_op = cpu_to_be16(tmp_push_vlan_op);
++	/* Set action push vlan parameters. */
++	push_vlan->reserved = 0;
++	push_vlan->vlan_tpid = tcf_vlan_push_proto(action);
++
++	tmp_push_vlan_tci =
++		FIELD_PREP(NFP_FL_PUSH_VLAN_PRIO, vlan->tcfv_push_prio) |
++		FIELD_PREP(NFP_FL_PUSH_VLAN_VID, vlan->tcfv_push_vid) |
++		NFP_FL_PUSH_VLAN_CFI;
++	push_vlan->vlan_tci = cpu_to_be16(tmp_push_vlan_tci);
 +}
 +
 +static int
-+nfp_flower_compile_port(struct nfp_flower_in_port *frame, u32 cmsg_port,
-+			bool mask_version)
++nfp_fl_output(struct nfp_fl_output *output, const struct tc_action *action,
++	      struct nfp_fl_payload *nfp_flow, bool last,
++	      struct net_device *in_dev)
 +{
-+	if (mask_version) {
-+		frame->in_port = cpu_to_be32(~0);
-+		return 0;
-+	}
++	size_t act_size = sizeof(struct nfp_fl_output);
++	struct net_device *out_dev;
++	u16 tmp_output_op;
++	int ifindex;
 +
-+	frame->in_port = cpu_to_be32(cmsg_port);
++	/* Set action opcode to output action. */
++	tmp_output_op =
++		FIELD_PREP(NFP_FL_ACT_LEN_LW, act_size / NFP_FL_LW_SIZ) |
++		FIELD_PREP(NFP_FL_ACT_JMP_ID, NFP_FL_ACTION_OPCODE_OUTPUT);
++
++	output->a_op = cpu_to_be16(tmp_output_op);
++
++	/* Set action output parameters. */
++	output->flags = cpu_to_be16(last ? NFP_FL_OUT_FLAGS_LAST : 0);
++
++	ifindex = tcf_mirred_ifindex(action);
++	out_dev = __dev_get_by_index(dev_net(in_dev), ifindex);
++	if (!out_dev)
++		return -EOPNOTSUPP;
++
++	/* Only offload egress ports are on the same device as the ingress
++	 * port.
++	 */
++	if (!switchdev_port_same_parent_id(in_dev, out_dev))
++		return -EOPNOTSUPP;
++
++	output->port = cpu_to_be32(nfp_repr_get_port_id(out_dev));
++	if (!output->port)
++		return -EOPNOTSUPP;
++
++	nfp_flow->meta.shortcut = output->port;
 +
 +	return 0;
 +}
 +
-+static void
-+nfp_flower_compile_mac(struct nfp_flower_mac_mpls *frame,
-+		       struct tc_cls_flower_offload *flow,
-+		       bool mask_version)
++static int
++nfp_flower_loop_action(const struct tc_action *a,
++		       struct nfp_fl_payload *nfp_fl, int *a_len,
++		       struct net_device *netdev)
 +{
-+	struct fl_flow_key *target = mask_version ? flow->mask : flow->key;
-+	struct flow_dissector_key_eth_addrs *flow_mac;
-+
-+	flow_mac = skb_flow_dissector_target(flow->dissector,
-+					     FLOW_DISSECTOR_KEY_ETH_ADDRS,
-+					     target);
-+
-+	memset(frame, 0, sizeof(struct nfp_flower_mac_mpls));
-+
-+	/* Populate mac frame. */
-+	ether_addr_copy(frame->mac_dst, &flow_mac->dst[0]);
-+	ether_addr_copy(frame->mac_src, &flow_mac->src[0]);
-+
-+	if (mask_version)
-+		frame->mpls_lse = cpu_to_be32(~0);
-+}
-+
-+static void
-+nfp_flower_compile_tport(struct nfp_flower_tp_ports *frame,
-+			 struct tc_cls_flower_offload *flow,
-+			 bool mask_version)
-+{
-+	struct fl_flow_key *target = mask_version ? flow->mask : flow->key;
-+	struct flow_dissector_key_ports *flow_tp;
-+
-+	flow_tp = skb_flow_dissector_target(flow->dissector,
-+					    FLOW_DISSECTOR_KEY_PORTS,
-+					    target);
-+
-+	frame->port_src = flow_tp->src;
-+	frame->port_dst = flow_tp->dst;
-+}
-+
-+static void
-+nfp_flower_compile_ipv4(struct nfp_flower_ipv4 *frame,
-+			struct tc_cls_flower_offload *flow,
-+			bool mask_version)
-+{
-+	struct fl_flow_key *target = mask_version ? flow->mask : flow->key;
-+	struct flow_dissector_key_ipv4_addrs *flow_ipv4;
-+	struct flow_dissector_key_basic *flow_basic;
-+
-+	flow_ipv4 = skb_flow_dissector_target(flow->dissector,
-+					      FLOW_DISSECTOR_KEY_IPV4_ADDRS,
-+					      target);
-+
-+	flow_basic = skb_flow_dissector_target(flow->dissector,
-+					       FLOW_DISSECTOR_KEY_BASIC,
-+					       target);
-+
-+	/* Populate IPv4 frame. */
-+	frame->reserved = 0;
-+	frame->ipv4_src = flow_ipv4->src;
-+	frame->ipv4_dst = flow_ipv4->dst;
-+	frame->proto = flow_basic->ip_proto;
-+	/* Wildcard TOS/TTL as TC can't match them yet. */
-+	frame->tos = 0;
-+	frame->ttl = 0;
-+}
-+
-+static void
-+nfp_flower_compile_ipv6(struct nfp_flower_ipv6 *frame,
-+			struct tc_cls_flower_offload *flow,
-+			bool mask_version)
-+{
-+	struct fl_flow_key *target = mask_version ? flow->mask : flow->key;
-+	struct flow_dissector_key_ipv6_addrs *flow_ipv6;
-+	struct flow_dissector_key_basic *flow_basic;
-+
-+	flow_ipv6 = skb_flow_dissector_target(flow->dissector,
-+					      FLOW_DISSECTOR_KEY_IPV6_ADDRS,
-+					      target);
-+
-+	flow_basic = skb_flow_dissector_target(flow->dissector,
-+					       FLOW_DISSECTOR_KEY_BASIC,
-+					       target);
-+
-+	/* Populate IPv6 frame. */
-+	frame->reserved = 0;
-+	frame->ipv6_src = flow_ipv6->src;
-+	frame->ipv6_dst = flow_ipv6->dst;
-+	frame->proto = flow_basic->ip_proto;
-+	/* Wildcard LABEL/TOS/TTL as TC can't match them yet. */
-+	frame->ipv6_flow_label_exthdr = 0;
-+	frame->tos = 0;
-+	frame->ttl = 0;
-+}
-+
-+int nfp_flower_compile_flow_match(struct tc_cls_flower_offload *flow,
-+				  struct nfp_fl_key_ls *key_ls,
-+				  struct net_device *netdev,
-+				  struct nfp_fl_payload *nfp_flow)
-+{
++	struct nfp_fl_push_vlan *psh_v;
++	struct nfp_fl_pop_vlan *pop_v;
++	struct nfp_fl_output *output;
 +	int err;
-+	u8 *ext;
-+	u8 *msk;
 +
-+	memset(nfp_flow->unmasked_data, 0, key_ls->key_size);
-+	memset(nfp_flow->mask_data, 0, key_ls->key_size);
++	if (is_tcf_gact_shot(a)) {
++		nfp_fl->meta.shortcut = cpu_to_be32(NFP_FL_SC_ACT_DROP);
++	} else if (is_tcf_mirred_egress_redirect(a)) {
++		if (*a_len + sizeof(struct nfp_fl_output) > NFP_FL_MAX_A_SIZ)
++			return -EOPNOTSUPP;
 +
-+	ext = nfp_flow->unmasked_data;
-+	msk = nfp_flow->mask_data;
-+	if (NFP_FLOWER_LAYER_PORT & key_ls->key_layer) {
-+		/* Populate Exact Metadata. */
-+		nfp_flower_compile_meta_tci((struct nfp_flower_meta_two *)ext,
-+					    flow, key_ls->key_layer, false);
-+		/* Populate Mask Metadata. */
-+		nfp_flower_compile_meta_tci((struct nfp_flower_meta_two *)msk,
-+					    flow, key_ls->key_layer, true);
-+		ext += sizeof(struct nfp_flower_meta_two);
-+		msk += sizeof(struct nfp_flower_meta_two);
-+
-+		/* Populate Exact Port data. */
-+		err = nfp_flower_compile_port((struct nfp_flower_in_port *)ext,
-+					      nfp_repr_get_port_id(netdev),
-+					      false);
++		output = (struct nfp_fl_output *)&nfp_fl->action_data[*a_len];
++		err = nfp_fl_output(output, a, nfp_fl, true, netdev);
 +		if (err)
 +			return err;
 +
-+		/* Populate Mask Port Data. */
-+		err = nfp_flower_compile_port((struct nfp_flower_in_port *)msk,
-+					      nfp_repr_get_port_id(netdev),
-+					      true);
++		*a_len += sizeof(struct nfp_fl_output);
++	} else if (is_tcf_mirred_egress_mirror(a)) {
++		if (*a_len + sizeof(struct nfp_fl_output) > NFP_FL_MAX_A_SIZ)
++			return -EOPNOTSUPP;
++
++		output = (struct nfp_fl_output *)&nfp_fl->action_data[*a_len];
++		err = nfp_fl_output(output, a, nfp_fl, false, netdev);
 +		if (err)
 +			return err;
 +
-+		ext += sizeof(struct nfp_flower_in_port);
-+		msk += sizeof(struct nfp_flower_in_port);
++		*a_len += sizeof(struct nfp_fl_output);
++	} else if (is_tcf_vlan(a) && tcf_vlan_action(a) == TCA_VLAN_ACT_POP) {
++		if (*a_len + sizeof(struct nfp_fl_pop_vlan) > NFP_FL_MAX_A_SIZ)
++			return -EOPNOTSUPP;
++
++		pop_v = (struct nfp_fl_pop_vlan *)&nfp_fl->action_data[*a_len];
++		nfp_fl->meta.shortcut = cpu_to_be32(NFP_FL_SC_ACT_POPV);
++
++		nfp_fl_pop_vlan(pop_v);
++		*a_len += sizeof(struct nfp_fl_pop_vlan);
++	} else if (is_tcf_vlan(a) && tcf_vlan_action(a) == TCA_VLAN_ACT_PUSH) {
++		if (*a_len + sizeof(struct nfp_fl_push_vlan) > NFP_FL_MAX_A_SIZ)
++			return -EOPNOTSUPP;
++
++		psh_v = (struct nfp_fl_push_vlan *)&nfp_fl->action_data[*a_len];
++		nfp_fl->meta.shortcut = cpu_to_be32(NFP_FL_SC_ACT_NULL);
++
++		nfp_fl_push_vlan(psh_v, a);
++		*a_len += sizeof(struct nfp_fl_push_vlan);
 +	} else {
-+		/* Populate Exact Metadata. */
-+		nfp_flower_compile_meta((struct nfp_flower_meta_one *)ext,
-+					key_ls->key_layer);
-+		/* Populate Mask Metadata. */
-+		nfp_flower_compile_meta((struct nfp_flower_meta_one *)msk,
-+					key_ls->key_layer);
-+		ext += sizeof(struct nfp_flower_meta_one);
-+		msk += sizeof(struct nfp_flower_meta_one);
-+	}
-+
-+	if (NFP_FLOWER_LAYER_META & key_ls->key_layer) {
-+		/* Additional Metadata Fields.
-+		 * Currently unsupported.
-+		 */
++		/* Currently we do not handle any other actions. */
 +		return -EOPNOTSUPP;
 +	}
 +
-+	if (NFP_FLOWER_LAYER_MAC & key_ls->key_layer) {
-+		/* Populate Exact MAC Data. */
-+		nfp_flower_compile_mac((struct nfp_flower_mac_mpls *)ext,
-+				       flow, false);
-+		/* Populate Mask MAC Data. */
-+		nfp_flower_compile_mac((struct nfp_flower_mac_mpls *)msk,
-+				       flow, true);
-+		ext += sizeof(struct nfp_flower_mac_mpls);
-+		msk += sizeof(struct nfp_flower_mac_mpls);
++	return 0;
++}
++
++int nfp_flower_compile_action(struct tc_cls_flower_offload *flow,
++			      struct net_device *netdev,
++			      struct nfp_fl_payload *nfp_flow)
++{
++	int act_len, act_cnt, err;
++	const struct tc_action *a;
++	LIST_HEAD(actions);
++
++	memset(nfp_flow->action_data, 0, NFP_FL_MAX_A_SIZ);
++	nfp_flow->meta.act_len = 0;
++	act_len = 0;
++	act_cnt = 0;
++
++	tcf_exts_to_list(flow->exts, &actions);
++	list_for_each_entry(a, &actions, list) {
++		err = nfp_flower_loop_action(a, nfp_flow, &act_len, netdev);
++		if (err)
++			return err;
++		act_cnt++;
 +	}
 +
-+	if (NFP_FLOWER_LAYER_TP & key_ls->key_layer) {
-+		/* Populate Exact TP Data. */
-+		nfp_flower_compile_tport((struct nfp_flower_tp_ports *)ext,
-+					 flow, false);
-+		/* Populate Mask TP Data. */
-+		nfp_flower_compile_tport((struct nfp_flower_tp_ports *)msk,
-+					 flow, true);
-+		ext += sizeof(struct nfp_flower_tp_ports);
-+		msk += sizeof(struct nfp_flower_tp_ports);
-+	}
++	/* We optimise when the action list is small, this can unfortunately
++	 * not happen once we have more than one action in the action list.
++	 */
++	if (act_cnt > 1)
++		nfp_flow->meta.shortcut = cpu_to_be32(NFP_FL_SC_ACT_NULL);
 +
-+	if (NFP_FLOWER_LAYER_IPV4 & key_ls->key_layer) {
-+		/* Populate Exact IPv4 Data. */
-+		nfp_flower_compile_ipv4((struct nfp_flower_ipv4 *)ext,
-+					flow, false);
-+		/* Populate Mask IPv4 Data. */
-+		nfp_flower_compile_ipv4((struct nfp_flower_ipv4 *)msk,
-+					flow, true);
-+		ext += sizeof(struct nfp_flower_ipv4);
-+		msk += sizeof(struct nfp_flower_ipv4);
-+	}
-+
-+	if (NFP_FLOWER_LAYER_IPV6 & key_ls->key_layer) {
-+		/* Populate Exact IPv4 Data. */
-+		nfp_flower_compile_ipv6((struct nfp_flower_ipv6 *)ext,
-+					flow, false);
-+		/* Populate Mask IPv4 Data. */
-+		nfp_flower_compile_ipv6((struct nfp_flower_ipv6 *)msk,
-+					flow, true);
-+		ext += sizeof(struct nfp_flower_ipv6);
-+		msk += sizeof(struct nfp_flower_ipv6);
-+	}
++	nfp_flow->meta.act_len = act_len;
 +
 +	return 0;
 +}
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
+index 1956c1acf39f..4c72e537af32 100644
+--- a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
++++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
+@@ -56,6 +56,51 @@
+ #define NFP_FLOWER_MASK_VLAN_CFI	BIT(12)
+ #define NFP_FLOWER_MASK_VLAN_VID	GENMASK(11, 0)
+ 
++#define NFP_FL_SC_ACT_DROP		0x80000000
++#define NFP_FL_SC_ACT_USER		0x7D000000
++#define NFP_FL_SC_ACT_POPV		0x6A000000
++#define NFP_FL_SC_ACT_NULL		0x00000000
++
++/* The maximum action list size (in bytes) supported by the NFP.
++ */
++#define NFP_FL_MAX_A_SIZ		1216
++#define NFP_FL_LW_SIZ			4
++
++/* Action opcodes */
++#define NFP_FL_ACTION_OPCODE_OUTPUT	0
++#define NFP_FL_ACTION_OPCODE_PUSH_VLAN	1
++#define NFP_FL_ACTION_OPCODE_POP_VLAN	2
++#define NFP_FL_ACTION_OPCODE_NUM	32
++
++#define NFP_FL_ACT_JMP_ID		GENMASK(15, 8)
++#define NFP_FL_ACT_LEN_LW		GENMASK(7, 0)
++
++#define NFP_FL_OUT_FLAGS_LAST		BIT(15)
++#define NFP_FL_OUT_FLAGS_USE_TUN	BIT(4)
++#define NFP_FL_OUT_FLAGS_TYPE_IDX	GENMASK(2, 0)
++
++#define NFP_FL_PUSH_VLAN_PRIO		GENMASK(15, 13)
++#define NFP_FL_PUSH_VLAN_CFI		BIT(12)
++#define NFP_FL_PUSH_VLAN_VID		GENMASK(11, 0)
++
++struct nfp_fl_output {
++	__be16 a_op;
++	__be16 flags;
++	__be32 port;
++};
++
++struct nfp_fl_push_vlan {
++	__be16 a_op;
++	__be16 reserved;
++	__be16 vlan_tpid;
++	__be16 vlan_tci;
++};
++
++struct nfp_fl_pop_vlan {
++	__be16 a_op;
++	__be16 reserved;
++};
++
+ /* Metadata without L2 (1W/4B)
+  * ----------------------------------------------------------------
+  *    3                   2                   1
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/main.h b/drivers/net/ethernet/netronome/nfp/flower/main.h
+index d2b2bf783f32..52db2acb250e 100644
+--- a/drivers/net/ethernet/netronome/nfp/flower/main.h
++++ b/drivers/net/ethernet/netronome/nfp/flower/main.h
+@@ -36,6 +36,8 @@
+ 
+ #include <linux/types.h>
+ 
++#include "cmsg.h"
++
+ #define NFP_FLOWER_ALLOWED_VER 0x0001000000010000UL
+ 
+ struct tc_cls_flower_offload;
+@@ -74,5 +76,8 @@ int nfp_flower_compile_flow_match(struct tc_cls_flower_offload *flow,
+ 				  struct nfp_fl_key_ls *key_ls,
+ 				  struct net_device *netdev,
+ 				  struct nfp_fl_payload *nfp_flow);
++int nfp_flower_compile_action(struct tc_cls_flower_offload *flow,
++			      struct net_device *netdev,
++			      struct nfp_fl_payload *nfp_flow);
+ 
+ #endif
 diff --git a/drivers/net/ethernet/netronome/nfp/flower/offload.c b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-index 8ad72f57493d..11d41aa6a1a4 100644
+index 11d41aa6a1a4..c8f9e2996cc6 100644
 --- a/drivers/net/ethernet/netronome/nfp/flower/offload.c
 +++ b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-@@ -216,9 +216,14 @@ nfp_flower_add_offload(struct nfp_app *app, struct net_device *netdev,
- 		goto err_free_key_ls;
- 	}
+@@ -166,10 +166,16 @@ nfp_flower_allocate_new(struct nfp_fl_key_ls *key_layer)
+ 	if (!flow_pay->mask_data)
+ 		goto err_free_unmasked;
  
-+	err = nfp_flower_compile_flow_match(flow, key_layer, netdev, flow_pay);
++	flow_pay->action_data = kmalloc(NFP_FL_MAX_A_SIZ, GFP_KERNEL);
++	if (!flow_pay->action_data)
++		goto err_free_mask;
++
+ 	flow_pay->meta.flags = 0;
+ 
+ 	return flow_pay;
+ 
++err_free_mask:
++	kfree(flow_pay->mask_data);
+ err_free_unmasked:
+ 	kfree(flow_pay->unmasked_data);
+ err_free_flow:
+@@ -179,6 +185,7 @@ nfp_flower_allocate_new(struct nfp_fl_key_ls *key_layer)
+ 
+ static void nfp_flower_deallocate_nfp(struct nfp_fl_payload *flow_pay)
+ {
++	kfree(flow_pay->action_data);
+ 	kfree(flow_pay->mask_data);
+ 	kfree(flow_pay->unmasked_data);
+ 	kfree(flow_pay);
+@@ -220,6 +227,10 @@ nfp_flower_add_offload(struct nfp_app *app, struct net_device *netdev,
+ 	if (err)
+ 		goto err_destroy_flow;
+ 
++	err = nfp_flower_compile_action(flow, netdev, flow_pay);
 +	if (err)
 +		goto err_destroy_flow;
 +
  	/* TODO: Complete flower_add_offload. */
  	err = -EOPNOTSUPP;
  
-+err_destroy_flow:
- 	nfp_flower_deallocate_nfp(flow_pay);
- 
- err_free_key_ls:
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_repr.h b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.h
-index 6a6727816010..6f994a6ce32a 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_repr.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.h
-@@ -34,7 +34,8 @@
- #ifndef NFP_NET_REPR_H
- #define NFP_NET_REPR_H
- 
--struct metadata_dst;
-+#include <net/dst_metadata.h>
-+
- struct nfp_net;
- struct nfp_port;
- 
-@@ -104,6 +105,13 @@ static inline bool nfp_netdev_is_nfp_repr(struct net_device *netdev)
- 	return netdev->netdev_ops == &nfp_repr_netdev_ops;
- }
- 
-+static inline int nfp_repr_get_port_id(struct net_device *netdev)
-+{
-+	struct nfp_repr *priv = netdev_priv(netdev);
-+
-+	return priv->dst->u.port_info.port_id;
-+}
-+
- void nfp_repr_inc_rx_stats(struct net_device *netdev, unsigned int len);
- int nfp_repr_init(struct nfp_app *app, struct net_device *netdev,
- 		  u32 cmsg_port_id, struct nfp_port *port,
 -- 
 2.1.4
