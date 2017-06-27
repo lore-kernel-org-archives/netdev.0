@@ -1,7 +1,7 @@
 From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 2/6] arm: sun8i: orangepipc: use internal phy-mode
-Date: Tue, 27 Jun 2017 11:28:02 +0200
-Message-ID: <20170627092806.28181-2-clabbe.montjoie@gmail.com>
+Subject: [PATCH 5/6] arm: sun8i: nanopi-neo: use internal phy-mode
+Date: Tue, 27 Jun 2017 11:28:05 +0200
+Message-ID: <20170627092806.28181-5-clabbe.montjoie@gmail.com>
 References: <20170627092806.28181-1-clabbe.montjoie@gmail.com>
 Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
@@ -20,7 +20,7 @@ To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
 	peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
 	alexandre.torgue-qxv4g6HH51o@public.gmane.org,
 	andre.przywara-5wv7dgnIgG8@public.gmane.org
-Return-path: <linux-sunxi+bncBD7YLCN32UNBBKGLZDFAKGQE2G4WXBA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBK6LZDFAKGQEJ4LP6LA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 In-Reply-To: <20170627092806.28181-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
@@ -35,14 +35,14 @@ Since the PHY used is internal, simply set phy-mode as internal.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts | 2 +-
+ arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
-index f5f0f15a2088..94edeb889e55 100644
---- a/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
-@@ -120,7 +120,7 @@
+diff --git a/arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts b/arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts
+index 78f6c24952dd..5c5ba806e2f1 100644
+--- a/arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts
++++ b/arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts
+@@ -49,7 +49,7 @@
  
  &emac {
  	phy-handle = <&int_mii_phy>;
