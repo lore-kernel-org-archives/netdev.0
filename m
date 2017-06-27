@@ -1,147 +1,50 @@
-From: Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: [PATCH v3 net-next 11/12] selftests/bpf: add tests
- for subtraction & negative numbers
-Date: Tue, 27 Jun 2017 14:00:15 +0100
-Message-ID: <3aa6fc75-87f2-be02-0927-1aaec5941bb3@solarflare.com>
-References: <adc11342-737f-4e06-bce3-f0a92b5594a5@solarflare.com>
-Reply-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH NET V5 2/2] net: hns: Use phy_driver to setup Phy loopback
+Date: Tue, 27 Jun 2017 15:29:58 +0200
+Message-ID: <20170627132958.GA9921@lunn.ch>
+References: <1498443039-134503-1-git-send-email-linyunsheng@huawei.com>
+ <1498443039-134503-3-git-send-email-linyunsheng@huawei.com>
+ <20170626134235.GC2623@lunn.ch>
+ <17132762-9b94-bc32-fee8-e90a6db5762a@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <adc11342-737f-4e06-bce3-f0a92b5594a5-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, f.fainelli@gmail.com,
+        huangdaode@hisilicon.com, xuwei5@hisilicon.com,
+        liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
+        gabriele.paoloni@huawei.com, john.garry@huawei.com,
+        linuxarm@huawei.com, salil.mehta@huawei.com, lipeng321@huawei.com,
+        tremyfr@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Yunsheng Lin <linyunsheng@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:36695 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751453AbdF0NaQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 27 Jun 2017 09:30:16 -0400
+Content-Disposition: inline
+In-Reply-To: <17132762-9b94-bc32-fee8-e90a6db5762a@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
----
- tools/testing/selftests/bpf/test_align.c | 104 +++++++++++++++++++++++++++++++
- 1 file changed, 104 insertions(+)
+> >> -		phy_write(phy_dev, COPPER_CONTROL_REG, val);
+> >> +		err = phy_resume(phy_dev);
+> > 
+> > Maybe this was discussed with an earlier version of these patches. Why
+> > are using phy_resume() and phy_suspend()?
+> When self_test is invoked with ETH_TEST_FL_OFFLINE option, hns mac driver
+> call dev_close to set net dev to offline state if net dev is online.
+> Doing the actual phy loolback test require phy is power up, So phy_resume
+> and phy_suspend are used.
 
-diff --git a/tools/testing/selftests/bpf/test_align.c b/tools/testing/selftests/bpf/test_align.c
-index dfd96c6..6bc2ceb 100644
---- a/tools/testing/selftests/bpf/test_align.c
-+++ b/tools/testing/selftests/bpf/test_align.c
-@@ -497,6 +497,110 @@ static struct bpf_align_test tests[] = {
- 			{16, "R6=pkt(id=1,off=0,r=0,umin_value=2,umax_value=9223372036854775806,var_off=(0x2; 0x7ffffffffffffffc))"},
- 		}
- 	},
-+	{
-+		.descr = "variable subtraction",
-+		.insns = {
-+			/* Create an unknown offset, (4n+2)-aligned */
-+			LOAD_UNKNOWN(BPF_REG_6),
-+			BPF_MOV64_REG(BPF_REG_7, BPF_REG_6),
-+			BPF_ALU64_IMM(BPF_LSH, BPF_REG_6, 2),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, 14),
-+			/* Create another unknown, (4n)-aligned, and subtract
-+			 * it from the first one
-+			 */
-+			BPF_ALU64_IMM(BPF_LSH, BPF_REG_7, 2),
-+			BPF_ALU64_REG(BPF_SUB, BPF_REG_6, BPF_REG_7),
-+			/* Bounds-check the result */
-+			BPF_JMP_IMM(BPF_JSGE, BPF_REG_6, 0, 1),
-+			BPF_EXIT_INSN(),
-+			/* Add it to the packet pointer */
-+			BPF_MOV64_REG(BPF_REG_5, BPF_REG_2),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_5, BPF_REG_6),
-+			/* Check bounds and perform a read */
-+			BPF_MOV64_REG(BPF_REG_4, BPF_REG_5),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, 4),
-+			BPF_JMP_REG(BPF_JGE, BPF_REG_3, BPF_REG_4, 1),
-+			BPF_EXIT_INSN(),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_6, BPF_REG_5, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+		.matches = {
-+			/* Calculated offset in R6 has unknown value, but known
-+			 * alignment of 4.
-+			 */
-+			{7, "R2=pkt(id=0,off=0,r=8,imm=0)"},
-+			{9, "R6=inv(id=0,umax_value=1020,var_off=(0x0; 0x3fc))"},
-+			/* Adding 14 makes R6 be (4n+2) */
-+			{10, "R6=inv(id=0,umin_value=14,umax_value=1034,var_off=(0x2; 0x7fc))"},
-+			/* New unknown value in R7 is (4n) */
-+			{11, "R7=inv(id=0,umax_value=1020,var_off=(0x0; 0x3fc))"},
-+			/* Subtracting it from R6 blows our unsigned bounds */
-+			{12, "R6=inv(id=0,smin_value=-1006,smax_value=1034,var_off=(0x2; 0xfffffffffffffffc))"},
-+			/* Checked s>= 0 */
-+			{14, "R6=inv(id=0,umin_value=2,umax_value=1034,var_off=(0x2; 0x7fc))"},
-+			/* At the time the word size load is performed from R5,
-+			 * its total fixed offset is NET_IP_ALIGN + reg->off (0)
-+			 * which is 2.  Then the variable offset is (4n+2), so
-+			 * the total offset is 4-byte aligned and meets the
-+			 * load's requirements.
-+			 */
-+			{20, "R5=pkt(id=1,off=0,r=4,umin_value=2,umax_value=1034,var_off=(0x2; 0x7fc))"},
-+		},
-+	},
-+	{
-+		.descr = "pointer variable subtraction",
-+		.insns = {
-+			/* Create an unknown offset, (4n+2)-aligned and bounded
-+			 * to [14,74]
-+			 */
-+			LOAD_UNKNOWN(BPF_REG_6),
-+			BPF_MOV64_REG(BPF_REG_7, BPF_REG_6),
-+			BPF_ALU64_IMM(BPF_AND, BPF_REG_6, 0xf),
-+			BPF_ALU64_IMM(BPF_LSH, BPF_REG_6, 2),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, 14),
-+			/* Subtract it from the packet pointer */
-+			BPF_MOV64_REG(BPF_REG_5, BPF_REG_2),
-+			BPF_ALU64_REG(BPF_SUB, BPF_REG_5, BPF_REG_6),
-+			/* Create another unknown, (4n)-aligned and >= 74.
-+			 * That in fact means >= 76, since 74 % 4 == 2
-+			 */
-+			BPF_ALU64_IMM(BPF_LSH, BPF_REG_7, 2),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_7, 76),
-+			/* Add it to the packet pointer */
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_5, BPF_REG_7),
-+			/* Check bounds and perform a read */
-+			BPF_MOV64_REG(BPF_REG_4, BPF_REG_5),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, 4),
-+			BPF_JMP_REG(BPF_JGE, BPF_REG_3, BPF_REG_4, 1),
-+			BPF_EXIT_INSN(),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_6, BPF_REG_5, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+		.matches = {
-+			/* Calculated offset in R6 has unknown value, but known
-+			 * alignment of 4.
-+			 */
-+			{7, "R2=pkt(id=0,off=0,r=8,imm=0)"},
-+			{10, "R6=inv(id=0,umax_value=60,var_off=(0x0; 0x3c))"},
-+			/* Adding 14 makes R6 be (4n+2) */
-+			{11, "R6=inv(id=0,umin_value=14,umax_value=74,var_off=(0x2; 0x7c))"},
-+			/* Subtracting from packet pointer overflows ubounds */
-+			{13, "R5=pkt(id=1,off=0,r=8,umin_value=18446744073709551542,umax_value=18446744073709551602,var_off=(0xffffffffffffff82; 0x7c))"},
-+			/* New unknown value in R7 is (4n), >= 76 */
-+			{15, "R7=inv(id=0,umin_value=76,umax_value=1096,var_off=(0x0; 0x7fc))"},
-+			/* Adding it to packet pointer gives nice bounds again */
-+			{16, "R5=pkt(id=2,off=0,r=0,umin_value=2,umax_value=1082,var_off=(0x2; 0x7fc))"},
-+			/* At the time the word size load is performed from R5,
-+			 * its total fixed offset is NET_IP_ALIGN + reg->off (0)
-+			 * which is 2.  Then the variable offset is (4n+2), so
-+			 * the total offset is 4-byte aligned and meets the
-+			 * load's requirements.
-+			 */
-+			{20, "R5=pkt(id=2,off=0,r=4,umin_value=2,umax_value=1082,var_off=(0x2; 0x7fc))"},
-+		},
-+	},
- };
- 
- static int probe_filter_length(const struct bpf_insn *fp)
+O.K, so you at least need some comments, because this is not obvious.
+
+>From your description, it sounds like you can call phy_resume() on a
+device which is not suspended. In general, suspend is expected to
+store away state which will be lost when powering down a
+device. Resume writes that state back into the device after it is
+powered up. So resuming a device which was never suspended could write
+bad state into it.
+
+Also, what about if WOL has been set before closing the device?
+
+      Andrew
