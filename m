@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 09/16] net/mlx5: FPGA, Add high-speed connection routines
-Date: Tue, 27 Jun 2017 17:28:49 +0300
-Message-ID: <20170627142856.9448-10-saeedm@mellanox.com>
+Subject: [net-next 15/16] net/mlx5e: IPSec, Add Innova IPSec offload TX data path
+Date: Tue, 27 Jun 2017 17:28:55 +0300
+Message-ID: <20170627142856.9448-16-saeedm@mellanox.com>
 References: <20170627142856.9448-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
         Ilan Tayari <ilant@mellanox.com>,
@@ -13,9 +13,9 @@ Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50397 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50649 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752573AbdF0OaW (ORCPT
+        with ESMTP id S1752514AbdF0OaW (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 10:30:22 -0400
 In-Reply-To: <20170627142856.9448-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -23,1371 +23,533 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Ilan Tayari <ilant@mellanox.com>
 
-An FPGA high-speed connection has two endpoints, an FPGA QP and a
-ConnectX QP.
-Add library routines to create and connect the endpoints of an
-FPGA high-speed connection.
+In the TX data path, prepend a special metadata ethertype which
+instructs the hardware to perform cryptography.
 
-These routines allow creating and interacting with both types of
-connections: Shell and Sandbox Unit (SBU).
+In addition, fill Software-Parser segment in TX descriptor so
+that the hardware may parse the ESP protocol, and perform TX
+checksum offload on the inner payload.
 
-Shell connection provides an interface to the FPGA's address space,
-which includes the configuration space and the DDR.
-Use of the shell connection will be introduced in a later patchset.
+Support GSO, by providing the inverse of gso_size in the metadata.
+This allows the FPGA to update the ESP header (seqno and seqiv) on the
+resulting packets, by calculating the packet number within the GSO
+back from the TCP sequence number.
 
-SBU connection provides a command and/or data interface to the
-application-specific logic within the FPGA.
-Use of the SBU connection will be introduced in a later patch in
-this patchset.
-
-Some struct definitions are added to a new header file sdk.h, which
-will be extended in later patches in the patchset.
-This header file will contain the in-kernel FPGA client driver API.
+Note that for GSO SKBs, the stack does not include an ESP trailer,
+unlike the non-GSO case.
 
 Signed-off-by: Ilan Tayari <ilant@mellanox.com>
+Signed-off-by: Yossi Kuperman <yossiku@mellanox.com>
+Signed-off-by: Yevgeny Kliteynik <kliteyn@mellanox.com>
+Signed-off-by: Boris Pismenny <borisp@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/Makefile   |    2 +-
- .../net/ethernet/mellanox/mlx5/core/fpga/conn.c    | 1042 ++++++++++++++++++++
- .../net/ethernet/mellanox/mlx5/core/fpga/conn.h    |   96 ++
- .../net/ethernet/mellanox/mlx5/core/fpga/core.c    |   12 +
- .../net/ethernet/mellanox/mlx5/core/fpga/core.h    |    7 +
- drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.h |  106 ++
- 6 files changed, 1264 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fpga/conn.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fpga/conn.h
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.h
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |   1 +
+ .../ethernet/mellanox/mlx5/core/en_accel/ipsec.c   |  27 +++
+ .../ethernet/mellanox/mlx5/core/en_accel/ipsec.h   |  10 +
+ .../mellanox/mlx5/core/en_accel/ipsec_rxtx.c       | 243 +++++++++++++++++++++
+ .../mellanox/mlx5/core/en_accel/ipsec_rxtx.h       |  13 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   9 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |  25 ++-
+ 7 files changed, 319 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-index 738867bab21f..5221b1235c47 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-@@ -6,7 +6,7 @@ mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
- 		mad.o transobj.o vport.o sriov.o fs_cmd.o fs_core.o \
- 		fs_counters.o rl.o lag.o dev.o lib/gid.o
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 535ffd78a34e..e1b7ddfecd01 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -328,6 +328,7 @@ struct mlx5e_sq_dma {
  
--mlx5_core-$(CONFIG_MLX5_FPGA) += fpga/cmd.o fpga/core.o
-+mlx5_core-$(CONFIG_MLX5_FPGA) += fpga/cmd.o fpga/core.o fpga/conn.o
- 
- mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o eswitch_offloads.o \
- 		en_main.o en_common.o en_fs.o en_ethtool.o en_tx.o \
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/conn.c b/drivers/net/ethernet/mellanox/mlx5/core/fpga/conn.c
-new file mode 100644
-index 000000000000..c4392f741c5f
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/conn.c
-@@ -0,0 +1,1042 @@
-+/*
-+ * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ *
-+ */
-+
-+#include <net/addrconf.h>
-+#include <linux/etherdevice.h>
-+#include <linux/mlx5/vport.h>
-+
-+#include "mlx5_core.h"
-+#include "lib/mlx5.h"
-+#include "fpga/conn.h"
-+
-+#define MLX5_FPGA_PKEY 0xFFFF
-+#define MLX5_FPGA_PKEY_INDEX 0 /* RoCE PKEY 0xFFFF is always at index 0 */
-+#define MLX5_FPGA_RECV_SIZE 2048
-+#define MLX5_FPGA_PORT_NUM 1
-+#define MLX5_FPGA_CQ_BUDGET 64
-+
-+static int mlx5_fpga_conn_map_buf(struct mlx5_fpga_conn *conn,
-+				  struct mlx5_fpga_dma_buf *buf)
-+{
-+	struct device *dma_device;
-+	int err = 0;
-+
-+	if (unlikely(!buf->sg[0].data))
-+		goto out;
-+
-+	dma_device = &conn->fdev->mdev->pdev->dev;
-+	buf->sg[0].dma_addr = dma_map_single(dma_device, buf->sg[0].data,
-+					     buf->sg[0].size, buf->dma_dir);
-+	err = dma_mapping_error(dma_device, buf->sg[0].dma_addr);
-+	if (unlikely(err)) {
-+		mlx5_fpga_warn(conn->fdev, "DMA error on sg 0: %d\n", err);
-+		err = -ENOMEM;
-+		goto out;
-+	}
-+
-+	if (!buf->sg[1].data)
-+		goto out;
-+
-+	buf->sg[1].dma_addr = dma_map_single(dma_device, buf->sg[1].data,
-+					     buf->sg[1].size, buf->dma_dir);
-+	err = dma_mapping_error(dma_device, buf->sg[1].dma_addr);
-+	if (unlikely(err)) {
-+		mlx5_fpga_warn(conn->fdev, "DMA error on sg 1: %d\n", err);
-+		dma_unmap_single(dma_device, buf->sg[0].dma_addr,
-+				 buf->sg[0].size, buf->dma_dir);
-+		err = -ENOMEM;
-+	}
-+
-+out:
-+	return err;
-+}
-+
-+static void mlx5_fpga_conn_unmap_buf(struct mlx5_fpga_conn *conn,
-+				     struct mlx5_fpga_dma_buf *buf)
-+{
-+	struct device *dma_device;
-+
-+	dma_device = &conn->fdev->mdev->pdev->dev;
-+	if (buf->sg[1].data)
-+		dma_unmap_single(dma_device, buf->sg[1].dma_addr,
-+				 buf->sg[1].size, buf->dma_dir);
-+
-+	if (likely(buf->sg[0].data))
-+		dma_unmap_single(dma_device, buf->sg[0].dma_addr,
-+				 buf->sg[0].size, buf->dma_dir);
-+}
-+
-+static int mlx5_fpga_conn_post_recv(struct mlx5_fpga_conn *conn,
-+				    struct mlx5_fpga_dma_buf *buf)
-+{
-+	struct mlx5_wqe_data_seg *data;
-+	unsigned int ix;
-+	int err = 0;
-+
-+	err = mlx5_fpga_conn_map_buf(conn, buf);
-+	if (unlikely(err))
-+		goto out;
-+
-+	if (unlikely(conn->qp.rq.pc - conn->qp.rq.cc >= conn->qp.rq.size)) {
-+		mlx5_fpga_conn_unmap_buf(conn, buf);
-+		return -EBUSY;
-+	}
-+
-+	ix = conn->qp.rq.pc & (conn->qp.rq.size - 1);
-+	data = mlx5_wq_cyc_get_wqe(&conn->qp.wq.rq, ix);
-+	data->byte_count = cpu_to_be32(buf->sg[0].size);
-+	data->lkey = cpu_to_be32(conn->fdev->conn_res.mkey.key);
-+	data->addr = cpu_to_be64(buf->sg[0].dma_addr);
-+
-+	conn->qp.rq.pc++;
-+	conn->qp.rq.bufs[ix] = buf;
-+
-+	/* Make sure that descriptors are written before doorbell record. */
-+	dma_wmb();
-+	*conn->qp.wq.rq.db = cpu_to_be32(conn->qp.rq.pc & 0xffff);
-+out:
-+	return err;
-+}
-+
-+static void mlx5_fpga_conn_notify_hw(struct mlx5_fpga_conn *conn, void *wqe)
-+{
-+	/* ensure wqe is visible to device before updating doorbell record */
-+	dma_wmb();
-+	*conn->qp.wq.sq.db = cpu_to_be32(conn->qp.sq.pc);
-+	/* Make sure that doorbell record is visible before ringing */
-+	wmb();
-+	mlx5_write64(wqe, conn->fdev->conn_res.uar->map + MLX5_BF_OFFSET, NULL);
-+}
-+
-+static void mlx5_fpga_conn_post_send(struct mlx5_fpga_conn *conn,
-+				     struct mlx5_fpga_dma_buf *buf)
-+{
-+	struct mlx5_wqe_ctrl_seg *ctrl;
-+	struct mlx5_wqe_data_seg *data;
-+	unsigned int ix, sgi;
-+	int size = 1;
-+
-+	ix = conn->qp.sq.pc & (conn->qp.sq.size - 1);
-+
-+	ctrl = mlx5_wq_cyc_get_wqe(&conn->qp.wq.sq, ix);
-+	data = (void *)(ctrl + 1);
-+
-+	for (sgi = 0; sgi < ARRAY_SIZE(buf->sg); sgi++) {
-+		if (!buf->sg[sgi].data)
-+			break;
-+		data->byte_count = cpu_to_be32(buf->sg[sgi].size);
-+		data->lkey = cpu_to_be32(conn->fdev->conn_res.mkey.key);
-+		data->addr = cpu_to_be64(buf->sg[sgi].dma_addr);
-+		data++;
-+		size++;
-+	}
-+
-+	ctrl->imm = 0;
-+	ctrl->fm_ce_se = MLX5_WQE_CTRL_CQ_UPDATE;
-+	ctrl->opmod_idx_opcode = cpu_to_be32(((conn->qp.sq.pc & 0xffff) << 8) |
-+					     MLX5_OPCODE_SEND);
-+	ctrl->qpn_ds = cpu_to_be32(size | (conn->qp.mqp.qpn << 8));
-+
-+	conn->qp.sq.pc++;
-+	conn->qp.sq.bufs[ix] = buf;
-+	mlx5_fpga_conn_notify_hw(conn, ctrl);
-+}
-+
-+int mlx5_fpga_conn_send(struct mlx5_fpga_conn *conn,
-+			struct mlx5_fpga_dma_buf *buf)
-+{
-+	unsigned long flags;
-+	int err;
-+
-+	if (!conn->qp.active)
-+		return -ENOTCONN;
-+
-+	err = mlx5_fpga_conn_map_buf(conn, buf);
-+	if (err)
-+		return err;
-+
-+	spin_lock_irqsave(&conn->qp.sq.lock, flags);
-+
-+	if (conn->qp.sq.pc - conn->qp.sq.cc >= conn->qp.sq.size) {
-+		list_add_tail(&buf->list, &conn->qp.sq.backlog);
-+		goto out_unlock;
-+	}
-+
-+	mlx5_fpga_conn_post_send(conn, buf);
-+
-+out_unlock:
-+	spin_unlock_irqrestore(&conn->qp.sq.lock, flags);
-+	return err;
-+}
-+
-+static int mlx5_fpga_conn_post_recv_buf(struct mlx5_fpga_conn *conn)
-+{
-+	struct mlx5_fpga_dma_buf *buf;
-+	int err;
-+
-+	buf = kzalloc(sizeof(*buf) + MLX5_FPGA_RECV_SIZE, 0);
-+	if (!buf)
-+		return -ENOMEM;
-+
-+	buf->sg[0].data = (void *)(buf + 1);
-+	buf->sg[0].size = MLX5_FPGA_RECV_SIZE;
-+	buf->dma_dir = DMA_FROM_DEVICE;
-+
-+	err = mlx5_fpga_conn_post_recv(conn, buf);
-+	if (err)
-+		kfree(buf);
-+
-+	return err;
-+}
-+
-+static int mlx5_fpga_conn_create_mkey(struct mlx5_core_dev *mdev, u32 pdn,
-+				      struct mlx5_core_mkey *mkey)
-+{
-+	int inlen = MLX5_ST_SZ_BYTES(create_mkey_in);
-+	void *mkc;
-+	u32 *in;
-+	int err;
-+
-+	in = kvzalloc(inlen, GFP_KERNEL);
-+	if (!in)
-+		return -ENOMEM;
-+
-+	mkc = MLX5_ADDR_OF(create_mkey_in, in, memory_key_mkey_entry);
-+	MLX5_SET(mkc, mkc, access_mode, MLX5_MKC_ACCESS_MODE_PA);
-+	MLX5_SET(mkc, mkc, lw, 1);
-+	MLX5_SET(mkc, mkc, lr, 1);
-+
-+	MLX5_SET(mkc, mkc, pd, pdn);
-+	MLX5_SET(mkc, mkc, length64, 1);
-+	MLX5_SET(mkc, mkc, qpn, 0xffffff);
-+
-+	err = mlx5_core_create_mkey(mdev, mkey, in, inlen);
-+
-+	kvfree(in);
-+	return err;
-+}
-+
-+static void mlx5_fpga_conn_rq_cqe(struct mlx5_fpga_conn *conn,
-+				  struct mlx5_cqe64 *cqe, u8 status)
-+{
-+	struct mlx5_fpga_dma_buf *buf;
-+	int ix, err;
-+
-+	ix = be16_to_cpu(cqe->wqe_counter) & (conn->qp.rq.size - 1);
-+	buf = conn->qp.rq.bufs[ix];
-+	conn->qp.rq.bufs[ix] = NULL;
-+	if (!status)
-+		buf->sg[0].size = be32_to_cpu(cqe->byte_cnt);
-+	conn->qp.rq.cc++;
-+
-+	if (unlikely(status && (status != MLX5_CQE_SYNDROME_WR_FLUSH_ERR)))
-+		mlx5_fpga_warn(conn->fdev, "RQ buf %p on FPGA QP %u completion status %d\n",
-+			       buf, conn->fpga_qpn, status);
-+	else
-+		mlx5_fpga_dbg(conn->fdev, "RQ buf %p on FPGA QP %u completion status %d\n",
-+			      buf, conn->fpga_qpn, status);
-+
-+	mlx5_fpga_conn_unmap_buf(conn, buf);
-+
-+	if (unlikely(status || !conn->qp.active)) {
-+		conn->qp.active = false;
-+		kfree(buf);
-+		return;
-+	}
-+
-+	mlx5_fpga_dbg(conn->fdev, "Message with %u bytes received successfully\n",
-+		      buf->sg[0].size);
-+	conn->recv_cb(conn->cb_arg, buf);
-+
-+	buf->sg[0].size = MLX5_FPGA_RECV_SIZE;
-+	err = mlx5_fpga_conn_post_recv(conn, buf);
-+	if (unlikely(err)) {
-+		mlx5_fpga_warn(conn->fdev,
-+			       "Failed to re-post recv buf: %d\n", err);
-+		kfree(buf);
-+	}
-+}
-+
-+static void mlx5_fpga_conn_sq_cqe(struct mlx5_fpga_conn *conn,
-+				  struct mlx5_cqe64 *cqe, u8 status)
-+{
-+	struct mlx5_fpga_dma_buf *buf, *nextbuf;
-+	unsigned long flags;
-+	int ix;
-+
-+	spin_lock_irqsave(&conn->qp.sq.lock, flags);
-+
-+	ix = be16_to_cpu(cqe->wqe_counter) & (conn->qp.sq.size - 1);
-+	buf = conn->qp.sq.bufs[ix];
-+	conn->qp.sq.bufs[ix] = NULL;
-+	conn->qp.sq.cc++;
-+
-+	/* Handle backlog still under the spinlock to ensure message post order */
-+	if (unlikely(!list_empty(&conn->qp.sq.backlog))) {
-+		if (likely(conn->qp.active)) {
-+			nextbuf = list_first_entry(&conn->qp.sq.backlog,
-+						   struct mlx5_fpga_dma_buf, list);
-+			list_del(&nextbuf->list);
-+			mlx5_fpga_conn_post_send(conn, nextbuf);
-+		}
-+	}
-+
-+	spin_unlock_irqrestore(&conn->qp.sq.lock, flags);
-+
-+	if (unlikely(status && (status != MLX5_CQE_SYNDROME_WR_FLUSH_ERR)))
-+		mlx5_fpga_warn(conn->fdev, "SQ buf %p on FPGA QP %u completion status %d\n",
-+			       buf, conn->fpga_qpn, status);
-+	else
-+		mlx5_fpga_dbg(conn->fdev, "SQ buf %p on FPGA QP %u completion status %d\n",
-+			      buf, conn->fpga_qpn, status);
-+
-+	mlx5_fpga_conn_unmap_buf(conn, buf);
-+
-+	if (likely(buf->complete))
-+		buf->complete(conn, conn->fdev, buf, status);
-+
-+	if (unlikely(status))
-+		conn->qp.active = false;
-+}
-+
-+static void mlx5_fpga_conn_handle_cqe(struct mlx5_fpga_conn *conn,
-+				      struct mlx5_cqe64 *cqe)
-+{
-+	u8 opcode, status = 0;
-+
-+	opcode = cqe->op_own >> 4;
-+
-+	switch (opcode) {
-+	case MLX5_CQE_REQ_ERR:
-+		status = ((struct mlx5_err_cqe *)cqe)->syndrome;
-+		/* Fall through */
-+	case MLX5_CQE_REQ:
-+		mlx5_fpga_conn_sq_cqe(conn, cqe, status);
-+		break;
-+
-+	case MLX5_CQE_RESP_ERR:
-+		status = ((struct mlx5_err_cqe *)cqe)->syndrome;
-+		/* Fall through */
-+	case MLX5_CQE_RESP_SEND:
-+		mlx5_fpga_conn_rq_cqe(conn, cqe, status);
-+		break;
-+	default:
-+		mlx5_fpga_warn(conn->fdev, "Unexpected cqe opcode %u\n",
-+			       opcode);
-+	}
-+}
-+
-+static void mlx5_fpga_conn_arm_cq(struct mlx5_fpga_conn *conn)
-+{
-+	mlx5_cq_arm(&conn->cq.mcq, MLX5_CQ_DB_REQ_NOT,
-+		    conn->fdev->conn_res.uar->map, conn->cq.wq.cc);
-+}
-+
-+static void mlx5_fpga_conn_cq_event(struct mlx5_core_cq *mcq,
-+				    enum mlx5_event event)
-+{
-+	struct mlx5_fpga_conn *conn;
-+
-+	conn = container_of(mcq, struct mlx5_fpga_conn, cq.mcq);
-+	mlx5_fpga_warn(conn->fdev, "CQ event %u on CQ #%u\n", event, mcq->cqn);
-+}
-+
-+static void mlx5_fpga_conn_event(struct mlx5_core_qp *mqp, int event)
-+{
-+	struct mlx5_fpga_conn *conn;
-+
-+	conn = container_of(mqp, struct mlx5_fpga_conn, qp.mqp);
-+	mlx5_fpga_warn(conn->fdev, "QP event %u on QP #%u\n", event, mqp->qpn);
-+}
-+
-+static inline void mlx5_fpga_conn_cqes(struct mlx5_fpga_conn *conn,
-+				       unsigned int budget)
-+{
-+	struct mlx5_cqe64 *cqe;
-+
-+	while (budget) {
-+		cqe = mlx5_cqwq_get_cqe(&conn->cq.wq);
-+		if (!cqe)
-+			break;
-+
-+		budget--;
-+		mlx5_cqwq_pop(&conn->cq.wq);
-+		mlx5_fpga_conn_handle_cqe(conn, cqe);
-+		mlx5_cqwq_update_db_record(&conn->cq.wq);
-+	}
-+	if (!budget) {
-+		tasklet_schedule(&conn->cq.tasklet);
-+		return;
-+	}
-+
-+	mlx5_fpga_dbg(conn->fdev, "Re-arming CQ with cc# %u\n", conn->cq.wq.cc);
-+	/* ensure cq space is freed before enabling more cqes */
-+	wmb();
-+	mlx5_fpga_conn_arm_cq(conn);
-+}
-+
-+static void mlx5_fpga_conn_cq_tasklet(unsigned long data)
-+{
-+	struct mlx5_fpga_conn *conn = (void *)data;
-+
-+	if (unlikely(!conn->qp.active))
-+		return;
-+	mlx5_fpga_conn_cqes(conn, MLX5_FPGA_CQ_BUDGET);
-+}
-+
-+static void mlx5_fpga_conn_cq_complete(struct mlx5_core_cq *mcq)
-+{
-+	struct mlx5_fpga_conn *conn;
-+
-+	conn = container_of(mcq, struct mlx5_fpga_conn, cq.mcq);
-+	if (unlikely(!conn->qp.active))
-+		return;
-+	mlx5_fpga_conn_cqes(conn, MLX5_FPGA_CQ_BUDGET);
-+}
-+
-+static int mlx5_fpga_conn_create_cq(struct mlx5_fpga_conn *conn, int cq_size)
-+{
-+	struct mlx5_fpga_device *fdev = conn->fdev;
-+	struct mlx5_core_dev *mdev = fdev->mdev;
-+	u32 temp_cqc[MLX5_ST_SZ_DW(cqc)] = {0};
-+	struct mlx5_wq_param wqp;
-+	struct mlx5_cqe64 *cqe;
-+	int inlen, err, eqn;
-+	unsigned int irqn;
-+	void *cqc, *in;
-+	__be64 *pas;
-+	u32 i;
-+
-+	cq_size = roundup_pow_of_two(cq_size);
-+	MLX5_SET(cqc, temp_cqc, log_cq_size, ilog2(cq_size));
-+
-+	wqp.buf_numa_node = mdev->priv.numa_node;
-+	wqp.db_numa_node  = mdev->priv.numa_node;
-+
-+	err = mlx5_cqwq_create(mdev, &wqp, temp_cqc, &conn->cq.wq,
-+			       &conn->cq.wq_ctrl);
-+	if (err)
-+		return err;
-+
-+	for (i = 0; i < mlx5_cqwq_get_size(&conn->cq.wq); i++) {
-+		cqe = mlx5_cqwq_get_wqe(&conn->cq.wq, i);
-+		cqe->op_own = MLX5_CQE_INVALID << 4 | MLX5_CQE_OWNER_MASK;
-+	}
-+
-+	inlen = MLX5_ST_SZ_BYTES(create_cq_in) +
-+		sizeof(u64) * conn->cq.wq_ctrl.frag_buf.npages;
-+	in = kvzalloc(inlen, GFP_KERNEL);
-+	if (!in) {
-+		err = -ENOMEM;
-+		goto err_cqwq;
-+	}
-+
-+	err = mlx5_vector2eqn(mdev, smp_processor_id(), &eqn, &irqn);
-+	if (err)
-+		goto err_cqwq;
-+
-+	cqc = MLX5_ADDR_OF(create_cq_in, in, cq_context);
-+	MLX5_SET(cqc, cqc, log_cq_size, ilog2(cq_size));
-+	MLX5_SET(cqc, cqc, c_eqn, eqn);
-+	MLX5_SET(cqc, cqc, uar_page, fdev->conn_res.uar->index);
-+	MLX5_SET(cqc, cqc, log_page_size, conn->cq.wq_ctrl.frag_buf.page_shift -
-+			   MLX5_ADAPTER_PAGE_SHIFT);
-+	MLX5_SET64(cqc, cqc, dbr_addr, conn->cq.wq_ctrl.db.dma);
-+
-+	pas = (__be64 *)MLX5_ADDR_OF(create_cq_in, in, pas);
-+	mlx5_fill_page_frag_array(&conn->cq.wq_ctrl.frag_buf, pas);
-+
-+	err = mlx5_core_create_cq(mdev, &conn->cq.mcq, in, inlen);
-+	kvfree(in);
-+
-+	if (err)
-+		goto err_cqwq;
-+
-+	conn->cq.mcq.cqe_sz     = 64;
-+	conn->cq.mcq.set_ci_db  = conn->cq.wq_ctrl.db.db;
-+	conn->cq.mcq.arm_db     = conn->cq.wq_ctrl.db.db + 1;
-+	*conn->cq.mcq.set_ci_db = 0;
-+	*conn->cq.mcq.arm_db    = 0;
-+	conn->cq.mcq.vector     = 0;
-+	conn->cq.mcq.comp       = mlx5_fpga_conn_cq_complete;
-+	conn->cq.mcq.event      = mlx5_fpga_conn_cq_event;
-+	conn->cq.mcq.irqn       = irqn;
-+	conn->cq.mcq.uar        = fdev->conn_res.uar;
-+	tasklet_init(&conn->cq.tasklet, mlx5_fpga_conn_cq_tasklet,
-+		     (unsigned long)conn);
-+
-+	mlx5_fpga_dbg(fdev, "Created CQ #0x%x\n", conn->cq.mcq.cqn);
-+
-+	goto out;
-+
-+err_cqwq:
-+	mlx5_cqwq_destroy(&conn->cq.wq_ctrl);
-+out:
-+	return err;
-+}
-+
-+static void mlx5_fpga_conn_destroy_cq(struct mlx5_fpga_conn *conn)
-+{
-+	tasklet_disable(&conn->cq.tasklet);
-+	tasklet_kill(&conn->cq.tasklet);
-+	mlx5_core_destroy_cq(conn->fdev->mdev, &conn->cq.mcq);
-+	mlx5_cqwq_destroy(&conn->cq.wq_ctrl);
-+}
-+
-+static int mlx5_fpga_conn_create_wq(struct mlx5_fpga_conn *conn, void *qpc)
-+{
-+	struct mlx5_fpga_device *fdev = conn->fdev;
-+	struct mlx5_core_dev *mdev = fdev->mdev;
-+	struct mlx5_wq_param wqp;
-+
-+	wqp.buf_numa_node = mdev->priv.numa_node;
-+	wqp.db_numa_node  = mdev->priv.numa_node;
-+
-+	return mlx5_wq_qp_create(mdev, &wqp, qpc, &conn->qp.wq,
-+				 &conn->qp.wq_ctrl);
-+}
-+
-+static int mlx5_fpga_conn_create_qp(struct mlx5_fpga_conn *conn,
-+				    unsigned int tx_size, unsigned int rx_size)
-+{
-+	struct mlx5_fpga_device *fdev = conn->fdev;
-+	struct mlx5_core_dev *mdev = fdev->mdev;
-+	u32 temp_qpc[MLX5_ST_SZ_DW(qpc)] = {0};
-+	void *in = NULL, *qpc;
-+	int err, inlen;
-+
-+	conn->qp.rq.pc = 0;
-+	conn->qp.rq.cc = 0;
-+	conn->qp.rq.size = roundup_pow_of_two(rx_size);
-+	conn->qp.sq.pc = 0;
-+	conn->qp.sq.cc = 0;
-+	conn->qp.sq.size = roundup_pow_of_two(tx_size);
-+
-+	MLX5_SET(qpc, temp_qpc, log_rq_stride, ilog2(MLX5_SEND_WQE_DS) - 4);
-+	MLX5_SET(qpc, temp_qpc, log_rq_size, ilog2(conn->qp.rq.size));
-+	MLX5_SET(qpc, temp_qpc, log_sq_size, ilog2(conn->qp.sq.size));
-+	err = mlx5_fpga_conn_create_wq(conn, temp_qpc);
-+	if (err)
-+		goto out;
-+
-+	conn->qp.rq.bufs = kvzalloc(sizeof(conn->qp.rq.bufs[0]) *
-+				    conn->qp.rq.size, GFP_KERNEL);
-+	if (!conn->qp.rq.bufs) {
-+		err = -ENOMEM;
-+		goto err_wq;
-+	}
-+
-+	conn->qp.sq.bufs = kvzalloc(sizeof(conn->qp.sq.bufs[0]) *
-+				    conn->qp.sq.size, GFP_KERNEL);
-+	if (!conn->qp.sq.bufs) {
-+		err = -ENOMEM;
-+		goto err_rq_bufs;
-+	}
-+
-+	inlen = MLX5_ST_SZ_BYTES(create_qp_in) +
-+		MLX5_FLD_SZ_BYTES(create_qp_in, pas[0]) *
-+		conn->qp.wq_ctrl.buf.npages;
-+	in = kvzalloc(inlen, GFP_KERNEL);
-+	if (!in) {
-+		err = -ENOMEM;
-+		goto err_sq_bufs;
-+	}
-+
-+	qpc = MLX5_ADDR_OF(create_qp_in, in, qpc);
-+	MLX5_SET(qpc, qpc, uar_page, fdev->conn_res.uar->index);
-+	MLX5_SET(qpc, qpc, log_page_size,
-+		 conn->qp.wq_ctrl.buf.page_shift - MLX5_ADAPTER_PAGE_SHIFT);
-+	MLX5_SET(qpc, qpc, fre, 1);
-+	MLX5_SET(qpc, qpc, rlky, 1);
-+	MLX5_SET(qpc, qpc, st, MLX5_QP_ST_RC);
-+	MLX5_SET(qpc, qpc, pm_state, MLX5_QP_PM_MIGRATED);
-+	MLX5_SET(qpc, qpc, pd, fdev->conn_res.pdn);
-+	MLX5_SET(qpc, qpc, log_rq_stride, ilog2(MLX5_SEND_WQE_DS) - 4);
-+	MLX5_SET(qpc, qpc, log_rq_size, ilog2(conn->qp.rq.size));
-+	MLX5_SET(qpc, qpc, rq_type, MLX5_NON_ZERO_RQ);
-+	MLX5_SET(qpc, qpc, log_sq_size, ilog2(conn->qp.sq.size));
-+	MLX5_SET(qpc, qpc, cqn_snd, conn->cq.mcq.cqn);
-+	MLX5_SET(qpc, qpc, cqn_rcv, conn->cq.mcq.cqn);
-+	MLX5_SET64(qpc, qpc, dbr_addr, conn->qp.wq_ctrl.db.dma);
-+	if (MLX5_CAP_GEN(mdev, cqe_version) == 1)
-+		MLX5_SET(qpc, qpc, user_index, 0xFFFFFF);
-+
-+	mlx5_fill_page_array(&conn->qp.wq_ctrl.buf,
-+			     (__be64 *)MLX5_ADDR_OF(create_qp_in, in, pas));
-+
-+	err = mlx5_core_create_qp(mdev, &conn->qp.mqp, in, inlen);
-+	if (err)
-+		goto err_sq_bufs;
-+
-+	conn->qp.mqp.event = mlx5_fpga_conn_event;
-+	mlx5_fpga_dbg(fdev, "Created QP #0x%x\n", conn->qp.mqp.qpn);
-+
-+	goto out;
-+
-+err_sq_bufs:
-+	kvfree(conn->qp.sq.bufs);
-+err_rq_bufs:
-+	kvfree(conn->qp.rq.bufs);
-+err_wq:
-+	mlx5_wq_destroy(&conn->qp.wq_ctrl);
-+out:
-+	kvfree(in);
-+	return err;
-+}
-+
-+static void mlx5_fpga_conn_free_recv_bufs(struct mlx5_fpga_conn *conn)
-+{
-+	int ix;
-+
-+	for (ix = 0; ix < conn->qp.rq.size; ix++) {
-+		if (!conn->qp.rq.bufs[ix])
-+			continue;
-+		mlx5_fpga_conn_unmap_buf(conn, conn->qp.rq.bufs[ix]);
-+		kfree(conn->qp.rq.bufs[ix]);
-+		conn->qp.rq.bufs[ix] = NULL;
-+	}
-+}
-+
-+static void mlx5_fpga_conn_flush_send_bufs(struct mlx5_fpga_conn *conn)
-+{
-+	struct mlx5_fpga_dma_buf *buf, *temp;
-+	int ix;
-+
-+	for (ix = 0; ix < conn->qp.sq.size; ix++) {
-+		buf = conn->qp.sq.bufs[ix];
-+		if (!buf)
-+			continue;
-+		conn->qp.sq.bufs[ix] = NULL;
-+		mlx5_fpga_conn_unmap_buf(conn, buf);
-+		if (!buf->complete)
-+			continue;
-+		buf->complete(conn, conn->fdev, buf, MLX5_CQE_SYNDROME_WR_FLUSH_ERR);
-+	}
-+	list_for_each_entry_safe(buf, temp, &conn->qp.sq.backlog, list) {
-+		mlx5_fpga_conn_unmap_buf(conn, buf);
-+		if (!buf->complete)
-+			continue;
-+		buf->complete(conn, conn->fdev, buf, MLX5_CQE_SYNDROME_WR_FLUSH_ERR);
-+	}
-+}
-+
-+static void mlx5_fpga_conn_destroy_qp(struct mlx5_fpga_conn *conn)
-+{
-+	mlx5_core_destroy_qp(conn->fdev->mdev, &conn->qp.mqp);
-+	mlx5_fpga_conn_free_recv_bufs(conn);
-+	mlx5_fpga_conn_flush_send_bufs(conn);
-+	kvfree(conn->qp.sq.bufs);
-+	kvfree(conn->qp.rq.bufs);
-+	mlx5_wq_destroy(&conn->qp.wq_ctrl);
-+}
-+
-+static inline int mlx5_fpga_conn_reset_qp(struct mlx5_fpga_conn *conn)
-+{
-+	struct mlx5_core_dev *mdev = conn->fdev->mdev;
-+
-+	mlx5_fpga_dbg(conn->fdev, "Modifying QP %u to RST\n", conn->qp.mqp.qpn);
-+
-+	return mlx5_core_qp_modify(mdev, MLX5_CMD_OP_2RST_QP, 0, NULL,
-+				   &conn->qp.mqp);
-+}
-+
-+static inline int mlx5_fpga_conn_init_qp(struct mlx5_fpga_conn *conn)
-+{
-+	struct mlx5_fpga_device *fdev = conn->fdev;
-+	struct mlx5_core_dev *mdev = fdev->mdev;
-+	u32 *qpc = NULL;
-+	int err;
-+
-+	mlx5_fpga_dbg(conn->fdev, "Modifying QP %u to INIT\n", conn->qp.mqp.qpn);
-+
-+	qpc = kzalloc(MLX5_ST_SZ_BYTES(qpc), GFP_KERNEL);
-+	if (!qpc) {
-+		err = -ENOMEM;
-+		goto out;
-+	}
-+
-+	MLX5_SET(qpc, qpc, st, MLX5_QP_ST_RC);
-+	MLX5_SET(qpc, qpc, pm_state, MLX5_QP_PM_MIGRATED);
-+	MLX5_SET(qpc, qpc, primary_address_path.pkey_index, MLX5_FPGA_PKEY_INDEX);
-+	MLX5_SET(qpc, qpc, primary_address_path.port, MLX5_FPGA_PORT_NUM);
-+	MLX5_SET(qpc, qpc, pd, conn->fdev->conn_res.pdn);
-+	MLX5_SET(qpc, qpc, cqn_snd, conn->cq.mcq.cqn);
-+	MLX5_SET(qpc, qpc, cqn_rcv, conn->cq.mcq.cqn);
-+	MLX5_SET64(qpc, qpc, dbr_addr, conn->qp.wq_ctrl.db.dma);
-+
-+	err = mlx5_core_qp_modify(mdev, MLX5_CMD_OP_RST2INIT_QP, 0, qpc,
-+				  &conn->qp.mqp);
-+	if (err) {
-+		mlx5_fpga_warn(fdev, "qp_modify RST2INIT failed: %d\n", err);
-+		goto out;
-+	}
-+
-+out:
-+	kfree(qpc);
-+	return err;
-+}
-+
-+static inline int mlx5_fpga_conn_rtr_qp(struct mlx5_fpga_conn *conn)
-+{
-+	struct mlx5_fpga_device *fdev = conn->fdev;
-+	struct mlx5_core_dev *mdev = fdev->mdev;
-+	u32 *qpc = NULL;
-+	int err;
-+
-+	mlx5_fpga_dbg(conn->fdev, "QP RTR\n");
-+
-+	qpc = kzalloc(MLX5_ST_SZ_BYTES(qpc), GFP_KERNEL);
-+	if (!qpc) {
-+		err = -ENOMEM;
-+		goto out;
-+	}
-+
-+	MLX5_SET(qpc, qpc, mtu, MLX5_QPC_MTU_1K_BYTES);
-+	MLX5_SET(qpc, qpc, log_msg_max, (u8)MLX5_CAP_GEN(mdev, log_max_msg));
-+	MLX5_SET(qpc, qpc, remote_qpn, conn->fpga_qpn);
-+	MLX5_SET(qpc, qpc, next_rcv_psn,
-+		 MLX5_GET(fpga_qpc, conn->fpga_qpc, next_send_psn));
-+	MLX5_SET(qpc, qpc, primary_address_path.pkey_index, MLX5_FPGA_PKEY_INDEX);
-+	MLX5_SET(qpc, qpc, primary_address_path.port, MLX5_FPGA_PORT_NUM);
-+	ether_addr_copy(MLX5_ADDR_OF(qpc, qpc, primary_address_path.rmac_47_32),
-+			MLX5_ADDR_OF(fpga_qpc, conn->fpga_qpc, fpga_mac_47_32));
-+	MLX5_SET(qpc, qpc, primary_address_path.udp_sport,
-+		 MLX5_CAP_ROCE(mdev, r_roce_min_src_udp_port));
-+	MLX5_SET(qpc, qpc, primary_address_path.src_addr_index,
-+		 conn->qp.sgid_index);
-+	MLX5_SET(qpc, qpc, primary_address_path.hop_limit, 0);
-+	memcpy(MLX5_ADDR_OF(qpc, qpc, primary_address_path.rgid_rip),
-+	       MLX5_ADDR_OF(fpga_qpc, conn->fpga_qpc, fpga_ip),
-+	       MLX5_FLD_SZ_BYTES(qpc, primary_address_path.rgid_rip));
-+
-+	err = mlx5_core_qp_modify(mdev, MLX5_CMD_OP_INIT2RTR_QP, 0, qpc,
-+				  &conn->qp.mqp);
-+	if (err) {
-+		mlx5_fpga_warn(fdev, "qp_modify RST2INIT failed: %d\n", err);
-+		goto out;
-+	}
-+
-+out:
-+	kfree(qpc);
-+	return err;
-+}
-+
-+static inline int mlx5_fpga_conn_rts_qp(struct mlx5_fpga_conn *conn)
-+{
-+	struct mlx5_fpga_device *fdev = conn->fdev;
-+	struct mlx5_core_dev *mdev = fdev->mdev;
-+	u32 *qpc = NULL;
-+	u32 opt_mask;
-+	int err;
-+
-+	mlx5_fpga_dbg(conn->fdev, "QP RTS\n");
-+
-+	qpc = kzalloc(MLX5_ST_SZ_BYTES(qpc), GFP_KERNEL);
-+	if (!qpc) {
-+		err = -ENOMEM;
-+		goto out;
-+	}
-+
-+	MLX5_SET(qpc, qpc, log_ack_req_freq, 8);
-+	MLX5_SET(qpc, qpc, min_rnr_nak, 0x12);
-+	MLX5_SET(qpc, qpc, primary_address_path.ack_timeout, 0x12); /* ~1.07s */
-+	MLX5_SET(qpc, qpc, next_send_psn,
-+		 MLX5_GET(fpga_qpc, conn->fpga_qpc, next_rcv_psn));
-+	MLX5_SET(qpc, qpc, retry_count, 7);
-+	MLX5_SET(qpc, qpc, rnr_retry, 7); /* Infinite retry if RNR NACK */
-+
-+	opt_mask = MLX5_QP_OPTPAR_RNR_TIMEOUT;
-+	err = mlx5_core_qp_modify(mdev, MLX5_CMD_OP_RTR2RTS_QP, opt_mask, qpc,
-+				  &conn->qp.mqp);
-+	if (err) {
-+		mlx5_fpga_warn(fdev, "qp_modify RST2INIT failed: %d\n", err);
-+		goto out;
-+	}
-+
-+out:
-+	kfree(qpc);
-+	return err;
-+}
-+
-+static int mlx5_fpga_conn_connect(struct mlx5_fpga_conn *conn)
-+{
-+	struct mlx5_fpga_device *fdev = conn->fdev;
-+	int err;
-+
-+	MLX5_SET(fpga_qpc, conn->fpga_qpc, state, MLX5_FPGA_QPC_STATE_ACTIVE);
-+	err = mlx5_fpga_modify_qp(conn->fdev->mdev, conn->fpga_qpn,
-+				  MLX5_FPGA_QPC_STATE, &conn->fpga_qpc);
-+	if (err) {
-+		mlx5_fpga_err(fdev, "Failed to activate FPGA RC QP: %d\n", err);
-+		goto out;
-+	}
-+
-+	err = mlx5_fpga_conn_reset_qp(conn);
-+	if (err) {
-+		mlx5_fpga_err(fdev, "Failed to change QP state to reset\n");
-+		goto err_fpga_qp;
-+	}
-+
-+	err = mlx5_fpga_conn_init_qp(conn);
-+	if (err) {
-+		mlx5_fpga_err(fdev, "Failed to modify QP from RESET to INIT\n");
-+		goto err_fpga_qp;
-+	}
-+	conn->qp.active = true;
-+
-+	while (!mlx5_fpga_conn_post_recv_buf(conn))
-+		;
-+
-+	err = mlx5_fpga_conn_rtr_qp(conn);
-+	if (err) {
-+		mlx5_fpga_err(fdev, "Failed to change QP state from INIT to RTR\n");
-+		goto err_recv_bufs;
-+	}
-+
-+	err = mlx5_fpga_conn_rts_qp(conn);
-+	if (err) {
-+		mlx5_fpga_err(fdev, "Failed to change QP state from RTR to RTS\n");
-+		goto err_recv_bufs;
-+	}
-+	goto out;
-+
-+err_recv_bufs:
-+	mlx5_fpga_conn_free_recv_bufs(conn);
-+err_fpga_qp:
-+	MLX5_SET(fpga_qpc, conn->fpga_qpc, state, MLX5_FPGA_QPC_STATE_INIT);
-+	if (mlx5_fpga_modify_qp(conn->fdev->mdev, conn->fpga_qpn,
-+				MLX5_FPGA_QPC_STATE, &conn->fpga_qpc))
-+		mlx5_fpga_err(fdev, "Failed to revert FPGA QP to INIT\n");
-+out:
-+	return err;
-+}
-+
-+struct mlx5_fpga_conn *mlx5_fpga_conn_create(struct mlx5_fpga_device *fdev,
-+					     struct mlx5_fpga_conn_attr *attr,
-+					     enum mlx5_ifc_fpga_qp_type qp_type)
-+{
-+	struct mlx5_fpga_conn *ret, *conn;
-+	u8 *remote_mac, *remote_ip;
-+	int err;
-+
-+	if (!attr->recv_cb)
-+		return ERR_PTR(-EINVAL);
-+
-+	conn = kzalloc(sizeof(*conn), GFP_KERNEL);
-+	if (!conn)
-+		return ERR_PTR(-ENOMEM);
-+
-+	conn->fdev = fdev;
-+	INIT_LIST_HEAD(&conn->qp.sq.backlog);
-+
-+	spin_lock_init(&conn->qp.sq.lock);
-+
-+	conn->recv_cb = attr->recv_cb;
-+	conn->cb_arg = attr->cb_arg;
-+
-+	remote_mac = MLX5_ADDR_OF(fpga_qpc, conn->fpga_qpc, remote_mac_47_32);
-+	err = mlx5_query_nic_vport_mac_address(fdev->mdev, 0, remote_mac);
-+	if (err) {
-+		mlx5_fpga_err(fdev, "Failed to query local MAC: %d\n", err);
-+		ret = ERR_PTR(err);
-+		goto err;
-+	}
-+
-+	/* Build Modified EUI-64 IPv6 address from the MAC address */
-+	remote_ip = MLX5_ADDR_OF(fpga_qpc, conn->fpga_qpc, remote_ip);
-+	remote_ip[0] = 0xfe;
-+	remote_ip[1] = 0x80;
-+	addrconf_addr_eui48(&remote_ip[8], remote_mac);
-+
-+	err = mlx5_core_reserved_gid_alloc(fdev->mdev, &conn->qp.sgid_index);
-+	if (err) {
-+		mlx5_fpga_err(fdev, "Failed to allocate SGID: %d\n", err);
-+		ret = ERR_PTR(err);
-+		goto err;
-+	}
-+
-+	err = mlx5_core_roce_gid_set(fdev->mdev, conn->qp.sgid_index,
-+				     MLX5_ROCE_VERSION_2,
-+				     MLX5_ROCE_L3_TYPE_IPV6,
-+				     remote_ip, remote_mac, true, 0);
-+	if (err) {
-+		mlx5_fpga_err(fdev, "Failed to set SGID: %d\n", err);
-+		ret = ERR_PTR(err);
-+		goto err_rsvd_gid;
-+	}
-+	mlx5_fpga_dbg(fdev, "Reserved SGID index %u\n", conn->qp.sgid_index);
-+
-+	/* Allow for one cqe per rx/tx wqe, plus one cqe for the next wqe,
-+	 * created during processing of the cqe
-+	 */
-+	err = mlx5_fpga_conn_create_cq(conn,
-+				       (attr->tx_size + attr->rx_size) * 2);
-+	if (err) {
-+		mlx5_fpga_err(fdev, "Failed to create CQ: %d\n", err);
-+		ret = ERR_PTR(err);
-+		goto err_gid;
-+	}
-+
-+	mlx5_fpga_conn_arm_cq(conn);
-+
-+	err = mlx5_fpga_conn_create_qp(conn, attr->tx_size, attr->rx_size);
-+	if (err) {
-+		mlx5_fpga_err(fdev, "Failed to create QP: %d\n", err);
-+		ret = ERR_PTR(err);
-+		goto err_cq;
-+	}
-+
-+	MLX5_SET(fpga_qpc, conn->fpga_qpc, state, MLX5_FPGA_QPC_STATE_INIT);
-+	MLX5_SET(fpga_qpc, conn->fpga_qpc, qp_type, qp_type);
-+	MLX5_SET(fpga_qpc, conn->fpga_qpc, st, MLX5_FPGA_QPC_ST_RC);
-+	MLX5_SET(fpga_qpc, conn->fpga_qpc, ether_type, ETH_P_8021Q);
-+	MLX5_SET(fpga_qpc, conn->fpga_qpc, vid, 0);
-+	MLX5_SET(fpga_qpc, conn->fpga_qpc, next_rcv_psn, 1);
-+	MLX5_SET(fpga_qpc, conn->fpga_qpc, next_send_psn, 0);
-+	MLX5_SET(fpga_qpc, conn->fpga_qpc, pkey, MLX5_FPGA_PKEY);
-+	MLX5_SET(fpga_qpc, conn->fpga_qpc, remote_qpn, conn->qp.mqp.qpn);
-+	MLX5_SET(fpga_qpc, conn->fpga_qpc, rnr_retry, 7);
-+	MLX5_SET(fpga_qpc, conn->fpga_qpc, retry_count, 7);
-+
-+	err = mlx5_fpga_create_qp(fdev->mdev, &conn->fpga_qpc,
-+				  &conn->fpga_qpn);
-+	if (err) {
-+		mlx5_fpga_err(fdev, "Failed to create FPGA RC QP: %d\n", err);
-+		ret = ERR_PTR(err);
-+		goto err_qp;
-+	}
-+
-+	err = mlx5_fpga_conn_connect(conn);
-+	if (err) {
-+		ret = ERR_PTR(err);
-+		goto err_conn;
-+	}
-+
-+	mlx5_fpga_dbg(fdev, "FPGA QPN is %u\n", conn->fpga_qpn);
-+	ret = conn;
-+	goto out;
-+
-+err_conn:
-+	mlx5_fpga_destroy_qp(conn->fdev->mdev, conn->fpga_qpn);
-+err_qp:
-+	mlx5_fpga_conn_destroy_qp(conn);
-+err_cq:
-+	mlx5_fpga_conn_destroy_cq(conn);
-+err_gid:
-+	mlx5_core_roce_gid_set(fdev->mdev, conn->qp.sgid_index, 0, 0, NULL,
-+			       NULL, false, 0);
-+err_rsvd_gid:
-+	mlx5_core_reserved_gid_free(fdev->mdev, conn->qp.sgid_index);
-+err:
-+	kfree(conn);
-+out:
-+	return ret;
-+}
-+
-+void mlx5_fpga_conn_destroy(struct mlx5_fpga_conn *conn)
-+{
-+	struct mlx5_fpga_device *fdev = conn->fdev;
-+	struct mlx5_core_dev *mdev = fdev->mdev;
-+	int err = 0;
-+
-+	conn->qp.active = false;
-+	tasklet_disable(&conn->cq.tasklet);
-+	synchronize_irq(conn->cq.mcq.irqn);
-+
-+	mlx5_fpga_destroy_qp(conn->fdev->mdev, conn->fpga_qpn);
-+	err = mlx5_core_qp_modify(mdev, MLX5_CMD_OP_2ERR_QP, 0, NULL,
-+				  &conn->qp.mqp);
-+	if (err)
-+		mlx5_fpga_warn(fdev, "qp_modify 2ERR failed: %d\n", err);
-+	mlx5_fpga_conn_destroy_qp(conn);
-+	mlx5_fpga_conn_destroy_cq(conn);
-+
-+	mlx5_core_roce_gid_set(conn->fdev->mdev, conn->qp.sgid_index, 0, 0,
-+			       NULL, NULL, false, 0);
-+	mlx5_core_reserved_gid_free(conn->fdev->mdev, conn->qp.sgid_index);
-+	kfree(conn);
-+}
-+
-+int mlx5_fpga_conn_device_init(struct mlx5_fpga_device *fdev)
-+{
-+	int err;
-+
-+	err = mlx5_nic_vport_enable_roce(fdev->mdev);
-+	if (err) {
-+		mlx5_fpga_err(fdev, "Failed to enable RoCE: %d\n", err);
-+		goto out;
-+	}
-+
-+	fdev->conn_res.uar = mlx5_get_uars_page(fdev->mdev);
-+	if (IS_ERR(fdev->conn_res.uar)) {
-+		err = PTR_ERR(fdev->conn_res.uar);
-+		mlx5_fpga_err(fdev, "get_uars_page failed, %d\n", err);
-+		goto err_roce;
-+	}
-+	mlx5_fpga_dbg(fdev, "Allocated UAR index %u\n",
-+		      fdev->conn_res.uar->index);
-+
-+	err = mlx5_core_alloc_pd(fdev->mdev, &fdev->conn_res.pdn);
-+	if (err) {
-+		mlx5_fpga_err(fdev, "alloc pd failed, %d\n", err);
-+		goto err_uar;
-+	}
-+	mlx5_fpga_dbg(fdev, "Allocated PD %u\n", fdev->conn_res.pdn);
-+
-+	err = mlx5_fpga_conn_create_mkey(fdev->mdev, fdev->conn_res.pdn,
-+					 &fdev->conn_res.mkey);
-+	if (err) {
-+		mlx5_fpga_err(fdev, "create mkey failed, %d\n", err);
-+		goto err_dealloc_pd;
-+	}
-+	mlx5_fpga_dbg(fdev, "Created mkey 0x%x\n", fdev->conn_res.mkey.key);
-+
-+	return 0;
-+
-+err_dealloc_pd:
-+	mlx5_core_dealloc_pd(fdev->mdev, fdev->conn_res.pdn);
-+err_uar:
-+	mlx5_put_uars_page(fdev->mdev, fdev->conn_res.uar);
-+err_roce:
-+	mlx5_nic_vport_disable_roce(fdev->mdev);
-+out:
-+	return err;
-+}
-+
-+void mlx5_fpga_conn_device_cleanup(struct mlx5_fpga_device *fdev)
-+{
-+	mlx5_core_destroy_mkey(fdev->mdev, &fdev->conn_res.mkey);
-+	mlx5_core_dealloc_pd(fdev->mdev, fdev->conn_res.pdn);
-+	mlx5_put_uars_page(fdev->mdev, fdev->conn_res.uar);
-+	mlx5_nic_vport_disable_roce(fdev->mdev);
-+}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/conn.h b/drivers/net/ethernet/mellanox/mlx5/core/fpga/conn.h
-new file mode 100644
-index 000000000000..44bd9eccc711
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/conn.h
-@@ -0,0 +1,96 @@
-+/*
-+ * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ *
-+ */
-+
-+#ifndef __MLX5_FPGA_CONN_H__
-+#define __MLX5_FPGA_CONN_H__
-+
-+#include <linux/mlx5/cq.h>
-+#include <linux/mlx5/qp.h>
-+
-+#include "fpga/core.h"
-+#include "fpga/sdk.h"
-+#include "wq.h"
-+
-+struct mlx5_fpga_conn {
-+	struct mlx5_fpga_device *fdev;
-+
-+	void (*recv_cb)(void *cb_arg, struct mlx5_fpga_dma_buf *buf);
-+	void *cb_arg;
-+
-+	/* FPGA QP */
-+	u32 fpga_qpc[MLX5_ST_SZ_DW(fpga_qpc)];
-+	u32 fpga_qpn;
-+
-+	/* CQ */
-+	struct {
-+		struct mlx5_cqwq wq;
-+		struct mlx5_frag_wq_ctrl wq_ctrl;
-+		struct mlx5_core_cq mcq;
-+		struct tasklet_struct tasklet;
-+	} cq;
-+
-+	/* QP */
-+	struct {
-+		bool active;
-+		int sgid_index;
-+		struct mlx5_wq_qp wq;
-+		struct mlx5_wq_ctrl wq_ctrl;
-+		struct mlx5_core_qp mqp;
-+		struct {
-+			spinlock_t lock; /* Protects all SQ state */
-+			unsigned int pc;
-+			unsigned int cc;
-+			unsigned int size;
-+			struct mlx5_fpga_dma_buf **bufs;
-+			struct list_head backlog;
-+		} sq;
-+		struct {
-+			unsigned int pc;
-+			unsigned int cc;
-+			unsigned int size;
-+			struct mlx5_fpga_dma_buf **bufs;
-+		} rq;
-+	} qp;
-+};
-+
-+int mlx5_fpga_conn_device_init(struct mlx5_fpga_device *fdev);
-+void mlx5_fpga_conn_device_cleanup(struct mlx5_fpga_device *fdev);
-+struct mlx5_fpga_conn *
-+mlx5_fpga_conn_create(struct mlx5_fpga_device *fdev,
-+		      struct mlx5_fpga_conn_attr *attr,
-+		      enum mlx5_ifc_fpga_qp_type qp_type);
-+void mlx5_fpga_conn_destroy(struct mlx5_fpga_conn *conn);
-+int mlx5_fpga_conn_send(struct mlx5_fpga_conn *conn,
-+			struct mlx5_fpga_dma_buf *buf);
-+
-+#endif /* __MLX5_FPGA_CONN_H__ */
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c b/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c
-index c3bb4b865f01..7f859a3ad5d2 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c
-@@ -37,6 +37,7 @@
- #include "mlx5_core.h"
- #include "lib/mlx5.h"
- #include "fpga/core.h"
-+#include "fpga/conn.h"
- 
- static const char *const mlx5_fpga_error_strings[] = {
- 	"Null Syndrome",
-@@ -127,7 +128,17 @@ int mlx5_fpga_device_start(struct mlx5_core_dev *mdev)
- 
- 	max_num_qps = MLX5_CAP_FPGA(mdev, shell_caps.max_num_qps);
- 	err = mlx5_core_reserve_gids(mdev, max_num_qps);
-+	if (err)
-+		goto out;
-+
-+	err = mlx5_fpga_conn_device_init(fdev);
-+	if (err)
-+		goto err_rsvd_gid;
-+
-+	goto out;
- 
-+err_rsvd_gid:
-+	mlx5_core_unreserve_gids(mdev, max_num_qps);
- out:
- 	spin_lock_irqsave(&fdev->state_lock, flags);
- 	fdev->state = err ? MLX5_FPGA_STATUS_FAILURE : MLX5_FPGA_STATUS_SUCCESS;
-@@ -173,6 +184,7 @@ void mlx5_fpga_device_stop(struct mlx5_core_dev *mdev)
- 	fdev->state = MLX5_FPGA_STATUS_NONE;
- 	spin_unlock_irqrestore(&fdev->state_lock, flags);
- 
-+	mlx5_fpga_conn_device_cleanup(fdev);
- 	max_num_qps = MLX5_CAP_FPGA(mdev, shell_caps.max_num_qps);
- 	mlx5_core_unreserve_gids(mdev, max_num_qps);
- }
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.h b/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.h
-index db1d22c356e0..f64fa1cdc195 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.h
-@@ -44,6 +44,13 @@ struct mlx5_fpga_device {
- 	enum mlx5_fpga_status state;
- 	enum mlx5_fpga_image last_admin_image;
- 	enum mlx5_fpga_image last_oper_image;
-+
-+	/* QP Connection resources */
-+	struct {
-+		u32 pdn;
-+		struct mlx5_core_mkey mkey;
-+		struct mlx5_uars_page *uar;
-+	} conn_res;
+ enum {
+ 	MLX5E_SQ_STATE_ENABLED,
++	MLX5E_SQ_STATE_IPSEC,
  };
  
- #define mlx5_fpga_dbg(__adev, format, ...) \
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.h b/drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.h
-new file mode 100644
-index 000000000000..331798d99a37
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.h
-@@ -0,0 +1,106 @@
-+/*
-+ * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ *
-+ */
+ struct mlx5e_sq_wqe_info {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.c b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.c
+index bb69660893ee..bac5103efad3 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.c
+@@ -399,10 +399,26 @@ void mlx5e_ipsec_cleanup(struct mlx5e_priv *priv)
+ 	priv->ipsec = NULL;
+ }
+ 
++static bool mlx5e_ipsec_offload_ok(struct sk_buff *skb, struct xfrm_state *x)
++{
++	if (x->props.family == AF_INET) {
++		/* Offload with IPv4 options is not supported yet */
++		if (ip_hdr(skb)->ihl > 5)
++			return false;
++	} else {
++		/* Offload with IPv6 extension headers is not support yet */
++		if (ipv6_ext_hdr(ipv6_hdr(skb)->nexthdr))
++			return false;
++	}
 +
-+#ifndef MLX5_FPGA_SDK_H
-+#define MLX5_FPGA_SDK_H
++	return true;
++}
 +
-+#include <linux/types.h>
-+#include <linux/dma-direction.h>
+ static const struct xfrmdev_ops mlx5e_ipsec_xfrmdev_ops = {
+ 	.xdo_dev_state_add	= mlx5e_xfrm_add_state,
+ 	.xdo_dev_state_delete	= mlx5e_xfrm_del_state,
+ 	.xdo_dev_state_free	= mlx5e_xfrm_free_state,
++	.xdo_dev_offload_ok	= mlx5e_ipsec_offload_ok,
+ };
+ 
+ void mlx5e_ipsec_build_netdev(struct mlx5e_priv *priv)
+@@ -431,4 +447,15 @@ void mlx5e_ipsec_build_netdev(struct mlx5e_priv *priv)
+ 
+ 	netdev->features |= NETIF_F_HW_ESP_TX_CSUM;
+ 	netdev->hw_enc_features |= NETIF_F_HW_ESP_TX_CSUM;
 +
-+/**
-+ * DOC: Innova SDK
-+ * This header defines the in-kernel API for Innova FPGA client drivers.
-+ */
++	if (!(mlx5_accel_ipsec_device_caps(mdev) & MLX5_ACCEL_IPSEC_LSO) ||
++	    !MLX5_CAP_ETH(mdev, swp_lso)) {
++		mlx5_core_dbg(mdev, "mlx5e: ESP LSO not supported\n");
++		return;
++	}
 +
-+struct mlx5_fpga_conn;
-+struct mlx5_fpga_device;
++	mlx5_core_dbg(mdev, "mlx5e: ESP GSO capability turned on\n");
++	netdev->features |= NETIF_F_GSO_ESP;
++	netdev->hw_features |= NETIF_F_GSO_ESP;
++	netdev->hw_enc_features |= NETIF_F_GSO_ESP;
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.h b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.h
+index 4d745d3dd4b1..ffc90b3c6ac7 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.h
+@@ -50,6 +50,11 @@ struct mlx5e_ipsec_sw_stats {
+ 	atomic64_t ipsec_rx_drop_sp_alloc;
+ 	atomic64_t ipsec_rx_drop_sadb_miss;
+ 	atomic64_t ipsec_rx_drop_syndrome;
++	atomic64_t ipsec_tx_drop_bundle;
++	atomic64_t ipsec_tx_drop_no_state;
++	atomic64_t ipsec_tx_drop_not_ip;
++	atomic64_t ipsec_tx_drop_trailer;
++	atomic64_t ipsec_tx_drop_metadata;
+ };
+ 
+ struct mlx5e_ipsec {
+@@ -60,6 +65,7 @@ struct mlx5e_ipsec {
+ 	struct mlx5e_ipsec_sw_stats sw_stats;
+ };
+ 
++void mlx5e_ipsec_build_inverse_table(void);
+ int mlx5e_ipsec_init(struct mlx5e_priv *priv);
+ void mlx5e_ipsec_cleanup(struct mlx5e_priv *priv);
+ void mlx5e_ipsec_build_netdev(struct mlx5e_priv *priv);
+@@ -69,6 +75,10 @@ struct xfrm_state *mlx5e_ipsec_sadb_rx_lookup(struct mlx5e_ipsec *dev,
+ 
+ #else
+ 
++static inline void mlx5e_ipsec_build_inverse_table(void)
++{
++}
 +
-+/**
-+ * struct mlx5_fpga_dma_entry - A scatter-gather DMA entry
-+ */
-+struct mlx5_fpga_dma_entry {
-+	/** @data: Virtual address pointer to the data */
-+	void *data;
-+	/** @size: Size in bytes of the data */
-+	unsigned int size;
-+	/** @dma_addr: Private member. Physical DMA-mapped address of the data */
-+	dma_addr_t dma_addr;
+ static inline int mlx5e_ipsec_init(struct mlx5e_priv *priv)
+ {
+ 	return 0;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.c
+index 56ab2e80553e..4a78aefdf157 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.c
+@@ -33,6 +33,7 @@
+ 
+ #include <crypto/aead.h>
+ #include <net/xfrm.h>
++#include <net/esp.h>
+ 
+ #include "en_accel/ipsec_rxtx.h"
+ #include "en_accel/ipsec.h"
+@@ -48,17 +49,228 @@ struct mlx5e_ipsec_rx_metadata {
+ 	__be32		sa_handle;
+ } __packed;
+ 
++enum {
++	MLX5E_IPSEC_TX_SYNDROME_OFFLOAD = 0x8,
++	MLX5E_IPSEC_TX_SYNDROME_OFFLOAD_WITH_LSO_TCP = 0x9,
 +};
 +
-+/**
-+ * struct mlx5_fpga_dma_buf - A packet buffer
-+ * May contain up to 2 scatter-gather data entries
-+ */
-+struct mlx5_fpga_dma_buf {
-+	/** @dma_dir: DMA direction */
-+	enum dma_data_direction dma_dir;
-+	/** @sg: Scatter-gather entries pointing to the data in memory */
-+	struct mlx5_fpga_dma_entry sg[2];
-+	/** @list: Item in SQ backlog, for TX packets */
-+	struct list_head list;
-+	/**
-+	 * @complete: Completion routine, for TX packets
-+	 * @conn: FPGA Connection this packet was sent to
-+	 * @fdev: FPGA device this packet was sent to
-+	 * @buf: The packet buffer
-+	 * @status: 0 if successful, or an error code otherwise
-+	 */
-+	void (*complete)(struct mlx5_fpga_conn *conn,
-+			 struct mlx5_fpga_device *fdev,
-+			 struct mlx5_fpga_dma_buf *buf, u8 status);
-+};
++struct mlx5e_ipsec_tx_metadata {
++	__be16 mss_inv;         /* 1/MSS in 16bit fixed point, only for LSO */
++	__be16 seq;             /* LSBs of the first TCP seq, only for LSO */
++	u8     esp_next_proto;  /* Next protocol of ESP */
++} __packed;
 +
-+/**
-+ * struct mlx5_fpga_conn_attr - FPGA connection attributes
-+ * Describes the attributes of a connection
-+ */
-+struct mlx5_fpga_conn_attr {
-+	/** @tx_size: Size of connection TX queue, in packets */
-+	unsigned int tx_size;
-+	/** @rx_size: Size of connection RX queue, in packets */
-+	unsigned int rx_size;
-+	/**
-+	 * @recv_cb: Callback function which is called for received packets
-+	 * @cb_arg: The value provided in mlx5_fpga_conn_attr.cb_arg
-+	 * @buf: A buffer containing a received packet
+ struct mlx5e_ipsec_metadata {
+ 	unsigned char syndrome;
+ 	union {
+ 		unsigned char raw[5];
+ 		/* from FPGA to host, on successful decrypt */
+ 		struct mlx5e_ipsec_rx_metadata rx;
++		/* from host to FPGA */
++		struct mlx5e_ipsec_tx_metadata tx;
+ 	} __packed content;
+ 	/* packet type ID field	*/
+ 	__be16 ethertype;
+ } __packed;
+ 
++#define MAX_LSO_MSS 2048
++
++/* Pre-calculated (Q0.16) fixed-point inverse 1/x function */
++static __be16 mlx5e_ipsec_inverse_table[MAX_LSO_MSS];
++
++static inline __be16 mlx5e_ipsec_mss_inv(struct sk_buff *skb)
++{
++	return mlx5e_ipsec_inverse_table[skb_shinfo(skb)->gso_size];
++}
++
++static struct mlx5e_ipsec_metadata *mlx5e_ipsec_add_metadata(struct sk_buff *skb)
++{
++	struct mlx5e_ipsec_metadata *mdata;
++	struct ethhdr *eth;
++
++	if (unlikely(skb_cow_head(skb, sizeof(*mdata))))
++		return ERR_PTR(-ENOMEM);
++
++	eth = (struct ethhdr *)skb_push(skb, sizeof(*mdata));
++	skb->mac_header -= sizeof(*mdata);
++	mdata = (struct mlx5e_ipsec_metadata *)(eth + 1);
++
++	memmove(skb->data, skb->data + sizeof(*mdata),
++		2 * ETH_ALEN);
++
++	eth->h_proto = cpu_to_be16(MLX5E_METADATA_ETHER_TYPE);
++
++	memset(mdata->content.raw, 0, sizeof(mdata->content.raw));
++	return mdata;
++}
++
++static int mlx5e_ipsec_remove_trailer(struct sk_buff *skb, struct xfrm_state *x)
++{
++	unsigned int alen = crypto_aead_authsize(x->data);
++	struct ipv6hdr *ipv6hdr = ipv6_hdr(skb);
++	struct iphdr *ipv4hdr = ip_hdr(skb);
++	unsigned int trailer_len;
++	u8 plen;
++	int ret;
++
++	ret = skb_copy_bits(skb, skb->len - alen - 2, &plen, 1);
++	if (unlikely(ret))
++		return ret;
++
++	trailer_len = alen + plen + 2;
++
++	pskb_trim(skb, skb->len - trailer_len);
++	if (skb->protocol == htons(ETH_P_IP)) {
++		ipv4hdr->tot_len = htons(ntohs(ipv4hdr->tot_len) - trailer_len);
++		ip_send_check(ipv4hdr);
++	} else {
++		ipv6hdr->payload_len = htons(ntohs(ipv6hdr->payload_len) -
++					     trailer_len);
++	}
++	return 0;
++}
++
++static void mlx5e_ipsec_set_swp(struct sk_buff *skb,
++				struct mlx5_wqe_eth_seg *eseg, u8 mode,
++				struct xfrm_offload *xo)
++{
++	u8 proto;
++
++	/* Tunnel Mode:
++	 * SWP:      OutL3       InL3  InL4
++	 * Pkt: MAC  IP     ESP  IP    L4
 +	 *
-+	 * buf is guaranteed to only contain a single scatter-gather entry.
-+	 * The size of the actual packet received is specified in buf.sg[0].size
-+	 * When this callback returns, the packet buffer may be re-used for
-+	 * subsequent receives.
++	 * Transport Mode:
++	 * SWP:      OutL3       InL4
++	 *           InL3
++	 * Pkt: MAC  IP     ESP  L4
++	 *
++	 * Offsets are in 2-byte words, counting from start of frame
 +	 */
-+	void (*recv_cb)(void *cb_arg, struct mlx5_fpga_dma_buf *buf);
-+	void *cb_arg;
-+};
++	eseg->swp_outer_l3_offset = skb_network_offset(skb) / 2;
++	if (skb->protocol == htons(ETH_P_IPV6))
++		eseg->swp_flags |= MLX5_ETH_WQE_SWP_OUTER_L3_IPV6;
 +
-+#endif /* MLX5_FPGA_SDK_H */
++	if (mode == XFRM_MODE_TUNNEL) {
++		eseg->swp_inner_l3_offset = skb_inner_network_offset(skb) / 2;
++		if (xo->proto == IPPROTO_IPV6) {
++			eseg->swp_flags |= MLX5_ETH_WQE_SWP_INNER_L3_IPV6;
++			proto = inner_ipv6_hdr(skb)->nexthdr;
++		} else {
++			proto = inner_ip_hdr(skb)->protocol;
++		}
++	} else {
++		eseg->swp_inner_l3_offset = skb_network_offset(skb) / 2;
++		if (skb->protocol == htons(ETH_P_IPV6))
++			eseg->swp_flags |= MLX5_ETH_WQE_SWP_INNER_L3_IPV6;
++		proto = xo->proto;
++	}
++	switch (proto) {
++	case IPPROTO_UDP:
++		eseg->swp_flags |= MLX5_ETH_WQE_SWP_INNER_L4_UDP;
++		/* Fall through */
++	case IPPROTO_TCP:
++		eseg->swp_inner_l4_offset = skb_inner_transport_offset(skb) / 2;
++		break;
++	}
++}
++
++static void mlx5e_ipsec_set_iv(struct sk_buff *skb, struct xfrm_offload *xo)
++{
++	int iv_offset;
++	__be64 seqno;
++
++	/* Place the SN in the IV field */
++	seqno = cpu_to_be64(xo->seq.low + ((u64)xo->seq.hi << 32));
++	iv_offset = skb_transport_offset(skb) + sizeof(struct ip_esp_hdr);
++	skb_store_bits(skb, iv_offset, &seqno, 8);
++}
++
++static void mlx5e_ipsec_set_metadata(struct sk_buff *skb,
++				     struct mlx5e_ipsec_metadata *mdata,
++				     struct xfrm_offload *xo)
++{
++	struct ip_esp_hdr *esph;
++	struct tcphdr *tcph;
++
++	if (skb_is_gso(skb)) {
++		/* Add LSO metadata indication */
++		esph = ip_esp_hdr(skb);
++		tcph = inner_tcp_hdr(skb);
++		netdev_dbg(skb->dev, "   Offloading GSO packet outer L3 %u; L4 %u; Inner L3 %u; L4 %u\n",
++			   skb->network_header,
++			   skb->transport_header,
++			   skb->inner_network_header,
++			   skb->inner_transport_header);
++		netdev_dbg(skb->dev, "   Offloading GSO packet of len %u; mss %u; TCP sp %u dp %u seq 0x%x ESP seq 0x%x\n",
++			   skb->len, skb_shinfo(skb)->gso_size,
++			   ntohs(tcph->source), ntohs(tcph->dest),
++			   ntohl(tcph->seq), ntohl(esph->seq_no));
++		mdata->syndrome = MLX5E_IPSEC_TX_SYNDROME_OFFLOAD_WITH_LSO_TCP;
++		mdata->content.tx.mss_inv = mlx5e_ipsec_mss_inv(skb);
++		mdata->content.tx.seq = htons(ntohl(tcph->seq) & 0xFFFF);
++	} else {
++		mdata->syndrome = MLX5E_IPSEC_TX_SYNDROME_OFFLOAD;
++	}
++	mdata->content.tx.esp_next_proto = xo->proto;
++
++	netdev_dbg(skb->dev, "   TX metadata syndrome %u proto %u mss_inv %04x seq %04x\n",
++		   mdata->syndrome, mdata->content.tx.esp_next_proto,
++		   ntohs(mdata->content.tx.mss_inv),
++		   ntohs(mdata->content.tx.seq));
++}
++
++struct sk_buff *mlx5e_ipsec_handle_tx_skb(struct net_device *netdev,
++					  struct mlx5e_tx_wqe *wqe,
++					  struct sk_buff *skb)
++{
++	struct mlx5e_priv *priv = netdev_priv(netdev);
++	struct xfrm_offload *xo = xfrm_offload(skb);
++	struct mlx5e_ipsec_metadata *mdata;
++	struct xfrm_state *x;
++
++	if (!xo)
++		return skb;
++
++	if (unlikely(skb->sp->len != 1)) {
++		atomic64_inc(&priv->ipsec->sw_stats.ipsec_tx_drop_bundle);
++		goto drop;
++	}
++
++	x = xfrm_input_state(skb);
++	if (unlikely(!x)) {
++		atomic64_inc(&priv->ipsec->sw_stats.ipsec_tx_drop_no_state);
++		goto drop;
++	}
++
++	if (unlikely(!x->xso.offload_handle ||
++		     (skb->protocol != htons(ETH_P_IP) &&
++		      skb->protocol != htons(ETH_P_IPV6)))) {
++		atomic64_inc(&priv->ipsec->sw_stats.ipsec_tx_drop_not_ip);
++		goto drop;
++	}
++
++	if (!skb_is_gso(skb))
++		if (unlikely(mlx5e_ipsec_remove_trailer(skb, x))) {
++			atomic64_inc(&priv->ipsec->sw_stats.ipsec_tx_drop_trailer);
++			goto drop;
++		}
++	mdata = mlx5e_ipsec_add_metadata(skb);
++	if (unlikely(IS_ERR(mdata))) {
++		atomic64_inc(&priv->ipsec->sw_stats.ipsec_tx_drop_metadata);
++		goto drop;
++	}
++	mlx5e_ipsec_set_swp(skb, &wqe->eth, x->props.mode, xo);
++	mlx5e_ipsec_set_iv(skb, xo);
++	mlx5e_ipsec_set_metadata(skb, mdata, xo);
++
++	return skb;
++
++drop:
++	kfree_skb(skb);
++	return NULL;
++}
++
+ static inline struct xfrm_state *
+ mlx5e_ipsec_build_sp(struct net_device *netdev, struct sk_buff *skb,
+ 		     struct mlx5e_ipsec_metadata *mdata)
+@@ -133,3 +345,34 @@ struct sk_buff *mlx5e_ipsec_handle_rx_skb(struct net_device *netdev,
+ 
+ 	return skb;
+ }
++
++bool mlx5e_ipsec_feature_check(struct sk_buff *skb, struct net_device *netdev,
++			       netdev_features_t features)
++{
++	struct xfrm_state *x;
++
++	if (skb->sp && skb->sp->len) {
++		x = skb->sp->xvec[0];
++		if (x && x->xso.offload_handle)
++			return true;
++	}
++	return false;
++}
++
++void mlx5e_ipsec_build_inverse_table(void)
++{
++	u16 mss_inv;
++	u32 mss;
++
++	/* Calculate 1/x inverse table for use in GSO data path.
++	 * Using this table, we provide the IPSec accelerator with the value of
++	 * 1/gso_size so that it can infer the position of each segment inside
++	 * the GSO, and increment the ESP sequence number, and generate the IV.
++	 * The HW needs this value in Q0.16 fixed-point number format
++	 */
++	mlx5e_ipsec_inverse_table[1] = htons(0xFFFF);
++	for (mss = 2; mss < MAX_LSO_MSS; mss++) {
++		mss_inv = ((1ULL << 32) / mss) >> 16;
++		mlx5e_ipsec_inverse_table[mss] = htons(mss_inv);
++	}
++}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.h b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.h
+index 4e2fab8c5d74..e37ae2598dbb 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.h
+@@ -34,6 +34,8 @@
+ #ifndef __MLX5E_IPSEC_RXTX_H__
+ #define __MLX5E_IPSEC_RXTX_H__
+ 
++#ifdef CONFIG_MLX5_EN_IPSEC
++
+ #include <linux/skbuff.h>
+ #include "en.h"
+ 
+@@ -41,4 +43,13 @@ struct sk_buff *mlx5e_ipsec_handle_rx_skb(struct net_device *netdev,
+ 					  struct sk_buff *skb);
+ void mlx5e_ipsec_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe);
+ 
+-#endif	/* __MLX5E_IPSEC_RXTX_H__ */
++void mlx5e_ipsec_inverse_table_init(void);
++bool mlx5e_ipsec_feature_check(struct sk_buff *skb, struct net_device *netdev,
++			       netdev_features_t features);
++struct sk_buff *mlx5e_ipsec_handle_tx_skb(struct net_device *netdev,
++					  struct mlx5e_tx_wqe *wqe,
++					  struct sk_buff *skb);
++
++#endif /* CONFIG_MLX5_EN_IPSEC */
++
++#endif /* __MLX5E_IPSEC_RXTX_H__ */
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 170a9378d1f7..a037bd7edb46 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -1114,6 +1114,8 @@ static int mlx5e_alloc_txqsq(struct mlx5e_channel *c,
+ 	sq->uar_map   = mdev->mlx5e_res.bfreg.map;
+ 	sq->max_inline      = params->tx_max_inline;
+ 	sq->min_inline_mode = params->tx_min_inline_mode;
++	if (MLX5_IPSEC_DEV(c->priv->mdev))
++		set_bit(MLX5E_SQ_STATE_IPSEC, &sq->state);
+ 
+ 	param->wq.db_numa_node = cpu_to_node(c->cpu);
+ 	err = mlx5_wq_cyc_create(mdev, &param->wq, sqc_wq, &sq->wq, &sq->wq_ctrl);
+@@ -1933,6 +1935,7 @@ static void mlx5e_build_sq_param(struct mlx5e_priv *priv,
+ 
+ 	mlx5e_build_sq_param_common(priv, param);
+ 	MLX5_SET(wq, wq, log_wq_sz, params->log_sq_size);
++	MLX5_SET(sqc, sqc, allow_swp, !!MLX5_IPSEC_DEV(priv->mdev));
+ }
+ 
+ static void mlx5e_build_common_cq_param(struct mlx5e_priv *priv,
+@@ -3527,6 +3530,11 @@ static netdev_features_t mlx5e_features_check(struct sk_buff *skb,
+ 	features = vlan_features_check(skb, features);
+ 	features = vxlan_features_check(skb, features);
+ 
++#ifdef CONFIG_MLX5_EN_IPSEC
++	if (mlx5e_ipsec_feature_check(skb, netdev, features))
++		return features;
++#endif
++
+ 	/* Validate if the tunneled packet is being offloaded by HW */
+ 	if (skb->encapsulation &&
+ 	    (features & NETIF_F_CSUM_MASK || features & NETIF_F_GSO_MASK))
+@@ -4505,6 +4513,7 @@ static struct mlx5_interface mlx5e_interface = {
+ 
+ void mlx5e_init(void)
+ {
++	mlx5e_ipsec_build_inverse_table();
+ 	mlx5e_build_ptys2ethtool_map();
+ 	mlx5_register_interface(&mlx5e_interface);
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+index ccec3b00e17c..aaa0f4ebba9a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+@@ -34,6 +34,7 @@
+ #include <linux/if_vlan.h>
+ #include "en.h"
+ #include "ipoib/ipoib.h"
++#include "en_accel/ipsec_rxtx.h"
+ 
+ #define MLX5E_SQ_NOPS_ROOM  MLX5_SEND_WQE_MAX_WQEBBS
+ #define MLX5E_SQ_STOP_ROOM (MLX5_SEND_WQE_MAX_WQEBBS +\
+@@ -299,12 +300,9 @@ mlx5e_txwqe_complete(struct mlx5e_txqsq *sq, struct sk_buff *skb,
+ 	}
+ }
+ 
+-static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_txqsq *sq, struct sk_buff *skb)
++static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_txqsq *sq, struct sk_buff *skb,
++				 struct mlx5e_tx_wqe *wqe, u16 pi)
+ {
+-	struct mlx5_wq_cyc       *wq   = &sq->wq;
+-
+-	u16 pi = sq->pc & wq->sz_m1;
+-	struct mlx5e_tx_wqe      *wqe  = mlx5_wq_cyc_get_wqe(wq, pi);
+ 	struct mlx5e_tx_wqe_info *wi   = &sq->db.wqe_info[pi];
+ 
+ 	struct mlx5_wqe_ctrl_seg *cseg = &wqe->ctrl;
+@@ -319,8 +317,6 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_txqsq *sq, struct sk_buff *skb)
+ 	u16 ds_cnt;
+ 	u16 ihs;
+ 
+-	memset(wqe, 0, sizeof(*wqe));
+-
+ 	mlx5e_txwqe_build_eseg_csum(sq, skb, eseg);
+ 
+ 	if (skb_is_gso(skb)) {
+@@ -375,8 +371,21 @@ netdev_tx_t mlx5e_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(dev);
+ 	struct mlx5e_txqsq *sq = priv->txq2sq[skb_get_queue_mapping(skb)];
++	struct mlx5_wq_cyc *wq = &sq->wq;
++	u16 pi = sq->pc & wq->sz_m1;
++	struct mlx5e_tx_wqe *wqe = mlx5_wq_cyc_get_wqe(wq, pi);
++
++	memset(wqe, 0, sizeof(*wqe));
++
++#ifdef CONFIG_MLX5_EN_IPSEC
++	if (sq->state & BIT(MLX5E_SQ_STATE_IPSEC)) {
++		skb = mlx5e_ipsec_handle_tx_skb(dev, wqe, skb);
++		if (unlikely(!skb))
++			return NETDEV_TX_OK;
++	}
++#endif
+ 
+-	return mlx5e_sq_xmit(sq, skb);
++	return mlx5e_sq_xmit(sq, skb, wqe, pi);
+ }
+ 
+ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq, int napi_budget)
 -- 
 2.11.0
