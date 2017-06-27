@@ -1,8 +1,8 @@
 From: Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: [PATCH v3 net-next 10/12] selftests/bpf: don't try to
- access past MAX_PACKET_OFF in test_verifier
-Date: Tue, 27 Jun 2017 13:59:59 +0100
-Message-ID: <102f1d85-6b04-a654-6333-97483dbe5b10@solarflare.com>
+Subject: [PATCH v3 net-next 12/12] selftests/bpf: variable
+ offset negative tests
+Date: Tue, 27 Jun 2017 14:00:34 +0100
+Message-ID: <5de60ded-e025-1df6-adc3-ca101b123901@solarflare.com>
 References: <adc11342-737f-4e06-bce3-f0a92b5594a5@solarflare.com>
 Reply-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 Mime-Version: 1.0
@@ -25,29 +25,63 @@ Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-"direct packet access: test2" was potentially reading four bytes from
- pkt + 0xffff, which could take it past the verifier's limit, causing
- the program to be rejected.
-Increase the shifts by one so that R2 is now mask 0x7fff instead of
- mask 0xffff.
+Variable ctx accesses and stack accesses aren't allowed, because we can't
+ determine what type of value will be read.
 
 Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 ---
- tools/testing/selftests/bpf/test_verifier.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ tools/testing/selftests/bpf/test_verifier.c | 41 +++++++++++++++++++++++++++++
+ 1 file changed, 41 insertions(+)
 
 diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
-index 210a031..7df3c34 100644
+index 7df3c34..471fbee 100644
 --- a/tools/testing/selftests/bpf/test_verifier.c
 +++ b/tools/testing/selftests/bpf/test_verifier.c
-@@ -2330,8 +2330,8 @@ static struct bpf_test tests[] = {
- 				    offsetof(struct __sk_buff, data)),
- 			BPF_ALU64_REG(BPF_ADD, BPF_REG_3, BPF_REG_4),
- 			BPF_MOV64_REG(BPF_REG_2, BPF_REG_1),
--			BPF_ALU64_IMM(BPF_LSH, BPF_REG_2, 48),
--			BPF_ALU64_IMM(BPF_RSH, BPF_REG_2, 48),
-+			BPF_ALU64_IMM(BPF_LSH, BPF_REG_2, 49),
-+			BPF_ALU64_IMM(BPF_RSH, BPF_REG_2, 49),
- 			BPF_ALU64_REG(BPF_ADD, BPF_REG_3, BPF_REG_2),
- 			BPF_MOV64_REG(BPF_REG_2, BPF_REG_3),
- 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, 8),
+@@ -5311,6 +5311,47 @@ static struct bpf_test tests[] = {
+ 		.errstr = "R0 min value is negative, either use unsigned index or do a if (index >=0) check.",
+ 		.result = REJECT,
+ 	},
++	{
++		"variable-offset ctx access",
++		.insns = {
++			/* Get an unknown value */
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1, 0),
++			/* Make it small and 4-byte aligned */
++			BPF_ALU64_IMM(BPF_AND, BPF_REG_2, 4),
++			/* add it to skb.  We now have either &skb->len or
++			 * &skb->pkt_type, but we don't know which
++			 */
++			BPF_ALU64_REG(BPF_ADD, BPF_REG_1, BPF_REG_2),
++			/* dereference it */
++			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1, 0),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "variable ctx access var_off=(0x0; 0x4)",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_LWT_IN,
++	},
++	{
++		"variable-offset stack access",
++		.insns = {
++			/* Fill the top 8 bytes of the stack */
++			BPF_ST_MEM(BPF_DW, BPF_REG_10, -8, 0),
++			/* Get an unknown value */
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1, 0),
++			/* Make it small and 4-byte aligned */
++			BPF_ALU64_IMM(BPF_AND, BPF_REG_2, 4),
++			BPF_ALU64_IMM(BPF_SUB, BPF_REG_2, 8),
++			/* add it to fp.  We now have either fp-4 or fp-8, but
++			 * we don't know which
++			 */
++			BPF_ALU64_REG(BPF_ADD, BPF_REG_2, BPF_REG_10),
++			/* dereference it */
++			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_2, 0),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "variable stack access var_off=(0xfffffffffffffff8; 0x4)",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_LWT_IN,
++	},
+ };
+ 
+ static int probe_filter_length(const struct bpf_insn *fp)
