@@ -1,59 +1,90 @@
-From: thor.thayer@linux.intel.com
-Subject: [PATCH] net: stmmac: Add additional registers for dwmac1000_dma ethtool
-Date: Tue, 27 Jun 2017 17:16:27 -0500
-Message-ID: <1498601787-17390-1-git-send-email-thor.thayer@linux.intel.com>
-Cc: netdev@vger.kernel.org, Thor Thayer <thor.thayer@linux.intel.com>
-To: peppe.cavallaro@st.com, alexandre.torgue@st.com
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [net-next v2 6/6] ixgbe: Add malicious driver detection support
+Date: Tue, 27 Jun 2017 22:14:10 +0000
+Message-ID: <87618083B2453E4A8714035B62D67992B3E89F1D@FMSMSX105.amr.corp.intel.com>
+References: <20170627085131.9831-1-jeffrey.t.kirsher@intel.com>
+ <20170627085131.9831-7-jeffrey.t.kirsher@intel.com>
+ <CAJ3xEMiEjGDUatUv47wNTfYPfCVo62+Jjs-xFU3ccN0iJm-5Gg@mail.gmail.com>
+ <87618083B2453E4A8714035B62D67992B3E89EA6@FMSMSX105.amr.corp.intel.com>
+ <CAJ3xEMgT62xt=TdFyY9vfRG+eOqvcLT+5m1WSGPtexygyrcB+w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        David Miller <davem@davemloft.net>,
+        "Greenwalt, Paul" <paul.greenwalt@intel.com>,
+        "Linux Netdev List" <netdev@vger.kernel.org>,
+        "nhorman@redhat.com" <nhorman@redhat.com>,
+        "sassmann@redhat.com" <sassmann@redhat.com>,
+        "jogreene@redhat.com" <jogreene@redhat.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([134.134.136.100]:29634 "EHLO mga07.intel.com"
+Received: from mga07.intel.com ([134.134.136.100]:59256 "EHLO mga07.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751724AbdF0WN2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 27 Jun 2017 18:13:28 -0400
+        id S1753461AbdF0WOM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 27 Jun 2017 18:14:12 -0400
+In-Reply-To: <CAJ3xEMgT62xt=TdFyY9vfRG+eOqvcLT+5m1WSGPtexygyrcB+w@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thor Thayer <thor.thayer@linux.intel.com>
-
-Version 3.70a of the Designware has additional DMA registers so
-add those to the ethtool DMA Register dump.
-Offset 9  - Receive Interrupt Watchdog Timer Register
-Offset 10 - AXI Bus Mode Register
-Offset 11 - AHB or AXI Status Register
-Offset 22 - HW Feature Register
-
-Signed-off-by: Thor Thayer <thor.thayer@linux.intel.com>
----
- drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c  | 4 ++--
- drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c | 2 +-
- 2 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-index 471a9aa..22cf635 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-@@ -205,8 +205,8 @@ static void dwmac1000_dump_dma_regs(void __iomem *ioaddr, u32 *reg_space)
- {
- 	int i;
- 
--	for (i = 0; i < 22; i++)
--		if ((i < 9) || (i > 17))
-+	for (i = 0; i < 23; i++)
-+		if ((i < 12) || (i > 17))
- 			reg_space[DMA_BUS_MODE / 4 + i] =
- 				readl(ioaddr + DMA_BUS_MODE + i * 4);
- }
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index 743170d..babb39c 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -29,7 +29,7 @@
- #include "stmmac.h"
- #include "dwmac_dma.h"
- 
--#define REG_SPACE_SIZE	0x1054
-+#define REG_SPACE_SIZE	0x1060
- #define MAC100_ETHTOOL_NAME	"st_mac100"
- #define GMAC_ETHTOOL_NAME	"st_gmac"
- 
--- 
-2.7.4
+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogT3IgR2VybGl0eiBbbWFpbHRvOmdl
+cmxpdHoub3JAZ21haWwuY29tXQ0KPlNlbnQ6IFR1ZXNkYXksIEp1bmUgMjcsIDIwMTcgMjowNyBQ
+TQ0KPlRvOiBUYW50aWxvdiwgRW1pbCBTIDxlbWlsLnMudGFudGlsb3ZAaW50ZWwuY29tPg0KPkNj
+OiBLaXJzaGVyLCBKZWZmcmV5IFQgPGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT47IERhdmlk
+IE1pbGxlcg0KPjxkYXZlbUBkYXZlbWxvZnQubmV0PjsgR3JlZW53YWx0LCBQYXVsIDxwYXVsLmdy
+ZWVud2FsdEBpbnRlbC5jb20+OyBMaW51eA0KPk5ldGRldiBMaXN0IDxuZXRkZXZAdmdlci5rZXJu
+ZWwub3JnPjsgbmhvcm1hbkByZWRoYXQuY29tOw0KPnNhc3NtYW5uQHJlZGhhdC5jb207IGpvZ3Jl
+ZW5lQHJlZGhhdC5jb20NCj5TdWJqZWN0OiBSZTogW25ldC1uZXh0IHYyIDYvNl0gaXhnYmU6IEFk
+ZCBtYWxpY2lvdXMgZHJpdmVyIGRldGVjdGlvbg0KPnN1cHBvcnQNCj4NCj5PbiBUdWUsIEp1biAy
+NywgMjAxNyBhdCAxMTo1OSBQTSwgVGFudGlsb3YsIEVtaWwgUw0KPjxlbWlsLnMudGFudGlsb3ZA
+aW50ZWwuY29tPiB3cm90ZToNCj4+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+Pj5Gcm9t
+OiBuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIu
+a2VybmVsLm9yZ10NCj5Pbg0KPj4+QmVoYWxmIE9mIE9yIEdlcmxpdHoNCj4+PlNlbnQ6IFR1ZXNk
+YXksIEp1bmUgMjcsIDIwMTcgMjowOCBBTQ0KPj4+VG86IEtpcnNoZXIsIEplZmZyZXkgVCA8amVm
+ZnJleS50LmtpcnNoZXJAaW50ZWwuY29tPg0KPj4+Q2M6IERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2
+ZW1sb2Z0Lm5ldD47IEdyZWVud2FsdCwgUGF1bA0KPj4+PHBhdWwuZ3JlZW53YWx0QGludGVsLmNv
+bT47IExpbnV4IE5ldGRldiBMaXN0IDxuZXRkZXZAdmdlci5rZXJuZWwub3JnPjsNCj4+Pm5ob3Jt
+YW5AcmVkaGF0LmNvbTsgc2Fzc21hbm5AcmVkaGF0LmNvbTsgam9ncmVlbmVAcmVkaGF0LmNvbQ0K
+Pj4+U3ViamVjdDogUmU6IFtuZXQtbmV4dCB2MiA2LzZdIGl4Z2JlOiBBZGQgbWFsaWNpb3VzIGRy
+aXZlciBkZXRlY3Rpb24NCj4+PnN1cHBvcnQNCj4+Pg0KPj4+T24gVHVlLCBKdW4gMjcsIDIwMTcg
+YXQgMTE6NTEgQU0sIEplZmYgS2lyc2hlcg0KPj4+PGplZmZyZXkudC5raXJzaGVyQGludGVsLmNv
+bT4gd3JvdGU6DQo+Pj4+IEZyb206IFBhdWwgR3JlZW53YWx0IDxwYXVsLmdyZWVud2FsdEBpbnRl
+bC5jb20+DQo+Pj4+DQo+Pj4+IEFkZCBtYWxpY2lvdXMgZHJpdmVyIGRldGVjdGlvbiAoTUREKSBz
+dXBwb3J0IGZvciBYNTUwLCBYNTUwZW1fYSwNCj4+Pj4gYW5kIFg1NTBlbV94IGRldmljZXMuDQo+
+Pj4+DQo+Pj4+IE1ERCBpcyBhIGhhcmR3YXJlIFNSLUlPViBzZWN1cml0eSBmZWF0dXJlIHdoaWNo
+IHRoZSBkcml2ZXIgZW5hYmxlcyBieQ0KPj4+PiBkZWZhdWx0LCBidXQgY2FuIGJlIGNvbnRyb2xs
+ZWQgb258b2ZmIGJ5IGV0aHRvb2wgc2V0LXByaXYtZmxhZ3MNCj4+Pg0KPj4+d2FpdCwgd2UgaGF2
+ZSB0aGUgdHJ1c3RlZCB2ZiBjb25jZXB0LCB3aGljaCB5b3UgaW1wbGVtZW50DQo+Pj4oaXhnYmVf
+bmRvX3NldF92Zl90cnVzdCkNCj4+PnNvIHlvdSBjYW4gZW5hYmxlIGJ5IGRlZmF1bHQgZm9yIGFs
+bCB2ZnMgYW5kIGRpc2FibGUgaXQgZm9yIHRydXN0ZWQNCj4+Pm9uZXMsIHdoeSBjcmVhdGVbXSAg
+YW4gaXhnYmUgc3BlY2lhbCBjb25maWcga25vYj8gSU1ITyB3ZSBzaG91bGQgbWF4IGFsbA0KPnBv
+c3NpYmxlIGVmZm9ydHMgdG8NCj4+PmF2b2lkIHByaXYgZXRodG9vbCBmbGFncyB1c2FnZS4NCj4+
+DQo+PiBUaGUgInRydXN0ZWQiIG9wdGlvbiB3YXMgYWRkZWQgdG8gYWxsb3cgdXNlIGNhc2VzIHRo
+YXQgd2VyZSBub3QgcG9zc2libGUgaW4gdGhlDQo+PiBkZWZhdWx0IGRyaXZlciBjb25maWd1cmF0
+aW9uIGZvciBTUklPViAocHJvbWlzY3VvdXMgbW9kZSwgb3ZlcnJpZGluZyB0aGUgTUFDKS4NCj4+
+IFdoaWxlIHRoZXNlIG1vZGVzIGNhbiBsZWFkIHRvIGlzc3VlcyAocGVyZm9ybWFuY2Ugd2l0aCBw
+cm9taXNjKSB0aGV5IGNhbiBzdGlsbA0KPj4gYmUgdXNlZnVsIGZvciBjZXJ0YWluIGNvbmZpZ3Vy
+YXRpb25zLg0KPj4NCj4+IE1ERCBpcyBhIGNvbXBsZXRlbHkgZGlmZmVyZW50IHR5cGUgb2YgcHJv
+dGVjdGlvbiB0aGF0IGluY29ycG9yYXRlcyBjaGVja3MgZm9yDQo+PiBxdWV1ZSBjb250ZXh0LCBU
+eCBkZXNjcmlwdG9ycyBhbmQgb3V0LW9mLWJvdW5kcyBETUEvbWVtb3J5IGFjY2VzcyB0aGF0IGNh
+bg0KPj4gZGlzcnVwdCB0aGUgb3BlcmF0aW9uIG9mIHRoZSBpbnRlcmZhY2VzLiBZb3UgY2FuIHJl
+YWQgbW9yZSBhYm91dCBpdCBpbiB0aGUgWDU1MA0KPj4gZGF0YXNoZWV0IChzZWN0aW9uIDcuOS40
+LjMgbWFsaWNpb3VzIERyaXZlciBEZXRlY3Rpb24pOg0KPj4NCj5odHRwczovL3d3dy5pbnRlbC5j
+b20vY29udGVudC93d3cvdXMvZW4vZW1iZWRkZWQvcHJvZHVjdHMvbmV0d29ya2luZy9ldGhlcm4N
+Cj5ldC1jb250cm9sbGVyLXg1NTAtZmFtaWx5LWRvY3VtZW50YXRpb24uaHRtbA0KPj4NCj4+IEZv
+ciB0aGF0IHJlYXNvbiB3ZSBkbyBub3Qgd2FudCB0byBtYWtlIGl0IHBhcnQgb2YgdGhlICJ0cnVz
+dGVkIiBvcHRpb24uDQo+DQo+eW91IGNhbiBleHRlbmQgdGhlIHRydXN0ZWQgb3B0aW9uIHdpdGhv
+dXQgYnJlYWtpbmcgdGhlIFVBUEksIGN1cnJlbnRseQ0KPml0J3Mgb25lIGJpdCB5L24sIGJ1dCB5
+b3Ugc2hvdWxkIGhhdmUgdGhlcmUgYXQgbGVhc3Qgc2V2ZW4gbW9yZSBiaXRzDQo+dG8gdXNlLg0K
+Pg0KPj4gSW4gYWRkaXRpb24gTUREIGlzIGEgZ2xvYmFsIHNldHRpbmcgYW5kIGNhbm5vdCBiZSBj
+b25maWd1cmVkIHBlci1WRi4NCj4NCj5jYW4geW91IHN0YXRlIG1vcmUgY2xlYXJseSB3aHkgdXNl
+IHRoaW5rIHRoZSByaWdodCBjb25maWd1cmF0aW9uIGtub2INCj5oZXJlIGlzIHBlciBkcml2ZXIg
+ZXRodG9vbCBwcml2YXRlIGZsYWc/DQoNCk1haW5seSBiZWNhdXNlIEkgYW0gbm90IHN1cmUgdGhh
+dCBvdGhlciAobm9uLUludGVsKSBkcml2ZXJzIHdpbGwgYmVuZWZpdCBmcm9tDQpzdWNoIGFuIG9w
+dGlvbi4gSW4gbm9ybWFsIG9wZXJhdGlvbiB0aGlzIGZ1bmN0aW9uYWxpdHkgc2hvdWxkIG5vdCBj
+YXVzZSBpc3N1ZXMNCmFuZCBpZiBpdCBkb2Vzbid0IHdlIG1heSBiZSBhYmxlIHRvIGRlcHJlY2F0
+ZSB0aGUgcHJpdmF0ZSBmbGFnIGluIHRoZSBmdXR1cmUuDQoNCk9uIHRoZSBvdGhlciBoYW5kIGlm
+IHRoZSBzYW1lL3NpbWlsYXIgZmVhdHVyZSBleGlzdHMgaW4gb3RoZXIgZHJpdmVycyB0aGVuDQpp
+dCB3b3VsZCBwZXJoYXBzIG1ha2UgbW9yZSBzZW5zZSB0byBpbnRyb2R1Y2UgYSBuZXcgb3B0aW9u
+IGFsdG9nZXRoZXIuDQoNClRoYW5rcywNCkVtaWwNCg==
