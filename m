@@ -1,64 +1,118 @@
-From: "Kalderon, Michal" <Michal.Kalderon@cavium.com>
-Subject: RE: [RFC 15/19] RDMA/qedr: Add iWARP support in existing verbs.
-Date: Tue, 27 Jun 2017 08:18:02 +0000
-Message-ID: <DM2PR0701MB13924E652A0F1970BE3ECD5788DC0@DM2PR0701MB1392.namprd07.prod.outlook.com>
-References: <1498500429-22557-1-git-send-email-Michal.Kalderon@cavium.com>
- <1498500429-22557-16-git-send-email-Michal.Kalderon@cavium.com>
- <20170627052703.GL1248@mtr-leonro.local>
+From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v6 05/21] net-next: stmmac: Add dwmac-sun8i
+Date: Tue, 27 Jun 2017 10:21:03 +0200
+Message-ID: <20170627082103.GB2468@Red>
+References: <20170531071852.12422-1-clabbe.montjoie@gmail.com>
+ <20170531071852.12422-6-clabbe.montjoie@gmail.com>
+ <8e3d73a7-e9ff-d3e2-4bce-bcc79cdf86db@arm.com>
+ <20170627080529.GA2468@Red>
+ <CAGb2v65mhDN9vXe6DE2cZPW1BzgYPwK+D2U5VFgyr0wVVZZqDQ@mail.gmail.com>
+Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
-Cc: "Amrani, Ram" <Ram.Amrani@cavium.com>,
-        "Mintz, Yuval" <Yuval.Mintz@cavium.com>,
-        "Elior, Ariel" <Ariel.Elior@cavium.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        "dledford@redhat.com" <dledford@redhat.com>
-To: Leon Romanovsky <leon@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0061.outbound.protection.outlook.com ([104.47.32.61]:63786
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751473AbdF0ISF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 27 Jun 2017 04:18:05 -0400
-In-Reply-To: <20170627052703.GL1248@mtr-leonro.local>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: =?iso-8859-1?Q?Andr=E9?= Przywara <andre.przywara-5wv7dgnIgG8@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
+	Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
+	Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
+	Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+	alexandre.torgue-qxv4g6HH51o@public.gmane.org, devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+	linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	Icenowy Zheng <icenowy-ymACFijhrKM@public.gmane.org>
+To: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBB4VKZDFAKGQERU42HLI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Content-Disposition: inline
+In-Reply-To: <CAGb2v65mhDN9vXe6DE2cZPW1BzgYPwK+D2U5VFgyr0wVVZZqDQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-From: Leon Romanovsky [mailto:leon@kernel.org]
-Sent: Tuesday, June 27, 2017 8:27 AM
-=20
-> On Mon, Jun 26, 2017 at 09:07:05PM +0300, Michal Kalderon wrote:
-> > Make slight modifications to common RoCE/iWARP code.
-> > Add additional doorbell for iWARP post_send.
-> > iWARP QP pbl is allocated in qed and not in qedr.
+On Tue, Jun 27, 2017 at 04:11:21PM +0800, Chen-Yu Tsai wrote:
+> On Tue, Jun 27, 2017 at 4:05 PM, Corentin Labbe
+> <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> > On Mon, Jun 26, 2017 at 01:18:23AM +0100, Andr=C3=A9 Przywara wrote:
+> >> On 31/05/17 08:18, Corentin Labbe wrote:
+> >> > The dwmac-sun8i is a heavy hacked version of stmmac hardware by
+> >> > allwinner.
+> >> > In fact the only common part is the descriptor management and the fi=
+rst
+> >> > register function.
+> >>
+> >> Hi,
+> >>
+> >> I know I am a bit late with this, but while adapting the U-Boot driver
+> >> to the new binding I was wondering about the internal PHY detection:
+> >>
+> >>
+> >> So here you seem to deduce the usage of the internal PHY by the PHY
+> >> interface specified in the DT (MII =3D internal, RGMII =3D external).
+> >> I think I raised this question before, but isn't it perfectly legal fo=
+r
+> >> a board to use MII with an external PHY even on those SoCs that featur=
+e
+> >> an internal PHY?
+> >> On the first glance that does not make too much sense, but apart from
+> >> not being the correct binding to describe all of the SoCs features I s=
+ee
+> >> two scenarios:
+> >> 1) A board vendor might choose to not use the internal PHY because it
+> >> has bugs, lacks features (configurability) or has other issues. For
+> >> instance I have heard reports that the internal PHY makes the SoC go
+> >> rather hot, possibly limiting the CPU frequency. By using an external
+> >> MII PHY (which are still cheaper than RGMII PHYs) this can be avoided.
+> >> 2) A PHY does not necessarily need to be directly connected to
+> >> magnetics. Indeed quite some boards use (RG)MII to connect to a switch
+> >> IC or some other network circuitry, for instance fibre connectors.
+> >>
+> >> So I was wondering if we would need an explicit:
+> >>       allwinner,use-internal-phy;
+> >> boolean DT property to signal the usage of the internal PHY?
+> >> Alternatively we could go with the negative version:
+> >>       allwinner,disable-internal-phy;
+> >>
+> >> Or what about introducing a new "allwinner,internal-mii-phy" compatibl=
+e
+> >> string for the *PHY* node and use that?
+> >>
+> >> I just want to avoid that we introduce a binding that causes us
+> >> headaches later. I think we can still fix this with a followup patch
+> >> before the driver and its binding hit a release kernel.
+> >>
+> >> Cheers,
+> >> Andre.
+> >>
 > >
-> > Signed-off-by: Michal Kalderon <Michal.Kalderon@cavium.com>
-> > Signed-off-by: Ram Amrani <Ram.Amrani@cavium.com>
-> > Signed-off-by: Ariel Elior <Ariel.Elior@cavium.com>
-> >
-> > ---
-> >  drivers/infiniband/hw/qedr/qedr.h  |   3 +
-> >  drivers/infiniband/hw/qedr/verbs.c | 171
-> +++++++++++++++++++++++++++++--------
-> >  2 files changed, 139 insertions(+), 35 deletions(-)
-> >
-> > diff --git a/drivers/infiniband/hw/qedr/qedr.h
-> b/drivers/infiniband/hw/qedr/qedr.h
-> > index c52fde0..0c0a39a 100644
-> > --- a/drivers/infiniband/hw/qedr/qedr.h
-> > +++ b/drivers/infiniband/hw/qedr/qedr.h
-> > @@ -319,6 +319,9 @@ struct qedr_qp_hwq_info {
-> >  	/* DB */
-> >  	void __iomem *db;
-> >  	union db_prod32 db_data;
-> > +
-> > +	void __iomem *iwarp_db2;
-> > +	union db_prod32 iwarp_db2_data;
+> > I just see some patch, where "phy-mode =3D internal" is valid.
+> > I will try to find a way to use it
 >=20
-> Why do you need two doorbells?
+> Can you provide a link?
 
-This is a hw requirement to handle error state in iWARP=20
-> >  };
+https://lkml.org/lkml/2017/6/23/479
+
+>=20
+> I'm not a fan of using phy-mode for this. There's no guarantee what
+> mode the internal PHY uses. That's what phy-mode is for.
+
+For each soc the internal PHY mode is know and setted in emac_variant/inter=
+nal_phy
+So its not a problem.
+
+Patch comming soon
+
+--=20
+You received this message because you are subscribed to the Google Groups "=
+linux-sunxi" group.
+To unsubscribe from this group and stop receiving emails from it, send an e=
+mail to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
