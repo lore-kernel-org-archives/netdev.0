@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 08/16] net/mlx5: FPGA, Add FW commands for FPGA QPs
-Date: Tue, 27 Jun 2017 17:28:48 +0300
-Message-ID: <20170627142856.9448-9-saeedm@mellanox.com>
+Subject: [net-next 16/16] net/mlx5e: IPSec, Add IPSec ethtool stats
+Date: Tue, 27 Jun 2017 17:28:56 +0300
+Message-ID: <20170627142856.9448-17-saeedm@mellanox.com>
 References: <20170627142856.9448-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
         Ilan Tayari <ilant@mellanox.com>,
@@ -13,436 +13,313 @@ Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50613 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50693 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753194AbdF0OaW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 10:30:22 -0400
+        with ESMTP id S1752317AbdF0Oai (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 10:30:38 -0400
 In-Reply-To: <20170627142856.9448-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ilan Tayari <ilant@mellanox.com>
 
-The FPGA QP is a high-bandwidth communication channel between the host
-CPU and the FPGA device. It allows performing DMA operations between
-host memory and the FPGA logic via the ConnectX chip.
-
-Add ConnectX FW commands which create and manipulate FPGA QPs.
+Add Innova IPSec SBU counters to the ethtool -S stats.
+Add IPSec offload error counters to the ethtool -S stats.
 
 Signed-off-by: Ilan Tayari <ilant@mellanox.com>
+Reviewed-by: Boris Pismenny <borisp@mellanox.com>
+Reviewed-by: Gal Pressman <galp@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c      |  10 ++
- drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c |  98 ++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h |  21 +++
- include/linux/mlx5/mlx5_ifc.h                      |   5 +
- include/linux/mlx5/mlx5_ifc_fpga.h                 | 199 +++++++++++++++++++++
- 5 files changed, 333 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   3 +-
+ .../ethernet/mellanox/mlx5/core/en_accel/ipsec.h   |  43 +++++++
+ .../mellanox/mlx5/core/en_accel/ipsec_stats.c      | 133 +++++++++++++++++++++
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  10 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   4 +-
+ 5 files changed, 190 insertions(+), 3 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_stats.c
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-index 4d5bd01f1ebb..f5a2c605749f 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-@@ -307,6 +307,7 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
- 	case MLX5_CMD_OP_SET_FLOW_TABLE_ROOT:
- 	case MLX5_CMD_OP_DEALLOC_ENCAP_HEADER:
- 	case MLX5_CMD_OP_DEALLOC_MODIFY_HEADER_CONTEXT:
-+	case MLX5_CMD_OP_FPGA_DESTROY_QP:
- 		return MLX5_CMD_STAT_OK;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+index 23cb8ba91e6f..ca367445f864 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+@@ -20,4 +20,5 @@ mlx5_core-$(CONFIG_MLX5_CORE_EN_DCB) +=  en_dcbnl.o
  
- 	case MLX5_CMD_OP_QUERY_HCA_CAP:
-@@ -419,6 +420,10 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
- 	case MLX5_CMD_OP_QUERY_FLOW_COUNTER:
- 	case MLX5_CMD_OP_ALLOC_ENCAP_HEADER:
- 	case MLX5_CMD_OP_ALLOC_MODIFY_HEADER_CONTEXT:
-+	case MLX5_CMD_OP_FPGA_CREATE_QP:
-+	case MLX5_CMD_OP_FPGA_MODIFY_QP:
-+	case MLX5_CMD_OP_FPGA_QUERY_QP:
-+	case MLX5_CMD_OP_FPGA_QUERY_QP_COUNTERS:
- 		*status = MLX5_DRIVER_STATUS_ABORTED;
- 		*synd = MLX5_DRIVER_SYND;
- 		return -EIO;
-@@ -585,6 +590,11 @@ const char *mlx5_command_str(int command)
- 	MLX5_COMMAND_STR_CASE(DEALLOC_ENCAP_HEADER);
- 	MLX5_COMMAND_STR_CASE(ALLOC_MODIFY_HEADER_CONTEXT);
- 	MLX5_COMMAND_STR_CASE(DEALLOC_MODIFY_HEADER_CONTEXT);
-+	MLX5_COMMAND_STR_CASE(FPGA_CREATE_QP);
-+	MLX5_COMMAND_STR_CASE(FPGA_MODIFY_QP);
-+	MLX5_COMMAND_STR_CASE(FPGA_QUERY_QP);
-+	MLX5_COMMAND_STR_CASE(FPGA_QUERY_QP_COUNTERS);
-+	MLX5_COMMAND_STR_CASE(FPGA_DESTROY_QP);
- 	default: return "unknown command opcode";
- 	}
+ mlx5_core-$(CONFIG_MLX5_CORE_IPOIB) += ipoib/ipoib.o ipoib/ethtool.o
+ 
+-mlx5_core-$(CONFIG_MLX5_EN_IPSEC) += en_accel/ipsec.o en_accel/ipsec_rxtx.o
++mlx5_core-$(CONFIG_MLX5_EN_IPSEC) += en_accel/ipsec.o en_accel/ipsec_rxtx.o \
++		en_accel/ipsec_stats.o
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.h b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.h
+index ffc90b3c6ac7..56e00baf16cc 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.h
+@@ -57,12 +57,30 @@ struct mlx5e_ipsec_sw_stats {
+ 	atomic64_t ipsec_tx_drop_metadata;
+ };
+ 
++struct mlx5e_ipsec_stats {
++	u64 ipsec_dec_in_packets;
++	u64 ipsec_dec_out_packets;
++	u64 ipsec_dec_bypass_packets;
++	u64 ipsec_enc_in_packets;
++	u64 ipsec_enc_out_packets;
++	u64 ipsec_enc_bypass_packets;
++	u64 ipsec_dec_drop_packets;
++	u64 ipsec_dec_auth_fail_packets;
++	u64 ipsec_enc_drop_packets;
++	u64 ipsec_add_sa_success;
++	u64 ipsec_add_sa_fail;
++	u64 ipsec_del_sa_success;
++	u64 ipsec_del_sa_fail;
++	u64 ipsec_cmd_drop;
++};
++
+ struct mlx5e_ipsec {
+ 	struct mlx5e_priv *en_priv;
+ 	DECLARE_HASHTABLE(sadb_rx, MLX5E_IPSEC_SADB_RX_BITS);
+ 	spinlock_t sadb_rx_lock; /* Protects sadb_rx and halloc */
+ 	struct ida halloc;
+ 	struct mlx5e_ipsec_sw_stats sw_stats;
++	struct mlx5e_ipsec_stats stats;
+ };
+ 
+ void mlx5e_ipsec_build_inverse_table(void);
+@@ -70,6 +88,11 @@ int mlx5e_ipsec_init(struct mlx5e_priv *priv);
+ void mlx5e_ipsec_cleanup(struct mlx5e_priv *priv);
+ void mlx5e_ipsec_build_netdev(struct mlx5e_priv *priv);
+ 
++int mlx5e_ipsec_get_count(struct mlx5e_priv *priv);
++int mlx5e_ipsec_get_strings(struct mlx5e_priv *priv, uint8_t *data);
++void mlx5e_ipsec_update_stats(struct mlx5e_priv *priv);
++int mlx5e_ipsec_get_stats(struct mlx5e_priv *priv, u64 *data);
++
+ struct xfrm_state *mlx5e_ipsec_sadb_rx_lookup(struct mlx5e_ipsec *dev,
+ 					      unsigned int handle);
+ 
+@@ -92,6 +115,26 @@ static inline void mlx5e_ipsec_build_netdev(struct mlx5e_priv *priv)
+ {
  }
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c
-index 99cba644b4fc..8308ccbad85a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c
-@@ -33,6 +33,7 @@
- #include <linux/etherdevice.h>
- #include <linux/mlx5/cmd.h>
- #include <linux/mlx5/driver.h>
-+#include <linux/mlx5/device.h>
  
- #include "mlx5_core.h"
- #include "fpga/cmd.h"
-@@ -62,3 +63,100 @@ int mlx5_fpga_query(struct mlx5_core_dev *dev, struct mlx5_fpga_query *query)
- 	query->oper_image = MLX5_GET(fpga_ctrl, out, flash_select_oper);
- 	return 0;
- }
-+
-+int mlx5_fpga_create_qp(struct mlx5_core_dev *dev, void *fpga_qpc,
-+			u32 *fpga_qpn)
++static inline int mlx5e_ipsec_get_count(struct mlx5e_priv *priv)
 +{
-+	u32 in[MLX5_ST_SZ_DW(fpga_create_qp_in)] = {0};
-+	u32 out[MLX5_ST_SZ_DW(fpga_create_qp_out)];
++	return 0;
++}
++
++static inline int mlx5e_ipsec_get_strings(struct mlx5e_priv *priv,
++					  uint8_t *data)
++{
++	return 0;
++}
++
++static inline void mlx5e_ipsec_update_stats(struct mlx5e_priv *priv)
++{
++}
++
++static inline int mlx5e_ipsec_get_stats(struct mlx5e_priv *priv, u64 *data)
++{
++	return 0;
++}
++
+ #endif
+ 
+ #endif	/* __MLX5E_IPSEC_H__ */
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_stats.c b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_stats.c
+new file mode 100644
+index 000000000000..6fea59223dc4
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_stats.c
+@@ -0,0 +1,133 @@
++/*
++ * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ *
++ */
++
++#include <linux/ethtool.h>
++#include <net/sock.h>
++
++#include "en.h"
++#include "accel/ipsec.h"
++#include "fpga/sdk.h"
++#include "en_accel/ipsec.h"
++
++static const struct counter_desc mlx5e_ipsec_hw_stats_desc[] = {
++	{ MLX5E_DECLARE_STAT(struct mlx5e_ipsec_stats, ipsec_dec_in_packets) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_ipsec_stats, ipsec_dec_out_packets) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_ipsec_stats, ipsec_dec_bypass_packets) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_ipsec_stats, ipsec_enc_in_packets) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_ipsec_stats, ipsec_enc_out_packets) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_ipsec_stats, ipsec_enc_bypass_packets) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_ipsec_stats, ipsec_dec_drop_packets) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_ipsec_stats, ipsec_dec_auth_fail_packets) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_ipsec_stats, ipsec_enc_drop_packets) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_ipsec_stats, ipsec_add_sa_success) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_ipsec_stats, ipsec_add_sa_fail) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_ipsec_stats, ipsec_del_sa_success) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_ipsec_stats, ipsec_del_sa_fail) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_ipsec_stats, ipsec_cmd_drop) },
++};
++
++static const struct counter_desc mlx5e_ipsec_sw_stats_desc[] = {
++	{ MLX5E_DECLARE_STAT(struct mlx5e_ipsec_sw_stats, ipsec_rx_drop_sp_alloc) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_ipsec_sw_stats, ipsec_rx_drop_sadb_miss) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_ipsec_sw_stats, ipsec_rx_drop_syndrome) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_ipsec_sw_stats, ipsec_tx_drop_bundle) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_ipsec_sw_stats, ipsec_tx_drop_no_state) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_ipsec_sw_stats, ipsec_tx_drop_not_ip) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_ipsec_sw_stats, ipsec_tx_drop_trailer) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_ipsec_sw_stats, ipsec_tx_drop_metadata) },
++};
++
++#define MLX5E_READ_CTR_ATOMIC64(ptr, dsc, i) \
++	atomic64_read((atomic64_t *)((char *)(ptr) + (dsc)[i].offset))
++
++#define NUM_IPSEC_HW_COUNTERS ARRAY_SIZE(mlx5e_ipsec_hw_stats_desc)
++#define NUM_IPSEC_SW_COUNTERS ARRAY_SIZE(mlx5e_ipsec_sw_stats_desc)
++
++#define NUM_IPSEC_COUNTERS (NUM_IPSEC_HW_COUNTERS + NUM_IPSEC_SW_COUNTERS)
++
++int mlx5e_ipsec_get_count(struct mlx5e_priv *priv)
++{
++	if (!priv->ipsec)
++		return 0;
++
++	return NUM_IPSEC_COUNTERS;
++}
++
++int mlx5e_ipsec_get_strings(struct mlx5e_priv *priv, uint8_t *data)
++{
++	unsigned int i, idx = 0;
++
++	if (!priv->ipsec)
++		return 0;
++
++	for (i = 0; i < NUM_IPSEC_HW_COUNTERS; i++)
++		strcpy(data + (idx++) * ETH_GSTRING_LEN,
++		       mlx5e_ipsec_hw_stats_desc[i].format);
++
++	for (i = 0; i < NUM_IPSEC_SW_COUNTERS; i++)
++		strcpy(data + (idx++) * ETH_GSTRING_LEN,
++		       mlx5e_ipsec_sw_stats_desc[i].format);
++
++	return NUM_IPSEC_COUNTERS;
++}
++
++void mlx5e_ipsec_update_stats(struct mlx5e_priv *priv)
++{
 +	int ret;
 +
-+	MLX5_SET(fpga_create_qp_in, in, opcode, MLX5_CMD_OP_FPGA_CREATE_QP);
-+	memcpy(MLX5_ADDR_OF(fpga_create_qp_in, in, fpga_qpc), fpga_qpc,
-+	       MLX5_FLD_SZ_BYTES(fpga_create_qp_in, fpga_qpc));
++	if (!priv->ipsec)
++		return;
 +
-+	ret = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
++	ret = mlx5_accel_ipsec_counters_read(priv->mdev, (u64 *)&priv->ipsec->stats,
++					     NUM_IPSEC_HW_COUNTERS);
 +	if (ret)
-+		return ret;
-+
-+	memcpy(fpga_qpc, MLX5_ADDR_OF(fpga_create_qp_out, out, fpga_qpc),
-+	       MLX5_FLD_SZ_BYTES(fpga_create_qp_out, fpga_qpc));
-+	*fpga_qpn = MLX5_GET(fpga_create_qp_out, out, fpga_qpn);
-+	return ret;
++		memset(&priv->ipsec->stats, 0, sizeof(priv->ipsec->stats));
 +}
 +
-+int mlx5_fpga_modify_qp(struct mlx5_core_dev *dev, u32 fpga_qpn,
-+			enum mlx5_fpga_qpc_field_select fields,
-+			void *fpga_qpc)
++int mlx5e_ipsec_get_stats(struct mlx5e_priv *priv, u64 *data)
 +{
-+	u32 in[MLX5_ST_SZ_DW(fpga_modify_qp_in)] = {0};
-+	u32 out[MLX5_ST_SZ_DW(fpga_modify_qp_out)];
++	int i, idx = 0;
 +
-+	MLX5_SET(fpga_modify_qp_in, in, opcode, MLX5_CMD_OP_FPGA_MODIFY_QP);
-+	MLX5_SET(fpga_modify_qp_in, in, field_select, fields);
-+	MLX5_SET(fpga_modify_qp_in, in, fpga_qpn, fpga_qpn);
-+	memcpy(MLX5_ADDR_OF(fpga_modify_qp_in, in, fpga_qpc), fpga_qpc,
-+	       MLX5_FLD_SZ_BYTES(fpga_modify_qp_in, fpga_qpc));
++	if (!priv->ipsec)
++		return 0;
 +
-+	return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
++	for (i = 0; i < NUM_IPSEC_HW_COUNTERS; i++)
++		data[idx++] = MLX5E_READ_CTR64_CPU(&priv->ipsec->stats,
++						   mlx5e_ipsec_hw_stats_desc, i);
++
++	for (i = 0; i < NUM_IPSEC_SW_COUNTERS; i++)
++		data[idx++] = MLX5E_READ_CTR_ATOMIC64(&priv->ipsec->sw_stats,
++						      mlx5e_ipsec_sw_stats_desc, i);
++
++	return NUM_IPSEC_COUNTERS;
 +}
-+
-+int mlx5_fpga_query_qp(struct mlx5_core_dev *dev,
-+		       u32 fpga_qpn, void *fpga_qpc)
-+{
-+	u32 in[MLX5_ST_SZ_DW(fpga_query_qp_in)] = {0};
-+	u32 out[MLX5_ST_SZ_DW(fpga_query_qp_out)];
-+	int ret;
-+
-+	MLX5_SET(fpga_query_qp_in, in, opcode, MLX5_CMD_OP_FPGA_QUERY_QP);
-+	MLX5_SET(fpga_query_qp_in, in, fpga_qpn, fpga_qpn);
-+
-+	ret = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
-+	if (ret)
-+		return ret;
-+
-+	memcpy(fpga_qpc, MLX5_ADDR_OF(fpga_query_qp_out, in, fpga_qpc),
-+	       MLX5_FLD_SZ_BYTES(fpga_query_qp_out, fpga_qpc));
-+	return ret;
-+}
-+
-+int mlx5_fpga_destroy_qp(struct mlx5_core_dev *dev, u32 fpga_qpn)
-+{
-+	u32 in[MLX5_ST_SZ_DW(fpga_destroy_qp_in)] = {0};
-+	u32 out[MLX5_ST_SZ_DW(fpga_destroy_qp_out)];
-+
-+	MLX5_SET(fpga_destroy_qp_in, in, opcode, MLX5_CMD_OP_FPGA_DESTROY_QP);
-+	MLX5_SET(fpga_destroy_qp_in, in, fpga_qpn, fpga_qpn);
-+
-+	return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
-+}
-+
-+int mlx5_fpga_query_qp_counters(struct mlx5_core_dev *dev, u32 fpga_qpn,
-+				bool clear, struct mlx5_fpga_qp_counters *data)
-+{
-+	u32 in[MLX5_ST_SZ_DW(fpga_query_qp_counters_in)] = {0};
-+	u32 out[MLX5_ST_SZ_DW(fpga_query_qp_counters_out)];
-+	int ret;
-+
-+	MLX5_SET(fpga_query_qp_counters_in, in, opcode,
-+		 MLX5_CMD_OP_FPGA_QUERY_QP_COUNTERS);
-+	MLX5_SET(fpga_query_qp_counters_in, in, clear, clear);
-+	MLX5_SET(fpga_query_qp_counters_in, in, fpga_qpn, fpga_qpn);
-+
-+	ret = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
-+	if (ret)
-+		return ret;
-+
-+	data->rx_ack_packets = MLX5_GET64(fpga_query_qp_counters_out, out,
-+					  rx_ack_packets);
-+	data->rx_send_packets = MLX5_GET64(fpga_query_qp_counters_out, out,
-+					   rx_send_packets);
-+	data->tx_ack_packets = MLX5_GET64(fpga_query_qp_counters_out, out,
-+					  tx_ack_packets);
-+	data->tx_send_packets = MLX5_GET64(fpga_query_qp_counters_out, out,
-+					   tx_send_packets);
-+	data->rx_total_drop = MLX5_GET64(fpga_query_qp_counters_out, out,
-+					 rx_total_drop);
-+
-+	return ret;
-+}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h
-index a74396a61bc3..b851580d846f 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h
-@@ -53,7 +53,28 @@ struct mlx5_fpga_query {
- 	enum mlx5_fpga_status status;
- };
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index 16b1e96a7050..917fade5f5d5 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -31,6 +31,7 @@
+  */
  
-+enum mlx5_fpga_qpc_field_select {
-+	MLX5_FPGA_QPC_STATE = BIT(0),
-+};
-+
-+struct mlx5_fpga_qp_counters {
-+	u64 rx_ack_packets;
-+	u64 rx_send_packets;
-+	u64 tx_ack_packets;
-+	u64 tx_send_packets;
-+	u64 rx_total_drop;
-+};
-+
- int mlx5_fpga_caps(struct mlx5_core_dev *dev, u32 *caps);
- int mlx5_fpga_query(struct mlx5_core_dev *dev, struct mlx5_fpga_query *query);
+ #include "en.h"
++#include "en_accel/ipsec.h"
  
-+int mlx5_fpga_create_qp(struct mlx5_core_dev *dev, void *fpga_qpc,
-+			u32 *fpga_qpn);
-+int mlx5_fpga_modify_qp(struct mlx5_core_dev *dev, u32 fpga_qpn,
-+			enum mlx5_fpga_qpc_field_select fields, void *fpga_qpc);
-+int mlx5_fpga_query_qp(struct mlx5_core_dev *dev, u32 fpga_qpn, void *fpga_qpc);
-+int mlx5_fpga_query_qp_counters(struct mlx5_core_dev *dev, u32 fpga_qpn,
-+				bool clear, struct mlx5_fpga_qp_counters *data);
-+int mlx5_fpga_destroy_qp(struct mlx5_core_dev *dev, u32 fpga_qpn);
-+
- #endif /* __MLX5_FPGA_H__ */
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index d6b99d5d0f24..a8b3fcaa33ff 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -232,6 +232,11 @@ enum {
- 	MLX5_CMD_OP_DEALLOC_ENCAP_HEADER          = 0x93e,
- 	MLX5_CMD_OP_ALLOC_MODIFY_HEADER_CONTEXT   = 0x940,
- 	MLX5_CMD_OP_DEALLOC_MODIFY_HEADER_CONTEXT = 0x941,
-+	MLX5_CMD_OP_FPGA_CREATE_QP                = 0x960,
-+	MLX5_CMD_OP_FPGA_MODIFY_QP                = 0x961,
-+	MLX5_CMD_OP_FPGA_QUERY_QP                 = 0x962,
-+	MLX5_CMD_OP_FPGA_DESTROY_QP               = 0x963,
-+	MLX5_CMD_OP_FPGA_QUERY_QP_COUNTERS        = 0x964,
- 	MLX5_CMD_OP_MAX
- };
+ void mlx5e_ethtool_get_drvinfo(struct mlx5e_priv *priv,
+ 			       struct ethtool_drvinfo *drvinfo)
+@@ -186,7 +187,8 @@ int mlx5e_ethtool_get_sset_count(struct mlx5e_priv *priv, int sset)
+ 		       MLX5E_NUM_SQ_STATS(priv) +
+ 		       MLX5E_NUM_PFC_COUNTERS(priv) +
+ 		       ARRAY_SIZE(mlx5e_pme_status_desc) +
+-		       ARRAY_SIZE(mlx5e_pme_error_desc);
++		       ARRAY_SIZE(mlx5e_pme_error_desc) +
++		       mlx5e_ipsec_get_count(priv);
  
-diff --git a/include/linux/mlx5/mlx5_ifc_fpga.h b/include/linux/mlx5/mlx5_ifc_fpga.h
-index 0032d10ac6cf..30d4b697fab6 100644
---- a/include/linux/mlx5/mlx5_ifc_fpga.h
-+++ b/include/linux/mlx5/mlx5_ifc_fpga.h
-@@ -141,4 +141,203 @@ struct mlx5_ifc_fpga_error_event_bits {
- 	u8         reserved_at_60[0x80];
- };
+ 	case ETH_SS_PRIV_FLAGS:
+ 		return ARRAY_SIZE(mlx5e_priv_flags);
+@@ -275,6 +277,9 @@ static void mlx5e_fill_stats_strings(struct mlx5e_priv *priv, uint8_t *data)
+ 	for (i = 0; i < ARRAY_SIZE(mlx5e_pme_error_desc); i++)
+ 		strcpy(data + (idx++) * ETH_GSTRING_LEN, mlx5e_pme_error_desc[i].format);
  
-+enum mlx5_ifc_fpga_qp_state {
-+	MLX5_FPGA_QPC_STATE_INIT    = 0x0,
-+	MLX5_FPGA_QPC_STATE_ACTIVE  = 0x1,
-+	MLX5_FPGA_QPC_STATE_ERROR   = 0x2,
-+};
-+
-+enum mlx5_ifc_fpga_qp_type {
-+	MLX5_FPGA_QPC_QP_TYPE_SHELL_QP    = 0x0,
-+	MLX5_FPGA_QPC_QP_TYPE_SANDBOX_QP  = 0x1,
-+};
-+
-+enum mlx5_ifc_fpga_qp_service_type {
-+	MLX5_FPGA_QPC_ST_RC  = 0x0,
-+};
-+
-+struct mlx5_ifc_fpga_qpc_bits {
-+	u8         state[0x4];
-+	u8         reserved_at_4[0x1b];
-+	u8         qp_type[0x1];
-+
-+	u8         reserved_at_20[0x4];
-+	u8         st[0x4];
-+	u8         reserved_at_28[0x10];
-+	u8         traffic_class[0x8];
-+
-+	u8         ether_type[0x10];
-+	u8         prio[0x3];
-+	u8         dei[0x1];
-+	u8         vid[0xc];
-+
-+	u8         reserved_at_60[0x20];
-+
-+	u8         reserved_at_80[0x8];
-+	u8         next_rcv_psn[0x18];
-+
-+	u8         reserved_at_a0[0x8];
-+	u8         next_send_psn[0x18];
-+
-+	u8         reserved_at_c0[0x10];
-+	u8         pkey[0x10];
-+
-+	u8         reserved_at_e0[0x8];
-+	u8         remote_qpn[0x18];
-+
-+	u8         reserved_at_100[0x15];
-+	u8         rnr_retry[0x3];
-+	u8         reserved_at_118[0x5];
-+	u8         retry_count[0x3];
-+
-+	u8         reserved_at_120[0x20];
-+
-+	u8         reserved_at_140[0x10];
-+	u8         remote_mac_47_32[0x10];
-+
-+	u8         remote_mac_31_0[0x20];
-+
-+	u8         remote_ip[16][0x8];
-+
-+	u8         reserved_at_200[0x40];
-+
-+	u8         reserved_at_240[0x10];
-+	u8         fpga_mac_47_32[0x10];
-+
-+	u8         fpga_mac_31_0[0x20];
-+
-+	u8         fpga_ip[16][0x8];
-+};
-+
-+struct mlx5_ifc_fpga_create_qp_in_bits {
-+	u8         opcode[0x10];
-+	u8         reserved_at_10[0x10];
-+
-+	u8         reserved_at_20[0x10];
-+	u8         op_mod[0x10];
-+
-+	u8         reserved_at_40[0x40];
-+
-+	struct mlx5_ifc_fpga_qpc_bits fpga_qpc;
-+};
-+
-+struct mlx5_ifc_fpga_create_qp_out_bits {
-+	u8         status[0x8];
-+	u8         reserved_at_8[0x18];
-+
-+	u8         syndrome[0x20];
-+
-+	u8         reserved_at_40[0x8];
-+	u8         fpga_qpn[0x18];
-+
-+	u8         reserved_at_60[0x20];
-+
-+	struct mlx5_ifc_fpga_qpc_bits fpga_qpc;
-+};
-+
-+struct mlx5_ifc_fpga_modify_qp_in_bits {
-+	u8         opcode[0x10];
-+	u8         reserved_at_10[0x10];
-+
-+	u8         reserved_at_20[0x10];
-+	u8         op_mod[0x10];
-+
-+	u8         reserved_at_40[0x8];
-+	u8         fpga_qpn[0x18];
-+
-+	u8         field_select[0x20];
-+
-+	struct mlx5_ifc_fpga_qpc_bits fpga_qpc;
-+};
-+
-+struct mlx5_ifc_fpga_modify_qp_out_bits {
-+	u8         status[0x8];
-+	u8         reserved_at_8[0x18];
-+
-+	u8         syndrome[0x20];
-+
-+	u8         reserved_at_40[0x40];
-+};
-+
-+struct mlx5_ifc_fpga_query_qp_in_bits {
-+	u8         opcode[0x10];
-+	u8         reserved_at_10[0x10];
-+
-+	u8         reserved_at_20[0x10];
-+	u8         op_mod[0x10];
-+
-+	u8         reserved_at_40[0x8];
-+	u8         fpga_qpn[0x18];
-+
-+	u8         reserved_at_60[0x20];
-+};
-+
-+struct mlx5_ifc_fpga_query_qp_out_bits {
-+	u8         status[0x8];
-+	u8         reserved_at_8[0x18];
-+
-+	u8         syndrome[0x20];
-+
-+	u8         reserved_at_40[0x40];
-+
-+	struct mlx5_ifc_fpga_qpc_bits fpga_qpc;
-+};
-+
-+struct mlx5_ifc_fpga_query_qp_counters_in_bits {
-+	u8         opcode[0x10];
-+	u8         reserved_at_10[0x10];
-+
-+	u8         reserved_at_20[0x10];
-+	u8         op_mod[0x10];
-+
-+	u8         clear[0x1];
-+	u8         reserved_at_41[0x7];
-+	u8         fpga_qpn[0x18];
-+
-+	u8         reserved_at_60[0x20];
-+};
-+
-+struct mlx5_ifc_fpga_query_qp_counters_out_bits {
-+	u8         status[0x8];
-+	u8         reserved_at_8[0x18];
-+
-+	u8         syndrome[0x20];
-+
-+	u8         reserved_at_40[0x40];
-+
-+	u8         rx_ack_packets[0x40];
-+
-+	u8         rx_send_packets[0x40];
-+
-+	u8         tx_ack_packets[0x40];
-+
-+	u8         tx_send_packets[0x40];
-+
-+	u8         rx_total_drop[0x40];
-+
-+	u8         reserved_at_1c0[0x1c0];
-+};
-+
-+struct mlx5_ifc_fpga_destroy_qp_in_bits {
-+	u8         opcode[0x10];
-+	u8         reserved_at_10[0x10];
-+
-+	u8         reserved_at_20[0x10];
-+	u8         op_mod[0x10];
-+
-+	u8         reserved_at_40[0x8];
-+	u8         fpga_qpn[0x18];
-+
-+	u8         reserved_at_60[0x20];
-+};
-+
-+struct mlx5_ifc_fpga_destroy_qp_out_bits {
-+	u8         status[0x8];
-+	u8         reserved_at_8[0x18];
-+
-+	u8         syndrome[0x20];
-+
-+	u8         reserved_at_40[0x40];
-+};
-+
- #endif /* MLX5_IFC_FPGA_H */
++	/* IPSec counters */
++	idx += mlx5e_ipsec_get_strings(priv, data + idx * ETH_GSTRING_LEN);
++
+ 	if (!test_bit(MLX5E_STATE_OPENED, &priv->state))
+ 		return;
+ 
+@@ -403,6 +408,9 @@ void mlx5e_ethtool_get_ethtool_stats(struct mlx5e_priv *priv,
+ 		data[idx++] = MLX5E_READ_CTR64_CPU(mlx5_priv->pme_stats.error_counters,
+ 						   mlx5e_pme_error_desc, i);
+ 
++	/* IPSec counters */
++	idx += mlx5e_ipsec_get_stats(priv, data + idx);
++
+ 	if (!test_bit(MLX5E_STATE_OPENED, &priv->state))
+ 		return;
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index a037bd7edb46..a09b11f467a4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -331,8 +331,10 @@ static void mlx5e_update_pcie_counters(struct mlx5e_priv *priv)
+ 
+ void mlx5e_update_stats(struct mlx5e_priv *priv, bool full)
+ {
+-	if (full)
++	if (full) {
+ 		mlx5e_update_pcie_counters(priv);
++		mlx5e_ipsec_update_stats(priv);
++	}
+ 	mlx5e_update_pport_counters(priv, full);
+ 	mlx5e_update_vport_counters(priv);
+ 	mlx5e_update_q_counter(priv);
 -- 
 2.11.0
