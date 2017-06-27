@@ -1,40 +1,83 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: prevent sign extension in dev_get_stats()
-Date: Tue, 27 Jun 2017 14:51:31 -0400 (EDT)
-Message-ID: <20170627.145131.1627364252295077432.davem@davemloft.net>
-References: <1497054551.736.99.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20170610.161335.734544822657172006.davem@davemloft.net>
-        <1498572140.736.115.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dheidler@suse.de, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH] man: Collect names of man pages automatically
+Date: Tue, 27 Jun 2017 21:00:25 +0200
+Message-ID: <20170627190025.450-1-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44112 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752637AbdF0Svc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 14:51:32 -0400
-In-Reply-To: <1498572140.736.115.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from orbyte.nwl.cc ([151.80.46.58]:44827 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752311AbdF0TAe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 27 Jun 2017 15:00:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 27 Jun 2017 07:02:20 -0700
+As it turned out, forgetting to add a man page to the respective
+Makefile when introducing it is a common mistake. Overcome this once and
+for all by using $(wildcard) function in Makefiles.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Similar to the fix provided by Dominik Heidler in commit
-> 9b3dc0a17d73 ("l2tp: cast l2tp traffic counter to unsigned")
-> we need to take care of 32bit kernels in dev_get_stats().
-> 
-> When using atomic_long_read(), we add a 'long' to u64 and
-> might misinterpret high order bit, unless we cast to unsigned.
-> 
-> Fixes: caf586e5f23ce ("net: add a core netdev->rx_dropped counter")
-> Fixes: 015f0688f57ca ("net: net: add a core netdev->tx_dropped counter")
-> Fixes: 6e7333d315a76 ("net: add rx_nohandler stat counter")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Jarod Wilson <jarod@redhat.com>
+Fixes: 7124942942e53 ("genl: add manpage")
+Fixes: 958cd210942c8 ("ifcfg: add manpage")
+Fixes: e1b7f883e50de ("man: add documentation for IPv6 SR commands")
+Fixes: 1949f82cdf62c ("Introduce ip vrf command")
+Fixes: 535194a172d23 ("tipc: add peer remove functionality")
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ man/man3/Makefile |  2 +-
+ man/man7/Makefile |  2 +-
+ man/man8/Makefile | 21 +--------------------
+ 3 files changed, 3 insertions(+), 22 deletions(-)
 
-Applied and queued up for -stable, thanks.
+diff --git a/man/man3/Makefile b/man/man3/Makefile
+index bf55658c96746..a98741de29262 100644
+--- a/man/man3/Makefile
++++ b/man/man3/Makefile
+@@ -1,4 +1,4 @@
+-MAN3PAGES=libnetlink.3
++MAN3PAGES = $(wildcard *.3)
+ 
+ all:
+ 
+diff --git a/man/man7/Makefile b/man/man7/Makefile
+index ccfd8398c5f29..689fc713b6729 100644
+--- a/man/man7/Makefile
++++ b/man/man7/Makefile
+@@ -1,4 +1,4 @@
+-MAN7PAGES = tc-hfsc.7
++MAN7PAGES = $(wildcard *.7)
+ 
+ all:
+ 
+diff --git a/man/man8/Makefile b/man/man8/Makefile
+index f33186446819e..12af66be4bc73 100644
+--- a/man/man8/Makefile
++++ b/man/man8/Makefile
+@@ -1,25 +1,6 @@
+ TARGETS = ip-address.8 ip-link.8 ip-route.8
+ 
+-MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 rtpr.8 ss.8 \
+-	tc.8 tc-bfifo.8 tc-bpf.8 tc-cbq.8 tc-cbq-details.8 tc-choke.8 tc-codel.8 \
+-	tc-fq.8 \
+-	tc-drr.8 tc-ematch.8 tc-fq_codel.8 tc-hfsc.8 tc-htb.8 tc-pie.8 \
+-	tc-mqprio.8 tc-netem.8 tc-pfifo.8 tc-pfifo_fast.8 tc-prio.8 tc-red.8 \
+-	tc-sfb.8 tc-sfq.8 tc-stab.8 tc-tbf.8 \
+-	bridge.8 rtstat.8 ctstat.8 nstat.8 routef.8 \
+-	ip-addrlabel.8 ip-fou.8 ip-gue.8 ip-l2tp.8 ip-macsec.8 \
+-	ip-maddress.8 ip-monitor.8 ip-mroute.8 ip-neighbour.8 \
+-	ip-netns.8 ip-ntable.8 ip-rule.8 ip-tunnel.8 ip-xfrm.8 \
+-	ip-tcp_metrics.8 ip-netconf.8 ip-token.8 \
+-	tipc.8 tipc-bearer.8 tipc-link.8 tipc-media.8 tipc-nametable.8 \
+-	tipc-node.8 tipc-socket.8 \
+-	tc-basic.8 tc-cgroup.8 tc-flow.8 tc-flower.8 tc-fw.8 tc-route.8 \
+-	tc-tcindex.8 tc-u32.8 tc-matchall.8 \
+-	tc-connmark.8 tc-csum.8 tc-mirred.8 tc-nat.8 tc-pedit.8 tc-police.8 \
+-	tc-simple.8 tc-skbedit.8 tc-vlan.8 tc-xt.8 tc-skbmod.8 tc-ife.8 \
+-	tc-tunnel_key.8 tc-sample.8 \
+-	devlink.8 devlink-dev.8 devlink-monitor.8 devlink-port.8 devlink-sb.8 \
+-	ifstat.8
++MAN8PAGES = $(TARGETS) $(filter-out $(TARGETS),$(wildcard *.8))
+ 
+ all: $(TARGETS)
+ 
+-- 
+2.13.1
