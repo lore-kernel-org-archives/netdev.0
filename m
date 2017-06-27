@@ -1,45 +1,65 @@
-From: "David.Wu" <david.wu@rock-chips.com>
-Subject: Re: [PATCH 01/11] net: phy: Add rockchip phy driver support
-Date: Tue, 27 Jun 2017 23:07:28 +0800
-Message-ID: <5839f1df-a2b4-4856-0ccd-5535c6035897@rock-chips.com>
-References: <1498192929-7519-1-git-send-email-david.wu@rock-chips.com>
- <1498192929-7519-2-git-send-email-david.wu@rock-chips.com>
- <20170624021910.GB4875@lunn.ch>
- <38394157-adae-3476-55f3-ab5838744033@rock-chips.com>
- <20170627144649.GD9921@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=gbk; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, heiko@sntech.de, robh+dt@kernel.org,
-        mark.rutland@arm.com, catalin.marinas@arm.com, will.deacon@arm.com,
-        olof@lixom.net, linux@armlinux.org.uk, arnd@arndb.de,
-        f.fainelli@gmail.com, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, huangtao@rock-chips.com,
-        hwg@rock-chips.com, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org,
-        linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] iwlwifi: mvm: fix iwl_mvm_sar_find_wifi_pkg corner case
+Date: Tue, 27 Jun 2017 17:24:17 +0200
+Message-ID: <20170627152458.1103403-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+        Intel Linux Wireless <linuxwifi@intel.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Sara Sharon <sara.sharon@intel.com>,
+        Golan Ben-Ami <golan.ben.ami@intel.com>,
+        Liad Kaufman <liad.kaufman@intel.com>,
+        Haim Dreyfuss <haim.dreyfuss@intel.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+To: Johannes Berg <johannes.berg@intel.com>,
+        Luca Coelho <luciano.coelho@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170627144649.GD9921@lunn.ch>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+gcc warns about what it thinks is an uninitialized variable
+access:
 
-ÔÚ 2017/6/27 22:46, Andrew Lunn Ð´µÀ:
->> it has been licensed from somebody.
-> 
-> And does that somebody already have a driver for it? There is no point
-> adding a driver, if all you need to do is add the ID to another
-> driver.
-> 
+drivers/net/wireless/intel/iwlwifi/mvm/fw.c: In function 'iwl_mvm_sar_find_wifi_pkg.isra.14':
+drivers/net/wireless/intel/iwlwifi/mvm/fw.c:1102:5: error: 'wifi_pkg' may be used uninitialized in this function [-Werror=maybe-uninitialized]
 
-I didn't find it.
-Maybe use the same, but the configuration is different.
-But this may also be possible, upstream with a new driver.
+That problem cannot really happen, as we check data->package.count
+to ensure that the loop is entered at least once.
+However, something that can indeed happen is returning an incorrect
+wifi_pkg pointer in case none of the elements are what we are looking
+for.
 
-> 	Andrew
-> 
-> 
-> 
+This modifies the loop again, to only return a correct object, and
+to shut up that warning.
+
+Fixes: c386dacb4ed6 ("iwlwifi: mvm: refactor SAR init to prepare for dynamic SAR")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/wireless/intel/iwlwifi/mvm/fw.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/wireless/intel/iwlwifi/mvm/fw.c b/drivers/net/wireless/intel/iwlwifi/mvm/fw.c
+index 24cc406d87ef..730c7f68c0b3 100644
+--- a/drivers/net/wireless/intel/iwlwifi/mvm/fw.c
++++ b/drivers/net/wireless/intel/iwlwifi/mvm/fw.c
+@@ -1094,14 +1094,12 @@ static union acpi_object *iwl_mvm_sar_find_wifi_pkg(struct iwl_mvm *mvm,
+ 		domain = &wifi_pkg->package.elements[0];
+ 		if (domain->type == ACPI_TYPE_INTEGER &&
+ 		    domain->integer.value == ACPI_WIFI_DOMAIN)
+-			break;
+-
+-		wifi_pkg = NULL;
++			goto found;
+ 	}
+ 
+-	if (!wifi_pkg)
+-		return ERR_PTR(-ENOENT);
++	return ERR_PTR(-ENOENT);
+ 
++found:
+ 	return wifi_pkg;
+ }
+ 
+-- 
+2.9.0
