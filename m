@@ -1,55 +1,91 @@
-From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 6/6] arm: sun8i: orangepi-2: use internal phy-mode
-Date: Tue, 27 Jun 2017 11:28:06 +0200
-Message-ID: <20170627092806.28181-6-clabbe.montjoie@gmail.com>
-References: <20170627092806.28181-1-clabbe.montjoie@gmail.com>
-Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
-	Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org,
-	maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
-	wens-jdAy2FN1RRM@public.gmane.org,
-	peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-	alexandre.torgue-qxv4g6HH51o@public.gmane.org,
-	andre.przywara-5wv7dgnIgG8@public.gmane.org
-Return-path: <linux-sunxi+bncBD7YLCN32UNBBLGLZDFAKGQE26Y4W2Q-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <20170627092806.28181-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
+From: Jeffy Chen <jeffy.chen@rock-chips.com>
+Subject: [RESEND PATCH v4 1/3] Bluetooth: bnep: fix possible might sleep error in bnep_session
+Date: Tue, 27 Jun 2017 17:34:42 +0800
+Message-ID: <1498556084-25346-1-git-send-email-jeffy.chen@rock-chips.com>
+Cc: rvaswani@nvidia.com, briannorris@chromium.org,
+        dmitry.torokhov@gmail.com, dianders@chromium.org, acho@suse.com,
+        Jeffy Chen <jeffy.chen@rock-chips.com>,
+        Johan Hedberg <johan.hedberg@gmail.com>,
+        netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Marcel Holtmann <marcel@holtmann.org>,
+        Gustavo Padovan <gustavo@padovan.org>
+To: linux-kernel@vger.kernel.org, linux-bluetooth@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Since the PHY used is internal, simply set phy-mode as internal.
+It looks like bnep_session has same pattern as the issue reported in
+old rfcomm:
 
-Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+	while (1) {
+		set_current_state(TASK_INTERRUPTIBLE);
+		if (condition)
+			break;
+		// may call might_sleep here
+		schedule();
+	}
+	__set_current_state(TASK_RUNNING);
+
+Which fixed at:
+	dfb2fae Bluetooth: Fix nested sleeps
+
+So let's fix it at the same way, also follow the suggestion of:
+https://lwn.net/Articles/628628/
+
+Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+Reviewed-by: Brian Norris <briannorris@chromium.org>
+Reviewed-by: AL Yu-Chen Cho <acho@suse.com>
 ---
- arch/arm/boot/dts/sun8i-h3-orangepi-2.dts | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts
-index 17cdeae19c6f..a2a2b11dfeed 100644
---- a/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts
-@@ -120,7 +120,7 @@
+Changes in v4: None
+Changes in v2: None
+
+ net/bluetooth/bnep/core.c | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/net/bluetooth/bnep/core.c b/net/bluetooth/bnep/core.c
+index fbf251f..4d6b94d 100644
+--- a/net/bluetooth/bnep/core.c
++++ b/net/bluetooth/bnep/core.c
+@@ -484,16 +484,16 @@ static int bnep_session(void *arg)
+ 	struct net_device *dev = s->dev;
+ 	struct sock *sk = s->sock->sk;
+ 	struct sk_buff *skb;
+-	wait_queue_t wait;
++	DEFINE_WAIT_FUNC(wait, woken_wake_function);
  
- &emac {
- 	phy-handle = <&int_mii_phy>;
--	phy-mode = "mii";
-+	phy-mode = "internal";
- 	allwinner,leds-active-low;
- 	status = "okay";
- };
+ 	BT_DBG("");
+ 
+ 	set_user_nice(current, -15);
+ 
+-	init_waitqueue_entry(&wait, current);
+ 	add_wait_queue(sk_sleep(sk), &wait);
+ 	while (1) {
+-		set_current_state(TASK_INTERRUPTIBLE);
++		/* Ensure session->terminate is updated */
++		smp_mb__before_atomic();
+ 
+ 		if (atomic_read(&s->terminate))
+ 			break;
+@@ -515,9 +515,8 @@ static int bnep_session(void *arg)
+ 				break;
+ 		netif_wake_queue(dev);
+ 
+-		schedule();
++		wait_woken(&wait, TASK_INTERRUPTIBLE, MAX_SCHEDULE_TIMEOUT);
+ 	}
+-	__set_current_state(TASK_RUNNING);
+ 	remove_wait_queue(sk_sleep(sk), &wait);
+ 
+ 	/* Cleanup session */
+@@ -666,7 +665,7 @@ int bnep_del_connection(struct bnep_conndel_req *req)
+ 	s = __bnep_get_session(req->dst);
+ 	if (s) {
+ 		atomic_inc(&s->terminate);
+-		wake_up_process(s->task);
++		wake_up_interruptible(sk_sleep(s->sock->sk));
+ 	} else
+ 		err = -ENOENT;
+ 
 -- 
-2.13.0
+2.1.4
