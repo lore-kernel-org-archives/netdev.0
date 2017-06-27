@@ -1,41 +1,45 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH] net: intel: e1000e: add check on
-        e1e_wphy() return value
-Date: Tue, 27 Jun 2017 01:21:59 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B8C6251E1@ORSMSX101.amr.corp.intel.com>
-References: <20170518172223.Horde.5kLLwxMJWThQKv0bAxTsk4D@gator4166.hostgator.com>
- <20170620212234.GA10957@embeddedgus>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170620212234.GA10957@embeddedgus>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: gfree.wind@vip.163.com
+Subject: [net PATCH] net: sched: Fix one possible panic when no destroy callback
+Date: Tue, 27 Jun 2017 09:35:33 +0800
+Message-ID: <1498527333-86838-1-git-send-email-gfree.wind@vip.163.com>
+Cc: Gao Feng <gfree.wind@vip.163.com>
+To: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-177180.vip.163.com ([123.58.177.180]:49166 "EHLO
+        mail-177180.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751467AbdF0Bge (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2017 21:36:34 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@osuosl.org] On Behalf
-> Of Gustavo A. R. Silva
-> Sent: Tuesday, June 20, 2017 2:23 PM
-> To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>
-> Cc: netdev@vger.kernel.org; intel-wired-lan@lists.osuosl.org; linux-
-> kernel@vger.kernel.org; Gustavo A. R. Silva <garsilva@embeddedor.com>
-> Subject: [Intel-wired-lan] [PATCH] net: intel: e1000e: add check on
-> e1e_wphy() return value
-> 
-> Check return value from call to e1e_wphy(). This value is being
-> checked during previous calls to function e1e_wphy() and it seems
-> a check was missing here.
-> 
-> Addresses-Coverity-ID: 1226905
-> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
-> ---
->  drivers/net/ethernet/intel/e1000e/ich8lan.c | 2 ++
->  1 file changed, 2 insertions(+)
+From: Gao Feng <gfree.wind@vip.163.com>
 
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+When qdisc fail to init, qdisc_create would invoke the destroy callback
+to cleanup. But there is no check if the callback exists really. So it
+would cause the panic if there is no real destroy callback like these
+qdisc codel, pfifo, pfifo_fast, and so on.
+
+Now add one the check for destroy to avoid the possible panic.
+
+Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
+---
+ net/sched/sch_api.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index e88342f..cfdbfa1 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -1019,7 +1019,8 @@ static struct Qdisc *qdisc_create(struct net_device *dev,
+ 		return sch;
+ 	}
+ 	/* ops->init() failed, we call ->destroy() like qdisc_create_dflt() */
+-	ops->destroy(sch);
++	if (ops->destroy)
++		ops->destroy(sch);
+ err_out3:
+ 	dev_put(dev);
+ 	kfree((char *) sch - sch->padded);
+-- 
+1.9.1
