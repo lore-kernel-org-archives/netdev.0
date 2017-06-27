@@ -1,167 +1,90 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 12/14] nfp: reorder SR-IOV config and nfp_app SR-IOV callbacks
-Date: Tue, 27 Jun 2017 00:50:26 -0700
-Message-ID: <20170627075028.4009-13-jakub.kicinski@netronome.com>
-References: <20170627075028.4009-1-jakub.kicinski@netronome.com>
-Cc: oss-drivers@netronome.com,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f44.google.com ([74.125.83.44]:35259 "EHLO
-        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751658AbdF0Hv1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 03:51:27 -0400
-Received: by mail-pg0-f44.google.com with SMTP id j186so11971600pge.2
-        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 00:51:21 -0700 (PDT)
-In-Reply-To: <20170627075028.4009-1-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v6 05/21] net-next: stmmac: Add dwmac-sun8i
+Date: Tue, 27 Jun 2017 10:05:29 +0200
+Message-ID: <20170627080529.GA2468@Red>
+References: <20170531071852.12422-1-clabbe.montjoie@gmail.com>
+ <20170531071852.12422-6-clabbe.montjoie@gmail.com>
+ <8e3d73a7-e9ff-d3e2-4bce-bcc79cdf86db@arm.com>
+Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
+	peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	Icenowy Zheng <icenowy-ymACFijhrKM@public.gmane.org>
+To: =?iso-8859-1?Q?Andr=E9?= Przywara <andre.przywara-5wv7dgnIgG8@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBTVDZDFAKGQEZIP25TA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Content-Disposition: inline
+In-Reply-To: <8e3d73a7-e9ff-d3e2-4bce-bcc79cdf86db-5wv7dgnIgG8@public.gmane.org>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-We previously assumed that app callback can be guaranteed to be
-executed before SR-IOV is actually enabled.  Given that we can't
-guarantee that SR-IOV will be disabled during probe or that we
-will be able to disable it on remove, we should reorder the callbacks.
-We should also call the app's sriov_enable if SR-IOV was enabled
-during probe.
+On Mon, Jun 26, 2017 at 01:18:23AM +0100, Andr=C3=A9 Przywara wrote:
+> On 31/05/17 08:18, Corentin Labbe wrote:
+> > The dwmac-sun8i is a heavy hacked version of stmmac hardware by
+> > allwinner.
+> > In fact the only common part is the descriptor management and the first
+> > register function.
+>=20
+> Hi,
+>=20
+> I know I am a bit late with this, but while adapting the U-Boot driver
+> to the new binding I was wondering about the internal PHY detection:
+>=20
+>=20
+> So here you seem to deduce the usage of the internal PHY by the PHY
+> interface specified in the DT (MII =3D internal, RGMII =3D external).
+> I think I raised this question before, but isn't it perfectly legal for
+> a board to use MII with an external PHY even on those SoCs that feature
+> an internal PHY?
+> On the first glance that does not make too much sense, but apart from
+> not being the correct binding to describe all of the SoCs features I see
+> two scenarios:
+> 1) A board vendor might choose to not use the internal PHY because it
+> has bugs, lacks features (configurability) or has other issues. For
+> instance I have heard reports that the internal PHY makes the SoC go
+> rather hot, possibly limiting the CPU frequency. By using an external
+> MII PHY (which are still cheaper than RGMII PHYs) this can be avoided.
+> 2) A PHY does not necessarily need to be directly connected to
+> magnetics. Indeed quite some boards use (RG)MII to connect to a switch
+> IC or some other network circuitry, for instance fibre connectors.
+>=20
+> So I was wondering if we would need an explicit:
+> 	allwinner,use-internal-phy;
+> boolean DT property to signal the usage of the internal PHY?
+> Alternatively we could go with the negative version:
+> 	allwinner,disable-internal-phy;
+>=20
+> Or what about introducing a new "allwinner,internal-mii-phy" compatible
+> string for the *PHY* node and use that?
+>=20
+> I just want to avoid that we introduce a binding that causes us
+> headaches later. I think we can still fix this with a followup patch
+> before the driver and its binding hit a release kernel.
+>=20
+> Cheers,
+> Andre.
+>=20
 
-Application FW must be able to disable VFs internally and not depend
-on them being removed at PCIe level.
+I just see some patch, where "phy-mode =3D internal" is valid.
+I will try to find a way to use it
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-Reviewed-by: Simon Horman <simon.horman@netronome.com>
----
- drivers/net/ethernet/netronome/nfp/nfp_main.c     | 40 ++++++++++-------------
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c | 10 ++++++
- 2 files changed, 27 insertions(+), 23 deletions(-)
+Regards
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.c b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-index d47adb4c86d6..a0f3df8572d6 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-@@ -107,17 +107,18 @@ static int nfp_pcie_sriov_enable(struct pci_dev *pdev, int num_vfs)
- 		goto err_unlock;
- 	}
- 
--	err = nfp_app_sriov_enable(pf->app, num_vfs);
-+	err = pci_enable_sriov(pdev, num_vfs);
- 	if (err) {
--		dev_warn(&pdev->dev, "App specific PCI sriov configuration failed: %d\n",
--			 err);
-+		dev_warn(&pdev->dev, "Failed to enable PCI SR-IOV: %d\n", err);
- 		goto err_unlock;
- 	}
- 
--	err = pci_enable_sriov(pdev, num_vfs);
-+	err = nfp_app_sriov_enable(pf->app, num_vfs);
- 	if (err) {
--		dev_warn(&pdev->dev, "Failed to enable PCI sriov: %d\n", err);
--		goto err_app_sriov_disable;
-+		dev_warn(&pdev->dev,
-+			 "App specific PCI SR-IOV configuration failed: %d\n",
-+			 err);
-+		goto err_sriov_disable;
- 	}
- 
- 	pf->num_vfs = num_vfs;
-@@ -127,8 +128,8 @@ static int nfp_pcie_sriov_enable(struct pci_dev *pdev, int num_vfs)
- 	mutex_unlock(&pf->lock);
- 	return num_vfs;
- 
--err_app_sriov_disable:
--	nfp_app_sriov_disable(pf->app);
-+err_sriov_disable:
-+	pci_disable_sriov(pdev);
- err_unlock:
- 	mutex_unlock(&pf->lock);
- 	return err;
-@@ -136,17 +137,20 @@ static int nfp_pcie_sriov_enable(struct pci_dev *pdev, int num_vfs)
- 	return 0;
- }
- 
--static int __nfp_pcie_sriov_disable(struct pci_dev *pdev)
-+static int nfp_pcie_sriov_disable(struct pci_dev *pdev)
- {
- #ifdef CONFIG_PCI_IOV
- 	struct nfp_pf *pf = pci_get_drvdata(pdev);
- 
-+	mutex_lock(&pf->lock);
-+
- 	/* If the VFs are assigned we cannot shut down SR-IOV without
- 	 * causing issues, so just leave the hardware available but
- 	 * disabled
- 	 */
- 	if (pci_vfs_assigned(pdev)) {
- 		dev_warn(&pdev->dev, "Disabling while VFs assigned - VFs will not be deallocated\n");
-+		mutex_unlock(&pf->lock);
- 		return -EPERM;
- 	}
- 
-@@ -156,20 +160,10 @@ static int __nfp_pcie_sriov_disable(struct pci_dev *pdev)
- 
- 	pci_disable_sriov(pdev);
- 	dev_dbg(&pdev->dev, "Removed VFs.\n");
--#endif
--	return 0;
--}
- 
--static int nfp_pcie_sriov_disable(struct pci_dev *pdev)
--{
--	struct nfp_pf *pf = pci_get_drvdata(pdev);
--	int err;
--
--	mutex_lock(&pf->lock);
--	err = __nfp_pcie_sriov_disable(pdev);
- 	mutex_unlock(&pf->lock);
--
--	return err;
-+#endif
-+	return 0;
- }
- 
- static int nfp_pcie_sriov_configure(struct pci_dev *pdev, int num_vfs)
-@@ -471,11 +465,11 @@ static void nfp_pci_remove(struct pci_dev *pdev)
- 
- 	devlink = priv_to_devlink(pf);
- 
-+	nfp_net_pci_remove(pf);
-+
- 	nfp_pcie_sriov_disable(pdev);
- 	pci_sriov_set_totalvfs(pf->pdev, 0);
- 
--	nfp_net_pci_remove(pf);
--
- 	devlink_unregister(devlink);
- 
- 	kfree(pf->rtbl);
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index 49c4910fbcc6..4d22e1cc013e 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -488,8 +488,16 @@ static int nfp_net_pf_app_start(struct nfp_pf *pf)
- 	if (err)
- 		goto err_ctrl_stop;
- 
-+	if (pf->num_vfs) {
-+		err = nfp_app_sriov_enable(pf->app, pf->num_vfs);
-+		if (err)
-+			goto err_app_stop;
-+	}
-+
- 	return 0;
- 
-+err_app_stop:
-+	nfp_app_stop(pf->app);
- err_ctrl_stop:
- 	nfp_net_pf_app_stop_ctrl(pf);
- 	return err;
-@@ -497,6 +505,8 @@ static int nfp_net_pf_app_start(struct nfp_pf *pf)
- 
- static void nfp_net_pf_app_stop(struct nfp_pf *pf)
- {
-+	if (pf->num_vfs)
-+		nfp_app_sriov_disable(pf->app);
- 	nfp_app_stop(pf->app);
- 	nfp_net_pf_app_stop_ctrl(pf);
- }
--- 
-2.11.0
+--=20
+You received this message because you are subscribed to the Google Groups "=
+linux-sunxi" group.
+To unsubscribe from this group and stop receiving emails from it, send an e=
+mail to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
