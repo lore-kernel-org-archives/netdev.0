@@ -1,7 +1,7 @@
 From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next v4 05/16] bpf: Support for setting initial receive window
-Date: Wed, 28 Jun 2017 10:31:13 -0700
-Message-ID: <20170628173124.3299500-6-brakmo@fb.com>
+Subject: [PATCH net-next v4 04/16] bpf: Sample bpf program to set SYN/SYN-ACK RTOs
+Date: Wed, 28 Jun 2017 10:31:12 -0700
+Message-ID: <20170628173124.3299500-5-brakmo@fb.com>
 References: <20170628173124.3299500-1-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,135 +11,114 @@ Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:53298 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:53297 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751715AbdF1Rbb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 13:31:31 -0400
+        by vger.kernel.org with ESMTP id S1751567AbdF1Rba (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 13:31:30 -0400
 Received: from pps.filterd (m0109334.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5SHS1fH030320
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5SHS0Eg030315
         for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:31:30 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2bcad61g6s-1
+        by mx0a-00082601.pphosted.com with ESMTP id 2bcad61g6r-2
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
         for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:31:30 -0700
 Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
  mx-out.facebook.com (10.103.99.97) with ESMTP  id
- 9ed8148a5c2711e7b59c0002c9931860-37d378f0 for <netdev@vger.kernel.org>;        Wed,
+ 9ea967ac5c2711e7b59c0002c9931860-37d378f0 for <netdev@vger.kernel.org>;        Wed,
  28 Jun 2017 10:31:29 -0700
 In-Reply-To: <20170628173124.3299500-1-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds suppport for setting the initial advertized window from
-within a BPF_SOCK_OPS program. This can be used to support larger
-initial cwnd values in environments where it is known to be safe.
+The sample BPF program, tcp_synrto_kern.c, sets the SYN and SYN-ACK
+RTOs to 10ms when both hosts are within the same datacenter (i.e.
+small RTTs) in an environment where common IPv6 prefixes indicate
+both hosts are in the same data center.
 
 Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
 ---
- include/net/tcp.h        | 10 ++++++++++
- include/uapi/linux/bpf.h |  4 ++++
- net/ipv4/tcp_minisocks.c |  9 ++++++++-
- net/ipv4/tcp_output.c    |  7 ++++++-
- 4 files changed, 28 insertions(+), 2 deletions(-)
+ samples/bpf/Makefile          |  1 +
+ samples/bpf/tcp_synrto_kern.c | 60 +++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 61 insertions(+)
+ create mode 100644 samples/bpf/tcp_synrto_kern.c
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index cd9ef63..af404aa 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -2069,4 +2069,14 @@ static inline u32 tcp_timeout_init(struct sock *sk, bool is_req_sock)
- 	return timeout;
- }
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index 015589b..e29370a 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -113,6 +113,7 @@ always += lwt_len_hist_kern.o
+ always += xdp_tx_iptunnel_kern.o
+ always += test_map_in_map_kern.o
+ always += cookie_uid_helper_example.o
++always += tcp_synrto_kern.o
  
-+static inline u32 tcp_rwnd_init_bpf(struct sock *sk, bool is_req_sock)
+ HOSTCFLAGS += -I$(objtree)/usr/include
+ HOSTCFLAGS += -I$(srctree)/tools/lib/
+diff --git a/samples/bpf/tcp_synrto_kern.c b/samples/bpf/tcp_synrto_kern.c
+new file mode 100644
+index 0000000..b16ac39
+--- /dev/null
++++ b/samples/bpf/tcp_synrto_kern.c
+@@ -0,0 +1,60 @@
++/* Copyright (c) 2017 Facebook
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ *
++ * BPF program to set SYN and SYN-ACK RTOs to 10ms when using IPv6 addresses
++ * and the first 5.5 bytes of the IPv6 addresses are the same (in this example
++ * that means both hosts are in the same datacenter.
++ */
++
++#include <uapi/linux/bpf.h>
++#include <uapi/linux/if_ether.h>
++#include <uapi/linux/if_packet.h>
++#include <uapi/linux/ip.h>
++#include <linux/socket.h>
++#include "bpf_helpers.h"
++
++#define DEBUG 1
++
++SEC("sockops")
++int bpf_synrto(struct bpf_sock_ops *skops)
 +{
-+	int rwnd;
++	char fmt1[] = "BPF command: %d\n";
++	char fmt2[] = "  Returning %d\n";
++	int rv = -1;
++	int op;
 +
-+	rwnd = tcp_call_bpf(sk, is_req_sock, BPF_SOCK_OPS_RWND_INIT);
++	/* For testing purposes, only execute rest of BPF program
++	 * if neither port numberis 55601
++	 */
++	if (skops->remote_port != 55601 && skops->local_port != 55601)
++		return -1;
 +
-+	if (rwnd < 0)
-+		rwnd = 0;
-+	return rwnd;
++	op = (int) skops->op;
++
++#ifdef DEBUG
++	bpf_trace_printk(fmt1, sizeof(fmt1), op);
++#endif
++
++	/* Check for TIMEOUT_INIT operation and IPv6 addresses */
++	if (op == BPF_SOCK_OPS_TIMEOUT_INIT &&
++		skops->family == AF_INET6) {
++
++		/* If the first 5.5 bytes of the IPv6 address are the same
++		 * then both hosts are in the same datacenter
++		 * so use an RTO of 10ms
++		 */
++		if (skops->local_ip6[0] == skops->remote_ip6[0] &&
++		    (skops->local_ip6[1] & 0xfff00000) ==
++		    (skops->remote_ip6[1] & 0xfff00000))
++			rv = 10;
++	}
++#ifdef DEBUG
++	bpf_trace_printk(fmt2, sizeof(fmt2), rv);
++#endif
++	skops->reply = rv;
++	return 1;
 +}
- #endif	/* _TCP_H */
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 4174668..cdec348 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -749,6 +749,10 @@ enum {
- 	BPF_SOCK_OPS_TIMEOUT_INIT,	/* Should return SYN-RTO value to use or
- 					 * -1 if default value should be used
- 					 */
-+	BPF_SOCK_OPS_RWND_INIT,		/* Should return initial advertized
-+					 * window (in packets) or -1 if default
-+					 * value should be used
-+					 */
- };
- 
- #endif /* _UAPI__LINUX_BPF_H__ */
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index d30ee31..bbaf3c6 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -351,6 +351,7 @@ void tcp_openreq_init_rwin(struct request_sock *req,
- 	int full_space = tcp_full_space(sk_listener);
- 	u32 window_clamp;
- 	__u8 rcv_wscale;
-+	u32 rcv_wnd;
- 	int mss;
- 
- 	mss = tcp_mss_clamp(tp, dst_metric_advmss(dst));
-@@ -363,6 +364,12 @@ void tcp_openreq_init_rwin(struct request_sock *req,
- 	    (req->rsk_window_clamp > full_space || req->rsk_window_clamp == 0))
- 		req->rsk_window_clamp = full_space;
- 
-+	rcv_wnd = tcp_rwnd_init_bpf((struct sock *)req, true);
-+	if (rcv_wnd == 0)
-+		rcv_wnd = dst_metric(dst, RTAX_INITRWND);
-+	else if (full_space < rcv_wnd * mss)
-+		full_space = rcv_wnd * mss;
-+
- 	/* tcp_full_space because it is guaranteed to be the first packet */
- 	tcp_select_initial_window(full_space,
- 		mss - (ireq->tstamp_ok ? TCPOLEN_TSTAMP_ALIGNED : 0),
-@@ -370,7 +377,7 @@ void tcp_openreq_init_rwin(struct request_sock *req,
- 		&req->rsk_window_clamp,
- 		ireq->wscale_ok,
- 		&rcv_wscale,
--		dst_metric(dst, RTAX_INITRWND));
-+		rcv_wnd);
- 	ireq->rcv_wscale = rcv_wscale;
- }
- EXPORT_SYMBOL(tcp_openreq_init_rwin);
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 5e478a1..e5f623f 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -3267,6 +3267,7 @@ static void tcp_connect_init(struct sock *sk)
- 	const struct dst_entry *dst = __sk_dst_get(sk);
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	__u8 rcv_wscale;
-+	u32 rcv_wnd;
- 
- 	/* We'll fix this up when we get a response from the other end.
- 	 * See tcp_input.c:tcp_rcv_state_process case TCP_SYN_SENT.
-@@ -3300,13 +3301,17 @@ static void tcp_connect_init(struct sock *sk)
- 	    (tp->window_clamp > tcp_full_space(sk) || tp->window_clamp == 0))
- 		tp->window_clamp = tcp_full_space(sk);
- 
-+	rcv_wnd = tcp_rwnd_init_bpf(sk, false);
-+	if (rcv_wnd == 0)
-+		rcv_wnd = dst_metric(dst, RTAX_INITRWND);
-+
- 	tcp_select_initial_window(tcp_full_space(sk),
- 				  tp->advmss - (tp->rx_opt.ts_recent_stamp ? tp->tcp_header_len - sizeof(struct tcphdr) : 0),
- 				  &tp->rcv_wnd,
- 				  &tp->window_clamp,
- 				  sock_net(sk)->ipv4.sysctl_tcp_window_scaling,
- 				  &rcv_wscale,
--				  dst_metric(dst, RTAX_INITRWND));
-+				  rcv_wnd);
- 
- 	tp->rx_opt.rcv_wscale = rcv_wscale;
- 	tp->rcv_ssthresh = tp->rcv_wnd;
++char _license[] SEC("license") = "GPL";
 -- 
 2.9.3
