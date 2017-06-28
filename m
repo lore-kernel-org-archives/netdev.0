@@ -1,36 +1,42 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: Re: ti: wl18xx: add checks on wl18xx_top_reg_write() return value
-Date: Wed, 28 Jun 2017 17:57:53 -0500
-Message-ID: <20170628175753.Horde.jKsLaGOBj8-15rZyu1j0ooC@gator4166.hostgator.com>
-References: <20170626230619.GA14831@embeddedgus>
- <20170628163844.56F26601EA@smtp.codeaurora.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [RFC 1/2] net: phy: rework Kconfig settings for MDIO_BUS
+Date: Wed, 28 Jun 2017 16:17:54 -0700
+Message-ID: <6ddd0a30-cd29-a05a-01e3-b523689271e4@gmail.com>
+References: <20170621220626.46691-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>,
+        Kishon Vijay Abraham I <kishon@ti.com>,
+        Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+        "David S . Miller" <davem@davemloft.net>,
         linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170628163844.56F26601EA@smtp.codeaurora.org>
-Content-Disposition: inline
+In-Reply-To: <20170621220626.46691-1-arnd@arndb.de>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 06/21/2017 03:06 PM, Arnd Bergmann wrote:
+> I still see build errors in randconfig builds and have had this
+> patch for a while to locally work around it:
+> 
+> drivers/built-in.o: In function `xgene_mdio_probe':
+> mux-core.c:(.text+0x352154): undefined reference to `of_mdiobus_register'
+> mux-core.c:(.text+0x352168): undefined reference to `mdiobus_free'
+> mux-core.c:(.text+0x3521c0): undefined reference to `mdiobus_alloc_size'
+> 
+> The idea is that CONFIG_MDIO_BUS now reflects whether the mdio_bus
+> code is built-in or a module, and other drivers that use the core
+> code can simply depend on that, instead of having a complex
+> dependency line.
+> 
+> Fixes: 90eff9096c01 ("net: phy: Allow splitting MDIO bus/device support from PHYs")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Quoting Kalle Valo <kvalo@codeaurora.org>:
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 
-> "Gustavo A. R. Silva" <garsilva@embeddedor.com> wrote:
->
->> Check return value from call to wl18xx_top_reg_write(),
->> so in case of error jump to goto label out and return.
->>
->> Also, remove unnecessary value check before goto label out.
->>
->> Addresses-Coverity-ID: 1226938
->> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
->
-> The prefix should be "wl18xx:", I'll fix that.
->
-
-Thanks, Kalle.
---
-Gustavo A. R. Silva
+This looks a lot better indeed, thanks!
+-- 
+Florian
