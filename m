@@ -1,77 +1,73 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net] virtio-net: unbreak cusmed packet for small buffer XDP
-Date: Wed, 28 Jun 2017 20:05:06 +0800
-Message-ID: <a7e457d5-88c4-745d-5189-18a5f13797dc@redhat.com>
-References: <1498614843-8163-1-git-send-email-jasowang@redhat.com>
-	<20170628050057-mutt-send-email-mst@kernel.org>
-	<7068053c-50da-6779-5ff2-6588e01e616d@redhat.com>
-	<20170628051555-mutt-send-email-mst@kernel.org>
-	<69907228-fc1b-175f-f6cd-7ac332e318be@redhat.com>
-	<20170628063033-mutt-send-email-mst@kernel.org>
-	<51f4c402-6a02-9bad-6dab-563ca72f431a@redhat.com>
-	<20170628065126-mutt-send-email-mst@kernel.org>
+From: Thor Thayer <thor.thayer@linux.intel.com>
+Subject: Re: [PATCH 2/2] ethtool: stmmac: Add DMA HW Feature Register
+Date: Wed, 28 Jun 2017 08:25:14 -0500
+Message-ID: <1e300373-cacf-6630-a6fe-6014d58940a9@linux.intel.com>
+References: <1498600275-22334-1-git-send-email-thor.thayer@linux.intel.com>
+ <1498600275-22334-3-git-send-email-thor.thayer@linux.intel.com>
+ <12583b41-540b-c0a9-4dfe-874d8d46709a@st.com>
+Reply-To: thor.thayer@linux.intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170628065126-mutt-send-email-mst@kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>, linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:50021 "EHLO mga11.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751535AbdF1NWD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 28 Jun 2017 09:22:03 -0400
+In-Reply-To: <12583b41-540b-c0a9-4dfe-874d8d46709a@st.com>
 Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE35bm0MDbmnIgyOOaXpSAxMjowMSwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
-IE9uIFdlZCwgSnVuIDI4LCAyMDE3IGF0IDExOjQwOjMwQU0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
-dGU6Cj4+Cj4+IE9uIDIwMTflubQwNuaciDI45pelIDExOjMxLCBNaWNoYWVsIFMuIFRzaXJraW4g
-d3JvdGU6Cj4+PiBPbiBXZWQsIEp1biAyOCwgMjAxNyBhdCAxMDo0NToxOEFNICswODAwLCBKYXNv
-biBXYW5nIHdyb3RlOgo+Pj4+IE9uIDIwMTflubQwNuaciDI45pelIDEwOjE3LCBNaWNoYWVsIFMu
-IFRzaXJraW4gd3JvdGU6Cj4+Pj4+IE9uIFdlZCwgSnVuIDI4LCAyMDE3IGF0IDEwOjE0OjM0QU0g
-KzA4MDAsIEphc29uIFdhbmcgd3JvdGU6Cj4+Pj4+PiBPbiAyMDE35bm0MDbmnIgyOOaXpSAxMDow
-MiwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+Pj4+Pj4+IE9uIFdlZCwgSnVuIDI4LCAyMDE3
-IGF0IDA5OjU0OjAzQU0gKzA4MDAsIEphc29uIFdhbmcgd3JvdGU6Cj4+Pj4+Pj4+IFdlIHNob3Vs
-ZCBhbGxvdyBjc3VtZWQgcGFja2V0IGZvciBzbWFsbCBidWZmZXIsIG90aGVyd2lzZSBYRFBfUEFT
-Uwo+Pj4+Pj4+PiB3b24ndCB3b3JrIGNvcnJlY3RseS4KPj4+Pj4+Pj4KPj4+Pj4+Pj4gRml4ZXMg
-Y29tbWl0IGJiOTFhY2NmMjczMyAoInZpcnRpby1uZXQ6IFhEUCBzdXBwb3J0IGZvciBzbWFsbCBi
-dWZmZXJzIikKPj4+Pj4+Pj4gU2lnbmVkLW9mZi1ieTogSmFzb24gV2FuZzxqYXNvd2FuZ0ByZWRo
-YXQuY29tPgo+Pj4+Pj4+IFRoZSBpc3N1ZSB3b3VsZCBiZSBWSVJUSU9fTkVUX0hEUl9GX0RBVEFf
-VkFMSUQgbWlnaHQgYmUgc2V0Lgo+Pj4+Pj4+IFdoYXQgZG8geW91IHRoaW5rPwo+Pj4+Pj4gSSB0
-aGluayBpdCdzIHNhZmUuIEZvciBYRFBfUEFTUywgaXQgd29yayBsaWtlIGluIHRoZSBwYXN0Lgo+
-Pj4+PiBUaGF0J3MgdGhlIHBhcnQgSSBkb24ndCBnZXQuIFdpdGggREFUQV9WQUxJRCBjc3VtIGlu
-IHBhY2tldCBpcyB3cm9uZywgWERQCj4+Pj4+IHRvb2xzIGFzc3VtZSBpdCdzIHZhbHVlLgo+Pj4+
-IERBVEFfVkFMSUQgaXMgQ0hFQ0tTVU1fVU5DRVNTQVJZIG9uIHRoZSBob3N0LCBhbmQgYWNjb3Jk
-aW5nIHRvIHRoZSBjb21tZW50Cj4+Pj4gaW4gc2tidWZmLmgKPj4+Pgo+Pj4+Cj4+Pj4gIgo+Pj4+
-ICAgICogICBUaGUgaGFyZHdhcmUgeW91J3JlIGRlYWxpbmcgd2l0aCBkb2Vzbid0IGNhbGN1bGF0
-ZSB0aGUgZnVsbCBjaGVja3N1bQo+Pj4+ICAgICogICAoYXMgaW4gQ0hFQ0tTVU1fQ09NUExFVEUp
-LCBidXQgaXQgZG9lcyBwYXJzZSBoZWFkZXJzIGFuZCB2ZXJpZnkKPj4+PiBjaGVja3N1bXMKPj4+
-PiAgICAqICAgZm9yIHNwZWNpZmljIHByb3RvY29scy4gRm9yIHN1Y2ggcGFja2V0cyBpdCB3aWxs
-IHNldAo+Pj4+IENIRUNLU1VNX1VOTkVDRVNTQVJZCj4+Pj4gICAgKiAgIGlmIHRoZWlyIGNoZWNr
-c3VtcyBhcmUgb2theS4gc2tiLT5jc3VtIGlzIHN0aWxsIHVuZGVmaW5lZCBpbiB0aGlzIGNhc2UK
-Pj4+PiAgICAqICAgdGhvdWdoLiBBIGRyaXZlciBvciBkZXZpY2UgbXVzdCBuZXZlciBtb2RpZnkg
-dGhlIGNoZWNrc3VtIGZpZWxkIGluIHRoZQo+Pj4+ICAgICogICBwYWNrZXQgZXZlbiBpZiBjaGVj
-a3N1bSBpcyB2ZXJpZmllZC4KPj4+PiAiCj4+Pj4KPj4+PiBUaGUgY3N1bSBpcyBjb3JyZWN0IEkg
-YmVsaWV2ZT8KPj4+Pgo+Pj4+IFRoYW5rcwo+Pj4gVGhhdCdzIG9uIGlucHV0LiBCdXQgSSB0aGlu
-ayBmb3IgdHVuIGl0J3Mgb3V0cHV0LCB3aGVyZSB0aGF0IGlzIGVxdWl2YWxlbnQKPj4+IHRvIENI
-RUNLU1VNX05PTkUKPj4+Cj4+Pgo+PiBZZXMsIGJ1dCB0aGUgY29tbWVudCBzYWlkOgo+Pgo+PiAi
-Cj4+IENLU1VNX05PTkU6Cj4+ICAgKgo+PiAgICogICBUaGUgc2tiIHdhcyBhbHJlYWR5IGNoZWNr
-c3VtbWVkIGJ5IHRoZSBwcm90b2NvbCwgb3IgYSBjaGVja3N1bSBpcyBub3QKPj4gICAqICAgcmVx
-dWlyZWQuCj4+ICAgKgo+PiAgICogQ0hFQ0tTVU1fVU5ORUNFU1NBUlk6Cj4+ICAgKgo+PiAgICog
-ICBUaGlzIGhhcyB0aGUgc2FtZSBtZWFuaW5nIG9uIGFzIENIRUNLU1VNX05PTkUgZm9yIGNoZWNr
-c3VtIG9mZmxvYWQgb24KPj4gICAqICAgb3V0cHV0Lgo+PiAgICoKPj4gIgo+Pgo+PiBTbyBzdGls
-bCBjb3JyZWN0IEkgdGhpbms/Cj4+Cj4+IFRoYW5rcwo+IEhtbSBtYXliZSBJIG1lYW4gTkVFRFNf
-Q0hFQ0tTVU0gYWN0dWFsbHkuCj4KPiBJJ2xsIG5lZWQgdG8gcmUtcmVhZCB0aGUgc3BlYy4KPgoK
-Tm90IHN1cmUgdGhpcyBpcyBhbiBpc3N1ZS4gQnV0IGlmIGl0IGlzLCB3ZSBjYW4gcHJvYmFibHkg
-Y2hlY2tzdW0gdGhlIApwYWNrZXQgYmVmb3JlIHBhc3NpbmcgaXQgdG8gWERQLiBCdXQgaXQgd291
-bGQgYmUgYSBsaXR0bGUgc2xvdy4KClRoYW5rcwpfX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6
-YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5k
-YXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
+On 06/28/2017 04:03 AM, Giuseppe CAVALLARO wrote:
+> On 6/27/2017 11:51 PM, thor.thayer@linux.intel.com wrote:
+>> From: Thor Thayer <thor.thayer@linux.intel.com>
+>>
+>> This patch adds the DMA HW Feature Register which is at the end
+>> of the DMA registers and is documented in Version 3.70a.
+>>
+>> Signed-off-by: Thor Thayer <thor.thayer@linux.intel.com>
+>> ---
+>>   stmmac.c | 2 +-
+>>   1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/stmmac.c b/stmmac.c
+>> index e1bb291..7d7bebd 100644
+>> --- a/stmmac.c
+>> +++ b/stmmac.c
+>> @@ -64,7 +64,7 @@ int st_gmac_dump_regs(struct ethtool_drvinfo *info, 
+>> struct ethtool_regs *regs)
+>>       fprintf(stdout, "\n");
+>>       fprintf(stdout, "DMA Registers\n");
+>>       stmmac_reg = (unsigned int *)regs->data + DMA_REG_OFFSET;
+>> -    for (i = 0; i < 22; i++)
+>> +    for (i = 0; i < 23; i++)
+> 
+> thx Thor for these changes, I wonder if you could add a macro instead 23 
+> while doing this kind of changes
+> 
+> Sorry if I didn't it in the past.
+> 
+> the, you can send the series with my Acked-by: Giuseppe Cavallaro 
+> <peppe.cavallaro@st.com>
+> 
+> Regards
+> 
+> peppe
+> 
+
+Sure. I'll also add a macro for the # of main registers too (55). Some 
+maintainers prefer the macros while others prefer the number to reduce 
+the space.
+
+Thanks for the quick review!
+
+Thor
+> 
+>>           fprintf(stdout, "Reg%d  0x%08X\n", i, *stmmac_reg++);
+>>       return 0;
+> 
+> 
+> 
