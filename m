@@ -1,42 +1,52 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [net-next v2 6/6] ixgbe: Add malicious driver detection support
-Date: Wed, 28 Jun 2017 17:28:59 +0300
-Message-ID: <CAJ3xEMgAOMM3g0sqc6AfWLWf_VKwuHQGh_ZSYfmeQg=JotGbbg@mail.gmail.com>
-References: <20170627085131.9831-1-jeffrey.t.kirsher@intel.com>
- <20170627085131.9831-7-jeffrey.t.kirsher@intel.com> <CAJ3xEMiEjGDUatUv47wNTfYPfCVo62+Jjs-xFU3ccN0iJm-5Gg@mail.gmail.com>
- <87618083B2453E4A8714035B62D67992B3E89EA6@FMSMSX105.amr.corp.intel.com>
- <CAJ3xEMgT62xt=TdFyY9vfRG+eOqvcLT+5m1WSGPtexygyrcB+w@mail.gmail.com> <87618083B2453E4A8714035B62D67992B3E89F1D@FMSMSX105.amr.corp.intel.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next] cxgb4: Add PTP Hardware Clock (PHC) support
+Date: Wed, 28 Jun 2017 16:37:29 +0200
+Message-ID: <20170628143729.l5rv6kixvd3rt45z@localhost.localdomain>
+References: <1498636743-3018-1-git-send-email-atul.gupta@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-        David Miller <davem@davemloft.net>,
-        "Greenwalt, Paul" <paul.greenwalt@intel.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        "nhorman@redhat.com" <nhorman@redhat.com>,
-        "sassmann@redhat.com" <sassmann@redhat.com>,
-        "jogreene@redhat.com" <jogreene@redhat.com>
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, venkatesh@chelsio.com,
+        Ganesh Goudar <ganeshgr@chelsio.com>
+To: Atul Gupta <atul.gupta@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f44.google.com ([209.85.218.44]:36627 "EHLO
-        mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751723AbdF1O3A (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 10:29:00 -0400
-Received: by mail-oi0-f44.google.com with SMTP id p187so42763813oif.3
-        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 07:29:00 -0700 (PDT)
-In-Reply-To: <87618083B2453E4A8714035B62D67992B3E89F1D@FMSMSX105.amr.corp.intel.com>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:35812 "EHLO
+        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751513AbdF1Ohe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 10:37:34 -0400
+Received: by mail-wm0-f44.google.com with SMTP id w126so55449977wme.0
+        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 07:37:34 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1498636743-3018-1-git-send-email-atul.gupta@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 28, 2017 at 1:14 AM, Tantilov, Emil S
-<emil.s.tantilov@intel.com> wrote:
+On Wed, Jun 28, 2017 at 01:29:03PM +0530, Atul Gupta wrote:
+> Add PTP IEEE-1588 support and make it accessible via PHC subsystem.
+> The functionality is enabled for T5/T6 adapters. Driver interfaces with
+> Firmware to program and adjust the clock offset.
+> 
+> Signed-off-by: Atul Gupta <atul.gupta@chelsio.com>
+> Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 
-> Mainly because I am not sure that other (non-Intel) drivers will benefit from
-> such an option. In normal operation this functionality should not cause issues
-> and if it doesn't we may be able to deprecate the private flag in the future.
+Please put the PTP maintainer onto CC for PTP patches.
 
-If you think this functionality makes sense any driver running over HW
-implementing
-it would like to be able to expose that and hence you better not use
-private flag.
+>  drivers/net/ethernet/chelsio/cxgb4/Makefile        |   2 +-
+>  drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |   9 +
+>  drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c |  25 +-
+>  drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |  87 +++-
+>  drivers/net/ethernet/chelsio/cxgb4/cxgb4_ptp.c     | 476 +++++++++++++++++++++
+>  drivers/net/ethernet/chelsio/cxgb4/cxgb4_ptp.h     |  74 ++++
+>  drivers/net/ethernet/chelsio/cxgb4/sge.c           | 166 ++++++-
+>  drivers/net/ethernet/chelsio/cxgb4/t4_msg.h        |  28 ++
+>  drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |   2 +
+>  drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h      |  50 +++
+>  10 files changed, 906 insertions(+), 13 deletions(-)
 
-Are we sure the trust UAPI can't be extended for that matter?
+This should be broken down into a series of at least 2 patches:
+
+1. Transmit hardware SO_TIMESTAMPING
+
+2. PHC support
+
+Thanks,
+Richard
