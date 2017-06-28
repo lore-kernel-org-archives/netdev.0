@@ -1,34 +1,39 @@
 From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Subject: [PATCH 0/4] arcnet: Collection of latest features
-Date: Wed, 28 Jun 2017 18:32:17 +0200
-Message-ID: <20170628163221.32301-1-m.grzeschik@pengutronix.de>
+Subject: [PATCH 3/4] arcnet: com20020-pci: handle backplane mode depending on card type
+Date: Wed, 28 Jun 2017 18:32:20 +0200
+Message-ID: <20170628163221.32301-4-m.grzeschik@pengutronix.de>
+References: <20170628163221.32301-1-m.grzeschik@pengutronix.de>
 Cc: netdev@vger.kernel.org, kernel@pengutronix.de
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:54703 "EHLO
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:52519 "EHLO
         metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752484AbdF1Qce (ORCPT
+        by vger.kernel.org with ESMTP id S1752056AbdF1Qce (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 12:32:34 -0400
+In-Reply-To: <20170628163221.32301-1-m.grzeschik@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Here we sum up the latest features to improve the arcnet framework. One
-patch is used to get feedback from the transfer queue about failed xfers
-by adding the err_skb message queue. Beside that we improve the
-backplane status that can be read by the PCI-based cards and offer that
-status via an extra sysfs attribute. In the last patch we add another
-card type PCIFB2.
+We read the backplane mode of each subcard from bits 2 and 3 of the misc
+register.
 
-Michael Grzeschik (4):
-  arcnet: add err_skb package for package status feedback
-  arcnet: com20020-pci: add attribute to readback backplane status
-  arcnet: com20020-pci: handle backplane mode depending on card type
-  arcnet: com20020-pci: add support for PCIFB2 card
+Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
+---
+ drivers/net/arcnet/com20020-pci.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
- drivers/net/arcnet/arcdevice.h    |  4 +++
- drivers/net/arcnet/arcnet.c       | 74 +++++++++++++++++++++++++++++++++------
- drivers/net/arcnet/com20020-pci.c | 58 ++++++++++++++++++++++++++++++
- 3 files changed, 126 insertions(+), 10 deletions(-)
-
+diff --git a/drivers/net/arcnet/com20020-pci.c b/drivers/net/arcnet/com20020-pci.c
+index dec300cac55f9..f5854ab7dc326 100644
+--- a/drivers/net/arcnet/com20020-pci.c
++++ b/drivers/net/arcnet/com20020-pci.c
+@@ -199,6 +199,8 @@ static int com20020pci_probe(struct pci_dev *pdev,
+ 		lp->timeout = timeout;
+ 		lp->hw.owner = THIS_MODULE;
+ 
++		lp->backplane = (inb(priv->misc) >> (2 + i)) & 0x1;
++
+ 		/* Get the dev_id from the PLX rotary coder */
+ 		if (!strncmp(ci->name, "EAE PLX-PCI MA1", 15))
+ 			dev->dev_id = 0xc;
 -- 
 2.11.0
