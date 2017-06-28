@@ -1,140 +1,80 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [PATCH v2] datapath: Avoid using stack larger than 1024.
-Date: Wed, 28 Jun 2017 13:35:57 -0700
-Message-ID: <CAOrHB_CRhRRMCcspYysQrr1erAbKYv0EH-fHz+RXihUcOy8wzw@mail.gmail.com>
-References: <1498616999-3035-1-git-send-email-xiangxia.m.yue@gmail.com>
+From: Daniel Borkmann via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: [PATCH v3 net-next 00/12] bpf: rewrite value
+	tracking in verifier
+Date: Wed, 28 Jun 2017 22:38:02 +0200
+Message-ID: <595413AA.40502@iogearbox.net>
+References: <adc11342-737f-4e06-bce3-f0a92b5594a5@solarflare.com>
+	<5953B436.6030506@iogearbox.net>
+	<788035e1-1974-b48e-3008-d294194a8b05@solarflare.com>
+Reply-To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Greg Rose <gvrose8192@gmail.com>
-To: Tonghao Zhang <xiangxia.m.yue@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:60105 "EHLO
-        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751881AbdF1UgG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 16:36:06 -0400
-Received: from mfilter22-d.gandi.net (mfilter22-d.gandi.net [217.70.178.150])
-        by relay4-d.mail.gandi.net (Postfix) with ESMTP id AAC4B1720B3
-        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 22:35:59 +0200 (CEST)
-Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
-        by mfilter22-d.gandi.net (mfilter22-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id aZ5kJk30fnS8 for <netdev@vger.kernel.org>;
-        Wed, 28 Jun 2017 22:35:58 +0200 (CEST)
-Received: from mail-wr0-f181.google.com (mail-wr0-f181.google.com [209.85.128.181])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id 3A9F51720A3
-        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 22:35:58 +0200 (CEST)
-Received: by mail-wr0-f181.google.com with SMTP id 77so180036634wrb.1
-        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 13:35:58 -0700 (PDT)
-In-Reply-To: <1498616999-3035-1-git-send-email-xiangxia.m.yue@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <788035e1-1974-b48e-3008-d294194a8b05-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 27, 2017 at 7:29 PM, Tonghao Zhang <xiangxia.m.yue@gmail.com> wrote:
-> When compiling OvS-master on 4.4.0-81 kernel,
-> there is a warning:
->
->     CC [M]  /root/ovs/datapath/linux/datapath.o
->     /root/ovs/datapath/linux/datapath.c: In function
->     ‘ovs_flow_cmd_set’:
->     /root/ovs/datapath/linux/datapath.c:1221:1: warning:
->     the frame size of 1040 bytes is larger than 1024 bytes
->     [-Wframe-larger-than=]
->
-> This patch factors out match-init and action-copy to avoid
-> "Wframe-larger-than=1024" warning. Because mask is only
-> used to get actions, we new a function to save some
-> stack space.
->
-> Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
-> ---
->  datapath/datapath.c | 73 ++++++++++++++++++++++++++++++++++++-----------------
->  1 file changed, 50 insertions(+), 23 deletions(-)
->
-> diff --git a/datapath/datapath.c b/datapath/datapath.c
-> index c85029c..fdbe314 100644
-> --- a/datapath/datapath.c
-> +++ b/datapath/datapath.c
-> @@ -1100,6 +1100,50 @@ static struct sw_flow_actions *get_flow_actions(struct net *net,
->         return acts;
->  }
->
-> +/* Factor out match-init and action-copy to avoid
-> + * "Wframe-larger-than=1024" warning. Because mask is only
-> + * used to get actions, we new a function to save some
-> + * stack space.
-> + *
-> + * If there are not key and action attrs, we return 0
-> + * directly. In the case, the caller will also not use the
-> + * match as before. If there is action attr, we try to get
-> + * actions and save them to *acts.
-> + * */
-> +static int ovs_nla_init_match_and_action(struct net *net,
-> +                                        struct sw_flow_match *match,
-> +                                        struct sw_flow_key *key,
-> +                                        struct nlattr **a,
-> +                                        struct sw_flow_actions **acts,
-> +                                        bool log)
-> +{
-> +       struct sw_flow_mask mask;
-> +       int error = 0;
-> +
-> +       if (a[OVS_FLOW_ATTR_KEY]) {
-> +               ovs_match_init(match, key, true, &mask);
-> +               error = ovs_nla_get_match(net, match, a[OVS_FLOW_ATTR_KEY],
-> +                                         a[OVS_FLOW_ATTR_MASK], log);
-> +               if (error)
-> +                       return error;
-> +       }
-> +
-> +       if (a[OVS_FLOW_ATTR_ACTIONS]) {
-> +               if (!a[OVS_FLOW_ATTR_KEY]) {
-> +                       OVS_NLERR(log,
-> +                                 "Flow key attribute not present in set flow.");
-> +                       return -EINVAL;
-> +               }
-> +
-> +               *acts = get_flow_actions(net, a[OVS_FLOW_ATTR_ACTIONS], key,
-> +                                        &mask, log);
-> +               if (IS_ERR(*acts))
-> +                       return PTR_ERR(*acts);
-> +       }
-> +
-> +       return 0;
-> +}
-> +
->  static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
->  {
->         struct net *net = sock_net(skb->sk);
-> @@ -1107,7 +1151,6 @@ static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
->         struct ovs_header *ovs_header = info->userhdr;
->         struct sw_flow_key key;
->         struct sw_flow *flow;
-> -       struct sw_flow_mask mask;
->         struct sk_buff *reply = NULL;
->         struct datapath *dp;
->         struct sw_flow_actions *old_acts = NULL, *acts = NULL;
-> @@ -1119,34 +1162,18 @@ static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
->         bool ufid_present;
->
->         ufid_present = ovs_nla_get_ufid(&sfid, a[OVS_FLOW_ATTR_UFID], log);
-> -       if (a[OVS_FLOW_ATTR_KEY]) {
-> -               ovs_match_init(&match, &key, true, &mask);
-> -               error = ovs_nla_get_match(net, &match, a[OVS_FLOW_ATTR_KEY],
-> -                                         a[OVS_FLOW_ATTR_MASK], log);
-> -       } else if (!ufid_present) {
-> +       if (!a[OVS_FLOW_ATTR_KEY] && !ufid_present) {
->                 OVS_NLERR(log,
->                           "Flow set message rejected, Key attribute missing.");
-> -               error = -EINVAL;
-> +               return -EINVAL;
->         }
-> +
-> +       error = ovs_nla_init_match_and_action(net, &match, &key, a,
-> +                                             &acts, log);
-This looks good. But it is returning match object with dangling
-reference to mask. It is fine for now as it is not referenced outside
-of the function for now. But it is not pretty. We could reset the mask
-pointer before returning from the function. and write comment
-explaining it.
+T24gMDYvMjgvMjAxNyAwNDoxMSBQTSwgRWR3YXJkIENyZWUgd3JvdGU6Cj4gT24gMjgvMDYvMTcg
+MTQ6NTAsIERhbmllbCBCb3JrbWFubiB3cm90ZToKPj4gSGkgRWR3YXJkLAo+Pgo+PiBEaWQgeW91
+IGFsc28gaGF2ZSBhIGNoYW5jZSBpbiB0aGUgbWVhbnRpbWUgdG8gbG9vayBhdCByZWR1Y2luZyBj
+b21wbGV4aXR5Cj4+IGFsb25nIHdpdGggeW91ciB1bmlmaWNhdGlvbj8gSSBkaWQgcnVuIHRoZSBj
+aWxpdW0gdGVzdCBzdWl0ZSB3aXRoIHlvdXIKPj4gbGF0ZXN0IHNldCBmcm9tIGhlcmUgYW5kIGN1
+cnJlbnQgIyB3b3JzdCBjYXNlIHByb2Nlc3NlZCBpbnNucyB0aGF0Cj4+IHZlcmlmaWVyIGhhcyB0
+byBnbyB0aHJvdWdoIGZvciBjaWxpdW0gcHJvZ3MgaW5jcmVhc2VzIGZyb20gfjUzayB3ZSBoYXZl
+Cj4+IHJpZ2h0IG5vdyB0byB+NzZrLiBJJ20gYSBiaXQgd29ycmllZCB0aGF0IHRoaXMgcXVpY2ts
+eSBnZXRzIHVzIGNsb3NlIHRvCj4+IHRoZSB1cHBlciB+OThrIG1heCBsaW1pdCBzdGFydGluZyB0
+byByZWplY3QgcHJvZ3JhbXMgYWdhaW4uIEFsdGVybmF0aXZlCj4+IGlzIHRvIGJ1bXAgdGhlIGNv
+bXBsZXhpdHkgbGltaXQgYWdhaW4gaW4gbmVhciBmdXR1cmUgb25jZSBydW4gaW50byBpdCwKPj4g
+YnV0IHByZWZlcmFibHkgdGhlcmUncyBhIHdheSB0byBvcHRpbWl6ZSBpdCBhbG9uZyB3aXRoIHRo
+ZSByZXdyaXRlPyBEbwo+PiB5b3Ugc2VlIGFueSBwb3NzaWJpbGl0aWVzIHdvcnRoIGV4cGxvcmlu
+Zz8KPiBUaGUgdHJvdWJsZSwgSSB0aGluaywgaXMgdGhhdCBhcyB3ZSdyZSBub3cgdHJhY2tpbmcg
+bW9yZSBpbmZvcm1hdGlvbiBhYm91dAo+ICAgZWFjaCByZWdpc3RlciB2YWx1ZSwgd2UncmUgbGVz
+cyBhYmxlIHRvIHBydW5lIGJyYW5jaGVzLiAgQnV0IG9mdGVuIHRoYXQKPiAgIGluZm9ybWF0aW9u
+IGlzIG5vdCBhY3R1YWxseSBiZWluZyB1c2VkIGluIHJlYWNoaW5nIHRoZSBleGl0IHN0YXRlLiAg
+U28gaXQKCkFncmVlLgoKPiAgIHNlZW1zIGxpa2UgdGhlIHdheSB0byB0YWNrbGUgdGhpcyB3b3Vs
+ZCBiZSB0byB0cmFjayB3aGF0IGluZm9ybWF0aW9uIGlzCj4gICB1c2VkIOKAlCBvciBhdCBsZWFz
+dCwgd2hpY2ggcmVnaXN0ZXJzIGFyZSByZWFkIGZyb20gKGluY2x1ZGluZyBlLmcuIHdyaXRpbmcK
+PiAgIHRocm91Z2ggdGhlbSBvciBwYXNzaW5nIHRoZW0gdG8gaGVscGVyIGNhbGxzKSDigJQgaW4g
+cmVhY2hpbmcgYSBzYWZlIHN0YXRlLgo+ICAgVGhlbiBvbmx5IHJlZ2lzdGVycyB3aGljaCBhcmUg
+dXNlZCBhcmUgcmVxdWlyZWQgdG8gbWF0Y2ggZm9yIHBydW5pbmcuCj4gQnV0IHRoYXQgdHJhY2tp
+bmcgd291bGQgcHJlc3VtYWJseSBoYXZlIHRvIHByb3BhZ2F0ZSBiYWNrd2FyZHMgdGhyb3VnaCB0
+aGUKPiAgIHZlcmlmaWVyIHN0YWNrLCBhbmQgSSdtIG5vdCBzdXJlIGhvdyBlYXNpbHkgdGhhdCBj
+b3VsZCBiZSBkb25lLiAgU29tZW9uZQo+ICAgKHdhcyBpdCB5b3U/KSB3YXMgdGFsa2luZyBhYm91
+dCByZXBsYWNpbmcgdGhlIGN1cnJlbnQgREFHIHdhbGtpbmcgYW5kCj4gICBwcnVuaW5nIHdpdGgg
+c29tZSBraW5kIG9mIGJhc2ljLWJsb2NrIHRoaW5nLCB3aGljaCB3b3VsZCBoZWxwIHdpdGggdGhp
+cy4KPiBTdW1tYXJ5OiBJIHRoaW5rIGl0IGNvdWxkIGJlIGRvbmUsIGJ1dCBJIGhhdmVuJ3QgbG9v
+a2VkIGludG8gdGhlIGRldGFpbHMKPiAgIG9mIGltcGxlbWVudGF0aW9uIHlldDsgaWYgaXQncyBu
+b3QgYWN0dWFsbHkgYnJlYWtpbmcgeW91ciBwcm9ncmFtcyAoeWV0KSwKPiAgIG1heWJlIGxlYXZl
+IGl0IGZvciBhIGZvbGxvd3VwIHBhdGNoIHNlcmllcz8KCkNvdWxkIHdlIGFkYXB0IHRoZSBsaW1p
+dCB0byAxMjhrIHBlcmhhcHMgYXMgcGFydCBvZiB0aGlzIHNldApnaXZlbiB3ZSBrbm93IHRoYXQg
+d2UncmUgdHJhY2tpbmcgbW9yZSBtZXRhIGRhdGEgaGVyZSBhbnl3YXk/ClRoZW4gd2UgY291bGQg
+cG90ZW50aWFsbHkgYXZvaWQgZ29pbmcgdmlhIC1zdGFibGUgbGF0ZXIgb24sCmJpZ2dlc3QgcGFp
+biBwb2ludCBpcyB1c3VhbGx5IHRyYWNraW5nIGRpZmZlcmVuY2VzIGluIExMVk0KY29kZSBnZW5l
+cmF0aW9uIChlLmcuIGRpZmZlcmVuY2VzIGluIG9wdGltaXphdGlvbnMpIGFsb25nIHdpdGgKdmVy
+aWZpZXIgY2hhbmdlcyB0byBtYWtlIHN1cmUgdGhhdCBwcm9ncmFtcyBzdGlsbCBrZWVwIGxvYWRp
+bmcKb24gb2xkZXIga2VybmVscyB3aXRoIGUuZy4gbmV3ZXIgTExWTTsgb25lIG9mIHRoZSBpc3N1
+ZXMgaXMgdGhhdApwcnVuaW5nIGNhbiBiZSBxdWl0ZSBmcmFnaWxlLiBFLmcuIHdvcnN0IGNhc2Ug
+YWRkaW5nIGEgc2ltcGxlCnZhciBpbiBhIGJyYW5jaCB0aGF0IExMVk0gYXNzaWducyBhIHN0YWNr
+IHNsb3QgdGhhdCB3YXMgb3RoZXJ3aXNlCm5vdCB1c2VkIHRocm91Z2hvdXQgdGhlIHByb2cgY2Fu
+IGNhdXNlIGEgc2lnbmlmaWNhbnQgaW5jcmVhc2Ugb2YKdmVyaWZpZXIgd29yayAocnVuIGludG8g
+dGhpcyBtdWx0aXBsZSB0aW1lcyBpbiB0aGUgcGFzdCBhbmQKaXMgYSBiaXQgb2YgYSBwYWluIHRv
+IHRyYWNrIGRvd24gYWN0dWFsbHkpLiBJZiB3ZSBjb3VsZCBrZWVwCnNvbWUgYnVmZmVyIGluIEJQ
+Rl9DT01QTEVYSVRZX0xJTUlUX0lOU05TIGF0IGxlYXN0IHdoZW4gd2Uga25vdwp0aGF0IG1vcmUg
+d29yayBpcyBuZWVkZWQgYW55d2F5IGZyb20gdGhhdCBwb2ludCBvbndhcmQsIHRoYXQKd291bGQg
+YmUgZ29vZC4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
+aW92aXNvci1kZXYgbWFpbGluZyBsaXN0Cmlvdmlzb3ItZGV2QGxpc3RzLmlvdmlzb3Iub3JnCmh0
+dHBzOi8vbGlzdHMuaW92aXNvci5vcmcvbWFpbG1hbi9saXN0aW5mby9pb3Zpc29yLWRldgo=
