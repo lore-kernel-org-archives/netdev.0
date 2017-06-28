@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 09/14] amd-xgbe: Re-issue interrupt if interrupt
- status not cleared
-Date: Wed, 28 Jun 2017 13:42:42 -0500
-Message-ID: <20170628184242.21972.70936.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 12/14] amd-xgbe: Prepare for more fine grained
+ cache coherency controls
+Date: Wed, 28 Jun 2017 13:43:09 -0500
+Message-ID: <20170628184309.21972.88378.stgit@tlendack-t1.amdoffice.net>
 References: <20170628184122.21972.87767.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,368 +10,171 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0068.outbound.protection.outlook.com ([104.47.34.68]:43812
+Received: from mail-by2nam01on0078.outbound.protection.outlook.com ([104.47.34.78]:35855
         "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751629AbdF1Sm5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 28 Jun 2017 14:42:57 -0400
+        id S1751629AbdF1SnO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 28 Jun 2017 14:43:14 -0400
 In-Reply-To: <20170628184122.21972.87767.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some of the device interrupts should function as level interrupts. For
-some hardware configurations this requires setting some control bits
-so that if the interrupt status has not been cleared the interrupt
-should be reissued.
-
-Additionally, when using MSI or MSI-X interrupts, run the interrupt
-service routine as a tasklet so that the re-issuance of the interrupt
-is handled properly.
+In prep for setting fine grained read and write DMA cache coherency
+controls, allow specific values to be used to set the cache coherency
+registers.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-common.h |    1 +
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c    |   53 +++++++++++++++++++++++----
- drivers/net/ethernet/amd/xgbe/xgbe-i2c.c    |   30 +++++++++++++--
- drivers/net/ethernet/amd/xgbe/xgbe-mdio.c   |   33 +++++++++++++++--
- drivers/net/ethernet/amd/xgbe/xgbe-pci.c    |    4 ++
- drivers/net/ethernet/amd/xgbe/xgbe.h        |   11 +++++-
- 6 files changed, 115 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-common.h   |   28 -------------------------
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c      |   23 ++-------------------
+ drivers/net/ethernet/amd/xgbe/xgbe-pci.c      |    5 ++--
+ drivers/net/ethernet/amd/xgbe/xgbe-platform.c |   10 ++++-----
+ drivers/net/ethernet/amd/xgbe/xgbe.h          |   15 +++++--------
+ 5 files changed, 14 insertions(+), 67 deletions(-)
 
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-common.h b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-index 127adbe..e7b6804 100644
+index e7b6804..dc09883 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-common.h
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-@@ -959,6 +959,7 @@
- #define XP_DRIVER_INT_RO		0x0064
- #define XP_DRIVER_SCRATCH_0		0x0068
- #define XP_DRIVER_SCRATCH_1		0x006c
-+#define XP_INT_REISSUE_EN		0x0074
- #define XP_INT_EN			0x0078
- #define XP_I2C_MUTEX			0x0080
- #define XP_MDIO_MUTEX			0x0084
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index 2068510..ff6d204 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -382,9 +382,9 @@ static bool xgbe_ecc_ded(struct xgbe_prv_data *pdata, unsigned long *period,
- 	return false;
- }
+@@ -127,34 +127,6 @@
+ #define DMA_DSR1			0x3024
  
--static irqreturn_t xgbe_ecc_isr(int irq, void *data)
-+static void xgbe_ecc_isr_task(unsigned long data)
+ /* DMA register entry bit positions and sizes */
+-#define DMA_AXIARCR_DRC_INDEX		0
+-#define DMA_AXIARCR_DRC_WIDTH		4
+-#define DMA_AXIARCR_DRD_INDEX		4
+-#define DMA_AXIARCR_DRD_WIDTH		2
+-#define DMA_AXIARCR_TEC_INDEX		8
+-#define DMA_AXIARCR_TEC_WIDTH		4
+-#define DMA_AXIARCR_TED_INDEX		12
+-#define DMA_AXIARCR_TED_WIDTH		2
+-#define DMA_AXIARCR_THC_INDEX		16
+-#define DMA_AXIARCR_THC_WIDTH		4
+-#define DMA_AXIARCR_THD_INDEX		20
+-#define DMA_AXIARCR_THD_WIDTH		2
+-#define DMA_AXIAWCR_DWC_INDEX		0
+-#define DMA_AXIAWCR_DWC_WIDTH		4
+-#define DMA_AXIAWCR_DWD_INDEX		4
+-#define DMA_AXIAWCR_DWD_WIDTH		2
+-#define DMA_AXIAWCR_RPC_INDEX		8
+-#define DMA_AXIAWCR_RPC_WIDTH		4
+-#define DMA_AXIAWCR_RPD_INDEX		12
+-#define DMA_AXIAWCR_RPD_WIDTH		2
+-#define DMA_AXIAWCR_RHC_INDEX		16
+-#define DMA_AXIAWCR_RHC_WIDTH		4
+-#define DMA_AXIAWCR_RHD_INDEX		20
+-#define DMA_AXIAWCR_RHD_WIDTH		2
+-#define DMA_AXIAWCR_TDC_INDEX		24
+-#define DMA_AXIAWCR_TDC_WIDTH		4
+-#define DMA_AXIAWCR_TDD_INDEX		28
+-#define DMA_AXIAWCR_TDD_WIDTH		2
+ #define DMA_ISR_MACIS_INDEX		17
+ #define DMA_ISR_MACIS_WIDTH		1
+ #define DMA_ISR_MTLIS_INDEX		16
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+index b05393f..98da249 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+@@ -2146,27 +2146,8 @@ static void xgbe_config_dma_bus(struct xgbe_prv_data *pdata)
+ 
+ static void xgbe_config_dma_cache(struct xgbe_prv_data *pdata)
  {
--	struct xgbe_prv_data *pdata = data;
-+	struct xgbe_prv_data *pdata = (struct xgbe_prv_data *)data;
- 	unsigned int ecc_isr;
- 	bool stop = false;
- 
-@@ -435,12 +435,26 @@ static irqreturn_t xgbe_ecc_isr(int irq, void *data)
- 	/* Clear all ECC interrupts */
- 	XP_IOWRITE(pdata, XP_ECC_ISR, ecc_isr);
- 
--	return IRQ_HANDLED;
-+	/* Reissue interrupt if status is not clear */
-+	if (pdata->vdata->irq_reissue_support)
-+		XP_IOWRITE(pdata, XP_INT_REISSUE_EN, 1 << 1);
+-	unsigned int arcache, awcache;
+-
+-	arcache = 0;
+-	XGMAC_SET_BITS(arcache, DMA_AXIARCR, DRC, pdata->arcache);
+-	XGMAC_SET_BITS(arcache, DMA_AXIARCR, DRD, pdata->axdomain);
+-	XGMAC_SET_BITS(arcache, DMA_AXIARCR, TEC, pdata->arcache);
+-	XGMAC_SET_BITS(arcache, DMA_AXIARCR, TED, pdata->axdomain);
+-	XGMAC_SET_BITS(arcache, DMA_AXIARCR, THC, pdata->arcache);
+-	XGMAC_SET_BITS(arcache, DMA_AXIARCR, THD, pdata->axdomain);
+-	XGMAC_IOWRITE(pdata, DMA_AXIARCR, arcache);
+-
+-	awcache = 0;
+-	XGMAC_SET_BITS(awcache, DMA_AXIAWCR, DWC, pdata->awcache);
+-	XGMAC_SET_BITS(awcache, DMA_AXIAWCR, DWD, pdata->axdomain);
+-	XGMAC_SET_BITS(awcache, DMA_AXIAWCR, RPC, pdata->awcache);
+-	XGMAC_SET_BITS(awcache, DMA_AXIAWCR, RPD, pdata->axdomain);
+-	XGMAC_SET_BITS(awcache, DMA_AXIAWCR, RHC, pdata->awcache);
+-	XGMAC_SET_BITS(awcache, DMA_AXIAWCR, RHD, pdata->axdomain);
+-	XGMAC_SET_BITS(awcache, DMA_AXIAWCR, TDC, pdata->awcache);
+-	XGMAC_SET_BITS(awcache, DMA_AXIAWCR, TDD, pdata->axdomain);
+-	XGMAC_IOWRITE(pdata, DMA_AXIAWCR, awcache);
++	XGMAC_IOWRITE(pdata, DMA_AXIARCR, pdata->arcr);
++	XGMAC_IOWRITE(pdata, DMA_AXIAWCR, pdata->awcr);
  }
  
--static irqreturn_t xgbe_isr(int irq, void *data)
-+static irqreturn_t xgbe_ecc_isr(int irq, void *data)
- {
- 	struct xgbe_prv_data *pdata = data;
-+
-+	if (pdata->isr_as_tasklet)
-+		tasklet_schedule(&pdata->tasklet_ecc);
-+	else
-+		xgbe_ecc_isr_task((unsigned long)pdata);
-+
-+	return IRQ_HANDLED;
-+}
-+
-+static void xgbe_isr_task(unsigned long data)
-+{
-+	struct xgbe_prv_data *pdata = (struct xgbe_prv_data *)data;
- 	struct xgbe_hw_if *hw_if = &pdata->hw_if;
- 	struct xgbe_channel *channel;
- 	unsigned int dma_isr, dma_ch_isr;
-@@ -543,15 +557,36 @@ static irqreturn_t xgbe_isr(int irq, void *data)
- isr_done:
- 	/* If there is not a separate AN irq, handle it here */
- 	if (pdata->dev_irq == pdata->an_irq)
--		pdata->phy_if.an_isr(irq, pdata);
-+		pdata->phy_if.an_isr(pdata);
- 
- 	/* If there is not a separate ECC irq, handle it here */
- 	if (pdata->vdata->ecc_support && (pdata->dev_irq == pdata->ecc_irq))
--		xgbe_ecc_isr(irq, pdata);
-+		xgbe_ecc_isr_task((unsigned long)pdata);
- 
- 	/* If there is not a separate I2C irq, handle it here */
- 	if (pdata->vdata->i2c_support && (pdata->dev_irq == pdata->i2c_irq))
--		pdata->i2c_if.i2c_isr(irq, pdata);
-+		pdata->i2c_if.i2c_isr(pdata);
-+
-+	/* Reissue interrupt if status is not clear */
-+	if (pdata->vdata->irq_reissue_support) {
-+		unsigned int reissue_mask;
-+
-+		reissue_mask = 1 << 0;
-+		if (!pdata->per_channel_irq)
-+			reissue_mask |= 0xffff < 4;
-+
-+		XP_IOWRITE(pdata, XP_INT_REISSUE_EN, reissue_mask);
-+	}
-+}
-+
-+static irqreturn_t xgbe_isr(int irq, void *data)
-+{
-+	struct xgbe_prv_data *pdata = data;
-+
-+	if (pdata->isr_as_tasklet)
-+		tasklet_schedule(&pdata->tasklet_dev);
-+	else
-+		xgbe_isr_task((unsigned long)pdata);
- 
- 	return IRQ_HANDLED;
- }
-@@ -826,6 +861,10 @@ static int xgbe_request_irqs(struct xgbe_prv_data *pdata)
- 	unsigned int i;
- 	int ret;
- 
-+	tasklet_init(&pdata->tasklet_dev, xgbe_isr_task, (unsigned long)pdata);
-+	tasklet_init(&pdata->tasklet_ecc, xgbe_ecc_isr_task,
-+		     (unsigned long)pdata);
-+
- 	ret = devm_request_irq(pdata->dev, pdata->dev_irq, xgbe_isr, 0,
- 			       netdev->name, pdata);
- 	if (ret) {
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-i2c.c b/drivers/net/ethernet/amd/xgbe/xgbe-i2c.c
-index 417bdb5..4d9062d 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-i2c.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-i2c.c
-@@ -274,13 +274,16 @@ static void xgbe_i2c_clear_isr_interrupts(struct xgbe_prv_data *pdata,
- 		XI2C_IOREAD(pdata, IC_CLR_STOP_DET);
- }
- 
--static irqreturn_t xgbe_i2c_isr(int irq, void *data)
-+static void xgbe_i2c_isr_task(unsigned long data)
- {
- 	struct xgbe_prv_data *pdata = (struct xgbe_prv_data *)data;
- 	struct xgbe_i2c_op_state *state = &pdata->i2c.op_state;
- 	unsigned int isr;
- 
- 	isr = XI2C_IOREAD(pdata, IC_RAW_INTR_STAT);
-+	if (!isr)
-+		goto reissue_check;
-+
- 	netif_dbg(pdata, intr, pdata->netdev,
- 		  "I2C interrupt received: status=%#010x\n", isr);
- 
-@@ -308,6 +311,21 @@ static irqreturn_t xgbe_i2c_isr(int irq, void *data)
- 	if (state->ret || XI2C_GET_BITS(isr, IC_RAW_INTR_STAT, STOP_DET))
- 		complete(&pdata->i2c_complete);
- 
-+reissue_check:
-+	/* Reissue interrupt if status is not clear */
-+	if (pdata->vdata->irq_reissue_support)
-+		XP_IOWRITE(pdata, XP_INT_REISSUE_EN, 1 << 2);
-+}
-+
-+static irqreturn_t xgbe_i2c_isr(int irq, void *data)
-+{
-+	struct xgbe_prv_data *pdata = (struct xgbe_prv_data *)data;
-+
-+	if (pdata->isr_as_tasklet)
-+		tasklet_schedule(&pdata->tasklet_i2c);
-+	else
-+		xgbe_i2c_isr_task((unsigned long)pdata);
-+
- 	return IRQ_HANDLED;
- }
- 
-@@ -349,12 +367,11 @@ static void xgbe_i2c_set_target(struct xgbe_prv_data *pdata, unsigned int addr)
- 	XI2C_IOWRITE(pdata, IC_TAR, addr);
- }
- 
--static irqreturn_t xgbe_i2c_combined_isr(int irq, struct xgbe_prv_data *pdata)
-+static irqreturn_t xgbe_i2c_combined_isr(struct xgbe_prv_data *pdata)
- {
--	if (!XI2C_IOREAD(pdata, IC_RAW_INTR_STAT))
--		return IRQ_HANDLED;
-+	xgbe_i2c_isr_task((unsigned long)pdata);
- 
--	return xgbe_i2c_isr(irq, pdata);
-+	return IRQ_HANDLED;
- }
- 
- static int xgbe_i2c_xfer(struct xgbe_prv_data *pdata, struct xgbe_i2c_op *op)
-@@ -445,6 +462,9 @@ static int xgbe_i2c_start(struct xgbe_prv_data *pdata)
- 
- 	/* If we have a separate I2C irq, enable it */
- 	if (pdata->dev_irq != pdata->i2c_irq) {
-+		tasklet_init(&pdata->tasklet_i2c, xgbe_i2c_isr_task,
-+			     (unsigned long)pdata);
-+
- 		ret = devm_request_irq(pdata->dev, pdata->i2c_irq,
- 				       xgbe_i2c_isr, 0, pdata->i2c_name,
- 				       pdata);
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-index b672d92..8068491 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-@@ -665,6 +665,10 @@ static void xgbe_an37_isr(struct xgbe_prv_data *pdata)
- 	} else {
- 		/* Enable AN interrupts */
- 		xgbe_an37_enable_interrupts(pdata);
-+
-+		/* Reissue interrupt if status is not clear */
-+		if (pdata->vdata->irq_reissue_support)
-+			XP_IOWRITE(pdata, XP_INT_REISSUE_EN, 1 << 3);
- 	}
- }
- 
-@@ -684,10 +688,14 @@ static void xgbe_an73_isr(struct xgbe_prv_data *pdata)
- 	} else {
- 		/* Enable AN interrupts */
- 		xgbe_an73_enable_interrupts(pdata);
-+
-+		/* Reissue interrupt if status is not clear */
-+		if (pdata->vdata->irq_reissue_support)
-+			XP_IOWRITE(pdata, XP_INT_REISSUE_EN, 1 << 3);
- 	}
- }
- 
--static irqreturn_t xgbe_an_isr(int irq, void *data)
-+static void xgbe_an_isr_task(unsigned long data)
- {
- 	struct xgbe_prv_data *pdata = (struct xgbe_prv_data *)data;
- 
-@@ -705,13 +713,25 @@ static irqreturn_t xgbe_an_isr(int irq, void *data)
- 	default:
- 		break;
- 	}
-+}
-+
-+static irqreturn_t xgbe_an_isr(int irq, void *data)
-+{
-+	struct xgbe_prv_data *pdata = (struct xgbe_prv_data *)data;
-+
-+	if (pdata->isr_as_tasklet)
-+		tasklet_schedule(&pdata->tasklet_an);
-+	else
-+		xgbe_an_isr_task((unsigned long)pdata);
- 
- 	return IRQ_HANDLED;
- }
- 
--static irqreturn_t xgbe_an_combined_isr(int irq, struct xgbe_prv_data *pdata)
-+static irqreturn_t xgbe_an_combined_isr(struct xgbe_prv_data *pdata)
- {
--	return xgbe_an_isr(irq, pdata);
-+	xgbe_an_isr_task((unsigned long)pdata);
-+
-+	return IRQ_HANDLED;
- }
- 
- static void xgbe_an_irq_work(struct work_struct *work)
-@@ -915,6 +935,10 @@ static void xgbe_an_state_machine(struct work_struct *work)
- 		break;
- 	}
- 
-+	/* Reissue interrupt if status is not clear */
-+	if (pdata->vdata->irq_reissue_support)
-+		XP_IOWRITE(pdata, XP_INT_REISSUE_EN, 1 << 3);
-+
- 	mutex_unlock(&pdata->an_mutex);
- }
- 
-@@ -1379,6 +1403,9 @@ static int xgbe_phy_start(struct xgbe_prv_data *pdata)
- 
- 	/* If we have a separate AN irq, enable it */
- 	if (pdata->dev_irq != pdata->an_irq) {
-+		tasklet_init(&pdata->tasklet_an, xgbe_an_isr_task,
-+			     (unsigned long)pdata);
-+
- 		ret = devm_request_irq(pdata->dev, pdata->an_irq,
- 				       xgbe_an_isr, 0, pdata->an_name,
- 				       pdata);
+ static void xgbe_config_mtl_mode(struct xgbe_prv_data *pdata)
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-pci.c b/drivers/net/ethernet/amd/xgbe/xgbe-pci.c
-index 38392a52..f0c2e88 100644
+index f0c2e88..1e73768 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-pci.c
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-pci.c
-@@ -139,6 +139,7 @@ static int xgbe_config_multi_msi(struct xgbe_prv_data *pdata)
- 		return ret;
+@@ -327,9 +327,8 @@ static int xgbe_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 
+ 	/* Set the DMA coherency values */
+ 	pdata->coherent = 1;
+-	pdata->axdomain = XGBE_DMA_OS_AXDOMAIN;
+-	pdata->arcache = XGBE_DMA_OS_ARCACHE;
+-	pdata->awcache = XGBE_DMA_OS_AWCACHE;
++	pdata->arcr = XGBE_DMA_OS_ARCR;
++	pdata->awcr = XGBE_DMA_OS_AWCR;
+ 
+ 	/* Set the maximum channels and queues */
+ 	reg = XP_IOREAD(pdata, XP_PROP_1);
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-platform.c b/drivers/net/ethernet/amd/xgbe/xgbe-platform.c
+index 84d4c51..d0f3dfb 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-platform.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-platform.c
+@@ -448,13 +448,11 @@ static int xgbe_platform_probe(struct platform_device *pdev)
+ 	}
+ 	pdata->coherent = (attr == DEV_DMA_COHERENT);
+ 	if (pdata->coherent) {
+-		pdata->axdomain = XGBE_DMA_OS_AXDOMAIN;
+-		pdata->arcache = XGBE_DMA_OS_ARCACHE;
+-		pdata->awcache = XGBE_DMA_OS_AWCACHE;
++		pdata->arcr = XGBE_DMA_OS_ARCR;
++		pdata->awcr = XGBE_DMA_OS_AWCR;
+ 	} else {
+-		pdata->axdomain = XGBE_DMA_SYS_AXDOMAIN;
+-		pdata->arcache = XGBE_DMA_SYS_ARCACHE;
+-		pdata->awcache = XGBE_DMA_SYS_AWCACHE;
++		pdata->arcr = XGBE_DMA_SYS_ARCR;
++		pdata->awcr = XGBE_DMA_SYS_AWCR;
  	}
  
-+	pdata->isr_as_tasklet = 1;
- 	pdata->irq_count = ret;
- 
- 	pdata->dev_irq = pci_irq_vector(pdata->pcidev, 0);
-@@ -175,6 +176,7 @@ static int xgbe_config_irqs(struct xgbe_prv_data *pdata)
- 		return ret;
- 	}
- 
-+	pdata->isr_as_tasklet = pdata->pcidev->msi_enabled ? 1 : 0;
- 	pdata->irq_count = 1;
- 	pdata->channel_irq_count = 1;
- 
-@@ -445,6 +447,7 @@ static int xgbe_pci_resume(struct pci_dev *pdev)
- 	.tx_tstamp_workaround		= 1,
- 	.ecc_support			= 1,
- 	.i2c_support			= 1,
-+	.irq_reissue_support		= 1,
- };
- 
- static const struct xgbe_version_data xgbe_v2b = {
-@@ -456,6 +459,7 @@ static int xgbe_pci_resume(struct pci_dev *pdev)
- 	.tx_tstamp_workaround		= 1,
- 	.ecc_support			= 1,
- 	.i2c_support			= 1,
-+	.irq_reissue_support		= 1,
- };
- 
- static const struct pci_device_id xgbe_pci_table[] = {
+ 	/* Set the maximum fifo amounts */
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index f9a2463..2834961 100644
+index 7b50469..46780aa 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe.h
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -837,7 +837,7 @@ struct xgbe_phy_if {
- 	bool (*phy_valid_speed)(struct xgbe_prv_data *, int);
+@@ -164,14 +164,12 @@
+ #define XGBE_DMA_STOP_TIMEOUT	1
  
- 	/* For single interrupt support */
--	irqreturn_t (*an_isr)(int, struct xgbe_prv_data *);
-+	irqreturn_t (*an_isr)(struct xgbe_prv_data *);
+ /* DMA cache settings - Outer sharable, write-back, write-allocate */
+-#define XGBE_DMA_OS_AXDOMAIN	0x2
+-#define XGBE_DMA_OS_ARCACHE	0xb
+-#define XGBE_DMA_OS_AWCACHE	0xf
++#define XGBE_DMA_OS_ARCR	0x002b2b2b
++#define XGBE_DMA_OS_AWCR	0x2f2f2f2f
  
- 	/* PHY implementation specific services */
- 	struct xgbe_phy_impl_if phy_impl;
-@@ -855,7 +855,7 @@ struct xgbe_i2c_if {
- 	int (*i2c_xfer)(struct xgbe_prv_data *, struct xgbe_i2c_op *);
+ /* DMA cache settings - System, no caches used */
+-#define XGBE_DMA_SYS_AXDOMAIN	0x3
+-#define XGBE_DMA_SYS_ARCACHE	0x0
+-#define XGBE_DMA_SYS_AWCACHE	0x0
++#define XGBE_DMA_SYS_ARCR	0x00303030
++#define XGBE_DMA_SYS_AWCR	0x30303030
  
- 	/* For single interrupt support */
--	irqreturn_t (*i2c_isr)(int, struct xgbe_prv_data *);
-+	irqreturn_t (*i2c_isr)(struct xgbe_prv_data *);
- };
+ /* DMA channel interrupt modes */
+ #define XGBE_IRQ_MODE_EDGE	0
+@@ -1007,9 +1005,8 @@ struct xgbe_prv_data {
  
- struct xgbe_desc_if {
-@@ -924,6 +924,7 @@ struct xgbe_version_data {
- 	unsigned int tx_tstamp_workaround;
- 	unsigned int ecc_support;
- 	unsigned int i2c_support;
-+	unsigned int irq_reissue_support;
- };
+ 	/* AXI DMA settings */
+ 	unsigned int coherent;
+-	unsigned int axdomain;
+-	unsigned int arcache;
+-	unsigned int awcache;
++	unsigned int arcr;
++	unsigned int awcr;
  
- struct xgbe_prv_data {
-@@ -1159,6 +1160,12 @@ struct xgbe_prv_data {
- 
- 	unsigned int lpm_ctrl;		/* CTRL1 for resume */
- 
-+	unsigned int isr_as_tasklet;
-+	struct tasklet_struct tasklet_dev;
-+	struct tasklet_struct tasklet_ecc;
-+	struct tasklet_struct tasklet_i2c;
-+	struct tasklet_struct tasklet_an;
-+
- #ifdef CONFIG_DEBUG_FS
- 	struct dentry *xgbe_debugfs;
- 
+ 	/* Service routine support */
+ 	struct workqueue_struct *dev_workqueue;
