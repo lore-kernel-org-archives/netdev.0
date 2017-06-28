@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 02/14] amd-xgbe: Fix SFP PHY
- supported/advertised settings
-Date: Wed, 28 Jun 2017 13:41:40 -0500
-Message-ID: <20170628184140.21972.86283.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 03/14] amd-xgbe: Use the proper register during
+ PTP initialization
+Date: Wed, 28 Jun 2017 13:41:49 -0500
+Message-ID: <20170628184149.21972.76881.stgit@tlendack-t1.amdoffice.net>
 References: <20170628184122.21972.87767.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,170 +10,36 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0047.outbound.protection.outlook.com ([104.47.34.47]:18272
+Received: from mail-by2nam01on0061.outbound.protection.outlook.com ([104.47.34.61]:64512
         "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751559AbdF1Slp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 28 Jun 2017 14:41:45 -0400
+        id S1751614AbdF1Sly (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 28 Jun 2017 14:41:54 -0400
 In-Reply-To: <20170628184122.21972.87767.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When using SFPs, the supported and advertised settings should be initially
-based on the SFP that has been detected.  The code currently indicates the
-overall support of the device as opposed to what the SFP is capable of.
-Update the code to change the supported link modes, auto-negotiation, etc.
-to be based on the installed SFP.
+During PTP initialization, the Timestamp Control register should be
+cleared and not the Tx Configuration register.  While this typo causes
+the wrong register to be cleared, the default value of each register and
+and the fact that the Tx Configuration register is programmed afterwards
+doesn't result in a bug, hence only fixing in net-next.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c |   69 ++++++++++++++++++---------
- 1 file changed, 47 insertions(+), 22 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-ptp.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-index 0429840..756e116 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-@@ -711,23 +711,39 @@ static void xgbe_phy_sfp_phy_settings(struct xgbe_prv_data *pdata)
- {
- 	struct xgbe_phy_data *phy_data = pdata->phy_data;
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ptp.c b/drivers/net/ethernet/amd/xgbe/xgbe-ptp.c
+index a533a6c..d06d260 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-ptp.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-ptp.c
+@@ -267,7 +267,7 @@ void xgbe_ptp_register(struct xgbe_prv_data *pdata)
+ 			 ktime_to_ns(ktime_get_real()));
  
-+	if (!phy_data->sfp_mod_absent && !phy_data->sfp_changed)
-+		return;
-+
-+	pdata->phy.supported &= ~SUPPORTED_Autoneg;
-+	pdata->phy.supported &= ~(SUPPORTED_Pause | SUPPORTED_Asym_Pause);
-+	pdata->phy.supported &= ~SUPPORTED_TP;
-+	pdata->phy.supported &= ~SUPPORTED_FIBRE;
-+	pdata->phy.supported &= ~SUPPORTED_100baseT_Full;
-+	pdata->phy.supported &= ~SUPPORTED_1000baseT_Full;
-+	pdata->phy.supported &= ~SUPPORTED_10000baseT_Full;
-+
- 	if (phy_data->sfp_mod_absent) {
- 		pdata->phy.speed = SPEED_UNKNOWN;
- 		pdata->phy.duplex = DUPLEX_UNKNOWN;
- 		pdata->phy.autoneg = AUTONEG_ENABLE;
-+		pdata->phy.pause_autoneg = AUTONEG_ENABLE;
-+
-+		pdata->phy.supported |= SUPPORTED_Autoneg;
-+		pdata->phy.supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
-+		pdata->phy.supported |= SUPPORTED_TP;
-+		pdata->phy.supported |= SUPPORTED_FIBRE;
-+		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_100)
-+			pdata->phy.supported |= SUPPORTED_100baseT_Full;
-+		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_1000)
-+			pdata->phy.supported |= SUPPORTED_1000baseT_Full;
-+		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_10000)
-+			pdata->phy.supported |= SUPPORTED_10000baseT_Full;
-+
- 		pdata->phy.advertising = pdata->phy.supported;
- 
- 		return;
- 	}
- 
--	pdata->phy.advertising &= ~ADVERTISED_Autoneg;
--	pdata->phy.advertising &= ~ADVERTISED_TP;
--	pdata->phy.advertising &= ~ADVERTISED_FIBRE;
--	pdata->phy.advertising &= ~ADVERTISED_100baseT_Full;
--	pdata->phy.advertising &= ~ADVERTISED_1000baseT_Full;
--	pdata->phy.advertising &= ~ADVERTISED_10000baseT_Full;
--	pdata->phy.advertising &= ~ADVERTISED_10000baseR_FEC;
--
- 	switch (phy_data->sfp_base) {
- 	case XGBE_SFP_BASE_1000_T:
- 	case XGBE_SFP_BASE_1000_SX:
-@@ -736,17 +752,25 @@ static void xgbe_phy_sfp_phy_settings(struct xgbe_prv_data *pdata)
- 		pdata->phy.speed = SPEED_UNKNOWN;
- 		pdata->phy.duplex = DUPLEX_UNKNOWN;
- 		pdata->phy.autoneg = AUTONEG_ENABLE;
--		pdata->phy.advertising |= ADVERTISED_Autoneg;
-+		pdata->phy.pause_autoneg = AUTONEG_ENABLE;
-+		pdata->phy.supported |= SUPPORTED_Autoneg;
-+		pdata->phy.supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
- 		break;
- 	case XGBE_SFP_BASE_10000_SR:
- 	case XGBE_SFP_BASE_10000_LR:
- 	case XGBE_SFP_BASE_10000_LRM:
- 	case XGBE_SFP_BASE_10000_ER:
- 	case XGBE_SFP_BASE_10000_CR:
--	default:
- 		pdata->phy.speed = SPEED_10000;
- 		pdata->phy.duplex = DUPLEX_FULL;
- 		pdata->phy.autoneg = AUTONEG_DISABLE;
-+		pdata->phy.pause_autoneg = AUTONEG_DISABLE;
-+		break;
-+	default:
-+		pdata->phy.speed = SPEED_UNKNOWN;
-+		pdata->phy.duplex = DUPLEX_UNKNOWN;
-+		pdata->phy.autoneg = AUTONEG_DISABLE;
-+		pdata->phy.pause_autoneg = AUTONEG_DISABLE;
- 		break;
- 	}
- 
-@@ -754,36 +778,38 @@ static void xgbe_phy_sfp_phy_settings(struct xgbe_prv_data *pdata)
- 	case XGBE_SFP_BASE_1000_T:
- 	case XGBE_SFP_BASE_1000_CX:
- 	case XGBE_SFP_BASE_10000_CR:
--		pdata->phy.advertising |= ADVERTISED_TP;
-+		pdata->phy.supported |= SUPPORTED_TP;
- 		break;
- 	default:
--		pdata->phy.advertising |= ADVERTISED_FIBRE;
-+		pdata->phy.supported |= SUPPORTED_FIBRE;
- 	}
- 
- 	switch (phy_data->sfp_speed) {
- 	case XGBE_SFP_SPEED_100_1000:
- 		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_100)
--			pdata->phy.advertising |= ADVERTISED_100baseT_Full;
-+			pdata->phy.supported |= SUPPORTED_100baseT_Full;
- 		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_1000)
--			pdata->phy.advertising |= ADVERTISED_1000baseT_Full;
-+			pdata->phy.supported |= SUPPORTED_1000baseT_Full;
- 		break;
- 	case XGBE_SFP_SPEED_1000:
- 		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_1000)
--			pdata->phy.advertising |= ADVERTISED_1000baseT_Full;
-+			pdata->phy.supported |= SUPPORTED_1000baseT_Full;
- 		break;
- 	case XGBE_SFP_SPEED_10000:
- 		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_10000)
--			pdata->phy.advertising |= ADVERTISED_10000baseT_Full;
-+			pdata->phy.supported |= SUPPORTED_10000baseT_Full;
- 		break;
- 	default:
- 		/* Choose the fastest supported speed */
- 		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_10000)
--			pdata->phy.advertising |= ADVERTISED_10000baseT_Full;
-+			pdata->phy.supported |= SUPPORTED_10000baseT_Full;
- 		else if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_1000)
--			pdata->phy.advertising |= ADVERTISED_1000baseT_Full;
-+			pdata->phy.supported |= SUPPORTED_1000baseT_Full;
- 		else if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_100)
--			pdata->phy.advertising |= ADVERTISED_100baseT_Full;
-+			pdata->phy.supported |= SUPPORTED_100baseT_Full;
- 	}
-+
-+	pdata->phy.advertising = pdata->phy.supported;
+ 	/* Disable all timestamping to start */
+-	XGMAC_IOWRITE(pdata, MAC_TCR, 0);
++	XGMAC_IOWRITE(pdata, MAC_TSCR, 0);
+ 	pdata->tstamp_config.tx_type = HWTSTAMP_TX_OFF;
+ 	pdata->tstamp_config.rx_filter = HWTSTAMP_FILTER_NONE;
  }
- 
- static bool xgbe_phy_sfp_bit_rate(struct xgbe_sfp_eeprom *sfp_eeprom,
-@@ -2113,6 +2139,8 @@ static bool xgbe_phy_use_sfp_mode(struct xgbe_prv_data *pdata,
- 		return xgbe_phy_check_mode(pdata, mode,
- 					   ADVERTISED_1000baseT_Full);
- 	case XGBE_MODE_SFI:
-+		if (phy_data->sfp_mod_absent)
-+			return true;
- 		return xgbe_phy_check_mode(pdata, mode,
- 					   ADVERTISED_10000baseT_Full);
- 	default:
-@@ -2916,9 +2944,6 @@ static int xgbe_phy_init(struct xgbe_prv_data *pdata)
- 		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_10000) {
- 			pdata->phy.supported |= SUPPORTED_10000baseT_Full;
- 			phy_data->start_mode = XGBE_MODE_SFI;
--			if (pdata->fec_ability & MDIO_PMA_10GBR_FECABLE_ABLE)
--				pdata->phy.supported |=
--					SUPPORTED_10000baseR_FEC;
- 		}
- 
- 		phy_data->phydev_mode = XGBE_MDIO_MODE_CL22;
