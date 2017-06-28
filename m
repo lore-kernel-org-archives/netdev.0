@@ -1,51 +1,57 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH net-next v4 01/16] bpf: BPF support for sock_ops
-Date: Wed, 28 Jun 2017 12:53:43 -0700
-Message-ID: <4c9020de-80c6-2b70-d9db-1759ea579780@fb.com>
-References: <20170628173124.3299500-1-brakmo@fb.com>
- <20170628173124.3299500-2-brakmo@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: Lawrence Brakmo <brakmo@fb.com>, netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:32845 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751554AbdF1TyN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 15:54:13 -0400
-In-Reply-To: <20170628173124.3299500-2-brakmo@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: [PATCH] [net-next] net/mlx5e: select CONFIG_MLXFW
+Date: Wed, 28 Jun 2017 22:10:13 +0200
+Message-ID: <20170628201032.3178691-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+        Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Christopher Covington <cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Nicolas Pitre <nicolas.pitre-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 6/28/17 10:31 AM, Lawrence Brakmo wrote:
-> +#ifdef CONFIG_BPF
-> +static inline int tcp_call_bpf(struct sock *sk, bool is_req_sock, int op)
-> +{
-> +	struct bpf_sock_ops_kern sock_ops;
-> +	int ret;
-> +
-> +	if (!is_req_sock)
-> +		sock_owned_by_me(sk);
-> +
-> +	memset(&sock_ops, 0, sizeof(sock_ops));
-> +	sock_ops.sk = sk;
-> +	sock_ops.is_req_sock = is_req_sock;
-> +	sock_ops.op = op;
-> +
-> +	ret = BPF_CGROUP_RUN_PROG_SOCK_OPS(&sock_ops);
-> +	if (ret == 0)
-> +		ret = sock_ops.reply;
-> +	else
-> +		ret = -1;
-> +	return ret;
-> +}
+With the introduction of mlx5 firmware flash support, we get a link
+error with CONFIG_MLXFW=m and CONFIG_MLX5_CORE=y:
 
-the switch to cgroup attached only made it really nice and clean.
-No global state to worry about.
-I haven't looked through the minor patch details, but overall
-it all looks good to me. I don't have any architectural concerns.
+drivers/net/ethernet/mellanox/mlx5/core/fw.o: In function `mlx5_firmware_flash':
+fw.c:(.text+0x9d4): undefined reference to `mlxfw_firmware_flash'
 
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+We could have a more elaborate method to force MLX5 to be a loadable
+module in this case, but the easiest fix seems to be to always enable
+MLXFW as well, like we do for CONFIG_MLXSW_SPECTRUM, which is the other
+user of mlxfw_firmware_flash.
+
+Fixes: 3ffaabecd1a1 ("net/mlx5e: Support the flash device ethtool callback")
+Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
+index cf1ef48bfd8d..09edee060b03 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
+@@ -6,6 +6,7 @@ config MLX5_CORE
+ 	tristate "Mellanox Technologies ConnectX-4 and Connect-IB core driver"
+ 	depends on MAY_USE_DEVLINK
+ 	depends on PCI
++	select MLXFW
+ 	default n
+ 	---help---
+ 	  Core driver for low level functionality of the ConnectX-4 and
+-- 
+2.9.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
