@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 14/17] net: convert inet_frag_queue.refcnt from atomic_t to refcount_t
-Date: Wed, 28 Jun 2017 14:55:03 +0300
-Message-ID: <1498650906-12907-15-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 12/17] net: convert unix_address.refcnt from atomic_t to refcount_t
+Date: Wed, 28 Jun 2017 14:55:01 +0300
+Message-ID: <1498650906-12907-13-git-send-email-elena.reshetova@intel.com>
 References: <1498650906-12907-1-git-send-email-elena.reshetova@intel.com>
 Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
         kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
@@ -26,102 +26,70 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/inet_frag.h  |  4 ++--
- net/ipv4/inet_fragment.c | 14 +++++++-------
- net/ipv4/ip_fragment.c   |  2 +-
- 3 files changed, 10 insertions(+), 10 deletions(-)
+ include/net/af_unix.h | 3 ++-
+ net/unix/af_unix.c    | 8 ++++----
+ 2 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index 5894730..5a334bf 100644
---- a/include/net/inet_frag.h
-+++ b/include/net/inet_frag.h
-@@ -50,7 +50,7 @@ struct inet_frag_queue {
- 	spinlock_t		lock;
- 	struct timer_list	timer;
- 	struct hlist_node	list;
--	atomic_t		refcnt;
-+	refcount_t		refcnt;
- 	struct sk_buff		*fragments;
- 	struct sk_buff		*fragments_tail;
- 	ktime_t			stamp;
-@@ -129,7 +129,7 @@ void inet_frag_maybe_warn_overflow(struct inet_frag_queue *q,
+diff --git a/include/net/af_unix.h b/include/net/af_unix.h
+index fd60ecc..3a385e4 100644
+--- a/include/net/af_unix.h
++++ b/include/net/af_unix.h
+@@ -4,6 +4,7 @@
+ #include <linux/socket.h>
+ #include <linux/un.h>
+ #include <linux/mutex.h>
++#include <linux/refcount.h>
+ #include <net/sock.h>
  
- static inline void inet_frag_put(struct inet_frag_queue *q, struct inet_frags *f)
+ void unix_inflight(struct user_struct *user, struct file *fp);
+@@ -21,7 +22,7 @@ extern spinlock_t unix_table_lock;
+ extern struct hlist_head unix_socket_table[2 * UNIX_HASH_SIZE];
+ 
+ struct unix_address {
+-	atomic_t	refcnt;
++	refcount_t	refcnt;
+ 	int		len;
+ 	unsigned int	hash;
+ 	struct sockaddr_un name[0];
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index c885254..b9ee766 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -212,7 +212,7 @@ EXPORT_SYMBOL_GPL(unix_peer_get);
+ 
+ static inline void unix_release_addr(struct unix_address *addr)
  {
--	if (atomic_dec_and_test(&q->refcnt))
-+	if (refcount_dec_and_test(&q->refcnt))
- 		inet_frag_destroy(q, f);
+-	if (atomic_dec_and_test(&addr->refcnt))
++	if (refcount_dec_and_test(&addr->refcnt))
+ 		kfree(addr);
  }
  
-diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index b5e9317..96e95e8 100644
---- a/net/ipv4/inet_fragment.c
-+++ b/net/ipv4/inet_fragment.c
-@@ -276,11 +276,11 @@ static inline void fq_unlink(struct inet_frag_queue *fq, struct inet_frags *f)
- void inet_frag_kill(struct inet_frag_queue *fq, struct inet_frags *f)
- {
- 	if (del_timer(&fq->timer))
--		atomic_dec(&fq->refcnt);
-+		refcount_dec(&fq->refcnt);
+@@ -864,7 +864,7 @@ static int unix_autobind(struct socket *sock)
+ 		goto out;
  
- 	if (!(fq->flags & INET_FRAG_COMPLETE)) {
- 		fq_unlink(fq, f);
--		atomic_dec(&fq->refcnt);
-+		refcount_dec(&fq->refcnt);
+ 	addr->name->sun_family = AF_UNIX;
+-	atomic_set(&addr->refcnt, 1);
++	refcount_set(&addr->refcnt, 1);
+ 
+ retry:
+ 	addr->len = sprintf(addr->name->sun_path+1, "%05x", ordernum) + 1 + sizeof(short);
+@@ -1040,7 +1040,7 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ 	memcpy(addr->name, sunaddr, addr_len);
+ 	addr->len = addr_len;
+ 	addr->hash = hash ^ sk->sk_type;
+-	atomic_set(&addr->refcnt, 1);
++	refcount_set(&addr->refcnt, 1);
+ 
+ 	if (sun_path[0]) {
+ 		addr->hash = UNIX_HASH_SIZE;
+@@ -1335,7 +1335,7 @@ static int unix_stream_connect(struct socket *sock, struct sockaddr *uaddr,
+ 
+ 	/* copy address information from listening to new sock*/
+ 	if (otheru->addr) {
+-		atomic_inc(&otheru->addr->refcnt);
++		refcount_inc(&otheru->addr->refcnt);
+ 		newu->addr = otheru->addr;
  	}
- }
- EXPORT_SYMBOL(inet_frag_kill);
-@@ -329,7 +329,7 @@ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
- 	 */
- 	hlist_for_each_entry(qp, &hb->chain, list) {
- 		if (qp->net == nf && f->match(qp, arg)) {
--			atomic_inc(&qp->refcnt);
-+			refcount_inc(&qp->refcnt);
- 			spin_unlock(&hb->chain_lock);
- 			qp_in->flags |= INET_FRAG_COMPLETE;
- 			inet_frag_put(qp_in, f);
-@@ -339,9 +339,9 @@ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
- #endif
- 	qp = qp_in;
- 	if (!mod_timer(&qp->timer, jiffies + nf->timeout))
--		atomic_inc(&qp->refcnt);
-+		refcount_inc(&qp->refcnt);
- 
--	atomic_inc(&qp->refcnt);
-+	refcount_inc(&qp->refcnt);
- 	hlist_add_head(&qp->list, &hb->chain);
- 
- 	spin_unlock(&hb->chain_lock);
-@@ -370,7 +370,7 @@ static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
- 
- 	setup_timer(&q->timer, f->frag_expire, (unsigned long)q);
- 	spin_lock_init(&q->lock);
--	atomic_set(&q->refcnt, 1);
-+	refcount_set(&q->refcnt, 1);
- 
- 	return q;
- }
-@@ -405,7 +405,7 @@ struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
- 	spin_lock(&hb->chain_lock);
- 	hlist_for_each_entry(q, &hb->chain, list) {
- 		if (q->net == nf && f->match(q, key)) {
--			atomic_inc(&q->refcnt);
-+			refcount_inc(&q->refcnt);
- 			spin_unlock(&hb->chain_lock);
- 			return q;
- 		}
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index b3cdeec..9a8cfac 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -312,7 +312,7 @@ static int ip_frag_reinit(struct ipq *qp)
- 	unsigned int sum_truesize = 0;
- 
- 	if (!mod_timer(&qp->q.timer, jiffies + qp->q.net->timeout)) {
--		atomic_inc(&qp->q.refcnt);
-+		refcount_inc(&qp->q.refcnt);
- 		return -ETIMEDOUT;
- 	}
- 
+ 	if (otheru->path.dentry) {
 -- 
 2.7.4
