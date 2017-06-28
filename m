@@ -1,111 +1,140 @@
-From: Jim Baxter <jim_baxter@mentor.com>
-Subject: [PATCH V2 0/1] Reduce cdc_ncm memory use when kernel memory low
-Date: Wed, 28 Jun 2017 21:35:28 +0100
-Message-ID: <1498682129-9129-1-git-send-email-jim_baxter@mentor.com>
+From: Pravin Shelar <pshelar@ovn.org>
+Subject: Re: [PATCH v2] datapath: Avoid using stack larger than 1024.
+Date: Wed, 28 Jun 2017 13:35:57 -0700
+Message-ID: <CAOrHB_CRhRRMCcspYysQrr1erAbKYv0EH-fHz+RXihUcOy8wzw@mail.gmail.com>
+References: <1498616999-3035-1-git-send-email-xiangxia.m.yue@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <jim_baxter@mentor.com>,
-        =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
-        David Laight <David.Laight@ACULAB.COM>
-To: <linux-usb@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, Oliver Neukum <oliver@neukum.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Greg Rose <gvrose8192@gmail.com>
+To: Tonghao Zhang <xiangxia.m.yue@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.mentorg.com ([192.94.38.131]:53807 "EHLO
-        relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751501AbdF1Ufg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 16:35:36 -0400
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:60105 "EHLO
+        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751881AbdF1UgG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 16:36:06 -0400
+Received: from mfilter22-d.gandi.net (mfilter22-d.gandi.net [217.70.178.150])
+        by relay4-d.mail.gandi.net (Postfix) with ESMTP id AAC4B1720B3
+        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 22:35:59 +0200 (CEST)
+Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
+        by mfilter22-d.gandi.net (mfilter22-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id aZ5kJk30fnS8 for <netdev@vger.kernel.org>;
+        Wed, 28 Jun 2017 22:35:58 +0200 (CEST)
+Received: from mail-wr0-f181.google.com (mail-wr0-f181.google.com [209.85.128.181])
+        (Authenticated sender: pshelar@ovn.org)
+        by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id 3A9F51720A3
+        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 22:35:58 +0200 (CEST)
+Received: by mail-wr0-f181.google.com with SMTP id 77so180036634wrb.1
+        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 13:35:58 -0700 (PDT)
+In-Reply-To: <1498616999-3035-1-git-send-email-xiangxia.m.yue@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Problem
--------
-
-We are using an ARM embedded platform and require 16KiB NTB's to allow for fast
-data transfer. Unfortunately we have found that there are times after
-running the kernel for a while and transferring a lot of data over the CDC-NCM
-connection that it can become harder to find 16KiB pages of memory for
-allocation.
-This results in a disconnection of the NCM Gadget attached to the host platform.
-
-We are running with reduced buffers to not cross over into the 32KiB page
-boundary by setting the buffer sizes to:
-tx_max=16000
-rx_max=16000
-
-
-Analysis
---------
-
-We identified through investigation that the lack of 16KiB pages would be short
-lived as the kernel would compact the buddy list soon after the failure which 
-results in pages being available within seconds.
-
-Solution
---------
-
-In order to avoid disconnections I implemented a patch that will attempt to
-use a 2048 Byte minimum size NTB if the allocation of the maximum size NTB
-fails.
-This allows the connection to limp along until the memory has been recovered
-which was usually between 1 and 4 NTB's on our heavy traffic system.
-The algorithm will wait for an increasing number of small allocations each
-time we have a failure to not burden a system short on memory.
-
----
-
-V1: Sent to linux-usb for review.
-V2: Added code to increase amount of time spent making small allocations to
-    reduce the burden on the system.
-
-This is the diff between Version 1 and 2 of the patches.
-
--- File: drivers/net/usb/cdc_ncm.c
-41c51,60
-< @@ -1055,10 +1055,10 @@ static struct usb_cdc_ncm_ndp16 *cdc_ncm_ndp(struct cdc_ncm_ctx *ctx, struct sk_
----
-> @@ -89,6 +89,8 @@ struct cdc_ncm_stats {
->  	CDC_NCM_SIMPLE_STAT(rx_ntbs),
->  };
->  
-> +#define CDC_NCM_LOW_MEM_MAX_CNT 10
+On Tue, Jun 27, 2017 at 7:29 PM, Tonghao Zhang <xiangxia.m.yue@gmail.com> wrote:
+> When compiling OvS-master on 4.4.0-81 kernel,
+> there is a warning:
+>
+>     CC [M]  /root/ovs/datapath/linux/datapath.o
+>     /root/ovs/datapath/linux/datapath.c: In function
+>     ‘ovs_flow_cmd_set’:
+>     /root/ovs/datapath/linux/datapath.c:1221:1: warning:
+>     the frame size of 1040 bytes is larger than 1024 bytes
+>     [-Wframe-larger-than=]
+>
+> This patch factors out match-init and action-copy to avoid
+> "Wframe-larger-than=1024" warning. Because mask is only
+> used to get actions, we new a function to save some
+> stack space.
+>
+> Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+> ---
+>  datapath/datapath.c | 73 ++++++++++++++++++++++++++++++++++++-----------------
+>  1 file changed, 50 insertions(+), 23 deletions(-)
+>
+> diff --git a/datapath/datapath.c b/datapath/datapath.c
+> index c85029c..fdbe314 100644
+> --- a/datapath/datapath.c
+> +++ b/datapath/datapath.c
+> @@ -1100,6 +1100,50 @@ static struct sw_flow_actions *get_flow_actions(struct net *net,
+>         return acts;
+>  }
+>
+> +/* Factor out match-init and action-copy to avoid
+> + * "Wframe-larger-than=1024" warning. Because mask is only
+> + * used to get actions, we new a function to save some
+> + * stack space.
+> + *
+> + * If there are not key and action attrs, we return 0
+> + * directly. In the case, the caller will also not use the
+> + * match as before. If there is action attr, we try to get
+> + * actions and save them to *acts.
+> + * */
+> +static int ovs_nla_init_match_and_action(struct net *net,
+> +                                        struct sw_flow_match *match,
+> +                                        struct sw_flow_key *key,
+> +                                        struct nlattr **a,
+> +                                        struct sw_flow_actions **acts,
+> +                                        bool log)
+> +{
+> +       struct sw_flow_mask mask;
+> +       int error = 0;
 > +
->  static int cdc_ncm_get_sset_count(struct net_device __always_unused *netdev, int sset)
+> +       if (a[OVS_FLOW_ATTR_KEY]) {
+> +               ovs_match_init(match, key, true, &mask);
+> +               error = ovs_nla_get_match(net, match, a[OVS_FLOW_ATTR_KEY],
+> +                                         a[OVS_FLOW_ATTR_MASK], log);
+> +               if (error)
+> +                       return error;
+> +       }
+> +
+> +       if (a[OVS_FLOW_ATTR_ACTIONS]) {
+> +               if (!a[OVS_FLOW_ATTR_KEY]) {
+> +                       OVS_NLERR(log,
+> +                                 "Flow key attribute not present in set flow.");
+> +                       return -EINVAL;
+> +               }
+> +
+> +               *acts = get_flow_actions(net, a[OVS_FLOW_ATTR_ACTIONS], key,
+> +                                        &mask, log);
+> +               if (IS_ERR(*acts))
+> +                       return PTR_ERR(*acts);
+> +       }
+> +
+> +       return 0;
+> +}
+> +
+>  static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
 >  {
->  	switch (sset) {
-> @@ -1055,10 +1057,10 @@ static struct usb_cdc_ncm_ndp16 *cdc_ncm_ndp(struct cdc_ncm_ctx *ctx, struct sk_
-59,60c78,91
-< +		ctx->tx_curr_size = ctx->tx_max;
-< +		skb_out = alloc_skb(ctx->tx_curr_size, GFP_ATOMIC);
----
-> +		if (ctx->tx_low_mem_val == 0) {
-> +			ctx->tx_curr_size = ctx->tx_max;
-> +			skb_out = alloc_skb(ctx->tx_curr_size, GFP_ATOMIC);
-> +			/* If the memory allocation fails we will wait longer
-> +			 * each time before attempting another full size
-> +			 * allocation again to not overload the system
-> +			 * further.
-> +			 */
-> +			if (skb_out == NULL) {
-> +				ctx->tx_low_mem_max_cnt = min(ctx->tx_low_mem_max_cnt + 1,
-> +							      (unsigned)CDC_NCM_LOW_MEM_MAX_CNT);
-> +				ctx->tx_low_mem_val = ctx->tx_low_mem_max_cnt;
-> +			}
-> +		}
-84a116
-> +			ctx->tx_low_mem_val--;
-
--- File: include/linux/usb/cdc_ncm.h
-130a163,164
-> +	u32 tx_low_mem_max_cnt;
-> +	u32 tx_low_mem_val;
-
-
-Jim Baxter (1):
-  net: cdc_ncm: Reduce memory use when kernel memory low
-
- drivers/net/usb/cdc_ncm.c   | 54 +++++++++++++++++++++++++++++++++++----------
- include/linux/usb/cdc_ncm.h |  3 +++
- 2 files changed, 45 insertions(+), 12 deletions(-)
-
--- 
-1.9.1
+>         struct net *net = sock_net(skb->sk);
+> @@ -1107,7 +1151,6 @@ static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
+>         struct ovs_header *ovs_header = info->userhdr;
+>         struct sw_flow_key key;
+>         struct sw_flow *flow;
+> -       struct sw_flow_mask mask;
+>         struct sk_buff *reply = NULL;
+>         struct datapath *dp;
+>         struct sw_flow_actions *old_acts = NULL, *acts = NULL;
+> @@ -1119,34 +1162,18 @@ static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
+>         bool ufid_present;
+>
+>         ufid_present = ovs_nla_get_ufid(&sfid, a[OVS_FLOW_ATTR_UFID], log);
+> -       if (a[OVS_FLOW_ATTR_KEY]) {
+> -               ovs_match_init(&match, &key, true, &mask);
+> -               error = ovs_nla_get_match(net, &match, a[OVS_FLOW_ATTR_KEY],
+> -                                         a[OVS_FLOW_ATTR_MASK], log);
+> -       } else if (!ufid_present) {
+> +       if (!a[OVS_FLOW_ATTR_KEY] && !ufid_present) {
+>                 OVS_NLERR(log,
+>                           "Flow set message rejected, Key attribute missing.");
+> -               error = -EINVAL;
+> +               return -EINVAL;
+>         }
+> +
+> +       error = ovs_nla_init_match_and_action(net, &match, &key, a,
+> +                                             &acts, log);
+This looks good. But it is returning match object with dangling
+reference to mask. It is fine for now as it is not referenced outside
+of the function for now. But it is not pretty. We could reset the mask
+pointer before returning from the function. and write comment
+explaining it.
