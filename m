@@ -1,48 +1,88 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH net-next 0/3] fix sw timestamping for non PTP packets
-Date: Wed, 28 Jun 2017 16:25:55 -0500
-Message-ID: <913d9223-9a76-49f1-b176-9a904e5bf0cd@ti.com>
-References: <1498571933-3663-1-git-send-email-ivan.khoronzhuk@linaro.org>
+From: Alexei Starovoitov via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: [PATCH v3 net-next 00/12] bpf: rewrite value
+	tracking in verifier
+Date: Wed, 28 Jun 2017 14:37:03 -0700
+Message-ID: <20170628213701.32krfuipzngsmt4k@ast-mbp>
+References: <adc11342-737f-4e06-bce3-f0a92b5594a5@solarflare.com>
+	<5953B436.6030506@iogearbox.net>
+	<788035e1-1974-b48e-3008-d294194a8b05@solarflare.com>
+	<595413AA.40502@iogearbox.net>
+Reply-To: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-omap@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
-        <m-karicheri2@ti.com>, <w-kwok2@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx193.ext.ti.com ([198.47.27.77]:48007 "EHLO
-        lelnx193.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751913AbdF1V0D (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 17:26:03 -0400
-In-Reply-To: <1498571933-3663-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <595413AA.40502-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-
-
-On 06/27/2017 08:58 AM, Ivan Khoronzhuk wrote:
-> This series contains several corrections connected with timestamping
-> for cpsw and netcp drivers based on same cpts module.
-> 
-> Based on net/next
-
-Reviewed-by: Grygorii Strashko <grygorii.strashko@ti.com>
-
-> 
-> Ivan Khoronzhuk (3):
->    net: ethernet: ti: cpsw: move skb timestamp to packet_submit
->    net: ethernet: ti: cpsw: fix sw timestamping for non PTP packets
->    net: ethernet: ti: netcp_ethss: use cpts to check if packet needs
->      timestamping
-> 
->   drivers/net/ethernet/ti/cpsw.c        |  6 +++---
->   drivers/net/ethernet/ti/cpts.h        | 16 ++++++++++++++++
->   drivers/net/ethernet/ti/netcp_ethss.c | 18 +-----------------
->   3 files changed, 20 insertions(+), 20 deletions(-)
-> 
-
--- 
-regards,
--grygorii
+T24gV2VkLCBKdW4gMjgsIDIwMTcgYXQgMTA6Mzg6MDJQTSArMDIwMCwgRGFuaWVsIEJvcmttYW5u
+IHdyb3RlOgo+IE9uIDA2LzI4LzIwMTcgMDQ6MTEgUE0sIEVkd2FyZCBDcmVlIHdyb3RlOgo+ID4g
+T24gMjgvMDYvMTcgMTQ6NTAsIERhbmllbCBCb3JrbWFubiB3cm90ZToKPiA+ID4gSGkgRWR3YXJk
+LAo+ID4gPiAKPiA+ID4gRGlkIHlvdSBhbHNvIGhhdmUgYSBjaGFuY2UgaW4gdGhlIG1lYW50aW1l
+IHRvIGxvb2sgYXQgcmVkdWNpbmcgY29tcGxleGl0eQo+ID4gPiBhbG9uZyB3aXRoIHlvdXIgdW5p
+ZmljYXRpb24/IEkgZGlkIHJ1biB0aGUgY2lsaXVtIHRlc3Qgc3VpdGUgd2l0aCB5b3VyCj4gPiA+
+IGxhdGVzdCBzZXQgZnJvbSBoZXJlIGFuZCBjdXJyZW50ICMgd29yc3QgY2FzZSBwcm9jZXNzZWQg
+aW5zbnMgdGhhdAo+ID4gPiB2ZXJpZmllciBoYXMgdG8gZ28gdGhyb3VnaCBmb3IgY2lsaXVtIHBy
+b2dzIGluY3JlYXNlcyBmcm9tIH41M2sgd2UgaGF2ZQo+ID4gPiByaWdodCBub3cgdG8gfjc2ay4g
+SSdtIGEgYml0IHdvcnJpZWQgdGhhdCB0aGlzIHF1aWNrbHkgZ2V0cyB1cyBjbG9zZSB0bwo+ID4g
+PiB0aGUgdXBwZXIgfjk4ayBtYXggbGltaXQgc3RhcnRpbmcgdG8gcmVqZWN0IHByb2dyYW1zIGFn
+YWluLiBBbHRlcm5hdGl2ZQo+ID4gPiBpcyB0byBidW1wIHRoZSBjb21wbGV4aXR5IGxpbWl0IGFn
+YWluIGluIG5lYXIgZnV0dXJlIG9uY2UgcnVuIGludG8gaXQsCj4gPiA+IGJ1dCBwcmVmZXJhYmx5
+IHRoZXJlJ3MgYSB3YXkgdG8gb3B0aW1pemUgaXQgYWxvbmcgd2l0aCB0aGUgcmV3cml0ZT8gRG8K
+PiA+ID4geW91IHNlZSBhbnkgcG9zc2liaWxpdGllcyB3b3J0aCBleHBsb3Jpbmc/Cj4gPiBUaGUg
+dHJvdWJsZSwgSSB0aGluaywgaXMgdGhhdCBhcyB3ZSdyZSBub3cgdHJhY2tpbmcgbW9yZSBpbmZv
+cm1hdGlvbiBhYm91dAo+ID4gICBlYWNoIHJlZ2lzdGVyIHZhbHVlLCB3ZSdyZSBsZXNzIGFibGUg
+dG8gcHJ1bmUgYnJhbmNoZXMuICBCdXQgb2Z0ZW4gdGhhdAo+ID4gICBpbmZvcm1hdGlvbiBpcyBu
+b3QgYWN0dWFsbHkgYmVpbmcgdXNlZCBpbiByZWFjaGluZyB0aGUgZXhpdCBzdGF0ZS4gIFNvIGl0
+Cj4gCj4gQWdyZWUuCj4gCj4gPiAgIHNlZW1zIGxpa2UgdGhlIHdheSB0byB0YWNrbGUgdGhpcyB3
+b3VsZCBiZSB0byB0cmFjayB3aGF0IGluZm9ybWF0aW9uIGlzCj4gPiAgIHVzZWQg4oCUIG9yIGF0
+IGxlYXN0LCB3aGljaCByZWdpc3RlcnMgYXJlIHJlYWQgZnJvbSAoaW5jbHVkaW5nIGUuZy4gd3Jp
+dGluZwo+ID4gICB0aHJvdWdoIHRoZW0gb3IgcGFzc2luZyB0aGVtIHRvIGhlbHBlciBjYWxscykg
+4oCUIGluIHJlYWNoaW5nIGEgc2FmZSBzdGF0ZS4KPiA+ICAgVGhlbiBvbmx5IHJlZ2lzdGVycyB3
+aGljaCBhcmUgdXNlZCBhcmUgcmVxdWlyZWQgdG8gbWF0Y2ggZm9yIHBydW5pbmcuCj4gPiBCdXQg
+dGhhdCB0cmFja2luZyB3b3VsZCBwcmVzdW1hYmx5IGhhdmUgdG8gcHJvcGFnYXRlIGJhY2t3YXJk
+cyB0aHJvdWdoIHRoZQo+ID4gICB2ZXJpZmllciBzdGFjaywgYW5kIEknbSBub3Qgc3VyZSBob3cg
+ZWFzaWx5IHRoYXQgY291bGQgYmUgZG9uZS4gIFNvbWVvbmUKPiA+ICAgKHdhcyBpdCB5b3U/KSB3
+YXMgdGFsa2luZyBhYm91dCByZXBsYWNpbmcgdGhlIGN1cnJlbnQgREFHIHdhbGtpbmcgYW5kCj4g
+PiAgIHBydW5pbmcgd2l0aCBzb21lIGtpbmQgb2YgYmFzaWMtYmxvY2sgdGhpbmcsIHdoaWNoIHdv
+dWxkIGhlbHAgd2l0aCB0aGlzLgo+ID4gU3VtbWFyeTogSSB0aGluayBpdCBjb3VsZCBiZSBkb25l
+LCBidXQgSSBoYXZlbid0IGxvb2tlZCBpbnRvIHRoZSBkZXRhaWxzCj4gPiAgIG9mIGltcGxlbWVu
+dGF0aW9uIHlldDsgaWYgaXQncyBub3QgYWN0dWFsbHkgYnJlYWtpbmcgeW91ciBwcm9ncmFtcyAo
+eWV0KSwKPiA+ICAgbWF5YmUgbGVhdmUgaXQgZm9yIGEgZm9sbG93dXAgcGF0Y2ggc2VyaWVzPwo+
+IAo+IENvdWxkIHdlIGFkYXB0IHRoZSBsaW1pdCB0byAxMjhrIHBlcmhhcHMgYXMgcGFydCBvZiB0
+aGlzIHNldAo+IGdpdmVuIHdlIGtub3cgdGhhdCB3ZSdyZSB0cmFja2luZyBtb3JlIG1ldGEgZGF0
+YSBoZXJlIGFueXdheT8KCkluY3JlYXNpbmcgdGhlIGxpbWl0IGlzIG11c3QgaGF2ZSwgc2luY2Ug
+cHJ1bmluZyBzdWZmZXJlZCBzbyBtdWNoLgpHb2luZyBmcm9tIDUzayB0byA3NmsgaXMgcHJldHR5
+IHN1YnN0YW50aWFsLgpXaGF0IGlzIHRoZSAlIGluY3JlYXNlIGZvciB0ZXN0cyBpbiBzZWxmdGVz
+dHMvID8KSSB0aGluayB3ZSBuZWVkIHRvIHBpbiBwb2ludCBleGFjdGx5IHRoZSByZWFzb24uClNh
+eWluZyB3ZSBqdXN0IHRyYWNrIG1vcmUgZGF0YSBpcyBub3QgZW5vdWdoLgpXZSd2ZSB0cmllZCB2
+MiBzZXQgb24gb3VyIGxvYWQgYmFsYW5jZXIgYW5kIGFsc28gc2F3IH4yMCUgaW5jcmVhc2UuCkkg
+ZG9uJ3QgcmVtZW1iZXIgdGhlIGFic29sdXRlIG51bWJlcnMuClRoZXNlIGp1bXBzIGRvbid0IG1h
+a2UgbWUgY29tZm9ydGFibGUgd2l0aCB0aGVzZSBleHRyYSB0cmFja2luZy4KQ2FuIHlvdSB0cnkg
+dG8gcm9sbCBiYWNrIHB0ciZjb25zdCBhbmQgZnVsbCBuZWdhdGl2ZS9wb3NpdGl2ZSB0cmFja2lu
+ZwphbmQgc2VlIHdoZXRoZXIgaXQgZ2V0cyBiYWNrIHRvIHdoYXQgd2UgaGFkIGJlZm9yZT8KSSBh
+Z3JlZSB0aGF0IGxvbmcgdGVybSBpdCdzIGJldHRlciB0byBkbyBwcm9wZXIgYmFzaWMgYmxvY2sg
+YmFzZWQKbGl2ZW5lc3MsIGJ1dCB3ZSBuZWVkIHRvIGRvIHVuZGVyc3RhbmQgd2hhdCdzIGNhdXNp
+bmcgdGhlIGluY3JlYXNlIHRvZGF5LgpJZiB0bnVtIGlzIGNhdXNpbmcgaXQgdGhhdCB3b3VsZCBi
+ZSByZWFzb25hYmxlIHRyYWRlIG9mZiB0byBtYWtlLApidXQgaWYgaXQncyBmdWxsIG5lZy9wb3Mg
+dHJhY2tpbmcgdGhhdCBoYXMgbm8gdXNlIHRvZGF5IG90aGVyIHRoYW4KKHRoZSB3aG9sZSB0aGlu
+ZyBpcyBjbGVhbmVyKSBJIHdvdWxkIHJhdGhlciBkcm9wIGl0IHRoZW4uCldlIGNhbiBhbHdheXMg
+Y29tZSBiYWNrIHRvIGl0IGxhdGVyIG9uY2UgcHJ1bmluZyBpc3N1ZXMgYXJlIHNvbHZlZC4KCl9f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmlvdmlzb3ItZGV2
+IG1haWxpbmcgbGlzdAppb3Zpc29yLWRldkBsaXN0cy5pb3Zpc29yLm9yZwpodHRwczovL2xpc3Rz
+Lmlvdmlzb3Iub3JnL21haWxtYW4vbGlzdGluZm8vaW92aXNvci1kZXYK
