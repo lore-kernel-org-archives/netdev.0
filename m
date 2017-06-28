@@ -1,7 +1,7 @@
 From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next v4 08/16] bpf: Add TCP connection BPF callbacks
-Date: Wed, 28 Jun 2017 10:31:16 -0700
-Message-ID: <20170628173124.3299500-9-brakmo@fb.com>
+Subject: [PATCH net-next v4 02/16] bpf: program to load and attach sock_ops BPF progs
+Date: Wed, 28 Jun 2017 10:31:10 -0700
+Message-ID: <20170628173124.3299500-3-brakmo@fb.com>
 References: <20170628173124.3299500-1-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,107 +11,178 @@ Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:41126 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:50263 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751893AbdF1Rbc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 13:31:32 -0400
-Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5SHSrqF032378
-        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:31:31 -0700
+        by vger.kernel.org with ESMTP id S1751489AbdF1Rbb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 13:31:31 -0400
+Received: from pps.filterd (m0109333.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5SHTZCG012861
+        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:31:30 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2bcf508g27-1
+        by mx0a-00082601.pphosted.com with ESMTP id 2bcfmtrb0d-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:31:31 -0700
+        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:31:30 -0700
 Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
- mx-out.facebook.com (10.103.99.99) with ESMTP  id
- 9f8208825c2711e787cd0002c9dfb610-cd3338f0 for <netdev@vger.kernel.org>;        Wed,
- 28 Jun 2017 10:31:30 -0700
+ mx-out.facebook.com (10.212.232.63) with ESMTP id
+ 9eb898305c2711e7ab3b0002c992ebde-65b3c8f0 for <netdev@vger.kernel.org>;        Wed,
+ 28 Jun 2017 10:31:29 -0700
 In-Reply-To: <20170628173124.3299500-1-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added callbacks to BPF SOCK_OPS type program before an active
-connection is intialized and after a passive or active connection is
-established.
+The program load_sock_ops can be used to load sock_ops bpf programs and
+to attach it to an existing (v2) cgroup. It can also be used to detach
+sock_ops programs.
 
-The following patch demostrates how they can be used to set send and
-receive buffer sizes.
+Examples:
+    load_sock_ops [-l] <cg-path> <prog filename>
+	Load and attaches a sock_ops program at the specified cgroup.
+	If "-l" is used, the program will continue to run to output the
+	BPF log buffer.
+	If the specified filename does not end in ".o", it appends
+	"_kern.o" to the name.
+
+    load_sock_ops -r <cg-path>
+	Detaches the currently attached sock_ops program from the
+	specified cgroup.
 
 Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
 ---
- include/uapi/linux/bpf.h | 11 +++++++++++
- net/ipv4/tcp_fastopen.c  |  1 +
- net/ipv4/tcp_input.c     |  4 +++-
- net/ipv4/tcp_output.c    |  1 +
- 4 files changed, 16 insertions(+), 1 deletion(-)
+ samples/bpf/Makefile        |  3 ++
+ samples/bpf/load_sock_ops.c | 97 +++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 100 insertions(+)
+ create mode 100644 samples/bpf/load_sock_ops.c
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 2dbae9e..5b7207d 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -765,6 +765,17 @@ enum {
- 					 * window (in packets) or -1 if default
- 					 * value should be used
- 					 */
-+	BPF_SOCK_OPS_TCP_CONNECT_CB,	/* Calls BPF program right before an
-+					 * active connection is initialized
-+					 */
-+	BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB,	/* Calls BPF program when an
-+						 * active connection is
-+						 * established
-+						 */
-+	BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB,	/* Calls BPF program when a
-+						 * passive connection is
-+						 * established
-+						 */
- };
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index e7ec9b8..015589b 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -36,6 +36,7 @@ hostprogs-y += lwt_len_hist
+ hostprogs-y += xdp_tx_iptunnel
+ hostprogs-y += test_map_in_map
+ hostprogs-y += per_socket_stats_example
++hostprogs-y += load_sock_ops
  
- #endif /* _UAPI__LINUX_BPF_H__ */
-diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
-index 4af82b9..ed6b549 100644
---- a/net/ipv4/tcp_fastopen.c
-+++ b/net/ipv4/tcp_fastopen.c
-@@ -221,6 +221,7 @@ static struct sock *tcp_fastopen_create_child(struct sock *sk,
- 	tcp_init_congestion_control(child);
- 	tcp_mtup_init(child);
- 	tcp_init_metrics(child);
-+	tcp_call_bpf(child, false, BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB);
- 	tcp_init_buffer_space(child);
- 
- 	tp->rcv_nxt = TCP_SKB_CB(skb)->seq + 1;
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 0867b05..1b868ae 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5571,7 +5571,7 @@ void tcp_finish_connect(struct sock *sk, struct sk_buff *skb)
- 	icsk->icsk_af_ops->rebuild_header(sk);
- 
- 	tcp_init_metrics(sk);
--
-+	tcp_call_bpf(sk, false, BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB);
- 	tcp_init_congestion_control(sk);
- 
- 	/* Prevent spurious tcp_cwnd_restart() on first data
-@@ -5977,6 +5977,8 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
- 		} else {
- 			/* Make sure socket is routed, for correct metrics. */
- 			icsk->icsk_af_ops->rebuild_header(sk);
-+			tcp_call_bpf(sk, false,
-+				     BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB);
- 			tcp_init_congestion_control(sk);
- 
- 			tcp_mtup_init(sk);
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index e5f623f..958edc8 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -3445,6 +3445,7 @@ int tcp_connect(struct sock *sk)
- 	struct sk_buff *buff;
- 	int err;
- 
-+	tcp_call_bpf(sk, false, BPF_SOCK_OPS_TCP_CONNECT_CB);
- 	tcp_connect_init(sk);
- 
- 	if (unlikely(tp->repair)) {
+ # Libbpf dependencies
+ LIBBPF := ../../tools/lib/bpf/bpf.o
+@@ -52,6 +53,7 @@ tracex3-objs := bpf_load.o $(LIBBPF) tracex3_user.o
+ tracex4-objs := bpf_load.o $(LIBBPF) tracex4_user.o
+ tracex5-objs := bpf_load.o $(LIBBPF) tracex5_user.o
+ tracex6-objs := bpf_load.o $(LIBBPF) tracex6_user.o
++load_sock_ops-objs := bpf_load.o $(LIBBPF) load_sock_ops.o
+ test_probe_write_user-objs := bpf_load.o $(LIBBPF) test_probe_write_user_user.o
+ trace_output-objs := bpf_load.o $(LIBBPF) trace_output_user.o
+ lathist-objs := bpf_load.o $(LIBBPF) lathist_user.o
+@@ -130,6 +132,7 @@ HOSTLOADLIBES_tracex4 += -lelf -lrt
+ HOSTLOADLIBES_tracex5 += -lelf
+ HOSTLOADLIBES_tracex6 += -lelf
+ HOSTLOADLIBES_test_cgrp2_sock2 += -lelf
++HOSTLOADLIBES_load_sock_ops += -lelf
+ HOSTLOADLIBES_test_probe_write_user += -lelf
+ HOSTLOADLIBES_trace_output += -lelf -lrt
+ HOSTLOADLIBES_lathist += -lelf
+diff --git a/samples/bpf/load_sock_ops.c b/samples/bpf/load_sock_ops.c
+new file mode 100644
+index 0000000..91aa00d
+--- /dev/null
++++ b/samples/bpf/load_sock_ops.c
+@@ -0,0 +1,97 @@
++/* Copyright (c) 2017 Facebook
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <linux/bpf.h>
++#include "libbpf.h"
++#include "bpf_load.h"
++#include <unistd.h>
++#include <errno.h>
++#include <fcntl.h>
++#include <linux/unistd.h>
++
++static void usage(char *pname)
++{
++	printf("USAGE:\n  %s [-l] <cg-path> <prog filename>\n", pname);
++	printf("\tLoad and attach a sock_ops program to the specified "
++	       "cgroup\n");
++	printf("\tIf \"-l\" is used, the program will continue to run\n");
++	printf("\tprinting the BPF log buffer\n");
++	printf("\tIf the specified filename does not end in \".o\", it\n");
++	printf("\tappends \"_kern.o\" to the name\n");
++	printf("\n");
++	printf("  %s -r <cg-path>\n", pname);
++	printf("\tDetaches the currently attached sock_ops program\n");
++	printf("\tfrom the specified cgroup\n");
++	printf("\n");
++	exit(0);
++}
++
++int main(int argc, char **argv)
++{
++	int logFlag = 0;
++	int error = 0;
++	char *cg_path;
++	char fn[500];
++	char *prog;
++	int cg_fd;
++
++	if (argc < 3)
++		usage(argv[0]);
++
++	if (!strcmp(argv[1], "-r")) {
++		cg_path = argv[2];
++		cg_fd = open(cg_path, O_DIRECTORY, O_RDONLY);
++		error = bpf_prog_detach(cg_fd, BPF_CGROUP_SOCK_OPS);
++		if (error) {
++			printf("ERROR: bpf_prog_detach: %d (%s)\n",
++			       error, strerror(errno));
++			return 1;
++		}
++		return 0;
++	} else if (!strcmp(argv[1], "-h")) {
++		usage(argv[0]);
++	} else if (!strcmp(argv[1], "-l")) {
++		logFlag = 1;
++		if (argc < 4)
++			usage(argv[0]);
++	}
++
++	prog = argv[argc - 1];
++	cg_path = argv[argc - 2];
++	if (strlen(prog) > 480) {
++		fprintf(stderr, "ERROR: program name too long (> 480 chars)\n");
++		exit(2);
++	}
++	cg_fd = open(cg_path, O_DIRECTORY, O_RDONLY);
++
++	if (!strcmp(prog + strlen(prog)-2, ".o"))
++		strcpy(fn, prog);
++	else
++		sprintf(fn, "%s_kern.o", prog);
++	if (logFlag)
++		printf("loading bpf file:%s\n", fn);
++	if (load_bpf_file(fn)) {
++		printf("ERROR: load_bpf_file failed for: %s\n", fn);
++		printf("%s", bpf_log_buf);
++		return 1;
++	}
++	if (logFlag)
++		printf("TCP BPF Loaded %s\n", fn);
++
++	error = bpf_prog_attach(prog_fd[0], cg_fd, BPF_CGROUP_SOCK_OPS, 0);
++	if (error) {
++		printf("ERROR: bpf_prog_attach: %d (%s)\n",
++		       error, strerror(errno));
++		return 4;
++	} else if (logFlag) {
++		read_trace_pipe();
++	}
++
++	return error;
++}
 -- 
 2.9.3
