@@ -1,38 +1,38 @@
 From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Subject: [PATCH 5/5] arcnet: com20020-pci: add missing pdev setup in netdev structure
-Date: Wed, 28 Jun 2017 18:28:37 +0200
-Message-ID: <20170628162837.21856-6-m.grzeschik@pengutronix.de>
+Subject: [PATCH 3/5] arcnet: com20020: remove needless base_addr assignment
+Date: Wed, 28 Jun 2017 18:28:35 +0200
+Message-ID: <20170628162837.21856-4-m.grzeschik@pengutronix.de>
 References: <20170628162837.21856-1-m.grzeschik@pengutronix.de>
 Cc: netdev@vger.kernel.org, kernel@pengutronix.de
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:39815 "EHLO
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:43597 "EHLO
         metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751518AbdF1Q2v (ORCPT
+        by vger.kernel.org with ESMTP id S1751521AbdF1Q2v (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 12:28:51 -0400
 In-Reply-To: <20170628162837.21856-1-m.grzeschik@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We add the pdev data to the pci devices netdev structure. This way
-the interface get consistent device names in the userspace (udev).
+The assignment is superfluous.
 
 Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
 ---
- drivers/net/arcnet/com20020-pci.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/arcnet/com20020.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/drivers/net/arcnet/com20020-pci.c b/drivers/net/arcnet/com20020-pci.c
-index fec2df2c869fe..47f80b83dcf42 100644
---- a/drivers/net/arcnet/com20020-pci.c
-+++ b/drivers/net/arcnet/com20020-pci.c
-@@ -167,6 +167,7 @@ static int com20020pci_probe(struct pci_dev *pdev,
- 		arcnet_outb(0x00, ioaddr, COM20020_REG_W_COMMAND);
- 		arcnet_inb(ioaddr, COM20020_REG_R_DIAGSTAT);
+diff --git a/drivers/net/arcnet/com20020.c b/drivers/net/arcnet/com20020.c
+index 13d9ad4b3f5c9..78043a9c5981e 100644
+--- a/drivers/net/arcnet/com20020.c
++++ b/drivers/net/arcnet/com20020.c
+@@ -246,8 +246,6 @@ int com20020_found(struct net_device *dev, int shared)
+ 		return -ENODEV;
+ 	}
  
-+		SET_NETDEV_DEV(dev, &pdev->dev);
- 		dev->base_addr = ioaddr;
- 		dev->dev_addr[0] = node;
- 		dev->irq = pdev->irq;
+-	dev->base_addr = ioaddr;
+-
+ 	arc_printk(D_NORMAL, dev, "%s: station %02Xh found at %03lXh, IRQ %d.\n",
+ 		   lp->card_name, dev->dev_addr[0], dev->base_addr, dev->irq);
+ 
 -- 
 2.11.0
