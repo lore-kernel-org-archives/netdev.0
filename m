@@ -1,59 +1,67 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Re: [net PATCH] net: sched: Fix one possible panic when no
- destroy callback
-Date: Tue, 27 Jun 2017 20:39:40 -0700
-Message-ID: <CAM_iQpUG17noUq7n7fGWABi1NvcDRWkjzYT5NWLQC40Ktqg+2A@mail.gmail.com>
-References: <1498527333-86838-1-git-send-email-gfree.wind@vip.163.com>
- <CAM_iQpXRy=cC2vuhju2Jf9=sJ+Yc6DvkzvFEU_DrRonyhW+E9w@mail.gmail.com>
- <1498582211.736.118.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpUx8d_vQT=1d06Ah-d+E5R_10pnvcy4Y9ac_=txanPBOw@mail.gmail.com>
- <1498585790.736.135.camel@edumazet-glaptop3.roam.corp.google.com> <6da470a2.7d57.15cec319c03.Coremail.gfree.wind@vip.163.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net] virtio-net: unbreak cusmed packet for small buffer XDP
+Date: Wed, 28 Jun 2017 11:40:30 +0800
+Message-ID: <51f4c402-6a02-9bad-6dab-563ca72f431a@redhat.com>
+References: <1498614843-8163-1-git-send-email-jasowang@redhat.com>
+	<20170628050057-mutt-send-email-mst@kernel.org>
+	<7068053c-50da-6779-5ff2-6588e01e616d@redhat.com>
+	<20170628051555-mutt-send-email-mst@kernel.org>
+	<69907228-fc1b-175f-f6cd-7ac332e318be@redhat.com>
+	<20170628063033-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Pirko <jiri@resnulli.us>,
-        David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Gao Feng <gfree.wind@vip.163.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33288 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753428AbdF1DkC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 23:40:02 -0400
-Received: by mail-wm0-f67.google.com with SMTP id j85so9044534wmj.0
-        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 20:40:01 -0700 (PDT)
-In-Reply-To: <6da470a2.7d57.15cec319c03.Coremail.gfree.wind@vip.163.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170628063033-mutt-send-email-mst@kernel.org>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 27, 2017 at 5:54 PM, Gao Feng <gfree.wind@vip.163.com> wrote:
-> At 2017-06-28 01:49:50, "Eric Dumazet" <eric.dumazet@gmail.com> wrote:
->>On Tue, 2017-06-27 at 10:08 -0700, Cong Wang wrote:
->>> On Tue, Jun 27, 2017 at 9:50 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->>> > On Tue, 2017-06-27 at 09:30 -0700, Cong Wang wrote:
->>> >> On Mon, Jun 26, 2017 at 6:35 PM,  <gfree.wind@vip.163.com> wrote:
->>> >> > From: Gao Feng <gfree.wind@vip.163.com>
->>> >> >
->>> >> > When qdisc fail to init, qdisc_create would invoke the destroy callback
->>> >> > to cleanup. But there is no check if the callback exists really. So it
->>> >> > would cause the panic if there is no real destroy callback like these
->>> >> > qdisc codel, pfifo, pfifo_fast, and so on.
->>> >> >
->>> >> > Now add one the check for destroy to avoid the possible panic.
->>> >> >
->>> >> > Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
->>> >>
->>> >> Looks good,
->>> >>
->>> >> Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
->>> >>
->>> >> This is introduced by commit 87b60cfacf9f17cf71933c6e33b.
->>> >> Please add proper Fixes tag next time.
->
-> OK. Actually I didn't know it is introduced by this commit before :)
-> Need I send an update patch again ?
->
-
-Yes please, update the changelog as Eric suggested and also
-add Fixes.
+CgpPbiAyMDE35bm0MDbmnIgyOOaXpSAxMTozMSwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
+IE9uIFdlZCwgSnVuIDI4LCAyMDE3IGF0IDEwOjQ1OjE4QU0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
+dGU6Cj4+IE9uIDIwMTflubQwNuaciDI45pelIDEwOjE3LCBNaWNoYWVsIFMuIFRzaXJraW4gd3Jv
+dGU6Cj4+PiBPbiBXZWQsIEp1biAyOCwgMjAxNyBhdCAxMDoxNDozNEFNICswODAwLCBKYXNvbiBX
+YW5nIHdyb3RlOgo+Pj4+IE9uIDIwMTflubQwNuaciDI45pelIDEwOjAyLCBNaWNoYWVsIFMuIFRz
+aXJraW4gd3JvdGU6Cj4+Pj4+IE9uIFdlZCwgSnVuIDI4LCAyMDE3IGF0IDA5OjU0OjAzQU0gKzA4
+MDAsIEphc29uIFdhbmcgd3JvdGU6Cj4+Pj4+PiBXZSBzaG91bGQgYWxsb3cgY3N1bWVkIHBhY2tl
+dCBmb3Igc21hbGwgYnVmZmVyLCBvdGhlcndpc2UgWERQX1BBU1MKPj4+Pj4+IHdvbid0IHdvcmsg
+Y29ycmVjdGx5Lgo+Pj4+Pj4KPj4+Pj4+IEZpeGVzIGNvbW1pdCBiYjkxYWNjZjI3MzMgKCJ2aXJ0
+aW8tbmV0OiBYRFAgc3VwcG9ydCBmb3Igc21hbGwgYnVmZmVycyIpCj4+Pj4+PiBTaWduZWQtb2Zm
+LWJ5OiBKYXNvbiBXYW5nPGphc293YW5nQHJlZGhhdC5jb20+Cj4+Pj4+IFRoZSBpc3N1ZSB3b3Vs
+ZCBiZSBWSVJUSU9fTkVUX0hEUl9GX0RBVEFfVkFMSUQgbWlnaHQgYmUgc2V0Lgo+Pj4+PiBXaGF0
+IGRvIHlvdSB0aGluaz8KPj4+PiBJIHRoaW5rIGl0J3Mgc2FmZS4gRm9yIFhEUF9QQVNTLCBpdCB3
+b3JrIGxpa2UgaW4gdGhlIHBhc3QuCj4+PiBUaGF0J3MgdGhlIHBhcnQgSSBkb24ndCBnZXQuIFdp
+dGggREFUQV9WQUxJRCBjc3VtIGluIHBhY2tldCBpcyB3cm9uZywgWERQCj4+PiB0b29scyBhc3N1
+bWUgaXQncyB2YWx1ZS4KPj4gREFUQV9WQUxJRCBpcyBDSEVDS1NVTV9VTkNFU1NBUlkgb24gdGhl
+IGhvc3QsIGFuZCBhY2NvcmRpbmcgdG8gdGhlIGNvbW1lbnQKPj4gaW4gc2tidWZmLmgKPj4KPj4K
+Pj4gIgo+PiAgICogICBUaGUgaGFyZHdhcmUgeW91J3JlIGRlYWxpbmcgd2l0aCBkb2Vzbid0IGNh
+bGN1bGF0ZSB0aGUgZnVsbCBjaGVja3N1bQo+PiAgICogICAoYXMgaW4gQ0hFQ0tTVU1fQ09NUExF
+VEUpLCBidXQgaXQgZG9lcyBwYXJzZSBoZWFkZXJzIGFuZCB2ZXJpZnkKPj4gY2hlY2tzdW1zCj4+
+ICAgKiAgIGZvciBzcGVjaWZpYyBwcm90b2NvbHMuIEZvciBzdWNoIHBhY2tldHMgaXQgd2lsbCBz
+ZXQKPj4gQ0hFQ0tTVU1fVU5ORUNFU1NBUlkKPj4gICAqICAgaWYgdGhlaXIgY2hlY2tzdW1zIGFy
+ZSBva2F5LiBza2ItPmNzdW0gaXMgc3RpbGwgdW5kZWZpbmVkIGluIHRoaXMgY2FzZQo+PiAgICog
+ICB0aG91Z2guIEEgZHJpdmVyIG9yIGRldmljZSBtdXN0IG5ldmVyIG1vZGlmeSB0aGUgY2hlY2tz
+dW0gZmllbGQgaW4gdGhlCj4+ICAgKiAgIHBhY2tldCBldmVuIGlmIGNoZWNrc3VtIGlzIHZlcmlm
+aWVkLgo+PiAiCj4+Cj4+IFRoZSBjc3VtIGlzIGNvcnJlY3QgSSBiZWxpZXZlPwo+Pgo+PiBUaGFu
+a3MKPiBUaGF0J3Mgb24gaW5wdXQuIEJ1dCBJIHRoaW5rIGZvciB0dW4gaXQncyBvdXRwdXQsIHdo
+ZXJlIHRoYXQgaXMgZXF1aXZhbGVudAo+IHRvIENIRUNLU1VNX05PTkUKPgo+CgpZZXMsIGJ1dCB0
+aGUgY29tbWVudCBzYWlkOgoKIgpDS1NVTV9OT05FOgogICoKICAqICAgVGhlIHNrYiB3YXMgYWxy
+ZWFkeSBjaGVja3N1bW1lZCBieSB0aGUgcHJvdG9jb2wsIG9yIGEgY2hlY2tzdW0gaXMgbm90CiAg
+KiAgIHJlcXVpcmVkLgogICoKICAqIENIRUNLU1VNX1VOTkVDRVNTQVJZOgogICoKICAqICAgVGhp
+cyBoYXMgdGhlIHNhbWUgbWVhbmluZyBvbiBhcyBDSEVDS1NVTV9OT05FIGZvciBjaGVja3N1bSBv
+ZmZsb2FkIG9uCiAgKiAgIG91dHB1dC4KICAqCiIKClNvIHN0aWxsIGNvcnJlY3QgSSB0aGluaz8K
+ClRoYW5rcwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpW
+aXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91
+bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlz
+dGluZm8vdmlydHVhbGl6YXRpb24=
