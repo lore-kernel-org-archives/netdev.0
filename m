@@ -1,51 +1,117 @@
-From: Daniel Vetter <daniel.vetter@ffwll.ch>
-Subject: Re: [Intel-wired-lan] [PATCH v2 1/1] e1000e: Undo e1000e_pm_freeze if
- __e1000_shutdown fails
-Date: Wed, 28 Jun 2017 07:35:03 +0200
-Message-ID: <CAKMK7uHLdQ_Jd+h95d9kUxNPoy5Z3nP9r85GPraYcc52_Fk8bw@mail.gmail.com>
-References: <20170531.110833.1362264472730468352.davem@davemloft.net>
- <20170531155043.3596-1-jani.nikula@intel.com>
- <20170531155043.3596-2-jani.nikula@intel.com>
- <20170602.141426.713378366601051907.davem@davemloft.net>
- <1496781986.86439.3.camel@intel.com>
- <309B89C4C689E141A5FF6A0C5FB2118B8C61D137@ORSMSX101.amr.corp.intel.com>
- <20170620084958.7fxdn57p3o6eexbj@phenom.ffwll.local>
- <CAPM=9tzdpEDoMNYj7Z_ZM3Z0JsCpjfNW1Z+y-1p5z3HssJ5aaw@mail.gmail.com>
- <1498596665.3244.2.camel@intel.com>
+From: Dustin Byford <dustin@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 1/3] net: ethtool: add support for forward error
+ correction modes
+Date: Tue, 27 Jun 2017 22:46:10 -0700
+Message-ID: <20170628054610.rirfrvzdwwmh3isg@cumulusnetworks.com>
+References: <1498331985-8525-1-git-send-email-roopa@cumulusnetworks.com>
+ <1498331985-8525-2-git-send-email-roopa@cumulusnetworks.com>
+ <11d024ad-6e09-e475-a448-e79b6eef5654@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Ursulin, Tvrtko" <tvrtko.ursulin@intel.com>, "Nikula,
- Jani" <jani.nikula@intel.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "intel-gfx@lists.freedesktop.org" <intel-gfx@lists.freedesktop.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
- "dri-devel@lists.freedesktop.org" <dri-devel@lists.freedesktop.org>, "Ertman,
- David M" <david.m.ertman@intel.com>, "Brown,
- Aaron F" <aaron.f.brown@intel.com>, David Miller <davem@davemloft.net>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <dri-devel-bounces@lists.freedesktop.org>
-In-Reply-To: <1498596665.3244.2.camel@intel.com>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: dri-devel-bounces@lists.freedesktop.org
-Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>, davem@davemloft.net,
+        linville@tuxdriver.com, netdev@vger.kernel.org,
+        vidya.chowdary@gmail.com, olson@cumulusnetworks.com,
+        leedom@chelsio.com, manojmalviya@chelsio.com, santosh@chelsio.com,
+        yuval.mintz@qlogic.com, odedw@mellanox.com, ariela@mellanox.com,
+        jeffrey.t.kirsher@intel.com
+To: Gal Pressman <galp@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:34606 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750934AbdF1FqO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 01:46:14 -0400
+Received: by mail-pf0-f181.google.com with SMTP id s66so27719684pfs.1
+        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 22:46:13 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <11d024ad-6e09-e475-a448-e79b6eef5654@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCBKdW4gMjcsIDIwMTcgYXQgMTA6NTEgUE0sIEplZmYgS2lyc2hlcgo8amVmZnJleS50
-LmtpcnNoZXJAaW50ZWwuY29tPiB3cm90ZToKPiBUaGlzIHdhcyBzdWJtaXR0ZWQgYW5kIGFjY2Vw
-dGVkIGludG8gRGF2aWQgTWlsbGVyJ3MgbmV0LW5leHQgdHJlZS4gIEkgY2FuCj4gc2VlIGlmIERh
-dmUgY2FuIHB1bGwgaXQgaW50byBoaXMgbmV0IHRyZWUuICBET2VzIHN0YWJsZSBuZWVkIHRvIHBp
-Y2sgdGhpcwo+IHVwIGFzIHdlbGw/CgpOYWggaWYgaXQgbGFuZGVkIHNvbWV3aGVyZSBhdCBsZWFz
-dCBJJ20gaGFwcHksIHdlIGNhbiBjYXJyeSB0aGUgZml4dXAKZm9yIGEgd2hpbGUgbG9uZ2VyIGxv
-Y2FsbHkuCgpUaGFua3MsIERhbmllbAotLSAKRGFuaWVsIFZldHRlcgpTb2Z0d2FyZSBFbmdpbmVl
-ciwgSW50ZWwgQ29ycG9yYXRpb24KKzQxICgwKSA3OSAzNjUgNTcgNDggLSBodHRwOi8vYmxvZy5m
-ZndsbC5jaApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpk
-cmktZGV2ZWwgbWFpbGluZyBsaXN0CmRyaS1kZXZlbEBsaXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0
-cHM6Ly9saXN0cy5mcmVlZGVza3RvcC5vcmcvbWFpbG1hbi9saXN0aW5mby9kcmktZGV2ZWwK
+Hi Gal,
+
+On Sun Jun 25 16:38, Gal Pressman wrote:
+> 
+> > ...
+> >
+> > SHOW FEC option:
+> > root@tor: ethtool --show-fec  swp1
+> > FEC parameters for swp1:
+> > Active FEC encodings: RS
+> > Configured FEC encodings:  RS | BaseR
+> >
+> > ETHTOOL DEVNAME output modification:
+> >
+> > ethtool devname output:
+> > root@tor:~# ethtool swp1
+> > Settings for swp1:
+> > root@hpe-7712-03:~# ethtool swp18
+> > Settings for swp18:
+> >     Supported ports: [ FIBRE ]
+> >     Supported link modes:   40000baseCR4/Full
+> >                             40000baseSR4/Full
+> >                             40000baseLR4/Full
+> >                             100000baseSR4/Full
+> >                             100000baseCR4/Full
+> >                             100000baseLR4_ER4/Full
+> >     Supported pause frame use: No
+> >     Supports auto-negotiation: Yes
+> >     Supported FEC modes: [RS | BaseR | None | Not reported]
+> >     Advertised link modes:  Not reported
+> >     Advertised pause frame use: No
+> >     Advertised auto-negotiation: No
+> >     Advertised FEC modes: [RS | BaseR | None | Not reported]
+> > <<<< One or more FEC modes
+> >     Speed: 100000Mb/s
+> >     Duplex: Full
+> >     Port: FIBRE
+> >     PHYAD: 106
+> >     Transceiver: internal
+> >     Auto-negotiation: off
+> >     Link detected: yes
+
+> What is the difference between the information in ethtool DEVNAME and ethtool --show-fec DEVNAME?
+
+I think there are two questions there.  First, how does the FEC-related
+information from glinksettings differ from what's retrieved via
+gfecparam.  Second, how is that expressed through the ethtool UI.
+
+Regarding the uapi (as we imagined it), glinksettings returns FEC
+information through three fields:
+
+@supported: the complete set of FEC modes the hardware supports, at any
+speed, medium, or autoneg combination.
+
+@advertising: the set of modes advertised to the link partner through
+the relevant autoneg mechanism.
+
+@lp_advertising: the set of modes the link partner is advertising
+through autoneg.
+
+
+gfecparam is used to fetch a couple more important facts about the FEC
+configuration:
+
+1) What FEC mode is currently active, either as a result of the autoneg
+process, or a previous call to sfecparam.  This is returned in
+sfecparam->active_fec
+
+2) If autoneg is off, what is the currently configured FEC mode.  This
+is a bitmask returned in gfecparam->fec.  I imagine it's typically a
+single mode, but a mask makes it easier to implement a "don't care" policy,
+or otherwise allow the NIC/driver to pick between a set of modes.
+
+
+Regarding the UI.  ethtool DEVNAME gets most of its info from
+glinksettings and it's easy to represent the FEC parameters affected by
+autoneg there.  ethtool --show-fec simply reports the output of
+gfecparam.  I agree the difference is subtle, perhaps it makes sense to
+combine all the FEC information into ethtool DEVNAME?
+
+> I can't find a usage of LINK_MODE_FEC_* bits in downstream patches.
+
+I'm not sure what patches you're looking at, but I think those bits
+directly affect the "Advertised FEC modes" and "Supported FEC Modes"
+fields.
+
+
+		--Dustin
