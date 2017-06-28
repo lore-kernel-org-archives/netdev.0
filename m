@@ -1,7 +1,7 @@
 From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next v4 04/16] bpf: Sample bpf program to set SYN/SYN-ACK RTOs
-Date: Wed, 28 Jun 2017 10:31:12 -0700
-Message-ID: <20170628173124.3299500-5-brakmo@fb.com>
+Subject: [PATCH net-next v4 07/16] bpf: Add setsockopt helper function to bpf
+Date: Wed, 28 Jun 2017 10:31:15 -0700
+Message-ID: <20170628173124.3299500-8-brakmo@fb.com>
 References: <20170628173124.3299500-1-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,114 +11,199 @@ Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:53297 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:50272 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751567AbdF1Rba (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 13:31:30 -0400
-Received: from pps.filterd (m0109334.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5SHS0Eg030315
-        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:31:30 -0700
+        by vger.kernel.org with ESMTP id S1751898AbdF1Rbd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 13:31:33 -0400
+Received: from pps.filterd (m0109333.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5SHTYsF012847
+        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:31:32 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2bcad61g6r-2
+        by mx0a-00082601.pphosted.com with ESMTP id 2bcfmtrb0k-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:31:30 -0700
+        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:31:32 -0700
 Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
- mx-out.facebook.com (10.103.99.97) with ESMTP  id
- 9ea967ac5c2711e7b59c0002c9931860-37d378f0 for <netdev@vger.kernel.org>;        Wed,
- 28 Jun 2017 10:31:29 -0700
+ mx-out.facebook.com (10.212.232.63) with ESMTP id
+ 9fbb40165c2711e7a7d50002c992ebde-64b3a8f0 for <netdev@vger.kernel.org>;        Wed,
+ 28 Jun 2017 10:31:31 -0700
 In-Reply-To: <20170628173124.3299500-1-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The sample BPF program, tcp_synrto_kern.c, sets the SYN and SYN-ACK
-RTOs to 10ms when both hosts are within the same datacenter (i.e.
-small RTTs) in an environment where common IPv6 prefixes indicate
-both hosts are in the same data center.
+Added support for calling a subset of socket setsockopts from
+BPF_PROG_TYPE_SOCK_OPS programs. The code was duplicated rather
+than making the changes to call the socket setsockopt function because
+the changes required would have been larger.
+
+The ops supported are:
+  SO_RCVBUF
+  SO_SNDBUF
+  SO_MAX_PACING_RATE
+  SO_PRIORITY
+  SO_RCVLOWAT
+  SO_MARK
 
 Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
 ---
- samples/bpf/Makefile          |  1 +
- samples/bpf/tcp_synrto_kern.c | 60 +++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 61 insertions(+)
- create mode 100644 samples/bpf/tcp_synrto_kern.c
+ include/uapi/linux/bpf.h  | 14 ++++++++-
+ net/core/filter.c         | 77 ++++++++++++++++++++++++++++++++++++++++++++++-
+ samples/bpf/bpf_helpers.h |  3 ++
+ 3 files changed, 92 insertions(+), 2 deletions(-)
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 015589b..e29370a 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -113,6 +113,7 @@ always += lwt_len_hist_kern.o
- always += xdp_tx_iptunnel_kern.o
- always += test_map_in_map_kern.o
- always += cookie_uid_helper_example.o
-+always += tcp_synrto_kern.o
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index cdec348..2dbae9e 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -520,6 +520,17 @@ union bpf_attr {
+  *     Set full skb->hash.
+  *     @skb: pointer to skb
+  *     @hash: hash to set
++ *
++ * int bpf_setsockopt(bpf_socket, level, optname, optval, optlen)
++ *     Calls setsockopt. Not all opts are available, only those with
++ *     integer optvals plus TCP_CONGESTION.
++ *     Supported levels: SOL_SOCKET and IPROTO_TCP
++ *     @bpf_socket: pointer to bpf_socket
++ *     @level: SOL_SOCKET or IPROTO_TCP
++ *     @optname: option name
++ *     @optval: pointer to option value
++ *     @optlen: length of optval in byes
++ *     Return: 0 or negative error
+  */
+ #define __BPF_FUNC_MAPPER(FN)		\
+ 	FN(unspec),			\
+@@ -570,7 +581,8 @@ union bpf_attr {
+ 	FN(probe_read_str),		\
+ 	FN(get_socket_cookie),		\
+ 	FN(get_socket_uid),		\
+-	FN(set_hash),
++	FN(set_hash),			\
++	FN(setsockopt),
  
- HOSTCFLAGS += -I$(objtree)/usr/include
- HOSTCFLAGS += -I$(srctree)/tools/lib/
-diff --git a/samples/bpf/tcp_synrto_kern.c b/samples/bpf/tcp_synrto_kern.c
-new file mode 100644
-index 0000000..b16ac39
---- /dev/null
-+++ b/samples/bpf/tcp_synrto_kern.c
-@@ -0,0 +1,60 @@
-+/* Copyright (c) 2017 Facebook
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ *
-+ * BPF program to set SYN and SYN-ACK RTOs to 10ms when using IPv6 addresses
-+ * and the first 5.5 bytes of the IPv6 addresses are the same (in this example
-+ * that means both hosts are in the same datacenter.
-+ */
-+
-+#include <uapi/linux/bpf.h>
-+#include <uapi/linux/if_ether.h>
-+#include <uapi/linux/if_packet.h>
-+#include <uapi/linux/ip.h>
-+#include <linux/socket.h>
-+#include "bpf_helpers.h"
-+
-+#define DEBUG 1
-+
-+SEC("sockops")
-+int bpf_synrto(struct bpf_sock_ops *skops)
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+  * function eBPF program intends to call
+diff --git a/net/core/filter.c b/net/core/filter.c
+index bb54832..167eca0 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -54,6 +54,7 @@
+ #include <net/dst.h>
+ #include <net/sock_reuseport.h>
+ #include <net/busy_poll.h>
++#include <net/tcp.h>
+ 
+ /**
+  *	sk_filter_trim_cap - run a packet through a socket filter
+@@ -2672,6 +2673,69 @@ static const struct bpf_func_proto bpf_get_socket_uid_proto = {
+ 	.arg1_type      = ARG_PTR_TO_CTX,
+ };
+ 
++BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
++	   int, level, int, optname, char *, optval, int, optlen)
 +{
-+	char fmt1[] = "BPF command: %d\n";
-+	char fmt2[] = "  Returning %d\n";
-+	int rv = -1;
-+	int op;
++	struct sock *sk = bpf_sock->sk;
++	int ret = 0;
++	int val;
 +
-+	/* For testing purposes, only execute rest of BPF program
-+	 * if neither port numberis 55601
-+	 */
-+	if (skops->remote_port != 55601 && skops->local_port != 55601)
-+		return -1;
++	if (bpf_sock->is_req_sock)
++		return -EINVAL;
 +
-+	op = (int) skops->op;
++	if (level == SOL_SOCKET) {
++		/* Only some socketops are supported */
++		val = *((int *)optval);
 +
-+#ifdef DEBUG
-+	bpf_trace_printk(fmt1, sizeof(fmt1), op);
-+#endif
-+
-+	/* Check for TIMEOUT_INIT operation and IPv6 addresses */
-+	if (op == BPF_SOCK_OPS_TIMEOUT_INIT &&
-+		skops->family == AF_INET6) {
-+
-+		/* If the first 5.5 bytes of the IPv6 address are the same
-+		 * then both hosts are in the same datacenter
-+		 * so use an RTO of 10ms
-+		 */
-+		if (skops->local_ip6[0] == skops->remote_ip6[0] &&
-+		    (skops->local_ip6[1] & 0xfff00000) ==
-+		    (skops->remote_ip6[1] & 0xfff00000))
-+			rv = 10;
++		switch (optname) {
++		case SO_RCVBUF:
++			sk->sk_userlocks |= SOCK_RCVBUF_LOCK;
++			sk->sk_rcvbuf = max_t(int, val * 2, SOCK_MIN_RCVBUF);
++			break;
++		case SO_SNDBUF:
++			sk->sk_userlocks |= SOCK_SNDBUF_LOCK;
++			sk->sk_sndbuf = max_t(int, val * 2, SOCK_MIN_SNDBUF);
++			break;
++		case SO_MAX_PACING_RATE:
++			sk->sk_max_pacing_rate = val;
++			sk->sk_pacing_rate = min(sk->sk_pacing_rate,
++						 sk->sk_max_pacing_rate);
++			break;
++		case SO_PRIORITY:
++			sk->sk_priority = val;
++			break;
++		case SO_RCVLOWAT:
++			if (val < 0)
++				val = INT_MAX;
++			sk->sk_rcvlowat = val ? : 1;
++			break;
++		case SO_MARK:
++			sk->sk_mark = val;
++			break;
++		default:
++			ret = -EINVAL;
++		}
++	} else if (level == SOL_TCP &&
++		   sk->sk_prot->setsockopt == tcp_setsockopt) {
++		/* Place holder */
++		ret = -EINVAL;
++	} else {
++		ret = -EINVAL;
 +	}
-+#ifdef DEBUG
-+	bpf_trace_printk(fmt2, sizeof(fmt2), rv);
-+#endif
-+	skops->reply = rv;
-+	return 1;
++	return ret;
 +}
-+char _license[] SEC("license") = "GPL";
++
++static const struct bpf_func_proto bpf_setsockopt_proto = {
++	.func		= bpf_setsockopt,
++	.gpl_only	= true,
++	.ret_type	= RET_INTEGER,
++	.arg1_type	= ARG_PTR_TO_CTX,
++	.arg2_type	= ARG_ANYTHING,
++	.arg3_type	= ARG_ANYTHING,
++	.arg4_type	= ARG_PTR_TO_MEM,
++	.arg5_type	= ARG_CONST_SIZE_OR_ZERO,
++};
++
+ static const struct bpf_func_proto *
+ bpf_base_func_proto(enum bpf_func_id func_id)
+ {
+@@ -2823,6 +2887,17 @@ lwt_inout_func_proto(enum bpf_func_id func_id)
+ }
+ 
+ static const struct bpf_func_proto *
++	sock_ops_func_proto(enum bpf_func_id func_id)
++{
++	switch (func_id) {
++	case BPF_FUNC_setsockopt:
++		return &bpf_setsockopt_proto;
++	default:
++		return bpf_base_func_proto(func_id);
++	}
++}
++
++static const struct bpf_func_proto *
+ lwt_xmit_func_proto(enum bpf_func_id func_id)
+ {
+ 	switch (func_id) {
+@@ -3593,7 +3668,7 @@ const struct bpf_verifier_ops cg_sock_prog_ops = {
+ };
+ 
+ const struct bpf_verifier_ops sock_ops_prog_ops = {
+-	.get_func_proto		= bpf_base_func_proto,
++	.get_func_proto		= sock_ops_func_proto,
+ 	.is_valid_access	= sock_ops_is_valid_access,
+ 	.convert_ctx_access	= sock_ops_convert_ctx_access,
+ };
+diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
+index f4840b8..d50ac34 100644
+--- a/samples/bpf/bpf_helpers.h
++++ b/samples/bpf/bpf_helpers.h
+@@ -60,6 +60,9 @@ static unsigned long long (*bpf_get_prandom_u32)(void) =
+ 	(void *) BPF_FUNC_get_prandom_u32;
+ static int (*bpf_xdp_adjust_head)(void *ctx, int offset) =
+ 	(void *) BPF_FUNC_xdp_adjust_head;
++static int (*bpf_setsockopt)(void *ctx, int level, int optname, void *optval,
++			     int optlen) =
++	(void *) BPF_FUNC_setsockopt;
+ 
+ /* llvm builtin functions that eBPF C program may use to
+  * emit BPF_LD_ABS and BPF_LD_IND instructions
 -- 
 2.9.3
