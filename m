@@ -1,13 +1,18 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net] virtio-net: unbreak cusmed packet for small buffer XDP
-Date: Wed, 28 Jun 2017 09:54:03 +0800
-Message-ID: <1498614843-8163-1-git-send-email-jasowang@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net] virtio-net: serialize tx routine during reset
+Date: Wed, 28 Jun 2017 05:00:24 +0300
+Message-ID: <20170628045956-mutt-send-email-mst@kernel.org>
+References: <1498614663-7711-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: mst@redhat.com, virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, jpmenil@gmail.com,
+	John Fastabend <john.fastabend@gmail.com>, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1498614663-7711-1-git-send-email-jasowang@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -19,29 +24,38 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-We should allow csumed packet for small buffer, otherwise XDP_PASS
-won't work correctly.
+On Wed, Jun 28, 2017 at 09:51:03AM +0800, Jason Wang wrote:
+> We don't hold any tx lock when trying to disable TX during reset, this
+> would lead a use after free since ndo_start_xmit() tries to access
+> the virtqueue which has already been freed. Fix this by using
+> netif_tx_disable() before freeing the vqs, this could make sure no tx
+> after vq freeing.
+> 
+> Reported-by: Jean-Philippe Menil <jpmenil@gmail.com>
+> Tested-by: Jean-Philippe Menil <jpmenil@gmail.com>
+> Fixes commit f600b6905015 ("virtio_net: Add XDP support")
+> Cc: John Fastabend <john.fastabend@gmail.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Fixes commit bb91accf2733 ("virtio-net: XDP support for small buffers")
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
-The patch is needed for -stable.
----
- drivers/net/virtio_net.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 143d8a9..499fcc9 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -413,7 +413,7 @@ static struct sk_buff *receive_small(struct net_device *dev,
- 		void *orig_data;
- 		u32 act;
- 
--		if (unlikely(hdr->hdr.gso_type || hdr->hdr.flags))
-+		if (unlikely(hdr->hdr.gso_type))
- 			goto err_xdp;
- 
- 		xdp.data_hard_start = buf + VIRTNET_RX_PAD + vi->hdr_len;
--- 
-2.7.4
+Thanks a lot Jason. I think this is needed in stable as well.
+
+> ---
+>  drivers/net/virtio_net.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index a871f45..143d8a9 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1797,6 +1797,7 @@ static void virtnet_freeze_down(struct virtio_device *vdev)
+>  	flush_work(&vi->config_work);
+>  
+>  	netif_device_detach(vi->dev);
+> +	netif_tx_disable(vi->dev);
+>  	cancel_delayed_work_sync(&vi->refill);
+>  
+>  	if (netif_running(vi->dev)) {
+> -- 
+> 2.7.4
