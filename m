@@ -1,94 +1,108 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [RFC net-next 6/9] xfrm_policy: remove xfrm_policy_lookup
-Date: Wed, 28 Jun 2017 15:26:49 +0200
-Message-ID: <20170628132652.1275-7-fw@strlen.de>
+Subject: [RFC net-next 7/9] xfrm_policy: make xfrm_bundle_lookup return xfrm dst object
+Date: Wed, 28 Jun 2017 15:26:50 +0200
+Message-ID: <20170628132652.1275-8-fw@strlen.de>
 References: <20170628132652.1275-1-fw@strlen.de>
 Cc: Florian Westphal <fw@strlen.de>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:34226 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:34228 "EHLO
         Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751754AbdF1N1E (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 09:27:04 -0400
+        by vger.kernel.org with ESMTP id S1751974AbdF1N1H (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 09:27:07 -0400
 In-Reply-To: <20170628132652.1275-1-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This removes the wrapper and renames the __xfrm_policy_lookup variant
-to get rid of another place that used flow cache objects.
+This allows to remove flow cache object embedded in struct xfrm_dst.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- net/xfrm/xfrm_policy.c | 36 ++++--------------------------------
- 1 file changed, 4 insertions(+), 32 deletions(-)
+ net/xfrm/xfrm_policy.c | 28 ++++++++++++----------------
+ 1 file changed, 12 insertions(+), 16 deletions(-)
 
 diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 626351915a97..86907731f161 100644
+index 86907731f161..5bb049d8e8d5 100644
 --- a/net/xfrm/xfrm_policy.c
 +++ b/net/xfrm/xfrm_policy.c
-@@ -1179,7 +1179,7 @@ static struct xfrm_policy *xfrm_policy_lookup_bytype(struct net *net, u8 type,
- }
- 
- static struct xfrm_policy *
--__xfrm_policy_lookup(struct net *net, const struct flowi *fl, u16 family, u8 dir)
-+xfrm_policy_lookup(struct net *net, const struct flowi *fl, u16 family, u8 dir)
- {
- #ifdef CONFIG_XFRM_SUB_POLICY
- 	struct xfrm_policy *pol;
-@@ -1191,26 +1191,6 @@ __xfrm_policy_lookup(struct net *net, const struct flowi *fl, u16 family, u8 dir
- 	return xfrm_policy_lookup_bytype(net, XFRM_POLICY_TYPE_MAIN, fl, family, dir);
+@@ -2000,15 +2000,13 @@ static struct xfrm_dst *xfrm_create_dummy_bundle(struct net *net,
+ 	goto out;
  }
  
 -static struct flow_cache_object *
--xfrm_policy_lookup(struct net *net, const struct flowi *fl, u16 family,
--		   u8 dir, struct flow_cache_object *old_obj, void *ctx)
--{
--	struct xfrm_policy *pol;
--
--	if (old_obj)
--		xfrm_pol_put(container_of(old_obj, struct xfrm_policy, flo));
--
--	pol = __xfrm_policy_lookup(net, fl, family, dir);
--	if (IS_ERR_OR_NULL(pol))
--		return ERR_CAST(pol);
--
--	/* Resolver returns two references:
--	 * one for cache and one for caller of flow_cache_lookup() */
--	xfrm_pol_hold(pol);
--
--	return &pol->flo;
--}
--
- static struct xfrm_policy *xfrm_sk_policy_lookup(const struct sock *sk, int dir,
- 						 const struct flowi *fl, u16 family)
++static struct xfrm_dst *
+ xfrm_bundle_lookup(struct net *net, const struct flowi *fl, u16 family, u8 dir, struct xfrm_flo *xflo)
  {
-@@ -2032,7 +2012,7 @@ xfrm_bundle_lookup(struct net *net, const struct flowi *fl, u16 family, u8 dir,
+ 	struct xfrm_policy *pols[XFRM_POLICY_TYPE_MAX];
+-	struct xfrm_dst *xdst, *new_xdst;
+ 	int num_pols = 0, num_xfrms = 0, err;
++	struct xfrm_dst *xdst;
+ 
+-	/* Check if the policies from old bundle are usable */
+-	xdst = NULL;
  	/* Resolve policies to use if we couldn't get them from
  	 * previous cache entry */
  	num_pols = 1;
--	pols[0] = __xfrm_policy_lookup(net, fl, family, dir);
-+	pols[0] = xfrm_policy_lookup(net, fl, family, dir);
- 	err = xfrm_expand_policies(fl, family, pols,
- 					   &num_pols, &num_xfrms);
- 	if (err < 0)
-@@ -2402,16 +2382,8 @@ int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
- 		}
+@@ -2022,19 +2020,19 @@ xfrm_bundle_lookup(struct net *net, const struct flowi *fl, u16 family, u8 dir,
+ 	if (num_xfrms <= 0)
+ 		goto make_dummy_bundle;
+ 
+-	new_xdst = xfrm_resolve_and_create_bundle(pols, num_pols, fl, family,
++	xdst = xfrm_resolve_and_create_bundle(pols, num_pols, fl, family,
+ 						  xflo->dst_orig);
+-	if (IS_ERR(new_xdst)) {
+-		err = PTR_ERR(new_xdst);
++	if (IS_ERR(xdst)) {
++		err = PTR_ERR(xdst);
+ 		if (err != -EAGAIN)
+ 			goto error;
+ 		goto make_dummy_bundle;
+-	} else if (new_xdst == NULL) {
++	} else if (xdst == NULL) {
+ 		num_xfrms = 0;
+ 		goto make_dummy_bundle;
  	}
  
--	if (!pol) {
--		struct flow_cache_object *flo;
--
--		flo = xfrm_policy_lookup(net, &fl, family, dir, NULL, NULL);
--
--		if (IS_ERR_OR_NULL(flo))
--			pol = ERR_CAST(flo);
--		else
--			pol = container_of(flo, struct xfrm_policy, flo);
--	}
-+	if (!pol)
-+		pol = xfrm_policy_lookup(net, &fl, family, dir);
+-	return &new_xdst->flo;
++	return xdst;
  
- 	if (IS_ERR(pol)) {
- 		XFRM_INC_STATS(net, LINUX_MIB_XFRMINPOLERROR);
+ make_dummy_bundle:
+ 	/* We found policies, but there's no bundles to instantiate:
+@@ -2050,7 +2048,7 @@ xfrm_bundle_lookup(struct net *net, const struct flowi *fl, u16 family, u8 dir,
+ 	memcpy(xdst->pols, pols, sizeof(struct xfrm_policy *) * num_pols);
+ 
+ 	dst_hold(&xdst->u.dst);
+-	return &xdst->flo;
++	return xdst;
+ 
+ inc_error:
+ 	XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTPOLERROR);
+@@ -2086,7 +2084,6 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
+ 			      const struct sock *sk, int flags)
+ {
+ 	struct xfrm_policy *pols[XFRM_POLICY_TYPE_MAX];
+-	struct flow_cache_object *flo;
+ 	struct xfrm_dst *xdst;
+ 	struct dst_entry *dst, *route;
+ 	u16 family = dst_orig->ops->family;
+@@ -2141,14 +2138,13 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
+ 		    !net->xfrm.policy_count[XFRM_POLICY_OUT])
+ 			goto nopol;
+ 
+-		flo = xfrm_bundle_lookup(net, fl, family, dir, &xflo);
+-		if (flo == NULL)
++		xdst = xfrm_bundle_lookup(net, fl, family, dir, &xflo);
++		if (xdst == NULL)
+ 			goto nopol;
+-		if (IS_ERR(flo)) {
+-			err = PTR_ERR(flo);
++		if (IS_ERR(xdst)) {
++			err = PTR_ERR(xdst);
+ 			goto dropdst;
+ 		}
+-		xdst = container_of(flo, struct xfrm_dst, flo);
+ 
+ 		num_pols = xdst->num_pols;
+ 		num_xfrms = xdst->num_xfrms;
 -- 
 2.13.0
