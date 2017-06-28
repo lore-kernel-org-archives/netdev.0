@@ -1,70 +1,16 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net] virtio-net: unbreak cusmed packet for small buffer XDP
-Date: Wed, 28 Jun 2017 10:45:18 +0800
-Message-ID: <69907228-fc1b-175f-f6cd-7ac332e318be@redhat.com>
-References: <1498614843-8163-1-git-send-email-jasowang@redhat.com>
-	<20170628050057-mutt-send-email-mst@kernel.org>
-	<7068053c-50da-6779-5ff2-6588e01e616d@redhat.com>
-	<20170628051555-mutt-send-email-mst@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170628051555-mutt-send-email-mst@kernel.org>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: "McCabe, Robert J" <Robert.McCabe@rockwellcollins.com>
+Subject: Re: [net] virtio-net: serialize tx routine during reset
+Date: Tue, 27 Jun 2017 22:02:31 -0500
+Message-ID: <20170628030231.11868-1-Robert.McCabe@rockwellcollins.com>
+References: <1498614663-7711-1-git-send-email-jasowang@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtpimr.rockwellcollins.com ([205.175.227.27]:4549 "EHLO
+        da1vs01.rockwellcollins.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752010AbdF1DCj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 23:02:39 -0400
+In-Reply-To: <1498614663-7711-1-git-send-email-jasowang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE35bm0MDbmnIgyOOaXpSAxMDoxNywgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
-IE9uIFdlZCwgSnVuIDI4LCAyMDE3IGF0IDEwOjE0OjM0QU0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
-dGU6Cj4+Cj4+IE9uIDIwMTflubQwNuaciDI45pelIDEwOjAyLCBNaWNoYWVsIFMuIFRzaXJraW4g
-d3JvdGU6Cj4+PiBPbiBXZWQsIEp1biAyOCwgMjAxNyBhdCAwOTo1NDowM0FNICswODAwLCBKYXNv
-biBXYW5nIHdyb3RlOgo+Pj4+IFdlIHNob3VsZCBhbGxvdyBjc3VtZWQgcGFja2V0IGZvciBzbWFs
-bCBidWZmZXIsIG90aGVyd2lzZSBYRFBfUEFTUwo+Pj4+IHdvbid0IHdvcmsgY29ycmVjdGx5Lgo+
-Pj4+Cj4+Pj4gRml4ZXMgY29tbWl0IGJiOTFhY2NmMjczMyAoInZpcnRpby1uZXQ6IFhEUCBzdXBw
-b3J0IGZvciBzbWFsbCBidWZmZXJzIikKPj4+PiBTaWduZWQtb2ZmLWJ5OiBKYXNvbiBXYW5nIDxq
-YXNvd2FuZ0ByZWRoYXQuY29tPgo+Pj4gVGhlIGlzc3VlIHdvdWxkIGJlIFZJUlRJT19ORVRfSERS
-X0ZfREFUQV9WQUxJRCBtaWdodCBiZSBzZXQuCj4+PiBXaGF0IGRvIHlvdSB0aGluaz8KPj4gSSB0
-aGluayBpdCdzIHNhZmUuIEZvciBYRFBfUEFTUywgaXQgd29yayBsaWtlIGluIHRoZSBwYXN0Lgo+
-IFRoYXQncyB0aGUgcGFydCBJIGRvbid0IGdldC4gV2l0aCBEQVRBX1ZBTElEIGNzdW0gaW4gcGFj
-a2V0IGlzIHdyb25nLCBYRFAKPiB0b29scyBhc3N1bWUgaXQncyB2YWx1ZS4KCkRBVEFfVkFMSUQg
-aXMgQ0hFQ0tTVU1fVU5DRVNTQVJZIG9uIHRoZSBob3N0LCBhbmQgYWNjb3JkaW5nIHRvIHRoZSAK
-Y29tbWVudCBpbiBza2J1ZmYuaAoKCiIKICAqICAgVGhlIGhhcmR3YXJlIHlvdSdyZSBkZWFsaW5n
-IHdpdGggZG9lc24ndCBjYWxjdWxhdGUgdGhlIGZ1bGwgY2hlY2tzdW0KICAqICAgKGFzIGluIENI
-RUNLU1VNX0NPTVBMRVRFKSwgYnV0IGl0IGRvZXMgcGFyc2UgaGVhZGVycyBhbmQgdmVyaWZ5IApj
-aGVja3N1bXMKICAqICAgZm9yIHNwZWNpZmljIHByb3RvY29scy4gRm9yIHN1Y2ggcGFja2V0cyBp
-dCB3aWxsIHNldCAKQ0hFQ0tTVU1fVU5ORUNFU1NBUlkKICAqICAgaWYgdGhlaXIgY2hlY2tzdW1z
-IGFyZSBva2F5LiBza2ItPmNzdW0gaXMgc3RpbGwgdW5kZWZpbmVkIGluIHRoaXMgY2FzZQogICog
-ICB0aG91Z2guIEEgZHJpdmVyIG9yIGRldmljZSBtdXN0IG5ldmVyIG1vZGlmeSB0aGUgY2hlY2tz
-dW0gZmllbGQgaW4gdGhlCiAgKiAgIHBhY2tldCBldmVuIGlmIGNoZWNrc3VtIGlzIHZlcmlmaWVk
-LgoiCgpUaGUgY3N1bSBpcyBjb3JyZWN0IEkgYmVsaWV2ZT8KClRoYW5rcwoKPgo+PiBGb3IgWERQ
-X1RYLCB3ZQo+PiB6ZXJvIHRoZSB2bmV0IGhlYWRlci4KPiBBZ2FpbiBUWCBvZmZsb2FkIGlzIGRp
-c2FibGVkLCBzbyBwYWNrZXRzIHdpbGwgZ28gb3V0IHdpdGggYW4gaW52YWxpZAo+IGNoZWNrc3Vt
-Lgo+Cj4+IEZvciBhZGp1c3RpbmcgaGVhZGVyLCBYRFAgcHJvZyBzaG91bGQgZGVhbCB3aXRoIGNz
-dW0uCj4+Cj4+IFRoYW5rcwo+IFRoYXQgcGFydCBzZWVtcyByaWdodC4KPgo+Pj4+IC0tLQo+Pj4+
-IFRoZSBwYXRjaCBpcyBuZWVkZWQgZm9yIC1zdGFibGUuCj4+Pj4gLS0tCj4+Pj4gICAgZHJpdmVy
-cy9uZXQvdmlydGlvX25ldC5jIHwgMiArLQo+Pj4+ICAgIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2Vy
-dGlvbigrKSwgMSBkZWxldGlvbigtKQo+Pj4+Cj4+Pj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0
-L3ZpcnRpb19uZXQuYyBiL2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYwo+Pj4+IGluZGV4IDE0M2Q4
-YTkuLjQ5OWZjYzkgMTAwNjQ0Cj4+Pj4gLS0tIGEvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCj4+
-Pj4gKysrIGIvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCj4+Pj4gQEAgLTQxMyw3ICs0MTMsNyBA
-QCBzdGF0aWMgc3RydWN0IHNrX2J1ZmYgKnJlY2VpdmVfc21hbGwoc3RydWN0IG5ldF9kZXZpY2Ug
-KmRldiwKPj4+PiAgICAJCXZvaWQgKm9yaWdfZGF0YTsKPj4+PiAgICAJCXUzMiBhY3Q7Cj4+Pj4g
-LQkJaWYgKHVubGlrZWx5KGhkci0+aGRyLmdzb190eXBlIHx8IGhkci0+aGRyLmZsYWdzKSkKPj4+
-PiArCQlpZiAodW5saWtlbHkoaGRyLT5oZHIuZ3NvX3R5cGUpKQo+Pj4+ICAgIAkJCWdvdG8gZXJy
-X3hkcDsKPj4+PiAgICAJCXhkcC5kYXRhX2hhcmRfc3RhcnQgPSBidWYgKyBWSVJUTkVUX1JYX1BB
-RCArIHZpLT5oZHJfbGVuOwo+Pj4+IC0tIAo+Pj4+IDIuNy40CgpfX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QK
-VmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5s
-aW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
+Acked-by: Robert McCabe <robert.mccabe@rockwellcollins.com>
