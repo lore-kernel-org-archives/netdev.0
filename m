@@ -1,33 +1,37 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: ti: wl18xx: add checks on wl18xx_top_reg_write() return value
-Date: Wed, 28 Jun 2017 16:38:44 +0000 (UTC)
-Message-ID: <20170628163844.455B5605BD@smtp.codeaurora.org>
-References: <20170626230619.GA14831@embeddedgus>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] amd-xgbe: fix spelling mistake: "avialable" -> "available"
+Date: Wed, 28 Jun 2017 17:51:10 +0100
+Message-ID: <20170628165110.29130-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: Tom Lendacky <thomas.lendacky@amd.com>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170626230619.GA14831@embeddedgus>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Gustavo A. R. Silva" <garsilva@embeddedor.com> wrote:
+From: Colin Ian King <colin.king@canonical.com>
 
-> Check return value from call to wl18xx_top_reg_write(),
-> so in case of error jump to goto label out and return.
-> 
-> Also, remove unnecessary value check before goto label out.
-> 
-> Addresses-Coverity-ID: 1226938
-> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+Trivial fix to spelling mistake in netdev_err message
 
-The prefix should be "wl18xx:", I'll fix that.
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
+index 920566a3a599..67a2e52ad25d 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
+@@ -247,7 +247,7 @@ static int xgbe_set_pauseparam(struct net_device *netdev,
+ 
+ 	if (pause->autoneg && (pdata->phy.autoneg != AUTONEG_ENABLE)) {
+ 		netdev_err(netdev,
+-			   "autoneg disabled, pause autoneg not avialable\n");
++			   "autoneg disabled, pause autoneg not available\n");
+ 		return -EINVAL;
+ 	}
+ 
 -- 
-https://patchwork.kernel.org/patch/9810591/
-
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+2.11.0
