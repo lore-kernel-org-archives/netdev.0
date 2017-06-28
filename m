@@ -1,57 +1,75 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: [PATCH] [net-next] net/mlx5e: select CONFIG_MLXFW
-Date: Wed, 28 Jun 2017 22:10:13 +0200
-Message-ID: <20170628201032.3178691-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-        Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Christopher Covington <cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Nicolas Pitre <nicolas.pitre-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH NET V5 2/2] net: hns: Use phy_driver to setup Phy loopback
+Date: Wed, 28 Jun 2017 22:28:19 +0200
+Message-ID: <20170628202819.GA22815@lunn.ch>
+References: <1498443039-134503-1-git-send-email-linyunsheng@huawei.com>
+ <1498443039-134503-3-git-send-email-linyunsheng@huawei.com>
+ <20170626134235.GC2623@lunn.ch>
+ <17132762-9b94-bc32-fee8-e90a6db5762a@huawei.com>
+ <20170627132958.GA9921@lunn.ch>
+ <3d382bc6-f7b6-9df3-8bb0-fee55b72ac74@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, f.fainelli@gmail.com,
+        huangdaode@hisilicon.com, xuwei5@hisilicon.com,
+        liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
+        gabriele.paoloni@huawei.com, john.garry@huawei.com,
+        linuxarm@huawei.com, salil.mehta@huawei.com, lipeng321@huawei.com,
+        tremyfr@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Yunsheng Lin <linyunsheng@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <3d382bc6-f7b6-9df3-8bb0-fee55b72ac74@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With the introduction of mlx5 firmware flash support, we get a link
-error with CONFIG_MLXFW=m and CONFIG_MLX5_CORE=y:
+> >>From your description, it sounds like you can call phy_resume() on a
+> > device which is not suspended. 
+> Do you mean after calling dev_close, the device is still not suspended?
 
-drivers/net/ethernet/mellanox/mlx5/core/fw.o: In function `mlx5_firmware_flash':
-fw.c:(.text+0x9d4): undefined reference to `mlxfw_firmware_flash'
+You only call dev_close() if the device is running. What if somebody
+runs the self test on an interface when it has never been opened? It
+looks like you will call phy_resume(). But since it has never been
+suspended, you could be in trouble.
+> 
+> In general, suspend is expected to
+> > store away state which will be lost when powering down a
+> > device. Resume writes that state back into the device after it is
+> > powered up. So resuming a device which was never suspended could write
+> > bad state into it.
+>
+> Do you mean phydev->suspended has bad state?
 
-We could have a more elaborate method to force MLX5 to be a loadable
-module in this case, but the easiest fix seems to be to always enable
-MLXFW as well, like we do for CONFIG_MLXSW_SPECTRUM, which is the other
-user of mlxfw_firmware_flash.
+phy_resume() current does not check the phydev->suspended state.
 
-Fixes: 3ffaabecd1a1 ("net/mlx5e: Support the flash device ethtool callback")
-Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
----
- drivers/net/ethernet/mellanox/mlx5/core/Kconfig | 1 +
- 1 file changed, 1 insertion(+)
+> > Also, what about if WOL has been set before closing the device?
+>
+> phy_suspend will return errro.
+> 
+> int phy_suspend(struct phy_device *phydev)
+> {
+> 	struct phy_driver *phydrv = to_phy_driver(phydev->mdio.dev.driver);
+> 	struct ethtool_wolinfo wol = { .cmd = ETHTOOL_GWOL };
+> 	int ret = 0;
+> 
+> 	/* If the device has WOL enabled, we cannot suspend the PHY */
+> 	phy_ethtool_get_wol(phydev, &wol);
+> 	if (wol.wolopts)
+> 		return -EBUSY;
+> 
+> 	if (phydev->drv && phydrv->suspend)
+> 		ret = phydrv->suspend(phydev);
+> 
+> 	if (ret)
+> 		return ret;
+> 
+> 	phydev->suspended = true;
+> 
+> 	return ret;
+> }
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-index cf1ef48bfd8d..09edee060b03 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-@@ -6,6 +6,7 @@ config MLX5_CORE
- 	tristate "Mellanox Technologies ConnectX-4 and Connect-IB core driver"
- 	depends on MAY_USE_DEVLINK
- 	depends on PCI
-+	select MLXFW
- 	default n
- 	---help---
- 	  Core driver for low level functionality of the ConnectX-4 and
--- 
-2.9.0
+Which means when you call phy_resume() in lb_setup() you are again
+resuming a device which is not suspended...
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	 Andrew
