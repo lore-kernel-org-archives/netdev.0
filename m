@@ -1,9 +1,10 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next 1/2] vxlan: change vxlan_validate() to use
- netlink_ext_ack for error reporting
-Date: Wed, 28 Jun 2017 19:18:01 +0200
-Message-ID: <20170628191801.1bc8ed67@griffin>
+Subject: Re: [PATCH net-next 2/2] vxlan: add back error messages to
+ vxlan_config_validate() as extended netlink acks
+Date: Wed, 28 Jun 2017 19:25:26 +0200
+Message-ID: <20170628192526.2b7e4958@griffin>
 References: <f2c1ed0d8e70a1d2bc900f0dd4b5a93f4df5a3e3.1498595233.git.mschiffer@universe-factory.net>
+        <b190d4e8bb6a90a00105473287b19e09ad8c4c58.1498595233.git.mschiffer@universe-factory.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -11,44 +12,44 @@ Cc: davem@davemloft.net, roopa@cumulusnetworks.com, pshelar@ovn.org,
         netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Matthias Schiffer <mschiffer@universe-factory.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <f2c1ed0d8e70a1d2bc900f0dd4b5a93f4df5a3e3.1498595233.git.mschiffer@universe-factory.net>
+In-Reply-To: <b190d4e8bb6a90a00105473287b19e09ad8c4c58.1498595233.git.mschiffer@universe-factory.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 27 Jun 2017 22:47:57 +0200, Matthias Schiffer wrote:
->  		if (!is_valid_ether_addr(nla_data(tb[IFLA_ADDRESS]))) {
-> -			pr_debug("invalid all zero ethernet address\n");
-> +			NL_SET_ERR_MSG_ATTR(extack, tb[IFLA_ADDRESS],
-> +					    "invalid ethernet address");
+On Tue, 27 Jun 2017 22:47:58 +0200, Matthias Schiffer wrote:
+>  		if ((conf->flags & ~VXLAN_F_ALLOWED_GPE) ||
+>  		    !(conf->flags & VXLAN_F_COLLECT_METADATA)) {
+> +			NL_SET_ERR_MSG(extack,
+> +				       "unsupported combination of extensions");
 
-Could we be more specific here? This is better than nothing but still
-not as helpful to the user as it could be. What about something like
-"the provided ethernet address is not unicast"?
+Since we're redesigning this, let's be more helpful to the user.
+There's probably not going to be tremendous improvements here but let's
+try at least a bit.
 
-> -		if (mtu < ETH_MIN_MTU || mtu > ETH_MAX_MTU)
-> +		if (mtu < ETH_MIN_MTU || mtu > ETH_MAX_MTU) {
-> +			NL_SET_ERR_MSG_ATTR(extack, tb[IFLA_MTU],
-> +					    "invalid MTU");
+"VXLAN GPE does not support this combination of extensions"
 
-"MTU must be between 68 and 65535"
+>  			if (local_type & IPV6_ADDR_LINKLOCAL) {
+>  				if (!(remote_type & IPV6_ADDR_LINKLOCAL) &&
+> -				    (remote_type != IPV6_ADDR_ANY))
+> +				    (remote_type != IPV6_ADDR_ANY)) {
+> +					NL_SET_ERR_MSG(extack,
+> +						       "invalid combination of address scopes");
 
-> -		if (id >= VXLAN_N_VID)
-> +		if (id >= VXLAN_N_VID) {
-> +			NL_SET_ERR_MSG_ATTR(extack, data[IFLA_VXLAN_ID],
-> +					    "invalid VXLAN ID");
+"invalid combination of local and remote address scopes"
 
-"VXLAN ID must be lower than 16777216"
+>  					return -EINVAL;
+> +				}
+>  
+>  				conf->flags |= VXLAN_F_IPV6_LINKLOCAL;
+>  			} else {
+>  				if (remote_type ==
+> -				    (IPV6_ADDR_UNICAST | IPV6_ADDR_LINKLOCAL))
+> +				    (IPV6_ADDR_UNICAST | IPV6_ADDR_LINKLOCAL)) {
+> +					NL_SET_ERR_MSG(extack,
+> +						       "invalid combination of address scopes");
 
->  		if (ntohs(p->high) < ntohs(p->low)) {
-> -			pr_debug("port range %u .. %u not valid\n",
-> -				 ntohs(p->low), ntohs(p->high));
-> +			NL_SET_ERR_MSG_ATTR(extack, data[IFLA_VXLAN_PORT_RANGE],
-> +					    "port range not valid");
+ditto
 
-Since you're getting rid of the values output, I'd rather suggest more
-explicit "the first value of the port range must not be higher than the
-second value" or so. Shorter wording is welcome :-)
-
-Thanks,
+The rest looks good to me. Thanks a lot for doing the work, Matthias!
 
  Jiri
