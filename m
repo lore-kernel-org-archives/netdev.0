@@ -1,50 +1,42 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [net-next] qtnfmac: fix uninitialized return code in ret
-Date: Wed, 28 Jun 2017 17:50:30 +0000 (UTC)
-Message-ID: <20170628175030.F05F460AFB@smtp.codeaurora.org>
-References: <20170621132530.11937-1-colin.king@canonical.com>
+Subject: Re: rsi: add in missing RSI_FSM_STATES into array fsm_state
+Date: Wed, 28 Jun 2017 17:54:29 +0000 (UTC)
+Message-ID: <20170628175429.3F57760B7F@smtp.codeaurora.org>
+References: <20170622165804.24379-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Igor Mitsyanko <imitsyanko@quantenna.com>,
-        Avinash Patil <avinashp@quantenna.com>,
-        Sergey Matyukevich <smatyukevich@quantenna.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Bindu Therthala <btherthala@quantenna.com>,
-        Kamlesh Rath <krath@quantenna.com>,
-        Sergei Maksimenko <smaksimenko@quantenna.com>,
-        Johannes Berg <johannes.berg@intel.com>,
+Cc: Colin Ian King <colin.king@canonical.com>,
         linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
         kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Colin Ian King <colin.king@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:55978 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751538AbdF1Rub (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 13:50:31 -0400
-In-Reply-To: <20170621132530.11937-1-colin.king@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20170622165804.24379-1-colin.king@canonical.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Colin Ian King <colin.king@canonical.com> wrote:
 
 > From: Colin Ian King <colin.king@canonical.com>
 > 
-> The return value ret is unitialized and garbage is being returned
-> for the three different error conditions when setting up the PCIe
-> BARs. Fix this by initializing ret to  -ENOMEM to indicate that
-> the BARs failed to be setup correctly.
+> Two recent commits added new RSI_FSM_STATES (namely FSM_FW_NOT_LOADED
+> and FSM_COMMON_DEV_PARAMS_SENT) and the corresponding table fsm_state
+> was not updated to match. This can lead to an array overrun when
+> accessing the latter two states in fsm_state. Fix this by adding in
+> the missing states.
 > 
-> Detected by CoverityScan, CID#1437563 ("Unitialized scalar variable")
+> Detected by CoverityScan, CID#1398379 ("Illegal address computation")
 > 
+> Fixes: 9920322ccd8e ("rsi: add tx frame for common device configuration")
+> Fixes: 015e367494c1 ("rsi: Register interrupt handler before firmware load")
 > Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> Reviewed-by: Sergey Matyukevich <sergey.matyukevich.os@quantenna.com>
 
 Patch applied to wireless-drivers-next.git, thanks.
 
-3e3d8aa61107 qtnfmac: fix uninitialized return code in ret
+58828680af49 rsi: add in missing RSI_FSM_STATES into array fsm_state
 
 -- 
-https://patchwork.kernel.org/patch/9801833/
+https://patchwork.kernel.org/patch/9804857/
 
 https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+
