@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 03/17] net: convert neigh_params.refcnt from atomic_t to refcount_t
-Date: Wed, 28 Jun 2017 14:54:52 +0300
-Message-ID: <1498650906-12907-4-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 06/17] net: convert sk_buff_fclones.fclone_ref from atomic_t to refcount_t
+Date: Wed, 28 Jun 2017 14:54:55 +0300
+Message-ID: <1498650906-12907-7-git-send-email-elena.reshetova@intel.com>
 References: <1498650906-12907-1-git-send-email-elena.reshetova@intel.com>
 Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
         kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
@@ -26,77 +26,74 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/neighbour.h | 6 +++---
- net/core/neighbour.c    | 8 ++++----
+ include/linux/skbuff.h |  4 ++--
+ net/core/skbuff.c      | 10 +++++-----
  2 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-index c5f6d51..83d1e9f 100644
---- a/include/net/neighbour.h
-+++ b/include/net/neighbour.h
-@@ -77,7 +77,7 @@ struct neigh_parms {
- 	void	*sysctl_table;
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 7498e64..5e26b4c 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -948,7 +948,7 @@ struct sk_buff_fclones {
  
- 	int dead;
--	atomic_t refcnt;
-+	refcount_t refcnt;
- 	struct rcu_head rcu_head;
+ 	struct sk_buff	skb2;
  
- 	int	reachable_time;
-@@ -395,12 +395,12 @@ void neigh_sysctl_unregister(struct neigh_parms *p);
+-	atomic_t	fclone_ref;
++	refcount_t	fclone_ref;
+ };
  
- static inline void __neigh_parms_put(struct neigh_parms *parms)
- {
--	atomic_dec(&parms->refcnt);
-+	refcount_dec(&parms->refcnt);
+ /**
+@@ -968,7 +968,7 @@ static inline bool skb_fclone_busy(const struct sock *sk,
+ 	fclones = container_of(skb, struct sk_buff_fclones, skb1);
+ 
+ 	return skb->fclone == SKB_FCLONE_ORIG &&
+-	       atomic_read(&fclones->fclone_ref) > 1 &&
++	       refcount_read(&fclones->fclone_ref) > 1 &&
+ 	       fclones->skb2.sk == sk;
  }
  
- static inline struct neigh_parms *neigh_parms_clone(struct neigh_parms *parms)
- {
--	atomic_inc(&parms->refcnt);
-+	refcount_inc(&parms->refcnt);
- 	return parms;
- }
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index f04c1f8..1bd9352 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -268,7 +268,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
  
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index bc52190..24afede 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -674,7 +674,7 @@ static void neigh_parms_destroy(struct neigh_parms *parms);
+ 		kmemcheck_annotate_bitfield(&fclones->skb2, flags1);
+ 		skb->fclone = SKB_FCLONE_ORIG;
+-		atomic_set(&fclones->fclone_ref, 1);
++		refcount_set(&fclones->fclone_ref, 1);
  
- static inline void neigh_parms_put(struct neigh_parms *parms)
- {
--	if (atomic_dec_and_test(&parms->refcnt))
-+	if (refcount_dec_and_test(&parms->refcnt))
- 		neigh_parms_destroy(parms);
- }
+ 		fclones->skb2.fclone = SKB_FCLONE_CLONE;
+ 	}
+@@ -629,7 +629,7 @@ static void kfree_skbmem(struct sk_buff *skb)
+ 		 * This test would have no chance to be true for the clone,
+ 		 * while here, branch prediction will be good.
+ 		 */
+-		if (atomic_read(&fclones->fclone_ref) == 1)
++		if (refcount_read(&fclones->fclone_ref) == 1)
+ 			goto fastpath;
+ 		break;
  
-@@ -1444,7 +1444,7 @@ struct neigh_parms *neigh_parms_alloc(struct net_device *dev,
- 	p = kmemdup(&tbl->parms, sizeof(*p), GFP_KERNEL);
- 	if (p) {
- 		p->tbl		  = tbl;
--		atomic_set(&p->refcnt, 1);
-+		refcount_set(&p->refcnt, 1);
- 		p->reachable_time =
- 				neigh_rand_reach_time(NEIGH_VAR(p, BASE_REACHABLE_TIME));
- 		dev_hold(dev);
-@@ -1507,7 +1507,7 @@ void neigh_table_init(int index, struct neigh_table *tbl)
- 	INIT_LIST_HEAD(&tbl->parms_list);
- 	list_add(&tbl->parms.list, &tbl->parms_list);
- 	write_pnet(&tbl->parms.net, &init_net);
--	atomic_set(&tbl->parms.refcnt, 1);
-+	refcount_set(&tbl->parms.refcnt, 1);
- 	tbl->parms.reachable_time =
- 			  neigh_rand_reach_time(NEIGH_VAR(&tbl->parms, BASE_REACHABLE_TIME));
+@@ -637,7 +637,7 @@ static void kfree_skbmem(struct sk_buff *skb)
+ 		fclones = container_of(skb, struct sk_buff_fclones, skb2);
+ 		break;
+ 	}
+-	if (!atomic_dec_and_test(&fclones->fclone_ref))
++	if (!refcount_dec_and_test(&fclones->fclone_ref))
+ 		return;
+ fastpath:
+ 	kmem_cache_free(skbuff_fclone_cache, fclones);
+@@ -1018,9 +1018,9 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
+ 		return NULL;
  
-@@ -1758,7 +1758,7 @@ static int neightbl_fill_parms(struct sk_buff *skb, struct neigh_parms *parms)
- 
- 	if ((parms->dev &&
- 	     nla_put_u32(skb, NDTPA_IFINDEX, parms->dev->ifindex)) ||
--	    nla_put_u32(skb, NDTPA_REFCNT, atomic_read(&parms->refcnt)) ||
-+	    nla_put_u32(skb, NDTPA_REFCNT, refcount_read(&parms->refcnt)) ||
- 	    nla_put_u32(skb, NDTPA_QUEUE_LENBYTES,
- 			NEIGH_VAR(parms, QUEUE_LEN_BYTES)) ||
- 	    /* approximative value for deprecated QUEUE_LEN (in packets) */
+ 	if (skb->fclone == SKB_FCLONE_ORIG &&
+-	    atomic_read(&fclones->fclone_ref) == 1) {
++	    refcount_read(&fclones->fclone_ref) == 1) {
+ 		n = &fclones->skb2;
+-		atomic_set(&fclones->fclone_ref, 2);
++		refcount_set(&fclones->fclone_ref, 2);
+ 	} else {
+ 		if (skb_pfmemalloc(skb))
+ 			gfp_mask |= __GFP_MEMALLOC;
 -- 
 2.7.4
