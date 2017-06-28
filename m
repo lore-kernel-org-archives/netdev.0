@@ -1,33 +1,35 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: cw1200: add const to hwbus_ops structures
-Date: Wed, 28 Jun 2017 18:18:01 +0000 (UTC)
-Message-ID: <20170628181801.049B560AD5@smtp.codeaurora.org>
-References: <1498218199-13429-1-git-send-email-bhumirks@gmail.com>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: wl18xx: add checks on wl18xx_top_reg_write() return value
+Date: Wed, 28 Jun 2017 18:18:53 +0000 (UTC)
+Message-ID: <20170628181853.7BFC460AD2@smtp.codeaurora.org>
+References: <20170626230619.GA14831@embeddedgus>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: julia.lawall@lip6.fr, pizza@shaftnet.org,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Bhumika Goyal <bhumirks@gmail.com>
-To: Bhumika Goyal <bhumirks@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1498218199-13429-1-git-send-email-bhumirks@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        "Gustavo A. R. Silva" <garsilva-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org>
+To: "Gustavo A. R. Silva" <garsilva-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170626230619.GA14831@embeddedgus>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Bhumika Goyal <bhumirks@gmail.com> wrote:
+"Gustavo A. R. Silva" <garsilva-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org> wrote:
 
-> Declare hwbus_ops structures as const as they are only passed as an
-> argument to the function cw1200_core_probe. This argument is of type
-> const. So, make these structures const.
+> Check return value from call to wl18xx_top_reg_write(),
+> so in case of error jump to goto label out and return.
 > 
-> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+> Also, remove unnecessary value check before goto label out.
+> 
+> Addresses-Coverity-ID: 1226938
+> Signed-off-by: Gustavo A. R. Silva <garsilva-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org>
 
 Patch applied to wireless-drivers-next.git, thanks.
 
-3ac27dd37b40 cw1200: add const to hwbus_ops structures
+059c98599b1a wl18xx: add checks on wl18xx_top_reg_write() return value
 
 -- 
-https://patchwork.kernel.org/patch/9806289/
+https://patchwork.kernel.org/patch/9810591/
 
 https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
