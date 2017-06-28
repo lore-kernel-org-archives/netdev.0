@@ -1,108 +1,87 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net-next] bpf: Fix out-of-bound access on interpreters[]
-Date: Wed, 28 Jun 2017 10:41:24 -0700
-Message-ID: <20170628174124.1545332-1-kafai@fb.com>
+From: Lawrence Brakmo <brakmo@fb.com>
+Subject: Re: [PATCH net-next v3 01/15] bpf: BPF support for sock_ops
+Date: Wed, 28 Jun 2017 17:45:18 +0000
+Message-ID: <E7B3D347-2AFE-454F-9BDC-17CA7C18D291@fb.com>
+References: <20170620030048.3275347-1-brakmo@fb.com>
+ <20170620030048.3275347-2-brakmo@fb.com> <594C47A1.1080102@iogearbox.net>
+ <B03E3B5A-50E2-4291-B091-23927AF6846F@fb.com>
+ <594C5065.2010900@iogearbox.net>
+ <82AC8CB1-F770-4EFA-9223-E2C94626582F@fb.com>
+ <594D84EA.5080203@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <ast@fb.com>, <kernel-team@fb.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Kernel Team <Kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
+        "Alexei Starovoitov" <ast@fb.com>,
+        David Ahern <dsa@cumulusnetworks.com>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+        netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:41760 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751581AbdF1Rl1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 13:41:27 -0400
-Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-        by mx0b-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5SHbTTw002226
-        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:41:26 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0b-00082601.pphosted.com with ESMTP id 2bc05japvv-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:41:26 -0700
-Received: from facebook.com (2401:db00:11:d09a:face:0:41:0)     by
- mx-out.facebook.com (10.212.236.89) with ESMTP id
- 017dc94e5c2911e797f80002c95209d8-5193c8f0 for <netdev@vger.kernel.org>;        Wed,
- 28 Jun 2017 10:41:24 -0700
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:45567 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751580AbdF1Rpl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 13:45:41 -0400
+In-Reply-To: <594D84EA.5080203@iogearbox.net>
+Content-Language: en-US
+Content-ID: <D629DDBC4CE0A54AAADD11033FF87829@namprd15.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The index is off-by-one when fp->aux->stack_depth
-has already been rounded up to 32.  In particular,
-if stack_depth is 512, the index will be 16.
-
-The fix is to round_up and then takes -1 instead of round_down.
-
-[   22.318680] ==================================================================
-[   22.319745] BUG: KASAN: global-out-of-bounds in bpf_prog_select_runtime+0x48a/0x670
-[   22.320737] Read of size 8 at addr ffffffff82aadae0 by task sockex3/1946
-[   22.321646]
-[   22.321858] CPU: 1 PID: 1946 Comm: sockex3 Tainted: G        W       4.12.0-rc6-01680-g2ee87db3a287 #22
-[   22.323061] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.9.3-1.el7.centos 04/01/2014
-[   22.324260] Call Trace:
-[   22.324612]  dump_stack+0x67/0x99
-[   22.325081]  print_address_description+0x1e8/0x290
-[   22.325734]  ? bpf_prog_select_runtime+0x48a/0x670
-[   22.326360]  kasan_report+0x265/0x350
-[   22.326860]  __asan_report_load8_noabort+0x19/0x20
-[   22.327484]  bpf_prog_select_runtime+0x48a/0x670
-[   22.328109]  bpf_prog_load+0x626/0xd40
-[   22.328637]  ? __bpf_prog_charge+0xc0/0xc0
-[   22.329222]  ? check_nnp_nosuid.isra.61+0x100/0x100
-[   22.329890]  ? __might_fault+0xf6/0x1b0
-[   22.330446]  ? lock_acquire+0x360/0x360
-[   22.331013]  SyS_bpf+0x67c/0x24d0
-[   22.331491]  ? trace_hardirqs_on+0xd/0x10
-[   22.332049]  ? __getnstimeofday64+0xaf/0x1c0
-[   22.332635]  ? bpf_prog_get+0x20/0x20
-[   22.333135]  ? __audit_syscall_entry+0x300/0x600
-[   22.333770]  ? syscall_trace_enter+0x540/0xdd0
-[   22.334339]  ? exit_to_usermode_loop+0xe0/0xe0
-[   22.334950]  ? do_syscall_64+0x48/0x410
-[   22.335446]  ? bpf_prog_get+0x20/0x20
-[   22.335954]  do_syscall_64+0x181/0x410
-[   22.336454]  entry_SYSCALL64_slow_path+0x25/0x25
-[   22.337121] RIP: 0033:0x7f263fe81f19
-[   22.337618] RSP: 002b:00007ffd9a3440c8 EFLAGS: 00000202 ORIG_RAX: 0000000000000141
-[   22.338619] RAX: ffffffffffffffda RBX: 0000000000aac5fb RCX: 00007f263fe81f19
-[   22.339600] RDX: 0000000000000030 RSI: 00007ffd9a3440d0 RDI: 0000000000000005
-[   22.340470] RBP: 0000000000a9a1e0 R08: 0000000000a9a1e0 R09: 0000009d00000001
-[   22.341430] R10: 0000000000000000 R11: 0000000000000202 R12: 0000000000010000
-[   22.342411] R13: 0000000000a9a023 R14: 0000000000000001 R15: 0000000000000003
-[   22.343369]
-[   22.343593] The buggy address belongs to the variable:
-[   22.344241]  interpreters+0x80/0x980
-[   22.344708]
-[   22.344908] Memory state around the buggy address:
-[   22.345556]  ffffffff82aad980: 00 00 00 04 fa fa fa fa 04 fa fa fa fa fa fa fa
-[   22.346449]  ffffffff82aada00: 00 00 00 00 00 fa fa fa fa fa fa fa 00 00 00 00
-[   22.347361] >ffffffff82aada80: 00 00 00 00 00 00 00 00 00 00 00 00 fa fa fa fa
-[   22.348301]                                                        ^
-[   22.349142]  ffffffff82aadb00: 00 01 fa fa fa fa fa fa 00 00 00 00 00 00 00 00
-[   22.350058]  ffffffff82aadb80: 00 00 07 fa fa fa fa fa 00 00 05 fa fa fa fa fa
-[   22.350984] ==================================================================
-
-Fixes: b870aa901f4b ("bpf: use different interpreter depending on required stack size")
-Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-Acked-by: Alexei Starovoitov <ast@fb.com>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
----
- kernel/bpf/core.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
-index 774069ca18a7..ad5f55922a13 100644
---- a/kernel/bpf/core.c
-+++ b/kernel/bpf/core.c
-@@ -1297,7 +1297,9 @@ static int bpf_check_tail_call(const struct bpf_prog *fp)
-  */
- struct bpf_prog *bpf_prog_select_runtime(struct bpf_prog *fp, int *err)
- {
--	fp->bpf_func = interpreters[round_down(fp->aux->stack_depth, 32) / 32];
-+	u32 stack_depth = max_t(u32, fp->aux->stack_depth, 1);
-+
-+	fp->bpf_func = interpreters[(round_up(stack_depth, 32) / 32) - 1];
- 
- 	/* eBPF JITs can rewrite the program in case constant
- 	 * blinding is active. However, in case of error during
--- 
-2.9.3
+T24gNi8yMy8xNywgMjoxNSBQTSwgIkRhbmllbCBCb3JrbWFubiIgPGRhbmllbEBpb2dlYXJib3gu
+bmV0PiB3cm90ZToNCg0KICAgIE9uIDA2LzIzLzIwMTcgMDE6NTcgQU0sIExhd3JlbmNlIEJyYWtt
+byB3cm90ZToNCiAgICA+IE9uIDYvMjIvMTcsIDQ6MTkgUE0sICJuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIG9uIGJlaGFsZiBvZiBEYW5pZWwgQm9ya21hbm4iIDxuZXRkZXYtb3duZXJAdmdl
+ci5rZXJuZWwub3JnIG9uIGJlaGFsZiBvZiBkYW5pZWxAaW9nZWFyYm94Lm5ldD4gd3JvdGU6DQog
+ICAgPg0KICAgID4gICAgICBPbiAwNi8yMy8yMDE3IDEyOjU4IEFNLCBMYXdyZW5jZSBCcmFrbW8g
+d3JvdGU6DQogICAgPiAgICAgIFsuLi5dDQogICAgPiAgICAgID4gRGFuaWVsLCBJIHNlZSB2YWx1
+ZSBmb3IgaGF2aW5nIGEgZ2xvYmFsIHByb2dyYW0sIHNvIEkgd291bGQgbGlrZSB0byBrZWVwIHRo
+YXQuIFdoZW4NCiAgICA+ICAgICAgPiB0aGlzIHBhdGNoc2V0IGlzIGFjY2VwdGVkLCBJIHdpbGwg
+c3VibWl0IG9uZSB0aGF0IGFkZHMgc3VwcG9ydCBmb3IgcGVyIGNncm91cA0KICAgID4gICAgICA+
+IHNvY2tfb3BzIHByb2dyYW1zLCB3aXRoIHRoZSBvcHRpb24gdG8gdXNlIHRoZSBnbG9iYWwgb25l
+IGlmIG5vbmUgaXMNCiAgICA+ICAgICAgPiBzcGVjaWZpZWQgZm9yIGEgY2dyb3VwLiBXZSBjb3Vs
+ZCBhbHNvIGhhdmUgdGhlIG9wdGlvbiBvZiB0aGUgY2dyb3VwIHNvY2tfb3BzDQogICAgPiAgICAg
+ID4gcHJvZ3JhbSBjaG9vc2luZyBpZiB0aGUgZ2xvYmFsIHByb2dyYW0gc2hvdWxkIHJ1biBmb3Ig
+YSBwYXJ0aWN1bGFyIG9wIGJhc2VkIG9uDQogICAgPiAgICAgID4gaXRzIHJldHVybiB2YWx1ZS4g
+V2UgY2FuIGlyb24gaXQgb3V0IHRoZSBkZXRhaWxzIHdoZW4gdGhhdCBwYXRjaCBpcyBzdWJtaXR0
+ZWQuDQogICAgPg0KICAgID4gICAgICBIbSwgY291bGQgeW91IGVsYWJvcmF0ZSBvbiB0aGUgdmFs
+dWUgcGFydCBjb21wYXJlZCB0byBwZXIgY2dyb3VwcyBvcHM/DQogICAgPiAgICAgIE15IHVuZGVy
+c3RhbmRpbmcgaXMgdGhhdCBwZXIgY2dyb3VwIHdvdWxkIGFscmVhZHkgYmUgYSBwcm9wZXIgc3Vw
+ZXJzZXQNCiAgICA+ICAgICAgb2YganVzdCB0aGUgZ2xvYmFsIG9uZSBhbnl3YXksIHNvIHdoeSBu
+b3QgZ29pbmcgd2l0aCB0aGF0IGluIHRoZSBmaXJzdA0KICAgID4gICAgICBwbGFjZSBzaW5jZSB5
+b3UncmUgd29ya2luZyBvbiBpdD8NCiAgICA+DQogICAgPiAgICAgIFdoYXQgd291bGQgYmUgdGhl
+IGFkZGl0aW9uYWwgdmFsdWU/IEhvdyB3b3VsZCBnbG9iYWwgdnMgcGVyIGNncm91cCBvbmUNCiAg
+ICA+ICAgICAgaW50ZXJhY3Qgd2l0aCBlYWNoIG90aGVyIGluIHRlcm1zIG9mIGVuZm9yY2VtZW50
+IGUuZy4sIHRoZXJlJ3MgYWxyZWFkeQ0KICAgID4gICAgICBzZW1hbnRpY3MgaW4gcGxhY2UgZm9y
+IGNncm91cHMgZGVzY2VuZGFudHMsIHdvdWxkIGl0IGJlIHRoYXQgd2Ugc2V0DQogICAgPiAgICAg
+IFRDUCBwYXJhbWV0ZXJzIHR3aWNlIG9yIHdvdWxkIHlvdSBkaXNhYmxlIHRoZSBnbG9iYWwgb25l
+IGFsdG9nZXRoZXI/DQogICAgPiAgICAgIEp1c3Qgd29uZGVyaW5nIGFzIHlvdSBjb3VsZCBhdm9p
+ZCB0aGVzZSBhbHRvZ2V0aGVyIHdpdGggZ29pbmcgdmlhIGNncm91cHMNCiAgICA+ICAgICAgaW5p
+dGlhbGx5Lg0KICAgID4NCiAgICA+ICAgICAgVGhhbmtzLA0KICAgID4gICAgICBEYW5pZWwNCiAg
+ICA+DQogICAgPiBXZWxsLCBmb3Igc3RhcnRlcnMgdGhlIGdsb2JhbCBwcm9ncmFtIHdpbGwgd29y
+ayBldmVuIGlmIENPTkZJR19DR1JPVVBfQlBGIGlzDQogICAgPiBub3QgZGVmaW5lZC4gSXQgaXMg
+YWxzbyBhbiBlYXNpZXIgY29uY2VwdCBmb3Igd2hlbiBhIGdsb2JhbCBwcm9ncmFtIGlzIGFsbCB0
+aGF0DQogICAgDQogICAgT3RvaCwgbWFqb3IgZGlzdHJvcyBhcmUgaGlnaGx5IGxpa2VseSB0byBl
+bmFibGUgdGhpcyBvbiBieSBkZWZhdWx0IGFueXdheS4NCiAgICANCiAgICA+IGlzIHJlcXVpcmVk
+LiBCdXQgSSBhbHNvIGhhZCBpbiBtaW5kIHRoYXQgYmVoYXZpb3JzIHRoYXQgd2VyZSBpbiBjb21t
+b24gZm9yDQogICAgPiBtb3N0IGNncm91cCBwcm9ncmFtcyBjb3VsZCBiZSBoYW5kbGVkIGJ5IHRo
+ZSBnbG9iYWwgcHJvZ3JhbSBpbnN0ZWFkIG9mDQogICAgPiBhZGRpbmcgaXQgdG8gYWxsIGNncm91
+cCBwcm9ncmFtcy4gSW4gdGhpcyBzY2VuYXJpbyB0aGUgZ2xvYmFsIHByb2dyYW0NCiAgICA+IHJl
+cHJlc2VudHMgdGhlIGRlZmF1bHQgYmVoYXZpb3IgdGhhdCBjYW4gYmUgb3ZlcnJpZGUgYnkgdGhl
+IGNncm91cA0KICAgID4gcHJvZ3JhbSAocGVyIG9wKS4gRm9yIGV4YW1wbGUsIHRoZSBjZ3JvdXAg
+cHJvZ3JhbSBjb3VsZCByZXR1cm4gYSB2YWx1ZQ0KICAgID4gdG8gaW5kaWNhdGUgdGhhdCB0aGF0
+IG9wIHNob3VsZCBiZSBwYXNzZWQgdG8gdGhlIGdsb2JhbCBwcm9ncmFtLg0KICAgIA0KICAgIEJ1
+dCB0aGVuIHlvdSB3b3VsZCBuZWVkIHRvIGdvIHRocm91Z2ggdHdvIHByb2dyYW0gcGFzc2VzIGZv
+ciBzZXR0aW5nDQogICAgc3VjaCBwYXJhbWV0ZXJzPyBPdGhlciBvcHRpb24gY291bGQgYmUgdG8g
+bWFrZSB0aGUgcGVyIGNncm91cCBvcHMgbW9yZQ0KICAgIGZpbmUgZ3JhaW5lZCBhbmQgdXNlIHRo
+ZSBlZmZlY3RpdmUgb25lIHRoYXQgd2FzIGluaGVyaXRlZCBmb3IgZGVsZWdhdGluZw0KICAgIHRv
+IGRlZmF1bHQgb3BzLiBNeSBndXQgZmVlbGluZyBpcyBqdXN0IHRoYXQgdGhpcyBtYWtlcyBpbnRl
+cmFjdGlvbnMgdG8NCiAgICBtYW5hZ2UgdGhpcyBhbmQgZW5mb3JjZW1lbnQgaW4gY29tYmluYXRp
+b24gd2l0aCB0aGUgbGF0ZXIgcGxhbm5lZCBwZXINCiAgICBjZ3JvdXBzIG9wcyBtb3JlIGNvbXBs
+ZXggaWYgdGhlIHNhbWUgdXNlLWNhc2UgY291bGQgaW5kZWVkIGJlIHJlc29sdmVkDQogICAgd2l0
+aCBwZXIgY2dyb3VwcyBvbmx5Lg0KICAgIA0KRGFuaWVsLCB0aGFuayB5b3UgZm9yIHRoZSBmZWVk
+YmFjay4gSSBqdXN0IHN1Ym1pdHRlZCBhIG5ldyBwYXRjaCBzZXQgd2l0aG91dA0KdGhlIGdsb2Jh
+bCBwcm9ncmFtIGFuZCB1c2luZyBicGYgY2dyb3VwcyBmcmFtZXdvcmsuDQoNCiAgICA+IEkgYWdy
+ZWUgMTAwJSB3aXRoIHlvdSBvbiB0aGUgdmFsdWUgb2YgY2dyb3VwIHByb2dyYW1zLCBidXQgSSBq
+dXN0IGhhcHBlbg0KICAgID4gdG8gdGhpbmsgdGhlcmUgaXMgYWxzbyB2YWx1ZSBpbiB0aGUgZ2xv
+YmFsIHByb2dyYW0uDQogICAgPg0KICAgID4gVGhhbmtzLA0KICAgID4gTGF3cmVuY2UNCiAgICAN
+Cg0K
