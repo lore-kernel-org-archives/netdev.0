@@ -1,18 +1,27 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 16/17] net: convert netlbl_lsm_cache.refcount from atomic_t to refcount_t
-Date: Wed, 28 Jun 2017 14:55:05 +0300
-Message-ID: <1498650906-12907-17-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 04/17] net: convert nf_bridge_info.use from
+	atomic_t to refcount_t
+Date: Wed, 28 Jun 2017 14:54:53 +0300
+Message-ID: <1498650906-12907-5-git-send-email-elena.reshetova@intel.com>
 References: <1498650906-12907-1-git-send-email-elena.reshetova@intel.com>
-Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
-        stephen@networkplumber.org, peterz@infradead.org,
-        keescook@chromium.org, Elena Reshetova <elena.reshetova@intel.com>,
-        Hans Liljestrand <ishkamiel@gmail.com>,
-        David Windsor <dwindsor@gmail.com>
+Cc: keescook@chromium.org, peterz@infradead.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	jmorris@namei.org, Hans Liljestrand <ishkamiel@gmail.com>,
+	kuznet@ms2.inr.ac.ru, kaber@trash.net,
+	Elena Reshetova <elena.reshetova@intel.com>,
+	David Windsor <dwindsor@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
 In-Reply-To: <1498650906-12907-1-git-send-email-elena.reshetova@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
 refcount_t type and corresponding API should be
@@ -26,94 +35,71 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/netlabel.h | 8 ++++----
- net/ipv4/cipso_ipv4.c  | 4 ++--
- net/ipv6/calipso.c     | 4 ++--
- 3 files changed, 8 insertions(+), 8 deletions(-)
+ include/linux/skbuff.h               | 6 +++---
+ include/net/netfilter/br_netfilter.h | 2 +-
+ net/bridge/br_netfilter_hooks.c      | 4 ++--
+ 3 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/include/net/netlabel.h b/include/net/netlabel.h
-index efe9806..72d6435 100644
---- a/include/net/netlabel.h
-+++ b/include/net/netlabel.h
-@@ -37,7 +37,7 @@
- #include <linux/in6.h>
- #include <net/netlink.h>
- #include <net/request_sock.h>
--#include <linux/atomic.h>
-+#include <linux/refcount.h>
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index a098d95..8a26c02 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -250,7 +250,7 @@ struct nf_conntrack {
  
- struct cipso_v4_doi;
- struct calipso_doi;
-@@ -136,7 +136,7 @@ struct netlbl_audit {
-  *
-  */
- struct netlbl_lsm_cache {
--	atomic_t refcount;
-+	refcount_t refcount;
- 	void (*free) (const void *data);
- 	void *data;
- };
-@@ -295,7 +295,7 @@ static inline struct netlbl_lsm_cache *netlbl_secattr_cache_alloc(gfp_t flags)
- 
- 	cache = kzalloc(sizeof(*cache), flags);
- 	if (cache)
--		atomic_set(&cache->refcount, 1);
-+		refcount_set(&cache->refcount, 1);
- 	return cache;
- }
- 
-@@ -309,7 +309,7 @@ static inline struct netlbl_lsm_cache *netlbl_secattr_cache_alloc(gfp_t flags)
-  */
- static inline void netlbl_secattr_cache_free(struct netlbl_lsm_cache *cache)
+ #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+ struct nf_bridge_info {
+-	atomic_t		use;
++	refcount_t		use;
+ 	enum {
+ 		BRNF_PROTO_UNCHANGED,
+ 		BRNF_PROTO_8021Q,
+@@ -3593,13 +3593,13 @@ static inline void nf_conntrack_get(struct nf_conntrack *nfct)
+ #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+ static inline void nf_bridge_put(struct nf_bridge_info *nf_bridge)
  {
--	if (!atomic_dec_and_test(&cache->refcount))
-+	if (!refcount_dec_and_test(&cache->refcount))
- 		return;
+-	if (nf_bridge && atomic_dec_and_test(&nf_bridge->use))
++	if (nf_bridge && refcount_dec_and_test(&nf_bridge->use))
+ 		kfree(nf_bridge);
+ }
+ static inline void nf_bridge_get(struct nf_bridge_info *nf_bridge)
+ {
+ 	if (nf_bridge)
+-		atomic_inc(&nf_bridge->use);
++		refcount_inc(&nf_bridge->use);
+ }
+ #endif /* CONFIG_BRIDGE_NETFILTER */
+ static inline void nf_reset(struct sk_buff *skb)
+diff --git a/include/net/netfilter/br_netfilter.h b/include/net/netfilter/br_netfilter.h
+index 0b0c35c..925524e 100644
+--- a/include/net/netfilter/br_netfilter.h
++++ b/include/net/netfilter/br_netfilter.h
+@@ -8,7 +8,7 @@ static inline struct nf_bridge_info *nf_bridge_alloc(struct sk_buff *skb)
+ 	skb->nf_bridge = kzalloc(sizeof(struct nf_bridge_info), GFP_ATOMIC);
  
- 	if (cache->free)
-diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
-index ae20616..c204477 100644
---- a/net/ipv4/cipso_ipv4.c
-+++ b/net/ipv4/cipso_ipv4.c
-@@ -265,7 +265,7 @@ static int cipso_v4_cache_check(const unsigned char *key,
- 		    entry->key_len == key_len &&
- 		    memcmp(entry->key, key, key_len) == 0) {
- 			entry->activity += 1;
--			atomic_inc(&entry->lsm_data->refcount);
-+			refcount_inc(&entry->lsm_data->refcount);
- 			secattr->cache = entry->lsm_data;
- 			secattr->flags |= NETLBL_SECATTR_CACHE;
- 			secattr->type = NETLBL_NLTYPE_CIPSOV4;
-@@ -332,7 +332,7 @@ int cipso_v4_cache_add(const unsigned char *cipso_ptr,
- 	}
- 	entry->key_len = cipso_ptr_len;
- 	entry->hash = cipso_v4_map_cache_hash(cipso_ptr, cipso_ptr_len);
--	atomic_inc(&secattr->cache->refcount);
-+	refcount_inc(&secattr->cache->refcount);
- 	entry->lsm_data = secattr->cache;
+ 	if (likely(skb->nf_bridge))
+-		atomic_set(&(skb->nf_bridge->use), 1);
++		refcount_set(&(skb->nf_bridge->use), 1);
  
- 	bkt = entry->hash & (CIPSO_V4_CACHE_BUCKETS - 1);
-diff --git a/net/ipv6/calipso.c b/net/ipv6/calipso.c
-index 8d772fe..4406752 100644
---- a/net/ipv6/calipso.c
-+++ b/net/ipv6/calipso.c
-@@ -227,7 +227,7 @@ static int calipso_cache_check(const unsigned char *key,
- 		    entry->key_len == key_len &&
- 		    memcmp(entry->key, key, key_len) == 0) {
- 			entry->activity += 1;
--			atomic_inc(&entry->lsm_data->refcount);
-+			refcount_inc(&entry->lsm_data->refcount);
- 			secattr->cache = entry->lsm_data;
- 			secattr->flags |= NETLBL_SECATTR_CACHE;
- 			secattr->type = NETLBL_NLTYPE_CALIPSO;
-@@ -296,7 +296,7 @@ static int calipso_cache_add(const unsigned char *calipso_ptr,
- 	}
- 	entry->key_len = calipso_ptr_len;
- 	entry->hash = calipso_map_cache_hash(calipso_ptr, calipso_ptr_len);
--	atomic_inc(&secattr->cache->refcount);
-+	refcount_inc(&secattr->cache->refcount);
- 	entry->lsm_data = secattr->cache;
+ 	return skb->nf_bridge;
+ }
+diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
+index 067cf03..2261e51 100644
+--- a/net/bridge/br_netfilter_hooks.c
++++ b/net/bridge/br_netfilter_hooks.c
+@@ -149,12 +149,12 @@ static inline struct nf_bridge_info *nf_bridge_unshare(struct sk_buff *skb)
+ {
+ 	struct nf_bridge_info *nf_bridge = skb->nf_bridge;
  
- 	bkt = entry->hash & (CALIPSO_CACHE_BUCKETS - 1);
+-	if (atomic_read(&nf_bridge->use) > 1) {
++	if (refcount_read(&nf_bridge->use) > 1) {
+ 		struct nf_bridge_info *tmp = nf_bridge_alloc(skb);
+ 
+ 		if (tmp) {
+ 			memcpy(tmp, nf_bridge, sizeof(struct nf_bridge_info));
+-			atomic_set(&tmp->use, 1);
++			refcount_set(&tmp->use, 1);
+ 		}
+ 		nf_bridge_put(nf_bridge);
+ 		nf_bridge = tmp;
 -- 
 2.7.4
