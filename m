@@ -1,9 +1,10 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [PATCH/RFC net-next 7/9] nfp: add metadata to each flow offload
-Date: Tue, 27 Jun 2017 23:15:20 -0700
-Message-ID: <20170627231520.28cc48ed@cakuba.netronome.com>
+Subject: Re: [PATCH/RFC net-next 8/9] nfp: add a stats handler for flower
+ offloads
+Date: Tue, 27 Jun 2017 23:17:52 -0700
+Message-ID: <20170627231752.3de880c4@cakuba.netronome.com>
 References: <1498605709-22574-1-git-send-email-simon.horman@netronome.com>
-        <1498605709-22574-8-git-send-email-simon.horman@netronome.com>
+        <1498605709-22574-9-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -13,272 +14,174 @@ Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
         <pieter.jansenvanvuuren@netronome.com>
 To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:34016 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751043AbdF1GPX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 02:15:23 -0400
-Received: by mail-pg0-f43.google.com with SMTP id t186so26894983pgb.1
-        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 23:15:23 -0700 (PDT)
-In-Reply-To: <1498605709-22574-8-git-send-email-simon.horman@netronome.com>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:35229 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751312AbdF1GRz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 02:17:55 -0400
+Received: by mail-pf0-f180.google.com with SMTP id c73so28135601pfk.2
+        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 23:17:55 -0700 (PDT)
+In-Reply-To: <1498605709-22574-9-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 28 Jun 2017 01:21:47 +0200, Simon Horman wrote:
+On Wed, 28 Jun 2017 01:21:48 +0200, Simon Horman wrote:
 > From: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
 > 
-> Adds metadata describing the mask id of each flow and keeps track of
-> flows installed in hardware. Previously a flow could not be removed
-> from hardware as there was no way of knowing if that a specific flow
-> was installed. This is solved by storing the offloaded flows in a
-> hash table.
+> Previously there was no way of updating flow rule stats after they
+> have been offloaded to hardware. This is solved by keeping track of
+> stats received from hardware and providing this to the TC handler
+> on request.
 > 
 > Signed-off-by: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
 > Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> ---
+>  drivers/net/ethernet/netronome/nfp/flower/main.h   |  26 ++++
+>  .../net/ethernet/netronome/nfp/flower/metadata.c   | 143 ++++++++++++++++++++-
+>  .../net/ethernet/netronome/nfp/flower/offload.c    |  14 +-
+>  drivers/net/ethernet/netronome/nfp/nfp_net.h       |   1 +
+>  4 files changed, 181 insertions(+), 3 deletions(-)
 
-> diff --git a/drivers/net/ethernet/netronome/nfp/flower/main.h b/drivers/net/ethernet/netronome/nfp/flower/main.h
-> index 52db2acb250e..cc184618306c 100644
-> --- a/drivers/net/ethernet/netronome/nfp/flower/main.h
-> +++ b/drivers/net/ethernet/netronome/nfp/flower/main.h
-> @@ -34,6 +34,7 @@
->  #ifndef __NFP_FLOWER_H__
->  #define __NFP_FLOWER_H__ 1
->  
-> +#include <linux/circ_buf.h>
->  #include <linux/types.h>
->  
->  #include "cmsg.h"
-> @@ -45,6 +46,42 @@ struct tc_to_netdev;
->  struct net_device;
->  struct nfp_app;
->  
-> +#define NFP_FLOWER_HASH_BITS		10
-> +#define NFP_FLOWER_HASH_SEED		129004
-> +
-> +#define NFP_FLOWER_MASK_ENTRY_RS	256
-> +#define NFP_FLOWER_MASK_ELEMENT_RS	1
-> +#define NFP_FLOWER_MASK_HASH_BITS	10
-> +#define NFP_FLOWER_MASK_HASH_SEED	9198806
-> +
-> +#define NFP_FL_META_FLAG_NEW_MASK	128
-> +#define NFP_FL_META_FLAG_LAST_MASK	1
-> +
-> +#define NFP_FL_MASK_REUSE_TIME		40
-> +#define NFP_FL_MASK_ID_LOCATION		1
-> +
-> +struct nfp_fl_mask_id {
-> +	struct circ_buf mask_id_free_list;
-> +	struct timeval *last_used;
-> +	u8 init_unallocated;
-> +};
-> +
-> +/**
-> + * struct nfp_flower_priv - Flower APP per-vNIC priv data
-> + * @nn:			Pointer to vNIC
-> + * @flower_version:	HW version of flower
-> + * @mask_ids:		List of free mask ids
-> + * @mask_table:		Hash table used to store masks
-> + * @flow_table:		Hash table used to store flower rules
-> + */
-> +struct nfp_flower_priv {
-> +	struct nfp_net *nn;
-> +	u64 flower_version;
-> +	struct nfp_fl_mask_id mask_ids;
-> +	DECLARE_HASHTABLE(mask_table, NFP_FLOWER_MASK_HASH_BITS);
-> +	DECLARE_HASHTABLE(flow_table, NFP_FLOWER_HASH_BITS);
-
-Include for hashtable seems missing.
-
-> +};
-> +
->  struct nfp_fl_key_ls {
->  	u32 key_layer_two;
->  	u8 key_layer;
-> @@ -69,6 +106,10 @@ struct nfp_fl_payload {
->  	char *action_data;
->  };
->  
-> +int nfp_flower_metadata_init(struct nfp_app *app);
-> +void nfp_flower_metadata_cleanup(struct nfp_app *app);
-> +
-> +int nfp_repr_get_port_id(struct net_device *netdev);
-
-Isn't this a static inline in repr.h?
-
->  int nfp_flower_repr_init(struct nfp_app *app);
->  int nfp_flower_setup_tc(struct nfp_app *app, struct net_device *netdev,
->  			u32 handle, __be16 proto, struct tc_to_netdev *tc);
-
-> diff --git a/drivers/net/ethernet/netronome/nfp/flower/metadata.c b/drivers/net/ethernet/netronome/nfp/flower/metadata.c
-> new file mode 100644
-> index 000000000000..acbf4c757988
-
-> + * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-> + * SOFTWARE.
-> + */
-> +
-> +#include <asm/timex.h>
-
-I think this is unnecessary.
-
-> +#include <linux/hash.h>
-> +#include <linux/hashtable.h>
-> +#include <linux/jhash.h>
-> +#include <linux/vmalloc.h>
-> +#include <net/pkt_cls.h>
-
-> +static int nfp_mask_alloc(struct nfp_app *app, u8 *mask_id)
+> +void nfp_flower_populate_stats(struct nfp_fl_payload *nfp_flow)
 > +{
-> +	struct nfp_flower_priv *priv = app->priv;
-> +	struct timeval reuse, curr;
-> +	struct circ_buf *ring;
-> +	u8 temp_id, freed_id;
-> +
-> +	ring = &priv->mask_ids.mask_id_free_list;
-> +	freed_id = NFP_FLOWER_MASK_ENTRY_RS - 1;
-> +	/* Checking for unallocated entries first. */
-> +	if (priv->mask_ids.init_unallocated > 0) {
-> +		*mask_id = priv->mask_ids.init_unallocated;
-> +		priv->mask_ids.init_unallocated--;
-> +		goto exit_check_timestamp;
-
-Do you really need to check the timestamp here?  Isn't this if() for the
-case where we have some masks which were never used by the driver?
-
-> +	}
-> +
-> +	/* Checking if buffer is empty. */
-> +	if (ring->head == ring->tail) {
-> +		*mask_id = freed_id;
-> +		return -ENOENT;
-> +	}
-> +
-> +	memcpy(&temp_id, &ring->buf[ring->tail], NFP_FLOWER_MASK_ELEMENT_RS);
-> +	*mask_id = temp_id;
-> +	memcpy(&ring->buf[ring->tail], &freed_id, NFP_FLOWER_MASK_ELEMENT_RS);
-> +
-> +	ring->tail = (ring->tail + NFP_FLOWER_MASK_ELEMENT_RS) %
-> +		     (NFP_FLOWER_MASK_ENTRY_RS * NFP_FLOWER_MASK_ELEMENT_RS);
-> +
-> +exit_check_timestamp:
-> +	do_gettimeofday(&curr);
-> +	reuse.tv_sec = curr.tv_sec -
-> +		       priv->mask_ids.last_used[*mask_id].tv_sec;
-> +	reuse.tv_usec = curr.tv_usec -
-> +			priv->mask_ids.last_used[*mask_id].tv_usec;
-
-Could you perhaps use timespec64 as the type?  You will then be able to
-use timespec64_sub() and it will save a nsec -> usec conversion in
-do_gettimeofday().
-
-> +	if (!reuse.tv_sec && reuse.tv_usec < NFP_FL_MASK_REUSE_TIME) {
-> +		nfp_release_mask_id(app, *mask_id);
-> +		return -ENOENT;
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-> +static int
-> +nfp_add_mask_table(struct nfp_app *app, char *mask_data, u32 mask_len)
-> +{
-> +	struct nfp_flower_priv *priv = app->priv;
-> +	struct nfp_mask_id_table *mask_entry;
-> +	unsigned long hash_key;
-> +	u8 mask_id;
-> +
-> +	if (nfp_mask_alloc(app, &mask_id))
-> +		return -ENOENT;
-> +
-> +	mask_entry = kmalloc(sizeof(*mask_entry), GFP_ATOMIC);
-
-GFP_KERNEL, I think there used to be a spinlock around this which is no
-more?
-
-> +	if (!mask_entry) {
-> +		nfp_release_mask_id(app, mask_id);
-> +		return -ENOMEM;
-> +	}
-> +
-> +	INIT_HLIST_NODE(&mask_entry->link);
-> +	mask_entry->mask_id = mask_id;
-> +	hash_key = jhash(mask_data, mask_len, NFP_FLOWER_MASK_HASH_SEED);
-> +	mask_entry->hash_key = hash_key;
-> +	mask_entry->ref_cnt = 1;
-> +	hash_add(priv->mask_table, &mask_entry->link, hash_key);
-> +
-> +	return mask_id;
+> +	spin_lock(&nfp_flow->lock_nfp_flow_stats);
+> +	nfp_flow->stats.pkts = 0;
+> +	nfp_flow->stats.bytes = 0;
+> +	nfp_flow->stats.used = jiffies;
+> +	spin_unlock(&nfp_flow->lock_nfp_flow_stats);
 > +}
 
-> +static int
-> +nfp_check_mask_add(struct nfp_app *app, char *mask_data, u32 mask_len,
-> +		   u8 *mask_id)
+This could be static AFAICT.
+
+> +void nfp_flower_stats_clear(struct nfp_fl_payload *nfp_flow)
 > +{
-> +	int allocate_mask;
-
-bool? (same for the return type)
-
-> +	int err;
-> +
-> +	allocate_mask = 0;
-> +	err = nfp_find_in_mask_table(app, mask_data, mask_len);
-> +	if (err < 0) {
-> +		/* Could not find an existing mask id. */
-> +		allocate_mask = NFP_FL_META_FLAG_NEW_MASK;
-> +		err = nfp_add_mask_table(app, mask_data, mask_len);
-> +		if (err < 0)
-> +			return -ENOENT;
-> +	}
-> +	*mask_id = err;
-> +
-> +	return allocate_mask;
+> +	spin_lock(&nfp_flow->lock_nfp_flow_stats);
+> +	nfp_flow->stats.pkts = 0;
+> +	nfp_flow->stats.bytes = 0;
+> +	spin_unlock(&nfp_flow->lock_nfp_flow_stats);
 > +}
-
-> +int nfp_flower_metadata_init(struct nfp_app *app)
+> +
+> +static void
+> +nfp_flower_update_stats(struct nfp_app *app, struct nfp_fl_stats_frame *stats)
 > +{
-> +	struct nfp_flower_priv *priv = app->priv;
+> +	struct nfp_fl_payload *nfp_flow;
+> +	unsigned long flower_cookie;
 > +
-> +	hash_init(priv->mask_table);
-> +	hash_init(priv->flow_table);
+> +	flower_cookie = be64_to_cpu(stats->stats_cookie);
 > +
-> +	/* Init ring buffer and unallocated mask_ids. */
-> +	priv->mask_ids.mask_id_free_list.buf =
-> +		kzalloc(NFP_FLOWER_MASK_ENTRY_RS * NFP_FLOWER_MASK_ELEMENT_RS,
-> +			GFP_KERNEL);
+> +	nfp_flow = nfp_flower_find_in_fl_table(app, flower_cookie);
 
-Is zeroing this memory necessary?
+Since you're looking up in the hash table from softirq context and
+with RTNL held, I think you need RCU protection.
 
-> +	if (!priv->mask_ids.mask_id_free_list.buf)
-> +		return -ENOMEM;
-> +
-> +	priv->mask_ids.init_unallocated = NFP_FLOWER_MASK_ENTRY_RS - 1;
-> +
-> +	/* Init timestamps for mask id*/
-> +	priv->mask_ids.last_used = kcalloc(NFP_FLOWER_MASK_ENTRY_RS,
-> +					   sizeof(*priv->mask_ids.last_used),
-> +					   GFP_KERNEL);
+My understanding is that the mask table is ever only modified with RTNL
+held so it needs no protection.  The only thing that may come in
+without RTNL is a ctrl message carrying stat updates.  It will try to
+lookup the flow and increment its statistics.  So the use-after-free on
+statistics is the only danger we may run into here? (or accessing
+inconsistent hashtable)
 
-And this, potentially?
-
-> +	if (!priv->mask_ids.last_used) {
-> +		kfree(priv->mask_ids.mask_id_free_list.buf);
-> +		return -ENOMEM;
-> +	}
+> +	if (!nfp_flow)
+> +		return;
 > +
-> +	priv->flower_version = 0;
+> +	if (nfp_flow->meta.host_ctx_id != stats->stats_con_id)
+> +		return;
 > +
-> +	return 0;
+> +	spin_lock(&nfp_flow->lock_nfp_flow_stats);
+> +	nfp_flow->stats.pkts += be32_to_cpu(stats->pkt_count);
+> +	nfp_flow->stats.bytes += be64_to_cpu(stats->byte_count);
+> +	nfp_flow->stats.used = jiffies;
+> +	spin_unlock(&nfp_flow->lock_nfp_flow_stats);
 > +}
+> +
+> +void nfp_flower_rx_flow_stats(struct nfp_app *app, struct sk_buff *skb)
+> +{
+> +	unsigned int msg_len = skb->len - NFP_FLOWER_CMSG_HLEN;
+> +	struct nfp_fl_stats_frame *stats_frame;
+> +	unsigned char *msg;
+> +	int msg_offset = 0;
+> +
+> +	msg = (unsigned char *)skb->data + NFP_FLOWER_CMSG_HLEN;
+
+nfp_flower_cmsg_get_data()?
+
+Or simply skb_pull() the header off before you invoke specific
+handlers in nfp_flower_cmsg_rx()?
+
+> +
+> +	while (msg_len >= sizeof(struct nfp_fl_stats_frame)) {
+> +		stats_frame = (struct nfp_fl_stats_frame *)msg + msg_offset;
+
+Looks suspicious.  msg_offset counts bytes and you add it to a typed
+pointer...
+
+> +		if (!stats_frame)
+> +			break;
+
+This looks strange too, can stats_frame ever be NULL?
+
+I think this loop may be better written as:
+
+stats_frame = msg;
+
+for (i = 0; i < msg_len / sizeof(*stats_frame); i++)
+	nfp_flower_update_stats(&stats_frame[i] or stats_frame + i);
+
+> +		nfp_flower_update_stats(app, stats_frame);
+> +
+> +		msg_offset += sizeof(struct nfp_fl_stats_frame);
+> +		msg_len -= sizeof(struct nfp_fl_stats_frame);
+> +	}
+> +}
+> +
+>  static struct nfp_flower_table *
+>  nfp_flower_search_fl_table(struct nfp_app *app, unsigned long tc_flower_cookie)
+>  {
 
 > diff --git a/drivers/net/ethernet/netronome/nfp/flower/offload.c b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-> index c8f9e2996cc6..a7f688bbc761 100644
+> index a7f688bbc761..b39c96623657 100644
 > --- a/drivers/net/ethernet/netronome/nfp/flower/offload.c
 > +++ b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-
-> @@ -297,6 +318,9 @@ int nfp_flower_repr_init(struct nfp_app *app)
->  	u64 version;
->  	int err;
+> @@ -171,6 +171,7 @@ nfp_flower_allocate_new(struct nfp_fl_key_ls *key_layer)
+>  		goto err_free_mask;
 >  
-> +	if (nfp_flower_metadata_init(app) < 0)
-> +		return -EOPNOTSUPP;
+>  	flow_pay->meta.flags = 0;
+> +	spin_lock_init(&flow_pay->lock_nfp_flow_stats);
+>  
+>  	return flow_pay;
+>  
+> @@ -294,7 +295,18 @@ nfp_flower_del_offload(struct nfp_app *app, struct net_device *netdev,
+>  static int
+>  nfp_flower_get_stats(struct nfp_app *app, struct tc_cls_flower_offload *flow)
+>  {
+> -	return -EOPNOTSUPP;
+> +	struct nfp_fl_payload *nfp_flow;
+> +
+> +	nfp_flow = nfp_flower_find_in_fl_table(app, flow->cookie);
+> +	if (!nfp_flow)
+> +		return -EINVAL;
+> +
+> +	tcf_exts_stats_update(flow->exts, nfp_flow->stats.bytes,
+> +			      nfp_flow->stats.pkts, nfp_flow->stats.used);
 
-app init candidate.
+So the spin_locks are only taken for writes but not for reads?
+
+> +
+> +	nfp_flower_stats_clear(nfp_flow);
+> +
+> +	return 0;
+>  }
+>  
+>  static int
+> diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+> index b1fa77bd708b..cfd74ce36797 100644
+> --- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
+> +++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+> @@ -466,6 +466,7 @@ static inline bool nfp_net_fw_ver_eq(struct nfp_net_fw_version *fw_ver,
+>  struct nfp_stat_pair {
+>  	u64 pkts;
+>  	u64 bytes;
+> +	u64 used;
+>  };
+
+This is called *_pair, please don't add a third member to this
+structure, just define your own :)
