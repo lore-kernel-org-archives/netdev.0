@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 12/14] amd-xgbe: Prepare for more fine grained
- cache coherency controls
-Date: Wed, 28 Jun 2017 13:43:09 -0500
-Message-ID: <20170628184309.21972.88378.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 11/14] amd-xgbe: Add NUMA affinity support for
+ IRQ hints
+Date: Wed, 28 Jun 2017 13:43:00 -0500
+Message-ID: <20170628184300.21972.50184.stgit@tlendack-t1.amdoffice.net>
 References: <20170628184122.21972.87767.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,171 +10,109 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0078.outbound.protection.outlook.com ([104.47.34.78]:35855
+Received: from mail-by2nam01on0083.outbound.protection.outlook.com ([104.47.34.83]:60576
         "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751629AbdF1SnO (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 28 Jun 2017 14:43:14 -0400
+        id S1751501AbdF1SnP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 28 Jun 2017 14:43:15 -0400
 In-Reply-To: <20170628184122.21972.87767.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In prep for setting fine grained read and write DMA cache coherency
-controls, allow specific values to be used to set the cache coherency
-registers.
+For IRQ affinity, set the affinity hints for the IRQs to be (initially) on
+the processors corresponding to the NUMA node of the device.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-common.h   |   28 -------------------------
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c      |   23 ++-------------------
- drivers/net/ethernet/amd/xgbe/xgbe-pci.c      |    5 ++--
- drivers/net/ethernet/amd/xgbe/xgbe-platform.c |   10 ++++-----
- drivers/net/ethernet/amd/xgbe/xgbe.h          |   15 +++++--------
- 5 files changed, 14 insertions(+), 67 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c |   18 +++++++++++++++---
+ drivers/net/ethernet/amd/xgbe/xgbe.h     |    2 ++
+ 2 files changed, 17 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-common.h b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-index e7b6804..dc09883 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-@@ -127,34 +127,6 @@
- #define DMA_DSR1			0x3024
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+index 43b84ff..ecef3ee 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+@@ -192,12 +192,17 @@ static int xgbe_alloc_channels(struct xgbe_prv_data *pdata)
+ 	struct xgbe_channel *channel;
+ 	struct xgbe_ring *ring;
+ 	unsigned int count, i;
++	unsigned int cpu;
+ 	int node;
  
- /* DMA register entry bit positions and sizes */
--#define DMA_AXIARCR_DRC_INDEX		0
--#define DMA_AXIARCR_DRC_WIDTH		4
--#define DMA_AXIARCR_DRD_INDEX		4
--#define DMA_AXIARCR_DRD_WIDTH		2
--#define DMA_AXIARCR_TEC_INDEX		8
--#define DMA_AXIARCR_TEC_WIDTH		4
--#define DMA_AXIARCR_TED_INDEX		12
--#define DMA_AXIARCR_TED_WIDTH		2
--#define DMA_AXIARCR_THC_INDEX		16
--#define DMA_AXIARCR_THC_WIDTH		4
--#define DMA_AXIARCR_THD_INDEX		20
--#define DMA_AXIARCR_THD_WIDTH		2
--#define DMA_AXIAWCR_DWC_INDEX		0
--#define DMA_AXIAWCR_DWC_WIDTH		4
--#define DMA_AXIAWCR_DWD_INDEX		4
--#define DMA_AXIAWCR_DWD_WIDTH		2
--#define DMA_AXIAWCR_RPC_INDEX		8
--#define DMA_AXIAWCR_RPC_WIDTH		4
--#define DMA_AXIAWCR_RPD_INDEX		12
--#define DMA_AXIAWCR_RPD_WIDTH		2
--#define DMA_AXIAWCR_RHC_INDEX		16
--#define DMA_AXIAWCR_RHC_WIDTH		4
--#define DMA_AXIAWCR_RHD_INDEX		20
--#define DMA_AXIAWCR_RHD_WIDTH		2
--#define DMA_AXIAWCR_TDC_INDEX		24
--#define DMA_AXIAWCR_TDC_WIDTH		4
--#define DMA_AXIAWCR_TDD_INDEX		28
--#define DMA_AXIAWCR_TDD_WIDTH		2
- #define DMA_ISR_MACIS_INDEX		17
- #define DMA_ISR_MACIS_WIDTH		1
- #define DMA_ISR_MTLIS_INDEX		16
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index b05393f..98da249 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -2146,27 +2146,8 @@ static void xgbe_config_dma_bus(struct xgbe_prv_data *pdata)
+-	node = dev_to_node(pdata->dev);
+-
+ 	count = max_t(unsigned int, pdata->tx_ring_count, pdata->rx_ring_count);
+ 	for (i = 0; i < count; i++) {
++		/* Attempt to use a CPU on the node the device is on */
++		cpu = cpumask_local_spread(i, dev_to_node(pdata->dev));
++
++		/* Set the allocation node based on the returned CPU */
++		node = cpu_to_node(cpu);
++
+ 		channel = xgbe_alloc_node(sizeof(*channel), node);
+ 		if (!channel)
+ 			goto err_mem;
+@@ -209,6 +214,7 @@ static int xgbe_alloc_channels(struct xgbe_prv_data *pdata)
+ 		channel->dma_regs = pdata->xgmac_regs + DMA_CH_BASE +
+ 				    (DMA_CH_INC * i);
+ 		channel->node = node;
++		cpumask_set_cpu(cpu, &channel->affinity_mask);
  
- static void xgbe_config_dma_cache(struct xgbe_prv_data *pdata)
- {
--	unsigned int arcache, awcache;
--
--	arcache = 0;
--	XGMAC_SET_BITS(arcache, DMA_AXIARCR, DRC, pdata->arcache);
--	XGMAC_SET_BITS(arcache, DMA_AXIARCR, DRD, pdata->axdomain);
--	XGMAC_SET_BITS(arcache, DMA_AXIARCR, TEC, pdata->arcache);
--	XGMAC_SET_BITS(arcache, DMA_AXIARCR, TED, pdata->axdomain);
--	XGMAC_SET_BITS(arcache, DMA_AXIARCR, THC, pdata->arcache);
--	XGMAC_SET_BITS(arcache, DMA_AXIARCR, THD, pdata->axdomain);
--	XGMAC_IOWRITE(pdata, DMA_AXIARCR, arcache);
--
--	awcache = 0;
--	XGMAC_SET_BITS(awcache, DMA_AXIAWCR, DWC, pdata->awcache);
--	XGMAC_SET_BITS(awcache, DMA_AXIAWCR, DWD, pdata->axdomain);
--	XGMAC_SET_BITS(awcache, DMA_AXIAWCR, RPC, pdata->awcache);
--	XGMAC_SET_BITS(awcache, DMA_AXIAWCR, RPD, pdata->axdomain);
--	XGMAC_SET_BITS(awcache, DMA_AXIAWCR, RHC, pdata->awcache);
--	XGMAC_SET_BITS(awcache, DMA_AXIAWCR, RHD, pdata->axdomain);
--	XGMAC_SET_BITS(awcache, DMA_AXIAWCR, TDC, pdata->awcache);
--	XGMAC_SET_BITS(awcache, DMA_AXIAWCR, TDD, pdata->axdomain);
--	XGMAC_IOWRITE(pdata, DMA_AXIAWCR, awcache);
-+	XGMAC_IOWRITE(pdata, DMA_AXIARCR, pdata->arcr);
-+	XGMAC_IOWRITE(pdata, DMA_AXIAWCR, pdata->awcr);
+ 		if (pdata->per_channel_irq)
+ 			channel->dma_irq = pdata->channel_irq[i];
+@@ -236,7 +242,7 @@ static int xgbe_alloc_channels(struct xgbe_prv_data *pdata)
+ 		}
+ 
+ 		netif_dbg(pdata, drv, pdata->netdev,
+-			  "%s: node=%d\n", channel->name, node);
++			  "%s: cpu=%u, node=%d\n", channel->name, cpu, node);
+ 
+ 		netif_dbg(pdata, drv, pdata->netdev,
+ 			  "%s: dma_regs=%p, dma_irq=%d, tx=%p, rx=%p\n",
+@@ -916,6 +922,9 @@ static int xgbe_request_irqs(struct xgbe_prv_data *pdata)
+ 				     channel->dma_irq);
+ 			goto err_dma_irq;
+ 		}
++
++		irq_set_affinity_hint(channel->dma_irq,
++				      &channel->affinity_mask);
+ 	}
+ 
+ 	return 0;
+@@ -925,6 +934,7 @@ static int xgbe_request_irqs(struct xgbe_prv_data *pdata)
+ 	for (i--; i < pdata->channel_count; i--) {
+ 		channel = pdata->channel[i];
+ 
++		irq_set_affinity_hint(channel->dma_irq, NULL);
+ 		devm_free_irq(pdata->dev, channel->dma_irq, channel);
+ 	}
+ 
+@@ -952,6 +962,8 @@ static void xgbe_free_irqs(struct xgbe_prv_data *pdata)
+ 
+ 	for (i = 0; i < pdata->channel_count; i++) {
+ 		channel = pdata->channel[i];
++
++		irq_set_affinity_hint(channel->dma_irq, NULL);
+ 		devm_free_irq(pdata->dev, channel->dma_irq, channel);
+ 	}
  }
- 
- static void xgbe_config_mtl_mode(struct xgbe_prv_data *pdata)
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-pci.c b/drivers/net/ethernet/amd/xgbe/xgbe-pci.c
-index f0c2e88..1e73768 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-pci.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-pci.c
-@@ -327,9 +327,8 @@ static int xgbe_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
- 
- 	/* Set the DMA coherency values */
- 	pdata->coherent = 1;
--	pdata->axdomain = XGBE_DMA_OS_AXDOMAIN;
--	pdata->arcache = XGBE_DMA_OS_ARCACHE;
--	pdata->awcache = XGBE_DMA_OS_AWCACHE;
-+	pdata->arcr = XGBE_DMA_OS_ARCR;
-+	pdata->awcr = XGBE_DMA_OS_AWCR;
- 
- 	/* Set the maximum channels and queues */
- 	reg = XP_IOREAD(pdata, XP_PROP_1);
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-platform.c b/drivers/net/ethernet/amd/xgbe/xgbe-platform.c
-index 84d4c51..d0f3dfb 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-platform.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-platform.c
-@@ -448,13 +448,11 @@ static int xgbe_platform_probe(struct platform_device *pdev)
- 	}
- 	pdata->coherent = (attr == DEV_DMA_COHERENT);
- 	if (pdata->coherent) {
--		pdata->axdomain = XGBE_DMA_OS_AXDOMAIN;
--		pdata->arcache = XGBE_DMA_OS_ARCACHE;
--		pdata->awcache = XGBE_DMA_OS_AWCACHE;
-+		pdata->arcr = XGBE_DMA_OS_ARCR;
-+		pdata->awcr = XGBE_DMA_OS_AWCR;
- 	} else {
--		pdata->axdomain = XGBE_DMA_SYS_AXDOMAIN;
--		pdata->arcache = XGBE_DMA_SYS_ARCACHE;
--		pdata->awcache = XGBE_DMA_SYS_AWCACHE;
-+		pdata->arcr = XGBE_DMA_SYS_ARCR;
-+		pdata->awcr = XGBE_DMA_SYS_AWCR;
- 	}
- 
- 	/* Set the maximum fifo amounts */
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index 7b50469..46780aa 100644
+index ac3b558..7b50469 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe.h
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -164,14 +164,12 @@
- #define XGBE_DMA_STOP_TIMEOUT	1
+@@ -128,6 +128,7 @@
+ #include <linux/net_tstamp.h>
+ #include <net/dcbnl.h>
+ #include <linux/completion.h>
++#include <linux/cpumask.h>
  
- /* DMA cache settings - Outer sharable, write-back, write-allocate */
--#define XGBE_DMA_OS_AXDOMAIN	0x2
--#define XGBE_DMA_OS_ARCACHE	0xb
--#define XGBE_DMA_OS_AWCACHE	0xf
-+#define XGBE_DMA_OS_ARCR	0x002b2b2b
-+#define XGBE_DMA_OS_AWCR	0x2f2f2f2f
+ #define XGBE_DRV_NAME		"amd-xgbe"
+ #define XGBE_DRV_VERSION	"1.0.3"
+@@ -465,6 +466,7 @@ struct xgbe_channel {
+ 	struct xgbe_ring *rx_ring;
  
- /* DMA cache settings - System, no caches used */
--#define XGBE_DMA_SYS_AXDOMAIN	0x3
--#define XGBE_DMA_SYS_ARCACHE	0x0
--#define XGBE_DMA_SYS_AWCACHE	0x0
-+#define XGBE_DMA_SYS_ARCR	0x00303030
-+#define XGBE_DMA_SYS_AWCR	0x30303030
+ 	int node;
++	cpumask_t affinity_mask;
+ } ____cacheline_aligned;
  
- /* DMA channel interrupt modes */
- #define XGBE_IRQ_MODE_EDGE	0
-@@ -1007,9 +1005,8 @@ struct xgbe_prv_data {
- 
- 	/* AXI DMA settings */
- 	unsigned int coherent;
--	unsigned int axdomain;
--	unsigned int arcache;
--	unsigned int awcache;
-+	unsigned int arcr;
-+	unsigned int awcr;
- 
- 	/* Service routine support */
- 	struct workqueue_struct *dev_workqueue;
+ enum xgbe_state {
