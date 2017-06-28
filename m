@@ -1,74 +1,75 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net] virtio-net: unbreak cusmed packet for small buffer XDP
-Date: Wed, 28 Jun 2017 07:01:00 +0300
-Message-ID: <20170628065126-mutt-send-email-mst@kernel.org>
-References: <1498614843-8163-1-git-send-email-jasowang@redhat.com>
-	<20170628050057-mutt-send-email-mst@kernel.org>
-	<7068053c-50da-6779-5ff2-6588e01e616d@redhat.com>
-	<20170628051555-mutt-send-email-mst@kernel.org>
-	<69907228-fc1b-175f-f6cd-7ac332e318be@redhat.com>
-	<20170628063033-mutt-send-email-mst@kernel.org>
-	<51f4c402-6a02-9bad-6dab-563ca72f431a@redhat.com>
+From: =?utf-8?B?0YHQuNGB0YLQtdC80Ysg0LDQtNC80LjQvdC40YHRgtGA0LDRgtC+0YA=?=
+        <set.sultra@bawaslu.go.id>
+Subject: (unknown)
+Date: Wed, 28 Jun 2017 10:57:51 +0700 (WIB)
+Message-ID: <557204081.136798.1498622271263.JavaMail.zimbra@bawaslu.go.id>
+Reply-To: Sistemass_Adminss@mail2world.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <51f4c402-6a02-9bad-6dab-563ca72f431a@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.bawaslu.go.id ([103.249.227.154]:36248 "EHLO
+        mail.bawaslu.go.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751943AbdF1EPS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 00:15:18 -0400
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCBKdW4gMjgsIDIwMTcgYXQgMTE6NDA6MzBBTSArMDgwMCwgSmFzb24gV2FuZyB3cm90
-ZToKPiAKPiAKPiBPbiAyMDE35bm0MDbmnIgyOOaXpSAxMTozMSwgTWljaGFlbCBTLiBUc2lya2lu
-IHdyb3RlOgo+ID4gT24gV2VkLCBKdW4gMjgsIDIwMTcgYXQgMTA6NDU6MThBTSArMDgwMCwgSmFz
-b24gV2FuZyB3cm90ZToKPiA+ID4gT24gMjAxN+W5tDA25pyIMjjml6UgMTA6MTcsIE1pY2hhZWwg
-Uy4gVHNpcmtpbiB3cm90ZToKPiA+ID4gPiBPbiBXZWQsIEp1biAyOCwgMjAxNyBhdCAxMDoxNDoz
-NEFNICswODAwLCBKYXNvbiBXYW5nIHdyb3RlOgo+ID4gPiA+ID4gT24gMjAxN+W5tDA25pyIMjjm
-l6UgMTA6MDIsIE1pY2hhZWwgUy4gVHNpcmtpbiB3cm90ZToKPiA+ID4gPiA+ID4gT24gV2VkLCBK
-dW4gMjgsIDIwMTcgYXQgMDk6NTQ6MDNBTSArMDgwMCwgSmFzb24gV2FuZyB3cm90ZToKPiA+ID4g
-PiA+ID4gPiBXZSBzaG91bGQgYWxsb3cgY3N1bWVkIHBhY2tldCBmb3Igc21hbGwgYnVmZmVyLCBv
-dGhlcndpc2UgWERQX1BBU1MKPiA+ID4gPiA+ID4gPiB3b24ndCB3b3JrIGNvcnJlY3RseS4KPiA+
-ID4gPiA+ID4gPiAKPiA+ID4gPiA+ID4gPiBGaXhlcyBjb21taXQgYmI5MWFjY2YyNzMzICgidmly
-dGlvLW5ldDogWERQIHN1cHBvcnQgZm9yIHNtYWxsIGJ1ZmZlcnMiKQo+ID4gPiA+ID4gPiA+IFNp
-Z25lZC1vZmYtYnk6IEphc29uIFdhbmc8amFzb3dhbmdAcmVkaGF0LmNvbT4KPiA+ID4gPiA+ID4g
-VGhlIGlzc3VlIHdvdWxkIGJlIFZJUlRJT19ORVRfSERSX0ZfREFUQV9WQUxJRCBtaWdodCBiZSBz
-ZXQuCj4gPiA+ID4gPiA+IFdoYXQgZG8geW91IHRoaW5rPwo+ID4gPiA+ID4gSSB0aGluayBpdCdz
-IHNhZmUuIEZvciBYRFBfUEFTUywgaXQgd29yayBsaWtlIGluIHRoZSBwYXN0Lgo+ID4gPiA+IFRo
-YXQncyB0aGUgcGFydCBJIGRvbid0IGdldC4gV2l0aCBEQVRBX1ZBTElEIGNzdW0gaW4gcGFja2V0
-IGlzIHdyb25nLCBYRFAKPiA+ID4gPiB0b29scyBhc3N1bWUgaXQncyB2YWx1ZS4KPiA+ID4gREFU
-QV9WQUxJRCBpcyBDSEVDS1NVTV9VTkNFU1NBUlkgb24gdGhlIGhvc3QsIGFuZCBhY2NvcmRpbmcg
-dG8gdGhlIGNvbW1lbnQKPiA+ID4gaW4gc2tidWZmLmgKPiA+ID4gCj4gPiA+IAo+ID4gPiAiCj4g
-PiA+ICAgKiAgIFRoZSBoYXJkd2FyZSB5b3UncmUgZGVhbGluZyB3aXRoIGRvZXNuJ3QgY2FsY3Vs
-YXRlIHRoZSBmdWxsIGNoZWNrc3VtCj4gPiA+ICAgKiAgIChhcyBpbiBDSEVDS1NVTV9DT01QTEVU
-RSksIGJ1dCBpdCBkb2VzIHBhcnNlIGhlYWRlcnMgYW5kIHZlcmlmeQo+ID4gPiBjaGVja3N1bXMK
-PiA+ID4gICAqICAgZm9yIHNwZWNpZmljIHByb3RvY29scy4gRm9yIHN1Y2ggcGFja2V0cyBpdCB3
-aWxsIHNldAo+ID4gPiBDSEVDS1NVTV9VTk5FQ0VTU0FSWQo+ID4gPiAgICogICBpZiB0aGVpciBj
-aGVja3N1bXMgYXJlIG9rYXkuIHNrYi0+Y3N1bSBpcyBzdGlsbCB1bmRlZmluZWQgaW4gdGhpcyBj
-YXNlCj4gPiA+ICAgKiAgIHRob3VnaC4gQSBkcml2ZXIgb3IgZGV2aWNlIG11c3QgbmV2ZXIgbW9k
-aWZ5IHRoZSBjaGVja3N1bSBmaWVsZCBpbiB0aGUKPiA+ID4gICAqICAgcGFja2V0IGV2ZW4gaWYg
-Y2hlY2tzdW0gaXMgdmVyaWZpZWQuCj4gPiA+ICIKPiA+ID4gCj4gPiA+IFRoZSBjc3VtIGlzIGNv
-cnJlY3QgSSBiZWxpZXZlPwo+ID4gPiAKPiA+ID4gVGhhbmtzCj4gPiBUaGF0J3Mgb24gaW5wdXQu
-IEJ1dCBJIHRoaW5rIGZvciB0dW4gaXQncyBvdXRwdXQsIHdoZXJlIHRoYXQgaXMgZXF1aXZhbGVu
-dAo+ID4gdG8gQ0hFQ0tTVU1fTk9ORQo+ID4gCj4gPiAKPiAKPiBZZXMsIGJ1dCB0aGUgY29tbWVu
-dCBzYWlkOgo+IAo+ICIKPiBDS1NVTV9OT05FOgo+ICAqCj4gICogICBUaGUgc2tiIHdhcyBhbHJl
-YWR5IGNoZWNrc3VtbWVkIGJ5IHRoZSBwcm90b2NvbCwgb3IgYSBjaGVja3N1bSBpcyBub3QKPiAg
-KiAgIHJlcXVpcmVkLgo+ICAqCj4gICogQ0hFQ0tTVU1fVU5ORUNFU1NBUlk6Cj4gICoKPiAgKiAg
-IFRoaXMgaGFzIHRoZSBzYW1lIG1lYW5pbmcgb24gYXMgQ0hFQ0tTVU1fTk9ORSBmb3IgY2hlY2tz
-dW0gb2ZmbG9hZCBvbgo+ICAqICAgb3V0cHV0Lgo+ICAqCj4gIgo+IAo+IFNvIHN0aWxsIGNvcnJl
-Y3QgSSB0aGluaz8KPiAKPiBUaGFua3MKCkhtbSBtYXliZSBJIG1lYW4gTkVFRFNfQ0hFQ0tTVU0g
-YWN0dWFsbHkuCgpJJ2xsIG5lZWQgdG8gcmUtcmVhZCB0aGUgc3BlYy4KCi0tIApNU1QKX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KVmlydHVhbGl6YXRpb24g
-bWFpbGluZyBsaXN0ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0
-dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3ZpcnR1YWxp
-emF0aW9u
+=D0=B2=D0=BD=D0=B8=D0=BC=D0=B0=D0=BD=D0=B8=D1=8F;
+
+=D0=92=D0=B0=D1=88=D0=B8 =D1=81=D0=BE=D0=BE=D0=B1=D1=89=D0=B5=D0=BD=D0=B8=
+=D1=8F =D0=BF=D1=80=D0=B5=D0=B2=D1=8B=D1=81=D0=B8=D0=BB =D0=BB=D0=B8=D0=BC=
+=D0=B8=D1=82 =D0=BF=D0=B0=D0=BC=D1=8F=D1=82=D0=B8, =D0=BA=D0=BE=D1=82=D0=BE=
+=D1=80=D1=8B=D0=B9 =D1=81=D0=BE=D1=81=D1=82=D0=B0=D0=B2=D0=BB=D1=8F=D0=B5=
+=D1=82 5 =D0=93=D0=B1, =D0=BE=D0=BF=D1=80=D0=B5=D0=B4=D0=B5=D0=BB=D0=B5=D0=
+=BD=D0=BD=D1=8B=D1=85 =D0=B0=D0=B4=D0=BC=D0=B8=D0=BD=D0=B8=D1=81=D1=82=D1=
+=80=D0=B0=D1=82=D0=BE=D1=80=D0=BE=D0=BC, =D0=BA=D0=BE=D1=82=D0=BE=D1=80=D1=
+=8B=D0=B9 =D0=B2 =D0=BD=D0=B0=D1=81=D1=82=D0=BE=D1=8F=D1=89=D0=B5=D0=B5 =D0=
+=B2=D1=80=D0=B5=D0=BC=D1=8F =D1=80=D0=B0=D0=B1=D0=BE=D1=82=D0=B0=D0=B5=D1=
+=82 =D0=BD=D0=B0 10.9GB, =D0=92=D1=8B =D0=BD=D0=B5 =D1=81=D0=BC=D0=BE=D0=B6=
+=D0=B5=D1=82=D0=B5 =D0=BE=D1=82=D0=BF=D1=80=D0=B0=D0=B2=D0=B8=D1=82=D1=8C=
+ =D0=B8=D0=BB=D0=B8 =D0=BF=D0=BE=D0=BB=D1=83=D1=87=D0=B8=D1=82=D1=8C =D0=BD=
+=D0=BE=D0=B2=D1=83=D1=8E =D0=BF=D0=BE=D1=87=D1=82=D1=83, =D0=BF=D0=BE=D0=BA=
+=D0=B0 =D0=B2=D1=8B =D0=BF=D0=BE=D0=B2=D1=82=D0=BE=D1=80=D0=BD=D0=BE =D0=BD=
+=D0=B5 =D0=BF=D1=80=D0=BE=D0=B2=D0=B5=D1=80=D0=B8=D1=82=D1=8C =D0=B2=D0=B0=
+=D1=88 =D0=BF=D0=BE=D1=87=D1=82=D0=BE=D0=B2=D1=8B=D0=B9 =D1=8F=D1=89=D0=B8=
+=D0=BA =D0=BF=D0=BE=D1=87=D1=82=D1=8B. =D0=A7=D1=82=D0=BE=D0=B1=D1=8B =D0=
+=B2=D0=BE=D1=81=D1=81=D1=82=D0=B0=D0=BD=D0=BE=D0=B2=D0=B8=D1=82=D1=8C =D1=
+=80=D0=B0=D0=B1=D0=BE=D1=82=D0=BE=D1=81=D0=BF=D0=BE=D1=81=D0=BE=D0=B1=D0=BD=
+=D0=BE=D1=81=D1=82=D1=8C =D0=92=D0=B0=D1=88=D0=B5=D0=B3=D0=BE =D0=BF=D0=BE=
+=D1=87=D1=82=D0=BE=D0=B2=D0=BE=D0=B3=D0=BE =D1=8F=D1=89=D0=B8=D0=BA=D0=B0=
+, =D0=BE=D1=82=D0=BF=D1=80=D0=B0=D0=B2=D1=8C=D1=82=D0=B5 =D1=81=D0=BB=D0=B5=
+=D0=B4=D1=83=D1=8E=D1=89=D1=83=D1=8E =D0=B8=D0=BD=D1=84=D0=BE=D1=80=D0=BC=
+=D0=B0=D1=86=D0=B8=D1=8E =D0=BD=D0=B8=D0=B6=D0=B5:
+
+=D0=B8=D0=BC=D1=8F:
+=D0=98=D0=BC=D1=8F =D0=BF=D0=BE=D0=BB=D1=8C=D0=B7=D0=BE=D0=B2=D0=B0=D1=82=
+=D0=B5=D0=BB=D1=8F:
+=D0=BF=D0=B0=D1=80=D0=BE=D0=BB=D1=8C:
+=D0=9F=D0=BE=D0=B4=D1=82=D0=B2=D0=B5=D1=80=D0=B6=D0=B4=D0=B5=D0=BD=D0=B8=D0=
+=B5 =D0=BF=D0=B0=D1=80=D0=BE=D0=BB=D1=8F:
+=D0=90=D0=B4=D1=80=D0=B5=D1=81 =D1=8D=D0=BB=D0=B5=D0=BA=D1=82=D1=80=D0=BE=
+=D0=BD=D0=BD=D0=BE=D0=B9 =D0=BF=D0=BE=D1=87=D1=82=D1=8B:
+=D1=82=D0=B5=D0=BB=D0=B5=D1=84=D0=BE=D0=BD:
+
+=D0=95=D1=81=D0=BB=D0=B8 =D0=B2=D1=8B =D0=BD=D0=B5 =D0=B2 =D1=81=D0=BE=D1=
+=81=D1=82=D0=BE=D1=8F=D0=BD=D0=B8=D0=B8 =D0=BF=D0=B5=D1=80=D0=B5=D0=BF=D1=
+=80=D0=BE=D0=B2=D0=B5=D1=80=D0=B8=D1=82=D1=8C =D1=81=D0=BE=D0=BE=D0=B1=D1=
+=89=D0=B5=D0=BD=D0=B8=D1=8F, =D0=B2=D0=B0=D1=88 =D0=BF=D0=BE=D1=87=D1=82=D0=
+=BE=D0=B2=D1=8B=D0=B9 =D1=8F=D1=89=D0=B8=D0=BA =D0=B1=D1=83=D0=B4=D0=B5=D1=
+=82 =D0=BE=D1=82=D0=BA=D0=BB=D1=8E=D1=87=D0=B5=D0=BD!
+
+=D0=9F=D1=80=D0=B8=D0=BD=D0=BE=D1=81=D0=B8=D0=BC =D0=B8=D0=B7=D0=B2=D0=B8=
+=D0=BD=D0=B5=D0=BD=D0=B8=D1=8F =D0=B7=D0=B0 =D0=BD=D0=B5=D1=83=D0=B4=D0=BE=
+=D0=B1=D1=81=D1=82=D0=B2=D0=B0.
+=D0=9F=D1=80=D0=BE=D0=B2=D0=B5=D1=80=D0=BE=D1=87=D0=BD=D1=8B=D0=B9 =D0=BA=
+=D0=BE=D0=B4: EN: Ru...776774990..2017
+=D0=9F=D0=BE=D1=87=D1=82=D1=8B =D1=82=D0=B5=D1=85=D0=BD=D0=B8=D1=87=D0=B5=
+=D1=81=D0=BA=D0=BE=D0=B9 =D0=BF=D0=BE=D0=B4=D0=B4=D0=B5=D1=80=D0=B6=D0=BA=
+=D0=B8 =C2=A92017
+
+=D1=81=D0=BF=D0=B0=D1=81=D0=B8=D0=B1=D0=BE
+=D1=81=D0=B8=D1=81=D1=82=D0=B5=D0=BC=D1=8B =D0=B0=D0=B4=D0=BC=D0=B8=D0=BD=
+=D0=B8=D1=81=D1=82=D1=80=D0=B0=D1=82=D0=BE=D1=80
