@@ -1,135 +1,97 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 01/17] net: convert inet_peer.refcnt from atomic_t
-	to refcount_t
-Date: Wed, 28 Jun 2017 14:54:50 +0300
-Message-ID: <1498650906-12907-2-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 10/17] net: convert in_device.refcnt from atomic_t to refcount_t
+Date: Wed, 28 Jun 2017 14:54:59 +0300
+Message-ID: <1498650906-12907-11-git-send-email-elena.reshetova@intel.com>
 References: <1498650906-12907-1-git-send-email-elena.reshetova@intel.com>
-Cc: keescook@chromium.org, peterz@infradead.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	jmorris@namei.org, Hans Liljestrand <ishkamiel@gmail.com>,
-	kuznet@ms2.inr.ac.ru, kaber@trash.net,
-	Elena Reshetova <elena.reshetova@intel.com>,
-	David Windsor <dwindsor@gmail.com>
+Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
+        stephen@networkplumber.org, peterz@infradead.org,
+        keescook@chromium.org, Elena Reshetova <elena.reshetova@intel.com>,
+        Hans Liljestrand <ishkamiel@gmail.com>,
+        David Windsor <dwindsor@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:5509 "EHLO mga14.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751943AbdF1Lz6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 28 Jun 2017 07:55:58 -0400
 In-Reply-To: <1498650906-12907-1-git-send-email-elena.reshetova@intel.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 refcount_t type and corresponding API should be
 used instead of atomic_t when the variable is used as
 a reference counter. This allows to avoid accidental
 refcounter overflows that might lead to use-after-free
 situations.
-This conversion requires overall +1 on the whole
-refcounting scheme.
 
 Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
 Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/inetpeer.h |  4 ++--
- net/ipv4/inetpeer.c    | 18 +++++++++---------
- 2 files changed, 11 insertions(+), 11 deletions(-)
+ include/linux/inetdevice.h | 11 ++++++-----
+ net/ipv4/devinet.c         |  2 +-
+ 2 files changed, 7 insertions(+), 6 deletions(-)
 
-diff --git a/include/net/inetpeer.h b/include/net/inetpeer.h
-index 235c781..f2a215f 100644
---- a/include/net/inetpeer.h
-+++ b/include/net/inetpeer.h
-@@ -46,7 +46,7 @@ struct inet_peer {
- 		struct rcu_head     gc_rcu;
- 	};
- 	/*
--	 * Once inet_peer is queued for deletion (refcnt == -1), following field
-+	 * Once inet_peer is queued for deletion (refcnt == 0), following field
- 	 * is not available: rid
- 	 * We can share memory with rcu_head to help keep inet_peer small.
- 	 */
-@@ -60,7 +60,7 @@ struct inet_peer {
+diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+index a2e9d6e..4b9d135 100644
+--- a/include/linux/inetdevice.h
++++ b/include/linux/inetdevice.h
+@@ -11,6 +11,7 @@
+ #include <linux/timer.h>
+ #include <linux/sysctl.h>
+ #include <linux/rtnetlink.h>
++#include <linux/refcount.h>
  
- 	/* following fields might be frequently dirtied */
- 	__u32			dtime;	/* the time of last use of not referenced entries */
+ struct ipv4_devconf {
+ 	void	*sysctl;
+@@ -22,7 +23,7 @@ struct ipv4_devconf {
+ 
+ struct in_device {
+ 	struct net_device	*dev;
 -	atomic_t		refcnt;
 +	refcount_t		refcnt;
- };
+ 	int			dead;
+ 	struct in_ifaddr	*ifa_list;	/* IP ifaddr chain		*/
  
- struct inet_peer_base {
-diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
-index 86fa458..c5a117c 100644
---- a/net/ipv4/inetpeer.c
-+++ b/net/ipv4/inetpeer.c
-@@ -115,7 +115,7 @@ static void inetpeer_gc_worker(struct work_struct *work)
- 
- 		n = list_entry(p->gc_list.next, struct inet_peer, gc_list);
- 
--		if (!atomic_read(&p->refcnt)) {
-+		if (refcount_read(&p->refcnt) == 1) {
- 			list_del(&p->gc_list);
- 			kmem_cache_free(peer_cachep, p);
- 		}
-@@ -202,10 +202,11 @@ static struct inet_peer *lookup_rcu(const struct inetpeer_addr *daddr,
- 		int cmp = inetpeer_addr_cmp(daddr, &u->daddr);
- 		if (cmp == 0) {
- 			/* Before taking a reference, check if this entry was
--			 * deleted (refcnt=-1)
-+			 * deleted (refcnt=0)
- 			 */
--			if (!atomic_add_unless(&u->refcnt, 1, -1))
-+			if (!refcount_inc_not_zero(&u->refcnt)) {
- 				u = NULL;
-+			}
- 			return u;
- 		}
- 		if (cmp == -1)
-@@ -382,11 +383,10 @@ static int inet_peer_gc(struct inet_peer_base *base,
- 	while (stackptr > stack) {
- 		stackptr--;
- 		p = rcu_deref_locked(**stackptr, base);
--		if (atomic_read(&p->refcnt) == 0) {
-+		if (refcount_read(&p->refcnt) == 1) {
- 			smp_rmb();
- 			delta = (__u32)jiffies - p->dtime;
--			if (delta >= ttl &&
--			    atomic_cmpxchg(&p->refcnt, 0, -1) == 0) {
-+			if (delta >= ttl && refcount_dec_if_one(&p->refcnt)) {
- 				p->gc_next = gchead;
- 				gchead = p;
- 			}
-@@ -432,7 +432,7 @@ struct inet_peer *inet_getpeer(struct inet_peer_base *base,
- relookup:
- 	p = lookup(daddr, stack, base);
- 	if (p != peer_avl_empty) {
--		atomic_inc(&p->refcnt);
-+		refcount_inc(&p->refcnt);
- 		write_sequnlock_bh(&base->lock);
- 		return p;
- 	}
-@@ -444,7 +444,7 @@ struct inet_peer *inet_getpeer(struct inet_peer_base *base,
- 	p = create ? kmem_cache_alloc(peer_cachep, GFP_ATOMIC) : NULL;
- 	if (p) {
- 		p->daddr = *daddr;
--		atomic_set(&p->refcnt, 1);
-+		refcount_set(&p->refcnt, 2);
- 		atomic_set(&p->rid, 0);
- 		p->metrics[RTAX_LOCK-1] = INETPEER_METRICS_NEW;
- 		p->rate_tokens = 0;
-@@ -468,7 +468,7 @@ void inet_putpeer(struct inet_peer *p)
- {
- 	p->dtime = (__u32)jiffies;
- 	smp_mb__before_atomic();
--	atomic_dec(&p->refcnt);
-+	refcount_dec(&p->refcnt);
+@@ -212,7 +213,7 @@ static inline struct in_device *in_dev_get(const struct net_device *dev)
+ 	rcu_read_lock();
+ 	in_dev = __in_dev_get_rcu(dev);
+ 	if (in_dev)
+-		atomic_inc(&in_dev->refcnt);
++		refcount_inc(&in_dev->refcnt);
+ 	rcu_read_unlock();
+ 	return in_dev;
  }
- EXPORT_SYMBOL_GPL(inet_putpeer);
+@@ -233,12 +234,12 @@ void in_dev_finish_destroy(struct in_device *idev);
  
+ static inline void in_dev_put(struct in_device *idev)
+ {
+-	if (atomic_dec_and_test(&idev->refcnt))
++	if (refcount_dec_and_test(&idev->refcnt))
+ 		in_dev_finish_destroy(idev);
+ }
+ 
+-#define __in_dev_put(idev)  atomic_dec(&(idev)->refcnt)
+-#define in_dev_hold(idev)   atomic_inc(&(idev)->refcnt)
++#define __in_dev_put(idev)  refcount_dec(&(idev)->refcnt)
++#define in_dev_hold(idev)   refcount_inc(&(idev)->refcnt)
+ 
+ #endif /* __KERNEL__ */
+ 
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index df14815..16c5e22 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -251,7 +251,7 @@ static struct in_device *inetdev_init(struct net_device *dev)
+ 	/* Reference in_dev->dev */
+ 	dev_hold(dev);
+ 	/* Account for reference dev->ip_ptr (below) */
+-	in_dev_hold(in_dev);
++	refcount_set(&in_dev->refcnt, 1);
+ 
+ 	err = devinet_sysctl_register(in_dev);
+ 	if (err) {
 -- 
 2.7.4
