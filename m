@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 09/17] net: convert ip_mc_list.refcnt from atomic_t to refcount_t
-Date: Wed, 28 Jun 2017 14:54:58 +0300
-Message-ID: <1498650906-12907-10-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 11/17] net: convert netpoll_info.refcnt from atomic_t to refcount_t
+Date: Wed, 28 Jun 2017 14:55:00 +0300
+Message-ID: <1498650906-12907-12-git-send-email-elena.reshetova@intel.com>
 References: <1498650906-12907-1-git-send-email-elena.reshetova@intel.com>
 Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
         kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
@@ -11,9 +11,9 @@ Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
         David Windsor <dwindsor@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:60491 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:5509 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751790AbdF1L4A (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1751669AbdF1L4A (ORCPT <rfc822;netdev@vger.kernel.org>);
         Wed, 28 Jun 2017 07:56:00 -0400
 In-Reply-To: <1498650906-12907-1-git-send-email-elena.reshetova@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -30,79 +30,61 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/linux/igmp.h |  3 ++-
- net/ipv4/igmp.c      | 10 +++++-----
- 2 files changed, 7 insertions(+), 6 deletions(-)
+ include/linux/netpoll.h | 3 ++-
+ net/core/netpoll.c      | 6 +++---
+ 2 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/igmp.h b/include/linux/igmp.h
-index 12f6fba..97caf18 100644
---- a/include/linux/igmp.h
-+++ b/include/linux/igmp.h
-@@ -18,6 +18,7 @@
- #include <linux/skbuff.h>
- #include <linux/timer.h>
- #include <linux/in.h>
+diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
+index 1828900..27c0aaa 100644
+--- a/include/linux/netpoll.h
++++ b/include/linux/netpoll.h
+@@ -11,6 +11,7 @@
+ #include <linux/interrupt.h>
+ #include <linux/rcupdate.h>
+ #include <linux/list.h>
 +#include <linux/refcount.h>
- #include <uapi/linux/igmp.h>
  
- static inline struct igmphdr *igmp_hdr(const struct sk_buff *skb)
-@@ -84,7 +85,7 @@ struct ip_mc_list {
- 	struct ip_mc_list __rcu *next_hash;
- 	struct timer_list	timer;
- 	int			users;
--	atomic_t		refcnt;
-+	refcount_t		refcnt;
- 	spinlock_t		lock;
- 	char			tm_running;
- 	char			reporter;
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index ec9a396..f7685f7 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -173,7 +173,7 @@ static int ip_mc_add_src(struct in_device *in_dev, __be32 *pmca, int sfmode,
+ union inet_addr {
+ 	__u32		all[4];
+@@ -34,7 +35,7 @@ struct netpoll {
+ };
  
- static void ip_ma_put(struct ip_mc_list *im)
- {
--	if (atomic_dec_and_test(&im->refcnt)) {
-+	if (refcount_dec_and_test(&im->refcnt)) {
- 		in_dev_put(im->interface);
- 		kfree_rcu(im, rcu);
- 	}
-@@ -199,7 +199,7 @@ static void igmp_stop_timer(struct ip_mc_list *im)
- {
- 	spin_lock_bh(&im->lock);
- 	if (del_timer(&im->timer))
--		atomic_dec(&im->refcnt);
-+		refcount_dec(&im->refcnt);
- 	im->tm_running = 0;
- 	im->reporter = 0;
- 	im->unsolicit_count = 0;
-@@ -213,7 +213,7 @@ static void igmp_start_timer(struct ip_mc_list *im, int max_delay)
+ struct netpoll_info {
+-	atomic_t refcnt;
++	refcount_t refcnt;
  
- 	im->tm_running = 1;
- 	if (!mod_timer(&im->timer, jiffies+tv+2))
--		atomic_inc(&im->refcnt);
-+		refcount_inc(&im->refcnt);
- }
+ 	struct semaphore dev_lock;
  
- static void igmp_gq_start_timer(struct in_device *in_dev)
-@@ -249,7 +249,7 @@ static void igmp_mod_timer(struct ip_mc_list *im, int max_delay)
- 			spin_unlock_bh(&im->lock);
- 			return;
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index e256cd8..59a08e5 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -632,7 +632,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
+ 		skb_queue_head_init(&npinfo->txq);
+ 		INIT_DELAYED_WORK(&npinfo->tx_work, queue_process);
+ 
+-		atomic_set(&npinfo->refcnt, 1);
++		refcount_set(&npinfo->refcnt, 1);
+ 
+ 		ops = np->dev->netdev_ops;
+ 		if (ops->ndo_netpoll_setup) {
+@@ -642,7 +642,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
  		}
--		atomic_dec(&im->refcnt);
-+		refcount_dec(&im->refcnt);
+ 	} else {
+ 		npinfo = rtnl_dereference(ndev->npinfo);
+-		atomic_inc(&npinfo->refcnt);
++		refcount_inc(&npinfo->refcnt);
  	}
- 	igmp_start_timer(im, max_delay);
- 	spin_unlock_bh(&im->lock);
-@@ -1374,7 +1374,7 @@ void ip_mc_inc_group(struct in_device *in_dev, __be32 addr)
- 	/* initial mode is (EX, empty) */
- 	im->sfmode = MCAST_EXCLUDE;
- 	im->sfcount[MCAST_EXCLUDE] = 1;
--	atomic_set(&im->refcnt, 1);
-+	refcount_set(&im->refcnt, 1);
- 	spin_lock_init(&im->lock);
- #ifdef CONFIG_IP_MULTICAST
- 	setup_timer(&im->timer, igmp_timer_expire, (unsigned long)im);
+ 
+ 	npinfo->netpoll = np;
+@@ -821,7 +821,7 @@ void __netpoll_cleanup(struct netpoll *np)
+ 
+ 	synchronize_srcu(&netpoll_srcu);
+ 
+-	if (atomic_dec_and_test(&npinfo->refcnt)) {
++	if (refcount_dec_and_test(&npinfo->refcnt)) {
+ 		const struct net_device_ops *ops;
+ 
+ 		ops = np->dev->netdev_ops;
 -- 
 2.7.4
