@@ -1,16 +1,78 @@
-From: "McCabe, Robert J" <Robert.McCabe@rockwellcollins.com>
-Subject: Re: [net] virtio-net: serialize tx routine during reset
-Date: Tue, 27 Jun 2017 22:02:31 -0500
-Message-ID: <20170628030231.11868-1-Robert.McCabe@rockwellcollins.com>
-References: <1498614663-7711-1-git-send-email-jasowang@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpimr.rockwellcollins.com ([205.175.227.27]:4549 "EHLO
-        da1vs01.rockwellcollins.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752010AbdF1DCj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 23:02:39 -0400
-In-Reply-To: <1498614663-7711-1-git-send-email-jasowang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net] virtio-net: unbreak cusmed packet for small buffer XDP
+Date: Wed, 28 Jun 2017 06:31:39 +0300
+Message-ID: <20170628063033-mutt-send-email-mst@kernel.org>
+References: <1498614843-8163-1-git-send-email-jasowang@redhat.com>
+	<20170628050057-mutt-send-email-mst@kernel.org>
+	<7068053c-50da-6779-5ff2-6588e01e616d@redhat.com>
+	<20170628051555-mutt-send-email-mst@kernel.org>
+	<69907228-fc1b-175f-f6cd-7ac332e318be@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <69907228-fc1b-175f-f6cd-7ac332e318be@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Acked-by: Robert McCabe <robert.mccabe@rockwellcollins.com>
+T24gV2VkLCBKdW4gMjgsIDIwMTcgYXQgMTA6NDU6MThBTSArMDgwMCwgSmFzb24gV2FuZyB3cm90
+ZToKPiAKPiAKPiBPbiAyMDE35bm0MDbmnIgyOOaXpSAxMDoxNywgTWljaGFlbCBTLiBUc2lya2lu
+IHdyb3RlOgo+ID4gT24gV2VkLCBKdW4gMjgsIDIwMTcgYXQgMTA6MTQ6MzRBTSArMDgwMCwgSmFz
+b24gV2FuZyB3cm90ZToKPiA+ID4gCj4gPiA+IE9uIDIwMTflubQwNuaciDI45pelIDEwOjAyLCBN
+aWNoYWVsIFMuIFRzaXJraW4gd3JvdGU6Cj4gPiA+ID4gT24gV2VkLCBKdW4gMjgsIDIwMTcgYXQg
+MDk6NTQ6MDNBTSArMDgwMCwgSmFzb24gV2FuZyB3cm90ZToKPiA+ID4gPiA+IFdlIHNob3VsZCBh
+bGxvdyBjc3VtZWQgcGFja2V0IGZvciBzbWFsbCBidWZmZXIsIG90aGVyd2lzZSBYRFBfUEFTUwo+
+ID4gPiA+ID4gd29uJ3Qgd29yayBjb3JyZWN0bHkuCj4gPiA+ID4gPiAKPiA+ID4gPiA+IEZpeGVz
+IGNvbW1pdCBiYjkxYWNjZjI3MzMgKCJ2aXJ0aW8tbmV0OiBYRFAgc3VwcG9ydCBmb3Igc21hbGwg
+YnVmZmVycyIpCj4gPiA+ID4gPiBTaWduZWQtb2ZmLWJ5OiBKYXNvbiBXYW5nIDxqYXNvd2FuZ0By
+ZWRoYXQuY29tPgo+ID4gPiA+IFRoZSBpc3N1ZSB3b3VsZCBiZSBWSVJUSU9fTkVUX0hEUl9GX0RB
+VEFfVkFMSUQgbWlnaHQgYmUgc2V0Lgo+ID4gPiA+IFdoYXQgZG8geW91IHRoaW5rPwo+ID4gPiBJ
+IHRoaW5rIGl0J3Mgc2FmZS4gRm9yIFhEUF9QQVNTLCBpdCB3b3JrIGxpa2UgaW4gdGhlIHBhc3Qu
+Cj4gPiBUaGF0J3MgdGhlIHBhcnQgSSBkb24ndCBnZXQuIFdpdGggREFUQV9WQUxJRCBjc3VtIGlu
+IHBhY2tldCBpcyB3cm9uZywgWERQCj4gPiB0b29scyBhc3N1bWUgaXQncyB2YWx1ZS4KPiAKPiBE
+QVRBX1ZBTElEIGlzIENIRUNLU1VNX1VOQ0VTU0FSWSBvbiB0aGUgaG9zdCwgYW5kIGFjY29yZGlu
+ZyB0byB0aGUgY29tbWVudAo+IGluIHNrYnVmZi5oCj4gCj4gCj4gIgo+ICAqICAgVGhlIGhhcmR3
+YXJlIHlvdSdyZSBkZWFsaW5nIHdpdGggZG9lc24ndCBjYWxjdWxhdGUgdGhlIGZ1bGwgY2hlY2tz
+dW0KPiAgKiAgIChhcyBpbiBDSEVDS1NVTV9DT01QTEVURSksIGJ1dCBpdCBkb2VzIHBhcnNlIGhl
+YWRlcnMgYW5kIHZlcmlmeQo+IGNoZWNrc3Vtcwo+ICAqICAgZm9yIHNwZWNpZmljIHByb3RvY29s
+cy4gRm9yIHN1Y2ggcGFja2V0cyBpdCB3aWxsIHNldAo+IENIRUNLU1VNX1VOTkVDRVNTQVJZCj4g
+ICogICBpZiB0aGVpciBjaGVja3N1bXMgYXJlIG9rYXkuIHNrYi0+Y3N1bSBpcyBzdGlsbCB1bmRl
+ZmluZWQgaW4gdGhpcyBjYXNlCj4gICogICB0aG91Z2guIEEgZHJpdmVyIG9yIGRldmljZSBtdXN0
+IG5ldmVyIG1vZGlmeSB0aGUgY2hlY2tzdW0gZmllbGQgaW4gdGhlCj4gICogICBwYWNrZXQgZXZl
+biBpZiBjaGVja3N1bSBpcyB2ZXJpZmllZC4KPiAiCj4gCj4gVGhlIGNzdW0gaXMgY29ycmVjdCBJ
+IGJlbGlldmU/Cj4gCj4gVGhhbmtzCgpUaGF0J3Mgb24gaW5wdXQuIEJ1dCBJIHRoaW5rIGZvciB0
+dW4gaXQncyBvdXRwdXQsIHdoZXJlIHRoYXQgaXMgZXF1aXZhbGVudAp0byBDSEVDS1NVTV9OT05F
+CgoKPiA+IAo+ID4gPiBGb3IgWERQX1RYLCB3ZQo+ID4gPiB6ZXJvIHRoZSB2bmV0IGhlYWRlci4K
+PiA+IEFnYWluIFRYIG9mZmxvYWQgaXMgZGlzYWJsZWQsIHNvIHBhY2tldHMgd2lsbCBnbyBvdXQg
+d2l0aCBhbiBpbnZhbGlkCj4gPiBjaGVja3N1bS4KPiA+IAo+ID4gPiBGb3IgYWRqdXN0aW5nIGhl
+YWRlciwgWERQIHByb2cgc2hvdWxkIGRlYWwgd2l0aCBjc3VtLgo+ID4gPiAKPiA+ID4gVGhhbmtz
+Cj4gPiBUaGF0IHBhcnQgc2VlbXMgcmlnaHQuCj4gPiAKPiA+ID4gPiA+IC0tLQo+ID4gPiA+ID4g
+VGhlIHBhdGNoIGlzIG5lZWRlZCBmb3IgLXN0YWJsZS4KPiA+ID4gPiA+IC0tLQo+ID4gPiA+ID4g
+ICAgZHJpdmVycy9uZXQvdmlydGlvX25ldC5jIHwgMiArLQo+ID4gPiA+ID4gICAgMSBmaWxlIGNo
+YW5nZWQsIDEgaW5zZXJ0aW9uKCspLCAxIGRlbGV0aW9uKC0pCj4gPiA+ID4gPiAKPiA+ID4gPiA+
+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMgYi9kcml2ZXJzL25ldC92aXJ0
+aW9fbmV0LmMKPiA+ID4gPiA+IGluZGV4IDE0M2Q4YTkuLjQ5OWZjYzkgMTAwNjQ0Cj4gPiA+ID4g
+PiAtLS0gYS9kcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMKPiA+ID4gPiA+ICsrKyBiL2RyaXZlcnMv
+bmV0L3ZpcnRpb19uZXQuYwo+ID4gPiA+ID4gQEAgLTQxMyw3ICs0MTMsNyBAQCBzdGF0aWMgc3Ry
+dWN0IHNrX2J1ZmYgKnJlY2VpdmVfc21hbGwoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwKPiA+ID4g
+PiA+ICAgIAkJdm9pZCAqb3JpZ19kYXRhOwo+ID4gPiA+ID4gICAgCQl1MzIgYWN0Owo+ID4gPiA+
+ID4gLQkJaWYgKHVubGlrZWx5KGhkci0+aGRyLmdzb190eXBlIHx8IGhkci0+aGRyLmZsYWdzKSkK
+PiA+ID4gPiA+ICsJCWlmICh1bmxpa2VseShoZHItPmhkci5nc29fdHlwZSkpCj4gPiA+ID4gPiAg
+ICAJCQlnb3RvIGVycl94ZHA7Cj4gPiA+ID4gPiAgICAJCXhkcC5kYXRhX2hhcmRfc3RhcnQgPSBi
+dWYgKyBWSVJUTkVUX1JYX1BBRCArIHZpLT5oZHJfbGVuOwo+ID4gPiA+ID4gLS0gCj4gPiA+ID4g
+PiAyLjcuNApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpW
+aXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91
+bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlz
+dGluZm8vdmlydHVhbGl6YXRpb24=
