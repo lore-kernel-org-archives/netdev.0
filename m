@@ -1,733 +1,135 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 05/17] net: convert sk_buff.users from atomic_t to refcount_t
-Date: Wed, 28 Jun 2017 14:54:54 +0300
-Message-ID: <1498650906-12907-6-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 01/17] net: convert inet_peer.refcnt from atomic_t
+	to refcount_t
+Date: Wed, 28 Jun 2017 14:54:50 +0300
+Message-ID: <1498650906-12907-2-git-send-email-elena.reshetova@intel.com>
 References: <1498650906-12907-1-git-send-email-elena.reshetova@intel.com>
-Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
-        stephen@networkplumber.org, peterz@infradead.org,
-        keescook@chromium.org, Elena Reshetova <elena.reshetova@intel.com>,
-        Hans Liljestrand <ishkamiel@gmail.com>,
-        David Windsor <dwindsor@gmail.com>
+Cc: keescook@chromium.org, peterz@infradead.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	jmorris@namei.org, Hans Liljestrand <ishkamiel@gmail.com>,
+	kuznet@ms2.inr.ac.ru, kaber@trash.net,
+	Elena Reshetova <elena.reshetova@intel.com>,
+	David Windsor <dwindsor@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:5509 "EHLO mga14.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751669AbdF1Lzk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 28 Jun 2017 07:55:40 -0400
+Return-path: <bridge-bounces@lists.linux-foundation.org>
 In-Reply-To: <1498650906-12907-1-git-send-email-elena.reshetova@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
 refcount_t type and corresponding API should be
 used instead of atomic_t when the variable is used as
 a reference counter. This allows to avoid accidental
 refcounter overflows that might lead to use-after-free
 situations.
+This conversion requires overall +1 on the whole
+refcounting scheme.
 
 Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
 Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- drivers/infiniband/hw/nes/nes_cm.c |  4 ++--
- drivers/isdn/mISDN/socket.c        |  2 +-
- drivers/net/rionet.c               |  2 +-
- drivers/s390/net/ctcm_main.c       | 26 +++++++++++++-------------
- drivers/s390/net/netiucv.c         | 10 +++++-----
- drivers/s390/net/qeth_core_main.c  |  4 ++--
- include/linux/skbuff.h             |  6 +++---
- net/core/datagram.c                |  8 ++++----
- net/core/dev.c                     | 10 +++++-----
- net/core/netpoll.c                 |  4 ++--
- net/core/pktgen.c                  | 16 ++++++++--------
- net/core/rtnetlink.c               |  2 +-
- net/core/skbuff.c                  | 20 ++++++++++----------
- net/dccp/ipv6.c                    |  2 +-
- net/ipv6/syncookies.c              |  2 +-
- net/ipv6/tcp_ipv6.c                |  2 +-
- net/key/af_key.c                   |  4 ++--
- net/netlink/af_netlink.c           |  6 +++---
- net/rxrpc/skbuff.c                 | 12 ++++++------
- net/sctp/outqueue.c                |  2 +-
- net/sctp/socket.c                  |  2 +-
- 21 files changed, 73 insertions(+), 73 deletions(-)
+ include/net/inetpeer.h |  4 ++--
+ net/ipv4/inetpeer.c    | 18 +++++++++---------
+ 2 files changed, 11 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/infiniband/hw/nes/nes_cm.c b/drivers/infiniband/hw/nes/nes_cm.c
-index 30b256a..de4025d 100644
---- a/drivers/infiniband/hw/nes/nes_cm.c
-+++ b/drivers/infiniband/hw/nes/nes_cm.c
-@@ -742,7 +742,7 @@ int schedule_nes_timer(struct nes_cm_node *cm_node, struct sk_buff *skb,
- 
- 	if (type == NES_TIMER_TYPE_SEND) {
- 		new_send->seq_num = ntohl(tcp_hdr(skb)->seq);
--		atomic_inc(&new_send->skb->users);
-+		refcount_inc(&new_send->skb->users);
- 		spin_lock_irqsave(&cm_node->retrans_list_lock, flags);
- 		cm_node->send_entry = new_send;
- 		add_ref_cm_node(cm_node);
-@@ -924,7 +924,7 @@ static void nes_cm_timer_tick(unsigned long pass)
- 						  flags);
- 				break;
- 			}
--			atomic_inc(&send_entry->skb->users);
-+			refcount_inc(&send_entry->skb->users);
- 			cm_packets_retrans++;
- 			nes_debug(NES_DBG_CM, "Retransmitting send_entry %p "
- 				  "for node %p, jiffies = %lu, time to send = "
-diff --git a/drivers/isdn/mISDN/socket.c b/drivers/isdn/mISDN/socket.c
-index 99e5f97..c5603d1 100644
---- a/drivers/isdn/mISDN/socket.c
-+++ b/drivers/isdn/mISDN/socket.c
-@@ -155,7 +155,7 @@ mISDN_sock_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
- 	copied = skb->len + MISDN_HEADER_LEN;
- 	if (len < copied) {
- 		if (flags & MSG_PEEK)
--			atomic_dec(&skb->users);
-+			refcount_dec(&skb->users);
- 		else
- 			skb_queue_head(&sk->sk_receive_queue, skb);
- 		return -ENOSPC;
-diff --git a/drivers/net/rionet.c b/drivers/net/rionet.c
-index 300bb14..e9f101c 100644
---- a/drivers/net/rionet.c
-+++ b/drivers/net/rionet.c
-@@ -201,7 +201,7 @@ static int rionet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 				rionet_queue_tx_msg(skb, ndev,
- 					nets[rnet->mport->id].active[i]);
- 				if (count)
--					atomic_inc(&skb->users);
-+					refcount_inc(&skb->users);
- 				count++;
- 			}
- 	} else if (RIONET_MAC_MATCH(eth->h_dest)) {
-diff --git a/drivers/s390/net/ctcm_main.c b/drivers/s390/net/ctcm_main.c
-index 198842c..912b877 100644
---- a/drivers/s390/net/ctcm_main.c
-+++ b/drivers/s390/net/ctcm_main.c
-@@ -483,7 +483,7 @@ static int ctcm_transmit_skb(struct channel *ch, struct sk_buff *skb)
- 			spin_unlock_irqrestore(&ch->collect_lock, saveflags);
- 			return -EBUSY;
- 		} else {
--			atomic_inc(&skb->users);
-+			refcount_inc(&skb->users);
- 			header.length = l;
- 			header.type = be16_to_cpu(skb->protocol);
- 			header.unused = 0;
-@@ -500,7 +500,7 @@ static int ctcm_transmit_skb(struct channel *ch, struct sk_buff *skb)
- 	 * Protect skb against beeing free'd by upper
- 	 * layers.
- 	 */
--	atomic_inc(&skb->users);
-+	refcount_inc(&skb->users);
- 	ch->prof.txlen += skb->len;
- 	header.length = skb->len + LL_HEADER_LENGTH;
- 	header.type = be16_to_cpu(skb->protocol);
-@@ -517,14 +517,14 @@ static int ctcm_transmit_skb(struct channel *ch, struct sk_buff *skb)
- 	if (hi) {
- 		nskb = alloc_skb(skb->len, GFP_ATOMIC | GFP_DMA);
- 		if (!nskb) {
--			atomic_dec(&skb->users);
-+			refcount_dec(&skb->users);
- 			skb_pull(skb, LL_HEADER_LENGTH + 2);
- 			ctcm_clear_busy(ch->netdev);
- 			return -ENOMEM;
- 		} else {
- 			memcpy(skb_put(nskb, skb->len), skb->data, skb->len);
--			atomic_inc(&nskb->users);
--			atomic_dec(&skb->users);
-+			refcount_inc(&nskb->users);
-+			refcount_dec(&skb->users);
- 			dev_kfree_skb_irq(skb);
- 			skb = nskb;
- 		}
-@@ -542,7 +542,7 @@ static int ctcm_transmit_skb(struct channel *ch, struct sk_buff *skb)
- 			 * Remove our header. It gets added
- 			 * again on retransmit.
- 			 */
--			atomic_dec(&skb->users);
-+			refcount_dec(&skb->users);
- 			skb_pull(skb, LL_HEADER_LENGTH + 2);
- 			ctcm_clear_busy(ch->netdev);
- 			return -ENOMEM;
-@@ -553,7 +553,7 @@ static int ctcm_transmit_skb(struct channel *ch, struct sk_buff *skb)
- 		ch->ccw[1].count = skb->len;
- 		skb_copy_from_linear_data(skb,
- 				skb_put(ch->trans_skb, skb->len), skb->len);
--		atomic_dec(&skb->users);
-+		refcount_dec(&skb->users);
- 		dev_kfree_skb_irq(skb);
- 		ccw_idx = 0;
- 	} else {
-@@ -679,7 +679,7 @@ static int ctcmpc_transmit_skb(struct channel *ch, struct sk_buff *skb)
- 
- 	if ((fsm_getstate(ch->fsm) != CTC_STATE_TXIDLE) || grp->in_sweep) {
- 		spin_lock_irqsave(&ch->collect_lock, saveflags);
--		atomic_inc(&skb->users);
-+		refcount_inc(&skb->users);
- 		p_header = kmalloc(PDU_HEADER_LENGTH, gfp_type());
- 
- 		if (!p_header) {
-@@ -716,7 +716,7 @@ static int ctcmpc_transmit_skb(struct channel *ch, struct sk_buff *skb)
- 	 * Protect skb against beeing free'd by upper
- 	 * layers.
- 	 */
--	atomic_inc(&skb->users);
-+	refcount_inc(&skb->users);
- 
+diff --git a/include/net/inetpeer.h b/include/net/inetpeer.h
+index 235c781..f2a215f 100644
+--- a/include/net/inetpeer.h
++++ b/include/net/inetpeer.h
+@@ -46,7 +46,7 @@ struct inet_peer {
+ 		struct rcu_head     gc_rcu;
+ 	};
  	/*
- 	 * IDAL support in CTCM is broken, so we have to
-@@ -729,8 +729,8 @@ static int ctcmpc_transmit_skb(struct channel *ch, struct sk_buff *skb)
- 			goto nomem_exit;
- 		} else {
- 			memcpy(skb_put(nskb, skb->len), skb->data, skb->len);
--			atomic_inc(&nskb->users);
--			atomic_dec(&skb->users);
-+			refcount_inc(&nskb->users);
-+			refcount_dec(&skb->users);
- 			dev_kfree_skb_irq(skb);
- 			skb = nskb;
- 		}
-@@ -810,7 +810,7 @@ static int ctcmpc_transmit_skb(struct channel *ch, struct sk_buff *skb)
- 		ch->trans_skb->len = 0;
- 		ch->ccw[1].count = skb->len;
- 		memcpy(skb_put(ch->trans_skb, skb->len), skb->data, skb->len);
--		atomic_dec(&skb->users);
-+		refcount_dec(&skb->users);
- 		dev_kfree_skb_irq(skb);
- 		ccw_idx = 0;
- 		CTCM_PR_DBGDATA("%s(%s): trans_skb len: %04x\n"
-@@ -855,7 +855,7 @@ static int ctcmpc_transmit_skb(struct channel *ch, struct sk_buff *skb)
- 			"%s(%s): MEMORY allocation ERROR\n",
- 			CTCM_FUNTAIL, ch->id);
- 	rc = -ENOMEM;
--	atomic_dec(&skb->users);
-+	refcount_dec(&skb->users);
- 	dev_kfree_skb_any(skb);
- 	fsm_event(priv->mpcg->fsm, MPCG_EVENT_INOP, dev);
- done:
-diff --git a/drivers/s390/net/netiucv.c b/drivers/s390/net/netiucv.c
-index fa732bd..6aa00ea 100644
---- a/drivers/s390/net/netiucv.c
-+++ b/drivers/s390/net/netiucv.c
-@@ -743,7 +743,7 @@ static void conn_action_txdone(fsm_instance *fi, int event, void *arg)
- 	conn->prof.tx_pending--;
- 	if (single_flag) {
- 		if ((skb = skb_dequeue(&conn->commit_queue))) {
--			atomic_dec(&skb->users);
-+			refcount_dec(&skb->users);
- 			if (privptr) {
- 				privptr->stats.tx_packets++;
- 				privptr->stats.tx_bytes +=
-@@ -767,7 +767,7 @@ static void conn_action_txdone(fsm_instance *fi, int event, void *arg)
- 		txbytes += skb->len;
- 		txpackets++;
- 		stat_maxcq++;
--		atomic_dec(&skb->users);
-+		refcount_dec(&skb->users);
- 		dev_kfree_skb_any(skb);
- 	}
- 	if (conn->collect_len > conn->prof.maxmulti)
-@@ -959,7 +959,7 @@ static void netiucv_purge_skb_queue(struct sk_buff_head *q)
- 	struct sk_buff *skb;
+-	 * Once inet_peer is queued for deletion (refcnt == -1), following field
++	 * Once inet_peer is queued for deletion (refcnt == 0), following field
+ 	 * is not available: rid
+ 	 * We can share memory with rcu_head to help keep inet_peer small.
+ 	 */
+@@ -60,7 +60,7 @@ struct inet_peer {
  
- 	while ((skb = skb_dequeue(q))) {
--		atomic_dec(&skb->users);
-+		refcount_dec(&skb->users);
- 		dev_kfree_skb_any(skb);
- 	}
- }
-@@ -1177,7 +1177,7 @@ static int netiucv_transmit_skb(struct iucv_connection *conn,
- 			IUCV_DBF_TEXT(data, 2,
- 				      "EBUSY from netiucv_transmit_skb\n");
- 		} else {
--			atomic_inc(&skb->users);
-+			refcount_inc(&skb->users);
- 			skb_queue_tail(&conn->collect_queue, skb);
- 			conn->collect_len += l;
- 			rc = 0;
-@@ -1247,7 +1247,7 @@ static int netiucv_transmit_skb(struct iucv_connection *conn,
- 		} else {
- 			if (copied)
- 				dev_kfree_skb(skb);
--			atomic_inc(&nskb->users);
-+			refcount_inc(&nskb->users);
- 			skb_queue_tail(&conn->commit_queue, nskb);
- 		}
- 	}
-diff --git a/drivers/s390/net/qeth_core_main.c b/drivers/s390/net/qeth_core_main.c
-index fc6d85f..232b216 100644
---- a/drivers/s390/net/qeth_core_main.c
-+++ b/drivers/s390/net/qeth_core_main.c
-@@ -1239,7 +1239,7 @@ static void qeth_release_skbs(struct qeth_qdio_out_buffer *buf)
- 				iucv->sk_txnotify(skb, TX_NOTIFY_GENERALERROR);
- 			}
- 		}
--		atomic_dec(&skb->users);
-+		refcount_dec(&skb->users);
- 		dev_kfree_skb_any(skb);
- 		skb = skb_dequeue(&buf->skb_list);
- 	}
-@@ -3968,7 +3968,7 @@ static inline int qeth_fill_buffer(struct qeth_qdio_out_q *queue,
- 	int flush_cnt = 0, hdr_len, large_send = 0;
- 
- 	buffer = buf->buffer;
--	atomic_inc(&skb->users);
-+	refcount_inc(&skb->users);
- 	skb_queue_tail(&buf->skb_list, skb);
- 
- 	/*check first on TSO ....*/
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 8a26c02..7498e64 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -818,7 +818,7 @@ struct sk_buff {
- 	unsigned char		*head,
- 				*data;
- 	unsigned int		truesize;
--	atomic_t		users;
-+	refcount_t		users;
+ 	/* following fields might be frequently dirtied */
+ 	__u32			dtime;	/* the time of last use of not referenced entries */
+-	atomic_t		refcnt;
++	refcount_t		refcnt;
  };
  
- #ifdef __KERNEL__
-@@ -1316,7 +1316,7 @@ static inline struct sk_buff *skb_queue_prev(const struct sk_buff_head *list,
-  */
- static inline struct sk_buff *skb_get(struct sk_buff *skb)
- {
--	atomic_inc(&skb->users);
-+	refcount_inc(&skb->users);
- 	return skb;
- }
+ struct inet_peer_base {
+diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
+index 86fa458..c5a117c 100644
+--- a/net/ipv4/inetpeer.c
++++ b/net/ipv4/inetpeer.c
+@@ -115,7 +115,7 @@ static void inetpeer_gc_worker(struct work_struct *work)
  
-@@ -1417,7 +1417,7 @@ static inline void __skb_header_release(struct sk_buff *skb)
-  */
- static inline int skb_shared(const struct sk_buff *skb)
- {
--	return atomic_read(&skb->users) != 1;
-+	return refcount_read(&skb->users) != 1;
- }
+ 		n = list_entry(p->gc_list.next, struct inet_peer, gc_list);
  
- /**
-diff --git a/net/core/datagram.c b/net/core/datagram.c
-index db1866f2..cf0e657 100644
---- a/net/core/datagram.c
-+++ b/net/core/datagram.c
-@@ -244,7 +244,7 @@ struct sk_buff *__skb_try_recv_datagram(struct sock *sk, unsigned int flags,
- 					}
- 				}
- 				*peeked = 1;
--				atomic_inc(&skb->users);
-+				refcount_inc(&skb->users);
- 			} else {
- 				__skb_unlink(skb, queue);
- 				if (destructor)
-@@ -317,9 +317,9 @@ void __skb_free_datagram_locked(struct sock *sk, struct sk_buff *skb, int len)
- {
- 	bool slow;
- 
--	if (likely(atomic_read(&skb->users) == 1))
-+	if (likely(refcount_read(&skb->users) == 1))
- 		smp_rmb();
--	else if (likely(!atomic_dec_and_test(&skb->users))) {
-+	else if (likely(!refcount_dec_and_test(&skb->users))) {
- 		sk_peek_offset_bwd(sk, len);
- 		return;
- 	}
-@@ -347,7 +347,7 @@ int __sk_queue_drop_skb(struct sock *sk, struct sk_buff *skb,
- 		spin_lock_bh(&sk->sk_receive_queue.lock);
- 		if (skb == skb_peek(&sk->sk_receive_queue)) {
- 			__skb_unlink(skb, &sk->sk_receive_queue);
--			atomic_dec(&skb->users);
-+			refcount_dec(&skb->users);
- 			if (destructor)
- 				destructor(sk, skb);
- 			err = 0;
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 7243421..58a4ffb 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1834,7 +1834,7 @@ static inline int deliver_skb(struct sk_buff *skb,
- {
- 	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
- 		return -ENOMEM;
--	atomic_inc(&skb->users);
-+	refcount_inc(&skb->users);
- 	return pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
- }
- 
-@@ -2456,10 +2456,10 @@ void __dev_kfree_skb_irq(struct sk_buff *skb, enum skb_free_reason reason)
- 	if (unlikely(!skb))
- 		return;
- 
--	if (likely(atomic_read(&skb->users) == 1)) {
-+	if (likely(refcount_read(&skb->users) == 1)) {
- 		smp_rmb();
--		atomic_set(&skb->users, 0);
--	} else if (likely(!atomic_dec_and_test(&skb->users))) {
-+		refcount_set(&skb->users, 0);
-+	} else if (likely(!refcount_dec_and_test(&skb->users))) {
- 		return;
- 	}
- 	get_kfree_skb_cb(skb)->reason = reason;
-@@ -3875,7 +3875,7 @@ static __latent_entropy void net_tx_action(struct softirq_action *h)
- 
- 			clist = clist->next;
- 
--			WARN_ON(atomic_read(&skb->users));
-+			WARN_ON(refcount_read(&skb->users));
- 			if (likely(get_kfree_skb_cb(skb)->reason == SKB_REASON_CONSUMED))
- 				trace_consume_skb(skb);
- 			else
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 29be246..e256cd8 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -277,7 +277,7 @@ static void zap_completion_queue(void)
- 			struct sk_buff *skb = clist;
- 			clist = clist->next;
- 			if (!skb_irq_freeable(skb)) {
--				atomic_inc(&skb->users);
-+				refcount_inc(&skb->users);
- 				dev_kfree_skb_any(skb); /* put this one back */
- 			} else {
- 				__kfree_skb(skb);
-@@ -309,7 +309,7 @@ static struct sk_buff *find_skb(struct netpoll *np, int len, int reserve)
- 		return NULL;
- 	}
- 
--	atomic_set(&skb->users, 1);
-+	refcount_set(&skb->users, 1);
- 	skb_reserve(skb, reserve);
- 	return skb;
- }
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 96947f5..598355f 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -3361,7 +3361,7 @@ static void pktgen_wait_for_skb(struct pktgen_dev *pkt_dev)
- {
- 	ktime_t idle_start = ktime_get();
- 
--	while (atomic_read(&(pkt_dev->skb->users)) != 1) {
-+	while (refcount_read(&(pkt_dev->skb->users)) != 1) {
- 		if (signal_pending(current))
- 			break;
- 
-@@ -3418,7 +3418,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
- 	if (pkt_dev->xmit_mode == M_NETIF_RECEIVE) {
- 		skb = pkt_dev->skb;
- 		skb->protocol = eth_type_trans(skb, skb->dev);
--		atomic_add(burst, &skb->users);
-+		refcount_add(burst, &skb->users);
- 		local_bh_disable();
- 		do {
- 			ret = netif_receive_skb(skb);
-@@ -3426,11 +3426,11 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
- 				pkt_dev->errors++;
- 			pkt_dev->sofar++;
- 			pkt_dev->seq_num++;
--			if (atomic_read(&skb->users) != burst) {
-+			if (refcount_read(&skb->users) != burst) {
- 				/* skb was queued by rps/rfs or taps,
- 				 * so cannot reuse this skb
- 				 */
--				atomic_sub(burst - 1, &skb->users);
-+				WARN_ON(refcount_sub_and_test(burst - 1, &skb->users));
- 				/* get out of the loop and wait
- 				 * until skb is consumed
- 				 */
-@@ -3444,7 +3444,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
- 		goto out; /* Skips xmit_mode M_START_XMIT */
- 	} else if (pkt_dev->xmit_mode == M_QUEUE_XMIT) {
- 		local_bh_disable();
--		atomic_inc(&pkt_dev->skb->users);
-+		refcount_inc(&pkt_dev->skb->users);
- 
- 		ret = dev_queue_xmit(pkt_dev->skb);
- 		switch (ret) {
-@@ -3485,7 +3485,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
- 		pkt_dev->last_ok = 0;
- 		goto unlock;
- 	}
--	atomic_add(burst, &pkt_dev->skb->users);
-+	refcount_add(burst, &pkt_dev->skb->users);
- 
- xmit_more:
- 	ret = netdev_start_xmit(pkt_dev->skb, odev, txq, --burst > 0);
-@@ -3511,11 +3511,11 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
- 		/* fallthru */
- 	case NETDEV_TX_BUSY:
- 		/* Retry it next time */
--		atomic_dec(&(pkt_dev->skb->users));
-+		refcount_dec(&(pkt_dev->skb->users));
- 		pkt_dev->last_ok = 0;
- 	}
- 	if (unlikely(burst))
--		atomic_sub(burst, &pkt_dev->skb->users);
-+		WARN_ON(refcount_sub_and_test(burst, &pkt_dev->skb->users));
- unlock:
- 	HARD_TX_UNLOCK(odev, txq);
- 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 467a2f4..22ee1a1 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -647,7 +647,7 @@ int rtnetlink_send(struct sk_buff *skb, struct net *net, u32 pid, unsigned int g
- 
- 	NETLINK_CB(skb).dst_group = group;
- 	if (echo)
--		atomic_inc(&skb->users);
-+		refcount_inc(&skb->users);
- 	netlink_broadcast(rtnl, skb, pid, group, GFP_KERNEL);
- 	if (echo)
- 		err = netlink_unicast(rtnl, skb, pid, MSG_DONTWAIT);
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index b1be7c0..f04c1f8 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -176,7 +176,7 @@ struct sk_buff *__alloc_skb_head(gfp_t gfp_mask, int node)
- 	memset(skb, 0, offsetof(struct sk_buff, tail));
- 	skb->head = NULL;
- 	skb->truesize = sizeof(struct sk_buff);
--	atomic_set(&skb->users, 1);
-+	refcount_set(&skb->users, 1);
- 
- 	skb->mac_header = (typeof(skb->mac_header))~0U;
- out:
-@@ -247,7 +247,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
- 	/* Account for allocated memory : skb + skb->head */
- 	skb->truesize = SKB_TRUESIZE(size);
- 	skb->pfmemalloc = pfmemalloc;
--	atomic_set(&skb->users, 1);
-+	refcount_set(&skb->users, 1);
- 	skb->head = data;
- 	skb->data = data;
- 	skb_reset_tail_pointer(skb);
-@@ -314,7 +314,7 @@ struct sk_buff *__build_skb(void *data, unsigned int frag_size)
- 
- 	memset(skb, 0, offsetof(struct sk_buff, tail));
- 	skb->truesize = SKB_TRUESIZE(size);
--	atomic_set(&skb->users, 1);
-+	refcount_set(&skb->users, 1);
- 	skb->head = data;
- 	skb->data = data;
- 	skb_reset_tail_pointer(skb);
-@@ -696,9 +696,9 @@ void kfree_skb(struct sk_buff *skb)
- {
- 	if (unlikely(!skb))
- 		return;
--	if (likely(atomic_read(&skb->users) == 1))
-+	if (likely(refcount_read(&skb->users) == 1))
- 		smp_rmb();
--	else if (likely(!atomic_dec_and_test(&skb->users)))
-+	else if (likely(!refcount_dec_and_test(&skb->users)))
- 		return;
- 	trace_kfree_skb(skb, __builtin_return_address(0));
- 	__kfree_skb(skb);
-@@ -748,9 +748,9 @@ void consume_skb(struct sk_buff *skb)
- {
- 	if (unlikely(!skb))
- 		return;
--	if (likely(atomic_read(&skb->users) == 1))
-+	if (likely(refcount_read(&skb->users) == 1))
- 		smp_rmb();
--	else if (likely(!atomic_dec_and_test(&skb->users)))
-+	else if (likely(!refcount_dec_and_test(&skb->users)))
- 		return;
- 	trace_consume_skb(skb);
- 	__kfree_skb(skb);
-@@ -807,9 +807,9 @@ void napi_consume_skb(struct sk_buff *skb, int budget)
- 		return;
- 	}
- 
--	if (likely(atomic_read(&skb->users) == 1))
-+	if (likely(refcount_read(&skb->users) == 1))
- 		smp_rmb();
--	else if (likely(!atomic_dec_and_test(&skb->users)))
-+	else if (likely(!refcount_dec_and_test(&skb->users)))
- 		return;
- 	/* if reaching here SKB is ready to free */
- 	trace_consume_skb(skb);
-@@ -906,7 +906,7 @@ static struct sk_buff *__skb_clone(struct sk_buff *n, struct sk_buff *skb)
- 	C(head_frag);
- 	C(data);
- 	C(truesize);
--	atomic_set(&n->users, 1);
-+	refcount_set(&n->users, 1);
- 
- 	atomic_inc(&(skb_shinfo(skb)->dataref));
- 	skb->cloned = 1;
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index 9926211..f4be924 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -353,7 +353,7 @@ static int dccp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- 	if (ipv6_opt_accepted(sk, skb, IP6CB(skb)) ||
- 	    np->rxopt.bits.rxinfo || np->rxopt.bits.rxoinfo ||
- 	    np->rxopt.bits.rxhlim || np->rxopt.bits.rxohlim) {
--		atomic_inc(&skb->users);
-+		refcount_inc(&skb->users);
- 		ireq->pktopts = skb;
- 	}
- 	ireq->ir_iif = sk->sk_bound_dev_if;
-diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
-index 5abc369..a2e430e 100644
---- a/net/ipv6/syncookies.c
-+++ b/net/ipv6/syncookies.c
-@@ -193,7 +193,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 	if (ipv6_opt_accepted(sk, skb, &TCP_SKB_CB(skb)->header.h6) ||
- 	    np->rxopt.bits.rxinfo || np->rxopt.bits.rxoinfo ||
- 	    np->rxopt.bits.rxhlim || np->rxopt.bits.rxohlim) {
--		atomic_inc(&skb->users);
-+		refcount_inc(&skb->users);
- 		ireq->pktopts = skb;
- 	}
- 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 4f4310a..57da9e3 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -720,7 +720,7 @@ static void tcp_v6_init_req(struct request_sock *req,
- 	     np->rxopt.bits.rxinfo ||
- 	     np->rxopt.bits.rxoinfo || np->rxopt.bits.rxhlim ||
- 	     np->rxopt.bits.rxohlim || np->repflow)) {
--		atomic_inc(&skb->users);
-+		refcount_inc(&skb->users);
- 		ireq->pktopts = skb;
- 	}
- }
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 512dc43..51c8e1e 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -203,11 +203,11 @@ static int pfkey_broadcast_one(struct sk_buff *skb, struct sk_buff **skb2,
- 
- 	sock_hold(sk);
- 	if (*skb2 == NULL) {
--		if (atomic_read(&skb->users) != 1) {
-+		if (refcount_read(&skb->users) != 1) {
- 			*skb2 = skb_clone(skb, allocation);
- 		} else {
- 			*skb2 = skb;
--			atomic_inc(&skb->users);
-+			refcount_inc(&skb->users);
+-		if (!atomic_read(&p->refcnt)) {
++		if (refcount_read(&p->refcnt) == 1) {
+ 			list_del(&p->gc_list);
+ 			kmem_cache_free(peer_cachep, p);
  		}
- 	}
- 	if (*skb2 != NULL) {
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 7586d44..0dd0f6a 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1848,7 +1848,7 @@ static int netlink_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
- 	}
- 
- 	if (dst_group) {
--		atomic_inc(&skb->users);
-+		refcount_inc(&skb->users);
- 		netlink_broadcast(sk, skb, dst_portid, dst_group, GFP_KERNEL);
- 	}
- 	err = netlink_unicast(sk, skb, dst_portid, msg->msg_flags&MSG_DONTWAIT);
-@@ -2226,7 +2226,7 @@ int __netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
- 	struct netlink_sock *nlk;
- 	int ret;
- 
--	atomic_inc(&skb->users);
-+	refcount_inc(&skb->users);
- 
- 	sk = netlink_lookup(sock_net(ssk), ssk->sk_protocol, NETLINK_CB(skb).portid);
- 	if (sk == NULL) {
-@@ -2431,7 +2431,7 @@ int nlmsg_notify(struct sock *sk, struct sk_buff *skb, u32 portid,
- 		int exclude_portid = 0;
- 
- 		if (report) {
--			atomic_inc(&skb->users);
-+			refcount_inc(&skb->users);
- 			exclude_portid = portid;
+@@ -202,10 +202,11 @@ static struct inet_peer *lookup_rcu(const struct inetpeer_addr *daddr,
+ 		int cmp = inetpeer_addr_cmp(daddr, &u->daddr);
+ 		if (cmp == 0) {
+ 			/* Before taking a reference, check if this entry was
+-			 * deleted (refcnt=-1)
++			 * deleted (refcnt=0)
+ 			 */
+-			if (!atomic_add_unless(&u->refcnt, 1, -1))
++			if (!refcount_inc_not_zero(&u->refcnt)) {
+ 				u = NULL;
++			}
+ 			return u;
  		}
- 
-diff --git a/net/rxrpc/skbuff.c b/net/rxrpc/skbuff.c
-index 67b02c4..b8985d0 100644
---- a/net/rxrpc/skbuff.c
-+++ b/net/rxrpc/skbuff.c
-@@ -27,7 +27,7 @@ void rxrpc_new_skb(struct sk_buff *skb, enum rxrpc_skb_trace op)
+ 		if (cmp == -1)
+@@ -382,11 +383,10 @@ static int inet_peer_gc(struct inet_peer_base *base,
+ 	while (stackptr > stack) {
+ 		stackptr--;
+ 		p = rcu_deref_locked(**stackptr, base);
+-		if (atomic_read(&p->refcnt) == 0) {
++		if (refcount_read(&p->refcnt) == 1) {
+ 			smp_rmb();
+ 			delta = (__u32)jiffies - p->dtime;
+-			if (delta >= ttl &&
+-			    atomic_cmpxchg(&p->refcnt, 0, -1) == 0) {
++			if (delta >= ttl && refcount_dec_if_one(&p->refcnt)) {
+ 				p->gc_next = gchead;
+ 				gchead = p;
+ 			}
+@@ -432,7 +432,7 @@ struct inet_peer *inet_getpeer(struct inet_peer_base *base,
+ relookup:
+ 	p = lookup(daddr, stack, base);
+ 	if (p != peer_avl_empty) {
+-		atomic_inc(&p->refcnt);
++		refcount_inc(&p->refcnt);
+ 		write_sequnlock_bh(&base->lock);
+ 		return p;
+ 	}
+@@ -444,7 +444,7 @@ struct inet_peer *inet_getpeer(struct inet_peer_base *base,
+ 	p = create ? kmem_cache_alloc(peer_cachep, GFP_ATOMIC) : NULL;
+ 	if (p) {
+ 		p->daddr = *daddr;
+-		atomic_set(&p->refcnt, 1);
++		refcount_set(&p->refcnt, 2);
+ 		atomic_set(&p->rid, 0);
+ 		p->metrics[RTAX_LOCK-1] = INETPEER_METRICS_NEW;
+ 		p->rate_tokens = 0;
+@@ -468,7 +468,7 @@ void inet_putpeer(struct inet_peer *p)
  {
- 	const void *here = __builtin_return_address(0);
- 	int n = atomic_inc_return(select_skb_count(op));
--	trace_rxrpc_skb(skb, op, atomic_read(&skb->users), n, here);
-+	trace_rxrpc_skb(skb, op, refcount_read(&skb->users), n, here);
+ 	p->dtime = (__u32)jiffies;
+ 	smp_mb__before_atomic();
+-	atomic_dec(&p->refcnt);
++	refcount_dec(&p->refcnt);
  }
+ EXPORT_SYMBOL_GPL(inet_putpeer);
  
- /*
-@@ -38,7 +38,7 @@ void rxrpc_see_skb(struct sk_buff *skb, enum rxrpc_skb_trace op)
- 	const void *here = __builtin_return_address(0);
- 	if (skb) {
- 		int n = atomic_read(select_skb_count(op));
--		trace_rxrpc_skb(skb, op, atomic_read(&skb->users), n, here);
-+		trace_rxrpc_skb(skb, op, refcount_read(&skb->users), n, here);
- 	}
- }
- 
-@@ -49,7 +49,7 @@ void rxrpc_get_skb(struct sk_buff *skb, enum rxrpc_skb_trace op)
- {
- 	const void *here = __builtin_return_address(0);
- 	int n = atomic_inc_return(select_skb_count(op));
--	trace_rxrpc_skb(skb, op, atomic_read(&skb->users), n, here);
-+	trace_rxrpc_skb(skb, op, refcount_read(&skb->users), n, here);
- 	skb_get(skb);
- }
- 
-@@ -63,7 +63,7 @@ void rxrpc_free_skb(struct sk_buff *skb, enum rxrpc_skb_trace op)
- 		int n;
- 		CHECK_SLAB_OKAY(&skb->users);
- 		n = atomic_dec_return(select_skb_count(op));
--		trace_rxrpc_skb(skb, op, atomic_read(&skb->users), n, here);
-+		trace_rxrpc_skb(skb, op, refcount_read(&skb->users), n, here);
- 		kfree_skb(skb);
- 	}
- }
-@@ -78,7 +78,7 @@ void rxrpc_lose_skb(struct sk_buff *skb, enum rxrpc_skb_trace op)
- 		int n;
- 		CHECK_SLAB_OKAY(&skb->users);
- 		n = atomic_dec_return(select_skb_count(op));
--		trace_rxrpc_skb(skb, op, atomic_read(&skb->users), n, here);
-+		trace_rxrpc_skb(skb, op, refcount_read(&skb->users), n, here);
- 		kfree_skb(skb);
- 	}
- }
-@@ -93,7 +93,7 @@ void rxrpc_purge_queue(struct sk_buff_head *list)
- 	while ((skb = skb_dequeue((list))) != NULL) {
- 		int n = atomic_dec_return(select_skb_count(rxrpc_skb_rx_purged));
- 		trace_rxrpc_skb(skb, rxrpc_skb_rx_purged,
--				atomic_read(&skb->users), n, here);
-+				refcount_read(&skb->users), n, here);
- 		kfree_skb(skb);
- 	}
- }
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index fe4c3d46..4210cb0 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -1102,7 +1102,7 @@ static void sctp_outq_flush(struct sctp_outq *q, int rtx_timeout, gfp_t gfp)
- 				 sctp_cname(SCTP_ST_CHUNK(chunk->chunk_hdr->type)) :
- 				 "illegal chunk", ntohl(chunk->subh.data_hdr->tsn),
- 				 chunk->skb ? chunk->skb->head : NULL, chunk->skb ?
--				 atomic_read(&chunk->skb->users) : -1);
-+				 refcount_read(&chunk->skb->users) : -1);
- 
- 			/* Add the chunk to the packet.  */
- 			status = sctp_packet_transmit_chunk(packet, chunk, 0, gfp);
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 3a8318e..41152ce 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -7563,7 +7563,7 @@ struct sk_buff *sctp_skb_recv_datagram(struct sock *sk, int flags,
- 		if (flags & MSG_PEEK) {
- 			skb = skb_peek(&sk->sk_receive_queue);
- 			if (skb)
--				atomic_inc(&skb->users);
-+				refcount_inc(&skb->users);
- 		} else {
- 			skb = __skb_dequeue(&sk->sk_receive_queue);
- 		}
 -- 
 2.7.4
