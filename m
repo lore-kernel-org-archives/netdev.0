@@ -1,118 +1,123 @@
-From: Mike Galbraith <efault@gmx.de>
-Subject: kernel (master) build failure w. !CONFIG_NET_RX_BUSY_POLL
-Date: Wed, 28 Jun 2017 10:01:00 +0200
-Message-ID: <1498636860.5505.28.camel@gmx.de>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH/RFC net-next 3/9] nfp: provide infrastructure for
+ offloading flower based TC filters
+Date: Wed, 28 Jun 2017 10:12:45 +0200
+Message-ID: <20170628081244.GC9412@vergenet.net>
+References: <1498605709-22574-1-git-send-email-simon.horman@netronome.com>
+ <1498605709-22574-4-git-send-email-simon.horman@netronome.com>
+ <20170627231306.2804cdef@cakuba.netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: RT <linux-rt-users@vger.kernel.org>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <linux-rt-users-owner@vger.kernel.org>
-Sender: linux-rt-users-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        oss-drivers@netronome.com,
+        Pieter Jansen van Vuuren
+        <pieter.jansenvanvuuren@netronome.com>
+To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:33677 "EHLO
+        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750829AbdF1IMt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 04:12:49 -0400
+Received: by mail-wm0-f41.google.com with SMTP id z75so10518553wmc.0
+        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 01:12:48 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170627231306.2804cdef@cakuba.netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Greetings network wizards,
+On Tue, Jun 27, 2017 at 11:13:06PM -0700, Jakub Kicinski wrote:
+> On Wed, 28 Jun 2017 01:21:43 +0200, Simon Horman wrote:
+> > From: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
+> > 
+> > Adds a flower based TC offload handler for representor devices, this
+> > is in addition to the bpf based offload handler. The changes in this
+> > patch will be used in a follow-up patch to add tc flower offload to
+> > the NFP.
+> > 
+> > The flower app enables tc offloads on representors by default.
+> > 
+> > Signed-off-by: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
+> > Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> 
+> > diff --git a/drivers/net/ethernet/netronome/nfp/flower/main.c b/drivers/net/ethernet/netronome/nfp/flower/main.c
+> > index ab68a8f58862..7b27871f489c 100644
+> > --- a/drivers/net/ethernet/netronome/nfp/flower/main.c
+> > +++ b/drivers/net/ethernet/netronome/nfp/flower/main.c
+> > @@ -37,6 +37,7 @@
+> >  #include <net/devlink.h>
+> >  #include <net/dst_metadata.h>
+> >  
+> > +#include "main.h"
+> >  #include "../nfpcore/nfp_cpp.h"
+> >  #include "../nfpcore/nfp_nsp.h"
+> >  #include "../nfp_app.h"
+> > @@ -303,8 +304,14 @@ static int nfp_flower_vnic_init(struct nfp_app *app, struct nfp_net *nn,
+> >  	eth_hw_addr_random(nn->dp.netdev);
+> >  	netif_keep_dst(nn->dp.netdev);
+> >  
+> > +	if (nfp_flower_repr_init(app))
+> > +		goto err_free_priv;
+> 
+> Please make the contents of nfp_flower_repr_init() part of app's .init
+> callback.
 
-The latest RT explicitly disables CONFIG_NET_RX_BUSY_POLL, thus
-uncovering $subject.  Below is what I did about it.
+Thanks, I will fix this up and other comments relating to
+nfp_flower_repr_init()
 
-	-Mike
+> >  	return 0;
+> >  
+> > +err_free_priv:
+> > +	kfree(app->priv);
+> > +	app->priv = NULL;
+> 
+> This doesn't belong here after my recent series.  priv init was moved
+> to app's init callback.
+> 
+> >  err_invalid_port:
+> >  	nn->port = nfp_port_alloc(app, NFP_PORT_INVALID, nn->dp.netdev);
+> >  	return PTR_ERR_OR_ZERO(nn->port);
+> 
+> > +int nfp_flower_repr_init(struct nfp_app *app)
+> > +{
+> > +	u64 version;
+> > +	int err;
+> > +
+> > +	version = nfp_rtsym_read_le(app->pf->rtbl, "hw_flower_version", &err);
+> > +	if (err)
+> > +		return -EINVAL;
+> 
+> Nit: this could return err directly.  Also I think it's worth printing
+> an error message.
+> 
+> > +	/* We need to ensure hardware has enough flower capabilities. */
+> > +	if (version != NFP_FLOWER_ALLOWED_VER)
+> > +		return -EINVAL;
+> 
+> Here we should definitely tell the user what went wrong.
+> 
+> > +	return 0;
+> > +}
+> 
+> > diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
+> > index bc9108071e5b..a73b311c1f75 100644
+> > --- a/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
+> > +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
+> > @@ -250,6 +250,18 @@ static int nfp_repr_open(struct net_device *netdev)
+> >  	return nfp_app_repr_open(repr->app, repr);
+> >  }
+> >  
+> > +static int
+> > +nfp_repr_setup_tc(struct net_device *netdev, u32 handle, u32 chain_index,
+> > +		  __be16 proto, struct tc_to_netdev *tc)
+> > +{
+> > +	struct nfp_repr *repr = netdev_priv(netdev);
+> > +
+> > +	if (chain_index)
+> > +		return -EOPNOTSUPP;
+> > +
+> > +	return nfp_app_setup_tc(repr->app, netdev, handle, proto, tc);
+> > +}
+> 
+> Just a reminder that this could be a nfp_port function.
 
-net: Move napi_hash_add/del() inside CONFIG_NET_RX_BUSY_POLL
-
-Since 545cd5e5ec54 ("net: Busy polling should ignore sender CPUs"),
-kernel build fails when CONFIG_NET_RX_BUSY_POLL is disabled.  Move
-napi_hash_add/del() accordingly.
-
-Banged-upon-by: Mike Galbraith <efault@gmx.de>
----
- include/linux/netdevice.h |    8 ++++++++
- net/core/dev.c            |   12 ++++++++----
- 2 files changed, 16 insertions(+), 4 deletions(-)
-
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -479,6 +479,8 @@ static inline bool napi_complete(struct
- 	return napi_complete_done(n, 0);
- }
- 
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+
- /**
-  *	napi_hash_del - remove a NAPI from global table
-  *	@napi: NAPI context
-@@ -493,6 +495,12 @@ static inline bool napi_complete(struct
-  */
- bool napi_hash_del(struct napi_struct *napi);
- 
-+#else /* !CONFIG_NET_RX_BUSY_POLL */
-+
-+static inline bool napi_hash_del(struct napi_struct *napi) { return false; }
-+
-+#endif /* CONFIG_NET_RX_BUSY_POLL */
-+
- /**
-  *	napi_disable - prevent NAPI from scheduling
-  *	@n: NAPI context
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -184,11 +184,13 @@ static int call_netdevice_notifiers_info
- DEFINE_RWLOCK(dev_base_lock);
- EXPORT_SYMBOL(dev_base_lock);
- 
-+#ifdef CONFIG_NET_RX_BUSY_POLL
- /* protects napi_hash addition/deletion and napi_gen_id */
- static DEFINE_SPINLOCK(napi_hash_lock);
- 
- static unsigned int napi_gen_id = NR_CPUS;
- static DEFINE_READ_MOSTLY_HASHTABLE(napi_hash, 8);
-+#endif
- 
- static seqcount_t devnet_rename_seq;
- static DEFINE_MUTEX(devnet_rename_mutex);
-@@ -5185,6 +5187,8 @@ bool napi_complete_done(struct napi_stru
- }
- EXPORT_SYMBOL(napi_complete_done);
- 
-+#if defined(CONFIG_NET_RX_BUSY_POLL)
-+
- /* must be called under rcu_read_lock(), as we dont take a reference */
- static struct napi_struct *napi_by_id(unsigned int napi_id)
- {
-@@ -5198,8 +5202,6 @@ static struct napi_struct *napi_by_id(un
- 	return NULL;
- }
- 
--#if defined(CONFIG_NET_RX_BUSY_POLL)
--
- #define BUSY_POLL_BUDGET 8
- 
- static void busy_poll_stop(struct napi_struct *napi, void *have_poll_lock)
-@@ -5300,8 +5302,6 @@ void napi_busy_loop(unsigned int napi_id
- }
- EXPORT_SYMBOL(napi_busy_loop);
- 
--#endif /* CONFIG_NET_RX_BUSY_POLL */
--
- static void napi_hash_add(struct napi_struct *napi)
- {
- 	if (test_bit(NAPI_STATE_NO_BUSY_POLL, &napi->state) ||
-@@ -5341,6 +5341,8 @@ bool napi_hash_del(struct napi_struct *n
- }
- EXPORT_SYMBOL_GPL(napi_hash_del);
- 
-+#endif /* CONFIG_NET_RX_BUSY_POLL */
-+
- static enum hrtimer_restart napi_watchdog(struct hrtimer *timer)
- {
- 	struct napi_struct *napi;
-@@ -5377,7 +5379,9 @@ void netif_napi_add(struct net_device *d
- 	napi->poll_owner = -1;
- #endif
- 	set_bit(NAPI_STATE_SCHED, &napi->state);
-+#ifdef CONFIG_NET_RX_BUSY_POLL
- 	napi_hash_add(napi);
-+#endif
- }
- EXPORT_SYMBOL(netif_napi_add);
- 
+Sure, will do.
