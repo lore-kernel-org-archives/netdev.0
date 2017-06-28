@@ -1,104 +1,101 @@
 From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH iproute2 V1 3/6] rdma: Add device capability parsing
-Date: Wed, 28 Jun 2017 07:16:48 +0300
-Message-ID: <20170628041648.GW1248@mtr-leonro.local>
-References: <20170627143920.28020-1-leon@kernel.org>
- <20170627143920.28020-4-leon@kernel.org>
- <20170627160449.58e40a9f@xeon-e3>
+Subject: Re: [PATCH iproute2 3/5] rdma: Add device capability parsing
+Date: Wed, 28 Jun 2017 07:33:37 +0300
+Message-ID: <20170628043337.GX1248@mtr-leonro.local>
+References: <20170626182924.GB16026@obsidianresearch.com>
+ <20170626192103.GH1248@mtr-leonro.local>
+ <20170626203610.GB17892@obsidianresearch.com>
+ <20170627040604.GI1248@mtr-leonro.local>
+ <20170627092129.GR1248@mtr-leonro.local>
+ <20170627164150.GA4288@obsidianresearch.com>
+ <20170627173301.GS1248@mtr-leonro.local>
+ <20170627173735.GA5162@obsidianresearch.com>
+ <20170627174615.GV1248@mtr-leonro.local>
+ <20170627151859.524d1079@xeon-e3>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="0+/s3RgBAfRJTJO/"
-Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        protocol="application/pgp-signature"; boundary="dZRDC+ooC0woGCz3"
+Cc: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
         Ariel Almog <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
         Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
         Linux RDMA <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
         Linux Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 To: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20170627160449.58e40a9f@xeon-e3>
+In-Reply-To: <20170627151859.524d1079@xeon-e3>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
---0+/s3RgBAfRJTJO/
+--dZRDC+ooC0woGCz3
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-On Tue, Jun 27, 2017 at 04:04:49PM -0700, Stephen Hemminger wrote:
-> On Tue, 27 Jun 2017 17:39:17 +0300
+On Tue, Jun 27, 2017 at 03:18:59PM -0700, Stephen Hemminger wrote:
+> On Tue, 27 Jun 2017 20:46:15 +0300
 > Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
 >
-> > +static const char *dev_caps[64] = {
-> > +	"RESIZE_MAX_WR",
-> > +	"BAD_PKEY_CNTR",
-> > +	"BAD_QKEY_CNTR",
-> > +	"RAW_MULTI",
-> > +	"AUTO_PATH_MIG",
-> > +	"CHANGE_PHY_PORT",
-> > +	"UD_AV_PORT_ENFORCE",
-> > +	"CURR_QP_STATE_MOD",
-> > +	"SHUTDOWN_PORT",
-> > +	"INIT_TYPE",
-> > +	"PORT_ACTIVE_EVENT",
-> > +	"SYS_IMAGE_GUID",
-> > +	"RC_RNR_NAK_GEN",
-> > +	"SRQ_RESIZE",
-> > +	"N_NOTIFY_CQ",
-> > +	"LOCAL_DMA_LKEY",
-> > +	"RESERVED",
-> > +	"MEM_WINDOW",
-> > +	"UD_IP_CSUM",
-> > +	"UD_TSO",
-> > +	"XRC",
-> > +	"MEM_MGT_EXTENSIONS",
-> > +	"BLOCK_MULTICAST_LOOPBACK",
-> > +	"MEM_WINDOW_TYPE_2A",
-> > +	"MEM_WINDOW_TYPE_2B",
-> > +	"RC_IP_CSUM",
-> > +	"RAW_IP_CSUM",
-> > +	"CROSS_CHANNEL",
-> > +	"MANAGED_FLOW_STEERING",
-> > +	"SIGNATURE_HANDOVER",
-> > +	"ON_DEMAND_PAGING",
-> > +	"SG_GAPS_REG",
-> > +	"VIRTUAL_FUNCTION",
-> > +	"RAW_SCATTER_FCS",
-> > +	"RDMA_NETDEV_OPA_VNIC",
-> > +};
+> > On Tue, Jun 27, 2017 at 11:37:35AM -0600, Jason Gunthorpe wrote:
+> > > On Tue, Jun 27, 2017 at 08:33:01PM +0300, Leon Romanovsky wrote:
+> > >
+> > > > My initial plan was to put all parsers under their respective names, in
+> > > > the similar way as I did for caps: $ rdma dev show mlx5_4 caps
+> > >
+> > > I think you should have a useful summary display similar to 'ip a' and
+> > > other commands.
+> > >
+> > > guid(s), subnet prefix or default gid for IB, lid/lmc, link state,
+> > > speed, mtu, pkeys protocol(s)
+> >
+> > It will, but before I would like to see this tool be a part of
+> > iproute2, so other people will be able to extend it in addition
+> > to me.
+> >
+> > Are you fine with the proposed code?
+> >
 >
-> Please use array initializer so that header and capabilities don't get different values.
-> Are the bit values in some rdma header file?
+> Output formats need to be nailed down. The output of iproute2 commands is almost
+> like an ABI. Users build scripts to parse it (whether that is a great idea or not
+> is debateable, it mostly shows the weakness in programatic API's). Therefore fully
+> changing output formats in later revisions is likely to get users upset.
+>
+> The first version doesn't have to be perfect, just close to the overall goal
+> of what is planned.
 
-It is enum ib_device_cap_flags copied from include/rdma/ib_verbs.h.
-These enum ib_device_cap_flags and enum ib_port_cap_flags are not exposed
-to the user (include/uapi/rdma/*) and I'm planning to move them there in
-next cycle.
+In this version, I'm going to use arrays without indexes, because I prefer
+to expose the bare minimum from the kernel, which is RDMA netlink. After
+everything else is settled, I'll move those defines to UAPI and reuse them
+in rdmatool.
+
+I'll send new version with -d/--details flag and enrich minimal summary.
+It won't include anything related to tables gids, pkey yet.
 
 Thanks
 
---0+/s3RgBAfRJTJO/
+
+--dZRDC+ooC0woGCz3
 Content-Type: application/pgp-signature; name="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAllTLbAACgkQ5GN7iDZy
-WKd/yg/+JJDDPv2LVWhTRnWyaX82Bcysk5tc3uDXLYSMmOrC3nYsGWIJrLWBBCLt
-MRHEiLeXAG/zLbRG47KTBoYtGkdVVjzPEOl3atCM6iIgNbakIL/jZr5UdxBtMKNp
-Y0PV5Hak7hi0DGIUdql7lQebUt2cNQ4f8URK6n6bv0fxIMKPueV5X7CTsgmo4IYj
-tNObR1CDWQcHsb5ad7UzcIPa0Xkgv3LBkYf4zMyaLWY1WL9LszVcwUNZW8sRRljY
-MXJ4ZtGqCINL2+DH/IsWQzdUFj69/7QlmOlETOis4/rnr9fZN4Lsahu4H46M2vsO
-Z09GjS4BwIv0Q0tABM5E4DQ78r2kUiaPVEmnbrZX20xq12PGxF422/hLrDc+8EOr
-VoEG+rDo/uA6fOd8cbsYmg7IlQ6n8B/PXjfsCOG8vxc/Rpgdw6FmOniZr38DfOXk
-UPGZG0AK0Ci13XTbkZET+DIywJ2lV4LSKHnhClSUvKMF+MAw1EeCBzada2ES2yiI
-LVYtW4TH+T8k9OvkP369MRKPolejFBy3h+LnqTyjVTBJ09rbEaK+pjYvwIL7z7N/
-GSMQVzKPTVdUCVlcRxjp8A36jMm4yYXQqvkz6TrBMATGJuK/73c0fAVg8PdCeZlF
-4NFfF+qt0Yx2cbpEbOLKinmyr3ttYUOI9UJu2Mgp2v91npuFSjU=
-=rnuf
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAllTMaEACgkQ5GN7iDZy
+WKeYcxAAoI8BpuZUGxUbSWcZIjipzBjPRsQOKbnKkkQ+40KE5hXnZCMAQxHy3bvl
+ZqNOPBmZz/LJbLdSYojAOZxPlMvZ0ZUH8qxRGq0VRMkaXAhyhSISpBor0VpjeBqz
+GBZ/61BcX18hI6CwFlyW/ULfwgMZfhZuXFtg1CfOXh5sZ/ogcUJ26pCMvXxlAiLD
+JNbGod+b4JfutFWdDBqbKpbSDMQd+CGpH5T79wQn6D2c498sw7AcNYx6CBxP6L5g
+OQSUii4pYHvRDveAz66rQvd6rjdhfnvARRGnXpHhDGHODSQsP7gNmYijLdoNRb5j
+zANNAcdFr3vuSjnqWoXtF5jOFJlBw759W2Q/M86o5qN/vOT3mQa8c5py/SQvWQz2
+2ON6ghpUPBKs9F6PrX8H9IMfL0Q9o0fT+ea0IRCVDy6ndG/59fJQkY/kKbIWiazs
+gEWuPRdXOCI2x7VoN7pX/GGskW89liBzqHNFZBRzx19eJ6g5hsTFnT4IzoKSpVeo
+8I9UrDwT9PlC9ReE7CaYe/DcQ4spNSdaYSIse2W1oZqfp3ij2qFYmnAZCviqsdZu
+fcwASBR2KJ45j6Gks2bz42UtgXPYd2EJSZ5R2W0r+BOfDUkNgyOkdetPYAQ1Nh8Y
+kqSO89z9neuixzj5/lHkTIu0qkCGn0V0EGEl1/alcb2Llve2ZQQ=
+=64Sr
 -----END PGP SIGNATURE-----
 
---0+/s3RgBAfRJTJO/--
+--dZRDC+ooC0woGCz3--
 --
 To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
