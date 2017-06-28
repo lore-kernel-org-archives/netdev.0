@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 15/17] net: convert net.passive from atomic_t to refcount_t
-Date: Wed, 28 Jun 2017 14:55:04 +0300
-Message-ID: <1498650906-12907-16-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 16/17] net: convert netlbl_lsm_cache.refcount from atomic_t to refcount_t
+Date: Wed, 28 Jun 2017 14:55:05 +0300
+Message-ID: <1498650906-12907-17-git-send-email-elena.reshetova@intel.com>
 References: <1498650906-12907-1-git-send-email-elena.reshetova@intel.com>
 Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
         kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
@@ -10,14 +10,10 @@ Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
         Hans Liljestrand <ishkamiel@gmail.com>,
         David Windsor <dwindsor@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:34013 "EHLO mga14.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752094AbdF1L4L (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 28 Jun 2017 07:56:11 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1498650906-12907-1-git-send-email-elena.reshetova@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 refcount_t type and corresponding API should be
 used instead of atomic_t when the variable is used as
@@ -30,66 +26,94 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/net_namespace.h | 3 ++-
- net/core/net-sysfs.c        | 2 +-
- net/core/net_namespace.c    | 4 ++--
- 3 files changed, 5 insertions(+), 4 deletions(-)
+ include/net/netlabel.h | 8 ++++----
+ net/ipv4/cipso_ipv4.c  | 4 ++--
+ net/ipv6/calipso.c     | 4 ++--
+ 3 files changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index fe80bb4..bffe0a3 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -5,6 +5,7 @@
- #define __NET_NET_NAMESPACE_H
- 
- #include <linux/atomic.h>
+diff --git a/include/net/netlabel.h b/include/net/netlabel.h
+index efe9806..72d6435 100644
+--- a/include/net/netlabel.h
++++ b/include/net/netlabel.h
+@@ -37,7 +37,7 @@
+ #include <linux/in6.h>
+ #include <net/netlink.h>
+ #include <net/request_sock.h>
+-#include <linux/atomic.h>
 +#include <linux/refcount.h>
- #include <linux/workqueue.h>
- #include <linux/list.h>
- #include <linux/sysctl.h>
-@@ -46,7 +47,7 @@ struct netns_ipvs;
- #define NETDEV_HASHENTRIES (1 << NETDEV_HASHBITS)
  
- struct net {
--	atomic_t		passive;	/* To decided when the network
-+	refcount_t		passive;	/* To decided when the network
- 						 * namespace should be freed.
- 						 */
- 	atomic_t		count;		/* To decided when the network
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 65ea0ff..bdcf5dd 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -1444,7 +1444,7 @@ static void *net_grab_current_ns(void)
- 	struct net *ns = current->nsproxy->net_ns;
- #ifdef CONFIG_NET_NS
- 	if (ns)
--		atomic_inc(&ns->passive);
-+		refcount_inc(&ns->passive);
- #endif
- 	return ns;
+ struct cipso_v4_doi;
+ struct calipso_doi;
+@@ -136,7 +136,7 @@ struct netlbl_audit {
+  *
+  */
+ struct netlbl_lsm_cache {
+-	atomic_t refcount;
++	refcount_t refcount;
+ 	void (*free) (const void *data);
+ 	void *data;
+ };
+@@ -295,7 +295,7 @@ static inline struct netlbl_lsm_cache *netlbl_secattr_cache_alloc(gfp_t flags)
+ 
+ 	cache = kzalloc(sizeof(*cache), flags);
+ 	if (cache)
+-		atomic_set(&cache->refcount, 1);
++		refcount_set(&cache->refcount, 1);
+ 	return cache;
  }
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 26bbfab..50935eb 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -284,7 +284,7 @@ static __net_init int setup_net(struct net *net, struct user_namespace *user_ns)
- 	LIST_HEAD(net_exit_list);
  
- 	atomic_set(&net->count, 1);
--	atomic_set(&net->passive, 1);
-+	refcount_set(&net->passive, 1);
- 	net->dev_base_seq = 1;
- 	net->user_ns = user_ns;
- 	idr_init(&net->netns_ids);
-@@ -380,7 +380,7 @@ static void net_free(struct net *net)
- void net_drop_ns(void *p)
+@@ -309,7 +309,7 @@ static inline struct netlbl_lsm_cache *netlbl_secattr_cache_alloc(gfp_t flags)
+  */
+ static inline void netlbl_secattr_cache_free(struct netlbl_lsm_cache *cache)
  {
- 	struct net *ns = p;
--	if (ns && atomic_dec_and_test(&ns->passive))
-+	if (ns && refcount_dec_and_test(&ns->passive))
- 		net_free(ns);
- }
+-	if (!atomic_dec_and_test(&cache->refcount))
++	if (!refcount_dec_and_test(&cache->refcount))
+ 		return;
  
+ 	if (cache->free)
+diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
+index ae20616..c204477 100644
+--- a/net/ipv4/cipso_ipv4.c
++++ b/net/ipv4/cipso_ipv4.c
+@@ -265,7 +265,7 @@ static int cipso_v4_cache_check(const unsigned char *key,
+ 		    entry->key_len == key_len &&
+ 		    memcmp(entry->key, key, key_len) == 0) {
+ 			entry->activity += 1;
+-			atomic_inc(&entry->lsm_data->refcount);
++			refcount_inc(&entry->lsm_data->refcount);
+ 			secattr->cache = entry->lsm_data;
+ 			secattr->flags |= NETLBL_SECATTR_CACHE;
+ 			secattr->type = NETLBL_NLTYPE_CIPSOV4;
+@@ -332,7 +332,7 @@ int cipso_v4_cache_add(const unsigned char *cipso_ptr,
+ 	}
+ 	entry->key_len = cipso_ptr_len;
+ 	entry->hash = cipso_v4_map_cache_hash(cipso_ptr, cipso_ptr_len);
+-	atomic_inc(&secattr->cache->refcount);
++	refcount_inc(&secattr->cache->refcount);
+ 	entry->lsm_data = secattr->cache;
+ 
+ 	bkt = entry->hash & (CIPSO_V4_CACHE_BUCKETS - 1);
+diff --git a/net/ipv6/calipso.c b/net/ipv6/calipso.c
+index 8d772fe..4406752 100644
+--- a/net/ipv6/calipso.c
++++ b/net/ipv6/calipso.c
+@@ -227,7 +227,7 @@ static int calipso_cache_check(const unsigned char *key,
+ 		    entry->key_len == key_len &&
+ 		    memcmp(entry->key, key, key_len) == 0) {
+ 			entry->activity += 1;
+-			atomic_inc(&entry->lsm_data->refcount);
++			refcount_inc(&entry->lsm_data->refcount);
+ 			secattr->cache = entry->lsm_data;
+ 			secattr->flags |= NETLBL_SECATTR_CACHE;
+ 			secattr->type = NETLBL_NLTYPE_CALIPSO;
+@@ -296,7 +296,7 @@ static int calipso_cache_add(const unsigned char *calipso_ptr,
+ 	}
+ 	entry->key_len = calipso_ptr_len;
+ 	entry->hash = calipso_map_cache_hash(calipso_ptr, calipso_ptr_len);
+-	atomic_inc(&secattr->cache->refcount);
++	refcount_inc(&secattr->cache->refcount);
+ 	entry->lsm_data = secattr->cache;
+ 
+ 	bkt = entry->hash & (CALIPSO_CACHE_BUCKETS - 1);
 -- 
 2.7.4
