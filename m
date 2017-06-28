@@ -1,34 +1,48 @@
-From: Daniel Borkmann via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [PATCH v3 net-next 03/12] nfp: change bpf
- verifier hooks to match new verifier data structures
-Date: Wed, 28 Jun 2017 22:47:28 +0200
-Message-ID: <595415E0.9060403@iogearbox.net>
-References: <adc11342-737f-4e06-bce3-f0a92b5594a5@solarflare.com>
-	<b8418d35-7d3f-1ee3-2bfa-cdf87e5b7c95@solarflare.com>
-Reply-To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: [PATCH net-next 0/3] fix sw timestamping for non PTP packets
+Date: Wed, 28 Jun 2017 16:25:55 -0500
+Message-ID: <913d9223-9a76-49f1-b176-9a904e5bf0cd@ti.com>
+References: <1498571933-3663-1-git-send-email-ivan.khoronzhuk@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: oss-drivers-wFxRvT7yatFl57MIdRCFDg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>,
-	Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <b8418d35-7d3f-1ee3-2bfa-cdf87e5b7c95-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <linux-omap@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
+        <m-karicheri2@ti.com>, <w-kwok2@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lelnx193.ext.ti.com ([198.47.27.77]:48007 "EHLO
+        lelnx193.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751913AbdF1V0D (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 17:26:03 -0400
+In-Reply-To: <1498571933-3663-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/27/2017 02:57 PM, Edward Cree wrote:
-> Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 
-Acked-by: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+
+On 06/27/2017 08:58 AM, Ivan Khoronzhuk wrote:
+> This series contains several corrections connected with timestamping
+> for cpsw and netcp drivers based on same cpts module.
+> 
+> Based on net/next
+
+Reviewed-by: Grygorii Strashko <grygorii.strashko@ti.com>
+
+> 
+> Ivan Khoronzhuk (3):
+>    net: ethernet: ti: cpsw: move skb timestamp to packet_submit
+>    net: ethernet: ti: cpsw: fix sw timestamping for non PTP packets
+>    net: ethernet: ti: netcp_ethss: use cpts to check if packet needs
+>      timestamping
+> 
+>   drivers/net/ethernet/ti/cpsw.c        |  6 +++---
+>   drivers/net/ethernet/ti/cpts.h        | 16 ++++++++++++++++
+>   drivers/net/ethernet/ti/netcp_ethss.c | 18 +-----------------
+>   3 files changed, 20 insertions(+), 20 deletions(-)
+> 
+
+-- 
+regards,
+-grygorii
