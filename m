@@ -1,7 +1,7 @@
 From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next v4 02/16] bpf: program to load and attach sock_ops BPF progs
-Date: Wed, 28 Jun 2017 10:31:10 -0700
-Message-ID: <20170628173124.3299500-3-brakmo@fb.com>
+Subject: [PATCH net-next v4 05/16] bpf: Support for setting initial receive window
+Date: Wed, 28 Jun 2017 10:31:13 -0700
+Message-ID: <20170628173124.3299500-6-brakmo@fb.com>
 References: <20170628173124.3299500-1-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,178 +11,135 @@ Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:50263 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:53298 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751489AbdF1Rbb (ORCPT
+        by vger.kernel.org with ESMTP id S1751715AbdF1Rbb (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 13:31:31 -0400
-Received: from pps.filterd (m0109333.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5SHTZCG012861
+Received: from pps.filterd (m0109334.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5SHS1fH030320
         for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:31:30 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2bcfmtrb0d-1
+        by mx0a-00082601.pphosted.com with ESMTP id 2bcad61g6s-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
         for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:31:30 -0700
 Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
- mx-out.facebook.com (10.212.232.63) with ESMTP id
- 9eb898305c2711e7ab3b0002c992ebde-65b3c8f0 for <netdev@vger.kernel.org>;        Wed,
+ mx-out.facebook.com (10.103.99.97) with ESMTP  id
+ 9ed8148a5c2711e7b59c0002c9931860-37d378f0 for <netdev@vger.kernel.org>;        Wed,
  28 Jun 2017 10:31:29 -0700
 In-Reply-To: <20170628173124.3299500-1-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The program load_sock_ops can be used to load sock_ops bpf programs and
-to attach it to an existing (v2) cgroup. It can also be used to detach
-sock_ops programs.
-
-Examples:
-    load_sock_ops [-l] <cg-path> <prog filename>
-	Load and attaches a sock_ops program at the specified cgroup.
-	If "-l" is used, the program will continue to run to output the
-	BPF log buffer.
-	If the specified filename does not end in ".o", it appends
-	"_kern.o" to the name.
-
-    load_sock_ops -r <cg-path>
-	Detaches the currently attached sock_ops program from the
-	specified cgroup.
+This patch adds suppport for setting the initial advertized window from
+within a BPF_SOCK_OPS program. This can be used to support larger
+initial cwnd values in environments where it is known to be safe.
 
 Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
 ---
- samples/bpf/Makefile        |  3 ++
- samples/bpf/load_sock_ops.c | 97 +++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 100 insertions(+)
- create mode 100644 samples/bpf/load_sock_ops.c
+ include/net/tcp.h        | 10 ++++++++++
+ include/uapi/linux/bpf.h |  4 ++++
+ net/ipv4/tcp_minisocks.c |  9 ++++++++-
+ net/ipv4/tcp_output.c    |  7 ++++++-
+ 4 files changed, 28 insertions(+), 2 deletions(-)
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index e7ec9b8..015589b 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -36,6 +36,7 @@ hostprogs-y += lwt_len_hist
- hostprogs-y += xdp_tx_iptunnel
- hostprogs-y += test_map_in_map
- hostprogs-y += per_socket_stats_example
-+hostprogs-y += load_sock_ops
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index cd9ef63..af404aa 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -2069,4 +2069,14 @@ static inline u32 tcp_timeout_init(struct sock *sk, bool is_req_sock)
+ 	return timeout;
+ }
  
- # Libbpf dependencies
- LIBBPF := ../../tools/lib/bpf/bpf.o
-@@ -52,6 +53,7 @@ tracex3-objs := bpf_load.o $(LIBBPF) tracex3_user.o
- tracex4-objs := bpf_load.o $(LIBBPF) tracex4_user.o
- tracex5-objs := bpf_load.o $(LIBBPF) tracex5_user.o
- tracex6-objs := bpf_load.o $(LIBBPF) tracex6_user.o
-+load_sock_ops-objs := bpf_load.o $(LIBBPF) load_sock_ops.o
- test_probe_write_user-objs := bpf_load.o $(LIBBPF) test_probe_write_user_user.o
- trace_output-objs := bpf_load.o $(LIBBPF) trace_output_user.o
- lathist-objs := bpf_load.o $(LIBBPF) lathist_user.o
-@@ -130,6 +132,7 @@ HOSTLOADLIBES_tracex4 += -lelf -lrt
- HOSTLOADLIBES_tracex5 += -lelf
- HOSTLOADLIBES_tracex6 += -lelf
- HOSTLOADLIBES_test_cgrp2_sock2 += -lelf
-+HOSTLOADLIBES_load_sock_ops += -lelf
- HOSTLOADLIBES_test_probe_write_user += -lelf
- HOSTLOADLIBES_trace_output += -lelf -lrt
- HOSTLOADLIBES_lathist += -lelf
-diff --git a/samples/bpf/load_sock_ops.c b/samples/bpf/load_sock_ops.c
-new file mode 100644
-index 0000000..91aa00d
---- /dev/null
-+++ b/samples/bpf/load_sock_ops.c
-@@ -0,0 +1,97 @@
-+/* Copyright (c) 2017 Facebook
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <linux/bpf.h>
-+#include "libbpf.h"
-+#include "bpf_load.h"
-+#include <unistd.h>
-+#include <errno.h>
-+#include <fcntl.h>
-+#include <linux/unistd.h>
-+
-+static void usage(char *pname)
++static inline u32 tcp_rwnd_init_bpf(struct sock *sk, bool is_req_sock)
 +{
-+	printf("USAGE:\n  %s [-l] <cg-path> <prog filename>\n", pname);
-+	printf("\tLoad and attach a sock_ops program to the specified "
-+	       "cgroup\n");
-+	printf("\tIf \"-l\" is used, the program will continue to run\n");
-+	printf("\tprinting the BPF log buffer\n");
-+	printf("\tIf the specified filename does not end in \".o\", it\n");
-+	printf("\tappends \"_kern.o\" to the name\n");
-+	printf("\n");
-+	printf("  %s -r <cg-path>\n", pname);
-+	printf("\tDetaches the currently attached sock_ops program\n");
-+	printf("\tfrom the specified cgroup\n");
-+	printf("\n");
-+	exit(0);
++	int rwnd;
++
++	rwnd = tcp_call_bpf(sk, is_req_sock, BPF_SOCK_OPS_RWND_INIT);
++
++	if (rwnd < 0)
++		rwnd = 0;
++	return rwnd;
 +}
+ #endif	/* _TCP_H */
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 4174668..cdec348 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -749,6 +749,10 @@ enum {
+ 	BPF_SOCK_OPS_TIMEOUT_INIT,	/* Should return SYN-RTO value to use or
+ 					 * -1 if default value should be used
+ 					 */
++	BPF_SOCK_OPS_RWND_INIT,		/* Should return initial advertized
++					 * window (in packets) or -1 if default
++					 * value should be used
++					 */
+ };
+ 
+ #endif /* _UAPI__LINUX_BPF_H__ */
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index d30ee31..bbaf3c6 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -351,6 +351,7 @@ void tcp_openreq_init_rwin(struct request_sock *req,
+ 	int full_space = tcp_full_space(sk_listener);
+ 	u32 window_clamp;
+ 	__u8 rcv_wscale;
++	u32 rcv_wnd;
+ 	int mss;
+ 
+ 	mss = tcp_mss_clamp(tp, dst_metric_advmss(dst));
+@@ -363,6 +364,12 @@ void tcp_openreq_init_rwin(struct request_sock *req,
+ 	    (req->rsk_window_clamp > full_space || req->rsk_window_clamp == 0))
+ 		req->rsk_window_clamp = full_space;
+ 
++	rcv_wnd = tcp_rwnd_init_bpf((struct sock *)req, true);
++	if (rcv_wnd == 0)
++		rcv_wnd = dst_metric(dst, RTAX_INITRWND);
++	else if (full_space < rcv_wnd * mss)
++		full_space = rcv_wnd * mss;
 +
-+int main(int argc, char **argv)
-+{
-+	int logFlag = 0;
-+	int error = 0;
-+	char *cg_path;
-+	char fn[500];
-+	char *prog;
-+	int cg_fd;
+ 	/* tcp_full_space because it is guaranteed to be the first packet */
+ 	tcp_select_initial_window(full_space,
+ 		mss - (ireq->tstamp_ok ? TCPOLEN_TSTAMP_ALIGNED : 0),
+@@ -370,7 +377,7 @@ void tcp_openreq_init_rwin(struct request_sock *req,
+ 		&req->rsk_window_clamp,
+ 		ireq->wscale_ok,
+ 		&rcv_wscale,
+-		dst_metric(dst, RTAX_INITRWND));
++		rcv_wnd);
+ 	ireq->rcv_wscale = rcv_wscale;
+ }
+ EXPORT_SYMBOL(tcp_openreq_init_rwin);
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 5e478a1..e5f623f 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -3267,6 +3267,7 @@ static void tcp_connect_init(struct sock *sk)
+ 	const struct dst_entry *dst = __sk_dst_get(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	__u8 rcv_wscale;
++	u32 rcv_wnd;
+ 
+ 	/* We'll fix this up when we get a response from the other end.
+ 	 * See tcp_input.c:tcp_rcv_state_process case TCP_SYN_SENT.
+@@ -3300,13 +3301,17 @@ static void tcp_connect_init(struct sock *sk)
+ 	    (tp->window_clamp > tcp_full_space(sk) || tp->window_clamp == 0))
+ 		tp->window_clamp = tcp_full_space(sk);
+ 
++	rcv_wnd = tcp_rwnd_init_bpf(sk, false);
++	if (rcv_wnd == 0)
++		rcv_wnd = dst_metric(dst, RTAX_INITRWND);
 +
-+	if (argc < 3)
-+		usage(argv[0]);
-+
-+	if (!strcmp(argv[1], "-r")) {
-+		cg_path = argv[2];
-+		cg_fd = open(cg_path, O_DIRECTORY, O_RDONLY);
-+		error = bpf_prog_detach(cg_fd, BPF_CGROUP_SOCK_OPS);
-+		if (error) {
-+			printf("ERROR: bpf_prog_detach: %d (%s)\n",
-+			       error, strerror(errno));
-+			return 1;
-+		}
-+		return 0;
-+	} else if (!strcmp(argv[1], "-h")) {
-+		usage(argv[0]);
-+	} else if (!strcmp(argv[1], "-l")) {
-+		logFlag = 1;
-+		if (argc < 4)
-+			usage(argv[0]);
-+	}
-+
-+	prog = argv[argc - 1];
-+	cg_path = argv[argc - 2];
-+	if (strlen(prog) > 480) {
-+		fprintf(stderr, "ERROR: program name too long (> 480 chars)\n");
-+		exit(2);
-+	}
-+	cg_fd = open(cg_path, O_DIRECTORY, O_RDONLY);
-+
-+	if (!strcmp(prog + strlen(prog)-2, ".o"))
-+		strcpy(fn, prog);
-+	else
-+		sprintf(fn, "%s_kern.o", prog);
-+	if (logFlag)
-+		printf("loading bpf file:%s\n", fn);
-+	if (load_bpf_file(fn)) {
-+		printf("ERROR: load_bpf_file failed for: %s\n", fn);
-+		printf("%s", bpf_log_buf);
-+		return 1;
-+	}
-+	if (logFlag)
-+		printf("TCP BPF Loaded %s\n", fn);
-+
-+	error = bpf_prog_attach(prog_fd[0], cg_fd, BPF_CGROUP_SOCK_OPS, 0);
-+	if (error) {
-+		printf("ERROR: bpf_prog_attach: %d (%s)\n",
-+		       error, strerror(errno));
-+		return 4;
-+	} else if (logFlag) {
-+		read_trace_pipe();
-+	}
-+
-+	return error;
-+}
+ 	tcp_select_initial_window(tcp_full_space(sk),
+ 				  tp->advmss - (tp->rx_opt.ts_recent_stamp ? tp->tcp_header_len - sizeof(struct tcphdr) : 0),
+ 				  &tp->rcv_wnd,
+ 				  &tp->window_clamp,
+ 				  sock_net(sk)->ipv4.sysctl_tcp_window_scaling,
+ 				  &rcv_wscale,
+-				  dst_metric(dst, RTAX_INITRWND));
++				  rcv_wnd);
+ 
+ 	tp->rx_opt.rcv_wscale = rcv_wscale;
+ 	tp->rcv_ssthresh = tp->rcv_wnd;
 -- 
 2.9.3
