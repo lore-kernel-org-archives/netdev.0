@@ -1,7 +1,7 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net-next 1/2] bpf: Add syscall lookup support for fd array and htab
-Date: Tue, 27 Jun 2017 23:08:34 -0700
-Message-ID: <20170628060835.2142549-2-kafai@fb.com>
+Subject: [PATCH net-next 2/2] bpf: Add test for syscall on fd array/htab lookup
+Date: Tue, 27 Jun 2017 23:08:35 -0700
+Message-ID: <20170628060835.2142549-3-kafai@fb.com>
 References: <20170628060835.2142549-1-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,227 +9,114 @@ Cc: Daniel Borkmann <daniel@iogearbox.net>,
         Alexei Starovoitov <ast@fb.com>, <kernel-team@fb.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:33573 "EHLO
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:33574 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751571AbdF1GIi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 02:08:38 -0400
+        by vger.kernel.org with ESMTP id S1751580AbdF1GIj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 02:08:39 -0400
 Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-        by mx0b-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5S66UkA007777
+        by mx0b-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5S66UkB007777
         for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 23:08:38 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0b-00082601.pphosted.com with ESMTP id 2bc05j8ukh-1
+        by mx0b-00082601.pphosted.com with ESMTP id 2bc05j8ukh-2
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
         for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 23:08:38 -0700
 Received: from facebook.com (2401:db00:11:d09a:face:0:41:0)     by
  mx-out.facebook.com (10.212.232.59) with ESMTP id
- 38c2d5ae5bc811e7a3920002c991e86a-20b398f0 for <netdev@vger.kernel.org>;        Tue,
+ 38d5fd285bc811e7b7a00002c991e86a-1eb358f0 for <netdev@vger.kernel.org>;        Tue,
  27 Jun 2017 23:08:36 -0700
 In-Reply-To: <20170628060835.2142549-1-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch allows userspace to do BPF_MAP_LOOKUP_ELEM on
-BPF_MAP_TYPE_PROG_ARRAY,
-BPF_MAP_TYPE_ARRAY_OF_MAPS and
-BPF_MAP_TYPE_HASH_OF_MAPS.
-
-The lookup returns a prog-id or map-id to the userspace.
-The userspace can then use the BPF_PROG_GET_FD_BY_ID
-or BPF_MAP_GET_FD_BY_ID to get a fd.
+Checks are added to the existing sockex3 and test_map_in_map test.
 
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- include/linux/bpf.h     |  3 +++
- kernel/bpf/arraymap.c   | 27 +++++++++++++++++++++++++++
- kernel/bpf/hashtab.c    | 21 +++++++++++++++++++++
- kernel/bpf/map_in_map.c |  5 +++++
- kernel/bpf/map_in_map.h |  1 +
- kernel/bpf/syscall.c    | 16 +++++++++++++---
- 6 files changed, 70 insertions(+), 3 deletions(-)
+ samples/bpf/sockex3_user.c         | 15 ++++++++++++++-
+ samples/bpf/test_map_in_map_user.c | 17 +++++++++++++++++
+ 2 files changed, 31 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index deca4e7f2845..5175729270d7 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -36,6 +36,7 @@ struct bpf_map_ops {
- 				int fd);
- 	void (*map_fd_put_ptr)(void *ptr);
- 	u32 (*map_gen_lookup)(struct bpf_map *map, struct bpf_insn *insn_buf);
-+	u32 (*map_fd_sys_lookup_elem)(void *ptr);
- };
+diff --git a/samples/bpf/sockex3_user.c b/samples/bpf/sockex3_user.c
+index b5524d417eb5..877ecf8fc5ac 100644
+--- a/samples/bpf/sockex3_user.c
++++ b/samples/bpf/sockex3_user.c
+@@ -8,6 +8,10 @@
+ #include <arpa/inet.h>
+ #include <sys/resource.h>
  
- struct bpf_map {
-@@ -288,9 +289,11 @@ int bpf_stackmap_copy(struct bpf_map *map, void *key, void *value);
++#define PARSE_IP 3
++#define PARSE_IP_PROG_FD (prog_fd[0])
++#define PROG_ARRAY_FD (map_fd[0])
++
+ struct bpf_flow_keys {
+ 	__be32 src;
+ 	__be32 dst;
+@@ -28,7 +32,9 @@ int main(int argc, char **argv)
+ 	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
+ 	char filename[256];
+ 	FILE *f;
+-	int i, sock;
++	int i, sock, err, id, key = PARSE_IP;
++	struct bpf_prog_info info = {};
++	uint32_t info_len = sizeof(info);
  
- int bpf_fd_array_map_update_elem(struct bpf_map *map, struct file *map_file,
- 				 void *key, void *value, u64 map_flags);
-+int bpf_fd_array_map_lookup_elem(struct bpf_map *map, void *key, u32 *value);
- void bpf_fd_array_map_clear(struct bpf_map *map);
- int bpf_fd_htab_map_update_elem(struct bpf_map *map, struct file *map_file,
- 				void *key, void *value, u64 map_flags);
-+int bpf_fd_htab_map_lookup_elem(struct bpf_map *map, void *key, u32 *value);
+ 	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
+ 	setrlimit(RLIMIT_MEMLOCK, &r);
+@@ -38,6 +44,13 @@ int main(int argc, char **argv)
+ 		return 1;
+ 	}
  
- /* memcpy that is used with 8-byte aligned pointers, power-of-8 size and
-  * forced to use 'long' read/writes to try to atomically copy long counters.
-diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
-index ecb43542246e..d771a3872500 100644
---- a/kernel/bpf/arraymap.c
-+++ b/kernel/bpf/arraymap.c
-@@ -335,6 +335,26 @@ static void *fd_array_map_lookup_elem(struct bpf_map *map, void *key)
- }
++	/* Test fd array lookup which returns the id of the bpf_prog */
++	err = bpf_obj_get_info_by_fd(PARSE_IP_PROG_FD, &info, &info_len);
++	assert(!err);
++	err = bpf_map_lookup_elem(PROG_ARRAY_FD, &key, &id);
++	assert(!err);
++	assert(id == info.id);
++
+ 	sock = open_raw_sock("lo");
  
- /* only called from syscall */
-+int bpf_fd_array_map_lookup_elem(struct bpf_map *map, void *key, u32 *value)
+ 	assert(setsockopt(sock, SOL_SOCKET, SO_ATTACH_BPF, &prog_fd[4],
+diff --git a/samples/bpf/test_map_in_map_user.c b/samples/bpf/test_map_in_map_user.c
+index f62fdc2bd428..1aca18539d8d 100644
+--- a/samples/bpf/test_map_in_map_user.c
++++ b/samples/bpf/test_map_in_map_user.c
+@@ -32,6 +32,20 @@ static const char * const test_names[] = {
+ 
+ #define NR_TESTS (sizeof(test_names) / sizeof(*test_names))
+ 
++static void check_map_id(int inner_map_fd, int map_in_map_fd, uint32_t key)
 +{
-+	void **elem, *ptr;
-+	int ret =  0;
++	struct bpf_map_info info = {};
++	uint32_t info_len = sizeof(info);
++	int ret, id;
 +
-+	if (!map->ops->map_fd_sys_lookup_elem)
-+		return -ENOTSUPP;
++	ret = bpf_obj_get_info_by_fd(inner_map_fd, &info, &info_len);
++	assert(!ret);
 +
-+	rcu_read_lock();
-+	elem = array_map_lookup_elem(map, key);
-+	if (elem && (ptr = READ_ONCE(*elem)))
-+		*value = map->ops->map_fd_sys_lookup_elem(ptr);
-+	else
-+		ret = -ENOENT;
-+	rcu_read_unlock();
-+
-+	return ret;
++	ret = bpf_map_lookup_elem(map_in_map_fd, &key, &id);
++	assert(!ret);
++	assert(id == info.id);
 +}
 +
-+/* only called from syscall */
- int bpf_fd_array_map_update_elem(struct bpf_map *map, struct file *map_file,
- 				 void *key, void *value, u64 map_flags)
+ static void populate_map(uint32_t port_key, int magic_result)
  {
-@@ -400,6 +420,11 @@ static void prog_fd_array_put_ptr(void *ptr)
- 	bpf_prog_put(ptr);
+ 	int ret;
+@@ -45,12 +59,15 @@ static void populate_map(uint32_t port_key, int magic_result)
+ 
+ 	ret = bpf_map_update_elem(A_OF_PORT_A, &port_key, &PORT_A, BPF_ANY);
+ 	assert(!ret);
++	check_map_id(PORT_A, A_OF_PORT_A, port_key);
+ 
+ 	ret = bpf_map_update_elem(H_OF_PORT_A, &port_key, &PORT_A, BPF_NOEXIST);
+ 	assert(!ret);
++	check_map_id(PORT_A, H_OF_PORT_A, port_key);
+ 
+ 	ret = bpf_map_update_elem(H_OF_PORT_H, &port_key, &PORT_H, BPF_NOEXIST);
+ 	assert(!ret);
++	check_map_id(PORT_H, H_OF_PORT_H, port_key);
  }
  
-+static u32 prog_fd_array_sys_lookup_elem(void *ptr)
-+{
-+	return ((struct bpf_prog *)ptr)->aux->id;
-+}
-+
- /* decrement refcnt of all bpf_progs that are stored in this map */
- void bpf_fd_array_map_clear(struct bpf_map *map)
- {
-@@ -418,6 +443,7 @@ const struct bpf_map_ops prog_array_map_ops = {
- 	.map_delete_elem = fd_array_map_delete_elem,
- 	.map_fd_get_ptr = prog_fd_array_get_ptr,
- 	.map_fd_put_ptr = prog_fd_array_put_ptr,
-+	.map_fd_sys_lookup_elem = prog_fd_array_sys_lookup_elem,
- };
- 
- static struct bpf_event_entry *bpf_event_entry_gen(struct file *perf_file,
-@@ -585,4 +611,5 @@ const struct bpf_map_ops array_of_maps_map_ops = {
- 	.map_delete_elem = fd_array_map_delete_elem,
- 	.map_fd_get_ptr = bpf_map_fd_get_ptr,
- 	.map_fd_put_ptr = bpf_map_fd_put_ptr,
-+	.map_fd_sys_lookup_elem = bpf_map_fd_sys_lookup_elem,
- };
-diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
-index 004334ea13ba..4fb463172aa8 100644
---- a/kernel/bpf/hashtab.c
-+++ b/kernel/bpf/hashtab.c
-@@ -1244,6 +1244,26 @@ static void fd_htab_map_free(struct bpf_map *map)
- }
- 
- /* only called from syscall */
-+int bpf_fd_htab_map_lookup_elem(struct bpf_map *map, void *key, u32 *value)
-+{
-+	void **ptr;
-+	int ret = 0;
-+
-+	if (!map->ops->map_fd_sys_lookup_elem)
-+		return -ENOTSUPP;
-+
-+	rcu_read_lock();
-+	ptr = htab_map_lookup_elem(map, key);
-+	if (ptr)
-+		*value = map->ops->map_fd_sys_lookup_elem(READ_ONCE(*ptr));
-+	else
-+		ret = -ENOENT;
-+	rcu_read_unlock();
-+
-+	return ret;
-+}
-+
-+/* only called from syscall */
- int bpf_fd_htab_map_update_elem(struct bpf_map *map, struct file *map_file,
- 				void *key, void *value, u64 map_flags)
- {
-@@ -1305,4 +1325,5 @@ const struct bpf_map_ops htab_of_maps_map_ops = {
- 	.map_delete_elem = htab_map_delete_elem,
- 	.map_fd_get_ptr = bpf_map_fd_get_ptr,
- 	.map_fd_put_ptr = bpf_map_fd_put_ptr,
-+	.map_fd_sys_lookup_elem = bpf_map_fd_sys_lookup_elem,
- };
-diff --git a/kernel/bpf/map_in_map.c b/kernel/bpf/map_in_map.c
-index 59bcdf821ae4..1da574612bea 100644
---- a/kernel/bpf/map_in_map.c
-+++ b/kernel/bpf/map_in_map.c
-@@ -95,3 +95,8 @@ void bpf_map_fd_put_ptr(void *ptr)
- 	 */
- 	bpf_map_put(ptr);
- }
-+
-+u32 bpf_map_fd_sys_lookup_elem(void *ptr)
-+{
-+	return ((struct bpf_map *)ptr)->id;
-+}
-diff --git a/kernel/bpf/map_in_map.h b/kernel/bpf/map_in_map.h
-index 177fadb689dc..6183db9ec08c 100644
---- a/kernel/bpf/map_in_map.h
-+++ b/kernel/bpf/map_in_map.h
-@@ -19,5 +19,6 @@ bool bpf_map_meta_equal(const struct bpf_map *meta0,
- void *bpf_map_fd_get_ptr(struct bpf_map *map, struct file *map_file,
- 			 int ufd);
- void bpf_map_fd_put_ptr(void *ptr);
-+u32 bpf_map_fd_sys_lookup_elem(void *ptr);
- 
- #endif
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 8942c820d620..4409ccca8831 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -24,6 +24,13 @@
- #include <linux/kernel.h>
- #include <linux/idr.h>
- 
-+#define IS_FD_ARRAY(map) ((map)->map_type == BPF_MAP_TYPE_PROG_ARRAY || \
-+			   (map)->map_type == BPF_MAP_TYPE_PERF_EVENT_ARRAY || \
-+			   (map)->map_type == BPF_MAP_TYPE_CGROUP_ARRAY || \
-+			   (map)->map_type == BPF_MAP_TYPE_ARRAY_OF_MAPS)
-+#define IS_FD_HASH(map) ((map)->map_type == BPF_MAP_TYPE_HASH_OF_MAPS)
-+#define IS_FD_MAP(map) (IS_FD_ARRAY(map) || IS_FD_HASH(map))
-+
- DEFINE_PER_CPU(int, bpf_prog_active);
- static DEFINE_IDR(prog_idr);
- static DEFINE_SPINLOCK(prog_idr_lock);
-@@ -411,6 +418,8 @@ static int map_lookup_elem(union bpf_attr *attr)
- 	    map->map_type == BPF_MAP_TYPE_LRU_PERCPU_HASH ||
- 	    map->map_type == BPF_MAP_TYPE_PERCPU_ARRAY)
- 		value_size = round_up(map->value_size, 8) * num_possible_cpus();
-+	else if (IS_FD_MAP(map))
-+		value_size = sizeof(u32);
- 	else
- 		value_size = map->value_size;
- 
-@@ -426,9 +435,10 @@ static int map_lookup_elem(union bpf_attr *attr)
- 		err = bpf_percpu_array_copy(map, key, value);
- 	} else if (map->map_type == BPF_MAP_TYPE_STACK_TRACE) {
- 		err = bpf_stackmap_copy(map, key, value);
--	} else if (map->map_type == BPF_MAP_TYPE_ARRAY_OF_MAPS ||
--		   map->map_type == BPF_MAP_TYPE_HASH_OF_MAPS) {
--		err = -ENOTSUPP;
-+	} else if (IS_FD_ARRAY(map)) {
-+		err = bpf_fd_array_map_lookup_elem(map, key, value);
-+	} else if (IS_FD_HASH(map)) {
-+		err = bpf_fd_htab_map_lookup_elem(map, key, value);
- 	} else {
- 		rcu_read_lock();
- 		ptr = map->ops->map_lookup_elem(map, key);
+ static void test_map_in_map(void)
 -- 
 2.9.3
