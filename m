@@ -1,182 +1,72 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net-next v2 9/9] nfp: add control message passing capabilities to flower offloads
-Date: Wed, 28 Jun 2017 22:30:02 +0200
-Message-ID: <1498681802-2897-10-git-send-email-simon.horman@netronome.com>
-References: <1498681802-2897-1-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH net-next v2 0/9] introduce flower offload capabilities
+Date: Wed, 28 Jun 2017 22:29:53 +0200
+Message-ID: <1498681802-2897-1-git-send-email-simon.horman@netronome.com>
 Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
-        Pieter Jansen van Vuuren
-        <pieter.jansenvanvuuren@netronome.com>,
         Simon Horman <simon.horman@netronome.com>
 To: David Miller <davem@davemloft.net>,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f176.google.com ([209.85.216.176]:36629 "EHLO
-        mail-qt0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751672AbdF1Ub4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 16:31:56 -0400
-Received: by mail-qt0-f176.google.com with SMTP id i2so59328126qta.3
-        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 13:31:55 -0700 (PDT)
-In-Reply-To: <1498681802-2897-1-git-send-email-simon.horman@netronome.com>
+Received: from mail-qt0-f171.google.com ([209.85.216.171]:36464 "EHLO
+        mail-qt0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752142AbdF1Ubj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 16:31:39 -0400
+Received: by mail-qt0-f171.google.com with SMTP id i2so59321175qta.3
+        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 13:31:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
+Hi,
 
-Previously the flower offloads never sends messages to the hardware,
-and never registers a handler for receiving messages from hardware.
-This patch enables the flower offloads to send control messages to
-hardware when adding and removing flow rules. Additionally it
-registers a control message rx handler for receiving stats updates
-from hardware for each offloaded flow.
+this series adds flower offload to the NFP driver. It builds on recent
+work to add representor and a skeleton flower app - now the app does what
+its name says.
 
-Additionally this patch adds 4 control message types; Add, modify and
-delete flow, as well as flow stats. It also allows
-nfp_flower_cmsg_get_data() to be used outside of cmsg.c.
+In general the approach taken is to allow some flows within
+the universe of possible flower matches and tc actions to be offloaded.
+It is planned that this support will grow over time but the support
+offered by this patch-set seems to be a reasonable starting point.
 
-Signed-off-by: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
----
- drivers/net/ethernet/netronome/nfp/flower/cmsg.c   |  6 ++-
- drivers/net/ethernet/netronome/nfp/flower/cmsg.h   |  7 +++
- .../net/ethernet/netronome/nfp/flower/offload.c    | 56 ++++++++++++++++++++++
- 3 files changed, 68 insertions(+), 1 deletion(-)
+Key Changes since RFC:
+* Revised locking scheme for flows
+* Make generalise tc_setup NDO
+* Addressed other review of RFC
+* Dropped RFC designation
 
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/cmsg.c b/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
-index 0f5410aa66d6..dd7fa9cf225f 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
-+++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
-@@ -36,6 +36,7 @@
- #include <linux/skbuff.h>
- #include <net/dst_metadata.h>
- 
-+#include "main.h"
- #include "../nfpcore/nfp_cpp.h"
- #include "../nfp_net_repr.h"
- #include "./cmsg.h"
-@@ -52,7 +53,7 @@ nfp_flower_cmsg_get_hdr(struct sk_buff *skb)
- 	return (struct nfp_flower_cmsg_hdr *)skb->data;
- }
- 
--static struct sk_buff *
-+struct sk_buff *
- nfp_flower_cmsg_alloc(struct nfp_app *app, unsigned int size,
- 		      enum nfp_flower_cmsg_type_port type)
- {
-@@ -143,6 +144,9 @@ void nfp_flower_cmsg_rx(struct nfp_app *app, struct sk_buff *skb)
- 	case NFP_FLOWER_CMSG_TYPE_PORT_MOD:
- 		nfp_flower_cmsg_portmod_rx(app, skb);
- 		break;
-+	case NFP_FLOWER_CMSG_TYPE_FLOW_STATS:
-+		nfp_flower_rx_flow_stats(app, skb);
-+		break;
- 	default:
- 		nfp_flower_cmsg_warn(app, "Cannot handle invalid repr control type %u\n",
- 				     type);
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
-index 736c4848f073..5a997feb6f80 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
-+++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
-@@ -245,7 +245,11 @@ struct nfp_flower_cmsg_hdr {
- 
- /* Types defined for port related control messages  */
- enum nfp_flower_cmsg_type_port {
-+	NFP_FLOWER_CMSG_TYPE_FLOW_ADD =		0,
-+	NFP_FLOWER_CMSG_TYPE_FLOW_MOD =		1,
-+	NFP_FLOWER_CMSG_TYPE_FLOW_DEL =		2,
- 	NFP_FLOWER_CMSG_TYPE_PORT_MOD =		8,
-+	NFP_FLOWER_CMSG_TYPE_FLOW_STATS =	15,
- 	NFP_FLOWER_CMSG_TYPE_PORT_ECHO =	16,
- 	NFP_FLOWER_CMSG_TYPE_MAX =		32,
- };
-@@ -307,5 +311,8 @@ static inline void *nfp_flower_cmsg_get_data(struct sk_buff *skb)
- 
- int nfp_flower_cmsg_portmod(struct nfp_repr *repr, bool carrier_ok);
- void nfp_flower_cmsg_rx(struct nfp_app *app, struct sk_buff *skb);
-+struct sk_buff *
-+nfp_flower_cmsg_alloc(struct nfp_app *app, unsigned int size,
-+		      enum nfp_flower_cmsg_type_port type);
- 
- #endif
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/offload.c b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-index 79df9d74f89e..73b3467f5bcd 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/offload.c
-+++ b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-@@ -44,6 +44,52 @@
- #include "../nfp_net.h"
- #include "../nfp_port.h"
- 
-+static int
-+nfp_flower_xmit_flow(struct net_device *netdev,
-+		     struct nfp_fl_payload *nfp_flow, u8 mtype)
-+{
-+	u32 meta_len, key_len, mask_len, act_len, tot_len;
-+	struct nfp_repr *priv = netdev_priv(netdev);
-+	struct sk_buff *skb;
-+	unsigned char *msg;
-+
-+	meta_len =  sizeof(struct nfp_fl_rule_metadata);
-+	key_len = nfp_flow->meta.key_len;
-+	mask_len = nfp_flow->meta.mask_len;
-+	act_len = nfp_flow->meta.act_len;
-+
-+	tot_len = meta_len + key_len + mask_len + act_len;
-+
-+	/* Convert to long words as firmware expects
-+	 * lengths in units of NFP_FL_LW_SIZ.
-+	 */
-+	nfp_flow->meta.key_len /= NFP_FL_LW_SIZ;
-+	nfp_flow->meta.mask_len /= NFP_FL_LW_SIZ;
-+	nfp_flow->meta.act_len /= NFP_FL_LW_SIZ;
-+
-+	skb = nfp_flower_cmsg_alloc(priv->app, tot_len, mtype);
-+	if (!skb)
-+		return -ENOMEM;
-+
-+	msg = nfp_flower_cmsg_get_data(skb);
-+	memcpy(msg, &nfp_flow->meta, meta_len);
-+	memcpy(&msg[meta_len], nfp_flow->unmasked_data, key_len);
-+	memcpy(&msg[meta_len + key_len], nfp_flow->mask_data, mask_len);
-+	memcpy(&msg[meta_len + key_len + mask_len],
-+	       nfp_flow->action_data, act_len);
-+
-+	/* Convert back to bytes as software expects
-+	 * lengths in units of bytes.
-+	 */
-+	nfp_flow->meta.key_len *= NFP_FL_LW_SIZ;
-+	nfp_flow->meta.mask_len *= NFP_FL_LW_SIZ;
-+	nfp_flow->meta.act_len *= NFP_FL_LW_SIZ;
-+
-+	nfp_ctrl_tx(priv->app->ctrl, skb);
-+
-+	return 0;
-+}
-+
- static bool nfp_flower_check_higher_than_mac(struct tc_cls_flower_offload *f)
- {
- 	return dissector_uses_key(f->dissector,
-@@ -235,6 +281,11 @@ nfp_flower_add_offload(struct nfp_app *app, struct net_device *netdev,
- 	if (err)
- 		goto err_destroy_flow;
- 
-+	err = nfp_flower_xmit_flow(netdev, flow_pay,
-+				   NFP_FLOWER_CMSG_TYPE_FLOW_ADD);
-+	if (err)
-+		goto err_destroy_flow;
-+
- 	/* Deallocate flow payload when flower rule has been destroyed. */
- 	kfree(key_layer);
- 
-@@ -274,6 +325,11 @@ nfp_flower_del_offload(struct nfp_app *app, struct net_device *netdev,
- 	if (err)
- 		goto err_free_flow;
- 
-+	err = nfp_flower_xmit_flow(netdev, nfp_flow,
-+				   NFP_FLOWER_CMSG_TYPE_FLOW_DEL);
-+	if (err)
-+		goto err_free_flow;
-+
- err_free_flow:
- 	nfp_flower_deallocate_nfp(nfp_flow);
- 	return err;
+Pieter Jansen van Vuuren (7):
+  nfp: provide infrastructure for offloading flower based TC filters
+  nfp: extend flower add flow offload
+  nfp: extend flower matching capabilities
+  nfp: add basic action capabilities to flower offloads
+  nfp: add metadata to each flow offload
+  nfp: add a stats handler for flower offloads
+  nfp: add control message passing capabilities to flower offloads
+
+Simon Horman (2):
+  net: switchdev: add SET_SWITCHDEV_OPS helper
+  nfp: add phys_switch_id support
+
+ drivers/net/ethernet/netronome/nfp/Makefile        |   6 +-
+ drivers/net/ethernet/netronome/nfp/flower/action.c | 211 +++++++++
+ drivers/net/ethernet/netronome/nfp/flower/cmsg.c   |  11 +-
+ drivers/net/ethernet/netronome/nfp/flower/cmsg.h   | 202 +++++++++
+ drivers/net/ethernet/netronome/nfp/flower/main.c   |  32 +-
+ drivers/net/ethernet/netronome/nfp/flower/main.h   | 159 +++++++
+ drivers/net/ethernet/netronome/nfp/flower/match.c  | 292 ++++++++++++
+ .../net/ethernet/netronome/nfp/flower/metadata.c   | 497 +++++++++++++++++++++
+ .../net/ethernet/netronome/nfp/flower/offload.c    | 397 ++++++++++++++++
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    |  17 +-
+ drivers/net/ethernet/netronome/nfp/nfp_net_repr.c  |   8 +
+ drivers/net/ethernet/netronome/nfp/nfp_net_repr.h  |   9 +
+ drivers/net/ethernet/netronome/nfp/nfp_port.c      |  43 ++
+ drivers/net/ethernet/netronome/nfp/nfp_port.h      |   8 +
+ include/net/switchdev.h                            |   4 +
+ 15 files changed, 1869 insertions(+), 27 deletions(-)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/flower/action.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/flower/main.h
+ create mode 100644 drivers/net/ethernet/netronome/nfp/flower/match.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/flower/metadata.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/flower/offload.c
+
 -- 
 2.1.4
