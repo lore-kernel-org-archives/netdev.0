@@ -1,36 +1,41 @@
-From: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Subject: Re: ath9k: remove useless variable assignment in ath_mci_intr()
-Date: Wed, 28 Jun 2017 18:57:07 +0200
-Message-ID: <36c24b8f739a44adbad3a2b5487cc184@euamsexm01a.eu.qualcomm.com>
-References: <20170626232658.GA17483@embeddedgus>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: QCA ath9k Development <ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "Gustavo A. R. Silva" <garsilva-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org>
-To: "Gustavo A. R. Silva" <garsilva-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170626232658.GA17483@embeddedgus>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Roman Mashak <mrv@mojatatu.com>
+Subject: [PATCH iproute2 1/1] tc: updated ife man page.
+Date: Wed, 28 Jun 2017 13:05:04 -0400
+Message-ID: <1498669504-23676-1-git-send-email-mrv@mojatatu.com>
+Cc: netdev@vger.kernel.org, Roman Mashak <mrv@mojatatu.com>
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:34668 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751583AbdF1RFR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 13:05:17 -0400
+Received: by mail-it0-f67.google.com with SMTP id o202so3694823itc.1
+        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:05:16 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Gustavo A. R. Silva" <garsilva-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org> wrote:
+Explain when skbmark encoding may fail.
 
-> Value assigned to variable offset at line 551 is overwritten at line 562,
-> before it can be used. This makes such variable assignment useless.
-> 
-> Addresses-Coverity-ID: 1226941
-> Signed-off-by: Gustavo A. R. Silva <garsilva-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org>
-> Signed-off-by: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Signed-off-by: Roman Mashak <mrv@mojatatu.com>
+---
+ man/man8/tc-ife.8 | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-Patch applied to ath-next branch of ath.git, thanks.
-
-6788a3832c70 ath9k: remove useless variable assignment in ath_mci_intr()
-
+diff --git a/man/man8/tc-ife.8 b/man/man8/tc-ife.8
+index a8f1f28..1499a3f 100644
+--- a/man/man8/tc-ife.8
++++ b/man/man8/tc-ife.8
+@@ -59,7 +59,10 @@ Encode direction only. Enforce static encoding of specified metadata.
+ .BR mark " [ "
+ .IR u32_value " ]"
+ The value to set for the skb mark. The u32 value is required only when
+-.BR use " is specified."
++.BR use " is specified. If
++.BR mark " value is zero, it will not be encoded, instead
++"overlimits" statistics increment and
++.BR CONTROL " action is taken.
+ .TP
+ .BR prio " [ "
+ .IR u32_value " ]"
 -- 
-https://patchwork.kernel.org/patch/9810609/
-
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+1.9.1
