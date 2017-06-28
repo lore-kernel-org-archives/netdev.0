@@ -1,17 +1,18 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
+From: Jason Wang <jasowang@redhat.com>
 Subject: Re: [PATCH net] virtio-net: unbreak cusmed packet for small buffer XDP
-Date: Wed, 28 Jun 2017 05:02:46 +0300
-Message-ID: <20170628050057-mutt-send-email-mst@kernel.org>
+Date: Wed, 28 Jun 2017 10:14:34 +0800
+Message-ID: <7068053c-50da-6779-5ff2-6588e01e616d@redhat.com>
 References: <1498614843-8163-1-git-send-email-jasowang@redhat.com>
+	<20170628050057-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	virtualization@lists.linux-foundation.org
-To: Jason Wang <jasowang@redhat.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1498614843-8163-1-git-send-email-jasowang@redhat.com>
+In-Reply-To: <20170628050057-mutt-send-email-mst@kernel.org>
+Content-Language: en-US
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -23,34 +24,28 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 28, 2017 at 09:54:03AM +0800, Jason Wang wrote:
-> We should allow csumed packet for small buffer, otherwise XDP_PASS
-> won't work correctly.
-> 
-> Fixes commit bb91accf2733 ("virtio-net: XDP support for small buffers")
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-
-The issue would be VIRTIO_NET_HDR_F_DATA_VALID might be set.
-What do you think?
-
-> ---
-> The patch is needed for -stable.
-> ---
->  drivers/net/virtio_net.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 143d8a9..499fcc9 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -413,7 +413,7 @@ static struct sk_buff *receive_small(struct net_device *dev,
->  		void *orig_data;
->  		u32 act;
->  
-> -		if (unlikely(hdr->hdr.gso_type || hdr->hdr.flags))
-> +		if (unlikely(hdr->hdr.gso_type))
->  			goto err_xdp;
->  
->  		xdp.data_hard_start = buf + VIRTNET_RX_PAD + vi->hdr_len;
-> -- 
-> 2.7.4
+CgpPbiAyMDE35bm0MDbmnIgyOOaXpSAxMDowMiwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
+IE9uIFdlZCwgSnVuIDI4LCAyMDE3IGF0IDA5OjU0OjAzQU0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
+dGU6Cj4+IFdlIHNob3VsZCBhbGxvdyBjc3VtZWQgcGFja2V0IGZvciBzbWFsbCBidWZmZXIsIG90
+aGVyd2lzZSBYRFBfUEFTUwo+PiB3b24ndCB3b3JrIGNvcnJlY3RseS4KPj4KPj4gRml4ZXMgY29t
+bWl0IGJiOTFhY2NmMjczMyAoInZpcnRpby1uZXQ6IFhEUCBzdXBwb3J0IGZvciBzbWFsbCBidWZm
+ZXJzIikKPj4gU2lnbmVkLW9mZi1ieTogSmFzb24gV2FuZyA8amFzb3dhbmdAcmVkaGF0LmNvbT4K
+PiBUaGUgaXNzdWUgd291bGQgYmUgVklSVElPX05FVF9IRFJfRl9EQVRBX1ZBTElEIG1pZ2h0IGJl
+IHNldC4KPiBXaGF0IGRvIHlvdSB0aGluaz8KCkkgdGhpbmsgaXQncyBzYWZlLiBGb3IgWERQX1BB
+U1MsIGl0IHdvcmsgbGlrZSBpbiB0aGUgcGFzdC4gRm9yIFhEUF9UWCwgCndlIHplcm8gdGhlIHZu
+ZXQgaGVhZGVyLiBGb3IgYWRqdXN0aW5nIGhlYWRlciwgWERQIHByb2cgc2hvdWxkIGRlYWwgd2l0
+aCAKY3N1bS4KClRoYW5rcwoKPgo+PiAtLS0KPj4gVGhlIHBhdGNoIGlzIG5lZWRlZCBmb3IgLXN0
+YWJsZS4KPj4gLS0tCj4+ICAgZHJpdmVycy9uZXQvdmlydGlvX25ldC5jIHwgMiArLQo+PiAgIDEg
+ZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKSwgMSBkZWxldGlvbigtKQo+Pgo+PiBkaWZmIC0t
+Z2l0IGEvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jIGIvZHJpdmVycy9uZXQvdmlydGlvX25ldC5j
+Cj4+IGluZGV4IDE0M2Q4YTkuLjQ5OWZjYzkgMTAwNjQ0Cj4+IC0tLSBhL2RyaXZlcnMvbmV0L3Zp
+cnRpb19uZXQuYwo+PiArKysgYi9kcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMKPj4gQEAgLTQxMyw3
+ICs0MTMsNyBAQCBzdGF0aWMgc3RydWN0IHNrX2J1ZmYgKnJlY2VpdmVfc21hbGwoc3RydWN0IG5l
+dF9kZXZpY2UgKmRldiwKPj4gICAJCXZvaWQgKm9yaWdfZGF0YTsKPj4gICAJCXUzMiBhY3Q7Cj4+
+ICAgCj4+IC0JCWlmICh1bmxpa2VseShoZHItPmhkci5nc29fdHlwZSB8fCBoZHItPmhkci5mbGFn
+cykpCj4+ICsJCWlmICh1bmxpa2VseShoZHItPmhkci5nc29fdHlwZSkpCj4+ICAgCQkJZ290byBl
+cnJfeGRwOwo+PiAgIAo+PiAgIAkJeGRwLmRhdGFfaGFyZF9zdGFydCA9IGJ1ZiArIFZJUlRORVRf
+UlhfUEFEICsgdmktPmhkcl9sZW47Cj4+IC0tIAo+PiAyLjcuNAoKX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX18KVmlydHVhbGl6YXRpb24gbWFpbGluZyBsaXN0
+ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMu
+bGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3ZpcnR1YWxpemF0aW9u
