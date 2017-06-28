@@ -1,52 +1,77 @@
-From: Luca Coelho <luca@coelho.fi>
-Subject: Re: [PATCH] iwlwifi: mvm: fix iwl_mvm_sar_find_wifi_pkg corner case
-Date: Wed, 28 Jun 2017 14:59:33 +0300
-Message-ID: <1498651173.22048.111.camel@coelho.fi>
-References: <20170627152458.1103403-1-arnd@arndb.de>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net] virtio-net: unbreak cusmed packet for small buffer XDP
+Date: Wed, 28 Jun 2017 20:05:06 +0800
+Message-ID: <a7e457d5-88c4-745d-5189-18a5f13797dc@redhat.com>
+References: <1498614843-8163-1-git-send-email-jasowang@redhat.com>
+	<20170628050057-mutt-send-email-mst@kernel.org>
+	<7068053c-50da-6779-5ff2-6588e01e616d@redhat.com>
+	<20170628051555-mutt-send-email-mst@kernel.org>
+	<69907228-fc1b-175f-f6cd-7ac332e318be@redhat.com>
+	<20170628063033-mutt-send-email-mst@kernel.org>
+	<51f4c402-6a02-9bad-6dab-563ca72f431a@redhat.com>
+	<20170628065126-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-        Intel Linux Wireless <linuxwifi@intel.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Sara Sharon <sara.sharon@intel.com>,
-        Golan Ben-Ami <golan.ben.ami@intel.com>,
-        Liad Kaufman <liad.kaufman@intel.com>,
-        Haim Dreyfuss <haim.dreyfuss@intel.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>,
-        Johannes Berg <johannes.berg@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from paleale.coelho.fi ([176.9.41.70]:35604 "EHLO
-        farmhouse.coelho.fi" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751652AbdF1L7o (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 07:59:44 -0400
-In-Reply-To: <20170627152458.1103403-1-arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170628065126-mutt-send-email-mst@kernel.org>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-06-27 at 17:24 +0200, Arnd Bergmann wrote:
-> gcc warns about what it thinks is an uninitialized variable
-> access:
-> 
-> drivers/net/wireless/intel/iwlwifi/mvm/fw.c: In function 'iwl_mvm_sar_find_wifi_pkg.isra.14':
-> drivers/net/wireless/intel/iwlwifi/mvm/fw.c:1102:5: error: 'wifi_pkg' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> 
-> That problem cannot really happen, as we check data->package.count
-> to ensure that the loop is entered at least once.
-> However, something that can indeed happen is returning an incorrect
-> wifi_pkg pointer in case none of the elements are what we are looking
-> for.
-> 
-> This modifies the loop again, to only return a correct object, and
-> to shut up that warning.
-> 
-> Fixes: c386dacb4ed6 ("iwlwifi: mvm: refactor SAR init to prepare for dynamic SAR")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> ---
-
-Thanks, Arnd!
-
-I've pushed this to our internal tree and it will eventually reach the
-mainline, via our normal upstreaming process.
+CgpPbiAyMDE35bm0MDbmnIgyOOaXpSAxMjowMSwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
+IE9uIFdlZCwgSnVuIDI4LCAyMDE3IGF0IDExOjQwOjMwQU0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
+dGU6Cj4+Cj4+IE9uIDIwMTflubQwNuaciDI45pelIDExOjMxLCBNaWNoYWVsIFMuIFRzaXJraW4g
+d3JvdGU6Cj4+PiBPbiBXZWQsIEp1biAyOCwgMjAxNyBhdCAxMDo0NToxOEFNICswODAwLCBKYXNv
+biBXYW5nIHdyb3RlOgo+Pj4+IE9uIDIwMTflubQwNuaciDI45pelIDEwOjE3LCBNaWNoYWVsIFMu
+IFRzaXJraW4gd3JvdGU6Cj4+Pj4+IE9uIFdlZCwgSnVuIDI4LCAyMDE3IGF0IDEwOjE0OjM0QU0g
+KzA4MDAsIEphc29uIFdhbmcgd3JvdGU6Cj4+Pj4+PiBPbiAyMDE35bm0MDbmnIgyOOaXpSAxMDow
+MiwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+Pj4+Pj4+IE9uIFdlZCwgSnVuIDI4LCAyMDE3
+IGF0IDA5OjU0OjAzQU0gKzA4MDAsIEphc29uIFdhbmcgd3JvdGU6Cj4+Pj4+Pj4+IFdlIHNob3Vs
+ZCBhbGxvdyBjc3VtZWQgcGFja2V0IGZvciBzbWFsbCBidWZmZXIsIG90aGVyd2lzZSBYRFBfUEFT
+Uwo+Pj4+Pj4+PiB3b24ndCB3b3JrIGNvcnJlY3RseS4KPj4+Pj4+Pj4KPj4+Pj4+Pj4gRml4ZXMg
+Y29tbWl0IGJiOTFhY2NmMjczMyAoInZpcnRpby1uZXQ6IFhEUCBzdXBwb3J0IGZvciBzbWFsbCBi
+dWZmZXJzIikKPj4+Pj4+Pj4gU2lnbmVkLW9mZi1ieTogSmFzb24gV2FuZzxqYXNvd2FuZ0ByZWRo
+YXQuY29tPgo+Pj4+Pj4+IFRoZSBpc3N1ZSB3b3VsZCBiZSBWSVJUSU9fTkVUX0hEUl9GX0RBVEFf
+VkFMSUQgbWlnaHQgYmUgc2V0Lgo+Pj4+Pj4+IFdoYXQgZG8geW91IHRoaW5rPwo+Pj4+Pj4gSSB0
+aGluayBpdCdzIHNhZmUuIEZvciBYRFBfUEFTUywgaXQgd29yayBsaWtlIGluIHRoZSBwYXN0Lgo+
+Pj4+PiBUaGF0J3MgdGhlIHBhcnQgSSBkb24ndCBnZXQuIFdpdGggREFUQV9WQUxJRCBjc3VtIGlu
+IHBhY2tldCBpcyB3cm9uZywgWERQCj4+Pj4+IHRvb2xzIGFzc3VtZSBpdCdzIHZhbHVlLgo+Pj4+
+IERBVEFfVkFMSUQgaXMgQ0hFQ0tTVU1fVU5DRVNTQVJZIG9uIHRoZSBob3N0LCBhbmQgYWNjb3Jk
+aW5nIHRvIHRoZSBjb21tZW50Cj4+Pj4gaW4gc2tidWZmLmgKPj4+Pgo+Pj4+Cj4+Pj4gIgo+Pj4+
+ICAgICogICBUaGUgaGFyZHdhcmUgeW91J3JlIGRlYWxpbmcgd2l0aCBkb2Vzbid0IGNhbGN1bGF0
+ZSB0aGUgZnVsbCBjaGVja3N1bQo+Pj4+ICAgICogICAoYXMgaW4gQ0hFQ0tTVU1fQ09NUExFVEUp
+LCBidXQgaXQgZG9lcyBwYXJzZSBoZWFkZXJzIGFuZCB2ZXJpZnkKPj4+PiBjaGVja3N1bXMKPj4+
+PiAgICAqICAgZm9yIHNwZWNpZmljIHByb3RvY29scy4gRm9yIHN1Y2ggcGFja2V0cyBpdCB3aWxs
+IHNldAo+Pj4+IENIRUNLU1VNX1VOTkVDRVNTQVJZCj4+Pj4gICAgKiAgIGlmIHRoZWlyIGNoZWNr
+c3VtcyBhcmUgb2theS4gc2tiLT5jc3VtIGlzIHN0aWxsIHVuZGVmaW5lZCBpbiB0aGlzIGNhc2UK
+Pj4+PiAgICAqICAgdGhvdWdoLiBBIGRyaXZlciBvciBkZXZpY2UgbXVzdCBuZXZlciBtb2RpZnkg
+dGhlIGNoZWNrc3VtIGZpZWxkIGluIHRoZQo+Pj4+ICAgICogICBwYWNrZXQgZXZlbiBpZiBjaGVj
+a3N1bSBpcyB2ZXJpZmllZC4KPj4+PiAiCj4+Pj4KPj4+PiBUaGUgY3N1bSBpcyBjb3JyZWN0IEkg
+YmVsaWV2ZT8KPj4+Pgo+Pj4+IFRoYW5rcwo+Pj4gVGhhdCdzIG9uIGlucHV0LiBCdXQgSSB0aGlu
+ayBmb3IgdHVuIGl0J3Mgb3V0cHV0LCB3aGVyZSB0aGF0IGlzIGVxdWl2YWxlbnQKPj4+IHRvIENI
+RUNLU1VNX05PTkUKPj4+Cj4+Pgo+PiBZZXMsIGJ1dCB0aGUgY29tbWVudCBzYWlkOgo+Pgo+PiAi
+Cj4+IENLU1VNX05PTkU6Cj4+ICAgKgo+PiAgICogICBUaGUgc2tiIHdhcyBhbHJlYWR5IGNoZWNr
+c3VtbWVkIGJ5IHRoZSBwcm90b2NvbCwgb3IgYSBjaGVja3N1bSBpcyBub3QKPj4gICAqICAgcmVx
+dWlyZWQuCj4+ICAgKgo+PiAgICogQ0hFQ0tTVU1fVU5ORUNFU1NBUlk6Cj4+ICAgKgo+PiAgICog
+ICBUaGlzIGhhcyB0aGUgc2FtZSBtZWFuaW5nIG9uIGFzIENIRUNLU1VNX05PTkUgZm9yIGNoZWNr
+c3VtIG9mZmxvYWQgb24KPj4gICAqICAgb3V0cHV0Lgo+PiAgICoKPj4gIgo+Pgo+PiBTbyBzdGls
+bCBjb3JyZWN0IEkgdGhpbms/Cj4+Cj4+IFRoYW5rcwo+IEhtbSBtYXliZSBJIG1lYW4gTkVFRFNf
+Q0hFQ0tTVU0gYWN0dWFsbHkuCj4KPiBJJ2xsIG5lZWQgdG8gcmUtcmVhZCB0aGUgc3BlYy4KPgoK
+Tm90IHN1cmUgdGhpcyBpcyBhbiBpc3N1ZS4gQnV0IGlmIGl0IGlzLCB3ZSBjYW4gcHJvYmFibHkg
+Y2hlY2tzdW0gdGhlIApwYWNrZXQgYmVmb3JlIHBhc3NpbmcgaXQgdG8gWERQLiBCdXQgaXQgd291
+bGQgYmUgYSBsaXR0bGUgc2xvdy4KClRoYW5rcwpfX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6
+YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5k
+YXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
