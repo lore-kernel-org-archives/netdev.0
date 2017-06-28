@@ -1,122 +1,116 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net-next 2/2] bpf: Add test for syscall on fd array/htab lookup
-Date: Tue, 27 Jun 2017 23:08:35 -0700
-Message-ID: <20170628060835.2142549-3-kafai@fb.com>
-References: <20170628060835.2142549-1-kafai@fb.com>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [PATCH/RFC net-next 3/9] nfp: provide infrastructure for
+ offloading flower based TC filters
+Date: Tue, 27 Jun 2017 23:13:06 -0700
+Message-ID: <20170627231306.2804cdef@cakuba.netronome.com>
+References: <1498605709-22574-1-git-send-email-simon.horman@netronome.com>
+        <1498605709-22574-4-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <ast@fb.com>, <kernel-team@fb.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        oss-drivers@netronome.com,
+        Pieter Jansen van Vuuren
+        <pieter.jansenvanvuuren@netronome.com>
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:33574 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751580AbdF1GIj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 02:08:39 -0400
-Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-        by mx0b-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5S66UkB007777
-        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 23:08:38 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0b-00082601.pphosted.com with ESMTP id 2bc05j8ukh-2
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 23:08:38 -0700
-Received: from facebook.com (2401:db00:11:d09a:face:0:41:0)     by
- mx-out.facebook.com (10.212.232.59) with ESMTP id
- 38d5fd285bc811e7b7a00002c991e86a-1eb358f0 for <netdev@vger.kernel.org>;        Tue,
- 27 Jun 2017 23:08:36 -0700
-In-Reply-To: <20170628060835.2142549-1-kafai@fb.com>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:34206 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751010AbdF1GNJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 02:13:09 -0400
+Received: by mail-pf0-f169.google.com with SMTP id s66so28052796pfs.1
+        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 23:13:09 -0700 (PDT)
+In-Reply-To: <1498605709-22574-4-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Checks are added to the existing sockex3 and test_map_in_map test.
+On Wed, 28 Jun 2017 01:21:43 +0200, Simon Horman wrote:
+> From: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
+> 
+> Adds a flower based TC offload handler for representor devices, this
+> is in addition to the bpf based offload handler. The changes in this
+> patch will be used in a follow-up patch to add tc flower offload to
+> the NFP.
+> 
+> The flower app enables tc offloads on representors by default.
+> 
+> Signed-off-by: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
+> Signed-off-by: Simon Horman <simon.horman@netronome.com>
 
-Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
----
- samples/bpf/sockex3_user.c         | 15 ++++++++++++++-
- samples/bpf/test_map_in_map_user.c | 17 +++++++++++++++++
- 2 files changed, 31 insertions(+), 1 deletion(-)
+> diff --git a/drivers/net/ethernet/netronome/nfp/flower/main.c b/drivers/net/ethernet/netronome/nfp/flower/main.c
+> index ab68a8f58862..7b27871f489c 100644
+> --- a/drivers/net/ethernet/netronome/nfp/flower/main.c
+> +++ b/drivers/net/ethernet/netronome/nfp/flower/main.c
+> @@ -37,6 +37,7 @@
+>  #include <net/devlink.h>
+>  #include <net/dst_metadata.h>
+>  
+> +#include "main.h"
+>  #include "../nfpcore/nfp_cpp.h"
+>  #include "../nfpcore/nfp_nsp.h"
+>  #include "../nfp_app.h"
+> @@ -303,8 +304,14 @@ static int nfp_flower_vnic_init(struct nfp_app *app, struct nfp_net *nn,
+>  	eth_hw_addr_random(nn->dp.netdev);
+>  	netif_keep_dst(nn->dp.netdev);
+>  
+> +	if (nfp_flower_repr_init(app))
+> +		goto err_free_priv;
 
-diff --git a/samples/bpf/sockex3_user.c b/samples/bpf/sockex3_user.c
-index b5524d417eb5..877ecf8fc5ac 100644
---- a/samples/bpf/sockex3_user.c
-+++ b/samples/bpf/sockex3_user.c
-@@ -8,6 +8,10 @@
- #include <arpa/inet.h>
- #include <sys/resource.h>
- 
-+#define PARSE_IP 3
-+#define PARSE_IP_PROG_FD (prog_fd[0])
-+#define PROG_ARRAY_FD (map_fd[0])
-+
- struct bpf_flow_keys {
- 	__be32 src;
- 	__be32 dst;
-@@ -28,7 +32,9 @@ int main(int argc, char **argv)
- 	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
- 	char filename[256];
- 	FILE *f;
--	int i, sock;
-+	int i, sock, err, id, key = PARSE_IP;
-+	struct bpf_prog_info info = {};
-+	uint32_t info_len = sizeof(info);
- 
- 	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
- 	setrlimit(RLIMIT_MEMLOCK, &r);
-@@ -38,6 +44,13 @@ int main(int argc, char **argv)
- 		return 1;
- 	}
- 
-+	/* Test fd array lookup which returns the id of the bpf_prog */
-+	err = bpf_obj_get_info_by_fd(PARSE_IP_PROG_FD, &info, &info_len);
-+	assert(!err);
-+	err = bpf_map_lookup_elem(PROG_ARRAY_FD, &key, &id);
-+	assert(!err);
-+	assert(id == info.id);
-+
- 	sock = open_raw_sock("lo");
- 
- 	assert(setsockopt(sock, SOL_SOCKET, SO_ATTACH_BPF, &prog_fd[4],
-diff --git a/samples/bpf/test_map_in_map_user.c b/samples/bpf/test_map_in_map_user.c
-index f62fdc2bd428..1aca18539d8d 100644
---- a/samples/bpf/test_map_in_map_user.c
-+++ b/samples/bpf/test_map_in_map_user.c
-@@ -32,6 +32,20 @@ static const char * const test_names[] = {
- 
- #define NR_TESTS (sizeof(test_names) / sizeof(*test_names))
- 
-+static void check_map_id(int inner_map_fd, int map_in_map_fd, uint32_t key)
-+{
-+	struct bpf_map_info info = {};
-+	uint32_t info_len = sizeof(info);
-+	int ret, id;
-+
-+	ret = bpf_obj_get_info_by_fd(inner_map_fd, &info, &info_len);
-+	assert(!ret);
-+
-+	ret = bpf_map_lookup_elem(map_in_map_fd, &key, &id);
-+	assert(!ret);
-+	assert(id == info.id);
-+}
-+
- static void populate_map(uint32_t port_key, int magic_result)
- {
- 	int ret;
-@@ -45,12 +59,15 @@ static void populate_map(uint32_t port_key, int magic_result)
- 
- 	ret = bpf_map_update_elem(A_OF_PORT_A, &port_key, &PORT_A, BPF_ANY);
- 	assert(!ret);
-+	check_map_id(PORT_A, A_OF_PORT_A, port_key);
- 
- 	ret = bpf_map_update_elem(H_OF_PORT_A, &port_key, &PORT_A, BPF_NOEXIST);
- 	assert(!ret);
-+	check_map_id(PORT_A, H_OF_PORT_A, port_key);
- 
- 	ret = bpf_map_update_elem(H_OF_PORT_H, &port_key, &PORT_H, BPF_NOEXIST);
- 	assert(!ret);
-+	check_map_id(PORT_H, H_OF_PORT_H, port_key);
- }
- 
- static void test_map_in_map(void)
--- 
-2.9.3
+Please make the contents of nfp_flower_repr_init() part of app's .init
+callback.
+
+>  	return 0;
+>  
+> +err_free_priv:
+> +	kfree(app->priv);
+> +	app->priv = NULL;
+
+This doesn't belong here after my recent series.  priv init was moved
+to app's init callback.
+
+>  err_invalid_port:
+>  	nn->port = nfp_port_alloc(app, NFP_PORT_INVALID, nn->dp.netdev);
+>  	return PTR_ERR_OR_ZERO(nn->port);
+
+> +int nfp_flower_repr_init(struct nfp_app *app)
+> +{
+> +	u64 version;
+> +	int err;
+> +
+> +	version = nfp_rtsym_read_le(app->pf->rtbl, "hw_flower_version", &err);
+> +	if (err)
+> +		return -EINVAL;
+
+Nit: this could return err directly.  Also I think it's worth printing
+an error message.
+
+> +	/* We need to ensure hardware has enough flower capabilities. */
+> +	if (version != NFP_FLOWER_ALLOWED_VER)
+> +		return -EINVAL;
+
+Here we should definitely tell the user what went wrong.
+
+> +	return 0;
+> +}
+
+> diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
+> index bc9108071e5b..a73b311c1f75 100644
+> --- a/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
+> +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.c
+> @@ -250,6 +250,18 @@ static int nfp_repr_open(struct net_device *netdev)
+>  	return nfp_app_repr_open(repr->app, repr);
+>  }
+>  
+> +static int
+> +nfp_repr_setup_tc(struct net_device *netdev, u32 handle, u32 chain_index,
+> +		  __be16 proto, struct tc_to_netdev *tc)
+> +{
+> +	struct nfp_repr *repr = netdev_priv(netdev);
+> +
+> +	if (chain_index)
+> +		return -EOPNOTSUPP;
+> +
+> +	return nfp_app_setup_tc(repr->app, netdev, handle, proto, tc);
+> +}
+
+Just a reminder that this could be a nfp_port function.
