@@ -1,62 +1,42 @@
-From: Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [PATCH v3 net-next 00/12] bpf: rewrite value
-	tracking in verifier
-Date: Wed, 28 Jun 2017 15:11:32 +0100
-Message-ID: <788035e1-1974-b48e-3008-d294194a8b05@solarflare.com>
-References: <adc11342-737f-4e06-bce3-f0a92b5594a5@solarflare.com>
-	<5953B436.6030506@iogearbox.net>
-Reply-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [net-next v2 6/6] ixgbe: Add malicious driver detection support
+Date: Wed, 28 Jun 2017 17:28:59 +0300
+Message-ID: <CAJ3xEMgAOMM3g0sqc6AfWLWf_VKwuHQGh_ZSYfmeQg=JotGbbg@mail.gmail.com>
+References: <20170627085131.9831-1-jeffrey.t.kirsher@intel.com>
+ <20170627085131.9831-7-jeffrey.t.kirsher@intel.com> <CAJ3xEMiEjGDUatUv47wNTfYPfCVo62+Jjs-xFU3ccN0iJm-5Gg@mail.gmail.com>
+ <87618083B2453E4A8714035B62D67992B3E89EA6@FMSMSX105.amr.corp.intel.com>
+ <CAJ3xEMgT62xt=TdFyY9vfRG+eOqvcLT+5m1WSGPtexygyrcB+w@mail.gmail.com> <87618083B2453E4A8714035B62D67992B3E89F1D@FMSMSX105.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, "Alexei
-	Starovoitov" <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <5953B436.6030506-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        David Miller <davem@davemloft.net>,
+        "Greenwalt, Paul" <paul.greenwalt@intel.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        "nhorman@redhat.com" <nhorman@redhat.com>,
+        "sassmann@redhat.com" <sassmann@redhat.com>,
+        "jogreene@redhat.com" <jogreene@redhat.com>
+To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f44.google.com ([209.85.218.44]:36627 "EHLO
+        mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751723AbdF1O3A (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 10:29:00 -0400
+Received: by mail-oi0-f44.google.com with SMTP id p187so42763813oif.3
+        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 07:29:00 -0700 (PDT)
+In-Reply-To: <87618083B2453E4A8714035B62D67992B3E89F1D@FMSMSX105.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMjgvMDYvMTcgMTQ6NTAsIERhbmllbCBCb3JrbWFubiB3cm90ZToKPiBIaSBFZHdhcmQsCj4K
-PiBEaWQgeW91IGFsc28gaGF2ZSBhIGNoYW5jZSBpbiB0aGUgbWVhbnRpbWUgdG8gbG9vayBhdCBy
-ZWR1Y2luZyBjb21wbGV4aXR5Cj4gYWxvbmcgd2l0aCB5b3VyIHVuaWZpY2F0aW9uPyBJIGRpZCBy
-dW4gdGhlIGNpbGl1bSB0ZXN0IHN1aXRlIHdpdGggeW91cgo+IGxhdGVzdCBzZXQgZnJvbSBoZXJl
-IGFuZCBjdXJyZW50ICMgd29yc3QgY2FzZSBwcm9jZXNzZWQgaW5zbnMgdGhhdAo+IHZlcmlmaWVy
-IGhhcyB0byBnbyB0aHJvdWdoIGZvciBjaWxpdW0gcHJvZ3MgaW5jcmVhc2VzIGZyb20gfjUzayB3
-ZSBoYXZlCj4gcmlnaHQgbm93IHRvIH43NmsuIEknbSBhIGJpdCB3b3JyaWVkIHRoYXQgdGhpcyBx
-dWlja2x5IGdldHMgdXMgY2xvc2UgdG8KPiB0aGUgdXBwZXIgfjk4ayBtYXggbGltaXQgc3RhcnRp
-bmcgdG8gcmVqZWN0IHByb2dyYW1zIGFnYWluLiBBbHRlcm5hdGl2ZQo+IGlzIHRvIGJ1bXAgdGhl
-IGNvbXBsZXhpdHkgbGltaXQgYWdhaW4gaW4gbmVhciBmdXR1cmUgb25jZSBydW4gaW50byBpdCwK
-PiBidXQgcHJlZmVyYWJseSB0aGVyZSdzIGEgd2F5IHRvIG9wdGltaXplIGl0IGFsb25nIHdpdGgg
-dGhlIHJld3JpdGU/IERvCj4geW91IHNlZSBhbnkgcG9zc2liaWxpdGllcyB3b3J0aCBleHBsb3Jp
-bmc/IApUaGUgdHJvdWJsZSwgSSB0aGluaywgaXMgdGhhdCBhcyB3ZSdyZSBub3cgdHJhY2tpbmcg
-bW9yZSBpbmZvcm1hdGlvbiBhYm91dAogZWFjaCByZWdpc3RlciB2YWx1ZSwgd2UncmUgbGVzcyBh
-YmxlIHRvIHBydW5lIGJyYW5jaGVzLiAgQnV0IG9mdGVuIHRoYXQKIGluZm9ybWF0aW9uIGlzIG5v
-dCBhY3R1YWxseSBiZWluZyB1c2VkIGluIHJlYWNoaW5nIHRoZSBleGl0IHN0YXRlLiAgU28gaXQK
-IHNlZW1zIGxpa2UgdGhlIHdheSB0byB0YWNrbGUgdGhpcyB3b3VsZCBiZSB0byB0cmFjayB3aGF0
-IGluZm9ybWF0aW9uIGlzCiB1c2VkIOKAlCBvciBhdCBsZWFzdCwgd2hpY2ggcmVnaXN0ZXJzIGFy
-ZSByZWFkIGZyb20gKGluY2x1ZGluZyBlLmcuIHdyaXRpbmcKIHRocm91Z2ggdGhlbSBvciBwYXNz
-aW5nIHRoZW0gdG8gaGVscGVyIGNhbGxzKSDigJQgaW4gcmVhY2hpbmcgYSBzYWZlIHN0YXRlLgog
-VGhlbiBvbmx5IHJlZ2lzdGVycyB3aGljaCBhcmUgdXNlZCBhcmUgcmVxdWlyZWQgdG8gbWF0Y2gg
-Zm9yIHBydW5pbmcuCkJ1dCB0aGF0IHRyYWNraW5nIHdvdWxkIHByZXN1bWFibHkgaGF2ZSB0byBw
-cm9wYWdhdGUgYmFja3dhcmRzIHRocm91Z2ggdGhlCiB2ZXJpZmllciBzdGFjaywgYW5kIEknbSBu
-b3Qgc3VyZSBob3cgZWFzaWx5IHRoYXQgY291bGQgYmUgZG9uZS4gIFNvbWVvbmUKICh3YXMgaXQg
-eW91Pykgd2FzIHRhbGtpbmcgYWJvdXQgcmVwbGFjaW5nIHRoZSBjdXJyZW50IERBRyB3YWxraW5n
-IGFuZAogcHJ1bmluZyB3aXRoIHNvbWUga2luZCBvZiBiYXNpYy1ibG9jayB0aGluZywgd2hpY2gg
-d291bGQgaGVscCB3aXRoIHRoaXMuClN1bW1hcnk6IEkgdGhpbmsgaXQgY291bGQgYmUgZG9uZSwg
-YnV0IEkgaGF2ZW4ndCBsb29rZWQgaW50byB0aGUgZGV0YWlscwogb2YgaW1wbGVtZW50YXRpb24g
-eWV0OyBpZiBpdCdzIG5vdCBhY3R1YWxseSBicmVha2luZyB5b3VyIHByb2dyYW1zICh5ZXQpLAog
-bWF5YmUgbGVhdmUgaXQgZm9yIGEgZm9sbG93dXAgcGF0Y2ggc2VyaWVzPwoKLUVkCl9fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmlvdmlzb3ItZGV2IG1haWxp
-bmcgbGlzdAppb3Zpc29yLWRldkBsaXN0cy5pb3Zpc29yLm9yZwpodHRwczovL2xpc3RzLmlvdmlz
-b3Iub3JnL21haWxtYW4vbGlzdGluZm8vaW92aXNvci1kZXYK
+On Wed, Jun 28, 2017 at 1:14 AM, Tantilov, Emil S
+<emil.s.tantilov@intel.com> wrote:
+
+> Mainly because I am not sure that other (non-Intel) drivers will benefit from
+> such an option. In normal operation this functionality should not cause issues
+> and if it doesn't we may be able to deprecate the private flag in the future.
+
+If you think this functionality makes sense any driver running over HW
+implementing
+it would like to be able to expose that and hence you better not use
+private flag.
+
+Are we sure the trust UAPI can't be extended for that matter?
