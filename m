@@ -1,57 +1,85 @@
-From: "Gao Feng" <gfree.wind@vip.163.com>
-Subject: Re:Re: [net PATCH] net: sched: Fix one possible panic when no
- destroy callback
-Date: Wed, 28 Jun 2017 08:54:53 +0800 (CST)
-Message-ID: <6da470a2.7d57.15cec319c03.Coremail.gfree.wind@vip.163.com>
-References: <1498527333-86838-1-git-send-email-gfree.wind@vip.163.com>
- <CAM_iQpXRy=cC2vuhju2Jf9=sJ+Yc6DvkzvFEU_DrRonyhW+E9w@mail.gmail.com>
- <1498582211.736.118.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpUx8d_vQT=1d06Ah-d+E5R_10pnvcy4Y9ac_=txanPBOw@mail.gmail.com>
- <1498585790.736.135.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Yunsheng Lin <linyunsheng@huawei.com>
+Subject: Re: [PATCH NET V5 2/2] net: hns: Use phy_driver to setup Phy loopback
+Date: Wed, 28 Jun 2017 08:59:52 +0800
+Message-ID: <3d382bc6-f7b6-9df3-8bb0-fee55b72ac74@huawei.com>
+References: <1498443039-134503-1-git-send-email-linyunsheng@huawei.com>
+ <1498443039-134503-3-git-send-email-linyunsheng@huawei.com>
+ <20170626134235.GC2623@lunn.ch>
+ <17132762-9b94-bc32-fee8-e90a6db5762a@huawei.com>
+ <20170627132958.GA9921@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GBK
-Content-Transfer-Encoding: base64
-Cc: "Cong Wang" <xiyou.wangcong@gmail.com>,
-        "Jamal Hadi Salim" <jhs@mojatatu.com>,
-        "Jiri Pirko" <jiri@resnulli.us>,
-        "David Miller" <davem@davemloft.net>,
-        "Linux Kernel Network Developers" <netdev@vger.kernel.org>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <f.fainelli@gmail.com>,
+        <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
+        <liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
+        <gabriele.paoloni@huawei.com>, <john.garry@huawei.com>,
+        <linuxarm@huawei.com>, <salil.mehta@huawei.com>,
+        <lipeng321@huawei.com>, <tremyfr@gmail.com>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m171-177.vip.163.com ([123.58.177.171]:35719 "EHLO
-        m171-177.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752764AbdF1A7W (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 20:59:22 -0400
-In-Reply-To: <1498585790.736.135.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from szxga03-in.huawei.com ([45.249.212.189]:8389 "EHLO
+        szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752694AbdF1BAV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 21:00:21 -0400
+In-Reply-To: <20170627132958.GA9921@lunn.ch>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-QXQgMjAxNy0wNi0yOCAwMTo0OTo1MCwgIkVyaWMgRHVtYXpldCIgPGVyaWMuZHVtYXpldEBnbWFp
-bC5jb20+IHdyb3RlOgo+T24gVHVlLCAyMDE3LTA2LTI3IGF0IDEwOjA4IC0wNzAwLCBDb25nIFdh
-bmcgd3JvdGU6Cj4+IE9uIFR1ZSwgSnVuIDI3LCAyMDE3IGF0IDk6NTAgQU0sIEVyaWMgRHVtYXpl
-dCA8ZXJpYy5kdW1hemV0QGdtYWlsLmNvbT4gd3JvdGU6Cj4+ID4gT24gVHVlLCAyMDE3LTA2LTI3
-IGF0IDA5OjMwIC0wNzAwLCBDb25nIFdhbmcgd3JvdGU6Cj4+ID4+IE9uIE1vbiwgSnVuIDI2LCAy
-MDE3IGF0IDY6MzUgUE0sICA8Z2ZyZWUud2luZEB2aXAuMTYzLmNvbT4gd3JvdGU6Cj4+ID4+ID4g
-RnJvbTogR2FvIEZlbmcgPGdmcmVlLndpbmRAdmlwLjE2My5jb20+Cj4+ID4+ID4KPj4gPj4gPiBX
-aGVuIHFkaXNjIGZhaWwgdG8gaW5pdCwgcWRpc2NfY3JlYXRlIHdvdWxkIGludm9rZSB0aGUgZGVz
-dHJveSBjYWxsYmFjawo+PiA+PiA+IHRvIGNsZWFudXAuIEJ1dCB0aGVyZSBpcyBubyBjaGVjayBp
-ZiB0aGUgY2FsbGJhY2sgZXhpc3RzIHJlYWxseS4gU28gaXQKPj4gPj4gPiB3b3VsZCBjYXVzZSB0
-aGUgcGFuaWMgaWYgdGhlcmUgaXMgbm8gcmVhbCBkZXN0cm95IGNhbGxiYWNrIGxpa2UgdGhlc2UK
-Pj4gPj4gPiBxZGlzYyBjb2RlbCwgcGZpZm8sIHBmaWZvX2Zhc3QsIGFuZCBzbyBvbi4KPj4gPj4g
-Pgo+PiA+PiA+IE5vdyBhZGQgb25lIHRoZSBjaGVjayBmb3IgZGVzdHJveSB0byBhdm9pZCB0aGUg
-cG9zc2libGUgcGFuaWMuCj4+ID4+ID4KPj4gPj4gPiBTaWduZWQtb2ZmLWJ5OiBHYW8gRmVuZyA8
-Z2ZyZWUud2luZEB2aXAuMTYzLmNvbT4KPj4gPj4KPj4gPj4gTG9va3MgZ29vZCwKPj4gPj4KPj4g
-Pj4gQWNrZWQtYnk6IENvbmcgV2FuZyA8eGl5b3Uud2FuZ2NvbmdAZ21haWwuY29tPgo+PiA+Pgo+
-PiA+PiBUaGlzIGlzIGludHJvZHVjZWQgYnkgY29tbWl0IDg3YjYwY2ZhY2Y5ZjE3Y2Y3MTkzM2M2
-ZTMzYi4KPj4gPj4gUGxlYXNlIGFkZCBwcm9wZXIgRml4ZXMgdGFnIG5leHQgdGltZS4KCk9LLiBB
-Y3R1YWxseSBJIGRpZG4ndCBrbm93IGl0IGlzIGludHJvZHVjZWQgYnkgdGhpcyBjb21taXQgYmVm
-b3JlIDopCk5lZWQgSSBzZW5kIGFuIHVwZGF0ZSBwYXRjaCBhZ2FpbiA/Cgo+PiA+Cj4+ID4gR2l2
-ZW4gdGhhdCBwZmlmbywgcGZpZm9fZmFzdCBvciBjb2RlbCBjYW4gbm90IGZhaWwgdGhlaXIgaW5p
-dCwKPj4gCj4+IAo+PiBIb3cgYWJvdXQgY29kZWxfaW5pdCgpIC0+IGNvZGVsX2NoYW5nZSgpIC0+
-IG5sYV9wYXJzZV9uZXN0ZWQoKSA/Cj4KPgo+WWVhaCwgd2l0aCBhIG1hbGljaW91cyB1c2VyIHNw
-YWNlIHRoZW4gKGlwcm91dGUyL3RjIGlzIGZpbmUpLCBjb2RlbAo+Y291bGQgYmUgcHJvYmxlbWF0
-aWMuCj4KPnBmaWZvIGFuZCBwZmlmb19mYXN0IGNhbiBkZWZpbml0ZWx5IG5vdCBoaXQgdGhpcyBi
-dWcuCj4KPmNoYW5nZWxvZyBuZWVkcyBhIGJpdCBvZiBhdHRlbnRpb24sIGV2ZW4gaWYgdGhlIGJ1
-ZyBpcyByZWFsLgo+Cj5UaGFua3MuCj4KPgoKWWVzLCB0aGUgY29kZWwgY291bGQgZmFpbCB0byBp
-bml0LCBhbmQgdGhlIGZpZm8vcGZpZm8gY291bGQgZmFpbGVkIFdoZW4gIm5sYV9sZW4ob3B0KSA8
-IHNpemVvZigqY3RsKSIuCgpCZXN0IFJlZ2FyZHMKRmVuZwoKCg==
+Hi, Andrew
+
+On 2017/6/27 21:29, Andrew Lunn wrote:
+>>>> -		phy_write(phy_dev, COPPER_CONTROL_REG, val);
+>>>> +		err = phy_resume(phy_dev);
+>>>
+>>> Maybe this was discussed with an earlier version of these patches. Why
+>>> are using phy_resume() and phy_suspend()?
+>> When self_test is invoked with ETH_TEST_FL_OFFLINE option, hns mac driver
+>> call dev_close to set net dev to offline state if net dev is online.
+>> Doing the actual phy loolback test require phy is power up, So phy_resume
+>> and phy_suspend are used.
+> 
+> O.K, so you at least need some comments, because this is not obvious.
+> 
+>>From your description, it sounds like you can call phy_resume() on a
+> device which is not suspended. 
+Do you mean after calling dev_close, the device is still not suspended?
+If that is the case, is there any way I can ensure the device is suspended?
+
+In general, suspend is expected to
+> store away state which will be lost when powering down a
+> device. Resume writes that state back into the device after it is
+> powered up. So resuming a device which was never suspended could write
+> bad state into it.
+Do you mean phydev->suspended has bad state?
+
+> 
+> Also, what about if WOL has been set before closing the device?
+phy_suspend will return errro.
+
+int phy_suspend(struct phy_device *phydev)
+{
+	struct phy_driver *phydrv = to_phy_driver(phydev->mdio.dev.driver);
+	struct ethtool_wolinfo wol = { .cmd = ETHTOOL_GWOL };
+	int ret = 0;
+
+	/* If the device has WOL enabled, we cannot suspend the PHY */
+	phy_ethtool_get_wol(phydev, &wol);
+	if (wol.wolopts)
+		return -EBUSY;
+
+	if (phydev->drv && phydrv->suspend)
+		ret = phydrv->suspend(phydev);
+
+	if (ret)
+		return ret;
+
+	phydev->suspended = true;
+
+	return ret;
+}
+
+Best Regard
+Yunsheng Lin
