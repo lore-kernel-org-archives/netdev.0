@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 11/14] amd-xgbe: Add NUMA affinity support for
- IRQ hints
-Date: Wed, 28 Jun 2017 13:43:00 -0500
-Message-ID: <20170628184300.21972.50184.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 13/14] amd-xgbe: Simplify the burst length
+ settings
+Date: Wed, 28 Jun 2017 13:43:18 -0500
+Message-ID: <20170628184318.21972.47558.stgit@tlendack-t1.amdoffice.net>
 References: <20170628184122.21972.87767.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,109 +10,223 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0083.outbound.protection.outlook.com ([104.47.34.83]:60576
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+Received: from mail-by2nam03on0041.outbound.protection.outlook.com ([104.47.42.41]:58799
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751501AbdF1SnP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 28 Jun 2017 14:43:15 -0400
+        id S1751937AbdF1SnW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 28 Jun 2017 14:43:22 -0400
 In-Reply-To: <20170628184122.21972.87767.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For IRQ affinity, set the affinity hints for the IRQs to be (initially) on
-the processors corresponding to the NUMA node of the device.
+Currently the driver hardcodes the PBLx8 setting.  Remove the need for
+specifying the PBLx8 setting and automatically calculate based on the
+specified PBL value. Since the PBLx8 setting applies to both Tx and Rx
+use the same PBL value for both of them.
+
+Also, the driver currently uses a bit field to set the AXI master burst
+len setting. Change to the full bit field range and set the burst length
+based on the specified value.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c |   18 +++++++++++++++---
- drivers/net/ethernet/amd/xgbe/xgbe.h     |    2 ++
- 2 files changed, 17 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-common.h |   11 ++++
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c    |   67 +++++++--------------------
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c   |    5 +-
+ drivers/net/ethernet/amd/xgbe/xgbe.h        |   12 +----
+ 4 files changed, 31 insertions(+), 64 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index 43b84ff..ecef3ee 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -192,12 +192,17 @@ static int xgbe_alloc_channels(struct xgbe_prv_data *pdata)
- 	struct xgbe_channel *channel;
- 	struct xgbe_ring *ring;
- 	unsigned int count, i;
-+	unsigned int cpu;
- 	int node;
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-common.h b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
+index dc09883..6b5c72d 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-common.h
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
+@@ -137,12 +137,19 @@
+ #define DMA_MR_SWR_WIDTH		1
+ #define DMA_SBMR_EAME_INDEX		11
+ #define DMA_SBMR_EAME_WIDTH		1
+-#define DMA_SBMR_BLEN_256_INDEX		7
+-#define DMA_SBMR_BLEN_256_WIDTH		1
++#define DMA_SBMR_BLEN_INDEX		1
++#define DMA_SBMR_BLEN_WIDTH		7
+ #define DMA_SBMR_UNDEF_INDEX		0
+ #define DMA_SBMR_UNDEF_WIDTH		1
  
--	node = dev_to_node(pdata->dev);
+ /* DMA register values */
++#define DMA_SBMR_BLEN_256		256
++#define DMA_SBMR_BLEN_128		128
++#define DMA_SBMR_BLEN_64		64
++#define DMA_SBMR_BLEN_32		32
++#define DMA_SBMR_BLEN_16		16
++#define DMA_SBMR_BLEN_8			8
++#define DMA_SBMR_BLEN_4			4
+ #define DMA_DSR_RPS_WIDTH		4
+ #define DMA_DSR_TPS_WIDTH		4
+ #define DMA_DSR_Q_WIDTH			(DMA_DSR_RPS_WIDTH + DMA_DSR_TPS_WIDTH)
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+index 98da249..a51ece5 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+@@ -174,52 +174,30 @@ static unsigned int xgbe_riwt_to_usec(struct xgbe_prv_data *pdata,
+ 	return ret;
+ }
+ 
+-static int xgbe_config_pblx8(struct xgbe_prv_data *pdata)
++static int xgbe_config_pbl_val(struct xgbe_prv_data *pdata)
+ {
++	unsigned int pblx8, pbl;
+ 	unsigned int i;
+ 
+-	for (i = 0; i < pdata->channel_count; i++)
+-		XGMAC_DMA_IOWRITE_BITS(pdata->channel[i], DMA_CH_CR, PBLX8,
+-				       pdata->pblx8);
 -
- 	count = max_t(unsigned int, pdata->tx_ring_count, pdata->rx_ring_count);
- 	for (i = 0; i < count; i++) {
-+		/* Attempt to use a CPU on the node the device is on */
-+		cpu = cpumask_local_spread(i, dev_to_node(pdata->dev));
-+
-+		/* Set the allocation node based on the returned CPU */
-+		node = cpu_to_node(cpu);
-+
- 		channel = xgbe_alloc_node(sizeof(*channel), node);
- 		if (!channel)
- 			goto err_mem;
-@@ -209,6 +214,7 @@ static int xgbe_alloc_channels(struct xgbe_prv_data *pdata)
- 		channel->dma_regs = pdata->xgmac_regs + DMA_CH_BASE +
- 				    (DMA_CH_INC * i);
- 		channel->node = node;
-+		cpumask_set_cpu(cpu, &channel->affinity_mask);
+-	return 0;
+-}
+-
+-static int xgbe_get_tx_pbl_val(struct xgbe_prv_data *pdata)
+-{
+-	return XGMAC_DMA_IOREAD_BITS(pdata->channel[0], DMA_CH_TCR, PBL);
+-}
+-
+-static int xgbe_config_tx_pbl_val(struct xgbe_prv_data *pdata)
+-{
+-	unsigned int i;
+-
+-	for (i = 0; i < pdata->channel_count; i++) {
+-		if (!pdata->channel[i]->tx_ring)
+-			break;
++	pblx8 = DMA_PBL_X8_DISABLE;
++	pbl = pdata->pbl;
  
- 		if (pdata->per_channel_irq)
- 			channel->dma_irq = pdata->channel_irq[i];
-@@ -236,7 +242,7 @@ static int xgbe_alloc_channels(struct xgbe_prv_data *pdata)
- 		}
+-		XGMAC_DMA_IOWRITE_BITS(pdata->channel[i], DMA_CH_TCR, PBL,
+-				       pdata->tx_pbl);
++	if (pdata->pbl > 32) {
++		pblx8 = DMA_PBL_X8_ENABLE;
++		pbl >>= 3;
+ 	}
  
- 		netif_dbg(pdata, drv, pdata->netdev,
--			  "%s: node=%d\n", channel->name, node);
-+			  "%s: cpu=%u, node=%d\n", channel->name, cpu, node);
- 
- 		netif_dbg(pdata, drv, pdata->netdev,
- 			  "%s: dma_regs=%p, dma_irq=%d, tx=%p, rx=%p\n",
-@@ -916,6 +922,9 @@ static int xgbe_request_irqs(struct xgbe_prv_data *pdata)
- 				     channel->dma_irq);
- 			goto err_dma_irq;
- 		}
+-	return 0;
+-}
+-
+-static int xgbe_get_rx_pbl_val(struct xgbe_prv_data *pdata)
+-{
+-	return XGMAC_DMA_IOREAD_BITS(pdata->channel[0], DMA_CH_RCR, PBL);
+-}
+-
+-static int xgbe_config_rx_pbl_val(struct xgbe_prv_data *pdata)
+-{
+-	unsigned int i;
+-
+ 	for (i = 0; i < pdata->channel_count; i++) {
+-		if (!pdata->channel[i]->rx_ring)
+-			break;
++		XGMAC_DMA_IOWRITE_BITS(pdata->channel[i], DMA_CH_CR, PBLX8,
++				       pblx8);
 +
-+		irq_set_affinity_hint(channel->dma_irq,
-+				      &channel->affinity_mask);
++		if (pdata->channel[i]->tx_ring)
++			XGMAC_DMA_IOWRITE_BITS(pdata->channel[i], DMA_CH_TCR,
++					       PBL, pbl);
+ 
+-		XGMAC_DMA_IOWRITE_BITS(pdata->channel[i], DMA_CH_RCR, PBL,
+-				       pdata->rx_pbl);
++		if (pdata->channel[i]->rx_ring)
++			XGMAC_DMA_IOWRITE_BITS(pdata->channel[i], DMA_CH_RCR,
++					       PBL, pbl);
  	}
  
  	return 0;
-@@ -925,6 +934,7 @@ static int xgbe_request_irqs(struct xgbe_prv_data *pdata)
- 	for (i--; i < pdata->channel_count; i--) {
- 		channel = pdata->channel[i];
+@@ -2141,7 +2119,7 @@ static void xgbe_config_dma_bus(struct xgbe_prv_data *pdata)
  
-+		irq_set_affinity_hint(channel->dma_irq, NULL);
- 		devm_free_irq(pdata->dev, channel->dma_irq, channel);
- 	}
- 
-@@ -952,6 +962,8 @@ static void xgbe_free_irqs(struct xgbe_prv_data *pdata)
- 
- 	for (i = 0; i < pdata->channel_count; i++) {
- 		channel = pdata->channel[i];
-+
-+		irq_set_affinity_hint(channel->dma_irq, NULL);
- 		devm_free_irq(pdata->dev, channel->dma_irq, channel);
- 	}
+ 	/* Set the System Bus mode */
+ 	XGMAC_IOWRITE_BITS(pdata, DMA_SBMR, UNDEF, 1);
+-	XGMAC_IOWRITE_BITS(pdata, DMA_SBMR, BLEN_256, 1);
++	XGMAC_IOWRITE_BITS(pdata, DMA_SBMR, BLEN, pdata->blen >> 2);
  }
+ 
+ static void xgbe_config_dma_cache(struct xgbe_prv_data *pdata)
+@@ -3381,9 +3359,7 @@ static int xgbe_init(struct xgbe_prv_data *pdata)
+ 	xgbe_config_dma_bus(pdata);
+ 	xgbe_config_dma_cache(pdata);
+ 	xgbe_config_osp_mode(pdata);
+-	xgbe_config_pblx8(pdata);
+-	xgbe_config_tx_pbl_val(pdata);
+-	xgbe_config_rx_pbl_val(pdata);
++	xgbe_config_pbl_val(pdata);
+ 	xgbe_config_rx_coalesce(pdata);
+ 	xgbe_config_tx_coalesce(pdata);
+ 	xgbe_config_rx_buffer_size(pdata);
+@@ -3511,13 +3487,6 @@ void xgbe_init_function_ptrs_dev(struct xgbe_hw_if *hw_if)
+ 	/* For TX DMA Operating on Second Frame config */
+ 	hw_if->config_osp_mode = xgbe_config_osp_mode;
+ 
+-	/* For RX and TX PBL config */
+-	hw_if->config_rx_pbl_val = xgbe_config_rx_pbl_val;
+-	hw_if->get_rx_pbl_val = xgbe_get_rx_pbl_val;
+-	hw_if->config_tx_pbl_val = xgbe_config_tx_pbl_val;
+-	hw_if->get_tx_pbl_val = xgbe_get_tx_pbl_val;
+-	hw_if->config_pblx8 = xgbe_config_pblx8;
+-
+ 	/* For MMC statistics support */
+ 	hw_if->tx_mmc_int = xgbe_tx_mmc_int;
+ 	hw_if->rx_mmc_int = xgbe_rx_mmc_int;
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+index 982368b..8eec9f5 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+@@ -140,14 +140,13 @@ static void xgbe_default_config(struct xgbe_prv_data *pdata)
+ {
+ 	DBGPR("-->xgbe_default_config\n");
+ 
+-	pdata->pblx8 = DMA_PBL_X8_ENABLE;
++	pdata->blen = DMA_SBMR_BLEN_256;
++	pdata->pbl = DMA_PBL_128;
+ 	pdata->tx_sf_mode = MTL_TSF_ENABLE;
+ 	pdata->tx_threshold = MTL_TX_THRESHOLD_64;
+-	pdata->tx_pbl = DMA_PBL_16;
+ 	pdata->tx_osp_mode = DMA_OSP_ENABLE;
+ 	pdata->rx_sf_mode = MTL_RSF_DISABLE;
+ 	pdata->rx_threshold = MTL_RX_THRESHOLD_64;
+-	pdata->rx_pbl = DMA_PBL_16;
+ 	pdata->pause_autoneg = 1;
+ 	pdata->tx_pause = 1;
+ 	pdata->rx_pause = 1;
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index ac3b558..7b50469 100644
+index 46780aa..4bf82eb 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe.h
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -128,6 +128,7 @@
- #include <linux/net_tstamp.h>
- #include <net/dcbnl.h>
- #include <linux/completion.h>
-+#include <linux/cpumask.h>
+@@ -737,13 +737,6 @@ struct xgbe_hw_if {
+ 	/* For TX DMA Operate on Second Frame config */
+ 	int (*config_osp_mode)(struct xgbe_prv_data *);
  
- #define XGBE_DRV_NAME		"amd-xgbe"
- #define XGBE_DRV_VERSION	"1.0.3"
-@@ -465,6 +466,7 @@ struct xgbe_channel {
- 	struct xgbe_ring *rx_ring;
+-	/* For RX and TX PBL config */
+-	int (*config_rx_pbl_val)(struct xgbe_prv_data *);
+-	int (*get_rx_pbl_val)(struct xgbe_prv_data *);
+-	int (*config_tx_pbl_val)(struct xgbe_prv_data *);
+-	int (*get_tx_pbl_val)(struct xgbe_prv_data *);
+-	int (*config_pblx8)(struct xgbe_prv_data *);
+-
+ 	/* For MMC statistics */
+ 	void (*rx_mmc_int)(struct xgbe_prv_data *);
+ 	void (*tx_mmc_int)(struct xgbe_prv_data *);
+@@ -1029,19 +1022,18 @@ struct xgbe_prv_data {
+ 	unsigned int rx_q_count;
  
- 	int node;
-+	cpumask_t affinity_mask;
- } ____cacheline_aligned;
+ 	/* Tx/Rx common settings */
+-	unsigned int pblx8;
++	unsigned int blen;
++	unsigned int pbl;
  
- enum xgbe_state {
+ 	/* Tx settings */
+ 	unsigned int tx_sf_mode;
+ 	unsigned int tx_threshold;
+-	unsigned int tx_pbl;
+ 	unsigned int tx_osp_mode;
+ 	unsigned int tx_max_fifo_size;
+ 
+ 	/* Rx settings */
+ 	unsigned int rx_sf_mode;
+ 	unsigned int rx_threshold;
+-	unsigned int rx_pbl;
+ 	unsigned int rx_max_fifo_size;
+ 
+ 	/* Tx coalescing settings */
