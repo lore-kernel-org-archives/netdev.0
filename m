@@ -1,90 +1,52 @@
-From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 11/17] net: convert netpoll_info.refcnt from atomic_t to refcount_t
-Date: Wed, 28 Jun 2017 14:55:00 +0300
-Message-ID: <1498650906-12907-12-git-send-email-elena.reshetova@intel.com>
-References: <1498650906-12907-1-git-send-email-elena.reshetova@intel.com>
-Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
-        stephen@networkplumber.org, peterz@infradead.org,
-        keescook@chromium.org, Elena Reshetova <elena.reshetova@intel.com>,
-        Hans Liljestrand <ishkamiel@gmail.com>,
-        David Windsor <dwindsor@gmail.com>
-To: netdev@vger.kernel.org
+From: Luca Coelho <luca@coelho.fi>
+Subject: Re: [PATCH] iwlwifi: mvm: fix iwl_mvm_sar_find_wifi_pkg corner case
+Date: Wed, 28 Jun 2017 14:59:33 +0300
+Message-ID: <1498651173.22048.111.camel@coelho.fi>
+References: <20170627152458.1103403-1-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+        Intel Linux Wireless <linuxwifi@intel.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Sara Sharon <sara.sharon@intel.com>,
+        Golan Ben-Ami <golan.ben.ami@intel.com>,
+        Liad Kaufman <liad.kaufman@intel.com>,
+        Haim Dreyfuss <haim.dreyfuss@intel.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>,
+        Johannes Berg <johannes.berg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:5509 "EHLO mga14.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751669AbdF1L4A (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 28 Jun 2017 07:56:00 -0400
-In-Reply-To: <1498650906-12907-1-git-send-email-elena.reshetova@intel.com>
+Received: from paleale.coelho.fi ([176.9.41.70]:35604 "EHLO
+        farmhouse.coelho.fi" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751652AbdF1L7o (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 07:59:44 -0400
+In-Reply-To: <20170627152458.1103403-1-arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-refcount_t type and corresponding API should be
-used instead of atomic_t when the variable is used as
-a reference counter. This allows to avoid accidental
-refcounter overflows that might lead to use-after-free
-situations.
+On Tue, 2017-06-27 at 17:24 +0200, Arnd Bergmann wrote:
+> gcc warns about what it thinks is an uninitialized variable
+> access:
+> 
+> drivers/net/wireless/intel/iwlwifi/mvm/fw.c: In function 'iwl_mvm_sar_find_wifi_pkg.isra.14':
+> drivers/net/wireless/intel/iwlwifi/mvm/fw.c:1102:5: error: 'wifi_pkg' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> 
+> That problem cannot really happen, as we check data->package.count
+> to ensure that the loop is entered at least once.
+> However, something that can indeed happen is returning an incorrect
+> wifi_pkg pointer in case none of the elements are what we are looking
+> for.
+> 
+> This modifies the loop again, to only return a correct object, and
+> to shut up that warning.
+> 
+> Fixes: c386dacb4ed6 ("iwlwifi: mvm: refactor SAR init to prepare for dynamic SAR")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> ---
 
-Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
-Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
-Signed-off-by: Kees Cook <keescook@chromium.org>
-Signed-off-by: David Windsor <dwindsor@gmail.com>
----
- include/linux/netpoll.h | 3 ++-
- net/core/netpoll.c      | 6 +++---
- 2 files changed, 5 insertions(+), 4 deletions(-)
+Thanks, Arnd!
 
-diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
-index 1828900..27c0aaa 100644
---- a/include/linux/netpoll.h
-+++ b/include/linux/netpoll.h
-@@ -11,6 +11,7 @@
- #include <linux/interrupt.h>
- #include <linux/rcupdate.h>
- #include <linux/list.h>
-+#include <linux/refcount.h>
- 
- union inet_addr {
- 	__u32		all[4];
-@@ -34,7 +35,7 @@ struct netpoll {
- };
- 
- struct netpoll_info {
--	atomic_t refcnt;
-+	refcount_t refcnt;
- 
- 	struct semaphore dev_lock;
- 
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index e256cd8..59a08e5 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -632,7 +632,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
- 		skb_queue_head_init(&npinfo->txq);
- 		INIT_DELAYED_WORK(&npinfo->tx_work, queue_process);
- 
--		atomic_set(&npinfo->refcnt, 1);
-+		refcount_set(&npinfo->refcnt, 1);
- 
- 		ops = np->dev->netdev_ops;
- 		if (ops->ndo_netpoll_setup) {
-@@ -642,7 +642,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
- 		}
- 	} else {
- 		npinfo = rtnl_dereference(ndev->npinfo);
--		atomic_inc(&npinfo->refcnt);
-+		refcount_inc(&npinfo->refcnt);
- 	}
- 
- 	npinfo->netpoll = np;
-@@ -821,7 +821,7 @@ void __netpoll_cleanup(struct netpoll *np)
- 
- 	synchronize_srcu(&netpoll_srcu);
- 
--	if (atomic_dec_and_test(&npinfo->refcnt)) {
-+	if (refcount_dec_and_test(&npinfo->refcnt)) {
- 		const struct net_device_ops *ops;
- 
- 		ops = np->dev->netdev_ops;
--- 
-2.7.4
+I've pushed this to our internal tree and it will eventually reach the
+mainline, via our normal upstreaming process.
