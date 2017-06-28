@@ -1,59 +1,146 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net] virtio-net: unbreak cusmed packet for small buffer XDP
-Date: Wed, 28 Jun 2017 05:17:13 +0300
-Message-ID: <20170628051555-mutt-send-email-mst@kernel.org>
-References: <1498614843-8163-1-git-send-email-jasowang@redhat.com>
-	<20170628050057-mutt-send-email-mst@kernel.org>
-	<7068053c-50da-6779-5ff2-6588e01e616d@redhat.com>
+From: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+Subject: [PATCH v2] datapath: Avoid using stack larger than 1024.
+Date: Tue, 27 Jun 2017 19:29:59 -0700
+Message-ID: <1498616999-3035-1-git-send-email-xiangxia.m.yue@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <7068053c-50da-6779-5ff2-6588e01e616d@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: pshelar@ovn.org, gvrose8192@gmail.com,
+        Tonghao Zhang <xiangxia.m.yue@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:36815 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752010AbdF1CaO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 22:30:14 -0400
+Received: by mail-pg0-f66.google.com with SMTP id u36so6368757pgn.3
+        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 19:30:14 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCBKdW4gMjgsIDIwMTcgYXQgMTA6MTQ6MzRBTSArMDgwMCwgSmFzb24gV2FuZyB3cm90
-ZToKPiAKPiAKPiBPbiAyMDE35bm0MDbmnIgyOOaXpSAxMDowMiwgTWljaGFlbCBTLiBUc2lya2lu
-IHdyb3RlOgo+ID4gT24gV2VkLCBKdW4gMjgsIDIwMTcgYXQgMDk6NTQ6MDNBTSArMDgwMCwgSmFz
-b24gV2FuZyB3cm90ZToKPiA+ID4gV2Ugc2hvdWxkIGFsbG93IGNzdW1lZCBwYWNrZXQgZm9yIHNt
-YWxsIGJ1ZmZlciwgb3RoZXJ3aXNlIFhEUF9QQVNTCj4gPiA+IHdvbid0IHdvcmsgY29ycmVjdGx5
-Lgo+ID4gPiAKPiA+ID4gRml4ZXMgY29tbWl0IGJiOTFhY2NmMjczMyAoInZpcnRpby1uZXQ6IFhE
-UCBzdXBwb3J0IGZvciBzbWFsbCBidWZmZXJzIikKPiA+ID4gU2lnbmVkLW9mZi1ieTogSmFzb24g
-V2FuZyA8amFzb3dhbmdAcmVkaGF0LmNvbT4KPiA+IFRoZSBpc3N1ZSB3b3VsZCBiZSBWSVJUSU9f
-TkVUX0hEUl9GX0RBVEFfVkFMSUQgbWlnaHQgYmUgc2V0Lgo+ID4gV2hhdCBkbyB5b3UgdGhpbms/
-Cj4gCj4gSSB0aGluayBpdCdzIHNhZmUuIEZvciBYRFBfUEFTUywgaXQgd29yayBsaWtlIGluIHRo
-ZSBwYXN0LgoKVGhhdCdzIHRoZSBwYXJ0IEkgZG9uJ3QgZ2V0LiBXaXRoIERBVEFfVkFMSUQgY3N1
-bSBpbiBwYWNrZXQgaXMgd3JvbmcsIFhEUAp0b29scyBhc3N1bWUgaXQncyB2YWx1ZS4KCj4gRm9y
-IFhEUF9UWCwgd2UKPiB6ZXJvIHRoZSB2bmV0IGhlYWRlci4KCkFnYWluIFRYIG9mZmxvYWQgaXMg
-ZGlzYWJsZWQsIHNvIHBhY2tldHMgd2lsbCBnbyBvdXQgd2l0aCBhbiBpbnZhbGlkCmNoZWNrc3Vt
-LgoKPiBGb3IgYWRqdXN0aW5nIGhlYWRlciwgWERQIHByb2cgc2hvdWxkIGRlYWwgd2l0aCBjc3Vt
-Lgo+IAo+IFRoYW5rcwoKVGhhdCBwYXJ0IHNlZW1zIHJpZ2h0LgoKPiA+IAo+ID4gPiAtLS0KPiA+
-ID4gVGhlIHBhdGNoIGlzIG5lZWRlZCBmb3IgLXN0YWJsZS4KPiA+ID4gLS0tCj4gPiA+ICAgZHJp
-dmVycy9uZXQvdmlydGlvX25ldC5jIHwgMiArLQo+ID4gPiAgIDEgZmlsZSBjaGFuZ2VkLCAxIGlu
-c2VydGlvbigrKSwgMSBkZWxldGlvbigtKQo+ID4gPiAKPiA+ID4gZGlmZiAtLWdpdCBhL2RyaXZl
-cnMvbmV0L3ZpcnRpb19uZXQuYyBiL2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYwo+ID4gPiBpbmRl
-eCAxNDNkOGE5Li40OTlmY2M5IDEwMDY0NAo+ID4gPiAtLS0gYS9kcml2ZXJzL25ldC92aXJ0aW9f
-bmV0LmMKPiA+ID4gKysrIGIvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCj4gPiA+IEBAIC00MTMs
-NyArNDEzLDcgQEAgc3RhdGljIHN0cnVjdCBza19idWZmICpyZWNlaXZlX3NtYWxsKHN0cnVjdCBu
-ZXRfZGV2aWNlICpkZXYsCj4gPiA+ICAgCQl2b2lkICpvcmlnX2RhdGE7Cj4gPiA+ICAgCQl1MzIg
-YWN0Owo+ID4gPiAtCQlpZiAodW5saWtlbHkoaGRyLT5oZHIuZ3NvX3R5cGUgfHwgaGRyLT5oZHIu
-ZmxhZ3MpKQo+ID4gPiArCQlpZiAodW5saWtlbHkoaGRyLT5oZHIuZ3NvX3R5cGUpKQo+ID4gPiAg
-IAkJCWdvdG8gZXJyX3hkcDsKPiA+ID4gICAJCXhkcC5kYXRhX2hhcmRfc3RhcnQgPSBidWYgKyBW
-SVJUTkVUX1JYX1BBRCArIHZpLT5oZHJfbGVuOwo+ID4gPiAtLSAKPiA+ID4gMi43LjQKX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KVmlydHVhbGl6YXRpb24g
-bWFpbGluZyBsaXN0ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0
-dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3ZpcnR1YWxp
-emF0aW9u
+When compiling OvS-master on 4.4.0-81 kernel,
+there is a warning:
+
+    CC [M]  /root/ovs/datapath/linux/datapath.o
+    /root/ovs/datapath/linux/datapath.c: In function
+    ‘ovs_flow_cmd_set’:
+    /root/ovs/datapath/linux/datapath.c:1221:1: warning:
+    the frame size of 1040 bytes is larger than 1024 bytes
+    [-Wframe-larger-than=]
+
+This patch factors out match-init and action-copy to avoid
+"Wframe-larger-than=1024" warning. Because mask is only
+used to get actions, we new a function to save some
+stack space.
+
+Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+---
+ datapath/datapath.c | 73 ++++++++++++++++++++++++++++++++++++-----------------
+ 1 file changed, 50 insertions(+), 23 deletions(-)
+
+diff --git a/datapath/datapath.c b/datapath/datapath.c
+index c85029c..fdbe314 100644
+--- a/datapath/datapath.c
++++ b/datapath/datapath.c
+@@ -1100,6 +1100,50 @@ static struct sw_flow_actions *get_flow_actions(struct net *net,
+ 	return acts;
+ }
+ 
++/* Factor out match-init and action-copy to avoid
++ * "Wframe-larger-than=1024" warning. Because mask is only
++ * used to get actions, we new a function to save some
++ * stack space.
++ *
++ * If there are not key and action attrs, we return 0
++ * directly. In the case, the caller will also not use the
++ * match as before. If there is action attr, we try to get
++ * actions and save them to *acts.
++ * */
++static int ovs_nla_init_match_and_action(struct net *net,
++					 struct sw_flow_match *match,
++					 struct sw_flow_key *key,
++					 struct nlattr **a,
++					 struct sw_flow_actions **acts,
++					 bool log)
++{
++	struct sw_flow_mask mask;
++	int error = 0;
++
++	if (a[OVS_FLOW_ATTR_KEY]) {
++		ovs_match_init(match, key, true, &mask);
++		error = ovs_nla_get_match(net, match, a[OVS_FLOW_ATTR_KEY],
++					  a[OVS_FLOW_ATTR_MASK], log);
++		if (error)
++			return error;
++	}
++
++	if (a[OVS_FLOW_ATTR_ACTIONS]) {
++		if (!a[OVS_FLOW_ATTR_KEY]) {
++			OVS_NLERR(log,
++				  "Flow key attribute not present in set flow.");
++			return -EINVAL;
++		}
++
++		*acts = get_flow_actions(net, a[OVS_FLOW_ATTR_ACTIONS], key,
++					 &mask, log);
++		if (IS_ERR(*acts))
++			return PTR_ERR(*acts);
++	}
++
++	return 0;
++}
++
+ static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
+ {
+ 	struct net *net = sock_net(skb->sk);
+@@ -1107,7 +1151,6 @@ static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
+ 	struct ovs_header *ovs_header = info->userhdr;
+ 	struct sw_flow_key key;
+ 	struct sw_flow *flow;
+-	struct sw_flow_mask mask;
+ 	struct sk_buff *reply = NULL;
+ 	struct datapath *dp;
+ 	struct sw_flow_actions *old_acts = NULL, *acts = NULL;
+@@ -1119,34 +1162,18 @@ static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
+ 	bool ufid_present;
+ 
+ 	ufid_present = ovs_nla_get_ufid(&sfid, a[OVS_FLOW_ATTR_UFID], log);
+-	if (a[OVS_FLOW_ATTR_KEY]) {
+-		ovs_match_init(&match, &key, true, &mask);
+-		error = ovs_nla_get_match(net, &match, a[OVS_FLOW_ATTR_KEY],
+-					  a[OVS_FLOW_ATTR_MASK], log);
+-	} else if (!ufid_present) {
++	if (!a[OVS_FLOW_ATTR_KEY] && !ufid_present) {
+ 		OVS_NLERR(log,
+ 			  "Flow set message rejected, Key attribute missing.");
+-		error = -EINVAL;
++		return -EINVAL;
+ 	}
++
++	error = ovs_nla_init_match_and_action(net, &match, &key, a,
++					      &acts, log);
+ 	if (error)
+ 		goto error;
+ 
+-	/* Validate actions. */
+-	if (a[OVS_FLOW_ATTR_ACTIONS]) {
+-		if (!a[OVS_FLOW_ATTR_KEY]) {
+-			OVS_NLERR(log,
+-				  "Flow key attribute not present in set flow.");
+-			error = -EINVAL;
+-			goto error;
+-		}
+-
+-		acts = get_flow_actions(net, a[OVS_FLOW_ATTR_ACTIONS], &key,
+-					&mask, log);
+-		if (IS_ERR(acts)) {
+-			error = PTR_ERR(acts);
+-			goto error;
+-		}
+-
++	if (acts) {
+ 		/* Can allocate before locking if have acts. */
+ 		reply = ovs_flow_cmd_alloc_info(acts, &sfid, info, false,
+ 						ufid_flags);
+-- 
+1.8.3.1
