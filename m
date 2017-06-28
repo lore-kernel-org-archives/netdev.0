@@ -1,37 +1,34 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] amd-xgbe: fix spelling mistake: "avialable" -> "available"
-Date: Wed, 28 Jun 2017 17:51:10 +0100
-Message-ID: <20170628165110.29130-1-colin.king@canonical.com>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: ath10k: add const to thermal_cooling_device_ops structure
+Date: Wed, 28 Jun 2017 18:54:01 +0200
+Message-ID: <ba4938bc024149c4a5bbb36dd2c66fef@euamsexm01a.eu.qualcomm.com>
+References: <1498037010-21024-1-git-send-email-bhumirks@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Tom Lendacky <thomas.lendacky@amd.com>, netdev@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: <julia.lawall@lip6.fr>, <ath10k@lists.infradead.org>,
+        <linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, Bhumika Goyal <bhumirks@gmail.com>
+To: Bhumika Goyal <bhumirks@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1498037010-21024-1-git-send-email-bhumirks@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+Bhumika Goyal <bhumirks@gmail.com> wrote:
 
-Trivial fix to spelling mistake in netdev_err message
+> Declare thermal_cooling_device_ops structure as const as it is only passed
+> as an argument to the function thermal_cooling_device_register and this
+> argument is of type const. So, declare the structure as const.
+> 
+> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+> Signed-off-by: Kalle Valo <kvalo@qca.qualcomm.com>
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Patch applied to ath-next branch of ath.git, thanks.
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-index 920566a3a599..67a2e52ad25d 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-@@ -247,7 +247,7 @@ static int xgbe_set_pauseparam(struct net_device *netdev,
- 
- 	if (pause->autoneg && (pdata->phy.autoneg != AUTONEG_ENABLE)) {
- 		netdev_err(netdev,
--			   "autoneg disabled, pause autoneg not avialable\n");
-+			   "autoneg disabled, pause autoneg not available\n");
- 		return -EINVAL;
- 	}
- 
+1cdb6c9fd433 ath10k: add const to thermal_cooling_device_ops structure
+
 -- 
-2.11.0
+https://patchwork.kernel.org/patch/9801291/
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
