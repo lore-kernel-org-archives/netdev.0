@@ -1,22 +1,22 @@
 From: Daniel Borkmann via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [PATCH v3 net-next 00/12] bpf: rewrite value
-	tracking in verifier
-Date: Wed, 28 Jun 2017 22:38:02 +0200
-Message-ID: <595413AA.40502@iogearbox.net>
+Subject: Re: [PATCH v3 net-next 03/12] nfp: change bpf
+ verifier hooks to match new verifier data structures
+Date: Wed, 28 Jun 2017 22:47:28 +0200
+Message-ID: <595415E0.9060403@iogearbox.net>
 References: <adc11342-737f-4e06-bce3-f0a92b5594a5@solarflare.com>
-	<5953B436.6030506@iogearbox.net>
-	<788035e1-1974-b48e-3008-d294194a8b05@solarflare.com>
+	<b8418d35-7d3f-1ee3-2bfa-cdf87e5b7c95@solarflare.com>
 Reply-To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: oss-drivers-wFxRvT7yatFl57MIdRCFDg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
 	Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>
+	Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>,
+	Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
 Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <788035e1-1974-b48e-3008-d294194a8b05-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+In-Reply-To: <b8418d35-7d3f-1ee3-2bfa-cdf87e5b7c95-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
 	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
@@ -28,53 +28,7 @@ Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-T24gMDYvMjgvMjAxNyAwNDoxMSBQTSwgRWR3YXJkIENyZWUgd3JvdGU6Cj4gT24gMjgvMDYvMTcg
-MTQ6NTAsIERhbmllbCBCb3JrbWFubiB3cm90ZToKPj4gSGkgRWR3YXJkLAo+Pgo+PiBEaWQgeW91
-IGFsc28gaGF2ZSBhIGNoYW5jZSBpbiB0aGUgbWVhbnRpbWUgdG8gbG9vayBhdCByZWR1Y2luZyBj
-b21wbGV4aXR5Cj4+IGFsb25nIHdpdGggeW91ciB1bmlmaWNhdGlvbj8gSSBkaWQgcnVuIHRoZSBj
-aWxpdW0gdGVzdCBzdWl0ZSB3aXRoIHlvdXIKPj4gbGF0ZXN0IHNldCBmcm9tIGhlcmUgYW5kIGN1
-cnJlbnQgIyB3b3JzdCBjYXNlIHByb2Nlc3NlZCBpbnNucyB0aGF0Cj4+IHZlcmlmaWVyIGhhcyB0
-byBnbyB0aHJvdWdoIGZvciBjaWxpdW0gcHJvZ3MgaW5jcmVhc2VzIGZyb20gfjUzayB3ZSBoYXZl
-Cj4+IHJpZ2h0IG5vdyB0byB+NzZrLiBJJ20gYSBiaXQgd29ycmllZCB0aGF0IHRoaXMgcXVpY2ts
-eSBnZXRzIHVzIGNsb3NlIHRvCj4+IHRoZSB1cHBlciB+OThrIG1heCBsaW1pdCBzdGFydGluZyB0
-byByZWplY3QgcHJvZ3JhbXMgYWdhaW4uIEFsdGVybmF0aXZlCj4+IGlzIHRvIGJ1bXAgdGhlIGNv
-bXBsZXhpdHkgbGltaXQgYWdhaW4gaW4gbmVhciBmdXR1cmUgb25jZSBydW4gaW50byBpdCwKPj4g
-YnV0IHByZWZlcmFibHkgdGhlcmUncyBhIHdheSB0byBvcHRpbWl6ZSBpdCBhbG9uZyB3aXRoIHRo
-ZSByZXdyaXRlPyBEbwo+PiB5b3Ugc2VlIGFueSBwb3NzaWJpbGl0aWVzIHdvcnRoIGV4cGxvcmlu
-Zz8KPiBUaGUgdHJvdWJsZSwgSSB0aGluaywgaXMgdGhhdCBhcyB3ZSdyZSBub3cgdHJhY2tpbmcg
-bW9yZSBpbmZvcm1hdGlvbiBhYm91dAo+ICAgZWFjaCByZWdpc3RlciB2YWx1ZSwgd2UncmUgbGVz
-cyBhYmxlIHRvIHBydW5lIGJyYW5jaGVzLiAgQnV0IG9mdGVuIHRoYXQKPiAgIGluZm9ybWF0aW9u
-IGlzIG5vdCBhY3R1YWxseSBiZWluZyB1c2VkIGluIHJlYWNoaW5nIHRoZSBleGl0IHN0YXRlLiAg
-U28gaXQKCkFncmVlLgoKPiAgIHNlZW1zIGxpa2UgdGhlIHdheSB0byB0YWNrbGUgdGhpcyB3b3Vs
-ZCBiZSB0byB0cmFjayB3aGF0IGluZm9ybWF0aW9uIGlzCj4gICB1c2VkIOKAlCBvciBhdCBsZWFz
-dCwgd2hpY2ggcmVnaXN0ZXJzIGFyZSByZWFkIGZyb20gKGluY2x1ZGluZyBlLmcuIHdyaXRpbmcK
-PiAgIHRocm91Z2ggdGhlbSBvciBwYXNzaW5nIHRoZW0gdG8gaGVscGVyIGNhbGxzKSDigJQgaW4g
-cmVhY2hpbmcgYSBzYWZlIHN0YXRlLgo+ICAgVGhlbiBvbmx5IHJlZ2lzdGVycyB3aGljaCBhcmUg
-dXNlZCBhcmUgcmVxdWlyZWQgdG8gbWF0Y2ggZm9yIHBydW5pbmcuCj4gQnV0IHRoYXQgdHJhY2tp
-bmcgd291bGQgcHJlc3VtYWJseSBoYXZlIHRvIHByb3BhZ2F0ZSBiYWNrd2FyZHMgdGhyb3VnaCB0
-aGUKPiAgIHZlcmlmaWVyIHN0YWNrLCBhbmQgSSdtIG5vdCBzdXJlIGhvdyBlYXNpbHkgdGhhdCBj
-b3VsZCBiZSBkb25lLiAgU29tZW9uZQo+ICAgKHdhcyBpdCB5b3U/KSB3YXMgdGFsa2luZyBhYm91
-dCByZXBsYWNpbmcgdGhlIGN1cnJlbnQgREFHIHdhbGtpbmcgYW5kCj4gICBwcnVuaW5nIHdpdGgg
-c29tZSBraW5kIG9mIGJhc2ljLWJsb2NrIHRoaW5nLCB3aGljaCB3b3VsZCBoZWxwIHdpdGggdGhp
-cy4KPiBTdW1tYXJ5OiBJIHRoaW5rIGl0IGNvdWxkIGJlIGRvbmUsIGJ1dCBJIGhhdmVuJ3QgbG9v
-a2VkIGludG8gdGhlIGRldGFpbHMKPiAgIG9mIGltcGxlbWVudGF0aW9uIHlldDsgaWYgaXQncyBu
-b3QgYWN0dWFsbHkgYnJlYWtpbmcgeW91ciBwcm9ncmFtcyAoeWV0KSwKPiAgIG1heWJlIGxlYXZl
-IGl0IGZvciBhIGZvbGxvd3VwIHBhdGNoIHNlcmllcz8KCkNvdWxkIHdlIGFkYXB0IHRoZSBsaW1p
-dCB0byAxMjhrIHBlcmhhcHMgYXMgcGFydCBvZiB0aGlzIHNldApnaXZlbiB3ZSBrbm93IHRoYXQg
-d2UncmUgdHJhY2tpbmcgbW9yZSBtZXRhIGRhdGEgaGVyZSBhbnl3YXk/ClRoZW4gd2UgY291bGQg
-cG90ZW50aWFsbHkgYXZvaWQgZ29pbmcgdmlhIC1zdGFibGUgbGF0ZXIgb24sCmJpZ2dlc3QgcGFp
-biBwb2ludCBpcyB1c3VhbGx5IHRyYWNraW5nIGRpZmZlcmVuY2VzIGluIExMVk0KY29kZSBnZW5l
-cmF0aW9uIChlLmcuIGRpZmZlcmVuY2VzIGluIG9wdGltaXphdGlvbnMpIGFsb25nIHdpdGgKdmVy
-aWZpZXIgY2hhbmdlcyB0byBtYWtlIHN1cmUgdGhhdCBwcm9ncmFtcyBzdGlsbCBrZWVwIGxvYWRp
-bmcKb24gb2xkZXIga2VybmVscyB3aXRoIGUuZy4gbmV3ZXIgTExWTTsgb25lIG9mIHRoZSBpc3N1
-ZXMgaXMgdGhhdApwcnVuaW5nIGNhbiBiZSBxdWl0ZSBmcmFnaWxlLiBFLmcuIHdvcnN0IGNhc2Ug
-YWRkaW5nIGEgc2ltcGxlCnZhciBpbiBhIGJyYW5jaCB0aGF0IExMVk0gYXNzaWducyBhIHN0YWNr
-IHNsb3QgdGhhdCB3YXMgb3RoZXJ3aXNlCm5vdCB1c2VkIHRocm91Z2hvdXQgdGhlIHByb2cgY2Fu
-IGNhdXNlIGEgc2lnbmlmaWNhbnQgaW5jcmVhc2Ugb2YKdmVyaWZpZXIgd29yayAocnVuIGludG8g
-dGhpcyBtdWx0aXBsZSB0aW1lcyBpbiB0aGUgcGFzdCBhbmQKaXMgYSBiaXQgb2YgYSBwYWluIHRv
-IHRyYWNrIGRvd24gYWN0dWFsbHkpLiBJZiB3ZSBjb3VsZCBrZWVwCnNvbWUgYnVmZmVyIGluIEJQ
-Rl9DT01QTEVYSVRZX0xJTUlUX0lOU05TIGF0IGxlYXN0IHdoZW4gd2Uga25vdwp0aGF0IG1vcmUg
-d29yayBpcyBuZWVkZWQgYW55d2F5IGZyb20gdGhhdCBwb2ludCBvbndhcmQsIHRoYXQKd291bGQg
-YmUgZ29vZC4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
-aW92aXNvci1kZXYgbWFpbGluZyBsaXN0Cmlvdmlzb3ItZGV2QGxpc3RzLmlvdmlzb3Iub3JnCmh0
-dHBzOi8vbGlzdHMuaW92aXNvci5vcmcvbWFpbG1hbi9saXN0aW5mby9pb3Zpc29yLWRldgo=
+On 06/27/2017 02:57 PM, Edward Cree wrote:
+> Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+
+Acked-by: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
