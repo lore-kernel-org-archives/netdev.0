@@ -1,87 +1,50 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: Re: [PATCH net-next v3 01/15] bpf: BPF support for sock_ops
-Date: Wed, 28 Jun 2017 17:45:18 +0000
-Message-ID: <E7B3D347-2AFE-454F-9BDC-17CA7C18D291@fb.com>
-References: <20170620030048.3275347-1-brakmo@fb.com>
- <20170620030048.3275347-2-brakmo@fb.com> <594C47A1.1080102@iogearbox.net>
- <B03E3B5A-50E2-4291-B091-23927AF6846F@fb.com>
- <594C5065.2010900@iogearbox.net>
- <82AC8CB1-F770-4EFA-9223-E2C94626582F@fb.com>
- <594D84EA.5080203@iogearbox.net>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [net-next] qtnfmac: fix uninitialized return code in ret
+Date: Wed, 28 Jun 2017 17:50:30 +0000 (UTC)
+Message-ID: <20170628175030.F05F460AFB@smtp.codeaurora.org>
+References: <20170621132530.11937-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Kernel Team <Kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
-        "Alexei Starovoitov" <ast@fb.com>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        netdev <netdev@vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Igor Mitsyanko <imitsyanko@quantenna.com>,
+        Avinash Patil <avinashp@quantenna.com>,
+        Sergey Matyukevich <smatyukevich@quantenna.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Bindu Therthala <btherthala@quantenna.com>,
+        Kamlesh Rath <krath@quantenna.com>,
+        Sergei Maksimenko <smaksimenko@quantenna.com>,
+        Johannes Berg <johannes.berg@intel.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Colin Ian King <colin.king@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:45567 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751580AbdF1Rpl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 13:45:41 -0400
-In-Reply-To: <594D84EA.5080203@iogearbox.net>
-Content-Language: en-US
-Content-ID: <D629DDBC4CE0A54AAADD11033FF87829@namprd15.prod.outlook.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:55978 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751538AbdF1Rub (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 13:50:31 -0400
+In-Reply-To: <20170621132530.11937-1-colin.king@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gNi8yMy8xNywgMjoxNSBQTSwgIkRhbmllbCBCb3JrbWFubiIgPGRhbmllbEBpb2dlYXJib3gu
-bmV0PiB3cm90ZToNCg0KICAgIE9uIDA2LzIzLzIwMTcgMDE6NTcgQU0sIExhd3JlbmNlIEJyYWtt
-byB3cm90ZToNCiAgICA+IE9uIDYvMjIvMTcsIDQ6MTkgUE0sICJuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIG9uIGJlaGFsZiBvZiBEYW5pZWwgQm9ya21hbm4iIDxuZXRkZXYtb3duZXJAdmdl
-ci5rZXJuZWwub3JnIG9uIGJlaGFsZiBvZiBkYW5pZWxAaW9nZWFyYm94Lm5ldD4gd3JvdGU6DQog
-ICAgPg0KICAgID4gICAgICBPbiAwNi8yMy8yMDE3IDEyOjU4IEFNLCBMYXdyZW5jZSBCcmFrbW8g
-d3JvdGU6DQogICAgPiAgICAgIFsuLi5dDQogICAgPiAgICAgID4gRGFuaWVsLCBJIHNlZSB2YWx1
-ZSBmb3IgaGF2aW5nIGEgZ2xvYmFsIHByb2dyYW0sIHNvIEkgd291bGQgbGlrZSB0byBrZWVwIHRo
-YXQuIFdoZW4NCiAgICA+ICAgICAgPiB0aGlzIHBhdGNoc2V0IGlzIGFjY2VwdGVkLCBJIHdpbGwg
-c3VibWl0IG9uZSB0aGF0IGFkZHMgc3VwcG9ydCBmb3IgcGVyIGNncm91cA0KICAgID4gICAgICA+
-IHNvY2tfb3BzIHByb2dyYW1zLCB3aXRoIHRoZSBvcHRpb24gdG8gdXNlIHRoZSBnbG9iYWwgb25l
-IGlmIG5vbmUgaXMNCiAgICA+ICAgICAgPiBzcGVjaWZpZWQgZm9yIGEgY2dyb3VwLiBXZSBjb3Vs
-ZCBhbHNvIGhhdmUgdGhlIG9wdGlvbiBvZiB0aGUgY2dyb3VwIHNvY2tfb3BzDQogICAgPiAgICAg
-ID4gcHJvZ3JhbSBjaG9vc2luZyBpZiB0aGUgZ2xvYmFsIHByb2dyYW0gc2hvdWxkIHJ1biBmb3Ig
-YSBwYXJ0aWN1bGFyIG9wIGJhc2VkIG9uDQogICAgPiAgICAgID4gaXRzIHJldHVybiB2YWx1ZS4g
-V2UgY2FuIGlyb24gaXQgb3V0IHRoZSBkZXRhaWxzIHdoZW4gdGhhdCBwYXRjaCBpcyBzdWJtaXR0
-ZWQuDQogICAgPg0KICAgID4gICAgICBIbSwgY291bGQgeW91IGVsYWJvcmF0ZSBvbiB0aGUgdmFs
-dWUgcGFydCBjb21wYXJlZCB0byBwZXIgY2dyb3VwcyBvcHM/DQogICAgPiAgICAgIE15IHVuZGVy
-c3RhbmRpbmcgaXMgdGhhdCBwZXIgY2dyb3VwIHdvdWxkIGFscmVhZHkgYmUgYSBwcm9wZXIgc3Vw
-ZXJzZXQNCiAgICA+ICAgICAgb2YganVzdCB0aGUgZ2xvYmFsIG9uZSBhbnl3YXksIHNvIHdoeSBu
-b3QgZ29pbmcgd2l0aCB0aGF0IGluIHRoZSBmaXJzdA0KICAgID4gICAgICBwbGFjZSBzaW5jZSB5
-b3UncmUgd29ya2luZyBvbiBpdD8NCiAgICA+DQogICAgPiAgICAgIFdoYXQgd291bGQgYmUgdGhl
-IGFkZGl0aW9uYWwgdmFsdWU/IEhvdyB3b3VsZCBnbG9iYWwgdnMgcGVyIGNncm91cCBvbmUNCiAg
-ICA+ICAgICAgaW50ZXJhY3Qgd2l0aCBlYWNoIG90aGVyIGluIHRlcm1zIG9mIGVuZm9yY2VtZW50
-IGUuZy4sIHRoZXJlJ3MgYWxyZWFkeQ0KICAgID4gICAgICBzZW1hbnRpY3MgaW4gcGxhY2UgZm9y
-IGNncm91cHMgZGVzY2VuZGFudHMsIHdvdWxkIGl0IGJlIHRoYXQgd2Ugc2V0DQogICAgPiAgICAg
-IFRDUCBwYXJhbWV0ZXJzIHR3aWNlIG9yIHdvdWxkIHlvdSBkaXNhYmxlIHRoZSBnbG9iYWwgb25l
-IGFsdG9nZXRoZXI/DQogICAgPiAgICAgIEp1c3Qgd29uZGVyaW5nIGFzIHlvdSBjb3VsZCBhdm9p
-ZCB0aGVzZSBhbHRvZ2V0aGVyIHdpdGggZ29pbmcgdmlhIGNncm91cHMNCiAgICA+ICAgICAgaW5p
-dGlhbGx5Lg0KICAgID4NCiAgICA+ICAgICAgVGhhbmtzLA0KICAgID4gICAgICBEYW5pZWwNCiAg
-ICA+DQogICAgPiBXZWxsLCBmb3Igc3RhcnRlcnMgdGhlIGdsb2JhbCBwcm9ncmFtIHdpbGwgd29y
-ayBldmVuIGlmIENPTkZJR19DR1JPVVBfQlBGIGlzDQogICAgPiBub3QgZGVmaW5lZC4gSXQgaXMg
-YWxzbyBhbiBlYXNpZXIgY29uY2VwdCBmb3Igd2hlbiBhIGdsb2JhbCBwcm9ncmFtIGlzIGFsbCB0
-aGF0DQogICAgDQogICAgT3RvaCwgbWFqb3IgZGlzdHJvcyBhcmUgaGlnaGx5IGxpa2VseSB0byBl
-bmFibGUgdGhpcyBvbiBieSBkZWZhdWx0IGFueXdheS4NCiAgICANCiAgICA+IGlzIHJlcXVpcmVk
-LiBCdXQgSSBhbHNvIGhhZCBpbiBtaW5kIHRoYXQgYmVoYXZpb3JzIHRoYXQgd2VyZSBpbiBjb21t
-b24gZm9yDQogICAgPiBtb3N0IGNncm91cCBwcm9ncmFtcyBjb3VsZCBiZSBoYW5kbGVkIGJ5IHRo
-ZSBnbG9iYWwgcHJvZ3JhbSBpbnN0ZWFkIG9mDQogICAgPiBhZGRpbmcgaXQgdG8gYWxsIGNncm91
-cCBwcm9ncmFtcy4gSW4gdGhpcyBzY2VuYXJpbyB0aGUgZ2xvYmFsIHByb2dyYW0NCiAgICA+IHJl
-cHJlc2VudHMgdGhlIGRlZmF1bHQgYmVoYXZpb3IgdGhhdCBjYW4gYmUgb3ZlcnJpZGUgYnkgdGhl
-IGNncm91cA0KICAgID4gcHJvZ3JhbSAocGVyIG9wKS4gRm9yIGV4YW1wbGUsIHRoZSBjZ3JvdXAg
-cHJvZ3JhbSBjb3VsZCByZXR1cm4gYSB2YWx1ZQ0KICAgID4gdG8gaW5kaWNhdGUgdGhhdCB0aGF0
-IG9wIHNob3VsZCBiZSBwYXNzZWQgdG8gdGhlIGdsb2JhbCBwcm9ncmFtLg0KICAgIA0KICAgIEJ1
-dCB0aGVuIHlvdSB3b3VsZCBuZWVkIHRvIGdvIHRocm91Z2ggdHdvIHByb2dyYW0gcGFzc2VzIGZv
-ciBzZXR0aW5nDQogICAgc3VjaCBwYXJhbWV0ZXJzPyBPdGhlciBvcHRpb24gY291bGQgYmUgdG8g
-bWFrZSB0aGUgcGVyIGNncm91cCBvcHMgbW9yZQ0KICAgIGZpbmUgZ3JhaW5lZCBhbmQgdXNlIHRo
-ZSBlZmZlY3RpdmUgb25lIHRoYXQgd2FzIGluaGVyaXRlZCBmb3IgZGVsZWdhdGluZw0KICAgIHRv
-IGRlZmF1bHQgb3BzLiBNeSBndXQgZmVlbGluZyBpcyBqdXN0IHRoYXQgdGhpcyBtYWtlcyBpbnRl
-cmFjdGlvbnMgdG8NCiAgICBtYW5hZ2UgdGhpcyBhbmQgZW5mb3JjZW1lbnQgaW4gY29tYmluYXRp
-b24gd2l0aCB0aGUgbGF0ZXIgcGxhbm5lZCBwZXINCiAgICBjZ3JvdXBzIG9wcyBtb3JlIGNvbXBs
-ZXggaWYgdGhlIHNhbWUgdXNlLWNhc2UgY291bGQgaW5kZWVkIGJlIHJlc29sdmVkDQogICAgd2l0
-aCBwZXIgY2dyb3VwcyBvbmx5Lg0KICAgIA0KRGFuaWVsLCB0aGFuayB5b3UgZm9yIHRoZSBmZWVk
-YmFjay4gSSBqdXN0IHN1Ym1pdHRlZCBhIG5ldyBwYXRjaCBzZXQgd2l0aG91dA0KdGhlIGdsb2Jh
-bCBwcm9ncmFtIGFuZCB1c2luZyBicGYgY2dyb3VwcyBmcmFtZXdvcmsuDQoNCiAgICA+IEkgYWdy
-ZWUgMTAwJSB3aXRoIHlvdSBvbiB0aGUgdmFsdWUgb2YgY2dyb3VwIHByb2dyYW1zLCBidXQgSSBq
-dXN0IGhhcHBlbg0KICAgID4gdG8gdGhpbmsgdGhlcmUgaXMgYWxzbyB2YWx1ZSBpbiB0aGUgZ2xv
-YmFsIHByb2dyYW0uDQogICAgPg0KICAgID4gVGhhbmtzLA0KICAgID4gTGF3cmVuY2UNCiAgICAN
-Cg0K
+Colin Ian King <colin.king@canonical.com> wrote:
+
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> The return value ret is unitialized and garbage is being returned
+> for the three different error conditions when setting up the PCIe
+> BARs. Fix this by initializing ret to  -ENOMEM to indicate that
+> the BARs failed to be setup correctly.
+> 
+> Detected by CoverityScan, CID#1437563 ("Unitialized scalar variable")
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Reviewed-by: Sergey Matyukevich <sergey.matyukevich.os@quantenna.com>
+
+Patch applied to wireless-drivers-next.git, thanks.
+
+3e3d8aa61107 qtnfmac: fix uninitialized return code in ret
+
+-- 
+https://patchwork.kernel.org/patch/9801833/
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
