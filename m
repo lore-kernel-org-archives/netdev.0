@@ -1,7 +1,7 @@
 From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next v4 06/16] bpf: Sample bpf program to set initial window
-Date: Wed, 28 Jun 2017 10:31:14 -0700
-Message-ID: <20170628173124.3299500-7-brakmo@fb.com>
+Subject: [PATCH net-next v4 03/16] bpf: Support for per connection  SYN/SYN-ACK RTOs
+Date: Wed, 28 Jun 2017 10:31:11 -0700
+Message-ID: <20170628173124.3299500-4-brakmo@fb.com>
 References: <20170628173124.3299500-1-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,115 +11,98 @@ Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:51071 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751532AbdF1Rbc (ORCPT
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:33876 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751888AbdF1Rbc (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 13:31:32 -0400
-Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5SHURAb023861
-        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:31:32 -0700
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+        by m0001303.ppops.net (8.16.0.20/8.16.0.20) with SMTP id v5SHR2dI013174
+        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:31:31 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2bc8vphukh-1
+        by m0001303.ppops.net with ESMTP id 2bbxkhtykt-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:31:32 -0700
+        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:31:31 -0700
 Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
- mx-out.facebook.com (10.212.232.59) with ESMTP id
- 9f7520b85c2711e79c7e0002c991e86a-2133a8f0 for <netdev@vger.kernel.org>;        Wed,
- 28 Jun 2017 10:31:30 -0700
+ mx-out.facebook.com (10.212.236.89) with ESMTP id
+ 9ee1b2105c2711e785390002c95209d8-4c9328f0 for <netdev@vger.kernel.org>;        Wed,
+ 28 Jun 2017 10:31:29 -0700
 In-Reply-To: <20170628173124.3299500-1-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The sample bpf program, tcp_rwnd_kern.c, sets the initial
-advertized window to 40 packets in an environment where
-distinct IPv6 prefixes indicate that both hosts are not
-in the same data center.
+This patch adds support for setting a per connection SYN and
+SYN_ACK RTOs from within a BPF_SOCK_OPS program. For example,
+to set small RTOs when it is known both hosts are within a
+datacenter.
 
 Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
 ---
- samples/bpf/Makefile        |  1 +
- samples/bpf/tcp_rwnd_kern.c | 61 +++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 62 insertions(+)
- create mode 100644 samples/bpf/tcp_rwnd_kern.c
+ include/net/tcp.h        | 11 +++++++++++
+ include/uapi/linux/bpf.h |  3 +++
+ net/ipv4/tcp_input.c     |  3 ++-
+ net/ipv4/tcp_output.c    |  2 +-
+ 4 files changed, 17 insertions(+), 2 deletions(-)
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index e29370a..ca95528 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -114,6 +114,7 @@ always += xdp_tx_iptunnel_kern.o
- always += test_map_in_map_kern.o
- always += cookie_uid_helper_example.o
- always += tcp_synrto_kern.o
-+always += tcp_rwnd_kern.o
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 804c27a..cd9ef63 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -2058,4 +2058,15 @@ static inline int tcp_call_bpf(struct sock *sk, bool is_req_sock, int op)
+ }
+ #endif
  
- HOSTCFLAGS += -I$(objtree)/usr/include
- HOSTCFLAGS += -I$(srctree)/tools/lib/
-diff --git a/samples/bpf/tcp_rwnd_kern.c b/samples/bpf/tcp_rwnd_kern.c
-new file mode 100644
-index 0000000..5daa649
---- /dev/null
-+++ b/samples/bpf/tcp_rwnd_kern.c
-@@ -0,0 +1,61 @@
-+/* Copyright (c) 2017 Facebook
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ *
-+ * BPF program to set initial receive window to 40 packets when using IPv6
-+ * and the first 5.5 bytes of the IPv6 addresses are not the same (in this
-+ * example that means both hosts are not the same datacenter.
-+ */
-+
-+#include <uapi/linux/bpf.h>
-+#include <uapi/linux/if_ether.h>
-+#include <uapi/linux/if_packet.h>
-+#include <uapi/linux/ip.h>
-+#include <linux/socket.h>
-+#include "bpf_helpers.h"
-+
-+#define DEBUG 1
-+
-+SEC("sockops")
-+int bpf_rwnd(struct bpf_sock_ops *skops)
++static inline u32 tcp_timeout_init(struct sock *sk, bool is_req_sock)
 +{
-+	char fmt1[] = "BPF command: %d\n";
-+	char fmt2[] = "  Returning %d\n";
-+	int rv = -1;
-+	int op;
++	int timeout;
 +
-+	/* For testing purposes, only execute rest of BPF program
-+	 * if neither port numberis 55601
-+	 */
-+	if (skops->remote_port != 55601 && skops->local_port != 55601)
-+		return -1;
++	timeout = tcp_call_bpf(sk, is_req_sock, BPF_SOCK_OPS_TIMEOUT_INIT);
 +
-+	op = (int) skops->op;
-+
-+#ifdef DEBUG
-+	bpf_trace_printk(fmt1, sizeof(fmt1), op);
-+#endif
-+
-+	/* Check for RWND_INIT operation and IPv6 addresses */
-+	if (op == BPF_SOCK_OPS_RWND_INIT &&
-+		skops->family == AF_INET6) {
-+
-+		/* If the first 5.5 bytes of the IPv6 address are not the same
-+		 * then both hosts are not in the same datacenter
-+		 * so use a larger initial advertized window (40 packets)
-+		 */
-+		if (skops->local_ip6[0] != skops->remote_ip6[0] ||
-+		    (skops->local_ip6[1] & 0xfffff000) !=
-+		    (skops->remote_ip6[1] & 0xfffff000))
-+			bpf_trace_printk(fmt2, sizeof(fmt2), -1);
-+			rv = 40;
-+	}
-+#ifdef DEBUG
-+	bpf_trace_printk(fmt2, sizeof(fmt2), rv);
-+#endif
-+	skops->reply = rv;
-+	return 1;
++	if (timeout <= 0)
++		timeout = TCP_TIMEOUT_INIT;
++	return timeout;
 +}
-+char _license[] SEC("license") = "GPL";
++
+ #endif	/* _TCP_H */
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 617fb66..4174668 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -746,6 +746,9 @@ struct bpf_sock_ops {
+  */
+ enum {
+ 	BPF_SOCK_OPS_VOID,
++	BPF_SOCK_OPS_TIMEOUT_INIT,	/* Should return SYN-RTO value to use or
++					 * -1 if default value should be used
++					 */
+ };
+ 
+ #endif /* _UAPI__LINUX_BPF_H__ */
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 2ab7e2f..0867b05 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -6406,7 +6406,8 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+ 	} else {
+ 		tcp_rsk(req)->tfo_listener = false;
+ 		if (!want_cookie)
+-			inet_csk_reqsk_queue_hash_add(sk, req, TCP_TIMEOUT_INIT);
++			inet_csk_reqsk_queue_hash_add(sk, req,
++				tcp_timeout_init((struct sock *)req, true));
+ 		af_ops->send_synack(sk, dst, &fl, req, &foc,
+ 				    !want_cookie ? TCP_SYNACK_NORMAL :
+ 						   TCP_SYNACK_COOKIE);
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 9a9c395..5e478a1 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -3327,7 +3327,7 @@ static void tcp_connect_init(struct sock *sk)
+ 	tp->rcv_wup = tp->rcv_nxt;
+ 	tp->copied_seq = tp->rcv_nxt;
+ 
+-	inet_csk(sk)->icsk_rto = TCP_TIMEOUT_INIT;
++	inet_csk(sk)->icsk_rto = tcp_timeout_init(sk, false);
+ 	inet_csk(sk)->icsk_retransmits = 0;
+ 	tcp_clear_retrans(tp);
+ }
 -- 
 2.9.3
