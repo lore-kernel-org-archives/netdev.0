@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 17/17] net: convert packet_fanout.sk_ref from atomic_t to refcount_t
-Date: Wed, 28 Jun 2017 14:55:06 +0300
-Message-ID: <1498650906-12907-18-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 14/17] net: convert inet_frag_queue.refcnt from atomic_t to refcount_t
+Date: Wed, 28 Jun 2017 14:55:03 +0300
+Message-ID: <1498650906-12907-15-git-send-email-elena.reshetova@intel.com>
 References: <1498650906-12907-1-git-send-email-elena.reshetova@intel.com>
 Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
         kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
@@ -26,66 +26,102 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- net/packet/af_packet.c | 8 ++++----
- net/packet/internal.h  | 4 +++-
- 2 files changed, 7 insertions(+), 5 deletions(-)
+ include/net/inet_frag.h  |  4 ++--
+ net/ipv4/inet_fragment.c | 14 +++++++-------
+ net/ipv4/ip_fragment.c   |  2 +-
+ 3 files changed, 10 insertions(+), 10 deletions(-)
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 87d7867..5c78d6a 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1742,7 +1742,7 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
- 		match->flags = flags;
- 		INIT_LIST_HEAD(&match->list);
- 		spin_lock_init(&match->lock);
--		atomic_set(&match->sk_ref, 0);
-+		refcount_set(&match->sk_ref, 0);
- 		fanout_init_data(match);
- 		match->prot_hook.type = po->prot_hook.type;
- 		match->prot_hook.dev = po->prot_hook.dev;
-@@ -1756,10 +1756,10 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
- 	    match->prot_hook.type == po->prot_hook.type &&
- 	    match->prot_hook.dev == po->prot_hook.dev) {
- 		err = -ENOSPC;
--		if (atomic_read(&match->sk_ref) < PACKET_FANOUT_MAX) {
-+		if (refcount_read(&match->sk_ref) < PACKET_FANOUT_MAX) {
- 			__dev_remove_pack(&po->prot_hook);
- 			po->fanout = match;
--			atomic_inc(&match->sk_ref);
-+			refcount_set(&match->sk_ref, refcount_read(&match->sk_ref) + 1);
- 			__fanout_link(sk, po);
- 			err = 0;
- 		}
-@@ -1788,7 +1788,7 @@ static struct packet_fanout *fanout_release(struct sock *sk)
- 	if (f) {
- 		po->fanout = NULL;
- 
--		if (atomic_dec_and_test(&f->sk_ref))
-+		if (refcount_dec_and_test(&f->sk_ref))
- 			list_del(&f->list);
- 		else
- 			f = NULL;
-diff --git a/net/packet/internal.h b/net/packet/internal.h
-index 9ee4631..94d1d40 100644
---- a/net/packet/internal.h
-+++ b/net/packet/internal.h
-@@ -1,6 +1,8 @@
- #ifndef __PACKET_INTERNAL_H__
- #define __PACKET_INTERNAL_H__
- 
-+#include <linux/refcount.h>
-+
- struct packet_mclist {
- 	struct packet_mclist	*next;
- 	int			ifindex;
-@@ -86,7 +88,7 @@ struct packet_fanout {
- 	struct list_head	list;
- 	struct sock		*arr[PACKET_FANOUT_MAX];
+diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
+index 5894730..5a334bf 100644
+--- a/include/net/inet_frag.h
++++ b/include/net/inet_frag.h
+@@ -50,7 +50,7 @@ struct inet_frag_queue {
  	spinlock_t		lock;
--	atomic_t		sk_ref;
-+	refcount_t		sk_ref;
- 	struct packet_type	prot_hook ____cacheline_aligned_in_smp;
- };
+ 	struct timer_list	timer;
+ 	struct hlist_node	list;
+-	atomic_t		refcnt;
++	refcount_t		refcnt;
+ 	struct sk_buff		*fragments;
+ 	struct sk_buff		*fragments_tail;
+ 	ktime_t			stamp;
+@@ -129,7 +129,7 @@ void inet_frag_maybe_warn_overflow(struct inet_frag_queue *q,
+ 
+ static inline void inet_frag_put(struct inet_frag_queue *q, struct inet_frags *f)
+ {
+-	if (atomic_dec_and_test(&q->refcnt))
++	if (refcount_dec_and_test(&q->refcnt))
+ 		inet_frag_destroy(q, f);
+ }
+ 
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index b5e9317..96e95e8 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -276,11 +276,11 @@ static inline void fq_unlink(struct inet_frag_queue *fq, struct inet_frags *f)
+ void inet_frag_kill(struct inet_frag_queue *fq, struct inet_frags *f)
+ {
+ 	if (del_timer(&fq->timer))
+-		atomic_dec(&fq->refcnt);
++		refcount_dec(&fq->refcnt);
+ 
+ 	if (!(fq->flags & INET_FRAG_COMPLETE)) {
+ 		fq_unlink(fq, f);
+-		atomic_dec(&fq->refcnt);
++		refcount_dec(&fq->refcnt);
+ 	}
+ }
+ EXPORT_SYMBOL(inet_frag_kill);
+@@ -329,7 +329,7 @@ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
+ 	 */
+ 	hlist_for_each_entry(qp, &hb->chain, list) {
+ 		if (qp->net == nf && f->match(qp, arg)) {
+-			atomic_inc(&qp->refcnt);
++			refcount_inc(&qp->refcnt);
+ 			spin_unlock(&hb->chain_lock);
+ 			qp_in->flags |= INET_FRAG_COMPLETE;
+ 			inet_frag_put(qp_in, f);
+@@ -339,9 +339,9 @@ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
+ #endif
+ 	qp = qp_in;
+ 	if (!mod_timer(&qp->timer, jiffies + nf->timeout))
+-		atomic_inc(&qp->refcnt);
++		refcount_inc(&qp->refcnt);
+ 
+-	atomic_inc(&qp->refcnt);
++	refcount_inc(&qp->refcnt);
+ 	hlist_add_head(&qp->list, &hb->chain);
+ 
+ 	spin_unlock(&hb->chain_lock);
+@@ -370,7 +370,7 @@ static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
+ 
+ 	setup_timer(&q->timer, f->frag_expire, (unsigned long)q);
+ 	spin_lock_init(&q->lock);
+-	atomic_set(&q->refcnt, 1);
++	refcount_set(&q->refcnt, 1);
+ 
+ 	return q;
+ }
+@@ -405,7 +405,7 @@ struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
+ 	spin_lock(&hb->chain_lock);
+ 	hlist_for_each_entry(q, &hb->chain, list) {
+ 		if (q->net == nf && f->match(q, key)) {
+-			atomic_inc(&q->refcnt);
++			refcount_inc(&q->refcnt);
+ 			spin_unlock(&hb->chain_lock);
+ 			return q;
+ 		}
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index b3cdeec..9a8cfac 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -312,7 +312,7 @@ static int ip_frag_reinit(struct ipq *qp)
+ 	unsigned int sum_truesize = 0;
+ 
+ 	if (!mod_timer(&qp->q.timer, jiffies + qp->q.net->timeout)) {
+-		atomic_inc(&qp->q.refcnt);
++		refcount_inc(&qp->q.refcnt);
+ 		return -ETIMEDOUT;
+ 	}
  
 -- 
 2.7.4
