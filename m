@@ -1,21 +1,21 @@
-From: Daniel Borkmann via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [PATCH v3 net-next 01/12] selftests/bpf: add test
- for mixed signed and unsigned bounds checks
-Date: Wed, 28 Jun 2017 15:51:36 +0200
-Message-ID: <5953B468.3090303@iogearbox.net>
+From: Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: [PATCH v3 net-next 00/12] bpf: rewrite value
+	tracking in verifier
+Date: Wed, 28 Jun 2017 15:11:32 +0100
+Message-ID: <788035e1-1974-b48e-3008-d294194a8b05@solarflare.com>
 References: <adc11342-737f-4e06-bce3-f0a92b5594a5@solarflare.com>
-	<12c14f90-153c-c2c2-b2e2-834185b7ec3f@solarflare.com>
-Reply-To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+	<5953B436.6030506@iogearbox.net>
+Reply-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
 	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, "Alexei
+	Starovoitov" <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
 	Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>
 Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <12c14f90-153c-c2c2-b2e2-834185b7ec3f-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+In-Reply-To: <5953B436.6030506-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
 List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
 	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
@@ -27,9 +27,36 @@ Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 06/27/2017 02:56 PM, Edward Cree wrote:
-> Currently fails due to bug in verifier bounds handling.
->
-> Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-
-Acked-by: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+T24gMjgvMDYvMTcgMTQ6NTAsIERhbmllbCBCb3JrbWFubiB3cm90ZToKPiBIaSBFZHdhcmQsCj4K
+PiBEaWQgeW91IGFsc28gaGF2ZSBhIGNoYW5jZSBpbiB0aGUgbWVhbnRpbWUgdG8gbG9vayBhdCBy
+ZWR1Y2luZyBjb21wbGV4aXR5Cj4gYWxvbmcgd2l0aCB5b3VyIHVuaWZpY2F0aW9uPyBJIGRpZCBy
+dW4gdGhlIGNpbGl1bSB0ZXN0IHN1aXRlIHdpdGggeW91cgo+IGxhdGVzdCBzZXQgZnJvbSBoZXJl
+IGFuZCBjdXJyZW50ICMgd29yc3QgY2FzZSBwcm9jZXNzZWQgaW5zbnMgdGhhdAo+IHZlcmlmaWVy
+IGhhcyB0byBnbyB0aHJvdWdoIGZvciBjaWxpdW0gcHJvZ3MgaW5jcmVhc2VzIGZyb20gfjUzayB3
+ZSBoYXZlCj4gcmlnaHQgbm93IHRvIH43NmsuIEknbSBhIGJpdCB3b3JyaWVkIHRoYXQgdGhpcyBx
+dWlja2x5IGdldHMgdXMgY2xvc2UgdG8KPiB0aGUgdXBwZXIgfjk4ayBtYXggbGltaXQgc3RhcnRp
+bmcgdG8gcmVqZWN0IHByb2dyYW1zIGFnYWluLiBBbHRlcm5hdGl2ZQo+IGlzIHRvIGJ1bXAgdGhl
+IGNvbXBsZXhpdHkgbGltaXQgYWdhaW4gaW4gbmVhciBmdXR1cmUgb25jZSBydW4gaW50byBpdCwK
+PiBidXQgcHJlZmVyYWJseSB0aGVyZSdzIGEgd2F5IHRvIG9wdGltaXplIGl0IGFsb25nIHdpdGgg
+dGhlIHJld3JpdGU/IERvCj4geW91IHNlZSBhbnkgcG9zc2liaWxpdGllcyB3b3J0aCBleHBsb3Jp
+bmc/IApUaGUgdHJvdWJsZSwgSSB0aGluaywgaXMgdGhhdCBhcyB3ZSdyZSBub3cgdHJhY2tpbmcg
+bW9yZSBpbmZvcm1hdGlvbiBhYm91dAogZWFjaCByZWdpc3RlciB2YWx1ZSwgd2UncmUgbGVzcyBh
+YmxlIHRvIHBydW5lIGJyYW5jaGVzLiAgQnV0IG9mdGVuIHRoYXQKIGluZm9ybWF0aW9uIGlzIG5v
+dCBhY3R1YWxseSBiZWluZyB1c2VkIGluIHJlYWNoaW5nIHRoZSBleGl0IHN0YXRlLiAgU28gaXQK
+IHNlZW1zIGxpa2UgdGhlIHdheSB0byB0YWNrbGUgdGhpcyB3b3VsZCBiZSB0byB0cmFjayB3aGF0
+IGluZm9ybWF0aW9uIGlzCiB1c2VkIOKAlCBvciBhdCBsZWFzdCwgd2hpY2ggcmVnaXN0ZXJzIGFy
+ZSByZWFkIGZyb20gKGluY2x1ZGluZyBlLmcuIHdyaXRpbmcKIHRocm91Z2ggdGhlbSBvciBwYXNz
+aW5nIHRoZW0gdG8gaGVscGVyIGNhbGxzKSDigJQgaW4gcmVhY2hpbmcgYSBzYWZlIHN0YXRlLgog
+VGhlbiBvbmx5IHJlZ2lzdGVycyB3aGljaCBhcmUgdXNlZCBhcmUgcmVxdWlyZWQgdG8gbWF0Y2gg
+Zm9yIHBydW5pbmcuCkJ1dCB0aGF0IHRyYWNraW5nIHdvdWxkIHByZXN1bWFibHkgaGF2ZSB0byBw
+cm9wYWdhdGUgYmFja3dhcmRzIHRocm91Z2ggdGhlCiB2ZXJpZmllciBzdGFjaywgYW5kIEknbSBu
+b3Qgc3VyZSBob3cgZWFzaWx5IHRoYXQgY291bGQgYmUgZG9uZS4gIFNvbWVvbmUKICh3YXMgaXQg
+eW91Pykgd2FzIHRhbGtpbmcgYWJvdXQgcmVwbGFjaW5nIHRoZSBjdXJyZW50IERBRyB3YWxraW5n
+IGFuZAogcHJ1bmluZyB3aXRoIHNvbWUga2luZCBvZiBiYXNpYy1ibG9jayB0aGluZywgd2hpY2gg
+d291bGQgaGVscCB3aXRoIHRoaXMuClN1bW1hcnk6IEkgdGhpbmsgaXQgY291bGQgYmUgZG9uZSwg
+YnV0IEkgaGF2ZW4ndCBsb29rZWQgaW50byB0aGUgZGV0YWlscwogb2YgaW1wbGVtZW50YXRpb24g
+eWV0OyBpZiBpdCdzIG5vdCBhY3R1YWxseSBicmVha2luZyB5b3VyIHByb2dyYW1zICh5ZXQpLAog
+bWF5YmUgbGVhdmUgaXQgZm9yIGEgZm9sbG93dXAgcGF0Y2ggc2VyaWVzPwoKLUVkCl9fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmlvdmlzb3ItZGV2IG1haWxp
+bmcgbGlzdAppb3Zpc29yLWRldkBsaXN0cy5pb3Zpc29yLm9yZwpodHRwczovL2xpc3RzLmlvdmlz
+b3Iub3JnL21haWxtYW4vbGlzdGluZm8vaW92aXNvci1kZXYK
