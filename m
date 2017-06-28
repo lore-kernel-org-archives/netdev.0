@@ -1,7 +1,7 @@
 From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next v4 07/16] bpf: Add setsockopt helper function to bpf
-Date: Wed, 28 Jun 2017 10:31:15 -0700
-Message-ID: <20170628173124.3299500-8-brakmo@fb.com>
+Subject: [PATCH net-next v4 09/16] bpf: Sample BPF program to set buffer sizes
+Date: Wed, 28 Jun 2017 10:31:17 -0700
+Message-ID: <20170628173124.3299500-10-brakmo@fb.com>
 References: <20170628173124.3299500-1-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,199 +11,131 @@ Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:50272 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:50277 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751898AbdF1Rbd (ORCPT
+        by vger.kernel.org with ESMTP id S1751900AbdF1Rbd (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 13:31:33 -0400
 Received: from pps.filterd (m0109333.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5SHTYsF012847
-        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:31:32 -0700
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5SHTYWB012848
+        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:31:33 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2bcfmtrb0k-1
+        by mx0a-00082601.pphosted.com with ESMTP id 2bcfmtrb0t-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:31:32 -0700
+        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:31:33 -0700
 Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
- mx-out.facebook.com (10.212.232.63) with ESMTP id
- 9fbb40165c2711e7a7d50002c992ebde-64b3a8f0 for <netdev@vger.kernel.org>;        Wed,
- 28 Jun 2017 10:31:31 -0700
+ mx-out.facebook.com (10.212.232.59) with ESMTP id
+ a01c97ee5c2711e78e380002c991e86a-2233c8f0 for <netdev@vger.kernel.org>;        Wed,
+ 28 Jun 2017 10:31:32 -0700
 In-Reply-To: <20170628173124.3299500-1-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added support for calling a subset of socket setsockopts from
-BPF_PROG_TYPE_SOCK_OPS programs. The code was duplicated rather
-than making the changes to call the socket setsockopt function because
-the changes required would have been larger.
-
-The ops supported are:
-  SO_RCVBUF
-  SO_SNDBUF
-  SO_MAX_PACING_RATE
-  SO_PRIORITY
-  SO_RCVLOWAT
-  SO_MARK
+This patch contains a BPF program to set initial receive window to
+40 packets and send and receive buffers to 1.5MB. This would usually
+be done after doing appropriate checks that indicate the hosts are
+far enough away (i.e. large RTT).
 
 Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
 ---
- include/uapi/linux/bpf.h  | 14 ++++++++-
- net/core/filter.c         | 77 ++++++++++++++++++++++++++++++++++++++++++++++-
- samples/bpf/bpf_helpers.h |  3 ++
- 3 files changed, 92 insertions(+), 2 deletions(-)
+ samples/bpf/Makefile        |  1 +
+ samples/bpf/tcp_bufs_kern.c | 77 +++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 78 insertions(+)
+ create mode 100644 samples/bpf/tcp_bufs_kern.c
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index cdec348..2dbae9e 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -520,6 +520,17 @@ union bpf_attr {
-  *     Set full skb->hash.
-  *     @skb: pointer to skb
-  *     @hash: hash to set
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index ca95528..3b300db 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -115,6 +115,7 @@ always += test_map_in_map_kern.o
+ always += cookie_uid_helper_example.o
+ always += tcp_synrto_kern.o
+ always += tcp_rwnd_kern.o
++always += tcp_bufs_kern.o
+ 
+ HOSTCFLAGS += -I$(objtree)/usr/include
+ HOSTCFLAGS += -I$(srctree)/tools/lib/
+diff --git a/samples/bpf/tcp_bufs_kern.c b/samples/bpf/tcp_bufs_kern.c
+new file mode 100644
+index 0000000..ccd3bbe
+--- /dev/null
++++ b/samples/bpf/tcp_bufs_kern.c
+@@ -0,0 +1,77 @@
++/* Copyright (c) 2017 Facebook
 + *
-+ * int bpf_setsockopt(bpf_socket, level, optname, optval, optlen)
-+ *     Calls setsockopt. Not all opts are available, only those with
-+ *     integer optvals plus TCP_CONGESTION.
-+ *     Supported levels: SOL_SOCKET and IPROTO_TCP
-+ *     @bpf_socket: pointer to bpf_socket
-+ *     @level: SOL_SOCKET or IPROTO_TCP
-+ *     @optname: option name
-+ *     @optval: pointer to option value
-+ *     @optlen: length of optval in byes
-+ *     Return: 0 or negative error
-  */
- #define __BPF_FUNC_MAPPER(FN)		\
- 	FN(unspec),			\
-@@ -570,7 +581,8 @@ union bpf_attr {
- 	FN(probe_read_str),		\
- 	FN(get_socket_cookie),		\
- 	FN(get_socket_uid),		\
--	FN(set_hash),
-+	FN(set_hash),			\
-+	FN(setsockopt),
- 
- /* integer value in 'imm' field of BPF_CALL instruction selects which helper
-  * function eBPF program intends to call
-diff --git a/net/core/filter.c b/net/core/filter.c
-index bb54832..167eca0 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -54,6 +54,7 @@
- #include <net/dst.h>
- #include <net/sock_reuseport.h>
- #include <net/busy_poll.h>
-+#include <net/tcp.h>
- 
- /**
-  *	sk_filter_trim_cap - run a packet through a socket filter
-@@ -2672,6 +2673,69 @@ static const struct bpf_func_proto bpf_get_socket_uid_proto = {
- 	.arg1_type      = ARG_PTR_TO_CTX,
- };
- 
-+BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
-+	   int, level, int, optname, char *, optval, int, optlen)
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ *
++ * BPF program to set initial receive window to 40 packets and send
++ * and receive buffers to 1.5MB. This would usually be done after
++ * doing appropriate checks that indicate the hosts are far enough
++ * away (i.e. large RTT).
++ */
++
++#include <uapi/linux/bpf.h>
++#include <uapi/linux/if_ether.h>
++#include <uapi/linux/if_packet.h>
++#include <uapi/linux/ip.h>
++#include <linux/socket.h>
++#include "bpf_helpers.h"
++
++#define DEBUG 1
++
++SEC("sockops")
++int bpf_bufs(struct bpf_sock_ops *skops)
 +{
-+	struct sock *sk = bpf_sock->sk;
-+	int ret = 0;
-+	int val;
++	char fmt1[] = "BPF command: %d\n";
++	char fmt2[] = "  Returning %d\n";
++	int bufsize = 1500000;
++	int rwnd_init = 40;
++	int rv = 0;
++	int op;
 +
-+	if (bpf_sock->is_req_sock)
-+		return -EINVAL;
++	/* For testing purposes, only execute rest of BPF program
++	 * if neither port numberis 55601
++	 */
++	if (skops->remote_port != 55601 && skops->local_port != 55601)
++		return -1;
 +
-+	if (level == SOL_SOCKET) {
-+		/* Only some socketops are supported */
-+		val = *((int *)optval);
++	op = (int) skops->op;
 +
-+		switch (optname) {
-+		case SO_RCVBUF:
-+			sk->sk_userlocks |= SOCK_RCVBUF_LOCK;
-+			sk->sk_rcvbuf = max_t(int, val * 2, SOCK_MIN_RCVBUF);
-+			break;
-+		case SO_SNDBUF:
-+			sk->sk_userlocks |= SOCK_SNDBUF_LOCK;
-+			sk->sk_sndbuf = max_t(int, val * 2, SOCK_MIN_SNDBUF);
-+			break;
-+		case SO_MAX_PACING_RATE:
-+			sk->sk_max_pacing_rate = val;
-+			sk->sk_pacing_rate = min(sk->sk_pacing_rate,
-+						 sk->sk_max_pacing_rate);
-+			break;
-+		case SO_PRIORITY:
-+			sk->sk_priority = val;
-+			break;
-+		case SO_RCVLOWAT:
-+			if (val < 0)
-+				val = INT_MAX;
-+			sk->sk_rcvlowat = val ? : 1;
-+			break;
-+		case SO_MARK:
-+			sk->sk_mark = val;
-+			break;
-+		default:
-+			ret = -EINVAL;
-+		}
-+	} else if (level == SOL_TCP &&
-+		   sk->sk_prot->setsockopt == tcp_setsockopt) {
-+		/* Place holder */
-+		ret = -EINVAL;
-+	} else {
-+		ret = -EINVAL;
-+	}
-+	return ret;
-+}
++#ifdef DEBUG
++	bpf_trace_printk(fmt1, sizeof(fmt1), op);
++#endif
 +
-+static const struct bpf_func_proto bpf_setsockopt_proto = {
-+	.func		= bpf_setsockopt,
-+	.gpl_only	= true,
-+	.ret_type	= RET_INTEGER,
-+	.arg1_type	= ARG_PTR_TO_CTX,
-+	.arg2_type	= ARG_ANYTHING,
-+	.arg3_type	= ARG_ANYTHING,
-+	.arg4_type	= ARG_PTR_TO_MEM,
-+	.arg5_type	= ARG_CONST_SIZE_OR_ZERO,
-+};
-+
- static const struct bpf_func_proto *
- bpf_base_func_proto(enum bpf_func_id func_id)
- {
-@@ -2823,6 +2887,17 @@ lwt_inout_func_proto(enum bpf_func_id func_id)
- }
- 
- static const struct bpf_func_proto *
-+	sock_ops_func_proto(enum bpf_func_id func_id)
-+{
-+	switch (func_id) {
-+	case BPF_FUNC_setsockopt:
-+		return &bpf_setsockopt_proto;
++	/* Usually there would be a check to insure the hosts are far
++	 * from each other so it makes sense to increase buffer sizes
++	 */
++	switch (op) {
++	case BPF_SOCK_OPS_RWND_INIT:
++		rv = rwnd_init;
++		break;
++	case BPF_SOCK_OPS_TCP_CONNECT_CB:
++		/* Set sndbuf and rcvbuf of active connections */
++		rv = bpf_setsockopt(skops, SOL_SOCKET, SO_SNDBUF, &bufsize,
++				    sizeof(bufsize));
++		rv = rv*100 + bpf_setsockopt(skops, SOL_SOCKET, SO_RCVBUF,
++					     &bufsize, sizeof(bufsize));
++		break;
++	case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
++		/* Nothing to do */
++		break;
++	case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
++		/* Set sndbuf and rcvbuf of passive connections */
++		rv = bpf_setsockopt(skops, SOL_SOCKET, SO_SNDBUF, &bufsize,
++				    sizeof(bufsize));
++		rv = rv*100 + bpf_setsockopt(skops, SOL_SOCKET, SO_RCVBUF,
++					     &bufsize, sizeof(bufsize));
++		break;
 +	default:
-+		return bpf_base_func_proto(func_id);
++		rv = -1;
 +	}
++#ifdef DEBUG
++	bpf_trace_printk(fmt2, sizeof(fmt2), rv);
++#endif
++	skops->reply = rv;
++	return 1;
 +}
-+
-+static const struct bpf_func_proto *
- lwt_xmit_func_proto(enum bpf_func_id func_id)
- {
- 	switch (func_id) {
-@@ -3593,7 +3668,7 @@ const struct bpf_verifier_ops cg_sock_prog_ops = {
- };
- 
- const struct bpf_verifier_ops sock_ops_prog_ops = {
--	.get_func_proto		= bpf_base_func_proto,
-+	.get_func_proto		= sock_ops_func_proto,
- 	.is_valid_access	= sock_ops_is_valid_access,
- 	.convert_ctx_access	= sock_ops_convert_ctx_access,
- };
-diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
-index f4840b8..d50ac34 100644
---- a/samples/bpf/bpf_helpers.h
-+++ b/samples/bpf/bpf_helpers.h
-@@ -60,6 +60,9 @@ static unsigned long long (*bpf_get_prandom_u32)(void) =
- 	(void *) BPF_FUNC_get_prandom_u32;
- static int (*bpf_xdp_adjust_head)(void *ctx, int offset) =
- 	(void *) BPF_FUNC_xdp_adjust_head;
-+static int (*bpf_setsockopt)(void *ctx, int level, int optname, void *optval,
-+			     int optlen) =
-+	(void *) BPF_FUNC_setsockopt;
- 
- /* llvm builtin functions that eBPF C program may use to
-  * emit BPF_LD_ABS and BPF_LD_IND instructions
++char _license[] SEC("license") = "GPL";
 -- 
 2.9.3
