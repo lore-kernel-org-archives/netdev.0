@@ -1,7 +1,7 @@
 From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next v4 10/16] bpf: Add support for changing congestion control
-Date: Wed, 28 Jun 2017 10:31:18 -0700
-Message-ID: <20170628173124.3299500-11-brakmo@fb.com>
+Subject: [PATCH net-next v4 11/16] bpf: Sample BPF program to set congestion control
+Date: Wed, 28 Jun 2017 10:31:19 -0700
+Message-ID: <20170628173124.3299500-12-brakmo@fb.com>
 References: <20170628173124.3299500-1-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,229 +11,127 @@ Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:53308 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:50283 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751566AbdF1Rbd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 13:31:33 -0400
-Received: from pps.filterd (m0109334.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5SHS4Zs030339
+        by vger.kernel.org with ESMTP id S1751927AbdF1Rbe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 13:31:34 -0400
+Received: from pps.filterd (m0109333.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5SHTYWD012848
         for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:31:33 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2bcad61g72-1
+        by mx0a-00082601.pphosted.com with ESMTP id 2bcfmtrb0t-3
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
         for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:31:33 -0700
 Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
- mx-out.facebook.com (10.212.236.87) with ESMTP id
- a0588d085c2711e7ba3f0002c9521c9e-f26ac150 for <netdev@vger.kernel.org>;        Wed,
+ mx-out.facebook.com (10.212.232.63) with ESMTP id
+ a07cc2225c2711e7ab3b0002c992ebde-65b3c8f0 for <netdev@vger.kernel.org>;        Wed,
  28 Jun 2017 10:31:32 -0700
 In-Reply-To: <20170628173124.3299500-1-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added support for changing congestion control for SOCK_OPS bpf
-programs through the setsockopt bpf helper function. It also adds
-a new SOCK_OPS op, BPF_SOCK_OPS_NEEDS_ECN, that is needed for
-congestion controls, like dctcp, that need to enable ECN in the
-SYN packets.
+Sample BPF program that sets congestion control to dctcp when both hosts
+are within the same datacenter. In this example that is assumed to be
+when they have the first 5.5 bytes of their IPv6 address are the same.
 
 Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
 ---
- include/net/tcp.h        |  9 ++++++++-
- include/uapi/linux/bpf.h |  3 +++
- net/core/filter.c        | 11 +++++++++--
- net/ipv4/tcp.c           |  2 +-
- net/ipv4/tcp_cong.c      | 32 ++++++++++++++++++++++----------
- net/ipv4/tcp_input.c     |  3 ++-
- net/ipv4/tcp_output.c    |  8 +++++---
- 7 files changed, 50 insertions(+), 18 deletions(-)
+ samples/bpf/Makefile        |  1 +
+ samples/bpf/tcp_cong_kern.c | 74 +++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 75 insertions(+)
+ create mode 100644 samples/bpf/tcp_cong_kern.c
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index af404aa..4faa8d1 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1004,7 +1004,9 @@ void tcp_get_default_congestion_control(char *name);
- void tcp_get_available_congestion_control(char *buf, size_t len);
- void tcp_get_allowed_congestion_control(char *buf, size_t len);
- int tcp_set_allowed_congestion_control(char *allowed);
--int tcp_set_congestion_control(struct sock *sk, const char *name);
-+int tcp_set_congestion_control(struct sock *sk, const char *name, bool load);
-+void tcp_reinit_congestion_control(struct sock *sk,
-+				   const struct tcp_congestion_ops *ca);
- u32 tcp_slow_start(struct tcp_sock *tp, u32 acked);
- void tcp_cong_avoid_ai(struct tcp_sock *tp, u32 w, u32 acked);
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index 3b300db..6fdf32d 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -116,6 +116,7 @@ always += cookie_uid_helper_example.o
+ always += tcp_synrto_kern.o
+ always += tcp_rwnd_kern.o
+ always += tcp_bufs_kern.o
++always += tcp_cong_kern.o
  
-@@ -2079,4 +2081,9 @@ static inline u32 tcp_rwnd_init_bpf(struct sock *sk, bool is_req_sock)
- 		rwnd = 0;
- 	return rwnd;
- }
-+
-+static inline bool tcp_bpf_ca_needs_ecn(struct sock *sk)
-+{
-+	return (tcp_call_bpf(sk, true, BPF_SOCK_OPS_NEEDS_ECN) == 1);
-+}
- #endif	/* _TCP_H */
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 5b7207d..77d05ff 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -776,6 +776,9 @@ enum {
- 						 * passive connection is
- 						 * established
- 						 */
-+	BPF_SOCK_OPS_NEEDS_ECN,		/* If connection's congestion control
-+					 * needs ECN
-+					 */
- };
- 
- #endif /* _UAPI__LINUX_BPF_H__ */
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 167eca0..b36ec83 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2717,8 +2717,15 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
- 		}
- 	} else if (level == SOL_TCP &&
- 		   sk->sk_prot->setsockopt == tcp_setsockopt) {
--		/* Place holder */
--		ret = -EINVAL;
-+		if (optname == TCP_CONGESTION) {
-+			ret = tcp_set_congestion_control(sk, optval, false);
-+			if (!ret && bpf_sock->op > BPF_SOCK_OPS_NEEDS_ECN)
-+				/* replacing an existing ca */
-+				tcp_reinit_congestion_control(sk,
-+					inet_csk(sk)->icsk_ca_ops);
-+		} else {
-+			ret = -EINVAL;
-+		}
- 	} else {
- 		ret = -EINVAL;
- 	}
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 4c88d20..5199952 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2479,7 +2479,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
- 		name[val] = 0;
- 
- 		lock_sock(sk);
--		err = tcp_set_congestion_control(sk, name);
-+		err = tcp_set_congestion_control(sk, name, true);
- 		release_sock(sk);
- 		return err;
- 	}
-diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-index 324c9bc..fde983f 100644
---- a/net/ipv4/tcp_cong.c
-+++ b/net/ipv4/tcp_cong.c
-@@ -189,8 +189,8 @@ void tcp_init_congestion_control(struct sock *sk)
- 		INET_ECN_dontxmit(sk);
- }
- 
--static void tcp_reinit_congestion_control(struct sock *sk,
--					  const struct tcp_congestion_ops *ca)
-+void tcp_reinit_congestion_control(struct sock *sk,
-+				   const struct tcp_congestion_ops *ca)
- {
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 
-@@ -333,8 +333,12 @@ int tcp_set_allowed_congestion_control(char *val)
- 	return ret;
- }
- 
--/* Change congestion control for socket */
--int tcp_set_congestion_control(struct sock *sk, const char *name)
-+/* Change congestion control for socket. If load is false, then it is the
-+ * responsibility of the caller to call tcp_init_congestion_control or
-+ * tcp_reinit_congestion_control (if the current congestion control was
-+ * already initialized.
+ HOSTCFLAGS += -I$(objtree)/usr/include
+ HOSTCFLAGS += -I$(srctree)/tools/lib/
+diff --git a/samples/bpf/tcp_cong_kern.c b/samples/bpf/tcp_cong_kern.c
+new file mode 100644
+index 0000000..fdced0f
+--- /dev/null
++++ b/samples/bpf/tcp_cong_kern.c
+@@ -0,0 +1,74 @@
++/* Copyright (c) 2017 Facebook
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ *
++ * BPF program to set congestion control to dctcp when both hosts are
++ * in the same datacenter (as deteremined by IPv6 prefix).
 + */
-+int tcp_set_congestion_control(struct sock *sk, const char *name, bool load)
- {
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	const struct tcp_congestion_ops *ca;
-@@ -344,21 +348,29 @@ int tcp_set_congestion_control(struct sock *sk, const char *name)
- 		return -EPERM;
- 
- 	rcu_read_lock();
--	ca = __tcp_ca_find_autoload(name);
-+	if (!load)
-+		ca = tcp_ca_find(name);
-+	else
-+		ca = __tcp_ca_find_autoload(name);
- 	/* No change asking for existing value */
- 	if (ca == icsk->icsk_ca_ops) {
- 		icsk->icsk_ca_setsockopt = 1;
- 		goto out;
- 	}
--	if (!ca)
-+	if (!ca) {
- 		err = -ENOENT;
--	else if (!((ca->flags & TCP_CONG_NON_RESTRICTED) ||
--		   ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN)))
-+	} else if (!load) {
-+		icsk->icsk_ca_ops = ca;
-+		if (!try_module_get(ca->owner))
-+			err = -EBUSY;
-+	} else if (!((ca->flags & TCP_CONG_NON_RESTRICTED) ||
-+		     ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))) {
- 		err = -EPERM;
--	else if (!try_module_get(ca->owner))
-+	} else if (!try_module_get(ca->owner)) {
- 		err = -EBUSY;
--	else
++
++#include <uapi/linux/bpf.h>
++#include <uapi/linux/tcp.h>
++#include <uapi/linux/if_ether.h>
++#include <uapi/linux/if_packet.h>
++#include <uapi/linux/ip.h>
++#include <linux/socket.h>
++#include "bpf_helpers.h"
++
++#define DEBUG 1
++
++SEC("sockops")
++int bpf_cong(struct bpf_sock_ops *skops)
++{
++	char fmt1[] = "BPF command: %d\n";
++	char fmt2[] = "  Returning %d\n";
++	char cong[] = "dctcp";
++	int rv = 0;
++	int op;
++
++	/* For testing purposes, only execute rest of BPF program
++	 * if neither port numberis 55601
++	 */
++	if (skops->remote_port != 55601 && skops->local_port != 55601)
++		return -1;
++
++	op = (int) skops->op;
++
++#ifdef DEBUG
++	bpf_trace_printk(fmt1, sizeof(fmt1), op);
++#endif
++
++	/* Check if both hosts are in the same datacenter. For this
++	 * example they are if the 1st 5.5 bytes in the IPv6 address
++	 * are the same.
++	 */
++	if (skops->family == AF_INET6 &&
++	    skops->local_ip6[0] == skops->remote_ip6[0] &&
++	    (skops->local_ip6[1] & 0xfff00000) ==
++	    (skops->remote_ip6[1] & 0xfff00000)) {
++		switch (op) {
++		case BPF_SOCK_OPS_NEEDS_ECN:
++			rv = 1;
++			break;
++		case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
++			rv = bpf_setsockopt(skops, SOL_TCP, TCP_CONGESTION,
++					    cong, sizeof(cong));
++			break;
++		case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
++			rv = bpf_setsockopt(skops, SOL_TCP, TCP_CONGESTION,
++					    cong, sizeof(cong));
++			break;
++		default:
++			rv = -1;
++		}
 +	} else {
- 		tcp_reinit_congestion_control(sk, ca);
++		rv = -1;
 +	}
-  out:
- 	rcu_read_unlock();
- 	return err;
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 1b868ae..23f9707 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -6192,7 +6192,8 @@ static void tcp_ecn_create_request(struct request_sock *req,
- 	ecn_ok = net->ipv4.sysctl_tcp_ecn || ecn_ok_dst;
- 
- 	if ((!ect && ecn_ok) || tcp_ca_needs_ecn(listen_sk) ||
--	    (ecn_ok_dst & DST_FEATURE_ECN_CA))
-+	    (ecn_ok_dst & DST_FEATURE_ECN_CA) ||
-+	    tcp_bpf_ca_needs_ecn((struct sock *)req))
- 		inet_rsk(req)->ecn_ok = 1;
- }
- 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 958edc8..a273117 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -316,7 +316,8 @@ static void tcp_ecn_send_synack(struct sock *sk, struct sk_buff *skb)
- 	TCP_SKB_CB(skb)->tcp_flags &= ~TCPHDR_CWR;
- 	if (!(tp->ecn_flags & TCP_ECN_OK))
- 		TCP_SKB_CB(skb)->tcp_flags &= ~TCPHDR_ECE;
--	else if (tcp_ca_needs_ecn(sk))
-+	else if (tcp_ca_needs_ecn(sk) ||
-+		 tcp_bpf_ca_needs_ecn(sk))
- 		INET_ECN_xmit(sk);
- }
- 
-@@ -324,8 +325,9 @@ static void tcp_ecn_send_synack(struct sock *sk, struct sk_buff *skb)
- static void tcp_ecn_send_syn(struct sock *sk, struct sk_buff *skb)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
-+	bool bpf_needs_ecn = tcp_bpf_ca_needs_ecn(sk);
- 	bool use_ecn = sock_net(sk)->ipv4.sysctl_tcp_ecn == 1 ||
--		       tcp_ca_needs_ecn(sk);
-+		tcp_ca_needs_ecn(sk) || bpf_needs_ecn;
- 
- 	if (!use_ecn) {
- 		const struct dst_entry *dst = __sk_dst_get(sk);
-@@ -339,7 +341,7 @@ static void tcp_ecn_send_syn(struct sock *sk, struct sk_buff *skb)
- 	if (use_ecn) {
- 		TCP_SKB_CB(skb)->tcp_flags |= TCPHDR_ECE | TCPHDR_CWR;
- 		tp->ecn_flags = TCP_ECN_OK;
--		if (tcp_ca_needs_ecn(sk))
-+		if (tcp_ca_needs_ecn(sk) || bpf_needs_ecn)
- 			INET_ECN_xmit(sk);
- 	}
- }
++#ifdef DEBUG
++	bpf_trace_printk(fmt2, sizeof(fmt2), rv);
++#endif
++	skops->reply = rv;
++	return 1;
++}
++char _license[] SEC("license") = "GPL";
 -- 
 2.9.3
