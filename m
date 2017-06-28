@@ -1,144 +1,108 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next v4 16/16] bpf: update tools/include/uapi/linux/bpf.h
-Date: Wed, 28 Jun 2017 10:31:24 -0700
-Message-ID: <20170628173124.3299500-17-brakmo@fb.com>
-References: <20170628173124.3299500-1-brakmo@fb.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [PATCH net-next] bpf: Fix out-of-bound access on interpreters[]
+Date: Wed, 28 Jun 2017 10:41:24 -0700
+Message-ID: <20170628174124.1545332-1-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
-        Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: netdev <netdev@vger.kernel.org>
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Alexei Starovoitov <ast@fb.com>, <kernel-team@fb.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:41139 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751540AbdF1Rbf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 13:31:35 -0400
-Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5SHSs6s032386
-        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:31:35 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:41760 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751581AbdF1Rl1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 13:41:27 -0400
+Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
+        by mx0b-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5SHbTTw002226
+        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:41:26 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2bcf508g2k-2
+        by mx0b-00082601.pphosted.com with ESMTP id 2bc05japvv-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:31:35 -0700
-Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
- mx-out.facebook.com (10.212.236.87) with ESMTP id
- a177de145c2711e7ba3f0002c9521c9e-f26ac150 for <netdev@vger.kernel.org>;        Wed,
- 28 Jun 2017 10:31:34 -0700
-In-Reply-To: <20170628173124.3299500-1-brakmo@fb.com>
+        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 10:41:26 -0700
+Received: from facebook.com (2401:db00:11:d09a:face:0:41:0)     by
+ mx-out.facebook.com (10.212.236.89) with ESMTP id
+ 017dc94e5c2911e797f80002c95209d8-5193c8f0 for <netdev@vger.kernel.org>;        Wed,
+ 28 Jun 2017 10:41:24 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update tools/include/uapi/linux/bpf.h to include changes related to new
-bpf sock_ops program type.
+The index is off-by-one when fp->aux->stack_depth
+has already been rounded up to 32.  In particular,
+if stack_depth is 512, the index will be 16.
 
-Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
+The fix is to round_up and then takes -1 instead of round_down.
+
+[   22.318680] ==================================================================
+[   22.319745] BUG: KASAN: global-out-of-bounds in bpf_prog_select_runtime+0x48a/0x670
+[   22.320737] Read of size 8 at addr ffffffff82aadae0 by task sockex3/1946
+[   22.321646]
+[   22.321858] CPU: 1 PID: 1946 Comm: sockex3 Tainted: G        W       4.12.0-rc6-01680-g2ee87db3a287 #22
+[   22.323061] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.9.3-1.el7.centos 04/01/2014
+[   22.324260] Call Trace:
+[   22.324612]  dump_stack+0x67/0x99
+[   22.325081]  print_address_description+0x1e8/0x290
+[   22.325734]  ? bpf_prog_select_runtime+0x48a/0x670
+[   22.326360]  kasan_report+0x265/0x350
+[   22.326860]  __asan_report_load8_noabort+0x19/0x20
+[   22.327484]  bpf_prog_select_runtime+0x48a/0x670
+[   22.328109]  bpf_prog_load+0x626/0xd40
+[   22.328637]  ? __bpf_prog_charge+0xc0/0xc0
+[   22.329222]  ? check_nnp_nosuid.isra.61+0x100/0x100
+[   22.329890]  ? __might_fault+0xf6/0x1b0
+[   22.330446]  ? lock_acquire+0x360/0x360
+[   22.331013]  SyS_bpf+0x67c/0x24d0
+[   22.331491]  ? trace_hardirqs_on+0xd/0x10
+[   22.332049]  ? __getnstimeofday64+0xaf/0x1c0
+[   22.332635]  ? bpf_prog_get+0x20/0x20
+[   22.333135]  ? __audit_syscall_entry+0x300/0x600
+[   22.333770]  ? syscall_trace_enter+0x540/0xdd0
+[   22.334339]  ? exit_to_usermode_loop+0xe0/0xe0
+[   22.334950]  ? do_syscall_64+0x48/0x410
+[   22.335446]  ? bpf_prog_get+0x20/0x20
+[   22.335954]  do_syscall_64+0x181/0x410
+[   22.336454]  entry_SYSCALL64_slow_path+0x25/0x25
+[   22.337121] RIP: 0033:0x7f263fe81f19
+[   22.337618] RSP: 002b:00007ffd9a3440c8 EFLAGS: 00000202 ORIG_RAX: 0000000000000141
+[   22.338619] RAX: ffffffffffffffda RBX: 0000000000aac5fb RCX: 00007f263fe81f19
+[   22.339600] RDX: 0000000000000030 RSI: 00007ffd9a3440d0 RDI: 0000000000000005
+[   22.340470] RBP: 0000000000a9a1e0 R08: 0000000000a9a1e0 R09: 0000009d00000001
+[   22.341430] R10: 0000000000000000 R11: 0000000000000202 R12: 0000000000010000
+[   22.342411] R13: 0000000000a9a023 R14: 0000000000000001 R15: 0000000000000003
+[   22.343369]
+[   22.343593] The buggy address belongs to the variable:
+[   22.344241]  interpreters+0x80/0x980
+[   22.344708]
+[   22.344908] Memory state around the buggy address:
+[   22.345556]  ffffffff82aad980: 00 00 00 04 fa fa fa fa 04 fa fa fa fa fa fa fa
+[   22.346449]  ffffffff82aada00: 00 00 00 00 00 fa fa fa fa fa fa fa 00 00 00 00
+[   22.347361] >ffffffff82aada80: 00 00 00 00 00 00 00 00 00 00 00 00 fa fa fa fa
+[   22.348301]                                                        ^
+[   22.349142]  ffffffff82aadb00: 00 01 fa fa fa fa fa fa 00 00 00 00 00 00 00 00
+[   22.350058]  ffffffff82aadb80: 00 00 07 fa fa fa fa fa 00 00 05 fa fa fa fa fa
+[   22.350984] ==================================================================
+
+Fixes: b870aa901f4b ("bpf: use different interpreter depending on required stack size")
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Acked-by: Alexei Starovoitov <ast@fb.com>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- tools/include/uapi/linux/bpf.h | 66 +++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 65 insertions(+), 1 deletion(-)
+ kernel/bpf/core.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
-index f94b48b..284b366 100644
---- a/tools/include/uapi/linux/bpf.h
-+++ b/tools/include/uapi/linux/bpf.h
-@@ -120,12 +120,14 @@ enum bpf_prog_type {
- 	BPF_PROG_TYPE_LWT_IN,
- 	BPF_PROG_TYPE_LWT_OUT,
- 	BPF_PROG_TYPE_LWT_XMIT,
-+	BPF_PROG_TYPE_SOCK_OPS,
- };
- 
- enum bpf_attach_type {
- 	BPF_CGROUP_INET_INGRESS,
- 	BPF_CGROUP_INET_EGRESS,
- 	BPF_CGROUP_INET_SOCK_CREATE,
-+	BPF_CGROUP_SOCK_OPS,
- 	__MAX_BPF_ATTACH_TYPE
- };
- 
-@@ -518,6 +520,17 @@ union bpf_attr {
-  *     Set full skb->hash.
-  *     @skb: pointer to skb
-  *     @hash: hash to set
-+ *
-+ * int bpf_setsockopt(bpf_socket, level, optname, optval, optlen)
-+ *     Calls setsockopt. Not all opts are available, only those with
-+ *     integer optvals plus TCP_CONGESTION.
-+ *     Supported levels: SOL_SOCKET and IPROTO_TCP
-+ *     @bpf_socket: pointer to bpf_socket
-+ *     @level: SOL_SOCKET or IPROTO_TCP
-+ *     @optname: option name
-+ *     @optval: pointer to option value
-+ *     @optlen: length of optval in byes
-+ *     Return: 0 or negative error
+diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
+index 774069ca18a7..ad5f55922a13 100644
+--- a/kernel/bpf/core.c
++++ b/kernel/bpf/core.c
+@@ -1297,7 +1297,9 @@ static int bpf_check_tail_call(const struct bpf_prog *fp)
   */
- #define __BPF_FUNC_MAPPER(FN)		\
- 	FN(unspec),			\
-@@ -568,7 +581,8 @@ union bpf_attr {
- 	FN(probe_read_str),		\
- 	FN(get_socket_cookie),		\
- 	FN(get_socket_uid),		\
--	FN(set_hash),
-+	FN(set_hash),			\
-+	FN(setsockopt),
+ struct bpf_prog *bpf_prog_select_runtime(struct bpf_prog *fp, int *err)
+ {
+-	fp->bpf_func = interpreters[round_down(fp->aux->stack_depth, 32) / 32];
++	u32 stack_depth = max_t(u32, fp->aux->stack_depth, 1);
++
++	fp->bpf_func = interpreters[(round_up(stack_depth, 32) / 32) - 1];
  
- /* integer value in 'imm' field of BPF_CALL instruction selects which helper
-  * function eBPF program intends to call
-@@ -720,4 +734,54 @@ struct bpf_map_info {
- 	__u32 map_flags;
- } __attribute__((aligned(8)));
- 
-+/* User bpf_sock_ops struct to access socket values and specify request ops
-+ * and their replies.
-+ * New fields can only be added at the end of this structure
-+ */
-+struct bpf_sock_ops {
-+	__u32 op;
-+	union {
-+		__u32 reply;
-+		__u32 replylong[4];
-+	};
-+	__u32 family;
-+	__u32 remote_ip4;
-+	__u32 local_ip4;
-+	__u32 remote_ip6[4];
-+	__u32 local_ip6[4];
-+	__u32 remote_port;
-+	__u32 local_port;
-+};
-+
-+/* List of known BPF sock_ops operators.
-+ * New entries can only be added at the end
-+ */
-+enum {
-+	BPF_SOCK_OPS_VOID,
-+	BPF_SOCK_OPS_TIMEOUT_INIT,	/* Should return SYN-RTO value to use or
-+					 * -1 if default value should be used
-+					 */
-+	BPF_SOCK_OPS_RWND_INIT,		/* Should return initial advertized
-+					 * window (in packets) or -1 if default
-+					 * value should be used
-+					 */
-+	BPF_SOCK_OPS_TCP_CONNECT_CB,	/* Calls BPF program right before an
-+					 * active connection is initialized
-+					 */
-+	BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB,	/* Calls BPF program when an
-+						 * active connection is
-+						 * established
-+						 */
-+	BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB,	/* Calls BPF program when a
-+						 * passive connection is
-+						 * established
-+						 */
-+	BPF_SOCK_OPS_NEEDS_ECN,		/* If connection's congestion control
-+					 * needs ECN
-+					 */
-+};
-+
-+#define TCP_BPF_IW		1001	/* Set TCP initial congestion window */
-+#define TCP_BPF_SNDCWND_CLAMP	1002	/* Set sndcwnd_clamp */
-+
- #endif /* _UAPI__LINUX_BPF_H__ */
+ 	/* eBPF JITs can rewrite the program in case constant
+ 	 * blinding is active. However, in case of error during
 -- 
 2.9.3
