@@ -1,146 +1,70 @@
-From: Tonghao Zhang <xiangxia.m.yue@gmail.com>
-Subject: [PATCH v2] datapath: Avoid using stack larger than 1024.
-Date: Tue, 27 Jun 2017 19:29:59 -0700
-Message-ID: <1498616999-3035-1-git-send-email-xiangxia.m.yue@gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net] virtio-net: unbreak cusmed packet for small buffer XDP
+Date: Wed, 28 Jun 2017 10:45:18 +0800
+Message-ID: <69907228-fc1b-175f-f6cd-7ac332e318be@redhat.com>
+References: <1498614843-8163-1-git-send-email-jasowang@redhat.com>
+	<20170628050057-mutt-send-email-mst@kernel.org>
+	<7068053c-50da-6779-5ff2-6588e01e616d@redhat.com>
+	<20170628051555-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: pshelar@ovn.org, gvrose8192@gmail.com,
-        Tonghao Zhang <xiangxia.m.yue@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:36815 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752010AbdF1CaO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2017 22:30:14 -0400
-Received: by mail-pg0-f66.google.com with SMTP id u36so6368757pgn.3
-        for <netdev@vger.kernel.org>; Tue, 27 Jun 2017 19:30:14 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170628051555-mutt-send-email-mst@kernel.org>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-When compiling OvS-master on 4.4.0-81 kernel,
-there is a warning:
-
-    CC [M]  /root/ovs/datapath/linux/datapath.o
-    /root/ovs/datapath/linux/datapath.c: In function
-    ‘ovs_flow_cmd_set’:
-    /root/ovs/datapath/linux/datapath.c:1221:1: warning:
-    the frame size of 1040 bytes is larger than 1024 bytes
-    [-Wframe-larger-than=]
-
-This patch factors out match-init and action-copy to avoid
-"Wframe-larger-than=1024" warning. Because mask is only
-used to get actions, we new a function to save some
-stack space.
-
-Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
----
- datapath/datapath.c | 73 ++++++++++++++++++++++++++++++++++++-----------------
- 1 file changed, 50 insertions(+), 23 deletions(-)
-
-diff --git a/datapath/datapath.c b/datapath/datapath.c
-index c85029c..fdbe314 100644
---- a/datapath/datapath.c
-+++ b/datapath/datapath.c
-@@ -1100,6 +1100,50 @@ static struct sw_flow_actions *get_flow_actions(struct net *net,
- 	return acts;
- }
- 
-+/* Factor out match-init and action-copy to avoid
-+ * "Wframe-larger-than=1024" warning. Because mask is only
-+ * used to get actions, we new a function to save some
-+ * stack space.
-+ *
-+ * If there are not key and action attrs, we return 0
-+ * directly. In the case, the caller will also not use the
-+ * match as before. If there is action attr, we try to get
-+ * actions and save them to *acts.
-+ * */
-+static int ovs_nla_init_match_and_action(struct net *net,
-+					 struct sw_flow_match *match,
-+					 struct sw_flow_key *key,
-+					 struct nlattr **a,
-+					 struct sw_flow_actions **acts,
-+					 bool log)
-+{
-+	struct sw_flow_mask mask;
-+	int error = 0;
-+
-+	if (a[OVS_FLOW_ATTR_KEY]) {
-+		ovs_match_init(match, key, true, &mask);
-+		error = ovs_nla_get_match(net, match, a[OVS_FLOW_ATTR_KEY],
-+					  a[OVS_FLOW_ATTR_MASK], log);
-+		if (error)
-+			return error;
-+	}
-+
-+	if (a[OVS_FLOW_ATTR_ACTIONS]) {
-+		if (!a[OVS_FLOW_ATTR_KEY]) {
-+			OVS_NLERR(log,
-+				  "Flow key attribute not present in set flow.");
-+			return -EINVAL;
-+		}
-+
-+		*acts = get_flow_actions(net, a[OVS_FLOW_ATTR_ACTIONS], key,
-+					 &mask, log);
-+		if (IS_ERR(*acts))
-+			return PTR_ERR(*acts);
-+	}
-+
-+	return 0;
-+}
-+
- static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
- {
- 	struct net *net = sock_net(skb->sk);
-@@ -1107,7 +1151,6 @@ static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
- 	struct ovs_header *ovs_header = info->userhdr;
- 	struct sw_flow_key key;
- 	struct sw_flow *flow;
--	struct sw_flow_mask mask;
- 	struct sk_buff *reply = NULL;
- 	struct datapath *dp;
- 	struct sw_flow_actions *old_acts = NULL, *acts = NULL;
-@@ -1119,34 +1162,18 @@ static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
- 	bool ufid_present;
- 
- 	ufid_present = ovs_nla_get_ufid(&sfid, a[OVS_FLOW_ATTR_UFID], log);
--	if (a[OVS_FLOW_ATTR_KEY]) {
--		ovs_match_init(&match, &key, true, &mask);
--		error = ovs_nla_get_match(net, &match, a[OVS_FLOW_ATTR_KEY],
--					  a[OVS_FLOW_ATTR_MASK], log);
--	} else if (!ufid_present) {
-+	if (!a[OVS_FLOW_ATTR_KEY] && !ufid_present) {
- 		OVS_NLERR(log,
- 			  "Flow set message rejected, Key attribute missing.");
--		error = -EINVAL;
-+		return -EINVAL;
- 	}
-+
-+	error = ovs_nla_init_match_and_action(net, &match, &key, a,
-+					      &acts, log);
- 	if (error)
- 		goto error;
- 
--	/* Validate actions. */
--	if (a[OVS_FLOW_ATTR_ACTIONS]) {
--		if (!a[OVS_FLOW_ATTR_KEY]) {
--			OVS_NLERR(log,
--				  "Flow key attribute not present in set flow.");
--			error = -EINVAL;
--			goto error;
--		}
--
--		acts = get_flow_actions(net, a[OVS_FLOW_ATTR_ACTIONS], &key,
--					&mask, log);
--		if (IS_ERR(acts)) {
--			error = PTR_ERR(acts);
--			goto error;
--		}
--
-+	if (acts) {
- 		/* Can allocate before locking if have acts. */
- 		reply = ovs_flow_cmd_alloc_info(acts, &sfid, info, false,
- 						ufid_flags);
--- 
-1.8.3.1
+CgpPbiAyMDE35bm0MDbmnIgyOOaXpSAxMDoxNywgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
+IE9uIFdlZCwgSnVuIDI4LCAyMDE3IGF0IDEwOjE0OjM0QU0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
+dGU6Cj4+Cj4+IE9uIDIwMTflubQwNuaciDI45pelIDEwOjAyLCBNaWNoYWVsIFMuIFRzaXJraW4g
+d3JvdGU6Cj4+PiBPbiBXZWQsIEp1biAyOCwgMjAxNyBhdCAwOTo1NDowM0FNICswODAwLCBKYXNv
+biBXYW5nIHdyb3RlOgo+Pj4+IFdlIHNob3VsZCBhbGxvdyBjc3VtZWQgcGFja2V0IGZvciBzbWFs
+bCBidWZmZXIsIG90aGVyd2lzZSBYRFBfUEFTUwo+Pj4+IHdvbid0IHdvcmsgY29ycmVjdGx5Lgo+
+Pj4+Cj4+Pj4gRml4ZXMgY29tbWl0IGJiOTFhY2NmMjczMyAoInZpcnRpby1uZXQ6IFhEUCBzdXBw
+b3J0IGZvciBzbWFsbCBidWZmZXJzIikKPj4+PiBTaWduZWQtb2ZmLWJ5OiBKYXNvbiBXYW5nIDxq
+YXNvd2FuZ0ByZWRoYXQuY29tPgo+Pj4gVGhlIGlzc3VlIHdvdWxkIGJlIFZJUlRJT19ORVRfSERS
+X0ZfREFUQV9WQUxJRCBtaWdodCBiZSBzZXQuCj4+PiBXaGF0IGRvIHlvdSB0aGluaz8KPj4gSSB0
+aGluayBpdCdzIHNhZmUuIEZvciBYRFBfUEFTUywgaXQgd29yayBsaWtlIGluIHRoZSBwYXN0Lgo+
+IFRoYXQncyB0aGUgcGFydCBJIGRvbid0IGdldC4gV2l0aCBEQVRBX1ZBTElEIGNzdW0gaW4gcGFj
+a2V0IGlzIHdyb25nLCBYRFAKPiB0b29scyBhc3N1bWUgaXQncyB2YWx1ZS4KCkRBVEFfVkFMSUQg
+aXMgQ0hFQ0tTVU1fVU5DRVNTQVJZIG9uIHRoZSBob3N0LCBhbmQgYWNjb3JkaW5nIHRvIHRoZSAK
+Y29tbWVudCBpbiBza2J1ZmYuaAoKCiIKICAqICAgVGhlIGhhcmR3YXJlIHlvdSdyZSBkZWFsaW5n
+IHdpdGggZG9lc24ndCBjYWxjdWxhdGUgdGhlIGZ1bGwgY2hlY2tzdW0KICAqICAgKGFzIGluIENI
+RUNLU1VNX0NPTVBMRVRFKSwgYnV0IGl0IGRvZXMgcGFyc2UgaGVhZGVycyBhbmQgdmVyaWZ5IApj
+aGVja3N1bXMKICAqICAgZm9yIHNwZWNpZmljIHByb3RvY29scy4gRm9yIHN1Y2ggcGFja2V0cyBp
+dCB3aWxsIHNldCAKQ0hFQ0tTVU1fVU5ORUNFU1NBUlkKICAqICAgaWYgdGhlaXIgY2hlY2tzdW1z
+IGFyZSBva2F5LiBza2ItPmNzdW0gaXMgc3RpbGwgdW5kZWZpbmVkIGluIHRoaXMgY2FzZQogICog
+ICB0aG91Z2guIEEgZHJpdmVyIG9yIGRldmljZSBtdXN0IG5ldmVyIG1vZGlmeSB0aGUgY2hlY2tz
+dW0gZmllbGQgaW4gdGhlCiAgKiAgIHBhY2tldCBldmVuIGlmIGNoZWNrc3VtIGlzIHZlcmlmaWVk
+LgoiCgpUaGUgY3N1bSBpcyBjb3JyZWN0IEkgYmVsaWV2ZT8KClRoYW5rcwoKPgo+PiBGb3IgWERQ
+X1RYLCB3ZQo+PiB6ZXJvIHRoZSB2bmV0IGhlYWRlci4KPiBBZ2FpbiBUWCBvZmZsb2FkIGlzIGRp
+c2FibGVkLCBzbyBwYWNrZXRzIHdpbGwgZ28gb3V0IHdpdGggYW4gaW52YWxpZAo+IGNoZWNrc3Vt
+Lgo+Cj4+IEZvciBhZGp1c3RpbmcgaGVhZGVyLCBYRFAgcHJvZyBzaG91bGQgZGVhbCB3aXRoIGNz
+dW0uCj4+Cj4+IFRoYW5rcwo+IFRoYXQgcGFydCBzZWVtcyByaWdodC4KPgo+Pj4+IC0tLQo+Pj4+
+IFRoZSBwYXRjaCBpcyBuZWVkZWQgZm9yIC1zdGFibGUuCj4+Pj4gLS0tCj4+Pj4gICAgZHJpdmVy
+cy9uZXQvdmlydGlvX25ldC5jIHwgMiArLQo+Pj4+ICAgIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2Vy
+dGlvbigrKSwgMSBkZWxldGlvbigtKQo+Pj4+Cj4+Pj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0
+L3ZpcnRpb19uZXQuYyBiL2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYwo+Pj4+IGluZGV4IDE0M2Q4
+YTkuLjQ5OWZjYzkgMTAwNjQ0Cj4+Pj4gLS0tIGEvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCj4+
+Pj4gKysrIGIvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCj4+Pj4gQEAgLTQxMyw3ICs0MTMsNyBA
+QCBzdGF0aWMgc3RydWN0IHNrX2J1ZmYgKnJlY2VpdmVfc21hbGwoc3RydWN0IG5ldF9kZXZpY2Ug
+KmRldiwKPj4+PiAgICAJCXZvaWQgKm9yaWdfZGF0YTsKPj4+PiAgICAJCXUzMiBhY3Q7Cj4+Pj4g
+LQkJaWYgKHVubGlrZWx5KGhkci0+aGRyLmdzb190eXBlIHx8IGhkci0+aGRyLmZsYWdzKSkKPj4+
+PiArCQlpZiAodW5saWtlbHkoaGRyLT5oZHIuZ3NvX3R5cGUpKQo+Pj4+ICAgIAkJCWdvdG8gZXJy
+X3hkcDsKPj4+PiAgICAJCXhkcC5kYXRhX2hhcmRfc3RhcnQgPSBidWYgKyBWSVJUTkVUX1JYX1BB
+RCArIHZpLT5oZHJfbGVuOwo+Pj4+IC0tIAo+Pj4+IDIuNy40CgpfX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QK
+VmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5s
+aW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
