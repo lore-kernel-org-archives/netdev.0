@@ -1,54 +1,267 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net-next v2 3/9] nfp: provide infrastructure for
- offloading flower based TC filters
-Date: Thu, 29 Jun 2017 10:16:54 +0200
-Message-ID: <20170629081652.GE29453@vergenet.net>
-References: <1498681802-2897-1-git-send-email-simon.horman@netronome.com>
- <1498681802-2897-4-git-send-email-simon.horman@netronome.com>
- <20170628185340.1ea53cd1@cakuba.netronome.com>
+From: Fathi Boudra <fathi.boudra@linaro.org>
+Subject: Re: [PATCH v2] selftests: add a generic testsuite for ethernet device
+Date: Thu, 29 Jun 2017 11:26:40 +0300
+Message-ID: <CAGNsrLBgLFcgdzvuX2JJhoLgjfL0hOKGbNbZY_Hu6Prv35wGfw@mail.gmail.com>
+References: <20170404133247.28725-1-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        oss-drivers@netronome.com,
-        Pieter Jansen van Vuuren
-        <pieter.jansenvanvuuren@netronome.com>
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:36982 "EHLO
-        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751855AbdF2IQ6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 04:16:58 -0400
-Received: by mail-wm0-f46.google.com with SMTP id i127so5786010wma.0
-        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 01:16:58 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170628185340.1ea53cd1@cakuba.netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Shuah Khan <shuah@kernel.org>, davem@davemloft.net, andrew@lunn.ch,
+        linux-kselftest@vger.kernel.org,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        netdev@vger.kernel.org
+To: Corentin Labbe <clabbe.montjoie@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170404133247.28725-1-clabbe.montjoie@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 28, 2017 at 06:53:40PM -0700, Jakub Kicinski wrote:
-> On Wed, 28 Jun 2017 22:29:56 +0200, Simon Horman wrote:
-> > +/**
-> > + * nfp_flower_del_offload() - Removes a flow from hardware.
-> > + * @app:	Pointer to the APP handle
-> > + * @netdev:	netdev structure.
-> > + * @flow:       TC flower classifier offload structure
-> 
-> Nit: there are spaces and tabs mixed here, same for
-> nfp_flower_get_stats().
+On 4 April 2017 at 16:32, Corentin Labbe <clabbe.montjoie@gmail.com> wrote:
+> This patch add a generic testsuite for testing ethernet network device driver.
+>
+> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+> ---
+>
+> Changes since v1:
+> - Test for starting master interface
+> - Changed printing format to "RESULT: $netdev: line"
+> - Use "ip link" to get device list
+>
+>  tools/testing/selftests/net/Makefile     |   2 +-
+>  tools/testing/selftests/net/netdevice.sh | 200 +++++++++++++++++++++++++++++++
+>  2 files changed, 201 insertions(+), 1 deletion(-)
+>  create mode 100755 tools/testing/selftests/net/netdevice.sh
+>
+> diff --git a/tools/testing/selftests/net/Makefile b/tools/testing/selftests/net/Makefile
+> index fbfe5d0..35cbb4c 100644
+> --- a/tools/testing/selftests/net/Makefile
+> +++ b/tools/testing/selftests/net/Makefile
+> @@ -5,7 +5,7 @@ CFLAGS += -I../../../../usr/include/
+>
+>  reuseport_bpf_numa: LDFLAGS += -lnuma
+>
+> -TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh
+> +TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh netdevice.sh
+>  TEST_GEN_FILES =  socket
+>  TEST_GEN_FILES += psock_fanout psock_tpacket
+>  TEST_GEN_FILES += reuseport_bpf reuseport_bpf_cpu reuseport_bpf_numa
+> diff --git a/tools/testing/selftests/net/netdevice.sh b/tools/testing/selftests/net/netdevice.sh
+> new file mode 100755
+> index 0000000..4e00568
+> --- /dev/null
+> +++ b/tools/testing/selftests/net/netdevice.sh
+> @@ -0,0 +1,200 @@
+> +#!/bin/sh
+> +#
+> +# This test is for checking network interface
+> +# For the moment it tests only ethernet interface (but wifi could be easily added)
+> +#
+> +# We assume that all network driver are loaded
+> +# if not they probably have failed earlier in the boot process and their logged error will be catched by another test
+> +#
+> +
+> +# this function will try to up the interface
+> +# if already up, nothing done
+> +# arg1: network interface name
+> +kci_net_start()
+> +{
+> +       netdev=$1
+> +
+> +       ip link show "$netdev" |grep -q UP
+> +       if [ $? -eq 0 ];then
+> +               echo "SKIP: $netdev: interface already up"
+> +               return 0
+> +       fi
+> +
+> +       ip link set "$netdev" up
+> +       if [ $? -ne 0 ];then
+> +               echo "FAIL: $netdev: Fail to up interface"
+> +               return 1
+> +       else
+> +               echo "PASS: $netdev: set interface up"
+> +               NETDEV_STARTED=1
+> +       fi
+> +       return 0
+> +}
+> +
+> +# this function will try to setup an IP and MAC address on a network interface
+> +# Doing nothing if the interface was already up
+> +# arg1: network interface name
+> +kci_net_setup()
+> +{
+> +       netdev=$1
+> +
+> +       # do nothing if the interface was already up
+> +       if [ $NETDEV_STARTED -eq 0 ];then
+> +               return 0
+> +       fi
+> +
+> +       MACADDR='02:03:04:05:06:07'
+> +       ip link set dev $netdev address "$MACADDR"
+> +       if [ $? -ne 0 ];then
+> +               echo "FAIL: $netdev: Cannot set MAC address"
+> +       else
+> +               ip link show $netdev |grep -q "$MACADDR"
+> +               if [ $? -eq 0 ];then
+> +                       echo "PASS: $netdev: set MAC address"
+> +               else
+> +                       echo "FAIL: $netdev: Cannot set MAC address"
+> +               fi
+> +       fi
+> +
+> +       #check that the interface did not already have an IP
+> +       ip address show "$netdev" |grep '^[[:space:]]*inet'
+> +       if [ $? -eq 0 ];then
+> +               echo "SKIP: $netdev: already have an IP"
+> +               return 0
+> +       fi
+> +
+> +       # TODO what ipaddr to set ? DHCP ?
+> +       echo "SKIP: $netdev: set IP address"
+> +       return 0
+> +}
+> +
+> +# test an ethtool command
+> +# arg1: return code for not supported (see ethtool code source)
+> +# arg2: summary of the command
+> +# arg3: command to execute
+> +kci_netdev_ethtool_test()
+> +{
+> +       if [ $# -le 2 ];then
+> +               echo "SKIP: $netdev: ethtool: invalid number of arguments"
+> +               return 1
+> +       fi
+> +       $3 >/dev/null
+> +       ret=$?
+> +       if [ $ret -ne 0 ];then
+> +               if [ $ret -eq "$1" ];then
+> +                       echo "SKIP: $netdev: ethtool $2 not supported"
+> +               else
+> +                       echo "FAIL: $netdev: ethtool $2"
+> +                       return 1
+> +               fi
+> +       else
+> +               echo "PASS: $netdev: ethtool $2"
+> +       fi
+> +       return 0
+> +}
+> +
+> +# test ethtool commands
+> +# arg1: network interface name
+> +kci_netdev_ethtool()
+> +{
+> +       netdev=$1
+> +
+> +       #check presence of ethtool
+> +       ethtool --version 2>/dev/null >/dev/null
+> +       if [ $? -ne 0 ];then
+> +               echo "SKIP: ethtool not present"
+> +               return 1
+> +       fi
+> +
+> +       TMP_ETHTOOL_FEATURES="$(mktemp)"
+> +       if [ ! -e "$TMP_ETHTOOL_FEATURES" ];then
+> +               echo "SKIP: Cannot create a tmp file"
+> +               return 1
+> +       fi
+> +
+> +       ethtool -k "$netdev" > "$TMP_ETHTOOL_FEATURES"
+> +       if [ $? -ne 0 ];then
+> +               echo "FAIL: $netdev: ethtool list features"
+> +               rm "$TMP_ETHTOOL_FEATURES"
+> +               return 1
+> +       fi
+> +       echo "PASS: $netdev: ethtool list features"
+> +       #TODO for each non fixed features, try to turn them on/off
+> +       rm "$TMP_ETHTOOL_FEATURES"
+> +
+> +       kci_netdev_ethtool_test 74 'dump' "ethtool -d $netdev"
+> +       kci_netdev_ethtool_test 94 'stats' "ethtool -S $netdev"
+> +       return 0
+> +}
+> +
+> +# stop a netdev
+> +# arg1: network interface name
+> +kci_netdev_stop()
+> +{
+> +       netdev=$1
+> +
+> +       if [ $NETDEV_STARTED -eq 0 ];then
+> +               echo "SKIP: $netdev: interface kept up"
+> +               return 0
+> +       fi
+> +
+> +       ip link set "$netdev" down
+> +       if [ $? -ne 0 ];then
+> +               echo "FAIL: $netdev: stop interface"
+> +               return 1
+> +       fi
+> +       echo "PASS: $netdev: stop interface"
+> +       return 0
+> +}
+> +
+> +# run all test on a netdev
+> +# arg1: network interface name
+> +kci_test_netdev()
+> +{
+> +       NETDEV_STARTED=0
+> +       IFACE_TO_UPDOWN="$1"
+> +       IFACE_TO_TEST="$1"
+> +       #check for VLAN interface
+> +       MASTER_IFACE="$(echo $1 | cut -d@ -f2)"
+> +       if [ ! -z "$MASTER_IFACE" ];then
+> +               IFACE_TO_UPDOWN="$MASTER_IFACE"
+> +               IFACE_TO_TEST="$(echo $1 | cut -d@ -f1)"
+> +       fi
+> +
+> +       NETDEV_STARTED=0
+> +       kci_net_start "$IFACE_TO_UPDOWN"
+> +
+> +       kci_net_setup "$IFACE_TO_TEST"
+> +
+> +       kci_netdev_ethtool "$IFACE_TO_TEST"
+> +
+> +       kci_netdev_stop "$IFACE_TO_UPDOWN"
+> +       return 0
+> +}
+> +
+> +#check for needed privileges
+> +if [ "$(id -u)" -ne 0 ];then
+> +       echo "SKIP: Need root privileges"
+> +       exit 0
+> +fi
+> +
+> +ip -Version 2>/dev/null >/dev/null
 
-Thanks for noticing that, we'll fix it.
+is the test supposed to work with busybox's ip or only with iproute2 version?
 
-> > + *
-> > + * Removes a flow from the repeated hash structure and clears the
-> > + * action payload.
-> > + *
-> > + * Return: negative value on error, 0 if removed successfully.
-> > + */
-> > +static int
-> > +nfp_flower_del_offload(struct nfp_app *app, struct net_device *netdev,
-> > +		       struct tc_cls_flower_offload *flow)
-> > +{
-> > +	return -EOPNOTSUPP;
-> > +}
-> 
+# ip -Version
+BusyBox v1.24.1 (2017-06-14 13:46:50 UTC) multi-call binary.
+
+Usage: ip [OPTIONS] {address | route | link | tunnel | } {COMMAND}
+
+> +if [ $? -ne 0 ];then
+> +       echo "SKIP: Could not run test without the ip tool"
+> +       exit 0
+> +fi
+> +
+> +TMP_LIST_NETDEV="$(mktemp)"
+> +if [ ! -e "$TMP_LIST_NETDEV" ];then
+> +       echo "FAIL: Cannot create a tmp file"
+> +       exit 1
+> +fi
+> +
+> +ip link show |grep '^[0-9]' | grep -oE '[[:space:]].*eth[0-9]*:|[[:space:]].*enp[0-9]s[0-9]:' | cut -d\  -f2 | cut -d: -f1> "$TMP_LIST_NETDEV"
+> +while read netdev
+> +do
+> +       kci_test_netdev "$netdev"
+> +done < "$TMP_LIST_NETDEV"
+> +
+> +rm "$TMP_LIST_NETDEV"
+> +exit 0
+> --
+> 2.10.2
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kselftest" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
