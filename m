@@ -1,61 +1,41 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: CAN-FD Transceiver Limitations
-Date: Thu, 29 Jun 2017 16:21:42 +0200
-Message-ID: <20170629142142.GF9244@lunn.ch>
-References: <de1f6343-4b28-4a5f-c6df-4e54c09fcce2@ti.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next v2 5/9] nfp: extend flower matching capabilities
+Date: Thu, 29 Jun 2017 17:31:22 +0300
+Message-ID: <CAJ3xEMjoW=JdxEvwtDKU8mBtNEO=_Mdg8kv-jjn2hbDVCA4F6Q@mail.gmail.com>
+References: <1498681802-2897-1-git-send-email-simon.horman@netronome.com> <1498681802-2897-6-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-        wg@grandegger.com, mkl@pengutronix.de
-To: Franklin S Cooper Jr <fcooper@ti.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <de1f6343-4b28-4a5f-c6df-4e54c09fcce2@ti.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        oss-drivers@netronome.com,
+        Pieter Jansen van Vuuren
+        <pieter.jansenvanvuuren@netronome.com>
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f50.google.com ([209.85.218.50]:35905 "EHLO
+        mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753293AbdF2ObY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 10:31:24 -0400
+Received: by mail-oi0-f50.google.com with SMTP id p187so67841362oif.3
+        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 07:31:24 -0700 (PDT)
+In-Reply-To: <1498681802-2897-6-git-send-email-simon.horman@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 28, 2017 at 05:14:42PM -0500, Franklin S Cooper Jr wrote:
-> Hi All,
-> 
-> The various CAN transceivers I've seen that support CAN-FD appear to be
-> fairly limited in terms of their supported max speed. I've seen some
-> transceivers that only support upto 2 Mbps while others support up to  5
-> Mbps. This is a problem when the SoC's CAN IP can support even higher
-> values than the transceiver.
-> 
-> Ideally I would think the MCAN driver should at the very least know what
-> the maximum speed supported by the transceiver it is connected to.
-> Therefore, either throwing an error if a request for a speed above the
-> transceiver capability or lower the requested speed to what ever the
-> transceiver is capability of doing.
+On Wed, Jun 28, 2017 at 11:29 PM, Simon Horman
+<simon.horman@netronome.com> wrote:
+> +       /* Populate IPv4 frame. */
+> +       frame->reserved = 0;
+> +       frame->ipv4_src = flow_ipv4->src;
+> +       frame->ipv4_dst = flow_ipv4->dst;
+> +       frame->proto = flow_basic->ip_proto;
+> +       /* Wildcard TOS/TTL as TC can't match them yet. */
 
-Hi Franklin
+FWIW this is wrong... matching on both was added recently
 
-> In either case I do not know if it makes sense to add a DT property
-> within the MCAN driver or create another subnode that contains this
-> information. For example I see some ethernet drivers support
-> "fixed-link" subnode which is trying to solve a similar issue.
+> +       frame->tos = 0;
+> +       frame->ttl = 0;
 
-Hi Franklin
-
-I would say fixed-link is trying to solve a different issue. You use
-fixed-link when you don't have a PHY connected to the Ethernet MAC. A
-MAC driver will normally tell the PHY driver what speeds its supports,
-and ask the PHY to negotiate a speed both the MAC and PHY supports
-with the peer device. The MAC then gets told of the resulting speed.
-If this PHY does not exist, you cannot ask it to perform auto-neg, you
-have no idea what the peer is capable of. Hence you add a virtual PHY
-using fixed-link, which always returns the same speed. This works
-because if you don't have a PHY, the MAC is generally connected to
-another MAC on the same board, typically an Ethernet switch. Hence the
-speed is a board property and fixed.
-
-You appear to have a different issue. I don't know the CAN
-subsystem. Is the transceiver part of the model? Is there an API
-between the CAN-MAC and the CAN-transceiver? It sounds like you need
-to add an API call from the MAC driver to the transceiver driver to
-ask it what it is capable of. I don't see this as being a DT property.
-The transceiver should know its own capabilities. And you have to
-think about non-DT systems, e.g. CAN devices on USB dongles.
-
-      Andrew
+note that the same flow dissector matching is used for ipv4 ttl/tos
+and ipv6 hoplimit/traffic class
