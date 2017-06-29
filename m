@@ -1,45 +1,34 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH] [net-next] net/mlx5e: select CONFIG_MLXFW
-Date: Thu, 29 Jun 2017 06:47:16 +0300
-Message-ID: <CAJ3xEMj3GdWbUGm8DrMhoc282FoGE9f7XxZB8tauz1J_gdK-_A@mail.gmail.com>
-References: <20170628201032.3178691-1-arnd@arndb.de>
+From: Jakub Kicinski via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: [PATCH v3 net-next 03/12] nfp: change bpf
+ verifier hooks to match new verifier data structures
+Date: Wed, 28 Jun 2017 20:47:27 -0700
+Message-ID: <20170628204727.3f4cd3ee@cakuba.netronome.com>
+References: <adc11342-737f-4e06-bce3-f0a92b5594a5@solarflare.com>
+	<b8418d35-7d3f-1ee3-2bfa-cdf87e5b7c95@solarflare.com>
+Reply-To: Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Nicolas Pitre <nicolas.pitre@linaro.org>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        Linux Kernel <linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f46.google.com ([209.85.218.46]:33418 "EHLO
-        mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751541AbdF2DrR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 23:47:17 -0400
-In-Reply-To: <20170628201032.3178691-1-arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, oss-drivers-wFxRvT7yatFl57MIdRCFDg@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <b8418d35-7d3f-1ee3-2bfa-cdf87e5b7c95-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 28, 2017 at 11:10 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> With the introduction of mlx5 firmware flash support, we get a link
-> error with CONFIG_MLXFW=m and CONFIG_MLX5_CORE=y:
->
-> drivers/net/ethernet/mellanox/mlx5/core/fw.o: In function `mlx5_firmware_flash':
-> fw.c:(.text+0x9d4): undefined reference to `mlxfw_firmware_flash'
+On Tue, 27 Jun 2017 13:57:34 +0100, Edward Cree wrote:
+> Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 
-Thanks Arnd, I got a report on that from Jakub but you were before me here..
+Acked-by: Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
 
-> We could have a more elaborate method to force MLX5 to be a loadable
-> module in this case, but the easiest fix seems to be to always enable
-> MLXFW as well, like we do for CONFIG_MLXSW_SPECTRUM, which is the other
-> user of mlxfw_firmware_flash.
-
-We would not want to force mlx5 users to build mlxfw.
-
-So lets either use the more elaborate method or maybe instead of using
-IS_ENABLED in mlxfw.h use IS_REACHABLE (this was suggested by Jakub)
-
-Or.
+Sorry about the delay.
