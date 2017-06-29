@@ -1,7 +1,7 @@
 From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next 2/2] net/mlx4_en: Do not allocate redundant TX queues when TC is disabled
-Date: Thu, 29 Jun 2017 14:07:57 +0300
-Message-ID: <1498734477-26111-3-git-send-email-tariqt@mellanox.com>
+Subject: [PATCH net-next 1/2] net/mlx4_en: Add dynamic variable to hold the number of user priorities (UP)
+Date: Thu, 29 Jun 2017 14:07:56 +0300
+Message-ID: <1498734477-26111-2-git-send-email-tariqt@mellanox.com>
 References: <1498734477-26111-1-git-send-email-tariqt@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
         Inbar Karmy <inbark@mellanox.com>,
@@ -9,9 +9,9 @@ Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
         Tariq Toukan <tariqt@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:55780 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:55778 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751837AbdF2LIo (ORCPT
+        with ESMTP id S1751758AbdF2LIo (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 07:08:44 -0400
 In-Reply-To: <1498734477-26111-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,264 +19,163 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Inbar Karmy <inbark@mellanox.com>
 
-Currently the number of TX queues that are allocated doesn't depend
-on the number of TCs, the module always loads with max num of UP
-per channel.
-In order to prevent the allocation of unnecessary memory, the
-module will load with minimum number of UPs per channel, and the
-user will be able to control the number of TX queues per channel
-by changing the number of TC to 8 using the tc command.
-The variable num_up will hold the information about the current
-number of UPs.
-Due to the change, needed to remove the lines that set the value of
-UP to be different than zero in the func "mlx4_en_select_queue",
-since now the num of TX queues that are allocated is only one per channel
-in default.
-In order not to force the UP to be zero in case of only one TC, added
-a condition before forcing it in the func "mlx4_en_fill_qp_context".
-
-Tested:
-After the module is loaded with minimum number of UP per channel, to
-increase num of TCs to 8, use:
-tc qdisc add dev ens8 root mqprio num_tc 8
-In order to decrease the number of TCs to minimum number of UP per channel,
-use:
-tc qdisc del dev ens8 root
+Until this patch, the number of UPs was hard coded for eight.
+Replace this with a variable in struct "mlx4_en_port_profile".
+Currently, the variable will hold the maximum number of UP,
+as before.
+The patch creates an infrastructure to add an option for dynamic
+change of the actual number of TCs.
 
 Signed-off-by: Inbar Karmy <inbark@mellanox.com>
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 Cc: Tarick Bedeir <tarick@google.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c    |  6 +--
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c   |  7 +--
- drivers/net/ethernet/mellanox/mlx4/en_main.c      |  3 +-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c    | 54 +++++++++++++++++++++--
- drivers/net/ethernet/mellanox/mlx4/en_resources.c |  3 +-
- drivers/net/ethernet/mellanox/mlx4/en_tx.c        |  6 +--
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h      |  2 +
- 7 files changed, 65 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c  |  2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 12 +++++++-----
+ drivers/net/ethernet/mellanox/mlx4/en_main.c    |  3 ++-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |  6 +++---
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |  7 ++++---
+ 5 files changed, 17 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-index 91481f117daa..5f41dc92aa68 100644
+index 1dae8e40fb25..91481f117daa 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-@@ -238,7 +238,7 @@ static u8 mlx4_en_dcbnl_set_state(struct net_device *dev, u8 state)
- 		priv->flags &= ~MLX4_EN_FLAG_DCB_ENABLED;
- 	}
- 
--	if (mlx4_en_setup_tc(dev, num_tcs))
-+	if (mlx4_en_alloc_tx_queue_per_tc(dev, num_tcs))
- 		return 1;
- 
- 	return 0;
 @@ -303,7 +303,7 @@ static int mlx4_en_ets_validate(struct mlx4_en_priv *priv, struct ieee_ets *ets)
  	int has_ets_tc = 0;
  
  	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
--		if (ets->prio_tc[i] >= priv->prof->num_up) {
-+		if (ets->prio_tc[i] >= MLX4_EN_NUM_UP_HIGH) {
+-		if (ets->prio_tc[i] >= MLX4_EN_NUM_UP) {
++		if (ets->prio_tc[i] >= priv->prof->num_up) {
  			en_err(priv, "Bad priority in UP <=> TC mapping. TC: %d, UP: %d\n",
  					i, ets->prio_tc[i]);
  			return -EINVAL;
-@@ -472,7 +472,7 @@ static u8 mlx4_en_dcbnl_setdcbx(struct net_device *dev, u8 mode)
- 			goto err;
- 		if (mlx4_en_dcbnl_ieee_setpfc(dev, &pfc))
- 			goto err;
--		if (mlx4_en_setup_tc(dev, 0))
-+		if (mlx4_en_alloc_tx_queue_per_tc(dev, 0))
- 			goto err;
- 	}
- 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index 2b80a4a9945c..c751a1d434ad 100644
+index e97fbf327594..2b80a4a9945c 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -1764,6 +1764,7 @@ static int mlx4_en_set_channels(struct net_device *dev,
- 	int port_up = 0;
- 	int xdp_count;
- 	int err = 0;
-+	u8 up;
+@@ -1750,7 +1750,8 @@ static void mlx4_en_get_channels(struct net_device *dev,
+ 	channel->max_tx = MLX4_EN_MAX_TX_RING_P_UP;
  
- 	if (!channel->tx_count || !channel->rx_count)
- 		return -EINVAL;
-@@ -1801,11 +1802,11 @@ static int mlx4_en_set_channels(struct net_device *dev,
+ 	channel->rx_count = priv->rx_ring_num;
+-	channel->tx_count = priv->tx_ring_num[TX] / MLX4_EN_NUM_UP;
++	channel->tx_count = priv->tx_ring_num[TX] /
++			    priv->prof->num_up;
+ }
  
- 	mlx4_en_safe_replace_resources(priv, tmp);
+ static int mlx4_en_set_channels(struct net_device *dev,
+@@ -1773,18 +1774,19 @@ static int mlx4_en_set_channels(struct net_device *dev,
  
--	netif_set_real_num_tx_queues(dev, priv->tx_ring_num[TX]);
+ 	mutex_lock(&mdev->state_lock);
+ 	xdp_count = priv->tx_ring_num[TX_XDP] ? channel->rx_count : 0;
+-	if (channel->tx_count * MLX4_EN_NUM_UP + xdp_count > MAX_TX_RINGS) {
++	if (channel->tx_count * priv->prof->num_up + xdp_count >
++	    MAX_TX_RINGS) {
+ 		err = -EINVAL;
+ 		en_err(priv,
+ 		       "Total number of TX and XDP rings (%d) exceeds the maximum supported (%d)\n",
+-		       channel->tx_count * MLX4_EN_NUM_UP + xdp_count,
++		       channel->tx_count * priv->prof->num_up  + xdp_count,
+ 		       MAX_TX_RINGS);
+ 		goto out;
+ 	}
+ 
+ 	memcpy(&new_prof, priv->prof, sizeof(struct mlx4_en_port_profile));
+ 	new_prof.num_tx_rings_p_up = channel->tx_count;
+-	new_prof.tx_ring_num[TX] = channel->tx_count * MLX4_EN_NUM_UP;
++	new_prof.tx_ring_num[TX] = channel->tx_count * priv->prof->num_up;
+ 	new_prof.tx_ring_num[TX_XDP] = xdp_count;
+ 	new_prof.rx_ring_num = channel->rx_count;
+ 
+@@ -1803,7 +1805,7 @@ static int mlx4_en_set_channels(struct net_device *dev,
  	netif_set_real_num_rx_queues(dev, priv->rx_ring_num);
  
--	if (netdev_get_num_tc(dev))
--		mlx4_en_setup_tc(dev, priv->prof->num_up);
-+	up = (priv->prof->num_up == MLX4_EN_NUM_UP_LOW) ?
-+				    0 : priv->prof->num_up;
-+	mlx4_en_setup_tc(dev, up);
+ 	if (netdev_get_num_tc(dev))
+-		mlx4_en_setup_tc(dev, MLX4_EN_NUM_UP);
++		mlx4_en_setup_tc(dev, priv->prof->num_up);
  
  	en_warn(priv, "Using %d TX rings\n", priv->tx_ring_num[TX]);
  	en_warn(priv, "Using %d RX rings\n", priv->rx_ring_num);
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_main.c b/drivers/net/ethernet/mellanox/mlx4/en_main.c
-index a8eb856b0158..2b0cbca4beb5 100644
+index 56cdf38d150e..a8eb856b0158 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_main.c
-@@ -169,7 +169,8 @@ static int mlx4_en_get_profile(struct mlx4_en_dev *mdev)
+@@ -169,8 +169,9 @@ static int mlx4_en_get_profile(struct mlx4_en_dev *mdev)
  		params->prof[i].tx_ppp = pfctx;
  		params->prof[i].tx_ring_size = MLX4_EN_DEF_TX_RING_SIZE;
  		params->prof[i].rx_ring_size = MLX4_EN_DEF_RX_RING_SIZE;
--		params->prof[i].num_up = MLX4_EN_NUM_UP_HIGH;
-+		params->prof[i].num_up = MLX4_EN_NUM_UP_LOW;
-+		params->prof[i].num_tx_rings_p_up = params->num_tx_rings_p_up;
++		params->prof[i].num_up = MLX4_EN_NUM_UP_HIGH;
  		params->prof[i].tx_ring_num[TX] = params->num_tx_rings_p_up *
- 			params->prof[i].num_up;
+-			MLX4_EN_NUM_UP;
++			params->prof[i].num_up;
  		params->prof[i].rss_rings = 0;
+ 		params->prof[i].inline_thold = inline_thold;
+ 	}
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index e7f654623eab..3a291fc1780a 100644
+index 9da76e3be2fc..e7f654623eab 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -64,7 +64,7 @@ int mlx4_en_setup_tc(struct net_device *dev, u8 up)
+@@ -60,7 +60,7 @@ int mlx4_en_setup_tc(struct net_device *dev, u8 up)
+ 	int i;
+ 	unsigned int offset = 0;
+ 
+-	if (up && up != MLX4_EN_NUM_UP)
++	if (up && up != MLX4_EN_NUM_UP_HIGH)
  		return -EINVAL;
  
  	netdev_set_num_tc(dev, up);
--
-+	netif_set_real_num_tx_queues(dev, priv->tx_ring_num[TX]);
- 	/* Partition Tx queues evenly amongst UP's */
- 	for (i = 0; i < up; i++) {
- 		netdev_set_tc_queue(dev, i, priv->num_tx_rings_p_up, offset);
-@@ -86,6 +86,50 @@ int mlx4_en_setup_tc(struct net_device *dev, u8 up)
- 	return 0;
- }
- 
-+int mlx4_en_alloc_tx_queue_per_tc(struct net_device *dev, u8 tc)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	struct mlx4_en_port_profile new_prof;
-+	struct mlx4_en_priv *tmp;
-+	int port_up = 0;
-+	int err = 0;
-+
-+	tmp = kzalloc(sizeof(*tmp), GFP_KERNEL);
-+	if (!tmp)
-+		return -ENOMEM;
-+
-+	mutex_lock(&mdev->state_lock);
-+	memcpy(&new_prof, priv->prof, sizeof(struct mlx4_en_port_profile));
-+	new_prof.num_up = (tc == 0) ? MLX4_EN_NUM_UP_LOW :
-+				      MLX4_EN_NUM_UP_HIGH;
-+	new_prof.tx_ring_num[TX] = new_prof.num_tx_rings_p_up *
-+				   new_prof.num_up;
-+	err = mlx4_en_try_alloc_resources(priv, tmp, &new_prof, true);
-+	if (err)
-+		goto out;
-+
-+	if (priv->port_up) {
-+		port_up = 1;
-+		mlx4_en_stop_port(dev, 1);
-+	}
-+
-+	mlx4_en_safe_replace_resources(priv, tmp);
-+	if (port_up) {
-+		err = mlx4_en_start_port(dev);
-+		if (err) {
-+			en_err(priv, "Failed starting port for setup TC\n");
-+			goto out;
-+		}
-+	}
-+
-+	err = mlx4_en_setup_tc(dev, tc);
-+out:
-+	mutex_unlock(&mdev->state_lock);
-+	kfree(tmp);
-+	return err;
-+}
-+
- static int __mlx4_en_setup_tc(struct net_device *dev, u32 handle,
- 			      u32 chain_index, __be16 proto,
- 			      struct tc_to_netdev *tc)
-@@ -93,9 +137,12 @@ static int __mlx4_en_setup_tc(struct net_device *dev, u32 handle,
- 	if (tc->type != TC_SETUP_MQPRIO)
- 		return -EINVAL;
- 
-+	if (tc->mqprio->num_tc && tc->mqprio->num_tc != MLX4_EN_NUM_UP_HIGH)
-+		return -EINVAL;
-+
- 	tc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
- 
--	return mlx4_en_setup_tc(dev, tc->mqprio->num_tc);
-+	return mlx4_en_alloc_tx_queue_per_tc(dev, tc->mqprio->num_tc);
- }
- 
- #ifdef CONFIG_RFS_ACCEL
-@@ -2144,7 +2191,7 @@ static int mlx4_en_copy_priv(struct mlx4_en_priv *dst,
- 
- 	memcpy(&dst->hwtstamp_config, &prof->hwtstamp_config,
- 	       sizeof(dst->hwtstamp_config));
--	dst->num_tx_rings_p_up = src->mdev->profile.num_tx_rings_p_up;
-+	dst->num_tx_rings_p_up = prof->num_tx_rings_p_up;
- 	dst->rx_ring_num = prof->rx_ring_num;
- 	dst->flags = prof->flags;
- 	dst->mdev = src->mdev;
-@@ -2197,6 +2244,7 @@ static void mlx4_en_update_priv(struct mlx4_en_priv *dst,
- 		dst->tx_ring[t] = src->tx_ring[t];
- 		dst->tx_cq[t] = src->tx_cq[t];
+@@ -2780,7 +2780,7 @@ static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+ 	if (priv->tx_ring_num[TX] + xdp_ring_num > MAX_TX_RINGS) {
+ 		tx_changed = 1;
+ 		new_prof.tx_ring_num[TX] =
+-			MAX_TX_RINGS - ALIGN(xdp_ring_num, MLX4_EN_NUM_UP);
++			MAX_TX_RINGS - ALIGN(xdp_ring_num, priv->prof->num_up);
+ 		en_warn(priv, "Reducing the number of TX rings, to not exceed the max total rings number.\n");
  	}
-+	dst->num_tx_rings_p_up = src->num_tx_rings_p_up;
- 	dst->rx_ring_num = src->rx_ring_num;
- 	memcpy(dst->prof, src->prof, sizeof(struct mlx4_en_port_profile));
- }
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_resources.c b/drivers/net/ethernet/mellanox/mlx4/en_resources.c
-index a6b0db0e0383..86d2d42d658d 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_resources.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_resources.c
-@@ -63,7 +63,8 @@ void mlx4_en_fill_qp_context(struct mlx4_en_priv *priv, int size, int stride,
- 	context->local_qpn = cpu_to_be32(qpn);
- 	context->pri_path.ackto = 1 & 0x07;
- 	context->pri_path.sched_queue = 0x83 | (priv->port - 1) << 6;
--	if (user_prio >= 0) {
-+	/* force user priority per tx ring */
-+	if (user_prio >= 0 && priv->prof->num_up == MLX4_EN_NUM_UP_HIGH) {
- 		context->pri_path.sched_queue |= user_prio << 3;
- 		context->pri_path.feup = MLX4_FEUP_FORCE_ETH_UP;
- 	}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 7d69d939ee2d..4f3a9b27ce4a 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -691,15 +691,11 @@ u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb,
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 	u16 rings_p_up = priv->num_tx_rings_p_up;
--	u8 up = 0;
  
- 	if (netdev_get_num_tc(dev))
- 		return skb_tx_hash(dev, skb);
+@@ -3271,7 +3271,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 		priv->flags |= MLX4_EN_DCB_ENABLED;
+ 		priv->cee_config.pfc_state = false;
  
--	if (skb_vlan_tag_present(skb))
--		up = skb_vlan_tag_get(skb) >> VLAN_PRIO_SHIFT;
--
--	return fallback(dev, skb) % rings_p_up + up * rings_p_up;
-+	return fallback(dev, skb) % rings_p_up;
- }
+-		for (i = 0; i < MLX4_EN_NUM_UP; i++)
++		for (i = 0; i < MLX4_EN_NUM_UP_HIGH; i++)
+ 			priv->cee_config.dcb_pfc[i] = pfc_disabled;
  
- static void mlx4_bf_copy(void __iomem *dst, const void *src,
+ 		if (mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_ETS_CFG) {
 diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 89885281d489..d350b2158104 100644
+index 963b77d51b48..89885281d489 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
 +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -115,6 +115,7 @@
+@@ -115,11 +115,11 @@
  #define MLX4_EN_SMALL_PKT_SIZE		64
  #define MLX4_EN_MIN_TX_RING_P_UP	1
  #define MLX4_EN_MAX_TX_RING_P_UP	32
-+#define MLX4_EN_NUM_UP_LOW		1
- #define MLX4_EN_NUM_UP_HIGH		8
+-#define MLX4_EN_NUM_UP			8
++#define MLX4_EN_NUM_UP_HIGH		8
  #define MLX4_EN_DEF_RX_RING_SIZE  	1024
  #define MLX4_EN_DEF_TX_RING_SIZE	MLX4_EN_DEF_RX_RING_SIZE
-@@ -762,6 +763,7 @@ int mlx4_en_change_mcast_lb(struct mlx4_en_priv *priv, struct mlx4_qp *qp,
+ #define MAX_TX_RINGS			(MLX4_EN_MAX_TX_RING_P_UP * \
+-					 MLX4_EN_NUM_UP)
++					 MLX4_EN_NUM_UP_HIGH)
+ 
+ #define MLX4_EN_DEFAULT_TX_WORK		256
+ 
+@@ -386,6 +386,7 @@ struct mlx4_en_port_profile {
+ 	u8 rx_ppp;
+ 	u8 tx_pause;
+ 	u8 tx_ppp;
++	u8 num_up;
+ 	int rss_rings;
+ 	int inline_thold;
+ 	struct hwtstamp_config hwtstamp_config;
+@@ -485,7 +486,7 @@ enum dcb_pfc_type {
+ 
+ struct mlx4_en_cee_config {
+ 	bool	pfc_state;
+-	enum	dcb_pfc_type dcb_pfc[MLX4_EN_NUM_UP];
++	enum	dcb_pfc_type dcb_pfc[MLX4_EN_NUM_UP_HIGH];
+ };
  #endif
  
- int mlx4_en_setup_tc(struct net_device *dev, u8 up);
-+int mlx4_en_alloc_tx_queue_per_tc(struct net_device *dev, u8 tc);
- 
- #ifdef CONFIG_RFS_ACCEL
- void mlx4_en_cleanup_filters(struct mlx4_en_priv *priv);
 -- 
 1.8.3.1
