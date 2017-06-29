@@ -1,35 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] rocker: move dereference before free
-Date: Thu, 29 Jun 2017 14:19:47 -0400 (EDT)
-Message-ID: <20170629.141947.1907909639870266602.davem@davemloft.net>
-References: <20170628114421.qyv6lmugpbjqntpt@mwanda>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH NET V7 0/2] Add loopback support in phy_driver and hns
+ ethtool fix
+Date: Thu, 29 Jun 2017 20:22:16 +0200
+Message-ID: <20170629182216.GB17212@lunn.ch>
+References: <1498641191-13343-1-git-send-email-linyunsheng@huawei.com>
+ <20170629.141455.1338948120889824664.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, arnd@arndb.de, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44066 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752454AbdF2STu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 14:19:50 -0400
-In-Reply-To: <20170628114421.qyv6lmugpbjqntpt@mwanda>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linyunsheng@huawei.com, f.fainelli@gmail.com,
+        huangdaode@hisilicon.com, xuwei5@hisilicon.com,
+        liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
+        gabriele.paoloni@huawei.com, john.garry@huawei.com,
+        linuxarm@huawei.com, salil.mehta@huawei.com, lipeng321@huawei.com,
+        tremyfr@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170629.141455.1338948120889824664.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Wed, 28 Jun 2017 14:44:21 +0300
-
-> My static checker complains that ofdpa_neigh_del() can sometimes free
-> "found".   It just makes sense to use it first before deleting it.
+On Thu, Jun 29, 2017 at 02:14:55PM -0400, David Miller wrote:
+> From: Lin Yun Sheng <linyunsheng@huawei.com>
+> Date: Wed, 28 Jun 2017 17:13:09 +0800
 > 
-> Fixes: ecf244f753e0 ("rocker: fix maybe-uninitialized warning")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> > This Patch Set add set_loopback in phy_driver and use it to setup loopback
+> > when doing ethtool phy self_test.
+> 
+> This doesn't apply cleanly to the net-next tree, please respin.
 
-Applied, thanks.
+Hi David
 
-> Most ref counting function use atomic_dec() but ofdpa_neigh_del() just
-> uses normal decrement.  Are you sure this isn't racy?
+This patchset still has issues. The first patch is O.K. to be
+committed, but the second patch to the hns driver still has issues. I
+suppose it makes the hns driver less broken, but it is still
+broken. Is less broken a sufficient criteria for acceptance?
 
-A spinlock is held always when this counter is touched.
+	Andrew
