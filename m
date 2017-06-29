@@ -1,48 +1,79 @@
-From: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
-        <maheshb@google.com>
-Subject: RFC: bring UP 'lo' by default after creating new netns
-Date: Thu, 29 Jun 2017 16:57:39 -0700
-Message-ID: <CAF2d9jhTcVgLHs_iqw+RRS=WhMtRF0ra5SygGMymuYQUW6HP0A@mail.gmail.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: [PATCH RFC 0/26] Remove spin_unlock_wait()
+Date: Thu, 29 Jun 2017 16:59:18 -0700
+Message-ID: <20170629235918.GA6445@linux.vnet.ibm.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: linux-netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <edumazet@google.com>, ebiederm@xmission.com,
-        adobriyan@gmail.com, David Miller <davem@davemloft.net>,
-        xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f43.google.com ([209.85.214.43]:32889 "EHLO
-        mail-it0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751785AbdF2X6B (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 19:58:01 -0400
-Received: by mail-it0-f43.google.com with SMTP id 188so2785682itx.0
-        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 16:58:00 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+        oleg@redhat.com, akpm@linux-foundation.org, mingo@redhat.com,
+        dave@stgolabs.net, manfred@colorfullife.com, tj@kernel.org,
+        arnd@arndb.de, linux-arch@vger.kernel.org, will.deacon@arm.com,
+        peterz@infradead.org, stern@rowland.harvard.edu,
+        parri.andrea@gmail.com, torvalds@linux-foundation.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Creation of new network namespace is almost always followed up by
-bringing up the loopback device.
+Hello!
 
-        ip netns add foo
-        ip -netns foo link set lo up
+There is no agreed-upon definition of spin_unlock_wait()'s semantics,
+and it appears that all callers could do just as well with a lock/unlock
+pair.  This series therefore removes spin_unlock_wait() and changes
+its users to instead use a lock/unlock pair.  The commits are as follows,
+in three groups:
 
-I'm not sure if there are any consequences of bringing the device UP
-at the creation of network-namespace.
+1-7.	Change uses of spin_unlock_wait() and raw_spin_unlock_wait()
+	to instead use a spin_lock/spin_unlock pair.  These may be
+	applied in any order, but must be applied before any later
+	commits in this series.  The commit logs state why I believe
+	that these commits won't noticeably degrade performance.
 
-thanks,
---mahesh..
+8.	Remove core-kernel definitions for spin_unlock_wait() and
+	raw_spin_unlock_wait().
 
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 2178db8e47cd..ac0e86c9a17f 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -428,6 +428,11 @@ struct net *copy_net_ns(unsigned long flags,
-                net_drop_ns(net);
-                return ERR_PTR(rv);
-        }
-+       /* Set the loopback device UP */
-+       rtnl_lock();
-+       dev_open(net->loopback_dev);
-+       rtnl_unlock();
-+
-        return net;
- }
+9-26.	Remove arch-specific definitions of arch_spin_unlock_wait().
+
+Thoughts?
+
+							Thanx, Paul
+
+------------------------------------------------------------------------
+
+ arch/alpha/include/asm/spinlock.h    |    5 -
+ arch/arc/include/asm/spinlock.h      |    5 -
+ arch/arm/include/asm/spinlock.h      |   16 ----
+ arch/arm64/include/asm/spinlock.h    |   58 +----------------
+ arch/blackfin/include/asm/spinlock.h |    5 -
+ arch/hexagon/include/asm/spinlock.h  |    5 -
+ arch/ia64/include/asm/spinlock.h     |   21 ------
+ arch/m32r/include/asm/spinlock.h     |    5 -
+ arch/metag/include/asm/spinlock.h    |    5 -
+ arch/mips/include/asm/spinlock.h     |   16 ----
+ arch/mn10300/include/asm/spinlock.h  |    5 -
+ arch/parisc/include/asm/spinlock.h   |    7 --
+ arch/powerpc/include/asm/spinlock.h  |   33 ---------
+ arch/s390/include/asm/spinlock.h     |    7 --
+ arch/sh/include/asm/spinlock-cas.h   |    5 -
+ arch/sh/include/asm/spinlock-llsc.h  |    5 -
+ arch/sparc/include/asm/spinlock_32.h |    5 -
+ arch/sparc/include/asm/spinlock_64.h |    5 -
+ arch/tile/include/asm/spinlock_32.h  |    2 
+ arch/tile/include/asm/spinlock_64.h  |    2 
+ arch/tile/lib/spinlock_32.c          |   23 ------
+ arch/tile/lib/spinlock_64.c          |   22 ------
+ arch/xtensa/include/asm/spinlock.h   |    5 -
+ drivers/ata/libata-eh.c              |    8 --
+ include/asm-generic/qspinlock.h      |   14 ----
+ include/linux/spinlock.h             |   31 ---------
+ include/linux/spinlock_up.h          |    6 -
+ ipc/sem.c                            |    3 
+ kernel/exit.c                        |    3 
+ kernel/locking/qspinlock.c           |  117 -----------------------------------
+ kernel/sched/completion.c            |    9 --
+ kernel/sched/core.c                  |    3 
+ kernel/task_work.c                   |    3 
+ net/netfilter/nf_conntrack_core.c    |   26 ++-----
+ 34 files changed, 26 insertions(+), 464 deletions(-)
