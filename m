@@ -1,64 +1,45 @@
-From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [PATCH] net: constify attribute_group structures.
-Date: Thu, 29 Jun 2017 16:31:26 +0530
-Message-ID: <7e920337fab72cc388b20ac95c2e198b84145483.1498733815.git.arvind.yadav.cs@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net, jasowang@redhat.com, mingo@kernel.org
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: [PATCH net-next 0/2] mlx4_en dynamic TC tx queues
+Date: Thu, 29 Jun 2017 14:07:55 +0300
+Message-ID: <1498734477-26111-1-git-send-email-tariqt@mellanox.com>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+        Inbar Karmy <inbark@mellanox.com>,
+        Tarick Bedeir <tarick@google.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35009 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751758AbdF2LCR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 07:02:17 -0400
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:55781 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751725AbdF2LIo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 07:08:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-attribute_groups are not supposed to change at runtime. All functions
-working with attribute_groups provided by <linux/device.h> work with const
-attribute_group. So mark the non-const structs as const.
+Hi Dave,
 
-File size before:
-   text	   data	    bss	    dec	    hex	filename
-   9968	   3168	     16	  13152	   3360	net/core/net-sysfs.o
+This patchset from Inbar aligns the number of TX queues
+to the actual need, according to the TC configuration.
 
-File size After adding 'const':
-   text	   data	    bss	    dec	    hex	filename
-  10160	   2976	     16	  13152	   3360	net/core/net-sysfs.o
+Series generated against net-next commit:
+2ee87db3a287 Merge branch 'nfp-get_phys_port_name-for-representors-and-SR-IOV-reorder'
 
-Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
----
- net/core/net-sysfs.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+Thanks,
+Tariq.
 
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 65ea0ff..85daa29 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -622,7 +622,7 @@ static DEVICE_ATTR_RO(name)
- };
- 
- 
--static struct attribute_group netstat_group = {
-+static const struct attribute_group netstat_group = {
- 	.name  = "statistics",
- 	.attrs  = netstat_attrs,
- };
-@@ -632,7 +632,7 @@ static DEVICE_ATTR_RO(name)
- 	NULL
- };
- 
--static struct attribute_group wireless_group = {
-+static const struct attribute_group wireless_group = {
- 	.name = "wireless",
- 	.attrs = wireless_attrs,
- };
-@@ -1200,7 +1200,7 @@ static ssize_t bql_show_inflight(struct netdev_queue *queue,
- 	NULL
- };
- 
--static struct attribute_group dql_group = {
-+static const struct attribute_group dql_group = {
- 	.name  = "byte_queue_limits",
- 	.attrs  = dql_attrs,
- };
+
+Inbar Karmy (2):
+  net/mlx4_en: Add dynamic variable to hold the number of user
+    priorities (UP)
+  net/mlx4_en: Do not allocate redundant TX queues when TC is disabled
+
+ drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c    |  6 +--
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c   | 17 ++++---
+ drivers/net/ethernet/mellanox/mlx4/en_main.c      |  4 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c    | 60 ++++++++++++++++++++---
+ drivers/net/ethernet/mellanox/mlx4/en_resources.c |  3 +-
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c        |  6 +--
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h      |  9 ++--
+ 7 files changed, 79 insertions(+), 26 deletions(-)
+
 -- 
-1.9.1
+1.8.3.1
