@@ -1,66 +1,84 @@
-From: Atul Gupta <atul.gupta@chelsio.com>
-Subject: [PATCH net-next v2 2/2] cxgb4: Support for get_ts_info ethtool method
-Date: Thu, 29 Jun 2017 17:08:07 +0530
-Message-ID: <1498736287-27398-2-git-send-email-atul.gupta@chelsio.com>
-References: <1498736287-27398-1-git-send-email-atul.gupta@chelsio.com>
-Cc: Atul Gupta <atul.gupta@chelsio.com>,
-        Richard Cochran <richardcochran@gmail.com>,
-        Ganesh Goudar <ganeshgr@chelsio.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:35966 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752720AbdF2Li4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 07:38:56 -0400
-In-Reply-To: <1498736287-27398-1-git-send-email-atul.gupta@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mateusz Jurczyk <mjurczyk-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH] Bluetooth: Add sockaddr length checks before accessing sa_family in bind and connect handlers
+Date: Thu, 29 Jun 2017 14:04:59 +0200
+Message-ID: <20170629120459.16937-1-mjurczyk@google.com>
+Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+        Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Cc: Richard Cochran <richardcochran@gmail.com>
-Signed-off-by: Atul Gupta <atul.gupta@chelsio.com>
-Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
----
-V2: Splitting the patch
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c | 19 ++++++++++++++++++-
- 1 file changed, 18 insertions(+), 1 deletion(-)
+Verify that the caller-provided sockaddr structure is large enough to
+contain the sa_family field, before accessing it in bind() and connect()
+handlers of the Bluetooth sockets. Since neither syscall enforces a minimum
+size of the corresponding memory region, very short sockaddrs (zero or one
+byte long) result in operating on uninitialized memory while referencing
+sa_family.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
-index e9bab72..26eb00a 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
-@@ -1113,14 +1113,31 @@ static int set_flash(struct net_device *netdev, struct ethtool_flash *ef)
+Signed-off-by: Mateusz Jurczyk <mjurczyk-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+---
+ net/bluetooth/l2cap_sock.c  | 5 +++--
+ net/bluetooth/rfcomm/sock.c | 3 ++-
+ net/bluetooth/sco.c         | 6 ++----
+ 3 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/net/bluetooth/l2cap_sock.c b/net/bluetooth/l2cap_sock.c
+index 507b80d59dec..67a8642f57ea 100644
+--- a/net/bluetooth/l2cap_sock.c
++++ b/net/bluetooth/l2cap_sock.c
+@@ -87,7 +87,8 @@ static int l2cap_sock_bind(struct socket *sock, struct sockaddr *addr, int alen)
  
- static int get_ts_info(struct net_device *dev, struct ethtool_ts_info *ts_info)
- {
-+	struct port_info *pi = netdev_priv(dev);
-+	struct  adapter *adapter = pi->adapter;
-+
- 	ts_info->so_timestamping = SOF_TIMESTAMPING_TX_SOFTWARE |
- 				   SOF_TIMESTAMPING_RX_SOFTWARE |
- 				   SOF_TIMESTAMPING_SOFTWARE;
+ 	BT_DBG("sk %p", sk);
  
- 	ts_info->so_timestamping |= SOF_TIMESTAMPING_RX_HARDWARE |
-+				    SOF_TIMESTAMPING_TX_HARDWARE |
- 				    SOF_TIMESTAMPING_RAW_HARDWARE;
+-	if (!addr || addr->sa_family != AF_BLUETOOTH)
++	if (!addr || alen < offsetofend(struct sockaddr, sa_family) ||
++	    addr->sa_family != AF_BLUETOOTH)
+ 		return -EINVAL;
  
--	ts_info->phc_index = -1;
-+	ts_info->tx_types = (1 << HWTSTAMP_TX_OFF) |
-+			    (1 << HWTSTAMP_TX_ON);
-+
-+	ts_info->rx_filters = (1 << HWTSTAMP_FILTER_NONE) |
-+			      (1 << HWTSTAMP_FILTER_PTP_V2_L4_EVENT) |
-+			      (1 << HWTSTAMP_FILTER_PTP_V1_L4_SYNC) |
-+			      (1 << HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ) |
-+			      (1 << HWTSTAMP_FILTER_PTP_V2_L4_SYNC) |
-+			      (1 << HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ);
-+
-+	if (adapter->ptp_clock)
-+		ts_info->phc_index = ptp_clock_index(adapter->ptp_clock);
-+	else
-+		ts_info->phc_index = -1;
+ 	memset(&la, 0, sizeof(la));
+@@ -181,7 +182,7 @@ static int l2cap_sock_connect(struct socket *sock, struct sockaddr *addr,
  
- 	return 0;
- }
+ 	BT_DBG("sk %p", sk);
+ 
+-	if (!addr || alen < sizeof(addr->sa_family) ||
++	if (!addr || alen < offsetofend(struct sockaddr, sa_family) ||
+ 	    addr->sa_family != AF_BLUETOOTH)
+ 		return -EINVAL;
+ 
+diff --git a/net/bluetooth/rfcomm/sock.c b/net/bluetooth/rfcomm/sock.c
+index ac3c650cb234..2025b45a8bf8 100644
+--- a/net/bluetooth/rfcomm/sock.c
++++ b/net/bluetooth/rfcomm/sock.c
+@@ -339,7 +339,8 @@ static int rfcomm_sock_bind(struct socket *sock, struct sockaddr *addr, int addr
+ 	struct sock *sk = sock->sk;
+ 	int len, err = 0;
+ 
+-	if (!addr || addr->sa_family != AF_BLUETOOTH)
++	if (!addr || addr_len < offsetofend(struct sockaddr, sa_family) ||
++	    addr->sa_family != AF_BLUETOOTH)
+ 		return -EINVAL;
+ 
+ 	memset(&sa, 0, sizeof(sa));
+diff --git a/net/bluetooth/sco.c b/net/bluetooth/sco.c
+index 728e0c8dc8e7..795e920a3281 100644
+--- a/net/bluetooth/sco.c
++++ b/net/bluetooth/sco.c
+@@ -524,10 +524,8 @@ static int sco_sock_bind(struct socket *sock, struct sockaddr *addr,
+ 
+ 	BT_DBG("sk %p %pMR", sk, &sa->sco_bdaddr);
+ 
+-	if (!addr || addr->sa_family != AF_BLUETOOTH)
+-		return -EINVAL;
+-
+-	if (addr_len < sizeof(struct sockaddr_sco))
++	if (!addr || addr_len < sizeof(struct sockaddr_sco) ||
++	    addr->sa_family != AF_BLUETOOTH)
+ 		return -EINVAL;
+ 
+ 	lock_sock(sk);
 -- 
-1.8.3.1
+2.13.2.725.g09c95d1e9-goog
