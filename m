@@ -1,60 +1,55 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 1/3] net: ethtool: add support for forward error
- correction modes
-Date: Thu, 29 Jun 2017 15:30:12 +0200
-Message-ID: <20170629133012.GB9244@lunn.ch>
-References: <1498331985-8525-1-git-send-email-roopa@cumulusnetworks.com>
- <1498331985-8525-2-git-send-email-roopa@cumulusnetworks.com>
- <20170627032239.05cdc462@cakuba.netronome.com>
- <20170628134139.GB12559@lunn.ch>
- <20170628214751.shjgnh2mv7ihgcum@cumulusnetworks.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next v2 9/9] nfp: add control message passing
+ capabilities to flower offloads
+Date: Thu, 29 Jun 2017 16:46:58 +0300
+Message-ID: <CAJ3xEMjaaCWZ7gMaRVj-WRV5rcUc1JLwQZrQZihxjbg21uXTbA@mail.gmail.com>
+References: <1498681802-2897-1-git-send-email-simon.horman@netronome.com> <1498681802-2897-10-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jakub Kicinski <kubakici@wp.pl>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>, davem@davemloft.net,
-        linville@tuxdriver.com, netdev@vger.kernel.org,
-        vidya.chowdary@gmail.com, olson@cumulusnetworks.com,
-        leedom@chelsio.com, manojmalviya@chelsio.com, santosh@chelsio.com,
-        yuval.mintz@qlogic.com, odedw@mellanox.com, ariela@mellanox.com,
-        galp@mellanox.com, jeffrey.t.kirsher@intel.com
-To: Dustin Byford <dustin@cumulusnetworks.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        oss-drivers@netronome.com,
+        Pieter Jansen van Vuuren
+        <pieter.jansenvanvuuren@netronome.com>
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:39030 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752684AbdF2NaV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 29 Jun 2017 09:30:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20170628214751.shjgnh2mv7ihgcum@cumulusnetworks.com>
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:34743 "EHLO
+        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752807AbdF2Nq7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 09:46:59 -0400
+Received: by mail-oi0-f65.google.com with SMTP id d77so8818947oig.1
+        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 06:46:59 -0700 (PDT)
+In-Reply-To: <1498681802-2897-10-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 28, 2017 at 02:47:51PM -0700, Dustin Byford wrote:
-> Hi Andrew,
-> 
-> On Wed Jun 28 15:41, Andrew Lunn wrote:
-> > On Tue, Jun 27, 2017 at 03:22:39AM -0700, Jakub Kicinski wrote:
-> > > On Sat, 24 Jun 2017 12:19:43 -0700, Roopa Prabhu wrote:
-> > > > Encoding: Types of encoding
-> > > > Off    :  Turning off any encoding
-> > > > RS     :  enforcing RS-FEC encoding on supported speeds
-> > > > BaseR  :  enforcing Base R encoding on supported speeds
-> > > > Auto   :  IEEE defaults for the speed/medium combination
-> > > 
-> > > Just to be sure - does auto mean autonegotiate as defined by IEEE or
-> > > some presets?
-> > 
-> > I don't know this field very well. Is this confusion likely to happen
-> > a lot? Is there a better name for Auto which is less likely to be
-> > confused?
-> 
-> You're not the first, or the second to ask that question.  I agree it
-> could use clarification.
-> 
-> I always read auto in this context as automatic rather than autoneg.
+On Wed, Jun 28, 2017 at 11:30 PM, Simon Horman
+<simon.horman@netronome.com> wrote:
+> From: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
 
-Hi Dustin
+> +nfp_flower_xmit_flow(struct net_device *netdev,
+> +                    struct nfp_fl_payload *nfp_flow, u8 mtype)
+> +{
+> +       u32 meta_len, key_len, mask_len, act_len, tot_len;
+> +       struct nfp_repr *priv = netdev_priv(netdev);
+> +       struct sk_buff *skb;
+> +       unsigned char *msg;
+> +
+> +       meta_len =  sizeof(struct nfp_fl_rule_metadata);
+> +       key_len = nfp_flow->meta.key_len;
+> +       mask_len = nfp_flow->meta.mask_len;
+> +       act_len = nfp_flow->meta.act_len;
+> +
+> +       tot_len = meta_len + key_len + mask_len + act_len;
+> +
+> +       /* Convert to long words as firmware expects
+> +        * lengths in units of NFP_FL_LW_SIZ.
+> +        */
+> +       nfp_flow->meta.key_len /= NFP_FL_LW_SIZ;
+> +       nfp_flow->meta.mask_len /= NFP_FL_LW_SIZ;
+> +       nfp_flow->meta.act_len /= NFP_FL_LW_SIZ;
 
-Automatic would be better.
+better to use use x >>= 2 instead x /= 4
 
-Thanks
-	Andrew
+I saw it in other places across the patch/set
