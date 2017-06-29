@@ -1,70 +1,30 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [PATCH net-next v2 8/9] nfp: add a stats handler for flower
- offloads
-Date: Wed, 28 Jun 2017 19:55:18 -0700
-Message-ID: <20170628195518.3397bab1@cakuba.netronome.com>
-References: <1498681802-2897-1-git-send-email-simon.horman@netronome.com>
-        <1498681802-2897-9-git-send-email-simon.horman@netronome.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net] bpf: prevent leaking pointer via xadd on
+ unpriviledged
+Date: Wed, 28 Jun 2017 20:41:04 -0700
+Message-ID: <79a17a55-66d6-3a2f-18da-bbd1b3489a66@fb.com>
+References: <1fe53aa29cf003f14acf4b490e5eff038718444a.1498697608.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        oss-drivers@netronome.com,
-        Pieter Jansen van Vuuren
-        <pieter.jansenvanvuuren@netronome.com>
-To: Simon Horman <simon.horman@netronome.com>
+Cc: <kafai@fb.com>, <john.fastabend@gmail.com>,
+        <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:36090 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751541AbdF2CzV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 22:55:21 -0400
-Received: by mail-pf0-f169.google.com with SMTP id q86so42801937pfl.3
-        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 19:55:20 -0700 (PDT)
-In-Reply-To: <1498681802-2897-9-git-send-email-simon.horman@netronome.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:54162 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751541AbdF2DnD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2017 23:43:03 -0400
+In-Reply-To: <1fe53aa29cf003f14acf4b490e5eff038718444a.1498697608.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 28 Jun 2017 22:30:01 +0200, Simon Horman wrote:
-> From: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
-> 
-> Previously there was no way of updating flow rule stats after they
-> have been offloaded to hardware. This is solved by keeping track of
-> stats received from hardware and providing this to the TC handler
-> on request.
-> 
-> Signed-off-by: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
-> Signed-off-by: Simon Horman <simon.horman@netronome.com>
+On 6/28/17 6:04 PM, Daniel Borkmann wrote:
+> Prevent this by checking xadd src reg for pointer types. Also
+> add a couple of test cases related to this.
+>
+> Fixes: 1be7f75d1668 ("bpf: enable non-root eBPF programs")
+> Fixes: 17a5267067f3 ("bpf: verifier (add verifier core)")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-> @@ -334,7 +441,10 @@ int nfp_modify_flow_metadata(struct nfp_app *app,
->  	/* Update flow payload with mask ids. */
->  	nfp_flow->unmasked_data[NFP_FL_MASK_ID_LOCATION] = new_mask_id;
->  
-> -	return 0;
-> +	/* Release the stats ctx id. */
-> +	temp_ctx_id = be32_to_cpu(nfp_flow->meta.host_ctx_id);
-> +
-> +	return nfp_release_stats_entry(app, temp_ctx_id);
->  }
->  
->  int nfp_flower_metadata_init(struct nfp_app *app)
-> @@ -362,6 +472,15 @@ int nfp_flower_metadata_init(struct nfp_app *app)
->  		return -ENOMEM;
->  	}
->  
-> +	/* Init ring buffer and unallocated stats_ids. */
-> +	priv->stats_ids.free_list.buf =
-> +		vmalloc(NFP_FL_STATS_ENTRY_RS * NFP_FL_STATS_ELEM_RS);
-> +	if (!priv->stats_ids.free_list.buf) {
-> +		vfree(priv->mask_ids.mask_id_free_list.buf);
-> +		return -ENOMEM;
-
-This is hiding a leak, I think.  There were 2 things allocate above.
-Please add a proper unwind path with goto's - it makes catching bugs
-like this much easier.
-
-> +	}
-> +	priv->stats_ids.init_unalloc = NFP_FL_REPEATED_HASH_MAX;
-> +
->  	return 0;
->  }
->  
+Acked-by: Alexei Starovoitov <ast@kernel.org>
