@@ -1,61 +1,61 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH NET V5 2/2] net: hns: Use phy_driver to setup Phy loopback
-Date: Thu, 29 Jun 2017 15:56:48 +0200
-Message-ID: <20170629135648.GD9244@lunn.ch>
-References: <1498443039-134503-1-git-send-email-linyunsheng@huawei.com>
- <1498443039-134503-3-git-send-email-linyunsheng@huawei.com>
- <20170626134235.GC2623@lunn.ch>
- <17132762-9b94-bc32-fee8-e90a6db5762a@huawei.com>
- <20170627132958.GA9921@lunn.ch>
- <3d382bc6-f7b6-9df3-8bb0-fee55b72ac74@huawei.com>
- <20170628202819.GA22815@lunn.ch>
- <1bff07ed-d423-dfa2-61e3-3f35c4536632@huawei.com>
+Subject: Re: CAN-FD Transceiver Limitations
+Date: Thu, 29 Jun 2017 16:21:42 +0200
+Message-ID: <20170629142142.GF9244@lunn.ch>
+References: <de1f6343-4b28-4a5f-c6df-4e54c09fcce2@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, f.fainelli@gmail.com,
-        huangdaode@hisilicon.com, xuwei5@hisilicon.com,
-        liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
-        gabriele.paoloni@huawei.com, john.garry@huawei.com,
-        linuxarm@huawei.com, salil.mehta@huawei.com, lipeng321@huawei.com,
-        tremyfr@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Yunsheng Lin <linyunsheng@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:39061 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752796AbdF2N5F (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 29 Jun 2017 09:57:05 -0400
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+        wg@grandegger.com, mkl@pengutronix.de
+To: Franklin S Cooper Jr <fcooper@ti.com>
+Return-path: <linux-can-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1bff07ed-d423-dfa2-61e3-3f35c4536632@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <de1f6343-4b28-4a5f-c6df-4e54c09fcce2@ti.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> > You only call dev_close() if the device is running. What if somebody
-> > runs the self test on an interface when it has never been opened? It
-> > looks like you will call phy_resume(). But since it has never been
-> > suspended, you could be in trouble.
-> Here is what I can think of:
-> 1. when the mac driver is first loaded, the phy has a default state. suspended?
+On Wed, Jun 28, 2017 at 05:14:42PM -0500, Franklin S Cooper Jr wrote:
+> Hi All,
+> 
+> The various CAN transceivers I've seen that support CAN-FD appear to be
+> fairly limited in terms of their supported max speed. I've seen some
+> transceivers that only support upto 2 Mbps while others support up to  5
+> Mbps. This is a problem when the SoC's CAN IP can support even higher
+> values than the transceiver.
+> 
+> Ideally I would think the MCAN driver should at the very least know what
+> the maximum speed supported by the transceiver it is connected to.
+> Therefore, either throwing an error if a request for a speed above the
+> transceiver capability or lower the requested speed to what ever the
+> transceiver is capability of doing.
 
-Nope. The PHY will only be suspended when you actually call
-phy_suspend.
+Hi Franklin
 
-> 2. If user runs the self test after using 'ifconfig ethX down', then I suppose
-> phy is already suspended.
+> In either case I do not know if it makes sense to add a DT property
+> within the MCAN driver or create another subnode that contains this
+> information. For example I see some ethernet drivers support
+> "fixed-link" subnode which is trying to solve a similar issue.
 
-Assuming the phy has at some point been up, after a down, it should be
-suspended.
+Hi Franklin
 
-The key thing here is, phy_resume() can only be called after a
-successful phy_suspend(). Those are the power management rules, and
-the expectations of the drivers. Doing a resume without first doing an
-explicit suspend is asking for bad things to happen.
+I would say fixed-link is trying to solve a different issue. You use
+fixed-link when you don't have a PHY connected to the Ethernet MAC. A
+MAC driver will normally tell the PHY driver what speeds its supports,
+and ask the PHY to negotiate a speed both the MAC and PHY supports
+with the peer device. The MAC then gets told of the resulting speed.
+If this PHY does not exist, you cannot ask it to perform auto-neg, you
+have no idea what the peer is capable of. Hence you add a virtual PHY
+using fixed-link, which always returns the same speed. This works
+because if you don't have a PHY, the MAC is generally connected to
+another MAC on the same board, typically an Ethernet switch. Hence the
+speed is a board property and fixed.
 
-You are having trouble because you are not using the API for what it
-was intended. Maybe you need to take a step back and look at the
-bigger picture of how self tests are being performed. Why do you need
-the dev_close()/dev_open()? Maybe
-netif_device_detach()/netif_device_attach() would be better?
-How do other drivers do self test?
+You appear to have a different issue. I don't know the CAN
+subsystem. Is the transceiver part of the model? Is there an API
+between the CAN-MAC and the CAN-transceiver? It sounds like you need
+to add an API call from the MAC driver to the transceiver driver to
+ask it what it is capable of. I don't see this as being a DT property.
+The transceiver should know its own capabilities. And you have to
+think about non-DT systems, e.g. CAN devices on USB dongles.
 
-	 Andrew
+      Andrew
