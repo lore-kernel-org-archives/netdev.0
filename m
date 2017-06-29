@@ -1,47 +1,66 @@
-From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [PATCH] net: bridge: constify attribute_group structures.
-Date: Thu, 29 Jun 2017 16:39:38 +0530
-Message-ID: <dc7089d0bab72d77ef4819b7d46c8cf88cae6588.1498734476.git.arvind.yadav.cs@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: stephen@networkplumber.org, davem@davemloft.net,
-        bridge@lists.linux-foundation.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [oss-drivers] Re: [PATCH net-next v2 7/9] nfp: add metadata to
+ each flow offload
+Date: Thu, 29 Jun 2017 13:22:14 +0200
+Message-ID: <20170629112213.GB24136@vergenet.net>
+References: <1498681802-2897-1-git-send-email-simon.horman@netronome.com>
+ <1498681802-2897-8-git-send-email-simon.horman@netronome.com>
+ <20170628193302.555537c1@cakuba.netronome.com>
+ <20170629081427.GB29453@vergenet.net>
+ <20170629014250.3000597f@cakuba.netronome.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        oss-drivers@netronome.com,
+        Pieter Jansen van Vuuren
+        <pieter.jansenvanvuuren@netronome.com>
+To: Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33593 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751837AbdF2LK3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 07:10:29 -0400
+Received: from mail-qk0-f173.google.com ([209.85.220.173]:33433 "EHLO
+        mail-qk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752582AbdF2LWW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 07:22:22 -0400
+Received: by mail-qk0-f173.google.com with SMTP id r62so73186417qkf.0
+        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 04:22:21 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170629014250.3000597f@cakuba.netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-attribute_groups are not supposed to change at runtime. All functions
-working with attribute_groups provided by <linux/sysfs.h> work with const
-attribute_group. So mark the non-const structs as const.
+On Thu, Jun 29, 2017 at 01:42:50AM -0700, Jakub Kicinski wrote:
+> On Thu, 29 Jun 2017 10:14:29 +0200, Simon Horman wrote:
+> > > > +	/* Checking if buffer is empty. */
+> > > > +	if (ring->head == ring->tail) {
+> > > > +		*mask_id = freed_id;
+> > > > +		return -ENOENT;
+> > > > +	}
+> > > > +
+> > > > +	memcpy(&temp_id, &ring->buf[ring->tail], NFP_FLOWER_MASK_ELEMENT_RS);
+> > > > +	*mask_id = temp_id;
+> > > > +	memcpy(&ring->buf[ring->tail], &freed_id, NFP_FLOWER_MASK_ELEMENT_RS);
+> > > > +	ring->tail = (ring->tail + NFP_FLOWER_MASK_ELEMENT_RS) %
+> > > > +		     (NFP_FLOWER_MASK_ENTRY_RS * NFP_FLOWER_MASK_ELEMENT_RS);
+> > > > +
+> > > > +	getnstimeofday64(&now);
+> > > > +	delta = timespec64_sub(now, priv->mask_ids.last_used[*mask_id]);
+> > > > +
+> > > > +	if (timespec64_to_ns(&delta) < NFP_FL_MASK_REUSE_TIME_NS) {
+> > > > +		nfp_release_mask_id(app, *mask_id);  
+> > > 
+> > > nfp_release_mask_id() will reset the time stamp and put the mask at the
+> > > end of the queue.  Is that OK?  
+> > 
+> > I discussed this with Pieter. He believes that it is ok as it would be too
+> > early to use the entry and its better put it to the back of the list and
+> > skip to the next one.
+> 
+> But we shouldn't update the "last use" time if the grace period haven't
+> elapsed otherwise we can live lock (I know, unlikely).  Could we simply
+> move the time check right after the:
+> 
+> 	*mask_id = temp_id;
+> 
+> line?  I.e. move the check before we actually pick the mask off the
+> queue?
 
-File size before:
-   text	   data	    bss	    dec	    hex	filename
-   2645	    896	      0	   3541	    dd5	net/bridge/br_sysfs_br.o
-
-File size After adding 'const':
-   text	   data	    bss	    dec	    hex	filename
-   2701	    832	      0	   3533	    dcd	net/bridge/br_sysfs_br.o
-
-Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
----
- net/bridge/br_sysfs_br.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
-index 0b5dd60..723f25e 100644
---- a/net/bridge/br_sysfs_br.c
-+++ b/net/bridge/br_sysfs_br.c
-@@ -865,7 +865,7 @@ static ssize_t vlan_stats_enabled_store(struct device *d,
- 	NULL
- };
- 
--static struct attribute_group bridge_group = {
-+static const struct attribute_group bridge_group = {
- 	.name = SYSFS_BRIDGE_ATTR,
- 	.attrs = bridge_attrs,
- };
--- 
-1.9.1
+Thanks, we now have a solution along those lines working.
