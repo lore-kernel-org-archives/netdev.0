@@ -1,45 +1,44 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net-next v2 3/9] nfp: provide infrastructure for
- offloading flower based TC filters
-Date: Thu, 29 Jun 2017 07:41:42 +0200
-Message-ID: <20170629054140.GA2643@vergenet.net>
-References: <1498681802-2897-1-git-send-email-simon.horman@netronome.com>
- <1498681802-2897-4-git-send-email-simon.horman@netronome.com>
- <20170628183507.3b3720ce@cakuba.netronome.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        oss-drivers@netronome.com,
-        Pieter Jansen van Vuuren
-        <pieter.jansenvanvuuren@netronome.com>
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f169.google.com ([209.85.216.169]:36595 "EHLO
-        mail-qt0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751591AbdF2Fls (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 01:41:48 -0400
-Received: by mail-qt0-f169.google.com with SMTP id i2so66357331qta.3
-        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 22:41:47 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170628183507.3b3720ce@cakuba.netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Subject: [PATCH] net: ibm: ibmveth: constify dev_pm_ops structures.
+Date: Thu, 29 Jun 2017 11:14:50 +0530
+Message-ID: <24303710c4e099faa0ca7d9d92a71e53d6b66bcc.1498714986.git.arvind.yadav.cs@gmail.com>
+Cc: linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au,
+        tlfalcon@linux.vnet.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 28, 2017 at 06:35:07PM -0700, Jakub Kicinski wrote:
-> On Wed, 28 Jun 2017 22:29:56 +0200, Simon Horman wrote:
-> > From: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
-> > 
-> > Adds a flower based TC offload handler for representor devices, this
-> > is in addition to the bpf based offload handler. The changes in this
-> > patch will be used in a follow-up patch to add tc flower offload to
-> > the NFP.
-> > 
-> > The flower app enables tc offloads on representors by default.
-> > 
-> > Signed-off-by: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
-> > Signed-off-by: Simon Horman <simon.horman@netronome.com>
-> 
-> Thanks, two nits, since it seems like there will have to be another
-> respin.
+dev_pm_ops are not supposed to change at runtime. All functions
+working with dev_pm_ops provided by <linux/device.h> work with const
+dev_pm_ops. So mark the non-const structs as const.
 
-Thanks, I will fix those in v3.
+File size before:
+   text	   data	    bss	    dec	    hex	filename
+  15426	   1256	      0	  16682	   412a	drivers/net/ethernet/ibm/ibmveth.o
+
+File size After adding 'const':
+   text	   data	    bss	    dec	    hex	filename
+  15618	   1064	      0	  16682	   412a	drivers/net/ethernet/ibm/ibmveth.o
+
+Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
+---
+ drivers/net/ethernet/ibm/ibmveth.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
+index 72ab7b6..02b26bf 100644
+--- a/drivers/net/ethernet/ibm/ibmveth.c
++++ b/drivers/net/ethernet/ibm/ibmveth.c
+@@ -1843,7 +1843,7 @@ static int ibmveth_resume(struct device *dev)
+ };
+ MODULE_DEVICE_TABLE(vio, ibmveth_device_table);
+ 
+-static struct dev_pm_ops ibmveth_pm_ops = {
++static const struct dev_pm_ops ibmveth_pm_ops = {
+ 	.resume = ibmveth_resume
+ };
+ 
+-- 
+1.9.1
