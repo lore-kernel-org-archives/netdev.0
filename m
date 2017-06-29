@@ -1,30 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] arcnet: Collection of latest features
-Date: Thu, 29 Jun 2017 15:26:52 -0400 (EDT)
-Message-ID: <20170629.152652.1667234540243358841.davem@davemloft.net>
-References: <20170628163221.32301-1-m.grzeschik@pengutronix.de>
+Subject: Re: kernel (master) build failure w. !CONFIG_NET_RX_BUSY_POLL
+Date: Thu, 29 Jun 2017 15:35:27 -0400 (EDT)
+Message-ID: <20170629.153527.1327069677943074079.davem@davemloft.net>
+References: <1498636860.5505.28.camel@gmx.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel@pengutronix.de
-To: m.grzeschik@pengutronix.de
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, linux-rt-users@vger.kernel.org
+To: efault@gmx.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44862 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:44982 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751537AbdF2T04 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 15:26:56 -0400
-In-Reply-To: <20170628163221.32301-1-m.grzeschik@pengutronix.de>
+        with ESMTP id S1751592AbdF2Tf3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 15:35:29 -0400
+In-Reply-To: <1498636860.5505.28.camel@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Date: Wed, 28 Jun 2017 18:32:17 +0200
+From: Mike Galbraith <efault@gmx.de>
+Date: Wed, 28 Jun 2017 10:01:00 +0200
 
-> Here we sum up the latest features to improve the arcnet framework. One
-> patch is used to get feedback from the transfer queue about failed xfers
-> by adding the err_skb message queue. Beside that we improve the
-> backplane status that can be read by the PCI-based cards and offer that
-> status via an extra sysfs attribute. In the last patch we add another
-> card type PCIFB2.
+> Greetings network wizards,
+> 
+> The latest RT explicitly disables CONFIG_NET_RX_BUSY_POLL, thus
+> uncovering $subject.  Below is what I did about it.
+> 
+> 	-Mike
+> 
+> net: Move napi_hash_add/del() inside CONFIG_NET_RX_BUSY_POLL
+> 
+> Since 545cd5e5ec54 ("net: Busy polling should ignore sender CPUs"),
+> kernel build fails when CONFIG_NET_RX_BUSY_POLL is disabled.  Move
+> napi_hash_add/del() accordingly.
+> 
+> Banged-upon-by: Mike Galbraith <efault@gmx.de>
 
-Series applied, thanks.
+First, this is in no way a standard signoff or ack tag.
+
+Second, you must provide the complete set of build failure details
+so that anyone just reading your posting can understand and fully
+review your patch without having to go anywhere else for the
+pertinent information.
+
+And, lastly, I can't see how anything like this could be necessary
+with the way the code is currently structures in the 'net' tree.  This
+is really why you need to make a full report, with build failure
+messages, as well as an explanation of what your change does, and why
+it does it that way.
+
+Thanks.
