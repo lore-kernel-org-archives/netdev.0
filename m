@@ -1,33 +1,49 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [PATCH net-next v2 4/9] nfp: extend flower add flow offload
-Date: Wed, 28 Jun 2017 23:48:29 -0700
-Message-ID: <20170628234829.76098a18@cakuba.netronome.com>
-References: <1498681802-2897-1-git-send-email-simon.horman@netronome.com>
-        <1498681802-2897-5-git-send-email-simon.horman@netronome.com>
-        <ceb96fbd-c768-5bb2-cb44-f1bc7ecb4849@huawei.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] [net-next] net/mlx5e: select CONFIG_MLXFW
+Date: Thu, 29 Jun 2017 09:48:57 +0200
+Message-ID: <CAK8P3a1R3jP-qes5ZbbM4xETGvrCzdNahXENPqmXyh9+Xy-ipw@mail.gmail.com>
+References: <20170628201032.3178691-1-arnd@arndb.de> <CAJ3xEMj3GdWbUGm8DrMhoc282FoGE9f7XxZB8tauz1J_gdK-_A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Simon Horman <simon.horman@netronome.com>,
-        David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        <oss-drivers@netronome.com>,
-        "Pieter Jansen van Vuuren" <pieter.jansenvanvuuren@netronome.com>
-To: Yunsheng Lin <linyunsheng@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:36633 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751614AbdF2Gsc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 02:48:32 -0400
-Received: by mail-pg0-f54.google.com with SMTP id u62so43219853pgb.3
-        for <netdev@vger.kernel.org>; Wed, 28 Jun 2017 23:48:32 -0700 (PDT)
-In-Reply-To: <ceb96fbd-c768-5bb2-cb44-f1bc7ecb4849@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Nicolas Pitre <nicolas.pitre@linaro.org>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        Linux Kernel <linux-kernel@vger.kernel.org>
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAJ3xEMj3GdWbUGm8DrMhoc282FoGE9f7XxZB8tauz1J_gdK-_A@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 29 Jun 2017 14:18:07 +0800, Yunsheng Lin wrote:
-> > +	if (mask_basic->n_proto) { =20
-> cpu_to_be16=EF=BC=88mask_basic->n_proto=EF=BC=89
-> remove cpu_to_be16 in case.
+On Thu, Jun 29, 2017 at 5:47 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> On Wed, Jun 28, 2017 at 11:10 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+>> With the introduction of mlx5 firmware flash support, we get a link
+>> error with CONFIG_MLXFW=m and CONFIG_MLX5_CORE=y:
+>>
+>> drivers/net/ethernet/mellanox/mlx5/core/fw.o: In function `mlx5_firmware_flash':
+>> fw.c:(.text+0x9d4): undefined reference to `mlxfw_firmware_flash'
+>
+> Thanks Arnd, I got a report on that from Jakub but you were before me here..
+>
+>> We could have a more elaborate method to force MLX5 to be a loadable
+>> module in this case, but the easiest fix seems to be to always enable
+>> MLXFW as well, like we do for CONFIG_MLXSW_SPECTRUM, which is the other
+>> user of mlxfw_firmware_flash.
+>
+> We would not want to force mlx5 users to build mlxfw.
+>
+> So lets either use the more elaborate method or maybe instead of using
+> IS_ENABLED in mlxfw.h use IS_REACHABLE (this was suggested by Jakub)
 
-Thanks, but this is incorrect.  Byte swapping constants is done at
-compilation time - therefore it's preferred.
+Sure, that works. I generally try to avoid IS_REACHABLE(), as I find it more
+confusing than adding a dependency like
+
+           depends on MLXFW || MLXFW=n
+
+(and yes, I was the one who introduced IS_REACHABLE() ;-) ).
+
+      Arnd
