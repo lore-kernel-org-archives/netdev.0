@@ -1,83 +1,58 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH net] ipv6: dad: don't remove dynamic addresses if link is down
-Date: Thu, 29 Jun 2017 16:56:54 +0200
-Message-ID: <cd87260f67fdd2a0b8feba4bed443d162d06254d.1498745606.git.sd@queasysnail.net>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Sabrina Dubroca <sd@queasysnail.net>
-To: netdev@vger.kernel.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH net-next v2 5/9] nfp: extend flower matching capabilities
+Date: Thu, 29 Jun 2017 17:00:06 +0200
+Message-ID: <20170629150004.GB6215@vergenet.net>
+References: <1498681802-2897-1-git-send-email-simon.horman@netronome.com>
+ <1498681802-2897-6-git-send-email-simon.horman@netronome.com>
+ <CAJ3xEMhnp5JE6QPok4nJGGfdP2diEBtA0_9Q2K2OpHJD_Wi-FQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        oss-drivers@netronome.com,
+        Pieter Jansen van Vuuren
+        <pieter.jansenvanvuuren@netronome.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42009 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751974AbdF2O5C (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 29 Jun 2017 10:57:02 -0400
+Received: from mail-qt0-f171.google.com ([209.85.216.171]:36708 "EHLO
+        mail-qt0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751974AbdF2PAS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 11:00:18 -0400
+Received: by mail-qt0-f171.google.com with SMTP id i2so76538911qta.3
+        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 08:00:18 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAJ3xEMhnp5JE6QPok4nJGGfdP2diEBtA0_9Q2K2OpHJD_Wi-FQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, when the link for $DEV is down, this command succeeds but the
-address is removed immediately by DAD (1):
+On Thu, Jun 29, 2017 at 05:33:32PM +0300, Or Gerlitz wrote:
+> On Wed, Jun 28, 2017 at 11:29 PM, Simon Horman
+> <simon.horman@netronome.com> wrote:
+> > +nfp_flower_compile_meta_tci(struct nfp_flower_meta_two *frame,
+> > +                           struct tc_cls_flower_offload *flow, u8 key_type,
+> > +                           bool mask_version)
+> 
+> what's the role of the mask_version flag here and elsewhere in the
+> sister functions?
 
-    ip addr add 1111::12/64 dev $DEV valid_lft 3600 preferred_lft 1800
+Hi Or,
 
-In the same situation, this will succeed and not remove the address (2):
+I chatted with Pieter about this and my understanding is that metadata
+comes in pairs; masked and umasked. The mask_version parameter controls
+which of the pair is compiled.
 
-    ip addr add 1111::12/64 dev $DEV
-    ip addr change 1111::12/64 dev $DEV valid_lft 3600 preferred_lft 1800
-
-The comment in addrconf_dad_begin() when !IF_READY makes it look like
-this is the intended behavior, but doesn't explain why:
-
-     * If the device is not ready:
-     * - keep it tentative if it is a permanent address.
-     * - otherwise, kill it.
-
-We clearly cannot prevent userspace from doing (2), but we can make (1)
-work consistently with (2).
-
-addrconf_dad_stop() is only called in two cases: if DAD failed, or to
-skip DAD when the link is down. In that second case, the fix is to avoid
-deleting the address, like we already do for permanent addresses.
-
-Fixes: 3c21edbd1137 ("[IPV6]: Defer IPv6 device initialization until the link becomes ready.")
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
----
- net/ipv6/addrconf.c | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 686c92375e81..00f0cf183996 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1912,15 +1912,7 @@ static void addrconf_dad_stop(struct inet6_ifaddr *ifp, int dad_failed)
- 	if (dad_failed)
- 		ifp->flags |= IFA_F_DADFAILED;
- 
--	if (ifp->flags&IFA_F_PERMANENT) {
--		spin_lock_bh(&ifp->lock);
--		addrconf_del_dad_work(ifp);
--		ifp->flags |= IFA_F_TENTATIVE;
--		spin_unlock_bh(&ifp->lock);
--		if (dad_failed)
--			ipv6_ifa_notify(0, ifp);
--		in6_ifa_put(ifp);
--	} else if (ifp->flags&IFA_F_TEMPORARY) {
-+	if (ifp->flags&IFA_F_TEMPORARY) {
- 		struct inet6_ifaddr *ifpub;
- 		spin_lock_bh(&ifp->lock);
- 		ifpub = ifp->ifpub;
-@@ -1933,6 +1925,14 @@ static void addrconf_dad_stop(struct inet6_ifaddr *ifp, int dad_failed)
- 			spin_unlock_bh(&ifp->lock);
- 		}
- 		ipv6_del_addr(ifp);
-+	} else if (ifp->flags&IFA_F_PERMANENT || !dad_failed) {
-+		spin_lock_bh(&ifp->lock);
-+		addrconf_del_dad_work(ifp);
-+		ifp->flags |= IFA_F_TENTATIVE;
-+		spin_unlock_bh(&ifp->lock);
-+		if (dad_failed)
-+			ipv6_ifa_notify(0, ifp);
-+		in6_ifa_put(ifp);
- 	} else {
- 		ipv6_del_addr(ifp);
- 	}
--- 
-2.13.2
+> 
+> > +{
+> > +       struct flow_dissector_key_vlan *flow_vlan;
+> > +       u16 tmp_tci;
+> > +
+> > +       /* Populate the metadata frame. */
+> > +       frame->nfp_flow_key_layer = key_type;
+> > +       frame->mask_id = ~0;
+> > +
+> > +       if (mask_version) {
+> > +               frame->tci = cpu_to_be16(~0);
+> > +               return;
+> > +       }
+> > +
