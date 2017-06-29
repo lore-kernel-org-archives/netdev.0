@@ -1,47 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: RFC: sk leak in sock_graft?
-Date: Thu, 29 Jun 2017 12:46:33 -0400 (EDT)
-Message-ID: <20170629.124633.1294861014856097794.davem@davemloft.net>
-References: <20170627.153816.46774843898605825.davem@davemloft.net>
-        <20170627195921.GA9171@oracle.com>
-        <20170627204529.GE9171@oracle.com>
+Subject: Re: [PATCH] net: stmmac: Add additional registers for
+ dwmac1000_dma ethtool
+Date: Thu, 29 Jun 2017 12:50:09 -0400 (EDT)
+Message-ID: <20170629.125009.776539461615619113.davem@davemloft.net>
+References: <1498601787-17390-1-git-send-email-thor.thayer@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sowmini.varadhan@oracle.com
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org
+To: thor.thayer@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42578 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:42636 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752841AbdF2Qqf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 12:46:35 -0400
-In-Reply-To: <20170627204529.GE9171@oracle.com>
+        with ESMTP id S1751333AbdF2QuM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 12:50:12 -0400
+In-Reply-To: <1498601787-17390-1-git-send-email-thor.thayer@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Tue, 27 Jun 2017 16:45:29 -0400
+From: thor.thayer@linux.intel.com
+Date: Tue, 27 Jun 2017 17:16:27 -0500
 
-> On (06/27/17 15:59), Sowmini Varadhan wrote:
->> > Why does rds-tcp need to call sock_graft() without those invariants
->> > met?
->> 
->> It would certainly help to declare "dont use sock_creeate_kern()
->> if you are going to accept on this socket"- I dont see that being 
->> mandated anywhere.
+> From: Thor Thayer <thor.thayer@linux.intel.com>
 > 
-> I can look into getting rds_tcp_accept_one also calling sock_create_lite
-> like every other caller, (though I may not get to this for another week,
-> due to travel), but the code in sock_graft() doesnt look right either. 
+> Version 3.70a of the Designware has additional DMA registers so
+> add those to the ethtool DMA Register dump.
+> Offset 9  - Receive Interrupt Watchdog Timer Register
+> Offset 10 - AXI Bus Mode Register
+> Offset 11 - AHB or AXI Status Register
+> Offset 22 - HW Feature Register
 > 
-> At the very least, there needs to be a WARN_ON(parent->sk) there,
-> to provide a gentle dope-slap for the next slob that stumbles on this
-> type of leak.
+> Signed-off-by: Thor Thayer <thor.thayer@linux.intel.com>
 
-In the accept case it is, if anything, very wasteful.
-
-This is because you allocate a sock and then immediately free it up.
-
-I would say mimick the logic of sys_accept4() and just use
-sock_alloc() to allocate the struct socket without a struct sock.
-Or, as you say, use sock_create_lite() or a similar helper.
+Applied to net-next, thanks.
