@@ -1,41 +1,40 @@
-From: Luca Coelho <luca@coelho.fi>
-Subject: Re: [PATCH] iwlwifi: mvm: add const to thermal_cooling_device_ops
- structure
-Date: Thu, 29 Jun 2017 20:08:04 +0300
-Message-ID: <1498756084.22048.143.camel@coelho.fi>
-References: <1498034442-17664-1-git-send-email-bhumirks@gmail.com>
-         <1498650587.22048.110.camel@coelho.fi>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: CAN-FD Transceiver Limitations
+Date: Thu, 29 Jun 2017 19:19:00 +0200
+Message-ID: <20170629171900.GA17008@lunn.ch>
+References: <de1f6343-4b28-4a5f-c6df-4e54c09fcce2@ti.com>
+ <20170629142142.GF9244@lunn.ch>
+ <5d4f2bcf-bd0f-4fa1-5d5a-d7b4a83cbc5e@ti.com>
+ <20170629154139.GC13221@lunn.ch>
+ <c0d3d772-6939-d22c-b954-3ba6486a9ede@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Bhumika Goyal <bhumirks@gmail.com>, julia.lawall@lip6.fr,
-        johannes.berg@intel.com, emmanuel.grumbach@intel.com,
-        linuxwifi@intel.com, kvalo@codeaurora.org,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+        wg@grandegger.com, mkl@pengutronix.de, devicetree@vger.kernel.org
+To: Franklin S Cooper Jr <fcooper@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from paleale.coelho.fi ([176.9.41.70]:36190 "EHLO
-        farmhouse.coelho.fi" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752407AbdF2RIM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 13:08:12 -0400
-In-Reply-To: <1498650587.22048.110.camel@coelho.fi>
+Received: from vps0.lunn.ch ([178.209.37.122]:39532 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753175AbdF2RTG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 29 Jun 2017 13:19:06 -0400
+Content-Disposition: inline
+In-Reply-To: <c0d3d772-6939-d22c-b954-3ba6486a9ede@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-06-28 at 14:49 +0300, Luca Coelho wrote:
-> On Wed, 2017-06-21 at 14:10 +0530, Bhumika Goyal wrote:
-> > Declare thermal_cooling_device_ops structure as const as it is only passed
-> > as an argument to the function thermal_cooling_device_register and this
-> > argument is of type const. So, declare the structure as const.
-> > 
-> > Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
-> > ---
-> 
-> Thanks, we're reviewing this internally.  It looks fine, but I need to
-> assess whether this will have any impacts in our backports project
-> before we can apply it.
+> Also I agree that attempting to make this optional property/subnode
+> generic to all of CAN would be preferable. Another not sure if its
+> feasible yet without standardization being first forced across all CAN
+> drivers.
 
-This has been applied in our internal tree and will eventually land in
-the mainline.
+It should be. All you need to do is add an
+of_get_can_maxspeed(struct device_node *np)
+for drivers to call.
 
-Thanks!
+If it finds the property, return its value, otherwise return the
+standardised 1Mbps.
+
+And you probably want to do the verify in can_changelink(), by adding
+the max speed into the can_priv structure somewhere.
+
+    Andrew
