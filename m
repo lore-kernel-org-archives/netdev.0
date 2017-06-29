@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 26/29] netfilter: use nf_conntrack_helpers_register when possible
-Date: Fri, 30 Jun 2017 00:53:24 +0200
-Message-ID: <1498776807-11124-27-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 27/29] netfilter: conntrack: use NFPROTO_MAX to size array
+Date: Fri, 30 Jun 2017 00:53:25 +0200
+Message-ID: <1498776807-11124-28-git-send-email-pablo@netfilter.org>
 References: <1498776807-11124-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,147 +10,120 @@ In-Reply-To: <1498776807-11124-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Liping Zhang <zlpnobody@gmail.com>
+From: Florian Westphal <fw@strlen.de>
 
-amanda_helper, nf_conntrack_helper_ras and nf_conntrack_helper_q931 are
-all arrays, so we can use nf_conntrack_helpers_register to register
-the ct helper, this will help us to eliminate some "goto errX"
-statements.
+We don't support anything larger than NFPROTO_MAX, so we can shrink this a bit:
 
-Also introduce h323_helper_init/exit helper function to register the ct
-helpers, this is prepared for the followup patch, which will add net
-namespace support for ct helper.
+     text data  dec  hex filename
+old: 8259 1096 9355 248b net/netfilter/nf_conntrack_proto.o
+new: 8259  624 8883 22b3 net/netfilter/nf_conntrack_proto.o
 
-Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
-Acked-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_conntrack_amanda.c    | 12 +++----
- net/netfilter/nf_conntrack_h323_main.c | 63 +++++++++++++++++++---------------
- 2 files changed, 40 insertions(+), 35 deletions(-)
+ include/net/netfilter/nf_conntrack_l3proto.h |  4 ++--
+ net/netfilter/nf_conntrack_proto.c           | 18 +++++++++---------
+ 2 files changed, 11 insertions(+), 11 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_amanda.c b/net/netfilter/nf_conntrack_amanda.c
-index 03d2ccffa9fa..20edd589fe06 100644
---- a/net/netfilter/nf_conntrack_amanda.c
-+++ b/net/netfilter/nf_conntrack_amanda.c
-@@ -197,8 +197,8 @@ static void __exit nf_conntrack_amanda_fini(void)
- {
- 	int i;
- 
--	nf_conntrack_helper_unregister(&amanda_helper[0]);
--	nf_conntrack_helper_unregister(&amanda_helper[1]);
-+	nf_conntrack_helpers_unregister(amanda_helper,
-+					ARRAY_SIZE(amanda_helper));
- 	for (i = 0; i < ARRAY_SIZE(search); i++)
- 		textsearch_destroy(search[i].ts);
- }
-@@ -218,16 +218,12 @@ static int __init nf_conntrack_amanda_init(void)
- 			goto err1;
- 		}
- 	}
--	ret = nf_conntrack_helper_register(&amanda_helper[0]);
-+	ret = nf_conntrack_helpers_register(amanda_helper,
-+					    ARRAY_SIZE(amanda_helper));
- 	if (ret < 0)
- 		goto err1;
--	ret = nf_conntrack_helper_register(&amanda_helper[1]);
--	if (ret < 0)
--		goto err2;
- 	return 0;
- 
--err2:
--	nf_conntrack_helper_unregister(&amanda_helper[0]);
- err1:
- 	while (--i >= 0)
- 		textsearch_destroy(search[i].ts);
-diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
-index 3bcdc718484e..f71f0d2558fd 100644
---- a/net/netfilter/nf_conntrack_h323_main.c
-+++ b/net/netfilter/nf_conntrack_h323_main.c
-@@ -1815,14 +1815,44 @@ static struct nf_conntrack_helper nf_conntrack_helper_ras[] __read_mostly = {
- 	},
+diff --git a/include/net/netfilter/nf_conntrack_l3proto.h b/include/net/netfilter/nf_conntrack_l3proto.h
+index e01559b4d781..6d14b36e3a49 100644
+--- a/include/net/netfilter/nf_conntrack_l3proto.h
++++ b/include/net/netfilter/nf_conntrack_l3proto.h
+@@ -71,7 +71,7 @@ struct nf_conntrack_l3proto {
+ 	struct module *me;
  };
  
-+static int __init h323_helper_init(void)
-+{
-+	int ret;
-+
-+	ret = nf_conntrack_helper_register(&nf_conntrack_helper_h245);
-+	if (ret < 0)
-+		return ret;
-+	ret = nf_conntrack_helpers_register(nf_conntrack_helper_q931,
-+					ARRAY_SIZE(nf_conntrack_helper_q931));
-+	if (ret < 0)
-+		goto err1;
-+	ret = nf_conntrack_helpers_register(nf_conntrack_helper_ras,
-+					ARRAY_SIZE(nf_conntrack_helper_ras));
-+	if (ret < 0)
-+		goto err2;
-+
-+	return 0;
-+err2:
-+	nf_conntrack_helpers_unregister(nf_conntrack_helper_q931,
-+					ARRAY_SIZE(nf_conntrack_helper_q931));
-+err1:
-+	nf_conntrack_helper_unregister(&nf_conntrack_helper_h245);
-+	return ret;
-+}
-+
-+static void __exit h323_helper_exit(void)
-+{
-+	nf_conntrack_helpers_unregister(nf_conntrack_helper_ras,
-+					ARRAY_SIZE(nf_conntrack_helper_ras));
-+	nf_conntrack_helpers_unregister(nf_conntrack_helper_q931,
-+					ARRAY_SIZE(nf_conntrack_helper_q931));
-+	nf_conntrack_helper_unregister(&nf_conntrack_helper_h245);
-+}
-+
- /****************************************************************************/
- static void __exit nf_conntrack_h323_fini(void)
+-extern struct nf_conntrack_l3proto __rcu *nf_ct_l3protos[AF_MAX];
++extern struct nf_conntrack_l3proto __rcu *nf_ct_l3protos[NFPROTO_NUMPROTO];
+ 
+ #ifdef CONFIG_SYSCTL
+ /* Protocol pernet registration. */
+@@ -100,7 +100,7 @@ extern struct nf_conntrack_l3proto nf_conntrack_l3proto_generic;
+ static inline struct nf_conntrack_l3proto *
+ __nf_ct_l3proto_find(u_int16_t l3proto)
  {
--	nf_conntrack_helper_unregister(&nf_conntrack_helper_ras[1]);
--	nf_conntrack_helper_unregister(&nf_conntrack_helper_ras[0]);
--	nf_conntrack_helper_unregister(&nf_conntrack_helper_q931[1]);
--	nf_conntrack_helper_unregister(&nf_conntrack_helper_q931[0]);
--	nf_conntrack_helper_unregister(&nf_conntrack_helper_h245);
-+	h323_helper_exit();
- 	kfree(h323_buffer);
- 	pr_debug("nf_ct_h323: fini\n");
+-	if (unlikely(l3proto >= AF_MAX))
++	if (unlikely(l3proto >= NFPROTO_NUMPROTO))
+ 		return &nf_conntrack_l3proto_generic;
+ 	return rcu_dereference(nf_ct_l3protos[l3proto]);
  }
-@@ -1837,32 +1867,11 @@ static int __init nf_conntrack_h323_init(void)
- 	h323_buffer = kmalloc(65536, GFP_KERNEL);
- 	if (!h323_buffer)
- 		return -ENOMEM;
--	ret = nf_conntrack_helper_register(&nf_conntrack_helper_h245);
-+	ret = h323_helper_init();
- 	if (ret < 0)
- 		goto err1;
--	ret = nf_conntrack_helper_register(&nf_conntrack_helper_q931[0]);
--	if (ret < 0)
--		goto err2;
--	ret = nf_conntrack_helper_register(&nf_conntrack_helper_q931[1]);
--	if (ret < 0)
--		goto err3;
--	ret = nf_conntrack_helper_register(&nf_conntrack_helper_ras[0]);
--	if (ret < 0)
--		goto err4;
--	ret = nf_conntrack_helper_register(&nf_conntrack_helper_ras[1]);
--	if (ret < 0)
--		goto err5;
- 	pr_debug("nf_ct_h323: init success\n");
+diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
+index 6a36623e897c..1dcad229c3cc 100644
+--- a/net/netfilter/nf_conntrack_proto.c
++++ b/net/netfilter/nf_conntrack_proto.c
+@@ -28,8 +28,8 @@
+ #include <net/netfilter/nf_conntrack_l4proto.h>
+ #include <net/netfilter/nf_conntrack_core.h>
+ 
+-static struct nf_conntrack_l4proto __rcu **nf_ct_protos[PF_MAX] __read_mostly;
+-struct nf_conntrack_l3proto __rcu *nf_ct_l3protos[AF_MAX] __read_mostly;
++static struct nf_conntrack_l4proto __rcu **nf_ct_protos[NFPROTO_NUMPROTO] __read_mostly;
++struct nf_conntrack_l3proto __rcu *nf_ct_l3protos[NFPROTO_NUMPROTO] __read_mostly;
+ EXPORT_SYMBOL_GPL(nf_ct_l3protos);
+ 
+ static DEFINE_MUTEX(nf_ct_proto_mutex);
+@@ -68,7 +68,7 @@ nf_ct_unregister_sysctl(struct ctl_table_header **header,
+ struct nf_conntrack_l4proto *
+ __nf_ct_l4proto_find(u_int16_t l3proto, u_int8_t l4proto)
+ {
+-	if (unlikely(l3proto >= AF_MAX || nf_ct_protos[l3proto] == NULL))
++	if (unlikely(l3proto >= NFPROTO_NUMPROTO || nf_ct_protos[l3proto] == NULL))
+ 		return &nf_conntrack_l4proto_generic;
+ 
+ 	return rcu_dereference(nf_ct_protos[l3proto][l4proto]);
+@@ -212,7 +212,7 @@ int nf_ct_l3proto_register(struct nf_conntrack_l3proto *proto)
+ 	int ret = 0;
+ 	struct nf_conntrack_l3proto *old;
+ 
+-	if (proto->l3proto >= AF_MAX)
++	if (proto->l3proto >= NFPROTO_NUMPROTO)
+ 		return -EBUSY;
+ 
+ 	if (proto->tuple_to_nlattr && !proto->nlattr_tuple_size)
+@@ -254,7 +254,7 @@ EXPORT_SYMBOL_GPL(nf_ct_l3proto_pernet_register);
+ 
+ void nf_ct_l3proto_unregister(struct nf_conntrack_l3proto *proto)
+ {
+-	BUG_ON(proto->l3proto >= AF_MAX);
++	BUG_ON(proto->l3proto >= NFPROTO_NUMPROTO);
+ 
+ 	mutex_lock(&nf_ct_proto_mutex);
+ 	BUG_ON(rcu_dereference_protected(nf_ct_l3protos[proto->l3proto],
+@@ -341,7 +341,7 @@ int nf_ct_l4proto_register_one(struct nf_conntrack_l4proto *l4proto)
+ {
+ 	int ret = 0;
+ 
+-	if (l4proto->l3proto >= PF_MAX)
++	if (l4proto->l3proto >= ARRAY_SIZE(nf_ct_protos))
+ 		return -EBUSY;
+ 
+ 	if ((l4proto->to_nlattr && !l4proto->nlattr_size) ||
+@@ -423,7 +423,7 @@ EXPORT_SYMBOL_GPL(nf_ct_l4proto_pernet_register_one);
+ static void __nf_ct_l4proto_unregister_one(struct nf_conntrack_l4proto *l4proto)
+ 
+ {
+-	BUG_ON(l4proto->l3proto >= PF_MAX);
++	BUG_ON(l4proto->l3proto >= ARRAY_SIZE(nf_ct_protos));
+ 
+ 	BUG_ON(rcu_dereference_protected(
+ 			nf_ct_protos[l4proto->l3proto][l4proto->l4proto],
+@@ -556,7 +556,7 @@ void nf_conntrack_proto_pernet_fini(struct net *net)
+ int nf_conntrack_proto_init(void)
+ {
+ 	unsigned int i;
+-	for (i = 0; i < AF_MAX; i++)
++	for (i = 0; i < NFPROTO_NUMPROTO; i++)
+ 		rcu_assign_pointer(nf_ct_l3protos[i],
+ 				   &nf_conntrack_l3proto_generic);
  	return 0;
--
--err5:
--	nf_conntrack_helper_unregister(&nf_conntrack_helper_ras[0]);
--err4:
--	nf_conntrack_helper_unregister(&nf_conntrack_helper_q931[1]);
--err3:
--	nf_conntrack_helper_unregister(&nf_conntrack_helper_q931[0]);
--err2:
--	nf_conntrack_helper_unregister(&nf_conntrack_helper_h245);
- err1:
- 	kfree(h323_buffer);
- 	return ret;
+@@ -566,6 +566,6 @@ void nf_conntrack_proto_fini(void)
+ {
+ 	unsigned int i;
+ 	/* free l3proto protocol tables */
+-	for (i = 0; i < PF_MAX; i++)
++	for (i = 0; i < ARRAY_SIZE(nf_ct_protos); i++)
+ 		kfree(nf_ct_protos[i]);
+ }
 -- 
 2.1.4
 
