@@ -1,64 +1,63 @@
-From: Franklin S Cooper Jr <fcooper-l0cyMroinI0@public.gmane.org>
-Subject: Re: CAN-FD Transceiver Limitations
-Date: Thu, 29 Jun 2017 18:14:46 -0500
-Message-ID: <d5c2e2f2-8b74-58e1-0cc8-727ba39bd14c@ti.com>
-References: <de1f6343-4b28-4a5f-c6df-4e54c09fcce2@ti.com>
- <20170629142142.GF9244@lunn.ch> <5d4f2bcf-bd0f-4fa1-5d5a-d7b4a83cbc5e@ti.com>
- <20170629154139.GC13221@lunn.ch>
- <c0d3d772-6939-d22c-b954-3ba6486a9ede@ti.com>
- <20170629223551.GA6568@airbook.vandijck-laurijssen.be>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH RFC 0/2] kproxy: Kernel Proxy
+Date: Thu, 29 Jun 2017 16:21:32 -0700
+Message-ID: <CALx6S37ZnymFfXWAV34iXbZd_XA3QeC+rQ+RnSVNi_Mg5eHhyg@mail.gmail.com>
+References: <1498760825-8516-1-git-send-email-tom@herbertland.com> <CACby=pnLJRawb40Ym1_85+8P7vmkwLJqfsv=bYyeHHa8KWPwNA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, <linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-        <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170629223551.GA6568-W3bwb+3xS1LIj2mJfgo99rBP9FGTfoIhIWnq8iejnXE@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f171.google.com ([209.85.128.171]:36147 "EHLO
+        mail-wr0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751537AbdF2XVe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 19:21:34 -0400
+Received: by mail-wr0-f171.google.com with SMTP id c11so196489195wrc.3
+        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 16:21:34 -0700 (PDT)
+In-Reply-To: <CACby=pnLJRawb40Ym1_85+8P7vmkwLJqfsv=bYyeHHa8KWPwNA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On Thu, Jun 29, 2017 at 3:04 PM, Thomas Graf <tgraf@suug.ch> wrote:
+> Hi Tom
+>
+> On 29 June 2017 at 11:27, Tom Herbert <tom@herbertland.com> wrote:
+>> This is raw, minimally tested, and error hanlding needs work. Posting
+>> as RFC to get feedback on the design...
+>>
+>> Sidecar proxies are becoming quite popular on server as a means to
+>> perform layer 7 processing on application data as it is sent. Such
+>> sidecars are used for SSL proxies, application firewalls, and L7
+>> load balancers. While these proxies provide nice functionality,
+>> their performance is obviously terrible since all the data needs
+>> to take an extra hop though userspace.
+>
+Hi Thomas,
+
+> I really appreciate this work. It would have been nice to at least
+> attribute me in some way as this is exactly what I presented at
+> Netconf 2017 [0].
+>
+Sure, will do that!
+
+> I'm also wondering why this is not built on top of KCM which you
+> suggested to use when we discussed this.
+>
+
+I think the main part of that discussion was around stream parser
+which is needed for message delineation. For a 1:1 proxy,  KCM is
+probably overkill (the whole KCM data path and lock becomes
+superfluous). Also, there's no concept of creating a whole message
+before routing it, in the 1:1 case we should let the message pass
+through once it's cleared by the filter (this is the strparser change
+I referred to). As I mentioned, for L7 load balancing we would want a
+multiplexor probably also M:N, but the structure is different since
+there's still no user facing sockets, they're all TCP for instance.
+IMO, the 1:1 proxy case is compelling to solve in itself...
+
+Tom
 
 
 
-On 06/29/2017 05:36 PM, Kurt Van Dijck wrote:
->>>>
->>>> mcan@0 {
->>>> 	...
->>>> 	fixed-transceiver {
->>>> 	      max-canfd-speed = <2000>
->>>> 	};
->>>> 	...
->>>> };
-> 
-> Since when would a transceiver support different speeds for CAN & CANFD?
-
-When I say CAN I'm referring to CAN 2.0 specification which mentioned
-speeds upto 1 Mbit/s. While CAN FD supports higher bitrates.
-
-> No transceivers were available, but they are now.
-> I see no datalink problem applying 2MBit for regular CAN with apropriate
-> physical layer, and CAN does not predefine the physical layer
-> (advise != define).
-> 
-> IMHO,
-> 	fixed-transceiver {
-> 		max-arbitration-speed = <2000000>
-> 		max-data-speed = <4000000>
-> 	};
-> is way better to describe the hardware.
-> Regular CAN chips would not consider max-data-speed...
-
-What is arbitration speed?
-
-Also if I understand you correctly then I agree drivers for traditional
-CAN wouldn't care about this subnode. Although it may be helpful for
-max-data-speed to become max-canfd-speed or something along those lines.
-Just so the property's purpose is clear.
-> 
-> Kind regards,
-> Kurt
-> 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> [0] https://docs.google.com/presentation/d/1dwSKSBGpUHD3WO5xxzZWj8awV_-xL-oYhvqQMOBhhtk/edit#slide=id.g203aae413f_0_0
