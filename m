@@ -1,43 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v1 00/14] amd-xgbe: AMD XGBE driver updates
- 2016-06-28
-Date: Thu, 29 Jun 2017 15:16:36 -0400 (EDT)
-Message-ID: <20170629.151636.347258154691410175.davem@davemloft.net>
-References: <20170628184122.21972.87767.stgit@tlendack-t1.amdoffice.net>
+Subject: Re: [PATCH 0/5] arcnet: Collection of latest fixes
+Date: Thu, 29 Jun 2017 15:19:44 -0400 (EDT)
+Message-ID: <20170629.151944.2253431382191653533.davem@davemloft.net>
+References: <20170628162837.21856-1-m.grzeschik@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: thomas.lendacky@amd.com
+Cc: netdev@vger.kernel.org, kernel@pengutronix.de
+To: m.grzeschik@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44714 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:44736 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751537AbdF2TQl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 15:16:41 -0400
-In-Reply-To: <20170628184122.21972.87767.stgit@tlendack-t1.amdoffice.net>
+        with ESMTP id S1751605AbdF2TTq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 15:19:46 -0400
+In-Reply-To: <20170628162837.21856-1-m.grzeschik@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Date: Wed, 28 Jun 2017 13:41:23 -0500
+From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+Date: Wed, 28 Jun 2017 18:28:32 +0200
 
-> The following updates and fixes are included in this driver update series:
-> 
-> - Simplify mailbox interface code
-> - Fix SFP supported and advertising settings
-> - Fix PTP initialization register usage
-> - Insure there is timestamp skb present before using it
-> - Add a timeout to timestamp register updates
-> - Handle return code from software reset function
-> - Some fixes for handling 2.5Gbps rates
-> - Limit I2C error messages
-> - Fix non-DMA interrupt handling through tasklet usage
-> - Add NUMA affinity support for memory allocations
-> - Add NUMA affinity support for interrupts
-> - Prepare for more fine-grained cache coherency controls
-> - Simplify setting the DMA burst length programming
-> - Performance improvements
-> 
-> This patch series is based on net-next.
+> Here we sum up the recent fixes I collected on the way to use and
+> stabilise the framework. Part of it is an possible deadlock that we
+> prevent as well to fix the calculation of the dev_id that can be setup
+> by an rotary encoder. Beside that we added an trivial spelling patch and
+> fix some wrong and missing assignments that improves the code footprint.
 
-Series applied, thanks Tom.
+Series applied, thanks.
