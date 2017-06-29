@@ -1,39 +1,223 @@
 From: Stefan Assmann <sassmann@kpanic.de>
-Subject: [PATCH 0/2] i40e/i40evf: fix override of administratively set MAC address in trusted mode
-Date: Thu, 29 Jun 2017 15:12:23 +0200
-Message-ID: <20170629131225.9251-1-sassmann@kpanic.de>
+Subject: [PATCH 1/2] i40e/i40evf: rename vf_offload_flags to vf_cap_flags in struct virtchnl_vf_resource
+Date: Thu, 29 Jun 2017 15:12:24 +0200
+Message-ID: <20170629131225.9251-2-sassmann@kpanic.de>
+References: <20170629131225.9251-1-sassmann@kpanic.de>
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
         jeffrey.t.kirsher@intel.com, sassmann@kpanic.de
 To: intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3273 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:41342 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751729AbdF2NNR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 29 Jun 2017 09:13:17 -0400
+        id S1752768AbdF2NNS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 29 Jun 2017 09:13:18 -0400
+In-Reply-To: <20170629131225.9251-1-sassmann@kpanic.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In trusted mode VFs should be able to override the administratively set MAC
-address. This is currently not possible as i40evf returns -EPERM if an
-administratively set MAC is present, for MAC change requests.
+The current name of vf_offload_flags indicates that the bitmap is
+limited to offload related features. Make this more generic by renaming
+it to vf_cap_flags, which allows for other capabilities besides
+offloading to be added.
 
-First patch renames vf_offload_flags to vf_cap_flags to make it more generic.
-Second patch then adds a flag to vf_cap_flags to give the VF information on
-whether it runs in trusted mode and makes use of the flag in i40evf.
-
-Patches are against jkirshers dev-queue branch.
-
-Stefan Assmann (2):
-  i40e/i40evf: rename vf_offload_flags to vf_cap_flags in struct
-    virtchnl_vf_resource
-  i40e/i40evf: add virtchnl flag to indicate trusted VF
-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 25 ++++++++++++----------
+Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
+---
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 22 +++++++++++-----------
  drivers/net/ethernet/intel/i40evf/i40e_common.c    |  2 +-
- drivers/net/ethernet/intel/i40evf/i40evf.h         | 10 ++++-----
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 15 +++++++------
- include/linux/avf/virtchnl.h                       |  5 +++--
- 5 files changed, 31 insertions(+), 26 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf.h         | 10 +++++-----
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 12 ++++++------
+ include/linux/avf/virtchnl.h                       |  4 ++--
+ 5 files changed, 25 insertions(+), 25 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 3ef67dc..057c77b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -1528,39 +1528,39 @@ static int i40e_vc_get_vf_resources_msg(struct i40e_vf *vf, u8 *msg)
+ 				  VIRTCHNL_VF_OFFLOAD_RSS_REG |
+ 				  VIRTCHNL_VF_OFFLOAD_VLAN;
+ 
+-	vfres->vf_offload_flags = VIRTCHNL_VF_OFFLOAD_L2;
++	vfres->vf_cap_flags = VIRTCHNL_VF_OFFLOAD_L2;
+ 	vsi = pf->vsi[vf->lan_vsi_idx];
+ 	if (!vsi->info.pvid)
+-		vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_VLAN;
++		vfres->vf_cap_flags |= VIRTCHNL_VF_OFFLOAD_VLAN;
+ 
+ 	if (i40e_vf_client_capable(pf, vf->vf_id) &&
+ 	    (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_IWARP)) {
+-		vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_IWARP;
++		vfres->vf_cap_flags |= VIRTCHNL_VF_OFFLOAD_IWARP;
+ 		set_bit(I40E_VF_STATE_IWARPENA, &vf->vf_states);
+ 	}
+ 
+ 	if (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_RSS_PF) {
+-		vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_RSS_PF;
++		vfres->vf_cap_flags |= VIRTCHNL_VF_OFFLOAD_RSS_PF;
+ 	} else {
+ 		if ((pf->hw_features & I40E_HW_RSS_AQ_CAPABLE) &&
+ 		    (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_RSS_AQ))
+-			vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_RSS_AQ;
++			vfres->vf_cap_flags |= VIRTCHNL_VF_OFFLOAD_RSS_AQ;
+ 		else
+-			vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_RSS_REG;
++			vfres->vf_cap_flags |= VIRTCHNL_VF_OFFLOAD_RSS_REG;
+ 	}
+ 
+ 	if (pf->hw_features & I40E_HW_MULTIPLE_TCP_UDP_RSS_PCTYPE) {
+ 		if (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2)
+-			vfres->vf_offload_flags |=
++			vfres->vf_cap_flags |=
+ 				VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2;
+ 	}
+ 
+ 	if (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_ENCAP)
+-		vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_ENCAP;
++		vfres->vf_cap_flags |= VIRTCHNL_VF_OFFLOAD_ENCAP;
+ 
+ 	if ((pf->hw_features & I40E_HW_OUTER_UDP_CSUM_CAPABLE) &&
+ 	    (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_ENCAP_CSUM))
+-		vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_ENCAP_CSUM;
++		vfres->vf_cap_flags |= VIRTCHNL_VF_OFFLOAD_ENCAP_CSUM;
+ 
+ 	if (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_RX_POLLING) {
+ 		if (pf->flags & I40E_FLAG_MFP_ENABLED) {
+@@ -1570,12 +1570,12 @@ static int i40e_vc_get_vf_resources_msg(struct i40e_vf *vf, u8 *msg)
+ 			aq_ret = I40E_ERR_PARAM;
+ 			goto err;
+ 		}
+-		vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_RX_POLLING;
++		vfres->vf_cap_flags |= VIRTCHNL_VF_OFFLOAD_RX_POLLING;
+ 	}
+ 
+ 	if (pf->hw_features & I40E_HW_WB_ON_ITR_CAPABLE) {
+ 		if (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_WB_ON_ITR)
+-			vfres->vf_offload_flags |=
++			vfres->vf_cap_flags |=
+ 					VIRTCHNL_VF_OFFLOAD_WB_ON_ITR;
+ 	}
+ 
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_common.c b/drivers/net/ethernet/intel/i40evf/i40e_common.c
+index 1dd1938..d69c2e4 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_common.c
+@@ -1104,7 +1104,7 @@ void i40e_vf_parse_hw_config(struct i40e_hw *hw,
+ 	hw->dev_caps.num_rx_qp = msg->num_queue_pairs;
+ 	hw->dev_caps.num_tx_qp = msg->num_queue_pairs;
+ 	hw->dev_caps.num_msix_vectors_vf = msg->max_vectors;
+-	hw->dev_caps.dcb = msg->vf_offload_flags &
++	hw->dev_caps.dcb = msg->vf_cap_flags &
+ 			   VIRTCHNL_VF_OFFLOAD_L2;
+ 	hw->dev_caps.fcoe = 0;
+ 	for (i = 0; i < msg->num_vsis; i++) {
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
+index c89767e..d85e446 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf.h
++++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
+@@ -277,19 +277,19 @@ struct i40evf_adapter {
+ 	enum virtchnl_link_speed link_speed;
+ 	enum virtchnl_ops current_op;
+ #define CLIENT_ALLOWED(_a) ((_a)->vf_res ? \
+-			    (_a)->vf_res->vf_offload_flags & \
++			    (_a)->vf_res->vf_cap_flags & \
+ 				VIRTCHNL_VF_OFFLOAD_IWARP : \
+ 			    0)
+ #define CLIENT_ENABLED(_a) ((_a)->cinst)
+ /* RSS by the PF should be preferred over RSS via other methods. */
+-#define RSS_PF(_a) ((_a)->vf_res->vf_offload_flags & \
++#define RSS_PF(_a) ((_a)->vf_res->vf_cap_flags & \
+ 		    VIRTCHNL_VF_OFFLOAD_RSS_PF)
+-#define RSS_AQ(_a) ((_a)->vf_res->vf_offload_flags & \
++#define RSS_AQ(_a) ((_a)->vf_res->vf_cap_flags & \
+ 		    VIRTCHNL_VF_OFFLOAD_RSS_AQ)
+-#define RSS_REG(_a) (!((_a)->vf_res->vf_offload_flags & \
++#define RSS_REG(_a) (!((_a)->vf_res->vf_cap_flags & \
+ 		       (VIRTCHNL_VF_OFFLOAD_RSS_AQ | \
+ 			VIRTCHNL_VF_OFFLOAD_RSS_PF)))
+-#define VLAN_ALLOWED(_a) ((_a)->vf_res->vf_offload_flags & \
++#define VLAN_ALLOWED(_a) ((_a)->vf_res->vf_cap_flags & \
+ 			  VIRTCHNL_VF_OFFLOAD_VLAN)
+ 	struct virtchnl_vf_resource *vf_res; /* incl. all VSIs */
+ 	struct virtchnl_vsi_resource *vsi_res; /* our LAN VSI */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 77d2835..21103bb 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -1418,7 +1418,7 @@ static int i40evf_init_rss(struct i40evf_adapter *adapter)
+ 
+ 	if (!RSS_PF(adapter)) {
+ 		/* Enable PCTYPES for RSS, TCP/UDP with IPv4/IPv6 */
+-		if (adapter->vf_res->vf_offload_flags &
++		if (adapter->vf_res->vf_cap_flags &
+ 		    VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2)
+ 			adapter->hena = I40E_DEFAULT_RSS_HENA_EXPANDED;
+ 		else
+@@ -2372,7 +2372,7 @@ static netdev_features_t i40evf_fix_features(struct net_device *netdev,
+ 	struct i40evf_adapter *adapter = netdev_priv(netdev);
+ 
+ 	features &= ~I40EVF_VLAN_FEATURES;
+-	if (adapter->vf_res->vf_offload_flags & VIRTCHNL_VF_OFFLOAD_VLAN)
++	if (adapter->vf_res->vf_cap_flags & VIRTCHNL_VF_OFFLOAD_VLAN)
+ 		features |= I40EVF_VLAN_FEATURES;
+ 	return features;
+ }
+@@ -2459,7 +2459,7 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
+ 	/* advertise to stack only if offloads for encapsulated packets is
+ 	 * supported
+ 	 */
+-	if (vfres->vf_offload_flags & VIRTCHNL_VF_OFFLOAD_ENCAP) {
++	if (vfres->vf_cap_flags & VIRTCHNL_VF_OFFLOAD_ENCAP) {
+ 		hw_enc_features |= NETIF_F_GSO_UDP_TUNNEL	|
+ 				   NETIF_F_GSO_GRE		|
+ 				   NETIF_F_GSO_GRE_CSUM		|
+@@ -2469,7 +2469,7 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
+ 				   NETIF_F_GSO_PARTIAL		|
+ 				   0;
+ 
+-		if (!(vfres->vf_offload_flags &
++		if (!(vfres->vf_cap_flags &
+ 		      VIRTCHNL_VF_OFFLOAD_ENCAP_CSUM))
+ 			netdev->gso_partial_features |=
+ 				NETIF_F_GSO_UDP_TUNNEL_CSUM;
+@@ -2497,7 +2497,7 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
+ 	adapter->vsi.work_limit = I40E_DEFAULT_IRQ_WORK;
+ 	vsi->netdev = adapter->netdev;
+ 	vsi->qs_handle = adapter->vsi_res->qset_handle;
+-	if (vfres->vf_offload_flags & VIRTCHNL_VF_OFFLOAD_RSS_PF) {
++	if (vfres->vf_cap_flags & VIRTCHNL_VF_OFFLOAD_RSS_PF) {
+ 		adapter->rss_key_size = vfres->rss_key_size;
+ 		adapter->rss_lut_size = vfres->rss_lut_size;
+ 	} else {
+@@ -2665,7 +2665,7 @@ static void i40evf_init_task(struct work_struct *work)
+ 	if (err)
+ 		goto err_sw_init;
+ 	i40evf_map_rings_to_vectors(adapter);
+-	if (adapter->vf_res->vf_offload_flags &
++	if (adapter->vf_res->vf_cap_flags &
+ 	    VIRTCHNL_VF_OFFLOAD_WB_ON_ITR)
+ 		adapter->flags |= I40EVF_FLAG_WB_ON_ITR_CAPABLE;
+ 
+diff --git a/include/linux/avf/virtchnl.h b/include/linux/avf/virtchnl.h
+index c893b95..becfca2 100644
+--- a/include/linux/avf/virtchnl.h
++++ b/include/linux/avf/virtchnl.h
+@@ -223,7 +223,7 @@ struct virtchnl_vsi_resource {
+ 
+ VIRTCHNL_CHECK_STRUCT_LEN(16, virtchnl_vsi_resource);
+ 
+-/* VF offload flags
++/* VF capability flags
+  * VIRTCHNL_VF_OFFLOAD_L2 flag is inclusive of base mode L2 offloads including
+  * TX/RX Checksum offloading and TSO for non-tunnelled packets.
+  */
+@@ -251,7 +251,7 @@ struct virtchnl_vf_resource {
+ 	u16 max_vectors;
+ 	u16 max_mtu;
+ 
+-	u32 vf_offload_flags;
++	u32 vf_cap_flags;
+ 	u32 rss_key_size;
+ 	u32 rss_lut_size;
+ 
 -- 
 2.9.4
