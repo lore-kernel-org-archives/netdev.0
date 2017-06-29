@@ -1,55 +1,52 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net] sfc: fix attempt to translate invalid filter ID
-Date: Thu, 29 Jun 2017 16:50:06 +0100
-Message-ID: <ac506723-66ef-0945-ff1e-c0132f0c71c0@solarflare.com>
+From: Willem de Bruijn <willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next v3 02/13] sock: skb_copy_ubufs support for
+ compound pages
+Date: Thu, 29 Jun 2017 11:54:17 -0400
+Message-ID: <CAF=yD-+zoBq9C6LjH0h2cK1DtitB5z5iOjCNYgWPMSs6zQ8G7g@mail.gmail.com>
+References: <20170621211816.53837-3-willemdebruijn.kernel@gmail.com>
+ <20170622.130528.1762873686654379973.davem@davemloft.net> <CAF=yD-+WQ1b9BytG4JuhgHCR8gAKvUVJPUfi4t-u_DqAFnVrkA@mail.gmail.com>
+ <20170622.213646.1398197704798474384.davem@davemloft.net> <CAF=yD-JGekEkBsFfgZa+-TN3-QBPy4sfK0QLPx83Uh3DAoodvg@mail.gmail.com>
+ <CAF=yD-LJ-EvWbKtxqrcK1D=nRSzWzpPcFVOX1poZ3+P=aa0QfA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: <linux-net-drivers@solarflare.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:37342 "EHLO
-        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751669AbdF2PuT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 11:50:19 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAF=yD-LJ-EvWbKtxqrcK1D=nRSzWzpPcFVOX1poZ3+P=aa0QfA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-When filter insertion fails with no rollback, we were trying to convert
- EFX_EF10_FILTER_ID_INVALID to an id to store in 'ids' (which is either
- vlan->uc or vlan->mc).  This would WARN_ON_ONCE and then record a bogus
- filter ID of 0x1fff, neither of which is a good thing.
+>> Perhaps calls to kmap_atomic can be replaced with a
+>> kmap_compound(..) that checks
+>>
+>>  __this_cpu_read(__kmap_atomic_idx) +  (1 << compound_order(p)) < KM_TYPE_NR
+>>
+>> before calling kmap_atomic on all pages in the compound page. In
+>> the common case that the page is not high mem, a single call is
+>> enough, as there is no per-page operation.
+>
+> This does not work. Some callers, such as __skb_checksum, cannot
+> fail, so neither can kmap_compound. Also, vaddr of consecutive
+> kmap_atomic calls are not guaranteed to be in order. Indeed, on x86
+> and arm vaddr appears to grows down: (FIXADDR_TOP - ((x) << PAGE_SHIFT))
+>
+> An alternative is to change the kmap_atomic callers in skbuff.c. To
+> avoid open coding, we can wrap the kmap_atomic; op; kunmap_atomic
+> in a macro that loops only if needed
 
-Fixes: 0ccb998bf46d ("sfc: fix filter_id misinterpretation in edge case")
-Signed-off-by: Edward Cree <ecree@solarflare.com>
----
- drivers/net/ethernet/sfc/ef10.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+I'll send this as RFC. It's not the most elegant solution.
 
-diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index a808966..78f9e43 100644
---- a/drivers/net/ethernet/sfc/ef10.c
-+++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -5105,6 +5105,7 @@ static int efx_ef10_filter_insert_addr_list(struct efx_nic *efx,
- 
- 	/* Insert/renew filters */
- 	for (i = 0; i < addr_count; i++) {
-+		EFX_WARN_ON_PARANOID(ids[i] != EFX_EF10_FILTER_ID_INVALID);
- 		efx_filter_init_rx(&spec, EFX_FILTER_PRI_AUTO, filter_flags, 0);
- 		efx_filter_set_eth_local(&spec, vlan->vid, addr_list[i].addr);
- 		rc = efx_ef10_filter_insert(efx, &spec, true);
-@@ -5122,11 +5123,11 @@ static int efx_ef10_filter_insert_addr_list(struct efx_nic *efx,
- 				}
- 				return rc;
- 			} else {
--				/* mark as not inserted, and carry on */
--				rc = EFX_EF10_FILTER_ID_INVALID;
-+				/* keep invalid ID, and carry on */
- 			}
-+		} else {
-+			ids[i] = efx_ef10_filter_get_unsafe_id(rc);
- 		}
--		ids[i] = efx_ef10_filter_get_unsafe_id(rc);
- 	}
- 
- 	if (multicast && rollback) {
+The issue only arises with pages allocated with both __GFP_COMP and
+__GFP_HIGHMEM, which is rare: skb_page_frag_refill,
+alloc_skb_with_frags, __napi_alloc_skb and most device drivers do not
+pass the high mem flag.
+
+Exceptions are rds, mlx5. And transparent hugepages, which is a
+problem with zerocopy fragments only (though not only msg_zerocopy,
+potentially also the existing virtio and xen paths).
+
+A simpler solution, then, may be to covert rds and mlx5 to not pass
+__GFP_HIGHMEM and copy data on all zerocopy requests for this type of
+pages.
