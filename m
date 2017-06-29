@@ -1,223 +1,89 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v1 1/2] dt-binding: ptp: add bindings document for dte
- based ptp clock
-Date: Thu, 29 Jun 2017 17:40:20 -0500
-Message-ID: <CAL_Jsq+qaawVuX=oX=+LrM-nO7Q37osL05WL9b0mV5msLyG9yg@mail.gmail.com>
-References: <1497299161-6458-1-git-send-email-arun.parameswaran@broadcom.com>
- <1497299161-6458-2-git-send-email-arun.parameswaran@broadcom.com>
- <20170618140449.aek7vag22i5lnbhl@rob-hp-laptop> <74b85a32-63c5-b7c5-47a2-831504be318e@broadcom.com>
- <CAL_JsqKddhWMXEaoxt=3_d+-STFH-OataxSgnnj9Q4A0Eqqwxg@mail.gmail.com>
- <1abad545-ee20-e047-8cb6-b130ad037213@broadcom.com> <86c2b69e-a3f4-69d8-63c3-d3e73b4bde54@gmail.com>
- <7bb41c9b-20d8-6003-8a0f-b09f0071ed71@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Arun Parameswaran <arun.parameswaran-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org"
-        <bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-To: Scott Branden <scott.branden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <7bb41c9b-20d8-6003-8a0f-b09f0071ed71-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 11/29] netfilter: nf_tables: no size estimation if number of set elements is unknown
+Date: Fri, 30 Jun 2017 00:53:09 +0200
+Message-ID: <1498776807-11124-12-git-send-email-pablo@netfilter.org>
+References: <1498776807-11124-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:57636 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752289AbdF2Wxv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 29 Jun 2017 18:53:51 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 36F03BDF4E
+        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 00:53:34 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 27196D1CB1
+        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 00:53:34 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 0AC5BDA80A
+        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 00:53:32 +0200 (CEST)
+In-Reply-To: <1498776807-11124-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 27, 2017 at 12:10 AM, Scott Branden
-<scott.branden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> wrote:
-> Hi Rob/Florian,
->
-> Thanks for input but still don't see any need for SoC specific
-> compatible stings.  IP revision specific yes.
->
->
-> On 17-06-22 06:04 PM, Florian Fainelli wrote:
->>
->> On 06/22/2017 05:42 PM, Scott Branden wrote:
->>>
->>>
->>> On 17-06-21 08:19 PM, Rob Herring wrote:
->>>>
->>>> On Tue, Jun 20, 2017 at 3:48 PM, Scott Branden
->>>> <scott.branden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> wrote:
->>>>>
->>>>> Hi Rob,
->>>>>
->>>>>
->>>>> On 17-06-18 07:04 AM, Rob Herring wrote:
->>>>>>
->>>>>> On Mon, Jun 12, 2017 at 01:26:00PM -0700, Arun Parameswaran wrote:
->>>>>>>
->>>>>>> Add device tree binding documentation for the Broadcom DTE
->>>>>>> PTP clock driver.
->>>>>>>
->>>>>>> Signed-off-by: Arun Parameswaran <arun.parameswaran-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
->>>>>>> ---
->>>>>>>     Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt | 13
->>>>>>> +++++++++++++
->>>>>>>     1 file changed, 13 insertions(+)
->>>>>>>     create mode 100644
->>>>>>> Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
->>>>>>>
->>>>>>> diff --git a/Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
->>>>>>> b/Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
->>>>>>> new file mode 100644
->>>>>>> index 0000000..07590bc
->>>>>>> --- /dev/null
->>>>>>> +++ b/Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
->>>>>>> @@ -0,0 +1,13 @@
->>>>>>> +* Broadcom Digital Timing Engine(DTE) based PTP clock driver
->>>>>>
->>>>>> Bindings describe h/w, not drivers.
->>>>>>
->>>>>>> +
->>>>>>> +Required properties:
->>>>>>> +- compatible: should be "brcm,ptp-dte"
->>>>>>
->>>>>> Looks too generic. You need SoC specific compatible strings.
->>>>>
->>>>> Rob, could you please help me understand the use of adding SoC specific
->>>>> compatible strings.
->>>>> I still don't get it.
->>>>>
->>>>> It's my understanding that the SoC compatibility string is to future
->>>>> proof
->>>>> against bugs/incompatibilities
->>>>> between different versions of the hardware block due to integration
->>>>> issues
->>>>> or any other reason.
->>>>> You can then compare in your driver because the strings were already
->>>>> used in
->>>>> the dtb.
->>>>>
->>>>> That would make sense if you can't already differentiate what SoC you
->>>>> are
->>>>> running on.
->>>>> But the SoC is already specified in the root of the device tree in the
->>>>> compatible string?
->>>>> Why can't you just use of_machine_is_compatible inside your driver when
->>>>> needed?
->>>>
->>>> Use of of_machine_is_compatible in drivers will result in the same
->>>> mess we had with machine_is_X defines pre-DT. It practically
->>>> guarantees that you must update the driver for a new SoC (with
->>>> fallback compatibles you don't). Plus the matching logic for
->>>> of_machine_is_compatible is open coded logic in every driver which is
->>>> worse IMO than having a standard match table.
->>>
->>> I don't understand what you mean by fallback compatible then.
->>>
->>> Let's say I have 3 SoCs that each contain the same ip block.
->>> You want us to add a fallback compatibility per SoC, is that correct?
->>
->> I think Rob meant a fallback compatibility for the particular block.
->> E.g: brcm,iproc-ptp is the fallback compatible string, but in your
->> SoC-specific DTS, you would have at least:
->>
->> compatible = "brcm,cygnus-ptp", "brcm,iproc-ptp";
->>
->> Where cygnus-ptp is more specific than iproc-ptp
->>>
->>> Then, if there is a workaround discovered in a particular SoC the driver
->>> can be updated in the future without changing the dtb.
->>>
->>> Then, the block gets added to a 4th SoC.
->>> You want us to another new compatibility string for the new SoC?
->>> If the new SoC has a bug then the driver has to be updated whether it is
->>> in uses the fallback compatible or machine_is_compatible string.
->>>
->>> There is no difference in amount of code added to a driver when a new
->>> SoC is introduced into the system that has bugs that need to be handled
->>> by the driver.
->>>
->>> The difference is in your recommendation we need to go through all the
->>> drivers used by the new SoC and add fallback compatibility strings.
->>
->> Not really, the fallback is what the driver should be matching by
->> default (hence the name fallback) and if and only if you need to have a
->> SoC-specific behavior in your driver (because of bugs, or slight
->> differences) would you be matching this SoC-specific compatible string
->> to capture that and key the driver behavior based off that.
->>
->>> Then, we have to modify all the devicetree documentation for all the
->>> drivers.  Then, we have to ensure that all dts files populate this new
->>> fallback string (even if it is unused).  We don't see the benefit in
->>> doing any of that.  Using machine_is_compatible and having less
->>> compatibility strings to deal appears much cleaner and more foolproof
->>> for all situations.
->>
->> When you introduce a new SoC, you would update all the bindings for the
->> devices (not drivers) that are susceptible to be used by this SoC. If
->> all goes well, your SoC has little bugs, and your drivers don't even
->> need to see an update because they are already matching the fallback
->> compatible string.
->>
->> That's what I understand from the suggestion but I may be totally off
->> rails here.
->
-> In this particular case, the IP is integrated within and outside a family of
-> SoCs
-> (the exact same block is in Capri for example).
-> The only fallback compatablity string that makes sense is "brcm,
-> dte-ptp-v1".
-> When we integrate a new version of this IP we would add "brcm, dte-ptp-v2".
+This size estimation is ignored by the existing set backend selection
+logic, since this estimation structure is stack allocated, set this to
+~0 to make it easier to catch bugs in future changes.
 
-Unless you have strong version control of IP versions, version numbers
-aren't generally reliable. Also, in my experience doing time at Si
-companies, h/w designers can't be trusted regarding what changed or
-not.
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/nft_set_hash.c   | 17 ++++-------------
+ net/netfilter/nft_set_rbtree.c |  8 +++-----
+ 2 files changed, 7 insertions(+), 18 deletions(-)
 
-There are some exceptions. We accept version numbers mainly for FPGA
-IP as in that case, the FPGA vendor is making releases of IP with end
-users picking versions and the version numbering is well defined. v1
-and v2 does not look well defined to me. What happens when you have an
-ECO fix for example?
-
-> Rob, I still see no need to define any other compatablity strings.
->
-> Everything else can be handled with machine_is_compatible
-> with the exact same amount of code change to the driver?
-
-How is a static table with driver data per compatible the same as coding:
-
-if (of_machine_is_compatible("soc1"))
-  ...
-else if (of_machine_is_compatible("soc2"))
-  ...
-else if (of_machine_is_compatible("soc3") || of_machine_is_compatible("soc4"))
- ...
-and so on...
-
-As I mentioned previously, we don't want this mess in drivers.
-
-The static table matching guarantees that you don't have to update the
-driver for a new SoC when a block is "exactly the same". Just have the
-existing block compatible string as a fallback compatible. If you have
-something like above, then you may have to update the driver depending
-on how the logic is written. For example, if you add soc5 which has
-the same IP block as soc1, then you have to update the driver unless
-soc5 can claim to be compatible with soc1 at the top-level (which only
-works when the new SoC is a pure superset).
-
-> Adding the additional strings simply
-> adds a need to change documentation and changes to dts that are otherwise
-> completely unnecessary.  machine_is_compatible appears to be the cleaner
-> and simpler solution?
-
-The documentation changes should be oneliners.
-
-Why do you need dts changes? The dts for a new SoC should be correct
-from the start with the new compatibles and appropriate fallback
-compatibles.
-
-The bottom line is this is how DT was designed to work and is what
-everyone else follows. Broadcom is not special.
-
-Rob
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/netfilter/nft_set_hash.c b/net/netfilter/nft_set_hash.c
+index 850be3a00e62..1f1cc33895fd 100644
+--- a/net/netfilter/nft_set_hash.c
++++ b/net/netfilter/nft_set_hash.c
+@@ -365,22 +365,13 @@ static void nft_hash_destroy(const struct nft_set *set)
+ static bool nft_hash_estimate(const struct nft_set_desc *desc, u32 features,
+ 			      struct nft_set_estimate *est)
+ {
+-	unsigned int esize;
+-
+-	esize = sizeof(struct nft_hash_elem);
+-	if (desc->size) {
++	if (desc->size)
+ 		est->size = sizeof(struct nft_hash) +
+ 			    roundup_pow_of_two(desc->size * 4 / 3) *
+ 			    sizeof(struct nft_hash_elem *) +
+-			    desc->size * esize;
+-	} else {
+-		/* Resizing happens when the load drops below 30% or goes
+-		 * above 75%. The average of 52.5% load (approximated by 50%)
+-		 * is used for the size estimation of the hash buckets,
+-		 * meaning we calculate two buckets per element.
+-		 */
+-		est->size = esize + 2 * sizeof(struct nft_hash_elem *);
+-	}
++			    desc->size * sizeof(struct nft_hash_elem);
++	else
++		est->size = ~0;
+ 
+ 	est->lookup = NFT_SET_CLASS_O_1;
+ 	est->space  = NFT_SET_CLASS_O_N;
+diff --git a/net/netfilter/nft_set_rbtree.c b/net/netfilter/nft_set_rbtree.c
+index e97e2fb53f0a..fbfb3cbb3916 100644
+--- a/net/netfilter/nft_set_rbtree.c
++++ b/net/netfilter/nft_set_rbtree.c
+@@ -283,13 +283,11 @@ static void nft_rbtree_destroy(const struct nft_set *set)
+ static bool nft_rbtree_estimate(const struct nft_set_desc *desc, u32 features,
+ 				struct nft_set_estimate *est)
+ {
+-	unsigned int nsize;
+-
+-	nsize = sizeof(struct nft_rbtree_elem);
+ 	if (desc->size)
+-		est->size = sizeof(struct nft_rbtree) + desc->size * nsize;
++		est->size = sizeof(struct nft_rbtree) +
++			    desc->size * sizeof(struct nft_rbtree_elem);
+ 	else
+-		est->size = nsize;
++		est->size = ~0;
+ 
+ 	est->lookup = NFT_SET_CLASS_O_LOG_N;
+ 	est->space  = NFT_SET_CLASS_O_N;
+-- 
+2.1.4
