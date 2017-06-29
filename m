@@ -1,35 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bpf: Fix out-of-bound access on interpreters[]
-Date: Thu, 29 Jun 2017 15:37:32 -0400 (EDT)
-Message-ID: <20170629.153732.1036582619430791632.davem@davemloft.net>
-References: <20170628174124.1545332-1-kafai@fb.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH net-next v4 04/16] bpf: Sample bpf program to set
+ SYN/SYN-ACK RTOs
+Date: Thu, 29 Jun 2017 21:39:14 +0200
+Message-ID: <20170629213914.0c0c5c2b@redhat.com>
+References: <20170628173124.3299500-1-brakmo@fb.com>
+        <20170628173124.3299500-5-brakmo@fb.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net, ast@fb.com,
-        kernel-team@fb.com
-To: kafai@fb.com
+Cc: brouer@redhat.com, netdev <netdev@vger.kernel.org>,
+        Kernel Team <kernel-team@fb.com>,
+        Blake Matheny <bmatheny@fb.com>,
+        Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Ahern <dsa@cumulusnetworks.com>
+To: Lawrence Brakmo <brakmo@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45044 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751776AbdF2The (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 15:37:34 -0400
-In-Reply-To: <20170628174124.1545332-1-kafai@fb.com>
+Received: from mx1.redhat.com ([209.132.183.28]:40836 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751592AbdF2TjT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 29 Jun 2017 15:39:19 -0400
+In-Reply-To: <20170628173124.3299500-5-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Martin KaFai Lau <kafai@fb.com>
-Date: Wed, 28 Jun 2017 10:41:24 -0700
+On Wed, 28 Jun 2017 10:31:12 -0700
+Lawrence Brakmo <brakmo@fb.com> wrote:
 
-> The index is off-by-one when fp->aux->stack_depth
-> has already been rounded up to 32.  In particular,
-> if stack_depth is 512, the index will be 16.
-> 
-> The fix is to round_up and then takes -1 instead of round_down.
- ...
-> Fixes: b870aa901f4b ("bpf: use different interpreter depending on required stack size")
-> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-> Acked-by: Alexei Starovoitov <ast@fb.com>
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> +++ b/samples/bpf/tcp_synrto_kern.c
+> @@ -0,0 +1,60 @@
+> +/* Copyright (c) 2017 Facebook
+> + *
+> + * This program is free software; you can redistribute it and/or
+> + * modify it under the terms of version 2 of the GNU General Public
+> + * License as published by the Free Software Foundation.
+> + *
+> + * BPF program to set SYN and SYN-ACK RTOs to 10ms when using IPv6 addresses
+> + * and the first 5.5 bytes of the IPv6 addresses are the same (in this example
+> + * that means both hosts are in the same datacenter.
 
-Applied, thanks Martin.
+Missing end ")".
+
+I really like this short comment of what the program does, as it helps
+people browsing these sample programs. 
+
+Can you also mention in the comment (of all these) bpf programs that
+people load this bpf object file via the program 'load_sock_ops'?
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
