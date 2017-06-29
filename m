@@ -1,53 +1,47 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net-next v2 3/9] nfp: provide infrastructure for
- offloading flower based TC filters
-Date: Thu, 29 Jun 2017 16:31:49 +0200
-Message-ID: <20170629143147.GA4149@vergenet.net>
-References: <1498681802-2897-1-git-send-email-simon.horman@netronome.com>
- <1498681802-2897-4-git-send-email-simon.horman@netronome.com>
- <CAJ3xEMgy4Kfdu=pgVsKh21thJjEvRWptAxLXLRc5YzD68KjPGA@mail.gmail.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next v2 5/9] nfp: extend flower matching capabilities
+Date: Thu, 29 Jun 2017 17:33:32 +0300
+Message-ID: <CAJ3xEMhnp5JE6QPok4nJGGfdP2diEBtA0_9Q2K2OpHJD_Wi-FQ@mail.gmail.com>
+References: <1498681802-2897-1-git-send-email-simon.horman@netronome.com> <1498681802-2897-6-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset="UTF-8"
 Cc: David Miller <davem@davemloft.net>,
         Jakub Kicinski <jakub.kicinski@netronome.com>,
         Linux Netdev List <netdev@vger.kernel.org>,
         oss-drivers@netronome.com,
         Pieter Jansen van Vuuren
         <pieter.jansenvanvuuren@netronome.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:37490 "EHLO
-        mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753157AbdF2Oby (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 10:31:54 -0400
-Received: by mail-wm0-f52.google.com with SMTP id i127so16860785wma.0
-        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 07:31:54 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAJ3xEMgy4Kfdu=pgVsKh21thJjEvRWptAxLXLRc5YzD68KjPGA@mail.gmail.com>
+Received: from mail-oi0-f52.google.com ([209.85.218.52]:35752 "EHLO
+        mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751974AbdF2Odd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 10:33:33 -0400
+Received: by mail-oi0-f52.google.com with SMTP id c189so67854515oia.2
+        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 07:33:32 -0700 (PDT)
+In-Reply-To: <1498681802-2897-6-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 29, 2017 at 04:56:44PM +0300, Or Gerlitz wrote:
-> On Wed, Jun 28, 2017 at 11:29 PM, Simon Horman
-> <simon.horman@netronome.com> wrote:
-> 
-> > +++ b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-> 
-> > + * nfp_flower_del_offload() - Removes a flow from hardware.
-> > + * @app:       Pointer to the APP handle
-> > + * @netdev:    netdev structure.
-> > + * @flow:       TC flower classifier offload structure
-> 
-> The copy from patchworks has some damage on this line
-> 
->  * @flow: ֲ| ֲ| ֲ| ֲ| ֲ| ֲ| TC flower classifier offload structure
-> 
-> and the same line for get stats, take a look
+On Wed, Jun 28, 2017 at 11:29 PM, Simon Horman
+<simon.horman@netronome.com> wrote:
+> +nfp_flower_compile_meta_tci(struct nfp_flower_meta_two *frame,
+> +                           struct tc_cls_flower_offload *flow, u8 key_type,
+> +                           bool mask_version)
 
-Thanks, I will fix that whitespace damage.
+what's the role of the mask_version flag here and elsewhere in the
+sister functions?
 
-> 
-> > + * nfp_flower_get_stats() - Populates flow stats obatain from hardware.
-> > + * @app:       Pointer to the APP handle
-> > + * @flow:       TC flower classifier offload structure <-- here too
+> +{
+> +       struct flow_dissector_key_vlan *flow_vlan;
+> +       u16 tmp_tci;
+> +
+> +       /* Populate the metadata frame. */
+> +       frame->nfp_flow_key_layer = key_type;
+> +       frame->mask_id = ~0;
+> +
+> +       if (mask_version) {
+> +               frame->tci = cpu_to_be16(~0);
+> +               return;
+> +       }
+> +
