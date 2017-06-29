@@ -1,40 +1,60 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: CAN-FD Transceiver Limitations
-Date: Thu, 29 Jun 2017 19:19:00 +0200
-Message-ID: <20170629171900.GA17008@lunn.ch>
-References: <de1f6343-4b28-4a5f-c6df-4e54c09fcce2@ti.com>
- <20170629142142.GF9244@lunn.ch>
- <5d4f2bcf-bd0f-4fa1-5d5a-d7b4a83cbc5e@ti.com>
- <20170629154139.GC13221@lunn.ch>
- <c0d3d772-6939-d22c-b954-3ba6486a9ede@ti.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH net-next v2 9/9] nfp: add control message passing
+ capabilities to flower offloads
+Date: Thu, 29 Jun 2017 19:35:29 +0200
+Message-ID: <20170629173527.GA18062@vergenet.net>
+References: <1498681802-2897-1-git-send-email-simon.horman@netronome.com>
+ <1498681802-2897-10-git-send-email-simon.horman@netronome.com>
+ <CAJ3xEMjhJYQTnFdHJuMcHR=n3MLa=+SAycVZ3ZCQbCWoU8EbJw@mail.gmail.com>
+ <20170629153012.GE6215@vergenet.net>
+ <CAJ3xEMhETYdrLaOFaGwGS9P+M+ZSa6h0pCXWx_fop-7+xzf2Zg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-        wg@grandegger.com, mkl@pengutronix.de, devicetree@vger.kernel.org
-To: Franklin S Cooper Jr <fcooper@ti.com>
+Cc: David Miller <davem@davemloft.net>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        oss-drivers@netronome.com,
+        Pieter Jansen van Vuuren
+        <pieter.jansenvanvuuren@netronome.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:39532 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753175AbdF2RTG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 29 Jun 2017 13:19:06 -0400
+Received: from mail-qk0-f170.google.com ([209.85.220.170]:33481 "EHLO
+        mail-qk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751941AbdF2Rff (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 13:35:35 -0400
+Received: by mail-qk0-f170.google.com with SMTP id r62so82306390qkf.0
+        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 10:35:34 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <c0d3d772-6939-d22c-b954-3ba6486a9ede@ti.com>
+In-Reply-To: <CAJ3xEMhETYdrLaOFaGwGS9P+M+ZSa6h0pCXWx_fop-7+xzf2Zg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Also I agree that attempting to make this optional property/subnode
-> generic to all of CAN would be preferable. Another not sure if its
-> feasible yet without standardization being first forced across all CAN
-> drivers.
+On Thu, Jun 29, 2017 at 06:59:22PM +0300, Or Gerlitz wrote:
+> On Thu, Jun 29, 2017 at 6:30 PM, Simon Horman
+> <simon.horman@netronome.com> wrote:
+> > On Thu, Jun 29, 2017 at 06:21:53PM +0300, Or Gerlitz wrote:
+> >> On Wed, Jun 28, 2017 at 11:30 PM, Simon Horman
+> >> <simon.horman@netronome.com> wrote:
+> >> > +++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
+> >> > @@ -245,7 +245,11 @@ struct nfp_flower_cmsg_hdr {
+> >> >
+> >> >  /* Types defined for port related control messages  */
+> >> >  enum nfp_flower_cmsg_type_port {
+> >> > +       NFP_FLOWER_CMSG_TYPE_FLOW_ADD =         0,
+> >> > +       NFP_FLOWER_CMSG_TYPE_FLOW_MOD =         1,
+> >>
+> >> AFAIU flower offload will always use delete and add and not modify,
+> >> if you think otherwise, would love to hear that. Didn't see you are using
+> >> the MOD define in the code anywhere.
+> >
+> > The firmware API has a mod operation but you are correct that
+> > we are not implementing that operation in this patch-set.
+> 
+> that wasn't my comment. I said that AFAIU flower will never ask you to
+> modify, they
+> will ask to delete and later add, so I would be happy to know if you
+> see it differently.
 
-It should be. All you need to do is add an
-of_get_can_maxspeed(struct device_node *np)
-for drivers to call.
+Yes, I agree.
 
-If it finds the property, return its value, otherwise return the
-standardised 1Mbps.
-
-And you probably want to do the verify in can_changelink(), by adding
-the max speed into the can_priv structure somewhere.
-
-    Andrew
+Sorry for not answering your question properly the first time.
