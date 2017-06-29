@@ -1,42 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/6] net: stmmac: support future possible different
- internal phy mode
-Date: Thu, 29 Jun 2017 12:23:49 -0400 (EDT)
-Message-ID: <20170629.122349.2265868886957558079.davem@davemloft.net>
-References: <20170627092806.28181-1-clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH] net: atl1c: fix spelling mistake: "droppted" ->
+ "dropped"
+Date: Thu, 29 Jun 2017 12:24:38 -0400 (EDT)
+Message-ID: <20170629.122438.1643332210938353466.davem@davemloft.net>
+References: <20170627095122.15699-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: robh+dt@kernel.org, mark.rutland@arm.com, linux@armlinux.org.uk,
-        maxime.ripard@free-electrons.com, wens@csie.org,
-        peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        andre.przywara@arm.com, devicetree@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org, linux-sunxi@googlegroups.com
-To: clabbe.montjoie@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42268 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752136AbdF2QXw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 12:23:52 -0400
-In-Reply-To: <20170627092806.28181-1-clabbe.montjoie@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jcliburn@gmail.com, chris.snook@gmail.com, edumazet@google.com,
+        jarod@redhat.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170627095122.15699-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Date: Tue, 27 Jun 2017 11:28:01 +0200
+From: Colin King <colin.king@canonical.com>
+Date: Tue, 27 Jun 2017 10:51:22 +0100
 
-> The current way to find if the phy is internal is to compare DT phy-mode
-> and emac_variant/internal_phy.
-> But it will negate a possible future SoC where an external PHY use the
-> same phy mode than the internal one.
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> By using phy-mode = "internal" we permit to have an external PHY with
-> the same mode than the internal one.
+> Trivial fix to spelling mistake in netif_info message
 > 
-> Reported-by: André Przywara <andre.przywara@arm.com>
-> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Series applied.
-
-Please provide a proper "[PATCH 0/n] " header posting next time.
+Applied to net-next.
