@@ -1,7 +1,7 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net-next v3 5/9] nfp: extend flower matching capabilities
-Date: Thu, 29 Jun 2017 22:08:15 +0200
-Message-ID: <1498766899-30707-6-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH net-next v3 8/9] nfp: add a stats handler for flower offloads
+Date: Thu, 29 Jun 2017 22:08:18 +0200
+Message-ID: <1498766899-30707-9-git-send-email-simon.horman@netronome.com>
 References: <1498766899-30707-1-git-send-email-simon.horman@netronome.com>
 Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
         Or Gerlitz <gerlitz.or@gmail.com>,
@@ -11,422 +11,370 @@ Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
 To: David Miller <davem@davemloft.net>,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f180.google.com ([209.85.216.180]:33325 "EHLO
-        mail-qt0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751875AbdF2UIy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 16:08:54 -0400
-Received: by mail-qt0-f180.google.com with SMTP id r30so83741113qtc.0
-        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 13:08:54 -0700 (PDT)
+Received: from mail-qk0-f180.google.com ([209.85.220.180]:35585 "EHLO
+        mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753536AbdF2UJH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 16:09:07 -0400
+Received: by mail-qk0-f180.google.com with SMTP id 16so85808609qkg.2
+        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 13:09:01 -0700 (PDT)
 In-Reply-To: <1498766899-30707-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
 
-Extends matching capabilities for flower offloads to include vlan,
-layer 2, layer 3 and layer 4 type matches. This includes both exact
-and wildcard matching.
+Previously there was no way of updating flow rule stats after they
+have been offloaded to hardware. This is solved by keeping track of
+stats received from hardware and providing this to the TC handler
+on request.
 
 Signed-off-by: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/Makefile        |   1 +
- drivers/net/ethernet/netronome/nfp/flower/cmsg.h   |   4 +
- drivers/net/ethernet/netronome/nfp/flower/main.h   |   5 +
- drivers/net/ethernet/netronome/nfp/flower/match.c  | 292 +++++++++++++++++++++
- .../net/ethernet/netronome/nfp/flower/offload.c    |   6 +-
- drivers/net/ethernet/netronome/nfp/nfp_net_repr.h  |   9 +
- 6 files changed, 316 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/netronome/nfp/flower/match.c
+ drivers/net/ethernet/netronome/nfp/flower/cmsg.c   |   5 -
+ drivers/net/ethernet/netronome/nfp/flower/cmsg.h   |   5 +
+ drivers/net/ethernet/netronome/nfp/flower/main.h   |  28 +++++
+ .../net/ethernet/netronome/nfp/flower/metadata.c   | 124 ++++++++++++++++++++-
+ .../net/ethernet/netronome/nfp/flower/offload.c    |  17 ++-
+ 5 files changed, 171 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/Makefile b/drivers/net/ethernet/netronome/nfp/Makefile
-index d7afd2b410fe..018cef3fa10a 100644
---- a/drivers/net/ethernet/netronome/nfp/Makefile
-+++ b/drivers/net/ethernet/netronome/nfp/Makefile
-@@ -33,6 +33,7 @@ ifeq ($(CONFIG_NFP_APP_FLOWER),y)
- nfp-objs += \
- 	    flower/cmsg.o \
- 	    flower/main.o \
-+	    flower/match.o \
- 	    flower/offload.o
- endif
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/cmsg.c b/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
+index 916a6196d2ba..0f5410aa66d6 100644
+--- a/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
++++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
+@@ -52,11 +52,6 @@ nfp_flower_cmsg_get_hdr(struct sk_buff *skb)
+ 	return (struct nfp_flower_cmsg_hdr *)skb->data;
+ }
  
+-static void *nfp_flower_cmsg_get_data(struct sk_buff *skb)
+-{
+-	return (unsigned char *)skb->data + NFP_FLOWER_CMSG_HLEN;
+-}
+-
+ static struct sk_buff *
+ nfp_flower_cmsg_alloc(struct nfp_app *app, unsigned int size,
+ 		      enum nfp_flower_cmsg_type_port type)
 diff --git a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
-index 1b1888e8dc14..1956c1acf39f 100644
+index 8700eb9430c5..ee543ff3a9d8 100644
 --- a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
 +++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
-@@ -52,6 +52,10 @@
- #define NFP_FLOWER_LAYER_ETHER		BIT(3)
- #define NFP_FLOWER_LAYER_ARP		BIT(4)
+@@ -300,6 +300,11 @@ nfp_flower_cmsg_pcie_port(u8 nfp_pcie, enum nfp_flower_cmsg_port_vnic_type type,
+ 			   NFP_FLOWER_CMSG_PORT_TYPE_PCIE_PORT);
+ }
  
-+#define NFP_FLOWER_MASK_VLAN_PRIO	GENMASK(15, 13)
-+#define NFP_FLOWER_MASK_VLAN_CFI	BIT(12)
-+#define NFP_FLOWER_MASK_VLAN_VID	GENMASK(11, 0)
++static inline void *nfp_flower_cmsg_get_data(struct sk_buff *skb)
++{
++	return (unsigned char *)skb->data + NFP_FLOWER_CMSG_HLEN;
++}
 +
- /* Metadata without L2 (1W/4B)
-  * ----------------------------------------------------------------
-  *    3                   2                   1
+ int nfp_flower_cmsg_portmod(struct nfp_repr *repr, bool carrier_ok);
+ void nfp_flower_cmsg_rx(struct nfp_app *app, struct sk_buff *skb);
+ 
 diff --git a/drivers/net/ethernet/netronome/nfp/flower/main.h b/drivers/net/ethernet/netronome/nfp/flower/main.h
-index ba3e14c3ec26..5ba7e5194708 100644
+index 61a80becf3b2..9e64c048e83f 100644
 --- a/drivers/net/ethernet/netronome/nfp/flower/main.h
 +++ b/drivers/net/ethernet/netronome/nfp/flower/main.h
-@@ -66,4 +66,9 @@ struct nfp_fl_payload {
+@@ -43,6 +43,9 @@ struct tc_to_netdev;
+ struct net_device;
+ struct nfp_app;
  
- int nfp_flower_setup_tc(struct nfp_app *app, struct net_device *netdev,
- 			u32 handle, __be16 proto, struct tc_to_netdev *tc);
-+int nfp_flower_compile_flow_match(struct tc_cls_flower_offload *flow,
-+				  struct nfp_fl_key_ls *key_ls,
-+				  struct net_device *netdev,
-+				  struct nfp_fl_payload *nfp_flow);
++#define NFP_FL_STATS_ENTRY_RS		BIT(20)
++#define NFP_FL_STATS_ELEM_RS		4
++#define NFP_FL_REPEATED_HASH_MAX	BIT(17)
+ #define NFP_FLOWER_HASH_BITS		19
+ #define NFP_FLOWER_MASK_ENTRY_RS	256
+ #define NFP_FLOWER_MASK_ELEMENT_RS	1
+@@ -60,11 +63,18 @@ struct nfp_fl_mask_id {
+ 	u8 init_unallocated;
+ };
+ 
++struct nfp_fl_stats_id {
++	struct circ_buf free_list;
++	u32 init_unalloc;
++	u8 repeated_em_count;
++};
++
+ /**
+  * struct nfp_flower_priv - Flower APP per-vNIC priv data
+  * @nn:			Pointer to vNIC
+  * @mask_id_seed:	Seed used for mask hash table
+  * @flower_version:	HW version of flower
++ * @stats_ids:		List of free stats ids
+  * @mask_ids:		List of free mask ids
+  * @mask_table:		Hash table used to store masks
+  * @flow_table:		Hash table used to store flower rules
+@@ -73,6 +83,7 @@ struct nfp_flower_priv {
+ 	struct nfp_net *nn;
+ 	u32 mask_id_seed;
+ 	u64 flower_version;
++	struct nfp_fl_stats_id stats_ids;
+ 	struct nfp_fl_mask_id mask_ids;
+ 	DECLARE_HASHTABLE(mask_table, NFP_FLOWER_MASK_HASH_BITS);
+ 	DECLARE_HASHTABLE(flow_table, NFP_FLOWER_HASH_BITS);
+@@ -95,16 +106,31 @@ struct nfp_fl_rule_metadata {
+ 	__be32 shortcut;
+ };
+ 
++struct nfp_fl_stats {
++	u64 pkts;
++	u64 bytes;
++	u64 used;
++};
++
+ struct nfp_fl_payload {
+ 	struct nfp_fl_rule_metadata meta;
+ 	unsigned long tc_flower_cookie;
+ 	struct hlist_node link;
+ 	struct rcu_head rcu;
++	spinlock_t lock; /* lock stats */
++	struct nfp_fl_stats stats;
+ 	char *unmasked_data;
+ 	char *mask_data;
+ 	char *action_data;
+ };
+ 
++struct nfp_fl_stats_frame {
++	__be32 stats_con_id;
++	__be32 pkt_count;
++	__be64 byte_count;
++	__be64 stats_cookie;
++};
++
+ int nfp_flower_metadata_init(struct nfp_app *app);
+ void nfp_flower_metadata_cleanup(struct nfp_app *app);
+ 
+@@ -128,4 +154,6 @@ nfp_flower_search_fl_table(struct nfp_app *app, unsigned long tc_flower_cookie);
+ struct nfp_fl_payload *
+ nfp_flower_remove_fl_table(struct nfp_app *app, unsigned long tc_flower_cookie);
+ 
++void nfp_flower_rx_flow_stats(struct nfp_app *app, struct sk_buff *skb);
 +
  #endif
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/match.c b/drivers/net/ethernet/netronome/nfp/flower/match.c
-new file mode 100644
-index 000000000000..0e08404480ef
---- /dev/null
-+++ b/drivers/net/ethernet/netronome/nfp/flower/match.c
-@@ -0,0 +1,292 @@
-+/*
-+ * Copyright (C) 2017 Netronome Systems, Inc.
-+ *
-+ * This software is dual licensed under the GNU General License Version 2,
-+ * June 1991 as shown in the file COPYING in the top-level directory of this
-+ * source tree or the BSD 2-Clause License provided below.  You have the
-+ * option to license this software under the complete terms of either license.
-+ *
-+ * The BSD 2-Clause License:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      1. Redistributions of source code must retain the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer.
-+ *
-+ *      2. Redistributions in binary form must reproduce the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer in the documentation and/or other materials
-+ *         provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#include <linux/bitfield.h>
-+#include <net/pkt_cls.h>
-+
-+#include "cmsg.h"
-+#include "main.h"
-+
-+static void
-+nfp_flower_compile_meta_tci(struct nfp_flower_meta_two *frame,
-+			    struct tc_cls_flower_offload *flow, u8 key_type,
-+			    bool mask_version)
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/metadata.c b/drivers/net/ethernet/netronome/nfp/flower/metadata.c
+index 8a359ef3cc27..fec0ff2ca94f 100644
+--- a/drivers/net/ethernet/netronome/nfp/flower/metadata.c
++++ b/drivers/net/ethernet/netronome/nfp/flower/metadata.c
+@@ -48,6 +48,55 @@ struct nfp_mask_id_table {
+ 	u8 mask_id;
+ };
+ 
++static int nfp_release_stats_entry(struct nfp_app *app, u32 stats_context_id)
 +{
-+	struct flow_dissector_key_vlan *flow_vlan;
-+	u16 tmp_tci;
++	struct nfp_flower_priv *priv = app->priv;
++	struct circ_buf *ring;
 +
-+	/* Populate the metadata frame. */
-+	frame->nfp_flow_key_layer = key_type;
-+	frame->mask_id = ~0;
++	ring = &priv->stats_ids.free_list;
++	/* Check if buffer is full. */
++	if (!CIRC_SPACE(ring->head, ring->tail, NFP_FL_STATS_ENTRY_RS *
++			NFP_FL_STATS_ELEM_RS -
++			NFP_FL_STATS_ELEM_RS + 1))
++		return -ENOBUFS;
 +
-+	if (mask_version) {
-+		frame->tci = cpu_to_be16(~0);
-+		return;
-+	}
++	memcpy(&ring->buf[ring->head], &stats_context_id, NFP_FL_STATS_ELEM_RS);
++	ring->head = (ring->head + NFP_FL_STATS_ELEM_RS) %
++		     (NFP_FL_STATS_ENTRY_RS * NFP_FL_STATS_ELEM_RS);
 +
-+	flow_vlan = skb_flow_dissector_target(flow->dissector,
-+					      FLOW_DISSECTOR_KEY_VLAN,
-+					      flow->key);
-+
-+	/* Populate the tci field. */
-+	if (!flow_vlan->vlan_id) {
-+		tmp_tci = 0;
-+	} else {
-+		tmp_tci = FIELD_PREP(NFP_FLOWER_MASK_VLAN_PRIO,
-+				     flow_vlan->vlan_priority) |
-+			  FIELD_PREP(NFP_FLOWER_MASK_VLAN_VID,
-+				     flow_vlan->vlan_id) |
-+			  NFP_FLOWER_MASK_VLAN_CFI;
-+	}
-+	frame->tci = cpu_to_be16(tmp_tci);
++	return 0;
 +}
 +
-+static void
-+nfp_flower_compile_meta(struct nfp_flower_meta_one *frame, u8 key_type)
++static int nfp_get_stats_entry(struct nfp_app *app, u32 *stats_context_id)
 +{
-+	frame->nfp_flow_key_layer = key_type;
-+	frame->mask_id = 0;
-+	frame->reserved = 0;
-+}
++	struct nfp_flower_priv *priv = app->priv;
++	u32 freed_stats_id, temp_stats_id;
++	struct circ_buf *ring;
 +
-+static int
-+nfp_flower_compile_port(struct nfp_flower_in_port *frame, u32 cmsg_port,
-+			bool mask_version)
-+{
-+	if (mask_version) {
-+		frame->in_port = cpu_to_be32(~0);
++	ring = &priv->stats_ids.free_list;
++	freed_stats_id = NFP_FL_STATS_ENTRY_RS;
++	/* Check for unallocated entries first. */
++	if (priv->stats_ids.init_unalloc > 0) {
++		*stats_context_id = priv->stats_ids.init_unalloc - 1;
++		priv->stats_ids.init_unalloc--;
 +		return 0;
 +	}
 +
-+	frame->in_port = cpu_to_be32(cmsg_port);
++	/* Check if buffer is empty. */
++	if (ring->head == ring->tail) {
++		*stats_context_id = freed_stats_id;
++		return -ENOENT;
++	}
++
++	memcpy(&temp_stats_id, &ring->buf[ring->tail], NFP_FL_STATS_ELEM_RS);
++	*stats_context_id = temp_stats_id;
++	memcpy(&ring->buf[ring->tail], &freed_stats_id, NFP_FL_STATS_ELEM_RS);
++	ring->tail = (ring->tail + NFP_FL_STATS_ELEM_RS) %
++		     (NFP_FL_STATS_ENTRY_RS * NFP_FL_STATS_ELEM_RS);
 +
 +	return 0;
 +}
 +
-+static void
-+nfp_flower_compile_mac(struct nfp_flower_mac_mpls *frame,
-+		       struct tc_cls_flower_offload *flow,
-+		       bool mask_version)
-+{
-+	struct fl_flow_key *target = mask_version ? flow->mask : flow->key;
-+	struct flow_dissector_key_eth_addrs *flow_mac;
-+
-+	flow_mac = skb_flow_dissector_target(flow->dissector,
-+					     FLOW_DISSECTOR_KEY_ETH_ADDRS,
-+					     target);
-+
-+	memset(frame, 0, sizeof(struct nfp_flower_mac_mpls));
-+
-+	/* Populate mac frame. */
-+	ether_addr_copy(frame->mac_dst, &flow_mac->dst[0]);
-+	ether_addr_copy(frame->mac_src, &flow_mac->src[0]);
-+
-+	if (mask_version)
-+		frame->mpls_lse = cpu_to_be32(~0);
-+}
-+
-+static void
-+nfp_flower_compile_tport(struct nfp_flower_tp_ports *frame,
-+			 struct tc_cls_flower_offload *flow,
-+			 bool mask_version)
-+{
-+	struct fl_flow_key *target = mask_version ? flow->mask : flow->key;
-+	struct flow_dissector_key_ports *flow_tp;
-+
-+	flow_tp = skb_flow_dissector_target(flow->dissector,
-+					    FLOW_DISSECTOR_KEY_PORTS,
-+					    target);
-+
-+	frame->port_src = flow_tp->src;
-+	frame->port_dst = flow_tp->dst;
-+}
-+
-+static void
-+nfp_flower_compile_ipv4(struct nfp_flower_ipv4 *frame,
-+			struct tc_cls_flower_offload *flow,
-+			bool mask_version)
-+{
-+	struct fl_flow_key *target = mask_version ? flow->mask : flow->key;
-+	struct flow_dissector_key_ipv4_addrs *flow_ipv4;
-+	struct flow_dissector_key_basic *flow_basic;
-+
-+	flow_ipv4 = skb_flow_dissector_target(flow->dissector,
-+					      FLOW_DISSECTOR_KEY_IPV4_ADDRS,
-+					      target);
-+
-+	flow_basic = skb_flow_dissector_target(flow->dissector,
-+					       FLOW_DISSECTOR_KEY_BASIC,
-+					       target);
-+
-+	/* Populate IPv4 frame. */
-+	frame->reserved = 0;
-+	frame->ipv4_src = flow_ipv4->src;
-+	frame->ipv4_dst = flow_ipv4->dst;
-+	frame->proto = flow_basic->ip_proto;
-+	/* Wildcard TOS/TTL for now. */
-+	frame->tos = 0;
-+	frame->ttl = 0;
-+}
-+
-+static void
-+nfp_flower_compile_ipv6(struct nfp_flower_ipv6 *frame,
-+			struct tc_cls_flower_offload *flow,
-+			bool mask_version)
-+{
-+	struct fl_flow_key *target = mask_version ? flow->mask : flow->key;
-+	struct flow_dissector_key_ipv6_addrs *flow_ipv6;
-+	struct flow_dissector_key_basic *flow_basic;
-+
-+	flow_ipv6 = skb_flow_dissector_target(flow->dissector,
-+					      FLOW_DISSECTOR_KEY_IPV6_ADDRS,
-+					      target);
-+
-+	flow_basic = skb_flow_dissector_target(flow->dissector,
-+					       FLOW_DISSECTOR_KEY_BASIC,
-+					       target);
-+
-+	/* Populate IPv6 frame. */
-+	frame->reserved = 0;
-+	frame->ipv6_src = flow_ipv6->src;
-+	frame->ipv6_dst = flow_ipv6->dst;
-+	frame->proto = flow_basic->ip_proto;
-+	/* Wildcard LABEL/TOS/TTL for now. */
-+	frame->ipv6_flow_label_exthdr = 0;
-+	frame->tos = 0;
-+	frame->ttl = 0;
-+}
-+
-+int nfp_flower_compile_flow_match(struct tc_cls_flower_offload *flow,
-+				  struct nfp_fl_key_ls *key_ls,
-+				  struct net_device *netdev,
-+				  struct nfp_fl_payload *nfp_flow)
-+{
-+	int err;
-+	u8 *ext;
-+	u8 *msk;
-+
-+	memset(nfp_flow->unmasked_data, 0, key_ls->key_size);
-+	memset(nfp_flow->mask_data, 0, key_ls->key_size);
-+
-+	ext = nfp_flow->unmasked_data;
-+	msk = nfp_flow->mask_data;
-+	if (NFP_FLOWER_LAYER_PORT & key_ls->key_layer) {
-+		/* Populate Exact Metadata. */
-+		nfp_flower_compile_meta_tci((struct nfp_flower_meta_two *)ext,
-+					    flow, key_ls->key_layer, false);
-+		/* Populate Mask Metadata. */
-+		nfp_flower_compile_meta_tci((struct nfp_flower_meta_two *)msk,
-+					    flow, key_ls->key_layer, true);
-+		ext += sizeof(struct nfp_flower_meta_two);
-+		msk += sizeof(struct nfp_flower_meta_two);
-+
-+		/* Populate Exact Port data. */
-+		err = nfp_flower_compile_port((struct nfp_flower_in_port *)ext,
-+					      nfp_repr_get_port_id(netdev),
-+					      false);
-+		if (err)
-+			return err;
-+
-+		/* Populate Mask Port Data. */
-+		err = nfp_flower_compile_port((struct nfp_flower_in_port *)msk,
-+					      nfp_repr_get_port_id(netdev),
-+					      true);
-+		if (err)
-+			return err;
-+
-+		ext += sizeof(struct nfp_flower_in_port);
-+		msk += sizeof(struct nfp_flower_in_port);
-+	} else {
-+		/* Populate Exact Metadata. */
-+		nfp_flower_compile_meta((struct nfp_flower_meta_one *)ext,
-+					key_ls->key_layer);
-+		/* Populate Mask Metadata. */
-+		nfp_flower_compile_meta((struct nfp_flower_meta_one *)msk,
-+					key_ls->key_layer);
-+		ext += sizeof(struct nfp_flower_meta_one);
-+		msk += sizeof(struct nfp_flower_meta_one);
-+	}
-+
-+	if (NFP_FLOWER_LAYER_META & key_ls->key_layer) {
-+		/* Additional Metadata Fields.
-+		 * Currently unsupported.
-+		 */
-+		return -EOPNOTSUPP;
-+	}
-+
-+	if (NFP_FLOWER_LAYER_MAC & key_ls->key_layer) {
-+		/* Populate Exact MAC Data. */
-+		nfp_flower_compile_mac((struct nfp_flower_mac_mpls *)ext,
-+				       flow, false);
-+		/* Populate Mask MAC Data. */
-+		nfp_flower_compile_mac((struct nfp_flower_mac_mpls *)msk,
-+				       flow, true);
-+		ext += sizeof(struct nfp_flower_mac_mpls);
-+		msk += sizeof(struct nfp_flower_mac_mpls);
-+	}
-+
-+	if (NFP_FLOWER_LAYER_TP & key_ls->key_layer) {
-+		/* Populate Exact TP Data. */
-+		nfp_flower_compile_tport((struct nfp_flower_tp_ports *)ext,
-+					 flow, false);
-+		/* Populate Mask TP Data. */
-+		nfp_flower_compile_tport((struct nfp_flower_tp_ports *)msk,
-+					 flow, true);
-+		ext += sizeof(struct nfp_flower_tp_ports);
-+		msk += sizeof(struct nfp_flower_tp_ports);
-+	}
-+
-+	if (NFP_FLOWER_LAYER_IPV4 & key_ls->key_layer) {
-+		/* Populate Exact IPv4 Data. */
-+		nfp_flower_compile_ipv4((struct nfp_flower_ipv4 *)ext,
-+					flow, false);
-+		/* Populate Mask IPv4 Data. */
-+		nfp_flower_compile_ipv4((struct nfp_flower_ipv4 *)msk,
-+					flow, true);
-+		ext += sizeof(struct nfp_flower_ipv4);
-+		msk += sizeof(struct nfp_flower_ipv4);
-+	}
-+
-+	if (NFP_FLOWER_LAYER_IPV6 & key_ls->key_layer) {
-+		/* Populate Exact IPv4 Data. */
-+		nfp_flower_compile_ipv6((struct nfp_flower_ipv6 *)ext,
-+					flow, false);
-+		/* Populate Mask IPv4 Data. */
-+		nfp_flower_compile_ipv6((struct nfp_flower_ipv6 *)msk,
-+					flow, true);
-+		ext += sizeof(struct nfp_flower_ipv6);
-+		msk += sizeof(struct nfp_flower_ipv6);
-+	}
-+
-+	return 0;
-+}
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/offload.c b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-index fb9f73ab16c9..5cddc4d561fd 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/offload.c
-+++ b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-@@ -208,13 +208,17 @@ nfp_flower_add_offload(struct nfp_app *app, struct net_device *netdev,
- 		goto err_free_key_ls;
- 	}
- 
-+	err = nfp_flower_compile_flow_match(flow, key_layer, netdev, flow_pay);
-+	if (err)
-+		goto err_destroy_flow;
-+
- 	/* TODO: Complete flower_add_offload. */
- 	err = -EOPNOTSUPP;
- 
-+err_destroy_flow:
- 	kfree(flow_pay->mask_data);
- 	kfree(flow_pay->unmasked_data);
- 	kfree(flow_pay);
--
- err_free_key_ls:
- 	kfree(key_layer);
- 	return err;
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_repr.h b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.h
-index 6a6727816010..32179cad062a 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_repr.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_repr.h
-@@ -38,6 +38,8 @@ struct metadata_dst;
- struct nfp_net;
- struct nfp_port;
- 
-+#include <net/dst_metadata.h>
-+
- /**
-  * struct nfp_reprs - container for representor netdevs
-  * @num_reprs:	Number of elements in reprs array
-@@ -104,6 +106,13 @@ static inline bool nfp_netdev_is_nfp_repr(struct net_device *netdev)
- 	return netdev->netdev_ops == &nfp_repr_netdev_ops;
+ /* Must be called with either RTNL or rcu_read_lock */
+ struct nfp_fl_payload *
+ nfp_flower_search_fl_table(struct nfp_app *app, unsigned long tc_flower_cookie)
+@@ -63,6 +112,46 @@ nfp_flower_search_fl_table(struct nfp_app *app, unsigned long tc_flower_cookie)
+ 	return NULL;
  }
  
-+static inline int nfp_repr_get_port_id(struct net_device *netdev)
++static void
++nfp_flower_update_stats(struct nfp_app *app, struct nfp_fl_stats_frame *stats)
 +{
-+	struct nfp_repr *priv = netdev_priv(netdev);
++	struct nfp_fl_payload *nfp_flow;
++	unsigned long flower_cookie;
 +
-+	return priv->dst->u.port_info.port_id;
++	flower_cookie = be64_to_cpu(stats->stats_cookie);
++
++	rcu_read_lock();
++	nfp_flow = nfp_flower_search_fl_table(app, flower_cookie);
++	if (!nfp_flow)
++		goto exit_rcu_unlock;
++
++	if (nfp_flow->meta.host_ctx_id != stats->stats_con_id)
++		goto exit_rcu_unlock;
++
++	spin_lock(&nfp_flow->lock);
++	nfp_flow->stats.pkts += be32_to_cpu(stats->pkt_count);
++	nfp_flow->stats.bytes += be64_to_cpu(stats->byte_count);
++	nfp_flow->stats.used = jiffies;
++	spin_unlock(&nfp_flow->lock);
++
++exit_rcu_unlock:
++	rcu_read_unlock();
 +}
 +
- void nfp_repr_inc_rx_stats(struct net_device *netdev, unsigned int len);
- int nfp_repr_init(struct nfp_app *app, struct net_device *netdev,
- 		  u32 cmsg_port_id, struct nfp_port *port,
++void nfp_flower_rx_flow_stats(struct nfp_app *app, struct sk_buff *skb)
++{
++	unsigned int msg_len = skb->len - NFP_FLOWER_CMSG_HLEN;
++	struct nfp_fl_stats_frame *stats_frame;
++	unsigned char *msg;
++	int i;
++
++	msg = nfp_flower_cmsg_get_data(skb);
++
++	stats_frame = (struct nfp_fl_stats_frame *)msg;
++	for (i = 0; i < msg_len / sizeof(*stats_frame); i++)
++		nfp_flower_update_stats(app, stats_frame + i);
++}
++
+ static int nfp_release_mask_id(struct nfp_app *app, u8 mask_id)
+ {
+ 	struct nfp_flower_priv *priv = app->priv;
+@@ -230,21 +319,37 @@ int nfp_compile_flow_metadata(struct nfp_app *app,
+ 	struct nfp_flower_priv *priv = app->priv;
+ 	struct nfp_fl_payload *check_entry;
+ 	u8 new_mask_id;
++	u32 stats_cxt;
++
++	if (nfp_get_stats_entry(app, &stats_cxt))
++		return -ENOENT;
++
++	nfp_flow->meta.host_ctx_id = cpu_to_be32(stats_cxt);
++	nfp_flow->meta.host_cookie = cpu_to_be64(flow->cookie);
+ 
+ 	new_mask_id = 0;
+ 	if (!nfp_check_mask_add(app, nfp_flow->mask_data,
+ 				nfp_flow->meta.mask_len,
+-				&nfp_flow->meta.flags, &new_mask_id))
++				&nfp_flow->meta.flags, &new_mask_id)) {
++		if (nfp_release_stats_entry(app, stats_cxt))
++			return -EINVAL;
+ 		return -ENOENT;
++	}
+ 
+ 	nfp_flow->meta.flow_version = cpu_to_be64(priv->flower_version);
+ 	priv->flower_version++;
+ 
+ 	/* Update flow payload with mask ids. */
+ 	nfp_flow->unmasked_data[NFP_FL_MASK_ID_LOCATION] = new_mask_id;
++	nfp_flow->stats.pkts = 0;
++	nfp_flow->stats.bytes = 0;
++	nfp_flow->stats.used = jiffies;
+ 
+ 	check_entry = nfp_flower_search_fl_table(app, flow->cookie);
+ 	if (check_entry) {
++		if (nfp_release_stats_entry(app, stats_cxt))
++			return -EINVAL;
++
+ 		if (!nfp_check_mask_remove(app, nfp_flow->mask_data,
+ 					   nfp_flow->meta.mask_len,
+ 					   NULL, &new_mask_id))
+@@ -261,6 +366,7 @@ int nfp_modify_flow_metadata(struct nfp_app *app,
+ {
+ 	struct nfp_flower_priv *priv = app->priv;
+ 	u8 new_mask_id = 0;
++	u32 temp_ctx_id;
+ 
+ 	nfp_check_mask_remove(app, nfp_flow->mask_data,
+ 			      nfp_flow->meta.mask_len, &nfp_flow->meta.flags,
+@@ -272,7 +378,10 @@ int nfp_modify_flow_metadata(struct nfp_app *app,
+ 	/* Update flow payload with mask ids. */
+ 	nfp_flow->unmasked_data[NFP_FL_MASK_ID_LOCATION] = new_mask_id;
+ 
+-	return 0;
++	/* Release the stats ctx id. */
++	temp_ctx_id = be32_to_cpu(nfp_flow->meta.host_ctx_id);
++
++	return nfp_release_stats_entry(app, temp_ctx_id);
+ }
+ 
+ int nfp_flower_metadata_init(struct nfp_app *app)
+@@ -299,8 +408,18 @@ int nfp_flower_metadata_init(struct nfp_app *app)
+ 	if (!priv->mask_ids.last_used)
+ 		goto err_free_mask_id;
+ 
++	/* Init ring buffer and unallocated stats_ids. */
++	priv->stats_ids.free_list.buf =
++		vmalloc(NFP_FL_STATS_ENTRY_RS * NFP_FL_STATS_ELEM_RS);
++	if (!priv->stats_ids.free_list.buf)
++		goto err_free_last_used;
++
++	priv->stats_ids.init_unalloc = NFP_FL_REPEATED_HASH_MAX;
++
+ 	return 0;
+ 
++err_free_last_used:
++	kfree(priv->stats_ids.free_list.buf);
+ err_free_mask_id:
+ 	kfree(priv->mask_ids.mask_id_free_list.buf);
+ 	return -ENOMEM;
+@@ -315,4 +434,5 @@ void nfp_flower_metadata_cleanup(struct nfp_app *app)
+ 
+ 	kfree(priv->mask_ids.mask_id_free_list.buf);
+ 	kfree(priv->mask_ids.last_used);
++	vfree(priv->stats_ids.free_list.buf);
+ }
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/offload.c b/drivers/net/ethernet/netronome/nfp/flower/offload.c
+index 04603d832adf..1a2e2b9b75a3 100644
+--- a/drivers/net/ethernet/netronome/nfp/flower/offload.c
++++ b/drivers/net/ethernet/netronome/nfp/flower/offload.c
+@@ -170,6 +170,7 @@ nfp_flower_allocate_new(struct nfp_fl_key_ls *key_layer)
+ 		goto err_free_mask;
+ 
+ 	flow_pay->meta.flags = 0;
++	spin_lock_init(&flow_pay->lock);
+ 
+ 	return flow_pay;
+ 
+@@ -291,7 +292,21 @@ nfp_flower_del_offload(struct nfp_app *app, struct net_device *netdev,
+ static int
+ nfp_flower_get_stats(struct nfp_app *app, struct tc_cls_flower_offload *flow)
+ {
+-	return -EOPNOTSUPP;
++	struct nfp_fl_payload *nfp_flow;
++
++	nfp_flow = nfp_flower_search_fl_table(app, flow->cookie);
++	if (!nfp_flow)
++		return -EINVAL;
++
++	spin_lock_bh(&nfp_flow->lock);
++	tcf_exts_stats_update(flow->exts, nfp_flow->stats.bytes,
++			      nfp_flow->stats.pkts, nfp_flow->stats.used);
++
++	nfp_flow->stats.pkts = 0;
++	nfp_flow->stats.bytes = 0;
++	spin_unlock_bh(&nfp_flow->lock);
++
++	return 0;
+ }
+ 
+ static int
 -- 
 2.1.4
