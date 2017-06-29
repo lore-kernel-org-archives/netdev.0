@@ -1,46 +1,55 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net-next v2 9/9] nfp: add control message passing
- capabilities to flower offloads
-Date: Thu, 29 Jun 2017 17:30:14 +0200
-Message-ID: <20170629153012.GE6215@vergenet.net>
-References: <1498681802-2897-1-git-send-email-simon.horman@netronome.com>
- <1498681802-2897-10-git-send-email-simon.horman@netronome.com>
- <CAJ3xEMjhJYQTnFdHJuMcHR=n3MLa=+SAycVZ3ZCQbCWoU8EbJw@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: CAN-FD Transceiver Limitations
+Date: Thu, 29 Jun 2017 17:41:39 +0200
+Message-ID: <20170629154139.GC13221@lunn.ch>
+References: <de1f6343-4b28-4a5f-c6df-4e54c09fcce2@ti.com>
+ <20170629142142.GF9244@lunn.ch>
+ <5d4f2bcf-bd0f-4fa1-5d5a-d7b4a83cbc5e@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        oss-drivers@netronome.com,
-        Pieter Jansen van Vuuren
-        <pieter.jansenvanvuuren@netronome.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f181.google.com ([209.85.220.181]:35002 "EHLO
-        mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753343AbdF2Pa0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 11:30:26 -0400
-Received: by mail-qk0-f181.google.com with SMTP id 16so79302217qkg.2
-        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 08:30:26 -0700 (PDT)
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+        wg@grandegger.com, mkl@pengutronix.de
+To: Franklin S Cooper Jr <fcooper@ti.com>
+Return-path: <linux-can-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CAJ3xEMjhJYQTnFdHJuMcHR=n3MLa=+SAycVZ3ZCQbCWoU8EbJw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <5d4f2bcf-bd0f-4fa1-5d5a-d7b4a83cbc5e@ti.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 29, 2017 at 06:21:53PM +0300, Or Gerlitz wrote:
-> On Wed, Jun 28, 2017 at 11:30 PM, Simon Horman
-> <simon.horman@netronome.com> wrote:
-> > +++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
-> > @@ -245,7 +245,11 @@ struct nfp_flower_cmsg_hdr {
-> >
-> >  /* Types defined for port related control messages  */
-> >  enum nfp_flower_cmsg_type_port {
-> > +       NFP_FLOWER_CMSG_TYPE_FLOW_ADD =         0,
-> > +       NFP_FLOWER_CMSG_TYPE_FLOW_MOD =         1,
+> Transceivers for CAN are not apart of any model. Traditional CAN didn't
+> have a problem because all transceivers from my understanding supported
+> the maximum speed of 1 Mbps defined by the spec. However, with the
+> introduction of CAN Flexible Datarate mode it seems that for
+> transceivers that supported CAN-FD the maximum supported speeds vary.
+
+So transceivers are dumb devices, nothing to configure, so no need to
+have a driver for them.
+
+> Now that I think of it
+> you also can't determine if the transceiver supports CAN-FD in the first
+> place. IP that supports CAN-FD is backwards compatible with standard
+> CAN. Therefore, its feasible that you may even use a transceiver that
+> doesn't support CAN-FD. So I would think something like the below would
+> be needed.
 > 
-> AFAIU flower offload will always use delete and add and not modify,
-> if you think otherwise, would love to hear that. Didn't see you are using
-> the MOD define in the code anywhere.
+> mcan@0 {
+> 	...
+> 	fixed-transceiver {
+> 	      max-canfd-speed = <2000>
+> 	};
+> 	...
+> };
 
-The firmware API has a mod operation but you are correct that
-we are not implementing that operation in this patch-set.
+Are there likely to be other transceiver properties? Adding a subnode
+may not make sense if this is going to be the only property.
+
+Also, 2KHz is not very fast :-)
+
+Taking a quick look in Documentation/devicetree/bindings/net/can, it
+seems a bit of a wild west. No standardization, no central binding
+which CAN drivers are expected to support, etc. This sounds like a
+generic problem, not an mcan problem. So document this property
+centrally, implement the parsing of it centrally, etc, to encourage
+other CAN drivers to use it, rather than re-invent the wheel.
+
+	   Andrew
