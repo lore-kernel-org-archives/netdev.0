@@ -1,579 +1,241 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net-next v3 7/9] nfp: add metadata to each flow offload
-Date: Thu, 29 Jun 2017 22:08:17 +0200
-Message-ID: <1498766899-30707-8-git-send-email-simon.horman@netronome.com>
-References: <1498766899-30707-1-git-send-email-simon.horman@netronome.com>
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
-        Or Gerlitz <gerlitz.or@gmail.com>,
-        Pieter Jansen van Vuuren
-        <pieter.jansenvanvuuren@netronome.com>,
-        Simon Horman <simon.horman@netronome.com>
-To: David Miller <davem@davemloft.net>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f178.google.com ([209.85.220.178]:35565 "EHLO
-        mail-qk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751875AbdF2UI7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 16:08:59 -0400
-Received: by mail-qk0-f178.google.com with SMTP id 16so85807747qkg.2
-        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 13:08:59 -0700 (PDT)
-In-Reply-To: <1498766899-30707-1-git-send-email-simon.horman@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrei Vagin <avagin@gmail.com>
+Subject: Re: BUG: Dentry ffff9f795a08fe60{i=af565f,n=lo} still in use (1)
+ [unmount of proc proc]
+Date: Thu, 29 Jun 2017 13:15:50 -0700
+Message-ID: <CANaxB-z-K=A2_OfMsXqROttsef0SXSeACX8Wj9ik2NJ1Dkz_Fw@mail.gmail.com>
+References: <CANaxB-yneyRrUhJp1uwvHcaC88n3yyF5Jjr=1A869hWQsXfNEg@mail.gmail.com>
+ <8737ai4ns6.fsf@xmission.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        linux-fsdevel <linux-fsdevel@vger.kernel.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Linux Containers <containers@lists.linux-foundation.org>,
+        "criu@openvz.org" <criu@openvz.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8737ai4ns6.fsf@xmission.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
+On Thu, Jun 29, 2017 at 12:06 PM, Eric W. Biederman
+<ebiederm@xmission.com> wrote:
+> Andrei Vagin <avagin@gmail.com> writes:
+>
+>> Hello,
+>>
+>> We run CRIU tests on linus' tree and today we found this issue.
+>>
+>> CRIU tests are the set of small programs to check checkpoint/restore
+>> of different primitives (files, sockets, signals, pipes, etc).
+>> https://github.com/xemul/criu/tree/master/test
+>>
+>> Each test is executed three times: without namespaces, in a set of all
+>> namespaces except userns, in a set of all namespaces. When a test
+>> passed the preparation tests, it sends a signal to an executer, and
+>> then the executer dumps and restores tests processes, and sends a
+>> signal to the test back to check that everything are restored
+>> correctly.
+>
+> I am not certain what you are saying, and you seem to have Cc'd
+> every list except the netdev and netfilter lists that are needed
+> to deal with this.
+>
+> Are you saing that the change from Liping Zhang is needed? Or are you
+> saying that change introduces the problem below?
 
-Adds metadata describing the mask id of each flow and keeps track of
-flows installed in hardware. Previously a flow could not be removed
-from hardware as there was no way of knowing if that a specific flow
-was installed. This is solved by storing the offloaded flows in a
-hash table.
+Hi Eric,
 
-Signed-off-by: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
----
- drivers/net/ethernet/netronome/nfp/Makefile        |   1 +
- drivers/net/ethernet/netronome/nfp/flower/main.c   |  21 +-
- drivers/net/ethernet/netronome/nfp/flower/main.h   |  54 ++++
- .../net/ethernet/netronome/nfp/flower/metadata.c   | 318 +++++++++++++++++++++
- .../net/ethernet/netronome/nfp/flower/offload.c    |  31 +-
- 5 files changed, 412 insertions(+), 13 deletions(-)
- create mode 100644 drivers/net/ethernet/netronome/nfp/flower/metadata.c
+Here I tried to explain our usecase. I don't know which changes in the
+kernel affect this issue.
 
-diff --git a/drivers/net/ethernet/netronome/nfp/Makefile b/drivers/net/ethernet/netronome/nfp/Makefile
-index 1ba0ea78adc3..b8e1358868bd 100644
---- a/drivers/net/ethernet/netronome/nfp/Makefile
-+++ b/drivers/net/ethernet/netronome/nfp/Makefile
-@@ -35,6 +35,7 @@ nfp-objs += \
- 	    flower/cmsg.o \
- 	    flower/main.o \
- 	    flower/match.o \
-+	    flower/metadata.o \
- 	    flower/offload.o
- endif
- 
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/main.c b/drivers/net/ethernet/netronome/nfp/flower/main.c
-index 7bf994ceb9c1..5fe6d3582597 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/main.c
-+++ b/drivers/net/ethernet/netronome/nfp/flower/main.c
-@@ -34,6 +34,7 @@
- #include <linux/etherdevice.h>
- #include <linux/pci.h>
- #include <linux/skbuff.h>
-+#include <linux/vmalloc.h>
- #include <net/devlink.h>
- #include <net/dst_metadata.h>
- 
-@@ -50,14 +51,6 @@
- 
- #define NFP_FLOWER_ALLOWED_VER 0x0001000000010000UL
- 
--/**
-- * struct nfp_flower_priv - Flower APP per-vNIC priv data
-- * @nn:		     Pointer to vNIC
-- */
--struct nfp_flower_priv {
--	struct nfp_net *nn;
--};
--
- static const char *nfp_flower_extra_cap(struct nfp_app *app, struct nfp_net *nn)
- {
- 	return "FLOWER";
-@@ -347,16 +340,24 @@ static int nfp_flower_init(struct nfp_app *app)
- 		return -EINVAL;
- 	}
- 
--	app->priv = kzalloc(sizeof(struct nfp_flower_priv), GFP_KERNEL);
-+	app->priv = vzalloc(sizeof(struct nfp_flower_priv));
- 	if (!app->priv)
- 		return -ENOMEM;
- 
-+	err = nfp_flower_metadata_init(app);
-+	if (err)
-+		goto err_free_app_priv;
-+
- 	return 0;
-+
-+err_free_app_priv:
-+	vfree(app->priv);
-+	return err;
- }
- 
- static void nfp_flower_clean(struct nfp_app *app)
- {
--	kfree(app->priv);
-+	vfree(app->priv);
- 	app->priv = NULL;
- }
- 
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/main.h b/drivers/net/ethernet/netronome/nfp/flower/main.h
-index 7c9530504752..61a80becf3b2 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/main.h
-+++ b/drivers/net/ethernet/netronome/nfp/flower/main.h
-@@ -34,12 +34,50 @@
- #ifndef __NFP_FLOWER_H__
- #define __NFP_FLOWER_H__ 1
- 
-+#include <linux/circ_buf.h>
-+#include <linux/hashtable.h>
-+#include <linux/time64.h>
- #include <linux/types.h>
- 
- struct tc_to_netdev;
- struct net_device;
- struct nfp_app;
- 
-+#define NFP_FLOWER_HASH_BITS		19
-+#define NFP_FLOWER_MASK_ENTRY_RS	256
-+#define NFP_FLOWER_MASK_ELEMENT_RS	1
-+#define NFP_FLOWER_MASK_HASH_BITS	10
-+
-+#define NFP_FL_META_FLAG_NEW_MASK	128
-+#define NFP_FL_META_FLAG_LAST_MASK	1
-+
-+#define NFP_FL_MASK_REUSE_TIME_NS	40000
-+#define NFP_FL_MASK_ID_LOCATION		1
-+
-+struct nfp_fl_mask_id {
-+	struct circ_buf mask_id_free_list;
-+	struct timespec64 *last_used;
-+	u8 init_unallocated;
-+};
-+
-+/**
-+ * struct nfp_flower_priv - Flower APP per-vNIC priv data
-+ * @nn:			Pointer to vNIC
-+ * @mask_id_seed:	Seed used for mask hash table
-+ * @flower_version:	HW version of flower
-+ * @mask_ids:		List of free mask ids
-+ * @mask_table:		Hash table used to store masks
-+ * @flow_table:		Hash table used to store flower rules
-+ */
-+struct nfp_flower_priv {
-+	struct nfp_net *nn;
-+	u32 mask_id_seed;
-+	u64 flower_version;
-+	struct nfp_fl_mask_id mask_ids;
-+	DECLARE_HASHTABLE(mask_table, NFP_FLOWER_MASK_HASH_BITS);
-+	DECLARE_HASHTABLE(flow_table, NFP_FLOWER_HASH_BITS);
-+};
-+
- struct nfp_fl_key_ls {
- 	u32 key_layer_two;
- 	u8 key_layer;
-@@ -59,11 +97,17 @@ struct nfp_fl_rule_metadata {
- 
- struct nfp_fl_payload {
- 	struct nfp_fl_rule_metadata meta;
-+	unsigned long tc_flower_cookie;
-+	struct hlist_node link;
-+	struct rcu_head rcu;
- 	char *unmasked_data;
- 	char *mask_data;
- 	char *action_data;
- };
- 
-+int nfp_flower_metadata_init(struct nfp_app *app);
-+void nfp_flower_metadata_cleanup(struct nfp_app *app);
-+
- int nfp_flower_setup_tc(struct nfp_app *app, struct net_device *netdev,
- 			u32 handle, __be16 proto, struct tc_to_netdev *tc);
- int nfp_flower_compile_flow_match(struct tc_cls_flower_offload *flow,
-@@ -73,5 +117,15 @@ int nfp_flower_compile_flow_match(struct tc_cls_flower_offload *flow,
- int nfp_flower_compile_action(struct tc_cls_flower_offload *flow,
- 			      struct net_device *netdev,
- 			      struct nfp_fl_payload *nfp_flow);
-+int nfp_compile_flow_metadata(struct nfp_app *app,
-+			      struct tc_cls_flower_offload *flow,
-+			      struct nfp_fl_payload *nfp_flow);
-+int nfp_modify_flow_metadata(struct nfp_app *app,
-+			     struct nfp_fl_payload *nfp_flow);
-+
-+struct nfp_fl_payload *
-+nfp_flower_search_fl_table(struct nfp_app *app, unsigned long tc_flower_cookie);
-+struct nfp_fl_payload *
-+nfp_flower_remove_fl_table(struct nfp_app *app, unsigned long tc_flower_cookie);
- 
- #endif
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/metadata.c b/drivers/net/ethernet/netronome/nfp/flower/metadata.c
-new file mode 100644
-index 000000000000..8a359ef3cc27
---- /dev/null
-+++ b/drivers/net/ethernet/netronome/nfp/flower/metadata.c
-@@ -0,0 +1,318 @@
-+/*
-+ * Copyright (C) 2017 Netronome Systems, Inc.
-+ *
-+ * This software is dual licensed under the GNU General License Version 2,
-+ * June 1991 as shown in the file COPYING in the top-level directory of this
-+ * source tree or the BSD 2-Clause License provided below.  You have the
-+ * option to license this software under the complete terms of either license.
-+ *
-+ * The BSD 2-Clause License:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      1. Redistributions of source code must retain the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer.
-+ *
-+ *      2. Redistributions in binary form must reproduce the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer in the documentation and/or other materials
-+ *         provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#include <linux/hash.h>
-+#include <linux/hashtable.h>
-+#include <linux/jhash.h>
-+#include <linux/vmalloc.h>
-+#include <net/pkt_cls.h>
-+
-+#include "cmsg.h"
-+#include "main.h"
-+#include "../nfp_app.h"
-+
-+struct nfp_mask_id_table {
-+	struct hlist_node link;
-+	u32 hash_key;
-+	u32 ref_cnt;
-+	u8 mask_id;
-+};
-+
-+/* Must be called with either RTNL or rcu_read_lock */
-+struct nfp_fl_payload *
-+nfp_flower_search_fl_table(struct nfp_app *app, unsigned long tc_flower_cookie)
-+{
-+	struct nfp_flower_priv *priv = app->priv;
-+	struct nfp_fl_payload *flower_entry;
-+
-+	hash_for_each_possible_rcu(priv->flow_table, flower_entry, link,
-+				   tc_flower_cookie)
-+		if (flower_entry->tc_flower_cookie == tc_flower_cookie)
-+			return flower_entry;
-+
-+	return NULL;
-+}
-+
-+static int nfp_release_mask_id(struct nfp_app *app, u8 mask_id)
-+{
-+	struct nfp_flower_priv *priv = app->priv;
-+	struct circ_buf *ring;
-+	struct timespec64 now;
-+
-+	ring = &priv->mask_ids.mask_id_free_list;
-+	/* Checking if buffer is full. */
-+	if (CIRC_SPACE(ring->head, ring->tail, NFP_FLOWER_MASK_ENTRY_RS) == 0)
-+		return -ENOBUFS;
-+
-+	memcpy(&ring->buf[ring->head], &mask_id, NFP_FLOWER_MASK_ELEMENT_RS);
-+	ring->head = (ring->head + NFP_FLOWER_MASK_ELEMENT_RS) %
-+		     (NFP_FLOWER_MASK_ENTRY_RS * NFP_FLOWER_MASK_ELEMENT_RS);
-+
-+	getnstimeofday64(&now);
-+	priv->mask_ids.last_used[mask_id] = now;
-+
-+	return 0;
-+}
-+
-+static int nfp_mask_alloc(struct nfp_app *app, u8 *mask_id)
-+{
-+	struct nfp_flower_priv *priv = app->priv;
-+	struct timespec64 delta, now;
-+	struct circ_buf *ring;
-+	u8 temp_id, freed_id;
-+
-+	ring = &priv->mask_ids.mask_id_free_list;
-+	freed_id = NFP_FLOWER_MASK_ENTRY_RS - 1;
-+	/* Checking for unallocated entries first. */
-+	if (priv->mask_ids.init_unallocated > 0) {
-+		*mask_id = priv->mask_ids.init_unallocated;
-+		priv->mask_ids.init_unallocated--;
-+		return 0;
-+	}
-+
-+	/* Checking if buffer is empty. */
-+	if (ring->head == ring->tail)
-+		goto err_not_found;
-+
-+	memcpy(&temp_id, &ring->buf[ring->tail], NFP_FLOWER_MASK_ELEMENT_RS);
-+	*mask_id = temp_id;
-+
-+	getnstimeofday64(&now);
-+	delta = timespec64_sub(now, priv->mask_ids.last_used[*mask_id]);
-+
-+	if (timespec64_to_ns(&delta) < NFP_FL_MASK_REUSE_TIME_NS)
-+		goto err_not_found;
-+
-+	memcpy(&ring->buf[ring->tail], &freed_id, NFP_FLOWER_MASK_ELEMENT_RS);
-+	ring->tail = (ring->tail + NFP_FLOWER_MASK_ELEMENT_RS) %
-+		     (NFP_FLOWER_MASK_ENTRY_RS * NFP_FLOWER_MASK_ELEMENT_RS);
-+
-+	return 0;
-+
-+err_not_found:
-+	*mask_id = freed_id;
-+	return -ENOENT;
-+}
-+
-+static int
-+nfp_add_mask_table(struct nfp_app *app, char *mask_data, u32 mask_len)
-+{
-+	struct nfp_flower_priv *priv = app->priv;
-+	struct nfp_mask_id_table *mask_entry;
-+	unsigned long hash_key;
-+	u8 mask_id;
-+
-+	if (nfp_mask_alloc(app, &mask_id))
-+		return -ENOENT;
-+
-+	mask_entry = kmalloc(sizeof(*mask_entry), GFP_KERNEL);
-+	if (!mask_entry) {
-+		nfp_release_mask_id(app, mask_id);
-+		return -ENOMEM;
-+	}
-+
-+	INIT_HLIST_NODE(&mask_entry->link);
-+	mask_entry->mask_id = mask_id;
-+	hash_key = jhash(mask_data, mask_len, priv->mask_id_seed);
-+	mask_entry->hash_key = hash_key;
-+	mask_entry->ref_cnt = 1;
-+	hash_add(priv->mask_table, &mask_entry->link, hash_key);
-+
-+	return mask_id;
-+}
-+
-+static struct nfp_mask_id_table *
-+nfp_search_mask_table(struct nfp_app *app, char *mask_data, u32 mask_len)
-+{
-+	struct nfp_flower_priv *priv = app->priv;
-+	struct nfp_mask_id_table *mask_entry;
-+	unsigned long hash_key;
-+
-+	hash_key = jhash(mask_data, mask_len, priv->mask_id_seed);
-+
-+	hash_for_each_possible(priv->mask_table, mask_entry, link, hash_key)
-+		if (mask_entry->hash_key == hash_key)
-+			return mask_entry;
-+
-+	return NULL;
-+}
-+
-+static int
-+nfp_find_in_mask_table(struct nfp_app *app, char *mask_data, u32 mask_len)
-+{
-+	struct nfp_mask_id_table *mask_entry;
-+
-+	mask_entry = nfp_search_mask_table(app, mask_data, mask_len);
-+	if (!mask_entry)
-+		return -ENOENT;
-+
-+	mask_entry->ref_cnt++;
-+
-+	/* Casting u8 to int for later use. */
-+	return mask_entry->mask_id;
-+}
-+
-+static bool
-+nfp_check_mask_add(struct nfp_app *app, char *mask_data, u32 mask_len,
-+		   u8 *meta_flags, u8 *mask_id)
-+{
-+	int id;
-+
-+	id = nfp_find_in_mask_table(app, mask_data, mask_len);
-+	if (id < 0) {
-+		id = nfp_add_mask_table(app, mask_data, mask_len);
-+		if (id < 0)
-+			return false;
-+		*meta_flags |= NFP_FL_META_FLAG_NEW_MASK;
-+	}
-+	*mask_id = id;
-+
-+	return true;
-+}
-+
-+static bool
-+nfp_check_mask_remove(struct nfp_app *app, char *mask_data, u32 mask_len,
-+		      u8 *meta_flags, u8 *mask_id)
-+{
-+	struct nfp_mask_id_table *mask_entry;
-+
-+	mask_entry = nfp_search_mask_table(app, mask_data, mask_len);
-+	if (!mask_entry)
-+		return false;
-+
-+	*mask_id = mask_entry->mask_id;
-+	mask_entry->ref_cnt--;
-+	if (!mask_entry->ref_cnt) {
-+		hash_del(&mask_entry->link);
-+		nfp_release_mask_id(app, *mask_id);
-+		kfree(mask_entry);
-+		if (meta_flags)
-+			*meta_flags |= NFP_FL_META_FLAG_LAST_MASK;
-+	}
-+
-+	return true;
-+}
-+
-+int nfp_compile_flow_metadata(struct nfp_app *app,
-+			      struct tc_cls_flower_offload *flow,
-+			      struct nfp_fl_payload *nfp_flow)
-+{
-+	struct nfp_flower_priv *priv = app->priv;
-+	struct nfp_fl_payload *check_entry;
-+	u8 new_mask_id;
-+
-+	new_mask_id = 0;
-+	if (!nfp_check_mask_add(app, nfp_flow->mask_data,
-+				nfp_flow->meta.mask_len,
-+				&nfp_flow->meta.flags, &new_mask_id))
-+		return -ENOENT;
-+
-+	nfp_flow->meta.flow_version = cpu_to_be64(priv->flower_version);
-+	priv->flower_version++;
-+
-+	/* Update flow payload with mask ids. */
-+	nfp_flow->unmasked_data[NFP_FL_MASK_ID_LOCATION] = new_mask_id;
-+
-+	check_entry = nfp_flower_search_fl_table(app, flow->cookie);
-+	if (check_entry) {
-+		if (!nfp_check_mask_remove(app, nfp_flow->mask_data,
-+					   nfp_flow->meta.mask_len,
-+					   NULL, &new_mask_id))
-+			return -EINVAL;
-+
-+		return -EEXIST;
-+	}
-+
-+	return 0;
-+}
-+
-+int nfp_modify_flow_metadata(struct nfp_app *app,
-+			     struct nfp_fl_payload *nfp_flow)
-+{
-+	struct nfp_flower_priv *priv = app->priv;
-+	u8 new_mask_id = 0;
-+
-+	nfp_check_mask_remove(app, nfp_flow->mask_data,
-+			      nfp_flow->meta.mask_len, &nfp_flow->meta.flags,
-+			      &new_mask_id);
-+
-+	nfp_flow->meta.flow_version = cpu_to_be64(priv->flower_version);
-+	priv->flower_version++;
-+
-+	/* Update flow payload with mask ids. */
-+	nfp_flow->unmasked_data[NFP_FL_MASK_ID_LOCATION] = new_mask_id;
-+
-+	return 0;
-+}
-+
-+int nfp_flower_metadata_init(struct nfp_app *app)
-+{
-+	struct nfp_flower_priv *priv = app->priv;
-+
-+	hash_init(priv->mask_table);
-+	hash_init(priv->flow_table);
-+	get_random_bytes(&priv->mask_id_seed, sizeof(priv->mask_id_seed));
-+
-+	/* Init ring buffer and unallocated mask_ids. */
-+	priv->mask_ids.mask_id_free_list.buf =
-+		kmalloc_array(NFP_FLOWER_MASK_ENTRY_RS,
-+			      NFP_FLOWER_MASK_ELEMENT_RS, GFP_KERNEL);
-+	if (!priv->mask_ids.mask_id_free_list.buf)
-+		return -ENOMEM;
-+
-+	priv->mask_ids.init_unallocated = NFP_FLOWER_MASK_ENTRY_RS - 1;
-+
-+	/* Init timestamps for mask id*/
-+	priv->mask_ids.last_used =
-+		kmalloc_array(NFP_FLOWER_MASK_ENTRY_RS,
-+			      sizeof(*priv->mask_ids.last_used), GFP_KERNEL);
-+	if (!priv->mask_ids.last_used)
-+		goto err_free_mask_id;
-+
-+	return 0;
-+
-+err_free_mask_id:
-+	kfree(priv->mask_ids.mask_id_free_list.buf);
-+	return -ENOMEM;
-+}
-+
-+void nfp_flower_metadata_cleanup(struct nfp_app *app)
-+{
-+	struct nfp_flower_priv *priv = app->priv;
-+
-+	if (!priv)
-+		return;
-+
-+	kfree(priv->mask_ids.mask_id_free_list.buf);
-+	kfree(priv->mask_ids.last_used);
-+}
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/offload.c b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-index de687a9e4759..04603d832adf 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/offload.c
-+++ b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-@@ -196,6 +196,7 @@ static int
- nfp_flower_add_offload(struct nfp_app *app, struct net_device *netdev,
- 		       struct tc_cls_flower_offload *flow)
- {
-+	struct nfp_flower_priv *priv = app->priv;
- 	struct nfp_fl_payload *flow_pay;
- 	struct nfp_fl_key_ls *key_layer;
- 	int err;
-@@ -222,8 +223,18 @@ nfp_flower_add_offload(struct nfp_app *app, struct net_device *netdev,
- 	if (err)
- 		goto err_destroy_flow;
- 
--	/* TODO: Complete flower_add_offload. */
--	err = -EOPNOTSUPP;
-+	err = nfp_compile_flow_metadata(app, flow, flow_pay);
-+	if (err)
-+		goto err_destroy_flow;
-+
-+	INIT_HLIST_NODE(&flow_pay->link);
-+	flow_pay->tc_flower_cookie = flow->cookie;
-+	hash_add_rcu(priv->flow_table, &flow_pay->link, flow->cookie);
-+
-+	/* Deallocate flow payload when flower rule has been destroyed. */
-+	kfree(key_layer);
-+
-+	return 0;
- 
- err_destroy_flow:
- 	kfree(flow_pay->action_data);
-@@ -250,7 +261,21 @@ static int
- nfp_flower_del_offload(struct nfp_app *app, struct net_device *netdev,
- 		       struct tc_cls_flower_offload *flow)
- {
--	return -EOPNOTSUPP;
-+	struct nfp_fl_payload *nfp_flow;
-+	int err;
-+
-+	nfp_flow = nfp_flower_search_fl_table(app, flow->cookie);
-+	if (!nfp_flow)
-+		return -ENOENT;
-+
-+	err = nfp_modify_flow_metadata(app, nfp_flow);
-+
-+	hash_del_rcu(&nfp_flow->link);
-+	kfree(nfp_flow->action_data);
-+	kfree(nfp_flow->mask_data);
-+	kfree(nfp_flow->unmasked_data);
-+	kfree_rcu(nfp_flow, rcu);
-+	return err;
- }
- 
- /**
--- 
-2.1.4
+Actually I reported about the similar problem a few month ago on the linux-next:
+https://lkml.org/lkml/2017/3/10/1586
+
+So I don't think that the change from Liping Zhang affects this issue
+somehow. I mentioned it just to describe what kernel we used.
+
+And I don't know how to reproduce the issue. You can see from the
+kernel log, that the kernel worked for more than 6 hours in out case.
+During this perioud we run all our tests a few times, so I think there
+is a kind of race.
+
+>
+> I could not find the mentioned commits.  Are the in Linus's tree or
+> someone's next tree that feeds into linux-next?
+
+Here is the patch from Liping Zhang
+https://patchwork.ozlabs.org/patch/770887/
+
+The second mentioned commit is HEAD of the master branch in Linus' tree:
+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=6474924e2b5ddb0030c355558966adcbe3b49022
+
+Thanks,
+Andrei
+
+>
+> Eric
+>
+>> [root@zdtm linux]# git describe HEAD~1
+>> v4.12-rc7-25-g6474924
+>>
+>> And there is one more patch from the netfilter tree:
+>> commit b216759c0cb5d37d1eec3cd5b67ba38bace94fd8
+>> Author: Liping Zhang
+>> Date:   Sun Jun 4 19:17:34 2017 +0800
+>>
+>>     netfilter: nf_ct_dccp/sctp: fix memory leak after netns cleanup
+>>
+>> [root@zdtm linux]# uname -a
+>> Linux zdtm.openvz.org 4.12.0-rc7+ #9 SMP Thu Jun 29 08:28:18 CEST 2017
+>> x86_64 x86_64 x86_64 GNU/Linux
+>>
+>> A kernel config is attached.
+>>
+>>
+>> [22458.504137] BUG: Dentry ffff9f795a08fe60{i=af565f,n=lo}  still in
+>> use (1) [unmount of proc proc]
+>> [22458.505117] ------------[ cut here ]------------
+>> [22458.505299] WARNING: CPU: 0 PID: 15036 at fs/dcache.c:1445
+>> umount_check+0x66/0x80
+>> [22458.505564] Modules linked in: nfsd auth_rpcgss nfs_acl lockd grace
+>> sunrpc macvlan tun veth nf_conntrack_netlink xt_mark udp_diag tcp_diag
+>> inet_diag netlink_diag af_packet_diag unix_diag binfmt_misc
+>> ip6t_rpfilter ip6t_REJECT nf_reject_ipv6 xt_conntrack ip_set nfnetlink
+>> ebtable_broute bridge stp llc ebtable_nat ip6table_security
+>> ip6table_mangle ip6table_raw ip6table_nat nf_conntrack_ipv6
+>> nf_defrag_ipv6 nf_nat_ipv6 iptable_security iptable_mangle iptable_raw
+>> iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 nf_nat
+>> nf_conntrack ebtable_filter ebtables ip6table_filter ip6_tables btrfs
+>> xor raid6_pq loop ppdev crct10dif_pclmul crc32_pclmul
+>> ghash_clmulni_intel lpc_ich sbs virtio_balloon shpchp sbshc parport_pc
+>> parport tpm_tis tpm_tis_core tpm xfs libcrc32c crc32c_intel
+>> ata_generic serio_raw pata_acpi
+>> [22458.507586]  virtio_pci virtio virtio_ring e1000
+>> [22458.507771] CPU: 0 PID: 15036 Comm: kworker/0:2 Not tainted 4.12.0-rc7+ #9
+>> [22458.507830] systemd-journald[561]: Compressed data object 807 ->
+>> 605 using LZ4
+>> [22458.508184] Hardware name: Parallels Software International Inc.
+>> Parallels Virtual Platform/Parallels Virtual Platform, BIOS
+>> 6.12.26068.1232434 02/27/2017
+>> [22458.508641] Workqueue: events proc_cleanup_work
+>> [22458.508848] task: ffff9f797be80000 task.stack: ffffb2b8825f0000
+>> [22458.509033] RIP: 0010:umount_check+0x66/0x80
+>> [22458.509172] RSP: 0018:ffffb2b8825f3c68 EFLAGS: 00010286
+>> [22458.509363] RAX: 0000000000000054 RBX: ffff9f798492afa0 RCX: 0000000000000000
+>> [22458.509589] RDX: 0000000000000000 RSI: ffff9f79bce0e388 RDI: ffff9f79bce0e388
+>> [22458.509823] RBP: ffffb2b8825f3c70 R08: 0000000000000000 R09: 0000000000000000
+>> [22458.510022] R10: ffffb2b8825f3bf0 R11: 0000000000000000 R12: ffff9f795a08fe60
+>> [22458.510217] R13: ffff9f795a08ff50 R14: ffff9f795a08fee0 R15: ffff9f798492afa0
+>> [22458.510456] FS:  0000000000000000(0000) GS:ffff9f79bce00000(0000)
+>> knlGS:0000000000000000
+>> [22458.510726] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+>> [22458.510953] CR2: 00007f834657a6b0 CR3: 00000000602a3000 CR4: 00000000000006f0
+>> [22458.511163] Call Trace:
+>> [22458.511289]  d_walk+0x144/0x510
+>> [22458.511442]  ? detach_and_collect+0x30/0x30
+>> [22458.511620]  do_one_tree+0x26/0x40
+>> [22458.511793]  shrink_dcache_for_umount+0x2d/0x90
+>> [22458.511954]  generic_shutdown_super+0x1f/0x120
+>> [22458.512105]  kill_anon_super+0x12/0x20
+>> [22458.512243]  proc_kill_sb+0x40/0x50
+>> [22458.512406]  deactivate_locked_super+0x43/0x70
+>> [22458.512576]  deactivate_super+0x4e/0x60
+>> [22458.512731]  cleanup_mnt+0x3f/0x80
+>> [22458.512890]  mntput_no_expire+0x2fc/0x3b0
+>> [22458.513028]  kern_unmount+0x3e/0x50
+>> [22458.513153]  pid_ns_release_proc+0x15/0x20
+>> [22458.513309]  proc_cleanup_work+0x15/0x20
+>> [22458.513469]  process_one_work+0x205/0x5d0
+>> [22458.513635]  worker_thread+0x4e/0x3a0
+>> [22458.513809]  kthread+0x109/0x140
+>> [22458.513929]  ? process_one_work+0x5d0/0x5d0
+>> [22458.514067]  ? kthread_create_on_node+0x70/0x70
+>> [22458.514217]  ? prepare_exit_to_usermode+0x7e/0x80
+>> [22458.514400]  ret_from_fork+0x2a/0x40
+>> [22458.514550] Code: 48 8d 88 50 06 00 00 48 8b 40 28 4c 8b 08 48 8b
+>> 46 58 48 85 c0 74 1b 48 8b 50 40 51 48 c7 c7 60 f9 c9 95 48 89 f1 e8
+>> 99 39 f3 ff <0f> ff 58 31 c0 c9 c3 31 d2 eb e5 0f 1f 44 00 00 66 2e 0f
+>> 1f 84
+>> [22458.515141] ---[ end trace b37db95b00f941ab ]---
+>> [22458.519368] VFS: Busy inodes after unmount of proc. Self-destruct
+>> in 5 seconds.  Have a nice day...
+>> [22458.813846] BUG: unable to handle kernel NULL pointer dereference
+>> at 0000000000000018
+>> [22458.814081] IP: __lock_acquire+0x127/0x12f0
+>> [22458.814213] PGD 5ce4e067
+>> [22458.814213] P4D 5ce4e067
+>> [22458.814340] PUD 5ce4f067
+>> [22458.814450] PMD 0
+>>
+>> [22458.814724] Oops: 0000 [#1] SMP
+>> [22458.814844] Modules linked in: nfsd auth_rpcgss nfs_acl lockd grace
+>> sunrpc macvlan tun veth nf_conntrack_netlink xt_mark udp_diag tcp_diag
+>> inet_diag netlink_diag af_packet_diag unix_diag binfmt_misc
+>> ip6t_rpfilter ip6t_REJECT nf_reject_ipv6 xt_conntrack ip_set nfnetlink
+>> ebtable_broute bridge stp llc ebtable_nat ip6table_security
+>> ip6table_mangle ip6table_raw ip6table_nat nf_conntrack_ipv6
+>> nf_defrag_ipv6 nf_nat_ipv6 iptable_security iptable_mangle iptable_raw
+>> iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 nf_nat
+>> nf_conntrack ebtable_filter ebtables ip6table_filter ip6_tables btrfs
+>> xor raid6_pq loop ppdev crct10dif_pclmul crc32_pclmul
+>> ghash_clmulni_intel lpc_ich sbs virtio_balloon shpchp sbshc parport_pc
+>> parport tpm_tis tpm_tis_core tpm xfs libcrc32c crc32c_intel
+>> ata_generic serio_raw pata_acpi
+>> [22458.816586]  virtio_pci virtio virtio_ring e1000
+>> [22458.816741] CPU: 0 PID: 31415 Comm: kworker/u64:3 Tainted: G
+>> W       4.12.0-rc7+ #9
+>> [22458.816972] Hardware name: Parallels Software International Inc.
+>> Parallels Virtual Platform/Parallels Virtual Platform, BIOS
+>> 6.12.26068.1232434 02/27/2017
+>> [22458.817355] Workqueue: netns cleanup_net
+>> [22458.817500] task: ffff9f799f278000 task.stack: ffffb2b882934000
+>> [22458.817676] RIP: 0010:__lock_acquire+0x127/0x12f0
+>> [22458.817826] RSP: 0018:ffffb2b882937950 EFLAGS: 00010002
+>> [22458.817995] RAX: 0000000000000046 RBX: 0000000000000000 RCX: 0000000000000000
+>> [22458.818192] RDX: 0000000000000001 RSI: 0000000000000000 RDI: 0000000000000018
+>> [22458.818422] RBP: ffffb2b882937a10 R08: ffffffff95237bca R09: 0000000000000000
+>> [22458.818637] R10: 0000000000000000 R11: ffff9f799f278000 R12: 0000000000000001
+>> [22458.818846] R13: 0000000000000000 R14: 0000000000000001 R15: 0000000000000018
+>> [22458.819046] FS:  0000000000000000(0000) GS:ffff9f79bce00000(0000)
+>> knlGS:0000000000000000
+>> [22458.819264] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+>> [22458.819468] CR2: 0000000000000018 CR3: 000000003f0cd000 CR4: 00000000000006f0
+>> [22458.819669] Call Trace:
+>> [22458.819784]  ? __lock_acquire+0x39e/0x12f0
+>> [22458.819919]  lock_acquire+0xd5/0x1c0
+>> [22458.820043]  ? lock_acquire+0xd5/0x1c0
+>> [22458.820174]  ? list_lru_del+0x5a/0x170
+>> [22458.820331]  _raw_spin_lock+0x28/0x40
+>> [22458.820475]  ? list_lru_del+0x5a/0x170
+>> [22458.820611]  list_lru_del+0x5a/0x170
+>> [22458.820748]  d_lru_del+0x44/0x60
+>> [22458.820870]  __dentry_kill+0x149/0x180
+>> [22458.820998]  d_prune_aliases+0x5e/0x200
+>> [22458.821130]  drop_sysctl_table+0x135/0x310
+>> [22458.821270]  ? trace_hardirqs_on_caller+0xf5/0x190
+>> [22458.821454]  ? trace_hardirqs_on+0xd/0x10
+>> [22458.821597]  drop_sysctl_table+0x212/0x310
+>> [22458.821741]  ? trace_hardirqs_on_caller+0xf5/0x190
+>> [22458.821898]  ? trace_hardirqs_on+0xd/0x10
+>> [22458.822034]  drop_sysctl_table+0x212/0x310
+>> [22458.822172]  ? unregister_sysctl_table+0x36/0x80
+>> [22458.822343]  unregister_sysctl_table+0x3e/0x80
+>> [22458.822507]  unregister_net_sysctl_table+0xe/0x10
+>> [22458.822664]  __devinet_sysctl_unregister.isra.25+0x2b/0x50
+>> [22458.822847]  devinet_exit_net+0x47/0x70
+>> [22458.822976]  ops_exit_list.isra.4+0x38/0x60
+>> [22458.823116]  cleanup_net+0x1ee/0x2f0
+>> [22458.823243]  process_one_work+0x205/0x5d0
+>> [22458.823405]  worker_thread+0x4e/0x3a0
+>> [22458.823549]  kthread+0x109/0x140
+>> [22458.823667]  ? process_one_work+0x5d0/0x5d0
+>> [22458.823819]  ? kthread_create_on_node+0x70/0x70
+>> [22458.823976]  ret_from_fork+0x2a/0x40
+>> [22458.824101] Code: c8 65 48 33 3c 25 28 00 00 00 44 89 f0 0f 85 2b
+>> 0d 00 00 48 81 c4 90 00 00 00 5b 41 5a 41 5c 41 5d 41 5e 41 5f 5d 49
+>> 8d 62 f8 c3 <49> 81 3f e0 38 44 96 41 bc 00 00 00 00 44 0f 45 e2 83 fe
+>> 01 0f
+>> [22458.824634] RIP: __lock_acquire+0x127/0x12f0 RSP: ffffb2b882937950
+>> [22458.824821] CR2: 0000000000000018
+>> [22458.824943] ---[ end trace b37db95b00f941ac ]---
