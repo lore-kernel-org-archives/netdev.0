@@ -1,75 +1,42 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [net-next v2 6/6] ixgbe: Add malicious driver detection support
-Date: Thu, 29 Jun 2017 21:19:58 +0000
-Message-ID: <87618083B2453E4A8714035B62D67992B3E8A975@FMSMSX105.amr.corp.intel.com>
-References: <CAJ3xEMgT62xt=TdFyY9vfRG+eOqvcLT+5m1WSGPtexygyrcB+w@mail.gmail.com>
-        <87618083B2453E4A8714035B62D67992B3E89F1D@FMSMSX105.amr.corp.intel.com>
-        <CAJ3xEMgAOMM3g0sqc6AfWLWf_VKwuHQGh_ZSYfmeQg=JotGbbg@mail.gmail.com>
- <20170629.142818.560549326785464904.davem@davemloft.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH RFC 0/2] kproxy: Kernel Proxy
+Date: Thu, 29 Jun 2017 15:04:14 -0700
+Message-ID: <CACby=pnLJRawb40Ym1_85+8P7vmkwLJqfsv=bYyeHHa8KWPwNA@mail.gmail.com>
+References: <1498760825-8516-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-        "Greenwalt, Paul" <paul.greenwalt@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "nhorman@redhat.com" <nhorman@redhat.com>,
-        "sassmann@redhat.com" <sassmann@redhat.com>,
-        "jogreene@redhat.com" <jogreene@redhat.com>
-To: David Miller <davem@davemloft.net>,
-        "gerlitz.or@gmail.com" <gerlitz.or@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:23952 "EHLO mga03.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753422AbdF2VUF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 29 Jun 2017 17:20:05 -0400
-In-Reply-To: <20170629.142818.560549326785464904.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:36599 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751752AbdF2WEQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 18:04:16 -0400
+Received: by mail-pf0-f175.google.com with SMTP id q86so56827411pfl.3
+        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 15:04:15 -0700 (PDT)
+In-Reply-To: <1498760825-8516-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: David Miller [mailto:davem@davemloft.net]
->Sent: Thursday, June 29, 2017 11:28 AM
->To: gerlitz.or@gmail.com
->Cc: Tantilov, Emil S <emil.s.tantilov@intel.com>; Kirsher, Jeffrey T
-><jeffrey.t.kirsher@intel.com>; Greenwalt, Paul <paul.greenwalt@intel.com>;
->netdev@vger.kernel.org; nhorman@redhat.com; sassmann@redhat.com;
->jogreene@redhat.com
->Subject: Re: [net-next v2 6/6] ixgbe: Add malicious driver detection
->support
->
->From: Or Gerlitz <gerlitz.or@gmail.com>
->Date: Wed, 28 Jun 2017 17:28:59 +0300
->
->> On Wed, Jun 28, 2017 at 1:14 AM, Tantilov, Emil S
->> <emil.s.tantilov@intel.com> wrote:
->>
->>> Mainly because I am not sure that other (non-Intel) drivers will benefit
->from
->>> such an option. In normal operation this functionality should not cause
->issues
->>> and if it doesn't we may be able to deprecate the private flag in the
->future.
->>
->> If you think this functionality makes sense any driver running over HW
->> implementing
->> it would like to be able to expose that and hence you better not use
->> private flag.
+Hi Tom
 
-As I mentioned I don't know if this will be useful for other drivers.
-The i40e driver enables it by default without possibility to disable it
-and if this protection does not cause problems for ixgbe then we may not
-need the option in the future. Because of this I wasn't sure if it's
-worth polluting the tools with options that may end up not being 
-needed/used at all.
- 
->> Are we sure the trust UAPI can't be extended for that matter?
+On 29 June 2017 at 11:27, Tom Herbert <tom@herbertland.com> wrote:
+> This is raw, minimally tested, and error hanlding needs work. Posting
+> as RFC to get feedback on the design...
 >
->Yeah, we should probably make this a generic control if possible.
+> Sidecar proxies are becoming quite popular on server as a means to
+> perform layer 7 processing on application data as it is sent. Such
+> sidecars are used for SSL proxies, application firewalls, and L7
+> load balancers. While these proxies provide nice functionality,
+> their performance is obviously terrible since all the data needs
+> to take an extra hop though userspace.
 
-MDD is set globally for the device, while the trusted option is set per VF.
-So if we do end up adding an option it probably won't work as extension for
-trusted.
+I really appreciate this work. It would have been nice to at least
+attribute me in some way as this is exactly what I presented at
+Netconf 2017 [0].
 
-Thanks,
-Emil
+I'm also wondering why this is not built on top of KCM which you
+suggested to use when we discussed this.
+
+[0] https://docs.google.com/presentation/d/1dwSKSBGpUHD3WO5xxzZWj8awV_-xL-oYhvqQMOBhhtk/edit#slide=id.g203aae413f_0_0
