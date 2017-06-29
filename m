@@ -1,44 +1,36 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next v2 8/9] nfp: add a stats handler for flower offloads
-Date: Thu, 29 Jun 2017 17:39:34 +0300
-Message-ID: <CAJ3xEMgUQKyf2d0KB1ZKeKVYcNN65X8U0X55riJv2ebs-w2bGg@mail.gmail.com>
-References: <1498681802-2897-1-git-send-email-simon.horman@netronome.com> <1498681802-2897-9-git-send-email-simon.horman@netronome.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next v2 9/9] nfp: add control message passing
+ capabilities to flower offloads
+Date: Thu, 29 Jun 2017 14:45:15 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD002DCAB@AcuExch.aculab.com>
+References: <1498681802-2897-1-git-send-email-simon.horman@netronome.com>
+ <1498681802-2897-10-git-send-email-simon.horman@netronome.com>
+ <CAJ3xEMjaaCWZ7gMaRVj-WRV5rcUc1JLwQZrQZihxjbg21uXTbA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: David Miller <davem@davemloft.net>,
         Jakub Kicinski <jakub.kicinski@netronome.com>,
         Linux Netdev List <netdev@vger.kernel.org>,
-        oss-drivers@netronome.com,
-        Pieter Jansen van Vuuren
-        <pieter.jansenvanvuuren@netronome.com>
-To: Simon Horman <simon.horman@netronome.com>
+        "oss-drivers@netronome.com" <oss-drivers@netronome.com>,
+        "Pieter Jansen van Vuuren" <pieter.jansenvanvuuren@netronome.com>
+To: 'Or Gerlitz' <gerlitz.or@gmail.com>,
+        Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f42.google.com ([209.85.218.42]:34176 "EHLO
-        mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751974AbdF2Ojf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 10:39:35 -0400
-Received: by mail-oi0-f42.google.com with SMTP id l130so13155779oib.1
-        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 07:39:35 -0700 (PDT)
-In-Reply-To: <1498681802-2897-9-git-send-email-simon.horman@netronome.com>
+Received: from smtp-out4.electric.net ([192.162.216.192]:53153 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752830AbdF2OpZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 10:45:25 -0400
+In-Reply-To: <CAJ3xEMjaaCWZ7gMaRVj-WRV5rcUc1JLwQZrQZihxjbg21uXTbA@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 28, 2017 at 11:30 PM, Simon Horman
-<simon.horman@netronome.com> wrote:
-> From: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
->
-> Previously there was no way of updating flow rule stats after they
-> have been offloaded to hardware. This is solved by keeping track of
-> stats received from hardware and providing this to the TC handler
-> on request.
-
-
-You are using the term/variable "unmasked_data" across the code, to
-make it clear
-the keys provided to the driver are masked by the tcflower kernel code
-[1] - what do
-you mean by unmasked data?
-
-Or.
-
-[1] f93bd17 net/sched: cls_flower: Use masked key when calling HW offloads
+RnJvbTogT3IgR2VybGl0eg0KPiBTZW50OiAyOSBKdW5lIDIwMTcgMTQ6NDcNCi4uLg0KPiA+ICsg
+ICAgICAgbmZwX2Zsb3ctPm1ldGEua2V5X2xlbiAvPSBORlBfRkxfTFdfU0laOw0KPiA+ICsgICAg
+ICAgbmZwX2Zsb3ctPm1ldGEubWFza19sZW4gLz0gTkZQX0ZMX0xXX1NJWjsNCj4gPiArICAgICAg
+IG5mcF9mbG93LT5tZXRhLmFjdF9sZW4gLz0gTkZQX0ZMX0xXX1NJWjsNCj4gDQo+IGJldHRlciB0
+byB1c2UgdXNlIHggPj49IDIgaW5zdGVhZCB4IC89IDQNCj4gDQo+IEkgc2F3IGl0IGluIG90aGVy
+IHBsYWNlcyBhY3Jvc3MgdGhlIHBhdGNoL3NldA0KDQpQcm92aWRlZCB0aGUgdmFsdWVzIGFyZSB1
+bnNpZ25lZCBpdCBtYWtlcyBubyBkaWZmZXJlbmNlLg0KSGF2aW5nIDIgbWF0Y2hpbmcgY29uc3Rh
+bnRzIGp1c3QgbWFrZXMgdGhlIGNvZGUgaGFyZGVyIHRvIHJlYWQuDQoNCglEYXZpZA0KDQo=
