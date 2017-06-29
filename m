@@ -1,55 +1,43 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 03/29] netfilter: dup: resolve warnings about missing prototypes
-Date: Fri, 30 Jun 2017 00:53:01 +0200
-Message-ID: <1498776807-11124-4-git-send-email-pablo@netfilter.org>
-References: <1498776807-11124-1-git-send-email-pablo@netfilter.org>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [PATCH] sctp: Add peeloff-flags socket option
+Date: Thu, 29 Jun 2017 23:56:21 +0100
+Message-ID: <20170629225621.GN10672@ZenIV.linux.org.uk>
+References: <20170629181340.12423-1-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Andreas Steinmetz <ast@domdv.de>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:57584 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752094AbdF2Wxl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 29 Jun 2017 18:53:41 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id D5A01BDF5B
-        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 00:53:29 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id C746BDA46C
-        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 00:53:29 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id D79EBDA241
-        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 00:53:25 +0200 (CEST)
-In-Reply-To: <1498776807-11124-1-git-send-email-pablo@netfilter.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:41342 "EHLO
+        ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751784AbdF2W43 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 18:56:29 -0400
+Content-Disposition: inline
+In-Reply-To: <20170629181340.12423-1-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: stephen hemminger <stephen@networkplumber.org>
+On Thu, Jun 29, 2017 at 02:13:40PM -0400, Neil Horman wrote:
+> diff --git a/fs/file.c b/fs/file.c
+> index 1c2972e..a4521da 100644
+> --- a/fs/file.c
+> +++ b/fs/file.c
+> @@ -807,6 +807,7 @@ void set_close_on_exec(unsigned int fd, int flag)
+>  		__clear_close_on_exec(fd, fdt);
+>  	spin_unlock(&files->file_lock);
+>  }
+> +EXPORT_SYMBOL(set_close_on_exec);
 
-Missing include file causes:
+Huh?
 
-net/netfilter/nf_dup_netdev.c:26:6: warning: no previous prototype for ‘nf_fwd_netdev_egress’ [-Wmissing-prototypes]
-net/netfilter/nf_dup_netdev.c:40:6: warning: no previous prototype for ‘nf_dup_netdev_egress’ [-Wmissing-prototypes]
+> +	set_close_on_exec(peeloff->sd, !!(flags & SOCK_CLOEXEC));
 
-Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nf_dup_netdev.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/netfilter/nf_dup_netdev.c b/net/netfilter/nf_dup_netdev.c
-index c9d7f95768ab..f4a566e67213 100644
---- a/net/netfilter/nf_dup_netdev.c
-+++ b/net/netfilter/nf_dup_netdev.c
-@@ -13,6 +13,7 @@
- #include <linux/netfilter.h>
- #include <linux/netfilter/nf_tables.h>
- #include <net/netfilter/nf_tables.h>
-+#include <net/netfilter/nf_dup_netdev.h>
- 
- static void nf_do_netdev_egress(struct sk_buff *skb, struct net_device *dev)
- {
--- 
-2.1.4
+Why hadn't you set it when that descriptor had been allocated?
+That
+        retval = get_unused_fd_flags(0);
+could just pass O_CLOEXEC and you'd get it set from the very
+beginning...
