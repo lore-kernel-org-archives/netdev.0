@@ -1,60 +1,52 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net-next v2 9/9] nfp: add control message passing
- capabilities to flower offloads
-Date: Thu, 29 Jun 2017 19:35:29 +0200
-Message-ID: <20170629173527.GA18062@vergenet.net>
-References: <1498681802-2897-1-git-send-email-simon.horman@netronome.com>
- <1498681802-2897-10-git-send-email-simon.horman@netronome.com>
- <CAJ3xEMjhJYQTnFdHJuMcHR=n3MLa=+SAycVZ3ZCQbCWoU8EbJw@mail.gmail.com>
- <20170629153012.GE6215@vergenet.net>
- <CAJ3xEMhETYdrLaOFaGwGS9P+M+ZSa6h0pCXWx_fop-7+xzf2Zg@mail.gmail.com>
+From: Pravin Shelar <pshelar@ovn.org>
+Subject: Re: [PATCH v3] datapath: Avoid using stack larger than 1024.
+Date: Thu, 29 Jun 2017 10:45:42 -0700
+Message-ID: <CAOrHB_B7PpKMdVn8JNG9B-R6i80Zxn8rEBBptCSKCTz6TdsU6g@mail.gmail.com>
+References: <1498700323-98406-1-git-send-email-xiangxia.m.yue@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        oss-drivers@netronome.com,
-        Pieter Jansen van Vuuren
-        <pieter.jansenvanvuuren@netronome.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Greg Rose <gvrose8192@gmail.com>
+To: Tonghao Zhang <xiangxia.m.yue@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f170.google.com ([209.85.220.170]:33481 "EHLO
-        mail-qk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751941AbdF2Rff (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 13:35:35 -0400
-Received: by mail-qk0-f170.google.com with SMTP id r62so82306390qkf.0
-        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 10:35:34 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAJ3xEMhETYdrLaOFaGwGS9P+M+ZSa6h0pCXWx_fop-7+xzf2Zg@mail.gmail.com>
+Received: from relay3-d.mail.gandi.net ([217.70.183.195]:43440 "EHLO
+        relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752609AbdF2Rpq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 13:45:46 -0400
+Received: from mfilter10-d.gandi.net (mfilter10-d.gandi.net [217.70.178.139])
+        by relay3-d.mail.gandi.net (Postfix) with ESMTP id 1A6C3A80CE
+        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 19:45:45 +0200 (CEST)
+Received: from relay3-d.mail.gandi.net ([IPv6:::ffff:217.70.183.195])
+        by mfilter10-d.gandi.net (mfilter10-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id XUvnQH2kIn71 for <netdev@vger.kernel.org>;
+        Thu, 29 Jun 2017 19:45:43 +0200 (CEST)
+Received: from mail-wr0-f179.google.com (mail-wr0-f179.google.com [209.85.128.179])
+        (Authenticated sender: pshelar@ovn.org)
+        by relay3-d.mail.gandi.net (Postfix) with ESMTPSA id 89282A80C1
+        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 19:45:43 +0200 (CEST)
+Received: by mail-wr0-f179.google.com with SMTP id 77so193241035wrb.1
+        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 10:45:43 -0700 (PDT)
+In-Reply-To: <1498700323-98406-1-git-send-email-xiangxia.m.yue@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 29, 2017 at 06:59:22PM +0300, Or Gerlitz wrote:
-> On Thu, Jun 29, 2017 at 6:30 PM, Simon Horman
-> <simon.horman@netronome.com> wrote:
-> > On Thu, Jun 29, 2017 at 06:21:53PM +0300, Or Gerlitz wrote:
-> >> On Wed, Jun 28, 2017 at 11:30 PM, Simon Horman
-> >> <simon.horman@netronome.com> wrote:
-> >> > +++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
-> >> > @@ -245,7 +245,11 @@ struct nfp_flower_cmsg_hdr {
-> >> >
-> >> >  /* Types defined for port related control messages  */
-> >> >  enum nfp_flower_cmsg_type_port {
-> >> > +       NFP_FLOWER_CMSG_TYPE_FLOW_ADD =         0,
-> >> > +       NFP_FLOWER_CMSG_TYPE_FLOW_MOD =         1,
-> >>
-> >> AFAIU flower offload will always use delete and add and not modify,
-> >> if you think otherwise, would love to hear that. Didn't see you are using
-> >> the MOD define in the code anywhere.
-> >
-> > The firmware API has a mod operation but you are correct that
-> > we are not implementing that operation in this patch-set.
-> 
-> that wasn't my comment. I said that AFAIU flower will never ask you to
-> modify, they
-> will ask to delete and later add, so I would be happy to know if you
-> see it differently.
-
-Yes, I agree.
-
-Sorry for not answering your question properly the first time.
+On Wed, Jun 28, 2017 at 6:38 PM, Tonghao Zhang <xiangxia.m.yue@gmail.com> wrote:
+> When compiling OvS-master on 4.4.0-81 kernel,
+> there is a warning:
+>
+>     CC [M]  /root/ovs/datapath/linux/datapath.o
+>     /root/ovs/datapath/linux/datapath.c: In function
+>     'ovs_flow_cmd_set':
+>     /root/ovs/datapath/linux/datapath.c:1221:1: warning:
+>     the frame size of 1040 bytes is larger than 1024 bytes
+>     [-Wframe-larger-than=]
+>
+> This patch factors out match-init and action-copy to avoid
+> "Wframe-larger-than=1024" warning. Because mask is only
+> used to get actions, we new a function to save some
+> stack space.
+>
+> Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+> ---
+Looks good, you have to submit patch against net-next for upstream OVS
+module first.
