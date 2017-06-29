@@ -1,72 +1,76 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 1/6] net: stmmac: support future possible
- different internal phy mode
-Date: Thu, 29 Jun 2017 16:05:13 -0400 (EDT)
-Message-ID: <20170629.160513.1064622973584891732.davem@davemloft.net>
-References: <20170627092806.28181-1-clabbe.montjoie@gmail.com>
-	<20170629.122349.2265868886957558079.davem@davemloft.net>
-	<20170629170238.GA2606@Red>
-Reply-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org,
- maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
- alexandre.torgue-qxv4g6HH51o@public.gmane.org, andre.przywara-5wv7dgnIgG8@public.gmane.org,
- devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-sunxi+bncBCFPF2XH6UDBB7F22XFAKGQEDAONZPY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <20170629170238.GA2606@Red>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH net-next v3 0/9] introduce flower offload capabilities
+Date: Thu, 29 Jun 2017 22:08:10 +0200
+Message-ID: <1498766899-30707-1-git-send-email-simon.horman@netronome.com>
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
+        Or Gerlitz <gerlitz.or@gmail.com>,
+        Pieter Jansen van Vuuren
+        <pieter.jansenvanvuuren@netronome.com>,
+        Simon Horman <simon.horman@netronome.com>
+To: David Miller <davem@davemloft.net>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f179.google.com ([209.85.216.179]:35514 "EHLO
+        mail-qt0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751612AbdF2UIl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 16:08:41 -0400
+Received: by mail-qt0-f179.google.com with SMTP id f92so83564948qtb.2
+        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 13:08:41 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Thu, 29 Jun 2017 19:02:38 +0200
+Hi,
 
-> On Thu, Jun 29, 2017 at 12:23:49PM -0400, David Miller wrote:
->> From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->> Date: Tue, 27 Jun 2017 11:28:01 +0200
->> =
+this series adds flower offload to the NFP driver. It builds on recent
+work to add representor and a skeleton flower app - now the app does what
+its name says.
 
->> > The current way to find if the phy is internal is to compare DT ph=
-y-mode
->> > and emac_variant/internal_phy.
->> > But it will negate a possible future SoC where an external PHY use=
- the
->> > same phy mode than the internal one.
->> > =
+In general the approach taken is to allow some flows within
+the universe of possible flower matches and tc actions to be offloaded.
+It is planned that this support will grow over time but the support
+offered by this patch-set seems to be a reasonable starting point.
 
->> > By using phy-mode =3D "internal" we permit to have an external PHY=
- with
->> > the same mode than the internal one.
->> > =
+Key Changes since v2:
+* Revised flow structures to simplify setup/teardown and locking of stats
+* Addressed other code-change review of v2
 
->> > Reported-by: Andr=E9 Przywara <andre.przywara-5wv7dgnIgG8@public.gmane.org>
->> > Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->> =
+Other review questions regarding v2 have been answered on netdev.
 
->> Series applied.
->> =
 
->> Please provide a proper "[PATCH 0/n] " header posting next time.
-> =
+Pieter Jansen van Vuuren (7):
+  nfp: provide infrastructure for offloading flower based TC filters
+  nfp: extend flower add flow offload
+  nfp: extend flower matching capabilities
+  nfp: add basic action capabilities to flower offloads
+  nfp: add metadata to each flow offload
+  nfp: add a stats handler for flower offloads
+  nfp: add control message passing capabilities to flower offloads
 
-> Sorry could you wait for applying, there are a parallel thread (http:=
-//www.spinics.net/lists/devicetree/msg183520.html) and it seems finaly =
-that internal could not be the good way to do it.
-> =
+Simon Horman (2):
+  net: switchdev: add SET_SWITCHDEV_OPS helper
+  nfp: add phys_switch_id support
 
-> Regards
-> Sorry again, I should have sent a comment for waiting.
+ drivers/net/ethernet/netronome/nfp/Makefile        |   6 +-
+ drivers/net/ethernet/netronome/nfp/flower/action.c | 211 ++++++++++
+ drivers/net/ethernet/netronome/nfp/flower/cmsg.c   |  11 +-
+ drivers/net/ethernet/netronome/nfp/flower/cmsg.h   | 201 ++++++++++
+ drivers/net/ethernet/netronome/nfp/flower/main.c   |  39 +-
+ drivers/net/ethernet/netronome/nfp/flower/main.h   | 159 ++++++++
+ drivers/net/ethernet/netronome/nfp/flower/match.c  | 292 ++++++++++++++
+ .../net/ethernet/netronome/nfp/flower/metadata.c   | 438 +++++++++++++++++++++
+ .../net/ethernet/netronome/nfp/flower/offload.c    | 400 +++++++++++++++++++
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    |  17 +-
+ drivers/net/ethernet/netronome/nfp/nfp_net_repr.c  |   8 +
+ drivers/net/ethernet/netronome/nfp/nfp_net_repr.h  |   9 +
+ drivers/net/ethernet/netronome/nfp/nfp_port.c      |  44 +++
+ drivers/net/ethernet/netronome/nfp/nfp_port.h      |   6 +
+ include/net/switchdev.h                            |   4 +
+ 15 files changed, 1816 insertions(+), 29 deletions(-)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/flower/action.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/flower/main.h
+ create mode 100644 drivers/net/ethernet/netronome/nfp/flower/match.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/flower/metadata.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/flower/offload.c
 
-Please send me a revert patch, when I say I've applied it I already pus=
-hed
-it out to my GIT tree.
+-- 
+2.1.4
