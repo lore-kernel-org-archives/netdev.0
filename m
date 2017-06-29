@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 27/29] netfilter: conntrack: use NFPROTO_MAX to size array
-Date: Fri, 30 Jun 2017 00:53:25 +0200
-Message-ID: <1498776807-11124-28-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 13/29] netfilter: nf_tables: select set backend flavour depending on description
+Date: Fri, 30 Jun 2017 00:53:11 +0200
+Message-ID: <1498776807-11124-14-git-send-email-pablo@netfilter.org>
 References: <1498776807-11124-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,120 +10,328 @@ In-Reply-To: <1498776807-11124-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
+This patch adds the infrastructure to support several implementations of
+the same set type. This selection will be based on the set description
+and the features available for this set. This allow us to select set
+backend implementation that will result in better performance numbers.
 
-We don't support anything larger than NFPROTO_MAX, so we can shrink this a bit:
-
-     text data  dec  hex filename
-old: 8259 1096 9355 248b net/netfilter/nf_conntrack_proto.o
-new: 8259  624 8883 22b3 net/netfilter/nf_conntrack_proto.o
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_conntrack_l3proto.h |  4 ++--
- net/netfilter/nf_conntrack_proto.c           | 18 +++++++++---------
- 2 files changed, 11 insertions(+), 11 deletions(-)
+ include/net/netfilter/nf_tables.h | 26 +++++++++++++----
+ net/netfilter/nf_tables_api.c     | 59 ++++++++++++++++++++++++---------------
+ net/netfilter/nft_set_bitmap.c    | 10 +++++--
+ net/netfilter/nft_set_hash.c      | 10 +++++--
+ net/netfilter/nft_set_rbtree.c    | 10 +++++--
+ 5 files changed, 80 insertions(+), 35 deletions(-)
 
-diff --git a/include/net/netfilter/nf_conntrack_l3proto.h b/include/net/netfilter/nf_conntrack_l3proto.h
-index e01559b4d781..6d14b36e3a49 100644
---- a/include/net/netfilter/nf_conntrack_l3proto.h
-+++ b/include/net/netfilter/nf_conntrack_l3proto.h
-@@ -71,7 +71,7 @@ struct nf_conntrack_l3proto {
- 	struct module *me;
+diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
+index 8a8bab8d7b15..f27012098846 100644
+--- a/include/net/netfilter/nf_tables.h
++++ b/include/net/netfilter/nf_tables.h
+@@ -281,6 +281,23 @@ struct nft_set_estimate {
+ 	enum nft_set_class	space;
  };
  
--extern struct nf_conntrack_l3proto __rcu *nf_ct_l3protos[AF_MAX];
-+extern struct nf_conntrack_l3proto __rcu *nf_ct_l3protos[NFPROTO_NUMPROTO];
++/**
++ *      struct nft_set_type - nf_tables set type
++ *
++ *      @select_ops: function to select nft_set_ops
++ *      @ops: default ops, used when no select_ops functions is present
++ *      @list: used internally
++ *      @owner: module reference
++ */
++struct nft_set_type {
++	const struct nft_set_ops	*(*select_ops)(const struct nft_ctx *,
++						       const struct nft_set_desc *desc,
++						       u32 flags);
++	const struct nft_set_ops	*ops;
++	struct list_head		list;
++	struct module			*owner;
++};
++
+ struct nft_set_ext;
+ struct nft_expr;
  
- #ifdef CONFIG_SYSCTL
- /* Protocol pernet registration. */
-@@ -100,7 +100,7 @@ extern struct nf_conntrack_l3proto nf_conntrack_l3proto_generic;
- static inline struct nf_conntrack_l3proto *
- __nf_ct_l3proto_find(u_int16_t l3proto)
+@@ -297,8 +314,6 @@ struct nft_expr;
+  *	@privsize: function to return size of set private data
+  *	@init: initialize private data of new set instance
+  *	@destroy: destroy private data of set instance
+- *	@list: nf_tables_set_ops list node
+- *	@owner: module reference
+  *	@elemsize: element private size
+  *	@features: features supported by the implementation
+  */
+@@ -345,14 +360,13 @@ struct nft_set_ops {
+ 						const struct nlattr * const nla[]);
+ 	void				(*destroy)(const struct nft_set *set);
+ 
+-	struct list_head		list;
+-	struct module			*owner;
+ 	unsigned int			elemsize;
+ 	u32				features;
++	const struct nft_set_type	*type;
+ };
+ 
+-int nft_register_set(struct nft_set_ops *ops);
+-void nft_unregister_set(struct nft_set_ops *ops);
++int nft_register_set(struct nft_set_type *type);
++void nft_unregister_set(struct nft_set_type *type);
+ 
+ /**
+  * 	struct nft_set - nf_tables set instance
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index da314be0c048..c0b2b19607e1 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -2377,64 +2377,77 @@ static int nf_tables_delrule(struct net *net, struct sock *nlsk,
+  * Sets
+  */
+ 
+-static LIST_HEAD(nf_tables_set_ops);
++static LIST_HEAD(nf_tables_set_types);
+ 
+-int nft_register_set(struct nft_set_ops *ops)
++int nft_register_set(struct nft_set_type *type)
  {
--	if (unlikely(l3proto >= AF_MAX))
-+	if (unlikely(l3proto >= NFPROTO_NUMPROTO))
- 		return &nf_conntrack_l3proto_generic;
- 	return rcu_dereference(nf_ct_l3protos[l3proto]);
- }
-diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
-index 6a36623e897c..1dcad229c3cc 100644
---- a/net/netfilter/nf_conntrack_proto.c
-+++ b/net/netfilter/nf_conntrack_proto.c
-@@ -28,8 +28,8 @@
- #include <net/netfilter/nf_conntrack_l4proto.h>
- #include <net/netfilter/nf_conntrack_core.h>
- 
--static struct nf_conntrack_l4proto __rcu **nf_ct_protos[PF_MAX] __read_mostly;
--struct nf_conntrack_l3proto __rcu *nf_ct_l3protos[AF_MAX] __read_mostly;
-+static struct nf_conntrack_l4proto __rcu **nf_ct_protos[NFPROTO_NUMPROTO] __read_mostly;
-+struct nf_conntrack_l3proto __rcu *nf_ct_l3protos[NFPROTO_NUMPROTO] __read_mostly;
- EXPORT_SYMBOL_GPL(nf_ct_l3protos);
- 
- static DEFINE_MUTEX(nf_ct_proto_mutex);
-@@ -68,7 +68,7 @@ nf_ct_unregister_sysctl(struct ctl_table_header **header,
- struct nf_conntrack_l4proto *
- __nf_ct_l4proto_find(u_int16_t l3proto, u_int8_t l4proto)
- {
--	if (unlikely(l3proto >= AF_MAX || nf_ct_protos[l3proto] == NULL))
-+	if (unlikely(l3proto >= NFPROTO_NUMPROTO || nf_ct_protos[l3proto] == NULL))
- 		return &nf_conntrack_l4proto_generic;
- 
- 	return rcu_dereference(nf_ct_protos[l3proto][l4proto]);
-@@ -212,7 +212,7 @@ int nf_ct_l3proto_register(struct nf_conntrack_l3proto *proto)
- 	int ret = 0;
- 	struct nf_conntrack_l3proto *old;
- 
--	if (proto->l3proto >= AF_MAX)
-+	if (proto->l3proto >= NFPROTO_NUMPROTO)
- 		return -EBUSY;
- 
- 	if (proto->tuple_to_nlattr && !proto->nlattr_tuple_size)
-@@ -254,7 +254,7 @@ EXPORT_SYMBOL_GPL(nf_ct_l3proto_pernet_register);
- 
- void nf_ct_l3proto_unregister(struct nf_conntrack_l3proto *proto)
- {
--	BUG_ON(proto->l3proto >= AF_MAX);
-+	BUG_ON(proto->l3proto >= NFPROTO_NUMPROTO);
- 
- 	mutex_lock(&nf_ct_proto_mutex);
- 	BUG_ON(rcu_dereference_protected(nf_ct_l3protos[proto->l3proto],
-@@ -341,7 +341,7 @@ int nf_ct_l4proto_register_one(struct nf_conntrack_l4proto *l4proto)
- {
- 	int ret = 0;
- 
--	if (l4proto->l3proto >= PF_MAX)
-+	if (l4proto->l3proto >= ARRAY_SIZE(nf_ct_protos))
- 		return -EBUSY;
- 
- 	if ((l4proto->to_nlattr && !l4proto->nlattr_size) ||
-@@ -423,7 +423,7 @@ EXPORT_SYMBOL_GPL(nf_ct_l4proto_pernet_register_one);
- static void __nf_ct_l4proto_unregister_one(struct nf_conntrack_l4proto *l4proto)
- 
- {
--	BUG_ON(l4proto->l3proto >= PF_MAX);
-+	BUG_ON(l4proto->l3proto >= ARRAY_SIZE(nf_ct_protos));
- 
- 	BUG_ON(rcu_dereference_protected(
- 			nf_ct_protos[l4proto->l3proto][l4proto->l4proto],
-@@ -556,7 +556,7 @@ void nf_conntrack_proto_pernet_fini(struct net *net)
- int nf_conntrack_proto_init(void)
- {
- 	unsigned int i;
--	for (i = 0; i < AF_MAX; i++)
-+	for (i = 0; i < NFPROTO_NUMPROTO; i++)
- 		rcu_assign_pointer(nf_ct_l3protos[i],
- 				   &nf_conntrack_l3proto_generic);
+ 	nfnl_lock(NFNL_SUBSYS_NFTABLES);
+-	list_add_tail_rcu(&ops->list, &nf_tables_set_ops);
++	list_add_tail_rcu(&type->list, &nf_tables_set_types);
+ 	nfnl_unlock(NFNL_SUBSYS_NFTABLES);
  	return 0;
-@@ -566,6 +566,6 @@ void nf_conntrack_proto_fini(void)
- {
- 	unsigned int i;
- 	/* free l3proto protocol tables */
--	for (i = 0; i < PF_MAX; i++)
-+	for (i = 0; i < ARRAY_SIZE(nf_ct_protos); i++)
- 		kfree(nf_ct_protos[i]);
  }
+ EXPORT_SYMBOL_GPL(nft_register_set);
+ 
+-void nft_unregister_set(struct nft_set_ops *ops)
++void nft_unregister_set(struct nft_set_type *type)
+ {
+ 	nfnl_lock(NFNL_SUBSYS_NFTABLES);
+-	list_del_rcu(&ops->list);
++	list_del_rcu(&type->list);
+ 	nfnl_unlock(NFNL_SUBSYS_NFTABLES);
+ }
+ EXPORT_SYMBOL_GPL(nft_unregister_set);
+ 
++#define NFT_SET_FEATURES	(NFT_SET_INTERVAL | NFT_SET_MAP | \
++				 NFT_SET_TIMEOUT | NFT_SET_OBJECT)
++
++static bool nft_set_ops_candidate(const struct nft_set_ops *ops, u32 flags)
++{
++	return (flags & ops->features) == (flags & NFT_SET_FEATURES);
++}
++
+ /*
+  * Select a set implementation based on the data characteristics and the
+  * given policy. The total memory use might not be known if no size is
+  * given, in that case the amount of memory per element is used.
+  */
+ static const struct nft_set_ops *
+-nft_select_set_ops(const struct nlattr * const nla[],
++nft_select_set_ops(const struct nft_ctx *ctx,
++		   const struct nlattr * const nla[],
+ 		   const struct nft_set_desc *desc,
+ 		   enum nft_set_policies policy)
+ {
+ 	const struct nft_set_ops *ops, *bops;
+ 	struct nft_set_estimate est, best;
+-	u32 features;
++	const struct nft_set_type *type;
++	u32 flags = 0;
+ 
+ #ifdef CONFIG_MODULES
+-	if (list_empty(&nf_tables_set_ops)) {
++	if (list_empty(&nf_tables_set_types)) {
+ 		nfnl_unlock(NFNL_SUBSYS_NFTABLES);
+ 		request_module("nft-set");
+ 		nfnl_lock(NFNL_SUBSYS_NFTABLES);
+-		if (!list_empty(&nf_tables_set_ops))
++		if (!list_empty(&nf_tables_set_types))
+ 			return ERR_PTR(-EAGAIN);
+ 	}
+ #endif
+-	features = 0;
+-	if (nla[NFTA_SET_FLAGS] != NULL) {
+-		features = ntohl(nla_get_be32(nla[NFTA_SET_FLAGS]));
+-		features &= NFT_SET_INTERVAL | NFT_SET_MAP | NFT_SET_TIMEOUT |
+-			    NFT_SET_OBJECT;
+-	}
++	if (nla[NFTA_SET_FLAGS] != NULL)
++		flags = ntohl(nla_get_be32(nla[NFTA_SET_FLAGS]));
+ 
+ 	bops	    = NULL;
+ 	best.size   = ~0;
+ 	best.lookup = ~0;
+ 	best.space  = ~0;
+ 
+-	list_for_each_entry(ops, &nf_tables_set_ops, list) {
+-		if ((ops->features & features) != features)
++	list_for_each_entry(type, &nf_tables_set_types, list) {
++		if (!type->select_ops)
++			ops = type->ops;
++		else
++			ops = type->select_ops(ctx, desc, flags);
++		if (!ops)
++			continue;
++
++		if (!nft_set_ops_candidate(ops, flags))
+ 			continue;
+-		if (!ops->estimate(desc, features, &est))
++		if (!ops->estimate(desc, flags, &est))
+ 			continue;
+ 
+ 		switch (policy) {
+@@ -2465,10 +2478,10 @@ nft_select_set_ops(const struct nlattr * const nla[],
+ 			break;
+ 		}
+ 
+-		if (!try_module_get(ops->owner))
++		if (!try_module_get(type->owner))
+ 			continue;
+ 		if (bops != NULL)
+-			module_put(bops->owner);
++			module_put(bops->type->owner);
+ 
+ 		bops = ops;
+ 		best = est;
+@@ -3029,7 +3042,7 @@ static int nf_tables_newset(struct net *net, struct sock *nlsk,
+ 	if (!(nlh->nlmsg_flags & NLM_F_CREATE))
+ 		return -ENOENT;
+ 
+-	ops = nft_select_set_ops(nla, &desc, policy);
++	ops = nft_select_set_ops(&ctx, nla, &desc, policy);
+ 	if (IS_ERR(ops))
+ 		return PTR_ERR(ops);
+ 
+@@ -3089,14 +3102,14 @@ static int nf_tables_newset(struct net *net, struct sock *nlsk,
+ err2:
+ 	kfree(set);
+ err1:
+-	module_put(ops->owner);
++	module_put(ops->type->owner);
+ 	return err;
+ }
+ 
+ static void nft_set_destroy(struct nft_set *set)
+ {
+ 	set->ops->destroy(set);
+-	module_put(set->ops->owner);
++	module_put(set->ops->type->owner);
+ 	kfree(set);
+ }
+ 
+diff --git a/net/netfilter/nft_set_bitmap.c b/net/netfilter/nft_set_bitmap.c
+index b988162b5b15..87d17691278f 100644
+--- a/net/netfilter/nft_set_bitmap.c
++++ b/net/netfilter/nft_set_bitmap.c
+@@ -278,7 +278,9 @@ static bool nft_bitmap_estimate(const struct nft_set_desc *desc, u32 features,
+ 	return true;
+ }
+ 
++static struct nft_set_type nft_bitmap_type;
+ static struct nft_set_ops nft_bitmap_ops __read_mostly = {
++	.type		= &nft_bitmap_type,
+ 	.privsize	= nft_bitmap_privsize,
+ 	.elemsize	= offsetof(struct nft_bitmap_elem, ext),
+ 	.estimate	= nft_bitmap_estimate,
+@@ -291,17 +293,21 @@ static struct nft_set_ops nft_bitmap_ops __read_mostly = {
+ 	.activate	= nft_bitmap_activate,
+ 	.lookup		= nft_bitmap_lookup,
+ 	.walk		= nft_bitmap_walk,
++};
++
++static struct nft_set_type nft_bitmap_type __read_mostly = {
++	.ops		= &nft_bitmap_ops,
+ 	.owner		= THIS_MODULE,
+ };
+ 
+ static int __init nft_bitmap_module_init(void)
+ {
+-	return nft_register_set(&nft_bitmap_ops);
++	return nft_register_set(&nft_bitmap_type);
+ }
+ 
+ static void __exit nft_bitmap_module_exit(void)
+ {
+-	nft_unregister_set(&nft_bitmap_ops);
++	nft_unregister_set(&nft_bitmap_type);
+ }
+ 
+ module_init(nft_bitmap_module_init);
+diff --git a/net/netfilter/nft_set_hash.c b/net/netfilter/nft_set_hash.c
+index 7c21e3da0d88..4ba0717408d9 100644
+--- a/net/netfilter/nft_set_hash.c
++++ b/net/netfilter/nft_set_hash.c
+@@ -379,7 +379,9 @@ static bool nft_rhash_estimate(const struct nft_set_desc *desc, u32 features,
+ 	return true;
+ }
+ 
++static struct nft_set_type nft_hash_type;
+ static struct nft_set_ops nft_rhash_ops __read_mostly = {
++	.type		= &nft_hash_type,
+ 	.privsize       = nft_rhash_privsize,
+ 	.elemsize	= offsetof(struct nft_rhash_elem, ext),
+ 	.estimate	= nft_rhash_estimate,
+@@ -394,17 +396,21 @@ static struct nft_set_ops nft_rhash_ops __read_mostly = {
+ 	.update		= nft_rhash_update,
+ 	.walk		= nft_rhash_walk,
+ 	.features	= NFT_SET_MAP | NFT_SET_OBJECT | NFT_SET_TIMEOUT,
++};
++
++static struct nft_set_type nft_hash_type __read_mostly = {
++	.ops		= &nft_rhash_ops,
+ 	.owner		= THIS_MODULE,
+ };
+ 
+ static int __init nft_hash_module_init(void)
+ {
+-	return nft_register_set(&nft_rhash_ops);
++	return nft_register_set(&nft_hash_type);
+ }
+ 
+ static void __exit nft_hash_module_exit(void)
+ {
+-	nft_unregister_set(&nft_rhash_ops);
++	nft_unregister_set(&nft_hash_type);
+ }
+ 
+ module_init(nft_hash_module_init);
+diff --git a/net/netfilter/nft_set_rbtree.c b/net/netfilter/nft_set_rbtree.c
+index fbfb3cbb3916..29d41d378339 100644
+--- a/net/netfilter/nft_set_rbtree.c
++++ b/net/netfilter/nft_set_rbtree.c
+@@ -295,7 +295,9 @@ static bool nft_rbtree_estimate(const struct nft_set_desc *desc, u32 features,
+ 	return true;
+ }
+ 
++static struct nft_set_type nft_rbtree_type;
+ static struct nft_set_ops nft_rbtree_ops __read_mostly = {
++	.type		= &nft_rbtree_type,
+ 	.privsize	= nft_rbtree_privsize,
+ 	.elemsize	= offsetof(struct nft_rbtree_elem, ext),
+ 	.estimate	= nft_rbtree_estimate,
+@@ -309,17 +311,21 @@ static struct nft_set_ops nft_rbtree_ops __read_mostly = {
+ 	.lookup		= nft_rbtree_lookup,
+ 	.walk		= nft_rbtree_walk,
+ 	.features	= NFT_SET_INTERVAL | NFT_SET_MAP | NFT_SET_OBJECT,
++};
++
++static struct nft_set_type nft_rbtree_type __read_mostly = {
++	.ops		= &nft_rbtree_ops,
+ 	.owner		= THIS_MODULE,
+ };
+ 
+ static int __init nft_rbtree_module_init(void)
+ {
+-	return nft_register_set(&nft_rbtree_ops);
++	return nft_register_set(&nft_rbtree_type);
+ }
+ 
+ static void __exit nft_rbtree_module_exit(void)
+ {
+-	nft_unregister_set(&nft_rbtree_ops);
++	nft_unregister_set(&nft_rbtree_type);
+ }
+ 
+ module_init(nft_rbtree_module_init);
 -- 
 2.1.4
 
