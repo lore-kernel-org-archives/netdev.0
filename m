@@ -1,127 +1,64 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next v4 07/16] bpf: Add setsockopt helper function
- to bpf
-Date: Thu, 29 Jun 2017 12:08:45 +0200
-Message-ID: <5954D1AD.4030504@iogearbox.net>
-References: <20170628173124.3299500-1-brakmo@fb.com> <20170628173124.3299500-8-brakmo@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
-        Alexei Starovoitov <ast@fb.com>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: Lawrence Brakmo <brakmo@fb.com>, netdev <netdev@vger.kernel.org>
+From: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Subject: [PATCH] net: constify attribute_group structures.
+Date: Thu, 29 Jun 2017 16:31:26 +0530
+Message-ID: <7e920337fab72cc388b20ac95c2e198b84145483.1498733815.git.arvind.yadav.cs@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net, jasowang@redhat.com, mingo@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:48712 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752398AbdF2KIt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 06:08:49 -0400
-In-Reply-To: <20170628173124.3299500-8-brakmo@fb.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:35009 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751758AbdF2LCR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 07:02:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/28/2017 07:31 PM, Lawrence Brakmo wrote:
-> Added support for calling a subset of socket setsockopts from
-> BPF_PROG_TYPE_SOCK_OPS programs. The code was duplicated rather
-> than making the changes to call the socket setsockopt function because
-> the changes required would have been larger.
->
-> The ops supported are:
->    SO_RCVBUF
->    SO_SNDBUF
->    SO_MAX_PACING_RATE
->    SO_PRIORITY
->    SO_RCVLOWAT
->    SO_MARK
->
-> Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
-[...]
-> @@ -2672,6 +2673,69 @@ static const struct bpf_func_proto bpf_get_socket_uid_proto = {
->   	.arg1_type      = ARG_PTR_TO_CTX,
->   };
->
-> +BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
-> +	   int, level, int, optname, char *, optval, int, optlen)
+attribute_groups are not supposed to change at runtime. All functions
+working with attribute_groups provided by <linux/device.h> work with const
+attribute_group. So mark the non-const structs as const.
 
-Nit: I would rather make optlen a u32. But more below.
+File size before:
+   text	   data	    bss	    dec	    hex	filename
+   9968	   3168	     16	  13152	   3360	net/core/net-sysfs.o
 
-> +{
-> +	struct sock *sk = bpf_sock->sk;
-> +	int ret = 0;
-> +	int val;
-> +
-> +	if (bpf_sock->is_req_sock)
-> +		return -EINVAL;
-> +
-> +	if (level == SOL_SOCKET) {
+File size After adding 'const':
+   text	   data	    bss	    dec	    hex	filename
+  10160	   2976	     16	  13152	   3360	net/core/net-sysfs.o
 
-		if (optlen != sizeof(int))
-			return -EINVAL;
+Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
+---
+ net/core/net-sysfs.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-> +		/* Only some socketops are supported */
-> +		val = *((int *)optval);
-> +
-> +		switch (optname) {
-> +		case SO_RCVBUF:
-> +			sk->sk_userlocks |= SOCK_RCVBUF_LOCK;
-> +			sk->sk_rcvbuf = max_t(int, val * 2, SOCK_MIN_RCVBUF);
-> +			break;
-> +		case SO_SNDBUF:
-> +			sk->sk_userlocks |= SOCK_SNDBUF_LOCK;
-> +			sk->sk_sndbuf = max_t(int, val * 2, SOCK_MIN_SNDBUF);
-> +			break;
-> +		case SO_MAX_PACING_RATE:
-> +			sk->sk_max_pacing_rate = val;
-> +			sk->sk_pacing_rate = min(sk->sk_pacing_rate,
-> +						 sk->sk_max_pacing_rate);
-> +			break;
-> +		case SO_PRIORITY:
-> +			sk->sk_priority = val;
-> +			break;
-> +		case SO_RCVLOWAT:
-> +			if (val < 0)
-> +				val = INT_MAX;
-> +			sk->sk_rcvlowat = val ? : 1;
-> +			break;
-> +		case SO_MARK:
-> +			sk->sk_mark = val;
-> +			break;
-> +		default:
-> +			ret = -EINVAL;
-> +		}
-> +	} else if (level == SOL_TCP &&
-> +		   sk->sk_prot->setsockopt == tcp_setsockopt) {
-> +		/* Place holder */
-> +		ret = -EINVAL;
-> +	} else {
-> +		ret = -EINVAL;
-> +	}
-> +	return ret;
-> +}
-> +
-> +static const struct bpf_func_proto bpf_setsockopt_proto = {
-> +	.func		= bpf_setsockopt,
-> +	.gpl_only	= true,
-> +	.ret_type	= RET_INTEGER,
-> +	.arg1_type	= ARG_PTR_TO_CTX,
-> +	.arg2_type	= ARG_ANYTHING,
-> +	.arg3_type	= ARG_ANYTHING,
-> +	.arg4_type	= ARG_PTR_TO_MEM,
-> +	.arg5_type	= ARG_CONST_SIZE_OR_ZERO,
-
-Any reason you went with the ARG_CONST_SIZE_OR_ZERO type? Semantics
-of this are that allowed [arg4, arg5] pair can be i) [NULL, 0] or
-ii) [non-NULL, non-zero], where in case ii) verifier checks that the
-area is initialized when coming from BPF stack.
-
-So above 'val = *((int *)optval);' would give a NULL pointer deref
-with NULL passed as arg or in case optlen was < sizeof(int) we access
-stack out of bounds potentially. If the [NULL, 0] pair is not required,
-I would just make that a ARG_CONST_SIZE and then check for size before
-accessing optval.
-
-> +};
-> +
->   static const struct bpf_func_proto *
->   bpf_base_func_proto(enum bpf_func_id func_id)
->   {
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 65ea0ff..85daa29 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -622,7 +622,7 @@ static DEVICE_ATTR_RO(name)
+ };
+ 
+ 
+-static struct attribute_group netstat_group = {
++static const struct attribute_group netstat_group = {
+ 	.name  = "statistics",
+ 	.attrs  = netstat_attrs,
+ };
+@@ -632,7 +632,7 @@ static DEVICE_ATTR_RO(name)
+ 	NULL
+ };
+ 
+-static struct attribute_group wireless_group = {
++static const struct attribute_group wireless_group = {
+ 	.name = "wireless",
+ 	.attrs = wireless_attrs,
+ };
+@@ -1200,7 +1200,7 @@ static ssize_t bql_show_inflight(struct netdev_queue *queue,
+ 	NULL
+ };
+ 
+-static struct attribute_group dql_group = {
++static const struct attribute_group dql_group = {
+ 	.name  = "byte_queue_limits",
+ 	.attrs  = dql_attrs,
+ };
+-- 
+1.9.1
