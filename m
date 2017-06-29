@@ -1,30 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] mlx4_en dynamic TC tx queues
-Date: Thu, 29 Jun 2017 15:57:15 -0400 (EDT)
-Message-ID: <20170629.155715.1789266355612066226.davem@davemloft.net>
-References: <1498734477-26111-1-git-send-email-tariqt@mellanox.com>
+Subject: Re: [PATCH net] sfc: fix attempt to translate invalid filter ID
+Date: Thu, 29 Jun 2017 16:02:45 -0400 (EDT)
+Message-ID: <20170629.160245.963659993885114524.davem@davemloft.net>
+References: <ac506723-66ef-0945-ff1e-c0132f0c71c0@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eranbe@mellanox.com, inbark@mellanox.com,
-        tarick@google.com
-To: tariqt@mellanox.com
+Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
+To: ecree@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45408 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:45508 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751827AbdF2T5R (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 15:57:17 -0400
-In-Reply-To: <1498734477-26111-1-git-send-email-tariqt@mellanox.com>
+        with ESMTP id S1752770AbdF2UCr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 16:02:47 -0400
+In-Reply-To: <ac506723-66ef-0945-ff1e-c0132f0c71c0@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tariq Toukan <tariqt@mellanox.com>
-Date: Thu, 29 Jun 2017 14:07:55 +0300
+From: Edward Cree <ecree@solarflare.com>
+Date: Thu, 29 Jun 2017 16:50:06 +0100
 
-> This patchset from Inbar aligns the number of TX queues
-> to the actual need, according to the TC configuration.
+> When filter insertion fails with no rollback, we were trying to convert
+>  EFX_EF10_FILTER_ID_INVALID to an id to store in 'ids' (which is either
+>  vlan->uc or vlan->mc).  This would WARN_ON_ONCE and then record a bogus
+>  filter ID of 0x1fff, neither of which is a good thing.
 > 
-> Series generated against net-next commit:
-> 2ee87db3a287 Merge branch 'nfp-get_phys_port_name-for-representors-and-SR-IOV-reorder'
+> Fixes: 0ccb998bf46d ("sfc: fix filter_id misinterpretation in edge case")
+> Signed-off-by: Edward Cree <ecree@solarflare.com>
 
-Series applied to net-next, thanks.
+Applied, thanks.
