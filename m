@@ -1,65 +1,41 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter: ctnetlink: move CTA_TIMEOUT case to outside
-Date: Thu, 29 Jun 2017 18:51:12 +0200
-Message-ID: <20170629165112.GA8551@salvia>
-References: <1496983067-11214-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] virtio-net: serialize tx routine during reset
+Date: Thu, 29 Jun 2017 12:52:41 -0400 (EDT)
+Message-ID: <20170629.125241.1456732917773572552.davem@davemloft.net>
+References: <1498614663-7711-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Florian Westphal <fw@strlen.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1496983067-11214-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: mst@redhat.com, netdev@vger.kernel.org, john.fastabend@gmail.com,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, jpmenil@gmail.com
+To: jasowang@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1498614663-7711-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 09, 2017 at 12:37:47PM +0800, Haishuang Yan wrote:
-> When cda[CTA_TIMEOUT] is zero, ctnetlink_new_conntrack will
-> free allocated ct and return, so move it to outside to optimize
-> this situation.
-> 
-> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-> ---
->  net/netfilter/nf_conntrack_netlink.c | 5 +----
->  1 file changed, 1 insertion(+), 4 deletions(-)
-> 
-> diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-> index a8be9b7..d1e6b1c 100644
-> --- a/net/netfilter/nf_conntrack_netlink.c
-> +++ b/net/netfilter/nf_conntrack_netlink.c
-> @@ -1768,9 +1768,6 @@ static int change_seq_adj(struct nf_ct_seqadj *seq,
->  	if (IS_ERR(ct))
->  		return ERR_PTR(-ENOMEM);
->  
-> -	if (!cda[CTA_TIMEOUT])
-> -		goto err1;
+From: Jason Wang <jasowang@redhat.com>
+Date: Wed, 28 Jun 2017 09:51:03 +0800
 
-Actually, I think we would make ctnetlink a better place if we just
-relax this. I mean, I would like to see how a patch to use the default
-timeout based on the protocol state looks like.
+> We don't hold any tx lock when trying to disable TX during reset, this
+> would lead a use after free since ndo_start_xmit() tries to access
+> the virtqueue which has already been freed. Fix this by using
+> netif_tx_disable() before freeing the vqs, this could make sure no tx
+> after vq freeing.
+> 
+> Reported-by: Jean-Philippe Menil <jpmenil@gmail.com>
+> Tested-by: Jean-Philippe Menil <jpmenil@gmail.com>
+> Fixes commit f600b6905015 ("virtio_net: Add XDP support")
+> Cc: John Fastabend <john.fastabend@gmail.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-ctnetlink is overly pendantic, in asking things that we can probably
-infer, just in case the user doesn't specify this.
-
-> -
->  	ct->timeout = nfct_time_stamp + ntohl(nla_get_be32(cda[CTA_TIMEOUT])) * HZ;
->  
->  	rcu_read_lock();
-> @@ -1944,7 +1941,7 @@ static int ctnetlink_new_conntrack(struct net *net, struct sock *ctnl,
->  		if (nlh->nlmsg_flags & NLM_F_CREATE) {
->  			enum ip_conntrack_events events;
->  
-> -			if (!cda[CTA_TUPLE_ORIG] || !cda[CTA_TUPLE_REPLY])
-> +			if (!cda[CTA_TUPLE_ORIG] || !cda[CTA_TUPLE_REPLY] || !cda[CTA_TIMEOUT])
->  				return -EINVAL;
->  			if (otuple.dst.protonum != rtuple.dst.protonum)
->  				return -EINVAL;
-> -- 
-> 1.8.3.1
-> 
-> 
-> 
+Applied and queued up for -stable.
