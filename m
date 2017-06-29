@@ -1,7 +1,7 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net-next v3 8/9] nfp: add a stats handler for flower offloads
-Date: Thu, 29 Jun 2017 22:08:18 +0200
-Message-ID: <1498766899-30707-9-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH net-next v3 4/9] nfp: extend flower add flow offload
+Date: Thu, 29 Jun 2017 22:08:14 +0200
+Message-ID: <1498766899-30707-5-git-send-email-simon.horman@netronome.com>
 References: <1498766899-30707-1-git-send-email-simon.horman@netronome.com>
 Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
         Or Gerlitz <gerlitz.or@gmail.com>,
@@ -11,370 +11,395 @@ Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
 To: David Miller <davem@davemloft.net>,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f180.google.com ([209.85.220.180]:35585 "EHLO
+Received: from mail-qk0-f180.google.com ([209.85.220.180]:35502 "EHLO
         mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753536AbdF2UJH (ORCPT
+        with ESMTP id S1753541AbdF2UJH (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 16:09:07 -0400
-Received: by mail-qk0-f180.google.com with SMTP id 16so85808609qkg.2
-        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 13:09:01 -0700 (PDT)
+Received: by mail-qk0-f180.google.com with SMTP id 16so85805061qkg.2
+        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 13:09:06 -0700 (PDT)
 In-Reply-To: <1498766899-30707-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
 
-Previously there was no way of updating flow rule stats after they
-have been offloaded to hardware. This is solved by keeping track of
-stats received from hardware and providing this to the TC handler
-on request.
+Extends the flower flow add function by calculating which match
+fields are present in the flower offload structure and allocating
+the appropriate space to describe these.
 
 Signed-off-by: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/flower/cmsg.c   |   5 -
- drivers/net/ethernet/netronome/nfp/flower/cmsg.h   |   5 +
- drivers/net/ethernet/netronome/nfp/flower/main.h   |  28 +++++
- .../net/ethernet/netronome/nfp/flower/metadata.c   | 124 ++++++++++++++++++++-
- .../net/ethernet/netronome/nfp/flower/offload.c    |  17 ++-
- 5 files changed, 171 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/netronome/nfp/flower/cmsg.h   | 141 ++++++++++++++++++
+ drivers/net/ethernet/netronome/nfp/flower/main.h   |  24 +++
+ .../net/ethernet/netronome/nfp/flower/offload.c    | 161 ++++++++++++++++++++-
+ 3 files changed, 325 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/cmsg.c b/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
-index 916a6196d2ba..0f5410aa66d6 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
-+++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
-@@ -52,11 +52,6 @@ nfp_flower_cmsg_get_hdr(struct sk_buff *skb)
- 	return (struct nfp_flower_cmsg_hdr *)skb->data;
- }
- 
--static void *nfp_flower_cmsg_get_data(struct sk_buff *skb)
--{
--	return (unsigned char *)skb->data + NFP_FLOWER_CMSG_HLEN;
--}
--
- static struct sk_buff *
- nfp_flower_cmsg_alloc(struct nfp_app *app, unsigned int size,
- 		      enum nfp_flower_cmsg_type_port type)
 diff --git a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
-index 8700eb9430c5..ee543ff3a9d8 100644
+index c10ae7631941..1b1888e8dc14 100644
 --- a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
 +++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
-@@ -300,6 +300,11 @@ nfp_flower_cmsg_pcie_port(u8 nfp_pcie, enum nfp_flower_cmsg_port_vnic_type type,
- 			   NFP_FLOWER_CMSG_PORT_TYPE_PCIE_PORT);
- }
+@@ -40,6 +40,147 @@
  
-+static inline void *nfp_flower_cmsg_get_data(struct sk_buff *skb)
-+{
-+	return (unsigned char *)skb->data + NFP_FLOWER_CMSG_HLEN;
-+}
+ #include "../nfp_app.h"
+ 
++#define NFP_FLOWER_LAYER_META		BIT(0)
++#define NFP_FLOWER_LAYER_PORT		BIT(1)
++#define NFP_FLOWER_LAYER_MAC		BIT(2)
++#define NFP_FLOWER_LAYER_TP		BIT(3)
++#define NFP_FLOWER_LAYER_IPV4		BIT(4)
++#define NFP_FLOWER_LAYER_IPV6		BIT(5)
++#define NFP_FLOWER_LAYER_CT		BIT(6)
++#define NFP_FLOWER_LAYER_VXLAN		BIT(7)
 +
- int nfp_flower_cmsg_portmod(struct nfp_repr *repr, bool carrier_ok);
- void nfp_flower_cmsg_rx(struct nfp_app *app, struct sk_buff *skb);
- 
++#define NFP_FLOWER_LAYER_ETHER		BIT(3)
++#define NFP_FLOWER_LAYER_ARP		BIT(4)
++
++/* Metadata without L2 (1W/4B)
++ * ----------------------------------------------------------------
++ *    3                   2                   1
++ *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |  key_layers   |    mask_id    |           reserved            |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ */
++struct nfp_flower_meta_one {
++	u8 nfp_flow_key_layer;
++	u8 mask_id;
++	u16 reserved;
++};
++
++/* Metadata with L2 (1W/4B)
++ * ----------------------------------------------------------------
++ *    3                   2                   1
++ *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |    key_type   |    mask_id    | PCP |p|   vlan outermost VID  |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ *                                 ^                               ^
++ *                           NOTE: |             TCI               |
++ *                                 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ */
++struct nfp_flower_meta_two {
++	u8 nfp_flow_key_layer;
++	u8 mask_id;
++	__be16 tci;
++};
++
++/* Port details (1W/4B)
++ * ----------------------------------------------------------------
++ *    3                   2                   1
++ *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |                         port_ingress                          |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ */
++struct nfp_flower_in_port {
++	__be32 in_port;
++};
++
++/* L2 details (4W/16B)
++ *    3                   2                   1
++ *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |                     mac_addr_dst, 31 - 0                      |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |      mac_addr_dst, 47 - 32    |     mac_addr_src, 15 - 0      |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |                     mac_addr_src, 47 - 16                     |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |       mpls outermost label            |  TC |B|   reserved  |q|
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ */
++struct nfp_flower_mac_mpls {
++	u8 mac_dst[6];
++	u8 mac_src[6];
++	__be32 mpls_lse;
++};
++
++/* L4 ports (for UDP, TCP, SCTP) (1W/4B)
++ *    3                   2                   1
++ *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |            port_src           |           port_dst            |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ */
++struct nfp_flower_tp_ports {
++	__be16 port_src;
++	__be16 port_dst;
++};
++
++/* L3 IPv4 details (3W/12B)
++ *    3                   2                   1
++ *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |    DSCP   |ECN|   protocol    |           reserved            |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |                        ipv4_addr_src                          |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |                        ipv4_addr_dst                          |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ */
++struct nfp_flower_ipv4 {
++	u8 tos;
++	u8 proto;
++	u8 ttl;
++	u8 reserved;
++	__be32 ipv4_src;
++	__be32 ipv4_dst;
++};
++
++/* L3 IPv6 details (10W/40B)
++ *    3                   2                   1
++ *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |    DSCP   |ECN|   protocol    |          reserved             |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |   ipv6_exthdr   | res |            ipv6_flow_label            |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |                  ipv6_addr_src,   31 - 0                      |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |                  ipv6_addr_src,  63 - 32                      |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |                  ipv6_addr_src,  95 - 64                      |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |                  ipv6_addr_src, 127 - 96                      |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |                  ipv6_addr_dst,   31 - 0                      |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |                  ipv6_addr_dst,  63 - 32                      |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |                  ipv6_addr_dst,  95 - 64                      |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |                  ipv6_addr_dst, 127 - 96                      |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ */
++struct nfp_flower_ipv6 {
++	u8 tos;
++	u8 proto;
++	u8 ttl;
++	u8 reserved;
++	__be32 ipv6_flow_label_exthdr;
++	struct in6_addr ipv6_src;
++	struct in6_addr ipv6_dst;
++};
++
+ /* The base header for a control message packet.
+  * Defines an 8-bit version, and an 8-bit type, padded
+  * to a 32-bit word. Rest of the packet is type-specific.
 diff --git a/drivers/net/ethernet/netronome/nfp/flower/main.h b/drivers/net/ethernet/netronome/nfp/flower/main.h
-index 61a80becf3b2..9e64c048e83f 100644
+index c7a19527875e..ba3e14c3ec26 100644
 --- a/drivers/net/ethernet/netronome/nfp/flower/main.h
 +++ b/drivers/net/ethernet/netronome/nfp/flower/main.h
-@@ -43,6 +43,9 @@ struct tc_to_netdev;
+@@ -40,6 +40,30 @@ struct tc_to_netdev;
  struct net_device;
  struct nfp_app;
  
-+#define NFP_FL_STATS_ENTRY_RS		BIT(20)
-+#define NFP_FL_STATS_ELEM_RS		4
-+#define NFP_FL_REPEATED_HASH_MAX	BIT(17)
- #define NFP_FLOWER_HASH_BITS		19
- #define NFP_FLOWER_MASK_ENTRY_RS	256
- #define NFP_FLOWER_MASK_ELEMENT_RS	1
-@@ -60,11 +63,18 @@ struct nfp_fl_mask_id {
- 	u8 init_unallocated;
- };
- 
-+struct nfp_fl_stats_id {
-+	struct circ_buf free_list;
-+	u32 init_unalloc;
-+	u8 repeated_em_count;
++struct nfp_fl_key_ls {
++	u32 key_layer_two;
++	u8 key_layer;
++	int key_size;
 +};
 +
- /**
-  * struct nfp_flower_priv - Flower APP per-vNIC priv data
-  * @nn:			Pointer to vNIC
-  * @mask_id_seed:	Seed used for mask hash table
-  * @flower_version:	HW version of flower
-+ * @stats_ids:		List of free stats ids
-  * @mask_ids:		List of free mask ids
-  * @mask_table:		Hash table used to store masks
-  * @flow_table:		Hash table used to store flower rules
-@@ -73,6 +83,7 @@ struct nfp_flower_priv {
- 	struct nfp_net *nn;
- 	u32 mask_id_seed;
- 	u64 flower_version;
-+	struct nfp_fl_stats_id stats_ids;
- 	struct nfp_fl_mask_id mask_ids;
- 	DECLARE_HASHTABLE(mask_table, NFP_FLOWER_MASK_HASH_BITS);
- 	DECLARE_HASHTABLE(flow_table, NFP_FLOWER_HASH_BITS);
-@@ -95,16 +106,31 @@ struct nfp_fl_rule_metadata {
- 	__be32 shortcut;
- };
- 
-+struct nfp_fl_stats {
-+	u64 pkts;
-+	u64 bytes;
-+	u64 used;
++struct nfp_fl_rule_metadata {
++	u8 key_len;
++	u8 mask_len;
++	u8 act_len;
++	u8 flags;
++	__be32 host_ctx_id;
++	__be64 host_cookie __packed;
++	__be64 flow_version __packed;
++	__be32 shortcut;
 +};
 +
- struct nfp_fl_payload {
- 	struct nfp_fl_rule_metadata meta;
- 	unsigned long tc_flower_cookie;
- 	struct hlist_node link;
- 	struct rcu_head rcu;
-+	spinlock_t lock; /* lock stats */
-+	struct nfp_fl_stats stats;
- 	char *unmasked_data;
- 	char *mask_data;
- 	char *action_data;
- };
- 
-+struct nfp_fl_stats_frame {
-+	__be32 stats_con_id;
-+	__be32 pkt_count;
-+	__be64 byte_count;
-+	__be64 stats_cookie;
++struct nfp_fl_payload {
++	struct nfp_fl_rule_metadata meta;
++	char *unmasked_data;
++	char *mask_data;
++	char *action_data;
 +};
 +
- int nfp_flower_metadata_init(struct nfp_app *app);
- void nfp_flower_metadata_cleanup(struct nfp_app *app);
- 
-@@ -128,4 +154,6 @@ nfp_flower_search_fl_table(struct nfp_app *app, unsigned long tc_flower_cookie);
- struct nfp_fl_payload *
- nfp_flower_remove_fl_table(struct nfp_app *app, unsigned long tc_flower_cookie);
- 
-+void nfp_flower_rx_flow_stats(struct nfp_app *app, struct sk_buff *skb);
-+
+ int nfp_flower_setup_tc(struct nfp_app *app, struct net_device *netdev,
+ 			u32 handle, __be16 proto, struct tc_to_netdev *tc);
  #endif
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/metadata.c b/drivers/net/ethernet/netronome/nfp/flower/metadata.c
-index 8a359ef3cc27..fec0ff2ca94f 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/metadata.c
-+++ b/drivers/net/ethernet/netronome/nfp/flower/metadata.c
-@@ -48,6 +48,55 @@ struct nfp_mask_id_table {
- 	u8 mask_id;
- };
- 
-+static int nfp_release_stats_entry(struct nfp_app *app, u32 stats_context_id)
-+{
-+	struct nfp_flower_priv *priv = app->priv;
-+	struct circ_buf *ring;
-+
-+	ring = &priv->stats_ids.free_list;
-+	/* Check if buffer is full. */
-+	if (!CIRC_SPACE(ring->head, ring->tail, NFP_FL_STATS_ENTRY_RS *
-+			NFP_FL_STATS_ELEM_RS -
-+			NFP_FL_STATS_ELEM_RS + 1))
-+		return -ENOBUFS;
-+
-+	memcpy(&ring->buf[ring->head], &stats_context_id, NFP_FL_STATS_ELEM_RS);
-+	ring->head = (ring->head + NFP_FL_STATS_ELEM_RS) %
-+		     (NFP_FL_STATS_ENTRY_RS * NFP_FL_STATS_ELEM_RS);
-+
-+	return 0;
-+}
-+
-+static int nfp_get_stats_entry(struct nfp_app *app, u32 *stats_context_id)
-+{
-+	struct nfp_flower_priv *priv = app->priv;
-+	u32 freed_stats_id, temp_stats_id;
-+	struct circ_buf *ring;
-+
-+	ring = &priv->stats_ids.free_list;
-+	freed_stats_id = NFP_FL_STATS_ENTRY_RS;
-+	/* Check for unallocated entries first. */
-+	if (priv->stats_ids.init_unalloc > 0) {
-+		*stats_context_id = priv->stats_ids.init_unalloc - 1;
-+		priv->stats_ids.init_unalloc--;
-+		return 0;
-+	}
-+
-+	/* Check if buffer is empty. */
-+	if (ring->head == ring->tail) {
-+		*stats_context_id = freed_stats_id;
-+		return -ENOENT;
-+	}
-+
-+	memcpy(&temp_stats_id, &ring->buf[ring->tail], NFP_FL_STATS_ELEM_RS);
-+	*stats_context_id = temp_stats_id;
-+	memcpy(&ring->buf[ring->tail], &freed_stats_id, NFP_FL_STATS_ELEM_RS);
-+	ring->tail = (ring->tail + NFP_FL_STATS_ELEM_RS) %
-+		     (NFP_FL_STATS_ENTRY_RS * NFP_FL_STATS_ELEM_RS);
-+
-+	return 0;
-+}
-+
- /* Must be called with either RTNL or rcu_read_lock */
- struct nfp_fl_payload *
- nfp_flower_search_fl_table(struct nfp_app *app, unsigned long tc_flower_cookie)
-@@ -63,6 +112,46 @@ nfp_flower_search_fl_table(struct nfp_app *app, unsigned long tc_flower_cookie)
- 	return NULL;
- }
- 
-+static void
-+nfp_flower_update_stats(struct nfp_app *app, struct nfp_fl_stats_frame *stats)
-+{
-+	struct nfp_fl_payload *nfp_flow;
-+	unsigned long flower_cookie;
-+
-+	flower_cookie = be64_to_cpu(stats->stats_cookie);
-+
-+	rcu_read_lock();
-+	nfp_flow = nfp_flower_search_fl_table(app, flower_cookie);
-+	if (!nfp_flow)
-+		goto exit_rcu_unlock;
-+
-+	if (nfp_flow->meta.host_ctx_id != stats->stats_con_id)
-+		goto exit_rcu_unlock;
-+
-+	spin_lock(&nfp_flow->lock);
-+	nfp_flow->stats.pkts += be32_to_cpu(stats->pkt_count);
-+	nfp_flow->stats.bytes += be64_to_cpu(stats->byte_count);
-+	nfp_flow->stats.used = jiffies;
-+	spin_unlock(&nfp_flow->lock);
-+
-+exit_rcu_unlock:
-+	rcu_read_unlock();
-+}
-+
-+void nfp_flower_rx_flow_stats(struct nfp_app *app, struct sk_buff *skb)
-+{
-+	unsigned int msg_len = skb->len - NFP_FLOWER_CMSG_HLEN;
-+	struct nfp_fl_stats_frame *stats_frame;
-+	unsigned char *msg;
-+	int i;
-+
-+	msg = nfp_flower_cmsg_get_data(skb);
-+
-+	stats_frame = (struct nfp_fl_stats_frame *)msg;
-+	for (i = 0; i < msg_len / sizeof(*stats_frame); i++)
-+		nfp_flower_update_stats(app, stats_frame + i);
-+}
-+
- static int nfp_release_mask_id(struct nfp_app *app, u8 mask_id)
- {
- 	struct nfp_flower_priv *priv = app->priv;
-@@ -230,21 +319,37 @@ int nfp_compile_flow_metadata(struct nfp_app *app,
- 	struct nfp_flower_priv *priv = app->priv;
- 	struct nfp_fl_payload *check_entry;
- 	u8 new_mask_id;
-+	u32 stats_cxt;
-+
-+	if (nfp_get_stats_entry(app, &stats_cxt))
-+		return -ENOENT;
-+
-+	nfp_flow->meta.host_ctx_id = cpu_to_be32(stats_cxt);
-+	nfp_flow->meta.host_cookie = cpu_to_be64(flow->cookie);
- 
- 	new_mask_id = 0;
- 	if (!nfp_check_mask_add(app, nfp_flow->mask_data,
- 				nfp_flow->meta.mask_len,
--				&nfp_flow->meta.flags, &new_mask_id))
-+				&nfp_flow->meta.flags, &new_mask_id)) {
-+		if (nfp_release_stats_entry(app, stats_cxt))
-+			return -EINVAL;
- 		return -ENOENT;
-+	}
- 
- 	nfp_flow->meta.flow_version = cpu_to_be64(priv->flower_version);
- 	priv->flower_version++;
- 
- 	/* Update flow payload with mask ids. */
- 	nfp_flow->unmasked_data[NFP_FL_MASK_ID_LOCATION] = new_mask_id;
-+	nfp_flow->stats.pkts = 0;
-+	nfp_flow->stats.bytes = 0;
-+	nfp_flow->stats.used = jiffies;
- 
- 	check_entry = nfp_flower_search_fl_table(app, flow->cookie);
- 	if (check_entry) {
-+		if (nfp_release_stats_entry(app, stats_cxt))
-+			return -EINVAL;
-+
- 		if (!nfp_check_mask_remove(app, nfp_flow->mask_data,
- 					   nfp_flow->meta.mask_len,
- 					   NULL, &new_mask_id))
-@@ -261,6 +366,7 @@ int nfp_modify_flow_metadata(struct nfp_app *app,
- {
- 	struct nfp_flower_priv *priv = app->priv;
- 	u8 new_mask_id = 0;
-+	u32 temp_ctx_id;
- 
- 	nfp_check_mask_remove(app, nfp_flow->mask_data,
- 			      nfp_flow->meta.mask_len, &nfp_flow->meta.flags,
-@@ -272,7 +378,10 @@ int nfp_modify_flow_metadata(struct nfp_app *app,
- 	/* Update flow payload with mask ids. */
- 	nfp_flow->unmasked_data[NFP_FL_MASK_ID_LOCATION] = new_mask_id;
- 
--	return 0;
-+	/* Release the stats ctx id. */
-+	temp_ctx_id = be32_to_cpu(nfp_flow->meta.host_ctx_id);
-+
-+	return nfp_release_stats_entry(app, temp_ctx_id);
- }
- 
- int nfp_flower_metadata_init(struct nfp_app *app)
-@@ -299,8 +408,18 @@ int nfp_flower_metadata_init(struct nfp_app *app)
- 	if (!priv->mask_ids.last_used)
- 		goto err_free_mask_id;
- 
-+	/* Init ring buffer and unallocated stats_ids. */
-+	priv->stats_ids.free_list.buf =
-+		vmalloc(NFP_FL_STATS_ENTRY_RS * NFP_FL_STATS_ELEM_RS);
-+	if (!priv->stats_ids.free_list.buf)
-+		goto err_free_last_used;
-+
-+	priv->stats_ids.init_unalloc = NFP_FL_REPEATED_HASH_MAX;
-+
- 	return 0;
- 
-+err_free_last_used:
-+	kfree(priv->stats_ids.free_list.buf);
- err_free_mask_id:
- 	kfree(priv->mask_ids.mask_id_free_list.buf);
- 	return -ENOMEM;
-@@ -315,4 +434,5 @@ void nfp_flower_metadata_cleanup(struct nfp_app *app)
- 
- 	kfree(priv->mask_ids.mask_id_free_list.buf);
- 	kfree(priv->mask_ids.last_used);
-+	vfree(priv->stats_ids.free_list.buf);
- }
 diff --git a/drivers/net/ethernet/netronome/nfp/flower/offload.c b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-index 04603d832adf..1a2e2b9b75a3 100644
+index 2fe0353292fc..fb9f73ab16c9 100644
 --- a/drivers/net/ethernet/netronome/nfp/flower/offload.c
 +++ b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-@@ -170,6 +170,7 @@ nfp_flower_allocate_new(struct nfp_fl_key_ls *key_layer)
- 		goto err_free_mask;
+@@ -44,6 +44,138 @@
+ #include "../nfp_net.h"
+ #include "../nfp_port.h"
  
- 	flow_pay->meta.flags = 0;
-+	spin_lock_init(&flow_pay->lock);
- 
- 	return flow_pay;
- 
-@@ -291,7 +292,21 @@ nfp_flower_del_offload(struct nfp_app *app, struct net_device *netdev,
- static int
- nfp_flower_get_stats(struct nfp_app *app, struct tc_cls_flower_offload *flow)
- {
--	return -EOPNOTSUPP;
-+	struct nfp_fl_payload *nfp_flow;
++static bool nfp_flower_check_higher_than_mac(struct tc_cls_flower_offload *f)
++{
++	return dissector_uses_key(f->dissector,
++				  FLOW_DISSECTOR_KEY_IPV4_ADDRS) ||
++		dissector_uses_key(f->dissector,
++				   FLOW_DISSECTOR_KEY_IPV6_ADDRS) ||
++		dissector_uses_key(f->dissector,
++				   FLOW_DISSECTOR_KEY_PORTS) ||
++		dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_ICMP);
++}
 +
-+	nfp_flow = nfp_flower_search_fl_table(app, flow->cookie);
-+	if (!nfp_flow)
-+		return -EINVAL;
++static int
++nfp_flower_calculate_key_layers(struct nfp_fl_key_ls *ret_key_ls,
++				struct tc_cls_flower_offload *flow)
++{
++	struct flow_dissector_key_control *mask_enc_ctl;
++	struct flow_dissector_key_basic *mask_basic;
++	struct flow_dissector_key_basic *key_basic;
++	u32 key_layer_two;
++	u8 key_layer;
++	int key_size;
 +
-+	spin_lock_bh(&nfp_flow->lock);
-+	tcf_exts_stats_update(flow->exts, nfp_flow->stats.bytes,
-+			      nfp_flow->stats.pkts, nfp_flow->stats.used);
++	mask_enc_ctl = skb_flow_dissector_target(flow->dissector,
++						 FLOW_DISSECTOR_KEY_ENC_CONTROL,
++						 flow->mask);
 +
-+	nfp_flow->stats.pkts = 0;
-+	nfp_flow->stats.bytes = 0;
-+	spin_unlock_bh(&nfp_flow->lock);
++	mask_basic = skb_flow_dissector_target(flow->dissector,
++					       FLOW_DISSECTOR_KEY_BASIC,
++					       flow->mask);
++
++	key_basic = skb_flow_dissector_target(flow->dissector,
++					      FLOW_DISSECTOR_KEY_BASIC,
++					      flow->key);
++	key_layer_two = 0;
++	key_layer = NFP_FLOWER_LAYER_PORT | NFP_FLOWER_LAYER_MAC;
++	key_size = sizeof(struct nfp_flower_meta_one) +
++		   sizeof(struct nfp_flower_in_port) +
++		   sizeof(struct nfp_flower_mac_mpls);
++
++	/* We are expecting a tunnel. For now we ignore offloading. */
++	if (mask_enc_ctl->addr_type)
++		return -EOPNOTSUPP;
++
++	if (mask_basic->n_proto) {
++		/* Ethernet type is present in the key. */
++		switch (key_basic->n_proto) {
++		case cpu_to_be16(ETH_P_IP):
++			key_layer |= NFP_FLOWER_LAYER_IPV4;
++			key_size += sizeof(struct nfp_flower_ipv4);
++			break;
++
++		case cpu_to_be16(ETH_P_IPV6):
++			key_layer |= NFP_FLOWER_LAYER_IPV6;
++			key_size += sizeof(struct nfp_flower_ipv6);
++			break;
++
++		/* Currently we do not offload ARP
++		 * because we rely on it to get to the host.
++		 */
++		case cpu_to_be16(ETH_P_ARP):
++			return -EOPNOTSUPP;
++
++		/* Will be included in layer 2. */
++		case cpu_to_be16(ETH_P_8021Q):
++			break;
++
++		default:
++			/* Other ethtype - we need check the masks for the
++			 * remainder of the key to ensure we can offload.
++			 */
++			if (nfp_flower_check_higher_than_mac(flow))
++				return -EOPNOTSUPP;
++			break;
++		}
++	}
++
++	if (mask_basic->ip_proto) {
++		/* Ethernet type is present in the key. */
++		switch (key_basic->ip_proto) {
++		case IPPROTO_TCP:
++		case IPPROTO_UDP:
++		case IPPROTO_SCTP:
++		case IPPROTO_ICMP:
++		case IPPROTO_ICMPV6:
++			key_layer |= NFP_FLOWER_LAYER_TP;
++			key_size += sizeof(struct nfp_flower_tp_ports);
++			break;
++		default:
++			/* Other ip proto - we need check the masks for the
++			 * remainder of the key to ensure we can offload.
++			 */
++			return -EOPNOTSUPP;
++		}
++	}
++
++	ret_key_ls->key_layer = key_layer;
++	ret_key_ls->key_layer_two = key_layer_two;
++	ret_key_ls->key_size = key_size;
 +
 +	return 0;
++}
++
++static struct nfp_fl_payload *
++nfp_flower_allocate_new(struct nfp_fl_key_ls *key_layer)
++{
++	struct nfp_fl_payload *flow_pay;
++
++	flow_pay = kmalloc(sizeof(*flow_pay), GFP_KERNEL);
++	if (!flow_pay)
++		return NULL;
++
++	flow_pay->meta.key_len = key_layer->key_size;
++	flow_pay->unmasked_data = kmalloc(key_layer->key_size, GFP_KERNEL);
++	if (!flow_pay->unmasked_data)
++		goto err_free_flow;
++
++	flow_pay->meta.mask_len = key_layer->key_size;
++	flow_pay->mask_data = kmalloc(key_layer->key_size, GFP_KERNEL);
++	if (!flow_pay->mask_data)
++		goto err_free_unmasked;
++
++	flow_pay->meta.flags = 0;
++
++	return flow_pay;
++
++err_free_unmasked:
++	kfree(flow_pay->unmasked_data);
++err_free_flow:
++	kfree(flow_pay);
++	return NULL;
++}
++
+ /**
+  * nfp_flower_add_offload() - Adds a new flow to hardware.
+  * @app:	Pointer to the APP handle
+@@ -58,7 +190,34 @@ static int
+ nfp_flower_add_offload(struct nfp_app *app, struct net_device *netdev,
+ 		       struct tc_cls_flower_offload *flow)
+ {
+-	return -EOPNOTSUPP;
++	struct nfp_fl_payload *flow_pay;
++	struct nfp_fl_key_ls *key_layer;
++	int err;
++
++	key_layer = kmalloc(sizeof(*key_layer), GFP_KERNEL);
++	if (!key_layer)
++		return -ENOMEM;
++
++	err = nfp_flower_calculate_key_layers(key_layer, flow);
++	if (err)
++		goto err_free_key_ls;
++
++	flow_pay = nfp_flower_allocate_new(key_layer);
++	if (!flow_pay) {
++		err = -ENOMEM;
++		goto err_free_key_ls;
++	}
++
++	/* TODO: Complete flower_add_offload. */
++	err = -EOPNOTSUPP;
++
++	kfree(flow_pay->mask_data);
++	kfree(flow_pay->unmasked_data);
++	kfree(flow_pay);
++
++err_free_key_ls:
++	kfree(key_layer);
++	return err;
  }
  
- static int
+ /**
 -- 
 2.1.4
