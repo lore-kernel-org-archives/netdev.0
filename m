@@ -1,126 +1,136 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 06/29] netfilter: conntrack: don't call iter for non-confirmed conntracks
-Date: Fri, 30 Jun 2017 00:53:04 +0200
-Message-ID: <1498776807-11124-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 23/29] netns: add and use net_ns_barrier
+Date: Fri, 30 Jun 2017 00:53:21 +0200
+Message-ID: <1498776807-11124-24-git-send-email-pablo@netfilter.org>
 References: <1498776807-11124-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail.us.es ([193.147.175.20]:57602 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752356AbdF2Wxx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 29 Jun 2017 18:53:53 -0400
+        id S1752376AbdF2Wx4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 29 Jun 2017 18:53:56 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id B2B4ABDF49
-        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 00:53:30 +0200 (CEST)
+        by mail.us.es (Postfix) with ESMTP id 54293BDF5F
+        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 00:53:45 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id A22CDD1CA7
-        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 00:53:30 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 45CAFD1CB1
+        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 00:53:45 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 36774D1CA3
-        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 00:53:28 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 58DF1D1CA7
+        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 00:53:41 +0200 (CEST)
 In-Reply-To: <1498776807-11124-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Florian Westphal <fw@strlen.de>
 
-nf_ct_iterate_cleanup_net currently calls iter() callback also for
-conntracks on the unconfirmed list, but this is unsafe.
+Quoting Joe Stringer:
+  If a user loads nf_conntrack_ftp, sends FTP traffic through a network
+  namespace, destroys that namespace then unloads the FTP helper module,
+  then the kernel will crash.
 
-Acesses to nf_conn are fine, but some users access the extension area
-in the iter() callback, but that does only work reliably for confirmed
-conntracks (ct->ext can be reallocated at any time for unconfirmed
-conntrack).
+Events that lead to the crash:
+1. conntrack is created with ftp helper in netns x
+2. This netns is destroyed
+3. netns destruction is scheduled
+4. netns destruction wq starts, removes netns from global list
+5. ftp helper is unloaded, which resets all helpers of the conntracks
+via for_each_net()
 
-The seond issue is that there is a short window where a conntrack entry
-is neither on the list nor in the table: To confirm an entry, it is first
-removed from the unconfirmed list, then insert into the table.
+but because netns is already gone from list the for_each_net() loop
+doesn't include it, therefore all of these conntracks are unaffected.
 
-Fix this by iterating the unconfirmed list first and marking all entries
-as dying, then wait for rcu grace period.
+6. helper module unload finishes
+7. netns wq invokes destructor for rmmod'ed helper
 
-This makes sure all entries that were about to be confirmed either are
-in the main table, or will be dropped soon.
-
+CC: "Eric W. Biederman" <ebiederm@xmission.com>
+Reported-by: Joe Stringer <joe@ovn.org>
 Signed-off-by: Florian Westphal <fw@strlen.de>
+Acked-by: David S. Miller <davem@davemloft.net>
+Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_conntrack_core.c | 39 +++++++++++++++++++++++++++++----------
- 1 file changed, 29 insertions(+), 10 deletions(-)
+ include/net/net_namespace.h       |  3 +++
+ net/core/net_namespace.c          | 17 +++++++++++++++++
+ net/netfilter/nf_conntrack_core.c |  9 +++++++++
+ 3 files changed, 29 insertions(+)
 
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index fe80bb48ab1f..a24a57593202 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -158,6 +158,7 @@ extern struct net init_net;
+ struct net *copy_net_ns(unsigned long flags, struct user_namespace *user_ns,
+ 			struct net *old_net);
+ 
++void net_ns_barrier(void);
+ #else /* CONFIG_NET_NS */
+ #include <linux/sched.h>
+ #include <linux/nsproxy.h>
+@@ -168,6 +169,8 @@ static inline struct net *copy_net_ns(unsigned long flags,
+ 		return ERR_PTR(-EINVAL);
+ 	return old_net;
+ }
++
++static inline void net_ns_barrier(void) {}
+ #endif /* CONFIG_NET_NS */
+ 
+ 
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index 1934efd4a9d4..1f15abb1d733 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -482,6 +482,23 @@ static void cleanup_net(struct work_struct *work)
+ 		net_drop_ns(net);
+ 	}
+ }
++
++/**
++ * net_ns_barrier - wait until concurrent net_cleanup_work is done
++ *
++ * cleanup_net runs from work queue and will first remove namespaces
++ * from the global list, then run net exit functions.
++ *
++ * Call this in module exit path to make sure that all netns
++ * ->exit ops have been invoked before the function is removed.
++ */
++void net_ns_barrier(void)
++{
++	mutex_lock(&net_mutex);
++	mutex_unlock(&net_mutex);
++}
++EXPORT_SYMBOL(net_ns_barrier);
++
+ static DECLARE_WORK(net_cleanup_work, cleanup_net);
+ 
+ void __put_net(struct net *net)
 diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 2730f9df33b7..08733685d732 100644
+index c3bd9b086dcc..9979f46c81dc 100644
 --- a/net/netfilter/nf_conntrack_core.c
 +++ b/net/netfilter/nf_conntrack_core.c
-@@ -1592,7 +1592,6 @@ get_next_corpse(struct net *net, int (*iter)(struct nf_conn *i, void *data),
- 	struct nf_conntrack_tuple_hash *h;
- 	struct nf_conn *ct;
- 	struct hlist_nulls_node *n;
--	int cpu;
- 	spinlock_t *lockp;
- 
- 	for (; *bucket < nf_conntrack_htable_size; (*bucket)++) {
-@@ -1614,24 +1613,40 @@ get_next_corpse(struct net *net, int (*iter)(struct nf_conn *i, void *data),
- 		cond_resched();
+@@ -1720,6 +1720,8 @@ EXPORT_SYMBOL_GPL(nf_ct_iterate_cleanup_net);
+  * Like nf_ct_iterate_cleanup, but first marks conntracks on the
+  * unconfirmed list as dying (so they will not be inserted into
+  * main table).
++ *
++ * Can only be called in module exit path.
+  */
+ void
+ nf_ct_iterate_destroy(int (*iter)(struct nf_conn *i, void *data), void *data)
+@@ -1734,6 +1736,13 @@ nf_ct_iterate_destroy(int (*iter)(struct nf_conn *i, void *data), void *data)
  	}
+ 	rtnl_unlock();
  
-+	return NULL;
-+found:
-+	atomic_inc(&ct->ct_general.use);
-+	spin_unlock(lockp);
-+	local_bh_enable();
-+	return ct;
-+}
++	/* Need to wait for netns cleanup worker to finish, if its
++	 * running -- it might have deleted a net namespace from
++	 * the global list, so our __nf_ct_unconfirmed_destroy() might
++	 * not have affected all namespaces.
++	 */
++	net_ns_barrier();
 +
-+static void
-+__nf_ct_unconfirmed_destroy(struct net *net)
-+{
-+	int cpu;
-+
- 	for_each_possible_cpu(cpu) {
--		struct ct_pcpu *pcpu = per_cpu_ptr(net->ct.pcpu_lists, cpu);
-+		struct nf_conntrack_tuple_hash *h;
-+		struct hlist_nulls_node *n;
-+		struct ct_pcpu *pcpu;
-+
-+		pcpu = per_cpu_ptr(net->ct.pcpu_lists, cpu);
- 
- 		spin_lock_bh(&pcpu->lock);
- 		hlist_nulls_for_each_entry(h, n, &pcpu->unconfirmed, hnnode) {
-+			struct nf_conn *ct;
-+
- 			ct = nf_ct_tuplehash_to_ctrack(h);
--			if (iter(ct, data))
--				set_bit(IPS_DYING_BIT, &ct->status);
-+
-+			/* we cannot call iter() on unconfirmed list, the
-+			 * owning cpu can reallocate ct->ext at any time.
-+			 */
-+			set_bit(IPS_DYING_BIT, &ct->status);
- 		}
- 		spin_unlock_bh(&pcpu->lock);
- 		cond_resched();
- 	}
--	return NULL;
--found:
--	atomic_inc(&ct->ct_general.use);
--	spin_unlock(lockp);
--	local_bh_enable();
--	return ct;
- }
- 
- void nf_ct_iterate_cleanup_net(struct net *net,
-@@ -1646,6 +1661,10 @@ void nf_ct_iterate_cleanup_net(struct net *net,
- 	if (atomic_read(&net->ct.count) == 0)
- 		return;
- 
-+	__nf_ct_unconfirmed_destroy(net);
-+
-+	synchronize_net();
-+
- 	while ((ct = get_next_corpse(net, iter, data, &bucket)) != NULL) {
- 		/* Time to push up daises... */
- 
+ 	/* a conntrack could have been unlinked from unconfirmed list
+ 	 * before we grabbed pcpu lock in __nf_ct_unconfirmed_destroy().
+ 	 * This makes sure its inserted into conntrack table.
 -- 
 2.1.4
