@@ -1,151 +1,79 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: Re: [PATCH net-next v4 01/16] bpf: BPF support for sock_ops
-Date: Fri, 30 Jun 2017 07:27:13 +0000
-Message-ID: <EA4B2FDD-7924-4933-BDDA-149AAD8B0A60@fb.com>
-References: <20170628173124.3299500-1-brakmo@fb.com>
- <20170628173124.3299500-2-brakmo@fb.com> <5954CC63.7010707@iogearbox.net>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: RFC: changed error code when binding unix socket twice
+Date: Fri, 30 Jun 2017 09:34:48 +0200
+Message-ID: <20170630073448.GA9546@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Kernel Team <Kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
-        "Alexei Starovoitov" <ast@fb.com>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:55886 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751782AbdF3H1d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 03:27:33 -0400
-In-Reply-To: <5954CC63.7010707@iogearbox.net>
-Content-Language: en-US
-Content-ID: <BB3E30DCA6B3DF4792BD1A0BE624ECF1@namprd15.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: WANG Cong <xiyou.wangcong@gmail.com>,
+        Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQpPbiA2LzI5LzE3LCAyOjQ2IEFNLCAibmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZyBvbiBi
-ZWhhbGYgb2YgRGFuaWVsIEJvcmttYW5uIiA8bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZyBv
-biBiZWhhbGYgb2YgZGFuaWVsQGlvZ2VhcmJveC5uZXQ+IHdyb3RlOg0KDQogICAgT24gMDYvMjgv
-MjAxNyAwNzozMSBQTSwgTGF3cmVuY2UgQnJha21vIHdyb3RlOg0KICAgID4gQ3JlYXRlZCBhIG5l
-dyBCUEYgcHJvZ3JhbSB0eXBlLCBCUEZfUFJPR19UWVBFX1NPQ0tfT1BTLCBhbmQgYSBjb3JyZXNw
-b25kaW5nDQogICAgPiBzdHJ1Y3QgdGhhdCBhbGxvd3MgQlBGIHByb2dyYW1zIG9mIHRoaXMgdHlw
-ZSB0byBhY2Nlc3Mgc29tZSBvZiB0aGUNCiAgICA+IHNvY2tldCdzIGZpZWxkcyAoc3VjaCBhcyBJ
-UCBhZGRyZXNzZXMsIHBvcnRzLCBldGMuKS4gSXQgdXNlcyB0aGUNCiAgICA+IGV4aXN0aW5nIGJw
-ZiBjZ3JvdXBzIGluZnJhc3RydWN0dXJlIHNvIHRoZSBwcm9ncmFtcyBjYW4gYmUgYXR0YWNoZWQg
-cGVyDQogICAgPiBjZ3JvdXAgd2l0aCBmdWxsIGluaGVyaXRhbmNlIHN1cHBvcnQuIFRoZSBwcm9n
-cmFtIHdpbGwgYmUgY2FsbGVkIGF0DQogICAgPiBhcHByb3ByaWF0ZSB0aW1lcyB0byBzZXQgcmVs
-ZXZhbnQgY29ubmVjdGlvbnMgcGFyYW1ldGVycyBzdWNoIGFzIGJ1ZmZlcg0KICAgID4gc2l6ZXMs
-IFNZTiBhbmQgU1lOLUFDSyBSVE9zLCBldGMuLCBiYXNlZCBvbiBjb25uZWN0aW9uIGluZm9ybWF0
-aW9uIHN1Y2gNCiAgICA+IGFzIElQIGFkZHJlc3NlcywgcG9ydCBudW1iZXJzLCBldGMuDQogICAg
-Wy4uLl0NCiAgICA+IEN1cnJlbnRseSB0aGVyZSBhcmUgdHdvIHR5cGVzIG9mIG9wcy4gVGhlIGZp
-cnN0IHR5cGUgZXhwZWN0cyB0aGUgQlBGDQogICAgPiBwcm9ncmFtIHRvIHJldHVybiBhIHZhbHVl
-IHdoaWNoIGlzIHRoZW4gdXNlZCBieSB0aGUgY2FsbGVyIChvciBhDQogICAgPiBuZWdhdGl2ZSB2
-YWx1ZSB0byBpbmRpY2F0ZSB0aGUgb3BlcmF0aW9uIGlzIG5vdCBzdXBwb3J0ZWQpLiBUaGUgc2Vj
-b25kDQogICAgPiB0eXBlIGV4cGVjdHMgc3RhdGUgY2hhbmdlcyB0byBiZSBkb25lIGJ5IHRoZSBC
-UEYgcHJvZ3JhbSwgZm9yIGV4YW1wbGUNCiAgICA+IHRocm91Z2ggYSBzZXRzb2Nrb3B0IEJQRiBo
-ZWxwZXIgZnVuY3Rpb24sIGFuZCB0aGV5IGlnbm9yZSB0aGUgcmV0dXJuDQogICAgPiB2YWx1ZS4N
-CiAgICA+DQogICAgPiBUaGUgcmVwbHkgZmllbGRzIG9mIHRoZSBicGZfc29ja3Rfb3BzIHN0cnVj
-dCBhcmUgdGhlcmUgaW4gY2FzZSBhIGJwZg0KICAgID4gcHJvZ3JhbSBuZWVkcyB0byByZXR1cm4g
-YSB2YWx1ZSBsYXJnZXIgdGhhbiBhbiBpbnRlZ2VyLg0KICAgID4NCiAgICA+IFNpZ25lZC1vZmYt
-Ynk6IExhd3JlbmNlIEJyYWttbyA8YnJha21vQGZiLmNvbT4NCiAgICANCiAgICBGb3IgQlBGIGJp
-dHM6DQogICAgDQogICAgQWNrZWQtYnk6IERhbmllbCBCb3JrbWFubiA8ZGFuaWVsQGlvZ2VhcmJv
-eC5uZXQ+DQogICAgDQogICAgPiBAQCAtMzM3OSw2ICszNDA5LDE0MCBAQCBzdGF0aWMgdTMyIHhk
-cF9jb252ZXJ0X2N0eF9hY2Nlc3MoZW51bSBicGZfYWNjZXNzX3R5cGUgdHlwZSwNCiAgICA+ICAg
-CXJldHVybiBpbnNuIC0gaW5zbl9idWY7DQogICAgPiAgIH0NCiAgICA+DQogICAgPiArc3RhdGlj
-IHUzMiBzb2NrX29wc19jb252ZXJ0X2N0eF9hY2Nlc3MoZW51bSBicGZfYWNjZXNzX3R5cGUgdHlw
-ZSwNCiAgICA+ICsJCQkJICAgICAgIGNvbnN0IHN0cnVjdCBicGZfaW5zbiAqc2ksDQogICAgPiAr
-CQkJCSAgICAgICBzdHJ1Y3QgYnBmX2luc24gKmluc25fYnVmLA0KICAgID4gKwkJCQkgICAgICAg
-c3RydWN0IGJwZl9wcm9nICpwcm9nKQ0KICAgID4gK3sNCiAgICA+ICsJc3RydWN0IGJwZl9pbnNu
-ICppbnNuID0gaW5zbl9idWY7DQogICAgPiArCWludCBvZmY7DQogICAgPiArDQogICAgPiArCXN3
-aXRjaCAoc2ktPm9mZikgew0KICAgIFsuLi5dDQogICAgPiArCWNhc2Ugb2Zmc2V0b2Yoc3RydWN0
-IGJwZl9zb2NrX29wcywgcmVtb3RlX2lwNCk6DQogICAgPiArCQlCVUlMRF9CVUdfT04oRklFTERf
-U0laRU9GKHN0cnVjdCBzb2NrX2NvbW1vbiwgc2tjX2RhZGRyKSAhPSA0KTsNCiAgICA+ICsNCiAg
-ICA+ICsJCSppbnNuKysgPSBCUEZfTERYX01FTShCUEZfRklFTERfU0laRU9GKA0KICAgID4gKwkJ
-CQkJCXN0cnVjdCBicGZfc29ja19vcHNfa2Vybiwgc2spLA0KICAgID4gKwkJCQkgICAgICBzaS0+
-ZHN0X3JlZywgc2ktPnNyY19yZWcsDQogICAgPiArCQkJCSAgICAgIG9mZnNldG9mKHN0cnVjdCBi
-cGZfc29ja19vcHNfa2Vybiwgc2spKTsNCiAgICA+ICsJCSppbnNuKysgPSBCUEZfTERYX01FTShC
-UEZfVywgc2ktPmRzdF9yZWcsIHNpLT5kc3RfcmVnLA0KICAgID4gKwkJCQkgICAgICBvZmZzZXRv
-ZihzdHJ1Y3Qgc29ja19jb21tb24sIHNrY19kYWRkcikpOw0KICAgID4gKwkJKmluc24rKyA9IEJQ
-Rl9FTkRJQU4oQlBGX0ZST01fQkUsIHNpLT5kc3RfcmVnLCAzMik7DQogICAgPiArCQlicmVhazsN
-CiAgICA+ICsNCiAgICA+ICsJY2FzZSBvZmZzZXRvZihzdHJ1Y3QgYnBmX3NvY2tfb3BzLCBsb2Nh
-bF9pcDQpOg0KICAgID4gKwkJQlVJTERfQlVHX09OKEZJRUxEX1NJWkVPRihzdHJ1Y3Qgc29ja19j
-b21tb24sIHNrY19yY3Zfc2FkZHIpICE9IDQpOw0KICAgID4gKw0KICAgID4gKwkJKmluc24rKyA9
-IEJQRl9MRFhfTUVNKEJQRl9GSUVMRF9TSVpFT0YoDQogICAgPiArCQkJCQkgICAgICBzdHJ1Y3Qg
-YnBmX3NvY2tfb3BzX2tlcm4sIHNrKSwNCiAgICA+ICsJCQkJICAgICAgc2ktPmRzdF9yZWcsIHNp
-LT5zcmNfcmVnLA0KICAgID4gKwkJCQkgICAgICBvZmZzZXRvZihzdHJ1Y3QgYnBmX3NvY2tfb3Bz
-X2tlcm4sIHNrKSk7DQogICAgPiArCQkqaW5zbisrID0gQlBGX0xEWF9NRU0oQlBGX1csIHNpLT5k
-c3RfcmVnLCBzaS0+ZHN0X3JlZywNCiAgICA+ICsJCQkJICAgICAgb2Zmc2V0b2Yoc3RydWN0IHNv
-Y2tfY29tbW9uLA0KICAgID4gKwkJCQkJICAgICAgIHNrY19yY3Zfc2FkZHIpKTsNCiAgICA+ICsJ
-CSppbnNuKysgPSBCUEZfRU5ESUFOKEJQRl9GUk9NX0JFLCBzaS0+ZHN0X3JlZywgMzIpOw0KICAg
-ID4gKwkJYnJlYWs7DQogICAgPiArDQogICAgPiArCWNhc2Ugb2Zmc2V0b2Yoc3RydWN0IGJwZl9z
-b2NrX29wcywgcmVtb3RlX2lwNlswXSkgLi4uDQogICAgPiArCSAgICAgb2Zmc2V0b2Yoc3RydWN0
-IGJwZl9zb2NrX29wcywgcmVtb3RlX2lwNlszXSk6DQogICAgPiArI2lmIElTX0VOQUJMRUQoQ09O
-RklHX0lQVjYpDQogICAgPiArCQlCVUlMRF9CVUdfT04oRklFTERfU0laRU9GKHN0cnVjdCBzb2Nr
-X2NvbW1vbiwNCiAgICA+ICsJCQkJCSAgc2tjX3Y2X2RhZGRyLnM2X2FkZHIzMlswXSkgIT0gNCk7
-DQogICAgPiArDQogICAgPiArCQlvZmYgPSBzaS0+b2ZmOw0KICAgID4gKwkJb2ZmIC09IG9mZnNl
-dG9mKHN0cnVjdCBicGZfc29ja19vcHMsIHJlbW90ZV9pcDZbMF0pOw0KICAgID4gKwkJKmluc24r
-KyA9IEJQRl9MRFhfTUVNKEJQRl9GSUVMRF9TSVpFT0YoDQogICAgPiArCQkJCQkJc3RydWN0IGJw
-Zl9zb2NrX29wc19rZXJuLCBzayksDQogICAgPiArCQkJCSAgICAgIHNpLT5kc3RfcmVnLCBzaS0+
-c3JjX3JlZywNCiAgICA+ICsJCQkJICAgICAgb2Zmc2V0b2Yoc3RydWN0IGJwZl9zb2NrX29wc19r
-ZXJuLCBzaykpOw0KICAgID4gKwkJKmluc24rKyA9IEJQRl9MRFhfTUVNKEJQRl9XLCBzaS0+ZHN0
-X3JlZywgc2ktPmRzdF9yZWcsDQogICAgPiArCQkJCSAgICAgIG9mZnNldG9mKHN0cnVjdCBzb2Nr
-X2NvbW1vbiwNCiAgICA+ICsJCQkJCSAgICAgICBza2NfdjZfZGFkZHIuczZfYWRkcjMyWzBdKSAr
-DQogICAgPiArCQkJCSAgICAgIG9mZik7DQogICAgPiArCQkqaW5zbisrID0gQlBGX0VORElBTihC
-UEZfRlJPTV9CRSwgc2ktPmRzdF9yZWcsIDMyKTsNCiAgICA+ICsjZWxzZQ0KICAgID4gKwkJKmlu
-c24rKyA9IEJQRl9NT1YzMl9JTU0oc2ktPmRzdF9yZWcsIDApOw0KICAgID4gKyNlbmRpZg0KICAg
-ID4gKwkJYnJlYWs7DQogICAgPiArDQogICAgPiArCWNhc2Ugb2Zmc2V0b2Yoc3RydWN0IGJwZl9z
-b2NrX29wcywgbG9jYWxfaXA2WzBdKSAuLi4NCiAgICA+ICsJICAgICBvZmZzZXRvZihzdHJ1Y3Qg
-YnBmX3NvY2tfb3BzLCBsb2NhbF9pcDZbM10pOg0KICAgID4gKyNpZiBJU19FTkFCTEVEKENPTkZJ
-R19JUFY2KQ0KICAgID4gKwkJQlVJTERfQlVHX09OKEZJRUxEX1NJWkVPRihzdHJ1Y3Qgc29ja19j
-b21tb24sDQogICAgPiArCQkJCQkgIHNrY192Nl9yY3Zfc2FkZHIuczZfYWRkcjMyWzBdKSAhPSA0
-KTsNCiAgICA+ICsNCiAgICA+ICsJCW9mZiA9IHNpLT5vZmY7DQogICAgPiArCQlvZmYgLT0gb2Zm
-c2V0b2Yoc3RydWN0IGJwZl9zb2NrX29wcywgbG9jYWxfaXA2WzBdKTsNCiAgICA+ICsJCSppbnNu
-KysgPSBCUEZfTERYX01FTShCUEZfRklFTERfU0laRU9GKA0KICAgID4gKwkJCQkJCXN0cnVjdCBi
-cGZfc29ja19vcHNfa2Vybiwgc2spLA0KICAgID4gKwkJCQkgICAgICBzaS0+ZHN0X3JlZywgc2kt
-PnNyY19yZWcsDQogICAgPiArCQkJCSAgICAgIG9mZnNldG9mKHN0cnVjdCBicGZfc29ja19vcHNf
-a2Vybiwgc2spKTsNCiAgICA+ICsJCSppbnNuKysgPSBCUEZfTERYX01FTShCUEZfVywgc2ktPmRz
-dF9yZWcsIHNpLT5kc3RfcmVnLA0KICAgID4gKwkJCQkgICAgICBvZmZzZXRvZihzdHJ1Y3Qgc29j
-a19jb21tb24sDQogICAgPiArCQkJCQkgICAgICAgc2tjX3Y2X3Jjdl9zYWRkci5zNl9hZGRyMzJb
-MF0pICsNCiAgICA+ICsJCQkJICAgICAgb2ZmKTsNCiAgICA+ICsJCSppbnNuKysgPSBCUEZfRU5E
-SUFOKEJQRl9GUk9NX0JFLCBzaS0+ZHN0X3JlZywgMzIpOw0KICAgID4gKyNlbHNlDQogICAgPiAr
-CQkqaW5zbisrID0gQlBGX01PVjMyX0lNTShzaS0+ZHN0X3JlZywgMCk7DQogICAgPiArI2VuZGlm
-DQogICAgPiArCQlicmVhazsNCiAgICA+ICsNCiAgICA+ICsJY2FzZSBvZmZzZXRvZihzdHJ1Y3Qg
-YnBmX3NvY2tfb3BzLCByZW1vdGVfcG9ydCk6DQogICAgPiArCQlCVUlMRF9CVUdfT04oRklFTERf
-U0laRU9GKHN0cnVjdCBzb2NrX2NvbW1vbiwgc2tjX2Rwb3J0KSAhPSAyKTsNCiAgICA+ICsNCiAg
-ICA+ICsJCSppbnNuKysgPSBCUEZfTERYX01FTShCUEZfRklFTERfU0laRU9GKA0KICAgID4gKwkJ
-CQkJCXN0cnVjdCBicGZfc29ja19vcHNfa2Vybiwgc2spLA0KICAgID4gKwkJCQkgICAgICBzaS0+
-ZHN0X3JlZywgc2ktPnNyY19yZWcsDQogICAgPiArCQkJCSAgICAgIG9mZnNldG9mKHN0cnVjdCBi
-cGZfc29ja19vcHNfa2Vybiwgc2spKTsNCiAgICA+ICsJCSppbnNuKysgPSBCUEZfTERYX01FTShC
-UEZfSCwgc2ktPmRzdF9yZWcsIHNpLT5kc3RfcmVnLA0KICAgID4gKwkJCQkgICAgICBvZmZzZXRv
-ZihzdHJ1Y3Qgc29ja19jb21tb24sIHNrY19kcG9ydCkpOw0KICAgID4gKwkJKmluc24rKyA9IEJQ
-Rl9FTkRJQU4oQlBGX0ZST01fQkUsIHNpLT5kc3RfcmVnLCAxNik7DQogICAgPiArCQlicmVhazsN
-CiAgICA+ICsNCiAgICA+ICsJY2FzZSBvZmZzZXRvZihzdHJ1Y3QgYnBmX3NvY2tfb3BzLCBsb2Nh
-bF9wb3J0KToNCiAgICA+ICsJCUJVSUxEX0JVR19PTihGSUVMRF9TSVpFT0Yoc3RydWN0IHNvY2tf
-Y29tbW9uLCBza2NfbnVtKSAhPSAyKTsNCiAgICA+ICsNCiAgICA+ICsJCSppbnNuKysgPSBCUEZf
-TERYX01FTShCUEZfRklFTERfU0laRU9GKA0KICAgID4gKwkJCQkJCXN0cnVjdCBicGZfc29ja19v
-cHNfa2Vybiwgc2spLA0KICAgID4gKwkJCQkgICAgICBzaS0+ZHN0X3JlZywgc2ktPnNyY19yZWcs
-DQogICAgPiArCQkJCSAgICAgIG9mZnNldG9mKHN0cnVjdCBicGZfc29ja19vcHNfa2Vybiwgc2sp
-KTsNCiAgICA+ICsJCSppbnNuKysgPSBCUEZfTERYX01FTShCUEZfSCwgc2ktPmRzdF9yZWcsIHNp
-LT5kc3RfcmVnLA0KICAgID4gKwkJCQkgICAgICBvZmZzZXRvZihzdHJ1Y3Qgc29ja19jb21tb24s
-IHNrY19udW0pKTsNCiAgICANCiAgICBUaGF0IG9uZSBpcyBpbmRlZWQgaW4gaG9zdCBlbmRpYW5u
-ZXNzLiBNYWtlcyBzZW5zZSB0byBoYXZlIHJlbW90ZV9wb3J0DQogICAgYW5kIGxvY2FsX3BvcnQg
-aW4gYSBjb25zaXN0ZW50IHJlcHJlc2VudGF0aW9uLg0KICAgIA0KICAgIEkgd2FzIHdvbmRlcmlu
-ZyB0aG91Z2ggd2hldGhlciB3ZSBzaG91bGQgZG8gYWxsIHRoZSBjb252ZXJzaW9uIG9mDQogICAg
-QlBGX0VORElBTihCUEZfRlJPTV9CRSwgLi4uKSBvciBqdXN0IGxlYXZlIGl0IHRvIHRoZSB1c2Vy
-IHdoZXRoZXINCiAgICBoZSBuZWVkcyB0aGUgQlBGX0VORElBTihCUEZfRlJPTV9CRSwgLi4uKSBv
-ciBwcm9jZXNzIGl0IGluIG5ldHdvcmsNCiAgICBieXRlIG9yZGVyIGFzLWlzLiBJbiBjYXNlIHRo
-ZSB1c2VyIG5lZWRzIHRvIGdvIGFuZCB1bmRvIGFnYWluIHZpYQ0KICAgIEJQRl9FTkRJQU4oQlBG
-X1RPX0JFLCAuLi4pLCBlLmcuLCB0byByZWNvbnN0cnVjdCBhIGZ1bGwgdjYgYWRkciwNCiAgICB0
-aGVuIHdlIGhhdmUgdHdvIHVubmVlZGVkIGluc25zIGZvciBlYWNoIG9mIHRoZSByZW1vdGVfaXA2
-W1hdIC8NCiAgICBsb2NhbF9pcDZbWF0uIFNvLCBub3QgcHJvdmlkaW5nIGl0IGluIGhvc3QgYnl0
-ZSBvcmRlciwgdGhlIHVzZXIgY2FuDQogICAgc3RpbGwgYWx3YXlzIGNob3NlIHRvIGRvIGEgQlBG
-X0VORElBTihCUEZfRlJPTV9CRSwgLi4uKSBieSBoaW1zZWxmLA0KICAgIGlmIHRoaXMgcmVwcmVz
-ZW50YXRpb24gaXMgcHJlZmVycmVkLiBXZHl0Pw0KDQpHb29kIHBvaW50IGFib3V0IGVuZGlhbm5l
-c3MuIFdoYXQgSSB3aWxsIGRvIGlzIHByZXNlbnQgdGhlIGRhdGEgDQppbiB0aGUgc2FtZSBlbmRp
-YW5uZXNzIGFzIGl0IGlzIGluIHRoZSBrZXJuZWwgc29jayBzdHJ1Y3QgYW5kIGRvY3VtZW50DQp0
-aGlzIGluIHRoZSBzb2NrX29wcyBzdHJ1Y3QuDQpJIHdpbGwgc3VibWl0IGEgbmV3IHBhdGNoIHNl
-dCBzb29uLiAgDQogICAgDQogICAgPiArCQlicmVhazsNCiAgICA+ICsJfQ0KICAgID4gKwlyZXR1
-cm4gaW5zbiAtIGluc25fYnVmOw0KICAgID4gK30NCiAgICA+ICsNCiAgICA+ICAgY29uc3Qgc3Ry
-dWN0IGJwZl92ZXJpZmllcl9vcHMgc2tfZmlsdGVyX3Byb2dfb3BzID0gew0KICAgID4gICAJLmdl
-dF9mdW5jX3Byb3RvCQk9IHNrX2ZpbHRlcl9mdW5jX3Byb3RvLA0KICAgIFsuLi5dDQogICAgDQoN
-Cg==
+Hello,
+
+commit 0fb44559ffd6 ("af_unix: move unix_mknod() out of bindlock") moves
+the special file creation in unix_bind() before u->bindlock is taken in
+order to avoid an ABBA deadlock with do_splice(). As a side effect, it
+also moves the check for existence of the special file (which would
+result in -EADDRINUSE) before the check of u->addr (which would result
+in -EINVAL if socket is already bound). This means that the error
+returned for an attempt to bind a unix socket to the same path twice
+changed from -EINVAL to -EADDRINUSE with this commit.
+
+One way to restore the old error code is indicated below but before
+submitting it, I would like to ask if we need/want it.
+
+Pro:
+  - in general, we do not want to change return code for given testcase
+  - old error (-EINVAL) is consistent with AF_INET(6)
+Con:
+  - both POSIX and Linux man page only list error conditions without
+    stating which should take precedence if more of them apply so
+    neither of them seems wrong, strictly speaking
+
+
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 1a0c961f4ffe..509292bdf7ed 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -992,7 +992,7 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ 	struct unix_sock *u = unix_sk(sk);
+ 	struct sockaddr_un *sunaddr = (struct sockaddr_un *)uaddr;
+ 	char *sun_path = sunaddr->sun_path;
+-	int err;
++	int err, mknod_err;
+ 	unsigned int hash;
+ 	struct unix_address *addr;
+ 	struct hlist_head *list;
+@@ -1016,12 +1016,10 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ 	if (sun_path[0]) {
+ 		umode_t mode = S_IFSOCK |
+ 		       (SOCK_INODE(sock)->i_mode & ~current_umask());
+-		err = unix_mknod(sun_path, mode, &path);
+-		if (err) {
+-			if (err == -EEXIST)
+-				err = -EADDRINUSE;
+-			goto out;
+-		}
++		mknod_err = unix_mknod(sun_path, mode, &path);
++		/* do not exit on error until after u->addr check */
++		if (mknod_err == -EEXIST)
++			mknod_err = -EADDRINUSE;
+ 	}
+ 
+ 	err = mutex_lock_interruptible(&u->bindlock);
+@@ -1031,6 +1029,10 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ 	err = -EINVAL;
+ 	if (u->addr)
+ 		goto out_up;
++	if (mknod_err) {
++		err = mknod_err;
++		goto out_up;
++	}
+ 
+ 	err = -ENOMEM;
+ 	addr = kmalloc(sizeof(*addr)+addr_len, GFP_KERNEL);
