@@ -1,78 +1,29 @@
-From: "Baxter, Jim" <jim_baxter@mentor.com>
-Subject: Re: [PATCH V2 1/1] net: cdc_ncm: Reduce memory use when kernel memory
- low
-Date: Fri, 30 Jun 2017 18:03:26 +0100
-Message-ID: <71a89e5d-e060-4735-32f7-d8bcc26aaeb2@mentor.com>
-References: <1498682129-9129-1-git-send-email-jim_baxter@mentor.com>
- <1498682129-9129-2-git-send-email-jim_baxter@mentor.com>
- <20170630.125953.245673296877756318.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v4 0/4] PTP support for macb driver
+Date: Fri, 30 Jun 2017 13:12:15 -0400 (EDT)
+Message-ID: <20170630.131215.2230779928789809487.davem@davemloft.net>
+References: <1498716526-1372-1-git-send-email-rafalo@cadence.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <linux-usb@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <oliver@neukum.org>,
-        <bjorn@mork.no>, <David.Laight@ACULAB.COM>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170630.125953.245673296877756318.davem@davemloft.net>
-Content-Language: en-GB
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org, richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, andrei.pistirica-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org
+To: rafalo-vna1KIf7WgpBDgjK7y7TUQ@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1498716526-1372-1-git-send-email-rafalo-vna1KIf7WgpBDgjK7y7TUQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+From: Rafal Ozieblo <rafalo-vna1KIf7WgpBDgjK7y7TUQ@public.gmane.org>
+Date: Thu, 29 Jun 2017 07:08:46 +0100
 
---------------------------------------------------------------------------------
-From: David S. Miller (davem@davemloft.net)
-Sent: Fri, 30 Jun 2017 12:59:53 -0400
-To: jim_baxter@mentor.com
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org, oliver@neukum.org, bjorn@mork.no, David.Laight@ACULAB.COM
-Subject: Re: [PATCH V2 1/1] net: cdc_ncm: Reduce memory use when kernel memory low
+> This patch series adds support for PTP synchronization protocol
+> in Cadence GEM driver based on PHC.
 
- 
-
-
-> From: Jim Baxter <jim_baxter@mentor.com>
-> Date: Wed, 28 Jun 2017 21:35:29 +0100
-> 
->> The CDC-NCM driver can require large amounts of memory to create
->> skb's and this can be a problem when the memory becomes fragmented.
->>
->> This especially affects embedded systems that have constrained
->> resources but wish to maximise the throughput of CDC-NCM with 16KiB
->> NTB's.
->>
->> The issue is after running for a while the kernel memory can become
->> fragmented and it needs compacting.
->> If the NTB allocation is needed before the memory has been compacted
->> the atomic allocation can fail which can cause increased latency,
->> large re-transmissions or disconnections depending upon the data
->> being transmitted at the time.
->> This situation occurs for less than a second until the kernel has
->> compacted the memory but the failed devices can take a lot longer to
->> recover from the failed TX packets.
->>
->> To ease this temporary situation I modified the CDC-NCM TX path to
->> temporarily switch into a reduced memory mode which allocates an NTB
->> that will fit into a USB_CDC_NCM_NTB_MIN_OUT_SIZE (default 2048 Bytes)
->> sized memory block and only transmit NTB's with a single network frame
->> until the memory situation is resolved.
->> Each time this issue occurs we wait for an increasing number of
->> reduced size allocations before requesting a full size one to not
->> put additional pressure on a low memory system.
->>
->> Once the memory is compacted the CDC-NCM data can resume transmitting
->> at the normal tx_max rate once again.
->>
->> Signed-off-by: Jim Baxter <jim_baxter@mentor.com>
-> 
-> If someone could review this patch, I remember this issue being discussed
-> a while ago, I would really appreciate it.
-> 
-
-Hello,
-
-For reference this replaces the original discussion in
-http://patchwork.ozlabs.org/patch/763100/ and
-http://patchwork.ozlabs.org/patch/766181/
-
-Best regards,
-Jim 
+Series applied, thanks Rafal.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
