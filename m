@@ -1,80 +1,71 @@
-From: =?UTF-8?q?Iv=C3=A1n=20Briano?= <ivan.briano@intel.com>
-Subject: [PATCH net-next] net/packet: Fix Tx queue selection for AF_PACKET
-Date: Fri, 30 Jun 2017 14:02:32 -0700
-Message-ID: <20170630210232.18407-1-ivan.briano@intel.com>
+From: Arend van Spriel <arend.vanspriel@broadcom.com>
+Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
+ loading NVS calibration data
+Date: Fri, 30 Jun 2017 23:35:41 +0200
+Message-ID: <a956b366-95d9-e876-4dba-149d2987633a@broadcom.com>
+References: <0fd90416-f33c-a6be-14fd-5e964583e9cb@broadcom.com>
+ <20170515231339.GF17314@wotan.suse.de>
+ <0c43c825-df2a-b427-4b67-f17fd644667f@broadcom.com>
+ <20170623215319.GU21846@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: jesus.sanchez-palencia@intel.com, vinicius.gomes@intel.com,
-        andre.guedes@intel.com,
-        =?UTF-8?q?Iv=C3=A1n=20Briano?= <ivan.briano@intel.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Li@suse.de, Yi <yi1.li@linux.intel.com>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        Pavel Machek <pavel@ucw.cz>, Daniel Wagner <wagi@monom.org>,
+        Tom Gundersen <teg@jklm.no>,
+        =?UTF-8?Q?Pali_Roh=c3=a1r?= <pali.rohar@gmail.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        David Gnedt <david.gnedt@davizone.at>,
+        Tony Lindgren <tony@atomide.com>,
+        Sebastian Reichel <sre@kernel.org>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Takashi Iwai <tiwai@suse.de>,
+        AKASHI Takahiro <takahiro.akashi@linaro.org>,
+        David Woodhouse <dwmw2@infradead.org>,
+        Bjorn Andersson <bjorn.andersson@linaro.org>,
+        Grazvydas Ignotas <notasas@gmail.com>,
+        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel
+To: "Luis R. Rodriguez" <mcgrof@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:6126 "EHLO mga02.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752772AbdF3VCe (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 30 Jun 2017 17:02:34 -0400
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:38842 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753074AbdF3Vfo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 17:35:44 -0400
+Received: by mail-wm0-f50.google.com with SMTP id f67so4296890wmh.1
+        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 14:35:44 -0700 (PDT)
+In-Reply-To: <20170623215319.GU21846@wotan.suse.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When PACKET_QDISC_BYPASS is not used, Tx queue selection will be done
-before the packet is enqueued, taking into account any mappings set by
-a queuing discipline such as mqprio without hardware offloading. This
-selection may be affected by a previously saved queue_mapping, either on
-the Rx path, or done before the packet reaches the device, as it's
-currently the case for AF_PACKET.
 
-In order for queue selection to work as expected when using traffic
-control, there can't be another selection done before that point is
-reached, so move the call to packet_pick_tx_queue to
-packet_direct_xmit, leaving the default xmit path as it was before
-PACKET_QDISC_BYPASS was introduced.
 
-A forward declaration of packet_pick_tx_queue() is introduced to avoid
-the need to reorder the functions within the file.
+On 23-06-17 23:53, Luis R. Rodriguez wrote:
+> On Tue, May 16, 2017 at 10:41:08AM +0200, Arend Van Spriel wrote:
+>> On 16-5-2017 1:13, Luis R. Rodriguez wrote:
+>>> Since no upstream delta is needed for firmwared I'd like to first encourage
+>>> evaluating the above. While distributions don't carry it yet that may be seen as
+>>> an issue but since what we are looking for are corner cases, only folks needing
+>>> to deploy a specific solution would need it or a custom proprietary solution.
+>>
+>> Ok. I will go try and run firmwared in OpenWrt on a router platform.
+>> Have to steal one from a colleague :-p Will study firmwared.
+> 
+> Arend, curious how this effort goes. Its important to me as we know then that
+> if this works its a good approach to recommend moving forward which should also
+> prove less complex than that soup we had with the custom fallback stuff.
 
-Signed-off-by: Iván Briano <ivan.briano@intel.com>
----
- net/packet/af_packet.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+Hi Luis,
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index f9349a4..2169368 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -214,6 +214,7 @@ static void prb_clear_rxhash(struct tpacket_kbdq_core *,
- static void prb_fill_vlan_info(struct tpacket_kbdq_core *,
- 		struct tpacket3_hdr *);
- static void packet_flush_mclist(struct sock *sk);
-+static void packet_pick_tx_queue(struct net_device *dev, struct sk_buff *skb);
- 
- struct packet_skb_cb {
- 	union {
-@@ -260,6 +261,7 @@ static int packet_direct_xmit(struct sk_buff *skb)
- 	if (skb != orig_skb)
- 		goto drop;
- 
-+	packet_pick_tx_queue(dev, skb);
- 	txq = skb_get_tx_queue(dev, skb);
- 
- 	local_bh_disable();
-@@ -2747,8 +2749,6 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 			goto tpacket_error;
- 		}
- 
--		packet_pick_tx_queue(dev, skb);
--
- 		skb->destructor = tpacket_destruct_skb;
- 		__packet_set_status(po, ph, TP_STATUS_SENDING);
- 		packet_inc_pending(&po->tx_ring);
-@@ -2931,8 +2931,6 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
- 	skb->priority = sk->sk_priority;
- 	skb->mark = sockc.mark;
- 
--	packet_pick_tx_queue(dev, skb);
--
- 	if (po->has_vnet_hdr) {
- 		err = virtio_net_hdr_to_skb(skb, &vnet_hdr, vio_le());
- 		if (err)
--- 
-2.9.4
+So I looked at firmwared and we basically need to extend it. For our
+router platform we need to obtain nvram calibration data from an MTD
+partition which contains the raw data, ie. no file-system on it. So
+firmwared would need some sort of configuration to map a particular
+firmware file to some action obtaining the data like kicking off some
+mtd-utils in my case.
+
+Regards,
+Arend
