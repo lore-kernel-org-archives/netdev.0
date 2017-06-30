@@ -1,47 +1,41 @@
-From: Will Deacon <will.deacon@arm.com>
-Subject: Re: [PATCH RFC 12/26] arm64: Remove spin_unlock_wait() arch-specific
- definitions
-Date: Fri, 30 Jun 2017 10:20:57 +0100
-Message-ID: <20170630092057.GD9726@arm.com>
-References: <20170629235918.GA6445@linux.vnet.ibm.com>
- <1498780894-8253-12-git-send-email-paulmck@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-        netdev@vger.kernel.org, oleg@redhat.com, akpm@linux-foundation.org,
-        mingo@redhat.com, dave@stgolabs.net, manfred@colorfullife.com,
-        tj@kernel.org, arnd@arndb.de, linux-arch@vger.kernel.org,
-        peterz@infradead.org, stern@rowland.harvard.edu,
-        parri.andrea@gmail.com, torvalds@linux-foundation.org,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        linux-arm-kernel@lists.infradead.org
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1498780894-8253-12-git-send-email-paulmck@linux.vnet.ibm.com>
-Sender: linux-arch-owner@vger.kernel.org
+From: Alvaro Gamez Machado <alvaro.gamez@hazent.com>
+Subject: [PATCH] net: axienet: add of_phy_connect call for XAE_PHY_TYPE_MII case
+Date: Fri, 30 Jun 2017 11:25:41 +0200
+Message-ID: <20170630092541.27234-1-alvaro.gamez@hazent.com>
+Cc: Alvaro Gamez Machado <alvaro.gamez@hazent.com>
+To: Anirudha Sarangi <anirudh@xilinx.com>,
+        John Linn <John.Linn@xilinx.com>,
+        Michal Simek <michal.simek@xilinx.com>,
+        =?UTF-8?q?S=C3=B6ren=20Brinkmann?= <soren.brinkmann@xilinx.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 29, 2017 at 05:01:20PM -0700, Paul E. McKenney wrote:
-> There is no agreed-upon definition of spin_unlock_wait()'s semantics,
-> and it appears that all callers could do just as well with a lock/unlock
-> pair.  This commit therefore removes the underlying arch-specific
-> arch_spin_unlock_wait().
-> 
-> Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> Cc: Catalin Marinas <catalin.marinas@arm.com>
-> Cc: Will Deacon <will.deacon@arm.com>
-> Cc: <linux-arm-kernel@lists.infradead.org>
-> Cc: Peter Zijlstra <peterz@infradead.org>
-> Cc: Alan Stern <stern@rowland.harvard.edu>
-> Cc: Andrea Parri <parri.andrea@gmail.com>
-> Cc: Linus Torvalds <torvalds@linux-foundation.org>
-> ---
->  arch/arm64/include/asm/spinlock.h | 58 ++++-----------------------------------
->  1 file changed, 5 insertions(+), 53 deletions(-)
+This IP core has support for mii connectivity to the phy, so be ready to
+connect to it when this is the case.
 
-I'm going to miss this code.
+Signed-off-by: Alvaro Gamez Machado <alvaro.gamez@hazent.com>
+---
+ drivers/net/ethernet/xilinx/xilinx_axienet_main.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-Acked-by: Will Deacon <will.deacon@arm.com>
-
-Will
+diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+index 33c595f4691d..9b3f55449b5e 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
++++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+@@ -935,7 +935,11 @@ static int axienet_open(struct net_device *ndev)
+ 		return ret;
+ 
+ 	if (lp->phy_node) {
+-		if (lp->phy_type == XAE_PHY_TYPE_GMII) {
++		if (lp->phy_type == XAE_PHY_TYPE_MII) {
++			phydev = of_phy_connect(lp->ndev, lp->phy_node,
++						axienet_adjust_link, 0,
++						PHY_INTERFACE_MODE_MII);
++		} else if (lp->phy_type == XAE_PHY_TYPE_GMII) {
+ 			phydev = of_phy_connect(lp->ndev, lp->phy_node,
+ 						axienet_adjust_link, 0,
+ 						PHY_INTERFACE_MODE_GMII);
+-- 
+2.11.0
