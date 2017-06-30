@@ -1,78 +1,59 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH net-next 4/6] net: call udp_tunnel_get_rx_info when NETIF_F_TUNNEL_OFFLOAD is toggled
-Date: Fri, 30 Jun 2017 15:19:48 +0200
-Message-ID: <75a4587e54edb3a980da1640cb56a2229f442cde.1498743778.git.sd@queasysnail.net>
-References: <cover.1498743778.git.sd@queasysnail.net>
-Cc: Jiri Benc <jbenc@redhat.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Sabrina Dubroca <sd@queasysnail.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43224 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752059AbdF3NUo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 30 Jun 2017 09:20:44 -0400
-In-Reply-To: <cover.1498743778.git.sd@queasysnail.net>
-In-Reply-To: <cover.1498743778.git.sd@queasysnail.net>
-References: <cover.1498743778.git.sd@queasysnail.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH NET V5 2/2] net: hns: Use phy_driver to setup Phy loopback
+Date: Fri, 30 Jun 2017 15:39:15 +0200
+Message-ID: <20170630133915.GD17212@lunn.ch>
+References: <1498443039-134503-1-git-send-email-linyunsheng@huawei.com>
+ <1498443039-134503-3-git-send-email-linyunsheng@huawei.com>
+ <20170626134235.GC2623@lunn.ch>
+ <17132762-9b94-bc32-fee8-e90a6db5762a@huawei.com>
+ <20170627132958.GA9921@lunn.ch>
+ <3d382bc6-f7b6-9df3-8bb0-fee55b72ac74@huawei.com>
+ <20170628202819.GA22815@lunn.ch>
+ <1bff07ed-d423-dfa2-61e3-3f35c4536632@huawei.com>
+ <20170629135648.GD9244@lunn.ch>
+ <e53994a8-25df-a7dc-cbf0-cbc4063e734c@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, f.fainelli@gmail.com,
+        huangdaode@hisilicon.com, xuwei5@hisilicon.com,
+        liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
+        gabriele.paoloni@huawei.com, john.garry@huawei.com,
+        linuxarm@huawei.com, salil.mehta@huawei.com, lipeng321@huawei.com,
+        tremyfr@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Yunsheng Lin <linyunsheng@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <e53994a8-25df-a7dc-cbf0-cbc4063e734c@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-NETIF_F_TUNNEL_OFFLOAD is special, in that we need to do more than just
-flip the bit in dev->features. When disabling we must also clear
-currently offloaded ports from the device, and when enabling we must
-tell the device to offload the ports it can.
+> Any idea?
 
-Because vxlan stores its sockets in a hashtable and they are inserted
-at the head of per-bucket lists, switching the feature off and then on
-can result in a different set of ports being offloaded (depending on
-the HW's limits).
+Maybe consider what the self test is good for.
 
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
----
- net/core/dev.c | 22 +++++++++++++++++++++-
- 1 file changed, 21 insertions(+), 1 deletion(-)
+My guess is, self test was added when a network interface card was a
+full size VME card, and had a couple of hundred components or more.
+They did break during there life, due to heat, mechanism stresses,
+causing parts to pop off the PCB, or out of their sockets.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d97f7b39df23..ba805fba38dd 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -144,6 +144,7 @@
- #include <linux/netfilter_ingress.h>
- #include <linux/crash_dump.h>
- #include <linux/sctp.h>
-+#include <net/udp_tunnel.h>
- 
- #include "net-sysfs.h"
- 
-@@ -7302,8 +7303,27 @@ int __netdev_update_features(struct net_device *dev)
- 	netdev_for_each_lower_dev(dev, lower, iter)
- 		netdev_sync_lower_features(dev, lower, features);
- 
--	if (!err)
-+	if (!err) {
-+		netdev_features_t diff = features ^ dev->features;
-+
-+		if (diff & NETIF_F_TUNNEL_OFFLOAD) {
-+			/* udp_tunnel_{get,drop}_rx_info both need
-+			 * NETIF_F_TUNNEL_OFFLOAD enabled on the
-+			 * device, or they won't do anything.
-+			 * Thus we need to update dev->features
-+			 * *before* calling udp_tunnel_get_rx_info,
-+			 * but *after* calling udp_tunnel_drop_rx_info.
-+			 */
-+			if (features & NETIF_F_TUNNEL_OFFLOAD) {
-+				dev->features = features;
-+				udp_tunnel_get_rx_info(dev);
-+			} else {
-+				udp_tunnel_drop_rx_info(dev);
-+			}
-+		}
-+
- 		dev->features = features;
-+	}
- 
- 	return err < 0 ? 0 : 1;
- }
--- 
-2.13.2
+Nowadays, the Ethernet interface is part of the SoC, and just has
+maybe 10 external parts for the PHY.  What does a failed "MAC loopback
+test" tell you? Probably that the driver has a bug, or there is a
+silicon bug. What does "SERDES loopback test" tell you? Probably that
+the driver has a bug, or there is a silicon bug. And since this is all
+inside the silicon, if it fails for you, it is going to fail for
+everybody, making the test pretty pointless.
+
+What does a "PHY loopback test" tell you? There is a slim chance it
+tells you the device has been hit by lightning, and the PHY is
+fried. But more likely, that the driver has a bug, or there is a
+silicon bug.
+
+I really expect your own Q&A testing is much better at finding driver
+and silicon bugs. You don't use the ethtool --selftest for this.
+
+So i personally would just delete the whole selftest code, it is
+pretty pointless.
+
+       Andrew
