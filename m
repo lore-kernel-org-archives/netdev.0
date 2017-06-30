@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 14/17] net: convert inet_frag_queue.refcnt from atomic_t to refcount_t
-Date: Fri, 30 Jun 2017 13:08:07 +0300
-Message-ID: <1498817290-3368-15-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 16/17] net: convert netlbl_lsm_cache.refcount from atomic_t to refcount_t
+Date: Fri, 30 Jun 2017 13:08:09 +0300
+Message-ID: <1498817290-3368-17-git-send-email-elena.reshetova@intel.com>
 References: <1498817290-3368-1-git-send-email-elena.reshetova@intel.com>
 Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
         kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
@@ -10,14 +10,10 @@ Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
         Hans Liljestrand <ishkamiel@gmail.com>,
         David Windsor <dwindsor@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:4349 "EHLO mga06.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752790AbdF3KJU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 30 Jun 2017 06:09:20 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1498817290-3368-1-git-send-email-elena.reshetova@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 refcount_t type and corresponding API should be
 used instead of atomic_t when the variable is used as
@@ -30,102 +26,94 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/inet_frag.h  |  4 ++--
- net/ipv4/inet_fragment.c | 14 +++++++-------
- net/ipv4/ip_fragment.c   |  2 +-
- 3 files changed, 10 insertions(+), 10 deletions(-)
+ include/net/netlabel.h | 8 ++++----
+ net/ipv4/cipso_ipv4.c  | 4 ++--
+ net/ipv6/calipso.c     | 4 ++--
+ 3 files changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index 975779d..440c1e9 100644
---- a/include/net/inet_frag.h
-+++ b/include/net/inet_frag.h
-@@ -50,7 +50,7 @@ struct inet_frag_queue {
- 	spinlock_t		lock;
- 	struct timer_list	timer;
- 	struct hlist_node	list;
--	atomic_t		refcnt;
-+	refcount_t		refcnt;
- 	struct sk_buff		*fragments;
- 	struct sk_buff		*fragments_tail;
- 	ktime_t			stamp;
-@@ -129,7 +129,7 @@ void inet_frag_maybe_warn_overflow(struct inet_frag_queue *q,
+diff --git a/include/net/netlabel.h b/include/net/netlabel.h
+index efe9806..72d6435 100644
+--- a/include/net/netlabel.h
++++ b/include/net/netlabel.h
+@@ -37,7 +37,7 @@
+ #include <linux/in6.h>
+ #include <net/netlink.h>
+ #include <net/request_sock.h>
+-#include <linux/atomic.h>
++#include <linux/refcount.h>
  
- static inline void inet_frag_put(struct inet_frag_queue *q, struct inet_frags *f)
+ struct cipso_v4_doi;
+ struct calipso_doi;
+@@ -136,7 +136,7 @@ struct netlbl_audit {
+  *
+  */
+ struct netlbl_lsm_cache {
+-	atomic_t refcount;
++	refcount_t refcount;
+ 	void (*free) (const void *data);
+ 	void *data;
+ };
+@@ -295,7 +295,7 @@ static inline struct netlbl_lsm_cache *netlbl_secattr_cache_alloc(gfp_t flags)
+ 
+ 	cache = kzalloc(sizeof(*cache), flags);
+ 	if (cache)
+-		atomic_set(&cache->refcount, 1);
++		refcount_set(&cache->refcount, 1);
+ 	return cache;
+ }
+ 
+@@ -309,7 +309,7 @@ static inline struct netlbl_lsm_cache *netlbl_secattr_cache_alloc(gfp_t flags)
+  */
+ static inline void netlbl_secattr_cache_free(struct netlbl_lsm_cache *cache)
  {
--	if (atomic_dec_and_test(&q->refcnt))
-+	if (refcount_dec_and_test(&q->refcnt))
- 		inet_frag_destroy(q, f);
- }
+-	if (!atomic_dec_and_test(&cache->refcount))
++	if (!refcount_dec_and_test(&cache->refcount))
+ 		return;
  
-diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index b5e9317..96e95e8 100644
---- a/net/ipv4/inet_fragment.c
-+++ b/net/ipv4/inet_fragment.c
-@@ -276,11 +276,11 @@ static inline void fq_unlink(struct inet_frag_queue *fq, struct inet_frags *f)
- void inet_frag_kill(struct inet_frag_queue *fq, struct inet_frags *f)
- {
- 	if (del_timer(&fq->timer))
--		atomic_dec(&fq->refcnt);
-+		refcount_dec(&fq->refcnt);
- 
- 	if (!(fq->flags & INET_FRAG_COMPLETE)) {
- 		fq_unlink(fq, f);
--		atomic_dec(&fq->refcnt);
-+		refcount_dec(&fq->refcnt);
+ 	if (cache->free)
+diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
+index ae20616..c204477 100644
+--- a/net/ipv4/cipso_ipv4.c
++++ b/net/ipv4/cipso_ipv4.c
+@@ -265,7 +265,7 @@ static int cipso_v4_cache_check(const unsigned char *key,
+ 		    entry->key_len == key_len &&
+ 		    memcmp(entry->key, key, key_len) == 0) {
+ 			entry->activity += 1;
+-			atomic_inc(&entry->lsm_data->refcount);
++			refcount_inc(&entry->lsm_data->refcount);
+ 			secattr->cache = entry->lsm_data;
+ 			secattr->flags |= NETLBL_SECATTR_CACHE;
+ 			secattr->type = NETLBL_NLTYPE_CIPSOV4;
+@@ -332,7 +332,7 @@ int cipso_v4_cache_add(const unsigned char *cipso_ptr,
  	}
- }
- EXPORT_SYMBOL(inet_frag_kill);
-@@ -329,7 +329,7 @@ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
- 	 */
- 	hlist_for_each_entry(qp, &hb->chain, list) {
- 		if (qp->net == nf && f->match(qp, arg)) {
--			atomic_inc(&qp->refcnt);
-+			refcount_inc(&qp->refcnt);
- 			spin_unlock(&hb->chain_lock);
- 			qp_in->flags |= INET_FRAG_COMPLETE;
- 			inet_frag_put(qp_in, f);
-@@ -339,9 +339,9 @@ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
- #endif
- 	qp = qp_in;
- 	if (!mod_timer(&qp->timer, jiffies + nf->timeout))
--		atomic_inc(&qp->refcnt);
-+		refcount_inc(&qp->refcnt);
+ 	entry->key_len = cipso_ptr_len;
+ 	entry->hash = cipso_v4_map_cache_hash(cipso_ptr, cipso_ptr_len);
+-	atomic_inc(&secattr->cache->refcount);
++	refcount_inc(&secattr->cache->refcount);
+ 	entry->lsm_data = secattr->cache;
  
--	atomic_inc(&qp->refcnt);
-+	refcount_inc(&qp->refcnt);
- 	hlist_add_head(&qp->list, &hb->chain);
- 
- 	spin_unlock(&hb->chain_lock);
-@@ -370,7 +370,7 @@ static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
- 
- 	setup_timer(&q->timer, f->frag_expire, (unsigned long)q);
- 	spin_lock_init(&q->lock);
--	atomic_set(&q->refcnt, 1);
-+	refcount_set(&q->refcnt, 1);
- 
- 	return q;
- }
-@@ -405,7 +405,7 @@ struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
- 	spin_lock(&hb->chain_lock);
- 	hlist_for_each_entry(q, &hb->chain, list) {
- 		if (q->net == nf && f->match(q, key)) {
--			atomic_inc(&q->refcnt);
-+			refcount_inc(&q->refcnt);
- 			spin_unlock(&hb->chain_lock);
- 			return q;
- 		}
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index b3cdeec..9a8cfac 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -312,7 +312,7 @@ static int ip_frag_reinit(struct ipq *qp)
- 	unsigned int sum_truesize = 0;
- 
- 	if (!mod_timer(&qp->q.timer, jiffies + qp->q.net->timeout)) {
--		atomic_inc(&qp->q.refcnt);
-+		refcount_inc(&qp->q.refcnt);
- 		return -ETIMEDOUT;
+ 	bkt = entry->hash & (CIPSO_V4_CACHE_BUCKETS - 1);
+diff --git a/net/ipv6/calipso.c b/net/ipv6/calipso.c
+index 8d772fe..4406752 100644
+--- a/net/ipv6/calipso.c
++++ b/net/ipv6/calipso.c
+@@ -227,7 +227,7 @@ static int calipso_cache_check(const unsigned char *key,
+ 		    entry->key_len == key_len &&
+ 		    memcmp(entry->key, key, key_len) == 0) {
+ 			entry->activity += 1;
+-			atomic_inc(&entry->lsm_data->refcount);
++			refcount_inc(&entry->lsm_data->refcount);
+ 			secattr->cache = entry->lsm_data;
+ 			secattr->flags |= NETLBL_SECATTR_CACHE;
+ 			secattr->type = NETLBL_NLTYPE_CALIPSO;
+@@ -296,7 +296,7 @@ static int calipso_cache_add(const unsigned char *calipso_ptr,
  	}
+ 	entry->key_len = calipso_ptr_len;
+ 	entry->hash = calipso_map_cache_hash(calipso_ptr, calipso_ptr_len);
+-	atomic_inc(&secattr->cache->refcount);
++	refcount_inc(&secattr->cache->refcount);
+ 	entry->lsm_data = secattr->cache;
  
+ 	bkt = entry->hash & (CALIPSO_CACHE_BUCKETS - 1);
 -- 
 2.7.4
