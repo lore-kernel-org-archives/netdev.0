@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 13/17] net: convert fib_rule.refcnt from atomic_t to refcount_t
-Date: Fri, 30 Jun 2017 13:08:06 +0300
-Message-ID: <1498817290-3368-14-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 17/17] net: convert packet_fanout.sk_ref from atomic_t to refcount_t
+Date: Fri, 30 Jun 2017 13:08:10 +0300
+Message-ID: <1498817290-3368-18-git-send-email-elena.reshetova@intel.com>
 References: <1498817290-3368-1-git-send-email-elena.reshetova@intel.com>
 Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
         kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
@@ -10,10 +10,14 @@ Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
         Hans Liljestrand <ishkamiel@gmail.com>,
         David Windsor <dwindsor@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga06.intel.com ([134.134.136.31]:1642 "EHLO mga06.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751976AbdF3KJX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 30 Jun 2017 06:09:23 -0400
 In-Reply-To: <1498817290-3368-1-git-send-email-elena.reshetova@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 refcount_t type and corresponding API should be
 used instead of atomic_t when the variable is used as
@@ -26,67 +30,66 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/fib_rules.h | 7 ++++---
- net/core/fib_rules.c    | 4 ++--
- 2 files changed, 6 insertions(+), 5 deletions(-)
+ net/packet/af_packet.c | 8 ++++----
+ net/packet/internal.h  | 4 +++-
+ 2 files changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
-index 76c7300..c487bfa 100644
---- a/include/net/fib_rules.h
-+++ b/include/net/fib_rules.h
-@@ -5,6 +5,7 @@
- #include <linux/slab.h>
- #include <linux/netdevice.h>
- #include <linux/fib_rules.h>
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 643302b..e3beb28 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1739,7 +1739,7 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
+ 		match->flags = flags;
+ 		INIT_LIST_HEAD(&match->list);
+ 		spin_lock_init(&match->lock);
+-		atomic_set(&match->sk_ref, 0);
++		refcount_set(&match->sk_ref, 0);
+ 		fanout_init_data(match);
+ 		match->prot_hook.type = po->prot_hook.type;
+ 		match->prot_hook.dev = po->prot_hook.dev;
+@@ -1753,10 +1753,10 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
+ 	    match->prot_hook.type == po->prot_hook.type &&
+ 	    match->prot_hook.dev == po->prot_hook.dev) {
+ 		err = -ENOSPC;
+-		if (atomic_read(&match->sk_ref) < PACKET_FANOUT_MAX) {
++		if (refcount_read(&match->sk_ref) < PACKET_FANOUT_MAX) {
+ 			__dev_remove_pack(&po->prot_hook);
+ 			po->fanout = match;
+-			atomic_inc(&match->sk_ref);
++			refcount_set(&match->sk_ref, refcount_read(&match->sk_ref) + 1);
+ 			__fanout_link(sk, po);
+ 			err = 0;
+ 		}
+@@ -1785,7 +1785,7 @@ static struct packet_fanout *fanout_release(struct sock *sk)
+ 	if (f) {
+ 		po->fanout = NULL;
+ 
+-		if (atomic_dec_and_test(&f->sk_ref))
++		if (refcount_dec_and_test(&f->sk_ref))
+ 			list_del(&f->list);
+ 		else
+ 			f = NULL;
+diff --git a/net/packet/internal.h b/net/packet/internal.h
+index 9ee4631..94d1d40 100644
+--- a/net/packet/internal.h
++++ b/net/packet/internal.h
+@@ -1,6 +1,8 @@
+ #ifndef __PACKET_INTERNAL_H__
+ #define __PACKET_INTERNAL_H__
+ 
 +#include <linux/refcount.h>
- #include <net/flow.h>
- #include <net/rtnetlink.h>
++
+ struct packet_mclist {
+ 	struct packet_mclist	*next;
+ 	int			ifindex;
+@@ -86,7 +88,7 @@ struct packet_fanout {
+ 	struct list_head	list;
+ 	struct sock		*arr[PACKET_FANOUT_MAX];
+ 	spinlock_t		lock;
+-	atomic_t		sk_ref;
++	refcount_t		sk_ref;
+ 	struct packet_type	prot_hook ____cacheline_aligned_in_smp;
+ };
  
-@@ -29,7 +30,7 @@ struct fib_rule {
- 	struct fib_rule __rcu	*ctarget;
- 	struct net		*fr_net;
- 
--	atomic_t		refcnt;
-+	refcount_t		refcnt;
- 	u32			pref;
- 	int			suppress_ifgroup;
- 	int			suppress_prefixlen;
-@@ -103,12 +104,12 @@ struct fib_rules_ops {
- 
- static inline void fib_rule_get(struct fib_rule *rule)
- {
--	atomic_inc(&rule->refcnt);
-+	refcount_inc(&rule->refcnt);
- }
- 
- static inline void fib_rule_put(struct fib_rule *rule)
- {
--	if (atomic_dec_and_test(&rule->refcnt))
-+	if (refcount_dec_and_test(&rule->refcnt))
- 		kfree_rcu(rule, rcu);
- }
- 
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index 3bba291..c4ecd9f 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -46,7 +46,7 @@ int fib_default_rule_add(struct fib_rules_ops *ops,
- 	if (r == NULL)
- 		return -ENOMEM;
- 
--	atomic_set(&r->refcnt, 1);
-+	refcount_set(&r->refcnt, 1);
- 	r->action = FR_ACT_TO_TBL;
- 	r->pref = pref;
- 	r->table = table;
-@@ -283,7 +283,7 @@ int fib_rules_lookup(struct fib_rules_ops *ops, struct flowi *fl,
- 
- 		if (err != -EAGAIN) {
- 			if ((arg->flags & FIB_LOOKUP_NOREF) ||
--			    likely(atomic_inc_not_zero(&rule->refcnt))) {
-+			    likely(refcount_inc_not_zero(&rule->refcnt))) {
- 				arg->rule = rule;
- 				goto out;
- 			}
 -- 
 2.7.4
