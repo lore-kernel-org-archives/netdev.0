@@ -1,8 +1,7 @@
 From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next v5 08/16] bpf: Add TCP connection BPF callbacks
-Date: Fri, 30 Jun 2017 13:06:58 -0700
-Message-ID: <20170630200706.4183158-9-brakmo@fb.com>
-References: <20170630200706.4183158-1-brakmo@fb.com>
+Subject: [PATCH net-next v5 00/16] bpf: Adding support for sock_ops
+Date: Fri, 30 Jun 2017 13:06:50 -0700
+Message-ID: <20170630200706.4183158-1-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
@@ -11,106 +10,127 @@ Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:59281 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752720AbdF3UHO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 16:07:14 -0400
-Received: from pps.filterd (m0109332.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5UK4AuM031655
-        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 13:07:13 -0700
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:43668 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752645AbdF3UHN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 16:07:13 -0400
+Received: from pps.filterd (m0109333.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5UK4kkM021771
+        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 13:07:12 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2bdvs10573-3
+        by mx0a-00082601.pphosted.com with ESMTP id 2bdut10c8b-2
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 13:07:13 -0700
+        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 13:07:12 -0700
 Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
  mx-out.facebook.com (2401:db00:2050:5102:face:0000:0037:0000) with ESMTP       id
- b3f55fd65dcf11e787371f53bdcd5fbc-7bb3f8f0 for <netdev@vger.kernel.org>;        Fri,
- 30 Jun 2017 13:07:11 -0700
-In-Reply-To: <20170630200706.4183158-1-brakmo@fb.com>
+ b2ed33d45dcf11e79f701f53bdcd5fbc-275c26b0 for <netdev@vger.kernel.org>;        Fri,
+ 30 Jun 2017 13:07:10 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added callbacks to BPF SOCK_OPS type program before an active
-connection is intialized and after a passive or active connection is
-established.
+Created a new BPF program type, BPF_PROG_TYPE_SOCK_OPS, and a corresponding
+struct that allows BPF programs of this type to access some of the
+socket's fields (such as IP addresses, ports, etc.) and setting
+connection parameters such as buffer sizes, initial window, SYN/SYN-ACK
+RTOs, etc.
 
-The following patch demostrates how they can be used to set send and
-receive buffer sizes.
+Unlike current BPF program types that expect to be called at a particular
+place in the network stack code, SOCK_OPS program can be called at                      
+different places and use an "op" field to indicate the context. There
+are currently two types of operations, those whose effect is through
+their return value and those whose effect is through the new
+bpf_setsocketop BPF helper function.
 
-Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
----
- include/uapi/linux/bpf.h | 11 +++++++++++
- net/ipv4/tcp_fastopen.c  |  1 +
- net/ipv4/tcp_input.c     |  3 ++-
- net/ipv4/tcp_output.c    |  1 +
- 4 files changed, 15 insertions(+), 1 deletion(-)
+Example operands of the first type are:
+  BPF_SOCK_OPS_TIMEOUT_INIT
+  BPF_SOCK_OPS_RWND_INIT
+  BPF_SOCK_OPS_NEEDS_ECN
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index dd43b22..2405fe3 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -767,6 +767,17 @@ enum {
- 					 * window (in packets) or -1 if default
- 					 * value should be used
- 					 */
-+	BPF_SOCK_OPS_TCP_CONNECT_CB,	/* Calls BPF program right before an
-+					 * active connection is initialized
-+					 */
-+	BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB,	/* Calls BPF program when an
-+						 * active connection is
-+						 * established
-+						 */
-+	BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB,	/* Calls BPF program when a
-+						 * passive connection is
-+						 * established
-+						 */
- };
- 
- #endif /* _UAPI__LINUX_BPF_H__ */
-diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
-index 4af82b9..fcb6273 100644
---- a/net/ipv4/tcp_fastopen.c
-+++ b/net/ipv4/tcp_fastopen.c
-@@ -221,6 +221,7 @@ static struct sock *tcp_fastopen_create_child(struct sock *sk,
- 	tcp_init_congestion_control(child);
- 	tcp_mtup_init(child);
- 	tcp_init_metrics(child);
-+	tcp_call_bpf(child, BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB);
- 	tcp_init_buffer_space(child);
- 
- 	tp->rcv_nxt = TCP_SKB_CB(skb)->seq + 1;
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index bcc9665..664210e 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5571,7 +5571,7 @@ void tcp_finish_connect(struct sock *sk, struct sk_buff *skb)
- 	icsk->icsk_af_ops->rebuild_header(sk);
- 
- 	tcp_init_metrics(sk);
--
-+	tcp_call_bpf(sk, BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB);
- 	tcp_init_congestion_control(sk);
- 
- 	/* Prevent spurious tcp_cwnd_restart() on first data
-@@ -5977,6 +5977,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
- 		} else {
- 			/* Make sure socket is routed, for correct metrics. */
- 			icsk->icsk_af_ops->rebuild_header(sk);
-+			tcp_call_bpf(sk, BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB);
- 			tcp_init_congestion_control(sk);
- 
- 			tcp_mtup_init(sk);
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 5345d61..76a1a0e 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -3445,6 +3445,7 @@ int tcp_connect(struct sock *sk)
- 	struct sk_buff *buff;
- 	int err;
- 
-+	tcp_call_bpf(sk, BPF_SOCK_OPS_TCP_CONNECT_CB);
- 	tcp_connect_init(sk);
- 
- 	if (unlikely(tp->repair)) {
--- 
-2.9.3
+Example operands of the secont type are:
+  BPF_SOCK_OPS_TCP_CONNECT_CB
+  BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB
+  BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB
+
+Current operands are only called during connection establishment so
+there should not be any BPF overheads after connection establishment. The
+main idea is to use connection information form both hosts, such as IP
+addresses and ports to allow setting of per connection parameters to
+optimize the connection's peformance.
+
+Alghough there are already 3 mechanisms to set parameters (sysctls,
+route metrics and setsockopts), this new mechanism provides some
+disticnt advantages. Unlike sysctls, it can set parameters per
+connection. In contrast to route metrics, it can also use port numbers
+and information provided by a user level program. In addition, it could
+set parameters probabilistically for evaluation purposes (i.e. do
+something different on 10% of the flows and compare results with the
+other 90% of the flows). Also, in cases where IPv6 addresses contain
+geographic information, the rules to make changes based on the distance
+(or RTT) between the hosts are much easier than route metric rules and
+can be global. Finally, unlike setsockopt, it does not require
+application changes and it can be updated easily at any time.
+
+It uses the existing bpf cgroups infrastructure so the programs can be
+attached per cgroup with full inheritance support. Although the bpf cgroup
+framework already contains a sock related program type (BPF_PROG_TYPE_CGROUP_SOCK),
+I created the new type (BPF_PROG_TYPE_SOCK_OPS) beccause the existing type
+expects to be called only once during the connections's lifetime. In contrast,
+the new program type will be called multiple times from different places in the
+network stack code.  For example, before sending SYN and SYN-ACKs to set
+an appropriate timeout, when the connection is established to set congestion
+control, etc. As a result it has "op" field to specify the type of operation
+requested.
+
+This patch set also includes sample BPF programs to demostrate the differnet
+features.
+
+v2: Formatting changes, rebased to latest net-next
+
+v3: Fixed build issues, changed socket_ops to sock_ops throught,
+    fixed formatting issues, removed the syscall to load sock_ops
+    program and added functionality to use existing bpf attach and
+    bpf detach system calls, removed reader/writer locks in
+    sock_bpfops.c (used when saving sock_ops global program)
+    and fixed missing module refcount increment.
+
+v4: Removed global sock_ops program and instead used existing cgroup bpf
+    infrastructure to support a new BPF_CGROUP_ATTCH type.
+
+v5: Fixed kbuild warnings happening in bpf-cgroup.h and filter.c
+    Removed automatic converstion to host byte order from some sock_ops
+      fields (ipv4 and ipv6 addresses, remote port). They now reflect
+      the byte order in the sock struct.
+    Added conversion to host byte order to some of the sample programs
+    Added comments to  sample BPF programs about using load_sock_ops to
+      load them
+    Removed is_req_sock field from bpf_sock_ops_kern and related places,
+      using sk_fullsock() instead.
+
+Consists of the following patches:
+
+
+ include/linux/bpf-cgroup.h     |  18 ++++
+ include/linux/bpf_types.h      |   1 +
+ include/linux/filter.h         |   9 ++
+ include/net/tcp.h              |  66 +++++++++++-
+ include/uapi/linux/bpf.h       |  68 +++++++++++-
+ kernel/bpf/cgroup.c            |  37 +++++++
+ kernel/bpf/syscall.c           |   5 +
+ net/core/filter.c              | 273 +++++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv4/tcp.c                 |   2 +-
+ net/ipv4/tcp_cong.c            |  32 ++++--
+ net/ipv4/tcp_fastopen.c        |   1 +
+ net/ipv4/tcp_input.c           |   9 +-
+ net/ipv4/tcp_minisocks.c       |   9 +-
+ net/ipv4/tcp_output.c          |  18 +++-
+ samples/bpf/Makefile           |   9 ++
+ samples/bpf/bpf_helpers.h      |   3 +
+ samples/bpf/bpf_load.c         |  13 ++-
+ samples/bpf/load_sock_ops.c    |  97 +++++++++++++++++
+ samples/bpf/tcp_bufs_kern.c    |  86 +++++++++++++++
+ samples/bpf/tcp_clamp_kern.c   | 102 ++++++++++++++++++
+ samples/bpf/tcp_cong_kern.c    |  83 ++++++++++++++
+ samples/bpf/tcp_iw_kern.c      |  88 +++++++++++++++
+ samples/bpf/tcp_rwnd_kern.c    |  69 ++++++++++++
+ samples/bpf/tcp_synrto_kern.c  |  69 ++++++++++++
+ tools/include/uapi/linux/bpf.h |  66 +++++++++++-
