@@ -1,45 +1,49 @@
-From: Tonghao Zhang <xiangxia.m.yue@gmail.com>
-Subject: Re: [PATCH v3] datapath: Avoid using stack larger than 1024.
-Date: Fri, 30 Jun 2017 12:38:55 +0800
-Message-ID: <CAMDZJNX3hQ2AK3WUdd9vjfyVCAPauYVV9bK4bGYh=9B53jbqyA@mail.gmail.com>
-References: <1498700323-98406-1-git-send-email-xiangxia.m.yue@gmail.com> <CAOrHB_B7PpKMdVn8JNG9B-R6i80Zxn8rEBBptCSKCTz6TdsU6g@mail.gmail.com>
+From: Yunsheng Lin <linyunsheng@huawei.com>
+Subject: Re: [PATCH NET V7 0/2] Add loopback support in phy_driver and hns
+ ethtool fix
+Date: Fri, 30 Jun 2017 14:15:13 +0800
+Message-ID: <d1d49cc5-b003-baeb-7607-303b930c536f@huawei.com>
+References: <1498641191-13343-1-git-send-email-linyunsheng@huawei.com>
+ <20170629.141455.1338948120889824664.davem@davemloft.net>
+ <20170629182216.GB17212@lunn.ch>
+ <20170629.160845.2003385325223608825.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Greg Rose <gvrose8192@gmail.com>
-To: Pravin Shelar <pshelar@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:34869 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750730AbdF3Ei4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 00:38:56 -0400
-Received: by mail-oi0-f68.google.com with SMTP id l130so11106016oib.2
-        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 21:38:56 -0700 (PDT)
-In-Reply-To: <CAOrHB_B7PpKMdVn8JNG9B-R6i80Zxn8rEBBptCSKCTz6TdsU6g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <f.fainelli@gmail.com>, <huangdaode@hisilicon.com>,
+        <xuwei5@hisilicon.com>, <liguozhu@hisilicon.com>,
+        <Yisen.Zhuang@huawei.com>, <gabriele.paoloni@huawei.com>,
+        <john.garry@huawei.com>, <linuxarm@huawei.com>,
+        <salil.mehta@huawei.com>, <lipeng321@huawei.com>,
+        <tremyfr@gmail.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170629.160845.2003385325223608825.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thanks for your works. I send v3 for net-next and add "Acked-by".
-If it is applied, I will backport it to dev@openvswitch.org.
+Hi, David
 
-On Fri, Jun 30, 2017 at 1:45 AM, Pravin Shelar <pshelar@ovn.org> wrote:
-> On Wed, Jun 28, 2017 at 6:38 PM, Tonghao Zhang <xiangxia.m.yue@gmail.com> wrote:
->> When compiling OvS-master on 4.4.0-81 kernel,
->> there is a warning:
->>
->>     CC [M]  /root/ovs/datapath/linux/datapath.o
->>     /root/ovs/datapath/linux/datapath.c: In function
->>     'ovs_flow_cmd_set':
->>     /root/ovs/datapath/linux/datapath.c:1221:1: warning:
->>     the frame size of 1040 bytes is larger than 1024 bytes
->>     [-Wframe-larger-than=]
->>
->> This patch factors out match-init and action-copy to avoid
->> "Wframe-larger-than=1024" warning. Because mask is only
->> used to get actions, we new a function to save some
->> stack space.
->>
->> Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
->> ---
-> Looks good, you have to submit patch against net-next for upstream OVS
-> module first.
+I will send out a patch based on net-next, and
+I will continue to address the problem andrew pointed
+out. If I come out with a doable solution, I will send
+out the new patch.
+
+Best Regards
+Yunsheng Lin
+
+On 2017/6/30 4:08, David Miller wrote:
+> From: Andrew Lunn <andrew@lunn.ch>
+> Date: Thu, 29 Jun 2017 20:22:16 +0200
+> 
+> Is less broken a sufficient criteria for acceptance?
+> 
+> Sometimes, it depends upon the situation.
+> 
+> If you are continuing to resolve those issues, I'll wait and
+> watch for future respins then.
+> 
+> .
+> 
