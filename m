@@ -1,27 +1,18 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 01/17] net: convert inet_peer.refcnt from atomic_t
-	to refcount_t
-Date: Fri, 30 Jun 2017 13:07:54 +0300
-Message-ID: <1498817290-3368-2-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 04/17] net: convert nf_bridge_info.use from atomic_t to refcount_t
+Date: Fri, 30 Jun 2017 13:07:57 +0300
+Message-ID: <1498817290-3368-5-git-send-email-elena.reshetova@intel.com>
 References: <1498817290-3368-1-git-send-email-elena.reshetova@intel.com>
-Cc: keescook@chromium.org, peterz@infradead.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	jmorris@namei.org, Hans Liljestrand <ishkamiel@gmail.com>,
-	kuznet@ms2.inr.ac.ru, kaber@trash.net,
-	Elena Reshetova <elena.reshetova@intel.com>,
-	David Windsor <dwindsor@gmail.com>
+Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
+        stephen@networkplumber.org, peterz@infradead.org,
+        keescook@chromium.org, Elena Reshetova <elena.reshetova@intel.com>,
+        Hans Liljestrand <ishkamiel@gmail.com>,
+        David Windsor <dwindsor@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1498817290-3368-1-git-send-email-elena.reshetova@intel.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 refcount_t type and corresponding API should be
@@ -29,107 +20,77 @@ used instead of atomic_t when the variable is used as
 a reference counter. This allows to avoid accidental
 refcounter overflows that might lead to use-after-free
 situations.
-This conversion requires overall +1 on the whole
-refcounting scheme.
 
 Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
 Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/inetpeer.h |  4 ++--
- net/ipv4/inetpeer.c    | 18 +++++++++---------
- 2 files changed, 11 insertions(+), 11 deletions(-)
+ include/linux/skbuff.h               | 6 +++---
+ include/net/netfilter/br_netfilter.h | 2 +-
+ net/bridge/br_netfilter_hooks.c      | 4 ++--
+ 3 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/include/net/inetpeer.h b/include/net/inetpeer.h
-index 235c781..f2a215f 100644
---- a/include/net/inetpeer.h
-+++ b/include/net/inetpeer.h
-@@ -46,7 +46,7 @@ struct inet_peer {
- 		struct rcu_head     gc_rcu;
- 	};
- 	/*
--	 * Once inet_peer is queued for deletion (refcnt == -1), following field
-+	 * Once inet_peer is queued for deletion (refcnt == 0), following field
- 	 * is not available: rid
- 	 * We can share memory with rcu_head to help keep inet_peer small.
- 	 */
-@@ -60,7 +60,7 @@ struct inet_peer {
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index a17e235..005793e 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -252,7 +252,7 @@ struct nf_conntrack {
  
- 	/* following fields might be frequently dirtied */
- 	__u32			dtime;	/* the time of last use of not referenced entries */
--	atomic_t		refcnt;
-+	refcount_t		refcnt;
- };
- 
- struct inet_peer_base {
-diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
-index 86fa458..c5a117c 100644
---- a/net/ipv4/inetpeer.c
-+++ b/net/ipv4/inetpeer.c
-@@ -115,7 +115,7 @@ static void inetpeer_gc_worker(struct work_struct *work)
- 
- 		n = list_entry(p->gc_list.next, struct inet_peer, gc_list);
- 
--		if (!atomic_read(&p->refcnt)) {
-+		if (refcount_read(&p->refcnt) == 1) {
- 			list_del(&p->gc_list);
- 			kmem_cache_free(peer_cachep, p);
- 		}
-@@ -202,10 +202,11 @@ static struct inet_peer *lookup_rcu(const struct inetpeer_addr *daddr,
- 		int cmp = inetpeer_addr_cmp(daddr, &u->daddr);
- 		if (cmp == 0) {
- 			/* Before taking a reference, check if this entry was
--			 * deleted (refcnt=-1)
-+			 * deleted (refcnt=0)
- 			 */
--			if (!atomic_add_unless(&u->refcnt, 1, -1))
-+			if (!refcount_inc_not_zero(&u->refcnt)) {
- 				u = NULL;
-+			}
- 			return u;
- 		}
- 		if (cmp == -1)
-@@ -382,11 +383,10 @@ static int inet_peer_gc(struct inet_peer_base *base,
- 	while (stackptr > stack) {
- 		stackptr--;
- 		p = rcu_deref_locked(**stackptr, base);
--		if (atomic_read(&p->refcnt) == 0) {
-+		if (refcount_read(&p->refcnt) == 1) {
- 			smp_rmb();
- 			delta = (__u32)jiffies - p->dtime;
--			if (delta >= ttl &&
--			    atomic_cmpxchg(&p->refcnt, 0, -1) == 0) {
-+			if (delta >= ttl && refcount_dec_if_one(&p->refcnt)) {
- 				p->gc_next = gchead;
- 				gchead = p;
- 			}
-@@ -432,7 +432,7 @@ struct inet_peer *inet_getpeer(struct inet_peer_base *base,
- relookup:
- 	p = lookup(daddr, stack, base);
- 	if (p != peer_avl_empty) {
--		atomic_inc(&p->refcnt);
-+		refcount_inc(&p->refcnt);
- 		write_sequnlock_bh(&base->lock);
- 		return p;
- 	}
-@@ -444,7 +444,7 @@ struct inet_peer *inet_getpeer(struct inet_peer_base *base,
- 	p = create ? kmem_cache_alloc(peer_cachep, GFP_ATOMIC) : NULL;
- 	if (p) {
- 		p->daddr = *daddr;
--		atomic_set(&p->refcnt, 1);
-+		refcount_set(&p->refcnt, 2);
- 		atomic_set(&p->rid, 0);
- 		p->metrics[RTAX_LOCK-1] = INETPEER_METRICS_NEW;
- 		p->rate_tokens = 0;
-@@ -468,7 +468,7 @@ void inet_putpeer(struct inet_peer *p)
+ #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+ struct nf_bridge_info {
+-	atomic_t		use;
++	refcount_t		use;
+ 	enum {
+ 		BRNF_PROTO_UNCHANGED,
+ 		BRNF_PROTO_8021Q,
+@@ -3589,13 +3589,13 @@ static inline void nf_conntrack_get(struct nf_conntrack *nfct)
+ #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+ static inline void nf_bridge_put(struct nf_bridge_info *nf_bridge)
  {
- 	p->dtime = (__u32)jiffies;
- 	smp_mb__before_atomic();
--	atomic_dec(&p->refcnt);
-+	refcount_dec(&p->refcnt);
+-	if (nf_bridge && atomic_dec_and_test(&nf_bridge->use))
++	if (nf_bridge && refcount_dec_and_test(&nf_bridge->use))
+ 		kfree(nf_bridge);
  }
- EXPORT_SYMBOL_GPL(inet_putpeer);
+ static inline void nf_bridge_get(struct nf_bridge_info *nf_bridge)
+ {
+ 	if (nf_bridge)
+-		atomic_inc(&nf_bridge->use);
++		refcount_inc(&nf_bridge->use);
+ }
+ #endif /* CONFIG_BRIDGE_NETFILTER */
+ static inline void nf_reset(struct sk_buff *skb)
+diff --git a/include/net/netfilter/br_netfilter.h b/include/net/netfilter/br_netfilter.h
+index 0b0c35c..925524e 100644
+--- a/include/net/netfilter/br_netfilter.h
++++ b/include/net/netfilter/br_netfilter.h
+@@ -8,7 +8,7 @@ static inline struct nf_bridge_info *nf_bridge_alloc(struct sk_buff *skb)
+ 	skb->nf_bridge = kzalloc(sizeof(struct nf_bridge_info), GFP_ATOMIC);
  
+ 	if (likely(skb->nf_bridge))
+-		atomic_set(&(skb->nf_bridge->use), 1);
++		refcount_set(&(skb->nf_bridge->use), 1);
+ 
+ 	return skb->nf_bridge;
+ }
+diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
+index 067cf03..2261e51 100644
+--- a/net/bridge/br_netfilter_hooks.c
++++ b/net/bridge/br_netfilter_hooks.c
+@@ -149,12 +149,12 @@ static inline struct nf_bridge_info *nf_bridge_unshare(struct sk_buff *skb)
+ {
+ 	struct nf_bridge_info *nf_bridge = skb->nf_bridge;
+ 
+-	if (atomic_read(&nf_bridge->use) > 1) {
++	if (refcount_read(&nf_bridge->use) > 1) {
+ 		struct nf_bridge_info *tmp = nf_bridge_alloc(skb);
+ 
+ 		if (tmp) {
+ 			memcpy(tmp, nf_bridge, sizeof(struct nf_bridge_info));
+-			atomic_set(&tmp->use, 1);
++			refcount_set(&tmp->use, 1);
+ 		}
+ 		nf_bridge_put(nf_bridge);
+ 		nf_bridge = tmp;
 -- 
 2.7.4
