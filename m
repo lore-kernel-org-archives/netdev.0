@@ -1,18 +1,27 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 16/17] net: convert netlbl_lsm_cache.refcount from atomic_t to refcount_t
-Date: Fri, 30 Jun 2017 13:08:09 +0300
-Message-ID: <1498817290-3368-17-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 06/17] net: convert sk_buff_fclones.fclone_ref from
+	atomic_t to refcount_t
+Date: Fri, 30 Jun 2017 13:07:59 +0300
+Message-ID: <1498817290-3368-7-git-send-email-elena.reshetova@intel.com>
 References: <1498817290-3368-1-git-send-email-elena.reshetova@intel.com>
-Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
-        stephen@networkplumber.org, peterz@infradead.org,
-        keescook@chromium.org, Elena Reshetova <elena.reshetova@intel.com>,
-        Hans Liljestrand <ishkamiel@gmail.com>,
-        David Windsor <dwindsor@gmail.com>
+Cc: keescook@chromium.org, peterz@infradead.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	jmorris@namei.org, Hans Liljestrand <ishkamiel@gmail.com>,
+	kuznet@ms2.inr.ac.ru, kaber@trash.net,
+	Elena Reshetova <elena.reshetova@intel.com>,
+	David Windsor <dwindsor@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
 In-Reply-To: <1498817290-3368-1-git-send-email-elena.reshetova@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
 refcount_t type and corresponding API should be
@@ -26,94 +35,74 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/netlabel.h | 8 ++++----
- net/ipv4/cipso_ipv4.c  | 4 ++--
- net/ipv6/calipso.c     | 4 ++--
- 3 files changed, 8 insertions(+), 8 deletions(-)
+ include/linux/skbuff.h |  4 ++--
+ net/core/skbuff.c      | 10 +++++-----
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/include/net/netlabel.h b/include/net/netlabel.h
-index efe9806..72d6435 100644
---- a/include/net/netlabel.h
-+++ b/include/net/netlabel.h
-@@ -37,7 +37,7 @@
- #include <linux/in6.h>
- #include <net/netlink.h>
- #include <net/request_sock.h>
--#include <linux/atomic.h>
-+#include <linux/refcount.h>
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 90cbd86..d0b9f38 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -915,7 +915,7 @@ struct sk_buff_fclones {
  
- struct cipso_v4_doi;
- struct calipso_doi;
-@@ -136,7 +136,7 @@ struct netlbl_audit {
-  *
-  */
- struct netlbl_lsm_cache {
--	atomic_t refcount;
-+	refcount_t refcount;
- 	void (*free) (const void *data);
- 	void *data;
+ 	struct sk_buff	skb2;
+ 
+-	atomic_t	fclone_ref;
++	refcount_t	fclone_ref;
  };
-@@ -295,7 +295,7 @@ static inline struct netlbl_lsm_cache *netlbl_secattr_cache_alloc(gfp_t flags)
  
- 	cache = kzalloc(sizeof(*cache), flags);
- 	if (cache)
--		atomic_set(&cache->refcount, 1);
-+		refcount_set(&cache->refcount, 1);
- 	return cache;
+ /**
+@@ -935,7 +935,7 @@ static inline bool skb_fclone_busy(const struct sock *sk,
+ 	fclones = container_of(skb, struct sk_buff_fclones, skb1);
+ 
+ 	return skb->fclone == SKB_FCLONE_ORIG &&
+-	       atomic_read(&fclones->fclone_ref) > 1 &&
++	       refcount_read(&fclones->fclone_ref) > 1 &&
+ 	       fclones->skb2.sk == sk;
  }
  
-@@ -309,7 +309,7 @@ static inline struct netlbl_lsm_cache *netlbl_secattr_cache_alloc(gfp_t flags)
-  */
- static inline void netlbl_secattr_cache_free(struct netlbl_lsm_cache *cache)
- {
--	if (!atomic_dec_and_test(&cache->refcount))
-+	if (!refcount_dec_and_test(&cache->refcount))
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 45dc662..659dfc0 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -268,7 +268,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+ 
+ 		kmemcheck_annotate_bitfield(&fclones->skb2, flags1);
+ 		skb->fclone = SKB_FCLONE_ORIG;
+-		atomic_set(&fclones->fclone_ref, 1);
++		refcount_set(&fclones->fclone_ref, 1);
+ 
+ 		fclones->skb2.fclone = SKB_FCLONE_CLONE;
+ 	}
+@@ -629,7 +629,7 @@ static void kfree_skbmem(struct sk_buff *skb)
+ 		 * This test would have no chance to be true for the clone,
+ 		 * while here, branch prediction will be good.
+ 		 */
+-		if (atomic_read(&fclones->fclone_ref) == 1)
++		if (refcount_read(&fclones->fclone_ref) == 1)
+ 			goto fastpath;
+ 		break;
+ 
+@@ -637,7 +637,7 @@ static void kfree_skbmem(struct sk_buff *skb)
+ 		fclones = container_of(skb, struct sk_buff_fclones, skb2);
+ 		break;
+ 	}
+-	if (!atomic_dec_and_test(&fclones->fclone_ref))
++	if (!refcount_dec_and_test(&fclones->fclone_ref))
  		return;
+ fastpath:
+ 	kmem_cache_free(skbuff_fclone_cache, fclones);
+@@ -1027,9 +1027,9 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
+ 		return NULL;
  
- 	if (cache->free)
-diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
-index ae20616..c204477 100644
---- a/net/ipv4/cipso_ipv4.c
-+++ b/net/ipv4/cipso_ipv4.c
-@@ -265,7 +265,7 @@ static int cipso_v4_cache_check(const unsigned char *key,
- 		    entry->key_len == key_len &&
- 		    memcmp(entry->key, key, key_len) == 0) {
- 			entry->activity += 1;
--			atomic_inc(&entry->lsm_data->refcount);
-+			refcount_inc(&entry->lsm_data->refcount);
- 			secattr->cache = entry->lsm_data;
- 			secattr->flags |= NETLBL_SECATTR_CACHE;
- 			secattr->type = NETLBL_NLTYPE_CIPSOV4;
-@@ -332,7 +332,7 @@ int cipso_v4_cache_add(const unsigned char *cipso_ptr,
- 	}
- 	entry->key_len = cipso_ptr_len;
- 	entry->hash = cipso_v4_map_cache_hash(cipso_ptr, cipso_ptr_len);
--	atomic_inc(&secattr->cache->refcount);
-+	refcount_inc(&secattr->cache->refcount);
- 	entry->lsm_data = secattr->cache;
- 
- 	bkt = entry->hash & (CIPSO_V4_CACHE_BUCKETS - 1);
-diff --git a/net/ipv6/calipso.c b/net/ipv6/calipso.c
-index 8d772fe..4406752 100644
---- a/net/ipv6/calipso.c
-+++ b/net/ipv6/calipso.c
-@@ -227,7 +227,7 @@ static int calipso_cache_check(const unsigned char *key,
- 		    entry->key_len == key_len &&
- 		    memcmp(entry->key, key, key_len) == 0) {
- 			entry->activity += 1;
--			atomic_inc(&entry->lsm_data->refcount);
-+			refcount_inc(&entry->lsm_data->refcount);
- 			secattr->cache = entry->lsm_data;
- 			secattr->flags |= NETLBL_SECATTR_CACHE;
- 			secattr->type = NETLBL_NLTYPE_CALIPSO;
-@@ -296,7 +296,7 @@ static int calipso_cache_add(const unsigned char *calipso_ptr,
- 	}
- 	entry->key_len = calipso_ptr_len;
- 	entry->hash = calipso_map_cache_hash(calipso_ptr, calipso_ptr_len);
--	atomic_inc(&secattr->cache->refcount);
-+	refcount_inc(&secattr->cache->refcount);
- 	entry->lsm_data = secattr->cache;
- 
- 	bkt = entry->hash & (CALIPSO_CACHE_BUCKETS - 1);
+ 	if (skb->fclone == SKB_FCLONE_ORIG &&
+-	    atomic_read(&fclones->fclone_ref) == 1) {
++	    refcount_read(&fclones->fclone_ref) == 1) {
+ 		n = &fclones->skb2;
+-		atomic_set(&fclones->fclone_ref, 2);
++		refcount_set(&fclones->fclone_ref, 2);
+ 	} else {
+ 		if (skb_pfmemalloc(skb))
+ 			gfp_mask |= __GFP_MEMALLOC;
 -- 
 2.7.4
