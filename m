@@ -1,114 +1,44 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net 2/3] net/mlx5: Cancel delayed recovery work when unloading the driver
-Date: Fri, 30 Jun 2017 10:12:28 +0300
-Message-ID: <20170630071229.20357-3-saeedm@mellanox.com>
+Subject: [net 1/3] net/mlx5: Fix driver load error flow when firmware is stuck
+Date: Fri, 30 Jun 2017 10:12:27 +0300
+Message-ID: <20170630071229.20357-2-saeedm@mellanox.com>
 References: <20170630071229.20357-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Mohamad Haj Yahia <mohamad@mellanox.com>,
-        Moshe Shemesh <moshe@mellanox.com>,
+Cc: netdev@vger.kernel.org, Gal Pressman <galp@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44946 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44947 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751613AbdF3HNi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 03:13:38 -0400
+        with ESMTP id S1751743AbdF3HNj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 03:13:39 -0400
 In-Reply-To: <20170630071229.20357-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mohamad Haj Yahia <mohamad@mellanox.com>
+From: Gal Pressman <galp@mellanox.com>
 
-Draining the health workqueue will ignore future health works including
-the one that report hardware failure and thus we can't enter error state
-Instead cancel the recovery flow and make sure only recovery flow won't
-be scheduled.
+When wait for firmware init fails, previous code would mistakenly
+return success and cause inconsistency in the driver state.
 
-Fixes: 5e44fca50470 ('net/mlx5: Only cancel recovery work when cleaning up device')
-Signed-off-by: Mohamad Haj Yahia <mohamad@mellanox.com>
-Signed-off-by: Moshe Shemesh <moshe@mellanox.com>
+Fixes: 6c780a0267b8 ("net/mlx5: Wait for FW readiness before initializing command interface")
+Signed-off-by: Gal Pressman <galp@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/health.c | 15 ++++++++++++++-
- drivers/net/ethernet/mellanox/mlx5/core/main.c   |  2 +-
- include/linux/mlx5/driver.h                      |  1 +
- 3 files changed, 16 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/health.c b/drivers/net/ethernet/mellanox/mlx5/core/health.c
-index f27f84ffbc85..8a8b5f0e497c 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/health.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/health.c
-@@ -67,6 +67,7 @@ enum {
- 
- enum {
- 	MLX5_DROP_NEW_HEALTH_WORK,
-+	MLX5_DROP_NEW_RECOVERY_WORK,
- };
- 
- static u8 get_nic_state(struct mlx5_core_dev *dev)
-@@ -193,7 +194,7 @@ static void health_care(struct work_struct *work)
- 	mlx5_handle_bad_state(dev);
- 
- 	spin_lock(&health->wq_lock);
--	if (!test_bit(MLX5_DROP_NEW_HEALTH_WORK, &health->flags))
-+	if (!test_bit(MLX5_DROP_NEW_RECOVERY_WORK, &health->flags))
- 		schedule_delayed_work(&health->recover_work, recover_delay);
- 	else
- 		dev_err(&dev->pdev->dev,
-@@ -313,6 +314,7 @@ void mlx5_start_health_poll(struct mlx5_core_dev *dev)
- 	init_timer(&health->timer);
- 	health->sick = 0;
- 	clear_bit(MLX5_DROP_NEW_HEALTH_WORK, &health->flags);
-+	clear_bit(MLX5_DROP_NEW_RECOVERY_WORK, &health->flags);
- 	health->health = &dev->iseg->health;
- 	health->health_counter = &dev->iseg->health_counter;
- 
-@@ -335,11 +337,22 @@ void mlx5_drain_health_wq(struct mlx5_core_dev *dev)
- 
- 	spin_lock(&health->wq_lock);
- 	set_bit(MLX5_DROP_NEW_HEALTH_WORK, &health->flags);
-+	set_bit(MLX5_DROP_NEW_RECOVERY_WORK, &health->flags);
- 	spin_unlock(&health->wq_lock);
- 	cancel_delayed_work_sync(&health->recover_work);
- 	cancel_work_sync(&health->work);
- }
- 
-+void mlx5_drain_health_recovery(struct mlx5_core_dev *dev)
-+{
-+	struct mlx5_core_health *health = &dev->priv.health;
-+
-+	spin_lock(&health->wq_lock);
-+	set_bit(MLX5_DROP_NEW_RECOVERY_WORK, &health->flags);
-+	spin_unlock(&health->wq_lock);
-+	cancel_delayed_work_sync(&dev->priv.health.recover_work);
-+}
-+
- void mlx5_health_cleanup(struct mlx5_core_dev *dev)
- {
- 	struct mlx5_core_health *health = &dev->priv.health;
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index fd47b5134841..524c16f72e83 100644
+index 13be264587f1..fd47b5134841 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -1228,7 +1228,7 @@ static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
- 	int err = 0;
+@@ -1020,7 +1020,7 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
+ 	if (err) {
+ 		dev_err(&dev->pdev->dev, "Firmware over %d MS in pre-initializing state, aborting\n",
+ 			FW_PRE_INIT_TIMEOUT_MILI);
+-		goto out;
++		goto out_err;
+ 	}
  
- 	if (cleanup)
--		mlx5_drain_health_wq(dev);
-+		mlx5_drain_health_recovery(dev);
- 
- 	mutex_lock(&dev->intf_state_mutex);
- 	if (test_bit(MLX5_INTERFACE_STATE_DOWN, &dev->intf_state)) {
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index 93273d9ea4d1..ba260330ce5e 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -925,6 +925,7 @@ int mlx5_health_init(struct mlx5_core_dev *dev);
- void mlx5_start_health_poll(struct mlx5_core_dev *dev);
- void mlx5_stop_health_poll(struct mlx5_core_dev *dev);
- void mlx5_drain_health_wq(struct mlx5_core_dev *dev);
-+void mlx5_drain_health_recovery(struct mlx5_core_dev *dev);
- int mlx5_buf_alloc_node(struct mlx5_core_dev *dev, int size,
- 			struct mlx5_buf *buf, int node);
- int mlx5_buf_alloc(struct mlx5_core_dev *dev, int size, struct mlx5_buf *buf);
+ 	err = mlx5_cmd_init(dev);
 -- 
 2.11.0
