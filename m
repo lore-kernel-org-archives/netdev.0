@@ -1,7 +1,8 @@
 From: Manish Chopra <manish.chopra@cavium.com>
-Subject: [PATCH net-next 0/7] qed/qede: Enhancements
-Date: Fri, 30 Jun 2017 02:39:39 -0700
-Message-ID: <20170630093946.18497-1-manish.chopra@cavium.com>
+Subject: [PATCH net-next 1/7] qede: Add getter APIs support for RX flow classification
+Date: Fri, 30 Jun 2017 02:39:40 -0700
+Message-ID: <20170630093946.18497-2-manish.chopra@cavium.com>
+References: <20170630093946.18497-1-manish.chopra@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@cavium.com>,
@@ -11,56 +12,252 @@ Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-bn3nam01on0043.outbound.protection.outlook.com ([104.47.33.43]:57465
         "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751421AbdF3Jjw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 30 Jun 2017 05:39:52 -0400
+        id S1751545AbdF3Jjy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 30 Jun 2017 05:39:54 -0400
+In-Reply-To: <20170630093946.18497-1-manish.chopra@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+This patch adds support for ethtool getter APIs to query
+RX flow classification rules.
 
-This patch series adds these below features support in qed/qede
+Signed-off-by: Manish Chopra <manish.chopra@cavium.com>
+Signed-off-by: Yuval Mintz <yuval.mintz@cavium.com>
+---
+ drivers/net/ethernet/qlogic/qede/qede.h         |  10 +-
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c |  22 ++++-
+ drivers/net/ethernet/qlogic/qede/qede_filter.c  | 120 +++++++++++++++++++++++-
+ 3 files changed, 144 insertions(+), 8 deletions(-)
 
-1) Ntuple filter configuration [via ethtool -n/N]
-2) EEE (energy efficient ethernet) support [ethtool --set-eee/show-eee]
-3) Coalescing configuration support for VFs [via ethtool -c/C]
-
-Please consider applying this to "net-next"
-
-Thanks,
-Manish
-
-Manish Chopra (2):
-  qede: Add getter APIs support for RX flow classification
-  qed/qede: Add setter APIs support for RX flow classification
-
-Rahul Verma (3):
-  qed/qede: Add support for vf coalesce configuration.
-  qed/qede: Read per queue coalesce from hardware
-  qed: Increase per queue max coalesce value.
-
-Sudarsana Reddy Kalluru (2):
-  qed: Add support for Energy efficient ethernet.
-  qede: Add ethtool support for Energy efficient ethernet.
-
- drivers/net/ethernet/qlogic/qed/qed_dev.c       | 145 +++++--
- drivers/net/ethernet/qlogic/qed/qed_dev_api.h   |  43 +--
- drivers/net/ethernet/qlogic/qed/qed_hsi.h       |  49 +++
- drivers/net/ethernet/qlogic/qed/qed_l2.c        | 115 ++++++
- drivers/net/ethernet/qlogic/qed/qed_l2.h        |  18 +-
- drivers/net/ethernet/qlogic/qed/qed_main.c      |  58 ++-
- drivers/net/ethernet/qlogic/qed/qed_mcp.c       |  66 ++++
- drivers/net/ethernet/qlogic/qed/qed_mcp.h       |  37 +-
- drivers/net/ethernet/qlogic/qed/qed_sriov.c     | 157 ++++++++
- drivers/net/ethernet/qlogic/qed/qed_sriov.h     |   3 +
- drivers/net/ethernet/qlogic/qed/qed_vf.c        |  75 ++++
- drivers/net/ethernet/qlogic/qed/qed_vf.h        |  51 ++-
- drivers/net/ethernet/qlogic/qede/qede.h         |  19 +-
- drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 205 ++++++++--
- drivers/net/ethernet/qlogic/qede/qede_filter.c  | 483 ++++++++++++++++++++++--
- drivers/net/ethernet/qlogic/qede/qede_main.c    |   9 +-
- include/linux/qed/qed_eth_if.h                  |   1 +
- include/linux/qed/qed_if.h                      |  37 +-
- 18 files changed, 1391 insertions(+), 180 deletions(-)
-
+diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
+index 4dfb238..0a2475b 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede.h
++++ b/drivers/net/ethernet/qlogic/qede/qede.h
+@@ -160,6 +160,8 @@ struct qede_rdma_dev {
+ 
+ struct qede_ptp;
+ 
++#define QEDE_RFS_MAX_FLTR	256
++
+ struct qede_dev {
+ 	struct qed_dev			*cdev;
+ 	struct net_device		*ndev;
+@@ -241,9 +243,7 @@ struct qede_dev {
+ 	u16				vxlan_dst_port;
+ 	u16				geneve_dst_port;
+ 
+-#ifdef CONFIG_RFS_ACCEL
+ 	struct qede_arfs		*arfs;
+-#endif
+ 	bool				wol_enabled;
+ 
+ 	struct qede_rdma_dev		rdma_info;
+@@ -455,9 +455,13 @@ int qede_alloc_arfs(struct qede_dev *edev);
+ 
+ #define QEDE_SP_ARFS_CONFIG	4
+ #define QEDE_SP_TASK_POLL_DELAY	(5 * HZ)
+-#define QEDE_RFS_MAX_FLTR	256
+ #endif
+ 
++int qede_get_cls_rule_entry(struct qede_dev *edev, struct ethtool_rxnfc *cmd);
++int qede_get_cls_rule_all(struct qede_dev *edev, struct ethtool_rxnfc *info,
++			  u32 *rule_locs);
++int qede_get_arfs_filter_count(struct qede_dev *edev);
++
+ struct qede_reload_args {
+ 	void (*func)(struct qede_dev *edev, struct qede_reload_args *args);
+ 	union {
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+index 6a03d3e..dd39dec 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+@@ -1045,20 +1045,34 @@ static int qede_get_rss_flags(struct qede_dev *edev, struct ethtool_rxnfc *info)
+ }
+ 
+ static int qede_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info,
+-			  u32 *rules __always_unused)
++			  u32 *rule_locs)
+ {
+ 	struct qede_dev *edev = netdev_priv(dev);
++	int rc = 0;
+ 
+ 	switch (info->cmd) {
+ 	case ETHTOOL_GRXRINGS:
+ 		info->data = QEDE_RSS_COUNT(edev);
+-		return 0;
++		break;
+ 	case ETHTOOL_GRXFH:
+-		return qede_get_rss_flags(edev, info);
++		rc = qede_get_rss_flags(edev, info);
++		break;
++	case ETHTOOL_GRXCLSRLCNT:
++		info->rule_cnt = qede_get_arfs_filter_count(edev);
++		info->data = QEDE_RFS_MAX_FLTR;
++		break;
++	case ETHTOOL_GRXCLSRULE:
++		rc = qede_get_cls_rule_entry(edev, info);
++		break;
++	case ETHTOOL_GRXCLSRLALL:
++		rc = qede_get_cls_rule_all(edev, info, rule_locs);
++		break;
+ 	default:
+ 		DP_ERR(edev, "Command parameters not supported\n");
+-		return -EOPNOTSUPP;
++		rc = -EOPNOTSUPP;
+ 	}
++
++	return rc;
+ }
+ 
+ static int qede_set_rss_flags(struct qede_dev *edev, struct ethtool_rxnfc *info)
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_filter.c b/drivers/net/ethernet/qlogic/qede/qede_filter.c
+index f939db5..a5e5d32 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_filter.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_filter.c
+@@ -38,7 +38,6 @@
+ #include <linux/qed/qed_if.h>
+ #include "qede.h"
+ 
+-#ifdef CONFIG_RFS_ACCEL
+ struct qede_arfs_tuple {
+ 	union {
+ 		__be32 src_ipv4;
+@@ -80,6 +79,7 @@ struct qede_arfs_fltr_node {
+ };
+ 
+ struct qede_arfs {
++#define QEDE_ARFS_BUCKET_HEAD(edev, idx) (&(edev)->arfs->arfs_hl_head[idx])
+ #define QEDE_ARFS_POLL_COUNT	100
+ #define QEDE_RFS_FLW_BITSHIFT	(4)
+ #define QEDE_RFS_FLW_MASK	((1 << QEDE_RFS_FLW_BITSHIFT) - 1)
+@@ -92,6 +92,7 @@ struct qede_arfs {
+ 	bool			enable;
+ };
+ 
++#ifdef CONFIG_RFS_ACCEL
+ static void qede_configure_arfs_fltr(struct qede_dev *edev,
+ 				     struct qede_arfs_fltr_node *n,
+ 				     u16 rxq_id, bool add_fltr)
+@@ -1263,3 +1264,120 @@ void qede_config_rx_mode(struct net_device *ndev)
+ out:
+ 	kfree(uc_macs);
+ }
++
++static struct qede_arfs_fltr_node *
++qede_get_arfs_fltr_by_loc(struct hlist_head *head, u32 location)
++{
++	struct qede_arfs_fltr_node *fltr;
++
++	hlist_for_each_entry(fltr, head, node)
++		if (location == fltr->sw_id)
++			return fltr;
++
++	return NULL;
++}
++
++int qede_get_cls_rule_all(struct qede_dev *edev, struct ethtool_rxnfc *info,
++			  u32 *rule_locs)
++{
++	struct qede_arfs_fltr_node *fltr;
++	struct hlist_head *head;
++	int cnt = 0, rc = 0;
++
++	info->data = QEDE_RFS_MAX_FLTR;
++
++	__qede_lock(edev);
++
++	if (!edev->arfs) {
++		rc = -EPERM;
++		goto unlock;
++	}
++
++	head = QEDE_ARFS_BUCKET_HEAD(edev, 0);
++
++	hlist_for_each_entry(fltr, head, node) {
++		if (cnt == info->rule_cnt) {
++			rc = -EMSGSIZE;
++			goto unlock;
++		}
++
++		rule_locs[cnt] = fltr->sw_id;
++		cnt++;
++	}
++
++	info->rule_cnt = cnt;
++
++unlock:
++	__qede_unlock(edev);
++	return rc;
++}
++
++int qede_get_cls_rule_entry(struct qede_dev *edev, struct ethtool_rxnfc *cmd)
++{
++	struct ethtool_rx_flow_spec *fsp = &cmd->fs;
++	struct qede_arfs_fltr_node *fltr = NULL;
++	int rc = 0;
++
++	cmd->data = QEDE_RFS_MAX_FLTR;
++
++	__qede_lock(edev);
++
++	if (!edev->arfs) {
++		rc = -EPERM;
++		goto unlock;
++	}
++
++	fltr = qede_get_arfs_fltr_by_loc(QEDE_ARFS_BUCKET_HEAD(edev, 0),
++					 fsp->location);
++	if (!fltr) {
++		DP_NOTICE(edev, "Rule not found - location=0x%x\n",
++			  fsp->location);
++		rc = -EINVAL;
++		goto unlock;
++	}
++
++	if (fltr->tuple.eth_proto == htons(ETH_P_IP)) {
++		if (fltr->tuple.ip_proto == IPPROTO_TCP)
++			fsp->flow_type = TCP_V4_FLOW;
++		else
++			fsp->flow_type = UDP_V4_FLOW;
++
++		fsp->h_u.tcp_ip4_spec.psrc = fltr->tuple.src_port;
++		fsp->h_u.tcp_ip4_spec.pdst = fltr->tuple.dst_port;
++		fsp->h_u.tcp_ip4_spec.ip4src = fltr->tuple.src_ipv4;
++		fsp->h_u.tcp_ip4_spec.ip4dst = fltr->tuple.dst_ipv4;
++	} else {
++		if (fltr->tuple.ip_proto == IPPROTO_TCP)
++			fsp->flow_type = TCP_V6_FLOW;
++		else
++			fsp->flow_type = UDP_V6_FLOW;
++		fsp->h_u.tcp_ip6_spec.psrc = fltr->tuple.src_port;
++		fsp->h_u.tcp_ip6_spec.pdst = fltr->tuple.dst_port;
++		memcpy(&fsp->h_u.tcp_ip6_spec.ip6src,
++		       &fltr->tuple.src_ipv6, sizeof(struct in6_addr));
++		memcpy(&fsp->h_u.tcp_ip6_spec.ip6dst,
++		       &fltr->tuple.dst_ipv6, sizeof(struct in6_addr));
++	}
++
++	fsp->ring_cookie = fltr->rxq_id;
++
++unlock:
++	__qede_unlock(edev);
++	return rc;
++}
++
++int qede_get_arfs_filter_count(struct qede_dev *edev)
++{
++	int count = 0;
++
++	__qede_lock(edev);
++
++	if (!edev->arfs)
++		goto unlock;
++
++	count = edev->arfs->filter_count;
++
++unlock:
++	__qede_unlock(edev);
++	return count;
++}
 -- 
 2.7.2
