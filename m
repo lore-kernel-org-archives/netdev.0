@@ -1,64 +1,80 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: Re: [PATCH] vmalloc: respect the GFP_NOIO and GFP_NOFS flags
-Date: Fri, 30 Jun 2017 22:41:00 +0200
-Message-ID: <20170630204059.GA17255@dhcp22.suse.cz>
-References: <alpine.LRH.2.02.1706292221250.21823@file01.intranet.prod.int.rdu2.redhat.com>
- <20170630081245.GA22917@dhcp22.suse.cz>
- <alpine.LRH.2.02.1706301410160.8272@file01.intranet.prod.int.rdu2.redhat.com>
+From: =?UTF-8?q?Iv=C3=A1n=20Briano?= <ivan.briano@intel.com>
+Subject: [PATCH net-next] net/packet: Fix Tx queue selection for AF_PACKET
+Date: Fri, 30 Jun 2017 14:02:32 -0700
+Message-ID: <20170630210232.18407-1-ivan.briano@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Stephen Rothwell <sfr@canb.auug.org.au>,
-        Vlastimil Babka <vbabka@suse.cz>,
-        Andreas Dilger <adilger@dilger.ca>,
-        John Hubbard <jhubbard@nvidia.com>,
-        David Miller <davem@davemloft.net>,
-        linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-        netdev@vger.kernel.org
-To: Mikulas Patocka <mpatocka@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LRH.2.02.1706301410160.8272@file01.intranet.prod.int.rdu2.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: jesus.sanchez-palencia@intel.com, vinicius.gomes@intel.com,
+        andre.guedes@intel.com,
+        =?UTF-8?q?Iv=C3=A1n=20Briano?= <ivan.briano@intel.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:6126 "EHLO mga02.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752772AbdF3VCe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 30 Jun 2017 17:02:34 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri 30-06-17 14:11:57, Mikulas Patocka wrote:
-> 
-> 
-> On Fri, 30 Jun 2017, Michal Hocko wrote:
-> 
-> > On Thu 29-06-17 22:25:09, Mikulas Patocka wrote:
-> > > The __vmalloc function has a parameter gfp_mask with the allocation flags,
-> > > however it doesn't fully respect the GFP_NOIO and GFP_NOFS flags. The
-> > > pages are allocated with the specified gfp flags, but the pagetables are
-> > > always allocated with GFP_KERNEL. This allocation can cause unexpected
-> > > recursion into the filesystem or I/O subsystem.
-> > > 
-> > > It is not practical to extend page table allocation routines with gfp
-> > > flags because it would require modification of architecture-specific code
-> > > in all architecturs. However, the process can temporarily request that all
-> > > allocations are done with GFP_NOFS or GFP_NOIO with with the functions
-> > > memalloc_nofs_save and memalloc_noio_save.
-> > > 
-> > > This patch makes the vmalloc code use memalloc_nofs_save or
-> > > memalloc_noio_save if the supplied gfp flags do not contain __GFP_FS or
-> > > __GFP_IO. It fixes some possible deadlocks in drivers/mtd/ubi/io.c,
-> > > fs/gfs2/, fs/btrfs/free-space-tree.c, fs/ubifs/,
-> > > fs/nfs/blocklayout/extent_tree.c where __vmalloc is used with the GFP_NOFS
-> > > flag.
-> > 
-> > I strongly believe this is a step in the _wrong_ direction. Why? Because
-> 
-> What do you think __vmalloc with GFP_NOIO should do? Print a warning? 
-> Silently ignore the GFP_NOIO flag?
+When PACKET_QDISC_BYPASS is not used, Tx queue selection will be done
+before the packet is enqueued, taking into account any mappings set by
+a queuing discipline such as mqprio without hardware offloading. This
+selection may be affected by a previously saved queue_mapping, either on
+the Rx path, or done before the packet reaches the device, as it's
+currently the case for AF_PACKET.
 
-I think noio users are not that much different from nofs users. Simply
-use the scope API at the place where the scope starts and document why
-it is needed. vmalloc calls do not have to be any special then and they
-do not even have to think about proper gfp flags and they can use
-whatever is the default.
+In order for queue selection to work as expected when using traffic
+control, there can't be another selection done before that point is
+reached, so move the call to packet_pick_tx_queue to
+packet_direct_xmit, leaving the default xmit path as it was before
+PACKET_QDISC_BYPASS was introduced.
+
+A forward declaration of packet_pick_tx_queue() is introduced to avoid
+the need to reorder the functions within the file.
+
+Signed-off-by: Iván Briano <ivan.briano@intel.com>
+---
+ net/packet/af_packet.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index f9349a4..2169368 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -214,6 +214,7 @@ static void prb_clear_rxhash(struct tpacket_kbdq_core *,
+ static void prb_fill_vlan_info(struct tpacket_kbdq_core *,
+ 		struct tpacket3_hdr *);
+ static void packet_flush_mclist(struct sock *sk);
++static void packet_pick_tx_queue(struct net_device *dev, struct sk_buff *skb);
+ 
+ struct packet_skb_cb {
+ 	union {
+@@ -260,6 +261,7 @@ static int packet_direct_xmit(struct sk_buff *skb)
+ 	if (skb != orig_skb)
+ 		goto drop;
+ 
++	packet_pick_tx_queue(dev, skb);
+ 	txq = skb_get_tx_queue(dev, skb);
+ 
+ 	local_bh_disable();
+@@ -2747,8 +2749,6 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ 			goto tpacket_error;
+ 		}
+ 
+-		packet_pick_tx_queue(dev, skb);
+-
+ 		skb->destructor = tpacket_destruct_skb;
+ 		__packet_set_status(po, ph, TP_STATUS_SENDING);
+ 		packet_inc_pending(&po->tx_ring);
+@@ -2931,8 +2931,6 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+ 	skb->priority = sk->sk_priority;
+ 	skb->mark = sockc.mark;
+ 
+-	packet_pick_tx_queue(dev, skb);
+-
+ 	if (po->has_vnet_hdr) {
+ 		err = virtio_net_hdr_to_skb(skb, &vnet_hdr, vio_le());
+ 		if (err)
 -- 
-Michal Hocko
-SUSE Labs
+2.9.4
