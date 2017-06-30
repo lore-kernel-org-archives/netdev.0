@@ -1,82 +1,93 @@
-From: Yunsheng Lin <linyunsheng@huawei.com>
-Subject: Re: [PATCH NET V5 2/2] net: hns: Use phy_driver to setup Phy loopback
-Date: Fri, 30 Jun 2017 17:14:11 +0800
-Message-ID: <e53994a8-25df-a7dc-cbf0-cbc4063e734c@huawei.com>
-References: <1498443039-134503-1-git-send-email-linyunsheng@huawei.com>
- <1498443039-134503-3-git-send-email-linyunsheng@huawei.com>
- <20170626134235.GC2623@lunn.ch>
- <17132762-9b94-bc32-fee8-e90a6db5762a@huawei.com>
- <20170627132958.GA9921@lunn.ch>
- <3d382bc6-f7b6-9df3-8bb0-fee55b72ac74@huawei.com>
- <20170628202819.GA22815@lunn.ch>
- <1bff07ed-d423-dfa2-61e3-3f35c4536632@huawei.com>
- <20170629135648.GD9244@lunn.ch>
+From: Will Deacon <will.deacon@arm.com>
+Subject: Re: [PATCH RFC 08/26] locking: Remove spin_unlock_wait() generic
+ definitions
+Date: Fri, 30 Jun 2017 10:19:29 +0100
+Message-ID: <20170630091928.GC9726@arm.com>
+References: <20170629235918.GA6445@linux.vnet.ibm.com>
+ <1498780894-8253-8-git-send-email-paulmck@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <f.fainelli@gmail.com>,
-        <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
-        <liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
-        <gabriele.paoloni@huawei.com>, <john.garry@huawei.com>,
-        <linuxarm@huawei.com>, <salil.mehta@huawei.com>,
-        <lipeng321@huawei.com>, <tremyfr@gmail.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+        netdev@vger.kernel.org, oleg@redhat.com, akpm@linux-foundation.org,
+        mingo@redhat.com, dave@stgolabs.net, manfred@colorfullife.com,
+        tj@kernel.org, arnd@arndb.de, linux-arch@vger.kernel.org,
+        peterz@infradead.org, stern@rowland.harvard.edu,
+        parri.andrea@gmail.com, torvalds@linux-foundation.org
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170629135648.GD9244@lunn.ch>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <1498780894-8253-8-git-send-email-paulmck@linux.vnet.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, Andrew
-
-On 2017/6/29 21:56, Andrew Lunn wrote:
->>> You only call dev_close() if the device is running. What if somebody
->>> runs the self test on an interface when it has never been opened? It
->>> looks like you will call phy_resume(). But since it has never been
->>> suspended, you could be in trouble.
->> Here is what I can think of:
->> 1. when the mac driver is first loaded, the phy has a default state. suspended?
+On Thu, Jun 29, 2017 at 05:01:16PM -0700, Paul E. McKenney wrote:
+> There is no agreed-upon definition of spin_unlock_wait()'s semantics,
+> and it appears that all callers could do just as well with a lock/unlock
+> pair.  This commit therefore removes spin_unlock_wait() and related
+> definitions from core code.
 > 
-> Nope. The PHY will only be suspended when you actually call
-> phy_suspend.
-> 
->> 2. If user runs the self test after using 'ifconfig ethX down', then I suppose
->> phy is already suspended.
-> 
-> Assuming the phy has at some point been up, after a down, it should be
-> suspended.
-> 
-> The key thing here is, phy_resume() can only be called after a
-> successful phy_suspend(). Those are the power management rules, and
-> the expectations of the drivers. Doing a resume without first doing an
-> explicit suspend is asking for bad things to happen.
-> 
-> You are having trouble because you are not using the API for what it
-> was intended. Maybe you need to take a step back and look at the
-> bigger picture of how self tests are being performed. Why do you need
-> the dev_close()/dev_open()? Maybe
-> netif_device_detach()/netif_device_attach() would be better?
-> How do other drivers do self test?
-> 
-Basically, when doing a loopback test, we put a skb in the tx ring, and
-see if we can receive it in the rx ring. And We can't find other functions
-that meets our requirement, except dev_close()/dev_open.
+> Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> Cc: Arnd Bergmann <arnd@arndb.de>
+> Cc: Ingo Molnar <mingo@redhat.com>
+> Cc: Will Deacon <will.deacon@arm.com>
+> Cc: Peter Zijlstra <peterz@infradead.org>
+> Cc: Alan Stern <stern@rowland.harvard.edu>
+> Cc: Andrea Parri <parri.andrea@gmail.com>
+> Cc: Linus Torvalds <torvalds@linux-foundation.org>
+> ---
+>  include/asm-generic/qspinlock.h |  14 -----
+>  include/linux/spinlock.h        |  31 -----------
+>  include/linux/spinlock_up.h     |   6 ---
+>  kernel/locking/qspinlock.c      | 117 ----------------------------------------
+>  4 files changed, 168 deletions(-)
 
-netif_device_detach only stop the stack from sending packet, napi_disable is
-needed to stop the stack from receiving packet.
-And after phy loopback test, netif_device_attach does not bring back the link.
-Is there a way to bring back the link?
+[...]
 
-We still need to resume the phy after 'ifconfig ethX down'. Also how can I
-tell the difference between phy being suspended after 'ifconfig ethX down'
-and phy being not suspended after mac driver is first loaded?
+> diff --git a/kernel/locking/qspinlock.c b/kernel/locking/qspinlock.c
+> index b2caec7315af..64a9051e4c2c 100644
+> --- a/kernel/locking/qspinlock.c
+> +++ b/kernel/locking/qspinlock.c
+> @@ -267,123 +267,6 @@ static __always_inline u32  __pv_wait_head_or_lock(struct qspinlock *lock,
+>  #define queued_spin_lock_slowpath	native_queued_spin_lock_slowpath
+>  #endif
+>  
+> -/*
+> - * Various notes on spin_is_locked() and spin_unlock_wait(), which are
+> - * 'interesting' functions:
+> - *
+> - * PROBLEM: some architectures have an interesting issue with atomic ACQUIRE
+> - * operations in that the ACQUIRE applies to the LOAD _not_ the STORE (ARM64,
+> - * PPC). Also qspinlock has a similar issue per construction, the setting of
+> - * the locked byte can be unordered acquiring the lock proper.
+> - *
+> - * This gets to be 'interesting' in the following cases, where the /should/s
+> - * end up false because of this issue.
+> - *
+> - *
+> - * CASE 1:
+> - *
+> - * So the spin_is_locked() correctness issue comes from something like:
+> - *
+> - *   CPU0				CPU1
+> - *
+> - *   global_lock();			local_lock(i)
+> - *     spin_lock(&G)			  spin_lock(&L[i])
+> - *     for (i)				  if (!spin_is_locked(&G)) {
+> - *       spin_unlock_wait(&L[i]);	    smp_acquire__after_ctrl_dep();
+> - *					    return;
+> - *					  }
+> - *					  // deal with fail
+> - *
+> - * Where it is important CPU1 sees G locked or CPU0 sees L[i] locked such
+> - * that there is exclusion between the two critical sections.
+> - *
+> - * The load from spin_is_locked(&G) /should/ be constrained by the ACQUIRE from
+> - * spin_lock(&L[i]), and similarly the load(s) from spin_unlock_wait(&L[i])
+> - * /should/ be constrained by the ACQUIRE from spin_lock(&G).
+> - *
+> - * Similarly, later stuff is constrained by the ACQUIRE from CTRL+RMB.
 
-It seems that ixgbe_ethtool in mainline kernel also use netif_tx_disable,
-napi_disable and other hardware specific method to setup self test.
-But newest ixgbe_ethtool code in github also use dev_close to do self test.
+Might be worth keeping this comment about spin_is_locked, since we're not
+removing that guy just yet!
 
-Any idea?
-
-Best Regard
-Yunsheng Lin
+Will
