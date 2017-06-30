@@ -1,576 +1,517 @@
 From: Manish Chopra <manish.chopra@cavium.com>
-Subject: [PATCH net-next 5/7] qed/qede: Add support for vf coalesce configuration.
-Date: Fri, 30 Jun 2017 02:39:44 -0700
-Message-ID: <20170630093946.18497-6-manish.chopra@cavium.com>
+Subject: [PATCH net-next 3/7] qed: Add support for Energy efficient ethernet.
+Date: Fri, 30 Jun 2017 02:39:42 -0700
+Message-ID: <20170630093946.18497-4-manish.chopra@cavium.com>
 References: <20170630093946.18497-1-manish.chopra@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@cavium.com>,
-        <rahul.verma@cavium.com>, <sudarsana.kalluru@cavium.com>,
-        Rahul Verma <Rahul.Verma@cavium.com>
+        <rahul.verma@cavium.com>, <sudarsana.kalluru@cavium.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0044.outbound.protection.outlook.com ([104.47.33.44]:53319
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+Received: from mail-by2nam01on0050.outbound.protection.outlook.com ([104.47.34.50]:19386
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751804AbdF3JkJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 30 Jun 2017 05:40:09 -0400
+        id S1751699AbdF3Jj5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 30 Jun 2017 05:39:57 -0400
 In-Reply-To: <20170630093946.18497-1-manish.chopra@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rahul Verma <Rahul.Verma@cavium.com>
+From: Sudarsana Reddy Kalluru <sudarsana.kalluru@cavium.com>
 
-This patch add the ethtool support to set RX/Tx coalesce
-value to the VF associated Rx/Tx queues.
+The patch adds required driver support for reading/configuring the
+Energy Efficient Ethernet (EEE) parameters.
 
-Signed-off-by: Rahul Verma <Rahul.Verma@cavium.com>
+Signed-off-by: Sudarsana Reddy Kalluru <sudarsana.kalluru@cavium.com>
 Signed-off-by: Yuval Mintz <yuval.mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_dev.c       | 73 +++++++++++++++-------
- drivers/net/ethernet/qlogic/qed/qed_dev_api.h   | 41 ++++--------
- drivers/net/ethernet/qlogic/qed/qed_l2.h        |  7 +++
- drivers/net/ethernet/qlogic/qed/qed_main.c      | 24 +------
- drivers/net/ethernet/qlogic/qed/qed_sriov.c     | 83 +++++++++++++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_vf.c        | 44 +++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_vf.h        | 23 ++++++-
- drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 38 ++++++++---
- include/linux/qed/qed_if.h                      |  4 +-
- 9 files changed, 250 insertions(+), 87 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_dev.c  | 72 ++++++++++++++++++++++++++++--
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h  | 49 ++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_main.c | 19 ++++++++
+ drivers/net/ethernet/qlogic/qed/qed_mcp.c  | 66 +++++++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_mcp.h  | 37 +++++++++++++--
+ include/linux/qed/qed_if.h                 | 20 +++++++++
+ 6 files changed, 256 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index d11f01c..8dbdf48 100644
+index 49667ad..d11f01c 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -3685,7 +3685,7 @@ static int qed_set_coalesce(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
- 	}
+@@ -1673,6 +1673,8 @@ int qed_hw_init(struct qed_dev *cdev, struct qed_hw_init_params *p_params)
+ 			   "Load request was sent. Load code: 0x%x\n",
+ 			   load_code);
  
- 	p_coal_timeset = p_eth_qzone;
--	memset(p_coal_timeset, 0, eth_qzone_size);
-+	memset(p_eth_qzone, 0, eth_qzone_size);
- 	SET_FIELD(p_coal_timeset->value, COALESCING_TIMESET_TIMESET, timeset);
- 	SET_FIELD(p_coal_timeset->value, COALESCING_TIMESET_VALID, 1);
- 	qed_memcpy_to(p_hwfn, p_ptt, hw_addr, p_eth_qzone, eth_qzone_size);
-@@ -3693,12 +3693,46 @@ static int qed_set_coalesce(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
- 	return 0;
++		qed_mcp_set_capabilities(p_hwfn, p_hwfn->p_main_ptt);
++
+ 		qed_reset_mb_shadow(p_hwfn, p_hwfn->p_main_ptt);
+ 
+ 		p_hwfn->first_on_engine = (load_code ==
+@@ -2463,6 +2465,7 @@ static int qed_hw_get_nvm_info(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+ {
+ 	u32 port_cfg_addr, link_temp, nvm_cfg_addr, device_capabilities;
+ 	u32 nvm_cfg1_offset, mf_mode, addr, generic_cont0, core_cfg;
++	struct qed_mcp_link_capabilities *p_caps;
+ 	struct qed_mcp_link_params *link;
+ 
+ 	/* Read global nvm_cfg address */
+@@ -2525,6 +2528,7 @@ static int qed_hw_get_nvm_info(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+ 
+ 	/* Read default link configuration */
+ 	link = &p_hwfn->mcp_info->link_input;
++	p_caps = &p_hwfn->mcp_info->link_capabilities;
+ 	port_cfg_addr = MCP_REG_SCRATCH + nvm_cfg1_offset +
+ 			offsetof(struct nvm_cfg1, port[MFW_PORT(p_hwfn)]);
+ 	link_temp = qed_rd(p_hwfn, p_ptt,
+@@ -2579,10 +2583,45 @@ static int qed_hw_get_nvm_info(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+ 				   NVM_CFG1_PORT_DRV_FLOW_CONTROL_TX);
+ 	link->loopback_mode = 0;
+ 
+-	DP_VERBOSE(p_hwfn, NETIF_MSG_LINK,
+-		   "Read default link: Speed 0x%08x, Adv. Speed 0x%08x, AN: 0x%02x, PAUSE AN: 0x%02x\n",
+-		   link->speed.forced_speed, link->speed.advertised_speeds,
+-		   link->speed.autoneg, link->pause.autoneg);
++	if (p_hwfn->mcp_info->capabilities & FW_MB_PARAM_FEATURE_SUPPORT_EEE) {
++		link_temp = qed_rd(p_hwfn, p_ptt, port_cfg_addr +
++				   offsetof(struct nvm_cfg1_port, ext_phy));
++		link_temp &= NVM_CFG1_PORT_EEE_POWER_SAVING_MODE_MASK;
++		link_temp >>= NVM_CFG1_PORT_EEE_POWER_SAVING_MODE_OFFSET;
++		p_caps->default_eee = QED_MCP_EEE_ENABLED;
++		link->eee.enable = true;
++		switch (link_temp) {
++		case NVM_CFG1_PORT_EEE_POWER_SAVING_MODE_DISABLED:
++			p_caps->default_eee = QED_MCP_EEE_DISABLED;
++			link->eee.enable = false;
++			break;
++		case NVM_CFG1_PORT_EEE_POWER_SAVING_MODE_BALANCED:
++			p_caps->eee_lpi_timer = EEE_TX_TIMER_USEC_BALANCED_TIME;
++			break;
++		case NVM_CFG1_PORT_EEE_POWER_SAVING_MODE_AGGRESSIVE:
++			p_caps->eee_lpi_timer =
++			    EEE_TX_TIMER_USEC_AGGRESSIVE_TIME;
++			break;
++		case NVM_CFG1_PORT_EEE_POWER_SAVING_MODE_LOW_LATENCY:
++			p_caps->eee_lpi_timer = EEE_TX_TIMER_USEC_LATENCY_TIME;
++			break;
++		}
++
++		link->eee.tx_lpi_timer = p_caps->eee_lpi_timer;
++		link->eee.tx_lpi_enable = link->eee.enable;
++		link->eee.adv_caps = QED_EEE_1G_ADV | QED_EEE_10G_ADV;
++	} else {
++		p_caps->default_eee = QED_MCP_EEE_UNSUPPORTED;
++	}
++
++	DP_VERBOSE(p_hwfn,
++		   NETIF_MSG_LINK,
++		   "Read default link: Speed 0x%08x, Adv. Speed 0x%08x, AN: 0x%02x, PAUSE AN: 0x%02x EEE: %02x [%08x usec]\n",
++		   link->speed.forced_speed,
++		   link->speed.advertised_speeds,
++		   link->speed.autoneg,
++		   link->pause.autoneg,
++		   p_caps->default_eee, p_caps->eee_lpi_timer);
+ 
+ 	/* Read Multi-function information from shmem */
+ 	addr = MCP_REG_SCRATCH + nvm_cfg1_offset +
+@@ -2742,6 +2781,27 @@ static void qed_hw_info_port_num(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+ 		qed_hw_info_port_num_ah(p_hwfn, p_ptt);
  }
  
--int qed_set_rxq_coalesce(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
--			 u16 coalesce, u16 qid, u16 sb_id)
-+int qed_set_queue_coalesce(u16 rx_coal, u16 tx_coal, void *p_handle)
++static void qed_get_eee_caps(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
 +{
-+	struct qed_queue_cid *p_cid = p_handle;
-+	struct qed_hwfn *p_hwfn;
-+	struct qed_ptt *p_ptt;
-+	int rc = 0;
++	struct qed_mcp_link_capabilities *p_caps;
++	u32 eee_status;
 +
-+	p_hwfn = p_cid->p_owner;
++	p_caps = &p_hwfn->mcp_info->link_capabilities;
++	if (p_caps->default_eee == QED_MCP_EEE_UNSUPPORTED)
++		return;
 +
-+	if (IS_VF(p_hwfn->cdev))
-+		return qed_vf_pf_set_coalesce(p_hwfn, rx_coal, tx_coal, p_cid);
++	p_caps->eee_speed_caps = 0;
++	eee_status = qed_rd(p_hwfn, p_ptt, p_hwfn->mcp_info->port_addr +
++			    offsetof(struct public_port, eee_status));
++	eee_status = (eee_status & EEE_SUPPORTED_SPEED_MASK) >>
++			EEE_SUPPORTED_SPEED_OFFSET;
 +
-+	p_ptt = qed_ptt_acquire(p_hwfn);
-+	if (!p_ptt)
-+		return -EAGAIN;
-+
-+	if (rx_coal) {
-+		rc = qed_set_rxq_coalesce(p_hwfn, p_ptt, rx_coal, p_cid);
-+		if (rc)
-+			goto out;
-+		p_hwfn->cdev->rx_coalesce_usecs = rx_coal;
-+	}
-+
-+	if (tx_coal) {
-+		rc = qed_set_txq_coalesce(p_hwfn, p_ptt, tx_coal, p_cid);
-+		if (rc)
-+			goto out;
-+		p_hwfn->cdev->tx_coalesce_usecs = tx_coal;
-+	}
-+out:
-+	qed_ptt_release(p_hwfn, p_ptt);
-+	return rc;
++	if (eee_status & EEE_1G_SUPPORTED)
++		p_caps->eee_speed_caps |= QED_EEE_1G_ADV;
++	if (eee_status & EEE_10G_ADV)
++		p_caps->eee_speed_caps |= QED_EEE_10G_ADV;
 +}
 +
-+int qed_set_rxq_coalesce(struct qed_hwfn *p_hwfn,
-+			 struct qed_ptt *p_ptt,
-+			 u16 coalesce, struct qed_queue_cid *p_cid)
- {
- 	struct ustorm_eth_queue_zone eth_qzone;
- 	u8 timeset, timer_res;
--	u16 fw_qid = 0;
- 	u32 address;
- 	int rc;
+ static int
+ qed_get_hw_info(struct qed_hwfn *p_hwfn,
+ 		struct qed_ptt *p_ptt,
+@@ -2758,6 +2818,8 @@ qed_get_hw_info(struct qed_hwfn *p_hwfn,
  
-@@ -3715,32 +3749,29 @@ int qed_set_rxq_coalesce(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
- 	}
- 	timeset = (u8)(coalesce >> timer_res);
+ 	qed_hw_info_port_num(p_hwfn, p_ptt);
  
--	rc = qed_fw_l2_queue(p_hwfn, qid, &fw_qid);
--	if (rc)
--		return rc;
--
--	rc = qed_int_set_timer_res(p_hwfn, p_ptt, timer_res, sb_id, false);
-+	rc = qed_int_set_timer_res(p_hwfn, p_ptt, timer_res,
-+				   p_cid->sb_igu_id, false);
- 	if (rc)
- 		goto out;
- 
--	address = BAR0_MAP_REG_USDM_RAM + USTORM_ETH_QUEUE_ZONE_OFFSET(fw_qid);
-+	address = BAR0_MAP_REG_USDM_RAM +
-+		  USTORM_ETH_QUEUE_ZONE_OFFSET(p_cid->abs.queue_id);
- 
- 	rc = qed_set_coalesce(p_hwfn, p_ptt, address, &eth_qzone,
- 			      sizeof(struct ustorm_eth_queue_zone), timeset);
- 	if (rc)
- 		goto out;
- 
--	p_hwfn->cdev->rx_coalesce_usecs = coalesce;
- out:
- 	return rc;
- }
- 
--int qed_set_txq_coalesce(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
--			 u16 coalesce, u16 qid, u16 sb_id)
-+int qed_set_txq_coalesce(struct qed_hwfn *p_hwfn,
-+			 struct qed_ptt *p_ptt,
-+			 u16 coalesce, struct qed_queue_cid *p_cid)
- {
- 	struct xstorm_eth_queue_zone eth_qzone;
- 	u8 timeset, timer_res;
--	u16 fw_qid = 0;
- 	u32 address;
- 	int rc;
- 
-@@ -3757,22 +3788,16 @@ int qed_set_txq_coalesce(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
- 	}
- 	timeset = (u8)(coalesce >> timer_res);
- 
--	rc = qed_fw_l2_queue(p_hwfn, qid, &fw_qid);
--	if (rc)
--		return rc;
--
--	rc = qed_int_set_timer_res(p_hwfn, p_ptt, timer_res, sb_id, true);
-+	rc = qed_int_set_timer_res(p_hwfn, p_ptt, timer_res,
-+				   p_cid->sb_igu_id, true);
- 	if (rc)
- 		goto out;
- 
--	address = BAR0_MAP_REG_XSDM_RAM + XSTORM_ETH_QUEUE_ZONE_OFFSET(fw_qid);
-+	address = BAR0_MAP_REG_XSDM_RAM +
-+		  XSTORM_ETH_QUEUE_ZONE_OFFSET(p_cid->abs.queue_id);
- 
- 	rc = qed_set_coalesce(p_hwfn, p_ptt, address, &eth_qzone,
- 			      sizeof(struct xstorm_eth_queue_zone), timeset);
--	if (rc)
--		goto out;
--
--	p_hwfn->cdev->tx_coalesce_usecs = coalesce;
- out:
- 	return rc;
- }
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev_api.h b/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
-index 1f1df1b..e6b3c83 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
-@@ -443,38 +443,23 @@ int qed_final_cleanup(struct qed_hwfn *p_hwfn,
- 		      struct qed_ptt *p_ptt, u16 id, bool is_vf);
- 
- /**
-- * @brief qed_set_rxq_coalesce - Configure coalesce parameters for an Rx queue
-- * The fact that we can configure coalescing to up to 511, but on varying
-- * accuracy [the bigger the value the less accurate] up to a mistake of 3usec
-- * for the highest values.
-- *
-- * @param p_hwfn
-- * @param p_ptt
-- * @param coalesce - Coalesce value in micro seconds.
-- * @param qid - Queue index.
-- * @param qid - SB Id
-- *
-- * @return int
-- */
--int qed_set_rxq_coalesce(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
--			 u16 coalesce, u16 qid, u16 sb_id);
--
--/**
-- * @brief qed_set_txq_coalesce - Configure coalesce parameters for a Tx queue
-- * While the API allows setting coalescing per-qid, all tx queues sharing a
-- * SB should be in same range [i.e., either 0-0x7f, 0x80-0xff or 0x100-0x1ff]
-+ * @brief qed_set_queue_coalesce - Configure coalesce parameters for Rx or
-+ * Tx queue. We can configure coalescing to up to 511, but on
-+ * varying accuracy [the bigger the value the less accurate] up to a mistake
-+ * of 3usec for the highest values.
-+ * While the API allows setting coalescing per-qid, all queues sharing a SB
-+ * should be in same range [i.e., either 0-0x7f, 0x80-0xff or 0x100-0x1ff]
-  * otherwise configuration would break.
-  *
-- * @param p_hwfn
-- * @param p_ptt
-- * @param coalesce - Coalesce value in micro seconds.
-- * @param qid - Queue index.
-- * @param qid - SB Id
-+ * @param rx_coal - Rx Coalesce value in micro seconds.
-+ * @param tx_coal - TX Coalesce value in micro seconds.
-+ * @param p_handle
-  *
-  * @return int
-- */
--int qed_set_txq_coalesce(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
--			 u16 coalesce, u16 qid, u16 sb_id);
-+ **/
-+int
-+qed_set_queue_coalesce(u16 rx_coal, u16 tx_coal, void *p_handle);
++	qed_mcp_get_capabilities(p_hwfn, p_ptt);
 +
+ 	qed_hw_get_nvm_info(p_hwfn, p_ptt);
  
- const char *qed_hw_get_resc_name(enum qed_resources res_id);
- #endif
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.h b/drivers/net/ethernet/qlogic/qed/qed_l2.h
-index f8f09aa..60ea72c 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_l2.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_l2.h
-@@ -400,4 +400,11 @@ qed_eth_txq_start_ramrod(struct qed_hwfn *p_hwfn,
+ 	rc = qed_int_igu_read_cam(p_hwfn, p_ptt);
+@@ -2776,6 +2838,8 @@ qed_get_hw_info(struct qed_hwfn *p_hwfn,
+ 				p_hwfn->mcp_info->func_info.ovlan;
  
- u8 qed_mcast_bin_from_mac(u8 *mac);
- 
-+int qed_set_rxq_coalesce(struct qed_hwfn *p_hwfn,
-+			 struct qed_ptt *p_ptt,
-+			 u16 coalesce, struct qed_queue_cid *p_cid);
+ 		qed_mcp_cmd_port_init(p_hwfn, p_ptt);
 +
-+int qed_set_txq_coalesce(struct qed_hwfn *p_hwfn,
-+			 struct qed_ptt *p_ptt,
-+			 u16 coalesce, struct qed_queue_cid *p_cid);
- #endif /* _QED_L2_H */
++		qed_get_eee_caps(p_hwfn, p_ptt);
+ 	}
+ 
+ 	if (qed_mcp_is_init(p_hwfn)) {
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+index 3bf3614..abb9d52 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+@@ -10824,6 +10824,17 @@ struct eth_phy_cfg {
+ #define ETH_LOOPBACK_EXT		(3)
+ #define ETH_LOOPBACK_MAC		(4)
+ 
++	u32 eee_cfg;
++#define EEE_CFG_EEE_ENABLED			BIT(0)
++#define EEE_CFG_TX_LPI				BIT(1)
++#define EEE_CFG_ADV_SPEED_1G			BIT(2)
++#define EEE_CFG_ADV_SPEED_10G			BIT(3)
++#define EEE_TX_TIMER_USEC_MASK			(0xfffffff0)
++#define EEE_TX_TIMER_USEC_OFFSET		4
++#define EEE_TX_TIMER_USEC_BALANCED_TIME		(0xa00)
++#define EEE_TX_TIMER_USEC_AGGRESSIVE_TIME	(0x100)
++#define EEE_TX_TIMER_USEC_LATENCY_TIME		(0x6000)
++
+ 	u32 feature_config_flags;
+ #define ETH_EEE_MODE_ADV_LPI		(1 << 0)
+ };
+@@ -11241,6 +11252,25 @@ struct public_port {
+ 	u32 wol_pkt_len;
+ 	u32 wol_pkt_details;
+ 	struct dcb_dscp_map dcb_dscp_map;
++
++	u32 eee_status;
++#define EEE_ACTIVE_BIT			BIT(0)
++#define EEE_LD_ADV_STATUS_MASK		0x000000f0
++#define EEE_LD_ADV_STATUS_OFFSET	4
++#define EEE_1G_ADV			BIT(1)
++#define EEE_10G_ADV			BIT(2)
++#define EEE_LP_ADV_STATUS_MASK		0x00000f00
++#define EEE_LP_ADV_STATUS_OFFSET	8
++#define EEE_SUPPORTED_SPEED_MASK	0x0000f000
++#define EEE_SUPPORTED_SPEED_OFFSET	12
++#define EEE_1G_SUPPORTED		BIT(1)
++#define EEE_10G_SUPPORTED		BIT(2)
++
++	u32 eee_remote;
++#define EEE_REMOTE_TW_TX_MASK   0x0000ffff
++#define EEE_REMOTE_TW_TX_OFFSET 0
++#define EEE_REMOTE_TW_RX_MASK   0xffff0000
++#define EEE_REMOTE_TW_RX_OFFSET 16
+ };
+ 
+ struct public_func {
+@@ -11569,6 +11599,9 @@ struct public_drv_mb {
+ #define DRV_MSG_CODE_GET_PF_RDMA_PROTOCOL	0x002b0000
+ #define DRV_MSG_CODE_OS_WOL			0x002e0000
+ 
++#define DRV_MSG_CODE_FEATURE_SUPPORT		0x00300000
++#define DRV_MSG_CODE_GET_MFW_FEATURE_SUPPORT	0x00310000
++
+ #define DRV_MSG_SEQ_NUMBER_MASK			0x0000ffff
+ 
+ 	u32 drv_mb_param;
+@@ -11652,6 +11685,10 @@ struct public_drv_mb {
+ #define DRV_MB_PARAM_BIST_TEST_IMAGE_INDEX_SHIFT	8
+ #define DRV_MB_PARAM_BIST_TEST_IMAGE_INDEX_MASK		0x0000FF00
+ 
++#define DRV_MB_PARAM_FEATURE_SUPPORT_PORT_MASK		0x0000FFFF
++#define DRV_MB_PARAM_FEATURE_SUPPORT_PORT_OFFSET	0
++#define DRV_MB_PARAM_FEATURE_SUPPORT_PORT_EEE		0x00000002
++
+ 	u32 fw_mb_header;
+ #define FW_MSG_CODE_MASK			0xffff0000
+ #define FW_MSG_CODE_UNSUPPORTED                 0x00000000
+@@ -11695,6 +11732,9 @@ struct public_drv_mb {
+ #define FW_MB_PARAM_GET_PF_RDMA_IWARP		0x2
+ #define FW_MB_PARAM_GET_PF_RDMA_BOTH		0x3
+ 
++/* get MFW feature support response */
++#define FW_MB_PARAM_FEATURE_SUPPORT_EEE		0x00000002
++
+ #define FW_MB_PARAM_LOAD_DONE_DID_EFUSE_ERROR	(1 << 0)
+ 
+ 	u32 drv_pulse_mb;
+@@ -11890,7 +11930,16 @@ struct nvm_cfg1_port {
+ #define NVM_CFG1_PORT_DRV_FLOW_CONTROL_TX			0x4
+ 	u32 phy_cfg;
+ 	u32 mgmt_traffic;
++
+ 	u32 ext_phy;
++	/* EEE power saving mode */
++#define NVM_CFG1_PORT_EEE_POWER_SAVING_MODE_MASK		0x00FF0000
++#define NVM_CFG1_PORT_EEE_POWER_SAVING_MODE_OFFSET		16
++#define NVM_CFG1_PORT_EEE_POWER_SAVING_MODE_DISABLED		0x0
++#define NVM_CFG1_PORT_EEE_POWER_SAVING_MODE_BALANCED		0x1
++#define NVM_CFG1_PORT_EEE_POWER_SAVING_MODE_AGGRESSIVE		0x2
++#define NVM_CFG1_PORT_EEE_POWER_SAVING_MODE_LOW_LATENCY		0x3
++
+ 	u32 mba_cfg1;
+ 	u32 mba_cfg2;
+ 	u32 vf_cfg;
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
-index 988f471..66892ac 100644
+index ef120d0..988f471 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_main.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
-@@ -1576,29 +1576,9 @@ static void qed_get_coalesce(struct qed_dev *cdev, u16 *rx_coal, u16 *tx_coal)
- }
- 
- static int qed_set_coalesce(struct qed_dev *cdev, u16 rx_coal, u16 tx_coal,
--			    u16 qid, u16 sb_id)
-+			    void *handle)
- {
--	struct qed_hwfn *hwfn;
--	struct qed_ptt *ptt;
--	int hwfn_index;
--	int status = 0;
--
--	hwfn_index = qid % cdev->num_hwfns;
--	hwfn = &cdev->hwfns[hwfn_index];
--	ptt = qed_ptt_acquire(hwfn);
--	if (!ptt)
--		return -EAGAIN;
--
--	status = qed_set_rxq_coalesce(hwfn, ptt, rx_coal,
--				      qid / cdev->num_hwfns, sb_id);
--	if (status)
--		goto out;
--	status = qed_set_txq_coalesce(hwfn, ptt, tx_coal,
--				      qid / cdev->num_hwfns, sb_id);
--out:
--	qed_ptt_release(hwfn, ptt);
--
--	return status;
-+		return qed_set_queue_coalesce(rx_coal, tx_coal, handle);
- }
- 
- static int qed_set_led(struct qed_dev *cdev, enum qed_led_mode mode)
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-index 2cfd3bd..5feef78 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-@@ -3400,6 +3400,86 @@ static void qed_iov_vf_mbx_release(struct qed_hwfn *p_hwfn,
- 			     length, status);
- }
- 
-+static void qed_iov_vf_pf_set_coalesce(struct qed_hwfn *p_hwfn,
-+				       struct qed_ptt *p_ptt,
-+				       struct qed_vf_info *vf)
-+{
-+	struct qed_iov_vf_mbx *mbx = &vf->vf_mbx;
-+	struct vfpf_update_coalesce *req;
-+	u8 status = PFVF_STATUS_FAILURE;
-+	struct qed_queue_cid *p_cid;
-+	u16 rx_coal, tx_coal;
-+	int rc = 0, i;
-+	u16 qid;
-+
-+	req = &mbx->req_virt->update_coalesce;
-+
-+	rx_coal = req->rx_coal;
-+	tx_coal = req->tx_coal;
-+	qid = req->qid;
-+
-+	if (!qed_iov_validate_rxq(p_hwfn, vf, qid,
-+				  QED_IOV_VALIDATE_Q_ENABLE) && rx_coal) {
-+		DP_VERBOSE(p_hwfn, QED_MSG_IOV,
-+			   "VF[%d]: Invalid Rx queue_id = %d\n",
-+			   vf->abs_vf_id, qid);
-+		goto out;
-+	}
-+
-+	if (!qed_iov_validate_txq(p_hwfn, vf, qid,
-+				  QED_IOV_VALIDATE_Q_ENABLE) && tx_coal) {
-+		DP_VERBOSE(p_hwfn, QED_MSG_IOV,
-+			   "VF[%d]: Invalid Tx queue_id = %d\n",
-+			   vf->abs_vf_id, qid);
-+		goto out;
-+	}
-+
-+	DP_VERBOSE(p_hwfn,
-+		   QED_MSG_IOV,
-+		   "VF[%d]: Setting coalesce for VF rx_coal = %d, tx_coal = %d at queue = %d\n",
-+		   vf->abs_vf_id, rx_coal, tx_coal, qid);
-+
-+	if (rx_coal) {
-+		p_cid = qed_iov_get_vf_rx_queue_cid(&vf->vf_queues[qid]);
-+
-+		rc = qed_set_rxq_coalesce(p_hwfn, p_ptt, rx_coal, p_cid);
-+		if (rc) {
-+			DP_VERBOSE(p_hwfn,
-+				   QED_MSG_IOV,
-+				   "VF[%d]: Unable to set rx queue = %d coalesce\n",
-+				   vf->abs_vf_id, vf->vf_queues[qid].fw_rx_qid);
-+			goto out;
-+		}
-+	}
-+
-+	if (tx_coal) {
-+		struct qed_vf_queue *p_queue = &vf->vf_queues[qid];
-+
-+		for (i = 0; i < MAX_QUEUES_PER_QZONE; i++) {
-+			if (!p_queue->cids[i].p_cid)
-+				continue;
-+
-+			if (!p_queue->cids[i].b_is_tx)
-+				continue;
-+
-+			rc = qed_set_txq_coalesce(p_hwfn, p_ptt, tx_coal,
-+						  p_queue->cids[i].p_cid);
-+
-+			if (rc) {
-+				DP_VERBOSE(p_hwfn,
-+					   QED_MSG_IOV,
-+					   "VF[%d]: Unable to set tx queue coalesce\n",
-+					   vf->abs_vf_id);
-+				goto out;
-+			}
-+		}
-+	}
-+
-+	status = PFVF_STATUS_SUCCESS;
-+out:
-+	qed_iov_prepare_resp(p_hwfn, p_ptt, vf, CHANNEL_TLV_COALESCE_UPDATE,
-+			     sizeof(struct pfvf_def_resp_tlv), status);
-+}
- static int
- qed_iov_vf_flr_poll_dorq(struct qed_hwfn *p_hwfn,
- 			 struct qed_vf_info *p_vf, struct qed_ptt *p_ptt)
-@@ -3725,6 +3805,9 @@ static void qed_iov_process_mbx_req(struct qed_hwfn *p_hwfn,
- 		case CHANNEL_TLV_UPDATE_TUNN_PARAM:
- 			qed_iov_vf_mbx_update_tunn_param(p_hwfn, p_ptt, p_vf);
- 			break;
-+		case CHANNEL_TLV_COALESCE_UPDATE:
-+			qed_iov_vf_pf_set_coalesce(p_hwfn, p_ptt, p_vf);
-+			break;
+@@ -1298,6 +1298,10 @@ static int qed_set_link(struct qed_dev *cdev, struct qed_link_params *params)
  		}
- 	} else if (qed_iov_tlv_supported(mbx->first_tlv.tl.type)) {
- 		DP_VERBOSE(p_hwfn, QED_MSG_IOV,
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.c b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-index 1926d1e..0a7bbc0 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_vf.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-@@ -1343,6 +1343,50 @@ int qed_vf_pf_int_cleanup(struct qed_hwfn *p_hwfn)
- 	return rc;
+ 	}
+ 
++	if (params->override_flags & QED_LINK_OVERRIDE_EEE_CONFIG)
++		memcpy(&link_params->eee, &params->eee,
++		       sizeof(link_params->eee));
++
+ 	rc = qed_mcp_set_link(hwfn, ptt, params->link_up);
+ 
+ 	qed_ptt_release(hwfn, ptt);
+@@ -1484,6 +1488,21 @@ static void qed_fill_link(struct qed_hwfn *hwfn,
+ 	if (link.partner_adv_pause == QED_LINK_PARTNER_ASYMMETRIC_PAUSE ||
+ 	    link.partner_adv_pause == QED_LINK_PARTNER_BOTH_PAUSE)
+ 		if_link->lp_caps |= QED_LM_Asym_Pause_BIT;
++
++	if (link_caps.default_eee == QED_MCP_EEE_UNSUPPORTED) {
++		if_link->eee_supported = false;
++	} else {
++		if_link->eee_supported = true;
++		if_link->eee_active = link.eee_active;
++		if_link->sup_caps = link_caps.eee_speed_caps;
++		/* MFW clears adv_caps on eee disable; use configured value */
++		if_link->eee.adv_caps = link.eee_adv_caps ? link.eee_adv_caps :
++					params.eee.adv_caps;
++		if_link->eee.lp_adv_caps = link.eee_lp_adv_caps;
++		if_link->eee.enable = params.eee.enable;
++		if_link->eee.tx_lpi_enable = params.eee.tx_lpi_enable;
++		if_link->eee.tx_lpi_timer = params.eee.tx_lpi_timer;
++	}
  }
  
-+int
-+qed_vf_pf_set_coalesce(struct qed_hwfn *p_hwfn,
-+		       u16 rx_coal, u16 tx_coal, struct qed_queue_cid *p_cid)
+ static void qed_get_current_link(struct qed_dev *cdev,
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.c b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
+index 9da9104..c1ecce6 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_mcp.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
+@@ -1097,6 +1097,31 @@ static void qed_mcp_handle_transceiver_change(struct qed_hwfn *p_hwfn,
+ 		DP_NOTICE(p_hwfn, "Transceiver is unplugged.\n");
+ }
+ 
++static void qed_mcp_read_eee_config(struct qed_hwfn *p_hwfn,
++				    struct qed_ptt *p_ptt,
++				    struct qed_mcp_link_state *p_link)
 +{
-+	struct qed_vf_iov *p_iov = p_hwfn->vf_iov_info;
-+	struct vfpf_update_coalesce *req;
-+	struct pfvf_def_resp_tlv *resp;
++	u32 eee_status, val;
++
++	p_link->eee_adv_caps = 0;
++	p_link->eee_lp_adv_caps = 0;
++	eee_status = qed_rd(p_hwfn,
++			    p_ptt,
++			    p_hwfn->mcp_info->port_addr +
++			    offsetof(struct public_port, eee_status));
++	p_link->eee_active = !!(eee_status & EEE_ACTIVE_BIT);
++	val = (eee_status & EEE_LD_ADV_STATUS_MASK) >> EEE_LD_ADV_STATUS_OFFSET;
++	if (val & EEE_1G_ADV)
++		p_link->eee_adv_caps |= QED_EEE_1G_ADV;
++	if (val & EEE_10G_ADV)
++		p_link->eee_adv_caps |= QED_EEE_10G_ADV;
++	val = (eee_status & EEE_LP_ADV_STATUS_MASK) >> EEE_LP_ADV_STATUS_OFFSET;
++	if (val & EEE_1G_ADV)
++		p_link->eee_lp_adv_caps |= QED_EEE_1G_ADV;
++	if (val & EEE_10G_ADV)
++		p_link->eee_lp_adv_caps |= QED_EEE_10G_ADV;
++}
++
+ static void qed_mcp_handle_link_change(struct qed_hwfn *p_hwfn,
+ 				       struct qed_ptt *p_ptt, bool b_reset)
+ {
+@@ -1228,6 +1253,9 @@ static void qed_mcp_handle_link_change(struct qed_hwfn *p_hwfn,
+ 
+ 	p_link->sfp_tx_fault = !!(status & LINK_STATUS_SFP_TX_FAULT);
+ 
++	if (p_hwfn->mcp_info->capabilities & FW_MB_PARAM_FEATURE_SUPPORT_EEE)
++		qed_mcp_read_eee_config(p_hwfn, p_ptt, p_link);
++
+ 	qed_link_update(p_hwfn);
+ out:
+ 	spin_unlock_bh(&p_hwfn->mcp_info->link_lock);
+@@ -1251,6 +1279,19 @@ int qed_mcp_set_link(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt, bool b_up)
+ 	phy_cfg.pause |= (params->pause.forced_tx) ? ETH_PAUSE_TX : 0;
+ 	phy_cfg.adv_speed = params->speed.advertised_speeds;
+ 	phy_cfg.loopback_mode = params->loopback_mode;
++	if (p_hwfn->mcp_info->capabilities & FW_MB_PARAM_FEATURE_SUPPORT_EEE) {
++		if (params->eee.enable)
++			phy_cfg.eee_cfg |= EEE_CFG_EEE_ENABLED;
++		if (params->eee.tx_lpi_enable)
++			phy_cfg.eee_cfg |= EEE_CFG_TX_LPI;
++		if (params->eee.adv_caps & QED_EEE_1G_ADV)
++			phy_cfg.eee_cfg |= EEE_CFG_ADV_SPEED_1G;
++		if (params->eee.adv_caps & QED_EEE_10G_ADV)
++			phy_cfg.eee_cfg |= EEE_CFG_ADV_SPEED_10G;
++		phy_cfg.eee_cfg |= (params->eee.tx_lpi_timer <<
++				    EEE_TX_TIMER_USEC_OFFSET) &
++				   EEE_TX_TIMER_USEC_MASK;
++	}
+ 
+ 	p_hwfn->b_drv_link_init = b_up;
+ 
+@@ -2822,3 +2863,28 @@ void qed_mcp_resc_lock_default_init(struct qed_resc_lock_params *p_lock,
+ 		p_unlock->resource = resource;
+ 	}
+ }
++
++int qed_mcp_get_capabilities(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
++{
++	u32 mcp_resp;
 +	int rc;
 +
-+	/* clear mailbox and prep header tlv */
-+	req = qed_vf_pf_prep(p_hwfn, CHANNEL_TLV_COALESCE_UPDATE, sizeof(*req));
++	rc = qed_mcp_cmd(p_hwfn, p_ptt, DRV_MSG_CODE_GET_MFW_FEATURE_SUPPORT,
++			 0, &mcp_resp, &p_hwfn->mcp_info->capabilities);
++	if (!rc)
++		DP_VERBOSE(p_hwfn, (QED_MSG_SP | NETIF_MSG_PROBE),
++			   "MFW supported features: %08x\n",
++			   p_hwfn->mcp_info->capabilities);
 +
-+	req->rx_coal = rx_coal;
-+	req->tx_coal = tx_coal;
-+	req->qid = p_cid->rel.queue_id;
-+
-+	DP_VERBOSE(p_hwfn,
-+		   QED_MSG_IOV,
-+		   "Setting coalesce rx_coal = %d, tx_coal = %d at queue = %d\n",
-+		   rx_coal, tx_coal, req->qid);
-+
-+	/* add list termination tlv */
-+	qed_add_tlv(p_hwfn, &p_iov->offset, CHANNEL_TLV_LIST_END,
-+		    sizeof(struct channel_list_end_tlv));
-+
-+	resp = &p_iov->pf2vf_reply->default_resp;
-+	rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, sizeof(*resp));
-+	if (rc)
-+		goto exit;
-+
-+	if (resp->hdr.status != PFVF_STATUS_SUCCESS)
-+		goto exit;
-+
-+	if (rx_coal)
-+		p_hwfn->cdev->rx_coalesce_usecs = rx_coal;
-+
-+	if (tx_coal)
-+		p_hwfn->cdev->tx_coalesce_usecs = tx_coal;
-+
-+exit:
-+	qed_vf_pf_req_end(p_hwfn, rc);
 +	return rc;
 +}
 +
- u16 qed_vf_get_igu_sb_id(struct qed_hwfn *p_hwfn, u16 sb_id)
- {
- 	struct qed_vf_iov *p_iov = p_hwfn->vf_iov_info;
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.h b/drivers/net/ethernet/qlogic/qed/qed_vf.h
-index 34d9b88..33c0e2d 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_vf.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_vf.h
-@@ -497,6 +497,13 @@ struct tlv_buffer_size {
- 	u8 tlv_buffer[TLV_BUFFER_SIZE];
++int qed_mcp_set_capabilities(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
++{
++	u32 mcp_resp, mcp_param, features;
++
++	features = DRV_MB_PARAM_FEATURE_SUPPORT_PORT_EEE;
++
++	return qed_mcp_cmd(p_hwfn, p_ptt, DRV_MSG_CODE_FEATURE_SUPPORT,
++			   features, &mcp_resp, &mcp_param);
++}
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.h b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
+index af03b36..c7ec239 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_mcp.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
+@@ -53,15 +53,25 @@ struct qed_mcp_link_pause_params {
+ 	bool    forced_tx;
  };
  
-+struct vfpf_update_coalesce {
-+	struct vfpf_first_tlv first_tlv;
-+	u16 rx_coal;
-+	u16 tx_coal;
-+	u16 qid;
-+	u8 padding[2];
++enum qed_mcp_eee_mode {
++	QED_MCP_EEE_DISABLED,
++	QED_MCP_EEE_ENABLED,
++	QED_MCP_EEE_UNSUPPORTED
 +};
- union vfpf_tlvs {
- 	struct vfpf_first_tlv first_tlv;
- 	struct vfpf_acquire_tlv acquire;
-@@ -509,6 +516,7 @@ union vfpf_tlvs {
- 	struct vfpf_vport_update_tlv vport_update;
- 	struct vfpf_ucast_filter_tlv ucast_filter;
- 	struct vfpf_update_tunn_param_tlv tunn_param_update;
-+	struct vfpf_update_coalesce update_coalesce;
- 	struct channel_list_end_tlv list_end;
- 	struct tlv_buffer_size tlv_buf_size;
++
+ struct qed_mcp_link_params {
+-	struct qed_mcp_link_speed_params	speed;
+-	struct qed_mcp_link_pause_params	pause;
+-	u32				     loopback_mode;
++	struct qed_mcp_link_speed_params speed;
++	struct qed_mcp_link_pause_params pause;
++	u32 loopback_mode;
++	struct qed_link_eee_params eee;
  };
-@@ -624,7 +632,7 @@ enum {
- 	CHANNEL_TLV_VPORT_UPDATE_ACCEPT_ANY_VLAN,
- 	CHANNEL_TLV_VPORT_UPDATE_SGE_TPA,
- 	CHANNEL_TLV_UPDATE_TUNN_PARAM,
--	CHANNEL_TLV_RESERVED,
-+	CHANNEL_TLV_COALESCE_UPDATE,
- 	CHANNEL_TLV_QID,
- 	CHANNEL_TLV_MAX,
  
-@@ -788,6 +796,19 @@ void qed_vf_get_fw_version(struct qed_hwfn *p_hwfn,
- 			   u16 *fw_rev, u16 *fw_eng);
+ struct qed_mcp_link_capabilities {
+ 	u32 speed_capabilities;
+ 	bool default_speed_autoneg;
++	enum qed_mcp_eee_mode default_eee;
++	u32 eee_lpi_timer;
++	u8 eee_speed_caps;
+ };
  
- /**
-+ * @brief VF - Set Rx/Tx coalesce per VF's relative queue.
-+ *             Coalesce value '0' will omit the configuration.
+ struct qed_mcp_link_state {
+@@ -102,6 +112,9 @@ struct qed_mcp_link_state {
+ 	u8      partner_adv_pause;
+ 
+ 	bool    sfp_tx_fault;
++	bool    eee_active;
++	u8      eee_adv_caps;
++	u8      eee_lp_adv_caps;
+ };
+ 
+ struct qed_mcp_function_info {
+@@ -546,6 +559,9 @@ struct qed_mcp_info {
+ 	u8					*mfw_mb_shadow;
+ 	u16					mfw_mb_length;
+ 	u32					mcp_hist;
++
++	/* Capabilties negotiated with the MFW */
++	u32					capabilities;
+ };
+ 
+ struct qed_mcp_mb_params {
+@@ -925,5 +941,20 @@ void qed_mcp_resc_lock_default_init(struct qed_resc_lock_params *p_lock,
+ 				    struct qed_resc_unlock_params *p_unlock,
+ 				    enum qed_resc_lock
+ 				    resource, bool b_is_permanent);
++/**
++ * @brief Learn of supported MFW features; To be done during early init
 + *
 + * @param p_hwfn
-+ * @param rx_coal - coalesce value in micro second for rx queue
-+ * @param tx_coal - coalesce value in micro second for tx queue
-+ * @param p_cid   - queue cid
-+ *
-+ **/
-+int qed_vf_pf_set_coalesce(struct qed_hwfn *p_hwfn,
-+			   u16 rx_coal,
-+			   u16 tx_coal, struct qed_queue_cid *p_cid);
++ * @param p_ptt
++ */
++int qed_mcp_get_capabilities(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt);
+ 
 +/**
-  * @brief hw preparation for VF
-  *      sends ACQUIRE message
-  *
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-index 55fa2ef..76e0b13 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-@@ -718,8 +718,9 @@ static int qede_set_coalesce(struct net_device *dev,
- 			     struct ethtool_coalesce *coal)
- {
- 	struct qede_dev *edev = netdev_priv(dev);
-+	struct qede_fastpath *fp;
- 	int i, rc = 0;
--	u16 rxc, txc, sb_id;
-+	u16 rxc, txc;
- 
- 	if (!netif_running(dev)) {
- 		DP_INFO(edev, "Interface is down\n");
-@@ -730,21 +731,36 @@ static int qede_set_coalesce(struct net_device *dev,
- 	    coal->tx_coalesce_usecs > QED_COALESCE_MAX) {
- 		DP_INFO(edev,
- 			"Can't support requested %s coalesce value [max supported value %d]\n",
--			coal->rx_coalesce_usecs > QED_COALESCE_MAX ? "rx"
--								   : "tx",
--			QED_COALESCE_MAX);
-+			coal->rx_coalesce_usecs > QED_COALESCE_MAX ? "rx" :
-+			"tx", QED_COALESCE_MAX);
- 		return -EINVAL;
- 	}
- 
- 	rxc = (u16)coal->rx_coalesce_usecs;
- 	txc = (u16)coal->tx_coalesce_usecs;
- 	for_each_queue(i) {
--		sb_id = edev->fp_array[i].sb_info->igu_sb_id;
--		rc = edev->ops->common->set_coalesce(edev->cdev, rxc, txc,
--						     (u16)i, sb_id);
--		if (rc) {
--			DP_INFO(edev, "Set coalesce error, rc = %d\n", rc);
--			return rc;
-+		fp = &edev->fp_array[i];
-+
-+		if (edev->fp_array[i].type & QEDE_FASTPATH_RX) {
-+			rc = edev->ops->common->set_coalesce(edev->cdev,
-+							     rxc, 0,
-+							     fp->rxq->handle);
-+			if (rc) {
-+				DP_INFO(edev,
-+					"Set RX coalesce error, rc = %d\n", rc);
-+				return rc;
-+			}
-+		}
-+
-+		if (edev->fp_array[i].type & QEDE_FASTPATH_TX) {
-+			rc = edev->ops->common->set_coalesce(edev->cdev,
-+							     0, txc,
-+							     fp->txq->handle);
-+			if (rc) {
-+				DP_INFO(edev,
-+					"Set TX coalesce error, rc = %d\n", rc);
-+				return rc;
-+			}
- 		}
- 	}
- 
-@@ -1758,6 +1774,8 @@ static const struct ethtool_ops qede_vf_ethtool_ops = {
- 	.get_msglevel = qede_get_msglevel,
- 	.set_msglevel = qede_set_msglevel,
- 	.get_link = qede_get_link,
-+	.get_coalesce = qede_get_coalesce,
-+	.set_coalesce = qede_set_coalesce,
- 	.get_ringparam = qede_get_ringparam,
- 	.set_ringparam = qede_set_ringparam,
- 	.get_strings = qede_get_strings,
++ * @brief Inform MFW of set of features supported by driver. Should be done
++ * inside the content of the LOAD_REQ.
++ *
++ * @param p_hwfn
++ * @param p_ptt
++ */
++int qed_mcp_set_capabilities(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt);
+ #endif
 diff --git a/include/linux/qed/qed_if.h b/include/linux/qed/qed_if.h
-index 9f32762..4d59ca1 100644
+index ef39c7f..9f32762 100644
 --- a/include/linux/qed/qed_if.h
 +++ b/include/linux/qed/qed_if.h
-@@ -694,8 +694,8 @@ struct qed_common_ops {
-  *
-  * @return 0 on success, error otherwise.
-  */
--	int (*set_coalesce)(struct qed_dev *cdev, u16 rx_coal, u16 tx_coal,
--			    u16 qid, u16 sb_id);
-+	int (*set_coalesce)(struct qed_dev *cdev,
-+			    u16 rx_coal, u16 tx_coal, void *handle);
+@@ -161,6 +161,18 @@ enum qed_nvm_images {
+ 	QED_NVM_IMAGE_FCOE_CFG,
+ };
  
- /**
-  * @brief set_led - Configure LED mode
++struct qed_link_eee_params {
++	u32 tx_lpi_timer;
++#define QED_EEE_1G_ADV		BIT(0)
++#define QED_EEE_10G_ADV		BIT(1)
++
++	/* Capabilities are represented using QED_EEE_*_ADV values */
++	u8 adv_caps;
++	u8 lp_adv_caps;
++	bool enable;
++	bool tx_lpi_enable;
++};
++
+ enum qed_led_mode {
+ 	QED_LED_MODE_OFF,
+ 	QED_LED_MODE_ON,
+@@ -408,6 +420,7 @@ struct qed_link_params {
+ #define QED_LINK_OVERRIDE_SPEED_FORCED_SPEED    BIT(2)
+ #define QED_LINK_OVERRIDE_PAUSE_CONFIG          BIT(3)
+ #define QED_LINK_OVERRIDE_LOOPBACK_MODE         BIT(4)
++#define QED_LINK_OVERRIDE_EEE_CONFIG            BIT(5)
+ 	u32	override_flags;
+ 	bool	autoneg;
+ 	u32	adv_speeds;
+@@ -422,6 +435,7 @@ struct qed_link_params {
+ #define QED_LINK_LOOPBACK_EXT                   BIT(3)
+ #define QED_LINK_LOOPBACK_MAC                   BIT(4)
+ 	u32	loopback_mode;
++	struct qed_link_eee_params eee;
+ };
+ 
+ struct qed_link_output {
+@@ -437,6 +451,12 @@ struct qed_link_output {
+ 	u8	port;                   /* In PORT defs */
+ 	bool	autoneg;
+ 	u32	pause_config;
++
++	/* EEE - capability & param */
++	bool eee_supported;
++	bool eee_active;
++	u8 sup_caps;
++	struct qed_link_eee_params eee;
+ };
+ 
+ struct qed_probe_params {
 -- 
 2.7.2
