@@ -1,42 +1,39 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][-next] net/mlx5: fix spelling mistake: "Allodating" -> "Allocating"
-Date: Fri, 30 Jun 2017 11:59:22 +0100
-Message-ID: <20170630105922.10397-1-colin.king@canonical.com>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [PATCH RFC 02/26] task_work: Replace spin_unlock_wait() with
+ lock/unlock pair
+Date: Fri, 30 Jun 2017 13:04:45 +0200
+Message-ID: <20170630110445.GA5123@redhat.com>
+References: <20170629235918.GA6445@linux.vnet.ibm.com>
+ <1498780894-8253-2-git-send-email-paulmck@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Saeed Mahameed <saeedm@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Ilan Tayari <ilant@mellanox.com>,
-        Colin Ian King <colin.king@canonical.com>,
-        netdev@vger.kernel.org, linux-rdma@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+        netdev@vger.kernel.org, akpm@linux-foundation.org,
+        mingo@redhat.com, dave@stgolabs.net, manfred@colorfullife.com,
+        tj@kernel.org, arnd@arndb.de, linux-arch@vger.kernel.org,
+        will.deacon@arm.com, peterz@infradead.org,
+        stern@rowland.harvard.edu, parri.andrea@gmail.com,
+        torvalds@linux-foundation.org
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1498780894-8253-2-git-send-email-paulmck@linux.vnet.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+On 06/29, Paul E. McKenney wrote:
+>
+> --- a/kernel/task_work.c
+> +++ b/kernel/task_work.c
+> @@ -109,7 +109,8 @@ void task_work_run(void)
+>  		 * the first entry == work, cmpxchg(task_works) should
+>  		 * fail, but it can play with *work and other entries.
+>  		 */
+> -		raw_spin_unlock_wait(&task->pi_lock);
+> +		raw_spin_lock(&task->pi_lock);
+> +		raw_spin_unlock(&task->pi_lock);
 
-Trivial fix to spelling mistake in mlx5_core_dbg debug message
+Well, bit the you need spin_lock_irq(). And this is one of the reasons
+why I personally think unlock_wait have some sense...
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/lib/gid.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/lib/gid.c b/drivers/net/ethernet/mellanox/mlx5/core/lib/gid.c
-index 4d0db481f6c4..de2aed44ab85 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/lib/gid.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/lib/gid.c
-@@ -101,7 +101,7 @@ int mlx5_core_reserved_gid_alloc(struct mlx5_core_dev *dev, int *gid_index)
- 	if (index < 0)
- 		return index;
- 
--	mlx5_core_dbg(dev, "Allodating reserved GID %u\n", index);
-+	mlx5_core_dbg(dev, "Allocating reserved GID %u\n", index);
- 	*gid_index = index;
- 	return 0;
- }
--- 
-2.11.0
+Oleg.
