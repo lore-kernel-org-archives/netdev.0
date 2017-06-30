@@ -1,18 +1,27 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 11/17] net: convert netpoll_info.refcnt from atomic_t to refcount_t
-Date: Fri, 30 Jun 2017 13:08:04 +0300
-Message-ID: <1498817290-3368-12-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 03/17] net: convert neigh_params.refcnt from
+	atomic_t to refcount_t
+Date: Fri, 30 Jun 2017 13:07:56 +0300
+Message-ID: <1498817290-3368-4-git-send-email-elena.reshetova@intel.com>
 References: <1498817290-3368-1-git-send-email-elena.reshetova@intel.com>
-Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
-        stephen@networkplumber.org, peterz@infradead.org,
-        keescook@chromium.org, Elena Reshetova <elena.reshetova@intel.com>,
-        Hans Liljestrand <ishkamiel@gmail.com>,
-        David Windsor <dwindsor@gmail.com>
+Cc: keescook@chromium.org, peterz@infradead.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	jmorris@namei.org, Hans Liljestrand <ishkamiel@gmail.com>,
+	kuznet@ms2.inr.ac.ru, kaber@trash.net,
+	Elena Reshetova <elena.reshetova@intel.com>,
+	David Windsor <dwindsor@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
 In-Reply-To: <1498817290-3368-1-git-send-email-elena.reshetova@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
 refcount_t type and corresponding API should be
@@ -26,61 +35,77 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/linux/netpoll.h | 3 ++-
- net/core/netpoll.c      | 6 +++---
- 2 files changed, 5 insertions(+), 4 deletions(-)
+ include/net/neighbour.h | 6 +++---
+ net/core/neighbour.c    | 8 ++++----
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
-index 1828900..27c0aaa 100644
---- a/include/linux/netpoll.h
-+++ b/include/linux/netpoll.h
-@@ -11,6 +11,7 @@
- #include <linux/interrupt.h>
- #include <linux/rcupdate.h>
- #include <linux/list.h>
-+#include <linux/refcount.h>
+diff --git a/include/net/neighbour.h b/include/net/neighbour.h
+index e5ee739..afc39e3 100644
+--- a/include/net/neighbour.h
++++ b/include/net/neighbour.h
+@@ -77,7 +77,7 @@ struct neigh_parms {
+ 	void	*sysctl_table;
  
- union inet_addr {
- 	__u32		all[4];
-@@ -34,7 +35,7 @@ struct netpoll {
- };
- 
- struct netpoll_info {
+ 	int dead;
 -	atomic_t refcnt;
 +	refcount_t refcnt;
+ 	struct rcu_head rcu_head;
  
- 	struct semaphore dev_lock;
+ 	int	reachable_time;
+@@ -396,12 +396,12 @@ void neigh_sysctl_unregister(struct neigh_parms *p);
  
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index a835155..d3408a6 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -632,7 +632,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
- 		skb_queue_head_init(&npinfo->txq);
- 		INIT_DELAYED_WORK(&npinfo->tx_work, queue_process);
+ static inline void __neigh_parms_put(struct neigh_parms *parms)
+ {
+-	atomic_dec(&parms->refcnt);
++	refcount_dec(&parms->refcnt);
+ }
  
--		atomic_set(&npinfo->refcnt, 1);
-+		refcount_set(&npinfo->refcnt, 1);
+ static inline struct neigh_parms *neigh_parms_clone(struct neigh_parms *parms)
+ {
+-	atomic_inc(&parms->refcnt);
++	refcount_inc(&parms->refcnt);
+ 	return parms;
+ }
  
- 		ops = np->dev->netdev_ops;
- 		if (ops->ndo_netpoll_setup) {
-@@ -642,7 +642,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
- 		}
- 	} else {
- 		npinfo = rtnl_dereference(ndev->npinfo);
--		atomic_inc(&npinfo->refcnt);
-+		refcount_inc(&npinfo->refcnt);
- 	}
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 0c78c8e..e31fc11 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -709,7 +709,7 @@ static void neigh_parms_destroy(struct neigh_parms *parms);
  
- 	npinfo->netpoll = np;
-@@ -821,7 +821,7 @@ void __netpoll_cleanup(struct netpoll *np)
+ static inline void neigh_parms_put(struct neigh_parms *parms)
+ {
+-	if (atomic_dec_and_test(&parms->refcnt))
++	if (refcount_dec_and_test(&parms->refcnt))
+ 		neigh_parms_destroy(parms);
+ }
  
- 	synchronize_srcu(&netpoll_srcu);
+@@ -1479,7 +1479,7 @@ struct neigh_parms *neigh_parms_alloc(struct net_device *dev,
+ 	p = kmemdup(&tbl->parms, sizeof(*p), GFP_KERNEL);
+ 	if (p) {
+ 		p->tbl		  = tbl;
+-		atomic_set(&p->refcnt, 1);
++		refcount_set(&p->refcnt, 1);
+ 		p->reachable_time =
+ 				neigh_rand_reach_time(NEIGH_VAR(p, BASE_REACHABLE_TIME));
+ 		dev_hold(dev);
+@@ -1542,7 +1542,7 @@ void neigh_table_init(int index, struct neigh_table *tbl)
+ 	INIT_LIST_HEAD(&tbl->parms_list);
+ 	list_add(&tbl->parms.list, &tbl->parms_list);
+ 	write_pnet(&tbl->parms.net, &init_net);
+-	atomic_set(&tbl->parms.refcnt, 1);
++	refcount_set(&tbl->parms.refcnt, 1);
+ 	tbl->parms.reachable_time =
+ 			  neigh_rand_reach_time(NEIGH_VAR(&tbl->parms, BASE_REACHABLE_TIME));
  
--	if (atomic_dec_and_test(&npinfo->refcnt)) {
-+	if (refcount_dec_and_test(&npinfo->refcnt)) {
- 		const struct net_device_ops *ops;
+@@ -1796,7 +1796,7 @@ static int neightbl_fill_parms(struct sk_buff *skb, struct neigh_parms *parms)
  
- 		ops = np->dev->netdev_ops;
+ 	if ((parms->dev &&
+ 	     nla_put_u32(skb, NDTPA_IFINDEX, parms->dev->ifindex)) ||
+-	    nla_put_u32(skb, NDTPA_REFCNT, atomic_read(&parms->refcnt)) ||
++	    nla_put_u32(skb, NDTPA_REFCNT, refcount_read(&parms->refcnt)) ||
+ 	    nla_put_u32(skb, NDTPA_QUEUE_LENBYTES,
+ 			NEIGH_VAR(parms, QUEUE_LEN_BYTES)) ||
+ 	    /* approximative value for deprecated QUEUE_LEN (in packets) */
 -- 
 2.7.4
