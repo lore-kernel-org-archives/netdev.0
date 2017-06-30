@@ -1,49 +1,86 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][-next] rtlwifi: kfree entry until after entry->bssid has been accessed
-Date: Fri, 30 Jun 2017 11:08:43 +0100
-Message-ID: <20170630100843.9188-1-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+From: Elena Reshetova <elena.reshetova@intel.com>
+Subject: [PATCH 11/17] net: convert netpoll_info.refcnt from atomic_t to refcount_t
+Date: Fri, 30 Jun 2017 13:08:04 +0300
+Message-ID: <1498817290-3368-12-git-send-email-elena.reshetova@intel.com>
+References: <1498817290-3368-1-git-send-email-elena.reshetova@intel.com>
+Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
+        stephen@networkplumber.org, peterz@infradead.org,
+        keescook@chromium.org, Elena Reshetova <elena.reshetova@intel.com>,
+        Hans Liljestrand <ishkamiel@gmail.com>,
+        David Windsor <dwindsor@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1498817290-3368-1-git-send-email-elena.reshetova@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+refcount_t type and corresponding API should be
+used instead of atomic_t when the variable is used as
+a reference counter. This allows to avoid accidental
+refcounter overflows that might lead to use-after-free
+situations.
 
-The current code kfree's entry and then dereferences it by accessing
-entry->bssid.  Avoid the dereference-after-free by moving the kfree
-after the access to entry->bssid.
-
-Detected by CoverityScan, CID#1448600 ("Read from pointer after free")
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
+Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
+Signed-off-by: Kees Cook <keescook@chromium.org>
+Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- drivers/net/wireless/realtek/rtlwifi/base.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/linux/netpoll.h | 3 ++-
+ net/core/netpoll.c      | 6 +++---
+ 2 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/wireless/realtek/rtlwifi/base.c b/drivers/net/wireless/realtek/rtlwifi/base.c
-index e36ee592c660..208f56297a75 100644
---- a/drivers/net/wireless/realtek/rtlwifi/base.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/base.c
-@@ -1735,12 +1735,12 @@ void rtl_scan_list_expire(struct ieee80211_hw *hw)
- 			continue;
+diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
+index 1828900..27c0aaa 100644
+--- a/include/linux/netpoll.h
++++ b/include/linux/netpoll.h
+@@ -11,6 +11,7 @@
+ #include <linux/interrupt.h>
+ #include <linux/rcupdate.h>
+ #include <linux/list.h>
++#include <linux/refcount.h>
  
- 		list_del(&entry->list);
--		kfree(entry);
- 		rtlpriv->scan_list.num--;
+ union inet_addr {
+ 	__u32		all[4];
+@@ -34,7 +35,7 @@ struct netpoll {
+ };
  
- 		RT_TRACE(rtlpriv, COMP_SCAN, DBG_LOUD,
- 			 "BSSID=%pM is expire in scan list (total=%d)\n",
- 			 entry->bssid, rtlpriv->scan_list.num);
-+		kfree(entry);
+ struct netpoll_info {
+-	atomic_t refcnt;
++	refcount_t refcnt;
+ 
+ 	struct semaphore dev_lock;
+ 
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index a835155..d3408a6 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -632,7 +632,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
+ 		skb_queue_head_init(&npinfo->txq);
+ 		INIT_DELAYED_WORK(&npinfo->tx_work, queue_process);
+ 
+-		atomic_set(&npinfo->refcnt, 1);
++		refcount_set(&npinfo->refcnt, 1);
+ 
+ 		ops = np->dev->netdev_ops;
+ 		if (ops->ndo_netpoll_setup) {
+@@ -642,7 +642,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
+ 		}
+ 	} else {
+ 		npinfo = rtnl_dereference(ndev->npinfo);
+-		atomic_inc(&npinfo->refcnt);
++		refcount_inc(&npinfo->refcnt);
  	}
  
- 	spin_unlock_irqrestore(&rtlpriv->locks.scan_list_lock, flags);
+ 	npinfo->netpoll = np;
+@@ -821,7 +821,7 @@ void __netpoll_cleanup(struct netpoll *np)
+ 
+ 	synchronize_srcu(&netpoll_srcu);
+ 
+-	if (atomic_dec_and_test(&npinfo->refcnt)) {
++	if (refcount_dec_and_test(&npinfo->refcnt)) {
+ 		const struct net_device_ops *ops;
+ 
+ 		ops = np->dev->netdev_ops;
 -- 
-2.11.0
+2.7.4
