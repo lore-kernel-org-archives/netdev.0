@@ -1,220 +1,68 @@
-From: Mikulas Patocka <mpatocka@redhat.com>
-Subject: [PATCH] vmalloc: respect the GFP_NOIO and GFP_NOFS flags
-Date: Thu, 29 Jun 2017 22:25:09 -0400 (EDT)
-Message-ID: <alpine.LRH.2.02.1706292221250.21823@file01.intranet.prod.int.rdu2.redhat.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-        Stephen Rothwell <sfr@canb.auug.org.au>,
-        Vlastimil Babka <vbabka@suse.cz>, Andreas Dilger <adilger@dilger.ca>,
-        John Hubbard <jhubbard@nvidia.com>, David Miller <davem@davemloft.net>,
-        linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-        netdev@vger.kernel.org
-To: Michal Hocko <mhocko@kernel.org>, Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <owner-linux-mm@kvack.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net-next 00/11] sctp: remove typedefs from structures part 1
+Date: Fri, 30 Jun 2017 11:52:11 +0800
+Message-ID: <cover.1498794481.git.lucien.xin@gmail.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:34164 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751722AbdF3Dwg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 23:52:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The __vmalloc function has a parameter gfp_mask with the allocation flags,
-however it doesn't fully respect the GFP_NOIO and GFP_NOFS flags. The
-pages are allocated with the specified gfp flags, but the pagetables are
-always allocated with GFP_KERNEL. This allocation can cause unexpected
-recursion into the filesystem or I/O subsystem.
+As we know, typedef is suggested not to use in kernel, even checkpatch.pl
+also gives warnings about it. Now sctp is using it for many structures.
 
-It is not practical to extend page table allocation routines with gfp
-flags because it would require modification of architecture-specific code
-in all architecturs. However, the process can temporarily request that all
-allocations are done with GFP_NOFS or GFP_NOIO with with the functions
-memalloc_nofs_save and memalloc_noio_save.
+All this kind of typedef's using should be removed. As the 1st part, this
+patchset is to remove it for 11 basic structures in linux/sctp.h. It is
+also to fix some indents.
 
-This patch makes the vmalloc code use memalloc_nofs_save or
-memalloc_noio_save if the supplied gfp flags do not contain __GFP_FS or
-__GFP_IO. It fixes some possible deadlocks in drivers/mtd/ubi/io.c,
-fs/gfs2/, fs/btrfs/free-space-tree.c, fs/ubifs/,
-fs/nfs/blocklayout/extent_tree.c where __vmalloc is used with the GFP_NOFS
-flag.
+No any code's logic is changed in these patches, only cleaning up.
 
-The patch also simplifies code in dm-bufio.c, dm-ioctl.c and fs/xfs/kmem.c
-by removing explicit calls to memalloc_nofs_save and memalloc_noio_save
-before the call to __vmalloc.
+Xin Long (11):
+  sctp: remove the typedef sctp_sctphdr_t
+  sctp: remove the typedef sctp_chunkhdr_t
+  sctp: remove the typedef sctp_cid_t
+  sctp: remove the typedef sctp_cid_action_t
+  sctp: remove the typedef sctp_paramhdr_t
+  sctp: remove the typedef sctp_param_t
+  sctp: remove the typedef sctp_param_action_t
+  sctp: remove the typedef sctp_datahdr_t
+  sctp: remove the typedef sctp_data_chunk_t
+  sctp: remove the typedef sctp_inithdr_t
+  sctp: remove the typedef sctp_init_chunk_t
 
-Signed-off-by: Mikulas Patocka <mpatocka@redhat.com>
+ include/linux/sctp.h                    | 118 ++++++++++++++--------------
+ include/net/sctp/auth.h                 |   6 +-
+ include/net/sctp/command.h              |   4 +-
+ include/net/sctp/constants.h            |   6 +-
+ include/net/sctp/sctp.h                 |   4 +-
+ include/net/sctp/sm.h                   |  16 ++--
+ include/net/sctp/structs.h              |   9 ++-
+ net/netfilter/ipset/ip_set_getport.c    |   4 +-
+ net/netfilter/ipvs/ip_vs_core.c         |  10 +--
+ net/netfilter/ipvs/ip_vs_proto_sctp.c   |  21 +++--
+ net/netfilter/nf_conntrack_proto_sctp.c |  33 ++++----
+ net/netfilter/nf_nat_proto_sctp.c       |   2 +-
+ net/netfilter/xt_sctp.c                 |  20 ++---
+ net/sctp/associola.c                    |   6 +-
+ net/sctp/auth.c                         |  28 ++++---
+ net/sctp/endpointola.c                  |   7 +-
+ net/sctp/input.c                        |  24 +++---
+ net/sctp/inqueue.c                      |  15 ++--
+ net/sctp/output.c                       |   4 +-
+ net/sctp/sm_make_chunk.c                |  80 +++++++++----------
+ net/sctp/sm_sideeffect.c                |   7 +-
+ net/sctp/sm_statefuns.c                 | 132 ++++++++++++++++----------------
+ net/sctp/sm_statetable.c                |   4 +-
+ net/sctp/socket.c                       |   7 +-
+ net/sctp/stream.c                       |   4 +-
+ net/sctp/ulpevent.c                     |   2 +-
+ net/sctp/ulpqueue.c                     |   2 +-
+ 27 files changed, 292 insertions(+), 283 deletions(-)
 
----
- drivers/md/dm-bufio.c |   24 +-----------------------
- drivers/md/dm-ioctl.c |    6 +-----
- fs/xfs/kmem.c         |   14 --------------
- mm/util.c             |    6 +++---
- mm/vmalloc.c          |   18 +++++++++++++++++-
- 5 files changed, 22 insertions(+), 46 deletions(-)
-
-Index: linux-2.6/mm/vmalloc.c
-===================================================================
---- linux-2.6.orig/mm/vmalloc.c
-+++ linux-2.6/mm/vmalloc.c
-@@ -31,6 +31,7 @@
- #include <linux/compiler.h>
- #include <linux/llist.h>
- #include <linux/bitops.h>
-+#include <linux/sched/mm.h>
- 
- #include <linux/uaccess.h>
- #include <asm/tlbflush.h>
-@@ -1670,6 +1671,8 @@ static void *__vmalloc_area_node(struct
- 	unsigned int nr_pages, array_size, i;
- 	const gfp_t nested_gfp = (gfp_mask & GFP_RECLAIM_MASK) | __GFP_ZERO;
- 	const gfp_t alloc_mask = gfp_mask | __GFP_HIGHMEM | __GFP_NOWARN;
-+	unsigned noio_flag;
-+	int r;
- 
- 	nr_pages = get_vm_area_size(area) >> PAGE_SHIFT;
- 	array_size = (nr_pages * sizeof(struct page *));
-@@ -1712,8 +1715,21 @@ static void *__vmalloc_area_node(struct
- 			cond_resched();
- 	}
- 
--	if (map_vm_area(area, prot, pages))
-+	if (unlikely(!(gfp_mask & __GFP_IO)))
-+		noio_flag = memalloc_noio_save();
-+	else if (unlikely(!(gfp_mask & __GFP_FS)))
-+		noio_flag = memalloc_nofs_save();
-+
-+	r = map_vm_area(area, prot, pages);
-+
-+	if (unlikely(!(gfp_mask & __GFP_IO)))
-+		memalloc_noio_restore(noio_flag);
-+	else if (unlikely(!(gfp_mask & __GFP_FS)))
-+		memalloc_nofs_restore(noio_flag);
-+
-+	if (unlikely(r))
- 		goto fail;
-+
- 	return area->addr;
- 
- fail:
-Index: linux-2.6/mm/util.c
-===================================================================
---- linux-2.6.orig/mm/util.c
-+++ linux-2.6/mm/util.c
-@@ -351,10 +351,10 @@ void *kvmalloc_node(size_t size, gfp_t f
- 	void *ret;
- 
- 	/*
--	 * vmalloc uses GFP_KERNEL for some internal allocations (e.g page tables)
--	 * so the given set of flags has to be compatible.
-+	 * vmalloc uses blocking allocations for some internal allocations
-+	 * (e.g page tables) so the given set of flags has to be compatible.
- 	 */
--	WARN_ON_ONCE((flags & GFP_KERNEL) != GFP_KERNEL);
-+	WARN_ON_ONCE(!gfpflags_allow_blocking(flags));
- 
- 	/*
- 	 * We want to attempt a large physically contiguous block first because
-Index: linux-2.6/drivers/md/dm-bufio.c
-===================================================================
---- linux-2.6.orig/drivers/md/dm-bufio.c
-+++ linux-2.6/drivers/md/dm-bufio.c
-@@ -386,9 +386,6 @@ static void __cache_size_refresh(void)
- static void *alloc_buffer_data(struct dm_bufio_client *c, gfp_t gfp_mask,
- 			       enum data_mode *data_mode)
- {
--	unsigned noio_flag;
--	void *ptr;
--
- 	if (c->block_size <= DM_BUFIO_BLOCK_SIZE_SLAB_LIMIT) {
- 		*data_mode = DATA_MODE_SLAB;
- 		return kmem_cache_alloc(DM_BUFIO_CACHE(c), gfp_mask);
-@@ -402,26 +399,7 @@ static void *alloc_buffer_data(struct dm
- 	}
- 
- 	*data_mode = DATA_MODE_VMALLOC;
--
--	/*
--	 * __vmalloc allocates the data pages and auxiliary structures with
--	 * gfp_flags that were specified, but pagetables are always allocated
--	 * with GFP_KERNEL, no matter what was specified as gfp_mask.
--	 *
--	 * Consequently, we must set per-process flag PF_MEMALLOC_NOIO so that
--	 * all allocations done by this process (including pagetables) are done
--	 * as if GFP_NOIO was specified.
--	 */
--
--	if (gfp_mask & __GFP_NORETRY)
--		noio_flag = memalloc_noio_save();
--
--	ptr = __vmalloc(c->block_size, gfp_mask, PAGE_KERNEL);
--
--	if (gfp_mask & __GFP_NORETRY)
--		memalloc_noio_restore(noio_flag);
--
--	return ptr;
-+	return __vmalloc(c->block_size, gfp_mask, PAGE_KERNEL);
- }
- 
- /*
-Index: linux-2.6/drivers/md/dm-ioctl.c
-===================================================================
---- linux-2.6.orig/drivers/md/dm-ioctl.c
-+++ linux-2.6/drivers/md/dm-ioctl.c
-@@ -1691,7 +1691,6 @@ static int copy_params(struct dm_ioctl _
- 	struct dm_ioctl *dmi;
- 	int secure_data;
- 	const size_t minimum_data_size = offsetof(struct dm_ioctl, data);
--	unsigned noio_flag;
- 
- 	if (copy_from_user(param_kernel, user, minimum_data_size))
- 		return -EFAULT;
-@@ -1714,10 +1713,7 @@ static int copy_params(struct dm_ioctl _
- 	 * suspended and the ioctl is needed to resume it.
- 	 * Use kmalloc() rather than vmalloc() when we can.
- 	 */
--	dmi = NULL;
--	noio_flag = memalloc_noio_save();
--	dmi = kvmalloc(param_kernel->data_size, GFP_KERNEL | __GFP_HIGH);
--	memalloc_noio_restore(noio_flag);
-+	dmi = kvmalloc(param_kernel->data_size, GFP_NOIO | __GFP_HIGH);
- 
- 	if (!dmi) {
- 		if (secure_data && clear_user(user, param_kernel->data_size))
-Index: linux-2.6/fs/xfs/kmem.c
-===================================================================
---- linux-2.6.orig/fs/xfs/kmem.c
-+++ linux-2.6/fs/xfs/kmem.c
-@@ -48,7 +48,6 @@ kmem_alloc(size_t size, xfs_km_flags_t f
- void *
- kmem_zalloc_large(size_t size, xfs_km_flags_t flags)
- {
--	unsigned nofs_flag = 0;
- 	void	*ptr;
- 	gfp_t	lflags;
- 
-@@ -56,22 +55,9 @@ kmem_zalloc_large(size_t size, xfs_km_fl
- 	if (ptr)
- 		return ptr;
- 
--	/*
--	 * __vmalloc() will allocate data pages and auxillary structures (e.g.
--	 * pagetables) with GFP_KERNEL, yet we may be under GFP_NOFS context
--	 * here. Hence we need to tell memory reclaim that we are in such a
--	 * context via PF_MEMALLOC_NOFS to prevent memory reclaim re-entering
--	 * the filesystem here and potentially deadlocking.
--	 */
--	if (flags & KM_NOFS)
--		nofs_flag = memalloc_nofs_save();
--
- 	lflags = kmem_flags_convert(flags);
- 	ptr = __vmalloc(size, lflags | __GFP_ZERO, PAGE_KERNEL);
- 
--	if (flags & KM_NOFS)
--		memalloc_nofs_restore(nofs_flag);
--
- 	return ptr;
- }
- 
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+-- 
+2.1.0
