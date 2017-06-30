@@ -1,7 +1,7 @@
 From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next v5 09/16] bpf: Sample BPF program to set buffer sizes
-Date: Fri, 30 Jun 2017 13:06:59 -0700
-Message-ID: <20170630200706.4183158-10-brakmo@fb.com>
+Subject: [PATCH net-next v5 13/16] bpf: Sample BPF program to set initial cwnd
+Date: Fri, 30 Jun 2017 13:07:03 -0700
+Message-ID: <20170630200706.4183158-14-brakmo@fb.com>
 References: <20170630200706.4183158-1-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,65 +11,67 @@ Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:43670 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752399AbdF3UHN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 16:07:13 -0400
-Received: from pps.filterd (m0109333.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5UK4kkO021771
-        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 13:07:13 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:59289 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752736AbdF3UHP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 16:07:15 -0400
+Received: from pps.filterd (m0109332.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5UK4AuR031655
+        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 13:07:15 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2bdut10c8b-4
+        by mx0a-00082601.pphosted.com with ESMTP id 2bdvs10573-8
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 13:07:13 -0700
+        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 13:07:15 -0700
 Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
- mx-out.facebook.com (2401:db00:2050:5102:face:0000:0037:0000) with ESMTP       id
- b3f3f1645dcf11e787371f53bdcd5fbc-7bb3f8f0 for <netdev@vger.kernel.org>;        Fri,
- 30 Jun 2017 13:07:11 -0700
+ mx-out.facebook.com (2401:db00:2050:5102:face:0000:003b:0000) with ESMTP       id
+ b46933b65dcf11e7a96c09cabd64a484-9fd3e8f0 for <netdev@vger.kernel.org>;        Fri,
+ 30 Jun 2017 13:07:12 -0700
 In-Reply-To: <20170630200706.4183158-1-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch contains a BPF program to set initial receive window to
-40 packets and send and receive buffers to 1.5MB. This would usually
-be done after doing appropriate checks that indicate the hosts are
-far enough away (i.e. large RTT).
+Sample BPF program that assumes hosts are far away (i.e. large RTTs)
+and sets initial cwnd and initial receive window to 40 packets,
+send and receive buffers to 1.5MB.
+
+In practice there would be a test to insure the hosts are actually
+far enough away.
 
 Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
 ---
- samples/bpf/Makefile        |  1 +
- samples/bpf/tcp_bufs_kern.c | 86 +++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 87 insertions(+)
- create mode 100644 samples/bpf/tcp_bufs_kern.c
+ samples/bpf/Makefile      |  1 +
+ samples/bpf/tcp_iw_kern.c | 88 +++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 89 insertions(+)
+ create mode 100644 samples/bpf/tcp_iw_kern.c
 
 diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index ca95528..3b300db 100644
+index 6fdf32d..242d76e 100644
 --- a/samples/bpf/Makefile
 +++ b/samples/bpf/Makefile
-@@ -115,6 +115,7 @@ always += test_map_in_map_kern.o
- always += cookie_uid_helper_example.o
- always += tcp_synrto_kern.o
+@@ -117,6 +117,7 @@ always += tcp_synrto_kern.o
  always += tcp_rwnd_kern.o
-+always += tcp_bufs_kern.o
+ always += tcp_bufs_kern.o
+ always += tcp_cong_kern.o
++always += tcp_iw_kern.o
  
  HOSTCFLAGS += -I$(objtree)/usr/include
  HOSTCFLAGS += -I$(srctree)/tools/lib/
-diff --git a/samples/bpf/tcp_bufs_kern.c b/samples/bpf/tcp_bufs_kern.c
+diff --git a/samples/bpf/tcp_iw_kern.c b/samples/bpf/tcp_iw_kern.c
 new file mode 100644
-index 0000000..ee83bba
+index 0000000..23c5122
 --- /dev/null
-+++ b/samples/bpf/tcp_bufs_kern.c
-@@ -0,0 +1,86 @@
++++ b/samples/bpf/tcp_iw_kern.c
+@@ -0,0 +1,88 @@
 +/* Copyright (c) 2017 Facebook
 + *
 + * This program is free software; you can redistribute it and/or
 + * modify it under the terms of version 2 of the GNU General Public
 + * License as published by the Free Software Foundation.
 + *
-+ * BPF program to set initial receive window to 40 packets and send
-+ * and receive buffers to 1.5MB. This would usually be done after
-+ * doing appropriate checks that indicate the hosts are far enough
-+ * away (i.e. large RTT).
++ * BPF program to set initial congestion window and initial receive
++ * window to 40 packets and send and receive buffers to 1.5MB. This
++ * would usually be done after doing appropriate checks that indicate
++ * the hosts are far enough away (i.e. large RTT).
 + *
 + * Use load_sock_ops to load this BPF program.
 + */
@@ -92,10 +94,11 @@ index 0000000..ee83bba
 +})
 +
 +SEC("sockops")
-+int bpf_bufs(struct bpf_sock_ops *skops)
++int bpf_iw(struct bpf_sock_ops *skops)
 +{
 +	int bufsize = 1500000;
 +	int rwnd_init = 40;
++	int iw = 40;
 +	int rv = 0;
 +	int op;
 +
@@ -109,7 +112,7 @@ index 0000000..ee83bba
 +	op = (int) skops->op;
 +
 +#ifdef DEBUG
-+	bpf_printk("Returning %d\n", rv);
++	bpf_printk("BPF command: %d\n", op);
 +#endif
 +
 +	/* Usually there would be a check to insure the hosts are far
@@ -127,7 +130,8 @@ index 0000000..ee83bba
 +					     &bufsize, sizeof(bufsize));
 +		break;
 +	case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
-+		/* Nothing to do */
++		rv = bpf_setsockopt(skops, SOL_TCP, TCP_BPF_IW, &iw,
++				    sizeof(iw));
 +		break;
 +	case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
 +		/* Set sndbuf and rcvbuf of passive connections */
