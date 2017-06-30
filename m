@@ -1,87 +1,42 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH RFC 02/26] task_work: Replace spin_unlock_wait() with
- lock/unlock pair
-Date: Fri, 30 Jun 2017 09:16:07 -0700
-Message-ID: <20170630161607.GX2393@linux.vnet.ibm.com>
-References: <20170629235918.GA6445@linux.vnet.ibm.com>
- <1498780894-8253-2-git-send-email-paulmck@linux.vnet.ibm.com>
- <20170630110445.GA5123@redhat.com>
- <20170630125020.GU2393@linux.vnet.ibm.com>
- <20170630152010.GA6935@redhat.com>
-Reply-To: paulmck@linux.vnet.ibm.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-        netdev@vger.kernel.org, akpm@linux-foundation.org,
-        mingo@redhat.com, dave@stgolabs.net, manfred@colorfullife.com,
-        tj@kernel.org, arnd@arndb.de, linux-arch@vger.kernel.org,
-        will.deacon@arm.com, peterz@infradead.org,
-        stern@rowland.harvard.edu, parri.andrea@gmail.com,
-        torvalds@linux-foundation.org
-To: Oleg Nesterov <oleg@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170630152010.GA6935@redhat.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Matteo Croce <mcroce@redhat.com>
+Subject: [PATCH v2] Documentation: fix wrong example command
+Date: Fri, 30 Jun 2017 18:21:47 +0200
+Message-ID: <20170630162147.12369-1-mcroce@redhat.com>
+Cc: linux-doc@vger.kernel.org, davem@davemloft.net,
+        Matteo Croce <mcroce@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-doc-owner@vger.kernel.org>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 30, 2017 at 05:20:10PM +0200, Oleg Nesterov wrote:
-> On 06/30, Paul E. McKenney wrote:
-> >
-> > > > +		raw_spin_lock_irq(&task->pi_lock);
-> > > > +		raw_spin_unlock_irq(&task->pi_lock);
-> >
-> > I agree that the spin_unlock_wait() implementations would avoid the
-> > deadlock with an acquisition from an interrupt handler, while also
-> > avoiding the need to momentarily disable interrupts.  The ->pi_lock is
-> > a per-task lock, so I am assuming (perhaps naively) that contention is
-> > not a problem.  So is the overhead of interrupt disabling likely to be
-> > noticeable here?
-> 
-> I do not think the overhead will be noticeable in this particular case.
-> 
-> But I am not sure I understand why do we want to unlock_wait. Yes I agree,
-> it has some problems, but still...
-> 
-> The code above looks strange for me. If we are going to repeat this pattern
-> the perhaps we should add a helper for lock+unlock and name it unlock_wait2 ;)
-> 
-> If not, we should probably change this code more:
+In the IPVLAN documentation there is an example command line where the
+master and slave interface names are inverted.
+Fix the command line and also add the optional `name' keyword to better
+describe what the command is doing.
 
-This looks -much- better than my patch!  May I have your Signed-off-by?
+v2: added commit message
 
-							Thanx, Paul
+Signed-off-by: Matteo Croce <mcroce@redhat.com>
+---
+ Documentation/networking/ipvlan.txt | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-> --- a/kernel/task_work.c
-> +++ b/kernel/task_work.c
-> @@ -96,20 +96,16 @@ void task_work_run(void)
->  		 * work->func() can do task_work_add(), do not set
->  		 * work_exited unless the list is empty.
->  		 */
-> +		raw_spin_lock_irq(&task->pi_lock);
->  		do {
->  			work = READ_ONCE(task->task_works);
->  			head = !work && (task->flags & PF_EXITING) ?
->  				&work_exited : NULL;
->  		} while (cmpxchg(&task->task_works, work, head) != work);
-> +		raw_spin_unlock_irq(&task->pi_lock);
-> 
->  		if (!work)
->  			break;
-> -		/*
-> -		 * Synchronize with task_work_cancel(). It can't remove
-> -		 * the first entry == work, cmpxchg(task_works) should
-> -		 * fail, but it can play with *work and other entries.
-> -		 */
-> -		raw_spin_unlock_wait(&task->pi_lock);
-> 
->  		do {
->  			next = work->next;
-> 
-> performance-wise this is almost the same, and if we do not really care about
-> overhead we can simplify the code: this way it is obvious that we can't race
-> with task_work_cancel().
-> 
-> Oleg.
-> 
+diff --git a/Documentation/networking/ipvlan.txt b/Documentation/networking/ipvlan.txt
+index 24196ce..1fe42a8 100644
+--- a/Documentation/networking/ipvlan.txt
++++ b/Documentation/networking/ipvlan.txt
+@@ -22,9 +22,9 @@ The driver can be built into the kernel (CONFIG_IPVLAN=y) or as a module
+ 	There are no module parameters for this driver and it can be configured
+ using IProute2/ip utility.
+ 
+-	ip link add link <master-dev> <slave-dev> type ipvlan mode { l2 | l3 | l3s }
++	ip link add link <master-dev> name <slave-dev> type ipvlan mode { l2 | l3 | l3s }
+ 
+-	e.g. ip link add link ipvl0 eth0 type ipvlan mode l2
++	e.g. ip link add link eth0 name ipvl0 type ipvlan mode l2
+ 
+ 
+ 4. Operating modes:
+-- 
+2.9.4
 
