@@ -1,209 +1,127 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next v5 07/16] bpf: Add setsockopt helper function to bpf
-Date: Fri, 30 Jun 2017 13:06:57 -0700
-Message-ID: <20170630200706.4183158-8-brakmo@fb.com>
-References: <20170630200706.4183158-1-brakmo@fb.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH RFC 02/26] task_work: Replace spin_unlock_wait() with
+ lock/unlock pair
+Date: Fri, 30 Jun 2017 13:19:02 -0700
+Message-ID: <20170630201902.GA940@linux.vnet.ibm.com>
+References: <20170629235918.GA6445@linux.vnet.ibm.com>
+ <1498780894-8253-2-git-send-email-paulmck@linux.vnet.ibm.com>
+ <20170630110445.GA5123@redhat.com>
+ <20170630125020.GU2393@linux.vnet.ibm.com>
+ <20170630152010.GA6935@redhat.com>
+ <20170630161607.GX2393@linux.vnet.ibm.com>
+ <20170630192123.GA8471@redhat.com>
+ <20170630200248.GF2393@linux.vnet.ibm.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
-        Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:51231 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752444AbdF3UHN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 16:07:13 -0400
-Received: from pps.filterd (m0109331.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5UK3G6G015746
-        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 13:07:13 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2bdtfqrtg1-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 13:07:13 -0700
-Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
- mx-out.facebook.com (2401:db00:2050:5102:face:0000:003b:0000) with ESMTP       id
- b38765945dcf11e7a96c09cabd64a484-9fd3e8f0 for <netdev@vger.kernel.org>;        Fri,
- 30 Jun 2017 13:07:11 -0700
-In-Reply-To: <20170630200706.4183158-1-brakmo@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+        netdev@vger.kernel.org, akpm@linux-foundation.org,
+        mingo@redhat.com, dave@stgolabs.net, manfred@colorfullife.com,
+        tj@kernel.org, arnd@arndb.de, linux-arch@vger.kernel.org,
+        will.deacon@arm.com, peterz@infradead.org,
+        stern@rowland.harvard.edu, parri.andrea@gmail.com,
+        torvalds@linux-foundation.org
+To: Oleg Nesterov <oleg@redhat.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170630200248.GF2393@linux.vnet.ibm.com>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Added support for calling a subset of socket setsockopts from
-BPF_PROG_TYPE_SOCK_OPS programs. The code was duplicated rather
-than making the changes to call the socket setsockopt function because
-the changes required would have been larger.
+On Fri, Jun 30, 2017 at 01:02:48PM -0700, Paul E. McKenney wrote:
+> On Fri, Jun 30, 2017 at 09:21:23PM +0200, Oleg Nesterov wrote:
+> > On 06/30, Paul E. McKenney wrote:
+> > >
+> > > On Fri, Jun 30, 2017 at 05:20:10PM +0200, Oleg Nesterov wrote:
+> > > >
+> > > > I do not think the overhead will be noticeable in this particular case.
+> > > >
+> > > > But I am not sure I understand why do we want to unlock_wait. Yes I agree,
+> >                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> > 
+> > if it was not clear, I tried to say "why do we want to _remove_ unlock_wait".
+> > 
+> > > > it has some problems, but still...
+> > > >
+> > > > The code above looks strange for me. If we are going to repeat this pattern
+> > > > the perhaps we should add a helper for lock+unlock and name it unlock_wait2 ;)
+> > > >
+> > > > If not, we should probably change this code more:
+> > >
+> > > This looks -much- better than my patch!  May I have your Signed-off-by?
+> > 
+> > Only if you promise to replace all RCU flavors with a single simple implementation
+> > based on rwlock ;)
+> 
+> ;-) ;-) ;-)
+> 
+> Here you go:
+> 
+> https://github.com/pramalhe/ConcurrencyFreaks/blob/master/papers/poormanurcu-2015.pdf
+> 
+> > Seriously, of course I won't argue, and it seems that nobody except me likes
+> > this primitive, but to me spin_unlock_wait() looks like synchronize_rcu(() and
+> > sometimes it makes sense.
+> 
+> Well, that analogy was what led me to propose that its semantics be
+> defined as spin_lock() immediately followed by spin_unlock().  But that
+> didn't go over well.
+> 
+> > Including this particular case. task_work_run() is going to flush/destroy the
+> > ->task_works list, so it needs to wait until all currently executing "readers"
+> > (task_work_cancel()'s which have started before ->task_works was updated) have
+> > completed.
+> 
+> Understood!
 
-The ops supported are:
-  SO_RCVBUF
-  SO_SNDBUF
-  SO_MAX_PACING_RATE
-  SO_PRIORITY
-  SO_RCVLOWAT
-  SO_MARK
+And please see below for the resulting patch and commit log.  Please let
+me know if I broke something.
 
-Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
----
- include/uapi/linux/bpf.h  | 14 ++++++++-
- net/core/filter.c         | 77 ++++++++++++++++++++++++++++++++++++++++++++++-
- samples/bpf/bpf_helpers.h |  3 ++
- 3 files changed, 92 insertions(+), 2 deletions(-)
+							Thanx, Paul
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 94d7ded..dd43b22 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -520,6 +520,17 @@ union bpf_attr {
-  *     Set full skb->hash.
-  *     @skb: pointer to skb
-  *     @hash: hash to set
-+ *
-+ * int bpf_setsockopt(bpf_socket, level, optname, optval, optlen)
-+ *     Calls setsockopt. Not all opts are available, only those with
-+ *     integer optvals plus TCP_CONGESTION.
-+ *     Supported levels: SOL_SOCKET and IPROTO_TCP
-+ *     @bpf_socket: pointer to bpf_socket
-+ *     @level: SOL_SOCKET or IPROTO_TCP
-+ *     @optname: option name
-+ *     @optval: pointer to option value
-+ *     @optlen: length of optval in byes
-+ *     Return: 0 or negative error
-  */
- #define __BPF_FUNC_MAPPER(FN)		\
- 	FN(unspec),			\
-@@ -570,7 +581,8 @@ union bpf_attr {
- 	FN(probe_read_str),		\
- 	FN(get_socket_cookie),		\
- 	FN(get_socket_uid),		\
--	FN(set_hash),
-+	FN(set_hash),			\
-+	FN(setsockopt),
+------------------------------------------------------------------------
+
+commit 6c0801c9ab19fc2f4c1e2436eb1b72e0af9a317b
+Author: Oleg Nesterov <oleg@redhat.com>
+Date:   Fri Jun 30 13:13:59 2017 -0700
+
+    task_work: Replace spin_unlock_wait() with lock/unlock pair
+    
+    There is no agreed-upon definition of spin_unlock_wait()'s semantics,
+    and it appears that all callers could do just as well with a lock/unlock
+    pair.  This commit therefore replaces the spin_unlock_wait() call in
+    task_work_run() with a spin_lock_irq() and a spin_unlock_irq() aruond
+    the cmpxchg() dequeue loop.  This should be safe from a performance
+    perspective because ->pi_lock is local to the task and because calls to
+    the other side of the race, task_work_cancel(), should be rare.
+    
+    Signed-off-by: Oleg Nesterov <oleg@redhat.com>
+    Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+
+diff --git a/kernel/task_work.c b/kernel/task_work.c
+index d513051fcca2..836a72a66fba 100644
+--- a/kernel/task_work.c
++++ b/kernel/task_work.c
+@@ -96,20 +96,16 @@ void task_work_run(void)
+ 		 * work->func() can do task_work_add(), do not set
+ 		 * work_exited unless the list is empty.
+ 		 */
++		raw_spin_lock_irq(&task->pi_lock);
+ 		do {
+ 			work = READ_ONCE(task->task_works);
+ 			head = !work && (task->flags & PF_EXITING) ?
+ 				&work_exited : NULL;
+ 		} while (cmpxchg(&task->task_works, work, head) != work);
++		raw_spin_unlock_irq(&task->pi_lock);
  
- /* integer value in 'imm' field of BPF_CALL instruction selects which helper
-  * function eBPF program intends to call
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 1f6a26c..0223ab4 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -54,6 +54,7 @@
- #include <net/dst.h>
- #include <net/sock_reuseport.h>
- #include <net/busy_poll.h>
-+#include <net/tcp.h>
+ 		if (!work)
+ 			break;
+-		/*
+-		 * Synchronize with task_work_cancel(). It can't remove
+-		 * the first entry == work, cmpxchg(task_works) should
+-		 * fail, but it can play with *work and other entries.
+-		 */
+-		raw_spin_unlock_wait(&task->pi_lock);
  
- /**
-  *	sk_filter_trim_cap - run a packet through a socket filter
-@@ -2672,6 +2673,69 @@ static const struct bpf_func_proto bpf_get_socket_uid_proto = {
- 	.arg1_type      = ARG_PTR_TO_CTX,
- };
- 
-+BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
-+	   int, level, int, optname, char *, optval, int, optlen)
-+{
-+	struct sock *sk = bpf_sock->sk;
-+	int ret = 0;
-+	int val;
-+
-+	if (!sk_fullsock(sk))
-+		return -EINVAL;
-+
-+	if (level == SOL_SOCKET) {
-+		/* Only some socketops are supported */
-+		val = *((int *)optval);
-+
-+		switch (optname) {
-+		case SO_RCVBUF:
-+			sk->sk_userlocks |= SOCK_RCVBUF_LOCK;
-+			sk->sk_rcvbuf = max_t(int, val * 2, SOCK_MIN_RCVBUF);
-+			break;
-+		case SO_SNDBUF:
-+			sk->sk_userlocks |= SOCK_SNDBUF_LOCK;
-+			sk->sk_sndbuf = max_t(int, val * 2, SOCK_MIN_SNDBUF);
-+			break;
-+		case SO_MAX_PACING_RATE:
-+			sk->sk_max_pacing_rate = val;
-+			sk->sk_pacing_rate = min(sk->sk_pacing_rate,
-+						 sk->sk_max_pacing_rate);
-+			break;
-+		case SO_PRIORITY:
-+			sk->sk_priority = val;
-+			break;
-+		case SO_RCVLOWAT:
-+			if (val < 0)
-+				val = INT_MAX;
-+			sk->sk_rcvlowat = val ? : 1;
-+			break;
-+		case SO_MARK:
-+			sk->sk_mark = val;
-+			break;
-+		default:
-+			ret = -EINVAL;
-+		}
-+	} else if (level == SOL_TCP &&
-+		   sk->sk_prot->setsockopt == tcp_setsockopt) {
-+		/* Place holder */
-+		ret = -EINVAL;
-+	} else {
-+		ret = -EINVAL;
-+	}
-+	return ret;
-+}
-+
-+static const struct bpf_func_proto bpf_setsockopt_proto = {
-+	.func		= bpf_setsockopt,
-+	.gpl_only	= true,
-+	.ret_type	= RET_INTEGER,
-+	.arg1_type	= ARG_PTR_TO_CTX,
-+	.arg2_type	= ARG_ANYTHING,
-+	.arg3_type	= ARG_ANYTHING,
-+	.arg4_type	= ARG_PTR_TO_MEM,
-+	.arg5_type	= ARG_CONST_SIZE_OR_ZERO,
-+};
-+
- static const struct bpf_func_proto *
- bpf_base_func_proto(enum bpf_func_id func_id)
- {
-@@ -2823,6 +2887,17 @@ lwt_inout_func_proto(enum bpf_func_id func_id)
- }
- 
- static const struct bpf_func_proto *
-+	sock_ops_func_proto(enum bpf_func_id func_id)
-+{
-+	switch (func_id) {
-+	case BPF_FUNC_setsockopt:
-+		return &bpf_setsockopt_proto;
-+	default:
-+		return bpf_base_func_proto(func_id);
-+	}
-+}
-+
-+static const struct bpf_func_proto *
- lwt_xmit_func_proto(enum bpf_func_id func_id)
- {
- 	switch (func_id) {
-@@ -3591,7 +3666,7 @@ const struct bpf_verifier_ops cg_sock_prog_ops = {
- };
- 
- const struct bpf_verifier_ops sock_ops_prog_ops = {
--	.get_func_proto		= bpf_base_func_proto,
-+	.get_func_proto		= sock_ops_func_proto,
- 	.is_valid_access	= sock_ops_is_valid_access,
- 	.convert_ctx_access	= sock_ops_convert_ctx_access,
- };
-diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
-index f4840b8..d50ac34 100644
---- a/samples/bpf/bpf_helpers.h
-+++ b/samples/bpf/bpf_helpers.h
-@@ -60,6 +60,9 @@ static unsigned long long (*bpf_get_prandom_u32)(void) =
- 	(void *) BPF_FUNC_get_prandom_u32;
- static int (*bpf_xdp_adjust_head)(void *ctx, int offset) =
- 	(void *) BPF_FUNC_xdp_adjust_head;
-+static int (*bpf_setsockopt)(void *ctx, int level, int optname, void *optval,
-+			     int optlen) =
-+	(void *) BPF_FUNC_setsockopt;
- 
- /* llvm builtin functions that eBPF C program may use to
-  * emit BPF_LD_ABS and BPF_LD_IND instructions
--- 
-2.9.3
+ 		do {
+ 			next = work->next;
