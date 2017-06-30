@@ -1,154 +1,44 @@
-From: nickcooper-zhangtonghao <xiangxia.m.yue@gmail.com>
-Subject: [PATCH net-next v3] datapath: Avoid using stack larger than 1024.
-Date: Thu, 29 Jun 2017 17:27:44 -0700
-Message-ID: <1498782464-47146-1-git-send-email-nic@opencloud.tech>
-Cc: pshelar@ovn.org, gvrose8192@gmail.com,
-        Tonghao Zhang <xiangxia.m.yue@gmail.com>
-To: netdev@vger.kernel.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH RFC 0/2] kproxy: Kernel Proxy
+Date: Thu, 29 Jun 2017 17:49:35 -0700
+Message-ID: <CACby=pm5Qn4byjoDfCOo9Ty9AUpe4vzv66M=khExn7y9GdKMwg@mail.gmail.com>
+References: <1498760825-8516-1-git-send-email-tom@herbertland.com>
+ <CACby=pnLJRawb40Ym1_85+8P7vmkwLJqfsv=bYyeHHa8KWPwNA@mail.gmail.com> <CALx6S37ZnymFfXWAV34iXbZd_XA3QeC+rQ+RnSVNi_Mg5eHhyg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36326 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751572AbdF3A1s (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 20:27:48 -0400
-Received: by mail-pf0-f196.google.com with SMTP id z6so14942099pfk.3
-        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 17:27:48 -0700 (PDT)
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:33276 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751808AbdF3Atl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 20:49:41 -0400
+Received: by mail-pf0-f180.google.com with SMTP id e7so58486558pfk.0
+        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 17:49:41 -0700 (PDT)
+In-Reply-To: <CALx6S37ZnymFfXWAV34iXbZd_XA3QeC+rQ+RnSVNi_Mg5eHhyg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+On 29 June 2017 at 16:21, Tom Herbert <tom@herbertland.com> wrote:
+> I think the main part of that discussion was around stream parser
+> which is needed for message delineation. For a 1:1 proxy,  KCM is
+> probably overkill (the whole KCM data path and lock becomes
+> superfluous). Also, there's no concept of creating a whole message
+> before routing it, in the 1:1 case we should let the message pass
+> through once it's cleared by the filter (this is the strparser change
+> I referred to). As I mentioned, for L7 load balancing we would want a
+> multiplexor probably also M:N, but the structure is different since
+> there's still no user facing sockets, they're all TCP for instance.
+> IMO, the 1:1 proxy case is compelling to solve in itself...
 
-When compiling OvS-master on 4.4.0-81 kernel,
-there is a warning:
+I see. I was definitely thinking m:n. We should definitely evaluate
+whether it makes sense to have a specific 1:1 implementation if we
+need m:n anyway. For L7 LB, m:n seems obvious as a particular L4
+connection may act as a transport for multiple requests bidirectional.
+KCM looks like a good starting point for that.
 
-    CC [M]  /root/ovs/datapath/linux/datapath.o
-    /root/ovs/datapath/linux/datapath.c: In function
-    'ovs_flow_cmd_set':
-    /root/ovs/datapath/linux/datapath.c:1221:1: warning:
-    the frame size of 1040 bytes is larger than 1024 bytes
-    [-Wframe-larger-than=]
-
-This patch factors out match-init and action-copy to avoid
-"Wframe-larger-than=1024" warning. Because mask is only
-used to get actions, we new a function to save some
-stack space.
-
-Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
-Acked-by: Pravin B Shelar <pshelar@ovn.org>
----
- net/openvswitch/datapath.c | 81 ++++++++++++++++++++++++++++++++++++++---------------
- 1 file changed, 58 insertions(+), 23 deletions(-)
-
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index c85029c..fb9f114 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -1100,6 +1100,58 @@ static struct sw_flow_actions *get_flow_actions(struct net *net,
- 	return acts;
- }
- 
-+/* Factor out match-init and action-copy to avoid
-+ * "Wframe-larger-than=1024" warning. Because mask is only
-+ * used to get actions, we new a function to save some
-+ * stack space.
-+ *
-+ * If there are not key and action attrs, we return 0
-+ * directly. In the case, the caller will also not use the
-+ * match as before. If there is action attr, we try to get
-+ * actions and save them to *acts. Before returning from
-+ * the function, we reset the match->mask pointer. Because
-+ * we should not to return match object with dangling reference
-+ * to mask.
-+ * */
-+static int ovs_nla_init_match_and_action(struct net *net,
-+					 struct sw_flow_match *match,
-+					 struct sw_flow_key *key,
-+					 struct nlattr **a,
-+					 struct sw_flow_actions **acts,
-+					 bool log)
-+{
-+	struct sw_flow_mask mask;
-+	int error = 0;
-+
-+	if (a[OVS_FLOW_ATTR_KEY]) {
-+		ovs_match_init(match, key, true, &mask);
-+		error = ovs_nla_get_match(net, match, a[OVS_FLOW_ATTR_KEY],
-+					  a[OVS_FLOW_ATTR_MASK], log);
-+		if (error)
-+			goto error;
-+	}
-+
-+	if (a[OVS_FLOW_ATTR_ACTIONS]) {
-+		if (!a[OVS_FLOW_ATTR_KEY]) {
-+			OVS_NLERR(log,
-+				  "Flow key attribute not present in set flow.");
-+			return -EINVAL;
-+		}
-+
-+		*acts = get_flow_actions(net, a[OVS_FLOW_ATTR_ACTIONS], key,
-+					 &mask, log);
-+		if (IS_ERR(*acts)) {
-+			error = PTR_ERR(*acts);
-+			goto error;
-+		}
-+	}
-+
-+	/* On success, error is 0. */
-+error:
-+	match->mask = NULL;
-+	return error;
-+}
-+
- static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
- {
- 	struct net *net = sock_net(skb->sk);
-@@ -1107,7 +1159,6 @@ static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
- 	struct ovs_header *ovs_header = info->userhdr;
- 	struct sw_flow_key key;
- 	struct sw_flow *flow;
--	struct sw_flow_mask mask;
- 	struct sk_buff *reply = NULL;
- 	struct datapath *dp;
- 	struct sw_flow_actions *old_acts = NULL, *acts = NULL;
-@@ -1119,34 +1170,18 @@ static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
- 	bool ufid_present;
- 
- 	ufid_present = ovs_nla_get_ufid(&sfid, a[OVS_FLOW_ATTR_UFID], log);
--	if (a[OVS_FLOW_ATTR_KEY]) {
--		ovs_match_init(&match, &key, true, &mask);
--		error = ovs_nla_get_match(net, &match, a[OVS_FLOW_ATTR_KEY],
--					  a[OVS_FLOW_ATTR_MASK], log);
--	} else if (!ufid_present) {
-+	if (!a[OVS_FLOW_ATTR_KEY] && !ufid_present) {
- 		OVS_NLERR(log,
- 			  "Flow set message rejected, Key attribute missing.");
--		error = -EINVAL;
-+		return -EINVAL;
- 	}
-+
-+	error = ovs_nla_init_match_and_action(net, &match, &key, a,
-+					      &acts, log);
- 	if (error)
- 		goto error;
- 
--	/* Validate actions. */
--	if (a[OVS_FLOW_ATTR_ACTIONS]) {
--		if (!a[OVS_FLOW_ATTR_KEY]) {
--			OVS_NLERR(log,
--				  "Flow key attribute not present in set flow.");
--			error = -EINVAL;
--			goto error;
--		}
--
--		acts = get_flow_actions(net, a[OVS_FLOW_ATTR_ACTIONS], &key,
--					&mask, log);
--		if (IS_ERR(acts)) {
--			error = PTR_ERR(acts);
--			goto error;
--		}
--
-+	if (acts) {
- 		/* Can allocate before locking if have acts. */
- 		reply = ovs_flow_cmd_alloc_info(acts, &sfid, info, false,
- 						ufid_flags);
--- 
-1.8.3.1
+When I talked about enqueueing entire messages, the main concern is to
+buffer up the payload after the TLS handshake to the point to where a
+forwarding decision can be made. I would definitely not advocate to
+buffer entire messages before starting to forward.
