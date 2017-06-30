@@ -1,68 +1,102 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH V2 1/1] net: cdc_ncm: Reduce memory use when kernel memory low
-Date: Fri, 30 Jun 2017 19:38:34 +0200
-Message-ID: <87bmp5s7dx.fsf@miraculix.mork.no>
-References: <1498682129-9129-1-git-send-email-jim_baxter@mentor.com>
-        <1498682129-9129-2-git-send-email-jim_baxter@mentor.com>
+From: Franklin S Cooper Jr <fcooper-l0cyMroinI0@public.gmane.org>
+Subject: Re: CAN-FD Transceiver Limitations
+Date: Fri, 30 Jun 2017 12:51:31 -0500
+Message-ID: <7883a83f-6af7-3ac8-a5ab-449ca1ab889a@ti.com>
+References: <de1f6343-4b28-4a5f-c6df-4e54c09fcce2@ti.com>
+ <20170629142142.GF9244@lunn.ch> <5d4f2bcf-bd0f-4fa1-5d5a-d7b4a83cbc5e@ti.com>
+ <20170629154139.GC13221@lunn.ch>
+ <c0d3d772-6939-d22c-b954-3ba6486a9ede@ti.com>
+ <20170629223551.GA6568@airbook.vandijck-laurijssen.be>
+ <d5c2e2f2-8b74-58e1-0cc8-727ba39bd14c@ti.com>
+ <20170630080906.GA26712@airbook.vandijck-laurijssen.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: <linux-usb@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, Oliver Neukum <oliver@neukum.org>,
-        David Laight <David.Laight@ACULAB.COM>
-To: Jim Baxter <jim_baxter@mentor.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1498682129-9129-2-git-send-email-jim_baxter@mentor.com> (Jim
-        Baxter's message of "Wed, 28 Jun 2017 21:35:29 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, <linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
+        <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170630080906.GA26712-W3bwb+3xS1LIj2mJfgo99rBP9FGTfoIhIWnq8iejnXE@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Jim Baxter <jim_baxter@mentor.com> writes:
+Hi Kurt,
 
-> The CDC-NCM driver can require large amounts of memory to create
-> skb's and this can be a problem when the memory becomes fragmented.
->
-> This especially affects embedded systems that have constrained
-> resources but wish to maximise the throughput of CDC-NCM with 16KiB
-> NTB's.
->
-> The issue is after running for a while the kernel memory can become
-> fragmented and it needs compacting.
-> If the NTB allocation is needed before the memory has been compacted
-> the atomic allocation can fail which can cause increased latency,
-> large re-transmissions or disconnections depending upon the data
-> being transmitted at the time.
-> This situation occurs for less than a second until the kernel has
-> compacted the memory but the failed devices can take a lot longer to
-> recover from the failed TX packets.
->
-> To ease this temporary situation I modified the CDC-NCM TX path to
-> temporarily switch into a reduced memory mode which allocates an NTB
-> that will fit into a USB_CDC_NCM_NTB_MIN_OUT_SIZE (default 2048 Bytes)
-> sized memory block and only transmit NTB's with a single network frame
-> until the memory situation is resolved.
-> Each time this issue occurs we wait for an increasing number of
-> reduced size allocations before requesting a full size one to not
-> put additional pressure on a low memory system.
->
-> Once the memory is compacted the CDC-NCM data can resume transmitting
-> at the normal tx_max rate once again.
->
-> Signed-off-by: Jim Baxter <jim_baxter@mentor.com>
+On 06/30/2017 03:09 AM, Kurt Van Dijck wrote:
+>> On 06/29/2017 05:36 PM, Kurt Van Dijck wrote:
+>>>>>>
+>>>>>> mcan@0 {
+>>>>>> 	...
+>>>>>> 	fixed-transceiver {
+>>>>>> 	      max-canfd-speed = <2000>
+>>>>>> 	};
+>>>>>> 	...
+>>>>>> };
+>>>
+>>> Since when would a transceiver support different speeds for CAN & CANFD?
+>>
+>> When I say CAN I'm referring to CAN 2.0 specification which mentioned
+>> speeds upto 1 Mbit/s. While CAN FD supports higher bitrates.
+> 
+> linux-can is not necessarily restricted to CAN 2.0B?
+> 
+>>
+>>> No transceivers were available, but they are now.
+>>> I see no datalink problem applying 2MBit for regular CAN with apropriate
+>>> physical layer, and CAN does not predefine the physical layer
+>>> (advise != define).
+>>>
+>>> IMHO,
+>>> 	fixed-transceiver {
+>>> 		max-arbitration-speed = <2000000>
+>>> 		max-data-speed = <4000000>
+>>> 	};
+>>> is way better to describe the hardware.
+>>> Regular CAN chips would not consider max-data-speed...
+>>
+>> What is arbitration speed?
+> 
+> CANFD remains similar during the arbitration phase (when the CAN id is
+> sent on the wire), and after that allows to switch to a higher 'data'
+> speed because the round-trip wire restrictions during arbitration
+> don't apply anymore.
+> 
+>>
+>> Also if I understand you correctly then I agree drivers for traditional
+>> CAN wouldn't care about this subnode. Although it may be helpful for
+>> max-data-speed to become max-canfd-speed or something along those lines.
+>> Just so the property's purpose is clear.
+> 
+> Transceivers exist that don't support 1MB either.
+> naming the speeds max-arbitration-speed and max-data-speed makes this
+> OF nodes usable for that kind of CAN 2.0 restrtications too.
+> 
+> Of course, CAN 2.0 chips only consider max-arbitration-speed as that
+> applies to the whole wire bitstream, where as CANFD considers both.
+> 
+> What I understand of your proposal is that max-arbitration-speed is
+> 'fixed to 1MB anyway', and that assumption has been proven not
+> universally applicable with CAN2.0 transceivers already.
+> 
+> I found the name 'max-canfd-speed' a bit dubious as CANFD relies on
+> 'flexible datarate'. transceivers may not necessarily support the same
+> speed for both arbitration and data.
+> So I propose to replace it with 'max-data-speed'
 
-This looks good to me.
-
-I would still be happier if we didn't need something like this, but I
-understand that we do.  And this patch looks as clean as it can get.  I
-haven't tested the patch under any sort of memory pressure, but I did a
-basic runtime test on a single MBIM device.  As expected, I did not
-notice any changes with this patch applied.
-
-But regarding noticable effects: The patch adds no printks, counters or
-sysfs attributes which could tell the user that the initial buffer
-allocation has failed.  Maybe add some sort of debug helper(s) in a
-followup patch? How did you verify the patch operation while testing it?
-
-Anyway, that's no show stopper of course.  So FWIW:
-
-Reviewed-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+Thanks for the explanation. Makes sense.
+> 
+> Kind regards,
+> Kurt
+> 
+>>>
+>>> Kind regards,
+>>> Kurt
+>>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-can" in
+>> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
