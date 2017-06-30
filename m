@@ -1,54 +1,52 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH RFC 12/26] arm64: Remove spin_unlock_wait() arch-specific
- definitions
-Date: Fri, 30 Jun 2017 10:29:43 -0700
-Message-ID: <20170630172943.GY2393@linux.vnet.ibm.com>
-References: <20170629235918.GA6445@linux.vnet.ibm.com>
- <1498780894-8253-12-git-send-email-paulmck@linux.vnet.ibm.com>
- <20170630092057.GD9726@arm.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: axienet: add of_phy_connect call for
+ XAE_PHY_TYPE_MII case
+Date: Fri, 30 Jun 2017 10:30:38 -0700
+Message-ID: <425aed84-a1b6-b8da-5989-3bef5a03ead4@gmail.com>
+References: <20170630092541.27234-1-alvaro.gamez@hazent.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-        netdev@vger.kernel.org, oleg@redhat.com, akpm@linux-foundation.org,
-        mingo@redhat.com, dave@stgolabs.net, manfred@colorfullife.com,
-        tj@kernel.org, arnd@arndb.de, linux-arch@vger.kernel.org,
-        peterz@infradead.org, stern@rowland.harvard.edu,
-        parri.andrea@gmail.com, torvalds@linux-foundation.org,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        linux-arm-kernel@lists.infradead.org
-To: Will Deacon <will.deacon@arm.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170630092057.GD9726@arm.com>
-Sender: linux-arch-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Alvaro Gamez Machado <alvaro.gamez@hazent.com>,
+        Anirudha Sarangi <anirudh@xilinx.com>,
+        John Linn <John.Linn@xilinx.com>,
+        Michal Simek <michal.simek@xilinx.com>,
+        =?UTF-8?Q?S=c3=b6ren_Brinkmann?= <soren.brinkmann@xilinx.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170630092541.27234-1-alvaro.gamez@hazent.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 30, 2017 at 10:20:57AM +0100, Will Deacon wrote:
-> On Thu, Jun 29, 2017 at 05:01:20PM -0700, Paul E. McKenney wrote:
-> > There is no agreed-upon definition of spin_unlock_wait()'s semantics,
-> > and it appears that all callers could do just as well with a lock/unlock
-> > pair.  This commit therefore removes the underlying arch-specific
-> > arch_spin_unlock_wait().
-> > 
-> > Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> > Cc: Catalin Marinas <catalin.marinas@arm.com>
-> > Cc: Will Deacon <will.deacon@arm.com>
-> > Cc: <linux-arm-kernel@lists.infradead.org>
-> > Cc: Peter Zijlstra <peterz@infradead.org>
-> > Cc: Alan Stern <stern@rowland.harvard.edu>
-> > Cc: Andrea Parri <parri.andrea@gmail.com>
-> > Cc: Linus Torvalds <torvalds@linux-foundation.org>
-> > ---
-> >  arch/arm64/include/asm/spinlock.h | 58 ++++-----------------------------------
-> >  1 file changed, 5 insertions(+), 53 deletions(-)
+On 06/30/2017 02:25 AM, Alvaro Gamez Machado wrote:
+> This IP core has support for mii connectivity to the phy, so be ready to
+> connect to it when this is the case.
 > 
-> I'm going to miss this code.
+> Signed-off-by: Alvaro Gamez Machado <alvaro.gamez@hazent.com>
+> ---
+>  drivers/net/ethernet/xilinx/xilinx_axienet_main.c | 6 +++++-
+>  1 file changed, 5 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+> index 33c595f4691d..9b3f55449b5e 100644
+> --- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+> +++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+> @@ -935,7 +935,11 @@ static int axienet_open(struct net_device *ndev)
+>  		return ret;
+>  
+>  	if (lp->phy_node) {
+> -		if (lp->phy_type == XAE_PHY_TYPE_GMII) {
+> +		if (lp->phy_type == XAE_PHY_TYPE_MII) {
+> +			phydev = of_phy_connect(lp->ndev, lp->phy_node,
+> +						axienet_adjust_link, 0,
+> +						PHY_INTERFACE_MODE_MII);
+> +		} else if (lp->phy_type == XAE_PHY_TYPE_GMII) {
+>  			phydev = of_phy_connect(lp->ndev, lp->phy_node,
+>  						axienet_adjust_link, 0,
+>  						PHY_INTERFACE_MODE_GMII);
 
-;-) ;-) ;-)
-
-> Acked-by: Will Deacon <will.deacon@arm.com>
-
-Applied, thank you!
-
-							Thanx, Paul
+Seems like this could be simplified even further if the values of
+lp->phy_type directly mapped to those of phy_interface_t.
+-- 
+Florian
