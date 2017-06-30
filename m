@@ -1,43 +1,51 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH RFC 25/26] tile: Remove spin_unlock_wait() arch-specific definitions
-Date: Thu, 29 Jun 2017 17:06:16 -0700
-Message-ID: <CA+55aFxf=4+LEk6wSE3HPFdwSf_F0Ny9NRGXaA6daikY+TGbDg@mail.gmail.com>
-References: <20170629235918.GA6445@linux.vnet.ibm.com> <1498780894-8253-25-git-send-email-paulmck@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        NetFilter <netfilter-devel@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        Oleg Nesterov <oleg@redhat.com>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Ingo Molnar <mingo@redhat.com>,
-        Davidlohr Bueso <dave@stgolabs.net>,
-        Manfred Spraul <manfred@colorfullife.com>,
-        Tejun Heo <tj@kernel.org>, Arnd Bergmann <arnd@arndb.de>,
-        "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
-        Will Deacon <will.deacon@arm.com>,
-        Peter Zijlstra <peterz@infradead.org>,
-        Alan Stern <stern@rowland.harvard.edu>,
-        Andrea Parri <parri.andrea@gmail.com>,
-        Chris Metcalf <cmetcalf@mellanox.com>
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: [PATCH RFC 16/26] m32r: Remove spin_unlock_wait() arch-specific definitions
+Date: Thu, 29 Jun 2017 17:01:24 -0700
+Message-ID: <1498780894-8253-16-git-send-email-paulmck@linux.vnet.ibm.com>
+References: <20170629235918.GA6445@linux.vnet.ibm.com>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+        oleg@redhat.com, akpm@linux-foundation.org, mingo@redhat.com,
+        dave@stgolabs.net, manfred@colorfullife.com, tj@kernel.org,
+        arnd@arndb.de, linux-arch@vger.kernel.org, will.deacon@arm.com,
+        peterz@infradead.org, stern@rowland.harvard.edu,
+        parri.andrea@gmail.com, torvalds@linux-foundation.org,
+        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1498780894-8253-25-git-send-email-paulmck@linux.vnet.ibm.com>
+In-Reply-To: <20170629235918.GA6445@linux.vnet.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 29, 2017 at 5:01 PM, Paul E. McKenney
-<paulmck@linux.vnet.ibm.com> wrote:
-> There is no agreed-upon definition of spin_unlock_wait()'s semantics,
-> and it appears that all callers could do just as well with a lock/unlock
-> pair.  This commit therefore removes the underlying arch-specific
-> arch_spin_unlock_wait().
+There is no agreed-upon definition of spin_unlock_wait()'s semantics,
+and it appears that all callers could do just as well with a lock/unlock
+pair.  This commit therefore removes the underlying arch-specific
+arch_spin_unlock_wait().
 
-Please don't make this one commit fopr every architecture.
+Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+Cc: Will Deacon <will.deacon@arm.com>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Alan Stern <stern@rowland.harvard.edu>
+Cc: Andrea Parri <parri.andrea@gmail.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ arch/m32r/include/asm/spinlock.h | 5 -----
+ 1 file changed, 5 deletions(-)
 
-Once something gets removed, it gets removed. There's no point in
-"remove it from architecture X". If there are no more users, we're
-done with it, and making it be 25 patches with the same commit message
-instead of just one doesn't help anybody.
-
-               Linus
+diff --git a/arch/m32r/include/asm/spinlock.h b/arch/m32r/include/asm/spinlock.h
+index 323c7fc953cd..a56825592b90 100644
+--- a/arch/m32r/include/asm/spinlock.h
++++ b/arch/m32r/include/asm/spinlock.h
+@@ -30,11 +30,6 @@
+ #define arch_spin_is_locked(x)		(*(volatile int *)(&(x)->slock) <= 0)
+ #define arch_spin_lock_flags(lock, flags) arch_spin_lock(lock)
+ 
+-static inline void arch_spin_unlock_wait(arch_spinlock_t *lock)
+-{
+-	smp_cond_load_acquire(&lock->slock, VAL > 0);
+-}
+-
+ /**
+  * arch_spin_trylock - Try spin lock and return a result
+  * @lock: Pointer to the lock variable
+-- 
+2.5.2
