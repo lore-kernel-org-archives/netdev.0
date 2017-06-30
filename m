@@ -1,53 +1,56 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] [net-next] net/mlx5: include wq.o in non-ethernet build for FPGA
-Date: Fri, 30 Jun 2017 17:43:52 +0200
-Message-ID: <20170630154412.3575760-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>, Ilan Tayari <ilant@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Boris Pismenny <borisp@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        Kamal Heib <kamalh@mellanox.com>,
-        Maor Gottlieb <maorg@mellanox.com>,
-        Mohamad Haj Yahia <mohamad@mellanox.com>,
-        Aviv Heller <avivh@mellanox.com>, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Saeed Mahameed <saeedm@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        Leon Romanovsky <leonro@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next 1/6] net: add new netdevice feature for tunnel
+ offloading
+Date: Fri, 30 Jun 2017 17:50:01 +0200
+Message-ID: <20170630175001.1969a85a@griffin>
+References: <cover.1498743778.git.sd@queasysnail.net>
+        <79e58d61b15ff497524cde07c00c2165cf033ef2.1498743778.git.sd@queasysnail.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Sabrina Dubroca <sd@queasysnail.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:40632 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751865AbdF3PuF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 30 Jun 2017 11:50:05 -0400
+In-Reply-To: <79e58d61b15ff497524cde07c00c2165cf033ef2.1498743778.git.sd@queasysnail.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Both the ethernet and FPGA portions of MLX5 now require the wq functions,
-and we get a link error when CONFIG_MLX5_CORE_EN is disabled:
+On Fri, 30 Jun 2017 15:19:45 +0200, Sabrina Dubroca wrote:
+> This adds a new netdevice feature, so that tunnel offloading can be
+> disabled by the administrator on some netdevices, using the
+> "tunnel-offload" ethtool feature.
+> 
+> This feature is set for all devices that provide ndo_udp_tunnel_add.
 
-drivers/net/ethernet/mellanox/mlx5/core/fpga/conn.o: In function `mlx5_fpga_conn_create_cq':
-conn.c:(.text+0x10b3): undefined reference to `mlx5_cqwq_create'
-conn.c:(.text+0x10c6): undefined reference to `mlx5_cqwq_get_size'
-conn.c:(.text+0x12bc): undefined reference to `mlx5_cqwq_destroy'
+This patchset looks great, Sabrina! A few comments below.
 
-This includes the library in the core driver also when only the fpga
-support is enabled.
+> --- a/include/linux/netdev_features.h
+> +++ b/include/linux/netdev_features.h
+> @@ -76,6 +76,7 @@ enum {
+>  	NETIF_F_HW_TC_BIT,		/* Offload TC infrastructure */
+>  	NETIF_F_HW_ESP_BIT,		/* Hardware ESP transformation offload */
+>  	NETIF_F_HW_ESP_TX_CSUM_BIT,	/* ESP with TX checksum offload */
+> +	NETIF_F_TUNNEL_OFFLOAD_BIT,     /* Tunnel offloads */
 
-Fixes: 537a50574175 ("net/mlx5: FPGA, Add high-speed connection routines")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/mellanox/mlx5/core/Makefile | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+"Tunnel offload" is very broad. Could we be more specific, e.g. "RSS
+tunnel offload" or such? NETIF_F_HW_TUNNEL_RSS?
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-index ca367445f864..50fe9e3c5dc2 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-@@ -9,7 +9,7 @@ mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
- mlx5_core-$(CONFIG_MLX5_ACCEL) += accel/ipsec.o
- 
- mlx5_core-$(CONFIG_MLX5_FPGA) += fpga/cmd.o fpga/core.o fpga/conn.o fpga/sdk.o \
--		fpga/ipsec.o
-+		fpga/ipsec.o wq.o
- 
- mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o eswitch_offloads.o \
- 		en_main.o en_common.o en_fs.o en_ethtool.o en_tx.o \
--- 
-2.9.0
+> --- a/net/core/ethtool.c
+> +++ b/net/core/ethtool.c
+> @@ -106,6 +106,7 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
+>  	[NETIF_F_HW_TC_BIT] =		 "hw-tc-offload",
+>  	[NETIF_F_HW_ESP_BIT] =		 "esp-hw-offload",
+>  	[NETIF_F_HW_ESP_TX_CSUM_BIT] =	 "esp-tx-csum-hw-offload",
+> +	[NETIF_F_TUNNEL_OFFLOAD_BIT] =	 "tunnel-offload",
+>  };
+
+And here, too. "rss-tunnel-offload"?
+
+Thanks!
+
+ Jiri
