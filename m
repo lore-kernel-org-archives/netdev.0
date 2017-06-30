@@ -1,44 +1,66 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH RFC 0/2] kproxy: Kernel Proxy
-Date: Thu, 29 Jun 2017 17:49:35 -0700
-Message-ID: <CACby=pm5Qn4byjoDfCOo9Ty9AUpe4vzv66M=khExn7y9GdKMwg@mail.gmail.com>
-References: <1498760825-8516-1-git-send-email-tom@herbertland.com>
- <CACby=pnLJRawb40Ym1_85+8P7vmkwLJqfsv=bYyeHHa8KWPwNA@mail.gmail.com> <CALx6S37ZnymFfXWAV34iXbZd_XA3QeC+rQ+RnSVNi_Mg5eHhyg@mail.gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with Linus' tree
+Date: Fri, 30 Jun 2017 10:57:51 +1000
+Message-ID: <20170630105751.543eb510@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Dan Carpenter <dan.carpenter@oracle.com>,
+        Arkadi Sharshevsky <arkadis@mellanox.com>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:33276 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751808AbdF3Atl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2017 20:49:41 -0400
-Received: by mail-pf0-f180.google.com with SMTP id e7so58486558pfk.0
-        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 17:49:41 -0700 (PDT)
-In-Reply-To: <CALx6S37ZnymFfXWAV34iXbZd_XA3QeC+rQ+RnSVNi_Mg5eHhyg@mail.gmail.com>
+Received: from ozlabs.org ([103.22.144.67]:45417 "EHLO ozlabs.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751666AbdF3A5y (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 29 Jun 2017 20:57:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 29 June 2017 at 16:21, Tom Herbert <tom@herbertland.com> wrote:
-> I think the main part of that discussion was around stream parser
-> which is needed for message delineation. For a 1:1 proxy,  KCM is
-> probably overkill (the whole KCM data path and lock becomes
-> superfluous). Also, there's no concept of creating a whole message
-> before routing it, in the 1:1 case we should let the message pass
-> through once it's cleared by the filter (this is the strparser change
-> I referred to). As I mentioned, for L7 load balancing we would want a
-> multiplexor probably also M:N, but the structure is different since
-> there's still no user facing sockets, they're all TCP for instance.
-> IMO, the 1:1 proxy case is compelling to solve in itself...
+Hi all,
 
-I see. I was definitely thinking m:n. We should definitely evaluate
-whether it makes sense to have a specific 1:1 implementation if we
-need m:n anyway. For L7 LB, m:n seems obvious as a particular L4
-connection may act as a transport for multiple requests bidirectional.
-KCM looks like a good starting point for that.
+Today's linux-next merge of the net-next tree got a conflict in:
 
-When I talked about enqueueing entire messages, the main concern is to
-buffer up the payload after the TLS handshake to the point to where a
-forwarding decision can be made. I would definitely not advocate to
-buffer entire messages before starting to forward.
+  drivers/net/ethernet/rocker/rocker_ofdpa.c
+
+between commit:
+
+  acb4b7df48b5 ("rocker: move dereference before free")
+
+from Linus' tree and commit:
+
+  00fc0c51e35b ("rocker: Change world_ops API and implementation to be switchdev independant")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
+-- 
+Cheers,
+Stephen Rothwell
+
+diff --cc drivers/net/ethernet/rocker/rocker_ofdpa.c
+index a9ce82d3e9cf,bd0e3f157e9e..000000000000
+--- a/drivers/net/ethernet/rocker/rocker_ofdpa.c
++++ b/drivers/net/ethernet/rocker/rocker_ofdpa.c
+@@@ -1505,10 -1409,10 +1409,10 @@@ static int ofdpa_port_ipv4_nh(struct of
+  		*index = entry->index;
+  		resolved = false;
+  	} else if (removing) {
+ -		ofdpa_neigh_del(found);
+  		*index = found->index;
+- 		ofdpa_neigh_del(trans, found);
+++		ofdpa_neigh_del(found);
+  	} else if (updating) {
+- 		ofdpa_neigh_update(found, trans, NULL, false);
++ 		ofdpa_neigh_update(found, NULL, false);
+  		resolved = !is_zero_ether_addr(found->eth_dst);
+  		*index = found->index;
+  	} else {
