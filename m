@@ -1,44 +1,78 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net 3/3] net/mlx5e: Fix TX carrier errors report in get stats ndo
-Date: Fri, 30 Jun 2017 10:12:29 +0300
-Message-ID: <20170630071229.20357-4-saeedm@mellanox.com>
-References: <20170630071229.20357-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Gal Pressman <galp@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44945 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751605AbdF3HNi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 03:13:38 -0400
-In-Reply-To: <20170630071229.20357-1-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: [PATCH] mm: convert three more cases to kvmalloc
+Date: Fri, 30 Jun 2017 09:21:43 +0200
+Message-ID: <20170630072142.GA19931@dhcp22.suse.cz>
+References: <alpine.LRH.2.02.1706282317480.11892@file01.intranet.prod.int.rdu2.redhat.com>
+ <20170629071046.GA31603@dhcp22.suse.cz>
+ <alpine.LRH.2.02.1706292205110.21823@file01.intranet.prod.int.rdu2.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <ast@kernel.org>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	Vlastimil Babka <vbabka@suse.cz>,
+	Andreas Dilger <adilger@dilger.ca>,
+	John Hubbard <jhubbard@nvidia.com>,
+	David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org, netdev@vger.kernel.org
+To: Mikulas Patocka <mpatocka@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LRH.2.02.1706292205110.21823@file01.intranet.prod.int.rdu2.redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Gal Pressman <galp@mellanox.com>
+On Thu 29-06-17 22:13:26, Mikulas Patocka wrote:
+> 
+> 
+> On Thu, 29 Jun 2017, Michal Hocko wrote:
+[...]
+> > > Index: linux-2.6/kernel/bpf/syscall.c
+> > > ===================================================================
+> > > --- linux-2.6.orig/kernel/bpf/syscall.c
+> > > +++ linux-2.6/kernel/bpf/syscall.c
+> > > @@ -58,16 +58,7 @@ void *bpf_map_area_alloc(size_t size)
+> > >  	 * trigger under memory pressure as we really just want to
+> > >  	 * fail instead.
+> > >  	 */
+> > > -	const gfp_t flags = __GFP_NOWARN | __GFP_NORETRY | __GFP_ZERO;
+> > > -	void *area;
+> > > -
+> > > -	if (size <= (PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER)) {
+> > > -		area = kmalloc(size, GFP_USER | flags);
+> > > -		if (area != NULL)
+> > > -			return area;
+> > > -	}
+> > > -
+> > > -	return __vmalloc(size, GFP_KERNEL | flags, PAGE_KERNEL);
+> > > +	return kvmalloc(size, GFP_USER | __GFP_NOWARN | __GFP_NORETRY | __GFP_ZERO);
+> > 
+> > kvzalloc without additional flags would be more appropriate.
+> > __GFP_NORETRY is explicitly documented as non-supported
+> 
+> How is __GFP_NORETRY non-supported?
 
-Symbol error during carrier counter from PPCNT was mistakenly reported as
-TX carrier errors in get_stats ndo, although it's an RX counter.
+Because its semantic cannot be guaranteed throughout the alloaction
+stack. vmalloc will ignore it e.g. for page table allocations.
 
-Fixes: 269e6b3af3bf ("net/mlx5e: Report additional error statistics in get stats ndo")
-Signed-off-by: Gal Pressman <galp@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 2 --
- 1 file changed, 2 deletions(-)
+> > and NOWARN wouldn't be applied everywhere in the vmalloc path.
+> 
+> __GFP_NORETRY and __GFP_NOWARN wouldn't be applied in the page-table 
+> allocation and they would be applied in the page allocation - that seems 
+> acceptable.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 277f4de30375..7819fe9ede22 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -3053,8 +3053,6 @@ mlx5e_get_stats(struct net_device *dev, struct rtnl_link_stats64 *stats)
- 		PPORT_802_3_GET(pstats, a_frame_check_sequence_errors);
- 	stats->rx_frame_errors = PPORT_802_3_GET(pstats, a_alignment_errors);
- 	stats->tx_aborted_errors = PPORT_2863_GET(pstats, if_out_discards);
--	stats->tx_carrier_errors =
--		PPORT_802_3_GET(pstats, a_symbol_error_during_carrier);
- 	stats->rx_errors = stats->rx_length_errors + stats->rx_crc_errors +
- 			   stats->rx_frame_errors;
- 	stats->tx_errors = stats->tx_aborted_errors + stats->tx_carrier_errors;
+This is rather muddy semantic to me. Both page table and the page is an
+order-0 allocation. Page table allocations are much less likely but I've
+explicitly documented that explicit __GFP_NORETRY is unsupported. Slab
+allocation is already __GFP_NORETRY (unless you specify
+__GFP_RETRY_MAYFAIL in the current mmotm tree).
 -- 
-2.11.0
+Michal Hocko
+SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
