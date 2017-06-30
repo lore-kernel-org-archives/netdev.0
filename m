@@ -1,52 +1,64 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: nf_conntrack: Infoleak via CTA_ID and CTA_EXPECT_ID
-Date: Fri, 30 Jun 2017 22:23:24 +0200
-Message-ID: <ad87cf0f-2ff4-48d7-b53c-bc4b5e98cfca@nod.at>
-References: <c84e0301-2bb6-8932-2ed5-939340762159@nod.at>
- <20170630193544.GM9307@breakpoint.cc>
- <f3d78dc5-7694-8e01-ac4d-54fc248a96f1@nod.at>
- <20170630195547.GN9307@breakpoint.cc>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: [PATCH] vmalloc: respect the GFP_NOIO and GFP_NOFS flags
+Date: Fri, 30 Jun 2017 22:41:00 +0200
+Message-ID: <20170630204059.GA17255@dhcp22.suse.cz>
+References: <alpine.LRH.2.02.1706292221250.21823@file01.intranet.prod.int.rdu2.redhat.com>
+ <20170630081245.GA22917@dhcp22.suse.cz>
+ <alpine.LRH.2.02.1706301410160.8272@file01.intranet.prod.int.rdu2.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Stephen Rothwell <sfr@canb.auug.org.au>,
+        Vlastimil Babka <vbabka@suse.cz>,
+        Andreas Dilger <adilger@dilger.ca>,
+        John Hubbard <jhubbard@nvidia.com>,
         David Miller <davem@davemloft.net>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        David Gstir <david@sigma-star.at>, kaber@trash.net,
-        "keescook@chromium.org" <keescook@chromium.org>
-To: Florian Westphal <fw@strlen.de>
+        linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+        netdev@vger.kernel.org
+To: Mikulas Patocka <mpatocka@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170630195547.GN9307@breakpoint.cc>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <alpine.LRH.2.02.1706301410160.8272@file01.intranet.prod.int.rdu2.redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Florian,
-
-Am 30.06.2017 um 21:55 schrieb Florian Westphal:
->>> Why not use a hash of the address?
->>
->> Would also work. Or xor it with a random number.
->>
->> On the other hand, for user space it would be more useful when the conntrack id
->> does not repeat that often. That's why I favor the good old counter method.
->> Currently the conntrack id is reused very fast.
->> e.g. in one of our applications we use the conntack id via NFQUEUE and watch the
->> destroy events via conntrack. It happens regularly that a new connection has the
->> same id than a different connection we saw some moments before, before we receive
->> the destroy event from the conntrack socket.
+On Fri 30-06-17 14:11:57, Mikulas Patocka wrote:
 > 
-> Perhaps we can place that in a new extension (its not needed in any
-> fastpath ops)?
+> 
+> On Fri, 30 Jun 2017, Michal Hocko wrote:
+> 
+> > On Thu 29-06-17 22:25:09, Mikulas Patocka wrote:
+> > > The __vmalloc function has a parameter gfp_mask with the allocation flags,
+> > > however it doesn't fully respect the GFP_NOIO and GFP_NOFS flags. The
+> > > pages are allocated with the specified gfp flags, but the pagetables are
+> > > always allocated with GFP_KERNEL. This allocation can cause unexpected
+> > > recursion into the filesystem or I/O subsystem.
+> > > 
+> > > It is not practical to extend page table allocation routines with gfp
+> > > flags because it would require modification of architecture-specific code
+> > > in all architecturs. However, the process can temporarily request that all
+> > > allocations are done with GFP_NOFS or GFP_NOIO with with the functions
+> > > memalloc_nofs_save and memalloc_noio_save.
+> > > 
+> > > This patch makes the vmalloc code use memalloc_nofs_save or
+> > > memalloc_noio_save if the supplied gfp flags do not contain __GFP_FS or
+> > > __GFP_IO. It fixes some possible deadlocks in drivers/mtd/ubi/io.c,
+> > > fs/gfs2/, fs/btrfs/free-space-tree.c, fs/ubifs/,
+> > > fs/nfs/blocklayout/extent_tree.c where __vmalloc is used with the GFP_NOFS
+> > > flag.
+> > 
+> > I strongly believe this is a step in the _wrong_ direction. Why? Because
+> 
+> What do you think __vmalloc with GFP_NOIO should do? Print a warning? 
+> Silently ignore the GFP_NOIO flag?
 
-To get rid of the infoleak we have to re-introduce the id field in struct nf_conn
-and struct nf_conntrack_expect.
-Otherwise have nothing to compare against in the conntrack/expect remove case.
-
-So the only question is what to store, IMHO a counter that can wrap around is the
-cheapest method and would also not harm the fast-path.
-
-Thanks,
-//richard
+I think noio users are not that much different from nofs users. Simply
+use the scope API at the place where the scope starts and document why
+it is needed. vmalloc calls do not have to be any special then and they
+do not even have to think about proper gfp flags and they can use
+whatever is the default.
+-- 
+Michal Hocko
+SUSE Labs
