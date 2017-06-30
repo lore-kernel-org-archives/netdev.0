@@ -1,7 +1,7 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: [PATCH RFC 18/26] mips: Remove spin_unlock_wait() arch-specific definitions
-Date: Thu, 29 Jun 2017 17:01:26 -0700
-Message-ID: <1498780894-8253-18-git-send-email-paulmck@linux.vnet.ibm.com>
+Subject: [PATCH RFC 20/26] parisc: Remove spin_unlock_wait() arch-specific definitions
+Date: Thu, 29 Jun 2017 17:01:28 -0700
+Message-ID: <1498780894-8253-20-git-send-email-paulmck@linux.vnet.ibm.com>
 References: <20170629235918.GA6445@linux.vnet.ibm.com>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
         oleg@redhat.com, akpm@linux-foundation.org, mingo@redhat.com,
@@ -10,19 +10,12 @@ Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
         peterz@infradead.org, stern@rowland.harvard.edu,
         parri.andrea@gmail.com, torvalds@linux-foundation.org,
         "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-        Ralf Baechle <ralf@linux-mips.org>, <linux-mips@linux-mips.org>
+        "James E.J. Bottomley" <jejb@parisc-linux.org>,
+        Helge Deller <deller@gmx.de>, <linux-parisc@vger.kernel.org>
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-mips-bounce@linux-mips.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <20170629235918.GA6445@linux.vnet.ibm.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 There is no agreed-upon definition of spin_unlock_wait()'s semantics,
@@ -31,43 +24,36 @@ pair.  This commit therefore removes the underlying arch-specific
 arch_spin_unlock_wait().
 
 Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-Cc: Ralf Baechle <ralf@linux-mips.org>
-Cc: <linux-mips@linux-mips.org>
+Cc: "James E.J. Bottomley" <jejb@parisc-linux.org>
+Cc: Helge Deller <deller@gmx.de>
+Cc: <linux-parisc@vger.kernel.org>
 Cc: Will Deacon <will.deacon@arm.com>
 Cc: Peter Zijlstra <peterz@infradead.org>
 Cc: Alan Stern <stern@rowland.harvard.edu>
 Cc: Andrea Parri <parri.andrea@gmail.com>
 Cc: Linus Torvalds <torvalds@linux-foundation.org>
 ---
- arch/mips/include/asm/spinlock.h | 16 ----------------
- 1 file changed, 16 deletions(-)
+ arch/parisc/include/asm/spinlock.h | 7 -------
+ 1 file changed, 7 deletions(-)
 
-diff --git a/arch/mips/include/asm/spinlock.h b/arch/mips/include/asm/spinlock.h
-index a8df44d60607..81b4945031ee 100644
---- a/arch/mips/include/asm/spinlock.h
-+++ b/arch/mips/include/asm/spinlock.h
-@@ -50,22 +50,6 @@ static inline int arch_spin_value_unlocked(arch_spinlock_t lock)
+diff --git a/arch/parisc/include/asm/spinlock.h b/arch/parisc/include/asm/spinlock.h
+index e32936cd7f10..55bfe4affca3 100644
+--- a/arch/parisc/include/asm/spinlock.h
++++ b/arch/parisc/include/asm/spinlock.h
+@@ -14,13 +14,6 @@ static inline int arch_spin_is_locked(arch_spinlock_t *x)
  
- #define arch_spin_lock_flags(lock, flags) arch_spin_lock(lock)
+ #define arch_spin_lock(lock) arch_spin_lock_flags(lock, 0)
  
--static inline void arch_spin_unlock_wait(arch_spinlock_t *lock)
+-static inline void arch_spin_unlock_wait(arch_spinlock_t *x)
 -{
--	u16 owner = READ_ONCE(lock->h.serving_now);
--	smp_rmb();
--	for (;;) {
--		arch_spinlock_t tmp = READ_ONCE(*lock);
+-	volatile unsigned int *a = __ldcw_align(x);
 -
--		if (tmp.h.serving_now == tmp.h.ticket ||
--		    tmp.h.serving_now != owner)
--			break;
--
--		cpu_relax();
--	}
--	smp_acquire__after_ctrl_dep();
+-	smp_cond_load_acquire(a, VAL);
 -}
 -
- static inline int arch_spin_is_contended(arch_spinlock_t *lock)
+ static inline void arch_spin_lock_flags(arch_spinlock_t *x,
+ 					 unsigned long flags)
  {
- 	u32 counters = ACCESS_ONCE(lock->lock);
 -- 
 2.5.2
+
