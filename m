@@ -1,10 +1,10 @@
 From: Will Deacon <will.deacon@arm.com>
-Subject: Re: [PATCH RFC 08/26] locking: Remove spin_unlock_wait() generic
+Subject: Re: [PATCH RFC 12/26] arm64: Remove spin_unlock_wait() arch-specific
  definitions
-Date: Fri, 30 Jun 2017 10:19:29 +0100
-Message-ID: <20170630091928.GC9726@arm.com>
+Date: Fri, 30 Jun 2017 10:20:57 +0100
+Message-ID: <20170630092057.GD9726@arm.com>
 References: <20170629235918.GA6445@linux.vnet.ibm.com>
- <1498780894-8253-8-git-send-email-paulmck@linux.vnet.ibm.com>
+ <1498780894-8253-12-git-send-email-paulmck@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
@@ -12,82 +12,36 @@ Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
         mingo@redhat.com, dave@stgolabs.net, manfred@colorfullife.com,
         tj@kernel.org, arnd@arndb.de, linux-arch@vger.kernel.org,
         peterz@infradead.org, stern@rowland.harvard.edu,
-        parri.andrea@gmail.com, torvalds@linux-foundation.org
+        parri.andrea@gmail.com, torvalds@linux-foundation.org,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        linux-arm-kernel@lists.infradead.org
 To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-arch-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1498780894-8253-8-git-send-email-paulmck@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <1498780894-8253-12-git-send-email-paulmck@linux.vnet.ibm.com>
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 29, 2017 at 05:01:16PM -0700, Paul E. McKenney wrote:
+On Thu, Jun 29, 2017 at 05:01:20PM -0700, Paul E. McKenney wrote:
 > There is no agreed-upon definition of spin_unlock_wait()'s semantics,
 > and it appears that all callers could do just as well with a lock/unlock
-> pair.  This commit therefore removes spin_unlock_wait() and related
-> definitions from core code.
+> pair.  This commit therefore removes the underlying arch-specific
+> arch_spin_unlock_wait().
 > 
 > Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> Cc: Arnd Bergmann <arnd@arndb.de>
-> Cc: Ingo Molnar <mingo@redhat.com>
+> Cc: Catalin Marinas <catalin.marinas@arm.com>
 > Cc: Will Deacon <will.deacon@arm.com>
+> Cc: <linux-arm-kernel@lists.infradead.org>
 > Cc: Peter Zijlstra <peterz@infradead.org>
 > Cc: Alan Stern <stern@rowland.harvard.edu>
 > Cc: Andrea Parri <parri.andrea@gmail.com>
 > Cc: Linus Torvalds <torvalds@linux-foundation.org>
 > ---
->  include/asm-generic/qspinlock.h |  14 -----
->  include/linux/spinlock.h        |  31 -----------
->  include/linux/spinlock_up.h     |   6 ---
->  kernel/locking/qspinlock.c      | 117 ----------------------------------------
->  4 files changed, 168 deletions(-)
+>  arch/arm64/include/asm/spinlock.h | 58 ++++-----------------------------------
+>  1 file changed, 5 insertions(+), 53 deletions(-)
 
-[...]
+I'm going to miss this code.
 
-> diff --git a/kernel/locking/qspinlock.c b/kernel/locking/qspinlock.c
-> index b2caec7315af..64a9051e4c2c 100644
-> --- a/kernel/locking/qspinlock.c
-> +++ b/kernel/locking/qspinlock.c
-> @@ -267,123 +267,6 @@ static __always_inline u32  __pv_wait_head_or_lock(struct qspinlock *lock,
->  #define queued_spin_lock_slowpath	native_queued_spin_lock_slowpath
->  #endif
->  
-> -/*
-> - * Various notes on spin_is_locked() and spin_unlock_wait(), which are
-> - * 'interesting' functions:
-> - *
-> - * PROBLEM: some architectures have an interesting issue with atomic ACQUIRE
-> - * operations in that the ACQUIRE applies to the LOAD _not_ the STORE (ARM64,
-> - * PPC). Also qspinlock has a similar issue per construction, the setting of
-> - * the locked byte can be unordered acquiring the lock proper.
-> - *
-> - * This gets to be 'interesting' in the following cases, where the /should/s
-> - * end up false because of this issue.
-> - *
-> - *
-> - * CASE 1:
-> - *
-> - * So the spin_is_locked() correctness issue comes from something like:
-> - *
-> - *   CPU0				CPU1
-> - *
-> - *   global_lock();			local_lock(i)
-> - *     spin_lock(&G)			  spin_lock(&L[i])
-> - *     for (i)				  if (!spin_is_locked(&G)) {
-> - *       spin_unlock_wait(&L[i]);	    smp_acquire__after_ctrl_dep();
-> - *					    return;
-> - *					  }
-> - *					  // deal with fail
-> - *
-> - * Where it is important CPU1 sees G locked or CPU0 sees L[i] locked such
-> - * that there is exclusion between the two critical sections.
-> - *
-> - * The load from spin_is_locked(&G) /should/ be constrained by the ACQUIRE from
-> - * spin_lock(&L[i]), and similarly the load(s) from spin_unlock_wait(&L[i])
-> - * /should/ be constrained by the ACQUIRE from spin_lock(&G).
-> - *
-> - * Similarly, later stuff is constrained by the ACQUIRE from CTRL+RMB.
-
-Might be worth keeping this comment about spin_is_locked, since we're not
-removing that guy just yet!
+Acked-by: Will Deacon <will.deacon@arm.com>
 
 Will
