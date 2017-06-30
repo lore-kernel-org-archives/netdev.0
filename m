@@ -1,7 +1,7 @@
 From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next v5 15/16] bpf: Sample bpf program to set sndcwnd clamp
-Date: Fri, 30 Jun 2017 13:07:05 -0700
-Message-ID: <20170630200706.4183158-16-brakmo@fb.com>
+Subject: [PATCH net-next v5 08/16] bpf: Add TCP connection BPF callbacks
+Date: Fri, 30 Jun 2017 13:06:58 -0700
+Message-ID: <20170630200706.4183158-9-brakmo@fb.com>
 References: <20170630200706.4183158-1-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,158 +11,106 @@ Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:51247 "EHLO
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:59281 "EHLO
         mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752730AbdF3UHP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 16:07:15 -0400
-Received: from pps.filterd (m0109331.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5UK32nA015299
-        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 13:07:14 -0700
+        by vger.kernel.org with ESMTP id S1752720AbdF3UHO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 16:07:14 -0400
+Received: from pps.filterd (m0109332.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5UK4AuM031655
+        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 13:07:13 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2bdtfqrtg2-6
+        by mx0a-00082601.pphosted.com with ESMTP id 2bdvs10573-3
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 13:07:14 -0700
+        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 13:07:13 -0700
 Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
- mx-out.facebook.com (2401:db00:2050:5102:face:0000:003b:0000) with ESMTP       id
- b4766fea5dcf11e7976609cabd64a484-9e53b8f0 for <netdev@vger.kernel.org>;        Fri,
- 30 Jun 2017 13:07:12 -0700
+ mx-out.facebook.com (2401:db00:2050:5102:face:0000:0037:0000) with ESMTP       id
+ b3f55fd65dcf11e787371f53bdcd5fbc-7bb3f8f0 for <netdev@vger.kernel.org>;        Fri,
+ 30 Jun 2017 13:07:11 -0700
 In-Reply-To: <20170630200706.4183158-1-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sample BPF program, tcp_clamp_kern.c, to demostrate the use
-of setting the sndcwnd clamp. This program assumes that if the
-first 5.5 bytes of the host's IPv6 addresses are the same, then
-the hosts are in the same datacenter and sets sndcwnd clamp to
-100 packets, SYN and SYN-ACK RTOs to 10ms and send/receive buffer
-sizes to 150KB.
+Added callbacks to BPF SOCK_OPS type program before an active
+connection is intialized and after a passive or active connection is
+established.
+
+The following patch demostrates how they can be used to set send and
+receive buffer sizes.
 
 Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
 ---
- samples/bpf/Makefile         |   1 +
- samples/bpf/tcp_clamp_kern.c | 102 +++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 103 insertions(+)
- create mode 100644 samples/bpf/tcp_clamp_kern.c
+ include/uapi/linux/bpf.h | 11 +++++++++++
+ net/ipv4/tcp_fastopen.c  |  1 +
+ net/ipv4/tcp_input.c     |  3 ++-
+ net/ipv4/tcp_output.c    |  1 +
+ 4 files changed, 15 insertions(+), 1 deletion(-)
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 242d76e..9c65058 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -118,6 +118,7 @@ always += tcp_rwnd_kern.o
- always += tcp_bufs_kern.o
- always += tcp_cong_kern.o
- always += tcp_iw_kern.o
-+always += tcp_clamp_kern.o
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index dd43b22..2405fe3 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -767,6 +767,17 @@ enum {
+ 					 * window (in packets) or -1 if default
+ 					 * value should be used
+ 					 */
++	BPF_SOCK_OPS_TCP_CONNECT_CB,	/* Calls BPF program right before an
++					 * active connection is initialized
++					 */
++	BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB,	/* Calls BPF program when an
++						 * active connection is
++						 * established
++						 */
++	BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB,	/* Calls BPF program when a
++						 * passive connection is
++						 * established
++						 */
+ };
  
- HOSTCFLAGS += -I$(objtree)/usr/include
- HOSTCFLAGS += -I$(srctree)/tools/lib/
-diff --git a/samples/bpf/tcp_clamp_kern.c b/samples/bpf/tcp_clamp_kern.c
-new file mode 100644
-index 0000000..d68eadd9
---- /dev/null
-+++ b/samples/bpf/tcp_clamp_kern.c
-@@ -0,0 +1,102 @@
-+/* Copyright (c) 2017 Facebook
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ *
-+ * Sample BPF program to set send and receive buffers to 150KB, sndcwnd clamp
-+ * to 100 packets and SYN and SYN_ACK RTOs to 10ms when both hosts are within
-+ * the same datacenter. For his example, we assume they are within the same
-+ * datacenter when the first 5.5 bytes of their IPv6 addresses are the same.
-+ *
-+ * Use load_sock_ops to load this BPF program.
-+ */
-+
-+#include <uapi/linux/bpf.h>
-+#include <uapi/linux/if_ether.h>
-+#include <uapi/linux/if_packet.h>
-+#include <uapi/linux/ip.h>
-+#include <linux/socket.h>
-+#include "bpf_helpers.h"
-+#include "bpf_endian.h"
-+
-+#define DEBUG 1
-+
-+#define bpf_printk(fmt, ...)					\
-+({								\
-+	       char ____fmt[] = fmt;				\
-+	       bpf_trace_printk(____fmt, sizeof(____fmt),	\
-+				##__VA_ARGS__);			\
-+})
-+
-+SEC("sockops")
-+int bpf_clamp(struct bpf_sock_ops *skops)
-+{
-+	int bufsize = 150000;
-+	int to_init = 10;
-+	int clamp = 100;
-+	int rv = 0;
-+	int op;
-+
-+	/* For testing purposes, only execute rest of BPF program
-+	 * if neither port numberis 55601
-+	 */
-+	if (bpf_ntohl(skops->remote_port) != 55601 && skops->local_port != 55601)
-+		return -1;
-+
-+	op = (int) skops->op;
-+
-+#ifdef DEBUG
-+	bpf_printk("BPF command: %d\n", op);
-+#endif
-+
-+	/* Check that both hosts are within same datacenter. For this example
-+	 * it is the case when the first 5.5 bytes of their IPv6 addresses are
-+	 * the same.
-+	 */
-+	if (skops->family == AF_INET6 &&
-+	    skops->local_ip6[0] == skops->remote_ip6[0] &&
-+	    (bpf_ntohl(skops->local_ip6[1]) & 0xfff00000) ==
-+	    (bpf_ntohl(skops->remote_ip6[1]) & 0xfff00000)) {
-+		switch (op) {
-+		case BPF_SOCK_OPS_TIMEOUT_INIT:
-+			rv = to_init;
-+			break;
-+		case BPF_SOCK_OPS_TCP_CONNECT_CB:
-+			/* Set sndbuf and rcvbuf of active connections */
-+			rv = bpf_setsockopt(skops, SOL_SOCKET, SO_SNDBUF,
-+					    &bufsize, sizeof(bufsize));
-+			rv = rv*100 + bpf_setsockopt(skops, SOL_SOCKET,
-+						      SO_RCVBUF, &bufsize,
-+						      sizeof(bufsize));
-+			break;
-+		case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
-+			rv = bpf_setsockopt(skops, SOL_TCP,
-+					    TCP_BPF_SNDCWND_CLAMP,
-+					    &clamp, sizeof(clamp));
-+			break;
-+		case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
-+			/* Set sndbuf and rcvbuf of passive connections */
-+			rv = bpf_setsockopt(skops, SOL_TCP,
-+					    TCP_BPF_SNDCWND_CLAMP,
-+					    &clamp, sizeof(clamp));
-+			rv = rv*100 + bpf_setsockopt(skops, SOL_SOCKET,
-+						      SO_SNDBUF, &bufsize,
-+						      sizeof(bufsize));
-+			rv = rv*100 + bpf_setsockopt(skops, SOL_SOCKET,
-+						      SO_RCVBUF, &bufsize,
-+						      sizeof(bufsize));
-+			break;
-+		default:
-+			rv = -1;
-+		}
-+	} else {
-+		rv = -1;
-+	}
-+#ifdef DEBUG
-+	bpf_printk("Returning %d\n", rv);
-+#endif
-+	skops->reply = rv;
-+	return 1;
-+}
-+char _license[] SEC("license") = "GPL";
+ #endif /* _UAPI__LINUX_BPF_H__ */
+diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
+index 4af82b9..fcb6273 100644
+--- a/net/ipv4/tcp_fastopen.c
++++ b/net/ipv4/tcp_fastopen.c
+@@ -221,6 +221,7 @@ static struct sock *tcp_fastopen_create_child(struct sock *sk,
+ 	tcp_init_congestion_control(child);
+ 	tcp_mtup_init(child);
+ 	tcp_init_metrics(child);
++	tcp_call_bpf(child, BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB);
+ 	tcp_init_buffer_space(child);
+ 
+ 	tp->rcv_nxt = TCP_SKB_CB(skb)->seq + 1;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index bcc9665..664210e 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5571,7 +5571,7 @@ void tcp_finish_connect(struct sock *sk, struct sk_buff *skb)
+ 	icsk->icsk_af_ops->rebuild_header(sk);
+ 
+ 	tcp_init_metrics(sk);
+-
++	tcp_call_bpf(sk, BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB);
+ 	tcp_init_congestion_control(sk);
+ 
+ 	/* Prevent spurious tcp_cwnd_restart() on first data
+@@ -5977,6 +5977,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
+ 		} else {
+ 			/* Make sure socket is routed, for correct metrics. */
+ 			icsk->icsk_af_ops->rebuild_header(sk);
++			tcp_call_bpf(sk, BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB);
+ 			tcp_init_congestion_control(sk);
+ 
+ 			tcp_mtup_init(sk);
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 5345d61..76a1a0e 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -3445,6 +3445,7 @@ int tcp_connect(struct sock *sk)
+ 	struct sk_buff *buff;
+ 	int err;
+ 
++	tcp_call_bpf(sk, BPF_SOCK_OPS_TCP_CONNECT_CB);
+ 	tcp_connect_init(sk);
+ 
+ 	if (unlikely(tp->repair)) {
 -- 
 2.9.3
