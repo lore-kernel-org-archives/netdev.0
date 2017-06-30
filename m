@@ -1,39 +1,66 @@
-From: "Reshetova, Elena" <elena.reshetova@intel.com>
-Subject: RE: [PATCH 00/17] v2 net generic subsystem refcount conversions
-Date: Fri, 30 Jun 2017 07:06:25 +0000
-Message-ID: <2236FBA76BA1254E88B949DDB74E612B6FF1F78C@IRSMSX102.ger.corp.intel.com>
-References: <1498650906-12907-1-git-send-email-elena.reshetova@intel.com>
- <20170629.142601.746713162785461367.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "bridge@lists.linux-foundation.org"
-        <bridge@lists.linux-foundation.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-        "jmorris@namei.org" <jmorris@namei.org>,
-        "kaber@trash.net" <kaber@trash.net>,
-        "stephen@networkplumber.org" <stephen@networkplumber.org>,
-        "peterz@infradead.org" <peterz@infradead.org>,
-        "keescook@chromium.org" <keescook@chromium.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170629.142601.746713162785461367.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [pull request][net 0/3] Mellanox, mlx5 fixes 2017-06-28
+Date: Fri, 30 Jun 2017 10:12:26 +0300
+Message-ID: <20170630071229.20357-1-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44936 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751565AbdF3HNi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 03:13:38 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This series contains some fixes for the mlx5 core and netdev driver.
 
-> From: Elena Reshetova <elena.reshetova@intel.com>
-> Date: Wed, 28 Jun 2017 14:54:49 +0300
-> 
-> > If there are no objections to the patches, please merge them via
-> > respective trees.
-> 
-> This doesn't apply cleanly to the net-next tree, please respin.
+Please pull and let me know if there's any problem.
 
-Sorry, will rebase to the net-next and send new version today. The current version was on top of linux-next/stable. 
+For -stable:
+("net/mlx5e: Fix TX carrier errors report in get stats ndo") Kernels >= v4.7
 
-Best Regards,
-Elena.
+("net/mlx5: Cancel delayed recovery work when unloading the driver") Kernels >= v4.10
+* When applied to net-next this will introduce a contextual conflict, it
+should be easy to resolve, (a spin_lock was changed to spin_lock_irqsave in net-next),
+if you need any help with this please let me know.
+
+("net/mlx5: Fix driver load error flow when firmware is stuck") Kernels >= v4.4*
+* This patch fixes: 6c780a0267b8 ("net/mlx5: Wait for FW readiness before initializing command interface")
+which was submitted two weeks ago and queued up for v4.4.
+
+Sorry about the mess, but other than the above, this series doesn't introduce
+any conflict with the current mlx5 IPSec offload series.
+
+Thanks,
+Saeed.
+
+---
+
+The following changes since commit d747a7a51b00984127a88113cdbbc26f91e9d815:
+
+  tcp: reset sk_rx_dst in tcp_disconnect() (2017-06-25 12:23:07 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/saeed/linux.git tags/mlx5-fixes-2017-06-28
+
+for you to fetch changes up to 8ff93de7668bd81bc8efa819d1184ebd48fae72d:
+
+  net/mlx5e: Fix TX carrier errors report in get stats ndo (2017-06-27 14:49:57 +0300)
+
+----------------------------------------------------------------
+mlx5-fixes-2017-06-28
+
+----------------------------------------------------------------
+Gal Pressman (2):
+      net/mlx5: Fix driver load error flow when firmware is stuck
+      net/mlx5e: Fix TX carrier errors report in get stats ndo
+
+Mohamad Haj Yahia (1):
+      net/mlx5: Cancel delayed recovery work when unloading the driver
+
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  2 --
+ drivers/net/ethernet/mellanox/mlx5/core/health.c  | 15 ++++++++++++++-
+ drivers/net/ethernet/mellanox/mlx5/core/main.c    |  4 ++--
+ include/linux/mlx5/driver.h                       |  1 +
+ 4 files changed, 17 insertions(+), 5 deletions(-)
