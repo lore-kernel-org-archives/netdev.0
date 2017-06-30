@@ -1,62 +1,78 @@
-From: Mateusz Jurczyk <mjurczyk@google.com>
-Subject: Re: [PATCH v2] netfilter: nfnetlink: Improve input length
- sanitization in nfnetlink_rcv
-Date: Fri, 30 Jun 2017 17:19:05 +0200
-Message-ID: <CAPr8fOR1G7WeSW9S=xgSxT5_sTS8fs9-496Gzy_-5VLgECoXAQ@mail.gmail.com>
-References: <1496841821.736.35.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170607135038.1592-1-mjurczyk@google.com> <20170627155825.GA4885@salvia>
- <20170627170527.GA13513@salvia> <20170629162240.GA6883@salvia>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [PATCH RFC 02/26] task_work: Replace spin_unlock_wait() with
+ lock/unlock pair
+Date: Fri, 30 Jun 2017 17:20:10 +0200
+Message-ID: <20170630152010.GA6935@redhat.com>
+References: <20170629235918.GA6445@linux.vnet.ibm.com>
+ <1498780894-8253-2-git-send-email-paulmck@linux.vnet.ibm.com>
+ <20170630110445.GA5123@redhat.com>
+ <20170630125020.GU2393@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Florian Westphal <fw@strlen.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f173.google.com ([209.85.161.173]:35015 "EHLO
-        mail-yw0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751786AbdF3PTM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 11:19:12 -0400
-Received: by mail-yw0-f173.google.com with SMTP id j11so50429750ywa.2
-        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 08:19:06 -0700 (PDT)
-In-Reply-To: <20170629162240.GA6883@salvia>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+        netdev@vger.kernel.org, akpm@linux-foundation.org,
+        mingo@redhat.com, dave@stgolabs.net, manfred@colorfullife.com,
+        tj@kernel.org, arnd@arndb.de, linux-arch@vger.kernel.org,
+        will.deacon@arm.com, peterz@infradead.org,
+        stern@rowland.harvard.edu, parri.andrea@gmail.com,
+        torvalds@linux-foundation.org
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170630125020.GU2393@linux.vnet.ibm.com>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 29, 2017 at 6:22 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> On Tue, Jun 27, 2017 at 07:05:27PM +0200, Pablo Neira Ayuso wrote:
->> On Tue, Jun 27, 2017 at 05:58:25PM +0200, Pablo Neira Ayuso wrote:
->> > On Wed, Jun 07, 2017 at 03:50:38PM +0200, Mateusz Jurczyk wrote:
->> > > Verify that the length of the socket buffer is sufficient to cover the
->> > > nlmsghdr structure before accessing the nlh->nlmsg_len field for further
->> > > input sanitization. If the client only supplies 1-3 bytes of data in
->> > > sk_buff, then nlh->nlmsg_len remains partially uninitialized and
->> > > contains leftover memory from the corresponding kernel allocation.
->> > > Operating on such data may result in indeterminate evaluation of the
->> > > nlmsg_len < NLMSG_HDRLEN expression.
->> > >
->> > > The bug was discovered by a runtime instrumentation designed to detect
->> > > use of uninitialized memory in the kernel. The patch prevents this and
->> > > other similar tools (e.g. KMSAN) from flagging this behavior in the future.
->> >
->> > Applied, thanks.
->>
->> Wait, I keeping this back after closer look.
->>
->> I think we have to remove this:
->>
->>         if (nlh->nlmsg_len < NLMSG_HDRLEN || <---
->>             skb->len < NLMSG_HDRLEN + sizeof(struct nfgenmsg))
->>                 return;
->>
->> in nfnetlink_rcv_skb_batch()
->>
->> now that we make this unfront check from nfnetlink_rcv().
+On 06/30, Paul E. McKenney wrote:
 >
-> BTW, I can just mangle your patch here to delete such line to speed up
-> things. See the mangled patch that is attached to this email.
+> > > +		raw_spin_lock_irq(&task->pi_lock);
+> > > +		raw_spin_unlock_irq(&task->pi_lock);
+>
+> I agree that the spin_unlock_wait() implementations would avoid the
+> deadlock with an acquisition from an interrupt handler, while also
+> avoiding the need to momentarily disable interrupts.  The ->pi_lock is
+> a per-task lock, so I am assuming (perhaps naively) that contention is
+> not a problem.  So is the overhead of interrupt disabling likely to be
+> noticeable here?
 
-Sure, I think the condition in nfnetlink_rcv_skb_batch() can be now
-safely removed. Feel free to proceed with the mangled patch. Thanks.
+I do not think the overhead will be noticeable in this particular case.
+
+But I am not sure I understand why do we want to unlock_wait. Yes I agree,
+it has some problems, but still...
+
+The code above looks strange for me. If we are going to repeat this pattern
+the perhaps we should add a helper for lock+unlock and name it unlock_wait2 ;)
+
+If not, we should probably change this code more:
+
+--- a/kernel/task_work.c
++++ b/kernel/task_work.c
+@@ -96,20 +96,16 @@ void task_work_run(void)
+ 		 * work->func() can do task_work_add(), do not set
+ 		 * work_exited unless the list is empty.
+ 		 */
++		raw_spin_lock_irq(&task->pi_lock);
+ 		do {
+ 			work = READ_ONCE(task->task_works);
+ 			head = !work && (task->flags & PF_EXITING) ?
+ 				&work_exited : NULL;
+ 		} while (cmpxchg(&task->task_works, work, head) != work);
++		raw_spin_unlock_irq(&task->pi_lock);
+ 
+ 		if (!work)
+ 			break;
+-		/*
+-		 * Synchronize with task_work_cancel(). It can't remove
+-		 * the first entry == work, cmpxchg(task_works) should
+-		 * fail, but it can play with *work and other entries.
+-		 */
+-		raw_spin_unlock_wait(&task->pi_lock);
+ 
+ 		do {
+ 			next = work->next;
+
+performance-wise this is almost the same, and if we do not really care about
+overhead we can simplify the code: this way it is obvious that we can't race
+with task_work_cancel().
+
+Oleg.
