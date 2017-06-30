@@ -1,262 +1,66 @@
-From: John Hubbard <jhubbard@nvidia.com>
-Subject: Re: [PATCH] vmalloc: respect the GFP_NOIO and GFP_NOFS flags
-Date: Thu, 29 Jun 2017 23:20:42 -0700
-Message-ID: <2fe798a6-38df-a1f3-adb1-d252e35ec564@nvidia.com>
-References: <alpine.LRH.2.02.1706292221250.21823@file01.intranet.prod.int.rdu2.redhat.com>
+From: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
+        <maheshb@google.com>
+Subject: Re: RFC: bring UP 'lo' by default after creating new netns
+Date: Thu, 29 Jun 2017 23:26:46 -0700
+Message-ID: <CAF2d9jg1P2AVOJ+FT+pRGjG0HW1YCRN9+WQ7xK67banby7EMng@mail.gmail.com>
+References: <CAF2d9jhTcVgLHs_iqw+RRS=WhMtRF0ra5SygGMymuYQUW6HP0A@mail.gmail.com>
+ <87efu22set.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, Stephen Rothwell
-	<sfr@canb.auug.org.au>, Vlastimil Babka <vbabka@suse.cz>, Andreas Dilger
-	<adilger@dilger.ca>, David Miller <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>, <linux-mm@kvack.org>,
-	<netdev@vger.kernel.org>
-To: Mikulas Patocka <mpatocka@redhat.com>, Michal Hocko <mhocko@kernel.org>,
-	Alexei Starovoitov <ast@kernel.org>, Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <alpine.LRH.2.02.1706292221250.21823@file01.intranet.prod.int.rdu2.redhat.com>
-Content-Language: en-US
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: Eric Dumazet <edumazet@google.com>, adobriyan@gmail.com,
+        David Miller <davem@davemloft.net>, xiyou.wangcong@gmail.com,
+        linux-netdev <netdev@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f47.google.com ([209.85.214.47]:36582 "EHLO
+        mail-it0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751494AbdF3G1I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 02:27:08 -0400
+Received: by mail-it0-f47.google.com with SMTP id m68so56624466ith.1
+        for <netdev@vger.kernel.org>; Thu, 29 Jun 2017 23:27:07 -0700 (PDT)
+In-Reply-To: <87efu22set.fsf@xmission.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/29/2017 07:25 PM, Mikulas Patocka wrote:
-> The __vmalloc function has a parameter gfp_mask with the allocation flags,
-> however it doesn't fully respect the GFP_NOIO and GFP_NOFS flags. The
-> pages are allocated with the specified gfp flags, but the pagetables are
-> always allocated with GFP_KERNEL. This allocation can cause unexpected
-> recursion into the filesystem or I/O subsystem.
-> 
-> It is not practical to extend page table allocation routines with gfp
-> flags because it would require modification of architecture-specific code
-> in all architecturs. However, the process can temporarily request that all
-> allocations are done with GFP_NOFS or GFP_NOIO with with the functions
-> memalloc_nofs_save and memalloc_noio_save.
-> 
-> This patch makes the vmalloc code use memalloc_nofs_save or
-> memalloc_noio_save if the supplied gfp flags do not contain __GFP_FS or
-> __GFP_IO. It fixes some possible deadlocks in drivers/mtd/ubi/io.c,
-> fs/gfs2/, fs/btrfs/free-space-tree.c, fs/ubifs/,
-> fs/nfs/blocklayout/extent_tree.c where __vmalloc is used with the GFP_NOFS
-> flag.
-> 
-> The patch also simplifies code in dm-bufio.c, dm-ioctl.c and fs/xfs/kmem.c
-> by removing explicit calls to memalloc_nofs_save and memalloc_noio_save
-> before the call to __vmalloc.
-> 
-> Signed-off-by: Mikulas Patocka <mpatocka@redhat.com>
-> 
-> ---
->  drivers/md/dm-bufio.c |   24 +-----------------------
->  drivers/md/dm-ioctl.c |    6 +-----
->  fs/xfs/kmem.c         |   14 --------------
->  mm/util.c             |    6 +++---
->  mm/vmalloc.c          |   18 +++++++++++++++++-
->  5 files changed, 22 insertions(+), 46 deletions(-)
-> 
-> Index: linux-2.6/mm/vmalloc.c
-> ===================================================================
-> --- linux-2.6.orig/mm/vmalloc.c
-> +++ linux-2.6/mm/vmalloc.c
-> @@ -31,6 +31,7 @@
->  #include <linux/compiler.h>
->  #include <linux/llist.h>
->  #include <linux/bitops.h>
-> +#include <linux/sched/mm.h>
->  
->  #include <linux/uaccess.h>
->  #include <asm/tlbflush.h>
-> @@ -1670,6 +1671,8 @@ static void *__vmalloc_area_node(struct
->  	unsigned int nr_pages, array_size, i;
->  	const gfp_t nested_gfp = (gfp_mask & GFP_RECLAIM_MASK) | __GFP_ZERO;
->  	const gfp_t alloc_mask = gfp_mask | __GFP_HIGHMEM | __GFP_NOWARN;
-> +	unsigned noio_flag;
-> +	int r;
->  
->  	nr_pages = get_vm_area_size(area) >> PAGE_SHIFT;
->  	array_size = (nr_pages * sizeof(struct page *));
-> @@ -1712,8 +1715,21 @@ static void *__vmalloc_area_node(struct
->  			cond_resched();
->  	}
->  
-> -	if (map_vm_area(area, prot, pages))
-> +	if (unlikely(!(gfp_mask & __GFP_IO)))
-> +		noio_flag = memalloc_noio_save();
-> +	else if (unlikely(!(gfp_mask & __GFP_FS)))
-> +		noio_flag = memalloc_nofs_save();
-> +
-> +	r = map_vm_area(area, prot, pages);
-> +
-> +	if (unlikely(!(gfp_mask & __GFP_IO)))
-> +		memalloc_noio_restore(noio_flag);
-> +	else if (unlikely(!(gfp_mask & __GFP_FS)))
-> +		memalloc_nofs_restore(noio_flag);
-> +
-> +	if (unlikely(r))
->  		goto fail;
-> +
->  	return area->addr;
->  
->  fail:
-> Index: linux-2.6/mm/util.c
-> ===================================================================
-> --- linux-2.6.orig/mm/util.c
-> +++ linux-2.6/mm/util.c
-> @@ -351,10 +351,10 @@ void *kvmalloc_node(size_t size, gfp_t f
->  	void *ret;
->  
->  	/*
-> -	 * vmalloc uses GFP_KERNEL for some internal allocations (e.g page tables)
-> -	 * so the given set of flags has to be compatible.
-> +	 * vmalloc uses blocking allocations for some internal allocations
-> +	 * (e.g page tables) so the given set of flags has to be compatible.
->  	 */
-> -	WARN_ON_ONCE((flags & GFP_KERNEL) != GFP_KERNEL);
-> +	WARN_ON_ONCE(!gfpflags_allow_blocking(flags));
+On Thu, Jun 29, 2017 at 6:08 PM, Eric W. Biederman
+<ebiederm@xmission.com> wrote:
+> "Mahesh Bandewar (=E0=A4=AE=E0=A4=B9=E0=A5=87=E0=A4=B6 =E0=A4=AC=E0=A4=82=
+=E0=A4=A1=E0=A5=87=E0=A4=B5=E0=A4=BE=E0=A4=B0)" <maheshb@google.com> writes=
+:
+>
+>> Creation of new network namespace is almost always followed up by
+>> bringing up the loopback device.
+>>
+>>         ip netns add foo
+>>         ip -netns foo link set lo up
+>>
+>> I'm not sure if there are any consequences of bringing the device UP
+>> at the creation of network-namespace.jjh
+>
+> Hard coded in net/core/net_namespace.c:copy_net_ns is definitely the
+> wrong place in the code for something like this.  If this lives anywhere
+> it should live in driver/net/loopback.c, or possibly in
+> net/core/dev.c:net_dev_init.
+>
+interestingly dev_open() needs RTNL while it's not recommended at
+net_dev_init() time.
+Also net_dev_init() is called at the sub-system registration, do you
+mean loopback_net_init() time?
 
-Hi Mikulas,
+> If we want this we want to match what we do when we the primary network
+> namespace.  Just so that there are no unneeded surprises with network
+> namespaces.
+>
+Yes, correct, it should be same whether it's init-net or some other. I
+can add the IFF_UP flag during
+loopback_setup() but then it will not perform anything that is done
+during dev_open() phase. I'll try
+moving the code to loopback_net_init() to achieve the same result so
+that I can avoid that hard-coding too.
 
-OK, so given the new behavior in the underlying __vmalloc code, I think it's
-appropriate to add this documentation change on top of what you have so far:
+Thanks for comments Eric.
 
- mm/util.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-diff --git a/mm/util.c b/mm/util.c
-index cdbc9022c021..39fe94530dd2 100644
---- a/mm/util.c
-+++ b/mm/util.c
-@@ -343,7 +343,8 @@ EXPORT_SYMBOL(vm_mmap);
-  * __GFP_RETRY_MAYFAIL is supported, and it should be used only if kmalloc is
-  * preferable to the vmalloc fallback, due to visible performance drawbacks.
-  *
-- * Any use of gfp flags outside of GFP_KERNEL should be consulted with mm people.
-+ * Any use of gfp flags other than GFP_KERNEL, GFP_NOIO, or GFP_NOFS should
-+ * be done only after consulting with mm people.
-  */
- void *kvmalloc_node(size_t size, gfp_t flags, int node)
- {
+--mahesh..
 
->  
->  	/*
->  	 * We want to attempt a large physically contiguous block first because
-> Index: linux-2.6/drivers/md/dm-bufio.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/md/dm-bufio.c
-> +++ linux-2.6/drivers/md/dm-bufio.c
-> @@ -386,9 +386,6 @@ static void __cache_size_refresh(void)
->  static void *alloc_buffer_data(struct dm_bufio_client *c, gfp_t gfp_mask,
->  			       enum data_mode *data_mode)
->  {
-> -	unsigned noio_flag;
-> -	void *ptr;
-> -
->  	if (c->block_size <= DM_BUFIO_BLOCK_SIZE_SLAB_LIMIT) {
->  		*data_mode = DATA_MODE_SLAB;
->  		return kmem_cache_alloc(DM_BUFIO_CACHE(c), gfp_mask);
-> @@ -402,26 +399,7 @@ static void *alloc_buffer_data(struct dm
->  	}
->  
->  	*data_mode = DATA_MODE_VMALLOC;
-> -
-> -	/*
-> -	 * __vmalloc allocates the data pages and auxiliary structures with
-> -	 * gfp_flags that were specified, but pagetables are always allocated
-> -	 * with GFP_KERNEL, no matter what was specified as gfp_mask.
-> -	 *
-> -	 * Consequently, we must set per-process flag PF_MEMALLOC_NOIO so that
-> -	 * all allocations done by this process (including pagetables) are done
-> -	 * as if GFP_NOIO was specified.
-> -	 */
-> -
-> -	if (gfp_mask & __GFP_NORETRY)
-> -		noio_flag = memalloc_noio_save();
-> -
-> -	ptr = __vmalloc(c->block_size, gfp_mask, PAGE_KERNEL);
-> -
-> -	if (gfp_mask & __GFP_NORETRY)
-> -		memalloc_noio_restore(noio_flag);
-> -
-> -	return ptr;
-> +	return __vmalloc(c->block_size, gfp_mask, PAGE_KERNEL);
-
-Seems like a nice cleanup, and although I'm not an expert, it looks
-correct to me.
-
->  }
->  
->  /*
-> Index: linux-2.6/drivers/md/dm-ioctl.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/md/dm-ioctl.c
-> +++ linux-2.6/drivers/md/dm-ioctl.c
-> @@ -1691,7 +1691,6 @@ static int copy_params(struct dm_ioctl _
->  	struct dm_ioctl *dmi;
->  	int secure_data;
->  	const size_t minimum_data_size = offsetof(struct dm_ioctl, data);
-> -	unsigned noio_flag;
->  
->  	if (copy_from_user(param_kernel, user, minimum_data_size))
->  		return -EFAULT;
-> @@ -1714,10 +1713,7 @@ static int copy_params(struct dm_ioctl _
->  	 * suspended and the ioctl is needed to resume it.
->  	 * Use kmalloc() rather than vmalloc() when we can.
->  	 */
-> -	dmi = NULL;
-> -	noio_flag = memalloc_noio_save();
-> -	dmi = kvmalloc(param_kernel->data_size, GFP_KERNEL | __GFP_HIGH);
-> -	memalloc_noio_restore(noio_flag);
-> +	dmi = kvmalloc(param_kernel->data_size, GFP_NOIO | __GFP_HIGH);
-
-Pre-existing, and apologies if I missed a conversation about it, but is
-__GFP_HIGH necessary and appropriate for kvmalloc()? If so, maybe we
-should add it to the list of approved GFP flags in the function's
-documentation. But I tentatively think you can just pass in GFP_NOIO
-instead, and get the right behavior.
-
-thanks,
-john h
-
->  
->  	if (!dmi) {
->  		if (secure_data && clear_user(user, param_kernel->data_size))
-> Index: linux-2.6/fs/xfs/kmem.c
-> ===================================================================
-> --- linux-2.6.orig/fs/xfs/kmem.c
-> +++ linux-2.6/fs/xfs/kmem.c
-> @@ -48,7 +48,6 @@ kmem_alloc(size_t size, xfs_km_flags_t f
->  void *
->  kmem_zalloc_large(size_t size, xfs_km_flags_t flags)
->  {
-> -	unsigned nofs_flag = 0;
->  	void	*ptr;
->  	gfp_t	lflags;
->  
-> @@ -56,22 +55,9 @@ kmem_zalloc_large(size_t size, xfs_km_fl
->  	if (ptr)
->  		return ptr;
->  
-> -	/*
-> -	 * __vmalloc() will allocate data pages and auxillary structures (e.g.
-> -	 * pagetables) with GFP_KERNEL, yet we may be under GFP_NOFS context
-> -	 * here. Hence we need to tell memory reclaim that we are in such a
-> -	 * context via PF_MEMALLOC_NOFS to prevent memory reclaim re-entering
-> -	 * the filesystem here and potentially deadlocking.
-> -	 */
-> -	if (flags & KM_NOFS)
-> -		nofs_flag = memalloc_nofs_save();
-> -
->  	lflags = kmem_flags_convert(flags);
->  	ptr = __vmalloc(size, lflags | __GFP_ZERO, PAGE_KERNEL);
->  
-> -	if (flags & KM_NOFS)
-> -		memalloc_nofs_restore(nofs_flag);
-> -
->  	return ptr;
->  }
->  
-> 
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+> Eric
