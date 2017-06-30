@@ -1,27 +1,18 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 03/17] net: convert neigh_params.refcnt from
-	atomic_t to refcount_t
-Date: Fri, 30 Jun 2017 13:07:56 +0300
-Message-ID: <1498817290-3368-4-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 13/17] net: convert fib_rule.refcnt from atomic_t to refcount_t
+Date: Fri, 30 Jun 2017 13:08:06 +0300
+Message-ID: <1498817290-3368-14-git-send-email-elena.reshetova@intel.com>
 References: <1498817290-3368-1-git-send-email-elena.reshetova@intel.com>
-Cc: keescook@chromium.org, peterz@infradead.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	jmorris@namei.org, Hans Liljestrand <ishkamiel@gmail.com>,
-	kuznet@ms2.inr.ac.ru, kaber@trash.net,
-	Elena Reshetova <elena.reshetova@intel.com>,
-	David Windsor <dwindsor@gmail.com>
+Cc: bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
+        stephen@networkplumber.org, peterz@infradead.org,
+        keescook@chromium.org, Elena Reshetova <elena.reshetova@intel.com>,
+        Hans Liljestrand <ishkamiel@gmail.com>,
+        David Windsor <dwindsor@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1498817290-3368-1-git-send-email-elena.reshetova@intel.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 refcount_t type and corresponding API should be
@@ -35,77 +26,67 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/neighbour.h | 6 +++---
- net/core/neighbour.c    | 8 ++++----
- 2 files changed, 7 insertions(+), 7 deletions(-)
+ include/net/fib_rules.h | 7 ++++---
+ net/core/fib_rules.c    | 4 ++--
+ 2 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-index e5ee739..afc39e3 100644
---- a/include/net/neighbour.h
-+++ b/include/net/neighbour.h
-@@ -77,7 +77,7 @@ struct neigh_parms {
- 	void	*sysctl_table;
+diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
+index 76c7300..c487bfa 100644
+--- a/include/net/fib_rules.h
++++ b/include/net/fib_rules.h
+@@ -5,6 +5,7 @@
+ #include <linux/slab.h>
+ #include <linux/netdevice.h>
+ #include <linux/fib_rules.h>
++#include <linux/refcount.h>
+ #include <net/flow.h>
+ #include <net/rtnetlink.h>
  
- 	int dead;
--	atomic_t refcnt;
-+	refcount_t refcnt;
- 	struct rcu_head rcu_head;
+@@ -29,7 +30,7 @@ struct fib_rule {
+ 	struct fib_rule __rcu	*ctarget;
+ 	struct net		*fr_net;
  
- 	int	reachable_time;
-@@ -396,12 +396,12 @@ void neigh_sysctl_unregister(struct neigh_parms *p);
+-	atomic_t		refcnt;
++	refcount_t		refcnt;
+ 	u32			pref;
+ 	int			suppress_ifgroup;
+ 	int			suppress_prefixlen;
+@@ -103,12 +104,12 @@ struct fib_rules_ops {
  
- static inline void __neigh_parms_put(struct neigh_parms *parms)
+ static inline void fib_rule_get(struct fib_rule *rule)
  {
--	atomic_dec(&parms->refcnt);
-+	refcount_dec(&parms->refcnt);
+-	atomic_inc(&rule->refcnt);
++	refcount_inc(&rule->refcnt);
  }
  
- static inline struct neigh_parms *neigh_parms_clone(struct neigh_parms *parms)
+ static inline void fib_rule_put(struct fib_rule *rule)
  {
--	atomic_inc(&parms->refcnt);
-+	refcount_inc(&parms->refcnt);
- 	return parms;
+-	if (atomic_dec_and_test(&rule->refcnt))
++	if (refcount_dec_and_test(&rule->refcnt))
+ 		kfree_rcu(rule, rcu);
  }
  
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 0c78c8e..e31fc11 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -709,7 +709,7 @@ static void neigh_parms_destroy(struct neigh_parms *parms);
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index 3bba291..c4ecd9f 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -46,7 +46,7 @@ int fib_default_rule_add(struct fib_rules_ops *ops,
+ 	if (r == NULL)
+ 		return -ENOMEM;
  
- static inline void neigh_parms_put(struct neigh_parms *parms)
- {
--	if (atomic_dec_and_test(&parms->refcnt))
-+	if (refcount_dec_and_test(&parms->refcnt))
- 		neigh_parms_destroy(parms);
- }
+-	atomic_set(&r->refcnt, 1);
++	refcount_set(&r->refcnt, 1);
+ 	r->action = FR_ACT_TO_TBL;
+ 	r->pref = pref;
+ 	r->table = table;
+@@ -283,7 +283,7 @@ int fib_rules_lookup(struct fib_rules_ops *ops, struct flowi *fl,
  
-@@ -1479,7 +1479,7 @@ struct neigh_parms *neigh_parms_alloc(struct net_device *dev,
- 	p = kmemdup(&tbl->parms, sizeof(*p), GFP_KERNEL);
- 	if (p) {
- 		p->tbl		  = tbl;
--		atomic_set(&p->refcnt, 1);
-+		refcount_set(&p->refcnt, 1);
- 		p->reachable_time =
- 				neigh_rand_reach_time(NEIGH_VAR(p, BASE_REACHABLE_TIME));
- 		dev_hold(dev);
-@@ -1542,7 +1542,7 @@ void neigh_table_init(int index, struct neigh_table *tbl)
- 	INIT_LIST_HEAD(&tbl->parms_list);
- 	list_add(&tbl->parms.list, &tbl->parms_list);
- 	write_pnet(&tbl->parms.net, &init_net);
--	atomic_set(&tbl->parms.refcnt, 1);
-+	refcount_set(&tbl->parms.refcnt, 1);
- 	tbl->parms.reachable_time =
- 			  neigh_rand_reach_time(NEIGH_VAR(&tbl->parms, BASE_REACHABLE_TIME));
- 
-@@ -1796,7 +1796,7 @@ static int neightbl_fill_parms(struct sk_buff *skb, struct neigh_parms *parms)
- 
- 	if ((parms->dev &&
- 	     nla_put_u32(skb, NDTPA_IFINDEX, parms->dev->ifindex)) ||
--	    nla_put_u32(skb, NDTPA_REFCNT, atomic_read(&parms->refcnt)) ||
-+	    nla_put_u32(skb, NDTPA_REFCNT, refcount_read(&parms->refcnt)) ||
- 	    nla_put_u32(skb, NDTPA_QUEUE_LENBYTES,
- 			NEIGH_VAR(parms, QUEUE_LEN_BYTES)) ||
- 	    /* approximative value for deprecated QUEUE_LEN (in packets) */
+ 		if (err != -EAGAIN) {
+ 			if ((arg->flags & FIB_LOOKUP_NOREF) ||
+-			    likely(atomic_inc_not_zero(&rule->refcnt))) {
++			    likely(refcount_inc_not_zero(&rule->refcnt))) {
+ 				arg->rule = rule;
+ 				goto out;
+ 			}
 -- 
 2.7.4
