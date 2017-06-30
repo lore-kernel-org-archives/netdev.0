@@ -1,30 +1,48 @@
-From: Florian Westphal <fw@strlen.de>
+From: Richard Weinberger <richard@nod.at>
 Subject: Re: nf_conntrack: Infoleak via CTA_ID and CTA_EXPECT_ID
-Date: Fri, 30 Jun 2017 21:35:44 +0200
-Message-ID: <20170630193544.GM9307@breakpoint.cc>
+Date: Fri, 30 Jun 2017 21:45:53 +0200
+Message-ID: <f3d78dc5-7694-8e01-ac4d-54fc248a96f1@nod.at>
 References: <c84e0301-2bb6-8932-2ed5-939340762159@nod.at>
+ <20170630193544.GM9307@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
 Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Pablo Neira Ayuso <pablo@netfilter.org>, fw@strlen.de,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
         David Miller <davem@davemloft.net>,
         netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
         David Gstir <david@sigma-star.at>, kaber@trash.net,
         "keescook@chromium.org" <keescook@chromium.org>
-To: Richard Weinberger <richard@nod.at>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <c84e0301-2bb6-8932-2ed5-939340762159@nod.at>
+In-Reply-To: <20170630193544.GM9307@breakpoint.cc>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Richard Weinberger <richard@nod.at> wrote:
-> Hi!
-> 
-> I noticed that nf_conntrack leaks kernel addresses, it uses the memory address
-> as identifier used for generating conntrack and expect ids..
-> Since these ids are also visible to unprivileged users via network namespaces
-> I suggest reverting these commits:
+Florian,
 
-Why not use a hash of the address?
+Am 30.06.2017 um 21:35 schrieb Florian Westphal:
+> Richard Weinberger <richard@nod.at> wrote:
+>> Hi!
+>>
+>> I noticed that nf_conntrack leaks kernel addresses, it uses the memory address
+>> as identifier used for generating conntrack and expect ids..
+>> Since these ids are also visible to unprivileged users via network namespaces
+>> I suggest reverting these commits:
+> 
+> Why not use a hash of the address?
+
+Would also work. Or xor it with a random number.
+
+On the other hand, for user space it would be more useful when the conntrack id
+does not repeat that often. That's why I favor the good old counter method.
+Currently the conntrack id is reused very fast.
+e.g. in one of our applications we use the conntack id via NFQUEUE and watch the
+destroy events via conntrack. It happens regularly that a new connection has the
+same id than a different connection we saw some moments before, before we receive
+the destroy event from the conntrack socket.
+
+Thanks,
+//richard
