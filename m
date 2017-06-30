@@ -1,517 +1,177 @@
-From: Manish Chopra <manish.chopra@cavium.com>
-Subject: [PATCH net-next 3/7] qed: Add support for Energy efficient ethernet.
-Date: Fri, 30 Jun 2017 02:39:42 -0700
-Message-ID: <20170630093946.18497-4-manish.chopra@cavium.com>
-References: <20170630093946.18497-1-manish.chopra@cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@cavium.com>,
-        <rahul.verma@cavium.com>, <sudarsana.kalluru@cavium.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0050.outbound.protection.outlook.com ([104.47.34.50]:19386
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751699AbdF3Jj5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 30 Jun 2017 05:39:57 -0400
-In-Reply-To: <20170630093946.18497-1-manish.chopra@cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Elena Reshetova <elena.reshetova@intel.com>
+Subject: [PATCH 00/17] v3 net generic subsystem refcount conversions
+Date: Fri, 30 Jun 2017 13:07:53 +0300
+Message-ID: <1498817290-3368-1-git-send-email-elena.reshetova@intel.com>
+Cc: keescook@chromium.org, peterz@infradead.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	jmorris@namei.org, kuznet@ms2.inr.ac.ru, kaber@trash.net,
+	Elena Reshetova <elena.reshetova@intel.com>
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Sudarsana Reddy Kalluru <sudarsana.kalluru@cavium.com>
+Changes in v3:
+Rebased on top of the net-next tree.
 
-The patch adds required driver support for reading/configuring the
-Energy Efficient Ethernet (EEE) parameters.
+Changes in v2:
+No changes in patches apart from rebases, but now by
+default refcount_t = atomic_t (*) and uses all atomic standard operations
+unless CONFIG_REFCOUNT_FULL is enabled. This is a compromise for the
+systems that are critical on performance (such as net) and cannot accept even
+slight delay on the refcounter operations.
 
-Signed-off-by: Sudarsana Reddy Kalluru <sudarsana.kalluru@cavium.com>
-Signed-off-by: Yuval Mintz <yuval.mintz@cavium.com>
----
- drivers/net/ethernet/qlogic/qed/qed_dev.c  | 72 ++++++++++++++++++++++++++++--
- drivers/net/ethernet/qlogic/qed/qed_hsi.h  | 49 ++++++++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_main.c | 19 ++++++++
- drivers/net/ethernet/qlogic/qed/qed_mcp.c  | 66 +++++++++++++++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_mcp.h  | 37 +++++++++++++--
- include/linux/qed/qed_if.h                 | 20 +++++++++
- 6 files changed, 256 insertions(+), 7 deletions(-)
+This series, for core network subsystem components, replaces atomic_t reference
+counters with the new refcount_t type and API (see include/linux/refcount.h).
+By doing this we prevent intentional or accidental
+underflows or overflows that can led to use-after-free vulnerabilities.
+These patches contain only generic net pieces. Other changes will be sent separately.
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index 49667ad..d11f01c 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -1673,6 +1673,8 @@ int qed_hw_init(struct qed_dev *cdev, struct qed_hw_init_params *p_params)
- 			   "Load request was sent. Load code: 0x%x\n",
- 			   load_code);
- 
-+		qed_mcp_set_capabilities(p_hwfn, p_hwfn->p_main_ptt);
-+
- 		qed_reset_mb_shadow(p_hwfn, p_hwfn->p_main_ptt);
- 
- 		p_hwfn->first_on_engine = (load_code ==
-@@ -2463,6 +2465,7 @@ static int qed_hw_get_nvm_info(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
- {
- 	u32 port_cfg_addr, link_temp, nvm_cfg_addr, device_capabilities;
- 	u32 nvm_cfg1_offset, mf_mode, addr, generic_cont0, core_cfg;
-+	struct qed_mcp_link_capabilities *p_caps;
- 	struct qed_mcp_link_params *link;
- 
- 	/* Read global nvm_cfg address */
-@@ -2525,6 +2528,7 @@ static int qed_hw_get_nvm_info(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
- 
- 	/* Read default link configuration */
- 	link = &p_hwfn->mcp_info->link_input;
-+	p_caps = &p_hwfn->mcp_info->link_capabilities;
- 	port_cfg_addr = MCP_REG_SCRATCH + nvm_cfg1_offset +
- 			offsetof(struct nvm_cfg1, port[MFW_PORT(p_hwfn)]);
- 	link_temp = qed_rd(p_hwfn, p_ptt,
-@@ -2579,10 +2583,45 @@ static int qed_hw_get_nvm_info(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
- 				   NVM_CFG1_PORT_DRV_FLOW_CONTROL_TX);
- 	link->loopback_mode = 0;
- 
--	DP_VERBOSE(p_hwfn, NETIF_MSG_LINK,
--		   "Read default link: Speed 0x%08x, Adv. Speed 0x%08x, AN: 0x%02x, PAUSE AN: 0x%02x\n",
--		   link->speed.forced_speed, link->speed.advertised_speeds,
--		   link->speed.autoneg, link->pause.autoneg);
-+	if (p_hwfn->mcp_info->capabilities & FW_MB_PARAM_FEATURE_SUPPORT_EEE) {
-+		link_temp = qed_rd(p_hwfn, p_ptt, port_cfg_addr +
-+				   offsetof(struct nvm_cfg1_port, ext_phy));
-+		link_temp &= NVM_CFG1_PORT_EEE_POWER_SAVING_MODE_MASK;
-+		link_temp >>= NVM_CFG1_PORT_EEE_POWER_SAVING_MODE_OFFSET;
-+		p_caps->default_eee = QED_MCP_EEE_ENABLED;
-+		link->eee.enable = true;
-+		switch (link_temp) {
-+		case NVM_CFG1_PORT_EEE_POWER_SAVING_MODE_DISABLED:
-+			p_caps->default_eee = QED_MCP_EEE_DISABLED;
-+			link->eee.enable = false;
-+			break;
-+		case NVM_CFG1_PORT_EEE_POWER_SAVING_MODE_BALANCED:
-+			p_caps->eee_lpi_timer = EEE_TX_TIMER_USEC_BALANCED_TIME;
-+			break;
-+		case NVM_CFG1_PORT_EEE_POWER_SAVING_MODE_AGGRESSIVE:
-+			p_caps->eee_lpi_timer =
-+			    EEE_TX_TIMER_USEC_AGGRESSIVE_TIME;
-+			break;
-+		case NVM_CFG1_PORT_EEE_POWER_SAVING_MODE_LOW_LATENCY:
-+			p_caps->eee_lpi_timer = EEE_TX_TIMER_USEC_LATENCY_TIME;
-+			break;
-+		}
-+
-+		link->eee.tx_lpi_timer = p_caps->eee_lpi_timer;
-+		link->eee.tx_lpi_enable = link->eee.enable;
-+		link->eee.adv_caps = QED_EEE_1G_ADV | QED_EEE_10G_ADV;
-+	} else {
-+		p_caps->default_eee = QED_MCP_EEE_UNSUPPORTED;
-+	}
-+
-+	DP_VERBOSE(p_hwfn,
-+		   NETIF_MSG_LINK,
-+		   "Read default link: Speed 0x%08x, Adv. Speed 0x%08x, AN: 0x%02x, PAUSE AN: 0x%02x EEE: %02x [%08x usec]\n",
-+		   link->speed.forced_speed,
-+		   link->speed.advertised_speeds,
-+		   link->speed.autoneg,
-+		   link->pause.autoneg,
-+		   p_caps->default_eee, p_caps->eee_lpi_timer);
- 
- 	/* Read Multi-function information from shmem */
- 	addr = MCP_REG_SCRATCH + nvm_cfg1_offset +
-@@ -2742,6 +2781,27 @@ static void qed_hw_info_port_num(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
- 		qed_hw_info_port_num_ah(p_hwfn, p_ptt);
- }
- 
-+static void qed_get_eee_caps(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
-+{
-+	struct qed_mcp_link_capabilities *p_caps;
-+	u32 eee_status;
-+
-+	p_caps = &p_hwfn->mcp_info->link_capabilities;
-+	if (p_caps->default_eee == QED_MCP_EEE_UNSUPPORTED)
-+		return;
-+
-+	p_caps->eee_speed_caps = 0;
-+	eee_status = qed_rd(p_hwfn, p_ptt, p_hwfn->mcp_info->port_addr +
-+			    offsetof(struct public_port, eee_status));
-+	eee_status = (eee_status & EEE_SUPPORTED_SPEED_MASK) >>
-+			EEE_SUPPORTED_SPEED_OFFSET;
-+
-+	if (eee_status & EEE_1G_SUPPORTED)
-+		p_caps->eee_speed_caps |= QED_EEE_1G_ADV;
-+	if (eee_status & EEE_10G_ADV)
-+		p_caps->eee_speed_caps |= QED_EEE_10G_ADV;
-+}
-+
- static int
- qed_get_hw_info(struct qed_hwfn *p_hwfn,
- 		struct qed_ptt *p_ptt,
-@@ -2758,6 +2818,8 @@ qed_get_hw_info(struct qed_hwfn *p_hwfn,
- 
- 	qed_hw_info_port_num(p_hwfn, p_ptt);
- 
-+	qed_mcp_get_capabilities(p_hwfn, p_ptt);
-+
- 	qed_hw_get_nvm_info(p_hwfn, p_ptt);
- 
- 	rc = qed_int_igu_read_cam(p_hwfn, p_ptt);
-@@ -2776,6 +2838,8 @@ qed_get_hw_info(struct qed_hwfn *p_hwfn,
- 				p_hwfn->mcp_info->func_info.ovlan;
- 
- 		qed_mcp_cmd_port_init(p_hwfn, p_ptt);
-+
-+		qed_get_eee_caps(p_hwfn, p_ptt);
- 	}
- 
- 	if (qed_mcp_is_init(p_hwfn)) {
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-index 3bf3614..abb9d52 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-@@ -10824,6 +10824,17 @@ struct eth_phy_cfg {
- #define ETH_LOOPBACK_EXT		(3)
- #define ETH_LOOPBACK_MAC		(4)
- 
-+	u32 eee_cfg;
-+#define EEE_CFG_EEE_ENABLED			BIT(0)
-+#define EEE_CFG_TX_LPI				BIT(1)
-+#define EEE_CFG_ADV_SPEED_1G			BIT(2)
-+#define EEE_CFG_ADV_SPEED_10G			BIT(3)
-+#define EEE_TX_TIMER_USEC_MASK			(0xfffffff0)
-+#define EEE_TX_TIMER_USEC_OFFSET		4
-+#define EEE_TX_TIMER_USEC_BALANCED_TIME		(0xa00)
-+#define EEE_TX_TIMER_USEC_AGGRESSIVE_TIME	(0x100)
-+#define EEE_TX_TIMER_USEC_LATENCY_TIME		(0x6000)
-+
- 	u32 feature_config_flags;
- #define ETH_EEE_MODE_ADV_LPI		(1 << 0)
- };
-@@ -11241,6 +11252,25 @@ struct public_port {
- 	u32 wol_pkt_len;
- 	u32 wol_pkt_details;
- 	struct dcb_dscp_map dcb_dscp_map;
-+
-+	u32 eee_status;
-+#define EEE_ACTIVE_BIT			BIT(0)
-+#define EEE_LD_ADV_STATUS_MASK		0x000000f0
-+#define EEE_LD_ADV_STATUS_OFFSET	4
-+#define EEE_1G_ADV			BIT(1)
-+#define EEE_10G_ADV			BIT(2)
-+#define EEE_LP_ADV_STATUS_MASK		0x00000f00
-+#define EEE_LP_ADV_STATUS_OFFSET	8
-+#define EEE_SUPPORTED_SPEED_MASK	0x0000f000
-+#define EEE_SUPPORTED_SPEED_OFFSET	12
-+#define EEE_1G_SUPPORTED		BIT(1)
-+#define EEE_10G_SUPPORTED		BIT(2)
-+
-+	u32 eee_remote;
-+#define EEE_REMOTE_TW_TX_MASK   0x0000ffff
-+#define EEE_REMOTE_TW_TX_OFFSET 0
-+#define EEE_REMOTE_TW_RX_MASK   0xffff0000
-+#define EEE_REMOTE_TW_RX_OFFSET 16
- };
- 
- struct public_func {
-@@ -11569,6 +11599,9 @@ struct public_drv_mb {
- #define DRV_MSG_CODE_GET_PF_RDMA_PROTOCOL	0x002b0000
- #define DRV_MSG_CODE_OS_WOL			0x002e0000
- 
-+#define DRV_MSG_CODE_FEATURE_SUPPORT		0x00300000
-+#define DRV_MSG_CODE_GET_MFW_FEATURE_SUPPORT	0x00310000
-+
- #define DRV_MSG_SEQ_NUMBER_MASK			0x0000ffff
- 
- 	u32 drv_mb_param;
-@@ -11652,6 +11685,10 @@ struct public_drv_mb {
- #define DRV_MB_PARAM_BIST_TEST_IMAGE_INDEX_SHIFT	8
- #define DRV_MB_PARAM_BIST_TEST_IMAGE_INDEX_MASK		0x0000FF00
- 
-+#define DRV_MB_PARAM_FEATURE_SUPPORT_PORT_MASK		0x0000FFFF
-+#define DRV_MB_PARAM_FEATURE_SUPPORT_PORT_OFFSET	0
-+#define DRV_MB_PARAM_FEATURE_SUPPORT_PORT_EEE		0x00000002
-+
- 	u32 fw_mb_header;
- #define FW_MSG_CODE_MASK			0xffff0000
- #define FW_MSG_CODE_UNSUPPORTED                 0x00000000
-@@ -11695,6 +11732,9 @@ struct public_drv_mb {
- #define FW_MB_PARAM_GET_PF_RDMA_IWARP		0x2
- #define FW_MB_PARAM_GET_PF_RDMA_BOTH		0x3
- 
-+/* get MFW feature support response */
-+#define FW_MB_PARAM_FEATURE_SUPPORT_EEE		0x00000002
-+
- #define FW_MB_PARAM_LOAD_DONE_DID_EFUSE_ERROR	(1 << 0)
- 
- 	u32 drv_pulse_mb;
-@@ -11890,7 +11930,16 @@ struct nvm_cfg1_port {
- #define NVM_CFG1_PORT_DRV_FLOW_CONTROL_TX			0x4
- 	u32 phy_cfg;
- 	u32 mgmt_traffic;
-+
- 	u32 ext_phy;
-+	/* EEE power saving mode */
-+#define NVM_CFG1_PORT_EEE_POWER_SAVING_MODE_MASK		0x00FF0000
-+#define NVM_CFG1_PORT_EEE_POWER_SAVING_MODE_OFFSET		16
-+#define NVM_CFG1_PORT_EEE_POWER_SAVING_MODE_DISABLED		0x0
-+#define NVM_CFG1_PORT_EEE_POWER_SAVING_MODE_BALANCED		0x1
-+#define NVM_CFG1_PORT_EEE_POWER_SAVING_MODE_AGGRESSIVE		0x2
-+#define NVM_CFG1_PORT_EEE_POWER_SAVING_MODE_LOW_LATENCY		0x3
-+
- 	u32 mba_cfg1;
- 	u32 mba_cfg2;
- 	u32 vf_cfg;
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
-index ef120d0..988f471 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_main.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
-@@ -1298,6 +1298,10 @@ static int qed_set_link(struct qed_dev *cdev, struct qed_link_params *params)
- 		}
- 	}
- 
-+	if (params->override_flags & QED_LINK_OVERRIDE_EEE_CONFIG)
-+		memcpy(&link_params->eee, &params->eee,
-+		       sizeof(link_params->eee));
-+
- 	rc = qed_mcp_set_link(hwfn, ptt, params->link_up);
- 
- 	qed_ptt_release(hwfn, ptt);
-@@ -1484,6 +1488,21 @@ static void qed_fill_link(struct qed_hwfn *hwfn,
- 	if (link.partner_adv_pause == QED_LINK_PARTNER_ASYMMETRIC_PAUSE ||
- 	    link.partner_adv_pause == QED_LINK_PARTNER_BOTH_PAUSE)
- 		if_link->lp_caps |= QED_LM_Asym_Pause_BIT;
-+
-+	if (link_caps.default_eee == QED_MCP_EEE_UNSUPPORTED) {
-+		if_link->eee_supported = false;
-+	} else {
-+		if_link->eee_supported = true;
-+		if_link->eee_active = link.eee_active;
-+		if_link->sup_caps = link_caps.eee_speed_caps;
-+		/* MFW clears adv_caps on eee disable; use configured value */
-+		if_link->eee.adv_caps = link.eee_adv_caps ? link.eee_adv_caps :
-+					params.eee.adv_caps;
-+		if_link->eee.lp_adv_caps = link.eee_lp_adv_caps;
-+		if_link->eee.enable = params.eee.enable;
-+		if_link->eee.tx_lpi_enable = params.eee.tx_lpi_enable;
-+		if_link->eee.tx_lpi_timer = params.eee.tx_lpi_timer;
-+	}
- }
- 
- static void qed_get_current_link(struct qed_dev *cdev,
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.c b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-index 9da9104..c1ecce6 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-@@ -1097,6 +1097,31 @@ static void qed_mcp_handle_transceiver_change(struct qed_hwfn *p_hwfn,
- 		DP_NOTICE(p_hwfn, "Transceiver is unplugged.\n");
- }
- 
-+static void qed_mcp_read_eee_config(struct qed_hwfn *p_hwfn,
-+				    struct qed_ptt *p_ptt,
-+				    struct qed_mcp_link_state *p_link)
-+{
-+	u32 eee_status, val;
-+
-+	p_link->eee_adv_caps = 0;
-+	p_link->eee_lp_adv_caps = 0;
-+	eee_status = qed_rd(p_hwfn,
-+			    p_ptt,
-+			    p_hwfn->mcp_info->port_addr +
-+			    offsetof(struct public_port, eee_status));
-+	p_link->eee_active = !!(eee_status & EEE_ACTIVE_BIT);
-+	val = (eee_status & EEE_LD_ADV_STATUS_MASK) >> EEE_LD_ADV_STATUS_OFFSET;
-+	if (val & EEE_1G_ADV)
-+		p_link->eee_adv_caps |= QED_EEE_1G_ADV;
-+	if (val & EEE_10G_ADV)
-+		p_link->eee_adv_caps |= QED_EEE_10G_ADV;
-+	val = (eee_status & EEE_LP_ADV_STATUS_MASK) >> EEE_LP_ADV_STATUS_OFFSET;
-+	if (val & EEE_1G_ADV)
-+		p_link->eee_lp_adv_caps |= QED_EEE_1G_ADV;
-+	if (val & EEE_10G_ADV)
-+		p_link->eee_lp_adv_caps |= QED_EEE_10G_ADV;
-+}
-+
- static void qed_mcp_handle_link_change(struct qed_hwfn *p_hwfn,
- 				       struct qed_ptt *p_ptt, bool b_reset)
- {
-@@ -1228,6 +1253,9 @@ static void qed_mcp_handle_link_change(struct qed_hwfn *p_hwfn,
- 
- 	p_link->sfp_tx_fault = !!(status & LINK_STATUS_SFP_TX_FAULT);
- 
-+	if (p_hwfn->mcp_info->capabilities & FW_MB_PARAM_FEATURE_SUPPORT_EEE)
-+		qed_mcp_read_eee_config(p_hwfn, p_ptt, p_link);
-+
- 	qed_link_update(p_hwfn);
- out:
- 	spin_unlock_bh(&p_hwfn->mcp_info->link_lock);
-@@ -1251,6 +1279,19 @@ int qed_mcp_set_link(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt, bool b_up)
- 	phy_cfg.pause |= (params->pause.forced_tx) ? ETH_PAUSE_TX : 0;
- 	phy_cfg.adv_speed = params->speed.advertised_speeds;
- 	phy_cfg.loopback_mode = params->loopback_mode;
-+	if (p_hwfn->mcp_info->capabilities & FW_MB_PARAM_FEATURE_SUPPORT_EEE) {
-+		if (params->eee.enable)
-+			phy_cfg.eee_cfg |= EEE_CFG_EEE_ENABLED;
-+		if (params->eee.tx_lpi_enable)
-+			phy_cfg.eee_cfg |= EEE_CFG_TX_LPI;
-+		if (params->eee.adv_caps & QED_EEE_1G_ADV)
-+			phy_cfg.eee_cfg |= EEE_CFG_ADV_SPEED_1G;
-+		if (params->eee.adv_caps & QED_EEE_10G_ADV)
-+			phy_cfg.eee_cfg |= EEE_CFG_ADV_SPEED_10G;
-+		phy_cfg.eee_cfg |= (params->eee.tx_lpi_timer <<
-+				    EEE_TX_TIMER_USEC_OFFSET) &
-+				   EEE_TX_TIMER_USEC_MASK;
-+	}
- 
- 	p_hwfn->b_drv_link_init = b_up;
- 
-@@ -2822,3 +2863,28 @@ void qed_mcp_resc_lock_default_init(struct qed_resc_lock_params *p_lock,
- 		p_unlock->resource = resource;
- 	}
- }
-+
-+int qed_mcp_get_capabilities(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
-+{
-+	u32 mcp_resp;
-+	int rc;
-+
-+	rc = qed_mcp_cmd(p_hwfn, p_ptt, DRV_MSG_CODE_GET_MFW_FEATURE_SUPPORT,
-+			 0, &mcp_resp, &p_hwfn->mcp_info->capabilities);
-+	if (!rc)
-+		DP_VERBOSE(p_hwfn, (QED_MSG_SP | NETIF_MSG_PROBE),
-+			   "MFW supported features: %08x\n",
-+			   p_hwfn->mcp_info->capabilities);
-+
-+	return rc;
-+}
-+
-+int qed_mcp_set_capabilities(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
-+{
-+	u32 mcp_resp, mcp_param, features;
-+
-+	features = DRV_MB_PARAM_FEATURE_SUPPORT_PORT_EEE;
-+
-+	return qed_mcp_cmd(p_hwfn, p_ptt, DRV_MSG_CODE_FEATURE_SUPPORT,
-+			   features, &mcp_resp, &mcp_param);
-+}
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.h b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
-index af03b36..c7ec239 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_mcp.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
-@@ -53,15 +53,25 @@ struct qed_mcp_link_pause_params {
- 	bool    forced_tx;
- };
- 
-+enum qed_mcp_eee_mode {
-+	QED_MCP_EEE_DISABLED,
-+	QED_MCP_EEE_ENABLED,
-+	QED_MCP_EEE_UNSUPPORTED
-+};
-+
- struct qed_mcp_link_params {
--	struct qed_mcp_link_speed_params	speed;
--	struct qed_mcp_link_pause_params	pause;
--	u32				     loopback_mode;
-+	struct qed_mcp_link_speed_params speed;
-+	struct qed_mcp_link_pause_params pause;
-+	u32 loopback_mode;
-+	struct qed_link_eee_params eee;
- };
- 
- struct qed_mcp_link_capabilities {
- 	u32 speed_capabilities;
- 	bool default_speed_autoneg;
-+	enum qed_mcp_eee_mode default_eee;
-+	u32 eee_lpi_timer;
-+	u8 eee_speed_caps;
- };
- 
- struct qed_mcp_link_state {
-@@ -102,6 +112,9 @@ struct qed_mcp_link_state {
- 	u8      partner_adv_pause;
- 
- 	bool    sfp_tx_fault;
-+	bool    eee_active;
-+	u8      eee_adv_caps;
-+	u8      eee_lp_adv_caps;
- };
- 
- struct qed_mcp_function_info {
-@@ -546,6 +559,9 @@ struct qed_mcp_info {
- 	u8					*mfw_mb_shadow;
- 	u16					mfw_mb_length;
- 	u32					mcp_hist;
-+
-+	/* Capabilties negotiated with the MFW */
-+	u32					capabilities;
- };
- 
- struct qed_mcp_mb_params {
-@@ -925,5 +941,20 @@ void qed_mcp_resc_lock_default_init(struct qed_resc_lock_params *p_lock,
- 				    struct qed_resc_unlock_params *p_unlock,
- 				    enum qed_resc_lock
- 				    resource, bool b_is_permanent);
-+/**
-+ * @brief Learn of supported MFW features; To be done during early init
-+ *
-+ * @param p_hwfn
-+ * @param p_ptt
-+ */
-+int qed_mcp_get_capabilities(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt);
- 
-+/**
-+ * @brief Inform MFW of set of features supported by driver. Should be done
-+ * inside the content of the LOAD_REQ.
-+ *
-+ * @param p_hwfn
-+ * @param p_ptt
-+ */
-+int qed_mcp_set_capabilities(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt);
- #endif
-diff --git a/include/linux/qed/qed_if.h b/include/linux/qed/qed_if.h
-index ef39c7f..9f32762 100644
---- a/include/linux/qed/qed_if.h
-+++ b/include/linux/qed/qed_if.h
-@@ -161,6 +161,18 @@ enum qed_nvm_images {
- 	QED_NVM_IMAGE_FCOE_CFG,
- };
- 
-+struct qed_link_eee_params {
-+	u32 tx_lpi_timer;
-+#define QED_EEE_1G_ADV		BIT(0)
-+#define QED_EEE_10G_ADV		BIT(1)
-+
-+	/* Capabilities are represented using QED_EEE_*_ADV values */
-+	u8 adv_caps;
-+	u8 lp_adv_caps;
-+	bool enable;
-+	bool tx_lpi_enable;
-+};
-+
- enum qed_led_mode {
- 	QED_LED_MODE_OFF,
- 	QED_LED_MODE_ON,
-@@ -408,6 +420,7 @@ struct qed_link_params {
- #define QED_LINK_OVERRIDE_SPEED_FORCED_SPEED    BIT(2)
- #define QED_LINK_OVERRIDE_PAUSE_CONFIG          BIT(3)
- #define QED_LINK_OVERRIDE_LOOPBACK_MODE         BIT(4)
-+#define QED_LINK_OVERRIDE_EEE_CONFIG            BIT(5)
- 	u32	override_flags;
- 	bool	autoneg;
- 	u32	adv_speeds;
-@@ -422,6 +435,7 @@ struct qed_link_params {
- #define QED_LINK_LOOPBACK_EXT                   BIT(3)
- #define QED_LINK_LOOPBACK_MAC                   BIT(4)
- 	u32	loopback_mode;
-+	struct qed_link_eee_params eee;
- };
- 
- struct qed_link_output {
-@@ -437,6 +451,12 @@ struct qed_link_output {
- 	u8	port;                   /* In PORT defs */
- 	bool	autoneg;
- 	u32	pause_config;
-+
-+	/* EEE - capability & param */
-+	bool eee_supported;
-+	bool eee_active;
-+	u8 sup_caps;
-+	struct qed_link_eee_params eee;
- };
- 
- struct qed_probe_params {
+The patches are fully independent and can be cherry-picked separately.
+The big patches, such as conversions for sock structure, need a very detailed
+look from maintainers: refcount managing is quite complex in them and while
+it seems that they would benefit from the change, extra checking is needed.
+The biggest corner issue is the fact that refcount_inc() does not increment
+from zero.
+
+If there are no objections to the patches, please merge them via respective trees.
+
+* The respective change is currently merged into -next as
+  "locking/refcount: Create unchecked atomic_t implementation".
+
+Elena Reshetova (17):
+  net: convert inet_peer.refcnt from atomic_t to refcount_t
+  net: convert neighbour.refcnt from atomic_t to refcount_t
+  net: convert neigh_params.refcnt from atomic_t to refcount_t
+  net: convert nf_bridge_info.use from atomic_t to refcount_t
+  net: convert sk_buff.users from atomic_t to refcount_t
+  net: convert sk_buff_fclones.fclone_ref from atomic_t to refcount_t
+  net: convert sock.sk_wmem_alloc from atomic_t to refcount_t
+  net: convert sock.sk_refcnt from atomic_t to refcount_t
+  net: convert ip_mc_list.refcnt from atomic_t to refcount_t
+  net: convert in_device.refcnt from atomic_t to refcount_t
+  net: convert netpoll_info.refcnt from atomic_t to refcount_t
+  net: convert unix_address.refcnt from atomic_t to refcount_t
+  net: convert fib_rule.refcnt from atomic_t to refcount_t
+  net: convert inet_frag_queue.refcnt from atomic_t to refcount_t
+  net: convert net.passive from atomic_t to refcount_t
+  net: convert netlbl_lsm_cache.refcount from atomic_t to refcount_t
+  net: convert packet_fanout.sk_ref from atomic_t to refcount_t
+
+ crypto/algif_aead.c                  |  2 +-
+ drivers/atm/fore200e.c               | 12 +-----------
+ drivers/atm/he.c                     |  2 +-
+ drivers/atm/idt77252.c               |  4 ++--
+ drivers/infiniband/hw/nes/nes_cm.c   |  4 ++--
+ drivers/isdn/mISDN/socket.c          |  2 +-
+ drivers/net/rionet.c                 |  2 +-
+ drivers/s390/net/ctcm_main.c         | 26 +++++++++++++-------------
+ drivers/s390/net/netiucv.c           | 10 +++++-----
+ drivers/s390/net/qeth_core_main.c    |  4 ++--
+ include/linux/atmdev.h               |  2 +-
+ include/linux/igmp.h                 |  3 ++-
+ include/linux/inetdevice.h           | 11 ++++++-----
+ include/linux/netpoll.h              |  3 ++-
+ include/linux/skbuff.h               | 20 ++++++++++----------
+ include/net/af_unix.h                |  3 ++-
+ include/net/arp.h                    |  2 +-
+ include/net/fib_rules.h              |  7 ++++---
+ include/net/inet_frag.h              |  4 ++--
+ include/net/inet_hashtables.h        |  4 ++--
+ include/net/inetpeer.h               |  4 ++--
+ include/net/ndisc.h                  |  2 +-
+ include/net/neighbour.h              | 15 ++++++++-------
+ include/net/net_namespace.h          |  3 ++-
+ include/net/netfilter/br_netfilter.h |  2 +-
+ include/net/netlabel.h               |  8 ++++----
+ include/net/request_sock.h           |  9 +++++----
+ include/net/sock.h                   | 25 +++++++++++++------------
+ net/atm/br2684.c                     |  2 +-
+ net/atm/clip.c                       |  8 ++++----
+ net/atm/common.c                     | 10 +++++-----
+ net/atm/lec.c                        |  4 ++--
+ net/atm/mpc.c                        |  4 ++--
+ net/atm/pppoatm.c                    |  2 +-
+ net/atm/proc.c                       |  2 +-
+ net/atm/raw.c                        |  2 +-
+ net/atm/signaling.c                  |  2 +-
+ net/bluetooth/af_bluetooth.c         |  2 +-
+ net/bluetooth/rfcomm/sock.c          |  2 +-
+ net/bridge/br_netfilter_hooks.c      |  4 ++--
+ net/caif/caif_socket.c               |  2 +-
+ net/core/datagram.c                  |  6 +++---
+ net/core/dev.c                       | 10 +++++-----
+ net/core/fib_rules.c                 |  4 ++--
+ net/core/neighbour.c                 | 22 +++++++++++-----------
+ net/core/net-sysfs.c                 |  2 +-
+ net/core/net_namespace.c             |  4 ++--
+ net/core/netpoll.c                   | 10 +++++-----
+ net/core/pktgen.c                    | 16 ++++++++--------
+ net/core/rtnetlink.c                 |  2 +-
+ net/core/skbuff.c                    | 26 +++++++++++++-------------
+ net/core/sock.c                      | 32 ++++++++++++++++----------------
+ net/dccp/ipv6.c                      |  2 +-
+ net/decnet/dn_neigh.c                |  2 +-
+ net/ipv4/af_inet.c                   |  2 +-
+ net/ipv4/cipso_ipv4.c                |  4 ++--
+ net/ipv4/devinet.c                   |  2 +-
+ net/ipv4/esp4.c                      |  2 +-
+ net/ipv4/igmp.c                      | 10 +++++-----
+ net/ipv4/inet_connection_sock.c      |  2 +-
+ net/ipv4/inet_fragment.c             | 14 +++++++-------
+ net/ipv4/inet_hashtables.c           |  4 ++--
+ net/ipv4/inet_timewait_sock.c        |  8 ++++----
+ net/ipv4/inetpeer.c                  | 18 +++++++++---------
+ net/ipv4/ip_fragment.c               |  2 +-
+ net/ipv4/ip_output.c                 |  6 +++---
+ net/ipv4/ping.c                      |  4 ++--
+ net/ipv4/raw.c                       |  2 +-
+ net/ipv4/syncookies.c                |  2 +-
+ net/ipv4/tcp.c                       |  4 ++--
+ net/ipv4/tcp_fastopen.c              |  2 +-
+ net/ipv4/tcp_ipv4.c                  |  4 ++--
+ net/ipv4/tcp_offload.c               |  2 +-
+ net/ipv4/tcp_output.c                | 15 +++++++--------
+ net/ipv4/udp.c                       |  6 +++---
+ net/ipv4/udp_diag.c                  |  4 ++--
+ net/ipv6/calipso.c                   |  4 ++--
+ net/ipv6/datagram.c                  |  2 +-
+ net/ipv6/esp6.c                      |  2 +-
+ net/ipv6/inet6_hashtables.c          |  4 ++--
+ net/ipv6/ip6_output.c                |  4 ++--
+ net/ipv6/syncookies.c                |  2 +-
+ net/ipv6/tcp_ipv6.c                  |  6 +++---
+ net/ipv6/udp.c                       |  4 ++--
+ net/kcm/kcmproc.c                    |  2 +-
+ net/key/af_key.c                     |  8 ++++----
+ net/l2tp/l2tp_debugfs.c              |  3 +--
+ net/llc/llc_conn.c                   |  8 ++++----
+ net/llc/llc_sap.c                    |  2 +-
+ net/netfilter/xt_TPROXY.c            |  4 ++--
+ net/netlink/af_netlink.c             | 14 +++++++-------
+ net/packet/af_packet.c               | 14 +++++++-------
+ net/packet/internal.h                |  4 +++-
+ net/phonet/socket.c                  |  4 ++--
+ net/rds/tcp_send.c                   |  2 +-
+ net/rxrpc/af_rxrpc.c                 |  6 +++---
+ net/rxrpc/skbuff.c                   | 12 ++++++------
+ net/sched/em_meta.c                  |  2 +-
+ net/sched/sch_atm.c                  |  2 +-
+ net/sctp/output.c                    |  2 +-
+ net/sctp/outqueue.c                  |  2 +-
+ net/sctp/proc.c                      |  2 +-
+ net/sctp/socket.c                    |  6 +++---
+ net/tipc/socket.c                    |  2 +-
+ net/unix/af_unix.c                   | 16 ++++++++--------
+ 105 files changed, 321 insertions(+), 322 deletions(-)
+
 -- 
-2.7.2
+2.7.4
