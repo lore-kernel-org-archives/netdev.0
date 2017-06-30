@@ -1,78 +1,203 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: [PATCH RFC 02/26] task_work: Replace spin_unlock_wait() with
- lock/unlock pair
-Date: Fri, 30 Jun 2017 17:20:10 +0200
-Message-ID: <20170630152010.GA6935@redhat.com>
-References: <20170629235918.GA6445@linux.vnet.ibm.com>
- <1498780894-8253-2-git-send-email-paulmck@linux.vnet.ibm.com>
- <20170630110445.GA5123@redhat.com>
- <20170630125020.GU2393@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-        netdev@vger.kernel.org, akpm@linux-foundation.org,
-        mingo@redhat.com, dave@stgolabs.net, manfred@colorfullife.com,
-        tj@kernel.org, arnd@arndb.de, linux-arch@vger.kernel.org,
-        will.deacon@arm.com, peterz@infradead.org,
-        stern@rowland.harvard.edu, parri.andrea@gmail.com,
-        torvalds@linux-foundation.org
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170630125020.GU2393@linux.vnet.ibm.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH v2] sctp: Add peeloff-flags socket option
+Date: Fri, 30 Jun 2017 11:35:54 -0400
+Message-ID: <20170630153554.22901-1-nhorman@tuxdriver.com>
+References: <20170629181340.12423-1-nhorman@tuxdriver.com>
+Cc: netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Andreas Steinmetz <ast@domdv.de>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: linux-sctp@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:39436 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751784AbdF3PgM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 11:36:12 -0400
+In-Reply-To: <20170629181340.12423-1-nhorman@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/30, Paul E. McKenney wrote:
->
-> > > +		raw_spin_lock_irq(&task->pi_lock);
-> > > +		raw_spin_unlock_irq(&task->pi_lock);
->
-> I agree that the spin_unlock_wait() implementations would avoid the
-> deadlock with an acquisition from an interrupt handler, while also
-> avoiding the need to momentarily disable interrupts.  The ->pi_lock is
-> a per-task lock, so I am assuming (perhaps naively) that contention is
-> not a problem.  So is the overhead of interrupt disabling likely to be
-> noticeable here?
+Based on a request raised on the sctp devel list, there is a need to
+augment the sctp_peeloff operation while specifying the O_CLOEXEC and
+O_NONBLOCK flags (simmilar to the socket syscall).  Since modifying the
+SCTP_SOCKOPT_PEELOFF socket option would break user space ABI for existing
+programs, this patch creates a new socket option
+SCTP_SOCKOPT_PEELOFF_FLAGS, which accepts a third flags parameter to
+allow atomic assignment of the socket descriptor flags.
 
-I do not think the overhead will be noticeable in this particular case.
+Tested successfully by myself and the requestor
 
-But I am not sure I understand why do we want to unlock_wait. Yes I agree,
-it has some problems, but still...
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: Vlad Yasevich <vyasevich@gmail.com>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Andreas Steinmetz <ast@domdv.de>
+CC: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-The code above looks strange for me. If we are going to repeat this pattern
-the perhaps we should add a helper for lock+unlock and name it unlock_wait2 ;)
+---
+Change notes:
 
-If not, we should probably change this code more:
+v2)
 
---- a/kernel/task_work.c
-+++ b/kernel/task_work.c
-@@ -96,20 +96,16 @@ void task_work_run(void)
- 		 * work->func() can do task_work_add(), do not set
- 		 * work_exited unless the list is empty.
- 		 */
-+		raw_spin_lock_irq(&task->pi_lock);
- 		do {
- 			work = READ_ONCE(task->task_works);
- 			head = !work && (task->flags & PF_EXITING) ?
- 				&work_exited : NULL;
- 		} while (cmpxchg(&task->task_works, work, head) != work);
-+		raw_spin_unlock_irq(&task->pi_lock);
+* Per Marcellos comments, move to use of get_unused_fd_flags() and
+clean up code to independently set CLOEXEC
+
+* clean up a stray tab
+---
+ include/uapi/linux/sctp.h |  6 ++++
+ net/sctp/socket.c         | 84 ++++++++++++++++++++++++++++++++++++++---------
+ 2 files changed, 75 insertions(+), 15 deletions(-)
+
+diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
+index ced9d8b..6217ff8 100644
+--- a/include/uapi/linux/sctp.h
++++ b/include/uapi/linux/sctp.h
+@@ -121,6 +121,7 @@ typedef __s32 sctp_assoc_t;
+ #define SCTP_RESET_STREAMS	119
+ #define SCTP_RESET_ASSOC	120
+ #define SCTP_ADD_STREAMS	121
++#define SCTP_SOCKOPT_PEELOFF_FLAGS 122
  
- 		if (!work)
- 			break;
--		/*
--		 * Synchronize with task_work_cancel(). It can't remove
--		 * the first entry == work, cmpxchg(task_works) should
--		 * fail, but it can play with *work and other entries.
--		 */
--		raw_spin_unlock_wait(&task->pi_lock);
+ /* PR-SCTP policies */
+ #define SCTP_PR_SCTP_NONE	0x0000
+@@ -978,6 +979,11 @@ typedef struct {
+ 	int sd;
+ } sctp_peeloff_arg_t;
  
- 		do {
- 			next = work->next;
-
-performance-wise this is almost the same, and if we do not really care about
-overhead we can simplify the code: this way it is obvious that we can't race
-with task_work_cancel().
-
-Oleg.
++typedef struct {
++	sctp_peeloff_arg_t p_arg;
++	unsigned flags;
++} sctp_peeloff_flags_arg_t;
++
+ /*
+  *  Peer Address Thresholds socket option
+  */
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 7b6e20e..3cc5309 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -4933,11 +4933,46 @@ int sctp_do_peeloff(struct sock *sk, sctp_assoc_t id, struct socket **sockp)
+ }
+ EXPORT_SYMBOL(sctp_do_peeloff);
+ 
++static int sctp_getsockopt_peeloff_common(struct sock *sk, sctp_peeloff_arg_t *peeloff, struct file **newfile, unsigned flags)
++{
++	struct socket *newsock;
++	int retval;
++
++	retval = sctp_do_peeloff(sk, peeloff->associd, &newsock);
++	if (retval < 0)
++		goto out;
++
++	/* Map the socket to an unused fd that can be returned to the user.  */
++	retval = get_unused_fd_flags(flags & SOCK_CLOEXEC);
++	if (retval < 0) {
++		sock_release(newsock);
++		goto out;
++	}
++
++	*newfile = sock_alloc_file(newsock, 0, NULL);
++	if (IS_ERR(*newfile)) {
++		put_unused_fd(retval);
++		sock_release(newsock);
++		retval = PTR_ERR(*newfile);
++		*newfile = NULL;
++		return retval;
++	}
++
++	pr_debug("%s: sk:%p, newsk:%p, sd:%d\n", __func__, sk, newsock->sk,
++		 retval);
++
++	peeloff->sd = retval;
++
++	if (flags & SOCK_NONBLOCK)
++		(*newfile)->f_flags |= O_NONBLOCK;
++out:
++	return retval;
++}
++
+ static int sctp_getsockopt_peeloff(struct sock *sk, int len, char __user *optval, int __user *optlen)
+ {
+ 	sctp_peeloff_arg_t peeloff;
+-	struct socket *newsock;
+-	struct file *newfile;
++	struct file *newfile = NULL;
+ 	int retval = 0;
+ 
+ 	if (len < sizeof(sctp_peeloff_arg_t))
+@@ -4946,26 +4981,42 @@ static int sctp_getsockopt_peeloff(struct sock *sk, int len, char __user *optval
+ 	if (copy_from_user(&peeloff, optval, len))
+ 		return -EFAULT;
+ 
+-	retval = sctp_do_peeloff(sk, peeloff.associd, &newsock);
++	retval = sctp_getsockopt_peeloff_common(sk, &peeloff, &newfile, 0);
+ 	if (retval < 0)
+ 		goto out;
+ 
+-	/* Map the socket to an unused fd that can be returned to the user.  */
+-	retval = get_unused_fd_flags(0);
+-	if (retval < 0) {
+-		sock_release(newsock);
+-		goto out;
++	/* Return the fd mapped to the new socket.  */
++	if (put_user(len, optlen)) {
++		fput(newfile);
++		put_unused_fd(retval);
++		return -EFAULT;
+ 	}
+ 
+-	newfile = sock_alloc_file(newsock, 0, NULL);
+-	if (IS_ERR(newfile)) {
++	if (copy_to_user(optval, &peeloff, len)) {
++		fput(newfile);
+ 		put_unused_fd(retval);
+-		sock_release(newsock);
+-		return PTR_ERR(newfile);
++		return -EFAULT;
+ 	}
++	fd_install(retval, newfile);
++out:
++	return retval;
++}
+ 
+-	pr_debug("%s: sk:%p, newsk:%p, sd:%d\n", __func__, sk, newsock->sk,
+-		 retval);
++static int sctp_getsockopt_peeloff_flags(struct sock *sk, int len, char __user *optval, int __user *optlen)
++{
++	sctp_peeloff_flags_arg_t peeloff;
++	struct file *newfile = NULL;
++	int retval = 0;
++
++	if (len < sizeof(sctp_peeloff_flags_arg_t))
++		return -EINVAL;
++	len = sizeof(sctp_peeloff_flags_arg_t);
++	if (copy_from_user(&peeloff, optval, len))
++		return -EFAULT;
++
++	retval = sctp_getsockopt_peeloff_common(sk, &peeloff.p_arg, &newfile, peeloff.flags);
++	if (retval < 0)
++		goto out;
+ 
+ 	/* Return the fd mapped to the new socket.  */
+ 	if (put_user(len, optlen)) {
+@@ -4973,7 +5024,7 @@ static int sctp_getsockopt_peeloff(struct sock *sk, int len, char __user *optval
+ 		put_unused_fd(retval);
+ 		return -EFAULT;
+ 	}
+-	peeloff.sd = retval;
++
+ 	if (copy_to_user(optval, &peeloff, len)) {
+ 		fput(newfile);
+ 		put_unused_fd(retval);
+@@ -6758,6 +6809,9 @@ static int sctp_getsockopt(struct sock *sk, int level, int optname,
+ 	case SCTP_SOCKOPT_PEELOFF:
+ 		retval = sctp_getsockopt_peeloff(sk, len, optval, optlen);
+ 		break;
++	case SCTP_SOCKOPT_PEELOFF_FLAGS:
++		retval = sctp_getsockopt_peeloff_flags(sk, len, optval, optlen);
++		break;
+ 	case SCTP_PEER_ADDR_PARAMS:
+ 		retval = sctp_getsockopt_peer_addr_params(sk, len, optval,
+ 							  optlen);
+-- 
+2.9.4
