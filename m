@@ -1,70 +1,108 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH RFC 02/26] task_work: Replace spin_unlock_wait() with
- lock/unlock pair
-Date: Fri, 30 Jun 2017 13:04:48 -0700
-Message-ID: <20170630200448.GG2393@linux.vnet.ibm.com>
-References: <20170630192123.GA8471@redhat.com>
- <Pine.LNX.4.44L0.1706301549240.2177-100000@iolanthe.rowland.org>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Lawrence Brakmo <brakmo@fb.com>
+Subject: [PATCH net-next v5 03/16] bpf: Support for per connection  SYN/SYN-ACK RTOs
+Date: Fri, 30 Jun 2017 13:06:53 -0700
+Message-ID: <20170630200706.4183158-4-brakmo@fb.com>
+References: <20170630200706.4183158-1-brakmo@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oleg Nesterov <oleg@redhat.com>, linux-kernel@vger.kernel.org,
-        netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-        akpm@linux-foundation.org, mingo@redhat.com, dave@stgolabs.net,
-        manfred@colorfullife.com, tj@kernel.org, arnd@arndb.de,
-        linux-arch@vger.kernel.org, will.deacon@arm.com,
-        peterz@infradead.org, parri.andrea@gmail.com,
-        torvalds@linux-foundation.org
-To: Alan Stern <stern@rowland.harvard.edu>
-Return-path: <linux-arch-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44L0.1706301549240.2177-100000@iolanthe.rowland.org>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
+        Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Ahern <dsa@cumulusnetworks.com>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:51230 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752687AbdF3UHN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 16:07:13 -0400
+Received: from pps.filterd (m0109331.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5UK31Yf015294
+        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 13:07:12 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 2bdtfqrtg0-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 13:07:12 -0700
+Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
+ mx-out.facebook.com (2401:db00:2050:5102:face:0000:0037:0000) with ESMTP       id
+ b30416d05dcf11e7bf9b1f53bdcd5fbc-78b398f0 for <netdev@vger.kernel.org>;        Fri,
+ 30 Jun 2017 13:07:10 -0700
+In-Reply-To: <20170630200706.4183158-1-brakmo@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 30, 2017 at 03:50:33PM -0400, Alan Stern wrote:
-> On Fri, 30 Jun 2017, Oleg Nesterov wrote:
-> 
-> > On 06/30, Paul E. McKenney wrote:
-> > >
-> > > On Fri, Jun 30, 2017 at 05:20:10PM +0200, Oleg Nesterov wrote:
-> > > >
-> > > > I do not think the overhead will be noticeable in this particular case.
-> > > >
-> > > > But I am not sure I understand why do we want to unlock_wait. Yes I agree,
-> >                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-> > 
-> > if it was not clear, I tried to say "why do we want to _remove_ unlock_wait".
-> > 
-> > > > it has some problems, but still...
-> > > >
-> > > > The code above looks strange for me. If we are going to repeat this pattern
-> > > > the perhaps we should add a helper for lock+unlock and name it unlock_wait2 ;)
-> > > >
-> > > > If not, we should probably change this code more:
-> > >
-> > > This looks -much- better than my patch!  May I have your Signed-off-by?
-> > 
-> > Only if you promise to replace all RCU flavors with a single simple implementation
-> > based on rwlock ;)
-> > 
-> > Seriously, of course I won't argue, and it seems that nobody except me likes
-> > this primitive, but to me spin_unlock_wait() looks like synchronize_rcu(() and
-> > sometimes it makes sense.
-> 
-> If it looks like synchronize_rcu(), why not actually use 
-> synchronize_rcu()?
+This patch adds support for setting a per connection SYN and
+SYN_ACK RTOs from within a BPF_SOCK_OPS program. For example,
+to set small RTOs when it is known both hosts are within a
+datacenter.
 
-My guess is that the latencies of synchronize_rcu() don't suit his needs.
-When the lock is not held, spin_unlock_wait() is quite fast, even
-compared to expedited grace periods.
+Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
+---
+ include/net/tcp.h        | 11 +++++++++++
+ include/uapi/linux/bpf.h |  3 +++
+ net/ipv4/tcp_input.c     |  3 ++-
+ net/ipv4/tcp_output.c    |  2 +-
+ 4 files changed, 17 insertions(+), 2 deletions(-)
 
-							Thanx, Paul
-
-> Alan Stern
-> 
-> > Including this particular case. task_work_run() is going to flush/destroy the
-> > ->task_works list, so it needs to wait until all currently executing "readers"
-> > (task_work_cancel()'s which have started before ->task_works was updated) have
-> > completed.
-> 
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index e585008..564af2d 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -2057,4 +2057,15 @@ static inline int tcp_call_bpf(struct sock *sk, int op)
+ }
+ #endif
+ 
++static inline u32 tcp_timeout_init(struct sock *sk)
++{
++	int timeout;
++
++	timeout = tcp_call_bpf(sk, BPF_SOCK_OPS_TIMEOUT_INIT);
++
++	if (timeout <= 0)
++		timeout = TCP_TIMEOUT_INIT;
++	return timeout;
++}
++
+ #endif	/* _TCP_H */
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 01cd485..00702b2 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -748,6 +748,9 @@ struct bpf_sock_ops {
+  */
+ enum {
+ 	BPF_SOCK_OPS_VOID,
++	BPF_SOCK_OPS_TIMEOUT_INIT,	/* Should return SYN-RTO value to use or
++					 * -1 if default value should be used
++					 */
+ };
+ 
+ #endif /* _UAPI__LINUX_BPF_H__ */
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 2ab7e2f..bcc9665 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -6406,7 +6406,8 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+ 	} else {
+ 		tcp_rsk(req)->tfo_listener = false;
+ 		if (!want_cookie)
+-			inet_csk_reqsk_queue_hash_add(sk, req, TCP_TIMEOUT_INIT);
++			inet_csk_reqsk_queue_hash_add(sk, req,
++				tcp_timeout_init((struct sock *)req));
+ 		af_ops->send_synack(sk, dst, &fl, req, &foc,
+ 				    !want_cookie ? TCP_SYNACK_NORMAL :
+ 						   TCP_SYNACK_COOKIE);
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 9a9c395..d60ae44 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -3327,7 +3327,7 @@ static void tcp_connect_init(struct sock *sk)
+ 	tp->rcv_wup = tp->rcv_nxt;
+ 	tp->copied_seq = tp->rcv_nxt;
+ 
+-	inet_csk(sk)->icsk_rto = TCP_TIMEOUT_INIT;
++	inet_csk(sk)->icsk_rto = tcp_timeout_init(sk);
+ 	inet_csk(sk)->icsk_retransmits = 0;
+ 	tcp_clear_retrans(tp);
+ }
+-- 
+2.9.3
