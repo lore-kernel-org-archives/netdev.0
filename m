@@ -1,60 +1,61 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: [PATCH RFC 02/26] task_work: Replace spin_unlock_wait() with
- lock/unlock pair
-Date: Fri, 30 Jun 2017 21:21:23 +0200
-Message-ID: <20170630192123.GA8471@redhat.com>
-References: <20170629235918.GA6445@linux.vnet.ibm.com>
- <1498780894-8253-2-git-send-email-paulmck@linux.vnet.ibm.com>
- <20170630110445.GA5123@redhat.com>
- <20170630125020.GU2393@linux.vnet.ibm.com>
- <20170630152010.GA6935@redhat.com>
- <20170630161607.GX2393@linux.vnet.ibm.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH] [net-next] net/mlx5: include wq.o in non-ethernet build
+ for FPGA
+Date: Fri, 30 Jun 2017 21:25:13 +0200
+Message-ID: <CAK8P3a1N4=JVJ3vZxBWJRTe-iJz25tmWjigPZ+4=-Aod0dq13Q@mail.gmail.com>
+References: <20170630154412.3575760-1-arnd@arndb.de> <AM4PR0501MB19409232F4E056237F2FAFFFDBD30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-        netdev@vger.kernel.org, akpm@linux-foundation.org,
-        mingo@redhat.com, dave@stgolabs.net, manfred@colorfullife.com,
-        tj@kernel.org, arnd@arndb.de, linux-arch@vger.kernel.org,
-        will.deacon@arm.com, peterz@infradead.org,
-        stern@rowland.harvard.edu, parri.andrea@gmail.com,
-        torvalds@linux-foundation.org
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170630161607.GX2393@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Boris Pismenny <borisp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Hadar Hen Zion <hadarh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Kamal Heib <kamalh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Maor Gottlieb <maorg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Mohamad Haj Yahia <mohamad-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Aviv Heller <avivh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <AM4PR0501MB19409232F4E056237F2FAFFFDBD30-dp/nxUn679gfNUYDR5dMTsDSnupUy6xnnBOFsp37pqbUKgpGm//BTAC/G2K4zDHf@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 06/30, Paul E. McKenney wrote:
+On Fri, Jun 30, 2017 at 8:58 PM, Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
+
+>> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+>> b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+>> index ca367445f864..50fe9e3c5dc2 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+>> +++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+>> @@ -9,7 +9,7 @@ mlx5_core-y :=        main.o cmd.o debugfs.o fw.o eq.o uar.o
+>> pagealloc.o \
+>>  mlx5_core-$(CONFIG_MLX5_ACCEL) += accel/ipsec.o
+>>
+>>  mlx5_core-$(CONFIG_MLX5_FPGA) += fpga/cmd.o fpga/core.o fpga/conn.o
+>> fpga/sdk.o \
+>> -             fpga/ipsec.o
+>> +             fpga/ipsec.o wq.o
 >
-> On Fri, Jun 30, 2017 at 05:20:10PM +0200, Oleg Nesterov wrote:
-> >
-> > I do not think the overhead will be noticeable in this particular case.
-> >
-> > But I am not sure I understand why do we want to unlock_wait. Yes I agree,
-                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> I believe we would prefer to move wq.o to mlx5_core-y.
+> Otherwise you might build it twice.
 
-if it was not clear, I tried to say "why do we want to _remove_ unlock_wait".
+That's not a problem, Kbuild is smart enough to drop duplicate object files
+that get built into the same module.
 
-> > it has some problems, but still...
-> >
-> > The code above looks strange for me. If we are going to repeat this pattern
-> > the perhaps we should add a helper for lock+unlock and name it unlock_wait2 ;)
-> >
-> > If not, we should probably change this code more:
->
-> This looks -much- better than my patch!  May I have your Signed-off-by?
+If you think it's less confusing to readers of this file if it gets
+put into core,
+that's fine though, the only downside would be adding a little bit of
+code bloat for users that want neither the ethernet nor the fpga code
+(if that is a realistic use case).
 
-Only if you promise to replace all RCU flavors with a single simple implementation
-based on rwlock ;)
-
-Seriously, of course I won't argue, and it seems that nobody except me likes
-this primitive, but to me spin_unlock_wait() looks like synchronize_rcu(() and
-sometimes it makes sense.
-
-Including this particular case. task_work_run() is going to flush/destroy the
-->task_works list, so it needs to wait until all currently executing "readers"
-(task_work_cancel()'s which have started before ->task_works was updated) have
-completed.
-
-Oleg.
+        Arnd
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
