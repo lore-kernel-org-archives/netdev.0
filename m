@@ -1,103 +1,71 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH RFC 08/26] locking: Remove spin_unlock_wait() generic
- definitions
-Date: Fri, 30 Jun 2017 05:38:15 -0700
-Message-ID: <20170630123815.GT2393@linux.vnet.ibm.com>
+Subject: Re: [PATCH RFC 02/26] task_work: Replace spin_unlock_wait() with
+ lock/unlock pair
+Date: Fri, 30 Jun 2017 05:50:20 -0700
+Message-ID: <20170630125020.GU2393@linux.vnet.ibm.com>
 References: <20170629235918.GA6445@linux.vnet.ibm.com>
- <1498780894-8253-8-git-send-email-paulmck@linux.vnet.ibm.com>
- <20170630091928.GC9726@arm.com>
+ <1498780894-8253-2-git-send-email-paulmck@linux.vnet.ibm.com>
+ <20170630110445.GA5123@redhat.com>
 Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-        netdev@vger.kernel.org, oleg@redhat.com, akpm@linux-foundation.org,
+        netdev@vger.kernel.org, akpm@linux-foundation.org,
         mingo@redhat.com, dave@stgolabs.net, manfred@colorfullife.com,
         tj@kernel.org, arnd@arndb.de, linux-arch@vger.kernel.org,
-        peterz@infradead.org, stern@rowland.harvard.edu,
-        parri.andrea@gmail.com, torvalds@linux-foundation.org
-To: Will Deacon <will.deacon@arm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+        will.deacon@arm.com, peterz@infradead.org,
+        stern@rowland.harvard.edu, parri.andrea@gmail.com,
+        torvalds@linux-foundation.org
+To: Oleg Nesterov <oleg@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:55878 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751545AbdF3Mu1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 08:50:27 -0400
+Received: from pps.filterd (m0098421.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v5UCnmkC089002
+        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 08:50:27 -0400
+Received: from e15.ny.us.ibm.com (e15.ny.us.ibm.com [129.33.205.205])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2bd6te4nd4-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 08:50:27 -0400
+Received: from localhost
+        by e15.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
+        Fri, 30 Jun 2017 08:50:26 -0400
 Content-Disposition: inline
-In-Reply-To: <20170630091928.GC9726@arm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170630110445.GA5123@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 30, 2017 at 10:19:29AM +0100, Will Deacon wrote:
-> On Thu, Jun 29, 2017 at 05:01:16PM -0700, Paul E. McKenney wrote:
-> > There is no agreed-upon definition of spin_unlock_wait()'s semantics,
-> > and it appears that all callers could do just as well with a lock/unlock
-> > pair.  This commit therefore removes spin_unlock_wait() and related
-> > definitions from core code.
-> > 
-> > Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> > Cc: Arnd Bergmann <arnd@arndb.de>
-> > Cc: Ingo Molnar <mingo@redhat.com>
-> > Cc: Will Deacon <will.deacon@arm.com>
-> > Cc: Peter Zijlstra <peterz@infradead.org>
-> > Cc: Alan Stern <stern@rowland.harvard.edu>
-> > Cc: Andrea Parri <parri.andrea@gmail.com>
-> > Cc: Linus Torvalds <torvalds@linux-foundation.org>
-> > ---
-> >  include/asm-generic/qspinlock.h |  14 -----
-> >  include/linux/spinlock.h        |  31 -----------
-> >  include/linux/spinlock_up.h     |   6 ---
-> >  kernel/locking/qspinlock.c      | 117 ----------------------------------------
-> >  4 files changed, 168 deletions(-)
+On Fri, Jun 30, 2017 at 01:04:45PM +0200, Oleg Nesterov wrote:
+> On 06/29, Paul E. McKenney wrote:
+> >
+> > --- a/kernel/task_work.c
+> > +++ b/kernel/task_work.c
+> > @@ -109,7 +109,8 @@ void task_work_run(void)
+> >  		 * the first entry == work, cmpxchg(task_works) should
+> >  		 * fail, but it can play with *work and other entries.
+> >  		 */
+> > -		raw_spin_unlock_wait(&task->pi_lock);
+> > +		raw_spin_lock(&task->pi_lock);
+> > +		raw_spin_unlock(&task->pi_lock);
 > 
-> [...]
-> 
-> > diff --git a/kernel/locking/qspinlock.c b/kernel/locking/qspinlock.c
-> > index b2caec7315af..64a9051e4c2c 100644
-> > --- a/kernel/locking/qspinlock.c
-> > +++ b/kernel/locking/qspinlock.c
-> > @@ -267,123 +267,6 @@ static __always_inline u32  __pv_wait_head_or_lock(struct qspinlock *lock,
-> >  #define queued_spin_lock_slowpath	native_queued_spin_lock_slowpath
-> >  #endif
-> >  
-> > -/*
-> > - * Various notes on spin_is_locked() and spin_unlock_wait(), which are
-> > - * 'interesting' functions:
-> > - *
-> > - * PROBLEM: some architectures have an interesting issue with atomic ACQUIRE
-> > - * operations in that the ACQUIRE applies to the LOAD _not_ the STORE (ARM64,
-> > - * PPC). Also qspinlock has a similar issue per construction, the setting of
-> > - * the locked byte can be unordered acquiring the lock proper.
-> > - *
-> > - * This gets to be 'interesting' in the following cases, where the /should/s
-> > - * end up false because of this issue.
-> > - *
-> > - *
-> > - * CASE 1:
-> > - *
-> > - * So the spin_is_locked() correctness issue comes from something like:
-> > - *
-> > - *   CPU0				CPU1
-> > - *
-> > - *   global_lock();			local_lock(i)
-> > - *     spin_lock(&G)			  spin_lock(&L[i])
-> > - *     for (i)				  if (!spin_is_locked(&G)) {
-> > - *       spin_unlock_wait(&L[i]);	    smp_acquire__after_ctrl_dep();
-> > - *					    return;
-> > - *					  }
-> > - *					  // deal with fail
-> > - *
-> > - * Where it is important CPU1 sees G locked or CPU0 sees L[i] locked such
-> > - * that there is exclusion between the two critical sections.
-> > - *
-> > - * The load from spin_is_locked(&G) /should/ be constrained by the ACQUIRE from
-> > - * spin_lock(&L[i]), and similarly the load(s) from spin_unlock_wait(&L[i])
-> > - * /should/ be constrained by the ACQUIRE from spin_lock(&G).
-> > - *
-> > - * Similarly, later stuff is constrained by the ACQUIRE from CTRL+RMB.
-> 
-> Might be worth keeping this comment about spin_is_locked, since we're not
-> removing that guy just yet!
+> Well, bit the you need spin_lock_irq(). And this is one of the reasons
+> why I personally think unlock_wait have some sense...
 
-Ah, all the examples had spin_unlock_wait() in them.  So what I need to
-do is to create a spin_unlock_wait()-free example to illustrate the
-text starting with "The load from spin_is_locked(", correct?
+Good catch, and I clearly need to double-check the other commits for
+any need to disable interrupts.  Anyway, like this, with the addition
+of a flags variable, correct?
 
-I also need to check all uses of spin_is_locked().  There might no
-longer be any that rely on any particular ordering...
+> > +		raw_spin_lock_irq(&task->pi_lock);
+> > +		raw_spin_unlock_irq(&task->pi_lock);
 
-								Thanx, Paul
+I agree that the spin_unlock_wait() implementations would avoid the
+deadlock with an acquisition from an interrupt handler, while also
+avoiding the need to momentarily disable interrupts.  The ->pi_lock is
+a per-task lock, so I am assuming (perhaps naively) that contention is
+not a problem.  So is the overhead of interrupt disabling likely to be
+noticeable here?
+
+							Thanx, Paul
