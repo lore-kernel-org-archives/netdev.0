@@ -1,203 +1,53 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH v2] sctp: Add peeloff-flags socket option
-Date: Fri, 30 Jun 2017 11:35:54 -0400
-Message-ID: <20170630153554.22901-1-nhorman@tuxdriver.com>
-References: <20170629181340.12423-1-nhorman@tuxdriver.com>
-Cc: netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] [net-next] net/mlx5: include wq.o in non-ethernet build for FPGA
+Date: Fri, 30 Jun 2017 17:43:52 +0200
+Message-ID: <20170630154412.3575760-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>, Ilan Tayari <ilant@mellanox.com>,
         "David S. Miller" <davem@davemloft.net>,
-        Andreas Steinmetz <ast@domdv.de>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: linux-sctp@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:39436 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751784AbdF3PgM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 11:36:12 -0400
-In-Reply-To: <20170629181340.12423-1-nhorman@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Boris Pismenny <borisp@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Kamal Heib <kamalh@mellanox.com>,
+        Maor Gottlieb <maorg@mellanox.com>,
+        Mohamad Haj Yahia <mohamad@mellanox.com>,
+        Aviv Heller <avivh@mellanox.com>, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leonro@mellanox.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Based on a request raised on the sctp devel list, there is a need to
-augment the sctp_peeloff operation while specifying the O_CLOEXEC and
-O_NONBLOCK flags (simmilar to the socket syscall).  Since modifying the
-SCTP_SOCKOPT_PEELOFF socket option would break user space ABI for existing
-programs, this patch creates a new socket option
-SCTP_SOCKOPT_PEELOFF_FLAGS, which accepts a third flags parameter to
-allow atomic assignment of the socket descriptor flags.
+Both the ethernet and FPGA portions of MLX5 now require the wq functions,
+and we get a link error when CONFIG_MLX5_CORE_EN is disabled:
 
-Tested successfully by myself and the requestor
+drivers/net/ethernet/mellanox/mlx5/core/fpga/conn.o: In function `mlx5_fpga_conn_create_cq':
+conn.c:(.text+0x10b3): undefined reference to `mlx5_cqwq_create'
+conn.c:(.text+0x10c6): undefined reference to `mlx5_cqwq_get_size'
+conn.c:(.text+0x12bc): undefined reference to `mlx5_cqwq_destroy'
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: Vlad Yasevich <vyasevich@gmail.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Andreas Steinmetz <ast@domdv.de>
-CC: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+This includes the library in the core driver also when only the fpga
+support is enabled.
 
+Fixes: 537a50574175 ("net/mlx5: FPGA, Add high-speed connection routines")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
-Change notes:
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-v2)
-
-* Per Marcellos comments, move to use of get_unused_fd_flags() and
-clean up code to independently set CLOEXEC
-
-* clean up a stray tab
----
- include/uapi/linux/sctp.h |  6 ++++
- net/sctp/socket.c         | 84 ++++++++++++++++++++++++++++++++++++++---------
- 2 files changed, 75 insertions(+), 15 deletions(-)
-
-diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
-index ced9d8b..6217ff8 100644
---- a/include/uapi/linux/sctp.h
-+++ b/include/uapi/linux/sctp.h
-@@ -121,6 +121,7 @@ typedef __s32 sctp_assoc_t;
- #define SCTP_RESET_STREAMS	119
- #define SCTP_RESET_ASSOC	120
- #define SCTP_ADD_STREAMS	121
-+#define SCTP_SOCKOPT_PEELOFF_FLAGS 122
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+index ca367445f864..50fe9e3c5dc2 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+@@ -9,7 +9,7 @@ mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
+ mlx5_core-$(CONFIG_MLX5_ACCEL) += accel/ipsec.o
  
- /* PR-SCTP policies */
- #define SCTP_PR_SCTP_NONE	0x0000
-@@ -978,6 +979,11 @@ typedef struct {
- 	int sd;
- } sctp_peeloff_arg_t;
+ mlx5_core-$(CONFIG_MLX5_FPGA) += fpga/cmd.o fpga/core.o fpga/conn.o fpga/sdk.o \
+-		fpga/ipsec.o
++		fpga/ipsec.o wq.o
  
-+typedef struct {
-+	sctp_peeloff_arg_t p_arg;
-+	unsigned flags;
-+} sctp_peeloff_flags_arg_t;
-+
- /*
-  *  Peer Address Thresholds socket option
-  */
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 7b6e20e..3cc5309 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -4933,11 +4933,46 @@ int sctp_do_peeloff(struct sock *sk, sctp_assoc_t id, struct socket **sockp)
- }
- EXPORT_SYMBOL(sctp_do_peeloff);
- 
-+static int sctp_getsockopt_peeloff_common(struct sock *sk, sctp_peeloff_arg_t *peeloff, struct file **newfile, unsigned flags)
-+{
-+	struct socket *newsock;
-+	int retval;
-+
-+	retval = sctp_do_peeloff(sk, peeloff->associd, &newsock);
-+	if (retval < 0)
-+		goto out;
-+
-+	/* Map the socket to an unused fd that can be returned to the user.  */
-+	retval = get_unused_fd_flags(flags & SOCK_CLOEXEC);
-+	if (retval < 0) {
-+		sock_release(newsock);
-+		goto out;
-+	}
-+
-+	*newfile = sock_alloc_file(newsock, 0, NULL);
-+	if (IS_ERR(*newfile)) {
-+		put_unused_fd(retval);
-+		sock_release(newsock);
-+		retval = PTR_ERR(*newfile);
-+		*newfile = NULL;
-+		return retval;
-+	}
-+
-+	pr_debug("%s: sk:%p, newsk:%p, sd:%d\n", __func__, sk, newsock->sk,
-+		 retval);
-+
-+	peeloff->sd = retval;
-+
-+	if (flags & SOCK_NONBLOCK)
-+		(*newfile)->f_flags |= O_NONBLOCK;
-+out:
-+	return retval;
-+}
-+
- static int sctp_getsockopt_peeloff(struct sock *sk, int len, char __user *optval, int __user *optlen)
- {
- 	sctp_peeloff_arg_t peeloff;
--	struct socket *newsock;
--	struct file *newfile;
-+	struct file *newfile = NULL;
- 	int retval = 0;
- 
- 	if (len < sizeof(sctp_peeloff_arg_t))
-@@ -4946,26 +4981,42 @@ static int sctp_getsockopt_peeloff(struct sock *sk, int len, char __user *optval
- 	if (copy_from_user(&peeloff, optval, len))
- 		return -EFAULT;
- 
--	retval = sctp_do_peeloff(sk, peeloff.associd, &newsock);
-+	retval = sctp_getsockopt_peeloff_common(sk, &peeloff, &newfile, 0);
- 	if (retval < 0)
- 		goto out;
- 
--	/* Map the socket to an unused fd that can be returned to the user.  */
--	retval = get_unused_fd_flags(0);
--	if (retval < 0) {
--		sock_release(newsock);
--		goto out;
-+	/* Return the fd mapped to the new socket.  */
-+	if (put_user(len, optlen)) {
-+		fput(newfile);
-+		put_unused_fd(retval);
-+		return -EFAULT;
- 	}
- 
--	newfile = sock_alloc_file(newsock, 0, NULL);
--	if (IS_ERR(newfile)) {
-+	if (copy_to_user(optval, &peeloff, len)) {
-+		fput(newfile);
- 		put_unused_fd(retval);
--		sock_release(newsock);
--		return PTR_ERR(newfile);
-+		return -EFAULT;
- 	}
-+	fd_install(retval, newfile);
-+out:
-+	return retval;
-+}
- 
--	pr_debug("%s: sk:%p, newsk:%p, sd:%d\n", __func__, sk, newsock->sk,
--		 retval);
-+static int sctp_getsockopt_peeloff_flags(struct sock *sk, int len, char __user *optval, int __user *optlen)
-+{
-+	sctp_peeloff_flags_arg_t peeloff;
-+	struct file *newfile = NULL;
-+	int retval = 0;
-+
-+	if (len < sizeof(sctp_peeloff_flags_arg_t))
-+		return -EINVAL;
-+	len = sizeof(sctp_peeloff_flags_arg_t);
-+	if (copy_from_user(&peeloff, optval, len))
-+		return -EFAULT;
-+
-+	retval = sctp_getsockopt_peeloff_common(sk, &peeloff.p_arg, &newfile, peeloff.flags);
-+	if (retval < 0)
-+		goto out;
- 
- 	/* Return the fd mapped to the new socket.  */
- 	if (put_user(len, optlen)) {
-@@ -4973,7 +5024,7 @@ static int sctp_getsockopt_peeloff(struct sock *sk, int len, char __user *optval
- 		put_unused_fd(retval);
- 		return -EFAULT;
- 	}
--	peeloff.sd = retval;
-+
- 	if (copy_to_user(optval, &peeloff, len)) {
- 		fput(newfile);
- 		put_unused_fd(retval);
-@@ -6758,6 +6809,9 @@ static int sctp_getsockopt(struct sock *sk, int level, int optname,
- 	case SCTP_SOCKOPT_PEELOFF:
- 		retval = sctp_getsockopt_peeloff(sk, len, optval, optlen);
- 		break;
-+	case SCTP_SOCKOPT_PEELOFF_FLAGS:
-+		retval = sctp_getsockopt_peeloff_flags(sk, len, optval, optlen);
-+		break;
- 	case SCTP_PEER_ADDR_PARAMS:
- 		retval = sctp_getsockopt_peer_addr_params(sk, len, optval,
- 							  optlen);
+ mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o eswitch_offloads.o \
+ 		en_main.o en_common.o en_fs.o en_ethtool.o en_tx.o \
 -- 
-2.9.4
+2.9.0
