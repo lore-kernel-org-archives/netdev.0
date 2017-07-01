@@ -1,111 +1,75 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next v5 07/16] bpf: Add setsockopt helper function
- to bpf
-Date: Sat, 01 Jul 2017 02:01:25 +0200
-Message-ID: <5956E655.20105@iogearbox.net>
-References: <20170630200706.4183158-1-brakmo@fb.com> <20170630200706.4183158-8-brakmo@fb.com>
+From: Mikulas Patocka <mpatocka@redhat.com>
+Subject: Re: [PATCH] vmalloc: respect the GFP_NOIO and GFP_NOFS flags
+Date: Fri, 30 Jun 2017 20:36:12 -0400 (EDT)
+Message-ID: <alpine.LRH.2.02.1706302033230.13879@file01.intranet.prod.int.rdu2.redhat.com>
+References: <alpine.LRH.2.02.1706292221250.21823@file01.intranet.prod.int.rdu2.redhat.com> <20170630081245.GA22917@dhcp22.suse.cz> <alpine.LRH.2.02.1706301410160.8272@file01.intranet.prod.int.rdu2.redhat.com> <20170630204059.GA17255@dhcp22.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
-        Alexei Starovoitov <ast@fb.com>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: Lawrence Brakmo <brakmo@fb.com>, netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:60758 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751581AbdGAAB1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 20:01:27 -0400
-In-Reply-To: <20170630200706.4183158-8-brakmo@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Stephen Rothwell <sfr@canb.auug.org.au>,
+        Vlastimil Babka <vbabka@suse.cz>,
+        Andreas Dilger <adilger@dilger.ca>,
+        John Hubbard <jhubbard@nvidia.com>,
+        David Miller <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+        netdev@vger.kernel.org
+To: Michal Hocko <mhocko@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170630204059.GA17255@dhcp22.suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/30/2017 10:06 PM, Lawrence Brakmo wrote:
-[...]
-> @@ -2672,6 +2673,69 @@ static const struct bpf_func_proto bpf_get_socket_uid_proto = {
->   	.arg1_type      = ARG_PTR_TO_CTX,
->   };
->
-> +BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
-> +	   int, level, int, optname, char *, optval, int, optlen)
-> +{
-> +	struct sock *sk = bpf_sock->sk;
-> +	int ret = 0;
-> +	int val;
-> +
-> +	if (!sk_fullsock(sk))
-> +		return -EINVAL;
-> +
-> +	if (level == SOL_SOCKET) {
-> +		/* Only some socketops are supported */
-> +		val = *((int *)optval);
-> +
-> +		switch (optname) {
-> +		case SO_RCVBUF:
-> +			sk->sk_userlocks |= SOCK_RCVBUF_LOCK;
-> +			sk->sk_rcvbuf = max_t(int, val * 2, SOCK_MIN_RCVBUF);
-> +			break;
-> +		case SO_SNDBUF:
-> +			sk->sk_userlocks |= SOCK_SNDBUF_LOCK;
-> +			sk->sk_sndbuf = max_t(int, val * 2, SOCK_MIN_SNDBUF);
-> +			break;
-> +		case SO_MAX_PACING_RATE:
-> +			sk->sk_max_pacing_rate = val;
-> +			sk->sk_pacing_rate = min(sk->sk_pacing_rate,
-> +						 sk->sk_max_pacing_rate);
-> +			break;
-> +		case SO_PRIORITY:
-> +			sk->sk_priority = val;
-> +			break;
-> +		case SO_RCVLOWAT:
-> +			if (val < 0)
-> +				val = INT_MAX;
-> +			sk->sk_rcvlowat = val ? : 1;
-> +			break;
-> +		case SO_MARK:
-> +			sk->sk_mark = val;
-> +			break;
-> +		default:
-> +			ret = -EINVAL;
-> +		}
-> +	} else if (level == SOL_TCP &&
-> +		   sk->sk_prot->setsockopt == tcp_setsockopt) {
-> +		/* Place holder */
-> +		ret = -EINVAL;
-> +	} else {
-> +		ret = -EINVAL;
-> +	}
-> +	return ret;
-> +}
-> +
-> +static const struct bpf_func_proto bpf_setsockopt_proto = {
-> +	.func		= bpf_setsockopt,
-> +	.gpl_only	= true,
-> +	.ret_type	= RET_INTEGER,
-> +	.arg1_type	= ARG_PTR_TO_CTX,
-> +	.arg2_type	= ARG_ANYTHING,
-> +	.arg3_type	= ARG_ANYTHING,
-> +	.arg4_type	= ARG_PTR_TO_MEM,
-> +	.arg5_type	= ARG_CONST_SIZE_OR_ZERO,
 
-Hm, I had some feedback on this in your last revision of the patch
-set [1] that a NULL pointer dereference can be triggered here. Probably
-oversaw it; I mentioned wrt the above:
 
-   Any reason you went with the ARG_CONST_SIZE_OR_ZERO type? Semantics
-   of this are that allowed [arg4, arg5] pair can be i) [NULL, 0] or
-   ii) [non-NULL, non-zero], where in case ii) verifier checks that the
-   area is initialized when coming from BPF stack.
+On Fri, 30 Jun 2017, Michal Hocko wrote:
 
-   So above 'val = *((int *)optval);' would give a NULL pointer deref
-   with NULL passed as arg or in case optlen was < sizeof(int) we access
-   stack out of bounds potentially. If the [NULL, 0] pair is not required,
-   I would just make that a ARG_CONST_SIZE and then check for size before
-   accessing optval.
+> On Fri 30-06-17 14:11:57, Mikulas Patocka wrote:
+> > 
+> > 
+> > On Fri, 30 Jun 2017, Michal Hocko wrote:
+> > 
+> > > On Thu 29-06-17 22:25:09, Mikulas Patocka wrote:
+> > > > The __vmalloc function has a parameter gfp_mask with the allocation flags,
+> > > > however it doesn't fully respect the GFP_NOIO and GFP_NOFS flags. The
+> > > > pages are allocated with the specified gfp flags, but the pagetables are
+> > > > always allocated with GFP_KERNEL. This allocation can cause unexpected
+> > > > recursion into the filesystem or I/O subsystem.
+> > > > 
+> > > > It is not practical to extend page table allocation routines with gfp
+> > > > flags because it would require modification of architecture-specific code
+> > > > in all architecturs. However, the process can temporarily request that all
+> > > > allocations are done with GFP_NOFS or GFP_NOIO with with the functions
+> > > > memalloc_nofs_save and memalloc_noio_save.
+> > > > 
+> > > > This patch makes the vmalloc code use memalloc_nofs_save or
+> > > > memalloc_noio_save if the supplied gfp flags do not contain __GFP_FS or
+> > > > __GFP_IO. It fixes some possible deadlocks in drivers/mtd/ubi/io.c,
+> > > > fs/gfs2/, fs/btrfs/free-space-tree.c, fs/ubifs/,
+> > > > fs/nfs/blocklayout/extent_tree.c where __vmalloc is used with the GFP_NOFS
+> > > > flag.
+> > > 
+> > > I strongly believe this is a step in the _wrong_ direction. Why? Because
+> > 
+> > What do you think __vmalloc with GFP_NOIO should do? Print a warning? 
+> > Silently ignore the GFP_NOIO flag?
+> 
+> I think noio users are not that much different from nofs users. Simply
+> use the scope API at the place where the scope starts and document why
+> it is needed. vmalloc calls do not have to be any special then and they
+> do not even have to think about proper gfp flags and they can use
+> whatever is the default.
+> -- 
+> Michal Hocko
+> SUSE Labs
 
-Would be good if you could still address it in a most likely final respin.
+But you didn't answer the question - what should __vmalloc with GFP_NOIO 
+(or GFP_NOFS) do? Silently drop the flag? Print a warning? Or respect the 
+flag?
 
-Thanks,
-Daniel
+Currently, it silently drops the GFP_NOIO or GFP_NOFS flag, but some 
+programmers don't know it and use these flags. You can't blame those 
+programmers for not knowing it.
 
-   [1] http://patchwork.ozlabs.org/patch/781800/
+Mikulas
