@@ -1,7 +1,7 @@
 From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next v6 07/16] bpf: Add setsockopt helper function to bpf
-Date: Fri, 30 Jun 2017 20:02:46 -0700
-Message-ID: <20170701030255.1931076-8-brakmo@fb.com>
+Subject: [PATCH net-next v6 01/16] bpf: BPF support for sock_ops
+Date: Fri, 30 Jun 2017 20:02:40 -0700
+Message-ID: <20170701030255.1931076-2-brakmo@fb.com>
 References: <20170701030255.1931076-1-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,201 +11,626 @@ Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:33603 "EHLO
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:33607 "EHLO
         mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751796AbdGADDC (ORCPT
+        by vger.kernel.org with ESMTP id S1752055AbdGADDC (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 23:03:02 -0400
 Received: from pps.filterd (m0109331.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v6132s8I027875
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v6132xPO027888
         for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 20:03:01 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2be2p2r44s-2
+        by mx0a-00082601.pphosted.com with ESMTP id 2be2p2r44u-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
         for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 20:03:01 -0700
 Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
- mx-out.facebook.com (2401:db00:2050:5102:face:0000:0037:0000) with ESMTP       id
- c9c9e09a5e0911e787371f53bdcd5fbc-7bb3f8f0 for <netdev@vger.kernel.org>;        Fri,
- 30 Jun 2017 20:02:59 -0700
+ mx-out.facebook.com (2401:db00:2050:5102:face:0000:003b:0000) with ESMTP       id
+ c943fbe25e0911e7b93109cabd64a484-99d328f0 for <netdev@vger.kernel.org>;        Fri,
+ 30 Jun 2017 20:02:58 -0700
 In-Reply-To: <20170701030255.1931076-1-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added support for calling a subset of socket setsockopts from
-BPF_PROG_TYPE_SOCK_OPS programs. The code was duplicated rather
-than making the changes to call the socket setsockopt function because
-the changes required would have been larger.
+Created a new BPF program type, BPF_PROG_TYPE_SOCK_OPS, and a corresponding
+struct that allows BPF programs of this type to access some of the
+socket's fields (such as IP addresses, ports, etc.). It uses the
+existing bpf cgroups infrastructure so the programs can be attached per
+cgroup with full inheritance support. The program will be called at
+appropriate times to set relevant connections parameters such as buffer
+sizes, SYN and SYN-ACK RTOs, etc., based on connection information such
+as IP addresses, port numbers, etc.
 
-The ops supported are:
-  SO_RCVBUF
-  SO_SNDBUF
-  SO_MAX_PACING_RATE
-  SO_PRIORITY
-  SO_RCVLOWAT
-  SO_MARK
+Alghough there are already 3 mechanisms to set parameters (sysctls,
+route metrics and setsockopts), this new mechanism provides some
+distinct advantages. Unlike sysctls, it can set parameters per
+connection. In contrast to route metrics, it can also use port numbers
+and information provided by a user level program. In addition, it could
+set parameters probabilistically for evaluation purposes (i.e. do
+something different on 10% of the flows and compare results with the
+other 90% of the flows). Also, in cases where IPv6 addresses contain
+geographic information, the rules to make changes based on the distance
+(or RTT) between the hosts are much easier than route metric rules and
+can be global. Finally, unlike setsockopt, it oes not require
+application changes and it can be updated easily at any time.
+
+Although the bpf cgroup framework already contains a sock related
+program type (BPF_PROG_TYPE_CGROUP_SOCK), I created the new type
+(BPF_PROG_TYPE_SOCK_OPS) beccause the existing type expects to be called
+only once during the connections's lifetime. In contrast, the new
+program type will be called multiple times from different places in the
+network stack code.  For example, before sending SYN and SYN-ACKs to set
+an appropriate timeout, when the connection is established to set
+congestion control, etc. As a result it has "op" field to specify the
+type of operation requested.
+
+The purpose of this new program type is to simplify setting connection
+parameters, such as buffer sizes, TCP's SYN RTO, etc. For example, it is
+easy to use facebook's internal IPv6 addresses to determine if both hosts
+of a connection are in the same datacenter. Therefore, it is easy to
+write a BPF program to choose a small SYN RTO value when both hosts are
+in the same datacenter.
+
+This patch only contains the framework to support the new BPF program
+type, following patches add the functionality to set various connection
+parameters.
+
+This patch defines a new BPF program type: BPF_PROG_TYPE_SOCKET_OPS
+and a new bpf syscall command to load a new program of this type:
+BPF_PROG_LOAD_SOCKET_OPS.
+
+Two new corresponding structs (one for the kernel one for the user/BPF
+program):
+
+/* kernel version */
+struct bpf_sock_ops_kern {
+        struct sock *sk;
+        __u32  op;
+        union {
+                __u32 reply;
+                __u32 replylong[4];
+        };
+};
+
+/* user version
+ * Some fields are in network byte order reflecting the sock struct
+ * Use the bpf_ntohl helper macro in samples/bpf/bpf_endian.h to
+ * convert them to host byte order.
+ */
+struct bpf_sock_ops {
+        __u32 op;
+        union {
+                __u32 reply;
+                __u32 replylong[4];
+        };
+        __u32 family;
+        __u32 remote_ip4;     /* In network byte order */
+        __u32 local_ip4;      /* In network byte order */
+        __u32 remote_ip6[4];  /* In network byte order */
+        __u32 local_ip6[4];   /* In network byte order */
+        __u32 remote_port;    /* In network byte order */
+        __u32 local_port;     /* In host byte horder */
+};
+
+Currently there are two types of ops. The first type expects the BPF
+program to return a value which is then used by the caller (or a
+negative value to indicate the operation is not supported). The second
+type expects state changes to be done by the BPF program, for example
+through a setsockopt BPF helper function, and they ignore the return
+value.
+
+The reply fields of the bpf_sockt_ops struct are there in case a bpf
+program needs to return a value larger than an integer.
 
 Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- include/uapi/linux/bpf.h  | 14 ++++++++-
- net/core/filter.c         | 79 ++++++++++++++++++++++++++++++++++++++++++++++-
- samples/bpf/bpf_helpers.h |  3 ++
- 3 files changed, 94 insertions(+), 2 deletions(-)
+ include/linux/bpf-cgroup.h |  18 +++++
+ include/linux/bpf_types.h  |   1 +
+ include/linux/filter.h     |   9 +++
+ include/net/tcp.h          |  36 ++++++++++
+ include/uapi/linux/bpf.h   |  30 ++++++++
+ kernel/bpf/cgroup.c        |  37 ++++++++++
+ kernel/bpf/syscall.c       |   5 ++
+ net/core/filter.c          | 168 +++++++++++++++++++++++++++++++++++++++++++++
+ samples/bpf/bpf_load.c     |  13 +++-
+ 9 files changed, 314 insertions(+), 3 deletions(-)
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 94d7ded..dd43b22 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -520,6 +520,17 @@ union bpf_attr {
-  *     Set full skb->hash.
-  *     @skb: pointer to skb
-  *     @hash: hash to set
-+ *
-+ * int bpf_setsockopt(bpf_socket, level, optname, optval, optlen)
-+ *     Calls setsockopt. Not all opts are available, only those with
-+ *     integer optvals plus TCP_CONGESTION.
-+ *     Supported levels: SOL_SOCKET and IPROTO_TCP
-+ *     @bpf_socket: pointer to bpf_socket
-+ *     @level: SOL_SOCKET or IPROTO_TCP
-+ *     @optname: option name
-+ *     @optval: pointer to option value
-+ *     @optlen: length of optval in byes
-+ *     Return: 0 or negative error
-  */
- #define __BPF_FUNC_MAPPER(FN)		\
- 	FN(unspec),			\
-@@ -570,7 +581,8 @@ union bpf_attr {
- 	FN(probe_read_str),		\
- 	FN(get_socket_cookie),		\
- 	FN(get_socket_uid),		\
--	FN(set_hash),
-+	FN(set_hash),			\
-+	FN(setsockopt),
+diff --git a/include/linux/bpf-cgroup.h b/include/linux/bpf-cgroup.h
+index c970a25..360c082 100644
+--- a/include/linux/bpf-cgroup.h
++++ b/include/linux/bpf-cgroup.h
+@@ -7,6 +7,7 @@
+ struct sock;
+ struct cgroup;
+ struct sk_buff;
++struct bpf_sock_ops_kern;
  
- /* integer value in 'imm' field of BPF_CALL instruction selects which helper
-  * function eBPF program intends to call
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 1f6a26c..ca033e15 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -54,6 +54,7 @@
- #include <net/dst.h>
- #include <net/sock_reuseport.h>
- #include <net/busy_poll.h>
-+#include <net/tcp.h>
+ #ifdef CONFIG_CGROUP_BPF
  
- /**
-  *	sk_filter_trim_cap - run a packet through a socket filter
-@@ -2672,6 +2673,71 @@ static const struct bpf_func_proto bpf_get_socket_uid_proto = {
- 	.arg1_type      = ARG_PTR_TO_CTX,
- };
+@@ -42,6 +43,10 @@ int __cgroup_bpf_run_filter_skb(struct sock *sk,
+ int __cgroup_bpf_run_filter_sk(struct sock *sk,
+ 			       enum bpf_attach_type type);
  
-+BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
-+	   int, level, int, optname, char *, optval, int, optlen)
-+{
-+	struct sock *sk = bpf_sock->sk;
-+	int ret = 0;
-+	int val;
++int __cgroup_bpf_run_filter_sock_ops(struct sock *sk,
++				     struct bpf_sock_ops_kern *sock_ops,
++				     enum bpf_attach_type type);
 +
-+	if (!sk_fullsock(sk))
-+		return -EINVAL;
-+
-+	if (level == SOL_SOCKET) {
-+		if (optlen != sizeof(int))
-+			return -EINVAL;
-+		val = *((int *)optval);
-+
-+		/* Only some socketops are supported */
-+		switch (optname) {
-+		case SO_RCVBUF:
-+			sk->sk_userlocks |= SOCK_RCVBUF_LOCK;
-+			sk->sk_rcvbuf = max_t(int, val * 2, SOCK_MIN_RCVBUF);
-+			break;
-+		case SO_SNDBUF:
-+			sk->sk_userlocks |= SOCK_SNDBUF_LOCK;
-+			sk->sk_sndbuf = max_t(int, val * 2, SOCK_MIN_SNDBUF);
-+			break;
-+		case SO_MAX_PACING_RATE:
-+			sk->sk_max_pacing_rate = val;
-+			sk->sk_pacing_rate = min(sk->sk_pacing_rate,
-+						 sk->sk_max_pacing_rate);
-+			break;
-+		case SO_PRIORITY:
-+			sk->sk_priority = val;
-+			break;
-+		case SO_RCVLOWAT:
-+			if (val < 0)
-+				val = INT_MAX;
-+			sk->sk_rcvlowat = val ? : 1;
-+			break;
-+		case SO_MARK:
-+			sk->sk_mark = val;
-+			break;
-+		default:
-+			ret = -EINVAL;
-+		}
-+	} else if (level == SOL_TCP &&
-+		   sk->sk_prot->setsockopt == tcp_setsockopt) {
-+		/* Place holder */
-+		ret = -EINVAL;
-+	} else {
-+		ret = -EINVAL;
-+	}
-+	return ret;
-+}
-+
-+static const struct bpf_func_proto bpf_setsockopt_proto = {
-+	.func		= bpf_setsockopt,
-+	.gpl_only	= true,
-+	.ret_type	= RET_INTEGER,
-+	.arg1_type	= ARG_PTR_TO_CTX,
-+	.arg2_type	= ARG_ANYTHING,
-+	.arg3_type	= ARG_ANYTHING,
-+	.arg4_type	= ARG_PTR_TO_MEM,
-+	.arg5_type	= ARG_CONST_SIZE,
-+};
-+
- static const struct bpf_func_proto *
- bpf_base_func_proto(enum bpf_func_id func_id)
- {
-@@ -2823,6 +2889,17 @@ lwt_inout_func_proto(enum bpf_func_id func_id)
+ /* Wrappers for __cgroup_bpf_run_filter_skb() guarded by cgroup_bpf_enabled. */
+ #define BPF_CGROUP_RUN_PROG_INET_INGRESS(sk, skb)			      \
+ ({									      \
+@@ -75,6 +80,18 @@ int __cgroup_bpf_run_filter_sk(struct sock *sk,
+ 	__ret;								       \
+ })
+ 
++#define BPF_CGROUP_RUN_PROG_SOCK_OPS(sock_ops)				       \
++({									       \
++	int __ret = 0;							       \
++	if (cgroup_bpf_enabled && (sock_ops)->sk) {	       \
++		typeof(sk) __sk = sk_to_full_sk((sock_ops)->sk);	       \
++		if (sk_fullsock(__sk))					       \
++			__ret = __cgroup_bpf_run_filter_sock_ops(__sk,	       \
++								 sock_ops,     \
++							 BPF_CGROUP_SOCK_OPS); \
++	}								       \
++	__ret;								       \
++})
+ #else
+ 
+ struct cgroup_bpf {};
+@@ -85,6 +102,7 @@ static inline void cgroup_bpf_inherit(struct cgroup *cgrp,
+ #define BPF_CGROUP_RUN_PROG_INET_INGRESS(sk,skb) ({ 0; })
+ #define BPF_CGROUP_RUN_PROG_INET_EGRESS(sk,skb) ({ 0; })
+ #define BPF_CGROUP_RUN_PROG_INET_SOCK(sk) ({ 0; })
++#define BPF_CGROUP_RUN_PROG_SOCK_OPS(sock_ops) ({ 0; })
+ 
+ #endif /* CONFIG_CGROUP_BPF */
+ 
+diff --git a/include/linux/bpf_types.h b/include/linux/bpf_types.h
+index 03bf223..3d137c3 100644
+--- a/include/linux/bpf_types.h
++++ b/include/linux/bpf_types.h
+@@ -10,6 +10,7 @@ BPF_PROG_TYPE(BPF_PROG_TYPE_CGROUP_SOCK, cg_sock_prog_ops)
+ BPF_PROG_TYPE(BPF_PROG_TYPE_LWT_IN, lwt_inout_prog_ops)
+ BPF_PROG_TYPE(BPF_PROG_TYPE_LWT_OUT, lwt_inout_prog_ops)
+ BPF_PROG_TYPE(BPF_PROG_TYPE_LWT_XMIT, lwt_xmit_prog_ops)
++BPF_PROG_TYPE(BPF_PROG_TYPE_SOCK_OPS, sock_ops_prog_ops)
+ #endif
+ #ifdef CONFIG_BPF_EVENTS
+ BPF_PROG_TYPE(BPF_PROG_TYPE_KPROBE, kprobe_prog_ops)
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 1fa26dc..738f8b1 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -898,4 +898,13 @@ static inline int bpf_tell_extensions(void)
+ 	return SKF_AD_MAX;
  }
  
- static const struct bpf_func_proto *
-+	sock_ops_func_proto(enum bpf_func_id func_id)
++struct bpf_sock_ops_kern {
++	struct	sock *sk;
++	u32	op;
++	union {
++		u32 reply;
++		u32 replylong[4];
++	};
++};
++
+ #endif /* __LINUX_FILTER_H__ */
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index d0751b7..e585008 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -46,6 +46,10 @@
+ #include <linux/seq_file.h>
+ #include <linux/memcontrol.h>
+ 
++#include <linux/bpf.h>
++#include <linux/filter.h>
++#include <linux/bpf-cgroup.h>
++
+ extern struct inet_hashinfo tcp_hashinfo;
+ 
+ extern struct percpu_counter tcp_orphan_count;
+@@ -2021,4 +2025,36 @@ int tcp_set_ulp(struct sock *sk, const char *name);
+ void tcp_get_available_ulp(char *buf, size_t len);
+ void tcp_cleanup_ulp(struct sock *sk);
+ 
++/* Call BPF_SOCK_OPS program that returns an int. If the return value
++ * is < 0, then the BPF op failed (for example if the loaded BPF
++ * program does not support the chosen operation or there is no BPF
++ * program loaded).
++ */
++#ifdef CONFIG_BPF
++static inline int tcp_call_bpf(struct sock *sk, int op)
 +{
-+	switch (func_id) {
-+	case BPF_FUNC_setsockopt:
-+		return &bpf_setsockopt_proto;
-+	default:
-+		return bpf_base_func_proto(func_id);
-+	}
++	struct bpf_sock_ops_kern sock_ops;
++	int ret;
++
++	if (sk_fullsock(sk))
++		sock_owned_by_me(sk);
++
++	memset(&sock_ops, 0, sizeof(sock_ops));
++	sock_ops.sk = sk;
++	sock_ops.op = op;
++
++	ret = BPF_CGROUP_RUN_PROG_SOCK_OPS(&sock_ops);
++	if (ret == 0)
++		ret = sock_ops.reply;
++	else
++		ret = -1;
++	return ret;
++}
++#else
++static inline int tcp_call_bpf(struct sock *sk, int op)
++{
++	return -EPERM;
++}
++#endif
++
+ #endif	/* _TCP_H */
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index f94b48b..01cd485 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -120,12 +120,14 @@ enum bpf_prog_type {
+ 	BPF_PROG_TYPE_LWT_IN,
+ 	BPF_PROG_TYPE_LWT_OUT,
+ 	BPF_PROG_TYPE_LWT_XMIT,
++	BPF_PROG_TYPE_SOCK_OPS,
+ };
+ 
+ enum bpf_attach_type {
+ 	BPF_CGROUP_INET_INGRESS,
+ 	BPF_CGROUP_INET_EGRESS,
+ 	BPF_CGROUP_INET_SOCK_CREATE,
++	BPF_CGROUP_SOCK_OPS,
+ 	__MAX_BPF_ATTACH_TYPE
+ };
+ 
+@@ -720,4 +722,32 @@ struct bpf_map_info {
+ 	__u32 map_flags;
+ } __attribute__((aligned(8)));
+ 
++/* User bpf_sock_ops struct to access socket values and specify request ops
++ * and their replies.
++ * Some of this fields are in network (bigendian) byte order and may need
++ * to be converted before use (bpf_ntohl() defined in samples/bpf/bpf_endian.h).
++ * New fields can only be added at the end of this structure
++ */
++struct bpf_sock_ops {
++	__u32 op;
++	union {
++		__u32 reply;
++		__u32 replylong[4];
++	};
++	__u32 family;
++	__u32 remote_ip4;	/* Stored in network byte order */
++	__u32 local_ip4;	/* Stored in network byte order */
++	__u32 remote_ip6[4];	/* Stored in network byte order */
++	__u32 local_ip6[4];	/* Stored in network byte order */
++	__u32 remote_port;	/* Stored in network byte order */
++	__u32 local_port;	/* stored in host byte order */
++};
++
++/* List of known BPF sock_ops operators.
++ * New entries can only be added at the end
++ */
++enum {
++	BPF_SOCK_OPS_VOID,
++};
++
+ #endif /* _UAPI__LINUX_BPF_H__ */
+diff --git a/kernel/bpf/cgroup.c b/kernel/bpf/cgroup.c
+index ea6033c..5461134 100644
+--- a/kernel/bpf/cgroup.c
++++ b/kernel/bpf/cgroup.c
+@@ -236,3 +236,40 @@ int __cgroup_bpf_run_filter_sk(struct sock *sk,
+ 	return ret;
+ }
+ EXPORT_SYMBOL(__cgroup_bpf_run_filter_sk);
++
++/**
++ * __cgroup_bpf_run_filter_sock_ops() - Run a program on a sock
++ * @sk: socket to get cgroup from
++ * @sock_ops: bpf_sock_ops_kern struct to pass to program. Contains
++ * sk with connection information (IP addresses, etc.) May not contain
++ * cgroup info if it is a req sock.
++ * @type: The type of program to be exectuted
++ *
++ * socket passed is expected to be of type INET or INET6.
++ *
++ * The program type passed in via @type must be suitable for sock_ops
++ * filtering. No further check is performed to assert that.
++ *
++ * This function will return %-EPERM if any if an attached program was found
++ * and if it returned != 1 during execution. In all other cases, 0 is returned.
++ */
++int __cgroup_bpf_run_filter_sock_ops(struct sock *sk,
++				     struct bpf_sock_ops_kern *sock_ops,
++				     enum bpf_attach_type type)
++{
++	struct cgroup *cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);
++	struct bpf_prog *prog;
++	int ret = 0;
++
++
++	rcu_read_lock();
++
++	prog = rcu_dereference(cgrp->bpf.effective[type]);
++	if (prog)
++		ret = BPF_PROG_RUN(prog, sock_ops) == 1 ? 0 : -EPERM;
++
++	rcu_read_unlock();
++
++	return ret;
++}
++EXPORT_SYMBOL(__cgroup_bpf_run_filter_sock_ops);
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index 4409ccc..d4d47de 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -1079,6 +1079,9 @@ static int bpf_prog_attach(const union bpf_attr *attr)
+ 	case BPF_CGROUP_INET_SOCK_CREATE:
+ 		ptype = BPF_PROG_TYPE_CGROUP_SOCK;
+ 		break;
++	case BPF_CGROUP_SOCK_OPS:
++		ptype = BPF_PROG_TYPE_SOCK_OPS;
++		break;
+ 	default:
+ 		return -EINVAL;
+ 	}
+@@ -1119,6 +1122,7 @@ static int bpf_prog_detach(const union bpf_attr *attr)
+ 	case BPF_CGROUP_INET_INGRESS:
+ 	case BPF_CGROUP_INET_EGRESS:
+ 	case BPF_CGROUP_INET_SOCK_CREATE:
++	case BPF_CGROUP_SOCK_OPS:
+ 		cgrp = cgroup_get_from_fd(attr->target_fd);
+ 		if (IS_ERR(cgrp))
+ 			return PTR_ERR(cgrp);
+@@ -1133,6 +1137,7 @@ static int bpf_prog_detach(const union bpf_attr *attr)
+ 
+ 	return ret;
+ }
++
+ #endif /* CONFIG_CGROUP_BPF */
+ 
+ #define BPF_PROG_TEST_RUN_LAST_FIELD test.duration
+diff --git a/net/core/filter.c b/net/core/filter.c
+index b39c869..1f6a26c 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -3110,6 +3110,36 @@ void bpf_warn_invalid_xdp_action(u32 act)
+ }
+ EXPORT_SYMBOL_GPL(bpf_warn_invalid_xdp_action);
+ 
++static bool __is_valid_sock_ops_access(int off, int size)
++{
++	if (off < 0 || off >= sizeof(struct bpf_sock_ops))
++		return false;
++	/* The verifier guarantees that size > 0. */
++	if (off % size != 0)
++		return false;
++	if (size != sizeof(__u32))
++		return false;
++
++	return true;
 +}
 +
-+static const struct bpf_func_proto *
- lwt_xmit_func_proto(enum bpf_func_id func_id)
++static bool sock_ops_is_valid_access(int off, int size,
++				     enum bpf_access_type type,
++				     struct bpf_insn_access_aux *info)
++{
++	if (type == BPF_WRITE) {
++		switch (off) {
++		case offsetof(struct bpf_sock_ops, op) ...
++		     offsetof(struct bpf_sock_ops, replylong[3]):
++			break;
++		default:
++			return false;
++		}
++	}
++
++	return __is_valid_sock_ops_access(off, size);
++}
++
+ static u32 bpf_convert_ctx_access(enum bpf_access_type type,
+ 				  const struct bpf_insn *si,
+ 				  struct bpf_insn *insn_buf,
+@@ -3379,6 +3409,138 @@ static u32 xdp_convert_ctx_access(enum bpf_access_type type,
+ 	return insn - insn_buf;
+ }
+ 
++static u32 sock_ops_convert_ctx_access(enum bpf_access_type type,
++				       const struct bpf_insn *si,
++				       struct bpf_insn *insn_buf,
++				       struct bpf_prog *prog)
++{
++	struct bpf_insn *insn = insn_buf;
++	int off;
++
++	switch (si->off) {
++	case offsetof(struct bpf_sock_ops, op) ...
++	     offsetof(struct bpf_sock_ops, replylong[3]):
++		BUILD_BUG_ON(FIELD_SIZEOF(struct bpf_sock_ops, op) !=
++			     FIELD_SIZEOF(struct bpf_sock_ops_kern, op));
++		BUILD_BUG_ON(FIELD_SIZEOF(struct bpf_sock_ops, reply) !=
++			     FIELD_SIZEOF(struct bpf_sock_ops_kern, reply));
++		BUILD_BUG_ON(FIELD_SIZEOF(struct bpf_sock_ops, replylong) !=
++			     FIELD_SIZEOF(struct bpf_sock_ops_kern, replylong));
++		off = si->off;
++		off -= offsetof(struct bpf_sock_ops, op);
++		off += offsetof(struct bpf_sock_ops_kern, op);
++		if (type == BPF_WRITE)
++			*insn++ = BPF_STX_MEM(BPF_W, si->dst_reg, si->src_reg,
++					      off);
++		else
++			*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
++					      off);
++		break;
++
++	case offsetof(struct bpf_sock_ops, family):
++		BUILD_BUG_ON(FIELD_SIZEOF(struct sock_common, skc_family) != 2);
++
++		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(
++					      struct bpf_sock_ops_kern, sk),
++				      si->dst_reg, si->src_reg,
++				      offsetof(struct bpf_sock_ops_kern, sk));
++		*insn++ = BPF_LDX_MEM(BPF_H, si->dst_reg, si->dst_reg,
++				      offsetof(struct sock_common, skc_family));
++		break;
++
++	case offsetof(struct bpf_sock_ops, remote_ip4):
++		BUILD_BUG_ON(FIELD_SIZEOF(struct sock_common, skc_daddr) != 4);
++
++		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(
++						struct bpf_sock_ops_kern, sk),
++				      si->dst_reg, si->src_reg,
++				      offsetof(struct bpf_sock_ops_kern, sk));
++		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->dst_reg,
++				      offsetof(struct sock_common, skc_daddr));
++		break;
++
++	case offsetof(struct bpf_sock_ops, local_ip4):
++		BUILD_BUG_ON(FIELD_SIZEOF(struct sock_common, skc_rcv_saddr) != 4);
++
++		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(
++					      struct bpf_sock_ops_kern, sk),
++				      si->dst_reg, si->src_reg,
++				      offsetof(struct bpf_sock_ops_kern, sk));
++		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->dst_reg,
++				      offsetof(struct sock_common,
++					       skc_rcv_saddr));
++		break;
++
++	case offsetof(struct bpf_sock_ops, remote_ip6[0]) ...
++	     offsetof(struct bpf_sock_ops, remote_ip6[3]):
++#if IS_ENABLED(CONFIG_IPV6)
++		BUILD_BUG_ON(FIELD_SIZEOF(struct sock_common,
++					  skc_v6_daddr.s6_addr32[0]) != 4);
++
++		off = si->off;
++		off -= offsetof(struct bpf_sock_ops, remote_ip6[0]);
++		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(
++						struct bpf_sock_ops_kern, sk),
++				      si->dst_reg, si->src_reg,
++				      offsetof(struct bpf_sock_ops_kern, sk));
++		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->dst_reg,
++				      offsetof(struct sock_common,
++					       skc_v6_daddr.s6_addr32[0]) +
++				      off);
++#else
++		*insn++ = BPF_MOV32_IMM(si->dst_reg, 0);
++#endif
++		break;
++
++	case offsetof(struct bpf_sock_ops, local_ip6[0]) ...
++	     offsetof(struct bpf_sock_ops, local_ip6[3]):
++#if IS_ENABLED(CONFIG_IPV6)
++		BUILD_BUG_ON(FIELD_SIZEOF(struct sock_common,
++					  skc_v6_rcv_saddr.s6_addr32[0]) != 4);
++
++		off = si->off;
++		off -= offsetof(struct bpf_sock_ops, local_ip6[0]);
++		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(
++						struct bpf_sock_ops_kern, sk),
++				      si->dst_reg, si->src_reg,
++				      offsetof(struct bpf_sock_ops_kern, sk));
++		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->dst_reg,
++				      offsetof(struct sock_common,
++					       skc_v6_rcv_saddr.s6_addr32[0]) +
++				      off);
++#else
++		*insn++ = BPF_MOV32_IMM(si->dst_reg, 0);
++#endif
++		break;
++
++	case offsetof(struct bpf_sock_ops, remote_port):
++		BUILD_BUG_ON(FIELD_SIZEOF(struct sock_common, skc_dport) != 2);
++
++		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(
++						struct bpf_sock_ops_kern, sk),
++				      si->dst_reg, si->src_reg,
++				      offsetof(struct bpf_sock_ops_kern, sk));
++		*insn++ = BPF_LDX_MEM(BPF_H, si->dst_reg, si->dst_reg,
++				      offsetof(struct sock_common, skc_dport));
++#ifndef __BIG_ENDIAN_BITFIELD
++		*insn++ = BPF_ALU32_IMM(BPF_LSH, si->dst_reg, 16);
++#endif
++		break;
++
++	case offsetof(struct bpf_sock_ops, local_port):
++		BUILD_BUG_ON(FIELD_SIZEOF(struct sock_common, skc_num) != 2);
++
++		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(
++						struct bpf_sock_ops_kern, sk),
++				      si->dst_reg, si->src_reg,
++				      offsetof(struct bpf_sock_ops_kern, sk));
++		*insn++ = BPF_LDX_MEM(BPF_H, si->dst_reg, si->dst_reg,
++				      offsetof(struct sock_common, skc_num));
++		break;
++	}
++	return insn - insn_buf;
++}
++
+ const struct bpf_verifier_ops sk_filter_prog_ops = {
+ 	.get_func_proto		= sk_filter_func_proto,
+ 	.is_valid_access	= sk_filter_is_valid_access,
+@@ -3428,6 +3590,12 @@ const struct bpf_verifier_ops cg_sock_prog_ops = {
+ 	.convert_ctx_access	= sock_filter_convert_ctx_access,
+ };
+ 
++const struct bpf_verifier_ops sock_ops_prog_ops = {
++	.get_func_proto		= bpf_base_func_proto,
++	.is_valid_access	= sock_ops_is_valid_access,
++	.convert_ctx_access	= sock_ops_convert_ctx_access,
++};
++
+ int sk_detach_filter(struct sock *sk)
  {
- 	switch (func_id) {
-@@ -3591,7 +3668,7 @@ const struct bpf_verifier_ops cg_sock_prog_ops = {
- };
+ 	int ret = -ENOENT;
+diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
+index a91c57d..a4be7cf 100644
+--- a/samples/bpf/bpf_load.c
++++ b/samples/bpf/bpf_load.c
+@@ -64,6 +64,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
+ 	bool is_perf_event = strncmp(event, "perf_event", 10) == 0;
+ 	bool is_cgroup_skb = strncmp(event, "cgroup/skb", 10) == 0;
+ 	bool is_cgroup_sk = strncmp(event, "cgroup/sock", 11) == 0;
++	bool is_sockops = strncmp(event, "sockops", 7) == 0;
+ 	size_t insns_cnt = size / sizeof(struct bpf_insn);
+ 	enum bpf_prog_type prog_type;
+ 	char buf[256];
+@@ -89,6 +90,8 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
+ 		prog_type = BPF_PROG_TYPE_CGROUP_SKB;
+ 	} else if (is_cgroup_sk) {
+ 		prog_type = BPF_PROG_TYPE_CGROUP_SOCK;
++	} else if (is_sockops) {
++		prog_type = BPF_PROG_TYPE_SOCK_OPS;
+ 	} else {
+ 		printf("Unknown event '%s'\n", event);
+ 		return -1;
+@@ -106,8 +109,11 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
+ 	if (is_xdp || is_perf_event || is_cgroup_skb || is_cgroup_sk)
+ 		return 0;
  
- const struct bpf_verifier_ops sock_ops_prog_ops = {
--	.get_func_proto		= bpf_base_func_proto,
-+	.get_func_proto		= sock_ops_func_proto,
- 	.is_valid_access	= sock_ops_is_valid_access,
- 	.convert_ctx_access	= sock_ops_convert_ctx_access,
- };
-diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
-index f4840b8..d50ac34 100644
---- a/samples/bpf/bpf_helpers.h
-+++ b/samples/bpf/bpf_helpers.h
-@@ -60,6 +60,9 @@ static unsigned long long (*bpf_get_prandom_u32)(void) =
- 	(void *) BPF_FUNC_get_prandom_u32;
- static int (*bpf_xdp_adjust_head)(void *ctx, int offset) =
- 	(void *) BPF_FUNC_xdp_adjust_head;
-+static int (*bpf_setsockopt)(void *ctx, int level, int optname, void *optval,
-+			     int optlen) =
-+	(void *) BPF_FUNC_setsockopt;
+-	if (is_socket) {
+-		event += 6;
++	if (is_socket || is_sockops) {
++		if (is_socket)
++			event += 6;
++		else
++			event += 7;
+ 		if (*event != '/')
+ 			return 0;
+ 		event++;
+@@ -560,7 +566,8 @@ static int do_load_bpf_file(const char *path, fixup_map_cb fixup_map)
+ 		    memcmp(shname, "xdp", 3) == 0 ||
+ 		    memcmp(shname, "perf_event", 10) == 0 ||
+ 		    memcmp(shname, "socket", 6) == 0 ||
+-		    memcmp(shname, "cgroup/", 7) == 0)
++		    memcmp(shname, "cgroup/", 7) == 0 ||
++		    memcmp(shname, "sockops", 7) == 0)
+ 			load_and_attach(shname, data->d_buf, data->d_size);
+ 	}
  
- /* llvm builtin functions that eBPF C program may use to
-  * emit BPF_LD_ABS and BPF_LD_IND instructions
 -- 
 2.9.3
