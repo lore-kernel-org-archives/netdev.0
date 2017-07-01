@@ -1,31 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: wireless-drivers-next 2017-06-30
-Date: Sat, 01 Jul 2017 13:59:19 -0700 (PDT)
-Message-ID: <20170701.135919.129262586006455156.davem@davemloft.net>
-References: <87fueim1za.fsf@kamboji.qca.qualcomm.com>
+Subject: Re: [pull request][net 0/3] Mellanox, mlx5 fixes 2017-06-28
+Date: Sat, 01 Jul 2017 14:17:18 -0700 (PDT)
+Message-ID: <20170701.141718.339311478562486532.davem@davemloft.net>
+References: <20170630071229.20357-1-saeedm@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: kvalo@codeaurora.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87fueim1za.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: saeedm@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:33988 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752108AbdGAVRU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 1 Jul 2017 17:17:20 -0400
+In-Reply-To: <20170630071229.20357-1-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kalle Valo <kvalo@codeaurora.org>
-Date: Fri, 30 Jun 2017 09:19:37 +0300
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Fri, 30 Jun 2017 10:12:26 +0300
 
-> here's a pull request to net-next for 4.13. Actually not really that big
-> this time, more info in the signed tag below. Please let me know if you
-> have any problems.
+> This series contains some fixes for the mlx5 core and netdev driver.
 > 
-> Intel has new hardware coming up and they just submitted patches to
-> iwlwifi supporting that, but because the patches were so late they
-> didn't make it to this one. Hence I'm planning to send you a one more
-> pull request on Monday(ish). I know it will be late but I'll let you
-> decide if you want it or not. If it doesn't fit your schedule feel free
-> to drop it and I'll just send it again for 4.14.
+> Please pull and let me know if there's any problem.
+> 
+> For -stable:
+> ("net/mlx5e: Fix TX carrier errors report in get stats ndo") Kernels >= v4.7
+> 
+> ("net/mlx5: Cancel delayed recovery work when unloading the driver") Kernels >= v4.10
+> * When applied to net-next this will introduce a contextual conflict, it
+> should be easy to resolve, (a spin_lock was changed to spin_lock_irqsave in net-next),
+> if you need any help with this please let me know.
+> 
+> ("net/mlx5: Fix driver load error flow when firmware is stuck") Kernels >= v4.4*
+> * This patch fixes: 6c780a0267b8 ("net/mlx5: Wait for FW readiness before initializing command interface")
+> which was submitted two weeks ago and queued up for v4.4.
+> 
+> Sorry about the mess, but other than the above, this series doesn't introduce
+> any conflict with the current mlx5 IPSec offload series.
 
-Pulled, thanks Kalle.
+Pulled and queued up for -stable, thanks.
+
+I should be able to resolve the merge conflicts, thanks for letting
+me know about it.
