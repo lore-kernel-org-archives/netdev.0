@@ -1,7 +1,7 @@
 From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next v6 13/16] bpf: Sample BPF program to set initial cwnd
-Date: Fri, 30 Jun 2017 20:02:52 -0700
-Message-ID: <20170701030255.1931076-14-brakmo@fb.com>
+Subject: [PATCH net-next v6 15/16] bpf: Sample bpf program to set sndcwnd clamp
+Date: Fri, 30 Jun 2017 20:02:54 -0700
+Message-ID: <20170701030255.1931076-16-brakmo@fb.com>
 References: <20170701030255.1931076-1-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,67 +11,67 @@ Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:33623 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752207AbdGADDD (ORCPT
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:39385 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752187AbdGADDD (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 23:03:03 -0400
-Received: from pps.filterd (m0109331.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v6132xPS027888
-        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 20:03:02 -0700
+Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v6130Cbb021150
+        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 20:03:03 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2be2p2r44u-5
+        by mx0a-00082601.pphosted.com with ESMTP id 2be1v7r8h0-2
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 20:03:02 -0700
+        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 20:03:03 -0700
 Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
- mx-out.facebook.com (2401:db00:2050:5102:face:0000:003b:0000) with ESMTP       id
- caabaf2a5e0911e7b2f309cabd64a484-9dd3a8f0 for <netdev@vger.kernel.org>;        Fri,
+ mx-out.facebook.com (2401:db00:2050:5102:face:0000:0037:0000) with ESMTP       id
+ caba6c545e0911e78a2e1f53bdcd5fbc-76b358f0 for <netdev@vger.kernel.org>;        Fri,
  30 Jun 2017 20:03:00 -0700
 In-Reply-To: <20170701030255.1931076-1-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sample BPF program that assumes hosts are far away (i.e. large RTTs)
-and sets initial cwnd and initial receive window to 40 packets,
-send and receive buffers to 1.5MB.
-
-In practice there would be a test to insure the hosts are actually
-far enough away.
+Sample BPF program, tcp_clamp_kern.c, to demostrate the use
+of setting the sndcwnd clamp. This program assumes that if the
+first 5.5 bytes of the host's IPv6 addresses are the same, then
+the hosts are in the same datacenter and sets sndcwnd clamp to
+100 packets, SYN and SYN-ACK RTOs to 10ms and send/receive buffer
+sizes to 150KB.
 
 Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
 ---
- samples/bpf/Makefile      |  1 +
- samples/bpf/tcp_iw_kern.c | 88 +++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 89 insertions(+)
- create mode 100644 samples/bpf/tcp_iw_kern.c
+ samples/bpf/Makefile         |   1 +
+ samples/bpf/tcp_clamp_kern.c | 102 +++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 103 insertions(+)
+ create mode 100644 samples/bpf/tcp_clamp_kern.c
 
 diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 6fdf32d..242d76e 100644
+index 242d76e..9c65058 100644
 --- a/samples/bpf/Makefile
 +++ b/samples/bpf/Makefile
-@@ -117,6 +117,7 @@ always += tcp_synrto_kern.o
- always += tcp_rwnd_kern.o
+@@ -118,6 +118,7 @@ always += tcp_rwnd_kern.o
  always += tcp_bufs_kern.o
  always += tcp_cong_kern.o
-+always += tcp_iw_kern.o
+ always += tcp_iw_kern.o
++always += tcp_clamp_kern.o
  
  HOSTCFLAGS += -I$(objtree)/usr/include
  HOSTCFLAGS += -I$(srctree)/tools/lib/
-diff --git a/samples/bpf/tcp_iw_kern.c b/samples/bpf/tcp_iw_kern.c
+diff --git a/samples/bpf/tcp_clamp_kern.c b/samples/bpf/tcp_clamp_kern.c
 new file mode 100644
-index 0000000..23c5122
+index 0000000..d68eadd9
 --- /dev/null
-+++ b/samples/bpf/tcp_iw_kern.c
-@@ -0,0 +1,88 @@
++++ b/samples/bpf/tcp_clamp_kern.c
+@@ -0,0 +1,102 @@
 +/* Copyright (c) 2017 Facebook
 + *
 + * This program is free software; you can redistribute it and/or
 + * modify it under the terms of version 2 of the GNU General Public
 + * License as published by the Free Software Foundation.
 + *
-+ * BPF program to set initial congestion window and initial receive
-+ * window to 40 packets and send and receive buffers to 1.5MB. This
-+ * would usually be done after doing appropriate checks that indicate
-+ * the hosts are far enough away (i.e. large RTT).
++ * Sample BPF program to set send and receive buffers to 150KB, sndcwnd clamp
++ * to 100 packets and SYN and SYN_ACK RTOs to 10ms when both hosts are within
++ * the same datacenter. For his example, we assume they are within the same
++ * datacenter when the first 5.5 bytes of their IPv6 addresses are the same.
 + *
 + * Use load_sock_ops to load this BPF program.
 + */
@@ -94,19 +94,18 @@ index 0000000..23c5122
 +})
 +
 +SEC("sockops")
-+int bpf_iw(struct bpf_sock_ops *skops)
++int bpf_clamp(struct bpf_sock_ops *skops)
 +{
-+	int bufsize = 1500000;
-+	int rwnd_init = 40;
-+	int iw = 40;
++	int bufsize = 150000;
++	int to_init = 10;
++	int clamp = 100;
 +	int rv = 0;
 +	int op;
 +
 +	/* For testing purposes, only execute rest of BPF program
 +	 * if neither port numberis 55601
 +	 */
-+	if (bpf_ntohl(skops->remote_port) != 55601 &&
-+	    skops->local_port != 55601)
++	if (bpf_ntohl(skops->remote_port) != 55601 && skops->local_port != 55601)
 +		return -1;
 +
 +	op = (int) skops->op;
@@ -115,32 +114,47 @@ index 0000000..23c5122
 +	bpf_printk("BPF command: %d\n", op);
 +#endif
 +
-+	/* Usually there would be a check to insure the hosts are far
-+	 * from each other so it makes sense to increase buffer sizes
++	/* Check that both hosts are within same datacenter. For this example
++	 * it is the case when the first 5.5 bytes of their IPv6 addresses are
++	 * the same.
 +	 */
-+	switch (op) {
-+	case BPF_SOCK_OPS_RWND_INIT:
-+		rv = rwnd_init;
-+		break;
-+	case BPF_SOCK_OPS_TCP_CONNECT_CB:
-+		/* Set sndbuf and rcvbuf of active connections */
-+		rv = bpf_setsockopt(skops, SOL_SOCKET, SO_SNDBUF, &bufsize,
-+				    sizeof(bufsize));
-+		rv = rv*100 + bpf_setsockopt(skops, SOL_SOCKET, SO_RCVBUF,
-+					     &bufsize, sizeof(bufsize));
-+		break;
-+	case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
-+		rv = bpf_setsockopt(skops, SOL_TCP, TCP_BPF_IW, &iw,
-+				    sizeof(iw));
-+		break;
-+	case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
-+		/* Set sndbuf and rcvbuf of passive connections */
-+		rv = bpf_setsockopt(skops, SOL_SOCKET, SO_SNDBUF, &bufsize,
-+				    sizeof(bufsize));
-+		rv = rv*100 + bpf_setsockopt(skops, SOL_SOCKET, SO_RCVBUF,
-+					     &bufsize, sizeof(bufsize));
-+		break;
-+	default:
++	if (skops->family == AF_INET6 &&
++	    skops->local_ip6[0] == skops->remote_ip6[0] &&
++	    (bpf_ntohl(skops->local_ip6[1]) & 0xfff00000) ==
++	    (bpf_ntohl(skops->remote_ip6[1]) & 0xfff00000)) {
++		switch (op) {
++		case BPF_SOCK_OPS_TIMEOUT_INIT:
++			rv = to_init;
++			break;
++		case BPF_SOCK_OPS_TCP_CONNECT_CB:
++			/* Set sndbuf and rcvbuf of active connections */
++			rv = bpf_setsockopt(skops, SOL_SOCKET, SO_SNDBUF,
++					    &bufsize, sizeof(bufsize));
++			rv = rv*100 + bpf_setsockopt(skops, SOL_SOCKET,
++						      SO_RCVBUF, &bufsize,
++						      sizeof(bufsize));
++			break;
++		case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
++			rv = bpf_setsockopt(skops, SOL_TCP,
++					    TCP_BPF_SNDCWND_CLAMP,
++					    &clamp, sizeof(clamp));
++			break;
++		case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
++			/* Set sndbuf and rcvbuf of passive connections */
++			rv = bpf_setsockopt(skops, SOL_TCP,
++					    TCP_BPF_SNDCWND_CLAMP,
++					    &clamp, sizeof(clamp));
++			rv = rv*100 + bpf_setsockopt(skops, SOL_SOCKET,
++						      SO_SNDBUF, &bufsize,
++						      sizeof(bufsize));
++			rv = rv*100 + bpf_setsockopt(skops, SOL_SOCKET,
++						      SO_RCVBUF, &bufsize,
++						      sizeof(bufsize));
++			break;
++		default:
++			rv = -1;
++		}
++	} else {
 +		rv = -1;
 +	}
 +#ifdef DEBUG
