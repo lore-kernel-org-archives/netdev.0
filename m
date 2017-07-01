@@ -1,40 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/9] introduce flower offload capabilities
-Date: Sat, 01 Jul 2017 08:52:00 -0700 (PDT)
-Message-ID: <20170701.085200.1480396196977417459.davem@davemloft.net>
-References: <1498766899-30707-1-git-send-email-simon.horman@netronome.com>
+Subject: Re: [PATCH net-next 00/11] sctp: remove typedefs from structures
+ part 1
+Date: Sat, 01 Jul 2017 09:09:00 -0700 (PDT)
+Message-ID: <20170701.090900.1231795762851084102.davem@davemloft.net>
+References: <cover.1498794481.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jakub.kicinski@netronome.com, netdev@vger.kernel.org,
-        oss-drivers@netronome.com, gerlitz.or@gmail.com,
-        pieter.jansenvanvuuren@netronome.com
-To: simon.horman@netronome.com
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        marcelo.leitner@gmail.com, nhorman@tuxdriver.com
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59226 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:59346 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751389AbdGAPwF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 1 Jul 2017 11:52:05 -0400
-In-Reply-To: <1498766899-30707-1-git-send-email-simon.horman@netronome.com>
+        with ESMTP id S1751851AbdGAQJE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 1 Jul 2017 12:09:04 -0400
+In-Reply-To: <cover.1498794481.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <simon.horman@netronome.com>
-Date: Thu, 29 Jun 2017 22:08:10 +0200
+From: Xin Long <lucien.xin@gmail.com>
+Date: Fri, 30 Jun 2017 11:52:11 +0800
 
-> this series adds flower offload to the NFP driver. It builds on recent
-> work to add representor and a skeleton flower app - now the app does what
-> its name says.
+> As we know, typedef is suggested not to use in kernel, even checkpatch.pl
+> also gives warnings about it. Now sctp is using it for many structures.
 > 
-> In general the approach taken is to allow some flows within
-> the universe of possible flower matches and tc actions to be offloaded.
-> It is planned that this support will grow over time but the support
-> offered by this patch-set seems to be a reasonable starting point.
+> All this kind of typedef's using should be removed. As the 1st part, this
+> patchset is to remove it for 11 basic structures in linux/sctp.h. It is
+> also to fix some indents.
 > 
-> Key Changes since v2:
-> * Revised flow structures to simplify setup/teardown and locking of stats
-> * Addressed other code-change review of v2
-> 
-> Other review questions regarding v2 have been answered on netdev.
+> No any code's logic is changed in these patches, only cleaning up.
 
-Series applied, thanks Simon.
+Series applied, thanks.
