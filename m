@@ -1,45 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [pull request][net 0/3] Mellanox, mlx5 fixes 2017-06-28
-Date: Sat, 01 Jul 2017 14:17:18 -0700 (PDT)
-Message-ID: <20170701.141718.339311478562486532.davem@davemloft.net>
-References: <20170630071229.20357-1-saeedm@mellanox.com>
+Subject: Re: [PATCH] arm: sunxi: Revert changes merged through net-next.
+Date: Sat, 01 Jul 2017 14:18:31 -0700 (PDT)
+Message-ID: <20170701.141831.777812052121454399.davem@davemloft.net>
+References: <20170630074617.20288-1-maxime.ripard@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: saeedm@mellanox.com
+Cc: wens@csie.org, clabbe.montjoie@gmail.com, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org
+To: maxime.ripard@free-electrons.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33988 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:33996 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752108AbdGAVRU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 1 Jul 2017 17:17:20 -0400
-In-Reply-To: <20170630071229.20357-1-saeedm@mellanox.com>
+        with ESMTP id S1752119AbdGAVSd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 1 Jul 2017 17:18:33 -0400
+In-Reply-To: <20170630074617.20288-1-maxime.ripard@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-Date: Fri, 30 Jun 2017 10:12:26 +0300
+From: Maxime Ripard <maxime.ripard@free-electrons.com>
+Date: Fri, 30 Jun 2017 09:46:17 +0200
 
-> This series contains some fixes for the mlx5 core and netdev driver.
+> This reverts commits 2c0cba482e79 ("arm: sun8i: sunxi-h3-h5: Add dt node
+> for the syscon control module") to 2428fd0fe550 ("arm64: defconfig: Enable
+> dwmac-sun8i driver on defconfig") and 3432a86e641c ("arm: sun8i:
+> orangepipc: use internal phy-mode") to 5a79b4f2a5e7 ("arm: sun8i:
+> orangepi-2: use internal phy-mode") that should be merged
+> through the arm-soc tree, and end up in merge conflicts and build failures.
 > 
-> Please pull and let me know if there's any problem.
-> 
-> For -stable:
-> ("net/mlx5e: Fix TX carrier errors report in get stats ndo") Kernels >= v4.7
-> 
-> ("net/mlx5: Cancel delayed recovery work when unloading the driver") Kernels >= v4.10
-> * When applied to net-next this will introduce a contextual conflict, it
-> should be easy to resolve, (a spin_lock was changed to spin_lock_irqsave in net-next),
-> if you need any help with this please let me know.
-> 
-> ("net/mlx5: Fix driver load error flow when firmware is stuck") Kernels >= v4.4*
-> * This patch fixes: 6c780a0267b8 ("net/mlx5: Wait for FW readiness before initializing command interface")
-> which was submitted two weeks ago and queued up for v4.4.
-> 
-> Sorry about the mess, but other than the above, this series doesn't introduce
-> any conflict with the current mlx5 IPSec offload series.
+> Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
 
-Pulled and queued up for -stable, thanks.
-
-I should be able to resolve the merge conflicts, thanks for letting
-me know about it.
+Applied to net-next, thanks.
