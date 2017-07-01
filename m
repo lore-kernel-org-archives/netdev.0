@@ -1,88 +1,189 @@
 From: Lawrence Brakmo <brakmo@fb.com>
-Subject: Re: [PATCH net-next v5 07/16] bpf: Add setsockopt helper function to
- bpf
-Date: Sat, 1 Jul 2017 01:45:35 +0000
-Message-ID: <18C526C9-D95A-4D93-8A1A-95A4E65AC0D0@fb.com>
-References: <20170630200706.4183158-1-brakmo@fb.com>
- <20170630200706.4183158-8-brakmo@fb.com> <5956E655.20105@iogearbox.net>
+Subject: [PATCH net-next v6 02/16] bpf: program to load and attach sock_ops BPF progs
+Date: Fri, 30 Jun 2017 20:02:41 -0700
+Message-ID: <20170701030255.1931076-3-brakmo@fb.com>
+References: <20170701030255.1931076-1-brakmo@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Kernel Team <Kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
-        "Alexei Starovoitov" <ast@fb.com>,
+Content-Type: text/plain
+Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
+        Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
         David Ahern <dsa@cumulusnetworks.com>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        netdev <netdev@vger.kernel.org>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:56841 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751581AbdGABqM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 21:46:12 -0400
-In-Reply-To: <5956E655.20105@iogearbox.net>
-Content-Language: en-US
-Content-ID: <E3B446737B939D449CE67E3A8AA67B8A@namprd15.prod.outlook.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:34797 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751710AbdGADDA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 23:03:00 -0400
+Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v612xeK6025553
+        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 20:03:00 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 2bdvefse9s-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 20:03:00 -0700
+Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
+ mx-out.facebook.com (2401:db00:2050:5102:face:0000:003b:0000) with ESMTP       id
+ c93ac1e45e0911e7b2f309cabd64a484-9dd3a8f0 for <netdev@vger.kernel.org>;        Fri,
+ 30 Jun 2017 20:02:58 -0700
+In-Reply-To: <20170701030255.1931076-1-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gNi8zMC8xNywgNTowMSBQTSwgIkRhbmllbCBCb3JrbWFubiIgPGRhbmllbEBpb2dlYXJib3gu
-bmV0PiB3cm90ZToNCg0KICAgIE9uIDA2LzMwLzIwMTcgMTA6MDYgUE0sIExhd3JlbmNlIEJyYWtt
-byB3cm90ZToNCiAgICBbLi4uXQ0KICAgID4gQEAgLTI2NzIsNiArMjY3Myw2OSBAQCBzdGF0aWMg
-Y29uc3Qgc3RydWN0IGJwZl9mdW5jX3Byb3RvIGJwZl9nZXRfc29ja2V0X3VpZF9wcm90byA9IHsN
-CiAgICA+ICAgCS5hcmcxX3R5cGUgICAgICA9IEFSR19QVFJfVE9fQ1RYLA0KICAgID4gICB9Ow0K
-ICAgID4NCiAgICA+ICtCUEZfQ0FMTF81KGJwZl9zZXRzb2Nrb3B0LCBzdHJ1Y3QgYnBmX3NvY2tf
-b3BzX2tlcm4gKiwgYnBmX3NvY2ssDQogICAgPiArCSAgIGludCwgbGV2ZWwsIGludCwgb3B0bmFt
-ZSwgY2hhciAqLCBvcHR2YWwsIGludCwgb3B0bGVuKQ0KICAgID4gK3sNCiAgICA+ICsJc3RydWN0
-IHNvY2sgKnNrID0gYnBmX3NvY2stPnNrOw0KICAgID4gKwlpbnQgcmV0ID0gMDsNCiAgICA+ICsJ
-aW50IHZhbDsNCiAgICA+ICsNCiAgICA+ICsJaWYgKCFza19mdWxsc29jayhzaykpDQogICAgPiAr
-CQlyZXR1cm4gLUVJTlZBTDsNCiAgICA+ICsNCiAgICA+ICsJaWYgKGxldmVsID09IFNPTF9TT0NL
-RVQpIHsNCiAgICA+ICsJCS8qIE9ubHkgc29tZSBzb2NrZXRvcHMgYXJlIHN1cHBvcnRlZCAqLw0K
-ICAgID4gKwkJdmFsID0gKigoaW50ICopb3B0dmFsKTsNCiAgICA+ICsNCiAgICA+ICsJCXN3aXRj
-aCAob3B0bmFtZSkgew0KICAgID4gKwkJY2FzZSBTT19SQ1ZCVUY6DQogICAgPiArCQkJc2stPnNr
-X3VzZXJsb2NrcyB8PSBTT0NLX1JDVkJVRl9MT0NLOw0KICAgID4gKwkJCXNrLT5za19yY3ZidWYg
-PSBtYXhfdChpbnQsIHZhbCAqIDIsIFNPQ0tfTUlOX1JDVkJVRik7DQogICAgPiArCQkJYnJlYWs7
-DQogICAgPiArCQljYXNlIFNPX1NOREJVRjoNCiAgICA+ICsJCQlzay0+c2tfdXNlcmxvY2tzIHw9
-IFNPQ0tfU05EQlVGX0xPQ0s7DQogICAgPiArCQkJc2stPnNrX3NuZGJ1ZiA9IG1heF90KGludCwg
-dmFsICogMiwgU09DS19NSU5fU05EQlVGKTsNCiAgICA+ICsJCQlicmVhazsNCiAgICA+ICsJCWNh
-c2UgU09fTUFYX1BBQ0lOR19SQVRFOg0KICAgID4gKwkJCXNrLT5za19tYXhfcGFjaW5nX3JhdGUg
-PSB2YWw7DQogICAgPiArCQkJc2stPnNrX3BhY2luZ19yYXRlID0gbWluKHNrLT5za19wYWNpbmdf
-cmF0ZSwNCiAgICA+ICsJCQkJCQkgc2stPnNrX21heF9wYWNpbmdfcmF0ZSk7DQogICAgPiArCQkJ
-YnJlYWs7DQogICAgPiArCQljYXNlIFNPX1BSSU9SSVRZOg0KICAgID4gKwkJCXNrLT5za19wcmlv
-cml0eSA9IHZhbDsNCiAgICA+ICsJCQlicmVhazsNCiAgICA+ICsJCWNhc2UgU09fUkNWTE9XQVQ6
-DQogICAgPiArCQkJaWYgKHZhbCA8IDApDQogICAgPiArCQkJCXZhbCA9IElOVF9NQVg7DQogICAg
-PiArCQkJc2stPnNrX3Jjdmxvd2F0ID0gdmFsID8gOiAxOw0KICAgID4gKwkJCWJyZWFrOw0KICAg
-ID4gKwkJY2FzZSBTT19NQVJLOg0KICAgID4gKwkJCXNrLT5za19tYXJrID0gdmFsOw0KICAgID4g
-KwkJCWJyZWFrOw0KICAgID4gKwkJZGVmYXVsdDoNCiAgICA+ICsJCQlyZXQgPSAtRUlOVkFMOw0K
-ICAgID4gKwkJfQ0KICAgID4gKwl9IGVsc2UgaWYgKGxldmVsID09IFNPTF9UQ1AgJiYNCiAgICA+
-ICsJCSAgIHNrLT5za19wcm90LT5zZXRzb2Nrb3B0ID09IHRjcF9zZXRzb2Nrb3B0KSB7DQogICAg
-PiArCQkvKiBQbGFjZSBob2xkZXIgKi8NCiAgICA+ICsJCXJldCA9IC1FSU5WQUw7DQogICAgPiAr
-CX0gZWxzZSB7DQogICAgPiArCQlyZXQgPSAtRUlOVkFMOw0KICAgID4gKwl9DQogICAgPiArCXJl
-dHVybiByZXQ7DQogICAgPiArfQ0KICAgID4gKw0KICAgID4gK3N0YXRpYyBjb25zdCBzdHJ1Y3Qg
-YnBmX2Z1bmNfcHJvdG8gYnBmX3NldHNvY2tvcHRfcHJvdG8gPSB7DQogICAgPiArCS5mdW5jCQk9
-IGJwZl9zZXRzb2Nrb3B0LA0KICAgID4gKwkuZ3BsX29ubHkJPSB0cnVlLA0KICAgID4gKwkucmV0
-X3R5cGUJPSBSRVRfSU5URUdFUiwNCiAgICA+ICsJLmFyZzFfdHlwZQk9IEFSR19QVFJfVE9fQ1RY
-LA0KICAgID4gKwkuYXJnMl90eXBlCT0gQVJHX0FOWVRISU5HLA0KICAgID4gKwkuYXJnM190eXBl
-CT0gQVJHX0FOWVRISU5HLA0KICAgID4gKwkuYXJnNF90eXBlCT0gQVJHX1BUUl9UT19NRU0sDQog
-ICAgPiArCS5hcmc1X3R5cGUJPSBBUkdfQ09OU1RfU0laRV9PUl9aRVJPLA0KICAgIA0KICAgIEht
-LCBJIGhhZCBzb21lIGZlZWRiYWNrIG9uIHRoaXMgaW4geW91ciBsYXN0IHJldmlzaW9uIG9mIHRo
-ZSBwYXRjaA0KICAgIHNldCBbMV0gdGhhdCBhIE5VTEwgcG9pbnRlciBkZXJlZmVyZW5jZSBjYW4g
-YmUgdHJpZ2dlcmVkIGhlcmUuIFByb2JhYmx5DQogICAgb3ZlcnNhdyBpdDsgSSBtZW50aW9uZWQg
-d3J0IHRoZSBhYm92ZToNCiAgICANCiAgICAgICBBbnkgcmVhc29uIHlvdSB3ZW50IHdpdGggdGhl
-IEFSR19DT05TVF9TSVpFX09SX1pFUk8gdHlwZT8gU2VtYW50aWNzDQogICAgICAgb2YgdGhpcyBh
-cmUgdGhhdCBhbGxvd2VkIFthcmc0LCBhcmc1XSBwYWlyIGNhbiBiZSBpKSBbTlVMTCwgMF0gb3IN
-CiAgICAgICBpaSkgW25vbi1OVUxMLCBub24temVyb10sIHdoZXJlIGluIGNhc2UgaWkpIHZlcmlm
-aWVyIGNoZWNrcyB0aGF0IHRoZQ0KICAgICAgIGFyZWEgaXMgaW5pdGlhbGl6ZWQgd2hlbiBjb21p
-bmcgZnJvbSBCUEYgc3RhY2suDQogICAgDQogICAgICAgU28gYWJvdmUgJ3ZhbCA9ICooKGludCAq
-KW9wdHZhbCk7JyB3b3VsZCBnaXZlIGEgTlVMTCBwb2ludGVyIGRlcmVmDQogICAgICAgd2l0aCBO
-VUxMIHBhc3NlZCBhcyBhcmcgb3IgaW4gY2FzZSBvcHRsZW4gd2FzIDwgc2l6ZW9mKGludCkgd2Ug
-YWNjZXNzDQogICAgICAgc3RhY2sgb3V0IG9mIGJvdW5kcyBwb3RlbnRpYWxseS4gSWYgdGhlIFtO
-VUxMLCAwXSBwYWlyIGlzIG5vdCByZXF1aXJlZCwNCiAgICAgICBJIHdvdWxkIGp1c3QgbWFrZSB0
-aGF0IGEgQVJHX0NPTlNUX1NJWkUgYW5kIHRoZW4gY2hlY2sgZm9yIHNpemUgYmVmb3JlDQogICAg
-ICAgYWNjZXNzaW5nIG9wdHZhbC4NCiAgICANCiAgICBXb3VsZCBiZSBnb29kIGlmIHlvdSBjb3Vs
-ZCBzdGlsbCBhZGRyZXNzIGl0IGluIGEgbW9zdCBsaWtlbHkgZmluYWwgcmVzcGluLg0KICAgIA0K
-ICAgIFRoYW5rcywNCiAgICBEYW5pZWwNCg0KV29ya2luZyBvbiBpdCwgd2lsbCBoYXZlIGl0IHNv
-b24uIFRoYW5rcyBmb3IgYWxsIHRoZSBmZWVkYmFjayENCiAgICANCiAgICAgICBbMV0gaHR0cHM6
-Ly91cmxkZWZlbnNlLnByb29mcG9pbnQuY29tL3YyL3VybD91PWh0dHAtM0FfX3BhdGNod29yay5v
-emxhYnMub3JnX3BhdGNoXzc4MTgwMF8mZD1Ed0lDLWcmYz01VkQwUlR0TmxUaDN5Y2Q0MWIzTVV3
-JnI9cHFfTXF2emZ5LUM4bHRrZ3l4MXVfZyZtPTZuaWp1R2Yydk11ZVZzVTFDRVRPUGMxSUI5eENk
-M0FwUDV2VXBwb1hlX0Emcz1sNFZKMUlVQUExcWpUYTBmTXZPeHNLUmRvYTM2MWxNNjVxNVFHS3Rl
-RU13JmU9IA0KICAgIA0KDQo=
+The program load_sock_ops can be used to load sock_ops bpf programs and
+to attach it to an existing (v2) cgroup. It can also be used to detach
+sock_ops programs.
+
+Examples:
+    load_sock_ops [-l] <cg-path> <prog filename>
+	Load and attaches a sock_ops program at the specified cgroup.
+	If "-l" is used, the program will continue to run to output the
+	BPF log buffer.
+	If the specified filename does not end in ".o", it appends
+	"_kern.o" to the name.
+
+    load_sock_ops -r <cg-path>
+	Detaches the currently attached sock_ops program from the
+	specified cgroup.
+
+Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ samples/bpf/Makefile        |  3 ++
+ samples/bpf/load_sock_ops.c | 97 +++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 100 insertions(+)
+ create mode 100644 samples/bpf/load_sock_ops.c
+
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index e7ec9b8..015589b 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -36,6 +36,7 @@ hostprogs-y += lwt_len_hist
+ hostprogs-y += xdp_tx_iptunnel
+ hostprogs-y += test_map_in_map
+ hostprogs-y += per_socket_stats_example
++hostprogs-y += load_sock_ops
+ 
+ # Libbpf dependencies
+ LIBBPF := ../../tools/lib/bpf/bpf.o
+@@ -52,6 +53,7 @@ tracex3-objs := bpf_load.o $(LIBBPF) tracex3_user.o
+ tracex4-objs := bpf_load.o $(LIBBPF) tracex4_user.o
+ tracex5-objs := bpf_load.o $(LIBBPF) tracex5_user.o
+ tracex6-objs := bpf_load.o $(LIBBPF) tracex6_user.o
++load_sock_ops-objs := bpf_load.o $(LIBBPF) load_sock_ops.o
+ test_probe_write_user-objs := bpf_load.o $(LIBBPF) test_probe_write_user_user.o
+ trace_output-objs := bpf_load.o $(LIBBPF) trace_output_user.o
+ lathist-objs := bpf_load.o $(LIBBPF) lathist_user.o
+@@ -130,6 +132,7 @@ HOSTLOADLIBES_tracex4 += -lelf -lrt
+ HOSTLOADLIBES_tracex5 += -lelf
+ HOSTLOADLIBES_tracex6 += -lelf
+ HOSTLOADLIBES_test_cgrp2_sock2 += -lelf
++HOSTLOADLIBES_load_sock_ops += -lelf
+ HOSTLOADLIBES_test_probe_write_user += -lelf
+ HOSTLOADLIBES_trace_output += -lelf -lrt
+ HOSTLOADLIBES_lathist += -lelf
+diff --git a/samples/bpf/load_sock_ops.c b/samples/bpf/load_sock_ops.c
+new file mode 100644
+index 0000000..e5da6cf
+--- /dev/null
++++ b/samples/bpf/load_sock_ops.c
+@@ -0,0 +1,97 @@
++/* Copyright (c) 2017 Facebook
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <linux/bpf.h>
++#include "libbpf.h"
++#include "bpf_load.h"
++#include <unistd.h>
++#include <errno.h>
++#include <fcntl.h>
++#include <linux/unistd.h>
++
++static void usage(char *pname)
++{
++	printf("USAGE:\n  %s [-l] <cg-path> <prog filename>\n", pname);
++	printf("\tLoad and attach a sock_ops program to the specified "
++	       "cgroup\n");
++	printf("\tIf \"-l\" is used, the program will continue to run\n");
++	printf("\tprinting the BPF log buffer\n");
++	printf("\tIf the specified filename does not end in \".o\", it\n");
++	printf("\tappends \"_kern.o\" to the name\n");
++	printf("\n");
++	printf("  %s -r <cg-path>\n", pname);
++	printf("\tDetaches the currently attached sock_ops program\n");
++	printf("\tfrom the specified cgroup\n");
++	printf("\n");
++	exit(1);
++}
++
++int main(int argc, char **argv)
++{
++	int logFlag = 0;
++	int error = 0;
++	char *cg_path;
++	char fn[500];
++	char *prog;
++	int cg_fd;
++
++	if (argc < 3)
++		usage(argv[0]);
++
++	if (!strcmp(argv[1], "-r")) {
++		cg_path = argv[2];
++		cg_fd = open(cg_path, O_DIRECTORY, O_RDONLY);
++		error = bpf_prog_detach(cg_fd, BPF_CGROUP_SOCK_OPS);
++		if (error) {
++			printf("ERROR: bpf_prog_detach: %d (%s)\n",
++			       error, strerror(errno));
++			return 2;
++		}
++		return 0;
++	} else if (!strcmp(argv[1], "-h")) {
++		usage(argv[0]);
++	} else if (!strcmp(argv[1], "-l")) {
++		logFlag = 1;
++		if (argc < 4)
++			usage(argv[0]);
++	}
++
++	prog = argv[argc - 1];
++	cg_path = argv[argc - 2];
++	if (strlen(prog) > 480) {
++		fprintf(stderr, "ERROR: program name too long (> 480 chars)\n");
++		return 3;
++	}
++	cg_fd = open(cg_path, O_DIRECTORY, O_RDONLY);
++
++	if (!strcmp(prog + strlen(prog)-2, ".o"))
++		strcpy(fn, prog);
++	else
++		sprintf(fn, "%s_kern.o", prog);
++	if (logFlag)
++		printf("loading bpf file:%s\n", fn);
++	if (load_bpf_file(fn)) {
++		printf("ERROR: load_bpf_file failed for: %s\n", fn);
++		printf("%s", bpf_log_buf);
++		return 4;
++	}
++	if (logFlag)
++		printf("TCP BPF Loaded %s\n", fn);
++
++	error = bpf_prog_attach(prog_fd[0], cg_fd, BPF_CGROUP_SOCK_OPS, 0);
++	if (error) {
++		printf("ERROR: bpf_prog_attach: %d (%s)\n",
++		       error, strerror(errno));
++		return 5;
++	} else if (logFlag) {
++		read_trace_pipe();
++	}
++
++	return error;
++}
+-- 
+2.9.3
