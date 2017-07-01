@@ -1,7 +1,7 @@
 From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next v6 15/16] bpf: Sample bpf program to set sndcwnd clamp
-Date: Fri, 30 Jun 2017 20:02:54 -0700
-Message-ID: <20170701030255.1931076-16-brakmo@fb.com>
+Subject: [PATCH net-next v6 05/16] bpf: Support for setting initial receive window
+Date: Fri, 30 Jun 2017 20:02:44 -0700
+Message-ID: <20170701030255.1931076-6-brakmo@fb.com>
 References: <20170701030255.1931076-1-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,158 +11,135 @@ Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:39385 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752187AbdGADDD (ORCPT
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:33617 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752117AbdGADDD (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 23:03:03 -0400
-Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v6130Cbb021150
-        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 20:03:03 -0700
+Received: from pps.filterd (m0109331.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v6132tlP027878
+        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 20:03:02 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2be1v7r8h0-2
+        by mx0a-00082601.pphosted.com with ESMTP id 2be2p2r44t-4
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 20:03:03 -0700
+        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 20:03:02 -0700
 Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
- mx-out.facebook.com (2401:db00:2050:5102:face:0000:0037:0000) with ESMTP       id
- caba6c545e0911e78a2e1f53bdcd5fbc-76b358f0 for <netdev@vger.kernel.org>;        Fri,
- 30 Jun 2017 20:03:00 -0700
+ mx-out.facebook.com (2401:db00:2050:5102:face:0000:003b:0000) with ESMTP       id
+ c9cc42865e0911e7b2f309cabd64a484-9dd3a8f0 for <netdev@vger.kernel.org>;        Fri,
+ 30 Jun 2017 20:02:59 -0700
 In-Reply-To: <20170701030255.1931076-1-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sample BPF program, tcp_clamp_kern.c, to demostrate the use
-of setting the sndcwnd clamp. This program assumes that if the
-first 5.5 bytes of the host's IPv6 addresses are the same, then
-the hosts are in the same datacenter and sets sndcwnd clamp to
-100 packets, SYN and SYN-ACK RTOs to 10ms and send/receive buffer
-sizes to 150KB.
+This patch adds suppport for setting the initial advertized window from
+within a BPF_SOCK_OPS program. This can be used to support larger
+initial cwnd values in environments where it is known to be safe.
 
 Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
 ---
- samples/bpf/Makefile         |   1 +
- samples/bpf/tcp_clamp_kern.c | 102 +++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 103 insertions(+)
- create mode 100644 samples/bpf/tcp_clamp_kern.c
+ include/net/tcp.h        | 10 ++++++++++
+ include/uapi/linux/bpf.h |  4 ++++
+ net/ipv4/tcp_minisocks.c |  9 ++++++++-
+ net/ipv4/tcp_output.c    |  7 ++++++-
+ 4 files changed, 28 insertions(+), 2 deletions(-)
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 242d76e..9c65058 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -118,6 +118,7 @@ always += tcp_rwnd_kern.o
- always += tcp_bufs_kern.o
- always += tcp_cong_kern.o
- always += tcp_iw_kern.o
-+always += tcp_clamp_kern.o
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 564af2d..d6bb394 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -2068,4 +2068,14 @@ static inline u32 tcp_timeout_init(struct sock *sk)
+ 	return timeout;
+ }
  
- HOSTCFLAGS += -I$(objtree)/usr/include
- HOSTCFLAGS += -I$(srctree)/tools/lib/
-diff --git a/samples/bpf/tcp_clamp_kern.c b/samples/bpf/tcp_clamp_kern.c
-new file mode 100644
-index 0000000..d68eadd9
---- /dev/null
-+++ b/samples/bpf/tcp_clamp_kern.c
-@@ -0,0 +1,102 @@
-+/* Copyright (c) 2017 Facebook
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ *
-+ * Sample BPF program to set send and receive buffers to 150KB, sndcwnd clamp
-+ * to 100 packets and SYN and SYN_ACK RTOs to 10ms when both hosts are within
-+ * the same datacenter. For his example, we assume they are within the same
-+ * datacenter when the first 5.5 bytes of their IPv6 addresses are the same.
-+ *
-+ * Use load_sock_ops to load this BPF program.
-+ */
-+
-+#include <uapi/linux/bpf.h>
-+#include <uapi/linux/if_ether.h>
-+#include <uapi/linux/if_packet.h>
-+#include <uapi/linux/ip.h>
-+#include <linux/socket.h>
-+#include "bpf_helpers.h"
-+#include "bpf_endian.h"
-+
-+#define DEBUG 1
-+
-+#define bpf_printk(fmt, ...)					\
-+({								\
-+	       char ____fmt[] = fmt;				\
-+	       bpf_trace_printk(____fmt, sizeof(____fmt),	\
-+				##__VA_ARGS__);			\
-+})
-+
-+SEC("sockops")
-+int bpf_clamp(struct bpf_sock_ops *skops)
++static inline u32 tcp_rwnd_init_bpf(struct sock *sk)
 +{
-+	int bufsize = 150000;
-+	int to_init = 10;
-+	int clamp = 100;
-+	int rv = 0;
-+	int op;
++	int rwnd;
 +
-+	/* For testing purposes, only execute rest of BPF program
-+	 * if neither port numberis 55601
-+	 */
-+	if (bpf_ntohl(skops->remote_port) != 55601 && skops->local_port != 55601)
-+		return -1;
++	rwnd = tcp_call_bpf(sk, BPF_SOCK_OPS_RWND_INIT);
 +
-+	op = (int) skops->op;
-+
-+#ifdef DEBUG
-+	bpf_printk("BPF command: %d\n", op);
-+#endif
-+
-+	/* Check that both hosts are within same datacenter. For this example
-+	 * it is the case when the first 5.5 bytes of their IPv6 addresses are
-+	 * the same.
-+	 */
-+	if (skops->family == AF_INET6 &&
-+	    skops->local_ip6[0] == skops->remote_ip6[0] &&
-+	    (bpf_ntohl(skops->local_ip6[1]) & 0xfff00000) ==
-+	    (bpf_ntohl(skops->remote_ip6[1]) & 0xfff00000)) {
-+		switch (op) {
-+		case BPF_SOCK_OPS_TIMEOUT_INIT:
-+			rv = to_init;
-+			break;
-+		case BPF_SOCK_OPS_TCP_CONNECT_CB:
-+			/* Set sndbuf and rcvbuf of active connections */
-+			rv = bpf_setsockopt(skops, SOL_SOCKET, SO_SNDBUF,
-+					    &bufsize, sizeof(bufsize));
-+			rv = rv*100 + bpf_setsockopt(skops, SOL_SOCKET,
-+						      SO_RCVBUF, &bufsize,
-+						      sizeof(bufsize));
-+			break;
-+		case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
-+			rv = bpf_setsockopt(skops, SOL_TCP,
-+					    TCP_BPF_SNDCWND_CLAMP,
-+					    &clamp, sizeof(clamp));
-+			break;
-+		case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
-+			/* Set sndbuf and rcvbuf of passive connections */
-+			rv = bpf_setsockopt(skops, SOL_TCP,
-+					    TCP_BPF_SNDCWND_CLAMP,
-+					    &clamp, sizeof(clamp));
-+			rv = rv*100 + bpf_setsockopt(skops, SOL_SOCKET,
-+						      SO_SNDBUF, &bufsize,
-+						      sizeof(bufsize));
-+			rv = rv*100 + bpf_setsockopt(skops, SOL_SOCKET,
-+						      SO_RCVBUF, &bufsize,
-+						      sizeof(bufsize));
-+			break;
-+		default:
-+			rv = -1;
-+		}
-+	} else {
-+		rv = -1;
-+	}
-+#ifdef DEBUG
-+	bpf_printk("Returning %d\n", rv);
-+#endif
-+	skops->reply = rv;
-+	return 1;
++	if (rwnd < 0)
++		rwnd = 0;
++	return rwnd;
 +}
-+char _license[] SEC("license") = "GPL";
+ #endif	/* _TCP_H */
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 00702b2..94d7ded 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -751,6 +751,10 @@ enum {
+ 	BPF_SOCK_OPS_TIMEOUT_INIT,	/* Should return SYN-RTO value to use or
+ 					 * -1 if default value should be used
+ 					 */
++	BPF_SOCK_OPS_RWND_INIT,		/* Should return initial advertized
++					 * window (in packets) or -1 if default
++					 * value should be used
++					 */
+ };
+ 
+ #endif /* _UAPI__LINUX_BPF_H__ */
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index d30ee31..0ff83c1 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -351,6 +351,7 @@ void tcp_openreq_init_rwin(struct request_sock *req,
+ 	int full_space = tcp_full_space(sk_listener);
+ 	u32 window_clamp;
+ 	__u8 rcv_wscale;
++	u32 rcv_wnd;
+ 	int mss;
+ 
+ 	mss = tcp_mss_clamp(tp, dst_metric_advmss(dst));
+@@ -363,6 +364,12 @@ void tcp_openreq_init_rwin(struct request_sock *req,
+ 	    (req->rsk_window_clamp > full_space || req->rsk_window_clamp == 0))
+ 		req->rsk_window_clamp = full_space;
+ 
++	rcv_wnd = tcp_rwnd_init_bpf((struct sock *)req);
++	if (rcv_wnd == 0)
++		rcv_wnd = dst_metric(dst, RTAX_INITRWND);
++	else if (full_space < rcv_wnd * mss)
++		full_space = rcv_wnd * mss;
++
+ 	/* tcp_full_space because it is guaranteed to be the first packet */
+ 	tcp_select_initial_window(full_space,
+ 		mss - (ireq->tstamp_ok ? TCPOLEN_TSTAMP_ALIGNED : 0),
+@@ -370,7 +377,7 @@ void tcp_openreq_init_rwin(struct request_sock *req,
+ 		&req->rsk_window_clamp,
+ 		ireq->wscale_ok,
+ 		&rcv_wscale,
+-		dst_metric(dst, RTAX_INITRWND));
++		rcv_wnd);
+ 	ireq->rcv_wscale = rcv_wscale;
+ }
+ EXPORT_SYMBOL(tcp_openreq_init_rwin);
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index d60ae44..5345d61 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -3267,6 +3267,7 @@ static void tcp_connect_init(struct sock *sk)
+ 	const struct dst_entry *dst = __sk_dst_get(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	__u8 rcv_wscale;
++	u32 rcv_wnd;
+ 
+ 	/* We'll fix this up when we get a response from the other end.
+ 	 * See tcp_input.c:tcp_rcv_state_process case TCP_SYN_SENT.
+@@ -3300,13 +3301,17 @@ static void tcp_connect_init(struct sock *sk)
+ 	    (tp->window_clamp > tcp_full_space(sk) || tp->window_clamp == 0))
+ 		tp->window_clamp = tcp_full_space(sk);
+ 
++	rcv_wnd = tcp_rwnd_init_bpf(sk);
++	if (rcv_wnd == 0)
++		rcv_wnd = dst_metric(dst, RTAX_INITRWND);
++
+ 	tcp_select_initial_window(tcp_full_space(sk),
+ 				  tp->advmss - (tp->rx_opt.ts_recent_stamp ? tp->tcp_header_len - sizeof(struct tcphdr) : 0),
+ 				  &tp->rcv_wnd,
+ 				  &tp->window_clamp,
+ 				  sock_net(sk)->ipv4.sysctl_tcp_window_scaling,
+ 				  &rcv_wscale,
+-				  dst_metric(dst, RTAX_INITRWND));
++				  rcv_wnd);
+ 
+ 	tp->rx_opt.rcv_wscale = rcv_wscale;
+ 	tp->rcv_ssthresh = tp->rcv_wnd;
 -- 
 2.9.3
