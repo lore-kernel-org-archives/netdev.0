@@ -1,112 +1,255 @@
-From: Mikulas Patocka <mpatocka@redhat.com>
-Subject: Re: [PATCH] vmalloc: respect the GFP_NOIO and GFP_NOFS flags
-Date: Sat, 1 Jul 2017 00:49:21 -0400 (EDT)
-Message-ID: <alpine.LRH.2.02.1707010048180.27681@file01.intranet.prod.int.rdu2.redhat.com>
-References: <alpine.LRH.2.02.1706292221250.21823@file01.intranet.prod.int.rdu2.redhat.com> <884F0682-1AF6-4C23-806F-480C86A2A036@dilger.ca>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH v2] selftests: add a generic testsuite for ethernet device
+Date: Sat, 1 Jul 2017 08:42:22 +0200
+Message-ID: <20170701064222.GB23363@Red>
+References: <20170404133247.28725-1-clabbe.montjoie@gmail.com>
+ <CAGNsrLBgLFcgdzvuX2JJhoLgjfL0hOKGbNbZY_Hu6Prv35wGfw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Michal Hocko <mhocko@kernel.org>, Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Stephen Rothwell <sfr@canb.auug.org.au>,
-        Vlastimil Babka <vbabka@suse.cz>, John Hubbard <jhubbard@nvidia.com>,
-        David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-        linux-mm@kvack.org, netdev@vger.kernel.org
-To: Andreas Dilger <adilger@dilger.ca>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <884F0682-1AF6-4C23-806F-480C86A2A036@dilger.ca>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Shuah Khan <shuah@kernel.org>, davem@davemloft.net, andrew@lunn.ch,
+        linux-kselftest@vger.kernel.org,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        netdev@vger.kernel.org
+To: Fathi Boudra <fathi.boudra@linaro.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35514 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751581AbdGAGmb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 1 Jul 2017 02:42:31 -0400
+Content-Disposition: inline
+In-Reply-To: <CAGNsrLBgLFcgdzvuX2JJhoLgjfL0hOKGbNbZY_Hu6Prv35wGfw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On Fri, 30 Jun 2017, Andreas Dilger wrote:
-
-> On Jun 29, 2017, at 8:25 PM, Mikulas Patocka <mpatocka@redhat.com> wrote:
-> > 
-> > The __vmalloc function has a parameter gfp_mask with the allocation flags,
-> > however it doesn't fully respect the GFP_NOIO and GFP_NOFS flags. The
-> > pages are allocated with the specified gfp flags, but the pagetables are
-> > always allocated with GFP_KERNEL. This allocation can cause unexpected
-> > recursion into the filesystem or I/O subsystem.
-> > 
-> > It is not practical to extend page table allocation routines with gfp
-> > flags because it would require modification of architecture-specific code
-> > in all architecturs. However, the process can temporarily request that all
-> > allocations are done with GFP_NOFS or GFP_NOIO with with the functions
-> > memalloc_nofs_save and memalloc_noio_save.
-> > 
-> > This patch makes the vmalloc code use memalloc_nofs_save or
-> > memalloc_noio_save if the supplied gfp flags do not contain __GFP_FS or
-> > __GFP_IO. It fixes some possible deadlocks in drivers/mtd/ubi/io.c,
-> > fs/gfs2/, fs/btrfs/free-space-tree.c, fs/ubifs/,
-> > fs/nfs/blocklayout/extent_tree.c where __vmalloc is used with the GFP_NOFS
-> > flag.
-> > 
-> > The patch also simplifies code in dm-bufio.c, dm-ioctl.c and fs/xfs/kmem.c
-> > by removing explicit calls to memalloc_nofs_save and memalloc_noio_save
-> > before the call to __vmalloc.
-> > 
-> > Signed-off-by: Mikulas Patocka <mpatocka@redhat.com>
-> > 
+On Thu, Jun 29, 2017 at 11:26:40AM +0300, Fathi Boudra wrote:
+> On 4 April 2017 at 16:32, Corentin Labbe <clabbe.montjoie@gmail.com> wrote:
+> > This patch add a generic testsuite for testing ethernet network device driver.
+> >
+> > Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 > > ---
-> > drivers/md/dm-bufio.c |   24 +-----------------------
-> > drivers/md/dm-ioctl.c |    6 +-----
-> > fs/xfs/kmem.c         |   14 --------------
-> > mm/util.c             |    6 +++---
-> > mm/vmalloc.c          |   18 +++++++++++++++++-
-> > 5 files changed, 22 insertions(+), 46 deletions(-)
-> > 
-> > Index: linux-2.6/mm/vmalloc.c
-> > ===================================================================
-> > --- linux-2.6.orig/mm/vmalloc.c
-> > +++ linux-2.6/mm/vmalloc.c
-> > @@ -31,6 +31,7 @@
-> > #include <linux/compiler.h>
-> > #include <linux/llist.h>
-> > #include <linux/bitops.h>
-> > +#include <linux/sched/mm.h>
-> > 
-> > #include <linux/uaccess.h>
-> > #include <asm/tlbflush.h>
-> > @@ -1670,6 +1671,8 @@ static void *__vmalloc_area_node(struct
-> > 	unsigned int nr_pages, array_size, i;
-> > 	const gfp_t nested_gfp = (gfp_mask & GFP_RECLAIM_MASK) | __GFP_ZERO;
-> > 	const gfp_t alloc_mask = gfp_mask | __GFP_HIGHMEM | __GFP_NOWARN;
-> > +	unsigned noio_flag;
-> > +	int r;
-> > 
-> > 	nr_pages = get_vm_area_size(area) >> PAGE_SHIFT;
-> > 	array_size = (nr_pages * sizeof(struct page *));
-> > @@ -1712,8 +1715,21 @@ static void *__vmalloc_area_node(struct
-> > 			cond_resched();
-> > 	}
-> > 
-> > -	if (map_vm_area(area, prot, pages))
-> > +	if (unlikely(!(gfp_mask & __GFP_IO)))
-> > +		noio_flag = memalloc_noio_save();
-> > +	else if (unlikely(!(gfp_mask & __GFP_FS)))
-> > +		noio_flag = memalloc_nofs_save();
+> >
+> > Changes since v1:
+> > - Test for starting master interface
+> > - Changed printing format to "RESULT: $netdev: line"
+> > - Use "ip link" to get device list
+> >
+> >  tools/testing/selftests/net/Makefile     |   2 +-
+> >  tools/testing/selftests/net/netdevice.sh | 200 +++++++++++++++++++++++++++++++
+> >  2 files changed, 201 insertions(+), 1 deletion(-)
+> >  create mode 100755 tools/testing/selftests/net/netdevice.sh
+> >
+> > diff --git a/tools/testing/selftests/net/Makefile b/tools/testing/selftests/net/Makefile
+> > index fbfe5d0..35cbb4c 100644
+> > --- a/tools/testing/selftests/net/Makefile
+> > +++ b/tools/testing/selftests/net/Makefile
+> > @@ -5,7 +5,7 @@ CFLAGS += -I../../../../usr/include/
+> >
+> >  reuseport_bpf_numa: LDFLAGS += -lnuma
+> >
+> > -TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh
+> > +TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh netdevice.sh
+> >  TEST_GEN_FILES =  socket
+> >  TEST_GEN_FILES += psock_fanout psock_tpacket
+> >  TEST_GEN_FILES += reuseport_bpf reuseport_bpf_cpu reuseport_bpf_numa
+> > diff --git a/tools/testing/selftests/net/netdevice.sh b/tools/testing/selftests/net/netdevice.sh
+> > new file mode 100755
+> > index 0000000..4e00568
+> > --- /dev/null
+> > +++ b/tools/testing/selftests/net/netdevice.sh
+> > @@ -0,0 +1,200 @@
+> > +#!/bin/sh
+> > +#
+> > +# This test is for checking network interface
+> > +# For the moment it tests only ethernet interface (but wifi could be easily added)
+> > +#
+> > +# We assume that all network driver are loaded
+> > +# if not they probably have failed earlier in the boot process and their logged error will be catched by another test
+> > +#
 > > +
-> > +	r = map_vm_area(area, prot, pages);
+> > +# this function will try to up the interface
+> > +# if already up, nothing done
+> > +# arg1: network interface name
+> > +kci_net_start()
+> > +{
+> > +       netdev=$1
 > > +
-> > +	if (unlikely(!(gfp_mask & __GFP_IO)))
-> > +		memalloc_noio_restore(noio_flag);
-> > +	else if (unlikely(!(gfp_mask & __GFP_FS)))
-> > +		memalloc_nofs_restore(noio_flag);
+> > +       ip link show "$netdev" |grep -q UP
+> > +       if [ $? -eq 0 ];then
+> > +               echo "SKIP: $netdev: interface already up"
+> > +               return 0
+> > +       fi
+> > +
+> > +       ip link set "$netdev" up
+> > +       if [ $? -ne 0 ];then
+> > +               echo "FAIL: $netdev: Fail to up interface"
+> > +               return 1
+> > +       else
+> > +               echo "PASS: $netdev: set interface up"
+> > +               NETDEV_STARTED=1
+> > +       fi
+> > +       return 0
+> > +}
+> > +
+> > +# this function will try to setup an IP and MAC address on a network interface
+> > +# Doing nothing if the interface was already up
+> > +# arg1: network interface name
+> > +kci_net_setup()
+> > +{
+> > +       netdev=$1
+> > +
+> > +       # do nothing if the interface was already up
+> > +       if [ $NETDEV_STARTED -eq 0 ];then
+> > +               return 0
+> > +       fi
+> > +
+> > +       MACADDR='02:03:04:05:06:07'
+> > +       ip link set dev $netdev address "$MACADDR"
+> > +       if [ $? -ne 0 ];then
+> > +               echo "FAIL: $netdev: Cannot set MAC address"
+> > +       else
+> > +               ip link show $netdev |grep -q "$MACADDR"
+> > +               if [ $? -eq 0 ];then
+> > +                       echo "PASS: $netdev: set MAC address"
+> > +               else
+> > +                       echo "FAIL: $netdev: Cannot set MAC address"
+> > +               fi
+> > +       fi
+> > +
+> > +       #check that the interface did not already have an IP
+> > +       ip address show "$netdev" |grep '^[[:space:]]*inet'
+> > +       if [ $? -eq 0 ];then
+> > +               echo "SKIP: $netdev: already have an IP"
+> > +               return 0
+> > +       fi
+> > +
+> > +       # TODO what ipaddr to set ? DHCP ?
+> > +       echo "SKIP: $netdev: set IP address"
+> > +       return 0
+> > +}
+> > +
+> > +# test an ethtool command
+> > +# arg1: return code for not supported (see ethtool code source)
+> > +# arg2: summary of the command
+> > +# arg3: command to execute
+> > +kci_netdev_ethtool_test()
+> > +{
+> > +       if [ $# -le 2 ];then
+> > +               echo "SKIP: $netdev: ethtool: invalid number of arguments"
+> > +               return 1
+> > +       fi
+> > +       $3 >/dev/null
+> > +       ret=$?
+> > +       if [ $ret -ne 0 ];then
+> > +               if [ $ret -eq "$1" ];then
+> > +                       echo "SKIP: $netdev: ethtool $2 not supported"
+> > +               else
+> > +                       echo "FAIL: $netdev: ethtool $2"
+> > +                       return 1
+> > +               fi
+> > +       else
+> > +               echo "PASS: $netdev: ethtool $2"
+> > +       fi
+> > +       return 0
+> > +}
+> > +
+> > +# test ethtool commands
+> > +# arg1: network interface name
+> > +kci_netdev_ethtool()
+> > +{
+> > +       netdev=$1
+> > +
+> > +       #check presence of ethtool
+> > +       ethtool --version 2>/dev/null >/dev/null
+> > +       if [ $? -ne 0 ];then
+> > +               echo "SKIP: ethtool not present"
+> > +               return 1
+> > +       fi
+> > +
+> > +       TMP_ETHTOOL_FEATURES="$(mktemp)"
+> > +       if [ ! -e "$TMP_ETHTOOL_FEATURES" ];then
+> > +               echo "SKIP: Cannot create a tmp file"
+> > +               return 1
+> > +       fi
+> > +
+> > +       ethtool -k "$netdev" > "$TMP_ETHTOOL_FEATURES"
+> > +       if [ $? -ne 0 ];then
+> > +               echo "FAIL: $netdev: ethtool list features"
+> > +               rm "$TMP_ETHTOOL_FEATURES"
+> > +               return 1
+> > +       fi
+> > +       echo "PASS: $netdev: ethtool list features"
+> > +       #TODO for each non fixed features, try to turn them on/off
+> > +       rm "$TMP_ETHTOOL_FEATURES"
+> > +
+> > +       kci_netdev_ethtool_test 74 'dump' "ethtool -d $netdev"
+> > +       kci_netdev_ethtool_test 94 'stats' "ethtool -S $netdev"
+> > +       return 0
+> > +}
+> > +
+> > +# stop a netdev
+> > +# arg1: network interface name
+> > +kci_netdev_stop()
+> > +{
+> > +       netdev=$1
+> > +
+> > +       if [ $NETDEV_STARTED -eq 0 ];then
+> > +               echo "SKIP: $netdev: interface kept up"
+> > +               return 0
+> > +       fi
+> > +
+> > +       ip link set "$netdev" down
+> > +       if [ $? -ne 0 ];then
+> > +               echo "FAIL: $netdev: stop interface"
+> > +               return 1
+> > +       fi
+> > +       echo "PASS: $netdev: stop interface"
+> > +       return 0
+> > +}
+> > +
+> > +# run all test on a netdev
+> > +# arg1: network interface name
+> > +kci_test_netdev()
+> > +{
+> > +       NETDEV_STARTED=0
+> > +       IFACE_TO_UPDOWN="$1"
+> > +       IFACE_TO_TEST="$1"
+> > +       #check for VLAN interface
+> > +       MASTER_IFACE="$(echo $1 | cut -d@ -f2)"
+> > +       if [ ! -z "$MASTER_IFACE" ];then
+> > +               IFACE_TO_UPDOWN="$MASTER_IFACE"
+> > +               IFACE_TO_TEST="$(echo $1 | cut -d@ -f1)"
+> > +       fi
+> > +
+> > +       NETDEV_STARTED=0
+> > +       kci_net_start "$IFACE_TO_UPDOWN"
+> > +
+> > +       kci_net_setup "$IFACE_TO_TEST"
+> > +
+> > +       kci_netdev_ethtool "$IFACE_TO_TEST"
+> > +
+> > +       kci_netdev_stop "$IFACE_TO_UPDOWN"
+> > +       return 0
+> > +}
+> > +
+> > +#check for needed privileges
+> > +if [ "$(id -u)" -ne 0 ];then
+> > +       echo "SKIP: Need root privileges"
+> > +       exit 0
+> > +fi
+> > +
+> > +ip -Version 2>/dev/null >/dev/null
 > 
-> Is this really an "else if"?  I think it should just a separate "if".
+> is the test supposed to work with busybox's ip or only with iproute2 version?
 > 
-> Cheers, Andreas
+> # ip -Version
+> BusyBox v1.24.1 (2017-06-14 13:46:50 UTC) multi-call binary.
+> 
+> Usage: ip [OPTIONS] {address | route | link | tunnel | } {COMMAND}
+> 
 
-It is meant to be "else if". memalloc_noio_save() implies 
-memalloc_nofs_save(). If we call memalloc_noio_save(), there's no need to 
-call memalloc_nofs_save().
+Hello
 
-Mikulas
+Since I have forgotten that busybox have the ip tool, I have tested only with iproute2.
+But someone just sent a patch for handling busybox ip.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Regards
