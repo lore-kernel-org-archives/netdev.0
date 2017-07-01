@@ -1,7 +1,7 @@
 From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next v6 04/16] bpf: Sample bpf program to set SYN/SYN-ACK RTOs
-Date: Fri, 30 Jun 2017 20:02:43 -0700
-Message-ID: <20170701030255.1931076-5-brakmo@fb.com>
+Subject: [PATCH net-next v6 06/16] bpf: Sample bpf program to set initial window
+Date: Fri, 30 Jun 2017 20:02:45 -0700
+Message-ID: <20170701030255.1931076-7-brakmo@fb.com>
 References: <20170701030255.1931076-1-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,55 +11,55 @@ Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:33615 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752089AbdGADDC (ORCPT
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:34349 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752059AbdGADDC (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 23:03:02 -0400
-Received: from pps.filterd (m0109331.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v61331Zo027891
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+        by m0001303.ppops.net (8.16.0.20/8.16.0.20) with SMTP id v6131veU002643
         for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 20:03:02 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2be2p2r44r-5
+        by m0001303.ppops.net with ESMTP id 2bdyqkgrc2-4
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
         for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 20:03:02 -0700
 Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
- mx-out.facebook.com (2401:db00:2050:5102:face:0000:003b:0000) with ESMTP       id
- c9c5656a5e0911e7a93509cabd64a484-9f53d8f0 for <netdev@vger.kernel.org>;        Fri,
+ mx-out.facebook.com (2401:db00:2050:5102:face:0000:0037:0000) with ESMTP       id
+ c9ced2445e0911e78a2e1f53bdcd5fbc-76b358f0 for <netdev@vger.kernel.org>;        Fri,
  30 Jun 2017 20:02:59 -0700
 In-Reply-To: <20170701030255.1931076-1-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The sample BPF program, tcp_synrto_kern.c, sets the SYN and SYN-ACK
-RTOs to 10ms when both hosts are within the same datacenter (i.e.
-small RTTs) in an environment where common IPv6 prefixes indicate
-both hosts are in the same data center.
+The sample bpf program, tcp_rwnd_kern.c, sets the initial
+advertized window to 40 packets in an environment where
+distinct IPv6 prefixes indicate that both hosts are not
+in the same data center.
 
 Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
 Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- samples/bpf/Makefile          |  1 +
- samples/bpf/tcp_synrto_kern.c | 69 +++++++++++++++++++++++++++++++++++++++++++
+ samples/bpf/Makefile        |  1 +
+ samples/bpf/tcp_rwnd_kern.c | 69 +++++++++++++++++++++++++++++++++++++++++++++
  2 files changed, 70 insertions(+)
- create mode 100644 samples/bpf/tcp_synrto_kern.c
+ create mode 100644 samples/bpf/tcp_rwnd_kern.c
 
 diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 015589b..e29370a 100644
+index e29370a..ca95528 100644
 --- a/samples/bpf/Makefile
 +++ b/samples/bpf/Makefile
-@@ -113,6 +113,7 @@ always += lwt_len_hist_kern.o
- always += xdp_tx_iptunnel_kern.o
+@@ -114,6 +114,7 @@ always += xdp_tx_iptunnel_kern.o
  always += test_map_in_map_kern.o
  always += cookie_uid_helper_example.o
-+always += tcp_synrto_kern.o
+ always += tcp_synrto_kern.o
++always += tcp_rwnd_kern.o
  
  HOSTCFLAGS += -I$(objtree)/usr/include
  HOSTCFLAGS += -I$(srctree)/tools/lib/
-diff --git a/samples/bpf/tcp_synrto_kern.c b/samples/bpf/tcp_synrto_kern.c
+diff --git a/samples/bpf/tcp_rwnd_kern.c b/samples/bpf/tcp_rwnd_kern.c
 new file mode 100644
-index 0000000..3c3fc83
+index 0000000..3f2a228
 --- /dev/null
-+++ b/samples/bpf/tcp_synrto_kern.c
++++ b/samples/bpf/tcp_rwnd_kern.c
 @@ -0,0 +1,69 @@
 +/* Copyright (c) 2017 Facebook
 + *
@@ -67,9 +67,9 @@ index 0000000..3c3fc83
 + * modify it under the terms of version 2 of the GNU General Public
 + * License as published by the Free Software Foundation.
 + *
-+ * BPF program to set SYN and SYN-ACK RTOs to 10ms when using IPv6 addresses
-+ * and the first 5.5 bytes of the IPv6 addresses are the same (in this example
-+ * that means both hosts are in the same datacenter).
++ * BPF program to set initial receive window to 40 packets when using IPv6
++ * and the first 5.5 bytes of the IPv6 addresses are not the same (in this
++ * example that means both hosts are not the same datacenter).
 + *
 + * Use load_sock_ops to load this BPF program.
 + */
@@ -92,7 +92,7 @@ index 0000000..3c3fc83
 +})
 +
 +SEC("sockops")
-+int bpf_synrto(struct bpf_sock_ops *skops)
++int bpf_rwnd(struct bpf_sock_ops *skops)
 +{
 +	int rv = -1;
 +	int op;
@@ -100,8 +100,8 @@ index 0000000..3c3fc83
 +	/* For testing purposes, only execute rest of BPF program
 +	 * if neither port numberis 55601
 +	 */
-+	if (bpf_ntohl(skops->remote_port) != 55601 &&
-+	    skops->local_port != 55601)
++	if (bpf_ntohl(skops->remote_port) !=
++	    55601 && skops->local_port != 55601)
 +		return -1;
 +
 +	op = (int) skops->op;
@@ -110,18 +110,18 @@ index 0000000..3c3fc83
 +	bpf_printk("BPF command: %d\n", op);
 +#endif
 +
-+	/* Check for TIMEOUT_INIT operation and IPv6 addresses */
-+	if (op == BPF_SOCK_OPS_TIMEOUT_INIT &&
++	/* Check for RWND_INIT operation and IPv6 addresses */
++	if (op == BPF_SOCK_OPS_RWND_INIT &&
 +		skops->family == AF_INET6) {
 +
-+		/* If the first 5.5 bytes of the IPv6 address are the same
-+		 * then both hosts are in the same datacenter
-+		 * so use an RTO of 10ms
++		/* If the first 5.5 bytes of the IPv6 address are not the same
++		 * then both hosts are not in the same datacenter
++		 * so use a larger initial advertized window (40 packets)
 +		 */
-+		if (skops->local_ip6[0] == skops->remote_ip6[0] &&
-+		    (bpf_ntohl(skops->local_ip6[1]) & 0xfff00000) ==
-+		    (bpf_ntohl(skops->remote_ip6[1]) & 0xfff00000))
-+			rv = 10;
++		if (skops->local_ip6[0] != skops->remote_ip6[0] ||
++		    (bpf_ntohl(skops->local_ip6[1]) & 0xfffff000) !=
++		    (bpf_ntohl(skops->remote_ip6[1]) & 0xfffff000))
++			rv = 40;
 +	}
 +#ifdef DEBUG
 +	bpf_printk("Returning %d\n", rv);
