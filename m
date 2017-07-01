@@ -1,29 +1,51 @@
 From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [GIT] [4.13] NFC update
-Date: Sat, 01 Jul 2017 14:31:25 -0700 (PDT)
-Message-ID: <20170701.143125.1505437308148938791.davem@davemloft.net>
-References: <20170630093720.GO21214@zurbaran.ger.intel.com>
+Subject: Re: [PATCH][-next] net/mlx5: fix spelling mistake: "Allodating" ->
+ "Allocating"
+Date: Sat, 01 Jul 2017 14:40:03 -0700 (PDT)
+Message-ID: <20170701.144003.1643313481741710568.davem@davemloft.net>
+References: <20170630105922.10397-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-nfc-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
-To: sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170630093720.GO21214-nKCvNrh56OquJmZzmsDdo1DQ4js95KgL@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+        ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170630105922.10397-1-colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Date: Fri, 30 Jun 2017 11:37:20 +0200
+From: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Date: Fri, 30 Jun 2017 11:59:22 +0100
 
-> This is the NFC pull request for 4.13. We have:
+> From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 > 
-> - A conversion to unified device and GPIO APIs for the
->   fdp, pn544, and st{21,-nci} drivers.
-> - A fix for NFC device IDs allocation.
-> - A fix for the nfcmrvl driver firmware download mechanism.
-> - A trf7970a DT and GPIO cleanup and clock setting fix.
-> - A few fixes for potential overflows in the digital and LLCP code.
+> Trivial fix to spelling mistake in mlx5_core_dbg debug message
+> 
+> Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 
-Pulled, thanks Samuel.
+Applied, thanks Colin.
+
+Mellanox folks, I don't like how these lib/ objects are built.
+
+I absolutely depend upon being able to try and build individual
+object files, by name, in order to quickly smoke-test patches.
+Like this:
+
+[davem@kkuri net-next]$ make drivers/net/ethernet/mellanox/mlx5/core/lib/gid.o
+
+But I can't for these files:
+
+scripts/Makefile.build:44: drivers/net/ethernet/mellanox/mlx5/core/lib/Makefile: No such file or directory
+make[1]: *** No rule to make target 'drivers/net/ethernet/mellanox/mlx5/core/lib/Makefile'.  Stop.
+Makefile:1663: recipe for target 'drivers/net/ethernet/mellanox/mlx5/core/lib/gid.o' failed
+
+Please fix this so that I can build all object files by name in this driver
+again.
+
+Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
