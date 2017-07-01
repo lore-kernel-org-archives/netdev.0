@@ -1,225 +1,106 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH v3] sctp: Add peeloff-flags socket option
-Date: Sat, 1 Jul 2017 14:29:19 -0300
-Message-ID: <20170701172919.GQ18138@localhost.localdomain>
-References: <20170629181340.12423-1-nhorman@tuxdriver.com>
- <20170630173257.18990-1-nhorman@tuxdriver.com>
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Subject: pull request: bluetooth-next 2017-07-01
+Date: Sat, 1 Jul 2017 21:19:50 +0300
+Message-ID: <20170701181950.GA27217@x1c.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Andreas Steinmetz <ast@domdv.de>
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="UlVJffcvxoiEqYs2"
+Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47980 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751911AbdGAR3Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 1 Jul 2017 13:29:25 -0400
+Received: from mail-lf0-f45.google.com ([209.85.215.45]:34310 "EHLO
+        mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751851AbdGASUA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 1 Jul 2017 14:20:00 -0400
 Content-Disposition: inline
-In-Reply-To: <20170630173257.18990-1-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 30, 2017 at 01:32:57PM -0400, Neil Horman wrote:
-> Based on a request raised on the sctp devel list, there is a need to
-> augment the sctp_peeloff operation while specifying the O_CLOEXEC and
-> O_NONBLOCK flags (simmilar to the socket syscall).  Since modifying the
-> SCTP_SOCKOPT_PEELOFF socket option would break user space ABI for existing
-> programs, this patch creates a new socket option
-> SCTP_SOCKOPT_PEELOFF_FLAGS, which accepts a third flags parameter to
-> allow atomic assignment of the socket descriptor flags.
-> 
-> Tested successfully by myself and the requestor
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> CC: Vlad Yasevich <vyasevich@gmail.com>
-> CC: "David S. Miller" <davem@davemloft.net>
-> CC: Andreas Steinmetz <ast@domdv.de>
-> CC: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+--UlVJffcvxoiEqYs2
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Thanks!
+Hi Dave,
 
-> 
-> ---
-> Change notes:
-> 
-> v2)
-> 
-> * Per Marcellos comments, move to use of get_unused_fd_flags() and
-> clean up code to independently set CLOEXEC
-> 
-> * clean up a stray tab
-> 
-> v3)
-> 
-> * Clean up some long lines
-> ---
->  include/uapi/linux/sctp.h |  6 ++++
->  net/sctp/socket.c         | 87 +++++++++++++++++++++++++++++++++++++++--------
->  2 files changed, 78 insertions(+), 15 deletions(-)
-> 
-> diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
-> index ced9d8b..6217ff8 100644
-> --- a/include/uapi/linux/sctp.h
-> +++ b/include/uapi/linux/sctp.h
-> @@ -121,6 +121,7 @@ typedef __s32 sctp_assoc_t;
->  #define SCTP_RESET_STREAMS	119
->  #define SCTP_RESET_ASSOC	120
->  #define SCTP_ADD_STREAMS	121
-> +#define SCTP_SOCKOPT_PEELOFF_FLAGS 122
->  
->  /* PR-SCTP policies */
->  #define SCTP_PR_SCTP_NONE	0x0000
-> @@ -978,6 +979,11 @@ typedef struct {
->  	int sd;
->  } sctp_peeloff_arg_t;
->  
-> +typedef struct {
-> +	sctp_peeloff_arg_t p_arg;
-> +	unsigned flags;
-> +} sctp_peeloff_flags_arg_t;
-> +
->  /*
->   *  Peer Address Thresholds socket option
->   */
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 7b6e20e..72de049 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -4933,11 +4933,47 @@ int sctp_do_peeloff(struct sock *sk, sctp_assoc_t id, struct socket **sockp)
->  }
->  EXPORT_SYMBOL(sctp_do_peeloff);
->  
-> +static int sctp_getsockopt_peeloff_common(struct sock *sk, sctp_peeloff_arg_t *peeloff,
-> +					  struct file **newfile, unsigned flags)
-> +{
-> +	struct socket *newsock;
-> +	int retval;
-> +
-> +	retval = sctp_do_peeloff(sk, peeloff->associd, &newsock);
-> +	if (retval < 0)
-> +		goto out;
-> +
-> +	/* Map the socket to an unused fd that can be returned to the user.  */
-> +	retval = get_unused_fd_flags(flags & SOCK_CLOEXEC);
-> +	if (retval < 0) {
-> +		sock_release(newsock);
-> +		goto out;
-> +	}
-> +
-> +	*newfile = sock_alloc_file(newsock, 0, NULL);
-> +	if (IS_ERR(*newfile)) {
-> +		put_unused_fd(retval);
-> +		sock_release(newsock);
-> +		retval = PTR_ERR(*newfile);
-> +		*newfile = NULL;
-> +		return retval;
-> +	}
-> +
-> +	pr_debug("%s: sk:%p, newsk:%p, sd:%d\n", __func__, sk, newsock->sk,
-> +		 retval);
-> +
-> +	peeloff->sd = retval;
-> +
-> +	if (flags & SOCK_NONBLOCK)
-> +		(*newfile)->f_flags |= O_NONBLOCK;
-> +out:
-> +	return retval;
-> +}
-> +
->  static int sctp_getsockopt_peeloff(struct sock *sk, int len, char __user *optval, int __user *optlen)
->  {
->  	sctp_peeloff_arg_t peeloff;
-> -	struct socket *newsock;
-> -	struct file *newfile;
-> +	struct file *newfile = NULL;
->  	int retval = 0;
->  
->  	if (len < sizeof(sctp_peeloff_arg_t))
-> @@ -4946,26 +4982,44 @@ static int sctp_getsockopt_peeloff(struct sock *sk, int len, char __user *optval
->  	if (copy_from_user(&peeloff, optval, len))
->  		return -EFAULT;
->  
-> -	retval = sctp_do_peeloff(sk, peeloff.associd, &newsock);
-> +	retval = sctp_getsockopt_peeloff_common(sk, &peeloff, &newfile, 0);
->  	if (retval < 0)
->  		goto out;
->  
-> -	/* Map the socket to an unused fd that can be returned to the user.  */
-> -	retval = get_unused_fd_flags(0);
-> -	if (retval < 0) {
-> -		sock_release(newsock);
-> -		goto out;
-> +	/* Return the fd mapped to the new socket.  */
-> +	if (put_user(len, optlen)) {
-> +		fput(newfile);
-> +		put_unused_fd(retval);
-> +		return -EFAULT;
->  	}
->  
-> -	newfile = sock_alloc_file(newsock, 0, NULL);
-> -	if (IS_ERR(newfile)) {
-> +	if (copy_to_user(optval, &peeloff, len)) {
-> +		fput(newfile);
->  		put_unused_fd(retval);
-> -		sock_release(newsock);
-> -		return PTR_ERR(newfile);
-> +		return -EFAULT;
->  	}
-> +	fd_install(retval, newfile);
-> +out:
-> +	return retval;
-> +}
->  
-> -	pr_debug("%s: sk:%p, newsk:%p, sd:%d\n", __func__, sk, newsock->sk,
-> -		 retval);
-> +static int sctp_getsockopt_peeloff_flags(struct sock *sk, int len,
-> +					 char __user *optval, int __user *optlen)
-> +{
-> +	sctp_peeloff_flags_arg_t peeloff;
-> +	struct file *newfile = NULL;
-> +	int retval = 0;
-> +
-> +	if (len < sizeof(sctp_peeloff_flags_arg_t))
-> +		return -EINVAL;
-> +	len = sizeof(sctp_peeloff_flags_arg_t);
-> +	if (copy_from_user(&peeloff, optval, len))
-> +		return -EFAULT;
-> +
-> +	retval = sctp_getsockopt_peeloff_common(sk, &peeloff.p_arg,
-> +						&newfile, peeloff.flags);
-> +	if (retval < 0)
-> +		goto out;
->  
->  	/* Return the fd mapped to the new socket.  */
->  	if (put_user(len, optlen)) {
-> @@ -4973,7 +5027,7 @@ static int sctp_getsockopt_peeloff(struct sock *sk, int len, char __user *optval
->  		put_unused_fd(retval);
->  		return -EFAULT;
->  	}
-> -	peeloff.sd = retval;
-> +
->  	if (copy_to_user(optval, &peeloff, len)) {
->  		fput(newfile);
->  		put_unused_fd(retval);
-> @@ -6758,6 +6812,9 @@ static int sctp_getsockopt(struct sock *sk, int level, int optname,
->  	case SCTP_SOCKOPT_PEELOFF:
->  		retval = sctp_getsockopt_peeloff(sk, len, optval, optlen);
->  		break;
-> +	case SCTP_SOCKOPT_PEELOFF_FLAGS:
-> +		retval = sctp_getsockopt_peeloff_flags(sk, len, optval, optlen);
-> +		break;
->  	case SCTP_PEER_ADDR_PARAMS:
->  		retval = sctp_getsockopt_peer_addr_params(sk, len, optval,
->  							  optlen);
-> -- 
-> 2.9.4
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Here are some more Bluetooth patches for the 4.13 kernel:
+
+ - Added support for Broadcom BCM43430 controllers
+ - Added sockaddr length checks before accessing sa_family
+ - Fixed possible "might sleep" errors in bnep, cmtp and hidp modules
+ - A few other minor fixes
+
+Please let me know if there are any issues pulling. Thanks.
+
+Johan
+
+---
+The following changes since commit 4b943faedfc29eda882851b772c06cecdf78d8e3:
+
+  udp/v6: prefetch rmem_alloc in udp6_queue_rcv_skb() (2017-06-22 13:44:04 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next.git for-upstream
+
+for you to fetch changes up to feb16722b5d5f05b7ae1278a43e717c3d35cd512:
+
+  Bluetooth: btbcm: Add entry for BCM43430 UART bluetooth (2017-06-29 14:39:42 +0200)
+
+----------------------------------------------------------------
+Colin Ian King (1):
+      Bluetooth: hci_serdev: make hci_serdev_client_ops static
+
+Hans de Goede (1):
+      Bluetooth: hci_bcm: Add active_low irq polarity quirk for Asus T100CHI
+
+Ian Molton (1):
+      Bluetooth: btbcm: Add entry for BCM43430 UART bluetooth
+
+Jeffy Chen (3):
+      Bluetooth: bnep: fix possible might sleep error in bnep_session
+      Bluetooth: cmtp: fix possible might sleep error in cmtp_session
+      Bluetooth: hidp: fix possible might sleep error in hidp_session_thread
+
+Loic Poulain (1):
+      Bluetooth: hci_bcm: Fix unwanted error reporting if no bcm dev
+
+Mateusz Jurczyk (1):
+      Bluetooth: Add sockaddr length checks before accessing sa_family in bind and connect handlers
+
+Tejun Heo (1):
+      bluetooth: remove WQ_MEM_RECLAIM from hci workqueues
+
+ drivers/bluetooth/btbcm.c      |  1 +
+ drivers/bluetooth/hci_bcm.c    | 12 ++++++++++--
+ drivers/bluetooth/hci_serdev.c |  4 ++--
+ net/bluetooth/bnep/core.c      | 11 +++++------
+ net/bluetooth/cmtp/core.c      | 17 ++++++++++-------
+ net/bluetooth/hci_core.c       |  7 +++----
+ net/bluetooth/hidp/core.c      | 33 ++++++++++++++++++++++-----------
+ net/bluetooth/l2cap_sock.c     |  5 +++--
+ net/bluetooth/rfcomm/sock.c    |  3 ++-
+ net/bluetooth/sco.c            |  6 ++----
+ 10 files changed, 60 insertions(+), 39 deletions(-)
+
+--UlVJffcvxoiEqYs2
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBAgAGBQJZV+fGAAoJECQj9vv5qNQS12kQAK0PUjuV1ZcQ08pjsTWDTpxI
+RnkexIrbu3KU9q35ov4fGpZmpu9Gmq3xX10NDucWb7+HZTQa5/efD//qul77rq/m
++7hyJWGkU79rLjLT7KpeWwIGjO5iglyifyUTTzzflAn9VeF8eHGaQGLyFhxQnaOE
+axVod0sJEpEHLBtxBW/8s2BkEYdPW1PxlkYohrVrlB1hr6QdNXX5T2zM8Zkxksq1
+njdGmuk99ui9pzfIioUXZymybfbVP246thQw0whK6OJI9yD1Dzz97LJnbxthpZsy
+jFPNKFKLPu7QH34VptD9MQ5bTV0DjDMvl8bPj8ijfJQywubxZ5UoiNAPfJ1POgBz
+mMjezQghO/nMh0ssHCz2R/3I2f5je8vDQkPGNqc2YMrL6NldBM8RU7oL7eUlvvO4
+f6PIFDkjKvTA0eghAoGt8EYCgTEVB5MTdB/tBIfFhwqCbnCpafwnLJvK0ncF/tvO
+fGGz3hPVvufd1YGqTZdxm1H6/YVezadNBwLf+4vMwvAfDPO7SgAT/HmZGsIyF9UF
+jTb8T52wt1nANzjeIrMYOI2MvWQ2RoLsHfmc53I1hHEywV1bEW4biCCxGWR0RFrt
+MotDuv1er4xN03d3Oqe917nm6/MMYJaxRGcgwxb1Ga/bKk42Pkrzg33ysqqELN5q
+WCx0svtMqCqJYKxKmQ5C
+=A0h5
+-----END PGP SIGNATURE-----
+
+--UlVJffcvxoiEqYs2--
