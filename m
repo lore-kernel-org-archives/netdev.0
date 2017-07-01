@@ -1,7 +1,7 @@
 From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next v6 01/16] bpf: BPF support for sock_ops
-Date: Fri, 30 Jun 2017 20:02:40 -0700
-Message-ID: <20170701030255.1931076-2-brakmo@fb.com>
+Subject: [PATCH net-next v6 10/16] bpf: Add support for changing congestion control
+Date: Fri, 30 Jun 2017 20:02:49 -0700
+Message-ID: <20170701030255.1931076-11-brakmo@fb.com>
 References: <20170701030255.1931076-1-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,626 +11,237 @@ Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:33607 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752055AbdGADDC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 23:03:02 -0400
-Received: from pps.filterd (m0109331.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v6132xPO027888
-        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 20:03:01 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:34353 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752172AbdGADDD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2017 23:03:03 -0400
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+        by m0001303.ppops.net (8.16.0.20/8.16.0.20) with SMTP id v6131veX002643
+        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 20:03:02 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2be2p2r44u-1
+        by m0001303.ppops.net with ESMTP id 2bdyqkgrc2-7
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 20:03:01 -0700
+        for <netdev@vger.kernel.org>; Fri, 30 Jun 2017 20:03:02 -0700
 Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
- mx-out.facebook.com (2401:db00:2050:5102:face:0000:003b:0000) with ESMTP       id
- c943fbe25e0911e7b93109cabd64a484-99d328f0 for <netdev@vger.kernel.org>;        Fri,
- 30 Jun 2017 20:02:58 -0700
+ mx-out.facebook.com (2401:db00:2050:5102:face:0000:0037:0000) with ESMTP       id
+ ca334c245e0911e787371f53bdcd5fbc-7bb3f8f0 for <netdev@vger.kernel.org>;        Fri,
+ 30 Jun 2017 20:03:00 -0700
 In-Reply-To: <20170701030255.1931076-1-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Created a new BPF program type, BPF_PROG_TYPE_SOCK_OPS, and a corresponding
-struct that allows BPF programs of this type to access some of the
-socket's fields (such as IP addresses, ports, etc.). It uses the
-existing bpf cgroups infrastructure so the programs can be attached per
-cgroup with full inheritance support. The program will be called at
-appropriate times to set relevant connections parameters such as buffer
-sizes, SYN and SYN-ACK RTOs, etc., based on connection information such
-as IP addresses, port numbers, etc.
-
-Alghough there are already 3 mechanisms to set parameters (sysctls,
-route metrics and setsockopts), this new mechanism provides some
-distinct advantages. Unlike sysctls, it can set parameters per
-connection. In contrast to route metrics, it can also use port numbers
-and information provided by a user level program. In addition, it could
-set parameters probabilistically for evaluation purposes (i.e. do
-something different on 10% of the flows and compare results with the
-other 90% of the flows). Also, in cases where IPv6 addresses contain
-geographic information, the rules to make changes based on the distance
-(or RTT) between the hosts are much easier than route metric rules and
-can be global. Finally, unlike setsockopt, it oes not require
-application changes and it can be updated easily at any time.
-
-Although the bpf cgroup framework already contains a sock related
-program type (BPF_PROG_TYPE_CGROUP_SOCK), I created the new type
-(BPF_PROG_TYPE_SOCK_OPS) beccause the existing type expects to be called
-only once during the connections's lifetime. In contrast, the new
-program type will be called multiple times from different places in the
-network stack code.  For example, before sending SYN and SYN-ACKs to set
-an appropriate timeout, when the connection is established to set
-congestion control, etc. As a result it has "op" field to specify the
-type of operation requested.
-
-The purpose of this new program type is to simplify setting connection
-parameters, such as buffer sizes, TCP's SYN RTO, etc. For example, it is
-easy to use facebook's internal IPv6 addresses to determine if both hosts
-of a connection are in the same datacenter. Therefore, it is easy to
-write a BPF program to choose a small SYN RTO value when both hosts are
-in the same datacenter.
-
-This patch only contains the framework to support the new BPF program
-type, following patches add the functionality to set various connection
-parameters.
-
-This patch defines a new BPF program type: BPF_PROG_TYPE_SOCKET_OPS
-and a new bpf syscall command to load a new program of this type:
-BPF_PROG_LOAD_SOCKET_OPS.
-
-Two new corresponding structs (one for the kernel one for the user/BPF
-program):
-
-/* kernel version */
-struct bpf_sock_ops_kern {
-        struct sock *sk;
-        __u32  op;
-        union {
-                __u32 reply;
-                __u32 replylong[4];
-        };
-};
-
-/* user version
- * Some fields are in network byte order reflecting the sock struct
- * Use the bpf_ntohl helper macro in samples/bpf/bpf_endian.h to
- * convert them to host byte order.
- */
-struct bpf_sock_ops {
-        __u32 op;
-        union {
-                __u32 reply;
-                __u32 replylong[4];
-        };
-        __u32 family;
-        __u32 remote_ip4;     /* In network byte order */
-        __u32 local_ip4;      /* In network byte order */
-        __u32 remote_ip6[4];  /* In network byte order */
-        __u32 local_ip6[4];   /* In network byte order */
-        __u32 remote_port;    /* In network byte order */
-        __u32 local_port;     /* In host byte horder */
-};
-
-Currently there are two types of ops. The first type expects the BPF
-program to return a value which is then used by the caller (or a
-negative value to indicate the operation is not supported). The second
-type expects state changes to be done by the BPF program, for example
-through a setsockopt BPF helper function, and they ignore the return
-value.
-
-The reply fields of the bpf_sockt_ops struct are there in case a bpf
-program needs to return a value larger than an integer.
+Added support for changing congestion control for SOCK_OPS bpf
+programs through the setsockopt bpf helper function. It also adds
+a new SOCK_OPS op, BPF_SOCK_OPS_NEEDS_ECN, that is needed for
+congestion controls, like dctcp, that need to enable ECN in the
+SYN packets.
 
 Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- include/linux/bpf-cgroup.h |  18 +++++
- include/linux/bpf_types.h  |   1 +
- include/linux/filter.h     |   9 +++
- include/net/tcp.h          |  36 ++++++++++
- include/uapi/linux/bpf.h   |  30 ++++++++
- kernel/bpf/cgroup.c        |  37 ++++++++++
- kernel/bpf/syscall.c       |   5 ++
- net/core/filter.c          | 168 +++++++++++++++++++++++++++++++++++++++++++++
- samples/bpf/bpf_load.c     |  13 +++-
- 9 files changed, 314 insertions(+), 3 deletions(-)
+ include/net/tcp.h        |  9 ++++++++-
+ include/uapi/linux/bpf.h |  3 +++
+ net/core/filter.c        | 18 +++++++++++++++++-
+ net/ipv4/tcp.c           |  2 +-
+ net/ipv4/tcp_cong.c      | 32 ++++++++++++++++++++++----------
+ net/ipv4/tcp_input.c     |  3 ++-
+ net/ipv4/tcp_output.c    |  8 +++++---
+ 7 files changed, 58 insertions(+), 17 deletions(-)
 
-diff --git a/include/linux/bpf-cgroup.h b/include/linux/bpf-cgroup.h
-index c970a25..360c082 100644
---- a/include/linux/bpf-cgroup.h
-+++ b/include/linux/bpf-cgroup.h
-@@ -7,6 +7,7 @@
- struct sock;
- struct cgroup;
- struct sk_buff;
-+struct bpf_sock_ops_kern;
- 
- #ifdef CONFIG_CGROUP_BPF
- 
-@@ -42,6 +43,10 @@ int __cgroup_bpf_run_filter_skb(struct sock *sk,
- int __cgroup_bpf_run_filter_sk(struct sock *sk,
- 			       enum bpf_attach_type type);
- 
-+int __cgroup_bpf_run_filter_sock_ops(struct sock *sk,
-+				     struct bpf_sock_ops_kern *sock_ops,
-+				     enum bpf_attach_type type);
-+
- /* Wrappers for __cgroup_bpf_run_filter_skb() guarded by cgroup_bpf_enabled. */
- #define BPF_CGROUP_RUN_PROG_INET_INGRESS(sk, skb)			      \
- ({									      \
-@@ -75,6 +80,18 @@ int __cgroup_bpf_run_filter_sk(struct sock *sk,
- 	__ret;								       \
- })
- 
-+#define BPF_CGROUP_RUN_PROG_SOCK_OPS(sock_ops)				       \
-+({									       \
-+	int __ret = 0;							       \
-+	if (cgroup_bpf_enabled && (sock_ops)->sk) {	       \
-+		typeof(sk) __sk = sk_to_full_sk((sock_ops)->sk);	       \
-+		if (sk_fullsock(__sk))					       \
-+			__ret = __cgroup_bpf_run_filter_sock_ops(__sk,	       \
-+								 sock_ops,     \
-+							 BPF_CGROUP_SOCK_OPS); \
-+	}								       \
-+	__ret;								       \
-+})
- #else
- 
- struct cgroup_bpf {};
-@@ -85,6 +102,7 @@ static inline void cgroup_bpf_inherit(struct cgroup *cgrp,
- #define BPF_CGROUP_RUN_PROG_INET_INGRESS(sk,skb) ({ 0; })
- #define BPF_CGROUP_RUN_PROG_INET_EGRESS(sk,skb) ({ 0; })
- #define BPF_CGROUP_RUN_PROG_INET_SOCK(sk) ({ 0; })
-+#define BPF_CGROUP_RUN_PROG_SOCK_OPS(sock_ops) ({ 0; })
- 
- #endif /* CONFIG_CGROUP_BPF */
- 
-diff --git a/include/linux/bpf_types.h b/include/linux/bpf_types.h
-index 03bf223..3d137c3 100644
---- a/include/linux/bpf_types.h
-+++ b/include/linux/bpf_types.h
-@@ -10,6 +10,7 @@ BPF_PROG_TYPE(BPF_PROG_TYPE_CGROUP_SOCK, cg_sock_prog_ops)
- BPF_PROG_TYPE(BPF_PROG_TYPE_LWT_IN, lwt_inout_prog_ops)
- BPF_PROG_TYPE(BPF_PROG_TYPE_LWT_OUT, lwt_inout_prog_ops)
- BPF_PROG_TYPE(BPF_PROG_TYPE_LWT_XMIT, lwt_xmit_prog_ops)
-+BPF_PROG_TYPE(BPF_PROG_TYPE_SOCK_OPS, sock_ops_prog_ops)
- #endif
- #ifdef CONFIG_BPF_EVENTS
- BPF_PROG_TYPE(BPF_PROG_TYPE_KPROBE, kprobe_prog_ops)
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 1fa26dc..738f8b1 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -898,4 +898,13 @@ static inline int bpf_tell_extensions(void)
- 	return SKF_AD_MAX;
- }
- 
-+struct bpf_sock_ops_kern {
-+	struct	sock *sk;
-+	u32	op;
-+	union {
-+		u32 reply;
-+		u32 replylong[4];
-+	};
-+};
-+
- #endif /* __LINUX_FILTER_H__ */
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index d0751b7..e585008 100644
+index d6bb394..7048329 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -46,6 +46,10 @@
- #include <linux/seq_file.h>
- #include <linux/memcontrol.h>
+@@ -1004,7 +1004,9 @@ void tcp_get_default_congestion_control(char *name);
+ void tcp_get_available_congestion_control(char *buf, size_t len);
+ void tcp_get_allowed_congestion_control(char *buf, size_t len);
+ int tcp_set_allowed_congestion_control(char *allowed);
+-int tcp_set_congestion_control(struct sock *sk, const char *name);
++int tcp_set_congestion_control(struct sock *sk, const char *name, bool load);
++void tcp_reinit_congestion_control(struct sock *sk,
++				   const struct tcp_congestion_ops *ca);
+ u32 tcp_slow_start(struct tcp_sock *tp, u32 acked);
+ void tcp_cong_avoid_ai(struct tcp_sock *tp, u32 w, u32 acked);
  
-+#include <linux/bpf.h>
-+#include <linux/filter.h>
-+#include <linux/bpf-cgroup.h>
+@@ -2078,4 +2080,9 @@ static inline u32 tcp_rwnd_init_bpf(struct sock *sk)
+ 		rwnd = 0;
+ 	return rwnd;
+ }
 +
- extern struct inet_hashinfo tcp_hashinfo;
- 
- extern struct percpu_counter tcp_orphan_count;
-@@ -2021,4 +2025,36 @@ int tcp_set_ulp(struct sock *sk, const char *name);
- void tcp_get_available_ulp(char *buf, size_t len);
- void tcp_cleanup_ulp(struct sock *sk);
- 
-+/* Call BPF_SOCK_OPS program that returns an int. If the return value
-+ * is < 0, then the BPF op failed (for example if the loaded BPF
-+ * program does not support the chosen operation or there is no BPF
-+ * program loaded).
-+ */
-+#ifdef CONFIG_BPF
-+static inline int tcp_call_bpf(struct sock *sk, int op)
++static inline bool tcp_bpf_ca_needs_ecn(struct sock *sk)
 +{
-+	struct bpf_sock_ops_kern sock_ops;
-+	int ret;
-+
-+	if (sk_fullsock(sk))
-+		sock_owned_by_me(sk);
-+
-+	memset(&sock_ops, 0, sizeof(sock_ops));
-+	sock_ops.sk = sk;
-+	sock_ops.op = op;
-+
-+	ret = BPF_CGROUP_RUN_PROG_SOCK_OPS(&sock_ops);
-+	if (ret == 0)
-+		ret = sock_ops.reply;
-+	else
-+		ret = -1;
-+	return ret;
++	return (tcp_call_bpf(sk, BPF_SOCK_OPS_NEEDS_ECN) == 1);
 +}
-+#else
-+static inline int tcp_call_bpf(struct sock *sk, int op)
-+{
-+	return -EPERM;
-+}
-+#endif
-+
  #endif	/* _TCP_H */
 diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index f94b48b..01cd485 100644
+index 2405fe3..cc47259 100644
 --- a/include/uapi/linux/bpf.h
 +++ b/include/uapi/linux/bpf.h
-@@ -120,12 +120,14 @@ enum bpf_prog_type {
- 	BPF_PROG_TYPE_LWT_IN,
- 	BPF_PROG_TYPE_LWT_OUT,
- 	BPF_PROG_TYPE_LWT_XMIT,
-+	BPF_PROG_TYPE_SOCK_OPS,
+@@ -778,6 +778,9 @@ enum {
+ 						 * passive connection is
+ 						 * established
+ 						 */
++	BPF_SOCK_OPS_NEEDS_ECN,		/* If connection's congestion control
++					 * needs ECN
++					 */
  };
  
- enum bpf_attach_type {
- 	BPF_CGROUP_INET_INGRESS,
- 	BPF_CGROUP_INET_EGRESS,
- 	BPF_CGROUP_INET_SOCK_CREATE,
-+	BPF_CGROUP_SOCK_OPS,
- 	__MAX_BPF_ATTACH_TYPE
- };
- 
-@@ -720,4 +722,32 @@ struct bpf_map_info {
- 	__u32 map_flags;
- } __attribute__((aligned(8)));
- 
-+/* User bpf_sock_ops struct to access socket values and specify request ops
-+ * and their replies.
-+ * Some of this fields are in network (bigendian) byte order and may need
-+ * to be converted before use (bpf_ntohl() defined in samples/bpf/bpf_endian.h).
-+ * New fields can only be added at the end of this structure
-+ */
-+struct bpf_sock_ops {
-+	__u32 op;
-+	union {
-+		__u32 reply;
-+		__u32 replylong[4];
-+	};
-+	__u32 family;
-+	__u32 remote_ip4;	/* Stored in network byte order */
-+	__u32 local_ip4;	/* Stored in network byte order */
-+	__u32 remote_ip6[4];	/* Stored in network byte order */
-+	__u32 local_ip6[4];	/* Stored in network byte order */
-+	__u32 remote_port;	/* Stored in network byte order */
-+	__u32 local_port;	/* stored in host byte order */
-+};
-+
-+/* List of known BPF sock_ops operators.
-+ * New entries can only be added at the end
-+ */
-+enum {
-+	BPF_SOCK_OPS_VOID,
-+};
-+
  #endif /* _UAPI__LINUX_BPF_H__ */
-diff --git a/kernel/bpf/cgroup.c b/kernel/bpf/cgroup.c
-index ea6033c..5461134 100644
---- a/kernel/bpf/cgroup.c
-+++ b/kernel/bpf/cgroup.c
-@@ -236,3 +236,40 @@ int __cgroup_bpf_run_filter_sk(struct sock *sk,
- 	return ret;
- }
- EXPORT_SYMBOL(__cgroup_bpf_run_filter_sk);
-+
-+/**
-+ * __cgroup_bpf_run_filter_sock_ops() - Run a program on a sock
-+ * @sk: socket to get cgroup from
-+ * @sock_ops: bpf_sock_ops_kern struct to pass to program. Contains
-+ * sk with connection information (IP addresses, etc.) May not contain
-+ * cgroup info if it is a req sock.
-+ * @type: The type of program to be exectuted
-+ *
-+ * socket passed is expected to be of type INET or INET6.
-+ *
-+ * The program type passed in via @type must be suitable for sock_ops
-+ * filtering. No further check is performed to assert that.
-+ *
-+ * This function will return %-EPERM if any if an attached program was found
-+ * and if it returned != 1 during execution. In all other cases, 0 is returned.
-+ */
-+int __cgroup_bpf_run_filter_sock_ops(struct sock *sk,
-+				     struct bpf_sock_ops_kern *sock_ops,
-+				     enum bpf_attach_type type)
-+{
-+	struct cgroup *cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);
-+	struct bpf_prog *prog;
-+	int ret = 0;
-+
-+
-+	rcu_read_lock();
-+
-+	prog = rcu_dereference(cgrp->bpf.effective[type]);
-+	if (prog)
-+		ret = BPF_PROG_RUN(prog, sock_ops) == 1 ? 0 : -EPERM;
-+
-+	rcu_read_unlock();
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL(__cgroup_bpf_run_filter_sock_ops);
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 4409ccc..d4d47de 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -1079,6 +1079,9 @@ static int bpf_prog_attach(const union bpf_attr *attr)
- 	case BPF_CGROUP_INET_SOCK_CREATE:
- 		ptype = BPF_PROG_TYPE_CGROUP_SOCK;
- 		break;
-+	case BPF_CGROUP_SOCK_OPS:
-+		ptype = BPF_PROG_TYPE_SOCK_OPS;
-+		break;
- 	default:
- 		return -EINVAL;
- 	}
-@@ -1119,6 +1122,7 @@ static int bpf_prog_detach(const union bpf_attr *attr)
- 	case BPF_CGROUP_INET_INGRESS:
- 	case BPF_CGROUP_INET_EGRESS:
- 	case BPF_CGROUP_INET_SOCK_CREATE:
-+	case BPF_CGROUP_SOCK_OPS:
- 		cgrp = cgroup_get_from_fd(attr->target_fd);
- 		if (IS_ERR(cgrp))
- 			return PTR_ERR(cgrp);
-@@ -1133,6 +1137,7 @@ static int bpf_prog_detach(const union bpf_attr *attr)
- 
- 	return ret;
- }
-+
- #endif /* CONFIG_CGROUP_BPF */
- 
- #define BPF_PROG_TEST_RUN_LAST_FIELD test.duration
 diff --git a/net/core/filter.c b/net/core/filter.c
-index b39c869..1f6a26c 100644
+index ca033e15..12df527 100644
 --- a/net/core/filter.c
 +++ b/net/core/filter.c
-@@ -3110,6 +3110,36 @@ void bpf_warn_invalid_xdp_action(u32 act)
- }
- EXPORT_SYMBOL_GPL(bpf_warn_invalid_xdp_action);
- 
-+static bool __is_valid_sock_ops_access(int off, int size)
-+{
-+	if (off < 0 || off >= sizeof(struct bpf_sock_ops))
-+		return false;
-+	/* The verifier guarantees that size > 0. */
-+	if (off % size != 0)
-+		return false;
-+	if (size != sizeof(__u32))
-+		return false;
+@@ -2719,8 +2719,24 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
+ 		}
+ 	} else if (level == SOL_TCP &&
+ 		   sk->sk_prot->setsockopt == tcp_setsockopt) {
+-		/* Place holder */
++#ifdef CONFIG_INET
++		if (optname == TCP_CONGESTION) {
++			char name[TCP_CA_NAME_MAX];
 +
-+	return true;
-+}
-+
-+static bool sock_ops_is_valid_access(int off, int size,
-+				     enum bpf_access_type type,
-+				     struct bpf_insn_access_aux *info)
-+{
-+	if (type == BPF_WRITE) {
-+		switch (off) {
-+		case offsetof(struct bpf_sock_ops, op) ...
-+		     offsetof(struct bpf_sock_ops, replylong[3]):
-+			break;
-+		default:
-+			return false;
++			strncpy(name, optval, min_t(long, optlen,
++						    TCP_CA_NAME_MAX-1));
++			name[TCP_CA_NAME_MAX-1] = 0;
++			ret = tcp_set_congestion_control(sk, name, false);
++			if (!ret && bpf_sock->op > BPF_SOCK_OPS_NEEDS_ECN)
++				/* replacing an existing ca */
++				tcp_reinit_congestion_control(sk,
++					inet_csk(sk)->icsk_ca_ops);
++		} else {
++			ret = -EINVAL;
 +		}
-+	}
-+
-+	return __is_valid_sock_ops_access(off, size);
-+}
-+
- static u32 bpf_convert_ctx_access(enum bpf_access_type type,
- 				  const struct bpf_insn *si,
- 				  struct bpf_insn *insn_buf,
-@@ -3379,6 +3409,138 @@ static u32 xdp_convert_ctx_access(enum bpf_access_type type,
- 	return insn - insn_buf;
++#else
+ 		ret = -EINVAL;
++#endif
+ 	} else {
+ 		ret = -EINVAL;
+ 	}
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 4c88d20..5199952 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2479,7 +2479,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+ 		name[val] = 0;
+ 
+ 		lock_sock(sk);
+-		err = tcp_set_congestion_control(sk, name);
++		err = tcp_set_congestion_control(sk, name, true);
+ 		release_sock(sk);
+ 		return err;
+ 	}
+diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
+index 324c9bc..fde983f 100644
+--- a/net/ipv4/tcp_cong.c
++++ b/net/ipv4/tcp_cong.c
+@@ -189,8 +189,8 @@ void tcp_init_congestion_control(struct sock *sk)
+ 		INET_ECN_dontxmit(sk);
  }
  
-+static u32 sock_ops_convert_ctx_access(enum bpf_access_type type,
-+				       const struct bpf_insn *si,
-+				       struct bpf_insn *insn_buf,
-+				       struct bpf_prog *prog)
-+{
-+	struct bpf_insn *insn = insn_buf;
-+	int off;
-+
-+	switch (si->off) {
-+	case offsetof(struct bpf_sock_ops, op) ...
-+	     offsetof(struct bpf_sock_ops, replylong[3]):
-+		BUILD_BUG_ON(FIELD_SIZEOF(struct bpf_sock_ops, op) !=
-+			     FIELD_SIZEOF(struct bpf_sock_ops_kern, op));
-+		BUILD_BUG_ON(FIELD_SIZEOF(struct bpf_sock_ops, reply) !=
-+			     FIELD_SIZEOF(struct bpf_sock_ops_kern, reply));
-+		BUILD_BUG_ON(FIELD_SIZEOF(struct bpf_sock_ops, replylong) !=
-+			     FIELD_SIZEOF(struct bpf_sock_ops_kern, replylong));
-+		off = si->off;
-+		off -= offsetof(struct bpf_sock_ops, op);
-+		off += offsetof(struct bpf_sock_ops_kern, op);
-+		if (type == BPF_WRITE)
-+			*insn++ = BPF_STX_MEM(BPF_W, si->dst_reg, si->src_reg,
-+					      off);
-+		else
-+			*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
-+					      off);
-+		break;
-+
-+	case offsetof(struct bpf_sock_ops, family):
-+		BUILD_BUG_ON(FIELD_SIZEOF(struct sock_common, skc_family) != 2);
-+
-+		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(
-+					      struct bpf_sock_ops_kern, sk),
-+				      si->dst_reg, si->src_reg,
-+				      offsetof(struct bpf_sock_ops_kern, sk));
-+		*insn++ = BPF_LDX_MEM(BPF_H, si->dst_reg, si->dst_reg,
-+				      offsetof(struct sock_common, skc_family));
-+		break;
-+
-+	case offsetof(struct bpf_sock_ops, remote_ip4):
-+		BUILD_BUG_ON(FIELD_SIZEOF(struct sock_common, skc_daddr) != 4);
-+
-+		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(
-+						struct bpf_sock_ops_kern, sk),
-+				      si->dst_reg, si->src_reg,
-+				      offsetof(struct bpf_sock_ops_kern, sk));
-+		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->dst_reg,
-+				      offsetof(struct sock_common, skc_daddr));
-+		break;
-+
-+	case offsetof(struct bpf_sock_ops, local_ip4):
-+		BUILD_BUG_ON(FIELD_SIZEOF(struct sock_common, skc_rcv_saddr) != 4);
-+
-+		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(
-+					      struct bpf_sock_ops_kern, sk),
-+				      si->dst_reg, si->src_reg,
-+				      offsetof(struct bpf_sock_ops_kern, sk));
-+		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->dst_reg,
-+				      offsetof(struct sock_common,
-+					       skc_rcv_saddr));
-+		break;
-+
-+	case offsetof(struct bpf_sock_ops, remote_ip6[0]) ...
-+	     offsetof(struct bpf_sock_ops, remote_ip6[3]):
-+#if IS_ENABLED(CONFIG_IPV6)
-+		BUILD_BUG_ON(FIELD_SIZEOF(struct sock_common,
-+					  skc_v6_daddr.s6_addr32[0]) != 4);
-+
-+		off = si->off;
-+		off -= offsetof(struct bpf_sock_ops, remote_ip6[0]);
-+		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(
-+						struct bpf_sock_ops_kern, sk),
-+				      si->dst_reg, si->src_reg,
-+				      offsetof(struct bpf_sock_ops_kern, sk));
-+		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->dst_reg,
-+				      offsetof(struct sock_common,
-+					       skc_v6_daddr.s6_addr32[0]) +
-+				      off);
-+#else
-+		*insn++ = BPF_MOV32_IMM(si->dst_reg, 0);
-+#endif
-+		break;
-+
-+	case offsetof(struct bpf_sock_ops, local_ip6[0]) ...
-+	     offsetof(struct bpf_sock_ops, local_ip6[3]):
-+#if IS_ENABLED(CONFIG_IPV6)
-+		BUILD_BUG_ON(FIELD_SIZEOF(struct sock_common,
-+					  skc_v6_rcv_saddr.s6_addr32[0]) != 4);
-+
-+		off = si->off;
-+		off -= offsetof(struct bpf_sock_ops, local_ip6[0]);
-+		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(
-+						struct bpf_sock_ops_kern, sk),
-+				      si->dst_reg, si->src_reg,
-+				      offsetof(struct bpf_sock_ops_kern, sk));
-+		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->dst_reg,
-+				      offsetof(struct sock_common,
-+					       skc_v6_rcv_saddr.s6_addr32[0]) +
-+				      off);
-+#else
-+		*insn++ = BPF_MOV32_IMM(si->dst_reg, 0);
-+#endif
-+		break;
-+
-+	case offsetof(struct bpf_sock_ops, remote_port):
-+		BUILD_BUG_ON(FIELD_SIZEOF(struct sock_common, skc_dport) != 2);
-+
-+		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(
-+						struct bpf_sock_ops_kern, sk),
-+				      si->dst_reg, si->src_reg,
-+				      offsetof(struct bpf_sock_ops_kern, sk));
-+		*insn++ = BPF_LDX_MEM(BPF_H, si->dst_reg, si->dst_reg,
-+				      offsetof(struct sock_common, skc_dport));
-+#ifndef __BIG_ENDIAN_BITFIELD
-+		*insn++ = BPF_ALU32_IMM(BPF_LSH, si->dst_reg, 16);
-+#endif
-+		break;
-+
-+	case offsetof(struct bpf_sock_ops, local_port):
-+		BUILD_BUG_ON(FIELD_SIZEOF(struct sock_common, skc_num) != 2);
-+
-+		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(
-+						struct bpf_sock_ops_kern, sk),
-+				      si->dst_reg, si->src_reg,
-+				      offsetof(struct bpf_sock_ops_kern, sk));
-+		*insn++ = BPF_LDX_MEM(BPF_H, si->dst_reg, si->dst_reg,
-+				      offsetof(struct sock_common, skc_num));
-+		break;
-+	}
-+	return insn - insn_buf;
-+}
-+
- const struct bpf_verifier_ops sk_filter_prog_ops = {
- 	.get_func_proto		= sk_filter_func_proto,
- 	.is_valid_access	= sk_filter_is_valid_access,
-@@ -3428,6 +3590,12 @@ const struct bpf_verifier_ops cg_sock_prog_ops = {
- 	.convert_ctx_access	= sock_filter_convert_ctx_access,
- };
- 
-+const struct bpf_verifier_ops sock_ops_prog_ops = {
-+	.get_func_proto		= bpf_base_func_proto,
-+	.is_valid_access	= sock_ops_is_valid_access,
-+	.convert_ctx_access	= sock_ops_convert_ctx_access,
-+};
-+
- int sk_detach_filter(struct sock *sk)
+-static void tcp_reinit_congestion_control(struct sock *sk,
+-					  const struct tcp_congestion_ops *ca)
++void tcp_reinit_congestion_control(struct sock *sk,
++				   const struct tcp_congestion_ops *ca)
  {
- 	int ret = -ENOENT;
-diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
-index a91c57d..a4be7cf 100644
---- a/samples/bpf/bpf_load.c
-+++ b/samples/bpf/bpf_load.c
-@@ -64,6 +64,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
- 	bool is_perf_event = strncmp(event, "perf_event", 10) == 0;
- 	bool is_cgroup_skb = strncmp(event, "cgroup/skb", 10) == 0;
- 	bool is_cgroup_sk = strncmp(event, "cgroup/sock", 11) == 0;
-+	bool is_sockops = strncmp(event, "sockops", 7) == 0;
- 	size_t insns_cnt = size / sizeof(struct bpf_insn);
- 	enum bpf_prog_type prog_type;
- 	char buf[256];
-@@ -89,6 +90,8 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
- 		prog_type = BPF_PROG_TYPE_CGROUP_SKB;
- 	} else if (is_cgroup_sk) {
- 		prog_type = BPF_PROG_TYPE_CGROUP_SOCK;
-+	} else if (is_sockops) {
-+		prog_type = BPF_PROG_TYPE_SOCK_OPS;
- 	} else {
- 		printf("Unknown event '%s'\n", event);
- 		return -1;
-@@ -106,8 +109,11 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
- 	if (is_xdp || is_perf_event || is_cgroup_skb || is_cgroup_sk)
- 		return 0;
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
  
--	if (is_socket) {
--		event += 6;
-+	if (is_socket || is_sockops) {
-+		if (is_socket)
-+			event += 6;
-+		else
-+			event += 7;
- 		if (*event != '/')
- 			return 0;
- 		event++;
-@@ -560,7 +566,8 @@ static int do_load_bpf_file(const char *path, fixup_map_cb fixup_map)
- 		    memcmp(shname, "xdp", 3) == 0 ||
- 		    memcmp(shname, "perf_event", 10) == 0 ||
- 		    memcmp(shname, "socket", 6) == 0 ||
--		    memcmp(shname, "cgroup/", 7) == 0)
-+		    memcmp(shname, "cgroup/", 7) == 0 ||
-+		    memcmp(shname, "sockops", 7) == 0)
- 			load_and_attach(shname, data->d_buf, data->d_size);
+@@ -333,8 +333,12 @@ int tcp_set_allowed_congestion_control(char *val)
+ 	return ret;
+ }
+ 
+-/* Change congestion control for socket */
+-int tcp_set_congestion_control(struct sock *sk, const char *name)
++/* Change congestion control for socket. If load is false, then it is the
++ * responsibility of the caller to call tcp_init_congestion_control or
++ * tcp_reinit_congestion_control (if the current congestion control was
++ * already initialized.
++ */
++int tcp_set_congestion_control(struct sock *sk, const char *name, bool load)
+ {
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	const struct tcp_congestion_ops *ca;
+@@ -344,21 +348,29 @@ int tcp_set_congestion_control(struct sock *sk, const char *name)
+ 		return -EPERM;
+ 
+ 	rcu_read_lock();
+-	ca = __tcp_ca_find_autoload(name);
++	if (!load)
++		ca = tcp_ca_find(name);
++	else
++		ca = __tcp_ca_find_autoload(name);
+ 	/* No change asking for existing value */
+ 	if (ca == icsk->icsk_ca_ops) {
+ 		icsk->icsk_ca_setsockopt = 1;
+ 		goto out;
  	}
+-	if (!ca)
++	if (!ca) {
+ 		err = -ENOENT;
+-	else if (!((ca->flags & TCP_CONG_NON_RESTRICTED) ||
+-		   ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN)))
++	} else if (!load) {
++		icsk->icsk_ca_ops = ca;
++		if (!try_module_get(ca->owner))
++			err = -EBUSY;
++	} else if (!((ca->flags & TCP_CONG_NON_RESTRICTED) ||
++		     ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))) {
+ 		err = -EPERM;
+-	else if (!try_module_get(ca->owner))
++	} else if (!try_module_get(ca->owner)) {
+ 		err = -EBUSY;
+-	else
++	} else {
+ 		tcp_reinit_congestion_control(sk, ca);
++	}
+  out:
+ 	rcu_read_unlock();
+ 	return err;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 664210e..2920e0c 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -6191,7 +6191,8 @@ static void tcp_ecn_create_request(struct request_sock *req,
+ 	ecn_ok = net->ipv4.sysctl_tcp_ecn || ecn_ok_dst;
  
+ 	if ((!ect && ecn_ok) || tcp_ca_needs_ecn(listen_sk) ||
+-	    (ecn_ok_dst & DST_FEATURE_ECN_CA))
++	    (ecn_ok_dst & DST_FEATURE_ECN_CA) ||
++	    tcp_bpf_ca_needs_ecn((struct sock *)req))
+ 		inet_rsk(req)->ecn_ok = 1;
+ }
+ 
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 76a1a0e..772a4f6 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -316,7 +316,8 @@ static void tcp_ecn_send_synack(struct sock *sk, struct sk_buff *skb)
+ 	TCP_SKB_CB(skb)->tcp_flags &= ~TCPHDR_CWR;
+ 	if (!(tp->ecn_flags & TCP_ECN_OK))
+ 		TCP_SKB_CB(skb)->tcp_flags &= ~TCPHDR_ECE;
+-	else if (tcp_ca_needs_ecn(sk))
++	else if (tcp_ca_needs_ecn(sk) ||
++		 tcp_bpf_ca_needs_ecn(sk))
+ 		INET_ECN_xmit(sk);
+ }
+ 
+@@ -324,8 +325,9 @@ static void tcp_ecn_send_synack(struct sock *sk, struct sk_buff *skb)
+ static void tcp_ecn_send_syn(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
++	bool bpf_needs_ecn = tcp_bpf_ca_needs_ecn(sk);
+ 	bool use_ecn = sock_net(sk)->ipv4.sysctl_tcp_ecn == 1 ||
+-		       tcp_ca_needs_ecn(sk);
++		tcp_ca_needs_ecn(sk) || bpf_needs_ecn;
+ 
+ 	if (!use_ecn) {
+ 		const struct dst_entry *dst = __sk_dst_get(sk);
+@@ -339,7 +341,7 @@ static void tcp_ecn_send_syn(struct sock *sk, struct sk_buff *skb)
+ 	if (use_ecn) {
+ 		TCP_SKB_CB(skb)->tcp_flags |= TCPHDR_ECE | TCPHDR_CWR;
+ 		tp->ecn_flags = TCP_ECN_OK;
+-		if (tcp_ca_needs_ecn(sk))
++		if (tcp_ca_needs_ecn(sk) || bpf_needs_ecn)
+ 			INET_ECN_xmit(sk);
+ 	}
+ }
 -- 
 2.9.3
