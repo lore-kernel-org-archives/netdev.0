@@ -1,49 +1,111 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: Re: [PATCH net-next v5 07/16] bpf: Add setsockopt helper function to
- bpf
-Date: Sun, 2 Jul 2017 20:31:03 +0000
-Message-ID: <A3A8A77C-A805-437D-A79D-3CD517FDD289@fb.com>
-References: <20170630200706.4183158-8-brakmo@fb.com>
- <201707021447.jot6KTZQ%fengguang.wu@intel.com>
+From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Subject: Re: [PATCH] of_mdio: Fix broken PHY IRQ in case of probe deferral
+Date: Sun, 2 Jul 2017 22:37:45 +0200
+Message-ID: <CAMuHMdW8yzREzTE4GiW_8HU9h-T-fdDmLtZAXYkJrjuypN8BDg@mail.gmail.com>
+References: <1495112345-24795-1-git-send-email-geert+renesas@glider.be>
+ <f0ed61c3-062b-cec6-fe19-7412231e8ef1@gmail.com> <CAMuHMdWYeSzofU57LmT_M3KkcHhvjfJy7nkHvcXkKzOYmvhqqA@mail.gmail.com>
+ <20170518193453.GB13759@lunn.ch> <CAMuHMdV+jfh=EGt3SvjtrtVfWQ6P8ofp_JxeQZjRrSEfDWs5hA@mail.gmail.com>
+ <08a89dd5-b707-8b8f-b8e1-e20b9ed630b7@gmail.com> <CAMuHMdWWfaP8=H7H+UzrmOYpydi2mGLFGzuk9FQWJtEOug6u5g@mail.gmail.com>
+ <CAMuHMdUt6yOQ9=02z_7WG58YGxFYD=_zn7SeLEqGmfTrNBFJXw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "kbuild-all@01.org" <kbuild-all@01.org>,
-        netdev <netdev@vger.kernel.org>,
-        Kernel Team <Kernel-team@fb.com>,
-        Blake Matheny <bmatheny@fb.com>,
-        "Alexei Starovoitov" <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David Ahern" <dsa@cumulusnetworks.com>
-To: kbuild test robot <lkp@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:54610 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751876AbdGBUbl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 2 Jul 2017 16:31:41 -0400
-In-Reply-To: <201707021447.jot6KTZQ%fengguang.wu@intel.com>
-Content-Language: en-US
-Content-ID: <8CDF3FEC4AE4E74389F05D7A6ADA271D@namprd15.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Geert Uytterhoeven <geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux-Renesas <linux-renesas-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAMuHMdUt6yOQ9=02z_7WG58YGxFYD=_zn7SeLEqGmfTrNBFJXw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-DQpPbiA3LzEvMTcsIDExOjUxIFBNLCAia2J1aWxkIHRlc3Qgcm9ib3QiIDxsa3BAaW50ZWwuY29t
-PiB3cm90ZToNCg0KICAgIEhpIExhd3JlbmNlLA0KICAgIA0KICAgIFthdXRvIGJ1aWxkIHRlc3Qg
-RVJST1Igb24gbmV0LW5leHQvbWFzdGVyXQ0KICAgIA0KICAgIHVybDogICAgaHR0cHM6Ly9naXRo
-dWIuY29tLzBkYXktY2kvbGludXgvY29tbWl0cy9MYXdyZW5jZS1CcmFrbW8vYnBmLUFkZGluZy1z
-dXBwb3J0LWZvci1zb2NrX29wcy8yMDE3MDcwMS0yMDMwMzkNCiAgICBjb25maWc6IHg4Nl82NC1y
-YW5kY29uZmlnLWkwLTA3MDEwNDMwIChhdHRhY2hlZCBhcyAuY29uZmlnKQ0KICAgIGNvbXBpbGVy
-OiBnY2MtNC45IChEZWJpYW4gNC45LjQtMikgNC45LjQNCiAgICByZXByb2R1Y2U6DQogICAgICAg
-ICAgICAjIHNhdmUgdGhlIGF0dGFjaGVkIC5jb25maWcgdG8gbGludXggYnVpbGQgdHJlZQ0KICAg
-ICAgICAgICAgbWFrZSBBUkNIPXg4Nl82NCANCiAgICANCiAgICBBbGwgZXJyb3JzIChuZXcgb25l
-cyBwcmVmaXhlZCBieSA+Pik6DQogICAgDQogICAgICAgbmV0L2J1aWx0LWluLm86IEluIGZ1bmN0
-aW9uIGBicGZfc2V0c29ja29wdCc6DQogICAgPj4gKC50ZXh0KzB4NWJiNjkpOiB1bmRlZmluZWQg
-cmVmZXJlbmNlIHRvIGB0Y3Bfc2V0c29ja29wdCcNCg0KUGF0Y2gg4oCcYnBmOiBmaXggdG8gYnBm
-X3NldHNvY2tvcHPigJ0gc3VibWl0dGVkLg0KICAgIA0KICAgIC0tLQ0KICAgIDAtREFZIGtlcm5l
-bCB0ZXN0IGluZnJhc3RydWN0dXJlICAgICAgICAgICAgICAgIE9wZW4gU291cmNlIFRlY2hub2xv
-Z3kgQ2VudGVyDQogICAgaHR0cHM6Ly91cmxkZWZlbnNlLnByb29mcG9pbnQuY29tL3YyL3VybD91
-PWh0dHBzLTNBX19saXN0cy4wMS5vcmdfcGlwZXJtYWlsX2tidWlsZC0yRGFsbCZkPUR3SUJBZyZj
-PTVWRDBSVHRObFRoM3ljZDQxYjNNVXcmcj1wcV9NcXZ6ZnktQzhsdGtneXgxdV9nJm09ZFo3Rnhi
-amdvR0h4QW12MndmdFByLXlRVkU4RHJPM2ViRUV4emkzcEpZQSZzPVoxLVAtV21COFdXMVBXOHZH
-Skx0cF9VS1VCYmdTOVI2WlFEOHAwZHUzWG8mZT0gICAgICAgICAgICAgICAgICAgIEludGVsIENv
-cnBvcmF0aW9uDQogICAgDQoNCg==
+On Tue, Jun 6, 2017 at 11:43 AM, Geert Uytterhoeven
+<geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org> wrote:
+> On Tue, May 23, 2017 at 11:36 AM, Geert Uytterhoeven
+> <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org> wrote:
+>> On Fri, May 19, 2017 at 12:21 AM, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>>> On 05/18/2017 01:36 PM, Geert Uytterhoeven wrote:
+>>>> On Thu, May 18, 2017 at 9:34 PM, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org> wrote:
+>>>>>>> This most certainly works fine in the simple case where you have one PHY
+>>>>>>> hanging off the MDIO bus, now what happens if you have several?
+>>>>>>>
+>>>>>>> Presumably, the first PHY that returns EPROBE_DEFER will make the entire
+>>>>>>> bus registration return EPROB_DEFER as well, and so on, and so forth,
+>>>>>>> but I am not sure if we will be properly unwinding the successful
+>>>>>>> registration of PHYs that either don't have an interrupt, or did not
+>>>>>>> return EPROBE_DEFER.
+>>>>>>>
+>>>>>>> It should be possible to mimic this behavior by using the fixed PHY, and
+>>>>>>> possibly the dsa_loop.c driver which would create 4 ports, expecting 4
+>>>>>>> fixed PHYs to be present.
+>>>>>>
+>>>>>> mdiobus_unregister(), called from of_mdiobus_register() on failure,
+>>>>>> should do the unwinding, right?
+>>>>>>
+>>>>>> And when the driver is reprobed, all PHYs are reprobed, until they all
+>>>>>> succeed.
+>>>>>
+>>>>> That is the theory. I looked at that while reviewing the patch. But
+>>>>> this has probably not been tested in anger. It would be good to test
+>>>>> this properly, with not just the first PHY returning -EPROBE_DEFER, to
+>>>>> really test the unwind.
+>>>>
+>>>> Unfortunately I don't have a board with multiple PHYs, so I cannot test
+>>>> that case.
+>>
+>> I tried adding a few dummy PHYs in DT, but that didn't work.
+>>
+>> So how can we proceed?
+>>
+>> I think the only way my patch can cause issues is because some systems
+>> may rely on EPROBE_DEFER errors being ignored.
+>>
+>>>> Does unbinding/rebinding a network driver with multiple PHYs currently
+>>>> work? Or module unload/reload?
+>>>
+>>> Usually there is a strict 1:1 mapping between a network device (not
+>>> driver) and a PHY device, switch drivers however, would have multiple
+>>> PHYs (one per port, aka net_deice).
+>>>
+>>> NB: binding and unbinding of PHYs is pretty broken at the moment though,
+>>> because there is a complete disconnect between what the Ethernet MAC
+>>> expects, and the state in which the PHY is. I had some patches to fix
+>>> that, but this turned out to be playing whack-a-mole which I typically
+>>> suck at.
+>>
+>> I didn't mean unbinding the PHY, but the network device.
+>> Don't you have the same issue with the state of PHYs as left by the bootloader?
+>
+> Anyone who can test the behavior on an Ethernet device with multiple PHYs,
+> e.g. by faking an -EPROBE_DEFER somewhere in the middle?
+>
+> I'd like to get this issue fixed in v4.13, to avoid a regression when migrating
+> several systems to a new and better clock driver in v4.14, which will trigger
+> EPROBE_DEFER.
+
+Ping?
+
+This patch fixes a real issue.
+
+Thanks!
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
