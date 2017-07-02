@@ -1,63 +1,33 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next] bpf: fix to bpf_setsockops
-Date: Sun, 2 Jul 2017 09:14:28 -0700
-Message-ID: <20170702161428.3133994-1-brakmo@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Kernel Team <kernel-team@fb.com>, Blake Matheny <bmatheny@fb.com>,
-        Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: netdev <netdev@vger.kernel.org>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net 0/2] vxlan, geneve: fix hlist corruption
+Date: Sun,  2 Jul 2017 19:00:56 +0200
+Message-ID: <cover.1499014738.git.jbenc@redhat.com>
+Cc: Waiman Long <longman@redhat.com>,
+        "John W. Linville" <linville@tuxdriver.com>,
+        pravin shelar <pshelar@ovn.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:51020 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751764AbdGBQOd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 2 Jul 2017 12:14:33 -0400
-Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
-        by m0001303.ppops.net (8.16.0.20/8.16.0.20) with SMTP id v62GCJ5u017117
-        for <netdev@vger.kernel.org>; Sun, 2 Jul 2017 09:14:32 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by m0001303.ppops.net with ESMTP id 2be7dfjnxu-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Sun, 02 Jul 2017 09:14:32 -0700
-Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
- mx-out.facebook.com (10.212.232.63) with ESMTP id
- 86ce48a65f4111e7bbc00002c992ebde-30f408f0 for <netdev@vger.kernel.org>;        Sun,
- 02 Jul 2017 09:14:29 -0700
+Received: from mx1.redhat.com ([209.132.183.28]:43718 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751682AbdGBRBQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 2 Jul 2017 13:01:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixed build error due to misplaced "#ifdef CONFIG_INET" (moved 1
-statement up).
+Fix memory corruption introduced with the support of both IPv4 and IPv6
+sockets in a single device. The same bug is present in VXLAN and Geneve.
 
-Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
----
- net/core/filter.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 523b91d..e5c280a 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2717,9 +2717,9 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
- 		default:
- 			ret = -EINVAL;
- 		}
-+#ifdef CONFIG_INET
- 	} else if (level == SOL_TCP &&
- 		   sk->sk_prot->setsockopt == tcp_setsockopt) {
--#ifdef CONFIG_INET
- 		if (optname == TCP_CONGESTION) {
- 			char name[TCP_CA_NAME_MAX];
- 
-@@ -2757,7 +2757,6 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
- 				ret = -EINVAL;
- 			}
- 		}
--#else
- 		ret = -EINVAL;
- #endif
- 	} else {
+
+Jiri Benc (2):
+  vxlan: fix hlist corruption
+  geneve: fix hlist corruption
+
+ drivers/net/geneve.c | 48 ++++++++++++++++++++++++++++++++----------------
+ drivers/net/vxlan.c  | 30 ++++++++++++++++++++----------
+ include/net/vxlan.h  | 10 +++++++++-
+ 3 files changed, 61 insertions(+), 27 deletions(-)
+
 -- 
-2.9.3
+1.8.3.1
