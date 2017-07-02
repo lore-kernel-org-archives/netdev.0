@@ -1,50 +1,64 @@
-From: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next 12/12] qed: Add iWARP support for physical queue allocation
-Date: Sun, 2 Jul 2017 10:29:32 +0300
-Message-ID: <1498980572-29519-13-git-send-email-Michal.Kalderon@cavium.com>
-References: <1498980572-29519-1-git-send-email-Michal.Kalderon@cavium.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH][-next] net/mlx5: fix spelling mistake: "Allodating" -> "Allocating"
+Date: Sun, 2 Jul 2017 11:35:44 +0300
+Message-ID: <CALzJLG--=BLto0QszB71LdWqUuj-SxGGbbGLSQ=ckiCRUkCQ-g@mail.gmail.com>
+References: <20170630105922.10397-1-colin.king@canonical.com> <20170701.144003.1643313481741710568.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        Ariel Elior <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-To: <michal.kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>, <ram.amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        <yuval.mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>, <ariel.elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1498980572-29519-1-git-send-email-Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: colin.king@canonical.com, Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leonro@mellanox.com>,
+        Ilan Tayari <ilant@mellanox.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        linux-rdma@vger.kernel.org,
+        linux-kernel <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:36494 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751635AbdGBIgG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 2 Jul 2017 04:36:06 -0400
+Received: by mail-qk0-f196.google.com with SMTP id v143so7844701qkb.3
+        for <netdev@vger.kernel.org>; Sun, 02 Jul 2017 01:36:06 -0700 (PDT)
+In-Reply-To: <20170701.144003.1643313481741710568.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-iWARP has different physical queue requirements than RoCE
+On Sun, Jul 2, 2017 at 12:40 AM, David Miller <davem@davemloft.net> wrote:
+> From: Colin King <colin.king@canonical.com>
+> Date: Fri, 30 Jun 2017 11:59:22 +0100
+>
+>> From: Colin Ian King <colin.king@canonical.com>
+>>
+>> Trivial fix to spelling mistake in mlx5_core_dbg debug message
+>>
+>> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+>
+> Applied, thanks Colin.
+>
+> Mellanox folks, I don't like how these lib/ objects are built.
+>
+> I absolutely depend upon being able to try and build individual
+> object files, by name, in order to quickly smoke-test patches.
+> Like this:
+>
+> [davem@kkuri net-next]$ make drivers/net/ethernet/mellanox/mlx5/core/lib/gid.o
+>
+> But I can't for these files:
+>
+> scripts/Makefile.build:44: drivers/net/ethernet/mellanox/mlx5/core/lib/Makefile: No such file or directory
+> make[1]: *** No rule to make target 'drivers/net/ethernet/mellanox/mlx5/core/lib/Makefile'.  Stop.
+> Makefile:1663: recipe for target 'drivers/net/ethernet/mellanox/mlx5/core/lib/gid.o' failed
+>
+> Please fix this so that I can build all object files by name in this driver
+> again.
 
-Signed-off-by: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Ariel Elior <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
----
- drivers/net/ethernet/qlogic/qed/qed_dev.c | 4 ++++
- 1 file changed, 4 insertions(+)
+Hi Dave,
+We are going to provide a fix ASAP.
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index 4060a6a..6c87bed 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -216,6 +216,10 @@ static u32 qed_get_pq_flags(struct qed_hwfn *p_hwfn)
- 	case QED_PCI_ETH_ROCE:
- 		flags |= PQ_FLAGS_MCOS | PQ_FLAGS_OFLD | PQ_FLAGS_LLT;
- 		break;
-+	case QED_PCI_ETH_IWARP:
-+		flags |= PQ_FLAGS_MCOS | PQ_FLAGS_ACK | PQ_FLAGS_OOO |
-+		    PQ_FLAGS_OFLD;
-+		break;
- 	default:
- 		DP_ERR(p_hwfn,
- 		       "unknown personality %d\n", p_hwfn->hw_info.personality);
--- 
-1.8.3.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+> Thanks.
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
