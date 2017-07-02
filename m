@@ -1,280 +1,114 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 2/7] bpf: add bpf_skb_adjust_room helper
-Date: Sun,  2 Jul 2017 02:13:26 +0200
-Message-ID: <9e05fa9826974fe4b3dcf0dd903644291024b864.1498952486.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 6/7] bpf, verifier: add additional patterns to evaluate_reg_imm_alu
+Date: Sun,  2 Jul 2017 02:13:30 +0200
+Message-ID: <5460455050b0f4e00e1c0abdeba5fa50989539d1.1498952486.git.daniel@iogearbox.net>
 References: <cover.1498952486.git.daniel@iogearbox.net>
-Cc: ast@fb.com, john.fastabend@gmail.com, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
+Cc: ast@fb.com, john.fastabend@gmail.com, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:57527 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:57549 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752192AbdGBANn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 1 Jul 2017 20:13:43 -0400
+        with ESMTP id S1752352AbdGBANq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 1 Jul 2017 20:13:46 -0400
 In-Reply-To: <cover.1498952486.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1498952486.git.daniel@iogearbox.net>
 References: <cover.1498952486.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This work adds a helper that can be used to adjust net room of an
-skb. The helper is generic and can be further extended in future.
-Main use case is for having a programmatic way to add/remove room to
-v4/v6 header options along with cls_bpf on egress and ingress hook
-of the data path. It reuses most of the infrastructure that we added
-for the bpf_skb_change_type() helper which can be used in nat64
-translations. Similarly, the helper only takes care of adjusting the
-room so that related data is populated and csum adapted out of the
-BPF program using it.
+From: John Fastabend <john.fastabend@gmail.com>
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: John Fastabend <john.fastabend@gmail.com>
+Currently the verifier does not track imm across alu operations when
+the source register is of unknown type. This adds additional pattern
+matching to catch this and track imm. We've seen LLVM generating this
+pattern while working on cilium.
+
+Signed-off-by: John Fastabend <john.fastabend@gmail.com>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- include/uapi/linux/bpf.h       |  16 +++++-
- net/core/filter.c              | 126 +++++++++++++++++++++++++++++++++++++++--
- tools/include/uapi/linux/bpf.h |  16 +++++-
- 3 files changed, 151 insertions(+), 7 deletions(-)
+ kernel/bpf/verifier.c | 62 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 62 insertions(+)
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index a6a91e5..e99e3e6 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -531,6 +531,14 @@ enum bpf_attach_type {
-  *     @optval: pointer to option value
-  *     @optlen: length of optval in byes
-  *     Return: 0 or negative error
-+ *
-+ * int bpf_skb_adjust_room(skb, len_diff, mode, flags)
-+ *     Grow or shrink room in sk_buff.
-+ *     @skb: pointer to skb
-+ *     @len_diff: (signed) amount of room to grow/shrink
-+ *     @mode: operation mode (enum bpf_adj_room_mode)
-+ *     @flags: reserved for future use
-+ *     Return: 0 on success or negative error code
-  */
- #define __BPF_FUNC_MAPPER(FN)		\
- 	FN(unspec),			\
-@@ -582,7 +590,8 @@ enum bpf_attach_type {
- 	FN(get_socket_cookie),		\
- 	FN(get_socket_uid),		\
- 	FN(set_hash),			\
--	FN(setsockopt),
-+	FN(setsockopt),			\
-+	FN(skb_adjust_room),
- 
- /* integer value in 'imm' field of BPF_CALL instruction selects which helper
-  * function eBPF program intends to call
-@@ -632,6 +641,11 @@ enum bpf_func_id {
- /* BPF_FUNC_perf_event_output for sk_buff input context. */
- #define BPF_F_CTXLEN_MASK		(0xfffffULL << 32)
- 
-+/* Mode for BPF_FUNC_skb_adjust_room helper. */
-+enum bpf_adj_room_mode {
-+	BPF_ADJ_ROOM_NET,
-+};
-+
- /* user accessible mirror of in-kernel sk_buff.
-  * new fields can only be added to the end of this structure
-  */
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 0cadbc6..9304b55 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2154,6 +2154,124 @@ static int bpf_skb_proto_xlat(struct sk_buff *skb, __be16 to_proto)
- 	.arg2_type	= ARG_ANYTHING,
- };
- 
-+static u32 bpf_skb_net_base_len(const struct sk_buff *skb)
-+{
-+	switch (skb->protocol) {
-+	case htons(ETH_P_IP):
-+		return sizeof(struct iphdr);
-+	case htons(ETH_P_IPV6):
-+		return sizeof(struct ipv6hdr);
-+	default:
-+		return ~0U;
-+	}
-+}
-+
-+static int bpf_skb_net_grow(struct sk_buff *skb, u32 len_diff)
-+{
-+	u32 off = skb_mac_header_len(skb) + bpf_skb_net_base_len(skb);
-+	int ret;
-+
-+	ret = skb_cow(skb, len_diff);
-+	if (unlikely(ret < 0))
-+		return ret;
-+
-+	ret = bpf_skb_net_hdr_push(skb, off, len_diff);
-+	if (unlikely(ret < 0))
-+		return ret;
-+
-+	if (skb_is_gso(skb)) {
-+		/* Due to header grow, MSS needs to be downgraded. */
-+		skb_shinfo(skb)->gso_size -= len_diff;
-+		/* Header must be checked, and gso_segs recomputed. */
-+		skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
-+		skb_shinfo(skb)->gso_segs = 0;
-+	}
-+
-+	return 0;
-+}
-+
-+static int bpf_skb_net_shrink(struct sk_buff *skb, u32 len_diff)
-+{
-+	u32 off = skb_mac_header_len(skb) + bpf_skb_net_base_len(skb);
-+	int ret;
-+
-+	ret = skb_unclone(skb, GFP_ATOMIC);
-+	if (unlikely(ret < 0))
-+		return ret;
-+
-+	ret = bpf_skb_net_hdr_pop(skb, off, len_diff);
-+	if (unlikely(ret < 0))
-+		return ret;
-+
-+	if (skb_is_gso(skb)) {
-+		/* Due to header shrink, MSS can be upgraded. */
-+		skb_shinfo(skb)->gso_size += len_diff;
-+		/* Header must be checked, and gso_segs recomputed. */
-+		skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
-+		skb_shinfo(skb)->gso_segs = 0;
-+	}
-+
-+	return 0;
-+}
-+
-+static u32 __bpf_skb_max_len(const struct sk_buff *skb)
-+{
-+	return skb->dev->mtu + skb->dev->hard_header_len;
-+}
-+
-+static int bpf_skb_adjust_net(struct sk_buff *skb, s32 len_diff)
-+{
-+	bool trans_same = skb->transport_header == skb->network_header;
-+	u32 len_cur, len_diff_abs = abs(len_diff);
-+	u32 len_min = bpf_skb_net_base_len(skb);
-+	u32 len_max = __bpf_skb_max_len(skb);
-+	__be16 proto = skb->protocol;
-+	bool shrink = len_diff < 0;
-+	int ret;
-+
-+	if (unlikely(len_diff_abs > 0xfffU))
-+		return -EFAULT;
-+	if (unlikely(proto != htons(ETH_P_IP) &&
-+		     proto != htons(ETH_P_IPV6)))
-+		return -ENOTSUPP;
-+
-+	len_cur = skb->len - skb_network_offset(skb);
-+	if (skb_transport_header_was_set(skb) && !trans_same)
-+		len_cur = skb_network_header_len(skb);
-+	if ((shrink && (len_diff_abs >= len_cur ||
-+			len_cur - len_diff_abs < len_min)) ||
-+	    (!shrink && (skb->len + len_diff_abs > len_max &&
-+			 !skb_is_gso(skb))))
-+		return -ENOTSUPP;
-+
-+	ret = shrink ? bpf_skb_net_shrink(skb, len_diff_abs) :
-+		       bpf_skb_net_grow(skb, len_diff_abs);
-+
-+	bpf_compute_data_end(skb);
-+	return 0;
-+}
-+
-+BPF_CALL_4(bpf_skb_adjust_room, struct sk_buff *, skb, s32, len_diff,
-+	   u32, mode, u64, flags)
-+{
-+	if (unlikely(flags))
-+		return -EINVAL;
-+	if (likely(mode == BPF_ADJ_ROOM_NET))
-+		return bpf_skb_adjust_net(skb, len_diff);
-+
-+	return -ENOTSUPP;
-+}
-+
-+static const struct bpf_func_proto bpf_skb_adjust_room_proto = {
-+	.func		= bpf_skb_adjust_room,
-+	.gpl_only	= false,
-+	.ret_type	= RET_INTEGER,
-+	.arg1_type	= ARG_PTR_TO_CTX,
-+	.arg2_type	= ARG_ANYTHING,
-+	.arg3_type	= ARG_ANYTHING,
-+	.arg4_type	= ARG_ANYTHING,
-+};
-+
- static u32 __bpf_skb_min_len(const struct sk_buff *skb)
- {
- 	u32 min_len = skb_network_offset(skb);
-@@ -2166,11 +2284,6 @@ static u32 __bpf_skb_min_len(const struct sk_buff *skb)
- 	return min_len;
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 6f820a0..6a86723 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -1657,6 +1657,65 @@ static int evaluate_reg_alu(struct bpf_verifier_env *env, struct bpf_insn *insn)
+ 	return 0;
  }
  
--static u32 __bpf_skb_max_len(const struct sk_buff *skb)
--{
--	return skb->dev->mtu + skb->dev->hard_header_len;
--}
--
- static int bpf_skb_grow_rcsum(struct sk_buff *skb, unsigned int new_len)
- {
- 	unsigned int old_len = skb->len;
-@@ -2307,6 +2420,7 @@ bool bpf_helper_changes_pkt_data(void *func)
- 	    func == bpf_skb_change_proto ||
- 	    func == bpf_skb_change_head ||
- 	    func == bpf_skb_change_tail ||
-+	    func == bpf_skb_adjust_room ||
- 	    func == bpf_skb_pull_data ||
- 	    func == bpf_clone_redirect ||
- 	    func == bpf_l3_csum_replace ||
-@@ -2850,6 +2964,8 @@ static unsigned long bpf_xdp_copy(void *dst_buff, const void *src_buff,
- 		return &bpf_skb_change_proto_proto;
- 	case BPF_FUNC_skb_change_type:
- 		return &bpf_skb_change_type_proto;
-+	case BPF_FUNC_skb_adjust_room:
-+		return &bpf_skb_adjust_room_proto;
- 	case BPF_FUNC_skb_change_tail:
- 		return &bpf_skb_change_tail_proto;
- 	case BPF_FUNC_skb_get_tunnel_key:
-diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
-index 284b366..ce2988b 100644
---- a/tools/include/uapi/linux/bpf.h
-+++ b/tools/include/uapi/linux/bpf.h
-@@ -531,6 +531,14 @@ enum bpf_attach_type {
-  *     @optval: pointer to option value
-  *     @optlen: length of optval in byes
-  *     Return: 0 or negative error
-+ *
-+ * int bpf_skb_adjust_room(skb, len_diff, mode, flags)
-+ *     Grow or shrink room in sk_buff.
-+ *     @skb: pointer to skb
-+ *     @len_diff: (signed) amount of room to grow/shrink
-+ *     @mode: operation mode (enum bpf_adj_room_mode)
-+ *     @flags: reserved for future use
-+ *     Return: 0 on success or negative error code
-  */
- #define __BPF_FUNC_MAPPER(FN)		\
- 	FN(unspec),			\
-@@ -582,7 +590,8 @@ enum bpf_attach_type {
- 	FN(get_socket_cookie),		\
- 	FN(get_socket_uid),		\
- 	FN(set_hash),			\
--	FN(setsockopt),
-+	FN(setsockopt),			\
-+	FN(skb_adjust_room),
- 
- /* integer value in 'imm' field of BPF_CALL instruction selects which helper
-  * function eBPF program intends to call
-@@ -632,6 +641,11 @@ enum bpf_func_id {
- /* BPF_FUNC_perf_event_output for sk_buff input context. */
- #define BPF_F_CTXLEN_MASK		(0xfffffULL << 32)
- 
-+/* Mode for BPF_FUNC_skb_adjust_room helper. */
-+enum bpf_adj_room_mode {
-+	BPF_ADJ_ROOM_NET_OPTS,
-+};
++static int evaluate_reg_imm_alu_unknown(struct bpf_verifier_env *env,
++					struct bpf_insn *insn)
++{
++	struct bpf_reg_state *regs = env->cur_state.regs;
++	struct bpf_reg_state *dst_reg = &regs[insn->dst_reg];
++	struct bpf_reg_state *src_reg = &regs[insn->src_reg];
++	u8 opcode = BPF_OP(insn->code);
++	s64 imm_log2 = __ilog2_u64((long long)dst_reg->imm);
 +
- /* user accessible mirror of in-kernel sk_buff.
-  * new fields can only be added to the end of this structure
-  */
++	/* BPF_X code with src_reg->type UNKNOWN_VALUE here. */
++	if (src_reg->imm > 0 && dst_reg->imm) {
++		switch (opcode) {
++		case BPF_ADD:
++			/* dreg += sreg
++			 * where both have zero upper bits. Adding them
++			 * can only result making one more bit non-zero
++			 * in the larger value.
++			 * Ex. 0xffff (imm=48) + 1 (imm=63) = 0x10000 (imm=47)
++			 *     0xffff (imm=48) + 0xffff = 0x1fffe (imm=47)
++			 */
++			dst_reg->imm = min(src_reg->imm, 63 - imm_log2);
++			dst_reg->imm--;
++			break;
++		case BPF_AND:
++			/* dreg &= sreg
++			 * AND can not extend zero bits only shrink
++			 * Ex.  0x00..00ffffff
++			 *    & 0x0f..ffffffff
++			 *     ----------------
++			 *      0x00..00ffffff
++			 */
++			dst_reg->imm = max(src_reg->imm, 63 - imm_log2);
++			break;
++		case BPF_OR:
++			/* dreg |= sreg
++			 * OR can only extend zero bits
++			 * Ex.  0x00..00ffffff
++			 *    | 0x0f..ffffffff
++			 *     ----------------
++			 *      0x0f..00ffffff
++			 */
++			dst_reg->imm = min(src_reg->imm, 63 - imm_log2);
++			break;
++		case BPF_SUB:
++		case BPF_MUL:
++		case BPF_RSH:
++		case BPF_LSH:
++			/* These may be flushed out later */
++		default:
++			mark_reg_unknown_value(regs, insn->dst_reg);
++		}
++	} else {
++		mark_reg_unknown_value(regs, insn->dst_reg);
++	}
++
++	dst_reg->type = UNKNOWN_VALUE;
++	return 0;
++}
++
+ static int evaluate_reg_imm_alu(struct bpf_verifier_env *env,
+ 				struct bpf_insn *insn)
+ {
+@@ -1666,6 +1725,9 @@ static int evaluate_reg_imm_alu(struct bpf_verifier_env *env,
+ 	u8 opcode = BPF_OP(insn->code);
+ 	u64 dst_imm = dst_reg->imm;
+ 
++	if (BPF_SRC(insn->code) == BPF_X && src_reg->type == UNKNOWN_VALUE)
++		return evaluate_reg_imm_alu_unknown(env, insn);
++
+ 	/* dst_reg->type == CONST_IMM here. Simulate execution of insns
+ 	 * containing ALU ops. Don't care about overflow or negative
+ 	 * values, just add/sub/... them; registers are in u64.
 -- 
 1.9.3
