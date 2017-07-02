@@ -1,7 +1,8 @@
 From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 1/6] arm: sun8i: nanopi-neo: revert use internal phy-mode
-Date: Sun,  2 Jul 2017 14:31:54 +0200
-Message-ID: <20170702123159.6939-2-clabbe.montjoie@gmail.com>
+Subject: [PATCH 4/6] arm: sun8i: orangepi-zero: revert "use
+ internal phy-mode"
+Date: Sun,  2 Jul 2017 14:31:57 +0200
+Message-ID: <20170702123159.6939-5-clabbe.montjoie@gmail.com>
 References: <20170702123159.6939-1-clabbe.montjoie@gmail.com>
 Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
@@ -20,7 +21,7 @@ To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
 	peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
 	alexandre.torgue-qxv4g6HH51o@public.gmane.org,
 	andre.przywara-5wv7dgnIgG8@public.gmane.org
-Return-path: <linux-sunxi+bncBD7YLCN32UNBBP6Q4PFAKGQEPD7XEPY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBQWQ4PFAKGQEXAC6DTA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 In-Reply-To: <20170702123159.6939-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
@@ -33,18 +34,18 @@ List-Id: netdev.vger.kernel.org
 
 Since internal phy-mode is reserved for non-xMII protocol we cannot use
 it with dwmac-sun8i
-This reverts commit bdcc005beac9 ("arm: sun8i: nanopi-neo: use internal phy-mode")
+This reverts commit 6066de6848d4 ("arm: sun8i: orangepi-zero: use internal phy-mode")
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts | 2 +-
+ arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts b/arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts
-index 5c5ba806e2f1..78f6c24952dd 100644
---- a/arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts
-@@ -49,7 +49,7 @@
+diff --git a/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts b/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts
+index 7c154b845baa..6713d0f2b3f4 100644
+--- a/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts
++++ b/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts
+@@ -106,7 +106,7 @@
  
  &emac {
  	phy-handle = <&int_mii_phy>;
