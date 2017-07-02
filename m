@@ -1,43 +1,60 @@
 From: kbuild test robot <fengguang.wu@intel.com>
-Subject: [net-next:master 1847/1910] drivers/s390/net/ctcm_fsms.c:220:14:
- error: passing argument 2 of 'atomic_add' from incompatible pointer type
-Date: Sun, 2 Jul 2017 11:29:25 +0800
-Message-ID: <201707021118.OZcdUfzn%fengguang.wu@intel.com>
+Subject: [net-next:master 1849/1910] net/iucv/af_iucv.c:405:22: error:
+ passing argument 1 of 'atomic_read' from incompatible pointer type
+Date: Sun, 2 Jul 2017 11:46:38 +0800
+Message-ID: <201707021133.WuCJ1NgS%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="mP3DRpeJDSE+ciuQ"
+Content-Type: multipart/mixed; boundary="RnlQjJ0d97Da+TV1"
 Cc: kbuild-all@01.org, netdev@vger.kernel.org,
         Hans Liljestrand <ishkamiel@gmail.com>,
         Kees Cook <keescook@chromium.org>,
         David Windsor <dave@nullcore.net>
 To: "Reshetova, Elena" <elena.reshetova@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:51427 "EHLO mga02.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:21538 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751697AbdGBD3s (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 1 Jul 2017 23:29:48 -0400
+        id S1751697AbdGBDqu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 1 Jul 2017 23:46:50 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---mP3DRpeJDSE+ciuQ
+--RnlQjJ0d97Da+TV1
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
 tree:   https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
 head:   bcdb239b456265b927a809c4078f0a1f433a6e18
-commit: 633547973ffc32fd2c815639d4675e1531f0896f [1847/1910] net: convert sk_buff.users from atomic_t to refcount_t
+commit: 14afee4b6092fde451ee17604e5f5c89da33e71e [1849/1910] net: convert sock.sk_wmem_alloc from atomic_t to refcount_t
 config: s390-default_defconfig (attached as .config)
 compiler: s390x-linux-gnu-gcc (Debian 6.1.1-9) 6.1.1 20160705
 reproduce:
         wget https://raw.githubusercontent.com/01org/lkp-tests/master/sbin/make.cross -O ~/bin/make.cross
         chmod +x ~/bin/make.cross
-        git checkout 633547973ffc32fd2c815639d4675e1531f0896f
+        git checkout 14afee4b6092fde451ee17604e5f5c89da33e71e
         # save the attached .config to linux build tree
         make.cross ARCH=s390 
 
 All errors (new ones prefixed by >>):
 
+   In file included from include/linux/bug.h:4:0,
+                    from include/linux/thread_info.h:11,
+                    from arch/s390/include/asm/preempt.h:5,
+                    from include/linux/preempt.h:80,
+                    from include/linux/spinlock.h:50,
+                    from include/linux/seqlock.h:35,
+                    from include/linux/time.h:5,
+                    from include/linux/stat.h:18,
+                    from include/linux/module.h:10,
+                    from net/iucv/af_iucv.c:15:
+   net/iucv/af_iucv.c: In function 'iucv_sock_destruct':
+>> net/iucv/af_iucv.c:405:22: error: passing argument 1 of 'atomic_read' from incompatible pointer type [-Werror=incompatible-pointer-types]
+     WARN_ON(atomic_read(&sk->sk_wmem_alloc));
+                         ^
+   arch/s390/include/asm/bug.h:54:25: note: in definition of macro 'WARN_ON'
+     int __ret_warn_on = !!(x);   \
+                            ^
    In file included from include/linux/atomic.h:4:0,
                     from include/linux/debug_locks.h:5,
                     from include/linux/lockdep.h:25,
@@ -47,111 +64,41 @@ All errors (new ones prefixed by >>):
                     from include/linux/time.h:5,
                     from include/linux/stat.h:18,
                     from include/linux/module.h:10,
-                    from drivers/s390/net/ctcm_fsms.c:17:
-   drivers/s390/net/ctcm_fsms.c: In function 'ctcm_purge_skb_queue':
->> drivers/s390/net/ctcm_fsms.c:220:14: error: passing argument 2 of 'atomic_add' from incompatible pointer type [-Werror=incompatible-pointer-types]
-      atomic_dec(&skb->users);
-                 ^
-   arch/s390/include/asm/atomic.h:61:52: note: in definition of macro 'atomic_sub'
-    #define atomic_sub(_i, _v)  atomic_add(-(int)(_i), _v)
-                                                       ^~
-   drivers/s390/net/ctcm_fsms.c:220:3: note: in expansion of macro 'atomic_dec'
-      atomic_dec(&skb->users);
-      ^~~~~~~~~~
-   arch/s390/include/asm/atomic.h:46:20: note: expected 'atomic_t * {aka struct <anonymous> *}' but argument is of type 'refcount_t * {aka struct refcount_struct *}'
-    static inline void atomic_add(int i, atomic_t *v)
-                       ^~~~~~~~~~
-   drivers/s390/net/ctcm_fsms.c: In function 'chx_txdone':
-   drivers/s390/net/ctcm_fsms.c:274:14: error: passing argument 2 of 'atomic_add' from incompatible pointer type [-Werror=incompatible-pointer-types]
-      atomic_dec(&skb->users);
-                 ^
-   arch/s390/include/asm/atomic.h:61:52: note: in definition of macro 'atomic_sub'
-    #define atomic_sub(_i, _v)  atomic_add(-(int)(_i), _v)
-                                                       ^~
-   drivers/s390/net/ctcm_fsms.c:274:3: note: in expansion of macro 'atomic_dec'
-      atomic_dec(&skb->users);
-      ^~~~~~~~~~
-   arch/s390/include/asm/atomic.h:46:20: note: expected 'atomic_t * {aka struct <anonymous> *}' but argument is of type 'refcount_t * {aka struct refcount_struct *}'
-    static inline void atomic_add(int i, atomic_t *v)
-                       ^~~~~~~~~~
-   drivers/s390/net/ctcm_fsms.c:300:15: error: passing argument 2 of 'atomic_add' from incompatible pointer type [-Werror=incompatible-pointer-types]
-       atomic_dec(&skb->users);
-                  ^
-   arch/s390/include/asm/atomic.h:61:52: note: in definition of macro 'atomic_sub'
-    #define atomic_sub(_i, _v)  atomic_add(-(int)(_i), _v)
-                                                       ^~
-   drivers/s390/net/ctcm_fsms.c:300:4: note: in expansion of macro 'atomic_dec'
-       atomic_dec(&skb->users);
-       ^~~~~~~~~~
-   arch/s390/include/asm/atomic.h:46:20: note: expected 'atomic_t * {aka struct <anonymous> *}' but argument is of type 'refcount_t * {aka struct refcount_struct *}'
-    static inline void atomic_add(int i, atomic_t *v)
-                       ^~~~~~~~~~
-   drivers/s390/net/ctcm_fsms.c: In function 'ctcmpc_chx_txdone':
-   drivers/s390/net/ctcm_fsms.c:1251:14: error: passing argument 2 of 'atomic_add' from incompatible pointer type [-Werror=incompatible-pointer-types]
-      atomic_dec(&skb->users);
-                 ^
-   arch/s390/include/asm/atomic.h:61:52: note: in definition of macro 'atomic_sub'
-    #define atomic_sub(_i, _v)  atomic_add(-(int)(_i), _v)
-                                                       ^~
-   drivers/s390/net/ctcm_fsms.c:1251:3: note: in expansion of macro 'atomic_dec'
-      atomic_dec(&skb->users);
-      ^~~~~~~~~~
-   arch/s390/include/asm/atomic.h:46:20: note: expected 'atomic_t * {aka struct <anonymous> *}' but argument is of type 'refcount_t * {aka struct refcount_struct *}'
-    static inline void atomic_add(int i, atomic_t *v)
-                       ^~~~~~~~~~
-   drivers/s390/net/ctcm_fsms.c:1301:14: error: passing argument 2 of 'atomic_add' from incompatible pointer type [-Werror=incompatible-pointer-types]
-      atomic_dec(&skb->users);
-                 ^
-   arch/s390/include/asm/atomic.h:61:52: note: in definition of macro 'atomic_sub'
-    #define atomic_sub(_i, _v)  atomic_add(-(int)(_i), _v)
-                                                       ^~
-   drivers/s390/net/ctcm_fsms.c:1301:3: note: in expansion of macro 'atomic_dec'
-      atomic_dec(&skb->users);
-      ^~~~~~~~~~
-   arch/s390/include/asm/atomic.h:46:20: note: expected 'atomic_t * {aka struct <anonymous> *}' but argument is of type 'refcount_t * {aka struct refcount_struct *}'
-    static inline void atomic_add(int i, atomic_t *v)
-                       ^~~~~~~~~~
-   drivers/s390/net/ctcm_fsms.c: In function 'ctcmpc_chx_send_sweep':
-   drivers/s390/net/ctcm_fsms.c:1798:14: error: passing argument 2 of 'atomic_add' from incompatible pointer type [-Werror=incompatible-pointer-types]
-      atomic_inc(&skb->users);
-                 ^
-   arch/s390/include/asm/atomic.h:58:40: note: in definition of macro 'atomic_inc'
-    #define atomic_inc(_v)   atomic_add(1, _v)
-                                           ^~
-   arch/s390/include/asm/atomic.h:46:20: note: expected 'atomic_t * {aka struct <anonymous> *}' but argument is of type 'refcount_t * {aka struct refcount_struct *}'
-    static inline void atomic_add(int i, atomic_t *v)
-                       ^~~~~~~~~~
+                    from net/iucv/af_iucv.c:15:
+   arch/s390/include/asm/atomic.h:19:19: note: expected 'const atomic_t * {aka const struct <anonymous> *}' but argument is of type 'refcount_t * {aka struct refcount_struct *}'
+    static inline int atomic_read(const atomic_t *v)
+                      ^~~~~~~~~~~
    cc1: some warnings being treated as errors
 
-vim +/atomic_add +220 drivers/s390/net/ctcm_fsms.c
+vim +/atomic_read +405 net/iucv/af_iucv.c
 
-293d984f Peter Tiedemann 2008-02-08  214  {
-293d984f Peter Tiedemann 2008-02-08  215  	struct sk_buff *skb;
-293d984f Peter Tiedemann 2008-02-08  216  
-aa3f2cb6 Peter Tiedemann 2008-07-18  217  	CTCM_DBF_TEXT(TRACE, CTC_DBF_DEBUG, __func__);
-293d984f Peter Tiedemann 2008-02-08  218  
-293d984f Peter Tiedemann 2008-02-08  219  	while ((skb = skb_dequeue(q))) {
-293d984f Peter Tiedemann 2008-02-08 @220  		atomic_dec(&skb->users);
-293d984f Peter Tiedemann 2008-02-08  221  		dev_kfree_skb_any(skb);
-293d984f Peter Tiedemann 2008-02-08  222  	}
-293d984f Peter Tiedemann 2008-02-08  223  }
+82492a35 Ursula Braun  2012-03-07  399  	if (!sock_flag(sk, SOCK_DEAD)) {
+82492a35 Ursula Braun  2012-03-07  400  		pr_err("Attempt to release alive iucv socket %p\n", sk);
+82492a35 Ursula Braun  2012-03-07  401  		return;
+82492a35 Ursula Braun  2012-03-07  402  	}
+82492a35 Ursula Braun  2012-03-07  403  
+82492a35 Ursula Braun  2012-03-07  404  	WARN_ON(atomic_read(&sk->sk_rmem_alloc));
+82492a35 Ursula Braun  2012-03-07 @405  	WARN_ON(atomic_read(&sk->sk_wmem_alloc));
+82492a35 Ursula Braun  2012-03-07  406  	WARN_ON(sk->sk_wmem_queued);
+82492a35 Ursula Braun  2012-03-07  407  	WARN_ON(sk->sk_forward_alloc);
+eac3731b Jennifer Hunt 2007-02-08  408  }
 
-:::::: The code at line 220 was first introduced by commit
-:::::: 293d984f0e3604c04dcdbf00117ddc1e5d4b1909 ctcm: infrastructure for replaced ctc driver
+:::::: The code at line 405 was first introduced by commit
+:::::: 82492a355fac112908271faa74f473a38c1fb647 af_iucv: add shutdown for HS transport
 
-:::::: TO: Peter Tiedemann <ptiedem@de.ibm.com>
-:::::: CC: Jeff Garzik <jeff@garzik.org>
+:::::: TO: Ursula Braun <ursula.braun@de.ibm.com>
+:::::: CC: David S. Miller <davem@davemloft.net>
 
 ---
 0-DAY kernel test infrastructure                Open Source Technology Center
 https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
 
---mP3DRpeJDSE+ciuQ
+--RnlQjJ0d97Da+TV1
 Content-Type: application/gzip
 Content-Disposition: attachment; filename=".config.gz"
 Content-Transfer-Encoding: base64
 
-H4sICLdmWFkAAy5jb25maWcAlDzbcuO2ku/5CtVkH3YfTsaXiZPZLT+AJCghIgkOAUqWX1ga
+H4sICMdrWFkAAy5jb25maWcAlDzbcuO2ku/5CtVkH3YfTsaXiZPZLT+AJCghIgkOAUqWX1ga
 W5m4YksuSz5J/v50A7wAIEDNplKJ2d1oAI1G3wDoxx9+nJH30+Fle3p62D4//zP7ttvv3ran
 3ePs96fn3f/NEj4ruJzRhMmfgDh72r///fF4/fli9umny6ufLv719vDLbLl72++eZ/Fh//vT
 t3do/nTY//DjDzEvUjZv8ry+/af7uOcFbZKcDJC4rJsI/k+LhJFigGc8Xia0bERdlrySA0JI
@@ -472,4 +419,4 @@ HmKKWfhmTAY+ykYdrlQBOGHR9oN+B0CjRl3wUAwFyxSFSzUvxUZvuTRve7cAiPbKNbBWu1Ot
 jCuxzgdqTQ17Z1CoG+GazMHIPNCCcRiHVJv5ke9XjRIaIBvigwOiS0/TpLLpOhMBwnj+x55v
 l67h3QwbmzLTMYyNRdX/AWVqqX/KEAEA
 
---mP3DRpeJDSE+ciuQ--
+--RnlQjJ0d97Da+TV1--
