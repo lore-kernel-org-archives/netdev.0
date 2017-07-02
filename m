@@ -1,207 +1,831 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 7/7] bpf: add various test cases for verifier selftest
-Date: Sun,  2 Jul 2017 02:13:31 +0200
-Message-ID: <4ac0c437e9790c843a3569b1bc967c67e07f066f.1498952486.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 3/7] bpf: simplify narrower ctx access
+Date: Sun,  2 Jul 2017 02:13:27 +0200
+Message-ID: <2c2961d09f0ca156168d8aa99b33dd8b8fb487cd.1498952486.git.daniel@iogearbox.net>
 References: <cover.1498952486.git.daniel@iogearbox.net>
 Cc: ast@fb.com, john.fastabend@gmail.com, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Yonghong Song <yhs@fb.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:57563 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:57536 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752407AbdGBANx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 1 Jul 2017 20:13:53 -0400
+        with ESMTP id S1752174AbdGBANp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 1 Jul 2017 20:13:45 -0400
 In-Reply-To: <cover.1498952486.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1498952486.git.daniel@iogearbox.net>
 References: <cover.1498952486.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add couple of verifier test cases for x|imm += pkt_ptr, including the
-imm += x extension.
+This work tries to make the semantics and code around the
+narrower ctx access a bit easier to follow. Right now
+everything is done inside the .is_valid_access(). Offset
+matching is done differently for read/write types, meaning
+writes don't support narrower access and thus matching only
+on offsetof(struct foo, bar) is enough whereas for read
+case that supports narrower access we must check for
+offsetof(struct foo, bar) + offsetof(struct foo, bar) +
+sizeof(<bar>) - 1 for each of the cases. For read cases of
+individual members that don't support narrower access (like
+packet pointers or skb->cb[] case which has its own narrow
+access logic), we check as usual only offsetof(struct foo,
+bar) like in write case. Then, for the case where narrower
+access is allowed, we also need to set the aux info for the
+access. Meaning, ctx_field_size and converted_op_size have
+to be set. First is the original field size e.g. sizeof(<bar>)
+as in above example from the user facing ctx, and latter
+one is the target size after actual rewrite happened, thus
+for the kernel facing ctx. Also here we need the range match
+and we need to keep track changing convert_ctx_access() and
+converted_op_size from is_valid_access() as both are not at
+the same location.
+
+We can simplify the code a bit: check_ctx_access() becomes
+simpler in that we only store ctx_field_size as a meta data
+and later in convert_ctx_accesses() we fetch the target_size
+right from the location where we do convert. Should the verifier
+be misconfigured we do reject for BPF_WRITE cases or target_size
+that are not provided. For the subsystems, we always work on
+ranges in is_valid_access() and add small helpers for ranges
+and narrow access, convert_ctx_accesses() sets target_size
+for the relevant instruction.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: John Fastabend <john.fastabend@gmail.com>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Cc: Yonghong Song <yhs@fb.com>
 ---
- tools/testing/selftests/bpf/test_verifier.c | 165 ++++++++++++++++++++++++++++
- 1 file changed, 165 insertions(+)
+ include/linux/bpf.h      |   9 +-
+ include/linux/filter.h   |  47 ++++++++++
+ kernel/bpf/verifier.c    |  78 +++++++---------
+ kernel/trace/bpf_trace.c |  31 +++---
+ net/core/filter.c        | 239 +++++++++++++++++++++--------------------------
+ 5 files changed, 209 insertions(+), 195 deletions(-)
 
-diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
-index 26f1eef..404aec5 100644
---- a/tools/testing/selftests/bpf/test_verifier.c
-+++ b/tools/testing/selftests/bpf/test_verifier.c
-@@ -2658,6 +2658,171 @@ struct test_val {
- 		.flags = F_LOAD_WITH_STRICT_ALIGNMENT,
- 	},
- 	{
-+		"direct packet access: test18 (imm += pkt_ptr, 1)",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data)),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data_end)),
-+			BPF_MOV64_IMM(BPF_REG_0, 8),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_0, BPF_REG_2),
-+			BPF_JMP_REG(BPF_JGT, BPF_REG_0, BPF_REG_3, 1),
-+			BPF_STX_MEM(BPF_B, BPF_REG_2, BPF_REG_2, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = ACCEPT,
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+	},
-+	{
-+		"direct packet access: test19 (imm += pkt_ptr, 2)",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data)),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data_end)),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8),
-+			BPF_JMP_REG(BPF_JGT, BPF_REG_0, BPF_REG_3, 3),
-+			BPF_MOV64_IMM(BPF_REG_4, 4),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_4, BPF_REG_2),
-+			BPF_STX_MEM(BPF_B, BPF_REG_4, BPF_REG_4, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = ACCEPT,
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+	},
-+	{
-+		"direct packet access: test20 (x += pkt_ptr, 1)",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data)),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data_end)),
-+			BPF_MOV64_IMM(BPF_REG_0, 0xffffffff),
-+			BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_0, -8),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_10, -8),
-+			BPF_ALU64_IMM(BPF_AND, BPF_REG_0, 0xffff),
-+			BPF_MOV64_REG(BPF_REG_4, BPF_REG_0),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_4, BPF_REG_2),
-+			BPF_MOV64_REG(BPF_REG_5, BPF_REG_4),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, 0xffff - 1),
-+			BPF_JMP_REG(BPF_JGT, BPF_REG_4, BPF_REG_3, 1),
-+			BPF_STX_MEM(BPF_DW, BPF_REG_5, BPF_REG_4, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+		.result = ACCEPT,
-+	},
-+	{
-+		"direct packet access: test21 (x += pkt_ptr, 2)",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data)),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data_end)),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8),
-+			BPF_JMP_REG(BPF_JGT, BPF_REG_0, BPF_REG_3, 9),
-+			BPF_MOV64_IMM(BPF_REG_4, 0xffffffff),
-+			BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_4, -8),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_4, BPF_REG_10, -8),
-+			BPF_ALU64_IMM(BPF_AND, BPF_REG_4, 0xffff),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_4, BPF_REG_2),
-+			BPF_MOV64_REG(BPF_REG_5, BPF_REG_4),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, 0xffff - 1),
-+			BPF_JMP_REG(BPF_JGT, BPF_REG_4, BPF_REG_3, 1),
-+			BPF_STX_MEM(BPF_DW, BPF_REG_5, BPF_REG_4, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+		.result = ACCEPT,
-+	},
-+	{
-+		"direct packet access: test22 (x += pkt_ptr, 3)",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data)),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data_end)),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8),
-+			BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_2, -8),
-+			BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_3, -16),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_3, BPF_REG_10, -16),
-+			BPF_JMP_REG(BPF_JGT, BPF_REG_0, BPF_REG_3, 11),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_2, BPF_REG_10, -8),
-+			BPF_MOV64_IMM(BPF_REG_4, 0xffffffff),
-+			BPF_STX_XADD(BPF_DW, BPF_REG_10, BPF_REG_4, -8),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_4, BPF_REG_10, -8),
-+			BPF_ALU64_IMM(BPF_RSH, BPF_REG_4, 48),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_4, BPF_REG_2),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_4),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 2),
-+			BPF_JMP_REG(BPF_JGT, BPF_REG_0, BPF_REG_3, 2),
-+			BPF_MOV64_IMM(BPF_REG_2, 1),
-+			BPF_STX_MEM(BPF_H, BPF_REG_4, BPF_REG_2, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+		.result = ACCEPT,
-+	},
-+	{
-+		"direct packet access: test23 (x += pkt_ptr, 4)",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data)),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data_end)),
-+			BPF_MOV64_IMM(BPF_REG_0, 0xffffffff),
-+			BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_0, -8),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_10, -8),
-+			BPF_ALU64_IMM(BPF_AND, BPF_REG_0, 0xffff),
-+			BPF_MOV64_REG(BPF_REG_4, BPF_REG_0),
-+			BPF_MOV64_IMM(BPF_REG_0, 31),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_0, BPF_REG_4),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_0, BPF_REG_2),
-+			BPF_MOV64_REG(BPF_REG_5, BPF_REG_0),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 0xffff - 1),
-+			BPF_JMP_REG(BPF_JGT, BPF_REG_0, BPF_REG_3, 1),
-+			BPF_STX_MEM(BPF_DW, BPF_REG_5, BPF_REG_0, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+		.result = REJECT,
-+		.errstr = "cannot add integer value with 47 upper zero bits to ptr_to_packet",
-+	},
-+	{
-+		"direct packet access: test24 (x += pkt_ptr, 5)",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data)),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data_end)),
-+			BPF_MOV64_IMM(BPF_REG_0, 0xffffffff),
-+			BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_0, -8),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_10, -8),
-+			BPF_ALU64_IMM(BPF_AND, BPF_REG_0, 0xff),
-+			BPF_MOV64_REG(BPF_REG_4, BPF_REG_0),
-+			BPF_MOV64_IMM(BPF_REG_0, 64),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_0, BPF_REG_4),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_0, BPF_REG_2),
-+			BPF_MOV64_REG(BPF_REG_5, BPF_REG_0),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 0xffff - 1),
-+			BPF_JMP_REG(BPF_JGT, BPF_REG_0, BPF_REG_3, 1),
-+			BPF_STX_MEM(BPF_DW, BPF_REG_5, BPF_REG_0, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+		.result = ACCEPT,
-+	},
-+	{
- 		"helper access to packet: test1, valid packet_ptr range",
- 		.insns = {
- 			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index 5175729..b69e7a5 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -156,9 +156,14 @@ enum bpf_reg_type {
+ struct bpf_insn_access_aux {
+ 	enum bpf_reg_type reg_type;
+ 	int ctx_field_size;
+-	int converted_op_size;
+ };
+ 
++static inline void
++bpf_ctx_record_field_size(struct bpf_insn_access_aux *aux, u32 size)
++{
++	aux->ctx_field_size = size;
++}
++
+ struct bpf_verifier_ops {
+ 	/* return eBPF function prototype for verification */
+ 	const struct bpf_func_proto *(*get_func_proto)(enum bpf_func_id func_id);
+@@ -173,7 +178,7 @@ struct bpf_verifier_ops {
+ 	u32 (*convert_ctx_access)(enum bpf_access_type type,
+ 				  const struct bpf_insn *src,
+ 				  struct bpf_insn *dst,
+-				  struct bpf_prog *prog);
++				  struct bpf_prog *prog, u32 *target_size);
+ 	int (*test_run)(struct bpf_prog *prog, const union bpf_attr *kattr,
+ 			union bpf_attr __user *uattr);
+ };
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 738f8b1..f1fc9ba 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -337,6 +337,22 @@
+ 	bpf_size;						\
+ })
+ 
++#define bpf_size_to_bytes(bpf_size)				\
++({								\
++	int bytes = -EINVAL;					\
++								\
++	if (bpf_size == BPF_B)					\
++		bytes = sizeof(u8);				\
++	else if (bpf_size == BPF_H)				\
++		bytes = sizeof(u16);				\
++	else if (bpf_size == BPF_W)				\
++		bytes = sizeof(u32);				\
++	else if (bpf_size == BPF_DW)				\
++		bytes = sizeof(u64);				\
++								\
++	bytes;							\
++})
++
+ #define BPF_SIZEOF(type)					\
+ 	({							\
+ 		const int __size = bytes_to_bpf_size(sizeof(type)); \
+@@ -351,6 +367,13 @@
+ 		__size;						\
+ 	})
+ 
++#define BPF_LDST_BYTES(insn)					\
++	({							\
++		const int __size = bpf_size_to_bytes(BPF_SIZE(insn->code)); \
++		WARN_ON(__size < 0);				\
++		__size;						\
++	})
++
+ #define __BPF_MAP_0(m, v, ...) v
+ #define __BPF_MAP_1(m, v, t, a, ...) m(t, a)
+ #define __BPF_MAP_2(m, v, t, a, ...) m(t, a), __BPF_MAP_1(m, v, __VA_ARGS__)
+@@ -401,6 +424,18 @@
+ #define BPF_CALL_4(name, ...)	BPF_CALL_x(4, name, __VA_ARGS__)
+ #define BPF_CALL_5(name, ...)	BPF_CALL_x(5, name, __VA_ARGS__)
+ 
++#define bpf_ctx_range(TYPE, MEMBER)						\
++	offsetof(TYPE, MEMBER) ... offsetofend(TYPE, MEMBER) - 1
++#define bpf_ctx_range_till(TYPE, MEMBER1, MEMBER2)				\
++	offsetof(TYPE, MEMBER1) ... offsetofend(TYPE, MEMBER2) - 1
++
++#define bpf_target_off(TYPE, MEMBER, SIZE, PTR_SIZE)				\
++	({									\
++		BUILD_BUG_ON(FIELD_SIZEOF(TYPE, MEMBER) != (SIZE));		\
++		*(PTR_SIZE) = (SIZE);						\
++		offsetof(TYPE, MEMBER);						\
++	})
++
+ #ifdef CONFIG_COMPAT
+ /* A struct sock_filter is architecture independent. */
+ struct compat_sock_fprog {
+@@ -564,6 +599,18 @@ static inline bool bpf_prog_was_classic(const struct bpf_prog *prog)
+ 	return prog->type == BPF_PROG_TYPE_UNSPEC;
+ }
+ 
++static inline bool
++bpf_ctx_narrow_access_ok(u32 off, u32 size, const u32 size_default)
++{
++	bool off_ok;
++#ifdef __LITTLE_ENDIAN
++	off_ok = (off & (size_default - 1)) == 0;
++#else
++	off_ok = (off & (size_default - 1)) + size == size_default;
++#endif
++	return off_ok && size <= size_default && (size & (size - 1)) == 0;
++}
++
+ #define bpf_classic_proglen(fprog) (fprog->len * sizeof(fprog->filter[0]))
+ 
+ #ifdef CONFIG_ARCH_HAS_SET_MEMORY
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 6ea2adc..6f820a0 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -546,20 +546,6 @@ static int check_reg_arg(struct bpf_reg_state *regs, u32 regno,
+ 	return 0;
+ }
+ 
+-static int bpf_size_to_bytes(int bpf_size)
+-{
+-	if (bpf_size == BPF_W)
+-		return 4;
+-	else if (bpf_size == BPF_H)
+-		return 2;
+-	else if (bpf_size == BPF_B)
+-		return 1;
+-	else if (bpf_size == BPF_DW)
+-		return 8;
+-	else
+-		return -EINVAL;
+-}
+-
+ static bool is_spillable_regtype(enum bpf_reg_type type)
+ {
+ 	switch (type) {
+@@ -761,7 +747,9 @@ static int check_packet_access(struct bpf_verifier_env *env, u32 regno, int off,
+ static int check_ctx_access(struct bpf_verifier_env *env, int insn_idx, int off, int size,
+ 			    enum bpf_access_type t, enum bpf_reg_type *reg_type)
+ {
+-	struct bpf_insn_access_aux info = { .reg_type = *reg_type };
++	struct bpf_insn_access_aux info = {
++		.reg_type = *reg_type,
++	};
+ 
+ 	/* for analyzer ctx accesses are already validated and converted */
+ 	if (env->analyzer_ops)
+@@ -769,25 +757,14 @@ static int check_ctx_access(struct bpf_verifier_env *env, int insn_idx, int off,
+ 
+ 	if (env->prog->aux->ops->is_valid_access &&
+ 	    env->prog->aux->ops->is_valid_access(off, size, t, &info)) {
+-		/* a non zero info.ctx_field_size indicates:
+-		 * . For this field, the prog type specific ctx conversion algorithm
+-		 *   only supports whole field access.
+-		 * . This ctx access is a candiate for later verifier transformation
+-		 *   to load the whole field and then apply a mask to get correct result.
+-		 * a non zero info.converted_op_size indicates perceived actual converted
+-		 * value width in convert_ctx_access.
++		/* A non zero info.ctx_field_size indicates that this field is a
++		 * candidate for later verifier transformation to load the whole
++		 * field and then apply a mask when accessed with a narrower
++		 * access than actual ctx access size. A zero info.ctx_field_size
++		 * will only allow for whole field access and rejects any other
++		 * type of narrower access.
+ 		 */
+-		if ((info.ctx_field_size && !info.converted_op_size) ||
+-		    (!info.ctx_field_size &&  info.converted_op_size)) {
+-			verbose("verifier bug in is_valid_access prog type=%u off=%d size=%d\n",
+-				env->prog->type, off, size);
+-			return -EACCES;
+-		}
+-
+-		if (info.ctx_field_size) {
+-			env->insn_aux_data[insn_idx].ctx_field_size = info.ctx_field_size;
+-			env->insn_aux_data[insn_idx].converted_op_size = info.converted_op_size;
+-		}
++		env->insn_aux_data[insn_idx].ctx_field_size = info.ctx_field_size;
+ 		*reg_type = info.reg_type;
+ 
+ 		/* remember the offset of last byte accessed in ctx */
+@@ -3401,11 +3378,13 @@ static struct bpf_prog *bpf_patch_insn_data(struct bpf_verifier_env *env, u32 of
+ static int convert_ctx_accesses(struct bpf_verifier_env *env)
+ {
+ 	const struct bpf_verifier_ops *ops = env->prog->aux->ops;
++	int i, cnt, size, ctx_field_size, delta = 0;
+ 	const int insn_cnt = env->prog->len;
+ 	struct bpf_insn insn_buf[16], *insn;
+ 	struct bpf_prog *new_prog;
+ 	enum bpf_access_type type;
+-	int i, cnt, off, size, ctx_field_size, converted_op_size, is_narrower_load, delta = 0;
++	bool is_narrower_load;
++	u32 target_size;
+ 
+ 	if (ops->gen_prologue) {
+ 		cnt = ops->gen_prologue(insn_buf, env->seen_direct_write,
+@@ -3445,39 +3424,50 @@ static int convert_ctx_accesses(struct bpf_verifier_env *env)
+ 		if (env->insn_aux_data[i + delta].ptr_type != PTR_TO_CTX)
+ 			continue;
+ 
+-		off = insn->off;
+-		size = bpf_size_to_bytes(BPF_SIZE(insn->code));
+ 		ctx_field_size = env->insn_aux_data[i + delta].ctx_field_size;
+-		converted_op_size = env->insn_aux_data[i + delta].converted_op_size;
+-		is_narrower_load = type == BPF_READ && size < ctx_field_size;
++		size = BPF_LDST_BYTES(insn);
+ 
+ 		/* If the read access is a narrower load of the field,
+ 		 * convert to a 4/8-byte load, to minimum program type specific
+ 		 * convert_ctx_access changes. If conversion is successful,
+ 		 * we will apply proper mask to the result.
+ 		 */
++		is_narrower_load = size < ctx_field_size;
+ 		if (is_narrower_load) {
+-			int size_code = BPF_H;
++			u32 off = insn->off;
++			u8 size_code;
++
++			if (type == BPF_WRITE) {
++				verbose("bpf verifier narrow ctx access misconfigured\n");
++				return -EINVAL;
++			}
+ 
++			size_code = BPF_H;
+ 			if (ctx_field_size == 4)
+ 				size_code = BPF_W;
+ 			else if (ctx_field_size == 8)
+ 				size_code = BPF_DW;
++
+ 			insn->off = off & ~(ctx_field_size - 1);
+ 			insn->code = BPF_LDX | BPF_MEM | size_code;
+ 		}
+-		cnt = ops->convert_ctx_access(type, insn, insn_buf, env->prog);
+-		if (cnt == 0 || cnt >= ARRAY_SIZE(insn_buf)) {
++
++		target_size = 0;
++		cnt = ops->convert_ctx_access(type, insn, insn_buf, env->prog,
++					      &target_size);
++		if (cnt == 0 || cnt >= ARRAY_SIZE(insn_buf) ||
++		    (ctx_field_size && !target_size)) {
+ 			verbose("bpf verifier is misconfigured\n");
+ 			return -EINVAL;
+ 		}
+-		if (is_narrower_load && size < converted_op_size) {
++
++		if (is_narrower_load && size < target_size) {
+ 			if (ctx_field_size <= 4)
+ 				insn_buf[cnt++] = BPF_ALU32_IMM(BPF_AND, insn->dst_reg,
+-							(1 << size * 8) - 1);
++								(1 << size * 8) - 1);
+ 			else
+ 				insn_buf[cnt++] = BPF_ALU64_IMM(BPF_AND, insn->dst_reg,
+-							(1 << size * 8) - 1);
++								(1 << size * 8) - 1);
+ 		}
+ 
+ 		new_prog = bpf_patch_insn_data(env, i + delta, insn_buf, cnt);
+diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+index 97c46b4..5c6d538 100644
+--- a/kernel/trace/bpf_trace.c
++++ b/kernel/trace/bpf_trace.c
+@@ -583,7 +583,8 @@ static bool tp_prog_is_valid_access(int off, int size, enum bpf_access_type type
+ static bool pe_prog_is_valid_access(int off, int size, enum bpf_access_type type,
+ 				    struct bpf_insn_access_aux *info)
+ {
+-	int sample_period_off;
++	const int size_sp = FIELD_SIZEOF(struct bpf_perf_event_data,
++					 sample_period);
+ 
+ 	if (off < 0 || off >= sizeof(struct bpf_perf_event_data))
+ 		return false;
+@@ -592,43 +593,35 @@ static bool pe_prog_is_valid_access(int off, int size, enum bpf_access_type type
+ 	if (off % size != 0)
+ 		return false;
+ 
+-	/* permit 1, 2, 4 byte narrower and 8 normal read access to sample_period */
+-	sample_period_off = offsetof(struct bpf_perf_event_data, sample_period);
+-	if (off >= sample_period_off && off < sample_period_off + sizeof(__u64)) {
+-		int allowed;
+-
+-#ifdef __LITTLE_ENDIAN
+-		allowed = (off & 0x7) == 0 && size <= 8 && (size & (size - 1)) == 0;
+-#else
+-		allowed = ((off & 0x7) + size) == 8 && size <= 8 && (size & (size - 1)) == 0;
+-#endif
+-		if (!allowed)
++	switch (off) {
++	case bpf_ctx_range(struct bpf_perf_event_data, sample_period):
++		bpf_ctx_record_field_size(info, size_sp);
++		if (!bpf_ctx_narrow_access_ok(off, size, size_sp))
+ 			return false;
+-		info->ctx_field_size = 8;
+-		info->converted_op_size = 8;
+-	} else {
++		break;
++	default:
+ 		if (size != sizeof(long))
+ 			return false;
+ 	}
++
+ 	return true;
+ }
+ 
+ static u32 pe_prog_convert_ctx_access(enum bpf_access_type type,
+ 				      const struct bpf_insn *si,
+ 				      struct bpf_insn *insn_buf,
+-				      struct bpf_prog *prog)
++				      struct bpf_prog *prog, u32 *target_size)
+ {
+ 	struct bpf_insn *insn = insn_buf;
+ 
+ 	switch (si->off) {
+ 	case offsetof(struct bpf_perf_event_data, sample_period):
+-		BUILD_BUG_ON(FIELD_SIZEOF(struct perf_sample_data, period) != sizeof(u64));
+-
+ 		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(struct bpf_perf_event_data_kern,
+ 						       data), si->dst_reg, si->src_reg,
+ 				      offsetof(struct bpf_perf_event_data_kern, data));
+ 		*insn++ = BPF_LDX_MEM(BPF_DW, si->dst_reg, si->dst_reg,
+-				      offsetof(struct perf_sample_data, period));
++				      bpf_target_off(struct perf_sample_data, period, 8,
++						     target_size));
+ 		break;
+ 	default:
+ 		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(struct bpf_perf_event_data_kern,
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 9304b55..8c65dee 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -3089,38 +3089,11 @@ static unsigned long bpf_xdp_copy(void *dst_buff, const void *src_buff,
+ 	}
+ }
+ 
+-static void __set_access_aux_info(int off, struct bpf_insn_access_aux *info)
++static bool bpf_skb_is_valid_access(int off, int size, enum bpf_access_type type,
++				    struct bpf_insn_access_aux *info)
+ {
+-	info->ctx_field_size = 4;
+-	switch (off) {
+-	case offsetof(struct __sk_buff, pkt_type) ...
+-	     offsetof(struct __sk_buff, pkt_type) + sizeof(__u32) - 1:
+-	case offsetof(struct __sk_buff, vlan_present) ...
+-	     offsetof(struct __sk_buff, vlan_present) + sizeof(__u32) - 1:
+-		info->converted_op_size = 1;
+-		break;
+-	case offsetof(struct __sk_buff, queue_mapping) ...
+-	     offsetof(struct __sk_buff, queue_mapping) + sizeof(__u32) - 1:
+-	case offsetof(struct __sk_buff, protocol) ...
+-	     offsetof(struct __sk_buff, protocol) + sizeof(__u32) - 1:
+-	case offsetof(struct __sk_buff, vlan_tci) ...
+-	     offsetof(struct __sk_buff, vlan_tci) + sizeof(__u32) - 1:
+-	case offsetof(struct __sk_buff, vlan_proto) ...
+-	     offsetof(struct __sk_buff, vlan_proto) + sizeof(__u32) - 1:
+-	case offsetof(struct __sk_buff, tc_index) ...
+-	     offsetof(struct __sk_buff, tc_index) + sizeof(__u32) - 1:
+-	case offsetof(struct __sk_buff, tc_classid) ...
+-	     offsetof(struct __sk_buff, tc_classid) + sizeof(__u32) - 1:
+-		info->converted_op_size = 2;
+-		break;
+-	default:
+-		info->converted_op_size = 4;
+-	}
+-}
++	const int size_default = sizeof(__u32);
+ 
+-static bool __is_valid_access(int off, int size, enum bpf_access_type type,
+-			      struct bpf_insn_access_aux *info)
+-{
+ 	if (off < 0 || off >= sizeof(struct __sk_buff))
+ 		return false;
+ 
+@@ -3129,40 +3102,24 @@ static bool __is_valid_access(int off, int size, enum bpf_access_type type,
+ 		return false;
+ 
+ 	switch (off) {
+-	case offsetof(struct __sk_buff, cb[0]) ...
+-	     offsetof(struct __sk_buff, cb[4]) + sizeof(__u32) - 1:
+-		if (off + size >
+-		    offsetof(struct __sk_buff, cb[4]) + sizeof(__u32))
++	case bpf_ctx_range_till(struct __sk_buff, cb[0], cb[4]):
++		if (off + size > offsetofend(struct __sk_buff, cb[4]))
+ 			return false;
+ 		break;
+-	case offsetof(struct __sk_buff, data) ...
+-	     offsetof(struct __sk_buff, data) + sizeof(__u32) - 1:
+-		if (size != sizeof(__u32))
++	case bpf_ctx_range(struct __sk_buff, data):
++	case bpf_ctx_range(struct __sk_buff, data_end):
++		if (size != size_default)
+ 			return false;
+-		info->reg_type = PTR_TO_PACKET;
+-		break;
+-	case offsetof(struct __sk_buff, data_end) ...
+-	     offsetof(struct __sk_buff, data_end) + sizeof(__u32) - 1:
+-		if (size != sizeof(__u32))
+-			return false;
+-		info->reg_type = PTR_TO_PACKET_END;
+ 		break;
+ 	default:
++		/* Only narrow read access allowed for now. */
+ 		if (type == BPF_WRITE) {
+-			if (size != sizeof(__u32))
++			if (size != size_default)
+ 				return false;
+ 		} else {
+-			int allowed;
+-
+-			/* permit narrower load for not cb/data/data_end fields */
+-#ifdef __LITTLE_ENDIAN
+-			allowed = (off & 0x3) == 0 && size <= 4 && (size & (size - 1)) == 0;
+-#else
+-			allowed = (off & 0x3) + size == 4 && size <= 4 && (size & (size - 1)) == 0;
+-#endif
+-			if (!allowed)
++			bpf_ctx_record_field_size(info, size_default);
++			if (!bpf_ctx_narrow_access_ok(off, size, size_default))
+ 				return false;
+-			__set_access_aux_info(off, info);
+ 		}
+ 	}
+ 
+@@ -3174,26 +3131,22 @@ static bool sk_filter_is_valid_access(int off, int size,
+ 				      struct bpf_insn_access_aux *info)
+ {
+ 	switch (off) {
+-	case offsetof(struct __sk_buff, tc_classid) ...
+-	     offsetof(struct __sk_buff, tc_classid) + sizeof(__u32) - 1:
+-	case offsetof(struct __sk_buff, data) ...
+-	     offsetof(struct __sk_buff, data) + sizeof(__u32) - 1:
+-	case offsetof(struct __sk_buff, data_end) ...
+-	     offsetof(struct __sk_buff, data_end) + sizeof(__u32) - 1:
++	case bpf_ctx_range(struct __sk_buff, tc_classid):
++	case bpf_ctx_range(struct __sk_buff, data):
++	case bpf_ctx_range(struct __sk_buff, data_end):
+ 		return false;
+ 	}
+ 
+ 	if (type == BPF_WRITE) {
+ 		switch (off) {
+-		case offsetof(struct __sk_buff, cb[0]) ...
+-		     offsetof(struct __sk_buff, cb[4]) + sizeof(__u32) - 1:
++		case bpf_ctx_range_till(struct __sk_buff, cb[0], cb[4]):
+ 			break;
+ 		default:
+ 			return false;
+ 		}
+ 	}
+ 
+-	return __is_valid_access(off, size, type, info);
++	return bpf_skb_is_valid_access(off, size, type, info);
+ }
+ 
+ static bool lwt_is_valid_access(int off, int size,
+@@ -3201,24 +3154,31 @@ static bool lwt_is_valid_access(int off, int size,
+ 				struct bpf_insn_access_aux *info)
+ {
+ 	switch (off) {
+-	case offsetof(struct __sk_buff, tc_classid) ...
+-	     offsetof(struct __sk_buff, tc_classid) + sizeof(__u32) - 1:
++	case bpf_ctx_range(struct __sk_buff, tc_classid):
+ 		return false;
+ 	}
+ 
+ 	if (type == BPF_WRITE) {
+ 		switch (off) {
+-		case offsetof(struct __sk_buff, mark):
+-		case offsetof(struct __sk_buff, priority):
+-		case offsetof(struct __sk_buff, cb[0]) ...
+-		     offsetof(struct __sk_buff, cb[4]) + sizeof(__u32) - 1:
++		case bpf_ctx_range(struct __sk_buff, mark):
++		case bpf_ctx_range(struct __sk_buff, priority):
++		case bpf_ctx_range_till(struct __sk_buff, cb[0], cb[4]):
+ 			break;
+ 		default:
+ 			return false;
+ 		}
+ 	}
+ 
+-	return __is_valid_access(off, size, type, info);
++	switch (off) {
++	case bpf_ctx_range(struct __sk_buff, data):
++		info->reg_type = PTR_TO_PACKET;
++		break;
++	case bpf_ctx_range(struct __sk_buff, data_end):
++		info->reg_type = PTR_TO_PACKET_END;
++		break;
++	}
++
++	return bpf_skb_is_valid_access(off, size, type, info);
+ }
+ 
+ static bool sock_filter_is_valid_access(int off, int size,
+@@ -3290,19 +3250,27 @@ static bool tc_cls_act_is_valid_access(int off, int size,
+ {
+ 	if (type == BPF_WRITE) {
+ 		switch (off) {
+-		case offsetof(struct __sk_buff, mark):
+-		case offsetof(struct __sk_buff, tc_index):
+-		case offsetof(struct __sk_buff, priority):
+-		case offsetof(struct __sk_buff, cb[0]) ...
+-		     offsetof(struct __sk_buff, cb[4]) + sizeof(__u32) - 1:
+-		case offsetof(struct __sk_buff, tc_classid):
++		case bpf_ctx_range(struct __sk_buff, mark):
++		case bpf_ctx_range(struct __sk_buff, tc_index):
++		case bpf_ctx_range(struct __sk_buff, priority):
++		case bpf_ctx_range(struct __sk_buff, tc_classid):
++		case bpf_ctx_range_till(struct __sk_buff, cb[0], cb[4]):
+ 			break;
+ 		default:
+ 			return false;
+ 		}
+ 	}
+ 
+-	return __is_valid_access(off, size, type, info);
++	switch (off) {
++	case bpf_ctx_range(struct __sk_buff, data):
++		info->reg_type = PTR_TO_PACKET;
++		break;
++	case bpf_ctx_range(struct __sk_buff, data_end):
++		info->reg_type = PTR_TO_PACKET_END;
++		break;
++	}
++
++	return bpf_skb_is_valid_access(off, size, type, info);
+ }
+ 
+ static bool __is_valid_xdp_access(int off, int size)
+@@ -3375,98 +3343,108 @@ static bool sock_ops_is_valid_access(int off, int size,
+ static u32 bpf_convert_ctx_access(enum bpf_access_type type,
+ 				  const struct bpf_insn *si,
+ 				  struct bpf_insn *insn_buf,
+-				  struct bpf_prog *prog)
++				  struct bpf_prog *prog, u32 *target_size)
+ {
+ 	struct bpf_insn *insn = insn_buf;
+ 	int off;
+ 
+ 	switch (si->off) {
+ 	case offsetof(struct __sk_buff, len):
+-		BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, len) != 4);
+-
+ 		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
+-				      offsetof(struct sk_buff, len));
++				      bpf_target_off(struct sk_buff, len, 4,
++						     target_size));
+ 		break;
+ 
+ 	case offsetof(struct __sk_buff, protocol):
+-		BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, protocol) != 2);
+-
+ 		*insn++ = BPF_LDX_MEM(BPF_H, si->dst_reg, si->src_reg,
+-				      offsetof(struct sk_buff, protocol));
++				      bpf_target_off(struct sk_buff, protocol, 2,
++						     target_size));
+ 		break;
+ 
+ 	case offsetof(struct __sk_buff, vlan_proto):
+-		BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, vlan_proto) != 2);
+-
+ 		*insn++ = BPF_LDX_MEM(BPF_H, si->dst_reg, si->src_reg,
+-				      offsetof(struct sk_buff, vlan_proto));
++				      bpf_target_off(struct sk_buff, vlan_proto, 2,
++						     target_size));
+ 		break;
+ 
+ 	case offsetof(struct __sk_buff, priority):
+-		BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, priority) != 4);
+-
+ 		if (type == BPF_WRITE)
+ 			*insn++ = BPF_STX_MEM(BPF_W, si->dst_reg, si->src_reg,
+-					      offsetof(struct sk_buff, priority));
++					      bpf_target_off(struct sk_buff, priority, 4,
++							     target_size));
+ 		else
+ 			*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
+-					      offsetof(struct sk_buff, priority));
++					      bpf_target_off(struct sk_buff, priority, 4,
++							     target_size));
+ 		break;
+ 
+ 	case offsetof(struct __sk_buff, ingress_ifindex):
+-		BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, skb_iif) != 4);
+-
+ 		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
+-				      offsetof(struct sk_buff, skb_iif));
++				      bpf_target_off(struct sk_buff, skb_iif, 4,
++						     target_size));
+ 		break;
+ 
+ 	case offsetof(struct __sk_buff, ifindex):
+-		BUILD_BUG_ON(FIELD_SIZEOF(struct net_device, ifindex) != 4);
+-
+ 		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(struct sk_buff, dev),
+ 				      si->dst_reg, si->src_reg,
+ 				      offsetof(struct sk_buff, dev));
+ 		*insn++ = BPF_JMP_IMM(BPF_JEQ, si->dst_reg, 0, 1);
+ 		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->dst_reg,
+-				      offsetof(struct net_device, ifindex));
++				      bpf_target_off(struct net_device, ifindex, 4,
++						     target_size));
+ 		break;
+ 
+ 	case offsetof(struct __sk_buff, hash):
+-		BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, hash) != 4);
+-
+ 		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
+-				      offsetof(struct sk_buff, hash));
++				      bpf_target_off(struct sk_buff, hash, 4,
++						     target_size));
+ 		break;
+ 
+ 	case offsetof(struct __sk_buff, mark):
+-		BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, mark) != 4);
+-
+ 		if (type == BPF_WRITE)
+ 			*insn++ = BPF_STX_MEM(BPF_W, si->dst_reg, si->src_reg,
+-					      offsetof(struct sk_buff, mark));
++					      bpf_target_off(struct sk_buff, mark, 4,
++							     target_size));
+ 		else
+ 			*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
+-					      offsetof(struct sk_buff, mark));
++					      bpf_target_off(struct sk_buff, mark, 4,
++							     target_size));
+ 		break;
+ 
+ 	case offsetof(struct __sk_buff, pkt_type):
+-		return convert_skb_access(SKF_AD_PKTTYPE, si->dst_reg,
+-					  si->src_reg, insn);
++		*target_size = 1;
++		*insn++ = BPF_LDX_MEM(BPF_B, si->dst_reg, si->src_reg,
++				      PKT_TYPE_OFFSET());
++		*insn++ = BPF_ALU32_IMM(BPF_AND, si->dst_reg, PKT_TYPE_MAX);
++#ifdef __BIG_ENDIAN_BITFIELD
++		*insn++ = BPF_ALU32_IMM(BPF_RSH, si->dst_reg, 5);
++#endif
++		break;
+ 
+ 	case offsetof(struct __sk_buff, queue_mapping):
+-		return convert_skb_access(SKF_AD_QUEUE, si->dst_reg,
+-					  si->src_reg, insn);
++		*insn++ = BPF_LDX_MEM(BPF_H, si->dst_reg, si->src_reg,
++				      bpf_target_off(struct sk_buff, queue_mapping, 2,
++						     target_size));
++		break;
+ 
+ 	case offsetof(struct __sk_buff, vlan_present):
+-		return convert_skb_access(SKF_AD_VLAN_TAG_PRESENT,
+-					  si->dst_reg, si->src_reg, insn);
+-
+ 	case offsetof(struct __sk_buff, vlan_tci):
+-		return convert_skb_access(SKF_AD_VLAN_TAG,
+-					  si->dst_reg, si->src_reg, insn);
++		BUILD_BUG_ON(VLAN_TAG_PRESENT != 0x1000);
++
++		*insn++ = BPF_LDX_MEM(BPF_H, si->dst_reg, si->src_reg,
++				      bpf_target_off(struct sk_buff, vlan_tci, 2,
++						     target_size));
++		if (si->off == offsetof(struct __sk_buff, vlan_tci)) {
++			*insn++ = BPF_ALU32_IMM(BPF_AND, si->dst_reg,
++						~VLAN_TAG_PRESENT);
++		} else {
++			*insn++ = BPF_ALU32_IMM(BPF_RSH, si->dst_reg, 12);
++			*insn++ = BPF_ALU32_IMM(BPF_AND, si->dst_reg, 1);
++		}
++		break;
+ 
+ 	case offsetof(struct __sk_buff, cb[0]) ...
+-	     offsetof(struct __sk_buff, cb[4]) + sizeof(__u32) - 1:
++	     offsetofend(struct __sk_buff, cb[4]) - 1:
+ 		BUILD_BUG_ON(FIELD_SIZEOF(struct qdisc_skb_cb, data) < 20);
+ 		BUILD_BUG_ON((offsetof(struct sk_buff, cb) +
+ 			      offsetof(struct qdisc_skb_cb, data)) %
+@@ -3492,6 +3470,7 @@ static u32 bpf_convert_ctx_access(enum bpf_access_type type,
+ 		off -= offsetof(struct __sk_buff, tc_classid);
+ 		off += offsetof(struct sk_buff, cb);
+ 		off += offsetof(struct qdisc_skb_cb, tc_classid);
++		*target_size = 2;
+ 		if (type == BPF_WRITE)
+ 			*insn++ = BPF_STX_MEM(BPF_H, si->dst_reg,
+ 					      si->src_reg, off);
+@@ -3517,14 +3496,14 @@ static u32 bpf_convert_ctx_access(enum bpf_access_type type,
+ 
+ 	case offsetof(struct __sk_buff, tc_index):
+ #ifdef CONFIG_NET_SCHED
+-		BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, tc_index) != 2);
+-
+ 		if (type == BPF_WRITE)
+ 			*insn++ = BPF_STX_MEM(BPF_H, si->dst_reg, si->src_reg,
+-					      offsetof(struct sk_buff, tc_index));
++					      bpf_target_off(struct sk_buff, tc_index, 2,
++							     target_size));
+ 		else
+ 			*insn++ = BPF_LDX_MEM(BPF_H, si->dst_reg, si->src_reg,
+-					      offsetof(struct sk_buff, tc_index));
++					      bpf_target_off(struct sk_buff, tc_index, 2,
++							     target_size));
+ #else
+ 		if (type == BPF_WRITE)
+ 			*insn++ = BPF_MOV64_REG(si->dst_reg, si->dst_reg);
+@@ -3535,10 +3514,9 @@ static u32 bpf_convert_ctx_access(enum bpf_access_type type,
+ 
+ 	case offsetof(struct __sk_buff, napi_id):
+ #if defined(CONFIG_NET_RX_BUSY_POLL)
+-		BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, napi_id) != 4);
+-
+ 		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
+-				      offsetof(struct sk_buff, napi_id));
++				      bpf_target_off(struct sk_buff, napi_id, 4,
++						     target_size));
+ 		*insn++ = BPF_JMP_IMM(BPF_JGE, si->dst_reg, MIN_NAPI_ID, 1);
+ 		*insn++ = BPF_MOV64_IMM(si->dst_reg, 0);
+ #else
+@@ -3553,7 +3531,7 @@ static u32 bpf_convert_ctx_access(enum bpf_access_type type,
+ static u32 sock_filter_convert_ctx_access(enum bpf_access_type type,
+ 					  const struct bpf_insn *si,
+ 					  struct bpf_insn *insn_buf,
+-					  struct bpf_prog *prog)
++					  struct bpf_prog *prog, u32 *target_size)
+ {
+ 	struct bpf_insn *insn = insn_buf;
+ 
+@@ -3597,22 +3575,22 @@ static u32 sock_filter_convert_ctx_access(enum bpf_access_type type,
+ static u32 tc_cls_act_convert_ctx_access(enum bpf_access_type type,
+ 					 const struct bpf_insn *si,
+ 					 struct bpf_insn *insn_buf,
+-					 struct bpf_prog *prog)
++					 struct bpf_prog *prog, u32 *target_size)
+ {
+ 	struct bpf_insn *insn = insn_buf;
+ 
+ 	switch (si->off) {
+ 	case offsetof(struct __sk_buff, ifindex):
+-		BUILD_BUG_ON(FIELD_SIZEOF(struct net_device, ifindex) != 4);
+-
+ 		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(struct sk_buff, dev),
+ 				      si->dst_reg, si->src_reg,
+ 				      offsetof(struct sk_buff, dev));
+ 		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->dst_reg,
+-				      offsetof(struct net_device, ifindex));
++				      bpf_target_off(struct net_device, ifindex, 4,
++						     target_size));
+ 		break;
+ 	default:
+-		return bpf_convert_ctx_access(type, si, insn_buf, prog);
++		return bpf_convert_ctx_access(type, si, insn_buf, prog,
++					      target_size);
+ 	}
+ 
+ 	return insn - insn_buf;
+@@ -3621,7 +3599,7 @@ static u32 tc_cls_act_convert_ctx_access(enum bpf_access_type type,
+ static u32 xdp_convert_ctx_access(enum bpf_access_type type,
+ 				  const struct bpf_insn *si,
+ 				  struct bpf_insn *insn_buf,
+-				  struct bpf_prog *prog)
++				  struct bpf_prog *prog, u32 *target_size)
+ {
+ 	struct bpf_insn *insn = insn_buf;
+ 
+@@ -3644,7 +3622,8 @@ static u32 xdp_convert_ctx_access(enum bpf_access_type type,
+ static u32 sock_ops_convert_ctx_access(enum bpf_access_type type,
+ 				       const struct bpf_insn *si,
+ 				       struct bpf_insn *insn_buf,
+-				       struct bpf_prog *prog)
++				       struct bpf_prog *prog,
++				       u32 *target_size)
+ {
+ 	struct bpf_insn *insn = insn_buf;
+ 	int off;
 -- 
 1.9.3
