@@ -1,44 +1,29 @@
-From: Christos Gkekas <chris.gekas@gmail.com>
-Subject: [PATCH] netxen_nic: Remove unused pointer hdr in netxen_setup_minidump()
-Date: Sun,  2 Jul 2017 23:16:11 +0100
-Message-ID: <1499033771-24820-1-git-send-email-chris.gekas@gmail.com>
-Cc: Christos Gkekas <chris.gekas@gmail.com>
-To: Manish Chopra <manish.chopra@cavium.com>,
-        Rahul Verma <rahul.verma@cavium.com>,
-        Dept-GELinuxNICDev@cavium.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bpf: fix to bpf_setsockops
+Date: Sun, 02 Jul 2017 15:17:20 -0700 (PDT)
+Message-ID: <20170702.151720.1824583871623683342.davem@davemloft.net>
+References: <20170702161428.3133994-1-brakmo@fb.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kernel-team@fb.com, bmatheny@fb.com,
+        ast@fb.com, daniel@iogearbox.net, dsa@cumulusnetworks.com
+To: brakmo@fb.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48494 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751894AbdGBWR3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 2 Jul 2017 18:17:29 -0400
+In-Reply-To: <20170702161428.3133994-1-brakmo@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Pointer hdr in netxen_setup_minidump() is set but never used, thus
-should be removed.
+From: Lawrence Brakmo <brakmo@fb.com>
+Date: Sun, 2 Jul 2017 09:14:28 -0700
 
-Signed-off-by: Christos Gkekas <chris.gekas@gmail.com>
----
- drivers/net/ethernet/qlogic/netxen/netxen_nic_ctx.c | 3 ---
- 1 file changed, 3 deletions(-)
+> Fixed build error due to misplaced "#ifdef CONFIG_INET" (moved 1
+> statement up).
+> 
+> Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
 
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ctx.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ctx.c
-index e306765..6cec2a6 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ctx.c
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ctx.c
-@@ -174,7 +174,6 @@ netxen_setup_minidump(struct netxen_adapter *adapter)
- {
- 	int err = 0, i;
- 	u32 *template, *tmp_buf;
--	struct netxen_minidump_template_hdr *hdr;
- 	err = netxen_get_minidump_template_size(adapter);
- 	if (err) {
- 		adapter->mdump.fw_supports_md = 0;
-@@ -218,8 +217,6 @@ netxen_setup_minidump(struct netxen_adapter *adapter)
- 	template = (u32 *) adapter->mdump.md_template;
- 	for (i = 0; i < adapter->mdump.md_template_size/sizeof(u32); i++)
- 		*template++ = __le32_to_cpu(*tmp_buf++);
--	hdr = (struct netxen_minidump_template_hdr *)
--				adapter->mdump.md_template;
- 	adapter->mdump.md_capture_buff = NULL;
- 	adapter->mdump.fw_supports_md = 1;
- 	adapter->mdump.md_enabled = 0;
--- 
-2.7.4
+Applied, thank you.
