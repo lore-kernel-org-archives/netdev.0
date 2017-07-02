@@ -1,80 +1,47 @@
-From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 6/6] net: stmmac: revert "support future
- possible different internal phy mode"
-Date: Sun,  2 Jul 2017 14:31:59 +0200
-Message-ID: <20170702123159.6939-7-clabbe.montjoie@gmail.com>
-References: <20170702123159.6939-1-clabbe.montjoie@gmail.com>
-Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
-	Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org,
-	maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
-	wens-jdAy2FN1RRM@public.gmane.org,
-	peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-	alexandre.torgue-qxv4g6HH51o@public.gmane.org,
-	andre.przywara-5wv7dgnIgG8@public.gmane.org
-Return-path: <linux-sunxi+bncBD7YLCN32UNBBRGQ4PFAKGQEG5AJN3Y-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <20170702123159.6939-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next] net/mlxfw: Properly handle dependancy with non-loadable mlx5
+Date: Sun,  2 Jul 2017 18:57:28 +0300
+Message-ID: <1499011048-24941-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
+        mlxsw@mellanox.com, Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:57842 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751635AbdGBP5l (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 2 Jul 2017 11:57:41 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Since internal phy-mode is reserved for non-xMII protocol we cannot use
-it with dwmac-sun8i
-This reverts commit 1c2fa5f84683 ("net: stmmac: support future possible different internal phy mode")
+If mlx5 is set to be built-in and mlxfw as a module, we
+get a link error:
 
-Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+drivers/built-in.o: In function `mlx5_firmware_flash':
+(.text+0x5aed72): undefined reference to `mlxfw_firmware_flash'
+
+Since we don't want to mandate selecting mlxfw for mlx5 users, we
+use the IS_REACHABLE macro to make sure that a stub is exposed
+to the caller.
+
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Reported-by: Jakub Kicinski <kubakici@wp.pl>
+Reported-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 10 +++-------
- 1 file changed, 3 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/mellanox/mlxfw/mlxfw.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-index 6c2d1da05588..fffd6d5fc907 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-@@ -638,7 +638,7 @@ static int sun8i_dwmac_set_syscon(struct stmmac_priv *priv)
- {
- 	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
- 	struct device_node *node = priv->device->of_node;
--	int ret, phy_interface;
-+	int ret;
- 	u32 reg, val;
+diff --git a/drivers/net/ethernet/mellanox/mlxfw/mlxfw.h b/drivers/net/ethernet/mellanox/mlxfw/mlxfw.h
+index 9ca8538..7a712b6 100644
+--- a/drivers/net/ethernet/mellanox/mlxfw/mlxfw.h
++++ b/drivers/net/ethernet/mellanox/mlxfw/mlxfw.h
+@@ -96,7 +96,7 @@ struct mlxfw_dev {
+ 	u16 psid_size;
+ };
  
- 	regmap_read(gmac->regmap, SYSCON_EMAC_REG, &val);
-@@ -718,11 +718,7 @@ static int sun8i_dwmac_set_syscon(struct stmmac_priv *priv)
- 	if (gmac->variant->support_rmii)
- 		reg &= ~SYSCON_RMII_EN;
- 
--	phy_interface = priv->plat->interface;
--	/* if PHY is internal, select the mode (xMII) used by the SoC */
--	if (gmac->use_internal_phy)
--		phy_interface = gmac->variant->internal_phy;
--	switch (phy_interface) {
-+	switch (priv->plat->interface) {
- 	case PHY_INTERFACE_MODE_MII:
- 		/* default */
- 		break;
-@@ -936,7 +932,7 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
- 	}
- 
- 	plat_dat->interface = of_get_phy_mode(dev->of_node);
--	if (plat_dat->interface == PHY_INTERFACE_MODE_INTERNAL) {
-+	if (plat_dat->interface == gmac->variant->internal_phy) {
- 		dev_info(&pdev->dev, "Will use internal PHY\n");
- 		gmac->use_internal_phy = true;
- 		gmac->ephy_clk = of_clk_get(plat_dat->phy_node, 0);
+-#if IS_ENABLED(CONFIG_MLXFW)
++#if IS_REACHABLE(CONFIG_MLXFW)
+ int mlxfw_firmware_flash(struct mlxfw_dev *mlxfw_dev,
+ 			 const struct firmware *firmware);
+ #else
 -- 
-2.13.0
+2.3.7
