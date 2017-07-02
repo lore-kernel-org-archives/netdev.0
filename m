@@ -1,45 +1,58 @@
-From: Alvaro Gamez Machado <alvaro.gamez@hazent.com>
-Subject: Re: [PATCH] net: axienet: add of_phy_connect call for
- XAE_PHY_TYPE_MII case
-Date: Sun, 2 Jul 2017 12:19:14 +0200
-Message-ID: <20170702101914.5nk27r2h754qzthe@collins.gmr.ssr.upm.es>
-References: <20170630092541.27234-1-alvaro.gamez@hazent.com>
- <425aed84-a1b6-b8da-5989-3bef5a03ead4@gmail.com>
+From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 2/6] arm: sun8i: orangepi-2: revert "use
+ internal phy-mode"
+Date: Sun,  2 Jul 2017 14:31:55 +0200
+Message-ID: <20170702123159.6939-3-clabbe.montjoie@gmail.com>
+References: <20170702123159.6939-1-clabbe.montjoie@gmail.com>
+Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Anirudha Sarangi <anirudh@xilinx.com>,
-        John Linn <John.Linn@xilinx.com>,
-        Michal Simek <michal.simek@xilinx.com>,
-        =?iso-8859-1?Q?S=F6ren?= Brinkmann <soren.brinkmann@xilinx.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <425aed84-a1b6-b8da-5989-3bef5a03ead4@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+	Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org,
+	maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
+	wens-jdAy2FN1RRM@public.gmane.org,
+	peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+	alexandre.torgue-qxv4g6HH51o@public.gmane.org,
+	andre.przywara-5wv7dgnIgG8@public.gmane.org
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBQGQ4PFAKGQEWUFWVKQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <20170702123159.6939-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 30, 2017 at 10:30:38AM -0700, Florian Fainelli wrote:
-> On 06/30/2017 02:25 AM, Alvaro Gamez Machado wrote:
-> >  	if (lp->phy_node) {
-> > -		if (lp->phy_type == XAE_PHY_TYPE_GMII) {
-> > +		if (lp->phy_type == XAE_PHY_TYPE_MII) {
-> > +			phydev = of_phy_connect(lp->ndev, lp->phy_node,
-> > +						axienet_adjust_link, 0,
-> > +						PHY_INTERFACE_MODE_MII);
-> > +		} else if (lp->phy_type == XAE_PHY_TYPE_GMII) {
-> >  			phydev = of_phy_connect(lp->ndev, lp->phy_node,
-> >  						axienet_adjust_link, 0,
-> >  						PHY_INTERFACE_MODE_GMII);
-> 
-> Seems like this could be simplified even further if the values of
-> lp->phy_type directly mapped to those of phy_interface_t.
+Since internal phy-mode is reserved for non-xMII protocol we cannot use
+it with dwmac-sun8i
+This reverts commit 5a79b4f2a5e7 ("arm: sun8i: orangepi-2: use internal phy-mode")
 
-Sadly, that's not the case. PHY_INTERFACE_MODE_* belong to a enum of twenty
-different values, of which only _MII and _GMII overlap with XAW_PHY_*
-values, but XAE_PHY_TYPE_RGMII_2_0 doesn't match
-PHY_INTERFACE_MODE_RGMII_ID.
+Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ arch/arm/boot/dts/sun8i-h3-orangepi-2.dts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Regards
+diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts
+index a2a2b11dfeed..17cdeae19c6f 100644
+--- a/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts
++++ b/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts
+@@ -120,7 +120,7 @@
+ 
+ &emac {
+ 	phy-handle = <&int_mii_phy>;
+-	phy-mode = "internal";
++	phy-mode = "mii";
+ 	allwinner,leds-active-low;
+ 	status = "okay";
+ };
 -- 
-Alvaro G. M.
+2.13.0
