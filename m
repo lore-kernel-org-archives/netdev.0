@@ -1,17 +1,17 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net 2/2] geneve: fix hlist corruption
-Date: Sun,  2 Jul 2017 19:00:58 +0200
-Message-ID: <5b987cc0b3e9169faec917dd0e0d0aece921b65a.1499014738.git.jbenc@redhat.com>
+Subject: [PATCH net 1/2] vxlan: fix hlist corruption
+Date: Sun,  2 Jul 2017 19:00:57 +0200
+Message-ID: <61fd10b88f9eeab8f95a3a73f7e27358fcdcd781.1499014738.git.jbenc@redhat.com>
 References: <cover.1499014738.git.jbenc@redhat.com>
 Cc: Waiman Long <longman@redhat.com>,
         "John W. Linville" <linville@tuxdriver.com>,
         pravin shelar <pshelar@ovn.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43930 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:49702 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751682AbdGBRBW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 2 Jul 2017 13:01:22 -0400
+        id S1751682AbdGBRB0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 2 Jul 2017 13:01:26 -0400
 In-Reply-To: <cover.1499014738.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -19,124 +19,113 @@ List-ID: <netdev.vger.kernel.org>
 It's not a good idea to add the same hlist_node to two different hash lists.
 This leads to various hard to debug memory corruptions.
 
-Fixes: 8ed66f0e8235 ("geneve: implement support for IPv6-based tunnels")
-Cc: John W. Linville <linville@tuxdriver.com>
+Fixes: b1be00a6c39f ("vxlan: support both IPv4 and IPv6 sockets in a single vxlan device")
 Signed-off-by: Jiri Benc <jbenc@redhat.com>
 ---
- drivers/net/geneve.c | 48 ++++++++++++++++++++++++++++++++----------------
- 1 file changed, 32 insertions(+), 16 deletions(-)
+ drivers/net/vxlan.c | 30 ++++++++++++++++++++----------
+ include/net/vxlan.h | 10 +++++++++-
+ 2 files changed, 29 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index 199459bd6961..6ec8fc9aad8f 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -45,9 +45,17 @@ struct geneve_net {
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 5fa798a5c9a6..c4e540126258 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -228,15 +228,15 @@ static struct vxlan_sock *vxlan_find_sock(struct net *net, sa_family_t family,
  
- static unsigned int geneve_net_id;
+ static struct vxlan_dev *vxlan_vs_find_vni(struct vxlan_sock *vs, __be32 vni)
+ {
+-	struct vxlan_dev *vxlan;
++	struct vxlan_dev_node *node;
  
-+struct geneve_dev_node {
-+	struct hlist_node hlist;
-+	struct geneve_dev *geneve;
-+};
-+
- /* Pseudo network device */
- struct geneve_dev {
--	struct hlist_node  hlist;	/* vni hash table */
-+	struct geneve_dev_node hlist4;	/* vni hash table for IPv4 socket */
+ 	/* For flow based devices, map all packets to VNI 0 */
+ 	if (vs->flags & VXLAN_F_COLLECT_METADATA)
+ 		vni = 0;
+ 
+-	hlist_for_each_entry_rcu(vxlan, vni_head(vs, vni), hlist) {
+-		if (vxlan->default_dst.remote_vni == vni)
+-			return vxlan;
++	hlist_for_each_entry_rcu(node, vni_head(vs, vni), hlist) {
++		if (node->vxlan->default_dst.remote_vni == vni)
++			return node->vxlan;
+ 	}
+ 
+ 	return NULL;
+@@ -2365,17 +2365,22 @@ static void vxlan_vs_del_dev(struct vxlan_dev *vxlan)
+ 	struct vxlan_net *vn = net_generic(vxlan->net, vxlan_net_id);
+ 
+ 	spin_lock(&vn->sock_lock);
+-	hlist_del_init_rcu(&vxlan->hlist);
++	hlist_del_init_rcu(&vxlan->hlist4.hlist);
 +#if IS_ENABLED(CONFIG_IPV6)
-+	struct geneve_dev_node hlist6;	/* vni hash table for IPv6 socket */
++	hlist_del_init_rcu(&vxlan->hlist6.hlist);
 +#endif
- 	struct net	   *net;	/* netns for packet i/o */
- 	struct net_device  *dev;	/* netdev for geneve tunnel */
- 	struct ip_tunnel_info info;
-@@ -123,16 +131,16 @@ static struct geneve_dev *geneve_lookup(struct geneve_sock *gs,
- 					__be32 addr, u8 vni[])
- {
- 	struct hlist_head *vni_list_head;
--	struct geneve_dev *geneve;
-+	struct geneve_dev_node *node;
- 	__u32 hash;
- 
- 	/* Find the device for this VNI */
- 	hash = geneve_net_vni_hash(vni);
- 	vni_list_head = &gs->vni_list[hash];
--	hlist_for_each_entry_rcu(geneve, vni_list_head, hlist) {
--		if (eq_tun_id_and_vni((u8 *)&geneve->info.key.tun_id, vni) &&
--		    addr == geneve->info.key.u.ipv4.dst)
--			return geneve;
-+	hlist_for_each_entry_rcu(node, vni_list_head, hlist) {
-+		if (eq_tun_id_and_vni((u8 *)&node->geneve->info.key.tun_id, vni) &&
-+		    addr == node->geneve->info.key.u.ipv4.dst)
-+			return node->geneve;
- 	}
- 	return NULL;
+ 	spin_unlock(&vn->sock_lock);
  }
-@@ -142,16 +150,16 @@ static struct geneve_dev *geneve6_lookup(struct geneve_sock *gs,
- 					 struct in6_addr addr6, u8 vni[])
- {
- 	struct hlist_head *vni_list_head;
--	struct geneve_dev *geneve;
-+	struct geneve_dev_node *node;
- 	__u32 hash;
  
- 	/* Find the device for this VNI */
- 	hash = geneve_net_vni_hash(vni);
- 	vni_list_head = &gs->vni_list[hash];
--	hlist_for_each_entry_rcu(geneve, vni_list_head, hlist) {
--		if (eq_tun_id_and_vni((u8 *)&geneve->info.key.tun_id, vni) &&
--		    ipv6_addr_equal(&addr6, &geneve->info.key.u.ipv6.dst))
--			return geneve;
-+	hlist_for_each_entry_rcu(node, vni_list_head, hlist) {
-+		if (eq_tun_id_and_vni((u8 *)&node->geneve->info.key.tun_id, vni) &&
-+		    ipv6_addr_equal(&addr6, &node->geneve->info.key.u.ipv6.dst))
-+			return node->geneve;
- 	}
- 	return NULL;
- }
-@@ -579,6 +587,7 @@ static int geneve_sock_add(struct geneve_dev *geneve, bool ipv6)
+-static void vxlan_vs_add_dev(struct vxlan_sock *vs, struct vxlan_dev *vxlan)
++static void vxlan_vs_add_dev(struct vxlan_sock *vs, struct vxlan_dev *vxlan,
++			     struct vxlan_dev_node *node)
  {
- 	struct net *net = geneve->net;
- 	struct geneve_net *gn = net_generic(net, geneve_net_id);
-+	struct geneve_dev_node *node;
- 	struct geneve_sock *gs;
- 	__u8 vni[3];
- 	__u32 hash;
-@@ -597,15 +606,20 @@ static int geneve_sock_add(struct geneve_dev *geneve, bool ipv6)
- out:
- 	gs->collect_md = geneve->collect_md;
+ 	struct vxlan_net *vn = net_generic(vxlan->net, vxlan_net_id);
+ 	__be32 vni = vxlan->default_dst.remote_vni;
+ 
++	node->vxlan = vxlan;
+ 	spin_lock(&vn->sock_lock);
+-	hlist_add_head_rcu(&vxlan->hlist, vni_head(vs, vni));
++	hlist_add_head_rcu(&node->hlist, vni_head(vs, vni));
+ 	spin_unlock(&vn->sock_lock);
+ }
+ 
+@@ -2819,6 +2824,7 @@ static int __vxlan_sock_add(struct vxlan_dev *vxlan, bool ipv6)
+ {
+ 	struct vxlan_net *vn = net_generic(vxlan->net, vxlan_net_id);
+ 	struct vxlan_sock *vs = NULL;
++	struct vxlan_dev_node *node;
+ 
+ 	if (!vxlan->cfg.no_share) {
+ 		spin_lock(&vn->sock_lock);
+@@ -2836,12 +2842,16 @@ static int __vxlan_sock_add(struct vxlan_dev *vxlan, bool ipv6)
+ 	if (IS_ERR(vs))
+ 		return PTR_ERR(vs);
  #if IS_ENABLED(CONFIG_IPV6)
 -	if (ipv6)
 +	if (ipv6) {
- 		rcu_assign_pointer(geneve->sock6, gs);
+ 		rcu_assign_pointer(vxlan->vn6_sock, vs);
 -	else
-+		node = &geneve->hlist6;
++		node = &vxlan->hlist6;
 +	} else
  #endif
 +	{
- 		rcu_assign_pointer(geneve->sock4, gs);
-+		node = &geneve->hlist4;
+ 		rcu_assign_pointer(vxlan->vn4_sock, vs);
+-	vxlan_vs_add_dev(vs, vxlan);
++		node = &vxlan->hlist4;
 +	}
-+	node->geneve = geneve;
- 
- 	tunnel_id_to_vni(geneve->info.key.tun_id, vni);
- 	hash = geneve_net_vni_hash(vni);
--	hlist_add_head_rcu(&geneve->hlist, &gs->vni_list[hash]);
-+	hlist_add_head_rcu(&node->hlist, &gs->vni_list[hash]);
++	vxlan_vs_add_dev(vs, vxlan, node);
  	return 0;
  }
  
-@@ -632,8 +646,10 @@ static int geneve_stop(struct net_device *dev)
- {
- 	struct geneve_dev *geneve = netdev_priv(dev);
+diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+index 49a59202f85e..da7d6b89df77 100644
+--- a/include/net/vxlan.h
++++ b/include/net/vxlan.h
+@@ -221,9 +221,17 @@ struct vxlan_config {
+ 	bool			no_share;
+ };
  
--	if (!hlist_unhashed(&geneve->hlist))
--		hlist_del_rcu(&geneve->hlist);
-+	hlist_del_init_rcu(&geneve->hlist4.hlist);
++struct vxlan_dev_node {
++	struct hlist_node hlist;
++	struct vxlan_dev *vxlan;
++};
++
+ /* Pseudo network device */
+ struct vxlan_dev {
+-	struct hlist_node hlist;	/* vni hash table */
++	struct vxlan_dev_node hlist4;	/* vni hash table for IPv4 socket */
 +#if IS_ENABLED(CONFIG_IPV6)
-+	hlist_del_init_rcu(&geneve->hlist6.hlist);
++	struct vxlan_dev_node hlist6;	/* vni hash table for IPv6 socket */
 +#endif
- 	geneve_sock_release(geneve);
- 	return 0;
- }
+ 	struct list_head  next;		/* vxlan's per namespace list */
+ 	struct vxlan_sock __rcu *vn4_sock;	/* listening socket for IPv4 */
+ #if IS_ENABLED(CONFIG_IPV6)
 -- 
 1.8.3.1
