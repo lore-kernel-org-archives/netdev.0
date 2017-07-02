@@ -1,9 +1,8 @@
 From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 2/6] arm: sun8i: orangepi-2: revert "use
- internal phy-mode"
-Date: Sun,  2 Jul 2017 14:31:55 +0200
-Message-ID: <20170702123159.6939-3-clabbe.montjoie@gmail.com>
-References: <20170702123159.6939-1-clabbe.montjoie@gmail.com>
+Subject: [PATCH 0/6] net: stmmac: revert "support future
+ possible different internal phy mode"
+Date: Sun,  2 Jul 2017 14:31:53 +0200
+Message-ID: <20170702123159.6939-1-clabbe.montjoie@gmail.com>
 Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -21,9 +20,8 @@ To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
 	peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
 	alexandre.torgue-qxv4g6HH51o@public.gmane.org,
 	andre.przywara-5wv7dgnIgG8@public.gmane.org
-Return-path: <linux-sunxi+bncBD7YLCN32UNBBQGQ4PFAKGQEWUFWVKQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBPWQ4PFAKGQE2NLL62A-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <20170702123159.6939-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Archive: <https://groups.google.com/group/linux-sunxi
@@ -32,27 +30,34 @@ List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39
  <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-Since internal phy-mode is reserved for non-xMII protocol we cannot use
-it with dwmac-sun8i
-This reverts commit 5a79b4f2a5e7 ("arm: sun8i: orangepi-2: use internal phy-mode")
+Hello
 
-Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- arch/arm/boot/dts/sun8i-h3-orangepi-2.dts | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+The current way to find if the phy is internal is to compare DT phy-mode
+and emac_variant/internal_phy.
+But it will negate a possible future SoC where an external PHY use the
+same phy mode than the internal one.
 
-diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts
-index a2a2b11dfeed..17cdeae19c6f 100644
---- a/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts
-@@ -120,7 +120,7 @@
- 
- &emac {
- 	phy-handle = <&int_mii_phy>;
--	phy-mode = "internal";
-+	phy-mode = "mii";
- 	allwinner,leds-active-low;
- 	status = "okay";
- };
+My first idea was to use phy-mode = "internal" but since internal phy-mode
+is reserved for non-xMII protocol we cannot use it with dwmac-sun8i
+
+I will send an additionnal patch for documenting more phy-mode = "internal"
+
+Corentin Labbe (6):
+  arm: sun8i: nanopi-neo: revert use internal phy-mode
+  arm: sun8i: orangepi-2: revert "use internal phy-mode"
+  arm: sun8i: orangepi-one: revert "use internal phy-mode"
+  arm: sun8i: orangepi-zero: revert "use internal phy-mode"
+  arm: sun8i: orangepipc: revert "use internal phy-mode"
+  net: stmmac: revert "support future possible different internal phy
+    mode"
+
+ arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts |  2 +-
+ arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts         |  2 +-
+ arch/arm/boot/dts/sun8i-h3-orangepi-2.dts         |  2 +-
+ arch/arm/boot/dts/sun8i-h3-orangepi-one.dts       |  2 +-
+ arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts        |  2 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 10 +++-------
+ 6 files changed, 8 insertions(+), 12 deletions(-)
+
 -- 
 2.13.0
