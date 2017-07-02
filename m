@@ -1,287 +1,80 @@
-From: Michal Kalderon <Michal.Kalderon@cavium.com>
-Subject: [PATCH net-next 10/12] qed: iWARP CM add error handling
-Date: Sun, 2 Jul 2017 10:29:30 +0300
-Message-ID: <1498980572-29519-11-git-send-email-Michal.Kalderon@cavium.com>
+From: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net-next 11/12] qed: Add iWARP protocol support in context allocation
+Date: Sun, 2 Jul 2017 10:29:31 +0300
+Message-ID: <1498980572-29519-12-git-send-email-Michal.Kalderon@cavium.com>
 References: <1498980572-29519-1-git-send-email-Michal.Kalderon@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Michal Kalderon <Michal.Kalderon@cavium.com>,
-        Yuval Mintz <Yuval.Mintz@cavium.com>,
-        Ariel Elior <Ariel.Elior@cavium.com>
-To: <michal.kalderon@cavium.com>, <ram.amrani@cavium.com>,
-        <yuval.mintz@cavium.com>, <ariel.elior@cavium.com>,
-        <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        <linux-rdma@vger.kernel.org>, <dledford@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0086.outbound.protection.outlook.com ([104.47.32.86]:51552
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751720AbdGBHe6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 2 Jul 2017 03:34:58 -0400
-In-Reply-To: <1498980572-29519-1-git-send-email-Michal.Kalderon@cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        Ariel Elior <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+To: <michal.kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>, <ram.amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        <yuval.mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>, <ariel.elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1498980572-29519-1-git-send-email-Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch introduces error handling for errors that occurred during
-connection establishment.
+When computing how much memory is required for the different hw clients
+iWARP protocol should be taken into account
 
-Signed-off-by: Michal Kalderon <Michal.Kalderon@cavium.com>
-Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
-Signed-off-by: Ariel Elior <Ariel.Elior@cavium.com>
+Signed-off-by: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Ariel Elior <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
 ---
- drivers/net/ethernet/qlogic/qed/qed_iwarp.c | 183 +++++++++++++++++++++++++++-
- include/linux/qed/qed_rdma_if.h             |   9 ++
- 2 files changed, 190 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_cxt.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-index 84bcda3..5cd20da 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-@@ -1001,12 +1001,75 @@ int qed_iwarp_destroy_qp(struct qed_hwfn *p_hwfn, struct qed_rdma_qp *qp)
- 		ep->state = QED_IWARP_EP_ESTABLISHED;
- 		params.status = 0;
- 		break;
-+	case IWARP_CONN_ERROR_MPA_TIMEOUT:
-+		DP_NOTICE(p_hwfn, "%s(0x%x) MPA timeout\n",
-+			  QED_IWARP_CONNECT_MODE_STRING(ep), ep->cid);
-+		params.status = -EBUSY;
-+		break;
-+	case IWARP_CONN_ERROR_MPA_ERROR_REJECT:
-+		DP_NOTICE(p_hwfn, "%s(0x%x) MPA Reject\n",
-+			  QED_IWARP_CONNECT_MODE_STRING(ep), ep->cid);
-+		params.status = -ECONNREFUSED;
-+		break;
-+	case IWARP_CONN_ERROR_MPA_RST:
-+		DP_NOTICE(p_hwfn, "%s(0x%x) MPA reset(tcp cid: 0x%x)\n",
-+			  QED_IWARP_CONNECT_MODE_STRING(ep), ep->cid,
-+			  ep->tcp_cid);
-+		params.status = -ECONNRESET;
-+		break;
-+	case IWARP_CONN_ERROR_MPA_FIN:
-+		DP_NOTICE(p_hwfn, "%s(0x%x) MPA received FIN\n",
-+			  QED_IWARP_CONNECT_MODE_STRING(ep), ep->cid);
-+		params.status = -ECONNREFUSED;
-+		break;
-+	case IWARP_CONN_ERROR_MPA_INSUF_IRD:
-+		DP_NOTICE(p_hwfn, "%s(0x%x) MPA insufficient ird\n",
-+			  QED_IWARP_CONNECT_MODE_STRING(ep), ep->cid);
-+		params.status = -ECONNREFUSED;
-+		break;
-+	case IWARP_CONN_ERROR_MPA_RTR_MISMATCH:
-+		DP_NOTICE(p_hwfn, "%s(0x%x) MPA RTR MISMATCH\n",
-+			  QED_IWARP_CONNECT_MODE_STRING(ep), ep->cid);
-+		params.status = -ECONNREFUSED;
-+		break;
-+	case IWARP_CONN_ERROR_MPA_INVALID_PACKET:
-+		DP_NOTICE(p_hwfn, "%s(0x%x) MPA Invalid Packet\n",
-+			  QED_IWARP_CONNECT_MODE_STRING(ep), ep->cid);
-+		params.status = -ECONNREFUSED;
-+		break;
-+	case IWARP_CONN_ERROR_MPA_LOCAL_ERROR:
-+		DP_NOTICE(p_hwfn, "%s(0x%x) MPA Local Error\n",
-+			  QED_IWARP_CONNECT_MODE_STRING(ep), ep->cid);
-+		params.status = -ECONNREFUSED;
-+		break;
-+	case IWARP_CONN_ERROR_MPA_TERMINATE:
-+		DP_NOTICE(p_hwfn, "%s(0x%x) MPA TERMINATE\n",
-+			  QED_IWARP_CONNECT_MODE_STRING(ep), ep->cid);
-+		params.status = -ECONNREFUSED;
-+		break;
- 	default:
- 		params.status = -ECONNRESET;
- 		break;
- 	}
- 
- 	ep->event_cb(ep->cb_context, &params);
-+
-+	/* on passive side, if there is no associated QP (REJECT) we need to
-+	 * return the ep to the pool, (in the regular case we add an element
-+	 * in accept instead of this one.
-+	 * In both cases we need to remove it from the ep_list.
-+	 */
-+	if (fw_return_code != RDMA_RETURN_OK) {
-+		ep->tcp_cid = QED_IWARP_INVALID_TCP_CID;
-+		if ((ep->connect_mode == TCP_CONNECT_PASSIVE) &&
-+		    (!ep->qp)) {	/* Rejected */
-+			qed_iwarp_return_ep(p_hwfn, ep);
-+		} else {
-+			spin_lock_bh(&p_hwfn->p_rdma_info->iwarp.iw_lock);
-+			list_del(&ep->list_entry);
-+			spin_unlock_bh(&p_hwfn->p_rdma_info->iwarp.iw_lock);
-+		}
-+	}
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_cxt.c b/drivers/net/ethernet/qlogic/qed/qed_cxt.c
+index 38716f7..af106be 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_cxt.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_cxt.c
+@@ -246,14 +246,16 @@ struct qed_cxt_mngr {
+ static bool src_proto(enum protocol_type type)
+ {
+ 	return type == PROTOCOLID_ISCSI ||
+-	       type == PROTOCOLID_FCOE;
++	       type == PROTOCOLID_FCOE ||
++	       type == PROTOCOLID_IWARP;
  }
  
- static void
-@@ -2011,6 +2074,42 @@ void qed_iwarp_exception_received(struct qed_hwfn *p_hwfn,
- 		params.event = QED_IWARP_EVENT_DISCONNECT;
- 		event_cb = true;
- 		break;
-+	case IWARP_EXCEPTION_DETECTED_RQ_EMPTY:
-+		params.event = QED_IWARP_EVENT_RQ_EMPTY;
-+		event_cb = true;
-+		break;
-+	case IWARP_EXCEPTION_DETECTED_IRQ_FULL:
-+		params.event = QED_IWARP_EVENT_IRQ_FULL;
-+		event_cb = true;
-+		break;
-+	case IWARP_EXCEPTION_DETECTED_LLP_TIMEOUT:
-+		params.event = QED_IWARP_EVENT_LLP_TIMEOUT;
-+		event_cb = true;
-+		break;
-+	case IWARP_EXCEPTION_DETECTED_REMOTE_PROTECTION_ERROR:
-+		params.event = QED_IWARP_EVENT_REMOTE_PROTECTION_ERROR;
-+		event_cb = true;
-+		break;
-+	case IWARP_EXCEPTION_DETECTED_CQ_OVERFLOW:
-+		params.event = QED_IWARP_EVENT_CQ_OVERFLOW;
-+		event_cb = true;
-+		break;
-+	case IWARP_EXCEPTION_DETECTED_LOCAL_CATASTROPHIC:
-+		params.event = QED_IWARP_EVENT_QP_CATASTROPHIC;
-+		event_cb = true;
-+		break;
-+	case IWARP_EXCEPTION_DETECTED_LOCAL_ACCESS_ERROR:
-+		params.event = QED_IWARP_EVENT_LOCAL_ACCESS_ERROR;
-+		event_cb = true;
-+		break;
-+	case IWARP_EXCEPTION_DETECTED_REMOTE_OPERATION_ERROR:
-+		params.event = QED_IWARP_EVENT_REMOTE_OPERATION_ERROR;
-+		event_cb = true;
-+		break;
-+	case IWARP_EXCEPTION_DETECTED_TERMINATE_RECEIVED:
-+		params.event = QED_IWARP_EVENT_TERMINATE_RECEIVED;
-+		event_cb = true;
-+		break;
- 	default:
- 		DP_VERBOSE(p_hwfn, QED_MSG_RDMA,
- 			   "Unhandled exception received...fw_ret_code=%d\n",
-@@ -2025,6 +2124,66 @@ void qed_iwarp_exception_received(struct qed_hwfn *p_hwfn,
- 	}
+ static bool tm_cid_proto(enum protocol_type type)
+ {
+ 	return type == PROTOCOLID_ISCSI ||
+ 	       type == PROTOCOLID_FCOE ||
+-	       type == PROTOCOLID_ROCE;
++	       type == PROTOCOLID_ROCE ||
++	       type == PROTOCOLID_IWARP;
  }
  
-+static void
-+qed_iwarp_tcp_connect_unsuccessful(struct qed_hwfn *p_hwfn,
-+				   struct qed_iwarp_ep *ep, u8 fw_return_code)
-+{
-+	struct qed_iwarp_cm_event_params params;
-+
-+	memset(&params, 0, sizeof(params));
-+	params.event = QED_IWARP_EVENT_ACTIVE_COMPLETE;
-+	params.ep_context = ep;
-+	params.cm_info = &ep->cm_info;
-+	ep->state = QED_IWARP_EP_CLOSED;
-+
-+	switch (fw_return_code) {
-+	case IWARP_CONN_ERROR_TCP_CONNECT_INVALID_PACKET:
-+		DP_VERBOSE(p_hwfn, QED_MSG_RDMA,
-+			   "%s(0x%x) TCP connect got invalid packet\n",
-+			   QED_IWARP_CONNECT_MODE_STRING(ep), ep->tcp_cid);
-+		params.status = -ECONNRESET;
-+		break;
-+	case IWARP_CONN_ERROR_TCP_CONNECTION_RST:
-+		DP_VERBOSE(p_hwfn, QED_MSG_RDMA,
-+			   "%s(0x%x) TCP Connection Reset\n",
-+			   QED_IWARP_CONNECT_MODE_STRING(ep), ep->tcp_cid);
-+		params.status = -ECONNRESET;
-+		break;
-+	case IWARP_CONN_ERROR_TCP_CONNECT_TIMEOUT:
-+		DP_NOTICE(p_hwfn, "%s(0x%x) TCP timeout\n",
-+			  QED_IWARP_CONNECT_MODE_STRING(ep), ep->tcp_cid);
-+		params.status = -EBUSY;
-+		break;
-+	case IWARP_CONN_ERROR_MPA_NOT_SUPPORTED_VER:
-+		DP_NOTICE(p_hwfn, "%s(0x%x) MPA not supported VER\n",
-+			  QED_IWARP_CONNECT_MODE_STRING(ep), ep->tcp_cid);
-+		params.status = -ECONNREFUSED;
-+		break;
-+	case IWARP_CONN_ERROR_MPA_INVALID_PACKET:
-+		DP_NOTICE(p_hwfn, "%s(0x%x) MPA Invalid Packet\n",
-+			  QED_IWARP_CONNECT_MODE_STRING(ep), ep->tcp_cid);
-+		params.status = -ECONNRESET;
-+		break;
-+	default:
-+		DP_ERR(p_hwfn,
-+		       "%s(0x%x) Unexpected return code tcp connect: %d\n",
-+		       QED_IWARP_CONNECT_MODE_STRING(ep),
-+		       ep->tcp_cid, fw_return_code);
-+		params.status = -ECONNRESET;
-+		break;
-+	}
-+
-+	if (ep->connect_mode == TCP_CONNECT_PASSIVE) {
-+		ep->tcp_cid = QED_IWARP_INVALID_TCP_CID;
-+		qed_iwarp_return_ep(p_hwfn, ep);
-+	} else {
-+		ep->event_cb(ep->cb_context, &params);
-+		spin_lock_bh(&p_hwfn->p_rdma_info->iwarp.iw_lock);
-+		list_del(&ep->list_entry);
-+		spin_unlock_bh(&p_hwfn->p_rdma_info->iwarp.iw_lock);
-+	}
-+}
-+
- void
- qed_iwarp_connect_complete(struct qed_hwfn *p_hwfn,
- 			   struct qed_iwarp_ep *ep, u8 fw_return_code)
-@@ -2038,9 +2197,17 @@ void qed_iwarp_exception_received(struct qed_hwfn *p_hwfn,
- 		ep->syn = NULL;
+ static bool tm_tid_proto(enum protocol_type type)
+@@ -2068,6 +2070,11 @@ static void qed_rdma_set_pf_params(struct qed_hwfn *p_hwfn,
+ 	num_srqs = min_t(u32, 32 * 1024, p_params->num_srqs);
  
- 		/* If connect failed - upper layer doesn't know about it */
--		qed_iwarp_mpa_received(p_hwfn, ep);
-+		if (fw_return_code == RDMA_RETURN_OK)
-+			qed_iwarp_mpa_received(p_hwfn, ep);
-+		else
-+			qed_iwarp_tcp_connect_unsuccessful(p_hwfn, ep,
-+							   fw_return_code);
- 	} else {
--		qed_iwarp_mpa_offload(p_hwfn, ep);
-+		if (fw_return_code == RDMA_RETURN_OK)
-+			qed_iwarp_mpa_offload(p_hwfn, ep);
-+		else
-+			qed_iwarp_tcp_connect_unsuccessful(p_hwfn, ep,
-+							   fw_return_code);
- 	}
- }
- 
-@@ -2123,6 +2290,18 @@ static int qed_iwarp_async_event(struct qed_hwfn *p_hwfn,
- 		qed_iwarp_cid_cleaned(p_hwfn, cid);
- 
- 		break;
-+	case IWARP_EVENT_TYPE_ASYNC_CQ_OVERFLOW:
-+		DP_NOTICE(p_hwfn, "IWARP_EVENT_TYPE_ASYNC_CQ_OVERFLOW\n");
-+
-+		p_hwfn->p_rdma_info->events.affiliated_event(
-+			p_hwfn->p_rdma_info->events.context,
-+			QED_IWARP_EVENT_CQ_OVERFLOW,
-+			(void *)fw_handle);
+ 	switch (p_hwfn->hw_info.personality) {
++	case QED_PCI_ETH_IWARP:
++		/* Each QP requires one connection */
++		num_cons = min_t(u32, IWARP_MAX_QPS, p_params->num_qps);
++		proto = PROTOCOLID_IWARP;
 +		break;
-+	default:
-+		DP_ERR(p_hwfn, "Received unexpected async iwarp event %d\n",
-+		       fw_event_code);
-+		return -EINVAL;
- 	}
- 	return 0;
- }
-diff --git a/include/linux/qed/qed_rdma_if.h b/include/linux/qed/qed_rdma_if.h
-index 01966c3..4dd72ba 100644
---- a/include/linux/qed/qed_rdma_if.h
-+++ b/include/linux/qed/qed_rdma_if.h
-@@ -476,7 +476,16 @@ enum qed_iwarp_event_type {
- 	QED_IWARP_EVENT_ACTIVE_COMPLETE,  /* Active side reply received */
- 	QED_IWARP_EVENT_DISCONNECT,
- 	QED_IWARP_EVENT_CLOSE,
-+	QED_IWARP_EVENT_IRQ_FULL,
-+	QED_IWARP_EVENT_RQ_EMPTY,
-+	QED_IWARP_EVENT_LLP_TIMEOUT,
-+	QED_IWARP_EVENT_REMOTE_PROTECTION_ERROR,
-+	QED_IWARP_EVENT_CQ_OVERFLOW,
-+	QED_IWARP_EVENT_QP_CATASTROPHIC,
- 	QED_IWARP_EVENT_ACTIVE_MPA_REPLY,
-+	QED_IWARP_EVENT_LOCAL_ACCESS_ERROR,
-+	QED_IWARP_EVENT_REMOTE_OPERATION_ERROR,
-+	QED_IWARP_EVENT_TERMINATE_RECEIVED
- };
+ 	case QED_PCI_ETH_ROCE:
+ 		num_qps = min_t(u32, ROCE_MAX_QPS, p_params->num_qps);
+ 		num_cons = num_qps * 2;	/* each QP requires two connections */
+@@ -2103,6 +2110,8 @@ int qed_cxt_set_pf_params(struct qed_hwfn *p_hwfn, u32 rdma_tasks)
+ 	qed_cxt_set_proto_cid_count(p_hwfn, PROTOCOLID_CORE, core_cids, 0);
  
- enum qed_tcp_ip_version {
+ 	switch (p_hwfn->hw_info.personality) {
++	case QED_PCI_ETH_RDMA:
++	case QED_PCI_ETH_IWARP:
+ 	case QED_PCI_ETH_ROCE:
+ 	{
+ 			qed_rdma_set_pf_params(p_hwfn,
 -- 
 1.8.3.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
