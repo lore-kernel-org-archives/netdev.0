@@ -1,7 +1,7 @@
 From: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next 04/12] qed: Add iWARP support in ll2 connections
-Date: Sun, 2 Jul 2017 10:29:24 +0300
-Message-ID: <1498980572-29519-5-git-send-email-Michal.Kalderon@cavium.com>
+Subject: [PATCH net-next 05/12] qed: iWARP CM - setup a ll2 connection for handling SYN packets
+Date: Sun, 2 Jul 2017 10:29:25 +0300
+Message-ID: <1498980572-29519-6-git-send-email-Michal.Kalderon@cavium.com>
 References: <1498980572-29519-1-git-send-email-Michal.Kalderon@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,65 +17,298 @@ In-Reply-To: <1498980572-29519-1-git-send-email-Michal.Kalderon-YGCgFSpz5w/QT0dZ
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add a new connection type for iWARP ll2 connections for setting
-correct ll2 filters and connection type to FW.
+iWARP handles incoming SYN packets using the ll2 interface. This patch
+implements ll2 setup and teardown. Additional ll2 connections will
+be used in the future which are not part of this patch series.
 
 Signed-off-by: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Ariel Elior <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
 ---
- drivers/net/ethernet/qlogic/qed/qed_ll2.c | 13 +++++++++++--
- include/linux/qed/qed_ll2_if.h            |  1 +
- 2 files changed, 12 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_iwarp.c | 211 +++++++++++++++++++++++++++-
+ drivers/net/ethernet/qlogic/qed/qed_iwarp.h |  12 ++
+ 2 files changed, 220 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.c b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-index e235fb2..c06ad4f 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-@@ -896,7 +896,8 @@ static int qed_sp_ll2_rx_queue_start(struct qed_hwfn *p_hwfn,
- 	p_ramrod->main_func_queue = (conn_type == QED_LL2_TYPE_OOO) ? 0 : 1;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
+index a8bd5f8..f3b4b32 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
+@@ -29,8 +29,11 @@
+  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  * SOFTWARE.
+  */
++#include <linux/if_ether.h>
++#include <linux/if_vlan.h>
+ #include "qed_cxt.h"
+ #include "qed_hw.h"
++#include "qed_ll2.h"
+ #include "qed_rdma.h"
+ #include "qed_reg_addr.h"
+ #include "qed_sp.h"
+@@ -474,12 +477,214 @@ void qed_iwarp_resc_free(struct qed_hwfn *p_hwfn)
+ {
+ }
  
- 	if ((IS_MF_DEFAULT(p_hwfn) || IS_MF_SI(p_hwfn)) &&
--	    p_ramrod->main_func_queue && (conn_type != QED_LL2_TYPE_ROCE)) {
-+	    p_ramrod->main_func_queue && (conn_type != QED_LL2_TYPE_ROCE) &&
-+	    (conn_type != QED_LL2_TYPE_IWARP)) {
- 		p_ramrod->mf_si_bcast_accept_all = 1;
- 		p_ramrod->mf_si_mcast_accept_all = 1;
- 	} else {
-@@ -972,12 +973,20 @@ static int qed_sp_ll2_tx_queue_start(struct qed_hwfn *p_hwfn,
- 		p_ramrod->conn_type = PROTOCOLID_FCOE;
- 		break;
- 	case QED_LL2_TYPE_ISCSI:
--	case QED_LL2_TYPE_OOO:
- 		p_ramrod->conn_type = PROTOCOLID_ISCSI;
- 		break;
- 	case QED_LL2_TYPE_ROCE:
- 		p_ramrod->conn_type = PROTOCOLID_ROCE;
- 		break;
-+	case QED_LL2_TYPE_IWARP:
-+		p_ramrod->conn_type = PROTOCOLID_IWARP;
-+		break;
-+	case QED_LL2_TYPE_OOO:
-+		if (p_hwfn->hw_info.personality == QED_PCI_ISCSI)
-+			p_ramrod->conn_type = PROTOCOLID_ISCSI;
-+		else
-+			p_ramrod->conn_type = PROTOCOLID_IWARP;
-+		break;
- 	default:
- 		p_ramrod->conn_type = PROTOCOLID_ETH;
- 		DP_NOTICE(p_hwfn, "Unknown connection type: %d\n", conn_type);
-diff --git a/include/linux/qed/qed_ll2_if.h b/include/linux/qed/qed_ll2_if.h
-index c9c56bc..dd7a3b8 100644
---- a/include/linux/qed/qed_ll2_if.h
-+++ b/include/linux/qed/qed_ll2_if.h
-@@ -50,6 +50,7 @@ enum qed_ll2_conn_type {
- 	QED_LL2_TYPE_OOO,
- 	QED_LL2_TYPE_RESERVED2,
- 	QED_LL2_TYPE_ROCE,
-+	QED_LL2_TYPE_IWARP,
- 	QED_LL2_TYPE_RESERVED3,
- 	MAX_QED_LL2_RX_CONN_TYPE
- };
++static int
++qed_iwarp_ll2_post_rx(struct qed_hwfn *p_hwfn,
++		      struct qed_iwarp_ll2_buff *buf, u8 handle)
++{
++	int rc;
++
++	rc = qed_ll2_post_rx_buffer(p_hwfn, handle, buf->data_phys_addr,
++				    (u16)buf->buff_size, buf, 1);
++	if (rc) {
++		DP_NOTICE(p_hwfn,
++			  "Failed to repost rx buffer to ll2 rc = %d, handle=%d\n",
++			  rc, handle);
++		dma_free_coherent(&p_hwfn->cdev->pdev->dev, buf->buff_size,
++				  buf->data, buf->data_phys_addr);
++		kfree(buf);
++	}
++
++	return rc;
++}
++
++static void
++qed_iwarp_ll2_comp_syn_pkt(void *cxt, struct qed_ll2_comp_rx_data *data)
++{
++	struct qed_iwarp_ll2_buff *buf = data->cookie;
++	struct qed_hwfn *p_hwfn = cxt;
++
++	if (GET_FIELD(data->parse_flags,
++		      PARSING_AND_ERR_FLAGS_L4CHKSMWASCALCULATED) &&
++	    GET_FIELD(data->parse_flags, PARSING_AND_ERR_FLAGS_L4CHKSMERROR)) {
++		DP_NOTICE(p_hwfn, "Syn packet received with checksum error\n");
++		goto err;
++	}
++
++	/* Process SYN packet - added later on in series */
++
++err:
++	qed_iwarp_ll2_post_rx(p_hwfn, buf,
++			      p_hwfn->p_rdma_info->iwarp.ll2_syn_handle);
++}
++
++static void qed_iwarp_ll2_rel_rx_pkt(void *cxt, u8 connection_handle,
++				     void *cookie, dma_addr_t rx_buf_addr,
++				     bool b_last_packet)
++{
++	struct qed_iwarp_ll2_buff *buffer = cookie;
++	struct qed_hwfn *p_hwfn = cxt;
++
++	dma_free_coherent(&p_hwfn->cdev->pdev->dev, buffer->buff_size,
++			  buffer->data, buffer->data_phys_addr);
++	kfree(buffer);
++}
++
++static void qed_iwarp_ll2_comp_tx_pkt(void *cxt, u8 connection_handle,
++				      void *cookie, dma_addr_t first_frag_addr,
++				      bool b_last_fragment, bool b_last_packet)
++{
++	struct qed_iwarp_ll2_buff *buffer = cookie;
++	struct qed_hwfn *p_hwfn = cxt;
++
++	/* this was originally an rx packet, post it back */
++	qed_iwarp_ll2_post_rx(p_hwfn, buffer, connection_handle);
++}
++
++static void qed_iwarp_ll2_rel_tx_pkt(void *cxt, u8 connection_handle,
++				     void *cookie, dma_addr_t first_frag_addr,
++				     bool b_last_fragment, bool b_last_packet)
++{
++	struct qed_iwarp_ll2_buff *buffer = cookie;
++	struct qed_hwfn *p_hwfn = cxt;
++
++	if (!buffer)
++		return;
++
++	dma_free_coherent(&p_hwfn->cdev->pdev->dev, buffer->buff_size,
++			  buffer->data, buffer->data_phys_addr);
++
++	kfree(buffer);
++}
++
++static int qed_iwarp_ll2_stop(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
++{
++	struct qed_iwarp_info *iwarp_info = &p_hwfn->p_rdma_info->iwarp;
++	int rc = 0;
++
++	if (iwarp_info->ll2_syn_handle != QED_IWARP_HANDLE_INVAL) {
++		rc = qed_ll2_terminate_connection(p_hwfn,
++						  iwarp_info->ll2_syn_handle);
++		if (rc)
++			DP_INFO(p_hwfn, "Failed to terminate syn connection\n");
++
++		qed_ll2_release_connection(p_hwfn, iwarp_info->ll2_syn_handle);
++		iwarp_info->ll2_syn_handle = QED_IWARP_HANDLE_INVAL;
++	}
++
++	qed_llh_remove_mac_filter(p_hwfn,
++				  p_ptt, p_hwfn->p_rdma_info->iwarp.mac_addr);
++	return rc;
++}
++
++static int
++qed_iwarp_ll2_alloc_buffers(struct qed_hwfn *p_hwfn,
++			    int num_rx_bufs, int buff_size, u8 ll2_handle)
++{
++	struct qed_iwarp_ll2_buff *buffer;
++	int rc = 0;
++	int i;
++
++	for (i = 0; i < num_rx_bufs; i++) {
++		buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
++		if (!buffer) {
++			rc = -ENOMEM;
++			break;
++		}
++
++		buffer->data = dma_alloc_coherent(&p_hwfn->cdev->pdev->dev,
++						  buff_size,
++						  &buffer->data_phys_addr,
++						  GFP_KERNEL);
++		if (!buffer->data) {
++			kfree(buffer);
++			rc = -ENOMEM;
++			break;
++		}
++
++		buffer->buff_size = buff_size;
++		rc = qed_iwarp_ll2_post_rx(p_hwfn, buffer, ll2_handle);
++		if (rc)
++			/* buffers will be deallocated by qed_ll2 */
++			break;
++	}
++	return rc;
++}
++
++#define QED_IWARP_MAX_BUF_SIZE(mtu)				     \
++	ALIGN((mtu) + ETH_HLEN + 2 * VLAN_HLEN + 2 + ETH_CACHE_LINE_SIZE, \
++		ETH_CACHE_LINE_SIZE)
++
++static int
++qed_iwarp_ll2_start(struct qed_hwfn *p_hwfn,
++		    struct qed_rdma_start_in_params *params,
++		    struct qed_ptt *p_ptt)
++{
++	struct qed_iwarp_info *iwarp_info;
++	struct qed_ll2_acquire_data data;
++	struct qed_ll2_cbs cbs;
++	int rc = 0;
++
++	iwarp_info = &p_hwfn->p_rdma_info->iwarp;
++	iwarp_info->ll2_syn_handle = QED_IWARP_HANDLE_INVAL;
++
++	iwarp_info->max_mtu = params->max_mtu;
++
++	ether_addr_copy(p_hwfn->p_rdma_info->iwarp.mac_addr, params->mac_addr);
++
++	rc = qed_llh_add_mac_filter(p_hwfn, p_ptt, params->mac_addr);
++	if (rc)
++		return rc;
++
++	/* Start SYN connection */
++	cbs.rx_comp_cb = qed_iwarp_ll2_comp_syn_pkt;
++	cbs.rx_release_cb = qed_iwarp_ll2_rel_rx_pkt;
++	cbs.tx_comp_cb = qed_iwarp_ll2_comp_tx_pkt;
++	cbs.tx_release_cb = qed_iwarp_ll2_rel_tx_pkt;
++	cbs.cookie = p_hwfn;
++
++	memset(&data, 0, sizeof(data));
++	data.input.conn_type = QED_LL2_TYPE_IWARP;
++	data.input.mtu = QED_IWARP_MAX_SYN_PKT_SIZE;
++	data.input.rx_num_desc = QED_IWARP_LL2_SYN_RX_SIZE;
++	data.input.tx_num_desc = QED_IWARP_LL2_SYN_TX_SIZE;
++	data.input.tx_max_bds_per_packet = 1;	/* will never be fragmented */
++	data.input.tx_tc = PKT_LB_TC;
++	data.input.tx_dest = QED_LL2_TX_DEST_LB;
++	data.p_connection_handle = &iwarp_info->ll2_syn_handle;
++	data.cbs = &cbs;
++
++	rc = qed_ll2_acquire_connection(p_hwfn, &data);
++	if (rc) {
++		DP_NOTICE(p_hwfn, "Failed to acquire LL2 connection\n");
++		qed_llh_remove_mac_filter(p_hwfn, p_ptt, params->mac_addr);
++		return rc;
++	}
++
++	rc = qed_ll2_establish_connection(p_hwfn, iwarp_info->ll2_syn_handle);
++	if (rc) {
++		DP_NOTICE(p_hwfn, "Failed to establish LL2 connection\n");
++		goto err;
++	}
++
++	rc = qed_iwarp_ll2_alloc_buffers(p_hwfn,
++					 QED_IWARP_LL2_SYN_RX_SIZE,
++					 QED_IWARP_MAX_SYN_PKT_SIZE,
++					 iwarp_info->ll2_syn_handle);
++	if (rc)
++		goto err;
++
++	return rc;
++err:
++	qed_iwarp_ll2_stop(p_hwfn, p_ptt);
++
++	return rc;
++}
++
+ int qed_iwarp_setup(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
+ 		    struct qed_rdma_start_in_params *params)
+ {
+ 	struct qed_iwarp_info *iwarp_info;
+ 	u32 rcv_wnd_size;
+-	int rc = 0;
+ 
+ 	iwarp_info = &p_hwfn->p_rdma_info->iwarp;
+ 
+@@ -499,7 +704,7 @@ int qed_iwarp_setup(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
+ 	qed_spq_register_async_cb(p_hwfn, PROTOCOLID_IWARP,
+ 				  qed_iwarp_async_event);
+ 
+-	return rc;
++	return qed_iwarp_ll2_start(p_hwfn, params, p_ptt);
+ }
+ 
+ int qed_iwarp_stop(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+@@ -512,7 +717,7 @@ int qed_iwarp_stop(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+ 
+ 	qed_spq_unregister_async_cb(p_hwfn, PROTOCOLID_IWARP);
+ 
+-	return 0;
++	return qed_iwarp_ll2_stop(p_hwfn, p_ptt);
+ }
+ 
+ static int qed_iwarp_async_event(struct qed_hwfn *p_hwfn,
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_iwarp.h b/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
+index 05e5e45..068b859 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
+@@ -42,6 +42,17 @@ enum qed_iwarp_qp_state {
+ 
+ enum qed_iwarp_qp_state qed_roce2iwarp_state(enum qed_roce_qp_state state);
+ 
++#define QED_IWARP_LL2_SYN_TX_SIZE       (128)
++#define QED_IWARP_LL2_SYN_RX_SIZE       (256)
++#define QED_IWARP_MAX_SYN_PKT_SIZE      (128)
++#define QED_IWARP_HANDLE_INVAL			(0xff)
++
++struct qed_iwarp_ll2_buff {
++	void *data;
++	dma_addr_t data_phys_addr;
++	u32 buff_size;
++};
++
+ struct qed_iwarp_info {
+ 	spinlock_t iw_lock;	/* for iwarp resources */
+ 	spinlock_t qp_lock;	/* for teardown races */
+@@ -50,6 +61,7 @@ struct qed_iwarp_info {
+ 	u8 mac_addr[ETH_ALEN];
+ 	u8 crc_needed;
+ 	u8 tcp_flags;
++	u8 ll2_syn_handle;
+ 	u8 peer2peer;
+ 	enum mpa_negotiation_mode mpa_rev;
+ 	enum mpa_rtr_type rtr_type;
 -- 
 1.8.3.1
 
