@@ -1,72 +1,198 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 1/7] bpf, net: add skb_mac_header_len helper
-Date: Sun,  2 Jul 2017 02:13:25 +0200
-Message-ID: <ab270cfdd14f75cefc3b425d07508f73a18759b8.1498952486.git.daniel@iogearbox.net>
-References: <cover.1498952486.git.daniel@iogearbox.net>
-Cc: ast@fb.com, john.fastabend@gmail.com, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:57524 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752174AbdGBANn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 1 Jul 2017 20:13:43 -0400
-In-Reply-To: <cover.1498952486.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1498952486.git.daniel@iogearbox.net>
-References: <cover.1498952486.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH RFC 01/26] netfilter: Replace spin_unlock_wait() with
+ lock/unlock pair
+Date: Sat, 1 Jul 2017 19:00:45 -0700
+Message-ID: <20170702020045.GR2393@linux.vnet.ibm.com>
+References: <20170629235918.GA6445@linux.vnet.ibm.com>
+ <1498780894-8253-1-git-send-email-paulmck@linux.vnet.ibm.com>
+ <a6642feb-2f3a-980f-5ed6-2deb79563e6b@colorfullife.com>
+Reply-To: paulmck@linux.vnet.ibm.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+        netdev@vger.kernel.org, oleg@redhat.com, akpm@linux-foundation.org,
+        mingo@redhat.com, dave@stgolabs.net, tj@kernel.org, arnd@arndb.de,
+        linux-arch@vger.kernel.org, will.deacon@arm.com,
+        peterz@infradead.org, stern@rowland.harvard.edu,
+        parri.andrea@gmail.com, torvalds@linux-foundation.org,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>,
+        "David S. Miller" <davem@davemloft.net>, coreteam@netfilter.org
+To: Manfred Spraul <manfred@colorfullife.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <a6642feb-2f3a-980f-5ed6-2deb79563e6b@colorfullife.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add a small skb_mac_header_len() helper similarly as the
-skb_network_header_len() we have and replace open coded
-places in BPF's bpf_skb_change_proto() helper. Will also
-be used in upcoming work.
+On Sat, Jul 01, 2017 at 09:44:12PM +0200, Manfred Spraul wrote:
+> Hi Paul,
+> 
+> On 06/30/2017 02:01 AM, Paul E. McKenney wrote:
+> >There is no agreed-upon definition of spin_unlock_wait()'s semantics,
+> >and it appears that all callers could do just as well with a lock/unlock
+> >pair.  This commit therefore replaces the spin_unlock_wait() calls
+> >in nf_conntrack_lock() and nf_conntrack_all_lock() with spin_lock()
+> >followed immediately by spin_unlock().  These functions do not appear
+> >to be invoked on any fastpaths.
+> >
+> >Signed-off-by: Paul E. McKenney<paulmck@linux.vnet.ibm.com>
+> >Cc: Pablo Neira Ayuso<pablo@netfilter.org>
+> >Cc: Jozsef Kadlecsik<kadlec@blackhole.kfki.hu>
+> >Cc: Florian Westphal<fw@strlen.de>
+> >Cc: "David S. Miller"<davem@davemloft.net>
+> >Cc:<netfilter-devel@vger.kernel.org>
+> >Cc:<coreteam@netfilter.org>
+> >Cc:<netdev@vger.kernel.org>
+> >Cc: Will Deacon<will.deacon@arm.com>
+> >Cc: Peter Zijlstra<peterz@infradead.org>
+> >Cc: Alan Stern<stern@rowland.harvard.edu>
+> >Cc: Andrea Parri<parri.andrea@gmail.com>
+> >Cc: Linus Torvalds<torvalds@linux-foundation.org>
+> >---
+> >  net/netfilter/nf_conntrack_core.c | 26 ++++++++------------------
+> >  1 file changed, 8 insertions(+), 18 deletions(-)
+> >
+> >diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+> >index e847dbaa0c6b..9f997859d160 100644
+> >--- a/net/netfilter/nf_conntrack_core.c
+> >+++ b/net/netfilter/nf_conntrack_core.c
+> >@@ -99,15 +99,11 @@ void nf_conntrack_lock(spinlock_t *lock) __acquires(lock)
+> >  	spin_lock(lock);
+> >  	while (unlikely(nf_conntrack_locks_all)) {
+> I think here an ACQUIRE is missing.
+> >  		spin_unlock(lock);
+> >-
+> >-		/*
+> >-		 * Order the 'nf_conntrack_locks_all' load vs. the
+> >-		 * spin_unlock_wait() loads below, to ensure
+> >-		 * that 'nf_conntrack_locks_all_lock' is indeed held:
+> >-		 */
+> >-		smp_rmb(); /* spin_lock(&nf_conntrack_locks_all_lock) */
+> >-		spin_unlock_wait(&nf_conntrack_locks_all_lock);
+> >+		/* Wait for nf_conntrack_locks_all_lock holder to release ... */
+> >+		spin_lock(&nf_conntrack_locks_all_lock);
+> >+		spin_unlock(&nf_conntrack_locks_all_lock);
+> >  		spin_lock(lock);
+> >+		/* ... and retry. */
+> >  	}
+> >  }
+> As far as I see, nf_conntrack_locks[] nests inside
+> nf_conntrack_lock_all_lock.
+> So
+>    spin_lock(&nf_conntrack_locks_all_lock);
+>    spin_lock(lock);
+>    spin_unlock(&nf_conntrack_locks_all_lock);
+> 
+> can replace the retry logic.
+> 
+> Correct? Then what about the attached patch?
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: John Fastabend <john.fastabend@gmail.com>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
----
- include/linux/skbuff.h | 5 +++++
- net/core/filter.c      | 4 ++--
- 2 files changed, 7 insertions(+), 2 deletions(-)
+At first glance, it looks correct to me, thank you!  I have replaced my
+patch with this one for testing and further review.
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index d0b9f38..3d3ceaa 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2206,6 +2206,11 @@ static inline int skb_mac_offset(const struct sk_buff *skb)
- 	return skb_mac_header(skb) - skb->data;
- }
- 
-+static inline u32 skb_mac_header_len(const struct sk_buff *skb)
-+{
-+	return skb->network_header - skb->mac_header;
-+}
-+
- static inline int skb_mac_header_was_set(const struct sk_buff *skb)
- {
- 	return skb->mac_header != (typeof(skb->mac_header))~0U;
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 523b91d..0cadbc6 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2012,7 +2012,7 @@ static int bpf_skb_net_hdr_pop(struct sk_buff *skb, u32 off, u32 len)
- static int bpf_skb_proto_4_to_6(struct sk_buff *skb)
- {
- 	const u32 len_diff = sizeof(struct ipv6hdr) - sizeof(struct iphdr);
--	u32 off = skb->network_header - skb->mac_header;
-+	u32 off = skb_mac_header_len(skb);
- 	int ret;
- 
- 	ret = skb_cow(skb, len_diff);
-@@ -2048,7 +2048,7 @@ static int bpf_skb_proto_4_to_6(struct sk_buff *skb)
- static int bpf_skb_proto_6_to_4(struct sk_buff *skb)
- {
- 	const u32 len_diff = sizeof(struct ipv6hdr) - sizeof(struct iphdr);
--	u32 off = skb->network_header - skb->mac_header;
-+	u32 off = skb_mac_header_len(skb);
- 	int ret;
- 
- 	ret = skb_unclone(skb, GFP_ATOMIC);
--- 
-1.9.3
+							Thanx, Paul
+
+> --
+>     Manfred
+> 
+> 
+
+> >From 453e7a77f3756d939c754031b092cbdfbd149559 Mon Sep 17 00:00:00 2001
+> From: Manfred Spraul <manfred@colorfullife.com>
+> Date: Sun, 21 Aug 2016 07:17:55 +0200
+> Subject: [PATCH] net/netfilter/nf_conntrack_core: Fix net_conntrack_lock()
+> 
+> As we want to remove spin_unlock_wait() and replace it with explicit
+> spin_lock()/spin_unlock() calls, we can use this to simplify the
+> locking.
+> 
+> In addition:
+> - Reading nf_conntrack_locks_all needs ACQUIRE memory ordering.
+> - The new code avoids the backwards loop.
+> 
+> Only slightly tested, I did not manage to trigger calls to
+> nf_conntrack_all_lock().
+> 
+> Fixes: b16c29191dc8
+> Signed-off-by: Manfred Spraul <manfred@colorfullife.com>
+> Cc: <stable@vger.kernel.org>
+> Cc: Sasha Levin <sasha.levin@oracle.com>
+> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+> Cc: netfilter-devel@vger.kernel.org
+> ---
+>  net/netfilter/nf_conntrack_core.c | 44 +++++++++++++++++++++------------------
+>  1 file changed, 24 insertions(+), 20 deletions(-)
+> 
+> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+> index e847dba..1193565 100644
+> --- a/net/netfilter/nf_conntrack_core.c
+> +++ b/net/netfilter/nf_conntrack_core.c
+> @@ -96,19 +96,24 @@ static struct conntrack_gc_work conntrack_gc_work;
+> 
+>  void nf_conntrack_lock(spinlock_t *lock) __acquires(lock)
+>  {
+> +	/* 1) Acquire the lock */
+>  	spin_lock(lock);
+> -	while (unlikely(nf_conntrack_locks_all)) {
+> -		spin_unlock(lock);
+> 
+> -		/*
+> -		 * Order the 'nf_conntrack_locks_all' load vs. the
+> -		 * spin_unlock_wait() loads below, to ensure
+> -		 * that 'nf_conntrack_locks_all_lock' is indeed held:
+> -		 */
+> -		smp_rmb(); /* spin_lock(&nf_conntrack_locks_all_lock) */
+> -		spin_unlock_wait(&nf_conntrack_locks_all_lock);
+> -		spin_lock(lock);
+> -	}
+> +	/* 2) read nf_conntrack_locks_all, with ACQUIRE semantics */
+> +	if (likely(smp_load_acquire(&nf_conntrack_locks_all) == false))
+> +		return;
+> +
+> +	/* fast path failed, unlock */
+> +	spin_unlock(lock);
+> +
+> +	/* Slow path 1) get global lock */
+> +	spin_lock(&nf_conntrack_locks_all_lock);
+> +
+> +	/* Slow path 2) get the lock we want */
+> +	spin_lock(lock);
+> +
+> +	/* Slow path 3) release the global lock */
+> +	spin_unlock(&nf_conntrack_locks_all_lock);
+>  }
+>  EXPORT_SYMBOL_GPL(nf_conntrack_lock);
+> 
+> @@ -149,18 +154,17 @@ static void nf_conntrack_all_lock(void)
+>  	int i;
+> 
+>  	spin_lock(&nf_conntrack_locks_all_lock);
+> -	nf_conntrack_locks_all = true;
+> 
+> -	/*
+> -	 * Order the above store of 'nf_conntrack_locks_all' against
+> -	 * the spin_unlock_wait() loads below, such that if
+> -	 * nf_conntrack_lock() observes 'nf_conntrack_locks_all'
+> -	 * we must observe nf_conntrack_locks[] held:
+> -	 */
+> -	smp_mb(); /* spin_lock(&nf_conntrack_locks_all_lock) */
+> +	nf_conntrack_locks_all = true;
+> 
+>  	for (i = 0; i < CONNTRACK_LOCKS; i++) {
+> -		spin_unlock_wait(&nf_conntrack_locks[i]);
+> +		spin_lock(&nf_conntrack_locks[i]);
+> +
+> +		/* This spin_unlock provides the "release" to ensure that
+> +		 * nf_conntrack_locks_all==true is visible to everyone that
+> +		 * acquired spin_lock(&nf_conntrack_locks[]).
+> +		 */
+> +		spin_unlock(&nf_conntrack_locks[i]);
+>  	}
+>  }
+> 
+> -- 
+> 2.9.4
+> 
+
