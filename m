@@ -1,182 +1,60 @@
-From: Alban Browaeys <alban.browaeys@gmail.com>
-Subject: [PATCH] net: core: Fix slab-out-of-bounds in netdev_stats_to_stats64
-Date: Mon,  3 Jul 2017 03:20:13 +0200
-Message-ID: <20170703012013.4009-1-alban.browaeys@gmail.com>
-Cc: netdev@vger.kernel.org, Alban Browaeys <alban.browaeys@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35045 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752100AbdGCBUz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 2 Jul 2017 21:20:55 -0400
-Received: by mail-wm0-f67.google.com with SMTP id u23so17756543wma.2
-        for <netdev@vger.kernel.org>; Sun, 02 Jul 2017 18:20:54 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the arm64 tree
+Date: Mon, 3 Jul 2017 11:37:32 +1000
+Message-ID: <20170703113732.6af8235d@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Luc Van Oostenryck <luc.vanoostenryck@gmail.com>,
+        Will Deacon <will.deacon@arm.com>,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        Catalin Marinas <catalin.marinas@arm.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit 9256645af098 ("net/core: relax BUILD_BUG_ON in
-netdev_stats_to_stats64") made an attempt to read beyond
-the size of the source a possibility.
+Hi all,
 
-Fix to only copy src size to dest. As dest might be bigger than src.
+Today's linux-next merge of the net-next tree got a conflict in:
 
- ==================================================================
- BUG: KASAN: slab-out-of-bounds in netdev_stats_to_stats64+0xe/0x30 at addr ffff8801be248b20
- Read of size 192 by task VBoxNetAdpCtl/6734
- CPU: 1 PID: 6734 Comm: VBoxNetAdpCtl Tainted: G           O    4.11.4prahal+intel+ #118
- Hardware name: LENOVO 20CDCTO1WW/20CDCTO1WW, BIOS GQET52WW (1.32 ) 05/04/2017
- Call Trace:
-  dump_stack+0x63/0x86
-  kasan_object_err+0x1c/0x70
-  kasan_report+0x270/0x520
-  ? netdev_stats_to_stats64+0xe/0x30
-  ? sched_clock_cpu+0x1b/0x190
-  ? __module_address+0x3e/0x3b0
-  ? unwind_next_frame+0x1ea/0xb00
-  check_memory_region+0x13c/0x1a0
-  memcpy+0x23/0x50
-  netdev_stats_to_stats64+0xe/0x30
-  dev_get_stats+0x1b9/0x230
-  rtnl_fill_stats+0x44/0xc00
-  ? nla_put+0xc6/0x130
-  rtnl_fill_ifinfo+0xe9e/0x3700
-  ? rtnl_fill_vfinfo+0xde0/0xde0
-  ? sched_clock+0x9/0x10
-  ? sched_clock+0x9/0x10
-  ? sched_clock_local+0x120/0x130
-  ? __module_address+0x3e/0x3b0
-  ? unwind_next_frame+0x1ea/0xb00
-  ? sched_clock+0x9/0x10
-  ? sched_clock+0x9/0x10
-  ? sched_clock_cpu+0x1b/0x190
-  ? VBoxNetAdpLinuxIOCtlUnlocked+0x14b/0x280 [vboxnetadp]
-  ? depot_save_stack+0x1d8/0x4a0
-  ? depot_save_stack+0x34f/0x4a0
-  ? depot_save_stack+0x34f/0x4a0
-  ? save_stack+0xb1/0xd0
-  ? save_stack_trace+0x16/0x20
-  ? save_stack+0x46/0xd0
-  ? kasan_slab_alloc+0x12/0x20
-  ? __kmalloc_node_track_caller+0x10d/0x350
-  ? __kmalloc_reserve.isra.36+0x2c/0xc0
-  ? __alloc_skb+0xd0/0x560
-  ? rtmsg_ifinfo_build_skb+0x61/0x120
-  ? rtmsg_ifinfo.part.25+0x16/0xb0
-  ? rtmsg_ifinfo+0x47/0x70
-  ? register_netdev+0x15/0x30
-  ? vboxNetAdpOsCreate+0xc0/0x1c0 [vboxnetadp]
-  ? vboxNetAdpCreate+0x210/0x400 [vboxnetadp]
-  ? VBoxNetAdpLinuxIOCtlUnlocked+0x14b/0x280 [vboxnetadp]
-  ? do_vfs_ioctl+0x17f/0xff0
-  ? SyS_ioctl+0x74/0x80
-  ? do_syscall_64+0x182/0x390
-  ? __alloc_skb+0xd0/0x560
-  ? __alloc_skb+0xd0/0x560
-  ? save_stack_trace+0x16/0x20
-  ? init_object+0x64/0xa0
-  ? ___slab_alloc+0x1ae/0x5c0
-  ? ___slab_alloc+0x1ae/0x5c0
-  ? __alloc_skb+0xd0/0x560
-  ? sched_clock+0x9/0x10
-  ? kasan_unpoison_shadow+0x35/0x50
-  ? kasan_kmalloc+0xad/0xe0
-  ? __kmalloc_node_track_caller+0x246/0x350
-  ? __alloc_skb+0xd0/0x560
-  ? kasan_unpoison_shadow+0x35/0x50
-  ? memset+0x31/0x40
-  ? __alloc_skb+0x31f/0x560
-  ? napi_consume_skb+0x320/0x320
-  ? br_get_link_af_size_filtered+0xb7/0x120 [bridge]
-  ? if_nlmsg_size+0x440/0x630
-  rtmsg_ifinfo_build_skb+0x83/0x120
-  rtmsg_ifinfo.part.25+0x16/0xb0
-  rtmsg_ifinfo+0x47/0x70
-  register_netdevice+0xa2b/0xe50
-  ? __kmalloc+0x171/0x2d0
-  ? netdev_change_features+0x80/0x80
-  register_netdev+0x15/0x30
-  vboxNetAdpOsCreate+0xc0/0x1c0 [vboxnetadp]
-  vboxNetAdpCreate+0x210/0x400 [vboxnetadp]
-  ? vboxNetAdpComposeMACAddress+0x1d0/0x1d0 [vboxnetadp]
-  ? kasan_check_write+0x14/0x20
-  VBoxNetAdpLinuxIOCtlUnlocked+0x14b/0x280 [vboxnetadp]
-  ? VBoxNetAdpLinuxOpen+0x20/0x20 [vboxnetadp]
-  ? lock_acquire+0x11c/0x270
-  ? __audit_syscall_entry+0x2fb/0x660
-  do_vfs_ioctl+0x17f/0xff0
-  ? __audit_syscall_entry+0x2fb/0x660
-  ? ioctl_preallocate+0x1d0/0x1d0
-  ? __audit_syscall_entry+0x2fb/0x660
-  ? kmem_cache_free+0xb2/0x250
-  ? syscall_trace_enter+0x537/0xd00
-  ? exit_to_usermode_loop+0x100/0x100
-  SyS_ioctl+0x74/0x80
-  ? do_sys_open+0x350/0x350
-  ? do_vfs_ioctl+0xff0/0xff0
-  do_syscall_64+0x182/0x390
-  entry_SYSCALL64_slow_path+0x25/0x25
- RIP: 0033:0x7f7e39a1ae07
- RSP: 002b:00007ffc6f04c6d8 EFLAGS: 00000206 ORIG_RAX: 0000000000000010
- RAX: ffffffffffffffda RBX: 00007ffc6f04c730 RCX: 00007f7e39a1ae07
- RDX: 00007ffc6f04c730 RSI: 00000000c0207601 RDI: 0000000000000007
- RBP: 00007ffc6f04c700 R08: 00007ffc6f04c780 R09: 0000000000000008
- R10: 0000000000000541 R11: 0000000000000206 R12: 0000000000000007
- R13: 00000000c0207601 R14: 00007ffc6f04c730 R15: 0000000000000012
- Object at ffff8801be248008, in cache kmalloc-4096 size: 4096
- Allocated:
- PID = 6734
-  save_stack_trace+0x16/0x20
-  save_stack+0x46/0xd0
-  kasan_kmalloc+0xad/0xe0
-  __kmalloc+0x171/0x2d0
-  alloc_netdev_mqs+0x8a7/0xbe0
-  vboxNetAdpOsCreate+0x65/0x1c0 [vboxnetadp]
-  vboxNetAdpCreate+0x210/0x400 [vboxnetadp]
-  VBoxNetAdpLinuxIOCtlUnlocked+0x14b/0x280 [vboxnetadp]
-  do_vfs_ioctl+0x17f/0xff0
-  SyS_ioctl+0x74/0x80
-  do_syscall_64+0x182/0x390
-  return_from_SYSCALL_64+0x0/0x6a
- Freed:
- PID = 5600
-  save_stack_trace+0x16/0x20
-  save_stack+0x46/0xd0
-  kasan_slab_free+0x73/0xc0
-  kfree+0xe4/0x220
-  kvfree+0x25/0x30
-  single_release+0x74/0xb0
-  __fput+0x265/0x6b0
-  ____fput+0x9/0x10
-  task_work_run+0xd5/0x150
-  exit_to_usermode_loop+0xe2/0x100
-  do_syscall_64+0x26c/0x390
-  return_from_SYSCALL_64+0x0/0x6a
- Memory state around the buggy address:
-  ffff8801be248a80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-  ffff8801be248b00: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
- >ffff8801be248b80: 00 00 00 00 00 00 00 00 00 00 00 07 fc fc fc fc
-                                                     ^
-  ffff8801be248c00: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
-  ffff8801be248c80: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
- ==================================================================
+  arch/arm64/net/bpf_jit_comp.c
 
-Signed-off-by: Alban Browaeys <alban.browaeys@gmail.com>
----
- net/core/dev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+between commit:
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 416137c64bf8..25f9461eff3f 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -7751,7 +7751,7 @@ void netdev_stats_to_stats64(struct rtnl_link_stats64 *stats64,
- {
- #if BITS_PER_LONG == 64
- 	BUILD_BUG_ON(sizeof(*stats64) < sizeof(*netdev_stats));
--	memcpy(stats64, netdev_stats, sizeof(*stats64));
-+	memcpy(stats64, netdev_stats, sizeof(*netdev_stats));
- 	/* zero out counters that only exist in rtnl_link_stats64 */
- 	memset((char *)stats64 + sizeof(*netdev_stats), 0,
- 	       sizeof(*stats64) - sizeof(*netdev_stats));
+  425e1ed73e65 ("arm64: fix endianness annotation for 'struct jit_ctx' and friends")
+
+from the arm64 tree and commit:
+
+  f1c9eed7f437 ("bpf, arm64: take advantage of stack_depth tracking")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
 -- 
-2.13.2
+Cheers,
+Stephen Rothwell
+
+diff --cc arch/arm64/net/bpf_jit_comp.c
+index 8860bb9c33a1,2f0505b5c240..000000000000
+--- a/arch/arm64/net/bpf_jit_comp.c
++++ b/arch/arm64/net/bpf_jit_comp.c
+@@@ -70,7 -70,8 +70,8 @@@ struct jit_ctx 
+  	int idx;
+  	int epilogue_offset;
+  	int *offset;
+ -	u32 *image;
+ +	__le32 *image;
++ 	u32 stack_size;
+  };
+  
+  static inline void emit(const u32 insn, struct jit_ctx *ctx)
