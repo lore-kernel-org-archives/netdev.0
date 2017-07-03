@@ -1,54 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 1/1] net: cdc_ncm: Reduce memory use when kernel
- memory low
-Date: Mon, 03 Jul 2017 01:51:10 -0700 (PDT)
-Message-ID: <20170703.015110.427054107771151934.davem@davemloft.net>
-References: <1498682129-9129-1-git-send-email-jim_baxter@mentor.com>
-        <1498682129-9129-2-git-send-email-jim_baxter@mentor.com>
+Subject: Re: [PATCH net] ipv6: dad: don't remove dynamic addresses if link
+ is down
+Date: Mon, 03 Jul 2017 01:54:38 -0700 (PDT)
+Message-ID: <20170703.015438.1191171935015250152.davem@davemloft.net>
+References: <cd87260f67fdd2a0b8feba4bed443d162d06254d.1498745606.git.sd@queasysnail.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, oliver@neukum.org, bjorn@mork.no,
-        David.Laight@ACULAB.COM
-To: jim_baxter@mentor.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1498682129-9129-2-git-send-email-jim_baxter@mentor.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: sd@queasysnail.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54370 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752034AbdGCIyr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Jul 2017 04:54:47 -0400
+In-Reply-To: <cd87260f67fdd2a0b8feba4bed443d162d06254d.1498745606.git.sd@queasysnail.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jim Baxter <jim_baxter@mentor.com>
-Date: Wed, 28 Jun 2017 21:35:29 +0100
+From: Sabrina Dubroca <sd@queasysnail.net>
+Date: Thu, 29 Jun 2017 16:56:54 +0200
 
-> The CDC-NCM driver can require large amounts of memory to create
-> skb's and this can be a problem when the memory becomes fragmented.
+> Currently, when the link for $DEV is down, this command succeeds but the
+> address is removed immediately by DAD (1):
 > 
-> This especially affects embedded systems that have constrained
-> resources but wish to maximise the throughput of CDC-NCM with 16KiB
-> NTB's.
+>     ip addr add 1111::12/64 dev $DEV valid_lft 3600 preferred_lft 1800
 > 
-> The issue is after running for a while the kernel memory can become
-> fragmented and it needs compacting.
-> If the NTB allocation is needed before the memory has been compacted
-> the atomic allocation can fail which can cause increased latency,
-> large re-transmissions or disconnections depending upon the data
-> being transmitted at the time.
-> This situation occurs for less than a second until the kernel has
-> compacted the memory but the failed devices can take a lot longer to
-> recover from the failed TX packets.
+> In the same situation, this will succeed and not remove the address (2):
 > 
-> To ease this temporary situation I modified the CDC-NCM TX path to
-> temporarily switch into a reduced memory mode which allocates an NTB
-> that will fit into a USB_CDC_NCM_NTB_MIN_OUT_SIZE (default 2048 Bytes)
-> sized memory block and only transmit NTB's with a single network frame
-> until the memory situation is resolved.
-> Each time this issue occurs we wait for an increasing number of
-> reduced size allocations before requesting a full size one to not
-> put additional pressure on a low memory system.
+>     ip addr add 1111::12/64 dev $DEV
+>     ip addr change 1111::12/64 dev $DEV valid_lft 3600 preferred_lft 1800
 > 
-> Once the memory is compacted the CDC-NCM data can resume transmitting
-> at the normal tx_max rate once again.
+> The comment in addrconf_dad_begin() when !IF_READY makes it look like
+> this is the intended behavior, but doesn't explain why:
 > 
-> Signed-off-by: Jim Baxter <jim_baxter@mentor.com>
+>      * If the device is not ready:
+>      * - keep it tentative if it is a permanent address.
+>      * - otherwise, kill it.
+> 
+> We clearly cannot prevent userspace from doing (2), but we can make (1)
+> work consistently with (2).
+> 
+> addrconf_dad_stop() is only called in two cases: if DAD failed, or to
+> skip DAD when the link is down. In that second case, the fix is to avoid
+> deleting the address, like we already do for permanent addresses.
+> 
+> Fixes: 3c21edbd1137 ("[IPV6]: Defer IPv6 device initialization until the link becomes ready.")
+> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 
-Patch applied, thanks.
+Applied and queued up for -stable, thanks.
