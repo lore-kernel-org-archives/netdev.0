@@ -1,38 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net/mlxfw: Properly handle dependancy with
- non-loadable mlx5
-Date: Mon, 03 Jul 2017 02:32:38 -0700 (PDT)
-Message-ID: <20170703.023238.1801330975202162070.davem@davemloft.net>
-References: <1499011048-24941-1-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [PATCH net 0/2] vxlan, geneve: fix hlist corruption
+Date: Mon, 03 Jul 2017 02:37:17 -0700 (PDT)
+Message-ID: <20170703.023717.1772269541614826151.davem@davemloft.net>
+References: <cover.1499014738.git.jbenc@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, saeedm@mellanox.com, mlxsw@mellanox.com
-To: ogerlitz@mellanox.com
+Cc: netdev@vger.kernel.org, longman@redhat.com, linville@tuxdriver.com,
+        pshelar@ovn.org
+To: jbenc@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54908 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:54932 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753602AbdGCJcm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Jul 2017 05:32:42 -0400
-In-Reply-To: <1499011048-24941-1-git-send-email-ogerlitz@mellanox.com>
+        with ESMTP id S1753336AbdGCJhW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Jul 2017 05:37:22 -0400
+In-Reply-To: <cover.1499014738.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Sun,  2 Jul 2017 18:57:28 +0300
+From: Jiri Benc <jbenc@redhat.com>
+Date: Sun,  2 Jul 2017 19:00:56 +0200
 
-> If mlx5 is set to be built-in and mlxfw as a module, we
-> get a link error:
+> Fix memory corruption introduced with the support of both IPv4 and IPv6
+> sockets in a single device. The same bug is present in VXLAN and Geneve.
 > 
-> drivers/built-in.o: In function `mlx5_firmware_flash':
-> (.text+0x5aed72): undefined reference to `mlxfw_firmware_flash'
-> 
-> Since we don't want to mandate selecting mlxfw for mlx5 users, we
-> use the IS_REACHABLE macro to make sure that a stub is exposed
-> to the caller.
-> 
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-> Reported-by: Jakub Kicinski <kubakici@wp.pl>
-> Reported-by: Arnd Bergmann <arnd@arndb.de>
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
 
-Applied, thank you.
+Series applied and queued up for -stable, thanks.
