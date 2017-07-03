@@ -1,28 +1,28 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next 00/12] qed: Add iWARP support for QL4xxxx
-Date: Mon, 03 Jul 2017 01:59:12 -0700 (PDT)
-Message-ID: <20170703.015912.1508299432366405008.davem@davemloft.net>
-References: <1498980572-29519-1-git-send-email-Michal.Kalderon@cavium.com>
-        <20170703.014708.552467938183415134.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v8 0/2] Add loopback support in phy_driver and
+ hns ethtool fix
+Date: Mon, 03 Jul 2017 02:01:34 -0700 (PDT)
+Message-ID: <20170703.020134.78789884312761370.davem@davemloft.net>
+References: <1498815856-43402-1-git-send-email-linyunsheng@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: ram.amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org, yuval.mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org,
-        ariel.elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170703.014708.552467938183415134.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch, f.fainelli@gmail.com, huangdaode@hisilicon.com,
+        xuwei5@hisilicon.com, liguozhu@hisilicon.com,
+        Yisen.Zhuang@huawei.com, gabriele.paoloni@huawei.com,
+        john.garry@huawei.com, linuxarm@huawei.com, salil.mehta@huawei.com,
+        lipeng321@huawei.com, tremyfr@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: linyunsheng@huawei.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1498815856-43402-1-git-send-email-linyunsheng@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-DQpZb3UgcmVhbGx5IGhhdmUgdG8gY29tcGlsZSB0ZXN0IHlvdXIgd29yayBhbmQgZG8gc29tZXRo
-aW5nIHdpdGgNCnRoZSB3YXJuaW5nczoNCg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL3Fl
-ZC9xZWRfaXdhcnAuYzoxNzIxOjU6IHdhcm5pbmc6IKFsbDJfc3luX2hhbmRsZaIgbWF5IGJlIHVz
-ZWQgdW5pbml0aWFsaXplZCBpbiB0aGlzIGZ1bmN0DQoNClRoaXMgb25lIGlzIGNvbXBsZXRlbHkg
-bGVnaXRpbWF0ZSwgeW91IGNhbiBnb3RvICJlcnIiIGFuZCB1c2UNCnRoZSBsbDJfc3luX2hhbmRs
-ZSB3aXRob3V0IGl0IGJlaW5nIGluaXRpYWxpemVkLg0K
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+From: Lin Yun Sheng <linyunsheng@huawei.com>
+Date: Fri, 30 Jun 2017 17:44:14 +0800
+
+> This Patch Set add set_loopback in phy_driver and use it to setup loopback
+> when doing ethtool phy self_test.
+
+Series applied, thank you.
