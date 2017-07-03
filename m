@@ -1,79 +1,73 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: [PATCH rdma-next V2 21/27] RDMA/netlink: Export FW version
-Date: Mon,  3 Jul 2017 09:28:24 +0300
-Message-ID: <20170703062830.30361-22-leon@kernel.org>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: [PATCH rdma-next V2 23/27] RDMA/netlink: Advertise IB subnet prefix
+Date: Mon,  3 Jul 2017 09:28:26 +0300
+Message-ID: <20170703062830.30361-24-leon@kernel.org>
 References: <20170703062830.30361-1-leon@kernel.org>
-Cc: linux-rdma@vger.kernel.org,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Ariel Almog <ariela@mellanox.com>,
-        Linux Netdev <netdev@vger.kernel.org>,
-        Leon Romanovsky <leonro@mellanox.com>
-To: Doug Ledford <dledford@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.99]:59642 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752728AbdGCG3q (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 3 Jul 2017 02:29:46 -0400
-In-Reply-To: <20170703062830.30361-1-leon@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+        Ariel Almog <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Linux Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170703062830.30361-1-leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Leon Romanovsky <leonro@mellanox.com>
+From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
-Add FW version to the device properties exported
-by RDMA netlink, to be used by RDMAtool.
+Add IB subnet prefix to the port properties exported
+by RDMA netlink.
 
-Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
+Signed-off-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 ---
- drivers/infiniband/core/nldev.c  | 9 +++++++++
- include/uapi/rdma/rdma_netlink.h | 4 ++++
- 2 files changed, 13 insertions(+)
+ drivers/infiniband/core/nldev.c  | 5 +++++
+ include/uapi/rdma/rdma_netlink.h | 5 +++++
+ 2 files changed, 10 insertions(+)
 
 diff --git a/drivers/infiniband/core/nldev.c b/drivers/infiniband/core/nldev.c
-index 21e75928400c..40d5f0eb16f5 100644
+index fde0138fff5f..c4884841e2fe 100644
 --- a/drivers/infiniband/core/nldev.c
 +++ b/drivers/infiniband/core/nldev.c
-@@ -40,10 +40,14 @@ static const struct nla_policy nldev_policy[RDMA_NLDEV_ATTR_MAX] = {
- 	[RDMA_NLDEV_ATTR_DEV_NAME]	= { .type = NLA_NUL_STRING,
- 					    .len = IB_DEVICE_NAME_MAX - 1},
- 	[RDMA_NLDEV_ATTR_PORT_INDEX]	= { .type = NLA_U32 },
-+	[RDMA_NLDEV_ATTR_FW_VERSION]	= { .type = NLA_NUL_STRING,
-+					    .len = IB_FW_VERSION_NAME_MAX - 1},
+@@ -44,6 +44,7 @@ static const struct nla_policy nldev_policy[RDMA_NLDEV_ATTR_MAX] = {
+ 					    .len = IB_FW_VERSION_NAME_MAX - 1},
+ 	[RDMA_NLDEV_ATTR_NODE_GUID]	= { .type = NLA_U64 },
+ 	[RDMA_NLDEV_ATTR_SYS_IMAGE_GUID] = { .type = NLA_U64 },
++	[RDMA_NLDEV_ATTR_SUBNET_PREFIX]	= { .type = NLA_U64 },
  };
  
  static int fill_dev_info(struct sk_buff *msg, struct ib_device *device)
- {
-+	char fw[IB_FW_VERSION_NAME_MAX];
-+
- 	if (nla_put_u32(msg, RDMA_NLDEV_ATTR_DEV_INDEX, device->index))
+@@ -97,6 +98,10 @@ static int fill_port_info(struct sk_buff *msg,
+ 	if (nla_put_u64_64bit(msg, RDMA_NLDEV_ATTR_CAP_FLAGS,
+ 			      (u64)attr.port_cap_flags, 0))
  		return -EMSGSIZE;
- 	if (nla_put_string(msg, RDMA_NLDEV_ATTR_DEV_NAME, device->name))
-@@ -56,6 +60,11 @@ static int fill_dev_info(struct sk_buff *msg, struct ib_device *device)
- 			      device->attrs.device_cap_flags, 0))
- 		return -EMSGSIZE;
- 
-+	ib_get_device_fw_str(device, fw);
-+	/* Device without FW has strlen(fw) */
-+	if (strlen(fw) && nla_put_string(msg, RDMA_NLDEV_ATTR_FW_VERSION, fw))
++	if (rdma_protocol_ib(device, port) &&
++	    nla_put_u64_64bit(msg, RDMA_NLDEV_ATTR_SUBNET_PREFIX,
++			      attr.subnet_prefix, 0))
 +		return -EMSGSIZE;
-+
+ 
  	return 0;
  }
- 
 diff --git a/include/uapi/rdma/rdma_netlink.h b/include/uapi/rdma/rdma_netlink.h
-index 8fc5278d07d6..fec735f73eee 100644
+index b34f7745daf0..24712d810dca 100644
 --- a/include/uapi/rdma/rdma_netlink.h
 +++ b/include/uapi/rdma/rdma_netlink.h
-@@ -262,6 +262,10 @@ enum rdma_nldev_attr {
+@@ -279,6 +279,11 @@ enum rdma_nldev_attr {
  	 */
- 	RDMA_NLDEV_ATTR_CAP_FLAGS,		/* u64 */
+ 	RDMA_NLDEV_ATTR_SYS_IMAGE_GUID,		/* u64 */
  
 +	/*
-+	 * FW version
++	 * Subnet prefix (in host byte order)
 +	 */
-+	RDMA_NLDEV_ATTR_FW_VERSION,		/* string */
++	RDMA_NLDEV_ATTR_SUBNET_PREFIX,		/* u64 */
++
  	RDMA_NLDEV_ATTR_MAX
  };
  #endif /* _UAPI_RDMA_NETLINK_H */
 -- 
 2.13.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
