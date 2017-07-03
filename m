@@ -1,30 +1,105 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] mlx4_en: make mlx4_log_num_mgm_entry_size static
-Date: Mon, 03 Jul 2017 02:41:43 -0700 (PDT)
-Message-ID: <20170703.024143.1454476871860447390.davem@davemloft.net>
-References: <1499060119-7063-1-git-send-email-yanjun.zhu@oracle.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: avoid one splat in fib_nl_delrule()
+Date: Mon, 03 Jul 2017 02:54:33 -0700
+Message-ID: <1499075673.1462.4.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1498817290-3368-1-git-send-email-elena.reshetova@intel.com>
+         <1499074136.1462.0.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: tariqt@mellanox.com, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, yuval.shaia@oracle.com, leon@kernel.org
-To: yanjun.zhu@oracle.com
+Cc: netdev@vger.kernel.org
+To: Elena Reshetova <elena.reshetova@intel.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54980 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753608AbdGCJlq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Jul 2017 05:41:46 -0400
-In-Reply-To: <1499060119-7063-1-git-send-email-yanjun.zhu@oracle.com>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33958 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753317AbdGCJyh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Jul 2017 05:54:37 -0400
+Received: by mail-wm0-f68.google.com with SMTP id p204so19485815wmg.1
+        for <netdev@vger.kernel.org>; Mon, 03 Jul 2017 02:54:36 -0700 (PDT)
+In-Reply-To: <1499074136.1462.0.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zhu Yanjun <yanjun.zhu@oracle.com>
-Date: Mon,  3 Jul 2017 01:35:19 -0400
+From: Eric Dumazet <edumazet@google.com>
 
-> The variable mlx4_log_num_mgm_entry_size is only called in main.c.
-> 
-> CC: Joe Jin <joe.jin@oracle.com>
-> CC: Junxiao Bi <junxiao.bi@oracle.com>
-> Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
+We need to use refcount_set() on a newly created rule to avoid
+following error :
 
-Applied, thank you.
+[   64.601749] ------------[ cut here ]------------
+[   64.601757] WARNING: CPU: 0 PID: 6476 at lib/refcount.c:184 refcount_sub_and_test+0x75/0xa0
+[   64.601758] Modules linked in: w1_therm wire cdc_acm ehci_pci ehci_hcd mlx4_en ib_uverbs mlx4_ib ib_core mlx4_core
+[   64.601769] CPU: 0 PID: 6476 Comm: ip Tainted: G        W       4.12.0-smp-DEV #274
+[   64.601771] task: ffff8837bf482040 task.stack: ffff8837bdc08000
+[   64.601773] RIP: 0010:refcount_sub_and_test+0x75/0xa0
+[   64.601774] RSP: 0018:ffff8837bdc0f5c0 EFLAGS: 00010286
+[   64.601776] RAX: 0000000000000026 RBX: 0000000000000001 RCX: 0000000000000000
+[   64.601777] RDX: 0000000000000026 RSI: 0000000000000096 RDI: ffffed06f7b81eae
+[   64.601778] RBP: ffff8837bdc0f5d0 R08: 0000000000000004 R09: fffffbfff4a54c25
+[   64.601779] R10: 00000000cbc500e5 R11: ffffffffa52a6128 R12: ffff881febcf6f24
+[   64.601779] R13: ffff881fbf4eaf00 R14: ffff881febcf6f80 R15: ffff8837d7a4ed00
+[   64.601781] FS:  00007ff5a2f6b700(0000) GS:ffff881fff800000(0000) knlGS:0000000000000000
+[   64.601782] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[   64.601783] CR2: 00007ffcdc70d000 CR3: 0000001f9c91e000 CR4: 00000000001406f0
+[   64.601783] Call Trace:
+[   64.601786]  refcount_dec_and_test+0x11/0x20
+[   64.601790]  fib_nl_delrule+0xc39/0x1630
+[   64.601793]  ? is_bpf_text_address+0xe/0x20
+[   64.601795]  ? fib_nl_newrule+0x25e0/0x25e0
+[   64.601798]  ? depot_save_stack+0x133/0x470
+[   64.601801]  ? ns_capable+0x13/0x20
+[   64.601803]  ? __netlink_ns_capable+0xcc/0x100
+[   64.601806]  rtnetlink_rcv_msg+0x23a/0x6a0
+[   64.601808]  ? rtnl_newlink+0x1630/0x1630
+[   64.601811]  ? memset+0x31/0x40
+[   64.601813]  netlink_rcv_skb+0x2d7/0x440
+[   64.601815]  ? rtnl_newlink+0x1630/0x1630
+[   64.601816]  ? netlink_ack+0xaf0/0xaf0
+[   64.601818]  ? kasan_unpoison_shadow+0x35/0x50
+[   64.601820]  ? __kmalloc_node_track_caller+0x4c/0x70
+[   64.601821]  rtnetlink_rcv+0x28/0x30
+[   64.601823]  netlink_unicast+0x422/0x610
+[   64.601824]  ? netlink_attachskb+0x650/0x650
+[   64.601826]  netlink_sendmsg+0x7b7/0xb60
+[   64.601828]  ? netlink_unicast+0x610/0x610
+[   64.601830]  ? netlink_unicast+0x610/0x610
+[   64.601832]  sock_sendmsg+0xba/0xf0
+[   64.601834]  ___sys_sendmsg+0x6a9/0x8c0
+[   64.601835]  ? copy_msghdr_from_user+0x520/0x520
+[   64.601837]  ? __alloc_pages_nodemask+0x160/0x520
+[   64.601839]  ? memcg_write_event_control+0xd60/0xd60
+[   64.601841]  ? __alloc_pages_slowpath+0x1d50/0x1d50
+[   64.601843]  ? kasan_slab_free+0x71/0xc0
+[   64.601845]  ? mem_cgroup_commit_charge+0xb2/0x11d0
+[   64.601847]  ? lru_cache_add_active_or_unevictable+0x7d/0x1a0
+[   64.601849]  ? __handle_mm_fault+0x1af8/0x2810
+[   64.601851]  ? may_open_dev+0xc0/0xc0
+[   64.601852]  ? __pmd_alloc+0x2c0/0x2c0
+[   64.601853]  ? __fdget+0x13/0x20
+[   64.601855]  __sys_sendmsg+0xc6/0x150
+[   64.601856]  ? __sys_sendmsg+0xc6/0x150
+[   64.601857]  ? SyS_shutdown+0x170/0x170
+[   64.601859]  ? handle_mm_fault+0x28a/0x650
+[   64.601861]  SyS_sendmsg+0x12/0x20
+[   64.601863]  entry_SYSCALL_64_fastpath+0x13/0x94
+
+
+Fixes: 717d1e993ad8 ("net: convert fib_rule.refcnt from atomic_t to refcount_t") 
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/core/fib_rules.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index c4ecd9f75a47f1c861e11b21f55768053609b649..a0093e1b0235355db66b980580243dd6619c9aa6 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -517,7 +517,7 @@ int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 		last = r;
+ 	}
+ 
+-	fib_rule_get(rule);
++	refcount_set(&rule->refcnt, 1);
+ 
+ 	if (last)
+ 		list_add_rcu(&rule->list, &last->list);
