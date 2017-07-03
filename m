@@ -1,27 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] Fixes for errors reported by 0day on net-next tree
-Date: Mon, 03 Jul 2017 05:52:48 -0700 (PDT)
-Message-ID: <20170703.055248.698791482672885565.davem@davemloft.net>
-References: <1499082628-21253-1-git-send-email-elena.reshetova@intel.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] openvswitch: fix mis-ordered comment lines
+ for ovs_skb_cb
+Date: Mon, 03 Jul 2017 05:54:13 -0700 (PDT)
+Message-ID: <20170703.055413.2273392695252860897.davem@davemloft.net>
+References: <20170703114643.3441-1-dja@axtens.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        keescook@chromium.org
-To: elena.reshetova@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1499082628-21253-1-git-send-email-elena.reshetova@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: dja-Yfaxwxk/+vWsTnJN9+BGXg@public.gmane.org
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20170703114643.3441-1-dja-Yfaxwxk/+vWsTnJN9+BGXg@public.gmane.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Elena Reshetova <elena.reshetova@intel.com>
-Date: Mon,  3 Jul 2017 14:50:26 +0300
+From: Daniel Axtens <dja-Yfaxwxk/+vWsTnJN9+BGXg@public.gmane.org>
+Date: Mon,  3 Jul 2017 21:46:43 +1000
 
-> Despite the fact that we have automatic testing enabled
-> on all our branches, there s390-config related errors got through.
-> I will investigate separately why it happened.
-> Sorry for the inconvince and please pull.
+> I was trying to wrap my head around meaning of mru, and realised
+> that the second line of the comment defining it had somehow
+> ended up after the line defining cutlen, leading to much confusion.
+> 
+> Reorder the lines to make sense.
+> 
+> Signed-off-by: Daniel Axtens <dja-Yfaxwxk/+vWsTnJN9+BGXg@public.gmane.org>
 
-Update your net-next tree I already fixed this stuff.
-
-Thanks.
+Applied, thanks.
