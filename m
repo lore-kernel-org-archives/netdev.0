@@ -1,61 +1,134 @@
-From: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 1/1] mlx4_en: make mlx4_log_num_mgm_entry_size static
-Date: Mon, 3 Jul 2017 09:09:56 +0300
-Message-ID: <20170703060954.GA2784@yuvallap>
-References: <1499060119-7063-1-git-send-email-yanjun.zhu@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-To: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: [PATCH rdma-next V2 01/27] RDMA/netlink: Add flag to consolidate common handing
+Date: Mon,  3 Jul 2017 09:28:04 +0300
+Message-ID: <20170703062830.30361-2-leon@kernel.org>
+References: <20170703062830.30361-1-leon@kernel.org>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+        Ariel Almog <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Linux Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1499060119-7063-1-git-send-email-yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+In-Reply-To: <20170703062830.30361-1-leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 03, 2017 at 01:35:19AM -0400, Zhu Yanjun wrote:
-> The variable mlx4_log_num_mgm_entry_size is only called in main.c.
-> 
-> CC: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> CC: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/main.c | 2 +-
->  drivers/net/ethernet/mellanox/mlx4/mlx4.h | 1 -
->  2 files changed, 1 insertion(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-> index 83aab1e..4b67277 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/main.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-> @@ -91,7 +91,7 @@ module_param_array(probe_vf, byte, &probe_vfs_argc, 0444);
->  MODULE_PARM_DESC(probe_vf, "number of vfs to probe by pf driver (num_vfs > 0)\n"
->  			   "probe_vf=port1,port2,port1+2");
->  
-> -int mlx4_log_num_mgm_entry_size = MLX4_DEFAULT_MGM_LOG_ENTRY_SIZE;
-> +static int mlx4_log_num_mgm_entry_size = MLX4_DEFAULT_MGM_LOG_ENTRY_SIZE;
->  module_param_named(log_num_mgm_entry_size,
->  			mlx4_log_num_mgm_entry_size, int, 0444);
->  MODULE_PARM_DESC(log_num_mgm_entry_size, "log mgm size, that defines the num"
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-> index b4f1bc5..a3f5edb 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-> +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-> @@ -231,7 +231,6 @@ do {									\
->  #define mlx4_warn(mdev, format, ...)					\
->  	dev_warn(&(mdev)->persist->pdev->dev, format, ##__VA_ARGS__)
->  
-> -extern int mlx4_log_num_mgm_entry_size;
+From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
-Reviewed-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Add ability to provide flags to control RDMA netlink callbacks
+and convert addr.c and sa_query.c to be first users of such
+infrastructure. It allows to move their CAP_NET_ADMIN checks
+into netlink core.
 
->  extern int log_mtts_per_seg;
->  extern int mlx4_internal_err_reset;
->  
-> -- 
-> 2.7.4
-> 
+Signed-off-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Reviewed-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+---
+ drivers/infiniband/core/addr.c     |  3 +--
+ drivers/infiniband/core/device.c   | 12 +++++++++---
+ drivers/infiniband/core/netlink.c  |  4 ++++
+ drivers/infiniband/core/sa_query.c |  6 ++----
+ include/rdma/rdma_netlink.h        |  6 ++++++
+ 5 files changed, 22 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/infiniband/core/addr.c b/drivers/infiniband/core/addr.c
+index 02971e239a18..134d8394fca5 100644
+--- a/drivers/infiniband/core/addr.c
++++ b/drivers/infiniband/core/addr.c
+@@ -134,8 +134,7 @@ int ib_nl_handle_ip_res_resp(struct sk_buff *skb,
+ 	const struct nlmsghdr *nlh = (struct nlmsghdr *)cb->nlh;
+ 
+ 	if ((nlh->nlmsg_flags & NLM_F_REQUEST) ||
+-	    !(NETLINK_CB(skb).sk) ||
+-	    !netlink_capable(skb, CAP_NET_ADMIN))
++	    !(NETLINK_CB(skb).sk))
+ 		return -EPERM;
+ 
+ 	if (ib_nl_is_good_ip_resp(nlh))
+diff --git a/drivers/infiniband/core/device.c b/drivers/infiniband/core/device.c
+index 5c70ea49d5ad..2001dabd1444 100644
+--- a/drivers/infiniband/core/device.c
++++ b/drivers/infiniband/core/device.c
+@@ -1010,11 +1010,17 @@ EXPORT_SYMBOL(ib_get_net_dev_by_params);
+ 
+ static const struct ibnl_client_cbs ibnl_ls_cb_table[] = {
+ 	[RDMA_NL_LS_OP_RESOLVE] = {
+-		.dump = ib_nl_handle_resolve_resp},
++		.dump = ib_nl_handle_resolve_resp,
++		.flags = RDMA_NL_ADMIN_PERM,
++	},
+ 	[RDMA_NL_LS_OP_SET_TIMEOUT] = {
+-		.dump = ib_nl_handle_set_timeout},
++		.dump = ib_nl_handle_set_timeout,
++		.flags = RDMA_NL_ADMIN_PERM,
++	},
+ 	[RDMA_NL_LS_OP_IP_RESOLVE] = {
+-		.dump = ib_nl_handle_ip_res_resp},
++		.dump = ib_nl_handle_ip_res_resp,
++		.flags = RDMA_NL_ADMIN_PERM,
++	},
+ };
+ 
+ static int __init ib_core_init(void)
+diff --git a/drivers/infiniband/core/netlink.c b/drivers/infiniband/core/netlink.c
+index 86337d5e7551..a0e25689d3e7 100644
+--- a/drivers/infiniband/core/netlink.c
++++ b/drivers/infiniband/core/netlink.c
+@@ -171,6 +171,10 @@ static int rdma_nl_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	if (!is_nl_valid(index, op))
+ 		return -EINVAL;
+ 
++	if ((rdma_nl_types[index].cb_table[op].flags & RDMA_NL_ADMIN_PERM) &&
++	    !netlink_capable(skb, CAP_NET_ADMIN))
++		return -EPERM;
++
+ 	/*
+ 	 * For response or local service set_timeout request,
+ 	 * there is no need to use netlink_dump_start.
+diff --git a/drivers/infiniband/core/sa_query.c b/drivers/infiniband/core/sa_query.c
+index fb7aec4047c8..0b455e7529cb 100644
+--- a/drivers/infiniband/core/sa_query.c
++++ b/drivers/infiniband/core/sa_query.c
+@@ -1034,8 +1034,7 @@ int ib_nl_handle_set_timeout(struct sk_buff *skb,
+ 	int ret;
+ 
+ 	if (!(nlh->nlmsg_flags & NLM_F_REQUEST) ||
+-	    !(NETLINK_CB(skb).sk) ||
+-	    !netlink_capable(skb, CAP_NET_ADMIN))
++	    !(NETLINK_CB(skb).sk))
+ 		return -EPERM;
+ 
+ 	ret = nla_parse(tb, LS_NLA_TYPE_MAX - 1, nlmsg_data(nlh),
+@@ -1110,8 +1109,7 @@ int ib_nl_handle_resolve_resp(struct sk_buff *skb,
+ 	int ret;
+ 
+ 	if ((nlh->nlmsg_flags & NLM_F_REQUEST) ||
+-	    !(NETLINK_CB(skb).sk) ||
+-	    !netlink_capable(skb, CAP_NET_ADMIN))
++	    !(NETLINK_CB(skb).sk))
+ 		return -EPERM;
+ 
+ 	spin_lock_irqsave(&ib_nl_request_lock, flags);
+diff --git a/include/rdma/rdma_netlink.h b/include/rdma/rdma_netlink.h
+index 7690aaabb958..79d8802f3ef7 100644
+--- a/include/rdma/rdma_netlink.h
++++ b/include/rdma/rdma_netlink.h
+@@ -7,6 +7,12 @@
+ 
+ struct ibnl_client_cbs {
+ 	int (*dump)(struct sk_buff *skb, struct netlink_callback *nlcb);
++	u8 flags;
++};
++
++enum rdma_nl_flags {
++	/* Require CAP_NET_ADMIN */
++	RDMA_NL_ADMIN_PERM	= 1 << 0,
+ };
+ 
+ /**
+-- 
+2.13.2
+
 --
 To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
