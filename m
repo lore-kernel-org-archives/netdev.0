@@ -1,109 +1,74 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net] virtio-net: unbreak cusmed packet for small buffer
- XDP
-Date: Mon, 3 Jul 2017 20:03:57 +0300
-Message-ID: <20170703195752-mutt-send-email-mst@kernel.org>
-References: <1498614843-8163-1-git-send-email-jasowang@redhat.com>
- <20170628050057-mutt-send-email-mst@kernel.org>
- <7068053c-50da-6779-5ff2-6588e01e616d@redhat.com>
- <20170628051555-mutt-send-email-mst@kernel.org>
- <69907228-fc1b-175f-f6cd-7ac332e318be@redhat.com>
- <20170628063033-mutt-send-email-mst@kernel.org>
- <51f4c402-6a02-9bad-6dab-563ca72f431a@redhat.com>
- <20170628065126-mutt-send-email-mst@kernel.org>
- <a7e457d5-88c4-745d-5189-18a5f13797dc@redhat.com>
+From: Eduardo Valentin <eduval@amazon.com>
+Subject: [PATCH 1/1] bridge: mdb: report complete_info ptr as not a kmemleak
+Date: Mon, 3 Jul 2017 10:06:34 -0700
+Message-ID: <1499101594-22421-1-git-send-email-eduval@amazon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <a7e457d5-88c4-745d-5189-18a5f13797dc@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: <bridge@lists.linux-foundation.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>,
+        Eduardo Valentin <eduval@amazon.com>,
+        "stable # v4 . 9+" <stable@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 28, 2017 at 08:05:06PM +0800, Jason Wang wrote:
-> 
-> 
-> On 2017年06月28日 12:01, Michael S. Tsirkin wrote:
-> > On Wed, Jun 28, 2017 at 11:40:30AM +0800, Jason Wang wrote:
-> > > 
-> > > On 2017年06月28日 11:31, Michael S. Tsirkin wrote:
-> > > > On Wed, Jun 28, 2017 at 10:45:18AM +0800, Jason Wang wrote:
-> > > > > On 2017年06月28日 10:17, Michael S. Tsirkin wrote:
-> > > > > > On Wed, Jun 28, 2017 at 10:14:34AM +0800, Jason Wang wrote:
-> > > > > > > On 2017年06月28日 10:02, Michael S. Tsirkin wrote:
-> > > > > > > > On Wed, Jun 28, 2017 at 09:54:03AM +0800, Jason Wang wrote:
-> > > > > > > > > We should allow csumed packet for small buffer, otherwise XDP_PASS
-> > > > > > > > > won't work correctly.
-> > > > > > > > > 
-> > > > > > > > > Fixes commit bb91accf2733 ("virtio-net: XDP support for small buffers")
-> > > > > > > > > Signed-off-by: Jason Wang<jasowang@redhat.com>
-> > > > > > > > The issue would be VIRTIO_NET_HDR_F_DATA_VALID might be set.
-> > > > > > > > What do you think?
-> > > > > > > I think it's safe. For XDP_PASS, it work like in the past.
-> > > > > > That's the part I don't get. With DATA_VALID csum in packet is wrong, XDP
-> > > > > > tools assume it's value.
-> > > > > DATA_VALID is CHECKSUM_UNCESSARY on the host, and according to the comment
-> > > > > in skbuff.h
-> > > > > 
-> > > > > 
-> > > > > "
-> > > > >    *   The hardware you're dealing with doesn't calculate the full checksum
-> > > > >    *   (as in CHECKSUM_COMPLETE), but it does parse headers and verify
-> > > > > checksums
-> > > > >    *   for specific protocols. For such packets it will set
-> > > > > CHECKSUM_UNNECESSARY
-> > > > >    *   if their checksums are okay. skb->csum is still undefined in this case
-> > > > >    *   though. A driver or device must never modify the checksum field in the
-> > > > >    *   packet even if checksum is verified.
-> > > > > "
-> > > > > 
-> > > > > The csum is correct I believe?
-> > > > > 
-> > > > > Thanks
-> > > > That's on input. But I think for tun it's output, where that is equivalent
-> > > > to CHECKSUM_NONE
-> > > > 
-> > > > 
-> > > Yes, but the comment said:
-> > > 
-> > > "
-> > > CKSUM_NONE:
-> > >   *
-> > >   *   The skb was already checksummed by the protocol, or a checksum is not
-> > >   *   required.
-> > >   *
-> > >   * CHECKSUM_UNNECESSARY:
-> > >   *
-> > >   *   This has the same meaning on as CHECKSUM_NONE for checksum offload on
-> > >   *   output.
-> > >   *
-> > > "
-> > > 
-> > > So still correct I think?
-> > > 
-> > > Thanks
-> > Hmm maybe I mean NEEDS_CHECKSUM actually.
-> > 
-> > I'll need to re-read the spec.
-> > 
-> 
-> Not sure this is an issue. But if it is, we can probably checksum the packet
-> before passing it to XDP. But it would be a little slow.
-> 
-> Thanks
+We currently get the following kmemleak report:
+unreferenced object 0xffff8800039d9820 (size 32):
+  comm "softirq", pid 0, jiffies 4295212383 (age 792.416s)
+  hex dump (first 32 bytes):
+    00 0c e0 03 00 88 ff ff ff 02 00 00 00 00 00 00  ................
+    00 00 00 01 ff 11 00 02 86 dd 00 00 ff ff ff ff  ................
+  backtrace:
+    [<ffffffff8152b4aa>] kmemleak_alloc+0x4a/0xa0
+    [<ffffffff811d8ec8>] kmem_cache_alloc_trace+0xb8/0x1c0
+    [<ffffffffa0389683>] __br_mdb_notify+0x2a3/0x300 [bridge]
+    [<ffffffffa038a0ce>] br_mdb_notify+0x6e/0x70 [bridge]
+    [<ffffffffa0386479>] br_multicast_add_group+0x109/0x150 [bridge]
+    [<ffffffffa0386518>] br_ip6_multicast_add_group+0x58/0x60 [bridge]
+    [<ffffffffa0387fb5>] br_multicast_rcv+0x1d5/0xdb0 [bridge]
+    [<ffffffffa037d7cf>] br_handle_frame_finish+0xcf/0x510 [bridge]
+    [<ffffffffa03a236b>] br_nf_hook_thresh.part.27+0xb/0x10 [br_netfilter]
+    [<ffffffffa03a3738>] br_nf_hook_thresh+0x48/0xb0 [br_netfilter]
+    [<ffffffffa03a3fb9>] br_nf_pre_routing_finish_ipv6+0x109/0x1d0 [br_netfilter]
+    [<ffffffffa03a4400>] br_nf_pre_routing_ipv6+0xd0/0x14c [br_netfilter]
+    [<ffffffffa03a3c27>] br_nf_pre_routing+0x197/0x3d0 [br_netfilter]
+    [<ffffffff814a2952>] nf_iterate+0x52/0x60
+    [<ffffffff814a29bc>] nf_hook_slow+0x5c/0xb0
+    [<ffffffffa037ddf4>] br_handle_frame+0x1a4/0x2c0 [bridge]
 
+This patch flags the complete_info ptr object as not a leak as it will
+get freed when .complete_priv() is called, for the br mdb case, it
+will be freed at br_mdb_complete().
 
+Cc: stable <stable@vger.kernel.org> # v4.9+
+Reviewed-by: Vallish Vaidyeshwara <vallish@amazon.com>
+Signed-off-by: Eduardo Valentin <eduval@amazon.com>
+---
+ net/bridge/br_mdb.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-Right. I confused DATA_VALID with NEEDS_CHECKSUM.
-
-IIUC XDP generally refuses to attach if checksum offload
-is enabled.
-
-Could you pls explain how to reproduce the issue you are seeing?
-
+diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
+index b084548..1c81546 100644
+--- a/net/bridge/br_mdb.c
++++ b/net/bridge/br_mdb.c
+@@ -5,6 +5,7 @@
+ #include <linux/rculist.h>
+ #include <linux/skbuff.h>
+ #include <linux/if_ether.h>
++#include <linux/kmemleak.h>
+ #include <net/ip.h>
+ #include <net/netlink.h>
+ #include <net/switchdev.h>
+@@ -319,6 +320,8 @@ static void __br_mdb_notify(struct net_device *dev, struct net_bridge_port *p,
+ 	if (port_dev && type == RTM_NEWMDB) {
+ 		complete_info = kmalloc(sizeof(*complete_info), GFP_ATOMIC);
+ 		if (complete_info) {
++			/* This pointer is freed in br_mdb_complete() */
++			kmemleak_not_leak(complete_info);
+ 			complete_info->port = p;
+ 			__mdb_entry_to_br_ip(entry, &complete_info->ip);
+ 			mdb.obj.complete_priv = complete_info;
 -- 
-MST
+2.7.4
