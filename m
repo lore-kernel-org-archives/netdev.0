@@ -1,32 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: wireless-drivers-next 2017-07-03
-Date: Mon, 03 Jul 2017 05:54:24 -0700 (PDT)
-Message-ID: <20170703.055424.890035422929979636.davem@davemloft.net>
-References: <87r2xxkaw4.fsf@kamboji.qca.qualcomm.com>
+Subject: Re: [PATCH RFC 1/2] skbuff: Function to send an skbuf on a socket
+Date: Mon, 03 Jul 2017 06:00:57 -0700 (PDT)
+Message-ID: <20170703.060057.586366984268237880.davem@davemloft.net>
+References: <1498760825-8516-1-git-send-email-tom@herbertland.com>
+        <1498760825-8516-2-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: kvalo@codeaurora.org
+Cc: netdev@vger.kernel.org
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57698 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:57762 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753220AbdGCMyh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Jul 2017 08:54:37 -0400
-In-Reply-To: <87r2xxkaw4.fsf@kamboji.qca.qualcomm.com>
+        with ESMTP id S1752706AbdGCNBF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Jul 2017 09:01:05 -0400
+In-Reply-To: <1498760825-8516-2-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kalle Valo <kvalo@codeaurora.org>
-Date: Mon, 03 Jul 2017 14:39:07 +0300
+From: Tom Herbert <tom@herbertland.com>
+Date: Thu, 29 Jun 2017 11:27:04 -0700
 
-> here's the late pull request to net-next I mentioned about last week to
-> get some new iwlwifi hw support to 4.13.
-> 
-> If this is too late just drop the request and let me know, I can then
-> resend it for 4.14 after the merge window. These patches were included
-> in today's linux-next build and I haven't received any reports about
-> problems, at least not yet.
+> +int skb_send_sock(struct sk_buff *skb, struct socket *sock, unsigned int offset)
+> +{
+> +	unsigned int sent = 0;
+> +	unsigned int ret;
+> +	unsigned short fragidx;
 
-Pulled, thanks.
+Please use reverse christmas tree ordering for these local variables.
+
+> +	/* Deal with head data */
+> +	while (offset < skb_headlen(skb)) {
+> +		size_t len = skb_headlen(skb) - offset;
+> +		struct kvec kv;
+> +		struct msghdr msg;
+
+Likewise.
