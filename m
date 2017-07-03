@@ -1,378 +1,132 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: [PATCH iproute2 V2 3/4] rdma: Add link object
-Date: Mon,  3 Jul 2017 17:06:57 +0300
-Message-ID: <20170703140658.4091-4-leon@kernel.org>
-References: <20170703140658.4091-1-leon@kernel.org>
-Cc: Leon Romanovsky <leonro@mellanox.com>,
-        Doug Ledford <dledford@redhat.com>,
-        Ariel Almog <ariela@mellanox.com>,
-        Linux RDMA <linux-rdma@vger.kernel.org>,
-        Linux Netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Christian Borntraeger <borntraeger@de.ibm.com>
+Subject: locking issues in macvtap (looks like due to tap: Extending tap
+ device create/destroy APIs)
+Date: Mon, 3 Jul 2017 16:15:27 +0200
+Message-ID: <abc8057f-5a6c-f3d1-ffda-46d583c273cd@de.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>, KVM list <kvm@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org >> Linux Kernel Mailing List"
+        <linux-kernel@vger.kernel.org>
+To: Sainath Grandhi <sainath.grandhi@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.99]:38484 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933509AbdGCOHW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 3 Jul 2017 10:07:22 -0400
-In-Reply-To: <20170703140658.4091-1-leon@kernel.org>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:34065 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S932902AbdGCOPj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Jul 2017 10:15:39 -0400
+Received: from pps.filterd (m0098421.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v63EDbOr088760
+        for <netdev@vger.kernel.org>; Mon, 3 Jul 2017 10:15:34 -0400
+Received: from e38.co.us.ibm.com (e38.co.us.ibm.com [32.97.110.159])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2beyttf5yy-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 03 Jul 2017 10:15:33 -0400
+Received: from localhost
+        by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <borntraeger@de.ibm.com>;
+        Mon, 3 Jul 2017 08:15:33 -0600
+Content-Language: en-IE
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Leon Romanovsky <leonro@mellanox.com>
+Sainath,
 
-Link (port) object represent struct ib_port to the user space.
+with rcu debugging and lock debugging I get the following splats.
+I think doing a mutex_lock while in an rcu read-side is not allowed,
+since mutex_lock can sleep.
 
-Link properties:
- * Port capabilities
- * IB subnet prefix
- * LID, SM_LID and LMC
- * Port state
- * Physical state
+This is in 4.11 and 4.12 and seems to be introduced with commit
+d9f1f61c0801a7("tap: Extending tap device create/destroy APIs").
 
-Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
----
- rdma/Makefile |   2 +-
- rdma/link.c   | 280 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- rdma/rdma.c   |   3 +-
- rdma/utils.c  |   5 ++
- 4 files changed, 288 insertions(+), 2 deletions(-)
- create mode 100644 rdma/link.c
 
-diff --git a/rdma/Makefile b/rdma/Makefile
-index 123d7ac5..1a9e4b1a 100644
---- a/rdma/Makefile
-+++ b/rdma/Makefile
-@@ -2,7 +2,7 @@ include ../Config
- 
- ifeq ($(HAVE_MNL),y)
- 
--RDMA_OBJ = rdma.o utils.o dev.o
-+RDMA_OBJ = rdma.o utils.o dev.o link.o
- 
- TARGETS=rdma
- CFLAGS += $(shell $(PKG_CONFIG) libmnl --cflags)
-diff --git a/rdma/link.c b/rdma/link.c
-new file mode 100644
-index 00000000..e7455cfe
---- /dev/null
-+++ b/rdma/link.c
-@@ -0,0 +1,280 @@
-+/*
-+ * link.c	RDMA tool
-+ *
-+ *              This program is free software; you can redistribute it and/or
-+ *              modify it under the terms of the GNU General Public License
-+ *              as published by the Free Software Foundation; either version
-+ *              2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:     Leon Romanovsky <leonro@mellanox.com>
-+ */
-+
-+#include "rdma.h"
-+
-+static int link_help(struct rdma *rd)
-+{
-+	pr_out("Usage: %s link show [DEV/PORT_INDEX]\n", rd->filename);
-+	return 0;
-+}
-+
-+static void link_print_caps(struct nlattr **tb)
-+{
-+	uint64_t caps;
-+	uint32_t idx;
-+
-+	/*
-+	 * FIXME: move to indexes when kernel will start exporting them.
-+	 */
-+	static const char *link_caps[64] = {
-+		"UNKNOWN",
-+		"SM",
-+		"NOTICE",
-+		"TRAP",
-+		"OPT_IPD",
-+		"AUTO_MIGR",
-+		"SL_MAP",
-+		"MKEY_NVRAM",
-+		"PKEY_NVRAM",
-+		"LED_INFO",
-+		"SM_DISABLED",
-+		"SYS_IMAGE_GUID",
-+		"PKEY_SW_EXT_PORT_TRAP",
-+		"UNKNOWN",
-+		"EXTENDED_SPEEDS",
-+		"UNKNOWN",
-+		"CM",
-+		"SNMP_TUNNEL",
-+		"REINIT",
-+		"DEVICE_MGMT",
-+		"VENDOR_CLASS",
-+		"DR_NOTICE",
-+		"CAP_MASK_NOTICE",
-+		"BOOT_MGMT",
-+		"LINK_LATENCY",
-+		"CLIENT_REG",
-+		"IP_BASED_GIDS",
-+	};
-+
-+	if (!tb[RDMA_NLDEV_ATTR_CAP_FLAGS])
-+		return;
-+
-+	caps = mnl_attr_get_u64(tb[RDMA_NLDEV_ATTR_CAP_FLAGS]);
-+
-+	pr_out("\n    caps: <");
-+	for (idx = 0; idx < 64; idx++) {
-+		if (caps & 0x1) {
-+			pr_out("%s", link_caps[idx]?link_caps[idx]:"UNKNONW");
-+			if (caps >> 0x1)
-+				pr_out(", ");
-+		}
-+		caps >>= 0x1;
-+	}
-+
-+	pr_out(">");
-+}
-+
-+static void link_print_subnet_prefix(struct nlattr **tb)
-+{
-+	uint64_t subnet_prefix;
-+	uint16_t sp[4];
-+
-+	if (!tb[RDMA_NLDEV_ATTR_SUBNET_PREFIX])
-+		return;
-+
-+	subnet_prefix = mnl_attr_get_u64(tb[RDMA_NLDEV_ATTR_SUBNET_PREFIX]);
-+	memcpy(sp, &subnet_prefix, sizeof(uint64_t));
-+	pr_out("subnet_prefix %04x:%04x:%04x:%04x ", sp[3], sp[2], sp[1], sp[0]);
-+}
-+
-+static void link_print_lid(struct nlattr **tb)
-+{
-+	if (!tb[RDMA_NLDEV_ATTR_LID])
-+		return;
-+
-+	pr_out("lid %u ",
-+	       mnl_attr_get_u32(tb[RDMA_NLDEV_ATTR_LID]));
-+}
-+
-+static void link_print_sm_lid(struct nlattr **tb)
-+{
-+
-+	if (!tb[RDMA_NLDEV_ATTR_SM_LID])
-+		return;
-+
-+	pr_out("sm_lid %u ",
-+	       mnl_attr_get_u32(tb[RDMA_NLDEV_ATTR_SM_LID]));
-+}
-+
-+static void link_print_lmc(struct nlattr **tb)
-+{
-+	if (!tb[RDMA_NLDEV_ATTR_LMC])
-+		return;
-+
-+	pr_out("lmc %u ", mnl_attr_get_u8(tb[RDMA_NLDEV_ATTR_LMC]));
-+}
-+
-+static void link_print_state(struct nlattr **tb)
-+{
-+	uint8_t state;
-+	/*
-+	 * FIXME: move to index exported by the kernel
-+	 */
-+	static const char *str[] = {
-+		"NOP",
-+		"DOWN",
-+		"INIT",
-+		"ARMED",
-+		"ACTIVE",
-+		"ACTIVE_DEFER",
-+	};
-+
-+	if (!tb[RDMA_NLDEV_ATTR_PORT_STATE])
-+		return;
-+
-+	state = mnl_attr_get_u8(tb[RDMA_NLDEV_ATTR_PORT_STATE]);
-+
-+	if (state < 6 )
-+		pr_out("state %s ", str[state]);
-+	else
-+		pr_out("state UNKNOWN ");
-+}
-+
-+static void link_print_phys_state(struct nlattr **tb)
-+{
-+	uint8_t phys_state;
-+	/*
-+	 * FIXME: move to index exported by the kernel
-+	 */
-+	static const char *str[] = {
-+		"UNKNOWN",
-+		"SLEEP",
-+		"POLLING",
-+		"DISABLED",
-+		"PORT_CONFIGURATION_TRAINING",
-+		"LINK_UP",
-+		"LINK_ERROR_RECOVER",
-+		"PHY_TEST",
-+	};
-+
-+	if (!tb[RDMA_NLDEV_ATTR_PORT_PHYS_STATE])
-+		return;
-+
-+	phys_state = mnl_attr_get_u8(tb[RDMA_NLDEV_ATTR_PORT_PHYS_STATE]);
-+	if (phys_state < 8)
-+		pr_out("physical_state %s ", str[phys_state]);
-+	else
-+		pr_out("physical_state UNKNOWN ");
-+}
-+
-+static int link_parse_cb(const struct nlmsghdr *nlh, void *data)
-+{
-+	struct nlattr *tb[RDMA_NLDEV_ATTR_MAX] = {};
-+	struct rdma *rd = data;
-+
-+	mnl_attr_parse(nlh, 0, rd_attr_cb, tb);
-+	if (!tb[RDMA_NLDEV_ATTR_DEV_INDEX] || !tb[RDMA_NLDEV_ATTR_DEV_NAME])
-+		return MNL_CB_ERROR;
-+
-+	if (!tb[RDMA_NLDEV_ATTR_PORT_INDEX]) {
-+		pr_err("This tool doesn't support switches yet\n");
-+		return MNL_CB_ERROR;
-+	}
-+
-+	pr_out("%u/%u: %s/%u: ",
-+	       mnl_attr_get_u32(tb[RDMA_NLDEV_ATTR_DEV_INDEX]),
-+	       mnl_attr_get_u32(tb[RDMA_NLDEV_ATTR_PORT_INDEX]),
-+	       mnl_attr_get_str(tb[RDMA_NLDEV_ATTR_DEV_NAME]),
-+	       mnl_attr_get_u32(tb[RDMA_NLDEV_ATTR_PORT_INDEX]));
-+	link_print_subnet_prefix(tb);
-+	link_print_lid(tb);
-+	link_print_sm_lid(tb);
-+	link_print_lmc(tb);
-+	link_print_state(tb);
-+	link_print_phys_state(tb);
-+	if (rd->show_details)
-+		link_print_caps(tb);
-+
-+	pr_out("\n");
-+	return MNL_CB_OK;
-+}
-+
-+static int link_no_args(struct rdma *rd)
-+{
-+	uint32_t seq;
-+	int ret;
-+
-+	rdma_prepare_msg(rd, RDMA_NLDEV_CMD_PORT_GET, &seq, (NLM_F_REQUEST | NLM_F_ACK));
-+	mnl_attr_put_u32(rd->nlh, RDMA_NLDEV_ATTR_DEV_INDEX, rd->curr_dev_idx);
-+	mnl_attr_put_u32(rd->nlh, RDMA_NLDEV_ATTR_PORT_INDEX, rd->port_idx);
-+	if ((ret = rdma_send_msg(rd)))
-+		return ret;
-+
-+	return rdma_recv_msg(rd, link_parse_cb, rd, seq);
-+}
-+
-+static int link_one_show(struct rdma *rd)
-+{
-+	const struct rdma_cmd cmds[] = {
-+		{ NULL,		link_no_args},
-+		{ 0 }
-+	};
-+
-+	return rdma_exec_cmd(rd, cmds, "parameter");
-+
-+}
-+
-+static int link_show(struct rdma *rd)
-+{
-+	struct dev_map *dev_map;
-+	uint32_t port;
-+	int ret = 0;
-+
-+	if (rd_no_arg(rd)) {
-+		list_for_each_entry(dev_map, &rd->dev_map_list, list) {
-+			rd->curr_dev_idx = dev_map->idx;
-+			for (port = 1; port < dev_map->num_ports + 1; port++) {
-+				rd->port_idx = port;
-+				ret = link_one_show(rd);
-+				if (ret)
-+					return ret;
-+			}
-+		}
-+
-+	}
-+	else {
-+		dev_map = dev_map_lookup(rd, true);
-+		port = get_port_from_argv(rd);
-+		if (!dev_map || port > dev_map->num_ports) {
-+			pr_err("Wrong device name\n");
-+			return -ENOENT;
-+		}
-+		rd_arg_inc(rd);
-+		rd->port_idx = port ? :1;
-+		for (; port < dev_map->num_ports + 1; port++, rd->port_idx++) {
-+			ret = link_one_show(rd);
-+			if (ret)
-+				return ret;
-+			if (port)
-+				/*
-+				 * We got request to show link for devname
-+				 * without port index.
-+				 */
-+				break;
-+		}
-+
-+	}
-+	return ret;
-+}
-+
-+int cmd_link(struct rdma *rd)
-+{
-+	const struct rdma_cmd cmds[] = {
-+		{ NULL,		link_show },
-+		{ "show",	link_show },
-+		{ "list",	link_show },
-+		{ "help",	link_help },
-+		{ 0 }
-+	};
-+
-+	return rdma_exec_cmd(rd, cmds, "link command");
-+}
-diff --git a/rdma/rdma.c b/rdma/rdma.c
-index dfebd71e..f597f614 100644
---- a/rdma/rdma.c
-+++ b/rdma/rdma.c
-@@ -18,7 +18,7 @@
- static void help(char *name)
- {
- 	pr_out("Usage: %s [ OPTIONS ] OBJECT { COMMAND | help }\n"
--	       "where  OBJECT := { dev | help }\n"
-+	       "where  OBJECT := { dev | link | help }\n"
- 	       "       OPTIONS := { -V[ersion] | -d[etails]}\n", name);
- }
- 
-@@ -34,6 +34,7 @@ static int rd_cmd(struct rdma *rd)
- 		{ NULL,		cmd_help },
- 		{ "help",	cmd_help },
- 		{ "dev",	cmd_dev },
-+		{ "link",	cmd_link },
- 		{ 0 }
- 	};
- 
-diff --git a/rdma/utils.c b/rdma/utils.c
-index 47b977bf..91fc8bbc 100644
---- a/rdma/utils.c
-+++ b/rdma/utils.c
-@@ -111,6 +111,11 @@ static const enum mnl_attr_data_type nldev_policy[RDMA_NLDEV_ATTR_MAX] = {
- 	[RDMA_NLDEV_ATTR_FW_VERSION] = MNL_TYPE_NUL_STRING,
- 	[RDMA_NLDEV_ATTR_NODE_GUID] = MNL_TYPE_U64,
- 	[RDMA_NLDEV_ATTR_SYS_IMAGE_GUID] = MNL_TYPE_U64,
-+	[RDMA_NLDEV_ATTR_LID] = MNL_TYPE_U32,
-+	[RDMA_NLDEV_ATTR_SM_LID] = MNL_TYPE_U32,
-+	[RDMA_NLDEV_ATTR_LMC] = MNL_TYPE_U8,
-+	[RDMA_NLDEV_ATTR_PORT_STATE] = MNL_TYPE_U8,
-+	[RDMA_NLDEV_ATTR_PORT_PHYS_STATE] = MNL_TYPE_U8,
- 	[RDMA_NLDEV_ATTR_DEV_NODE_TYPE] = MNL_TYPE_U8,
- };
- 
--- 
-2.13.2
+Christian
+
+
+[  125.678015] ===============================
+[  125.678018] [ ERR: suspicious RCU usage.  ]
+[  125.678022] 4.11.0+ #18 Not tainted
+[  125.678025] -------------------------------
+[  125.678028] ./include/linux/rcupdate.h:521 Illegal context switch in RCU read-side critical section!
+[  125.678031] 
+               other info that might help us debug this:
+
+[  125.678035] 
+               rcu_scheduler_active = 2, debug_locks = 0
+[  125.678038] 2 locks held by libvirtd/3050:
+[  125.678041]  #0:  (rtnl_mutex){+.+.+.}, at: [<0000000000772b02>] rtnl_newlink+0x2ea/0x880
+[  125.678057]  #1:  (rcu_read_lock){......}, at: [<000003ff800dad00>] tap_get_minor+0x0/0x1d8 [tap]
+[  125.678068] 
+               stack backtrace:
+[  125.678073] CPU: 26 PID: 3050 Comm: libvirtd Not tainted 4.11.0+ #18
+[  125.678076] Hardware name: IBM 2964 NC9 704 (LPAR)
+[  125.678079] Stack:
+[  125.678081]        000000fa977cb230 000000fa977cb2c0 0000000000000003 0000000000000000
+[  125.678091]        000000fa977cb360 000000fa977cb2d8 000000fa977cb2d8 0000000000000020
+[  125.678100]        0000000000000000 000003ff00000020 000000fa0000000a 000000fa0000000a
+[  125.678109]        000000000000000c 000000fa977cb328 0000000000000000 0000000000000000
+[  125.678119]        00000000008e2510 00000000001139ac 000000fa977cb2c0 000000fa977cb318
+[  125.678150] Call Trace:
+[  125.678157] ([<0000000000113872>] show_trace+0xea/0xf0)
+[  125.678160]  [<0000000000113950>] show_stack+0x68/0xe0 
+[  125.678165]  [<000000000057ef8c>] dump_stack+0x94/0xd8 
+[  125.678172]  [<00000000001a4422>] ___might_sleep+0x21a/0x268 
+[  125.678177]  [<00000000008ca842>] __mutex_lock+0x52/0x968 
+[  125.678180]  [<00000000008cb192>] mutex_lock_nested+0x3a/0x48 
+[  125.678184]  [<000003ff800dadd6>] tap_get_minor+0xd6/0x1d8 [tap] 
+[  125.678188]  [<000003ff801773a2>] macvtap_device_event+0x9a/0x1a0 [macvtap] 
+[  125.678191]  [<000000000019bfbe>] notifier_call_chain+0x56/0x98 
+[  125.678195]  [<000000000019c1b2>] raw_notifier_call_chain+0x32/0x40 
+[  125.678200]  [<000000000075d014>] register_netdevice+0x3f4/0x508 
+[  125.678204]  [<000003ff801718a0>] macvlan_common_newlink+0x360/0x430 [macvlan] 
+[  125.678207]  [<000003ff80177564>] macvtap_newlink+0xbc/0xf0 [macvtap] 
+[  125.678211]  [<0000000000772e32>] rtnl_newlink+0x61a/0x880 
+[  125.678214]  [<000000000077313c>] rtnetlink_rcv_msg+0xa4/0x248 
+[  125.678219]  [<000000000079cec0>] netlink_rcv_skb+0xd8/0x108 
+[  125.678222]  [<000000000076f538>] rtnetlink_rcv+0x48/0x58 
+[  125.678226]  [<000000000079c750>] netlink_unicast+0x178/0x1f8 
+[  125.678229]  [<000000000079cbd4>] netlink_sendmsg+0x304/0x3b0 
+[  125.678233]  [<0000000000730676>] sock_sendmsg+0x6e/0x80 
+[  125.678237]  [<00000000007311b0>] ___sys_sendmsg+0x2a0/0x2a8 
+[  125.678240]  [<00000000007324d8>] __sys_sendmsg+0x60/0xa8 
+[  125.678244]  [<0000000000732ed4>] SyS_socketcall+0x33c/0x390 
+[  125.678248]  [<00000000008d08bc>] system_call+0xc4/0x258 
+[  125.678251] INFO: lockdep is turned off.
+[  125.678255] BUG: sleeping function called from invalid context at kernel/locking/mutex.c:747
+[  125.678257] in_atomic(): 1, irqs_disabled(): 0, pid: 3050, name: libvirtd
+[  125.678261] INFO: lockdep is turned off.
+[  125.678264] CPU: 26 PID: 3050 Comm: libvirtd Not tainted 4.11.0+ #18
+[  125.678267] Hardware name: IBM 2964 NC9 704 (LPAR)
+[  125.678269] Stack:
+[  125.678272]        000000fa977cb230 000000fa977cb2c0 0000000000000003 0000000000000000
+[  125.678281]        000000fa977cb360 000000fa977cb2d8 000000fa977cb2d8 0000000000000020
+[  125.678290]        0000000000000000 000000fa00000020 000000fa0000000a 000000fa0000000a
+[  125.678298]        000000000000000c 000000fa977cb328 0000000000000000 0000000000000000
+[  125.678308]        00000000008e2510 00000000001139ac 000000fa977cb2c0 000000fa977cb318
+[  125.678323] Call Trace:
+[  125.678326] ([<0000000000113872>] show_trace+0xea/0xf0)
+[  125.678330]  [<0000000000113950>] show_stack+0x68/0xe0 
+[  125.678334]  [<000000000057ef8c>] dump_stack+0x94/0xd8 
+[  125.678337]  [<00000000001a438e>] ___might_sleep+0x186/0x268 
+[  125.678341]  [<00000000008ca842>] __mutex_lock+0x52/0x968 
+[  125.678346]  [<00000000008cb192>] mutex_lock_nested+0x3a/0x48 
+[  125.678350]  [<000003ff800dadd6>] tap_get_minor+0xd6/0x1d8 [tap] 
+[  125.678354]  [<000003ff801773a2>] macvtap_device_event+0x9a/0x1a0 [macvtap] 
+[  125.678357]  [<000000000019bfbe>] notifier_call_chain+0x56/0x98 
+[  125.678360]  [<000000000019c1b2>] raw_notifier_call_chain+0x32/0x40 
+[  125.678364]  [<000000000075d014>] register_netdevice+0x3f4/0x508 
+[  125.678368]  [<000003ff801718a0>] macvlan_common_newlink+0x360/0x430 [macvlan] 
+[  125.678371]  [<000003ff80177564>] macvtap_newlink+0xbc/0xf0 [macvtap] 
+[  125.678374]  [<0000000000772e32>] rtnl_newlink+0x61a/0x880 
+[  125.678377]  [<000000000077313c>] rtnetlink_rcv_msg+0xa4/0x248 
+[  125.678380]  [<000000000079cec0>] netlink_rcv_skb+0xd8/0x108 
+[  125.678382]  [<000000000076f538>] rtnetlink_rcv+0x48/0x58 
+[  125.678386]  [<000000000079c750>] netlink_unicast+0x178/0x1f8 
+[  125.678389]  [<000000000079cbd4>] netlink_sendmsg+0x304/0x3b0 
+[  125.678392]  [<0000000000730676>] sock_sendmsg+0x6e/0x80 
+[  125.678395]  [<00000000007311b0>] ___sys_sendmsg+0x2a0/0x2a8 
+[  125.678398]  [<00000000007324d8>] __sys_sendmsg+0x60/0xa8 
+[  125.678401]  [<0000000000732ed4>] SyS_socketcall+0x33c/0x390 
+[  125.678404]  [<00000000008d08bc>] system_call+0xc4/0x258 
+[  125.678407] INFO: lockdep is turned off.
