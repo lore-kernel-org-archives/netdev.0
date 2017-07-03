@@ -1,45 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 00/17] v3 net generic subsystem refcount conversions
-Date: Mon, 03 Jul 2017 03:30:17 -0700
-Message-ID: <1499077817.1462.8.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1498817290-3368-1-git-send-email-elena.reshetova@intel.com>
-         <1499074136.1462.0.camel@edumazet-glaptop3.roam.corp.google.com>
-         <2236FBA76BA1254E88B949DDB74E612B6FF2029D@IRSMSX102.ger.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "bridge@lists.linux-foundation.org"
-        <bridge@lists.linux-foundation.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-        "jmorris@namei.org" <jmorris@namei.org>,
-        "kaber@trash.net" <kaber@trash.net>,
-        "stephen@networkplumber.org" <stephen@networkplumber.org>,
-        "peterz@infradead.org" <peterz@infradead.org>,
-        "keescook@chromium.org" <keescook@chromium.org>
-To: "Reshetova, Elena" <elena.reshetova@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2236FBA76BA1254E88B949DDB74E612B6FF2029D@IRSMSX102.ger.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH net] ixgbe: fix masking of bits read from IXGBE_VXLANCTRL register
+Date: Mon,  3 Jul 2017 13:02:55 +0200
+Message-ID: <fc6577fcc305742e61ea24c6eb519c212717e5ec.1499078414.git.sd@queasysnail.net>
+Cc: Sabrina Dubroca <sd@queasysnail.net>, netdev@vger.kernel.org,
+        Emil Tantilov <emil.s.tantilov@intel.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: intel-wired-lan@lists.osuosl.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:47168 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752472AbdGCLEC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 3 Jul 2017 07:04:02 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-07-03 at 09:57 +0000, Reshetova, Elena wrote:
+In ixgbe_clear_udp_tunnel_port(), we read the IXGBE_VXLANCTRL register
+and then try to mask some bits out of the value, using the logical
+instead of bitwise and operator.
 
-> Thank you very much for the report! This is an underflow (dec/sub from
-> zero) that is reported by WARNING. 
-> I guess it is unlikely that actual code underflows, so the most
-> probable cause is that it attempted to do refcount_inc/add() from
-> zero, but then failed. 
-> However  in that case you should have seen another warning on
-> refcount_inc() somewhere earlier. That one is actually the one I need
-> to see to track the root cause. 
-> Could you tell me how do you arrive to the below output? Boot in what
-> config/etc. 
-> I can try to reproduce to debug further. 
+Fixes: a21d0822ff69 ("ixgbe: add support for geneve Rx offload")
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I sent this fix : 
-
-https://patchwork.ozlabs.org/patch/783389/
-
-Thanks.
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index d39cba214320..c3e70ec2da0f 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -4868,7 +4868,7 @@ static void ixgbe_clear_udp_tunnel_port(struct ixgbe_adapter *adapter, u32 mask)
+ 				IXGBE_FLAG_GENEVE_OFFLOAD_CAPABLE)))
+ 		return;
+ 
+-	vxlanctrl = IXGBE_READ_REG(hw, IXGBE_VXLANCTRL) && ~mask;
++	vxlanctrl = IXGBE_READ_REG(hw, IXGBE_VXLANCTRL) & ~mask;
+ 	IXGBE_WRITE_REG(hw, IXGBE_VXLANCTRL, vxlanctrl);
+ 
+ 	if (mask & IXGBE_VXLANCTRL_VXLAN_UDPPORT_MASK)
+-- 
+2.13.2
