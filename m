@@ -1,30 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: cdc_mbim: apply "NDP to end" quirk to HP lt4132
-Date: Mon, 03 Jul 2017 02:20:06 -0700 (PDT)
-Message-ID: <20170703.022006.735448811201221930.davem@davemloft.net>
-References: <20170701132002.2891-1-tore@fud.no>
+Subject: Re: [PATCH net-next 0/7] Misc BPF helper/verifier improvements
+Date: Mon, 03 Jul 2017 02:23:19 -0700 (PDT)
+Message-ID: <20170703.022319.786875746405217541.davem@davemloft.net>
+References: <cover.1498952486.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: oliver@neukum.org, linux-usb@vger.kernel.org,
-        netdev@vger.kernel.org
-To: tore@fud.no
+Cc: ast@fb.com, john.fastabend@gmail.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54648 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:54700 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752987AbdGCJUJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Jul 2017 05:20:09 -0400
-In-Reply-To: <20170701132002.2891-1-tore@fud.no>
+        with ESMTP id S1753259AbdGCJXW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Jul 2017 05:23:22 -0400
+In-Reply-To: <cover.1498952486.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tore Anderson <tore@fud.no>
-Date: Sat,  1 Jul 2017 15:20:02 +0200
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Sun,  2 Jul 2017 02:13:24 +0200
 
-> The HP lt4132 LTE/HSPA+ 4G Module (03f0:a31d) is a rebranded Huawei
-> ME906s-158 device. It, like the ME906s-158, requires the "NDP to end"
-> quirk for correct operation.
-> 
-> Signed-off-by: Tore Anderson <tore@fud.no>
+> Miscellanous improvements I still had in my queue, it adds a new
+> bpf_skb_adjust_room() helper for cls_bpf, exports to fdinfo whether
+> tail call array owner is JITed, so iproute2 error reporting can be
+> improved on that regard, a small cleanup and extension to trace
+> printk, two verifier patches, one to make the code around narrower
+> ctx access a bit more straight forward and one to allow for imm += x
+> operations, that we've seen LLVM generating and the verifier currently
+> rejecting. We've included the patch 6 given it's rather small and
+> we ran into it from LLVM side, it would be great if it could be
+> queued for stable as well after the merge window. Last but not least,
+> test cases are added also related to imm alu improvement.
 
-Applied, thank you.
+Series applied, thanks Daniel.
