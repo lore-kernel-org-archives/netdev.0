@@ -1,80 +1,72 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net-next] bridge: allow ext learned entries to change ports
-Date: Mon,  3 Jul 2017 15:14:59 -0700
-Message-ID: <1499120099-46428-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com,
-        jiri@resnulli.us, idosch@mellanox.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f46.google.com ([74.125.83.46]:34854 "EHLO
-        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752674AbdGCWPE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Jul 2017 18:15:04 -0400
-Received: by mail-pg0-f46.google.com with SMTP id j186so100554900pge.2
-        for <netdev@vger.kernel.org>; Mon, 03 Jul 2017 15:15:04 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH RFC 08/26] locking: Remove spin_unlock_wait() generic
+ definitions
+Date: Mon, 3 Jul 2017 15:30:11 -0700
+Message-ID: <20170703223011.GI2393@linux.vnet.ibm.com>
+References: <20170629235918.GA6445@linux.vnet.ibm.com>
+ <1498780894-8253-8-git-send-email-paulmck@linux.vnet.ibm.com>
+ <20170630091928.GC9726@arm.com>
+ <20170630123815.GT2393@linux.vnet.ibm.com>
+ <20170630131339.GA14118@arm.com>
+ <20170630221840.GI2393@linux.vnet.ibm.com>
+ <20170703131514.GE1573@arm.com>
+ <20170703161851.GY2393@linux.vnet.ibm.com>
+ <CA+55aFzA+dk8P-wWFX_rYE09A-3uCL8_7ZNG4jC1+c0x4COQkQ@mail.gmail.com>
+ <20170703171338.GG1573@arm.com>
+Reply-To: paulmck@linux.vnet.ibm.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        NetFilter <netfilter-devel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Oleg Nesterov <oleg@redhat.com>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Ingo Molnar <mingo@redhat.com>,
+        Davidlohr Bueso <dave@stgolabs.net>,
+        Manfred Spraul <manfred@colorfullife.com>,
+        Tejun Heo <tj@kernel.org>, Arnd Bergmann <arnd@arndb.de>,
+        "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
+        Peter Zijlstra <peterz@infradead.org>,
+        Alan Stern <stern@rowland.harvard.edu>,
+        Andrea Parri <parri.andrea@gmail.com>
+To: Will Deacon <will.deacon@arm.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170703171338.GG1573@arm.com>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+On Mon, Jul 03, 2017 at 06:13:38PM +0100, Will Deacon wrote:
+> On Mon, Jul 03, 2017 at 09:40:22AM -0700, Linus Torvalds wrote:
+> > On Mon, Jul 3, 2017 at 9:18 AM, Paul E. McKenney
+> > <paulmck@linux.vnet.ibm.com> wrote:
+> > >
+> > > Agreed, and my next step is to look at spin_lock() followed by
+> > > spin_is_locked(), not necessarily the same lock.
+> > 
+> > Hmm. Most (all?) "spin_is_locked()" really should be about the same
+> > thread that took the lock (ie it's about asserts and lock debugging).
+> > 
+> > The optimistic ABBA avoidance pattern for spinlocks *should* be
+> > 
+> >     spin_lock(inner)
+> >     ...
+> >     if (!try_lock(outer)) {
+> >            spin_unlock(inner);
+> >            .. do them in the right order ..
+> > 
+> > so I don't think spin_is_locked() should have any memory barriers.
+> > 
+> > In fact, the core function for spin_is_locked() is arguably
+> > arch_spin_value_unlocked() which doesn't even do the access itself.
+> 
+> Yeah, but there's some spaced-out stuff going on in kgdb_cpu_enter where
+> it looks to me like raw_spin_is_locked is used for synchronization. My
+> eyes are hurting looking at it, though.
 
-current code silently ignores change of port in the request
-message. This patch makes sure the port is modified and
-notification is sent to userspace.
+That certainly is one interesting function, isn't it?  I wonder what
+happens if you replace the raw_spin_is_locked() calls with an
+unlock under a trylock check?  ;-)
 
-Fixes: cf6b8e1eedff ("bridge: add API to notify bridge driver of learned FBD on offloaded device")
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
- net/bridge/br_fdb.c | 28 ++++++++++++++++++++--------
- 1 file changed, 20 insertions(+), 8 deletions(-)
-
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index fef7872..a5e4a73 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -1079,8 +1079,9 @@ void br_fdb_unsync_static(struct net_bridge *br, struct net_bridge_port *p)
- int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
- 			      const unsigned char *addr, u16 vid)
- {
--	struct hlist_head *head;
- 	struct net_bridge_fdb_entry *fdb;
-+	struct hlist_head *head;
-+	bool modified = false;
- 	int err = 0;
- 
- 	spin_lock_bh(&br->hash_lock);
-@@ -1095,14 +1096,25 @@ int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
- 		}
- 		fdb->added_by_external_learn = 1;
- 		fdb_notify(br, fdb, RTM_NEWNEIGH);
--	} else if (fdb->added_by_external_learn) {
--		/* Refresh entry */
--		fdb->updated = fdb->used = jiffies;
--	} else if (!fdb->added_by_user) {
--		/* Take over SW learned entry */
--		fdb->added_by_external_learn = 1;
-+	} else {
- 		fdb->updated = jiffies;
--		fdb_notify(br, fdb, RTM_NEWNEIGH);
-+
-+		if (fdb->dst != p) {
-+			fdb->dst = p;
-+			modified = true;
-+		}
-+
-+		if (fdb->added_by_external_learn) {
-+			/* Refresh entry */
-+			fdb->used = jiffies;
-+		} else if (!fdb->added_by_user) {
-+			/* Take over SW learned entry */
-+			fdb->added_by_external_learn = 1;
-+			modified = true;
-+		}
-+
-+		if (modified)
-+			fdb_notify(br, fdb, RTM_NEWNEIGH);
- 	}
- 
- err_unlock:
--- 
-1.9.1
+							Thanx, Paul
