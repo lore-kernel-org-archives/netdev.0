@@ -1,136 +1,52 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: manual merge of the net-next tree with the pci tree
-Date: Mon, 3 Jul 2017 11:49:38 +1000
-Message-ID: <20170703114938.2fb359d8@canb.auug.org.au>
-References: <20170621115443.3e10f0bc@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Christoph Hellwig <hch@lst.de>,
-        Brian Norris <briannorris@chromium.org>,
-        Kalle Valo <kvalo@codeaurora.org>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>,
-        Bjorn Helgaas <bhelgaas@google.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20170621115443.3e10f0bc@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
+From: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH 1/1] mlx4_en: make mlx4_log_num_mgm_entry_size static
+Date: Mon,  3 Jul 2017 01:35:19 -0400
+Message-ID: <1499060119-7063-1-git-send-email-yanjun.zhu@oracle.com>
+To: tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+The variable mlx4_log_num_mgm_entry_size is only called in main.c.
 
-With the merge window opening, just a reminder that this conflict still
-exists.
+CC: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+CC: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+---
+ drivers/net/ethernet/mellanox/mlx4/main.c | 2 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h | 1 -
+ 2 files changed, 1 insertion(+), 2 deletions(-)
 
-On Wed, 21 Jun 2017 11:54:43 +1000 Stephen Rothwell <sfr@canb.auug.org.au> wrote:
->
-> Today's linux-next merge of the net-next tree got a conflict in:
-> 
->   drivers/net/wireless/marvell/mwifiex/pcie.c
-> 
-> between commit:
-> 
->   c336cc0ee4eb ("PCI: Split ->reset_notify() method into ->reset_prepare() and ->reset_done()")
-> 
-> from the pci tree and commit:
-> 
->   68efd0386988 ("mwifiex: pcie: stop setting/clearing 'surprise_removed'")
-> 
-> from the net-next tree.
-> 
-> I fixed it up (see below) and can carry the fix as necessary. This
-> is now fixed as far as linux-next is concerned, but any non trivial
-> conflicts should be mentioned to your upstream maintainer when your tree
-> is submitted for merging.  You may also want to consider cooperating
-> with the maintainer of the conflicting tree to minimise any particularly
-> complex conflicts.
-> 
-> -- 
-> Cheers,
-> Stephen Rothwell
-> 
-> diff --cc drivers/net/wireless/marvell/mwifiex/pcie.c
-> index 279adf124fc9,b53ecf1eddda..000000000000
-> --- a/drivers/net/wireless/marvell/mwifiex/pcie.c
-> +++ b/drivers/net/wireless/marvell/mwifiex/pcie.c
-> @@@ -361,48 -359,35 +361,46 @@@ static void mwifiex_pcie_reset_prepare(
->   	}
->   
->   	mwifiex_dbg(adapter, INFO,
->  -		    "%s: vendor=0x%4.04x device=0x%4.04x rev=%d %s\n",
->  -		    __func__, pdev->vendor, pdev->device,
->  -		    pdev->revision,
->  -		    prepare ? "Pre-FLR" : "Post-FLR");
->  -
->  -	if (prepare) {
->  -		/* Kernel would be performing FLR after this notification.
->  -		 * Cleanup all software without cleaning anything related to
->  -		 * PCIe and HW.
->  -		 */
->  -		mwifiex_shutdown_sw(adapter);
->  -		clear_bit(MWIFIEX_IFACE_WORK_DEVICE_DUMP, &card->work_flags);
->  -		clear_bit(MWIFIEX_IFACE_WORK_CARD_RESET, &card->work_flags);
->  -	} else {
->  -		/* Kernel stores and restores PCIe function context before and
->  -		 * after performing FLR respectively. Reconfigure the software
->  -		 * and firmware including firmware redownload
->  -		 */
->  -		ret = mwifiex_reinit_sw(adapter);
->  -		if (ret) {
->  -			dev_err(&pdev->dev, "reinit failed: %d\n", ret);
->  -			return;
->  -		}
->  -	}
->  +		    "%s: vendor=0x%4.04x device=0x%4.04x rev=%d Pre-FLR\n",
->  +		    __func__, pdev->vendor, pdev->device, pdev->revision);
->  +
->  +	mwifiex_shutdown_sw(adapter);
-> - 	adapter->surprise_removed = true;
->  +	clear_bit(MWIFIEX_IFACE_WORK_DEVICE_DUMP, &card->work_flags);
->  +	clear_bit(MWIFIEX_IFACE_WORK_CARD_RESET, &card->work_flags);
->   	mwifiex_dbg(adapter, INFO, "%s, successful\n", __func__);
->   }
->   
->  -static const struct pci_error_handlers mwifiex_pcie_err_handler[] = {
->  -		{ .reset_notify = mwifiex_pcie_reset_notify, },
->  +/*
->  + * Kernel stores and restores PCIe function context before and after performing
->  + * FLR respectively. Reconfigure the software and firmware including firmware
->  + * redownload.
->  + */
->  +static void mwifiex_pcie_reset_done(struct pci_dev *pdev)
->  +{
->  +	struct pcie_service_card *card = pci_get_drvdata(pdev);
->  +	struct mwifiex_adapter *adapter = card->adapter;
->  +	int ret;
->  +
->  +	if (!adapter) {
->  +		dev_err(&pdev->dev, "%s: adapter structure is not valid\n",
->  +			__func__);
->  +		return;
->  +	}
->  +
->  +	mwifiex_dbg(adapter, INFO,
->  +		    "%s: vendor=0x%4.04x device=0x%4.04x rev=%d Post-FLR\n",
->  +		    __func__, pdev->vendor, pdev->device, pdev->revision);
->  +
-> - 	adapter->surprise_removed = false;
->  +	ret = mwifiex_reinit_sw(adapter);
->  +	if (ret)
->  +		dev_err(&pdev->dev, "reinit failed: %d\n", ret);
->  +	else
->  +		mwifiex_dbg(adapter, INFO, "%s, successful\n", __func__);
->  +}
->  +
->  +static const struct pci_error_handlers mwifiex_pcie_err_handler = {
->  +	.reset_prepare		= mwifiex_pcie_reset_prepare,
->  +	.reset_done		= mwifiex_pcie_reset_done,
->   };
->   
->   #ifdef CONFIG_PM_SLEEP
-
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 83aab1e..4b67277 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -91,7 +91,7 @@ module_param_array(probe_vf, byte, &probe_vfs_argc, 0444);
+ MODULE_PARM_DESC(probe_vf, "number of vfs to probe by pf driver (num_vfs > 0)\n"
+ 			   "probe_vf=port1,port2,port1+2");
+ 
+-int mlx4_log_num_mgm_entry_size = MLX4_DEFAULT_MGM_LOG_ENTRY_SIZE;
++static int mlx4_log_num_mgm_entry_size = MLX4_DEFAULT_MGM_LOG_ENTRY_SIZE;
+ module_param_named(log_num_mgm_entry_size,
+ 			mlx4_log_num_mgm_entry_size, int, 0444);
+ MODULE_PARM_DESC(log_num_mgm_entry_size, "log mgm size, that defines the num"
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index b4f1bc5..a3f5edb 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -231,7 +231,6 @@ do {									\
+ #define mlx4_warn(mdev, format, ...)					\
+ 	dev_warn(&(mdev)->persist->pdev->dev, format, ##__VA_ARGS__)
+ 
+-extern int mlx4_log_num_mgm_entry_size;
+ extern int log_mtts_per_seg;
+ extern int mlx4_internal_err_reset;
+ 
 -- 
-Cheers,
-Stephen Rothwell
+2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
