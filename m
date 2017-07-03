@@ -1,7 +1,7 @@
 From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH rdma-next V2 23/27] RDMA/netlink: Advertise IB subnet prefix
-Date: Mon,  3 Jul 2017 09:28:26 +0300
-Message-ID: <20170703062830.30361-24-leon@kernel.org>
+Subject: [PATCH rdma-next V2 12/27] RDMA/netlink: Update copyright
+Date: Mon,  3 Jul 2017 09:28:15 +0300
+Message-ID: <20170703062830.30361-13-leon@kernel.org>
 References: <20170703062830.30361-1-leon@kernel.org>
 Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
@@ -16,54 +16,24 @@ List-Id: netdev.vger.kernel.org
 
 From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
-Add IB subnet prefix to the port properties exported
-by RDMA netlink.
+Add Mellanox to the copyright header.
 
 Signed-off-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Reviewed-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
 ---
- drivers/infiniband/core/nldev.c  | 5 +++++
- include/uapi/rdma/rdma_netlink.h | 5 +++++
- 2 files changed, 10 insertions(+)
+ drivers/infiniband/core/netlink.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/infiniband/core/nldev.c b/drivers/infiniband/core/nldev.c
-index fde0138fff5f..c4884841e2fe 100644
---- a/drivers/infiniband/core/nldev.c
-+++ b/drivers/infiniband/core/nldev.c
-@@ -44,6 +44,7 @@ static const struct nla_policy nldev_policy[RDMA_NLDEV_ATTR_MAX] = {
- 					    .len = IB_FW_VERSION_NAME_MAX - 1},
- 	[RDMA_NLDEV_ATTR_NODE_GUID]	= { .type = NLA_U64 },
- 	[RDMA_NLDEV_ATTR_SYS_IMAGE_GUID] = { .type = NLA_U64 },
-+	[RDMA_NLDEV_ATTR_SUBNET_PREFIX]	= { .type = NLA_U64 },
- };
- 
- static int fill_dev_info(struct sk_buff *msg, struct ib_device *device)
-@@ -97,6 +98,10 @@ static int fill_port_info(struct sk_buff *msg,
- 	if (nla_put_u64_64bit(msg, RDMA_NLDEV_ATTR_CAP_FLAGS,
- 			      (u64)attr.port_cap_flags, 0))
- 		return -EMSGSIZE;
-+	if (rdma_protocol_ib(device, port) &&
-+	    nla_put_u64_64bit(msg, RDMA_NLDEV_ATTR_SUBNET_PREFIX,
-+			      attr.subnet_prefix, 0))
-+		return -EMSGSIZE;
- 
- 	return 0;
- }
-diff --git a/include/uapi/rdma/rdma_netlink.h b/include/uapi/rdma/rdma_netlink.h
-index b34f7745daf0..24712d810dca 100644
---- a/include/uapi/rdma/rdma_netlink.h
-+++ b/include/uapi/rdma/rdma_netlink.h
-@@ -279,6 +279,11 @@ enum rdma_nldev_attr {
- 	 */
- 	RDMA_NLDEV_ATTR_SYS_IMAGE_GUID,		/* u64 */
- 
-+	/*
-+	 * Subnet prefix (in host byte order)
-+	 */
-+	RDMA_NLDEV_ATTR_SUBNET_PREFIX,		/* u64 */
-+
- 	RDMA_NLDEV_ATTR_MAX
- };
- #endif /* _UAPI_RDMA_NETLINK_H */
+diff --git a/drivers/infiniband/core/netlink.c b/drivers/infiniband/core/netlink.c
+index 3efa161bf4a6..2ca523c7d14a 100644
+--- a/drivers/infiniband/core/netlink.c
++++ b/drivers/infiniband/core/netlink.c
+@@ -1,4 +1,5 @@
+ /*
++ * Copyright (c) 2017 Mellanox Technologies Inc.  All rights reserved.
+  * Copyright (c) 2010 Voltaire Inc.  All rights reserved.
+  *
+  * This software is available to you under a choice of one of two
 -- 
 2.13.2
 
