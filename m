@@ -1,35 +1,36 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the arm64 tree
-Date: Mon, 3 Jul 2017 11:37:32 +1000
-Message-ID: <20170703113732.6af8235d@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Mon, 3 Jul 2017 11:43:20 +1000
+Message-ID: <20170703114320.6d2130f8@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
         Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Luc Van Oostenryck <luc.vanoostenryck@gmail.com>,
-        Will Deacon <will.deacon@arm.com>,
-        Daniel Borkmann <daniel@iogearbox.net>
+        Mohamad Haj Yahia <mohamad@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Moshe Shemesh <moshe@mellanox.com>,
+        Ilan Tayari <ilant@mellanox.com>
 To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>,
-        Catalin Marinas <catalin.marinas@arm.com>
+        Networking <netdev@vger.kernel.org>
 Return-path: <linux-next-owner@vger.kernel.org>
 Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi all,
 
-Today's linux-next merge of the net-next tree got a conflict in:
+Today's linux-next merge of the net-next tree got conflicts in:
 
-  arch/arm64/net/bpf_jit_comp.c
+  drivers/net/ethernet/mellanox/mlx5/core/health.c
+  include/linux/mlx5/driver.h
 
 between commit:
 
-  425e1ed73e65 ("arm64: fix endianness annotation for 'struct jit_ctx' and friends")
+  2a0165a034ac ("net/mlx5: Cancel delayed recovery work when unloading the driver")
 
-from the arm64 tree and commit:
+from the net tree and commit:
 
-  f1c9eed7f437 ("bpf, arm64: take advantage of stack_depth tracking")
+  0179720d6be2 ("Introduce new function for entering bad-health state.")
 
 from the net-next tree.
 
@@ -44,17 +45,46 @@ complex conflicts.
 Cheers,
 Stephen Rothwell
 
-diff --cc arch/arm64/net/bpf_jit_comp.c
-index 8860bb9c33a1,2f0505b5c240..000000000000
---- a/arch/arm64/net/bpf_jit_comp.c
-+++ b/arch/arm64/net/bpf_jit_comp.c
-@@@ -70,7 -70,8 +70,8 @@@ struct jit_ctx 
-  	int idx;
-  	int epilogue_offset;
-  	int *offset;
- -	u32 *image;
- +	__le32 *image;
-+ 	u32 stack_size;
-  };
+diff --cc drivers/net/ethernet/mellanox/mlx5/core/health.c
+index 8a8b5f0e497c,0648a659b21d..000000000000
+--- a/drivers/net/ethernet/mellanox/mlx5/core/health.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/health.c
+@@@ -193,8 -193,8 +194,8 @@@ static void health_care(struct work_str
+  	mlx5_core_warn(dev, "handling bad device here\n");
+  	mlx5_handle_bad_state(dev);
   
-  static inline void emit(const u32 insn, struct jit_ctx *ctx)
+- 	spin_lock(&health->wq_lock);
++ 	spin_lock_irqsave(&health->wq_lock, flags);
+ -	if (!test_bit(MLX5_DROP_NEW_HEALTH_WORK, &health->flags))
+ +	if (!test_bit(MLX5_DROP_NEW_RECOVERY_WORK, &health->flags))
+  		schedule_delayed_work(&health->recover_work, recover_delay);
+  	else
+  		dev_err(&dev->pdev->dev,
+@@@ -334,11 -341,11 +343,12 @@@ void mlx5_stop_health_poll(struct mlx5_
+  void mlx5_drain_health_wq(struct mlx5_core_dev *dev)
+  {
+  	struct mlx5_core_health *health = &dev->priv.health;
++ 	unsigned long flags;
+  
+- 	spin_lock(&health->wq_lock);
++ 	spin_lock_irqsave(&health->wq_lock, flags);
+  	set_bit(MLX5_DROP_NEW_HEALTH_WORK, &health->flags);
+ +	set_bit(MLX5_DROP_NEW_RECOVERY_WORK, &health->flags);
+- 	spin_unlock(&health->wq_lock);
++ 	spin_unlock_irqrestore(&health->wq_lock, flags);
+  	cancel_delayed_work_sync(&health->recover_work);
+  	cancel_work_sync(&health->work);
+  }
+diff --cc include/linux/mlx5/driver.h
+index ba260330ce5e,2ab4ae3e3a1a..000000000000
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@@ -925,7 -945,7 +945,8 @@@ int mlx5_health_init(struct mlx5_core_d
+  void mlx5_start_health_poll(struct mlx5_core_dev *dev);
+  void mlx5_stop_health_poll(struct mlx5_core_dev *dev);
+  void mlx5_drain_health_wq(struct mlx5_core_dev *dev);
+ +void mlx5_drain_health_recovery(struct mlx5_core_dev *dev);
++ void mlx5_trigger_health_work(struct mlx5_core_dev *dev);
+  int mlx5_buf_alloc_node(struct mlx5_core_dev *dev, int size,
+  			struct mlx5_buf *buf, int node);
+  int mlx5_buf_alloc(struct mlx5_core_dev *dev, int size, struct mlx5_buf *buf);
