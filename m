@@ -1,36 +1,32 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] openvswitch: fix mis-ordered comment lines
- for ovs_skb_cb
-Date: Mon, 03 Jul 2017 05:54:13 -0700 (PDT)
-Message-ID: <20170703.055413.2273392695252860897.davem@davemloft.net>
-References: <20170703114643.3441-1-dja@axtens.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull-request: wireless-drivers-next 2017-07-03
+Date: Mon, 03 Jul 2017 05:54:24 -0700 (PDT)
+Message-ID: <20170703.055424.890035422929979636.davem@davemloft.net>
+References: <87r2xxkaw4.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: dja-Yfaxwxk/+vWsTnJN9+BGXg@public.gmane.org
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20170703114643.3441-1-dja-Yfaxwxk/+vWsTnJN9+BGXg@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: kvalo@codeaurora.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57698 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753220AbdGCMyh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Jul 2017 08:54:37 -0400
+In-Reply-To: <87r2xxkaw4.fsf@kamboji.qca.qualcomm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Axtens <dja-Yfaxwxk/+vWsTnJN9+BGXg@public.gmane.org>
-Date: Mon,  3 Jul 2017 21:46:43 +1000
+From: Kalle Valo <kvalo@codeaurora.org>
+Date: Mon, 03 Jul 2017 14:39:07 +0300
 
-> I was trying to wrap my head around meaning of mru, and realised
-> that the second line of the comment defining it had somehow
-> ended up after the line defining cutlen, leading to much confusion.
+> here's the late pull request to net-next I mentioned about last week to
+> get some new iwlwifi hw support to 4.13.
 > 
-> Reorder the lines to make sense.
-> 
-> Signed-off-by: Daniel Axtens <dja-Yfaxwxk/+vWsTnJN9+BGXg@public.gmane.org>
+> If this is too late just drop the request and let me know, I can then
+> resend it for 4.14 after the merge window. These patches were included
+> in today's linux-next build and I haven't received any reports about
+> problems, at least not yet.
 
-Applied, thanks.
+Pulled, thanks.
