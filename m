@@ -1,62 +1,77 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: Re: [PATCH 1/1] mlx4_en: make mlx4_log_num_mgm_entry_size static
-Date: Mon, 3 Jul 2017 09:52:35 +0300
-Message-ID: <20170703065235.GF8041@mtr-leonro.local>
-References: <1499060119-7063-1-git-send-email-yanjun.zhu@oracle.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH] [net-next] net/mlx5: include wq.o in non-ethernet build
+ for FPGA
+Date: Mon, 3 Jul 2017 09:21:53 +0200
+Message-ID: <CAK8P3a3B_-0-7BhbJG_Dni7qpNwy5qNgBeKW2X7R7V6Bujf4zQ@mail.gmail.com>
+References: <20170630154412.3575760-1-arnd@arndb.de> <AM4PR0501MB19409232F4E056237F2FAFFFDBD30@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+ <CAK8P3a1N4=JVJ3vZxBWJRTe-iJz25tmWjigPZ+4=-Aod0dq13Q@mail.gmail.com> <CALzJLG8TR8qmBygiL7Eg-1tWvOEgDvtECxKaXt4=j4YdCN72xA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="Zi0sgQQBxRFxMTsj"
-Cc: tariqt@mellanox.com, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, yuval.shaia@oracle.com
-To: Zhu Yanjun <yanjun.zhu@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.99]:60860 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752198AbdGCGwj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 3 Jul 2017 02:52:39 -0400
-Content-Disposition: inline
-In-Reply-To: <1499060119-7063-1-git-send-email-yanjun.zhu@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Boris Pismenny <borisp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Hadar Hen Zion <hadarh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Kamal Heib <kamalh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Maor Gottlieb <maorg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Mohamad Haj Yahia <mohamad-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Aviv Heller <avivh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CALzJLG8TR8qmBygiL7Eg-1tWvOEgDvtECxKaXt4=j4YdCN72xA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-
---Zi0sgQQBxRFxMTsj
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Mon, Jul 03, 2017 at 01:35:19AM -0400, Zhu Yanjun wrote:
-> The variable mlx4_log_num_mgm_entry_size is only called in main.c.
+On Sun, Jul 2, 2017 at 10:45 AM, Saeed Mahameed
+<saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org> wrote:
+> On Fri, Jun 30, 2017 at 10:25 PM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
+>> On Fri, Jun 30, 2017 at 8:58 PM, Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
+>>
+>>>> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+>>>> b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+>>>> index ca367445f864..50fe9e3c5dc2 100644
+>>>> --- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+>>>> +++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+>>>> @@ -9,7 +9,7 @@ mlx5_core-y :=        main.o cmd.o debugfs.o fw.o eq.o uar.o
+>>>> pagealloc.o \
+>>>>  mlx5_core-$(CONFIG_MLX5_ACCEL) += accel/ipsec.o
+>>>>
+>>>>  mlx5_core-$(CONFIG_MLX5_FPGA) += fpga/cmd.o fpga/core.o fpga/conn.o
+>>>> fpga/sdk.o \
+>>>> -             fpga/ipsec.o
+>>>> +             fpga/ipsec.o wq.o
+>>>
+>>> I believe we would prefer to move wq.o to mlx5_core-y.
+>>> Otherwise you might build it twice.
+>>
+>> That's not a problem, Kbuild is smart enough to drop duplicate object files
+>> that get built into the same module.
+>>
+>> If you think it's less confusing to readers of this file if it gets
+>> put into core,
+>> that's fine though, the only downside would be adding a little bit of
+>> code bloat for users that want neither the ethernet nor the fpga code
+>> (if that is a realistic use case).
 >
-> CC: Joe Jin <joe.jin@oracle.com>
-> CC: Junxiao Bi <junxiao.bi@oracle.com>
-> Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/main.c | 2 +-
->  drivers/net/ethernet/mellanox/mlx4/mlx4.h | 1 -
->  2 files changed, 1 insertion(+), 2 deletions(-)
+> Hi Arnd,
 >
+> Thanks for the patch, your solution is good enough, but let's avoid
+> confusing developers with such duplications.
+> since the Makefile might get messy if we will keep using this method.
+>
+> I suggest to move wq.o to core or make MLX5_FPGA depend on MLX5_CORE_EN.
+> I will discuss this with Ilan and we will provide the fix ASAP.
 
-Thanks,
-Reviewed-by: Leon Romanovsky <leonro@mellanox.com>
+Ok, sounds good. Thanks!
 
---Zi0sgQQBxRFxMTsj
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAllZ6bMACgkQ5GN7iDZy
-WKdcwBAAoB9CN9KrkcvS6HIJodsA/+yl6hRTK7H1GxbDMpZgmgsF6rrRP6XGkx5k
-Slm0upiwlJ/ve9gnTB0O4NuZRrwdD0s0ucljkcwgklYJD5ZC+6q+qI7Vl4OelkRD
-QGe+ViNHhELmd56EIJ9YejfN+Y34lV3gm3Ivl+GhGfBrMHoyqOILA5rt7fze9oiS
-ZIINRbIIsXr6EDlUTl5geLMYWkMEAEN/XeVREEDAX/o704RpCDpyCcoKiKRKp38S
-GuWwbKOxKQAkbvjeSOAvhiyHs/PhQ3FSlE26mbsjFuX4DpQh8l2s2Y0COQDbn1j8
-CEF9Ypked6xcZczZgUx1QuwuETAHEShm8S90cXKA/o2GbZh31BOh1qj8KAEwy04K
-tRG5Mz/ZWymAirsW78gN6rvK5l4IgrH8ylfy67yjGuxMW/8X93cMBqhZ9hgtMgnR
-5Y/9PFbz82OmN9I95J1hhsASniO0tGt33DQrERGNg9KyNDcZh/PvaGO+QOfbu8Zt
-9gDE6t/9Blon92S9KTFZMkQig8a4on9sXfeV2+kox/13WXYzenpztEYGrIWfXHWu
-vhsoszvLvkkq8BCTA/8leieijMUYLDB+AxvGnup01pasSkgouqLpz1hV73oVirjl
-PE8EdSs9Eqh2vEY3LDjV4Cvq4Nm+bbHDsZjGgqBbSZXVJlwQUAo=
-=Rzpx
------END PGP SIGNATURE-----
-
---Zi0sgQQBxRFxMTsj--
+    Arnd
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
