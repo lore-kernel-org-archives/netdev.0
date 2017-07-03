@@ -1,39 +1,60 @@
-From: Waiman Long <longman@redhat.com>
-Subject: Re: [PATCH net 1/2] vxlan: fix hlist corruption
-Date: Mon, 3 Jul 2017 09:25:45 -0400
-Message-ID: <bdd5d0e8-b8fa-2c81-07ad-17ad89b6c052@redhat.com>
-References: <cover.1499014738.git.jbenc@redhat.com>
- <61fd10b88f9eeab8f95a3a73f7e27358fcdcd781.1499014738.git.jbenc@redhat.com>
- <38e4eb5a-2d9e-4f38-f043-42a1dd449bfb@redhat.com>
- <20170703102359.246d68a2@griffin>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-        "John W. Linville" <linville@tuxdriver.com>,
-        pravin shelar <pshelar@ovn.org>
-To: Jiri Benc <jbenc@redhat.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH net v2 1/1] net: reflect mark on tcp syn ack packets
+Date: Mon,  3 Jul 2017 09:51:50 -0400
+Message-ID: <1499089910-20034-2-git-send-email-jhs@emojatatu.com>
+References: <1499089910-20034-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, lorenzo@google.com,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3592 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754284AbdGCNZr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 3 Jul 2017 09:25:47 -0400
-In-Reply-To: <20170703102359.246d68a2@griffin>
-Content-Language: en-US
+Received: from mail-io0-f195.google.com ([209.85.223.195]:32972 "EHLO
+        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934032AbdGCNwD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Jul 2017 09:52:03 -0400
+Received: by mail-io0-f195.google.com with SMTP id z62so8558149ioi.0
+        for <netdev@vger.kernel.org>; Mon, 03 Jul 2017 06:52:03 -0700 (PDT)
+In-Reply-To: <1499089910-20034-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/03/2017 04:23 AM, Jiri Benc wrote:
-> On Sun, 2 Jul 2017 16:06:10 -0400, Waiman Long wrote:
->> I didn't see any init code for hlist4 and hlist6. Is vxlan_dev going to
->> be *zalloc'ed so that they are guaranteed to be NULL? If not, you may
->> need to add  init code as not both hlists will be hashed and so one of
->> them may contain invalid data.
-> Yes, it's zalloced via alloc_netdev. No need to init the fields
-> explicitly.
->
->  Jiri
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Thanks for the clarification.
+SYN-ACK responses on a server in response to a SYN from a client
+did not get the injected skb mark that was tagged on the SYN packet.
 
--Longman
+Fixes: 84f39b08d786 ("net: support marking accepting TCP sockets")
+Reviewed-by: Lorenzo Colitti <lorenzo@google.com>
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ net/ipv4/ip_output.c  | 3 ++-
+ net/ipv4/tcp_output.c | 1 +
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 532b36e..94b36d9 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -173,7 +173,8 @@ int ip_build_and_send_pkt(struct sk_buff *skb, const struct sock *sk,
+ 	}
+ 
+ 	skb->priority = sk->sk_priority;
+-	skb->mark = sk->sk_mark;
++	if (!skb->mark)
++		skb->mark = sk->sk_mark;
+ 
+ 	/* Send it out. */
+ 	return ip_local_out(net, skb->sk, skb);
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 4858e19..b1604d0 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -3134,6 +3134,7 @@ struct sk_buff *tcp_make_synack(const struct sock *sk, struct dst_entry *dst,
+ 	tcp_ecn_make_synack(req, th);
+ 	th->source = htons(ireq->ir_num);
+ 	th->dest = ireq->ir_rmt_port;
++	skb->mark = ireq->ir_mark;
+ 	/* Setting of flags are superfluous here for callers (and ECE is
+ 	 * not even correctly set)
+ 	 */
+-- 
+1.9.1
