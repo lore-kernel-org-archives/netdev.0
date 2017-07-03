@@ -1,445 +1,535 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: [PATCH iproute2 V2 2/4] rdma: Add dev object
-Date: Mon,  3 Jul 2017 17:06:56 +0300
-Message-ID: <20170703140658.4091-3-leon@kernel.org>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: [PATCH iproute2 V2 1/4] rdma: Add basic infrastructure for RDMA tool
+Date: Mon,  3 Jul 2017 17:06:55 +0300
+Message-ID: <20170703140658.4091-2-leon@kernel.org>
 References: <20170703140658.4091-1-leon@kernel.org>
-Cc: Leon Romanovsky <leonro@mellanox.com>,
-        Doug Ledford <dledford@redhat.com>,
-        Ariel Almog <ariela@mellanox.com>,
-        Linux RDMA <linux-rdma@vger.kernel.org>,
-        Linux Netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.99]:38464 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755630AbdGCOHJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 3 Jul 2017 10:07:09 -0400
-In-Reply-To: <20170703140658.4091-1-leon@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Ariel Almog <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Linux RDMA <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170703140658.4091-1-leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Leon Romanovsky <leonro@mellanox.com>
+From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
-Device (dev) object represents struct ib_device to the user space.
+RDMA devices are cross-functional devices from one side,
+but very tailored for the specific markets from another.
 
-Device properties:
- * Device capabilities
- * FW version to the device output
- * node_guid and sys_image_guid
- * node_type
+Such diversity caused to spread of RDMA related configuration
+across various tools, e.g. devlink, ip, ethtool, ib specific and
+vendor specific solutions.
 
-Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
+This patch adds ability to fill device and port information
+by reading RDMA netlink.
+
+Signed-off-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 ---
- rdma/Makefile |   2 +-
- rdma/dev.c    | 235 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- rdma/rdma.c   |   3 +-
- rdma/rdma.h   |  12 ++-
- rdma/utils.c  |  46 +++++++++++-
- 5 files changed, 293 insertions(+), 5 deletions(-)
- create mode 100644 rdma/dev.c
+ Makefile        |   2 +-
+ rdma/.gitignore |   1 +
+ rdma/Makefile   |  22 ++++++
+ rdma/rdma.c     | 116 ++++++++++++++++++++++++++++
+ rdma/rdma.h     |  71 +++++++++++++++++
+ rdma/utils.c    | 232 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 443 insertions(+), 1 deletion(-)
+ create mode 100644 rdma/.gitignore
+ create mode 100644 rdma/Makefile
+ create mode 100644 rdma/rdma.c
+ create mode 100644 rdma/rdma.h
+ create mode 100644 rdma/utils.c
 
-diff --git a/rdma/Makefile b/rdma/Makefile
-index 64da2142..123d7ac5 100644
---- a/rdma/Makefile
-+++ b/rdma/Makefile
-@@ -2,7 +2,7 @@ include ../Config
+diff --git a/Makefile b/Makefile
+index 18de7dcb..c255063b 100644
+--- a/Makefile
++++ b/Makefile
+@@ -52,7 +52,7 @@ WFLAGS += -Wmissing-declarations -Wold-style-definition -Wformat=2
+ CFLAGS := $(WFLAGS) $(CCOPTS) -I../include $(DEFINES) $(CFLAGS)
+ YACCFLAGS = -d -t -v
  
- ifeq ($(HAVE_MNL),y)
+-SUBDIRS=lib ip tc bridge misc netem genl tipc devlink man
++SUBDIRS=lib ip tc bridge misc netem genl tipc devlink rdma man
  
--RDMA_OBJ = rdma.o utils.o
-+RDMA_OBJ = rdma.o utils.o dev.o
- 
- TARGETS=rdma
- CFLAGS += $(shell $(PKG_CONFIG) libmnl --cflags)
-diff --git a/rdma/dev.c b/rdma/dev.c
+ LIBNETLINK=../lib/libnetlink.a ../lib/libutil.a
+ LDLIBS += $(LIBNETLINK)
+diff --git a/rdma/.gitignore b/rdma/.gitignore
 new file mode 100644
-index 00000000..b80e5288
+index 00000000..51fb172b
 --- /dev/null
-+++ b/rdma/dev.c
-@@ -0,0 +1,235 @@
++++ b/rdma/.gitignore
+@@ -0,0 +1 @@
++rdma
+diff --git a/rdma/Makefile b/rdma/Makefile
+new file mode 100644
+index 00000000..64da2142
+--- /dev/null
++++ b/rdma/Makefile
+@@ -0,0 +1,22 @@
++include ../Config
++
++ifeq ($(HAVE_MNL),y)
++
++RDMA_OBJ = rdma.o utils.o
++
++TARGETS=rdma
++CFLAGS += $(shell $(PKG_CONFIG) libmnl --cflags)
++LDLIBS += $(shell $(PKG_CONFIG) libmnl --libs)
++
++endif
++
++all:	$(TARGETS) $(LIBS)
++
++rdma:	$(RDMA_OBJ) $(LIBS)
++	$(QUIET_LINK)$(CC) $^ $(LDFLAGS) $(LDLIBS) -o $@
++
++install: all
++	install -m 0755 $(TARGETS) $(DESTDIR)$(SBINDIR)
++
++clean:
++	rm -f $(RDMA_OBJ) $(TARGETS)
+diff --git a/rdma/rdma.c b/rdma/rdma.c
+new file mode 100644
+index 00000000..29273839
+--- /dev/null
++++ b/rdma/rdma.c
+@@ -0,0 +1,116 @@
 +/*
-+ * dev.c	RDMA tool
++ * rdma.c	RDMA tool
 + *
 + *              This program is free software; you can redistribute it and/or
 + *              modify it under the terms of the GNU General Public License
 + *              as published by the Free Software Foundation; either version
 + *              2 of the License, or (at your option) any later version.
 + *
-+ * Authors:     Leon Romanovsky <leonro@mellanox.com>
++ * Authors:     Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 + */
 +
-+#include "rdma.h"
++#include <limits.h>
++#include <rdma/rdma_netlink.h>
 +
-+static int dev_help(struct rdma *rd)
++#include "rdma.h"
++#include "SNAPSHOT.h"
++
++static void help(char *name)
 +{
-+	pr_out("Usage: %s dev show [DEV]\n", rd->filename);
++	pr_out("Usage: %s [ OPTIONS ] OBJECT { COMMAND | help }\n"
++	       "where  OBJECT := { help }\n"
++	       "       OPTIONS := { -V[ersion] | -d[etails]}\n", name);
++}
++
++static int cmd_help(struct rdma *rd)
++{
++	help(rd->filename);
 +	return 0;
 +}
 +
-+static void dev_print_caps(struct nlattr **tb)
++static int rd_cmd(struct rdma *rd)
 +{
-+	uint64_t caps;
-+	uint32_t idx;
-+
-+	/*
-+	 * FIXME: move to indexes when kernel will start exporting them.
-+	 */
-+	static const char *dev_caps[64] = {
-+		"RESIZE_MAX_WR",
-+		"BAD_PKEY_CNTR",
-+		"BAD_QKEY_CNTR",
-+		"RAW_MULTI",
-+		"AUTO_PATH_MIG",
-+		"CHANGE_PHY_PORT",
-+		"UD_AV_PORT_ENFORCE",
-+		"CURR_QP_STATE_MOD",
-+		"SHUTDOWN_PORT",
-+		"INIT_TYPE",
-+		"PORT_ACTIVE_EVENT",
-+		"SYS_IMAGE_GUID",
-+		"RC_RNR_NAK_GEN",
-+		"SRQ_RESIZE",
-+		"N_NOTIFY_CQ",
-+		"LOCAL_DMA_LKEY",
-+		"RESERVED",
-+		"MEM_WINDOW",
-+		"UD_IP_CSUM",
-+		"UD_TSO",
-+		"XRC",
-+		"MEM_MGT_EXTENSIONS",
-+		"BLOCK_MULTICAST_LOOPBACK",
-+		"MEM_WINDOW_TYPE_2A",
-+		"MEM_WINDOW_TYPE_2B",
-+		"RC_IP_CSUM",
-+		"RAW_IP_CSUM",
-+		"CROSS_CHANNEL",
-+		"MANAGED_FLOW_STEERING",
-+		"SIGNATURE_HANDOVER",
-+		"ON_DEMAND_PAGING",
-+		"SG_GAPS_REG",
-+		"VIRTUAL_FUNCTION",
-+		"RAW_SCATTER_FCS",
-+		"RDMA_NETDEV_OPA_VNIC",
++	const struct rdma_cmd cmds[] = {
++		{ NULL,		cmd_help },
++		{ "help",	cmd_help },
++		{ 0 }
 +	};
 +
-+	if (!tb[RDMA_NLDEV_ATTR_CAP_FLAGS])
-+	       return;
-+
-+	caps = mnl_attr_get_u64(tb[RDMA_NLDEV_ATTR_CAP_FLAGS]);
-+
-+	pr_out("\n    caps: <");
-+	for (idx = 0; idx < 64; idx++) {
-+		if (caps & 0x1) {
-+			pr_out("%s", dev_caps[idx]?dev_caps[idx]:"UNKNONW");
-+			if (caps >> 0x1)
-+				pr_out(", ");
-+		}
-+		caps >>= 0x1;
-+	}
-+
-+	pr_out(">");
++	return rdma_exec_cmd(rd, cmds, "object");
 +}
 +
-+static void dev_print_fw(struct nlattr **tb)
-+{
-+	if (!tb[RDMA_NLDEV_ATTR_FW_VERSION])
-+		return;
-+
-+	pr_out("fw %s ",
-+	       mnl_attr_get_str(tb[RDMA_NLDEV_ATTR_FW_VERSION]));
-+}
-+
-+static void _dev_print_be64(char *name, uint64_t val)
-+{
-+	uint16_t vp[4];
-+
-+	memcpy(vp, &val, sizeof(uint64_t));
-+	pr_out("%s %04x:%04x:%04x:%04x ", name, vp[3], vp[2], vp[1], vp[0]);
-+}
-+
-+static void dev_print_node_guid(struct nlattr **tb)
-+{
-+	uint64_t node_guid;
-+
-+	if (!tb[RDMA_NLDEV_ATTR_NODE_GUID])
-+		return;
-+
-+	node_guid = mnl_attr_get_u64(tb[RDMA_NLDEV_ATTR_NODE_GUID]);
-+	_dev_print_be64("node_guid", node_guid);
-+}
-+
-+static void dev_print_sys_image_guid(struct nlattr **tb)
-+{
-+       uint64_t	sys_image_guid;
-+
-+	if (!tb[RDMA_NLDEV_ATTR_SYS_IMAGE_GUID])
-+		return;
-+
-+	sys_image_guid = mnl_attr_get_u64(tb[RDMA_NLDEV_ATTR_SYS_IMAGE_GUID]);
-+	_dev_print_be64("sys_image_guid", sys_image_guid);
-+}
-+
-+static void dev_print_node_type(struct nlattr **tb)
-+{
-+	uint8_t node_type;
-+	/*
-+	 * FIXME: move to index exported by the kernel
-+	 */
-+	static const char *str[] = {
-+		"UNKNOWN",
-+		"SWITCH",
-+		"ROUTER",
-+		"RNIC",
-+		"USNIC",
-+		"USNIC_UDP",
-+	};
-+
-+	if (!tb[RDMA_NLDEV_ATTR_DEV_NODE_TYPE])
-+		return;
-+
-+	node_type = mnl_attr_get_u8(tb[RDMA_NLDEV_ATTR_DEV_NODE_TYPE]);
-+
-+	if (node_type < 7 )
-+		pr_out("node_type %s ", str[node_type]);
-+	else
-+		pr_out("node_type UNKNOWN ");
-+}
-+
-+static int dev_parse_cb(const struct nlmsghdr *nlh, void *data)
-+{
-+	struct nlattr *tb[RDMA_NLDEV_ATTR_MAX] = {};
-+	struct rdma *rd = data;
-+
-+	mnl_attr_parse(nlh, 0, rd_attr_cb, tb);
-+	if (!tb[RDMA_NLDEV_ATTR_DEV_INDEX] || !tb[RDMA_NLDEV_ATTR_DEV_NAME])
-+		return MNL_CB_ERROR;
-+
-+	pr_out("%u: %s: ",
-+	       mnl_attr_get_u32(tb[RDMA_NLDEV_ATTR_DEV_INDEX]),
-+	       mnl_attr_get_str(tb[RDMA_NLDEV_ATTR_DEV_NAME]));
-+	dev_print_node_type(tb);
-+	dev_print_fw(tb);
-+	dev_print_node_guid(tb);
-+	dev_print_sys_image_guid(tb);
-+	if (rd->show_details)
-+		dev_print_caps(tb);
-+
-+	pr_out("\n");
-+	return MNL_CB_OK;
-+}
-+
-+
-+static int dev_no_args(struct rdma *rd)
++static int rd_init(struct rdma *rd, int argc, char **argv, char *filename)
 +{
 +	uint32_t seq;
 +	int ret;
 +
-+	rdma_prepare_msg(rd, RDMA_NLDEV_CMD_GET, &seq, (NLM_F_REQUEST | NLM_F_ACK));
-+	mnl_attr_put_u32(rd->nlh, RDMA_NLDEV_ATTR_DEV_INDEX, rd->dev_idx);
++	rd->filename = filename;
++	rd->argc = argc;
++	rd->argv = argv;
++	INIT_LIST_HEAD(&rd->dev_map_list);
++	rd->buff = malloc(MNL_SOCKET_BUFFER_SIZE);
++	if (!rd->buff)
++		return -ENOMEM;
++
++	rdma_prepare_msg(rd, RDMA_NLDEV_CMD_GET, &seq, (NLM_F_REQUEST | NLM_F_ACK | NLM_F_DUMP));
 +	if ((ret = rdma_send_msg(rd)))
 +		return ret;
 +
-+	return rdma_recv_msg(rd, dev_parse_cb, rd, seq);
++	return rdma_recv_msg(rd, rd_dev_init_cb, rd, seq);
 +}
 +
-+static int dev_one_show(struct rdma *rd)
++static void rd_free(struct rdma *rd)
 +{
-+	const struct rdma_cmd cmds[] = {
-+		{ NULL,		dev_no_args},
-+		{ 0 }
++	free(rd->buff);
++	rdma_free_devmap(rd);
++}
++int main(int argc, char **argv)
++{
++	static const struct option long_options[] = {
++		{ "version",		no_argument,		NULL, 'V' },
++		{ "help",		no_argument,		NULL, 'h' },
++		{ "details",		no_argument,		NULL, 'd' },
++		{ NULL, 0, NULL, 0 }
 +	};
++	bool show_details = false;
++	char *filename;
++	struct rdma rd;
++	int opt;
++	int err;
 +
-+	return rdma_exec_cmd(rd, cmds, "parameter");
++	filename = basename(argv[0]);
 +
++	while ((opt = getopt_long(argc, argv, "Vhd",
++				  long_options, NULL)) >= 0) {
++
++		switch (opt) {
++		case 'V':
++			printf("%s utility, iproute2-ss%s\n", filename, SNAPSHOT);
++			return EXIT_SUCCESS;
++		case 'd':
++			show_details = true;
++			break;
++		case 'h':
++			help(filename);
++			return EXIT_SUCCESS;
++		default:
++			pr_err("Unknown option.\n");
++			help(filename);
++			return EXIT_FAILURE;
++		}
++	}
++
++	argc -= optind;
++	argv += optind;
++
++	err = rd_init(&rd, argc, argv, filename);
++	if (err)
++		goto out;
++
++	rd.show_details = show_details;
++	err = rd_cmd(&rd);
++out:
++	/* Always cleanup */
++	rd_free(&rd);
++	return (err) ? EXIT_FAILURE:EXIT_SUCCESS;
++}
+diff --git a/rdma/rdma.h b/rdma/rdma.h
+new file mode 100644
+index 00000000..3c070836
+--- /dev/null
++++ b/rdma/rdma.h
+@@ -0,0 +1,71 @@
++/*
++ * rdma.c	RDMA tool
++ *
++ *              This program is free software; you can redistribute it and/or
++ *              modify it under the terms of the GNU General Public License
++ *              as published by the Free Software Foundation; either version
++ *              2 of the License, or (at your option) any later version.
++ *
++ * Authors:     Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
++ */
++#ifndef _RDMA_TOOL_H_
++#define _RDMA_TOOL_H_
++
++#include <stdlib.h>
++#include <string.h>
++#include <errno.h>
++#include <getopt.h>
++#include <libmnl/libmnl.h>
++
++#include <rdma/rdma_netlink.h>
++#include "list.h"
++
++#define pr_err(args...) fprintf(stderr, ##args)
++#define pr_out(args...) fprintf(stdout, ##args)
++
++struct dev_map {
++	struct list_head list;
++	char *dev_name;
++	uint32_t num_ports;
++	uint32_t idx;
++};
++
++struct rdma {
++	int argc;
++	char **argv;
++	char *filename;
++	bool show_details;
++	struct list_head dev_map_list;
++	struct mnl_socket *nl;
++	struct nlmsghdr *nlh;
++	char *buff;
++};
++
++struct rdma_cmd {
++	const char *cmd;
++	int (*func)(struct rdma *rd);
++};
++
++/*
++ * Parser interface
++ */
++bool rd_no_arg(struct rdma *rd);
++bool rd_argv_match(struct rdma *rd, const char *pattern);
++void rd_arg_inc(struct rdma *rd);
++
++int rdma_exec_cmd(struct rdma *rd, const struct rdma_cmd *c, const char *str);
++
++/*
++ * Device manipulation
++ */
++void rdma_free_devmap(struct rdma *rd);
++
++/*
++ * Netlink
++ */
++int rdma_send_msg(struct rdma *rd);
++int rdma_recv_msg(struct rdma *rd, mnl_cb_t callback, void *data, uint32_t seq);
++int rdma_prepare_msg(struct rdma *rd, uint32_t cmd, uint32_t *seq, uint16_t flags);
++int rd_dev_init_cb(const struct nlmsghdr *nlh, void *data);
++int rd_attr_cb(const struct nlattr *attr, void *data);
++#endif /* _RDMA_TOOL_H_ */
+diff --git a/rdma/utils.c b/rdma/utils.c
+new file mode 100644
+index 00000000..cabec6e7
+--- /dev/null
++++ b/rdma/utils.c
+@@ -0,0 +1,232 @@
++/*
++ * utils.c	RDMA tool
++ *
++ *              This program is free software; you can redistribute it and/or
++ *              modify it under the terms of the GNU General Public License
++ *              as published by the Free Software Foundation; either version
++ *              2 of the License, or (at your option) any later version.
++ *
++ * Authors:     Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
++ */
++
++#include <sys/types.h>
++#include <dirent.h>
++#include <time.h>
++
++#include "rdma.h"
++#include <rdma/rdma_netlink.h>
++
++/*
++ * This macro will be moved to generic layer,
++ * after code will be accepted.
++ * it is placed here to avoid rebases with upstream code.
++ */
++#define MAX(a, b)	((a) > (b) ? (a) : (b))
++
++static int rd_argc(struct rdma *rd)
++{
++	return rd->argc;
 +}
 +
-+static int dev_show(struct rdma *rd)
++static char *rd_argv(struct rdma *rd)
++{
++	if (!rd_argc(rd))
++		return NULL;
++	return *rd->argv;
++}
++
++static int strcmpx(const char *str1, const char *str2)
++{
++	if (strlen(str1) > strlen(str2))
++			return -1;
++	return strncmp(str1, str2, strlen(str1));
++}
++
++bool rd_argv_match(struct rdma *rd, const char *pattern)
++{
++	if (!rd_argc(rd))
++		return false;
++	return strcmpx(rd_argv(rd), pattern) == 0;
++}
++
++void rd_arg_inc(struct rdma *rd)
++{
++	if (!rd_argc(rd))
++		return;
++	rd->argc--;
++	rd->argv++;
++}
++
++bool rd_no_arg(struct rdma *rd)
++{
++	return rd_argc(rd) == 0;
++}
++
++static struct dev_map *dev_map_alloc(const char *dev_name)
 +{
 +	struct dev_map *dev_map;
-+	int ret = 0;
 +
-+	if (rd_no_arg(rd)) {
-+		list_for_each_entry(dev_map, &rd->dev_map_list, list) {
-+			rd->dev_idx = dev_map->idx;
-+			ret = dev_one_show(rd);
-+			if (ret)
-+				return ret;
-+		}
++	dev_map = calloc(1, sizeof(*dev_map));
++	if (!dev_map)
++		return NULL;
++	dev_map->dev_name = strdup(dev_name);
 +
++	return dev_map;
++}
++
++static void dev_map_free(struct dev_map *dev_map)
++{
++	if(!dev_map)
++		return;
++
++	free(dev_map->dev_name);
++	free(dev_map);
++}
++
++static void dev_map_cleanup(struct rdma *rd)
++{
++	struct dev_map *dev_map, *tmp;
++
++	list_for_each_entry_safe(dev_map, tmp,
++				 &rd->dev_map_list, list) {
++		list_del(&dev_map->list);
++		dev_map_free(dev_map);
 +	}
-+	else {
-+		dev_map = dev_map_lookup(rd, false);
-+		if (!dev_map) {
-+			pr_err("Wrong device name\n");
-+			return -ENOENT;
++}
++
++static const enum mnl_attr_data_type nldev_policy[RDMA_NLDEV_ATTR_MAX] = {
++	[RDMA_NLDEV_ATTR_DEV_NAME] = MNL_TYPE_NUL_STRING,
++	[RDMA_NLDEV_ATTR_PORT_INDEX] = MNL_TYPE_U32,
++};
++
++int rd_attr_cb(const struct nlattr *attr, void *data)
++{
++	const struct nlattr **tb = data;
++	int type;
++
++	if (mnl_attr_type_valid(attr, RDMA_NLDEV_ATTR_MAX) < 0)
++		return MNL_CB_ERROR;
++
++	type = mnl_attr_get_type(attr);
++
++	if (mnl_attr_validate(attr, nldev_policy[type]) < 0)
++		return MNL_CB_ERROR;
++
++	tb[type] = attr;
++	return MNL_CB_OK;
++}
++
++int rd_dev_init_cb(const struct nlmsghdr *nlh, void *data)
++{
++	struct nlattr *tb[RDMA_NLDEV_ATTR_MAX] = {};
++	struct dev_map *dev_map;
++	struct rdma *rd = data;
++	const char *dev_name;
++
++	mnl_attr_parse(nlh, 0, rd_attr_cb, tb);
++	if (!tb[RDMA_NLDEV_ATTR_DEV_NAME] || !tb[RDMA_NLDEV_ATTR_DEV_INDEX])
++		return MNL_CB_ERROR;
++	if (!tb[RDMA_NLDEV_ATTR_PORT_INDEX]) {
++		pr_err("This tool doesn't support switches yet\n");
++		return MNL_CB_ERROR;
++	}
++
++	dev_name = mnl_attr_get_str(tb[RDMA_NLDEV_ATTR_DEV_NAME]);
++
++	dev_map = dev_map_alloc(dev_name);
++	if (!dev_map)
++		/* The main function will cleanup the allocations */
++		return MNL_CB_ERROR;
++	list_add_tail(&dev_map->list, &rd->dev_map_list);
++
++	dev_map->num_ports = mnl_attr_get_u32(tb[RDMA_NLDEV_ATTR_PORT_INDEX]);
++	dev_map->idx = mnl_attr_get_u32(tb[RDMA_NLDEV_ATTR_DEV_INDEX]);
++
++	return MNL_CB_OK;
++}
++
++void rdma_free_devmap(struct rdma *rd)
++{
++	if(!rd)
++		return;
++	dev_map_cleanup(rd);
++	return;
++}
++
++int rdma_exec_cmd(struct rdma *rd, const struct rdma_cmd *cmds, const char *str)
++{
++	const struct rdma_cmd *c;
++
++	/* First argument in objs table is default variant */
++	if (rd_no_arg(rd))
++		return cmds->func(rd);
++
++	for (c = cmds + 1; c->cmd; ++c) {
++		if (rd_argv_match(rd, c->cmd)) {
++			/* Move to next argument */
++			rd_arg_inc(rd);
++			return c->func(rd);
 +		}
-+		rd_arg_inc(rd);
-+		rd->dev_idx = dev_map->idx;
-+		ret = dev_one_show(rd);
 +	}
++
++	pr_err("Unknown %s '%s'.\n", str, rd_argv(rd));
++	return 0;
++}
++
++int rdma_prepare_msg(struct rdma *rd, uint32_t cmd, uint32_t *seq, uint16_t flags)
++{
++	*seq = time(NULL);
++
++	rd->nlh = mnl_nlmsg_put_header(rd->buff);
++	rd->nlh->nlmsg_type = RDMA_NL_GET_TYPE(RDMA_NL_NLDEV, cmd);
++	rd->nlh->nlmsg_seq = *seq;
++	rd->nlh->nlmsg_flags = flags;
++
++	return 0;
++}
++
++int rdma_send_msg(struct rdma *rd)
++{
++	int ret;
++
++	rd->nl = mnl_socket_open(NETLINK_RDMA);
++	if (!rd->nl) {
++		pr_err("Failed to open NETLINK_RDMA socket\n");
++		return -ENODEV;
++	}
++
++	ret = mnl_socket_bind(rd->nl, 0, MNL_SOCKET_AUTOPID);
++	if (ret < 0) {
++		pr_err("Failed to bind socket with err %d\n", ret);
++		goto err;
++	}
++
++	ret = mnl_socket_sendto(rd->nl, rd->nlh, rd->nlh->nlmsg_len);
++	if (ret < 0) {
++		pr_err("Failed to send to socket with err %d\n", ret);
++		goto err;
++	}
++	return 0;
++
++err:	mnl_socket_close(rd->nl);
 +	return ret;
 +}
 +
-+int cmd_dev(struct rdma *rd)
++int rdma_recv_msg(struct rdma *rd, mnl_cb_t callback, void *data, unsigned int seq)
 +{
-+	const struct rdma_cmd cmds[] = {
-+		{ NULL,		dev_show },
-+		{ "show",	dev_show },
-+		{ "list",	dev_show },
-+		{ "help",	dev_help },
-+		{ 0 }
-+	};
++	int ret;
++	unsigned int portid;
++	char buf[MNL_SOCKET_BUFFER_SIZE];
 +
-+	return rdma_exec_cmd(rd, cmds, "dev command");
-+}
-diff --git a/rdma/rdma.c b/rdma/rdma.c
-index 29273839..dfebd71e 100644
---- a/rdma/rdma.c
-+++ b/rdma/rdma.c
-@@ -18,7 +18,7 @@
- static void help(char *name)
- {
- 	pr_out("Usage: %s [ OPTIONS ] OBJECT { COMMAND | help }\n"
--	       "where  OBJECT := { help }\n"
-+	       "where  OBJECT := { dev | help }\n"
- 	       "       OPTIONS := { -V[ersion] | -d[etails]}\n", name);
- }
- 
-@@ -33,6 +33,7 @@ static int rd_cmd(struct rdma *rd)
- 	const struct rdma_cmd cmds[] = {
- 		{ NULL,		cmd_help },
- 		{ "help",	cmd_help },
-+		{ "dev",	cmd_dev },
- 		{ 0 }
- 	};
- 
-diff --git a/rdma/rdma.h b/rdma/rdma.h
-index 3c070836..aac0537d 100644
---- a/rdma/rdma.h
-+++ b/rdma/rdma.h
-@@ -16,7 +16,6 @@
- #include <errno.h>
- #include <getopt.h>
- #include <libmnl/libmnl.h>
--
- #include <rdma/rdma_netlink.h>
- #include "list.h"
- 
-@@ -36,6 +35,8 @@ struct rdma {
- 	char *filename;
- 	bool show_details;
- 	struct list_head dev_map_list;
-+	uint32_t dev_idx;
-+	uint32_t port_idx;
- 	struct mnl_socket *nl;
- 	struct nlmsghdr *nlh;
- 	char *buff;
-@@ -52,13 +53,22 @@ struct rdma_cmd {
- bool rd_no_arg(struct rdma *rd);
- bool rd_argv_match(struct rdma *rd, const char *pattern);
- void rd_arg_inc(struct rdma *rd);
-+char *rd_argv(struct rdma *rd);
-+uint32_t get_port_from_argv(struct rdma *rd);
- 
-+/*
-+ * Commands interface
-+ */
-+int cmd_dev(struct rdma *rd);
-+int cmd_link(struct rdma *rd);
- int rdma_exec_cmd(struct rdma *rd, const struct rdma_cmd *c, const char *str);
- 
- /*
-  * Device manipulation
-  */
- void rdma_free_devmap(struct rdma *rd);
-+struct dev_map *dev_map_lookup(struct rdma *rd, bool allow_port_index);
-+struct dev_map *_dev_map_lookup(struct rdma *rd, const char *dev_name);
- 
- /*
-  * Netlink
-diff --git a/rdma/utils.c b/rdma/utils.c
-index cabec6e7..47b977bf 100644
---- a/rdma/utils.c
-+++ b/rdma/utils.c
-@@ -28,7 +28,7 @@ static int rd_argc(struct rdma *rd)
- 	return rd->argc;
- }
- 
--static char *rd_argv(struct rdma *rd)
-+char *rd_argv(struct rdma *rd)
- {
- 	if (!rd_argc(rd))
- 		return NULL;
-@@ -62,6 +62,15 @@ bool rd_no_arg(struct rdma *rd)
- 	return rd_argc(rd) == 0;
- }
- 
-+uint32_t get_port_from_argv(struct rdma *rd)
-+{
-+        char *slash;
++	portid = mnl_socket_get_portid(rd->nl);
++	do {
++		ret = mnl_socket_recvfrom(rd->nl, buf, sizeof(buf));
++		if (ret <= 0)
++			break;
 +
-+        slash = strchr(rd_argv(rd), '/');
-+        /* if no port found, return 0 */
-+        return (slash) ? (atoi(slash + 1)):0;
-+}
++		ret = mnl_cb_run(buf, ret, seq, portid, callback, data);
++	} while (ret > 0);
 +
- static struct dev_map *dev_map_alloc(const char *dev_name)
- {
- 	struct dev_map *dev_map;
-@@ -95,8 +104,14 @@ static void dev_map_cleanup(struct rdma *rd)
- }
- 
- static const enum mnl_attr_data_type nldev_policy[RDMA_NLDEV_ATTR_MAX] = {
-+	[RDMA_NLDEV_ATTR_DEV_INDEX] = MNL_TYPE_U32,
- 	[RDMA_NLDEV_ATTR_DEV_NAME] = MNL_TYPE_NUL_STRING,
- 	[RDMA_NLDEV_ATTR_PORT_INDEX] = MNL_TYPE_U32,
-+	[RDMA_NLDEV_ATTR_CAP_FLAGS] = MNL_TYPE_U64,
-+	[RDMA_NLDEV_ATTR_FW_VERSION] = MNL_TYPE_NUL_STRING,
-+	[RDMA_NLDEV_ATTR_NODE_GUID] = MNL_TYPE_U64,
-+	[RDMA_NLDEV_ATTR_SYS_IMAGE_GUID] = MNL_TYPE_U64,
-+	[RDMA_NLDEV_ATTR_DEV_NODE_TYPE] = MNL_TYPE_U8,
- };
- 
- int rd_attr_cb(const struct nlattr *attr, void *data)
-@@ -141,7 +156,6 @@ int rd_dev_init_cb(const struct nlmsghdr *nlh, void *data)
- 
- 	dev_map->num_ports = mnl_attr_get_u32(tb[RDMA_NLDEV_ATTR_PORT_INDEX]);
- 	dev_map->idx = mnl_attr_get_u32(tb[RDMA_NLDEV_ATTR_DEV_INDEX]);
--
- 	return MNL_CB_OK;
- }
- 
-@@ -230,3 +244,31 @@ int rdma_recv_msg(struct rdma *rd, mnl_cb_t callback, void *data, unsigned int s
- 	mnl_socket_close(rd->nl);
- 	return ret;
- }
-+
-+struct dev_map *_dev_map_lookup(struct rdma *rd, const char *dev_name)
-+{
-+	struct dev_map *dev_map;
-+
-+	list_for_each_entry(dev_map, &rd->dev_map_list, list)
-+		if (strcmp(dev_name, dev_map->dev_name) == 0)
-+			return dev_map;
-+
-+	return NULL;
-+}
-+struct dev_map *dev_map_lookup(struct rdma *rd, bool allow_port_index)
-+{
-+	struct dev_map *dev_map;
-+	char *dev_name;
-+	char *slash;
-+
-+	dev_name = strdup(rd_argv(rd));
-+	if (allow_port_index) {
-+		slash = strrchr(dev_name, '/');
-+		if (slash)
-+			*slash = '\0';
-+	}
-+
-+	dev_map = _dev_map_lookup(rd, dev_name);
-+	free(dev_name);
-+	return dev_map;
++	mnl_socket_close(rd->nl);
++	return ret;
 +}
 -- 
 2.13.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
