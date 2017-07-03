@@ -1,137 +1,122 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: [PATCH rdma-next V2 00/27] RDMA Netlink Device Client
-Date: Mon,  3 Jul 2017 09:28:03 +0300
-Message-ID: <20170703062830.30361-1-leon@kernel.org>
-Cc: linux-rdma@vger.kernel.org,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Ariel Almog <ariela@mellanox.com>,
-        Linux Netdev <netdev@vger.kernel.org>
-To: Doug Ledford <dledford@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.99]:59206 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751902AbdGCG2i (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 3 Jul 2017 02:28:38 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: [PATCH rdma-next V2 14/27] RDMA/netlink: Add nldev initialization flows
+Date: Mon,  3 Jul 2017 09:28:17 +0300
+Message-ID: <20170703062830.30361-15-leon@kernel.org>
+References: <20170703062830.30361-1-leon@kernel.org>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+        Ariel Almog <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Linux Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170703062830.30361-1-leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
-This is third version of the RDMA netlink patch set.
+Add nldev init and exit flows to the RDMA/core.
 
-The following patch set is an implementation of NLDEV - RDMA netlink
-device client. It is based on the already sent patch [1] and patch set [2].
-
-This client is needed to properly integrate coming RDMAtool [3]
-into iproute2 package which is based on netlink.
-
-The following patch set can be logically divided into four parts:
- * Cleanup of RDMA netlink interface to handle dumpit/doit callbacks.
- * Implementation of static ib_device index to allow future renaming support for IB devices.
- * NLDEV initial implementation.
- * Exposing various device ports properties.
-
-Doug,
-This series passed extensive review and I would be happy to see this series series merged in
-this merge window, so I will be able to focus on more complex types for the "get interface" and
-on on "set ability", which is long waited feature for the whole RDMA stack [4].
-
-Thanks
-
-Chagelog:
-v1->v2:
- * Groupped all various export* commits into this one patch set.
- * Fixed reversed port vailidy check.
- * Limited export of fields only for supported protocols.
- * Followed sysfs naming for various exported properties.
-v0->v1:
- * Added Steve's Reviewed-by tags for all patches except patch #8, because it was completely rewritten.
- * Implemented static indexes for ib_device in patch #8 and dropped preview version which
-   translated device name to corresponding ib_device.
- * Fixed language in commit messages as was pointed by Steve.
- * Rename TODO to be FIXME in patch #11.
-
-Thanks
-
-[1] "Revert "IB/core: Add flow control to the portmapper netlink calls""
-     https://patchwork.kernel.org/patch/9752865/
-
-[2] [PATCH rdma-next V3 0/5] Refactor RDMA netlink infrastructure
-    https://www.spinics.net/lists/linux-rdma/msg51455.html
-
-[3] [RFC iproute2 0/8] RDMA tool
-    https://www.spinics.net/lists/linux-rdma/msg49575.html
-
-[4] https://www.spinics.net/lists/linux-rdma/msg51476.html
-
-Available in the "topic/rdma-netlink-v2" topic branch of this git repo:
-git://git.kernel.org/pub/scm/linux/kernel/git/leon/linux-rdma.git
-
-Or for browsing:
-https://git.kernel.org/cgit/linux/kernel/git/leon/linux-rdma.git/log/?h=topic/rdma-netlink-v2
-
-CC: Stephen Hemminger <stephen@networkplumber.org>
-CC: Ariel Almog <ariela@mellanox.com>
-CC: Linux RDMA <linux-rdma@vger.kernel.org>
-CC: Linux Netdev <netdev@vger.kernel.org>
-
-Leon Romanovsky (27):
-  RDMA/netlink: Add flag to consolidate common handing
-  RDMA/netlink: Simplify the put_msg and put_attr
-  RDMA/netlink: Rename and remove redundant parameter from ibnl_unicast
-  RDMA/netlink: Rename and remove redundant parameter from
-    ibnl_multicast
-  RDMA/netlink: Simplify and rename ibnl_chk_listeners
-  RDMA/netlink: Rename netlink callback struct
-  RDMA/core: Add iterator over ib_devices
-  RDMA/core: Add and expose static device index
-  RDMA/netlink: Add and implement doit netlink callback
-  RDMA/netlink: Reduce indirection access to cb_table
-  RDMA/netlink: Convert LS to doit callback
-  RDMA/netlink: Update copyright
-  RDMA/netlink: Add netlink device definitions to UAPI
-  RDMA/netlink: Add nldev initialization flows
-  RDMA/netlink: Implement nldev device dumpit calback
-  RDMA/netlink: Add nldev device doit implementation
-  RDMA/netlink: Add nldev port dumpit implementation
-  RDMA/netlink: Implement nldev port doit callback
-  RDMA/netlink: Expose device and port capability masks
-  RDMA: Simplify get firmware interface
-  RDMA/netlink: Export FW version
-  RDMA/netlink: Export node_guid and sys_image_guid
-  RDMA/netlink: Advertise IB subnet prefix
-  RDMA/netink: Export lids and sm_lids
-  RDMA/netlink: Export LID mask counter (LMC)
-  RDMA/netlink: Provide port state and physical link state
-  RDMA/netlink: Export node_type
-
- drivers/infiniband/core/Makefile               |   4 +-
- drivers/infiniband/core/addr.c                 |  12 +-
- drivers/infiniband/core/cma.c                  |   2 +-
- drivers/infiniband/core/core_priv.h            |  21 +-
- drivers/infiniband/core/device.c               |  82 ++++++-
- drivers/infiniband/core/iwcm.c                 |   2 +-
- drivers/infiniband/core/iwpm_msg.c             |   8 +-
- drivers/infiniband/core/iwpm_util.c            |   4 +-
- drivers/infiniband/core/netlink.c              |  97 ++++----
- drivers/infiniband/core/nldev.c                | 312 +++++++++++++++++++++++++
- drivers/infiniband/core/sa_query.c             |  18 +-
- drivers/infiniband/core/sysfs.c                |   4 +-
- drivers/infiniband/hw/cxgb3/iwch_provider.c    |   5 +-
- drivers/infiniband/hw/cxgb4/provider.c         |   5 +-
- drivers/infiniband/hw/hfi1/verbs.c             |   5 +-
- drivers/infiniband/hw/i40iw/i40iw_verbs.c      |   7 +-
- drivers/infiniband/hw/mlx4/main.c              |   5 +-
- drivers/infiniband/hw/mlx5/main.c              |   8 +-
- drivers/infiniband/hw/mthca/mthca_provider.c   |   5 +-
- drivers/infiniband/hw/nes/nes_verbs.c          |   5 +-
- drivers/infiniband/hw/ocrdma/ocrdma_main.c     |   5 +-
- drivers/infiniband/hw/qedr/main.c              |   5 +-
- drivers/infiniband/hw/usnic/usnic_ib_main.c    |   6 +-
- drivers/infiniband/hw/vmw_pvrdma/pvrdma_main.c |   5 +-
- drivers/infiniband/ulp/ipoib/ipoib_ethtool.c   |   3 +-
- include/rdma/ib_verbs.h                        |   8 +-
- include/rdma/rdma_netlink.h                    |  26 ++-
- include/uapi/rdma/rdma_netlink.h               |  84 ++++++-
- 28 files changed, 611 insertions(+), 142 deletions(-)
+Signed-off-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Reviewed-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+---
+ drivers/infiniband/core/Makefile |  4 +++-
+ drivers/infiniband/core/device.c |  2 ++
+ drivers/infiniband/core/nldev.c  | 45 ++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 50 insertions(+), 1 deletion(-)
  create mode 100644 drivers/infiniband/core/nldev.c
+
+diff --git a/drivers/infiniband/core/Makefile b/drivers/infiniband/core/Makefile
+index 6ebd9ad95010..d260c5ecf656 100644
+--- a/drivers/infiniband/core/Makefile
++++ b/drivers/infiniband/core/Makefile
+@@ -10,7 +10,9 @@ obj-$(CONFIG_INFINIBAND_USER_ACCESS) +=	ib_uverbs.o ib_ucm.o \
+ ib_core-y :=			packer.o ud_header.o verbs.o cq.o rw.o sysfs.o \
+ 				device.o fmr_pool.o cache.o netlink.o \
+ 				roce_gid_mgmt.o mr_pool.o addr.o sa_query.o \
+-				multicast.o mad.o smi.o agent.o mad_rmpp.o
++				multicast.o mad.o smi.o agent.o mad_rmpp.o \
++				nldev.o
++
+ ib_core-$(CONFIG_INFINIBAND_USER_MEM) += umem.o
+ ib_core-$(CONFIG_INFINIBAND_ON_DEMAND_PAGING) += umem_odp.o umem_rbtree.o
+ ib_core-$(CONFIG_CGROUP_RDMA) += cgroup.o
+diff --git a/drivers/infiniband/core/device.c b/drivers/infiniband/core/device.c
+index 4aaf51db528a..646c98acc43b 100644
+--- a/drivers/infiniband/core/device.c
++++ b/drivers/infiniband/core/device.c
+@@ -1128,6 +1128,7 @@ static int __init ib_core_init(void)
+ 		goto err_mad;
+ 	}
+ 
++	nldev_init();
+ 	rdma_nl_register(RDMA_NL_LS, ibnl_ls_cb_table);
+ 	ib_cache_setup();
+ 
+@@ -1151,6 +1152,7 @@ static int __init ib_core_init(void)
+ static void __exit ib_core_cleanup(void)
+ {
+ 	ib_cache_cleanup();
++	nldev_exit();
+ 	rdma_nl_unregister(RDMA_NL_LS);
+ 	ib_sa_cleanup();
+ 	ib_mad_cleanup();
+diff --git a/drivers/infiniband/core/nldev.c b/drivers/infiniband/core/nldev.c
+new file mode 100644
+index 000000000000..1d1e4f214874
+--- /dev/null
++++ b/drivers/infiniband/core/nldev.c
+@@ -0,0 +1,45 @@
++/*
++ * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the names of the copyright holders nor the names of its
++ *    contributors may be used to endorse or promote products derived from
++ *    this software without specific prior written permission.
++ *
++ * Alternatively, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") version 2 as published by the Free
++ * Software Foundation.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include <rdma/rdma_netlink.h>
++
++#include "core_priv.h"
++
++void __init nldev_init(void)
++{
++	rdma_nl_register(RDMA_NL_NLDEV, NULL);
++}
++
++void __exit nldev_exit(void)
++{
++	rdma_nl_unregister(RDMA_NL_NLDEV);
++}
+-- 
+2.13.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
