@@ -1,187 +1,167 @@
-From: Manfred Spraul <manfred@colorfullife.com>
-Subject: Re: [PATCH RFC 01/26] netfilter: Replace spin_unlock_wait() with
- lock/unlock pair
-Date: Mon, 3 Jul 2017 21:01:14 +0200
-Message-ID: <53bbfa1a-2836-863d-3a5c-4f2f7f0baa40@colorfullife.com>
-References: <a6642feb-2f3a-980f-5ed6-2deb79563e6b@colorfullife.com>
- <Pine.LNX.4.44L0.1707031012180.2027-100000@iolanthe.rowland.org>
- <20170703171420.GC2393@linux.vnet.ibm.com>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: [RFC/RFT PATCH 2/4] net: ethernat: ti: cpts: enable irq
+Date: Mon, 3 Jul 2017 14:31:06 -0500
+Message-ID: <bf4ec9a3-7562-ff47-4a60-ea8fd9d0c074@ti.com>
+References: <20170613231623.28353-1-grygorii.strashko@ti.com>
+ <20170613231623.28353-3-grygorii.strashko@ti.com>
+ <20170701013155.GC8755@khorivan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-        netdev@vger.kernel.org, oleg@redhat.com, akpm@linux-foundation.org,
-        mingo@redhat.com, dave@stgolabs.net, tj@kernel.org, arnd@arndb.de,
-        linux-arch@vger.kernel.org, will.deacon@arm.com,
-        peterz@infradead.org, parri.andrea@gmail.com,
-        torvalds@linux-foundation.org,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Florian Westphal <fw@strlen.de>,
-        "David S. Miller" <davem@davemloft.net>, coreteam@netfilter.org,
-        1vier1@web.de
-To: paulmck@linux.vnet.ibm.com, Alan Stern <stern@rowland.harvard.edu>
+To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        Sekhar Nori <nsekhar@ti.com>,
+        Richard Cochran <richardcochran@gmail.com>,
+        <linux-kernel@vger.kernel.org>, <linux-omap@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170703171420.GC2393@linux.vnet.ibm.com>
+In-Reply-To: <20170701013155.GC8755@khorivan>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/03/2017 07:14 PM, Paul E. McKenney wrote:
-> On Mon, Jul 03, 2017 at 10:39:49AM -0400, Alan Stern wrote:
->> On Sat, 1 Jul 2017, Manfred Spraul wrote:
->>
->>> As we want to remove spin_unlock_wait() and replace it with explicit
->>> spin_lock()/spin_unlock() calls, we can use this to simplify the
->>> locking.
->>>
->>> In addition:
->>> - Reading nf_conntrack_locks_all needs ACQUIRE memory ordering.
->>> - The new code avoids the backwards loop.
->>>
->>> Only slightly tested, I did not manage to trigger calls to
->>> nf_conntrack_all_lock().
->>>
->>> Fixes: b16c29191dc8
->>> Signed-off-by: Manfred Spraul <manfred@colorfullife.com>
->>> Cc: <stable@vger.kernel.org>
->>> Cc: Sasha Levin <sasha.levin@oracle.com>
->>> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
->>> Cc: netfilter-devel@vger.kernel.org
->>> ---
->>>   net/netfilter/nf_conntrack_core.c | 44 +++++++++++++++++++++------------------
->>>   1 file changed, 24 insertions(+), 20 deletions(-)
->>>
->>> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
->>> index e847dba..1193565 100644
->>> --- a/net/netfilter/nf_conntrack_core.c
->>> +++ b/net/netfilter/nf_conntrack_core.c
->>> @@ -96,19 +96,24 @@ static struct conntrack_gc_work conntrack_gc_work;
->>>   
->>>   void nf_conntrack_lock(spinlock_t *lock) __acquires(lock)
->>>   {
->>> +	/* 1) Acquire the lock */
->>>   	spin_lock(lock);
->>> -	while (unlikely(nf_conntrack_locks_all)) {
->>> -		spin_unlock(lock);
->>>   
->>> -		/*
->>> -		 * Order the 'nf_conntrack_locks_all' load vs. the
->>> -		 * spin_unlock_wait() loads below, to ensure
->>> -		 * that 'nf_conntrack_locks_all_lock' is indeed held:
->>> -		 */
->>> -		smp_rmb(); /* spin_lock(&nf_conntrack_locks_all_lock) */
->>> -		spin_unlock_wait(&nf_conntrack_locks_all_lock);
->>> -		spin_lock(lock);
->>> -	}
->>> +	/* 2) read nf_conntrack_locks_all, with ACQUIRE semantics */
->>> +	if (likely(smp_load_acquire(&nf_conntrack_locks_all) == false))
->>> +		return;
->> As far as I can tell, this read does not need to have ACQUIRE
->> semantics.
->>
->> You need to guarantee that two things can never happen:
->>
->>      (1) We read nf_conntrack_locks_all == false, and this routine's
->> 	critical section for nf_conntrack_locks[i] runs after the
->> 	(empty) critical section for that lock in
->> 	nf_conntrack_all_lock().
->>
->>      (2) We read nf_conntrack_locks_all == true, and this routine's
->> 	critical section for nf_conntrack_locks_all_lock runs before
->> 	the critical section in nf_conntrack_all_lock().
-I was looking at nf_conntrack_all_unlock:
-There is a smp_store_release() - which memory barrier does this pair with?
 
-nf_conntrack_all_unlock()
-     <arbitrary writes>
-     smp_store_release(a, false)
-     spin_unlock(b);
 
-nf_conntrack_lock()
-     spin_lock(c);
-     xx=read_once(a)
-     if (xx==false)
-         return
-     <arbitrary read>
-
->> In fact, neither one can happen even if smp_load_acquire() is replaced
->> with READ_ONCE().  The reason is simple enough, using this property of
->> spinlocks:
+On 06/30/2017 08:31 PM, Ivan Khoronzhuk wrote:
+> On Tue, Jun 13, 2017 at 06:16:21PM -0500, Grygorii Strashko wrote:
+>> There are two reasons for this change:
+>> 1) enabling of HW_TS_PUSH events as suggested by Richard Cochran and
+>> discussed in [1]
+>> 2) fixing an TX timestamping miss issue which happens with low speed
+>> ethernet connections and was reproduced on am57xx and am335x boards.
+>> Issue description: With the low Ethernet connection speed CPDMA notification
+>> about packet processing can be received before CPTS TX timestamp event,
+>> which is sent when packet actually left CPSW while cpdma notification is
+>> sent when packet pushed in CPSW fifo.  As result, when connection is slow
+>> and CPU is fast enough TX timestamp can be missed and not working properly.
 >>
->> 	If critical section CS1 runs before critical section CS2 (for
->> 	the same lock) then: (a) every write coming before CS1's
->> 	spin_unlock() will be visible to any read coming after CS2's
->> 	spin_lock(), and (b) no write coming after CS2's spin_lock()
->> 	will be visible to any read coming before CS1's spin_unlock().
-Does this apply? The locks are different.
->> Thus for (1), assuming the critical sections run in the order mentioned
->> above, since nf_conntrack_all_lock() writes to nf_conntrack_locks_all
->> before releasing nf_conntrack_locks[i], and since nf_conntrack_lock()
->> acquires nf_conntrack_locks[i] before reading nf_conntrack_locks_all,
->> by (a) the read will always see the write.
+>> This patch converts CPTS driver to use IRQ instead of polling in the
+>> following way:
 >>
->> Similarly for (2), since nf_conntrack_all_lock() acquires
->> nf_conntrack_locks_all_lock before writing to nf_conntrack_locks_all,
->> and since nf_conntrack_lock() reads nf_conntrack_locks_all before
->> releasing nf_conntrack_locks_all_lock, by (b) the read cannot see the
->> write.
-> And the Linux kernel memory model (https://lwn.net/Articles/718628/
-> and https://lwn.net/Articles/720550/) agrees with Alan.  Here is
-> a litmus test, which emulates spin_lock() with xchg_acquire() and
-> spin_unlock() with smp_store_release():
->
-> ------------------------------------------------------------------------
->
-> C C-ManfredSpraul-L1G1xchgnr.litmus
->
-> (* Expected result: Never.  *)
->
-> {
-> }
->
-> P0(int *nfcla, spinlock_t *gbl, int *gbl_held, spinlock_t *lcl, int *lcl_held)
-> {
-> 	/* Acquire local lock. */
-> 	r10 = xchg_acquire(lcl, 1);
-> 	r1 = READ_ONCE(*nfcla);
-> 	if (r1) {
-> 		smp_store_release(lcl, 0);
-> 		r11 = xchg_acquire(gbl, 1);
-> 		r12 = xchg_acquire(lcl, 1);
-> 		smp_store_release(gbl, 0);
-> 	}
-> 	r2 = READ_ONCE(*gbl_held);
-> 	WRITE_ONCE(*lcl_held, 1);
-> 	WRITE_ONCE(*lcl_held, 0);
-> 	smp_store_release(lcl, 0);
-> }
->
-> P1(int *nfcla, spinlock_t *gbl, int *gbl_held, spinlock_t *lcl, int *lcl_held)
-> {
-> 	/* Acquire global lock. */
-> 	r10 = xchg_acquire(gbl, 1);
-> 	WRITE_ONCE(*nfcla, 1);
-> 	r11 = xchg_acquire(lcl, 1);
-> 	smp_store_release(lcl, 0);
-> 	r2 = READ_ONCE(*lcl_held);
-> 	WRITE_ONCE(*gbl_held, 1);
-> 	WRITE_ONCE(*gbl_held, 0);
-Where is the write that resets nfcla=0?
-> 	smp_store_release(gbl, 0);
-> }
->
-> exists
-> ((0:r2=1 \/ 1:r2=1) /\ 0:r10=0 /\ 0:r11=0 /\ 0:r12=0 /\ 1:r10=0 /\ 1:r11=0)
->
-> ------------------------------------------------------------------------
->
-> The memory model says that the forbidden state does not happen:
-[...]
-> Manfred, any objections to my changing your patch as Alan suggests?
-I tried to pair the memory barriers:
-nf_conntrack_all_unlock() contains a smp_store_release().
-What does that pair with?
+>>   - CPTS_EV_PUSH: CPTS_EV_PUSH is used to get current CPTS counter value and
+>> triggered from PTP callbacks and cpts_overflow_check() work. With this
+>> change current CPTS counter value will be read in IRQ handler and saved in
+>> CPTS context "cur_timestamp" field. The compeltion event will be signalled to the
+>> requestor. The timecounter->read() will just read saved value. Access to
+>> the "cur_timestamp" is protected by mutex "ptp_clk_mutex".
+>>
+>> cpts_get_time:
+>>    reinit_completion(&cpts->ts_push_complete);
+>>    cpts_write32(cpts, TS_PUSH, ts_push);
+>>    wait_for_completion_interruptible_timeout(&cpts->ts_push_complete, HZ);
+>>    ns = timecounter_read(&cpts->tc);
+>>
+>> cpts_irq:
+>>    case CPTS_EV_PUSH:
+>> 	cpts->cur_timestamp = lo;
+>> 	complete(&cpts->ts_push_complete);
+>>
+>> - CPTS_EV_TX: signals when CPTS timestamp is ready for valid TX PTP
+>> packets. The TX timestamp is requested from cpts_tx_timestamp() which is
+>> called for each transmitted packet from NAPI cpsw_tx_poll() callback. With
+>> this change, CPTS event queue will be checked for existing CPTS_EV_TX
+>> event, corresponding to the current TX packet, and if event is not found - packet
+>> will be placed in CPTS TX packet queue for later processing. CPTS TX packet
+>> queue will be processed from hi-priority cpts_ts_work() work which is scheduled
+>> as from cpts_tx_timestamp() as from CPTS IRQ handler when CPTS_EV_TX event
+>> is received.
+>>
+>> cpts_tx_timestamp:
+>>   check if packet is PTP packet
+>>   try to find corresponding CPTS_EV_TX event
+>>     if found: report timestamp
+>>     if not found: put packet in TX queue, schedule cpts_ts_work()
+> I've not read patch itself yet, but why schedule is needed if timestamp is not
+> found? Anyway it is scheduled with irq when timestamp arrives. It's rather should
+> be scheduled if timestamp is found,
 
---
-     Manfred
+CPTS IRQ, cpts_ts_work and Net SoftIRQ processing might happen on
+different CPUs, as result - CPTS IRQ will detect TX event and schedule cpts_ts_work on
+one CPU and this work might race with SKB processing in Net SoftIRQ on another, so
+both SKB and CPTS TX event might be queued, but no cpts_ts_work scheduled until
+next CPTS event is received (worst case for cpts_overflow_check period).
+
+Situation became even more complex on RT kernel where everything is
+executed in kthread contexts.
+
+> 
+>>
+>> cpts_irq:
+>>   case CPTS_EV_TX:
+>>       put event in CPTS event queue
+>>       schedule cpts_ts_work()
+>>
+>> cpts_ts_work:
+>>     for each packet in  CPTS TX packet queue
+>>         try to find corresponding CPTS_EV_TX event
+>>         if found: report timestamp
+>>         if timeout: drop packet
+>>
+>> - CPTS_EV_RX: signals when CPTS timestamp is ready for valid RX PTP
+>> packets. The RX timestamp is requested from cpts_rx_timestamp() which is
+>> called for each received packet from NAPI cpsw_rx_poll() callback. With
+>> this change, CPTS event queue will be checked for existing CPTS_EV_RX
+>> event, corresponding to the current RX packet, and if event is not found - packet
+>> will be placed in CPTS RX packet queue for later processing. CPTS RX packet
+>> queue will be processed from hi-priority cpts_ts_work() work which is scheduled
+>> as from cpts_rx_timestamp() as from CPTS IRQ handler when CPTS_EV_RX event
+>> is received. cpts_rx_timestamp() has been updated to return failure in case
+>> of RX timestamp processing delaying and, in such cases, caller of
+>> cpts_rx_timestamp() should not call netif_receive_skb().
+> It's much similar to tx path, but fix is needed for tx only according to targets
+> of patch, why rx uses the same approach? Does rx has same isue, then how it happens
+> as the delay caused race for tx packet should allow race for rx packet?
+> tx : send packet -> tx poll (no ts) -> latency -> hw timstamp (race)
+> rx : hw timestamp -> latency -> rx poll (ts) -> rx packet (no race)
+> 
+> Is to be consistent or race is realy present?
+
+I've hit it on RT and then modeled using request_threaded_irq().
+
+CPTS timestamping was part of NET RX/TX path when used in polling mode, but after
+switching CPTS to use IRQ there will be two independent code flows:
+- one is NET RX/TX which produces stream of SKBs
+- second is CPTS IRQ which produces stream of CPTS events 
+So, to synchronize them properly this patch introduces cpts_ts_work which
+intended to consume both streams (SKBs and CPTS events) and produce 
+valid pairs of <SKB>:<CPTS event> as output.
+
+> 
+>>
+>> cpts_rx_timestamp:
+>>   check if packet is PTP packet
+>>   try to find corresponding CPTS_EV_RX event
+>>     if found: report timestamp, return success
+>>     if not found: put packet in RX queue, schedule cpts_ts_work(),
+>>                   return failure
+>>
+>> cpts_irq:
+>>   case CPTS_EV_RX:
+>>       put event in CPTS event queue
+>>       schedule cpts_ts_work()
+>>
+>> cpts_ts_work:
+>>     for each packet in  CPTS RX packet queue
+>>         try to find corresponding CPTS_EV_RX event
+>>         if found: add timestamp and report packet netif_receive_skb()
+>>         if timeout: drop packet
+>>
+>> there are some statistic added in cpsw_get_strings() for debug purposes.
+>>
+>> User space tools (like ptp4l) might require to take into account possible
+>> delay in timestamp reception (for example ptp4l works with
+>> tx_timestamp_timeout=100) as TX timestamp genaration can be delayed till
+>> cpts_ts_work() executuion.
+>>
+>> [1] https://www.mail-archive.com/netdev@vger.kernel.org/msg141466.html
+>>
+>> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+>> ---
+>>   drivers/net/ethernet/ti/cpsw.c |  42 ++++-
+>>   drivers/net/ethernet/ti/cpts.c | 364 +++++++++++++++++++++++++++++------------
+>>   drivers/net/ethernet/ti/cpts.h |  18 +-
+>>   3 files changed, 314 insertions(+), 110 deletions(-)
+>>
+
+
+-- 
+regards,
+-grygorii
