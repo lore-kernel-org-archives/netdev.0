@@ -1,65 +1,39 @@
-From: Will Deacon <will.deacon@arm.com>
-Subject: Re: [PATCH RFC 08/26] locking: Remove spin_unlock_wait() generic
- definitions
-Date: Mon, 3 Jul 2017 14:15:14 +0100
-Message-ID: <20170703131514.GE1573@arm.com>
-References: <20170629235918.GA6445@linux.vnet.ibm.com>
- <1498780894-8253-8-git-send-email-paulmck@linux.vnet.ibm.com>
- <20170630091928.GC9726@arm.com>
- <20170630123815.GT2393@linux.vnet.ibm.com>
- <20170630131339.GA14118@arm.com>
- <20170630221840.GI2393@linux.vnet.ibm.com>
+From: Waiman Long <longman@redhat.com>
+Subject: Re: [PATCH net 1/2] vxlan: fix hlist corruption
+Date: Mon, 3 Jul 2017 09:25:45 -0400
+Message-ID: <bdd5d0e8-b8fa-2c81-07ad-17ad89b6c052@redhat.com>
+References: <cover.1499014738.git.jbenc@redhat.com>
+ <61fd10b88f9eeab8f95a3a73f7e27358fcdcd781.1499014738.git.jbenc@redhat.com>
+ <38e4eb5a-2d9e-4f38-f043-42a1dd449bfb@redhat.com>
+ <20170703102359.246d68a2@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-        netdev@vger.kernel.org, oleg@redhat.com, akpm@linux-foundation.org,
-        mingo@redhat.com, dave@stgolabs.net, manfred@colorfullife.com,
-        tj@kernel.org, arnd@arndb.de, linux-arch@vger.kernel.org,
-        peterz@infradead.org, stern@rowland.harvard.edu,
-        parri.andrea@gmail.com, torvalds@linux-foundation.org
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170630221840.GI2393@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+        "John W. Linville" <linville@tuxdriver.com>,
+        pravin shelar <pshelar@ovn.org>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:3592 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754284AbdGCNZr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 3 Jul 2017 09:25:47 -0400
+In-Reply-To: <20170703102359.246d68a2@griffin>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 30, 2017 at 03:18:40PM -0700, Paul E. McKenney wrote:
-> On Fri, Jun 30, 2017 at 02:13:39PM +0100, Will Deacon wrote:
-> > On Fri, Jun 30, 2017 at 05:38:15AM -0700, Paul E. McKenney wrote:
-> > > I also need to check all uses of spin_is_locked().  There might no
-> > > longer be any that rely on any particular ordering...
-> > 
-> > Right. I think we're looking for the "insane case" as per 38b850a73034
-> > (which was apparently used by ipc/sem.c at the time, but no longer).
-> > 
-> > There's a usage in kernel/debug/debug_core.c, but it doesn't fill me with
-> > joy.
-> 
-> That is indeed an interesting one...  But my first round will be what
-> semantics the implementations seem to provide:
-> 
-> Acquire courtesy of TSO: s390, sparc, x86.
-> Acquire: ia64 (in reality fully ordered).
-> Control dependency: alpha, arc, arm, blackfin, hexagon, m32r, mn10300, tile,
-> 	xtensa.
-> Control dependency plus leading full barrier: arm64, powerpc.
-> UP-only: c6x, cris, frv, h8300, m68k, microblaze nios2, openrisc, um, unicore32.
-> 
-> Special cases:
-> 	metag: Acquire if !CONFIG_METAG_SMP_WRITE_REORDERING.
-> 	       Otherwise control dependency?
-> 	mips: Control dependency, acquire if CONFIG_CPU_CAVIUM_OCTEON.
-> 	parisc: Acquire courtesy of TSO, but why barrier in smp_load_acquire?
-> 	sh: Acquire if one of SH4A, SH5, or J2, otherwise acquire?  UP-only?
-> 
-> Are these correct, or am I missing something with any of them?
+On 07/03/2017 04:23 AM, Jiri Benc wrote:
+> On Sun, 2 Jul 2017 16:06:10 -0400, Waiman Long wrote:
+>> I didn't see any init code for hlist4 and hlist6. Is vxlan_dev going to
+>> be *zalloc'ed so that they are guaranteed to be NULL? If not, you may
+>> need to add  init code as not both hlists will be hashed and so one of
+>> them may contain invalid data.
+> Yes, it's zalloced via alloc_netdev. No need to init the fields
+> explicitly.
+>
+>  Jiri
 
-That looks about right but, at least on ARM, I think we have to consider
-the semantics of spin_is_locked with respect to the other spin_* functions,
-rather than in isolation.
+Thanks for the clarification.
 
-For example, ARM only has a control dependency, but spin_lock has a trailing
-smp_mb() and spin_unlock has both leading and trailing smp_mb().
-
-Will
+-Longman
