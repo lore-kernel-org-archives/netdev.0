@@ -1,43 +1,26 @@
-From: Daniel Axtens <dja@axtens.net>
-Subject: [PATCH] openvswitch: fix mis-ordered comment lines for ovs_skb_cb
-Date: Mon,  3 Jul 2017 21:46:43 +1000
-Message-ID: <20170703114643.3441-1-dja@axtens.net>
-Cc: Daniel Axtens <dja@axtens.net>
-To: pshelar@nicira.com, netdev@vger.kernel.org, dev@openvswitch.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34971 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752625AbdGCLrQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Jul 2017 07:47:16 -0400
-Received: by mail-pg0-f66.google.com with SMTP id d193so4615945pgc.2
-        for <netdev@vger.kernel.org>; Mon, 03 Jul 2017 04:47:16 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Elena Reshetova <elena.reshetova@intel.com>
+Subject: [PATCH 0/2] Fixes for errors reported by 0day on net-next tree
+Date: Mon,  3 Jul 2017 14:50:26 +0300
+Message-ID: <1499082628-21253-1-git-send-email-elena.reshetova@intel.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        keescook@chromium.org, Elena Reshetova <elena.reshetova@intel.com>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I was trying to wrap my head around meaning of mru, and realised
-that the second line of the comment defining it had somehow
-ended up after the line defining cutlen, leading to much confusion.
+Despite the fact that we have automatic testing enabled
+on all our branches, there s390-config related errors got through.
+I will investigate separately why it happened.
+Sorry for the inconvince and please pull.
 
-Reorder the lines to make sense.
+Elena Reshetova (2):
+  net, iucv: fixing error from refcount conversion
+  drivers, s390: fix errors resulting from refcount conversions
 
-Signed-off-by: Daniel Axtens <dja@axtens.net>
----
- net/openvswitch/datapath.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/s390/net/ctcm_fsms.c | 12 ++++++------
+ net/iucv/af_iucv.c           |  2 +-
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
-index da931bdef8a7..5d8dcd88815f 100644
---- a/net/openvswitch/datapath.h
-+++ b/net/openvswitch/datapath.h
-@@ -98,8 +98,8 @@ struct datapath {
-  * @input_vport: The original vport packet came in on. This value is cached
-  * when a packet is received by OVS.
-  * @mru: The maximum received fragement size; 0 if the packet is not
-- * @cutlen: The number of bytes from the packet end to be removed.
-  * fragmented.
-+ * @cutlen: The number of bytes from the packet end to be removed.
-  */
- struct ovs_skb_cb {
- 	struct vport		*input_vport;
 -- 
-2.11.0
+2.7.4
