@@ -1,7 +1,7 @@
 From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH rdma-next V2 14/27] RDMA/netlink: Add nldev initialization flows
-Date: Mon,  3 Jul 2017 09:28:17 +0300
-Message-ID: <20170703062830.30361-15-leon@kernel.org>
+Subject: [PATCH rdma-next V2 15/27] RDMA/netlink: Implement nldev device dumpit calback
+Date: Mon,  3 Jul 2017 09:28:18 +0300
+Message-ID: <20170703062830.30361-16-leon@kernel.org>
 References: <20170703062830.30361-1-leon@kernel.org>
 Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
@@ -16,103 +16,96 @@ List-Id: netdev.vger.kernel.org
 
 From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
-Add nldev init and exit flows to the RDMA/core.
+This patch adds the ability to return all available devices
+together with their properties.
 
 Signed-off-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 Reviewed-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
 ---
- drivers/infiniband/core/Makefile |  4 +++-
- drivers/infiniband/core/device.c |  2 ++
- drivers/infiniband/core/nldev.c  | 45 ++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 50 insertions(+), 1 deletion(-)
- create mode 100644 drivers/infiniband/core/nldev.c
+ drivers/infiniband/core/nldev.c | 64 ++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 63 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/infiniband/core/Makefile b/drivers/infiniband/core/Makefile
-index 6ebd9ad95010..d260c5ecf656 100644
---- a/drivers/infiniband/core/Makefile
-+++ b/drivers/infiniband/core/Makefile
-@@ -10,7 +10,9 @@ obj-$(CONFIG_INFINIBAND_USER_ACCESS) +=	ib_uverbs.o ib_ucm.o \
- ib_core-y :=			packer.o ud_header.o verbs.o cq.o rw.o sysfs.o \
- 				device.o fmr_pool.o cache.o netlink.o \
- 				roce_gid_mgmt.o mr_pool.o addr.o sa_query.o \
--				multicast.o mad.o smi.o agent.o mad_rmpp.o
-+				multicast.o mad.o smi.o agent.o mad_rmpp.o \
-+				nldev.o
-+
- ib_core-$(CONFIG_INFINIBAND_USER_MEM) += umem.o
- ib_core-$(CONFIG_INFINIBAND_ON_DEMAND_PAGING) += umem_odp.o umem_rbtree.o
- ib_core-$(CONFIG_CGROUP_RDMA) += cgroup.o
-diff --git a/drivers/infiniband/core/device.c b/drivers/infiniband/core/device.c
-index 4aaf51db528a..646c98acc43b 100644
---- a/drivers/infiniband/core/device.c
-+++ b/drivers/infiniband/core/device.c
-@@ -1128,6 +1128,7 @@ static int __init ib_core_init(void)
- 		goto err_mad;
- 	}
- 
-+	nldev_init();
- 	rdma_nl_register(RDMA_NL_LS, ibnl_ls_cb_table);
- 	ib_cache_setup();
- 
-@@ -1151,6 +1152,7 @@ static int __init ib_core_init(void)
- static void __exit ib_core_cleanup(void)
- {
- 	ib_cache_cleanup();
-+	nldev_exit();
- 	rdma_nl_unregister(RDMA_NL_LS);
- 	ib_sa_cleanup();
- 	ib_mad_cleanup();
 diff --git a/drivers/infiniband/core/nldev.c b/drivers/infiniband/core/nldev.c
-new file mode 100644
-index 000000000000..1d1e4f214874
---- /dev/null
+index 1d1e4f214874..4b8b0f5d5344 100644
+--- a/drivers/infiniband/core/nldev.c
 +++ b/drivers/infiniband/core/nldev.c
-@@ -0,0 +1,45 @@
-+/*
-+ * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in the
-+ *    documentation and/or other materials provided with the distribution.
-+ * 3. Neither the names of the copyright holders nor the names of its
-+ *    contributors may be used to endorse or promote products derived from
-+ *    this software without specific prior written permission.
-+ *
-+ * Alternatively, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") version 2 as published by the Free
-+ * Software Foundation.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
-+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-+ * POSSIBILITY OF SUCH DAMAGE.
-+ */
+@@ -30,13 +30,75 @@
+  * POSSIBILITY OF SUCH DAMAGE.
+  */
+ 
++#include <net/netlink.h>
+ #include <rdma/rdma_netlink.h>
+ 
+ #include "core_priv.h"
+ 
++static const struct nla_policy nldev_policy[RDMA_NLDEV_ATTR_MAX] = {
++	[RDMA_NLDEV_ATTR_DEV_INDEX]     = { .type = NLA_U32 },
++	[RDMA_NLDEV_ATTR_DEV_NAME]	= { .type = NLA_NUL_STRING,
++					    .len = IB_DEVICE_NAME_MAX - 1},
++	[RDMA_NLDEV_ATTR_PORT_INDEX]	= { .type = NLA_U32 },
++};
 +
-+#include <rdma/rdma_netlink.h>
-+
-+#include "core_priv.h"
-+
-+void __init nldev_init(void)
++static int fill_dev_info(struct sk_buff *msg, struct ib_device *device)
 +{
-+	rdma_nl_register(RDMA_NL_NLDEV, NULL);
++	if (nla_put_u32(msg, RDMA_NLDEV_ATTR_DEV_INDEX, device->index))
++		return -EMSGSIZE;
++	if (nla_put_string(msg, RDMA_NLDEV_ATTR_DEV_NAME, device->name))
++		return -EMSGSIZE;
++	if (nla_put_u32(msg, RDMA_NLDEV_ATTR_PORT_INDEX, rdma_end_port(device)))
++		return -EMSGSIZE;
++	return 0;
 +}
 +
-+void __exit nldev_exit(void)
++static int _nldev_get_dumpit(struct ib_device *device,
++			     struct sk_buff *skb,
++			     struct netlink_callback *cb,
++			     unsigned int idx)
 +{
-+	rdma_nl_unregister(RDMA_NL_NLDEV);
++	int start = cb->args[0];
++	struct nlmsghdr *nlh;
++
++	if (idx < start)
++		return 0;
++
++	nlh = nlmsg_put(skb, NETLINK_CB(cb->skb).portid, cb->nlh->nlmsg_seq,
++			RDMA_NL_GET_TYPE(RDMA_NL_NLDEV, RDMA_NLDEV_CMD_GET),
++			0, NLM_F_MULTI);
++
++	if (fill_dev_info(skb, device)) {
++		nlmsg_cancel(skb, nlh);
++		goto out;
++	}
++
++	nlmsg_end(skb, nlh);
++
++	idx++;
++
++out:	cb->args[0] = idx;
++	return skb->len;
 +}
++
++static int nldev_get_dumpit(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	/*
++	 * There is no need to take lock, because
++	 * we are relying on ib_core's lists_rwsem
++	 */
++	return ib_enum_all_devs(_nldev_get_dumpit, skb, cb);
++}
++
++static const struct rdma_nl_cbs nldev_cb_table[] = {
++	[RDMA_NLDEV_CMD_GET] = {
++		.dump = nldev_get_dumpit,
++	},
++};
++
+ void __init nldev_init(void)
+ {
+-	rdma_nl_register(RDMA_NL_NLDEV, NULL);
++	rdma_nl_register(RDMA_NL_NLDEV, nldev_cb_table);
+ }
+ 
+ void __exit nldev_exit(void)
 -- 
 2.13.2
 
