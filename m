@@ -1,241 +1,55 @@
-From: "McCabe, Robert J" <Robert.McCabe@rockwellcollins.com>
-Subject: [PATCH 1/1 V2] tc: custom qdisc pkt size translation table
-Date: Tue,  4 Jul 2017 10:50:58 -0500
-Message-ID: <20170704155058.19608-1-Robert.McCabe@rockwellcollins.com>
-Cc: robert.mccabe@rockwellcollins.com,
-        "McCabe, Robert J" <Robert.McCabe@rockwellcollins.com>,
-        McCabe@rockwellcollins.com
-To: netdev@vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: axienet: add of_phy_connect call for XAE_PHY_TYPE_MII case
+Date: Tue, 04 Jul 2017 09:24:03 -0700
+Message-ID: <6A2BD6D6-9CBB-4BDD-BF28-F0BF10DB454C@gmail.com>
+References: <20170630092541.27234-1-alvaro.gamez@hazent.com> <425aed84-a1b6-b8da-5989-3bef5a03ead4@gmail.com> <20170702101914.5nk27r2h754qzthe@collins.gmr.ssr.upm.es>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Anirudha Sarangi <anirudh@xilinx.com>,
+        John Linn <John.Linn@xilinx.com>,
+        Michal Simek <michal.simek@xilinx.com>,
+        =?ISO-8859-1?Q?S=F6ren_Brinkmann?= <soren.brinkmann@xilinx.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alvaro Gamez Machado <alvaro.gamez@hazent.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpimr.rockwellcollins.com ([205.175.226.29]:30537 "EHLO
-        ch3vs02.rockwellcollins.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752326AbdGDQCO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 12:02:14 -0400
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:36472 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752437AbdGDQYJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 12:24:09 -0400
+In-Reply-To: <20170702101914.5nk27r2h754qzthe@collins.gmr.ssr.upm.es>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added the "custom" linklayer qdisc stab option.
-Allows the user to specify the pkt size translation
-parameters from stdin.
-Example:
-   tc qdisc add ... stab tsize 8 linklayer custom htb
-      Custom size table:
-      InputSizeStart -> IntputSizeEnd: OutputSize
-      0              -> 511          : 600
-      512            -> 1023         : 1200
-      1024           -> 1535         : 1800
-      1536           -> 2047         : 2400
-      2048           -> 2559         : 3000
+On July 2, 2017 3:19:14 AM PDT, Alvaro Gamez Machado <alvaro=2Egamez@hazent=
+=2Ecom> wrote:
+>On Fri, Jun 30, 2017 at 10:30:38AM -0700, Florian Fainelli wrote:
+>> On 06/30/2017 02:25 AM, Alvaro Gamez Machado wrote:
+>> >  	if (lp->phy_node) {
+>> > -		if (lp->phy_type =3D=3D XAE_PHY_TYPE_GMII) {
+>> > +		if (lp->phy_type =3D=3D XAE_PHY_TYPE_MII) {
+>> > +			phydev =3D of_phy_connect(lp->ndev, lp->phy_node,
+>> > +						axienet_adjust_link, 0,
+>> > +						PHY_INTERFACE_MODE_MII);
+>> > +		} else if (lp->phy_type =3D=3D XAE_PHY_TYPE_GMII) {
+>> >  			phydev =3D of_phy_connect(lp->ndev, lp->phy_node,
+>> >  						axienet_adjust_link, 0,
+>> >  						PHY_INTERFACE_MODE_GMII);
+>>=20
+>> Seems like this could be simplified even further if the values of
+>> lp->phy_type directly mapped to those of phy_interface_t=2E
+>
+>Sadly, that's not the case=2E PHY_INTERFACE_MODE_* belong to a enum of
+>twenty
+>different values, of which only _MII and _GMII overlap with XAW_PHY_*
+>values, but XAE_PHY_TYPE_RGMII_2_0 doesn't match
+>PHY_INTERFACE_MODE_RGMII_ID=2E
 
-Signed-off-by: McCabe, Robert J <Robert.McCabe@rockwellcollins.com>
----
+There are four different rgmii types to account for rx or tx delay, is not=
+ there one that really matches? If the driver is using of_get_phy_mode() to=
+ retrieve the standard 'phy-mode' / 'phy-connection-type' values then this =
+internal representation is not needed anymore=2E
 
-V1: Sent to netdev for review
-V2: Cleaned up commit message and set common_size_table to NULL
-    after free
-
- include/linux/pkt_sched.h |  1 +
- tc/tc_core.c              | 47 +++++++++++++++++++++++++++++++++++++++++++++++
- tc/tc_core.h              |  2 +-
- tc/tc_stab.c              | 20 +++++++++-----------
- tc/tc_util.c              |  5 +++++
- 5 files changed, 63 insertions(+), 12 deletions(-)
-
-diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-index 099bf55..289bb81 100644
---- a/include/linux/pkt_sched.h
-+++ b/include/linux/pkt_sched.h
-@@ -82,6 +82,7 @@ enum tc_link_layer {
- 	TC_LINKLAYER_UNAWARE, /* Indicate unaware old iproute2 util */
- 	TC_LINKLAYER_ETHERNET,
- 	TC_LINKLAYER_ATM,
-+	TC_LINKLAYER_CUSTOM,
- };
- #define TC_LINKLAYER_MASK 0x0F /* limit use to lower 4 bits */
-
-diff --git a/tc/tc_core.c b/tc/tc_core.c
-index 821b741..f02f612 100644
---- a/tc/tc_core.c
-+++ b/tc/tc_core.c
-@@ -21,6 +21,7 @@
- #include <netinet/in.h>
- #include <arpa/inet.h>
- #include <string.h>
-+#include <assert.h>
-
- #include "tc_core.h"
- #include <linux/atm.h>
-@@ -28,6 +29,13 @@
- static double tick_in_usec = 1;
- static double clock_factor = 1;
-
-+struct size_table_entry {
-+	unsigned int input_size_boundary_start;
-+	unsigned int output_size_bytes;
-+};
-+
-+static struct size_table_entry* custom_size_table = NULL;
-+static int num_size_table_entries = 0;
- int tc_core_time2big(unsigned int time)
- {
- 	__u64 t = time;
-@@ -89,6 +97,20 @@ static unsigned int tc_align_to_atm(unsigned int size)
- 	return linksize;
- }
-
-+static unsigned int tc_align_to_custom(unsigned int size)
-+{
-+	int i;
-+
-+	assert(custom_size_table != NULL);
-+	for(i = num_size_table_entries -1; i >= 0 ; --i) {
-+		if(custom_size_table[i].input_size_boundary_start < size) {
-+			/* found it */
-+			return custom_size_table[i].output_size_bytes;
-+		}
-+	}
-+	return 0;
-+}
-+
- static unsigned int tc_adjust_size(unsigned int sz, unsigned int mpu, enum link_layer linklayer)
- {
- 	if (sz < mpu)
-@@ -97,6 +119,8 @@ static unsigned int tc_adjust_size(unsigned int sz, unsigned int mpu, enum link_
- 	switch (linklayer) {
- 	case LINKLAYER_ATM:
- 		return tc_align_to_atm(sz);
-+	case LINKLAYER_CUSTOM:
-+		return tc_align_to_custom(sz);
- 	case LINKLAYER_ETHERNET:
- 	default:
- 		/* No size adjustments on Ethernet */
-@@ -185,6 +209,24 @@ int tc_calc_size_table(struct tc_sizespec *s, __u16 **stab)
- 	if (!*stab)
- 		return -1;
-
-+	if(LINKLAYER_CUSTOM == linklayer) {
-+		 custom_size_table = malloc(sizeof(struct size_table_entry)* s->tsize);
-+		 if(!custom_size_table)
-+			  return -1;
-+		 num_size_table_entries = s->tsize;
-+
-+		 printf("Custom size table:\n");
-+		 printf("InputSizeStart -> IntputSizeEnd: OutputSize\n");
-+		 for(i = 0; i <= s->tsize - 1; ++i) {
-+			  printf("%-14d -> %-13d: ", i << s->cell_log, ((i+1) << s->cell_log) - 1);
-+			  if(!scanf("%u", &custom_size_table[i].output_size_bytes)) {
-+					fprintf(stderr, "Invalid custom stab table entry!\n");
-+					return -1;
-+			  }
-+			  custom_size_table[i].input_size_boundary_start = i << s->cell_log;
-+		 }
-+	}
-+
- again:
- 	for (i = s->tsize - 1; i >= 0; i--) {
- 		sz = tc_adjust_size((i + 1) << s->cell_log, s->mpu, linklayer);
-@@ -196,6 +238,11 @@ again:
- 	}
-
- 	s->cell_align = -1; /* Due to the sz calc */
-+	if(custom_size_table) {
-+		 free(custom_size_table);
-+		 custom_size_table = NULL;
-+		 num_size_table_entries = 0;
-+	}
- 	return 0;
- }
-
-diff --git a/tc/tc_core.h b/tc/tc_core.h
-index 8a63b79..8e97222 100644
---- a/tc/tc_core.h
-+++ b/tc/tc_core.h
-@@ -10,9 +10,9 @@ enum link_layer {
- 	LINKLAYER_UNSPEC,
- 	LINKLAYER_ETHERNET,
- 	LINKLAYER_ATM,
-+	LINKLAYER_CUSTOM,
- };
-
--
- int  tc_core_time2big(unsigned time);
- unsigned tc_core_time2tick(unsigned time);
- unsigned tc_core_tick2time(unsigned tick);
-diff --git a/tc/tc_stab.c b/tc/tc_stab.c
-index 1a0a3e3..a468a70 100644
---- a/tc/tc_stab.c
-+++ b/tc/tc_stab.c
-@@ -37,7 +37,9 @@ static void stab_help(void)
- 		"   tsize     : how many slots should size table have {512}\n"
- 		"   mpu       : minimum packet size used in rate computations\n"
- 		"   overhead  : per-packet size overhead used in rate computations\n"
--		"   linklayer : adapting to a linklayer e.g. atm\n"
-+		"   linklayer : adapting to a linklayer e.g. ethernet, atm or custom\n"
-+		"               a \"custom\" linklayer reads size table entries from\n"
-+		"               stdin\n"
- 		"Example: ... stab overhead 20 linklayer atm\n");
-
- }
-@@ -107,13 +109,13 @@ int parse_size_table(int *argcp, char ***argvp, struct tc_sizespec *sp)
- void print_size_table(FILE *fp, const char *prefix, struct rtattr *rta)
- {
- 	struct rtattr *tb[TCA_STAB_MAX + 1];
-+	struct tc_sizespec s = {0};
-
- 	SPRINT_BUF(b1);
-
- 	parse_rtattr_nested(tb, TCA_STAB_MAX, rta);
-
- 	if (tb[TCA_STAB_BASE]) {
--		struct tc_sizespec s = {0};
-
- 		memcpy(&s, RTA_DATA(tb[TCA_STAB_BASE]),
- 				MIN(RTA_PAYLOAD(tb[TCA_STAB_BASE]), sizeof(s)));
-@@ -132,19 +134,15 @@ void print_size_table(FILE *fp, const char *prefix, struct rtattr *rta)
- 			fprintf(fp, "tsize %u ", s.tsize);
- 	}
-
--#if 0
- 	if (tb[TCA_STAB_DATA]) {
- 		unsigned int i, j, dlen;
- 		__u16 *data = RTA_DATA(tb[TCA_STAB_DATA]);
-
--		dlen = RTA_PAYLOAD(tb[TCA_STAB_DATA]) / sizeof(__u16);
--
- 		fprintf(fp, "\n%sstab data:", prefix);
--		for (i = 0; i < dlen/12; i++) {
--			fprintf(fp, "\n%s %3u:", prefix, i * 12);
--			for (j = 0; i * 12 + j < dlen; j++)
--				fprintf(fp, " %05x", data[i * 12 + j]);
--		}
-+		 fprintf(fp, "\n%sInputSizeStart -> IntputSizeEnd: Output Size\n", prefix);
-+		 for(i = 0; i <= s.tsize - 1; ++i) {
-+			  fprintf(fp, "%s%-14d -> %-13d: %d\n", prefix,  i << s.cell_log,
-+						 ((i+1) << s.cell_log) - 1, data[i]);
-+		 }
- 	}
--#endif
- }
-diff --git a/tc/tc_util.c b/tc/tc_util.c
-index 3710468..62019c1 100644
---- a/tc/tc_util.c
-+++ b/tc/tc_util.c
-@@ -651,6 +651,8 @@ int get_linklayer(unsigned int *val, const char *arg)
- 		res = LINKLAYER_ATM;
- 	else if (matches(arg, "adsl") == 0)
- 		res = LINKLAYER_ATM;
-+	else if (matches(arg, "custom") == 0)
-+		res = LINKLAYER_CUSTOM;
- 	else
- 		return -1; /* Indicate error */
-
-@@ -670,6 +672,9 @@ void print_linklayer(char *buf, int len, unsigned int linklayer)
- 	case LINKLAYER_ATM:
- 		snprintf(buf, len, "%s", "atm");
- 		return;
-+	case LINKLAYER_CUSTOM:
-+		snprintf(buf, len, "%s", "custom");
-+		return;
- 	default:
- 		snprintf(buf, len, "%s", "unknown");
- 		return;
+--=20
+Florian
