@@ -1,8 +1,7 @@
 From: Lin Yun Sheng <linyunsheng@huawei.com>
-Subject: [PATCH net 2/3] net: hns: Fix a wrong op phy C45 code
-Date: Tue, 4 Jul 2017 18:47:32 +0800
-Message-ID: <1499165253-184543-3-git-send-email-linyunsheng@huawei.com>
-References: <1499165253-184543-1-git-send-email-linyunsheng@huawei.com>
+Subject: [PATCH net 0/3] Bugfixs for hns ethernet driver
+Date: Tue, 4 Jul 2017 18:47:30 +0800
+Message-ID: <1499165253-184543-1-git-send-email-linyunsheng@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
@@ -14,35 +13,21 @@ Cc: <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
         <linux-kernel@vger.kernel.org>
 To: <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1499165253-184543-1-git-send-email-linyunsheng@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Yunsheng Lin <linyunsheng@huawei.com>
+This patchset fix skb uesd after used, C45 op code and
+Tx description filling issues in hns driver.
 
-As the user manual described, the second step to write to C45 phy
-by mdio should be data, but not address. Here we should fix this
-issue.
+Yunsheng Lin (3):
+  net: hns: Add TX CSUM check when fill TX description
+  net: hns: Fix a wrong op phy C45 code
+  net: hns: Fix a skb used after free bug
 
-Signed-off-by: Yankejian <yankejian@huawei.com>
-Reviewed-by: lipeng <lipeng321@huawei.com>
-Reviewed-by: Yunsheng Lin <linyunsheng@huawei.com>
----
- drivers/net/ethernet/hisilicon/hns_mdio.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c | 58 ++++++++++++++++-----------
+ drivers/net/ethernet/hisilicon/hns/hns_enet.h |  8 ++--
+ drivers/net/ethernet/hisilicon/hns_mdio.c     |  2 +-
+ 3 files changed, 40 insertions(+), 28 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns_mdio.c b/drivers/net/ethernet/hisilicon/hns_mdio.c
-index e5221d9..017e084 100644
---- a/drivers/net/ethernet/hisilicon/hns_mdio.c
-+++ b/drivers/net/ethernet/hisilicon/hns_mdio.c
-@@ -261,7 +261,7 @@ static int hns_mdio_write(struct mii_bus *bus,
- 
- 		/* config the data needed writing */
- 		cmd_reg_cfg = devad;
--		op = MDIO_C45_WRITE_ADDR;
-+		op = MDIO_C45_WRITE_DATA;
- 	}
- 
- 	MDIO_SET_REG_FIELD(mdio_dev, MDIO_WDATA_REG, MDIO_WDATA_DATA_M,
 -- 
 1.9.1
