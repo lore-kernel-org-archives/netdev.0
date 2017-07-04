@@ -1,27 +1,37 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 31/36] net, sctp: convert sctp_chunk.refcnt from atomic_t to refcount_t
-Date: Tue,  4 Jul 2017 15:53:26 +0300
-Message-ID: <1499172811-16271-32-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 22/36] net,
+	rds: convert rds_mr.r_refcount from atomic_t to refcount_t
+Date: Tue,  4 Jul 2017 15:53:17 +0300
+Message-ID: <1499172811-16271-23-git-send-email-elena.reshetova@intel.com>
 References: <1499172811-16271-1-git-send-email-elena.reshetova@intel.com>
-Cc: linux-kernel@vger.kernel.org,
-        linux-decnet-user@lists.sourceforge.net, davem@davemloft.net,
-        jmorris@namei.org, kaber@trash.net, yoshfuji@linux-ipv6.org,
-        kuznet@ms2.inr.ac.ru, 3chas3@gmail.com, ralf@linux-mips.org,
-        stephen@networkplumber.org, jchapman@katalix.com, jhs@mojatatu.com,
-        bridge@lists.linux-foundation.org, linux-hams@vger.kernel.org,
-        linux-x25@vger.kernel.org, peterz@infradead.org,
-        keescook@chromium.org, linux-rdma@vger.kernel.org,
-        linux-sctp@vger.kernel.org, vyasevich@gmail.com,
-        nhorman@tuxdriver.com, linux-nfs@vger.kernel.org, zyan@redhat.com,
-        sage@redhat.com, bfields@fieldses.org, jlayton@poochiereds.net,
-        steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-        santosh.shilimkar@oracle.com, jreuter@yaina.de,
-        Elena Reshetova <elena.reshetova@intel.com>,
-        Hans Li
+Cc: peterz@infradead.org, jchapman@katalix.com, bfields@fieldses.org,
+	linux-sctp@vger.kernel.org, jlayton@poochiereds.net,
+	Elena Reshetova <elena.reshetova@intel.com>,
+	steffen.klassert@secunet.com, zyan@redhat.com,
+	herbert@gondor.apana.org.au, linux-x25@vger.kernel.org,
+	linux-rdma@vger.kernel.org, bridge@lists.linux-foundation.org,
+	jmorris@namei.org, 3chas3@gmail.com, kuznet@ms2.inr.ac.ru,
+	jreuter@yaina.de, keescook@chromium.org,
+	santosh.shilimkar@oracle.com, jhs@mojatatu.com,
+	Hans Liljestrand <ishkamiel@gmail.com>,
+	linux-hams@vger.kernel.org, David Windsor <dwindsor@gmail.com>,
+	linux-nfs@vger.kernel.org, sage@redhat.com,
+	nhorman@tuxdriver.com, yoshfuji@linux-ipv6.org,
+	vyasevich@gmail.com, linux-decnet-user@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, ralf@linux-mips.org,
+	kaber@trash.net, davem@davemloft.net
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
 In-Reply-To: <1499172811-16271-1-git-send-email-elena.reshetova@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
 refcount_t type and corresponding API should be
@@ -35,50 +45,79 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/sctp/structs.h | 2 +-
- net/sctp/sm_make_chunk.c   | 6 +++---
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ net/rds/rdma.c | 10 +++++-----
+ net/rds/rds.h  |  4 ++--
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 4d7c855..0dfc5c1 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -524,7 +524,7 @@ int sctp_chunk_abandoned(struct sctp_chunk *);
- struct sctp_chunk {
- 	struct list_head list;
- 
--	atomic_t refcnt;
-+	refcount_t refcnt;
- 
- 	/* How many times this chunk have been sent, for prsctp RTX policy */
- 	int sent_count;
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index 3af4dd0..4e16b02 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -1345,7 +1345,7 @@ struct sctp_chunk *sctp_chunkify(struct sk_buff *skb,
- 	INIT_LIST_HEAD(&retval->transmitted_list);
- 	INIT_LIST_HEAD(&retval->frag_list);
- 	SCTP_DBG_OBJCNT_INC(chunk);
--	atomic_set(&retval->refcnt, 1);
-+	refcount_set(&retval->refcnt, 1);
- 
- nodata:
- 	return retval;
-@@ -1458,13 +1458,13 @@ void sctp_chunk_free(struct sctp_chunk *chunk)
- /* Grab a reference to the chunk. */
- void sctp_chunk_hold(struct sctp_chunk *ch)
- {
--	atomic_inc(&ch->refcnt);
-+	refcount_inc(&ch->refcnt);
+diff --git a/net/rds/rdma.c b/net/rds/rdma.c
+index f06fac4..8886f15 100644
+--- a/net/rds/rdma.c
++++ b/net/rds/rdma.c
+@@ -84,7 +84,7 @@ static struct rds_mr *rds_mr_tree_walk(struct rb_root *root, u64 key,
+ 	if (insert) {
+ 		rb_link_node(&insert->r_rb_node, parent, p);
+ 		rb_insert_color(&insert->r_rb_node, root);
+-		atomic_inc(&insert->r_refcount);
++		refcount_inc(&insert->r_refcount);
+ 	}
+ 	return NULL;
  }
+@@ -99,7 +99,7 @@ static void rds_destroy_mr(struct rds_mr *mr)
+ 	unsigned long flags;
  
- /* Release a reference to the chunk. */
- void sctp_chunk_put(struct sctp_chunk *ch)
+ 	rdsdebug("RDS: destroy mr key is %x refcnt %u\n",
+-			mr->r_key, atomic_read(&mr->r_refcount));
++			mr->r_key, refcount_read(&mr->r_refcount));
+ 
+ 	if (test_and_set_bit(RDS_MR_DEAD, &mr->r_state))
+ 		return;
+@@ -223,7 +223,7 @@ static int __rds_rdma_map(struct rds_sock *rs, struct rds_get_mr_args *args,
+ 		goto out;
+ 	}
+ 
+-	atomic_set(&mr->r_refcount, 1);
++	refcount_set(&mr->r_refcount, 1);
+ 	RB_CLEAR_NODE(&mr->r_rb_node);
+ 	mr->r_trans = rs->rs_transport;
+ 	mr->r_sock = rs;
+@@ -307,7 +307,7 @@ static int __rds_rdma_map(struct rds_sock *rs, struct rds_get_mr_args *args,
+ 
+ 	rdsdebug("RDS: get_mr key is %x\n", mr->r_key);
+ 	if (mr_ret) {
+-		atomic_inc(&mr->r_refcount);
++		refcount_inc(&mr->r_refcount);
+ 		*mr_ret = mr;
+ 	}
+ 
+@@ -756,7 +756,7 @@ int rds_cmsg_rdma_dest(struct rds_sock *rs, struct rds_message *rm,
+ 	if (!mr)
+ 		err = -EINVAL;	/* invalid r_key */
+ 	else
+-		atomic_inc(&mr->r_refcount);
++		refcount_inc(&mr->r_refcount);
+ 	spin_unlock_irqrestore(&rs->rs_rdma_lock, flags);
+ 
+ 	if (mr) {
+diff --git a/net/rds/rds.h b/net/rds/rds.h
+index 35ceaa2..ea72d6e 100644
+--- a/net/rds/rds.h
++++ b/net/rds/rds.h
+@@ -277,7 +277,7 @@ struct rds_incoming {
+ 
+ struct rds_mr {
+ 	struct rb_node		r_rb_node;
+-	atomic_t		r_refcount;
++	refcount_t		r_refcount;
+ 	u32			r_key;
+ 
+ 	/* A copy of the creation flags */
+@@ -857,7 +857,7 @@ int rds_cmsg_atomic(struct rds_sock *rs, struct rds_message *rm,
+ void __rds_put_mr_final(struct rds_mr *mr);
+ static inline void rds_mr_put(struct rds_mr *mr)
  {
--	if (atomic_dec_and_test(&ch->refcnt))
-+	if (refcount_dec_and_test(&ch->refcnt))
- 		sctp_chunk_destroy(ch);
+-	if (atomic_dec_and_test(&mr->r_refcount))
++	if (refcount_dec_and_test(&mr->r_refcount))
+ 		__rds_put_mr_final(mr);
  }
  
 -- 
