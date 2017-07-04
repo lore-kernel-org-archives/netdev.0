@@ -1,73 +1,110 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 0/9] v2 ipv4/ipv6 refcount conversions
-Date: Tue,  4 Jul 2017 09:34:53 +0300
-Message-ID: <1499150102-7478-1-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 1/9] net, ipv6: convert ipv6_txoptions.refcnt from atomic_t to refcount_t
+Date: Tue,  4 Jul 2017 09:34:54 +0300
+Message-ID: <1499150102-7478-2-git-send-email-elena.reshetova@intel.com>
+References: <1499150102-7478-1-git-send-email-elena.reshetova@intel.com>
 Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
         jmorris@namei.org, kaber@trash.net, yoshfuji@linux-ipv6.org,
         steffen.klassert@secunet.com, kuznet@ms2.inr.ac.ru,
         peterz@infradead.org, keescook@chromium.org,
-        Elena Reshetova <elena.reshetova@intel.com>
+        Elena Reshetova <elena.reshetova@intel.com>,
+        Hans Liljestrand <ishkamiel@gmail.com>,
+        David Windsor <dwindsor@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1499150102-7478-1-git-send-email-elena.reshetova@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Changes in v2:
- * rebase on top of net-next
- * currently by default refcount_t = atomic_t (*) and uses all 
-   atomic standard operations unless CONFIG_REFCOUNT_FULL is enabled.
-   This is a compromise for the systems that are critical on
-   performance (such as net) and cannot accept even slight delay
-   on the refcounter operations.
+refcount_t type and corresponding API should be
+used instead of atomic_t when the variable is used as
+a reference counter. This allows to avoid accidental
+refcounter overflows that might lead to use-after-free
+situations.
 
-This series, for ipv4/ipv6 network components, replaces atomic_t reference
-counters with the new refcount_t type and API (see include/linux/refcount.h).
-By doing this we prevent intentional or accidental
-underflows or overflows that can led to use-after-free vulnerabilities.
+Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
+Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
+Signed-off-by: Kees Cook <keescook@chromium.org>
+Signed-off-by: David Windsor <dwindsor@gmail.com>
+---
+ include/net/ipv6.h       | 7 ++++---
+ net/ipv6/exthdrs.c       | 4 ++--
+ net/ipv6/ipv6_sockglue.c | 2 +-
+ 3 files changed, 7 insertions(+), 6 deletions(-)
 
-The patches are fully independent and can be cherry-picked separately.
-In order to try with refcount functionality enabled in run-time,
-CONFIG_REFCOUNT_FULL must be enabled.
-
-NOTE: automatic kernel builder for some reason doesn't like all my
-network branches and regularly times out the builds on these branches.
-Suggestion for "waiting a day for a good coverage" doesn't work, as
-we have seen with generic network conversions. So please wait for the
-full report from kernel test rebot before merging further up.
-This has been compile-tested in 116 configs, but 71 timed out (including
-all s390-related configs again). I am trying to see if they can fix
-build coverage for me in meanwhile.
-
-* The respective change is currently merged into -next as
-  "locking/refcount: Create unchecked atomic_t implementation".
-
-Elena Reshetova (9):
-  net, ipv6: convert ipv6_txoptions.refcnt from atomic_t to refcount_t
-  net, ipv6: convert inet6_dev.refcnt from atomic_t to refcount_t
-  net, ipv6: convert inet6_ifaddr.refcnt from atomic_t to refcount_t
-  net, ipv6: convert ifmcaddr6.mca_refcnt from atomic_t to refcount_t
-  net, ipv6: convert ifacaddr6.aca_refcnt from atomic_t to refcount_t
-  net, ipv6: convert xfrm6_tunnel_spi.refcnt from atomic_t to refcount_t
-  net, ipv6: convert ip6addrlbl_entry.refcnt from atomic_t to refcount_t
-  net, ipv4: convert cipso_v4_doi.refcount from atomic_t to refcount_t
-  net, ipv4: convert fib_info.fib_clntref from atomic_t to refcount_t
-
- include/net/addrconf.h   | 14 +++++++-------
- include/net/cipso_ipv4.h |  3 ++-
- include/net/if_inet6.h   |  9 +++++----
- include/net/ip_fib.h     |  7 ++++---
- include/net/ipv6.h       |  7 ++++---
- net/ipv4/cipso_ipv4.c    | 12 ++++++------
- net/ipv4/fib_semantics.c |  2 +-
- net/ipv4/fib_trie.c      |  2 +-
- net/ipv6/addrconf.c      |  4 ++--
- net/ipv6/addrlabel.c     |  9 +++++----
- net/ipv6/anycast.c       |  6 +++---
- net/ipv6/exthdrs.c       |  4 ++--
- net/ipv6/ipv6_sockglue.c |  2 +-
- net/ipv6/mcast.c         | 18 +++++++++---------
- net/ipv6/xfrm6_tunnel.c  |  8 ++++----
- 15 files changed, 56 insertions(+), 51 deletions(-)
-
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 3e505bb..6eac5cf 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -16,6 +16,7 @@
+ #include <linux/ipv6.h>
+ #include <linux/hardirq.h>
+ #include <linux/jhash.h>
++#include <linux/refcount.h>
+ #include <net/if_inet6.h>
+ #include <net/ndisc.h>
+ #include <net/flow.h>
+@@ -203,7 +204,7 @@ extern rwlock_t ip6_ra_lock;
+  */
+ 
+ struct ipv6_txoptions {
+-	atomic_t		refcnt;
++	refcount_t		refcnt;
+ 	/* Length of this structure */
+ 	int			tot_len;
+ 
+@@ -265,7 +266,7 @@ static inline struct ipv6_txoptions *txopt_get(const struct ipv6_pinfo *np)
+ 	rcu_read_lock();
+ 	opt = rcu_dereference(np->opt);
+ 	if (opt) {
+-		if (!atomic_inc_not_zero(&opt->refcnt))
++		if (!refcount_inc_not_zero(&opt->refcnt))
+ 			opt = NULL;
+ 		else
+ 			opt = rcu_pointer_handoff(opt);
+@@ -276,7 +277,7 @@ static inline struct ipv6_txoptions *txopt_get(const struct ipv6_pinfo *np)
+ 
+ static inline void txopt_put(struct ipv6_txoptions *opt)
+ {
+-	if (opt && atomic_dec_and_test(&opt->refcnt))
++	if (opt && refcount_dec_and_test(&opt->refcnt))
+ 		kfree_rcu(opt, rcu);
+ }
+ 
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index 0460af22..4996d73 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -971,7 +971,7 @@ ipv6_dup_options(struct sock *sk, struct ipv6_txoptions *opt)
+ 			*((char **)&opt2->dst1opt) += dif;
+ 		if (opt2->srcrt)
+ 			*((char **)&opt2->srcrt) += dif;
+-		atomic_set(&opt2->refcnt, 1);
++		refcount_set(&opt2->refcnt, 1);
+ 	}
+ 	return opt2;
+ }
+@@ -1056,7 +1056,7 @@ ipv6_renew_options(struct sock *sk, struct ipv6_txoptions *opt,
+ 		return ERR_PTR(-ENOBUFS);
+ 
+ 	memset(opt2, 0, tot_len);
+-	atomic_set(&opt2->refcnt, 1);
++	refcount_set(&opt2->refcnt, 1);
+ 	opt2->tot_len = tot_len;
+ 	p = (char *)(opt2 + 1);
+ 
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index a531ba0..85404e7 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -505,7 +505,7 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+ 			break;
+ 
+ 		memset(opt, 0, sizeof(*opt));
+-		atomic_set(&opt->refcnt, 1);
++		refcount_set(&opt->refcnt, 1);
+ 		opt->tot_len = sizeof(*opt) + optlen;
+ 		retv = -EFAULT;
+ 		if (copy_from_user(opt+1, optval, optlen))
 -- 
 2.7.4
