@@ -1,44 +1,66 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: 'skb' buffer address information leakage
-Date: Mon, 3 Jul 2017 22:27:45 -0700
-Message-ID: <20170703222745.5f1bb399@cakuba.netronome.com>
-References: <CAJsXRPEZV=ugCAxngtVRt+=GZfnwf1abxu8Q_DSaPeXuTYpsVw@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH 1/1] net sched: Added the TC_LINKLAYER_CUSTOM linklayer
+ type
+Date: Tue, 4 Jul 2017 07:48:32 +0200
+Message-ID: <20170704054832.GA1865@nanopsycho>
+References: <20170704001426.9268-1-Robert.McCabe@rockwellcollins.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, qca_merez@qca.qualcomm.com,
-        kvalo@codeaurora.org, linux-wireless@vger.kernel.org,
-        davem@davemloft.net, oss-drivers@netronome.com,
-        security@kernel.org, wil6210@qca.qualcomm.com
-To: Dison River <pwn2river@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAJsXRPEZV=ugCAxngtVRt+=GZfnwf1abxu8Q_DSaPeXuTYpsVw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, McCabe@rockwellcollins.com
+To: "McCabe, Robert J" <Robert.McCabe@rockwellcollins.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:34292 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750880AbdGDFsg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 01:48:36 -0400
+Received: by mail-wr0-f193.google.com with SMTP id k67so46110994wrc.1
+        for <netdev@vger.kernel.org>; Mon, 03 Jul 2017 22:48:35 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170704001426.9268-1-Robert.McCabe@rockwellcollins.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 4 Jul 2017 13:12:18 +0800, Dison River wrote:
-> drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c:167
->          seq_printf(file, " frag=%p", skb);
+Tue, Jul 04, 2017 at 02:14:25AM CEST, Robert.McCabe@rockwellcollins.com wrote:
+>This is to support user-space modification of the qdisc stab.
+>
+>Signed-off-by: McCabe, Robert J <Robert.McCabe@rockwellcollins.com>
+>---
+> include/uapi/linux/pkt_sched.h | 1 +
+> net/sched/sch_api.c            | 2 ++
+> 2 files changed, 3 insertions(+)
+>
+>diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
+>index 099bf55..289bb81 100644
+>--- a/include/uapi/linux/pkt_sched.h
+>+++ b/include/uapi/linux/pkt_sched.h
+>@@ -82,6 +82,7 @@ enum tc_link_layer {
+> 	TC_LINKLAYER_UNAWARE, /* Indicate unaware old iproute2 util */
+> 	TC_LINKLAYER_ETHERNET,
+> 	TC_LINKLAYER_ATM,
+>+	TC_LINKLAYER_CUSTOM,
+> };
+> #define TC_LINKLAYER_MASK 0x0F /* limit use to lower 4 bits */
+> 
+>diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+>index 43b94c7..174a925 100644
+>--- a/net/sched/sch_api.c
+>+++ b/net/sched/sch_api.c
+>@@ -533,6 +533,8 @@ static int qdisc_dump_stab(struct sk_buff *skb, struct qdisc_size_table *stab)
+> 		goto nla_put_failure;
+> 	if (nla_put(skb, TCA_STAB_BASE, sizeof(stab->szopts), &stab->szopts))
+> 		goto nla_put_failure;
+>+	if (nla_put(skb, TCA_STAB_DATA, sizeof(stab->szopts)*sizeof(u16), &stab->data))
+>+		goto nla_put_failure;
+ 
+You dump stab->data to user. How is this related to TC_LINKLAYER_CUSTOM
+and howcome this "is to support user-space modification of the qdisc
+stab" as your description says? I'm confused...
 
-FWIW that's actually not a skb pointer.  The structure is defined like
-this:
 
-struct nfp_net_tx_buf {
-        union { 
-                struct sk_buff *skb;
-                void *frag;
-        };
-        dma_addr_t dma_addr;
-        short int fidx;
-        u16 pkt_cnt;
-        u32 real_len;
-};
 
-So the line in question is actually reading the frag pointer, I just
-reused the skb variable, because this has to be read via READ_ONCE()
-and NULL-checked so I thought that doing it separately for skb and
-frag is a waste of LOC especially in debug code.  I will queue up a
-clean up for after the merge window.
-
-Thanks!
+> 	nla_nest_end(skb, nest);
+> 
+> 	return skb->len;
+>-- 
+>2.7.4
+>
