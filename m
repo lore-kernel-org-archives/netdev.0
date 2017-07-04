@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 1/9] net, ipv6: convert ipv6_txoptions.refcnt from atomic_t to refcount_t
-Date: Tue,  4 Jul 2017 09:34:54 +0300
-Message-ID: <1499150102-7478-2-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 2/9] net, ipv6: convert inet6_dev.refcnt from atomic_t to refcount_t
+Date: Tue,  4 Jul 2017 09:34:55 +0300
+Message-ID: <1499150102-7478-3-git-send-email-elena.reshetova@intel.com>
 References: <1499150102-7478-1-git-send-email-elena.reshetova@intel.com>
 Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
         jmorris@namei.org, kaber@trash.net, yoshfuji@linux-ipv6.org,
@@ -27,84 +27,79 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/ipv6.h       | 7 ++++---
- net/ipv6/exthdrs.c       | 4 ++--
- net/ipv6/ipv6_sockglue.c | 2 +-
+ include/net/addrconf.h | 8 ++++----
+ include/net/if_inet6.h | 3 ++-
+ net/ipv6/addrconf.c    | 2 +-
  3 files changed, 7 insertions(+), 6 deletions(-)
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 3e505bb..6eac5cf 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -16,6 +16,7 @@
- #include <linux/ipv6.h>
- #include <linux/hardirq.h>
- #include <linux/jhash.h>
-+#include <linux/refcount.h>
- #include <net/if_inet6.h>
- #include <net/ndisc.h>
- #include <net/flow.h>
-@@ -203,7 +204,7 @@ extern rwlock_t ip6_ra_lock;
-  */
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+index d0889cb..620bd9a 100644
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -316,7 +316,7 @@ static inline struct inet6_dev *in6_dev_get(const struct net_device *dev)
+ 	rcu_read_lock();
+ 	idev = rcu_dereference(dev->ip6_ptr);
+ 	if (idev)
+-		atomic_inc(&idev->refcnt);
++		refcount_inc(&idev->refcnt);
+ 	rcu_read_unlock();
+ 	return idev;
+ }
+@@ -332,18 +332,18 @@ void in6_dev_finish_destroy(struct inet6_dev *idev);
  
- struct ipv6_txoptions {
+ static inline void in6_dev_put(struct inet6_dev *idev)
+ {
+-	if (atomic_dec_and_test(&idev->refcnt))
++	if (refcount_dec_and_test(&idev->refcnt))
+ 		in6_dev_finish_destroy(idev);
+ }
+ 
+ static inline void __in6_dev_put(struct inet6_dev *idev)
+ {
+-	atomic_dec(&idev->refcnt);
++	refcount_dec(&idev->refcnt);
+ }
+ 
+ static inline void in6_dev_hold(struct inet6_dev *idev)
+ {
+-	atomic_inc(&idev->refcnt);
++	refcount_inc(&idev->refcnt);
+ }
+ 
+ void inet6_ifa_finish_destroy(struct inet6_ifaddr *ifp);
+diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
+index f656f90..e7a17b2 100644
+--- a/include/net/if_inet6.h
++++ b/include/net/if_inet6.h
+@@ -17,6 +17,7 @@
+ 
+ #include <net/snmp.h>
+ #include <linux/ipv6.h>
++#include <linux/refcount.h>
+ 
+ /* inet6_dev.if_flags */
+ 
+@@ -187,7 +188,7 @@ struct inet6_dev {
+ 
+ 	struct ifacaddr6	*ac_list;
+ 	rwlock_t		lock;
 -	atomic_t		refcnt;
 +	refcount_t		refcnt;
- 	/* Length of this structure */
- 	int			tot_len;
+ 	__u32			if_flags;
+ 	int			dead;
  
-@@ -265,7 +266,7 @@ static inline struct ipv6_txoptions *txopt_get(const struct ipv6_pinfo *np)
- 	rcu_read_lock();
- 	opt = rcu_dereference(np->opt);
- 	if (opt) {
--		if (!atomic_inc_not_zero(&opt->refcnt))
-+		if (!refcount_inc_not_zero(&opt->refcnt))
- 			opt = NULL;
- 		else
- 			opt = rcu_pointer_handoff(opt);
-@@ -276,7 +277,7 @@ static inline struct ipv6_txoptions *txopt_get(const struct ipv6_pinfo *np)
- 
- static inline void txopt_put(struct ipv6_txoptions *opt)
- {
--	if (opt && atomic_dec_and_test(&opt->refcnt))
-+	if (opt && refcount_dec_and_test(&opt->refcnt))
- 		kfree_rcu(opt, rcu);
- }
- 
-diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
-index 0460af22..4996d73 100644
---- a/net/ipv6/exthdrs.c
-+++ b/net/ipv6/exthdrs.c
-@@ -971,7 +971,7 @@ ipv6_dup_options(struct sock *sk, struct ipv6_txoptions *opt)
- 			*((char **)&opt2->dst1opt) += dif;
- 		if (opt2->srcrt)
- 			*((char **)&opt2->srcrt) += dif;
--		atomic_set(&opt2->refcnt, 1);
-+		refcount_set(&opt2->refcnt, 1);
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 114fb64..2365f12 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -426,7 +426,7 @@ static struct inet6_dev *ipv6_add_dev(struct net_device *dev)
  	}
- 	return opt2;
- }
-@@ -1056,7 +1056,7 @@ ipv6_renew_options(struct sock *sk, struct ipv6_txoptions *opt,
- 		return ERR_PTR(-ENOBUFS);
  
- 	memset(opt2, 0, tot_len);
--	atomic_set(&opt2->refcnt, 1);
-+	refcount_set(&opt2->refcnt, 1);
- 	opt2->tot_len = tot_len;
- 	p = (char *)(opt2 + 1);
+ 	/* One reference from device. */
+-	in6_dev_hold(ndev);
++	refcount_set(&ndev->refcnt, 1);
  
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index a531ba0..85404e7 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -505,7 +505,7 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
- 			break;
- 
- 		memset(opt, 0, sizeof(*opt));
--		atomic_set(&opt->refcnt, 1);
-+		refcount_set(&opt->refcnt, 1);
- 		opt->tot_len = sizeof(*opt) + optlen;
- 		retv = -EFAULT;
- 		if (copy_from_user(opt+1, optval, optlen))
+ 	if (dev->flags & (IFF_NOARP | IFF_LOOPBACK))
+ 		ndev->cnf.accept_dad = -1;
 -- 
 2.7.4
