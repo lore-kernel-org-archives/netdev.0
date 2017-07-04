@@ -1,55 +1,60 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: axienet: add of_phy_connect call for XAE_PHY_TYPE_MII case
-Date: Tue, 04 Jul 2017 09:24:03 -0700
-Message-ID: <6A2BD6D6-9CBB-4BDD-BF28-F0BF10DB454C@gmail.com>
-References: <20170630092541.27234-1-alvaro.gamez@hazent.com> <425aed84-a1b6-b8da-5989-3bef5a03ead4@gmail.com> <20170702101914.5nk27r2h754qzthe@collins.gmr.ssr.upm.es>
+From: <openhackbangalore@gmail.com>
+Subject: (unknown)
+Date: Tue, 04 Jul 2017 16:38:09 -0000
+Message-ID: <149918628984.19456.13087403377636981073@hinet.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Anirudha Sarangi <anirudh@xilinx.com>,
-        John Linn <John.Linn@xilinx.com>,
-        Michal Simek <michal.simek@xilinx.com>,
-        =?ISO-8859-1?Q?S=F6ren_Brinkmann?= <soren.brinkmann@xilinx.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alvaro Gamez Machado <alvaro.gamez@hazent.com>
+Content-Type: application/zip; name="EMAIL_91533202_netdev.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:36472 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752437AbdGDQYJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 12:24:09 -0400
-In-Reply-To: <20170702101914.5nk27r2h754qzthe@collins.gmr.ssr.upm.es>
+Received: from 111-249-108-163.dynamic-ip.hinet.net ([111.249.108.163]:34325
+        "HELO hinet.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with SMTP id S1752279AbdGDQiP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 12:38:15 -0400
+Content-Disposition: attachment
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On July 2, 2017 3:19:14 AM PDT, Alvaro Gamez Machado <alvaro=2Egamez@hazent=
-=2Ecom> wrote:
->On Fri, Jun 30, 2017 at 10:30:38AM -0700, Florian Fainelli wrote:
->> On 06/30/2017 02:25 AM, Alvaro Gamez Machado wrote:
->> >  	if (lp->phy_node) {
->> > -		if (lp->phy_type =3D=3D XAE_PHY_TYPE_GMII) {
->> > +		if (lp->phy_type =3D=3D XAE_PHY_TYPE_MII) {
->> > +			phydev =3D of_phy_connect(lp->ndev, lp->phy_node,
->> > +						axienet_adjust_link, 0,
->> > +						PHY_INTERFACE_MODE_MII);
->> > +		} else if (lp->phy_type =3D=3D XAE_PHY_TYPE_GMII) {
->> >  			phydev =3D of_phy_connect(lp->ndev, lp->phy_node,
->> >  						axienet_adjust_link, 0,
->> >  						PHY_INTERFACE_MODE_GMII);
->>=20
->> Seems like this could be simplified even further if the values of
->> lp->phy_type directly mapped to those of phy_interface_t=2E
->
->Sadly, that's not the case=2E PHY_INTERFACE_MODE_* belong to a enum of
->twenty
->different values, of which only _MII and _GMII overlap with XAW_PHY_*
->values, but XAE_PHY_TYPE_RGMII_2_0 doesn't match
->PHY_INTERFACE_MODE_RGMII_ID=2E
-
-There are four different rgmii types to account for rx or tx delay, is not=
- there one that really matches? If the driver is using of_get_phy_mode() to=
- retrieve the standard 'phy-mode' / 'phy-connection-type' values then this =
-internal representation is not needed anymore=2E
-
---=20
-Florian
+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
