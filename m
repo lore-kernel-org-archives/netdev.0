@@ -1,41 +1,50 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 1/1 V2] tc: custom qdisc pkt size translation table
-Date: Tue, 4 Jul 2017 11:15:37 -0700
-Message-ID: <20170704111537.1886adda@xeon-e3>
-References: <20170704155058.19608-1-Robert.McCabe@rockwellcollins.com>
+From: Lawrence Brakmo <brakmo@fb.com>
+Subject: Re: [PATCH][bpf-next] bpf: add missing break in for the
+ TCP_BPF_SNDCWND_CLAMP case
+Date: Tue, 4 Jul 2017 18:26:34 +0000
+Message-ID: <385C64DB-4BF4-4AC1-B7F0-76AB30969682@fb.com>
+References: <20170704152112.18623-1-colin.king@canonical.com>
+ <595BB3AF.3000304@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, McCabe@rockwellcollins.com
-To: "McCabe, Robert J" <Robert.McCabe@rockwellcollins.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f49.google.com ([74.125.83.49]:33322 "EHLO
-        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752127AbdGDSPk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 14:15:40 -0400
-Received: by mail-pg0-f49.google.com with SMTP id k14so37384596pgr.0
-        for <netdev@vger.kernel.org>; Tue, 04 Jul 2017 11:15:39 -0700 (PDT)
-In-Reply-To: <20170704155058.19608-1-Robert.McCabe@rockwellcollins.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+        Colin King <colin.king@canonical.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <595BB3AF.3000304@iogearbox.net>
+Content-Language: en-US
+Content-ID: <5FAD45A869CEA3448391CC6ED6BC3521@namprd15.prod.outlook.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue,  4 Jul 2017 10:50:58 -0500
-"McCabe, Robert J" <Robert.McCabe@rockwellcollins.com> wrote:
-
-> Added the "custom" linklayer qdisc stab option.
-> Allows the user to specify the pkt size translation
-> parameters from stdin.
-> Example:
->    tc qdisc add ... stab tsize 8 linklayer custom htb
->       Custom size table:
->       InputSizeStart -> IntputSizeEnd: OutputSize
->       0              -> 511          : 600
->       512            -> 1023         : 1200
->       1024           -> 1535         : 1800
->       1536           -> 2047         : 2400
->       2048           -> 2559         : 3000
-> 
-> Signed-off-by: McCabe, Robert J <Robert.McCabe@rockwellcollins.com>
-
-LINKLAYER_CUSTOM was not accepted into the upstream net-next kernel.
-Please resubmit after the kernel portion is accepted into net-next.
+DQoNCk9uIDcvNC8xNywgODoyNiBBTSwgIm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmcgb24g
+YmVoYWxmIG9mIERhbmllbCBCb3JrbWFubiIgPG5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmcg
+b24gYmVoYWxmIG9mIGRhbmllbEBpb2dlYXJib3gubmV0PiB3cm90ZToNCg0KICAgIFsgK0xhd3Jl
+bmNlIF0NCiAgICANCiAgICBPbiAwNy8wNC8yMDE3IDA1OjIxIFBNLCBDb2xpbiBLaW5nIHdyb3Rl
+Og0KICAgID4gRnJvbTogQ29saW4gSWFuIEtpbmcgPGNvbGluLmtpbmdAY2Fub25pY2FsLmNvbT4N
+CiAgICA+DQogICAgPiBUaGVyZSBhcHBlYXJzIHRvIGJlIGEgbWlzc2luZyBicmVhayBpbiB0aGUg
+VENQX0JQRl9TTkRDV05EX0NMQU1QIGNhc2UuDQogICAgPiBDdXJyZW50bHkgdGhlIG5vbi1lcnJv
+ciBwYXRoIHdoZXJlIHZhbCBpcyBncmVhdGVyIHRoYW4gemVybyBmYWxscyB0aHJvdWdoDQogICAg
+PiB0byB0aGUgZGVmYXVsdCBjYXNlIHRoYXQgc2V0cyB0aGUgZXJyb3IgcmV0dXJuIHRvIC1FSU5W
+QUwuIEFkZCBpbg0KICAgID4gdGhlIG1pc3NpbmcgYnJlYWsuDQogICAgPg0KICAgID4gRGV0ZWN0
+ZWQgYnkgQ292ZXJpdHlTY2FuLCBDSUQjMTQ0OTM3NiAoIk1pc3NpbmcgYnJlYWsgaW4gc3dpdGNo
+IikNCiAgICA+DQogICAgPiBGaXhlczogMTNiZjk2NDExYWQyICgiYnBmOiBBZGRzIHN1cHBvcnQg
+Zm9yIHNldHRpbmcgc25kY3duZCBjbGFtcCIpDQogICAgPiBTaWduZWQtb2ZmLWJ5OiBDb2xpbiBJ
+YW4gS2luZyA8Y29saW4ua2luZ0BjYW5vbmljYWwuY29tPg0KICAgIA0KICAgIEFja2VkLWJ5OiBE
+YW5pZWwgQm9ya21hbm4gZGFuaWVsQGlvZ2VhcmJveC5uZXQNCkFja2VkLWJ5OiBMYXdyZW5jZSBC
+cmFrbW8gPGJyYWttb0BmYi5jb20+DQogICAgDQogICAgPiAtLS0NCiAgICA+ICAgbmV0L2NvcmUv
+ZmlsdGVyLmMgfCAxICsNCiAgICA+ICAgMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspDQog
+ICAgPg0KICAgID4gZGlmZiAtLWdpdCBhL25ldC9jb3JlL2ZpbHRlci5jIGIvbmV0L2NvcmUvZmls
+dGVyLmMNCiAgICA+IGluZGV4IDk0MTY5NTcyZDAwMi4uYzdmNzM3MDU4ZDg5IDEwMDY0NA0KICAg
+ID4gLS0tIGEvbmV0L2NvcmUvZmlsdGVyLmMNCiAgICA+ICsrKyBiL25ldC9jb3JlL2ZpbHRlci5j
+DQogICAgPiBAQCAtMjg2Nyw2ICsyODY3LDcgQEAgQlBGX0NBTExfNShicGZfc2V0c29ja29wdCwg
+c3RydWN0IGJwZl9zb2NrX29wc19rZXJuICosIGJwZl9zb2NrLA0KICAgID4gICAJCQkJCXRwLT5z
+bmRfY3duZF9jbGFtcCA9IHZhbDsNCiAgICA+ICAgCQkJCQl0cC0+c25kX3NzdGhyZXNoID0gdmFs
+Ow0KICAgID4gICAJCQkJfQ0KICAgID4gKwkJCQlicmVhazsNCiAgICA+ICAgCQkJZGVmYXVsdDoN
+CiAgICA+ICAgCQkJCXJldCA9IC1FSU5WQUw7DQogICAgPiAgIAkJCX0NCiAgICA+DQogICAgDQog
+ICAgDQoNCg==
