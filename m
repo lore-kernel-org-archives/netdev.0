@@ -1,60 +1,255 @@
-From: <salome.khum@vision-france.net>
-Subject: (unknown)
-Date: Tue, 04 Jul 2017 21:02:41 -0000
-Message-ID: <149920216176.29695.2237520837382274623@mts-nn.ru>
-Mime-Version: 1.0
-Content-Type: application/zip; name="EBAY_666499260012_netdev.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+From: Lucas Bates <lucasb@mojatatu.com>
+Subject: [PATCH iproute2 1/1] Add new man page for tc actions.
+Date: Tue,  4 Jul 2017 17:40:35 -0400
+Message-ID: <1499204435-29331-1-git-send-email-lucasb@mojatatu.com>
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, psutter@redhat.com,
+        jbenc@redhat.com, Lucas Bates <lucasb@mojatatu.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 109-184-7-156.dynamic.mts-nn.ru ([109.184.7.156]:47654 "HELO
-        mts-nn.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-        id S1752169AbdGDVCq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 4 Jul 2017 17:02:46 -0400
-Content-Disposition: attachment
-Subject: 
+Received: from mail-it0-f51.google.com ([209.85.214.51]:35553 "EHLO
+        mail-it0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752169AbdGDVl0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 17:41:26 -0400
+Received: by mail-it0-f51.google.com with SMTP id v202so105472611itb.0
+        for <netdev@vger.kernel.org>; Tue, 04 Jul 2017 14:41:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-AAEAAQBgAAAAuggAAAAA
+This page is to highlight all operations and options that are
+applicable to all tc actions.
+
+Signed-off-by: Lucas Bates <lucasb@mojatatu.com>
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ man/man8/tc-actions.8 | 221 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 221 insertions(+)
+ create mode 100644 man/man8/tc-actions.8
+
+diff --git a/man/man8/tc-actions.8 b/man/man8/tc-actions.8
+new file mode 100644
+index 0000000..51f43af
+--- /dev/null
++++ b/man/man8/tc-actions.8
+@@ -0,0 +1,221 @@
++.TH "actions in tc" 8 "4 Jul 2017" "iproute2" "Linux"
++
++.SH NAME
++actions \- independently defined actions in tc
++.SH SYNOPSIS
++.B tc
++[
++.I TC_OPTIONS
++]
++.B actions
++.BR add " | " change " | " replace
++.I ACTSPEC
++
++.B tc
++[
++.I TC_OPTIONS
++]
++.B actions
++.BR get " | " delete
++.I ACTISPEC
++
++.B tc
++[
++.I TC_OPTIONS
++]
++.B actions flush
++.I ACTNAMESPEC
++
++.B tc
++[
++.I TC_OPTIONS
++]
++.B actions
++.BR ls " | " list
++.I ACTNAMESPEC
++
++.in +8
++.I ACTSPEC
++:=
++.B action
++.I ACTDETAIL
++[
++.I INDEXSPEC
++] [
++.I COOKIESPEC
++] [
++.I CONTROL
++]
++
++.I ACTISPEC
++:=
++.I ACTNAMESPEC INDEXSPEC
++
++.I ACTNAMESPEC
++:=
++.B action
++ACTNAME
++
++.I INDEXSPEC
++:=
++.BI index " INDEX"
++
++.I COOKIESPEC
++:=
++.BI cookie " COOKIE"
++
++.I ACTDETAIL
++:=
++.I ACTNAME ACTPARAMS
++
++.I ACTNAME
++may be any valid action type: gact, mirred, bpf, connmark, csum, police, etc.
++
++.I ACTPARAMS
++are the action-specific parameters; see the man page for the specific action
++type to be used for details.
++
++.I CONTROL
++:= {
++.IR reclassify " | " pipe " | " drop " | " continue " | " ok
++}
++
++.I TC_OPTIONS
++These are the options that are specific to
++.B tc
++and not only the options. Refer to
++.BR tc(8)
++for more information.
++.in
++
++.SH DESCRIPTION
++
++The
++.B actions
++object in
++.B tc
++allows a user to define actions independently of a classifier (filter). These
++actions can then be assigned to one or more filters, with any
++packets matching the classifier's criteria having that action performed
++on them.
++
++Each action type (mirred, police, etc.) will have its own table to store
++all created actions.
++
++.SH OPERATIONS
++.TP
++.B add
++Create a new action in that action's table.
++
++.TP
++.B change
++.TQ
++.B replace
++Make modifications to an existing action.
++.TP
++.B get
++Display the action with the specified index value. When combined with the
++.B -s
++option for
++.BR tc ","
++display the statistics for that action.
++.TP
++.B delete
++Delete the action with the specified index value. If the action is already
++associated with a classifier, it does not delete the classifier.
++.TP
++.B ls
++.TQ
++.B list
++List all the actions in the specified table. When combined with the
++.B -s
++option for
++.BR tc ","
++display the statistics for all actions in the specified table.
++.TP
++.B flush
++Delete all actions stored in the specified table.
++
++.SH ACTION OPTIONS
++Note that these options are available to all action types.
++.TP
++.BI index " INDEX"
++Specify the table index value of an action.
++.I INDEX
++is a 32-bit value that is unique to the specific type of action referenced.
++
++.RS
++For
++.BR add ", " change ", and"
++.B replace
++operations, the index is
++.BR optional.
++When adding a new action,
++specifying an index value will assign the action to that index unless that
++index value has already been assigned. Omitting the index value for an add
++operation will cause the kernel to assign a value to the new action.
++.RE
++
++.RS
++For
++.BR get " and " delete
++operations, the index is
++.B required
++to identify the specific action to be displayed or deleted.
++.RE
++
++.TP
++.BI cookie " COOKIE"
++In addition to the specific action, mark the matching packet with the value
++specified by
++.IR COOKIE "."
++The
++.I COOKIE
++is a 128-bit value that will not be interpreted by the kernel whatsoever.
++As such, it can be used as a correlating value for maintaining user state.
++The value to be stored is completely arbitrary and does not require a specific
++format. It is stored inside the action structure itself.
++
++.TP
++.I CONTROL
++The
++.I CONTROL
++indicates how
++.B tc
++should proceed after executing the action. Any of the following are valid:
++.RS
++.TP
++.B reclassify
++Restart the classifiction by jumping back to the first filter attached to
++the action's parent.
++.TP
++.B pipe
++Continue with the next action. This is the default control.
++.TP
++.B drop
++Drop the packed without running any further actions.
++.TP
++.B continue
++Continue the classification with the next filter.
++.TP
++.B pass
++Return to the calling qdisc for packet processing, and end classification of
++this packet.
++.RE
++
++.SH SEE ALSO
++.BR tc (8),
++.BR tc-bpf (8),
++.BR tc-connmark (8),
++.BR tc-csum (8),
++.BR tc-ife (8),
++.BR tc-mirred (8),
++.BR tc-nat (8),
++.BR tc-pedit (8),
++.BR tc-police (8),
++.BR tc-simple (8),
++.BR tc-skbedit (8),
++.BR tc-skbmod (8),
++.BR tc-tunnel_key (8),
++.BR tc-vlan (8),
++.BR tc-xt (8)
