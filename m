@@ -1,55 +1,40 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: WARN_ON_ONCE(work > weight) in napi_poll()
-Date: Tue, 4 Jul 2017 13:49:53 +0000
-Message-ID: <87wp7oia6j.fsf@kamboji.qca.qualcomm.com>
-References: <26670dce-4dd2-f8e4-0e14-90d74257e739@virtuozzo.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] ipv4: Export rtm_ipv4_policy.
+Date: Tue, 04 Jul 2017 07:18:15 -0700 (PDT)
+Message-ID: <20170704.071815.1571286541262131188.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Networking <netdev@vger.kernel.org>,
- linux-wireless <linux-wireless@vger.kernel.org>,
- LKML <linux-kernel@vger.kernel.org>,
- "ath10k@lists.infradead.org" <ath10k@lists.infradead.org>
-To: Andrey Ryabinin <aryabinin@virtuozzo.com>
-Return-path: <ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org>
-In-Reply-To: <26670dce-4dd2-f8e4-0e14-90d74257e739@virtuozzo.com> (Andrey
- Ryabinin's message of "Fri, 30 Jun 2017 19:34:44 +0300")
-Content-Language: en-US
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/ath10k>,
- <mailto:ath10k-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/ath10k/>
-List-Post: <mailto:ath10k@lists.infradead.org>
-List-Help: <mailto:ath10k-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/ath10k>,
- <mailto:ath10k-request@lists.infradead.org?subject=subscribe>
-Sender: "ath10k" <ath10k-bounces@lists.infradead.org>
-Errors-To: ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: roopa@cumulusnetworks.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51222 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752051AbdGDOSX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 10:18:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andrey Ryabinin <aryabinin@virtuozzo.com> writes:
 
-> I occasionally hit WARN_ON_ONCE(work > weight); in napi_poll() on a
-> laptop with ath10k card.
->
->
-> [37207.593370] ------------[ cut here ]------------
-> [37207.593380] WARNING: CPU: 0 PID: 7 at ../net/core/dev.c:5274
-> net_rx_action+0x258/0x360
-> [37207.593381] Modules linked in: snd_hda_codec_realtek snd_soc_skl
-> snd_hda_codec_generic snd_soc_skl_ipc snd_soc_sst_ipc snd_soc_sst_dsp
-> snd_hda_ext_core snd_soc_sst_match snd_soc_core rtsx_pci_sdmmc
-> mmc_core snd_pcm_dmaengine x86_pkg_temp_thermal snd_hda_intel uvcvideo
-> kvm_intel videobuf2_vmalloc kvm snd_hda_codec snd_hwdep btusb
-> videobuf2_memops btintel snd_hda_core videobuf2_v4l2 bluetooth
-> irqbypass snd_pcm videobuf2_core crc32c_intel videodev mei_me mei
-> rtsx_pci intel_lpss_pci intel_lpss_acpi intel_vbtn intel_lpss mfd_core
-> tpm_tis intel_hid tpm_tis_core tpm efivarfs
-> [37207.593430] CPU: 0 PID: 7 Comm: ksoftirqd/0 Not tainted 4.11.7 #28
-> [37207.593432] Hardware name: Dell Inc. XPS 13 9360/0839Y6, BIOS 1.3.5 05/08/2017
+The MPLS code now needs it.
 
-What firmware and hardware versions exactly? The dmesg output when
-ath10k loads is preferred. As you are using XPS 13 I'm guessing it's one
-of QCA6174 family.
+Fixes: 397fc9e5cefe ("mpls: route get support")
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/fib_frontend.c | 1 +
+ 1 file changed, 1 insertion(+)
 
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 4e678fa..1b5860f 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -626,6 +626,7 @@ const struct nla_policy rtm_ipv4_policy[RTA_MAX + 1] = {
+ 	[RTA_UID]		= { .type = NLA_U32 },
+ 	[RTA_MARK]		= { .type = NLA_U32 },
+ };
++EXPORT_SYMBOL_GPL(rtm_ipv4_policy);
+ 
+ static int rtm_to_fib_config(struct net *net, struct sk_buff *skb,
+ 			     struct nlmsghdr *nlh, struct fib_config *cfg,
 -- 
-Kalle Valo
+2.9.4
