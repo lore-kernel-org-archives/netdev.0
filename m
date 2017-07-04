@@ -1,136 +1,48 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net 1/3] nfp: improve order of interfaces in breakout mode
-Date: Tue,  4 Jul 2017 02:27:19 -0700
-Message-ID: <20170704092721.780-2-jakub.kicinski@netronome.com>
-References: <20170704092721.780-1-jakub.kicinski@netronome.com>
-Cc: oss-drivers@netronome.com,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:34311 "EHLO
-        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751845AbdGDJ2h (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 05:28:37 -0400
-Received: by mail-pf0-f171.google.com with SMTP id s66so112677489pfs.1
-        for <netdev@vger.kernel.org>; Tue, 04 Jul 2017 02:28:37 -0700 (PDT)
-In-Reply-To: <20170704092721.780-1-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Lin Yun Sheng <linyunsheng@huawei.com>
+Subject: [PATCH net 2/3] net: hns: Fix a wrong op phy C45 code
+Date: Tue, 4 Jul 2017 18:47:32 +0800
+Message-ID: <1499165253-184543-3-git-send-email-linyunsheng@huawei.com>
+References: <1499165253-184543-1-git-send-email-linyunsheng@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
+        <liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
+        <gabriele.paoloni@huawei.com>, <john.garry@huawei.com>,
+        <linuxarm@huawei.com>, <yisen.zhuang@huawei.com>,
+        <salil.mehta@huawei.com>, <lipeng321@huawei.com>,
+        <tremyfr@gmail.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1499165253-184543-1-git-send-email-linyunsheng@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-For historical reasons we enumerate the vNICs in order.  This means
-that if user configures breakout on a multiport card, the first
-interface of the second port will have its MAC address changed.
+From: Yunsheng Lin <linyunsheng@huawei.com>
 
-What's worse, when moved from static information (HWInfo) to using
-management FW (NSP), more features started depending on the port ids.
-Right now in case of breakout first subport of the second port and
-second subport of the first port will have their link info swapped.
+As the user manual described, the second step to write to C45 phy
+by mdio should be data, but not address. Here we should fix this
+issue.
 
-Revise the ordering scheme so that first subport maintains its address.
-Side effect of this change is that we will use base lane ids in
-devlink (i.e. 40G ports will be 4 ids apart), e.g.:
-
-pci/0000:04:00.0/0: type eth netdev p6p1
-pci/0000:04:00.0/4: type eth netdev p6p2
-
-Note that behaviour of phys_port_id is not changed since there is
-a separate id number for the subport there.
-
-Fixes: ec8b1fbe682d ("nfp: support port splitting via devlink")
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Signed-off-by: Yankejian <yankejian@huawei.com>
+Reviewed-by: lipeng <lipeng321@huawei.com>
+Reviewed-by: Yunsheng Lin <linyunsheng@huawei.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_main.h     |  2 --
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c | 10 +++++-----
- drivers/net/ethernet/netronome/nfp/nfp_port.c     | 14 +++++++-------
- 3 files changed, 12 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/hisilicon/hns_mdio.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.h b/drivers/net/ethernet/netronome/nfp/nfp_main.h
-index a08cfba7e68e..365252ab4660 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_main.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_main.h
-@@ -149,8 +149,6 @@ void nfp_net_pci_remove(struct nfp_pf *pf);
- int nfp_hwmon_register(struct nfp_pf *pf);
- void nfp_hwmon_unregister(struct nfp_pf *pf);
+diff --git a/drivers/net/ethernet/hisilicon/hns_mdio.c b/drivers/net/ethernet/hisilicon/hns_mdio.c
+index e5221d9..017e084 100644
+--- a/drivers/net/ethernet/hisilicon/hns_mdio.c
++++ b/drivers/net/ethernet/hisilicon/hns_mdio.c
+@@ -261,7 +261,7 @@ static int hns_mdio_write(struct mii_bus *bus,
  
--struct nfp_eth_table_port *
--nfp_net_find_port(struct nfp_eth_table *eth_tbl, unsigned int id);
- void
- nfp_net_get_mac_addr(struct nfp_pf *pf, struct nfp_port *port, unsigned int id);
- 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index c85a2f18c4df..bfcdada29cc0 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -126,13 +126,13 @@ nfp_net_get_mac_addr(struct nfp_pf *pf, struct nfp_port *port, unsigned int id)
- 	ether_addr_copy(port->netdev->perm_addr, mac_addr);
- }
- 
--struct nfp_eth_table_port *
--nfp_net_find_port(struct nfp_eth_table *eth_tbl, unsigned int id)
-+static struct nfp_eth_table_port *
-+nfp_net_find_port(struct nfp_eth_table *eth_tbl, unsigned int index)
- {
- 	int i;
- 
- 	for (i = 0; eth_tbl && i < eth_tbl->count; i++)
--		if (eth_tbl->ports[i].eth_index == id)
-+		if (eth_tbl->ports[i].index == index)
- 			return &eth_tbl->ports[i];
- 
- 	return NULL;
-@@ -202,7 +202,7 @@ static void nfp_net_pf_free_vnics(struct nfp_pf *pf)
- static struct nfp_net *
- nfp_net_pf_alloc_vnic(struct nfp_pf *pf, bool needs_netdev,
- 		      void __iomem *ctrl_bar, void __iomem *qc_bar,
--		      int stride, unsigned int eth_id)
-+		      int stride, unsigned int id)
- {
- 	u32 tx_base, rx_base, n_tx_rings, n_rx_rings;
- 	struct nfp_net *nn;
-@@ -228,7 +228,7 @@ nfp_net_pf_alloc_vnic(struct nfp_pf *pf, bool needs_netdev,
- 	nn->stride_tx = stride;
- 
- 	if (needs_netdev) {
--		err = nfp_app_vnic_init(pf->app, nn, eth_id);
-+		err = nfp_app_vnic_init(pf->app, nn, id);
- 		if (err) {
- 			nfp_net_free(nn);
- 			return ERR_PTR(err);
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_port.c b/drivers/net/ethernet/netronome/nfp/nfp_port.c
-index 776e54dd5dd0..e42644dbb865 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_port.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_port.c
-@@ -184,24 +184,24 @@ nfp_port_get_phys_port_name(struct net_device *netdev, char *name, size_t len)
- int nfp_port_init_phy_port(struct nfp_pf *pf, struct nfp_app *app,
- 			   struct nfp_port *port, unsigned int id)
- {
--	port->eth_id = id;
--	port->eth_port = nfp_net_find_port(pf->eth_tbl, id);
--
- 	/* Check if vNIC has external port associated and cfg is OK */
--	if (!port->eth_port) {
-+	if (!pf->eth_tbl || id >= pf->eth_tbl->count) {
- 		nfp_err(app->cpp,
--			"NSP port entries don't match vNICs (no entry for port #%d)\n",
-+			"NSP port entries don't match vNICs (no entry %d)\n",
- 			id);
- 		return -EINVAL;
- 	}
--	if (port->eth_port->override_changed) {
-+	if (pf->eth_tbl->ports[id].override_changed) {
- 		nfp_warn(app->cpp,
- 			 "Config changed for port #%d, reboot required before port will be operational\n",
--			 id);
-+			 pf->eth_tbl->ports[id].index);
- 		port->type = NFP_PORT_INVALID;
- 		return 0;
+ 		/* config the data needed writing */
+ 		cmd_reg_cfg = devad;
+-		op = MDIO_C45_WRITE_ADDR;
++		op = MDIO_C45_WRITE_DATA;
  	}
  
-+	port->eth_port = &pf->eth_tbl->ports[id];
-+	port->eth_id = pf->eth_tbl->ports[id].index;
-+
- 	return 0;
- }
- 
+ 	MDIO_SET_REG_FIELD(mdio_dev, MDIO_WDATA_REG, MDIO_WDATA_DATA_M,
 -- 
-2.11.0
+1.9.1
