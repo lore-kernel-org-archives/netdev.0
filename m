@@ -1,66 +1,73 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH 1/1] net sched: Added the TC_LINKLAYER_CUSTOM linklayer
- type
-Date: Tue, 4 Jul 2017 07:48:32 +0200
-Message-ID: <20170704054832.GA1865@nanopsycho>
-References: <20170704001426.9268-1-Robert.McCabe@rockwellcollins.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, McCabe@rockwellcollins.com
-To: "McCabe, Robert J" <Robert.McCabe@rockwellcollins.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:34292 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750880AbdGDFsg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 01:48:36 -0400
-Received: by mail-wr0-f193.google.com with SMTP id k67so46110994wrc.1
-        for <netdev@vger.kernel.org>; Mon, 03 Jul 2017 22:48:35 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170704001426.9268-1-Robert.McCabe@rockwellcollins.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Elena Reshetova <elena.reshetova@intel.com>
+Subject: [PATCH 0/9] v2 ipv4/ipv6 refcount conversions
+Date: Tue,  4 Jul 2017 09:34:53 +0300
+Message-ID: <1499150102-7478-1-git-send-email-elena.reshetova@intel.com>
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+        jmorris@namei.org, kaber@trash.net, yoshfuji@linux-ipv6.org,
+        steffen.klassert@secunet.com, kuznet@ms2.inr.ac.ru,
+        peterz@infradead.org, keescook@chromium.org,
+        Elena Reshetova <elena.reshetova@intel.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Jul 04, 2017 at 02:14:25AM CEST, Robert.McCabe@rockwellcollins.com wrote:
->This is to support user-space modification of the qdisc stab.
->
->Signed-off-by: McCabe, Robert J <Robert.McCabe@rockwellcollins.com>
->---
-> include/uapi/linux/pkt_sched.h | 1 +
-> net/sched/sch_api.c            | 2 ++
-> 2 files changed, 3 insertions(+)
->
->diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
->index 099bf55..289bb81 100644
->--- a/include/uapi/linux/pkt_sched.h
->+++ b/include/uapi/linux/pkt_sched.h
->@@ -82,6 +82,7 @@ enum tc_link_layer {
-> 	TC_LINKLAYER_UNAWARE, /* Indicate unaware old iproute2 util */
-> 	TC_LINKLAYER_ETHERNET,
-> 	TC_LINKLAYER_ATM,
->+	TC_LINKLAYER_CUSTOM,
-> };
-> #define TC_LINKLAYER_MASK 0x0F /* limit use to lower 4 bits */
-> 
->diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
->index 43b94c7..174a925 100644
->--- a/net/sched/sch_api.c
->+++ b/net/sched/sch_api.c
->@@ -533,6 +533,8 @@ static int qdisc_dump_stab(struct sk_buff *skb, struct qdisc_size_table *stab)
-> 		goto nla_put_failure;
-> 	if (nla_put(skb, TCA_STAB_BASE, sizeof(stab->szopts), &stab->szopts))
-> 		goto nla_put_failure;
->+	if (nla_put(skb, TCA_STAB_DATA, sizeof(stab->szopts)*sizeof(u16), &stab->data))
->+		goto nla_put_failure;
- 
-You dump stab->data to user. How is this related to TC_LINKLAYER_CUSTOM
-and howcome this "is to support user-space modification of the qdisc
-stab" as your description says? I'm confused...
+Changes in v2:
+ * rebase on top of net-next
+ * currently by default refcount_t = atomic_t (*) and uses all 
+   atomic standard operations unless CONFIG_REFCOUNT_FULL is enabled.
+   This is a compromise for the systems that are critical on
+   performance (such as net) and cannot accept even slight delay
+   on the refcounter operations.
 
+This series, for ipv4/ipv6 network components, replaces atomic_t reference
+counters with the new refcount_t type and API (see include/linux/refcount.h).
+By doing this we prevent intentional or accidental
+underflows or overflows that can led to use-after-free vulnerabilities.
 
+The patches are fully independent and can be cherry-picked separately.
+In order to try with refcount functionality enabled in run-time,
+CONFIG_REFCOUNT_FULL must be enabled.
 
-> 	nla_nest_end(skb, nest);
-> 
-> 	return skb->len;
->-- 
->2.7.4
->
+NOTE: automatic kernel builder for some reason doesn't like all my
+network branches and regularly times out the builds on these branches.
+Suggestion for "waiting a day for a good coverage" doesn't work, as
+we have seen with generic network conversions. So please wait for the
+full report from kernel test rebot before merging further up.
+This has been compile-tested in 116 configs, but 71 timed out (including
+all s390-related configs again). I am trying to see if they can fix
+build coverage for me in meanwhile.
+
+* The respective change is currently merged into -next as
+  "locking/refcount: Create unchecked atomic_t implementation".
+
+Elena Reshetova (9):
+  net, ipv6: convert ipv6_txoptions.refcnt from atomic_t to refcount_t
+  net, ipv6: convert inet6_dev.refcnt from atomic_t to refcount_t
+  net, ipv6: convert inet6_ifaddr.refcnt from atomic_t to refcount_t
+  net, ipv6: convert ifmcaddr6.mca_refcnt from atomic_t to refcount_t
+  net, ipv6: convert ifacaddr6.aca_refcnt from atomic_t to refcount_t
+  net, ipv6: convert xfrm6_tunnel_spi.refcnt from atomic_t to refcount_t
+  net, ipv6: convert ip6addrlbl_entry.refcnt from atomic_t to refcount_t
+  net, ipv4: convert cipso_v4_doi.refcount from atomic_t to refcount_t
+  net, ipv4: convert fib_info.fib_clntref from atomic_t to refcount_t
+
+ include/net/addrconf.h   | 14 +++++++-------
+ include/net/cipso_ipv4.h |  3 ++-
+ include/net/if_inet6.h   |  9 +++++----
+ include/net/ip_fib.h     |  7 ++++---
+ include/net/ipv6.h       |  7 ++++---
+ net/ipv4/cipso_ipv4.c    | 12 ++++++------
+ net/ipv4/fib_semantics.c |  2 +-
+ net/ipv4/fib_trie.c      |  2 +-
+ net/ipv6/addrconf.c      |  4 ++--
+ net/ipv6/addrlabel.c     |  9 +++++----
+ net/ipv6/anycast.c       |  6 +++---
+ net/ipv6/exthdrs.c       |  4 ++--
+ net/ipv6/ipv6_sockglue.c |  2 +-
+ net/ipv6/mcast.c         | 18 +++++++++---------
+ net/ipv6/xfrm6_tunnel.c  |  8 ++++----
+ 15 files changed, 56 insertions(+), 51 deletions(-)
+
+-- 
+2.7.4
