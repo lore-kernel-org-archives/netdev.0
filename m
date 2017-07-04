@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 16/36] net, netrom: convert nr_neigh.refcount from atomic_t to refcount_t
-Date: Tue,  4 Jul 2017 15:53:11 +0300
-Message-ID: <1499172811-16271-17-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 18/36] net, sunrpc: convert gss_cl_ctx.count from atomic_t to refcount_t
+Date: Tue,  4 Jul 2017 15:53:13 +0300
+Message-ID: <1499172811-16271-19-git-send-email-elena.reshetova@intel.com>
 References: <1499172811-16271-1-git-send-email-elena.reshetova@intel.com>
 Cc: linux-kernel@vger.kernel.org,
         linux-decnet-user@lists.sourceforge.net, davem@davemloft.net,
@@ -35,66 +35,60 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/netrom.h  | 7 ++++---
- net/netrom/nr_route.c | 4 ++--
- 2 files changed, 6 insertions(+), 5 deletions(-)
+ include/linux/sunrpc/auth_gss.h | 3 ++-
+ net/sunrpc/auth_gss/auth_gss.c  | 6 +++---
+ 2 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/netrom.h b/include/net/netrom.h
-index 110350a..cecb4fd 100644
---- a/include/net/netrom.h
-+++ b/include/net/netrom.h
-@@ -11,6 +11,7 @@
- #include <linux/list.h>
- #include <linux/slab.h>
- #include <net/sock.h>
+diff --git a/include/linux/sunrpc/auth_gss.h b/include/linux/sunrpc/auth_gss.h
+index 36eebc4..cebdf87 100644
+--- a/include/linux/sunrpc/auth_gss.h
++++ b/include/linux/sunrpc/auth_gss.h
+@@ -13,6 +13,7 @@
+ #define _LINUX_SUNRPC_AUTH_GSS_H
+ 
+ #ifdef __KERNEL__
 +#include <linux/refcount.h>
+ #include <linux/sunrpc/auth.h>
+ #include <linux/sunrpc/svc.h>
+ #include <linux/sunrpc/gss_api.h>
+@@ -65,7 +66,7 @@ struct rpc_gss_init_res {
+  * the wire when communicating with a server. */
  
- #define	NR_NETWORK_LEN			15
- #define	NR_TRANSPORT_LEN		5
-@@ -93,7 +94,7 @@ struct nr_neigh {
- 	unsigned short		count;
- 	unsigned int		number;
- 	unsigned char		failed;
--	atomic_t		refcount;
-+	refcount_t		refcount;
- };
- 
- struct nr_route {
-@@ -128,11 +129,11 @@ static __inline__ void nr_node_put(struct nr_node *nr_node)
+ struct gss_cl_ctx {
+-	atomic_t		count;
++	refcount_t		count;
+ 	enum rpc_gss_proc	gc_proc;
+ 	u32			gc_seq;
+ 	spinlock_t		gc_seq_lock;
+diff --git a/net/sunrpc/auth_gss/auth_gss.c b/net/sunrpc/auth_gss/auth_gss.c
+index 4f16953..72f129c 100644
+--- a/net/sunrpc/auth_gss/auth_gss.c
++++ b/net/sunrpc/auth_gss/auth_gss.c
+@@ -117,14 +117,14 @@ static const struct rpc_pipe_ops gss_upcall_ops_v1;
+ static inline struct gss_cl_ctx *
+ gss_get_ctx(struct gss_cl_ctx *ctx)
+ {
+-	atomic_inc(&ctx->count);
++	refcount_inc(&ctx->count);
+ 	return ctx;
  }
  
- #define nr_neigh_hold(__nr_neigh) \
--	atomic_inc(&((__nr_neigh)->refcount))
-+	refcount_inc(&((__nr_neigh)->refcount))
- 
- static __inline__ void nr_neigh_put(struct nr_neigh *nr_neigh)
+ static inline void
+ gss_put_ctx(struct gss_cl_ctx *ctx)
  {
--	if (atomic_dec_and_test(&nr_neigh->refcount)) {
-+	if (refcount_dec_and_test(&nr_neigh->refcount)) {
- 		if (nr_neigh->ax25)
- 			ax25_cb_put(nr_neigh->ax25);
- 		kfree(nr_neigh->digipeat);
-diff --git a/net/netrom/nr_route.c b/net/netrom/nr_route.c
-index d72a4f1..6b72970 100644
---- a/net/netrom/nr_route.c
-+++ b/net/netrom/nr_route.c
-@@ -149,7 +149,7 @@ static int __must_check nr_add_node(ax25_address *nr, const char *mnemonic,
- 		nr_neigh->count    = 0;
- 		nr_neigh->number   = nr_neigh_no++;
- 		nr_neigh->failed   = 0;
--		atomic_set(&nr_neigh->refcount, 1);
-+		refcount_set(&nr_neigh->refcount, 1);
+-	if (atomic_dec_and_test(&ctx->count))
++	if (refcount_dec_and_test(&ctx->count))
+ 		gss_free_ctx(ctx);
+ }
  
- 		if (ax25_digi != NULL && ax25_digi->ndigi > 0) {
- 			nr_neigh->digipeat = kmemdup(ax25_digi,
-@@ -431,7 +431,7 @@ static int __must_check nr_add_neigh(ax25_address *callsign,
- 	nr_neigh->count    = 0;
- 	nr_neigh->number   = nr_neigh_no++;
- 	nr_neigh->failed   = 0;
--	atomic_set(&nr_neigh->refcount, 1);
-+	refcount_set(&nr_neigh->refcount, 1);
- 
- 	if (ax25_digi != NULL && ax25_digi->ndigi > 0) {
- 		nr_neigh->digipeat = kmemdup(ax25_digi, sizeof(*ax25_digi),
+@@ -200,7 +200,7 @@ gss_alloc_context(void)
+ 		ctx->gc_proc = RPC_GSS_PROC_DATA;
+ 		ctx->gc_seq = 1;	/* NetApp 6.4R1 doesn't accept seq. no. 0 */
+ 		spin_lock_init(&ctx->gc_seq_lock);
+-		atomic_set(&ctx->count,1);
++		refcount_set(&ctx->count,1);
+ 	}
+ 	return ctx;
+ }
 -- 
 2.7.4
