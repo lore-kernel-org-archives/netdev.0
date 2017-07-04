@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 2/9] net, ipv6: convert inet6_dev.refcnt from atomic_t to refcount_t
-Date: Tue,  4 Jul 2017 09:34:55 +0300
-Message-ID: <1499150102-7478-3-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 5/9] net, ipv6: convert ifacaddr6.aca_refcnt from atomic_t to refcount_t
+Date: Tue,  4 Jul 2017 09:34:58 +0300
+Message-ID: <1499150102-7478-6-git-send-email-elena.reshetova@intel.com>
 References: <1499150102-7478-1-git-send-email-elena.reshetova@intel.com>
 Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
         jmorris@namei.org, kaber@trash.net, yoshfuji@linux-ipv6.org,
@@ -27,79 +27,50 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/addrconf.h | 8 ++++----
- include/net/if_inet6.h | 3 ++-
- net/ipv6/addrconf.c    | 2 +-
- 3 files changed, 7 insertions(+), 6 deletions(-)
+ include/net/if_inet6.h | 2 +-
+ net/ipv6/anycast.c     | 6 +++---
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index d0889cb..620bd9a 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -316,7 +316,7 @@ static inline struct inet6_dev *in6_dev_get(const struct net_device *dev)
- 	rcu_read_lock();
- 	idev = rcu_dereference(dev->ip6_ptr);
- 	if (idev)
--		atomic_inc(&idev->refcnt);
-+		refcount_inc(&idev->refcnt);
- 	rcu_read_unlock();
- 	return idev;
- }
-@@ -332,18 +332,18 @@ void in6_dev_finish_destroy(struct inet6_dev *idev);
- 
- static inline void in6_dev_put(struct inet6_dev *idev)
- {
--	if (atomic_dec_and_test(&idev->refcnt))
-+	if (refcount_dec_and_test(&idev->refcnt))
- 		in6_dev_finish_destroy(idev);
- }
- 
- static inline void __in6_dev_put(struct inet6_dev *idev)
- {
--	atomic_dec(&idev->refcnt);
-+	refcount_dec(&idev->refcnt);
- }
- 
- static inline void in6_dev_hold(struct inet6_dev *idev)
- {
--	atomic_inc(&idev->refcnt);
-+	refcount_inc(&idev->refcnt);
- }
- 
- void inet6_ifa_finish_destroy(struct inet6_ifaddr *ifp);
 diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
-index f656f90..e7a17b2 100644
+index 4bb52ce..d4088d1 100644
 --- a/include/net/if_inet6.h
 +++ b/include/net/if_inet6.h
-@@ -17,6 +17,7 @@
+@@ -147,7 +147,7 @@ struct ifacaddr6 {
+ 	struct rt6_info		*aca_rt;
+ 	struct ifacaddr6	*aca_next;
+ 	int			aca_users;
+-	atomic_t		aca_refcnt;
++	refcount_t		aca_refcnt;
+ 	unsigned long		aca_cstamp;
+ 	unsigned long		aca_tstamp;
+ };
+diff --git a/net/ipv6/anycast.c b/net/ipv6/anycast.c
+index 514ac25..0bbab8a 100644
+--- a/net/ipv6/anycast.c
++++ b/net/ipv6/anycast.c
+@@ -203,12 +203,12 @@ void ipv6_sock_ac_close(struct sock *sk)
  
- #include <net/snmp.h>
- #include <linux/ipv6.h>
-+#include <linux/refcount.h>
+ static void aca_get(struct ifacaddr6 *aca)
+ {
+-	atomic_inc(&aca->aca_refcnt);
++	refcount_inc(&aca->aca_refcnt);
+ }
  
- /* inet6_dev.if_flags */
+ static void aca_put(struct ifacaddr6 *ac)
+ {
+-	if (atomic_dec_and_test(&ac->aca_refcnt)) {
++	if (refcount_dec_and_test(&ac->aca_refcnt)) {
+ 		in6_dev_put(ac->aca_idev);
+ 		dst_release(&ac->aca_rt->dst);
+ 		kfree(ac);
+@@ -232,7 +232,7 @@ static struct ifacaddr6 *aca_alloc(struct rt6_info *rt,
+ 	aca->aca_users = 1;
+ 	/* aca_tstamp should be updated upon changes */
+ 	aca->aca_cstamp = aca->aca_tstamp = jiffies;
+-	atomic_set(&aca->aca_refcnt, 1);
++	refcount_set(&aca->aca_refcnt, 1);
  
-@@ -187,7 +188,7 @@ struct inet6_dev {
- 
- 	struct ifacaddr6	*ac_list;
- 	rwlock_t		lock;
--	atomic_t		refcnt;
-+	refcount_t		refcnt;
- 	__u32			if_flags;
- 	int			dead;
- 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 114fb64..2365f12 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -426,7 +426,7 @@ static struct inet6_dev *ipv6_add_dev(struct net_device *dev)
- 	}
- 
- 	/* One reference from device. */
--	in6_dev_hold(ndev);
-+	refcount_set(&ndev->refcnt, 1);
- 
- 	if (dev->flags & (IFF_NOARP | IFF_LOOPBACK))
- 		ndev->cnf.accept_dad = -1;
+ 	return aca;
+ }
 -- 
 2.7.4
