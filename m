@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 9/9] net, ipv4: convert fib_info.fib_clntref from atomic_t to refcount_t
-Date: Tue,  4 Jul 2017 09:35:02 +0300
-Message-ID: <1499150102-7478-10-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 7/9] net, ipv6: convert ip6addrlbl_entry.refcnt from atomic_t to refcount_t
+Date: Tue,  4 Jul 2017 09:35:00 +0300
+Message-ID: <1499150102-7478-8-git-send-email-elena.reshetova@intel.com>
 References: <1499150102-7478-1-git-send-email-elena.reshetova@intel.com>
 Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
         jmorris@namei.org, kaber@trash.net, yoshfuji@linux-ipv6.org,
@@ -11,14 +11,10 @@ Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
         Hans Liljestrand <ishkamiel@gmail.com>,
         David Windsor <dwindsor@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:51828 "EHLO mga03.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752415AbdGDGfm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 4 Jul 2017 02:35:42 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1499150102-7478-1-git-send-email-elena.reshetova@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 refcount_t type and corresponding API should be
 used instead of atomic_t when the variable is used as
@@ -31,72 +27,53 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/ip_fib.h     | 7 ++++---
- net/ipv4/fib_semantics.c | 2 +-
- net/ipv4/fib_trie.c      | 2 +-
- 3 files changed, 6 insertions(+), 5 deletions(-)
+ net/ipv6/addrlabel.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index 3dbfd5e..41d580c 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -23,6 +23,7 @@
- #include <net/inetpeer.h>
- #include <linux/percpu.h>
- #include <linux/notifier.h>
+diff --git a/net/ipv6/addrlabel.c b/net/ipv6/addrlabel.c
+index 07cd7d2..7a428f6 100644
+--- a/net/ipv6/addrlabel.c
++++ b/net/ipv6/addrlabel.c
+@@ -18,6 +18,7 @@
+ #include <linux/if_addrlabel.h>
+ #include <linux/netlink.h>
+ #include <linux/rtnetlink.h>
 +#include <linux/refcount.h>
  
- struct fib_config {
- 	u8			fc_dst_len;
-@@ -105,7 +106,7 @@ struct fib_info {
- 	struct hlist_node	fib_lhash;
- 	struct net		*fib_net;
- 	int			fib_treeref;
--	atomic_t		fib_clntref;
-+	refcount_t		fib_clntref;
- 	unsigned int		fib_flags;
- 	unsigned char		fib_dead;
- 	unsigned char		fib_protocol;
-@@ -430,12 +431,12 @@ void free_fib_info(struct fib_info *fi);
+ #if 0
+ #define ADDRLABEL(x...) printk(x)
+@@ -36,7 +37,7 @@ struct ip6addrlbl_entry {
+ 	int addrtype;
+ 	u32 label;
+ 	struct hlist_node list;
+-	atomic_t refcnt;
++	refcount_t refcnt;
+ 	struct rcu_head rcu;
+ };
  
- static inline void fib_info_hold(struct fib_info *fi)
+@@ -137,12 +138,12 @@ static void ip6addrlbl_free_rcu(struct rcu_head *h)
+ 
+ static bool ip6addrlbl_hold(struct ip6addrlbl_entry *p)
  {
--	atomic_inc(&fi->fib_clntref);
-+	refcount_inc(&fi->fib_clntref);
+-	return atomic_inc_not_zero(&p->refcnt);
++	return refcount_inc_not_zero(&p->refcnt);
  }
  
- static inline void fib_info_put(struct fib_info *fi)
+ static inline void ip6addrlbl_put(struct ip6addrlbl_entry *p)
  {
--	if (atomic_dec_and_test(&fi->fib_clntref))
-+	if (refcount_dec_and_test(&fi->fib_clntref))
- 		free_fib_info(fi);
+-	if (atomic_dec_and_test(&p->refcnt))
++	if (refcount_dec_and_test(&p->refcnt))
+ 		call_rcu(&p->rcu, ip6addrlbl_free_rcu);
  }
  
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index ff47ea1..22210010 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -1253,7 +1253,7 @@ struct fib_info *fib_create_info(struct fib_config *cfg,
- 	}
+@@ -236,7 +237,7 @@ static struct ip6addrlbl_entry *ip6addrlbl_alloc(struct net *net,
+ 	newp->label = label;
+ 	INIT_HLIST_NODE(&newp->list);
+ 	write_pnet(&newp->lbl_net, net);
+-	atomic_set(&newp->refcnt, 1);
++	refcount_set(&newp->refcnt, 1);
+ 	return newp;
+ }
  
- 	fi->fib_treeref++;
--	atomic_inc(&fi->fib_clntref);
-+	refcount_set(&fi->fib_clntref, 1);
- 	spin_lock_bh(&fib_info_lock);
- 	hlist_add_head(&fi->fib_hash,
- 		       &fib_info_hash[fib_info_hashfn(fi)]);
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index d56659e..64668c6 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -1463,7 +1463,7 @@ int fib_table_lookup(struct fib_table *tb, const struct flowi4 *flp,
- 			}
- 
- 			if (!(fib_flags & FIB_LOOKUP_NOREF))
--				atomic_inc(&fi->fib_clntref);
-+				refcount_inc(&fi->fib_clntref);
- 
- 			res->prefix = htonl(n->key);
- 			res->prefixlen = KEYLENGTH - fa->fa_slen;
 -- 
 2.7.4
