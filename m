@@ -1,89 +1,45 @@
-From: Leon Romanovsky <leonro@mellanox.com>
-Subject: Re: [PATCH iproute2 V3 2/4] rdma: Add dev object
-Date: Tue, 4 Jul 2017 12:04:41 +0300
-Message-ID: <20170704090441.GF1528@mtr-leonro.local>
-References: <20170704075541.12544-1-leon@kernel.org>
- <20170704075541.12544-3-leon@kernel.org>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="6WlEvdN9Dv0WHSBl"
-Cc: Doug Ledford <dledford@redhat.com>,
-        Ariel Almog <ariela@mellanox.com>,
-        Linux RDMA <linux-rdma@vger.kernel.org>,
-        Linux Netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net 0/3] nfp: port enumeration change and FW ABI adjustment
+Date: Tue,  4 Jul 2017 02:27:18 -0700
+Message-ID: <20170704092721.780-1-jakub.kicinski@netronome.com>
+Cc: oss-drivers@netronome.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0076.outbound.protection.outlook.com ([104.47.0.76]:65440
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752030AbdGDJEt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 4 Jul 2017 05:04:49 -0400
-Content-Disposition: inline
-In-Reply-To: <20170704075541.12544-3-leon@kernel.org>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:33151 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752215AbdGDJ2g (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 05:28:36 -0400
+Received: by mail-pf0-f178.google.com with SMTP id e7so112837725pfk.0
+        for <netdev@vger.kernel.org>; Tue, 04 Jul 2017 02:28:36 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi!
 
---6WlEvdN9Dv0WHSBl
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+This set changes the way ports are numbered internally to avoid MAC address
+changes and invalid link information when breakout is configured.  Second
+patch gets rid of old way of looking up MAC addresses in device information
+which caused all this confusion.
 
-On Tue, Jul 04, 2017 at 10:55:39AM +0300, Leon Romanovsky wrote:
-> From: Leon Romanovsky <leonro@mellanox.com>
->
-> Device (dev) object represents struct ib_device to the user space.
->
-> Device properties:
->  * Device capabilities
->  * FW version to the device output
->  * node_guid and sys_image_guid
->  * node_type
->
-> Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
-> ---
+Patch 3 is a small adjustment to the new FW ABI version we introduced in
+this release cycle.
 
-<...>
 
-> +}
-> +
-> +static void dev_print_node_type(struct nlattr **tb)
-> +{
-> +	uint8_t node_type;
-> +	/*
-> +	 * FIXME: move to index exported by the kernel
-> +	 */
-> +	static const char *str[] = {
-> +		"UNKNOWN",
-> +		"SWITCH",
-> +		"ROUTER",
-> +		"RNIC",
-> +		"USNIC",
-> +		"USNIC_UDP",
-> +	};
+To clarify these are intended for 4.13, naturally.
 
-There is a bug here, i forgot to add "CA" to the list of node_types
-(before SWITCH). Thanks to Or Gerlitz who spotted it.
+Jakub Kicinski (3):
+  nfp: improve order of interfaces in breakout mode
+  nfp: remove legacy MAC address lookup
+  nfp: default to chained metadata prepend format
 
-Thanks
+ drivers/net/ethernet/netronome/nfp/flower/main.c   |  3 +-
+ drivers/net/ethernet/netronome/nfp/nfp_app_nic.c   |  2 +-
+ drivers/net/ethernet/netronome/nfp/nfp_main.h      |  5 +--
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    |  9 ++++-
+ drivers/net/ethernet/netronome/nfp/nfp_net_main.c  | 44 +++++-----------------
+ drivers/net/ethernet/netronome/nfp/nfp_port.c      | 14 +++----
+ 6 files changed, 28 insertions(+), 49 deletions(-)
 
---6WlEvdN9Dv0WHSBl
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAllbWikACgkQ5GN7iDZy
-WKfUsxAAh+XO+EhsCg6Yhwi3Nja1eBC6vF+Bdt3CAxNpLuX7su/2PfkWQ2RfuaRs
-b7Jbt5FtgQEe9+QEl9b+93jnXM7sKiqjD4PYS2QO4y1MA4qf4+spo5F1Y6DI2KG6
-uixSsfpx0b6UX6GhPcYc9JDGt8ggAhfBlFefN144CrxTtolxKEBve02lJ3bhETop
-iSfUDukHJEHP3VqPZHRZp/7bck1+UdkY5LvTH0r4gS+cjbl7pOw564ihRe4Av1we
-Y8d//7QcHCwzxjY/PepdXIApxtoahRCP/gakIIwM87CDuq47q4bdCe+RZLc9zn6Z
-5grpD09Lan8l9i/pYxROwJujKVyKMC2G1eHjpEdooevXjmTn8LVjf5+6UoiduC8v
-bnNjJbDmuORDSiJeF7nXXAzsvxv9yTXs7F0EFSJqFNlK5Ol3VnDb+o+X2dd6vRn5
-Aai6JPWWQox47vY+dO/e4wyzFOVVjXbtxJuw3Y3LpKAtfpj3H6rZ52v2mBVsV8+7
-ZeGhd6mbj5P15Qqbd4EhVqdWQ1zgAg8D4pVI3g003E3Xtw9m65J6t4iF+9AcQ9J5
-H+j6fQll/0NhqQIRJyU3/ccnKa+RiBFROckbe6rgXMSgaJOuuZXEL4uvSCQD90DN
-KeUB29ojxrXFhejnJNzW9k9Cgremy+vXOnzw3eeaSQ7khw0OdqA=
-=PpzX
------END PGP SIGNATURE-----
-
---6WlEvdN9Dv0WHSBl--
+-- 
+2.11.0
