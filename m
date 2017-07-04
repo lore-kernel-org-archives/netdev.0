@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ethernet: mediatek: fixed deadlock captured by
- lockdep
-Date: Tue, 04 Jul 2017 01:43:57 -0700 (PDT)
-Message-ID: <20170704.014357.2098420534003373919.davem@davemloft.net>
-References: <96f5bb5018167e8d327d7613674cc1f2a81fe99f.1499137698.git.sean.wang@mediatek.com>
+Subject: Re: [PATCH net v2 1/1] net: reflect mark on tcp syn ack packets
+Date: Tue, 04 Jul 2017 01:46:43 -0700 (PDT)
+Message-ID: <20170704.014643.1308328865535236606.davem@davemloft.net>
+References: <1499089910-20034-1-git-send-email-jhs@emojatatu.com>
+        <1499089910-20034-2-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: john@phrozen.org, nbd@openwrt.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-mediatek@lists.infradead.org
-To: sean.wang@mediatek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <96f5bb5018167e8d327d7613674cc1f2a81fe99f.1499137698.git.sean.wang@mediatek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, lorenzo@google.com
+To: jhs@mojatatu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46220 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751879AbdGDIqq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 04:46:46 -0400
+In-Reply-To: <1499089910-20034-2-git-send-email-jhs@emojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: <sean.wang@mediatek.com>
-Date: Tue, 4 Jul 2017 11:17:36 +0800
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Mon,  3 Jul 2017 09:51:50 -0400
 
-> From: Sean Wang <sean.wang@mediatek.com>
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
 > 
-> Lockdep found an inconsistent lock state when mtk_get_stats64 is called
-> in user context while NAPI updates MAC statistics in softirq.
+> SYN-ACK responses on a server in response to a SYN from a client
+> did not get the injected skb mark that was tagged on the SYN packet.
 > 
-> Use spin_trylock_bh/spin_unlock_bh fix following lockdep warning.
- ...
-> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+> Fixes: 84f39b08d786 ("net: support marking accepting TCP sockets")
+> Reviewed-by: Lorenzo Colitti <lorenzo@google.com>
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Good catch, applied, thanks.
+Applied, thanks Jamal.
