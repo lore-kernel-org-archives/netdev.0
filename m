@@ -1,60 +1,66 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next] bpf: fix return in load_bpf_file
-Date: Tue, 4 Jul 2017 14:51:29 -0700
-Message-ID: <20170704215129.4047623-1-brakmo@fb.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/36] v2 net subsystem misc refcounter conversions
+Date: Tue, 04 Jul 2017 23:00:40 +0100 (WEST)
+Message-ID: <20170704.230040.195111189904913382.davem@davemloft.net>
+References: <1499172811-16271-1-git-send-email-elena.reshetova@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Kernel Team <kernel-team@fb.com>, Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:56830 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752169AbdGDVvf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 17:51:35 -0400
-Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-        by mx0b-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v64LlbNd018507
-        for <netdev@vger.kernel.org>; Tue, 4 Jul 2017 14:51:34 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0b-00082601.pphosted.com with ESMTP id 2bg9ex32ah-2
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 04 Jul 2017 14:51:34 -0700
-Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
- mx-out.facebook.com (10.212.232.63) with ESMTP id
- f002e030610211e7a9e60002c992ebde-3bb338f0 for <netdev@vger.kernel.org>;        Tue,
- 04 Jul 2017 14:51:30 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-decnet-user@lists.sourceforge.net, jmorris@namei.org,
+        kaber@trash.net, yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru,
+        3chas3@gmail.com, ralf@linux-mips.org, stephen@networkplumber.org,
+        jchapman@katalix.com, jhs@mojatatu.com,
+        bridge@lists.linux-foundation.org, linux-hams@vger.kernel.org,
+        linux-x25@vger.kernel.org, peterz@infradead.org,
+        keescook@chromium.org, linux-rdma@vger.kernel.org,
+        linux-sctp@vger.kernel.org, vyasevich@gmail.com,
+        nhorman@tuxdriver.com, linux-nfs@vger.kernel.org, zyan@redhat.com,
+        sage@redhat.com, bfields@fieldses.org, jlayton@poochiereds.net,
+        steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
+        santosh.shilimkar@oracle.com, jreuter@yaina.de
+To: elena.reshetova@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1499172811-16271-1-git-send-email-elena.reshetova@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The function load_bpf_file ignores the return value of
-load_and_attach(), so even if load_and_attach() returns an error,
-load_bpf_file() will return 0.
+From: Elena Reshetova <elena.reshetova@intel.com>
+Date: Tue,  4 Jul 2017 15:52:55 +0300
 
-Now, load_bpf_file() can call load_and_attach() multiple times and some
-can succeed and some could fail. I think the correct behavor is to
-return error on the first failed load_and_attach().
----
- samples/bpf/bpf_load.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+> Changes in v2:
+>  * rebase on top of net-next
+>  * currently by default refcount_t = atomic_t (*) and uses all 
+>    atomic standard operations unless CONFIG_REFCOUNT_FULL is enabled.
+>    This is a compromise for the systems that are critical on
+>    performance (such as net) and cannot accept even slight delay
+>    on the refcounter operations.
+> 
+> This series, for various misc network components, replaces atomic_t reference
+> counters with the new refcount_t type and API (see include/linux/refcount.h).
+> By doing this we prevent intentional or accidental
+> underflows or overflows that can led to use-after-free vulnerabilities.
+> These are the last networking-related conversions with the exception of
+> network drivers (to be send separately).
+> 
+> Please excuse the long patch set, but seems like breaking it up
+> won't save that much on CC list and most of the changes are
+> trivial.
+> 
+> The patches are fully independent and can be cherry-picked separately.
+> In order to try with refcount functionality enabled in run-time,
+> CONFIG_REFCOUNT_FULL must be enabled.
+> 
+> NOTE: automatic kernel builder for some reason doesn't like all my
+> network branches and regularly times out the builds on these branches.
+> Suggestion for "waiting a day for a good coverage" doesn't work, as
+> we have seen with generic network conversions. So please wait for the
+> full report from kernel test rebot before merging further up.
+> This has been compile-tested in 116 configs, but 71 timed out (including
+> all s390-related configs again). I am trying to see if they can fix
+> build coverage for me in meanwhile.
+> 
+> * The respective change is currently merged into -next as
+>   "locking/refcount: Create unchecked atomic_t implementation".
 
-diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
-index a4be7cf..899f403 100644
---- a/samples/bpf/bpf_load.c
-+++ b/samples/bpf/bpf_load.c
-@@ -567,8 +567,12 @@ static int do_load_bpf_file(const char *path, fixup_map_cb fixup_map)
- 		    memcmp(shname, "perf_event", 10) == 0 ||
- 		    memcmp(shname, "socket", 6) == 0 ||
- 		    memcmp(shname, "cgroup/", 7) == 0 ||
--		    memcmp(shname, "sockops", 7) == 0)
--			load_and_attach(shname, data->d_buf, data->d_size);
-+		    memcmp(shname, "sockops", 7) == 0) {
-+			ret = load_and_attach(shname, data->d_buf,
-+					      data->d_size);
-+			if (ret != 0)
-+				goto done;
-+		}
- 	}
- 
- 	ret = 0;
--- 
-2.9.3
+Series applied, that's enough for this cycle, please.
