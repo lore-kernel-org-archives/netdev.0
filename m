@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 4/9] net, ipv6: convert ifmcaddr6.mca_refcnt from atomic_t to refcount_t
-Date: Tue,  4 Jul 2017 09:34:57 +0300
-Message-ID: <1499150102-7478-5-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 3/9] net, ipv6: convert inet6_ifaddr.refcnt from atomic_t to refcount_t
+Date: Tue,  4 Jul 2017 09:34:56 +0300
+Message-ID: <1499150102-7478-4-git-send-email-elena.reshetova@intel.com>
 References: <1499150102-7478-1-git-send-email-elena.reshetova@intel.com>
 Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
         jmorris@namei.org, kaber@trash.net, yoshfuji@linux-ipv6.org,
@@ -27,101 +27,62 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/if_inet6.h |  2 +-
- net/ipv6/mcast.c       | 18 +++++++++---------
- 2 files changed, 10 insertions(+), 10 deletions(-)
+ include/net/addrconf.h | 6 +++---
+ include/net/if_inet6.h | 2 +-
+ net/ipv6/addrconf.c    | 2 +-
+ 3 files changed, 5 insertions(+), 5 deletions(-)
 
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+index 620bd9a..6df79e9 100644
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -350,18 +350,18 @@ void inet6_ifa_finish_destroy(struct inet6_ifaddr *ifp);
+ 
+ static inline void in6_ifa_put(struct inet6_ifaddr *ifp)
+ {
+-	if (atomic_dec_and_test(&ifp->refcnt))
++	if (refcount_dec_and_test(&ifp->refcnt))
+ 		inet6_ifa_finish_destroy(ifp);
+ }
+ 
+ static inline void __in6_ifa_put(struct inet6_ifaddr *ifp)
+ {
+-	atomic_dec(&ifp->refcnt);
++	refcount_dec(&ifp->refcnt);
+ }
+ 
+ static inline void in6_ifa_hold(struct inet6_ifaddr *ifp)
+ {
+-	atomic_inc(&ifp->refcnt);
++	refcount_inc(&ifp->refcnt);
+ }
+ 
+ 
 diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
-index 2b41cb8..4bb52ce 100644
+index e7a17b2..2b41cb8 100644
 --- a/include/net/if_inet6.h
 +++ b/include/net/if_inet6.h
-@@ -127,7 +127,7 @@ struct ifmcaddr6 {
- 	struct timer_list	mca_timer;
- 	unsigned int		mca_flags;
- 	int			mca_users;
--	atomic_t		mca_refcnt;
-+	refcount_t		mca_refcnt;
- 	spinlock_t		mca_lock;
- 	unsigned long		mca_cstamp;
- 	unsigned long		mca_tstamp;
-diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-index e222113..12b7c27 100644
---- a/net/ipv6/mcast.c
-+++ b/net/ipv6/mcast.c
-@@ -701,7 +701,7 @@ static void igmp6_group_dropped(struct ifmcaddr6 *mc)
+@@ -46,7 +46,7 @@ struct inet6_ifaddr {
+ 	/* In seconds, relative to tstamp. Expiry is at tstamp + HZ * lft. */
+ 	__u32			valid_lft;
+ 	__u32			prefered_lft;
+-	atomic_t		refcnt;
++	refcount_t		refcnt;
+ 	spinlock_t		lock;
  
- 	spin_lock_bh(&mc->mca_lock);
- 	if (del_timer(&mc->mca_timer))
--		atomic_dec(&mc->mca_refcnt);
-+		refcount_dec(&mc->mca_refcnt);
- 	spin_unlock_bh(&mc->mca_lock);
- }
+ 	int			state;
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 2365f12..3c46e95 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1050,7 +1050,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
  
-@@ -819,12 +819,12 @@ static void mld_clear_delrec(struct inet6_dev *idev)
+ 	ifa->idev = idev;
+ 	/* For caller */
+-	in6_ifa_hold(ifa);
++	refcount_set(&ifa->refcnt, 1);
  
- static void mca_get(struct ifmcaddr6 *mc)
- {
--	atomic_inc(&mc->mca_refcnt);
-+	refcount_inc(&mc->mca_refcnt);
- }
- 
- static void ma_put(struct ifmcaddr6 *mc)
- {
--	if (atomic_dec_and_test(&mc->mca_refcnt)) {
-+	if (refcount_dec_and_test(&mc->mca_refcnt)) {
- 		in6_dev_put(mc->idev);
- 		kfree(mc);
- 	}
-@@ -846,7 +846,7 @@ static struct ifmcaddr6 *mca_alloc(struct inet6_dev *idev,
- 	mc->mca_users = 1;
- 	/* mca_stamp should be updated upon changes */
- 	mc->mca_cstamp = mc->mca_tstamp = jiffies;
--	atomic_set(&mc->mca_refcnt, 1);
-+	refcount_set(&mc->mca_refcnt, 1);
- 	spin_lock_init(&mc->mca_lock);
- 
- 	/* initial mode is (EX, empty) */
-@@ -1065,7 +1065,7 @@ static void igmp6_group_queried(struct ifmcaddr6 *ma, unsigned long resptime)
- 		return;
- 
- 	if (del_timer(&ma->mca_timer)) {
--		atomic_dec(&ma->mca_refcnt);
-+		refcount_dec(&ma->mca_refcnt);
- 		delay = ma->mca_timer.expires - jiffies;
- 	}
- 
-@@ -1074,7 +1074,7 @@ static void igmp6_group_queried(struct ifmcaddr6 *ma, unsigned long resptime)
- 
- 	ma->mca_timer.expires = jiffies + delay;
- 	if (!mod_timer(&ma->mca_timer, jiffies + delay))
--		atomic_inc(&ma->mca_refcnt);
-+		refcount_inc(&ma->mca_refcnt);
- 	ma->mca_flags |= MAF_TIMER_RUNNING;
- }
- 
-@@ -1469,7 +1469,7 @@ int igmp6_event_report(struct sk_buff *skb)
- 		if (ipv6_addr_equal(&ma->mca_addr, &mld->mld_mca)) {
- 			spin_lock(&ma->mca_lock);
- 			if (del_timer(&ma->mca_timer))
--				atomic_dec(&ma->mca_refcnt);
-+				refcount_dec(&ma->mca_refcnt);
- 			ma->mca_flags &= ~(MAF_LAST_REPORTER|MAF_TIMER_RUNNING);
- 			spin_unlock(&ma->mca_lock);
- 			break;
-@@ -2391,12 +2391,12 @@ static void igmp6_join_group(struct ifmcaddr6 *ma)
- 
- 	spin_lock_bh(&ma->mca_lock);
- 	if (del_timer(&ma->mca_timer)) {
--		atomic_dec(&ma->mca_refcnt);
-+		refcount_dec(&ma->mca_refcnt);
- 		delay = ma->mca_timer.expires - jiffies;
- 	}
- 
- 	if (!mod_timer(&ma->mca_timer, jiffies + delay))
--		atomic_inc(&ma->mca_refcnt);
-+		refcount_inc(&ma->mca_refcnt);
- 	ma->mca_flags |= MAF_TIMER_RUNNING | MAF_LAST_REPORTER;
- 	spin_unlock_bh(&ma->mca_lock);
- }
+ 	/* Add to big hash table */
+ 	hash = inet6_addr_hash(addr);
 -- 
 2.7.4
