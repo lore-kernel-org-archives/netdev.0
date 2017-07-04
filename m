@@ -1,55 +1,52 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH] ipv4: Export rtm_ipv4_policy.
-Date: Tue, 4 Jul 2017 16:21:42 -0700
-Message-ID: <CAJieiUgrxhXgm4zP5rU3GS854s25sjAGn7FqdBviAz5O11ZpTw@mail.gmail.com>
-References: <20170704.071815.1571286541262131188.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f175.google.com ([209.85.217.175]:35134 "EHLO
-        mail-ua0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752169AbdGDXVn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 19:21:43 -0400
-Received: by mail-ua0-f175.google.com with SMTP id j53so133733575uaa.2
-        for <netdev@vger.kernel.org>; Tue, 04 Jul 2017 16:21:43 -0700 (PDT)
-In-Reply-To: <20170704.071815.1571286541262131188.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 00/12] net: dsa: mv88e6xxx: cleanup capabilities
+Date: Tue,  4 Jul 2017 19:41:43 -0400
+Message-ID: <20170704234155.24360-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 4, 2017 at 7:18 AM, David Miller <davem@davemloft.net> wrote:
->
-> The MPLS code now needs it.
->
-> Fixes: 397fc9e5cefe ("mpls: route get support")
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
+This patch series removes the remaining capabilities as well as the
+flags bitmap in the info structures. Most of them are turned into ops,
+or new info members.
 
-Sorry david. Just saw this. It was a cut-copy-paste error.
-It should be the below. I can also submit a patch. Thanks.
+There is no mv88e6xxx_cap enum or bitmap flags anymore, only
+mv88e6xxx_info and mv88e6xxx_ops structures.
 
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+While reviewing and documenting the related G2 registers, fix a few
+inconsistencies: 88E6185 has no interrupt in G2 and 88E6390 has a POT.
 
-index 4b6ff85..9a28c3f 100644
+Except these two adjustments, there is no functional changes.
 
---- a/net/mpls/af_mpls.c
+Vivien Didelot (12):
+  net: dsa: mv88e6xxx: remove unneeded dsa header
+  net: dsa: mv88e6xxx: remove LED control register
+  net: dsa: mv88e6xxx: fix 88E6321 family comment
+  net: dsa: mv88e6xxx: remove unused capabilities
+  net: dsa: mv88e6xxx: remove 88E6185 G2 interrupt
+  net: dsa: mv88e6xxx: add number of Global 2 IRQs
+  net: dsa: mv88e6xxx: distinguish Global 2 Rsvd2CPU
+  net: dsa: mv88e6xxx: add POT flag to 88E6390
+  net: dsa: mv88e6xxx: add POT operation
+  net: dsa: mv88e6xxx: add a global2_addr info flag
+  net: dsa: mv88e6xxx: add Energy Detect ops
+  net: dsa: mv88e6xxx: add a multi_chip info flag
 
-+++ b/net/mpls/af_mpls.c
+ drivers/net/dsa/mv88e6xxx/chip.c    | 291 ++++++++++++++++++++++++------------
+ drivers/net/dsa/mv88e6xxx/chip.h    | 152 +++----------------
+ drivers/net/dsa/mv88e6xxx/global2.c | 104 +++++++++----
+ drivers/net/dsa/mv88e6xxx/global2.h |  41 ++++-
+ drivers/net/dsa/mv88e6xxx/phy.c     |  97 +++++++++++-
+ drivers/net/dsa/mv88e6xxx/phy.h     |  22 +++
+ drivers/net/dsa/mv88e6xxx/port.c    |  17 +++
+ drivers/net/dsa/mv88e6xxx/port.h    |   6 +-
+ 8 files changed, 460 insertions(+), 270 deletions(-)
 
-@@ -2130,7 +2130,7 @@ static int mpls_getroute(struct sk_buff *in_skb,
-struct nlmsghdr *in_nlh,
-
-        u8 n_labels;
-
-
-
-        err = nlmsg_parse(in_nlh, sizeof(*rtm), tb, RTA_MAX,
-
--                         rtm_ipv4_policy, extack);
-
-+                         rtm_mpls_policy, extack);
-
-        if (err < 0)
-
-                goto errout;
+-- 
+2.13.2
