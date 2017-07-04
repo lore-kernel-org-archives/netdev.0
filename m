@@ -1,27 +1,37 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 23/36] net, rds: convert rds_message.m_refcount from atomic_t to refcount_t
-Date: Tue,  4 Jul 2017 15:53:18 +0300
-Message-ID: <1499172811-16271-24-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 11/36] net,
+	calipso: convert calipso_doi.refcount from atomic_t to refcount_t
+Date: Tue,  4 Jul 2017 15:53:06 +0300
+Message-ID: <1499172811-16271-12-git-send-email-elena.reshetova@intel.com>
 References: <1499172811-16271-1-git-send-email-elena.reshetova@intel.com>
-Cc: linux-kernel@vger.kernel.org,
-        linux-decnet-user@lists.sourceforge.net, davem@davemloft.net,
-        jmorris@namei.org, kaber@trash.net, yoshfuji@linux-ipv6.org,
-        kuznet@ms2.inr.ac.ru, 3chas3@gmail.com, ralf@linux-mips.org,
-        stephen@networkplumber.org, jchapman@katalix.com, jhs@mojatatu.com,
-        bridge@lists.linux-foundation.org, linux-hams@vger.kernel.org,
-        linux-x25@vger.kernel.org, peterz@infradead.org,
-        keescook@chromium.org, linux-rdma@vger.kernel.org,
-        linux-sctp@vger.kernel.org, vyasevich@gmail.com,
-        nhorman@tuxdriver.com, linux-nfs@vger.kernel.org, zyan@redhat.com,
-        sage@redhat.com, bfields@fieldses.org, jlayton@poochiereds.net,
-        steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-        santosh.shilimkar@oracle.com, jreuter@yaina.de,
-        Elena Reshetova <elena.reshetova@intel.com>,
-        Hans Li
+Cc: peterz@infradead.org, jchapman@katalix.com, bfields@fieldses.org,
+	linux-sctp@vger.kernel.org, jlayton@poochiereds.net,
+	Elena Reshetova <elena.reshetova@intel.com>,
+	steffen.klassert@secunet.com, zyan@redhat.com,
+	herbert@gondor.apana.org.au, linux-x25@vger.kernel.org,
+	linux-rdma@vger.kernel.org, bridge@lists.linux-foundation.org,
+	jmorris@namei.org, 3chas3@gmail.com, kuznet@ms2.inr.ac.ru,
+	jreuter@yaina.de, keescook@chromium.org,
+	santosh.shilimkar@oracle.com, jhs@mojatatu.com,
+	Hans Liljestrand <ishkamiel@gmail.com>,
+	linux-hams@vger.kernel.org, David Windsor <dwindsor@gmail.com>,
+	linux-nfs@vger.kernel.org, sage@redhat.com,
+	nhorman@tuxdriver.com, yoshfuji@linux-ipv6.org,
+	vyasevich@gmail.com, linux-decnet-user@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, ralf@linux-mips.org,
+	kaber@trash.net, davem@davemloft.net
 To: netdev@vger.kernel.org
-Return-path: <linux-hams-owner@vger.kernel.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
 In-Reply-To: <1499172811-16271-1-git-send-email-elena.reshetova@intel.com>
-Sender: linux-hams-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
 refcount_t type and corresponding API should be
@@ -35,60 +45,89 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- net/rds/message.c | 12 ++++++------
- net/rds/rds.h     |  2 +-
- 2 files changed, 7 insertions(+), 7 deletions(-)
+ include/net/calipso.h |  4 ++--
+ net/ipv6/calipso.c    | 12 ++++++------
+ 2 files changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/net/rds/message.c b/net/rds/message.c
-index 49bfb51..4318cc9 100644
---- a/net/rds/message.c
-+++ b/net/rds/message.c
-@@ -48,8 +48,8 @@ static unsigned int	rds_exthdr_size[__RDS_EXTHDR_MAX] = {
+diff --git a/include/net/calipso.h b/include/net/calipso.h
+index b1b30cd..5f95b11 100644
+--- a/include/net/calipso.h
++++ b/include/net/calipso.h
+@@ -38,7 +38,7 @@
+ #include <linux/skbuff.h>
+ #include <net/netlabel.h>
+ #include <net/request_sock.h>
+-#include <linux/atomic.h>
++#include <linux/refcount.h>
+ #include <asm/unaligned.h>
  
- void rds_message_addref(struct rds_message *rm)
- {
--	rdsdebug("addref rm %p ref %d\n", rm, atomic_read(&rm->m_refcount));
--	atomic_inc(&rm->m_refcount);
-+	rdsdebug("addref rm %p ref %d\n", rm, refcount_read(&rm->m_refcount));
-+	refcount_inc(&rm->m_refcount);
+ /* known doi values */
+@@ -57,7 +57,7 @@ struct calipso_doi {
+ 	u32 doi;
+ 	u32 type;
+ 
+-	atomic_t refcount;
++	refcount_t refcount;
+ 	struct list_head list;
+ 	struct rcu_head rcu;
+ };
+diff --git a/net/ipv6/calipso.c b/net/ipv6/calipso.c
+index 4406752..1323b96 100644
+--- a/net/ipv6/calipso.c
++++ b/net/ipv6/calipso.c
+@@ -338,7 +338,7 @@ static struct calipso_doi *calipso_doi_search(u32 doi)
+ 	struct calipso_doi *iter;
+ 
+ 	list_for_each_entry_rcu(iter, &calipso_doi_list, list)
+-		if (iter->doi == doi && atomic_read(&iter->refcount))
++		if (iter->doi == doi && refcount_read(&iter->refcount))
+ 			return iter;
+ 	return NULL;
  }
- EXPORT_SYMBOL_GPL(rds_message_addref);
+@@ -370,7 +370,7 @@ static int calipso_doi_add(struct calipso_doi *doi_def,
+ 	if (doi_def->doi == CALIPSO_DOI_UNKNOWN)
+ 		goto doi_add_return;
  
-@@ -83,9 +83,9 @@ static void rds_message_purge(struct rds_message *rm)
+-	atomic_set(&doi_def->refcount, 1);
++	refcount_set(&doi_def->refcount, 1);
  
- void rds_message_put(struct rds_message *rm)
- {
--	rdsdebug("put rm %p ref %d\n", rm, atomic_read(&rm->m_refcount));
--	WARN(!atomic_read(&rm->m_refcount), "danger refcount zero on %p\n", rm);
--	if (atomic_dec_and_test(&rm->m_refcount)) {
-+	rdsdebug("put rm %p ref %d\n", rm, refcount_read(&rm->m_refcount));
-+	WARN(!refcount_read(&rm->m_refcount), "danger refcount zero on %p\n", rm);
-+	if (refcount_dec_and_test(&rm->m_refcount)) {
- 		BUG_ON(!list_empty(&rm->m_sock_item));
- 		BUG_ON(!list_empty(&rm->m_conn_item));
- 		rds_message_purge(rm);
-@@ -206,7 +206,7 @@ struct rds_message *rds_message_alloc(unsigned int extra_len, gfp_t gfp)
- 	rm->m_used_sgs = 0;
- 	rm->m_total_sgs = extra_len / sizeof(struct scatterlist);
+ 	spin_lock(&calipso_doi_list_lock);
+ 	if (calipso_doi_search(doi_def->doi)) {
+@@ -458,7 +458,7 @@ static int calipso_doi_remove(u32 doi, struct netlbl_audit *audit_info)
+ 		ret_val = -ENOENT;
+ 		goto doi_remove_return;
+ 	}
+-	if (!atomic_dec_and_test(&doi_def->refcount)) {
++	if (!refcount_dec_and_test(&doi_def->refcount)) {
+ 		spin_unlock(&calipso_doi_list_lock);
+ 		ret_val = -EBUSY;
+ 		goto doi_remove_return;
+@@ -499,7 +499,7 @@ static struct calipso_doi *calipso_doi_getdef(u32 doi)
+ 	doi_def = calipso_doi_search(doi);
+ 	if (!doi_def)
+ 		goto doi_getdef_return;
+-	if (!atomic_inc_not_zero(&doi_def->refcount))
++	if (!refcount_inc_not_zero(&doi_def->refcount))
+ 		doi_def = NULL;
  
--	atomic_set(&rm->m_refcount, 1);
-+	refcount_set(&rm->m_refcount, 1);
- 	INIT_LIST_HEAD(&rm->m_sock_item);
- 	INIT_LIST_HEAD(&rm->m_conn_item);
- 	spin_lock_init(&rm->m_rs_lock);
-diff --git a/net/rds/rds.h b/net/rds/rds.h
-index ea72d6e..516bcc8 100644
---- a/net/rds/rds.h
-+++ b/net/rds/rds.h
-@@ -356,7 +356,7 @@ static inline u32 rds_rdma_cookie_offset(rds_rdma_cookie_t cookie)
- #define RDS_MSG_FLUSH		8
+ doi_getdef_return:
+@@ -520,7 +520,7 @@ static void calipso_doi_putdef(struct calipso_doi *doi_def)
+ 	if (!doi_def)
+ 		return;
  
- struct rds_message {
--	atomic_t		m_refcount;
-+	refcount_t		m_refcount;
- 	struct list_head	m_sock_item;
- 	struct list_head	m_conn_item;
- 	struct rds_incoming	m_inc;
+-	if (!atomic_dec_and_test(&doi_def->refcount))
++	if (!refcount_dec_and_test(&doi_def->refcount))
+ 		return;
+ 	spin_lock(&calipso_doi_list_lock);
+ 	list_del_rcu(&doi_def->list);
+@@ -553,7 +553,7 @@ static int calipso_doi_walk(u32 *skip_cnt,
+ 
+ 	rcu_read_lock();
+ 	list_for_each_entry_rcu(iter_doi, &calipso_doi_list, list)
+-		if (atomic_read(&iter_doi->refcount) > 0) {
++		if (refcount_read(&iter_doi->refcount) > 0) {
+ 			if (doi_cnt++ < *skip_cnt)
+ 				continue;
+ 			ret_val = callback(iter_doi, cb_arg);
 -- 
 2.7.4
-
