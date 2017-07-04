@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 5/9] net, ipv6: convert ifacaddr6.aca_refcnt from atomic_t to refcount_t
-Date: Tue,  4 Jul 2017 09:34:58 +0300
-Message-ID: <1499150102-7478-6-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 6/9] net, ipv6: convert xfrm6_tunnel_spi.refcnt from atomic_t to refcount_t
+Date: Tue,  4 Jul 2017 09:34:59 +0300
+Message-ID: <1499150102-7478-7-git-send-email-elena.reshetova@intel.com>
 References: <1499150102-7478-1-git-send-email-elena.reshetova@intel.com>
 Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
         jmorris@namei.org, kaber@trash.net, yoshfuji@linux-ipv6.org,
@@ -27,50 +27,48 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/if_inet6.h | 2 +-
- net/ipv6/anycast.c     | 6 +++---
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ net/ipv6/xfrm6_tunnel.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
-index 4bb52ce..d4088d1 100644
---- a/include/net/if_inet6.h
-+++ b/include/net/if_inet6.h
-@@ -147,7 +147,7 @@ struct ifacaddr6 {
- 	struct rt6_info		*aca_rt;
- 	struct ifacaddr6	*aca_next;
- 	int			aca_users;
--	atomic_t		aca_refcnt;
-+	refcount_t		aca_refcnt;
- 	unsigned long		aca_cstamp;
- 	unsigned long		aca_tstamp;
+diff --git a/net/ipv6/xfrm6_tunnel.c b/net/ipv6/xfrm6_tunnel.c
+index d7b731a..4e438bc 100644
+--- a/net/ipv6/xfrm6_tunnel.c
++++ b/net/ipv6/xfrm6_tunnel.c
+@@ -59,7 +59,7 @@ struct xfrm6_tunnel_spi {
+ 	struct hlist_node	list_byspi;
+ 	xfrm_address_t		addr;
+ 	u32			spi;
+-	atomic_t		refcnt;
++	refcount_t		refcnt;
+ 	struct rcu_head		rcu_head;
  };
-diff --git a/net/ipv6/anycast.c b/net/ipv6/anycast.c
-index 514ac25..0bbab8a 100644
---- a/net/ipv6/anycast.c
-+++ b/net/ipv6/anycast.c
-@@ -203,12 +203,12 @@ void ipv6_sock_ac_close(struct sock *sk)
  
- static void aca_get(struct ifacaddr6 *aca)
- {
--	atomic_inc(&aca->aca_refcnt);
-+	refcount_inc(&aca->aca_refcnt);
- }
+@@ -160,7 +160,7 @@ static u32 __xfrm6_tunnel_alloc_spi(struct net *net, xfrm_address_t *saddr)
  
- static void aca_put(struct ifacaddr6 *ac)
- {
--	if (atomic_dec_and_test(&ac->aca_refcnt)) {
-+	if (refcount_dec_and_test(&ac->aca_refcnt)) {
- 		in6_dev_put(ac->aca_idev);
- 		dst_release(&ac->aca_rt->dst);
- 		kfree(ac);
-@@ -232,7 +232,7 @@ static struct ifacaddr6 *aca_alloc(struct rt6_info *rt,
- 	aca->aca_users = 1;
- 	/* aca_tstamp should be updated upon changes */
- 	aca->aca_cstamp = aca->aca_tstamp = jiffies;
--	atomic_set(&aca->aca_refcnt, 1);
-+	refcount_set(&aca->aca_refcnt, 1);
+ 	memcpy(&x6spi->addr, saddr, sizeof(x6spi->addr));
+ 	x6spi->spi = spi;
+-	atomic_set(&x6spi->refcnt, 1);
++	refcount_set(&x6spi->refcnt, 1);
  
- 	return aca;
- }
+ 	hlist_add_head_rcu(&x6spi->list_byspi, &xfrm6_tn->spi_byspi[index]);
+ 
+@@ -178,7 +178,7 @@ __be32 xfrm6_tunnel_alloc_spi(struct net *net, xfrm_address_t *saddr)
+ 	spin_lock_bh(&xfrm6_tunnel_spi_lock);
+ 	x6spi = __xfrm6_tunnel_spi_lookup(net, saddr);
+ 	if (x6spi) {
+-		atomic_inc(&x6spi->refcnt);
++		refcount_inc(&x6spi->refcnt);
+ 		spi = x6spi->spi;
+ 	} else
+ 		spi = __xfrm6_tunnel_alloc_spi(net, saddr);
+@@ -207,7 +207,7 @@ static void xfrm6_tunnel_free_spi(struct net *net, xfrm_address_t *saddr)
+ 				  list_byaddr)
+ 	{
+ 		if (xfrm6_addr_equal(&x6spi->addr, saddr)) {
+-			if (atomic_dec_and_test(&x6spi->refcnt)) {
++			if (refcount_dec_and_test(&x6spi->refcnt)) {
+ 				hlist_del_rcu(&x6spi->list_byaddr);
+ 				hlist_del_rcu(&x6spi->list_byspi);
+ 				call_rcu(&x6spi->rcu_head, x6spi_destroy_rcu);
 -- 
 2.7.4
