@@ -1,46 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] bridge: mdb: report complete_info ptr as
- not a kmemleak
-Date: Tue, 04 Jul 2017 01:48:42 -0700 (PDT)
-Message-ID: <20170704.014842.1942928249505987408.davem@davemloft.net>
-References: <1499101594-22421-1-git-send-email-eduval@amazon.com>
+Subject: Re: [PATCH net-next] bridge: allow ext learned entries to change
+ ports
+Date: Tue, 04 Jul 2017 01:54:51 -0700 (PDT)
+Message-ID: <20170704.015451.1968696462580656207.davem@davemloft.net>
+References: <1499120099-46428-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org
-To: eduval@amazon.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1499101594-22421-1-git-send-email-eduval@amazon.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com,
+        jiri@resnulli.us, idosch@mellanox.com
+To: roopa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46438 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751960AbdGDIzA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 04:55:00 -0400
+In-Reply-To: <1499120099-46428-1-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eduardo Valentin <eduval@amazon.com>
-Date: Mon, 3 Jul 2017 10:06:34 -0700
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Date: Mon,  3 Jul 2017 15:14:59 -0700
 
-> We currently get the following kmemleak report:
- ...
-> This patch flags the complete_info ptr object as not a leak as it will
-> get freed when .complete_priv() is called,
-
-We don't call .complete_priv().  We call .complete().
-
- for the br mdb case, it
-> will be freed at br_mdb_complete().
+> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 > 
-> Cc: stable <stable@vger.kernel.org> # v4.9+
-> Reviewed-by: Vallish Vaidyeshwara <vallish@amazon.com>
-> Signed-off-by: Eduardo Valentin <eduval@amazon.com>
+> current code silently ignores change of port in the request
+> message. This patch makes sure the port is modified and
+> notification is sent to userspace.
+> 
+> Fixes: cf6b8e1eedff ("bridge: add API to notify bridge driver of learned FBD on offloaded device")
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-I don't understand why kmemleak cannot see this.
-
-We store the pointer globally when we do the switchdev_port_obv_add()
-call and it should be able to see that.
+Applied.
