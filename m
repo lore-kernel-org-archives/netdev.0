@@ -1,7 +1,7 @@
 From: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
-Subject: [PATCH 2/2] net: phy: dp83867: add workaround for incorrect RX_CTRL pin strap
-Date: Tue, 4 Jul 2017 16:23:24 +0530
-Message-ID: <ec36b7bd213daca6b319d854799fb86ee794d0e8.1499162046.git.nsekhar@ti.com>
+Subject: [PATCH 1/2] dt-bindings: phy: dp83867: provide a workaround for incorrect RX_CTRL pin strap
+Date: Tue, 4 Jul 2017 16:23:23 +0530
+Message-ID: <ae8b31bf433093590332e7ec65c26320e04d0901.1499162046.git.nsekhar@ti.com>
 References: <cover.1499162046.git.nsekhar@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -27,59 +27,41 @@ The data manual for DP83867IR/CR, SNLS484E[1], revised march 2017,
 advises that strapping RX_DV/RX_CTRL pin in mode 1 and 2 is not
 supported (see note below Table 5 (4-Level Strap Pins)).
 
-There are some boards which have the pin strapped this way and need
-software workaround suggested by the data manual. Bit[7] of
-Configuration Register 4 (address 0x0031) must be cleared to 0. This
-ensures proper operation of the PHY.
+It further advises that if a board has this pin strapped in mode 1 and
+mode 2, then to ensure proper operation of the PHY, a software workaround
+must be implemented.
 
-Implement driver support for device-tree property meant to advertise
-the wrong strapping.
+Since it is not possible to detect in software if RX_DV/RX_CTRL pin is
+incorrectly strapped, add a device-tree property for the board to
+advertise this and allow corrective action in software.
 
 [1] http://www.ti.com/lit/ds/snls484e/snls484e.pdf
 
 Signed-off-by: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
-[nsekhar-l0cyMroinI0@public.gmane.org: rebase to mainline, code simplification]
+[nsekhar-l0cyMroinI0@public.gmane.org: rebase to mainline, split documentation into separate patch]
 Signed-off-by: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
 ---
- drivers/net/phy/dp83867.c | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+ Documentation/devicetree/bindings/net/ti,dp83867.txt | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-diff --git a/drivers/net/phy/dp83867.c b/drivers/net/phy/dp83867.c
-index b57f20e552ba..c1ab976cc800 100644
---- a/drivers/net/phy/dp83867.c
-+++ b/drivers/net/phy/dp83867.c
-@@ -91,6 +91,7 @@ struct dp83867_private {
- 	int fifo_depth;
- 	int io_impedance;
- 	int port_mirroring;
-+	bool rxctrl_strap_quirk;
- };
+diff --git a/Documentation/devicetree/bindings/net/ti,dp83867.txt b/Documentation/devicetree/bindings/net/ti,dp83867.txt
+index afe9630a5e7d..02c4353b5cf2 100644
+--- a/Documentation/devicetree/bindings/net/ti,dp83867.txt
++++ b/Documentation/devicetree/bindings/net/ti,dp83867.txt
+@@ -18,6 +18,13 @@ Optional property:
+ 	- ti,max-output-impedance - MAC Interface Impedance control to set
+ 				    the programmable output impedance to
+ 				    maximum value (70 ohms).
++	- ti,dp83867-rxctrl-strap-quirk - This denotes the fact that the
++				    board has RX_DV/RX_CTRL pin strapped in
++				    mode 1 or 2. To ensure PHY operation,
++				    there are specific actions that
++				    software needs to take when this pin is
++				    strapped in these modes. See data manual
++				    for details.
  
- static int dp83867_ack_interrupt(struct phy_device *phydev)
-@@ -164,6 +165,9 @@ static int dp83867_of_init(struct phy_device *phydev)
- 	else if (of_property_read_bool(of_node, "ti,min-output-impedance"))
- 		dp83867->io_impedance = DP83867_IO_MUX_CFG_IO_IMPEDANCE_MIN;
- 
-+	dp83867->rxctrl_strap_quirk = of_property_read_bool(of_node,
-+					"ti,dp83867-rxctrl-strap-quirk");
-+
- 	ret = of_property_read_u32(of_node, "ti,rx-internal-delay",
- 				   &dp83867->rx_id_delay);
- 	if (ret &&
-@@ -214,6 +218,13 @@ static int dp83867_config_init(struct phy_device *phydev)
- 		dp83867 = (struct dp83867_private *)phydev->priv;
- 	}
- 
-+	/* RX_DV/RX_CTRL strapped in mode 1 or mode 2 workaround */
-+	if (dp83867->rxctrl_strap_quirk) {
-+		val = phy_read_mmd(phydev, DP83867_DEVADDR, DP83867_CFG4);
-+		val &= ~BIT(7);
-+		phy_write_mmd(phydev, DP83867_DEVADDR, DP83867_CFG4, val);
-+	}
-+
- 	if (phy_interface_is_rgmii(phydev)) {
- 		val = phy_read(phydev, MII_DP83867_PHYCTRL);
- 		if (val < 0)
+ Note: ti,min-output-impedance and ti,max-output-impedance are mutually
+       exclusive. When both properties are present ti,max-output-impedance
 -- 
 2.9.0
 
