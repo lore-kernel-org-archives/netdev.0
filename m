@@ -1,53 +1,37 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH][bpf-next] bpf: add missing break in for the TCP_BPF_SNDCWND_CLAMP
- case
-Date: Tue, 04 Jul 2017 17:26:39 +0200
-Message-ID: <595BB3AF.3000304@iogearbox.net>
-References: <20170704152112.18623-1-colin.king@canonical.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH 1/1] net sched: Added the TC_LINKLAYER_CUSTOM linklayer
+ type
+Date: Tue, 4 Jul 2017 17:34:50 +0200
+Message-ID: <20170704153450.GB1865@nanopsycho>
+References: <20170704001426.9268-1-Robert.McCabe@rockwellcollins.com>
+ <20170704054832.GA1865@nanopsycho>
+ <CAA0ESdoOd9V_=NqUtM4Nmxvb+tz+AiMAfXvS6ndNLaif59+WUg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Lawrence Brakmo <brakmo@fb.com>
-To: Colin King <colin.king@canonical.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170704152112.18623-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, McCabe@rockwellcollins.com
+To: Robert McCabe <robert.mccabe@rockwellcollins.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f171.google.com ([209.85.128.171]:36340 "EHLO
+        mail-wr0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751902AbdGDPey (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 11:34:54 -0400
+Received: by mail-wr0-f171.google.com with SMTP id c11so250991559wrc.3
+        for <netdev@vger.kernel.org>; Tue, 04 Jul 2017 08:34:53 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAA0ESdoOd9V_=NqUtM4Nmxvb+tz+AiMAfXvS6ndNLaif59+WUg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[ +Lawrence ]
+Tue, Jul 04, 2017 at 04:49:24PM CEST, robert.mccabe@rockwellcollins.com wrote:
+>> You dump stab->data to user. How is this related to TC_LINKLAYER_CUSTOM
+>> and howcome this "is to support user-space modification of the qdisc
+>> stab" as your description says? I'm confused...
+>
+>I have a related patch for iproute2 where the "custom" link-layer is
+>used to allow
+>user modification of the qdisc stab.  Dumping stab->data to the user
+>is used in the
+>iproute2 patch to show the current size translation table.
 
-On 07/04/2017 05:21 PM, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
->
-> There appears to be a missing break in the TCP_BPF_SNDCWND_CLAMP case.
-> Currently the non-error path where val is greater than zero falls through
-> to the default case that sets the error return to -EINVAL. Add in
-> the missing break.
->
-> Detected by CoverityScan, CID#1449376 ("Missing break in switch")
->
-> Fixes: 13bf96411ad2 ("bpf: Adds support for setting sndcwnd clamp")
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-
-> ---
->   net/core/filter.c | 1 +
->   1 file changed, 1 insertion(+)
->
-> diff --git a/net/core/filter.c b/net/core/filter.c
-> index 94169572d002..c7f737058d89 100644
-> --- a/net/core/filter.c
-> +++ b/net/core/filter.c
-> @@ -2867,6 +2867,7 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
->   					tp->snd_cwnd_clamp = val;
->   					tp->snd_ssthresh = val;
->   				}
-> +				break;
->   			default:
->   				ret = -EINVAL;
->   			}
->
+Even so, the kernel patch you sent does not make any sense. Introduces
+TC_LINKLAYER_CUSTOM but does not use it.
