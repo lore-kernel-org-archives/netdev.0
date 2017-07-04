@@ -1,58 +1,241 @@
-From: Andrey Ryabinin <aryabinin@virtuozzo.com>
-Subject: Re: WARN_ON_ONCE(work > weight) in napi_poll()
-Date: Tue, 4 Jul 2017 18:59:56 +0300
-Message-ID: <952aefe1-6f6a-3978-e7e7-5e74076f26a3@virtuozzo.com>
-References: <26670dce-4dd2-f8e4-0e14-90d74257e739@virtuozzo.com>
- <87wp7oia6j.fsf@kamboji.qca.qualcomm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "ath10k@lists.infradead.org" <ath10k@lists.infradead.org>,
-        linux-wireless <linux-wireless@vger.kernel.org>,
-        Networking <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Kalle Valo <kvalo@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87wp7oia6j.fsf@kamboji.qca.qualcomm.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "McCabe, Robert J" <Robert.McCabe@rockwellcollins.com>
+Subject: [PATCH 1/1 V2] tc: custom qdisc pkt size translation table
+Date: Tue,  4 Jul 2017 10:50:58 -0500
+Message-ID: <20170704155058.19608-1-Robert.McCabe@rockwellcollins.com>
+Cc: robert.mccabe@rockwellcollins.com,
+        "McCabe, Robert J" <Robert.McCabe@rockwellcollins.com>,
+        McCabe@rockwellcollins.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtpimr.rockwellcollins.com ([205.175.226.29]:30537 "EHLO
+        ch3vs02.rockwellcollins.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752326AbdGDQCO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 12:02:14 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/04/2017 04:49 PM, Kalle Valo wrote:
-> Andrey Ryabinin <aryabinin@virtuozzo.com> writes:
-> 
->> I occasionally hit WARN_ON_ONCE(work > weight); in napi_poll() on a
->> laptop with ath10k card.
->>
->>
->> [37207.593370] ------------[ cut here ]------------
->> [37207.593380] WARNING: CPU: 0 PID: 7 at ../net/core/dev.c:5274
->> net_rx_action+0x258/0x360
->> [37207.593381] Modules linked in: snd_hda_codec_realtek snd_soc_skl
->> snd_hda_codec_generic snd_soc_skl_ipc snd_soc_sst_ipc snd_soc_sst_dsp
->> snd_hda_ext_core snd_soc_sst_match snd_soc_core rtsx_pci_sdmmc
->> mmc_core snd_pcm_dmaengine x86_pkg_temp_thermal snd_hda_intel uvcvideo
->> kvm_intel videobuf2_vmalloc kvm snd_hda_codec snd_hwdep btusb
->> videobuf2_memops btintel snd_hda_core videobuf2_v4l2 bluetooth
->> irqbypass snd_pcm videobuf2_core crc32c_intel videodev mei_me mei
->> rtsx_pci intel_lpss_pci intel_lpss_acpi intel_vbtn intel_lpss mfd_core
->> tpm_tis intel_hid tpm_tis_core tpm efivarfs
->> [37207.593430] CPU: 0 PID: 7 Comm: ksoftirqd/0 Not tainted 4.11.7 #28
->> [37207.593432] Hardware name: Dell Inc. XPS 13 9360/0839Y6, BIOS 1.3.5 05/08/2017
-> 
-> What firmware and hardware versions exactly? The dmesg output when
-> ath10k loads is preferred. As you are using XPS 13 I'm guessing it's one
-> of QCA6174 family.
-> 
+Added the "custom" linklayer qdisc stab option.
+Allows the user to specify the pkt size translation
+parameters from stdin.
+Example:
+   tc qdisc add ... stab tsize 8 linklayer custom htb
+      Custom size table:
+      InputSizeStart -> IntputSizeEnd: OutputSize
+      0              -> 511          : 600
+      512            -> 1023         : 1200
+      1024           -> 1535         : 1800
+      1536           -> 2047         : 2400
+      2048           -> 2559         : 3000
 
-Yes it's qca6174.
+Signed-off-by: McCabe, Robert J <Robert.McCabe@rockwellcollins.com>
+---
 
-$ dmesg |grep ath10
-[    0.624828] ath10k_pci 0000:3a:00.0: enabling device (0000 -> 0002)
-[    0.626370] ath10k_pci 0000:3a:00.0: pci irq msi oper_irq_mode 2 irq_mode 0 reset_mode 0
-[    0.837862] ath10k_pci 0000:3a:00.0: qca6174 hw3.2 target 0x05030000 chip_id 0x00340aff sub 1a56:1535
-[    0.837863] ath10k_pci 0000:3a:00.0: kconfig debug 0 debugfs 1 tracing 0 dfs 0 testmode 0
-[    0.838388] ath10k_pci 0000:3a:00.0: firmware ver WLAN.RM.2.0-00180-QCARMSWPZ-1 api 4 features wowlan,ignore-otp,no-4addr-pad crc32 75dee6c5
-[    0.900606] ath10k_pci 0000:3a:00.0: board_file api 2 bmi_id N/A crc32 19644295
-[    3.020681] ath10k_pci 0000:3a:00.0: htt-ver 3.26 wmi-op 4 htt-op 3 cal otp max-sta 32 raw 0 hwcrypto 1
-[    9.574087] ath10k_pci 0000:3a:00.0 wlp58s0: renamed from wlan0
+V1: Sent to netdev for review
+V2: Cleaned up commit message and set common_size_table to NULL
+    after free
+
+ include/linux/pkt_sched.h |  1 +
+ tc/tc_core.c              | 47 +++++++++++++++++++++++++++++++++++++++++++++++
+ tc/tc_core.h              |  2 +-
+ tc/tc_stab.c              | 20 +++++++++-----------
+ tc/tc_util.c              |  5 +++++
+ 5 files changed, 63 insertions(+), 12 deletions(-)
+
+diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+index 099bf55..289bb81 100644
+--- a/include/linux/pkt_sched.h
++++ b/include/linux/pkt_sched.h
+@@ -82,6 +82,7 @@ enum tc_link_layer {
+ 	TC_LINKLAYER_UNAWARE, /* Indicate unaware old iproute2 util */
+ 	TC_LINKLAYER_ETHERNET,
+ 	TC_LINKLAYER_ATM,
++	TC_LINKLAYER_CUSTOM,
+ };
+ #define TC_LINKLAYER_MASK 0x0F /* limit use to lower 4 bits */
+
+diff --git a/tc/tc_core.c b/tc/tc_core.c
+index 821b741..f02f612 100644
+--- a/tc/tc_core.c
++++ b/tc/tc_core.c
+@@ -21,6 +21,7 @@
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
+ #include <string.h>
++#include <assert.h>
+
+ #include "tc_core.h"
+ #include <linux/atm.h>
+@@ -28,6 +29,13 @@
+ static double tick_in_usec = 1;
+ static double clock_factor = 1;
+
++struct size_table_entry {
++	unsigned int input_size_boundary_start;
++	unsigned int output_size_bytes;
++};
++
++static struct size_table_entry* custom_size_table = NULL;
++static int num_size_table_entries = 0;
+ int tc_core_time2big(unsigned int time)
+ {
+ 	__u64 t = time;
+@@ -89,6 +97,20 @@ static unsigned int tc_align_to_atm(unsigned int size)
+ 	return linksize;
+ }
+
++static unsigned int tc_align_to_custom(unsigned int size)
++{
++	int i;
++
++	assert(custom_size_table != NULL);
++	for(i = num_size_table_entries -1; i >= 0 ; --i) {
++		if(custom_size_table[i].input_size_boundary_start < size) {
++			/* found it */
++			return custom_size_table[i].output_size_bytes;
++		}
++	}
++	return 0;
++}
++
+ static unsigned int tc_adjust_size(unsigned int sz, unsigned int mpu, enum link_layer linklayer)
+ {
+ 	if (sz < mpu)
+@@ -97,6 +119,8 @@ static unsigned int tc_adjust_size(unsigned int sz, unsigned int mpu, enum link_
+ 	switch (linklayer) {
+ 	case LINKLAYER_ATM:
+ 		return tc_align_to_atm(sz);
++	case LINKLAYER_CUSTOM:
++		return tc_align_to_custom(sz);
+ 	case LINKLAYER_ETHERNET:
+ 	default:
+ 		/* No size adjustments on Ethernet */
+@@ -185,6 +209,24 @@ int tc_calc_size_table(struct tc_sizespec *s, __u16 **stab)
+ 	if (!*stab)
+ 		return -1;
+
++	if(LINKLAYER_CUSTOM == linklayer) {
++		 custom_size_table = malloc(sizeof(struct size_table_entry)* s->tsize);
++		 if(!custom_size_table)
++			  return -1;
++		 num_size_table_entries = s->tsize;
++
++		 printf("Custom size table:\n");
++		 printf("InputSizeStart -> IntputSizeEnd: OutputSize\n");
++		 for(i = 0; i <= s->tsize - 1; ++i) {
++			  printf("%-14d -> %-13d: ", i << s->cell_log, ((i+1) << s->cell_log) - 1);
++			  if(!scanf("%u", &custom_size_table[i].output_size_bytes)) {
++					fprintf(stderr, "Invalid custom stab table entry!\n");
++					return -1;
++			  }
++			  custom_size_table[i].input_size_boundary_start = i << s->cell_log;
++		 }
++	}
++
+ again:
+ 	for (i = s->tsize - 1; i >= 0; i--) {
+ 		sz = tc_adjust_size((i + 1) << s->cell_log, s->mpu, linklayer);
+@@ -196,6 +238,11 @@ again:
+ 	}
+
+ 	s->cell_align = -1; /* Due to the sz calc */
++	if(custom_size_table) {
++		 free(custom_size_table);
++		 custom_size_table = NULL;
++		 num_size_table_entries = 0;
++	}
+ 	return 0;
+ }
+
+diff --git a/tc/tc_core.h b/tc/tc_core.h
+index 8a63b79..8e97222 100644
+--- a/tc/tc_core.h
++++ b/tc/tc_core.h
+@@ -10,9 +10,9 @@ enum link_layer {
+ 	LINKLAYER_UNSPEC,
+ 	LINKLAYER_ETHERNET,
+ 	LINKLAYER_ATM,
++	LINKLAYER_CUSTOM,
+ };
+
+-
+ int  tc_core_time2big(unsigned time);
+ unsigned tc_core_time2tick(unsigned time);
+ unsigned tc_core_tick2time(unsigned tick);
+diff --git a/tc/tc_stab.c b/tc/tc_stab.c
+index 1a0a3e3..a468a70 100644
+--- a/tc/tc_stab.c
++++ b/tc/tc_stab.c
+@@ -37,7 +37,9 @@ static void stab_help(void)
+ 		"   tsize     : how many slots should size table have {512}\n"
+ 		"   mpu       : minimum packet size used in rate computations\n"
+ 		"   overhead  : per-packet size overhead used in rate computations\n"
+-		"   linklayer : adapting to a linklayer e.g. atm\n"
++		"   linklayer : adapting to a linklayer e.g. ethernet, atm or custom\n"
++		"               a \"custom\" linklayer reads size table entries from\n"
++		"               stdin\n"
+ 		"Example: ... stab overhead 20 linklayer atm\n");
+
+ }
+@@ -107,13 +109,13 @@ int parse_size_table(int *argcp, char ***argvp, struct tc_sizespec *sp)
+ void print_size_table(FILE *fp, const char *prefix, struct rtattr *rta)
+ {
+ 	struct rtattr *tb[TCA_STAB_MAX + 1];
++	struct tc_sizespec s = {0};
+
+ 	SPRINT_BUF(b1);
+
+ 	parse_rtattr_nested(tb, TCA_STAB_MAX, rta);
+
+ 	if (tb[TCA_STAB_BASE]) {
+-		struct tc_sizespec s = {0};
+
+ 		memcpy(&s, RTA_DATA(tb[TCA_STAB_BASE]),
+ 				MIN(RTA_PAYLOAD(tb[TCA_STAB_BASE]), sizeof(s)));
+@@ -132,19 +134,15 @@ void print_size_table(FILE *fp, const char *prefix, struct rtattr *rta)
+ 			fprintf(fp, "tsize %u ", s.tsize);
+ 	}
+
+-#if 0
+ 	if (tb[TCA_STAB_DATA]) {
+ 		unsigned int i, j, dlen;
+ 		__u16 *data = RTA_DATA(tb[TCA_STAB_DATA]);
+
+-		dlen = RTA_PAYLOAD(tb[TCA_STAB_DATA]) / sizeof(__u16);
+-
+ 		fprintf(fp, "\n%sstab data:", prefix);
+-		for (i = 0; i < dlen/12; i++) {
+-			fprintf(fp, "\n%s %3u:", prefix, i * 12);
+-			for (j = 0; i * 12 + j < dlen; j++)
+-				fprintf(fp, " %05x", data[i * 12 + j]);
+-		}
++		 fprintf(fp, "\n%sInputSizeStart -> IntputSizeEnd: Output Size\n", prefix);
++		 for(i = 0; i <= s.tsize - 1; ++i) {
++			  fprintf(fp, "%s%-14d -> %-13d: %d\n", prefix,  i << s.cell_log,
++						 ((i+1) << s.cell_log) - 1, data[i]);
++		 }
+ 	}
+-#endif
+ }
+diff --git a/tc/tc_util.c b/tc/tc_util.c
+index 3710468..62019c1 100644
+--- a/tc/tc_util.c
++++ b/tc/tc_util.c
+@@ -651,6 +651,8 @@ int get_linklayer(unsigned int *val, const char *arg)
+ 		res = LINKLAYER_ATM;
+ 	else if (matches(arg, "adsl") == 0)
+ 		res = LINKLAYER_ATM;
++	else if (matches(arg, "custom") == 0)
++		res = LINKLAYER_CUSTOM;
+ 	else
+ 		return -1; /* Indicate error */
+
+@@ -670,6 +672,9 @@ void print_linklayer(char *buf, int len, unsigned int linklayer)
+ 	case LINKLAYER_ATM:
+ 		snprintf(buf, len, "%s", "atm");
+ 		return;
++	case LINKLAYER_CUSTOM:
++		snprintf(buf, len, "%s", "custom");
++		return;
+ 	default:
+ 		snprintf(buf, len, "%s", "unknown");
+ 		return;
