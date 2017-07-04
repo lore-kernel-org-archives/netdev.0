@@ -1,89 +1,120 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH RFC 08/26] locking: Remove spin_unlock_wait() generic
- definitions
-Date: Mon, 3 Jul 2017 17:54:38 -0700
-Message-ID: <20170704005438.GA19389@linux.vnet.ibm.com>
-References: <20170630123815.GT2393@linux.vnet.ibm.com>
- <20170630131339.GA14118@arm.com>
- <20170630221840.GI2393@linux.vnet.ibm.com>
- <20170703131514.GE1573@arm.com>
- <20170703161851.GY2393@linux.vnet.ibm.com>
- <CA+55aFzA+dk8P-wWFX_rYE09A-3uCL8_7ZNG4jC1+c0x4COQkQ@mail.gmail.com>
- <20170703171338.GG1573@arm.com>
- <20170703223011.GI2393@linux.vnet.ibm.com>
- <CA+55aFy4QPFypce_N0jC-QjhTU9GKZ2i11HewKKOfo0hCHn7Sw@mail.gmail.com>
- <20170704003936.GJ2393@linux.vnet.ibm.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: <sean.wang@mediatek.com>
+Subject: [PATCH] net: ethernet: mediatek: fixed deadlock captured by lockdep
+Date: Tue, 4 Jul 2017 11:17:36 +0800
+Message-ID: <96f5bb5018167e8d327d7613674cc1f2a81fe99f.1499137698.git.sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Will Deacon <will.deacon@arm.com>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        NetFilter <netfilter-devel@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        Oleg Nesterov <oleg@redhat.com>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Ingo Molnar <mingo@redhat.com>,
-        Davidlohr Bueso <dave@stgolabs.net>,
-        Manfred Spraul <manfred@colorfullife.com>,
-        Tejun Heo <tj@kernel.org>, Arnd Bergmann <arnd@arndb.de>,
-        "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
-        Peter Zijlstra <peterz@infradead.org>,
-        Alan Stern <stern@rowland.harvard.edu>,
-        Andrea Parri <parri.andrea@gmail.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-arch-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170704003936.GJ2393@linux.vnet.ibm.com>
-Sender: linux-arch-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>,
+        <linux-mediatek@lists.infradead.org>,
+        Sean Wang <sean.wang@mediatek.com>
+To: <john@phrozen.org>, <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 03, 2017 at 05:39:36PM -0700, Paul E. McKenney wrote:
-> On Mon, Jul 03, 2017 at 03:49:42PM -0700, Linus Torvalds wrote:
-> > On Mon, Jul 3, 2017 at 3:30 PM, Paul E. McKenney
-> > <paulmck@linux.vnet.ibm.com> wrote:
-> > >
-> > > That certainly is one interesting function, isn't it?  I wonder what
-> > > happens if you replace the raw_spin_is_locked() calls with an
-> > > unlock under a trylock check?  ;-)
-> > 
-> > Deadlock due to interrupts again?
-> 
-> Unless I am missing something subtle, the kgdb_cpu_enter() function in
-> question has a local_irq_save() over the "interesting" portion of its
-> workings, so interrupt-handler self-deadlock should not happen.
-> 
-> > Didn't your spin_unlock_wait() patches teach you anything? Checking
-> > state is fundamentally different from taking the lock. Even a trylock.
-> 
-> That was an embarrassing bug, no two ways about it.  :-/
-> 
-> > I guess you could try with the irqsave versions. But no, we're not doing that.
-> 
-> Again, no need in this case.
-> 
-> But I agree with Will's assessment of this function...
-> 
-> The raw_spin_is_locked() looks to be asking if -any- CPU holds the
-> dbg_slave_lock, and the answer could of course change immediately
-> on return from raw_spin_is_locked().  Perhaps the theory is that
-> if other CPU holds the lock, this CPU is supposed to be subjected to
-> kgdb_roundup_cpus().  Except that the CPU that held dbg_slave_lock might
-> be just about to release that lock.  Odd.
-> 
-> Seems like there should be a get_online_cpus() somewhere, but maybe
-> that constraint is to be manually enforced.
+From: Sean Wang <sean.wang@mediatek.com>
 
-Except that invoking get_online_cpus() from an exception handler would
-be of course be a spectacularly bad idea.  I would feel better if the
-num_online_cpus() was under the local_irq_save(), but perhaps this code
-is relying on the stop_machine().  Except that it appears we could
-deadlock with offline waiting for stop_machine() to complete and kdbg
-waiting for all CPUs to report, including those in stop_machine().
+Lockdep found an inconsistent lock state when mtk_get_stats64 is called
+in user context while NAPI updates MAC statistics in softirq.
 
-Looks like the current situation is "Don't use kdbg if there is any
-possibility of CPU-hotplug operations."  Not necessarily an unreasonable
-restriction.
+Use spin_trylock_bh/spin_unlock_bh fix following lockdep warning.
 
-But I need to let me eyes heal a bit before looking at this more.
+[   81.321030] WARNING: inconsistent lock state
+[   81.325266] 4.12.0-rc1-00035-gd9dda65 #32 Not tainted
+[   81.330273] --------------------------------
+[   81.334505] inconsistent {SOFTIRQ-ON-W} -> {IN-SOFTIRQ-W} usage.
+[   81.340464] ksoftirqd/0/7 [HC0[0]:SC1[1]:HE1:SE0] takes:
+[   81.345731]  (&syncp->seq#2){+.?...}, at: [<c054ba3c>] mtk_handle_status_irq.part.6+0x70/0x84
+[   81.354219] {SOFTIRQ-ON-W} state was registered at:
+[   81.359062]   lock_acquire+0xfc/0x2b0
+[   81.362696]   mtk_stats_update_mac+0x60/0x2c0
+[   81.367017]   mtk_get_stats64+0x17c/0x18c
+[   81.370995]   dev_get_stats+0x48/0xbc
+[   81.374628]   rtnl_fill_stats+0x48/0x128
+[   81.378520]   rtnl_fill_ifinfo+0x4ac/0xd1c
+[   81.382584]   rtmsg_ifinfo_build_skb+0x7c/0xe0
+[   81.386991]   rtmsg_ifinfo.part.5+0x24/0x54
+[   81.391139]   rtmsg_ifinfo+0x24/0x28
+[   81.394685]   __dev_notify_flags+0xa4/0xac
+[   81.398749]   dev_change_flags+0x50/0x58
+[   81.402640]   devinet_ioctl+0x768/0x85c
+[   81.406444]   inet_ioctl+0x1a4/0x1d0
+[   81.409990]   sock_ioctl+0x16c/0x33c
+[   81.413538]   do_vfs_ioctl+0xb4/0xa34
+[   81.417169]   SyS_ioctl+0x44/0x6c
+[   81.420458]   ret_fast_syscall+0x0/0x1c
+[   81.424260] irq event stamp: 3354692
+[   81.427806] hardirqs last  enabled at (3354692): [<c0678168>] net_rx_action+0xc0/0x504
+[   81.435660] hardirqs last disabled at (3354691): [<c0678134>] net_rx_action+0x8c/0x504
+[   81.443515] softirqs last  enabled at (3354106): [<c0101944>] __do_softirq+0x4b4/0x614
+[   81.451370] softirqs last disabled at (3354109): [<c012f0c4>] run_ksoftirqd+0x44/0x80
+[   81.459134]
+[   81.459134] other info that might help us debug this:
+[   81.465608]  Possible unsafe locking scenario:
+[   81.465608]
+[   81.471478]        CPU0
+[   81.473900]        ----
+[   81.476321]   lock(&syncp->seq#2);
+[   81.479701]   <Interrupt>
+[   81.482294]     lock(&syncp->seq#2);
+[   81.485847]
+[   81.485847]  *** DEADLOCK ***
+[   81.485847]
+[   81.491720] 1 lock held by ksoftirqd/0/7:
+[   81.495693]  #0:  (&(&mac->hw_stats->stats_lock)->rlock){+.+...}, at: [<c054ba14>] mtk_handle_status_irq.part.6+0x48/0x84
+[   81.506579]
+[   81.506579] stack backtrace:
+[   81.510904] CPU: 0 PID: 7 Comm: ksoftirqd/0 Not tainted 4.12.0-rc1-00035-gd9dda65 #32
+[   81.518668] Hardware name: Mediatek Cortex-A7 (Device Tree)
+[   81.524208] [<c0113dc4>] (unwind_backtrace) from [<c010e3f0>] (show_stack+0x20/0x24)
+[   81.531899] [<c010e3f0>] (show_stack) from [<c03f9c64>] (dump_stack+0xb4/0xe0)
+[   81.539072] [<c03f9c64>] (dump_stack) from [<c017e970>] (print_usage_bug+0x234/0x2e0)
+[   81.546846] [<c017e970>] (print_usage_bug) from [<c017f058>] (mark_lock+0x63c/0x7bc)
+[   81.554532] [<c017f058>] (mark_lock) from [<c017fe90>] (__lock_acquire+0x654/0x1bfc)
+[   81.562217] [<c017fe90>] (__lock_acquire) from [<c0181d04>] (lock_acquire+0xfc/0x2b0)
+[   81.569990] [<c0181d04>] (lock_acquire) from [<c054b76c>] (mtk_stats_update_mac+0x60/0x2c0)
+[   81.578283] [<c054b76c>] (mtk_stats_update_mac) from [<c054ba3c>] (mtk_handle_status_irq.part.6+0x70/0x84)
+[   81.587865] [<c054ba3c>] (mtk_handle_status_irq.part.6) from [<c054c2b8>] (mtk_napi_tx+0x358/0x37c)
+[   81.596845] [<c054c2b8>] (mtk_napi_tx) from [<c06782ec>] (net_rx_action+0x244/0x504)
+[   81.604533] [<c06782ec>] (net_rx_action) from [<c01015c4>] (__do_softirq+0x134/0x614)
+[   81.612306] [<c01015c4>] (__do_softirq) from [<c012f0c4>] (run_ksoftirqd+0x44/0x80)
+[   81.619907] [<c012f0c4>] (run_ksoftirqd) from [<c0154680>] (smpboot_thread_fn+0x14c/0x25c)
+[   81.628110] [<c0154680>] (smpboot_thread_fn) from [<c014f8cc>] (kthread+0x150/0x180)
+[   81.635798] [<c014f8cc>] (kthread) from [<c0109290>] (ret_from_fork+0x14/0x24)
 
-							Thanx, Paul
+Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+---
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index 16f9755..8a2acb8 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -470,9 +470,9 @@ static void mtk_get_stats64(struct net_device *dev,
+ 	unsigned int start;
+ 
+ 	if (netif_running(dev) && netif_device_present(dev)) {
+-		if (spin_trylock(&hw_stats->stats_lock)) {
++		if (spin_trylock_bh(&hw_stats->stats_lock)) {
+ 			mtk_stats_update_mac(mac);
+-			spin_unlock(&hw_stats->stats_lock);
++			spin_unlock_bh(&hw_stats->stats_lock);
+ 		}
+ 	}
+ 
+@@ -2156,9 +2156,9 @@ static void mtk_get_ethtool_stats(struct net_device *dev,
+ 		return;
+ 
+ 	if (netif_running(dev) && netif_device_present(dev)) {
+-		if (spin_trylock(&hwstats->stats_lock)) {
++		if (spin_trylock_bh(&hwstats->stats_lock)) {
+ 			mtk_stats_update_mac(mac);
+-			spin_unlock(&hwstats->stats_lock);
++			spin_unlock_bh(&hwstats->stats_lock);
+ 		}
+ 	}
+ 
+-- 
+2.7.4
