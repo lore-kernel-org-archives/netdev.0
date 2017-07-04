@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 25/36] net, x25: convert x25_neigh.refcnt from atomic_t to refcount_t
-Date: Tue,  4 Jul 2017 15:53:20 +0300
-Message-ID: <1499172811-16271-26-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 24/36] net, x25: convert x25_route.refcnt from atomic_t to refcount_t
+Date: Tue,  4 Jul 2017 15:53:19 +0300
+Message-ID: <1499172811-16271-25-git-send-email-elena.reshetova@intel.com>
 References: <1499172811-16271-1-git-send-email-elena.reshetova@intel.com>
 Cc: linux-kernel@vger.kernel.org,
         linux-decnet-user@lists.sourceforge.net, davem@davemloft.net,
@@ -35,50 +35,58 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- include/net/x25.h  | 6 +++---
- net/x25/x25_link.c | 2 +-
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ include/net/x25.h   | 7 ++++---
+ net/x25/x25_route.c | 2 +-
+ 2 files changed, 5 insertions(+), 4 deletions(-)
 
 diff --git a/include/net/x25.h b/include/net/x25.h
-index 1ac1400..2609b57 100644
+index 6d30a01..1ac1400 100644
 --- a/include/net/x25.h
 +++ b/include/net/x25.h
-@@ -142,7 +142,7 @@ struct x25_neigh {
- 	unsigned long		t20;
- 	struct timer_list	t20timer;
- 	unsigned long		global_facil_mask;
+@@ -11,6 +11,7 @@
+ #define _X25_H 
+ #include <linux/x25.h>
+ #include <linux/slab.h>
++#include <linux/refcount.h>
+ #include <net/sock.h>
+ 
+ #define	X25_ADDR_LEN			16
+@@ -129,7 +130,7 @@ struct x25_route {
+ 	struct x25_address	address;
+ 	unsigned int		sigdigits;
+ 	struct net_device	*dev;
 -	atomic_t		refcnt;
 +	refcount_t		refcnt;
  };
  
- struct x25_sock {
-@@ -243,12 +243,12 @@ void x25_link_free(void);
- /* x25_neigh.c */
- static __inline__ void x25_neigh_hold(struct x25_neigh *nb)
+ struct x25_neigh {
+@@ -265,12 +266,12 @@ void x25_route_free(void);
+ 
+ static __inline__ void x25_route_hold(struct x25_route *rt)
  {
--	atomic_inc(&nb->refcnt);
-+	refcount_inc(&nb->refcnt);
+-	atomic_inc(&rt->refcnt);
++	refcount_inc(&rt->refcnt);
  }
  
- static __inline__ void x25_neigh_put(struct x25_neigh *nb)
+ static __inline__ void x25_route_put(struct x25_route *rt)
  {
--	if (atomic_dec_and_test(&nb->refcnt))
-+	if (refcount_dec_and_test(&nb->refcnt))
- 		kfree(nb);
+-	if (atomic_dec_and_test(&rt->refcnt))
++	if (refcount_dec_and_test(&rt->refcnt))
+ 		kfree(rt);
  }
  
-diff --git a/net/x25/x25_link.c b/net/x25/x25_link.c
-index bcaa180..e0cd04d 100644
---- a/net/x25/x25_link.c
-+++ b/net/x25/x25_link.c
-@@ -266,7 +266,7 @@ void x25_link_device_up(struct net_device *dev)
- 				       X25_MASK_PACKET_SIZE |
- 				       X25_MASK_WINDOW_SIZE;
- 	nb->t20      = sysctl_x25_restart_request_timeout;
--	atomic_set(&nb->refcnt, 1);
-+	refcount_set(&nb->refcnt, 1);
+diff --git a/net/x25/x25_route.c b/net/x25/x25_route.c
+index 277c8d2..b85b889 100644
+--- a/net/x25/x25_route.c
++++ b/net/x25/x25_route.c
+@@ -55,7 +55,7 @@ static int x25_add_route(struct x25_address *address, unsigned int sigdigits,
  
- 	write_lock_bh(&x25_neigh_list_lock);
- 	list_add(&nb->node, &x25_neigh_list);
+ 	rt->sigdigits = sigdigits;
+ 	rt->dev       = dev;
+-	atomic_set(&rt->refcnt, 1);
++	refcount_set(&rt->refcnt, 1);
+ 
+ 	list_add(&rt->node, &x25_route_list);
+ 	rc = 0;
 -- 
 2.7.4
