@@ -1,66 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/36] v2 net subsystem misc refcounter conversions
-Date: Tue, 04 Jul 2017 23:00:40 +0100 (WEST)
-Message-ID: <20170704.230040.195111189904913382.davem@davemloft.net>
-References: <1499172811-16271-1-git-send-email-elena.reshetova@intel.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] bpf: fix return in load_bpf_file
+Date: Wed, 05 Jul 2017 00:14:46 +0200
+Message-ID: <595C1356.3000508@iogearbox.net>
+References: <20170704215129.4047623-1-brakmo@fb.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-decnet-user@lists.sourceforge.net, jmorris@namei.org,
-        kaber@trash.net, yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru,
-        3chas3@gmail.com, ralf@linux-mips.org, stephen@networkplumber.org,
-        jchapman@katalix.com, jhs@mojatatu.com,
-        bridge@lists.linux-foundation.org, linux-hams@vger.kernel.org,
-        linux-x25@vger.kernel.org, peterz@infradead.org,
-        keescook@chromium.org, linux-rdma@vger.kernel.org,
-        linux-sctp@vger.kernel.org, vyasevich@gmail.com,
-        nhorman@tuxdriver.com, linux-nfs@vger.kernel.org, zyan@redhat.com,
-        sage@redhat.com, bfields@fieldses.org, jlayton@poochiereds.net,
-        steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-        santosh.shilimkar@oracle.com, jreuter@yaina.de
-To: elena.reshetova@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1499172811-16271-1-git-send-email-elena.reshetova@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Kernel Team <kernel-team@fb.com>, Alexei Starovoitov <ast@fb.com>
+To: Lawrence Brakmo <brakmo@fb.com>, netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:47266 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752239AbdGDWOs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 18:14:48 -0400
+In-Reply-To: <20170704215129.4047623-1-brakmo@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Elena Reshetova <elena.reshetova@intel.com>
-Date: Tue,  4 Jul 2017 15:52:55 +0300
+On 07/04/2017 11:51 PM, Lawrence Brakmo wrote:
+> The function load_bpf_file ignores the return value of
+> load_and_attach(), so even if load_and_attach() returns an error,
+> load_bpf_file() will return 0.
+>
+> Now, load_bpf_file() can call load_and_attach() multiple times and some
+> can succeed and some could fail. I think the correct behavor is to
+> return error on the first failed load_and_attach().
 
-> Changes in v2:
->  * rebase on top of net-next
->  * currently by default refcount_t = atomic_t (*) and uses all 
->    atomic standard operations unless CONFIG_REFCOUNT_FULL is enabled.
->    This is a compromise for the systems that are critical on
->    performance (such as net) and cannot accept even slight delay
->    on the refcounter operations.
-> 
-> This series, for various misc network components, replaces atomic_t reference
-> counters with the new refcount_t type and API (see include/linux/refcount.h).
-> By doing this we prevent intentional or accidental
-> underflows or overflows that can led to use-after-free vulnerabilities.
-> These are the last networking-related conversions with the exception of
-> network drivers (to be send separately).
-> 
-> Please excuse the long patch set, but seems like breaking it up
-> won't save that much on CC list and most of the changes are
-> trivial.
-> 
-> The patches are fully independent and can be cherry-picked separately.
-> In order to try with refcount functionality enabled in run-time,
-> CONFIG_REFCOUNT_FULL must be enabled.
-> 
-> NOTE: automatic kernel builder for some reason doesn't like all my
-> network branches and regularly times out the builds on these branches.
-> Suggestion for "waiting a day for a good coverage" doesn't work, as
-> we have seen with generic network conversions. So please wait for the
-> full report from kernel test rebot before merging further up.
-> This has been compile-tested in 116 configs, but 71 timed out (including
-> all s390-related configs again). I am trying to see if they can fix
-> build coverage for me in meanwhile.
-> 
-> * The respective change is currently merged into -next as
->   "locking/refcount: Create unchecked atomic_t implementation".
-
-Series applied, that's enough for this cycle, please.
+Your SOB is missing.
