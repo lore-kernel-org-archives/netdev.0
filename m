@@ -1,90 +1,168 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net] virtio-net: unbreak cusmed packet for small buffer XDP
-Date: Tue, 4 Jul 2017 20:20:00 +0800
-Message-ID: <4de0c8e7-a9b6-7477-691a-a2ed0f317106@redhat.com>
-References: <1498614843-8163-1-git-send-email-jasowang@redhat.com>
-	<20170628050057-mutt-send-email-mst@kernel.org>
-	<7068053c-50da-6779-5ff2-6588e01e616d@redhat.com>
-	<20170628051555-mutt-send-email-mst@kernel.org>
-	<69907228-fc1b-175f-f6cd-7ac332e318be@redhat.com>
-	<20170628063033-mutt-send-email-mst@kernel.org>
-	<51f4c402-6a02-9bad-6dab-563ca72f431a@redhat.com>
-	<20170628065126-mutt-send-email-mst@kernel.org>
-	<a7e457d5-88c4-745d-5189-18a5f13797dc@redhat.com>
-	<20170703195752-mutt-send-email-mst@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170703195752-mutt-send-email-mst@kernel.org>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+From: Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 00/36] v2 net subsystem misc refcounter conversions
+Date: Tue,  4 Jul 2017 15:52:55 +0300
+Message-ID: <1499172811-16271-1-git-send-email-elena.reshetova@intel.com>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-decnet-user-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+        jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org,
+        kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org, 3chas3-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
+        stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, jchapman-Bm0nJX+W7e9BDgjK7y7TUQ@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
+        bridge-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, linux-hams-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-x25-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
+        keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, vyasevich-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, zyan-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        sage-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org,
+        steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org, herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org,
+        santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, jreuter-K7Hl1MveuGQ@public.gmane.org,
+        Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-CgpPbiAyMDE35bm0MDfmnIgwNOaXpSAwMTowMywgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
-IE9uIFdlZCwgSnVuIDI4LCAyMDE3IGF0IDA4OjA1OjA2UE0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
-dGU6Cj4+Cj4+IE9uIDIwMTflubQwNuaciDI45pelIDEyOjAxLCBNaWNoYWVsIFMuIFRzaXJraW4g
-d3JvdGU6Cj4+PiBPbiBXZWQsIEp1biAyOCwgMjAxNyBhdCAxMTo0MDozMEFNICswODAwLCBKYXNv
-biBXYW5nIHdyb3RlOgo+Pj4+IE9uIDIwMTflubQwNuaciDI45pelIDExOjMxLCBNaWNoYWVsIFMu
-IFRzaXJraW4gd3JvdGU6Cj4+Pj4+IE9uIFdlZCwgSnVuIDI4LCAyMDE3IGF0IDEwOjQ1OjE4QU0g
-KzA4MDAsIEphc29uIFdhbmcgd3JvdGU6Cj4+Pj4+PiBPbiAyMDE35bm0MDbmnIgyOOaXpSAxMDox
-NywgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+Pj4+Pj4+IE9uIFdlZCwgSnVuIDI4LCAyMDE3
-IGF0IDEwOjE0OjM0QU0gKzA4MDAsIEphc29uIFdhbmcgd3JvdGU6Cj4+Pj4+Pj4+IE9uIDIwMTfl
-ubQwNuaciDI45pelIDEwOjAyLCBNaWNoYWVsIFMuIFRzaXJraW4gd3JvdGU6Cj4+Pj4+Pj4+PiBP
-biBXZWQsIEp1biAyOCwgMjAxNyBhdCAwOTo1NDowM0FNICswODAwLCBKYXNvbiBXYW5nIHdyb3Rl
-Ogo+Pj4+Pj4+Pj4+IFdlIHNob3VsZCBhbGxvdyBjc3VtZWQgcGFja2V0IGZvciBzbWFsbCBidWZm
-ZXIsIG90aGVyd2lzZSBYRFBfUEFTUwo+Pj4+Pj4+Pj4+IHdvbid0IHdvcmsgY29ycmVjdGx5Lgo+
-Pj4+Pj4+Pj4+Cj4+Pj4+Pj4+Pj4gRml4ZXMgY29tbWl0IGJiOTFhY2NmMjczMyAoInZpcnRpby1u
-ZXQ6IFhEUCBzdXBwb3J0IGZvciBzbWFsbCBidWZmZXJzIikKPj4+Pj4+Pj4+PiBTaWduZWQtb2Zm
-LWJ5OiBKYXNvbiBXYW5nPGphc293YW5nQHJlZGhhdC5jb20+Cj4+Pj4+Pj4+PiBUaGUgaXNzdWUg
-d291bGQgYmUgVklSVElPX05FVF9IRFJfRl9EQVRBX1ZBTElEIG1pZ2h0IGJlIHNldC4KPj4+Pj4+
-Pj4+IFdoYXQgZG8geW91IHRoaW5rPwo+Pj4+Pj4+PiBJIHRoaW5rIGl0J3Mgc2FmZS4gRm9yIFhE
-UF9QQVNTLCBpdCB3b3JrIGxpa2UgaW4gdGhlIHBhc3QuCj4+Pj4+Pj4gVGhhdCdzIHRoZSBwYXJ0
-IEkgZG9uJ3QgZ2V0LiBXaXRoIERBVEFfVkFMSUQgY3N1bSBpbiBwYWNrZXQgaXMgd3JvbmcsIFhE
-UAo+Pj4+Pj4+IHRvb2xzIGFzc3VtZSBpdCdzIHZhbHVlLgo+Pj4+Pj4gREFUQV9WQUxJRCBpcyBD
-SEVDS1NVTV9VTkNFU1NBUlkgb24gdGhlIGhvc3QsIGFuZCBhY2NvcmRpbmcgdG8gdGhlIGNvbW1l
-bnQKPj4+Pj4+IGluIHNrYnVmZi5oCj4+Pj4+Pgo+Pj4+Pj4KPj4+Pj4+ICIKPj4+Pj4+ICAgICAq
-ICAgVGhlIGhhcmR3YXJlIHlvdSdyZSBkZWFsaW5nIHdpdGggZG9lc24ndCBjYWxjdWxhdGUgdGhl
-IGZ1bGwgY2hlY2tzdW0KPj4+Pj4+ICAgICAqICAgKGFzIGluIENIRUNLU1VNX0NPTVBMRVRFKSwg
-YnV0IGl0IGRvZXMgcGFyc2UgaGVhZGVycyBhbmQgdmVyaWZ5Cj4+Pj4+PiBjaGVja3N1bXMKPj4+
-Pj4+ICAgICAqICAgZm9yIHNwZWNpZmljIHByb3RvY29scy4gRm9yIHN1Y2ggcGFja2V0cyBpdCB3
-aWxsIHNldAo+Pj4+Pj4gQ0hFQ0tTVU1fVU5ORUNFU1NBUlkKPj4+Pj4+ICAgICAqICAgaWYgdGhl
-aXIgY2hlY2tzdW1zIGFyZSBva2F5LiBza2ItPmNzdW0gaXMgc3RpbGwgdW5kZWZpbmVkIGluIHRo
-aXMgY2FzZQo+Pj4+Pj4gICAgICogICB0aG91Z2guIEEgZHJpdmVyIG9yIGRldmljZSBtdXN0IG5l
-dmVyIG1vZGlmeSB0aGUgY2hlY2tzdW0gZmllbGQgaW4gdGhlCj4+Pj4+PiAgICAgKiAgIHBhY2tl
-dCBldmVuIGlmIGNoZWNrc3VtIGlzIHZlcmlmaWVkLgo+Pj4+Pj4gIgo+Pj4+Pj4KPj4+Pj4+IFRo
-ZSBjc3VtIGlzIGNvcnJlY3QgSSBiZWxpZXZlPwo+Pj4+Pj4KPj4+Pj4+IFRoYW5rcwo+Pj4+PiBU
-aGF0J3Mgb24gaW5wdXQuIEJ1dCBJIHRoaW5rIGZvciB0dW4gaXQncyBvdXRwdXQsIHdoZXJlIHRo
-YXQgaXMgZXF1aXZhbGVudAo+Pj4+PiB0byBDSEVDS1NVTV9OT05FCj4+Pj4+Cj4+Pj4+Cj4+Pj4g
-WWVzLCBidXQgdGhlIGNvbW1lbnQgc2FpZDoKPj4+Pgo+Pj4+ICIKPj4+PiBDS1NVTV9OT05FOgo+
-Pj4+ICAgICoKPj4+PiAgICAqICAgVGhlIHNrYiB3YXMgYWxyZWFkeSBjaGVja3N1bW1lZCBieSB0
-aGUgcHJvdG9jb2wsIG9yIGEgY2hlY2tzdW0gaXMgbm90Cj4+Pj4gICAgKiAgIHJlcXVpcmVkLgo+
-Pj4+ICAgICoKPj4+PiAgICAqIENIRUNLU1VNX1VOTkVDRVNTQVJZOgo+Pj4+ICAgICoKPj4+PiAg
-ICAqICAgVGhpcyBoYXMgdGhlIHNhbWUgbWVhbmluZyBvbiBhcyBDSEVDS1NVTV9OT05FIGZvciBj
-aGVja3N1bSBvZmZsb2FkIG9uCj4+Pj4gICAgKiAgIG91dHB1dC4KPj4+PiAgICAqCj4+Pj4gIgo+
-Pj4+Cj4+Pj4gU28gc3RpbGwgY29ycmVjdCBJIHRoaW5rPwo+Pj4+Cj4+Pj4gVGhhbmtzCj4+PiBI
-bW0gbWF5YmUgSSBtZWFuIE5FRURTX0NIRUNLU1VNIGFjdHVhbGx5Lgo+Pj4KPj4+IEknbGwgbmVl
-ZCB0byByZS1yZWFkIHRoZSBzcGVjLgo+Pj4KPj4gTm90IHN1cmUgdGhpcyBpcyBhbiBpc3N1ZS4g
-QnV0IGlmIGl0IGlzLCB3ZSBjYW4gcHJvYmFibHkgY2hlY2tzdW0gdGhlIHBhY2tldAo+PiBiZWZv
-cmUgcGFzc2luZyBpdCB0byBYRFAuIEJ1dCBpdCB3b3VsZCBiZSBhIGxpdHRsZSBzbG93Lgo+Pgo+
-PiBUaGFua3MKPgo+Cj4gUmlnaHQuIEkgY29uZnVzZWQgREFUQV9WQUxJRCB3aXRoIE5FRURTX0NI
-RUNLU1VNLgo+Cj4gSUlVQyBYRFAgZ2VuZXJhbGx5IHJlZnVzZXMgdG8gYXR0YWNoIGlmIGNoZWNr
-c3VtIG9mZmxvYWQKPiBpcyBlbmFibGVkLgoKQW55IHJlYXNvbiB0byBkbyB0aGlzPyAoTG9va3Mg
-bGlrZSBJIGRvbid0IHNlZSBhbnkgY29kZSBmb3IgdGhpcykKCj4KPiBDb3VsZCB5b3UgcGxzIGV4
-cGxhaW4gaG93IHRvIHJlcHJvZHVjZSB0aGUgaXNzdWUgeW91IGFyZSBzZWVpbmc/Cj4KClVzaW5n
-IHNtYWxsIGJ1ZmZlciwgYWxsIGNzdW1lZCBwYWNrZXRzIHdpbGwgYmUgZHJvcHBlZC4KClRoYW5r
-cwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFs
-aXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlv
-bi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8v
-dmlydHVhbGl6YXRpb24=
+Changes in v2:
+ * rebase on top of net-next
+ * currently by default refcount_t = atomic_t (*) and uses all 
+   atomic standard operations unless CONFIG_REFCOUNT_FULL is enabled.
+   This is a compromise for the systems that are critical on
+   performance (such as net) and cannot accept even slight delay
+   on the refcounter operations.
+
+This series, for various misc network components, replaces atomic_t reference
+counters with the new refcount_t type and API (see include/linux/refcount.h).
+By doing this we prevent intentional or accidental
+underflows or overflows that can led to use-after-free vulnerabilities.
+These are the last networking-related conversions with the exception of
+network drivers (to be send separately).
+
+Please excuse the long patch set, but seems like breaking it up
+won't save that much on CC list and most of the changes are
+trivial.
+
+The patches are fully independent and can be cherry-picked separately.
+In order to try with refcount functionality enabled in run-time,
+CONFIG_REFCOUNT_FULL must be enabled.
+
+NOTE: automatic kernel builder for some reason doesn't like all my
+network branches and regularly times out the builds on these branches.
+Suggestion for "waiting a day for a good coverage" doesn't work, as
+we have seen with generic network conversions. So please wait for the
+full report from kernel test rebot before merging further up.
+This has been compile-tested in 116 configs, but 71 timed out (including
+all s390-related configs again). I am trying to see if they can fix
+build coverage for me in meanwhile.
+
+* The respective change is currently merged into -next as
+  "locking/refcount: Create unchecked atomic_t implementation".
+
+Elena Reshetova (36):
+  net, llc: convert llc_sap.refcnt from atomic_t to refcount_t
+  net, l2tp: convert l2tp_tunnel.ref_count from atomic_t to refcount_t
+  net, l2tp: convert l2tp_session.ref_count from atomic_t to refcount_t
+  net, vxlan: convert vxlan_sock.refcnt from atomic_t to refcount_t
+  net, decnet: convert dn_fib_info.fib_clntref from atomic_t to
+    refcount_t
+  net, atm: convert atm_dev.refcnt from atomic_t to refcount_t
+  net, atm: convert lec_arp_table.usage from atomic_t to refcount_t
+  net, atm: convert in_cache_entry.use from atomic_t to refcount_t
+  net, atm: convert eg_cache_entry.use from atomic_t to refcount_t
+  net, bridge: convert net_bridge_vlan.refcnt from atomic_t to
+    refcount_t
+  net, calipso: convert calipso_doi.refcount from atomic_t to refcount_t
+  net, sched: convert Qdisc.refcnt from atomic_t to refcount_t
+  net, lapb: convert lapb_cb.refcnt from atomic_t to refcount_t
+  net, ipx: convert ipx_interface.refcnt from atomic_t to refcount_t
+  net, ipx: convert ipx_route.refcnt from atomic_t to refcount_t
+  net, netrom: convert nr_neigh.refcount from atomic_t to refcount_t
+  net, netrom: convert nr_node.refcount from atomic_t to refcount_t
+  net, sunrpc: convert gss_cl_ctx.count from atomic_t to refcount_t
+  net, sunrpc: convert gss_upcall_msg.count from atomic_t to refcount_t
+  net, rds: convert rds_ib_device.refcount from atomic_t to refcount_t
+  net, rds: convert rds_incoming.i_refcount from atomic_t to refcount_t
+  net, rds: convert rds_mr.r_refcount from atomic_t to refcount_t
+  net, rds: convert rds_message.m_refcount from atomic_t to refcount_t
+  net, x25: convert x25_route.refcnt from atomic_t to refcount_t
+  net, x25: convert x25_neigh.refcnt from atomic_t to refcount_t
+  net, xfrm: convert xfrm_state.refcnt from atomic_t to refcount_t
+  net, xfrm: convert xfrm_policy.refcnt from atomic_t to refcount_t
+  net, xfrm: convert sec_path.refcnt from atomic_t to refcount_t
+  net, sctp: convert sctp_auth_bytes.refcnt from atomic_t to refcount_t
+  net, sctp: convert sctp_datamsg.refcnt from atomic_t to refcount_t
+  net, sctp: convert sctp_chunk.refcnt from atomic_t to refcount_t
+  net, sctp: convert sctp_transport.refcnt from atomic_t to refcount_t
+  net, sctp: convert sctp_ep_common.refcnt from atomic_t to refcount_t
+  net, ax25: convert ax25_uid_assoc.refcount from atomic_t to refcount_t
+  net, ax25: convert ax25_route.refcount from atomic_t to refcount_t
+  net, ax25: convert ax25_cb.refcount from atomic_t to refcount_t
+
+ drivers/net/vxlan.c             | 10 +++++-----
+ include/linux/atmdev.h          |  7 ++++---
+ include/linux/sunrpc/auth_gss.h |  3 ++-
+ include/net/ax25.h              | 20 ++++++++++----------
+ include/net/calipso.h           |  4 ++--
+ include/net/dn_fib.h            |  5 +++--
+ include/net/ipx.h               | 13 +++++++------
+ include/net/lapb.h              |  3 ++-
+ include/net/llc.h               |  6 +++---
+ include/net/netrom.h            | 13 +++++++------
+ include/net/sch_generic.h       |  3 ++-
+ include/net/sctp/auth.h         |  5 +++--
+ include/net/sctp/structs.h      |  8 ++++----
+ include/net/vxlan.h             |  2 +-
+ include/net/x25.h               | 13 +++++++------
+ include/net/xfrm.h              | 21 +++++++++++----------
+ net/atm/lec.c                   |  6 +++---
+ net/atm/lec_arpc.h              |  2 +-
+ net/atm/mpoa_caches.c           | 26 +++++++++++++-------------
+ net/atm/mpoa_caches.h           |  5 +++--
+ net/atm/proc.c                  |  2 +-
+ net/atm/resources.c             |  2 +-
+ net/ax25/af_ax25.c              |  2 +-
+ net/ax25/ax25_route.c           |  2 +-
+ net/ax25/ax25_uid.c             |  2 +-
+ net/bridge/br_private.h         |  3 ++-
+ net/bridge/br_vlan.c            |  8 ++++----
+ net/decnet/dn_fib.c             |  6 +++---
+ net/ipv6/calipso.c              | 12 ++++++------
+ net/ipx/af_ipx.c                |  6 +++---
+ net/ipx/ipx_proc.c              |  2 +-
+ net/ipx/ipx_route.c             |  2 +-
+ net/key/af_key.c                |  2 +-
+ net/l2tp/l2tp_core.c            | 16 ++++++++--------
+ net/l2tp/l2tp_core.h            | 13 +++++++------
+ net/l2tp/l2tp_debugfs.c         |  4 ++--
+ net/l2tp/l2tp_ppp.c             |  2 +-
+ net/lapb/lapb_iface.c           |  6 +++---
+ net/llc/llc_core.c              |  2 +-
+ net/netrom/nr_route.c           |  6 +++---
+ net/rds/ib.c                    | 12 ++++++------
+ net/rds/ib.h                    |  2 +-
+ net/rds/ib_rdma.c               |  4 ++--
+ net/rds/message.c               | 12 ++++++------
+ net/rds/rdma.c                  | 10 +++++-----
+ net/rds/rds.h                   |  9 +++++----
+ net/rds/recv.c                  | 12 ++++++------
+ net/sched/sch_api.c             |  8 ++++----
+ net/sched/sch_generic.c         |  8 ++++----
+ net/sctp/associola.c            |  6 +++---
+ net/sctp/auth.c                 |  4 ++--
+ net/sctp/chunk.c                |  6 +++---
+ net/sctp/endpointola.c          |  6 +++---
+ net/sctp/sm_make_chunk.c        |  6 +++---
+ net/sctp/transport.c            |  8 ++++----
+ net/sunrpc/auth_gss/auth_gss.c  | 28 ++++++++++++++--------------
+ net/x25/x25_link.c              |  2 +-
+ net/x25/x25_route.c             |  2 +-
+ net/xfrm/xfrm_input.c           |  4 ++--
+ net/xfrm/xfrm_policy.c          |  4 ++--
+ net/xfrm/xfrm_state.c           |  4 ++--
+ 61 files changed, 223 insertions(+), 209 deletions(-)
+
+-- 
+2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
