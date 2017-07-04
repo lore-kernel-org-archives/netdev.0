@@ -1,34 +1,64 @@
 From: Lawrence Brakmo <brakmo@fb.com>
-Subject: Re: [PATCH net-next] bpf: fix return in load_bpf_file
-Date: Tue, 4 Jul 2017 22:55:59 +0000
-Message-ID: <F15368B9-F79E-4296-958E-9DCF3CFDA7BF@fb.com>
-References: <20170704215129.4047623-1-brakmo@fb.com>
- <595C1356.3000508@iogearbox.net>
+Subject: [PATCH net-next V2] bpf: fix return in load_bpf_file
+Date: Tue, 4 Jul 2017 15:57:50 -0700
+Message-ID: <20170704225750.125603-1-brakmo@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Kernel Team <Kernel-team@fb.com>, Alexei Starovoitov <ast@fb.com>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        netdev <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: Kernel Team <kernel-team@fb.com>, Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:47506 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752174AbdGDW4e (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 18:56:34 -0400
-In-Reply-To: <595C1356.3000508@iogearbox.net>
-Content-Language: en-US
-Content-ID: <4B29EC1DB18F09418F1E8CE39E893B73@namprd15.prod.outlook.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:48208 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752248AbdGDW5x (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 18:57:53 -0400
+Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v64MtHiN026567
+        for <netdev@vger.kernel.org>; Tue, 4 Jul 2017 15:57:52 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 2bg7e1vprq-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Tue, 04 Jul 2017 15:57:52 -0700
+Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
+ mx-out.facebook.com (2401:db00:2050:5102:face:0000:0037:0000) with ESMTP       id
+ 34eae874610c11e7b0f61f53bdcd5fbc-79b3b8f0 for <netdev@vger.kernel.org>;        Tue,
+ 04 Jul 2017 15:57:51 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQpPbiA3LzQvMTcsIDM6MTQgUE0sICJEYW5pZWwgQm9ya21hbm4iIDxkYW5pZWxAaW9nZWFyYm94
-Lm5ldD4gd3JvdGU6DQoNCiAgICBPbiAwNy8wNC8yMDE3IDExOjUxIFBNLCBMYXdyZW5jZSBCcmFr
-bW8gd3JvdGU6DQogICAgPiBUaGUgZnVuY3Rpb24gbG9hZF9icGZfZmlsZSBpZ25vcmVzIHRoZSBy
-ZXR1cm4gdmFsdWUgb2YNCiAgICA+IGxvYWRfYW5kX2F0dGFjaCgpLCBzbyBldmVuIGlmIGxvYWRf
-YW5kX2F0dGFjaCgpIHJldHVybnMgYW4gZXJyb3IsDQogICAgPiBsb2FkX2JwZl9maWxlKCkgd2ls
-bCByZXR1cm4gMC4NCiAgICA+DQogICAgPiBOb3csIGxvYWRfYnBmX2ZpbGUoKSBjYW4gY2FsbCBs
-b2FkX2FuZF9hdHRhY2goKSBtdWx0aXBsZSB0aW1lcyBhbmQgc29tZQ0KICAgID4gY2FuIHN1Y2Nl
-ZWQgYW5kIHNvbWUgY291bGQgZmFpbC4gSSB0aGluayB0aGUgY29ycmVjdCBiZWhhdm9yIGlzIHRv
-DQogICAgPiByZXR1cm4gZXJyb3Igb24gdGhlIGZpcnN0IGZhaWxlZCBsb2FkX2FuZF9hdHRhY2go
-KS4NCiAgICANCiAgICBZb3VyIFNPQiBpcyBtaXNzaW5nLg0KDQpPb3BzLCB0aGFua3MuIE5ldyBw
-YXRjaCBmb3J0aGNvbWluZy4gICAgIA0KDQo=
+The function load_bpf_file ignores the return value of
+load_and_attach(), so even if load_and_attach() returns an error,
+load_bpf_file() will return 0.
+
+Now, load_bpf_file() can call load_and_attach() multiple times and some
+can succeed and some could fail. I think the correct behavor is to
+return error on the first failed load_and_attach().
+
+v2: Added missing SOB
+
+Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
+---
+ samples/bpf/bpf_load.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
+index a4be7cf..899f403 100644
+--- a/samples/bpf/bpf_load.c
++++ b/samples/bpf/bpf_load.c
+@@ -567,8 +567,12 @@ static int do_load_bpf_file(const char *path, fixup_map_cb fixup_map)
+ 		    memcmp(shname, "perf_event", 10) == 0 ||
+ 		    memcmp(shname, "socket", 6) == 0 ||
+ 		    memcmp(shname, "cgroup/", 7) == 0 ||
+-		    memcmp(shname, "sockops", 7) == 0)
+-			load_and_attach(shname, data->d_buf, data->d_size);
++		    memcmp(shname, "sockops", 7) == 0) {
++			ret = load_and_attach(shname, data->d_buf,
++					      data->d_size);
++			if (ret != 0)
++				goto done;
++		}
+ 	}
+ 
+ 	ret = 0;
+-- 
+2.9.3
