@@ -1,43 +1,44 @@
-From: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
-Subject: [PATCH 0/2] net: phy: dp83867: workaround incorrect RX_CTRL pin strap
-Date: Tue, 4 Jul 2017 16:23:22 +0530
-Message-ID: <cover.1499162046.git.nsekhar@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Device Tree Mailing List <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>,
-        Linux OMAP Mailing List <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>,
-        Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
-To: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Atul Gupta <atul.gupta@chelsio.com>
+Subject: [PATCH net-next 0/3] cxgb4: Add PTP Hardware Clock (PHC) support
+Date: Tue,  4 Jul 2017 16:46:19 +0530
+Message-ID: <1499166982-4875-1-git-send-email-atul.gupta@chelsio.com>
+Cc: richardcochran@gmail.com, ganeshgr@chelsio.com,
+        Atul Gupta <atul.gupta@chelsio.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([12.32.117.8]:64952 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751910AbdGDLRL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 07:17:11 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+V4:
+	Splitting the patch again
+V3:
+        Releasing lock in the exit paths
+V2:
+        Splitting the patch
 
-This patch series adds workaround for incorrect RX_CTRL pin strap
-setting that can be found on some TI boards.
 
-This is required to be complaint to PHY datamanual specification.
+Atul Gupta (3):
+  cxgb4: time stamping interface for PTP
+  cxgb4: Add PTP Hardware Clock (PHC) support
+  cxgb4: Support for get_ts_info ethtool method
 
-Murali Karicheri (2):
-  dt-bindings: phy: dp83867: provide a workaround for incorrect RX_CTRL
-    pin strap
-  net: phy: dp83867: add workaround for incorrect RX_CTRL pin strap
-
- Documentation/devicetree/bindings/net/ti,dp83867.txt |  7 +++++++
- drivers/net/phy/dp83867.c                            | 11 +++++++++++
- 2 files changed, 18 insertions(+)
+ drivers/net/ethernet/chelsio/cxgb4/Makefile        |   2 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |   9 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c |  19 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |  82 +++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_ptp.c     | 475 +++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_ptp.h     |  74 ++++
+ drivers/net/ethernet/chelsio/cxgb4/sge.c           | 173 +++++++-
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h        |  28 ++
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |   2 +
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h      |  50 +++
+ 10 files changed, 900 insertions(+), 14 deletions(-)
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_ptp.c
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_ptp.h
 
 -- 
-2.9.0
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.8.3.1
