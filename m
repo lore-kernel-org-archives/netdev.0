@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 09/36] net, atm: convert eg_cache_entry.use from atomic_t to refcount_t
-Date: Tue,  4 Jul 2017 15:53:04 +0300
-Message-ID: <1499172811-16271-10-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 10/36] net, bridge: convert net_bridge_vlan.refcnt from atomic_t to refcount_t
+Date: Tue,  4 Jul 2017 15:53:05 +0300
+Message-ID: <1499172811-16271-11-git-send-email-elena.reshetova@intel.com>
 References: <1499172811-16271-1-git-send-email-elena.reshetova@intel.com>
 Cc: linux-kernel@vger.kernel.org,
         linux-decnet-user@lists.sourceforge.net, davem@davemloft.net,
@@ -19,14 +19,10 @@ Cc: linux-kernel@vger.kernel.org,
         Elena Reshetova <elena.reshetova@intel.com>,
         Hans Li
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:54356 "EHLO mga11.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752040AbdGDMzJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 4 Jul 2017 08:55:09 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1499172811-16271-1-git-send-email-elena.reshetova@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 refcount_t type and corresponding API should be
 used instead of atomic_t when the variable is used as
@@ -39,89 +35,70 @@ Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- net/atm/mpoa_caches.c | 14 +++++++-------
- net/atm/mpoa_caches.h |  2 +-
- 2 files changed, 8 insertions(+), 8 deletions(-)
+ net/bridge/br_private.h | 3 ++-
+ net/bridge/br_vlan.c    | 8 ++++----
+ 2 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/net/atm/mpoa_caches.c b/net/atm/mpoa_caches.c
-index 05e89e9..4ccaa16 100644
---- a/net/atm/mpoa_caches.c
-+++ b/net/atm/mpoa_caches.c
-@@ -339,7 +339,7 @@ static eg_cache_entry *eg_cache_get_by_cache_id(__be32 cache_id,
- 	entry = mpc->eg_cache;
- 	while (entry != NULL) {
- 		if (entry->ctrl_info.cache_id == cache_id) {
--			atomic_inc(&entry->use);
-+			refcount_inc(&entry->use);
- 			read_unlock_irq(&mpc->egress_lock);
- 			return entry;
- 		}
-@@ -360,7 +360,7 @@ static eg_cache_entry *eg_cache_get_by_tag(__be32 tag, struct mpoa_client *mpc)
- 	entry = mpc->eg_cache;
- 	while (entry != NULL) {
- 		if (entry->ctrl_info.tag == tag) {
--			atomic_inc(&entry->use);
-+			refcount_inc(&entry->use);
- 			read_unlock_irqrestore(&mpc->egress_lock, flags);
- 			return entry;
- 		}
-@@ -382,7 +382,7 @@ static eg_cache_entry *eg_cache_get_by_vcc(struct atm_vcc *vcc,
- 	entry = mpc->eg_cache;
- 	while (entry != NULL) {
- 		if (entry->shortcut == vcc) {
--			atomic_inc(&entry->use);
-+			refcount_inc(&entry->use);
- 			read_unlock_irqrestore(&mpc->egress_lock, flags);
- 			return entry;
- 		}
-@@ -402,7 +402,7 @@ static eg_cache_entry *eg_cache_get_by_src_ip(__be32 ipaddr,
- 	entry = mpc->eg_cache;
- 	while (entry != NULL) {
- 		if (entry->latest_ip_addr == ipaddr) {
--			atomic_inc(&entry->use);
-+			refcount_inc(&entry->use);
- 			read_unlock_irq(&mpc->egress_lock);
- 			return entry;
- 		}
-@@ -415,7 +415,7 @@ static eg_cache_entry *eg_cache_get_by_src_ip(__be32 ipaddr,
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index c18682f..fd9ee73 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -21,6 +21,7 @@
+ #include <net/ip6_fib.h>
+ #include <linux/if_vlan.h>
+ #include <linux/rhashtable.h>
++#include <linux/refcount.h>
  
- static void eg_cache_put(eg_cache_entry *entry)
- {
--	if (atomic_dec_and_test(&entry->use)) {
-+	if (refcount_dec_and_test(&entry->use)) {
- 		memset(entry, 0, sizeof(eg_cache_entry));
- 		kfree(entry);
+ #define BR_HASH_BITS 8
+ #define BR_HASH_SIZE (1 << BR_HASH_BITS)
+@@ -127,7 +128,7 @@ struct net_bridge_vlan {
+ 		struct net_bridge_port	*port;
+ 	};
+ 	union {
+-		atomic_t		refcnt;
++		refcount_t		refcnt;
+ 		struct net_bridge_vlan	*brvlan;
+ 	};
+ 
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index 26a1a56..233a300 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -158,7 +158,7 @@ static struct net_bridge_vlan *br_vlan_get_master(struct net_bridge *br, u16 vid
+ 		if (WARN_ON(!masterv))
+ 			return NULL;
  	}
-@@ -468,7 +468,7 @@ static eg_cache_entry *eg_cache_add_entry(struct k_message *msg,
- 	dprintk("adding an egress entry, ip = %pI4, this should be our IP\n",
- 		&msg->content.eg_info.eg_dst_ip);
+-	atomic_inc(&masterv->refcnt);
++	refcount_inc(&masterv->refcnt);
  
--	atomic_set(&entry->use, 1);
-+	refcount_set(&entry->use, 1);
- 	dprintk("new_eg_cache_entry: about to lock\n");
- 	write_lock_irq(&client->egress_lock);
- 	entry->next = client->eg_cache;
-@@ -484,7 +484,7 @@ static eg_cache_entry *eg_cache_add_entry(struct k_message *msg,
- 	dprintk("new_eg_cache_entry cache_id %u\n",
- 		ntohl(entry->ctrl_info.cache_id));
- 	dprintk("mps_ip = %pI4\n", &entry->ctrl_info.mps_ip);
--	atomic_inc(&entry->use);
-+	refcount_inc(&entry->use);
+ 	return masterv;
+ }
+@@ -182,7 +182,7 @@ static void br_vlan_put_master(struct net_bridge_vlan *masterv)
+ 		return;
  
- 	write_unlock_irq(&client->egress_lock);
- 	dprintk("new_eg_cache_entry: unlocked\n");
-diff --git a/net/atm/mpoa_caches.h b/net/atm/mpoa_caches.h
-index 38a4e7e..30fe348 100644
---- a/net/atm/mpoa_caches.h
-+++ b/net/atm/mpoa_caches.h
-@@ -59,7 +59,7 @@ typedef struct eg_cache_entry{
- 	uint16_t             entry_state;
- 	__be32             latest_ip_addr;    /* The src IP address of the last packet */
- 	struct eg_ctrl_info  ctrl_info;
--	atomic_t             use;
-+	refcount_t             use;
- } eg_cache_entry;
- 
- struct eg_cache_ops{
+ 	vg = br_vlan_group(masterv->br);
+-	if (atomic_dec_and_test(&masterv->refcnt)) {
++	if (refcount_dec_and_test(&masterv->refcnt)) {
+ 		rhashtable_remove_fast(&vg->vlan_hash,
+ 				       &masterv->vnode, br_vlan_rht_params);
+ 		__vlan_del_list(masterv);
+@@ -573,7 +573,7 @@ int br_vlan_add(struct net_bridge *br, u16 vid, u16 flags)
+ 				br_err(br, "failed insert local address into bridge forwarding table\n");
+ 				return ret;
+ 			}
+-			atomic_inc(&vlan->refcnt);
++			refcount_inc(&vlan->refcnt);
+ 			vlan->flags |= BRIDGE_VLAN_INFO_BRENTRY;
+ 			vg->num_vlans++;
+ 		}
+@@ -595,7 +595,7 @@ int br_vlan_add(struct net_bridge *br, u16 vid, u16 flags)
+ 	vlan->flags &= ~BRIDGE_VLAN_INFO_PVID;
+ 	vlan->br = br;
+ 	if (flags & BRIDGE_VLAN_INFO_BRENTRY)
+-		atomic_set(&vlan->refcnt, 1);
++		refcount_set(&vlan->refcnt, 1);
+ 	ret = __vlan_add(vlan, flags);
+ 	if (ret) {
+ 		free_percpu(vlan->stats);
 -- 
 2.7.4
