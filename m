@@ -1,42 +1,52 @@
-From: Matthias Rosenfelder <mrosenfelder.lkml@gmail.com>
-Subject: [RFC] tls: length check correct in do_tls_getsockopt_tx()?
-Date: Wed, 5 Jul 2017 03:10:53 -0400
-Message-ID: <a0dac911-6401-12cb-611c-5a1723d943c1@gmail.com>
+From: Nicolas Ferre <nicolas.ferre@microchip.com>
+Subject: Re: [PATCH][-next] net: macb: remove extraneous return when
+ MACB_EXT_DESC is defined
+Date: Wed, 5 Jul 2017 10:03:49 +0200
+Message-ID: <b43c0c9b-37c0-466c-4d17-7fc26ca07060@microchip.com>
+References: <20170704150959.18315-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, dan.carpenter@oracle.com, davejwatson@fb.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f194.google.com ([209.85.161.194]:33149 "EHLO
-        mail-yw0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752093AbdGEHK7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 03:10:59 -0400
-Received: by mail-yw0-f194.google.com with SMTP id f200so12788774ywb.0
-        for <netdev@vger.kernel.org>; Wed, 05 Jul 2017 00:10:59 -0700 (PDT)
+Cc: <kernel-janitors@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Colin King <colin.king@canonical.com>, <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20170704150959.18315-1-colin.king@canonical.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On 04/07/2017 at 17:09, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> When macro MACB_EXT_DESC is defined we end up with two identical
+> return statements and just one is sufficient. Remove the extra
+> return.
+> 
+> Detected by CoverityScan, CID#1449361 ("Structurally dead code")
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-In do_tls_getsockopt_tx():
+Acked-by: Nicolas Ferre <nicolas.ferre@microchip.com>
 
-if (len == sizeof(crypto_info)) {
+> ---
+>  drivers/net/ethernet/cadence/macb_main.c | 1 -
+>  1 file changed, 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/cadence/macb_main.c b/drivers/net/ethernet/cadence/macb_main.c
+> index 41e5711544fc..e69ebdd65658 100644
+> --- a/drivers/net/ethernet/cadence/macb_main.c
+> +++ b/drivers/net/ethernet/cadence/macb_main.c
+> @@ -146,7 +146,6 @@ static unsigned int macb_adj_dma_desc_idx(struct macb *bp, unsigned int desc_idx
+>  	default:
+>  		break;
+>  	}
+> -	return desc_idx;
+>  #endif
+>  	return desc_idx;
+>  }
+> 
 
-should be
 
-if (len == sizeof(*crypto_info)) {
-
-as crypto_info is of pointer type. Or am I missing something?
-
-
-btw: I am not very familiar with sockets. So I am wondering
-what is the use of this functionality? Why copy only the header
-to userspace?
-
-
-Thanks.
-Best Regards,
-
-Matthias
+-- 
+Nicolas Ferre
