@@ -1,49 +1,46 @@
-From: Roman Mashak <mrv@mojatatu.com>
-Subject: Re: [PATCH net-next 1/1] net sched actions: rename act_get_notify() to tcf_get_notify()
-Date: Wed, 05 Jul 2017 17:13:32 -0400
-Message-ID: <85wp7mfuyr.fsf@mojatatu.com>
-References: <1499283238-2551-1-git-send-email-mrv@mojatatu.com>
-        <20170705203146.GA8974@nanopsycho>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net] net: ipv6: Compare lwstate in detecting duplicate nexthops
+Date: Wed, 5 Jul 2017 14:14:33 -0700
+Message-ID: <CAJieiUji4hOeRXZoCXfiC6p5NYzeqO_Ou0RYzarX2afXgLzcqA@mail.gmail.com>
+References: <20170705204146.5263-1-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Lennert Buytenhek <buytenh@wantstofly.org>,
+        Robert Shearman <rshearma@brocade.com>
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:35032 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752431AbdGEVNh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 17:13:37 -0400
-Received: by mail-it0-f66.google.com with SMTP id v193so15895050itc.2
-        for <netdev@vger.kernel.org>; Wed, 05 Jul 2017 14:13:37 -0700 (PDT)
-In-Reply-To: <20170705203146.GA8974@nanopsycho> (Jiri Pirko's message of "Wed,
-        5 Jul 2017 22:31:46 +0200")
+Received: from mail-ua0-f178.google.com ([209.85.217.178]:35601 "EHLO
+        mail-ua0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751796AbdGEVOt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 17:14:49 -0400
+Received: by mail-ua0-f178.google.com with SMTP id j53so767333uaa.2
+        for <netdev@vger.kernel.org>; Wed, 05 Jul 2017 14:14:44 -0700 (PDT)
+In-Reply-To: <20170705204146.5263-1-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jiri Pirko <jiri@resnulli.us> writes:
-
-> Wed, Jul 05, 2017 at 09:33:58PM CEST, mrv@mojatatu.com wrote:
->>Make name consistent with other TC event notification routines.
->>
->>Signed-off-by: Roman Mashak <mrv@mojatatu.com>
->>---
->> net/sched/act_api.c | 4 ++--
->> 1 file changed, 2 insertions(+), 2 deletions(-)
->>
->>diff --git a/net/sched/act_api.c b/net/sched/act_api.c
->>index aed6cf2..f2e9ed3 100644
->>--- a/net/sched/act_api.c
->>+++ b/net/sched/act_api.c
->>@@ -835,7 +835,7 @@ static int tca_get_fill(struct sk_buff *skb, struct list_head *actions,
->> }
->> 
->> static int
->>-act_get_notify(struct net *net, u32 portid, struct nlmsghdr *n,
->>+tcf_get_notify(struct net *net, u32 portid, struct nlmsghdr *n,
+On Wed, Jul 5, 2017 at 1:41 PM, David Ahern <dsahern@gmail.com> wrote:
+> Lennert reported a failure to add different mpls encaps in a multipath
+> route:
 >
-> Rather call it "tcf_action_get_notify"
-
-We already have tcf_add_notify() and tcf_del_notify() as a common style.
-
+>   $ ip -6 route add 1234::/16 \
+>         nexthop encap mpls 10 via fe80::1 dev ens3 \
+>         nexthop encap mpls 20 via fe80::1 dev ens3
+>   RTNETLINK answers: File exists
 >
-> + net-next is closed if I'm not mistaken
+> The problem is that the duplicate nexthop detection does not compare
+> lwtunnel configuration. Add it.
+>
+> Fixes: 19e42e451506("ipv6: support for fib route lwtunnel encap attribute=
+s")
+> Signed-off-by: David Ahern <dsahern@gmail.com>
+> ---
+
+
+Reported-by: Jo=C3=A3o Taveira Ara=C3=BAjo <joao.taveira@gmail.com>
+
+Reported-by: Lennert Buytenhek <buytenh@wantstofly.org>
+
+Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
