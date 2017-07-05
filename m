@@ -1,57 +1,90 @@
-From: Leon Yang <leon.gh.yang@gmail.com>
-Subject: Re: Way to Know When cleanup_net() Calls Are Done
-Date: Wed, 5 Jul 2017 18:29:06 -0500
-Message-ID: <CAHvAHW-vog2aEAQNgPOOVBNyBqmTiJf-xvwmptszx4mC+jOQCg@mail.gmail.com>
-References: <CAHvAHW8aq0Tb0tnNjQAySyDe_pwxHk2-+EHr_yPavuz_aKqAyw@mail.gmail.com>
- <CAM_iQpXH8Ubs9eQdyhr-5qW8gmymyaBdVTFqWqZ4zwvO8Oo2tQ@mail.gmail.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: [PATCH v2 0/9] Remove spin_unlock_wait()
+Date: Wed, 5 Jul 2017 16:29:55 -0700
+Message-ID: <20170705232955.GA15992@linux.vnet.ibm.com>
+References: <20170629235918.GA6445@linux.vnet.ibm.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f42.google.com ([209.85.215.42]:34614 "EHLO
-        mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751964AbdGEX3J (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 19:29:09 -0400
-Received: by mail-lf0-f42.google.com with SMTP id t72so2000752lff.1
-        for <netdev@vger.kernel.org>; Wed, 05 Jul 2017 16:29:08 -0700 (PDT)
-In-Reply-To: <CAM_iQpXH8Ubs9eQdyhr-5qW8gmymyaBdVTFqWqZ4zwvO8Oo2tQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+        oleg@redhat.com, akpm@linux-foundation.org, mingo@redhat.com,
+        dave@stgolabs.net, manfred@colorfullife.com, tj@kernel.org,
+        arnd@arndb.de, linux-arch@vger.kernel.org, will.deacon@arm.com,
+        peterz@infradead.org, stern@rowland.harvard.edu,
+        parri.andrea@gmail.com, torvalds@linux-foundation.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170629235918.GA6445@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In my case, as I know the number of unshare(2) calls (say 10000), I
-think there should be same number of net_drop_ns() calls regardless of
-the userns counter. So the 10000th call to net_drop_ns() should be the
-last one.
+Hello!
 
-After some investigation I figure out my problem. When I was running
-the program, I read the debug/tracing/trace file for a couple times to
-check if ftrace was working. This read seems to prevent the ftrace
-ring buffer from being written so that some entries are missing from
-the ftrace results.
+There is no agreed-upon definition of spin_unlock_wait()'s semantics,
+and it appears that all callers could do just as well with a lock/unlock
+pair.  This series therefore removes spin_unlock_wait() and changes
+its users to instead use a lock/unlock pair.  The commits are as follows,
+in three groups:
 
-Therefore the problem is completely unrelated to net namespace. Sorry
-for the confusion.
+1-7.	Change uses of spin_unlock_wait() and raw_spin_unlock_wait()
+	to instead use a spin_lock/spin_unlock pair.  These may be
+	applied in any order, but must be applied before any later
+	commits in this series.  The commit logs state why I believe
+	that these commits won't noticeably degrade performance.
 
-On Wed, Jul 5, 2017 at 6:14 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Sat, Jul 1, 2017 at 10:50 PM, Leon Yang <leon.gh.yang@gmail.com> wrote:
->> Hi,
->>
->> I am measuring the time cost of parallel creation and destruction of
->> net namespaces.
->>
->> As cleanup_net() is invoked from workqueue, the exit of a net
->> namespace does not mean the cleanup is completed. Therefore I use
->> ftrace to count the number of net_drop_ns() are called. But I found
->> that the number of namespaces created does not match with the number
->> of net_drop_ns() calls even after a long wait.
->>
->> Can you give some hints on why this is happening? and what would be
->> the correct way to know when the last cleanup_net() is done?
->
-> Probably no way to know this in user-space, netns is refcount'ed,
-> we don't know which is the last one releasing it.
->
-> There is a per-userns counter for netns, but I don't see it is ever
-> exposed to user-space.
+8.	Remove core-kernel definitions for spin_unlock_wait() and
+	raw_spin_unlock_wait().
+
+9.	Remove arch-specific definitions of arch_spin_unlock_wait().
+
+Changes since v1:
+
+o	Disable interrupts where needed, thus avoiding embarrassing
+	interrupt-based self-deadlocks.
+
+o	Substitute Manfred's patch for contrack_lock (#1 above).
+
+o	Substitute Oleg's patch for task_work (#2 above).
+
+o	Use more efficient barrier based on Arnd Bergmann feedback.
+
+							Thanx, Paul
+
+------------------------------------------------------------------------
+
+ arch/alpha/include/asm/spinlock.h    |    5 -
+ arch/arc/include/asm/spinlock.h      |    5 -
+ arch/arm/include/asm/spinlock.h      |   16 ----
+ arch/arm64/include/asm/spinlock.h    |   58 +----------------
+ arch/blackfin/include/asm/spinlock.h |    5 -
+ arch/hexagon/include/asm/spinlock.h  |    5 -
+ arch/ia64/include/asm/spinlock.h     |   21 ------
+ arch/m32r/include/asm/spinlock.h     |    5 -
+ arch/metag/include/asm/spinlock.h    |    5 -
+ arch/mips/include/asm/spinlock.h     |   16 ----
+ arch/mn10300/include/asm/spinlock.h  |    5 -
+ arch/parisc/include/asm/spinlock.h   |    7 --
+ arch/powerpc/include/asm/spinlock.h  |   33 ---------
+ arch/s390/include/asm/spinlock.h     |    7 --
+ arch/sh/include/asm/spinlock-cas.h   |    5 -
+ arch/sh/include/asm/spinlock-llsc.h  |    5 -
+ arch/sparc/include/asm/spinlock_32.h |    5 -
+ arch/sparc/include/asm/spinlock_64.h |    5 -
+ arch/tile/include/asm/spinlock_32.h  |    2 
+ arch/tile/include/asm/spinlock_64.h  |    2 
+ arch/tile/lib/spinlock_32.c          |   23 ------
+ arch/tile/lib/spinlock_64.c          |   22 ------
+ arch/xtensa/include/asm/spinlock.h   |    5 -
+ drivers/ata/libata-eh.c              |    8 --
+ include/asm-generic/qspinlock.h      |   14 ----
+ include/linux/spinlock.h             |   31 ---------
+ include/linux/spinlock_up.h          |    6 -
+ ipc/sem.c                            |    3 
+ kernel/exit.c                        |    3 
+ kernel/locking/qspinlock.c           |  117 -----------------------------------
+ kernel/sched/completion.c            |    9 --
+ kernel/sched/core.c                  |    5 -
+ kernel/task_work.c                   |    8 --
+ net/netfilter/nf_conntrack_core.c    |   44 +++++++------
+ 34 files changed, 43 insertions(+), 472 deletions(-)
