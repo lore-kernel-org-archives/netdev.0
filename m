@@ -1,7 +1,8 @@
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: [PATCH net-next RFC 00/12] Change DSA's FDB API and perform switchdev cleanup
-Date: Wed,  5 Jul 2017 18:36:18 +0300
-Message-ID: <1499268990-19251-1-git-send-email-arkadis@mellanox.com>
+Subject: [PATCH net-next RFC 05/12] net: dsa: Add support for learning FDB through notification
+Date: Wed,  5 Jul 2017 18:36:23 +0300
+Message-ID: <1499268990-19251-6-git-send-email-arkadis@mellanox.com>
+References: <1499268990-19251-1-git-send-email-arkadis@mellanox.com>
 Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
         f.fainelli@gmail.com, andrew@lunn.ch,
         vivien.didelot@savoirfairelinux.com, Woojung.Huh@microchip.com,
@@ -9,56 +10,168 @@ Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
         Arkadi Sharshevsky <arkadis@mellanox.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49132 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49154 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751659AbdGEPdb (ORCPT
+        with ESMTP id S1751653AbdGEPdb (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 11:33:31 -0400
+In-Reply-To: <1499268990-19251-1-git-send-email-arkadis@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patchset moves the DSA driver into learning static FDB entries via
-the switchdev notification chain rather then by using bridge bypass SELF
-flag. 
+Add support for learning FDB through notification. The driver defers
+the hardware update via ordered work queue. In case of a successful
+FDB add a notification is sent back to bridge.
 
-The DSA drivers cannot sync the software bridge with hardware learned
-entries and use the switchdev's implementation of bypass FDB dumping.
-Because they are the only ones using this functionality, the fdb_dump
-implementation is moved from switchdev code into DSA.
+Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+---
+ net/dsa/slave.c | 124 +++++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 122 insertions(+), 2 deletions(-)
 
-Finally after this changes a major cleanup in switchdev can be done.
-
-Arkadi Sharshevsky (12):
-  net: dsa: Change DSA slave FDB API to be switchdev independent
-  net: dsa: Remove prepare phase for FDB
-  net: dsa: Remove switchdev dependency from DSA switch notifier chain
-  net: dsa: Add ordered workqueue
-  net: dsa: Add support for learning FDB through notification
-  net: dsa: Remove support for FDB add/del via SELF
-  net: dsa: Add support for querying supported bridge flags
-  net: dsa: Remove support for bypass bridge port attributes/vlan set
-  net: dsa: Remove redundant MDB dump support
-  net: dsa: Move FDB dump implementation inside DSA
-  net: bridge: Remove FDB deletion through switchdev object
-  net: switchdev: Remove bridge bypass support from switchdev
-
- drivers/net/dsa/b53/b53_common.c       |  86 +-----
- drivers/net/dsa/b53/b53_priv.h         |  16 +-
- drivers/net/dsa/bcm_sf2.c              |   1 -
- drivers/net/dsa/dsa_loop.c             |  38 ---
- drivers/net/dsa/microchip/ksz_common.c | 118 ++------
- drivers/net/dsa/mt7530.c               |  46 +--
- drivers/net/dsa/mv88e6xxx/chip.c       | 149 ++--------
- drivers/net/dsa/qca8k.c                |  41 +--
- include/net/dsa.h                      |  34 +--
- include/net/switchdev.h                |  87 ------
- net/bridge/br_fdb.c                    |  18 --
- net/dsa/dsa.c                          |  13 +
- net/dsa/dsa_priv.h                     |  21 +-
- net/dsa/port.c                         |  51 +---
- net/dsa/slave.c                        | 237 ++++++++++++---
- net/dsa/switch.c                       |  21 +-
- net/switchdev/switchdev.c              | 519 ---------------------------------
- 17 files changed, 342 insertions(+), 1154 deletions(-)
-
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 19395cc..d0592f2 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -1263,19 +1263,139 @@ static int dsa_slave_netdevice_event(struct notifier_block *nb,
+ 	return NOTIFY_DONE;
+ }
+ 
++struct dsa_switchdev_event_work {
++	struct work_struct work;
++	struct switchdev_notifier_fdb_info fdb_info;
++	struct net_device *dev;
++	unsigned long event;
++};
++
++static void dsa_switchdev_event_work(struct work_struct *work)
++{
++	struct dsa_switchdev_event_work *switchdev_work =
++		container_of(work, struct dsa_switchdev_event_work, work);
++	struct net_device *dev = switchdev_work->dev;
++	struct switchdev_notifier_fdb_info *fdb_info;
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	int err;
++
++	rtnl_lock();
++	switch (switchdev_work->event) {
++	case SWITCHDEV_FDB_ADD_TO_DEVICE:
++		fdb_info = &switchdev_work->fdb_info;
++		err = dsa_port_fdb_add(p->dp, fdb_info->addr, fdb_info->vid);
++		if (err) {
++			netdev_dbg(dev, "fdb add failed err=%d\n", err);
++			break;
++		}
++		call_switchdev_notifiers(SWITCHDEV_FDB_OFFLOADED, dev,
++					 &fdb_info->info);
++		break;
++
++	case SWITCHDEV_FDB_DEL_TO_DEVICE:
++		fdb_info = &switchdev_work->fdb_info;
++		err = dsa_port_fdb_del(p->dp, fdb_info->addr, fdb_info->vid);
++		if (err)
++			netdev_dbg(dev, "fdb del failed err=%d\n", err);
++		break;
++	}
++	rtnl_unlock();
++
++	kfree(switchdev_work->fdb_info.addr);
++	kfree(switchdev_work);
++	dev_put(dev);
++}
++
++static int
++dsa_slave_switchdev_fdb_work_init(struct dsa_switchdev_event_work *
++				  switchdev_work,
++				  const struct switchdev_notifier_fdb_info *
++				  fdb_info)
++{
++	memcpy(&switchdev_work->fdb_info, fdb_info,
++	       sizeof(switchdev_work->fdb_info));
++	switchdev_work->fdb_info.addr = kzalloc(ETH_ALEN, GFP_ATOMIC);
++	if (!switchdev_work->fdb_info.addr)
++		return -ENOMEM;
++	ether_addr_copy((u8 *)switchdev_work->fdb_info.addr,
++			fdb_info->addr);
++	return 0;
++}
++
++/* Called under rcu_read_lock() */
++static int dsa_slave_switchdev_event(struct notifier_block *unused,
++				     unsigned long event, void *ptr)
++{
++	struct net_device *dev = switchdev_notifier_info_to_dev(ptr);
++	struct dsa_switchdev_event_work *switchdev_work;
++
++	if (!dsa_slave_dev_check(dev))
++		return NOTIFY_DONE;
++
++	switchdev_work = kzalloc(sizeof(*switchdev_work), GFP_ATOMIC);
++	if (!switchdev_work)
++		return NOTIFY_BAD;
++
++	INIT_WORK(&switchdev_work->work, dsa_switchdev_event_work);
++	switchdev_work->dev = dev;
++	switchdev_work->event = event;
++
++	switch (event) {
++	case SWITCHDEV_FDB_ADD_TO_DEVICE: /* fall through */
++	case SWITCHDEV_FDB_DEL_TO_DEVICE:
++		if (dsa_slave_switchdev_fdb_work_init(switchdev_work,
++						      ptr))
++			goto err_fdb_work_init;
++		dev_hold(dev);
++		break;
++	default:
++		kfree(switchdev_work);
++		return NOTIFY_DONE;
++	}
++
++	dsa_schedule_work(&switchdev_work->work);
++	return NOTIFY_OK;
++
++err_fdb_work_init:
++	kfree(switchdev_work);
++	return NOTIFY_BAD;
++}
++
+ static struct notifier_block dsa_slave_nb __read_mostly = {
+-	.notifier_call	= dsa_slave_netdevice_event,
++	.notifier_call  = dsa_slave_netdevice_event,
++};
++
++static struct notifier_block dsa_slave_switchdev_notifier = {
++	.notifier_call = dsa_slave_switchdev_event,
+ };
+ 
+ int dsa_slave_register_notifier(void)
+ {
+-	return register_netdevice_notifier(&dsa_slave_nb);
++	int err;
++
++	err = register_netdevice_notifier(&dsa_slave_nb);
++	if (err)
++		return err;
++
++	err = register_switchdev_notifier(&dsa_slave_switchdev_notifier);
++	if (err)
++		goto err_register_switchdev;
++
++	return 0;
++
++err_register_switchdev:
++	unregister_netdevice_notifier(&dsa_slave_nb);
++	return err;
+ }
+ 
+ void dsa_slave_unregister_notifier(void)
+ {
+ 	int err;
+ 
++	err = unregister_netdevice_notifier(&dsa_slave_switchdev_notifier);
++	if (err)
++		pr_err("DSA: failed to unregister switchdev notifier (%d)\n", err);
++
+ 	err = unregister_netdevice_notifier(&dsa_slave_nb);
+ 	if (err)
+ 		pr_err("DSA: failed to unregister slave notifier (%d)\n", err);
 -- 
 2.4.11
