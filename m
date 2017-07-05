@@ -1,83 +1,83 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH v 1/2] ravb: Add support for r8a7743 SoC
-Date: Wed, 5 Jul 2017 16:55:53 +0200
-Message-ID: <CAMuHMdUXxHU8JaO0riJ7h7hJpCwAw27titTfo3Ox6CqO3i8E9A@mail.gmail.com>
+From: Chris Paterson <Chris.Paterson2-zM6kxYcvzFBBDgjK7y7TUQ@public.gmane.org>
+Subject: RE: [PATCH v 1/2] ravb: Add support for r8a7743 SoC
+Date: Wed, 5 Jul 2017 14:59:49 +0000
+Message-ID: <TY1PR06MB070212C6A470387B18F28BE3B7D40@TY1PR06MB0702.apcprd06.prod.outlook.com>
 References: <1499259711-56175-1-git-send-email-biju.das@bp.renesas.com>
  <1499259711-56175-2-git-send-email-biju.das@bp.renesas.com>
- <CAMuHMdVMunZ0trcNmMg4KkEd+d88foep7C0kU=yLQNk5JojosA@mail.gmail.com> <TY1PR06MB0702B8D1C817F6C3CBD93D99B7D40@TY1PR06MB0702.apcprd06.prod.outlook.com>
+ <CAMuHMdVMunZ0trcNmMg4KkEd+d88foep7C0kU=yLQNk5JojosA@mail.gmail.com>
+ <TY1PR06MB0702B8D1C817F6C3CBD93D99B7D40@TY1PR06MB0702.apcprd06.prod.outlook.com>
+ <CAMuHMdUXxHU8JaO0riJ7h7hJpCwAw27titTfo3Ox6CqO3i8E9A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Biju Das <biju.das@bp.renesas.com>,
-        Simon Horman <horms@verge.net.au>,
-        Magnus Damm <magnus.damm@gmail.com>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Chris Paterson <Chris.Paterson2@renesas.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <TY1PR06MB0702B8D1C817F6C3CBD93D99B7D40@TY1PR06MB0702.apcprd06.prod.outlook.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
+        Biju Das <biju.das-kTT6dE0pTRh9uiUsa/gSgQ@public.gmane.org>,
+        Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>,
+        Magnus Damm <magnus.damm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux-Renesas <linux-renesas-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAMuHMdUXxHU8JaO0riJ7h7hJpCwAw27titTfo3Ox6CqO3i8E9A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Language: en-US
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Chris,
-
-On Wed, Jul 5, 2017 at 3:51 PM, Chris Paterson
-<Chris.Paterson2@renesas.com> wrote:
->> From: geert.uytterhoeven@gmail.com
->> [mailto:geert.uytterhoeven@gmail.com] On Behalf Of Geert Uytterhoeven
->> Sent: 05 July 2017 14:47
->> On Wed, Jul 5, 2017 at 3:01 PM, Biju Das <biju.das@bp.renesas.com> wrote:
->> > Add support for Gigabit Ethernet E-MAC on r8a7743 (RZ/G1M) SoC.
->> > Renesas RZ/G1M (R8A7743) SoC Ethernet AVB IP is identical to the R-Car
->> > Gen2 family.
->> >
->> > Signed-off-by: Biju Das <biju.das@bp.renesas.com>
->> > Reviewed-by: Chris Paterson <chris.paterson2@renesas.com>
->>
->> Thanks for your patch!
->>
->> > --- a/drivers/net/ethernet/renesas/ravb_main.c
->> > +++ b/drivers/net/ethernet/renesas/ravb_main.c
->> > @@ -1869,6 +1869,7 @@ static int ravb_mdio_release(struct ravb_private
->> > *priv)  }
->> >
->> >  static const struct of_device_id ravb_match_table[] = {
->> > +       { .compatible = "renesas,etheravb-r8a7743", .data = (void
->> > + *)RCAR_GEN2 },
->> >         { .compatible = "renesas,etheravb-r8a7790", .data = (void
->> *)RCAR_GEN2 },
->> >         { .compatible = "renesas,etheravb-r8a7794", .data = (void
->> *)RCAR_GEN2 },
->> >         { .compatible = "renesas,etheravb-rcar-gen2", .data = (void
->> > *)RCAR_GEN2 },
->>
->> As Sergei already mentioned, a driver update is not needed due to the
->> presence of family-specific compatible values.
->> Please drop that part, and you can add my:
->> Reviewed-by: Geert Uytterhoeven <geert+renesas@glider.be>
->
-> Should the other compatible values (r8a7790, 94 etc) be removed then? Or are they needed for backwards compatibility?
-
-The other compatible values in DT bindings and DTS files should be kept,
-to allow handling of SoC-specific quirks if/when they are ever detected.
-
-The other compatible values in the driver should be kept for
-backwards-compatibility with old DTB files that lack the (newer)
-family-specific compatible values.
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
+SGVsbG8gR2VlcnQsDQoNCj4gRnJvbTogZ2VlcnQudXl0dGVyaG9ldmVuQGdtYWlsLmNvbQ0KPiBb
+bWFpbHRvOmdlZXJ0LnV5dHRlcmhvZXZlbkBnbWFpbC5jb21dIE9uIEJlaGFsZiBPZiBHZWVydCBV
+eXR0ZXJob2V2ZW4NCj4gU2VudDogMDUgSnVseSAyMDE3IDE1OjU2DQo+IA0KPiBIaSBDaHJpcywN
+Cj4gDQo+IE9uIFdlZCwgSnVsIDUsIDIwMTcgYXQgMzo1MSBQTSwgQ2hyaXMgUGF0ZXJzb24NCj4g
+PENocmlzLlBhdGVyc29uMkByZW5lc2FzLmNvbT4gd3JvdGU6DQo+ID4+IEZyb206IGdlZXJ0LnV5
+dHRlcmhvZXZlbkBnbWFpbC5jb20NCj4gPj4gW21haWx0bzpnZWVydC51eXR0ZXJob2V2ZW5AZ21h
+aWwuY29tXSBPbiBCZWhhbGYgT2YgR2VlcnQNCj4gVXl0dGVyaG9ldmVuDQo+ID4+IFNlbnQ6IDA1
+IEp1bHkgMjAxNyAxNDo0Nw0KPiA+PiBPbiBXZWQsIEp1bCA1LCAyMDE3IGF0IDM6MDEgUE0sIEJp
+anUgRGFzIDxiaWp1LmRhc0BicC5yZW5lc2FzLmNvbT4NCj4gd3JvdGU6DQo+ID4+ID4gQWRkIHN1
+cHBvcnQgZm9yIEdpZ2FiaXQgRXRoZXJuZXQgRS1NQUMgb24gcjhhNzc0MyAoUlovRzFNKSBTb0Mu
+DQo+ID4+ID4gUmVuZXNhcyBSWi9HMU0gKFI4QTc3NDMpIFNvQyBFdGhlcm5ldCBBVkIgSVAgaXMg
+aWRlbnRpY2FsIHRvIHRoZQ0KPiA+PiA+IFItQ2FyDQo+ID4+ID4gR2VuMiBmYW1pbHkuDQo+ID4+
+ID4NCj4gPj4gPiBTaWduZWQtb2ZmLWJ5OiBCaWp1IERhcyA8YmlqdS5kYXNAYnAucmVuZXNhcy5j
+b20+DQo+ID4+ID4gUmV2aWV3ZWQtYnk6IENocmlzIFBhdGVyc29uIDxjaHJpcy5wYXRlcnNvbjJA
+cmVuZXNhcy5jb20+DQo+ID4+DQo+ID4+IFRoYW5rcyBmb3IgeW91ciBwYXRjaCENCj4gPj4NCj4g
+Pj4gPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9yZW5lc2FzL3JhdmJfbWFpbi5jDQo+ID4+
+ID4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvcmVuZXNhcy9yYXZiX21haW4uYw0KPiA+PiA+
+IEBAIC0xODY5LDYgKzE4NjksNyBAQCBzdGF0aWMgaW50IHJhdmJfbWRpb19yZWxlYXNlKHN0cnVj
+dA0KPiA+PiA+IHJhdmJfcHJpdmF0ZQ0KPiA+PiA+ICpwcml2KSAgfQ0KPiA+PiA+DQo+ID4+ID4g
+IHN0YXRpYyBjb25zdCBzdHJ1Y3Qgb2ZfZGV2aWNlX2lkIHJhdmJfbWF0Y2hfdGFibGVbXSA9IHsN
+Cj4gPj4gPiArICAgICAgIHsgLmNvbXBhdGlibGUgPSAicmVuZXNhcyxldGhlcmF2Yi1yOGE3NzQz
+IiwgLmRhdGEgPSAodm9pZA0KPiA+PiA+ICsgKilSQ0FSX0dFTjIgfSwNCj4gPj4gPiAgICAgICAg
+IHsgLmNvbXBhdGlibGUgPSAicmVuZXNhcyxldGhlcmF2Yi1yOGE3NzkwIiwgLmRhdGEgPSAodm9p
+ZA0KPiA+PiAqKVJDQVJfR0VOMiB9LA0KPiA+PiA+ICAgICAgICAgeyAuY29tcGF0aWJsZSA9ICJy
+ZW5lc2FzLGV0aGVyYXZiLXI4YTc3OTQiLCAuZGF0YSA9ICh2b2lkDQo+ID4+ICopUkNBUl9HRU4y
+IH0sDQo+ID4+ID4gICAgICAgICB7IC5jb21wYXRpYmxlID0gInJlbmVzYXMsZXRoZXJhdmItcmNh
+ci1nZW4yIiwgLmRhdGEgPSAodm9pZA0KPiA+PiA+ICopUkNBUl9HRU4yIH0sDQo+ID4+DQo+ID4+
+IEFzIFNlcmdlaSBhbHJlYWR5IG1lbnRpb25lZCwgYSBkcml2ZXIgdXBkYXRlIGlzIG5vdCBuZWVk
+ZWQgZHVlIHRvIHRoZQ0KPiA+PiBwcmVzZW5jZSBvZiBmYW1pbHktc3BlY2lmaWMgY29tcGF0aWJs
+ZSB2YWx1ZXMuDQo+ID4+IFBsZWFzZSBkcm9wIHRoYXQgcGFydCwgYW5kIHlvdSBjYW4gYWRkIG15
+Og0KPiA+PiBSZXZpZXdlZC1ieTogR2VlcnQgVXl0dGVyaG9ldmVuIDxnZWVydCtyZW5lc2FzQGds
+aWRlci5iZT4NCj4gPg0KPiA+IFNob3VsZCB0aGUgb3RoZXIgY29tcGF0aWJsZSB2YWx1ZXMgKHI4
+YTc3OTAsIDk0IGV0YykgYmUgcmVtb3ZlZCB0aGVuPyBPcg0KPiBhcmUgdGhleSBuZWVkZWQgZm9y
+IGJhY2t3YXJkcyBjb21wYXRpYmlsaXR5Pw0KPiANCj4gVGhlIG90aGVyIGNvbXBhdGlibGUgdmFs
+dWVzIGluIERUIGJpbmRpbmdzIGFuZCBEVFMgZmlsZXMgc2hvdWxkIGJlIGtlcHQsIHRvDQo+IGFs
+bG93IGhhbmRsaW5nIG9mIFNvQy1zcGVjaWZpYyBxdWlya3MgaWYvd2hlbiB0aGV5IGFyZSBldmVy
+IGRldGVjdGVkLg0KPiANCj4gVGhlIG90aGVyIGNvbXBhdGlibGUgdmFsdWVzIGluIHRoZSBkcml2
+ZXIgc2hvdWxkIGJlIGtlcHQgZm9yIGJhY2t3YXJkcy0NCj4gY29tcGF0aWJpbGl0eSB3aXRoIG9s
+ZCBEVEIgZmlsZXMgdGhhdCBsYWNrIHRoZSAobmV3ZXIpIGZhbWlseS1zcGVjaWZpYw0KPiBjb21w
+YXRpYmxlIHZhbHVlcy4NCg0KVGhhbmsgeW91IGZvciB0aGUgY29tcHJlaGVuc2l2ZSBhbnN3ZXIu
+DQoNCktpbmQgcmVnYXJkcywgQ2hyaXMNCg0KDQo+IA0KPiBHcntvZXRqZSxlZXRpbmd9cywNCj4g
+DQo+ICAgICAgICAgICAgICAgICAgICAgICAgIEdlZXJ0DQo+IA0KPiAtLQ0KPiBHZWVydCBVeXR0
+ZXJob2V2ZW4gLS0gVGhlcmUncyBsb3RzIG9mIExpbnV4IGJleW9uZCBpYTMyIC0tIGdlZXJ0QGxp
+bnV4LQ0KPiBtNjhrLm9yZw0KPiANCj4gSW4gcGVyc29uYWwgY29udmVyc2F0aW9ucyB3aXRoIHRl
+Y2huaWNhbCBwZW9wbGUsIEkgY2FsbCBteXNlbGYgYSBoYWNrZXIuIEJ1dA0KPiB3aGVuIEknbSB0
+YWxraW5nIHRvIGpvdXJuYWxpc3RzIEkganVzdCBzYXkgInByb2dyYW1tZXIiIG9yIHNvbWV0aGlu
+ZyBsaWtlIHRoYXQuDQo+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgLS0gTGludXMg
+VG9ydmFsZHMNCg==
 --
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
