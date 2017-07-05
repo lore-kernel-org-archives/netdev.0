@@ -1,76 +1,48 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next 02/11] sctp: remove the typedef sctp_ipv6addr_param_t
-Date: Wed,  5 Jul 2017 08:32:20 +0800
-Message-ID: <77fa3a776118873a7e5d8203dd59011995b0e865.1499214692.git.lucien.xin@gmail.com>
+Subject: [PATCH net-next 04/11] sctp: remove the typedef sctp_hostname_param_t
+Date: Wed,  5 Jul 2017 08:32:22 +0800
+Message-ID: <8d2e6145478bb4d24185d4ffd5547c7058f0dca9.1499214692.git.lucien.xin@gmail.com>
 References: <cover.1499214692.git.lucien.xin@gmail.com>
  <6ba452f31d10acdc95f3cf679ecab15833f7843c.1499214692.git.lucien.xin@gmail.com>
+ <77fa3a776118873a7e5d8203dd59011995b0e865.1499214692.git.lucien.xin@gmail.com>
+ <090c24ed353f37a2bbce41ecc5feec6fc8cffa8b.1499214692.git.lucien.xin@gmail.com>
 Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35376 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752324AbdGEAcz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 20:32:55 -0400
-In-Reply-To: <6ba452f31d10acdc95f3cf679ecab15833f7843c.1499214692.git.lucien.xin@gmail.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:34269 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752403AbdGEAdQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 20:33:16 -0400
+In-Reply-To: <090c24ed353f37a2bbce41ecc5feec6fc8cffa8b.1499214692.git.lucien.xin@gmail.com>
 In-Reply-To: <cover.1499214692.git.lucien.xin@gmail.com>
 References: <cover.1499214692.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to remove the typedef sctp_ipv6addr_param_t, and replace
-with struct sctp_ipv6addr_param in the places where it's using this
-typedef.
+Remove this typedef, there is even no places using it.
 
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- include/linux/sctp.h     | 4 ++--
- net/sctp/ipv6.c          | 2 +-
- net/sctp/sm_make_chunk.c | 2 +-
- 3 files changed, 4 insertions(+), 4 deletions(-)
+ include/linux/sctp.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/include/linux/sctp.h b/include/linux/sctp.h
-index e42095d..6b45c8a 100644
+index d8f9d8f..c43e906 100644
 --- a/include/linux/sctp.h
 +++ b/include/linux/sctp.h
-@@ -279,10 +279,10 @@ struct sctp_ipv4addr_param {
+@@ -291,10 +291,10 @@ struct sctp_cookie_preserve_param {
  };
  
- /* Section 3.3.2.1. IPv6 Address Parameter (6) */
--typedef struct sctp_ipv6addr_param {
-+struct sctp_ipv6addr_param {
+ /* Section 3.3.2.1 Host Name Address (11) */
+-typedef struct sctp_hostname_param {
++struct sctp_hostname_param {
  	struct sctp_paramhdr param_hdr;
- 	struct in6_addr addr;
--} sctp_ipv6addr_param_t;
+ 	uint8_t hostname[0];
+-} sctp_hostname_param_t;
 +};
  
- /* Section 3.3.2.1 Cookie Preservative (9) */
- typedef struct sctp_cookie_preserve_param {
-diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
-index f5b45b8..5304532 100644
---- a/net/sctp/ipv6.c
-+++ b/net/sctp/ipv6.c
-@@ -495,7 +495,7 @@ static void sctp_v6_from_addr_param(union sctp_addr *addr,
- static int sctp_v6_to_addr_param(const union sctp_addr *addr,
- 				 union sctp_addr_param *param)
- {
--	int length = sizeof(sctp_ipv6addr_param_t);
-+	int length = sizeof(struct sctp_ipv6addr_param);
- 
- 	param->v6.param_hdr.type = SCTP_PARAM_IPV6_ADDRESS;
- 	param->v6.param_hdr.length = htons(length);
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index 0dc64da..e5be305 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -3163,7 +3163,7 @@ bool sctp_verify_asconf(const struct sctp_association *asoc,
- 			addr_param_seen = true;
- 			break;
- 		case SCTP_PARAM_IPV6_ADDRESS:
--			if (length != sizeof(sctp_ipv6addr_param_t))
-+			if (length != sizeof(struct sctp_ipv6addr_param))
- 				return false;
- 			if (param.v != addip->addip_hdr.params)
- 				return false;
+ /* Section 3.3.2.1 Supported Address Types (12) */
+ typedef struct sctp_supported_addrs_param {
 -- 
 2.1.0
