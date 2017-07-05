@@ -1,7 +1,7 @@
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: [PATCH net-next RFC 12/12] net: switchdev: Remove bridge bypass support from switchdev
-Date: Wed,  5 Jul 2017 18:36:30 +0300
-Message-ID: <1499268990-19251-13-git-send-email-arkadis@mellanox.com>
+Subject: [PATCH net-next RFC 08/12] net: dsa: Remove support for bypass bridge port attributes/vlan set
+Date: Wed,  5 Jul 2017 18:36:26 +0300
+Message-ID: <1499268990-19251-9-git-send-email-arkadis@mellanox.com>
 References: <1499268990-19251-1-git-send-email-arkadis@mellanox.com>
 Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
         f.fainelli@gmail.com, andrew@lunn.ch,
@@ -10,622 +10,382 @@ Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
         Arkadi Sharshevsky <arkadis@mellanox.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49225 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49232 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751695AbdGEPdb (ORCPT
+        with ESMTP id S1751696AbdGEPdb (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 11:33:31 -0400
 In-Reply-To: <1499268990-19251-1-git-send-email-arkadis@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently the bridge port flags, vlans, FDBs and MDBs can be offloaded
-through the bridge code, making the switchdev's SELF bridge bypass
-implementation to be redundant. This implies several changes:
-- No need for dump infra in switchdev, DSA's special case is handled
-  privately.
-- Remove obj_dump from switchdev_ops.
-- FDBs are removed from obj_add/del routines, due to the fact that they
-  are offloaded through the bridge notifcation chain.
-- The switchdev_port_bridge_xx() and switchdev_port_fdb_xx() functions
-  can be removed.
+The bridge port attributes/vlan for DSA devices should be set only
+from bridge code. Furthermore, The vlans are synced totally with the
+bridge so there is no need for special dump support.
 
 Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
 ---
- include/net/switchdev.h   |  75 --------
- net/switchdev/switchdev.c | 435 ----------------------------------------------
- 2 files changed, 510 deletions(-)
+ drivers/net/dsa/b53/b53_common.c       | 44 --------------------------
+ drivers/net/dsa/b53/b53_priv.h         |  3 --
+ drivers/net/dsa/bcm_sf2.c              |  1 -
+ drivers/net/dsa/dsa_loop.c             | 38 -----------------------
+ drivers/net/dsa/microchip/ksz_common.c | 41 -------------------------
+ drivers/net/dsa/mv88e6xxx/chip.c       | 56 ----------------------------------
+ include/net/dsa.h                      |  4 ---
+ net/dsa/dsa_priv.h                     |  4 ---
+ net/dsa/port.c                         | 12 --------
+ net/dsa/slave.c                        |  6 ----
+ 10 files changed, 209 deletions(-)
 
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index d2637a6..d767b79 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -74,7 +74,6 @@ struct switchdev_attr {
- enum switchdev_obj_id {
- 	SWITCHDEV_OBJ_ID_UNDEFINED,
- 	SWITCHDEV_OBJ_ID_PORT_VLAN,
--	SWITCHDEV_OBJ_ID_PORT_FDB,
- 	SWITCHDEV_OBJ_ID_PORT_MDB,
- };
- 
-@@ -97,17 +96,6 @@ struct switchdev_obj_port_vlan {
- #define SWITCHDEV_OBJ_PORT_VLAN(obj) \
- 	container_of(obj, struct switchdev_obj_port_vlan, obj)
- 
--/* SWITCHDEV_OBJ_ID_PORT_FDB */
--struct switchdev_obj_port_fdb {
--	struct switchdev_obj obj;
--	unsigned char addr[ETH_ALEN];
--	u16 vid;
--	u16 ndm_state;
--};
--
--#define SWITCHDEV_OBJ_PORT_FDB(obj) \
--	container_of(obj, struct switchdev_obj_port_fdb, obj)
--
- /* SWITCHDEV_OBJ_ID_PORT_MDB */
- struct switchdev_obj_port_mdb {
- 	struct switchdev_obj obj;
-@@ -135,8 +123,6 @@ typedef int switchdev_obj_dump_cb_t(struct switchdev_obj *obj);
-  * @switchdev_port_obj_add: Add an object to port (see switchdev_obj_*).
-  *
-  * @switchdev_port_obj_del: Delete an object from port (see switchdev_obj_*).
-- *
-- * @switchdev_port_obj_dump: Dump port objects (see switchdev_obj_*).
-  */
- struct switchdev_ops {
- 	int	(*switchdev_port_attr_get)(struct net_device *dev,
-@@ -149,9 +135,6 @@ struct switchdev_ops {
- 					  struct switchdev_trans *trans);
- 	int	(*switchdev_port_obj_del)(struct net_device *dev,
- 					  const struct switchdev_obj *obj);
--	int	(*switchdev_port_obj_dump)(struct net_device *dev,
--					   struct switchdev_obj *obj,
--					   switchdev_obj_dump_cb_t *cb);
- };
- 
- enum switchdev_notifier_type {
-@@ -189,25 +172,10 @@ int switchdev_port_obj_add(struct net_device *dev,
- 			   const struct switchdev_obj *obj);
- int switchdev_port_obj_del(struct net_device *dev,
- 			   const struct switchdev_obj *obj);
--int switchdev_port_obj_dump(struct net_device *dev, struct switchdev_obj *obj,
--			    switchdev_obj_dump_cb_t *cb);
- int register_switchdev_notifier(struct notifier_block *nb);
- int unregister_switchdev_notifier(struct notifier_block *nb);
- int call_switchdev_notifiers(unsigned long val, struct net_device *dev,
- 			     struct switchdev_notifier_info *info);
--int switchdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
--				  struct net_device *dev, u32 filter_mask,
--				  int nlflags);
--int switchdev_port_bridge_setlink(struct net_device *dev,
--				  struct nlmsghdr *nlh, u16 flags);
--int switchdev_port_bridge_dellink(struct net_device *dev,
--				  struct nlmsghdr *nlh, u16 flags);
--int switchdev_port_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
--			   struct net_device *dev, const unsigned char *addr,
--			   u16 vid, u16 nlm_flags);
--int switchdev_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
--			   struct net_device *dev, const unsigned char *addr,
--			   u16 vid);
- void switchdev_port_fwd_mark_set(struct net_device *dev,
- 				 struct net_device *group_dev,
- 				 bool joining);
-@@ -246,13 +214,6 @@ static inline int switchdev_port_obj_del(struct net_device *dev,
- 	return -EOPNOTSUPP;
+diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
+index c414b43..6020e88 100644
+--- a/drivers/net/dsa/b53/b53_common.c
++++ b/drivers/net/dsa/b53/b53_common.c
+@@ -1053,49 +1053,6 @@ int b53_vlan_del(struct dsa_switch *ds, int port,
  }
+ EXPORT_SYMBOL(b53_vlan_del);
  
--static inline int switchdev_port_obj_dump(struct net_device *dev,
--					  const struct switchdev_obj *obj,
--					  switchdev_obj_dump_cb_t *cb)
+-int b53_vlan_dump(struct dsa_switch *ds, int port,
+-		  struct switchdev_obj_port_vlan *vlan,
+-		  switchdev_obj_dump_cb_t *cb)
 -{
--	return -EOPNOTSUPP;
--}
+-	struct b53_device *dev = ds->priv;
+-	u16 vid, vid_start = 0, pvid;
+-	struct b53_vlan *vl;
+-	int err = 0;
 -
- static inline int register_switchdev_notifier(struct notifier_block *nb)
- {
- 	return 0;
-@@ -270,42 +231,6 @@ static inline int call_switchdev_notifiers(unsigned long val,
- 	return NOTIFY_DONE;
- }
- 
--static inline int switchdev_port_bridge_getlink(struct sk_buff *skb, u32 pid,
--					    u32 seq, struct net_device *dev,
--					    u32 filter_mask, int nlflags)
--{
--	return -EOPNOTSUPP;
--}
+-	if (is5325(dev) || is5365(dev))
+-		vid_start = 1;
 -
--static inline int switchdev_port_bridge_setlink(struct net_device *dev,
--						struct nlmsghdr *nlh,
--						u16 flags)
--{
--	return -EOPNOTSUPP;
--}
+-	b53_read16(dev, B53_VLAN_PAGE, B53_VLAN_PORT_DEF_TAG(port), &pvid);
 -
--static inline int switchdev_port_bridge_dellink(struct net_device *dev,
--						struct nlmsghdr *nlh,
--						u16 flags)
--{
--	return -EOPNOTSUPP;
--}
--
--static inline int switchdev_port_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
--					 struct net_device *dev,
--					 const unsigned char *addr,
--					 u16 vid, u16 nlm_flags)
--{
--	return -EOPNOTSUPP;
--}
--
--static inline int switchdev_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
--					 struct net_device *dev,
--					 const unsigned char *addr, u16 vid)
--{
--	return -EOPNOTSUPP;
--}
--
- static inline bool switchdev_port_same_parent_id(struct net_device *a,
- 						 struct net_device *b)
- {
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 3d32981..0531b41 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -343,8 +343,6 @@ static size_t switchdev_obj_size(const struct switchdev_obj *obj)
- 	switch (obj->id) {
- 	case SWITCHDEV_OBJ_ID_PORT_VLAN:
- 		return sizeof(struct switchdev_obj_port_vlan);
--	case SWITCHDEV_OBJ_ID_PORT_FDB:
--		return sizeof(struct switchdev_obj_port_fdb);
- 	case SWITCHDEV_OBJ_ID_PORT_MDB:
- 		return sizeof(struct switchdev_obj_port_mdb);
- 	default:
-@@ -534,43 +532,6 @@ int switchdev_port_obj_del(struct net_device *dev,
- }
- EXPORT_SYMBOL_GPL(switchdev_port_obj_del);
- 
--/**
-- *	switchdev_port_obj_dump - Dump port objects
-- *
-- *	@dev: port device
-- *	@id: object ID
-- *	@obj: object to dump
-- *	@cb: function to call with a filled object
-- *
-- *	rtnl_lock must be held.
-- */
--int switchdev_port_obj_dump(struct net_device *dev, struct switchdev_obj *obj,
--			    switchdev_obj_dump_cb_t *cb)
--{
--	const struct switchdev_ops *ops = dev->switchdev_ops;
--	struct net_device *lower_dev;
--	struct list_head *iter;
--	int err = -EOPNOTSUPP;
--
--	ASSERT_RTNL();
--
--	if (ops && ops->switchdev_port_obj_dump)
--		return ops->switchdev_port_obj_dump(dev, obj, cb);
--
--	/* Switch device port(s) may be stacked under
--	 * bond/team/vlan dev, so recurse down to dump objects on
--	 * first port at bottom of stack.
+-	/* Use our software cache for dumps, since we do not have any HW
+-	 * operation returning only the used/valid VLANs
 -	 */
+-	for (vid = vid_start; vid < dev->num_vlans; vid++) {
+-		vl = &dev->vlans[vid];
 -
--	netdev_for_each_lower_dev(dev, lower_dev, iter) {
--		err = switchdev_port_obj_dump(lower_dev, obj, cb);
--		break;
--	}
--
--	return err;
--}
--EXPORT_SYMBOL_GPL(switchdev_port_obj_dump);
--
- static ATOMIC_NOTIFIER_HEAD(switchdev_notif_chain);
- 
- /**
-@@ -613,402 +574,6 @@ int call_switchdev_notifiers(unsigned long val, struct net_device *dev,
- }
- EXPORT_SYMBOL_GPL(call_switchdev_notifiers);
- 
--struct switchdev_vlan_dump {
--	struct switchdev_obj_port_vlan vlan;
--	struct sk_buff *skb;
--	u32 filter_mask;
--	u16 flags;
--	u16 begin;
--	u16 end;
--};
--
--static int switchdev_port_vlan_dump_put(struct switchdev_vlan_dump *dump)
--{
--	struct bridge_vlan_info vinfo;
--
--	vinfo.flags = dump->flags;
--
--	if (dump->begin == 0 && dump->end == 0) {
--		return 0;
--	} else if (dump->begin == dump->end) {
--		vinfo.vid = dump->begin;
--		if (nla_put(dump->skb, IFLA_BRIDGE_VLAN_INFO,
--			    sizeof(vinfo), &vinfo))
--			return -EMSGSIZE;
--	} else {
--		vinfo.vid = dump->begin;
--		vinfo.flags |= BRIDGE_VLAN_INFO_RANGE_BEGIN;
--		if (nla_put(dump->skb, IFLA_BRIDGE_VLAN_INFO,
--			    sizeof(vinfo), &vinfo))
--			return -EMSGSIZE;
--		vinfo.vid = dump->end;
--		vinfo.flags &= ~BRIDGE_VLAN_INFO_RANGE_BEGIN;
--		vinfo.flags |= BRIDGE_VLAN_INFO_RANGE_END;
--		if (nla_put(dump->skb, IFLA_BRIDGE_VLAN_INFO,
--			    sizeof(vinfo), &vinfo))
--			return -EMSGSIZE;
--	}
--
--	return 0;
--}
--
--static int switchdev_port_vlan_dump_cb(struct switchdev_obj *obj)
--{
--	struct switchdev_obj_port_vlan *vlan = SWITCHDEV_OBJ_PORT_VLAN(obj);
--	struct switchdev_vlan_dump *dump =
--		container_of(vlan, struct switchdev_vlan_dump, vlan);
--	int err = 0;
--
--	if (vlan->vid_begin > vlan->vid_end)
--		return -EINVAL;
--
--	if (dump->filter_mask & RTEXT_FILTER_BRVLAN) {
--		dump->flags = vlan->flags;
--		for (dump->begin = dump->end = vlan->vid_begin;
--		     dump->begin <= vlan->vid_end;
--		     dump->begin++, dump->end++) {
--			err = switchdev_port_vlan_dump_put(dump);
--			if (err)
--				return err;
--		}
--	} else if (dump->filter_mask & RTEXT_FILTER_BRVLAN_COMPRESSED) {
--		if (dump->begin > vlan->vid_begin &&
--		    dump->begin >= vlan->vid_end) {
--			if ((dump->begin - 1) == vlan->vid_end &&
--			    dump->flags == vlan->flags) {
--				/* prepend */
--				dump->begin = vlan->vid_begin;
--			} else {
--				err = switchdev_port_vlan_dump_put(dump);
--				dump->flags = vlan->flags;
--				dump->begin = vlan->vid_begin;
--				dump->end = vlan->vid_end;
--			}
--		} else if (dump->end <= vlan->vid_begin &&
--		           dump->end < vlan->vid_end) {
--			if ((dump->end  + 1) == vlan->vid_begin &&
--			    dump->flags == vlan->flags) {
--				/* append */
--				dump->end = vlan->vid_end;
--			} else {
--				err = switchdev_port_vlan_dump_put(dump);
--				dump->flags = vlan->flags;
--				dump->begin = vlan->vid_begin;
--				dump->end = vlan->vid_end;
--			}
--		} else {
--			err = -EINVAL;
--		}
--	}
--
--	return err;
--}
--
--static int switchdev_port_vlan_fill(struct sk_buff *skb, struct net_device *dev,
--				    u32 filter_mask)
--{
--	struct switchdev_vlan_dump dump = {
--		.vlan.obj.orig_dev = dev,
--		.vlan.obj.id = SWITCHDEV_OBJ_ID_PORT_VLAN,
--		.skb = skb,
--		.filter_mask = filter_mask,
--	};
--	int err = 0;
--
--	if ((filter_mask & RTEXT_FILTER_BRVLAN) ||
--	    (filter_mask & RTEXT_FILTER_BRVLAN_COMPRESSED)) {
--		err = switchdev_port_obj_dump(dev, &dump.vlan.obj,
--					      switchdev_port_vlan_dump_cb);
--		if (err)
--			goto err_out;
--		if (filter_mask & RTEXT_FILTER_BRVLAN_COMPRESSED)
--			/* last one */
--			err = switchdev_port_vlan_dump_put(&dump);
--	}
--
--err_out:
--	return err == -EOPNOTSUPP ? 0 : err;
--}
--
--/**
-- *	switchdev_port_bridge_getlink - Get bridge port attributes
-- *
-- *	@dev: port device
-- *
-- *	Called for SELF on rtnl_bridge_getlink to get bridge port
-- *	attributes.
-- */
--int switchdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
--				  struct net_device *dev, u32 filter_mask,
--				  int nlflags)
--{
--	struct switchdev_attr attr = {
--		.orig_dev = dev,
--		.id = SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS,
--	};
--	u16 mode = BRIDGE_MODE_UNDEF;
--	u32 mask = BR_LEARNING | BR_LEARNING_SYNC | BR_FLOOD;
--	int err;
--
--	if (!netif_is_bridge_port(dev))
--		return -EOPNOTSUPP;
--
--	err = switchdev_port_attr_get(dev, &attr);
--	if (err && err != -EOPNOTSUPP)
--		return err;
--
--	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode,
--				       attr.u.brport_flags, mask, nlflags,
--				       filter_mask, switchdev_port_vlan_fill);
--}
--EXPORT_SYMBOL_GPL(switchdev_port_bridge_getlink);
--
--static int switchdev_port_br_setflag(struct net_device *dev,
--				     struct nlattr *nlattr,
--				     unsigned long brport_flag)
--{
--	struct switchdev_attr attr = {
--		.orig_dev = dev,
--		.id = SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS,
--	};
--	u8 flag = nla_get_u8(nlattr);
--	int err;
--
--	err = switchdev_port_attr_get(dev, &attr);
--	if (err)
--		return err;
--
--	if (flag)
--		attr.u.brport_flags |= brport_flag;
--	else
--		attr.u.brport_flags &= ~brport_flag;
--
--	return switchdev_port_attr_set(dev, &attr);
--}
--
--static const struct nla_policy
--switchdev_port_bridge_policy[IFLA_BRPORT_MAX + 1] = {
--	[IFLA_BRPORT_STATE]		= { .type = NLA_U8 },
--	[IFLA_BRPORT_COST]		= { .type = NLA_U32 },
--	[IFLA_BRPORT_PRIORITY]		= { .type = NLA_U16 },
--	[IFLA_BRPORT_MODE]		= { .type = NLA_U8 },
--	[IFLA_BRPORT_GUARD]		= { .type = NLA_U8 },
--	[IFLA_BRPORT_PROTECT]		= { .type = NLA_U8 },
--	[IFLA_BRPORT_FAST_LEAVE]	= { .type = NLA_U8 },
--	[IFLA_BRPORT_LEARNING]		= { .type = NLA_U8 },
--	[IFLA_BRPORT_LEARNING_SYNC]	= { .type = NLA_U8 },
--	[IFLA_BRPORT_UNICAST_FLOOD]	= { .type = NLA_U8 },
--};
--
--static int switchdev_port_br_setlink_protinfo(struct net_device *dev,
--					      struct nlattr *protinfo)
--{
--	struct nlattr *attr;
--	int rem;
--	int err;
--
--	err = nla_validate_nested(protinfo, IFLA_BRPORT_MAX,
--				  switchdev_port_bridge_policy, NULL);
--	if (err)
--		return err;
--
--	nla_for_each_nested(attr, protinfo, rem) {
--		switch (nla_type(attr)) {
--		case IFLA_BRPORT_LEARNING:
--			err = switchdev_port_br_setflag(dev, attr,
--							BR_LEARNING);
--			break;
--		case IFLA_BRPORT_LEARNING_SYNC:
--			err = switchdev_port_br_setflag(dev, attr,
--							BR_LEARNING_SYNC);
--			break;
--		case IFLA_BRPORT_UNICAST_FLOOD:
--			err = switchdev_port_br_setflag(dev, attr, BR_FLOOD);
--			break;
--		default:
--			err = -EOPNOTSUPP;
--			break;
--		}
--		if (err)
--			return err;
--	}
--
--	return 0;
--}
--
--static int switchdev_port_br_afspec(struct net_device *dev,
--				    struct nlattr *afspec,
--				    int (*f)(struct net_device *dev,
--					     const struct switchdev_obj *obj))
--{
--	struct nlattr *attr;
--	struct bridge_vlan_info *vinfo;
--	struct switchdev_obj_port_vlan vlan = {
--		.obj.orig_dev = dev,
--		.obj.id = SWITCHDEV_OBJ_ID_PORT_VLAN,
--	};
--	int rem;
--	int err;
--
--	nla_for_each_nested(attr, afspec, rem) {
--		if (nla_type(attr) != IFLA_BRIDGE_VLAN_INFO)
+-		if (!vl->valid)
 -			continue;
--		if (nla_len(attr) != sizeof(struct bridge_vlan_info))
--			return -EINVAL;
--		vinfo = nla_data(attr);
--		if (!vinfo->vid || vinfo->vid >= VLAN_VID_MASK)
--			return -EINVAL;
--		vlan.flags = vinfo->flags;
--		if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_BEGIN) {
--			if (vlan.vid_begin)
--				return -EINVAL;
--			vlan.vid_begin = vinfo->vid;
--			/* don't allow range of pvids */
--			if (vlan.flags & BRIDGE_VLAN_INFO_PVID)
--				return -EINVAL;
--		} else if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_END) {
--			if (!vlan.vid_begin)
--				return -EINVAL;
--			vlan.vid_end = vinfo->vid;
--			if (vlan.vid_end <= vlan.vid_begin)
--				return -EINVAL;
--			err = f(dev, &vlan.obj);
--			if (err)
--				return err;
--			vlan.vid_begin = 0;
--		} else {
--			if (vlan.vid_begin)
--				return -EINVAL;
--			vlan.vid_begin = vinfo->vid;
--			vlan.vid_end = vinfo->vid;
--			err = f(dev, &vlan.obj);
--			if (err)
--				return err;
--			vlan.vid_begin = 0;
--		}
--	}
 -
--	return 0;
--}
+-		if (!(vl->members & BIT(port)))
+-			continue;
 -
--/**
-- *	switchdev_port_bridge_setlink - Set bridge port attributes
-- *
-- *	@dev: port device
-- *	@nlh: netlink header
-- *	@flags: netlink flags
-- *
-- *	Called for SELF on rtnl_bridge_setlink to set bridge port
-- *	attributes.
-- */
--int switchdev_port_bridge_setlink(struct net_device *dev,
--				  struct nlmsghdr *nlh, u16 flags)
--{
--	struct nlattr *protinfo;
--	struct nlattr *afspec;
--	int err = 0;
+-		vlan->vid_begin = vlan->vid_end = vid;
+-		vlan->flags = 0;
 -
--	if (!netif_is_bridge_port(dev))
--		return -EOPNOTSUPP;
+-		if (vl->untag & BIT(port))
+-			vlan->flags |= BRIDGE_VLAN_INFO_UNTAGGED;
+-		if (pvid == vid)
+-			vlan->flags |= BRIDGE_VLAN_INFO_PVID;
 -
--	protinfo = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg),
--				   IFLA_PROTINFO);
--	if (protinfo) {
--		err = switchdev_port_br_setlink_protinfo(dev, protinfo);
+-		err = cb(&vlan->obj);
 -		if (err)
--			return err;
+-			break;
 -	}
--
--	afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg),
--				 IFLA_AF_SPEC);
--	if (afspec)
--		err = switchdev_port_br_afspec(dev, afspec,
--					       switchdev_port_obj_add);
 -
 -	return err;
 -}
--EXPORT_SYMBOL_GPL(switchdev_port_bridge_setlink);
+-EXPORT_SYMBOL(b53_vlan_dump);
 -
--/**
-- *	switchdev_port_bridge_dellink - Set bridge port attributes
-- *
-- *	@dev: port device
-- *	@nlh: netlink header
-- *	@flags: netlink flags
-- *
-- *	Called for SELF on rtnl_bridge_dellink to set bridge port
-- *	attributes.
-- */
--int switchdev_port_bridge_dellink(struct net_device *dev,
--				  struct nlmsghdr *nlh, u16 flags)
+ /* Address Resolution Logic routines */
+ static int b53_arl_op_wait(struct b53_device *dev)
+ {
+@@ -1552,7 +1509,6 @@ static const struct dsa_switch_ops b53_switch_ops = {
+ 	.port_vlan_prepare	= b53_vlan_prepare,
+ 	.port_vlan_add		= b53_vlan_add,
+ 	.port_vlan_del		= b53_vlan_del,
+-	.port_vlan_dump		= b53_vlan_dump,
+ 	.port_fdb_dump		= b53_fdb_dump,
+ 	.port_fdb_add		= b53_fdb_add,
+ 	.port_fdb_del		= b53_fdb_del,
+diff --git a/drivers/net/dsa/b53/b53_priv.h b/drivers/net/dsa/b53/b53_priv.h
+index f29c892..af5d6c1 100644
+--- a/drivers/net/dsa/b53/b53_priv.h
++++ b/drivers/net/dsa/b53/b53_priv.h
+@@ -393,9 +393,6 @@ void b53_vlan_add(struct dsa_switch *ds, int port,
+ 		  struct switchdev_trans *trans);
+ int b53_vlan_del(struct dsa_switch *ds, int port,
+ 		 const struct switchdev_obj_port_vlan *vlan);
+-int b53_vlan_dump(struct dsa_switch *ds, int port,
+-		  struct switchdev_obj_port_vlan *vlan,
+-		  switchdev_obj_dump_cb_t *cb);
+ int b53_fdb_add(struct dsa_switch *ds, int port,
+ 		const unsigned char *addr, u16 vid);
+ int b53_fdb_del(struct dsa_switch *ds, int port,
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index 648f91b..f0d2dc4 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -1033,7 +1033,6 @@ static const struct dsa_switch_ops bcm_sf2_ops = {
+ 	.port_vlan_prepare	= b53_vlan_prepare,
+ 	.port_vlan_add		= b53_vlan_add,
+ 	.port_vlan_del		= b53_vlan_del,
+-	.port_vlan_dump		= b53_vlan_dump,
+ 	.port_fdb_prepare	= b53_fdb_prepare,
+ 	.port_fdb_dump		= b53_fdb_dump,
+ 	.port_fdb_add		= b53_fdb_add,
+diff --git a/drivers/net/dsa/dsa_loop.c b/drivers/net/dsa/dsa_loop.c
+index fdd8f38..76d6660 100644
+--- a/drivers/net/dsa/dsa_loop.c
++++ b/drivers/net/dsa/dsa_loop.c
+@@ -257,43 +257,6 @@ static int dsa_loop_port_vlan_del(struct dsa_switch *ds, int port,
+ 	return 0;
+ }
+ 
+-static int dsa_loop_port_vlan_dump(struct dsa_switch *ds, int port,
+-				   struct switchdev_obj_port_vlan *vlan,
+-				   switchdev_obj_dump_cb_t *cb)
 -{
--	struct nlattr *afspec;
+-	struct dsa_loop_priv *ps = ds->priv;
+-	struct mii_bus *bus = ps->bus;
+-	struct dsa_loop_vlan *vl;
+-	u16 vid, vid_start = 0;
+-	int err = 0;
 -
--	if (!netif_is_bridge_port(dev))
+-	dev_dbg(ds->dev, "%s\n", __func__);
+-
+-	/* Just do a sleeping operation to make lockdep checks effective */
+-	mdiobus_read(bus, ps->port_base + port, MII_BMSR);
+-
+-	for (vid = vid_start; vid < DSA_LOOP_VLANS; vid++) {
+-		vl = &ps->vlans[vid];
+-
+-		if (!(vl->members & BIT(port)))
+-			continue;
+-
+-		vlan->vid_begin = vlan->vid_end = vid;
+-		vlan->flags = 0;
+-
+-		if (vl->untagged & BIT(port))
+-			vlan->flags |= BRIDGE_VLAN_INFO_UNTAGGED;
+-		if (ps->pvid == vid)
+-			vlan->flags |= BRIDGE_VLAN_INFO_PVID;
+-
+-		err = cb(&vlan->obj);
+-		if (err)
+-			break;
+-	}
+-
+-	return err;
+-}
+-
+ static struct dsa_switch_ops dsa_loop_driver = {
+ 	.get_tag_protocol	= dsa_loop_get_protocol,
+ 	.setup			= dsa_loop_setup,
+@@ -310,7 +273,6 @@ static struct dsa_switch_ops dsa_loop_driver = {
+ 	.port_vlan_prepare	= dsa_loop_port_vlan_prepare,
+ 	.port_vlan_add		= dsa_loop_port_vlan_add,
+ 	.port_vlan_del		= dsa_loop_port_vlan_del,
+-	.port_vlan_dump		= dsa_loop_port_vlan_dump,
+ };
+ 
+ static int dsa_loop_drv_probe(struct mdio_device *mdiodev)
+diff --git a/drivers/net/dsa/microchip/ksz_common.c b/drivers/net/dsa/microchip/ksz_common.c
+index b55f364..a53ce59 100644
+--- a/drivers/net/dsa/microchip/ksz_common.c
++++ b/drivers/net/dsa/microchip/ksz_common.c
+@@ -638,46 +638,6 @@ static int ksz_port_vlan_del(struct dsa_switch *ds, int port,
+ 	return 0;
+ }
+ 
+-static int ksz_port_vlan_dump(struct dsa_switch *ds, int port,
+-			      struct switchdev_obj_port_vlan *vlan,
+-			      switchdev_obj_dump_cb_t *cb)
+-{
+-	struct ksz_device *dev = ds->priv;
+-	u16 vid;
+-	u16 data;
+-	struct vlan_table *vlan_cache;
+-	int err = 0;
+-
+-	mutex_lock(&dev->vlan_mutex);
+-
+-	/* use dev->vlan_cache due to lack of searching valid vlan entry */
+-	for (vid = vlan->vid_begin; vid < dev->num_vlans; vid++) {
+-		vlan_cache = &dev->vlan_cache[vid];
+-
+-		if (!(vlan_cache->table[0] & VLAN_VALID))
+-			continue;
+-
+-		vlan->vid_begin = vid;
+-		vlan->vid_end = vid;
+-		vlan->flags = 0;
+-		if (vlan_cache->table[2] & BIT(port)) {
+-			if (vlan_cache->table[1] & BIT(port))
+-				vlan->flags |= BRIDGE_VLAN_INFO_UNTAGGED;
+-			ksz_pread16(dev, port, REG_PORT_DEFAULT_VID, &data);
+-			if (vid == (data & 0xFFFFF))
+-				vlan->flags |= BRIDGE_VLAN_INFO_PVID;
+-
+-			err = cb(&vlan->obj);
+-			if (err)
+-				break;
+-		}
+-	}
+-
+-	mutex_unlock(&dev->vlan_mutex);
+-
+-	return err;
+-}
+-
+ struct alu_struct {
+ 	/* entry 1 */
+ 	u8	is_static:1;
+@@ -1124,7 +1084,6 @@ static const struct dsa_switch_ops ksz_switch_ops = {
+ 	.port_vlan_prepare	= ksz_port_vlan_prepare,
+ 	.port_vlan_add		= ksz_port_vlan_add,
+ 	.port_vlan_del		= ksz_port_vlan_del,
+-	.port_vlan_dump		= ksz_port_vlan_dump,
+ 	.port_fdb_dump		= ksz_port_fdb_dump,
+ 	.port_fdb_add		= ksz_port_fdb_add,
+ 	.port_fdb_del		= ksz_port_fdb_del,
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index fba68c8..9cc6269 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -1040,61 +1040,6 @@ static int mv88e6xxx_vtu_loadpurge(struct mv88e6xxx_chip *chip,
+ 	return chip->info->ops->vtu_loadpurge(chip, entry);
+ }
+ 
+-static int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
+-				    struct switchdev_obj_port_vlan *vlan,
+-				    switchdev_obj_dump_cb_t *cb)
+-{
+-	struct mv88e6xxx_chip *chip = ds->priv;
+-	struct mv88e6xxx_vtu_entry next = {
+-		.vid = chip->info->max_vid,
+-	};
+-	u16 pvid;
+-	int err;
+-
+-	if (!chip->info->max_vid)
 -		return -EOPNOTSUPP;
 -
--	afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg),
--				 IFLA_AF_SPEC);
--	if (afspec)
--		return switchdev_port_br_afspec(dev, afspec,
--						switchdev_port_obj_del);
+-	mutex_lock(&chip->reg_lock);
 -
--	return 0;
+-	err = mv88e6xxx_port_get_pvid(chip, port, &pvid);
+-	if (err)
+-		goto unlock;
+-
+-	do {
+-		err = mv88e6xxx_vtu_getnext(chip, &next);
+-		if (err)
+-			break;
+-
+-		if (!next.valid)
+-			break;
+-
+-		if (next.member[port] ==
+-		    MV88E6XXX_G1_VTU_DATA_MEMBER_TAG_NON_MEMBER)
+-			continue;
+-
+-		/* reinit and dump this VLAN obj */
+-		vlan->vid_begin = next.vid;
+-		vlan->vid_end = next.vid;
+-		vlan->flags = 0;
+-
+-		if (next.member[port] ==
+-		    MV88E6XXX_G1_VTU_DATA_MEMBER_TAG_UNTAGGED)
+-			vlan->flags |= BRIDGE_VLAN_INFO_UNTAGGED;
+-
+-		if (next.vid == pvid)
+-			vlan->flags |= BRIDGE_VLAN_INFO_PVID;
+-
+-		err = cb(&vlan->obj);
+-		if (err)
+-			break;
+-	} while (next.vid < chip->info->max_vid);
+-
+-unlock:
+-	mutex_unlock(&chip->reg_lock);
+-
+-	return err;
 -}
--EXPORT_SYMBOL_GPL(switchdev_port_bridge_dellink);
 -
--/**
-- *	switchdev_port_fdb_add - Add FDB (MAC/VLAN) entry to port
-- *
-- *	@ndmsg: netlink hdr
-- *	@nlattr: netlink attributes
-- *	@dev: port device
-- *	@addr: MAC address to add
-- *	@vid: VLAN to add
-- *
-- *	Add FDB entry to switch device.
-- */
--int switchdev_port_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
--			   struct net_device *dev, const unsigned char *addr,
--			   u16 vid, u16 nlm_flags)
--{
--	struct switchdev_obj_port_fdb fdb = {
--		.obj.orig_dev = dev,
--		.obj.id = SWITCHDEV_OBJ_ID_PORT_FDB,
--		.vid = vid,
--	};
--
--	ether_addr_copy(fdb.addr, addr);
--	return switchdev_port_obj_add(dev, &fdb.obj);
--}
--EXPORT_SYMBOL_GPL(switchdev_port_fdb_add);
--
--/**
-- *	switchdev_port_fdb_del - Delete FDB (MAC/VLAN) entry from port
-- *
-- *	@ndmsg: netlink hdr
-- *	@nlattr: netlink attributes
-- *	@dev: port device
-- *	@addr: MAC address to delete
-- *	@vid: VLAN to delete
-- *
-- *	Delete FDB entry from switch device.
-- */
--int switchdev_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
--			   struct net_device *dev, const unsigned char *addr,
--			   u16 vid)
--{
--	struct switchdev_obj_port_fdb fdb = {
--		.obj.orig_dev = dev,
--		.obj.id = SWITCHDEV_OBJ_ID_PORT_FDB,
--		.vid = vid,
--	};
--
--	ether_addr_copy(fdb.addr, addr);
--	return switchdev_port_obj_del(dev, &fdb.obj);
--}
--EXPORT_SYMBOL_GPL(switchdev_port_fdb_del);
--
- bool switchdev_port_same_parent_id(struct net_device *a,
- 				   struct net_device *b)
+ static int mv88e6xxx_atu_new(struct mv88e6xxx_chip *chip, u16 *fid)
  {
+ 	DECLARE_BITMAP(fid_bitmap, MV88E6XXX_N_FID);
+@@ -3858,7 +3803,6 @@ static const struct dsa_switch_ops mv88e6xxx_switch_ops = {
+ 	.port_vlan_prepare	= mv88e6xxx_port_vlan_prepare,
+ 	.port_vlan_add		= mv88e6xxx_port_vlan_add,
+ 	.port_vlan_del		= mv88e6xxx_port_vlan_del,
+-	.port_vlan_dump		= mv88e6xxx_port_vlan_dump,
+ 	.port_fdb_add           = mv88e6xxx_port_fdb_add,
+ 	.port_fdb_del           = mv88e6xxx_port_fdb_del,
+ 	.port_fdb_dump          = mv88e6xxx_port_fdb_dump,
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 4835b0e..9171b11 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -384,10 +384,6 @@ struct dsa_switch_ops {
+ 				 struct switchdev_trans *trans);
+ 	int	(*port_vlan_del)(struct dsa_switch *ds, int port,
+ 				 const struct switchdev_obj_port_vlan *vlan);
+-	int	(*port_vlan_dump)(struct dsa_switch *ds, int port,
+-				  struct switchdev_obj_port_vlan *vlan,
+-				  switchdev_obj_dump_cb_t *cb);
+-
+ 	/*
+ 	 * Forwarding database
+ 	 */
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index 2b2f124..421df4f 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -138,10 +138,6 @@ int dsa_port_vlan_add(struct dsa_port *dp,
+ 		      struct switchdev_trans *trans);
+ int dsa_port_vlan_del(struct dsa_port *dp,
+ 		      const struct switchdev_obj_port_vlan *vlan);
+-int dsa_port_vlan_dump(struct dsa_port *dp,
+-		       struct switchdev_obj_port_vlan *vlan,
+-		       switchdev_obj_dump_cb_t *cb);
+-
+ /* slave.c */
+ extern const struct dsa_device_ops notag_netdev_ops;
+ void dsa_slave_mii_bus_init(struct dsa_switch *ds);
+diff --git a/net/dsa/port.c b/net/dsa/port.c
+index 86e0585..ce19216 100644
+--- a/net/dsa/port.c
++++ b/net/dsa/port.c
+@@ -246,15 +246,3 @@ int dsa_port_vlan_del(struct dsa_port *dp,
+ 
+ 	return dsa_port_notify(dp, DSA_NOTIFIER_VLAN_DEL, &info);
+ }
+-
+-int dsa_port_vlan_dump(struct dsa_port *dp,
+-		       struct switchdev_obj_port_vlan *vlan,
+-		       switchdev_obj_dump_cb_t *cb)
+-{
+-	struct dsa_switch *ds = dp->ds;
+-
+-	if (ds->ops->port_vlan_dump)
+-		return ds->ops->port_vlan_dump(ds, dp->index, vlan, cb);
+-
+-	return -EOPNOTSUPP;
+-}
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 53326ba..7393b36 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -302,9 +302,6 @@ static int dsa_slave_port_obj_dump(struct net_device *dev,
+ 	case SWITCHDEV_OBJ_ID_PORT_MDB:
+ 		err = dsa_port_mdb_dump(dp, SWITCHDEV_OBJ_PORT_MDB(obj), cb);
+ 		break;
+-	case SWITCHDEV_OBJ_ID_PORT_VLAN:
+-		err = dsa_port_vlan_dump(dp, SWITCHDEV_OBJ_PORT_VLAN(obj), cb);
+-		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+ 		break;
+@@ -926,9 +923,6 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
+ 	.ndo_netpoll_cleanup	= dsa_slave_netpoll_cleanup,
+ 	.ndo_poll_controller	= dsa_slave_poll_controller,
+ #endif
+-	.ndo_bridge_getlink	= switchdev_port_bridge_getlink,
+-	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
+-	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
+ 	.ndo_get_phys_port_name	= dsa_slave_get_phys_port_name,
+ 	.ndo_setup_tc		= dsa_slave_setup_tc,
+ };
 -- 
 2.4.11
