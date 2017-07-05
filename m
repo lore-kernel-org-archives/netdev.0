@@ -1,46 +1,46 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [RFC] tls: length check correct in do_tls_getsockopt_tx()?
-Date: Wed, 5 Jul 2017 13:07:40 +0200 (CEST)
-Message-ID: <alpine.DEB.2.20.1707051306320.3050@hadrien>
-References: <a0dac911-6401-12cb-611c-5a1723d943c1@gmail.com> <20170705101748.abfquxq73ey6lhme@mwanda>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [linux-next:master 10576/11031] ipsec_rxtx.c:undefined reference
+ to `__udivdi3'
+Date: Wed, 5 Jul 2017 14:32:10 +0300
+Message-ID: <CAJ3xEMhqe7ojiNr4stUM_+bvr5heXgE8JMnBc04A1ex51eY+XA@mail.gmail.com>
+References: <201707051144.MrtHWYTU%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Matthias Rosenfelder <mrosenfelder.lkml@gmail.com>,
-        netdev@vger.kernel.org, davem@davemloft.net, davejwatson@fb.com
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: "David S. Miller" <davem@davemloft.net>, kbuild-all@01.org,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Ilan Tayari <ilant@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: kbuild test robot <fengguang.wu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:37058
-        "EHLO mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752516AbdGELHo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 07:07:44 -0400
-In-Reply-To: <20170705101748.abfquxq73ey6lhme@mwanda>
+Received: from mail-oi0-f51.google.com ([209.85.218.51]:36301 "EHLO
+        mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750909AbdGELcM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 07:32:12 -0400
+Received: by mail-oi0-f51.google.com with SMTP id x187so65329342oig.3
+        for <netdev@vger.kernel.org>; Wed, 05 Jul 2017 04:32:11 -0700 (PDT)
+In-Reply-To: <201707051144.MrtHWYTU%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On Wed, 5 Jul 2017, Dan Carpenter wrote:
-
-> On Wed, Jul 05, 2017 at 03:10:53AM -0400, Matthias Rosenfelder wrote:
-> > Hi,
-> >
-> > In do_tls_getsockopt_tx():
-> >
-> > if (len == sizeof(crypto_info)) {
-> >
-> > should be
-> >
-> > if (len == sizeof(*crypto_info)) {
-> >
-> > as crypto_info is of pointer type. Or am I missing something?
+On Wed, Jul 5, 2017 at 6:06 AM, kbuild test robot
+<fengguang.wu@intel.com> wrote:
+> tree:   https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git master
+> head:   a70e9c77d0f09e7d00b62a8d618a61b2dfc5d889
+> commit: b4fa2d8d19a3b6f15c51bb1c2993fb95405065bd [10576/11031] Merge remote-tracking branch 'net-next/master'
+> config: i386-allyesconfig (attached as .config)
+> compiler: gcc-6 (Debian 6.2.0-3) 6.2.0 20160901
+> reproduce:
+>         git checkout b4fa2d8d19a3b6f15c51bb1c2993fb95405065bd
+>         # save the attached .config to linux build tree
+>         make ARCH=i386
 >
-> No, you're right.  It should be "sizeof(*crypto_info)".
+> All errors (new ones prefixed by >>):
 >
-> It's hard for Smatch to catch these sorts of bugs because Sparse
-> sometimes just gives Smatch a number literal instead of a sizeof()
-> expression.  I think Coccinelle can catch these kinds of bugs?
+>    drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.o: In function `mlx5e_ipsec_build_inverse_table':
+>>> ipsec_rxtx.c:(.text+0x668): undefined reference to `__udivdi3'
 
-Currently, I think the Coccinelle rules are only looking for things like x
-= f(...,sizeof(x),...)
+Hi Fengguang,
 
-julia
+Ilan is handing that
+
+Or.
