@@ -1,43 +1,53 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH RFC 11/12] net: Remove all references to SKB_GSO_UDP.
-Date: Wed, 5 Jul 2017 12:06:44 -0400
-Message-ID: <CAF=yD-LnGPF=jBWLFRppqAjMwvgm34xUeRKsh+rLjX2ZOuun8g@mail.gmail.com>
-References: <20170705.160632.1021185732937441107.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Network Development <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Biju Das <biju.das@bp.renesas.com>
+Subject: [PATCH v2 0/2] Add RZ/G1M (R8A7743) Ethernet AVB support
+Date: Wed,  5 Jul 2017 16:56:27 +0100
+Message-ID: <1499270189-29945-1-git-send-email-biju.das@bp.renesas.com>
+References: <afcd181c-c805-8f3c-955f-652d001a03d4@cogentembedded.com>
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Simon Horman <horms@verge.net.au>,
+        Magnus Damm <magnus.damm@gmail.com>,
+        Chris Paterson <chris.paterson2@renesas.com>,
+        devicetree@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+        Biju Das <biju.das@bp.renesas.com>
+To: Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Russell King <linux@armlinux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:34797 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751444AbdGEQHZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 12:07:25 -0400
-Received: by mail-oi0-f66.google.com with SMTP id d77so28171594oig.1
-        for <netdev@vger.kernel.org>; Wed, 05 Jul 2017 09:07:25 -0700 (PDT)
-In-Reply-To: <20170705.160632.1021185732937441107.davem@davemloft.net>
+Received: from relmlor4.renesas.com ([210.160.252.174]:61788 "EHLO
+        relmlie3.idc.renesas.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751678AbdGEQKV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 12:10:21 -0400
+In-Reply-To: <afcd181c-c805-8f3c-955f-652d001a03d4@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
-> index 5209b5e..32fb046 100644
-> --- a/include/linux/virtio_net.h
-> +++ b/include/linux/virtio_net.h
-> @@ -18,9 +18,6 @@ static inline int virtio_net_hdr_to_skb(struct sk_buff *skb,
->                 case VIRTIO_NET_HDR_GSO_TCPV6:
->                         gso_type = SKB_GSO_TCPV6;
->                         break;
-> -               case VIRTIO_NET_HDR_GSO_UDP:
-> -                       gso_type = SKB_GSO_UDP;
-> -                       break;
+Hi All,
 
-Virtio devices negotiate feature support before using this, but
-tuntap and pf_packet may be passing these packets unconditionally.
-Perhaps we should fragment those on the spot with skb_segment.
+This series aims to upstream the Ethernet AVB driver support for RZ/G1M (r8a7743) SoC . 
 
-> --- a/net/ipv4/udp_offload.c
-> +++ b/net/ipv4/udp_offload.c
-> @@ -21,7 +21,7 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
->         __be16 new_protocol, bool is_ipv6)
+The iWave RZ/G1M Qseven SOM supports Gigabit Ethernet Phy from Micrel(KSZ9031MNX).
+Gigabit Ethernet support is available in Renesas AVB driver.
 
-In this file, can now remove all of udp4_ufo_fragment, and
-udp6_ufo_fragment in net/ipv6.
+This series has been tested against linux-next tag next-20170704.
+
+Modifications:
+v1->v2
+-Dropped the driver update,as is it not needed due to the presence of family-specific compatible values.
+-Added Reviewed-by: Geert Uytterhoeven <geert+renesas@glider.be> for the DT binding patch
+-Added Acked-by: Geert Uytterhoeven <geert+renesas@glider.be> for the defconfig: Enable Ethernet AVB patch
+
+History:
+-------
+[v1]: https://www.spinics.net/lists/arm-kernel/msg592366.html
+
+Biju Das (2):
+  ravb: Document binding for r8a7743 SoC
+  ARM: shmobile: defconfig: Enable Ethernet AVB
+
+ Documentation/devicetree/bindings/net/renesas,ravb.txt | 3 ++-
+ arch/arm/configs/shmobile_defconfig                    | 1 +
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+-- 
+1.9.1
