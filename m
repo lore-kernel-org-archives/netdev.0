@@ -1,81 +1,49 @@
-From: =?UTF-8?q?Iv=C3=A1n=20Briano?= <ivan.briano@intel.com>
-Subject: [PATCH net-next v2] net/packet: Fix Tx queue selection for AF_PACKET
-Date: Wed,  5 Jul 2017 14:24:40 -0700
-Message-ID: <20170705212440.32073-1-ivan.briano@intel.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH net] net: ipv6: Compare lwstate in detecting duplicate
+ nexthops
+Date: Thu, 6 Jul 2017 00:38:46 +0300
+Message-ID: <20170705213846.GP22185@wantstofly.org>
+References: <20170705204146.5263-1-dsahern@gmail.com>
+ <CAJieiUji4hOeRXZoCXfiC6p5NYzeqO_Ou0RYzarX2afXgLzcqA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: 8bit
-Cc: jesus.sanchez-palencia@intel.com, vinicius.gomes@intel.com,
-        andre.guedes@intel.com,
-        =?UTF-8?q?Iv=C3=A1n=20Briano?= <ivan.briano@intel.com>
-To: netdev@vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Robert Shearman <rshearma@brocade.com>
+To: David Ahern <dsahern@gmail.com>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:9577 "EHLO mga09.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752688AbdGEVYx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 5 Jul 2017 17:24:53 -0400
+Received: from hmm.wantstofly.org ([138.201.34.84]:41544 "EHLO
+        mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751744AbdGEVis (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 17:38:48 -0400
+Content-Disposition: inline
+In-Reply-To: <CAJieiUji4hOeRXZoCXfiC6p5NYzeqO_Ou0RYzarX2afXgLzcqA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When PACKET_QDISC_BYPASS is not used, Tx queue selection will be done
-before the packet is enqueued, taking into account any mappings set by
-a queuing discipline such as mqprio without hardware offloading. This
-selection may be affected by a previously saved queue_mapping, either on
-the Rx path, or done before the packet reaches the device, as it's
-currently the case for AF_PACKET.
+On Wed, Jul 05, 2017 at 02:14:33PM -0700, Roopa Prabhu wrote:
 
-In order for queue selection to work as expected when using traffic
-control, there can't be another selection done before that point is
-reached, so move the call to packet_pick_tx_queue to
-packet_direct_xmit, leaving the default xmit path as it was before
-PACKET_QDISC_BYPASS was introduced.
+> > Lennert reported a failure to add different mpls encaps in a multipath
+> > route:
+> >
+> >   $ ip -6 route add 1234::/16 \
+> >         nexthop encap mpls 10 via fe80::1 dev ens3 \
+> >         nexthop encap mpls 20 via fe80::1 dev ens3
+> >   RTNETLINK answers: File exists
+> >
+> > The problem is that the duplicate nexthop detection does not compare
+> > lwtunnel configuration. Add it.
+> >
+> > Fixes: 19e42e451506("ipv6: support for fib route lwtunnel encap attributes")
+> > Signed-off-by: David Ahern <dsahern@gmail.com>
+> 
+> Reported-by: João Taveira Araújo <joao.taveira@gmail.com>
+> 
+> Reported-by: Lennert Buytenhek <buytenh@wantstofly.org>
+> 
+> Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-A forward declaration of packet_pick_tx_queue() is introduced to avoid
-the need to reorder the functions within the file.
+Tested-by: Lennert Buytenhek <buytenh@wantstofly.org>
 
-Fixes: d346a3fae3ff ("packet: introduce PACKET_QDISC_BYPASS socket option")
-Signed-off-by: IvÃ¡n Briano <ivan.briano@intel.com>
----
- net/packet/af_packet.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index e3beb28..008bb34 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -214,6 +214,7 @@ static void prb_clear_rxhash(struct tpacket_kbdq_core *,
- static void prb_fill_vlan_info(struct tpacket_kbdq_core *,
- 		struct tpacket3_hdr *);
- static void packet_flush_mclist(struct sock *sk);
-+static void packet_pick_tx_queue(struct net_device *dev, struct sk_buff *skb);
- 
- struct packet_skb_cb {
- 	union {
-@@ -260,6 +261,7 @@ static int packet_direct_xmit(struct sk_buff *skb)
- 	if (skb != orig_skb)
- 		goto drop;
- 
-+	packet_pick_tx_queue(dev, skb);
- 	txq = skb_get_tx_queue(dev, skb);
- 
- 	local_bh_disable();
-@@ -2747,8 +2749,6 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 			goto tpacket_error;
- 		}
- 
--		packet_pick_tx_queue(dev, skb);
--
- 		skb->destructor = tpacket_destruct_skb;
- 		__packet_set_status(po, ph, TP_STATUS_SENDING);
- 		packet_inc_pending(&po->tx_ring);
-@@ -2931,8 +2931,6 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
- 	skb->priority = sk->sk_priority;
- 	skb->mark = sockc.mark;
- 
--	packet_pick_tx_queue(dev, skb);
--
- 	if (po->has_vnet_hdr) {
- 		err = virtio_net_hdr_to_skb(skb, &vnet_hdr, vio_le());
- 		if (err)
--- 
-2.9.4
+Seems to work!  Thanks!
