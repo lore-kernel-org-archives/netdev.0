@@ -1,65 +1,96 @@
-From: Ilan Tayari <ilant@mellanox.com>
-Subject: RE: [RFC net-next 9/9] xfrm: add a small xdst pcpu cache
-Date: Wed, 5 Jul 2017 09:01:11 +0000
-Message-ID: <AM4PR0501MB1940F3957F0AE02C355717AEDBD40@AM4PR0501MB1940.eurprd05.prod.outlook.com>
-References: <20170628132652.1275-1-fw@strlen.de>
- <20170628132652.1275-10-fw@strlen.de>
- <AM4PR0501MB194005DDDF772CE960D1E6F5DBD20@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+From: "Reshetova, Elena" <elena.reshetova@intel.com>
+Subject: Re: [PATCH 00/36] v2 net subsystem misc refcounter
+	conversions
+Date: Wed, 5 Jul 2017 09:03:06 +0000
+Message-ID: <2236FBA76BA1254E88B949DDB74E612B6FF20D45@IRSMSX102.ger.corp.intel.com>
+References: <1499172811-16271-1-git-send-email-elena.reshetova@intel.com>
+	<20170704.230040.195111189904913382.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Yossi Kuperman <yossiku@mellanox.com>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ilan Tayari <ilant@mellanox.com>, Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0063.outbound.protection.outlook.com ([104.47.0.63]:46976
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752431AbdGEJBY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 5 Jul 2017 05:01:24 -0400
-In-Reply-To: <AM4PR0501MB194005DDDF772CE960D1E6F5DBD20@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "peterz@infradead.org" <peterz@infradead.org>,
+	"jchapman@katalix.com" <jchapman@katalix.com>,
+	"bfields@fieldses.org" <bfields@fieldses.org>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+	"jlayton@poochiereds.net" <jlayton@poochiereds.net>,
+	"steffen.klassert@secunet.com" <steffen.klassert@secunet.com>,
+	"zyan@redhat.com" <zyan@redhat.com>,
+	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"linux-x25@vger.kernel.org" <linux-x25@vger.kernel.org>,
+	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+	"bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>,
+	"jmorris@namei.org" <jmorris@namei.org>,
+	"3chas3@gmail.com" <3chas3@gmail.com>,
+	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
+	"jreuter@yaina.de" <jreuter@yaina.de>,
+	"keescook@chromium.org" <keescook@chromium.org>,
+	"santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>,
+To: David Miller <davem@davemloft.net>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170704.230040.195111189904913382.davem@davemloft.net>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gU3ViamVj
-dDogUkU6IFtSRkMgbmV0LW5leHQgOS85XSB4ZnJtOiBhZGQgYSBzbWFsbCB4ZHN0IHBjcHUgY2Fj
-aGUNCj4gDQo+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiBGcm9tOiBuZXRkZXYt
-b3duZXJAdmdlci5rZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9y
-Z10NCj4gPiBTdWJqZWN0OiBbUkZDIG5ldC1uZXh0IDkvOV0geGZybTogYWRkIGEgc21hbGwgeGRz
-dCBwY3B1IGNhY2hlDQo+ID4NCj4gPiByZXRhaW4gbGFzdCB1c2VkIHhmcm1fZHN0IGluIGEgcGNw
-dSBjYWNoZS4NCj4gPiBPbiBuZXh0IHJlcXVlc3QsIHJldXNlIHRoaXMgZHN0IGlmIHRoZSBwb2xp
-Y2llcyBhcmUgdGhlIHNhbWUuDQo+ID4NCj4gPiBUaGUgY2FjaGUgZG9lcydudCBoZWxwIGF0IGFs
-bCB3aXRoIHN0cmljdGx5LVJSIHdvcmtsb2FkcyBhcw0KPiA+IHdlIG5ldmVyIGhhdmUgYSBoaXQu
-DQo+ID4NCj4gPiBBbHNvLCB0aGUgY2FjaGUgYWRkcyBjb3N0IG9mIHRoaXNfY3B1X3hjaGcoKSBp
-biBwYWNrZXQgcGF0aC4NCj4gPiBJdCB3b3VsZCBiZSBiZXR0ZXIgdG8gdXNlIHBsYWluIHRoaXNf
-Y3B1X3JlYWQvd3JpdGUsIGhvd2V2ZXIsDQo+ID4gYSBuZXRkZXYgbm90aWZpZXIgY2FuIHJ1biBp
-biBwYXJhbGxlbCBvbiBvdGhlciBjcHUgYW5kIHdyaXRlIHNhbWUNCj4gPiBwY3B1IHZhbHVlIHNv
-IHRoZSB4Y2hnIGlzIG5lZWRlZCB0byBhdm9pZCByYWNlLg0KPiA+DQo+ID4gVGhlIG5vdGlmaWVy
-IGlzIG5lZWRlZCBzbyB3ZSBkbyBub3QgYWRkIGxvbmcgaGFuZ3Mgd2hlbiBhIGRldmljZQ0KPiA+
-IGlzIGRpc21hbnRsZWQgYnV0IHNvbWUgcGNwdSB4ZHN0IHN0aWxsIGhvbGRzIGEgcmVmZXJlbmNl
-Lg0KPiA+DQo+ID4gVGVzdCByZXN1bHRzIHVzaW5nIDQgbmV0d29yayBuYW1lc3BhY2VzIGFuZCBu
-dWxsIGVuY3J5cHRpb246DQo+ID4NCj4gPiBuczEgICAgICAgICAgIG5zMiAgICAgICAgICAtPiBu
-czMgICAgICAgICAgIC0+IG5zNA0KPiA+IG5ldHBlcmYgLT4geGZybS9udWxsIGVuYyAgIC0+IHhm
-cm0vbnVsbCBkZWMgLT4gbmV0c2VydmVyDQo+ID4NCj4gPiB3aGF0ICAgICAgICAgICAgICAgICAg
-ICBUQ1BfU1RSRUFNICAgICAgVURQX1NUUkVBTSAgICAgIFVEUF9SUg0KPiA+IEZsb3cgY2FjaGU6
-CQkxNDgwNC40CQkyNzkuNzM4CQkzMjYyMTMuMA0KPiA+IE5vIGZsb3cgY2FjaGU6CQkxNDE1OC4z
-CQkyNTcuNDU4CQkyMjg0ODYuOA0KPiA+IFBjcHUgY2FjaGU6CQkxNDc2Ni40CQkyODYuOTU4CQky
-Mzk0MzMuNQ0KPiA+DQo+ID4gVURQIHRlc3RzIHVzZWQgNjRieXRlIHBhY2tldHMsIHRlc3RzIHJh
-biBmb3Igb25lIG1pbnV0ZSBlYWNoLA0KPiA+IHZhbHVlIGlzIGF2ZXJhZ2Ugb3ZlciB0ZW4gaXRl
-cmF0aW9ucy4NCj4gDQo+IEhpIEZsb3JpYW4sDQo+IA0KPiBJIHdhbnQgdG8gZ2l2ZSB0aGlzIGEg
-Z28gd2l0aCBody1vZmZsb2FkIGFuZCBzZWUgdGhlIGltcGFjdCBvbg0KPiBwZXJmb3JtYW5jZS4N
-Cj4gSXQgbWF5IHRha2UgdXMgYSBmZXcgZGF5cyB0byBkbyB0aGF0Lg0KDQpIaSBGbG9yaWFuLA0K
-DQpXZSB0ZXN0ZWQgd2l0aCBhbmQgd2l0aG91dCB5b3VyIHBhdGNoc2V0LCB1c2luZyBzaW5nbGUg
-U0Egd2l0aCBody1jcnlwdG8NCm9mZmxvYWQgKFJGQzQxMDYpIElQdjQgRVNQIHR1bm5lbCBtb2Rl
-LCBhbmQgYSBzaW5nbGUgbmV0cGVyZiBUQ1BfU1RSRUFNDQp3aXRoIGEgZmV3IGRpZmZlcmVudCBt
-ZXNzYWdlcyBTaXplcy4NCg0KV2UgZGlkbid0IHNlcGFyYXRlIHRoZSBwY3B1IGNhY2hlIHBhdGNo
-IGZyb20gdGhlIHJlc3Qgb2YgdGhlIHBhdGNoc2V0Lg0KDQpIZXJlIGFyZSB0aGUgZmluZGluZ3M6
-DQoNCldoYXQgICAgICAgICA2NC1ieXRlICAgIDUxMi1ieXRlICAxMDI0LWJ5dGUgIDE1MDAtYnl0
-ZQ0KRmxvdyBjYWNoZSAgIDE2MDIuODkgICAgMTEwMDQuOTcgICAxNDYzNC40NiAgIDE0NTc3LjYw
-DQpQY3B1IGNhY2hlICAgMTUxMy4zOCAgICAxMDg2Mi41NSAgIDE0MjQ2Ljk0ICAgMTQyMzEuMDcN
-Cg0KVGhlIG92ZXJhbGwgZGVncmFkYXRpb24gc2VlbXMgYSBiaXQgbW9yZSB0aGFuIHdoYXQgeW91
-IG1lYXN1cmVkIHdpdGgNCm51bGwtY3J5cHRvLg0KV2UgdXNlZCB0d28gbWFjaGluZXMgYW5kIG5v
-IG5hbWVzcGFjZXMuDQoNCklsYW4uDQoNCg==
+
+> From: Elena Reshetova <elena.reshetova@intel.com>
+> Date: Tue,  4 Jul 2017 15:52:55 +0300
+>=20
+> > Changes in v2:
+> >  * rebase on top of net-next
+> >  * currently by default refcount_t =3D atomic_t (*) and uses all
+> >    atomic standard operations unless CONFIG_REFCOUNT_FULL is enabled.
+> >    This is a compromise for the systems that are critical on
+> >    performance (such as net) and cannot accept even slight delay
+> >    on the refcounter operations.
+> >
+> > This series, for various misc network components, replaces atomic_t ref=
+erence
+> > counters with the new refcount_t type and API (see include/linux/refcou=
+nt.h).
+> > By doing this we prevent intentional or accidental
+> > underflows or overflows that can led to use-after-free vulnerabilities.
+> > These are the last networking-related conversions with the exception of
+> > network drivers (to be send separately).
+> >
+> > Please excuse the long patch set, but seems like breaking it up
+> > won't save that much on CC list and most of the changes are
+> > trivial.
+> >
+> > The patches are fully independent and can be cherry-picked separately.
+> > In order to try with refcount functionality enabled in run-time,
+> > CONFIG_REFCOUNT_FULL must be enabled.
+> >
+> > NOTE: automatic kernel builder for some reason doesn't like all my
+> > network branches and regularly times out the builds on these branches.
+> > Suggestion for "waiting a day for a good coverage" doesn't work, as
+> > we have seen with generic network conversions. So please wait for the
+> > full report from kernel test rebot before merging further up.
+> > This has been compile-tested in 116 configs, but 71 timed out (includin=
+g
+> > all s390-related configs again). I am trying to see if they can fix
+> > build coverage for me in meanwhile.
+> >
+> > * The respective change is currently merged into -next as
+> >   "locking/refcount: Create unchecked atomic_t implementation".
+>=20
+> Series applied, that's enough for this cycle, please.
+
+Thank you very much David! I really appreciate you taking so many of these =
+conversions in
+one go! I will stop for now :)=20
+
+With regards to net, I only have networking drivers left (16 patches in tot=
+al), but I can submit them in the
+next round. Will go bug other subsystem maintainers next :)=20
+
+Best Regards,
+Elena.
