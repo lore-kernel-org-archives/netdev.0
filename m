@@ -1,275 +1,134 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH RFC 11/12] net: Remove all references to SKB_GSO_UDP.
-Date: Wed, 05 Jul 2017 16:06:32 +0100 (WEST)
-Message-ID: <20170705.160632.1021185732937441107.davem@davemloft.net>
+Subject: [PATCH RFC 12/12] net: Kill NETIF_F_UFO and SKB_GSO_UDP.
+Date: Wed, 05 Jul 2017 16:06:46 +0100 (WEST)
+Message-ID: <20170705.160646.1642092925279713744.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42614 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:42620 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750896AbdGEPGi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 11:06:38 -0400
+        with ESMTP id S1751856AbdGEPGv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 11:06:51 -0400
 Received: from localhost (unknown [193.136.225.129])
         (using TLSv1 with cipher AES256-SHA (256/256 bits))
         (Client did not present a certificate)
         (Authenticated sender: davem-davemloft)
-        by shards.monkeyblade.net (Postfix) with ESMTPSA id 3D6A2126C97F5
-        for <netdev@vger.kernel.org>; Wed,  5 Jul 2017 08:06:37 -0700 (PDT)
+        by shards.monkeyblade.net (Postfix) with ESMTPSA id EE356126C97F8
+        for <netdev@vger.kernel.org>; Wed,  5 Jul 2017 08:06:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Such packets are no longer possible.
+No longer used.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/linux/virtio_net.h |  5 -----
- net/core/filter.c          |  8 ++++----
- net/ipv4/af_inet.c         | 12 ++----------
- net/ipv4/gre_offload.c     | 14 +-------------
- net/ipv4/udp_offload.c     |  6 ++----
- net/openvswitch/datapath.c | 14 --------------
- net/openvswitch/flow.c     |  6 +-----
- net/sched/act_csum.c       |  6 ------
- 8 files changed, 10 insertions(+), 61 deletions(-)
+ include/linux/netdev_features.h |  4 +---
+ include/linux/netdevice.h       |  1 -
+ include/linux/skbuff.h          | 31 +++++++++++++++----------------
+ 3 files changed, 16 insertions(+), 20 deletions(-)
 
-diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
-index 5209b5e..32fb046 100644
---- a/include/linux/virtio_net.h
-+++ b/include/linux/virtio_net.h
-@@ -18,9 +18,6 @@ static inline int virtio_net_hdr_to_skb(struct sk_buff *skb,
- 		case VIRTIO_NET_HDR_GSO_TCPV6:
- 			gso_type = SKB_GSO_TCPV6;
- 			break;
--		case VIRTIO_NET_HDR_GSO_UDP:
--			gso_type = SKB_GSO_UDP;
--			break;
- 		default:
- 			return -EINVAL;
- 		}
-@@ -73,8 +70,6 @@ static inline int virtio_net_hdr_from_skb(const struct sk_buff *skb,
- 			hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
- 		else if (sinfo->gso_type & SKB_GSO_TCPV6)
- 			hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
--		else if (sinfo->gso_type & SKB_GSO_UDP)
--			hdr->gso_type = VIRTIO_NET_HDR_GSO_UDP;
- 		else
- 			return -EINVAL;
- 		if (sinfo->gso_type & SKB_GSO_TCP_ECN)
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 9416957..4987432 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2024,8 +2024,8 @@ static int bpf_skb_proto_4_to_6(struct sk_buff *skb)
- 		return ret;
+diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+index 1d4737c..ebd2736 100644
+--- a/include/linux/netdev_features.h
++++ b/include/linux/netdev_features.h
+@@ -36,7 +36,6 @@ enum {
+ 	/**/NETIF_F_GSO_SHIFT,		/* keep the order of SKB_GSO_* bits */
+ 	NETIF_F_TSO_BIT			/* ... TCPv4 segmentation */
+ 		= NETIF_F_GSO_SHIFT,
+-	NETIF_F_UFO_BIT,		/* ... UDPv4 fragmentation */
+ 	NETIF_F_GSO_ROBUST_BIT,		/* ... ->SKB_GSO_DODGY */
+ 	NETIF_F_TSO_ECN_BIT,		/* ... TCP ECN support */
+ 	NETIF_F_TSO_MANGLEID_BIT,	/* ... IPV4 ID mangling allowed */
+@@ -118,7 +117,6 @@ enum {
+ #define NETIF_F_TSO6		__NETIF_F(TSO6)
+ #define NETIF_F_TSO_ECN		__NETIF_F(TSO_ECN)
+ #define NETIF_F_TSO		__NETIF_F(TSO)
+-#define NETIF_F_UFO		__NETIF_F(UFO)
+ #define NETIF_F_VLAN_CHALLENGED	__NETIF_F(VLAN_CHALLENGED)
+ #define NETIF_F_RXFCS		__NETIF_F(RXFCS)
+ #define NETIF_F_RXALL		__NETIF_F(RXALL)
+@@ -172,7 +170,7 @@ enum {
+ 				 NETIF_F_FSO)
  
- 	if (skb_is_gso(skb)) {
--		/* SKB_GSO_UDP stays as is. SKB_GSO_TCPV4 needs to
--		 * be changed into SKB_GSO_TCPV6.
-+		/* SKB_GSO_TCPV4 needs to be changed into
-+		 * SKB_GSO_TCPV6.
- 		 */
- 		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4) {
- 			skb_shinfo(skb)->gso_type &= ~SKB_GSO_TCPV4;
-@@ -2060,8 +2060,8 @@ static int bpf_skb_proto_6_to_4(struct sk_buff *skb)
- 		return ret;
+ /* List of features with software fallbacks. */
+-#define NETIF_F_GSO_SOFTWARE	(NETIF_F_ALL_TSO | NETIF_F_UFO | \
++#define NETIF_F_GSO_SOFTWARE	(NETIF_F_ALL_TSO | \
+ 				 NETIF_F_GSO_SCTP)
  
- 	if (skb_is_gso(skb)) {
--		/* SKB_GSO_UDP stays as is. SKB_GSO_TCPV6 needs to
--		 * be changed into SKB_GSO_TCPV4.
-+		/* SKB_GSO_TCPV6 needs to be changed into
-+		 * SKB_GSO_TCPV4.
- 		 */
- 		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6) {
- 			skb_shinfo(skb)->gso_type &= ~SKB_GSO_TCPV6;
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 76c2077c..5ce44fb 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1219,10 +1219,9 @@ EXPORT_SYMBOL(inet_sk_rebuild_header);
- struct sk_buff *inet_gso_segment(struct sk_buff *skb,
- 				 netdev_features_t features)
- {
--	bool udpfrag = false, fixedid = false, gso_partial, encap;
-+	bool fixedid = false, gso_partial, encap;
- 	struct sk_buff *segs = ERR_PTR(-EINVAL);
- 	const struct net_offload *ops;
--	unsigned int offset = 0;
- 	struct iphdr *iph;
- 	int proto, tot_len;
- 	int nhoff;
-@@ -1257,7 +1256,6 @@ struct sk_buff *inet_gso_segment(struct sk_buff *skb,
- 	segs = ERR_PTR(-EPROTONOSUPPORT);
+ /*
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 85f01d6..02f1421 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -4087,7 +4087,6 @@ static inline bool net_gso_ok(netdev_features_t features, int gso_type)
  
- 	if (!skb->encapsulation || encap) {
--		udpfrag = !!(skb_shinfo(skb)->gso_type & SKB_GSO_UDP);
- 		fixedid = !!(skb_shinfo(skb)->gso_type & SKB_GSO_TCP_FIXEDID);
+ 	/* check flags correspondence */
+ 	BUILD_BUG_ON(SKB_GSO_TCPV4   != (NETIF_F_TSO >> NETIF_F_GSO_SHIFT));
+-	BUILD_BUG_ON(SKB_GSO_UDP     != (NETIF_F_UFO >> NETIF_F_GSO_SHIFT));
+ 	BUILD_BUG_ON(SKB_GSO_DODGY   != (NETIF_F_GSO_ROBUST >> NETIF_F_GSO_SHIFT));
+ 	BUILD_BUG_ON(SKB_GSO_TCP_ECN != (NETIF_F_TSO_ECN >> NETIF_F_GSO_SHIFT));
+ 	BUILD_BUG_ON(SKB_GSO_TCP_FIXEDID != (NETIF_F_TSO_MANGLEID >> NETIF_F_GSO_SHIFT));
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 3d3ceaa..45c4aa9 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -463,39 +463,38 @@ enum {
  
- 		/* fixed ID is invalid if DF bit is not set */
-@@ -1277,13 +1275,7 @@ struct sk_buff *inet_gso_segment(struct sk_buff *skb,
- 	skb = segs;
- 	do {
- 		iph = (struct iphdr *)(skb_mac_header(skb) + nhoff);
--		if (udpfrag) {
--			iph->frag_off = htons(offset >> 3);
--			if (skb->next)
--				iph->frag_off |= htons(IP_MF);
--			offset += skb->len - nhoff - ihl;
--			tot_len = skb->len - nhoff;
--		} else if (skb_is_gso(skb)) {
-+		if (skb_is_gso(skb)) {
- 			if (!fixedid) {
- 				iph->id = htons(id);
- 				id += skb_shinfo(skb)->gso_segs;
-diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-index d5cac99..416bb30 100644
---- a/net/ipv4/gre_offload.c
-+++ b/net/ipv4/gre_offload.c
-@@ -24,7 +24,7 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
- 	__be16 protocol = skb->protocol;
- 	u16 mac_len = skb->mac_len;
- 	int gre_offset, outer_hlen;
--	bool need_csum, ufo, gso_partial;
-+	bool need_csum, gso_partial;
+ enum {
+ 	SKB_GSO_TCPV4 = 1 << 0,
+-	SKB_GSO_UDP = 1 << 1,
  
- 	if (!skb->encapsulation)
- 		goto out;
-@@ -47,20 +47,8 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
- 	need_csum = !!(skb_shinfo(skb)->gso_type & SKB_GSO_GRE_CSUM);
- 	skb->encap_hdr_csum = need_csum;
+ 	/* This indicates the skb is from an untrusted source. */
+-	SKB_GSO_DODGY = 1 << 2,
++	SKB_GSO_DODGY = 1 << 1,
  
--	ufo = !!(skb_shinfo(skb)->gso_type & SKB_GSO_UDP);
--
- 	features &= skb->dev->hw_enc_features;
+ 	/* This indicates the tcp segment has CWR set. */
+-	SKB_GSO_TCP_ECN = 1 << 3,
++	SKB_GSO_TCP_ECN = 1 << 2,
  
--	/* The only checksum offload we care about from here on out is the
--	 * outer one so strip the existing checksum feature flags based
--	 * on the fact that we will be computing our checksum in software.
--	 */
--	if (ufo) {
--		features &= ~NETIF_F_CSUM_MASK;
--		if (!need_csum)
--			features |= NETIF_F_HW_CSUM;
--	}
--
- 	/* segment inner packet. */
- 	segs = skb_mac_gso_segment(skb, features);
- 	if (IS_ERR_OR_NULL(segs)) {
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index 7812501..4fedce3 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -21,7 +21,7 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 	__be16 new_protocol, bool is_ipv6)
- {
- 	int tnl_hlen = skb_inner_mac_header(skb) - skb_transport_header(skb);
--	bool remcsum, need_csum, offload_csum, ufo, gso_partial;
-+	bool remcsum, need_csum, offload_csum, gso_partial;
- 	struct sk_buff *segs = ERR_PTR(-EINVAL);
- 	struct udphdr *uh = udp_hdr(skb);
- 	u16 mac_offset = skb->mac_header;
-@@ -61,8 +61,6 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 	remcsum = !!(skb_shinfo(skb)->gso_type & SKB_GSO_TUNNEL_REMCSUM);
- 	skb->remcsum_offload = remcsum;
+-	SKB_GSO_TCP_FIXEDID = 1 << 4,
++	SKB_GSO_TCP_FIXEDID = 1 << 3,
  
--	ufo = !!(skb_shinfo(skb)->gso_type & SKB_GSO_UDP);
--
- 	need_ipsec = skb_dst(skb) && dst_xfrm(skb_dst(skb));
- 	/* Try to offload checksum if possible */
- 	offload_csum = !!(need_csum &&
-@@ -77,7 +75,7 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 	 * outer one so strip the existing checksum feature flags and
- 	 * instead set the flag based on our outer checksum offload value.
- 	 */
--	if (remcsum || ufo) {
-+	if (remcsum) {
- 		features &= ~NETIF_F_CSUM_MASK;
- 		if (!need_csum || offload_csum)
- 			features |= NETIF_F_HW_CSUM;
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 45fe8c8..f6e229b 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -335,8 +335,6 @@ static int queue_gso_packets(struct datapath *dp, struct sk_buff *skb,
- 			     const struct dp_upcall_info *upcall_info,
- 				 uint32_t cutlen)
- {
--	unsigned short gso_type = skb_shinfo(skb)->gso_type;
--	struct sw_flow_key later_key;
- 	struct sk_buff *segs, *nskb;
- 	int err;
+-	SKB_GSO_TCPV6 = 1 << 5,
++	SKB_GSO_TCPV6 = 1 << 4,
  
-@@ -347,21 +345,9 @@ static int queue_gso_packets(struct datapath *dp, struct sk_buff *skb,
- 	if (segs == NULL)
- 		return -EINVAL;
+-	SKB_GSO_FCOE = 1 << 6,
++	SKB_GSO_FCOE = 1 << 5,
  
--	if (gso_type & SKB_GSO_UDP) {
--		/* The initial flow key extracted by ovs_flow_key_extract()
--		 * in this case is for a first fragment, so we need to
--		 * properly mark later fragments.
--		 */
--		later_key = *key;
--		later_key.ip.frag = OVS_FRAG_TYPE_LATER;
--	}
--
- 	/* Queue all of the segments. */
- 	skb = segs;
- 	do {
--		if (gso_type & SKB_GSO_UDP && skb != segs)
--			key = &later_key;
--
- 		err = queue_userspace_packet(dp, skb, key, upcall_info, cutlen);
- 		if (err)
- 			break;
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index 3f76cb7..597d96f 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -584,8 +584,7 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
- 			key->ip.frag = OVS_FRAG_TYPE_LATER;
- 			return 0;
- 		}
--		if (nh->frag_off & htons(IP_MF) ||
--			skb_shinfo(skb)->gso_type & SKB_GSO_UDP)
-+		if (nh->frag_off & htons(IP_MF))
- 			key->ip.frag = OVS_FRAG_TYPE_FIRST;
- 		else
- 			key->ip.frag = OVS_FRAG_TYPE_NONE;
-@@ -701,9 +700,6 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
+-	SKB_GSO_GRE = 1 << 7,
++	SKB_GSO_GRE = 1 << 6,
  
- 		if (key->ip.frag == OVS_FRAG_TYPE_LATER)
- 			return 0;
--		if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP)
--			key->ip.frag = OVS_FRAG_TYPE_FIRST;
--
- 		/* Transport layer. */
- 		if (key->ip.proto == NEXTHDR_TCP) {
- 			if (tcphdr_ok(skb)) {
-diff --git a/net/sched/act_csum.c b/net/sched/act_csum.c
-index 3317a2f..67afc12 100644
---- a/net/sched/act_csum.c
-+++ b/net/sched/act_csum.c
-@@ -231,9 +231,6 @@ static int tcf_csum_ipv4_udp(struct sk_buff *skb, unsigned int ihl,
- 	const struct iphdr *iph;
- 	u16 ul;
+-	SKB_GSO_GRE_CSUM = 1 << 8,
++	SKB_GSO_GRE_CSUM = 1 << 7,
  
--	if (skb_is_gso(skb) && skb_shinfo(skb)->gso_type & SKB_GSO_UDP)
--		return 1;
--
- 	/*
- 	 * Support both UDP and UDPLITE checksum algorithms, Don't use
- 	 * udph->len to get the real length without any protocol check,
-@@ -287,9 +284,6 @@ static int tcf_csum_ipv6_udp(struct sk_buff *skb, unsigned int ihl,
- 	const struct ipv6hdr *ip6h;
- 	u16 ul;
+-	SKB_GSO_IPXIP4 = 1 << 9,
++	SKB_GSO_IPXIP4 = 1 << 8,
  
--	if (skb_is_gso(skb) && skb_shinfo(skb)->gso_type & SKB_GSO_UDP)
--		return 1;
--
- 	/*
- 	 * Support both UDP and UDPLITE checksum algorithms, Don't use
- 	 * udph->len to get the real length without any protocol check,
+-	SKB_GSO_IPXIP6 = 1 << 10,
++	SKB_GSO_IPXIP6 = 1 << 9,
+ 
+-	SKB_GSO_UDP_TUNNEL = 1 << 11,
++	SKB_GSO_UDP_TUNNEL = 1 << 10,
+ 
+-	SKB_GSO_UDP_TUNNEL_CSUM = 1 << 12,
++	SKB_GSO_UDP_TUNNEL_CSUM = 1 << 11,
+ 
+-	SKB_GSO_PARTIAL = 1 << 13,
++	SKB_GSO_PARTIAL = 1 << 12,
+ 
+-	SKB_GSO_TUNNEL_REMCSUM = 1 << 14,
++	SKB_GSO_TUNNEL_REMCSUM = 1 << 13,
+ 
+-	SKB_GSO_SCTP = 1 << 15,
++	SKB_GSO_SCTP = 1 << 14,
+ 
+-	SKB_GSO_ESP = 1 << 16,
++	SKB_GSO_ESP = 1 << 15,
+ };
+ 
+ #if BITS_PER_LONG > 32
 -- 
 2.9.4
