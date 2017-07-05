@@ -1,41 +1,75 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH RFC 11/12] net: Remove all references to SKB_GSO_UDP.
-Date: Wed, 5 Jul 2017 13:21:02 -0400
-Message-ID: <CAF=yD-+nZMDnAgHkT=hDONA1mtB3r4F2nct0aVuUtA8tXp9RLw@mail.gmail.com>
-References: <20170705.160632.1021185732937441107.davem@davemloft.net> <CAF=yD-LnGPF=jBWLFRppqAjMwvgm34xUeRKsh+rLjX2ZOuun8g@mail.gmail.com>
+From: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
+        <maheshb@google.com>
+Subject: Re: [PATCH 1/2] ipv4: initialize fib_trie prior to
+ register_netdev_notifier call.
+Date: Wed, 5 Jul 2017 10:23:06 -0700
+Message-ID: <CAF2d9jgxOPxo9muz0qFcD1+GyidoPavsooeHxvQ3GNqwLWi4LQ@mail.gmail.com>
+References: <20170704191620.6503-1-mahesh@bandewar.net> <87lgo2g8cp.fsf@xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Network Development <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: Mahesh Bandewar <mahesh@bandewar.net>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        netdev <netdev@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:35511 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752122AbdGERVn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 13:21:43 -0400
-Received: by mail-oi0-f68.google.com with SMTP id l130so28526673oib.2
-        for <netdev@vger.kernel.org>; Wed, 05 Jul 2017 10:21:43 -0700 (PDT)
-In-Reply-To: <CAF=yD-LnGPF=jBWLFRppqAjMwvgm34xUeRKsh+rLjX2ZOuun8g@mail.gmail.com>
+Received: from mail-it0-f53.google.com ([209.85.214.53]:36156 "EHLO
+        mail-it0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750896AbdGERX2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 13:23:28 -0400
+Received: by mail-it0-f53.google.com with SMTP id m68so118502748ith.1
+        for <netdev@vger.kernel.org>; Wed, 05 Jul 2017 10:23:28 -0700 (PDT)
+In-Reply-To: <87lgo2g8cp.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 5, 2017 at 12:06 PM, Willem de Bruijn
-<willemdebruijn.kernel@gmail.com> wrote:
->> diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
->> index 5209b5e..32fb046 100644
->> --- a/include/linux/virtio_net.h
->> +++ b/include/linux/virtio_net.h
->> @@ -18,9 +18,6 @@ static inline int virtio_net_hdr_to_skb(struct sk_buff *skb,
->>                 case VIRTIO_NET_HDR_GSO_TCPV6:
->>                         gso_type = SKB_GSO_TCPV6;
->>                         break;
->> -               case VIRTIO_NET_HDR_GSO_UDP:
->> -                       gso_type = SKB_GSO_UDP;
->> -                       break;
+On Wed, Jul 5, 2017 at 9:24 AM, Eric W. Biederman <ebiederm@xmission.com> wrote:
+> Mahesh Bandewar <mahesh@bandewar.net> writes:
 >
-> Virtio devices negotiate feature support before using this, but
-> tuntap and pf_packet may be passing these packets unconditionally.
-> Perhaps we should fragment those on the spot with skb_segment.
+>> From: Mahesh Bandewar <maheshb@google.com>
+>>
+>> Net stack initialization currently initializes fib-trie after the
+>> first call to netdevice_notifier() call. It does not cause any problem
+>> since there are no devices UP at this moment, but trying to bring 'lo'
+>> UP at initialization would make this assumption wrong. However changing
+>> order solves the issue.
+>
+> This looks like a real issue and you are part of the way to a real fix.
+> The principle being you should not register things notifications until
+> you are ready to handle them.
+>
+> As such fib_trie_init (which allocates the slabs) needs to come before
+> rtnl_register.  As a rtnl message can trigger slab allocation.
+>
+> I have not traced it through but I suspect
+> register_pernet_subsys(&fib_net_ops) also needs to come before
+> rtnl_register.
+>
+> Sigh.  It looks like this patch can be labeled:
+>
+> Fixes: 7b1a74fdbb9e ("[NETNS]: Refactor fib initialization so it can handle multiple namespaces.")
+> Fixes: 7f9b80529b8a ("[IPV4]: fib hash|trie initialization")
+>
+> So I really think the code needs to say:
+>
+> void __init ip_fib_init(void)
+> {
+>         fib_trie_init();
+>         register_pernet_subsys(&fib_net_ops);
+>
+>         register_netdevice_notifier(&fib_netdev_notifier);
+>         register_inetaddr_notifier(&fib_inetaddr_notifier);
+>
+>         rtnl_register(PF_INET, RTM_NEWROUTE, inet_rtm_newroute, NULL, NULL);
+>         rtnl_register(PF_INET, RTM_DELROUTE, inet_rtm_delroute, NULL, NULL);
+>         rtnl_register(PF_INET, RTM_GETROUTE, NULL, inet_dump_fib, NULL);
+> }
+>
+Will update in the next version.
 
-Tun has ioctl TUNSETIFF to probe for features and it can be argued
-that packet sockets should query device features with ethtool before
-relying on them. So perhaps we don't need to fix this up, after all.
+thanks,
+--mahesh..
+> Eric
