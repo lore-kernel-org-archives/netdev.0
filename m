@@ -1,44 +1,101 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 1/1] net sched actions: rename act_get_notify()
- to tcf_get_notify()
-Date: Wed, 5 Jul 2017 22:31:46 +0200
-Message-ID: <20170705203146.GA8974@nanopsycho>
-References: <1499283238-2551-1-git-send-email-mrv@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Roman Mashak <mrv@mojatatu.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: [PATCH net] net: ipv6: Compare lwstate in detecting duplicate nexthops
+Date: Wed,  5 Jul 2017 14:41:46 -0600
+Message-ID: <20170705204146.5263-1-dsahern@gmail.com>
+Cc: buytenh@wantstofly.org, roopa@cumulusnetworks.com,
+        rshearma@brocade.com, David Ahern <dsahern@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:34880 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751907AbdGEUbt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 16:31:49 -0400
-Received: by mail-wr0-f196.google.com with SMTP id z45so48205wrb.2
-        for <netdev@vger.kernel.org>; Wed, 05 Jul 2017 13:31:49 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1499283238-2551-1-git-send-email-mrv@mojatatu.com>
+Received: from mail-it0-f65.google.com ([209.85.214.65]:33744 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752608AbdGEUlu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 16:41:50 -0400
+Received: by mail-it0-f65.google.com with SMTP id 188so15639661itx.0
+        for <netdev@vger.kernel.org>; Wed, 05 Jul 2017 13:41:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Jul 05, 2017 at 09:33:58PM CEST, mrv@mojatatu.com wrote:
->Make name consistent with other TC event notification routines.
->
->Signed-off-by: Roman Mashak <mrv@mojatatu.com>
->---
-> net/sched/act_api.c | 4 ++--
-> 1 file changed, 2 insertions(+), 2 deletions(-)
->
->diff --git a/net/sched/act_api.c b/net/sched/act_api.c
->index aed6cf2..f2e9ed3 100644
->--- a/net/sched/act_api.c
->+++ b/net/sched/act_api.c
->@@ -835,7 +835,7 @@ static int tca_get_fill(struct sk_buff *skb, struct list_head *actions,
-> }
-> 
-> static int
->-act_get_notify(struct net *net, u32 portid, struct nlmsghdr *n,
->+tcf_get_notify(struct net *net, u32 portid, struct nlmsghdr *n,
+Lennert reported a failure to add different mpls encaps in a multipath
+route:
 
-Rather call it "tcf_action_get_notify"
+  $ ip -6 route add 1234::/16 \
+        nexthop encap mpls 10 via fe80::1 dev ens3 \
+        nexthop encap mpls 20 via fe80::1 dev ens3
+  RTNETLINK answers: File exists
 
-+ net-next is closed if I'm not mistaken
+The problem is that the duplicate nexthop detection does not compare
+lwtunnel configuration. Add it.
+
+Fixes: 19e42e451506("ipv6: support for fib route lwtunnel encap attributes")
+Signed-off-by: David Ahern <dsahern@gmail.com>
+---
+ include/net/ip6_route.h | 8 ++++++++
+ net/ipv6/ip6_fib.c      | 5 +----
+ net/ipv6/route.c        | 8 +-------
+ 3 files changed, 10 insertions(+), 11 deletions(-)
+
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index f5e625f53367..4341731f39a5 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -22,6 +22,7 @@ struct route_info {
+ #include <net/flow.h>
+ #include <net/ip6_fib.h>
+ #include <net/sock.h>
++#include <net/lwtunnel.h>
+ #include <linux/ip.h>
+ #include <linux/ipv6.h>
+ #include <linux/route.h>
+@@ -233,4 +234,11 @@ static inline struct in6_addr *rt6_nexthop(struct rt6_info *rt,
+ 		return daddr;
+ }
+ 
++static inline bool rt6_duplicate_nexthop(struct rt6_info *a, struct rt6_info *b)
++{
++	return a->dst.dev == b->dst.dev &&
++	       a->rt6i_idev == b->rt6i_idev &&
++	       ipv6_addr_equal(&a->rt6i_gateway, &b->rt6i_gateway) &&
++	       !lwtunnel_cmp_encap(a->dst.lwtstate, b->dst.lwtstate);
++}
+ #endif
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index e6b78ba0e636..e4e9f752ebbf 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -784,10 +784,7 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
+ 				goto next_iter;
+ 			}
+ 
+-			if (iter->dst.dev == rt->dst.dev &&
+-			    iter->rt6i_idev == rt->rt6i_idev &&
+-			    ipv6_addr_equal(&iter->rt6i_gateway,
+-					    &rt->rt6i_gateway)) {
++			if (rt6_duplicate_nexthop(iter, rt)) {
+ 				if (rt->rt6i_nsiblings)
+ 					rt->rt6i_nsiblings = 0;
+ 				if (!(iter->rt6i_flags & RTF_EXPIRES))
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 322bd62e688b..bc49f9a82994 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -3048,17 +3048,11 @@ static int ip6_route_info_append(struct list_head *rt6_nh_list,
+ 				 struct rt6_info *rt, struct fib6_config *r_cfg)
+ {
+ 	struct rt6_nh *nh;
+-	struct rt6_info *rtnh;
+ 	int err = -EEXIST;
+ 
+ 	list_for_each_entry(nh, rt6_nh_list, next) {
+ 		/* check if rt6_info already exists */
+-		rtnh = nh->rt6_info;
+-
+-		if (rtnh->dst.dev == rt->dst.dev &&
+-		    rtnh->rt6i_idev == rt->rt6i_idev &&
+-		    ipv6_addr_equal(&rtnh->rt6i_gateway,
+-				    &rt->rt6i_gateway))
++		if (rt6_duplicate_nexthop(nh->rt6_info, rt))
+ 			return err;
+ 	}
+ 
+-- 
+2.11.0 (Apple Git-81)
