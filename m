@@ -1,54 +1,56 @@
-From: Eduardo Valentin <eduval@amazon.com>
-Subject: Re: [PATCH 1/1] bridge: mdb: report complete_info ptr as not a
- kmemleak
-Date: Wed, 5 Jul 2017 09:05:14 -0700
-Message-ID: <20170705160514.GA11351@u40b0340c692b58f6553c.ant.amazon.com>
-References: <1499101594-22421-1-git-send-email-eduval@amazon.com>
- <20170704.014842.1942928249505987408.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/2] bring UP loopback device at initialziation
+Date: Wed, 05 Jul 2017 17:05:24 +0100 (WEST)
+Message-ID: <20170705.170524.241248681076978527.davem@davemloft.net>
+References: <20170704191615.6412-1-mahesh@bandewar.net>
+        <20170705.092032.1482668095877350196.davem@davemloft.net>
+        <CAF2d9jjZ0XJDo3qYKnNgeMMLQXgUwt5ga8p_cWd5x-DjhzwWyA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <eduval@amazon.com>, <stephen@networkplumber.org>,
-        <bridge@lists.linux-foundation.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <stable@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170704.014842.1942928249505987408.davem@davemloft.net>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: mahesh@bandewar.net, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, edumazet@google.com, ebiederm@xmission.com,
+        netdev@vger.kernel.org
+To: maheshb@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43550 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751887AbdGEQFd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 12:05:33 -0400
+In-Reply-To: <CAF2d9jjZ0XJDo3qYKnNgeMMLQXgUwt5ga8p_cWd5x-DjhzwWyA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 04, 2017 at 01:48:42AM -0700, David Miller wrote:
-> From: Eduardo Valentin <eduval@amazon.com>
-> Date: Mon, 3 Jul 2017 10:06:34 -0700
-> 
-> > We currently get the following kmemleak report:
->  ...
-> > This patch flags the complete_info ptr object as not a leak as it will
-> > get freed when .complete_priv() is called,
-> 
-> We don't call .complete_priv().  We call .complete().
-
-True, I can fix this wording in the commit next version.
-
-> 
->  for the br mdb case, it
-> > will be freed at br_mdb_complete().
-> > 
-> > Cc: stable <stable@vger.kernel.org> # v4.9+
-> > Reviewed-by: Vallish Vaidyeshwara <vallish@amazon.com>
-> > Signed-off-by: Eduardo Valentin <eduval@amazon.com>
-> 
-> I don't understand why kmemleak cannot see this.
-> 
-> We store the pointer globally when we do the switchdev_port_obv_add()
-> call and it should be able to see that.
-
-I see and agree. But even then I get these reports consistently on RTM_NEWMDB type.
-This is why I am proposing marking as a non-kmemleak.
-
-To me, this is only a leak if .complete() never gets called.
-
-
--- 
-All the best,
-Eduardo Valentin
+RnJvbTogTWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSw
+KSA8bWFoZXNoYkBnb29nbGUuY29tPg0KRGF0ZTogV2VkLCA1IEp1bCAyMDE3IDA4OjU5OjM3IC0w
+NzAwDQoNCj4gT24gV2VkLCBKdWwgNSwgMjAxNyBhdCAxOjIwIEFNLCBEYXZpZCBNaWxsZXIgPGRh
+dmVtQGRhdmVtbG9mdC5uZXQ+IHdyb3RlOg0KPj4gRnJvbTogTWFoZXNoIEJhbmRld2FyIDxtYWhl
+c2hAYmFuZGV3YXIubmV0Pg0KPj4gRGF0ZTogVHVlLCAgNCBKdWwgMjAxNyAxMjoxNjoxNSAtMDcw
+MA0KPj4NCj4+PiBJbiBhbG1vc3QgZXZlcnkgc2NlbmFyaW8gdGhlIGxvb3BiYWNrIGRldmljZSBp
+cyBicm91Z2h0IFVQIGFmdGVyDQo+Pj4gaW5pdGlhbGl6YXRpb24uIFNvIHRoZXJlIGlzIG5vIHBv
+aW50IG9mIGJyaW5naW5nIHVwIHRoZSBkZXZpY2UgaW4NCj4+PiBET1dOIHN0YXRlIGZvbGxvd2Vk
+IGJ5IGRldmljZSBVUCBvcGVyYXRpb24uIFRoaXMgY2hhbmdlIGV4cG9zZWQNCj4+PiBhbm90aGVy
+IGlzc3VlIG9mIGZpYi10cmllIGluaXRpYWxpemF0aW9uIHdoaWNoIGlzIGNvcnJlY3RlZCBpbiB0
+aGUNCj4+PiBmaXJzdCBwYXRoLg0KPj4NCj4+IFlvdSB1c2UgdGhlIHdvcmQgYWxtb3N0LCB3aGlj
+aCBzdXBwb3J0cyBteSBwb3NpdGlvbiB0aGF0IHNvbWVvbmUgbWF5DQo+PiBub3Qgd2FudCB0aGlz
+Lg0KPj4NCj4+IEkgYWxzbyBkb24ndCBzZWUgaXQgYXMgc28gbXVjaCBvZiBhIGJ1cmRvbiB0byBi
+cmluZyB0aGUgbG8gZGV2aWNlIHVwDQo+PiBleHBsaWNpdGx5LiAgU3lzdGVtcyBoYXZlIGJlZW4g
+aGF2aW5nIHRvIGRvIHRoYXQgc2luY2UgdGhlIGJlZ2lubmluZw0KPj4gb2YgdGltZS4NCj4+DQo+
+IFN5c3RlbXMgaGF2ZSBvbmx5IG9uZSBsbyBkZXZpY2UgKHNpbmNlIGFnZXMpIGFuZCB0aGF0IGlz
+IHVzdWFsbHkgdGFrZW4NCj4gY2FyZSBhdCB0aGUgYm9vdCB0aW1lLiBOb3cgd2l0aCB0aGUgbmFt
+ZXNwYWNlcyBpdCdzIG5vdCBqdXN0IG9uZQ0KPiBkZXZpY2UgYXMgaXQncyBwZXIgbmFtZXNwYWNl
+IGFuZCB0aG91Z2ggbm90IG11Y2ggdGhpcyBwYXRjaCB3aWxsDQo+IGJlbmVmaXQgYSBsaXR0bGUu
+IFByb2JhYmx5IHdlIHNob3VsZCBhc2sgYSBxdWVzdGlvbiAtIGlzIGl0IGdvaW5nIHRvDQo+IGhh
+dmUgYW55IGJhZCBlZmZlY3RzPyBJIGNvdWxkbid0IGZpbmQgYW55IGFuZCBteSBSRkMgcGF0Y2gg
+ZGlkIG5vdCBnZXQNCj4gbWUgYW55IHN1Y2ggZmVlZGJhY2suIEFzIGZhciBhcyB0aGUgZ29vZCBl
+ZmZlY3RzIGFyZSBjb25jZXJuZWQsIGl0IGhhcw0KPiBhbHJlYWR5IGZvdW5kIGEgYnVnIChhbm90
+aGVyIHBhdGNoIGluIHRoaXMgc2VyaWVzKSEgQWxzbyBzb21ldGltZSBiYWNrDQo+IEkgZGlkIGV4
+cGVyaWVuY2Ugd2VpcmQgYmVoYXZpb3IgaW5zaWRlIG5ldC1uYW1lc3BhY2UgaWYgeW91IGZvcmdl
+dCB0bw0KPiBicmluZy11cCB0aGUgbG9vcGJhY2sgZGV2aWNlLiBJIGRpZG4ndCBwYXkgdG9vIG11
+Y2ggYXR0ZW50aW9uIGFzDQo+IGJyaW5naW5nIHVwIHRoZSBsbyBkZXZpY2UgZml4ZWQgaXQuDQoN
+CllvdSdyZSBub3QgdGFsa2luZyBhdCBhbGwgYWJvdXQgd2h5IHNwZWNpZmljYWxseSB5b3UgbmVl
+ZCB0aGlzDQooaWUuIHlvdXIgdXNlIGNhc2UpIHdoZW4geW91IGFyZSBzcGlubmluZyB1cCBuYW1l
+c3BhY2VzIGZvciB1c2Vycy4NCg0KSSBkbyBoYXBwZW4gdG8ga25vdyB0aG9zZSBkZXRhaWxzLCBi
+dXQgeW91IG5lZWQgdG8gdGFsayBhYm91dCB0aGlzDQpleHBsaWNpdGx5IGluIHlvdXIgY29tbWl0
+IGxvZyBtZXNzYWdlcyBhbmQgaW4gdGhpcyBkaXNjdXNzaW9uIHNvIHRoYXQNCmV2ZXJ5b25lIGVs
+c2UgdW5kZXJzdGFuZHMgdGhpcyBhcyB3ZWxsLg0KDQpUaGFuayB5b3UuDQo=
