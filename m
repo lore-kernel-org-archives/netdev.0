@@ -1,23 +1,23 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH RFC 08/12] net: Remove references to NETIF_F_UFO in
- netdev_fix_features().
-Date: Wed, 05 Jul 2017 16:05:47 +0100 (WEST)
-Message-ID: <20170705.160547.2078029218633531306.davem@davemloft.net>
+Subject: [PATCH RFC 09/12] net: Remove references to NETIF_F_UFO from
+ ethtool.
+Date: Wed, 05 Jul 2017 16:06:00 +0100 (WEST)
+Message-ID: <20170705.160600.454773693772190224.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42602 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:42604 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751685AbdGEPFx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 11:05:53 -0400
+        with ESMTP id S1751765AbdGEPGF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 11:06:05 -0400
 Received: from localhost (unknown [193.136.225.129])
         (using TLSv1 with cipher AES256-SHA (256/256 bits))
         (Client did not present a certificate)
         (Authenticated sender: davem-davemloft)
-        by shards.monkeyblade.net (Postfix) with ESMTPSA id 5E25B126C97F3
-        for <netdev@vger.kernel.org>; Wed,  5 Jul 2017 08:05:52 -0700 (PDT)
+        by shards.monkeyblade.net (Postfix) with ESMTPSA id D7D34126C97F3
+        for <netdev@vger.kernel.org>; Wed,  5 Jul 2017 08:06:04 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -26,37 +26,54 @@ It is going away.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/core/dev.c | 18 ------------------
- 1 file changed, 18 deletions(-)
+ net/core/ethtool.c | 7 -------
+ 1 file changed, 7 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 7098fba..8495ded 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -7234,24 +7234,6 @@ static netdev_features_t netdev_fix_features(struct net_device *dev,
- 		features &= ~NETIF_F_GSO;
- 	}
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 03111a2..46f717a 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -76,7 +76,6 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
+ 	[NETIF_F_LRO_BIT] =              "rx-lro",
  
--	/* UFO needs SG and checksumming */
--	if (features & NETIF_F_UFO) {
--		/* maybe split UFO into V4 and V6? */
--		if (!(features & NETIF_F_HW_CSUM) &&
--		    ((features & (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM)) !=
--		     (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM))) {
--			netdev_dbg(dev,
--				"Dropping NETIF_F_UFO since no checksum offload features.\n");
--			features &= ~NETIF_F_UFO;
--		}
--
--		if (!(features & NETIF_F_SG)) {
--			netdev_dbg(dev,
--				"Dropping NETIF_F_UFO since no NETIF_F_SG feature.\n");
--			features &= ~NETIF_F_UFO;
--		}
--	}
--
- 	/* GSO partial features require GSO partial be set */
- 	if ((features & dev->gso_partial_features) &&
- 	    !(features & NETIF_F_GSO_PARTIAL)) {
+ 	[NETIF_F_TSO_BIT] =              "tx-tcp-segmentation",
+-	[NETIF_F_UFO_BIT] =              "tx-udp-fragmentation",
+ 	[NETIF_F_GSO_ROBUST_BIT] =       "tx-gso-robust",
+ 	[NETIF_F_TSO_ECN_BIT] =          "tx-tcp-ecn-segmentation",
+ 	[NETIF_F_TSO_MANGLEID_BIT] =	 "tx-tcp-mangleid-segmentation",
+@@ -299,9 +298,6 @@ static netdev_features_t ethtool_get_feature_mask(u32 eth_cmd)
+ 	case ETHTOOL_GTSO:
+ 	case ETHTOOL_STSO:
+ 		return NETIF_F_ALL_TSO;
+-	case ETHTOOL_GUFO:
+-	case ETHTOOL_SUFO:
+-		return NETIF_F_UFO;
+ 	case ETHTOOL_GGSO:
+ 	case ETHTOOL_SGSO:
+ 		return NETIF_F_GSO;
+@@ -2563,7 +2559,6 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_GPHYSTATS:
+ 	case ETHTOOL_GTSO:
+ 	case ETHTOOL_GPERMADDR:
+-	case ETHTOOL_GUFO:
+ 	case ETHTOOL_GGSO:
+ 	case ETHTOOL_GGRO:
+ 	case ETHTOOL_GFLAGS:
+@@ -2731,7 +2726,6 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_GRXCSUM:
+ 	case ETHTOOL_GSG:
+ 	case ETHTOOL_GTSO:
+-	case ETHTOOL_GUFO:
+ 	case ETHTOOL_GGSO:
+ 	case ETHTOOL_GGRO:
+ 		rc = ethtool_get_one_feature(dev, useraddr, ethcmd);
+@@ -2740,7 +2734,6 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_SRXCSUM:
+ 	case ETHTOOL_SSG:
+ 	case ETHTOOL_STSO:
+-	case ETHTOOL_SUFO:
+ 	case ETHTOOL_SGSO:
+ 	case ETHTOOL_SGRO:
+ 		rc = ethtool_set_one_feature(dev, useraddr, ethcmd);
 -- 
 2.9.4
