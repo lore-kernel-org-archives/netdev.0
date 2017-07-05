@@ -1,7 +1,7 @@
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: [PATCH net-next RFC 05/12] net: dsa: Add support for learning FDB through notification
-Date: Wed,  5 Jul 2017 18:36:23 +0300
-Message-ID: <1499268990-19251-6-git-send-email-arkadis@mellanox.com>
+Subject: [PATCH net-next RFC 09/12] net: dsa: Remove redundant MDB dump support
+Date: Wed,  5 Jul 2017 18:36:27 +0300
+Message-ID: <1499268990-19251-10-git-send-email-arkadis@mellanox.com>
 References: <1499268990-19251-1-git-send-email-arkadis@mellanox.com>
 Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
         f.fainelli@gmail.com, andrew@lunn.ch,
@@ -10,168 +10,166 @@ Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
         Arkadi Sharshevsky <arkadis@mellanox.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49154 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49269 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751653AbdGEPdb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 11:33:31 -0400
+        with ESMTP id S1751716AbdGEPdc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 11:33:32 -0400
 In-Reply-To: <1499268990-19251-1-git-send-email-arkadis@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for learning FDB through notification. The driver defers
-the hardware update via ordered work queue. In case of a successful
-FDB add a notification is sent back to bridge.
+Currently the MDB HW database is synced with the bridge's one, thus,
+There is no need to support special dump functionality.
 
 Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
 ---
- net/dsa/slave.c | 124 +++++++++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 122 insertions(+), 2 deletions(-)
+ drivers/net/dsa/microchip/ksz_common.c |  9 ---------
+ drivers/net/dsa/mv88e6xxx/chip.c       | 24 ------------------------
+ include/net/dsa.h                      |  4 ----
+ net/dsa/dsa_priv.h                     |  2 --
+ net/dsa/port.c                         | 11 -----------
+ net/dsa/slave.c                        |  3 ---
+ 6 files changed, 53 deletions(-)
 
+diff --git a/drivers/net/dsa/microchip/ksz_common.c b/drivers/net/dsa/microchip/ksz_common.c
+index a53ce59..4de9d90 100644
+--- a/drivers/net/dsa/microchip/ksz_common.c
++++ b/drivers/net/dsa/microchip/ksz_common.c
+@@ -1020,14 +1020,6 @@ static int ksz_port_mdb_del(struct dsa_switch *ds, int port,
+ 	return ret;
+ }
+ 
+-static int ksz_port_mdb_dump(struct dsa_switch *ds, int port,
+-			     struct switchdev_obj_port_mdb *mdb,
+-			     switchdev_obj_dump_cb_t *cb)
+-{
+-	/* this is not called by switch layer */
+-	return 0;
+-}
+-
+ static int ksz_port_mirror_add(struct dsa_switch *ds, int port,
+ 			       struct dsa_mall_mirror_tc_entry *mirror,
+ 			       bool ingress)
+@@ -1090,7 +1082,6 @@ static const struct dsa_switch_ops ksz_switch_ops = {
+ 	.port_mdb_prepare       = ksz_port_mdb_prepare,
+ 	.port_mdb_add           = ksz_port_mdb_add,
+ 	.port_mdb_del           = ksz_port_mdb_del,
+-	.port_mdb_dump          = ksz_port_mdb_dump,
+ 	.port_mirror_add	= ksz_port_mirror_add,
+ 	.port_mirror_del	= ksz_port_mirror_del,
+ };
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 9cc6269..97b77b9 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -1443,15 +1443,6 @@ static int mv88e6xxx_port_db_dump_fid(struct mv88e6xxx_chip *chip,
+ 				fdb->ndm_state = NUD_NOARP;
+ 			else
+ 				fdb->ndm_state = NUD_REACHABLE;
+-		} else if (obj->id == SWITCHDEV_OBJ_ID_PORT_MDB) {
+-			struct switchdev_obj_port_mdb *mdb;
+-
+-			if (!is_multicast_ether_addr(addr.mac))
+-				continue;
+-
+-			mdb = SWITCHDEV_OBJ_PORT_MDB(obj);
+-			mdb->vid = vid;
+-			ether_addr_copy(mdb->addr, addr.mac);
+ 		} else {
+ 			return -EOPNOTSUPP;
+ 		}
+@@ -3762,20 +3753,6 @@ static int mv88e6xxx_port_mdb_del(struct dsa_switch *ds, int port,
+ 	return err;
+ }
+ 
+-static int mv88e6xxx_port_mdb_dump(struct dsa_switch *ds, int port,
+-				   struct switchdev_obj_port_mdb *mdb,
+-				   switchdev_obj_dump_cb_t *cb)
+-{
+-	struct mv88e6xxx_chip *chip = ds->priv;
+-	int err;
+-
+-	mutex_lock(&chip->reg_lock);
+-	err = mv88e6xxx_port_db_dump(chip, port, &mdb->obj, cb);
+-	mutex_unlock(&chip->reg_lock);
+-
+-	return err;
+-}
+-
+ static const struct dsa_switch_ops mv88e6xxx_switch_ops = {
+ 	.probe			= mv88e6xxx_drv_probe,
+ 	.get_tag_protocol	= mv88e6xxx_get_tag_protocol,
+@@ -3809,7 +3786,6 @@ static const struct dsa_switch_ops mv88e6xxx_switch_ops = {
+ 	.port_mdb_prepare       = mv88e6xxx_port_mdb_prepare,
+ 	.port_mdb_add           = mv88e6xxx_port_mdb_add,
+ 	.port_mdb_del           = mv88e6xxx_port_mdb_del,
+-	.port_mdb_dump          = mv88e6xxx_port_mdb_dump,
+ 	.crosschip_bridge_join	= mv88e6xxx_crosschip_bridge_join,
+ 	.crosschip_bridge_leave	= mv88e6xxx_crosschip_bridge_leave,
+ };
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 9171b11..2d85ad2 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -406,10 +406,6 @@ struct dsa_switch_ops {
+ 				struct switchdev_trans *trans);
+ 	int	(*port_mdb_del)(struct dsa_switch *ds, int port,
+ 				const struct switchdev_obj_port_mdb *mdb);
+-	int	(*port_mdb_dump)(struct dsa_switch *ds, int port,
+-				 struct switchdev_obj_port_mdb *mdb,
+-				  switchdev_obj_dump_cb_t *cb);
+-
+ 	/*
+ 	 * RXNFC
+ 	 */
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index 421df4f..85f53a0 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -131,8 +131,6 @@ int dsa_port_mdb_add(struct dsa_port *dp,
+ 		     struct switchdev_trans *trans);
+ int dsa_port_mdb_del(struct dsa_port *dp,
+ 		     const struct switchdev_obj_port_mdb *mdb);
+-int dsa_port_mdb_dump(struct dsa_port *dp, struct switchdev_obj_port_mdb *mdb,
+-		      switchdev_obj_dump_cb_t *cb);
+ int dsa_port_vlan_add(struct dsa_port *dp,
+ 		      const struct switchdev_obj_port_vlan *vlan,
+ 		      struct switchdev_trans *trans);
+diff --git a/net/dsa/port.c b/net/dsa/port.c
+index ce19216..7378782 100644
+--- a/net/dsa/port.c
++++ b/net/dsa/port.c
+@@ -210,17 +210,6 @@ int dsa_port_mdb_del(struct dsa_port *dp,
+ 	return dsa_port_notify(dp, DSA_NOTIFIER_MDB_DEL, &info);
+ }
+ 
+-int dsa_port_mdb_dump(struct dsa_port *dp, struct switchdev_obj_port_mdb *mdb,
+-		      switchdev_obj_dump_cb_t *cb)
+-{
+-	struct dsa_switch *ds = dp->ds;
+-
+-	if (ds->ops->port_mdb_dump)
+-		return ds->ops->port_mdb_dump(ds, dp->index, mdb, cb);
+-
+-	return -EOPNOTSUPP;
+-}
+-
+ int dsa_port_vlan_add(struct dsa_port *dp,
+ 		      const struct switchdev_obj_port_vlan *vlan,
+ 		      struct switchdev_trans *trans)
 diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 19395cc..d0592f2 100644
+index 7393b36..acbc0f2 100644
 --- a/net/dsa/slave.c
 +++ b/net/dsa/slave.c
-@@ -1263,19 +1263,139 @@ static int dsa_slave_netdevice_event(struct notifier_block *nb,
- 	return NOTIFY_DONE;
- }
- 
-+struct dsa_switchdev_event_work {
-+	struct work_struct work;
-+	struct switchdev_notifier_fdb_info fdb_info;
-+	struct net_device *dev;
-+	unsigned long event;
-+};
-+
-+static void dsa_switchdev_event_work(struct work_struct *work)
-+{
-+	struct dsa_switchdev_event_work *switchdev_work =
-+		container_of(work, struct dsa_switchdev_event_work, work);
-+	struct net_device *dev = switchdev_work->dev;
-+	struct switchdev_notifier_fdb_info *fdb_info;
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	int err;
-+
-+	rtnl_lock();
-+	switch (switchdev_work->event) {
-+	case SWITCHDEV_FDB_ADD_TO_DEVICE:
-+		fdb_info = &switchdev_work->fdb_info;
-+		err = dsa_port_fdb_add(p->dp, fdb_info->addr, fdb_info->vid);
-+		if (err) {
-+			netdev_dbg(dev, "fdb add failed err=%d\n", err);
-+			break;
-+		}
-+		call_switchdev_notifiers(SWITCHDEV_FDB_OFFLOADED, dev,
-+					 &fdb_info->info);
-+		break;
-+
-+	case SWITCHDEV_FDB_DEL_TO_DEVICE:
-+		fdb_info = &switchdev_work->fdb_info;
-+		err = dsa_port_fdb_del(p->dp, fdb_info->addr, fdb_info->vid);
-+		if (err)
-+			netdev_dbg(dev, "fdb del failed err=%d\n", err);
-+		break;
-+	}
-+	rtnl_unlock();
-+
-+	kfree(switchdev_work->fdb_info.addr);
-+	kfree(switchdev_work);
-+	dev_put(dev);
-+}
-+
-+static int
-+dsa_slave_switchdev_fdb_work_init(struct dsa_switchdev_event_work *
-+				  switchdev_work,
-+				  const struct switchdev_notifier_fdb_info *
-+				  fdb_info)
-+{
-+	memcpy(&switchdev_work->fdb_info, fdb_info,
-+	       sizeof(switchdev_work->fdb_info));
-+	switchdev_work->fdb_info.addr = kzalloc(ETH_ALEN, GFP_ATOMIC);
-+	if (!switchdev_work->fdb_info.addr)
-+		return -ENOMEM;
-+	ether_addr_copy((u8 *)switchdev_work->fdb_info.addr,
-+			fdb_info->addr);
-+	return 0;
-+}
-+
-+/* Called under rcu_read_lock() */
-+static int dsa_slave_switchdev_event(struct notifier_block *unused,
-+				     unsigned long event, void *ptr)
-+{
-+	struct net_device *dev = switchdev_notifier_info_to_dev(ptr);
-+	struct dsa_switchdev_event_work *switchdev_work;
-+
-+	if (!dsa_slave_dev_check(dev))
-+		return NOTIFY_DONE;
-+
-+	switchdev_work = kzalloc(sizeof(*switchdev_work), GFP_ATOMIC);
-+	if (!switchdev_work)
-+		return NOTIFY_BAD;
-+
-+	INIT_WORK(&switchdev_work->work, dsa_switchdev_event_work);
-+	switchdev_work->dev = dev;
-+	switchdev_work->event = event;
-+
-+	switch (event) {
-+	case SWITCHDEV_FDB_ADD_TO_DEVICE: /* fall through */
-+	case SWITCHDEV_FDB_DEL_TO_DEVICE:
-+		if (dsa_slave_switchdev_fdb_work_init(switchdev_work,
-+						      ptr))
-+			goto err_fdb_work_init;
-+		dev_hold(dev);
-+		break;
-+	default:
-+		kfree(switchdev_work);
-+		return NOTIFY_DONE;
-+	}
-+
-+	dsa_schedule_work(&switchdev_work->work);
-+	return NOTIFY_OK;
-+
-+err_fdb_work_init:
-+	kfree(switchdev_work);
-+	return NOTIFY_BAD;
-+}
-+
- static struct notifier_block dsa_slave_nb __read_mostly = {
--	.notifier_call	= dsa_slave_netdevice_event,
-+	.notifier_call  = dsa_slave_netdevice_event,
-+};
-+
-+static struct notifier_block dsa_slave_switchdev_notifier = {
-+	.notifier_call = dsa_slave_switchdev_event,
- };
- 
- int dsa_slave_register_notifier(void)
- {
--	return register_netdevice_notifier(&dsa_slave_nb);
-+	int err;
-+
-+	err = register_netdevice_notifier(&dsa_slave_nb);
-+	if (err)
-+		return err;
-+
-+	err = register_switchdev_notifier(&dsa_slave_switchdev_notifier);
-+	if (err)
-+		goto err_register_switchdev;
-+
-+	return 0;
-+
-+err_register_switchdev:
-+	unregister_netdevice_notifier(&dsa_slave_nb);
-+	return err;
- }
- 
- void dsa_slave_unregister_notifier(void)
- {
- 	int err;
- 
-+	err = unregister_netdevice_notifier(&dsa_slave_switchdev_notifier);
-+	if (err)
-+		pr_err("DSA: failed to unregister switchdev notifier (%d)\n", err);
-+
- 	err = unregister_netdevice_notifier(&dsa_slave_nb);
- 	if (err)
- 		pr_err("DSA: failed to unregister slave notifier (%d)\n", err);
+@@ -299,9 +299,6 @@ static int dsa_slave_port_obj_dump(struct net_device *dev,
+ 	case SWITCHDEV_OBJ_ID_PORT_FDB:
+ 		err = dsa_port_fdb_dump(dp, SWITCHDEV_OBJ_PORT_FDB(obj), cb);
+ 		break;
+-	case SWITCHDEV_OBJ_ID_PORT_MDB:
+-		err = dsa_port_mdb_dump(dp, SWITCHDEV_OBJ_PORT_MDB(obj), cb);
+-		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+ 		break;
 -- 
 2.4.11
