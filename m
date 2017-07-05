@@ -1,45 +1,51 @@
-From: Biju Das <biju.das@bp.renesas.com>
-Subject: [PATCH v 2/2] ARM: shmobile: defconfig: Enable Ethernet AVB
-Date: Wed,  5 Jul 2017 14:01:51 +0100
-Message-ID: <1499259711-56175-3-git-send-email-biju.das@bp.renesas.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v 1/2] ravb: Add support for r8a7743 SoC
+Date: Wed, 5 Jul 2017 16:20:48 +0300
+Message-ID: <afcd181c-c805-8f3c-955f-652d001a03d4@cogentembedded.com>
 References: <1499259711-56175-1-git-send-email-biju.das@bp.renesas.com>
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Simon Horman <horms@verge.net.au>,
+ <1499259711-56175-2-git-send-email-biju.das@bp.renesas.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Simon Horman <horms@verge.net.au>,
         Magnus Damm <magnus.damm@gmail.com>,
         Chris Paterson <chris.paterson2@renesas.com>,
         devicetree@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-        Biju Das <biju.das@bp.renesas.com>
-To: Rob Herring <robh+dt@kernel.org>,
+        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+To: Biju Das <biju.das@bp.renesas.com>,
+        Rob Herring <robh+dt@kernel.org>,
         Mark Rutland <mark.rutland@arm.com>,
         Russell King <linux@armlinux.org.uk>
 Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1499259711-56175-1-git-send-email-biju.das@bp.renesas.com>
+In-Reply-To: <1499259711-56175-2-git-send-email-biju.das@bp.renesas.com>
 Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The iWave RZ/G1M Q7 SOM supports Gigabit Ethernet Phy (Micrel KSZ9031MNX).
-Gigabit Ethernet support is available in Renesas AVB driver.
-To increase hardware support enable the driver in the shmobile_defconfig
-multiplatform configuration.
+Hello!
 
-Signed-off-by: Biju Das <biju.das@bp.renesas.com>
-Reviewed-by: Chris Paterson <chris.paterson2@renesas.com>
----
- arch/arm/configs/shmobile_defconfig | 1 +
- 1 file changed, 1 insertion(+)
+On 07/05/2017 04:01 PM, Biju Das wrote:
 
-diff --git a/arch/arm/configs/shmobile_defconfig b/arch/arm/configs/shmobile_defconfig
-index 3c66a42..d992911 100644
---- a/arch/arm/configs/shmobile_defconfig
-+++ b/arch/arm/configs/shmobile_defconfig
-@@ -83,6 +83,7 @@ CONFIG_NETDEVICES=y
- # CONFIG_NET_VENDOR_MICREL is not set
- # CONFIG_NET_VENDOR_NATSEMI is not set
- CONFIG_SH_ETH=y
-+CONFIG_RAVB=y
- # CONFIG_NET_VENDOR_SEEQ is not set
- CONFIG_SMSC911X=y
- # CONFIG_NET_VENDOR_STMICRO is not set
--- 
-1.9.1
+> Add support for Gigabit Ethernet E-MAC on r8a7743 (RZ/G1M) SoC.
+> Renesas RZ/G1M (R8A7743) SoC Ethernet AVB IP is identical to the R-Car Gen2
+> family.
+>
+> Signed-off-by: Biju Das <biju.das@bp.renesas.com>
+> Reviewed-by: Chris Paterson <chris.paterson2@renesas.com>
+[...]
+> diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+> index 5931e85..e35b30f 100644
+> --- a/drivers/net/ethernet/renesas/ravb_main.c
+> +++ b/drivers/net/ethernet/renesas/ravb_main.c
+> @@ -1869,6 +1869,7 @@ static int ravb_mdio_release(struct ravb_private *priv)
+>  }
+>
+>  static const struct of_device_id ravb_match_table[] = {
+> +	{ .compatible = "renesas,etheravb-r8a7743", .data = (void *)RCAR_GEN2 },
+
+    No, this shouldn't be needed if you specify "renesas,etheravb-rcar-gen2".
+
+>  	{ .compatible = "renesas,etheravb-r8a7790", .data = (void *)RCAR_GEN2 },
+>  	{ .compatible = "renesas,etheravb-r8a7794", .data = (void *)RCAR_GEN2 },
+>  	{ .compatible = "renesas,etheravb-rcar-gen2", .data = (void *)RCAR_GEN2 },
+
+MBR, Sergei
