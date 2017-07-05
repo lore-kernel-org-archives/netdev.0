@@ -1,113 +1,66 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net] ip[6]: don't register inet[6]dev when dev is down
-Date: Wed, 5 Jul 2017 15:43:40 -0700
-Message-ID: <CAM_iQpUtniWmKAOGnjJ+d-cWeQkgEPhcwKFdMeVy49rCe2Sh5g@mail.gmail.com>
-References: <20170705155725.15469-1-nicolas.dichtel@6wind.com>
+From: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
+        <maheshb@google.com>
+Subject: Re: [PATCH 0/2] bring UP loopback device at initialziation
+Date: Wed, 5 Jul 2017 16:01:55 -0700
+Message-ID: <CAF2d9jjsRXnuPz3WKSRZK5ctj_c2BMBcWfiWbe4vxesGA8fNgg@mail.gmail.com>
+References: <20170704191615.6412-1-mahesh@bandewar.net> <20170705.092032.1482668095877350196.davem@davemloft.net>
+ <CAF2d9jjZ0XJDo3qYKnNgeMMLQXgUwt5ga8p_cWd5x-DjhzwWyA@mail.gmail.com>
+ <20170705.170524.241248681076978527.davem@davemloft.net> <CAF2d9jhTujK0J53DODxCp+0yYnR2RTz7rVGaJE=xeN0-9k4C3g@mail.gmail.com>
+ <871spuek9i.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="f403045c14f67a1a08055399bc04"
-Cc: David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Hongjun Li <hongjun.li@6wind.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: mahesh@bandewar.net, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, Eric Dumazet <edumazet@google.com>,
+        linux-netdev <netdev@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+        David Miller <davem@davemloft.net>,
+        Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f169.google.com ([209.85.128.169]:33892 "EHLO
-        mail-wr0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751941AbdGEWoC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 18:44:02 -0400
-Received: by mail-wr0-f169.google.com with SMTP id 77so4223147wrb.1
-        for <netdev@vger.kernel.org>; Wed, 05 Jul 2017 15:44:01 -0700 (PDT)
-In-Reply-To: <20170705155725.15469-1-nicolas.dichtel@6wind.com>
+Received: from mail-it0-f46.google.com ([209.85.214.46]:36271 "EHLO
+        mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752466AbdGEXCR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 19:02:17 -0400
+Received: by mail-it0-f46.google.com with SMTP id m68so126262655ith.1
+        for <netdev@vger.kernel.org>; Wed, 05 Jul 2017 16:02:17 -0700 (PDT)
+In-Reply-To: <871spuek9i.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---f403045c14f67a1a08055399bc04
-Content-Type: text/plain; charset="UTF-8"
+> I wonder if it is too late to change this since this behavior is probably
+> from the beginning of network namespace. A networkless netns is also
+> useful at least for testing purpose, we do use it as a sandbox.
+>
+Sandbox is my use case too but i'm worried about all other things that
+a process inside that namespace can do (tasks' capability mask) and
+want to eliminate a need to have a capability just to bing-up the
+loopback device (more in the commit message update)
 
-On Wed, Jul 5, 2017 at 8:57 AM, Nicolas Dichtel
-<nicolas.dichtel@6wind.com> wrote:
-> When a device changes from one netns to another, it's first unregistered,
-> then the netns reference is updated and the dev is registered in the new
-> netns. Thus, when a slave moves to another netns, it is first
-> unregistered. This triggers a NETDEV_UNREGISTER event which is caught by
-> the bonding driver. The driver calls bond_release(), which calls
-> dev_set_mtu() and thus triggers NETDEV_CHANGEMTU (the device is still in
-> the old netns).
 
-I think in this special case it is meaningless to send
-NETDEV_CHANGEMTU, because the device is dying within
-its old netns, who still cares about its mtu change?
+> If you can please include the analysis that describes why no one will
+> care. Especially applications such as vsftpd that create network
+> namespaces as a way to sandbox themselves and not have a network stack
+> available.
+>
+Well, I wasn't sure hence probed with the RFC patch.
+I'm not familiar with the vsftpd use-case but I assume it's expecting
+a loopback device to be in DOWN state.
 
-Something like the attached patch...
+Now that you have made me aware of some use cases that do want the
+loopback device to be DOWN, could we use a global sysctl to dictate
+the loopback behavior during init? e.g.
 
---f403045c14f67a1a08055399bc04
-Content-Type: text/plain; charset="US-ASCII"; name="bond-change-mtu.diff"
-Content-Disposition: attachment; filename="bond-change-mtu.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_j4rlas9c0
+net.core.netdev_loopback_state = {0|1}
 
-ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZF9tYWluLmMgYi9kcml2ZXJzL25l
-dC9ib25kaW5nL2JvbmRfbWFpbi5jCmluZGV4IDhhYjZiZGIuLjI5NzFhZjEgMTAwNjQ0Ci0tLSBh
-L2RyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZF9tYWluLmMKKysrIGIvZHJpdmVycy9uZXQvYm9uZGlu
-Zy9ib25kX21haW4uYwpAQCAtMTgyMCw3ICsxODIwLDcgQEAgaW50IGJvbmRfZW5zbGF2ZShzdHJ1
-Y3QgbmV0X2RldmljZSAqYm9uZF9kZXYsIHN0cnVjdCBuZXRfZGV2aWNlICpzbGF2ZV9kZXYpCiAg
-Ki8KIHN0YXRpYyBpbnQgX19ib25kX3JlbGVhc2Vfb25lKHN0cnVjdCBuZXRfZGV2aWNlICpib25k
-X2RldiwKIAkJCSAgICAgIHN0cnVjdCBuZXRfZGV2aWNlICpzbGF2ZV9kZXYsCi0JCQkgICAgICBi
-b29sIGFsbCkKKwkJCSAgICAgIGJvb2wgYWxsLCBib29sIHVucmVnaXN0ZXIpCiB7CiAJc3RydWN0
-IGJvbmRpbmcgKmJvbmQgPSBuZXRkZXZfcHJpdihib25kX2Rldik7CiAJc3RydWN0IHNsYXZlICpz
-bGF2ZSwgKm9sZGN1cnJlbnQ7CkBAIC0xOTY1LDcgKzE5NjUsMTAgQEAgc3RhdGljIGludCBfX2Jv
-bmRfcmVsZWFzZV9vbmUoc3RydWN0IG5ldF9kZXZpY2UgKmJvbmRfZGV2LAogCQlkZXZfc2V0X21h
-Y19hZGRyZXNzKHNsYXZlX2RldiwgKHN0cnVjdCBzb2NrYWRkciAqKSZzcyk7CiAJfQogCi0JZGV2
-X3NldF9tdHUoc2xhdmVfZGV2LCBzbGF2ZS0+b3JpZ2luYWxfbXR1KTsKKwlpZiAodW5yZWdpc3Rl
-cikKKwkJX19kZXZfc2V0X210dShzbGF2ZV9kZXYsIHNsYXZlLT5vcmlnaW5hbF9tdHUpOworCWVs
-c2UKKwkJZGV2X3NldF9tdHUoc2xhdmVfZGV2LCBzbGF2ZS0+b3JpZ2luYWxfbXR1KTsKIAogCXNs
-YXZlX2Rldi0+cHJpdl9mbGFncyAmPSB+SUZGX0JPTkRJTkc7CiAKQEAgLTE5NzcsNyArMTk4MCw3
-IEBAIHN0YXRpYyBpbnQgX19ib25kX3JlbGVhc2Vfb25lKHN0cnVjdCBuZXRfZGV2aWNlICpib25k
-X2RldiwKIC8qIEEgd3JhcHBlciB1c2VkIGJlY2F1c2Ugb2YgbmRvX2RlbF9saW5rICovCiBpbnQg
-Ym9uZF9yZWxlYXNlKHN0cnVjdCBuZXRfZGV2aWNlICpib25kX2Rldiwgc3RydWN0IG5ldF9kZXZp
-Y2UgKnNsYXZlX2RldikKIHsKLQlyZXR1cm4gX19ib25kX3JlbGVhc2Vfb25lKGJvbmRfZGV2LCBz
-bGF2ZV9kZXYsIGZhbHNlKTsKKwlyZXR1cm4gX19ib25kX3JlbGVhc2Vfb25lKGJvbmRfZGV2LCBz
-bGF2ZV9kZXYsIGZhbHNlLCBmYWxzZSk7CiB9CiAKIC8qIEZpcnN0IHJlbGVhc2UgYSBzbGF2ZSBh
-bmQgdGhlbiBkZXN0cm95IHRoZSBib25kIGlmIG5vIG1vcmUgc2xhdmVzIGFyZSBsZWZ0LgpAQCAt
-MTk4OSw3ICsxOTkyLDcgQEAgc3RhdGljIGludCAgYm9uZF9yZWxlYXNlX2FuZF9kZXN0cm95KHN0
-cnVjdCBuZXRfZGV2aWNlICpib25kX2RldiwKIAlzdHJ1Y3QgYm9uZGluZyAqYm9uZCA9IG5ldGRl
-dl9wcml2KGJvbmRfZGV2KTsKIAlpbnQgcmV0OwogCi0JcmV0ID0gYm9uZF9yZWxlYXNlKGJvbmRf
-ZGV2LCBzbGF2ZV9kZXYpOworCXJldCA9IF9fYm9uZF9yZWxlYXNlX29uZShib25kX2Rldiwgc2xh
-dmVfZGV2LCBmYWxzZSwgdHJ1ZSk7CiAJaWYgKHJldCA9PSAwICYmICFib25kX2hhc19zbGF2ZXMo
-Ym9uZCkpIHsKIAkJYm9uZF9kZXYtPnByaXZfZmxhZ3MgfD0gSUZGX0RJU0FCTEVfTkVUUE9MTDsK
-IAkJbmV0ZGV2X2luZm8oYm9uZF9kZXYsICJEZXN0cm95aW5nIGJvbmQgJXNcbiIsCkBAIC0zMDYw
-LDcgKzMwNjMsNyBAQCBzdGF0aWMgaW50IGJvbmRfc2xhdmVfbmV0ZGV2X2V2ZW50KHVuc2lnbmVk
-IGxvbmcgZXZlbnQsCiAJCWlmIChib25kX2Rldi0+dHlwZSAhPSBBUlBIUkRfRVRIRVIpCiAJCQli
-b25kX3JlbGVhc2VfYW5kX2Rlc3Ryb3koYm9uZF9kZXYsIHNsYXZlX2Rldik7CiAJCWVsc2UKLQkJ
-CWJvbmRfcmVsZWFzZShib25kX2Rldiwgc2xhdmVfZGV2KTsKKwkJCV9fYm9uZF9yZWxlYXNlX29u
-ZShib25kX2Rldiwgc2xhdmVfZGV2LCBmYWxzZSwgdHJ1ZSk7CiAJCWJyZWFrOwogCWNhc2UgTkVU
-REVWX1VQOgogCWNhc2UgTkVUREVWX0NIQU5HRToKQEAgLTQyNTcsNyArNDI2MCw3IEBAIHN0YXRp
-YyB2b2lkIGJvbmRfdW5pbml0KHN0cnVjdCBuZXRfZGV2aWNlICpib25kX2RldikKIAogCS8qIFJl
-bGVhc2UgdGhlIGJvbmRlZCBzbGF2ZXMgKi8KIAlib25kX2Zvcl9lYWNoX3NsYXZlKGJvbmQsIHNs
-YXZlLCBpdGVyKQotCQlfX2JvbmRfcmVsZWFzZV9vbmUoYm9uZF9kZXYsIHNsYXZlLT5kZXYsIHRy
-dWUpOworCQlfX2JvbmRfcmVsZWFzZV9vbmUoYm9uZF9kZXYsIHNsYXZlLT5kZXYsIHRydWUsIHRy
-dWUpOwogCW5ldGRldl9pbmZvKGJvbmRfZGV2LCAiUmVsZWFzZWQgYWxsIHNsYXZlc1xuIik7CiAK
-IAlhcnIgPSBydG5sX2RlcmVmZXJlbmNlKGJvbmQtPnNsYXZlX2Fycik7CmRpZmYgLS1naXQgYS9p
-bmNsdWRlL2xpbnV4L25ldGRldmljZS5oIGIvaW5jbHVkZS9saW51eC9uZXRkZXZpY2UuaAppbmRl
-eCA0ZWQ5NTJjLi5lNDAzMGRiIDEwMDY0NAotLS0gYS9pbmNsdWRlL2xpbnV4L25ldGRldmljZS5o
-CisrKyBiL2luY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmgKQEAgLTMyODcsNiArMzI4Nyw3IEBAIHZv
-aWQgX19kZXZfbm90aWZ5X2ZsYWdzKHN0cnVjdCBuZXRfZGV2aWNlICosIHVuc2lnbmVkIGludCBv
-bGRfZmxhZ3MsCiBpbnQgZGV2X2NoYW5nZV9uYW1lKHN0cnVjdCBuZXRfZGV2aWNlICosIGNvbnN0
-IGNoYXIgKik7CiBpbnQgZGV2X3NldF9hbGlhcyhzdHJ1Y3QgbmV0X2RldmljZSAqLCBjb25zdCBj
-aGFyICosIHNpemVfdCk7CiBpbnQgZGV2X2NoYW5nZV9uZXRfbmFtZXNwYWNlKHN0cnVjdCBuZXRf
-ZGV2aWNlICosIHN0cnVjdCBuZXQgKiwgY29uc3QgY2hhciAqKTsKK2ludCBfX2Rldl9zZXRfbXR1
-KHN0cnVjdCBuZXRfZGV2aWNlICosIGludCk7CiBpbnQgZGV2X3NldF9tdHUoc3RydWN0IG5ldF9k
-ZXZpY2UgKiwgaW50KTsKIHZvaWQgZGV2X3NldF9ncm91cChzdHJ1Y3QgbmV0X2RldmljZSAqLCBp
-bnQpOwogaW50IGRldl9zZXRfbWFjX2FkZHJlc3Moc3RydWN0IG5ldF9kZXZpY2UgKiwgc3RydWN0
-IHNvY2thZGRyICopOwpkaWZmIC0tZ2l0IGEvbmV0L2NvcmUvZGV2LmMgYi9uZXQvY29yZS9kZXYu
-YwppbmRleCA0MTYxMzdjLi5lNTY3ZGU4IDEwMDY0NAotLS0gYS9uZXQvY29yZS9kZXYuYworKysg
-Yi9uZXQvY29yZS9kZXYuYwpAQCAtNjY4OCw3ICs2Njg4LDcgQEAgaW50IGRldl9jaGFuZ2VfZmxh
-Z3Moc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgdW5zaWduZWQgaW50IGZsYWdzKQogfQogRVhQT1JU
-X1NZTUJPTChkZXZfY2hhbmdlX2ZsYWdzKTsKIAotc3RhdGljIGludCBfX2Rldl9zZXRfbXR1KHN0
-cnVjdCBuZXRfZGV2aWNlICpkZXYsIGludCBuZXdfbXR1KQoraW50IF9fZGV2X3NldF9tdHUoc3Ry
-dWN0IG5ldF9kZXZpY2UgKmRldiwgaW50IG5ld19tdHUpCiB7CiAJY29uc3Qgc3RydWN0IG5ldF9k
-ZXZpY2Vfb3BzICpvcHMgPSBkZXYtPm5ldGRldl9vcHM7CiAKQEAgLTY2OTgsNiArNjY5OCw3IEBA
-IHN0YXRpYyBpbnQgX19kZXZfc2V0X210dShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBpbnQgbmV3
-X210dSkKIAlkZXYtPm10dSA9IG5ld19tdHU7CiAJcmV0dXJuIDA7CiB9CitFWFBPUlRfU1lNQk9M
-KF9fZGV2X3NldF9tdHUpOwogCiAvKioKICAqCWRldl9zZXRfbXR1IC0gQ2hhbmdlIG1heGltdW0g
-dHJhbnNmZXIgdW5pdAo=
---f403045c14f67a1a08055399bc04--
+    where 0: is current behavior i.e. DOWN by default.
+               1: is the proposed new behavior i.e. UP by default.
+
+We can keep the default value of this sysctl to be '1' so that when a
+host boots, the loopback is UP by default.
+ In a running system that prefers the loopback device to come up in
+DOWN state for the namespaces, can change the value of this sysctl to
+'0' so every namespace creation will come-up with loopback in DOWN
+state. Or we could reverse the behavior by changing the default value
+of this sysctl (to '0').
+
+Thanks,
+--mahesh..
