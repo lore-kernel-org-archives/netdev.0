@@ -1,114 +1,61 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 04/12] net: dsa: mv88e6xxx: remove unused capabilities
-Date: Tue,  4 Jul 2017 19:41:47 -0400
-Message-ID: <20170704234155.24360-5-vivien.didelot@savoirfairelinux.com>
-References: <20170704234155.24360-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170704234155.24360-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net] mpls: fix rtm policy in mpls_getroute
+Date: Tue,  4 Jul 2017 17:03:02 -0700
+Message-ID: <1499212982-12970-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, dsahern@gmail.com, rshearma@brocade.com,
+        nikolay@cumulusnetworks.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f46.google.com ([74.125.83.46]:35421 "EHLO
+        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752395AbdGEADO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 20:03:14 -0400
+Received: by mail-pg0-f46.google.com with SMTP id j186so115491328pge.2
+        for <netdev@vger.kernel.org>; Tue, 04 Jul 2017 17:03:13 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Remove the forgotten capabilities and related flags from previous
-cleanups.
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+fix rtm policy name typo in mpls_getroute and also remove
+export of rtm_ipv4_policy
+
+Fixes: 397fc9e5cefe ("mpls: route get support")
+Reported-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.h | 29 +++--------------------------
- 1 file changed, 3 insertions(+), 26 deletions(-)
+David, since the rtm_ipv4_policy export is not in net yet
+and assuming it will soon be there, I have generated this
+patch against net-next, but addressed it to net. Thanks.
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.h b/drivers/net/dsa/mv88e6xxx/chip.h
-index 086444016352..9ccf5d03346a 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.h
-+++ b/drivers/net/dsa/mv88e6xxx/chip.h
-@@ -109,11 +109,6 @@ enum mv88e6xxx_cap {
- 	MV88E6XXX_CAP_SMI_CMD,		/* (0x00) SMI Command */
- 	MV88E6XXX_CAP_SMI_DATA,		/* (0x01) SMI Data */
- 
--	/* Switch Global (1) Registers.
--	 */
--	MV88E6XXX_CAP_G1_ATU_FID,	/* (0x01) ATU FID Register */
--	MV88E6XXX_CAP_G1_VTU_FID,	/* (0x02) VTU FID Register */
--
- 	/* Switch Global 2 Registers.
- 	 * The device contains a second set of global 16-bit registers.
- 	 */
-@@ -122,17 +117,6 @@ enum mv88e6xxx_cap {
- 	MV88E6XXX_CAP_G2_MGMT_EN_2X,	/* (0x02) MGMT Enable Register 2x */
- 	MV88E6XXX_CAP_G2_MGMT_EN_0X,	/* (0x03) MGMT Enable Register 0x */
- 	MV88E6XXX_CAP_G2_POT,		/* (0x0f) Priority Override Table */
--
--	/* Per VLAN Spanning Tree Unit (STU).
--	 * The Port State database, if present, is accessed through VTU
--	 * operations and dedicated SID registers. See MV88E6352_G1_VTU_SID.
--	 */
--	MV88E6XXX_CAP_STU,
--
--	/* VLAN Table Unit.
--	 * The VTU is used to program 802.1Q VLANs. See MV88E6XXX_G1_VTU_OP.
--	 */
--	MV88E6XXX_CAP_VTU,
+ net/ipv4/fib_frontend.c | 1 -
+ net/mpls/af_mpls.c      | 2 +-
+ 2 files changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 1b5860f..4e678fa 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -626,7 +626,6 @@ int ip_rt_ioctl(struct net *net, unsigned int cmd, void __user *arg)
+ 	[RTA_UID]		= { .type = NLA_U32 },
+ 	[RTA_MARK]		= { .type = NLA_U32 },
  };
+-EXPORT_SYMBOL_GPL(rtm_ipv4_policy);
  
- /* Bitmask of capabilities */
-@@ -141,8 +125,6 @@ enum mv88e6xxx_cap {
- #define MV88E6XXX_FLAG_SMI_CMD		BIT_ULL(MV88E6XXX_CAP_SMI_CMD)
- #define MV88E6XXX_FLAG_SMI_DATA		BIT_ULL(MV88E6XXX_CAP_SMI_DATA)
+ static int rtm_to_fib_config(struct net *net, struct sk_buff *skb,
+ 			     struct nlmsghdr *nlh, struct fib_config *cfg,
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index e17d6cd..bdcfb2d 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -2091,7 +2091,7 @@ static int mpls_getroute(struct sk_buff *in_skb, struct nlmsghdr *in_nlh,
+ 	u8 n_labels;
  
--#define MV88E6XXX_FLAG_G1_VTU_FID	BIT_ULL(MV88E6XXX_CAP_G1_VTU_FID)
--
- #define MV88E6XXX_FLAG_GLOBAL2		BIT_ULL(MV88E6XXX_CAP_GLOBAL2)
- #define MV88E6XXX_FLAG_G2_INT		BIT_ULL(MV88E6XXX_CAP_G2_INT)
- #define MV88E6XXX_FLAG_G2_MGMT_EN_2X	BIT_ULL(MV88E6XXX_CAP_G2_MGMT_EN_2X)
-@@ -160,8 +142,7 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAGS_MULTI_CHIP)
+ 	err = nlmsg_parse(in_nlh, sizeof(*rtm), tb, RTA_MAX,
+-			  rtm_ipv4_policy, extack);
++			  rtm_mpls_policy, extack);
+ 	if (err < 0)
+ 		goto errout;
  
- #define MV88E6XXX_FLAGS_FAMILY_6097	\
--	(MV88E6XXX_FLAG_G1_VTU_FID |	\
--	 MV88E6XXX_FLAG_GLOBAL2 |	\
-+	(MV88E6XXX_FLAG_GLOBAL2 |	\
- 	 MV88E6XXX_FLAG_G2_INT |        \
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
-@@ -169,8 +150,7 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAGS_MULTI_CHIP)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6165	\
--	(MV88E6XXX_FLAG_G1_VTU_FID |	\
--	 MV88E6XXX_FLAG_GLOBAL2 |	\
-+	(MV88E6XXX_FLAG_GLOBAL2 |	\
- 	 MV88E6XXX_FLAG_G2_INT |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
-@@ -193,15 +173,13 @@ enum mv88e6xxx_cap {
- 
- #define MV88E6XXX_FLAGS_FAMILY_6341	\
- 	(MV88E6XXX_FLAG_EEE |		\
--	 MV88E6XXX_FLAG_G1_VTU_FID |	\
- 	 MV88E6XXX_FLAG_GLOBAL2 |	\
- 	 MV88E6XXX_FLAG_G2_INT |	\
- 	 MV88E6XXX_FLAG_G2_POT |	\
- 	 MV88E6XXX_FLAGS_MULTI_CHIP)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6351	\
--	(MV88E6XXX_FLAG_G1_VTU_FID |	\
--	 MV88E6XXX_FLAG_GLOBAL2 |	\
-+	(MV88E6XXX_FLAG_GLOBAL2 |	\
- 	 MV88E6XXX_FLAG_G2_INT |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
-@@ -210,7 +188,6 @@ enum mv88e6xxx_cap {
- 
- #define MV88E6XXX_FLAGS_FAMILY_6352	\
- 	(MV88E6XXX_FLAG_EEE |		\
--	 MV88E6XXX_FLAG_G1_VTU_FID |	\
- 	 MV88E6XXX_FLAG_GLOBAL2 |	\
- 	 MV88E6XXX_FLAG_G2_INT |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
 -- 
-2.13.2
+1.9.1
