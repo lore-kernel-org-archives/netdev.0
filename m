@@ -1,35 +1,65 @@
-From: Yunsheng Lin <linyunsheng@huawei.com>
-Subject: Re: [PATCH net 0/3] Bugfixs for hns ethernet driver
-Date: Wed, 5 Jul 2017 16:30:09 +0800
-Message-ID: <eee1e130-0a9e-af41-889e-e23d73d53acc@huawei.com>
-References: <1499165253-184543-1-git-send-email-linyunsheng@huawei.com>
- <c1077130-1ecd-ef95-4182-ffc167aace2b@gmail.com>
+From: Ilan Tayari <ilant@mellanox.com>
+Subject: RE: [RFC net-next 9/9] xfrm: add a small xdst pcpu cache
+Date: Wed, 5 Jul 2017 09:01:11 +0000
+Message-ID: <AM4PR0501MB1940F3957F0AE02C355717AEDBD40@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+References: <20170628132652.1275-1-fw@strlen.de>
+ <20170628132652.1275-10-fw@strlen.de>
+ <AM4PR0501MB194005DDDF772CE960D1E6F5DBD20@AM4PR0501MB1940.eurprd05.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
-        <liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
-        <gabriele.paoloni@huawei.com>, <john.garry@huawei.com>,
-        <linuxarm@huawei.com>, <salil.mehta@huawei.com>,
-        <lipeng321@huawei.com>, <tremyfr@gmail.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>, <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <c1077130-1ecd-ef95-4182-ffc167aace2b@gmail.com>
+Content-Transfer-Encoding: base64
+Cc: Yossi Kuperman <yossiku@mellanox.com>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ilan Tayari <ilant@mellanox.com>, Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-he1eur01on0063.outbound.protection.outlook.com ([104.47.0.63]:46976
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752431AbdGEJBY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 5 Jul 2017 05:01:24 -0400
+In-Reply-To: <AM4PR0501MB194005DDDF772CE960D1E6F5DBD20@AM4PR0501MB1940.eurprd05.prod.outlook.com>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi, Florian
-
-On 2017/7/5 0:56, Florian Fainelli wrote:
-> On 04/07/2017 03:47, Lin Yun Sheng wrote:
->> This patchset fix skb uesd after used, C45 op code and
->> Tx description filling issues in hns driver.
-> 
-> Since these are fixes, can you include proper Fixes: tag so it is easier
-> for -stable maintainers to backport such changes where appropriate?
-Thanks for pointing out. Will add it next version.
-
-Best Regards
-YunshengLin
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gU3ViamVj
+dDogUkU6IFtSRkMgbmV0LW5leHQgOS85XSB4ZnJtOiBhZGQgYSBzbWFsbCB4ZHN0IHBjcHUgY2Fj
+aGUNCj4gDQo+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiBGcm9tOiBuZXRkZXYt
+b3duZXJAdmdlci5rZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9y
+Z10NCj4gPiBTdWJqZWN0OiBbUkZDIG5ldC1uZXh0IDkvOV0geGZybTogYWRkIGEgc21hbGwgeGRz
+dCBwY3B1IGNhY2hlDQo+ID4NCj4gPiByZXRhaW4gbGFzdCB1c2VkIHhmcm1fZHN0IGluIGEgcGNw
+dSBjYWNoZS4NCj4gPiBPbiBuZXh0IHJlcXVlc3QsIHJldXNlIHRoaXMgZHN0IGlmIHRoZSBwb2xp
+Y2llcyBhcmUgdGhlIHNhbWUuDQo+ID4NCj4gPiBUaGUgY2FjaGUgZG9lcydudCBoZWxwIGF0IGFs
+bCB3aXRoIHN0cmljdGx5LVJSIHdvcmtsb2FkcyBhcw0KPiA+IHdlIG5ldmVyIGhhdmUgYSBoaXQu
+DQo+ID4NCj4gPiBBbHNvLCB0aGUgY2FjaGUgYWRkcyBjb3N0IG9mIHRoaXNfY3B1X3hjaGcoKSBp
+biBwYWNrZXQgcGF0aC4NCj4gPiBJdCB3b3VsZCBiZSBiZXR0ZXIgdG8gdXNlIHBsYWluIHRoaXNf
+Y3B1X3JlYWQvd3JpdGUsIGhvd2V2ZXIsDQo+ID4gYSBuZXRkZXYgbm90aWZpZXIgY2FuIHJ1biBp
+biBwYXJhbGxlbCBvbiBvdGhlciBjcHUgYW5kIHdyaXRlIHNhbWUNCj4gPiBwY3B1IHZhbHVlIHNv
+IHRoZSB4Y2hnIGlzIG5lZWRlZCB0byBhdm9pZCByYWNlLg0KPiA+DQo+ID4gVGhlIG5vdGlmaWVy
+IGlzIG5lZWRlZCBzbyB3ZSBkbyBub3QgYWRkIGxvbmcgaGFuZ3Mgd2hlbiBhIGRldmljZQ0KPiA+
+IGlzIGRpc21hbnRsZWQgYnV0IHNvbWUgcGNwdSB4ZHN0IHN0aWxsIGhvbGRzIGEgcmVmZXJlbmNl
+Lg0KPiA+DQo+ID4gVGVzdCByZXN1bHRzIHVzaW5nIDQgbmV0d29yayBuYW1lc3BhY2VzIGFuZCBu
+dWxsIGVuY3J5cHRpb246DQo+ID4NCj4gPiBuczEgICAgICAgICAgIG5zMiAgICAgICAgICAtPiBu
+czMgICAgICAgICAgIC0+IG5zNA0KPiA+IG5ldHBlcmYgLT4geGZybS9udWxsIGVuYyAgIC0+IHhm
+cm0vbnVsbCBkZWMgLT4gbmV0c2VydmVyDQo+ID4NCj4gPiB3aGF0ICAgICAgICAgICAgICAgICAg
+ICBUQ1BfU1RSRUFNICAgICAgVURQX1NUUkVBTSAgICAgIFVEUF9SUg0KPiA+IEZsb3cgY2FjaGU6
+CQkxNDgwNC40CQkyNzkuNzM4CQkzMjYyMTMuMA0KPiA+IE5vIGZsb3cgY2FjaGU6CQkxNDE1OC4z
+CQkyNTcuNDU4CQkyMjg0ODYuOA0KPiA+IFBjcHUgY2FjaGU6CQkxNDc2Ni40CQkyODYuOTU4CQky
+Mzk0MzMuNQ0KPiA+DQo+ID4gVURQIHRlc3RzIHVzZWQgNjRieXRlIHBhY2tldHMsIHRlc3RzIHJh
+biBmb3Igb25lIG1pbnV0ZSBlYWNoLA0KPiA+IHZhbHVlIGlzIGF2ZXJhZ2Ugb3ZlciB0ZW4gaXRl
+cmF0aW9ucy4NCj4gDQo+IEhpIEZsb3JpYW4sDQo+IA0KPiBJIHdhbnQgdG8gZ2l2ZSB0aGlzIGEg
+Z28gd2l0aCBody1vZmZsb2FkIGFuZCBzZWUgdGhlIGltcGFjdCBvbg0KPiBwZXJmb3JtYW5jZS4N
+Cj4gSXQgbWF5IHRha2UgdXMgYSBmZXcgZGF5cyB0byBkbyB0aGF0Lg0KDQpIaSBGbG9yaWFuLA0K
+DQpXZSB0ZXN0ZWQgd2l0aCBhbmQgd2l0aG91dCB5b3VyIHBhdGNoc2V0LCB1c2luZyBzaW5nbGUg
+U0Egd2l0aCBody1jcnlwdG8NCm9mZmxvYWQgKFJGQzQxMDYpIElQdjQgRVNQIHR1bm5lbCBtb2Rl
+LCBhbmQgYSBzaW5nbGUgbmV0cGVyZiBUQ1BfU1RSRUFNDQp3aXRoIGEgZmV3IGRpZmZlcmVudCBt
+ZXNzYWdlcyBTaXplcy4NCg0KV2UgZGlkbid0IHNlcGFyYXRlIHRoZSBwY3B1IGNhY2hlIHBhdGNo
+IGZyb20gdGhlIHJlc3Qgb2YgdGhlIHBhdGNoc2V0Lg0KDQpIZXJlIGFyZSB0aGUgZmluZGluZ3M6
+DQoNCldoYXQgICAgICAgICA2NC1ieXRlICAgIDUxMi1ieXRlICAxMDI0LWJ5dGUgIDE1MDAtYnl0
+ZQ0KRmxvdyBjYWNoZSAgIDE2MDIuODkgICAgMTEwMDQuOTcgICAxNDYzNC40NiAgIDE0NTc3LjYw
+DQpQY3B1IGNhY2hlICAgMTUxMy4zOCAgICAxMDg2Mi41NSAgIDE0MjQ2Ljk0ICAgMTQyMzEuMDcN
+Cg0KVGhlIG92ZXJhbGwgZGVncmFkYXRpb24gc2VlbXMgYSBiaXQgbW9yZSB0aGFuIHdoYXQgeW91
+IG1lYXN1cmVkIHdpdGgNCm51bGwtY3J5cHRvLg0KV2UgdXNlZCB0d28gbWFjaGluZXMgYW5kIG5v
+IG5hbWVzcGFjZXMuDQoNCklsYW4uDQoNCg==
