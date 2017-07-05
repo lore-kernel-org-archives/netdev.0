@@ -1,67 +1,37 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH v2 net-next] liquidio: fix bug in soft reset failure detection
-Date: Wed, 5 Jul 2017 11:59:27 -0700
-Message-ID: <20170705185927.GA1058@felix-thinkpad.cavium.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next RFC 01/12] net: dsa: Change DSA slave FDB API to
+ be switchdev independent
+Date: Wed, 5 Jul 2017 12:13:20 -0700
+Message-ID: <16eefa22-552d-9c75-27bb-b138869b222e@gmail.com>
+References: <1499268990-19251-1-git-send-email-arkadis@mellanox.com>
+ <1499268990-19251-2-git-send-email-arkadis@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
+        andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        Woojung.Huh@microchip.com, stephen@networkplumber.org,
+        mlxsw@mellanox.com
+To: Arkadi Sharshevsky <arkadis@mellanox.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0046.outbound.protection.outlook.com ([104.47.38.46]:41120
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751772AbdGES7e (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 5 Jul 2017 14:59:34 -0400
-Content-Disposition: inline
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:36224 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752092AbdGETN0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 15:13:26 -0400
+Received: by mail-wr0-f196.google.com with SMTP id 77so50878976wrb.3
+        for <netdev@vger.kernel.org>; Wed, 05 Jul 2017 12:13:26 -0700 (PDT)
+In-Reply-To: <1499268990-19251-2-git-send-email-arkadis@mellanox.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Derek Chickles <derek.chickles@cavium.com>
+On 07/05/2017 08:36 AM, Arkadi Sharshevsky wrote:
+> In order to support FDB add/del to be on a notifier chain the slave
+> API need to be changed to be switchdev independent.
+> 
+> Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+> Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-The code that detects a failed soft reset of Octeon is comparing the wrong
-value against the reset value of the Octeon SLI_SCRATCH_1 register,
-resulting in an inability to detect a soft reset failure.  Fix it by using
-the correct value in the comparison, which is any non-zero value.
-
-Fixes: f21fb3ed364b ("Add support of Cavium Liquidio ethernet adapters")
-Fixes: c0eab5b3580a ("liquidio: CN23XX firmware download")
-Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
-Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
-Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
----
-Patch Changelog:
- v2: Revise patch comment, remove unnecessary "!= 0x0ULL" in if statements,
-     and add "Fixes:" tags
-
- drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c | 2 +-
- drivers/net/ethernet/cavium/liquidio/cn66xx_device.c    | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
-index 6081c31..4b0ca9f 100644
---- a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
-+++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
-@@ -221,7 +221,7 @@ static int cn23xx_pf_soft_reset(struct octeon_device *oct)
- 	/* Wait for 100ms as Octeon resets. */
- 	mdelay(100);
- 
--	if (octeon_read_csr64(oct, CN23XX_SLI_SCRATCH1) == 0x1234ULL) {
-+	if (octeon_read_csr64(oct, CN23XX_SLI_SCRATCH1)) {
- 		dev_err(&oct->pci_dev->dev, "OCTEON[%d]: Soft reset failed\n",
- 			oct->octeon_id);
- 		return 1;
-diff --git a/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c b/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c
-index b28253c..2df7440 100644
---- a/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c
-+++ b/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c
-@@ -44,7 +44,7 @@ int lio_cn6xxx_soft_reset(struct octeon_device *oct)
- 	/* Wait for 10ms as Octeon resets. */
- 	mdelay(100);
- 
--	if (octeon_read_csr64(oct, CN6XXX_SLI_SCRATCH1) == 0x1234ULL) {
-+	if (octeon_read_csr64(oct, CN6XXX_SLI_SCRATCH1)) {
- 		dev_err(&oct->pci_dev->dev, "Soft reset failed\n");
- 		return 1;
- 	}
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+-- 
+Florian
