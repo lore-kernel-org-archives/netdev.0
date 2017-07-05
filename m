@@ -1,72 +1,89 @@
-From: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
-        <maheshb@google.com>
-Subject: Re: [PATCH 0/2] bring UP loopback device at initialziation
-Date: Wed, 5 Jul 2017 10:50:37 -0700
-Message-ID: <CAF2d9jhTujK0J53DODxCp+0yYnR2RTz7rVGaJE=xeN0-9k4C3g@mail.gmail.com>
-References: <20170704191615.6412-1-mahesh@bandewar.net> <20170705.092032.1482668095877350196.davem@davemloft.net>
- <CAF2d9jjZ0XJDo3qYKnNgeMMLQXgUwt5ga8p_cWd5x-DjhzwWyA@mail.gmail.com> <20170705.170524.241248681076978527.davem@davemloft.net>
+From: =?UTF-8?Q?Mika_Penttil=c3=a4?= <mika.penttila@nextfour.com>
+Subject: Re: [PATCH RFC] inetpeer: remove AVL implementation in favor of RB
+ tree
+Date: Wed, 5 Jul 2017 20:54:47 +0300
+Message-ID: <9e86e8e1-4051-dd9d-8a21-32a28ef8d0d7@nextfour.com>
+References: <1499270405.16045.8.camel@edumazet-glaptop3.roam.corp.google.com>
+ <fc780727-897c-13c1-30f6-ab2e3f21f321@nextfour.com>
+ <CAHTyZGz+vL0A9vJAuqFv88t1mZhgjSdZrX=n8_wCtOZfJBSA5A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: mahesh@bandewar.net, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, Eric Dumazet <edumazet@google.com>,
-        ebiederm@xmission.com, linux-netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, pablo neira ayuso <pablo@netfilter.org>,
+        netfilter-devel@vger.kernel.org,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Florian Westphal <fw@strlen.de>
+To: ericnetdev dumazet <erdnetdev@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f50.google.com ([209.85.214.50]:36825 "EHLO
-        mail-it0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751700AbdGERu6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 13:50:58 -0400
-Received: by mail-it0-f50.google.com with SMTP id m68so119210354ith.1
-        for <netdev@vger.kernel.org>; Wed, 05 Jul 2017 10:50:58 -0700 (PDT)
-In-Reply-To: <20170705.170524.241248681076978527.davem@davemloft.net>
+Received: from mail-eopbgr00076.outbound.protection.outlook.com ([40.107.0.76]:19675
+        "EHLO EUR02-AM5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751696AbdGERyx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 5 Jul 2017 13:54:53 -0400
+In-Reply-To: <CAHTyZGz+vL0A9vJAuqFv88t1mZhgjSdZrX=n8_wCtOZfJBSA5A@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 5, 2017 at 9:05 AM, David Miller <davem@davemloft.net> wrote:
-> From: Mahesh Bandewar (=E0=A4=AE=E0=A4=B9=E0=A5=87=E0=A4=B6 =E0=A4=AC=E0=
-=A4=82=E0=A4=A1=E0=A5=87=E0=A4=B5=E0=A4=BE=E0=A4=B0) <maheshb@google.com>
-> Date: Wed, 5 Jul 2017 08:59:37 -0700
->
->> On Wed, Jul 5, 2017 at 1:20 AM, David Miller <davem@davemloft.net> wrote=
-:
->>> From: Mahesh Bandewar <mahesh@bandewar.net>
->>> Date: Tue,  4 Jul 2017 12:16:15 -0700
->>>
->>>> In almost every scenario the loopback device is brought UP after
->>>> initialization. So there is no point of bringing up the device in
->>>> DOWN state followed by device UP operation. This change exposed
->>>> another issue of fib-trie initialization which is corrected in the
->>>> first path.
->>>
->>> You use the word almost, which supports my position that someone may
->>> not want this.
->>>
->>> I also don't see it as so much of a burdon to bring the lo device up
->>> explicitly.  Systems have been having to do that since the beginning
->>> of time.
->>>
->> Systems have only one lo device (since ages) and that is usually taken
->> care at the boot time. Now with the namespaces it's not just one
->> device as it's per namespace and though not much this patch will
->> benefit a little. Probably we should ask a question - is it going to
->> have any bad effects? I couldn't find any and my RFC patch did not get
->> me any such feedback. As far as the good effects are concerned, it has
->> already found a bug (another patch in this series)! Also sometime back
->> I did experience weird behavior inside net-namespace if you forget to
->> bring-up the loopback device. I didn't pay too much attention as
->> bringing up the lo device fixed it.
->
-> You're not talking at all about why specifically you need this
-> (ie. your use case) when you are spinning up namespaces for users.
->
-> I do happen to know those details, but you need to talk about this
-> explicitly in your commit log messages and in this discussion so that
-> everyone else understands this as well.
->
-Well, I can make this commit message long-winded but most of the (so
-called) issues are well known and I thought I wont add any additional
-value repeating them here hence kept it simple. I can spin up the next
-rev with the long-winded commit message. ;)
 
-> Thank you.
+
+On 05.07.2017 19:48, ericnetdev dumazet wrote:
+>
+>
+> On Jul 5, 2017 5:39 PM, "Mika Penttilä" <mika.penttila@nextfour.com <mailto:mika.penttila@nextfour.com>> wrote:
+>
+>     Hi!
+>
+>
+>     On 05.07.2017 19:00, Eric Dumazet wrote:
+>     > From: Eric Dumazet <edumazet@google.com <mailto:edumazet@google.com>>
+>     >
+>     > As discussed in Faro during Netfilter Workshop 2017, RB trees can be
+>     > used with RCU, using a seqlock.
+>     >
+>     > Note that net/rxrpc/conn_service.c is already using this.
+>     >
+>     > This patch converts inetpeer from AVL tree to RB tree, since it allows
+>     > to remove private AVL code in favor of shared RB code.
+>     >
+>     > $ size net/ipv4/inetpeer.before net/ipv4/inetpeer.after
+>     >    text          data     bss     dec     hex filename
+>     >    3195            40     128    3363     d23 net/ipv4/inetpeer.before
+>     >    1562            24       0    1586     632 net/ipv4/inetpeer.after
+>     >
+>     > The same technique can be used to speed up
+>     > net/netfilter/nft_set_rbtree.c
+>     >
+>     > Signed-off-by: Eric Dumazet <edumazet@google.com <mailto:edumazet@google.com>>
+>     > ---
+>     >
+>     >       return p;
+>     > @@ -467,8 +231,9 @@ EXPORT_SYMBOL_GPL(inet_getpeer);
+>     >  void inet_putpeer(struct inet_peer *p)
+>     >  {
+>     >       p->dtime = (__u32)jiffies;
+>     > -     smp_mb__before_atomic();
+>     > -     refcount_dec(&p->refcnt);
+>     > +
+>     > +     if (refcount_dec_and_test(&p->refcnt))
+>
+>     Missing rb_erase() here...
+>
+>
+>
+> I am pretty sure it is not missing. Have you tested your suggestion ? Thanks !
+Sorry I missed the fact the tree holds one reference.
+
+>
+>     > +             call_rcu(&p->rcu, inetpeer_free_rcu);
+>     >  }
+>     >  EXPORT_SYMBOL_GPL(inet_putpeer);
+>     >
+>     >
+>     --Mika
+>
+>
+>
+Thanks,
+Mika
