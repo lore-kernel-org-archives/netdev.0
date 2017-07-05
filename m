@@ -1,34 +1,69 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: axienet: add of_phy_connect call for
- XAE_PHY_TYPE_MII case
-Date: Wed, 5 Jul 2017 17:20:19 +0200
-Message-ID: <20170705152019.GE19749@lunn.ch>
-References: <20170630092541.27234-1-alvaro.gamez@hazent.com>
- <425aed84-a1b6-b8da-5989-3bef5a03ead4@gmail.com>
- <20170702101914.5nk27r2h754qzthe@collins.gmr.ssr.upm.es>
- <6A2BD6D6-9CBB-4BDD-BF28-F0BF10DB454C@gmail.com>
- <20170705101344.jlx5ju2x46szmuu7@collins.gmr.ssr.upm.es>
- <20170705143436.GD19749@lunn.ch>
- <20170705144328.6zxqtlfneredmn6c@collins.gmr.ssr.upm.es>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH 06/14] bpf: Implement show_options
+Date: Wed, 05 Jul 2017 16:24:49 +0100
+Message-ID: <149926828898.20611.6599036959362646109.stgit@warthog.procyon.org.uk>
+References: <149926824154.20611.6104595541055328700.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Anirudha Sarangi <anirudh@xilinx.com>,
-        John Linn <John.Linn@xilinx.com>,
-        Michal Simek <michal.simek@xilinx.com>,
-        =?iso-8859-1?Q?S=F6ren?= Brinkmann <soren.brinkmann@xilinx.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alvaro Gamez Machado <alvaro.gamez@hazent.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+        Alexei Starovoitov <ast@kernel.org>,
+        linux-kernel@vger.kernel.org, dhowells@redhat.com,
+        linux-fsdevel@vger.kernel.org
+To: viro@zeniv.linux.org.uk
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170705144328.6zxqtlfneredmn6c@collins.gmr.ssr.upm.es>
+In-Reply-To: <149926824154.20611.6104595541055328700.stgit@warthog.procyon.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> That sounds really respectful with current users and sets the basis for a
-> future removal of that proprietary parameter without causing more harm than
-> needed, so I like that a lot.
+Implement the show_options superblock op for bpf as part of a bid to get
+rid of s_options and generic_show_options() to make it easier to implement
+a context-based mount where the mount options can be passed individually
+over a file descriptor.
 
-Please feel free to turn it into a real patch and submit it.
+Signed-off-by: David Howells <dhowells@redhat.com>
+cc: Alexei Starovoitov <ast@kernel.org>
+cc: Daniel Borkmann <daniel@iogearbox.net>
+cc: netdev@vger.kernel.org
+---
 
-       Andrew
+ kernel/bpf/inode.c |   16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
+
+diff --git a/kernel/bpf/inode.c b/kernel/bpf/inode.c
+index 9bbd33497d3d..e833ed914358 100644
+--- a/kernel/bpf/inode.c
++++ b/kernel/bpf/inode.c
+@@ -377,10 +377,22 @@ static void bpf_evict_inode(struct inode *inode)
+ 		bpf_any_put(inode->i_private, type);
+ }
+ 
++/*
++ * Display the mount options in /proc/mounts.
++ */
++static int bpf_show_options(struct seq_file *m, struct dentry *root)
++{
++	umode_t mode = d_inode(root)->i_mode & S_IALLUGO & ~S_ISVTX;
++
++	if (mode != S_IRWXUGO)
++		seq_printf(m, ",mode=%o", mode);
++	return 0;
++}
++
+ static const struct super_operations bpf_super_ops = {
+ 	.statfs		= simple_statfs,
+ 	.drop_inode	= generic_delete_inode,
+-	.show_options	= generic_show_options,
++	.show_options	= bpf_show_options,
+ 	.evict_inode	= bpf_evict_inode,
+ };
+ 
+@@ -434,8 +446,6 @@ static int bpf_fill_super(struct super_block *sb, void *data, int silent)
+ 	struct inode *inode;
+ 	int ret;
+ 
+-	save_mount_options(sb, data);
+-
+ 	ret = bpf_parse_options(data, &opts);
+ 	if (ret)
+ 		return ret;
