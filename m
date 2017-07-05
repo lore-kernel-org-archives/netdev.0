@@ -1,38 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] bring UP loopback device at initialziation
-Date: Wed, 05 Jul 2017 09:20:32 +0100 (WEST)
-Message-ID: <20170705.092032.1482668095877350196.davem@davemloft.net>
-References: <20170704191615.6412-1-mahesh@bandewar.net>
+Subject: Re: [PATCH net-next 0/3] cxgb4: Add PTP Hardware Clock (PHC)
+ support
+Date: Wed, 05 Jul 2017 09:22:11 +0100 (WEST)
+Message-ID: <20170705.092211.425673008036300030.davem@davemloft.net>
+References: <1499166982-4875-1-git-send-email-atul.gupta@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-        edumazet@google.com, ebiederm@xmission.com, netdev@vger.kernel.org,
-        maheshb@google.com
-To: mahesh@bandewar.net
+Cc: netdev@vger.kernel.org, richardcochran@gmail.com,
+        ganeshgr@chelsio.com
+To: atul.gupta@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36792 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:36842 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752403AbdGEIUk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 04:20:40 -0400
-In-Reply-To: <20170704191615.6412-1-mahesh@bandewar.net>
+        with ESMTP id S1750841AbdGEIWQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 04:22:16 -0400
+In-Reply-To: <1499166982-4875-1-git-send-email-atul.gupta@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Date: Tue,  4 Jul 2017 12:16:15 -0700
+From: Atul Gupta <atul.gupta@chelsio.com>
+Date: Tue,  4 Jul 2017 16:46:19 +0530
 
-> In almost every scenario the loopback device is brought UP after
-> initialization. So there is no point of bringing up the device in
-> DOWN state followed by device UP operation. This change exposed
-> another issue of fib-trie initialization which is corrected in the 
-> first path.
+> V4:
+> 	Splitting the patch again
+> V3:
+>         Releasing lock in the exit paths
+> V2:
+>         Splitting the patch
 
-You use the word almost, which supports my position that someone may
-not want this.
-
-I also don't see it as so much of a burdon to bring the lo device up
-explicitly.  Systems have been having to do that since the beginning
-of time.
-
-Sorry I'm not applying this.
+Series applied.
