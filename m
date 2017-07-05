@@ -1,34 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/12] net: dsa: mv88e6xxx: cleanup
- capabilities
-Date: Wed, 05 Jul 2017 09:06:14 +0100 (WEST)
-Message-ID: <20170705.090614.1172656215519915777.davem@davemloft.net>
-References: <20170704234155.24360-1-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net] mpls: fix rtm policy in mpls_getroute
+Date: Wed, 05 Jul 2017 09:06:34 +0100 (WEST)
+Message-ID: <20170705.090634.215126223174350944.davem@davemloft.net>
+References: <1499212982-12970-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170704234155.24360-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dsahern@gmail.com, rshearma@brocade.com,
+        nikolay@cumulusnetworks.com
+To: roopa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36612 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752493AbdGEIGl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 04:06:41 -0400
+In-Reply-To: <1499212982-12970-1-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Tue,  4 Jul 2017 19:41:43 -0400
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Date: Tue,  4 Jul 2017 17:03:02 -0700
 
-> This patch series removes the remaining capabilities as well as the
-> flags bitmap in the info structures. Most of them are turned into ops,
-> or new info members.
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
 > 
-> There is no mv88e6xxx_cap enum or bitmap flags anymore, only
-> mv88e6xxx_info and mv88e6xxx_ops structures.
+> fix rtm policy name typo in mpls_getroute and also remove
+> export of rtm_ipv4_policy
 > 
-> While reviewing and documenting the related G2 registers, fix a few
-> inconsistencies: 88E6185 has no interrupt in G2 and 88E6390 has a POT.
-> 
-> Except these two adjustments, there is no functional changes.
+> Fixes: 397fc9e5cefe ("mpls: route get support")
+> Reported-by: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> ---
+> David, since the rtm_ipv4_policy export is not in net yet
+> and assuming it will soon be there, I have generated this
+> patch against net-next, but addressed it to net. Thanks.
 
-net-next is closed, please resubmit this when the tree opens
-back up.
+Applied.
