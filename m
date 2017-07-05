@@ -1,46 +1,55 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net] net: ipv6: Compare lwstate in detecting duplicate nexthops
-Date: Wed, 5 Jul 2017 14:14:33 -0700
-Message-ID: <CAJieiUji4hOeRXZoCXfiC6p5NYzeqO_Ou0RYzarX2afXgLzcqA@mail.gmail.com>
-References: <20170705204146.5263-1-dsahern@gmail.com>
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH 1/2] i40e/i40evf: rename
+ vf_offload_flags       to vf_cap_flags in struct virtchnl_vf_resource
+Date: Wed, 5 Jul 2017 21:15:56 +0000
+Message-ID: <9BBC4E0CF881AA4299206E2E1412B62650490D08@ORSMSX102.amr.corp.intel.com>
+References: <20170629131225.9251-1-sassmann@kpanic.de>
+ <20170629131225.9251-2-sassmann@kpanic.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Lennert Buytenhek <buytenh@wantstofly.org>,
-        Robert Shearman <rshearma@brocade.com>
-To: David Ahern <dsahern@gmail.com>
+        "davem@davemloft.net" <davem@davemloft.net>
+To: Stefan Assmann <sassmann@kpanic.de>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f178.google.com ([209.85.217.178]:35601 "EHLO
-        mail-ua0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751796AbdGEVOt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 17:14:49 -0400
-Received: by mail-ua0-f178.google.com with SMTP id j53so767333uaa.2
-        for <netdev@vger.kernel.org>; Wed, 05 Jul 2017 14:14:44 -0700 (PDT)
-In-Reply-To: <20170705204146.5263-1-dsahern@gmail.com>
+Received: from mga05.intel.com ([192.55.52.43]:35105 "EHLO mga05.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751896AbdGEVP6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 5 Jul 2017 17:15:58 -0400
+In-Reply-To: <20170629131225.9251-2-sassmann@kpanic.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 5, 2017 at 1:41 PM, David Ahern <dsahern@gmail.com> wrote:
-> Lennert reported a failure to add different mpls encaps in a multipath
-> route:
->
->   $ ip -6 route add 1234::/16 \
->         nexthop encap mpls 10 via fe80::1 dev ens3 \
->         nexthop encap mpls 20 via fe80::1 dev ens3
->   RTNETLINK answers: File exists
->
-> The problem is that the duplicate nexthop detection does not compare
-> lwtunnel configuration. Add it.
->
-> Fixes: 19e42e451506("ipv6: support for fib route lwtunnel encap attribute=
-s")
-> Signed-off-by: David Ahern <dsahern@gmail.com>
+> -----Original Message-----
+> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@osuosl.org] On Behalf
+> Of Stefan Assmann
+> Sent: Thursday, June 29, 2017 6:12 AM
+> To: intel-wired-lan@lists.osuosl.org
+> Cc: netdev@vger.kernel.org; davem@davemloft.net; sassmann@kpanic.de
+> Subject: [Intel-wired-lan] [PATCH 1/2] i40e/i40evf: rename vf_offload_flags to
+> vf_cap_flags in struct virtchnl_vf_resource
+> 
+> The current name of vf_offload_flags indicates that the bitmap is
+> limited to offload related features. Make this more generic by renaming
+> it to vf_cap_flags, which allows for other capabilities besides
+> offloading to be added.
+> 
+> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
 > ---
 
+Hello Stefan,
 
-Reported-by: Jo=C3=A3o Taveira Ara=C3=BAjo <joao.taveira@gmail.com>
+Thanks for the patch series, but we believe the vf should be ignorant of its trusted status.  That being said, you've definitely pointed out a bug in our implementation so that if a vf ends up being configured as trusted, its unable to change its mac address itself when this is an allowed action for this configuration.  The pf can change the mac address for the vf, but the vf itself cannot, which is not correct.  We are working on an alternate solution that keeps the vf from knowing its trusted status, but its not a simple fix.
 
-Reported-by: Lennert Buytenhek <buytenh@wantstofly.org>
+Thanks,
 
-Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Carolyn
+
+Carolyn Wyborny 
+Linux Development 
+Networking Division 
+Intel Corporation 
+
+  
