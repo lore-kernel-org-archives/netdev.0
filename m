@@ -1,49 +1,35 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Unable to add v6 multipath route with same nexthops but different
- MPLS labels
-Date: Wed, 5 Jul 2017 18:39:58 +0300
-Message-ID: <20170705153958.GL22185@wantstofly.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH RFC 0/12] Remove UDP Fragmentation Offload support
+Date: Wed, 5 Jul 2017 08:52:17 -0700
+Message-ID: <20170705085217.7161b3cb@xeon-e3>
+References: <20170705.160402.80726683432003025.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>,
-        Robert Shearman <rshearma@brocade.com>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hmm.wantstofly.org ([138.201.34.84]:40578 "EHLO
-        mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750896AbdGEPrL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 11:47:11 -0400
-Content-Disposition: inline
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:35806 "EHLO
+        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751681AbdGEPw2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 11:52:28 -0400
+Received: by mail-pf0-f172.google.com with SMTP id c73so131715406pfk.2
+        for <netdev@vger.kernel.org>; Wed, 05 Jul 2017 08:52:28 -0700 (PDT)
+In-Reply-To: <20170705.160402.80726683432003025.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+On Wed, 05 Jul 2017 16:04:02 +0100 (WEST)
+David Miller <davem@davemloft.net> wrote:
 
-FWIW, this doesn't work:
-
-	# ip -6 route add 1234::/16 \
-		nexthop encap mpls 10 via fe80::1 dev ens3 \
-		nexthop encap mpls 20 via fe80::1 dev ens3
-	RTNETLINK answers: File exists
-
-While this does:
-
-	# ip -6 route chg 1234::/16
-		nexthop encap mpls 10 via fe80::1 dev ens3
-		nexthop encap mpls 20 via fe80::2 dev ens3
-	# ip -6 route
-	1234::/16  encap mpls  10 via fe80::1 dev ens3 metric 1024 pref medium
-	1234::/16  encap mpls  20 via fe80::2 dev ens3 metric 1024 pref medium
-	[...]
-
-ECMPing over different LSPs that share a nexthop router seems like a
-legitimate use case to me.  Is this restriction intentional or just an
-accident?  (The same thing works fine in v4 land, where multipath
-routes are handled differently.)
-
-Thanks in advance!
+> This is an RFC patch series, based upon some discussions with
+> various developers, that removes UFO offloading.
+> 
+> Very few devices support this operation, it's usefullness is
+> quesitonable at best, and it adds a non-trivial amount of
+> complexity to our data paths.
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 
 
-Cheers,
-Lennert
+Agreed, makes sense to me.
