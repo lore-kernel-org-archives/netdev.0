@@ -1,7 +1,7 @@
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: [PATCH net-next RFC 02/12] net: dsa: Remove prepare phase for FDB
-Date: Wed,  5 Jul 2017 18:36:20 +0300
-Message-ID: <1499268990-19251-3-git-send-email-arkadis@mellanox.com>
+Subject: [PATCH net-next RFC 12/12] net: switchdev: Remove bridge bypass support from switchdev
+Date: Wed,  5 Jul 2017 18:36:30 +0300
+Message-ID: <1499268990-19251-13-git-send-email-arkadis@mellanox.com>
 References: <1499268990-19251-1-git-send-email-arkadis@mellanox.com>
 Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
         f.fainelli@gmail.com, andrew@lunn.ch,
@@ -10,407 +10,622 @@ Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
         Arkadi Sharshevsky <arkadis@mellanox.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49153 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49225 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750908AbdGEPdb (ORCPT
+        with ESMTP id S1751695AbdGEPdb (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 11:33:31 -0400
 In-Reply-To: <1499268990-19251-1-git-send-email-arkadis@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The prepare phase for FDB add is unneeded because most of DSA devices
-can have failures during bus transactions (SPI, I2C, etc.), thus, the
-prepare phase cannot guarantee success of the commit stage.
-
-The support for learning FDB through notification chain, which will be
-introduced in the following patches, will provide the ability to notify
-back the bridge about successful offload.
+Currently the bridge port flags, vlans, FDBs and MDBs can be offloaded
+through the bridge code, making the switchdev's SELF bridge bypass
+implementation to be redundant. This implies several changes:
+- No need for dump infra in switchdev, DSA's special case is handled
+  privately.
+- Remove obj_dump from switchdev_ops.
+- FDBs are removed from obj_add/del routines, due to the fact that they
+  are offloaded through the bridge notifcation chain.
+- The switchdev_port_bridge_xx() and switchdev_port_fdb_xx() functions
+  can be removed.
 
 Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
 ---
- drivers/net/dsa/b53/b53_common.c       | 17 +++--------------
- drivers/net/dsa/b53/b53_priv.h         |  6 ++----
- drivers/net/dsa/microchip/ksz_common.c | 24 ++++++++++--------------
- drivers/net/dsa/mt7530.c               | 25 ++++---------------------
- drivers/net/dsa/mv88e6xxx/chip.c       | 23 +++++++----------------
- drivers/net/dsa/qca8k.c                | 18 +-----------------
- include/net/dsa.h                      |  4 +---
- net/dsa/dsa_priv.h                     |  4 +---
- net/dsa/port.c                         |  4 +---
- net/dsa/slave.c                        |  4 +++-
- net/dsa/switch.c                       | 14 +++-----------
- 11 files changed, 36 insertions(+), 107 deletions(-)
+ include/net/switchdev.h   |  75 --------
+ net/switchdev/switchdev.c | 435 ----------------------------------------------
+ 2 files changed, 510 deletions(-)
 
-diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
-index d0156dc..c414b43 100644
---- a/drivers/net/dsa/b53/b53_common.c
-+++ b/drivers/net/dsa/b53/b53_common.c
-@@ -1213,8 +1213,8 @@ static int b53_arl_op(struct b53_device *dev, int op, int port,
- 	return b53_arl_rw_op(dev, 0);
- }
- 
--int b53_fdb_prepare(struct dsa_switch *ds, int port,
--		    const unsigned char *addr, u16 vid)
-+int b53_fdb_add(struct dsa_switch *ds, int port,
-+		const unsigned char *addr, u16 vid)
- {
- 	struct b53_device *priv = ds->priv;
- 
-@@ -1224,17 +1224,7 @@ int b53_fdb_prepare(struct dsa_switch *ds, int port,
- 	if (is5325(priv) || is5365(priv))
- 		return -EOPNOTSUPP;
- 
--	return 0;
--}
--EXPORT_SYMBOL(b53_fdb_prepare);
--
--void b53_fdb_add(struct dsa_switch *ds, int port,
--		 const unsigned char *addr, u16 vid)
--{
--	struct b53_device *priv = ds->priv;
--
--	if (b53_arl_op(priv, 0, port, addr, vid, true))
--		pr_err("%s: failed to add MAC address\n", __func__);
-+	return b53_arl_op(priv, 0, port, addr, vid, true);
- }
- EXPORT_SYMBOL(b53_fdb_add);
- 
-@@ -1563,7 +1553,6 @@ static const struct dsa_switch_ops b53_switch_ops = {
- 	.port_vlan_add		= b53_vlan_add,
- 	.port_vlan_del		= b53_vlan_del,
- 	.port_vlan_dump		= b53_vlan_dump,
--	.port_fdb_prepare	= b53_fdb_prepare,
- 	.port_fdb_dump		= b53_fdb_dump,
- 	.port_fdb_add		= b53_fdb_add,
- 	.port_fdb_del		= b53_fdb_del,
-diff --git a/drivers/net/dsa/b53/b53_priv.h b/drivers/net/dsa/b53/b53_priv.h
-index d417bca..f29c892 100644
---- a/drivers/net/dsa/b53/b53_priv.h
-+++ b/drivers/net/dsa/b53/b53_priv.h
-@@ -396,10 +396,8 @@ int b53_vlan_del(struct dsa_switch *ds, int port,
- int b53_vlan_dump(struct dsa_switch *ds, int port,
- 		  struct switchdev_obj_port_vlan *vlan,
- 		  switchdev_obj_dump_cb_t *cb);
--int b53_fdb_prepare(struct dsa_switch *ds, int port,
--		    const unsigned char *addr, u16 vid);
--void b53_fdb_add(struct dsa_switch *ds, int port,
--		 const unsigned char *addr, u16 vid);
-+int b53_fdb_add(struct dsa_switch *ds, int port,
-+		const unsigned char *addr, u16 vid);
- int b53_fdb_del(struct dsa_switch *ds, int port,
- 		const unsigned char *addr, u16 vid);
- int b53_fdb_dump(struct dsa_switch *ds, int port,
-diff --git a/drivers/net/dsa/microchip/ksz_common.c b/drivers/net/dsa/microchip/ksz_common.c
-index db82808..b55f364 100644
---- a/drivers/net/dsa/microchip/ksz_common.c
-+++ b/drivers/net/dsa/microchip/ksz_common.c
-@@ -678,14 +678,6 @@ static int ksz_port_vlan_dump(struct dsa_switch *ds, int port,
- 	return err;
- }
- 
--static int ksz_port_fdb_prepare(struct dsa_switch *ds, int port,
--				const unsigned char *addr, u16 vid)
--{
--	/* nothing needed */
--
--	return 0;
--}
--
- struct alu_struct {
- 	/* entry 1 */
- 	u8	is_static:1;
-@@ -705,12 +697,13 @@ struct alu_struct {
- 	u8	mac[ETH_ALEN];
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index d2637a6..d767b79 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -74,7 +74,6 @@ struct switchdev_attr {
+ enum switchdev_obj_id {
+ 	SWITCHDEV_OBJ_ID_UNDEFINED,
+ 	SWITCHDEV_OBJ_ID_PORT_VLAN,
+-	SWITCHDEV_OBJ_ID_PORT_FDB,
+ 	SWITCHDEV_OBJ_ID_PORT_MDB,
  };
  
--static void ksz_port_fdb_add(struct dsa_switch *ds, int port,
--			     const unsigned char *addr, u16 vid)
-+static int ksz_port_fdb_add(struct dsa_switch *ds, int port,
-+			    const unsigned char *addr, u16 vid)
- {
- 	struct ksz_device *dev = ds->priv;
- 	u32 alu_table[4];
- 	u32 data;
-+	int ret = 0;
+@@ -97,17 +96,6 @@ struct switchdev_obj_port_vlan {
+ #define SWITCHDEV_OBJ_PORT_VLAN(obj) \
+ 	container_of(obj, struct switchdev_obj_port_vlan, obj)
  
- 	mutex_lock(&dev->alu_mutex);
- 
-@@ -727,7 +720,8 @@ static void ksz_port_fdb_add(struct dsa_switch *ds, int port,
- 	ksz_write32(dev, REG_SW_ALU_CTRL__4, ALU_READ | ALU_START);
- 
- 	/* wait to be finished */
--	if (wait_alu_ready(dev, ALU_START, 1000) < 0) {
-+	ret = wait_alu_ready(dev, ALU_START, 1000);
-+	if (ret < 0) {
- 		dev_dbg(dev->dev, "Failed to read ALU\n");
- 		goto exit;
- 	}
-@@ -750,11 +744,14 @@ static void ksz_port_fdb_add(struct dsa_switch *ds, int port,
- 	ksz_write32(dev, REG_SW_ALU_CTRL__4, ALU_WRITE | ALU_START);
- 
- 	/* wait to be finished */
--	if (wait_alu_ready(dev, ALU_START, 1000) < 0)
--		dev_dbg(dev->dev, "Failed to read ALU\n");
-+	ret = wait_alu_ready(dev, ALU_START, 1000);
-+	if (ret < 0)
-+		dev_dbg(dev->dev, "Failed to write ALU\n");
- 
- exit:
- 	mutex_unlock(&dev->alu_mutex);
-+
-+	return ret;
- }
- 
- static int ksz_port_fdb_del(struct dsa_switch *ds, int port,
-@@ -1128,7 +1125,6 @@ static const struct dsa_switch_ops ksz_switch_ops = {
- 	.port_vlan_add		= ksz_port_vlan_add,
- 	.port_vlan_del		= ksz_port_vlan_del,
- 	.port_vlan_dump		= ksz_port_vlan_dump,
--	.port_fdb_prepare	= ksz_port_fdb_prepare,
- 	.port_fdb_dump		= ksz_port_fdb_dump,
- 	.port_fdb_add		= ksz_port_fdb_add,
- 	.port_fdb_del		= ksz_port_fdb_del,
-diff --git a/drivers/net/dsa/mt7530.c b/drivers/net/dsa/mt7530.c
-index 430e3ab..f92aae8 100644
---- a/drivers/net/dsa/mt7530.c
-+++ b/drivers/net/dsa/mt7530.c
-@@ -801,35 +801,19 @@ mt7530_port_bridge_leave(struct dsa_switch *ds, int port,
- }
- 
- static int
--mt7530_port_fdb_prepare(struct dsa_switch *ds, int port,
--			const unsigned char *addr, u16 vid)
--{
--	struct mt7530_priv *priv = ds->priv;
--	int ret;
+-/* SWITCHDEV_OBJ_ID_PORT_FDB */
+-struct switchdev_obj_port_fdb {
+-	struct switchdev_obj obj;
+-	unsigned char addr[ETH_ALEN];
+-	u16 vid;
+-	u16 ndm_state;
+-};
 -
--	/* Because auto-learned entrie shares the same FDB table.
--	 * an entry is reserved with no port_mask to make sure fdb_add
--	 * is called while the entry is still available.
--	 */
--	mutex_lock(&priv->reg_mutex);
--	mt7530_fdb_write(priv, vid, 0, addr, -1, STATIC_ENT);
--	ret = mt7530_fdb_cmd(priv, MT7530_FDB_WRITE, 0);
--	mutex_unlock(&priv->reg_mutex);
+-#define SWITCHDEV_OBJ_PORT_FDB(obj) \
+-	container_of(obj, struct switchdev_obj_port_fdb, obj)
 -
--	return ret;
--}
--
--static void
- mt7530_port_fdb_add(struct dsa_switch *ds, int port,
- 		    const unsigned char *addr, u16 vid)
- {
- 	struct mt7530_priv *priv = ds->priv;
-+	int ret;
- 	u8 port_mask = BIT(port);
- 
- 	mutex_lock(&priv->reg_mutex);
- 	mt7530_fdb_write(priv, vid, port_mask, addr, -1, STATIC_ENT);
--	mt7530_fdb_cmd(priv, MT7530_FDB_WRITE, 0);
-+	ret = mt7530_fdb_cmd(priv, MT7530_FDB_WRITE, 0);
- 	mutex_unlock(&priv->reg_mutex);
-+
-+	return ret;
- }
- 
- static int
-@@ -1013,7 +997,6 @@ static struct dsa_switch_ops mt7530_switch_ops = {
- 	.port_stp_state_set	= mt7530_stp_state_set,
- 	.port_bridge_join	= mt7530_port_bridge_join,
- 	.port_bridge_leave	= mt7530_port_bridge_leave,
--	.port_fdb_prepare	= mt7530_port_fdb_prepare,
- 	.port_fdb_add		= mt7530_port_fdb_add,
- 	.port_fdb_del		= mt7530_port_fdb_del,
- 	.port_fdb_dump		= mt7530_port_fdb_dump,
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 4d4358d..fba68c8 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1435,26 +1435,18 @@ static int mv88e6xxx_port_db_load_purge(struct mv88e6xxx_chip *chip, int port,
- 	return mv88e6xxx_g1_atu_loadpurge(chip, vlan.fid, &entry);
- }
- 
--static int mv88e6xxx_port_fdb_prepare(struct dsa_switch *ds, int port,
--				      const unsigned char *addr, u16 vid)
--{
--	/* We don't need any dynamic resource from the kernel (yet),
--	 * so skip the prepare phase.
--	 */
--	return 0;
--}
--
--static void mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
--				   const unsigned char *addr, u16 vid)
-+static int mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
-+				  const unsigned char *addr, u16 vid)
- {
- 	struct mv88e6xxx_chip *chip = ds->priv;
-+	int err;
- 
- 	mutex_lock(&chip->reg_lock);
--	if (mv88e6xxx_port_db_load_purge(chip, port, addr, vid,
--					 MV88E6XXX_G1_ATU_DATA_STATE_UC_STATIC))
--		dev_err(ds->dev, "p%d: failed to load unicast MAC address\n",
--			port);
-+	err = mv88e6xxx_port_db_load_purge(chip, port, addr, vid,
-+					   MV88E6XXX_G1_ATU_DATA_STATE_UC_STATIC);
- 	mutex_unlock(&chip->reg_lock);
-+
-+	return err;
- }
- 
- static int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
-@@ -3867,7 +3859,6 @@ static const struct dsa_switch_ops mv88e6xxx_switch_ops = {
- 	.port_vlan_add		= mv88e6xxx_port_vlan_add,
- 	.port_vlan_del		= mv88e6xxx_port_vlan_del,
- 	.port_vlan_dump		= mv88e6xxx_port_vlan_dump,
--	.port_fdb_prepare       = mv88e6xxx_port_fdb_prepare,
- 	.port_fdb_add           = mv88e6xxx_port_fdb_add,
- 	.port_fdb_del           = mv88e6xxx_port_fdb_del,
- 	.port_fdb_dump          = mv88e6xxx_port_fdb_dump,
-diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
-index 913d76a..9c3de3d 100644
---- a/drivers/net/dsa/qca8k.c
-+++ b/drivers/net/dsa/qca8k.c
-@@ -829,28 +829,13 @@ qca8k_port_fdb_insert(struct qca8k_priv *priv, const u8 *addr,
- }
- 
- static int
--qca8k_port_fdb_prepare(struct dsa_switch *ds, int port,
--		       const unsigned char *addr, u16 vid)
--{
--	struct qca8k_priv *priv = (struct qca8k_priv *)ds->priv;
--
--	/* The FDB table for static and auto learned entries is the same. We
--	 * need to reserve an entry with no port_mask set to make sure that
--	 * when port_fdb_add is called an entry is still available. Otherwise
--	 * the last free entry might have been used up by auto learning
--	 */
--	return qca8k_port_fdb_insert(priv, addr, 0, vid);
--}
--
--static void
- qca8k_port_fdb_add(struct dsa_switch *ds, int port,
- 		   const unsigned char *addr, u16 vid)
- {
- 	struct qca8k_priv *priv = (struct qca8k_priv *)ds->priv;
- 	u16 port_mask = BIT(port);
- 
--	/* Update the FDB entry adding the port_mask */
--	qca8k_port_fdb_insert(priv, addr, port_mask, vid);
-+	return qca8k_port_fdb_insert(priv, addr, port_mask, vid);
- }
- 
- static int
-@@ -918,7 +903,6 @@ static const struct dsa_switch_ops qca8k_switch_ops = {
- 	.port_stp_state_set	= qca8k_port_stp_state_set,
- 	.port_bridge_join	= qca8k_port_bridge_join,
- 	.port_bridge_leave	= qca8k_port_bridge_leave,
--	.port_fdb_prepare	= qca8k_port_fdb_prepare,
- 	.port_fdb_add		= qca8k_port_fdb_add,
- 	.port_fdb_del		= qca8k_port_fdb_del,
- 	.port_fdb_dump		= qca8k_port_fdb_dump,
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 54fb8f80..f054d41 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -391,9 +391,7 @@ struct dsa_switch_ops {
- 	/*
- 	 * Forwarding database
- 	 */
--	int	(*port_fdb_prepare)(struct dsa_switch *ds, int port,
--				    const unsigned char *addr, u16 vid);
--	void	(*port_fdb_add)(struct dsa_switch *ds, int port,
-+	int	(*port_fdb_add)(struct dsa_switch *ds, int port,
- 				const unsigned char *addr, u16 vid);
- 	int	(*port_fdb_del)(struct dsa_switch *ds, int port,
- 				const unsigned char *addr, u16 vid);
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 55982cc..428402f 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -44,7 +44,6 @@ struct dsa_notifier_bridge_info {
- /* DSA_NOTIFIER_FDB_* */
- struct dsa_notifier_fdb_info {
- 	const struct switchdev_obj_port_fdb *fdb;
--	struct switchdev_trans *trans;
- 	int sw_index;
- 	int port;
+ /* SWITCHDEV_OBJ_ID_PORT_MDB */
+ struct switchdev_obj_port_mdb {
+ 	struct switchdev_obj obj;
+@@ -135,8 +123,6 @@ typedef int switchdev_obj_dump_cb_t(struct switchdev_obj *obj);
+  * @switchdev_port_obj_add: Add an object to port (see switchdev_obj_*).
+  *
+  * @switchdev_port_obj_del: Delete an object from port (see switchdev_obj_*).
+- *
+- * @switchdev_port_obj_dump: Dump port objects (see switchdev_obj_*).
+  */
+ struct switchdev_ops {
+ 	int	(*switchdev_port_attr_get)(struct net_device *dev,
+@@ -149,9 +135,6 @@ struct switchdev_ops {
+ 					  struct switchdev_trans *trans);
+ 	int	(*switchdev_port_obj_del)(struct net_device *dev,
+ 					  const struct switchdev_obj *obj);
+-	int	(*switchdev_port_obj_dump)(struct net_device *dev,
+-					   struct switchdev_obj *obj,
+-					   switchdev_obj_dump_cb_t *cb);
  };
-@@ -121,8 +120,7 @@ int dsa_port_vlan_filtering(struct dsa_port *dp, bool vlan_filtering,
- int dsa_port_ageing_time(struct dsa_port *dp, clock_t ageing_clock,
- 			 struct switchdev_trans *trans);
- int dsa_port_fdb_add(struct dsa_port *dp,
--		     const struct switchdev_obj_port_fdb *fdb,
--		     struct switchdev_trans *trans);
-+		     const struct switchdev_obj_port_fdb *fdb);
- int dsa_port_fdb_del(struct dsa_port *dp,
- 		     const struct switchdev_obj_port_fdb *fdb);
- int dsa_port_fdb_dump(struct dsa_port *dp, struct switchdev_obj_port_fdb *fdb,
-diff --git a/net/dsa/port.c b/net/dsa/port.c
-index efc3bce..bd271b9 100644
---- a/net/dsa/port.c
-+++ b/net/dsa/port.c
-@@ -147,13 +147,11 @@ int dsa_port_ageing_time(struct dsa_port *dp, clock_t ageing_clock,
+ 
+ enum switchdev_notifier_type {
+@@ -189,25 +172,10 @@ int switchdev_port_obj_add(struct net_device *dev,
+ 			   const struct switchdev_obj *obj);
+ int switchdev_port_obj_del(struct net_device *dev,
+ 			   const struct switchdev_obj *obj);
+-int switchdev_port_obj_dump(struct net_device *dev, struct switchdev_obj *obj,
+-			    switchdev_obj_dump_cb_t *cb);
+ int register_switchdev_notifier(struct notifier_block *nb);
+ int unregister_switchdev_notifier(struct notifier_block *nb);
+ int call_switchdev_notifiers(unsigned long val, struct net_device *dev,
+ 			     struct switchdev_notifier_info *info);
+-int switchdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+-				  struct net_device *dev, u32 filter_mask,
+-				  int nlflags);
+-int switchdev_port_bridge_setlink(struct net_device *dev,
+-				  struct nlmsghdr *nlh, u16 flags);
+-int switchdev_port_bridge_dellink(struct net_device *dev,
+-				  struct nlmsghdr *nlh, u16 flags);
+-int switchdev_port_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+-			   struct net_device *dev, const unsigned char *addr,
+-			   u16 vid, u16 nlm_flags);
+-int switchdev_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
+-			   struct net_device *dev, const unsigned char *addr,
+-			   u16 vid);
+ void switchdev_port_fwd_mark_set(struct net_device *dev,
+ 				 struct net_device *group_dev,
+ 				 bool joining);
+@@ -246,13 +214,6 @@ static inline int switchdev_port_obj_del(struct net_device *dev,
+ 	return -EOPNOTSUPP;
  }
  
- int dsa_port_fdb_add(struct dsa_port *dp,
--		     const struct switchdev_obj_port_fdb *fdb,
--		     struct switchdev_trans *trans)
-+		     const struct switchdev_obj_port_fdb *fdb)
+-static inline int switchdev_port_obj_dump(struct net_device *dev,
+-					  const struct switchdev_obj *obj,
+-					  switchdev_obj_dump_cb_t *cb)
+-{
+-	return -EOPNOTSUPP;
+-}
+-
+ static inline int register_switchdev_notifier(struct notifier_block *nb)
  {
- 	struct dsa_notifier_fdb_info info = {
- 		.sw_index = dp->ds->index,
- 		.port = dp->index,
--		.trans = trans,
- 		.fdb = fdb,
- 	};
+ 	return 0;
+@@ -270,42 +231,6 @@ static inline int call_switchdev_notifiers(unsigned long val,
+ 	return NOTIFY_DONE;
+ }
  
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 9507bd3..b4e68b2 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -251,7 +251,9 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
- 
+-static inline int switchdev_port_bridge_getlink(struct sk_buff *skb, u32 pid,
+-					    u32 seq, struct net_device *dev,
+-					    u32 filter_mask, int nlflags)
+-{
+-	return -EOPNOTSUPP;
+-}
+-
+-static inline int switchdev_port_bridge_setlink(struct net_device *dev,
+-						struct nlmsghdr *nlh,
+-						u16 flags)
+-{
+-	return -EOPNOTSUPP;
+-}
+-
+-static inline int switchdev_port_bridge_dellink(struct net_device *dev,
+-						struct nlmsghdr *nlh,
+-						u16 flags)
+-{
+-	return -EOPNOTSUPP;
+-}
+-
+-static inline int switchdev_port_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+-					 struct net_device *dev,
+-					 const unsigned char *addr,
+-					 u16 vid, u16 nlm_flags)
+-{
+-	return -EOPNOTSUPP;
+-}
+-
+-static inline int switchdev_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
+-					 struct net_device *dev,
+-					 const unsigned char *addr, u16 vid)
+-{
+-	return -EOPNOTSUPP;
+-}
+-
+ static inline bool switchdev_port_same_parent_id(struct net_device *a,
+ 						 struct net_device *b)
+ {
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index 3d32981..0531b41 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -343,8 +343,6 @@ static size_t switchdev_obj_size(const struct switchdev_obj *obj)
  	switch (obj->id) {
- 	case SWITCHDEV_OBJ_ID_PORT_FDB:
--		err = dsa_port_fdb_add(dp, SWITCHDEV_OBJ_PORT_FDB(obj), trans);
-+		if (switchdev_trans_ph_prepare(trans))
-+			return 0;
-+		err = dsa_port_fdb_add(dp, SWITCHDEV_OBJ_PORT_FDB(obj));
- 		break;
+ 	case SWITCHDEV_OBJ_ID_PORT_VLAN:
+ 		return sizeof(struct switchdev_obj_port_vlan);
+-	case SWITCHDEV_OBJ_ID_PORT_FDB:
+-		return sizeof(struct switchdev_obj_port_fdb);
  	case SWITCHDEV_OBJ_ID_PORT_MDB:
- 		err = dsa_port_mdb_add(dp, SWITCHDEV_OBJ_PORT_MDB(obj), trans);
-diff --git a/net/dsa/switch.c b/net/dsa/switch.c
-index a9edfba..eb20e0f 100644
---- a/net/dsa/switch.c
-+++ b/net/dsa/switch.c
-@@ -84,23 +84,15 @@ static int dsa_switch_fdb_add(struct dsa_switch *ds,
- 			      struct dsa_notifier_fdb_info *info)
- {
- 	const struct switchdev_obj_port_fdb *fdb = info->fdb;
--	struct switchdev_trans *trans = info->trans;
+ 		return sizeof(struct switchdev_obj_port_mdb);
+ 	default:
+@@ -534,43 +532,6 @@ int switchdev_port_obj_del(struct net_device *dev,
+ }
+ EXPORT_SYMBOL_GPL(switchdev_port_obj_del);
  
- 	/* Do not care yet about other switch chips of the fabric */
- 	if (ds->index != info->sw_index)
- 		return 0;
- 
--	if (switchdev_trans_ph_prepare(trans)) {
--		if (!ds->ops->port_fdb_prepare || !ds->ops->port_fdb_add)
--			return -EOPNOTSUPP;
+-/**
+- *	switchdev_port_obj_dump - Dump port objects
+- *
+- *	@dev: port device
+- *	@id: object ID
+- *	@obj: object to dump
+- *	@cb: function to call with a filled object
+- *
+- *	rtnl_lock must be held.
+- */
+-int switchdev_port_obj_dump(struct net_device *dev, struct switchdev_obj *obj,
+-			    switchdev_obj_dump_cb_t *cb)
+-{
+-	const struct switchdev_ops *ops = dev->switchdev_ops;
+-	struct net_device *lower_dev;
+-	struct list_head *iter;
+-	int err = -EOPNOTSUPP;
 -
--		return ds->ops->port_fdb_prepare(ds, info->port, fdb->addr,
--						 fdb->vid);
+-	ASSERT_RTNL();
+-
+-	if (ops && ops->switchdev_port_obj_dump)
+-		return ops->switchdev_port_obj_dump(dev, obj, cb);
+-
+-	/* Switch device port(s) may be stacked under
+-	 * bond/team/vlan dev, so recurse down to dump objects on
+-	 * first port at bottom of stack.
+-	 */
+-
+-	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+-		err = switchdev_port_obj_dump(lower_dev, obj, cb);
+-		break;
 -	}
 -
--	ds->ops->port_fdb_add(ds, info->port, fdb->addr, fdb->vid);
-+	if (!ds->ops->port_fdb_add)
-+		return -EOPNOTSUPP;
+-	return err;
+-}
+-EXPORT_SYMBOL_GPL(switchdev_port_obj_dump);
+-
+ static ATOMIC_NOTIFIER_HEAD(switchdev_notif_chain);
  
--	return 0;
-+	return ds->ops->port_fdb_add(ds, info->port, fdb->addr, fdb->vid);
+ /**
+@@ -613,402 +574,6 @@ int call_switchdev_notifiers(unsigned long val, struct net_device *dev,
  }
+ EXPORT_SYMBOL_GPL(call_switchdev_notifiers);
  
- static int dsa_switch_fdb_del(struct dsa_switch *ds,
+-struct switchdev_vlan_dump {
+-	struct switchdev_obj_port_vlan vlan;
+-	struct sk_buff *skb;
+-	u32 filter_mask;
+-	u16 flags;
+-	u16 begin;
+-	u16 end;
+-};
+-
+-static int switchdev_port_vlan_dump_put(struct switchdev_vlan_dump *dump)
+-{
+-	struct bridge_vlan_info vinfo;
+-
+-	vinfo.flags = dump->flags;
+-
+-	if (dump->begin == 0 && dump->end == 0) {
+-		return 0;
+-	} else if (dump->begin == dump->end) {
+-		vinfo.vid = dump->begin;
+-		if (nla_put(dump->skb, IFLA_BRIDGE_VLAN_INFO,
+-			    sizeof(vinfo), &vinfo))
+-			return -EMSGSIZE;
+-	} else {
+-		vinfo.vid = dump->begin;
+-		vinfo.flags |= BRIDGE_VLAN_INFO_RANGE_BEGIN;
+-		if (nla_put(dump->skb, IFLA_BRIDGE_VLAN_INFO,
+-			    sizeof(vinfo), &vinfo))
+-			return -EMSGSIZE;
+-		vinfo.vid = dump->end;
+-		vinfo.flags &= ~BRIDGE_VLAN_INFO_RANGE_BEGIN;
+-		vinfo.flags |= BRIDGE_VLAN_INFO_RANGE_END;
+-		if (nla_put(dump->skb, IFLA_BRIDGE_VLAN_INFO,
+-			    sizeof(vinfo), &vinfo))
+-			return -EMSGSIZE;
+-	}
+-
+-	return 0;
+-}
+-
+-static int switchdev_port_vlan_dump_cb(struct switchdev_obj *obj)
+-{
+-	struct switchdev_obj_port_vlan *vlan = SWITCHDEV_OBJ_PORT_VLAN(obj);
+-	struct switchdev_vlan_dump *dump =
+-		container_of(vlan, struct switchdev_vlan_dump, vlan);
+-	int err = 0;
+-
+-	if (vlan->vid_begin > vlan->vid_end)
+-		return -EINVAL;
+-
+-	if (dump->filter_mask & RTEXT_FILTER_BRVLAN) {
+-		dump->flags = vlan->flags;
+-		for (dump->begin = dump->end = vlan->vid_begin;
+-		     dump->begin <= vlan->vid_end;
+-		     dump->begin++, dump->end++) {
+-			err = switchdev_port_vlan_dump_put(dump);
+-			if (err)
+-				return err;
+-		}
+-	} else if (dump->filter_mask & RTEXT_FILTER_BRVLAN_COMPRESSED) {
+-		if (dump->begin > vlan->vid_begin &&
+-		    dump->begin >= vlan->vid_end) {
+-			if ((dump->begin - 1) == vlan->vid_end &&
+-			    dump->flags == vlan->flags) {
+-				/* prepend */
+-				dump->begin = vlan->vid_begin;
+-			} else {
+-				err = switchdev_port_vlan_dump_put(dump);
+-				dump->flags = vlan->flags;
+-				dump->begin = vlan->vid_begin;
+-				dump->end = vlan->vid_end;
+-			}
+-		} else if (dump->end <= vlan->vid_begin &&
+-		           dump->end < vlan->vid_end) {
+-			if ((dump->end  + 1) == vlan->vid_begin &&
+-			    dump->flags == vlan->flags) {
+-				/* append */
+-				dump->end = vlan->vid_end;
+-			} else {
+-				err = switchdev_port_vlan_dump_put(dump);
+-				dump->flags = vlan->flags;
+-				dump->begin = vlan->vid_begin;
+-				dump->end = vlan->vid_end;
+-			}
+-		} else {
+-			err = -EINVAL;
+-		}
+-	}
+-
+-	return err;
+-}
+-
+-static int switchdev_port_vlan_fill(struct sk_buff *skb, struct net_device *dev,
+-				    u32 filter_mask)
+-{
+-	struct switchdev_vlan_dump dump = {
+-		.vlan.obj.orig_dev = dev,
+-		.vlan.obj.id = SWITCHDEV_OBJ_ID_PORT_VLAN,
+-		.skb = skb,
+-		.filter_mask = filter_mask,
+-	};
+-	int err = 0;
+-
+-	if ((filter_mask & RTEXT_FILTER_BRVLAN) ||
+-	    (filter_mask & RTEXT_FILTER_BRVLAN_COMPRESSED)) {
+-		err = switchdev_port_obj_dump(dev, &dump.vlan.obj,
+-					      switchdev_port_vlan_dump_cb);
+-		if (err)
+-			goto err_out;
+-		if (filter_mask & RTEXT_FILTER_BRVLAN_COMPRESSED)
+-			/* last one */
+-			err = switchdev_port_vlan_dump_put(&dump);
+-	}
+-
+-err_out:
+-	return err == -EOPNOTSUPP ? 0 : err;
+-}
+-
+-/**
+- *	switchdev_port_bridge_getlink - Get bridge port attributes
+- *
+- *	@dev: port device
+- *
+- *	Called for SELF on rtnl_bridge_getlink to get bridge port
+- *	attributes.
+- */
+-int switchdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+-				  struct net_device *dev, u32 filter_mask,
+-				  int nlflags)
+-{
+-	struct switchdev_attr attr = {
+-		.orig_dev = dev,
+-		.id = SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS,
+-	};
+-	u16 mode = BRIDGE_MODE_UNDEF;
+-	u32 mask = BR_LEARNING | BR_LEARNING_SYNC | BR_FLOOD;
+-	int err;
+-
+-	if (!netif_is_bridge_port(dev))
+-		return -EOPNOTSUPP;
+-
+-	err = switchdev_port_attr_get(dev, &attr);
+-	if (err && err != -EOPNOTSUPP)
+-		return err;
+-
+-	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode,
+-				       attr.u.brport_flags, mask, nlflags,
+-				       filter_mask, switchdev_port_vlan_fill);
+-}
+-EXPORT_SYMBOL_GPL(switchdev_port_bridge_getlink);
+-
+-static int switchdev_port_br_setflag(struct net_device *dev,
+-				     struct nlattr *nlattr,
+-				     unsigned long brport_flag)
+-{
+-	struct switchdev_attr attr = {
+-		.orig_dev = dev,
+-		.id = SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS,
+-	};
+-	u8 flag = nla_get_u8(nlattr);
+-	int err;
+-
+-	err = switchdev_port_attr_get(dev, &attr);
+-	if (err)
+-		return err;
+-
+-	if (flag)
+-		attr.u.brport_flags |= brport_flag;
+-	else
+-		attr.u.brport_flags &= ~brport_flag;
+-
+-	return switchdev_port_attr_set(dev, &attr);
+-}
+-
+-static const struct nla_policy
+-switchdev_port_bridge_policy[IFLA_BRPORT_MAX + 1] = {
+-	[IFLA_BRPORT_STATE]		= { .type = NLA_U8 },
+-	[IFLA_BRPORT_COST]		= { .type = NLA_U32 },
+-	[IFLA_BRPORT_PRIORITY]		= { .type = NLA_U16 },
+-	[IFLA_BRPORT_MODE]		= { .type = NLA_U8 },
+-	[IFLA_BRPORT_GUARD]		= { .type = NLA_U8 },
+-	[IFLA_BRPORT_PROTECT]		= { .type = NLA_U8 },
+-	[IFLA_BRPORT_FAST_LEAVE]	= { .type = NLA_U8 },
+-	[IFLA_BRPORT_LEARNING]		= { .type = NLA_U8 },
+-	[IFLA_BRPORT_LEARNING_SYNC]	= { .type = NLA_U8 },
+-	[IFLA_BRPORT_UNICAST_FLOOD]	= { .type = NLA_U8 },
+-};
+-
+-static int switchdev_port_br_setlink_protinfo(struct net_device *dev,
+-					      struct nlattr *protinfo)
+-{
+-	struct nlattr *attr;
+-	int rem;
+-	int err;
+-
+-	err = nla_validate_nested(protinfo, IFLA_BRPORT_MAX,
+-				  switchdev_port_bridge_policy, NULL);
+-	if (err)
+-		return err;
+-
+-	nla_for_each_nested(attr, protinfo, rem) {
+-		switch (nla_type(attr)) {
+-		case IFLA_BRPORT_LEARNING:
+-			err = switchdev_port_br_setflag(dev, attr,
+-							BR_LEARNING);
+-			break;
+-		case IFLA_BRPORT_LEARNING_SYNC:
+-			err = switchdev_port_br_setflag(dev, attr,
+-							BR_LEARNING_SYNC);
+-			break;
+-		case IFLA_BRPORT_UNICAST_FLOOD:
+-			err = switchdev_port_br_setflag(dev, attr, BR_FLOOD);
+-			break;
+-		default:
+-			err = -EOPNOTSUPP;
+-			break;
+-		}
+-		if (err)
+-			return err;
+-	}
+-
+-	return 0;
+-}
+-
+-static int switchdev_port_br_afspec(struct net_device *dev,
+-				    struct nlattr *afspec,
+-				    int (*f)(struct net_device *dev,
+-					     const struct switchdev_obj *obj))
+-{
+-	struct nlattr *attr;
+-	struct bridge_vlan_info *vinfo;
+-	struct switchdev_obj_port_vlan vlan = {
+-		.obj.orig_dev = dev,
+-		.obj.id = SWITCHDEV_OBJ_ID_PORT_VLAN,
+-	};
+-	int rem;
+-	int err;
+-
+-	nla_for_each_nested(attr, afspec, rem) {
+-		if (nla_type(attr) != IFLA_BRIDGE_VLAN_INFO)
+-			continue;
+-		if (nla_len(attr) != sizeof(struct bridge_vlan_info))
+-			return -EINVAL;
+-		vinfo = nla_data(attr);
+-		if (!vinfo->vid || vinfo->vid >= VLAN_VID_MASK)
+-			return -EINVAL;
+-		vlan.flags = vinfo->flags;
+-		if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_BEGIN) {
+-			if (vlan.vid_begin)
+-				return -EINVAL;
+-			vlan.vid_begin = vinfo->vid;
+-			/* don't allow range of pvids */
+-			if (vlan.flags & BRIDGE_VLAN_INFO_PVID)
+-				return -EINVAL;
+-		} else if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_END) {
+-			if (!vlan.vid_begin)
+-				return -EINVAL;
+-			vlan.vid_end = vinfo->vid;
+-			if (vlan.vid_end <= vlan.vid_begin)
+-				return -EINVAL;
+-			err = f(dev, &vlan.obj);
+-			if (err)
+-				return err;
+-			vlan.vid_begin = 0;
+-		} else {
+-			if (vlan.vid_begin)
+-				return -EINVAL;
+-			vlan.vid_begin = vinfo->vid;
+-			vlan.vid_end = vinfo->vid;
+-			err = f(dev, &vlan.obj);
+-			if (err)
+-				return err;
+-			vlan.vid_begin = 0;
+-		}
+-	}
+-
+-	return 0;
+-}
+-
+-/**
+- *	switchdev_port_bridge_setlink - Set bridge port attributes
+- *
+- *	@dev: port device
+- *	@nlh: netlink header
+- *	@flags: netlink flags
+- *
+- *	Called for SELF on rtnl_bridge_setlink to set bridge port
+- *	attributes.
+- */
+-int switchdev_port_bridge_setlink(struct net_device *dev,
+-				  struct nlmsghdr *nlh, u16 flags)
+-{
+-	struct nlattr *protinfo;
+-	struct nlattr *afspec;
+-	int err = 0;
+-
+-	if (!netif_is_bridge_port(dev))
+-		return -EOPNOTSUPP;
+-
+-	protinfo = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg),
+-				   IFLA_PROTINFO);
+-	if (protinfo) {
+-		err = switchdev_port_br_setlink_protinfo(dev, protinfo);
+-		if (err)
+-			return err;
+-	}
+-
+-	afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg),
+-				 IFLA_AF_SPEC);
+-	if (afspec)
+-		err = switchdev_port_br_afspec(dev, afspec,
+-					       switchdev_port_obj_add);
+-
+-	return err;
+-}
+-EXPORT_SYMBOL_GPL(switchdev_port_bridge_setlink);
+-
+-/**
+- *	switchdev_port_bridge_dellink - Set bridge port attributes
+- *
+- *	@dev: port device
+- *	@nlh: netlink header
+- *	@flags: netlink flags
+- *
+- *	Called for SELF on rtnl_bridge_dellink to set bridge port
+- *	attributes.
+- */
+-int switchdev_port_bridge_dellink(struct net_device *dev,
+-				  struct nlmsghdr *nlh, u16 flags)
+-{
+-	struct nlattr *afspec;
+-
+-	if (!netif_is_bridge_port(dev))
+-		return -EOPNOTSUPP;
+-
+-	afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg),
+-				 IFLA_AF_SPEC);
+-	if (afspec)
+-		return switchdev_port_br_afspec(dev, afspec,
+-						switchdev_port_obj_del);
+-
+-	return 0;
+-}
+-EXPORT_SYMBOL_GPL(switchdev_port_bridge_dellink);
+-
+-/**
+- *	switchdev_port_fdb_add - Add FDB (MAC/VLAN) entry to port
+- *
+- *	@ndmsg: netlink hdr
+- *	@nlattr: netlink attributes
+- *	@dev: port device
+- *	@addr: MAC address to add
+- *	@vid: VLAN to add
+- *
+- *	Add FDB entry to switch device.
+- */
+-int switchdev_port_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+-			   struct net_device *dev, const unsigned char *addr,
+-			   u16 vid, u16 nlm_flags)
+-{
+-	struct switchdev_obj_port_fdb fdb = {
+-		.obj.orig_dev = dev,
+-		.obj.id = SWITCHDEV_OBJ_ID_PORT_FDB,
+-		.vid = vid,
+-	};
+-
+-	ether_addr_copy(fdb.addr, addr);
+-	return switchdev_port_obj_add(dev, &fdb.obj);
+-}
+-EXPORT_SYMBOL_GPL(switchdev_port_fdb_add);
+-
+-/**
+- *	switchdev_port_fdb_del - Delete FDB (MAC/VLAN) entry from port
+- *
+- *	@ndmsg: netlink hdr
+- *	@nlattr: netlink attributes
+- *	@dev: port device
+- *	@addr: MAC address to delete
+- *	@vid: VLAN to delete
+- *
+- *	Delete FDB entry from switch device.
+- */
+-int switchdev_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
+-			   struct net_device *dev, const unsigned char *addr,
+-			   u16 vid)
+-{
+-	struct switchdev_obj_port_fdb fdb = {
+-		.obj.orig_dev = dev,
+-		.obj.id = SWITCHDEV_OBJ_ID_PORT_FDB,
+-		.vid = vid,
+-	};
+-
+-	ether_addr_copy(fdb.addr, addr);
+-	return switchdev_port_obj_del(dev, &fdb.obj);
+-}
+-EXPORT_SYMBOL_GPL(switchdev_port_fdb_del);
+-
+ bool switchdev_port_same_parent_id(struct net_device *a,
+ 				   struct net_device *b)
+ {
 -- 
 2.4.11
