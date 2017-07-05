@@ -1,38 +1,47 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next RFC 03/12] net: dsa: Remove switchdev dependency
- from DSA switch notifier chain
-Date: Wed, 5 Jul 2017 12:26:20 -0700
-Message-ID: <2742a196-bf22-d4ca-5b61-a9381cb90009@gmail.com>
-References: <1499268990-19251-1-git-send-email-arkadis@mellanox.com>
- <1499268990-19251-4-git-send-email-arkadis@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
-        andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        Woojung.Huh@microchip.com, stephen@networkplumber.org,
-        mlxsw@mellanox.com
-To: Arkadi Sharshevsky <arkadis@mellanox.com>, netdev@vger.kernel.org
+From: Roman Mashak <mrv@mojatatu.com>
+Subject: [PATCH net-next 1/1] net sched actions: rename act_get_notify() to tcf_get_notify()
+Date: Wed,  5 Jul 2017 15:33:58 -0400
+Message-ID: <1499283238-2551-1-git-send-email-mrv@mojatatu.com>
+Cc: netdev@vger.kernel.org, Roman Mashak <mrv@mojatatu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:33816 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751703AbdGET02 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 15:26:28 -0400
-Received: by mail-wr0-f194.google.com with SMTP id k67so50846606wrc.1
-        for <netdev@vger.kernel.org>; Wed, 05 Jul 2017 12:26:27 -0700 (PDT)
-In-Reply-To: <1499268990-19251-4-git-send-email-arkadis@mellanox.com>
-Content-Language: en-US
+Received: from mail-it0-f66.google.com ([209.85.214.66]:34939 "EHLO
+        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751664AbdGETeI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 15:34:08 -0400
+Received: by mail-it0-f66.google.com with SMTP id v193so15463333itc.2
+        for <netdev@vger.kernel.org>; Wed, 05 Jul 2017 12:34:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/05/2017 08:36 AM, Arkadi Sharshevsky wrote:
-> Currently, the switchdev objects are embedded inside the DSA notifier
-> info. This patch removes this dependency. This is done as a preparation
-> stage before adding support for learning FDB through the switchdev
-> notification chain.
-> 
-> Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+Make name consistent with other TC event notification routines.
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Roman Mashak <mrv@mojatatu.com>
+---
+ net/sched/act_api.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index aed6cf2..f2e9ed3 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -835,7 +835,7 @@ static int tca_get_fill(struct sk_buff *skb, struct list_head *actions,
+ }
+ 
+ static int
+-act_get_notify(struct net *net, u32 portid, struct nlmsghdr *n,
++tcf_get_notify(struct net *net, u32 portid, struct nlmsghdr *n,
+ 	       struct list_head *actions, int event)
+ {
+ 	struct sk_buff *skb;
+@@ -1018,7 +1018,7 @@ static int tca_action_flush(struct net *net, struct nlattr *nla,
+ 	}
+ 
+ 	if (event == RTM_GETACTION)
+-		ret = act_get_notify(net, portid, n, &actions, event);
++		ret = tcf_get_notify(net, portid, n, &actions, event);
+ 	else { /* delete */
+ 		ret = tcf_del_notify(net, n, &actions, portid);
+ 		if (ret)
 -- 
-Florian
+1.9.1
