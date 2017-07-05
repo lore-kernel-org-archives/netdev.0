@@ -1,96 +1,110 @@
-From: "Reshetova, Elena" <elena.reshetova@intel.com>
-Subject: Re: [PATCH 00/36] v2 net subsystem misc refcounter
-	conversions
-Date: Wed, 5 Jul 2017 09:03:06 +0000
-Message-ID: <2236FBA76BA1254E88B949DDB74E612B6FF20D45@IRSMSX102.ger.corp.intel.com>
-References: <1499172811-16271-1-git-send-email-elena.reshetova@intel.com>
-	<20170704.230040.195111189904913382.davem@davemloft.net>
+From: Alvaro Gamez Machado <alvaro.gamez@hazent.com>
+Subject: Re: [PATCH] net: axienet: add of_phy_connect call for
+ XAE_PHY_TYPE_MII case
+Date: Wed, 5 Jul 2017 12:13:45 +0200
+Message-ID: <20170705101344.jlx5ju2x46szmuu7@collins.gmr.ssr.upm.es>
+References: <20170630092541.27234-1-alvaro.gamez@hazent.com>
+ <425aed84-a1b6-b8da-5989-3bef5a03ead4@gmail.com>
+ <20170702101914.5nk27r2h754qzthe@collins.gmr.ssr.upm.es>
+ <6A2BD6D6-9CBB-4BDD-BF28-F0BF10DB454C@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "peterz@infradead.org" <peterz@infradead.org>,
-	"jchapman@katalix.com" <jchapman@katalix.com>,
-	"bfields@fieldses.org" <bfields@fieldses.org>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-	"jlayton@poochiereds.net" <jlayton@poochiereds.net>,
-	"steffen.klassert@secunet.com" <steffen.klassert@secunet.com>,
-	"zyan@redhat.com" <zyan@redhat.com>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"linux-x25@vger.kernel.org" <linux-x25@vger.kernel.org>,
-	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-	"bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>,
-	"jmorris@namei.org" <jmorris@namei.org>,
-	"3chas3@gmail.com" <3chas3@gmail.com>,
-	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-	"jreuter@yaina.de" <jreuter@yaina.de>,
-	"keescook@chromium.org" <keescook@chromium.org>,
-	"santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>,
-To: David Miller <davem@davemloft.net>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170704.230040.195111189904913382.davem@davemloft.net>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Anirudha Sarangi <anirudh@xilinx.com>,
+        John Linn <John.Linn@xilinx.com>,
+        Michal Simek <michal.simek@xilinx.com>,
+        =?iso-8859-1?Q?S=F6ren?= Brinkmann <soren.brinkmann@xilinx.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <6A2BD6D6-9CBB-4BDD-BF28-F0BF10DB454C@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Jul 04, 2017 at 09:24:03AM -0700, Florian Fainelli wrote:
+> On July 2, 2017 3:19:14 AM PDT, Alvaro Gamez Machado <alvaro.gamez@hazent.com> wrote:
+> >On Fri, Jun 30, 2017 at 10:30:38AM -0700, Florian Fainelli wrote:
+> >> On 06/30/2017 02:25 AM, Alvaro Gamez Machado wrote:
+> >> >  	if (lp->phy_node) {
+> >> > -		if (lp->phy_type == XAE_PHY_TYPE_GMII) {
+> >> > +		if (lp->phy_type == XAE_PHY_TYPE_MII) {
+> >> > +			phydev = of_phy_connect(lp->ndev, lp->phy_node,
+> >> > +						axienet_adjust_link, 0,
+> >> > +						PHY_INTERFACE_MODE_MII);
+> >> > +		} else if (lp->phy_type == XAE_PHY_TYPE_GMII) {
+> >> >  			phydev = of_phy_connect(lp->ndev, lp->phy_node,
+> >> >  						axienet_adjust_link, 0,
+> >> >  						PHY_INTERFACE_MODE_GMII);
+> >> 
+> >> Seems like this could be simplified even further if the values of
+> >> lp->phy_type directly mapped to those of phy_interface_t.
+> >
+> >Sadly, that's not the case. PHY_INTERFACE_MODE_* belong to a enum of
+> >twenty
+> >different values, of which only _MII and _GMII overlap with XAW_PHY_*
+> >values, but XAE_PHY_TYPE_RGMII_2_0 doesn't match
+> >PHY_INTERFACE_MODE_RGMII_ID.
+> 
+> There are four different rgmii types to account for rx or tx delay, is not
+> there one that really matches?  If the driver is using of_get_phy_mode()
+> to retrieve the standard 'phy-mode' / 'phy-connection-type' values then
+> this internal representation is not needed anymore.
 
-> From: Elena Reshetova <elena.reshetova@intel.com>
-> Date: Tue,  4 Jul 2017 15:52:55 +0300
->=20
-> > Changes in v2:
-> >  * rebase on top of net-next
-> >  * currently by default refcount_t =3D atomic_t (*) and uses all
-> >    atomic standard operations unless CONFIG_REFCOUNT_FULL is enabled.
-> >    This is a compromise for the systems that are critical on
-> >    performance (such as net) and cannot accept even slight delay
-> >    on the refcounter operations.
-> >
-> > This series, for various misc network components, replaces atomic_t ref=
-erence
-> > counters with the new refcount_t type and API (see include/linux/refcou=
-nt.h).
-> > By doing this we prevent intentional or accidental
-> > underflows or overflows that can led to use-after-free vulnerabilities.
-> > These are the last networking-related conversions with the exception of
-> > network drivers (to be send separately).
-> >
-> > Please excuse the long patch set, but seems like breaking it up
-> > won't save that much on CC list and most of the changes are
-> > trivial.
-> >
-> > The patches are fully independent and can be cherry-picked separately.
-> > In order to try with refcount functionality enabled in run-time,
-> > CONFIG_REFCOUNT_FULL must be enabled.
-> >
-> > NOTE: automatic kernel builder for some reason doesn't like all my
-> > network branches and regularly times out the builds on these branches.
-> > Suggestion for "waiting a day for a good coverage" doesn't work, as
-> > we have seen with generic network conversions. So please wait for the
-> > full report from kernel test rebot before merging further up.
-> > This has been compile-tested in 116 configs, but 71 timed out (includin=
-g
-> > all s390-related configs again). I am trying to see if they can fix
-> > build coverage for me in meanwhile.
-> >
-> > * The respective change is currently merged into -next as
-> >   "locking/refcount: Create unchecked atomic_t implementation".
->=20
-> Series applied, that's enough for this cycle, please.
+Instead of the standard 'phy-mode' / 'phy-connection-type' values, the
+driver uses of_property_read_u32(pdev->dev.of_node, "xlnx,phy-type", &lp->phy_type).
 
-Thank you very much David! I really appreciate you taking so many of these =
-conversions in
-one go! I will stop for now :)=20
+I think the reason for this is that Xilinx provides a utility to generate
+device trees from a Vivado/ISE project, which outputs something similar to:
 
-With regards to net, I only have networking drivers left (16 patches in tot=
-al), but I can submit them in the
-next round. Will go bug other subsystem maintainers next :)=20
+axi_ethernet_eth: ethernet@40c00000 {
+	axistream-connected = <&axi_ethernet_0_dma>;
+	axistream-control-connected = <&axi_ethernet_0_dma>;
+	clock-frequency = <83250000>;
+	clocks = <&clk_bus_0>;
+	compatible = "xlnx,axi-ethernet-1.00.a";
+	device_type = "network";
+	interrupt-parent = <&microblaze_0_axi_intc>;
+	interrupts = <2 0>;
+	phy-mode = "mii";
+	reg = <0x40c00000 0x40000>;
+	xlnx = <0x0>;
+	xlnx,axiliteclkrate = <0x0>;
+	xlnx,axisclkrate = <0x0>;
+	xlnx,gt-type = <0x0>;
+	xlnx,gtinex = <0x0>;
+	xlnx,phy-type = <0x0>;
+	xlnx,phyaddr = <0x1>;
+	xlnx,rable = <0x0>;
+	xlnx,rxcsum = <0x2>;
+	xlnx,rxlane0-placement = <0x0>;
+	xlnx,rxlane1-placement = <0x0>;
+	xlnx,rxmem = <0x800>;
+	xlnx,rxnibblebitslice0used = <0x1>;
+	xlnx,tx-in-upper-nibble = <0x1>;
+	xlnx,txcsum = <0x2>;
+	xlnx,txlane0-placement = <0x0>;
+	xlnx,txlane1-placement = <0x0>;
+	phy-handle = <&phy0>;
+	axi_ethernetlite_0_mdio: mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		phy0: phy@0 {
+			device_type = "ethernet-phy";
+			reg = <1>;
+		};
+	};
+};
 
-Best Regards,
-Elena.
+Basically, every 'xlnx,' attribute is taken, both name and value, directly
+from the IP core configuration, even if they are not needed (or even of
+remote interest to any possible driver).
+
+So, migrating this to standard of_get_phy_mode is feasible, but I'd say
+it's pretty inconvenient from the point of view of the HDL system
+designer, and would break existing DTS files people may be using right
+now.
+
+
+
+-- 
+Alvaro G. M.
