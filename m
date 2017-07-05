@@ -1,76 +1,76 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next 03/11] sctp: remove the typedef sctp_cookie_preserve_param_t
-Date: Wed,  5 Jul 2017 08:32:21 +0800
-Message-ID: <090c24ed353f37a2bbce41ecc5feec6fc8cffa8b.1499214692.git.lucien.xin@gmail.com>
+Subject: [PATCH net-next 02/11] sctp: remove the typedef sctp_ipv6addr_param_t
+Date: Wed,  5 Jul 2017 08:32:20 +0800
+Message-ID: <77fa3a776118873a7e5d8203dd59011995b0e865.1499214692.git.lucien.xin@gmail.com>
 References: <cover.1499214692.git.lucien.xin@gmail.com>
  <6ba452f31d10acdc95f3cf679ecab15833f7843c.1499214692.git.lucien.xin@gmail.com>
- <77fa3a776118873a7e5d8203dd59011995b0e865.1499214692.git.lucien.xin@gmail.com>
 Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36104 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752368AbdGEAdD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 20:33:03 -0400
-In-Reply-To: <77fa3a776118873a7e5d8203dd59011995b0e865.1499214692.git.lucien.xin@gmail.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:35376 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752324AbdGEAcz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2017 20:32:55 -0400
+In-Reply-To: <6ba452f31d10acdc95f3cf679ecab15833f7843c.1499214692.git.lucien.xin@gmail.com>
 In-Reply-To: <cover.1499214692.git.lucien.xin@gmail.com>
 References: <cover.1499214692.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to remove the typedef sctp_cookie_preserve_param_t, and
-replace with struct sctp_cookie_preserve_param in the places where it's
-using this typedef.
-
-It is also to fix some indents in sctp_sf_do_5_2_6_stale().
+This patch is to remove the typedef sctp_ipv6addr_param_t, and replace
+with struct sctp_ipv6addr_param in the places where it's using this
+typedef.
 
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- include/linux/sctp.h    |  6 +++---
- net/sctp/sm_statefuns.c | 11 +++++------
- 2 files changed, 8 insertions(+), 9 deletions(-)
+ include/linux/sctp.h     | 4 ++--
+ net/sctp/ipv6.c          | 2 +-
+ net/sctp/sm_make_chunk.c | 2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/include/linux/sctp.h b/include/linux/sctp.h
-index 6b45c8a..d8f9d8f 100644
+index e42095d..6b45c8a 100644
 --- a/include/linux/sctp.h
 +++ b/include/linux/sctp.h
-@@ -285,10 +285,10 @@ struct sctp_ipv6addr_param {
+@@ -279,10 +279,10 @@ struct sctp_ipv4addr_param {
  };
  
- /* Section 3.3.2.1 Cookie Preservative (9) */
--typedef struct sctp_cookie_preserve_param {
-+struct sctp_cookie_preserve_param {
+ /* Section 3.3.2.1. IPv6 Address Parameter (6) */
+-typedef struct sctp_ipv6addr_param {
++struct sctp_ipv6addr_param {
  	struct sctp_paramhdr param_hdr;
--	__be32          lifespan_increment;
--} sctp_cookie_preserve_param_t;
-+	__be32 lifespan_increment;
+ 	struct in6_addr addr;
+-} sctp_ipv6addr_param_t;
 +};
  
- /* Section 3.3.2.1 Host Name Address (11) */
- typedef struct sctp_hostname_param {
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index b2a74c3..ae4c48c 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -2336,13 +2336,12 @@ static sctp_disposition_t sctp_sf_do_5_2_6_stale(struct net *net,
- 						 void *arg,
- 						 sctp_cmd_seq_t *commands)
+ /* Section 3.3.2.1 Cookie Preservative (9) */
+ typedef struct sctp_cookie_preserve_param {
+diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+index f5b45b8..5304532 100644
+--- a/net/sctp/ipv6.c
++++ b/net/sctp/ipv6.c
+@@ -495,7 +495,7 @@ static void sctp_v6_from_addr_param(union sctp_addr *addr,
+ static int sctp_v6_to_addr_param(const union sctp_addr *addr,
+ 				 union sctp_addr_param *param)
  {
--	struct sctp_chunk *chunk = arg;
--	u32 stale;
--	sctp_cookie_preserve_param_t bht;
--	sctp_errhdr_t *err;
--	struct sctp_chunk *reply;
--	struct sctp_bind_addr *bp;
- 	int attempts = asoc->init_err_counter + 1;
-+	struct sctp_chunk *chunk = arg, *reply;
-+	struct sctp_cookie_preserve_param bht;
-+	struct sctp_bind_addr *bp;
-+	sctp_errhdr_t *err;
-+	u32 stale;
+-	int length = sizeof(sctp_ipv6addr_param_t);
++	int length = sizeof(struct sctp_ipv6addr_param);
  
- 	if (attempts > asoc->max_init_attempts) {
- 		sctp_add_cmd_sf(commands, SCTP_CMD_SET_SK_ERR,
+ 	param->v6.param_hdr.type = SCTP_PARAM_IPV6_ADDRESS;
+ 	param->v6.param_hdr.length = htons(length);
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index 0dc64da..e5be305 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -3163,7 +3163,7 @@ bool sctp_verify_asconf(const struct sctp_association *asoc,
+ 			addr_param_seen = true;
+ 			break;
+ 		case SCTP_PARAM_IPV6_ADDRESS:
+-			if (length != sizeof(sctp_ipv6addr_param_t))
++			if (length != sizeof(struct sctp_ipv6addr_param))
+ 				return false;
+ 			if (param.v != addip->addip_hdr.params)
+ 				return false;
 -- 
 2.1.0
