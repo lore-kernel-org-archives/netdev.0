@@ -1,55 +1,81 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH 1/2] i40e/i40evf: rename
- vf_offload_flags       to vf_cap_flags in struct virtchnl_vf_resource
-Date: Wed, 5 Jul 2017 21:15:56 +0000
-Message-ID: <9BBC4E0CF881AA4299206E2E1412B62650490D08@ORSMSX102.amr.corp.intel.com>
-References: <20170629131225.9251-1-sassmann@kpanic.de>
- <20170629131225.9251-2-sassmann@kpanic.de>
+From: =?UTF-8?q?Iv=C3=A1n=20Briano?= <ivan.briano@intel.com>
+Subject: [PATCH net-next v2] net/packet: Fix Tx queue selection for AF_PACKET
+Date: Wed,  5 Jul 2017 14:24:40 -0700
+Message-ID: <20170705212440.32073-1-ivan.briano@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>
-To: Stefan Assmann <sassmann@kpanic.de>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: jesus.sanchez-palencia@intel.com, vinicius.gomes@intel.com,
+        andre.guedes@intel.com,
+        =?UTF-8?q?Iv=C3=A1n=20Briano?= <ivan.briano@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:35105 "EHLO mga05.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:9577 "EHLO mga09.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751896AbdGEVP6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 5 Jul 2017 17:15:58 -0400
-In-Reply-To: <20170629131225.9251-2-sassmann@kpanic.de>
-Content-Language: en-US
+        id S1752688AbdGEVYx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 5 Jul 2017 17:24:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@osuosl.org] On Behalf
-> Of Stefan Assmann
-> Sent: Thursday, June 29, 2017 6:12 AM
-> To: intel-wired-lan@lists.osuosl.org
-> Cc: netdev@vger.kernel.org; davem@davemloft.net; sassmann@kpanic.de
-> Subject: [Intel-wired-lan] [PATCH 1/2] i40e/i40evf: rename vf_offload_flags to
-> vf_cap_flags in struct virtchnl_vf_resource
-> 
-> The current name of vf_offload_flags indicates that the bitmap is
-> limited to offload related features. Make this more generic by renaming
-> it to vf_cap_flags, which allows for other capabilities besides
-> offloading to be added.
-> 
-> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
-> ---
+When PACKET_QDISC_BYPASS is not used, Tx queue selection will be done
+before the packet is enqueued, taking into account any mappings set by
+a queuing discipline such as mqprio without hardware offloading. This
+selection may be affected by a previously saved queue_mapping, either on
+the Rx path, or done before the packet reaches the device, as it's
+currently the case for AF_PACKET.
 
-Hello Stefan,
+In order for queue selection to work as expected when using traffic
+control, there can't be another selection done before that point is
+reached, so move the call to packet_pick_tx_queue to
+packet_direct_xmit, leaving the default xmit path as it was before
+PACKET_QDISC_BYPASS was introduced.
 
-Thanks for the patch series, but we believe the vf should be ignorant of its trusted status.  That being said, you've definitely pointed out a bug in our implementation so that if a vf ends up being configured as trusted, its unable to change its mac address itself when this is an allowed action for this configuration.  The pf can change the mac address for the vf, but the vf itself cannot, which is not correct.  We are working on an alternate solution that keeps the vf from knowing its trusted status, but its not a simple fix.
+A forward declaration of packet_pick_tx_queue() is introduced to avoid
+the need to reorder the functions within the file.
 
-Thanks,
+Fixes: d346a3fae3ff ("packet: introduce PACKET_QDISC_BYPASS socket option")
+Signed-off-by: Iván Briano <ivan.briano@intel.com>
+---
+ net/packet/af_packet.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-Carolyn
-
-Carolyn Wyborny 
-Linux Development 
-Networking Division 
-Intel Corporation 
-
-  
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index e3beb28..008bb34 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -214,6 +214,7 @@ static void prb_clear_rxhash(struct tpacket_kbdq_core *,
+ static void prb_fill_vlan_info(struct tpacket_kbdq_core *,
+ 		struct tpacket3_hdr *);
+ static void packet_flush_mclist(struct sock *sk);
++static void packet_pick_tx_queue(struct net_device *dev, struct sk_buff *skb);
+ 
+ struct packet_skb_cb {
+ 	union {
+@@ -260,6 +261,7 @@ static int packet_direct_xmit(struct sk_buff *skb)
+ 	if (skb != orig_skb)
+ 		goto drop;
+ 
++	packet_pick_tx_queue(dev, skb);
+ 	txq = skb_get_tx_queue(dev, skb);
+ 
+ 	local_bh_disable();
+@@ -2747,8 +2749,6 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ 			goto tpacket_error;
+ 		}
+ 
+-		packet_pick_tx_queue(dev, skb);
+-
+ 		skb->destructor = tpacket_destruct_skb;
+ 		__packet_set_status(po, ph, TP_STATUS_SENDING);
+ 		packet_inc_pending(&po->tx_ring);
+@@ -2931,8 +2931,6 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+ 	skb->priority = sk->sk_priority;
+ 	skb->mark = sockc.mark;
+ 
+-	packet_pick_tx_queue(dev, skb);
+-
+ 	if (po->has_vnet_hdr) {
+ 		err = virtio_net_hdr_to_skb(skb, &vnet_hdr, vio_le());
+ 		if (err)
+-- 
+2.9.4
