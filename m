@@ -1,40 +1,85 @@
-From: Jamie Bainbridge <jamie.bainbridge@gmail.com>
-Subject: Re: [Patch net] tcp: reset sk_rx_dst in tcp_disconnect()
-Date: Wed, 5 Jul 2017 16:54:01 +1000
-Message-ID: <CAAvyFNitoxhPpivWaY+qgW+ssVxvt-3O+4eBfYCN81a0Dn7JZg@mail.gmail.com>
-References: <1498373430-24807-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH 1/1] net sched: Added the TC_LINKLAYER_CUSTOM linklayer
+ type
+Date: Wed, 5 Jul 2017 09:01:33 +0200
+Message-ID: <20170705070133.GA1850@nanopsycho>
+References: <20170704001426.9268-1-Robert.McCabe@rockwellcollins.com>
+ <20170704054832.GA1865@nanopsycho>
+ <CAA0ESdoOd9V_=NqUtM4Nmxvb+tz+AiMAfXvS6ndNLaif59+WUg@mail.gmail.com>
+ <20170704153450.GB1865@nanopsycho>
+ <20170704154023.GC1865@nanopsycho>
+ <CAA0ESdojQfya_PTo=hJeCX1U6ReJ8L2sBra9wUW4LfGwzLYW_A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev@vger.kernel.org, avagin@gmail.com, kaiwen.xu@hulu.com
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Robert McCabe <robert.mccabe@rockwellcollins.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f46.google.com ([74.125.83.46]:34349 "EHLO
-        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751604AbdGEGyC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 02:54:02 -0400
-Received: by mail-pg0-f46.google.com with SMTP id t186so120210021pgb.1
-        for <netdev@vger.kernel.org>; Tue, 04 Jul 2017 23:54:02 -0700 (PDT)
-In-Reply-To: <1498373430-24807-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:36471 "EHLO
+        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752290AbdGEHBg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 03:01:36 -0400
+Received: by mail-wm0-f43.google.com with SMTP id 62so213151924wmw.1
+        for <netdev@vger.kernel.org>; Wed, 05 Jul 2017 00:01:36 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAA0ESdojQfya_PTo=hJeCX1U6ReJ8L2sBra9wUW4LfGwzLYW_A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 25 June 2017 at 16:50, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> We have to reset the sk->sk_rx_dst when we disconnect a TCP
-> connection, because otherwise when we re-connect it this
-> dst reference is simply overridden in tcp_finish_connect().
+Tue, Jul 04, 2017 at 07:12:47PM CEST, robert.mccabe@rockwellcollins.com wrote:
+>>>Even so, the kernel patch you sent does not make any sense. Introduces
+>>>TC_LINKLAYER_CUSTOM but does not use it.
 >
-> This fixes a dst leak which leads to a loopback dev refcnt
-> leak. It is a long-standing bug, Kevin reported a very similar
-> (if not same) bug before. Thanks to Andrei for providing such
-> a reliable reproducer which greatly narrows down the problem.
+>I needed to add this to the tc_link_layer enum in my iproute2 patch
+>(https://patchwork.ozlabs.org/patch/784165/)
 >
-> Fixes: 41063e9dd119 ("ipv4: Early TCP socket demux.")
-> Reported-by: Andrei Vagin <avagin@gmail.com>
-> Reported-by: Kevin Xu <kaiwen.xu@hulu.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>enum tc_link_layer {
+>      TC_LINKLAYER_UNAWARE, /* Indicate unaware old iproute2 util */
+>      TC_LINKLAYER_ETHERNET,
+>      TC_LINKLAYER_ATM,
+>   + TC_LINKLAYER_CUSTOM,
+> };
+>
+>I originally wasn't aware that this file was shared with the kernel --
+>my original patch received the comment from Eric Dumazet
+>
+>    You can not do this : This file is coming from the kernel
+>     ( include/uapi/linux/pkt_sched.h )
 
-Are you able to supply the reproducer for this?
+Correct.
 
-I did search for a previous thread about it but could not find.
 
-Jamie
+>
+>So I opted to make the corresponding change to the pkt_sched.h file in
+>the kernel.
+
+I'm not sure how should I put this, but you are adding enum value and
+you are not using it in kernel! That is wrong. Whenever you add new
+value to UAPI, it has to have a point. Please see:
+
+$ git grep TC_LINKLAYER_
+
+
+>But looking at it further, I am confused as to why this tc_link_layer even needs
+>to exist in the kernel anyway,  It is only used in net/sched for calculating the
+>size (via stab) and rate (via rtab) translations; however, these
+>translations are
+>already specified with in the form of the stab and rtab themselves (these are
+>calculated in userspace).
+>
+>I think -- in a perfect world -- the tc_link_layer (and the associated
+>tc_ratespec.linklayer and  tc_sizespec.linklayer) should be removed
+>from the kernel,
+>but I'm not sure of the compatibility implications of this ...
+>Do you have any suggestions?
+>
+>>
+>> Also, please make you email working. Says to me:
+>>
+>> ** Address not found **
+>>
+>> Your message wasn't delivered to McCabe@rockwellcollins.com because the address couldn't be found. Check for typos or unnecessary spaces and try again.
+>>
+>> This is annoying.
+>
+>I think I fixed it -- was mis-configuration in my .gitconfig (sorry,
+>I'm still new at this).
