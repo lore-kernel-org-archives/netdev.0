@@ -1,69 +1,64 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 06/14] bpf: Implement show_options
-Date: Wed, 05 Jul 2017 16:24:49 +0100
-Message-ID: <149926828898.20611.6599036959362646109.stgit@warthog.procyon.org.uk>
-References: <149926824154.20611.6104595541055328700.stgit@warthog.procyon.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-        Alexei Starovoitov <ast@kernel.org>,
-        linux-kernel@vger.kernel.org, dhowells@redhat.com,
-        linux-fsdevel@vger.kernel.org
-To: viro@zeniv.linux.org.uk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <149926824154.20611.6104595541055328700.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Arkadi Sharshevsky <arkadis@mellanox.com>
+Subject: [PATCH net-next RFC 11/12] net: bridge: Remove FDB deletion through switchdev object
+Date: Wed,  5 Jul 2017 18:36:29 +0300
+Message-ID: <1499268990-19251-12-git-send-email-arkadis@mellanox.com>
+References: <1499268990-19251-1-git-send-email-arkadis@mellanox.com>
+Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
+        f.fainelli@gmail.com, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, Woojung.Huh@microchip.com,
+        stephen@networkplumber.org, mlxsw@mellanox.com,
+        Arkadi Sharshevsky <arkadis@mellanox.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49179 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751678AbdGEPdb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 11:33:31 -0400
+In-Reply-To: <1499268990-19251-1-git-send-email-arkadis@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Implement the show_options superblock op for bpf as part of a bid to get
-rid of s_options and generic_show_options() to make it easier to implement
-a context-based mount where the mount options can be passed individually
-over a file descriptor.
+At this point no driver supports FDB add/del through switchdev object
+but rather via notification chain, thus, it is removed.
 
-Signed-off-by: David Howells <dhowells@redhat.com>
-cc: Alexei Starovoitov <ast@kernel.org>
-cc: Daniel Borkmann <daniel@iogearbox.net>
-cc: netdev@vger.kernel.org
+Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
 ---
+ net/bridge/br_fdb.c | 18 ------------------
+ 1 file changed, 18 deletions(-)
 
- kernel/bpf/inode.c |   16 +++++++++++++---
- 1 file changed, 13 insertions(+), 3 deletions(-)
-
-diff --git a/kernel/bpf/inode.c b/kernel/bpf/inode.c
-index 9bbd33497d3d..e833ed914358 100644
---- a/kernel/bpf/inode.c
-+++ b/kernel/bpf/inode.c
-@@ -377,10 +377,22 @@ static void bpf_evict_inode(struct inode *inode)
- 		bpf_any_put(inode->i_private, type);
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index a5e4a73..a79b648 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -169,29 +169,11 @@ static void fdb_del_hw_addr(struct net_bridge *br, const unsigned char *addr)
+ 	}
  }
  
-+/*
-+ * Display the mount options in /proc/mounts.
-+ */
-+static int bpf_show_options(struct seq_file *m, struct dentry *root)
-+{
-+	umode_t mode = d_inode(root)->i_mode & S_IALLUGO & ~S_ISVTX;
-+
-+	if (mode != S_IRWXUGO)
-+		seq_printf(m, ",mode=%o", mode);
-+	return 0;
-+}
-+
- static const struct super_operations bpf_super_ops = {
- 	.statfs		= simple_statfs,
- 	.drop_inode	= generic_delete_inode,
--	.show_options	= generic_show_options,
-+	.show_options	= bpf_show_options,
- 	.evict_inode	= bpf_evict_inode,
- };
- 
-@@ -434,8 +446,6 @@ static int bpf_fill_super(struct super_block *sb, void *data, int silent)
- 	struct inode *inode;
- 	int ret;
- 
--	save_mount_options(sb, data);
+-static void fdb_del_external_learn(struct net_bridge_fdb_entry *f)
+-{
+-	struct switchdev_obj_port_fdb fdb = {
+-		.obj = {
+-			.orig_dev = f->dst->dev,
+-			.id = SWITCHDEV_OBJ_ID_PORT_FDB,
+-			.flags = SWITCHDEV_F_DEFER,
+-		},
+-		.vid = f->vlan_id,
+-	};
 -
- 	ret = bpf_parse_options(data, &opts);
- 	if (ret)
- 		return ret;
+-	ether_addr_copy(fdb.addr, f->addr.addr);
+-	switchdev_port_obj_del(f->dst->dev, &fdb.obj);
+-}
+-
+ static void fdb_delete(struct net_bridge *br, struct net_bridge_fdb_entry *f)
+ {
+ 	if (f->is_static)
+ 		fdb_del_hw_addr(br, f->addr.addr);
+ 
+-	if (f->added_by_external_learn)
+-		fdb_del_external_learn(f);
+-
+ 	hlist_del_init_rcu(&f->hlist);
+ 	fdb_notify(br, f, RTM_DELNEIGH);
+ 	call_rcu(&f->rcu, fdb_rcu_free);
+-- 
+2.4.11
