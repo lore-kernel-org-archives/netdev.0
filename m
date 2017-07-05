@@ -1,65 +1,44 @@
-From: =?UTF-8?Q?Mika_Penttil=c3=a4?= <mika.penttila@nextfour.com>
-Subject: Re: [PATCH RFC] inetpeer: remove AVL implementation in favor of RB
- tree
-Date: Wed, 5 Jul 2017 19:38:16 +0300
-Message-ID: <fc780727-897c-13c1-30f6-ab2e3f21f321@nextfour.com>
-References: <1499270405.16045.8.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] tcp: reset sk_rx_dst in tcp_disconnect()
+Date: Wed, 5 Jul 2017 09:40:36 -0700
+Message-ID: <CAM_iQpVGd3f=rFU5hg2+5um0eE5EP3tNUDxfy631Pxp1O9c0bw@mail.gmail.com>
+References: <1498373430-24807-1-git-send-email-xiyou.wangcong@gmail.com> <CAAvyFNitoxhPpivWaY+qgW+ssVxvt-3O+4eBfYCN81a0Dn7JZg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Florian Westphal <fw@strlen.de>,
-        netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1499270405.16045.8.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Andrey Wagin <avagin@gmail.com>, Kaiwen Xu <kaiwen.xu@hulu.com>
+To: Jamie Bainbridge <jamie.bainbridge@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33628 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751756AbdGEQk5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 12:40:57 -0400
+Received: by mail-wm0-f65.google.com with SMTP id j85so33645669wmj.0
+        for <netdev@vger.kernel.org>; Wed, 05 Jul 2017 09:40:57 -0700 (PDT)
+In-Reply-To: <CAAvyFNitoxhPpivWaY+qgW+ssVxvt-3O+4eBfYCN81a0Dn7JZg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi!
+On Tue, Jul 4, 2017 at 11:54 PM, Jamie Bainbridge
+<jamie.bainbridge@gmail.com> wrote:
+> On 25 June 2017 at 16:50, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> We have to reset the sk->sk_rx_dst when we disconnect a TCP
+>> connection, because otherwise when we re-connect it this
+>> dst reference is simply overridden in tcp_finish_connect().
+>>
+>> This fixes a dst leak which leads to a loopback dev refcnt
+>> leak. It is a long-standing bug, Kevin reported a very similar
+>> (if not same) bug before. Thanks to Andrei for providing such
+>> a reliable reproducer which greatly narrows down the problem.
+>>
+>> Fixes: 41063e9dd119 ("ipv4: Early TCP socket demux.")
+>> Reported-by: Andrei Vagin <avagin@gmail.com>
+>> Reported-by: Kevin Xu <kaiwen.xu@hulu.com>
+>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>
+> Are you able to supply the reproducer for this?
+>
+> I did search for a previous thread about it but could not find.
 
-
-On 05.07.2017 19:00, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> As discussed in Faro during Netfilter Workshop 2017, RB trees can be
-> used with RCU, using a seqlock.
->
-> Note that net/rxrpc/conn_service.c is already using this.
->
-> This patch converts inetpeer from AVL tree to RB tree, since it allows
-> to remove private AVL code in favor of shared RB code.
->
-> $ size net/ipv4/inetpeer.before net/ipv4/inetpeer.after
->    text	   data	    bss	    dec	    hex	filename
->    3195	     40	    128	   3363	    d23	net/ipv4/inetpeer.before
->    1562	     24	      0	   1586	    632	net/ipv4/inetpeer.after
->
-> The same technique can be used to speed up
-> net/netfilter/nft_set_rbtree.c
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
->  
->  	return p;
-> @@ -467,8 +231,9 @@ EXPORT_SYMBOL_GPL(inet_getpeer);
->  void inet_putpeer(struct inet_peer *p)
->  {
->  	p->dtime = (__u32)jiffies;
-> -	smp_mb__before_atomic();
-> -	refcount_dec(&p->refcnt);
-> +
-> +	if (refcount_dec_and_test(&p->refcnt))
-
-Missing rb_erase() here...
-
-> +		call_rcu(&p->rcu, inetpeer_free_rcu);
->  }
->  EXPORT_SYMBOL_GPL(inet_putpeer);
->  
->
---Mika
-
-
+Here it is:
+http://marc.info/?l=linux-kernel&m=149825461307610&w=2
