@@ -1,31 +1,178 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next RFC 03/12] net: dsa: Remove switchdev dependency from DSA switch notifier chain
-Date: Thu, 06 Jul 2017 14:42:53 -0400
-Message-ID: <87o9sxcspe.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1499268990-19251-1-git-send-email-arkadis@mellanox.com> <1499268990-19251-4-git-send-email-arkadis@mellanox.com>
+From: Manfred Spraul <manfred@colorfullife.com>
+Subject: Re: [PATCH v2 1/9] net/netfilter/nf_conntrack_core: Fix
+ net_conntrack_lock()
+Date: Thu, 6 Jul 2017 20:45:59 +0200
+Message-ID: <113516eb-8615-4468-0127-1a491d34c83c@colorfullife.com>
+References: <20170705232955.GA15992@linux.vnet.ibm.com>
+ <1499297503-23852-1-git-send-email-paulmck@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
-        f.fainelli@gmail.com, andrew@lunn.ch, Woojung.Huh@microchip.com,
-        stephen@networkplumber.org, mlxsw@mellanox.com,
-        Arkadi Sharshevsky <arkadis@mellanox.com>
-To: Arkadi Sharshevsky <arkadis@mellanox.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:53154 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752469AbdGFSpZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2017 14:45:25 -0400
-In-Reply-To: <1499268990-19251-4-git-send-email-arkadis@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------8805E1252AD032F77ACB3F79"
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+        oleg@redhat.com, akpm@linux-foundation.org, mingo@redhat.com,
+        dave@stgolabs.net, tj@kernel.org, arnd@arndb.de,
+        linux-arch@vger.kernel.org, will.deacon@arm.com,
+        peterz@infradead.org, stern@rowland.harvard.edu,
+        parri.andrea@gmail.com, torvalds@linux-foundation.org,
+        stable@vger.kernel.org, Sasha Levin <sasha.levin@oracle.com>,
+        Pablo Neira Ayuso <pablo@netfilter.org>
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+        linux-kernel@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1499297503-23852-1-git-send-email-paulmck@linux.vnet.ibm.com>
+Content-Language: en-US
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Arkadi Sharshevsky <arkadis@mellanox.com> writes:
+This is a multi-part message in MIME format.
+--------------8805E1252AD032F77ACB3F79
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> Currently, the switchdev objects are embedded inside the DSA notifier
-> info. This patch removes this dependency. This is done as a preparation
-> stage before adding support for learning FDB through the switchdev
-> notification chain.
+Hi Paul,
+
+On 07/06/2017 01:31 AM, Paul E. McKenney wrote:
+> From: Manfred Spraul <manfred@colorfullife.com>
 >
-> Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+> As we want to remove spin_unlock_wait() and replace it with explicit
+> spin_lock()/spin_unlock() calls, we can use this to simplify the
+> locking.
+>
+> In addition:
+> - Reading nf_conntrack_locks_all needs ACQUIRE memory ordering.
+> - The new code avoids the backwards loop.
+>
+> Only slightly tested, I did not manage to trigger calls to
+> nf_conntrack_all_lock().
 
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+If you want:
+Attached would be V2, with adapted comments.
+
+--
+     Manfred
+
+--------------8805E1252AD032F77ACB3F79
+Content-Type: text/x-patch;
+ name="0001-net-netfilter-nf_conntrack_core-Fix-net_conntrack_lo.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename*0="0001-net-netfilter-nf_conntrack_core-Fix-net_conntrack_lo.pa";
+ filename*1="tch"
+
+>From e3562faa1bc96e883108505e05deecaf38c87a26 Mon Sep 17 00:00:00 2001
+From: Manfred Spraul <manfred@colorfullife.com>
+Date: Sun, 21 Aug 2016 07:17:55 +0200
+Subject: [PATCH 1/2] net/netfilter/nf_conntrack_core: Fix net_conntrack_lock()
+
+As we want to remove spin_unlock_wait() and replace it with explicit
+spin_lock()/spin_unlock() calls, we can use this to simplify the
+locking.
+
+In addition:
+- Reading nf_conntrack_locks_all needs ACQUIRE memory ordering.
+- The new code avoids the backwards loop.
+
+Only slightly tested, I did not manage to trigger calls to
+nf_conntrack_all_lock().
+
+V2: With improved comments, to clearly show how the barriers
+    pair.
+
+Fixes: b16c29191dc8
+Signed-off-by: Manfred Spraul <manfred@colorfullife.com>
+Cc: <stable@vger.kernel.org>
+Cc: Alan Stern <stern@rowland.harvard.edu>
+Cc: Sasha Levin <sasha.levin@oracle.com>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: netfilter-devel@vger.kernel.org
+---
+ net/netfilter/nf_conntrack_core.c | 52 ++++++++++++++++++++++-----------------
+ 1 file changed, 29 insertions(+), 23 deletions(-)
+
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 9979f46..51390fe 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -96,19 +96,26 @@ static struct conntrack_gc_work conntrack_gc_work;
+ 
+ void nf_conntrack_lock(spinlock_t *lock) __acquires(lock)
+ {
++	/* 1) Acquire the lock */
+ 	spin_lock(lock);
+-	while (unlikely(nf_conntrack_locks_all)) {
+-		spin_unlock(lock);
+ 
+-		/*
+-		 * Order the 'nf_conntrack_locks_all' load vs. the
+-		 * spin_unlock_wait() loads below, to ensure
+-		 * that 'nf_conntrack_locks_all_lock' is indeed held:
+-		 */
+-		smp_rmb(); /* spin_lock(&nf_conntrack_locks_all_lock) */
+-		spin_unlock_wait(&nf_conntrack_locks_all_lock);
+-		spin_lock(lock);
+-	}
++	/* 2) read nf_conntrack_locks_all, with ACQUIRE semantics
++	 * It pairs with the smp_store_release() in nf_conntrack_all_unlock()
++	 */
++	if (likely(smp_load_acquire(&nf_conntrack_locks_all) == false))
++		return;
++
++	/* fast path failed, unlock */
++	spin_unlock(lock);
++
++	/* Slow path 1) get global lock */
++	spin_lock(&nf_conntrack_locks_all_lock);
++
++	/* Slow path 2) get the lock we want */
++	spin_lock(lock);
++
++	/* Slow path 3) release the global lock */
++	spin_unlock(&nf_conntrack_locks_all_lock);
+ }
+ EXPORT_SYMBOL_GPL(nf_conntrack_lock);
+ 
+@@ -149,28 +156,27 @@ static void nf_conntrack_all_lock(void)
+ 	int i;
+ 
+ 	spin_lock(&nf_conntrack_locks_all_lock);
+-	nf_conntrack_locks_all = true;
+ 
+-	/*
+-	 * Order the above store of 'nf_conntrack_locks_all' against
+-	 * the spin_unlock_wait() loads below, such that if
+-	 * nf_conntrack_lock() observes 'nf_conntrack_locks_all'
+-	 * we must observe nf_conntrack_locks[] held:
+-	 */
+-	smp_mb(); /* spin_lock(&nf_conntrack_locks_all_lock) */
++	nf_conntrack_locks_all = true;
+ 
+ 	for (i = 0; i < CONNTRACK_LOCKS; i++) {
+-		spin_unlock_wait(&nf_conntrack_locks[i]);
++		spin_lock(&nf_conntrack_locks[i]);
++
++		/* This spin_unlock provides the "release" to ensure that
++		 * nf_conntrack_locks_all==true is visible to everyone that
++		 * acquired spin_lock(&nf_conntrack_locks[]).
++		 */
++		spin_unlock(&nf_conntrack_locks[i]);
+ 	}
+ }
+ 
+ static void nf_conntrack_all_unlock(void)
+ {
+-	/*
+-	 * All prior stores must be complete before we clear
++	/* All prior stores must be complete before we clear
+ 	 * 'nf_conntrack_locks_all'. Otherwise nf_conntrack_lock()
+ 	 * might observe the false value but not the entire
+-	 * critical section:
++	 * critical section.
++	 * It pairs with the smp_load_acquire() in nf_conntrack_lock()
+ 	 */
+ 	smp_store_release(&nf_conntrack_locks_all, false);
+ 	spin_unlock(&nf_conntrack_locks_all_lock);
+-- 
+2.9.4
+
+
+--------------8805E1252AD032F77ACB3F79--
