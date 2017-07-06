@@ -1,46 +1,32 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH 2/2] net: ethernet: fsl: add phy reset after clk enable
- option
-Date: Thu, 6 Jul 2017 15:55:57 +0200
-Message-ID: <20170706135557.GC8810@lunn.ch>
-References: <1499346330-12166-1-git-send-email-richard.leitner@skidata.com>
- <1499346330-12166-2-git-send-email-richard.leitner@skidata.com>
+From: =?utf-8?B?0JDQu9C10LrRgdC10Lkg0JHQvtC70LTRi9GA0LXQsg==?=
+        <devel-net-ne-vlezay80@yandex.ru>
+Subject: Re: MPLS Pseudowire (RFC3985) linux kernel support and development
+Date: Thu, 06 Jul 2017 16:54:37 +0300
+Message-ID: <3114751499349277@web20g.yandex.ru>
+References: <1739851499332436@web8m.yandex.ru> <6b8ca117-ae0f-3cb9-0377-5ccb623155d5@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: fugang.duan-3arQi8VN3Tc@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dev-M/VWbR8SM2SsTnJN9+BGXg@public.gmane.org
-To: Richard Leitner <richard.leitner-WcANXNA0UjBBDgjK7y7TUQ@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1499346330-12166-2-git-send-email-richard.leitner-WcANXNA0UjBBDgjK7y7TUQ@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: David Lamparter <equinox@diac24.net>,
+        Amine Kherbouche <amine.kherbouche@6wind.com>
+To: Vincent JARDIN <vincent.jardin@6wind.com>,
+        netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from forward5p.cmail.yandex.net ([77.88.31.20]:46663 "EHLO
+        forward5p.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751861AbdGFOCP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2017 10:02:15 -0400
+In-Reply-To: <6b8ca117-ae0f-3cb9-0377-5ccb623155d5@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Richard
+As I understand it, the patch will be available in the linux kernel or as a separate application based on tap?
 
-> diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt b/Documentation/devicetree/bindings/net/fsl-fec.txt
-> index 6f55bdd..1766579 100644
-> --- a/Documentation/devicetree/bindings/net/fsl-fec.txt
-> +++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
-> @@ -23,6 +23,9 @@ Optional properties:
->  - phy-handle : phandle to the PHY device connected to this device.
->  - fixed-link : Assume a fixed link. See fixed-link.txt in the same directory.
->    Use instead of phy-handle.
-> +- phy-reset-after-clk-enable : If present then a phy reset and configuration
-> +  will be performed everytime after the clocks are enabled. This is required
-> +  for some PHYs to work properly.
-
-It sounds like this issue will apply to any LAN8710 which has its
-clock fiddled with. So this should be a centrally documented property,
-which any MAC driver can implement. Please move the above text to
-ethernet.txt, and instead have:
-
- - phy-reset-after-clk-enable : See ethernet.txt
-
- Thanks
-	 Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+06.07.2017, 16:21, "Vincent JARDIN" <vincent.jardin@6wind.com>:
+> Le 06/07/2017 à 11:13, Алексей Болдырев a écrit :
+>>  Is there any plan for developing mpls pseudowire dliver for linux. And also, is it possible to write a driver for MPLS pseudowire on the basis of tun / tap?
+>
+> We are working on a RFC patch that should be available soon.
+> They'll be tested with FRR.
+>
+> best regards,
