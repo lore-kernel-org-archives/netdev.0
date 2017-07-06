@@ -1,70 +1,147 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] wl1251: add a missing spin_lock_init()
-Date: Thu,  6 Jul 2017 15:00:37 -0700
-Message-ID: <1499378437-4971-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: pavel@ucw.cz, linux-wireless@vger.kernel.org,
+Subject: [Patch net] bonding: avoid NETDEV_CHANGEMTU event when unregistering slave
+Date: Thu,  6 Jul 2017 15:01:57 -0700
+Message-ID: <1499378517-5042-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: hongjun.li@6wind.com, nicolas.dichtel@6wind.com,
         Cong Wang <xiyou.wangcong@gmail.com>,
-        Kalle Valo <kvalo@codeaurora.org>
+        Jay Vosburgh <j.vosburgh@gmail.com>,
+        Veaceslav Falico <vfalico@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:33787 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752029AbdGFWAv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2017 18:00:51 -0400
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:35234 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752812AbdGFWCN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2017 18:02:13 -0400
+Received: by mail-pg0-f67.google.com with SMTP id d193so1665623pgc.2
+        for <netdev@vger.kernel.org>; Thu, 06 Jul 2017 15:02:13 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes the following kernel warning:
+As Hongjun/Nicolas summarized in their original patch:
 
-  [ 5668.771453] BUG: spinlock bad magic on CPU#0, kworker/u2:3/9745
-  [ 5668.771850]  lock: 0xce63ef20, .magic: 00000000, .owner: <none>/-1,
-  .owner_cpu: 0
-  [ 5668.772277] CPU: 0 PID: 9745 Comm: kworker/u2:3 Tainted: G        W
-  4.12.0-03002-gec979a4-dirty #40
-  [ 5668.772796] Hardware name: Nokia RX-51 board
-  [ 5668.773071] Workqueue: phy1 wl1251_irq_work
-  [ 5668.773345] [<c010c9e4>] (unwind_backtrace) from [<c010a274>]
-  (show_stack+0x10/0x14)
-  [ 5668.773803] [<c010a274>] (show_stack) from [<c01545a4>]
-  (do_raw_spin_lock+0x6c/0xa0)
-  [ 5668.774230] [<c01545a4>] (do_raw_spin_lock) from [<c06ca578>]
-  (_raw_spin_lock_irqsave+0x10/0x18)
-  [ 5668.774658] [<c06ca578>] (_raw_spin_lock_irqsave) from [<c048c010>]
-  (wl1251_op_tx+0x38/0x5c)
-  [ 5668.775115] [<c048c010>] (wl1251_op_tx) from [<c06a12e8>]
-  (ieee80211_tx_frags+0x188/0x1c0)
-  [ 5668.775543] [<c06a12e8>] (ieee80211_tx_frags) from [<c06a138c>]
-  (__ieee80211_tx+0x6c/0x130)
-  [ 5668.775970] [<c06a138c>] (__ieee80211_tx) from [<c06a3dbc>]
-  (ieee80211_tx+0xdc/0x104)
-  [ 5668.776367] [<c06a3dbc>] (ieee80211_tx) from [<c06a4af0>]
-  (__ieee80211_subif_start_xmit+0x454/0x8c8)
-  [ 5668.776824] [<c06a4af0>] (__ieee80211_subif_start_xmit) from
-  [<c06a4f94>] (ieee80211_subif_start_xmit+0x30/0x2fc)
-  [ 5668.777343] [<c06a4f94>] (ieee80211_subif_start_xmit) from
-  [<c0578848>] (dev_hard_start_xmit+0x80/0x118)
-  ...
+"
+When a device changes from one netns to another, it's first unregistered,
+then the netns reference is updated and the dev is registered in the new
+netns. Thus, when a slave moves to another netns, it is first
+unregistered. This triggers a NETDEV_UNREGISTER event which is caught by
+the bonding driver. The driver calls bond_release(), which calls
+dev_set_mtu() and thus triggers NETDEV_CHANGEMTU (the device is still in
+the old netns).
+"
 
-by adding the missing spin_lock_init().
+This is a very special case, because the device is being unregistered
+no one should still care about the NETDEV_CHANGEMTU event triggered
+at this point, we can avoid broadcasting this event on this path,
+and avoid touching inetdev_event()/addrconf_notify() path.
 
-Reported-by: Pavel Machek <pavel@ucw.cz>
-Cc: Kalle Valo <kvalo@codeaurora.org>
+It requires to export __dev_set_mtu() to bonding driver.
+
+Reported-by: Hongjun Li <hongjun.li@6wind.com>
+Reported-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>
+Cc: Veaceslav Falico <vfalico@gmail.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- drivers/net/wireless/ti/wl1251/main.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/bonding/bond_main.c | 15 +++++++++------
+ include/linux/netdevice.h       |  1 +
+ net/core/dev.c                  |  3 ++-
+ 3 files changed, 12 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/wireless/ti/wl1251/main.c b/drivers/net/wireless/ti/wl1251/main.c
-index bbf7604..1c539c8 100644
---- a/drivers/net/wireless/ti/wl1251/main.c
-+++ b/drivers/net/wireless/ti/wl1251/main.c
-@@ -1571,6 +1571,7 @@ struct ieee80211_hw *wl1251_alloc_hw(void)
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 8ab6bdb..2971af1 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1820,7 +1820,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+  */
+ static int __bond_release_one(struct net_device *bond_dev,
+ 			      struct net_device *slave_dev,
+-			      bool all)
++			      bool all, bool unregister)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
+ 	struct slave *slave, *oldcurrent;
+@@ -1965,7 +1965,10 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 		dev_set_mac_address(slave_dev, (struct sockaddr *)&ss);
+ 	}
  
- 	wl->state = WL1251_STATE_OFF;
- 	mutex_init(&wl->mutex);
-+	spin_lock_init(&wl->wl_lock);
+-	dev_set_mtu(slave_dev, slave->original_mtu);
++	if (unregister)
++		__dev_set_mtu(slave_dev, slave->original_mtu);
++	else
++		dev_set_mtu(slave_dev, slave->original_mtu);
  
- 	wl->tx_mgmt_frm_rate = DEFAULT_HW_GEN_TX_RATE;
- 	wl->tx_mgmt_frm_mod = DEFAULT_HW_GEN_MODULATION_TYPE;
+ 	slave_dev->priv_flags &= ~IFF_BONDING;
+ 
+@@ -1977,7 +1980,7 @@ static int __bond_release_one(struct net_device *bond_dev,
+ /* A wrapper used because of ndo_del_link */
+ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
+ {
+-	return __bond_release_one(bond_dev, slave_dev, false);
++	return __bond_release_one(bond_dev, slave_dev, false, false);
+ }
+ 
+ /* First release a slave and then destroy the bond if no more slaves are left.
+@@ -1989,7 +1992,7 @@ static int  bond_release_and_destroy(struct net_device *bond_dev,
+ 	struct bonding *bond = netdev_priv(bond_dev);
+ 	int ret;
+ 
+-	ret = bond_release(bond_dev, slave_dev);
++	ret = __bond_release_one(bond_dev, slave_dev, false, true);
+ 	if (ret == 0 && !bond_has_slaves(bond)) {
+ 		bond_dev->priv_flags |= IFF_DISABLE_NETPOLL;
+ 		netdev_info(bond_dev, "Destroying bond %s\n",
+@@ -3060,7 +3063,7 @@ static int bond_slave_netdev_event(unsigned long event,
+ 		if (bond_dev->type != ARPHRD_ETHER)
+ 			bond_release_and_destroy(bond_dev, slave_dev);
+ 		else
+-			bond_release(bond_dev, slave_dev);
++			__bond_release_one(bond_dev, slave_dev, false, true);
+ 		break;
+ 	case NETDEV_UP:
+ 	case NETDEV_CHANGE:
+@@ -4257,7 +4260,7 @@ static void bond_uninit(struct net_device *bond_dev)
+ 
+ 	/* Release the bonded slaves */
+ 	bond_for_each_slave(bond, slave, iter)
+-		__bond_release_one(bond_dev, slave->dev, true);
++		__bond_release_one(bond_dev, slave->dev, true, true);
+ 	netdev_info(bond_dev, "Released all slaves\n");
+ 
+ 	arr = rtnl_dereference(bond->slave_arr);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 4ed952c..e4030db 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3287,6 +3287,7 @@ void __dev_notify_flags(struct net_device *, unsigned int old_flags,
+ int dev_change_name(struct net_device *, const char *);
+ int dev_set_alias(struct net_device *, const char *, size_t);
+ int dev_change_net_namespace(struct net_device *, struct net *, const char *);
++int __dev_set_mtu(struct net_device *, int);
+ int dev_set_mtu(struct net_device *, int);
+ void dev_set_group(struct net_device *, int);
+ int dev_set_mac_address(struct net_device *, struct sockaddr *);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 416137c..e567de8 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6688,7 +6688,7 @@ int dev_change_flags(struct net_device *dev, unsigned int flags)
+ }
+ EXPORT_SYMBOL(dev_change_flags);
+ 
+-static int __dev_set_mtu(struct net_device *dev, int new_mtu)
++int __dev_set_mtu(struct net_device *dev, int new_mtu)
+ {
+ 	const struct net_device_ops *ops = dev->netdev_ops;
+ 
+@@ -6698,6 +6698,7 @@ static int __dev_set_mtu(struct net_device *dev, int new_mtu)
+ 	dev->mtu = new_mtu;
+ 	return 0;
+ }
++EXPORT_SYMBOL(__dev_set_mtu);
+ 
+ /**
+  *	dev_set_mtu - Change maximum transfer unit
 -- 
 2.5.5
