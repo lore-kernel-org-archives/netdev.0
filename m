@@ -1,61 +1,46 @@
-From: Ethan Zhao <ethan.kernel@gmail.com>
-Subject: Re: [PATCH] sctp: set the value of flowi6_oif to sk_bound_dev_if to
- make sctp_v6_get_dst to find the correct route entry.
-Date: Thu, 6 Jul 2017 17:03:54 +0800
-Message-ID: <CABawtvMgVqA-zyOn7g+gSmqgTY9nG2vtEm_pan2F_huXz__Kfw@mail.gmail.com>
-References: <1499324409-12489-1-git-send-email-lizheng043@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] skbuff: optimize the pull_pages code in
+ __pskb_pull_tail()
+Date: Thu, 06 Jul 2017 02:16:27 -0700
+Message-ID: <1499332587.16045.13.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1499331694-34678-1-git-send-email-xiaolou4617@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>, vyasevich@gmail.com,
-        nhorman@tuxdriver.com, linux-sctp@vger.kernel.org,
-        David Miller <davem@davemloft.net>, jmorris@namei.org,
-        james.z.li@ericsson.com, allen.y.zhao@ericsson.com,
-        feng.qiu@ericsson.com
-To: Zheng Li <lizheng043@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Lin Zhang <xiaolou4617@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1499324409-12489-1-git-send-email-lizheng043@gmail.com>
+In-Reply-To: <1499331694-34678-1-git-send-email-xiaolou4617@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Zheng,
-
-On Thu, Jul 6, 2017 at 3:00 PM, Zheng Li <lizheng043@gmail.com> wrote:
-> From: Zheng Li <james.z.li@ericsson.com>
->
-> if there are several same route entries with different outgoing net device,
-> application's socket specifies the oif through setsockopt with
-> SO_BINDTODEVICE, sctpv6 should choose the route entry whose outgoing net
-> device is the oif which was specified by socket, set the value of
-> flowi6_oif to sk->sk_bound_dev_if to make sctp_v6_get_dst to find the
-> correct route entry.
->
-> Signed-off-by: Zheng Li <james.z.li@ericsson.com>
+On Thu, 2017-07-06 at 17:01 +0800, Lin Zhang wrote:
+> In the pull_pages code block, if the first frags size > eat,
+> we can end the loop in advance to avoid extra copy.
+> 
+> Signed-off-by: Lin Zhang <xiaolou4617@gmail.com>
 > ---
->  net/sctp/ipv6.c | 2 ++
->  1 file changed, 2 insertions(+)
->
-> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
-> index f5b45b8..2a186b20 100644
-> --- a/net/sctp/ipv6.c
-> +++ b/net/sctp/ipv6.c
-> @@ -252,6 +252,8 @@ static void sctp_v6_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
->         fl6->flowi6_proto = IPPROTO_SCTP;
->         if (ipv6_addr_type(&daddr->v6.sin6_addr) & IPV6_ADDR_LINKLOCAL)
->                 fl6->flowi6_oif = daddr->v6.sin6_scope_id;
-> +       else if (asoc)
-> +               fl6->flowi6_oif = asoc->base.sk->sk_bound_dev_if;
+>  net/core/skbuff.c | 4 ++++
+>  1 file changed, 4 insertions(+)
+> 
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index f990eb8..c00a1df 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -1720,6 +1720,10 @@ void *__pskb_pull_tail(struct sk_buff *skb, int delta)
+>  				skb_shinfo(skb)->frags[k].page_offset += eat;
+>  				skb_frag_size_sub(&skb_shinfo(skb)->frags[k], eat);
+>  				eat = 0;
+> +				if (!i) {
+> +					k = skb_shinfo(skb)->nr_frags;
+> +					break;
+> +				}
+>  			}
+>  			k++;
+>  		}
 
-  Yes, ipv4 does the same way,  but sctp ipv4 code aslo set the
-source port to htons(asoc->base.bind_addr.port) meanwhile;
-:>
+1) net-next is closed during merge window.
 
-Thanks,
-Ethan
-
->
->         pr_debug("%s: dst=%pI6 ", __func__, &fl6->daddr);
->
-> --
-> 2.7.4
->
+2) This change is completely buggy.
+   How have you tested it exactly ???
