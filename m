@@ -1,44 +1,28 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH] mwifiex: fix compile warning of unused variable
-Date: Thu, 06 Jul 2017 10:57:14 +0300
-Message-ID: <87k23mf15x.fsf@kamboji.qca.qualcomm.com>
-References: <1499327433-70786-1-git-send-email-shawn.lin@rock-chips.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH 06/14] bpf: Implement show_options
+Date: Thu, 06 Jul 2017 10:00:57 +0200
+Message-ID: <595DEE39.9080508@iogearbox.net>
+References: <149926824154.20611.6104595541055328700.stgit@warthog.procyon.org.uk> <149926828898.20611.6599036959362646109.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Amitkumar Karwar <amitkarwar@gmail.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        Nishant Sarmukadam <nishants@marvell.com>,
-        Xinming Hu <huxm@marvell.com>
-To: Shawn Lin <shawn.lin@rock-chips.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:39294 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751741AbdGFH5l (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2017 03:57:41 -0400
-In-Reply-To: <1499327433-70786-1-git-send-email-shawn.lin@rock-chips.com>
-        (Shawn Lin's message of "Thu, 6 Jul 2017 15:50:33 +0800")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+        linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: David Howells <dhowells@redhat.com>, viro@zeniv.linux.org.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <149926828898.20611.6599036959362646109.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Shawn Lin <shawn.lin@rock-chips.com> writes:
-
-> We got a compile warning shows below:
+On 07/05/2017 05:24 PM, David Howells wrote:
+> Implement the show_options superblock op for bpf as part of a bid to get
+> rid of s_options and generic_show_options() to make it easier to implement
+> a context-based mount where the mount options can be passed individually
+> over a file descriptor.
 >
-> drivers/net/wireless/marvell/mwifiex/sdio.c: In function
-> 'mwifiex_sdio_remove':
-> drivers/net/wireless/marvell/mwifiex/sdio.c:377:6: warning: variable
-> 'ret' set but not used [-Wunused-but-set-variable]
->
-> Per the code, it didn't check if mwifiex_sdio_read_fw_status
-> finish successfully. We should at least check the return of
-> mwifiex_sdio_read_fw_status, otherwise the following check of
-> firmware_stat and adapter->mfg_mode is pointless as the device
-> is probably dead.
+> Signed-off-by: David Howells <dhowells@redhat.com>
+> cc: Alexei Starovoitov <ast@kernel.org>
+> cc: Daniel Borkmann <daniel@iogearbox.net>
+> cc: netdev@vger.kernel.org
 
-I don't see that warning, any ideas why? My compiler:
-
-gcc (Ubuntu 5.4.0-6ubuntu1~16.04.4) 5.4.0 20160609
-
-
--- 
-Kalle Valo
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
