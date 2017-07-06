@@ -1,75 +1,192 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Patch net] tap: convert a mutex to a spinlock
-Date: Thu, 06 Jul 2017 01:24:22 -0700
-Message-ID: <1499329462.16045.11.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1499287800-10634-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: ath10k: ret used but uninitialized (was: Re: ath10k: add initial SDIO support)
+Date: Thu, 6 Jul 2017 10:27:08 +0200
+Message-ID: <CAMuHMdWVYA4TejcTjOQh7CBfFwJ=q59pzvuHrpH91Kx=-BK9fg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, borntraeger@de.ibm.com,
-        Sainath Grandhi <sainath.grandhi@intel.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:33369 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752042AbdGFIY0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2017 04:24:26 -0400
-Received: by mail-wr0-f194.google.com with SMTP id x23so3261955wrb.0
-        for <netdev@vger.kernel.org>; Thu, 06 Jul 2017 01:24:26 -0700 (PDT)
-In-Reply-To: <1499287800-10634-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        "ath10k@lists.infradead.org" <ath10k@lists.infradead.org>,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Erik Stromdahl <erik.stromdahl@gmail.com>,
+        Kalle Valo <kvalo@qca.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-07-05 at 13:50 -0700, Cong Wang wrote:
-> We are not allowed to block on the RCU reader side, so can't
-> just hold the mutex as before. As a quick fix, convert it to
-> a spinlock.
-> 
-> Fixes: d9f1f61c0801 ("tap: Extending tap device create/destroy APIs")
-> Reported-by: Christian Borntraeger <borntraeger@de.ibm.com>
-> Cc: Sainath Grandhi <sainath.grandhi@intel.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> ---
->  drivers/net/tap.c | 18 +++++++++---------
->  1 file changed, 9 insertions(+), 9 deletions(-)
-> 
-> diff --git a/drivers/net/tap.c b/drivers/net/tap.c
-> index 4d4173d..d88ae3c 100644
-> --- a/drivers/net/tap.c
-> +++ b/drivers/net/tap.c
-> @@ -106,7 +106,7 @@ struct major_info {
->  	struct rcu_head rcu;
->  	dev_t major;
->  	struct idr minor_idr;
-> -	struct mutex minor_lock;
-> +	spinlock_t minor_lock;
->  	const char *device_name;
->  	struct list_head next;
->  };
-> @@ -416,15 +416,15 @@ int tap_get_minor(dev_t major, struct tap_dev *tap)
->  		goto unlock;
->  	}
->  
-> -	mutex_lock(&tap_major->minor_lock);
-> -	retval = idr_alloc(&tap_major->minor_idr, tap, 1, TAP_NUM_DEVS, GFP_KERNEL);
+On Wed, Jul 5, 2017 at 9:52 PM, Linux Kernel Mailing List
+<linux-kernel@vger.kernel.org> wrote:
+> Web:        https://git.kernel.org/torvalds/c/d96db25d20256208ce47d71b9f6=
+73a1de4c6fd7e
+> Commit:     d96db25d20256208ce47d71b9f673a1de4c6fd7e
+> Parent:     f008d1537bf88396cf41a7c7a831e3acd1ee92a1
+> Refname:    refs/heads/master
+> Author:     Erik Stromdahl <erik.stromdahl@gmail.com>
+> AuthorDate: Wed Apr 26 12:18:00 2017 +0300
+> Committer:  Kalle Valo <kvalo@qca.qualcomm.com>
+> CommitDate: Thu May 4 15:55:55 2017 +0300
+>
+>     ath10k: add initial SDIO support
+>
+>     Chipsets like QCA6584 have support for SDIO so add initial SDIO bus s=
+upport to
+>     ath10k. With this patch we have the low level HTC protocol working an=
+d it's
+>     possible to boot the firmware, but it's still not possible to connect=
+ or
+>     anything like. More changes are needed for full functionality. For th=
+at reason
+>     we print during initialisation:
+>
+>     WARNING: ath10k SDIO support is incomplete, don't expect anything to =
+work!
+>
+>     Signed-off-by: Erik Stromdahl <erik.stromdahl@gmail.com>
+>     [kvalo@qca.qualcomm.com: refactoring, cleanup, commit log]
+>     Signed-off-by: Kalle Valo <kvalo@qca.qualcomm.com>
 
-	idr_preload(GFP_KERNEL);
+> --- /dev/null
+> +++ b/drivers/net/wireless/ath/ath10k/sdio.c
 
-> +	spin_lock(&tap_major->minor_lock);
-> +	retval = idr_alloc(&tap_major->minor_idr, tap, 1, TAP_NUM_DEVS, GFP_ATOMIC);
->  	if (retval >= 0) {
->  		tap->minor = retval;
->  	} else if (retval == -ENOSPC) {
->  		netdev_err(tap->dev, "Too many tap devices\n");
->  		retval = -EINVAL;
->  	}
-> -	mutex_unlock(&tap_major->minor_lock);
-> +	spin_unlock(&tap_major->minor_lock);
+> +static int ath10k_sdio_mbox_rxmsg_pending_handler(struct ath10k *ar,
+> +                                                 u32 msg_lookahead, bool=
+ *done)
+> +{
+> +       struct ath10k_sdio *ar_sdio =3D ath10k_sdio_priv(ar);
+> +       u32 lookaheads[ATH10K_SDIO_MAX_RX_MSGS];
+> +       int n_lookaheads =3D 1;
+> +       unsigned long timeout;
+> +       int ret;
 
-	idr_preload_end();
+With gcc 4.1.2:
 
->  
->  unlock:
+drivers/net/wireless/ath/ath10k/sdio.c: In function
+=E2=80=98ath10k_sdio_mbox_rxmsg_pending_handler=E2=80=99:
+drivers/net/wireless/ath/ath10k/sdio.c:676: warning: =E2=80=98ret=E2=80=99 =
+may be used
+uninitialized in this function
 
+> +
+> +       *done =3D true;
+> +
+> +       /* Copy the lookahead obtained from the HTC register table into o=
+ur
+> +        * temp array as a start value.
+> +        */
+> +       lookaheads[0] =3D msg_lookahead;
+> +
+> +       timeout =3D jiffies + SDIO_MBOX_PROCESSING_TIMEOUT_HZ;
 
-Thanks.
+Although very unlikely due to the long timeout, if the code is preempted he=
+re,
+and the loop below never entered, ret will indeed be uninitialized.
+
+It's unclear to me what the proper initialization would be, though, so
+that's why I didn't send a patch.
+
+> +       while (time_before(jiffies, timeout)) {
+> +               /* Try to allocate as many HTC RX packets indicated by
+> +                * n_lookaheads.
+> +                */
+> +               ret =3D ath10k_sdio_mbox_rx_alloc(ar, lookaheads,
+> +                                               n_lookaheads);
+> +               if (ret)
+> +                       break;
+> +
+> +               if (ar_sdio->n_rx_pkts >=3D 2)
+> +                       /* A recv bundle was detected, force IRQ status
+> +                        * re-check again.
+> +                        */
+> +                       *done =3D false;
+> +
+> +               ret =3D ath10k_sdio_mbox_rx_fetch(ar);
+> +
+> +               /* Process fetched packets. This will potentially update
+> +                * n_lookaheads depending on if the packets contain looka=
+head
+> +                * reports.
+> +                */
+> +               n_lookaheads =3D 0;
+> +               ret =3D ath10k_sdio_mbox_rx_process_packets(ar,
+> +                                                         lookaheads,
+> +                                                         &n_lookaheads);
+> +
+> +               if (!n_lookaheads || ret)
+> +                       break;
+> +
+> +               /* For SYNCH processing, if we get here, we are running
+> +                * through the loop again due to updated lookaheads. Set
+> +                * flag that we should re-check IRQ status registers agai=
+n
+> +                * before leaving IRQ processing, this can net better
+> +                * performance in high throughput situations.
+> +                */
+> +               *done =3D false;
+> +       }
+> +
+> +       if (ret && (ret !=3D -ECANCELED))
+> +               ath10k_warn(ar, "failed to get pending recv messages: %d\=
+n",
+> +                           ret);
+> +
+> +       return ret;
+> +}
+
+> +static void ath10k_sdio_irq_handler(struct sdio_func *func)
+> +{
+> +       struct ath10k_sdio *ar_sdio =3D sdio_get_drvdata(func);
+> +       struct ath10k *ar =3D ar_sdio->ar;
+> +       unsigned long timeout;
+> +       bool done =3D false;
+> +       int ret;
+
+drivers/net/wireless/ath/ath10k/sdio.c: In function =E2=80=98ath10k_sdio_ir=
+q_handler=E2=80=99:
+drivers/net/wireless/ath/ath10k/sdio.c:1331: warning: =E2=80=98ret=E2=80=99=
+ may be
+used uninitialized in this function
+
+> +
+> +       /* Release the host during interrupts so we can pick it back up w=
+hen
+> +        * we process commands.
+> +        */
+> +       sdio_release_host(ar_sdio->func);
+> +
+> +       timeout =3D jiffies + ATH10K_SDIO_HIF_COMMUNICATION_TIMEOUT_HZ;
+
+Same here.
+
+Should ret be preinitialized to 0, -ECANCELED, or something else?
+
+> +       while (time_before(jiffies, timeout) && !done) {
+> +               ret =3D ath10k_sdio_mbox_proc_pending_irqs(ar, &done);
+> +               if (ret)
+> +                       break;
+> +       }
+> +
+> +       sdio_claim_host(ar_sdio->func);
+> +
+> +       wake_up(&ar_sdio->irq_wq);
+> +
+> +       if (ret && ret !=3D -ECANCELED)
+> +               ath10k_warn(ar, "failed to process pending SDIO interrupt=
+s: %d\n",
+> +                           ret);
+> +}
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k=
+.org
+
+In personal conversations with technical people, I call myself a hacker. Bu=
+t
+when I'm talking to journalists I just say "programmer" or something like t=
+hat.
+                                -- Linus Torvalds
