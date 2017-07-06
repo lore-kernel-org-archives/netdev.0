@@ -1,48 +1,26 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 6/6] net: stmmac: revert "support future
- possible different internal phy mode"
-Date: Thu, 06 Jul 2017 10:45:14 +0100 (WEST)
-Message-ID: <20170706.104514.1212305295126379350.davem@davemloft.net>
-References: <20170702123159.6939-1-clabbe.montjoie@gmail.com>
-	<20170702123159.6939-7-clabbe.montjoie@gmail.com>
-	<20170706085147.GA15728@Red>
-Reply-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] skbuff: optimize the pull_pages code in
+ __pskb_pull_tail()
+Date: Thu, 06 Jul 2017 02:48:36 -0700
+Message-ID: <1499334516.16045.16.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1499331694-34678-1-git-send-email-xiaolou4617@gmail.com>
+         <1499332587.16045.13.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1499333003.16045.15.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAGd-6ZeegG2wRg19kNs6ZzEMxtXKMKUL2+=AiTjHOxNDDGM6RQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-sunxi+bncBCFPF2XH6UDBBMEN7DFAKGQEK6WU7EY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <20170706085147.GA15728@Red>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: lin zhang <xiaolou4617@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAGd-6ZeegG2wRg19kNs6ZzEMxtXKMKUL2+=AiTjHOxNDDGM6RQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Thu, 6 Jul 2017 10:51:47 +0200
+On Thu, 2017-07-06 at 17:35 +0800, lin zhang wrote:
 
-> On Sun, Jul 02, 2017 at 02:31:59PM +0200, Corentin Labbe wrote:
->> Since internal phy-mode is reserved for non-xMII protocol we cannot use
->> it with dwmac-sun8i
->> This reverts commit 1c2fa5f84683 ("net: stmmac: support future possible different internal phy mode")
->> 
->> Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->> ---
-> 
-> Hello
-> 
-> This patch was left not applied but all other patch from this serie was.
-> Could you apply it, or perhaps you prefer I resend it with some "Fixes:"
+> thanks, i am a newer, "net-next is closed" it means i need repost it
+> after net-next reopened?
 
-You never need to ask questions like this.
-
-If it's not active in my patchwork queue, you must resend.
-
-Thank you.
+Yes, please read Documentation/networking/netdev-FAQ.txt for details.
