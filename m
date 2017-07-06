@@ -1,83 +1,49 @@
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: Re: [PATCH net-next RFC 08/12] net: dsa: Remove support for bypass
- bridge port attributes/vlan set
-Date: Thu, 6 Jul 2017 14:00:01 +0300
-Message-ID: <b28de8fe-5bf0-b982-1868-4fbab42c17c2@mellanox.com>
-References: <1499268990-19251-1-git-send-email-arkadis@mellanox.com>
- <1499268990-19251-9-git-send-email-arkadis@mellanox.com>
- <9b066beb-190f-ddc8-74bd-c59cee98d059@gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net] ip[6]: don't register inet[6]dev when dev is down
+Date: Thu, 6 Jul 2017 14:08:08 +0200
+Message-ID: <7238f160-2547-c51a-c8fe-bcbc5d774239@6wind.com>
+References: <20170705155725.15469-1-nicolas.dichtel@6wind.com>
+ <CAM_iQpUtniWmKAOGnjJ+d-cWeQkgEPhcwKFdMeVy49rCe2Sh5g@mail.gmail.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
-        andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        Woojung.Huh@microchip.com, stephen@networkplumber.org,
-        mlxsw@mellanox.com
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Content-Transfer-Encoding: 8bit
+Cc: David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Hongjun Li <hongjun.li@6wind.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0087.outbound.protection.outlook.com ([104.47.1.87]:11168
-        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752414AbdGFLAM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 6 Jul 2017 07:00:12 -0400
-In-Reply-To: <9b066beb-190f-ddc8-74bd-c59cee98d059@gmail.com>
+Received: from mail-wr0-f179.google.com ([209.85.128.179]:35213 "EHLO
+        mail-wr0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751900AbdGFMIN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2017 08:08:13 -0400
+Received: by mail-wr0-f179.google.com with SMTP id k67so88499wrc.2
+        for <netdev@vger.kernel.org>; Thu, 06 Jul 2017 05:08:13 -0700 (PDT)
+In-Reply-To: <CAM_iQpUtniWmKAOGnjJ+d-cWeQkgEPhcwKFdMeVy49rCe2Sh5g@mail.gmail.com>
+Content-Language: fr
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 07/05/2017 10:45 PM, Florian Fainelli wrote:
-> On 07/05/2017 08:36 AM, Arkadi Sharshevsky wrote:
->> The bridge port attributes/vlan for DSA devices should be set only
->> from bridge code. Furthermore, The vlans are synced totally with the
->> bridge so there is no need for special dump support.
->>
->> Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+Le 06/07/2017 à 00:43, Cong Wang a écrit :
+> On Wed, Jul 5, 2017 at 8:57 AM, Nicolas Dichtel
+> <nicolas.dichtel@6wind.com> wrote:
+>> When a device changes from one netns to another, it's first unregistered,
+>> then the netns reference is updated and the dev is registered in the new
+>> netns. Thus, when a slave moves to another netns, it is first
+>> unregistered. This triggers a NETDEV_UNREGISTER event which is caught by
+>> the bonding driver. The driver calls bond_release(), which calls
+>> dev_set_mtu() and thus triggers NETDEV_CHANGEMTU (the device is still in
+>> the old netns).
 > 
-> I would be more comfortable if we still had a way to dump HW entries by
-> calling into drivers, because it's useful for debugging, and doing that
-> using standard tools plus an additional flag for instance:
+> I think in this special case it is meaningless to send
+> NETDEV_CHANGEMTU, because the device is dying within
+> its old netns, who still cares about its mtu change?
 > 
-> bridge fdb show
-> 
-> would dump the SW-maintained VLANs, but:
-> 
-> bridge fdb show hw
-> 
+> Something like the attached patch...
+Yes, your patch seems good and I hesitated with something like this.
+But I don't see a valid case where the inet[6]dev must be created on a down
+interface. I think the patch is valid, even with your patch.
 
-I agree that in your case, the FDBs are exception because they cannot be
-synced with the sw bridge due to lack of interrupt per learned entry,
-but note that this ability of bypass dump should not be supported by
-switchdev code because its contradicts the model. That is why I moved it
-inside DSA in one of the following patches (another reason is that
-nobody is using it beside you so there is no reason to leave it there).
 
-This is especially true for vlans which are synced completely with the
-software bridge.
-
-Regarding debugging, if you want to see the hardware tables you can
-easily use dpipe for that. For example you can add table which does
-match on vlan and mac and set the output port, or some table that
-matches port and incoming packets vlan into internal metadata (FID)
-that can be used for lookup.
-
-I just don't think it is good idea for mixing this tools together.
-
-> would dump the HW-maintained VLANs, or any flag name really, but the
-> point is that we can keep using a standard tool to expose debugging
-> features. debugfs (or something else) could be used, but was rejected by
-> David.
-> 
-> Also, technically, it ought to be possible to configure a port's VLAN
-> membership (although using poor semantics) through e.g: vconfig add
-> sw0p0 1, which would call ndo_vlan_rx_add_vid() (DSA does not support it
-> but mlxsw does), and so being able to dump that configuration would be
-
-Yeah, in mlxsw the vlan devices are used mainly for vlan unaware bridge,
-so the vlans will not be visible by the bridge, but the correct API to
-see this is via:
-
-$ip -d link show sw1p7.8
-
-> somehow helpful.
-> 
+Regards,
+Nicolas
