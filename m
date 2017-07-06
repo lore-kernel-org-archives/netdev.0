@@ -1,59 +1,103 @@
-From: Nadav Amit via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [PATCH v3 net-next 02/12] bpf/verifier: rework
- value tracking
-Date: Thu, 6 Jul 2017 14:21:46 -0700
-Message-ID: <E65DE75F-FC5F-41BC-9F7B-C03D324D8C6F@gmail.com>
-References: <adc11342-737f-4e06-bce3-f0a92b5594a5@solarflare.com>
-	<2244b48b-f415-3239-6912-cb09f0abc546@solarflare.com>
-Reply-To: Nadav Amit <nadav.amit-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <2244b48b-f415-3239-6912-cb09f0abc546-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next RFC 08/12] net: dsa: Remove support for bypass
+ bridge port attributes/vlan set
+Date: Thu, 6 Jul 2017 14:36:42 -0700
+Message-ID: <3435cceb-17d8-2b14-dd42-0ce5d2aea7e1@gmail.com>
+References: <1499268990-19251-1-git-send-email-arkadis@mellanox.com>
+ <1499268990-19251-9-git-send-email-arkadis@mellanox.com>
+ <9b066beb-190f-ddc8-74bd-c59cee98d059@gmail.com>
+ <b28de8fe-5bf0-b982-1868-4fbab42c17c2@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
+        andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        Woojung.Huh@microchip.com, stephen@networkplumber.org,
+        mlxsw@mellanox.com
+To: Arkadi Sharshevsky <arkadis@mellanox.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:33215 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751943AbdGFVgv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2017 17:36:51 -0400
+Received: by mail-wr0-f196.google.com with SMTP id x23so3347708wrb.0
+        for <netdev@vger.kernel.org>; Thu, 06 Jul 2017 14:36:51 -0700 (PDT)
+In-Reply-To: <b28de8fe-5bf0-b982-1868-4fbab42c17c2@mellanox.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org> wrote:
-
-> Tracks value alignment by means of tracking known & unknown bits.
-> Tightens some min/max value checks and fixes a couple of bugs therein.
-> If pointer leaks are allowed, and adjust_ptr_min_max_vals returns -EACCES,
-> treat the pointer as an unknown scalar and try again, because we might be
-> able to conclude something about the result (e.g. pointer & 0x40 is either
-> 0 or 0x40).
+On 07/06/2017 04:00 AM, Arkadi Sharshevsky wrote:
 > 
-> Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-> ---
-> include/linux/bpf.h          |   34 +-
-> include/linux/bpf_verifier.h |   40 +-
-> include/linux/tnum.h         |   79 ++
-> kernel/bpf/Makefile          |    2 +-
-> kernel/bpf/tnum.c            |  163 ++++
-> kernel/bpf/verifier.c        | 1692 ++++++++++++++++++++++++------------------
-> 6 files changed, 1235 insertions(+), 775 deletions(-)
+> 
+> On 07/05/2017 10:45 PM, Florian Fainelli wrote:
+>> On 07/05/2017 08:36 AM, Arkadi Sharshevsky wrote:
+>>> The bridge port attributes/vlan for DSA devices should be set only
+>>> from bridge code. Furthermore, The vlans are synced totally with the
+>>> bridge so there is no need for special dump support.
+>>>
+>>> Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+>>
+>> I would be more comfortable if we still had a way to dump HW entries by
+>> calling into drivers, because it's useful for debugging, and doing that
+>> using standard tools plus an additional flag for instance:
+>>
+>> bridge fdb show
+>>
+>> would dump the SW-maintained VLANs, but:
+>>
+>> bridge fdb show hw
+>>
+> 
+> I agree that in your case, the FDBs are exception because they cannot be
+> synced with the sw bridge due to lack of interrupt per learned entry,
+> but note that this ability of bypass dump should not be supported by
+> switchdev code because its contradicts the model. That is why I moved it
+> inside DSA in one of the following patches (another reason is that
+> nobody is using it beside you so there is no reason to leave it there).
 
-(RESEND)
+Sure, I agree with that, no need to clutter switchdev and other
+switchdev only drivers like mlxsw with FDB dumping code that they don't
+need.
 
-I find it a bit surprising that such huge changes that can affect security
-and robustness are performed in one patch. Personally, I cannot comprehend
-all of these changes. In addition, I think that it is valuable to describe
-in detail the bugs that the patch solves and when they were introduced.
+> 
+> This is especially true for vlans which are synced completely with the
+> software bridge.
+> 
+> Regarding debugging, if you want to see the hardware tables you can
+> easily use dpipe for that. For example you can add table which does
+> match on vlan and mac and set the output port, or some table that
+> matches port and incoming packets vlan into internal metadata (FID)
+> that can be used for lookup.
+> 
+> I just don't think it is good idea for mixing this tools together.
 
-I can bring up some concerns regarding inconsistencies in offset checks and
-size, not spilling SCALAR and my wish not to limit packet size. However,
-when the patch is that big, I think it is useless.
+Well, that is once again debatable, ethtool for instance contains a
+collection of debug and functional information about your hardware.
+Having the ability to dump the VLAN tables using the standard bridge
+vlan output has a lot of value in that you can easily correlated whether
+the SW representation matches the HW representation (as fed by the
+driver back into bridge's netlink messages).
 
-Nadav
+> 
+>> would dump the HW-maintained VLANs, or any flag name really, but the
+>> point is that we can keep using a standard tool to expose debugging
+>> features. debugfs (or something else) could be used, but was rejected by
+>> David.
+>>
+>> Also, technically, it ought to be possible to configure a port's VLAN
+>> membership (although using poor semantics) through e.g: vconfig add
+>> sw0p0 1, which would call ndo_vlan_rx_add_vid() (DSA does not support it
+>> but mlxsw does), and so being able to dump that configuration would be
+> 
+> Yeah, in mlxsw the vlan devices are used mainly for vlan unaware bridge,
+> so the vlans will not be visible by the bridge, but the correct API to
+> see this is via:
+> 
+> $ip -d link show sw1p7.8
+
+Since the VLAN-aware device is visible to user-space, my comment does
+not really make sense in that this very interface existence indicates
+that the port has been properly set up with a VLAN tag
+-- 
+Florian
