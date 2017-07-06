@@ -1,253 +1,143 @@
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: Re: [PATCH net-next RFC 05/12] net: dsa: Add support for learning FDB
- through notification
-Date: Thu, 6 Jul 2017 16:04:44 +0300
-Message-ID: <87aa5f4c-748c-7a6f-b1ce-18625ef9418e@mellanox.com>
-References: <1499268990-19251-1-git-send-email-arkadis@mellanox.com>
- <1499268990-19251-6-git-send-email-arkadis@mellanox.com>
- <424fbf9a-f060-87d1-cad2-36e2ef732bd6@gmail.com>
+From: Richard Leitner <richard.leitner-WcANXNA0UjBBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH 2/2] net: ethernet: fsl: add phy reset after clk enable option
+Date: Thu, 6 Jul 2017 15:05:30 +0200
+Message-ID: <1499346330-12166-2-git-send-email-richard.leitner@skidata.com>
+References: <1499346330-12166-1-git-send-email-richard.leitner@skidata.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
-        andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        Woojung.Huh@microchip.com, stephen@networkplumber.org,
-        mlxsw@mellanox.com
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0075.outbound.protection.outlook.com ([104.47.1.75]:63195
-        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752219AbdGFNEz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 6 Jul 2017 09:04:55 -0400
-In-Reply-To: <424fbf9a-f060-87d1-cad2-36e2ef732bd6@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <dev-M/VWbR8SM2SsTnJN9+BGXg@public.gmane.org>,
+        Richard Leitner <richard.leitner-WcANXNA0UjBBDgjK7y7TUQ@public.gmane.org>
+To: <fugang.duan-3arQi8VN3Tc@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1499346330-12166-1-git-send-email-richard.leitner-WcANXNA0UjBBDgjK7y7TUQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+Some PHYs (for example the LAN8710) doesn't allow turning the clocks off
+and on again without reset (according to their datasheet). Exactly this
+behaviour was introduced for power saving reasons by commit e8fcfcd5684a
+("net: fec: optimize the clock management to save power")
+Therefore add a devictree option to perform a PHY reset and
+configuration after every clock enable.
 
+For a better understanding here's a outline of the time response of the
+clock and reset lines before and after this patch:
 
-On 07/05/2017 10:35 PM, Florian Fainelli wrote:
-> On 07/05/2017 08:36 AM, Arkadi Sharshevsky wrote:
->> Add support for learning FDB through notification. The driver defers
->> the hardware update via ordered work queue. In case of a successful
->> FDB add a notification is sent back to bridge.
->>
->> Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
->> ---
->>  net/dsa/slave.c | 124 +++++++++++++++++++++++++++++++++++++++++++++++++++++++-
->>  1 file changed, 122 insertions(+), 2 deletions(-)
->>
->> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
->> index 19395cc..d0592f2 100644
->> --- a/net/dsa/slave.c
->> +++ b/net/dsa/slave.c
->> @@ -1263,19 +1263,139 @@ static int dsa_slave_netdevice_event(struct notifier_block *nb,
->>  	return NOTIFY_DONE;
->>  }
->>  
->> +struct dsa_switchdev_event_work {
->> +	struct work_struct work;
->> +	struct switchdev_notifier_fdb_info fdb_info;
->> +	struct net_device *dev;
->> +	unsigned long event;
->> +};
->> +
->> +static void dsa_switchdev_event_work(struct work_struct *work)
->> +{
->> +	struct dsa_switchdev_event_work *switchdev_work =
->> +		container_of(work, struct dsa_switchdev_event_work, work);
->> +	struct net_device *dev = switchdev_work->dev;
->> +	struct switchdev_notifier_fdb_info *fdb_info;
->> +	struct dsa_slave_priv *p = netdev_priv(dev);
->> +	int err;
->> +
->> +	rtnl_lock();
->> +	switch (switchdev_work->event) {
->> +	case SWITCHDEV_FDB_ADD_TO_DEVICE:
->> +		fdb_info = &switchdev_work->fdb_info;
-> 
-> You could probably move this assignment outside of the switch()/case
-> statement since it is repeated
-> 
+			  v--fec_probe()              v--fec_enet_open()
+			  v                           v
+	w/o patch eCLK: ___||||||||____________________|||||||||||||||||
+	w/o patch nRST: ----__------------------------------------------
+	w/o patch CONF: _______XX_______________________________________
 
-Yeah, but this cast is only correct for only this two cases. If in the
-future it will be extended it will be weird getting it back inside the
-switch.
+	w/  patch eCLK: ___||||||||____________________|||||||||||||||||
+	w/  patch nRST: ----__--------------------------__--------------
+	w/  patch CONF: _______XX__________________________XX___________
+			  ^                           ^
+			  ^--fec_probe()              ^--fec_enet_open()
 
-Thanks for the review!
+In our case this problem does occur at about every 10th to 50th POR of
+an LAN8710 connected to an i.MX6 SoC. The typical symptom of this
+problem is a "swinging" ethernet link. Similar issues were experienced
+by users of the NXP forum:
+	https://community.nxp.com/thread/389902
+	https://community.nxp.com/message/309354
+With this patch applied the issue didn't occur for at least a few
+hundred PORs of our board.
 
->> +		err = dsa_port_fdb_add(p->dp, fdb_info->addr, fdb_info->vid);
->> +		if (err) {
->> +			netdev_dbg(dev, "fdb add failed err=%d\n", err);
->> +			break;
->> +		}
->> +		call_switchdev_notifiers(SWITCHDEV_FDB_OFFLOADED, dev,
->> +					 &fdb_info->info);
->> +		break;
->> +
->> +	case SWITCHDEV_FDB_DEL_TO_DEVICE:
->> +		fdb_info = &switchdev_work->fdb_info;
->> +		err = dsa_port_fdb_del(p->dp, fdb_info->addr, fdb_info->vid);
->> +		if (err)
->> +			netdev_dbg(dev, "fdb del failed err=%d\n", err);
-> 
-> OK I must have missed from the off-list discussion why we are not
-> calling the switchdev notifier here?
-> 
+Fixes: e8fcfcd5684a ("net: fec: optimize the clock management to sa...")
+Signed-off-by: Richard Leitner <richard.leitner-WcANXNA0UjBBDgjK7y7TUQ@public.gmane.org>
+---
+ Documentation/devicetree/bindings/net/fsl-fec.txt |  3 +++
+ drivers/net/ethernet/freescale/fec.h              |  1 +
+ drivers/net/ethernet/freescale/fec_main.c         | 16 ++++++++++++++++
+ 3 files changed, 20 insertions(+)
 
-We do not agree on it actually, that is why it was moved to the list.
-I think that delete should succeed, you should retry until succession.
+diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt b/Documentation/devicetree/bindings/net/fsl-fec.txt
+index 6f55bdd..1766579 100644
+--- a/Documentation/devicetree/bindings/net/fsl-fec.txt
++++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
+@@ -23,6 +23,9 @@ Optional properties:
+ - phy-handle : phandle to the PHY device connected to this device.
+ - fixed-link : Assume a fixed link. See fixed-link.txt in the same directory.
+   Use instead of phy-handle.
++- phy-reset-after-clk-enable : If present then a phy reset and configuration
++  will be performed everytime after the clocks are enabled. This is required
++  for some PHYs to work properly.
+ - fsl,num-tx-queues : The property is valid for enet-avb IP, which supports
+   hw multi queues. Should specify the tx queue number, otherwise set tx queue
+   number to 1.
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index 3da8084..d4f658a 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -538,6 +538,7 @@ struct fec_enet_private {
+ 	int	phy_reset_duration;
+ 	int	phy_reset_post_delay;
+ 	bool	phy_reset_active_high;
++	bool	phy_reset_after_clk_enable;
+ 
+ 	struct	napi_struct napi;
+ 	int	csum_flags;
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index cbbf7b8..4e744f3 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -68,6 +68,7 @@
+ 
+ static void set_multicast_list(struct net_device *ndev);
+ static void fec_enet_itr_coal_init(struct net_device *ndev);
++static int fec_reset_phy(struct net_device *ndev);
+ 
+ #define DRIVER_NAME	"fec"
+ 
+@@ -1862,6 +1863,18 @@ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
+ 		ret = clk_prepare_enable(fep->clk_ref);
+ 		if (ret)
+ 			goto failed_clk_ref;
++
++		/* reset the phy after clk is enabled if it's configured */
++		if (fep->phy_reset_after_clk_enable) {
++			ret = fec_reset_phy(ndev);
++			if (ret)
++				goto failed_reset;
++			if (ndev->phydev) {
++				ret = phy_init_hw(ndev->phydev);
++				if (ret)
++					goto failed_reset;
++			}
++		}
+ 	} else {
+ 		clk_disable_unprepare(fep->clk_ahb);
+ 		clk_disable_unprepare(fep->clk_enet_out);
+@@ -1876,6 +1889,7 @@ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
+ 
+ 	return 0;
+ 
++failed_reset:
+ failed_clk_ref:
+ 	if (fep->clk_ref)
+ 		clk_disable_unprepare(fep->clk_ref);
+@@ -3350,6 +3364,7 @@ fec_probe(struct platform_device *pdev)
+ 			fep->phy_reset_post_delay = 1;
+ 
+ 		fep->phy_reset_active_high =  of_property_read_bool(np, "phy-reset-active-high");
++		fep->phy_reset_after_clk_enable = of_property_read_bool(np, "phy-reset-after-clk-enable");
+ 
+ 		ret = devm_gpio_request_one(&pdev->dev, fep->phy_reset,
+ 					    fep->phy_reset_active_high ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
+@@ -3360,6 +3375,7 @@ fec_probe(struct platform_device *pdev)
+ 		}
+ 	} else {
+ 		fep->phy_reset = 0;
++		fep->phy_reset_after_clk_enable = false;
+ 	}
+ 
+ 	ret = of_get_phy_mode(pdev->dev.of_node);
+-- 
+2.1.4
 
-The deletion is done under spinlock in the bridge so you cannot block,
-thus delete cannot fail due to hardware failure. Calling it here doesn't
-make sense because the bridge probably already deleted this FDB.
-
->> +		break;
->> +	}
->> +	rtnl_unlock();
->> +
->> +	kfree(switchdev_work->fdb_info.addr);
->> +	kfree(switchdev_work);
->> +	dev_put(dev);
->> +}
->> +
->> +static int
->> +dsa_slave_switchdev_fdb_work_init(struct dsa_switchdev_event_work *
->> +				  switchdev_work,
->> +				  const struct switchdev_notifier_fdb_info *
->> +				  fdb_info)
->> +{
->> +	memcpy(&switchdev_work->fdb_info, fdb_info,
->> +	       sizeof(switchdev_work->fdb_info));
->> +	switchdev_work->fdb_info.addr = kzalloc(ETH_ALEN, GFP_ATOMIC);
->> +	if (!switchdev_work->fdb_info.addr)
->> +		return -ENOMEM;
-> 
-> Can't we have the fdb_info structure contain pre-allocated 6 bytes
-> storage for address, it's really silly to do this here and every time we
-> need to offload an FDB entry.
->
-
-This fdb_info contains pointer to MAC which resides in the bridge's
-internal fdb struct (struct net_bridge_fdb_entry). It has to be copied
-at least once due to the async processing in the workqeue. Note that
-no reference is taken on this struct, and while you process (async) the
-add this struct can be already deleted followed by a del notification.
-
-In case the fdb_info contains this 6 bytes, 2 copies would be performed:
-1. Inside the bridge: from the net_bridge_fdb_entry to the fdb_info
-   (which is allocated on the stack and used only during the
-    notification call)
-2. Inside the driver: duplication of the fdb_info to the workqeue item
-
-The current way only does one copy, so I think its better. We can do a
-little optimization here by having the dsa_switchdev_event_work contain
-the address itself instead of ptr to fdb_info. That way only one
-allocation of the dsa_switchdev_event_work is done, but I think its not
-that crucial.
-
->> +	ether_addr_copy((u8 *)switchdev_work->fdb_info.addr,
->> +			fdb_info->addr);
->> +	return 0;
->> +}
->> +
->> +/* Called under rcu_read_lock() */
->> +static int dsa_slave_switchdev_event(struct notifier_block *unused,
->> +				     unsigned long event, void *ptr)
->> +{
->> +	struct net_device *dev = switchdev_notifier_info_to_dev(ptr);
->> +	struct dsa_switchdev_event_work *switchdev_work;
->> +
->> +	if (!dsa_slave_dev_check(dev))
->> +		return NOTIFY_DONE;
->> +
->> +	switchdev_work = kzalloc(sizeof(*switchdev_work), GFP_ATOMIC);
->> +	if (!switchdev_work)
->> +		return NOTIFY_BAD;
-> 
-> Same here, can we try to re-use a heap allocated workqueue item and we
-> just re-initialize it when we have to?
-> 
-
-It cannot be the same one. Because if user added multiple FDBs and the
-kernel thread which does the work was preempted this work should
-be accumulated in the queue.
-
-Maybe I misunderstood the comment..
-
->> +
->> +	INIT_WORK(&switchdev_work->work, dsa_switchdev_event_work);
->> +	switchdev_work->dev = dev;
->> +	switchdev_work->event = event;
->> +
->> +	switch (event) {
->> +	case SWITCHDEV_FDB_ADD_TO_DEVICE: /* fall through */
->> +	case SWITCHDEV_FDB_DEL_TO_DEVICE:
->> +		if (dsa_slave_switchdev_fdb_work_init(switchdev_work,
->> +						      ptr))
->> +			goto err_fdb_work_init;
->> +		dev_hold(dev);
->> +		break;
->> +	default:
->> +		kfree(switchdev_work);
->> +		return NOTIFY_DONE;
->> +	}
->> +
->> +	dsa_schedule_work(&switchdev_work->work);
->> +	return NOTIFY_OK;
->> +
->> +err_fdb_work_init:
->> +	kfree(switchdev_work);
->> +	return NOTIFY_BAD;
->> +}
->> +
->>  static struct notifier_block dsa_slave_nb __read_mostly = {
->> -	.notifier_call	= dsa_slave_netdevice_event,
->> +	.notifier_call  = dsa_slave_netdevice_event,
->> +};
->> +
->> +static struct notifier_block dsa_slave_switchdev_notifier = {
->> +	.notifier_call = dsa_slave_switchdev_event,
->>  };
->>  
->>  int dsa_slave_register_notifier(void)
->>  {
->> -	return register_netdevice_notifier(&dsa_slave_nb);
->> +	int err;
->> +
->> +	err = register_netdevice_notifier(&dsa_slave_nb);
->> +	if (err)
->> +		return err;
->> +
->> +	err = register_switchdev_notifier(&dsa_slave_switchdev_notifier);
->> +	if (err)
->> +		goto err_register_switchdev;
-> 
-> this label is a bit misnamed since it really deals with the slave dsa
-> notifier, how about no label or just renaming it "error_slave_nb"?
-> 
-
-You have two nb here so its misnamed too.. Maybe err_switchdev_nb?
-
->> +
->> +	return 0;
->> +
->> +err_register_switchdev:
->> +	unregister_netdevice_notifier(&dsa_slave_nb);
->> +	return err;
->>  }
->>  
->>  void dsa_slave_unregister_notifier(void)
->>  {
->>  	int err;
->>  
->> +	err = unregister_netdevice_notifier(&dsa_slave_switchdev_notifier);
->> +	if (err)
->> +		pr_err("DSA: failed to unregister switchdev notifier (%d)\n", err);
->> +
->>  	err = unregister_netdevice_notifier(&dsa_slave_nb);
->>  	if (err)
->>  		pr_err("DSA: failed to unregister slave notifier (%d)\n", err);
->>
-> 
-> 
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
