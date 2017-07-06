@@ -1,67 +1,44 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH 1/2] i40e/i40evf: rename
- vf_offload_flags to vf_cap_flags in struct virtchnl_vf_resource
-Date: Thu, 6 Jul 2017 15:26:42 +0000
-Message-ID: <9BBC4E0CF881AA4299206E2E1412B62650491AAE@ORSMSX102.amr.corp.intel.com>
-References: <20170629131225.9251-1-sassmann@kpanic.de>
- <20170629131225.9251-2-sassmann@kpanic.de>
- <9BBC4E0CF881AA4299206E2E1412B62650490D08@ORSMSX102.amr.corp.intel.com>
- <CALgkqUpFST=oiS+yAFpkCiRS6JPqVg9R7_+3GMNvWoVnB_zoXg@mail.gmail.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net] vrf: fix bug_on triggered by rx when destroying a vrf
+Date: Thu, 6 Jul 2017 09:32:24 -0600
+Message-ID: <9f9c57d6-78db-7038-1992-7c4841b22ce9@gmail.com>
+References: <1499343880-30421-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Stefan Assmann <sassmann@kpanic.de>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>
-To: Greg Rose <gvrose8192@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: chriscormier@cumulusnetworks.com, davem@davemloft.net
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:25379 "EHLO mga11.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750970AbdGFP0o (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 6 Jul 2017 11:26:44 -0400
-In-Reply-To: <CALgkqUpFST=oiS+yAFpkCiRS6JPqVg9R7_+3GMNvWoVnB_zoXg@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-it0-f65.google.com ([209.85.214.65]:36690 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750970AbdGFPc1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2017 11:32:27 -0400
+Received: by mail-it0-f65.google.com with SMTP id k3so954385ita.3
+        for <netdev@vger.kernel.org>; Thu, 06 Jul 2017 08:32:26 -0700 (PDT)
+In-Reply-To: <1499343880-30421-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBHcmVnIFJvc2UgW21haWx0bzpn
-dnJvc2U4MTkyQGdtYWlsLmNvbV0NCj4gU2VudDogVGh1cnNkYXksIEp1bHkgMDYsIDIwMTcgNzoy
-NSBBTQ0KPiBUbzogV3lib3JueSwgQ2Fyb2x5biA8Y2Fyb2x5bi53eWJvcm55QGludGVsLmNvbT4N
-Cj4gQ2M6IFN0ZWZhbiBBc3NtYW5uIDxzYXNzbWFubkBrcGFuaWMuZGU+OyBpbnRlbC13aXJlZC1s
-YW5AbGlzdHMub3N1b3NsLm9yZzsNCj4gbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgZGF2ZW1AZGF2
-ZW1sb2Z0Lm5ldA0KPiBTdWJqZWN0OiBSZTogW0ludGVsLXdpcmVkLWxhbl0gW1BBVENIIDEvMl0g
-aTQwZS9pNDBldmY6IHJlbmFtZQ0KPiB2Zl9vZmZsb2FkX2ZsYWdzIHRvIHZmX2NhcF9mbGFncyBp
-biBzdHJ1Y3QgdmlydGNobmxfdmZfcmVzb3VyY2UNCj4gDQo+IE9uIFdlZCwgSnVsIDUsIDIwMTcg
-YXQgMTA6MTUgUE0sIFd5Ym9ybnksIENhcm9seW4NCj4gPGNhcm9seW4ud3lib3JueUBpbnRlbC5j
-b20+IHdyb3RlOg0KPiA+DQo+ID4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+ID4g
-RnJvbTogSW50ZWwtd2lyZWQtbGFuIFttYWlsdG86aW50ZWwtd2lyZWQtbGFuLWJvdW5jZXNAb3N1
-b3NsLm9yZ10gT24NCj4gQmVoYWxmDQo+ID4gPiBPZiBTdGVmYW4gQXNzbWFubg0KPiA+ID4gU2Vu
-dDogVGh1cnNkYXksIEp1bmUgMjksIDIwMTcgNjoxMiBBTQ0KPiA+ID4gVG86IGludGVsLXdpcmVk
-LWxhbkBsaXN0cy5vc3Vvc2wub3JnDQo+ID4gPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsg
-ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsNCj4gc2Fzc21hbm5Aa3BhbmljLmRlDQo+ID4gPiBTdWJqZWN0
-OiBbSW50ZWwtd2lyZWQtbGFuXSBbUEFUQ0ggMS8yXSBpNDBlL2k0MGV2ZjogcmVuYW1lDQo+IHZm
-X29mZmxvYWRfZmxhZ3MgdG8NCj4gPiA+IHZmX2NhcF9mbGFncyBpbiBzdHJ1Y3QgdmlydGNobmxf
-dmZfcmVzb3VyY2UNCj4gPiA+DQo+ID4gPiBUaGUgY3VycmVudCBuYW1lIG9mIHZmX29mZmxvYWRf
-ZmxhZ3MgaW5kaWNhdGVzIHRoYXQgdGhlIGJpdG1hcCBpcw0KPiA+ID4gbGltaXRlZCB0byBvZmZs
-b2FkIHJlbGF0ZWQgZmVhdHVyZXMuIE1ha2UgdGhpcyBtb3JlIGdlbmVyaWMgYnkgcmVuYW1pbmcN
-Cj4gPiA+IGl0IHRvIHZmX2NhcF9mbGFncywgd2hpY2ggYWxsb3dzIGZvciBvdGhlciBjYXBhYmls
-aXRpZXMgYmVzaWRlcw0KPiA+ID4gb2ZmbG9hZGluZyB0byBiZSBhZGRlZC4NCj4gPiA+DQo+ID4g
-PiBTaWduZWQtb2ZmLWJ5OiBTdGVmYW4gQXNzbWFubiA8c2Fzc21hbm5Aa3BhbmljLmRlPg0KPiA+
-ID4gLS0tDQo+ID4NCj4gPiBIZWxsbyBTdGVmYW4sDQo+ID4NCj4gPiBUaGFua3MgZm9yIHRoZSBw
-YXRjaCBzZXJpZXMsIGJ1dCB3ZSBiZWxpZXZlIHRoZSB2ZiBzaG91bGQgYmUgaWdub3JhbnQgb2Yg
-aXRzDQo+IHRydXN0ZWQgc3RhdHVzLg0KPiANCj4gSGkgQ2Fyb2x5biwNCj4gDQo+IE1pZ2h0IEkg
-YXNrIHdoeT8NCj4gDQo+IFRoYW5rcywNCj4gDQo+IC0gR3JlZw0KDQpIZWxsbyBHcmVnLA0KDQpU
-aGUgdHJ1c3RlZCBzdGF0dXMgb2YgdGhlIHZmIGlzIHNvbWV0aGluZyB0aGF0IHBmIG1hbmFnZXMs
-IG1vc3RseSBmb3Igc2VjdXJpdHkgcmVhc29ucy4gIFRoZSBtYWlsYm94IG1vZGVsIG9mIGNvbW11
-bmljYXRpb24gYmV0d2VlbiB0aGVtIHJlbGllcyBvbiB0aGUgcGYgdG8gaGF2ZSBhdXRob3JpdHkg
-b3ZlciB0aGUgdmYuICBJbiBtb3N0IHRoaW5ncywgdGhlIHZmIGFza3MgcGVybWlzc2lvbiBmcm9t
-IHRoZSBwZiBmb3IgY2hhbmdlcyBpbiBpdHMgY29uZmlndXJhdGlvbiBhbmQgdGhpcyBrZWVwcyB0
-aGUgcGYgYXMgdGhlIGdhdGVrZWVwZXIgYmV0d2VlbiB0cnVzdGVkIGFuZCByZWd1bGFyIHZmJ3Mu
-ICBIb3dldmVyLCB0aGUgaXNzdWUgaGVyZSBpcyB0aGF0IGNoYW5naW5nIHRoZSBNQUMgYWRkcmVz
-cyBmcm9tIHdpdGhpbiB0aGUgdmYgZG9lcyBub3QgZ28gdGhyb3VnaCB0aGUgbWFpbGJveCwgc28g
-aXQgY2Fubm90IHRlbGwgaWYgdGhlIHZmIGlzIHRydXN0ZWQgb3Igbm90LiAgIFdlIGFyZSB3b3Jr
-aW5nIG9uIGEgcmVkZXNpZ24gb2YgdGhpcyBmZWF0dXJlIHRvIGZpeCB0aGF0IGluc3RlYWQgb2Yg
-aGF2aW5nIHRoZSB2ZiBzb3J0IG9mIGtub3cgaXRzIHRydXN0ZWQuICBJZiwgZm9yIHNvbWUgcmVh
-c29uLCB3ZSBhcmUgdW5hYmxlIHRvIHJlZGVzaWduIGl0IHRoYXQgd2F5IHdlIHdvdWxkIHJlY29u
-c2lkZXIgdGhpcyBtZXRob2QgaW5zdGVhZC4NCg0KVGhhbmtzLA0KDQpDYXJvbHluDQo=
+On 7/6/17 6:24 AM, Nikolay Aleksandrov wrote:
+> When destroying a VRF device we cleanup the slaves in its ndo_uninit()
+> function, but that causes packets to be switched (skb->dev == vrf being
+> destroyed) even though we're pass the point where the VRF should be
+> receiving any packets while it is being dismantled. This causes a BUG_ON
+> to trigger if we have raw sockets (trace below).
+> The reason is that the inetdev of the VRF has been destroyed but we're
+> still sending packets up the stack with it, so let's free the slaves in
+> the dellink callback as David Ahern suggested.
+...
+
+> Fixes: 193125dbd8eb ("net: Introduce VRF device driver")
+> Reported-by: Chris Cormier <chriscormier@cumulusnetworks.com>
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> ---
+>  drivers/net/vrf.c | 11 ++++++-----
+>  1 file changed, 6 insertions(+), 5 deletions(-)
+> 
+
+Thanks for the fix.
+
+Acked-by: David Ahern <dsahern@gmail.com>
