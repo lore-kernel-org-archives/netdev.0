@@ -1,54 +1,48 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [PATCH v3 net-next 00/12] bpf: rewrite value tracking in verifier
-Date: Thu, 6 Jul 2017 19:27:09 +0100
-Message-ID: <54b95191-697d-6b15-ec39-438c85e08adc@solarflare.com>
-References: <adc11342-737f-4e06-bce3-f0a92b5594a5@solarflare.com>
- <5953B436.6030506@iogearbox.net>
- <788035e1-1974-b48e-3008-d294194a8b05@solarflare.com>
- <595413AA.40502@iogearbox.net> <20170628213701.32krfuipzngsmt4k@ast-mbp>
- <91267d15-652a-16d9-4ee9-42958bd842aa@solarflare.com>
- <ff1ef3ef-71ef-4c23-ede4-b8caeac561ee@fb.com>
- <5fa61129-fa82-1607-3363-dfad86aecf1e@solarflare.com>
- <595C1685.4060209@iogearbox.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH 0/2] bring UP loopback device at initialziation
+Date: Thu, 6 Jul 2017 11:40:34 -0700
+Message-ID: <CAM_iQpW-Z8jsK_kSMkqUKY-aVr01nAf6V8HzSdxCzGTaNru2yQ@mail.gmail.com>
+References: <20170704191615.6412-1-mahesh@bandewar.net> <20170705.092032.1482668095877350196.davem@davemloft.net>
+ <CAF2d9jjZ0XJDo3qYKnNgeMMLQXgUwt5ga8p_cWd5x-DjhzwWyA@mail.gmail.com>
+ <20170705.170524.241248681076978527.davem@davemloft.net> <CAF2d9jhTujK0J53DODxCp+0yYnR2RTz7rVGaJE=xeN0-9k4C3g@mail.gmail.com>
+ <871spuek9i.fsf@xmission.com> <CAF2d9jjsRXnuPz3WKSRZK5ctj_c2BMBcWfiWbe4vxesGA8fNgg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>,
-        iovisor-dev <iovisor-dev@lists.iovisor.org>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <ast@fb.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <595C1685.4060209@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+        David Miller <davem@davemloft.net>,
+        Mahesh Bandewar <mahesh@bandewar.net>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Eric Dumazet <edumazet@google.com>,
+        linux-netdev <netdev@vger.kernel.org>
+To: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
+        <maheshb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:34598 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752351AbdGFSk4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2017 14:40:56 -0400
+Received: by mail-wr0-f193.google.com with SMTP id k67so2363432wrc.1
+        for <netdev@vger.kernel.org>; Thu, 06 Jul 2017 11:40:55 -0700 (PDT)
+In-Reply-To: <CAF2d9jjsRXnuPz3WKSRZK5ctj_c2BMBcWfiWbe4vxesGA8fNgg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/07/17 23:28, Daniel Borkmann wrote:
-> Have you tried with cilium's BPF code? The kernel selftests are quite small,
-> so not really pushing processed insns too far. I can send you a BPF obj file
-> if that's easier for testing.
-Results from the next (in-progress) version of the patch series, with the
- 'id' bugfix I mentioned in my other mail, and rebased onto an updated
- net-next (0e72582).  Numbers collected with:
-# tc filter add dev lo egress bpf da obj /path/to/bpf_object.o sec $section verb 2>&1 | grep "processed" | awk -e 'BEGIN { N = 0; }' -e '{ N += $2; }' -e 'END { print N; }'
+On Wed, Jul 5, 2017 at 4:01 PM, Mahesh Bandewar (=E0=A4=AE=E0=A4=B9=E0=A5=
+=87=E0=A4=B6 =E0=A4=AC=E0=A4=82=E0=A4=A1=E0=A5=87=E0=A4=B5=E0=A4=BE=E0=A4=
+=B0)
+<maheshb@google.com> wrote:
+>
+> Now that you have made me aware of some use cases that do want the
+> loopback device to be DOWN, could we use a global sysctl to dictate
+> the loopback behavior during init? e.g.
 
-Program                net-next   short    full
-bpf_lb_opt_-DLB_L3.o       4707    5872    6515
-bpf_lb_opt_-DLB_L4.o       7662    8652    8976
-bpf_lb_opt_-DUNKNOWN.o      727    2972    2960
-bpf_lxc_opt_-DDROP_ALL.o  57725   85750   95412
-bpf_lxc_opt_-DUNKNOWN.o   93676  134043  141706
-bpf_netdev.o              14702   24665   24251
-bpf_overlay.o              7303   10939   10999
-
-Conclusion: the ptr&const and full-range min/max tracking make little
- difference (10% increase at most, sometimes a decrease); most of the
- increase comes from the basic "replace imm and aux_off/align with tnums"
- patch.
-So based on what Alexei was saying earlier, it sounds like the answer for
- now is to up the limit (say to a round 128k), get this series merged,
- then start work on pruning optimisation so we can hopefully bring that
- limit back down again later.  Sound reasonable?
-
--Ed
+Yeah, it is never about which way is better, it is all about if we could br=
+eak
+the existing assumption. This is a similar situation to the
+inconsistent behavior
+of the per-netns sysctl's between IPv4 and IPv6, there were multiple fixes
+or complains about it in this mailing list, but we still don't change it ye=
+t.
