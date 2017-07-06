@@ -1,34 +1,73 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: Re: [PATCH 6/6] net: stmmac: revert "support future possible
- different internal phy mode"
-Date: Thu, 6 Jul 2017 10:51:47 +0200
-Message-ID: <20170706085147.GA15728@Red>
-References: <20170702123159.6939-1-clabbe.montjoie@gmail.com>
- <20170702123159.6939-7-clabbe.montjoie@gmail.com>
+From: Fengguang Wu <fengguang.wu@intel.com>
+Subject: Re: [RFC PATCH linus] tcp: md5: tcp_md5_do_lookup_exact() can be
+ static
+Date: Thu, 6 Jul 2017 16:57:31 +0800
+Message-ID: <20170706085731.6yqbqfn5gonfazut@wfg-t540p.sh.intel.com>
+References: <201707060719.Zvm7chOj%fengguang.wu@intel.com>
+ <20170705235853.GA69361@lkp-sb04.lkp.intel.com>
+ <20170706102712.3904c199@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-sunxi@googlegroups.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: kbuild-all@01.org, linux-kernel@vger.kernel.org,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+        Ivan Delalande <colona@arista.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Bob Gilligan <gilligan@arista.com>,
+        Eric Mowat <mowat@arista.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170702123159.6939-7-clabbe.montjoie@gmail.com>
+In-Reply-To: <20170706102712.3904c199@canb.auug.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jul 02, 2017 at 02:31:59PM +0200, Corentin Labbe wrote:
-> Since internal phy-mode is reserved for non-xMII protocol we cannot use
-> it with dwmac-sun8i
-> This reverts commit 1c2fa5f84683 ("net: stmmac: support future possible different internal phy mode")
-> 
-> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-> ---
+Hi Stephen,
 
-Hello
+On Thu, Jul 06, 2017 at 10:27:12AM +1000, Stephen Rothwell wrote:
+>Hi,
+>
+>Not sure why you sent this to me ... it fixes a commit in the net-next
+>tree (now in Linus' tree) ...
 
-This patch was left not applied but all other patch from this serie was.
-Could you apply it, or perhaps you prefer I resend it with some "Fixes:"
+Yeah sorry -- it's a bug in the robot.
 
-Regards
-Corentin Labbe
+>On Thu, 6 Jul 2017 07:58:53 +0800 kbuild test robot <fengguang.wu@intel.com> wrote:
+>>
+>> Fixes: 0c5f0311f690 ("Add linux-next specific files for 20170705")
+>
+>Actually:  Fixes: 6797318e623d ("tcp: md5: add an address prefix for key lookup")
+
+Yeah, fixed the robot. Thank you for the reminder!
+
+Regards,
+Fengguang
+
+>> Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
+>> ---
+>>  tcp_ipv4.c |    6 +++---
+>>  1 file changed, 3 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+>> index 6ec6900..a20e7f0 100644
+>> --- a/net/ipv4/tcp_ipv4.c
+>> +++ b/net/ipv4/tcp_ipv4.c
+>> @@ -943,9 +943,9 @@ struct tcp_md5sig_key *tcp_md5_do_lookup(const struct sock *sk,
+>>  }
+>>  EXPORT_SYMBOL(tcp_md5_do_lookup);
+>>
+>> -struct tcp_md5sig_key *tcp_md5_do_lookup_exact(const struct sock *sk,
+>> -					       const union tcp_md5_addr *addr,
+>> -					       int family, u8 prefixlen)
+>> +static struct tcp_md5sig_key *tcp_md5_do_lookup_exact(const struct sock *sk,
+>> +						      const union tcp_md5_addr *addr,
+>> +						      int family, u8 prefixlen)
+>>  {
+>>  	const struct tcp_sock *tp = tcp_sk(sk);
+>>  	struct tcp_md5sig_key *key;
+>
+>-- 
+>Cheers,
+>Stephen Rothwell
