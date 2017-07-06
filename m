@@ -1,47 +1,68 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH] ptp: dte: Use LL suffix for 64-bit constants
-Date: Thu,  6 Jul 2017 10:34:54 +0200
-Message-ID: <1499330094-24423-1-git-send-email-geert@linux-m68k.org>
+From: jeffy <jeffy.chen@rock-chips.com>
+Subject: Re: [PATCH] mwifiex: uninit wakeup info when failed to add card
+Date: Thu, 06 Jul 2017 16:47:29 +0800
+Message-ID: <595DF921.2020108@rock-chips.com>
+References: <1499068470-8022-1-git-send-email-jeffy.chen@rock-chips.com> <20170705180813.GA115427@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, akarwar@marvell.com,
+        Xinming Hu <huxm@marvell.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Ganapathi Bhat <gbhat@marvell.com>,
+        Amitkumar Karwar <amitkarwar@gmail.com>,
         linux-kernel@vger.kernel.org,
-        Geert Uytterhoeven <geert@linux-m68k.org>
-To: Arun Parameswaran <arun.parameswaran@broadcom.com>,
-        Richard Cochran <richardcochran@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>
+        Nishant Sarmukadam <nishants@marvell.com>,
+        netdev@vger.kernel.org
+To: Brian Norris <briannorris@chromium.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170705180813.GA115427@google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With gcc 4.1.2:
+Hi brian,
 
-    drivers/ptp/ptp_dte.c: In function ‘dte_write_nco_delta’:
-    drivers/ptp/ptp_dte.c:105: warning: integer constant is too large for ‘long’ type
-    drivers/ptp/ptp_dte.c:112: warning: integer constant is too large for ‘long’ type
-    drivers/ptp/ptp_dte.c:114: warning: integer constant is too large for ‘long’ type
-
-Add the missing "LL" suffix to fix this.
-
-Fixes: 8a56aa107f1e8123 ("ptp: Add a ptp clock driver for Broadcom DTE")
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
----
- drivers/ptp/ptp_dte.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/ptp/ptp_dte.c b/drivers/ptp/ptp_dte.c
-index 00145a3f1e707451..faf6f7a837137408 100644
---- a/drivers/ptp/ptp_dte.c
-+++ b/drivers/ptp/ptp_dte.c
-@@ -40,7 +40,7 @@
- #define DTE_WRAP_AROUND_NSEC_SHIFT 44
- 
- /* 44 bits NCO */
--#define DTE_NCO_MAX_NS	0xFFFFFFFFFFF
-+#define DTE_NCO_MAX_NS	0xFFFFFFFFFFFLL
- 
- /* 125MHz with 3.29 reg cfg */
- #define DTE_PPB_ADJ(ppb) (u32)(div64_u64((((u64)abs(ppb) * BIT(28)) +\
--- 
-2.7.4
+On 07/06/2017 02:08 AM, Brian Norris wrote:
+> On Mon, Jul 03, 2017 at 03:54:30PM +0800, Jeffy Chen wrote:
+>> We inited wakeup info at the beginning of mwifiex_add_card, so we need
+>> to uninit it in the error handling.
+>>
+>> It's much the same as what we did in:
+>> 36908c4 mwifiex: uninit wakeup info when removing device
+>
+> Yeah, I noticed I hadn't covered all the error cases, so your change is
+> part of the fix. But you're not covering the error paths when the
+> firmware doesn't load correctly -- this happens asynchronously to
+> mwifiex_add_card(). i.e., you need to fixup the error paths in
+> _mwifiex_fw_dpc() too.
+right, so we need to uninit it before every mwifiex_free_adapter :)
+>
+> Brian
+>
+>> Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+>>
+>> ---
+>>
+>>   drivers/net/wireless/marvell/mwifiex/main.c | 2 ++
+>>   1 file changed, 2 insertions(+)
+>>
+>> diff --git a/drivers/net/wireless/marvell/mwifiex/main.c b/drivers/net/wireless/marvell/mwifiex/main.c
+>> index f2600b8..17d2cbe 100644
+>> --- a/drivers/net/wireless/marvell/mwifiex/main.c
+>> +++ b/drivers/net/wireless/marvell/mwifiex/main.c
+>> @@ -1655,6 +1655,8 @@ mwifiex_add_card(void *card, struct completion *fw_done,
+>>   		mwifiex_shutdown_drv(adapter);
+>>   	}
+>>   err_kmalloc:
+>> +	if (adapter->irq_wakeup >= 0)
+>> +		device_init_wakeup(adapter->dev, false);
+>>   	mwifiex_free_adapter(adapter);
+>>
+>>   err_init_sw:
+>> --
+>> 2.1.4
+>>
+>>
+>
+>
+>
