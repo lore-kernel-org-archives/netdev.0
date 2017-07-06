@@ -1,12 +1,15 @@
-From: Alan Stern <stern@rowland.harvard.edu>
+From: Peter Zijlstra <peterz@infradead.org>
 Subject: Re: [PATCH v2 0/9] Remove spin_unlock_wait()
-Date: Thu, 6 Jul 2017 12:49:12 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.1707061247070.1581-100000@iolanthe.rowland.org>
-References: <20170706162412.GE2393@linux.vnet.ibm.com>
+Date: Thu, 6 Jul 2017 18:50:36 +0200
+Message-ID: <20170706165036.v4u5rbz56si4emw5@hirez.programming.kicks-ass.net>
+References: <20170629235918.GA6445@linux.vnet.ibm.com>
+ <20170705232955.GA15992@linux.vnet.ibm.com>
+ <063D6719AE5E284EB5DD2968C1650D6DD0033F01@AcuExch.aculab.com>
+ <20170706160555.xc63yydk77gmttae@hirez.programming.kicks-ass.net>
+ <20170706162024.GD2393@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Peter Zijlstra <peterz@infradead.org>,
-        David Laight <David.Laight@ACULAB.COM>,
+Content-Type: text/plain; charset=us-ascii
+Cc: David Laight <David.Laight@ACULAB.COM>,
         "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
         "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
@@ -18,41 +21,50 @@ Cc: Peter Zijlstra <peterz@infradead.org>,
         "tj@kernel.org" <tj@kernel.org>, "arnd@arndb.de" <arnd@arndb.de>,
         "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
         "will.deacon@arm.com" <will.deacon@arm.com>,
+        "stern@rowland.harvard.edu" <stern@rowland.harvard.edu>,
         "parri.andrea@gmail.com" <parri.andrea@gmail.com>,
-        "torvalds@linux-foundation.org" <torvalds@linux-foundation.org>
+        "torvalds@linux-foundation.org" <torvalds@linux-founda
 To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170706162412.GE2393@linux.vnet.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <20170706162024.GD2393@linux.vnet.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 6 Jul 2017, Paul E. McKenney wrote:
-
-> On Thu, Jul 06, 2017 at 06:10:47PM +0200, Peter Zijlstra wrote:
-> > On Thu, Jul 06, 2017 at 08:21:10AM -0700, Paul E. McKenney wrote:
-> > > And yes, there are architecture-specific optimizations for an
-> > > empty spin_lock()/spin_unlock() critical section, and the current
-> > > arch_spin_unlock_wait() implementations show some of these optimizations.
-> > > But I expect that performance benefits would need to be demonstrated at
-> > > the system level.
-> > 
-> > I do in fact contended there are any optimizations for the exact
-> > lock+unlock semantics.
+On Thu, Jul 06, 2017 at 09:20:24AM -0700, Paul E. McKenney wrote:
+> On Thu, Jul 06, 2017 at 06:05:55PM +0200, Peter Zijlstra wrote:
+> > On Thu, Jul 06, 2017 at 02:12:24PM +0000, David Laight wrote:
+> > > From: Paul E. McKenney
 > 
-> You lost me on this one.
+> [ . . . ]
 > 
-> > The current spin_unlock_wait() is weaker. Most notably it will not (with
-> > exception of ARM64/PPC for other reasons) cause waits on other CPUs.
+> > Now on the one hand I feel like Oleg that it would be a shame to loose
+> > the optimization, OTOH this thing is really really tricky to use,
+> > and has lead to a number of bugs already.
 > 
-> Agreed, weaker semantics allow more optimizations.  So use cases needing
-> only the weaker semantics should more readily show performance benefits.
-> But either way, we need compelling use cases, and I do not believe that
-> any of the existing spin_unlock_wait() calls are compelling.  Perhaps I
-> am confused, but I am not seeing it for any of them.
+> I do agree, it is a bit sad to see these optimizations go.  So, should
+> this make mainline, I will be tagging the commits that spin_unlock_wait()
+> so that they can be easily reverted should someone come up with good
+> semantics and a compelling use case with compelling performance benefits.
 
-If somebody really wants the full spin_unlock_wait semantics and
-doesn't want to interfere with other CPUs, wouldn't synchronize_sched()
-or something similar do the job?  It wouldn't be as efficient as
-lock+unlock, but it also wouldn't affect other CPUs.
+Ha!, but what would constitute 'good semantics' ?
 
-Alan Stern
+The current thing is something along the lines of:
+
+  "Waits for the currently observed critical section
+   to complete with ACQUIRE ordering such that it will observe
+   whatever state was left by said critical section."
+
+With the 'obvious' benefit of limited interference on those actually
+wanting to acquire the lock, and a shorter wait time on our side too,
+since we only need to wait for completion of the current section, and
+not for however many contender are before us.
+
+Not sure I have an actual (micro) benchmark that shows a difference
+though.
+
+
+
+Is this all good enough to retain the thing, I dunno. Like I said, I'm
+conflicted on the whole thing. On the one hand its a nice optimization,
+on the other hand I don't want to have to keep fixing these bugs.
