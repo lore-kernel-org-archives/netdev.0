@@ -1,152 +1,86 @@
-From: Erik Stromdahl <erik.stromdahl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: ath10k: ret used but uninitialized (was: Re: ath10k: add initial
- SDIO support)
-Date: Thu, 6 Jul 2017 22:01:57 +0200
-Message-ID: <c72d2e7a-195d-bcac-4ce5-f3051531664c@gmail.com>
-References: <CAMuHMdWVYA4TejcTjOQh7CBfFwJ=q59pzvuHrpH91Kx=-BK9fg@mail.gmail.com>
+From: Thor Thayer <thor.thayer@linux.intel.com>
+Subject: Re: [PATCHv2 1/3] ethtool: stmmac: Fix Designware ethtool register
+ dump
+Date: Thu, 6 Jul 2017 15:22:59 -0500
+Message-ID: <81e6d065-bd74-6af8-de4f-7722d0b1e270@linux.intel.com>
+References: <1498662822-12173-1-git-send-email-thor.thayer@linux.intel.com>
+ <1498662822-12173-2-git-send-email-thor.thayer@linux.intel.com>
+Reply-To: thor.thayer@linux.intel.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-        "ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org" <ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>,
-        Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAMuHMdWVYA4TejcTjOQh7CBfFwJ=q59pzvuHrpH91Kx=-BK9fg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: linville@tuxdriver.com, peppe.cavallaro@st.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:56722 "EHLO mga01.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751887AbdGFUU1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 6 Jul 2017 16:20:27 -0400
+In-Reply-To: <1498662822-12173-2-git-send-email-thor.thayer@linux.intel.com>
 Content-Language: en-US
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> With gcc 4.1.2:
+On 06/28/2017 10:13 AM, thor.thayer@linux.intel.com wrote:
+> From: Thor Thayer <thor.thayer@linux.intel.com>
 > 
-> drivers/net/wireless/ath/ath10k/sdio.c: In function
-> ‘ath10k_sdio_mbox_rxmsg_pending_handler’:
-> drivers/net/wireless/ath/ath10k/sdio.c:676: warning: ‘ret’ may be used
-> uninitialized in this function
+> The commit fbf68229ffe7 ("net: stmmac: unify registers dumps methods")
 > 
->> +
->> +       *done = true;
->> +
->> +       /* Copy the lookahead obtained from the HTC register table into our
->> +        * temp array as a start value.
->> +        */
->> +       lookaheads[0] = msg_lookahead;
->> +
->> +       timeout = jiffies + SDIO_MBOX_PROCESSING_TIMEOUT_HZ;
+> in the Linux kernel modified the register dump to store the DMA registers
+> at the DMA register offset (0x1000) but ethtool (stmmac.c) looks for the
+> DMA registers after the MAC registers which is offset 12.
+> This patch adds the DMA register offset so that indexing is correct.
 > 
-> Although very unlikely due to the long timeout, if the code is preempted here,
-> and the loop below never entered, ret will indeed be uninitialized.
-> 
-> It's unclear to me what the proper initialization would be, though, so
-> that's why I didn't send a patch.
-> 
-I think it would be best to use 0 as initial value of ret in this case.
-This will make all other interrupts be processed in a normal way.
+> Signed-off-by: Thor Thayer <thor.thayer@linux.intel.com>
+> Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> ---
+> v2  Modify the commit message to specify commit from Linux kernel.
+>      Add Acked-by.
+> ---
 
-Kalle: Should I create a new patch (initializing ret with zero)?
+Please disregard this patch.
 
->> +       while (time_before(jiffies, timeout)) {
->> +               /* Try to allocate as many HTC RX packets indicated by
->> +                * n_lookaheads.
->> +                */
->> +               ret = ath10k_sdio_mbox_rx_alloc(ar, lookaheads,
->> +                                               n_lookaheads);
->> +               if (ret)
->> +                       break;
->> +
->> +               if (ar_sdio->n_rx_pkts >= 2)
->> +                       /* A recv bundle was detected, force IRQ status
->> +                        * re-check again.
->> +                        */
->> +                       *done = false;
->> +
->> +               ret = ath10k_sdio_mbox_rx_fetch(ar);
->> +
->> +               /* Process fetched packets. This will potentially update
->> +                * n_lookaheads depending on if the packets contain lookahead
->> +                * reports.
->> +                */
->> +               n_lookaheads = 0;
->> +               ret = ath10k_sdio_mbox_rx_process_packets(ar,
->> +                                                         lookaheads,
->> +                                                         &n_lookaheads);
->> +
->> +               if (!n_lookaheads || ret)
->> +                       break;
->> +
->> +               /* For SYNCH processing, if we get here, we are running
->> +                * through the loop again due to updated lookaheads. Set
->> +                * flag that we should re-check IRQ status registers again
->> +                * before leaving IRQ processing, this can net better
->> +                * performance in high throughput situations.
->> +                */
->> +               *done = false;
->> +       }
->> +
->> +       if (ret && (ret != -ECANCELED))
->> +               ath10k_warn(ar, "failed to get pending recv messages: %d\n",
->> +                           ret);
->> +
->> +       return ret;
->> +}
-> 
->> +static void ath10k_sdio_irq_handler(struct sdio_func *func)
->> +{
->> +       struct ath10k_sdio *ar_sdio = sdio_get_drvdata(func);
->> +       struct ath10k *ar = ar_sdio->ar;
->> +       unsigned long timeout;
->> +       bool done = false;
->> +       int ret;
-> 
-> drivers/net/wireless/ath/ath10k/sdio.c: In function ‘ath10k_sdio_irq_handler’:
-> drivers/net/wireless/ath/ath10k/sdio.c:1331: warning: ‘ret’ may be
-> used uninitialized in this function
-> 
->> +
->> +       /* Release the host during interrupts so we can pick it back up when
->> +        * we process commands.
->> +        */
->> +       sdio_release_host(ar_sdio->func);
->> +
->> +       timeout = jiffies + ATH10K_SDIO_HIF_COMMUNICATION_TIMEOUT_HZ;
-> 
-> Same here.
-> 
-> Should ret be preinitialized to 0, -ECANCELED, or something else?
-> 
-ret = 0 or ret = -ECANCELED, will result in no warning message.
--ETIMEDOUT could be used perhaps.
+After further reflection, it would be better to leave this alone and 
+change the kernel driver. This change would require using different 
+ethtool for different versions.
 
-Note that the function is a void function so the error will not get
-propagated.
+The other 2 patches with macro changes are still valid.
 
-I am fine with ret = 0 in this case as well.
->> +       while (time_before(jiffies, timeout) && !done) {
->> +               ret = ath10k_sdio_mbox_proc_pending_irqs(ar, &done);
->> +               if (ret)
->> +                       break;
->> +       }
->> +
->> +       sdio_claim_host(ar_sdio->func);
->> +
->> +       wake_up(&ar_sdio->irq_wq);
->> +
->> +       if (ret && ret != -ECANCELED)
->> +               ath10k_warn(ar, "failed to process pending SDIO interrupts: %d\n",
->> +                           ret);
->> +}
+Thanks,
+
+Thor
+
+>   stmmac.c | 5 +++++
+>   1 file changed, 5 insertions(+)
 > 
-> Gr{oetje,eeting}s,
-> 
->                          Geert
-> 
-> --
-> Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org
-> 
-> In personal conversations with technical people, I call myself a hacker. But
-> when I'm talking to journalists I just say "programmer" or something like that.
->                                  -- Linus Torvalds
+> diff --git a/stmmac.c b/stmmac.c
+> index fb69bfe..e1bb291 100644
+> --- a/stmmac.c
+> +++ b/stmmac.c
+> @@ -14,6 +14,9 @@
+>   #include <string.h>
+>   #include "internal.h"
+>   
+> +/* The DMA Registers start at offset 0x1000 in the DW IP */
+> +#define DMA_REG_OFFSET	(0x1000 / 4)
+> +
+>   int st_mac100_dump_regs(struct ethtool_drvinfo *info,
+>   			struct ethtool_regs *regs)
+>   {
+> @@ -36,6 +39,7 @@ int st_mac100_dump_regs(struct ethtool_drvinfo *info,
+>   
+>   	fprintf(stdout, "\n");
+>   	fprintf(stdout, "DMA Registers\n");
+> +	stmmac_reg = (unsigned int *)regs->data + DMA_REG_OFFSET;
+>   	for (i = 0; i < 9; i++)
+>   		fprintf(stdout, "CSR%d  0x%08X\n", i, *stmmac_reg++);
+>   
+> @@ -59,6 +63,7 @@ int st_gmac_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
+>   
+>   	fprintf(stdout, "\n");
+>   	fprintf(stdout, "DMA Registers\n");
+> +	stmmac_reg = (unsigned int *)regs->data + DMA_REG_OFFSET;
+>   	for (i = 0; i < 22; i++)
+>   		fprintf(stdout, "Reg%d  0x%08X\n", i, *stmmac_reg++);
+>   
 > 
