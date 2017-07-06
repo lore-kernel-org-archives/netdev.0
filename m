@@ -1,46 +1,56 @@
-From: Matthias Rosenfelder <mrosenfelder.lkml@gmail.com>
-Subject: [PATCH net-next] TLS: Fix length check in do_tls_getsockopt_tx()
-Date: Thu, 6 Jul 2017 00:56:36 -0400
-Message-ID: <5b6ff892-fd27-94c6-045a-70c6ab721fb3@gmail.com>
+From: Balaji Foss <balajig.foss@gmail.com>
+Subject: Regarding xfrm state search with destination address as wildcard mask
+Date: Thu, 6 Jul 2017 12:21:56 +0530
+Message-ID: <CAJ4ZP5QhmV89K_EfF19B_wjAbOYBNj_62dZksJNCwHUAHVmGvw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dan.carpenter@oracle.com,
-        davejwatson@fb.com, aviadye@mellanox.com, ilyal@mellanox.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Cc: steffen.klassert@secunet.com, herbert@gondor.apana.org.au
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:36036 "EHLO
-        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750996AbdGFE4j (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2017 00:56:39 -0400
-Received: by mail-it0-f67.google.com with SMTP id k3so16559075ita.3
-        for <netdev@vger.kernel.org>; Wed, 05 Jul 2017 21:56:38 -0700 (PDT)
-Content-Language: de-DE
+Received: from mail-ua0-f196.google.com ([209.85.217.196]:35685 "EHLO
+        mail-ua0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753091AbdGFGv6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2017 02:51:58 -0400
+Received: by mail-ua0-f196.google.com with SMTP id j53so797940uaa.2
+        for <netdev@vger.kernel.org>; Wed, 05 Jul 2017 23:51:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-copy_to_user() copies the struct the pointer is pointing to, but the
-length check compares against sizeof(pointer) and not sizeof(struct).
-On 32-bit the size is probably the same, so it might have worked
-accidentally.
+Hi All,
 
-Signed-off-by: Matthias Rosenfelder <mrosenfelder.lkml@gmail.com>
----
- net/tls/tls_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Im trying to implement IPSec for ospfv3 as per RFC4552 on Linux kernel
+version 3.16.39.
+Requirement is to support IPsec encryption/authentication for ospfv3 traffic.
+As of now, this can be achieved by following set of SA and SP rules.
 
-diff --git a/net/tls/tls_main.c b/net/tls/tls_main.c
-index a03130a..60aff60 100644
---- a/net/tls/tls_main.c
-+++ b/net/tls/tls_main.c
-@@ -272,7 +272,7 @@ static int do_tls_getsockopt_tx(struct sock *sk, char __user *optval,
- 		goto out;
- 	}
- 
--	if (len == sizeof(crypto_info)) {
-+	if (len == sizeof(*crypto_info)) {
- 		if (copy_to_user(optval, crypto_info, sizeof(*crypto_info)))
- 			rc = -EFAULT;
- 		goto out;
--- 
-2.8.3
+ip xfrm state add src :: dst ff02::5 proto ah spi 0x401 mode transport
+auth "hmac(sha1)" 0x12345678123456781234567812345678
+ip xfrm state add src :: dst ff02::6 proto ah spi 0x401 mode transport
+auth "hmac(sha1)" 0x12345678123456781234567812345678
+ip xfrm state add src <sip> dst <dst_ip> proto ah spi 0x401 mode
+transport auth "hmac(sha1)" 0x12345678123456781234567812345678
+ip xfrm state add src <dst_ip> dst <sip> proto ah spi 0x401 mode
+transport auth "hmac(sha1)" 0x12345678123456781234567812345678
+
+ip xfrm policy add dir out src <sip> dst 0::0/0 dev e101-049-0 proto
+ospf priority 2147483648 tmpl  proto ah spi 0x401 mode transport level
+use
+ip xfrm policy add dir in src 0::0/0 dst 0::0/0 dev e101-049-0 proto
+ospf priority 2147483648 tmpl proto ah spi 0x401 mode transport level
+use
+
+
+One can notice that it needs four SA rules to achieve IPsec for single
+OSPF interface.
+Instead of these four rules, can we have a single rule with DIP as
+wild card mask and the xfrm state search as based on SPI ,family and
+proto alone?
+
+As of now, the API "__xfrm_state_lookup"  search based on
+SPI,family,proto and dest_addr.  Is there any way I can achieve the SA
+lookup without dest_addr and only with SPI,family and proto alone?
+
+Any help or pointers is greatly appreciated.
+
+Regards
+Bala
