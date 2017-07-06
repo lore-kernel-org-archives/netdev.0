@@ -1,45 +1,62 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net] virtio-net: unbreak cusmed packet for small buffer XDP
-Date: Thu, 6 Jul 2017 03:07:07 +0300
-Message-ID: <20170706030356-mutt-send-email-mst@kernel.org>
-References: <20170628050057-mutt-send-email-mst@kernel.org>
-	<7068053c-50da-6779-5ff2-6588e01e616d@redhat.com>
-	<20170628051555-mutt-send-email-mst@kernel.org>
-	<69907228-fc1b-175f-f6cd-7ac332e318be@redhat.com>
-	<20170628063033-mutt-send-email-mst@kernel.org>
-	<51f4c402-6a02-9bad-6dab-563ca72f431a@redhat.com>
-	<20170628065126-mutt-send-email-mst@kernel.org>
-	<a7e457d5-88c4-745d-5189-18a5f13797dc@redhat.com>
-	<20170703195752-mutt-send-email-mst@kernel.org>
-	<4de0c8e7-a9b6-7477-691a-a2ed0f317106@redhat.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [RFC PATCH linus] tcp: md5: tcp_md5_do_lookup_exact() can be
+ static
+Date: Thu, 6 Jul 2017 10:27:12 +1000
+Message-ID: <20170706102712.3904c199@canb.auug.org.au>
+References: <201707060719.Zvm7chOj%fengguang.wu@intel.com>
+        <20170705235853.GA69361@lkp-sb04.lkp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <4de0c8e7-a9b6-7477-691a-a2ed0f317106@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: kbuild-all@01.org, linux-kernel@vger.kernel.org,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+        Ivan Delalande <colona@arista.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Bob Gilligan <gilligan@arista.com>,
+        Eric Mowat <mowat@arista.com>
+To: kbuild test robot <fengguang.wu@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170705235853.GA69361@lkp-sb04.lkp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 04, 2017 at 08:20:00PM +0800, Jason Wang wrote:
-> > IIUC XDP generally refuses to attach if checksum offload
-> > is enabled.
-> 
-> Any reason to do this? (Looks like I don't see any code for this)
+Hi,
 
-Some of it was covered here
-https://www.mail-archive.com/netdev@vger.kernel.org/msg162577.html
+Not sure why you sent this to me ... it fixes a commit in the net-next
+tree (now in Linus' tree) ...
+
+On Thu, 6 Jul 2017 07:58:53 +0800 kbuild test robot <fengguang.wu@intel.com> wrote:
+>
+> Fixes: 0c5f0311f690 ("Add linux-next specific files for 20170705")
+
+Actually:  Fixes: 6797318e623d ("tcp: md5: add an address prefix for key lookup")
+
+> Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
+> ---
+>  tcp_ipv4.c |    6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+> index 6ec6900..a20e7f0 100644
+> --- a/net/ipv4/tcp_ipv4.c
+> +++ b/net/ipv4/tcp_ipv4.c
+> @@ -943,9 +943,9 @@ struct tcp_md5sig_key *tcp_md5_do_lookup(const struct sock *sk,
+>  }
+>  EXPORT_SYMBOL(tcp_md5_do_lookup);
+>  
+> -struct tcp_md5sig_key *tcp_md5_do_lookup_exact(const struct sock *sk,
+> -					       const union tcp_md5_addr *addr,
+> -					       int family, u8 prefixlen)
+> +static struct tcp_md5sig_key *tcp_md5_do_lookup_exact(const struct sock *sk,
+> +						      const union tcp_md5_addr *addr,
+> +						      int family, u8 prefixlen)
+>  {
+>  	const struct tcp_sock *tp = tcp_sk(sk);
+>  	struct tcp_md5sig_key *key;
 
 -- 
-MST
+Cheers,
+Stephen Rothwell
