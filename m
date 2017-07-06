@@ -1,51 +1,82 @@
-From: Shawn Lin <shawn.lin@rock-chips.com>
-Subject: Re: [PATCH] mwifiex: fix compile warning of unused variable
-Date: Thu, 6 Jul 2017 16:18:56 +0800
-Message-ID: <5adbeb32-7510-d08e-9bb6-c18fd490388c@rock-chips.com>
-References: <1499327433-70786-1-git-send-email-shawn.lin@rock-chips.com>
- <87k23mf15x.fsf@kamboji.qca.qualcomm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=gbk; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: shawn.lin@rock-chips.com, Amitkumar Karwar <amitkarwar@gmail.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        Nishant Sarmukadam <nishants@marvell.com>,
-        Xinming Hu <huxm@marvell.com>
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lucky1.263xmail.com ([211.157.147.133]:55335 "EHLO
-        lucky1.263xmail.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750922AbdGFISz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2017 04:18:55 -0400
-In-Reply-To: <87k23mf15x.fsf@kamboji.qca.qualcomm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Romain Perier <romain.perier@collabora.com>
+Subject: [PATCH v10 07/15] wireless: ipw2200: Replace PCI pool old API
+Date: Thu,  6 Jul 2017 10:13:02 +0200
+Message-ID: <20170706081310.30964-8-romain.perier@collabora.com>
+References: <20170706081310.30964-1-romain.perier@collabora.com>
+Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Romain Perier <romain.perier@collabora.com>
+To: Dan Williams <dan.j.williams@intel.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        jeffrey.t.kirsher@intel.com,
+        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Felipe Balbi <balbi@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170706081310.30964-1-romain.perier@collabora.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Kalle,
+The PCI pool API is deprecated. This commit replaces the PCI pool old
+API by the appropriate function with the DMA pool API.
 
-On 2017/7/6 15:57, Kalle Valo wrote:
-> Shawn Lin <shawn.lin@rock-chips.com> writes:
-> 
->> We got a compile warning shows below:
->>
->> drivers/net/wireless/marvell/mwifiex/sdio.c: In function
->> 'mwifiex_sdio_remove':
->> drivers/net/wireless/marvell/mwifiex/sdio.c:377:6: warning: variable
->> 'ret' set but not used [-Wunused-but-set-variable]
->>
->> Per the code, it didn't check if mwifiex_sdio_read_fw_status
->> finish successfully. We should at least check the return of
->> mwifiex_sdio_read_fw_status, otherwise the following check of
->> firmware_stat and adapter->mfg_mode is pointless as the device
->> is probably dead.
-> 
-> I don't see that warning, any ideas why? My compiler:
-> 
-> gcc (Ubuntu 5.4.0-6ubuntu1~16.04.4) 5.4.0 20160609
+Signed-off-by: Romain Perier <romain.perier@collabora.com>
+Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
+---
+ drivers/net/wireless/intel/ipw2x00/ipw2200.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
-I was using gcc-arm-eabi-4.8- , but it doesn't matter.
-
-Could you add W=1 to compile the code, for instance, "make W=1  -j32"
-
-> 
-> 
+diff --git a/drivers/net/wireless/intel/ipw2x00/ipw2200.c b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
+index 9368abdf18e2..ac73436bc1c8 100644
+--- a/drivers/net/wireless/intel/ipw2x00/ipw2200.c
++++ b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
+@@ -3209,7 +3209,7 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
+ 	struct fw_chunk *chunk;
+ 	int total_nr = 0;
+ 	int i;
+-	struct pci_pool *pool;
++	struct dma_pool *pool;
+ 	void **virts;
+ 	dma_addr_t *phys;
+ 
+@@ -3226,9 +3226,10 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
+ 		kfree(virts);
+ 		return -ENOMEM;
+ 	}
+-	pool = pci_pool_create("ipw2200", priv->pci_dev, CB_MAX_LENGTH, 0, 0);
++	pool = dma_pool_create("ipw2200", &priv->pci_dev->dev, CB_MAX_LENGTH, 0,
++			       0);
+ 	if (!pool) {
+-		IPW_ERROR("pci_pool_create failed\n");
++		IPW_ERROR("dma_pool_create failed\n");
+ 		kfree(phys);
+ 		kfree(virts);
+ 		return -ENOMEM;
+@@ -3253,7 +3254,7 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
+ 
+ 		nr = (chunk_len + CB_MAX_LENGTH - 1) / CB_MAX_LENGTH;
+ 		for (i = 0; i < nr; i++) {
+-			virts[total_nr] = pci_pool_alloc(pool, GFP_KERNEL,
++			virts[total_nr] = dma_pool_alloc(pool, GFP_KERNEL,
+ 							 &phys[total_nr]);
+ 			if (!virts[total_nr]) {
+ 				ret = -ENOMEM;
+@@ -3297,9 +3298,9 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
+ 	}
+  out:
+ 	for (i = 0; i < total_nr; i++)
+-		pci_pool_free(pool, virts[i], phys[i]);
++		dma_pool_free(pool, virts[i], phys[i]);
+ 
+-	pci_pool_destroy(pool);
++	dma_pool_destroy(pool);
+ 	kfree(phys);
+ 	kfree(virts);
+ 
+-- 
+2.11.0
