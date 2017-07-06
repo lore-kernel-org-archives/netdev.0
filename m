@@ -1,53 +1,116 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 2/2] netfilter: ebt_nflog: fix unexpected truncated packet
-Date: Thu,  6 Jul 2017 14:54:25 +0200
-Message-ID: <1499345665-7428-3-git-send-email-pablo@netfilter.org>
-References: <1499345665-7428-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:38602 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752540AbdGFMyh (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 6 Jul 2017 08:54:37 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 8BE834D660
-        for <netdev@vger.kernel.org>; Thu,  6 Jul 2017 14:54:25 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 7E0C3DA812
-        for <netdev@vger.kernel.org>; Thu,  6 Jul 2017 14:54:25 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 5AAB5D1CB1
-        for <netdev@vger.kernel.org>; Thu,  6 Jul 2017 14:54:21 +0200 (CEST)
-In-Reply-To: <1499345665-7428-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH v6 0/3] Add new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+Date: Thu, 6 Jul 2017 20:58:51 +0800
+Message-ID: <065edbdb-3a7f-2608-3cc0-3876f55d414b@huawei.com>
+References: <1498133721-21152-1-git-send-email-dingtianhong@huawei.com>
+ <43e01fca-a746-90d2-fdfa-c63f1d56ef5f@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: <leedom@chelsio.com>, <ashok.raj@intel.com>, <helgaas@kernel.org>,
+ <werner@chelsio.com>, <ganeshgr@chelsio.com>,
+ <asit.k.mallick@intel.com>, <patrick.j.cramer@intel.com>,
+ <Suravee.Suthikulpanit@amd.com>, <Bob.Shaw@amd.com>,
+ <l.stach@pengutronix.de>, <amira@mellanox.com>,
+ <gabriele.paoloni@huawei.com>, <David.Laight@aculab.com>,
+ <jeffrey.t.kirsher@intel.com>, <catalin.marinas@arm.com>,
+ <will.deacon@arm.com>, <mark.rutland@arm.com>, <robin.murphy@arm.com>,
+ <davem@davemloft.net>, <alexander.duyck@gmail.com>,
+ <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+ <linux-pci@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <43e01fca-a746-90d2-fdfa-c63f1d56ef5f@huawei.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Liping Zhang <zlpnobody@gmail.com>
+Hi Bjorn:
 
-"struct nf_loginfo li;" is a local variable, so we should set the flags
-to 0 explicitly, else, packets maybe truncated unexpectedly when copied
-to the userspace.
+Could you please give some feedback about this patchset, it looks like no more comments for more than a week,
+thanks. :)
 
-Fixes: 7643507fe8b5 ("netfilter: xt_NFLOG: nflog-range does not truncate packets")
-Cc: Vishwanath Pai <vpai@akamai.com>
-Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/bridge/netfilter/ebt_nflog.c | 1 +
- 1 file changed, 1 insertion(+)
+Ding
 
-diff --git a/net/bridge/netfilter/ebt_nflog.c b/net/bridge/netfilter/ebt_nflog.c
-index c1dc48686200..da1c2fdc08c8 100644
---- a/net/bridge/netfilter/ebt_nflog.c
-+++ b/net/bridge/netfilter/ebt_nflog.c
-@@ -30,6 +30,7 @@ ebt_nflog_tg(struct sk_buff *skb, const struct xt_action_param *par)
- 	li.u.ulog.copy_len = info->len;
- 	li.u.ulog.group = info->group;
- 	li.u.ulog.qthreshold = info->threshold;
-+	li.u.ulog.flags = 0;
- 
- 	nf_log_packet(net, PF_BRIDGE, xt_hooknum(par), skb, xt_in(par),
- 		      xt_out(par), &li, "%s", info->prefix);
--- 
-2.1.4
+On 2017/6/29 13:47, Ding Tianhong wrote:
+> ping
+> 
+> On 2017/6/22 20:15, Ding Tianhong wrote:
+>> Some devices have problems with Transaction Layer Packets with the Relaxed
+>> Ordering Attribute set.  This patch set adds a new PCIe Device Flag,
+>> PCI_DEV_FLAGS_NO_RELAXED_ORDERING, a set of PCI Quirks to catch some known
+>> devices with Relaxed Ordering issues, and a use of this new flag by the
+>> cxgb4 driver to avoid using Relaxed Ordering with problematic Root Complex
+>> Ports.
+>>
+>> It's been years since I've submitted kernel.org patches, I appolgise for the
+>> almost certain submission errors.
+>>
+>> v2: Alexander point out that the v1 was only a part of the whole solution,
+>>     some platform which has some issues could use the new flag to indicate
+>>     that it is not safe to enable relaxed ordering attribute, then we need
+>>     to clear the relaxed ordering enable bits in the PCI configuration when
+>>     initializing the device. So add a new second patch to modify the PCI
+>>     initialization code to clear the relaxed ordering enable bit in the
+>>     event that the root complex doesn't want relaxed ordering enabled.
+>>
+>>     The third patch was base on the v1's second patch and only be changed
+>>     to query the relaxed ordering enable bit in the PCI configuration space
+>>     to allow the Chelsio NIC to send TLPs with the relaxed ordering attributes
+>>     set.
+>>
+>>     This version didn't plan to drop the defines for Intel Drivers to use the
+>>     new checking way to enable relaxed ordering because it is not the hardest
+>>     part of the moment, we could fix it in next patchset when this patches
+>>     reach the goal.  
+>>
+>> v3: Redesigned the logic for pci_configure_relaxed_ordering when configuration,
+>>     If a PCIe device didn't enable the relaxed ordering attribute default,
+>>     we should not do anything in the PCIe configuration, otherwise we
+>>     should check if any of the devices above us do not support relaxed
+>>     ordering by the PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag, then base on
+>>     the result if we get a return that indicate that the relaxed ordering
+>>     is not supported we should update our device to disable relaxed ordering
+>>     in configuration space. If the device above us doesn't exist or isn't
+>>     the PCIe device, we shouldn't do anything and skip updating relaxed ordering
+>>     because we are probably running in a guest.
+>>
+>> v4: Rename the functions pcie_get_relaxed_ordering and pcie_disable_relaxed_ordering
+>>     according John's suggestion, and modify the description, use the true/false
+>>     as the return value.
+>>
+>>     We shouldn't enable relaxed ordering attribute by the setting in the root
+>>     complex configuration space for PCIe device, so fix it for cxgb4.
+>>
+>>     Fix some format issues.
+>>
+>> v5: Removed the unnecessary code for some function which only return the bool
+>>     value, and add the check for VF device.
+>>
+>>     Make this patch set base on 4.12-rc5.
+>>
+>> v6: Fix the logic error in the need to enable the relaxed ordering attribute for cxgb4.
+>>  
+>> Casey Leedom (2):
+>>   PCI: Add new PCIe Fabric End Node flag,
+>>     PCI_DEV_FLAGS_NO_RELAXED_ORDERING
+>>   net/cxgb4: Use new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+>>
+>> Ding Tianhong (1):
+>>   PCI: Enable PCIe Relaxed Ordering if supported
+>>
+>>  drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  1 +
+>>  drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 17 ++++++++++
+>>  drivers/net/ethernet/chelsio/cxgb4/sge.c        |  5 +--
+>>  drivers/pci/pci.c                               | 32 +++++++++++++++++++
+>>  drivers/pci/probe.c                             | 41 +++++++++++++++++++++++++
+>>  drivers/pci/quirks.c                            | 38 +++++++++++++++++++++++
+>>  include/linux/pci.h                             |  4 +++
+>>  7 files changed, 136 insertions(+), 2 deletions(-)
+>>
