@@ -1,35 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] tap: convert a mutex to a spinlock
-Date: Thu, 06 Jul 2017 10:52:24 +0100 (WEST)
-Message-ID: <20170706.105224.2248990091127065553.davem@davemloft.net>
-References: <1499287800-10634-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [RFC PATCH linus] tcp: md5: tcp_md5_do_lookup_exact() can be
+ static
+Date: Thu, 06 Jul 2017 10:55:38 +0100 (WEST)
+Message-ID: <20170706.105538.1784895348831188824.davem@davemloft.net>
+References: <201707060719.Zvm7chOj%fengguang.wu@intel.com>
+        <20170705235853.GA69361@lkp-sb04.lkp.intel.com>
+        <20170706102712.3904c199@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, borntraeger@de.ibm.com,
-        sainath.grandhi@intel.com
-To: xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57188 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752115AbdGFJw2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2017 05:52:28 -0400
-In-Reply-To: <1499287800-10634-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: fengguang.wu@intel.com, kbuild-all@01.org,
+        linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+        netdev@vger.kernel.org, colona@arista.com, gilligan@arista.com,
+        mowat@arista.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170706102712.3904c199@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Wed,  5 Jul 2017 13:50:00 -0700
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Thu, 6 Jul 2017 10:27:12 +1000
 
-> We are not allowed to block on the RCU reader side, so can't
-> just hold the mutex as before. As a quick fix, convert it to
-> a spinlock.
+> Hi,
 > 
-> Fixes: d9f1f61c0801 ("tap: Extending tap device create/destroy APIs")
-> Reported-by: Christian Borntraeger <borntraeger@de.ibm.com>
-> Cc: Sainath Grandhi <sainath.grandhi@intel.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Not sure why you sent this to me ... it fixes a commit in the net-next
+> tree (now in Linus' tree) ...
+> 
+> On Thu, 6 Jul 2017 07:58:53 +0800 kbuild test robot <fengguang.wu@intel.com> wrote:
+>>
+>> Fixes: 0c5f0311f690 ("Add linux-next specific files for 20170705")
+> 
+> Actually:  Fixes: 6797318e623d ("tcp: md5: add an address prefix for key lookup")
 
-I agree with Eric that we should use idr_preload() and
-idr_preload_end() here so that we can still use GFP_KERNEL even though
-we're now using a spinlock instead of a mutex.
+Applied with correct fixes tag, thanks.
