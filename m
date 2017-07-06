@@ -1,62 +1,35 @@
-From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: Re: Re: [PATCH 6/6] net: stmmac: revert "support future
- possible different internal phy mode"
-Date: Thu, 6 Jul 2017 18:37:59 +0800
-Message-ID: <CAGb2v64SY5L9gJP3ZBViskWoUJ8V_9FTdtevGPiBW2EzgSyOAQ@mail.gmail.com>
-References: <20170702123159.6939-1-clabbe.montjoie@gmail.com>
- <20170702123159.6939-7-clabbe.montjoie@gmail.com> <20170706085147.GA15728@Red>
- <20170706.104514.1212305295126379350.davem@davemloft.net>
-Reply-To: wens-jdAy2FN1RRM@public.gmane.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] sctp: set the value of flowi6_oif to sk_bound_dev_if
+ to make sctp_v6_get_dst to find the correct route entry.
+Date: Thu, 06 Jul 2017 11:40:20 +0100 (WEST)
+Message-ID: <20170706.114020.1164331043260731183.davem@davemloft.net>
+References: <1499324409-12489-1-git-send-email-lizheng043@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-To: LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-sunxi+bncBCMILY6JWQBBBH5G7DFAKGQESZTF6AI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <20170706.104514.1212305295126379350.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        vyasevich@gmail.com, nhorman@tuxdriver.com,
+        linux-sctp@vger.kernel.org, jmorris@namei.org,
+        james.z.li@ericsson.com, allen.y.zhao@ericsson.com,
+        feng.qiu@ericsson.com
+To: lizheng043@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1499324409-12489-1-git-send-email-lizheng043@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Corentin,
+From: Zheng Li <lizheng043@gmail.com>
+Date: Thu,  6 Jul 2017 15:00:09 +0800
 
-On Thu, Jul 6, 2017 at 5:45 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
-> From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date: Thu, 6 Jul 2017 10:51:47 +0200
->
->> On Sun, Jul 02, 2017 at 02:31:59PM +0200, Corentin Labbe wrote:
->>> Since internal phy-mode is reserved for non-xMII protocol we cannot use
->>> it with dwmac-sun8i
->>> This reverts commit 1c2fa5f84683 ("net: stmmac: support future possible different internal phy mode")
->>>
->>> Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->>> ---
->>
->> Hello
->>
->> This patch was left not applied but all other patch from this serie was.
->> Could you apply it, or perhaps you prefer I resend it with some "Fixes:"
->
-> You never need to ask questions like this.
->
-> If it's not active in my patchwork queue, you must resend.
->
-> Thank you.
+> From: Zheng Li <james.z.li@ericsson.com>
+> 
+> if there are several same route entries with different outgoing net device,
+> application's socket specifies the oif through setsockopt with
+> SO_BINDTODEVICE, sctpv6 should choose the route entry whose outgoing net
+> device is the oif which was specified by socket, set the value of
+> flowi6_oif to sk->sk_bound_dev_if to make sctp_v6_get_dst to find the
+> correct route entry.
+> 
+> Signed-off-by: Zheng Li <james.z.li@ericsson.com>
 
-Your series was not applied at all. See the status on patchwork:
-
-    http://patchwork.ozlabs.org/patch/783179/
-
-Maxime's patch to revert all device tree changes in net-next was
-applied first.
-
-Please rebase and resend this patch for netdev (not net-next).
-
-ChenYu
+Applied, thanks.
