@@ -1,7 +1,7 @@
 From: Romain Perier <romain.perier@collabora.com>
-Subject: [PATCH v10 15/15] PCI: Remove PCI pool macro functions
-Date: Thu,  6 Jul 2017 10:13:10 +0200
-Message-ID: <20170706081310.30964-16-romain.perier@collabora.com>
+Subject: [PATCH v10 13/15] scsi: mvsas: Replace PCI pool old API
+Date: Thu,  6 Jul 2017 10:13:08 +0200
+Message-ID: <20170706081310.30964-14-romain.perier@collabora.com>
 References: <20170706081310.30964-1-romain.perier@collabora.com>
 Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
         linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
@@ -22,34 +22,70 @@ In-Reply-To: <20170706081310.30964-1-romain.perier@collabora.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Now that all the drivers use dma pool API, we can remove the macro
-functions for PCI pool.
+The PCI pool API is deprecated. This commit replaces the PCI pool old
+API by the appropriate function with the DMA pool API.
 
 Signed-off-by: Romain Perier <romain.perier@collabora.com>
 Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
 ---
- include/linux/pci.h | 9 ---------
- 1 file changed, 9 deletions(-)
+ drivers/scsi/mvsas/mv_init.c | 6 +++---
+ drivers/scsi/mvsas/mv_sas.c  | 6 +++---
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index 4869e66dd659..01153fa1fbd4 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -1297,15 +1297,6 @@ int pci_set_vga_state(struct pci_dev *pdev, bool decode,
- #include <linux/pci-dma.h>
- #include <linux/dmapool.h>
+diff --git a/drivers/scsi/mvsas/mv_init.c b/drivers/scsi/mvsas/mv_init.c
+index 4e047b5001a6..1d53410334cc 100644
+--- a/drivers/scsi/mvsas/mv_init.c
++++ b/drivers/scsi/mvsas/mv_init.c
+@@ -125,8 +125,7 @@ static void mvs_free(struct mvs_info *mvi)
+ 	else
+ 		slot_nr = MVS_CHIP_SLOT_SZ;
  
--#define	pci_pool dma_pool
--#define pci_pool_create(name, pdev, size, align, allocation) \
--		dma_pool_create(name, &pdev->dev, size, align, allocation)
--#define	pci_pool_destroy(pool) dma_pool_destroy(pool)
--#define	pci_pool_alloc(pool, flags, handle) dma_pool_alloc(pool, flags, handle)
--#define	pci_pool_zalloc(pool, flags, handle) \
--		dma_pool_zalloc(pool, flags, handle)
--#define	pci_pool_free(pool, vaddr, addr) dma_pool_free(pool, vaddr, addr)
--
- struct msix_entry {
- 	u32	vector;	/* kernel uses to write allocated vector */
- 	u16	entry;	/* driver uses to specify entry, OS writes */
+-	if (mvi->dma_pool)
+-		pci_pool_destroy(mvi->dma_pool);
++	dma_pool_destroy(mvi->dma_pool);
+ 
+ 	if (mvi->tx)
+ 		dma_free_coherent(mvi->dev,
+@@ -296,7 +295,8 @@ static int mvs_alloc(struct mvs_info *mvi, struct Scsi_Host *shost)
+ 		goto err_out;
+ 
+ 	sprintf(pool_name, "%s%d", "mvs_dma_pool", mvi->id);
+-	mvi->dma_pool = pci_pool_create(pool_name, mvi->pdev, MVS_SLOT_BUF_SZ, 16, 0);
++	mvi->dma_pool = dma_pool_create(pool_name, &mvi->pdev->dev,
++					MVS_SLOT_BUF_SZ, 16, 0);
+ 	if (!mvi->dma_pool) {
+ 			printk(KERN_DEBUG "failed to create dma pool %s.\n", pool_name);
+ 			goto err_out;
+diff --git a/drivers/scsi/mvsas/mv_sas.c b/drivers/scsi/mvsas/mv_sas.c
+index c7cc8035eacb..ee81d10252e0 100644
+--- a/drivers/scsi/mvsas/mv_sas.c
++++ b/drivers/scsi/mvsas/mv_sas.c
+@@ -790,7 +790,7 @@ static int mvs_task_prep(struct sas_task *task, struct mvs_info *mvi, int is_tmf
+ 	slot->n_elem = n_elem;
+ 	slot->slot_tag = tag;
+ 
+-	slot->buf = pci_pool_alloc(mvi->dma_pool, GFP_ATOMIC, &slot->buf_dma);
++	slot->buf = dma_pool_alloc(mvi->dma_pool, GFP_ATOMIC, &slot->buf_dma);
+ 	if (!slot->buf) {
+ 		rc = -ENOMEM;
+ 		goto err_out_tag;
+@@ -840,7 +840,7 @@ static int mvs_task_prep(struct sas_task *task, struct mvs_info *mvi, int is_tmf
+ 	return rc;
+ 
+ err_out_slot_buf:
+-	pci_pool_free(mvi->dma_pool, slot->buf, slot->buf_dma);
++	dma_pool_free(mvi->dma_pool, slot->buf, slot->buf_dma);
+ err_out_tag:
+ 	mvs_tag_free(mvi, tag);
+ err_out:
+@@ -918,7 +918,7 @@ static void mvs_slot_task_free(struct mvs_info *mvi, struct sas_task *task,
+ 	}
+ 
+ 	if (slot->buf) {
+-		pci_pool_free(mvi->dma_pool, slot->buf, slot->buf_dma);
++		dma_pool_free(mvi->dma_pool, slot->buf, slot->buf_dma);
+ 		slot->buf = NULL;
+ 	}
+ 	list_del_init(&slot->entry);
 -- 
 2.11.0
