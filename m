@@ -1,131 +1,169 @@
-From: Nadav Amit via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [PATCH v3 net-next 02/12] bpf/verifier: rework
- value tracking
-Date: Thu, 6 Jul 2017 13:26:14 -0700
-Message-ID: <674405A2-D56D-45A4-B0D5-F926E9BA38D9@gmail.com>
-References: <adc11342-737f-4e06-bce3-f0a92b5594a5@solarflare.com>
-	<2244b48b-f415-3239-6912-cb09f0abc546@solarflare.com>
-Reply-To: Nadav Amit <nadav.amit-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: multipart/mixed; boundary="===============5220799260494139533=="
-Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <2244b48b-f415-3239-6912-cb09f0abc546-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH v2 1/9] net/netfilter/nf_conntrack_core: Fix
+ net_conntrack_lock()
+Date: Thu, 6 Jul 2017 13:26:42 -0700
+Message-ID: <20170706202642.GQ2393@linux.vnet.ibm.com>
+References: <20170705232955.GA15992@linux.vnet.ibm.com>
+ <1499297503-23852-1-git-send-email-paulmck@linux.vnet.ibm.com>
+ <113516eb-8615-4468-0127-1a491d34c83c@colorfullife.com>
+Reply-To: paulmck@linux.vnet.ibm.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+        netdev@vger.kernel.org, oleg@redhat.com, akpm@linux-foundation.org,
+        mingo@redhat.com, dave@stgolabs.net, tj@kernel.org, arnd@arndb.de,
+        linux-arch@vger.kernel.org, will.deacon@arm.com,
+        peterz@infradead.org, stern@rowland.harvard.edu,
+        parri.andrea@gmail.com, torvalds@linux-foundation.org,
+        stable@vger.kernel.org, Sasha Levin <sasha.levin@oracle.com>,
+        Pablo Neira Ayuso <pablo@netfilter.org>
+To: Manfred Spraul <manfred@colorfullife.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <113516eb-8615-4468-0127-1a491d34c83c@colorfullife.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, Jul 06, 2017 at 08:45:59PM +0200, Manfred Spraul wrote:
+> Hi Paul,
+> 
+> On 07/06/2017 01:31 AM, Paul E. McKenney wrote:
+> >From: Manfred Spraul <manfred@colorfullife.com>
+> >
+> >As we want to remove spin_unlock_wait() and replace it with explicit
+> >spin_lock()/spin_unlock() calls, we can use this to simplify the
+> >locking.
+> >
+> >In addition:
+> >- Reading nf_conntrack_locks_all needs ACQUIRE memory ordering.
+> >- The new code avoids the backwards loop.
+> >
+> >Only slightly tested, I did not manage to trigger calls to
+> >nf_conntrack_all_lock().
+> 
+> If you want:
+> Attached would be V2, with adapted comments.
 
---===============5220799260494139533==
-Content-Type: multipart/alternative;
- boundary="Apple-Mail=_D7FF8A3D-591B-4EF1-B48C-996BC71F9598"
+I do like the improved comments, thank you!  Queued, and will be part
+of a later v3 of the series.
 
+							Thanx, Paul
 
---Apple-Mail=_D7FF8A3D-591B-4EF1-B48C-996BC71F9598
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain;
-	charset=us-ascii
+> --
+>     Manfred
 
-Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org> wrote:
-
-> Tracks value alignment by means of tracking known & unknown bits.
-> Tightens some min/max value checks and fixes a couple of bugs therein.
-> If pointer leaks are allowed, and adjust_ptr_min_max_vals returns =
--EACCES,
-> treat the pointer as an unknown scalar and try again, because we might =
-be
-> able to conclude something about the result (e.g. pointer & 0x40 is =
-either
-> 0 or 0x40).
->=20
-> Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+> >From e3562faa1bc96e883108505e05deecaf38c87a26 Mon Sep 17 00:00:00 2001
+> From: Manfred Spraul <manfred@colorfullife.com>
+> Date: Sun, 21 Aug 2016 07:17:55 +0200
+> Subject: [PATCH 1/2] net/netfilter/nf_conntrack_core: Fix net_conntrack_lock()
+> 
+> As we want to remove spin_unlock_wait() and replace it with explicit
+> spin_lock()/spin_unlock() calls, we can use this to simplify the
+> locking.
+> 
+> In addition:
+> - Reading nf_conntrack_locks_all needs ACQUIRE memory ordering.
+> - The new code avoids the backwards loop.
+> 
+> Only slightly tested, I did not manage to trigger calls to
+> nf_conntrack_all_lock().
+> 
+> V2: With improved comments, to clearly show how the barriers
+>     pair.
+> 
+> Fixes: b16c29191dc8
+> Signed-off-by: Manfred Spraul <manfred@colorfullife.com>
+> Cc: <stable@vger.kernel.org>
+> Cc: Alan Stern <stern@rowland.harvard.edu>
+> Cc: Sasha Levin <sasha.levin@oracle.com>
+> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+> Cc: netfilter-devel@vger.kernel.org
 > ---
-> include/linux/bpf.h          |   34 +-
-> include/linux/bpf_verifier.h |   40 +-
-> include/linux/tnum.h         |   79 ++
-> kernel/bpf/Makefile          |    2 +-
-> kernel/bpf/tnum.c            |  163 ++++
-> kernel/bpf/verifier.c        | 1692 =
-++++++++++++++++++++++++------------------
-> 6 files changed, 1235 insertions(+), 775 deletions(-)
-
-I find it a bit surprising that such huge changes that can affect =
-security
-and robustness are performed in one patch. Personally, I cannot =
-comprehend
-all of these changes. In addition, I think that it is valuable to =
-describe
-in detail the bugs that the patch solves and when they were introduced.
-
-I can bring up some concerns regarding inconsistencies in offset checks =
-and
-size, not spilling SCALAR and my wish not to limit packet size. However,
-when the patch is that big, I think it is useless.
-
-Nadav=
-
---Apple-Mail=_D7FF8A3D-591B-4EF1-B48C-996BC71F9598
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/html;
-	charset=us-ascii
-
-<html><body style=3D"word-wrap: break-word; -webkit-nbsp-mode: space; =
--webkit-line-break: after-white-space;">Edward Cree via iovisor-dev =
-&lt;<a href=3D"mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org" =
-class=3D"">iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org</a>&gt; wrote:<br class=3D""><br =
-class=3D""><blockquote type=3D"cite" class=3D"">Tracks value alignment =
-by means of tracking known &amp; unknown bits.<br class=3D"">Tightens =
-some min/max value checks and fixes a couple of bugs therein.<br =
-class=3D"">If pointer leaks are allowed, and adjust_ptr_min_max_vals =
-returns -EACCES,<br class=3D"">treat the pointer as an unknown scalar =
-and try again, because we might be<br class=3D"">able to conclude =
-something about the result (e.g. pointer &amp; 0x40 is either<br =
-class=3D"">0 or 0x40).<br class=3D""><br class=3D"">Signed-off-by: =
-Edward Cree &lt;<a href=3D"mailto:ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org" =
-class=3D"">ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org</a>&gt;<br class=3D"">---<br =
-class=3D"">include/linux/bpf.h &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;| =
-&nbsp; 34 +-<br class=3D"">include/linux/bpf_verifier.h | &nbsp; 40 =
-+-<br class=3D"">include/linux/tnum.h &nbsp; &nbsp; &nbsp; &nbsp; | =
-&nbsp; 79 ++<br class=3D"">kernel/bpf/Makefile &nbsp; &nbsp; &nbsp; =
-&nbsp; &nbsp;| &nbsp; &nbsp;2 +-<br class=3D"">kernel/bpf/tnum.c &nbsp; =
-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;| &nbsp;163 ++++<br =
-class=3D"">kernel/bpf/verifier.c &nbsp; &nbsp; &nbsp; &nbsp;| 1692 =
-++++++++++++++++++++++++------------------<br class=3D"">6 files =
-changed, 1235 insertions(+), 775 deletions(-)<br =
-class=3D""></blockquote><div class=3D""><br class=3D""></div><div =
-class=3D"">I find it a bit surprising that such huge changes that can =
-affect security</div><div class=3D"">and robustness are performed in one =
-patch. Personally, I cannot comprehend</div><div class=3D"">all of these =
-changes. In addition, I think that it is valuable to describe</div><div =
-class=3D"">in detail the bugs that the patch solves and when they were =
-introduced.</div><div class=3D""><br class=3D""></div><div class=3D"">I =
-can bring up some concerns regarding inconsistencies in offset checks =
-and</div><div class=3D"">size, not spilling SCALAR and my wish not to =
-limit packet size. However,</div><div class=3D"">when the patch is that =
-big, I think it is useless.</div><div class=3D""><br class=3D""></div><div=
- class=3D"">Nadav</div></body></html>=
-
---Apple-Mail=_D7FF8A3D-591B-4EF1-B48C-996BC71F9598--
-
---===============5220799260494139533==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-iovisor-dev mailing list
-iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-https://lists.iovisor.org/mailman/listinfo/iovisor-dev
-
---===============5220799260494139533==--
+>  net/netfilter/nf_conntrack_core.c | 52 ++++++++++++++++++++++-----------------
+>  1 file changed, 29 insertions(+), 23 deletions(-)
+> 
+> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+> index 9979f46..51390fe 100644
+> --- a/net/netfilter/nf_conntrack_core.c
+> +++ b/net/netfilter/nf_conntrack_core.c
+> @@ -96,19 +96,26 @@ static struct conntrack_gc_work conntrack_gc_work;
+> 
+>  void nf_conntrack_lock(spinlock_t *lock) __acquires(lock)
+>  {
+> +	/* 1) Acquire the lock */
+>  	spin_lock(lock);
+> -	while (unlikely(nf_conntrack_locks_all)) {
+> -		spin_unlock(lock);
+> 
+> -		/*
+> -		 * Order the 'nf_conntrack_locks_all' load vs. the
+> -		 * spin_unlock_wait() loads below, to ensure
+> -		 * that 'nf_conntrack_locks_all_lock' is indeed held:
+> -		 */
+> -		smp_rmb(); /* spin_lock(&nf_conntrack_locks_all_lock) */
+> -		spin_unlock_wait(&nf_conntrack_locks_all_lock);
+> -		spin_lock(lock);
+> -	}
+> +	/* 2) read nf_conntrack_locks_all, with ACQUIRE semantics
+> +	 * It pairs with the smp_store_release() in nf_conntrack_all_unlock()
+> +	 */
+> +	if (likely(smp_load_acquire(&nf_conntrack_locks_all) == false))
+> +		return;
+> +
+> +	/* fast path failed, unlock */
+> +	spin_unlock(lock);
+> +
+> +	/* Slow path 1) get global lock */
+> +	spin_lock(&nf_conntrack_locks_all_lock);
+> +
+> +	/* Slow path 2) get the lock we want */
+> +	spin_lock(lock);
+> +
+> +	/* Slow path 3) release the global lock */
+> +	spin_unlock(&nf_conntrack_locks_all_lock);
+>  }
+>  EXPORT_SYMBOL_GPL(nf_conntrack_lock);
+> 
+> @@ -149,28 +156,27 @@ static void nf_conntrack_all_lock(void)
+>  	int i;
+> 
+>  	spin_lock(&nf_conntrack_locks_all_lock);
+> -	nf_conntrack_locks_all = true;
+> 
+> -	/*
+> -	 * Order the above store of 'nf_conntrack_locks_all' against
+> -	 * the spin_unlock_wait() loads below, such that if
+> -	 * nf_conntrack_lock() observes 'nf_conntrack_locks_all'
+> -	 * we must observe nf_conntrack_locks[] held:
+> -	 */
+> -	smp_mb(); /* spin_lock(&nf_conntrack_locks_all_lock) */
+> +	nf_conntrack_locks_all = true;
+> 
+>  	for (i = 0; i < CONNTRACK_LOCKS; i++) {
+> -		spin_unlock_wait(&nf_conntrack_locks[i]);
+> +		spin_lock(&nf_conntrack_locks[i]);
+> +
+> +		/* This spin_unlock provides the "release" to ensure that
+> +		 * nf_conntrack_locks_all==true is visible to everyone that
+> +		 * acquired spin_lock(&nf_conntrack_locks[]).
+> +		 */
+> +		spin_unlock(&nf_conntrack_locks[i]);
+>  	}
+>  }
+> 
+>  static void nf_conntrack_all_unlock(void)
+>  {
+> -	/*
+> -	 * All prior stores must be complete before we clear
+> +	/* All prior stores must be complete before we clear
+>  	 * 'nf_conntrack_locks_all'. Otherwise nf_conntrack_lock()
+>  	 * might observe the false value but not the entire
+> -	 * critical section:
+> +	 * critical section.
+> +	 * It pairs with the smp_load_acquire() in nf_conntrack_lock()
+>  	 */
+>  	smp_store_release(&nf_conntrack_locks_all, false);
+>  	spin_unlock(&nf_conntrack_locks_all_lock);
+> -- 
+> 2.9.4
+> 
