@@ -1,73 +1,167 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: axienet: add support for standard phy-mode binding
-Date: Thu, 6 Jul 2017 15:34:55 +0200
-Message-ID: <20170706133455.GB8810@lunn.ch>
-References: <20170706085011.2828-1-alvaro.gamez@hazent.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [CRIU] BUG: Dentry ffff9f795a08fe60{i=af565f, n=lo} still in use (1) [unmount of proc proc]
+Date: Thu, 06 Jul 2017 08:41:00 -0500
+Message-ID: <87van54r9v.fsf@xmission.com>
+References: <CANaxB-yneyRrUhJp1uwvHcaC88n3yyF5Jjr=1A869hWQsXfNEg@mail.gmail.com>
+        <8737ai4ns6.fsf@xmission.com>
+        <CANaxB-z-K=A2_OfMsXqROttsef0SXSeACX8Wj9ik2NJ1Dkz_Fw@mail.gmail.com>
+        <87vane1cao.fsf@xmission.com>
+        <20170630191106.GB8899@outlook.office365.com>
+        <20170703163646.GA9346@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Anirudha Sarangi <anirudh@xilinx.com>,
-        John Linn <John.Linn@xilinx.com>,
-        Michal Simek <michal.simek@xilinx.com>,
-        =?iso-8859-1?Q?S=F6ren?= Brinkmann <soren.brinkmann@xilinx.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Alvaro Gamez Machado <alvaro.gamez@hazent.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170706085011.2828-1-alvaro.gamez@hazent.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: Andrei Vagin <avagin@virtuozzo.com>,
+        Konstantin Khlebnikov <khlebnikov@yandex-team.ru>,
+        linux-fsdevel <linux-fsdevel@vger.kernel.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Linux Containers <containers@lists.linux-foundation.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        "criu\@openvz.org" <criu@openvz.org>
+To: Andrei Vagin <avagin@gmail.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20170703163646.GA9346@gmail.com> (Andrei Vagin's message of
+        "Mon, 3 Jul 2017 09:36:48 -0700")
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 06, 2017 at 10:50:11AM +0200, Alvaro Gamez Machado wrote:
-> Keep supporting proprietary "xlnx,phy-type" attribute and add support for
-> MII connectivity to the PHY.
+Andrei Vagin <avagin@gmail.com> writes:
 
-Hi Alvaro
+> I did a few experiments and found that the bug is reproduced for 6-12
+> hours on the our test server. Then I reverted two patches and the server
+> is working normally for more than 24 hours already, so the bug is
+> probably in one of these patches.
+>
+> commit e3d0065ab8535cbeee69a4c46a59f4d7360803ae
+> Author: Andrei Vagin <avagin@openvz.org>
+> Date:   Sun Jul 2 07:41:25 2017 +0200
+>
+>     Revert "proc/sysctl: prune stale dentries during unregistering"
+>     
+>     This reverts commit d6cffbbe9a7e51eb705182965a189457c17ba8a3.
+>
+> commit 2d3c50dac81011c1da4d2f7a63b84bd75287e320
+> Author: Andrei Vagin <avagin@openvz.org>
+> Date:   Sun Jul 2 07:40:08 2017 +0200
+>
+>     Revert "proc/sysctl: Don't grab i_lock under sysctl_lock."
+>     
+>     This reverts commit ace0c791e6c3cf5ef37cad2df69f0d90ccc40ffb.
+>
+>
+> FYI: This bug has been reproduced on 4.11.7
 
-Thanks for picking this up.
+Instead of the revert could you test the patch below?
 
-> 
-> Signed-off-by: Alvaro Gamez Machado <alvaro.gamez@hazent.com>
-> ---
->  drivers/net/ethernet/xilinx/xilinx_axienet_main.c | 48 +++++++++++++++++------
->  1 file changed, 36 insertions(+), 12 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-> index 33c595f4691d..f669b8e69e8b 100644
-> --- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-> +++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-> @@ -531,11 +531,11 @@ static void axienet_adjust_link(struct net_device *ndev)
->  	link_state = phy->speed | (phy->duplex << 1) | phy->link;
->  	if (lp->last_link != link_state) {
->  		if ((phy->speed == SPEED_10) || (phy->speed == SPEED_100)) {
-> -			if (lp->phy_type == XAE_PHY_TYPE_1000BASE_X)
-> +			if (lp->phy_type == PHY_INTERFACE_MODE_1000BASEX)
+This should fix the issue by grabbing a s_active reference
+to the proc super block for every inode we flush.
 
-In my suggestion patch, i renamed it to phy_mode. That is the
-convention used by other drivers. Since we are also changing what it
-means, it gives the compiler a chance to error out on any instances we
-didn't find and are still trying to use the old meaning.
-
-It would be nice to document this in a device tree binding
-document. Something like Documentation/devicetree/binding/net/xilinx_axienet.txt
-
-XILINX Axi Ethernet device driver
----------------------------------
-
-Required properties:
-
-- compatible	: Must be one of "xlnx,axi-ethernet-1.00.a",
-                  "xlnx,axi-ethernet-1.01.a", or "xlnx,axi-ethernet-2.01.a"
-- reg		: Address and length of the IO space.
-- interrupts    : Should be a list of two interrupt, TX and RX.
-
-Optional properties:
-
-- phy-mode	: See ethernet.txt
-- xlnx,phy-type : Deprecated, do not use, but still accepted in preference to phy-mode.
-
-There are other properties, but they can be added later. The important
-thing is it documents this change.
-
-Thanks
-      Andrew
+diff --git a/fs/proc/internal.h b/fs/proc/internal.h
+index c5ae09b6c726..18694598bebf 100644
+--- a/fs/proc/internal.h
++++ b/fs/proc/internal.h
+@@ -67,7 +67,7 @@ struct proc_inode {
+ 	struct proc_dir_entry *pde;
+ 	struct ctl_table_header *sysctl;
+ 	struct ctl_table *sysctl_entry;
+-	struct list_head sysctl_inodes;
++	struct hlist_node sysctl_inodes;
+ 	const struct proc_ns_operations *ns_ops;
+ 	struct inode vfs_inode;
+ };
+diff --git a/fs/proc/proc_sysctl.c b/fs/proc/proc_sysctl.c
+index 67985a7233c2..9bf06e2b1284 100644
+--- a/fs/proc/proc_sysctl.c
++++ b/fs/proc/proc_sysctl.c
+@@ -191,7 +191,7 @@ static void init_header(struct ctl_table_header *head,
+ 	head->set = set;
+ 	head->parent = NULL;
+ 	head->node = node;
+-	INIT_LIST_HEAD(&head->inodes);
++	INIT_HLIST_HEAD(&head->inodes);
+ 	if (node) {
+ 		struct ctl_table *entry;
+ 		for (entry = table; entry->procname; entry++, node++)
+@@ -261,25 +261,42 @@ static void unuse_table(struct ctl_table_header *p)
+ 			complete(p->unregistering);
+ }
+ 
+-/* called under sysctl_lock */
+ static void proc_sys_prune_dcache(struct ctl_table_header *head)
+ {
+-	struct inode *inode, *prev = NULL;
++	struct inode *inode;
+ 	struct proc_inode *ei;
++	struct hlist_node *node;
++	struct super_block *sb;
+ 
+ 	rcu_read_lock();
+-	list_for_each_entry_rcu(ei, &head->inodes, sysctl_inodes) {
+-		inode = igrab(&ei->vfs_inode);
+-		if (inode) {
+-			rcu_read_unlock();
+-			iput(prev);
+-			prev = inode;
+-			d_prune_aliases(inode);
++	for (;;) {
++		node = hlist_first_rcu(&head->inodes);
++		if (!node)
++			break;
++		ei = hlist_entry(node, struct proc_inode, sysctl_inodes);
++		spin_lock(&sysctl_lock);
++		hlist_del_init_rcu(&ei->sysctl_inodes);
++		spin_unlock(&sysctl_lock);
++
++		inode = &ei->vfs_inode;
++		sb = inode->i_sb;
++		if (!atomic_inc_not_zero(&sb->s_active))
++			continue;
++		inode = igrab(inode);
++		rcu_read_unlock();
++		if (unlikely(!inode)) {
++			deactivate_super(sb);
+ 			rcu_read_lock();
++			continue;
+ 		}
++
++		d_prune_aliases(inode);
++		iput(inode);
++		deactivate_super(sb);
++
++		rcu_read_lock();
+ 	}
+ 	rcu_read_unlock();
+-	iput(prev);
+ }
+ 
+ /* called under sysctl_lock, will reacquire if has to wait */
+@@ -461,7 +478,7 @@ static struct inode *proc_sys_make_inode(struct super_block *sb,
+ 	}
+ 	ei->sysctl = head;
+ 	ei->sysctl_entry = table;
+-	list_add_rcu(&ei->sysctl_inodes, &head->inodes);
++	hlist_add_head_rcu(&ei->sysctl_inodes, &head->inodes);
+ 	head->count++;
+ 	spin_unlock(&sysctl_lock);
+ 
+@@ -489,7 +506,7 @@ static struct inode *proc_sys_make_inode(struct super_block *sb,
+ void proc_sys_evict_inode(struct inode *inode, struct ctl_table_header *head)
+ {
+ 	spin_lock(&sysctl_lock);
+-	list_del_rcu(&PROC_I(inode)->sysctl_inodes);
++	hlist_del_init_rcu(&PROC_I(inode)->sysctl_inodes);
+ 	if (!--head->count)
+ 		kfree_rcu(head, rcu);
+ 	spin_unlock(&sysctl_lock);
+diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+index 80d07816def0..1c04a26bfd2f 100644
+--- a/include/linux/sysctl.h
++++ b/include/linux/sysctl.h
+@@ -143,7 +143,7 @@ struct ctl_table_header
+ 	struct ctl_table_set *set;
+ 	struct ctl_dir *parent;
+ 	struct ctl_node *node;
+-	struct list_head inodes; /* head for proc_inode->sysctl_inodes */
++	struct hlist_head inodes; /* head for proc_inode->sysctl_inodes */
+ };
+ 
+ struct ctl_dir {
