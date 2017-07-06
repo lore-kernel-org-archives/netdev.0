@@ -1,37 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH linus] tcp: md5: tcp_md5_do_lookup_exact() can be
- static
-Date: Thu, 06 Jul 2017 10:55:38 +0100 (WEST)
-Message-ID: <20170706.105538.1784895348831188824.davem@davemloft.net>
-References: <201707060719.Zvm7chOj%fengguang.wu@intel.com>
-        <20170705235853.GA69361@lkp-sb04.lkp.intel.com>
-        <20170706102712.3904c199@canb.auug.org.au>
+Subject: Re: [PATCH net-next] TLS: Fix length check in
+ do_tls_getsockopt_tx()
+Date: Thu, 06 Jul 2017 10:58:48 +0100 (WEST)
+Message-ID: <20170706.105848.1241930716639339836.davem@davemloft.net>
+References: <5b6ff892-fd27-94c6-045a-70c6ab721fb3@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fengguang.wu@intel.com, kbuild-all@01.org,
-        linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-        netdev@vger.kernel.org, colona@arista.com, gilligan@arista.com,
-        mowat@arista.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170706102712.3904c199@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dan.carpenter@oracle.com,
+        davejwatson@fb.com, aviadye@mellanox.com, ilyal@mellanox.com
+To: mrosenfelder.lkml@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57270 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751905AbdGFJ6w (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2017 05:58:52 -0400
+In-Reply-To: <5b6ff892-fd27-94c6-045a-70c6ab721fb3@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Thu, 6 Jul 2017 10:27:12 +1000
+From: Matthias Rosenfelder <mrosenfelder.lkml@gmail.com>
+Date: Thu, 6 Jul 2017 00:56:36 -0400
 
-> Hi,
+> copy_to_user() copies the struct the pointer is pointing to, but the
+> length check compares against sizeof(pointer) and not sizeof(struct).
+> On 32-bit the size is probably the same, so it might have worked
+> accidentally.
 > 
-> Not sure why you sent this to me ... it fixes a commit in the net-next
-> tree (now in Linus' tree) ...
-> 
-> On Thu, 6 Jul 2017 07:58:53 +0800 kbuild test robot <fengguang.wu@intel.com> wrote:
->>
->> Fixes: 0c5f0311f690 ("Add linux-next specific files for 20170705")
-> 
-> Actually:  Fixes: 6797318e623d ("tcp: md5: add an address prefix for key lookup")
+> Signed-off-by: Matthias Rosenfelder <mrosenfelder.lkml@gmail.com>
 
-Applied with correct fixes tag, thanks.
+Applied, thanks.
