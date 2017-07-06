@@ -1,34 +1,65 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: net: Fix inconsistent teardown and release of private netdev state.
-Date: Thu, 6 Jul 2017 16:28:25 +0200
-Message-ID: <CAHmME9qKjLSCU2LdZ1_7CCxvNfmuY1=iC0+LgRa+32hFLT71zw@mail.gmail.com>
-References: <20170706142427.GA32086@zx2c4.com>
+From: Richard Weinberger <richard.weinberger@gmail.com>
+Subject: Re: [PATCH v3 net-next 0/4] kernel TLS
+Date: Thu, 6 Jul 2017 16:30:54 +0200
+Message-ID: <CAFLxGvz=OfvZ4uOggkZjN7KKM11dzUp6Sd2O76SP5Nu_8Ty1gA@mail.gmail.com>
+References: <20170614183654.GA80067@davejwatson-mba.dhcp.thefacebook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-To: Netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:52949 "EHLO frisell.zx2c4.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751975AbdGFO2i (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 6 Jul 2017 10:28:38 -0400
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTP id 794106f0
-        for <netdev@vger.kernel.org>;
-        Thu, 6 Jul 2017 14:24:21 +0000 (UTC)
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTPSA id ff4ec4cb (TLSv1.2:ECDHE-RSA-AES128-GCM-SHA256:128:NO)
-        for <netdev@vger.kernel.org>;
-        Thu, 6 Jul 2017 14:24:21 +0000 (UTC)
-Received: by mail-wr0-f176.google.com with SMTP id 77so5351816wrb.1
-        for <netdev@vger.kernel.org>; Thu, 06 Jul 2017 07:28:26 -0700 (PDT)
-In-Reply-To: <20170706142427.GA32086@zx2c4.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ilya Lesokhin <ilyal@mellanox.com>,
+        Aviad Yehezkel <aviadye@mellanox.com>,
+        Boris Pismenny <borisp@mellanox.com>,
+        Liran Liss <liranl@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        David Miller <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Tom Herbert <tom@herbertland.com>,
+        "herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+        linux-crypto@vger.kernel.org,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        nmav@gnutls.org, fridolin.pokorny@gmail.com
+To: Dave Watson <davejwatson@fb.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20170614183654.GA80067@davejwatson-mba.dhcp.thefacebook.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 6, 2017 at 4:24 PM, Jason A. Donenfeld <Jason@zx2c4.com> wrote:
->
->         if (!ret)
->                 pr_info("Yay it worked!\n");
->
->         return 0;
+Dave,
 
-This is supposed to be `return ret;`. See, even in psuedocode it's
-hard to get right.
+On Wed, Jun 14, 2017 at 8:36 PM, Dave Watson <davejwatson@fb.com> wrote:
+>  Documentation/networking/tls.txt   | 135 +++++++
+>  MAINTAINERS                        |  10 +
+>  include/linux/socket.h             |   1 +
+>  include/net/inet_connection_sock.h |   4 +
+>  include/net/tcp.h                  |  27 ++
+>  include/net/tls.h                  | 237 ++++++++++++
+>  include/uapi/linux/tcp.h           |   1 +
+>  include/uapi/linux/tls.h           |  79 ++++
+>  net/Kconfig                        |   1 +
+>  net/Makefile                       |   1 +
+>  net/ipv4/Makefile                  |   2 +-
+>  net/ipv4/sysctl_net_ipv4.c         |  25 ++
+>  net/ipv4/tcp.c                     |  33 +-
+>  net/ipv4/tcp_ipv4.c                |   2 +
+>  net/ipv4/tcp_rate.c                |   1 +
+>  net/ipv4/tcp_ulp.c                 | 134 +++++++
+>  net/tls/Kconfig                    |  12 +
+>  net/tls/Makefile                   |   7 +
+>  net/tls/tls_main.c                 | 487 +++++++++++++++++++++++
+>  net/tls/tls_sw.c                   | 772 +++++++++++++++++++++++++++++++++++++
+>  20 files changed, 1968 insertions(+), 3 deletions(-)
+>  create mode 100644 Documentation/networking/tls.txt
+>  create mode 100644 include/net/tls.h
+>  create mode 100644 include/uapi/linux/tls.h
+>  create mode 100644 net/ipv4/tcp_ulp.c
+>  create mode 100644 net/tls/Kconfig
+>  create mode 100644 net/tls/Makefile
+>  create mode 100644 net/tls/tls_main.c
+>  create mode 100644 net/tls/tls_sw.c
+
+Sorry for the late question. Do I miss something or is this IPv4 only?
+
+-- 
+Thanks,
+//richard
