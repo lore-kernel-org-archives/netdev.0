@@ -1,111 +1,75 @@
-From: Romain Perier <romain.perier@collabora.com>
-Subject: [PATCH v10 09/15] scsi: csiostor: Replace PCI pool old API
-Date: Thu,  6 Jul 2017 10:13:04 +0200
-Message-ID: <20170706081310.30964-10-romain.perier@collabora.com>
-References: <20170706081310.30964-1-romain.perier@collabora.com>
-Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Romain Perier <romain.perier@collabora.com>
-To: Dan Williams <dan.j.williams@intel.com>,
-        Doug Ledford <dledford@redhat.com>,
-        Sean Hefty <sean.hefty@intel.com>,
-        Hal Rosenstock <hal.rosenstock@gmail.com>,
-        jeffrey.t.kirsher@intel.com,
-        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
-        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-        "Martin K. Petersen" <martin.petersen@oracle.com>,
-        Felipe Balbi <balbi@kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170706081310.30964-1-romain.perier@collabora.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Patch net] tap: convert a mutex to a spinlock
+Date: Thu, 06 Jul 2017 01:24:22 -0700
+Message-ID: <1499329462.16045.11.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1499287800-10634-1-git-send-email-xiyou.wangcong@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, borntraeger@de.ibm.com,
+        Sainath Grandhi <sainath.grandhi@intel.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:33369 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752042AbdGFIY0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2017 04:24:26 -0400
+Received: by mail-wr0-f194.google.com with SMTP id x23so3261955wrb.0
+        for <netdev@vger.kernel.org>; Thu, 06 Jul 2017 01:24:26 -0700 (PDT)
+In-Reply-To: <1499287800-10634-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The PCI pool API is deprecated. This commit replaces the PCI pool old
-API by the appropriate function with the DMA pool API. It also updates
-the name of some variables and the content of comments, accordingly.
+On Wed, 2017-07-05 at 13:50 -0700, Cong Wang wrote:
+> We are not allowed to block on the RCU reader side, so can't
+> just hold the mutex as before. As a quick fix, convert it to
+> a spinlock.
+> 
+> Fixes: d9f1f61c0801 ("tap: Extending tap device create/destroy APIs")
+> Reported-by: Christian Borntraeger <borntraeger@de.ibm.com>
+> Cc: Sainath Grandhi <sainath.grandhi@intel.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
+>  drivers/net/tap.c | 18 +++++++++---------
+>  1 file changed, 9 insertions(+), 9 deletions(-)
+> 
+> diff --git a/drivers/net/tap.c b/drivers/net/tap.c
+> index 4d4173d..d88ae3c 100644
+> --- a/drivers/net/tap.c
+> +++ b/drivers/net/tap.c
+> @@ -106,7 +106,7 @@ struct major_info {
+>  	struct rcu_head rcu;
+>  	dev_t major;
+>  	struct idr minor_idr;
+> -	struct mutex minor_lock;
+> +	spinlock_t minor_lock;
+>  	const char *device_name;
+>  	struct list_head next;
+>  };
+> @@ -416,15 +416,15 @@ int tap_get_minor(dev_t major, struct tap_dev *tap)
+>  		goto unlock;
+>  	}
+>  
+> -	mutex_lock(&tap_major->minor_lock);
+> -	retval = idr_alloc(&tap_major->minor_idr, tap, 1, TAP_NUM_DEVS, GFP_KERNEL);
 
-Signed-off-by: Romain Perier <romain.perier@collabora.com>
-Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
----
- drivers/scsi/csiostor/csio_hw.h   |  2 +-
- drivers/scsi/csiostor/csio_init.c | 11 ++++++-----
- drivers/scsi/csiostor/csio_scsi.c |  6 +++---
- 3 files changed, 10 insertions(+), 9 deletions(-)
+	idr_preload(GFP_KERNEL);
 
-diff --git a/drivers/scsi/csiostor/csio_hw.h b/drivers/scsi/csiostor/csio_hw.h
-index 9acb89538e29..667046419b19 100644
---- a/drivers/scsi/csiostor/csio_hw.h
-+++ b/drivers/scsi/csiostor/csio_hw.h
-@@ -465,7 +465,7 @@ struct csio_hw {
- 	struct csio_pport	pport[CSIO_MAX_PPORTS];	/* Ports (XGMACs) */
- 	struct csio_hw_params	params;			/* Hw parameters */
- 
--	struct pci_pool		*scsi_pci_pool;		/* PCI pool for SCSI */
-+	struct dma_pool		*scsi_dma_pool;		/* DMA pool for SCSI */
- 	mempool_t		*mb_mempool;		/* Mailbox memory pool*/
- 	mempool_t		*rnode_mempool;		/* rnode memory pool */
- 
-diff --git a/drivers/scsi/csiostor/csio_init.c b/drivers/scsi/csiostor/csio_init.c
-index ea0c31086cc6..d5fb016b5fc2 100644
---- a/drivers/scsi/csiostor/csio_init.c
-+++ b/drivers/scsi/csiostor/csio_init.c
-@@ -485,9 +485,10 @@ csio_resource_alloc(struct csio_hw *hw)
- 	if (!hw->rnode_mempool)
- 		goto err_free_mb_mempool;
- 
--	hw->scsi_pci_pool = pci_pool_create("csio_scsi_pci_pool", hw->pdev,
--					    CSIO_SCSI_RSP_LEN, 8, 0);
--	if (!hw->scsi_pci_pool)
-+	hw->scsi_dma_pool = dma_pool_create("csio_scsi_dma_pool",
-+					    &hw->pdev->dev, CSIO_SCSI_RSP_LEN,
-+					    8, 0);
-+	if (!hw->scsi_dma_pool)
- 		goto err_free_rn_pool;
- 
- 	return 0;
-@@ -505,8 +506,8 @@ csio_resource_alloc(struct csio_hw *hw)
- static void
- csio_resource_free(struct csio_hw *hw)
- {
--	pci_pool_destroy(hw->scsi_pci_pool);
--	hw->scsi_pci_pool = NULL;
-+	dma_pool_destroy(hw->scsi_dma_pool);
-+	hw->scsi_dma_pool = NULL;
- 	mempool_destroy(hw->rnode_mempool);
- 	hw->rnode_mempool = NULL;
- 	mempool_destroy(hw->mb_mempool);
-diff --git a/drivers/scsi/csiostor/csio_scsi.c b/drivers/scsi/csiostor/csio_scsi.c
-index a1ff75f1384f..dab0d3f9bee1 100644
---- a/drivers/scsi/csiostor/csio_scsi.c
-+++ b/drivers/scsi/csiostor/csio_scsi.c
-@@ -2445,7 +2445,7 @@ csio_scsim_init(struct csio_scsim *scm, struct csio_hw *hw)
- 
- 		/* Allocate Dma buffers for Response Payload */
- 		dma_buf = &ioreq->dma_buf;
--		dma_buf->vaddr = pci_pool_alloc(hw->scsi_pci_pool, GFP_KERNEL,
-+		dma_buf->vaddr = dma_pool_alloc(hw->scsi_dma_pool, GFP_KERNEL,
- 						&dma_buf->paddr);
- 		if (!dma_buf->vaddr) {
- 			csio_err(hw,
-@@ -2485,7 +2485,7 @@ csio_scsim_init(struct csio_scsim *scm, struct csio_hw *hw)
- 		ioreq = (struct csio_ioreq *)tmp;
- 
- 		dma_buf = &ioreq->dma_buf;
--		pci_pool_free(hw->scsi_pci_pool, dma_buf->vaddr,
-+		dma_pool_free(hw->scsi_dma_pool, dma_buf->vaddr,
- 			      dma_buf->paddr);
- 
- 		kfree(ioreq);
-@@ -2516,7 +2516,7 @@ csio_scsim_exit(struct csio_scsim *scm)
- 		ioreq = (struct csio_ioreq *)tmp;
- 
- 		dma_buf = &ioreq->dma_buf;
--		pci_pool_free(scm->hw->scsi_pci_pool, dma_buf->vaddr,
-+		dma_pool_free(scm->hw->scsi_dma_pool, dma_buf->vaddr,
- 			      dma_buf->paddr);
- 
- 		kfree(ioreq);
--- 
-2.11.0
+> +	spin_lock(&tap_major->minor_lock);
+> +	retval = idr_alloc(&tap_major->minor_idr, tap, 1, TAP_NUM_DEVS, GFP_ATOMIC);
+>  	if (retval >= 0) {
+>  		tap->minor = retval;
+>  	} else if (retval == -ENOSPC) {
+>  		netdev_err(tap->dev, "Too many tap devices\n");
+>  		retval = -EINVAL;
+>  	}
+> -	mutex_unlock(&tap_major->minor_lock);
+> +	spin_unlock(&tap_major->minor_lock);
+
+	idr_preload_end();
+
+>  
+>  unlock:
+
+
+Thanks.
