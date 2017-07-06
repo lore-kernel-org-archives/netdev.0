@@ -1,84 +1,62 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH v2 0/9] Remove spin_unlock_wait()
-Date: Thu, 6 Jul 2017 10:29:16 -0700
-Message-ID: <20170706172916.GK2393@linux.vnet.ibm.com>
-References: <20170629235918.GA6445@linux.vnet.ibm.com>
- <20170705232955.GA15992@linux.vnet.ibm.com>
- <063D6719AE5E284EB5DD2968C1650D6DD0033F01@AcuExch.aculab.com>
- <20170706160555.xc63yydk77gmttae@hirez.programming.kicks-ass.net>
- <20170706162024.GD2393@linux.vnet.ibm.com>
- <20170706165036.v4u5rbz56si4emw5@hirez.programming.kicks-ass.net>
- <20170706170850.GI15574@arm.com>
-Reply-To: paulmck@linux.vnet.ibm.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Peter Zijlstra <peterz@infradead.org>,
-        David Laight <David.Laight@ACULAB.COM>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "oleg@redhat.com" <oleg@redhat.com>,
-        "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-        "mingo@redhat.com" <mingo@redhat.com>,
-        "dave@stgolabs.net" <dave@stgolabs.net>,
-        "manfred@colorfullife.com" <manfred@colorfullife.com>,
-        "tj@kernel.org" <tj@kernel.org>, "arnd@arndb.de" <arnd@arndb.de>,
-        "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
-        "stern@rowland.harvard.edu" <stern@rowland.harvard.edu>,
-        "parri.andrea@gmail.com" <parri.andrea@gmail.com>,
-        "torvalds@linux-foundation.org" <torvalds@linux-foundation.o
-To: Will Deacon <will.deacon@arm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170706170850.GI15574@arm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Arun Parameswaran <arun.parameswaran-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH v1 1/1] dt-binding: ptp: Add SoC compatibility strings for dte ptp clock
+Date: Thu,  6 Jul 2017 10:37:57 -0700
+Message-ID: <1499362677-28579-1-git-send-email-arun.parameswaran@broadcom.com>
+Cc: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+        Arun Parameswaran <arun.parameswaran-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 06, 2017 at 06:08:50PM +0100, Will Deacon wrote:
-> On Thu, Jul 06, 2017 at 06:50:36PM +0200, Peter Zijlstra wrote:
-> > On Thu, Jul 06, 2017 at 09:20:24AM -0700, Paul E. McKenney wrote:
-> > > On Thu, Jul 06, 2017 at 06:05:55PM +0200, Peter Zijlstra wrote:
-> > > > On Thu, Jul 06, 2017 at 02:12:24PM +0000, David Laight wrote:
-> > > > > From: Paul E. McKenney
-> > > 
-> > > [ . . . ]
-> > > 
-> > > > Now on the one hand I feel like Oleg that it would be a shame to loose
-> > > > the optimization, OTOH this thing is really really tricky to use,
-> > > > and has lead to a number of bugs already.
-> > > 
-> > > I do agree, it is a bit sad to see these optimizations go.  So, should
-> > > this make mainline, I will be tagging the commits that spin_unlock_wait()
-> > > so that they can be easily reverted should someone come up with good
-> > > semantics and a compelling use case with compelling performance benefits.
-> > 
-> > Ha!, but what would constitute 'good semantics' ?
-> > 
-> > The current thing is something along the lines of:
-> > 
-> >   "Waits for the currently observed critical section
-> >    to complete with ACQUIRE ordering such that it will observe
-> >    whatever state was left by said critical section."
-> > 
-> > With the 'obvious' benefit of limited interference on those actually
-> > wanting to acquire the lock, and a shorter wait time on our side too,
-> > since we only need to wait for completion of the current section, and
-> > not for however many contender are before us.
-> > 
-> > Not sure I have an actual (micro) benchmark that shows a difference
-> > though.
-> > 
-> > 
-> > 
-> > Is this all good enough to retain the thing, I dunno. Like I said, I'm
-> > conflicted on the whole thing. On the one hand its a nice optimization,
-> > on the other hand I don't want to have to keep fixing these bugs.
-> 
-> As I've said, I'd be keen to see us drop this and bring it back if/when we
-> get a compelling use-case along with performance numbers. At that point,
-> we'd be in a better position to define the semantics anyway, knowing what
-> exactly is expected by the use-case.
+Add SoC specific compatibility strings to the Broadcom DTE
+based PTP clock binding document.
 
-Hear, hear!!!  ;-)
+Fixed the document heading and node name.
 
-							Thanx, Paul
+Fixes: 80d6076140b2 ("dt-binding: ptp: add bindings document for dte based ptp clock")
+Signed-off-by: Arun Parameswaran <arun.parameswaran-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+---
+ Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt | 15 +++++++++++----
+ 1 file changed, 11 insertions(+), 4 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt b/Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
+index 07590bc..7c04e22 100644
+--- a/Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
++++ b/Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
+@@ -1,13 +1,20 @@
+-* Broadcom Digital Timing Engine(DTE) based PTP clock driver
++* Broadcom Digital Timing Engine(DTE) based PTP clock
+ 
+ Required properties:
+-- compatible: should be "brcm,ptp-dte"
++- compatible: should contain the core compatibility string
++              and the SoC compatibility string. The SoC
++              compatibility string is to handle SoC specific
++              hardware differences.
++              Core compatibility string:
++                 "brcm,ptp-dte"
++              SoC compatibility strings:
++                 "brcm,iproc-ptp-dte" - for iproc based SoC's
+ - reg: address and length of the DTE block's NCO registers
+ 
+ Example:
+ 
+-ptp_dte: ptp_dte@180af650 {
+-	compatible = "brcm,ptp-dte";
++ptp: ptp-dte@180af650 {
++	compatible = "brcm,iproc-ptp-dte", "brcm,ptp-dte";
+ 	reg = <0x180af650 0x10>;
+ 	status = "okay";
+ };
+-- 
+1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
