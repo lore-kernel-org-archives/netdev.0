@@ -1,56 +1,60 @@
-From: Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [PATCH v3 net-next 00/12] bpf: rewrite value
-	tracking in verifier
-Date: Thu, 6 Jul 2017 15:07:20 +0100
-Message-ID: <5922c77e-0476-c4a8-3bf2-e502ee3acb8f@solarflare.com>
-References: <adc11342-737f-4e06-bce3-f0a92b5594a5@solarflare.com>
-	<5953B436.6030506@iogearbox.net>
-	<788035e1-1974-b48e-3008-d294194a8b05@solarflare.com>
-	<595413AA.40502@iogearbox.net>
-	<20170628213701.32krfuipzngsmt4k@ast-mbp>
-	<91267d15-652a-16d9-4ee9-42958bd842aa@solarflare.com>
-	<ff1ef3ef-71ef-4c23-ede4-b8caeac561ee@fb.com>
-	<5fa61129-fa82-1607-3363-dfad86aecf1e@solarflare.com>
-Reply-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2 0/9] Remove spin_unlock_wait()
+Date: Thu, 6 Jul 2017 14:12:24 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0033F01@AcuExch.aculab.com>
+References: <20170629235918.GA6445@linux.vnet.ibm.com>
+ <20170705232955.GA15992@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, Alexei Starovoitov
-	<alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <5fa61129-fa82-1607-3363-dfad86aecf1e-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "oleg@redhat.com" <oleg@redhat.com>,
+        "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+        "mingo@redhat.com" <mingo@redhat.com>,
+        "dave@stgolabs.net" <dave@stgolabs.net>,
+        "manfred@colorfullife.com" <manfred@colorfullife.com>,
+        "tj@kernel.org" <tj@kernel.org>, "arnd@arndb.de" <arnd@arndb.de>,
+        "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
+        "will.deacon@arm.com" <will.deacon@arm.com>,
+        "peterz@infradead.org" <peterz@infradead.org>,
+        "stern@rowland.harvard.edu" <stern@rowland.harvard.edu>,
+        "parri.andrea@gmail.com" <parri.andrea@gmail.com>,
+        "torvalds@linux-foundation.org" <torvalds@linux-foundation.org>
+To: "'paulmck@linux.vnet.ibm.com'" <paulmck@linux.vnet.ibm.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170705232955.GA15992@linux.vnet.ibm.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/07/17 20:22, Edward Cree wrote:
-> I don't know why test_l4lb has to process _fewer_ insns with my patches;
->  if anything I'm worrying that I may be incorrectly pruning branches.
-> (I've spotted a possible bug in that I'm not looking at 'id' which,
->  although it doesn't have to match, if two regs in the old state had the
->  same id as each other, then those regs in the new state have to have
->  the same id as each other too.)
-I've now fixed that bug, and also changing it to not fill in 'id' on pointers
- other than PTR_TO_PACKET when doing arithmetic (because it's only used for
- 'range' sharing and only PTR_TO_PACKET have that.  Of course
- PTR_TO_MAP_VALUE_OR_NULL still use id, but they don't get it from arithmetic).
-Changes will be in next version of patch series, but for now:
-Program         net-next  short  full   new
-test_pkt_access       78     79    79    79
-test_xdp             386    411   407   389
-test_l4lb           6438   4154  4154  4062
-test_tcp_estats      435    436   435   435
-test_bpf_obj_id        8      8     8     8
-test_pkt_md_access    41     42    42    42
-As you can see, the #insns has gone down even further.
+From: Paul E. McKenney
+> Sent: 06 July 2017 00:30
+> There is no agreed-upon definition of spin_unlock_wait()'s semantics,
+> and it appears that all callers could do just as well with a lock/unlock
+> pair.  This series therefore removes spin_unlock_wait() and changes
+> its users to instead use a lock/unlock pair.  The commits are as follows,
+> in three groups:
+> 
+> 1-7.	Change uses of spin_unlock_wait() and raw_spin_unlock_wait()
+> 	to instead use a spin_lock/spin_unlock pair.  These may be
+> 	applied in any order, but must be applied before any later
+> 	commits in this series.  The commit logs state why I believe
+> 	that these commits won't noticeably degrade performance.
 
--Ed
+I can't help feeling that it might be better to have a spin_lock_sync()
+call that is equivalent to a spin_lock/spin_unlock pair.
+The default implementation being an inline function that does exactly that.
+This would let an architecture implement a more efficient version.
+
+It might even be that this is the defined semantics of spin_unlock_wait().
+
+Note that it can only be useful to do a spin_lock/unlock pair if it is
+impossible for another code path to try to acquire the lock.
+(Or, at least, the code can't care if the lock is acquired just after.)
+So if it can de determined that the lock isn't held (a READ_ONCE()
+might be enough) the lock itself need not be acquired (with the
+associated slow bus cycles).
+
+	David
