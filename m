@@ -1,73 +1,40 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: Re: [RFC PATCH linus] tcp: md5: tcp_md5_do_lookup_exact() can be
- static
-Date: Thu, 6 Jul 2017 16:57:31 +0800
-Message-ID: <20170706085731.6yqbqfn5gonfazut@wfg-t540p.sh.intel.com>
-References: <201707060719.Zvm7chOj%fengguang.wu@intel.com>
- <20170705235853.GA69361@lkp-sb04.lkp.intel.com>
- <20170706102712.3904c199@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: kbuild-all@01.org, linux-kernel@vger.kernel.org,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-        Ivan Delalande <colona@arista.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Bob Gilligan <gilligan@arista.com>,
-        Eric Mowat <mowat@arista.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170706102712.3904c199@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Lin Zhang <xiaolou4617@gmail.com>
+Subject: [PATCH net-next] skbuff: optimize the pull_pages code in __pskb_pull_tail()
+Date: Thu,  6 Jul 2017 17:01:34 +0800
+Message-ID: <1499331694-34678-1-git-send-email-xiaolou4617@gmail.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        Lin Zhang <xiaolou4617@gmail.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35109 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751009AbdGFJBp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2017 05:01:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
+In the pull_pages code block, if the first frags size > eat,
+we can end the loop in advance to avoid extra copy.
 
-On Thu, Jul 06, 2017 at 10:27:12AM +1000, Stephen Rothwell wrote:
->Hi,
->
->Not sure why you sent this to me ... it fixes a commit in the net-next
->tree (now in Linus' tree) ...
+Signed-off-by: Lin Zhang <xiaolou4617@gmail.com>
+---
+ net/core/skbuff.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-Yeah sorry -- it's a bug in the robot.
-
->On Thu, 6 Jul 2017 07:58:53 +0800 kbuild test robot <fengguang.wu@intel.com> wrote:
->>
->> Fixes: 0c5f0311f690 ("Add linux-next specific files for 20170705")
->
->Actually:  Fixes: 6797318e623d ("tcp: md5: add an address prefix for key lookup")
-
-Yeah, fixed the robot. Thank you for the reminder!
-
-Regards,
-Fengguang
-
->> Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
->> ---
->>  tcp_ipv4.c |    6 +++---
->>  1 file changed, 3 insertions(+), 3 deletions(-)
->>
->> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
->> index 6ec6900..a20e7f0 100644
->> --- a/net/ipv4/tcp_ipv4.c
->> +++ b/net/ipv4/tcp_ipv4.c
->> @@ -943,9 +943,9 @@ struct tcp_md5sig_key *tcp_md5_do_lookup(const struct sock *sk,
->>  }
->>  EXPORT_SYMBOL(tcp_md5_do_lookup);
->>
->> -struct tcp_md5sig_key *tcp_md5_do_lookup_exact(const struct sock *sk,
->> -					       const union tcp_md5_addr *addr,
->> -					       int family, u8 prefixlen)
->> +static struct tcp_md5sig_key *tcp_md5_do_lookup_exact(const struct sock *sk,
->> +						      const union tcp_md5_addr *addr,
->> +						      int family, u8 prefixlen)
->>  {
->>  	const struct tcp_sock *tp = tcp_sk(sk);
->>  	struct tcp_md5sig_key *key;
->
->-- 
->Cheers,
->Stephen Rothwell
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index f990eb8..c00a1df 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1720,6 +1720,10 @@ void *__pskb_pull_tail(struct sk_buff *skb, int delta)
+ 				skb_shinfo(skb)->frags[k].page_offset += eat;
+ 				skb_frag_size_sub(&skb_shinfo(skb)->frags[k], eat);
+ 				eat = 0;
++				if (!i) {
++					k = skb_shinfo(skb)->nr_frags;
++					break;
++				}
+ 			}
+ 			k++;
+ 		}
+-- 
+1.8.3.1
