@@ -1,96 +1,67 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH v2 0/9] Remove spin_unlock_wait()
-Date: Thu, 6 Jul 2017 08:21:10 -0700
-Message-ID: <20170706152110.GZ2393@linux.vnet.ibm.com>
-References: <20170629235918.GA6445@linux.vnet.ibm.com>
- <20170705232955.GA15992@linux.vnet.ibm.com>
- <063D6719AE5E284EB5DD2968C1650D6DD0033F01@AcuExch.aculab.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH 1/2] i40e/i40evf: rename
+ vf_offload_flags to vf_cap_flags in struct virtchnl_vf_resource
+Date: Thu, 6 Jul 2017 15:26:42 +0000
+Message-ID: <9BBC4E0CF881AA4299206E2E1412B62650491AAE@ORSMSX102.amr.corp.intel.com>
+References: <20170629131225.9251-1-sassmann@kpanic.de>
+ <20170629131225.9251-2-sassmann@kpanic.de>
+ <9BBC4E0CF881AA4299206E2E1412B62650490D08@ORSMSX102.amr.corp.intel.com>
+ <CALgkqUpFST=oiS+yAFpkCiRS6JPqVg9R7_+3GMNvWoVnB_zoXg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Stefan Assmann <sassmann@kpanic.de>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "oleg@redhat.com" <oleg@redhat.com>,
-        "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-        "mingo@redhat.com" <mingo@redhat.com>,
-        "dave@stgolabs.net" <dave@stgolabs.net>,
-        "manfred@colorfullife.com" <manfred@colorfullife.com>,
-        "tj@kernel.org" <tj@kernel.org>, "arnd@arndb.de" <arnd@arndb.de>,
-        "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
-        "will.deacon@arm.com" <will.deacon@arm.com>,
-        "peterz@infradead.org" <peterz@infradead.org>,
-        "stern@rowland.harvard.edu" <stern@rowland.harvard.edu>,
-        "parri.andrea@gmail.com" <parri.andrea@gmail.com>,
-        "torvalds@linux-foundation.org" <torvalds@linux
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-arch-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD0033F01@AcuExch.aculab.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        "davem@davemloft.net" <davem@davemloft.net>
+To: Greg Rose <gvrose8192@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:25379 "EHLO mga11.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750970AbdGFP0o (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 6 Jul 2017 11:26:44 -0400
+In-Reply-To: <CALgkqUpFST=oiS+yAFpkCiRS6JPqVg9R7_+3GMNvWoVnB_zoXg@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 06, 2017 at 02:12:24PM +0000, David Laight wrote:
-> From: Paul E. McKenney
-> > Sent: 06 July 2017 00:30
-> > There is no agreed-upon definition of spin_unlock_wait()'s semantics,
-> > and it appears that all callers could do just as well with a lock/unlock
-> > pair.  This series therefore removes spin_unlock_wait() and changes
-> > its users to instead use a lock/unlock pair.  The commits are as follows,
-> > in three groups:
-> > 
-> > 1-7.	Change uses of spin_unlock_wait() and raw_spin_unlock_wait()
-> > 	to instead use a spin_lock/spin_unlock pair.  These may be
-> > 	applied in any order, but must be applied before any later
-> > 	commits in this series.  The commit logs state why I believe
-> > 	that these commits won't noticeably degrade performance.
-> 
-> I can't help feeling that it might be better to have a spin_lock_sync()
-> call that is equivalent to a spin_lock/spin_unlock pair.
-> The default implementation being an inline function that does exactly that.
-> This would let an architecture implement a more efficient version.
-> 
-> It might even be that this is the defined semantics of spin_unlock_wait().
-
-That was in fact my first proposal, see the comment header in current
-mainline for spin_unlock_wait() in include/linux/spinlock.h.  But Linus
-quite rightly pointed out that if spin_unlock_wait() was to be defined in
-this way, we should get rid of spin_unlock_wait() entirely, especially
-given that there are not very many calls to spin_unlock_wait() and
-also given that none of them are particularly performance critical.
-Hence the current patch set, which does just that.
-
-> Note that it can only be useful to do a spin_lock/unlock pair if it is
-> impossible for another code path to try to acquire the lock.
-> (Or, at least, the code can't care if the lock is acquired just after.)
-
-Indeed!  As Oleg Nesterov pointed out, a spin_lock()/spin_unlock() pair
-is sort of like synchronize_rcu() for a given lock, where that lock's
-critical sections play the role of RCU read-side critical sections.
-So anything before the pair is visible to later critical sections, and
-anything in prior critical sections is visible to anything after the pair.
-But again, as Linus pointed out, if we are going to have these semantics,
-just do spin_lock() immediately followed by spin_unlock().
-
-> So if it can de determined that the lock isn't held (a READ_ONCE()
-> might be enough) the lock itself need not be acquired (with the
-> associated slow bus cycles).
-
-If you want the full semantics of a spin_lock()/spin_unlock() pair,
-you need a full memory barrier before the READ_ONCE(), even on x86.
-Without that memory barrier, you don't get the effect of the release
-implicit in spin_unlock().
-
-For weaker architectures, such as PowerPC and ARM, a READ_ONCE()
-does -not- suffice, not at all, even with smp_mb() before and after.
-I encourage you to take a look at arch_spin_unlock_wait() in arm64
-and powerpc if youi are interested.  There were also some lengthy LKML
-threads discussing this about 18 months ago that could be illuminating.
-
-And yes, there are architecture-specific optimizations for an
-empty spin_lock()/spin_unlock() critical section, and the current
-arch_spin_unlock_wait() implementations show some of these optimizations.
-But I expect that performance benefits would need to be demonstrated at
-the system level.
-
-							Thanx, Paul
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBHcmVnIFJvc2UgW21haWx0bzpn
+dnJvc2U4MTkyQGdtYWlsLmNvbV0NCj4gU2VudDogVGh1cnNkYXksIEp1bHkgMDYsIDIwMTcgNzoy
+NSBBTQ0KPiBUbzogV3lib3JueSwgQ2Fyb2x5biA8Y2Fyb2x5bi53eWJvcm55QGludGVsLmNvbT4N
+Cj4gQ2M6IFN0ZWZhbiBBc3NtYW5uIDxzYXNzbWFubkBrcGFuaWMuZGU+OyBpbnRlbC13aXJlZC1s
+YW5AbGlzdHMub3N1b3NsLm9yZzsNCj4gbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgZGF2ZW1AZGF2
+ZW1sb2Z0Lm5ldA0KPiBTdWJqZWN0OiBSZTogW0ludGVsLXdpcmVkLWxhbl0gW1BBVENIIDEvMl0g
+aTQwZS9pNDBldmY6IHJlbmFtZQ0KPiB2Zl9vZmZsb2FkX2ZsYWdzIHRvIHZmX2NhcF9mbGFncyBp
+biBzdHJ1Y3QgdmlydGNobmxfdmZfcmVzb3VyY2UNCj4gDQo+IE9uIFdlZCwgSnVsIDUsIDIwMTcg
+YXQgMTA6MTUgUE0sIFd5Ym9ybnksIENhcm9seW4NCj4gPGNhcm9seW4ud3lib3JueUBpbnRlbC5j
+b20+IHdyb3RlOg0KPiA+DQo+ID4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+ID4g
+RnJvbTogSW50ZWwtd2lyZWQtbGFuIFttYWlsdG86aW50ZWwtd2lyZWQtbGFuLWJvdW5jZXNAb3N1
+b3NsLm9yZ10gT24NCj4gQmVoYWxmDQo+ID4gPiBPZiBTdGVmYW4gQXNzbWFubg0KPiA+ID4gU2Vu
+dDogVGh1cnNkYXksIEp1bmUgMjksIDIwMTcgNjoxMiBBTQ0KPiA+ID4gVG86IGludGVsLXdpcmVk
+LWxhbkBsaXN0cy5vc3Vvc2wub3JnDQo+ID4gPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsg
+ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsNCj4gc2Fzc21hbm5Aa3BhbmljLmRlDQo+ID4gPiBTdWJqZWN0
+OiBbSW50ZWwtd2lyZWQtbGFuXSBbUEFUQ0ggMS8yXSBpNDBlL2k0MGV2ZjogcmVuYW1lDQo+IHZm
+X29mZmxvYWRfZmxhZ3MgdG8NCj4gPiA+IHZmX2NhcF9mbGFncyBpbiBzdHJ1Y3QgdmlydGNobmxf
+dmZfcmVzb3VyY2UNCj4gPiA+DQo+ID4gPiBUaGUgY3VycmVudCBuYW1lIG9mIHZmX29mZmxvYWRf
+ZmxhZ3MgaW5kaWNhdGVzIHRoYXQgdGhlIGJpdG1hcCBpcw0KPiA+ID4gbGltaXRlZCB0byBvZmZs
+b2FkIHJlbGF0ZWQgZmVhdHVyZXMuIE1ha2UgdGhpcyBtb3JlIGdlbmVyaWMgYnkgcmVuYW1pbmcN
+Cj4gPiA+IGl0IHRvIHZmX2NhcF9mbGFncywgd2hpY2ggYWxsb3dzIGZvciBvdGhlciBjYXBhYmls
+aXRpZXMgYmVzaWRlcw0KPiA+ID4gb2ZmbG9hZGluZyB0byBiZSBhZGRlZC4NCj4gPiA+DQo+ID4g
+PiBTaWduZWQtb2ZmLWJ5OiBTdGVmYW4gQXNzbWFubiA8c2Fzc21hbm5Aa3BhbmljLmRlPg0KPiA+
+ID4gLS0tDQo+ID4NCj4gPiBIZWxsbyBTdGVmYW4sDQo+ID4NCj4gPiBUaGFua3MgZm9yIHRoZSBw
+YXRjaCBzZXJpZXMsIGJ1dCB3ZSBiZWxpZXZlIHRoZSB2ZiBzaG91bGQgYmUgaWdub3JhbnQgb2Yg
+aXRzDQo+IHRydXN0ZWQgc3RhdHVzLg0KPiANCj4gSGkgQ2Fyb2x5biwNCj4gDQo+IE1pZ2h0IEkg
+YXNrIHdoeT8NCj4gDQo+IFRoYW5rcywNCj4gDQo+IC0gR3JlZw0KDQpIZWxsbyBHcmVnLA0KDQpU
+aGUgdHJ1c3RlZCBzdGF0dXMgb2YgdGhlIHZmIGlzIHNvbWV0aGluZyB0aGF0IHBmIG1hbmFnZXMs
+IG1vc3RseSBmb3Igc2VjdXJpdHkgcmVhc29ucy4gIFRoZSBtYWlsYm94IG1vZGVsIG9mIGNvbW11
+bmljYXRpb24gYmV0d2VlbiB0aGVtIHJlbGllcyBvbiB0aGUgcGYgdG8gaGF2ZSBhdXRob3JpdHkg
+b3ZlciB0aGUgdmYuICBJbiBtb3N0IHRoaW5ncywgdGhlIHZmIGFza3MgcGVybWlzc2lvbiBmcm9t
+IHRoZSBwZiBmb3IgY2hhbmdlcyBpbiBpdHMgY29uZmlndXJhdGlvbiBhbmQgdGhpcyBrZWVwcyB0
+aGUgcGYgYXMgdGhlIGdhdGVrZWVwZXIgYmV0d2VlbiB0cnVzdGVkIGFuZCByZWd1bGFyIHZmJ3Mu
+ICBIb3dldmVyLCB0aGUgaXNzdWUgaGVyZSBpcyB0aGF0IGNoYW5naW5nIHRoZSBNQUMgYWRkcmVz
+cyBmcm9tIHdpdGhpbiB0aGUgdmYgZG9lcyBub3QgZ28gdGhyb3VnaCB0aGUgbWFpbGJveCwgc28g
+aXQgY2Fubm90IHRlbGwgaWYgdGhlIHZmIGlzIHRydXN0ZWQgb3Igbm90LiAgIFdlIGFyZSB3b3Jr
+aW5nIG9uIGEgcmVkZXNpZ24gb2YgdGhpcyBmZWF0dXJlIHRvIGZpeCB0aGF0IGluc3RlYWQgb2Yg
+aGF2aW5nIHRoZSB2ZiBzb3J0IG9mIGtub3cgaXRzIHRydXN0ZWQuICBJZiwgZm9yIHNvbWUgcmVh
+c29uLCB3ZSBhcmUgdW5hYmxlIHRvIHJlZGVzaWduIGl0IHRoYXQgd2F5IHdlIHdvdWxkIHJlY29u
+c2lkZXIgdGhpcyBtZXRob2QgaW5zdGVhZC4NCg0KVGhhbmtzLA0KDQpDYXJvbHluDQo=
