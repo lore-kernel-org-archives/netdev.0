@@ -1,56 +1,55 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH RFC 11/12] net: Remove all references to SKB_GSO_UDP.
-Date: Thu, 6 Jul 2017 13:57:20 -0400
-Message-ID: <CAF=yD-+xYoQtP2=jS17tZwJWCWcN3M0WXC1qUGKiDpM-aOqWLw@mail.gmail.com>
-References: <20170705.160632.1021185732937441107.davem@davemloft.net>
- <CAF=yD-LnGPF=jBWLFRppqAjMwvgm34xUeRKsh+rLjX2ZOuun8g@mail.gmail.com>
- <CAF=yD-KtJCyYqLDWv0pa7dcaJ=W8HM4eUnnwz8LJj_+S4U3-ZA@mail.gmail.com> <20170706.154321.389823872198215636.davem@davemloft.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] ip[6]: don't register inet[6]dev when dev is down
+Date: Thu, 6 Jul 2017 11:16:43 -0700
+Message-ID: <CAM_iQpXMR6RmJX52=7qrGVKopvGCiabS2sUOCf2Dvjhe4wLAzA@mail.gmail.com>
+References: <20170705155725.15469-1-nicolas.dichtel@6wind.com>
+ <CAM_iQpUtniWmKAOGnjJ+d-cWeQkgEPhcwKFdMeVy49rCe2Sh5g@mail.gmail.com> <7238f160-2547-c51a-c8fe-bcbc5d774239@6wind.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Network Development <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Transfer-Encoding: quoted-printable
+Cc: David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Hongjun Li <hongjun.li@6wind.com>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:34154 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751734AbdGFR6B (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2017 13:58:01 -0400
-Received: by mail-oi0-f66.google.com with SMTP id d77so1205241oig.1
-        for <netdev@vger.kernel.org>; Thu, 06 Jul 2017 10:58:01 -0700 (PDT)
-In-Reply-To: <20170706.154321.389823872198215636.davem@davemloft.net>
+Received: from mail-wr0-f176.google.com ([209.85.128.176]:34523 "EHLO
+        mail-wr0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751874AbdGFSRF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2017 14:17:05 -0400
+Received: by mail-wr0-f176.google.com with SMTP id 77so13838230wrb.1
+        for <netdev@vger.kernel.org>; Thu, 06 Jul 2017 11:17:05 -0700 (PDT)
+In-Reply-To: <7238f160-2547-c51a-c8fe-bcbc5d774239@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 6, 2017 at 10:43 AM, David Miller <davem@davemloft.net> wrote:
-> From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-> Date: Wed, 5 Jul 2017 12:27:11 -0400
->
->>>> --- a/net/ipv4/udp_offload.c
->>>> +++ b/net/ipv4/udp_offload.c
->>>> @@ -21,7 +21,7 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
->>>>         __be16 new_protocol, bool is_ipv6)
->>>
->>> In this file, can now remove all of udp4_ufo_fragment, and
->>> udp6_ufo_fragment in net/ipv6.
+On Thu, Jul 6, 2017 at 5:08 AM, Nicolas Dichtel
+<nicolas.dichtel@6wind.com> wrote:
+> Le 06/07/2017 =C3=A0 00:43, Cong Wang a =C3=A9crit :
+>> On Wed, Jul 5, 2017 at 8:57 AM, Nicolas Dichtel
+>> <nicolas.dichtel@6wind.com> wrote:
+>>> When a device changes from one netns to another, it's first unregistere=
+d,
+>>> then the netns reference is updated and the dev is registered in the ne=
+w
+>>> netns. Thus, when a slave moves to another netns, it is first
+>>> unregistered. This triggers a NETDEV_UNREGISTER event which is caught b=
+y
+>>> the bonding driver. The driver calls bond_release(), which calls
+>>> dev_set_mtu() and thus triggers NETDEV_CHANGEMTU (the device is still i=
+n
+>>> the old netns).
 >>
->> I had missed that this is used for tunneling with skb_udp_tunnel_segment.
->> But the core codepath should no longer be hit once SKB_GSO_UDP
->> is removed.
->
-> Are you sure?  I'm pretty sure all of the code remaining after my
-> patch series is needed in order to handle doing TCP GRO through
-> UDP tunneling encapsulation.
->
-> Although the word "fragment" is in the function name, it's not doing
-> IP fragmentation.  Instead, it is "fragmenting" the batched UDP
-> encapsulated frame into a series of individual UDP encapsulated ones.
+>> I think in this special case it is meaningless to send
+>> NETDEV_CHANGEMTU, because the device is dying within
+>> its old netns, who still cares about its mtu change?
+>>
+>> Something like the attached patch...
+> Yes, your patch seems good and I hesitated with something like this.
+> But I don't see a valid case where the inet[6]dev must be created on a do=
+wn
+> interface. I think the patch is valid, even with your patch.
 
-Isn't that case handled in the branch
+Your patch is more risky because it affects normal CHANGEMTU path,
+I am not sure if it is correct to not to add idev when it is down either.
 
-        if (skb->encapsulation &&
-            (skb_shinfo(skb)->gso_type &
-             (SKB_GSO_UDP_TUNNEL|SKB_GSO_UDP_TUNNEL_CSUM))) {
-                segs = skb_udp_tunnel_segment(skb, features, false);
-                goto out;
-        }
-
-It appears to be in a quick test I ran with FOU.
+This is a very unusual path, we don't have to take the risk.
