@@ -1,72 +1,152 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [PATCH v2 0/9] Remove spin_unlock_wait()
-Date: Thu, 6 Jul 2017 15:37:31 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.1707061534010.1581-100000@iolanthe.rowland.org>
-References: <20170706165426.lcewgpuluythinhz@hirez.programming.kicks-ass.net>
+From: Erik Stromdahl <erik.stromdahl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: ath10k: ret used but uninitialized (was: Re: ath10k: add initial
+ SDIO support)
+Date: Thu, 6 Jul 2017 22:01:57 +0200
+Message-ID: <c72d2e7a-195d-bcac-4ce5-f3051531664c@gmail.com>
+References: <CAMuHMdWVYA4TejcTjOQh7CBfFwJ=q59pzvuHrpH91Kx=-BK9fg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-        David Laight <David.Laight@ACULAB.COM>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "oleg@redhat.com" <oleg@redhat.com>,
-        "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-        "mingo@redhat.com" <mingo@redhat.com>,
-        "dave@stgolabs.net" <dave@stgolabs.net>,
-        "manfred@colorfullife.com" <manfred@colorfullife.com>,
-        "tj@kernel.org" <tj@kernel.org>, "arnd@arndb.de" <arnd@arndb.de>,
-        "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
-        "will.deacon@arm.com" <will.deacon@arm.com>,
-        "parri.andrea@gmail.com" <parri.andrea@gmail.com>,
-        "torvalds@linux-foundation.org" <torvalds@linux-foundation.org
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <20170706165426.lcewgpuluythinhz@hirez.programming.kicks-ass.net>
-Sender: linux-arch-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+        "ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org" <ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>,
+        Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAMuHMdWVYA4TejcTjOQh7CBfFwJ=q59pzvuHrpH91Kx=-BK9fg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Language: en-US
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 6 Jul 2017, Peter Zijlstra wrote:
-
-> On Thu, Jul 06, 2017 at 12:49:12PM -0400, Alan Stern wrote:
-> > On Thu, 6 Jul 2017, Paul E. McKenney wrote:
-> > 
-> > > On Thu, Jul 06, 2017 at 06:10:47PM +0200, Peter Zijlstra wrote:
-> > > > On Thu, Jul 06, 2017 at 08:21:10AM -0700, Paul E. McKenney wrote:
-> > > > > And yes, there are architecture-specific optimizations for an
-> > > > > empty spin_lock()/spin_unlock() critical section, and the current
-> > > > > arch_spin_unlock_wait() implementations show some of these optimizations.
-> > > > > But I expect that performance benefits would need to be demonstrated at
-> > > > > the system level.
-> > > > 
-> > > > I do in fact contended there are any optimizations for the exact
-> > > > lock+unlock semantics.
-> > > 
-> > > You lost me on this one.
-> > > 
-> > > > The current spin_unlock_wait() is weaker. Most notably it will not (with
-> > > > exception of ARM64/PPC for other reasons) cause waits on other CPUs.
-> > > 
-> > > Agreed, weaker semantics allow more optimizations.  So use cases needing
-> > > only the weaker semantics should more readily show performance benefits.
-> > > But either way, we need compelling use cases, and I do not believe that
-> > > any of the existing spin_unlock_wait() calls are compelling.  Perhaps I
-> > > am confused, but I am not seeing it for any of them.
-> > 
-> > If somebody really wants the full spin_unlock_wait semantics and
-> > doesn't want to interfere with other CPUs, wouldn't synchronize_sched()
-> > or something similar do the job?  It wouldn't be as efficient as
-> > lock+unlock, but it also wouldn't affect other CPUs.
+> With gcc 4.1.2:
 > 
-> So please don't do that. That'll create massive pain for RT. Also I
-> don't think it works. The whole point was that spin_unlock_wait() is
-> _cheaper_ than lock()+unlock(). If it gets to be more expensive there is
-> absolutely no point in using it.
+> drivers/net/wireless/ath/ath10k/sdio.c: In function
+> ‘ath10k_sdio_mbox_rxmsg_pending_handler’:
+> drivers/net/wireless/ath/ath10k/sdio.c:676: warning: ‘ret’ may be used
+> uninitialized in this function
+> 
+>> +
+>> +       *done = true;
+>> +
+>> +       /* Copy the lookahead obtained from the HTC register table into our
+>> +        * temp array as a start value.
+>> +        */
+>> +       lookaheads[0] = msg_lookahead;
+>> +
+>> +       timeout = jiffies + SDIO_MBOX_PROCESSING_TIMEOUT_HZ;
+> 
+> Although very unlikely due to the long timeout, if the code is preempted here,
+> and the loop below never entered, ret will indeed be uninitialized.
+> 
+> It's unclear to me what the proper initialization would be, though, so
+> that's why I didn't send a patch.
+> 
+I think it would be best to use 0 as initial value of ret in this case.
+This will make all other interrupts be processed in a normal way.
 
-Of course; that is obvious.
+Kalle: Should I create a new patch (initializing ret with zero)?
 
-I was making a rhetorical point: You should not try to justify
-spin_unlock_wait() on the basis that it doesn't cause waits on other
-CPUs.
+>> +       while (time_before(jiffies, timeout)) {
+>> +               /* Try to allocate as many HTC RX packets indicated by
+>> +                * n_lookaheads.
+>> +                */
+>> +               ret = ath10k_sdio_mbox_rx_alloc(ar, lookaheads,
+>> +                                               n_lookaheads);
+>> +               if (ret)
+>> +                       break;
+>> +
+>> +               if (ar_sdio->n_rx_pkts >= 2)
+>> +                       /* A recv bundle was detected, force IRQ status
+>> +                        * re-check again.
+>> +                        */
+>> +                       *done = false;
+>> +
+>> +               ret = ath10k_sdio_mbox_rx_fetch(ar);
+>> +
+>> +               /* Process fetched packets. This will potentially update
+>> +                * n_lookaheads depending on if the packets contain lookahead
+>> +                * reports.
+>> +                */
+>> +               n_lookaheads = 0;
+>> +               ret = ath10k_sdio_mbox_rx_process_packets(ar,
+>> +                                                         lookaheads,
+>> +                                                         &n_lookaheads);
+>> +
+>> +               if (!n_lookaheads || ret)
+>> +                       break;
+>> +
+>> +               /* For SYNCH processing, if we get here, we are running
+>> +                * through the loop again due to updated lookaheads. Set
+>> +                * flag that we should re-check IRQ status registers again
+>> +                * before leaving IRQ processing, this can net better
+>> +                * performance in high throughput situations.
+>> +                */
+>> +               *done = false;
+>> +       }
+>> +
+>> +       if (ret && (ret != -ECANCELED))
+>> +               ath10k_warn(ar, "failed to get pending recv messages: %d\n",
+>> +                           ret);
+>> +
+>> +       return ret;
+>> +}
+> 
+>> +static void ath10k_sdio_irq_handler(struct sdio_func *func)
+>> +{
+>> +       struct ath10k_sdio *ar_sdio = sdio_get_drvdata(func);
+>> +       struct ath10k *ar = ar_sdio->ar;
+>> +       unsigned long timeout;
+>> +       bool done = false;
+>> +       int ret;
+> 
+> drivers/net/wireless/ath/ath10k/sdio.c: In function ‘ath10k_sdio_irq_handler’:
+> drivers/net/wireless/ath/ath10k/sdio.c:1331: warning: ‘ret’ may be
+> used uninitialized in this function
+> 
+>> +
+>> +       /* Release the host during interrupts so we can pick it back up when
+>> +        * we process commands.
+>> +        */
+>> +       sdio_release_host(ar_sdio->func);
+>> +
+>> +       timeout = jiffies + ATH10K_SDIO_HIF_COMMUNICATION_TIMEOUT_HZ;
+> 
+> Same here.
+> 
+> Should ret be preinitialized to 0, -ECANCELED, or something else?
+> 
+ret = 0 or ret = -ECANCELED, will result in no warning message.
+-ETIMEDOUT could be used perhaps.
 
-Alan Stern
+Note that the function is a void function so the error will not get
+propagated.
+
+I am fine with ret = 0 in this case as well.
+>> +       while (time_before(jiffies, timeout) && !done) {
+>> +               ret = ath10k_sdio_mbox_proc_pending_irqs(ar, &done);
+>> +               if (ret)
+>> +                       break;
+>> +       }
+>> +
+>> +       sdio_claim_host(ar_sdio->func);
+>> +
+>> +       wake_up(&ar_sdio->irq_wq);
+>> +
+>> +       if (ret && ret != -ECANCELED)
+>> +               ath10k_warn(ar, "failed to process pending SDIO interrupts: %d\n",
+>> +                           ret);
+>> +}
+> 
+> Gr{oetje,eeting}s,
+> 
+>                          Geert
+> 
+> --
+> Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org
+> 
+> In personal conversations with technical people, I call myself a hacker. But
+> when I'm talking to journalists I just say "programmer" or something like that.
+>                                  -- Linus Torvalds
+> 
