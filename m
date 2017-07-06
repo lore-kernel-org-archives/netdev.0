@@ -1,35 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: set the value of flowi6_oif to sk_bound_dev_if
- to make sctp_v6_get_dst to find the correct route entry.
-Date: Thu, 06 Jul 2017 11:40:20 +0100 (WEST)
-Message-ID: <20170706.114020.1164331043260731183.davem@davemloft.net>
-References: <1499324409-12489-1-git-send-email-lizheng043@gmail.com>
+Subject: Re: [PATCH] ptp: dte: Use LL suffix for 64-bit constants
+Date: Thu, 06 Jul 2017 11:41:58 +0100 (WEST)
+Message-ID: <20170706.114158.1657471949301967280.davem@davemloft.net>
+References: <1499330094-24423-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        vyasevich@gmail.com, nhorman@tuxdriver.com,
-        linux-sctp@vger.kernel.org, jmorris@namei.org,
-        james.z.li@ericsson.com, allen.y.zhao@ericsson.com,
-        feng.qiu@ericsson.com
-To: lizheng043@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: arun.parameswaran@broadcom.com, richardcochran@gmail.com,
+        arnd@arndb.de, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: geert@linux-m68k.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1499324409-12489-1-git-send-email-lizheng043@gmail.com>
+In-Reply-To: <1499330094-24423-1-git-send-email-geert@linux-m68k.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Zheng Li <lizheng043@gmail.com>
-Date: Thu,  6 Jul 2017 15:00:09 +0800
-
-> From: Zheng Li <james.z.li@ericsson.com>
-> 
-> if there are several same route entries with different outgoing net device,
-> application's socket specifies the oif through setsockopt with
-> SO_BINDTODEVICE, sctpv6 should choose the route entry whose outgoing net
-> device is the oif which was specified by socket, set the value of
-> flowi6_oif to sk->sk_bound_dev_if to make sctp_v6_get_dst to find the
-> correct route entry.
-> 
-> Signed-off-by: Zheng Li <james.z.li@ericsson.com>
-
-Applied, thanks.
+RnJvbTogR2VlcnQgVXl0dGVyaG9ldmVuIDxnZWVydEBsaW51eC1tNjhrLm9yZz4NCkRhdGU6IFRo
+dSwgIDYgSnVsIDIwMTcgMTA6MzQ6NTQgKzAyMDANCg0KPiBXaXRoIGdjYyA0LjEuMjoNCj4gDQo+
+ICAgICBkcml2ZXJzL3B0cC9wdHBfZHRlLmM6IEluIGZ1bmN0aW9uIKFkdGVfd3JpdGVfbmNvX2Rl
+bHRhojoNCj4gICAgIGRyaXZlcnMvcHRwL3B0cF9kdGUuYzoxMDU6IHdhcm5pbmc6IGludGVnZXIg
+Y29uc3RhbnQgaXMgdG9vIGxhcmdlIGZvciChbG9uZ6IgdHlwZQ0KPiAgICAgZHJpdmVycy9wdHAv
+cHRwX2R0ZS5jOjExMjogd2FybmluZzogaW50ZWdlciBjb25zdGFudCBpcyB0b28gbGFyZ2UgZm9y
+IKFsb25noiB0eXBlDQo+ICAgICBkcml2ZXJzL3B0cC9wdHBfZHRlLmM6MTE0OiB3YXJuaW5nOiBp
+bnRlZ2VyIGNvbnN0YW50IGlzIHRvbyBsYXJnZSBmb3IgoWxvbmeiIHR5cGUNCj4gDQo+IEFkZCB0
+aGUgbWlzc2luZyAiTEwiIHN1ZmZpeCB0byBmaXggdGhpcy4NCj4gDQo+IEZpeGVzOiA4YTU2YWEx
+MDdmMWU4MTIzICgicHRwOiBBZGQgYSBwdHAgY2xvY2sgZHJpdmVyIGZvciBCcm9hZGNvbSBEVEUi
+KQ0KPiBTaWduZWQtb2ZmLWJ5OiBHZWVydCBVeXR0ZXJob2V2ZW4gPGdlZXJ0QGxpbnV4LW02OGsu
+b3JnPg0KDQpBcHBsaWVkLCB0aGFua3MuDQo=
