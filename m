@@ -1,7 +1,8 @@
 From: Lin Yun Sheng <linyunsheng@huawei.com>
-Subject: [PATCH net V2 0/2] Bugfixs for hns ethernet driver
-Date: Thu, 6 Jul 2017 10:21:58 +0800
-Message-ID: <1499307720-218834-1-git-send-email-linyunsheng@huawei.com>
+Subject: [PATCH net V2 1/2] net: hns: Fix a wrong op phy C45 code
+Date: Thu, 6 Jul 2017 10:21:59 +0800
+Message-ID: <1499307720-218834-2-git-send-email-linyunsheng@huawei.com>
+References: <1499307720-218834-1-git-send-email-linyunsheng@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
@@ -12,28 +13,40 @@ Cc: <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
         <tremyfr@gmail.com>, <netdev@vger.kernel.org>,
         <linux-kernel@vger.kernel.org>
 To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([45.249.212.187]:9279 "EHLO
+        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752497AbdGFBvS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2017 21:51:18 -0400
+In-Reply-To: <1499307720-218834-1-git-send-email-linyunsheng@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patchset fix skb used after free and C45 op code issues
-in hns driver.
+From: Yunsheng Lin <linyunsheng@huawei.com>
 
-Patch V2:
-	1. Remove ndev->feature checking in TX description patch.
-	2. Add Fixes: Tag in patch description.
+As the user manual described, the second step to write to C45 phy
+by mdio should be data, but not address. Here we should fix this
+issue.
 
-Patch V1:
-	Initial Submit
+Fixes: 5b904d39406a ("net: add Hisilicon Network Subsystem MDIO support")
+Signed-off-by: Yunsheng Lin <linyunsheng@huawei.com>
+Reviewed-by: lipeng <lipeng321@huawei.com>
+---
+ drivers/net/ethernet/hisilicon/hns_mdio.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Yunsheng Lin (2):
-  net: hns: Fix a wrong op phy C45 code
-  net: hns: Fix a skb used after free bug
-
- drivers/net/ethernet/hisilicon/hns/hns_enet.c | 22 ++++++++++------------
- drivers/net/ethernet/hisilicon/hns/hns_enet.h |  6 +++---
- drivers/net/ethernet/hisilicon/hns_mdio.c     |  2 +-
- 3 files changed, 14 insertions(+), 16 deletions(-)
-
+diff --git a/drivers/net/ethernet/hisilicon/hns_mdio.c b/drivers/net/ethernet/hisilicon/hns_mdio.c
+index e5221d9..017e084 100644
+--- a/drivers/net/ethernet/hisilicon/hns_mdio.c
++++ b/drivers/net/ethernet/hisilicon/hns_mdio.c
+@@ -261,7 +261,7 @@ static int hns_mdio_write(struct mii_bus *bus,
+ 
+ 		/* config the data needed writing */
+ 		cmd_reg_cfg = devad;
+-		op = MDIO_C45_WRITE_ADDR;
++		op = MDIO_C45_WRITE_DATA;
+ 	}
+ 
+ 	MDIO_SET_REG_FIELD(mdio_dev, MDIO_WDATA_REG, MDIO_WDATA_DATA_M,
 -- 
 1.9.1
