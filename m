@@ -1,7 +1,7 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: [PATCH v3 4/9] completion: Replace spin_unlock_wait() with lock/unlock pair
-Date: Fri,  7 Jul 2017 12:28:21 -0700
-Message-ID: <1499455706-9398-4-git-send-email-paulmck@linux.vnet.ibm.com>
+Subject: [PATCH v3 2/9] task_work: Replace spin_unlock_wait() with lock/unlock pair
+Date: Fri,  7 Jul 2017 12:28:19 -0700
+Message-ID: <1499455706-9398-2-git-send-email-paulmck@linux.vnet.ibm.com>
 References: <20170707192704.GA6144@linux.vnet.ibm.com>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
         oleg@redhat.com, akpm@linux-foundation.org, mingo@redhat.com,
@@ -16,44 +16,48 @@ In-Reply-To: <20170707192704.GA6144@linux.vnet.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Oleg Nesterov <oleg@redhat.com>
+
 There is no agreed-upon definition of spin_unlock_wait()'s semantics,
 and it appears that all callers could do just as well with a lock/unlock
 pair.  This commit therefore replaces the spin_unlock_wait() call in
-completion_done() with spin_lock() followed immediately by spin_unlock().
-This should be safe from a performance perspective because the lock
-will be held only the wakeup happens really quickly.
+task_work_run() with a spin_lock_irq() and a spin_unlock_irq() aruond
+the cmpxchg() dequeue loop.  This should be safe from a performance
+perspective because ->pi_lock is local to the task and because calls to
+the other side of the race, task_work_cancel(), should be rare.
 
+Signed-off-by: Oleg Nesterov <oleg@redhat.com>
 Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: Peter Zijlstra <peterz@infradead.org>
-Cc: Will Deacon <will.deacon@arm.com>
-Cc: Alan Stern <stern@rowland.harvard.edu>
-Cc: Andrea Parri <parri.andrea@gmail.com>
-Cc: Linus Torvalds <torvalds@linux-foundation.org>
 ---
- kernel/sched/completion.c | 9 ++-------
- 1 file changed, 2 insertions(+), 7 deletions(-)
+ kernel/task_work.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
 
-diff --git a/kernel/sched/completion.c b/kernel/sched/completion.c
-index 53f9558fa925..3e66712e1964 100644
---- a/kernel/sched/completion.c
-+++ b/kernel/sched/completion.c
-@@ -307,14 +307,9 @@ bool completion_done(struct completion *x)
- 	 * If ->done, we need to wait for complete() to release ->wait.lock
- 	 * otherwise we can end up freeing the completion before complete()
- 	 * is done referencing it.
--	 *
--	 * The RMB pairs with complete()'s RELEASE of ->wait.lock and orders
--	 * the loads of ->done and ->wait.lock such that we cannot observe
--	 * the lock before complete() acquires it while observing the ->done
--	 * after it's acquired the lock.
- 	 */
--	smp_rmb();
--	spin_unlock_wait(&x->wait.lock);
-+	spin_lock_irq(&x->wait.lock);
-+	spin_unlock_irq(&x->wait.lock);
- 	return true;
- }
- EXPORT_SYMBOL(completion_done);
+diff --git a/kernel/task_work.c b/kernel/task_work.c
+index d513051fcca2..836a72a66fba 100644
+--- a/kernel/task_work.c
++++ b/kernel/task_work.c
+@@ -96,20 +96,16 @@ void task_work_run(void)
+ 		 * work->func() can do task_work_add(), do not set
+ 		 * work_exited unless the list is empty.
+ 		 */
++		raw_spin_lock_irq(&task->pi_lock);
+ 		do {
+ 			work = READ_ONCE(task->task_works);
+ 			head = !work && (task->flags & PF_EXITING) ?
+ 				&work_exited : NULL;
+ 		} while (cmpxchg(&task->task_works, work, head) != work);
++		raw_spin_unlock_irq(&task->pi_lock);
+ 
+ 		if (!work)
+ 			break;
+-		/*
+-		 * Synchronize with task_work_cancel(). It can't remove
+-		 * the first entry == work, cmpxchg(task_works) should
+-		 * fail, but it can play with *work and other entries.
+-		 */
+-		raw_spin_unlock_wait(&task->pi_lock);
+ 
+ 		do {
+ 			next = work->next;
 -- 
 2.5.2
