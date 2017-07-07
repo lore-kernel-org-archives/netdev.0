@@ -1,63 +1,71 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: [PATCH v3 2/9] task_work: Replace spin_unlock_wait() with lock/unlock pair
-Date: Fri,  7 Jul 2017 12:28:19 -0700
-Message-ID: <1499455706-9398-2-git-send-email-paulmck@linux.vnet.ibm.com>
-References: <20170707192704.GA6144@linux.vnet.ibm.com>
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-        oleg@redhat.com, akpm@linux-foundation.org, mingo@redhat.com,
-        dave@stgolabs.net, manfred@colorfullife.com, tj@kernel.org,
-        arnd@arndb.de, linux-arch@vger.kernel.org, will.deacon@arm.com,
-        peterz@infradead.org, stern@rowland.harvard.edu,
-        parri.andrea@gmail.com, torvalds@linux-foundation.org,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: linux-kernel@vger.kernel.org
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: Re: [PATCH] net: ethernet: mediatek: add NULL check on
+ of_match_device() return value
+Date: Fri, 07 Jul 2017 15:08:31 -0500
+Message-ID: <20170707150831.Horde.MYtEbXeqxGS-hTg2bUv3DWt@gator4166.hostgator.com>
+References: <20170707071135.GA29205@embeddedgus>
+ <20170707145717.GG24237@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
+Cc: Felix Fietkau <nbd@openwrt.org>, John Crispin <blogic@openwrt.org>,
+        Matthias Brugger <matthias.bgg@gmail.com>,
+        netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
+        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170707192704.GA6144@linux.vnet.ibm.com>
+In-Reply-To: <20170707145717.GG24237@lunn.ch>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Oleg Nesterov <oleg@redhat.com>
+Hi Andrew,
 
-There is no agreed-upon definition of spin_unlock_wait()'s semantics,
-and it appears that all callers could do just as well with a lock/unlock
-pair.  This commit therefore replaces the spin_unlock_wait() call in
-task_work_run() with a spin_lock_irq() and a spin_unlock_irq() aruond
-the cmpxchg() dequeue loop.  This should be safe from a performance
-perspective because ->pi_lock is local to the task and because calls to
-the other side of the race, task_work_cancel(), should be rare.
+Quoting Andrew Lunn <andrew@lunn.ch>:
 
-Signed-off-by: Oleg Nesterov <oleg@redhat.com>
-Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
----
- kernel/task_work.c | 8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+> On Fri, Jul 07, 2017 at 02:11:35AM -0500, Gustavo A. R. Silva wrote:
+>> Check return value from call to of_match_device()
+>> in order to prevent a NULL pointer dereference.
+>>
+>> In case of NULL print error message and return -ENODEV
+>>
+>> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+>> ---
+>>  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 5 +++++
+>>  1 file changed, 5 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c  
+>> b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+>> index adaaafc..6a77dea 100644
+>> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+>> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+>> @@ -2408,6 +2408,11 @@ static int mtk_probe(struct platform_device *pdev)
+>>  	int i;
+>>
+>>  	match = of_match_device(of_mtk_match, &pdev->dev);
+>> +	if (!match) {
+>> +		dev_err(&pdev->dev, "failed to match device\n");
+>> +		return -ENODEV;
+>> +	}
+>> +
+>>  	soc = (struct mtk_soc_data *)match->data;
+>
+> Hi Gustavo
+>
+> I think you are fixing the wrong thing. The soc variable is unused. Also,
+>
+> const struct of_device_id of_mtk_match[] = {
+>         { .compatible = "mediatek,mt2701-eth" },
+>         {},
+> };
+>
+> So match->data is NULL. This code is all pointless and should be
+> removed, rather than try to avoid a NULL pointer dereference which can
+> not actually happen.
+>
 
-diff --git a/kernel/task_work.c b/kernel/task_work.c
-index d513051fcca2..836a72a66fba 100644
---- a/kernel/task_work.c
-+++ b/kernel/task_work.c
-@@ -96,20 +96,16 @@ void task_work_run(void)
- 		 * work->func() can do task_work_add(), do not set
- 		 * work_exited unless the list is empty.
- 		 */
-+		raw_spin_lock_irq(&task->pi_lock);
- 		do {
- 			work = READ_ONCE(task->task_works);
- 			head = !work && (task->flags & PF_EXITING) ?
- 				&work_exited : NULL;
- 		} while (cmpxchg(&task->task_works, work, head) != work);
-+		raw_spin_unlock_irq(&task->pi_lock);
- 
- 		if (!work)
- 			break;
--		/*
--		 * Synchronize with task_work_cancel(). It can't remove
--		 * the first entry == work, cmpxchg(task_works) should
--		 * fail, but it can play with *work and other entries.
--		 */
--		raw_spin_unlock_wait(&task->pi_lock);
- 
- 		do {
- 			next = work->next;
--- 
-2.5.2
+You are right. Thank you for pointing it out. I'll remove that code  
+and send a new patch shortly.
+
+Thanks!
+--
+Gustavo A. R. Silva
