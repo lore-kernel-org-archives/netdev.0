@@ -1,50 +1,54 @@
-From: Richard Leitner <richard.leitner@skidata.com>
-Subject: Re: [PATCH 2/2] net: ethernet: fsl: add phy reset after clk enable
- option
-Date: Fri, 7 Jul 2017 13:16:54 +0200
-Message-ID: <b68f444e-cea4-acaa-d1e9-7955a577ed35@skidata.com>
-References: <1499346330-12166-1-git-send-email-richard.leitner@skidata.com>
- <1499346330-12166-2-git-send-email-richard.leitner@skidata.com>
- <AM4PR0401MB2260ECD4508E26FF16670004FFAA0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
- <81105c77-d48f-271b-2de1-c877b9413184@skidata.com>
- <AM4PR0401MB226089839458F5F92C3B1F39FFAA0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
- <6de114cb-4521-4bb2-d0a3-4aea32936bd3@skidata.com>
- <AM4PR0401MB22609FFACD2BB51247709936FFAA0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH v2 0/9] Remove spin_unlock_wait()
+Date: Fri, 7 Jul 2017 13:23:12 +0200
+Message-ID: <20170707112312.lyo762rayi5uqayw@hirez.programming.kicks-ass.net>
+References: <20170629235918.GA6445@linux.vnet.ibm.com>
+ <20170705232955.GA15992@linux.vnet.ibm.com>
+ <063D6719AE5E284EB5DD2968C1650D6DD0033F01@AcuExch.aculab.com>
+ <20170706160555.xc63yydk77gmttae@hirez.programming.kicks-ass.net>
+ <20170706162024.GD2393@linux.vnet.ibm.com>
+ <20170706165036.v4u5rbz56si4emw5@hirez.programming.kicks-ass.net>
+ <20170707083128.wqk6msuuhtyykhpu@gmail.com>
+ <20170707084427.vdsmwkgqx6uvg7tw@hirez.programming.kicks-ass.net>
+ <20170707103349.yohrygljglwx6qn2@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+        David Laight <David.Laight@ACULAB.COM>,
         "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "dev@g0hl1n.net" <dev@g0hl1n.net>, Andrew Lunn <andrew@lunn.ch>
-To: Andy Duan <fugang.duan@nxp.com>,
-        "robh+dt@kernel.org" <robh+dt@kernel.org>,
-        "mark.rutland@arm.com" <mark.rutland@arm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AM4PR0401MB22609FFACD2BB51247709936FFAA0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
+        "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "oleg@redhat.com" <oleg@redhat.com>,
+        "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+        "mingo@redhat.com" <mingo@redhat.com>,
+        "dave@stgolabs.net" <dave@stgolabs.net>,
+        "manfred@colorfullife.com" <manfred@colorfullife.com>,
+        "tj@kernel.org" <tj@kernel.org>, "arnd@arndb.de" <arnd@arndb.de>,
+        "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
+        "will.deacon@arm.com" <will.deacon@arm.com>,
+        "stern@rowland.harvard.edu" <stern@rowland.harvard.edu>,
+        "parri.andrea@gmail.com" <parri.andrea@gmail.com>,
+To: Ingo Molnar <mingo@kernel.org>
+Return-path: <linux-arch-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170707103349.yohrygljglwx6qn2@gmail.com>
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andy,
-thanks for the clarifications!
+On Fri, Jul 07, 2017 at 12:33:49PM +0200, Ingo Molnar wrote:
 
-On 07/07/2017 01:08 PM, Andy Duan wrote:
->> 3. Who should then trigger the "hard reset" of the PHY? phy_init_hw? The FEC?
->>
->> The point is that the LAN8710 is currently not always working correctly,
->> therefore this small change was proposed. Should we really change all
->> PHY/FECs only because of this?
->> Furthermore one problem still remains: The enet_refclk is controlled by the
->> FEC. How does the PHY recognize when it was disabled/enabled?
->>
-> Your patch is workaround for the issue. As you pointed out these is a common issue.
-> So we hope to get a better solution to handle these in common code.
+>  [1997/04] v2.1.36:
+> 
+>       the spin_unlock_wait() primitive gets introduced as part of release()
 
-Ok. I'm fine with moving the phy-reset-gpios binding into the PHY. But 
-one question still remains: Who should then trigger the "hard reset" of 
-the PHY?
 
-The PHY itself doesn't "know" when the refclk is turned off/on. So the 
-FEC still must call some function of the PHY after the clock was enabled 
-again. So the phy-reset-after-clk-enable property will remain in the fec 
-node? Or am I missing something?
+Whee, that goes _way_ further back than I thought it did :-)
+
+>  [2017/07] v4.12:
+> 
+>       wait_task_inactive() is still alive and kicking. Its poll loop has
+>       increased in complexity, but it still does not use spin_unlock_wait()
+> 
+
+I've tried 'fixing' that wait_task_inactive() thing a number of times,
+but always failed :/ That is very nasty code indeed.
