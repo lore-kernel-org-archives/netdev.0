@@ -1,18 +1,18 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH v2 RFC 08/13] net: Remove references to NETIF_F_UFO in
- netdev_fix_features().
-Date: Fri, 07 Jul 2017 10:44:26 +0100 (WEST)
-Message-ID: <20170707.104426.850584795424596493.davem@davemloft.net>
+Subject: [PATCH v2 RFC 09/13] net: Remove references to NETIF_F_UFO from
+ ethtool.
+Date: Fri, 07 Jul 2017 10:44:33 +0100 (WEST)
+Message-ID: <20170707.104433.2019543115001165783.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: willemdebruijn.kernel@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49826 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:49832 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750882AbdGGJo2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2017 05:44:28 -0400
+        with ESMTP id S1750882AbdGGJok (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2017 05:44:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -21,37 +21,54 @@ It is going away.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/core/dev.c | 18 ------------------
- 1 file changed, 18 deletions(-)
+ net/core/ethtool.c | 7 -------
+ 1 file changed, 7 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 7098fba..8495ded 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -7234,24 +7234,6 @@ static netdev_features_t netdev_fix_features(struct net_device *dev,
- 		features &= ~NETIF_F_GSO;
- 	}
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 674b6c9..78408ab 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -76,7 +76,6 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
+ 	[NETIF_F_LRO_BIT] =              "rx-lro",
  
--	/* UFO needs SG and checksumming */
--	if (features & NETIF_F_UFO) {
--		/* maybe split UFO into V4 and V6? */
--		if (!(features & NETIF_F_HW_CSUM) &&
--		    ((features & (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM)) !=
--		     (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM))) {
--			netdev_dbg(dev,
--				"Dropping NETIF_F_UFO since no checksum offload features.\n");
--			features &= ~NETIF_F_UFO;
--		}
--
--		if (!(features & NETIF_F_SG)) {
--			netdev_dbg(dev,
--				"Dropping NETIF_F_UFO since no NETIF_F_SG feature.\n");
--			features &= ~NETIF_F_UFO;
--		}
--	}
--
- 	/* GSO partial features require GSO partial be set */
- 	if ((features & dev->gso_partial_features) &&
- 	    !(features & NETIF_F_GSO_PARTIAL)) {
+ 	[NETIF_F_TSO_BIT] =              "tx-tcp-segmentation",
+-	[NETIF_F_UFO_BIT] =              "tx-udp-fragmentation",
+ 	[NETIF_F_GSO_ROBUST_BIT] =       "tx-gso-robust",
+ 	[NETIF_F_TSO_ECN_BIT] =          "tx-tcp-ecn-segmentation",
+ 	[NETIF_F_TSO_MANGLEID_BIT] =	 "tx-tcp-mangleid-segmentation",
+@@ -299,9 +298,6 @@ static netdev_features_t ethtool_get_feature_mask(u32 eth_cmd)
+ 	case ETHTOOL_GTSO:
+ 	case ETHTOOL_STSO:
+ 		return NETIF_F_ALL_TSO;
+-	case ETHTOOL_GUFO:
+-	case ETHTOOL_SUFO:
+-		return NETIF_F_UFO;
+ 	case ETHTOOL_GGSO:
+ 	case ETHTOOL_SGSO:
+ 		return NETIF_F_GSO;
+@@ -2555,7 +2551,6 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_GPHYSTATS:
+ 	case ETHTOOL_GTSO:
+ 	case ETHTOOL_GPERMADDR:
+-	case ETHTOOL_GUFO:
+ 	case ETHTOOL_GGSO:
+ 	case ETHTOOL_GGRO:
+ 	case ETHTOOL_GFLAGS:
+@@ -2723,7 +2718,6 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_GRXCSUM:
+ 	case ETHTOOL_GSG:
+ 	case ETHTOOL_GTSO:
+-	case ETHTOOL_GUFO:
+ 	case ETHTOOL_GGSO:
+ 	case ETHTOOL_GGRO:
+ 		rc = ethtool_get_one_feature(dev, useraddr, ethcmd);
+@@ -2732,7 +2726,6 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_SRXCSUM:
+ 	case ETHTOOL_SSG:
+ 	case ETHTOOL_STSO:
+-	case ETHTOOL_SUFO:
+ 	case ETHTOOL_SGSO:
+ 	case ETHTOOL_SGRO:
+ 		rc = ethtool_set_one_feature(dev, useraddr, ethcmd);
 -- 
 2.9.4
