@@ -1,8 +1,7 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [RFC PATCH 08/12] bpf: add devmap,
- a map for storing net device references
-Date: Fri, 07 Jul 2017 10:37:12 -0700
-Message-ID: <20170707173712.9984.13243.stgit@john-Precision-Tower-5810>
+Subject: [RFC PATCH 09/12] bpf: add bpf_redirect_map helper routine
+Date: Fri, 07 Jul 2017 10:37:36 -0700
+Message-ID: <20170707173736.9984.84531.stgit@john-Precision-Tower-5810>
 References: <20170707172115.9984.53461.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,389 +10,203 @@ Cc: brouer@redhat.com, john.fastabend@gmail.com, andy@greyhouse.net,
         daniel@iogearbox.net, ast@fb.com
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:34166 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750726AbdGGRha (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2017 13:37:30 -0400
-Received: by mail-pf0-f181.google.com with SMTP id q85so20279147pfq.1
-        for <netdev@vger.kernel.org>; Fri, 07 Jul 2017 10:37:30 -0700 (PDT)
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34951 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751034AbdGGRh6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2017 13:37:58 -0400
+Received: by mail-pf0-f194.google.com with SMTP id q85so5407838pfq.2
+        for <netdev@vger.kernel.org>; Fri, 07 Jul 2017 10:37:58 -0700 (PDT)
 In-Reply-To: <20170707172115.9984.53461.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Device map (devmap) is a BPF map, primarily useful for networking
-applications, that uses a key to lookup a reference to a netdevice.
-
-The map provides a clean way for BPF programs to build virtual port
-to physical port maps. Additionally, it provides a scoping function
-for the redirect action itself allowing multiple optimizations. Future
-patches will leverage the map to provide batching at the XDP layer.
-
-Another optimization/feature, that is not yet implemented, would be
-to support multiple netdevices per key to support efficient multicast
-and broadcast support.
+BPF programs can use the devmap with a bpf_redirect_map() helper
+routine to forward packets to netdevice in map.
 
 Signed-off-by: John Fastabend <john.fastabend@gmail.com>
 Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- include/linux/bpf_types.h               |    3 
- include/uapi/linux/bpf.h                |    1 
- kernel/bpf/Makefile                     |    3 
- kernel/bpf/devmap.c                     |  264 +++++++++++++++++++++++++++++++
- kernel/bpf/verifier.c                   |    8 +
- tools/testing/selftests/bpf/test_maps.c |   15 ++
- 6 files changed, 294 insertions(+)
- create mode 100644 kernel/bpf/devmap.c
+ include/linux/bpf.h      |    3 +++
+ include/uapi/linux/bpf.h |    8 ++++++-
+ kernel/bpf/devmap.c      |   12 ++++++++++
+ kernel/bpf/verifier.c    |    4 +++
+ net/core/filter.c        |   54 ++++++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 80 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/bpf_types.h b/include/linux/bpf_types.h
-index 03bf223..b18056b 100644
---- a/include/linux/bpf_types.h
-+++ b/include/linux/bpf_types.h
-@@ -34,3 +34,6 @@
- #endif
- BPF_MAP_TYPE(BPF_MAP_TYPE_ARRAY_OF_MAPS, array_of_maps_map_ops)
- BPF_MAP_TYPE(BPF_MAP_TYPE_HASH_OF_MAPS, htab_of_maps_map_ops)
-+#ifdef CONFIG_NET
-+BPF_MAP_TYPE(BPF_MAP_TYPE_DEVMAP, dev_map_ops)
-+#endif
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index 5175729..8c2f3e1 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -374,4 +374,7 @@ static inline void __bpf_prog_uncharge(struct user_struct *user, u32 pages)
+ void bpf_user_rnd_init_once(void);
+ u64 bpf_user_rnd_u32(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5);
+ 
++/* Map specifics */
++struct net_device  *__dev_map_lookup_elem(struct bpf_map *map, u32 key);
++
+ #endif /* _LINUX_BPF_H */
 diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index e1f3827..0a48060 100644
+index 0a48060..b95f46d 100644
 --- a/include/uapi/linux/bpf.h
 +++ b/include/uapi/linux/bpf.h
-@@ -104,6 +104,7 @@ enum bpf_map_type {
- 	BPF_MAP_TYPE_LPM_TRIE,
- 	BPF_MAP_TYPE_ARRAY_OF_MAPS,
- 	BPF_MAP_TYPE_HASH_OF_MAPS,
-+	BPF_MAP_TYPE_DEVMAP,
- };
+@@ -346,6 +346,11 @@ enum bpf_attach_type {
+  *     @flags: bit 0 - if set, redirect to ingress instead of egress
+  *             other bits - reserved
+  *     Return: TC_ACT_REDIRECT
++ * int bpf_redirect_map(key, map, flags)
++ *     redirect to endpoint in map
++ *     @key: index in map to lookup
++ *     @map: fd of map to do lookup in
++ *     @flags: --
+  *
+  * u32 bpf_get_route_realm(skb)
+  *     retrieve a dst's tclassid
+@@ -569,7 +574,8 @@ enum bpf_attach_type {
+ 	FN(probe_read_str),		\
+ 	FN(get_socket_cookie),		\
+ 	FN(get_socket_uid),		\
+-	FN(set_hash),
++	FN(set_hash),			\
++	FN(redirect_map),
  
- enum bpf_prog_type {
-diff --git a/kernel/bpf/Makefile b/kernel/bpf/Makefile
-index e1e5e65..48e9270 100644
---- a/kernel/bpf/Makefile
-+++ b/kernel/bpf/Makefile
-@@ -2,6 +2,9 @@ obj-y := core.o
- 
- obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o inode.o helpers.o
- obj-$(CONFIG_BPF_SYSCALL) += hashtab.o arraymap.o percpu_freelist.o bpf_lru_list.o lpm_trie.o map_in_map.o
-+ifeq ($(CONFIG_NET),y)
-+obj-$(CONFIG_BPF_SYSCALL) += devmap.o
-+endif
- ifeq ($(CONFIG_PERF_EVENTS),y)
- obj-$(CONFIG_BPF_SYSCALL) += stackmap.o
- endif
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+  * function eBPF program intends to call
 diff --git a/kernel/bpf/devmap.c b/kernel/bpf/devmap.c
-new file mode 100644
-index 0000000..1a87835
---- /dev/null
+index 1a87835..36dc13de 100644
+--- a/kernel/bpf/devmap.c
 +++ b/kernel/bpf/devmap.c
-@@ -0,0 +1,264 @@
-+/* Copyright (c) 2017 Covalent IO, Inc. http://covalent.io
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-+ * General Public License for more details.
-+ */
-+
-+/* Devmaps primary use is as a backend map for XDP BPF helper call
-+ * bpf_redirect_map(). Because XDP is mostly concerned with performance we
-+ * spent some effort to ensure the datapath with redirect maps does not use
-+ * any locking. This is a quick note on the details.
-+ *
-+ * We have three possible paths to get into the devmap control plane bpf
-+ * syscalls, bpf programs, and driver side xmit/flush operations. A bpf syscall
-+ * will invoke an update, delete, or lookup operation. To ensure updates and
-+ * deletes appear atomic from the datapath side xchg() is used to modify the
-+ * netdev_map array. Then because the datapath does a lookup into the netdev_map
-+ * array (read-only) from an RCU critical section we use call_rcu() to wait for
-+ * an rcu grace period before free'ing the old data structures. This ensures the
-+ * datapath always has a valid copy. However, the datapath does a "flush"
-+ * operation that pushes any pending packets in the driver outside the RCU
-+ * critical section. Each bpf_dtab_netdev tracks these pending operations using
-+ * an atomic per-cpu bitmap. The bpf_dtab_netdev object will not be destroyed
-+ * until all bits are cleared indicating outstanding flush operations have
-+ * completed.
-+ *
-+ * BPF syscalls may race with BPF program calls on any of the update, delete
-+ * or lookup operations. As noted above the xchg() operation also keep the
-+ * netdev_map consistent in this case. From the devmap side BPF programs
-+ * calling into these operations are the same as multiple user space threads
-+ * making system calls.
-+ */
-+#include <linux/bpf.h>
-+#include <linux/jhash.h>
-+#include <linux/filter.h>
-+#include <linux/rculist_nulls.h>
-+#include "percpu_freelist.h"
-+#include "bpf_lru_list.h"
-+#include "map_in_map.h"
-+
-+struct bpf_dtab_netdev {
-+	struct net_device *dev;
-+	int key;
-+	struct rcu_head rcu;
-+	struct bpf_dtab *dtab;
-+};
-+
-+struct bpf_dtab {
-+	struct bpf_map map;
-+	struct bpf_dtab_netdev **netdev_map;
-+};
-+
-+static struct bpf_map *dev_map_alloc(union bpf_attr *attr)
-+{
-+	struct bpf_dtab *dtab;
-+	u64 cost;
-+	int err;
-+
-+	/* check sanity of attributes */
-+	if (attr->max_entries == 0 || attr->key_size != 4 ||
-+	    attr->value_size != 4 || attr->map_flags)
-+		return ERR_PTR(-EINVAL);
-+
-+	/* if value_size is bigger, the user space won't be able to
-+	 * access the elements.
-+	 */
-+	if (attr->value_size > KMALLOC_MAX_SIZE)
-+		return ERR_PTR(-E2BIG);
-+
-+	dtab = kzalloc(sizeof(*dtab), GFP_USER);
-+	if (!dtab)
-+		return ERR_PTR(-ENOMEM);
-+
-+	/* mandatory map attributes */
-+	dtab->map.map_type = attr->map_type;
-+	dtab->map.key_size = attr->key_size;
-+	dtab->map.value_size = attr->value_size;
-+	dtab->map.max_entries = attr->max_entries;
-+	dtab->map.map_flags = attr->map_flags;
-+
-+	err = -ENOMEM;
-+
-+	/* make sure page count doesn't overflow */
-+	cost = (u64) dtab->map.max_entries * sizeof(struct bpf_dtab_netdev *);
-+	if (cost >= U32_MAX - PAGE_SIZE)
-+		goto free_dtab;
-+
-+	dtab->map.pages = round_up(cost, PAGE_SIZE) >> PAGE_SHIFT;
-+
-+	/* if map size is larger than memlock limit, reject it early */
-+	err = bpf_map_precharge_memlock(dtab->map.pages);
-+	if (err)
-+		goto free_dtab;
-+
-+	dtab->netdev_map = bpf_map_area_alloc(dtab->map.max_entries *
-+					      sizeof(struct bpf_dtab_netdev *));
-+	if (!dtab->netdev_map)
-+		goto free_dtab;
-+
-+	return &dtab->map;
-+
-+free_dtab:
-+	kfree(dtab);
-+	return ERR_PTR(err);
-+}
-+
-+static void dev_map_free(struct bpf_map *map)
-+{
-+	struct bpf_dtab *dtab = container_of(map, struct bpf_dtab, map);
-+	int i;
-+
-+	/* At this point bpf_prog->aux->refcnt == 0 and this map->refcnt == 0,
-+	 * so the programs (can be more than one that used this map) were
-+	 * disconnected from events. Wait for outstanding critical sections in
-+	 * these programs to complete. The rcu critical section only guarantees
-+	 * no further reads against netdev_map. It does __not__ ensure pending
-+	 * flush operations (if any) are complete.
-+	 */
-+	synchronize_rcu();
-+
-+	for (i = 0; i < dtab->map.max_entries; i++) {
-+		struct bpf_dtab_netdev *dev;
-+
-+		dev = dtab->netdev_map[i];
-+		if (!dev)
-+			continue;
-+
-+		dev_put(dev->dev);
-+		kfree(dev);
-+	}
-+
-+	/* At this point bpf program is detached and all pending operations
-+	 * _must_ be complete
-+	 */
-+	bpf_map_area_free(dtab->netdev_map);
-+	kfree(dtab);
-+}
-+
-+static int dev_map_get_next_key(struct bpf_map *map, void *key, void *next_key)
-+{
-+	struct bpf_dtab *dtab = container_of(map, struct bpf_dtab, map);
-+	u32 index = key ? *(u32 *)key : U32_MAX;
-+	u32 *next = (u32 *)next_key;
-+
-+	if (index >= dtab->map.max_entries) {
-+		*next = 0;
-+		return 0;
-+	}
-+
-+	if (index == dtab->map.max_entries - 1)
-+		return -ENOENT;
-+
-+	*next = index + 1;
-+	return 0;
-+}
-+
-+/* rcu_read_lock (from syscall and BPF contexts) ensures that if a delete and/or
-+ * update happens in parallel here a dev_put wont happen until after reading the
-+ * ifindex.
-+ */
-+static void *dev_map_lookup_elem(struct bpf_map *map, void *key)
+@@ -159,6 +159,18 @@ static int dev_map_get_next_key(struct bpf_map *map, void *key, void *next_key)
+ 	return 0;
+ }
+ 
++struct net_device  *__dev_map_lookup_elem(struct bpf_map *map, u32 key)
 +{
 +	struct bpf_dtab *dtab = container_of(map, struct bpf_dtab, map);
 +	struct bpf_dtab_netdev *dev;
-+	u32 i = *(u32 *)key;
 +
-+	if (i >= map->max_entries)
++	if (key >= map->max_entries)
 +		return NULL;
 +
-+	dev = READ_ONCE(dtab->netdev_map[i]);
-+	return dev ? &dev->dev->ifindex : NULL;
++	dev = READ_ONCE(dtab->netdev_map[key]);
++	return dev ? dev->dev : NULL;
 +}
 +
-+static void __dev_map_entry_free(struct rcu_head *rcu)
-+{
-+	struct bpf_dtab_netdev *old_dev;
-+
-+	old_dev = container_of(rcu, struct bpf_dtab_netdev, rcu);
-+	dev_put(old_dev->dev);
-+	kfree(old_dev);
-+}
-+
-+static int dev_map_delete_elem(struct bpf_map *map, void *key)
-+{
-+	struct bpf_dtab *dtab = container_of(map, struct bpf_dtab, map);
-+	struct bpf_dtab_netdev *old_dev;
-+	int k = *(u32 *)key;
-+
-+	if (k >= map->max_entries)
-+		return -EINVAL;
-+
-+	/* Use synchronize_rcu() here to ensure any rcu critical sections
-+	 * have completed, but this does not guarantee a flush has happened
-+	 * yet. Because driver side rcu_read_lock/unlock only protects the
-+	 * running XDP program. However, for pending flush operations the
-+	 * dev and ctx are stored in another per cpu map. And additionally,
-+	 * the driver tear down ensures all soft irqs are complete before
-+	 * removing the net device in the case of dev_put equals zero.
-+	 */
-+	old_dev = xchg(&dtab->netdev_map[k], NULL);
-+	if (old_dev)
-+		call_rcu(&old_dev->rcu, __dev_map_entry_free);
-+	return 0;
-+}
-+
-+static int dev_map_update_elem(struct bpf_map *map, void *key, void *value,
-+				u64 map_flags)
-+{
-+	struct bpf_dtab *dtab = container_of(map, struct bpf_dtab, map);
-+	struct net *net = current->nsproxy->net_ns;
-+	struct bpf_dtab_netdev *dev, *old_dev;
-+	u32 i = *(u32 *)key;
-+	u32 ifindex = *(u32 *)value;
-+
-+	if (unlikely(map_flags > BPF_EXIST))
-+		return -EINVAL;
-+
-+	if (unlikely(i >= dtab->map.max_entries))
-+		return -E2BIG;
-+
-+	if (unlikely(map_flags == BPF_NOEXIST))
-+		return -EEXIST;
-+
-+	if (!ifindex) {
-+		dev = NULL;
-+	} else {
-+		dev = kmalloc(sizeof(*dev), GFP_ATOMIC | __GFP_NOWARN);
-+		if (!dev)
-+			return -ENOMEM;
-+
-+		dev->dev = dev_get_by_index(net, ifindex);
-+		if (!dev->dev) {
-+			kfree(dev);
-+			return -EINVAL;
-+		}
-+
-+		dev->key = i;
-+		dev->dtab = dtab;
-+	}
-+
-+	/* Use call_rcu() here to ensure rcu critical sections have completed
-+	 * Remembering the driver side flush operation will happen before the
-+	 * net device is removed.
-+	 */
-+	old_dev = xchg(&dtab->netdev_map[i], dev);
-+	if (old_dev)
-+		call_rcu(&old_dev->rcu, __dev_map_entry_free);
-+
-+	return 0;
-+}
-+
-+const struct bpf_map_ops dev_map_ops = {
-+	.map_alloc = dev_map_alloc,
-+	.map_free = dev_map_free,
-+	.map_get_next_key = dev_map_get_next_key,
-+	.map_lookup_elem = dev_map_lookup_elem,
-+	.map_update_elem = dev_map_update_elem,
-+	.map_delete_elem = dev_map_delete_elem,
-+};
+ /* rcu_read_lock (from syscall and BPF contexts) ensures that if a delete and/or
+  * update happens in parallel here a dev_put wont happen until after reading the
+  * ifindex.
 diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 74ea96e..06073ba 100644
+index 06073ba..1d03956 100644
 --- a/kernel/bpf/verifier.c
 +++ b/kernel/bpf/verifier.c
-@@ -1294,6 +1294,14 @@ static int check_map_func_compatibility(struct bpf_map *map, int func_id)
- 		    func_id != BPF_FUNC_current_task_under_cgroup)
+@@ -1330,6 +1330,10 @@ static int check_map_func_compatibility(struct bpf_map *map, int func_id)
+ 		if (map->map_type != BPF_MAP_TYPE_CGROUP_ARRAY)
  			goto error;
  		break;
-+	/* devmap returns a pointer to a live net_device ifindex that we cannot
-+	 * allow to be modified from bpf side. So do not allow lookup elemnts
-+	 * for now.
-+	 */
-+	case BPF_MAP_TYPE_DEVMAP:
-+		if (func_id == BPF_FUNC_map_lookup_elem)
++	case BPF_FUNC_redirect_map:
++		if (map->map_type != BPF_MAP_TYPE_DEVMAP)
 +			goto error;
 +		break;
- 	case BPF_MAP_TYPE_ARRAY_OF_MAPS:
- 	case BPF_MAP_TYPE_HASH_OF_MAPS:
- 		if (func_id != BPF_FUNC_map_lookup_elem)
-diff --git a/tools/testing/selftests/bpf/test_maps.c b/tools/testing/selftests/bpf/test_maps.c
-index 79601c8..36d6ac3 100644
---- a/tools/testing/selftests/bpf/test_maps.c
-+++ b/tools/testing/selftests/bpf/test_maps.c
-@@ -438,6 +438,21 @@ static void test_arraymap_percpu_many_keys(void)
- 	close(fd);
- }
+ 	default:
+ 		break;
+ 	}
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 441abbb..482bda8 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1778,6 +1778,7 @@ static int __bpf_redirect(struct sk_buff *skb, struct net_device *dev,
+ struct redirect_info {
+ 	u32 ifindex;
+ 	u32 flags;
++	struct bpf_map *map;
+ };
  
-+static void test_devmap(int task, void *data)
+ static DEFINE_PER_CPU(struct redirect_info, redirect_info);
+@@ -1791,6 +1792,7 @@ struct redirect_info {
+ 
+ 	ri->ifindex = ifindex;
+ 	ri->flags = flags;
++	ri->map = NULL;
+ 
+ 	return TC_ACT_REDIRECT;
+ }
+@@ -1818,6 +1820,29 @@ int skb_do_redirect(struct sk_buff *skb)
+ 	.arg2_type      = ARG_ANYTHING,
+ };
+ 
++BPF_CALL_3(bpf_redirect_map, struct bpf_map *, map, u32, ifindex, u64, flags)
 +{
-+	int next_key, fd;
-+	__u32 key, value;
++	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
 +
-+	fd = bpf_create_map(BPF_MAP_TYPE_DEVMAP, sizeof(key), sizeof(value),
-+			    2, 0);
-+	if (fd < 0) {
-+		printf("Failed to create arraymap '%s'!\n", strerror(errno));
-+		exit(1);
-+	}
++	if (unlikely(flags))
++		return XDP_ABORTED;
 +
-+	close(fd);
++	ri->ifindex = ifindex;
++	ri->flags = flags;
++	ri->map = map;
++
++	return XDP_REDIRECT;
 +}
 +
- #define MAP_SIZE (32 * 1024)
++static const struct bpf_func_proto bpf_redirect_map_proto = {
++	.func           = bpf_redirect_map,
++	.gpl_only       = false,
++	.ret_type       = RET_INTEGER,
++	.arg1_type      = ARG_CONST_MAP_PTR,
++	.arg2_type      = ARG_ANYTHING,
++	.arg3_type      = ARG_ANYTHING,
++};
++
+ BPF_CALL_1(bpf_get_cgroup_classid, const struct sk_buff *, skb)
+ {
+ 	return task_get_classid(skb);
+@@ -2309,14 +2334,41 @@ static int __bpf_tx_xdp(struct net_device *dev, struct xdp_buff *xdp)
+ 	return -EOPNOTSUPP;
+ }
  
- static void test_map_large(void)
++int xdp_do_redirect_map(struct net_device *dev, struct xdp_buff *xdp,
++			struct bpf_prog *xdp_prog)
++{
++	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
++	struct bpf_map *map = ri->map;
++	struct net_device *fwd;
++
++	fwd = __dev_map_lookup_elem(map, ri->ifindex);
++	if (!fwd)
++		goto out;
++
++	ri->ifindex = 0;
++	ri->map = NULL;
++
++	trace_xdp_redirect(dev, fwd, xdp_prog, XDP_REDIRECT);
++
++	return __bpf_tx_xdp(fwd, xdp);
++out:
++	ri->ifindex = 0;
++	ri->map = NULL;
++	return -EINVAL;
++}
++
+ int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
+ 		    struct bpf_prog *xdp_prog)
+ {
+ 	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
+ 	struct net_device *fwd;
+ 
++	if (ri->map)
++		return xdp_do_redirect_map(dev, xdp, xdp_prog);
++
+ 	fwd = dev_get_by_index_rcu(dev_net(dev), ri->ifindex);
+ 	ri->ifindex = 0;
++	ri->map = NULL;
+ 	if (unlikely(!fwd)) {
+ 		bpf_warn_invalid_xdp_redirect(ri->ifindex);
+ 		return -EINVAL;
+@@ -2868,6 +2920,8 @@ static unsigned long bpf_xdp_copy(void *dst_buff, const void *src_buff,
+ 		return &bpf_xdp_adjust_head_proto;
+ 	case BPF_FUNC_redirect:
+ 		return &bpf_xdp_redirect_proto;
++	case BPF_FUNC_redirect_map:
++		return &bpf_redirect_map_proto;
+ 	default:
+ 		return bpf_base_func_proto(func_id);
+ 	}
