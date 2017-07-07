@@ -1,68 +1,68 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH 2/2] net: ethernet: fsl: add phy reset after clk enable
- option
-Date: Fri, 7 Jul 2017 16:00:10 +0200
-Message-ID: <20170707140010.GD24237@lunn.ch>
-References: <1499346330-12166-1-git-send-email-richard.leitner@skidata.com>
- <1499346330-12166-2-git-send-email-richard.leitner@skidata.com>
- <AM4PR0401MB2260ECD4508E26FF16670004FFAA0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
- <81105c77-d48f-271b-2de1-c877b9413184@skidata.com>
- <AM4PR0401MB226089839458F5F92C3B1F39FFAA0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
- <6de114cb-4521-4bb2-d0a3-4aea32936bd3@skidata.com>
- <AM4PR0401MB22609FFACD2BB51247709936FFAA0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
- <b68f444e-cea4-acaa-d1e9-7955a577ed35@skidata.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andy Duan <fugang.duan-3arQi8VN3Tc@public.gmane.org>,
-        "robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        "mark.rutland-5wv7dgnIgG8@public.gmane.org" <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "dev-M/VWbR8SM2SsTnJN9+BGXg@public.gmane.org" <dev-M/VWbR8SM2SsTnJN9+BGXg@public.gmane.org>
-To: Richard Leitner <richard.leitner-WcANXNA0UjBBDgjK7y7TUQ@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <b68f444e-cea4-acaa-d1e9-7955a577ed35-WcANXNA0UjBBDgjK7y7TUQ@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: thor.thayer@linux.intel.com
+Subject: [PATCHv3 1/2] ethtool: stmmac: Add macros for number of registers
+Date: Fri,  7 Jul 2017 09:08:48 -0500
+Message-ID: <1499436529-4852-1-git-send-email-thor.thayer@linux.intel.com>
+Cc: netdev@vger.kernel.org, thor.thayer@linux.intel.com
+To: linville@tuxdriver.com, peppe.cavallaro@st.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga04.intel.com ([192.55.52.120]:60250 "EHLO mga04.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750904AbdGGOFq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 7 Jul 2017 10:05:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Ok. I'm fine with moving the phy-reset-gpios binding into the PHY.
-> But one question still remains: Who should then trigger the "hard
-> reset" of the PHY?
+From: Thor Thayer <thor.thayer@linux.intel.com>
 
-Hi Richard
+This patch adds macros for the number of registers to
+loop through to make the code easier to read.
 
-I think i see a few whys to do this, but first i need to check
-something. Is the clock which is causing a problem this one:
+Signed-off-by: Thor Thayer <thor.thayer@linux.intel.com>
+---
+v2  New commit. Add macros for number of registers.
+v3  Only add macros - remove DMA indexing.
+---
+ stmmac.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
-        /* clk_ref is optional, depends on board */
-        fep->clk_ref = devm_clk_get(&pdev->dev, "enet_clk_ref");
-        if (IS_ERR(fep->clk_ref))
-                fep->clk_ref = NULL;
-
-Possible solutions:
-
-1) clocks are referenced counted. If it is turned on twice, it needs
-   to be turned off twice before it is actually turned off. So, make
-   the PHY driver also clk_prepare_enable() this clock. When the FEC
-   tries to turn it off, it will stay ticking. Problem avoided, at the
-   expense of some power.
-
-2) More complex, but make the PHY driver also a clock driver. Have the
-   PHY driver export a clock which the FEC use, as "enet_clk_ref". The
-   implementation of this clock, would both turn the real clock on,
-   and the perform the reset.
-
-Both require no changes to the FEC, or any other MAC driver using this
-PHY, so long as the MAC driver uses the common clock infrastructure to
-control the clock to the PHY.
-
-	Andrew
-
-
+diff --git a/stmmac.c b/stmmac.c
+index fb69bfe..23ed31a 100644
+--- a/stmmac.c
++++ b/stmmac.c
+@@ -14,6 +14,10 @@
+ #include <string.h>
+ #include "internal.h"
  
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
++#define MAC100_DMA_REG_NUM	9
++#define GMAC_REG_NUM		55
++#define GMAC_DMA_REG_NUM	22
++
+ int st_mac100_dump_regs(struct ethtool_drvinfo *info,
+ 			struct ethtool_regs *regs)
+ {
+@@ -36,7 +40,7 @@ int st_mac100_dump_regs(struct ethtool_drvinfo *info,
+ 
+ 	fprintf(stdout, "\n");
+ 	fprintf(stdout, "DMA Registers\n");
+-	for (i = 0; i < 9; i++)
++	for (i = 0; i < MAC100_DMA_REG_NUM; i++)
+ 		fprintf(stdout, "CSR%d  0x%08X\n", i, *stmmac_reg++);
+ 
+ 	fprintf(stdout, "DMA cur tx buf addr 0x%08X\n", *stmmac_reg++);
+@@ -54,12 +58,12 @@ int st_gmac_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
+ 
+ 	fprintf(stdout, "ST GMAC Registers\n");
+ 	fprintf(stdout, "GMAC Registers\n");
+-	for (i = 0; i < 55; i++)
++	for (i = 0; i < GMAC_REG_NUM; i++)
+ 		fprintf(stdout, "Reg%d  0x%08X\n", i, *stmmac_reg++);
+ 
+ 	fprintf(stdout, "\n");
+ 	fprintf(stdout, "DMA Registers\n");
+-	for (i = 0; i < 22; i++)
++	for (i = 0; i < GMAC_DMA_REG_NUM; i++)
+ 		fprintf(stdout, "Reg%d  0x%08X\n", i, *stmmac_reg++);
+ 
+ 	return 0;
+-- 
+2.7.4
