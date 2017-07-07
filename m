@@ -1,237 +1,62 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH v2 RFC 12/13] inet: Remove software UFO fragmenting code.
-Date: Fri, 07 Jul 2017 10:44:51 +0100 (WEST)
-Message-ID: <20170707.104451.437888712028886422.davem@davemloft.net>
+Subject: Re: [PATCH RFC 11/12] net: Remove all references to SKB_GSO_UDP.
+Date: Fri, 07 Jul 2017 10:46:58 +0100 (WEST)
+Message-ID: <20170707.104658.955112231377056588.davem@davemloft.net>
+References: <CAF=yD-KtJCyYqLDWv0pa7dcaJ=W8HM4eUnnwz8LJj_+S4U3-ZA@mail.gmail.com>
+        <20170706.154321.389823872198215636.davem@davemloft.net>
+        <CAF=yD-+xYoQtP2=jS17tZwJWCWcN3M0WXC1qUGKiDpM-aOqWLw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: willemdebruijn.kernel@gmail.com
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: willemdebruijn.kernel@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49850 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:49874 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750886AbdGGJpD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2017 05:45:03 -0400
+        with ESMTP id S1750878AbdGGJrF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2017 05:47:05 -0400
+In-Reply-To: <CAF=yD-+xYoQtP2=jS17tZwJWCWcN3M0WXC1qUGKiDpM-aOqWLw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Date: Thu, 6 Jul 2017 13:57:20 -0400
 
-Rename udp{4,6}_ufo_fragment() to udp{4,6}_tunnel_segment() and only
-handle tunnel segmentation.
+> On Thu, Jul 6, 2017 at 10:43 AM, David Miller <davem@davemloft.net> wrote:
+>> From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+>> Date: Wed, 5 Jul 2017 12:27:11 -0400
+>>
+>>>>> --- a/net/ipv4/udp_offload.c
+>>>>> +++ b/net/ipv4/udp_offload.c
+>>>>> @@ -21,7 +21,7 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
+>>>>>         __be16 new_protocol, bool is_ipv6)
+>>>>
+>>>> In this file, can now remove all of udp4_ufo_fragment, and
+>>>> udp6_ufo_fragment in net/ipv6.
+>>>
+>>> I had missed that this is used for tunneling with skb_udp_tunnel_segment.
+>>> But the core codepath should no longer be hit once SKB_GSO_UDP
+>>> is removed.
+>>
+>> Are you sure?  I'm pretty sure all of the code remaining after my
+>> patch series is needed in order to handle doing TCP GRO through
+>> UDP tunneling encapsulation.
+>>
+>> Although the word "fragment" is in the function name, it's not doing
+>> IP fragmentation.  Instead, it is "fragmenting" the batched UDP
+>> encapsulated frame into a series of individual UDP encapsulated ones.
+> 
+> Isn't that case handled in the branch
+> 
+>         if (skb->encapsulation &&
+>             (skb_shinfo(skb)->gso_type &
+>              (SKB_GSO_UDP_TUNNEL|SKB_GSO_UDP_TUNNEL_CSUM))) {
+>                 segs = skb_udp_tunnel_segment(skb, features, false);
+>                 goto out;
+>         }
+> 
+> It appears to be in a quick test I ran with FOU.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/ipv4/udp_offload.c |  58 ++--------------------------
- net/ipv6/udp_offload.c | 100 ++-----------------------------------------------
- 2 files changed, 7 insertions(+), 151 deletions(-)
+You are correct, I respun the series with that code removed.
 
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index 4fedce3..97658bf 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -187,66 +187,16 @@ struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
- }
- EXPORT_SYMBOL(skb_udp_tunnel_segment);
- 
--static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
--					 netdev_features_t features)
-+static struct sk_buff *udp4_tunnel_segment(struct sk_buff *skb,
-+					   netdev_features_t features)
- {
- 	struct sk_buff *segs = ERR_PTR(-EINVAL);
--	unsigned int mss;
--	__wsum csum;
--	struct udphdr *uh;
--	struct iphdr *iph;
- 
- 	if (skb->encapsulation &&
- 	    (skb_shinfo(skb)->gso_type &
--	     (SKB_GSO_UDP_TUNNEL|SKB_GSO_UDP_TUNNEL_CSUM))) {
-+	     (SKB_GSO_UDP_TUNNEL|SKB_GSO_UDP_TUNNEL_CSUM)))
- 		segs = skb_udp_tunnel_segment(skb, features, false);
--		goto out;
--	}
--
--	if (!pskb_may_pull(skb, sizeof(struct udphdr)))
--		goto out;
--
--	mss = skb_shinfo(skb)->gso_size;
--	if (unlikely(skb->len <= mss))
--		goto out;
--
--	if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
--		/* Packet is from an untrusted source, reset gso_segs. */
--
--		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
--
--		segs = NULL;
--		goto out;
--	}
--
--	/* Do software UFO. Complete and fill in the UDP checksum as
--	 * HW cannot do checksum of UDP packets sent as multiple
--	 * IP fragments.
--	 */
--
--	uh = udp_hdr(skb);
--	iph = ip_hdr(skb);
--
--	uh->check = 0;
--	csum = skb_checksum(skb, 0, skb->len, 0);
--	uh->check = udp_v4_check(skb->len, iph->saddr, iph->daddr, csum);
--	if (uh->check == 0)
--		uh->check = CSUM_MANGLED_0;
- 
--	skb->ip_summed = CHECKSUM_NONE;
--
--	/* If there is no outer header we can fake a checksum offload
--	 * due to the fact that we have already done the checksum in
--	 * software prior to segmenting the frame.
--	 */
--	if (!skb->encap_hdr_csum)
--		features |= NETIF_F_HW_CSUM;
--
--	/* Fragment the skb. IP headers of the fragments are updated in
--	 * inet_gso_segment()
--	 */
--	segs = skb_segment(skb, features);
--out:
- 	return segs;
- }
- 
-@@ -380,7 +330,7 @@ static int udp4_gro_complete(struct sk_buff *skb, int nhoff)
- 
- static const struct net_offload udpv4_offload = {
- 	.callbacks = {
--		.gso_segment = udp4_ufo_fragment,
-+		.gso_segment = udp4_tunnel_segment,
- 		.gro_receive  =	udp4_gro_receive,
- 		.gro_complete =	udp4_gro_complete,
- 	},
-diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
-index a2267f8..455fd4e 100644
---- a/net/ipv6/udp_offload.c
-+++ b/net/ipv6/udp_offload.c
-@@ -17,109 +17,15 @@
- #include <net/ip6_checksum.h>
- #include "ip6_offload.h"
- 
--static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
--					 netdev_features_t features)
-+static struct sk_buff *udp6_tunnel_segment(struct sk_buff *skb,
-+					   netdev_features_t features)
- {
- 	struct sk_buff *segs = ERR_PTR(-EINVAL);
--	unsigned int mss;
--	unsigned int unfrag_ip6hlen, unfrag_len;
--	struct frag_hdr *fptr;
--	u8 *packet_start, *prevhdr;
--	u8 nexthdr;
--	u8 frag_hdr_sz = sizeof(struct frag_hdr);
--	__wsum csum;
--	int tnl_hlen;
--	int err;
--
--	mss = skb_shinfo(skb)->gso_size;
--	if (unlikely(skb->len <= mss))
--		goto out;
--
--	if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
--		/* Packet is from an untrusted source, reset gso_segs. */
--
--		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
--
--		/* Set the IPv6 fragment id if not set yet */
--		if (!skb_shinfo(skb)->ip6_frag_id)
--			ipv6_proxy_select_ident(dev_net(skb->dev), skb);
--
--		segs = NULL;
--		goto out;
--	}
- 
- 	if (skb->encapsulation && skb_shinfo(skb)->gso_type &
- 	    (SKB_GSO_UDP_TUNNEL|SKB_GSO_UDP_TUNNEL_CSUM))
- 		segs = skb_udp_tunnel_segment(skb, features, true);
--	else {
--		const struct ipv6hdr *ipv6h;
--		struct udphdr *uh;
--
--		if (!pskb_may_pull(skb, sizeof(struct udphdr)))
--			goto out;
--
--		/* Do software UFO. Complete and fill in the UDP checksum as HW cannot
--		 * do checksum of UDP packets sent as multiple IP fragments.
--		 */
--
--		uh = udp_hdr(skb);
--		ipv6h = ipv6_hdr(skb);
--
--		uh->check = 0;
--		csum = skb_checksum(skb, 0, skb->len, 0);
--		uh->check = udp_v6_check(skb->len, &ipv6h->saddr,
--					  &ipv6h->daddr, csum);
--		if (uh->check == 0)
--			uh->check = CSUM_MANGLED_0;
--
--		skb->ip_summed = CHECKSUM_NONE;
--
--		/* If there is no outer header we can fake a checksum offload
--		 * due to the fact that we have already done the checksum in
--		 * software prior to segmenting the frame.
--		 */
--		if (!skb->encap_hdr_csum)
--			features |= NETIF_F_HW_CSUM;
--
--		/* Check if there is enough headroom to insert fragment header. */
--		tnl_hlen = skb_tnl_header_len(skb);
--		if (skb->mac_header < (tnl_hlen + frag_hdr_sz)) {
--			if (gso_pskb_expand_head(skb, tnl_hlen + frag_hdr_sz))
--				goto out;
--		}
--
--		/* Find the unfragmentable header and shift it left by frag_hdr_sz
--		 * bytes to insert fragment header.
--		 */
--		err = ip6_find_1stfragopt(skb, &prevhdr);
--		if (err < 0)
--			return ERR_PTR(err);
--		unfrag_ip6hlen = err;
--		nexthdr = *prevhdr;
--		*prevhdr = NEXTHDR_FRAGMENT;
--		unfrag_len = (skb_network_header(skb) - skb_mac_header(skb)) +
--			     unfrag_ip6hlen + tnl_hlen;
--		packet_start = (u8 *) skb->head + SKB_GSO_CB(skb)->mac_offset;
--		memmove(packet_start-frag_hdr_sz, packet_start, unfrag_len);
--
--		SKB_GSO_CB(skb)->mac_offset -= frag_hdr_sz;
--		skb->mac_header -= frag_hdr_sz;
--		skb->network_header -= frag_hdr_sz;
--
--		fptr = (struct frag_hdr *)(skb_network_header(skb) + unfrag_ip6hlen);
--		fptr->nexthdr = nexthdr;
--		fptr->reserved = 0;
--		if (!skb_shinfo(skb)->ip6_frag_id)
--			ipv6_proxy_select_ident(dev_net(skb->dev), skb);
--		fptr->identification = skb_shinfo(skb)->ip6_frag_id;
--
--		/* Fragment the skb. ipv6 header and the remaining fields of the
--		 * fragment header are updated in ipv6_gso_segment()
--		 */
--		segs = skb_segment(skb, features);
--	}
- 
--out:
- 	return segs;
- }
- 
-@@ -169,7 +75,7 @@ static int udp6_gro_complete(struct sk_buff *skb, int nhoff)
- 
- static const struct net_offload udpv6_offload = {
- 	.callbacks = {
--		.gso_segment	=	udp6_ufo_fragment,
-+		.gso_segment	=	udp6_tunnel_segment,
- 		.gro_receive	=	udp6_gro_receive,
- 		.gro_complete	=	udp6_gro_complete,
- 	},
--- 
-2.9.4
+Thanks!
