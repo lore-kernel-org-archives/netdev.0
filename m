@@ -1,283 +1,146 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [RFC PATCH 12/12] xdp: bpf redirect with map sample program
-Date: Fri, 07 Jul 2017 10:38:42 -0700
-Message-ID: <20170707173842.9984.97233.stgit@john-Precision-Tower-5810>
-References: <20170707172115.9984.53461.stgit@john-Precision-Tower-5810>
-Mime-Version: 1.0
+From: Nadav Amit via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: [PATCH v3 net-next 02/12] bpf/verifier: rework
+ value tracking
+Date: Fri, 7 Jul 2017 10:45:18 -0700
+Message-ID: <3A96914E-3009-4E19-B138-7A636A76D9C8@gmail.com>
+References: <adc11342-737f-4e06-bce3-f0a92b5594a5@solarflare.com>
+	<2244b48b-f415-3239-6912-cb09f0abc546@solarflare.com>
+	<E65DE75F-FC5F-41BC-9F7B-C03D324D8C6F@gmail.com>
+	<abd3c014-f33a-6e86-aead-be38697a2cec@solarflare.com>
+Reply-To: Nadav Amit <nadav.amit-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, john.fastabend@gmail.com, andy@greyhouse.net,
-        daniel@iogearbox.net, ast@fb.com
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:35320 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750726AbdGGRi6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2017 13:38:58 -0400
-Received: by mail-pf0-f194.google.com with SMTP id q85so5410717pfq.2
-        for <netdev@vger.kernel.org>; Fri, 07 Jul 2017 10:38:58 -0700 (PDT)
-In-Reply-To: <20170707172115.9984.53461.stgit@john-Precision-Tower-5810>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: base64
+Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <abd3c014-f33a-6e86-aead-be38697a2cec-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: John Fastabend <john.fastabend@gmail.com>
-Tested-by: Andy Gospodarek <andy@greyhouse.net>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
----
- samples/bpf/Makefile                |    4 +
- samples/bpf/bpf_helpers.h           |    2 +
- samples/bpf/xdp_redirect_map_kern.c |   83 ++++++++++++++++++++++++++++
- samples/bpf/xdp_redirect_map_user.c |  105 +++++++++++++++++++++++++++++++++++
- 4 files changed, 194 insertions(+)
- create mode 100644 samples/bpf/xdp_redirect_map_kern.c
- create mode 100644 samples/bpf/xdp_redirect_map_user.c
-
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 99a5084..4615789 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -37,6 +37,7 @@ hostprogs-y += xdp_tx_iptunnel
- hostprogs-y += test_map_in_map
- hostprogs-y += per_socket_stats_example
- hostprogs-y += xdp_redirect
-+hostprogs-y += xdp_redirect_map
- 
- # Libbpf dependencies
- LIBBPF := ../../tools/lib/bpf/bpf.o
-@@ -78,6 +79,7 @@ xdp_tx_iptunnel-objs := bpf_load.o $(LIBBPF) xdp_tx_iptunnel_user.o
- test_map_in_map-objs := bpf_load.o $(LIBBPF) test_map_in_map_user.o
- per_socket_stats_example-objs := $(LIBBPF) cookie_uid_helper_example.o
- xdp_redirect-objs := bpf_load.o $(LIBBPF) xdp_redirect_user.o
-+xdp_redirect_map-objs := bpf_load.o $(LIBBPF) xdp_redirect_map_user.o
- 
- # Tell kbuild to always build the programs
- always := $(hostprogs-y)
-@@ -114,6 +116,7 @@ always += xdp_tx_iptunnel_kern.o
- always += test_map_in_map_kern.o
- always += cookie_uid_helper_example.o
- always += xdp_redirect_kern.o
-+always += xdp_redirect_map_kern.o
- 
- HOSTCFLAGS += -I$(objtree)/usr/include
- HOSTCFLAGS += -I$(srctree)/tools/lib/
-@@ -150,6 +153,7 @@ HOSTLOADLIBES_lwt_len_hist += -l elf
- HOSTLOADLIBES_xdp_tx_iptunnel += -lelf
- HOSTLOADLIBES_test_map_in_map += -lelf
- HOSTLOADLIBES_xdp_redirect += -lelf
-+HOSTLOADLIBES_xdp_redirect_map += -lelf
- 
- # Allows pointing LLC/CLANG to a LLVM backend with bpf support, redefine on cmdline:
- #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
-diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
-index f4840b8..6afdfd4 100644
---- a/samples/bpf/bpf_helpers.h
-+++ b/samples/bpf/bpf_helpers.h
-@@ -38,6 +38,8 @@ static int (*bpf_clone_redirect)(void *ctx, int ifindex, int flags) =
- 	(void *) BPF_FUNC_clone_redirect;
- static int (*bpf_redirect)(int ifindex, int flags) =
- 	(void *) BPF_FUNC_redirect;
-+static int (*bpf_redirect_map)(void *map, int key, int flags) =
-+	(void *) BPF_FUNC_redirect_map;
- static int (*bpf_perf_event_output)(void *ctx, void *map,
- 				    unsigned long long flags, void *data,
- 				    int size) =
-diff --git a/samples/bpf/xdp_redirect_map_kern.c b/samples/bpf/xdp_redirect_map_kern.c
-new file mode 100644
-index 0000000..2faf196
---- /dev/null
-+++ b/samples/bpf/xdp_redirect_map_kern.c
-@@ -0,0 +1,83 @@
-+/* Copyright (c) 2017 Covalent IO, Inc. http://covalent.io
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-+ * General Public License for more details.
-+ */
-+#define KBUILD_MODNAME "foo"
-+#include <uapi/linux/bpf.h>
-+#include <linux/in.h>
-+#include <linux/if_ether.h>
-+#include <linux/if_packet.h>
-+#include <linux/if_vlan.h>
-+#include <linux/ip.h>
-+#include <linux/ipv6.h>
-+#include "bpf_helpers.h"
-+
-+struct bpf_map_def SEC("maps") tx_port = {
-+	.type = BPF_MAP_TYPE_DEVMAP,
-+	.key_size = sizeof(int),
-+	.value_size = sizeof(int),
-+	.max_entries = 100,
-+};
-+
-+struct bpf_map_def SEC("maps") rxcnt = {
-+	.type = BPF_MAP_TYPE_PERCPU_ARRAY,
-+	.key_size = sizeof(u32),
-+	.value_size = sizeof(long),
-+	.max_entries = 1,
-+};
-+
-+
-+static void swap_src_dst_mac(void *data)
-+{
-+	unsigned short *p = data;
-+	unsigned short dst[3];
-+
-+	dst[0] = p[0];
-+	dst[1] = p[1];
-+	dst[2] = p[2];
-+	p[0] = p[3];
-+	p[1] = p[4];
-+	p[2] = p[5];
-+	p[3] = dst[0];
-+	p[4] = dst[1];
-+	p[5] = dst[2];
-+}
-+
-+SEC("xdp_redirect_map")
-+int xdp_redirect_map_prog(struct xdp_md *ctx)
-+{
-+	void *data_end = (void *)(long)ctx->data_end;
-+	void *data = (void *)(long)ctx->data;
-+	struct ethhdr *eth = data;
-+	int rc = XDP_DROP;
-+	int vport, port = 0, m = 0;
-+	long *value;
-+	u32 key = 0;
-+	u64 nh_off;
-+
-+	nh_off = sizeof(*eth);
-+	if (data + nh_off > data_end)
-+		return rc;
-+
-+	/* constant virtual port */
-+	vport = 0;
-+
-+	/* count packet in global counter */
-+	value = bpf_map_lookup_elem(&rxcnt, &key);
-+	if (value)
-+		*value += 1;
-+
-+	swap_src_dst_mac(data);
-+
-+	/* send packet out physical port */
-+	return bpf_redirect_map(&tx_port, vport, 0);
-+}
-+
-+char _license[] SEC("license") = "GPL";
-diff --git a/samples/bpf/xdp_redirect_map_user.c b/samples/bpf/xdp_redirect_map_user.c
-new file mode 100644
-index 0000000..0b8009a
---- /dev/null
-+++ b/samples/bpf/xdp_redirect_map_user.c
-@@ -0,0 +1,105 @@
-+/* Copyright (c) 2017 Covalent IO, Inc. http://covalent.io
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-+ * General Public License for more details.
-+ */
-+#include <linux/bpf.h>
-+#include <assert.h>
-+#include <errno.h>
-+#include <signal.h>
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <unistd.h>
-+
-+#include "bpf_load.h"
-+#include "bpf_util.h"
-+#include "libbpf.h"
-+
-+static int ifindex_in;
-+static int ifindex_out;
-+
-+static void int_exit(int sig)
-+{
-+	set_link_xdp_fd(ifindex_in, -1, 0);
-+	exit(0);
-+}
-+
-+/* simple per-protocol drop counter
-+ */
-+static void poll_stats(int interval, int ifindex)
-+{
-+	unsigned int nr_cpus = bpf_num_possible_cpus();
-+	__u64 values[nr_cpus], prev[nr_cpus];
-+
-+	memset(prev, 0, sizeof(prev));
-+
-+	while (1) {
-+		__u64 sum = 0;
-+		__u32 key = 0;
-+		int i;
-+
-+		sleep(interval);
-+		assert(bpf_map_lookup_elem(map_fd[1], &key, values) == 0);
-+		for (i = 0; i < nr_cpus; i++)
-+			sum += (values[i] - prev[i]);
-+		if (sum)
-+			printf("ifindex %i: %10llu pkt/s\n",
-+			       ifindex, sum / interval);
-+		memcpy(prev, values, sizeof(values));
-+	}
-+}
-+
-+int main(int ac, char **argv)
-+{
-+	char filename[256];
-+	int ret, key = 0;
-+
-+	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
-+
-+	if (ac != 3) {
-+		printf("usage: %s IFINDEX_IN IFINDEX_OUT\n", argv[0]);
-+		return 1;
-+	}
-+
-+	ifindex_in = strtoul(argv[1], NULL, 0);
-+	ifindex_out = strtoul(argv[2], NULL, 0);
-+
-+	if (load_bpf_file(filename)) {
-+		printf("%s", bpf_log_buf);
-+		return 1;
-+	}
-+
-+	if (!prog_fd[0]) {
-+		printf("load_bpf_file: %s\n", strerror(errno));
-+		return 1;
-+	}
-+
-+	signal(SIGINT, int_exit);
-+
-+	if (set_link_xdp_fd(ifindex_in, prog_fd[0], 0) < 0) {
-+		printf("link set xdp fd failed\n");
-+		return 1;
-+	}
-+
-+	printf("map[0] (vports) = %i, map[1] (map) = %i, map[2] (count) = %i\n",
-+		map_fd[0], map_fd[1], map_fd[2]);
-+
-+	/* populate virtual to physical port map */
-+	ret = bpf_map_update_elem(map_fd[0], &key, &ifindex_out, 0);
-+	if (ret) {
-+		perror("bpf_update_elem");
-+		goto out;
-+	}
-+
-+	poll_stats(2, ifindex_out);
-+
-+out:
-+	return 0;
-+}
+RWR3YXJkIENyZWUgPGVjcmVlQHNvbGFyZmxhcmUuY29tPiB3cm90ZToKCj4gT24gMDYvMDcvMTcg
+MjI6MjEsIE5hZGF2IEFtaXQgd3JvdGU6Cj4+IEkgZmluZCBpdCBhIGJpdCBzdXJwcmlzaW5nIHRo
+YXQgc3VjaCBodWdlIGNoYW5nZXMgdGhhdCBjYW4gYWZmZWN0IHNlY3VyaXR5Cj4+IGFuZCByb2J1
+c3RuZXNzIGFyZSBwZXJmb3JtZWQgaW4gb25lIHBhdGNoLgo+IEluIHRoZSBmaXJzdCB2ZXJzaW9u
+IG9mIHRoZSBzZXJpZXMsIHRoaXMgd2FzIHR3byBwYXRjaGVzLCB3aXRoICJmZWVkCj4gcG9pbnRl
+ci10by11bmtub3duLXNjYWxhciBjYXN0cyBpbnRvIHNjYWxhciBBTFUgcGF0aCIgc3BsaXQgb3V0
+IGZyb20gdGhlIHJlc3Q7Cj4gYnV0IHRoYXQganVzdCBjYXVzZWQgYSBsb3Qgb2YgY29kZSBtb3Zl
+bWVudCBhbmQgY29uZnVzaW5nIGRpZmZzLCBoZW5jZSB3aHkgSQo+IGZvbGRlZCBpdCBpbnRvIHRo
+ZSBzYW1lIHBhdGNoLgo+IEFzIGZvciB0aGUgcmVzdCBvZiBpdCwgSSdtIG5vdCBzdXJlIGl0IGNh
+biBiZSBzcGxpdCB1cDogSSdtIGNoYW5naW5nIHRoZQo+IGRlZmluaXRpb24gYW5kIHNlbWFudGlj
+cyBvZiBhIGNvcmUgZGF0YSBzdHJ1Y3R1cmUgKHN0cnVjdCBicGZfcmVnX3N0YXRlKQo+IGFuZCBJ
+IGRvbid0IHNlZSBhbnkgcmVhc29uYWJsZSBpbnRlcm1lZGlhdGUgc3RlcHMgdGhhdCB3b3VsZCBl
+dmVuIGNvbXBpbGUuCj4gRm9yIGluc3RhbmNlLCByZXBsYWNpbmcgcmVnLT5pbW0gKHdpdGggaXRz
+IHR3byBtZWFuaW5ncyBvZiAna25vd24gdmFsdWUnIG9yCj4gJ251bWJlciBvZiBsZWFkaW5nIHpl
+cm8gYml0cycpIHdpdGggcmVnLT52YXJfb2ZmIG5lY2Vzc2l0YXRlcyByZXBsYWNpbmcgYWxsCj4g
+dGhlIGFyaXRobWV0aWMtaGFuZGxpbmcgY29kZSAoZS5nLiBldmFsdWF0ZV9yZWdfaW1tX2FsdSgp
+KS4gIEJ1dCB0aGVuCj4gdmFyX29mZiBhbHNvIHJlcGxhY2VzIHJlZy0+YXV4X2FsaWduW19vZmZd
+LCBzbyBhbGwgdGhlIGFsaWdubWVudC1jaGVja2luZwo+IGNvZGUgaGFzIHRvIGNoYW5nZSBhcyB3
+ZWxsLiAgQW5kIGNoYW5naW5nIHdoYXQgcmVnaXN0ZXIgc3RhdGUgd2UgdHJhY2sKPiBtZWFucyB0
+aGF0IHRoZSBwcnVuaW5nIGNvZGUgKHN0YXRlc19lcXVhbCgpKSBoYXMgdG8gY2hhbmdlIHRvby4K
+PiBBcyBpdCBpcywgdGhpcyBwYXRjaCBsZWF2ZXMgc29tZSBzZWxmdGVzdHMgZmFpbGluZyBhbmQg
+aXQgdGFrZXMgX2Fub3RoZXJfCj4gYmlnIHBhdGNoICg0LzEyICJ0cmFjayBzaWduZWQgYW5kIHVu
+c2lnbmVkIG1pbi9tYXggdmFsdWVzIikgdG8gZ2V0IHRoZW0KPiBhbGwgdG8gcGFzcyBhZ2Fpbi4K
+ClRoYW5rcyBmb3IgeW91ciBwb2xpdGUgcmVzcG9uc2UgdG8gbXkgcmFudGluZ3MuIEkgZG8gdW5k
+ZXJzdGFuZCB0aGUKY29tcGxleGl0eSwgYW5kIEkgZGlkIG5vdCBsaWtlIHRoZSB0d28gbWVhbmlu
+Z3Mgb2YgcmVnLT5pbW0gZWl0aGVyIChpdCB0b29rCm1lIHNvbWUgdGltZSB0byB1bmRlcnN0YW5k
+IHRoZW0pLiBZZXQsIEkgcmVhbGx5IGRvdWJ0IGFueW9uZSBpcyBjYXBhYmxlIG9mCnJlYWxseSBy
+ZXZpZXdpbmcgc3VjaCBhIGJpZyBwYXRjaC4gTW9zdCBsaWtlbHkgcGVvcGxlIHdpbGwgbm90IGV2
+ZW4gc3RhcnQgb3IKcGljayB0byBzbWFsbCBkZXRhaWxzIHRoZXkga25vdyBvciBjYXJlIGFib3V0
+LgoKPj4gUGVyc29uYWxseSwgSSBjYW5ub3QgY29tcHJlaGVuZAo+PiBhbGwgb2YgdGhlc2UgY2hh
+bmdlcy4gSW4gYWRkaXRpb24sIEkgdGhpbmsgdGhhdCBpdCBpcyB2YWx1YWJsZSB0byBkZXNjcmli
+ZQo+PiBpbiBkZXRhaWwgdGhlIGJ1Z3MgdGhhdCB0aGUgcGF0Y2ggc29sdmVzIGFuZCB3aGVuIHRo
+ZXkgd2VyZSBpbnRyb2R1Y2VkLgo+IE1vc3RseSB0aGlzIHBhdGNoIHNlcmllcyBpc24ndCBhYm91
+dCBmaXhpbmcgYnVncyAoZXhjZXB0IHRob3NlIHdoaWNoIHdlcmUKPiBleHBvc2VkIHdoZW4gdGhl
+IGNoYW5nZXMgY2F1c2VkIHNvbWUgc2VsZnRlc3RzIHRvIGZhaWwpLiAgSW5zdGVhZCwgaXQncyBh
+Cj4gY29tYmluYXRpb24gb2YgcmVmYWN0b3JpbmcgYW5kIHVuaWZ5aW5nIHNvIHRoYXQgKGZvciBp
+bnN0YW5jZSkgdGhlIHJ1bGVzCj4gZm9yIHBvaW50ZXIgYXJpdGhtZXRpYyBhbmQgYWxpZ25tZW50
+IGNoZWNraW5nIGFyZSBhcyBzaW1pbGFyIGFzIHBvc3NpYmxlCj4gZm9yIGFsbCBwb2ludGVyIHR5
+cGVzIHJhdGhlciB0aGFuIGhhdmluZyBzcGVjaWFsLWNhc2UgcnVsZXMgZm9yIGVhY2ggdHlwZS4K
+PiBUaGlzIGFsbG93cyBtYW55IChjb3JyZWN0KSBwcm9ncmFtcyB3aGljaCB0aGUgdmVyaWZpZXIg
+d2lsbCBjdXJyZW50bHkKPiByZWplY3QsIGFuZCBtYWtlcyB0aGUgb3ZlcmFsbCBkZXNjcmlwdGlv
+biBvZiB0aGUgdmVyaWZpZXIncyBydWxlcyBtdWNoCj4gc2hvcnRlciBhbmQgc2ltcGxlci4gIEkg
+aGF2ZSB3cml0dGVuIGEgZG9jdW1lbnRhdGlvbiBwYXRjaCBleHBsYWluaW5nCj4gdGhlc2UgcnVs
+ZXMsIHdoaWNoIHRoZSBuZXh0IHZlcnNpb24gb2YgdGhlIHBhdGNoIHNlcmllcyB3aWxsIGluY2x1
+ZGUuCgpPay4gQnV0IEkgZG91YnQgaXQgaXMgYXMgdXNlZnVsIGFzIGNvbW1lbnRpbmcgaW4gdGhl
+IGNvZGUgb3Igd3JpdGluZyBpbiB0aGUKY29tbWl0IG1lc3NhZ2Ugd2hhdCBleGFjdGx5IGlzIGFk
+ZHJlc3NlZCBieSB0aGUgcGF0Y2guIEFuZCBkb2N1bWVudGF0aW9uCmRvZXMgbm90IHJlYWxseSBo
+ZWxwIG90aGVycyB0byByZWJhc2UgdGhlaXIgcGF0Y2hlcyBvbiB0b3Agb2YgeW91cnMuCgo+IFRo
+ZSBkaWZmIF9pc18gaGFyZCB0byByZWFkLCBJIGFjY2VwdCB0aGF0OyBJIHRoaW5rIGBkaWZmYCB3
+YXMgdG9vIGVhZ2VyIHRvCj4gaW50ZXJwb2xhdGUgYW5kIG1hdGNoIHNpbmdsZSBsaW5lcyBsaWtl
+ICd7JyBmcm9tIGNvbXBsZXRlbHkgdW5yZWxhdGVkCj4gZnVuY3Rpb25zLiAgSXQgbWlnaHQgYmUg
+ZWFzaWVyIHRvIGp1c3QgdHJ5IGFwcGx5aW5nIHRoZSBwYXRjaCB0byBhIHRyZWUKPiBhbmQgdGhl
+biByZWFkaW5nIHRoZSByZXN1bHQsIHJhdGhlciB0aGFuIHRyeWluZyB0byBpbnRlcnByZXQgdGhl
+IGRpZmYuCgpJIGRvbuKAmXQga25vdyB0byByZXZpZXcgcGF0Y2hlcyB0aGlzIHdheS4gSG9wZWZ1
+bGx5IG90aGVycyBkbywgYnV0IEkgZG91YnQgaXQuCgpGb3IgbWUgY2hhbmdlcyBzdWNoIGFzOgoK
+PiAJCWlmIChkc3RfcmVnLT5taW5fdmFsdWUgIT0gQlBGX1JFR0lTVEVSX01JTl9SQU5HRSkKPiAt
+CQkJZHN0X3JlZy0+bWluX3ZhbHVlIC09IG1pbl92YWw7Cj4gKwkJCWRzdF9yZWctPm1pbl92YWx1
+ZSAtPSBtYXhfdmFsOwoKCmFyZSBwdXJlbHkgY3J5cHRpYy4gV2hhdCBoYXBwZW5lZCBoZXJlPyBX
+YXMgdGhlcmUgYSBidWcgYmVmb3JlIGFuZCBpZiBzbwp3aGF0IGFyZSBpdHMgaW1wbGljYXRpb25z
+PyBXaHkgY2Fu4oCZdCBpdCBiZSBpbiBhIHNlcGFyYXRlIHBhdGNoPwoKSSBhbHNvIHRoaW5rIHRo
+YXQgY2hhbmdlcyBzdWNoIGFzOgo+IC0JczY0IG1pbl92YWx1ZTsKPiAtCXU2NCBtYXhfdmFsdWU7
+CltzbmlwXQo+ICsJczY0IG1pbl92YWx1ZTsgLyogbWluaW11bSBwb3NzaWJsZSAoczY0KXZhbHVl
+ICovCj4gKwl1NjQgbWF4X3ZhbHVlOyAvKiBtYXhpbXVtIHBvc3NpYmxlICh1NjQpdmFsdWUgKi8K
+ClNob3VsZCBoYXZlIGJlZW4gYXZvaWRlZC4gUGVyc29uYWxseSwgSSBmaW5kIHRoaXMgY29tbWVu
+dCByZWR1bmRhbnQgKHRvIHNheQp0aGUgbGVhc3QpLiBJdCBkb2VzIG5vdCBoZWxwIHRvIHJlZHVj
+ZSB0aGUgZGlmZiBzaXplLgoKSW4gdGhpcyByZWdhcmQsIEkgdGhpbmsgdGhhdCByZWZhY3Rvcmlu
+ZyBzaG91bGQgaGF2ZSBiZWVuIGRvbmUgZmlyc3QgYW5kIG5vdAp0b2dldGhlciB3aXRoIHRoZSBs
+b2dpYyBjaGFuZ2VzLiBBcyBhbm90aGVyIGV4YW1wbGUsIGNoYW5naW5nIFVOS05PV05fVkFMVUUK
+dG8gU0NBTEFSX1ZBTFVFIHNob3VsZCBoYXZlIGJlZW4gYSBzZXBhcmF0ZSwgZWFzeSB0byB1bmRl
+cnN0YW5kIHBhdGNoLgoKPj4gSSBjYW4gYnJpbmcgdXAgc29tZSBjb25jZXJucyByZWdhcmRpbmcg
+aW5jb25zaXN0ZW5jaWVzIGluIG9mZnNldCBjaGVja3MgYW5kCj4+IHNpemUsIG5vdCBzcGlsbGlu
+ZyBTQ0FMQVIgYW5kIG15IHdpc2ggbm90IHRvIGxpbWl0IHBhY2tldCBzaXplLiBIb3dldmVyLAo+
+PiB3aGVuIHRoZSBwYXRjaCBpcyB0aGF0IGJpZywgSSB0aGluayBpdCBpcyB1c2VsZXNzLgo+IFBs
+ZWFzZSwgZG8gZGVzY3JpYmUgdGhlc2UgY29uY2VybnM7IHdoYXQgaW5jb25zaXN0ZW5jaWVzIGRv
+IHlvdSBzZWU/Cj4gVGhlIG5vdCBzcGlsbGluZyBzY2FsYXJzLCBhbmQgdGhlIGxpbWl0IHRvIHBh
+Y2tldCBzaXplLCBhcmUgcmV0YWluZWQKPiBmcm9tIHRoZSBleGlzdGluZyBjb2RlIChpc19zcGls
+bGFibGVfcmVndHlwZSgpIGFuZCBNQVhfUEFDS0VUX09GRikuCj4gVGhlIGxhdHRlciBpcyBhbHNv
+IG5lZWRlZCBmb3IgY29ycmVjdG5lc3MgaW4gY29tcHV0aW5nIHJlZy0+cmFuZ2U7Cj4gaWYgJ3Br
+dF9wdHIgKyBvZmZzZXQnIGNvdWxkIGNvbmNlaXZhYmx5IG92ZXJmbG93LCB0aGVuIHRoZSByZXN1
+bHQKPiBjb3VsZCBiZSA8IHBrdF9lbmQgd2l0aG91dCBiZWluZyBhIHZhbGlkIHBvaW50ZXIgaW50
+byB0aGUgcGFja2V0Lgo+IFdlIHRodXMgcmVseSBvbiB0aGUgYXNzdW1wdGlvbiB0aGF0IHRoZSBw
+YWNrZXQgcG9pbnRlciB3aWxsIG5ldmVyIGJlCj4gd2l0aGluIE1BWF9QQUNLRVRfT0ZGIG9mIHRo
+ZSB0b3Agb2YgdGhlIGFkZHJlc3Mgc3BhY2UuICAoVGhpcwo+IGFzc3VtcHRpb24gaXMsIGFnYWlu
+LCBjYXJyaWVkIG92ZXIgZnJvbSB0aGUgZXhpc3RpbmcgdmVyaWZpZXIuKQoKSSB1bmRlcnN0YW5k
+IHRoZSBsaW1pdGF0aW9ucyAoSSB0aGluaykuIEkgYWdyZWUgdGhhdCBDT05TVCBiZWluZyBzcGls
+bGFibGUKaXMgbm90IGRpcmVjdGx5IHJlbGF0ZWQuIEFzIGZvciB0aGUgcG9zc2libGUgcGFja2V0
+IG9mZnNldHMvcmFuZ2U6CmludGVudGlvbmFsbHkgb3Igbm90IHlvdSBkbyBtYWtlIHNvbWUgY2hh
+bmdlcyB0aGF0IHB1c2ggdGhlIDY0ayBwYWNrZXQgc2l6ZQpsaW1pdCBldmVuIGRlZXBlciBpbnRv
+IHRoZSBjb2RlLiBXaGlsZSB0aGUgcGFja2V0IHNpemUgc2hvdWxkIGJlIGxpbWl0ZWQgdG8KYXZv
+aWQgb3ZlcmZsb3csIElJVUMgdGhlIHJlcXVpcmVtZW50IGlzIHRoYXQ6CgoJNjQgPiBsb2cobl9p
+bnNuKSArIGxvZyhNQVhfUEFDS0VUX09GRikgKyAxCgpTdWNoIGFuIGFzc2VydGlvbiBtYXkgYmUg
+c3RhdGljbHkgY2hlY2tlZCAodXNpbmcgQlVJTERfQlVHX09OKSwgYnV0IEkgZG9u4oCZdAp0aGlu
+ayBzaG91bGQgcHJvcGFnYXRlIGludG8gdGhlIGVudGlyZSBjb2RlLCBlc3BlY2lhbGx5IGluIGEg
+bm9uIGNvbnNpc3RlbnQKd2F5LiBGb3IgZXhhbXBsZToKCj4gc3RydWN0IGJwZl9yZWdfc3RhdGUg
+ewo+IAllbnVtIGJwZl9yZWdfdHlwZSB0eXBlOwo+IAl1bmlvbiB7Cj4gLQkJLyogdmFsaWQgd2hl
+biB0eXBlID09IENPTlNUX0lNTSB8IFBUUl9UT19TVEFDSyB8IFVOS05PV05fVkFMVUUgKi8KPiAt
+CQlzNjQgaW1tOwo+IC0KPiAtCQkvKiB2YWxpZCB3aGVuIHR5cGUgPT0gUFRSX1RPX1BBQ0tFVCog
+Ki8KPiAtCQlzdHJ1Y3Qgewo+IC0JCQl1MTYgb2ZmOwo+IC0JCQl1MTYgcmFuZ2U7Cj4gLQkJfTsK
+PiArCQkvKiB2YWxpZCB3aGVuIHR5cGUgPT0gUFRSX1RPX1BBQ0tFVCAqLwo+ICsJCXUzMiByYW5n
+ZTsKCkkgd291bGQgKHBlcnNvbmFsbHkpIHByZWZlciByYW5nZSAoYW5kIG9mZnNldHMpIHRvIGJl
+IHU2NC4gSSBjb3VsZAp1bmRlcnN0YW5kIGlmIHlvdSBsZWZ0IHRoZSByYW5nZSBhcyB1MTYgKHNp
+bmNlIHBhY2tldCBzaXplIGlzIGxpbWl0ZWQgdG8KNjRrKS4gQnV0IHdoeSB3b3VsZCBpdCBiZSB1
+MzI/CgpPcjoKPiAtCWlmIChvZmYgPCAwIHx8IHNpemUgPD0gMCB8fCBvZmYgKyBzaXplID4gcmVn
+LT5yYW5nZSkgewo+ICsJaWYgKG9mZiA8IDAgfHwgc2l6ZSA8PSAwIHx8IG9mZiA+IE1BWF9QQUNL
+RVRfT0ZGIHx8Cj4gKwkgICAgb2ZmICsgc2l6ZSA+IHJlZy0+cmFuZ2UpIHsKCldoeSBkb27igJl0
+IHlvdSBjaGVjayAob2ZmICsgc2l6ZSA+IG1heChNQVhfUEFDS0VUX09GRiwgcmVnLT5yYW5nZSkp
+PyBJcyB0aGVyZQphIHJlYXNvbiB5b3UgaWdub3JlIHNpemUgd2hlbiBjb21wYXJpbmcgdG8gTUFY
+X1BBQ0tFVF9PRkYgPwoKVW5mb3J0dW5hdGVseSwgSSBjb3VsZCBvbmx5IGxvb2sgYXQgY2hhbmdl
+cyB0aGF0IGRpcmVjdGx5IGNvbmNlcm4gbWUuIEFzIGZvcgp0aGUgc3R5bGUsIEkgYW0gbm90IGEg
+aHVnZSBmYW4gb2YgbmVzdGVkIG9yIG11bHRpcGxlIGlm4oCZcy4gU3dpdGNoZXMgYXJlCmVhc2ll
+ciB0byB1bmRlcnN0YW5kIChlLmcuLCBpbiBhZGp1c3RfcHRyX21pbl9tYXhfdmFscygpICkgYW5k
+IGFycmF5cyB3aXRoCmZsYWdzICh3aXRoIGluZm9ybWF0aW9uIHBlciBpbnN0cnVjdGlvbiBvciBy
+ZWdpc3Rlci10eXBlKSBtYXkgYmUgZXZlbgpiZXR0ZXIuCgpOYWRhdgoKX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KaW92aXNvci1kZXYgbWFpbGluZyBsaXN0
+Cmlvdmlzb3ItZGV2QGxpc3RzLmlvdmlzb3Iub3JnCmh0dHBzOi8vbGlzdHMuaW92aXNvci5vcmcv
+bWFpbG1hbi9saXN0aW5mby9pb3Zpc29yLWRldgo=
