@@ -1,68 +1,64 @@
-From: Dave Olson <olson@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 1/3] net: ethtool: add support for forward error
- correction modes
-Date: Thu, 6 Jul 2017 18:38:31 -0700
-Message-ID: <20170707013831.GB26681@cumulusnetworks.com>
-References: <20170628214751.shjgnh2mv7ihgcum@cumulusnetworks.com>
- <20170628180008.42059797@cakuba.netronome.com>
- <MWHPR12MB1600E8A9A46A5BDF57E8B324C8D50@MWHPR12MB1600.namprd12.prod.outlook.com>
- <20170706120214.6076be46@cakuba.netronome.com>
- <MWHPR12MB16008B0A63E099591C26C7E8C8D50@MWHPR12MB1600.namprd12.prod.outlook.com>
- <20170706223324.GA24237@lunn.ch>
- <MWHPR12MB1600B8ECA4222A062CDC71C0C8D50@MWHPR12MB1600.namprd12.prod.outlook.com>
- <20170706231550.GC24237@lunn.ch>
- <MWHPR12MB16009D656DD4408DE4429274C8D50@MWHPR12MB1600.namprd12.prod.outlook.com>
- <20170707005601.GG8810@lunn.ch>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH v2] arm: eBPF JIT compiler
+Date: Thu, 6 Jul 2017 21:42:12 -0700
+Message-ID: <CAGXu5j+yfOFU2xULwkQmp0Jz5pzLiurRSQ14kwGetBycdgF0Hg@mail.gmail.com>
+References: <1495754003-21099-1-git-send-email-illusionist.neo@gmail.com>
+ <CAGXu5jKmLNMR+uhM9Ov2XPW6kCjip_SjScgEH0fTFp6fQtKFiA@mail.gmail.com>
+ <593E6B0F.8070901@iogearbox.net> <CAHgaXd+DW2bggto=2S9hOdMrtPTvhD2QN4rPf2V8iHewQpg-YA@mail.gmail.com>
+ <CAHgaXdJrvKdzr3fJ1TMkC4foeVsZJDSVEwhDOeZGxQVsmoK2cQ@mail.gmail.com>
+ <59419D1E.2060303@iogearbox.net> <CAHgaXdKMbFPgy-kKF0iDSAYo4CqLn9FRu9HwM+OfM-JWb9fNRQ@mail.gmail.com>
+ <594813AA.5010001@iogearbox.net> <CAHgaXdLtX6yLdU3bMvS=g8FZ79sM_BW_+hHTMH=Mfk4TZqUnpw@mail.gmail.com>
+ <59495367.3080402@iogearbox.net> <CAHgaXdKGJFh8jO44gwCqe0cijoztf39bK9k8ioBtYDjzb4vvZw@mail.gmail.com>
+ <594A9FA5.1080003@iogearbox.net> <CAHgaXdKCOM++jdoaq9PV6a_bbRU+VyuLC4KeUdYmA0gYdhmhkQ@mail.gmail.com>
+ <CAGXu5jJujrx3d+qM-50f1UCVxZopWzLCTJQpw3KWh+o4Nq9JOg@mail.gmail.com>
+ <CAGXu5jJnGfmDYcistcx-o3MmKaB1vn8Fav62JURk9epYEOiTRA@mail.gmail.com> <CAHgaXd+ywWu6PjnqGGdyw=7=XTKm4_Ny227Eq7yH5N0s0e5YfA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Casey Leedom <leedom@chelsio.com>, Jakub Kicinski <kubakici@wp.pl>,
-        Dustin Byford <dustin@cumulusnetworks.com>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "linville@tuxdriver.com" <linville@tuxdriver.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "vidya.chowdary@gmail.com" <vidya.chowdary@gmail.com>,
-        Manoj Malviya <manojmalviya@chelsio.com>,
-        Santosh Rastapur <santosh@chelsio.com>,
-        "yuval.mintz@qlogic.com" <yuval.mintz@qlogic.com>,
-        "odedw@mellanox.com" <odedw@mellanox.com>,
-        "ariela@mellanox.com" <ariela@mellanox.com>,
-        "galp@mellanox.com" <galp@mellanox.com>,
-        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:33539 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753177AbdGGBif (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2017 21:38:35 -0400
-Received: by mail-pf0-f172.google.com with SMTP id e7so9294682pfk.0
-        for <netdev@vger.kernel.org>; Thu, 06 Jul 2017 18:38:35 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170707005601.GG8810@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Network Development <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Russell King <linux@armlinux.org.uk>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        LKML <linux-kernel@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: Shubham Bansal <illusionist.neo@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHgaXd+ywWu6PjnqGGdyw=7=XTKm4_Ny227Eq7yH5N0s0e5YfA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Andrew Lunn <andrew@lunn.ch> wrote:
-> And when we are talking about SFP modules, we are not talking about
-> somebody who can just about boiling an egg and put bread in the
-> toaster.
-> 
-> Anybody using these SFP modules knows a lot about networking, is a
-> power user, and probably does not rely on plug and pray.
+On Wed, Jul 5, 2017 at 8:49 PM, Shubham Bansal
+<illusionist.neo@gmail.com> wrote:
+> Hi Kees,
+>
+> Problem is my ARM machine don't have clang and iproute2 which is
+> keeping me from testing the bpf tail calls.
+>
+> You should do the following to test it,.
+>
+> 1. tools/testing/selftests/bpf/
+> 2. make
+> 3. sudo ./test_progs
+>
+> And, before testing, you have to do "make headers_install".
+> These tests are for tail calls with the attached patch. If its too
+> much work, Can you please upload your arm image so that I can test it?
+> I just need a good machine.
 
-We have strong evidence that this is not the case with many system and
-network admins...
+I've got all this set up now, and it faults during the test:
 
-Casey is right; the simplest mental model for end-users that can be
-made to work reasonably is the best answer.
+Unable to handle kernel NULL pointer dereference at virtual address 00000008
+...
+CPU: 0 PID: 1922 Comm: test_progs Not tainted 4.12.0+ #60
+...
+PC is at __htab_map_lookup_elem+0x54/0x1f4
 
-And from a user perspective, that means (to me, from watching customer
-cases), keeping the customers settings if at all possible, and spitting
-out warnings and errors when it can't work.
+I'll see if I can send you this disk image...
 
-As Casey keeps saying, there is no model that will work in all (or even
-most) of the interesting use cases, where cables can change with some
-frequency, especially when there are lots of ports (as on switches).
+-Kees
 
-Dave Olson
-olson@cumulusnetworks.com
+
+-- 
+Kees Cook
+Pixel Security
