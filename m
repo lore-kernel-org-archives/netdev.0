@@ -1,74 +1,103 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: ath10k: ret used but uninitialized
-Date: Fri, 7 Jul 2017 10:04:24 +0000
-Message-ID: <87bmowd0mh.fsf@kamboji.qca.qualcomm.com>
-References: <CAMuHMdWVYA4TejcTjOQh7CBfFwJ=q59pzvuHrpH91Kx=-BK9fg@mail.gmail.com>
-        <c72d2e7a-195d-bcac-4ce5-f3051531664c@gmail.com>
+From: Ingo Molnar <mingo@kernel.org>
+Subject: Re: [PATCH v2 0/9] Remove spin_unlock_wait()
+Date: Fri, 7 Jul 2017 12:33:49 +0200
+Message-ID: <20170707103349.yohrygljglwx6qn2@gmail.com>
+References: <20170629235918.GA6445@linux.vnet.ibm.com>
+ <20170705232955.GA15992@linux.vnet.ibm.com>
+ <063D6719AE5E284EB5DD2968C1650D6DD0033F01@AcuExch.aculab.com>
+ <20170706160555.xc63yydk77gmttae@hirez.programming.kicks-ass.net>
+ <20170706162024.GD2393@linux.vnet.ibm.com>
+ <20170706165036.v4u5rbz56si4emw5@hirez.programming.kicks-ass.net>
+ <20170707083128.wqk6msuuhtyykhpu@gmail.com>
+ <20170707084427.vdsmwkgqx6uvg7tw@hirez.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
-        Arnd Bergmann <arnd@arndb.de>,
-        "ath10k@lists.infradead.org" <ath10k@lists.infradead.org>,
-        linux-wireless <linux-wireless@vger.kernel.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+        David Laight <David.Laight@ACULAB.COM>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Erik Stromdahl <erik.stromdahl@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <c72d2e7a-195d-bcac-4ce5-f3051531664c@gmail.com> (Erik
-        Stromdahl's message of "Thu, 6 Jul 2017 22:01:57 +0200")
-Content-Language: en-US
-Content-ID: <3A66E09684FF0242BCD94863EA28B1E8@qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+        "oleg@redhat.com" <oleg@redhat.com>,
+        "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+        "mingo@redhat.com" <mingo@redhat.com>,
+        "dave@stgolabs.net" <dave@stgolabs.net>,
+        "manfred@colorfullife.com" <manfred@colorfullife.com>,
+        "tj@kernel.org" <tj@kernel.org>, "arnd@arndb.de" <arnd@arndb.de>,
+        "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
+        "will.deacon@arm.com" <will.deacon@arm.com>,
+        "stern@rowland.harvard.edu" <stern@rowland.harvard.edu>,
+        "parri.andrea@gmail.com" <parri.andrea@gmail.com>,
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-arch-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170707084427.vdsmwkgqx6uvg7tw@hirez.programming.kicks-ass.net>
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RXJpayBTdHJvbWRhaGwgPGVyaWsuc3Ryb21kYWhsQGdtYWlsLmNvbT4gd3JpdGVzOg0KDQo+PiBX
-aXRoIGdjYyA0LjEuMjoNCj4+DQo+PiBkcml2ZXJzL25ldC93aXJlbGVzcy9hdGgvYXRoMTBrL3Nk
-aW8uYzogSW4gZnVuY3Rpb24NCj4+IOKAmGF0aDEwa19zZGlvX21ib3hfcnhtc2dfcGVuZGluZ19o
-YW5kbGVy4oCZOg0KPj4gZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDEway9zZGlvLmM6Njc2
-OiB3YXJuaW5nOiDigJhyZXTigJkgbWF5IGJlIHVzZWQNCj4+IHVuaW5pdGlhbGl6ZWQgaW4gdGhp
-cyBmdW5jdGlvbg0KPj4NCj4+PiArDQo+Pj4gKyAgICAgICAqZG9uZSA9IHRydWU7DQo+Pj4gKw0K
-Pj4+ICsgICAgICAgLyogQ29weSB0aGUgbG9va2FoZWFkIG9idGFpbmVkIGZyb20gdGhlIEhUQyBy
-ZWdpc3RlciB0YWJsZSBpbnRvIG91cg0KPj4+ICsgICAgICAgICogdGVtcCBhcnJheSBhcyBhIHN0
-YXJ0IHZhbHVlLg0KPj4+ICsgICAgICAgICovDQo+Pj4gKyAgICAgICBsb29rYWhlYWRzWzBdID0g
-bXNnX2xvb2thaGVhZDsNCj4+PiArDQo+Pj4gKyAgICAgICB0aW1lb3V0ID0gamlmZmllcyArIFNE
-SU9fTUJPWF9QUk9DRVNTSU5HX1RJTUVPVVRfSFo7DQo+Pg0KPj4gQWx0aG91Z2ggdmVyeSB1bmxp
-a2VseSBkdWUgdG8gdGhlIGxvbmcgdGltZW91dCwgaWYgdGhlIGNvZGUgaXMgcHJlZW1wdGVkIGhl
-cmUsDQo+PiBhbmQgdGhlIGxvb3AgYmVsb3cgbmV2ZXIgZW50ZXJlZCwgcmV0IHdpbGwgaW5kZWVk
-IGJlIHVuaW5pdGlhbGl6ZWQuDQo+Pg0KPj4gSXQncyB1bmNsZWFyIHRvIG1lIHdoYXQgdGhlIHBy
-b3BlciBpbml0aWFsaXphdGlvbiB3b3VsZCBiZSwgdGhvdWdoLCBzbw0KPj4gdGhhdCdzIHdoeSBJ
-IGRpZG4ndCBzZW5kIGEgcGF0Y2guDQo+Pg0KPiBJIHRoaW5rIGl0IHdvdWxkIGJlIGJlc3QgdG8g
-dXNlIDAgYXMgaW5pdGlhbCB2YWx1ZSBvZiByZXQgaW4gdGhpcyBjYXNlLg0KPiBUaGlzIHdpbGwg
-bWFrZSBhbGwgb3RoZXIgaW50ZXJydXB0cyBiZSBwcm9jZXNzZWQgaW4gYSBub3JtYWwgd2F5Lg0K
-Pg0KPiBLYWxsZTogU2hvdWxkIEkgY3JlYXRlIGEgbmV3IHBhdGNoIChpbml0aWFsaXppbmcgcmV0
-IHdpdGggemVybyk/DQoNClllcywgcGxlYXNlIHNlbmQgYSBuZXcgcGF0Y2ggZml4aW5nIHRoaXMu
-DQoNCkJ1dCBJIGRvbid0IGxpa2UgdGhhdCBtdWNoIHdpdGggdGhlIHN0eWxlIG9mIGluaXRpYWxp
-c2luZyByZXQgdG8gemVybywNCml0IHRlbmRzIHRvIGhpZGUgdGhpbmdzLiBJbnN0ZWFkIG15IHBy
-ZWZlcmVuY2UgaXMgc29tZXRoaW5nIGxpa2UgYmVsb3cNCndoZXJlIHRoZSBlcnJvciBoYW5kbGlu
-ZyBpcyBtb3JlIGV4cGxpY2l0IGFuZCBlYXNpZXIgdG8gZmluZCB3aGVyZSBpdCdzDQpleGFjdGx5
-IGZhaWxpbmcuIEJ1dCB0aGF0J3MganVzdCBhbiBleGFtcGxlIGhvdyBJIHdvdWxkIHRyeSB0byBz
-b2x2ZSBpdCwNCml0IHN0aWxsIGxhY2tzIHRoZSBoYW5kbGluZyBvZiAtRUNBTkNFTCBldGMuDQoN
-CmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC93aXJlbGVzcy9hdGgvYXRoMTBrL3NkaW8uYyBiL2Ry
-aXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGgxMGsvc2Rpby5jDQppbmRleCA4NTllZDg3MGJkOTcu
-LjE5YTUzZTU3NzkzMiAxMDA2NDQNCi0tLSBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGgx
-MGsvc2Rpby5jDQorKysgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9hdGgvYXRoMTBrL3NkaW8uYw0K
-QEAgLTY4OSw4ICs2ODksMTAgQEAgc3RhdGljIGludCBhdGgxMGtfc2Rpb19tYm94X3J4bXNnX3Bl
-bmRpbmdfaGFuZGxlcihzdHJ1Y3QgYXRoMTBrICphciwNCiAJCSAqLw0KIAkJcmV0ID0gYXRoMTBr
-X3NkaW9fbWJveF9yeF9hbGxvYyhhciwgbG9va2FoZWFkcywNCiAJCQkJCQluX2xvb2thaGVhZHMp
-Ow0KLQkJaWYgKHJldCkNCi0JCQlicmVhazsNCisJCWlmIChyZXQpIHsNCisJCQlhdGgxMGtfd2Fy
-bihhciwgImZhaWxlZCB0byAuLi4uOiAlZCIsIHJldCk7DQorCQkJcmV0dXJuIHJldDsNCisJCX0N
-CiANCiAJCWlmIChhcl9zZGlvLT5uX3J4X3BrdHMgPj0gMikNCiAJCQkvKiBBIHJlY3YgYnVuZGxl
-IHdhcyBkZXRlY3RlZCwgZm9yY2UgSVJRIHN0YXR1cw0KQEAgLTcwOSw4ICs3MTEsMTAgQEAgc3Rh
-dGljIGludCBhdGgxMGtfc2Rpb19tYm94X3J4bXNnX3BlbmRpbmdfaGFuZGxlcihzdHJ1Y3QgYXRo
-MTBrICphciwNCiAJCQkJCQkJICBsb29rYWhlYWRzLA0KIAkJCQkJCQkgICZuX2xvb2thaGVhZHMp
-Ow0KIA0KLQkJaWYgKCFuX2xvb2thaGVhZHMgfHwgcmV0KQ0KLQkJCWJyZWFrOw0KKwkJaWYgKCFu
-X2xvb2thaGVhZHMgfHwgcmV0KSB7DQorCQkJYXRoMTBrX3dhcm4oYXIsICJmYWlsZWQgdG8gLi4u
-LiIpOw0KKwkJCXJldHVybiByZXQ7DQorCQl9DQogDQogCQkvKiBGb3IgU1lOQ0ggcHJvY2Vzc2lu
-ZywgaWYgd2UgZ2V0IGhlcmUsIHdlIGFyZSBydW5uaW5nDQogCQkgKiB0aHJvdWdoIHRoZSBsb29w
-IGFnYWluIGR1ZSB0byB1cGRhdGVkIGxvb2thaGVhZHMuIFNldA0KQEAgLTcyMSwxMSArNzI1LDcg
-QEAgc3RhdGljIGludCBhdGgxMGtfc2Rpb19tYm94X3J4bXNnX3BlbmRpbmdfaGFuZGxlcihzdHJ1
-Y3QgYXRoMTBrICphciwNCiAJCSpkb25lID0gZmFsc2U7DQogCX0NCiANCi0JaWYgKHJldCAmJiAo
-cmV0ICE9IC1FQ0FOQ0VMRUQpKQ0KLQkJYXRoMTBrX3dhcm4oYXIsICJmYWlsZWQgdG8gZ2V0IHBl
-bmRpbmcgcmVjdiBtZXNzYWdlczogJWRcbiIsDQotCQkJICAgIHJldCk7DQotDQotCXJldHVybiBy
-ZXQ7DQorCXJldHVybiAwOw0KIH0NCiANCiBzdGF0aWMgaW50IGF0aDEwa19zZGlvX21ib3hfcHJv
-Y19kYmdfaW50cihzdHJ1Y3QgYXRoMTBrICphcikNCg0KDQotLSANCkthbGxlIFZhbG8=
+
+* Peter Zijlstra <peterz@infradead.org> wrote:
+
+> You missed the one in do_exit(), which I thought was the original one.
+
+Indeed, it's raw_spin_unlock_wait() which my git grep pattern missed.
+
+But it's not the original spin_unlock_wait(): the pi_lock and priority inheritance 
+is a newfangled invention that Linus (rightfully) resisted for years.
+
+The original spin_unlock_wait() was for the global scheduler_lock, long gone.
+
+Here's the full history of the original spin_unlock_wait() usecase in the 
+do_exit() path, for the historically interested:
+
+ [1997/04] v2.1.36:
+
+      the spin_unlock_wait() primitive gets introduced as part of release()
+
+ [1998/08] v2.1.114:
+
+      the release() usecase gets converted to an open coded spin_lock()+unlock() 
+      poll loop over scheduler_lock
+
+ [1999/05] v2.3.11pre3:
+
+      open coded loop is changed over to poll p->has_cpu
+
+ [1999/07] v2.3.12pre6:
+
+      ->has_cpu loop poll loop is converted to a spin_lock()+unlock() 
+      poll loop over runqueue_lock
+
+ [2000/06] 2.4.0-test6pre4:
+
+      combined open coded p->has_cpu poll loop is added back, in addition to the
+      lock()+unlock() loop
+
+ [2000/11] 2.4.0-test12pre4:
+
+      lock+unlock loop is changed from scheduler_lock to task_lock
+
+ [2001/11] v2.4.14.9:
+
+       ->has_cpu gets renamed to ->cpus_runnable
+
+ [2001/12] v2.5.1.10:
+
+       poll loop is factored out from exit()'s release() function 
+       to the scheduler's new wait_task_inactive() function
+
+ ...
+
+ [2017/07] v4.12:
+
+      wait_task_inactive() is still alive and kicking. Its poll loop has
+      increased in complexity, but it still does not use spin_unlock_wait()
+
+So it was always a mess, and we relatively early flipped from the clever 
+spin_unlock_wait() implementation to an open coded lock+unlock poll loop.
+
+TL;DR: The original do_exit() usecase is gone, it does not use spin_unlock_wait(),
+       since 1998.
+
+Thanks,
+
+	Ingo
