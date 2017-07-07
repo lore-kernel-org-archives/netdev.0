@@ -1,81 +1,50 @@
-From: Ingo Molnar <mingo@kernel.org>
-Subject: Re: [PATCH v2 0/9] Remove spin_unlock_wait()
-Date: Fri, 7 Jul 2017 11:32:49 +0200
-Message-ID: <20170707093249.3pskpxhf3ozfhrsr@gmail.com>
-References: <20170629235918.GA6445@linux.vnet.ibm.com>
- <20170705232955.GA15992@linux.vnet.ibm.com>
- <063D6719AE5E284EB5DD2968C1650D6DD0033F01@AcuExch.aculab.com>
- <20170706160555.xc63yydk77gmttae@hirez.programming.kicks-ass.net>
- <20170707080621.dmhw2ryes7n3kgag@gmail.com>
+From: "Robert Kim" <""@unhas.ac.id>
+Subject: Salutation from London
+Date: Fri, 07 Jul 2017 10:39:38 +0100
+Message-ID: <20170707093939.D2D4D60144@mail.unhas.ac.id>
+Reply-To: frankfltd@yahoo.co.uk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Laight <David.Laight@ACULAB.COM>,
-        "'paulmck@linux.vnet.ibm.com'" <paulmck@linux.vnet.ibm.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "oleg@redhat.com" <oleg@redhat.com>,
-        "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-        "mingo@redhat.com" <mingo@redhat.com>,
-        "dave@stgolabs.net" <dave@stgolabs.net>,
-        "manfred@colorfullife.com" <manfred@colorfullife.com>,
-        "tj@kernel.org" <tj@kernel.org>, "arnd@arndb.de" <arnd@arndb.de>,
-        "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
-        "will.deacon@arm.com" <will.deacon@arm.com>,
-        "stern@rowland.harvard.edu" <stern@rowland.harvard.edu>,
-        "parri.andrea@gmail.com" <parri.andrea@gmail
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170707080621.dmhw2ryes7n3kgag@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.unhas.ac.id ([103.195.142.4]:53505 "EHLO mail.unhas.ac.id"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750768AbdGGJjm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 7 Jul 2017 05:39:42 -0400
+Received: from localhost (localhost [127.0.0.1])
+        by mail.unhas.ac.id (Postfix) with ESMTP id D2D4D60144
+        for <netdev@vger.kernel.org>; Fri,  7 Jul 2017 17:39:39 +0800 (WITA)
+Received: from mail.unhas.ac.id ([127.0.0.1])
+        by localhost (mail.unhas.ac.id [127.0.0.1]) (amavisd-new, port 10024)
+        with ESMTP id XmJjRzL+-GGM for <netdev@vger.kernel.org>;
+        Fri,  7 Jul 2017 17:39:39 +0800 (WITA)
+Received: from [192.168.8.100] (unknown [197.211.56.41])
+        by mail.unhas.ac.id (Postfix) with ESMTPA id 66C6660146
+        for <netdev@vger.kernel.org>; Fri,  7 Jul 2017 17:39:34 +0800 (WITA)
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Good Day,
+ =
 
-* Ingo Molnar <mingo@kernel.org> wrote:
+Please Whoever this email meets, i need your co-operation and to introduce =
+myself I am Robert Kim and i work with an intermediary bank. i discovered f=
+rom my bank data assessment as the bank auditor general that a deceased cus=
+tomer left in one of his accounts GBP15,000,000.00 and no one is aware of t=
+his for the past 7 years and eight months . I am in search of anyone who  c=
+an allow me file in His/Her name as the benefactor/Next of Kin to receive t=
+his money with 100 percent risk free after which we can split the money 50/=
+40 and then 10% goes to the lawyer who would be handling the affairs .I awa=
+it your response with the following information..........
+1. Full name and address
+2. Occupation
+3. Telephone
+4. ID
+ =
 
-> 
-> * Peter Zijlstra <peterz@infradead.org> wrote:
-> 
-> > > It might even be that this is the defined semantics of spin_unlock_wait().
-> > 
-> > As is, spin_unlock_wait() is somewhat ill defined. IIRC it grew from an 
-> > optimization by Oleg and subsequently got used elsewhere. And it being the 
-> > subtle bugger it is, there were bugs.
-> 
-> I believe the historical, original spin_unlock_wait() came from early SMP 
-> optimizations of the networking code - and then spread elsewhere, step by step. 
-> All but one of the networking uses went away since then - so I don't think there's 
-> any original usecase left.
+Kind Regards
+Robert Kim
 
-No - the original usecase was task teardown: I still remembered that but didn't 
-find the commit - but it's there in very old Linux kernel patches, done by DaveM 
-originally in v2.1.36 (!):
-
---- a/kernel/exit.c
-+++ b/kernel/exit.c
-@@ -136,6 +136,12 @@ void release(struct task_struct * p)
-        }
-        for (i=1 ; i<NR_TASKS ; i++)
-                if (task[i] == p) {
-+#ifdef __SMP__
-+                       /* FIXME! Cheesy, but kills the window... -DaveM */
-+                       while(p->processor != NO_PROC_ID)
-+                               barrier();
-+                       spin_unlock_wait(&scheduler_lock);
-+#endif
-
-
-Other code learned to use spin_unlock_wait(): the original version of 
-[hard]irq_enter() was the second user, net_family_read_lock() was the third user, 
-followed by more uses in networking. All but one of those are not present in the 
-current upstream kernel anymore.
-
-This task-teardown FIXME was fixed in v2.1.114 (was replaced by an open coded poll 
-loop), but the spin_unlock_wait() primitive remained.
-
-The rest is history! ;-)
-
-Thanks,
-
-	Ingo
+=20
