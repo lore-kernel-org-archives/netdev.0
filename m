@@ -1,127 +1,75 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH 2/2 net-next] net: stmmac: Improve documentation on AVB
- parameters
-Date: Fri, 7 Jul 2017 09:54:00 +0100
-Message-ID: <ef7452a9-e69d-a31c-347e-edc3be42a7ef@synopsys.com>
-References: <014297b3b5a1654eda19f099082d04b79a98b16a.1496944749.git.jpinto@synopsys.com>
- <95bf7beef1abfb3c140ef56a8f59374bf6513496.1496944749.git.jpinto@synopsys.com>
- <188848c4-7159-55b2-07b2-0f8c1391a484@st.com>
- <5ad94eb2-3379-a417-1cba-0c4f2e83274e@synopsys.com>
- <daf9552c-19df-6581-17e6-fd683d0c185c@st.com>
+From: Daniel Borkmann via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: [PATCH v3 net-next 00/12] bpf: rewrite value
+	tracking in verifier
+Date: Fri, 07 Jul 2017 11:14:27 +0200
+Message-ID: <595F50F3.2030008@iogearbox.net>
+References: <adc11342-737f-4e06-bce3-f0a92b5594a5@solarflare.com>
+	<5953B436.6030506@iogearbox.net>
+	<788035e1-1974-b48e-3008-d294194a8b05@solarflare.com>
+	<595413AA.40502@iogearbox.net>
+	<20170628213701.32krfuipzngsmt4k@ast-mbp>
+	<91267d15-652a-16d9-4ee9-42958bd842aa@solarflare.com>
+	<ff1ef3ef-71ef-4c23-ede4-b8caeac561ee@fb.com>
+	<5fa61129-fa82-1607-3363-dfad86aecf1e@solarflare.com>
+	<595C1685.4060209@iogearbox.net>
+	<54b95191-697d-6b15-ec39-438c85e08adc@solarflare.com>
+Reply-To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: <netdev@vger.kernel.org>, <alexandre.torgue@st.com>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from us01smtprelay-2.synopsys.com ([198.182.60.111]:46370 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751834AbdGGIy1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2017 04:54:27 -0400
-In-Reply-To: <daf9552c-19df-6581-17e6-fd683d0c185c@st.com>
-Content-Language: pt-PT
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>,
+	Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <54b95191-697d-6b15-ec39-438c85e08adc-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On 07/06/2017 08:27 PM, Edward Cree wrote:
+> On 04/07/17 23:28, Daniel Borkmann wrote:
+>> Have you tried with cilium's BPF code? The kernel selftests are quite small,
+>> so not really pushing processed insns too far. I can send you a BPF obj file
+>> if that's easier for testing.
+> Results from the next (in-progress) version of the patch series, with the
+>   'id' bugfix I mentioned in my other mail, and rebased onto an updated
+>   net-next (0e72582).  Numbers collected with:
+> # tc filter add dev lo egress bpf da obj /path/to/bpf_object.o sec $section verb 2>&1 | grep "processed" | awk -e 'BEGIN { N = 0; }' -e '{ N += $2; }' -e 'END { print N; }'
+>
+> Program                net-next   short    full
+> bpf_lb_opt_-DLB_L3.o       4707    5872    6515
+> bpf_lb_opt_-DLB_L4.o       7662    8652    8976
+> bpf_lb_opt_-DUNKNOWN.o      727    2972    2960
+> bpf_lxc_opt_-DDROP_ALL.o  57725   85750   95412
+> bpf_lxc_opt_-DUNKNOWN.o   93676  134043  141706
+> bpf_netdev.o              14702   24665   24251
+> bpf_overlay.o              7303   10939   10999
+>
+> Conclusion: the ptr&const and full-range min/max tracking make little
+>   difference (10% increase at most, sometimes a decrease); most of the
+>   increase comes from the basic "replace imm and aux_off/align with tnums"
+>   patch.
 
-Hi Peppe,
+Okay, thanks for the analysis, Edward.
 
-Às 8:09 AM de 7/7/2017, Giuseppe CAVALLARO escreveu:
-> Hi Joao
-> 
-> On 7/5/2017 12:34 PM, Joao Pinto wrote:
->> Hi Peppe,
->>
->> Às 8:10 AM de 6/9/2017, Giuseppe CAVALLARO escreveu:
->>> Hi Joao
->>>
->>> On 6/8/2017 8:02 PM, Joao Pinto wrote:
->>>> This patch fixes the description of the DT AVB parameters and gives
->>>> an accurate example. It was also included the base values that were
->>>> used to get the example' CBS paremeter values.
->>>>
->>>> Signed-off-by: Joao Pinto<jpinto@synopsys.com>
->>>> ---
->>>>    Documentation/devicetree/bindings/net/stmmac.txt | 24 ++++++++++++++++--------
->>>>    1 file changed, 16 insertions(+), 8 deletions(-)
->>>>
->>>> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt
->>>> b/Documentation/devicetree/bindings/net/stmmac.txt
->>>> index c3a7be6..707426d 100644
->>>> --- a/Documentation/devicetree/bindings/net/stmmac.txt
->>>> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
->>>> @@ -109,10 +109,10 @@ Optional properties:
->>>>                  [Attention] Queue 0 is reserved for legacy traffic
->>>>                  and so no AVB is available in this queue.
->>>>            - Configure Credit Base Shaper (if AVB Mode selected):
->>>> -            - snps,send_slope: enable Low Power Interface
->>>> -            - snps,idle_slope: unlock on WoL
->>>> -            - snps,high_credit: max write outstanding req. limit
->>>> -            - snps,low_credit: max read outstanding req. limit
->>>> +            - snps,send_slope: Send Slope Credit value
->>>> +            - snps,idle_slope:  Idle Slope Credit value
->>>> +            - snps,high_credit: High Credit value
->>>> +            - snps,low_credit: Low Credit value
->>>>            - snps,priority: TX queue priority (Range: 0x0 to 0xF)
->>>>    Examples:
->>>>    @@ -143,10 +143,18 @@ Examples:
->>>>              queue1 {
->>>>                snps,avb-algorithm;
->>>> -            snps,send_slope = <0x1000>;
->>>> -            snps,idle_slope = <0x1000>;
->>>> -            snps,high_credit = <0x3E800>;
->>>> -            snps,low_credit = <0xFFC18000>;
->>>> +            /*
->>>> +             *  Example AVB parameters based on:
->>>> +             *   Allocated Bandwidth: 40%
->>>> +             *   Maximum Frame size: 1000 bytes
->>>> +             *   Maximum Interference size: 1500 bytes
->>>> +             *   Port Transmit Rate: 8
->>>> +             *   Scaling Factor: 1024
->>>> +             */
->>>> +            snps,idle_slope = <0xCCC>;
->>>> +            snps,send_slope = <0x1333>;
->>>> +            snps,high_credit = <0x4B0000>;
->>> Thanks for having taken care about this changes, please, as required, add a
->>> cover-letter
->>> and give more information about these values that can be tuned by user and, for
->>> example,
->>> the snps,high_credit could be as default = 0xbe4000 that is a reasonable value
->>> because
->>> comes from 1522 * 8 * 1024 and LOW credit is the two complement.
->>>                        ^^^^^
->>>                      frame size ---> maximum is 16
->> I calculate the hi credit this way:
->>
->>    HiCredit = BW / 100 * MaxInterferenceSize * 8 * Scaling
->>
->> Can I assume that you are considering 100% bandwidth for this example channel?
->> If so, it is not correct, since the maximum bandwidth should be 75%, leaving at
->> least 25% for default channel 0 (I think this is assured in the hardware).
-> 
-> ok, I did not remember that so I let you detail with a right example this part 
-> in the doc.
-> 
-> Well done and thanks.
+> So based on what Alexei was saying earlier, it sounds like the answer for
+>   now is to up the limit (say to a round 128k), get this series merged,
+>   then start work on pruning optimisation so we can hopefully bring that
+>   limit back down again later.  Sound reasonable?
 
-No problem! I will send an example soon. Thanks.
-
-Joao
-
-> 
-> Peppe
-> 
->> Thanks,
->> Joao
->>
->>> Regards
->>> Peppe
->>>
->>>> +            snps,low_credit = <0xFFB50000>;
->>>>                snps,priority = <0x1>;
->>>>            };
->>>>        };
->>>
->>
-> 
+But this means the bpf_lxc_* cases increase quite significantly,
+arguably one of them is pretty close already, but the other one not
+so much, meaning while 142k would shoot over the 128k target quite a
+bit, the 95k is quite close to the point that it wouldn't take much,
+say, few different optimizations from compiler, to hit the limit as
+well eventually, something like 156k for the time being would seem a
+more adequate raise perhaps that needs to be evaluated carefully
+given the situation.
