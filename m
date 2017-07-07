@@ -1,36 +1,58 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH V2] brcmfmac: fix possible buffer overflow in brcmf_cfg80211_mgmt_tx()
-Date: Fri, 7 Jul 2017 13:11:42 -0700
-Message-ID: <CA+55aFxGKy7DP4VDEcBxUCbUyyd+hmH4r=JHqdpTxxFi7S_rDQ@mail.gmail.com>
-References: <1499458154-18358-1-git-send-email-arend.vanspriel@broadcom.com>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH] net: ethernet: mediatek: remove useless code in mtk_probe()
+Date: Fri, 7 Jul 2017 15:23:34 -0500
+Message-ID: <20170707202333.GA5114@embeddedgus>
+References: <20170707150831.Horde.MYtEbXeqxGS-hTg2bUv3DWt@gator4166.hostgator.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>,
-        Network Development <netdev@vger.kernel.org>,
-        Linux Wireless List <linux-wireless@vger.kernel.org>
-To: Arend van Spriel <arend.vanspriel@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f65.google.com ([209.85.218.65]:34198 "EHLO
-        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751089AbdGGULn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2017 16:11:43 -0400
-In-Reply-To: <1499458154-18358-1-git-send-email-arend.vanspriel@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: Andrew Lunn <andrew@lunn.ch>, Felix Fietkau <nbd@openwrt.org>,
+        John Crispin <blogic@openwrt.org>,
+        Matthias Brugger <matthias.bgg@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170707150831.Horde.MYtEbXeqxGS-hTg2bUv3DWt@gator4166.hostgator.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 7, 2017 at 1:09 PM, Arend van Spriel
-<arend.vanspriel@broadcom.com> wrote:
-> Now I signed off on the patch although formally I suppose Linus should
-> sign it off.
+Remove useless local variables _match_, _soc_ and the code related.
 
-You can certainly consider it
+Notice that
 
-   Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+const struct of_device_id of_mtk_match[] = {
+        { .compatible = "mediatek,mt2701-eth" },
+        {},
+};
 
-but I really don't need the authorship (or resulting sign-off
-requirement) because multiple people ended up sending in very similar
-patches.
+So match->data is NULL.
 
-All the real work was in actually finding the issue.
+Suggested-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+---
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 5 -----
+ 1 file changed, 5 deletions(-)
 
-                  Linus
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index adaaafc..b9a5a65 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -2401,15 +2401,10 @@ static int mtk_probe(struct platform_device *pdev)
+ {
+ 	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	struct device_node *mac_np;
+-	const struct of_device_id *match;
+-	struct mtk_soc_data *soc;
+ 	struct mtk_eth *eth;
+ 	int err;
+ 	int i;
+ 
+-	match = of_match_device(of_mtk_match, &pdev->dev);
+-	soc = (struct mtk_soc_data *)match->data;
+-
+ 	eth = devm_kzalloc(&pdev->dev, sizeof(*eth), GFP_KERNEL);
+ 	if (!eth)
+ 		return -ENOMEM;
+-- 
+2.5.0
