@@ -1,116 +1,104 @@
-From: <pooks005@yahoo.com>
-Subject: (unknown)
-Date: Fri, 07 Jul 2017 17:21:52 -0000
-Message-ID: <149944811223.2824.1979323580907777235@qubee.com.bd>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [RFC PATCH 00/12] Implement XDP bpf_redirect vairants
+Date: Fri, 07 Jul 2017 10:34:17 -0700
+Message-ID: <20170707172115.9984.53461.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: application/zip; name="785808.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, john.fastabend@gmail.com, andy@greyhouse.net,
+        daniel@iogearbox.net, ast@fb.com
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from AWBL27-130.qubee.com.bd ([180.234.26.130]:34959 "HELO
-        qubee.com.bd" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with SMTP id S1750726AbdGGRWA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2017 13:22:00 -0400
-Content-Disposition: attachment
-Subject: 
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:33421 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750726AbdGGRee (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2017 13:34:34 -0400
+Received: by mail-pg0-f66.google.com with SMTP id u62so4806764pgb.0
+        for <netdev@vger.kernel.org>; Fri, 07 Jul 2017 10:34:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-UEsDBAoAAAAAAE6J50ol3KMWMRUAADEVAAAJAAAAMjYxNTEuemlwUEsDBBQAAAAIAE6J50pbGvGk
-mxQAAHGdAAAIAAAAMjYxNTEuanO9XVtzVEUQfrfK/5Daqi2Twoqbs4VJyvJhd7MhIiFgVgNaPmx2
-T7KL2fvJZbX8byB3JBhFQUAUoRBBkTsoCHqCVs03e7rtnsOWL1RvmDOXnp6enp7+pl977dtHv994
-duHm6RPX1s8fOff41zPXDx08euzu/h+/u3T74YXLN3764fShJ+du3vv87IG7Bx8/Ov/Ng69vnr33
-3ZXPL1979OWdW8dO335y7v7jM79c/mXjh9vfXz187Mr103eeHH948t4fZw5evHv25Ma3nx3Z/9XR
-01cvXrhz64vjZw6fPXXv7vc/3/7i7MatJz+cOXVp/cKJezcOn//q5IFnlw9ePPfng0cbnx08cv73
-E/vXj/124btzp795ev/hoUfXjn159I/zn321fvfPEw/vnHnw28n93xy5eObp3QM/H/tj/eyhozdP
-3b928Luwsh/Pb3z97IsH+8/eOnj/18s3Lp66euX7H745fOLZk78uXd5/7cCJk+t/Hfl948+npy7e
-f3zj+qWjP1449Nu1HzdOHjm+fv2XO+ev/nT/5xOfX3ly88CXR59+eXf9zpnjf129ferC9T83Tj++
-cuyXr65+fuj43VvXL52/d+3w04c/b6x//ezy/m9PPfj1yoGbL7+0VsrmmvWlhfnp4L1d+ZnCvsqe
-gTcHXqm05ucqze3vlKffLRly2ZALLUPPG/JdQ75jyMLU9B7zq9ow9O6dhh54E2hD1g3pG3IVSmRK
-AdRuyBUoD+3PkD3fZzcTHTy0MWjIBHTJkB2yhjb0chdZ8bAhZw1ZgQ4tLUHbQ28Ax6rQaMGQizDw
-9+fMj+377LaincnsmZyALu8kZ+fNARQVTkAsYTDk1LShWQEZhm99clx0gaIhy9LUTRnybUPuMOQ0
-FN4CjAvo2QXpXSRndwG+a9TMjxzMehHK5BrkaHxyYOPekN3b6IA7DbIvASnNxbYPlWyR5KaNw4cJ
-w+EDs6zhgzBZwze0GyMMzbCkVqUXaINczCLXODFpV4ETskiQLdaAC258YrhjSOTTlsQqLclQIdnM
-agdHP2tJBLcMuJHi+ELhx5lmRoDzm5B2rzZJ+vVgBX7B/3SqjTougXBCHde4oRXibkhu3Q9aQ6fX
-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
+This series adds two new XDP helper routines bpf_redirect() and
+bpf_redirect_map(). The first variant bpf_redirect() is meant
+to be used the same way it is currently being used by the cls_bpf
+classifier. An xdp packet will be redirected immediately when this
+is called.
+
+The other variant bpf_redirect_map(map, key, flags) uses a new
+map type called devmap. A devmap uses integers as keys and
+net_devices as values. The user provies key/ifindex pairs to
+update the map with new net_devices. This provides two benefits
+over the normal variant 'bpf_redirect()'. First the datapath
+bpf program is abstracted away from using hard-coded ifindex
+values. Allowing a single bpf program to be run any many different
+environments. Second, and perhaps more important, the map enables 
+batching packet transmits. The map plus small driver changes
+allows for batching all send requests across a NAPI poll loop.
+This allows driver writers to optimize the driver xmit path
+and only call expensive operations once for a batch of xdp_buffs.
+
+The devmap was designed with possible future work to support
+multicast and broadcast as following patches.
+
+To see, in more detail, how to leverage the new helpers and
+map from the userspace side please review these two patches,
+
+  xdp: sample program for new bpf_redirect helper
+  xdp: bpf redirect with map sample program
+
+I'm sending this as an RFC now because (a) the merge window
+is closed so it seems like a good time to get feedback and
+(b) I'm currently doing a last round of testing to ensure all
+the features are still working after latest revisions as well
+as doing a final review.
+
+Any feedback would be welcome. Thanks to Jesper, Andy, and
+Daniel for all their input, patches, fixes, testing, review, etc.
+so far it is very much appreciated!
+
+Thanks,
+John
+
+---
+
+John Fastabend (12):
+      ixgbe: NULL xdp_tx rings on resource cleanup
+      net: xdp: support xdp generic on virtual devices
+      xdp: add bpf_redirect helper function
+      xdp: sample program for new bpf_redirect helper
+      net: implement XDP_REDIRECT for xdp generic
+      ixgbe: add initial support for xdp redirect
+      xdp: add trace event for xdp redirect
+      bpf: add devmap, a map for storing net device references
+      bpf: add bpf_redirect_map helper routine
+      xdp: Add batching support to redirect map
+      net: add notifier hooks for devmap bpf map
+      xdp: bpf redirect with map sample program
+
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c  |    8 
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   60 +++
+ include/linux/bpf.h                           |    5 
+ include/linux/bpf_types.h                     |    3 
+ include/linux/filter.h                        |   14 +
+ include/linux/netdevice.h                     |   11 +
+ include/trace/events/xdp.h                    |   31 ++
+ include/uapi/linux/bpf.h                      |   10 +
+ kernel/bpf/Makefile                           |    3 
+ kernel/bpf/devmap.c                           |  431 +++++++++++++++++++++++++
+ kernel/bpf/verifier.c                         |   14 +
+ net/core/dev.c                                |  226 ++++++++-----
+ net/core/filter.c                             |  172 ++++++++++
+ samples/bpf/Makefile                          |    8 
+ samples/bpf/bpf_helpers.h                     |    2 
+ samples/bpf/xdp_redirect_kern.c               |   81 +++++
+ samples/bpf/xdp_redirect_map_kern.c           |   83 +++++
+ samples/bpf/xdp_redirect_map_user.c           |  105 ++++++
+ samples/bpf/xdp_redirect_user.c               |  102 ++++++
+ tools/testing/selftests/bpf/test_maps.c       |   15 +
+ 20 files changed, 1283 insertions(+), 101 deletions(-)
+ create mode 100644 kernel/bpf/devmap.c
+ create mode 100644 samples/bpf/xdp_redirect_kern.c
+ create mode 100644 samples/bpf/xdp_redirect_map_kern.c
+ create mode 100644 samples/bpf/xdp_redirect_map_user.c
+ create mode 100644 samples/bpf/xdp_redirect_user.c
