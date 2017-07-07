@@ -1,146 +1,53 @@
-From: Nadav Amit via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [PATCH v3 net-next 02/12] bpf/verifier: rework
- value tracking
-Date: Fri, 7 Jul 2017 10:45:18 -0700
-Message-ID: <3A96914E-3009-4E19-B138-7A636A76D9C8@gmail.com>
-References: <adc11342-737f-4e06-bce3-f0a92b5594a5@solarflare.com>
-	<2244b48b-f415-3239-6912-cb09f0abc546@solarflare.com>
-	<E65DE75F-FC5F-41BC-9F7B-C03D324D8C6F@gmail.com>
-	<abd3c014-f33a-6e86-aead-be38697a2cec@solarflare.com>
-Reply-To: Nadav Amit <nadav.amit-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <abd3c014-f33a-6e86-aead-be38697a2cec-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+From: Manfred Spraul <manfred@colorfullife.com>
+Subject: Re: [PATCH v2 0/9] Remove spin_unlock_wait()
+Date: Fri, 7 Jul 2017 19:47:58 +0200
+Message-ID: <48164d9a-f291-94f3-e0b1-98bb312bf846@colorfullife.com>
+References: <20170629235918.GA6445@linux.vnet.ibm.com>
+ <20170705232955.GA15992@linux.vnet.ibm.com>
+ <063D6719AE5E284EB5DD2968C1650D6DD0033F01@AcuExch.aculab.com>
+ <20170706160555.xc63yydk77gmttae@hirez.programming.kicks-ass.net>
+ <20170706162024.GD2393@linux.vnet.ibm.com>
+ <20170706165036.v4u5rbz56si4emw5@hirez.programming.kicks-ass.net>
+ <20170707083128.wqk6msuuhtyykhpu@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+        David Laight <David.Laight@ACULAB.COM>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "oleg@redhat.com" <oleg@redhat.com>,
+        "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+        "mingo@redhat.com" <mingo@redhat.com>,
+        "dave@stgolabs.net" <dave@stgolabs.net>,
+        "tj@kernel.org" <tj@kernel.org>, "arnd@arndb.de" <arnd@arndb.de>,
+        "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
+        "will.deacon@arm.com" <will.deacon@arm.com>,
+        "stern@rowland.harvard.edu" <stern@rowland.harvard.edu>,
+        "parri.andrea@gmail.com" <parri.andrea@gmail.com>,
+        "torvalds@linux-foundation.org" <torvalds@linux-foundation.o
+To: Ingo Molnar <mingo@kernel.org>,
+        Peter Zijlstra <peterz@infradead.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20170707083128.wqk6msuuhtyykhpu@gmail.com>
+Content-Language: en-US
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RWR3YXJkIENyZWUgPGVjcmVlQHNvbGFyZmxhcmUuY29tPiB3cm90ZToKCj4gT24gMDYvMDcvMTcg
-MjI6MjEsIE5hZGF2IEFtaXQgd3JvdGU6Cj4+IEkgZmluZCBpdCBhIGJpdCBzdXJwcmlzaW5nIHRo
-YXQgc3VjaCBodWdlIGNoYW5nZXMgdGhhdCBjYW4gYWZmZWN0IHNlY3VyaXR5Cj4+IGFuZCByb2J1
-c3RuZXNzIGFyZSBwZXJmb3JtZWQgaW4gb25lIHBhdGNoLgo+IEluIHRoZSBmaXJzdCB2ZXJzaW9u
-IG9mIHRoZSBzZXJpZXMsIHRoaXMgd2FzIHR3byBwYXRjaGVzLCB3aXRoICJmZWVkCj4gcG9pbnRl
-ci10by11bmtub3duLXNjYWxhciBjYXN0cyBpbnRvIHNjYWxhciBBTFUgcGF0aCIgc3BsaXQgb3V0
-IGZyb20gdGhlIHJlc3Q7Cj4gYnV0IHRoYXQganVzdCBjYXVzZWQgYSBsb3Qgb2YgY29kZSBtb3Zl
-bWVudCBhbmQgY29uZnVzaW5nIGRpZmZzLCBoZW5jZSB3aHkgSQo+IGZvbGRlZCBpdCBpbnRvIHRo
-ZSBzYW1lIHBhdGNoLgo+IEFzIGZvciB0aGUgcmVzdCBvZiBpdCwgSSdtIG5vdCBzdXJlIGl0IGNh
-biBiZSBzcGxpdCB1cDogSSdtIGNoYW5naW5nIHRoZQo+IGRlZmluaXRpb24gYW5kIHNlbWFudGlj
-cyBvZiBhIGNvcmUgZGF0YSBzdHJ1Y3R1cmUgKHN0cnVjdCBicGZfcmVnX3N0YXRlKQo+IGFuZCBJ
-IGRvbid0IHNlZSBhbnkgcmVhc29uYWJsZSBpbnRlcm1lZGlhdGUgc3RlcHMgdGhhdCB3b3VsZCBl
-dmVuIGNvbXBpbGUuCj4gRm9yIGluc3RhbmNlLCByZXBsYWNpbmcgcmVnLT5pbW0gKHdpdGggaXRz
-IHR3byBtZWFuaW5ncyBvZiAna25vd24gdmFsdWUnIG9yCj4gJ251bWJlciBvZiBsZWFkaW5nIHpl
-cm8gYml0cycpIHdpdGggcmVnLT52YXJfb2ZmIG5lY2Vzc2l0YXRlcyByZXBsYWNpbmcgYWxsCj4g
-dGhlIGFyaXRobWV0aWMtaGFuZGxpbmcgY29kZSAoZS5nLiBldmFsdWF0ZV9yZWdfaW1tX2FsdSgp
-KS4gIEJ1dCB0aGVuCj4gdmFyX29mZiBhbHNvIHJlcGxhY2VzIHJlZy0+YXV4X2FsaWduW19vZmZd
-LCBzbyBhbGwgdGhlIGFsaWdubWVudC1jaGVja2luZwo+IGNvZGUgaGFzIHRvIGNoYW5nZSBhcyB3
-ZWxsLiAgQW5kIGNoYW5naW5nIHdoYXQgcmVnaXN0ZXIgc3RhdGUgd2UgdHJhY2sKPiBtZWFucyB0
-aGF0IHRoZSBwcnVuaW5nIGNvZGUgKHN0YXRlc19lcXVhbCgpKSBoYXMgdG8gY2hhbmdlIHRvby4K
-PiBBcyBpdCBpcywgdGhpcyBwYXRjaCBsZWF2ZXMgc29tZSBzZWxmdGVzdHMgZmFpbGluZyBhbmQg
-aXQgdGFrZXMgX2Fub3RoZXJfCj4gYmlnIHBhdGNoICg0LzEyICJ0cmFjayBzaWduZWQgYW5kIHVu
-c2lnbmVkIG1pbi9tYXggdmFsdWVzIikgdG8gZ2V0IHRoZW0KPiBhbGwgdG8gcGFzcyBhZ2Fpbi4K
-ClRoYW5rcyBmb3IgeW91ciBwb2xpdGUgcmVzcG9uc2UgdG8gbXkgcmFudGluZ3MuIEkgZG8gdW5k
-ZXJzdGFuZCB0aGUKY29tcGxleGl0eSwgYW5kIEkgZGlkIG5vdCBsaWtlIHRoZSB0d28gbWVhbmlu
-Z3Mgb2YgcmVnLT5pbW0gZWl0aGVyIChpdCB0b29rCm1lIHNvbWUgdGltZSB0byB1bmRlcnN0YW5k
-IHRoZW0pLiBZZXQsIEkgcmVhbGx5IGRvdWJ0IGFueW9uZSBpcyBjYXBhYmxlIG9mCnJlYWxseSBy
-ZXZpZXdpbmcgc3VjaCBhIGJpZyBwYXRjaC4gTW9zdCBsaWtlbHkgcGVvcGxlIHdpbGwgbm90IGV2
-ZW4gc3RhcnQgb3IKcGljayB0byBzbWFsbCBkZXRhaWxzIHRoZXkga25vdyBvciBjYXJlIGFib3V0
-LgoKPj4gUGVyc29uYWxseSwgSSBjYW5ub3QgY29tcHJlaGVuZAo+PiBhbGwgb2YgdGhlc2UgY2hh
-bmdlcy4gSW4gYWRkaXRpb24sIEkgdGhpbmsgdGhhdCBpdCBpcyB2YWx1YWJsZSB0byBkZXNjcmli
-ZQo+PiBpbiBkZXRhaWwgdGhlIGJ1Z3MgdGhhdCB0aGUgcGF0Y2ggc29sdmVzIGFuZCB3aGVuIHRo
-ZXkgd2VyZSBpbnRyb2R1Y2VkLgo+IE1vc3RseSB0aGlzIHBhdGNoIHNlcmllcyBpc24ndCBhYm91
-dCBmaXhpbmcgYnVncyAoZXhjZXB0IHRob3NlIHdoaWNoIHdlcmUKPiBleHBvc2VkIHdoZW4gdGhl
-IGNoYW5nZXMgY2F1c2VkIHNvbWUgc2VsZnRlc3RzIHRvIGZhaWwpLiAgSW5zdGVhZCwgaXQncyBh
-Cj4gY29tYmluYXRpb24gb2YgcmVmYWN0b3JpbmcgYW5kIHVuaWZ5aW5nIHNvIHRoYXQgKGZvciBp
-bnN0YW5jZSkgdGhlIHJ1bGVzCj4gZm9yIHBvaW50ZXIgYXJpdGhtZXRpYyBhbmQgYWxpZ25tZW50
-IGNoZWNraW5nIGFyZSBhcyBzaW1pbGFyIGFzIHBvc3NpYmxlCj4gZm9yIGFsbCBwb2ludGVyIHR5
-cGVzIHJhdGhlciB0aGFuIGhhdmluZyBzcGVjaWFsLWNhc2UgcnVsZXMgZm9yIGVhY2ggdHlwZS4K
-PiBUaGlzIGFsbG93cyBtYW55IChjb3JyZWN0KSBwcm9ncmFtcyB3aGljaCB0aGUgdmVyaWZpZXIg
-d2lsbCBjdXJyZW50bHkKPiByZWplY3QsIGFuZCBtYWtlcyB0aGUgb3ZlcmFsbCBkZXNjcmlwdGlv
-biBvZiB0aGUgdmVyaWZpZXIncyBydWxlcyBtdWNoCj4gc2hvcnRlciBhbmQgc2ltcGxlci4gIEkg
-aGF2ZSB3cml0dGVuIGEgZG9jdW1lbnRhdGlvbiBwYXRjaCBleHBsYWluaW5nCj4gdGhlc2UgcnVs
-ZXMsIHdoaWNoIHRoZSBuZXh0IHZlcnNpb24gb2YgdGhlIHBhdGNoIHNlcmllcyB3aWxsIGluY2x1
-ZGUuCgpPay4gQnV0IEkgZG91YnQgaXQgaXMgYXMgdXNlZnVsIGFzIGNvbW1lbnRpbmcgaW4gdGhl
-IGNvZGUgb3Igd3JpdGluZyBpbiB0aGUKY29tbWl0IG1lc3NhZ2Ugd2hhdCBleGFjdGx5IGlzIGFk
-ZHJlc3NlZCBieSB0aGUgcGF0Y2guIEFuZCBkb2N1bWVudGF0aW9uCmRvZXMgbm90IHJlYWxseSBo
-ZWxwIG90aGVycyB0byByZWJhc2UgdGhlaXIgcGF0Y2hlcyBvbiB0b3Agb2YgeW91cnMuCgo+IFRo
-ZSBkaWZmIF9pc18gaGFyZCB0byByZWFkLCBJIGFjY2VwdCB0aGF0OyBJIHRoaW5rIGBkaWZmYCB3
-YXMgdG9vIGVhZ2VyIHRvCj4gaW50ZXJwb2xhdGUgYW5kIG1hdGNoIHNpbmdsZSBsaW5lcyBsaWtl
-ICd7JyBmcm9tIGNvbXBsZXRlbHkgdW5yZWxhdGVkCj4gZnVuY3Rpb25zLiAgSXQgbWlnaHQgYmUg
-ZWFzaWVyIHRvIGp1c3QgdHJ5IGFwcGx5aW5nIHRoZSBwYXRjaCB0byBhIHRyZWUKPiBhbmQgdGhl
-biByZWFkaW5nIHRoZSByZXN1bHQsIHJhdGhlciB0aGFuIHRyeWluZyB0byBpbnRlcnByZXQgdGhl
-IGRpZmYuCgpJIGRvbuKAmXQga25vdyB0byByZXZpZXcgcGF0Y2hlcyB0aGlzIHdheS4gSG9wZWZ1
-bGx5IG90aGVycyBkbywgYnV0IEkgZG91YnQgaXQuCgpGb3IgbWUgY2hhbmdlcyBzdWNoIGFzOgoK
-PiAJCWlmIChkc3RfcmVnLT5taW5fdmFsdWUgIT0gQlBGX1JFR0lTVEVSX01JTl9SQU5HRSkKPiAt
-CQkJZHN0X3JlZy0+bWluX3ZhbHVlIC09IG1pbl92YWw7Cj4gKwkJCWRzdF9yZWctPm1pbl92YWx1
-ZSAtPSBtYXhfdmFsOwoKCmFyZSBwdXJlbHkgY3J5cHRpYy4gV2hhdCBoYXBwZW5lZCBoZXJlPyBX
-YXMgdGhlcmUgYSBidWcgYmVmb3JlIGFuZCBpZiBzbwp3aGF0IGFyZSBpdHMgaW1wbGljYXRpb25z
-PyBXaHkgY2Fu4oCZdCBpdCBiZSBpbiBhIHNlcGFyYXRlIHBhdGNoPwoKSSBhbHNvIHRoaW5rIHRo
-YXQgY2hhbmdlcyBzdWNoIGFzOgo+IC0JczY0IG1pbl92YWx1ZTsKPiAtCXU2NCBtYXhfdmFsdWU7
-CltzbmlwXQo+ICsJczY0IG1pbl92YWx1ZTsgLyogbWluaW11bSBwb3NzaWJsZSAoczY0KXZhbHVl
-ICovCj4gKwl1NjQgbWF4X3ZhbHVlOyAvKiBtYXhpbXVtIHBvc3NpYmxlICh1NjQpdmFsdWUgKi8K
-ClNob3VsZCBoYXZlIGJlZW4gYXZvaWRlZC4gUGVyc29uYWxseSwgSSBmaW5kIHRoaXMgY29tbWVu
-dCByZWR1bmRhbnQgKHRvIHNheQp0aGUgbGVhc3QpLiBJdCBkb2VzIG5vdCBoZWxwIHRvIHJlZHVj
-ZSB0aGUgZGlmZiBzaXplLgoKSW4gdGhpcyByZWdhcmQsIEkgdGhpbmsgdGhhdCByZWZhY3Rvcmlu
-ZyBzaG91bGQgaGF2ZSBiZWVuIGRvbmUgZmlyc3QgYW5kIG5vdAp0b2dldGhlciB3aXRoIHRoZSBs
-b2dpYyBjaGFuZ2VzLiBBcyBhbm90aGVyIGV4YW1wbGUsIGNoYW5naW5nIFVOS05PV05fVkFMVUUK
-dG8gU0NBTEFSX1ZBTFVFIHNob3VsZCBoYXZlIGJlZW4gYSBzZXBhcmF0ZSwgZWFzeSB0byB1bmRl
-cnN0YW5kIHBhdGNoLgoKPj4gSSBjYW4gYnJpbmcgdXAgc29tZSBjb25jZXJucyByZWdhcmRpbmcg
-aW5jb25zaXN0ZW5jaWVzIGluIG9mZnNldCBjaGVja3MgYW5kCj4+IHNpemUsIG5vdCBzcGlsbGlu
-ZyBTQ0FMQVIgYW5kIG15IHdpc2ggbm90IHRvIGxpbWl0IHBhY2tldCBzaXplLiBIb3dldmVyLAo+
-PiB3aGVuIHRoZSBwYXRjaCBpcyB0aGF0IGJpZywgSSB0aGluayBpdCBpcyB1c2VsZXNzLgo+IFBs
-ZWFzZSwgZG8gZGVzY3JpYmUgdGhlc2UgY29uY2VybnM7IHdoYXQgaW5jb25zaXN0ZW5jaWVzIGRv
-IHlvdSBzZWU/Cj4gVGhlIG5vdCBzcGlsbGluZyBzY2FsYXJzLCBhbmQgdGhlIGxpbWl0IHRvIHBh
-Y2tldCBzaXplLCBhcmUgcmV0YWluZWQKPiBmcm9tIHRoZSBleGlzdGluZyBjb2RlIChpc19zcGls
-bGFibGVfcmVndHlwZSgpIGFuZCBNQVhfUEFDS0VUX09GRikuCj4gVGhlIGxhdHRlciBpcyBhbHNv
-IG5lZWRlZCBmb3IgY29ycmVjdG5lc3MgaW4gY29tcHV0aW5nIHJlZy0+cmFuZ2U7Cj4gaWYgJ3Br
-dF9wdHIgKyBvZmZzZXQnIGNvdWxkIGNvbmNlaXZhYmx5IG92ZXJmbG93LCB0aGVuIHRoZSByZXN1
-bHQKPiBjb3VsZCBiZSA8IHBrdF9lbmQgd2l0aG91dCBiZWluZyBhIHZhbGlkIHBvaW50ZXIgaW50
-byB0aGUgcGFja2V0Lgo+IFdlIHRodXMgcmVseSBvbiB0aGUgYXNzdW1wdGlvbiB0aGF0IHRoZSBw
-YWNrZXQgcG9pbnRlciB3aWxsIG5ldmVyIGJlCj4gd2l0aGluIE1BWF9QQUNLRVRfT0ZGIG9mIHRo
-ZSB0b3Agb2YgdGhlIGFkZHJlc3Mgc3BhY2UuICAoVGhpcwo+IGFzc3VtcHRpb24gaXMsIGFnYWlu
-LCBjYXJyaWVkIG92ZXIgZnJvbSB0aGUgZXhpc3RpbmcgdmVyaWZpZXIuKQoKSSB1bmRlcnN0YW5k
-IHRoZSBsaW1pdGF0aW9ucyAoSSB0aGluaykuIEkgYWdyZWUgdGhhdCBDT05TVCBiZWluZyBzcGls
-bGFibGUKaXMgbm90IGRpcmVjdGx5IHJlbGF0ZWQuIEFzIGZvciB0aGUgcG9zc2libGUgcGFja2V0
-IG9mZnNldHMvcmFuZ2U6CmludGVudGlvbmFsbHkgb3Igbm90IHlvdSBkbyBtYWtlIHNvbWUgY2hh
-bmdlcyB0aGF0IHB1c2ggdGhlIDY0ayBwYWNrZXQgc2l6ZQpsaW1pdCBldmVuIGRlZXBlciBpbnRv
-IHRoZSBjb2RlLiBXaGlsZSB0aGUgcGFja2V0IHNpemUgc2hvdWxkIGJlIGxpbWl0ZWQgdG8KYXZv
-aWQgb3ZlcmZsb3csIElJVUMgdGhlIHJlcXVpcmVtZW50IGlzIHRoYXQ6CgoJNjQgPiBsb2cobl9p
-bnNuKSArIGxvZyhNQVhfUEFDS0VUX09GRikgKyAxCgpTdWNoIGFuIGFzc2VydGlvbiBtYXkgYmUg
-c3RhdGljbHkgY2hlY2tlZCAodXNpbmcgQlVJTERfQlVHX09OKSwgYnV0IEkgZG9u4oCZdAp0aGlu
-ayBzaG91bGQgcHJvcGFnYXRlIGludG8gdGhlIGVudGlyZSBjb2RlLCBlc3BlY2lhbGx5IGluIGEg
-bm9uIGNvbnNpc3RlbnQKd2F5LiBGb3IgZXhhbXBsZToKCj4gc3RydWN0IGJwZl9yZWdfc3RhdGUg
-ewo+IAllbnVtIGJwZl9yZWdfdHlwZSB0eXBlOwo+IAl1bmlvbiB7Cj4gLQkJLyogdmFsaWQgd2hl
-biB0eXBlID09IENPTlNUX0lNTSB8IFBUUl9UT19TVEFDSyB8IFVOS05PV05fVkFMVUUgKi8KPiAt
-CQlzNjQgaW1tOwo+IC0KPiAtCQkvKiB2YWxpZCB3aGVuIHR5cGUgPT0gUFRSX1RPX1BBQ0tFVCog
-Ki8KPiAtCQlzdHJ1Y3Qgewo+IC0JCQl1MTYgb2ZmOwo+IC0JCQl1MTYgcmFuZ2U7Cj4gLQkJfTsK
-PiArCQkvKiB2YWxpZCB3aGVuIHR5cGUgPT0gUFRSX1RPX1BBQ0tFVCAqLwo+ICsJCXUzMiByYW5n
-ZTsKCkkgd291bGQgKHBlcnNvbmFsbHkpIHByZWZlciByYW5nZSAoYW5kIG9mZnNldHMpIHRvIGJl
-IHU2NC4gSSBjb3VsZAp1bmRlcnN0YW5kIGlmIHlvdSBsZWZ0IHRoZSByYW5nZSBhcyB1MTYgKHNp
-bmNlIHBhY2tldCBzaXplIGlzIGxpbWl0ZWQgdG8KNjRrKS4gQnV0IHdoeSB3b3VsZCBpdCBiZSB1
-MzI/CgpPcjoKPiAtCWlmIChvZmYgPCAwIHx8IHNpemUgPD0gMCB8fCBvZmYgKyBzaXplID4gcmVn
-LT5yYW5nZSkgewo+ICsJaWYgKG9mZiA8IDAgfHwgc2l6ZSA8PSAwIHx8IG9mZiA+IE1BWF9QQUNL
-RVRfT0ZGIHx8Cj4gKwkgICAgb2ZmICsgc2l6ZSA+IHJlZy0+cmFuZ2UpIHsKCldoeSBkb27igJl0
-IHlvdSBjaGVjayAob2ZmICsgc2l6ZSA+IG1heChNQVhfUEFDS0VUX09GRiwgcmVnLT5yYW5nZSkp
-PyBJcyB0aGVyZQphIHJlYXNvbiB5b3UgaWdub3JlIHNpemUgd2hlbiBjb21wYXJpbmcgdG8gTUFY
-X1BBQ0tFVF9PRkYgPwoKVW5mb3J0dW5hdGVseSwgSSBjb3VsZCBvbmx5IGxvb2sgYXQgY2hhbmdl
-cyB0aGF0IGRpcmVjdGx5IGNvbmNlcm4gbWUuIEFzIGZvcgp0aGUgc3R5bGUsIEkgYW0gbm90IGEg
-aHVnZSBmYW4gb2YgbmVzdGVkIG9yIG11bHRpcGxlIGlm4oCZcy4gU3dpdGNoZXMgYXJlCmVhc2ll
-ciB0byB1bmRlcnN0YW5kIChlLmcuLCBpbiBhZGp1c3RfcHRyX21pbl9tYXhfdmFscygpICkgYW5k
-IGFycmF5cyB3aXRoCmZsYWdzICh3aXRoIGluZm9ybWF0aW9uIHBlciBpbnN0cnVjdGlvbiBvciBy
-ZWdpc3Rlci10eXBlKSBtYXkgYmUgZXZlbgpiZXR0ZXIuCgpOYWRhdgoKX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KaW92aXNvci1kZXYgbWFpbGluZyBsaXN0
-Cmlvdmlzb3ItZGV2QGxpc3RzLmlvdmlzb3Iub3JnCmh0dHBzOi8vbGlzdHMuaW92aXNvci5vcmcv
-bWFpbG1hbi9saXN0aW5mby9pb3Zpc29yLWRldgo=
+Hi Ingo,
+
+On 07/07/2017 10:31 AM, Ingo Molnar wrote:
+>
+> There's another, probably just as significant advantage: queued_spin_unlock_wait()
+> is 'read-only', while spin_lock()+spin_unlock() dirties the lock cache line. On
+> any bigger system this should make a very measurable difference - if
+> spin_unlock_wait() is ever used in a performance critical code path.
+At least for ipc/sem:
+Dirtying the cacheline (in the slow path) allows to remove a smp_mb() in 
+the hot path.
+So for sem_lock(), I either need a primitive that dirties the cacheline 
+or sem_lock() must continue to use spin_lock()/spin_unlock().
+
+--
+     Manfred
