@@ -1,41 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH v2 RFC 02/13] macb: Remove bogus reference to NETIF_F_UFO.
-Date: Fri, 07 Jul 2017 10:43:42 +0100 (WEST)
-Message-ID: <20170707.104342.393105911960085522.davem@davemloft.net>
+Subject: [PATCH v2 RFC 03/13] ipvlan: Stop advertising NETIF_F_UFO support.
+Date: Fri, 07 Jul 2017 10:43:50 +0100 (WEST)
+Message-ID: <20170707.104350.6947290116397787.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: willemdebruijn.kernel@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49780 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:49792 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751091AbdGGJno (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2017 05:43:44 -0400
+        with ESMTP id S1751091AbdGGJnw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2017 05:43:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-This driver doesn't actually support UFO explicitly yet
-it advertises this in netdev->features.
+It is going away.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/ethernet/cadence/macb_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ipvlan/ipvlan_main.c | 2 +-
+ drivers/net/ipvlan/ipvtap.c      | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/cadence/macb_main.c b/drivers/net/ethernet/cadence/macb_main.c
-index e69ebdd..a02f916 100644
---- a/drivers/net/ethernet/cadence/macb_main.c
-+++ b/drivers/net/ethernet/cadence/macb_main.c
-@@ -68,7 +68,7 @@
- #define GEM_MAX_TX_LEN		((unsigned int)((1 << GEM_TX_FRMLEN_SIZE) - 1) & ~((unsigned int)(MACB_TX_LEN_ALIGN - 1)))
+diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+index f37e3c1..fdde207 100644
+--- a/drivers/net/ipvlan/ipvlan_main.c
++++ b/drivers/net/ipvlan/ipvlan_main.c
+@@ -169,7 +169,7 @@ static void ipvlan_port_destroy(struct net_device *dev)
  
- #define GEM_MTU_MIN_SIZE	ETH_MIN_MTU
--#define MACB_NETIF_LSO		(NETIF_F_TSO | NETIF_F_UFO)
-+#define MACB_NETIF_LSO		NETIF_F_TSO
+ #define IPVLAN_FEATURES \
+ 	(NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_HIGHDMA | NETIF_F_FRAGLIST | \
+-	 NETIF_F_GSO | NETIF_F_TSO | NETIF_F_UFO | NETIF_F_GSO_ROBUST | \
++	 NETIF_F_GSO | NETIF_F_TSO | NETIF_F_GSO_ROBUST | \
+ 	 NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_GRO | NETIF_F_RXCSUM | \
+ 	 NETIF_F_HW_VLAN_CTAG_FILTER | NETIF_F_HW_VLAN_STAG_FILTER)
  
- #define MACB_WOL_HAS_MAGIC_PACKET	(0x1 << 0)
- #define MACB_WOL_ENABLED		(0x1 << 1)
+diff --git a/drivers/net/ipvlan/ipvtap.c b/drivers/net/ipvlan/ipvtap.c
+index 22f133e..5dea206 100644
+--- a/drivers/net/ipvlan/ipvtap.c
++++ b/drivers/net/ipvlan/ipvtap.c
+@@ -24,7 +24,7 @@
+ #include <linux/virtio_net.h>
+ 
+ #define TUN_OFFLOADS (NETIF_F_HW_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
+-		      NETIF_F_TSO6 | NETIF_F_UFO)
++		      NETIF_F_TSO6)
+ 
+ static dev_t ipvtap_major;
+ static struct cdev ipvtap_cdev;
 -- 
 2.9.4
