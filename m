@@ -1,77 +1,37 @@
-From: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
-Subject: Re: [Patch net] wl1251: add a missing spin_lock_init()
-Date: Fri, 7 Jul 2017 18:59:17 +0200
-Message-ID: <20170707165917.GA14179@amd>
-References: <1499378437-4971-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Corporate Lenders <lubica.predajnova@savba.sk>
+Subject: God dag,
+Date: Fri, 7 Jul 2017 18:13:10 +0200 (CEST)
+Message-ID: <1488067838.22112467.1499443990718.JavaMail.zimbra@savba.sk>
+Reply-To: Corporate Lenders <info@corporatelendersonline.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="5mCyUwZo2JvN/JJP"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-To: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1499378437-4971-1-git-send-email-xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zmta1.savba.sk ([147.213.1.23]:52667 "EHLO zmta1.savba.sk"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752225AbdGGRLl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 7 Jul 2017 13:11:41 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+God dag,
 
---5mCyUwZo2JvN/JJP
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+   Jeg er Thomas Walter, finansiell agent for dette selskapet kjent som Corporate Lenders. Vi låne penger til enkeltpersoner og selskaper som trenger økonomisk hjelp. Har du dårlig kreditt eller har du behov for penger til å betale regningene dine? Vi bruker dette mediet til å informere deg om at vi kan hjelpe deg med enhver form for lån du trenger, for eksempel Refinansiering, Gjeldskonsolideringslån, personlige lån, internasjonale lån og forretningslån. Vi er glade for å tilby deg et lån så lavt som renten på 3%.
 
-Hi!
+    Vårt mål er å yte en tjeneste til vår kunde som er rask, vennlig og stressfri. Vanligvis, når vi har all informasjon, tar det bare en time å ordne finansieringsgodkjenning.
 
-> This fixes the following kernel warning:
->=20
->   [ 5668.771453] BUG: spinlock bad magic on CPU#0, kworker/u2:3/9745
-=2E..
->   [ 5668.777343] [<c06a4f94>] (ieee80211_subif_start_xmit) from
->   [<c0578848>] (dev_hard_start_xmit+0x80/0x118)
->   ...
->=20
-> by adding the missing spin_lock_init().
->=20
-> Reported-by: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
-> Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-> Signed-off-by: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+   Hvis du er interessert, vennligst fyll ut søknadsskjemaet nedenfor.
 
-Looks very reasonable.
+Fullt navn:
+Kjønn:
+Beløp som trengs:
+Varighet:
+Tel:
+Snakk engelsk?
 
-Acked-by: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
+Vi venter på ditt svar.
 
-I tried testing it, and resulting kernel works, but even going back to
-broken kernel I can't reproduce the problem on demand...
-
-Best regards,
-								Pavel
-
-> +++ b/drivers/net/wireless/ti/wl1251/main.c
-> @@ -1571,6 +1571,7 @@ struct ieee80211_hw *wl1251_alloc_hw(void)
-> =20
->  	wl->state =3D WL1251_STATE_OFF;
->  	mutex_init(&wl->mutex);
-> +	spin_lock_init(&wl->wl_lock);
-> =20
->  	wl->tx_mgmt_frm_rate =3D DEFAULT_HW_GEN_TX_RATE;
->  	wl->tx_mgmt_frm_mod =3D DEFAULT_HW_GEN_MODULATION_TYPE;
-
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
-
---5mCyUwZo2JvN/JJP
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAllfveUACgkQMOfwapXb+vLW7gCfdyCsZKPRytciLgFwu8s800n6
-mXIAoJsQFneQIERNXrID507oRP3hGCV4
-=OJa0
------END PGP SIGNATURE-----
-
---5mCyUwZo2JvN/JJP--
+Du kan kontakte oss via e-post: info@corporatelendersonline.com
+Vennlig hilsen,
+Thomas Walter
