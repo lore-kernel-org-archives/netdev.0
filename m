@@ -1,7 +1,7 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: [PATCH v3 3/9] sched: Replace spin_unlock_wait() with lock/unlock pair
-Date: Fri,  7 Jul 2017 12:28:20 -0700
-Message-ID: <1499455706-9398-3-git-send-email-paulmck@linux.vnet.ibm.com>
+Subject: [PATCH v3 1/9] net/netfilter/nf_conntrack_core: Fix net_conntrack_lock()
+Date: Fri,  7 Jul 2017 12:28:18 -0700
+Message-ID: <1499455706-9398-1-git-send-email-paulmck@linux.vnet.ibm.com>
 References: <20170707192704.GA6144@linux.vnet.ibm.com>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
         oleg@redhat.com, akpm@linux-foundation.org, mingo@redhat.com,
@@ -9,6 +9,8 @@ Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
         arnd@arndb.de, linux-arch@vger.kernel.org, will.deacon@arm.com,
         peterz@infradead.org, stern@rowland.harvard.edu,
         parri.andrea@gmail.com, torvalds@linux-foundation.org,
+        <stable@vger.kernel.org>, Sasha Levin <sasha.levin@oracle.com>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
         "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -16,41 +18,115 @@ In-Reply-To: <20170707192704.GA6144@linux.vnet.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There is no agreed-upon definition of spin_unlock_wait()'s semantics,
-and it appears that all callers could do just as well with a lock/unlock
-pair.  This commit therefore replaces the spin_unlock_wait() call in
-do_task_dead() with spin_lock() followed immediately by spin_unlock().
-This should be safe from a performance perspective because the lock is
-this tasks ->pi_lock, and this is called only after the task exits.
+From: Manfred Spraul <manfred@colorfullife.com>
 
-Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: Peter Zijlstra <peterz@infradead.org>
-Cc: Will Deacon <will.deacon@arm.com>
+As we want to remove spin_unlock_wait() and replace it with explicit
+spin_lock()/spin_unlock() calls, we can use this to simplify the
+locking.
+
+In addition:
+- Reading nf_conntrack_locks_all needs ACQUIRE memory ordering.
+- The new code avoids the backwards loop.
+
+Only slightly tested, I did not manage to trigger calls to
+nf_conntrack_all_lock().
+
+V2: With improved comments, to clearly show how the barriers
+    pair.
+
+Fixes: b16c29191dc8 ("netfilter: nf_conntrack: use safer way to lock all buckets")
+Signed-off-by: Manfred Spraul <manfred@colorfullife.com>
+Cc: <stable@vger.kernel.org>
 Cc: Alan Stern <stern@rowland.harvard.edu>
-Cc: Andrea Parri <parri.andrea@gmail.com>
-Cc: Linus Torvalds <torvalds@linux-foundation.org>
-[ paulmck: Replace leading smp_mb() with smp_mb__before_spinlock(),
-  courtesy of Arnd Bergmann's noting its odd location. ]
+Cc: Sasha Levin <sasha.levin@oracle.com>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: netfilter-devel@vger.kernel.org
+Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
 ---
- kernel/sched/core.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ net/netfilter/nf_conntrack_core.c | 52 ++++++++++++++++++++++-----------------
+ 1 file changed, 29 insertions(+), 23 deletions(-)
 
-diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index e91138fcde86..48a8760fedf4 100644
---- a/kernel/sched/core.c
-+++ b/kernel/sched/core.c
-@@ -3460,8 +3460,9 @@ void __noreturn do_task_dead(void)
- 	 * To avoid it, we have to wait for releasing tsk->pi_lock which
- 	 * is held by try_to_wake_up()
- 	 */
--	smp_mb();
--	raw_spin_unlock_wait(&current->pi_lock);
-+	smp_mb__before_spinlock();
-+	raw_spin_lock_irq(&current->pi_lock);
-+	raw_spin_unlock_irq(&current->pi_lock);
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index e847dbaa0c6b..e0560c41e371 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -96,19 +96,26 @@ static struct conntrack_gc_work conntrack_gc_work;
  
- 	/* Causes final put_task_struct in finish_task_switch(): */
- 	__set_current_state(TASK_DEAD);
+ void nf_conntrack_lock(spinlock_t *lock) __acquires(lock)
+ {
++	/* 1) Acquire the lock */
+ 	spin_lock(lock);
+-	while (unlikely(nf_conntrack_locks_all)) {
+-		spin_unlock(lock);
+ 
+-		/*
+-		 * Order the 'nf_conntrack_locks_all' load vs. the
+-		 * spin_unlock_wait() loads below, to ensure
+-		 * that 'nf_conntrack_locks_all_lock' is indeed held:
+-		 */
+-		smp_rmb(); /* spin_lock(&nf_conntrack_locks_all_lock) */
+-		spin_unlock_wait(&nf_conntrack_locks_all_lock);
+-		spin_lock(lock);
+-	}
++	/* 2) read nf_conntrack_locks_all, with ACQUIRE semantics
++	 * It pairs with the smp_store_release() in nf_conntrack_all_unlock()
++	 */
++	if (likely(smp_load_acquire(&nf_conntrack_locks_all) == false))
++		return;
++
++	/* fast path failed, unlock */
++	spin_unlock(lock);
++
++	/* Slow path 1) get global lock */
++	spin_lock(&nf_conntrack_locks_all_lock);
++
++	/* Slow path 2) get the lock we want */
++	spin_lock(lock);
++
++	/* Slow path 3) release the global lock */
++	spin_unlock(&nf_conntrack_locks_all_lock);
+ }
+ EXPORT_SYMBOL_GPL(nf_conntrack_lock);
+ 
+@@ -149,28 +156,27 @@ static void nf_conntrack_all_lock(void)
+ 	int i;
+ 
+ 	spin_lock(&nf_conntrack_locks_all_lock);
+-	nf_conntrack_locks_all = true;
+ 
+-	/*
+-	 * Order the above store of 'nf_conntrack_locks_all' against
+-	 * the spin_unlock_wait() loads below, such that if
+-	 * nf_conntrack_lock() observes 'nf_conntrack_locks_all'
+-	 * we must observe nf_conntrack_locks[] held:
+-	 */
+-	smp_mb(); /* spin_lock(&nf_conntrack_locks_all_lock) */
++	nf_conntrack_locks_all = true;
+ 
+ 	for (i = 0; i < CONNTRACK_LOCKS; i++) {
+-		spin_unlock_wait(&nf_conntrack_locks[i]);
++		spin_lock(&nf_conntrack_locks[i]);
++
++		/* This spin_unlock provides the "release" to ensure that
++		 * nf_conntrack_locks_all==true is visible to everyone that
++		 * acquired spin_lock(&nf_conntrack_locks[]).
++		 */
++		spin_unlock(&nf_conntrack_locks[i]);
+ 	}
+ }
+ 
+ static void nf_conntrack_all_unlock(void)
+ {
+-	/*
+-	 * All prior stores must be complete before we clear
++	/* All prior stores must be complete before we clear
+ 	 * 'nf_conntrack_locks_all'. Otherwise nf_conntrack_lock()
+ 	 * might observe the false value but not the entire
+-	 * critical section:
++	 * critical section.
++	 * It pairs with the smp_load_acquire() in nf_conntrack_lock()
+ 	 */
+ 	smp_store_release(&nf_conntrack_locks_all, false);
+ 	spin_unlock(&nf_conntrack_locks_all_lock);
 -- 
 2.5.2
