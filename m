@@ -1,72 +1,74 @@
-From: Richard Leitner <richard.leitner@skidata.com>
-Subject: Re: [PATCH 2/2] net: ethernet: fsl: add phy reset after clk enable
- option
-Date: Fri, 7 Jul 2017 11:52:50 +0200
-Message-ID: <6de114cb-4521-4bb2-d0a3-4aea32936bd3@skidata.com>
-References: <1499346330-12166-1-git-send-email-richard.leitner@skidata.com>
- <1499346330-12166-2-git-send-email-richard.leitner@skidata.com>
- <AM4PR0401MB2260ECD4508E26FF16670004FFAA0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
- <81105c77-d48f-271b-2de1-c877b9413184@skidata.com>
- <AM4PR0401MB226089839458F5F92C3B1F39FFAA0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: ath10k: ret used but uninitialized
+Date: Fri, 7 Jul 2017 10:04:24 +0000
+Message-ID: <87bmowd0mh.fsf@kamboji.qca.qualcomm.com>
+References: <CAMuHMdWVYA4TejcTjOQh7CBfFwJ=q59pzvuHrpH91Kx=-BK9fg@mail.gmail.com>
+        <c72d2e7a-195d-bcac-4ce5-f3051531664c@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "dev@g0hl1n.net" <dev@g0hl1n.net>, Andrew Lunn <andrew@lunn.ch>
-To: Andy Duan <fugang.duan@nxp.com>,
-        "robh+dt@kernel.org" <robh+dt@kernel.org>,
-        "mark.rutland@arm.com" <mark.rutland@arm.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
+        Arnd Bergmann <arnd@arndb.de>,
+        "ath10k@lists.infradead.org" <ath10k@lists.infradead.org>,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Erik Stromdahl <erik.stromdahl@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AM4PR0401MB226089839458F5F92C3B1F39FFAA0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+In-Reply-To: <c72d2e7a-195d-bcac-4ce5-f3051531664c@gmail.com> (Erik
+        Stromdahl's message of "Thu, 6 Jul 2017 22:01:57 +0200")
+Content-Language: en-US
+Content-ID: <3A66E09684FF0242BCD94863EA28B1E8@qualcomm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-On 07/07/2017 09:03 AM, Andy Duan wrote:
-> From: Richard Leitner <richard.leitner@skidata.com> Sent: Friday, July 07, 2017 1:51 PM
->>> Since it is common issue so long as using the PHY, can you move it into smsc
->> phy driver like in .smsc_phy_reset() function ?
->>> And get the reset pin from phy dts node.
->>
->> Some more points that come into my mind:
->>  - The smsc_phy_reset function is registered as "soft_reset". Would it be OK to
->> use nRST in it?
->
-> It is not reasonable.
->
->>  - Would it be OK to call the phy_init_hw function from within the
->> smsc_phy_reset?
->
-> No, phy_init_hw() already call .drv->soft_reset().
->
->>  - IMHO I'd have to move the reset gpio binding inside the phy node then. Isn't
->> that a pretty big change doing that for all PHYs/FECs? Would it be "worth" it?
->>
-> To make the change to be common, there have big change for phy driver.
-> Maybe somebody can give one good suggestion/solution for it.
-
-Sorry, I don't think I understood everything correctly:
-
-1. The "phy-reset-gpios" binding should go inside the phy node. This 
-will cause to *change ALL FEC and PHY drivers*. Correct?
-
-2. Add an additonal "hard reset" function to the PHY driver which 
-handles the "phy-reset-gpios". Correct?
-
-3. Who should then trigger the "hard reset" of the PHY? phy_init_hw? The 
-FEC?
-
-The point is that the LAN8710 is currently not always working correctly, 
-therefore this small change was proposed. Should we really change all 
-PHY/FECs only because of this?
-Furthermore one problem still remains: The enet_refclk is controlled by 
-the FEC. How does the PHY recognize when it was disabled/enabled?
-
->
-> Andy
->
-
-kind regards,
-Richard.L
+RXJpayBTdHJvbWRhaGwgPGVyaWsuc3Ryb21kYWhsQGdtYWlsLmNvbT4gd3JpdGVzOg0KDQo+PiBX
+aXRoIGdjYyA0LjEuMjoNCj4+DQo+PiBkcml2ZXJzL25ldC93aXJlbGVzcy9hdGgvYXRoMTBrL3Nk
+aW8uYzogSW4gZnVuY3Rpb24NCj4+IOKAmGF0aDEwa19zZGlvX21ib3hfcnhtc2dfcGVuZGluZ19o
+YW5kbGVy4oCZOg0KPj4gZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDEway9zZGlvLmM6Njc2
+OiB3YXJuaW5nOiDigJhyZXTigJkgbWF5IGJlIHVzZWQNCj4+IHVuaW5pdGlhbGl6ZWQgaW4gdGhp
+cyBmdW5jdGlvbg0KPj4NCj4+PiArDQo+Pj4gKyAgICAgICAqZG9uZSA9IHRydWU7DQo+Pj4gKw0K
+Pj4+ICsgICAgICAgLyogQ29weSB0aGUgbG9va2FoZWFkIG9idGFpbmVkIGZyb20gdGhlIEhUQyBy
+ZWdpc3RlciB0YWJsZSBpbnRvIG91cg0KPj4+ICsgICAgICAgICogdGVtcCBhcnJheSBhcyBhIHN0
+YXJ0IHZhbHVlLg0KPj4+ICsgICAgICAgICovDQo+Pj4gKyAgICAgICBsb29rYWhlYWRzWzBdID0g
+bXNnX2xvb2thaGVhZDsNCj4+PiArDQo+Pj4gKyAgICAgICB0aW1lb3V0ID0gamlmZmllcyArIFNE
+SU9fTUJPWF9QUk9DRVNTSU5HX1RJTUVPVVRfSFo7DQo+Pg0KPj4gQWx0aG91Z2ggdmVyeSB1bmxp
+a2VseSBkdWUgdG8gdGhlIGxvbmcgdGltZW91dCwgaWYgdGhlIGNvZGUgaXMgcHJlZW1wdGVkIGhl
+cmUsDQo+PiBhbmQgdGhlIGxvb3AgYmVsb3cgbmV2ZXIgZW50ZXJlZCwgcmV0IHdpbGwgaW5kZWVk
+IGJlIHVuaW5pdGlhbGl6ZWQuDQo+Pg0KPj4gSXQncyB1bmNsZWFyIHRvIG1lIHdoYXQgdGhlIHBy
+b3BlciBpbml0aWFsaXphdGlvbiB3b3VsZCBiZSwgdGhvdWdoLCBzbw0KPj4gdGhhdCdzIHdoeSBJ
+IGRpZG4ndCBzZW5kIGEgcGF0Y2guDQo+Pg0KPiBJIHRoaW5rIGl0IHdvdWxkIGJlIGJlc3QgdG8g
+dXNlIDAgYXMgaW5pdGlhbCB2YWx1ZSBvZiByZXQgaW4gdGhpcyBjYXNlLg0KPiBUaGlzIHdpbGwg
+bWFrZSBhbGwgb3RoZXIgaW50ZXJydXB0cyBiZSBwcm9jZXNzZWQgaW4gYSBub3JtYWwgd2F5Lg0K
+Pg0KPiBLYWxsZTogU2hvdWxkIEkgY3JlYXRlIGEgbmV3IHBhdGNoIChpbml0aWFsaXppbmcgcmV0
+IHdpdGggemVybyk/DQoNClllcywgcGxlYXNlIHNlbmQgYSBuZXcgcGF0Y2ggZml4aW5nIHRoaXMu
+DQoNCkJ1dCBJIGRvbid0IGxpa2UgdGhhdCBtdWNoIHdpdGggdGhlIHN0eWxlIG9mIGluaXRpYWxp
+c2luZyByZXQgdG8gemVybywNCml0IHRlbmRzIHRvIGhpZGUgdGhpbmdzLiBJbnN0ZWFkIG15IHBy
+ZWZlcmVuY2UgaXMgc29tZXRoaW5nIGxpa2UgYmVsb3cNCndoZXJlIHRoZSBlcnJvciBoYW5kbGlu
+ZyBpcyBtb3JlIGV4cGxpY2l0IGFuZCBlYXNpZXIgdG8gZmluZCB3aGVyZSBpdCdzDQpleGFjdGx5
+IGZhaWxpbmcuIEJ1dCB0aGF0J3MganVzdCBhbiBleGFtcGxlIGhvdyBJIHdvdWxkIHRyeSB0byBz
+b2x2ZSBpdCwNCml0IHN0aWxsIGxhY2tzIHRoZSBoYW5kbGluZyBvZiAtRUNBTkNFTCBldGMuDQoN
+CmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC93aXJlbGVzcy9hdGgvYXRoMTBrL3NkaW8uYyBiL2Ry
+aXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGgxMGsvc2Rpby5jDQppbmRleCA4NTllZDg3MGJkOTcu
+LjE5YTUzZTU3NzkzMiAxMDA2NDQNCi0tLSBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGgx
+MGsvc2Rpby5jDQorKysgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9hdGgvYXRoMTBrL3NkaW8uYw0K
+QEAgLTY4OSw4ICs2ODksMTAgQEAgc3RhdGljIGludCBhdGgxMGtfc2Rpb19tYm94X3J4bXNnX3Bl
+bmRpbmdfaGFuZGxlcihzdHJ1Y3QgYXRoMTBrICphciwNCiAJCSAqLw0KIAkJcmV0ID0gYXRoMTBr
+X3NkaW9fbWJveF9yeF9hbGxvYyhhciwgbG9va2FoZWFkcywNCiAJCQkJCQluX2xvb2thaGVhZHMp
+Ow0KLQkJaWYgKHJldCkNCi0JCQlicmVhazsNCisJCWlmIChyZXQpIHsNCisJCQlhdGgxMGtfd2Fy
+bihhciwgImZhaWxlZCB0byAuLi4uOiAlZCIsIHJldCk7DQorCQkJcmV0dXJuIHJldDsNCisJCX0N
+CiANCiAJCWlmIChhcl9zZGlvLT5uX3J4X3BrdHMgPj0gMikNCiAJCQkvKiBBIHJlY3YgYnVuZGxl
+IHdhcyBkZXRlY3RlZCwgZm9yY2UgSVJRIHN0YXR1cw0KQEAgLTcwOSw4ICs3MTEsMTAgQEAgc3Rh
+dGljIGludCBhdGgxMGtfc2Rpb19tYm94X3J4bXNnX3BlbmRpbmdfaGFuZGxlcihzdHJ1Y3QgYXRo
+MTBrICphciwNCiAJCQkJCQkJICBsb29rYWhlYWRzLA0KIAkJCQkJCQkgICZuX2xvb2thaGVhZHMp
+Ow0KIA0KLQkJaWYgKCFuX2xvb2thaGVhZHMgfHwgcmV0KQ0KLQkJCWJyZWFrOw0KKwkJaWYgKCFu
+X2xvb2thaGVhZHMgfHwgcmV0KSB7DQorCQkJYXRoMTBrX3dhcm4oYXIsICJmYWlsZWQgdG8gLi4u
+LiIpOw0KKwkJCXJldHVybiByZXQ7DQorCQl9DQogDQogCQkvKiBGb3IgU1lOQ0ggcHJvY2Vzc2lu
+ZywgaWYgd2UgZ2V0IGhlcmUsIHdlIGFyZSBydW5uaW5nDQogCQkgKiB0aHJvdWdoIHRoZSBsb29w
+IGFnYWluIGR1ZSB0byB1cGRhdGVkIGxvb2thaGVhZHMuIFNldA0KQEAgLTcyMSwxMSArNzI1LDcg
+QEAgc3RhdGljIGludCBhdGgxMGtfc2Rpb19tYm94X3J4bXNnX3BlbmRpbmdfaGFuZGxlcihzdHJ1
+Y3QgYXRoMTBrICphciwNCiAJCSpkb25lID0gZmFsc2U7DQogCX0NCiANCi0JaWYgKHJldCAmJiAo
+cmV0ICE9IC1FQ0FOQ0VMRUQpKQ0KLQkJYXRoMTBrX3dhcm4oYXIsICJmYWlsZWQgdG8gZ2V0IHBl
+bmRpbmcgcmVjdiBtZXNzYWdlczogJWRcbiIsDQotCQkJICAgIHJldCk7DQotDQotCXJldHVybiBy
+ZXQ7DQorCXJldHVybiAwOw0KIH0NCiANCiBzdGF0aWMgaW50IGF0aDEwa19zZGlvX21ib3hfcHJv
+Y19kYmdfaW50cihzdHJ1Y3QgYXRoMTBrICphcikNCg0KDQotLSANCkthbGxlIFZhbG8=
