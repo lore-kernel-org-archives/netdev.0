@@ -1,270 +1,237 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH v2 RFC 11/13] net: Remove all references to SKB_GSO_UDP.
-Date: Fri, 07 Jul 2017 10:44:45 +0100 (WEST)
-Message-ID: <20170707.104445.679539190279299650.davem@davemloft.net>
+Subject: [PATCH v2 RFC 12/13] inet: Remove software UFO fragmenting code.
+Date: Fri, 07 Jul 2017 10:44:51 +0100 (WEST)
+Message-ID: <20170707.104451.437888712028886422.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: willemdebruijn.kernel@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49846 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:49850 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751001AbdGGJo5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2017 05:44:57 -0400
+        with ESMTP id S1750886AbdGGJpD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2017 05:45:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Such packets are no longer possible.
+Rename udp{4,6}_ufo_fragment() to udp{4,6}_tunnel_segment() and only
+handle tunnel segmentation.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/linux/virtio_net.h |  5 -----
- net/core/filter.c          |  8 ++++----
- net/ipv4/af_inet.c         | 12 ++----------
- net/ipv4/gre_offload.c     | 14 +-------------
- net/ipv4/udp_offload.c     |  6 ++----
- net/openvswitch/datapath.c | 14 --------------
- net/openvswitch/flow.c     |  6 +-----
- net/sched/act_csum.c       |  6 ------
- 8 files changed, 10 insertions(+), 61 deletions(-)
+ net/ipv4/udp_offload.c |  58 ++--------------------------
+ net/ipv6/udp_offload.c | 100 ++-----------------------------------------------
+ 2 files changed, 7 insertions(+), 151 deletions(-)
 
-diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
-index 5209b5e..32fb046 100644
---- a/include/linux/virtio_net.h
-+++ b/include/linux/virtio_net.h
-@@ -18,9 +18,6 @@ static inline int virtio_net_hdr_to_skb(struct sk_buff *skb,
- 		case VIRTIO_NET_HDR_GSO_TCPV6:
- 			gso_type = SKB_GSO_TCPV6;
- 			break;
--		case VIRTIO_NET_HDR_GSO_UDP:
--			gso_type = SKB_GSO_UDP;
--			break;
- 		default:
- 			return -EINVAL;
- 		}
-@@ -73,8 +70,6 @@ static inline int virtio_net_hdr_from_skb(const struct sk_buff *skb,
- 			hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
- 		else if (sinfo->gso_type & SKB_GSO_TCPV6)
- 			hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
--		else if (sinfo->gso_type & SKB_GSO_UDP)
--			hdr->gso_type = VIRTIO_NET_HDR_GSO_UDP;
- 		else
- 			return -EINVAL;
- 		if (sinfo->gso_type & SKB_GSO_TCP_ECN)
-diff --git a/net/core/filter.c b/net/core/filter.c
-index c7f7370..758cac5 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2024,8 +2024,8 @@ static int bpf_skb_proto_4_to_6(struct sk_buff *skb)
- 		return ret;
- 
- 	if (skb_is_gso(skb)) {
--		/* SKB_GSO_UDP stays as is. SKB_GSO_TCPV4 needs to
--		 * be changed into SKB_GSO_TCPV6.
-+		/* SKB_GSO_TCPV4 needs to be changed into
-+		 * SKB_GSO_TCPV6.
- 		 */
- 		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4) {
- 			skb_shinfo(skb)->gso_type &= ~SKB_GSO_TCPV4;
-@@ -2060,8 +2060,8 @@ static int bpf_skb_proto_6_to_4(struct sk_buff *skb)
- 		return ret;
- 
- 	if (skb_is_gso(skb)) {
--		/* SKB_GSO_UDP stays as is. SKB_GSO_TCPV6 needs to
--		 * be changed into SKB_GSO_TCPV4.
-+		/* SKB_GSO_TCPV6 needs to be changed into
-+		 * SKB_GSO_TCPV4.
- 		 */
- 		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6) {
- 			skb_shinfo(skb)->gso_type &= ~SKB_GSO_TCPV6;
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 76c2077c..5ce44fb 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1219,10 +1219,9 @@ EXPORT_SYMBOL(inet_sk_rebuild_header);
- struct sk_buff *inet_gso_segment(struct sk_buff *skb,
- 				 netdev_features_t features)
- {
--	bool udpfrag = false, fixedid = false, gso_partial, encap;
-+	bool fixedid = false, gso_partial, encap;
- 	struct sk_buff *segs = ERR_PTR(-EINVAL);
- 	const struct net_offload *ops;
--	unsigned int offset = 0;
- 	struct iphdr *iph;
- 	int proto, tot_len;
- 	int nhoff;
-@@ -1257,7 +1256,6 @@ struct sk_buff *inet_gso_segment(struct sk_buff *skb,
- 	segs = ERR_PTR(-EPROTONOSUPPORT);
- 
- 	if (!skb->encapsulation || encap) {
--		udpfrag = !!(skb_shinfo(skb)->gso_type & SKB_GSO_UDP);
- 		fixedid = !!(skb_shinfo(skb)->gso_type & SKB_GSO_TCP_FIXEDID);
- 
- 		/* fixed ID is invalid if DF bit is not set */
-@@ -1277,13 +1275,7 @@ struct sk_buff *inet_gso_segment(struct sk_buff *skb,
- 	skb = segs;
- 	do {
- 		iph = (struct iphdr *)(skb_mac_header(skb) + nhoff);
--		if (udpfrag) {
--			iph->frag_off = htons(offset >> 3);
--			if (skb->next)
--				iph->frag_off |= htons(IP_MF);
--			offset += skb->len - nhoff - ihl;
--			tot_len = skb->len - nhoff;
--		} else if (skb_is_gso(skb)) {
-+		if (skb_is_gso(skb)) {
- 			if (!fixedid) {
- 				iph->id = htons(id);
- 				id += skb_shinfo(skb)->gso_segs;
-diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-index d5cac99..416bb30 100644
---- a/net/ipv4/gre_offload.c
-+++ b/net/ipv4/gre_offload.c
-@@ -24,7 +24,7 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
- 	__be16 protocol = skb->protocol;
- 	u16 mac_len = skb->mac_len;
- 	int gre_offset, outer_hlen;
--	bool need_csum, ufo, gso_partial;
-+	bool need_csum, gso_partial;
- 
- 	if (!skb->encapsulation)
- 		goto out;
-@@ -47,20 +47,8 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
- 	need_csum = !!(skb_shinfo(skb)->gso_type & SKB_GSO_GRE_CSUM);
- 	skb->encap_hdr_csum = need_csum;
- 
--	ufo = !!(skb_shinfo(skb)->gso_type & SKB_GSO_UDP);
--
- 	features &= skb->dev->hw_enc_features;
- 
--	/* The only checksum offload we care about from here on out is the
--	 * outer one so strip the existing checksum feature flags based
--	 * on the fact that we will be computing our checksum in software.
--	 */
--	if (ufo) {
--		features &= ~NETIF_F_CSUM_MASK;
--		if (!need_csum)
--			features |= NETIF_F_HW_CSUM;
--	}
--
- 	/* segment inner packet. */
- 	segs = skb_mac_gso_segment(skb, features);
- 	if (IS_ERR_OR_NULL(segs)) {
 diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index 7812501..4fedce3 100644
+index 4fedce3..97658bf 100644
 --- a/net/ipv4/udp_offload.c
 +++ b/net/ipv4/udp_offload.c
-@@ -21,7 +21,7 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 	__be16 new_protocol, bool is_ipv6)
+@@ -187,66 +187,16 @@ struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
+ }
+ EXPORT_SYMBOL(skb_udp_tunnel_segment);
+ 
+-static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
+-					 netdev_features_t features)
++static struct sk_buff *udp4_tunnel_segment(struct sk_buff *skb,
++					   netdev_features_t features)
  {
- 	int tnl_hlen = skb_inner_mac_header(skb) - skb_transport_header(skb);
--	bool remcsum, need_csum, offload_csum, ufo, gso_partial;
-+	bool remcsum, need_csum, offload_csum, gso_partial;
  	struct sk_buff *segs = ERR_PTR(-EINVAL);
- 	struct udphdr *uh = udp_hdr(skb);
- 	u16 mac_offset = skb->mac_header;
-@@ -61,8 +61,6 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 	remcsum = !!(skb_shinfo(skb)->gso_type & SKB_GSO_TUNNEL_REMCSUM);
- 	skb->remcsum_offload = remcsum;
+-	unsigned int mss;
+-	__wsum csum;
+-	struct udphdr *uh;
+-	struct iphdr *iph;
  
--	ufo = !!(skb_shinfo(skb)->gso_type & SKB_GSO_UDP);
--
- 	need_ipsec = skb_dst(skb) && dst_xfrm(skb_dst(skb));
- 	/* Try to offload checksum if possible */
- 	offload_csum = !!(need_csum &&
-@@ -77,7 +75,7 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 	 * outer one so strip the existing checksum feature flags and
- 	 * instead set the flag based on our outer checksum offload value.
- 	 */
--	if (remcsum || ufo) {
-+	if (remcsum) {
- 		features &= ~NETIF_F_CSUM_MASK;
- 		if (!need_csum || offload_csum)
- 			features |= NETIF_F_HW_CSUM;
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 45fe8c8..f6e229b 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -335,8 +335,6 @@ static int queue_gso_packets(struct datapath *dp, struct sk_buff *skb,
- 			     const struct dp_upcall_info *upcall_info,
- 				 uint32_t cutlen)
- {
--	unsigned short gso_type = skb_shinfo(skb)->gso_type;
--	struct sw_flow_key later_key;
- 	struct sk_buff *segs, *nskb;
- 	int err;
- 
-@@ -347,21 +345,9 @@ static int queue_gso_packets(struct datapath *dp, struct sk_buff *skb,
- 	if (segs == NULL)
- 		return -EINVAL;
- 
--	if (gso_type & SKB_GSO_UDP) {
--		/* The initial flow key extracted by ovs_flow_key_extract()
--		 * in this case is for a first fragment, so we need to
--		 * properly mark later fragments.
--		 */
--		later_key = *key;
--		later_key.ip.frag = OVS_FRAG_TYPE_LATER;
+ 	if (skb->encapsulation &&
+ 	    (skb_shinfo(skb)->gso_type &
+-	     (SKB_GSO_UDP_TUNNEL|SKB_GSO_UDP_TUNNEL_CSUM))) {
++	     (SKB_GSO_UDP_TUNNEL|SKB_GSO_UDP_TUNNEL_CSUM)))
+ 		segs = skb_udp_tunnel_segment(skb, features, false);
+-		goto out;
 -	}
 -
- 	/* Queue all of the segments. */
- 	skb = segs;
- 	do {
--		if (gso_type & SKB_GSO_UDP && skb != segs)
--			key = &later_key;
+-	if (!pskb_may_pull(skb, sizeof(struct udphdr)))
+-		goto out;
 -
- 		err = queue_userspace_packet(dp, skb, key, upcall_info, cutlen);
- 		if (err)
- 			break;
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index 3f76cb7..597d96f 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -584,8 +584,7 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
- 			key->ip.frag = OVS_FRAG_TYPE_LATER;
- 			return 0;
- 		}
--		if (nh->frag_off & htons(IP_MF) ||
--			skb_shinfo(skb)->gso_type & SKB_GSO_UDP)
-+		if (nh->frag_off & htons(IP_MF))
- 			key->ip.frag = OVS_FRAG_TYPE_FIRST;
- 		else
- 			key->ip.frag = OVS_FRAG_TYPE_NONE;
-@@ -701,9 +700,6 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
+-	mss = skb_shinfo(skb)->gso_size;
+-	if (unlikely(skb->len <= mss))
+-		goto out;
+-
+-	if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
+-		/* Packet is from an untrusted source, reset gso_segs. */
+-
+-		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
+-
+-		segs = NULL;
+-		goto out;
+-	}
+-
+-	/* Do software UFO. Complete and fill in the UDP checksum as
+-	 * HW cannot do checksum of UDP packets sent as multiple
+-	 * IP fragments.
+-	 */
+-
+-	uh = udp_hdr(skb);
+-	iph = ip_hdr(skb);
+-
+-	uh->check = 0;
+-	csum = skb_checksum(skb, 0, skb->len, 0);
+-	uh->check = udp_v4_check(skb->len, iph->saddr, iph->daddr, csum);
+-	if (uh->check == 0)
+-		uh->check = CSUM_MANGLED_0;
  
- 		if (key->ip.frag == OVS_FRAG_TYPE_LATER)
- 			return 0;
--		if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP)
--			key->ip.frag = OVS_FRAG_TYPE_FIRST;
+-	skb->ip_summed = CHECKSUM_NONE;
 -
- 		/* Transport layer. */
- 		if (key->ip.proto == NEXTHDR_TCP) {
- 			if (tcphdr_ok(skb)) {
-diff --git a/net/sched/act_csum.c b/net/sched/act_csum.c
-index 3317a2f..67afc12 100644
---- a/net/sched/act_csum.c
-+++ b/net/sched/act_csum.c
-@@ -231,9 +231,6 @@ static int tcf_csum_ipv4_udp(struct sk_buff *skb, unsigned int ihl,
- 	const struct iphdr *iph;
- 	u16 ul;
+-	/* If there is no outer header we can fake a checksum offload
+-	 * due to the fact that we have already done the checksum in
+-	 * software prior to segmenting the frame.
+-	 */
+-	if (!skb->encap_hdr_csum)
+-		features |= NETIF_F_HW_CSUM;
+-
+-	/* Fragment the skb. IP headers of the fragments are updated in
+-	 * inet_gso_segment()
+-	 */
+-	segs = skb_segment(skb, features);
+-out:
+ 	return segs;
+ }
  
--	if (skb_is_gso(skb) && skb_shinfo(skb)->gso_type & SKB_GSO_UDP)
--		return 1;
--
- 	/*
- 	 * Support both UDP and UDPLITE checksum algorithms, Don't use
- 	 * udph->len to get the real length without any protocol check,
-@@ -287,9 +284,6 @@ static int tcf_csum_ipv6_udp(struct sk_buff *skb, unsigned int ihl,
- 	const struct ipv6hdr *ip6h;
- 	u16 ul;
+@@ -380,7 +330,7 @@ static int udp4_gro_complete(struct sk_buff *skb, int nhoff)
  
--	if (skb_is_gso(skb) && skb_shinfo(skb)->gso_type & SKB_GSO_UDP)
--		return 1;
+ static const struct net_offload udpv4_offload = {
+ 	.callbacks = {
+-		.gso_segment = udp4_ufo_fragment,
++		.gso_segment = udp4_tunnel_segment,
+ 		.gro_receive  =	udp4_gro_receive,
+ 		.gro_complete =	udp4_gro_complete,
+ 	},
+diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
+index a2267f8..455fd4e 100644
+--- a/net/ipv6/udp_offload.c
++++ b/net/ipv6/udp_offload.c
+@@ -17,109 +17,15 @@
+ #include <net/ip6_checksum.h>
+ #include "ip6_offload.h"
+ 
+-static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+-					 netdev_features_t features)
++static struct sk_buff *udp6_tunnel_segment(struct sk_buff *skb,
++					   netdev_features_t features)
+ {
+ 	struct sk_buff *segs = ERR_PTR(-EINVAL);
+-	unsigned int mss;
+-	unsigned int unfrag_ip6hlen, unfrag_len;
+-	struct frag_hdr *fptr;
+-	u8 *packet_start, *prevhdr;
+-	u8 nexthdr;
+-	u8 frag_hdr_sz = sizeof(struct frag_hdr);
+-	__wsum csum;
+-	int tnl_hlen;
+-	int err;
 -
- 	/*
- 	 * Support both UDP and UDPLITE checksum algorithms, Don't use
- 	 * udph->len to get the real length without any protocol check,
+-	mss = skb_shinfo(skb)->gso_size;
+-	if (unlikely(skb->len <= mss))
+-		goto out;
+-
+-	if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
+-		/* Packet is from an untrusted source, reset gso_segs. */
+-
+-		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
+-
+-		/* Set the IPv6 fragment id if not set yet */
+-		if (!skb_shinfo(skb)->ip6_frag_id)
+-			ipv6_proxy_select_ident(dev_net(skb->dev), skb);
+-
+-		segs = NULL;
+-		goto out;
+-	}
+ 
+ 	if (skb->encapsulation && skb_shinfo(skb)->gso_type &
+ 	    (SKB_GSO_UDP_TUNNEL|SKB_GSO_UDP_TUNNEL_CSUM))
+ 		segs = skb_udp_tunnel_segment(skb, features, true);
+-	else {
+-		const struct ipv6hdr *ipv6h;
+-		struct udphdr *uh;
+-
+-		if (!pskb_may_pull(skb, sizeof(struct udphdr)))
+-			goto out;
+-
+-		/* Do software UFO. Complete and fill in the UDP checksum as HW cannot
+-		 * do checksum of UDP packets sent as multiple IP fragments.
+-		 */
+-
+-		uh = udp_hdr(skb);
+-		ipv6h = ipv6_hdr(skb);
+-
+-		uh->check = 0;
+-		csum = skb_checksum(skb, 0, skb->len, 0);
+-		uh->check = udp_v6_check(skb->len, &ipv6h->saddr,
+-					  &ipv6h->daddr, csum);
+-		if (uh->check == 0)
+-			uh->check = CSUM_MANGLED_0;
+-
+-		skb->ip_summed = CHECKSUM_NONE;
+-
+-		/* If there is no outer header we can fake a checksum offload
+-		 * due to the fact that we have already done the checksum in
+-		 * software prior to segmenting the frame.
+-		 */
+-		if (!skb->encap_hdr_csum)
+-			features |= NETIF_F_HW_CSUM;
+-
+-		/* Check if there is enough headroom to insert fragment header. */
+-		tnl_hlen = skb_tnl_header_len(skb);
+-		if (skb->mac_header < (tnl_hlen + frag_hdr_sz)) {
+-			if (gso_pskb_expand_head(skb, tnl_hlen + frag_hdr_sz))
+-				goto out;
+-		}
+-
+-		/* Find the unfragmentable header and shift it left by frag_hdr_sz
+-		 * bytes to insert fragment header.
+-		 */
+-		err = ip6_find_1stfragopt(skb, &prevhdr);
+-		if (err < 0)
+-			return ERR_PTR(err);
+-		unfrag_ip6hlen = err;
+-		nexthdr = *prevhdr;
+-		*prevhdr = NEXTHDR_FRAGMENT;
+-		unfrag_len = (skb_network_header(skb) - skb_mac_header(skb)) +
+-			     unfrag_ip6hlen + tnl_hlen;
+-		packet_start = (u8 *) skb->head + SKB_GSO_CB(skb)->mac_offset;
+-		memmove(packet_start-frag_hdr_sz, packet_start, unfrag_len);
+-
+-		SKB_GSO_CB(skb)->mac_offset -= frag_hdr_sz;
+-		skb->mac_header -= frag_hdr_sz;
+-		skb->network_header -= frag_hdr_sz;
+-
+-		fptr = (struct frag_hdr *)(skb_network_header(skb) + unfrag_ip6hlen);
+-		fptr->nexthdr = nexthdr;
+-		fptr->reserved = 0;
+-		if (!skb_shinfo(skb)->ip6_frag_id)
+-			ipv6_proxy_select_ident(dev_net(skb->dev), skb);
+-		fptr->identification = skb_shinfo(skb)->ip6_frag_id;
+-
+-		/* Fragment the skb. ipv6 header and the remaining fields of the
+-		 * fragment header are updated in ipv6_gso_segment()
+-		 */
+-		segs = skb_segment(skb, features);
+-	}
+ 
+-out:
+ 	return segs;
+ }
+ 
+@@ -169,7 +75,7 @@ static int udp6_gro_complete(struct sk_buff *skb, int nhoff)
+ 
+ static const struct net_offload udpv6_offload = {
+ 	.callbacks = {
+-		.gso_segment	=	udp6_ufo_fragment,
++		.gso_segment	=	udp6_tunnel_segment,
+ 		.gro_receive	=	udp6_gro_receive,
+ 		.gro_complete	=	udp6_gro_complete,
+ 	},
 -- 
 2.9.4
