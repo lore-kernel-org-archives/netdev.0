@@ -1,49 +1,32 @@
-From: Ingo Molnar <mingo@kernel.org>
-Subject: Re: [PATCH v2 0/9] Remove spin_unlock_wait()
-Date: Fri, 7 Jul 2017 10:06:21 +0200
-Message-ID: <20170707080621.dmhw2ryes7n3kgag@gmail.com>
-References: <20170629235918.GA6445@linux.vnet.ibm.com>
- <20170705232955.GA15992@linux.vnet.ibm.com>
- <063D6719AE5E284EB5DD2968C1650D6DD0033F01@AcuExch.aculab.com>
- <20170706160555.xc63yydk77gmttae@hirez.programming.kicks-ass.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] nfp: flower: add missing clean up call to avoid
+ memory leaks
+Date: Fri, 07 Jul 2017 09:17:55 +0100 (WEST)
+Message-ID: <20170707.091755.2002801864691908731.davem@davemloft.net>
+References: <20170707002905.31111-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Laight <David.Laight@ACULAB.COM>,
-        "'paulmck@linux.vnet.ibm.com'" <paulmck@linux.vnet.ibm.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "oleg@redhat.com" <oleg@redhat.com>,
-        "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-        "mingo@redhat.com" <mingo@redhat.com>,
-        "dave@stgolabs.net" <dave@stgolabs.net>,
-        "manfred@colorfullife.com" <manfred@colorfullife.com>,
-        "tj@kernel.org" <tj@kernel.org>, "arnd@arndb.de" <arnd@arndb.de>,
-        "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
-        "will.deacon@arm.com" <will.deacon@arm.com>,
-        "stern@rowland.harvard.edu" <stern@rowland.harvard.edu>,
-        "parri.andrea@gmail.com" <parri.andrea@gmail
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170706160555.xc63yydk77gmttae@hirez.programming.kicks-ass.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, simon.horman@netronome.com,
+        oss-drivers@netronome.com
+To: jakub.kicinski@netronome.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48842 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752436AbdGGISI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2017 04:18:08 -0400
+In-Reply-To: <20170707002905.31111-1-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Date: Thu,  6 Jul 2017 17:29:05 -0700
 
-* Peter Zijlstra <peterz@infradead.org> wrote:
-
-> > It might even be that this is the defined semantics of spin_unlock_wait().
+> nfp_flower_metadata_cleanup() is defined but never invoked,
+> not calling it will cause us to leak mask and statistics
+> queue memory on the host.
 > 
-> As is, spin_unlock_wait() is somewhat ill defined. IIRC it grew from an 
-> optimization by Oleg and subsequently got used elsewhere. And it being the 
-> subtle bugger it is, there were bugs.
+> Fixes: 43f84b72c50d ("nfp: add metadata to each flow offload")
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 
-I believe the historical, original spin_unlock_wait() came from early SMP 
-optimizations of the networking code - and then spread elsewhere, step by step. 
-All but one of the networking uses went away since then - so I don't think there's 
-any original usecase left.
-
-Thanks,
-
-	Ingo
+Applied.
