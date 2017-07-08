@@ -1,42 +1,121 @@
-From: Alfred chow <empleo_ivc@buenosaires.gob.ar>
-Subject: (unknown)
-Date: Sat, 08 Jul 2017 08:53:38 -0300
-Message-ID: <20170708085338.134654ditgfgni6a@webmail.buenosaires.gob.ar>
-Reply-To: alfred_chow13@yeah.net
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH v2 0/9] Remove spin_unlock_wait()
+Date: Sat, 8 Jul 2017 07:45:50 -0700
+Message-ID: <20170708144550.GQ2393@linux.vnet.ibm.com>
+References: <20170705232955.GA15992@linux.vnet.ibm.com>
+ <063D6719AE5E284EB5DD2968C1650D6DD0033F01@AcuExch.aculab.com>
+ <20170706160555.xc63yydk77gmttae@hirez.programming.kicks-ass.net>
+ <20170706162024.GD2393@linux.vnet.ibm.com>
+ <20170706165036.v4u5rbz56si4emw5@hirez.programming.kicks-ass.net>
+ <20170707083128.wqk6msuuhtyykhpu@gmail.com>
+ <48164d9a-f291-94f3-e0b1-98bb312bf846@colorfullife.com>
+ <20170708083543.tnr7yyhojmyiluw4@gmail.com>
+ <20170708113946.GN2393@linux.vnet.ibm.com>
+ <20170708123018.qiwmyf3x43i4pgsg@gmail.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=ISO-8859-1;
- DelSp="Yes";
- format="flowed"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpgcba5.buenosaires.gob.ar ([200.16.89.92]:39776 "EHLO
-        smtpgcba5.buenosaires.gob.ar" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751706AbdGHNmp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 8 Jul 2017 09:42:45 -0400
-Received: from webmail01 ([172.18.2.161]:58356 "EHLO webmail.gcba.gob.ar"
-        smtp-auth: "empleo_ivc@buenosaires.gob.ar" rhost-flags-OK-OK-OK-FAIL)
-        by mr1.buenosaires.gob.ar with ESMTPSA id S4325471AbdGHLxl (ORCPT
-        <rfc822;netdev@vger.kernel.org> + 2 others);
-        Sat, 8 Jul 2017 08:53:41 -0300
-Subject: 
+Content-Type: text/plain; charset=us-ascii
+Cc: Manfred Spraul <manfred@colorfullife.com>,
+        Peter Zijlstra <peterz@infradead.org>,
+        David Laight <David.Laight@ACULAB.COM>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "oleg@redhat.com" <oleg@redhat.com>,
+        "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+        "mingo@redhat.com" <mingo@redhat.com>,
+        "dave@stgolabs.net" <dave@stgolabs.net>,
+        "tj@kernel.org" <tj@kernel.org>, "arnd@arndb.de" <arnd@arndb.de>,
+        "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
+        "will.deacon@arm.com" <will.deacon@arm.com>,
+        "stern@rowland.harvard.edu" <stern@rowland.harvard.edu>,
+        "parri.andrea@gmail.com" <parri.andrea@gmail.com>,
+        "torvalds@linux-fou
+To: Ingo Molnar <mingo@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170708123018.qiwmyf3x43i4pgsg@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Sat, Jul 08, 2017 at 02:30:19PM +0200, Ingo Molnar wrote:
+> 
+> * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
+> 
+> > On Sat, Jul 08, 2017 at 10:35:43AM +0200, Ingo Molnar wrote:
+> > > 
+> > > * Manfred Spraul <manfred@colorfullife.com> wrote:
+> > > 
+> > > > Hi Ingo,
+> > > > 
+> > > > On 07/07/2017 10:31 AM, Ingo Molnar wrote:
+> > > > > 
+> > > > > There's another, probably just as significant advantage: queued_spin_unlock_wait()
+> > > > > is 'read-only', while spin_lock()+spin_unlock() dirties the lock cache line. On
+> > > > > any bigger system this should make a very measurable difference - if
+> > > > > spin_unlock_wait() is ever used in a performance critical code path.
+> > > > At least for ipc/sem:
+> > > > Dirtying the cacheline (in the slow path) allows to remove a smp_mb() in the
+> > > > hot path.
+> > > > So for sem_lock(), I either need a primitive that dirties the cacheline or
+> > > > sem_lock() must continue to use spin_lock()/spin_unlock().
+> > > 
+> > > Technically you could use spin_trylock()+spin_unlock() and avoid the lock acquire 
+> > > spinning on spin_unlock() and get very close to the slow path performance of a 
+> > > pure cacheline-dirtying behavior.
+> > > 
+> > > But adding something like spin_barrier(), which purely dirties the lock cacheline, 
+> > > would be even faster, right?
+> > 
+> > Interestingly enough, the arm64 and powerpc implementations of
+> > spin_unlock_wait() were very close to what it sounds like you are
+> > describing.
+> 
+> So could we perhaps solve all our problems by defining the generic version thusly:
+> 
+> void spin_unlock_wait(spinlock_t *lock)
+> {
+> 	if (spin_trylock(lock))
+> 		spin_unlock(lock);
+> }
+> 
+> ... and perhaps rename it to spin_barrier() [or whatever proper name there would 
+> be]?
 
+As lockdep, 0day Test Robot, Linus Torvalds, and several others let me
+know in response to my original (thankfully RFC!) patch series, this needs
+to disable irqs to work in the general case.  For example, if the lock
+in question is an irq-disabling lock, you take an interrupt just after
+a successful spin_trylock(), and that interrupt acquires the same lock,
+the actuarial statistics of your kernel degrade sharply and suddenly.
 
+What I get for sending out untested patches!  :-/
 
-Good Day,
+> Architectures can still optimize it, to remove the small window where the lock is 
+> held locally - as long as the ordering is at least as strong as the generic 
+> version.
+> 
+> This would have various advantages:
+> 
+>  - semantics are well-defined
+> 
+>  - the generic implementation is already pretty well optimized (no spinning)
+> 
+>  - it would make it usable for the IPC performance optimization
+> 
+>  - architectures could still optimize it to eliminate the window where the lock is
+>    held locally - if there's such instructions available.
+> 
+> Was this proposed before, or am I missing something?
 
-I am Mr. Alfred Cheuk Yu Chow, the Director for Credit & Marketing  
-Chong Hing Bank, Hong Kong, Chong Hing Bank Centre, 24 Des Voeux Road  
-Central, Hong Kong. I have a business proposal of  $38,980,369.00.
+It was sort of proposed...
 
-All confirmable documents to back up the claims will be made available  
-to you prior to your acceptance and as soon as I receive your return  
-mail.
+https://marc.info/?l=linux-arch&m=149912878628355&w=2
 
-Best Regards,
-Alfred Chow
+But do we have a situation where normal usage of spin_lock() and
+spin_unlock() is causing performance or scalability trouble?
+
+(We do have at least one situation in fnic that appears to be buggy use of
+spin_is_locked(), and proposing a patch for that case in on my todo list.)
+
+							Thanx, Paul
