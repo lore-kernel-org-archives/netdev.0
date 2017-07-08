@@ -1,121 +1,118 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH v2 0/9] Remove spin_unlock_wait()
-Date: Sat, 8 Jul 2017 07:45:50 -0700
-Message-ID: <20170708144550.GQ2393@linux.vnet.ibm.com>
-References: <20170705232955.GA15992@linux.vnet.ibm.com>
- <063D6719AE5E284EB5DD2968C1650D6DD0033F01@AcuExch.aculab.com>
- <20170706160555.xc63yydk77gmttae@hirez.programming.kicks-ass.net>
- <20170706162024.GD2393@linux.vnet.ibm.com>
- <20170706165036.v4u5rbz56si4emw5@hirez.programming.kicks-ass.net>
- <20170707083128.wqk6msuuhtyykhpu@gmail.com>
- <48164d9a-f291-94f3-e0b1-98bb312bf846@colorfullife.com>
- <20170708083543.tnr7yyhojmyiluw4@gmail.com>
- <20170708113946.GN2393@linux.vnet.ibm.com>
- <20170708123018.qiwmyf3x43i4pgsg@gmail.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: <netgalley@stmartins.com>
+Subject: (unknown)
+Date: Sat, 08 Jul 2017 16:07:20 -0000
+Message-ID: <149953004049.5003.12434949913866668587@vnpt.vn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Manfred Spraul <manfred@colorfullife.com>,
-        Peter Zijlstra <peterz@infradead.org>,
-        David Laight <David.Laight@ACULAB.COM>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "oleg@redhat.com" <oleg@redhat.com>,
-        "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-        "mingo@redhat.com" <mingo@redhat.com>,
-        "dave@stgolabs.net" <dave@stgolabs.net>,
-        "tj@kernel.org" <tj@kernel.org>, "arnd@arndb.de" <arnd@arndb.de>,
-        "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
-        "will.deacon@arm.com" <will.deacon@arm.com>,
-        "stern@rowland.harvard.edu" <stern@rowland.harvard.edu>,
-        "parri.andrea@gmail.com" <parri.andrea@gmail.com>,
-        "torvalds@linux-fou
-To: Ingo Molnar <mingo@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170708123018.qiwmyf3x43i4pgsg@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: application/zip; name="018847.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static.vnpt.vn ([113.161.34.203]:46547 "HELO vnpt.vn"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+        id S1752797AbdGHQH0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 8 Jul 2017 12:07:26 -0400
+Subject: 
+Content-Disposition: attachment
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 08, 2017 at 02:30:19PM +0200, Ingo Molnar wrote:
-> 
-> * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> 
-> > On Sat, Jul 08, 2017 at 10:35:43AM +0200, Ingo Molnar wrote:
-> > > 
-> > > * Manfred Spraul <manfred@colorfullife.com> wrote:
-> > > 
-> > > > Hi Ingo,
-> > > > 
-> > > > On 07/07/2017 10:31 AM, Ingo Molnar wrote:
-> > > > > 
-> > > > > There's another, probably just as significant advantage: queued_spin_unlock_wait()
-> > > > > is 'read-only', while spin_lock()+spin_unlock() dirties the lock cache line. On
-> > > > > any bigger system this should make a very measurable difference - if
-> > > > > spin_unlock_wait() is ever used in a performance critical code path.
-> > > > At least for ipc/sem:
-> > > > Dirtying the cacheline (in the slow path) allows to remove a smp_mb() in the
-> > > > hot path.
-> > > > So for sem_lock(), I either need a primitive that dirties the cacheline or
-> > > > sem_lock() must continue to use spin_lock()/spin_unlock().
-> > > 
-> > > Technically you could use spin_trylock()+spin_unlock() and avoid the lock acquire 
-> > > spinning on spin_unlock() and get very close to the slow path performance of a 
-> > > pure cacheline-dirtying behavior.
-> > > 
-> > > But adding something like spin_barrier(), which purely dirties the lock cacheline, 
-> > > would be even faster, right?
-> > 
-> > Interestingly enough, the arm64 and powerpc implementations of
-> > spin_unlock_wait() were very close to what it sounds like you are
-> > describing.
-> 
-> So could we perhaps solve all our problems by defining the generic version thusly:
-> 
-> void spin_unlock_wait(spinlock_t *lock)
-> {
-> 	if (spin_trylock(lock))
-> 		spin_unlock(lock);
-> }
-> 
-> ... and perhaps rename it to spin_barrier() [or whatever proper name there would 
-> be]?
-
-As lockdep, 0day Test Robot, Linus Torvalds, and several others let me
-know in response to my original (thankfully RFC!) patch series, this needs
-to disable irqs to work in the general case.  For example, if the lock
-in question is an irq-disabling lock, you take an interrupt just after
-a successful spin_trylock(), and that interrupt acquires the same lock,
-the actuarial statistics of your kernel degrade sharply and suddenly.
-
-What I get for sending out untested patches!  :-/
-
-> Architectures can still optimize it, to remove the small window where the lock is 
-> held locally - as long as the ordering is at least as strong as the generic 
-> version.
-> 
-> This would have various advantages:
-> 
->  - semantics are well-defined
-> 
->  - the generic implementation is already pretty well optimized (no spinning)
-> 
->  - it would make it usable for the IPC performance optimization
-> 
->  - architectures could still optimize it to eliminate the window where the lock is
->    held locally - if there's such instructions available.
-> 
-> Was this proposed before, or am I missing something?
-
-It was sort of proposed...
-
-https://marc.info/?l=linux-arch&m=149912878628355&w=2
-
-But do we have a situation where normal usage of spin_lock() and
-spin_unlock() is causing performance or scalability trouble?
-
-(We do have at least one situation in fnic that appears to be buggy use of
-spin_is_locked(), and proposing a patch for that case in on my todo list.)
-
-							Thanx, Paul
+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
+AAEAWwAAAKcVAAAAAA==
