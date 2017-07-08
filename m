@@ -1,62 +1,63 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [Patch] mqueue: fix the retry logic for netlink_attachskb()
-Date: Fri, 7 Jul 2017 17:23:13 -0700
-Message-ID: <CA+55aFxNtoGV=Ly5X-T2n9YzV31sm+i33b+wjs-Qrsybbe1Saw@mail.gmail.com>
-References: <1499452335-3478-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: Re: [PATCH v6 0/3] Add new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+Date: Sat, 8 Jul 2017 00:30:12 +0000
+Message-ID: <MWHPR12MB160006024D920ED58126048AC8AB0__8692.55584334514$1499473858$gmane$org@MWHPR12MB1600.namprd12.prod.outlook.com>
+References: <1498133721-21152-1-git-send-email-dingtianhong@huawei.com>,<MWHPR12MB160087E9E0B17F7A17609714C8AA0@MWHPR12MB1600.namprd12.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Network Development <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        geneblue.mail@gmail.com, Andrew Morton <akpm@linux-foundation.org>,
-        Manfred Spraul <manfred@colorfullife.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1499452335-3478-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Ding Tianhong <dingtianhong@huawei.com>,
+        "ashok.raj@intel.com" <ashok.raj@intel.com>,
+        "helgaas@kernel.org" <helgaas@kernel.org>,
+        "Michael Werner" <werner@chelsio.com>,
+        Ganesh GR <ganeshgr@chelsio.com>,
+        "asit.k.mallick@intel.com" <asit.k.mallick@intel.com>,
+        "patrick.j.cramer@intel.com" <patrick.j.cramer@intel.com>,
+        "Suravee.Suthikulpanit@amd.com" <Suravee.Suthikulpanit@amd.com>,
+        "Bob.Shaw@amd.com" <Bob.Shaw@amd.com>,
+        "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
+        "amira@mellanox.com" <amira@mellanox.com>,
+        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
+        "David.Laight@aculab.com" <David.Laight@aculab.com>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+        "catalin.marinas@arm.com" <catalin.marinas@arm.com>,
+        "will.deacon@arm.com" <will.deacon
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-co1nam03on0099.outbound.protection.outlook.com ([104.47.40.99]:45074
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751210AbdGHAaO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 7 Jul 2017 20:30:14 -0400
+In-Reply-To: <MWHPR12MB160087E9E0B17F7A17609714C8AA0@MWHPR12MB1600.namprd12.prod.outlook.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 7, 2017 at 11:32 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> The retry logic for netlink_attachskb() inside sys_mq_notify()
-> is suspicious and vulnerable:
->
-> 1) The sock refcnt is already released when retry is needed
-> 2) The fd is controllable by user-space because we already
->    release the file refcnt
+  By the way, it ~seems~ like the patch set confuses the idea of the PCIe C=
+apability Device Control[Relaxed Ordering Enable] with the device's ability=
+ to handle incoming TLPs with the Relaxed Ordering Attribute set.  These ar=
+e completely different things.  The PCIe Capability Device Control[Relaxed =
+Ordering Enable] solely governs the ability of the device to _send_ TLPs wi=
+th the Relaxed Ordering Attribute set.  It has nothing whatsoever to do wit=
+h the handling of incoming TLPs with the Relaxed Ordering Attribute set.  I=
+n fact, there is any standard way to disable receipt processing of such TLP=
+s.  That's kind of the whole point of the majority of the patch.  If there =
+was a separate "Ignore Incoming Relaxed Ordering Attributes" then we'd most=
+ly just have a quirk which would set that for problematic devices.
 
-Hmm. What's different the second (and third.. and..) time around from
-the first time?
+  Worse yet, if I'm reading the patch right, it _is_ turning off the PCIe C=
+apability Device Control[Relaxed Ordering Enable] for the devices that we'v=
+e identified with problematic receive handling.  Not only does this not sol=
+ve the problem that we've been talking about, it actually almost certainly =
+introduces a huge Graphics Performance Bug.  The Relaxed Ordering Attribute=
+ was originally developed for Graphics Device support in order to download =
+textures, etc. to a graphics devices as fast as possible and only ensure or=
+dering at points where needed.  For instance, as far as I know, the Intel R=
+oot Complexes that we've been talking about have no issues whatsoever in ge=
+nerating downstream TLPs with the Relaxed Ordering Attribute set.  By turni=
+ng off the PCIe Capability Device Control[Relaxed Ordering Enable] on these=
+ Root Complexes, this patch prevents the generation of downstream TLPs with=
+ the Relaxed Ordering Attribute set targeted at devices like graphics adapt=
+ers.
 
-I don't dislike your patch (it looks fine), but  avoiding the
-fdget/fdput in the retry loop doesn't seem to really change anything -
-it's just as if we'd just react to the original thing a bit later.
-
-> so we when retry and the fd has been closed during this small
-> window, we end up calling netlink_detachskb() on the error path
-> which releases the sock again and could lead to a use-after-free.
-
-So this seems to be a real problem: "sock" is not NULL'ed out in that
-
-                        if (!f.file) {
-
-error case (or alternatively, in the retry case).  Plus, since we did
-the "fput()" early, "sock" may be gone by the time we do the
-netlink_attachskb() even when it's all successful.
-
-But I don't think this is really so much about the retrying - the
-"sock may be gone" case seems to be true even the first time around,
-and even if we never retry at all.
-
-Am I reading this correctly?
-
-Basically, I think the patch is fine, but the explanation seems a bit
-misleading. This isn't really about the re-trying: that would be fine
-if we just cleaned up sock properly.
-
-Can you confirm that? I don't know where the original report is.
-
-And that code is ancient, so we should do a "cc: stable" there too,
-and backport it basically forever. I think most of the code in this
-area predates the git tree, although Al Viro actually touched some
-things around here very recently to make the compat case cleaner.
-
-                 Linus
+Casey=
