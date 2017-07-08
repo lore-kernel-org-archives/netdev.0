@@ -1,63 +1,74 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [RFC PATCH 08/12] bpf: add devmap, a map for storing net device
- references
-Date: Sat, 8 Jul 2017 20:57:50 +0200
-Message-ID: <20170708205750.152ca83e@redhat.com>
+Subject: Re: [RFC PATCH 00/12] Implement XDP bpf_redirect vairants
+Date: Sat, 8 Jul 2017 21:06:17 +0200
+Message-ID: <20170708210617.249059b9@redhat.com>
 References: <20170707172115.9984.53461.stgit@john-Precision-Tower-5810>
-        <20170707173712.9984.13243.stgit@john-Precision-Tower-5810>
+        <595FC974.9030807@gmail.com>
+        <20170708.104618.2149883426031901592.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, andy@greyhouse.net,
-        daniel@iogearbox.net, ast@fb.com, brouer@redhat.com
-To: John Fastabend <john.fastabend@gmail.com>
+Cc: john.fastabend@gmail.com, netdev@vger.kernel.org,
+        andy@greyhouse.net, daniel@iogearbox.net, ast@fb.com,
+        alexander.duyck@gmail.com, bjorn.topel@intel.com,
+        jakub.kicinski@netronome.com, ecree@solarflare.com,
+        sgoutham@cavium.com, Yuval.Mintz@cavium.com, saeedm@mellanox.com,
+        brouer@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44562 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:44088 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753079AbdGHS56 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 8 Jul 2017 14:57:58 -0400
-In-Reply-To: <20170707173712.9984.13243.stgit@john-Precision-Tower-5810>
+        id S1753061AbdGHTG2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 8 Jul 2017 15:06:28 -0400
+In-Reply-To: <20170708.104618.2149883426031901592.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 07 Jul 2017 10:37:12 -0700
-John Fastabend <john.fastabend@gmail.com> wrote:
+On Sat, 08 Jul 2017 10:46:18 +0100 (WEST)
+David Miller <davem@davemloft.net> wrote:
 
-> Device map (devmap) is a BPF map, primarily useful for networking
-> applications, that uses a key to lookup a reference to a netdevice.
+> From: John Fastabend <john.fastabend@gmail.com>
+> Date: Fri, 07 Jul 2017 10:48:36 -0700
 > 
-> The map provides a clean way for BPF programs to build virtual port
-> to physical port maps. Additionally, it provides a scoping function
-> for the redirect action itself allowing multiple optimizations. Future
-> patches will leverage the map to provide batching at the XDP layer.
+> > On 07/07/2017 10:34 AM, John Fastabend wrote:  
+> >> This series adds two new XDP helper routines bpf_redirect() and
+> >> bpf_redirect_map(). The first variant bpf_redirect() is meant
+> >> to be used the same way it is currently being used by the cls_bpf
+> >> classifier. An xdp packet will be redirected immediately when this
+> >> is called.  
+> > 
+> > Also other than the typo in the title there ;) I'm going to CC
+> > the driver maintainers working on XDP (makes for a long CC list but)
+> > because we would want to try and get support in as many as possible in
+> > the next merge window.
+> > 
+> > For this rev I just implemented on ixgbe because I wrote the
+> > original XDP support there. I'll volunteer to do virtio as well.  
 > 
-> Another optimization/feature, that is not yet implemented, would be
-> to support multiple netdevices per key to support efficient multicast
-> and broadcast support.
+> I went over this series a few times and it looks great to me.
+> You didn't even give me some coding style issues to pick on :-)
 
-[...]
+We (Daniel, Andy and I) have been reviewing and improving on this
+patchset the last couple of weeks ;-).  We had some stability issues,
+which is why it wasn't published earlier. My plan is to test this
+latest patchset again, Monday and Tuesday. I'll try to assess stability
+and provide some performance numbers.
 
-> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-> index 74ea96e..06073ba 100644
-> --- a/kernel/bpf/verifier.c
-> +++ b/kernel/bpf/verifier.c
-> @@ -1294,6 +1294,14 @@ static int check_map_func_compatibility(struct bpf_map *map, int func_id)
->  		    func_id != BPF_FUNC_current_task_under_cgroup)
->  			goto error;
->  		break;
-> +	/* devmap returns a pointer to a live net_device ifindex that we cannot
-> +	 * allow to be modified from bpf side. So do not allow lookup elemnts
-                                                                      ^^^^^^^
-Spelling of elements
+I've complained/warned about the danger of redirecting with XDP,
+without providing (1) a way to debug/see XDP redirects, (2) a way
+interfaces opt-in they can be redirected. (1) is solved by patch-07/12
+via a tracepoint. (2) is currently done by only forwarding to
+interfaces with an XDP program loaded itself, this also comes from a
+practical need for NIC drivers to allocate XDP-TX HW queues.
 
-> +	 * for now.
-> +	 */
-> +	case BPF_MAP_TYPE_DEVMAP:
-> +		if (func_id == BPF_FUNC_map_lookup_elem)
-> +			goto error;
-> +		break;
-
-Reviewer notice this limitation from the bpf_prog side.
+I'm not satisfied with the (UAPI) name for the new map
+"BPF_MAP_TYPE_DEVMAP" and the filename this is placed in
+"kernel/bpf/devmap.c", as we want to take advantage of compiler
+inlining for the next redirect map types.  (1) because the name doesn't
+tell the user that this map is connected to the redirect_map call.
+(2) we want to introduce other kinds of redirect maps (like redirect to
+CPUs and sockets), and it would be good if they shared a common "text"
+string.
 
 -- 
 Best regards,
