@@ -1,41 +1,43 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net: Fix inconsistent teardown and release of private netdev state.
-Date: Fri, 7 Jul 2017 15:39:09 -0700
-Message-ID: <CAM_iQpV5hz-Nuw_s7A8w7KE-d3c-MELQjeYMjznh8Kg6DcZ+_Q@mail.gmail.com>
-References: <20170706142427.GA32086@zx2c4.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Netdev <netdev@vger.kernel.org>
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:33291 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750726AbdGGWjb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2017 18:39:31 -0400
-Received: by mail-wr0-f196.google.com with SMTP id x23so10657325wrb.0
-        for <netdev@vger.kernel.org>; Fri, 07 Jul 2017 15:39:30 -0700 (PDT)
-In-Reply-To: <20170706142427.GA32086@zx2c4.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Chunho Lee <handera@gmail.com>
+Subject: [PATCH] mac80211: Fix null pointer dereference with iTXQ support
+Date: Fri,  7 Jul 2017 17:03:14 -0700
+Message-ID: <1499472194-9654-1-git-send-email-ch.lee@newracom.com>
+Cc: ch.lee@newracom.com, thomas.kang@newracom.com,
+        Johannes Berg <johannes@sipsolutions.net>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-wireless@vger.kernel.org (open list:MAC80211),
+        netdev@vger.kernel.org (open list:NETWORKING [GENERAL]),
+        linux-kernel@vger.kernel.org (open list)
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 6, 2017 at 7:24 AM, Jason A. Donenfeld <Jason@zx2c4.com> wrote:
->         list_add(&priv->list, &list_of_things);
->
->         ret = register_netdevice(); // if ret is < 0, then destruct above is automatically called
->
->         // RACE WITH LIST_ADD/LIST_DEL!! It's impossible to call list_add only after
->         // things are brought up successfully. This is problematic.
->
->         if (!ret)
->                 pr_info("Yay it worked!\n");
+This change adds null pointer check before dereferencing pointer dev on
+netif_tx_start_all_queues() when an interface is added.
+With iTXQ support, netif_tx_start_all_queues() is always called while
+an interface is added. however, the netdev queues are not associated
+and dev is null when the interface is either NL80211_IFTYPE_P2P_DEVICE
+or NL80211_IFTYPE_NAN.
 
-I fail to understand what you mean by RACE here.
+Signed-off-by: Chunho Lee <ch.lee@newracom.com>
+---
+ net/mac80211/iface.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Here you should already have RTNL lock, so it can't race with any other
-newlink() calls. In fact you can't acquire RTNL lock in your destructor
-since register_netdevice() already gets it. Perhaps you mean
-netdev_run_todo() calls it without RTNL lock?
-
-I don't know why you reorder the above list_add(), you can order it
-as it was before, aka, call it after register_netdevice(), but you have to
-init the priv->list now for the list_del() on error path.
+diff --git a/net/mac80211/iface.c b/net/mac80211/iface.c
+index f5f5015..e2edd10 100644
+--- a/net/mac80211/iface.c
++++ b/net/mac80211/iface.c
+@@ -731,7 +731,8 @@ int ieee80211_do_open(struct wireless_dev *wdev, bool coming_up)
+ 	    sdata->vif.type == NL80211_IFTYPE_AP_VLAN ||
+ 	    local->ops->wake_tx_queue) {
+ 		/* XXX: for AP_VLAN, actually track AP queues */
+-		netif_tx_start_all_queues(dev);
++		if (dev)
++			netif_tx_start_all_queues(dev);
+ 	} else if (dev) {
+ 		unsigned long flags;
+ 		int n_acs = IEEE80211_NUM_ACS;
+-- 
+2.7.4
