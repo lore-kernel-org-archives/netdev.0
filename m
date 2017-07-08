@@ -1,52 +1,67 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [RFC] get_compat_bpf_fprog(): don't copyin field-by-field
-Date: Sat, 8 Jul 2017 19:22:49 +0100
-Message-ID: <20170708182249.GT10672@ZenIV.linux.org.uk>
-References: <20170708182100.GR10672@ZenIV.linux.org.uk>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] ip[6]: don't register inet[6]dev when dev is down
+Date: Sat, 8 Jul 2017 11:44:14 -0700
+Message-ID: <CAM_iQpU21rUQ9JWb8qzTs=V+bGC1TZ1HaWC-t1GkUqu5Ymdoxw@mail.gmail.com>
+References: <20170705155725.15469-1-nicolas.dichtel@6wind.com> <20170708.110234.1001958921525251511.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Hongjun Li <hongjun.li@6wind.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:54798 "EHLO
-        ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753037AbdGHSWv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 8 Jul 2017 14:22:51 -0400
-Received: from viro by ZenIV.linux.org.uk with local (Exim 4.87 #1 (Red Hat Linux))
-        id 1dTuNV-0002sk-KP
-        for netdev@vger.kernel.org; Sat, 08 Jul 2017 18:22:49 +0000
-Content-Disposition: inline
-In-Reply-To: <20170708182100.GR10672@ZenIV.linux.org.uk>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:32843 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753061AbdGHSog (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 8 Jul 2017 14:44:36 -0400
+Received: by mail-wr0-f196.google.com with SMTP id x23so15225518wrb.0
+        for <netdev@vger.kernel.org>; Sat, 08 Jul 2017 11:44:35 -0700 (PDT)
+In-Reply-To: <20170708.110234.1001958921525251511.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
----
-diff --git a/net/compat.c b/net/compat.c
-index dba5e222a0e5..6ded6c821d7a 100644
---- a/net/compat.c
-+++ b/net/compat.c
-@@ -313,15 +313,15 @@ struct sock_fprog __user *get_compat_bpf_fprog(char __user *optval)
- {
- 	struct compat_sock_fprog __user *fprog32 = (struct compat_sock_fprog __user *)optval;
- 	struct sock_fprog __user *kfprog = compat_alloc_user_space(sizeof(struct sock_fprog));
--	compat_uptr_t ptr;
--	u16 len;
--
--	if (!access_ok(VERIFY_READ, fprog32, sizeof(*fprog32)) ||
--	    !access_ok(VERIFY_WRITE, kfprog, sizeof(struct sock_fprog)) ||
--	    __get_user(len, &fprog32->len) ||
--	    __get_user(ptr, &fprog32->filter) ||
--	    __put_user(len, &kfprog->len) ||
--	    __put_user(compat_ptr(ptr), &kfprog->filter))
-+	struct compat_sock_fprog f32;
-+	struct sock_fprog f;
-+
-+	if (copy_from_user(&f32, fprog32, sizeof(*fprog32)))
-+		return NULL;
-+	memset(&f, 0, sizeof(f));
-+	f.len = f32.len;
-+	f.filter = compat_ptr(f32.filter);
-+	if (copy_to_user(kfprog, &f, sizeof(struct sock_fprog)))
- 		return NULL;
- 
- 	return kfprog;
+On Sat, Jul 8, 2017 at 3:02 AM, David Miller <davem@davemloft.net> wrote:
+> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Date: Wed,  5 Jul 2017 17:57:25 +0200
+>
+>> From: Hongjun Li <hongjun.li@6wind.com>
+>>
+>> When the netdev event NETDEV_CHANGEMTU is triggered, the inet[6]dev may be
+>> created even if the corresponding device is down. This may lead to a leak
+>> in the procfs when the device is unregistered, and finally trigger a
+>> backtrace:
+>  ...
+>> When a device changes from one netns to another, it's first unregistered,
+>> then the netns reference is updated and the dev is registered in the new
+>> netns. Thus, when a slave moves to another netns, it is first
+>> unregistered. This triggers a NETDEV_UNREGISTER event which is caught by
+>> the bonding driver. The driver calls bond_release(), which calls
+>> dev_set_mtu() and thus triggers NETDEV_CHANGEMTU (the device is still in
+>> the old netns).
+>>
+>> Signed-off-by: Hongjun Li <hongjun.li@6wind.com>
+>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>
+> I'm still not convinced about this.
+>
+> We have lots of code which iterates ipv6 idevs, and then has a
+> check for IFF_UP.
+>
+> So having an idev attached to a down interface is not a bug nor
+> illegal.
+>
+> In fact, addrconf_cleanup() walks all of the init_net idevs and
+> calls addrconf_ifdown() with how=1 regardless of IFF_UP or not.
+>
+> This entire area is quite a mess.
+
++1. I fixed a nasty bug with how=1 for loopback before...
+
+>
+> Can you show exactly why the procfs state isn't cleaned up for
+> these devices moving between namespaces?  Maybe that is the real
+> bug and a better place to fix this.
+>
+
+It is because the ipv6_add_dev() adds these proc files back after
+NETDEV_UNREGISTER event.
