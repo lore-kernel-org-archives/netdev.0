@@ -1,146 +1,79 @@
-From: Nadav Amit via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [PATCH v3 net-next 02/12] bpf/verifier: rework
- value tracking
-Date: Fri, 7 Jul 2017 17:54:57 -0700
-Message-ID: <744E9F51-D3E0-4C12-99FB-A57B770EB02F@gmail.com>
-References: <adc11342-737f-4e06-bce3-f0a92b5594a5@solarflare.com>
-	<2244b48b-f415-3239-6912-cb09f0abc546@solarflare.com>
-	<E65DE75F-FC5F-41BC-9F7B-C03D324D8C6F@gmail.com>
-	<abd3c014-f33a-6e86-aead-be38697a2cec@solarflare.com>
-	<3A96914E-3009-4E19-B138-7A636A76D9C8@gmail.com>
-Reply-To: Nadav Amit <nadav.amit-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <3A96914E-3009-4E19-B138-7A636A76D9C8-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Marc Duponcheel <marc@offline.be>
+Subject: meson-gxbb-p200 4.12.0 network TCP transfer stalls
+Date: Sat, 8 Jul 2017 02:55:42 +0200
+Message-ID: <20170708005542.GA20515@offline.be>
+Reply-To: Marc Duponcheel <marc@offline.be>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Marc Duponcheel <marc@offline.be>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from server.offline.be ([79.132.231.86]:45536 "EHLO mail.offline.be"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752639AbdGHAzT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 7 Jul 2017 20:55:19 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-TmFkYXYgQW1pdCA8bmFkYXYuYW1pdEBnbWFpbC5jb20+IHdyb3RlOgoKPiBFZHdhcmQgQ3JlZSA8
-ZWNyZWVAc29sYXJmbGFyZS5jb20+IHdyb3RlOgo+IAo+PiBPbiAwNi8wNy8xNyAyMjoyMSwgTmFk
-YXYgQW1pdCB3cm90ZToKPj4+IEkgZmluZCBpdCBhIGJpdCBzdXJwcmlzaW5nIHRoYXQgc3VjaCBo
-dWdlIGNoYW5nZXMgdGhhdCBjYW4gYWZmZWN0IHNlY3VyaXR5Cj4+PiBhbmQgcm9idXN0bmVzcyBh
-cmUgcGVyZm9ybWVkIGluIG9uZSBwYXRjaC4KPj4gSW4gdGhlIGZpcnN0IHZlcnNpb24gb2YgdGhl
-IHNlcmllcywgdGhpcyB3YXMgdHdvIHBhdGNoZXMsIHdpdGggImZlZWQKPj4gcG9pbnRlci10by11
-bmtub3duLXNjYWxhciBjYXN0cyBpbnRvIHNjYWxhciBBTFUgcGF0aCIgc3BsaXQgb3V0IGZyb20g
-dGhlIHJlc3Q7Cj4+IGJ1dCB0aGF0IGp1c3QgY2F1c2VkIGEgbG90IG9mIGNvZGUgbW92ZW1lbnQg
-YW5kIGNvbmZ1c2luZyBkaWZmcywgaGVuY2Ugd2h5IEkKPj4gZm9sZGVkIGl0IGludG8gdGhlIHNh
-bWUgcGF0Y2guCj4+IEFzIGZvciB0aGUgcmVzdCBvZiBpdCwgSSdtIG5vdCBzdXJlIGl0IGNhbiBi
-ZSBzcGxpdCB1cDogSSdtIGNoYW5naW5nIHRoZQo+PiBkZWZpbml0aW9uIGFuZCBzZW1hbnRpY3Mg
-b2YgYSBjb3JlIGRhdGEgc3RydWN0dXJlIChzdHJ1Y3QgYnBmX3JlZ19zdGF0ZSkKPj4gYW5kIEkg
-ZG9uJ3Qgc2VlIGFueSByZWFzb25hYmxlIGludGVybWVkaWF0ZSBzdGVwcyB0aGF0IHdvdWxkIGV2
-ZW4gY29tcGlsZS4KPj4gRm9yIGluc3RhbmNlLCByZXBsYWNpbmcgcmVnLT5pbW0gKHdpdGggaXRz
-IHR3byBtZWFuaW5ncyBvZiAna25vd24gdmFsdWUnIG9yCj4+ICdudW1iZXIgb2YgbGVhZGluZyB6
-ZXJvIGJpdHMnKSB3aXRoIHJlZy0+dmFyX29mZiBuZWNlc3NpdGF0ZXMgcmVwbGFjaW5nIGFsbAo+
-PiB0aGUgYXJpdGhtZXRpYy1oYW5kbGluZyBjb2RlIChlLmcuIGV2YWx1YXRlX3JlZ19pbW1fYWx1
-KCkpLiAgQnV0IHRoZW4KPj4gdmFyX29mZiBhbHNvIHJlcGxhY2VzIHJlZy0+YXV4X2FsaWduW19v
-ZmZdLCBzbyBhbGwgdGhlIGFsaWdubWVudC1jaGVja2luZwo+PiBjb2RlIGhhcyB0byBjaGFuZ2Ug
-YXMgd2VsbC4gIEFuZCBjaGFuZ2luZyB3aGF0IHJlZ2lzdGVyIHN0YXRlIHdlIHRyYWNrCj4+IG1l
-YW5zIHRoYXQgdGhlIHBydW5pbmcgY29kZSAoc3RhdGVzX2VxdWFsKCkpIGhhcyB0byBjaGFuZ2Ug
-dG9vLgo+PiBBcyBpdCBpcywgdGhpcyBwYXRjaCBsZWF2ZXMgc29tZSBzZWxmdGVzdHMgZmFpbGlu
-ZyBhbmQgaXQgdGFrZXMgX2Fub3RoZXJfCj4+IGJpZyBwYXRjaCAoNC8xMiAidHJhY2sgc2lnbmVk
-IGFuZCB1bnNpZ25lZCBtaW4vbWF4IHZhbHVlcyIpIHRvIGdldCB0aGVtCj4+IGFsbCB0byBwYXNz
-IGFnYWluLgo+IAo+IFRoYW5rcyBmb3IgeW91ciBwb2xpdGUgcmVzcG9uc2UgdG8gbXkgcmFudGlu
-Z3MuIEkgZG8gdW5kZXJzdGFuZCB0aGUKPiBjb21wbGV4aXR5LCBhbmQgSSBkaWQgbm90IGxpa2Ug
-dGhlIHR3byBtZWFuaW5ncyBvZiByZWctPmltbSBlaXRoZXIgKGl0IHRvb2sKPiBtZSBzb21lIHRp
-bWUgdG8gdW5kZXJzdGFuZCB0aGVtKS4gWWV0LCBJIHJlYWxseSBkb3VidCBhbnlvbmUgaXMgY2Fw
-YWJsZSBvZgo+IHJlYWxseSByZXZpZXdpbmcgc3VjaCBhIGJpZyBwYXRjaC4gTW9zdCBsaWtlbHkg
-cGVvcGxlIHdpbGwgbm90IGV2ZW4gc3RhcnQgb3IKPiBwaWNrIHRvIHNtYWxsIGRldGFpbHMgdGhl
-eSBrbm93IG9yIGNhcmUgYWJvdXQuCj4gCj4+PiBQZXJzb25hbGx5LCBJIGNhbm5vdCBjb21wcmVo
-ZW5kCj4+PiBhbGwgb2YgdGhlc2UgY2hhbmdlcy4gSW4gYWRkaXRpb24sIEkgdGhpbmsgdGhhdCBp
-dCBpcyB2YWx1YWJsZSB0byBkZXNjcmliZQo+Pj4gaW4gZGV0YWlsIHRoZSBidWdzIHRoYXQgdGhl
-IHBhdGNoIHNvbHZlcyBhbmQgd2hlbiB0aGV5IHdlcmUgaW50cm9kdWNlZC4KPj4gTW9zdGx5IHRo
-aXMgcGF0Y2ggc2VyaWVzIGlzbid0IGFib3V0IGZpeGluZyBidWdzIChleGNlcHQgdGhvc2Ugd2hp
-Y2ggd2VyZQo+PiBleHBvc2VkIHdoZW4gdGhlIGNoYW5nZXMgY2F1c2VkIHNvbWUgc2VsZnRlc3Rz
-IHRvIGZhaWwpLiAgSW5zdGVhZCwgaXQncyBhCj4+IGNvbWJpbmF0aW9uIG9mIHJlZmFjdG9yaW5n
-IGFuZCB1bmlmeWluZyBzbyB0aGF0IChmb3IgaW5zdGFuY2UpIHRoZSBydWxlcwo+PiBmb3IgcG9p
-bnRlciBhcml0aG1ldGljIGFuZCBhbGlnbm1lbnQgY2hlY2tpbmcgYXJlIGFzIHNpbWlsYXIgYXMg
-cG9zc2libGUKPj4gZm9yIGFsbCBwb2ludGVyIHR5cGVzIHJhdGhlciB0aGFuIGhhdmluZyBzcGVj
-aWFsLWNhc2UgcnVsZXMgZm9yIGVhY2ggdHlwZS4KPj4gVGhpcyBhbGxvd3MgbWFueSAoY29ycmVj
-dCkgcHJvZ3JhbXMgd2hpY2ggdGhlIHZlcmlmaWVyIHdpbGwgY3VycmVudGx5Cj4+IHJlamVjdCwg
-YW5kIG1ha2VzIHRoZSBvdmVyYWxsIGRlc2NyaXB0aW9uIG9mIHRoZSB2ZXJpZmllcidzIHJ1bGVz
-IG11Y2gKPj4gc2hvcnRlciBhbmQgc2ltcGxlci4gIEkgaGF2ZSB3cml0dGVuIGEgZG9jdW1lbnRh
-dGlvbiBwYXRjaCBleHBsYWluaW5nCj4+IHRoZXNlIHJ1bGVzLCB3aGljaCB0aGUgbmV4dCB2ZXJz
-aW9uIG9mIHRoZSBwYXRjaCBzZXJpZXMgd2lsbCBpbmNsdWRlLgo+IAo+IE9rLiBCdXQgSSBkb3Vi
-dCBpdCBpcyBhcyB1c2VmdWwgYXMgY29tbWVudGluZyBpbiB0aGUgY29kZSBvciB3cml0aW5nIGlu
-IHRoZQo+IGNvbW1pdCBtZXNzYWdlIHdoYXQgZXhhY3RseSBpcyBhZGRyZXNzZWQgYnkgdGhlIHBh
-dGNoLiBBbmQgZG9jdW1lbnRhdGlvbgo+IGRvZXMgbm90IHJlYWxseSBoZWxwIG90aGVycyB0byBy
-ZWJhc2UgdGhlaXIgcGF0Y2hlcyBvbiB0b3Agb2YgeW91cnMuCj4gCj4+IFRoZSBkaWZmIF9pc18g
-aGFyZCB0byByZWFkLCBJIGFjY2VwdCB0aGF0OyBJIHRoaW5rIGBkaWZmYCB3YXMgdG9vIGVhZ2Vy
-IHRvCj4+IGludGVycG9sYXRlIGFuZCBtYXRjaCBzaW5nbGUgbGluZXMgbGlrZSAneycgZnJvbSBj
-b21wbGV0ZWx5IHVucmVsYXRlZAo+PiBmdW5jdGlvbnMuICBJdCBtaWdodCBiZSBlYXNpZXIgdG8g
-anVzdCB0cnkgYXBwbHlpbmcgdGhlIHBhdGNoIHRvIGEgdHJlZQo+PiBhbmQgdGhlbiByZWFkaW5n
-IHRoZSByZXN1bHQsIHJhdGhlciB0aGFuIHRyeWluZyB0byBpbnRlcnByZXQgdGhlIGRpZmYuCj4g
-Cj4gSSBkb27igJl0IGtub3cgdG8gcmV2aWV3IHBhdGNoZXMgdGhpcyB3YXkuIEhvcGVmdWxseSBv
-dGhlcnMgZG8sIGJ1dCBJIGRvdWJ0IGl0Lgo+IAo+IEZvciBtZSBjaGFuZ2VzIHN1Y2ggYXM6Cj4g
-Cj4+IGlmIChkc3RfcmVnLT5taW5fdmFsdWUgIT0gQlBGX1JFR0lTVEVSX01JTl9SQU5HRSkKPj4g
-LQkJCWRzdF9yZWctPm1pbl92YWx1ZSAtPSBtaW5fdmFsOwo+PiArCQkJZHN0X3JlZy0+bWluX3Zh
-bHVlIC09IG1heF92YWw7Cj4gCj4gCj4gYXJlIHB1cmVseSBjcnlwdGljLiBXaGF0IGhhcHBlbmVk
-IGhlcmU/IFdhcyB0aGVyZSBhIGJ1ZyBiZWZvcmUgYW5kIGlmIHNvCj4gd2hhdCBhcmUgaXRzIGlt
-cGxpY2F0aW9ucz8gV2h5IGNhbuKAmXQgaXQgYmUgaW4gYSBzZXBhcmF0ZSBwYXRjaD8KPiAKPiBJ
-IGFsc28gdGhpbmsgdGhhdCBjaGFuZ2VzIHN1Y2ggYXM6Cj4+IC0JczY0IG1pbl92YWx1ZTsKPj4g
-LQl1NjQgbWF4X3ZhbHVlOwo+IFtzbmlwXQo+PiArCXM2NCBtaW5fdmFsdWU7IC8qIG1pbmltdW0g
-cG9zc2libGUgKHM2NCl2YWx1ZSAqLwo+PiArCXU2NCBtYXhfdmFsdWU7IC8qIG1heGltdW0gcG9z
-c2libGUgKHU2NCl2YWx1ZSAqLwo+IAo+IFNob3VsZCBoYXZlIGJlZW4gYXZvaWRlZC4gUGVyc29u
-YWxseSwgSSBmaW5kIHRoaXMgY29tbWVudCByZWR1bmRhbnQgKHRvIHNheQo+IHRoZSBsZWFzdCku
-IEl0IGRvZXMgbm90IGhlbHAgdG8gcmVkdWNlIHRoZSBkaWZmIHNpemUuCj4gCj4gSW4gdGhpcyBy
-ZWdhcmQsIEkgdGhpbmsgdGhhdCByZWZhY3RvcmluZyBzaG91bGQgaGF2ZSBiZWVuIGRvbmUgZmly
-c3QgYW5kIG5vdAo+IHRvZ2V0aGVyIHdpdGggdGhlIGxvZ2ljIGNoYW5nZXMuIEFzIGFub3RoZXIg
-ZXhhbXBsZSwgY2hhbmdpbmcgVU5LTk9XTl9WQUxVRQo+IHRvIFNDQUxBUl9WQUxVRSBzaG91bGQg
-aGF2ZSBiZWVuIGEgc2VwYXJhdGUsIGVhc3kgdG8gdW5kZXJzdGFuZCBwYXRjaC4KPiAKPj4+IEkg
-Y2FuIGJyaW5nIHVwIHNvbWUgY29uY2VybnMgcmVnYXJkaW5nIGluY29uc2lzdGVuY2llcyBpbiBv
-ZmZzZXQgY2hlY2tzIGFuZAo+Pj4gc2l6ZSwgbm90IHNwaWxsaW5nIFNDQUxBUiBhbmQgbXkgd2lz
-aCBub3QgdG8gbGltaXQgcGFja2V0IHNpemUuIEhvd2V2ZXIsCj4+PiB3aGVuIHRoZSBwYXRjaCBp
-cyB0aGF0IGJpZywgSSB0aGluayBpdCBpcyB1c2VsZXNzLgo+PiBQbGVhc2UsIGRvIGRlc2NyaWJl
-IHRoZXNlIGNvbmNlcm5zOyB3aGF0IGluY29uc2lzdGVuY2llcyBkbyB5b3Ugc2VlPwo+PiBUaGUg
-bm90IHNwaWxsaW5nIHNjYWxhcnMsIGFuZCB0aGUgbGltaXQgdG8gcGFja2V0IHNpemUsIGFyZSBy
-ZXRhaW5lZAo+PiBmcm9tIHRoZSBleGlzdGluZyBjb2RlIChpc19zcGlsbGFibGVfcmVndHlwZSgp
-IGFuZCBNQVhfUEFDS0VUX09GRikuCj4+IFRoZSBsYXR0ZXIgaXMgYWxzbyBuZWVkZWQgZm9yIGNv
-cnJlY3RuZXNzIGluIGNvbXB1dGluZyByZWctPnJhbmdlOwo+PiBpZiAncGt0X3B0ciArIG9mZnNl
-dCcgY291bGQgY29uY2VpdmFibHkgb3ZlcmZsb3csIHRoZW4gdGhlIHJlc3VsdAo+PiBjb3VsZCBi
-ZSA8IHBrdF9lbmQgd2l0aG91dCBiZWluZyBhIHZhbGlkIHBvaW50ZXIgaW50byB0aGUgcGFja2V0
-Lgo+PiBXZSB0aHVzIHJlbHkgb24gdGhlIGFzc3VtcHRpb24gdGhhdCB0aGUgcGFja2V0IHBvaW50
-ZXIgd2lsbCBuZXZlciBiZQo+PiB3aXRoaW4gTUFYX1BBQ0tFVF9PRkYgb2YgdGhlIHRvcCBvZiB0
-aGUgYWRkcmVzcyBzcGFjZS4gIChUaGlzCj4+IGFzc3VtcHRpb24gaXMsIGFnYWluLCBjYXJyaWVk
-IG92ZXIgZnJvbSB0aGUgZXhpc3RpbmcgdmVyaWZpZXIuKQo+IAo+IEkgdW5kZXJzdGFuZCB0aGUg
-bGltaXRhdGlvbnMgKEkgdGhpbmspLiBJIGFncmVlIHRoYXQgQ09OU1QgYmVpbmcgc3BpbGxhYmxl
-Cj4gaXMgbm90IGRpcmVjdGx5IHJlbGF0ZWQuIEFzIGZvciB0aGUgcG9zc2libGUgcGFja2V0IG9m
-ZnNldHMvcmFuZ2U6Cj4gaW50ZW50aW9uYWxseSBvciBub3QgeW91IGRvIG1ha2Ugc29tZSBjaGFu
-Z2VzIHRoYXQgcHVzaCB0aGUgNjRrIHBhY2tldCBzaXplCj4gbGltaXQgZXZlbiBkZWVwZXIgaW50
-byB0aGUgY29kZS4gV2hpbGUgdGhlIHBhY2tldCBzaXplIHNob3VsZCBiZSBsaW1pdGVkIHRvCj4g
-YXZvaWQgb3ZlcmZsb3csIElJVUMgdGhlIHJlcXVpcmVtZW50IGlzIHRoYXQ6Cj4gCj4gCTY0ID4g
-bG9nKG5faW5zbikgKyBsb2coTUFYX1BBQ0tFVF9PRkYpICsgMQo+IAo+IFN1Y2ggYW4gYXNzZXJ0
-aW9uIG1heSBiZSBzdGF0aWNseSBjaGVja2VkICh1c2luZyBCVUlMRF9CVUdfT04pLCBidXQgSSBk
-b27igJl0Cj4gdGhpbmsgc2hvdWxkIHByb3BhZ2F0ZSBpbnRvIHRoZSBlbnRpcmUgY29kZSwgZXNw
-ZWNpYWxseSBpbiBhIG5vbiBjb25zaXN0ZW50Cj4gd2F5LiBGb3IgZXhhbXBsZToKPiAKPj4gc3Ry
-dWN0IGJwZl9yZWdfc3RhdGUgewo+PiAJZW51bSBicGZfcmVnX3R5cGUgdHlwZTsKPj4gCXVuaW9u
-IHsKPj4gLQkJLyogdmFsaWQgd2hlbiB0eXBlID09IENPTlNUX0lNTSB8IFBUUl9UT19TVEFDSyB8
-IFVOS05PV05fVkFMVUUgKi8KPj4gLQkJczY0IGltbTsKPj4gLQo+PiAtCQkvKiB2YWxpZCB3aGVu
-IHR5cGUgPT0gUFRSX1RPX1BBQ0tFVCogKi8KPj4gLQkJc3RydWN0IHsKPj4gLQkJCXUxNiBvZmY7
-Cj4+IC0JCQl1MTYgcmFuZ2U7Cj4+IC0JCX07Cj4+ICsJCS8qIHZhbGlkIHdoZW4gdHlwZSA9PSBQ
-VFJfVE9fUEFDS0VUICovCj4+ICsJCXUzMiByYW5nZTsKPiAKPiBJIHdvdWxkIChwZXJzb25hbGx5
-KSBwcmVmZXIgcmFuZ2UgKGFuZCBvZmZzZXRzKSB0byBiZSB1NjQuIEkgY291bGQKPiB1bmRlcnN0
-YW5kIGlmIHlvdSBsZWZ0IHRoZSByYW5nZSBhcyB1MTYgKHNpbmNlIHBhY2tldCBzaXplIGlzIGxp
-bWl0ZWQgdG8KPiA2NGspLiBCdXQgd2h5IHdvdWxkIGl0IGJlIHUzMj8KPiAKPiBPcjoKPj4gLQlp
-ZiAob2ZmIDwgMCB8fCBzaXplIDw9IDAgfHwgb2ZmICsgc2l6ZSA+IHJlZy0+cmFuZ2UpIHsKPj4g
-KwlpZiAob2ZmIDwgMCB8fCBzaXplIDw9IDAgfHwgb2ZmID4gTUFYX1BBQ0tFVF9PRkYgfHwKPj4g
-KwkgICAgb2ZmICsgc2l6ZSA+IHJlZy0+cmFuZ2UpIHsKPiAKPiBXaHkgZG9u4oCZdCB5b3UgY2hl
-Y2sgKG9mZiArIHNpemUgPiBtYXgoTUFYX1BBQ0tFVF9PRkYsIHJlZy0+cmFuZ2UpKT8gSXMgdGhl
-cmUKPiBhIHJlYXNvbiB5b3UgaWdub3JlIHNpemUgd2hlbiBjb21wYXJpbmcgdG8gTUFYX1BBQ0tF
-VF9PRkYgPwoKKHNob3VsZCBiZSBtaW4sIG5vdCBtYXgpCgpfX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fXwppb3Zpc29yLWRldiBtYWlsaW5nIGxpc3QKaW92aXNv
-ci1kZXZAbGlzdHMuaW92aXNvci5vcmcKaHR0cHM6Ly9saXN0cy5pb3Zpc29yLm9yZy9tYWlsbWFu
-L2xpc3RpbmZvL2lvdmlzb3ItZGV2Cg==
+Hi all
+
+Similar to 'crow'
+
+ARM GLX Khadas VIM Pro - Ethernet detected as only 10Mbps and stalled after some traffic
+
+I also have the situation where copying large file over LAN stalls.
+
+3.14.29 performance is good 4.12.0 performance not
+
+output of 'mii-tool -vvv eth0' differs (e.g. flow-control)
+
+ --
+$ echo *
+3.14.29 4.12.0
+
+$ diff */mii-tool-vvv.eth0
+4,5c4,5
+<     1040 79ad 001c c916 0de1 c5e1 006d 2801
+<     4806 0200 3800 0000 0000 4007 0000 2000
+---
+>     1040 79ad 001c c916 01e1 c5e1 006f 2001
+>     5806 0200 3800 0000 0000 4007 0002 2000
+7c7
+<     211a 0862 30ee 0002 6295 0000 0000 0000
+---
+>     211a 0863 302c 0002 0000 0020 0000 0000
+12c12
+<   advertising:  1000baseT-FD 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD flow-control
+---
+>   advertising:  1000baseT-FD 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD
+ --
+
+When capturing with tcpdump stalled transfer shows various
+retransmits, duplicate acks and fast retransmit issues.
+
+# nstat | grep ^Tcp
+
+also shows much more exceptions in 4.12.0 versus 3.14.29
+
+$ cat 3.14.29/nstat^Tcp
+TcpInSegs                       18                 0.0
+TcpOutSegs                      11                 0.0
+TcpExtTCPHPAcks                 11                 0.0
+
+$ cat 4.12.0/nstat^Tcp
+TcpPassiveOpens                 2                  0.0
+TcpInSegs                       687                0.0
+TcpOutSegs                      379                0.0
+TcpExtDelayedACKs               4                  0.0
+TcpExtTCPHPHits                 207                0.0
+TcpExtTCPPureAcks               10                 0.0
+TcpExtTCPHPAcks                 350                0.0
+TcpExtTCPAutoCorking            6                  0.0
+TcpExtTCPOrigDataSent           365                0.0
+
+
+ Perhaps one must compare 3.14.29 am_realtek.c and realtek.c with 4.12.0realtek.c
+
+
+ thanks
