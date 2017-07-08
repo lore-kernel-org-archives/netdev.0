@@ -1,76 +1,50 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH v2 0/9] Remove spin_unlock_wait()
-Date: Sat, 8 Jul 2017 04:41:12 -0700
-Message-ID: <20170708114112.GO2393@linux.vnet.ibm.com>
-References: <20170629235918.GA6445@linux.vnet.ibm.com>
- <20170705232955.GA15992@linux.vnet.ibm.com>
- <063D6719AE5E284EB5DD2968C1650D6DD0033F01@AcuExch.aculab.com>
- <20170706160555.xc63yydk77gmttae@hirez.programming.kicks-ass.net>
- <20170706162024.GD2393@linux.vnet.ibm.com>
- <20170706165036.v4u5rbz56si4emw5@hirez.programming.kicks-ass.net>
- <20170707083128.wqk6msuuhtyykhpu@gmail.com>
- <20170707144107.GA27202@linux.vnet.ibm.com>
- <20170708084323.iuyb4smp2a4ca4fh@gmail.com>
-Reply-To: paulmck@linux.vnet.ibm.com
-Mime-Version: 1.0
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: Request to add bluetooth module identifier to
+ net/rfkill/rfkill-gpio.c
+Date: Sat, 8 Jul 2017 14:20:15 +0200
+Message-ID: <985A2192-C2F2-4361-BE23-9E9A5F53DAFA@holtmann.org>
+References: <CALnajPDkZi5tOTcghFCRHg8EiLgXXy1nWo+b7R4DxX8iEd1g0Q@mail.gmail.com>
+ <CALnajPCeYP6W4iECCsDegwTmq7UsPcH04C=K0h-zZQD6pf6rZw@mail.gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
 Content-Type: text/plain; charset=us-ascii
-Cc: Peter Zijlstra <peterz@infradead.org>,
-        David Laight <David.Laight@ACULAB.COM>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "oleg@redhat.com" <oleg@redhat.com>,
-        "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-        "mingo@redhat.com" <mingo@redhat.com>,
-        "dave@stgolabs.net" <dave@stgolabs.net>,
-        "manfred@colorfullife.com" <manfred@colorfullife.com>,
-        "tj@kernel.org" <tj@kernel.org>, "arnd@arndb.de" <arnd@arndb.de>,
-        "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
-        "will.deacon@arm.com" <will.deacon@arm.com>,
-        "stern@rowland.harvard.edu" <stern@rowland.harvard.edu>,
-        "parri.andrea@gmail.com" <parri.andrea@gmail.com>,
-        "torval
-To: Ingo Molnar <mingo@kernel.org>
+Content-Transfer-Encoding: 8BIT
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        linux-kernel@vger.kernel.org
+To: Sundar Nagarajan <sun.nagarajan@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170708084323.iuyb4smp2a4ca4fh@gmail.com>
+In-Reply-To: <CALnajPCeYP6W4iECCsDegwTmq7UsPcH04C=K0h-zZQD6pf6rZw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 08, 2017 at 10:43:24AM +0200, Ingo Molnar wrote:
-> 
-> * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> 
-> > On Fri, Jul 07, 2017 at 10:31:28AM +0200, Ingo Molnar wrote:
-> > 
-> > [ . . . ]
-> > 
-> > > In fact I'd argue that any future high performance spin_unlock_wait() user is 
-> > > probably better off open coding the unlock-wait poll loop (and possibly thinking 
-> > > hard about eliminating it altogether). If such patterns pop up in the kernel we 
-> > > can think about consolidating them into a single read-only primitive again.
-> > 
-> > I would like any reintroduction to include a header comment saying exactly
-> > what the consolidated primitive actually does and does not do.  ;-)
-> > 
-> > > I.e. I think the proposed changes are doing no harm, and the unavailability of a 
-> > > generic primitive does not hinder future optimizations either in any significant 
-> > > fashion.
-> > 
-> > I will have a v3 with updated comments from Manfred.  Thoughts on when/where
-> > to push this?
-> 
-> Once everyone agrees I can apply it to the locking tree. I think PeterZ's was the 
-> only objection?
+Hi Sundar,
 
-Oleg wasn't all that happy, either, but he did supply the relevant patch.
-
-> > The reason I ask is if this does not go in during this merge window, I need
-> > to fix the header comment on spin_unlock_wait().
+> I have a Cherry Trail laptop with an Atom X5-Z8300. It has a bluetooth
+> chip that needs the r8723bs (coexisting RTL 8723BS wifi and
+> bluetooth).
 > 
-> Can try it next week after some testing - let's see how busy things get for Linus 
-> in the merge window?
+> I am using linux-next (20150817) with the r8723bs staging driver and
+> the firmware and utility from https://github.com/lwfinger/rtl8723bs_bt
+> by Larry finger.
+> 
+> With linux-next the bluetooth works SOMETIMES, but on reboot, it does
+> not work any more (no bluetooth interfaces are detected and hciconfig
+> shows nothing).
+> 
+> I am a kernel novice, but I saw that another kernel that I had tried
+> had the following line added in struct acpi_device_id
+> rfkill_acpi_match:
+> 
+> { "OBDA8723",RFKILL_TYPE_BLUETOOTH }
+> 
+> With the attached patch applied (one line added), my bluetooth works every time.
+> 
+> Does this belong in rfkill-gpio.c, or should I contact someone else?
 
-Sounds good!  Either way is fine with me.
+it does not belong in rfkill-gpio.c since this controls the power of the Bluetooth device. This belongs in the Bluetooth driver. We already moved all the Intel and Broadcom ones into hci_intel.c and respectively hci_bcm.c. So have the staging driver deal with the power GPIO.
 
-							Thanx, Paul
+Regards
+
+Marcel
