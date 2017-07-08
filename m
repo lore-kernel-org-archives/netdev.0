@@ -1,74 +1,33 @@
-From: Sean Wang <sean.wang@mediatek.com>
-Subject: Re: [PATCH] net: ethernet: mediatek: remove useless code in
- mtk_probe()
-Date: Sat, 8 Jul 2017 14:56:41 +0800
-Message-ID: <1499497001.16278.19.camel@mtkswgap22>
-References: <20170707202333.GA5114@embeddedgus>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>, Felix Fietkau <nbd@openwrt.org>,
-        "John Crispin" <blogic@openwrt.org>,
-        Matthias Brugger <matthias.bgg@gmail.com>,
-        <netdev@vger.kernel.org>, <linux-mediatek@lists.infradead.org>,
-        <linux-kernel@vger.kernel.org>,
-        <linux-arm-kernel@lists.infradead.org>
-To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw01.mediatek.com ([210.61.82.183]:47736 "EHLO
-        mailgw01.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751175AbdGHG4q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 8 Jul 2017 02:56:46 -0400
-In-Reply-To: <20170707202333.GA5114@embeddedgus>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Subject: [PATCH 0/3] net: stmmac: Fixes and cleanups in 'alloc_dma_[rt]x_desc_resources()'
+Date: Sat,  8 Jul 2017 09:46:12 +0200
+Message-ID: <cover.1499499451.git.christophe.jaillet@wanadoo.fr>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel-janitors@vger.kernel.org,
+        Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+To: peppe.cavallaro@st.com, alexandre.torgue@st.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,  Gustavo
+These patchs are all related to 'alloc_dma_[rt]x_desc_resources()' functions.
 
-It indeed is useless at the current time point.
+The 2 first fix an error path where some resources are leaking. I've
+separated them into 2 patches because the issues have been introduced by
+2 deferent commits.
 
+The 3rd patch is just a clean-up.
 
-but actually I will add new SoC support to the driver in the next week,
-which requires the variable match :-(
+Christophe JAILLET (3):
+  net: stmmac: Fix error handling path in
+    'alloc_dma_rx_desc_resources()'
+  net: stmmac: Fix error handling path in
+    'alloc_dma_tx_desc_resources()'
+  net: stmmac: Make 'alloc_dma_[rt]x_desc_resources()' look even closer
 
-	Sean
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
+-- 
+2.11.0
 
-On Fri, 2017-07-07 at 15:23 -0500, Gustavo A. R. Silva wrote:
-> Remove useless local variables _match_, _soc_ and the code related.
-> 
-> Notice that
-> 
-> const struct of_device_id of_mtk_match[] = {
->         { .compatible = "mediatek,mt2701-eth" },
->         {},
-> };
-> 
-> So match->data is NULL.
-> 
-> Suggested-by: Andrew Lunn <andrew@lunn.ch>
-> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
-> ---
->  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 5 -----
->  1 file changed, 5 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> index adaaafc..b9a5a65 100644
-> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> @@ -2401,15 +2401,10 @@ static int mtk_probe(struct platform_device *pdev)
->  {
->  	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
->  	struct device_node *mac_np;
-> -	const struct of_device_id *match;
-> -	struct mtk_soc_data *soc;
->  	struct mtk_eth *eth;
->  	int err;
->  	int i;
->  
-> -	match = of_match_device(of_mtk_match, &pdev->dev);
-> -	soc = (struct mtk_soc_data *)match->data;
-> -
->  	eth = devm_kzalloc(&pdev->dev, sizeof(*eth), GFP_KERNEL);
->  	if (!eth)
->  		return -ENOMEM;
