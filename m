@@ -1,90 +1,52 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [RFC] copy_msghdr_from_user(): get rid of field-by-field copyin
-Date: Sat, 8 Jul 2017 19:22:08 +0100
-Message-ID: <20170708182207.GS10672@ZenIV.linux.org.uk>
+Subject: [RFC] get_compat_bpf_fprog(): don't copyin field-by-field
+Date: Sat, 8 Jul 2017 19:22:49 +0100
+Message-ID: <20170708182249.GT10672@ZenIV.linux.org.uk>
 References: <20170708182100.GR10672@ZenIV.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:54790 "EHLO
+Received: from zeniv.linux.org.uk ([195.92.253.2]:54798 "EHLO
         ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752861AbdGHSWJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 8 Jul 2017 14:22:09 -0400
+        with ESMTP id S1753037AbdGHSWv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 8 Jul 2017 14:22:51 -0400
 Received: from viro by ZenIV.linux.org.uk with local (Exim 4.87 #1 (Red Hat Linux))
-        id 1dTuMq-0002rI-21
-        for netdev@vger.kernel.org; Sat, 08 Jul 2017 18:22:08 +0000
+        id 1dTuNV-0002sk-KP
+        for netdev@vger.kernel.org; Sat, 08 Jul 2017 18:22:49 +0000
 Content-Disposition: inline
 In-Reply-To: <20170708182100.GR10672@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
-diff --git a/net/socket.c b/net/socket.c
-index c2564eb25c6b..af33d929135a 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -1870,22 +1870,18 @@ static int copy_msghdr_from_user(struct msghdr *kmsg,
- 				 struct sockaddr __user **save_addr,
- 				 struct iovec **iov)
+diff --git a/net/compat.c b/net/compat.c
+index dba5e222a0e5..6ded6c821d7a 100644
+--- a/net/compat.c
++++ b/net/compat.c
+@@ -313,15 +313,15 @@ struct sock_fprog __user *get_compat_bpf_fprog(char __user *optval)
  {
--	struct sockaddr __user *uaddr;
--	struct iovec __user *uiov;
--	size_t nr_segs;
-+	struct user_msghdr msg;
- 	ssize_t err;
- 
--	if (!access_ok(VERIFY_READ, umsg, sizeof(*umsg)) ||
--	    __get_user(uaddr, &umsg->msg_name) ||
--	    __get_user(kmsg->msg_namelen, &umsg->msg_namelen) ||
--	    __get_user(uiov, &umsg->msg_iov) ||
--	    __get_user(nr_segs, &umsg->msg_iovlen) ||
--	    __get_user(kmsg->msg_control, &umsg->msg_control) ||
--	    __get_user(kmsg->msg_controllen, &umsg->msg_controllen) ||
--	    __get_user(kmsg->msg_flags, &umsg->msg_flags))
-+	if (copy_from_user(&msg, umsg, sizeof(*umsg)))
- 		return -EFAULT;
- 
--	if (!uaddr)
-+	kmsg->msg_control = msg.msg_control;
-+	kmsg->msg_controllen = msg.msg_controllen;
-+	kmsg->msg_flags = msg.msg_flags;
+ 	struct compat_sock_fprog __user *fprog32 = (struct compat_sock_fprog __user *)optval;
+ 	struct sock_fprog __user *kfprog = compat_alloc_user_space(sizeof(struct sock_fprog));
+-	compat_uptr_t ptr;
+-	u16 len;
+-
+-	if (!access_ok(VERIFY_READ, fprog32, sizeof(*fprog32)) ||
+-	    !access_ok(VERIFY_WRITE, kfprog, sizeof(struct sock_fprog)) ||
+-	    __get_user(len, &fprog32->len) ||
+-	    __get_user(ptr, &fprog32->filter) ||
+-	    __put_user(len, &kfprog->len) ||
+-	    __put_user(compat_ptr(ptr), &kfprog->filter))
++	struct compat_sock_fprog f32;
++	struct sock_fprog f;
 +
-+	kmsg->msg_namelen = msg.msg_namelen;
-+	if (!msg.msg_name)
- 		kmsg->msg_namelen = 0;
++	if (copy_from_user(&f32, fprog32, sizeof(*fprog32)))
++		return NULL;
++	memset(&f, 0, sizeof(f));
++	f.len = f32.len;
++	f.filter = compat_ptr(f32.filter);
++	if (copy_to_user(kfprog, &f, sizeof(struct sock_fprog)))
+ 		return NULL;
  
- 	if (kmsg->msg_namelen < 0)
-@@ -1895,11 +1891,11 @@ static int copy_msghdr_from_user(struct msghdr *kmsg,
- 		kmsg->msg_namelen = sizeof(struct sockaddr_storage);
- 
- 	if (save_addr)
--		*save_addr = uaddr;
-+		*save_addr = msg.msg_name;
- 
--	if (uaddr && kmsg->msg_namelen) {
-+	if (msg.msg_name && kmsg->msg_namelen) {
- 		if (!save_addr) {
--			err = move_addr_to_kernel(uaddr, kmsg->msg_namelen,
-+			err = move_addr_to_kernel(msg.msg_name, kmsg->msg_namelen,
- 						  kmsg->msg_name);
- 			if (err < 0)
- 				return err;
-@@ -1909,12 +1905,13 @@ static int copy_msghdr_from_user(struct msghdr *kmsg,
- 		kmsg->msg_namelen = 0;
- 	}
- 
--	if (nr_segs > UIO_MAXIOV)
-+	if (msg.msg_iovlen > UIO_MAXIOV)
- 		return -EMSGSIZE;
- 
- 	kmsg->msg_iocb = NULL;
- 
--	return import_iovec(save_addr ? READ : WRITE, uiov, nr_segs,
-+	return import_iovec(save_addr ? READ : WRITE,
-+			    msg.msg_iov, msg.msg_iovlen,
- 			    UIO_FASTIOV, iov, &kmsg->msg_iter);
- }
- 
+ 	return kfprog;
