@@ -1,91 +1,88 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [Patch] mqueue: fix the retry logic for netlink_attachskb()
-Date: Sat, 8 Jul 2017 11:55:07 -0700
-Message-ID: <CA+55aFzzUgWjQmP2hVD_ZWHuRDLXZFU8mf6W2jHPs+ysLOCOCQ@mail.gmail.com>
-References: <1499452335-3478-1-git-send-email-xiyou.wangcong@gmail.com>
- <CA+55aFxNtoGV=Ly5X-T2n9YzV31sm+i33b+wjs-Qrsybbe1Saw@mail.gmail.com> <CAM_iQpX2+sq9Czwk4qiwDH5JdvTjDxLtoCj56iSHgEpUPo=uzQ@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] ip[6]: don't register inet[6]dev when dev is down
+Date: Sat, 8 Jul 2017 11:56:59 -0700
+Message-ID: <CAM_iQpXZ4XGsDR=ntURTj-j9kXAA=y8HQ2O6bCrTcOq=GBs-XQ@mail.gmail.com>
+References: <20170705155725.15469-1-nicolas.dichtel@6wind.com>
+ <CAM_iQpUtniWmKAOGnjJ+d-cWeQkgEPhcwKFdMeVy49rCe2Sh5g@mail.gmail.com>
+ <7238f160-2547-c51a-c8fe-bcbc5d774239@6wind.com> <CAM_iQpXMR6RmJX52=7qrGVKopvGCiabS2sUOCf2Dvjhe4wLAzA@mail.gmail.com>
+ <dc593730-11ff-5fee-b3c4-ce6ebeb2926f@6wind.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Network Development <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Gene Blue <geneblue.mail@gmail.com>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Manfred Spraul <manfred@colorfullife.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpX2+sq9Czwk4qiwDH5JdvTjDxLtoCj56iSHgEpUPo=uzQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
+Cc: David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Hongjun Li <hongjun.li@6wind.com>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:35173 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752907AbdGHS5V (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 8 Jul 2017 14:57:21 -0400
+Received: by mail-wr0-f194.google.com with SMTP id z45so15320575wrb.2
+        for <netdev@vger.kernel.org>; Sat, 08 Jul 2017 11:57:20 -0700 (PDT)
+In-Reply-To: <dc593730-11ff-5fee-b3c4-ce6ebeb2926f@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 8, 2017 at 11:04 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+On Fri, Jul 7, 2017 at 5:39 AM, Nicolas Dichtel
+<nicolas.dichtel@6wind.com> wrote:
+> Le 06/07/2017 =C3=A0 20:16, Cong Wang a =C3=A9crit :
+>> On Thu, Jul 6, 2017 at 5:08 AM, Nicolas Dichtel
+>> <nicolas.dichtel@6wind.com> wrote:
+>>> Le 06/07/2017 =C3=A0 00:43, Cong Wang a =C3=A9crit :
+>>>> On Wed, Jul 5, 2017 at 8:57 AM, Nicolas Dichtel
+>>>> <nicolas.dichtel@6wind.com> wrote:
+>>>>> When a device changes from one netns to another, it's first unregiste=
+red,
+>>>>> then the netns reference is updated and the dev is registered in the =
+new
+>>>>> netns. Thus, when a slave moves to another netns, it is first
+>>>>> unregistered. This triggers a NETDEV_UNREGISTER event which is caught=
+ by
+>>>>> the bonding driver. The driver calls bond_release(), which calls
+>>>>> dev_set_mtu() and thus triggers NETDEV_CHANGEMTU (the device is still=
+ in
+>>>>> the old netns).
+>>>>
+>>>> I think in this special case it is meaningless to send
+>>>> NETDEV_CHANGEMTU, because the device is dying within
+>>>> its old netns, who still cares about its mtu change?
+>>>>
+>>>> Something like the attached patch...
+>>> Yes, your patch seems good and I hesitated with something like this.
+>>> But I don't see a valid case where the inet[6]dev must be created on a =
+down
+>>> interface. I think the patch is valid, even with your patch.
 >>
->> Can you confirm that? I don't know where the original report is.
+>> Your patch is more risky because it affects normal CHANGEMTU path,
+>> I am not sure if it is correct to not to add idev when it is down either=
+.
+> Why would it be needed to add this idev on a down interface?
+> If idev wasn't there I don't see why changing the mtu would justify to cr=
+eate
+> this idev.
 >
-> Yes of course, setting 'sock' to NULL before 'goto retry' is sufficient
-> to fix it, that is in fact my initial thought. And I realized retry'ing
-> fdget() can't help anything in this situation but increases the
-> attack vector, so I decided to get rid of it from the retry loop
-> instead of just NULL'ing 'sock'.
+
+
+There must be a reason to check idev->if_flags & IF_READY instead
+of IFF_UP.
+
+
+>>
+>> This is a very unusual path, we don't have to take the risk.
+> I still think that this approach is better for two reasons:
+>  - we don't know if another path like this exists (need an audit) and it =
+would
+> be easy to add one again by side effect in the future;
+
+Perhaps we need to add a warning for these events triggered after
+UNREGISTER, except UNREGISTER_FINAL, in case of trouble.
+But again, the CHANGEMTU case is so special because of the
+idev.
+
+
+>  - the patch is easy to backport in older kernel.
 >
-> Or do you prefer the simpler fix? Or should I just resend it with
-> a improved changelog?
 
-It was just the combination of that nasty code, your patch, and the
-explanation that confused me.
-
-Reading the patch, I actually thought that one of the things you fixed
-was moving the "fdput()" later, to after the netlink_attachskb().
-
-And I thought you did that because netlink_attachskb() would need the
-file to be still around keeping a reference count to the socket, and
-without it the socket could have been dropped in the meantime.
-
-But reading the code more closely, I notice that
-netlink_getsockbyfilp() gets a reference to the sock, and it's that
-netlink_attachskb() will drop that reference on error or retry.
-
-So the fdput() makes sense after netlink_getsockbyfilp(), but that's
-also why the retry code currently includes repeating the fdget()...
-And the error handling for the fdget is that then triggers the real
-bug.
-
-So the reason you moved the fdput() later wasn't to protect the socket
-reference, it was just because of how the whole retry loop needs to
-have the file descriptor just to get a new reference to the socket.
-
-That's why I thought you fixed a bug even in the first iteration, but
-it turns out that was just me making assumptions based on mis-reading
-the patch without looking at all the context and the logic of the
-called functions.
-
-Now that I have checked deeper, I realize that your patch description
-was actually correct about this only being a retry problem - the first
-time around the reference count ends up moving correctly from file to
-socket, but then when it repeats and 'sock' may contain a stale
-pointer, we may end up doing the wrong thing when the fdget fails.
-
-Honestly, now I feel like either patch is fine, and your original
-commit message is fine too - but I just hate that code.
-
-And making it use some nice helper function to clean it up looks
-painful too, because the error handling is so odd (ie
-mq_netlink_attachskb() will free the skb on error, while the other
-error cases won't, so you'd have to have some special handling for the
-different errors that can happen).
-
-Honestly, this code is nasty, and right now my feeling is that it
-would be good to have a minimal patch that also backports cleanly.
-Maybe somebody can clean it up later, but that's a separate windmill
-to rail against.
-
-And due to the recent compat cleanups by Al, your bigger patch does
-not apply cleanly to current git - but the smaller patch to just
-setting 'sock' to NULL before that 'goto retry' should apply cleanly
-to all versions of this code.
-
-So purely because of that reason, I think I'd prefer to see that
-smaller patch instead. Would you mind re-sending the thing?
-
-Sorry about the whole confusion.
-
-               Linus
+Easy to backport doesn't mean easy to verify. ;) As David said, this
+code is mess, especially for the keep_addr_on_down logic.
