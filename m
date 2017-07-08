@@ -1,64 +1,74 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [PATCH iproute2] ip: change flag names to an array
-Date: Sat, 8 Jul 2017 15:08:12 +0900
-Message-ID: <CAKD1Yr1tPL3_30jLJA-E4h05X2A85d=UOLmsGo+atWMResK7cA@mail.gmail.com>
-References: <20170707153941.5427-1-stephen@networkplumber.org>
+From: Sean Wang <sean.wang@mediatek.com>
+Subject: Re: [PATCH] net: ethernet: mediatek: remove useless code in
+ mtk_probe()
+Date: Sat, 8 Jul 2017 14:56:41 +0800
+Message-ID: <1499497001.16278.19.camel@mtkswgap22>
+References: <20170707202333.GA5114@embeddedgus>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>, Felix Fietkau <nbd@openwrt.org>,
+        "John Crispin" <blogic@openwrt.org>,
+        Matthias Brugger <matthias.bgg@gmail.com>,
+        <netdev@vger.kernel.org>, <linux-mediatek@lists.infradead.org>,
+        <linux-kernel@vger.kernel.org>,
+        <linux-arm-kernel@lists.infradead.org>
+To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f53.google.com ([209.85.213.53]:33703 "EHLO
-        mail-vk0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751002AbdGHGIe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 8 Jul 2017 02:08:34 -0400
-Received: by mail-vk0-f53.google.com with SMTP id r126so27482089vkg.0
-        for <netdev@vger.kernel.org>; Fri, 07 Jul 2017 23:08:33 -0700 (PDT)
-In-Reply-To: <20170707153941.5427-1-stephen@networkplumber.org>
+Received: from mailgw01.mediatek.com ([210.61.82.183]:47736 "EHLO
+        mailgw01.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751175AbdGHG4q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 8 Jul 2017 02:56:46 -0400
+In-Reply-To: <20170707202333.GA5114@embeddedgus>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 8, 2017 at 12:39 AM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> For the most of the address flags, use a table of bit values rather
-> than open coding every value.  This allows for easier inevitable
-> expansion of flags.
+Hi,  Gustavo
 
-Thanks for doing this.
+It indeed is useless at the current time point.
 
-> +static unsigned int get_ifa_flag_mask(const char *name)
-> +{
-> +       unsigned int i;
-> +
-> +       for (i = 0; i < ARRAY_SIZE(ifa_flag_names); i++) {
-> +               if (!strcmp(name, ifa_flag_names[i]))
-> +                       return 1u << i;
-> +       }
-> +       return 0;
-> +}
 
-It looks like the user can specify things such as "-deprecated".
-Perhaps that sort of thing can be handled by this function too?
-Instead of returning an unsigned int, this function could be void and
-take a flag value and a mask as output parameters. If the flag name
-starts with "-" it would set the value to 0, and if it doesn't it
-would set the value to 1.
+but actually I will add new SoC support to the driver in the next week,
+which requires the variable match :-(
 
-Otherwise, some of the -<flag> parameters will either need to be
-special cased or cease to be supported. Specifically, I see this one:
+	Sean
 
-> -               } else if (strcmp(*argv, "-tentative") == 0) {
-> -                       filter.flags &= ~IFA_F_TENTATIVE;
-> -                       filter.flagmask |= IFA_F_TENTATIVE;
 
-this one:
-
-> -               } else if (strcmp(*argv, "-deprecated") == 0) {
-> -                       filter.flags &= ~IFA_F_DEPRECATED;
-> -                       filter.flagmask |= IFA_F_DEPRECATED;
-
-and this one:
-
-> -               } else if (strcmp(*argv, "-dadfailed") == 0) {
-> -                       filter.flags &= ~IFA_F_DADFAILED;
-> -                       filter.flagmask |= IFA_F_DADFAILED;
+On Fri, 2017-07-07 at 15:23 -0500, Gustavo A. R. Silva wrote:
+> Remove useless local variables _match_, _soc_ and the code related.
+> 
+> Notice that
+> 
+> const struct of_device_id of_mtk_match[] = {
+>         { .compatible = "mediatek,mt2701-eth" },
+>         {},
+> };
+> 
+> So match->data is NULL.
+> 
+> Suggested-by: Andrew Lunn <andrew@lunn.ch>
+> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+> ---
+>  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 5 -----
+>  1 file changed, 5 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> index adaaafc..b9a5a65 100644
+> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> @@ -2401,15 +2401,10 @@ static int mtk_probe(struct platform_device *pdev)
+>  {
+>  	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+>  	struct device_node *mac_np;
+> -	const struct of_device_id *match;
+> -	struct mtk_soc_data *soc;
+>  	struct mtk_eth *eth;
+>  	int err;
+>  	int i;
+>  
+> -	match = of_match_device(of_mtk_match, &pdev->dev);
+> -	soc = (struct mtk_soc_data *)match->data;
+> -
+>  	eth = devm_kzalloc(&pdev->dev, sizeof(*eth), GFP_KERNEL);
+>  	if (!eth)
+>  		return -ENOMEM;
