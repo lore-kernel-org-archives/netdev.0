@@ -1,119 +1,72 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [PATCH v2 0/9] Remove spin_unlock_wait()
-Date: Sat, 8 Jul 2017 12:21:53 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.1707081157020.17878-100000@netrider.rowland.org>
-References: <20170708123018.qiwmyf3x43i4pgsg@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch] mqueue: fix the retry logic for netlink_attachskb()
+Date: Sat, 8 Jul 2017 11:04:32 -0700
+Message-ID: <CAM_iQpX2+sq9Czwk4qiwDH5JdvTjDxLtoCj56iSHgEpUPo=uzQ@mail.gmail.com>
+References: <1499452335-3478-1-git-send-email-xiyou.wangcong@gmail.com> <CA+55aFxNtoGV=Ly5X-T2n9YzV31sm+i33b+wjs-Qrsybbe1Saw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-        Manfred Spraul <manfred@colorfullife.com>,
-        Peter Zijlstra <peterz@infradead.org>,
-        David Laight <David.Laight@ACULAB.COM>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "oleg@redhat.com" <oleg@redhat.com>,
-        "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-        "mingo@redhat.com" <mingo@redhat.com>,
-        "dave@stgolabs.net" <dave@stgolabs.net>,
-        "tj@kernel.org" <tj@kernel.org>, "arnd@arndb.de" <arnd@arndb.de>,
-        "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
-        "will.deacon@arm.com" <will.deacon@arm.com>,
-        "parri.andrea@gmail.com" <parri.andrea@gmail.com>,
-        "torvalds@linux-foundation.
-To: Ingo Molnar <mingo@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from netrider.rowland.org ([192.131.102.5]:51319 "HELO
-        netrider.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with SMTP id S1752836AbdGHQVz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 8 Jul 2017 12:21:55 -0400
-In-Reply-To: <20170708123018.qiwmyf3x43i4pgsg@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Network Development <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Gene Blue <geneblue.mail@gmail.com>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Manfred Spraul <manfred@colorfullife.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFxNtoGV=Ly5X-T2n9YzV31sm+i33b+wjs-Qrsybbe1Saw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Pardon me for barging in, but I found this whole interchange extremely 
-confusing...
+On Fri, Jul 7, 2017 at 5:23 PM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
+> On Fri, Jul 7, 2017 at 11:32 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> so we when retry and the fd has been closed during this small
+>> window, we end up calling netlink_detachskb() on the error path
+>> which releases the sock again and could lead to a use-after-free.
+>
+> So this seems to be a real problem: "sock" is not NULL'ed out in that
+>
+>                         if (!f.file) {
+>
+> error case (or alternatively, in the retry case).  Plus, since we did
+> the "fput()" early, "sock" may be gone by the time we do the
+> netlink_attachskb() even when it's all successful.
+>
+> But I don't think this is really so much about the retrying - the
+> "sock may be gone" case seems to be true even the first time around,
+> and even if we never retry at all.
+>
+> Am I reading this correctly?
 
-On Sat, 8 Jul 2017, Ingo Molnar wrote:
 
-> * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> 
-> > On Sat, Jul 08, 2017 at 10:35:43AM +0200, Ingo Molnar wrote:
-> > > 
-> > > * Manfred Spraul <manfred@colorfullife.com> wrote:
-> > > 
-> > > > Hi Ingo,
-> > > > 
-> > > > On 07/07/2017 10:31 AM, Ingo Molnar wrote:
-> > > > > 
-> > > > > There's another, probably just as significant advantage: queued_spin_unlock_wait()
-> > > > > is 'read-only', while spin_lock()+spin_unlock() dirties the lock cache line. On
-> > > > > any bigger system this should make a very measurable difference - if
-> > > > > spin_unlock_wait() is ever used in a performance critical code path.
-> > > > At least for ipc/sem:
-> > > > Dirtying the cacheline (in the slow path) allows to remove a smp_mb() in the
-> > > > hot path.
-> > > > So for sem_lock(), I either need a primitive that dirties the cacheline or
-> > > > sem_lock() must continue to use spin_lock()/spin_unlock().
+Yes you are correct.
 
-This statement doesn't seem to make sense.  Did Manfred mean to write 
-"smp_mb()" instead of "spin_lock()/spin_unlock()"?
+>
+> Basically, I think the patch is fine, but the explanation seems a bit
+> misleading. This isn't really about the re-trying: that would be fine
+> if we just cleaned up sock properly.
+>
+> Can you confirm that? I don't know where the original report is.
 
-> > > Technically you could use spin_trylock()+spin_unlock() and avoid the lock acquire 
-> > > spinning on spin_unlock() and get very close to the slow path performance of a 
-> > > pure cacheline-dirtying behavior.
+Yes of course, setting 'sock' to NULL before 'goto retry' is sufficient
+to fix it, that is in fact my initial thought. And I realized retry'ing
+fdget() can't help anything in this situation but increases the
+attack vector, so I decided to get rid of it from the retry loop
+instead of just NULL'ing 'sock'.
 
-This is even more confusing.  Did Ingo mean to suggest using 
-"spin_trylock()+spin_unlock()" in place of "spin_lock()+spin_unlock()" 
-could provide the desired ordering guarantee without delaying other 
-CPUs that may try to acquire the lock?  That seems highly questionable.
+Or do you prefer the simpler fix? Or should I just resend it with
+a improved changelog?
 
-> > > But adding something like spin_barrier(), which purely dirties the lock cacheline, 
-> > > would be even faster, right?
-> > 
-> > Interestingly enough, the arm64 and powerpc implementations of
-> > spin_unlock_wait() were very close to what it sounds like you are
-> > describing.
-> 
-> So could we perhaps solve all our problems by defining the generic version thusly:
-> 
-> void spin_unlock_wait(spinlock_t *lock)
-> {
-> 	if (spin_trylock(lock))
-> 		spin_unlock(lock);
-> }
+BTW, the original report is here:
+https://groups.google.com/forum/#!topic/syzkaller/QsmbsGoYPzA
 
-How could this possibly be a generic version of spin_unlock_wait()?  
-It does nothing at all (with no ordering properties) if some other CPU
-currently holds the lock, whereas the real spin_unlock_wait() would
-wait until the other CPU released the lock (or possibly longer).
 
-And if no other CPU currently holds the lock, this has exactly the same
-performance properties as spin_lock()+spin_unlock(), so what's the
-advantage?
+>
+> And that code is ancient, so we should do a "cc: stable" there too,
+> and backport it basically forever. I think most of the code in this
+> area predates the git tree, although Al Viro actually touched some
+> things around here very recently to make the compat case cleaner.
+>
 
-Alan Stern
+Yeah, sorry about forgetting it.
 
-> ... and perhaps rename it to spin_barrier() [or whatever proper name there would 
-> be]?
-> 
-> Architectures can still optimize it, to remove the small window where the lock is 
-> held locally - as long as the ordering is at least as strong as the generic 
-> version.
-> 
-> This would have various advantages:
-> 
->  - semantics are well-defined
-> 
->  - the generic implementation is already pretty well optimized (no spinning)
-> 
->  - it would make it usable for the IPC performance optimization
-> 
->  - architectures could still optimize it to eliminate the window where the lock is
->    held locally - if there's such instructions available.
-> 
-> Was this proposed before, or am I missing something?
-> 
-> Thanks,
-> 
-> 	Ingo
+Thanks!
