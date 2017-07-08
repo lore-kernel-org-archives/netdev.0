@@ -1,53 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 RFC 0/13] Remove UDP Fragmentation Offload support
-Date: Sat, 08 Jul 2017 10:47:33 +0100 (WEST)
-Message-ID: <20170708.104733.1084990812481085646.davem@davemloft.net>
-References: <20170707.104326.2165746493532974466.davem@davemloft.net>
-        <20170707124531.GA15765@unicorn.suse.cz>
+Subject: Re: [PATCH net] ip[6]: don't register inet[6]dev when dev is down
+Date: Sat, 08 Jul 2017 11:02:34 +0100 (WEST)
+Message-ID: <20170708.110234.1001958921525251511.davem@davemloft.net>
+References: <20170705155725.15469-1-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, willemdebruijn.kernel@gmail.com
-To: mkubecek@suse.cz
+Cc: netdev@vger.kernel.org, hongjun.li@6wind.com
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40852 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:40976 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752636AbdGHJri (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 8 Jul 2017 05:47:38 -0400
-In-Reply-To: <20170707124531.GA15765@unicorn.suse.cz>
+        with ESMTP id S1752636AbdGHKCi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 8 Jul 2017 06:02:38 -0400
+In-Reply-To: <20170705155725.15469-1-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michal Kubecek <mkubecek@suse.cz>
-Date: Fri, 7 Jul 2017 14:45:31 +0200
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Wed,  5 Jul 2017 17:57:25 +0200
 
-> On Fri, Jul 07, 2017 at 10:43:26AM +0100, David Miller wrote:
->> 
->> This is an RFC patch series, based upon some discussions with
->> various developers, that removes UFO offloading.
->> 
->> Very few devices support this operation, it's usefullness is
->> quesitonable at best, and it adds a non-trivial amount of
->> complexity to our data paths.
+> From: Hongjun Li <hongjun.li@6wind.com>
 > 
-> My understanding from the communication with the customer whose reports
-> resulted in commits acf8dd0a9d0b ("udp: only allow UFO for packets from
-> SOCK_DGRAM sockets") and a5cb659bbc1c ("net: account for current skb
-> length when deciding about UFO") was that the real benefit from UFO is 
-> in the case when UFO allows to avoid the need to actually fragment the 
-> packets. In their case it's when UDP packets are sent via virtio_net 
-> either between a guest and its host or between two guests on the same 
-> host.
+> When the netdev event NETDEV_CHANGEMTU is triggered, the inet[6]dev may be
+> created even if the corresponding device is down. This may lead to a leak
+> in the procfs when the device is unregistered, and finally trigger a
+> backtrace:
+ ...
+> When a device changes from one netns to another, it's first unregistered,
+> then the netns reference is updated and the dev is registered in the new
+> netns. Thus, when a slave moves to another netns, it is first
+> unregistered. This triggers a NETDEV_UNREGISTER event which is caught by
+> the bonding driver. The driver calls bond_release(), which calls
+> dev_set_mtu() and thus triggers NETDEV_CHANGEMTU (the device is still in
+> the old netns).
 > 
-> Personally I have no idea how big the effect is in their use cases so 
-> I forwarded the link to your series to them and asked them to provide 
-> some real life data if they want to step in. If there is no significant
-> performance benefit even in this case, I would agree the feature is not
-> worth the hassle - if nothing else, the ever growing list of exceptions
-> in ip{,6}_append_data() is getting out of hands.
+> Signed-off-by: Hongjun Li <hongjun.li@6wind.com>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Thank for letting us know about this.
+I'm still not convinced about this.
 
-However, unless the performance gains are significant and there are no
-conceivable alternative ways to achieve the same thing, I'm still
-removing this.
+We have lots of code which iterates ipv6 idevs, and then has a
+check for IFF_UP.
+
+So having an idev attached to a down interface is not a bug nor
+illegal.
+
+In fact, addrconf_cleanup() walks all of the init_net idevs and
+calls addrconf_ifdown() with how=1 regardless of IFF_UP or not.
+
+This entire area is quite a mess.
+
+Can you show exactly why the procfs state isn't cleaned up for
+these devices moving between namespaces?  Maybe that is the real
+bug and a better place to fix this.
+
+Thanks.
