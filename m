@@ -1,79 +1,77 @@
-From: Marc Duponcheel <marc@offline.be>
-Subject: meson-gxbb-p200 4.12.0 network TCP transfer stalls
-Date: Sat, 8 Jul 2017 02:55:42 +0200
-Message-ID: <20170708005542.GA20515@offline.be>
-Reply-To: Marc Duponcheel <marc@offline.be>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: Re: [PATCH v6 0/3] Add new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+Date: Sat, 8 Jul 2017 02:04:56 +0000
+Message-ID: <MWHPR12MB1600AECAE619EAA97E6B15D5C8AB0@MWHPR12MB1600.namprd12.prod.outlook.com>
+References: <1498133721-21152-1-git-send-email-dingtianhong@huawei.com>
+ <MWHPR12MB160087E9E0B17F7A17609714C8AA0@MWHPR12MB1600.namprd12.prod.outlook.com>
+ <MWHPR12MB160006024D920ED58126048AC8AB0@MWHPR12MB1600.namprd12.prod.outlook.com>,<CAKgT0Uc5KSJTj4A=9pSudiJ28AW0krc7FZpdW4upwY+FgpeArA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Marc Duponcheel <marc@offline.be>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from server.offline.be ([79.132.231.86]:45536 "EHLO mail.offline.be"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752639AbdGHAzT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 7 Jul 2017 20:55:19 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Ding Tianhong <dingtianhong@huawei.com>,
+        "ashok.raj@intel.com" <ashok.raj@intel.com>,
+        "helgaas@kernel.org" <helgaas@kernel.org>,
+        "Michael Werner" <werner@chelsio.com>,
+        Ganesh GR <ganeshgr@chelsio.com>,
+        "asit.k.mallick@intel.com" <asit.k.mallick@intel.com>,
+        "patrick.j.cramer@intel.com" <patrick.j.cramer@intel.com>,
+        "Suravee.Suthikulpanit@amd.com" <Suravee.Suthikulpanit@amd.com>,
+        "Bob.Shaw@amd.com" <Bob.Shaw@amd.com>,
+        "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
+        "amira@mellanox.com" <amira@mellanox.com>,
+        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
+        "David.Laight@aculab.com" <David.Laight@aculab.com>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+        "catalin.marinas@arm.com" <catalin.marinas@arm.com>,
+        "will.deacon@arm.com" <will.deacon
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAKgT0Uc5KSJTj4A=9pSudiJ28AW0krc7FZpdW4upwY+FgpeArA@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all
+  Okay, thanks for the note Alexander.	I'll have to look more closely at
+the patch on Monday and try it out on one of the targeted systems to verify
+the semantics you describe.
 
-Similar to 'crow'
+  However, that said, there is no way to tell a priori where a device will
+send TLPs.  To simply assume that all TLPs will be directed towards the Roo=
+t
+Complex is a big assumption.  Only the device and the code controlling it
+know where the TLPs will be directed.  That's why there are changes require=
+d
+in the cxgb4 driver.  For instance, the code in
+drivers/net/ethernet/chelsio./cxgb4/sge.c: t4_sge_alloc_rxq() knows that
+it's allocating Free List Buffers in Host Memory and that the RX Queues tha=
+t
+it's allocating in the Hardware will eventually send Ingress Data to those
+Free List Buffers.  (And similarly for the Free List Buffer Pointer Queue
+with respect to DMA Reads from the host.)  In that routine we explicitly
+configure the Hardware to use/not-use the Relaxed Ordering Attribute via th=
+e
+FW_IQ_CMD_FL0FETCHRO and FW_IQ_CMD_FL0DATARO flags.  Basically we're
+conditionally setting them based on the desirability of sending Relaxed
+Ordering TLPs to the Root Complex.  (And we would perform the same kind of
+check for an nVME application ... which brings us to ...)
 
-ARM GLX Khadas VIM Pro - Ethernet detected as only 10Mbps and stalled after some traffic
+  And what would be the code using these patch APIs to set up a Peer-to-Pee=
+r
+nVME-style application?	 In that case we'd need the Chelsio adapter's PCIe
+Capability Device Control[Relaxed Ordering Enable] set for the nVME
+application ... and we would avoid programming the Chelsio Hardware to use
+Relaxed Ordering for TLPs directed at the Root Complex.	 Thus we would be i=
+n
+a position where some TLPs being emitted by the device to Peer devices woul=
+d
+have Relaxed Ordering set and some directed at the Root Complex would not.
+And the only way for that to work is if the source device's Device
+Control[Relaxed Ordering Enable] is set ...
 
-I also have the situation where copying large file over LAN stalls.
-
-3.14.29 performance is good 4.12.0 performance not
-
-output of 'mii-tool -vvv eth0' differs (e.g. flow-control)
-
- --
-$ echo *
-3.14.29 4.12.0
-
-$ diff */mii-tool-vvv.eth0
-4,5c4,5
-<     1040 79ad 001c c916 0de1 c5e1 006d 2801
-<     4806 0200 3800 0000 0000 4007 0000 2000
----
->     1040 79ad 001c c916 01e1 c5e1 006f 2001
->     5806 0200 3800 0000 0000 4007 0002 2000
-7c7
-<     211a 0862 30ee 0002 6295 0000 0000 0000
----
->     211a 0863 302c 0002 0000 0020 0000 0000
-12c12
-<   advertising:  1000baseT-FD 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD flow-control
----
->   advertising:  1000baseT-FD 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD
- --
-
-When capturing with tcpdump stalled transfer shows various
-retransmits, duplicate acks and fast retransmit issues.
-
-# nstat | grep ^Tcp
-
-also shows much more exceptions in 4.12.0 versus 3.14.29
-
-$ cat 3.14.29/nstat^Tcp
-TcpInSegs                       18                 0.0
-TcpOutSegs                      11                 0.0
-TcpExtTCPHPAcks                 11                 0.0
-
-$ cat 4.12.0/nstat^Tcp
-TcpPassiveOpens                 2                  0.0
-TcpInSegs                       687                0.0
-TcpOutSegs                      379                0.0
-TcpExtDelayedACKs               4                  0.0
-TcpExtTCPHPHits                 207                0.0
-TcpExtTCPPureAcks               10                 0.0
-TcpExtTCPHPAcks                 350                0.0
-TcpExtTCPAutoCorking            6                  0.0
-TcpExtTCPOrigDataSent           365                0.0
-
-
- Perhaps one must compare 3.14.29 am_realtek.c and realtek.c with 4.12.0realtek.c
-
-
- thanks
+  Finally, setting aside my disagreements with the patch, we still have the
+code in the cxgb4 driver which explicitly turns on its own Device
+Control[Relaxed Ordering Enable] in cxgb4_main.c:
+enable_pcie_relaxed_ordering().  So the patch is something of a loop if all
+we're doing is testing our own Relaxed Ordering Enable state ...
+=20
+Casey
