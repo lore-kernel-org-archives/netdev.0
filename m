@@ -1,66 +1,64 @@
-From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Subject: [PATCH] cisco: enic: Fic an error handling path in 'vnic_dev_init_devcmd2()'
-Date: Sat,  8 Jul 2017 06:51:35 +0200
-Message-ID: <20170708045135.14753-1-christophe.jaillet@wanadoo.fr>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel-janitors@vger.kernel.org,
-        Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-To: benve@cisco.com, govind@gmx.com, neepatel@cisco.com
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH iproute2] ip: change flag names to an array
+Date: Sat, 8 Jul 2017 15:08:12 +0900
+Message-ID: <CAKD1Yr1tPL3_30jLJA-E4h05X2A85d=UOLmsGo+atWMResK7cA@mail.gmail.com>
+References: <20170707153941.5427-1-stephen@networkplumber.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp04.smtpout.orange.fr ([80.12.242.126]:45307 "EHLO
-        smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750826AbdGHEvp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 8 Jul 2017 00:51:45 -0400
+Received: from mail-vk0-f53.google.com ([209.85.213.53]:33703 "EHLO
+        mail-vk0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751002AbdGHGIe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 8 Jul 2017 02:08:34 -0400
+Received: by mail-vk0-f53.google.com with SMTP id r126so27482089vkg.0
+        for <netdev@vger.kernel.org>; Fri, 07 Jul 2017 23:08:33 -0700 (PDT)
+In-Reply-To: <20170707153941.5427-1-stephen@networkplumber.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-if 'ioread32()' returns 0xFFFFFFF, we have to go through the error
-handling path as done everywhere else in this function.
+On Sat, Jul 8, 2017 at 12:39 AM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> For the most of the address flags, use a table of bit values rather
+> than open coding every value.  This allows for easier inevitable
+> expansion of flags.
 
-Move the 'err_free_wq' label to better match its name and its location
-and add a new label 'err_disable_wq'.
-Update the code accordingly.
+Thanks for doing this.
 
-Fixes: 373fb0873d43 ("enic: add devcmd2")
-Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
----
- drivers/net/ethernet/cisco/enic/vnic_dev.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+> +static unsigned int get_ifa_flag_mask(const char *name)
+> +{
+> +       unsigned int i;
+> +
+> +       for (i = 0; i < ARRAY_SIZE(ifa_flag_names); i++) {
+> +               if (!strcmp(name, ifa_flag_names[i]))
+> +                       return 1u << i;
+> +       }
+> +       return 0;
+> +}
 
-diff --git a/drivers/net/ethernet/cisco/enic/vnic_dev.c b/drivers/net/ethernet/cisco/enic/vnic_dev.c
-index 1841ad45d215..39bad67422dd 100644
---- a/drivers/net/ethernet/cisco/enic/vnic_dev.c
-+++ b/drivers/net/ethernet/cisco/enic/vnic_dev.c
-@@ -402,8 +402,8 @@ static int vnic_dev_init_devcmd2(struct vnic_dev *vdev)
- 	fetch_index = ioread32(&vdev->devcmd2->wq.ctrl->fetch_index);
- 	if (fetch_index == 0xFFFFFFFF) { /* check for hardware gone  */
- 		vdev_err(vdev, "Fatal error in devcmd2 init - hardware surprise removal\n");
--
--		return -ENODEV;
-+		err = -ENODEV;
-+		goto err_free_wq;
- 	}
- 
- 	enic_wq_init_start(&vdev->devcmd2->wq, 0, fetch_index, fetch_index, 0,
-@@ -414,7 +414,7 @@ static int vnic_dev_init_devcmd2(struct vnic_dev *vdev)
- 	err = vnic_dev_alloc_desc_ring(vdev, &vdev->devcmd2->results_ring,
- 				       DEVCMD2_RING_SIZE, DEVCMD2_DESC_SIZE);
- 	if (err)
--		goto err_free_wq;
-+		goto err_disable_wq;
- 
- 	vdev->devcmd2->result = vdev->devcmd2->results_ring.descs;
- 	vdev->devcmd2->cmd_ring = vdev->devcmd2->wq.ring.descs;
-@@ -433,8 +433,9 @@ static int vnic_dev_init_devcmd2(struct vnic_dev *vdev)
- 
- err_free_desc_ring:
- 	vnic_dev_free_desc_ring(vdev, &vdev->devcmd2->results_ring);
--err_free_wq:
-+err_disable_wq:
- 	vnic_wq_disable(&vdev->devcmd2->wq);
-+err_free_wq:
- 	vnic_wq_free(&vdev->devcmd2->wq);
- err_free_devcmd2:
- 	kfree(vdev->devcmd2);
--- 
-2.11.0
+It looks like the user can specify things such as "-deprecated".
+Perhaps that sort of thing can be handled by this function too?
+Instead of returning an unsigned int, this function could be void and
+take a flag value and a mask as output parameters. If the flag name
+starts with "-" it would set the value to 0, and if it doesn't it
+would set the value to 1.
+
+Otherwise, some of the -<flag> parameters will either need to be
+special cased or cease to be supported. Specifically, I see this one:
+
+> -               } else if (strcmp(*argv, "-tentative") == 0) {
+> -                       filter.flags &= ~IFA_F_TENTATIVE;
+> -                       filter.flagmask |= IFA_F_TENTATIVE;
+
+this one:
+
+> -               } else if (strcmp(*argv, "-deprecated") == 0) {
+> -                       filter.flags &= ~IFA_F_DEPRECATED;
+> -                       filter.flagmask |= IFA_F_DEPRECATED;
+
+and this one:
+
+> -               } else if (strcmp(*argv, "-dadfailed") == 0) {
+> -                       filter.flags &= ~IFA_F_DADFAILED;
+> -                       filter.flagmask |= IFA_F_DADFAILED;
