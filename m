@@ -1,77 +1,56 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [RFC PATCH 00/12] Implement XDP bpf_redirect vairants
-Date: Sat, 8 Jul 2017 21:06:17 +0200
-Message-ID: <20170708210617.249059b9@redhat.com>
-References: <20170707172115.9984.53461.stgit@john-Precision-Tower-5810>
-        <595FC974.9030807@gmail.com>
-        <20170708.104618.2149883426031901592.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: john.fastabend@gmail.com, netdev@vger.kernel.org,
-        andy@greyhouse.net, daniel@iogearbox.net, ast@fb.com,
-        alexander.duyck@gmail.com, bjorn.topel@intel.com,
-        jakub.kicinski@netronome.com, ecree@solarflare.com,
-        sgoutham@cavium.com, Yuval.Mintz@cavium.com, saeedm@mellanox.com,
-        brouer@redhat.com
-To: David Miller <davem@davemloft.net>
+From: Ahmad Fatoum <ahmad@a3f.at>
+Subject: [PATCH] net-next: Fix minor code bug in timestamping.txt
+Date: Sat,  8 Jul 2017 21:28:44 +0200
+Message-ID: <20170708192844.70105-1-ahmad@a3f.at>
+Cc: Ahmad Fatoum <ahmad@a3f.at>, netdev@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44088 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753061AbdGHTG2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 8 Jul 2017 15:06:28 -0400
-In-Reply-To: <20170708.104618.2149883426031901592.davem@davemloft.net>
+Received: from slow1-d.mail.gandi.net ([217.70.178.86]:47759 "EHLO
+        slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752993AbdGHTms (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 8 Jul 2017 15:42:48 -0400
+Received: from relay5-d.mail.gandi.net (relay5-d.mail.gandi.net [217.70.183.197])
+        by slow1-d.mail.gandi.net (Postfix) with ESMTP id EFDBC47B217
+        for <netdev@vger.kernel.org>; Sat,  8 Jul 2017 21:35:46 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 08 Jul 2017 10:46:18 +0100 (WEST)
-David Miller <davem@davemloft.net> wrote:
+Passing (void*)val instead of &val would make a pointer out of an integer
+and cause sock_setsockopt to -EFAULT.
 
-> From: John Fastabend <john.fastabend@gmail.com>
-> Date: Fri, 07 Jul 2017 10:48:36 -0700
-> 
-> > On 07/07/2017 10:34 AM, John Fastabend wrote:  
-> >> This series adds two new XDP helper routines bpf_redirect() and
-> >> bpf_redirect_map(). The first variant bpf_redirect() is meant
-> >> to be used the same way it is currently being used by the cls_bpf
-> >> classifier. An xdp packet will be redirected immediately when this
-> >> is called.  
-> > 
-> > Also other than the typo in the title there ;) I'm going to CC
-> > the driver maintainers working on XDP (makes for a long CC list but)
-> > because we would want to try and get support in as many as possible in
-> > the next merge window.
-> > 
-> > For this rev I just implemented on ixgbe because I wrote the
-> > original XDP support there. I'll volunteer to do virtio as well.  
-> 
-> I went over this series a few times and it looks great to me.
-> You didn't even give me some coding style issues to pick on :-)
+See tools/testing/selftests/networking/timestamping/timestamping.c
+for a working example.
 
-We (Daniel, Andy and I) have been reviewing and improving on this
-patchset the last couple of weeks ;-).  We had some stability issues,
-which is why it wasn't published earlier. My plan is to test this
-latest patchset again, Monday and Tuesday. I'll try to assess stability
-and provide some performance numbers.
+Cc: David S. Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Ahmad Fatoum <ahmad@a3f.at>
+---
+ Documentation/networking/timestamping.txt | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-I've complained/warned about the danger of redirecting with XDP,
-without providing (1) a way to debug/see XDP redirects, (2) a way
-interfaces opt-in they can be redirected. (1) is solved by patch-07/12
-via a tracepoint. (2) is currently done by only forwarding to
-interfaces with an XDP program loaded itself, this also comes from a
-practical need for NIC drivers to allocate XDP-TX HW queues.
-
-I'm not satisfied with the (UAPI) name for the new map
-"BPF_MAP_TYPE_DEVMAP" and the filename this is placed in
-"kernel/bpf/devmap.c", as we want to take advantage of compiler
-inlining for the next redirect map types.  (1) because the name doesn't
-tell the user that this map is connected to the redirect_map call.
-(2) we want to introduce other kinds of redirect maps (like redirect to
-CPUs and sockets), and it would be good if they shared a common "text"
-string.
-
+diff --git a/Documentation/networking/timestamping.txt b/Documentation/networking/timestamping.txt
+index 196ba17cc344..1be0b6f9e0cb 100644
+--- a/Documentation/networking/timestamping.txt
++++ b/Documentation/networking/timestamping.txt
+@@ -44,8 +44,7 @@ timeval of SO_TIMESTAMP (ms).
+ Supports multiple types of timestamp requests. As a result, this
+ socket option takes a bitmap of flags, not a boolean. In
+ 
+-  err = setsockopt(fd, SOL_SOCKET, SO_TIMESTAMPING, (void *) val,
+-                   sizeof(val));
++  err = setsockopt(fd, SOL_SOCKET, SO_TIMESTAMPING, &val, sizeof(val));
+ 
+ val is an integer with any of the following bits set. Setting other
+ bit returns EINVAL and does not change the current state.
+@@ -249,8 +248,7 @@ setsockopt to receive timestamps:
+ 
+   __u32 val = SOF_TIMESTAMPING_SOFTWARE |
+ 	      SOF_TIMESTAMPING_OPT_ID /* or any other flag */;
+-  err = setsockopt(fd, SOL_SOCKET, SO_TIMESTAMPING, (void *) val,
+-                   sizeof(val));
++  err = setsockopt(fd, SOL_SOCKET, SO_TIMESTAMPING, &val, sizeof(val));
+ 
+ 
+ 1.4 Bytestream Timestamps
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+2.13.2
