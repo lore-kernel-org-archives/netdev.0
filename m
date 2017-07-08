@@ -1,94 +1,146 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v6 0/3] Add new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
-Date: Fri, 7 Jul 2017 17:47:21 -0700
-Message-ID: <CAKgT0Uc5KSJTj4A=9pSudiJ28AW0krc7FZpdW4upwY+FgpeArA@mail.gmail.com>
-References: <1498133721-21152-1-git-send-email-dingtianhong@huawei.com>
- <MWHPR12MB160087E9E0B17F7A17609714C8AA0@MWHPR12MB1600.namprd12.prod.outlook.com>
- <MWHPR12MB160006024D920ED58126048AC8AB0@MWHPR12MB1600.namprd12.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Ding Tianhong <dingtianhong@huawei.com>,
-        "ashok.raj@intel.com" <ashok.raj@intel.com>,
-        "helgaas@kernel.org" <helgaas@kernel.org>,
-        Michael Werner <werner@chelsio.com>,
-        Ganesh GR <ganeshgr@chelsio.com>,
-        "asit.k.mallick@intel.com" <asit.k.mallick@intel.com>,
-        "patrick.j.cramer@intel.com" <patrick.j.cramer@intel.com>,
-        "Suravee.Suthikulpanit@amd.com" <Suravee.Suthikulpanit@amd.com>,
-        "Bob.Shaw@amd.com" <Bob.Shaw@amd.com>,
-        "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-        "amira@mellanox.com" <amira@mellanox.com>,
-        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
-        "David.Laight@aculab.com" <David.Laight@aculab.com>,
-        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-        "catalin.marinas@arm.com" <catalin.marinas@arm.com>,
-        "will.deacon@arm.com" <will.deacon@a
-To: Casey Leedom <leedom@chelsio.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <MWHPR12MB160006024D920ED58126048AC8AB0@MWHPR12MB1600.namprd12.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Nadav Amit via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: [PATCH v3 net-next 02/12] bpf/verifier: rework
+ value tracking
+Date: Fri, 7 Jul 2017 17:54:57 -0700
+Message-ID: <744E9F51-D3E0-4C12-99FB-A57B770EB02F@gmail.com>
+References: <adc11342-737f-4e06-bce3-f0a92b5594a5@solarflare.com>
+	<2244b48b-f415-3239-6912-cb09f0abc546@solarflare.com>
+	<E65DE75F-FC5F-41BC-9F7B-C03D324D8C6F@gmail.com>
+	<abd3c014-f33a-6e86-aead-be38697a2cec@solarflare.com>
+	<3A96914E-3009-4E19-B138-7A636A76D9C8@gmail.com>
+Reply-To: Nadav Amit <nadav.amit-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <3A96914E-3009-4E19-B138-7A636A76D9C8-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 7, 2017 at 5:30 PM, Casey Leedom <leedom@chelsio.com> wrote:
->   By the way, it ~seems~ like the patch set confuses the idea of the PCIe=
- Capability Device Control[Relaxed Ordering Enable] with the device's abili=
-ty to handle incoming TLPs with the Relaxed Ordering Attribute set.  These =
-are completely different things.  The PCIe Capability Device Control[Relaxe=
-d Ordering Enable] solely governs the ability of the device to _send_ TLPs =
-with the Relaxed Ordering Attribute set.  It has nothing whatsoever to do w=
-ith the handling of incoming TLPs with the Relaxed Ordering Attribute set. =
- In fact, there is any standard way to disable receipt processing of such T=
-LPs.  That's kind of the whole point of the majority of the patch.  If ther=
-e was a separate "Ignore Incoming Relaxed Ordering Attributes" then we'd mo=
-stly just have a quirk which would set that for problematic devices.
->
->   Worse yet, if I'm reading the patch right, it _is_ turning off the PCIe=
- Capability Device Control[Relaxed Ordering Enable] for the devices that we=
-'ve identified with problematic receive handling.  Not only does this not s=
-olve the problem that we've been talking about, it actually almost certainl=
-y introduces a huge Graphics Performance Bug.  The Relaxed Ordering Attribu=
-te was originally developed for Graphics Device support in order to downloa=
-d textures, etc. to a graphics devices as fast as possible and only ensure =
-ordering at points where needed.  For instance, as far as I know, the Intel=
- Root Complexes that we've been talking about have no issues whatsoever in =
-generating downstream TLPs with the Relaxed Ordering Attribute set.  By tur=
-ning off the PCIe Capability Device Control[Relaxed Ordering Enable] on the=
-se Root Complexes, this patch prevents the generation of downstream TLPs wi=
-th the Relaxed Ordering Attribute set targeted at devices like graphics ada=
-pters.
->
-> Casey
-
-The patches should be disabling the relaxed ordering on upstream
-facing ports that would be sending requests to the root complex. So if
-the root complex cannot handle receiving a message with relaxed
-ordering enabled we should be clearing the relaxed ordering bit in the
-PCIe configuration on those device that could send TLPs to that root
-complex. By doing that the devices hosted on that root complex cannot
-generate requests that contain relaxed ordering TLPs.
-
-I'll have to do some double checking of the patches, but I thought we
-were only clearing the relaxed ordering bits on the devices that would
-be sending requests to the root complex, not the downstream ports of
-the root complex itself. As such we should be able to generate relaxed
-ordering TLPs from the root complex, but the devices hosted on the bus
-shouldn't be able to generate relaxed ordering TLPs. The bit in the
-configuration space controls the ability to generate content, not the
-ability to receive it so clearing the bit on the device should be the
-correct behavior for this.
-
-As far as your suggestions for the cxgb4 patch it has the same problem
-it originally had. We want to disable the relaxed ordering bit on the
-device since the device should not be generating relaxed ordering
-requests. This is why I was trying to get your input on this as I know
-you have a peer-to-peer configuration that you wanted to support. What
-we need to do is identify what platforms cannot support relaxed
-ordering to the root complex and prevent that from happening which is
-why we clear the relaxed ordering bit on the device. In that setup we
-need to have a good way to identify when this has occurred and instead
-setup a side channel type configuration where we then re-enable
-relaxed ordering, but only allow for sending directly to the peer and
-not the root complex.
-
-- Alex
+TmFkYXYgQW1pdCA8bmFkYXYuYW1pdEBnbWFpbC5jb20+IHdyb3RlOgoKPiBFZHdhcmQgQ3JlZSA8
+ZWNyZWVAc29sYXJmbGFyZS5jb20+IHdyb3RlOgo+IAo+PiBPbiAwNi8wNy8xNyAyMjoyMSwgTmFk
+YXYgQW1pdCB3cm90ZToKPj4+IEkgZmluZCBpdCBhIGJpdCBzdXJwcmlzaW5nIHRoYXQgc3VjaCBo
+dWdlIGNoYW5nZXMgdGhhdCBjYW4gYWZmZWN0IHNlY3VyaXR5Cj4+PiBhbmQgcm9idXN0bmVzcyBh
+cmUgcGVyZm9ybWVkIGluIG9uZSBwYXRjaC4KPj4gSW4gdGhlIGZpcnN0IHZlcnNpb24gb2YgdGhl
+IHNlcmllcywgdGhpcyB3YXMgdHdvIHBhdGNoZXMsIHdpdGggImZlZWQKPj4gcG9pbnRlci10by11
+bmtub3duLXNjYWxhciBjYXN0cyBpbnRvIHNjYWxhciBBTFUgcGF0aCIgc3BsaXQgb3V0IGZyb20g
+dGhlIHJlc3Q7Cj4+IGJ1dCB0aGF0IGp1c3QgY2F1c2VkIGEgbG90IG9mIGNvZGUgbW92ZW1lbnQg
+YW5kIGNvbmZ1c2luZyBkaWZmcywgaGVuY2Ugd2h5IEkKPj4gZm9sZGVkIGl0IGludG8gdGhlIHNh
+bWUgcGF0Y2guCj4+IEFzIGZvciB0aGUgcmVzdCBvZiBpdCwgSSdtIG5vdCBzdXJlIGl0IGNhbiBi
+ZSBzcGxpdCB1cDogSSdtIGNoYW5naW5nIHRoZQo+PiBkZWZpbml0aW9uIGFuZCBzZW1hbnRpY3Mg
+b2YgYSBjb3JlIGRhdGEgc3RydWN0dXJlIChzdHJ1Y3QgYnBmX3JlZ19zdGF0ZSkKPj4gYW5kIEkg
+ZG9uJ3Qgc2VlIGFueSByZWFzb25hYmxlIGludGVybWVkaWF0ZSBzdGVwcyB0aGF0IHdvdWxkIGV2
+ZW4gY29tcGlsZS4KPj4gRm9yIGluc3RhbmNlLCByZXBsYWNpbmcgcmVnLT5pbW0gKHdpdGggaXRz
+IHR3byBtZWFuaW5ncyBvZiAna25vd24gdmFsdWUnIG9yCj4+ICdudW1iZXIgb2YgbGVhZGluZyB6
+ZXJvIGJpdHMnKSB3aXRoIHJlZy0+dmFyX29mZiBuZWNlc3NpdGF0ZXMgcmVwbGFjaW5nIGFsbAo+
+PiB0aGUgYXJpdGhtZXRpYy1oYW5kbGluZyBjb2RlIChlLmcuIGV2YWx1YXRlX3JlZ19pbW1fYWx1
+KCkpLiAgQnV0IHRoZW4KPj4gdmFyX29mZiBhbHNvIHJlcGxhY2VzIHJlZy0+YXV4X2FsaWduW19v
+ZmZdLCBzbyBhbGwgdGhlIGFsaWdubWVudC1jaGVja2luZwo+PiBjb2RlIGhhcyB0byBjaGFuZ2Ug
+YXMgd2VsbC4gIEFuZCBjaGFuZ2luZyB3aGF0IHJlZ2lzdGVyIHN0YXRlIHdlIHRyYWNrCj4+IG1l
+YW5zIHRoYXQgdGhlIHBydW5pbmcgY29kZSAoc3RhdGVzX2VxdWFsKCkpIGhhcyB0byBjaGFuZ2Ug
+dG9vLgo+PiBBcyBpdCBpcywgdGhpcyBwYXRjaCBsZWF2ZXMgc29tZSBzZWxmdGVzdHMgZmFpbGlu
+ZyBhbmQgaXQgdGFrZXMgX2Fub3RoZXJfCj4+IGJpZyBwYXRjaCAoNC8xMiAidHJhY2sgc2lnbmVk
+IGFuZCB1bnNpZ25lZCBtaW4vbWF4IHZhbHVlcyIpIHRvIGdldCB0aGVtCj4+IGFsbCB0byBwYXNz
+IGFnYWluLgo+IAo+IFRoYW5rcyBmb3IgeW91ciBwb2xpdGUgcmVzcG9uc2UgdG8gbXkgcmFudGlu
+Z3MuIEkgZG8gdW5kZXJzdGFuZCB0aGUKPiBjb21wbGV4aXR5LCBhbmQgSSBkaWQgbm90IGxpa2Ug
+dGhlIHR3byBtZWFuaW5ncyBvZiByZWctPmltbSBlaXRoZXIgKGl0IHRvb2sKPiBtZSBzb21lIHRp
+bWUgdG8gdW5kZXJzdGFuZCB0aGVtKS4gWWV0LCBJIHJlYWxseSBkb3VidCBhbnlvbmUgaXMgY2Fw
+YWJsZSBvZgo+IHJlYWxseSByZXZpZXdpbmcgc3VjaCBhIGJpZyBwYXRjaC4gTW9zdCBsaWtlbHkg
+cGVvcGxlIHdpbGwgbm90IGV2ZW4gc3RhcnQgb3IKPiBwaWNrIHRvIHNtYWxsIGRldGFpbHMgdGhl
+eSBrbm93IG9yIGNhcmUgYWJvdXQuCj4gCj4+PiBQZXJzb25hbGx5LCBJIGNhbm5vdCBjb21wcmVo
+ZW5kCj4+PiBhbGwgb2YgdGhlc2UgY2hhbmdlcy4gSW4gYWRkaXRpb24sIEkgdGhpbmsgdGhhdCBp
+dCBpcyB2YWx1YWJsZSB0byBkZXNjcmliZQo+Pj4gaW4gZGV0YWlsIHRoZSBidWdzIHRoYXQgdGhl
+IHBhdGNoIHNvbHZlcyBhbmQgd2hlbiB0aGV5IHdlcmUgaW50cm9kdWNlZC4KPj4gTW9zdGx5IHRo
+aXMgcGF0Y2ggc2VyaWVzIGlzbid0IGFib3V0IGZpeGluZyBidWdzIChleGNlcHQgdGhvc2Ugd2hp
+Y2ggd2VyZQo+PiBleHBvc2VkIHdoZW4gdGhlIGNoYW5nZXMgY2F1c2VkIHNvbWUgc2VsZnRlc3Rz
+IHRvIGZhaWwpLiAgSW5zdGVhZCwgaXQncyBhCj4+IGNvbWJpbmF0aW9uIG9mIHJlZmFjdG9yaW5n
+IGFuZCB1bmlmeWluZyBzbyB0aGF0IChmb3IgaW5zdGFuY2UpIHRoZSBydWxlcwo+PiBmb3IgcG9p
+bnRlciBhcml0aG1ldGljIGFuZCBhbGlnbm1lbnQgY2hlY2tpbmcgYXJlIGFzIHNpbWlsYXIgYXMg
+cG9zc2libGUKPj4gZm9yIGFsbCBwb2ludGVyIHR5cGVzIHJhdGhlciB0aGFuIGhhdmluZyBzcGVj
+aWFsLWNhc2UgcnVsZXMgZm9yIGVhY2ggdHlwZS4KPj4gVGhpcyBhbGxvd3MgbWFueSAoY29ycmVj
+dCkgcHJvZ3JhbXMgd2hpY2ggdGhlIHZlcmlmaWVyIHdpbGwgY3VycmVudGx5Cj4+IHJlamVjdCwg
+YW5kIG1ha2VzIHRoZSBvdmVyYWxsIGRlc2NyaXB0aW9uIG9mIHRoZSB2ZXJpZmllcidzIHJ1bGVz
+IG11Y2gKPj4gc2hvcnRlciBhbmQgc2ltcGxlci4gIEkgaGF2ZSB3cml0dGVuIGEgZG9jdW1lbnRh
+dGlvbiBwYXRjaCBleHBsYWluaW5nCj4+IHRoZXNlIHJ1bGVzLCB3aGljaCB0aGUgbmV4dCB2ZXJz
+aW9uIG9mIHRoZSBwYXRjaCBzZXJpZXMgd2lsbCBpbmNsdWRlLgo+IAo+IE9rLiBCdXQgSSBkb3Vi
+dCBpdCBpcyBhcyB1c2VmdWwgYXMgY29tbWVudGluZyBpbiB0aGUgY29kZSBvciB3cml0aW5nIGlu
+IHRoZQo+IGNvbW1pdCBtZXNzYWdlIHdoYXQgZXhhY3RseSBpcyBhZGRyZXNzZWQgYnkgdGhlIHBh
+dGNoLiBBbmQgZG9jdW1lbnRhdGlvbgo+IGRvZXMgbm90IHJlYWxseSBoZWxwIG90aGVycyB0byBy
+ZWJhc2UgdGhlaXIgcGF0Y2hlcyBvbiB0b3Agb2YgeW91cnMuCj4gCj4+IFRoZSBkaWZmIF9pc18g
+aGFyZCB0byByZWFkLCBJIGFjY2VwdCB0aGF0OyBJIHRoaW5rIGBkaWZmYCB3YXMgdG9vIGVhZ2Vy
+IHRvCj4+IGludGVycG9sYXRlIGFuZCBtYXRjaCBzaW5nbGUgbGluZXMgbGlrZSAneycgZnJvbSBj
+b21wbGV0ZWx5IHVucmVsYXRlZAo+PiBmdW5jdGlvbnMuICBJdCBtaWdodCBiZSBlYXNpZXIgdG8g
+anVzdCB0cnkgYXBwbHlpbmcgdGhlIHBhdGNoIHRvIGEgdHJlZQo+PiBhbmQgdGhlbiByZWFkaW5n
+IHRoZSByZXN1bHQsIHJhdGhlciB0aGFuIHRyeWluZyB0byBpbnRlcnByZXQgdGhlIGRpZmYuCj4g
+Cj4gSSBkb27igJl0IGtub3cgdG8gcmV2aWV3IHBhdGNoZXMgdGhpcyB3YXkuIEhvcGVmdWxseSBv
+dGhlcnMgZG8sIGJ1dCBJIGRvdWJ0IGl0Lgo+IAo+IEZvciBtZSBjaGFuZ2VzIHN1Y2ggYXM6Cj4g
+Cj4+IGlmIChkc3RfcmVnLT5taW5fdmFsdWUgIT0gQlBGX1JFR0lTVEVSX01JTl9SQU5HRSkKPj4g
+LQkJCWRzdF9yZWctPm1pbl92YWx1ZSAtPSBtaW5fdmFsOwo+PiArCQkJZHN0X3JlZy0+bWluX3Zh
+bHVlIC09IG1heF92YWw7Cj4gCj4gCj4gYXJlIHB1cmVseSBjcnlwdGljLiBXaGF0IGhhcHBlbmVk
+IGhlcmU/IFdhcyB0aGVyZSBhIGJ1ZyBiZWZvcmUgYW5kIGlmIHNvCj4gd2hhdCBhcmUgaXRzIGlt
+cGxpY2F0aW9ucz8gV2h5IGNhbuKAmXQgaXQgYmUgaW4gYSBzZXBhcmF0ZSBwYXRjaD8KPiAKPiBJ
+IGFsc28gdGhpbmsgdGhhdCBjaGFuZ2VzIHN1Y2ggYXM6Cj4+IC0JczY0IG1pbl92YWx1ZTsKPj4g
+LQl1NjQgbWF4X3ZhbHVlOwo+IFtzbmlwXQo+PiArCXM2NCBtaW5fdmFsdWU7IC8qIG1pbmltdW0g
+cG9zc2libGUgKHM2NCl2YWx1ZSAqLwo+PiArCXU2NCBtYXhfdmFsdWU7IC8qIG1heGltdW0gcG9z
+c2libGUgKHU2NCl2YWx1ZSAqLwo+IAo+IFNob3VsZCBoYXZlIGJlZW4gYXZvaWRlZC4gUGVyc29u
+YWxseSwgSSBmaW5kIHRoaXMgY29tbWVudCByZWR1bmRhbnQgKHRvIHNheQo+IHRoZSBsZWFzdCku
+IEl0IGRvZXMgbm90IGhlbHAgdG8gcmVkdWNlIHRoZSBkaWZmIHNpemUuCj4gCj4gSW4gdGhpcyBy
+ZWdhcmQsIEkgdGhpbmsgdGhhdCByZWZhY3RvcmluZyBzaG91bGQgaGF2ZSBiZWVuIGRvbmUgZmly
+c3QgYW5kIG5vdAo+IHRvZ2V0aGVyIHdpdGggdGhlIGxvZ2ljIGNoYW5nZXMuIEFzIGFub3RoZXIg
+ZXhhbXBsZSwgY2hhbmdpbmcgVU5LTk9XTl9WQUxVRQo+IHRvIFNDQUxBUl9WQUxVRSBzaG91bGQg
+aGF2ZSBiZWVuIGEgc2VwYXJhdGUsIGVhc3kgdG8gdW5kZXJzdGFuZCBwYXRjaC4KPiAKPj4+IEkg
+Y2FuIGJyaW5nIHVwIHNvbWUgY29uY2VybnMgcmVnYXJkaW5nIGluY29uc2lzdGVuY2llcyBpbiBv
+ZmZzZXQgY2hlY2tzIGFuZAo+Pj4gc2l6ZSwgbm90IHNwaWxsaW5nIFNDQUxBUiBhbmQgbXkgd2lz
+aCBub3QgdG8gbGltaXQgcGFja2V0IHNpemUuIEhvd2V2ZXIsCj4+PiB3aGVuIHRoZSBwYXRjaCBp
+cyB0aGF0IGJpZywgSSB0aGluayBpdCBpcyB1c2VsZXNzLgo+PiBQbGVhc2UsIGRvIGRlc2NyaWJl
+IHRoZXNlIGNvbmNlcm5zOyB3aGF0IGluY29uc2lzdGVuY2llcyBkbyB5b3Ugc2VlPwo+PiBUaGUg
+bm90IHNwaWxsaW5nIHNjYWxhcnMsIGFuZCB0aGUgbGltaXQgdG8gcGFja2V0IHNpemUsIGFyZSBy
+ZXRhaW5lZAo+PiBmcm9tIHRoZSBleGlzdGluZyBjb2RlIChpc19zcGlsbGFibGVfcmVndHlwZSgp
+IGFuZCBNQVhfUEFDS0VUX09GRikuCj4+IFRoZSBsYXR0ZXIgaXMgYWxzbyBuZWVkZWQgZm9yIGNv
+cnJlY3RuZXNzIGluIGNvbXB1dGluZyByZWctPnJhbmdlOwo+PiBpZiAncGt0X3B0ciArIG9mZnNl
+dCcgY291bGQgY29uY2VpdmFibHkgb3ZlcmZsb3csIHRoZW4gdGhlIHJlc3VsdAo+PiBjb3VsZCBi
+ZSA8IHBrdF9lbmQgd2l0aG91dCBiZWluZyBhIHZhbGlkIHBvaW50ZXIgaW50byB0aGUgcGFja2V0
+Lgo+PiBXZSB0aHVzIHJlbHkgb24gdGhlIGFzc3VtcHRpb24gdGhhdCB0aGUgcGFja2V0IHBvaW50
+ZXIgd2lsbCBuZXZlciBiZQo+PiB3aXRoaW4gTUFYX1BBQ0tFVF9PRkYgb2YgdGhlIHRvcCBvZiB0
+aGUgYWRkcmVzcyBzcGFjZS4gIChUaGlzCj4+IGFzc3VtcHRpb24gaXMsIGFnYWluLCBjYXJyaWVk
+IG92ZXIgZnJvbSB0aGUgZXhpc3RpbmcgdmVyaWZpZXIuKQo+IAo+IEkgdW5kZXJzdGFuZCB0aGUg
+bGltaXRhdGlvbnMgKEkgdGhpbmspLiBJIGFncmVlIHRoYXQgQ09OU1QgYmVpbmcgc3BpbGxhYmxl
+Cj4gaXMgbm90IGRpcmVjdGx5IHJlbGF0ZWQuIEFzIGZvciB0aGUgcG9zc2libGUgcGFja2V0IG9m
+ZnNldHMvcmFuZ2U6Cj4gaW50ZW50aW9uYWxseSBvciBub3QgeW91IGRvIG1ha2Ugc29tZSBjaGFu
+Z2VzIHRoYXQgcHVzaCB0aGUgNjRrIHBhY2tldCBzaXplCj4gbGltaXQgZXZlbiBkZWVwZXIgaW50
+byB0aGUgY29kZS4gV2hpbGUgdGhlIHBhY2tldCBzaXplIHNob3VsZCBiZSBsaW1pdGVkIHRvCj4g
+YXZvaWQgb3ZlcmZsb3csIElJVUMgdGhlIHJlcXVpcmVtZW50IGlzIHRoYXQ6Cj4gCj4gCTY0ID4g
+bG9nKG5faW5zbikgKyBsb2coTUFYX1BBQ0tFVF9PRkYpICsgMQo+IAo+IFN1Y2ggYW4gYXNzZXJ0
+aW9uIG1heSBiZSBzdGF0aWNseSBjaGVja2VkICh1c2luZyBCVUlMRF9CVUdfT04pLCBidXQgSSBk
+b27igJl0Cj4gdGhpbmsgc2hvdWxkIHByb3BhZ2F0ZSBpbnRvIHRoZSBlbnRpcmUgY29kZSwgZXNw
+ZWNpYWxseSBpbiBhIG5vbiBjb25zaXN0ZW50Cj4gd2F5LiBGb3IgZXhhbXBsZToKPiAKPj4gc3Ry
+dWN0IGJwZl9yZWdfc3RhdGUgewo+PiAJZW51bSBicGZfcmVnX3R5cGUgdHlwZTsKPj4gCXVuaW9u
+IHsKPj4gLQkJLyogdmFsaWQgd2hlbiB0eXBlID09IENPTlNUX0lNTSB8IFBUUl9UT19TVEFDSyB8
+IFVOS05PV05fVkFMVUUgKi8KPj4gLQkJczY0IGltbTsKPj4gLQo+PiAtCQkvKiB2YWxpZCB3aGVu
+IHR5cGUgPT0gUFRSX1RPX1BBQ0tFVCogKi8KPj4gLQkJc3RydWN0IHsKPj4gLQkJCXUxNiBvZmY7
+Cj4+IC0JCQl1MTYgcmFuZ2U7Cj4+IC0JCX07Cj4+ICsJCS8qIHZhbGlkIHdoZW4gdHlwZSA9PSBQ
+VFJfVE9fUEFDS0VUICovCj4+ICsJCXUzMiByYW5nZTsKPiAKPiBJIHdvdWxkIChwZXJzb25hbGx5
+KSBwcmVmZXIgcmFuZ2UgKGFuZCBvZmZzZXRzKSB0byBiZSB1NjQuIEkgY291bGQKPiB1bmRlcnN0
+YW5kIGlmIHlvdSBsZWZ0IHRoZSByYW5nZSBhcyB1MTYgKHNpbmNlIHBhY2tldCBzaXplIGlzIGxp
+bWl0ZWQgdG8KPiA2NGspLiBCdXQgd2h5IHdvdWxkIGl0IGJlIHUzMj8KPiAKPiBPcjoKPj4gLQlp
+ZiAob2ZmIDwgMCB8fCBzaXplIDw9IDAgfHwgb2ZmICsgc2l6ZSA+IHJlZy0+cmFuZ2UpIHsKPj4g
+KwlpZiAob2ZmIDwgMCB8fCBzaXplIDw9IDAgfHwgb2ZmID4gTUFYX1BBQ0tFVF9PRkYgfHwKPj4g
+KwkgICAgb2ZmICsgc2l6ZSA+IHJlZy0+cmFuZ2UpIHsKPiAKPiBXaHkgZG9u4oCZdCB5b3UgY2hl
+Y2sgKG9mZiArIHNpemUgPiBtYXgoTUFYX1BBQ0tFVF9PRkYsIHJlZy0+cmFuZ2UpKT8gSXMgdGhl
+cmUKPiBhIHJlYXNvbiB5b3UgaWdub3JlIHNpemUgd2hlbiBjb21wYXJpbmcgdG8gTUFYX1BBQ0tF
+VF9PRkYgPwoKKHNob3VsZCBiZSBtaW4sIG5vdCBtYXgpCgpfX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fXwppb3Zpc29yLWRldiBtYWlsaW5nIGxpc3QKaW92aXNv
+ci1kZXZAbGlzdHMuaW92aXNvci5vcmcKaHR0cHM6Ly9saXN0cy5pb3Zpc29yLm9yZy9tYWlsbWFu
+L2xpc3RpbmZvL2lvdmlzb3ItZGV2Cg==
