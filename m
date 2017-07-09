@@ -1,52 +1,78 @@
-From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH] NFC: fix device-allocation error return
-Date: Sun,  9 Jul 2017 13:08:58 +0200
-Message-ID: <20170709110858.20331-1-johan@kernel.org>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        Dan Carpenter <dan.carpenter@oracle.com>,
-        Johan Hovold <johan@kernel.org>,
-        stable <stable@vger.kernel.org>
-To: Samuel Ortiz <sameo@linux.intel.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [net 6/7] net/mlx5: Add Makefiles for subdirectories
+Date: Sun,  9 Jul 2017 15:49:16 +0300
+Message-ID: <20170709124917.12852-7-saeedm@mellanox.com>
+References: <20170709124917.12852-1-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Ilan Tayari <ilant@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f41.google.com ([209.85.215.41]:33224 "EHLO
-        mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751786AbdGILJ6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 9 Jul 2017 07:09:58 -0400
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:36242 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752148AbdGIMuH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 9 Jul 2017 08:50:07 -0400
+In-Reply-To: <20170709124917.12852-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A recent change fixing NFC device allocation itself introduced an
-error-handling bug by returning an error pointer in case device-id
-allocation failed. This is clearly broken as the callers still expected
-NULL to be returned on errors as detected by Dan's static checker.
+From: Ilan Tayari <ilant@mellanox.com>
 
-Fix this up by returning NULL in the event that we've run out of memory
-when allocating a new device id.
+Currently it is not possible to build just one .o file inside
+a subdirectory, because the subdirectories lack a Makefile.
 
-Note that the offending commit is marked for stable (3.8) so this fix
-needs to be backported along with it.
+Add a Makefile to the mlx5 subdirectories.
 
-Fixes: 20777bc57c34 ("NFC: fix broken device allocation")
-Cc: stable <stable@vger.kernel.org>	# 3.8
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Johan Hovold <johan@kernel.org>
+Fixes: e29341fb3a5b ("net/mlx5: FPGA, Add basic support for Innova")
+Signed-off-by: Ilan Tayari <ilant@mellanox.com>
+Reported-by: David Miller <davem@davemloft.net>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- net/nfc/core.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx5/core/accel/Makefile    | 1 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_accel/Makefile | 1 +
+ drivers/net/ethernet/mellanox/mlx5/core/fpga/Makefile     | 1 +
+ drivers/net/ethernet/mellanox/mlx5/core/ipoib/Makefile    | 1 +
+ drivers/net/ethernet/mellanox/mlx5/core/lib/Makefile      | 1 +
+ 5 files changed, 5 insertions(+)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/accel/Makefile
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_accel/Makefile
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/fpga/Makefile
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/ipoib/Makefile
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/lib/Makefile
 
-diff --git a/net/nfc/core.c b/net/nfc/core.c
-index 5cf33df888c3..c699d64a0753 100644
---- a/net/nfc/core.c
-+++ b/net/nfc/core.c
-@@ -1106,7 +1106,7 @@ struct nfc_dev *nfc_allocate_device(struct nfc_ops *ops,
- err_free_dev:
- 	kfree(dev);
- 
--	return ERR_PTR(rc);
-+	return NULL;
- }
- EXPORT_SYMBOL(nfc_allocate_device);
- 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/accel/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/accel/Makefile
+new file mode 100644
+index 000000000000..d8e17110f25d
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/accel/Makefile
+@@ -0,0 +1 @@
++subdir-ccflags-y += -I$(src)/..
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/Makefile
+new file mode 100644
+index 000000000000..d8e17110f25d
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/Makefile
+@@ -0,0 +1 @@
++subdir-ccflags-y += -I$(src)/..
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/fpga/Makefile
+new file mode 100644
+index 000000000000..d8e17110f25d
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/Makefile
+@@ -0,0 +1 @@
++subdir-ccflags-y += -I$(src)/..
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/Makefile
+new file mode 100644
+index 000000000000..d8e17110f25d
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/Makefile
+@@ -0,0 +1 @@
++subdir-ccflags-y += -I$(src)/..
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/lib/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/lib/Makefile
+new file mode 100644
+index 000000000000..d8e17110f25d
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/lib/Makefile
+@@ -0,0 +1 @@
++subdir-ccflags-y += -I$(src)/..
 -- 
-2.13.2
+2.11.0
