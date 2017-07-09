@@ -1,47 +1,52 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] of_mdio: Fix broken PHY IRQ in case of probe deferral
-Date: Sun, 9 Jul 2017 19:28:15 +0200
-Message-ID: <20170709172815.GA28183@lunn.ch>
-References: <1495112345-24795-1-git-send-email-geert+renesas@glider.be>
- <f0ed61c3-062b-cec6-fe19-7412231e8ef1@gmail.com>
- <CAMuHMdWYeSzofU57LmT_M3KkcHhvjfJy7nkHvcXkKzOYmvhqqA@mail.gmail.com>
- <20170518193453.GB13759@lunn.ch>
- <CAMuHMdV+jfh=EGt3SvjtrtVfWQ6P8ofp_JxeQZjRrSEfDWs5hA@mail.gmail.com>
- <08a89dd5-b707-8b8f-b8e1-e20b9ed630b7@gmail.com>
- <CAMuHMdWWfaP8=H7H+UzrmOYpydi2mGLFGzuk9FQWJtEOug6u5g@mail.gmail.com>
- <CAMuHMdUt6yOQ9=02z_7WG58YGxFYD=_zn7SeLEqGmfTrNBFJXw@mail.gmail.com>
- <CAMuHMdW8yzREzTE4GiW_8HU9h-T-fdDmLtZAXYkJrjuypN8BDg@mail.gmail.com>
- <38cc7c65-e4ca-cb8a-f43b-ca53e87724cf@gmail.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT] Networking
+Date: Sun, 9 Jul 2017 11:49:47 -0700
+Message-ID: <CA+55aFzocFTX5JR9oG_5uKw-fT6OJUMkD71sypbec7JP=_qwpg@mail.gmail.com>
+References: <20170708.113644.1272962770645338865.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        Rob Herring <robh+dt@kernel.org>,
-        Frank Rowand <frowand.list@gmail.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <38cc7c65-e4ca-cb8a-f43b-ca53e87724cf@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+        Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:33714 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752430AbdGISts (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 9 Jul 2017 14:49:48 -0400
+In-Reply-To: <20170708.113644.1272962770645338865.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> It sure does fix a real issue, but I am really concerned about the
-> inability to test this patch in a configuration where we have multiple
-> PHY(s) or MDIO device(s) hanging off the same MDIO bus and one of those
-> requesting an EPROBE_DEFER.
-> 
-> I currently don't have a setup where I could exercise this, Andrew, do you?
+On Sat, Jul 8, 2017 at 3:36 AM, David Miller <davem@davemloft.net> wrote:
+>
+> 8) Fix socket leak on accept() in RDS, from Sowmini Varadhan.  Also
+>    add a WARN_ON() to sock_graft() so other protocol stacks don't trip
+>    over this as well.
 
-Hi Florian
+Hmm. This one triggers for me on both my desktop and laptop at bootup.
+Bog-standard machines, running F25 and F24 respectively.
 
-What i do have, is a switch with some built in copper Marvell PHYs and
-external SFF modules which use fixed link. I can probably hack the
-fixed-link driver to return EPROBE_DEFER a few times.
+The warning doesn't seem particularly useful, although maybe that
+"alg_accept()" gives people who know this code enough of a clue.
 
-	   Andrew
+                       Linus
+
+------------[ cut here ]------------
+WARNING: CPU: 1 PID: 492 at ./include/net/sock.h:1700 af_alg_accept+0x1bf/0x1f0
+CPU: 1 PID: 492 Comm: systemd-cryptse Not tainted 4.12.0-09010-g2b976203417c #1
+Hardware name: System manufacturer System Product Name/Z170-K, BIOS
+1803 05/06/2016
+RIP: 0010:af_alg_accept+0x1bf/0x1f0
+Call Trace:
+ alg_accept+0x15/0x20
+ SYSC_accept4+0x105/0x210
+ ? getnstimeofday64+0xe/0x20
+ ? __audit_syscall_entry+0xb1/0xf0
+ ? syscall_trace_enter+0x1bd/0x2d0
+ ? __audit_syscall_exit+0x1a5/0x2a0
+ SyS_accept+0x10/0x20
+ do_syscall_64+0x61/0x140
+ entry_SYSCALL64_slow_path+0x25/0x25
+---[ end trace a35e5baea85df269 ]---
