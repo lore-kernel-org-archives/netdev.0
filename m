@@ -1,56 +1,50 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch v2] mqueue: fix a use-after-free in sys_mq_notify()
-Date: Sun,  9 Jul 2017 13:19:55 -0700
-Message-ID: <1499631595-12625-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: linux-kernel@vger.kernel.org, geneblue.mail@gmail.com,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Manfred Spraul <manfred@colorfullife.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT] Networking
+Date: Sun, 09 Jul 2017 21:40:43 +0100 (WEST)
+Message-ID: <20170709.214043.1361767365552001158.davem@davemloft.net>
+References: <20170708.113644.1272962770645338865.davem@davemloft.net>
+        <CA+55aFzocFTX5JR9oG_5uKw-fT6OJUMkD71sypbec7JP=_qwpg@mail.gmail.com>
+        <20170709191131.GB22224@oracle.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        herbert@gondor.apana.org.au
+To: sowmini.varadhan@oracle.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170709191131.GB22224@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The retry logic for netlink_attachskb() inside sys_mq_notify()
-is nasty and vulnerable:
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Sun, 9 Jul 2017 15:11:31 -0400
 
-1) The sock refcnt is already released when retry is needed
-2) The fd is controllable by user-space because we already
-   release the file refcnt
+> On (07/09/17 11:49), Linus Torvalds wrote:
+>> 
+>> On Sat, Jul 8, 2017 at 3:36 AM, David Miller <davem@davemloft.net> wrote:
+>> >
+>> > 8) Fix socket leak on accept() in RDS, from Sowmini Varadhan.  Also
+>> >    add a WARN_ON() to sock_graft() so other protocol stacks don't trip
+>> >    over this as well.
+>> 
+>> Hmm. This one triggers for me on both my desktop and laptop at bootup.
+>> Bog-standard machines, running F25 and F24 respectively.
+>> 
+>> The warning doesn't seem particularly useful, although maybe that
+>> "alg_accept()" gives people who know this code enough of a clue.
+> 
+> My initial question was whether sock_graft() should do a sock_put()
+> before cutting loose the existing parent->sk and assigning a new
+> parent->sk (https://www.spinics.net/lists/netdev/msg442191.html)
+> 
+> It look like PF_ALG sets up a ->sk in alg_create() (but this
+> would get over-written in alg_accept()?) 
+> 
+> Cc'ing Herbert to see if this is expected behavior (and PF_ALG
+> somehow does the right thing with the refcount for the ->sk
+> set up in alg_create) in which case I suppose we should drop the 
+> WARN_ON. 
 
-so we when retry but the fd has been just closed by user-space
-during this small window, we end up calling netlink_detachskb()
-on the error path which releases the sock again, later when
-the user-space closes this socket a use-after-free could be
-triggered.
-
-Setting 'sock' to NULL here should be sufficient to fix it.
-
-Reported-by: GeneBlue <geneblue.mail@gmail.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Linus Torvalds <torvalds@linux-foundation.org>
-Cc: Manfred Spraul <manfred@colorfullife.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- ipc/mqueue.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/ipc/mqueue.c b/ipc/mqueue.c
-index c9ff943..eb1391b 100644
---- a/ipc/mqueue.c
-+++ b/ipc/mqueue.c
-@@ -1270,8 +1270,10 @@ static int do_mq_notify(mqd_t mqdes, const struct sigevent *notification)
- 
- 			timeo = MAX_SCHEDULE_TIMEOUT;
- 			ret = netlink_attachskb(sock, nc, &timeo, NULL);
--			if (ret == 1)
-+			if (ret == 1) {
-+				sock = NULL;
- 				goto retry;
-+			}
- 			if (ret) {
- 				sock = NULL;
- 				nc = NULL;
--- 
-2.5.5
+I think we've found yet another socket leak, this time in
+AF_ALG.
