@@ -1,46 +1,60 @@
 From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH/RFC] dma-mapping: Provide dummy set_dma_ops() for NO_DMA=y
-Date: Sun,  9 Jul 2017 21:33:45 +0200
-Message-ID: <1499628825-16260-1-git-send-email-geert@linux-m68k.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Geert Uytterhoeven <geert@linux-m68k.org>
-To: Christoph Hellwig <hch@lst.de>,
-        Marek Szyprowski <m.szyprowski@samsung.com>,
-        Robin Murphy <robin.murphy@arm.com>,
-        Madalin Bucur <madalin.bucur@nxp.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] of_mdio: Fix broken PHY IRQ in case of probe deferral
+Date: Sun, 9 Jul 2017 21:38:11 +0200
+Message-ID: <CAMuHMdX13Dx=xMwWUpyhFZ25HT9h4R5GW314iYBZgy6VCuxmng@mail.gmail.com>
+References: <1495112345-24795-1-git-send-email-geert+renesas@glider.be>
+ <f0ed61c3-062b-cec6-fe19-7412231e8ef1@gmail.com> <CAMuHMdWYeSzofU57LmT_M3KkcHhvjfJy7nkHvcXkKzOYmvhqqA@mail.gmail.com>
+ <20170518193453.GB13759@lunn.ch> <CAMuHMdV+jfh=EGt3SvjtrtVfWQ6P8ofp_JxeQZjRrSEfDWs5hA@mail.gmail.com>
+ <08a89dd5-b707-8b8f-b8e1-e20b9ed630b7@gmail.com> <CAMuHMdWWfaP8=H7H+UzrmOYpydi2mGLFGzuk9FQWJtEOug6u5g@mail.gmail.com>
+ <CAMuHMdUt6yOQ9=02z_7WG58YGxFYD=_zn7SeLEqGmfTrNBFJXw@mail.gmail.com>
+ <CAMuHMdW8yzREzTE4GiW_8HU9h-T-fdDmLtZAXYkJrjuypN8BDg@mail.gmail.com>
+ <38cc7c65-e4ca-cb8a-f43b-ca53e87724cf@gmail.com> <20170709172815.GA28183@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Rob Herring <robh+dt@kernel.org>,
+        Frank Rowand <frowand.list@gmail.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170709172815.GA28183@lunn.ch>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adding a dummy for set_dma_ops() allows to compile (sub)drivers that
-don't actually use the DMA API, but propagate DMA ops configuration to a
-second driver that may or may not use the DMA API.  Of course the second
-driver does have to depend on HAS_DMA if it uses the DMA API.
+Hi Florian, Andrew,
 
-An example is commit 5567e989198b5a8d ("fsl/fman: propagate dma_ops").
+On Sun, Jul 9, 2017 at 7:28 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+>> It sure does fix a real issue, but I am really concerned about the
+>> inability to test this patch in a configuration where we have multiple
+>> PHY(s) or MDIO device(s) hanging off the same MDIO bus and one of those
+>> requesting an EPROBE_DEFER.
 
-This allows to revert commit 85688d9adf685572 ("fsl/fman: add dependency
-on HAS_DMA").
+If that case happens now, it silently falls back to polling, hiding the
+problem.
 
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
----
- include/linux/dma-mapping.h | 2 ++
- 1 file changed, 2 insertions(+)
+Actually it means there may be users that rely on this broken behavior,
+that start to fail when their interrupts are suddenly handled :-(
 
-diff --git a/include/linux/dma-mapping.h b/include/linux/dma-mapping.h
-index 843ab866e0f487c2..0ab244b954418e2b 100644
---- a/include/linux/dma-mapping.h
-+++ b/include/linux/dma-mapping.h
-@@ -194,6 +194,8 @@ static inline const struct dma_map_ops *get_dma_ops(struct device *dev)
- {
- 	return &bad_dma_ops;
- }
-+static inline void set_dma_ops(struct device *dev,
-+			       const struct dma_map_ops *dma_ops) {}
- #endif
- 
- static inline dma_addr_t dma_map_single_attrs(struct device *dev, void *ptr,
--- 
-2.7.4
+>> I currently don't have a setup where I could exercise this, Andrew, do you?
+>
+> What i do have, is a switch with some built in copper Marvell PHYs and
+> external SFF modules which use fixed link. I can probably hack the
+> fixed-link driver to return EPROBE_DEFER a few times.
+
+That would be great, thanks!
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
