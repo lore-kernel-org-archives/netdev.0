@@ -1,35 +1,26 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [pull request][net 0/7] Mellanox, mlx5 fixes 2017-07-09
-Date: Sun, 09 Jul 2017 16:08:24 +0100 (WEST)
-Message-ID: <20170709.160824.1946848940963297705.davem@davemloft.net>
-References: <20170709124917.12852-1-saeedm@mellanox.com>
+From: Qatar Foundation <s.amiot@jouelestours.fr>
+Subject: Dein Geld
+Date: Sun, 9 Jul 2017 13:43:34 +0200 (CEST)
+Message-ID: <1133456792.5589373.1499600614509.JavaMail.zimbra@jouelestours.fr>
+Reply-To: Qatar Foundation <qcharitorg@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: saeedm@mellanox.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60400 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750929AbdGIPI3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 9 Jul 2017 11:08:29 -0400
-In-Reply-To: <20170709124917.12852-1-saeedm@mellanox.com>
+Received: from mail.ville-jouelestours.fr ([92.103.14.235]:34613 "EHLO
+        zimbra.ville-jouelestours.fr" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752317AbdGIQJd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 9 Jul 2017 12:09:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-Date: Sun,  9 Jul 2017 15:49:10 +0300
+Liebe Begünstigte,
 
-> This series includes fixes to mlx5 driver:
->   - Compilation warnings and issues introduced on v4.12
->   - Add Makefile to each mlx5 subdir to allow individual file compilation
->   - Initialize CEE's getpermhwaddr address buffer to 0xff
-> 
-> Please pull and let me know if there's any problem.
+Du hast gewonnen (€950.000,00 EURO) als Charity-Spenden / Hilfe der Qatar Foundation erhalten. Kontaktieren Sie uns über E-Mail für weitere Informationen;
 
-Pulled, thanks.
+Mit freundlichen Grüßen,
+Ingenieur Saad Al Muhannadi.
+Kontakt e-mail: qcharitorg@gmail.com
 
-> For -stable:
->  ("net/mlx5e: Initialize CEE's getpermhwaddr address buffer to 0xff") Kernels >= 4.10
-
-Queued up for -stable.
+Präsident der Qatar Foundation.
