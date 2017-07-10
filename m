@@ -1,55 +1,50 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net] mdio: mux: fix parsing mux registers outside of the
- PHY address range
-Date: Mon, 10 Jul 2017 14:56:52 +0200
-Message-ID: <20170710125652.GG1616@lunn.ch>
-References: <20170710123523.6625-1-martin.blumenstingl@googlemail.com>
+From: "Robert Kim" <""@unhas.ac.id>
+Subject: Salutation from London
+Date: Mon, 10 Jul 2017 14:06:00 +0100
+Message-ID: <20170710130611.3FDEC6B5CE@mail.unhas.ac.id>
+Reply-To: frankfltd@yahoo.co.uk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org, davem@davemloft.net,
-        linux-amlogic@lists.infradead.org, jon.mason@broadcom.com
-To: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:49420 "EHLO vps0.lunn.ch"
+Received: from mail.unhas.ac.id ([103.195.142.4]:59268 "EHLO mail.unhas.ac.id"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753800AbdGJM44 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 10 Jul 2017 08:56:56 -0400
-Content-Disposition: inline
-In-Reply-To: <20170710123523.6625-1-martin.blumenstingl@googlemail.com>
+        id S1753528AbdGJNGN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 10 Jul 2017 09:06:13 -0400
+Received: from localhost (localhost [127.0.0.1])
+        by mail.unhas.ac.id (Postfix) with ESMTP id 3FDEC6B5CE
+        for <netdev@vger.kernel.org>; Mon, 10 Jul 2017 21:06:11 +0800 (WITA)
+Received: from mail.unhas.ac.id ([127.0.0.1])
+        by localhost (mail.unhas.ac.id [127.0.0.1]) (amavisd-new, port 10024)
+        with ESMTP id uc87bnTnQ264 for <netdev@vger.kernel.org>;
+        Mon, 10 Jul 2017 21:06:11 +0800 (WITA)
+Received: from [192.168.8.100] (unknown [197.211.63.32])
+        by mail.unhas.ac.id (Postfix) with ESMTPA id B83006B5AE
+        for <netdev@vger.kernel.org>; Mon, 10 Jul 2017 21:06:06 +0800 (WITA)
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 10, 2017 at 02:35:23PM +0200, Martin Blumenstingl wrote:
-> mdio_mux_init parses the child nodes of the MDIO mux. When using
-> "mdio-mux-mmioreg" the child nodes are describing the register value
-> that is written to switch between the MDIO busses.
-> 
-> The change which makes the error messages more verbose changed the
-> parsing of the "reg" property from a simple of_property_read_u32 call
-> to of_mdio_parse_addr. On a Khadas VIM (based on the Meson GXL SoC,
-> which uses mdio-mux-mmioreg) this prevents registering the MDIO mux
-> (because the "reg" values on the MDIO mux child nodes are 0x2009087f
-> and 0xe40908ff) and leads to the following errors:
->   mdio-mux-mmioreg c883455c.eth-phy-mux: /soc/periphs@c8834000/eth-phy-mux/mdio@e40908ff PHY address -469169921 is too large
->   mdio-mux-mmioreg c883455c.eth-phy-mux: Error: Failed to find reg for child /soc/periphs@c8834000/eth-phy-mux/mdio@e40908ff
->   mdio-mux-mmioreg c883455c.eth-phy-mux: /soc/periphs@c8834000/eth-phy-mux/mdio@2009087f PHY address 537462911 is too large
->   mdio-mux-mmioreg c883455c.eth-phy-mux: Error: Failed to find reg for child /soc/periphs@c8834000/eth-phy-mux/mdio@2009087f
->   mdio-mux-mmioreg c883455c.eth-phy-mux: Error: No acceptable child buses found
->   mdio-mux-mmioreg c883455c.eth-phy-mux: failed to register mdio-mux bus /soc/periphs@c8834000/eth-phy-mux
-> (as a result of that ethernet is not working, because the PHY which is
-> connected through the mux' child MDIO bus, which is not being
-> registered).
-> 
-> Fix this by reverting the change from of_mdio_parse_addr to
-> of_mdio_parse_addr.
+Good Day,
+ =
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Please Whoever this email meets, i need your co-operation and to introduce =
+myself I am Robert Kim and i work with an intermediary bank. i discovered f=
+rom my bank data assessment as the bank auditor general that a deceased cus=
+tomer left in one of his accounts GBP15,000,000.00 and no one is aware of t=
+his for the past 7 years and eight months . I am in search of anyone who  c=
+an allow me file in His/Her name as the benefactor/Next of Kin to receive t=
+his money with 100 percent risk free after which we can split the money 50/=
+40 and then 10% goes to the lawyer who would be handling the affairs .I awa=
+it your response with the following information..........
+1. Full name and address
+2. Occupation
+3. Telephone
+4. ID
+ =
 
-Yes, validating the reg property needs to be done separately in each
-user of the generic mdio-mix code. The reg for the gpio mux must be <=
-number of gpios, mmioreg must be somewhere within the address space,
-bcm-iproc < 1024?
+Kind Regards
+Robert Kim
 
-Jon, please feel free to add such code.
-
-    Andrew
+=20
