@@ -1,62 +1,43 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH iproute2] ip: change flag names to an array
-Date: Mon, 10 Jul 2017 10:10:56 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0036A4F@AcuExch.aculab.com>
-References: <20170707153941.5427-1-stephen@networkplumber.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "lorenzo@google.com" <lorenzo@google.com>
-To: 'Stephen Hemminger' <stephen@networkplumber.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.184]:59399 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753222AbdGJKLI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2017 06:11:08 -0400
-In-Reply-To: <20170707153941.5427-1-stephen@networkplumber.org>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Subject: [PATCH] net: bonding: constify attribute_group structures.
+Date: Mon, 10 Jul 2017 15:46:10 +0530
+Message-ID: <d0e5b0546d4502cc28bac2e4663a84be7343acba.1499681432.git.arvind.yadav.cs@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: j.vosburgh@gmail.com, vfalico@gmail.com, andy@greyhouse.net,
+        davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From:  Stephen Hemminger
-> Sent: 07 July 2017 16:40
-> For the most of the address flags, use a table of bit values rather
-> than open coding every value.  This allows for easier inevitable
-> expansion of flags.
-> 
-> This also fixes the missing stable-privacy flag.
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-> ---
->  ip/ipaddress.c | 152 ++++++++++++++++++++++++---------------------------------
->  1 file changed, 65 insertions(+), 87 deletions(-)
-> 
-> diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-> index f06f5829fb61..b4efb9fedcd2 100644
-> --- a/ip/ipaddress.c
-> +++ b/ip/ipaddress.c
-> @@ -1013,14 +1013,67 @@ static unsigned int get_ifa_flags(struct ifaddrmsg *ifa,
->  				ifa->ifa_flags;
->  }
-> 
-> +
-> +static const char *ifa_flag_names[] = {
-> +	"secondary",
-> +	"nodad",
-> +	"optimistic",
-> +	"dadfailed",
-> +	"home",
-> +	"deprecated",
-> +	"tentative",
-> +	"permanent",
-> +	"mngtmpaddr",
-> +	"noprefixroute",
-> +	"autojoin",
-> +	"stable-privacy",
-> +};
+attribute_groups are not supposed to change at runtime. All functions
+working with attribute_groups provided by <linux/netdevice.h> work
+with const attribute_group. So mark the non-const structs as const.
 
-It would be safer to set up a table of the constant - string pairs
-instead of relying on the table being in the right order.
+File size before:
+   text	   data	    bss	    dec	    hex	filename
+   4512	   1472	      0	   5984	   1760	drivers/net/bonding/bond_sysfs.o
 
-	David
+File size After adding 'const':
+   text	   data	    bss	    dec	    hex	filename
+   4576	   1408	      0	   5984	   1760	drivers/net/bonding/bond_sysfs.o
+
+Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
+---
+ drivers/net/bonding/bond_sysfs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 770623a..040b493 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -759,7 +759,7 @@ static DEVICE_ATTR(ad_user_port_key, S_IRUGO | S_IWUSR,
+ 	NULL,
+ };
+ 
+-static struct attribute_group bonding_group = {
++static const struct attribute_group bonding_group = {
+ 	.name = "bonding",
+ 	.attrs = per_bond_attrs,
+ };
+-- 
+1.9.1
