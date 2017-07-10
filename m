@@ -1,113 +1,96 @@
-From: Yonghong Song <yhs@fb.com>
-Subject: [PATCH net] samples/bpf: fix a build issue
-Date: Mon, 10 Jul 2017 13:12:24 -0700
-Message-ID: <20170710201224.1071186-1-yhs@fb.com>
+From: Lawrence Brakmo <brakmo@fb.com>
+Subject: Re: [PATCH net] samples/bpf: fix a build issue
+Date: Mon, 10 Jul 2017 20:21:28 +0000
+Message-ID: <31A7AE96-E599-4971-8179-925298F35091@fb.com>
+References: <20170710201224.1071186-1-yhs@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>, Yonghong Song <yhs@localhost.localdomain>
-To: <ast@fb.com>, <daniel@iogearbox.net>, <brakmo@fb.com>,
-        <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Kernel Team <Kernel-team@fb.com>,
+        Yonghong Song <yhs@localhost.localdomain>
+To: Yonghong Song <yhs@fb.com>, Alexei Starovoitov <ast@fb.com>,
+        "daniel@iogearbox.net" <daniel@iogearbox.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:33323 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752324AbdGJUM2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2017 16:12:28 -0400
-Received: from pps.filterd (m0109332.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v6AK9Rwf011301
-        for <netdev@vger.kernel.org>; Mon, 10 Jul 2017 13:12:27 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2bmd628pn6-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 10 Jul 2017 13:12:27 -0700
-Received: from facebook.com (2401:db00:11:d0af:face:0:2d:0)     by
- mx-out.facebook.com (2401:db00:2050:5102:face:0000:003b:0000) with ESMTP       id
- 170bd39665ac11e78c18ade1b876fb2a-9f1e5150 for <netdev@vger.kernel.org>;        Mon,
- 10 Jul 2017 13:12:25 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:53398 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752158AbdGJUVq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2017 16:21:46 -0400
+In-Reply-To: <20170710201224.1071186-1-yhs@fb.com>
+Content-Language: en-US
+Content-ID: <61CF7043F4918743A6BFEF21A56D30A3@namprd15.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yonghong Song <yhs@localhost.localdomain>
-
-With latest net-next:
-====
-clang  -nostdinc -isystem /usr/lib/gcc/x86_64-redhat-linux/6.3.1/include -I./arch/x86/include -I./arch/x86/include/generated/uapi -I./arch/x86/include/generated  -I./include -I./arch/x86/include/uapi -I./include/uapi -I./include/generated/uapi -include ./include/linux/kconfig.h  -Isamples/bpf \
-	-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
-	-Wno-compare-distinct-pointer-types \
-	-Wno-gnu-variable-sized-type-not-at-end \
-	-Wno-address-of-packed-member -Wno-tautological-compare \
-	-Wno-unknown-warning-option \
-	-O2 -emit-llvm -c samples/bpf/tcp_synrto_kern.c -o -| llc -march=bpf -filetype=obj -o samples/bpf/tcp_synrto_kern.o
-samples/bpf/tcp_synrto_kern.c:20:10: fatal error: 'bpf_endian.h' file not found
-         ^~~~~~~~~~~~~~
-1 error generated.
-====
-
-net has the same issue.
-
-Add support for ntohl and htonl in tools/testing/selftests/bpf/bpf_endian.h
-and move it to samples/bpf/ directory so that it can used by
-both selftests/bpf and samples/bpf. The existing samples/bpf/bpf_helpers.h
-is already used by both.
-
-Signed-off-by: Yonghong Song <yhs@fb.com>
----
- {tools/testing/selftests => samples}/bpf/bpf_endian.h | 14 ++++++++++++++
- tools/testing/selftests/bpf/Makefile                  |  3 ++-
- 2 files changed, 16 insertions(+), 1 deletion(-)
- rename {tools/testing/selftests => samples}/bpf/bpf_endian.h (73%)
-
-diff --git a/tools/testing/selftests/bpf/bpf_endian.h b/samples/bpf/bpf_endian.h
-similarity index 73%
-rename from tools/testing/selftests/bpf/bpf_endian.h
-rename to samples/bpf/bpf_endian.h
-index 487cbfb..74af266 100644
---- a/tools/testing/selftests/bpf/bpf_endian.h
-+++ b/samples/bpf/bpf_endian.h
-@@ -23,11 +23,19 @@
- # define __bpf_htons(x)			__builtin_bswap16(x)
- # define __bpf_constant_ntohs(x)	___constant_swab16(x)
- # define __bpf_constant_htons(x)	___constant_swab16(x)
-+# define __bpf_ntohl(x)			__builtin_bswap32(x)
-+# define __bpf_htonl(x)			__builtin_bswap32(x)
-+# define __bpf_constant_ntohl(x)	___constant_swab32(x)
-+# define __bpf_constant_htonl(x)	___constant_swab32(x)
- #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
- # define __bpf_ntohs(x)			(x)
- # define __bpf_htons(x)			(x)
- # define __bpf_constant_ntohs(x)	(x)
- # define __bpf_constant_htons(x)	(x)
-+# define __bpf_ntohl(x)			(x)
-+# define __bpf_htonl(x)			(x)
-+# define __bpf_constant_ntohl(x)	(x)
-+# define __bpf_constant_htonl(x)	(x)
- #else
- # error "Fix your compiler's __BYTE_ORDER__?!"
- #endif
-@@ -38,5 +46,11 @@
- #define bpf_ntohs(x)				\
- 	(__builtin_constant_p(x) ?		\
- 	 __bpf_constant_ntohs(x) : __bpf_ntohs(x))
-+#define bpf_htonl(x)				\
-+	(__builtin_constant_p(x) ?		\
-+	 __bpf_constant_htonl(x) : __bpf_htonl(x))
-+#define bpf_ntohl(x)				\
-+	(__builtin_constant_p(x) ?		\
-+	 __bpf_constant_ntohl(x) : __bpf_ntohl(x))
- 
- #endif /* __BPF_ENDIAN__ */
-diff --git a/tools/testing/selftests/bpf/Makefile b/tools/testing/selftests/bpf/Makefile
-index 2ca51a8..f263c6b 100644
---- a/tools/testing/selftests/bpf/Makefile
-+++ b/tools/testing/selftests/bpf/Makefile
-@@ -8,7 +8,8 @@ ifneq ($(wildcard $(GENHDR)),)
-   GENFLAGS := -DHAVE_GENHDR
- endif
- 
--CFLAGS += -Wall -O2 -I$(APIDIR) -I$(LIBDIR) -I$(GENDIR) $(GENFLAGS) -I../../../include
-+CFLAGS += -Wall -O2 -I$(APIDIR) -I$(LIBDIR) -I$(GENDIR) $(GENFLAGS) -I../../../include \
-+	-I../../../../samples/bpf
- LDLIBS += -lcap -lelf
- 
- TEST_GEN_PROGS = test_verifier test_tag test_maps test_lru_map test_lpm_map test_progs \
--- 
-2.9.4
+VGhhbmsgeW91IGZvciBmaXhpbmcgaXQuDQoNCk9uIDcvMTAvMTcsIDE6MTIgUE0sICJZb25naG9u
+ZyBTb25nIiA8eWhzQGZiLmNvbT4gd3JvdGU6DQoNCiAgICBGcm9tOiBZb25naG9uZyBTb25nIDx5
+aHNAbG9jYWxob3N0LmxvY2FsZG9tYWluPg0KICAgIA0KICAgIFdpdGggbGF0ZXN0IG5ldC1uZXh0
+Og0KICAgID09PT0NCiAgICBjbGFuZyAgLW5vc3RkaW5jIC1pc3lzdGVtIC91c3IvbGliL2djYy94
+ODZfNjQtcmVkaGF0LWxpbnV4LzYuMy4xL2luY2x1ZGUgLUkuL2FyY2gveDg2L2luY2x1ZGUgLUku
+L2FyY2gveDg2L2luY2x1ZGUvZ2VuZXJhdGVkL3VhcGkgLUkuL2FyY2gveDg2L2luY2x1ZGUvZ2Vu
+ZXJhdGVkICAtSS4vaW5jbHVkZSAtSS4vYXJjaC94ODYvaW5jbHVkZS91YXBpIC1JLi9pbmNsdWRl
+L3VhcGkgLUkuL2luY2x1ZGUvZ2VuZXJhdGVkL3VhcGkgLWluY2x1ZGUgLi9pbmNsdWRlL2xpbnV4
+L2tjb25maWcuaCAgLUlzYW1wbGVzL2JwZiBcDQogICAgCS1EX19LRVJORUxfXyAtRF9fQVNNX1NZ
+U1JFR19IIC1Xbm8tdW51c2VkLXZhbHVlIC1Xbm8tcG9pbnRlci1zaWduIFwNCiAgICAJLVduby1j
+b21wYXJlLWRpc3RpbmN0LXBvaW50ZXItdHlwZXMgXA0KICAgIAktV25vLWdudS12YXJpYWJsZS1z
+aXplZC10eXBlLW5vdC1hdC1lbmQgXA0KICAgIAktV25vLWFkZHJlc3Mtb2YtcGFja2VkLW1lbWJl
+ciAtV25vLXRhdXRvbG9naWNhbC1jb21wYXJlIFwNCiAgICAJLVduby11bmtub3duLXdhcm5pbmct
+b3B0aW9uIFwNCiAgICAJLU8yIC1lbWl0LWxsdm0gLWMgc2FtcGxlcy9icGYvdGNwX3N5bnJ0b19r
+ZXJuLmMgLW8gLXwgbGxjIC1tYXJjaD1icGYgLWZpbGV0eXBlPW9iaiAtbyBzYW1wbGVzL2JwZi90
+Y3Bfc3lucnRvX2tlcm4ubw0KICAgIHNhbXBsZXMvYnBmL3RjcF9zeW5ydG9fa2Vybi5jOjIwOjEw
+OiBmYXRhbCBlcnJvcjogJ2JwZl9lbmRpYW4uaCcgZmlsZSBub3QgZm91bmQNCiAgICAgICAgICAg
+ICBefn5+fn5+fn5+fn5+fg0KICAgIDEgZXJyb3IgZ2VuZXJhdGVkLg0KICAgID09PT0NCiAgICAN
+CiAgICBuZXQgaGFzIHRoZSBzYW1lIGlzc3VlLg0KICAgIA0KICAgIEFkZCBzdXBwb3J0IGZvciBu
+dG9obCBhbmQgaHRvbmwgaW4gdG9vbHMvdGVzdGluZy9zZWxmdGVzdHMvYnBmL2JwZl9lbmRpYW4u
+aA0KICAgIGFuZCBtb3ZlIGl0IHRvIHNhbXBsZXMvYnBmLyBkaXJlY3Rvcnkgc28gdGhhdCBpdCBj
+YW4gdXNlZCBieQ0KICAgIGJvdGggc2VsZnRlc3RzL2JwZiBhbmQgc2FtcGxlcy9icGYuIFRoZSBl
+eGlzdGluZyBzYW1wbGVzL2JwZi9icGZfaGVscGVycy5oDQogICAgaXMgYWxyZWFkeSB1c2VkIGJ5
+IGJvdGguDQogICAgDQogICAgU2lnbmVkLW9mZi1ieTogWW9uZ2hvbmcgU29uZyB5aHNAZmIuY29t
+DQoNCkFja2VkLWJ5OiBMYXdyZW5jZSBCcmFrbW8gPGJyYWttb0BmYi5jb20+DQoNCiAgICAtLS0N
+CiAgICAge3Rvb2xzL3Rlc3Rpbmcvc2VsZnRlc3RzID0+IHNhbXBsZXN9L2JwZi9icGZfZW5kaWFu
+LmggfCAxNCArKysrKysrKysrKysrKw0KICAgICB0b29scy90ZXN0aW5nL3NlbGZ0ZXN0cy9icGYv
+TWFrZWZpbGUgICAgICAgICAgICAgICAgICB8ICAzICsrLQ0KICAgICAyIGZpbGVzIGNoYW5nZWQs
+IDE2IGluc2VydGlvbnMoKyksIDEgZGVsZXRpb24oLSkNCiAgICAgcmVuYW1lIHt0b29scy90ZXN0
+aW5nL3NlbGZ0ZXN0cyA9PiBzYW1wbGVzfS9icGYvYnBmX2VuZGlhbi5oICg3MyUpDQogICAgDQog
+ICAgZGlmZiAtLWdpdCBhL3Rvb2xzL3Rlc3Rpbmcvc2VsZnRlc3RzL2JwZi9icGZfZW5kaWFuLmgg
+Yi9zYW1wbGVzL2JwZi9icGZfZW5kaWFuLmgNCiAgICBzaW1pbGFyaXR5IGluZGV4IDczJQ0KICAg
+IHJlbmFtZSBmcm9tIHRvb2xzL3Rlc3Rpbmcvc2VsZnRlc3RzL2JwZi9icGZfZW5kaWFuLmgNCiAg
+ICByZW5hbWUgdG8gc2FtcGxlcy9icGYvYnBmX2VuZGlhbi5oDQogICAgaW5kZXggNDg3Y2JmYi4u
+NzRhZjI2NiAxMDA2NDQNCiAgICAtLS0gYS90b29scy90ZXN0aW5nL3NlbGZ0ZXN0cy9icGYvYnBm
+X2VuZGlhbi5oDQogICAgKysrIGIvc2FtcGxlcy9icGYvYnBmX2VuZGlhbi5oDQogICAgQEAgLTIz
+LDExICsyMywxOSBAQA0KICAgICAjIGRlZmluZSBfX2JwZl9odG9ucyh4KQkJCV9fYnVpbHRpbl9i
+c3dhcDE2KHgpDQogICAgICMgZGVmaW5lIF9fYnBmX2NvbnN0YW50X250b2hzKHgpCV9fX2NvbnN0
+YW50X3N3YWIxNih4KQ0KICAgICAjIGRlZmluZSBfX2JwZl9jb25zdGFudF9odG9ucyh4KQlfX19j
+b25zdGFudF9zd2FiMTYoeCkNCiAgICArIyBkZWZpbmUgX19icGZfbnRvaGwoeCkJCQlfX2J1aWx0
+aW5fYnN3YXAzMih4KQ0KICAgICsjIGRlZmluZSBfX2JwZl9odG9ubCh4KQkJCV9fYnVpbHRpbl9i
+c3dhcDMyKHgpDQogICAgKyMgZGVmaW5lIF9fYnBmX2NvbnN0YW50X250b2hsKHgpCV9fX2NvbnN0
+YW50X3N3YWIzMih4KQ0KICAgICsjIGRlZmluZSBfX2JwZl9jb25zdGFudF9odG9ubCh4KQlfX19j
+b25zdGFudF9zd2FiMzIoeCkNCiAgICAgI2VsaWYgX19CWVRFX09SREVSX18gPT0gX19PUkRFUl9C
+SUdfRU5ESUFOX18NCiAgICAgIyBkZWZpbmUgX19icGZfbnRvaHMoeCkJCQkoeCkNCiAgICAgIyBk
+ZWZpbmUgX19icGZfaHRvbnMoeCkJCQkoeCkNCiAgICAgIyBkZWZpbmUgX19icGZfY29uc3RhbnRf
+bnRvaHMoeCkJKHgpDQogICAgICMgZGVmaW5lIF9fYnBmX2NvbnN0YW50X2h0b25zKHgpCSh4KQ0K
+ICAgICsjIGRlZmluZSBfX2JwZl9udG9obCh4KQkJCSh4KQ0KICAgICsjIGRlZmluZSBfX2JwZl9o
+dG9ubCh4KQkJCSh4KQ0KICAgICsjIGRlZmluZSBfX2JwZl9jb25zdGFudF9udG9obCh4KQkoeCkN
+CiAgICArIyBkZWZpbmUgX19icGZfY29uc3RhbnRfaHRvbmwoeCkJKHgpDQogICAgICNlbHNlDQog
+ICAgICMgZXJyb3IgIkZpeCB5b3VyIGNvbXBpbGVyJ3MgX19CWVRFX09SREVSX18/ISINCiAgICAg
+I2VuZGlmDQogICAgQEAgLTM4LDUgKzQ2LDExIEBADQogICAgICNkZWZpbmUgYnBmX250b2hzKHgp
+CQkJCVwNCiAgICAgCShfX2J1aWx0aW5fY29uc3RhbnRfcCh4KSA/CQlcDQogICAgIAkgX19icGZf
+Y29uc3RhbnRfbnRvaHMoeCkgOiBfX2JwZl9udG9ocyh4KSkNCiAgICArI2RlZmluZSBicGZfaHRv
+bmwoeCkJCQkJXA0KICAgICsJKF9fYnVpbHRpbl9jb25zdGFudF9wKHgpID8JCVwNCiAgICArCSBf
+X2JwZl9jb25zdGFudF9odG9ubCh4KSA6IF9fYnBmX2h0b25sKHgpKQ0KICAgICsjZGVmaW5lIGJw
+Zl9udG9obCh4KQkJCQlcDQogICAgKwkoX19idWlsdGluX2NvbnN0YW50X3AoeCkgPwkJXA0KICAg
+ICsJIF9fYnBmX2NvbnN0YW50X250b2hsKHgpIDogX19icGZfbnRvaGwoeCkpDQogICAgIA0KICAg
+ICAjZW5kaWYgLyogX19CUEZfRU5ESUFOX18gKi8NCiAgICBkaWZmIC0tZ2l0IGEvdG9vbHMvdGVz
+dGluZy9zZWxmdGVzdHMvYnBmL01ha2VmaWxlIGIvdG9vbHMvdGVzdGluZy9zZWxmdGVzdHMvYnBm
+L01ha2VmaWxlDQogICAgaW5kZXggMmNhNTFhOC4uZjI2M2M2YiAxMDA2NDQNCiAgICAtLS0gYS90
+b29scy90ZXN0aW5nL3NlbGZ0ZXN0cy9icGYvTWFrZWZpbGUNCiAgICArKysgYi90b29scy90ZXN0
+aW5nL3NlbGZ0ZXN0cy9icGYvTWFrZWZpbGUNCiAgICBAQCAtOCw3ICs4LDggQEAgaWZuZXEgKCQo
+d2lsZGNhcmQgJChHRU5IRFIpKSwpDQogICAgICAgR0VORkxBR1MgOj0gLURIQVZFX0dFTkhEUg0K
+ICAgICBlbmRpZg0KICAgICANCiAgICAtQ0ZMQUdTICs9IC1XYWxsIC1PMiAtSSQoQVBJRElSKSAt
+SSQoTElCRElSKSAtSSQoR0VORElSKSAkKEdFTkZMQUdTKSAtSS4uLy4uLy4uL2luY2x1ZGUNCiAg
+ICArQ0ZMQUdTICs9IC1XYWxsIC1PMiAtSSQoQVBJRElSKSAtSSQoTElCRElSKSAtSSQoR0VORElS
+KSAkKEdFTkZMQUdTKSAtSS4uLy4uLy4uL2luY2x1ZGUgXA0KICAgICsJLUkuLi8uLi8uLi8uLi9z
+YW1wbGVzL2JwZg0KICAgICBMRExJQlMgKz0gLWxjYXAgLWxlbGYNCiAgICAgDQogICAgIFRFU1Rf
+R0VOX1BST0dTID0gdGVzdF92ZXJpZmllciB0ZXN0X3RhZyB0ZXN0X21hcHMgdGVzdF9scnVfbWFw
+IHRlc3RfbHBtX21hcCB0ZXN0X3Byb2dzIFwNCiAgICAtLSANCiAgICAyLjkuNA0KICAgIA0KICAg
+IA0KDQo=
