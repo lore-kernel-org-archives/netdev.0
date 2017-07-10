@@ -1,53 +1,64 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [GIT] Networking
-Date: Mon, 10 Jul 2017 08:10:02 -0400
-Message-ID: <20170710121002.GB21587@oracle.com>
-References: <20170708.113644.1272962770645338865.davem@davemloft.net>
- <CA+55aFzocFTX5JR9oG_5uKw-fT6OJUMkD71sypbec7JP=_qwpg@mail.gmail.com>
- <20170709191131.GB22224@oracle.com>
- <20170709.214043.1361767365552001158.davem@davemloft.net>
- <20170710100531.GA14940@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
-        akpm@linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170710100531.GA14940@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Subject: [PATCH net] mdio: mux: fix parsing mux registers outside of the PHY address range
+Date: Mon, 10 Jul 2017 14:35:23 +0200
+Message-ID: <20170710123523.6625-1-martin.blumenstingl@googlemail.com>
+Cc: linux-amlogic@lists.infradead.org, jon.mason@broadcom.com,
+        Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+To: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
+        davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:36198 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753889AbdGJMfh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2017 08:35:37 -0400
+Received: by mail-wr0-f194.google.com with SMTP id 77so24640950wrb.3
+        for <netdev@vger.kernel.org>; Mon, 10 Jul 2017 05:35:37 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On (07/10/17 18:05), Herbert Xu wrote:
-> 
-> Hmm, I can't see the problem in af_alg_accept.  The struct socket
-> comes directly from sys_accept() which creates it using sock_alloc.
-> 
-> So the only thing I can think of is that the memory returned by
-> sock_alloc is not zeroed and therefore the WARN_ON is just reading
-> garbage.
+mdio_mux_init parses the child nodes of the MDIO mux. When using
+"mdio-mux-mmioreg" the child nodes are describing the register value
+that is written to switch between the MDIO busses.
 
-Then it is odd that this WARN_ON is not triggered for other sockets
-(e.g., for TCP sockets), though it happens easily with AF_ALG. 
+The change which makes the error messages more verbose changed the
+parsing of the "reg" property from a simple of_property_read_u32 call
+to of_mdio_parse_addr. On a Khadas VIM (based on the Meson GXL SoC,
+which uses mdio-mux-mmioreg) this prevents registering the MDIO mux
+(because the "reg" values on the MDIO mux child nodes are 0x2009087f
+and 0xe40908ff) and leads to the following errors:
+  mdio-mux-mmioreg c883455c.eth-phy-mux: /soc/periphs@c8834000/eth-phy-mux/mdio@e40908ff PHY address -469169921 is too large
+  mdio-mux-mmioreg c883455c.eth-phy-mux: Error: Failed to find reg for child /soc/periphs@c8834000/eth-phy-mux/mdio@e40908ff
+  mdio-mux-mmioreg c883455c.eth-phy-mux: /soc/periphs@c8834000/eth-phy-mux/mdio@2009087f PHY address 537462911 is too large
+  mdio-mux-mmioreg c883455c.eth-phy-mux: Error: Failed to find reg for child /soc/periphs@c8834000/eth-phy-mux/mdio@2009087f
+  mdio-mux-mmioreg c883455c.eth-phy-mux: Error: No acceptable child buses found
+  mdio-mux-mmioreg c883455c.eth-phy-mux: failed to register mdio-mux bus /soc/periphs@c8834000/eth-phy-mux
+(as a result of that ethernet is not working, because the PHY which is
+connected through the mux' child MDIO bus, which is not being
+registered).
 
-But it's not sock_alloc() - that function is returning a properly
-zeroed ->sk.
+Fix this by reverting the change from of_mdio_parse_addr to
+of_mdio_parse_addr.
 
-The reason that the WARN_ON is triggered is that af_alg_accept() calls
-sock_init_data() which does 
+Fixes: 342fa1964439 ("mdio: mux: make child bus walking more permissive and errors more verbose")
+Signed-off-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+---
+ drivers/net/phy/mdio-mux.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-   2636         if (sock) {
-    :
-   2639                 sock->sk        =       sk;
-
-
-So we can do one of the following:
-
-1. drop the WARN_ON(), which makes true leaks hard to detect
-2. change the WARN_ON() to WARN_ON(parent->sk && parent->sk != sk)
-
-#2 assumes that all the refcount book-keeping is being done
-correctly (there is the danger that we end up taking 2 refs on the sk) 
-
---Sowmini
+diff --git a/drivers/net/phy/mdio-mux.c b/drivers/net/phy/mdio-mux.c
+index 00755b6a42cf..c608e1dfaf09 100644
+--- a/drivers/net/phy/mdio-mux.c
++++ b/drivers/net/phy/mdio-mux.c
+@@ -135,8 +135,8 @@ int mdio_mux_init(struct device *dev,
+ 	for_each_available_child_of_node(dev->of_node, child_bus_node) {
+ 		int v;
+ 
+-		v = of_mdio_parse_addr(dev, child_bus_node);
+-		if (v < 0) {
++		r = of_property_read_u32(child_bus_node, "reg", &v);
++		if (r) {
+ 			dev_err(dev,
+ 				"Error: Failed to find reg for child %s\n",
+ 				of_node_full_name(child_bus_node));
+-- 
+2.13.2
