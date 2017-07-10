@@ -1,48 +1,62 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [GIT] Networking
-Date: Mon, 10 Jul 2017 18:05:32 +0800
-Message-ID: <20170710100531.GA14940@gondor.apana.org.au>
-References: <20170708.113644.1272962770645338865.davem@davemloft.net>
- <CA+55aFzocFTX5JR9oG_5uKw-fT6OJUMkD71sypbec7JP=_qwpg@mail.gmail.com>
- <20170709191131.GB22224@oracle.com>
- <20170709.214043.1361767365552001158.davem@davemloft.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH iproute2] ip: change flag names to an array
+Date: Mon, 10 Jul 2017 10:10:56 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0036A4F@AcuExch.aculab.com>
+References: <20170707153941.5427-1-stephen@networkplumber.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sowmini.varadhan@oracle.com, torvalds@linux-foundation.org,
-        akpm@linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170709.214043.1361767365552001158.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "lorenzo@google.com" <lorenzo@google.com>
+To: 'Stephen Hemminger' <stephen@networkplumber.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.184]:59399 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753222AbdGJKLI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2017 06:11:08 -0400
+In-Reply-To: <20170707153941.5427-1-stephen@networkplumber.org>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 09, 2017 at 09:40:43PM +0100, David Miller wrote:
->
-> > It look like PF_ALG sets up a ->sk in alg_create() (but this
-> > would get over-written in alg_accept()?) 
-
-No it does not.  The struct socket comes from sys_accept() and
-AFAICS it doesn't carry a struck sock with it.
-
-> > Cc'ing Herbert to see if this is expected behavior (and PF_ALG
-> > somehow does the right thing with the refcount for the ->sk
-> > set up in alg_create) in which case I suppose we should drop the 
-> > WARN_ON. 
+From:  Stephen Hemminger
+> Sent: 07 July 2017 16:40
+> For the most of the address flags, use a table of bit values rather
+> than open coding every value.  This allows for easier inevitable
+> expansion of flags.
 > 
-> I think we've found yet another socket leak, this time in
-> AF_ALG.
+> This also fixes the missing stable-privacy flag.
+> 
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> ---
+>  ip/ipaddress.c | 152 ++++++++++++++++++++++++---------------------------------
+>  1 file changed, 65 insertions(+), 87 deletions(-)
+> 
+> diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+> index f06f5829fb61..b4efb9fedcd2 100644
+> --- a/ip/ipaddress.c
+> +++ b/ip/ipaddress.c
+> @@ -1013,14 +1013,67 @@ static unsigned int get_ifa_flags(struct ifaddrmsg *ifa,
+>  				ifa->ifa_flags;
+>  }
+> 
+> +
+> +static const char *ifa_flag_names[] = {
+> +	"secondary",
+> +	"nodad",
+> +	"optimistic",
+> +	"dadfailed",
+> +	"home",
+> +	"deprecated",
+> +	"tentative",
+> +	"permanent",
+> +	"mngtmpaddr",
+> +	"noprefixroute",
+> +	"autojoin",
+> +	"stable-privacy",
+> +};
 
-Hmm, I can't see the problem in af_alg_accept.  The struct socket
-comes directly from sys_accept() which creates it using sock_alloc.
+It would be safer to set up a table of the constant - string pairs
+instead of relying on the table being in the right order.
 
-So the only thing I can think of is that the memory returned by
-sock_alloc is not zeroed and therefore the WARN_ON is just reading
-garbage.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+	David
