@@ -1,45 +1,39 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute PATCH] ip netns: Make sure netns name is sane
-Date: Mon, 10 Jul 2017 08:17:02 -0700
-Message-ID: <20170710081702.54cf6c8b@xeon-e3>
-References: <20170710111912.22537-1-phil@nwl.cc>
+From: Robin Murphy <robin.murphy@arm.com>
+Subject: Re: [PATCH/RFC] dma-mapping: Provide dummy set_dma_ops() for NO_DMA=y
+Date: Mon, 10 Jul 2017 16:31:54 +0100
+Message-ID: <6323dd71-0bd3-5823-3837-da84dfba46fe@arm.com>
+References: <1499628825-16260-1-git-send-email-geert@linux-m68k.org>
+ <20170710145641.GC7971@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:35605 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754135AbdGJPRQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2017 11:17:16 -0400
-Received: by mail-pf0-f174.google.com with SMTP id c73so51553772pfk.2
-        for <netdev@vger.kernel.org>; Mon, 10 Jul 2017 08:17:16 -0700 (PDT)
-In-Reply-To: <20170710111912.22537-1-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Marek Szyprowski <m.szyprowski@samsung.com>,
+        Madalin Bucur <madalin.bucur@nxp.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Christoph Hellwig <hch@lst.de>,
+        Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170710145641.GC7971@lst.de>
+Content-Language: en-GB
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 10 Jul 2017 13:19:12 +0200
-Phil Sutter <phil@nwl.cc> wrote:
+On 10/07/17 15:56, Christoph Hellwig wrote:
+> This looks reasonable to me, I'd be happy to pick it up.  Can you send
+> it as a series with the reverts?
 
-> +static bool is_basename(const char *name)
-> +{
-> +	char *name_dup = strdup(name);
-> +	bool rc = true;
-> +
-> +	if (!name_dup)
-> +		return false;
-> +
-> +	if (strcmp(basename(name_dup), name))
-> +		rc = false;
-> +
-> +	free(name_dup);
-> +	return rc;
-> +}
+The fact remains that the FSL driver is still doing the wrong thing
+though - set_dma_ops(dev1, get_dma_ops(dev2)) is just a hack which
+happens to work on platforms which don't keep other arch-internal DMA
+info as well. I did start writing a patch somewhere to fix this thing to
+actually do proper DMA configuration (originally in the context of not
+abusing arch_setup_dma_ops()), but Arnd's fix is probably simpler.
 
-Why not just:
+I don't think it makes an awful lot of sense for code without a DMA API
+dependency to be calling set_dma_ops() - AFAIU the only reason it's
+available to drivers at all is for particular RDMA cases which know that
+their "DMA" is actually done by CPU threads, and want to optimise for that.
 
-static bool is_basename(const char *name)
-{
-	return strchr(name '/') == NULL;
-}
+Robin.
