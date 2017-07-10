@@ -1,39 +1,59 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH 1/2 net] ptp: fix error codes in ptp_clock_register()
-Date: Mon, 10 Jul 2017 13:29:20 +0300
-Message-ID: <20170710102920.gav646pmteijfxfl@mwanda>
-References: <20170710071137.ui2fhjkqzjqhkopz@mwanda>
- <20170710092103.vnanagwpimk43zoz@localhost.localdomain>
- <20170710093816.wz5uiqoyilgxmgh3@mwanda>
- <20170710094806.lsrua5iqnmnntc5m@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ganesh Goudar <ganeshgr@chelsio.com>,
-        Atul Gupta <atul.gupta@chelsio.com>, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>
+From: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Subject: [PATCH] net: chelsio: cxgb3: constify attribute_group structures.
+Date: Mon, 10 Jul 2017 16:04:11 +0530
+Message-ID: <0e68326e48e123c70191169a0c0da820237425ec.1499682619.git.arvind.yadav.cs@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: santosh@chelsio.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:41755 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752658AbdGJK3n (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2017 06:29:43 -0400
-Content-Disposition: inline
-In-Reply-To: <20170710094806.lsrua5iqnmnntc5m@localhost.localdomain>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35599 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752658AbdGJKeg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2017 06:34:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 10, 2017 at 11:48:06AM +0200, Richard Cochran wrote:
-> On Mon, Jul 10, 2017 at 12:38:16PM +0300, Dan Carpenter wrote:
-> > There were two buggy commits so I chose the ealier one.  The other buggy
-> 
-> No, you are mistaken.  In the original patch, NULL or PTR_ERR were
-> returned on error, and that was not a bug.
-> 
+attribute_groups are not supposed to change at runtime. All functions
+working with attribute_groups provided by <linux/sysfs.h> work
+with const attribute_group. So mark the non-const structs as const.
 
-The "goto no_pps" was a bug you introduced.
+File size before:
+   text	   data	    bss	    dec	    hex	filename
+  28720	    985	     12	  29717	   7415	drivers/net/.../cxgb3/cxgb3_main.o
 
-But I feel like you're being rude, so I'm not going to resend these
-patches.  Please fix them yourself.
+File size After adding 'const':
+   text	   data	    bss	    dec	    hex	filename
+  28848	    857	     12	  29717	   7415	drivers/net/.../cxgb3/cxgb3_main.o
 
-regards,
-dan carpenter
+Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
+---
+ drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+index 0bc6a4f..6a01536 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+@@ -793,7 +793,9 @@ static DEVICE_ATTR(name, S_IRUGO | S_IWUSR, show_##name, store_method)
+ 	NULL
+ };
+ 
+-static struct attribute_group cxgb3_attr_group = {.attrs = cxgb3_attrs };
++static const struct attribute_group cxgb3_attr_group = {
++	.attrs = cxgb3_attrs,
++};
+ 
+ static ssize_t tm_attr_show(struct device *d,
+ 			    char *buf, int sched)
+@@ -880,7 +882,9 @@ static DEVICE_ATTR(name, S_IRUGO | S_IWUSR, show_##name, store_##name)
+ 	NULL
+ };
+ 
+-static struct attribute_group offload_attr_group = {.attrs = offload_attrs };
++static const struct attribute_group offload_attr_group = {
++	.attrs = offload_attrs,
++};
+ 
+ /*
+  * Sends an sk_buff to an offload queue driver
+-- 
+1.9.1
