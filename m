@@ -1,73 +1,32 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH] ip netns: Make sure netns name is sane
-Date: Mon, 10 Jul 2017 13:19:12 +0200
-Message-ID: <20170710111912.22537-1-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:41931 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753620AbdGJLTU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 10 Jul 2017 07:19:20 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [PATCH 1/2] netdevice: add netdev_pub helper function
+Date: Mon, 10 Jul 2017 13:52:45 +0200
+Message-ID: <CAHmME9rMQdukz-Nw_9uDqLYg5od5QFHK8K_boC0gRkvxz0jjqw@mail.gmail.com>
+References: <20150612.142058.1085284048217032168.davem@davemloft.net>
+ <20170710031959.7496-1-Jason@zx2c4.com> <20170710.090407.1592129544725682024.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170710.090407.1592129544725682024.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In order to keep track of created netns, 'ip netns' creates a mount
-point inside NETNS_RUN_DIR. By not checking the user-specified name, it
-allowed to create that mount point outside of NETNS_RUN_DIR and hence
-lose track of it afterwards:
+On Mon, Jul 10, 2017 at 10:04 AM, David Miller <davem@davemloft.net> wrote:
+> I disagree.  Assuming one can go from the driver private to the netdev
+> object trivially is a worse assumption than the other way around, and
+> locks us into the current implementation of how the netdev and driver
+> private memory is allocated.
+>
+> If you want to style your driver such that the private is passed
+> around instead of the netdev, put a pointer back to the netdev object
+> in your private data structure.
 
-| # ip netns add ../../tmp/foobar
-| # ip netns list
-| # mount | grep foobar
-| nsfs on /tmp/foobar type nsfs (rw)
+I'm surprised you're okay with the memory waste of that, but you bring
+up the ability to change the interface later, which is a great point.
+I'll submit a patch for that random driver, and I'll also refactor
+WireGuard to do the same. Thanks for the guidance.
 
-Prevent this by making sure basename() does not see a need to alter the
-given netns name.
-
-Fixes: 0dc34c7713bb7 ("iproute2: Add processless network namespace support")
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- ip/ipnetns.c | 20 ++++++++++++++++++++
- 1 file changed, 20 insertions(+)
-
-diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-index 0b0378ab6560c..4eee85e146b3d 100644
---- a/ip/ipnetns.c
-+++ b/ip/ipnetns.c
-@@ -595,6 +595,21 @@ static int create_netns_dir(void)
- 	return 0;
- }
- 
-+static bool is_basename(const char *name)
-+{
-+	char *name_dup = strdup(name);
-+	bool rc = true;
-+
-+	if (!name_dup)
-+		return false;
-+
-+	if (strcmp(basename(name_dup), name))
-+		rc = false;
-+
-+	free(name_dup);
-+	return rc;
-+}
-+
- static int netns_add(int argc, char **argv)
- {
- 	/* This function creates a new network namespace and
-@@ -616,6 +631,11 @@ static int netns_add(int argc, char **argv)
- 	}
- 	name = argv[0];
- 
-+	if (!is_basename(name)) {
-+		fprintf(stderr, "Invalid netns name: contains path components\n");
-+		return -1;
-+	}
-+
- 	snprintf(netns_path, sizeof(netns_path), "%s/%s", NETNS_RUN_DIR, name);
- 
- 	if (create_netns_dir())
--- 
-2.13.1
+Jason
