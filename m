@@ -1,38 +1,43 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH/RFC] dma-mapping: Provide dummy set_dma_ops() for NO_DMA=y
-Date: Mon, 10 Jul 2017 09:55:27 +0200
-Message-ID: <CAK8P3a0ac_Bb5OCQFCwvo20NPdR_DdpFdRXVefF3XHjzkMkDNw@mail.gmail.com>
-References: <1499628825-16260-1-git-send-email-geert@linux-m68k.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Christoph Hellwig <hch@lst.de>,
-        Marek Szyprowski <m.szyprowski@samsung.com>,
-        Robin Murphy <robin.murphy@arm.com>,
-        Madalin Bucur <madalin.bucur@nxp.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
+From: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Subject: [PATCH] net: cdc_ncm: constify attribute_group structures.
+Date: Mon, 10 Jul 2017 13:25:47 +0530
+Message-ID: <40d71c9c561fa69b42ef43c40df75538e25e4a66.1499673283.git.arvind.yadav.cs@gmail.com>
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: oliver@neukum.org, bjorn@mork.no, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1499628825-16260-1-git-send-email-geert@linux-m68k.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jul 9, 2017 at 9:33 PM, Geert Uytterhoeven <geert@linux-m68k.org> wrote:
-> Adding a dummy for set_dma_ops() allows to compile (sub)drivers that
-> don't actually use the DMA API, but propagate DMA ops configuration to a
-> second driver that may or may not use the DMA API.  Of course the second
-> driver does have to depend on HAS_DMA if it uses the DMA API.
->
-> An example is commit 5567e989198b5a8d ("fsl/fman: propagate dma_ops").
->
-> This allows to revert commit 85688d9adf685572 ("fsl/fman: add dependency
-> on HAS_DMA").
->
-> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+attribute_groups are not supposed to change at runtime. All functions
+working with attribute_groups provided by <linux/netdevice.h> work
+with const attribute_group. So mark the non-const structs as const.
 
-I can't think of any correct use case for this new helper. IMO a device
-driver should never set the dma_map_ops for any device, and we should
-instead for the fman driver correctly.
+File size before:
+   text	   data	    bss	    dec	    hex	filename
+  13275	    928	      1	  14204	   377c	drivers/net/usb/cdc_ncm.o
 
-       Arnd
+File size After adding 'const':
+   text	   data	    bss	    dec	    hex	filename
+  13339	    864	      1	  14204	   377c	drivers/net/usb/cdc_ncm.o
+
+Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
+---
+ drivers/net/usb/cdc_ncm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index d103a1d..b401ba9 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -367,7 +367,7 @@ static DEVICE_ATTR(name, S_IRUGO, cdc_ncm_show_##name, NULL)
+ 	NULL,
+ };
+ 
+-static struct attribute_group cdc_ncm_sysfs_attr_group = {
++static const struct attribute_group cdc_ncm_sysfs_attr_group = {
+ 	.name = "cdc_ncm",
+ 	.attrs = cdc_ncm_sysfs_attrs,
+ };
+-- 
+1.9.1
