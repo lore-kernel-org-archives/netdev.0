@@ -1,39 +1,66 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [PATCH 2/2 net] cxgb4: ptp_clock_register() returns error pointers
-Date: Mon, 10 Jul 2017 10:16:15 +0300
-Message-ID: <20170710071615.k6b6726cwushhdmm@mwanda>
-References: <20170710071137.ui2fhjkqzjqhkopz@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Ganesh Goudar <ganeshgr@chelsio.com>,
-        Atul Gupta <atul.gupta@chelsio.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:20494 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752451AbdGJHQ1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2017 03:16:27 -0400
-Content-Disposition: inline
-In-Reply-To: <20170710071137.ui2fhjkqzjqhkopz@mwanda>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sebastian Huber <sebastian.huber@embedded-brains.de>
+Subject: [PATCH] soc/qbman: Simplify bman_release()
+Date: Mon, 10 Jul 2017 09:28:59 +0200
+Message-ID: <20170710072859.2616-1-sebastian.huber@embedded-brains.de>
+Cc: linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org,
+ Madalin Bucur <madalin.bucur@nxp.com>
+To: netdev@vger.kernel.org
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-We're checking ptp_clock_register() for NULL but we should be checking
-for error pointers.
+Get the affine portal only once for the complete transaction.
 
-Fixes: 9c33e4208bce ("cxgb4: Add PTP Hardware Clock (PHC) support")
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Sebastian Huber <sebastian.huber@embedded-brains.de>
+---
+ drivers/soc/fsl/qbman/bman.c | 15 ++++++---------
+ 1 file changed, 6 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ptp.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ptp.c
-index 50517cfd9671..c24313a103c6 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ptp.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ptp.c
-@@ -441,7 +441,7 @@ void cxgb4_ptp_init(struct adapter *adapter)
+diff --git a/drivers/soc/fsl/qbman/bman.c b/drivers/soc/fsl/qbman/bman.c
+index a3d6d7cfa929..0af2069a6b7e 100644
+--- a/drivers/soc/fsl/qbman/bman.c
++++ b/drivers/soc/fsl/qbman/bman.c
+@@ -723,26 +723,23 @@ int bman_release(struct bman_pool *pool, const struct bm_buffer *bufs, u8 num)
  
- 	adapter->ptp_clock = ptp_clock_register(&adapter->ptp_clock_info,
- 						&adapter->pdev->dev);
--	if (!adapter->ptp_clock) {
-+	if (IS_ERR(adapter->ptp_clock)) {
- 		dev_err(adapter->pdev_dev,
- 			"PTP %s Clock registration has failed\n", __func__);
- 		return;
+ 	DPAA_ASSERT(num > 0 && num <= 8);
+ 
+-	do {
++	while (1) {
+ 		p = get_affine_portal();
+ 		local_irq_save(irqflags);
+ 		avail = bm_rcr_get_avail(&p->p);
+ 		if (avail < 2)
+ 			update_rcr_ci(p, avail);
+ 		r = bm_rcr_start(&p->p);
+-		local_irq_restore(irqflags);
+-		put_affine_portal();
+ 		if (likely(r))
+ 			break;
+ 
++		local_irq_restore(irqflags);
++		put_affine_portal();
++		if (unlikely(--timeout == 0))
++			return -ETIMEDOUT;
+ 		udelay(1);
+-	} while (--timeout);
+-
+-	if (unlikely(!timeout))
+-		return -ETIMEDOUT;
++	}
+ 
+-	p = get_affine_portal();
+-	local_irq_save(irqflags);
+ 	/*
+ 	 * we can copy all but the first entry, as this can trigger badness
+ 	 * with the valid-bit
+-- 
+2.12.3
