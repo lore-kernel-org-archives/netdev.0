@@ -1,70 +1,71 @@
 From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: net: Fix inconsistent teardown and release of private netdev state.
-Date: Mon, 10 Jul 2017 04:07:02 +0200
-Message-ID: <CAHmME9qjhOOGvOuXi0LEcEPE6Z5dK8MO-01dxb++RkAkpr91dw@mail.gmail.com>
-References: <20170706142427.GA32086@zx2c4.com> <CAM_iQpV5hz-Nuw_s7A8w7KE-d3c-MELQjeYMjznh8Kg6DcZ+_Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Netdev <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:49921 "EHLO frisell.zx2c4.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753128AbdGJCHI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 9 Jul 2017 22:07:08 -0400
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTP id 524b049c
-        for <netdev@vger.kernel.org>;
-        Mon, 10 Jul 2017 02:02:32 +0000 (UTC)
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTPSA id fc2653c6 (TLSv1.2:ECDHE-RSA-AES128-GCM-SHA256:128:NO)
-        for <netdev@vger.kernel.org>;
-        Mon, 10 Jul 2017 02:02:32 +0000 (UTC)
-Received: by mail-wr0-f169.google.com with SMTP id r103so118688520wrb.0
-        for <netdev@vger.kernel.org>; Sun, 09 Jul 2017 19:07:04 -0700 (PDT)
-In-Reply-To: <CAM_iQpV5hz-Nuw_s7A8w7KE-d3c-MELQjeYMjznh8Kg6DcZ+_Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: [PATCH 1/2] netdevice: add netdev_pub helper function
+Date: Mon, 10 Jul 2017 05:19:58 +0200
+Message-ID: <20170710031959.7496-1-Jason@zx2c4.com>
+References: <20150612.142058.1085284048217032168.davem@davemloft.net>
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150612.142058.1085284048217032168.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 8, 2017 at 12:39 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote=
-:
-> On Thu, Jul 6, 2017 at 7:24 AM, Jason A. Donenfeld <Jason@zx2c4.com> wrot=
-e:
->>         list_add(&priv->list, &list_of_things);
->>
->>         ret =3D register_netdevice(); // if ret is < 0, then destruct ab=
-ove is automatically called
->>
->>         // RACE WITH LIST_ADD/LIST_DEL!! It's impossible to call list_ad=
-d only after
->>         // things are brought up successfully. This is problematic.
->>
->>         if (!ret)
->>                 pr_info("Yay it worked!\n");
->
-> I fail to understand what you mean by RACE here.
->
-> Here you should already have RTNL lock, so it can't race with any other
-> newlink() calls. In fact you can't acquire RTNL lock in your destructor
-> since register_netdevice() already gets it. Perhaps you mean
-> netdev_run_todo() calls it without RTNL lock?
->
-> I don't know why you reorder the above list_add(), you can order it
-> as it was before, aka, call it after register_netdevice(), but you have t=
-o
-> init the priv->list now for the list_del() on error path.
+Being able to utilize this makes code a lot simpler and cleaner. It's
+easier in many cases for drivers to pass around their private data
+structure, while occationally needing to dip into net_device, rather
+than the other way around, which results in tons of calls to netdev_priv
+in the top of every single function, which makes everything confusing
+and less clear. Additionally, this enables a "correct" way of doing such
+a thing, instead of having drivers attempt to reinvent the wheel and
+screw it up.
 
-The race is that there's a state in which priv->list is part of
-list_of_things before the interface is actually successfully setup and
-ready to go.
+Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+---
+ include/linux/netdevice.h | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-And no, it's not possible to order it _after_ register_netdevice,
-since register_netdevice might call priv_destructor, and
-priv_destructor calls list_del, so if it's not already on the list,
-we'll OOPS. In otherwords, API problem.
-
-To work around this shortcoming, I'm actually just assigning
-dev->priv_device *after* a successful call to register_netdevice. This
-seems to be working well and allows me to retain =C2=B1 the old behavior.
-Hopefully this is an okay way to go about things?
-
-Jason
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 779b23595596..83d58504e5c4 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2030,26 +2030,37 @@ void dev_net_set(struct net_device *dev, struct net *net)
+ }
+ 
+ /**
+  *	netdev_priv - access network device private data
+  *	@dev: network device
+  *
+  * Get network device private data
+  */
+ static inline void *netdev_priv(const struct net_device *dev)
+ {
+ 	return (char *)dev + ALIGN(sizeof(struct net_device), NETDEV_ALIGN);
+ }
+ 
++/**
++ * 	netdev_pub - access network device from private pointer
++ * 	@priv: private data pointer of network device
++ *
++ * Get network device from a network device private data pointer
++ */
++static inline struct net_device *netdev_pub(void *priv)
++{
++	return (struct net_device *)((char *)priv - ALIGN(sizeof(struct net_device), NETDEV_ALIGN));
++}
++
+ /* Set the sysfs physical device reference for the network logical device
+  * if set prior to registration will cause a symlink during initialization.
+  */
+ #define SET_NETDEV_DEV(net, pdev)	((net)->dev.parent = (pdev))
+ 
+ /* Set the sysfs device type for the network logical device to allow
+  * fine-grained identification of different network device types. For
+  * example Ethernet, Wireless LAN, Bluetooth, WiMAX etc.
+  */
+ #define SET_NETDEV_DEVTYPE(net, devtype)	((net)->dev.type = (devtype))
+ 
+ /* Default NAPI poll() weight
+  * Device drivers are strongly advised to not use bigger value
+-- 
+2.13.2
