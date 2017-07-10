@@ -1,117 +1,133 @@
-From: <lipa@nadorlici.cz>
-Subject: (unknown)
-Date: Mon, 10 Jul 2017 04:42:27 -0000
-Message-ID: <149966174764.2162.9919659317074201622@copaco.com.py>
-Mime-Version: 1.0
-Content-Type: application/zip; name="4217909091.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host-68.43.217.201.copaco.com.py ([201.217.43.68]:53076 "HELO
-        copaco.com.py" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-        id S1751118AbdGJEmd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 10 Jul 2017 00:42:33 -0400
-Content-Disposition: attachment
-Subject: 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch] mqueue: fix netlink sock refcnt and skb refcnt
+Date: Sun,  9 Jul 2017 22:08:23 -0700
+Message-ID: <1499663303-4514-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: linux-kernel@vger.kernel.org, Cong Wang <xiyou.wangcong@gmail.com>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Manfred Spraul <manfred@colorfullife.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-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
-XG/50gFQSwUGAAAAAAEAAQBaAAAAfRUAAAAA
+netlink_sendskb() is problematic, it releases sock refcnt
+silently which could cause troubles we can call it multiple
+times. info->notify_sock is a good example where we
+setup once and use it to send netlink skb's for many times.
+It should not hold or release any refcnt, but needs to rely
+on netlink_attachskb()/netlink_detachskb() to hold/release
+the corresponding refcnt.
+
+Same for the skb attached to this sock, it is allocated once
+and used for multiple times, so we should hold its refcnt
+in netlink_attachskb().
+
+At last, we need to call netlink_detachskb() to release
+both refcnt's after we remove the notification.
+
+Cc: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Manfred Spraul <manfred@colorfullife.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ ipc/mqueue.c             |  1 +
+ net/netlink/af_netlink.c | 25 ++++++++++---------------
+ 2 files changed, 11 insertions(+), 15 deletions(-)
+
+diff --git a/ipc/mqueue.c b/ipc/mqueue.c
+index eb1391b..8b0a0ce 100644
+--- a/ipc/mqueue.c
++++ b/ipc/mqueue.c
+@@ -683,6 +683,7 @@ static void remove_notification(struct mqueue_inode_info *info)
+ 	    info->notify.sigev_notify == SIGEV_THREAD) {
+ 		set_cookie(info->notify_cookie, NOTIFY_REMOVED);
+ 		netlink_sendskb(info->notify_sock, info->notify_cookie);
++		netlink_detachskb(info->notify_sock, info->notify_cookie);
+ 	}
+ 	put_pid(info->notify_owner);
+ 	put_user_ns(info->notify_user_ns);
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 5acee49..9f2d6ca 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1159,8 +1159,8 @@ static struct sk_buff *netlink_alloc_large_skb(unsigned int size,
+  * all error checks are performed and memory in the queue is reserved.
+  * Return values:
+  * < 0: error. skb freed, reference to sock dropped.
+- * 0: continue
+- * 1: repeat lookup - reference dropped while waiting for socket memory.
++ * 0: continue - skb reference is held.
++ * 1: repeat lookup - sock reference dropped while waiting for socket memory.
+  */
+ int netlink_attachskb(struct sock *sk, struct sk_buff *skb,
+ 		      long *timeo, struct sock *ssk)
+@@ -1198,11 +1198,12 @@ int netlink_attachskb(struct sock *sk, struct sk_buff *skb,
+ 		}
+ 		return 1;
+ 	}
++	skb_get(skb);
+ 	netlink_skb_set_owner_r(skb, sk);
+ 	return 0;
+ }
+ 
+-static int __netlink_sendskb(struct sock *sk, struct sk_buff *skb)
++int netlink_sendskb(struct sock *sk, struct sk_buff *skb)
+ {
+ 	int len = skb->len;
+ 
+@@ -1213,14 +1214,6 @@ static int __netlink_sendskb(struct sock *sk, struct sk_buff *skb)
+ 	return len;
+ }
+ 
+-int netlink_sendskb(struct sock *sk, struct sk_buff *skb)
+-{
+-	int len = __netlink_sendskb(sk, skb);
+-
+-	sock_put(sk);
+-	return len;
+-}
+-
+ void netlink_detachskb(struct sock *sk, struct sk_buff *skb)
+ {
+ 	kfree_skb(skb);
+@@ -1303,7 +1296,9 @@ int netlink_unicast(struct sock *ssk, struct sk_buff *skb,
+ 	if (err)
+ 		return err;
+ 
+-	return netlink_sendskb(sk, skb);
++	err = netlink_sendskb(sk, skb);
++	netlink_detachskb(sk, skb);
++	return err;
+ }
+ EXPORT_SYMBOL(netlink_unicast);
+ 
+@@ -1333,7 +1328,7 @@ static int netlink_broadcast_deliver(struct sock *sk, struct sk_buff *skb)
+ 	if (atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf &&
+ 	    !test_bit(NETLINK_S_CONGESTED, &nlk->state)) {
+ 		netlink_skb_set_owner_r(skb, sk);
+-		__netlink_sendskb(sk, skb);
++		netlink_sendskb(sk, skb);
+ 		return atomic_read(&sk->sk_rmem_alloc) > (sk->sk_rcvbuf >> 1);
+ 	}
+ 	return -1;
+@@ -2183,7 +2178,7 @@ static int netlink_dump(struct sock *sk)
+ 		if (sk_filter(sk, skb))
+ 			kfree_skb(skb);
+ 		else
+-			__netlink_sendskb(sk, skb);
++			netlink_sendskb(sk, skb);
+ 		return 0;
+ 	}
+ 
+@@ -2198,7 +2193,7 @@ static int netlink_dump(struct sock *sk)
+ 	if (sk_filter(sk, skb))
+ 		kfree_skb(skb);
+ 	else
+-		__netlink_sendskb(sk, skb);
++		netlink_sendskb(sk, skb);
+ 
+ 	if (cb->done)
+ 		cb->done(cb);
+-- 
+2.5.5
