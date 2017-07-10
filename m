@@ -1,29 +1,25 @@
-From: Neil Armstrong <narmstrong@baylibre.com>
+From: Andrew Lunn <andrew@lunn.ch>
 Subject: Re: [PATCH net] mdio: mux: fix parsing mux registers outside of the
  PHY address range
-Date: Mon, 10 Jul 2017 14:37:36 +0200
-Message-ID: <34ab5b76-cf16-2af2-c04e-49ec05a9a137@baylibre.com>
+Date: Mon, 10 Jul 2017 14:56:52 +0200
+Message-ID: <20170710125652.GG1616@lunn.ch>
 References: <20170710123523.6625-1-martin.blumenstingl@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-amlogic@lists.infradead.org, jon.mason@broadcom.com
-To: Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
-        andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
-        davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org, davem@davemloft.net,
+        linux-amlogic@lists.infradead.org, jon.mason@broadcom.com
+To: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f176.google.com ([209.85.128.176]:35965 "EHLO
-        mail-wr0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753938AbdGJMhz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2017 08:37:55 -0400
-Received: by mail-wr0-f176.google.com with SMTP id c11so137101749wrc.3
-        for <netdev@vger.kernel.org>; Mon, 10 Jul 2017 05:37:54 -0700 (PDT)
+Received: from vps0.lunn.ch ([178.209.37.122]:49420 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753800AbdGJM44 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 10 Jul 2017 08:56:56 -0400
+Content-Disposition: inline
 In-Reply-To: <20170710123523.6625-1-martin.blumenstingl@googlemail.com>
-Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/10/2017 02:35 PM, Martin Blumenstingl wrote:
+On Mon, Jul 10, 2017 at 02:35:23PM +0200, Martin Blumenstingl wrote:
 > mdio_mux_init parses the child nodes of the MDIO mux. When using
 > "mdio-mux-mmioreg" the child nodes are describing the register value
 > that is written to switch between the MDIO busses.
@@ -46,32 +42,14 @@ On 07/10/2017 02:35 PM, Martin Blumenstingl wrote:
 > 
 > Fix this by reverting the change from of_mdio_parse_addr to
 > of_mdio_parse_addr.
-> 
-> Fixes: 342fa1964439 ("mdio: mux: make child bus walking more permissive and errors more verbose")
-> Signed-off-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-> ---
->  drivers/net/phy/mdio-mux.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/phy/mdio-mux.c b/drivers/net/phy/mdio-mux.c
-> index 00755b6a42cf..c608e1dfaf09 100644
-> --- a/drivers/net/phy/mdio-mux.c
-> +++ b/drivers/net/phy/mdio-mux.c
-> @@ -135,8 +135,8 @@ int mdio_mux_init(struct device *dev,
->  	for_each_available_child_of_node(dev->of_node, child_bus_node) {
->  		int v;
->  
-> -		v = of_mdio_parse_addr(dev, child_bus_node);
-> -		if (v < 0) {
-> +		r = of_property_read_u32(child_bus_node, "reg", &v);
-> +		if (r) {
->  			dev_err(dev,
->  				"Error: Failed to find reg for child %s\n",
->  				of_node_full_name(child_bus_node));
-> 
 
-I was going to push this, thanks martin !!
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-Acked-by: Neil Armstrong <narmstrong@baylibre.com>
+Yes, validating the reg property needs to be done separately in each
+user of the generic mdio-mix code. The reg for the gpio mux must be <=
+number of gpios, mmioreg must be somewhere within the address space,
+bcm-iproc < 1024?
 
-Neil
+Jon, please feel free to add such code.
+
+    Andrew
