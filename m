@@ -1,32 +1,40 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 1/2 net] ptp: fix error codes in ptp_clock_register()
-Date: Mon, 10 Jul 2017 11:48:06 +0200
-Message-ID: <20170710094806.lsrua5iqnmnntc5m@localhost.localdomain>
-References: <20170710071137.ui2fhjkqzjqhkopz@mwanda>
- <20170710092103.vnanagwpimk43zoz@localhost.localdomain>
- <20170710093816.wz5uiqoyilgxmgh3@mwanda>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: [PATCH] brcmfmac: added LED triggers for transmit/receive
+Date: Mon, 10 Jul 2017 11:48:08 +0200
+Message-ID: <CACna6rzY84oWNMBfP8N4A=Sxst_8b-S+rTbZFQV0yFcOR5MceQ@mail.gmail.com>
+References: <20170707140941.122115-1-russell.joyce@york.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ganesh Goudar <ganeshgr@chelsio.com>,
-        Atul Gupta <atul.gupta@chelsio.com>, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170710093816.wz5uiqoyilgxmgh3@mwanda>
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Alan Millard <alan.millard@york.ac.uk>,
+        Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        Chi-Hsien Lin <chi-hsien.lin@cypress.com>,
+        Wright Feng <wright.feng@cypress.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Marc Kleine-Budde <mkl@pengutronix.de>,
+        Marcel Holtmann <marcel@holtmann.org>,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
+        =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>,
+        "mhiramat@kernel.org" <mhiramat@kernel.org>,
+        James Hughes <james.hughes@raspberrypi.org>,
+        Tobias Klauser <tklauser@distanz.ch>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.
+To: Russell Joyce <russell.joyce@york.ac.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170707140941.122115-1-russell.joyce@york.ac.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 10, 2017 at 12:38:16PM +0300, Dan Carpenter wrote:
-> There were two buggy commits so I chose the ealier one.  The other buggy
+On 7 July 2017 at 16:09, Russell Joyce <russell.joyce@york.ac.uk> wrote:
+> Add three basic LED triggers to brcmfmac, based on those in mac80211: one
+> for transmit, one for receive, and one for combined transmit/receive.
+>
+> Signed-off-by: Russell Joyce <russell.joyce@york.ac.uk>
 
-No, you are mistaken.  In the original patch, NULL or PTR_ERR were
-returned on error, and that was not a bug.
-
-If you want to correct the present version of ptp_clock_register() to
-always return a valid pointer or PTR_ERR (like the kerneldoc says), be
-my guest, but please say that in the change log and reference the
-correct commit (namely the one related to disabling POSIX clocks.)
-
-Thanks,
-Richard
+1) I think most of it should be some cfg80211 shareable code.
+2) This "rxtx" while surely present in other places sounds like a
+workaround for LED subsystem limitation. Maybe it's time to finally
+rework LED triggers.
