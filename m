@@ -1,101 +1,113 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next RFC 10/12] net: dsa: Move FDB dump implementation inside DSA
-Date: Mon, 10 Jul 2017 15:36:00 -0400
-Message-ID: <87wp7g5bkv.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1499268990-19251-1-git-send-email-arkadis@mellanox.com> <1499268990-19251-11-git-send-email-arkadis@mellanox.com>
+From: Yonghong Song <yhs@fb.com>
+Subject: [PATCH net] samples/bpf: fix a build issue
+Date: Mon, 10 Jul 2017 13:12:24 -0700
+Message-ID: <20170710201224.1071186-1-yhs@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
-        f.fainelli@gmail.com, andrew@lunn.ch, Woojung.Huh@microchip.com,
-        stephen@networkplumber.org, mlxsw@mellanox.com,
-        Arkadi Sharshevsky <arkadis@mellanox.com>
-To: Arkadi Sharshevsky <arkadis@mellanox.com>, netdev@vger.kernel.org
+Cc: <kernel-team@fb.com>, Yonghong Song <yhs@localhost.localdomain>
+To: <ast@fb.com>, <daniel@iogearbox.net>, <brakmo@fb.com>,
+        <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:49978 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754097AbdGJTif (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2017 15:38:35 -0400
-In-Reply-To: <1499268990-19251-11-git-send-email-arkadis@mellanox.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:33323 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752324AbdGJUM2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2017 16:12:28 -0400
+Received: from pps.filterd (m0109332.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v6AK9Rwf011301
+        for <netdev@vger.kernel.org>; Mon, 10 Jul 2017 13:12:27 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 2bmd628pn6-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 10 Jul 2017 13:12:27 -0700
+Received: from facebook.com (2401:db00:11:d0af:face:0:2d:0)     by
+ mx-out.facebook.com (2401:db00:2050:5102:face:0000:003b:0000) with ESMTP       id
+ 170bd39665ac11e78c18ade1b876fb2a-9f1e5150 for <netdev@vger.kernel.org>;        Mon,
+ 10 Jul 2017 13:12:25 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Arkadi,
+From: Yonghong Song <yhs@localhost.localdomain>
 
-Arkadi Sharshevsky <arkadis@mellanox.com> writes:
+With latest net-next:
+====
+clang  -nostdinc -isystem /usr/lib/gcc/x86_64-redhat-linux/6.3.1/include -I./arch/x86/include -I./arch/x86/include/generated/uapi -I./arch/x86/include/generated  -I./include -I./arch/x86/include/uapi -I./include/uapi -I./include/generated/uapi -include ./include/linux/kconfig.h  -Isamples/bpf \
+	-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
+	-Wno-compare-distinct-pointer-types \
+	-Wno-gnu-variable-sized-type-not-at-end \
+	-Wno-address-of-packed-member -Wno-tautological-compare \
+	-Wno-unknown-warning-option \
+	-O2 -emit-llvm -c samples/bpf/tcp_synrto_kern.c -o -| llc -march=bpf -filetype=obj -o samples/bpf/tcp_synrto_kern.o
+samples/bpf/tcp_synrto_kern.c:20:10: fatal error: 'bpf_endian.h' file not found
+         ^~~~~~~~~~~~~~
+1 error generated.
+====
 
-> +struct dsa_slave_dump_ctx {
-> +	struct net_device *dev;
-> +	struct sk_buff *skb;
-> +	struct netlink_callback *cb;
-> +	int idx;
-> +};
-> +
->  struct dsa_switch_ops {
->  	/*
->  	 * Legacy probing.
-> @@ -392,9 +399,7 @@ struct dsa_switch_ops {
->  	int	(*port_fdb_del)(struct dsa_switch *ds, int port,
->  				const unsigned char *addr, u16 vid);
->  	int	(*port_fdb_dump)(struct dsa_switch *ds, int port,
-> -				 struct switchdev_obj_port_fdb *fdb,
-> -				  switchdev_obj_dump_cb_t *cb);
-> -
-> +				 struct dsa_slave_dump_ctx *dump);
+net has the same issue.
 
-I would prefer to pass a callback to the driver, so that we can call
-port_fdb_dump for other interfaces like debugfs, and for non exposed
-switch ports (CPU and DSA links) as well. Something like:
+Add support for ntohl and htonl in tools/testing/selftests/bpf/bpf_endian.h
+and move it to samples/bpf/ directory so that it can used by
+both selftests/bpf and samples/bpf. The existing samples/bpf/bpf_helpers.h
+is already used by both.
 
-    typedef int dsa_fdb_dump_cb_t(const unsigned char *addr, u16 vid,
-                                  bool is_static, void *data);
+Signed-off-by: Yonghong Song <yhs@fb.com>
+---
+ {tools/testing/selftests => samples}/bpf/bpf_endian.h | 14 ++++++++++++++
+ tools/testing/selftests/bpf/Makefile                  |  3 ++-
+ 2 files changed, 16 insertions(+), 1 deletion(-)
+ rename {tools/testing/selftests => samples}/bpf/bpf_endian.h (73%)
 
-    int (*port_fdb_dump)(struct dsa_switch *ds, int port,
-                         dsa_fdb_dump_cb_t *cb, void *data);
-
-Then dsa_slave_dump_ctx and dsa_slave_port_fdb_do_dump can be static to
-net/dsa/slave.c.
-
-> +int dsa_slave_port_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
-> +			    struct net_device *dev,
-> +			    struct net_device *filter_dev, int *idx)
-> +{
-> +	struct dsa_slave_dump_ctx dump = {
-> +		.dev = dev,
-> +		.skb = skb,
-> +		.cb = cb,
-> +		.idx = *idx,
-> +	};
-> +	struct dsa_slave_priv *p = netdev_priv(dev);
-> +	struct dsa_port *dp = p->dp;
-> +	struct dsa_switch *ds = dp->ds;
-> +	int err;
-> +
-> +	if (!ds->ops->port_fdb_dump) {
-> +		err = -EOPNOTSUPP;
-> +		goto out;
-> +	}
-> +
-> +	err = ds->ops->port_fdb_dump(ds, dp->index, &dump);
-> +out:
-> +	*idx = dump.idx;
-> +	return err;
-
-There is no need to reassign *idx in case of error:
-
-    if (!ds->ops->port_fdb_dump)
-        return -EOPNOTSUPP;
-
-    err = ds->ops->port_fdb_dump(ds, dp->index, &dump);
-    *idx = dump.idx;
-
-    return err;
-
-> +	.ndo_fdb_dump		= dsa_slave_port_fdb_dump,
-
-And s/dsa_slave_port_fdb_dump/dsa_slave_fdb_dump/ here will be even
-better ;-)
-
-
-Thanks,
-
-        Vivien
+diff --git a/tools/testing/selftests/bpf/bpf_endian.h b/samples/bpf/bpf_endian.h
+similarity index 73%
+rename from tools/testing/selftests/bpf/bpf_endian.h
+rename to samples/bpf/bpf_endian.h
+index 487cbfb..74af266 100644
+--- a/tools/testing/selftests/bpf/bpf_endian.h
++++ b/samples/bpf/bpf_endian.h
+@@ -23,11 +23,19 @@
+ # define __bpf_htons(x)			__builtin_bswap16(x)
+ # define __bpf_constant_ntohs(x)	___constant_swab16(x)
+ # define __bpf_constant_htons(x)	___constant_swab16(x)
++# define __bpf_ntohl(x)			__builtin_bswap32(x)
++# define __bpf_htonl(x)			__builtin_bswap32(x)
++# define __bpf_constant_ntohl(x)	___constant_swab32(x)
++# define __bpf_constant_htonl(x)	___constant_swab32(x)
+ #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+ # define __bpf_ntohs(x)			(x)
+ # define __bpf_htons(x)			(x)
+ # define __bpf_constant_ntohs(x)	(x)
+ # define __bpf_constant_htons(x)	(x)
++# define __bpf_ntohl(x)			(x)
++# define __bpf_htonl(x)			(x)
++# define __bpf_constant_ntohl(x)	(x)
++# define __bpf_constant_htonl(x)	(x)
+ #else
+ # error "Fix your compiler's __BYTE_ORDER__?!"
+ #endif
+@@ -38,5 +46,11 @@
+ #define bpf_ntohs(x)				\
+ 	(__builtin_constant_p(x) ?		\
+ 	 __bpf_constant_ntohs(x) : __bpf_ntohs(x))
++#define bpf_htonl(x)				\
++	(__builtin_constant_p(x) ?		\
++	 __bpf_constant_htonl(x) : __bpf_htonl(x))
++#define bpf_ntohl(x)				\
++	(__builtin_constant_p(x) ?		\
++	 __bpf_constant_ntohl(x) : __bpf_ntohl(x))
+ 
+ #endif /* __BPF_ENDIAN__ */
+diff --git a/tools/testing/selftests/bpf/Makefile b/tools/testing/selftests/bpf/Makefile
+index 2ca51a8..f263c6b 100644
+--- a/tools/testing/selftests/bpf/Makefile
++++ b/tools/testing/selftests/bpf/Makefile
+@@ -8,7 +8,8 @@ ifneq ($(wildcard $(GENHDR)),)
+   GENFLAGS := -DHAVE_GENHDR
+ endif
+ 
+-CFLAGS += -Wall -O2 -I$(APIDIR) -I$(LIBDIR) -I$(GENDIR) $(GENFLAGS) -I../../../include
++CFLAGS += -Wall -O2 -I$(APIDIR) -I$(LIBDIR) -I$(GENDIR) $(GENFLAGS) -I../../../include \
++	-I../../../../samples/bpf
+ LDLIBS += -lcap -lelf
+ 
+ TEST_GEN_PROGS = test_verifier test_tag test_maps test_lru_map test_lpm_map test_progs \
+-- 
+2.9.4
