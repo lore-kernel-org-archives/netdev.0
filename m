@@ -1,75 +1,47 @@
-From: Biju Das <biju.das@bp.renesas.com>
-Subject: [PATCH v2] dt-bindings: net: ravb : Add support for r8a7743 SoC
-Date: Mon, 10 Jul 2017 16:32:56 +0100
-Message-ID: <1499700776-54504-1-git-send-email-biju.das@bp.renesas.com>
-References: <20170710012024.j4cso2jyi6canws2@rob-hp-laptop>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Simon Horman <horms@verge.net.au>,
-        Magnus Damm <magnus.damm@gmail.com>,
-        Chris Paterson <chris.paterson2@renesas.com>,
-        devicetree@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-        Biju Das <biju.das@bp.renesas.com>
-To: Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Russell King <linux@armlinux.org.uk>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20170710012024.j4cso2jyi6canws2@rob-hp-laptop>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Subject: Re: [PATCH v2] dt-bindings: net: ravb : Add support for r8a7743 SoC
+Date: Mon, 10 Jul 2017 17:51:09 +0200
+Message-ID: <CAMuHMdWA-qJW8wENRYEFUmoSM7G+DR3wcT9hQ0_1Z7ysUjZkBw@mail.gmail.com>
+References: <20170710012024.j4cso2jyi6canws2@rob-hp-laptop> <1499700776-54504-1-git-send-email-biju.das@bp.renesas.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
+        Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>,
+        Magnus Damm <magnus.damm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Chris Paterson <chris.paterson2-zM6kxYcvzFBBDgjK7y7TUQ@public.gmane.org>,
+        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux-Renesas <linux-renesas-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Biju Das <biju.das-kTT6dE0pTRh9uiUsa/gSgQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1499700776-54504-1-git-send-email-biju.das-kTT6dE0pTRh9uiUsa/gSgQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add a new compatible string for the RZ/G1M (R8A7743) SoC.
+On Mon, Jul 10, 2017 at 5:32 PM, Biju Das <biju.das-kTT6dE0pTRh9uiUsa/gSgQ@public.gmane.org> wrote:
+> Add a new compatible string for the RZ/G1M (R8A7743) SoC.
+>
+> Signed-off-by: Biju Das <biju.das-kTT6dE0pTRh9uiUsa/gSgQ@public.gmane.org>
 
-Signed-off-by: Biju Das <biju.das@bp.renesas.com>
----
-v1->v2
-* Changed the subject
-* re-formatted the required properties
+Reviewed-by: Geert Uytterhoeven <geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>
 
- .../devicetree/bindings/net/renesas,ravb.txt       | 29 +++++++++++++---------
- 1 file changed, 17 insertions(+), 12 deletions(-)
+Gr{oetje,eeting}s,
 
-diff --git a/Documentation/devicetree/bindings/net/renesas,ravb.txt b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-index b519503..4717bc2 100644
---- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
-+++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-@@ -4,19 +4,24 @@ This file provides information on what the device node for the Ethernet AVB
- interface contains.
- 
- Required properties:
--- compatible: "renesas,etheravb-r8a7790" if the device is a part of R8A7790 SoC.
--	      "renesas,etheravb-r8a7791" if the device is a part of R8A7791 SoC.
--	      "renesas,etheravb-r8a7792" if the device is a part of R8A7792 SoC.
--	      "renesas,etheravb-r8a7793" if the device is a part of R8A7793 SoC.
--	      "renesas,etheravb-r8a7794" if the device is a part of R8A7794 SoC.
--	      "renesas,etheravb-r8a7795" if the device is a part of R8A7795 SoC.
--	      "renesas,etheravb-r8a7796" if the device is a part of R8A7796 SoC.
--	      "renesas,etheravb-rcar-gen2" for generic R-Car Gen 2 compatible interface.
--	      "renesas,etheravb-rcar-gen3" for generic R-Car Gen 3 compatible interface.
-+- compatible: Must contain one or more of the following:
-+      - "renesas,etheravb-r8a7743" for the R8A7743 SoC.
-+      - "renesas,etheravb-r8a7790" for the R8A7790 SoC.
-+      - "renesas,etheravb-r8a7791" for the R8A7791 SoC.
-+      - "renesas,etheravb-r8a7792" for the R8A7792 SoC.
-+      - "renesas,etheravb-r8a7793" for the R8A7793 SoC.
-+      - "renesas,etheravb-r8a7794" for the R8A7794 SoC.
-+      - "renesas,etheravb-rcar-gen2" as a fallback for the above
-+		R-Car Gen2 and RZ/G1 devices.
- 
--	      When compatible with the generic version, nodes must list the
--	      SoC-specific version corresponding to the platform first
--	      followed by the generic version.
-+      - "renesas,etheravb-r8a7795" for the R8A7795 SoC.
-+      - "renesas,etheravb-r8a7796" for the R8A7796 SoC.
-+      - "renesas,etheravb-rcar-gen3" as a fallback for the above
-+		R-Car Gen3 devices.
-+
-+	When compatible with the generic version, nodes must list the
-+	SoC-specific version corresponding to the platform first followed by
-+	the generic version.
- 
- - reg: offset and length of (1) the register block and (2) the stream buffer.
- - interrupts: A list of interrupt-specifiers, one for each entry in
--- 
-1.9.1
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
