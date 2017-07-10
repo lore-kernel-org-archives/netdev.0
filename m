@@ -1,86 +1,57 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH 3/3] net: stmmac: Make 'alloc_dma_[rt]x_desc_resources()'
- look even closer
-Date: Mon, 10 Jul 2017 08:22:50 +0200
-Message-ID: <68a04948-2a52-56d4-1875-d15540808eed@st.com>
-References: <cover.1499499451.git.christophe.jaillet@wanadoo.fr>
- <ea4badb176e009c7485ea4ab83bbe29cd3750d90.1499499451.git.christophe.jaillet@wanadoo.fr>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [PATCH 1/2 net] ptp: fix error codes in ptp_clock_register()
+Date: Mon, 10 Jul 2017 10:11:37 +0300
+Message-ID: <20170710071137.ui2fhjkqzjqhkopz@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <kernel-janitors@vger.kernel.org>
-To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>,
-        <alexandre.torgue@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <ea4badb176e009c7485ea4ab83bbe29cd3750d90.1499499451.git.christophe.jaillet@wanadoo.fr>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>,
+        Ganesh Goudar <ganeshgr@chelsio.com>,
+        Atul Gupta <atul.gupta@chelsio.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 7/8/2017 9:46 AM, Christophe JAILLET wrote:
-> 'alloc_dma_[rt]x_desc_resources()' functions look very close.
-> Remove a useless initialization and use the same label name for error
-> handling path in order to get them even closer.
->
-> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+The ptp_clock_register() function returns NULL when it's #ifdefed out
+because CONFIG_PTP_1588_CLOCK is disabled.  Otherwise, it's intended to
+return error pointers.  Unfortunately, there are a couple paths where we
+forget to set the error code.  It means that we could result in NULL
+pointer dereferences in the callers.
 
-Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Fixes: d94ba80ebbea ("ptp: Added a brand new class driver for ptp clocks.")
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-> ---
->   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 12 ++++++------
->   1 file changed, 6 insertions(+), 6 deletions(-)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index 07d486a70118..1853f7ff6657 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -1449,7 +1449,7 @@ static void free_dma_rx_desc_resources(struct stmmac_priv *priv)
->   static void free_dma_tx_desc_resources(struct stmmac_priv *priv)
->   {
->   	u32 tx_count = priv->plat->tx_queues_to_use;
-> -	u32 queue = 0;
-> +	u32 queue;
->   
->   	/* Free TX queue resources */
->   	for (queue = 0; queue < tx_count; queue++) {
-> @@ -1561,13 +1561,13 @@ static int alloc_dma_tx_desc_resources(struct stmmac_priv *priv)
->   						    sizeof(*tx_q->tx_skbuff_dma),
->   						    GFP_KERNEL);
->   		if (!tx_q->tx_skbuff_dma)
-> -			goto err_dma_buffers;
-> +			goto err_dma;
->   
->   		tx_q->tx_skbuff = kmalloc_array(DMA_TX_SIZE,
->   						sizeof(struct sk_buff *),
->   						GFP_KERNEL);
->   		if (!tx_q->tx_skbuff)
-> -			goto err_dma_buffers;
-> +			goto err_dma;
->   
->   		if (priv->extend_desc) {
->   			tx_q->dma_etx = dma_zalloc_coherent(priv->device,
-> @@ -1577,7 +1577,7 @@ static int alloc_dma_tx_desc_resources(struct stmmac_priv *priv)
->   							    &tx_q->dma_tx_phy,
->   							    GFP_KERNEL);
->   			if (!tx_q->dma_etx)
-> -				goto err_dma_buffers;
-> +				goto err_dma;
->   		} else {
->   			tx_q->dma_tx = dma_zalloc_coherent(priv->device,
->   							   DMA_TX_SIZE *
-> @@ -1586,13 +1586,13 @@ static int alloc_dma_tx_desc_resources(struct stmmac_priv *priv)
->   							   &tx_q->dma_tx_phy,
->   							   GFP_KERNEL);
->   			if (!tx_q->dma_tx)
-> -				goto err_dma_buffers;
-> +				goto err_dma;
->   		}
->   	}
->   
->   	return 0;
->   
-> -err_dma_buffers:
-> +err_dma:
->   	free_dma_tx_desc_resources(priv);
->   
->   	return ret;
+diff --git a/drivers/ptp/ptp_clock.c b/drivers/ptp/ptp_clock.c
+index b77435783ef3..a50e96143a25 100644
+--- a/drivers/ptp/ptp_clock.c
++++ b/drivers/ptp/ptp_clock.c
+@@ -190,7 +190,7 @@ struct ptp_clock *ptp_clock_register(struct ptp_clock_info *info,
+ 				     struct device *parent)
+ {
+ 	struct ptp_clock *ptp;
+-	int err = 0, index, major = MAJOR(ptp_devt);
++	int err, index, major = MAJOR(ptp_devt);
+ 
+ 	if (info->n_alarm > PTP_MAX_ALARMS)
+ 		return ERR_PTR(-EINVAL);
+@@ -225,8 +225,10 @@ struct ptp_clock *ptp_clock_register(struct ptp_clock_info *info,
+ 	ptp->dev = device_create_with_groups(ptp_class, parent, ptp->devid,
+ 					     ptp, ptp->pin_attr_groups,
+ 					     "ptp%d", ptp->index);
+-	if (IS_ERR(ptp->dev))
++	if (IS_ERR(ptp->dev)) {
++		err = PTR_ERR(ptp->dev);
+ 		goto no_device;
++	}
+ 
+ 	/* Register a new PPS source. */
+ 	if (info->pps) {
+@@ -238,6 +240,7 @@ struct ptp_clock *ptp_clock_register(struct ptp_clock_info *info,
+ 		ptp->pps_source = pps_register_source(&pps, PTP_PPS_DEFAULTS);
+ 		if (!ptp->pps_source) {
+ 			pr_err("failed to register pps source\n");
++			err = -ENOMEM;
+ 			goto no_pps;
+ 		}
+ 	}
