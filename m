@@ -1,43 +1,46 @@
-From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [PATCH] net: can: at91_can: constify attribute_group structures.
-Date: Mon, 10 Jul 2017 13:31:27 +0530
-Message-ID: <3ffbac2d582a6fe8f0d430dcf0bb313226aa1bcf.1499673562.git.arvind.yadav.cs@gmail.com>
-Cc: netdev@vger.kernel.org, llinux-can@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: wg@grandegger.com, mkl@pengutronix.de, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Subject: Re: [PATCH iproute2 V3 0/4] RDMAtool
+Date: Mon, 10 Jul 2017 10:02:30 +0200
+Message-ID: <20170710080230.GD1853@nanopsycho>
+References: <20170704075541.12544-1-leon@kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Ariel Almog <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Linux RDMA <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170704075541.12544-1-leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-attribute_groups are not supposed to change at runtime. All functions
-working with attribute_groups provided by <linux/netdevice.h> work
-with const attribute_group. So mark the non-const structs as const.
+Tue, Jul 04, 2017 at 09:55:37AM CEST, leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org wrote:
+>Hi,
+>
+>This is third version of series implementing the RDAMtool -  the tool
+>to configure RDMA devices. The initial proposal was sent as RFC [1] and
+>was based on sysfs entries as POC.
+>
+>The current series was rewritten completely to work with RDMA netlinks as
+>a source of user<->kernel communications. In order to achieve that, the
+>RDMA netlinks were extensively refactored and modernized [2, 3, 4 and 5].
+>
+>The following is an example of various runs on my machine with 5 devices
+>(4 in IB mode and one in Ethernet mode)
+>
+>### Without parameters
+>$ rdma
+>Usage: rdma [ OPTIONS ] OBJECT { COMMAND | help }
+>where  OBJECT := { dev | link | help }
+>       OPTIONS := { -V[ersion] | -d[etails]}
 
-File size before:
-   text	   data	    bss	    dec	    hex	filename
-   6164	    304	      0	   6468	   1944	drivers/net/can/at91_can.o
-
-File size After adding 'const':
-   text	   data	    bss	    dec	    hex	filename
-   6228	    240	      0	   6468	   1944	drivers/net/can/at91_can.o
-
-Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
----
- drivers/net/can/at91_can.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/can/at91_can.c b/drivers/net/can/at91_can.c
-index 0e0df0b..f37ce0e 100644
---- a/drivers/net/can/at91_can.c
-+++ b/drivers/net/can/at91_can.c
-@@ -1232,7 +1232,7 @@ static DEVICE_ATTR(mb0_id, S_IWUSR | S_IRUGO,
- 	NULL,
- };
- 
--static struct attribute_group at91_sysfs_attr_group = {
-+static const struct attribute_group at91_sysfs_attr_group = {
- 	.attrs = at91_sysfs_attrs,
- };
- 
--- 
-1.9.1
+What about json output? You will need it sooner than later. It will
+prevent you from a lot of headaches if you implement it right away.
+Lesson learned...
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
