@@ -1,18 +1,18 @@
 From: =?utf-8?B?0YHQuNGB0YLQtdC80Ysg0LDQtNC80LjQvdC40YHRgtGA0LDRgtC+0YA=?=
         <set.kalteng@bawaslu.go.id>
 Subject: (unknown)
-Date: Mon, 10 Jul 2017 10:39:50 +0700 (WIB)
-Message-ID: <658737619.340330.1499657990573.JavaMail.zimbra@bawaslu.go.id>
+Date: Mon, 10 Jul 2017 10:47:38 +0700 (WIB)
+Message-ID: <769282009.341182.1499658458054.JavaMail.zimbra@bawaslu.go.id>
 Reply-To: Sistemass_Adminss@mail2world.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: quoted-printable
 To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bawaslu.go.id ([103.249.227.154]:58864 "EHLO
+Received: from mail.bawaslu.go.id ([103.249.227.154]:51574 "EHLO
         mail.bawaslu.go.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753069AbdGJDtj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 9 Jul 2017 23:49:39 -0400
+        with ESMTP id S1750924AbdGJEEl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2017 00:04:41 -0400
 Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
