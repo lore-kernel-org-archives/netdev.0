@@ -1,52 +1,112 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: Re: [PATCH net v2] samples/bpf: fix a build issue
-Date: Mon, 10 Jul 2017 22:10:14 +0000
-Message-ID: <D09C7CAC-32AB-43D6-8518-7470C749AE4F@fb.com>
-References: <20170710210428.1292358-1-yhs@fb.com>
- <5963EDE6.60408@iogearbox.net>
+From: Marc Duponcheel <marc@offline.be>
+Subject: Re: meson-gxbb-p200 4.12.0 network TCP transfer stalls
+Date: Tue, 11 Jul 2017 01:48:45 +0200
+Message-ID: <20170710234845.GA24423@offline.be>
+References: <20170708005542.GA20515@offline.be>
+Reply-To: Marc Duponcheel <marc@offline.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Kernel Team <Kernel-team@fb.com>
-To: Daniel Borkmann <daniel@iogearbox.net>, Yonghong Song <yhs@fb.com>,
-        Alexei Starovoitov <ast@fb.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Marc Duponcheel <marc@offline.be>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:45162 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754319AbdGJWKb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2017 18:10:31 -0400
-In-Reply-To: <5963EDE6.60408@iogearbox.net>
-Content-Language: en-US
-Content-ID: <EC840A91962BE949B130F83527FADF8B@namprd15.prod.outlook.com>
+Received: from server.offline.be ([79.132.231.86]:51920 "EHLO mail.offline.be"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754952AbdGJXlH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 10 Jul 2017 19:41:07 -0400
+Content-Disposition: inline
+In-Reply-To: <20170708005542.GA20515@offline.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCk9uIDcvMTAvMTcsIDI6MTMgUE0sICJEYW5pZWwgQm9ya21hbm4iIDxkYW5pZWxAaW9nZWFy
-Ym94Lm5ldD4gd3JvdGU6DQoNCiAgICBPbiAwNy8xMC8yMDE3IDExOjA0IFBNLCBZb25naG9uZyBT
-b25nIHdyb3RlOg0KICAgID4gV2l0aCBsYXRlc3QgbmV0LW5leHQ6DQogICAgPiA9PT09DQogICAg
-PiBjbGFuZyAgLW5vc3RkaW5jIC1pc3lzdGVtIC91c3IvbGliL2djYy94ODZfNjQtcmVkaGF0LWxp
-bnV4LzYuMy4xL2luY2x1ZGUgLUkuL2FyY2gveDg2L2luY2x1ZGUgLUkuL2FyY2gveDg2L2luY2x1
-ZGUvZ2VuZXJhdGVkL3VhcGkgLUkuL2FyY2gveDg2L2luY2x1ZGUvZ2VuZXJhdGVkICAtSS4vaW5j
-bHVkZSAtSS4vYXJjaC94ODYvaW5jbHVkZS91YXBpIC1JLi9pbmNsdWRlL3VhcGkgLUkuL2luY2x1
-ZGUvZ2VuZXJhdGVkL3VhcGkgLWluY2x1ZGUgLi9pbmNsdWRlL2xpbnV4L2tjb25maWcuaCAgLUlz
-YW1wbGVzL2JwZiBcDQogICAgPiAgICAgIC1EX19LRVJORUxfXyAtRF9fQVNNX1NZU1JFR19IIC1X
-bm8tdW51c2VkLXZhbHVlIC1Xbm8tcG9pbnRlci1zaWduIFwNCiAgICA+ICAgICAgLVduby1jb21w
-YXJlLWRpc3RpbmN0LXBvaW50ZXItdHlwZXMgXA0KICAgID4gICAgICAtV25vLWdudS12YXJpYWJs
-ZS1zaXplZC10eXBlLW5vdC1hdC1lbmQgXA0KICAgID4gICAgICAtV25vLWFkZHJlc3Mtb2YtcGFj
-a2VkLW1lbWJlciAtV25vLXRhdXRvbG9naWNhbC1jb21wYXJlIFwNCiAgICA+ICAgICAgLVduby11
-bmtub3duLXdhcm5pbmctb3B0aW9uIFwNCiAgICA+ICAgICAgLU8yIC1lbWl0LWxsdm0gLWMgc2Ft
-cGxlcy9icGYvdGNwX3N5bnJ0b19rZXJuLmMgLW8gLXwgbGxjIC1tYXJjaD1icGYgLWZpbGV0eXBl
-PW9iaiAtbyBzYW1wbGVzL2JwZi90Y3Bfc3lucnRvX2tlcm4ubw0KICAgID4gc2FtcGxlcy9icGYv
-dGNwX3N5bnJ0b19rZXJuLmM6MjA6MTA6IGZhdGFsIGVycm9yOiAnYnBmX2VuZGlhbi5oJyBmaWxl
-IG5vdCBmb3VuZA0KICAgID4gICAgICAgICAgICBefn5+fn5+fn5+fn5+fg0KICAgID4gMSBlcnJv
-ciBnZW5lcmF0ZWQuDQogICAgPiA9PT09DQogICAgPg0KICAgID4gbmV0IGhhcyB0aGUgc2FtZSBp
-c3N1ZS4NCiAgICA+DQogICAgPiBBZGQgc3VwcG9ydCBmb3IgbnRvaGwgYW5kIGh0b25sIGluIHRv
-b2xzL3Rlc3Rpbmcvc2VsZnRlc3RzL2JwZi9icGZfZW5kaWFuLmguDQogICAgPiBBbHNvIG1vdmUg
-YnBmX2hlbHBlcnMuaCBmcm9tIHNhbXBsZXMvYnBmIHRvIHNlbGZ0ZXN0cy9icGYgYW5kIGNoYW5n
-ZQ0KICAgID4gY29tcGlsZXIgaW5jbHVkZSBsb2dpYyBzbyB0aGF0IHByb2dyYW1zIGluIHNhbXBs
-ZXMvYnBmIGNhbiBhY2Nlc3MgdGhlIGhlYWRlcnMNCiAgICA+IGluIHNlbGZ0ZXN0cy9icGYsIGJ1
-dCBub3QgdGhlIG90aGVyIHdheSBhcm91bmQuDQogICAgPg0KICAgID4gU2lnbmVkLW9mZi1ieTog
-WW9uZ2hvbmcgU29uZyA8eWhzQGZiLmNvbT4NCiAgICANCiAgICBMR1RNLCB0aGFua3MhDQogICAg
-DQogICAgQWNrZWQtYnk6IERhbmllbCBCb3JrbWFubiBkYW5pZWxAaW9nZWFyYm94Lm5ldA0KDQpB
-Y2tlZC1ieTogTGF3cmVuY2UgQnJha21vIDxicmFrbW9AZmIuY29tPg0KICAgIA0KDQo=
+ FYI
+
+I changed 4.12.0 drivers/net/phy/realtek.c RTL8211F code to equal the
+3.14.29 amlogic/ethernet/phy/am_realtek.c code and now the networking
+works without TCP stalls.
+
+I don't say below patch should be considered mainstream (as maybe some
+4.12.0 rtl8211f_config_init code should not be removed) but sure
+someone could figure out what best patch is...
+
+ --
+# diff -U2 realtek.c.orig realtek.c
+--- realtek.c.orig	2017-07-03 01:07:02.000000000 +0200
++++ realtek.c	2017-07-11 01:32:20.273445023 +0200
+@@ -94,28 +94,27 @@
+ }
+ 
++#define RTL8211F_MMD_CTRL       0x0D
++#define RTL8211F_MMD_DATA       0x0E
++#define RTL8211E_INER_LINK_STAT 0x10
++
+ static int rtl8211f_config_init(struct phy_device *phydev)
+ {
+-	int ret;
+-	u16 reg;
+-
+-	ret = genphy_config_init(phydev);
+-	if (ret < 0)
+-		return ret;
+-
+-	phy_write(phydev, RTL8211F_PAGE_SELECT, 0xd08);
+-	reg = phy_read(phydev, 0x11);
+-
+-	/* enable TX-delay for rgmii-id and rgmii-txid, otherwise disable it */
+-	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID ||
+-	    phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID)
+-		reg |= RTL8211F_TX_DELAY;
+-	else
+-		reg &= ~RTL8211F_TX_DELAY;
+-
+-	phy_write(phydev, 0x11, reg);
+-	/* restore to default page 0 */
+-	phy_write(phydev, RTL8211F_PAGE_SELECT, 0x0);
+-
++	int val;
++/* we want to disable eee */
++	phy_write(phydev, RTL8211F_MMD_CTRL, 0x7);
++	phy_write(phydev, RTL8211F_MMD_DATA, 0x3c);
++	phy_write(phydev, RTL8211F_MMD_CTRL, 0x4007);
++	phy_write(phydev, RTL8211F_MMD_DATA, 0x0);
++/* disable 1000m adv*/
++	val = phy_read(phydev, 0x9);
++	phy_write(phydev, 0x9, val&(~(1<<9)));
++/* rx reg 21 bit 3 tx reg 17 bit 8 */
++/*
++	phy_write(phydev, 0x1f, 0xd08);
++	val =  phy_read(phydev, 0x15);
++	phy_write(phydev, 0x15,val| 1<<21);
++ */
+ 	return 0;
++/* Enable Auto Power Saving mode */
+ }
+ 
+@@ -167,6 +166,6 @@
+ 		.name		= "RTL8211F Gigabit Ethernet",
+ 		.phy_id_mask	= 0x001fffff,
+-		.features	= PHY_GBIT_FEATURES,
+-		.flags		= PHY_HAS_INTERRUPT,
++		.features	= PHY_GBIT_FEATURES | SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++		.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
+ 		.config_aneg	= &genphy_config_aneg,
+ --
+
+
+On 2017 Jul 08, Marc Duponcheel wrote:
+> Hi all
+> 
+> Similar to 'crow'
+> 
+> ARM GLX Khadas VIM Pro - Ethernet detected as only 10Mbps and stalled after some traffic
+> 
+> I also have the situation where copying large file over LAN stalls.
+> 
+> 3.14.29 performance is good 4.12.0 performance not
+> 
+> 
+>  Perhaps one must compare 3.14.29 am_realtek.c and realtek.c with 4.12.0 realtek.c
+> 
+> 
+>  thanks
+
+have a nice day
