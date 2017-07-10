@@ -1,35 +1,32 @@
-From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [PATCH] wireless: iwlegacy: constify attribute_group structures.
-Date: Mon, 10 Jul 2017 15:12:53 +0530
-Message-ID: <4333d7c1a2e0c5def85b1d0a42672499890f9f4c.1499679699.git.arvind.yadav.cs@gmail.com>
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: sgruszka@redhat.com, kvalo@codeaurora.org, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 1/2 net] ptp: fix error codes in ptp_clock_register()
+Date: Mon, 10 Jul 2017 11:48:06 +0200
+Message-ID: <20170710094806.lsrua5iqnmnntc5m@localhost.localdomain>
+References: <20170710071137.ui2fhjkqzjqhkopz@mwanda>
+ <20170710092103.vnanagwpimk43zoz@localhost.localdomain>
+ <20170710093816.wz5uiqoyilgxmgh3@mwanda>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Ganesh Goudar <ganeshgr@chelsio.com>,
+        Atul Gupta <atul.gupta@chelsio.com>, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170710093816.wz5uiqoyilgxmgh3@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-attribute_groups are not supposed to change at runtime. All functions
-working with attribute_groups provided by <linux/sysfs.h> work
-with const attribute_group. So mark the non-const structs as const.
+On Mon, Jul 10, 2017 at 12:38:16PM +0300, Dan Carpenter wrote:
+> There were two buggy commits so I chose the ealier one.  The other buggy
 
-Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
----
- drivers/net/wireless/intel/iwlegacy/3945-mac.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+No, you are mistaken.  In the original patch, NULL or PTR_ERR were
+returned on error, and that was not a bug.
 
-diff --git a/drivers/net/wireless/intel/iwlegacy/3945-mac.c b/drivers/net/wireless/intel/iwlegacy/3945-mac.c
-index 38bf403..329f3a6 100644
---- a/drivers/net/wireless/intel/iwlegacy/3945-mac.c
-+++ b/drivers/net/wireless/intel/iwlegacy/3945-mac.c
-@@ -3464,7 +3464,7 @@ static DEVICE_ATTR(antenna, S_IWUSR | S_IRUGO, il3945_show_antenna,
- 	NULL
- };
- 
--static struct attribute_group il3945_attribute_group = {
-+static const struct attribute_group il3945_attribute_group = {
- 	.name = NULL,		/* put in device directory */
- 	.attrs = il3945_sysfs_entries,
- };
--- 
-1.9.1
+If you want to correct the present version of ptp_clock_register() to
+always return a valid pointer or PTR_ERR (like the kerneldoc says), be
+my guest, but please say that in the change log and reference the
+correct commit (namely the one related to disabling POSIX clocks.)
+
+Thanks,
+Richard
