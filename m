@@ -1,41 +1,63 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH 1/2 net] ptp: fix error codes in ptp_clock_register()
-Date: Mon, 10 Jul 2017 12:38:16 +0300
-Message-ID: <20170710093816.wz5uiqoyilgxmgh3@mwanda>
-References: <20170710071137.ui2fhjkqzjqhkopz@mwanda>
- <20170710092103.vnanagwpimk43zoz@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ganesh Goudar <ganeshgr@chelsio.com>,
-        Atul Gupta <atul.gupta@chelsio.com>, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:18291 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751835AbdGJJia (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2017 05:38:30 -0400
-Content-Disposition: inline
-In-Reply-To: <20170710092103.vnanagwpimk43zoz@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: [PATCH] net/mlx5: IPSec, fix 64-bit division correctly
+Date: Mon, 10 Jul 2017 11:37:51 +0200
+Message-ID: <20170710093842.2921914-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Yossi Kuperman <yossiku-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Yevgeny Kliteynik <kliteyn-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Boris Pismenny <borisp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 10, 2017 at 11:21:03AM +0200, Richard Cochran wrote:
-> On Mon, Jul 10, 2017 at 10:11:37AM +0300, Dan Carpenter wrote:
-> > The ptp_clock_register() function returns NULL when it's #ifdefed out
-> > because CONFIG_PTP_1588_CLOCK is disabled.  Otherwise, it's intended to
-> > return error pointers.  Unfortunately, there are a couple paths where we
-> > forget to set the error code.  It means that we could result in NULL
-> > pointer dereferences in the callers.
-> > 
-> > Fixes: d94ba80ebbea ("ptp: Added a brand new class driver for ptp clocks.")
-> 
-> This "Fixes" tag references the wrong commit.  Please correct it.
-> 
+The new IPSec offload code introduced a build error:
 
-There were two buggy commits so I chose the ealier one.  The other buggy
-commit is 85a66e550195 ("ptp: create "pins" together with the rest of
-attributes").  I should have CC'd Dmitry as well.  I can resend.
+drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.o: In function `mlx5e_ipsec_build_inverse_table':
+ipsec_rxtx.c:(.text+0x556): undefined reference
 
-regards,
-dan carpenter
+Another patch was added on top to fix the build error, but
+that introduced a new bug, as we now use the remainder of
+the division rather than the result.
+
+This makes it use the correct helper function instead.
+
+Fixes: 5dfd87b67cd9 ("net/mlx5: IPSec, Fix 64-bit division on 32-bit builds")
+Fixes: 2ac9cfe78223 ("net/mlx5e: IPSec, Add Innova IPSec offload TX data path")
+Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.c
+index 7d06c673851a..4614ddfa91eb 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.c
+@@ -363,7 +363,6 @@ void mlx5e_ipsec_build_inverse_table(void)
+ {
+ 	u16 mss_inv;
+ 	u32 mss;
+-	u64 n;
+ 
+ 	/* Calculate 1/x inverse table for use in GSO data path.
+ 	 * Using this table, we provide the IPSec accelerator with the value of
+@@ -373,8 +372,7 @@ void mlx5e_ipsec_build_inverse_table(void)
+ 	 */
+ 	mlx5e_ipsec_inverse_table[1] = htons(0xFFFF);
+ 	for (mss = 2; mss < MAX_LSO_MSS; mss++) {
+-		n = 1ULL << 32;
+-		mss_inv = do_div(n, mss) >> 16;
++		mss_inv = div_u64(1ULL << 32, mss) >> 16;
+ 		mlx5e_ipsec_inverse_table[mss] = htons(mss_inv);
+ 	}
+ }
+-- 
+2.9.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
