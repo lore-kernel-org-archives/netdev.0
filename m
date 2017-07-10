@@ -1,80 +1,52 @@
-From: Ryan Hsu <ryanhsu@qti.qualcomm.com>
-Subject: Re: WARN_ON_ONCE(work > weight) in napi_poll()
-Date: Mon, 10 Jul 2017 21:24:39 +0000
-Message-ID: <b418d63d-d348-90b5-ea58-6478a1a037f5@qca.qualcomm.com>
-References: <26670dce-4dd2-f8e4-0e14-90d74257e739@virtuozzo.com>
- <87wp7oia6j.fsf@kamboji.qca.qualcomm.com>
- <952aefe1-6f6a-3978-e7e7-5e74076f26a3@virtuozzo.com>
+From: Lawrence Brakmo <brakmo@fb.com>
+Subject: Re: [PATCH net v2] samples/bpf: fix a build issue
+Date: Mon, 10 Jul 2017 22:10:14 +0000
+Message-ID: <D09C7CAC-32AB-43D6-8518-7470C749AE4F@fb.com>
+References: <20170710210428.1292358-1-yhs@fb.com>
+ <5963EDE6.60408@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: quoted-printable
-Cc: Networking <netdev@vger.kernel.org>,
-        linux-wireless <linux-wireless@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        "ath10k@lists.infradead.org" <ath10k@lists.infradead.org>
-To: Andrey Ryabinin <aryabinin@virtuozzo.com>,
-        Kalle Valo <kvalo@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <952aefe1-6f6a-3978-e7e7-5e74076f26a3@virtuozzo.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Kernel Team <Kernel-team@fb.com>
+To: Daniel Borkmann <daniel@iogearbox.net>, Yonghong Song <yhs@fb.com>,
+        Alexei Starovoitov <ast@fb.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:45162 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754319AbdGJWKb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2017 18:10:31 -0400
+In-Reply-To: <5963EDE6.60408@iogearbox.net>
 Content-Language: en-US
-Content-ID: <B2B0AE3319A65944848DC3C7E0773828@qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-ID: <EC840A91962BE949B130F83527FADF8B@namprd15.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/04/2017 08:59 AM, Andrey Ryabinin wrote:
-
-> On 07/04/2017 04:49 PM, Kalle Valo wrote:
->> Andrey Ryabinin <aryabinin@virtuozzo.com> writes:
->>
->>> I occasionally hit WARN_ON_ONCE(work > weight); in napi_poll() on a
->>> laptop with ath10k card.
->>>
->>>
->>> [37207.593370] ------------[ cut here ]------------
->>> [37207.593380] WARNING: CPU: 0 PID: 7 at ../net/core/dev.c:5274
->>> net_rx_action+0x258/0x360
->>> [37207.593381] Modules linked in: snd_hda_codec_realtek snd_soc_skl
->>> snd_hda_codec_generic snd_soc_skl_ipc snd_soc_sst_ipc snd_soc_sst_dsp
->>> snd_hda_ext_core snd_soc_sst_match snd_soc_core rtsx_pci_sdmmc
->>> mmc_core snd_pcm_dmaengine x86_pkg_temp_thermal snd_hda_intel uvcvideo
->>> kvm_intel videobuf2_vmalloc kvm snd_hda_codec snd_hwdep btusb
->>> videobuf2_memops btintel snd_hda_core videobuf2_v4l2 bluetooth
->>> irqbypass snd_pcm videobuf2_core crc32c_intel videodev mei_me mei
->>> rtsx_pci intel_lpss_pci intel_lpss_acpi intel_vbtn intel_lpss mfd_core
->>> tpm_tis intel_hid tpm_tis_core tpm efivarfs
->>> [37207.593430] CPU: 0 PID: 7 Comm: ksoftirqd/0 Not tainted 4.11.7 #28
->>> [37207.593432] Hardware name: Dell Inc. XPS 13 9360/0839Y6, BIOS 1.3.5 =
-05/08/2017
->> What firmware and hardware versions exactly? The dmesg output when
->> ath10k loads is preferred. As you are using XPS 13 I'm guessing it's one
->> of QCA6174 family.
->>
-> Yes it's qca6174.
->
-> $ dmesg |grep ath10
-> [    0.624828] ath10k_pci 0000:3a:00.0: enabling device (0000 -> 0002)
-> [    0.626370] ath10k_pci 0000:3a:00.0: pci irq msi oper_irq_mode 2 irq_m=
-ode 0 reset_mode 0
-> [    0.837862] ath10k_pci 0000:3a:00.0: qca6174 hw3.2 target 0x05030000 c=
-hip_id 0x00340aff sub 1a56:1535
-> [    0.837863] ath10k_pci 0000:3a:00.0: kconfig debug 0 debugfs 1 tracing=
- 0 dfs 0 testmode 0
-> [    0.838388] ath10k_pci 0000:3a:00.0: firmware ver WLAN.RM.2.0-00180-QC=
-ARMSWPZ-1 api 4 features wowlan,ignore-otp,no-4addr-pad crc32 75dee6c5
-> [    0.900606] ath10k_pci 0000:3a:00.0: board_file api 2 bmi_id N/A crc32=
- 19644295
-> [    3.020681] ath10k_pci 0000:3a:00.0: htt-ver 3.26 wmi-op 4 htt-op 3 ca=
-l otp max-sta 32 raw 0 hwcrypto 1
-> [    9.574087] ath10k_pci 0000:3a:00.0 wlp58s0: renamed from wlan0
->
-
-I can't reproduce of this past few days, not sure if this is due to the ams=
-du packets received from AP, would you mind share what Ap you're using?
-And if there any specific steps you're doing?
-
-Also WLAN.RM.2.0-00180-QCARMSWPZ-1 firmware is a bit old, could you also up=
-date firmware to give it a try?
-https://github.com/kvalo/ath10k-firmware/tree/master/QCA6174/hw3.0/4.4
-
---=20
-Ryan Hsu
+DQoNCk9uIDcvMTAvMTcsIDI6MTMgUE0sICJEYW5pZWwgQm9ya21hbm4iIDxkYW5pZWxAaW9nZWFy
+Ym94Lm5ldD4gd3JvdGU6DQoNCiAgICBPbiAwNy8xMC8yMDE3IDExOjA0IFBNLCBZb25naG9uZyBT
+b25nIHdyb3RlOg0KICAgID4gV2l0aCBsYXRlc3QgbmV0LW5leHQ6DQogICAgPiA9PT09DQogICAg
+PiBjbGFuZyAgLW5vc3RkaW5jIC1pc3lzdGVtIC91c3IvbGliL2djYy94ODZfNjQtcmVkaGF0LWxp
+bnV4LzYuMy4xL2luY2x1ZGUgLUkuL2FyY2gveDg2L2luY2x1ZGUgLUkuL2FyY2gveDg2L2luY2x1
+ZGUvZ2VuZXJhdGVkL3VhcGkgLUkuL2FyY2gveDg2L2luY2x1ZGUvZ2VuZXJhdGVkICAtSS4vaW5j
+bHVkZSAtSS4vYXJjaC94ODYvaW5jbHVkZS91YXBpIC1JLi9pbmNsdWRlL3VhcGkgLUkuL2luY2x1
+ZGUvZ2VuZXJhdGVkL3VhcGkgLWluY2x1ZGUgLi9pbmNsdWRlL2xpbnV4L2tjb25maWcuaCAgLUlz
+YW1wbGVzL2JwZiBcDQogICAgPiAgICAgIC1EX19LRVJORUxfXyAtRF9fQVNNX1NZU1JFR19IIC1X
+bm8tdW51c2VkLXZhbHVlIC1Xbm8tcG9pbnRlci1zaWduIFwNCiAgICA+ICAgICAgLVduby1jb21w
+YXJlLWRpc3RpbmN0LXBvaW50ZXItdHlwZXMgXA0KICAgID4gICAgICAtV25vLWdudS12YXJpYWJs
+ZS1zaXplZC10eXBlLW5vdC1hdC1lbmQgXA0KICAgID4gICAgICAtV25vLWFkZHJlc3Mtb2YtcGFj
+a2VkLW1lbWJlciAtV25vLXRhdXRvbG9naWNhbC1jb21wYXJlIFwNCiAgICA+ICAgICAgLVduby11
+bmtub3duLXdhcm5pbmctb3B0aW9uIFwNCiAgICA+ICAgICAgLU8yIC1lbWl0LWxsdm0gLWMgc2Ft
+cGxlcy9icGYvdGNwX3N5bnJ0b19rZXJuLmMgLW8gLXwgbGxjIC1tYXJjaD1icGYgLWZpbGV0eXBl
+PW9iaiAtbyBzYW1wbGVzL2JwZi90Y3Bfc3lucnRvX2tlcm4ubw0KICAgID4gc2FtcGxlcy9icGYv
+dGNwX3N5bnJ0b19rZXJuLmM6MjA6MTA6IGZhdGFsIGVycm9yOiAnYnBmX2VuZGlhbi5oJyBmaWxl
+IG5vdCBmb3VuZA0KICAgID4gICAgICAgICAgICBefn5+fn5+fn5+fn5+fg0KICAgID4gMSBlcnJv
+ciBnZW5lcmF0ZWQuDQogICAgPiA9PT09DQogICAgPg0KICAgID4gbmV0IGhhcyB0aGUgc2FtZSBp
+c3N1ZS4NCiAgICA+DQogICAgPiBBZGQgc3VwcG9ydCBmb3IgbnRvaGwgYW5kIGh0b25sIGluIHRv
+b2xzL3Rlc3Rpbmcvc2VsZnRlc3RzL2JwZi9icGZfZW5kaWFuLmguDQogICAgPiBBbHNvIG1vdmUg
+YnBmX2hlbHBlcnMuaCBmcm9tIHNhbXBsZXMvYnBmIHRvIHNlbGZ0ZXN0cy9icGYgYW5kIGNoYW5n
+ZQ0KICAgID4gY29tcGlsZXIgaW5jbHVkZSBsb2dpYyBzbyB0aGF0IHByb2dyYW1zIGluIHNhbXBs
+ZXMvYnBmIGNhbiBhY2Nlc3MgdGhlIGhlYWRlcnMNCiAgICA+IGluIHNlbGZ0ZXN0cy9icGYsIGJ1
+dCBub3QgdGhlIG90aGVyIHdheSBhcm91bmQuDQogICAgPg0KICAgID4gU2lnbmVkLW9mZi1ieTog
+WW9uZ2hvbmcgU29uZyA8eWhzQGZiLmNvbT4NCiAgICANCiAgICBMR1RNLCB0aGFua3MhDQogICAg
+DQogICAgQWNrZWQtYnk6IERhbmllbCBCb3JrbWFubiBkYW5pZWxAaW9nZWFyYm94Lm5ldA0KDQpB
+Y2tlZC1ieTogTGF3cmVuY2UgQnJha21vIDxicmFrbW9AZmIuY29tPg0KICAgIA0KDQo=
