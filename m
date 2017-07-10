@@ -1,133 +1,45 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch] mqueue: fix netlink sock refcnt and skb refcnt
-Date: Sun,  9 Jul 2017 22:08:23 -0700
-Message-ID: <1499663303-4514-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: linux-kernel@vger.kernel.org, Cong Wang <xiyou.wangcong@gmail.com>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Manfred Spraul <manfred@colorfullife.com>
-To: netdev@vger.kernel.org
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH 1/3] net: stmmac: Fix error handling path in
+ 'alloc_dma_rx_desc_resources()'
+Date: Mon, 10 Jul 2017 08:21:50 +0200
+Message-ID: <fce9a8f9-437b-2c14-a733-d8ec956f66c8@st.com>
+References: <cover.1499499451.git.christophe.jaillet@wanadoo.fr>
+ <12c5a0a87b6ef1ae40e35e247703082a671f2934.1499499451.git.christophe.jaillet@wanadoo.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <kernel-janitors@vger.kernel.org>
+To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>,
+        <alexandre.torgue@st.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <12c5a0a87b6ef1ae40e35e247703082a671f2934.1499499451.git.christophe.jaillet@wanadoo.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-netlink_sendskb() is problematic, it releases sock refcnt
-silently which could cause troubles we can call it multiple
-times. info->notify_sock is a good example where we
-setup once and use it to send netlink skb's for many times.
-It should not hold or release any refcnt, but needs to rely
-on netlink_attachskb()/netlink_detachskb() to hold/release
-the corresponding refcnt.
+On 7/8/2017 9:46 AM, Christophe JAILLET wrote:
+> If the first 'kmalloc_array' within the loop fails, we should free what
+> as already been allocated, as done in all other error handling path.
+>
+> Fixes: 54139cf3bb33 ("net: stmmac: adding multiple buffers for rx")
+> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 
-Same for the skb attached to this sock, it is allocated once
-and used for multiple times, so we should hold its refcnt
-in netlink_attachskb().
+Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-At last, we need to call netlink_detachskb() to release
-both refcnt's after we remove the notification.
-
-Cc: Linus Torvalds <torvalds@linux-foundation.org>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Manfred Spraul <manfred@colorfullife.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- ipc/mqueue.c             |  1 +
- net/netlink/af_netlink.c | 25 ++++++++++---------------
- 2 files changed, 11 insertions(+), 15 deletions(-)
-
-diff --git a/ipc/mqueue.c b/ipc/mqueue.c
-index eb1391b..8b0a0ce 100644
---- a/ipc/mqueue.c
-+++ b/ipc/mqueue.c
-@@ -683,6 +683,7 @@ static void remove_notification(struct mqueue_inode_info *info)
- 	    info->notify.sigev_notify == SIGEV_THREAD) {
- 		set_cookie(info->notify_cookie, NOTIFY_REMOVED);
- 		netlink_sendskb(info->notify_sock, info->notify_cookie);
-+		netlink_detachskb(info->notify_sock, info->notify_cookie);
- 	}
- 	put_pid(info->notify_owner);
- 	put_user_ns(info->notify_user_ns);
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 5acee49..9f2d6ca 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1159,8 +1159,8 @@ static struct sk_buff *netlink_alloc_large_skb(unsigned int size,
-  * all error checks are performed and memory in the queue is reserved.
-  * Return values:
-  * < 0: error. skb freed, reference to sock dropped.
-- * 0: continue
-- * 1: repeat lookup - reference dropped while waiting for socket memory.
-+ * 0: continue - skb reference is held.
-+ * 1: repeat lookup - sock reference dropped while waiting for socket memory.
-  */
- int netlink_attachskb(struct sock *sk, struct sk_buff *skb,
- 		      long *timeo, struct sock *ssk)
-@@ -1198,11 +1198,12 @@ int netlink_attachskb(struct sock *sk, struct sk_buff *skb,
- 		}
- 		return 1;
- 	}
-+	skb_get(skb);
- 	netlink_skb_set_owner_r(skb, sk);
- 	return 0;
- }
- 
--static int __netlink_sendskb(struct sock *sk, struct sk_buff *skb)
-+int netlink_sendskb(struct sock *sk, struct sk_buff *skb)
- {
- 	int len = skb->len;
- 
-@@ -1213,14 +1214,6 @@ static int __netlink_sendskb(struct sock *sk, struct sk_buff *skb)
- 	return len;
- }
- 
--int netlink_sendskb(struct sock *sk, struct sk_buff *skb)
--{
--	int len = __netlink_sendskb(sk, skb);
--
--	sock_put(sk);
--	return len;
--}
--
- void netlink_detachskb(struct sock *sk, struct sk_buff *skb)
- {
- 	kfree_skb(skb);
-@@ -1303,7 +1296,9 @@ int netlink_unicast(struct sock *ssk, struct sk_buff *skb,
- 	if (err)
- 		return err;
- 
--	return netlink_sendskb(sk, skb);
-+	err = netlink_sendskb(sk, skb);
-+	netlink_detachskb(sk, skb);
-+	return err;
- }
- EXPORT_SYMBOL(netlink_unicast);
- 
-@@ -1333,7 +1328,7 @@ static int netlink_broadcast_deliver(struct sock *sk, struct sk_buff *skb)
- 	if (atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf &&
- 	    !test_bit(NETLINK_S_CONGESTED, &nlk->state)) {
- 		netlink_skb_set_owner_r(skb, sk);
--		__netlink_sendskb(sk, skb);
-+		netlink_sendskb(sk, skb);
- 		return atomic_read(&sk->sk_rmem_alloc) > (sk->sk_rcvbuf >> 1);
- 	}
- 	return -1;
-@@ -2183,7 +2178,7 @@ static int netlink_dump(struct sock *sk)
- 		if (sk_filter(sk, skb))
- 			kfree_skb(skb);
- 		else
--			__netlink_sendskb(sk, skb);
-+			netlink_sendskb(sk, skb);
- 		return 0;
- 	}
- 
-@@ -2198,7 +2193,7 @@ static int netlink_dump(struct sock *sk)
- 	if (sk_filter(sk, skb))
- 		kfree_skb(skb);
- 	else
--		__netlink_sendskb(sk, skb);
-+		netlink_sendskb(sk, skb);
- 
- 	if (cb->done)
- 		cb->done(cb);
--- 
-2.5.5
+> ---
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index 19bba6281dab..4322fa4a13e8 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -1498,7 +1498,7 @@ static int alloc_dma_rx_desc_resources(struct stmmac_priv *priv)
+>   						    sizeof(dma_addr_t),
+>   						    GFP_KERNEL);
+>   		if (!rx_q->rx_skbuff_dma)
+> -			return -ENOMEM;
+> +			goto err_dma;
+>   
+>   		rx_q->rx_skbuff = kmalloc_array(DMA_RX_SIZE,
+>   						sizeof(struct sk_buff *),
