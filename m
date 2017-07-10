@@ -1,46 +1,40 @@
-From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Subject: Re: [PATCH iproute2 V3 0/4] RDMAtool
-Date: Mon, 10 Jul 2017 10:02:30 +0200
-Message-ID: <20170710080230.GD1853@nanopsycho>
-References: <20170704075541.12544-1-leon@kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] netdevice: add netdev_pub helper function
+Date: Mon, 10 Jul 2017 09:04:07 +0100 (WEST)
+Message-ID: <20170710.090407.1592129544725682024.davem@davemloft.net>
+References: <20150612.142058.1085284048217032168.davem@davemloft.net>
+        <20170710031959.7496-1-Jason@zx2c4.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Ariel Almog <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Linux RDMA <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170704075541.12544-1-leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jason@zx2c4.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170710031959.7496-1-Jason@zx2c4.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Tue, Jul 04, 2017 at 09:55:37AM CEST, leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org wrote:
->Hi,
->
->This is third version of series implementing the RDAMtool -  the tool
->to configure RDMA devices. The initial proposal was sent as RFC [1] and
->was based on sysfs entries as POC.
->
->The current series was rewritten completely to work with RDMA netlinks as
->a source of user<->kernel communications. In order to achieve that, the
->RDMA netlinks were extensively refactored and modernized [2, 3, 4 and 5].
->
->The following is an example of various runs on my machine with 5 devices
->(4 in IB mode and one in Ethernet mode)
->
->### Without parameters
->$ rdma
->Usage: rdma [ OPTIONS ] OBJECT { COMMAND | help }
->where  OBJECT := { dev | link | help }
->       OPTIONS := { -V[ersion] | -d[etails]}
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Date: Mon, 10 Jul 2017 05:19:58 +0200
 
-What about json output? You will need it sooner than later. It will
-prevent you from a lot of headaches if you implement it right away.
-Lesson learned...
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Being able to utilize this makes code a lot simpler and cleaner. It's
+> easier in many cases for drivers to pass around their private data
+> structure, while occationally needing to dip into net_device, rather
+> than the other way around, which results in tons of calls to netdev_priv
+> in the top of every single function, which makes everything confusing
+> and less clear. Additionally, this enables a "correct" way of doing such
+> a thing, instead of having drivers attempt to reinvent the wheel and
+> screw it up.
+> 
+> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+
+I disagree.  Assuming one can go from the driver private to the netdev
+object trivially is a worse assumption than the other way around, and
+locks us into the current implementation of how the netdev and driver
+private memory is allocated.
+
+If you want to style your driver such that the private is passed
+around instead of the netdev, put a pointer back to the netdev object
+in your private data structure.
+
+Which is exactly what the ioc3-eth driver ought to be doing.
