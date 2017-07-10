@@ -1,46 +1,101 @@
-From: Alan Ott <alan@signal11.us>
-Subject: Re: [PATCH v2] mrf24j40: Fix en error handling path in
- 'mrf24j40_probe()'
-Date: Mon, 10 Jul 2017 15:24:17 -0400
-Message-ID: <581ccccf-a605-3472-a4a6-9ccb99c78da1@signal11.us>
-References: <20170708084013.18620-1-christophe.jaillet@wanadoo.fr>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next RFC 10/12] net: dsa: Move FDB dump implementation inside DSA
+Date: Mon, 10 Jul 2017 15:36:00 -0400
+Message-ID: <87wp7g5bkv.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1499268990-19251-1-git-send-email-arkadis@mellanox.com> <1499268990-19251-11-git-send-email-arkadis@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>,
-        alex.aring@gmail.com, stefan@osg.samsung.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170708084013.18620-1-christophe.jaillet@wanadoo.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
+        f.fainelli@gmail.com, andrew@lunn.ch, Woojung.Huh@microchip.com,
+        stephen@networkplumber.org, mlxsw@mellanox.com,
+        Arkadi Sharshevsky <arkadis@mellanox.com>
+To: Arkadi Sharshevsky <arkadis@mellanox.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:49978 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754097AbdGJTif (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2017 15:38:35 -0400
+In-Reply-To: <1499268990-19251-11-git-send-email-arkadis@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/08/2017 04:40 AM, Christophe JAILLET wrote:
-> If this check fails, we must release some resources as done everywhere
-> else in this function before returning an error code.
->
-> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-> ---
-> V2: initialization of ret in this erro path ws missing. Stupid me!
-> ---
->  drivers/net/ieee802154/mrf24j40.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ieee802154/mrf24j40.c b/drivers/net/ieee802154/mrf24j40.c
-> index 7d334963dc08..da8683782ffc 100644
-> --- a/drivers/net/ieee802154/mrf24j40.c
-> +++ b/drivers/net/ieee802154/mrf24j40.c
-> @@ -1330,7 +1330,8 @@ static int mrf24j40_probe(struct spi_device *spi)
->  	if (spi->max_speed_hz > MAX_SPI_SPEED_HZ) {
->  		dev_warn(&spi->dev, "spi clock above possible maximum: %d",
->  			 MAX_SPI_SPEED_HZ);
-> -		return -EINVAL;
-> +		ret = -EINVAL;
-> +		goto err_register_device;
->  	}
->
->  	ret = mrf24j40_hw_init(devrec);
->
+Hi Arkadi,
 
-Acked-by: Alan Ott <alan@signal11.us>
+Arkadi Sharshevsky <arkadis@mellanox.com> writes:
+
+> +struct dsa_slave_dump_ctx {
+> +	struct net_device *dev;
+> +	struct sk_buff *skb;
+> +	struct netlink_callback *cb;
+> +	int idx;
+> +};
+> +
+>  struct dsa_switch_ops {
+>  	/*
+>  	 * Legacy probing.
+> @@ -392,9 +399,7 @@ struct dsa_switch_ops {
+>  	int	(*port_fdb_del)(struct dsa_switch *ds, int port,
+>  				const unsigned char *addr, u16 vid);
+>  	int	(*port_fdb_dump)(struct dsa_switch *ds, int port,
+> -				 struct switchdev_obj_port_fdb *fdb,
+> -				  switchdev_obj_dump_cb_t *cb);
+> -
+> +				 struct dsa_slave_dump_ctx *dump);
+
+I would prefer to pass a callback to the driver, so that we can call
+port_fdb_dump for other interfaces like debugfs, and for non exposed
+switch ports (CPU and DSA links) as well. Something like:
+
+    typedef int dsa_fdb_dump_cb_t(const unsigned char *addr, u16 vid,
+                                  bool is_static, void *data);
+
+    int (*port_fdb_dump)(struct dsa_switch *ds, int port,
+                         dsa_fdb_dump_cb_t *cb, void *data);
+
+Then dsa_slave_dump_ctx and dsa_slave_port_fdb_do_dump can be static to
+net/dsa/slave.c.
+
+> +int dsa_slave_port_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
+> +			    struct net_device *dev,
+> +			    struct net_device *filter_dev, int *idx)
+> +{
+> +	struct dsa_slave_dump_ctx dump = {
+> +		.dev = dev,
+> +		.skb = skb,
+> +		.cb = cb,
+> +		.idx = *idx,
+> +	};
+> +	struct dsa_slave_priv *p = netdev_priv(dev);
+> +	struct dsa_port *dp = p->dp;
+> +	struct dsa_switch *ds = dp->ds;
+> +	int err;
+> +
+> +	if (!ds->ops->port_fdb_dump) {
+> +		err = -EOPNOTSUPP;
+> +		goto out;
+> +	}
+> +
+> +	err = ds->ops->port_fdb_dump(ds, dp->index, &dump);
+> +out:
+> +	*idx = dump.idx;
+> +	return err;
+
+There is no need to reassign *idx in case of error:
+
+    if (!ds->ops->port_fdb_dump)
+        return -EOPNOTSUPP;
+
+    err = ds->ops->port_fdb_dump(ds, dp->index, &dump);
+    *idx = dump.idx;
+
+    return err;
+
+> +	.ndo_fdb_dump		= dsa_slave_port_fdb_dump,
+
+And s/dsa_slave_port_fdb_dump/dsa_slave_fdb_dump/ here will be even
+better ;-)
+
+
+Thanks,
+
+        Vivien
