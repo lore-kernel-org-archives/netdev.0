@@ -1,50 +1,59 @@
-From: "Robert Kim" <""@unhas.ac.id>
-Subject: Salutation from London
-Date: Mon, 10 Jul 2017 14:06:00 +0100
-Message-ID: <20170710130611.3FDEC6B5CE@mail.unhas.ac.id>
-Reply-To: frankfltd@yahoo.co.uk
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCH] netns: avoid directory traversal (was: ip netns: Make
+ sure netns name is sane)
+Date: Mon, 10 Jul 2017 15:07:44 +0200
+Message-ID: <20170710130744.GC16375@orbyte.nwl.cc>
+References: <20170710120831.9355-1-mcroce@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+        Stephen Hemminger <stephen@networkplumber.org>
+To: Matteo Croce <mcroce@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.unhas.ac.id ([103.195.142.4]:59268 "EHLO mail.unhas.ac.id"
+Received: from orbyte.nwl.cc ([151.80.46.58]:52273 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753528AbdGJNGN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 10 Jul 2017 09:06:13 -0400
-Received: from localhost (localhost [127.0.0.1])
-        by mail.unhas.ac.id (Postfix) with ESMTP id 3FDEC6B5CE
-        for <netdev@vger.kernel.org>; Mon, 10 Jul 2017 21:06:11 +0800 (WITA)
-Received: from mail.unhas.ac.id ([127.0.0.1])
-        by localhost (mail.unhas.ac.id [127.0.0.1]) (amavisd-new, port 10024)
-        with ESMTP id uc87bnTnQ264 for <netdev@vger.kernel.org>;
-        Mon, 10 Jul 2017 21:06:11 +0800 (WITA)
-Received: from [192.168.8.100] (unknown [197.211.63.32])
-        by mail.unhas.ac.id (Postfix) with ESMTPA id B83006B5AE
-        for <netdev@vger.kernel.org>; Mon, 10 Jul 2017 21:06:06 +0800 (WITA)
-Content-Description: Mail message body
+        id S1753538AbdGJNHq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 10 Jul 2017 09:07:46 -0400
+Content-Disposition: inline
+In-Reply-To: <20170710120831.9355-1-mcroce@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Good Day,
- =
+Hi Matteo,
 
-Please Whoever this email meets, i need your co-operation and to introduce =
-myself I am Robert Kim and i work with an intermediary bank. i discovered f=
-rom my bank data assessment as the bank auditor general that a deceased cus=
-tomer left in one of his accounts GBP15,000,000.00 and no one is aware of t=
-his for the past 7 years and eight months . I am in search of anyone who  c=
-an allow me file in His/Her name as the benefactor/Next of Kin to receive t=
-his money with 100 percent risk free after which we can split the money 50/=
-40 and then 10% goes to the lawyer who would be handling the affairs .I awa=
-it your response with the following information..........
-1. Full name and address
-2. Occupation
-3. Telephone
-4. ID
- =
+On Mon, Jul 10, 2017 at 02:08:31PM +0200, Matteo Croce wrote:
+> I noticed that your patch still leaves an uncovered scenario, the one where the
+> namespace name is "." or "..".
+> Calling 'ip netns del ..' will remove /var/run which is a symlink to /run on
+> most systems causing some daemons, eg. dbus, to fail.
 
-Kind Regards
-Robert Kim
+Oh, indeed. My patch even checks the name for 'ip netns add' only!
 
-=20
+> ip netns doesn't validate input, allowing creation and deletion of files
+> relatives to /var/run/netns.
+> This patch denies creation or deletion of namespaces with names contaning
+> "/" or that matches exactly "." or "..".
+
+You might want to have a look at --scissors option to git-am for a more
+elegant way of sending a reply with attached patch.
+
+[...]
+>  int do_netns(int argc, char **argv)
+>  {
+>  	netns_nsid_socket_init();
+> @@ -775,6 +780,11 @@ int do_netns(int argc, char **argv)
+>  		return netns_list(0, NULL);
+>  	}
+>  
+> +	if (argc > 1 && invalid_name(argv[1])) {
+> +		fprintf(stderr, "Invalid netns name \"%s\"\n", argv[1]);
+> +		exit(-1);
+> +	}
+
+Maybe worth noting, this assumes argv[1] will be used for the netns name
+which doesn't hold for 'ip netns identify' command. It doesn't matter
+though, since netns_identify() enforces the parameter to be either
+"self" or a decimal number. Yet, in future a new subcommand might be
+added which requires this check to be refactored.
+
+Thanks, Phil
