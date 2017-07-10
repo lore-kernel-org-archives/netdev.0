@@ -1,58 +1,42 @@
-From: Ilan Tayari <ilant@mellanox.com>
-Subject: RE: [PATCH] net/mlx5: IPSec, fix 64-bit division correctly
-Date: Mon, 10 Jul 2017 09:57:47 +0000
-Message-ID: <AM4PR0501MB19405DA4B7430E02897CF0B9DBA90@AM4PR0501MB1940.eurprd05.prod.outlook.com>
-References: <20170710093842.2921914-1-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Matan Barak <matanb@mellanox.com>,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Yossi Kuperman <yossiku@mellanox.com>,
-        Yevgeny Kliteynik <kliteyn@mellanox.com>,
-        Boris Pismenny <borisp@mellanox.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>, Saeed Mahameed <saeedm@mellanox.com>
+From: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Subject: [PATCH] arcnet: com20020-pci: constify attribute_group structures.
+Date: Mon, 10 Jul 2017 15:35:45 +0530
+Message-ID: <380810ace8ad6a9b2ecb35dfc647a1196eb40da2.1499681020.git.arvind.yadav.cs@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: m.grzeschik@pengutronix.de, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170710093842.2921914-1-arnd@arndb.de>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBBcm5kIEJlcmdtYW5uIFttYWls
-dG86YXJuZEBhcm5kYi5kZV0NCj4gU3ViamVjdDogW1BBVENIXSBuZXQvbWx4NTogSVBTZWMsIGZp
-eCA2NC1iaXQgZGl2aXNpb24gY29ycmVjdGx5DQo+IA0KPiBUaGUgbmV3IElQU2VjIG9mZmxvYWQg
-Y29kZSBpbnRyb2R1Y2VkIGEgYnVpbGQgZXJyb3I6DQo+IA0KPiBkcml2ZXJzL25ldC9ldGhlcm5l
-dC9tZWxsYW5veC9tbHg1L2NvcmUvZW5fYWNjZWwvaXBzZWNfcnh0eC5vOiBJbiBmdW5jdGlvbg0K
-PiBgbWx4NWVfaXBzZWNfYnVpbGRfaW52ZXJzZV90YWJsZSc6DQo+IGlwc2VjX3J4dHguYzooLnRl
-eHQrMHg1NTYpOiB1bmRlZmluZWQgcmVmZXJlbmNlDQo+IA0KPiBBbm90aGVyIHBhdGNoIHdhcyBh
-ZGRlZCBvbiB0b3AgdG8gZml4IHRoZSBidWlsZCBlcnJvciwgYnV0DQo+IHRoYXQgaW50cm9kdWNl
-ZCBhIG5ldyBidWcsIGFzIHdlIG5vdyB1c2UgdGhlIHJlbWFpbmRlciBvZg0KPiB0aGUgZGl2aXNp
-b24gcmF0aGVyIHRoYW4gdGhlIHJlc3VsdC4NCj4gDQo+IFRoaXMgbWFrZXMgaXQgdXNlIHRoZSBj
-b3JyZWN0IGhlbHBlciBmdW5jdGlvbiBpbnN0ZWFkLg0KPiANCj4gRml4ZXM6IDVkZmQ4N2I2N2Nk
-OSAoIm5ldC9tbHg1OiBJUFNlYywgRml4IDY0LWJpdCBkaXZpc2lvbiBvbiAzMi1iaXQNCj4gYnVp
-bGRzIikNCj4gRml4ZXM6IDJhYzljZmU3ODIyMyAoIm5ldC9tbHg1ZTogSVBTZWMsIEFkZCBJbm5v
-dmEgSVBTZWMgb2ZmbG9hZCBUWCBkYXRhDQo+IHBhdGgiKQ0KPiBTaWduZWQtb2ZmLWJ5OiBBcm5k
-IEJlcmdtYW5uIDxhcm5kQGFybmRiLmRlPg0KPiAtLS0NCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0
-L21lbGxhbm94L21seDUvY29yZS9lbl9hY2NlbC9pcHNlY19yeHR4LmMgfCA0ICstLS0NCj4gIDEg
-ZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKSwgMyBkZWxldGlvbnMoLSkNCj4gDQo+IGRpZmYg
-LS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9tZWxsYW5veC9tbHg1L2NvcmUvZW5fYWNjZWwv
-aXBzZWNfcnh0eC5jDQo+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVsbGFub3gvbWx4NS9jb3Jl
-L2VuX2FjY2VsL2lwc2VjX3J4dHguYw0KPiBpbmRleCA3ZDA2YzY3Mzg1MWEuLjQ2MTRkZGZhOTFl
-YiAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVsbGFub3gvbWx4NS9jb3Jl
-L2VuX2FjY2VsL2lwc2VjX3J4dHguYw0KPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9tZWxs
-YW5veC9tbHg1L2NvcmUvZW5fYWNjZWwvaXBzZWNfcnh0eC5jDQo+IEBAIC0zNjMsNyArMzYzLDYg
-QEAgdm9pZCBtbHg1ZV9pcHNlY19idWlsZF9pbnZlcnNlX3RhYmxlKHZvaWQpDQo+ICB7DQo+ICAJ
-dTE2IG1zc19pbnY7DQo+ICAJdTMyIG1zczsNCj4gLQl1NjQgbjsNCj4gDQo+ICAJLyogQ2FsY3Vs
-YXRlIDEveCBpbnZlcnNlIHRhYmxlIGZvciB1c2UgaW4gR1NPIGRhdGEgcGF0aC4NCj4gIAkgKiBV
-c2luZyB0aGlzIHRhYmxlLCB3ZSBwcm92aWRlIHRoZSBJUFNlYyBhY2NlbGVyYXRvciB3aXRoIHRo
-ZSB2YWx1ZQ0KPiBvZg0KPiBAQCAtMzczLDggKzM3Miw3IEBAIHZvaWQgbWx4NWVfaXBzZWNfYnVp
-bGRfaW52ZXJzZV90YWJsZSh2b2lkKQ0KPiAgCSAqLw0KPiAgCW1seDVlX2lwc2VjX2ludmVyc2Vf
-dGFibGVbMV0gPSBodG9ucygweEZGRkYpOw0KPiAgCWZvciAobXNzID0gMjsgbXNzIDwgTUFYX0xT
-T19NU1M7IG1zcysrKSB7DQo+IC0JCW4gPSAxVUxMIDw8IDMyOw0KPiAtCQltc3NfaW52ID0gZG9f
-ZGl2KG4sIG1zcykgPj4gMTY7DQo+ICsJCW1zc19pbnYgPSBkaXZfdTY0KDFVTEwgPDwgMzIsIG1z
-cykgPj4gMTY7DQoNClRoYW5rcyBBcm5kLCANCg0KOm8NCkknbSBzdXJwcmlzZWQuLi4gbGV0IG1l
-IGNoZWNrIHRoaXMuLi4NCg0KPiAgCQltbHg1ZV9pcHNlY19pbnZlcnNlX3RhYmxlW21zc10gPSBo
-dG9ucyhtc3NfaW52KTsNCj4gIAl9DQo+ICB9DQo+IC0tDQo+IDIuOS4wDQoNCg==
+attribute_groups are not supposed to change at runtime. All functions
+working with attribute_groups provided by <linux/netdevice.h> work
+with const attribute_group. So mark the non-const structs as const.
+
+File size before:
+   text	   data	    bss	    dec	    hex	filename
+   3409	    948	     28	   4385	   1121	drivers/net/arcnet/com20020-pci.o
+
+File size After adding 'const':
+   text	   data	    bss	    dec	    hex	filename
+   3473	    884	     28	   4385	   1121	drivers/net/arcnet/com20020-pci.o
+
+Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
+---
+ drivers/net/arcnet/com20020-pci.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/arcnet/com20020-pci.c b/drivers/net/arcnet/com20020-pci.c
+index 01cab95..eb7f767 100644
+--- a/drivers/net/arcnet/com20020-pci.c
++++ b/drivers/net/arcnet/com20020-pci.c
+@@ -109,7 +109,7 @@ static ssize_t backplane_mode_show(struct device *dev,
+ 	NULL,
+ };
+ 
+-static struct attribute_group com20020_state_group = {
++static const struct attribute_group com20020_state_group = {
+ 	.name = NULL,
+ 	.attrs = com20020_state_attrs,
+ };
+-- 
+1.9.1
