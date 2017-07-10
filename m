@@ -1,35 +1,43 @@
-From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [PATCH] wireless: iwlegacy: Constify attribute_group structures.
-Date: Mon, 10 Jul 2017 15:21:42 +0530
-Message-ID: <ec85da590a1239a98e24b696eb11e3cf1739fd4d.1499680248.git.arvind.yadav.cs@gmail.com>
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: sgruszka@redhat.com, kvalo@codeaurora.org, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 2/2 net] cxgb4: ptp_clock_register() returns error
+ pointers
+Date: Mon, 10 Jul 2017 11:56:45 +0200
+Message-ID: <20170710095645.sqyl2i5de3duxxtl@localhost.localdomain>
+References: <20170710071137.ui2fhjkqzjqhkopz@mwanda>
+ <20170710071615.k6b6726cwushhdmm@mwanda>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Ganesh Goudar <ganeshgr@chelsio.com>,
+        Atul Gupta <atul.gupta@chelsio.com>, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f173.google.com ([209.85.128.173]:34157 "EHLO
+        mail-wr0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753312AbdGJJ4w (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2017 05:56:52 -0400
+Content-Disposition: inline
+In-Reply-To: <20170710071615.k6b6726cwushhdmm@mwanda>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-attribute_groups are not supposed to change at runtime. All functions
-working with attribute_groups provided by <linux/sysfs.h> work
-with const attribute_group. So mark the non-const structs as const.
+On Mon, Jul 10, 2017 at 10:16:15AM +0300, Dan Carpenter wrote:
+> We're checking ptp_clock_register() for NULL but we should be checking
+> for error pointers.
 
-Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
----
- drivers/net/wireless/intel/iwlegacy/4965-mac.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+No.
 
-diff --git a/drivers/net/wireless/intel/iwlegacy/4965-mac.c b/drivers/net/wireless/intel/iwlegacy/4965-mac.c
-index 5b51fba..de9b652 100644
---- a/drivers/net/wireless/intel/iwlegacy/4965-mac.c
-+++ b/drivers/net/wireless/intel/iwlegacy/4965-mac.c
-@@ -4654,7 +4654,7 @@ static DEVICE_ATTR(tx_power, S_IWUSR | S_IRUGO, il4965_show_tx_power,
- 	NULL
- };
- 
--static struct attribute_group il_attribute_group = {
-+static const struct attribute_group il_attribute_group = {
- 	.name = NULL,		/* put in device directory */
- 	.attrs = il_sysfs_entries,
- };
--- 
-1.9.1
+> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ptp.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ptp.c
+> index 50517cfd9671..c24313a103c6 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ptp.c
+> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ptp.c
+> @@ -441,7 +441,7 @@ void cxgb4_ptp_init(struct adapter *adapter)
+>  
+>  	adapter->ptp_clock = ptp_clock_register(&adapter->ptp_clock_info,
+>  						&adapter->pdev->dev);
+> -	if (!adapter->ptp_clock) {
+
+Yeah, that is wrong, but the fix is to check to IS_ERR or NULL.
+
+Thanks,
+Richard
