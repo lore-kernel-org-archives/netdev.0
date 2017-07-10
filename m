@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next RFC 4/4] net: sched: allow ingress and clsact qdiscs to share filter blocks
-Date: Mon, 10 Jul 2017 20:51:10 +0200
-Message-ID: <20170710185110.3180-5-jiri@resnulli.us>
+Subject: [patch net-next RFC 1/4] net: sched: introduce support for multiple filter chain pointers registration
+Date: Mon, 10 Jul 2017 20:51:07 +0200
+Message-ID: <20170710185110.3180-2-jiri@resnulli.us>
 References: <20170710185110.3180-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         edumazet@google.com, stephen@networkplumber.org, jbenc@redhat.com,
@@ -11,226 +11,171 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         daniel@iogearbox.net, ogerlitz@mellanox.com, mrv@mojatatu.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:35064 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754658AbdGJSvU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2017 14:51:20 -0400
-Received: by mail-wr0-f195.google.com with SMTP id z45so27005379wrb.2
-        for <netdev@vger.kernel.org>; Mon, 10 Jul 2017 11:51:20 -0700 (PDT)
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:35021 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754620AbdGJSvQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2017 14:51:16 -0400
+Received: by mail-wr0-f196.google.com with SMTP id z45so27004788wrb.2
+        for <netdev@vger.kernel.org>; Mon, 10 Jul 2017 11:51:15 -0700 (PDT)
 In-Reply-To: <20170710185110.3180-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Benefit from the previously introduced shared filter blocks
-infrastructure and allow ingress and clsact qdisc instances to share
-filter blocks. The block index is coming from userspace as qdisc option.
+So far, there was possible only to register a single filter chain
+pointer to a block->chain[0]. However, when the blocks will get
+shareable, we need to allow multiple filter chain pointers registration.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/uapi/linux/pkt_sched.h |  12 +++++
- net/sched/sch_ingress.c        | 107 ++++++++++++++++++++++++++++++++++++++---
- 2 files changed, 112 insertions(+), 7 deletions(-)
+ include/net/sch_generic.h |  2 +-
+ net/sched/cls_api.c       | 66 ++++++++++++++++++++++++++++++++++++++++-------
+ 2 files changed, 57 insertions(+), 11 deletions(-)
 
-diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
-index 099bf55..a684087 100644
---- a/include/uapi/linux/pkt_sched.h
-+++ b/include/uapi/linux/pkt_sched.h
-@@ -871,4 +871,16 @@ struct tc_pie_xstats {
- 	__u32 maxq;             /* maximum queue size */
- 	__u32 ecn_mark;         /* packets marked with ecn*/
- };
-+
-+/* Ingress/clsact */
-+
-+enum {
-+	TCA_CLSACT_UNSPEC,
-+	TCA_CLSACT_INGRESS_BLOCK,
-+	TCA_CLSACT_EGRESS_BLOCK,
-+	__TCA_CLSACT_MAX
-+};
-+
-+#define TCA_CLSACT_MAX	(__TCA_CLSACT_MAX - 1)
-+
- #endif
-diff --git a/net/sched/sch_ingress.c b/net/sched/sch_ingress.c
-index d8a9beb..f18b257 100644
---- a/net/sched/sch_ingress.c
-+++ b/net/sched/sch_ingress.c
-@@ -58,13 +58,42 @@ static struct tcf_block *ingress_tcf_block(struct Qdisc *sch, unsigned long cl)
- 	return q->block;
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 1c123e2..7396de8 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -257,7 +257,7 @@ struct qdisc_skb_cb {
+ 
+ struct tcf_chain {
+ 	struct tcf_proto __rcu *filter_chain;
+-	struct tcf_proto __rcu **p_filter_chain;
++	struct list_head filter_chain_list;
+ 	struct list_head list;
+ 	struct tcf_block *block;
+ 	u32 index; /* chain index */
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 39da0c5..411f5577 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -186,6 +186,11 @@ static void tcf_proto_destroy(struct tcf_proto *tp)
+ 	kfree_rcu(tp, rcu);
  }
  
-+static const struct nla_policy ingress_policy[TCA_CLSACT_MAX + 1] = {
-+	[TCA_CLSACT_INGRESS_BLOCK]	= { .type = NLA_U32 },
++struct tfc_filter_chain_list_item {
++	struct list_head list;
++	struct tcf_proto __rcu **p_filter_chain;
 +};
 +
-+static int ingress_parse_opt(struct nlattr *opt, u32 *p_ingress_block_index)
+ static struct tcf_chain *tcf_chain_create(struct tcf_block *block,
+ 					  u32 chain_index)
+ {
+@@ -194,6 +199,7 @@ static struct tcf_chain *tcf_chain_create(struct tcf_block *block,
+ 	chain = kzalloc(sizeof(*chain), GFP_KERNEL);
+ 	if (!chain)
+ 		return NULL;
++	INIT_LIST_HEAD(&chain->filter_chain_list);
+ 	list_add_tail(&chain->list, &block->chain_list);
+ 	chain->block = block;
+ 	chain->index = chain_index;
+@@ -203,10 +209,11 @@ static struct tcf_chain *tcf_chain_create(struct tcf_block *block,
+ 
+ static void tcf_chain_flush(struct tcf_chain *chain)
+ {
++	struct tfc_filter_chain_list_item *item;
+ 	struct tcf_proto *tp;
+ 
+-	if (*chain->p_filter_chain)
+-		RCU_INIT_POINTER(*chain->p_filter_chain, NULL);
++	list_for_each_entry(item, &chain->filter_chain_list, list)
++		RCU_INIT_POINTER(*item->p_filter_chain, NULL);
+ 	while ((tp = rtnl_dereference(chain->filter_chain)) != NULL) {
+ 		RCU_INIT_POINTER(chain->filter_chain, tp->next);
+ 		tcf_proto_destroy(tp);
+@@ -248,11 +255,40 @@ void tcf_chain_put(struct tcf_chain *chain)
+ }
+ EXPORT_SYMBOL(tcf_chain_put);
+ 
++static int
++tcf_chain_filter_chain_ptr_add(struct tcf_chain *chain,
++			       struct tcf_proto __rcu **p_filter_chain)
 +{
-+	struct nlattr *tb[TCA_CLSACT_MAX + 1];
-+	int err;
++	struct tfc_filter_chain_list_item *item;
 +
-+	*p_ingress_block_index = 0;
-+
-+	if (!opt)
-+		return 0;
-+	err = nla_parse_nested(tb, TCA_CLSACT_MAX, opt, ingress_policy, NULL);
-+	if (err)
-+		return err;
-+
-+	if (tb[TCA_CLSACT_INGRESS_BLOCK])
-+		*p_ingress_block_index =
-+			nla_get_u32(tb[TCA_CLSACT_INGRESS_BLOCK]);
++	item = kmalloc(sizeof(*item), GFP_KERNEL);
++	if (!item)
++		return -ENOMEM;
++	item->p_filter_chain = p_filter_chain;
++	list_add(&item->list, &chain->filter_chain_list);
 +	return 0;
 +}
 +
- static int ingress_init(struct Qdisc *sch, struct nlattr *opt)
+ static void
+-tcf_chain_filter_chain_ptr_set(struct tcf_chain *chain,
++tcf_chain_filter_chain_ptr_del(struct tcf_chain *chain,
+ 			       struct tcf_proto __rcu **p_filter_chain)
  {
- 	struct ingress_sched_data *q = qdisc_priv(sch);
- 	struct net_device *dev = qdisc_dev(sch);
-+	u32 ingress_block_index;
- 	int err;
- 
--	err = tcf_block_get(&q->block, &dev->ingress_cl_list);
-+	err = ingress_parse_opt(opt, &ingress_block_index);
-+	if (err)
-+		return err;
+-	chain->p_filter_chain = p_filter_chain;
++	struct tfc_filter_chain_list_item *item;
 +
-+	err = tcf_block_get_shared(&q->block, qdisc_net(sch),
-+				   ingress_block_index, &dev->ingress_cl_list);
- 	if (err)
- 		return err;
- 
-@@ -77,18 +106,22 @@ static int ingress_init(struct Qdisc *sch, struct nlattr *opt)
- static void ingress_destroy(struct Qdisc *sch)
- {
- 	struct ingress_sched_data *q = qdisc_priv(sch);
-+	struct net_device *dev = qdisc_dev(sch);
- 
--	tcf_block_put(q->block);
-+	tcf_block_put_shared(q->block, qdisc_net(sch), &dev->ingress_cl_list);
- 	net_dec_ingress_queue();
++	list_for_each_entry(item, &chain->filter_chain_list, list) {
++		if (!p_filter_chain ||
++		    item->p_filter_chain == p_filter_chain) {
++			list_del(&item->list);
++			kfree(item);
++			return;
++		}
++	}
++	WARN_ON(1);
++}
++
++static struct tcf_chain *tcf_block_chain_zero(struct tcf_block *block)
++{
++	return list_first_entry(&block->chain_list, struct tcf_chain, list);
  }
  
- static int ingress_dump(struct Qdisc *sch, struct sk_buff *skb)
- {
-+	struct ingress_sched_data *q = qdisc_priv(sch);
- 	struct nlattr *nest;
- 
- 	nest = nla_nest_start(skb, TCA_OPTIONS);
- 	if (nest == NULL)
- 		goto nla_put_failure;
-+	if (nla_put_u32(skb, TCA_CLSACT_INGRESS_BLOCK, q->block->index))
-+		goto nla_put_failure;
- 
- 	return nla_nest_end(skb, nest);
- 
-@@ -159,17 +192,54 @@ static struct tcf_block *clsact_tcf_block(struct Qdisc *sch, unsigned long cl)
+ int tcf_block_get(struct tcf_block **p_block,
+@@ -271,7 +307,7 @@ int tcf_block_get(struct tcf_block **p_block,
+ 		err = -ENOMEM;
+ 		goto err_chain_create;
  	}
- }
+-	tcf_chain_filter_chain_ptr_set(chain, p_filter_chain);
++	tcf_chain_filter_chain_ptr_add(chain, p_filter_chain);
+ 	*p_block = block;
+ 	return 0;
  
-+static const struct nla_policy clsact_policy[TCA_CLSACT_MAX + 1] = {
-+	[TCA_CLSACT_INGRESS_BLOCK]	= { .type = NLA_U32 },
-+	[TCA_CLSACT_EGRESS_BLOCK]	= { .type = NLA_U32 },
-+};
+@@ -288,6 +324,8 @@ void tcf_block_put(struct tcf_block *block)
+ 	if (!block)
+ 		return;
+ 
++	tcf_chain_filter_chain_ptr_del(tcf_block_chain_zero(block), NULL);
 +
-+static int clsact_parse_opt(struct nlattr *opt, u32 *p_ingress_block_index,
-+			    u32 *p_egress_block_index)
-+{
-+	struct nlattr *tb[TCA_CLSACT_MAX + 1];
-+	int err;
-+
-+	*p_ingress_block_index = 0;
-+	*p_egress_block_index = 0;
-+
-+	if (!opt)
-+		return 0;
-+	err = nla_parse_nested(tb, TCA_CLSACT_MAX, opt, clsact_policy, NULL);
-+	if (err)
-+		return err;
-+
-+	if (tb[TCA_CLSACT_INGRESS_BLOCK])
-+		*p_ingress_block_index =
-+			nla_get_u32(tb[TCA_CLSACT_INGRESS_BLOCK]);
-+	if (tb[TCA_CLSACT_EGRESS_BLOCK])
-+		*p_egress_block_index =
-+			nla_get_u32(tb[TCA_CLSACT_EGRESS_BLOCK]);
-+	return 0;
-+}
-+
- static int clsact_init(struct Qdisc *sch, struct nlattr *opt)
+ 	list_for_each_entry_safe(chain, tmp, &block->chain_list, list)
+ 		tcf_chain_destroy(chain);
+ 	kfree(block);
+@@ -362,9 +400,13 @@ static void tcf_chain_tp_insert(struct tcf_chain *chain,
+ 				struct tcf_chain_info *chain_info,
+ 				struct tcf_proto *tp)
  {
- 	struct clsact_sched_data *q = qdisc_priv(sch);
- 	struct net_device *dev = qdisc_dev(sch);
-+	u32 ingress_block_index;
-+	u32 egress_block_index;
- 	int err;
- 
--	err = tcf_block_get(&q->ingress_block, &dev->ingress_cl_list);
-+	err = clsact_parse_opt(opt, &ingress_block_index, &egress_block_index);
- 	if (err)
- 		return err;
- 
--	err = tcf_block_get(&q->egress_block, &dev->egress_cl_list);
-+	err = tcf_block_get_shared(&q->ingress_block, qdisc_net(sch),
-+				   ingress_block_index, &dev->ingress_cl_list);
-+	if (err)
-+		return err;
+-	if (chain->p_filter_chain &&
+-	    *chain_info->pprev == chain->filter_chain)
+-		rcu_assign_pointer(*chain->p_filter_chain, tp);
++	if (*chain_info->pprev == chain->filter_chain) {
++		struct tfc_filter_chain_list_item *item;
 +
-+	err = tcf_block_get_shared(&q->egress_block, qdisc_net(sch),
-+				   egress_block_index, &dev->egress_cl_list);
- 	if (err)
- 		return err;
- 
-@@ -184,14 +254,37 @@ static int clsact_init(struct Qdisc *sch, struct nlattr *opt)
- static void clsact_destroy(struct Qdisc *sch)
- {
- 	struct clsact_sched_data *q = qdisc_priv(sch);
-+	struct net_device *dev = qdisc_dev(sch);
- 
--	tcf_block_put(q->egress_block);
--	tcf_block_put(q->ingress_block);
-+	tcf_block_put_shared(q->egress_block, qdisc_net(sch),
-+			     &dev->ingress_cl_list);
-+	tcf_block_put_shared(q->ingress_block, qdisc_net(sch),
-+			     &dev->egress_cl_list);
- 
- 	net_dec_ingress_queue();
- 	net_dec_egress_queue();
++		list_for_each_entry(item, &chain->filter_chain_list, list)
++			rcu_assign_pointer(*item->p_filter_chain, tp);
++	}
++
+ 	RCU_INIT_POINTER(tp->next, tcf_chain_tp_prev(chain_info));
+ 	rcu_assign_pointer(*chain_info->pprev, tp);
  }
+@@ -375,8 +417,12 @@ static void tcf_chain_tp_remove(struct tcf_chain *chain,
+ {
+ 	struct tcf_proto *next = rtnl_dereference(chain_info->next);
  
-+static int clsact_dump(struct Qdisc *sch, struct sk_buff *skb)
-+{
-+	struct clsact_sched_data *q = qdisc_priv(sch);
-+	struct nlattr *nest;
+-	if (chain->p_filter_chain && tp == chain->filter_chain)
+-		RCU_INIT_POINTER(*chain->p_filter_chain, next);
++	if (tp == chain->filter_chain) {
++		struct tfc_filter_chain_list_item *item;
 +
-+	nest = nla_nest_start(skb, TCA_OPTIONS);
-+	if (!nest)
-+		goto nla_put_failure;
-+	if (nla_put_u32(skb, TCA_CLSACT_INGRESS_BLOCK, q->ingress_block->index))
-+		goto nla_put_failure;
-+	if (nla_put_u32(skb, TCA_CLSACT_EGRESS_BLOCK, q->egress_block->index))
-+		goto nla_put_failure;
-+
-+	return nla_nest_end(skb, nest);
-+
-+nla_put_failure:
-+	nla_nest_cancel(skb, nest);
-+	return -1;
-+}
-+
- static const struct Qdisc_class_ops clsact_class_ops = {
- 	.leaf		=	ingress_leaf,
- 	.get		=	clsact_get,
-@@ -209,7 +302,7 @@ static struct Qdisc_ops clsact_qdisc_ops __read_mostly = {
- 	.priv_size	=	sizeof(struct clsact_sched_data),
- 	.init		=	clsact_init,
- 	.destroy	=	clsact_destroy,
--	.dump		=	ingress_dump,
-+	.dump		=	clsact_dump,
- 	.owner		=	THIS_MODULE,
- };
++		list_for_each_entry(item, &chain->filter_chain_list, list)
++			RCU_INIT_POINTER(*item->p_filter_chain, next);
++	}
+ 	RCU_INIT_POINTER(*chain_info->pprev, next);
+ }
  
 -- 
 2.9.3
