@@ -1,51 +1,75 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net/mlx5: IPSec, fix 64-bit division correctly
-Date: Mon, 10 Jul 2017 08:45:43 -0700
-Message-ID: <1499701543.5468.11.camel@perches.com>
-References: <20170710093842.2921914-1-arnd@arndb.de>
-         <AM4PR0501MB194094863514236D1BE04C62DBA90@AM4PR0501MB1940.eurprd05.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Matan Barak <matanb@mellanox.com>,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Yossi Kuperman <yossiku@mellanox.com>,
-        Yevgeny Kliteynik <kliteyn@mellanox.com>,
-        Boris Pismenny <borisp@mellanox.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Ilan Tayari <ilant@mellanox.com>, Arnd Bergmann <arnd@arndb.de>,
-        Saeed Mahameed <saeedm@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AM4PR0501MB194094863514236D1BE04C62DBA90@AM4PR0501MB1940.eurprd05.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Biju Das <biju.das@bp.renesas.com>
+Subject: [PATCH v2] dt-bindings: net: ravb : Add support for r8a7743 SoC
+Date: Mon, 10 Jul 2017 16:32:56 +0100
+Message-ID: <1499700776-54504-1-git-send-email-biju.das@bp.renesas.com>
+References: <20170710012024.j4cso2jyi6canws2@rob-hp-laptop>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Simon Horman <horms@verge.net.au>,
+        Magnus Damm <magnus.damm@gmail.com>,
+        Chris Paterson <chris.paterson2@renesas.com>,
+        devicetree@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+        Biju Das <biju.das@bp.renesas.com>
+To: Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Russell King <linux@armlinux.org.uk>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <20170710012024.j4cso2jyi6canws2@rob-hp-laptop>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2017-07-10 at 10:24 +0000, Ilan Tayari wrote:
-> > -----Original Message-----
-> > From: Arnd Bergmann [mailto:arnd@arndb.de]
-> > Subject: [PATCH] net/mlx5: IPSec, fix 64-bit division correctly
-> > 
-> > The new IPSec offload code introduced a build error:
-> > 
-> > drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.o: In function
-> > `mlx5e_ipsec_build_inverse_table':
-> > ipsec_rxtx.c:(.text+0x556): undefined reference
-> > 
-> > Another patch was added on top to fix the build error, but
-> > that introduced a new bug, as we now use the remainder of
-> > the division rather than the result.
+Add a new compatible string for the RZ/G1M (R8A7743) SoC.
 
-Is it possible to return noise in mlx5e_ipsec_mss_inv ?
+Signed-off-by: Biju Das <biju.das@bp.renesas.com>
+---
+v1->v2
+* Changed the subject
+* re-formatted the required properties
 
-What clamps skb_shinfo(skb)->gso_size to MAX_LSO
-(the size of inverse_table)?
+ .../devicetree/bindings/net/renesas,ravb.txt       | 29 +++++++++++++---------
+ 1 file changed, 17 insertions(+), 12 deletions(-)
 
-#define MAX_LSO_MSS 2048
-static __be16 mlx5e_ipsec_inverse_table[MAX_LSO_MSS];
-
-static inline __be16 mlx5e_ipsec_mss_inv(struct sk_buff *skb)
-{
-	return mlx5e_ipsec_inverse_table[skb_shinfo(skb)->gso_size];
-}
+diff --git a/Documentation/devicetree/bindings/net/renesas,ravb.txt b/Documentation/devicetree/bindings/net/renesas,ravb.txt
+index b519503..4717bc2 100644
+--- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
++++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
+@@ -4,19 +4,24 @@ This file provides information on what the device node for the Ethernet AVB
+ interface contains.
+ 
+ Required properties:
+-- compatible: "renesas,etheravb-r8a7790" if the device is a part of R8A7790 SoC.
+-	      "renesas,etheravb-r8a7791" if the device is a part of R8A7791 SoC.
+-	      "renesas,etheravb-r8a7792" if the device is a part of R8A7792 SoC.
+-	      "renesas,etheravb-r8a7793" if the device is a part of R8A7793 SoC.
+-	      "renesas,etheravb-r8a7794" if the device is a part of R8A7794 SoC.
+-	      "renesas,etheravb-r8a7795" if the device is a part of R8A7795 SoC.
+-	      "renesas,etheravb-r8a7796" if the device is a part of R8A7796 SoC.
+-	      "renesas,etheravb-rcar-gen2" for generic R-Car Gen 2 compatible interface.
+-	      "renesas,etheravb-rcar-gen3" for generic R-Car Gen 3 compatible interface.
++- compatible: Must contain one or more of the following:
++      - "renesas,etheravb-r8a7743" for the R8A7743 SoC.
++      - "renesas,etheravb-r8a7790" for the R8A7790 SoC.
++      - "renesas,etheravb-r8a7791" for the R8A7791 SoC.
++      - "renesas,etheravb-r8a7792" for the R8A7792 SoC.
++      - "renesas,etheravb-r8a7793" for the R8A7793 SoC.
++      - "renesas,etheravb-r8a7794" for the R8A7794 SoC.
++      - "renesas,etheravb-rcar-gen2" as a fallback for the above
++		R-Car Gen2 and RZ/G1 devices.
+ 
+-	      When compatible with the generic version, nodes must list the
+-	      SoC-specific version corresponding to the platform first
+-	      followed by the generic version.
++      - "renesas,etheravb-r8a7795" for the R8A7795 SoC.
++      - "renesas,etheravb-r8a7796" for the R8A7796 SoC.
++      - "renesas,etheravb-rcar-gen3" as a fallback for the above
++		R-Car Gen3 devices.
++
++	When compatible with the generic version, nodes must list the
++	SoC-specific version corresponding to the platform first followed by
++	the generic version.
+ 
+ - reg: offset and length of (1) the register block and (2) the stream buffer.
+ - interrupts: A list of interrupt-specifiers, one for each entry in
+-- 
+1.9.1
