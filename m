@@ -1,124 +1,82 @@
-From: Biju Das <biju.das@bp.renesas.com>
-Subject: RE: [PATCH v 1/2] ravb: Add support for r8a7743 SoC
-Date: Mon, 10 Jul 2017 08:20:59 +0000
-Message-ID: <KL1PR06MB1702B70F6F217FF33A103E7AB8A90@KL1PR06MB1702.apcprd06.prod.outlook.com>
-References: <1499259711-56175-1-git-send-email-biju.das@bp.renesas.com>
- <1499259711-56175-2-git-send-email-biju.das@bp.renesas.com>
- <20170710012024.j4cso2jyi6canws2@rob-hp-laptop>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v2 2/2] ARM: shmobile: defconfig: Enable Ethernet AVB
+Date: Mon, 10 Jul 2017 10:38:47 +0200
+Message-ID: <20170710083847.GH13680@verge.net.au>
+References: <afcd181c-c805-8f3c-955f-652d001a03d4@cogentembedded.com>
+ <1499270189-29945-1-git-send-email-biju.das@bp.renesas.com>
+ <1499270189-29945-3-git-send-email-biju.das@bp.renesas.com>
+ <12c32eee-8e4d-457e-97d7-625a5c63ad59@cogentembedded.com>
+ <TY1PR06MB07020F58F15C964FC1AA1D22B7D50@TY1PR06MB0702.apcprd06.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Mark Rutland <mark.rutland@arm.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Biju Das <biju.das@bp.renesas.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
         Russell King <linux@armlinux.org.uk>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Simon Horman <horms@verge.net.au>,
         Magnus Damm <magnus.damm@gmail.com>,
-        Chris Paterson <Chris.Paterson2@renesas.com>,
         "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
         "linux-renesas-soc@vger.kernel.org"
         <linux-renesas-soc@vger.kernel.org>,
         "linux-arm-kernel@lists.infradead.org"
         <linux-arm-kernel@lists.infradead.org>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Rob Herring <robh@kernel.org>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20170710012024.j4cso2jyi6canws2@rob-hp-laptop>
-Content-Language: en-US
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Chris Paterson <Chris.Paterson2@renesas.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:59955 "EHLO
+        kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752531AbdGJIiw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2017 04:38:52 -0400
+Content-Disposition: inline
+In-Reply-To: <TY1PR06MB07020F58F15C964FC1AA1D22B7D50@TY1PR06MB0702.apcprd06.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Thu, Jul 06, 2017 at 08:05:43AM +0000, Chris Paterson wrote:
+> Hello Sergei, 
+> 
+> Thank you for your comments.
+> 
+> > From: Sergei Shtylyov [mailto:sergei.shtylyov@cogentembedded.com]
+> > Sent: 05 July 2017 17:14
+> > 
+> > Hello!
+> > 
+> > On 07/05/2017 06:56 PM, Biju Das wrote:
+> > 
+> > > The iWave RZ/G1M Q7 SOM supports Gigabit Ethernet Phy (Micrel
+> > KSZ9031MNX).
+> > > Gigabit Ethernet support is available in Renesas AVB driver.
+> > > To increase hardware support enable the driver in the
+> > > shmobile_defconfig multiplatform configuration.
+> > >
+> > > Signed-off-by: Biju Das <biju.das@bp.renesas.com>
+> > > Reviewed-by: Chris Paterson <chris.paterson2@renesas.com>
+> > > Acked-by: Geert Uytterhoeven <geert+renesas@glider.be>
+> > > ---
+> > >  arch/arm/configs/shmobile_defconfig | 1 +
+> > >  1 file changed, 1 insertion(+)
+> > >
+> > > diff --git a/arch/arm/configs/shmobile_defconfig
+> > > b/arch/arm/configs/shmobile_defconfig
+> > > index 3c66a42..d992911 100644
+> > > --- a/arch/arm/configs/shmobile_defconfig
+> > > +++ b/arch/arm/configs/shmobile_defconfig
+> > > @@ -83,6 +83,7 @@ CONFIG_NETDEVICES=y
+> > >  # CONFIG_NET_VENDOR_MICREL is not set  #
+> > CONFIG_NET_VENDOR_NATSEMI is
+> > > not set  CONFIG_SH_ETH=y
+> > > +CONFIG_RAVB=y
+> > 
+> >     Hm, I would enable it only as a module, given it's not easy to make use of
+> > AVB on the 32-bit boards.
+> 
+> On the iWave-M platforms the only available Ethernet interface is AVB.
+> Without including the RAVB driver in the Kernel we won't be able to use
+> NFS.
+> 
+> I know adding CONFIG_RAVB for all shmobile devices may increase the
+> Kernel size for everyone, especially when most cannot use AVB without an
+> add-on board, but I don't think the increase will be big.
 
-Thanks for the review.
-
-> -----Original Message-----
-> From: Rob Herring [mailto:robh@kernel.org]
-> Sent: 10 July 2017 02:20
-> To: Biju Das <biju.das@bp.renesas.com>
-> Cc: Mark Rutland <mark.rutland@arm.com>; Russell King
-> <linux@armlinux.org.uk>; Sergei Shtylyov
-> <sergei.shtylyov@cogentembedded.com>; Simon Horman
-> <horms@verge.net.au>; Magnus Damm <magnus.damm@gmail.com>; Chris
-> Paterson <Chris.Paterson2@renesas.com>; devicetree@vger.kernel.org; linux=
--
-> renesas-soc@vger.kernel.org; linux-arm-kernel@lists.infradead.org;
-> netdev@vger.kernel.org
-> Subject: Re: [PATCH v 1/2] ravb: Add support for r8a7743 SoC
->
-> On Wed, Jul 05, 2017 at 02:01:50PM +0100, Biju Das wrote:
-> > Add support for Gigabit Ethernet E-MAC on r8a7743 (RZ/G1M) SoC.
-> > Renesas RZ/G1M (R8A7743) SoC Ethernet AVB IP is identical to the R-Car
-> > Gen2 family.
->
-> For the subject: "dt-bindings: net: ..."
-
-I will change the subject to "dt-bindings: net: ravb: ..
-
->
-> >
-> > Signed-off-by: Biju Das <biju.das@bp.renesas.com>
-> > Reviewed-by: Chris Paterson <chris.paterson2@renesas.com>
-> > ---
-> >  Documentation/devicetree/bindings/net/renesas,ravb.txt | 3 ++-
-> >  drivers/net/ethernet/renesas/ravb_main.c               | 1 +
-> >  2 files changed, 3 insertions(+), 1 deletion(-)
-> >
-> > diff --git a/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> > b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> > index b519503..bc692ab 100644
-> > --- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> > +++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> > @@ -4,7 +4,8 @@ This file provides information on what the device node
-> > for the Ethernet AVB  interface contains.
-> >
-> >  Required properties:
-> > -- compatible: "renesas,etheravb-r8a7790" if the device is a part of R8=
-A7790
-> SoC.
-> > +- compatible: "renesas,etheravb-r8a7743" if the device is a part of R8=
-A7743
-> SoC.
-> > +      "renesas,etheravb-r8a7790" if the device is a part of R8A7790 So=
-C.
->
-> Please re-format like this:
->
-> - compatible: Must be one of:
-> ...
->
-Ok. I will change this as well.
-
-> So it's a one line change to add new compatibles.
->
-> >        "renesas,etheravb-r8a7791" if the device is a part of R8A7791 So=
-C.
-> >        "renesas,etheravb-r8a7792" if the device is a part of R8A7792 So=
-C.
-> >        "renesas,etheravb-r8a7793" if the device is a part of R8A7793 So=
-C.
-> > diff --git a/drivers/net/ethernet/renesas/ravb_main.c
-> > b/drivers/net/ethernet/renesas/ravb_main.c
-> > index 5931e85..e35b30f 100644
-> > --- a/drivers/net/ethernet/renesas/ravb_main.c
-> > +++ b/drivers/net/ethernet/renesas/ravb_main.c
-> > @@ -1869,6 +1869,7 @@ static int ravb_mdio_release(struct ravb_private
-> > *priv)  }
-> >
-> >  static const struct of_device_id ravb_match_table[] =3D {
-> > +{ .compatible =3D "renesas,etheravb-r8a7743", .data =3D (void
-> > +*)RCAR_GEN2 },
-> >  { .compatible =3D "renesas,etheravb-r8a7790", .data =3D (void
-> *)RCAR_GEN2 },
-> >  { .compatible =3D "renesas,etheravb-r8a7794", .data =3D (void
-> *)RCAR_GEN2 },
-> >  { .compatible =3D "renesas,etheravb-rcar-gen2", .data =3D (void
-> > *)RCAR_GEN2 },
-> > --
-> > 1.9.1
-> >
-
-
-
-Renesas Electronics Europe Ltd, Dukes Meadow, Millboard Road, Bourne End, B=
-uckinghamshire, SL8 5FH, UK. Registered in England & Wales under Registered=
- No. 04586709.
+Thanks for the explanation, applied for v4.14.
