@@ -1,42 +1,48 @@
-From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [PATCH] arcnet: com20020-pci: constify attribute_group structures.
-Date: Mon, 10 Jul 2017 15:35:45 +0530
-Message-ID: <380810ace8ad6a9b2ecb35dfc647a1196eb40da2.1499681020.git.arvind.yadav.cs@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: m.grzeschik@pengutronix.de, davem@davemloft.net
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [GIT] Networking
+Date: Mon, 10 Jul 2017 18:05:32 +0800
+Message-ID: <20170710100531.GA14940@gondor.apana.org.au>
+References: <20170708.113644.1272962770645338865.davem@davemloft.net>
+ <CA+55aFzocFTX5JR9oG_5uKw-fT6OJUMkD71sypbec7JP=_qwpg@mail.gmail.com>
+ <20170709191131.GB22224@oracle.com>
+ <20170709.214043.1361767365552001158.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: sowmini.varadhan@oracle.com, torvalds@linux-foundation.org,
+        akpm@linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170709.214043.1361767365552001158.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-attribute_groups are not supposed to change at runtime. All functions
-working with attribute_groups provided by <linux/netdevice.h> work
-with const attribute_group. So mark the non-const structs as const.
+On Sun, Jul 09, 2017 at 09:40:43PM +0100, David Miller wrote:
+>
+> > It look like PF_ALG sets up a ->sk in alg_create() (but this
+> > would get over-written in alg_accept()?) 
 
-File size before:
-   text	   data	    bss	    dec	    hex	filename
-   3409	    948	     28	   4385	   1121	drivers/net/arcnet/com20020-pci.o
+No it does not.  The struct socket comes from sys_accept() and
+AFAICS it doesn't carry a struck sock with it.
 
-File size After adding 'const':
-   text	   data	    bss	    dec	    hex	filename
-   3473	    884	     28	   4385	   1121	drivers/net/arcnet/com20020-pci.o
+> > Cc'ing Herbert to see if this is expected behavior (and PF_ALG
+> > somehow does the right thing with the refcount for the ->sk
+> > set up in alg_create) in which case I suppose we should drop the 
+> > WARN_ON. 
+> 
+> I think we've found yet another socket leak, this time in
+> AF_ALG.
 
-Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
----
- drivers/net/arcnet/com20020-pci.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Hmm, I can't see the problem in af_alg_accept.  The struct socket
+comes directly from sys_accept() which creates it using sock_alloc.
 
-diff --git a/drivers/net/arcnet/com20020-pci.c b/drivers/net/arcnet/com20020-pci.c
-index 01cab95..eb7f767 100644
---- a/drivers/net/arcnet/com20020-pci.c
-+++ b/drivers/net/arcnet/com20020-pci.c
-@@ -109,7 +109,7 @@ static ssize_t backplane_mode_show(struct device *dev,
- 	NULL,
- };
- 
--static struct attribute_group com20020_state_group = {
-+static const struct attribute_group com20020_state_group = {
- 	.name = NULL,
- 	.attrs = com20020_state_attrs,
- };
+So the only thing I can think of is that the memory returned by
+sock_alloc is not zeroed and therefore the WARN_ON is just reading
+garbage.
+
+Cheers,
 -- 
-1.9.1
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
