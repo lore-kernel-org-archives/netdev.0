@@ -1,60 +1,53 @@
-From: Matteo Croce <mcroce@redhat.com>
-Subject: [PATCH] netns: avoid directory traversal (was: ip netns: Make sure netns name is sane)
-Date: Mon, 10 Jul 2017 14:08:31 +0200
-Message-ID: <20170710120831.9355-1-mcroce@redhat.com>
-Cc: Phil Sutter <phil@nwl.cc>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43130 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753298AbdGJMIg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 10 Jul 2017 08:08:36 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [GIT] Networking
+Date: Mon, 10 Jul 2017 08:10:02 -0400
+Message-ID: <20170710121002.GB21587@oracle.com>
+References: <20170708.113644.1272962770645338865.davem@davemloft.net>
+ <CA+55aFzocFTX5JR9oG_5uKw-fT6OJUMkD71sypbec7JP=_qwpg@mail.gmail.com>
+ <20170709191131.GB22224@oracle.com>
+ <20170709.214043.1361767365552001158.davem@davemloft.net>
+ <20170710100531.GA14940@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
+        akpm@linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170710100531.GA14940@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Phil,
+On (07/10/17 18:05), Herbert Xu wrote:
+> 
+> Hmm, I can't see the problem in af_alg_accept.  The struct socket
+> comes directly from sys_accept() which creates it using sock_alloc.
+> 
+> So the only thing I can think of is that the memory returned by
+> sock_alloc is not zeroed and therefore the WARN_ON is just reading
+> garbage.
 
-I noticed that your patch still leaves an uncovered scenario, the one where the
-namespace name is "." or "..".
-Calling 'ip netns del ..' will remove /var/run which is a symlink to /run on
-most systems causing some daemons, eg. dbus, to fail.
+Then it is odd that this WARN_ON is not triggered for other sockets
+(e.g., for TCP sockets), though it happens easily with AF_ALG. 
 
-ip netns doesn't validate input, allowing creation and deletion of files
-relatives to /var/run/netns.
-This patch denies creation or deletion of namespaces with names contaning
-"/" or that matches exactly "." or "..".
----
- ip/ipnetns.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+But it's not sock_alloc() - that function is returning a properly
+zeroed ->sk.
 
-diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-index 0b0378a..4254994 100644
---- a/ip/ipnetns.c
-+++ b/ip/ipnetns.c
-@@ -766,6 +766,11 @@ static int netns_monitor(int argc, char **argv)
- 	return 0;
- }
- 
-+static int invalid_name(const char *name)
-+{
-+	return strchr(name, '/') || !strcmp(name, ".") || !strcmp(name, "..");
-+}
-+
- int do_netns(int argc, char **argv)
- {
- 	netns_nsid_socket_init();
-@@ -775,6 +780,11 @@ int do_netns(int argc, char **argv)
- 		return netns_list(0, NULL);
- 	}
- 
-+	if (argc > 1 && invalid_name(argv[1])) {
-+		fprintf(stderr, "Invalid netns name \"%s\"\n", argv[1]);
-+		exit(-1);
-+	}
-+
- 	if ((matches(*argv, "list") == 0) || (matches(*argv, "show") == 0) ||
- 	    (matches(*argv, "lst") == 0)) {
- 		netns_map_init();
--- 
-2.9.4
+The reason that the WARN_ON is triggered is that af_alg_accept() calls
+sock_init_data() which does 
+
+   2636         if (sock) {
+    :
+   2639                 sock->sk        =       sk;
+
+
+So we can do one of the following:
+
+1. drop the WARN_ON(), which makes true leaks hard to detect
+2. change the WARN_ON() to WARN_ON(parent->sk && parent->sk != sk)
+
+#2 assumes that all the refcount book-keeping is being done
+correctly (there is the danger that we end up taking 2 refs on the sk) 
+
+--Sowmini
