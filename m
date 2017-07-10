@@ -1,40 +1,24 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net] mdio: mux: fix parsing mux registers outside of the
- PHY address range
-Date: Mon, 10 Jul 2017 16:37:31 +0200
-Message-ID: <20170710143731.GE21118@lunn.ch>
-References: <20170710123523.6625-1-martin.blumenstingl@googlemail.com>
- <20170710125652.GG1616@lunn.ch>
- <CAC3K-4p0gidfh1U+_o3i7bwCgQo1QtNb7D+MXwYa+X_-9sFhrw@mail.gmail.com>
+From: Christoph Hellwig <hch@lst.de>
+Subject: Re: [PATCH/RFC] dma-mapping: Provide dummy set_dma_ops() for
+        NO_DMA=y
+Date: Mon, 10 Jul 2017 16:56:41 +0200
+Message-ID: <20170710145641.GC7971@lst.de>
+References: <1499628825-16260-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Network Development <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        linux-amlogic@lists.infradead.org
-To: Jon Mason <jon.mason@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:49542 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753833AbdGJOhg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 10 Jul 2017 10:37:36 -0400
+Cc: Christoph Hellwig <hch@lst.de>,
+        Marek Szyprowski <m.szyprowski@samsung.com>,
+        Robin Murphy <robin.murphy@arm.com>,
+        Madalin Bucur <madalin.bucur@nxp.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CAC3K-4p0gidfh1U+_o3i7bwCgQo1QtNb7D+MXwYa+X_-9sFhrw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1499628825-16260-1-git-send-email-geert@linux-m68k.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> To be clear, are you suggesting that we add an additional property to
-> of_mdio_parse_addr() that specifies the limit to check against, or
-> remove the check and add it to each additional caller?
-
-Hi Jon
-
-Probably the simplest is to add an extra parameter to mdio_mux_init()
-which is the maximum allowed reg value.
-
-We should not touch of_mdio_parse_addr(). reg is not an mdio
-address. It is a count of gpios, or a value to be poked into an
-register.
-
-      Andrew
+This looks reasonable to me, I'd be happy to pick it up.  Can you send
+it as a series with the reverts?
