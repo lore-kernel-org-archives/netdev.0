@@ -1,26 +1,31 @@
-From: Denys Vlasenko <vda.linux@googlemail.com>
-Subject: bug in "PCI: Support INTx masking on ConnectX-4 with firmware x.14.1100+"?
-Date: Mon, 10 Jul 2017 18:49:07 +0200
-Message-ID: <CAK1hOcP-+=8SMi8z6zxwqYYcJtSnGHv36Db6fj3Zenux0ViN4g@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net: chelsio: cxgb3: constify attribute_group
+ structures.
+Date: Mon, 10 Jul 2017 10:00:11 -0700
+Message-ID: <1499706011.5468.15.camel@perches.com>
+References: <0e68326e48e123c70191169a0c0da820237425ec.1499682619.git.arvind.yadav.cs@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-To: Noa Osherovich <noaos@mellanox.com>,
-        netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f46.google.com ([209.85.215.46]:36221 "EHLO
-        mail-lf0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754222AbdGJQta (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2017 12:49:30 -0400
-Received: by mail-lf0-f46.google.com with SMTP id h22so66721923lfk.3
-        for <netdev@vger.kernel.org>; Mon, 10 Jul 2017 09:49:29 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Arvind Yadav <arvind.yadav.cs@gmail.com>, santosh@chelsio.com,
+        davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <0e68326e48e123c70191169a0c0da820237425ec.1499682619.git.arvind.yadav.cs@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-+       /* Reading from resource space should be 32b aligned */
-+       fw_maj_min = ioread32be(fw_ver);
-+       fw_sub_min = ioread32be(fw_ver + 1);
-+       fw_major = fw_maj_min & 0xffff;
-+       fw_minor = fw_maj_min >> 16;
-+       fw_subminor = fw_sub_min & 0xffff;
+On Mon, 2017-07-10 at 16:04 +0530, Arvind Yadav wrote:
+> attribute_groups are not supposed to change at runtime. All functions
+> working with attribute_groups provided by <linux/sysfs.h> work
+> with const attribute_group. So mark the non-const structs as const.
 
-Maybe second read should be ioread32be(fw_ver + 4)?
+I think it's good you are doing all of these.
+
+Instead of individually sending these patches, could you
+please send a patch series for all of these attribute_group
+patches with a cover letter at the same time?
+
+That could make it easier for a trivial maintainer to apply
+all of these at once and not get some applied and others
+ignored or dropped on the floor.
