@@ -1,49 +1,74 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH V3] Set NTB format again after altsetting switch for Huawei devices
-Date: Tue, 11 Jul 2017 23:14:48 +0200
-Message-ID: <87bmoqad6f.fsf@miraculix.mork.no>
-References: <20170711152152.30011-1-mrkiko.rs@gmail.com>
-        <1499806256.29772.1.camel@neukum.org>
+From: Eduardo Valentin via Bridge <bridge@lists.linux-foundation.org>
+Subject: Re: [PATCH 1/1] bridge: mdb: report complete_info ptr as
+ not a kmemleak
+Date: Tue, 11 Jul 2017 14:43:25 -0700
+Message-ID: <20170711214325.GA9190@u40b0340c692b58f6553c.ant.amazon.com>
+References: <1499101594-22421-1-git-send-email-eduval@amazon.com>
+	<20170704.014842.1942928249505987408.davem@davemloft.net>
+	<20170705160514.GA11351@u40b0340c692b58f6553c.ant.amazon.com>
+Reply-To: Eduardo Valentin <eduval@amazon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Enrico Mioso <mrkiko.rs@gmail.com>,
-        Christian Panton <christian@panton.org>,
-        linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: Oliver Neukum <oliver@neukum.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:46577 "EHLO canardo.mork.no"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753681AbdGKVO4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 11 Jul 2017 17:14:56 -0400
-In-Reply-To: <1499806256.29772.1.camel@neukum.org> (Oliver Neukum's message of
-        "Tue, 11 Jul 2017 22:50:56 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Eduardo Valentin <eduval@amazon.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20170705160514.GA11351@u40b0340c692b58f6553c.ant.amazon.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Oliver Neukum <oliver@neukum.org> writes:
-> Am Dienstag, den 11.07.2017, 17:21 +0200 schrieb Enrico Mioso:
->> Some firmwares in Huawei E3372H devices have been observed to switch back
->> to NTB 32-bit format after altsetting switch.
->> This patch implements a driver flag to check for the device settings and
->> set NTB format to 16-bit again if needed.
->> The flag has been activated for devices controlled by the huawei_cdc_ncm=
-.c
->> driver.
->
-> Hi,
->
-> does this cover reset_resume()?
+On Wed, Jul 05, 2017 at 09:05:14AM -0700, Eduardo Valentin wrote:
+> On Tue, Jul 04, 2017 at 01:48:42AM -0700, David Miller wrote:
+> > From: Eduardo Valentin <eduval@amazon.com>
+> > Date: Mon, 3 Jul 2017 10:06:34 -0700
+> > 
+> > > We currently get the following kmemleak report:
+> >  ...
+> > > This patch flags the complete_info ptr object as not a leak as it will
+> > > get freed when .complete_priv() is called,
+> > 
+> > We don't call .complete_priv().  We call .complete().
+> 
+> True, I can fix this wording in the commit next version.
+> 
+> > 
+> >  for the br mdb case, it
+> > > will be freed at br_mdb_complete().
+> > > 
+> > > Cc: stable <stable@vger.kernel.org> # v4.9+
+> > > Reviewed-by: Vallish Vaidyeshwara <vallish@amazon.com>
+> > > Signed-off-by: Eduardo Valentin <eduval@amazon.com>
+> > 
+> > I don't understand why kmemleak cannot see this.
+> > 
+> > We store the pointer globally when we do the switchdev_port_obv_add()
+> > call and it should be able to see that.
+> 
+> I see and agree. But even then I get these reports consistently on RTM_NEWMDB type.
+> This is why I am proposing marking as a non-kmemleak.
+> 
+> To me, this is only a leak if .complete() never gets called.
 
-AFAIK reset_resume doesn't really work for 3G/LTE modems.  Too much
-state to restore both in firmware and network, with no well defined
-protocol to restore it.
+Ok. So, in fact, I believe the problem I am seeing in more when switchdev_port_obj_add() fails.
 
-The only reason for having reset_resume in the modem drivers is that
-quite a few modems have an SD reader. We need to support persist for the
-usb-storage function, even if the modem functions fail.  There is no
-reason to mess up the file system too.
+I will send a patch for that.
 
+> 
+> 
+> -- 
+> All the best,
+> Eduardo Valentin
 
-
-Bj=C3=B8rn
+-- 
+All the best,
+Eduardo Valentin
