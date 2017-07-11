@@ -1,70 +1,134 @@
-From: Madalin-cristian Bucur <madalin.bucur@nxp.com>
-Subject: RE: [PATCH] dpaa_eth: use correct device for DMA mapping API
-Date: Tue, 11 Jul 2017 14:22:14 +0000
-Message-ID: <AM5PR0402MB2691C600A6E5A717D7C0F3ACECAE0@AM5PR0402MB2691.eurprd04.prod.outlook.com>
-References: <20170710151447.2814348-1-arnd@arndb.de>
- <AM5PR0402MB26915AF3D88700BD5EABB2DDECAE0@AM5PR0402MB2691.eurprd04.prod.outlook.com>
- <CAK8P3a1GLQ1WVfbhzedkvfe573hnUwBMVCAeVaWiKPKDOK=Agg@mail.gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC PATCH 00/12] Implement XDP bpf_redirect vairants
+Date: Tue, 11 Jul 2017 16:23:44 +0200
+Message-ID: <20170711162344.6fd8fb39@redhat.com>
+References: <20170707172115.9984.53461.stgit@john-Precision-Tower-5810>
+        <595FC974.9030807@gmail.com>
+        <20170708.104618.2149883426031901592.davem@davemloft.net>
+        <20170708210617.249059b9@redhat.com>
+        <20170710203050.54b2d8eb@redhat.com>
+        <596422E5.6010100@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Christoph Hellwig <hch@lst.de>,
-        Marek Szyprowski <m.szyprowski@samsung.com>,
-        Robin Murphy <robin.murphy@arm.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Geert Uytterhoeven <geert@linux-m68k.org>,
-        "Camelia Alexandra Groza" <camelia.groza@nxp.com>,
-        Claudiu Manoil <claudiu.manoil@nxp.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAK8P3a1GLQ1WVfbhzedkvfe573hnUwBMVCAeVaWiKPKDOK=Agg@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        andy@greyhouse.net, daniel@iogearbox.net, ast@fb.com,
+        alexander.duyck@gmail.com, bjorn.topel@intel.com,
+        jakub.kicinski@netronome.com, ecree@solarflare.com,
+        sgoutham@cavium.com, Yuval.Mintz@cavium.com, saeedm@mellanox.com,
+        brouer@redhat.com
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:41548 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932722AbdGKOXw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 11 Jul 2017 10:23:52 -0400
+In-Reply-To: <596422E5.6010100@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBhcm5kYmVyZ21hbm5AZ21haWwu
-Y29tIFttYWlsdG86YXJuZGJlcmdtYW5uQGdtYWlsLmNvbV0gT24gQmVoYWxmIE9mDQo+IEFybmQg
-QmVyZ21hbm4NCj4gU3ViamVjdDogUmU6IFtQQVRDSF0gZHBhYV9ldGg6IHVzZSBjb3JyZWN0IGRl
-dmljZSBmb3IgRE1BIG1hcHBpbmcgQVBJDQo+IA0KPiBPbiBUdWUsIEp1bCAxMSwgMjAxNyBhdCAx
-MDo1MCBBTSwgTWFkYWxpbi1jcmlzdGlhbiBCdWN1cg0KPiA8bWFkYWxpbi5idWN1ckBueHAuY29t
-PiB3cm90ZToNCj4gDQo+ID4gSGkgQXJuZCwNCj4gPg0KPiA+IFRoYW5rcyBmb3IgbG9va2luZyBp
-bnRvIHRoaXMsIEkndmUgdGVzdGVkIHlvdXIgZml4LCBpdCBzZWVtcyB0byBuZWVkDQo+IG1vcmUg
-d29yazoNCj4gPg0KPiA+IFsgICAgMC44OTQ5NjhdICBwbGF0Zm9ybTogRE1BIG1hcCBmYWlsZWQN
-Cj4gPiBbICAgIDAuODk4NjI3XSAgcGxhdGZvcm06IERNQSBtYXAgZmFpbGVkDQo+ID4gWyAgICAw
-LjkwMjI4OF0gIHBsYXRmb3JtOiBETUEgbWFwIGZhaWxlZA0KPiA+IFsgICAgMC45MDU5NDddICBw
-bGF0Zm9ybTogRE1BIG1hcCBmYWlsZWQNCj4gPiBbICAgIDAuOTA5NjA2XSAgcGxhdGZvcm06IERN
-QSBtYXAgZmFpbGVkDQo+ID4gWyAgICAwLjkxMzI2NV0gIHBsYXRmb3JtOiBETUEgbWFwIGZhaWxl
-ZA0KPiANCj4gSSBzZWU6IHRoZSBhc3NpZ25tZW50IGVuZGVkIHVwIGFmdGVyIHRoZSBmaXJzdCB1
-c2UsIHNvIC0+ZGV2IHdhcyBzdGlsbA0KPiBOVUxMIGhlcmUuDQo+IA0KPiBUaGlzIHNob3VsZCBm
-aXggdGhlIHByb2JsZW0geW91IHNhdyBoZXJlOg0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMv
-bmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9kcGFhL2RwYWFfZXRoLmMNCj4gYi9kcml2ZXJzL25ldC9l
-dGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9kcGFhX2V0aC5jDQo+IGluZGV4IGY3YjBiOTI4Y2Q1My4u
-OTg4YzAyMTJjZTdlIDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2Nh
-bGUvZHBhYS9kcGFhX2V0aC5jDQo+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2Fs
-ZS9kcGFhL2RwYWFfZXRoLmMNCj4gQEAgLTI2NTAsNiArMjY1MCw4IEBAIHN0YXRpYyBpbnQgZHBh
-YV9ldGhfcHJvYmUoc3RydWN0IHBsYXRmb3JtX2RldmljZQ0KPiAqcGRldikNCj4gICBmb3IgKGkg
-PSAwOyBpIDwgRFBBQV9CUFNfTlVNOyBpKyspIHsNCj4gICBpbnQgZXJyOw0KPiANCj4gKyAvKiBE
-TUEgb3BlcmF0aW9ucyBhcmUgZG9uZSBvbiB0aGUgcGxhdGZvcm0tcHJvdmlkZWQgZGV2aWNlICov
-DQo+ICsgZHBhYV9icHNbaV0tPmRldiA9IGRldi0+cGFyZW50Ow0KPiAgIGRwYWFfYnBzW2ldID0g
-ZHBhYV9icF9hbGxvYyhkZXYpOw0KDQpZb3VyIG5ldyBjaGFuZ2UgZGUtcmVmZXJlbmNlcyBkcGFh
-X2Jwc1tpXSBiZWZvcmUgaXQgaXMgc2V0LCB0aGlzIHdvbid0IHdvcmsgZWl0aGVyLg0KDQo+ICAg
-aWYgKElTX0VSUihkcGFhX2Jwc1tpXSkpDQo+ICAgcmV0dXJuIFBUUl9FUlIoZHBhYV9icHNbaV0p
-Ow0KPiBAQCAtMjY1Nyw4ICsyNjU5LDYgQEAgc3RhdGljIGludCBkcGFhX2V0aF9wcm9iZShzdHJ1
-Y3QgcGxhdGZvcm1fZGV2aWNlDQo+ICpwZGV2KQ0KPiAgIGRwYWFfYnBzW2ldLT5yYXdfc2l6ZSA9
-IGJwb29sX2J1ZmZlcl9yYXdfc2l6ZShpLCBEUEFBX0JQU19OVU0pOw0KPiAgIC8qIGF2b2lkIHJ1
-bnRpbWUgY29tcHV0YXRpb25zIGJ5IGtlZXBpbmcgdGhlIHVzYWJsZSBzaXplIGhlcmUgKi8NCj4g
-ICBkcGFhX2Jwc1tpXS0+c2l6ZSA9IGRwYWFfYnBfc2l6ZShkcGFhX2Jwc1tpXS0+cmF3X3NpemUp
-Ow0KPiAtIC8qIERNQSBvcGVyYXRpb25zIGFyZSBkb25lIG9uIHRoZSBwbGF0Zm9ybS1wcm92aWRl
-ZCBkZXZpY2UgKi8NCj4gLSBkcGFhX2Jwc1tpXS0+ZGV2ID0gZGV2LT5wYXJlbnQ7DQo+IA0KPiAg
-IGVyciA9IGRwYWFfYnBfYWxsb2NfcG9vbChkcGFhX2Jwc1tpXSk7DQo+ICAgaWYgKGVyciA8IDAp
-IHsNCj4gDQo+ID4gQEAgLTI4MDYsNyArMjc5OSw2IEBAIHN0YXRpYyBpbnQgZHBhYV9ldGhfcHJv
-YmUoc3RydWN0IHBsYXRmb3JtX2RldmljZQ0KPiAqcGRldikNCj4gPiAgICAgICAgICAgICAgICAg
-ZHBhYV9icHNfZnJlZShwcml2KTsNCj4gPiAgYnBfY3JlYXRlX2ZhaWxlZDoNCj4gPiAgZnFfcHJv
-YmVfZmFpbGVkOg0KPiA+IC1kZXZfbWFza19mYWlsZWQ6DQo+ID4gIG1hY19wcm9iZV9mYWlsZWQ6
-DQo+ID4gICAgICAgICAgICAgICAgIGRldl9zZXRfZHJ2ZGF0YShkZXYsIE5VTEwpOw0KPiA+ICAg
-ICAgICAgICAgICAgICBmcmVlX25ldGRldihuZXRfZGV2KTsNCj4gPg0KPiA+IEknbGwgdHJ5IHRv
-IGFkZHJlc3MgeW91ciBjb25jZXJuIGFib3V0IHBlcmZvcm1pbmcgdGhlIERNQSBtYXBwaW5nIG9u
-IGENCj4gZGlmZmVyZW50DQo+ID4gZGV2aWNlIHRoYW4gdGhlIG9uZSBzZXQgdXAgYnkgdGhlIHBs
-YXRmb3JtIGNvZGUuDQo+IA0KPiBUaGFua3MhDQo+IA0KPiAgICAgIEFybmQNCg==
+On Mon, 10 Jul 2017 17:59:17 -0700
+John Fastabend <john.fastabend@gmail.com> wrote:
+
+> On 07/10/2017 11:30 AM, Jesper Dangaard Brouer wrote:
+> > On Sat, 8 Jul 2017 21:06:17 +0200
+> > Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+> >   
+> >> On Sat, 08 Jul 2017 10:46:18 +0100 (WEST)
+> >> David Miller <davem@davemloft.net> wrote:
+> >>  
+> >>> From: John Fastabend <john.fastabend@gmail.com>
+> >>> Date: Fri, 07 Jul 2017 10:48:36 -0700
+> >>>     
+> >>>> On 07/07/2017 10:34 AM, John Fastabend wrote:      
+> >>>>> This series adds two new XDP helper routines bpf_redirect() and
+> >>>>> bpf_redirect_map(). The first variant bpf_redirect() is meant
+> >>>>> to be used the same way it is currently being used by the cls_bpf
+> >>>>> classifier. An xdp packet will be redirected immediately when this
+> >>>>> is called.      
+> >>>>
+> >>>> Also other than the typo in the title there ;) I'm going to CC
+> >>>> the driver maintainers working on XDP (makes for a long CC list but)
+> >>>> because we would want to try and get support in as many as possible in
+> >>>> the next merge window.
+> >>>>
+> >>>> For this rev I just implemented on ixgbe because I wrote the
+> >>>> original XDP support there. I'll volunteer to do virtio as well.      
+> >>>
+> >>> I went over this series a few times and it looks great to me.
+> >>> You didn't even give me some coding style issues to pick on :-)    
+> >>
+> >> We (Daniel, Andy and I) have been reviewing and improving on this
+> >> patchset the last couple of weeks ;-).  We had some stability issues,
+> >> which is why it wasn't published earlier. My plan is to test this
+> >> latest patchset again, Monday and Tuesday. I'll try to assess stability
+> >> and provide some performance numbers.  
+> > 
+> > 
+> > Damn, I though it was stable, I have been running a lot of performance
+> > tests, and then this just happened :-(  
+> 
+> Thanks, I'll take a look through the code and see if I can come up with
+> why this might happen. I haven't hit it on my tests yet though.
+
+I've figured out why this happens, and I have a fix, see patch below
+with some comments with questions.
+
+The problem is that we can leak map_to_flush in an error path, the fix:
+
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 2ccd6ff09493..7f1f48668dcf 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -2497,11 +2497,14 @@ int xdp_do_redirect_map(struct net_device *dev, struct xdp_buff *xdp,
+        ri->map = NULL;
+ 
+        trace_xdp_redirect(dev, fwd, xdp_prog, XDP_REDIRECT);
+-
++       // Q: Should we also trace "goto out" (failed lookup)?
++       //    like bpf_warn_invalid_xdp_redirect();
+        return __bpf_tx_xdp(fwd, map, xdp, index);
+ out:
+        ri->ifindex = 0;
+-       ri->map = NULL;
++       // XXX: here we could leak ri->map_to_flush, which could be
++       //      picked up later by xdp_do_flush_map()
++       xdp_do_flush_map(); /* Clears ri->map_to_flush + ri->map */
+        return -EINVAL;
+
+
+While debugging this, I noticed that we can have packets in-flight,
+while the XDP RX rings are being reconfigured.  I wonder if this is a
+ixgbe driver XDP-bug?  I think it would be best to add some
+RCU-barrier, after ixgbe_setup_tc().
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index ed97aa81a850..4872fbb54ecd 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -9801,7 +9804,18 @@ static int ixgbe_xdp_setup(struct net_device *dev, struct bpf_prog *prog)
+ 
+        /* If transitioning XDP modes reconfigure rings */
+        if (!!prog != !!old_prog) {
+-               int err = ixgbe_setup_tc(dev, netdev_get_num_tc(dev));
++               // XXX: Warn pkts can be in-flight in old_prog
++               //      while ixgbe_setup_tc() calls ixgbe_close(dev).
++               //
++               // Should we avoid these in-flight packets?
++               // Would it be enough to add an synchronize_rcu()
++               // or rcu_barrier()?
++               // or do we need an napi_synchronize() call here?
++               //
++               int err;
++               netdev_info(dev,
++                           "Calling ixgbe_setup_tc() to reconfig XDP rings\n");
++               err = ixgbe_setup_tc(dev, netdev_get_num_tc(dev));
+ 
+                if (err) {
+                        rcu_assign_pointer(adapter->xdp_prog, old_prog);
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
