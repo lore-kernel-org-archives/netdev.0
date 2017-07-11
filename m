@@ -1,37 +1,129 @@
-From: Phil Sutter <phil-ydcDiazATMQ@public.gmane.org>
-Subject: Re: net-next STATUS page
-Date: Tue, 11 Jul 2017 17:15:03 +0200
-Message-ID: <20170711151503.GM16375@orbyte.nwl.cc>
-References: <20170711.072416.2014054416066621222.davem@davemloft.net>
- <20170711150506.GE1874@nanopsycho>
+From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH V3] Set NTB format again after altsetting switch for Huawei devices
+Date: Tue, 11 Jul 2017 17:21:52 +0200
+Message-ID: <20170711152152.30011-1-mrkiko.rs@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170711150506.GE1874@nanopsycho>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
+        Christian Panton <christian-urZh+a7hbKEdnm+yROfE0A@public.gmane.org>,
+        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 11, 2017 at 05:05:06PM +0200, Jiri Pirko wrote:
-> Tue, Jul 11, 2017 at 04:24:16PM CEST, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org wrote:
-> >
-> >It has gotten to the point that even casually walking around
-> >Faro, Portugal last week, random German tourists would stop
-> >me in the street and ask if net-next was open or not.
-> >
-> >Therefore, in order to avoid any and all confusion I have created this
-> >web site:
-> >
-> >	http://vger.kernel.org/~davem/net-next.html
-> 
-> Hallelujah!
-> 
-> You remember I suggested this couple of years ago? :)
+Some firmwares in Huawei E3372H devices have been observed to switch back
+to NTB 32-bit format after altsetting switch.
+This patch implements a driver flag to check for the device settings and
+set NTB format to 16-bit again if needed.
+The flag has been activated for devices controlled by the huawei_cdc_ncm.c
+driver.
 
-Never underestimate the power of German tourists. I even heard stories
-about them causing bad dreams!
+V1->V2:
+- fixed broken error checks
+- some corrections to the commit message
+V2->V3:
+- variable name changes, to clarify what's happening
+- check (and possibly set) the NTB format later in the common bind code path
 
-Cheers, Phil
+Signed-off-by: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Reported-and-tested-by: Christian Panton <christian-urZh+a7hbKEdnm+yROfE0A@public.gmane.org>
+Reviewed-by: Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+CC: Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+CC: Christian Panton <christian-urZh+a7hbKEdnm+yROfE0A@public.gmane.org>
+CC: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+CC: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+CC: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+---
+ drivers/net/usb/cdc_ncm.c        | 28 ++++++++++++++++++++++++++++
+ drivers/net/usb/huawei_cdc_ncm.c |  6 ++++++
+ include/linux/usb/cdc_ncm.h      |  1 +
+ 3 files changed, 35 insertions(+)
+
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index d103a1d4fb36..8f572b9f3625 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -768,8 +768,10 @@ int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf, u8 data_
+ 	u8 *buf;
+ 	int len;
+ 	int temp;
++	int err;
+ 	u8 iface_no;
+ 	struct usb_cdc_parsed_header hdr;
++	u16 curr_ntb_format;
+ 
+ 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+ 	if (!ctx)
+@@ -874,6 +876,32 @@ int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf, u8 data_
+ 		goto error2;
+ 	}
+ 
++	/*
++	 * Some Huawei devices have been observed to come out of reset in NDP32 mode.
++	 * Let's check if this is the case, and set the device to NDP16 mode again if
++	 * needed.
++	*/
++	if (ctx->drvflags & CDC_NCM_FLAG_RESET_NTB16) {
++		err = usbnet_read_cmd(dev, USB_CDC_GET_NTB_FORMAT,
++				      USB_TYPE_CLASS | USB_DIR_IN | USB_RECIP_INTERFACE,
++				      0, iface_no, &curr_ntb_format, 2);
++		if (err < 0) {
++			goto error2;
++		}
++
++		if (curr_ntb_format == USB_CDC_NCM_NTB32_FORMAT) {
++			dev_info(&intf->dev, "resetting NTB format to 16-bit");
++			err = usbnet_write_cmd(dev, USB_CDC_SET_NTB_FORMAT,
++					       USB_TYPE_CLASS | USB_DIR_OUT
++					       | USB_RECIP_INTERFACE,
++					       USB_CDC_NCM_NTB16_FORMAT,
++					       iface_no, NULL, 0);
++
++			if (err < 0)
++				goto error2;
++		}
++	}
++
+ 	cdc_ncm_find_endpoints(dev, ctx->data);
+ 	cdc_ncm_find_endpoints(dev, ctx->control);
+ 	if (!dev->in || !dev->out || !dev->status) {
+diff --git a/drivers/net/usb/huawei_cdc_ncm.c b/drivers/net/usb/huawei_cdc_ncm.c
+index 2680a65cd5e4..63f28908afda 100644
+--- a/drivers/net/usb/huawei_cdc_ncm.c
++++ b/drivers/net/usb/huawei_cdc_ncm.c
+@@ -80,6 +80,12 @@ static int huawei_cdc_ncm_bind(struct usbnet *usbnet_dev,
+ 	 * be at the end of the frame.
+ 	 */
+ 	drvflags |= CDC_NCM_FLAG_NDP_TO_END;
++
++	/* Additionally, it has been reported that some Huawei E3372H devices, with
++	 * firmware version 21.318.01.00.541, come out of reset in NTB32 format mode, hence
++	 * needing to be set to the NTB16 one again.
++	 */
++	drvflags |= CDC_NCM_FLAG_RESET_NTB16;
+ 	ret = cdc_ncm_bind_common(usbnet_dev, intf, 1, drvflags);
+ 	if (ret)
+ 		goto err;
+diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.h
+index 021f7a88f52c..1a59699cf82a 100644
+--- a/include/linux/usb/cdc_ncm.h
++++ b/include/linux/usb/cdc_ncm.h
+@@ -83,6 +83,7 @@
+ /* Driver flags */
+ #define CDC_NCM_FLAG_NDP_TO_END			0x02	/* NDP is placed at end of frame */
+ #define CDC_MBIM_FLAG_AVOID_ALTSETTING_TOGGLE	0x04	/* Avoid altsetting toggle during init */
++#define CDC_NCM_FLAG_RESET_NTB16 0x08	/* set NDP16 one more time after altsetting switch */
+ 
+ #define cdc_ncm_comm_intf_is_mbim(x)  ((x)->desc.bInterfaceSubClass == USB_CDC_SUBCLASS_MBIM && \
+ 				       (x)->desc.bInterfaceProtocol == USB_CDC_PROTO_NONE)
+-- 
+2.13.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
