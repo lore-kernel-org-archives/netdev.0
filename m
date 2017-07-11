@@ -1,33 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net-next: Fix minor code bug in timestamping.txt
-Date: Tue, 11 Jul 2017 13:35:14 -0700 (PDT)
-Message-ID: <20170711.133514.1211086377571475842.davem@davemloft.net>
-References: <20170708192844.70105-1-ahmad@a3f.at>
+Subject: Re: [PATCH net] qed: Fix printk option passed when printing ipv6
+ addresses
+Date: Tue, 11 Jul 2017 13:36:21 -0700 (PDT)
+Message-ID: <20170711.133621.992406600321132485.davem@davemloft.net>
+References: <1499594416-20850-1-git-send-email-Michal.Kalderon@cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ahmad@a3f.at
+Cc: netdev@vger.kernel.org, dan.carpenter@oracle.com,
+        Yuval.Mintz@cavium.com
+To: Michal.Kalderon@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41632 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41640 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753958AbdGKUfP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2017 16:35:15 -0400
-In-Reply-To: <20170708192844.70105-1-ahmad@a3f.at>
+        with ESMTP id S1753829AbdGKUgW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2017 16:36:22 -0400
+In-Reply-To: <1499594416-20850-1-git-send-email-Michal.Kalderon@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ahmad Fatoum <ahmad@a3f.at>
-Date: Sat,  8 Jul 2017 21:28:44 +0200
+From: Michal Kalderon <Michal.Kalderon@cavium.com>
+Date: Sun, 9 Jul 2017 13:00:16 +0300
 
-> Passing (void*)val instead of &val would make a pointer out of an integer
-> and cause sock_setsockopt to -EFAULT.
+> The option "h" (host order ) exists for ipv4 only.
+> Remove the h when printing ipv6 addresses.
 > 
-> See tools/testing/selftests/networking/timestamping/timestamping.c
-> for a working example.
+> Lead to the following smatch warning:
 > 
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Ahmad Fatoum <ahmad@a3f.at>
+> drivers/net/ethernet/qlogic/qed/qed_iwarp.c:585 qed_iwarp_print_tcp_ramrod()
+> warn: '%pI6' can only be followed by c
+> drivers/net/ethernet/qlogic/qed/qed_iwarp.c:1521 qed_iwarp_print_cm_info()
+> warn: '%pI6' can only be followed by c
+> 
+> Fixes commit 456a584947d5 ("qed: iWARP CM add passive side connect")
+> 
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Michal Kalderon <Michal.Kalderon@cavium.com>
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 
 Applied.
