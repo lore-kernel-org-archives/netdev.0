@@ -1,37 +1,49 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch] mqueue: fix netlink sock refcnt and skb refcnt
-Date: Tue, 11 Jul 2017 12:58:41 -0700
-Message-ID: <CAM_iQpW35zDk8a=RDGPjUO27_JzYv+YqKhmAYKMDATN2L-4LSQ@mail.gmail.com>
-References: <1499663303-4514-1-git-send-email-xiyou.wangcong@gmail.com> <CA+55aFzYK_14nuyjrvyxDoSS2rvhcCxOpdbLKqNGuRvwuON9jA@mail.gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net v2] samples/bpf: fix a build issue
+Date: Tue, 11 Jul 2017 22:02:27 +0200
+Message-ID: <59652ED3.5020607@iogearbox.net>
+References: <20170710210428.1292358-1-yhs@fb.com> <20170711215114.4726d1da@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Network Development <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Manfred Spraul <manfred@colorfullife.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFzYK_14nuyjrvyxDoSS2rvhcCxOpdbLKqNGuRvwuON9jA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ast@fb.com, brakmo@fb.com, netdev@vger.kernel.org,
+        kernel-team@fb.com
+To: Jesper Dangaard Brouer <brouer@redhat.com>,
+        Yonghong Song <yhs@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:58888 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932446AbdGKUCd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2017 16:02:33 -0400
+In-Reply-To: <20170711215114.4726d1da@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 10, 2017 at 11:09 AM, Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
-> This thing is definitely not cc'd to the right people:
+On 07/11/2017 09:51 PM, Jesper Dangaard Brouer wrote:
+> On Mon, 10 Jul 2017 14:04:28 -0700 Yonghong Song <yhs@fb.com> wrote:
 >
-> On Sun, Jul 9, 2017 at 10:08 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> With latest net-next:
+>> ====
+>> clang  -nostdinc -isystem /usr/lib/gcc/x86_64-redhat-linux/6.3.1/include -I./arch/x86/include -I./arch/x86/include/generated/uapi -I./arch/x86/include/generated  -I./include -I./arch/x86/include/uapi -I./include/uapi -I./include/generated/uapi -include ./include/linux/kconfig.h  -Isamples/bpf \
+>>      -D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
+>>      -Wno-compare-distinct-pointer-types \
+>>      -Wno-gnu-variable-sized-type-not-at-end \
+>>      -Wno-address-of-packed-member -Wno-tautological-compare \
+>>      -Wno-unknown-warning-option \
+>>      -O2 -emit-llvm -c samples/bpf/tcp_synrto_kern.c -o -| llc -march=bpf -filetype=obj -o samples/bpf/tcp_synrto_kern.o
+>> samples/bpf/tcp_synrto_kern.c:20:10: fatal error: 'bpf_endian.h' file not found
+>>            ^~~~~~~~~~~~~~
+>> 1 error generated.
+>> ====
 >>
->> Cc: Linus Torvalds <torvalds@linux-foundation.org>
->> Cc: Andrew Morton <akpm@linux-foundation.org>
->> Cc: Manfred Spraul <manfred@colorfullife.com>
->> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>> net has the same issue.
+>>
+>> Add support for ntohl and htonl in tools/testing/selftests/bpf/bpf_endian.h.
 >
-> Unlike your previous patch, this seems to be more of a generic netlink
-> interface issue, so you should primarily talk to the networking
-> people, I'm not sure it makes much sense to cc me/Andrew/Manfred.
->
+> I think this patch should have been split up in two patches. One where
+> you fix the compile issue, and one where you add support for ntohl and
+> htonl.  And you are also moving the file... I'm getting confused
+> reading this patch.
 
-OK, actually this patch is not needed, because we only send notification
-once, although the code itself does need some cleanup.
-
-Sorry for the noise.
+Could have been done, sure. Patch is still straight forward and small as-is,
+so I don't really mind having this user space code squashed together.
