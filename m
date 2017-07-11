@@ -1,64 +1,74 @@
-From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [PATCH v2 10/10] net: chelsio: cxgb3: constify attribute_group structures.
-Date: Tue, 11 Jul 2017 13:07:57 +0530
-Message-ID: <1499758677-25058-2-git-send-email-arvind.yadav.cs@gmail.com>
-References: <1499758677-25058-1-git-send-email-arvind.yadav.cs@gmail.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v2 00/10] Constify attribute_group structures
+Date: Tue, 11 Jul 2017 09:48:20 +0200
+Message-ID: <fec4d3c9-1ac8-c752-b8a5-3f446042fe4e@pengutronix.de>
+References: <1499758158-24741-1-git-send-email-arvind.yadav.cs@gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="9o5CtbvjURle51Ca8EBPi7aw7a4a5vMv1"
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: santosh@chelsio.com, joe@perches.com, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35998 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755270AbdGKHiZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2017 03:38:25 -0400
-In-Reply-To: <1499758677-25058-1-git-send-email-arvind.yadav.cs@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Arvind Yadav <arvind.yadav.cs@gmail.com>, davem@davemloft.net,
+        wg@grandegger.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1499758158-24741-1-git-send-email-arvind.yadav.cs@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-attribute_groups are not supposed to change at runtime. All functions
-working with attribute_groups provided by <linux/sysfs.h> work
-with const attribute_group. So mark the non-const structs as const.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--9o5CtbvjURle51Ca8EBPi7aw7a4a5vMv1
+Content-Type: multipart/mixed; boundary="N00eADBRhqlqGptp0PumkVpVNNQG6mJhH";
+ protected-headers="v1"
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+To: Arvind Yadav <arvind.yadav.cs@gmail.com>, davem@davemloft.net,
+ wg@grandegger.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Message-ID: <fec4d3c9-1ac8-c752-b8a5-3f446042fe4e@pengutronix.de>
+Subject: Re: [PATCH v2 00/10] Constify attribute_group structures
+References: <1499758158-24741-1-git-send-email-arvind.yadav.cs@gmail.com>
+In-Reply-To: <1499758158-24741-1-git-send-email-arvind.yadav.cs@gmail.com>
 
-File size before:
-   text	   data	    bss	    dec	    hex	filename
-  28720	    985	     12	  29717	   7415	drivers/net/.../cxgb3/cxgb3_main.o
+--N00eADBRhqlqGptp0PumkVpVNNQG6mJhH
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-File size After adding 'const':
-   text	   data	    bss	    dec	    hex	filename
-  28848	    857	     12	  29717	   7415	drivers/net/.../cxgb3/cxgb3_main.o
+On 07/11/2017 09:29 AM, Arvind Yadav wrote:
+> attribute_groups are not supposed to change at runtime. So mark the
+> non-const structs as const.
 
-Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
----
-Changes in v2:
-              Added cover later.
+[...]
 
- drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+>  drivers/net/can/at91_can.c                      | 2 +-
+>  drivers/net/can/janz-ican3.c                    | 2 +-
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
-index 0bc6a4f..6a01536 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
-@@ -793,7 +793,9 @@ static DEVICE_ATTR(name, S_IRUGO | S_IWUSR, show_##name, store_method)
- 	NULL
- };
- 
--static struct attribute_group cxgb3_attr_group = {.attrs = cxgb3_attrs };
-+static const struct attribute_group cxgb3_attr_group = {
-+	.attrs = cxgb3_attrs,
-+};
- 
- static ssize_t tm_attr_show(struct device *d,
- 			    char *buf, int sched)
-@@ -880,7 +882,9 @@ static DEVICE_ATTR(name, S_IRUGO | S_IWUSR, show_##name, store_##name)
- 	NULL
- };
- 
--static struct attribute_group offload_attr_group = {.attrs = offload_attrs };
-+static const struct attribute_group offload_attr_group = {
-+	.attrs = offload_attrs,
-+};
- 
- /*
-  * Sends an sk_buff to an offload queue driver
--- 
-1.9.1
+For the can drivers:
+
+Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--N00eADBRhqlqGptp0PumkVpVNNQG6mJhH--
+
+--9o5CtbvjURle51Ca8EBPi7aw7a4a5vMv1
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAEBCgAdFiEE4bay/IylYqM/npjQHv7KIOw4HPYFAllkgscACgkQHv7KIOw4
+HPYwNAgAk2kOIukJk8ux3GPqCWM4A9Pd53xDAls0D3CN6dVgIkvUnvuy21a7Hhr/
+DOevkALOlPqMIC1aM6szd0kao1yR+Wqj0OFmHRD51nq92WAf5Jmfa0+20KcQ5I7D
+a8EPMNw/V9ZmEPr/XPL+9bLvuhioQKjnjwQzNqzB3iQW+hAkn9IPYEbRSCcX2Zht
+6ZTHxvImEsdlB5rYqi2QL37QRrFWggfHSKxk7ZMwJji+jmfB5JZKskWsTfslHLSI
+mPxnDnim1Je+zsHfPPABD7QKfcZsBvZvpnKRFzarcW5+ZC8cyNW9epX6JSqjD2fs
+OQ7zYTptJR85irO1r9SnizyADPEfeA==
+=k+Y5
+-----END PGP SIGNATURE-----
+
+--9o5CtbvjURle51Ca8EBPi7aw7a4a5vMv1--
