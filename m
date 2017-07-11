@@ -1,127 +1,59 @@
-From: Madalin-cristian Bucur <madalin.bucur@nxp.com>
-Subject: RE: [PATCH] dpaa_eth: use correct device for DMA mapping API
-Date: Tue, 11 Jul 2017 08:50:34 +0000
-Message-ID: <AM5PR0402MB26915AF3D88700BD5EABB2DDECAE0@AM5PR0402MB2691.eurprd04.prod.outlook.com>
-References: <20170710151447.2814348-1-arnd@arndb.de>
+From: Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH] brcmfmac: added LED triggers for transmit/receive
+Date: Tue, 11 Jul 2017 10:58:03 +0200
+Message-ID: <60de1301-b4a3-95a7-117f-a953576655d9@broadcom.com>
+References: <20170707140941.122115-1-russell.joyce@york.ac.uk>
+ <CACna6rzY84oWNMBfP8N4A=Sxst_8b-S+rTbZFQV0yFcOR5MceQ@mail.gmail.com>
+ <B8983FA2-39CE-478B-80C9-F32E01856FE9@york.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Christoph Hellwig <hch@lst.de>,
-        Marek Szyprowski <m.szyprowski@samsung.com>,
-        Robin Murphy <robin.murphy@arm.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Geert Uytterhoeven <geert@linux-m68k.org>,
-        "Arnd Bergmann" <arnd@arndb.de>,
-        Camelia Alexandra Groza <camelia.groza@nxp.com>,
-        Claudiu Manoil <claudiu.manoil@nxp.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170710151447.2814348-1-arnd@arndb.de>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Alan Millard <alan.millard-3oYoeGyd3e21Qrn1Bg8BZw@public.gmane.org>,
+        Franky Lin <franky.lin-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Hante Meuleman <hante.meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Chi-Hsien Lin <chi-hsien.lin-+wT8y+m8/X5BDgjK7y7TUQ@public.gmane.org>,
+        Wright Feng <wright.feng-+wT8y+m8/X5BDgjK7y7TUQ@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+        Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+        "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Pieter-Paul Giesberts <pieter-paul.giesberts-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org>,
+        "mhiramat-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <mhiramat-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        James Hughes <james.hughes-FnsA7b+Nu9XbIbC87yuRow@public.gmane.org>,
+        Tobias Klauser <tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org>,
+        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "open list:BROADCOM BRCM80211 IEEE802.11n W
+To: Russell Joyce <russell.joyce-3oYoeGyd3e21Qrn1Bg8BZw@public.gmane.org>,
+        =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <B8983FA2-39CE-478B-80C9-F32E01856FE9-3oYoeGyd3e21Qrn1Bg8BZw@public.gmane.org>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Arnd Bergmann [mailto:arnd@arndb.de]
-> Sent: Monday, July 10, 2017 6:14 PM
-> Subject: [PATCH] dpaa_eth: use correct device for DMA mapping API
->=20
-> Geert Uytterhoeven ran into a build error without CONFIG_HAS_DMA,
-> as a result of the driver calling set_dma_ops(). While we can
-> fix the build error in the dma-mapping implementation, there is
-> another problem in this driver:
->=20
-> The configuration for the DMA is done by the platform code,
-> looking up information about the system from the device tree.
-> This copies the information only in an incomplete way, setting
-> the dma_map_ops and forcing a specific mask, but ignoring all
-> settings regarding IOMMU, coherence etc.
->=20
-> A better way to avoid the problem is to only ever pass a device
-> into the dma_mapping implementation that has been setup by the
-> platform code. In this case, that is the parent device, so we
-> can get that pointer at probe time. Fortunately, we already have
-> a pointer in the device specific structure for that, so we only
-> need to modify that.
->=20
-> Fixes: fb52728a9294 ("dpaa_eth: reuse the dma_ops provided by the FMan MA=
-C
-> device")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> ---
-> Not tested, please see if this works before applying!
-> ---
->  drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 11 ++---------
->  1 file changed, 2 insertions(+), 9 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-> b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-> index 757b873735a5..f7b0b928cd53 100644
-> --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-> +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-> @@ -2646,14 +2646,6 @@ static int dpaa_eth_probe(struct platform_device
-> *pdev)
->  	priv->buf_layout[RX].priv_data_size =3D DPAA_RX_PRIV_DATA_SIZE; /* Rx
-> */
->  	priv->buf_layout[TX].priv_data_size =3D DPAA_TX_PRIV_DATA_SIZE; /* Tx
-> */
->=20
-> -	/* device used for DMA mapping */
-> -	set_dma_ops(dev, get_dma_ops(&pdev->dev));
-> -	err =3D dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(40));
-> -	if (err) {
-> -		dev_err(dev, "dma_coerce_mask_and_coherent() failed\n");
-> -		goto dev_mask_failed;
-> -	}
-> -
->  	/* bp init */
->  	for (i =3D 0; i < DPAA_BPS_NUM; i++) {
->  		int err;
-> @@ -2665,7 +2657,8 @@ static int dpaa_eth_probe(struct platform_device
-> *pdev)
->  		dpaa_bps[i]->raw_size =3D bpool_buffer_raw_size(i,
-> DPAA_BPS_NUM);
->  		/* avoid runtime computations by keeping the usable size here
-> */
->  		dpaa_bps[i]->size =3D dpaa_bp_size(dpaa_bps[i]->raw_size);
-> -		dpaa_bps[i]->dev =3D dev;
-> +		/* DMA operations are done on the platform-provided device */
-> +		dpaa_bps[i]->dev =3D dev->parent;
->=20
->  		err =3D dpaa_bp_alloc_pool(dpaa_bps[i]);
->  		if (err < 0) {
-> --
-> 2.9.0
+On 10-07-17 19:02, Russell Joyce wrote:
+>> 1) I think most of it should be some cfg80211 shareable code.
+> 
+> I’m not sure exactly what you mean by this, could you please clarify?
 
-Hi Arnd,
+What I think Rafał is saying is that it would be better to have this
+code in cfg80211 so other drivers including mac80211 could use it.
 
-Thanks for looking into this, I've tested your fix, it seems to need more w=
-ork:
+>> 2) This "rxtx" while surely present in other places sounds like a
+>> workaround for LED subsystem limitation. Maybe it's time to finally
+>> rework LED triggers.
+> 
+> I agree that it’s not an ideal way to do things, but I couldn’t think of a
+> better alternative. I think that having a combined trigger is useful though, for
+> situations like using the single LED on a Raspberry Pi to show Wi-Fi activity.
 
-[    0.894968]  platform: DMA map failed
-[    0.898627]  platform: DMA map failed
-[    0.902288]  platform: DMA map failed
-[    0.905947]  platform: DMA map failed
-[    0.909606]  platform: DMA map failed
-[    0.913265]  platform: DMA map failed
+Indeed. However, the LED subsystem could/should(?) take care of mapping
+"rx" and "tx" triggers to the same LED.
 
-You also missed this related change:
-
-@@ -2806,7 +2799,6 @@ static int dpaa_eth_probe(struct platform_device *pde=
-v)
- 		dpaa_bps_free(priv);
- bp_create_failed:
- fq_probe_failed:
--dev_mask_failed:
- mac_probe_failed:
- 		dev_set_drvdata(dev, NULL);
- 		free_netdev(net_dev);
-
-I'll try to address your concern about performing the DMA mapping on a diff=
-erent
-device than the one set up by the platform code.
+I am happy to comment on your patch, but maybe you can first take a look
+at the suggestion Rafał made above.
 
 Regards,
-Madalin
+Arend
