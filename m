@@ -1,129 +1,159 @@
-From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH V3] Set NTB format again after altsetting switch for Huawei devices
-Date: Tue, 11 Jul 2017 17:21:52 +0200
-Message-ID: <20170711152152.30011-1-mrkiko.rs@gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC PATCH 00/12] Implement XDP bpf_redirect vairants
+Date: Tue, 11 Jul 2017 17:36:58 +0200
+Message-ID: <20170711173658.6188b0a2@redhat.com>
+References: <20170707172115.9984.53461.stgit@john-Precision-Tower-5810>
+        <595FC974.9030807@gmail.com>
+        <20170708.104618.2149883426031901592.davem@davemloft.net>
+        <20170708210617.249059b9@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
-        Christian Panton <christian-urZh+a7hbKEdnm+yROfE0A@public.gmane.org>,
-        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: john.fastabend@gmail.com, netdev@vger.kernel.org,
+        andy@greyhouse.net, daniel@iogearbox.net, ast@fb.com,
+        alexander.duyck@gmail.com, bjorn.topel@intel.com,
+        jakub.kicinski@netronome.com, ecree@solarflare.com,
+        sgoutham@cavium.com, Yuval.Mintz@cavium.com, saeedm@mellanox.com,
+        brouer@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:42130 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933478AbdGKPhH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 11 Jul 2017 11:37:07 -0400
+In-Reply-To: <20170708210617.249059b9@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Some firmwares in Huawei E3372H devices have been observed to switch back
-to NTB 32-bit format after altsetting switch.
-This patch implements a driver flag to check for the device settings and
-set NTB format to 16-bit again if needed.
-The flag has been activated for devices controlled by the huawei_cdc_ncm.c
-driver.
+On Sat, 8 Jul 2017 21:06:17 +0200
+Jesper Dangaard Brouer <brouer@redhat.com> wrote:
 
-V1->V2:
-- fixed broken error checks
-- some corrections to the commit message
-V2->V3:
-- variable name changes, to clarify what's happening
-- check (and possibly set) the NTB format later in the common bind code path
+> My plan is to test this latest patchset again, Monday and Tuesday.
+> I'll try to assess stability and provide some performance numbers.
 
-Signed-off-by: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Reported-and-tested-by: Christian Panton <christian-urZh+a7hbKEdnm+yROfE0A@public.gmane.org>
-Reviewed-by: Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-CC: Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-CC: Christian Panton <christian-urZh+a7hbKEdnm+yROfE0A@public.gmane.org>
-CC: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-CC: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-CC: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
----
- drivers/net/usb/cdc_ncm.c        | 28 ++++++++++++++++++++++++++++
- drivers/net/usb/huawei_cdc_ncm.c |  6 ++++++
- include/linux/usb/cdc_ncm.h      |  1 +
- 3 files changed, 35 insertions(+)
+Performance numbers:
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index d103a1d4fb36..8f572b9f3625 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -768,8 +768,10 @@ int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf, u8 data_
- 	u8 *buf;
- 	int len;
- 	int temp;
-+	int err;
- 	u8 iface_no;
- 	struct usb_cdc_parsed_header hdr;
-+	u16 curr_ntb_format;
- 
- 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
- 	if (!ctx)
-@@ -874,6 +876,32 @@ int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf, u8 data_
- 		goto error2;
- 	}
- 
-+	/*
-+	 * Some Huawei devices have been observed to come out of reset in NDP32 mode.
-+	 * Let's check if this is the case, and set the device to NDP16 mode again if
-+	 * needed.
-+	*/
-+	if (ctx->drvflags & CDC_NCM_FLAG_RESET_NTB16) {
-+		err = usbnet_read_cmd(dev, USB_CDC_GET_NTB_FORMAT,
-+				      USB_TYPE_CLASS | USB_DIR_IN | USB_RECIP_INTERFACE,
-+				      0, iface_no, &curr_ntb_format, 2);
-+		if (err < 0) {
-+			goto error2;
-+		}
-+
-+		if (curr_ntb_format == USB_CDC_NCM_NTB32_FORMAT) {
-+			dev_info(&intf->dev, "resetting NTB format to 16-bit");
-+			err = usbnet_write_cmd(dev, USB_CDC_SET_NTB_FORMAT,
-+					       USB_TYPE_CLASS | USB_DIR_OUT
-+					       | USB_RECIP_INTERFACE,
-+					       USB_CDC_NCM_NTB16_FORMAT,
-+					       iface_no, NULL, 0);
-+
-+			if (err < 0)
-+				goto error2;
-+		}
-+	}
-+
- 	cdc_ncm_find_endpoints(dev, ctx->data);
- 	cdc_ncm_find_endpoints(dev, ctx->control);
- 	if (!dev->in || !dev->out || !dev->status) {
-diff --git a/drivers/net/usb/huawei_cdc_ncm.c b/drivers/net/usb/huawei_cdc_ncm.c
-index 2680a65cd5e4..63f28908afda 100644
---- a/drivers/net/usb/huawei_cdc_ncm.c
-+++ b/drivers/net/usb/huawei_cdc_ncm.c
-@@ -80,6 +80,12 @@ static int huawei_cdc_ncm_bind(struct usbnet *usbnet_dev,
- 	 * be at the end of the frame.
- 	 */
- 	drvflags |= CDC_NCM_FLAG_NDP_TO_END;
-+
-+	/* Additionally, it has been reported that some Huawei E3372H devices, with
-+	 * firmware version 21.318.01.00.541, come out of reset in NTB32 format mode, hence
-+	 * needing to be set to the NTB16 one again.
-+	 */
-+	drvflags |= CDC_NCM_FLAG_RESET_NTB16;
- 	ret = cdc_ncm_bind_common(usbnet_dev, intf, 1, drvflags);
- 	if (ret)
- 		goto err;
-diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.h
-index 021f7a88f52c..1a59699cf82a 100644
---- a/include/linux/usb/cdc_ncm.h
-+++ b/include/linux/usb/cdc_ncm.h
-@@ -83,6 +83,7 @@
- /* Driver flags */
- #define CDC_NCM_FLAG_NDP_TO_END			0x02	/* NDP is placed at end of frame */
- #define CDC_MBIM_FLAG_AVOID_ALTSETTING_TOGGLE	0x04	/* Avoid altsetting toggle during init */
-+#define CDC_NCM_FLAG_RESET_NTB16 0x08	/* set NDP16 one more time after altsetting switch */
- 
- #define cdc_ncm_comm_intf_is_mbim(x)  ((x)->desc.bInterfaceSubClass == USB_CDC_SUBCLASS_MBIM && \
- 				       (x)->desc.bInterfaceProtocol == USB_CDC_PROTO_NONE)
+ 14378479 pkt/s = XDP_DROP without touching memory
+  9222401 pkt/s = xdp1: XDP_DROP with reading packet data
+  6344472 pkt/s = xdp2: XDP_TX   with swap mac (writes into pkt)
+  4595574 pkt/s = xdp_redirect:     XDP_REDIRECT with swap mac (simulate XDP_TX)
+  5066243 pkt/s = xdp_redirect_map: XDP_REDIRECT with swap mac + devmap
+
+The performance drop between xdp2 and xdp_redirect, was expected due
+to the HW-tailptr flush per packet, which is costly.
+
+ (1/6344472-1/4595574)*10^9 = -59.98 ns
+
+The performance drop between xdp2 and xdp_redirect_map, is higher than
+I expected, which is not good!  The avoidance of the tailptr flush per
+packet was expected to give a higher boost.  The cost increased with
+40 ns, which is too high compared to the code added (on a 4GHz machine
+approx 160 cycles).
+
+ (1/6344472-1/5066243)*10^9 = -39.77 ns
+
+This system doesn't have DDIO, thus we are stalling on cache-misses,
+but I was actually expecting that the added code could "hide" behind
+these cache-misses.
+
+I'm somewhat surprised to see this large a performance drop.
+
 -- 
-2.13.2
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Results::
+
+ # XDP_DROP with reading packet data
+ [jbrouer@canyon bpf]$ sudo ./xdp1 3
+ proto 17:    6449727 pkt/s
+ proto 17:    9222639 pkt/s
+ proto 17:    9222401 pkt/s
+ proto 17:    9223083 pkt/s
+ proto 17:    9223515 pkt/s
+ proto 17:    9222477 pkt/s
+ ^C
+
+ # XDP_TX with swap mac
+ [jbrouer@canyon bpf]$ sudo ./xdp2 3
+ proto 17:     934682 pkt/s
+ proto 17:    6344845 pkt/s
+ proto 17:    6344472 pkt/s
+ proto 17:    6345265 pkt/s
+ proto 17:    6345238 pkt/s
+ proto 17:    6345338 pkt/s
+ ^C
+
+ # XDP_REDIRECT with swap mac (simulate XDP_TX via same ifindex)
+ [jbrouer@canyon bpf]$ sudo ./xdp_redirect 3 3
+ ifindex 3:     749567 pkt/s
+ ifindex 3:    4595025 pkt/s
+ ifindex 3:    4595574 pkt/s
+ ifindex 3:    4595429 pkt/s
+ ifindex 3:    4595340 pkt/s
+ ifindex 3:    4595352 pkt/s
+ ifindex 3:    4595364 pkt/s
+ ^C
+
+  # XDP_REDIRECT with swap mac + devmap (still simulate XDP_TX)
+ [jbrouer@canyon bpf]$ sudo ./xdp_redirect_map 3 3
+ map[0] (vports) = 4, map[1] (map) = 5, map[2] (count) = 0
+ ifindex 3:    3076506 pkt/s
+ ifindex 3:    5066282 pkt/s
+ ifindex 3:    5066243 pkt/s
+ ifindex 3:    5067376 pkt/s
+ ifindex 3:    5067226 pkt/s
+ ifindex 3:    5067622 pkt/s
+
+My own tools::
+
+ [jbrouer@canyon prototype-kernel]$
+   sudo ./xdp_bench01_mem_access_cost --dev ixgbe1 --sec 2 \
+    --action XDP_DROP
+ XDP_action   pps        pps-human-readable mem      
+ XDP_DROP     0          0                  no_touch 
+ XDP_DROP     9894401    9,894,401          no_touch 
+ XDP_DROP     14377459   14,377,459         no_touch 
+ XDP_DROP     14378228   14,378,228         no_touch 
+ XDP_DROP     14378400   14,378,400         no_touch 
+ XDP_DROP     14378319   14,378,319         no_touch 
+ XDP_DROP     14378479   14,378,479         no_touch 
+ XDP_DROP     14377332   14,377,332         no_touch 
+ XDP_DROP     14378411   14,378,411         no_touch 
+ XDP_DROP     14378095   14,378,095         no_touch 
+ ^CInterrupted: Removing XDP program on ifindex:3 device:ixgbe1
+
+ [jbrouer@canyon prototype-kernel]$
+  sudo ./xdp_bench01_mem_access_cost --dev ixgbe1 --sec 2 \
+   --action XDP_DROP --read
+ XDP_action   pps        pps-human-readable mem      
+ XDP_DROP     0          0                  read     
+ XDP_DROP     6994114    6,994,114          read     
+ XDP_DROP     8979414    8,979,414          read     
+ XDP_DROP     8979636    8,979,636          read     
+ XDP_DROP     8980087    8,980,087          read     
+ XDP_DROP     8979097    8,979,097          read     
+ XDP_DROP     8978970    8,978,970          read     
+ ^CInterrupted: Removing XDP program on ifindex:3 device:ixgbe1
+
+ [jbrouer@canyon prototype-kernel]$
+  sudo ./xdp_bench01_mem_access_cost --dev ixgbe1 --sec 2 \
+  --action XDP_TX --swap --read
+ XDP_action   pps        pps-human-readable mem      
+ XDP_TX       0          0                  swap_mac 
+ XDP_TX       2141556    2,141,556          swap_mac 
+ XDP_TX       6171984    6,171,984          swap_mac 
+ XDP_TX       6171955    6,171,955          swap_mac 
+ XDP_TX       6171767    6,171,767          swap_mac 
+ XDP_TX       6171680    6,171,680          swap_mac 
+ XDP_TX       6172201    6,172,201          swap_mac 
+ ^CInterrupted: Removing XDP program on ifindex:3 device:ixgbe1
+
+
+Setting tuned-adm network-latency ::
+
+ $ sudo tuned-adm list
+ [...]
+ Current active profile: network-latency
