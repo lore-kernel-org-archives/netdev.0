@@ -1,143 +1,127 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [RFC PATCH 03/12] xdp: add bpf_redirect helper function
-Date: Tue, 11 Jul 2017 21:38:11 +0200
-Message-ID: <20170711213811.3f83405c@redhat.com>
-References: <20170707172115.9984.53461.stgit@john-Precision-Tower-5810>
-        <20170707173522.9984.73677.stgit@john-Precision-Tower-5810>
-        <8cf998a4-dadb-0a1a-0f3d-9a4f8ca39287@mellanox.com>
-        <5963B81A.5070008@gmail.com>
-        <CAHashqA8UYWAX7TDVrnGiTCA3zN5RGyiOQ3CcJpFDNnMemRnoQ@mail.gmail.com>
-        <59651B29.5040403@gmail.com>
+Subject: Re: [PATCH net v2] samples/bpf: fix a build issue
+Date: Tue, 11 Jul 2017 21:51:14 +0200
+Message-ID: <20170711215114.4726d1da@redhat.com>
+References: <20170710210428.1292358-1-yhs@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <ast@fb.com>, brouer@redhat.com
-To: John Fastabend <john.fastabend@gmail.com>
+Cc: brouer@redhat.com, <ast@fb.com>, <daniel@iogearbox.net>,
+        <brakmo@fb.com>, <netdev@vger.kernel.org>, <kernel-team@fb.com>
+To: Yonghong Song <yhs@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36348 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46032 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933601AbdGKTiU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 11 Jul 2017 15:38:20 -0400
-In-Reply-To: <59651B29.5040403@gmail.com>
+        id S932645AbdGKTvT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 11 Jul 2017 15:51:19 -0400
+In-Reply-To: <20170710210428.1292358-1-yhs@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 11 Jul 2017 11:38:33 -0700
-John Fastabend <john.fastabend@gmail.com> wrote:
 
-> On 07/11/2017 07:09 AM, Andy Gospodarek wrote:
-> > On Mon, Jul 10, 2017 at 1:23 PM, John Fastabend
-> > <john.fastabend@gmail.com> wrote:  
-> >> On 07/09/2017 06:37 AM, Saeed Mahameed wrote:  
-> >>>
-> >>>
-> >>> On 7/7/2017 8:35 PM, John Fastabend wrote:  
-> >>>> This adds support for a bpf_redirect helper function to the XDP
-> >>>> infrastructure. For now this only supports redirecting to the egress
-> >>>> path of a port.
-> >>>>
-> >>>> In order to support drivers handling a xdp_buff natively this patches
-> >>>> uses a new ndo operation ndo_xdp_xmit() that takes pushes a xdp_buff
-> >>>> to the specified device.
-> >>>>
-> >>>> If the program specifies either (a) an unknown device or (b) a device
-> >>>> that does not support the operation a BPF warning is thrown and the
-> >>>> XDP_ABORTED error code is returned.
-> >>>>
-> >>>> Signed-off-by: John Fastabend <john.fastabend@gmail.com>
-> >>>> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-> >>>> ---  
-> >>
-> >> [...]
-> >>  
-> >>>>
-> >>>> +static int __bpf_tx_xdp(struct net_device *dev, struct xdp_buff *xdp)
-> >>>> +{
-> >>>> +    if (dev->netdev_ops->ndo_xdp_xmit) {
-> >>>> +        dev->netdev_ops->ndo_xdp_xmit(dev, xdp);  
-> >>>
-> >>> Hi John,
-> >>>
-> >>> I have some concern here regarding synchronizing between the
-> >>> redirecting device and the target device:
-> >>>
-> >>> if the target device's NAPI is also doing XDP_TX on the same XDP TX
-> >>> ring which this NDO might be redirecting xdp packets into the same
-> >>> ring, there would be a race accessing this ring resources (buffers
-> >>> and descriptors). Maybe you addressed this issue in the device driver
-> >>> implementation of this ndo or with some NAPI tricks/assumptions, I
-> >>> guess we have the same issue for if you run the same program to
-> >>> redirect traffic from multiple netdevices into one netdevice, how do
-> >>> you synchronize accessing this TX ring ?  
-> >>
-> >> The implementation uses a per cpu TX ring to resolve these races. And
-> >> the pair of driver interface API calls, xdp_do_redirect() and xdp_do_flush_map()
-> >> must be completed in a single poll() handler.
-> >>
-> >> This comment was included in the header file to document this,
-> >>
-> >> /* The pair of xdp_do_redirect and xdp_do_flush_map MUST be called in the
-> >>  * same cpu context. Further for best results no more than a single map
-> >>  * for the do_redirect/do_flush pair should be used. This limitation is
-> >>  * because we only track one map and force a flush when the map changes.
-> >>  * This does not appear to be a real limitation for existing software.
-> >>  */
-> >>
-> >> In general some documentation about implementing XDP would probably be
-> >> useful to add in Documentation/networking but this IMO goes beyond just
-> >> this patch series.
-> >>  
-> >>>
-> >>> Maybe we need some clear guidelines in this ndo documentation stating
-> >>> how to implement this ndo and what are the assumptions on those XDP
-> >>> TX redirect rings or from which context this ndo can run.
-> >>>
-> >>> can you please elaborate.  
-> >>
-> >> I think the best implementation is to use a per cpu TX ring as I did in
-> >> this series. If your device is limited by the number of queues for some
-> >> reason some other scheme would need to be devised. Unfortunately, the only
-> >> thing I've come up for this case (using only this series) would both impact
-> >> performance and make the code complex.
-> >>
-> >> A nice solution might be to constrain networking "tasks" to only a subset
-> >> of cores. For 64+ core systems this might be a good idea. It would allow
-> >> avoiding locking using per_cpu logic but also avoid networking consuming
-> >> slices of every core in the system. As core count goes up I think we will
-> >> eventually need to address this.I believe Eric was thinking along these
-> >> lines with his netconf talk iirc. Obviously this work is way outside the
-> >> scope of this series though.  
-> > 
-> > I agree that it is outside the scope of this series, but I think it is
-> > important to consider the impact of the output queue selection in both
-> > a heterogenous and homogenous driver setup and how tx could be
-> > optimized or even considered to be more reliable and I think that was
-> > part of Saeed's point.
-> > 
-> > I got base redirect support for bnxt_en working yesterday, but for it
-> > and other drivers that do not necessarily create a ring/queue per core
-> > like ixgbe there is probably a bit more to work in each driver to
-> > properly track output tx rings/queues than what you have done with
-> > ixgbe.
-> >   
+On Mon, 10 Jul 2017 14:04:28 -0700 Yonghong Song <yhs@fb.com> wrote:
+
+> With latest net-next:
+> ====
+> clang  -nostdinc -isystem /usr/lib/gcc/x86_64-redhat-linux/6.3.1/include -I./arch/x86/include -I./arch/x86/include/generated/uapi -I./arch/x86/include/generated  -I./include -I./arch/x86/include/uapi -I./include/uapi -I./include/generated/uapi -include ./include/linux/kconfig.h  -Isamples/bpf \
+>     -D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
+>     -Wno-compare-distinct-pointer-types \
+>     -Wno-gnu-variable-sized-type-not-at-end \
+>     -Wno-address-of-packed-member -Wno-tautological-compare \
+>     -Wno-unknown-warning-option \
+>     -O2 -emit-llvm -c samples/bpf/tcp_synrto_kern.c -o -| llc -march=bpf -filetype=obj -o samples/bpf/tcp_synrto_kern.o
+> samples/bpf/tcp_synrto_kern.c:20:10: fatal error: 'bpf_endian.h' file not found
+>           ^~~~~~~~~~~~~~
+> 1 error generated.
+> ====
 > 
-> The problem, in my mind at least, is if you do not have a ring per core
-> how does the locking work? I don't see any good way to do this outside
-> of locking which I was trying to avoid.
+> net has the same issue.
+> 
+> Add support for ntohl and htonl in tools/testing/selftests/bpf/bpf_endian.h.
 
-My solution would be to queue the XDP packets in the devmap, and then
-bulk xdp_xmit them to the device on flush.  Talking a lock per bulk
-amortize cost to basically nothing.  The other advantage of this is
-improving the instruction-cache (re)usage.
+I think this patch should have been split up in two patches. One where
+you fix the compile issue, and one where you add support for ntohl and
+htonl.  And you are also moving the file... I'm getting confused
+reading this patch.
 
-One thing I don't like with this patchset, is this implicit requirement
-it put on drivers, that they must have a HW TX-ring queue per CPU in the
-system.
+> Also move bpf_helpers.h from samples/bpf to selftests/bpf and change
+> compiler include logic so that programs in samples/bpf can access the headers
+> in selftests/bpf, but not the other way around.
+> 
+> Signed-off-by: Yonghong Song <yhs@fb.com>
+> ---
+>  samples/bpf/Makefile                                   |  1 +
+>  tools/testing/selftests/bpf/Makefile                   |  1 -
+>  tools/testing/selftests/bpf/bpf_endian.h               | 14 ++++++++++++++
+>  {samples => tools/testing/selftests}/bpf/bpf_helpers.h |  0
+>  4 files changed, 15 insertions(+), 1 deletion(-)
+>  rename {samples => tools/testing/selftests}/bpf/bpf_helpers.h (100%)
+> 
+> diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+> index 9c65058..87246be 100644
+> --- a/samples/bpf/Makefile
+> +++ b/samples/bpf/Makefile
+> @@ -207,6 +207,7 @@ $(obj)/tracex5_kern.o: $(obj)/syscall_nrs.h
+>  # useless for BPF samples.
+>  $(obj)/%.o: $(src)/%.c
+>  	$(CLANG) $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) -I$(obj) \
+> +		-I$(srctree)/tools/testing/selftests/bpf/ \
+>  		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
+>  		-Wno-compare-distinct-pointer-types \
+>  		-Wno-gnu-variable-sized-type-not-at-end \
+> diff --git a/tools/testing/selftests/bpf/Makefile b/tools/testing/selftests/bpf/Makefile
+> index 2ca51a8..153c3a1 100644
+> --- a/tools/testing/selftests/bpf/Makefile
+> +++ b/tools/testing/selftests/bpf/Makefile
+> @@ -37,6 +37,5 @@ CLANG ?= clang
+>  
+>  %.o: %.c
+>  	$(CLANG) -I. -I./include/uapi -I../../../include/uapi \
+> -		-I../../../../samples/bpf/ \
+>  		-Wno-compare-distinct-pointer-types \
+>  		-O2 -target bpf -c $< -o $@
+> diff --git a/tools/testing/selftests/bpf/bpf_endian.h b/tools/testing/selftests/bpf/bpf_endian.h
+> index 487cbfb..74af266 100644
+> --- a/tools/testing/selftests/bpf/bpf_endian.h
+> +++ b/tools/testing/selftests/bpf/bpf_endian.h
+> @@ -23,11 +23,19 @@
+>  # define __bpf_htons(x)			__builtin_bswap16(x)
+>  # define __bpf_constant_ntohs(x)	___constant_swab16(x)
+>  # define __bpf_constant_htons(x)	___constant_swab16(x)
+> +# define __bpf_ntohl(x)			__builtin_bswap32(x)
+> +# define __bpf_htonl(x)			__builtin_bswap32(x)
+> +# define __bpf_constant_ntohl(x)	___constant_swab32(x)
+> +# define __bpf_constant_htonl(x)	___constant_swab32(x)
+>  #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+>  # define __bpf_ntohs(x)			(x)
+>  # define __bpf_htons(x)			(x)
+>  # define __bpf_constant_ntohs(x)	(x)
+>  # define __bpf_constant_htons(x)	(x)
+> +# define __bpf_ntohl(x)			(x)
+> +# define __bpf_htonl(x)			(x)
+> +# define __bpf_constant_ntohl(x)	(x)
+> +# define __bpf_constant_htonl(x)	(x)
+>  #else
+>  # error "Fix your compiler's __BYTE_ORDER__?!"
+>  #endif
+> @@ -38,5 +46,11 @@
+>  #define bpf_ntohs(x)				\
+>  	(__builtin_constant_p(x) ?		\
+>  	 __bpf_constant_ntohs(x) : __bpf_ntohs(x))
+> +#define bpf_htonl(x)				\
+> +	(__builtin_constant_p(x) ?		\
+> +	 __bpf_constant_htonl(x) : __bpf_htonl(x))
+> +#define bpf_ntohl(x)				\
+> +	(__builtin_constant_p(x) ?		\
+> +	 __bpf_constant_ntohl(x) : __bpf_ntohl(x))
+>  
+>  #endif /* __BPF_ENDIAN__ */
+> diff --git a/samples/bpf/bpf_helpers.h b/tools/testing/selftests/bpf/bpf_helpers.h
+> similarity index 100%
+> rename from samples/bpf/bpf_helpers.h
+> rename to tools/testing/selftests/bpf/bpf_helpers.h
+
+
 
 -- 
 Best regards,
