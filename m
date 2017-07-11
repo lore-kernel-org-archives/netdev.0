@@ -1,49 +1,56 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net v2] samples/bpf: fix a build issue
-Date: Tue, 11 Jul 2017 22:02:27 +0200
-Message-ID: <59652ED3.5020607@iogearbox.net>
-References: <20170710210428.1292358-1-yhs@fb.com> <20170711215114.4726d1da@redhat.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net] cxgb4: ptp_clock_register() returns error pointers
+Date: Tue, 11 Jul 2017 22:20:00 +0200
+Message-ID: <20170711202000.enehgnr4mn54uoug@localhost.localdomain>
+References: <1499783078-4706-1-git-send-email-ganeshgr@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ast@fb.com, brakmo@fb.com, netdev@vger.kernel.org,
-        kernel-team@fb.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>,
-        Yonghong Song <yhs@fb.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        dan.carpenter@oracle.com, atul.gupta@chelsio.com
+To: Ganesh Goudar <ganeshgr@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:58888 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932446AbdGKUCd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2017 16:02:33 -0400
-In-Reply-To: <20170711215114.4726d1da@redhat.com>
+Received: from mail-wr0-f172.google.com ([209.85.128.172]:36110 "EHLO
+        mail-wr0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932351AbdGKUUF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2017 16:20:05 -0400
+Received: by mail-wr0-f172.google.com with SMTP id c11so4402769wrc.3
+        for <netdev@vger.kernel.org>; Tue, 11 Jul 2017 13:20:04 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1499783078-4706-1-git-send-email-ganeshgr@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/11/2017 09:51 PM, Jesper Dangaard Brouer wrote:
-> On Mon, 10 Jul 2017 14:04:28 -0700 Yonghong Song <yhs@fb.com> wrote:
->
->> With latest net-next:
->> ====
->> clang  -nostdinc -isystem /usr/lib/gcc/x86_64-redhat-linux/6.3.1/include -I./arch/x86/include -I./arch/x86/include/generated/uapi -I./arch/x86/include/generated  -I./include -I./arch/x86/include/uapi -I./include/uapi -I./include/generated/uapi -include ./include/linux/kconfig.h  -Isamples/bpf \
->>      -D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
->>      -Wno-compare-distinct-pointer-types \
->>      -Wno-gnu-variable-sized-type-not-at-end \
->>      -Wno-address-of-packed-member -Wno-tautological-compare \
->>      -Wno-unknown-warning-option \
->>      -O2 -emit-llvm -c samples/bpf/tcp_synrto_kern.c -o -| llc -march=bpf -filetype=obj -o samples/bpf/tcp_synrto_kern.o
->> samples/bpf/tcp_synrto_kern.c:20:10: fatal error: 'bpf_endian.h' file not found
->>            ^~~~~~~~~~~~~~
->> 1 error generated.
->> ====
->>
->> net has the same issue.
->>
->> Add support for ntohl and htonl in tools/testing/selftests/bpf/bpf_endian.h.
->
-> I think this patch should have been split up in two patches. One where
-> you fix the compile issue, and one where you add support for ntohl and
-> htonl.  And you are also moving the file... I'm getting confused
-> reading this patch.
+On Tue, Jul 11, 2017 at 07:54:38PM +0530, Ganesh Goudar wrote:
+> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ptp.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ptp.c
+> index 50517cf..06c0de4 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ptp.c
+> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ptp.c
+> @@ -441,7 +441,7 @@ void cxgb4_ptp_init(struct adapter *adapter)
+>  
+>  	adapter->ptp_clock = ptp_clock_register(&adapter->ptp_clock_info,
+>  						&adapter->pdev->dev);
+> -	if (!adapter->ptp_clock) {
+> +	if (IS_ERR_OR_NULL(adapter->ptp_clock)) {
 
-Could have been done, sure. Patch is still straight forward and small as-is,
-so I don't really mind having this user space code squashed together.
+But here you also need
+
+		adapter->ptp_clock = NULL;
+
+>  		dev_err(adapter->pdev_dev,
+>  			"PTP %s Clock registration has failed\n", __func__);
+>  		return;
+
+because later on you have:
+
+void cxgb4_ptp_stop(struct adapter *adapter)
+{
+	...
+
+	if (adapter->ptp_clock) {
+		ptp_clock_unregister(adapter->ptp_clock);
+		adapter->ptp_clock = NULL;
+	}
+}
+
+Thanks,
+Richard
