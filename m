@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] net: stmmac: Fixes and cleanups in
- 'alloc_dma_[rt]x_desc_resources()'
-Date: Tue, 11 Jul 2017 13:34:11 -0700 (PDT)
-Message-ID: <20170711.133411.864910706448052867.davem@davemloft.net>
-References: <cover.1499499451.git.christophe.jaillet@wanadoo.fr>
+Subject: Re: [PATCH] net-next: Fix minor code bug in timestamping.txt
+Date: Tue, 11 Jul 2017 13:35:14 -0700 (PDT)
+Message-ID: <20170711.133514.1211086377571475842.davem@davemloft.net>
+References: <20170708192844.70105-1-ahmad@a3f.at>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: christophe.jaillet@wanadoo.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1499499451.git.christophe.jaillet@wanadoo.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: ahmad@a3f.at
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41632 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753958AbdGKUfP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2017 16:35:15 -0400
+In-Reply-To: <20170708192844.70105-1-ahmad@a3f.at>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Date: Sat,  8 Jul 2017 09:46:12 +0200
+From: Ahmad Fatoum <ahmad@a3f.at>
+Date: Sat,  8 Jul 2017 21:28:44 +0200
 
-> These patchs are all related to 'alloc_dma_[rt]x_desc_resources()' functions.
+> Passing (void*)val instead of &val would make a pointer out of an integer
+> and cause sock_setsockopt to -EFAULT.
 > 
-> The 2 first fix an error path where some resources are leaking. I've
-> separated them into 2 patches because the issues have been introduced by
-> 2 deferent commits.
+> See tools/testing/selftests/networking/timestamping/timestamping.c
+> for a working example.
 > 
-> The 3rd patch is just a clean-up.
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Ahmad Fatoum <ahmad@a3f.at>
 
-Series applied, thanks.
+Applied.
