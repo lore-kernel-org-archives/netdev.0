@@ -1,74 +1,120 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v2 00/10] Constify attribute_group structures
-Date: Tue, 11 Jul 2017 09:48:20 +0200
-Message-ID: <fec4d3c9-1ac8-c752-b8a5-3f446042fe4e@pengutronix.de>
-References: <1499758158-24741-1-git-send-email-arvind.yadav.cs@gmail.com>
+From: Arkadi Sharshevsky <arkadis@mellanox.com>
+Subject: Re: [PATCH net-next RFC 10/12] net: dsa: Move FDB dump implementation
+ inside DSA
+Date: Tue, 11 Jul 2017 11:32:09 +0300
+Message-ID: <acadbdf6-0387-627b-990b-998edd6a1c4e@mellanox.com>
+References: <1499268990-19251-1-git-send-email-arkadis@mellanox.com>
+ <1499268990-19251-11-git-send-email-arkadis@mellanox.com>
+ <87wp7g5bkv.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="9o5CtbvjURle51Ca8EBPi7aw7a4a5vMv1"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arvind Yadav <arvind.yadav.cs@gmail.com>, davem@davemloft.net,
-        wg@grandegger.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1499758158-24741-1-git-send-email-arvind.yadav.cs@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---9o5CtbvjURle51Ca8EBPi7aw7a4a5vMv1
-Content-Type: multipart/mixed; boundary="N00eADBRhqlqGptp0PumkVpVNNQG6mJhH";
- protected-headers="v1"
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-To: Arvind Yadav <arvind.yadav.cs@gmail.com>, davem@davemloft.net,
- wg@grandegger.com
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Message-ID: <fec4d3c9-1ac8-c752-b8a5-3f446042fe4e@pengutronix.de>
-Subject: Re: [PATCH v2 00/10] Constify attribute_group structures
-References: <1499758158-24741-1-git-send-email-arvind.yadav.cs@gmail.com>
-In-Reply-To: <1499758158-24741-1-git-send-email-arvind.yadav.cs@gmail.com>
-
---N00eADBRhqlqGptp0PumkVpVNNQG6mJhH
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-
-On 07/11/2017 09:29 AM, Arvind Yadav wrote:
-> attribute_groups are not supposed to change at runtime. So mark the
-> non-const structs as const.
-
-[...]
-
->  drivers/net/can/at91_can.c                      | 2 +-
->  drivers/net/can/janz-ican3.c                    | 2 +-
-
-For the can drivers:
-
-Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
+        f.fainelli@gmail.com, andrew@lunn.ch, Woojung.Huh@microchip.com,
+        stephen@networkplumber.org, mlxsw@mellanox.com
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-eopbgr30040.outbound.protection.outlook.com ([40.107.3.40]:28513
+        "EHLO EUR03-AM5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1755378AbdGKIcU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 11 Jul 2017 04:32:20 -0400
+In-Reply-To: <87wp7g5bkv.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---N00eADBRhqlqGptp0PumkVpVNNQG6mJhH--
 
---9o5CtbvjURle51Ca8EBPi7aw7a4a5vMv1
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+On 07/10/2017 10:36 PM, Vivien Didelot wrote:
+> Hi Arkadi,
+> 
+> Arkadi Sharshevsky <arkadis@mellanox.com> writes:
+> 
+>> +struct dsa_slave_dump_ctx {
+>> +	struct net_device *dev;
+>> +	struct sk_buff *skb;
+>> +	struct netlink_callback *cb;
+>> +	int idx;
+>> +};
+>> +
+>>  struct dsa_switch_ops {
+>>  	/*
+>>  	 * Legacy probing.
+>> @@ -392,9 +399,7 @@ struct dsa_switch_ops {
+>>  	int	(*port_fdb_del)(struct dsa_switch *ds, int port,
+>>  				const unsigned char *addr, u16 vid);
+>>  	int	(*port_fdb_dump)(struct dsa_switch *ds, int port,
+>> -				 struct switchdev_obj_port_fdb *fdb,
+>> -				  switchdev_obj_dump_cb_t *cb);
+>> -
+>> +				 struct dsa_slave_dump_ctx *dump);
+> 
+> I would prefer to pass a callback to the driver, so that we can call
+> port_fdb_dump for other interfaces like debugfs, and for non exposed
+> switch ports (CPU and DSA links) as well. Something like:
+> 
+>     typedef int dsa_fdb_dump_cb_t(const unsigned char *addr, u16 vid,
+>                                   bool is_static, void *data);
+> 
+>     int (*port_fdb_dump)(struct dsa_switch *ds, int port,
+>                          dsa_fdb_dump_cb_t *cb, void *data);
+> 
+> Then dsa_slave_dump_ctx and dsa_slave_port_fdb_do_dump can be static to
+> net/dsa/slave.c.
+> 
 
------BEGIN PGP SIGNATURE-----
+Originally thought about it. But it makes sense to pass a callback
+when different functions can be supplied.
 
-iQEzBAEBCgAdFiEE4bay/IylYqM/npjQHv7KIOw4HPYFAllkgscACgkQHv7KIOw4
-HPYwNAgAk2kOIukJk8ux3GPqCWM4A9Pd53xDAls0D3CN6dVgIkvUnvuy21a7Hhr/
-DOevkALOlPqMIC1aM6szd0kao1yR+Wqj0OFmHRD51nq92WAf5Jmfa0+20KcQ5I7D
-a8EPMNw/V9ZmEPr/XPL+9bLvuhioQKjnjwQzNqzB3iQW+hAkn9IPYEbRSCcX2Zht
-6ZTHxvImEsdlB5rYqi2QL37QRrFWggfHSKxk7ZMwJji+jmfB5JZKskWsTfslHLSI
-mPxnDnim1Je+zsHfPPABD7QKfcZsBvZvpnKRFzarcW5+ZC8cyNW9epX6JSqjD2fs
-OQ7zYTptJR85irO1r9SnizyADPEfeA==
-=k+Y5
------END PGP SIGNATURE-----
+Here is only one option which is the fdb_do_dump(). So I thought
+exporting it makes more sense..
 
---9o5CtbvjURle51Ca8EBPi7aw7a4a5vMv1--
+>> +int dsa_slave_port_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
+>> +			    struct net_device *dev,
+>> +			    struct net_device *filter_dev, int *idx)
+>> +{
+>> +	struct dsa_slave_dump_ctx dump = {
+>> +		.dev = dev,
+>> +		.skb = skb,
+>> +		.cb = cb,
+>> +		.idx = *idx,
+>> +	};
+>> +	struct dsa_slave_priv *p = netdev_priv(dev);
+>> +	struct dsa_port *dp = p->dp;
+>> +	struct dsa_switch *ds = dp->ds;
+>> +	int err;
+>> +
+>> +	if (!ds->ops->port_fdb_dump) {
+>> +		err = -EOPNOTSUPP;
+>> +		goto out;
+>> +	}
+>> +
+>> +	err = ds->ops->port_fdb_dump(ds, dp->index, &dump);
+>> +out:
+>> +	*idx = dump.idx;
+>> +	return err;
+> 
+> There is no need to reassign *idx in case of error:
+> 
+>     if (!ds->ops->port_fdb_dump)
+>         return -EOPNOTSUPP;
+> 
+>     err = ds->ops->port_fdb_dump(ds, dp->index, &dump);
+>     *idx = dump.idx;
+> 
+>     return err;
+>
+Will fix, thanks.
+
+>> +	.ndo_fdb_dump		= dsa_slave_port_fdb_dump,
+> 
+> And s/dsa_slave_port_fdb_dump/dsa_slave_fdb_dump/ here will be even
+> better ;-)
+> 
+> 
+> Thanks,
+> 
+>         Vivien
+> 
+Will fix, thanks.
