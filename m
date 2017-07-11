@@ -1,67 +1,49 @@
-From: Balaji Foss <balajig.foss@gmail.com>
-Subject: Re: Regarding xfrm state search with destination address as wildcard mask
-Date: Tue, 11 Jul 2017 16:58:16 +0530
-Message-ID: <CAJ4ZP5T3xaxvYAS03LAg0e1bEqKMcnH2iMwhBwGyAZqGyhnJ=Q@mail.gmail.com>
-References: <CAJ4ZP5QhmV89K_EfF19B_wjAbOYBNj_62dZksJNCwHUAHVmGvw@mail.gmail.com>
+From: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: [PATCH] rt2x00: make const array glrt_table static
+Date: Tue, 11 Jul 2017 12:47:33 +0100
+Message-ID: <20170711114733.15387-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: steffen.klassert@secunet.com,
-        Herbert Xu <herbert@gondor.apana.org.au>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f46.google.com ([209.85.213.46]:36521 "EHLO
-        mail-vk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752175AbdGKL2S (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2017 07:28:18 -0400
-Received: by mail-vk0-f46.google.com with SMTP id y70so62691291vky.3
-        for <netdev@vger.kernel.org>; Tue, 11 Jul 2017 04:28:18 -0700 (PDT)
-In-Reply-To: <CAJ4ZP5QhmV89K_EfF19B_wjAbOYBNj_62dZksJNCwHUAHVmGvw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Helmut Schaa <helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi
+From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 
-Any help on this query is greatly appreciated.
+Don't populate array glrt_table on the stack but make it static.
+Makes the object code a smaller by over 670 bytes:
 
-Thanks,
-  - Balaji
+Before:
+   text	   data	    bss	    dec	    hex	filename
+ 131772	   4733	      0	 136505	  21539	rt2800lib.o
 
-On Thu, Jul 6, 2017 at 12:21 PM, Balaji Foss <balajig.foss@gmail.com> wrote:
-> Hi All,
->
-> Im trying to implement IPSec for ospfv3 as per RFC4552 on Linux kernel
-> version 3.16.39.
-> Requirement is to support IPsec encryption/authentication for ospfv3 traffic.
-> As of now, this can be achieved by following set of SA and SP rules.
->
-> ip xfrm state add src :: dst ff02::5 proto ah spi 0x401 mode transport
-> auth "hmac(sha1)" 0x12345678123456781234567812345678
-> ip xfrm state add src :: dst ff02::6 proto ah spi 0x401 mode transport
-> auth "hmac(sha1)" 0x12345678123456781234567812345678
-> ip xfrm state add src <sip> dst <dst_ip> proto ah spi 0x401 mode
-> transport auth "hmac(sha1)" 0x12345678123456781234567812345678
-> ip xfrm state add src <dst_ip> dst <sip> proto ah spi 0x401 mode
-> transport auth "hmac(sha1)" 0x12345678123456781234567812345678
->
-> ip xfrm policy add dir out src <sip> dst 0::0/0 dev e101-049-0 proto
-> ospf priority 2147483648 tmpl  proto ah spi 0x401 mode transport level
-> use
-> ip xfrm policy add dir in src 0::0/0 dst 0::0/0 dev e101-049-0 proto
-> ospf priority 2147483648 tmpl proto ah spi 0x401 mode transport level
-> use
->
->
-> One can notice that it needs four SA rules to achieve IPsec for single
-> OSPF interface.
-> Instead of these four rules, can we have a single rule with DIP as
-> wild card mask and the xfrm state search as based on SPI ,family and
-> proto alone?
->
-> As of now, the API "__xfrm_state_lookup"  search based on
-> SPI,family,proto and dest_addr.  Is there any way I can achieve the SA
-> lookup without dest_addr and only with SPI,family and proto alone?
->
-> Any help or pointers is greatly appreciated.
->
-> Regards
-> Bala
+After:
+   text	   data	    bss	    dec	    hex	filename
+ 131043	   4789	      0	 135832	  21298	rt2800lib.o
+
+Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+---
+ drivers/net/wireless/ralink/rt2x00/rt2800lib.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/ralink/rt2x00/rt2800lib.c b/drivers/net/wireless/ralink/rt2x00/rt2800lib.c
+index 6e2e760d98b1..0b75def39c6c 100644
+--- a/drivers/net/wireless/ralink/rt2x00/rt2800lib.c
++++ b/drivers/net/wireless/ralink/rt2x00/rt2800lib.c
+@@ -5704,7 +5704,7 @@ static void rt2800_init_freq_calibration(struct rt2x00_dev *rt2x00dev)
+ 
+ static void rt2800_init_bbp_5592_glrt(struct rt2x00_dev *rt2x00dev)
+ {
+-	const u8 glrt_table[] = {
++	static const u8 glrt_table[] = {
+ 		0xE0, 0x1F, 0X38, 0x32, 0x08, 0x28, 0x19, 0x0A, 0xFF, 0x00, /* 128 ~ 137 */
+ 		0x16, 0x10, 0x10, 0x0B, 0x36, 0x2C, 0x26, 0x24, 0x42, 0x36, /* 138 ~ 147 */
+ 		0x30, 0x2D, 0x4C, 0x46, 0x3D, 0x40, 0x3E, 0x42, 0x3D, 0x40, /* 148 ~ 157 */
+-- 
+2.11.0
