@@ -1,74 +1,66 @@
-From: Eduardo Valentin via Bridge <bridge@lists.linux-foundation.org>
-Subject: Re: [PATCH 1/1] bridge: mdb: report complete_info ptr as
- not a kmemleak
-Date: Tue, 11 Jul 2017 14:43:25 -0700
-Message-ID: <20170711214325.GA9190@u40b0340c692b58f6553c.ant.amazon.com>
-References: <1499101594-22421-1-git-send-email-eduval@amazon.com>
-	<20170704.014842.1942928249505987408.davem@davemloft.net>
-	<20170705160514.GA11351@u40b0340c692b58f6553c.ant.amazon.com>
-Reply-To: Eduardo Valentin <eduval@amazon.com>
+From: Eduardo Valentin <eduval@amazon.com>
+Subject: [PATCH 1/1] bridge: mdb: fix leak on complete_info ptr on fail path
+Date: Tue, 11 Jul 2017 14:55:12 -0700
+Message-ID: <1499810112-11790-1-git-send-email-eduval@amazon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Eduardo Valentin <eduval@amazon.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20170705160514.GA11351@u40b0340c692b58f6553c.ant.amazon.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain
+Cc: <bridge@lists.linux-foundation.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>,
+        Eduardo Valentin <eduval@amazon.com>,
+        "stable # v4 . 9+" <stable@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 05, 2017 at 09:05:14AM -0700, Eduardo Valentin wrote:
-> On Tue, Jul 04, 2017 at 01:48:42AM -0700, David Miller wrote:
-> > From: Eduardo Valentin <eduval@amazon.com>
-> > Date: Mon, 3 Jul 2017 10:06:34 -0700
-> > 
-> > > We currently get the following kmemleak report:
-> >  ...
-> > > This patch flags the complete_info ptr object as not a leak as it will
-> > > get freed when .complete_priv() is called,
-> > 
-> > We don't call .complete_priv().  We call .complete().
-> 
-> True, I can fix this wording in the commit next version.
-> 
-> > 
-> >  for the br mdb case, it
-> > > will be freed at br_mdb_complete().
-> > > 
-> > > Cc: stable <stable@vger.kernel.org> # v4.9+
-> > > Reviewed-by: Vallish Vaidyeshwara <vallish@amazon.com>
-> > > Signed-off-by: Eduardo Valentin <eduval@amazon.com>
-> > 
-> > I don't understand why kmemleak cannot see this.
-> > 
-> > We store the pointer globally when we do the switchdev_port_obv_add()
-> > call and it should be able to see that.
-> 
-> I see and agree. But even then I get these reports consistently on RTM_NEWMDB type.
-> This is why I am proposing marking as a non-kmemleak.
-> 
-> To me, this is only a leak if .complete() never gets called.
+We currently get the following kmemleak report:
+unreferenced object 0xffff8800039d9820 (size 32):
+  comm "softirq", pid 0, jiffies 4295212383 (age 792.416s)
+  hex dump (first 32 bytes):
+    00 0c e0 03 00 88 ff ff ff 02 00 00 00 00 00 00  ................
+    00 00 00 01 ff 11 00 02 86 dd 00 00 ff ff ff ff  ................
+  backtrace:
+    [<ffffffff8152b4aa>] kmemleak_alloc+0x4a/0xa0
+    [<ffffffff811d8ec8>] kmem_cache_alloc_trace+0xb8/0x1c0
+    [<ffffffffa0389683>] __br_mdb_notify+0x2a3/0x300 [bridge]
+    [<ffffffffa038a0ce>] br_mdb_notify+0x6e/0x70 [bridge]
+    [<ffffffffa0386479>] br_multicast_add_group+0x109/0x150 [bridge]
+    [<ffffffffa0386518>] br_ip6_multicast_add_group+0x58/0x60 [bridge]
+    [<ffffffffa0387fb5>] br_multicast_rcv+0x1d5/0xdb0 [bridge]
+    [<ffffffffa037d7cf>] br_handle_frame_finish+0xcf/0x510 [bridge]
+    [<ffffffffa03a236b>] br_nf_hook_thresh.part.27+0xb/0x10 [br_netfilter]
+    [<ffffffffa03a3738>] br_nf_hook_thresh+0x48/0xb0 [br_netfilter]
+    [<ffffffffa03a3fb9>] br_nf_pre_routing_finish_ipv6+0x109/0x1d0 [br_netfilter]
+    [<ffffffffa03a4400>] br_nf_pre_routing_ipv6+0xd0/0x14c [br_netfilter]
+    [<ffffffffa03a3c27>] br_nf_pre_routing+0x197/0x3d0 [br_netfilter]
+    [<ffffffff814a2952>] nf_iterate+0x52/0x60
+    [<ffffffff814a29bc>] nf_hook_slow+0x5c/0xb0
+    [<ffffffffa037ddf4>] br_handle_frame+0x1a4/0x2c0 [bridge]
 
-Ok. So, in fact, I believe the problem I am seeing in more when switchdev_port_obj_add() fails.
+This happens when switchdev_port_obj_add() fails. This patch
+frees complete_info object in the fail path.
 
-I will send a patch for that.
+Cc: stable <stable@vger.kernel.org> # v4.9+
+Reviewed-by: Vallish Vaidyeshwara <vallish@amazon.com>
+Signed-off-by: Eduardo Valentin <eduval@amazon.com>
+---
+ net/bridge/br_mdb.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-> 
-> 
-> -- 
-> All the best,
-> Eduardo Valentin
-
+diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
+index b084548..c1030f8 100644
+--- a/net/bridge/br_mdb.c
++++ b/net/bridge/br_mdb.c
+@@ -323,7 +323,8 @@ static void __br_mdb_notify(struct net_device *dev, struct net_bridge_port *p,
+ 			__mdb_entry_to_br_ip(entry, &complete_info->ip);
+ 			mdb.obj.complete_priv = complete_info;
+ 			mdb.obj.complete = br_mdb_complete;
+-			switchdev_port_obj_add(port_dev, &mdb.obj);
++			if (switchdev_port_obj_add(port_dev, &mdb.obj))
++				kfree(complete_info);
+ 		}
+ 	} else if (port_dev && type == RTM_DELMDB) {
+ 		switchdev_port_obj_del(port_dev, &mdb.obj);
 -- 
-All the best,
-Eduardo Valentin
+2.7.4
