@@ -1,112 +1,83 @@
-From: Marc Duponcheel <marc@offline.be>
-Subject: Re: meson-gxbb-p200 4.12.0 network TCP transfer stalls
-Date: Tue, 11 Jul 2017 01:48:45 +0200
-Message-ID: <20170710234845.GA24423@offline.be>
-References: <20170708005542.GA20515@offline.be>
-Reply-To: Marc Duponcheel <marc@offline.be>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: Re: [PATCH v6 0/3] Add new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+Date: Tue, 11 Jul 2017 00:01:37 +0000
+Message-ID: <MWHPR12MB16008EFFC5F2792880F7E80BC8A90@MWHPR12MB1600.namprd12.prod.outlook.com>
+References: <1498133721-21152-1-git-send-email-dingtianhong@huawei.com>
+ <MWHPR12MB160087E9E0B17F7A17609714C8AA0@MWHPR12MB1600.namprd12.prod.outlook.com>
+ <MWHPR12MB160006024D920ED58126048AC8AB0@MWHPR12MB1600.namprd12.prod.outlook.com>
+ <CAKgT0Uc5KSJTj4A=9pSudiJ28AW0krc7FZpdW4upwY+FgpeArA@mail.gmail.com>
+ <MWHPR12MB1600AECAE619EAA97E6B15D5C8AB0@MWHPR12MB1600.namprd12.prod.outlook.com>,<CAKgT0UdqoRR8XLG1o3ygUZTqEBQ4dgNaneZ-n1OSNC1AiswO_g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Marc Duponcheel <marc@offline.be>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from server.offline.be ([79.132.231.86]:51920 "EHLO mail.offline.be"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754952AbdGJXlH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 10 Jul 2017 19:41:07 -0400
-Content-Disposition: inline
-In-Reply-To: <20170708005542.GA20515@offline.be>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
- FYI
-
-I changed 4.12.0 drivers/net/phy/realtek.c RTL8211F code to equal the
-3.14.29 amlogic/ethernet/phy/am_realtek.c code and now the networking
-works without TCP stalls.
-
-I don't say below patch should be considered mainstream (as maybe some
-4.12.0 rtl8211f_config_init code should not be removed) but sure
-someone could figure out what best patch is...
-
- --
-# diff -U2 realtek.c.orig realtek.c
---- realtek.c.orig	2017-07-03 01:07:02.000000000 +0200
-+++ realtek.c	2017-07-11 01:32:20.273445023 +0200
-@@ -94,28 +94,27 @@
- }
- 
-+#define RTL8211F_MMD_CTRL       0x0D
-+#define RTL8211F_MMD_DATA       0x0E
-+#define RTL8211E_INER_LINK_STAT 0x10
-+
- static int rtl8211f_config_init(struct phy_device *phydev)
- {
--	int ret;
--	u16 reg;
--
--	ret = genphy_config_init(phydev);
--	if (ret < 0)
--		return ret;
--
--	phy_write(phydev, RTL8211F_PAGE_SELECT, 0xd08);
--	reg = phy_read(phydev, 0x11);
--
--	/* enable TX-delay for rgmii-id and rgmii-txid, otherwise disable it */
--	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID ||
--	    phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID)
--		reg |= RTL8211F_TX_DELAY;
--	else
--		reg &= ~RTL8211F_TX_DELAY;
--
--	phy_write(phydev, 0x11, reg);
--	/* restore to default page 0 */
--	phy_write(phydev, RTL8211F_PAGE_SELECT, 0x0);
--
-+	int val;
-+/* we want to disable eee */
-+	phy_write(phydev, RTL8211F_MMD_CTRL, 0x7);
-+	phy_write(phydev, RTL8211F_MMD_DATA, 0x3c);
-+	phy_write(phydev, RTL8211F_MMD_CTRL, 0x4007);
-+	phy_write(phydev, RTL8211F_MMD_DATA, 0x0);
-+/* disable 1000m adv*/
-+	val = phy_read(phydev, 0x9);
-+	phy_write(phydev, 0x9, val&(~(1<<9)));
-+/* rx reg 21 bit 3 tx reg 17 bit 8 */
-+/*
-+	phy_write(phydev, 0x1f, 0xd08);
-+	val =  phy_read(phydev, 0x15);
-+	phy_write(phydev, 0x15,val| 1<<21);
-+ */
- 	return 0;
-+/* Enable Auto Power Saving mode */
- }
- 
-@@ -167,6 +166,6 @@
- 		.name		= "RTL8211F Gigabit Ethernet",
- 		.phy_id_mask	= 0x001fffff,
--		.features	= PHY_GBIT_FEATURES,
--		.flags		= PHY_HAS_INTERRUPT,
-+		.features	= PHY_GBIT_FEATURES | SUPPORTED_Pause | SUPPORTED_Asym_Pause,
-+		.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
- 		.config_aneg	= &genphy_config_aneg,
- --
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Ding Tianhong <dingtianhong@huawei.com>,
+        "ashok.raj@intel.com" <ashok.raj@intel.com>,
+        "helgaas@kernel.org" <helgaas@kernel.org>,
+        "Michael Werner" <werner@chelsio.com>,
+        Ganesh GR <ganeshgr@chelsio.com>,
+        "asit.k.mallick@intel.com" <asit.k.mallick@intel.com>,
+        "patrick.j.cramer@intel.com" <patrick.j.cramer@intel.com>,
+        "Suravee.Suthikulpanit@amd.com" <Suravee.Suthikulpanit@amd.com>,
+        "Bob.Shaw@amd.com" <Bob.Shaw@amd.com>,
+        "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
+        "amira@mellanox.com" <amira@mellanox.com>,
+        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
+        "David.Laight@aculab.com" <David.Laight@aculab.com>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+        "catalin.marinas@arm.com" <catalin.marinas@arm.com>,
+        "will.deacon@arm.com" <will.deacon
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <CAKgT0UdqoRR8XLG1o3ygUZTqEBQ4dgNaneZ-n1OSNC1AiswO_g@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-On 2017 Jul 08, Marc Duponcheel wrote:
-> Hi all
-> 
-> Similar to 'crow'
-> 
-> ARM GLX Khadas VIM Pro - Ethernet detected as only 10Mbps and stalled after some traffic
-> 
-> I also have the situation where copying large file over LAN stalls.
-> 
-> 3.14.29 performance is good 4.12.0 performance not
-> 
-> 
->  Perhaps one must compare 3.14.29 am_realtek.c and realtek.c with 4.12.0 realtek.c
-> 
-> 
->  thanks
+Hey Alexander,
 
-have a nice day
+  Okay, I understand your point regarding the "most likely scenario" being
+TLPs directed upstream to the Root Complex.  But I'd still like to make sur=
+e
+that we have an agreed upon API/methodology for doing Peer-to-Peer with
+Relaxed Ordering and no Relaxed Ordering to the Root Complex.  I don't see
+how the proposed APIs can be used in that fashion.
+=20
+  Right now the proposed change for cxgb4 is for it to test its own PCIe
+Capability Device Control[Relaxed Ordering Enable] in order to use that
+information to program the Chelsio Hardware to emit/not emit upstream TLPs
+with the Relaxed Ordering Attribute set.  But if we're going to have the
+mixed mode situation I describe, the PCIe Capability Device Control[Relaxed
+Ordering Enable] will have to be set which means that we'll be programming
+the Chelsio Hardware to send upstream TLPs with Relaxed Ordering Enable to
+the Root Complex which is what we were trying to avoid in the first place .=
+..
+
+  [[ And, as I noted on Friday evening, the currect cxgb4 Driver hardwires
+     the Relaxed Ordering Enable on early dureing device probe, so that
+     would minimally need to be addressed even if we decide that we don't
+     ever want to support mixed mode Relaxed Ordering. ]]
+
+  We need some method of telling the Chelsio Driver that it should/shouldn'=
+t
+use Relaxed Ordering with TLPs directed at the Root Complex.  And the same
+is true for a Peer PCIe Device.
+
+  It may be that we should approach this from the completely opposite
+direction and instead of having quirks which identify problematic devices,
+have quirks which identify devices which would benefit from the use of
+Relaxed Ordering (if the sending device supports that).  That is, assume th=
+e
+using Relaxed Ordering shouldn't be done unless the target device says "I
+love Relaxed Ordering TLPs" ...  In such a world, an NVMe or a Graphics
+device might declare love of Relaxed Ordering and the same for a SPARC Root
+Complex (I think that was your example).
+
+  By the way, the sole example of Data Corruption with Relaxed Ordering is
+the AMD A1100 ARM SoC and AMD appears to have given up on that almost as
+soon as it was released.  So what we're left with currently is a performanc=
+e
+problem on modern Intel CPUs ...  (And hopefully we'll get a Technical
+Publication on that issue fairly soon.)
+
+Casey
