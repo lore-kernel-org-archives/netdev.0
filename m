@@ -1,80 +1,46 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] dpaa_eth: use correct device for DMA mapping API
-Date: Tue, 11 Jul 2017 11:18:43 +0200
-Message-ID: <CAK8P3a1GLQ1WVfbhzedkvfe573hnUwBMVCAeVaWiKPKDOK=Agg@mail.gmail.com>
-References: <20170710151447.2814348-1-arnd@arndb.de> <AM5PR0402MB26915AF3D88700BD5EABB2DDECAE0@AM5PR0402MB2691.eurprd04.prod.outlook.com>
+From: Jean-Louis Dupond <jean-louis@dupond.be>
+Subject: Backport - xen-netback: correctly schedule rate-limited queues
+Date: Tue, 11 Jul 2017 11:47:12 +0200
+Message-ID: <a8b4e68ed09513baa788427a0abd11f1@dupond.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Christoph Hellwig <hch@lst.de>,
-        Marek Szyprowski <m.szyprowski@samsung.com>,
-        Robin Murphy <robin.murphy@arm.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Geert Uytterhoeven <geert@linux-m68k.org>,
-        Camelia Alexandra Groza <camelia.groza@nxp.com>,
-        Claudiu Manoil <claudiu.manoil@nxp.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Madalin-cristian Bucur <madalin.bucur@nxp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AM5PR0402MB26915AF3D88700BD5EABB2DDECAE0@AM5PR0402MB2691.eurprd04.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from apollo.dupie.be ([62.210.113.39]:56786 "EHLO apollo.dupie.be"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753081AbdGKJ47 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 11 Jul 2017 05:56:59 -0400
+Received: from localhost (localhost [127.0.0.1])
+        by apollo.dupie.be (Postfix) with ESMTP id 1DBA733C00FD
+        for <netdev@vger.kernel.org>; Tue, 11 Jul 2017 11:47:13 +0200 (CEST)
+Received: from apollo.dupie.be ([127.0.0.1])
+        by localhost (apollo.dupie.be [127.0.0.1]) (amavisd-new, port 10024)
+        with ESMTP id LjU4jKfu3LBu for <netdev@vger.kernel.org>;
+        Tue, 11 Jul 2017 11:47:12 +0200 (CEST)
+Received: from roundcube.dupie.be (localhost [IPv6:::1])
+        by apollo.dupie.be (Postfix) with ESMTPA id 4022133C00A1
+        for <netdev@vger.kernel.org>; Tue, 11 Jul 2017 11:47:12 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 11, 2017 at 10:50 AM, Madalin-cristian Bucur
-<madalin.bucur@nxp.com> wrote:
+Hi All,
 
-> Hi Arnd,
->
-> Thanks for looking into this, I've tested your fix, it seems to need more work:
->
-> [    0.894968]  platform: DMA map failed
-> [    0.898627]  platform: DMA map failed
-> [    0.902288]  platform: DMA map failed
-> [    0.905947]  platform: DMA map failed
-> [    0.909606]  platform: DMA map failed
-> [    0.913265]  platform: DMA map failed
+Is there a chance the following patch 
+(https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/commit/?id=dfa523ae9f2542bee4cddaea37b3be3e157f6e6b) 
+can get backported to the current LTS kernels (including 4.9.x)?
 
-I see: the assignment ended up after the first use, so ->dev was still
-NULL here.
+The commit message might not be completely showing the impact of this 
+issue (which is fixed with the patch).
 
-This should fix the problem you saw here:
+Without the patch, ksoftirqd goes nuts if you upload on a domU with 
+rate-limiting enabled.
+This not only causing high cpu load, but sometimes also a complete hang 
+of the hypervisor.
 
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-index f7b0b928cd53..988c0212ce7e 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-@@ -2650,6 +2650,8 @@ static int dpaa_eth_probe(struct platform_device *pdev)
-  for (i = 0; i < DPAA_BPS_NUM; i++) {
-  int err;
+As the patch is quite important and trivial, I think it would be good to 
+have it backported :)
 
-+ /* DMA operations are done on the platform-provided device */
-+ dpaa_bps[i]->dev = dev->parent;
-  dpaa_bps[i] = dpaa_bp_alloc(dev);
-  if (IS_ERR(dpaa_bps[i]))
-  return PTR_ERR(dpaa_bps[i]);
-@@ -2657,8 +2659,6 @@ static int dpaa_eth_probe(struct platform_device *pdev)
-  dpaa_bps[i]->raw_size = bpool_buffer_raw_size(i, DPAA_BPS_NUM);
-  /* avoid runtime computations by keeping the usable size here */
-  dpaa_bps[i]->size = dpaa_bp_size(dpaa_bps[i]->raw_size);
-- /* DMA operations are done on the platform-provided device */
-- dpaa_bps[i]->dev = dev->parent;
-
-  err = dpaa_bp_alloc_pool(dpaa_bps[i]);
-  if (err < 0) {
-
-> @@ -2806,7 +2799,6 @@ static int dpaa_eth_probe(struct platform_device *pdev)
->                 dpaa_bps_free(priv);
->  bp_create_failed:
->  fq_probe_failed:
-> -dev_mask_failed:
->  mac_probe_failed:
->                 dev_set_drvdata(dev, NULL);
->                 free_netdev(net_dev);
->
-> I'll try to address your concern about performing the DMA mapping on a different
-> device than the one set up by the platform code.
-
-Thanks!
-
-     Arnd
+Thanks
+Jean-Louis
