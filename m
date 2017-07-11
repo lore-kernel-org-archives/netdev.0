@@ -1,96 +1,164 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH v2] dt-bindings: net: ravb : Add support for r8a7743 SoC
-Date: Tue, 11 Jul 2017 14:21:00 +0200
-Message-ID: <20170711122100.GM4517@verge.net.au>
-References: <20170710012024.j4cso2jyi6canws2@rob-hp-laptop>
- <1499700776-54504-1-git-send-email-biju.das@bp.renesas.com>
- <52eb0b92-5d25-e1f4-df54-e4fcf648c90e@cogentembedded.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next RFC 0/4] net: sched: allow qdiscs to share
+ filter block instances
+Date: Tue, 11 Jul 2017 14:34:12 +0200
+Message-ID: <20170711123412.GB1874@nanopsycho>
+References: <20170710185110.3180-1-jiri@resnulli.us>
+ <29fbfb29-1737-1990-a6a7-b79bed7ed1fa@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Biju Das <biju.das@bp.renesas.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Russell King <linux@armlinux.org.uk>,
-        "David S. Miller" <davem@davemloft.net>,
-        Magnus Damm <magnus.damm@gmail.com>,
-        Chris Paterson <chris.paterson2@renesas.com>,
-        devicetree@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        xiyou.wangcong@gmail.com, edumazet@google.com,
+        stephen@networkplumber.org, jbenc@redhat.com, mlxsw@mellanox.com,
+        andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, john.fastabend@gmail.com,
+        alexander.h.duyck@intel.com, daniel@iogearbox.net,
+        ogerlitz@mellanox.com, mrv@mojatatu.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f176.google.com ([209.85.128.176]:36284 "EHLO
+        mail-wr0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752533AbdGKMeP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2017 08:34:15 -0400
+Received: by mail-wr0-f176.google.com with SMTP id c11so181659588wrc.3
+        for <netdev@vger.kernel.org>; Tue, 11 Jul 2017 05:34:15 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <52eb0b92-5d25-e1f4-df54-e4fcf648c90e@cogentembedded.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <29fbfb29-1737-1990-a6a7-b79bed7ed1fa@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 11, 2017 at 03:12:14PM +0300, Sergei Shtylyov wrote:
-> Hello!
-> 
-> On 07/10/2017 06:32 PM, Biju Das wrote:
-> 
-> >Add a new compatible string for the RZ/G1M (R8A7743) SoC.
-> >
-> >Signed-off-by: Biju Das <biju.das@bp.renesas.com>
-> >---
-> >v1->v2
-> >* Changed the subject
-> >* re-formatted the required properties
-> >
-> > .../devicetree/bindings/net/renesas,ravb.txt       | 29 +++++++++++++---------
-> > 1 file changed, 17 insertions(+), 12 deletions(-)
-> >
-> >diff --git a/Documentation/devicetree/bindings/net/renesas,ravb.txt b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> >index b519503..4717bc2 100644
-> >--- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> >+++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> >@@ -4,19 +4,24 @@ This file provides information on what the device node for the Ethernet AVB
-> > interface contains.
-> >
-> > Required properties:
-> >-- compatible: "renesas,etheravb-r8a7790" if the device is a part of R8A7790 SoC.
-> >-	      "renesas,etheravb-r8a7791" if the device is a part of R8A7791 SoC.
-> >-	      "renesas,etheravb-r8a7792" if the device is a part of R8A7792 SoC.
-> >-	      "renesas,etheravb-r8a7793" if the device is a part of R8A7793 SoC.
-> >-	      "renesas,etheravb-r8a7794" if the device is a part of R8A7794 SoC.
-> >-	      "renesas,etheravb-r8a7795" if the device is a part of R8A7795 SoC.
-> >-	      "renesas,etheravb-r8a7796" if the device is a part of R8A7796 SoC.
-> >-	      "renesas,etheravb-rcar-gen2" for generic R-Car Gen 2 compatible interface.
-> >-	      "renesas,etheravb-rcar-gen3" for generic R-Car Gen 3 compatible interface.
-> >+- compatible: Must contain one or more of the following:
-> 
->    No, it can't contain more than one SoC specific value.
+Tue, Jul 11, 2017 at 02:15:27PM CEST, jhs@mojatatu.com wrote:
+>Hi Jiri,
+>
+>Commenting on generalities - will comment on code later:
+>
+>On 17-07-10 02:51 PM, Jiri Pirko wrote:
+>> From: Jiri Pirko <jiri@mellanox.com>
+>> 
+>> Currently the filters added to qdiscs are independent. So for example if you
+>> have 2 netdevices and you create ingress qdisc on both and you want to add
+>> identical filter rules both, you need to add them twice. This patchset
+>> makes this easier and mainly saves resources allowing to share all filters
+>> within a qdisc - I call it a "filter block". Also this helps to save
+>> resources when we do offload to hw for example to expensive TCAM.
+>> 
+>> So back to the example. First, we create 2 qdiscs. Both will share
+>> block number 22. "22" is just an identification. If we don't pass any
+>> block number, a new one will be generated by kernel:
+>> 
+>> $ tc qdisc add dev ens7 ingress block 22
+>>                                  ^^^^^^^^
+>> $ tc qdisc add dev ens8 ingress block 22
+>> 
+>
+>Above makes intuitive sense.
+>
+>
+>                                  ^^^^^^^^
+>> 
+>> Now if we list the qdiscs, we will see the block index in the output:
+>> qdisc fq_codel 0: dev ens7 root refcnt 2 limit 10240p flows 1024 quantum 1514 target 5.0ms interval 100.0ms memory_limit 32Mb ecn
+>>   Sent 9014 bytes 99 pkt (dropped 0, overlimits 0 requeues 0)
+>>   backlog 0b 0p requeues 0
+>>    maxpacket 0 drop_overlimit 0 new_flow_count 0 ecn_mark 0
+>>    new_flows_len 0 old_flows_len 0
+>> qdisc ingress ffff: dev ens7 parent ffff:fff1 block 22
+>>                                                ^^^^^^^^
+>>   Sent 4592 bytes 58 pkt (dropped 0, overlimits 0 requeues 0)
+>>   backlog 0b 0p requeues 0
+>> qdisc fq_codel 0: dev ens8 root refcnt 2 limit 10240p flows 1024 quantum 1514 target 5.0ms interval 100.0ms memory_limit 32Mb ecn
+>>   Sent 17022 bytes 307 pkt (dropped 0, overlimits 0 requeues 0)
+>>   backlog 0b 0p requeues 0
+>>    maxpacket 0 drop_overlimit 0 new_flow_count 0 ecn_mark 0
+>>    new_flows_len 0 old_flows_len 0
+>> qdisc ingress ffff: dev ens8 parent ffff:fff1 block 22
+>>                                                ^^^^^^^^
+>>   Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>>   backlog 0b 0p requeues 0
+>> 
+>
+>So does this.
+>
+>> 
+>> Now we can add filter to any of qdiscs sharing the same block:
+>> 
+>> $ tc filter add dev ens7 parent ffff: protocol ip pref 25 flower dst_ip 192.168.0.0/16 action drop
+>> 
+>
+>So for backward compat - this also makes sense. But:
+>it does make sense to create new syntax for adding
+>filters and actions:
+>
+>tc filter add block 22 protocol ip pref 25 flower \
+>  dst_ip 192.168.0.0/16 action drop
 
-The text above does not say it can unless one is under the delusion
-that, f.e. an r8a7790 SoC is also an r8a7791 SoC.
+Was thinking about that. Decided to pass on this now. This should be
+addressed by follow-up anyway.
 
-If you would prefer an alternate wording please provide a suggestion.
 
-> >+      - "renesas,etheravb-r8a7743" for the R8A7743 SoC.
-> >+      - "renesas,etheravb-r8a7790" for the R8A7790 SoC.
-> >+      - "renesas,etheravb-r8a7791" for the R8A7791 SoC.
-> >+      - "renesas,etheravb-r8a7792" for the R8A7792 SoC.
-> >+      - "renesas,etheravb-r8a7793" for the R8A7793 SoC.
-> >+      - "renesas,etheravb-r8a7794" for the R8A7794 SoC.
-> >+      - "renesas,etheravb-rcar-gen2" as a fallback for the above
-> >+		R-Car Gen2 and RZ/G1 devices.
-> >
-> >-	      When compatible with the generic version, nodes must list the
-> >-	      SoC-specific version corresponding to the platform first
-> >-	      followed by the generic version.
-> >+      - "renesas,etheravb-r8a7795" for the R8A7795 SoC.
-> >+      - "renesas,etheravb-r8a7796" for the R8A7796 SoC.
-> 
->    Neither here.
-> 
-> >+      - "renesas,etheravb-rcar-gen3" as a fallback for the above
-> >+		R-Car Gen3 devices.
-> >+
-> >+	When compatible with the generic version, nodes must list the
-> >+	SoC-specific version corresponding to the platform first followed by
-> >+	the generic version.
-> >
-> > - reg: offset and length of (1) the register block and (2) the stream buffer.
-> > - interrupts: A list of interrupt-specifiers, one for each entry in
-> 
-> WBR, Sergei
-> 
+>
+>Coordinates of the filter block before were:
+>
+><ifindex>, <parent>, [handle]
+>
+>You should be able to abuse struct tcmsg ifindex to represent block #
+>as long as you set parent to be something meaningful that is
+>identified "block coordinate" via TC_H_XXX (pick something safe not
+>in use by ingress or egress; look at: uapi/linux/pkt_sched.h)
+
+Not sure about this. I have take closer look. In general, I don't like
+to abuse anything :)
+
+
+>
+>> 
+>> We will see the same output if we list filters for ens7 and ens8, including stats:
+>> 
+>> $ tc -s filter show dev ens7 root
+>> filter parent ffff: protocol ip pref 25 flower
+>> filter parent ffff: protocol ip pref 25 flower handle 0x1
+>>    eth_type ipv4
+>>    dst_ip 192.168.1.0/24
+>>          action order 1: gact action drop
+>>           random type none pass val 0
+>>           index 3 ref 1 bind 1 installed 10201 sec used 10150 sec
+>>          Action statistics:
+>>          Sent 4200 bytes 50 pkt (dropped 50, overlimits 0 requeues 0)
+>>          backlog 0b 0p requeues 0
+>> 
+>> $ tc -s filter show dev ens8 root
+>> filter dev ens7 parent ffff: protocol ip pref 25 flower
+>> filter dev ens7 parent ffff: protocol ip pref 25 flower handle 0x1
+>>    eth_type ipv4
+>>    dst_ip 192.168.1.0/24
+>>          action order 1: gact action drop
+>>           random type none pass val 0
+>>           index 3 ref 1 bind 1 installed 10202 sec used 10152 sec
+>>          Action statistics:
+>>          Sent 4200 bytes 50 pkt (dropped 50, overlimits 0 requeues 0)
+>>          backlog 0b 0p requeues 0
+>> 
+>> 
+>> Issues:
+>> - tp->q is set by the device used to add the filter. That has to be resolved.
+>>    Impacts the dump (as you can see above)
+>> 
+>
+>I think you have more problems if the dump above is reality;->
+>You added to ingress and this is showing egress.
+
+Howcome? I only don't see "dev x" on ens7. That is the only difference,
+
+
+>
+>To complete the thought, dump is:
+>
+> tc -s filter show block 22
+
+Understood. Again, this should be addressed in follow-up.
+
+
+>
+>cheers,
+>jamal
+>
