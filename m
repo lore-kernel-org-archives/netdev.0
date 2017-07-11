@@ -1,120 +1,127 @@
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: Re: [PATCH net-next RFC 10/12] net: dsa: Move FDB dump implementation
- inside DSA
-Date: Tue, 11 Jul 2017 11:32:09 +0300
-Message-ID: <acadbdf6-0387-627b-990b-998edd6a1c4e@mellanox.com>
-References: <1499268990-19251-1-git-send-email-arkadis@mellanox.com>
- <1499268990-19251-11-git-send-email-arkadis@mellanox.com>
- <87wp7g5bkv.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+From: Madalin-cristian Bucur <madalin.bucur@nxp.com>
+Subject: RE: [PATCH] dpaa_eth: use correct device for DMA mapping API
+Date: Tue, 11 Jul 2017 08:50:34 +0000
+Message-ID: <AM5PR0402MB26915AF3D88700BD5EABB2DDECAE0@AM5PR0402MB2691.eurprd04.prod.outlook.com>
+References: <20170710151447.2814348-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
-        f.fainelli@gmail.com, andrew@lunn.ch, Woojung.Huh@microchip.com,
-        stephen@networkplumber.org, mlxsw@mellanox.com
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr30040.outbound.protection.outlook.com ([40.107.3.40]:28513
-        "EHLO EUR03-AM5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1755378AbdGKIcU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 11 Jul 2017 04:32:20 -0400
-In-Reply-To: <87wp7g5bkv.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Christoph Hellwig <hch@lst.de>,
+        Marek Szyprowski <m.szyprowski@samsung.com>,
+        Robin Murphy <robin.murphy@arm.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Geert Uytterhoeven <geert@linux-m68k.org>,
+        "Arnd Bergmann" <arnd@arndb.de>,
+        Camelia Alexandra Groza <camelia.groza@nxp.com>,
+        Claudiu Manoil <claudiu.manoil@nxp.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170710151447.2814348-1-arnd@arndb.de>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+> -----Original Message-----
+> From: Arnd Bergmann [mailto:arnd@arndb.de]
+> Sent: Monday, July 10, 2017 6:14 PM
+> Subject: [PATCH] dpaa_eth: use correct device for DMA mapping API
+>=20
+> Geert Uytterhoeven ran into a build error without CONFIG_HAS_DMA,
+> as a result of the driver calling set_dma_ops(). While we can
+> fix the build error in the dma-mapping implementation, there is
+> another problem in this driver:
+>=20
+> The configuration for the DMA is done by the platform code,
+> looking up information about the system from the device tree.
+> This copies the information only in an incomplete way, setting
+> the dma_map_ops and forcing a specific mask, but ignoring all
+> settings regarding IOMMU, coherence etc.
+>=20
+> A better way to avoid the problem is to only ever pass a device
+> into the dma_mapping implementation that has been setup by the
+> platform code. In this case, that is the parent device, so we
+> can get that pointer at probe time. Fortunately, we already have
+> a pointer in the device specific structure for that, so we only
+> need to modify that.
+>=20
+> Fixes: fb52728a9294 ("dpaa_eth: reuse the dma_ops provided by the FMan MA=
+C
+> device")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> ---
+> Not tested, please see if this works before applying!
+> ---
+>  drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 11 ++---------
+>  1 file changed, 2 insertions(+), 9 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+> b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+> index 757b873735a5..f7b0b928cd53 100644
+> --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+> +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+> @@ -2646,14 +2646,6 @@ static int dpaa_eth_probe(struct platform_device
+> *pdev)
+>  	priv->buf_layout[RX].priv_data_size =3D DPAA_RX_PRIV_DATA_SIZE; /* Rx
+> */
+>  	priv->buf_layout[TX].priv_data_size =3D DPAA_TX_PRIV_DATA_SIZE; /* Tx
+> */
+>=20
+> -	/* device used for DMA mapping */
+> -	set_dma_ops(dev, get_dma_ops(&pdev->dev));
+> -	err =3D dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(40));
+> -	if (err) {
+> -		dev_err(dev, "dma_coerce_mask_and_coherent() failed\n");
+> -		goto dev_mask_failed;
+> -	}
+> -
+>  	/* bp init */
+>  	for (i =3D 0; i < DPAA_BPS_NUM; i++) {
+>  		int err;
+> @@ -2665,7 +2657,8 @@ static int dpaa_eth_probe(struct platform_device
+> *pdev)
+>  		dpaa_bps[i]->raw_size =3D bpool_buffer_raw_size(i,
+> DPAA_BPS_NUM);
+>  		/* avoid runtime computations by keeping the usable size here
+> */
+>  		dpaa_bps[i]->size =3D dpaa_bp_size(dpaa_bps[i]->raw_size);
+> -		dpaa_bps[i]->dev =3D dev;
+> +		/* DMA operations are done on the platform-provided device */
+> +		dpaa_bps[i]->dev =3D dev->parent;
+>=20
+>  		err =3D dpaa_bp_alloc_pool(dpaa_bps[i]);
+>  		if (err < 0) {
+> --
+> 2.9.0
 
+Hi Arnd,
 
-On 07/10/2017 10:36 PM, Vivien Didelot wrote:
-> Hi Arkadi,
-> 
-> Arkadi Sharshevsky <arkadis@mellanox.com> writes:
-> 
->> +struct dsa_slave_dump_ctx {
->> +	struct net_device *dev;
->> +	struct sk_buff *skb;
->> +	struct netlink_callback *cb;
->> +	int idx;
->> +};
->> +
->>  struct dsa_switch_ops {
->>  	/*
->>  	 * Legacy probing.
->> @@ -392,9 +399,7 @@ struct dsa_switch_ops {
->>  	int	(*port_fdb_del)(struct dsa_switch *ds, int port,
->>  				const unsigned char *addr, u16 vid);
->>  	int	(*port_fdb_dump)(struct dsa_switch *ds, int port,
->> -				 struct switchdev_obj_port_fdb *fdb,
->> -				  switchdev_obj_dump_cb_t *cb);
->> -
->> +				 struct dsa_slave_dump_ctx *dump);
-> 
-> I would prefer to pass a callback to the driver, so that we can call
-> port_fdb_dump for other interfaces like debugfs, and for non exposed
-> switch ports (CPU and DSA links) as well. Something like:
-> 
->     typedef int dsa_fdb_dump_cb_t(const unsigned char *addr, u16 vid,
->                                   bool is_static, void *data);
-> 
->     int (*port_fdb_dump)(struct dsa_switch *ds, int port,
->                          dsa_fdb_dump_cb_t *cb, void *data);
-> 
-> Then dsa_slave_dump_ctx and dsa_slave_port_fdb_do_dump can be static to
-> net/dsa/slave.c.
-> 
+Thanks for looking into this, I've tested your fix, it seems to need more w=
+ork:
 
-Originally thought about it. But it makes sense to pass a callback
-when different functions can be supplied.
+[    0.894968]  platform: DMA map failed
+[    0.898627]  platform: DMA map failed
+[    0.902288]  platform: DMA map failed
+[    0.905947]  platform: DMA map failed
+[    0.909606]  platform: DMA map failed
+[    0.913265]  platform: DMA map failed
 
-Here is only one option which is the fdb_do_dump(). So I thought
-exporting it makes more sense..
+You also missed this related change:
 
->> +int dsa_slave_port_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
->> +			    struct net_device *dev,
->> +			    struct net_device *filter_dev, int *idx)
->> +{
->> +	struct dsa_slave_dump_ctx dump = {
->> +		.dev = dev,
->> +		.skb = skb,
->> +		.cb = cb,
->> +		.idx = *idx,
->> +	};
->> +	struct dsa_slave_priv *p = netdev_priv(dev);
->> +	struct dsa_port *dp = p->dp;
->> +	struct dsa_switch *ds = dp->ds;
->> +	int err;
->> +
->> +	if (!ds->ops->port_fdb_dump) {
->> +		err = -EOPNOTSUPP;
->> +		goto out;
->> +	}
->> +
->> +	err = ds->ops->port_fdb_dump(ds, dp->index, &dump);
->> +out:
->> +	*idx = dump.idx;
->> +	return err;
-> 
-> There is no need to reassign *idx in case of error:
-> 
->     if (!ds->ops->port_fdb_dump)
->         return -EOPNOTSUPP;
-> 
->     err = ds->ops->port_fdb_dump(ds, dp->index, &dump);
->     *idx = dump.idx;
-> 
->     return err;
->
-Will fix, thanks.
+@@ -2806,7 +2799,6 @@ static int dpaa_eth_probe(struct platform_device *pde=
+v)
+ 		dpaa_bps_free(priv);
+ bp_create_failed:
+ fq_probe_failed:
+-dev_mask_failed:
+ mac_probe_failed:
+ 		dev_set_drvdata(dev, NULL);
+ 		free_netdev(net_dev);
 
->> +	.ndo_fdb_dump		= dsa_slave_port_fdb_dump,
-> 
-> And s/dsa_slave_port_fdb_dump/dsa_slave_fdb_dump/ here will be even
-> better ;-)
-> 
-> 
-> Thanks,
-> 
->         Vivien
-> 
-Will fix, thanks.
+I'll try to address your concern about performing the DMA mapping on a diff=
+erent
+device than the one set up by the platform code.
+
+Regards,
+Madalin
