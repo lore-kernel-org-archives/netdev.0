@@ -1,126 +1,70 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [RFC PATCH 03/12] xdp: add bpf_redirect helper function
-Date: Tue, 11 Jul 2017 10:09:19 -0400
-Message-ID: <CAHashqA8UYWAX7TDVrnGiTCA3zN5RGyiOQ3CcJpFDNnMemRnoQ@mail.gmail.com>
-References: <20170707172115.9984.53461.stgit@john-Precision-Tower-5810>
- <20170707173522.9984.73677.stgit@john-Precision-Tower-5810>
- <8cf998a4-dadb-0a1a-0f3d-9a4f8ca39287@mellanox.com> <5963B81A.5070008@gmail.com>
+From: Madalin-cristian Bucur <madalin.bucur@nxp.com>
+Subject: RE: [PATCH] dpaa_eth: use correct device for DMA mapping API
+Date: Tue, 11 Jul 2017 14:22:14 +0000
+Message-ID: <AM5PR0402MB2691C600A6E5A717D7C0F3ACECAE0@AM5PR0402MB2691.eurprd04.prod.outlook.com>
+References: <20170710151447.2814348-1-arnd@arndb.de>
+ <AM5PR0402MB26915AF3D88700BD5EABB2DDECAE0@AM5PR0402MB2691.eurprd04.prod.outlook.com>
+ <CAK8P3a1GLQ1WVfbhzedkvfe573hnUwBMVCAeVaWiKPKDOK=Agg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Christoph Hellwig <hch@lst.de>,
+        Marek Szyprowski <m.szyprowski@samsung.com>,
+        Robin Murphy <robin.murphy@arm.com>,
+        "David S . Miller" <davem@davemloft.net>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <ast@fb.com>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:34970 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755627AbdGKOJp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2017 10:09:45 -0400
-Received: by mail-qk0-f195.google.com with SMTP id 16so185232qkg.2
-        for <netdev@vger.kernel.org>; Tue, 11 Jul 2017 07:09:45 -0700 (PDT)
-In-Reply-To: <5963B81A.5070008@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Geert Uytterhoeven <geert@linux-m68k.org>,
+        "Camelia Alexandra Groza" <camelia.groza@nxp.com>,
+        Claudiu Manoil <claudiu.manoil@nxp.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAK8P3a1GLQ1WVfbhzedkvfe573hnUwBMVCAeVaWiKPKDOK=Agg@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 10, 2017 at 1:23 PM, John Fastabend
-<john.fastabend@gmail.com> wrote:
-> On 07/09/2017 06:37 AM, Saeed Mahameed wrote:
->>
->>
->> On 7/7/2017 8:35 PM, John Fastabend wrote:
->>> This adds support for a bpf_redirect helper function to the XDP
->>> infrastructure. For now this only supports redirecting to the egress
->>> path of a port.
->>>
->>> In order to support drivers handling a xdp_buff natively this patches
->>> uses a new ndo operation ndo_xdp_xmit() that takes pushes a xdp_buff
->>> to the specified device.
->>>
->>> If the program specifies either (a) an unknown device or (b) a device
->>> that does not support the operation a BPF warning is thrown and the
->>> XDP_ABORTED error code is returned.
->>>
->>> Signed-off-by: John Fastabend <john.fastabend@gmail.com>
->>> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
->>> ---
->
-> [...]
->
->>>
->>> +static int __bpf_tx_xdp(struct net_device *dev, struct xdp_buff *xdp)
->>> +{
->>> +    if (dev->netdev_ops->ndo_xdp_xmit) {
->>> +        dev->netdev_ops->ndo_xdp_xmit(dev, xdp);
->>
->> Hi John,
->>
->> I have some concern here regarding synchronizing between the
->> redirecting device and the target device:
->>
->> if the target device's NAPI is also doing XDP_TX on the same XDP TX
->> ring which this NDO might be redirecting xdp packets into the same
->> ring, there would be a race accessing this ring resources (buffers
->> and descriptors). Maybe you addressed this issue in the device driver
->> implementation of this ndo or with some NAPI tricks/assumptions, I
->> guess we have the same issue for if you run the same program to
->> redirect traffic from multiple netdevices into one netdevice, how do
->> you synchronize accessing this TX ring ?
->
-> The implementation uses a per cpu TX ring to resolve these races. And
-> the pair of driver interface API calls, xdp_do_redirect() and xdp_do_flush_map()
-> must be completed in a single poll() handler.
->
-> This comment was included in the header file to document this,
->
-> /* The pair of xdp_do_redirect and xdp_do_flush_map MUST be called in the
->  * same cpu context. Further for best results no more than a single map
->  * for the do_redirect/do_flush pair should be used. This limitation is
->  * because we only track one map and force a flush when the map changes.
->  * This does not appear to be a real limitation for existing software.
->  */
->
-> In general some documentation about implementing XDP would probably be
-> useful to add in Documentation/networking but this IMO goes beyond just
-> this patch series.
->
->>
->> Maybe we need some clear guidelines in this ndo documentation stating
->> how to implement this ndo and what are the assumptions on those XDP
->> TX redirect rings or from which context this ndo can run.
->>
->> can you please elaborate.
->
-> I think the best implementation is to use a per cpu TX ring as I did in
-> this series. If your device is limited by the number of queues for some
-> reason some other scheme would need to be devised. Unfortunately, the only
-> thing I've come up for this case (using only this series) would both impact
-> performance and make the code complex.
->
-> A nice solution might be to constrain networking "tasks" to only a subset
-> of cores. For 64+ core systems this might be a good idea. It would allow
-> avoiding locking using per_cpu logic but also avoid networking consuming
-> slices of every core in the system. As core count goes up I think we will
-> eventually need to address this.I believe Eric was thinking along these
-> lines with his netconf talk iirc. Obviously this work is way outside the
-> scope of this series though.
-
-I agree that it is outside the scope of this series, but I think it is
-important to consider the impact of the output queue selection in both
-a heterogenous and homogenous driver setup and how tx could be
-optimized or even considered to be more reliable and I think that was
-part of Saeed's point.
-
-I got base redirect support for bnxt_en working yesterday, but for it
-and other drivers that do not necessarily create a ring/queue per core
-like ixgbe there is probably a bit more to work in each driver to
-properly track output tx rings/queues than what you have done with
-ixgbe.
-
->
->
->> Thanks,
->> Saeed.
->>
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBhcm5kYmVyZ21hbm5AZ21haWwu
+Y29tIFttYWlsdG86YXJuZGJlcmdtYW5uQGdtYWlsLmNvbV0gT24gQmVoYWxmIE9mDQo+IEFybmQg
+QmVyZ21hbm4NCj4gU3ViamVjdDogUmU6IFtQQVRDSF0gZHBhYV9ldGg6IHVzZSBjb3JyZWN0IGRl
+dmljZSBmb3IgRE1BIG1hcHBpbmcgQVBJDQo+IA0KPiBPbiBUdWUsIEp1bCAxMSwgMjAxNyBhdCAx
+MDo1MCBBTSwgTWFkYWxpbi1jcmlzdGlhbiBCdWN1cg0KPiA8bWFkYWxpbi5idWN1ckBueHAuY29t
+PiB3cm90ZToNCj4gDQo+ID4gSGkgQXJuZCwNCj4gPg0KPiA+IFRoYW5rcyBmb3IgbG9va2luZyBp
+bnRvIHRoaXMsIEkndmUgdGVzdGVkIHlvdXIgZml4LCBpdCBzZWVtcyB0byBuZWVkDQo+IG1vcmUg
+d29yazoNCj4gPg0KPiA+IFsgICAgMC44OTQ5NjhdICBwbGF0Zm9ybTogRE1BIG1hcCBmYWlsZWQN
+Cj4gPiBbICAgIDAuODk4NjI3XSAgcGxhdGZvcm06IERNQSBtYXAgZmFpbGVkDQo+ID4gWyAgICAw
+LjkwMjI4OF0gIHBsYXRmb3JtOiBETUEgbWFwIGZhaWxlZA0KPiA+IFsgICAgMC45MDU5NDddICBw
+bGF0Zm9ybTogRE1BIG1hcCBmYWlsZWQNCj4gPiBbICAgIDAuOTA5NjA2XSAgcGxhdGZvcm06IERN
+QSBtYXAgZmFpbGVkDQo+ID4gWyAgICAwLjkxMzI2NV0gIHBsYXRmb3JtOiBETUEgbWFwIGZhaWxl
+ZA0KPiANCj4gSSBzZWU6IHRoZSBhc3NpZ25tZW50IGVuZGVkIHVwIGFmdGVyIHRoZSBmaXJzdCB1
+c2UsIHNvIC0+ZGV2IHdhcyBzdGlsbA0KPiBOVUxMIGhlcmUuDQo+IA0KPiBUaGlzIHNob3VsZCBm
+aXggdGhlIHByb2JsZW0geW91IHNhdyBoZXJlOg0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMv
+bmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9kcGFhL2RwYWFfZXRoLmMNCj4gYi9kcml2ZXJzL25ldC9l
+dGhlcm5ldC9mcmVlc2NhbGUvZHBhYS9kcGFhX2V0aC5jDQo+IGluZGV4IGY3YjBiOTI4Y2Q1My4u
+OTg4YzAyMTJjZTdlIDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2Nh
+bGUvZHBhYS9kcGFhX2V0aC5jDQo+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2Fs
+ZS9kcGFhL2RwYWFfZXRoLmMNCj4gQEAgLTI2NTAsNiArMjY1MCw4IEBAIHN0YXRpYyBpbnQgZHBh
+YV9ldGhfcHJvYmUoc3RydWN0IHBsYXRmb3JtX2RldmljZQ0KPiAqcGRldikNCj4gICBmb3IgKGkg
+PSAwOyBpIDwgRFBBQV9CUFNfTlVNOyBpKyspIHsNCj4gICBpbnQgZXJyOw0KPiANCj4gKyAvKiBE
+TUEgb3BlcmF0aW9ucyBhcmUgZG9uZSBvbiB0aGUgcGxhdGZvcm0tcHJvdmlkZWQgZGV2aWNlICov
+DQo+ICsgZHBhYV9icHNbaV0tPmRldiA9IGRldi0+cGFyZW50Ow0KPiAgIGRwYWFfYnBzW2ldID0g
+ZHBhYV9icF9hbGxvYyhkZXYpOw0KDQpZb3VyIG5ldyBjaGFuZ2UgZGUtcmVmZXJlbmNlcyBkcGFh
+X2Jwc1tpXSBiZWZvcmUgaXQgaXMgc2V0LCB0aGlzIHdvbid0IHdvcmsgZWl0aGVyLg0KDQo+ICAg
+aWYgKElTX0VSUihkcGFhX2Jwc1tpXSkpDQo+ICAgcmV0dXJuIFBUUl9FUlIoZHBhYV9icHNbaV0p
+Ow0KPiBAQCAtMjY1Nyw4ICsyNjU5LDYgQEAgc3RhdGljIGludCBkcGFhX2V0aF9wcm9iZShzdHJ1
+Y3QgcGxhdGZvcm1fZGV2aWNlDQo+ICpwZGV2KQ0KPiAgIGRwYWFfYnBzW2ldLT5yYXdfc2l6ZSA9
+IGJwb29sX2J1ZmZlcl9yYXdfc2l6ZShpLCBEUEFBX0JQU19OVU0pOw0KPiAgIC8qIGF2b2lkIHJ1
+bnRpbWUgY29tcHV0YXRpb25zIGJ5IGtlZXBpbmcgdGhlIHVzYWJsZSBzaXplIGhlcmUgKi8NCj4g
+ICBkcGFhX2Jwc1tpXS0+c2l6ZSA9IGRwYWFfYnBfc2l6ZShkcGFhX2Jwc1tpXS0+cmF3X3NpemUp
+Ow0KPiAtIC8qIERNQSBvcGVyYXRpb25zIGFyZSBkb25lIG9uIHRoZSBwbGF0Zm9ybS1wcm92aWRl
+ZCBkZXZpY2UgKi8NCj4gLSBkcGFhX2Jwc1tpXS0+ZGV2ID0gZGV2LT5wYXJlbnQ7DQo+IA0KPiAg
+IGVyciA9IGRwYWFfYnBfYWxsb2NfcG9vbChkcGFhX2Jwc1tpXSk7DQo+ICAgaWYgKGVyciA8IDAp
+IHsNCj4gDQo+ID4gQEAgLTI4MDYsNyArMjc5OSw2IEBAIHN0YXRpYyBpbnQgZHBhYV9ldGhfcHJv
+YmUoc3RydWN0IHBsYXRmb3JtX2RldmljZQ0KPiAqcGRldikNCj4gPiAgICAgICAgICAgICAgICAg
+ZHBhYV9icHNfZnJlZShwcml2KTsNCj4gPiAgYnBfY3JlYXRlX2ZhaWxlZDoNCj4gPiAgZnFfcHJv
+YmVfZmFpbGVkOg0KPiA+IC1kZXZfbWFza19mYWlsZWQ6DQo+ID4gIG1hY19wcm9iZV9mYWlsZWQ6
+DQo+ID4gICAgICAgICAgICAgICAgIGRldl9zZXRfZHJ2ZGF0YShkZXYsIE5VTEwpOw0KPiA+ICAg
+ICAgICAgICAgICAgICBmcmVlX25ldGRldihuZXRfZGV2KTsNCj4gPg0KPiA+IEknbGwgdHJ5IHRv
+IGFkZHJlc3MgeW91ciBjb25jZXJuIGFib3V0IHBlcmZvcm1pbmcgdGhlIERNQSBtYXBwaW5nIG9u
+IGENCj4gZGlmZmVyZW50DQo+ID4gZGV2aWNlIHRoYW4gdGhlIG9uZSBzZXQgdXAgYnkgdGhlIHBs
+YXRmb3JtIGNvZGUuDQo+IA0KPiBUaGFua3MhDQo+IA0KPiAgICAgIEFybmQNCg==
