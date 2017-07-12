@@ -1,9 +1,9 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net 02/20] nic/hinic: Initialize hw device components
-Date: Wed, 12 Jul 2017 17:34:04 +0200
-Message-ID: <20170712153404.GG2557@lunn.ch>
+Subject: Re: [PATCH net 20/20] net/hinic: Add ethtool and stats
+Date: Wed, 12 Jul 2017 17:43:47 +0200
+Message-ID: <20170712154347.GH2557@lunn.ch>
 References: <cover.1499865197.git.aviad.krawczyk@huawei.com>
- <dff4e431b9aa6ff69486a82b68b6320fa3f6a7f7.1499865197.git.aviad.krawczyk@huawei.com>
+ <bd60f835144c37334a53df6a053b7efcc4c26c41.1499865198.git.aviad.krawczyk@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
@@ -12,42 +12,39 @@ Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
 To: Aviad Krawczyk <aviad.krawczyk@huawei.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <dff4e431b9aa6ff69486a82b68b6320fa3f6a7f7.1499865197.git.aviad.krawczyk@huawei.com>
+In-Reply-To: <bd60f835144c37334a53df6a053b7efcc4c26c41.1499865198.git.aviad.krawczyk@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> +/**
-> + * get_dev_cap - get device capabilities
-> + * @hwdev: the NIC HW device to get capabilities for
-> + *
-> + * Return 0 - Success, negative - Failure
-> + **/
-> +static int get_dev_cap(struct hinic_hwdev *hwdev)
+On Wed, Jul 12, 2017 at 10:17:26PM +0800, Aviad Krawczyk wrote:
+
+Hi Avaid
+
+> +
+> +static void hinic_tx_timeout(struct net_device *netdev)
 > +{
-> +	struct hinic_pfhwdev *pfhwdev;
-> +	struct hinic_hwif *hwif = hwdev->hwif;
-> +	struct pci_dev *pdev = hwif->pdev;
-> +	int err;
+> +	struct hinic_dev *nic_dev = netdev_priv(netdev);
 > +
-> +	switch (HINIC_FUNC_TYPE(hwif)) {
-> +	case HINIC_PPF:
-> +	case HINIC_PF:
-> +		pfhwdev = container_of(hwdev, struct hinic_pfhwdev, hwdev);
+> +	netif_err(nic_dev, drv, netdev, "Tx timeout\n");
+> +}
 > +
-> +		err = get_cap_from_fw(pfhwdev);
-> +		if (err) {
-> +			dev_err(&pdev->dev, "Failed to get capability from FW\n");
-> +			return err;
-> +		}
-> +		break;
+> +#ifdef CONFIG_NET_POLL_CONTROLLER
+> +static void hinic_netpoll(struct net_device *netdev)
+> +{
+> +	struct hinic_dev *nic_dev = netdev_priv(netdev);
+> +	struct hinic_hwdev *hwdev = nic_dev->hwdev;
+> +	int i, num_qps = hinic_hwdev_num_qps(hwdev);
 > +
-> +	default:
-> +		pr_err("Unsupported PCI Function type\n");
+> +	for (i = 0; i < num_qps; i++) {
+> +		struct hinic_txq *txq = &nic_dev->txqs[i];
+> +		struct hinic_rxq *rxq = &nic_dev->rxqs[i];
+> +
+> +		napi_schedule(&txq->napi);
+> +		napi_schedule(&rxq->napi);
+> +	}
+> +}
+> +#endif
 
-Hi Aviad
+This has nothing to do with ethtool support. Separate patch please.
 
-more pr_err(). Please go through all the patches and use dev_err(), or
-netif_err() if appropriate.
-
-    Thanks
-	Andrew
+     Andrew
