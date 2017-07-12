@@ -1,41 +1,73 @@
-From: Benjamin Gaignard <benjamin.gaignard@linaro.org>
-Subject: [PATCH v2 03/22] net: broadcom: stop using rtc deprecated functions
-Date: Wed, 12 Jul 2017 10:04:23 +0200
-Message-ID: <1499846682-14093-4-git-send-email-benjamin.gaignard@linaro.org>
-References: <1499846682-14093-1-git-send-email-benjamin.gaignard@linaro.org>
-Cc: linaro-kernel@lists.linaro.org,
-        Michael Chan <michael.chan@broadcom.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: benjamin.gaignard@linaro.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1499846682-14093-1-git-send-email-benjamin.gaignard@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 1/1] mlx4_en: remove unnecessary returned value check
+Date: Wed, 12 Jul 2017 11:36:48 +0300
+Message-ID: <20170712083647.GB2866@yuvallap>
+References: <1499841873-10275-1-git-send-email-yanjun.zhu@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+To: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1499841873-10275-1-git-send-email-yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-rtc_time_to_tm() and rtc_tm_to_time() are deprecated because they
-rely on 32bits variables and that will make rtc break in y2038/2016.
-Stop using those two functions to safer 64bits ones.
+On Wed, Jul 12, 2017 at 02:44:33AM -0400, Zhu Yanjun wrote:
+> The function __mlx4_zone_remove_one_entry always returns zero. So
+> it is not necessary to check it.
+> 
+> Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Cc: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> ---
+>  drivers/net/ethernet/mellanox/mlx4/alloc.c | 7 +++----
+>  1 file changed, 3 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/alloc.c b/drivers/net/ethernet/mellanox/mlx4/alloc.c
+> index 249a458..bfb185d 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/alloc.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/alloc.c
+> @@ -283,7 +283,7 @@ int mlx4_zone_add_one(struct mlx4_zone_allocator *zone_alloc,
+>  }
+>  
+>  /* Should be called under a lock */
+> -static int __mlx4_zone_remove_one_entry(struct mlx4_zone_entry *entry)
+> +static void __mlx4_zone_remove_one_entry(struct mlx4_zone_entry *entry)
+>  {
+>  	struct mlx4_zone_allocator *zone_alloc = entry->allocator;
+>  
+> @@ -315,8 +315,6 @@ static int __mlx4_zone_remove_one_entry(struct mlx4_zone_entry *entry)
+>  		}
+>  		zone_alloc->mask = mask;
+>  	}
+> -
+> -	return 0;
+>  }
+>  
+>  void mlx4_zone_allocator_destroy(struct mlx4_zone_allocator *zone_alloc)
+> @@ -468,7 +466,8 @@ int mlx4_zone_remove_one(struct mlx4_zone_allocator *zones, u32 uid)
+>  		goto out;
+>  	}
+>  
+> -	res = __mlx4_zone_remove_one_entry(zone);
+> +	__mlx4_zone_remove_one_entry(zone);
+> +	res = 0;
 
-Signed-off-by: Benjamin Gaignard <benjamin.gaignard@linaro.org>
-CC: Michael Chan <michael.chan@broadcom.com>
-CC: netdev@vger.kernel.org
-CC: linux-kernel@vger.kernel.org
----
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Will look better if initialization will move to variable declaration.
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index b56c54d..9fef202 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -4703,7 +4703,7 @@ int bnxt_hwrm_fw_set_time(struct bnxt *bp)
- 		return -EOPNOTSUPP;
- 
- 	do_gettimeofday(&tv);
--	rtc_time_to_tm(tv.tv_sec, &tm);
-+	rtc_time64_to_tm(tv.tv_sec, &tm);
- 	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_FW_SET_TIME, -1, -1);
- 	req.year = cpu_to_le16(1900 + tm.tm_year);
- 	req.month = 1 + tm.tm_mon;
--- 
-1.9.1
+Besides this minor thing - lgtm.
+
+Reviewed-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+
+>  
+>  out:
+>  	spin_unlock(&zones->lock);
+> -- 
+> 2.7.4
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
