@@ -1,43 +1,50 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: Lots of new warnings with gcc-7.1.1
-Date: Tue, 11 Jul 2017 20:17:21 -0700
-Message-ID: <CA+55aFyKpezj3oHwtBShyf9x-DJNAGQhrq55iVGM42eWKQtP3w@mail.gmail.com>
-References: <CA+55aFzXz-PxKSJP=hfHD+mfCX4M6+HMacWMkDz7KB8-3y55qw@mail.gmail.com>
- <848b3f21-9516-8a66-e4b3-9056ce38d6f6@roeck-us.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] get_compat_msghdr(): get rid of field-by-field copyin
+Date: Tue, 11 Jul 2017 20:25:14 -0700 (PDT)
+Message-ID: <20170711.202514.815304234636661456.davem@davemloft.net>
+References: <20170708182100.GR10672@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Tejun Heo <tj@kernel.org>, Jean Delvare <jdelvare@suse.com>,
-        Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
-        Sathya Prakash <sathya.prakash@broadcom.com>,
-        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        "the arch/x86 maintainers" <x86@kernel.org>,
-        xen-devel <xen-devel@lists.xenproject.org>,
-        linux-block <linux-block@vger.kernel.org>,
-        Linux Media Mailing List <linux-media@vger.kernel.org>,
-        IDE-ML <linux-ide@vger.kernel.org>,
-        "linux-fbdev@vger.kernel.org" <linux-fbdev@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>
-To: Guenter Roeck <linux@roeck-us.net>
-Return-path: <linux-ide-owner@vger.kernel.org>
-In-Reply-To: <848b3f21-9516-8a66-e4b3-9056ce38d6f6@roeck-us.net>
-Sender: linux-ide-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: viro@ZenIV.linux.org.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46846 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753230AbdGLDZP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2017 23:25:15 -0400
+In-Reply-To: <20170708182100.GR10672@ZenIV.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 11, 2017 at 8:10 PM, Guenter Roeck <linux@roeck-us.net> wrote:
->
-> The hwmon warnings are all about supporting no more than 9,999 sensors
-> (applesmc) to 999,999,999 sensors (scpi) of a given type.
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Date: Sat, 8 Jul 2017 19:21:00 +0100
 
-Yeah, I think that's enough.
+> There are 3 commits in vfs.git#misc.compat I hadn't pushed to Linus yet;
+> they touch net/* and I'd like to see at least "no objections" from networking
+> folks before asking to pull that; all of those are about getting rid of
+> field-by-field copyin.  Please, review and comment.
+> 
+> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 
-> Easy "fix" would be to replace snprintf() with scnprintf(), presumably
-> because gcc doesn't know about scnprintf().
+That weird sparc64 regression concerns me.
 
-If that's the case, I'd prefer just turning off the format-truncation
-(but not overflow) warning with '-Wno-format-trunction".
+The commit referenced in that discussion:
 
-But maybe we can at least start it on a subsystem-by-subsystem basis
-after people have verified their own subsusystem?
+d9e968cb9f849770288f5fde3d8d3a5f7e339052 ("getrlimit()/setrlimit(): move compat to native")
 
-                  Linus
+looks harmless, or if there is a bug in there I can't see it.
+
+But whatever it is, that same problem could be hiding in some of these
+other transformations as well.
+
+I think the bug might be that we are corrupting the user's stack
+somehow.  But the two user copies in that commit look perfectly fine
+to my eyes.
+
+There shouldn't be any padding in that compat_rlimit structure, so
+it's not like we're copying extra bytes.  Well, we'd be exposing
+kernel stack memory if that were the case.
+
+Color me stumped, but cautious about ACK'ing these networking
+compat changes.
