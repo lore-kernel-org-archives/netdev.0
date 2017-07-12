@@ -1,29 +1,41 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [PATCH net] nfp: freeing the wrong variable
-Date: Wed, 12 Jul 2017 00:54:41 -0700
-Message-ID: <20170712005441.5f9169d0@cakuba.netronome.com>
-References: <20170712074206.otviyjx2qhuz3snt@mwanda>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [PATCH net] net: ipmr: ipmr_get_table() returns NULL
+Date: Wed, 12 Jul 2017 10:56:47 +0300
+Message-ID: <20170712075647.zyz6pkppyerl4ktf@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Simon Horman <simon.horman@netronome.com>,
-        oss-drivers@netronome.com, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20170712074206.otviyjx2qhuz3snt@mwanda>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+        Donald Sharp <sharpd@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:22449 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756778AbdGLH5g (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2017 03:57:36 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 12 Jul 2017 10:42:06 +0300, Dan Carpenter wrote:
-> We accidentally free a NULL pointer and leak the pointer we want to
-> free.  Also you can tell from the label name what was intended.  :)
-> 
-> Fixes: abfcdc1de9bf ("nfp: add a stats handler for flower offloads")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+The ipmr_get_table() function doesn't return error pointers it returns
+NULL on error.
 
-Acked-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Fixes: 4f75ba6982bc ("net: ipmr: Add ipmr_rtm_getroute")
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Thanks!
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index bb909f1d7537..06863ea3fc5b 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -2431,8 +2431,8 @@ static int ipmr_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
+ 	tableid = tb[RTA_TABLE] ? nla_get_u32(tb[RTA_TABLE]) : 0;
+ 
+ 	mrt = ipmr_get_table(net, tableid ? tableid : RT_TABLE_DEFAULT);
+-	if (IS_ERR(mrt)) {
+-		err = PTR_ERR(mrt);
++	if (!mrt) {
++		err = -ENOENT;
+ 		goto errout_free;
+ 	}
+ 
