@@ -1,9 +1,9 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net 01/20] net/hinic: Initialize hw interface
-Date: Wed, 12 Jul 2017 17:29:33 +0200
-Message-ID: <20170712152933.GF2557@lunn.ch>
+Subject: Re: [PATCH net 02/20] nic/hinic: Initialize hw device components
+Date: Wed, 12 Jul 2017 17:34:04 +0200
+Message-ID: <20170712153404.GG2557@lunn.ch>
 References: <cover.1499865197.git.aviad.krawczyk@huawei.com>
- <281a172bd66298acb1a176a03a53710c1b777fb6.1499865197.git.aviad.krawczyk@huawei.com>
+ <dff4e431b9aa6ff69486a82b68b6320fa3f6a7f7.1499865197.git.aviad.krawczyk@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
@@ -12,89 +12,42 @@ Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
 To: Aviad Krawczyk <aviad.krawczyk@huawei.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <281a172bd66298acb1a176a03a53710c1b777fb6.1499865197.git.aviad.krawczyk@huawei.com>
+In-Reply-To: <dff4e431b9aa6ff69486a82b68b6320fa3f6a7f7.1499865197.git.aviad.krawczyk@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+> +/**
+> + * get_dev_cap - get device capabilities
+> + * @hwdev: the NIC HW device to get capabilities for
+> + *
+> + * Return 0 - Success, negative - Failure
+> + **/
+> +static int get_dev_cap(struct hinic_hwdev *hwdev)
+> +{
+> +	struct hinic_pfhwdev *pfhwdev;
+> +	struct hinic_hwif *hwif = hwdev->hwif;
+> +	struct pci_dev *pdev = hwif->pdev;
+> +	int err;
 > +
-> +#define HINIC_DRV_NAME		"HiNIC"
-> +#define HINIC_DRV_VERSION	"1.0"
+> +	switch (HINIC_FUNC_TYPE(hwif)) {
+> +	case HINIC_PPF:
+> +	case HINIC_PF:
+> +		pfhwdev = container_of(hwdev, struct hinic_pfhwdev, hwdev);
+> +
+> +		err = get_cap_from_fw(pfhwdev);
+> +		if (err) {
+> +			dev_err(&pdev->dev, "Failed to get capability from FW\n");
+> +			return err;
+> +		}
+> +		break;
+> +
+> +	default:
+> +		pr_err("Unsupported PCI Function type\n");
 
 Hi Aviad
 
-Please don't add a driver version. There was a discussion about this
-recently, how pointless it is.
+more pr_err(). Please go through all the patches and use dev_err(), or
+netif_err() if appropriate.
 
-> +/**
-> + * hinic_init_hwdev - Initialize the NIC HW
-> + * @hwdev: the NIC HW device that is returned from the initialization
-> + * @pdev: the NIC pci device
-> + *
-> + * Return 0 - Success, negative - Failure
-> + *
-> + * Initialize the NIC HW device and return a pointer to it in the first arg
-> + **/
-> +int hinic_init_hwdev(struct hinic_hwdev **hwdev, struct pci_dev *pdev)
-> +{
-> +	struct hinic_pfhwdev *pfhwdev;
-> +	struct hinic_hwif *hwif;
-> +	int err;
-> +
-> +	hwif = kzalloc(sizeof(*hwif), GFP_KERNEL);
-
-Using the devm_ functions makes your cleanup code simpler when
-handling memory.
-
-> +/**
-> + * nic_dev_init - Initialize the NIC device
-> + * @pdev: the NIC pci device
-> + *
-> + * Return 0 - Success, negative - Failure
-> + **/
-> +static int nic_dev_init(struct pci_dev *pdev)
-> +{
-> +	struct hinic_dev *nic_dev;
-> +	struct net_device *netdev;
-> +	struct hinic_hwdev *hwdev;
-> +	int err, num_qps;
-> +
-> +	err = hinic_init_hwdev(&hwdev, pdev);
-> +	if (err) {
-> +		dev_err(&pdev->dev, "Failed to initialize HW device\n");
-> +		return err;
-> +	}
-> +
-> +	num_qps = hinic_hwdev_num_qps(hwdev);
-> +	if (num_qps <= 0) {
-> +		dev_err(&pdev->dev, "Invalid number of QPS\n");
-> +		err = -EINVAL;
-> +		goto num_qps_err;
-> +	}
-> +
-> +	netdev = alloc_etherdev_mq(sizeof(*nic_dev), num_qps);
-> +	if (!netdev) {
-> +		pr_err("Failed to allocate Ethernet device\n");
-
-Above you used dev_err, here you used pr_err(). Please be consistent.
-
-> +		err = -ENOMEM;
-> +		goto alloc_etherdev_err;
-> +	}
-> +
-> +	netdev->netdev_ops = &hinic_netdev_ops;
-> +
-> +	nic_dev = (struct hinic_dev *)netdev_priv(netdev);
-> +	nic_dev->hwdev = hwdev;
-> +	nic_dev->netdev = netdev;
-> +	nic_dev->msg_enable = MSG_ENABLE_DEFAULT;
-> +
-> +	pci_set_drvdata(pdev, netdev);
-> +
-> +	netif_carrier_off(netdev);
-> +
-> +	err = register_netdev(netdev);
-> +	if (err) {
-> +		netif_err(nic_dev, probe, netdev, "Failed to register netdev\n");
-
-probably not a good idea to use netif_err, if register_netdev just
-failed. dev_err() would be better.
+    Thanks
+	Andrew
