@@ -1,33 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: hns: Bugfix for Tx timeout handling in hns
- driver
-Date: Wed, 12 Jul 2017 08:22:52 -0700 (PDT)
-Message-ID: <20170712.082252.1922543956027601076.davem@davemloft.net>
-References: <1499857799-16124-1-git-send-email-linyunsheng@huawei.com>
+Subject: Re: [PATCH V2] brcmfmac: fix possible buffer overflow in
+ brcmf_cfg80211_mgmt_tx()
+Date: Wed, 12 Jul 2017 08:28:53 -0700 (PDT)
+Message-ID: <20170712.082853.1710711458527879433.davem@davemloft.net>
+References: <1499458154-18358-1-git-send-email-arend.vanspriel@broadcom.com>
+        <59660CC3.9030809@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: huangdaode@hisilicon.com, xuwei5@hisilicon.com,
-        liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
-        gabriele.paoloni@huawei.com, john.garry@huawei.com,
-        linuxarm@huawei.com, salil.mehta@huawei.com, lipeng321@huawei.com,
-        tremyfr@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: linyunsheng@huawei.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1499857799-16124-1-git-send-email-linyunsheng@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+        torvalds@linux-foundation.org
+To: arend.vanspriel@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:55488 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752617AbdGLP2y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2017 11:28:54 -0400
+In-Reply-To: <59660CC3.9030809@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Lin Yun Sheng <linyunsheng@huawei.com>
-Date: Wed, 12 Jul 2017 19:09:59 +0800
-
-> When hns port type is not debug mode, netif_tx_disable is called
-> when there is a tx timeout, which requires system reboot to return
-> to normal state. This patch fix this problem by resetting the net
-> dev.
-> 
-> Fixes: b5996f11ea54 ("net: add Hisilicon Network Subsystem basic ethernet support")
-> Signed-off-by: Lin Yun Sheng <linyunsheng@huawei.com>
-
-Apaplied.
+RnJvbTogQXJlbmQgdmFuIFNwcmllbCA8YXJlbmQudmFuc3ByaWVsQGJyb2FkY29tLmNvbT4NCkRh
+dGU6IFdlZCwgMTIgSnVsIDIwMTcgMTM6NDk6MjMgKzAyMDANCg0KPiBPbiA3LzcvMjAxNyAxMDow
+OSBQTSwgQXJlbmQgdmFuIFNwcmllbCB3cm90ZToNCj4+IFRoZSBsb3dlciBsZXZlbCBubDgwMjEx
+IGNvZGUgaW4gY2ZnODAyMTEgZW5zdXJlcyB0aGF0ICJsZW4iIGlzIGJldHdlZW4NCj4+IDI1IGFu
+ZCBOTDgwMjExX0FUVFJfRlJBTUUgKDIzMDQpLiAgV2Ugc3VidHJhY3QgRE9UMTFfTUdNVF9IRFJf
+TEVOICgyNCkNCj4+IGZyb20NCj4+ICJsZW4iIHNvIHRoYXRzJ3MgbWF4IG9mIDIyODAuICBIb3dl
+dmVyLCB0aGUgYWN0aW9uX2ZyYW1lLT5kYXRhW10NCj4+IGJ1ZmZlciBpcw0KPj4gb25seSBCUkNN
+Rl9GSUxfQUNUSU9OX0ZSQU1FX1NJWkUgKDE4MDApIGJ5dGVzIGxvbmcgc28gdGhpcyBtZW1jcHko
+KQ0KPj4gY2FuDQo+PiBvdmVyZmxvdy4NCj4+DQo+PiAJbWVtY3B5KGFjdGlvbl9mcmFtZS0+ZGF0
+YSwgJmJ1ZltET1QxMV9NR01UX0hEUl9MRU5dLA0KPj4gCSAgICAgICBsZTE2X3RvX2NwdShhY3Rp
+b25fZnJhbWUtPmxlbikpOw0KPj4NCj4+IENjOiBzdGFibGVAdmdlci5rZXJuZWwub3JnICMgMy45
+LngNCj4+IEZpeGVzOiAxOGUyZjYxZGIzYjcwICgiYnJjbWZtYWM6IFAyUCBhY3Rpb24gZnJhbWUg
+dHguIikNCj4+IFJlcG9ydGVkLWJ5OiAiZnJlZW5lcmd1byjpg63lpKflhbQpIiA8ZnJlZW5lcmd1
+b0B0ZW5jZW50LmNvbT4NCj4+IFNpZ25lZC1vZmYtYnk6IEFyZW5kIHZhbiBTcHJpZWwgPGFyZW5k
+LnZhbnNwcmllbEBicm9hZGNvbS5jb20+DQo+PiAtLS0NCj4+ICAgVjI6DQo+PiAgICAtIGFkZGVk
+IEZpeGVzOiB0YWcgYW5kIENjOiBmb3Igc3RhYmxlIGtlcm5lbHMuDQo+PiAgICAtIENjOiBwYXRj
+aCB0byBuZXRkZXYgbGlzdC4NCj4+IC0tLQ0KPj4gSGkgRGF2aWQsDQo+Pg0KPj4gSGVyZSBpcyB0
+aGUgcGF0Y2ggYXMgTGludXMgc2VuZCBpdCB0byB1cyBhbmQgc2VjdXJpdHlAa2VybmVsLm9yZy4g
+SQ0KPj4gcmVtb3ZlZCB0aGUgbG93ZXIgYm91bmQgY2hlY2sgYXMgdGhhdCBpcyBhbHJlYWR5IGRv
+bmUgaW4gY2ZnODAyMTEuDQo+PiBOb3cgSSBzaWduZWQgb2ZmIG9uIHRoZSBwYXRjaCBhbHRob3Vn
+aCBmb3JtYWxseSBJIHN1cHBvc2UgTGludXMgc2hvdWxkDQo+PiBzaWduIGl0IG9mZi4gUHV0dGlu
+ZyBpdCBvdXQgdGhlcmUgc28gcGVvcGxlIGNhbiByZXNwb25kIGFzIGRlZW1lZA0KPj4gbmVjZXNz
+YXJ5Lg0KPj4NCj4+IFRoZSByZWFzb24gZm9yIHN1Ym1pdHRpbmcgaXQgdG8geW91ciB0cmVlIGlz
+IHRoZSBmYWN0IHRoYXQgS2FsbGUgaXMNCj4+IG9uIHZhY2F0aW9uIGZvciBuZXh0IDEwIGRheXMg
+b3Igc28gd2hpY2ggd2FzIGluZGljYXRlZCB0byBtZSBieQ0KPj4gSm9oYW5uZXMuDQo+PiBUaGUg
+cGF0Y2ggYXBwbGllcyB0byB0aGUgbWFzdGVyIGJyYW5jaCBvZiB5b3VyIG5ldCByZXBvc2l0b3J5
+LiBGb3INCj4+IHJlZmVyZW5jZSBWMSBvZiB0aGlzIHBhdGNoIGNhbiBiZSBmb3VuZCBoZXJlIFsx
+XS4NCj4gDQo+IEhpIERhdmUsDQo+IA0KPiBOb3Qgc3VyZSBpZiB5b3UgbWlzc2VkIHRoaXMgb25l
+LiBJdCBpcyBhZGRyZXNzaW5nIGEgcmVwb3J0ZWQgc2VjdXJpdHkNCj4gaXNzdWUgYW5kIGludGVu
+ZGVkIGZvciB0aGUgbmV0IHJlcG9zaXRvcnksIG5vdCBuZXQtbmV4dCB3aGljaCBpcw0KPiBvYnZp
+b3VzbHkgY2xvc2VkIFsyXS4NCg0KVGhhbmtzIGZvciBwb2ludGluZyB0aGlzIG91dCB0byBtZSwg
+SSdsbCB0YWtlIGNhcmUgb2YgaXQuDQoNCg==
