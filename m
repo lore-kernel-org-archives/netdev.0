@@ -1,77 +1,71 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: Lots of new warnings with gcc-7.1.1
-Date: Wed, 12 Jul 2017 01:54:40 +0200
-Message-ID: <C983283A-CB6B-47F5-BBCF-ED878ECB191C@holtmann.org>
-References: <CA+55aFzXz-PxKSJP=hfHD+mfCX4M6+HMacWMkDz7KB8-3y55qw@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: Tejun Heo <tj@kernel.org>, Jean Delvare <jdelvare@suse.com>,
-        Guenter Roeck <linux@roeck-us.net>,
-        Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
-        Sathya Prakash <sathya.prakash@broadcom.com>,
-        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        the arch/x86 maintainers <x86@kernel.org>,
-        xen-devel <xen-devel@lists.xenproject.org>,
-        linux-block <linux-block@vger.kernel.org>,
-        Linux Media Mailing List <linux-media@vger.kernel.org>,
-        IDE-ML <linux-ide@vger.kernel.org>,
-        "linux-fbdev@vger.kernel.org" <linux-fbdev@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 0/6] Configuring traffic classes via new hardware
+ offload mechanism in tc/mqprio
+Date: Tue, 11 Jul 2017 17:18:17 -0700
+Message-ID: <1499818697.4698.12.camel@intel.com>
+References: <149976762072.2896.5722904915197643856.stgit@anamdev.jf.intel.com>
+         <20170711.072635.185388451319287053.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha256";
+        protocol="application/pgp-signature"; boundary="=-PVKt4AONKJrgc/wWkBYY"
+Cc: intel-wired-lan@lists.osuosl.org, alexander.h.duyck@intel.com,
+        kiran.patil@intel.com, netdev@vger.kernel.org,
+        mitch.a.williams@intel.com, alexander.duyck@gmail.com,
+        neerav.parikh@intel.com, sridhar.samudrala@intel.com,
+        carolyn.wyborny@intel.com
+To: David Miller <davem@davemloft.net>, amritha.nambiar@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from coyote.holtmann.net ([212.227.132.17]:49109 "EHLO
-        mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756431AbdGKXyp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2017 19:54:45 -0400
-In-Reply-To: <CA+55aFzXz-PxKSJP=hfHD+mfCX4M6+HMacWMkDz7KB8-3y55qw@mail.gmail.com>
+Received: from mga01.intel.com ([192.55.52.88]:44760 "EHLO mga01.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752939AbdGLASY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 11 Jul 2017 20:18:24 -0400
+In-Reply-To: <20170711.072635.185388451319287053.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Linus,
 
-> At the same time, others aren't quite as insane, and in many cases the
-> warnings might be easy to just fix.
-> 
-> And some actually look valid, although they might still require odd input:
-> 
->  net/bluetooth/smp.c: In function ‘le_max_key_size_read’:
->  net/bluetooth/smp.c:3372:29: warning: ‘snprintf’ output may be
-> truncated before the last format character [-Wformat-truncation=]
->    snprintf(buf, sizeof(buf), "%2u\n", SMP_DEV(hdev)->max_key_size);
->                               ^~~~~~~
->  net/bluetooth/smp.c:3372:2: note: ‘snprintf’ output between 4 and 5
-> bytes into a destination of size 4
-> 
-> yeah, "max_key_size" is unsigned char, but if it's larger than 99 it
-> really does need 5 bytes for "%2u\n" with the terminating NUL
-> character.
-> 
-> Of course, the "%2d" implies that people expect it to be < 100, but at
-> the same time it doesn't sound like a bad idea to just make the buffer
-> be one byte bigger. So..
+--=-PVKt4AONKJrgc/wWkBYY
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-the Bluetooth specification defines that the Maximum Encryption Key Size shall be in the range 7 to 16 octets. Which is also reflected in these defines:
+On Tue, 2017-07-11 at 07:26 -0700, David Miller wrote:
+> From: Amritha Nambiar <amritha.nambiar@intel.com>
+> Date: Tue, 11 Jul 2017 03:18:30 -0700
+>=20
+> > The following series introduces a new hardware offload mode in
+> > tc/mqprio where the TCs, the queue configurations and
+> > bandwidth rate limits are offloaded to the hardware.
+>=20
+> net-next is closed, please resubmit this when net-next opens
+> again:
+>=20
+> 	http://vger.kernel.org/~davem/net-next.html
+>=20
+> Thank you.
 
-#define SMP_MIN_ENC_KEY_SIZE            7
-#define SMP_MAX_ENC_KEY_SIZE            16
+Dave, this is gonna come through my tree.  Amritha is looking for
+community feedback, while we have this under validation.  Sorry for the
+confusion.
+--=-PVKt4AONKJrgc/wWkBYY
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-So it is buf[4] since we know it never gets larger than 16. So even in this case the warning is bogus.
+-----BEGIN PGP SIGNATURE-----
 
-I have no problem in increasing it to buf[5] to shut up the compiler, but that is what I would be doing here. I am not fixing an actual bug.
+iQIzBAABCAAdFiEEiTyZWz+nnTrOJ1LZ5W/vlVpL7c4FAlllaskACgkQ5W/vlVpL
+7c5h3w//Ro1syvqIIe2LwWKuDs7NRBsRGCqxZE3HzeZBAtlF6+pPDgqU3FJvNfkK
+iXNgznbCXpkCCaMLoy07sLr7ietkQnFsSSdIBimkS9Ttoxc8CScOptxMsVkYPTRt
+E/hPssLP6KbD8pFZFtkWDAXkprbxe5fMc+FcdVzci1ddT6UOEGym01HMPbdxh2BL
+SuVph+6rmuxJzuLF6ewYEPFNoi5vh/iVUeoWl9MywmDP1vuY/rrsstN5fUdMSoA5
+RscTgAhrWeczoiXSiLVhZxAvvnejzjwYnMHgc55GFxmRph1iGhaz65N4cYMvE/G3
+Nv37O/vkfv/tNkBdb5tOoZ7iiem9ZBqTJukJsxkd9Hitk4ohzrHqYV/AC2E5fr4E
+kgTGvyQlc1Knb2Alwdc0HPMJ8rLcYldkGTmS2RKZWUMcaauJ1nO0zBpVpPksBLfY
+ogKxu22nVA4Xk8szEfvib7gvbgoYR5Ztm6HCURqoiDtOW6Nw5FZVakY+kEh/U1EF
+9OOMG65kyurzOUW9vXsb7saeQOlHNpR/bdSXphPaB0gXHfqZajCAsQ3Kxt1p2SMG
+h6TKhNp/8DI8oL0m41prvwhpveypBznAPrWBj/bXTSezIPJW6rcFgrTrRuN3FW2+
+PdnBxQRFA86WKZVmTOIcvKEUBmXsAH3yI+/GBcgShx3cj3Qgyxc=
+=MwdX
+-----END PGP SIGNATURE-----
 
-> Anyway, it would be lovely if some of the more affected developers
-> would take a look at gcc-7.1.1 warnings. Right now I get about three
-> *thousand* lines of warnings from a "make allmodconfig" build, which
-> makes them a bit overwhelming.
-> 
-> I do suspect I'll make "-Wformat-truncation" (as opposed to
-> "-Wformat-overflow") be a "V=1" kind of warning.  But let's see how
-> many of these we can fix, ok?
-
-I had to use the -Wno-format-trunction in a few projects since gcc was completely lost. And since we were using snprintf, I saw no point in trying to please gcc with a larger buffer.
-
-Regards
-
-Marcel
+--=-PVKt4AONKJrgc/wWkBYY--
