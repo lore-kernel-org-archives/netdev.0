@@ -1,63 +1,56 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH] igb: fix unused igb_deliver_wake_packet() warning when CONFIG_PM=n
-Date: Wed, 12 Jul 2017 18:23:28 -0300
-Message-ID: <CAOMZO5B1bFRJh3wjbR77HL4ZQ7LqmmSJdeVzRkbyJXUjFFCsrQ@mail.gmail.com>
-References: <20170712210925.4F647FAA@viggo.jf.intel.com>
+From: Richard Weinberger <richard@nod.at>
+Subject: Re: nf_conntrack: Infoleak via CTA_ID and CTA_EXPECT_ID
+Date: Wed, 12 Jul 2017 23:26:35 +0200
+Message-ID: <1daf1401-5009-df1c-a77a-a271811c0760@nod.at>
+References: <c84e0301-2bb6-8932-2ed5-939340762159@nod.at>
+ <20170630193544.GM9307@breakpoint.cc>
+ <f3d78dc5-7694-8e01-ac4d-54fc248a96f1@nod.at>
+ <20170630195547.GN9307@breakpoint.cc>
+ <ad87cf0f-2ff4-48d7-b53c-bc4b5e98cfca@nod.at>
+ <20170701103504.GO9307@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan@lists.osuosl.org,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Dave Hansen <dave.hansen@linux.intel.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        David Miller <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        David Gstir <david@sigma-star.at>, kaber@trash.net,
+        "keescook@chromium.org" <keescook@chromium.org>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170712210925.4F647FAA@viggo.jf.intel.com>
+In-Reply-To: <20170701103504.GO9307@breakpoint.cc>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 12, 2017 at 6:09 PM, Dave Hansen
-<dave.hansen@linux.intel.com> wrote:
->
-> From: Dave Hansen <dave.hansen@linux.intel.com>
->
-> I'm seeing warnings on kernel configurations where CONFIG_PM is
-> disabled.  It happens in 4.12, at least:
->
-> drivers/ethernet/intel/igb/igb_main.c:7988:13: warning: 'igb_deliver_wake_packet' defined but not used [-Wunused-function]
->
-> This is because igb_deliver_wake_packet() is defined outside of
-> the #ifdef", but is used only a single time within the #ifdef in
-> igb_resume().  Fix it by moving igb_deliver_wake_packet() next to
-> igb_resume() inside the #ifdef.
->
-> The diff ends up looking a bit funky here.  It *looks* like
-> igb_suspend() is getting moved, but that's an artifact of how
-> 'diff' sees the changes.
->
-> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Cc: intel-wired-lan@lists.osuosl.org
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Dave Hansen <dave.hansen@linux.intel.com>
+Florian,
 
-Seems to be fixed by the following commit in linux-next:
+Am 01.07.2017 um 12:35 schrieb Florian Westphal:
+>>> Perhaps we can place that in a new extension (its not needed in any
+>>> fastpath ops)?
+>>
+>> To get rid of the infoleak we have to re-introduce the id field in struct nf_conn
+>> and struct nf_conntrack_expect.
+> 
+> Why will this not work?
 
-commit 000ba1f2ebf0d6f93b9ae6cfbe5417e66f1b8e8c
-Author: Arnd Bergmann <arnd@arndb.de>
-Date:   Thu Apr 27 21:09:52 2017 +0200
+You are right, when we compute the ID from the whole object, it should be fine.
 
-    igb: mark PM functions as __maybe_unused
+>> Otherwise have nothing to compare against in the conntrack/expect remove case.
+> 
+> Not following, sorry.  The id is not used anywhere except when we send
+> info to userspace.
+> 
+> The compare on removal is not needed afaics, and its also not used when
+> doing lookup to begin with, so we can just recompute it?
 
-    The new wake function is only used by the suspend/resume handlers that
-    are defined in inside of an #ifdef, which can cause this harmless
-    warning:
+Isn't this a way too much overhead?
 
-    drivers/net/ethernet/intel/igb/igb_main.c:7988:13: warning:
-'igb_deliver_wake_packet' defined but not used [-Wunused-function]
+I personally favor Pablo's per-cpu counter approach.
+That way the IDs are unique again and we get rid of the info leak without
+much effort.
 
-    Removing the #ifdef, instead using a __maybe_unused annotation
-    simplifies the code and avoids the warning.
-
-    Fixes: b90fa8763560 ("igb: Enable reading of wake up packet")
-    Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-    Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-    Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Thanks,
+//richard
