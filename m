@@ -1,185 +1,175 @@
-From: martinbj2008@gmail.com
-Subject: [PATCH v1 net-next 3/5] drop_monitor: let hw_stats_list support net ns
-Date: Wed, 12 Jul 2017 18:40:51 +0800
-Message-ID: <1499856053-30475-3-git-send-email-zhangjunweimartin@didichuxing.com>
-References: <1499856053-30475-1-git-send-email-zhangjunweimartin@didichuxing.com>
-Cc: netdev@vger.kernel.org, martinbj2008@gmail.com,
-        zhangjunweimartin@didichuxing.com
-To: nhorman@tuxdriver.com, davem@davemloft.net
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: Re: [RFC PATCH 03/12] xdp: add bpf_redirect helper function
+Date: Wed, 12 Jul 2017 14:00:10 +0300
+Message-ID: <836efa9d-4174-0314-ffad-6e6fbadb61d0@mellanox.com>
+References: <20170707172115.9984.53461.stgit@john-Precision-Tower-5810>
+ <20170707173522.9984.73677.stgit@john-Precision-Tower-5810>
+ <8cf998a4-dadb-0a1a-0f3d-9a4f8ca39287@mellanox.com>
+ <5963B81A.5070008@gmail.com>
+ <CAHashqA8UYWAX7TDVrnGiTCA3zN5RGyiOQ3CcJpFDNnMemRnoQ@mail.gmail.com>
+ <59651B29.5040403@gmail.com> <20170711213811.3f83405c@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Alexei Starovoitov <ast@fb.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>,
+        John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:34901 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756399AbdGLKle (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2017 06:41:34 -0400
-Received: by mail-pg0-f65.google.com with SMTP id d193so2558645pgc.2
-        for <netdev@vger.kernel.org>; Wed, 12 Jul 2017 03:41:28 -0700 (PDT)
-In-Reply-To: <1499856053-30475-1-git-send-email-zhangjunweimartin@didichuxing.com>
+Received: from mail-eopbgr20049.outbound.protection.outlook.com ([40.107.2.49]:39457
+        "EHLO EUR02-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1756373AbdGLLAX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Jul 2017 07:00:23 -0400
+In-Reply-To: <20170711213811.3f83405c@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: martin Zhang <zhangjunweimartin@didichuxing.com>
 
-hw_stats_list is used to record NAPI state for net device.
-Every net device belongs to one net ns.
-so every net ns has a list head to record them.
 
-Signed-off-by: martin Zhang <zhangjunweimartin@didichuxing.com>
----
- net/core/drop_monitor.c | 54 ++++++++++++++++++++++++++++++-------------------
- 1 file changed, 33 insertions(+), 21 deletions(-)
+On 7/11/2017 10:38 PM, Jesper Dangaard Brouer wrote:
+> On Tue, 11 Jul 2017 11:38:33 -0700
+> John Fastabend <john.fastabend@gmail.com> wrote:
+>
+>> On 07/11/2017 07:09 AM, Andy Gospodarek wrote:
+>>> On Mon, Jul 10, 2017 at 1:23 PM, John Fastabend
+>>> <john.fastabend@gmail.com> wrote:
+>>>> On 07/09/2017 06:37 AM, Saeed Mahameed wrote:
+>>>>>
+>>>>>
+>>>>> On 7/7/2017 8:35 PM, John Fastabend wrote:
+>>>>>> This adds support for a bpf_redirect helper function to the XDP
+>>>>>> infrastructure. For now this only supports redirecting to the egress
+>>>>>> path of a port.
+>>>>>>
+>>>>>> In order to support drivers handling a xdp_buff natively this patches
+>>>>>> uses a new ndo operation ndo_xdp_xmit() that takes pushes a xdp_buff
+>>>>>> to the specified device.
+>>>>>>
+>>>>>> If the program specifies either (a) an unknown device or (b) a device
+>>>>>> that does not support the operation a BPF warning is thrown and the
+>>>>>> XDP_ABORTED error code is returned.
+>>>>>>
+>>>>>> Signed-off-by: John Fastabend <john.fastabend@gmail.com>
+>>>>>> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+>>>>>> ---
+>>>>
+>>>> [...]
+>>>>
+>>>>>>
+>>>>>> +static int __bpf_tx_xdp(struct net_device *dev, struct xdp_buff *xdp)
+>>>>>> +{
+>>>>>> +    if (dev->netdev_ops->ndo_xdp_xmit) {
+>>>>>> +        dev->netdev_ops->ndo_xdp_xmit(dev, xdp);
+>>>>>
+>>>>> Hi John,
+>>>>>
+>>>>> I have some concern here regarding synchronizing between the
+>>>>> redirecting device and the target device:
+>>>>>
+>>>>> if the target device's NAPI is also doing XDP_TX on the same XDP TX
+>>>>> ring which this NDO might be redirecting xdp packets into the same
+>>>>> ring, there would be a race accessing this ring resources (buffers
+>>>>> and descriptors). Maybe you addressed this issue in the device driver
+>>>>> implementation of this ndo or with some NAPI tricks/assumptions, I
+>>>>> guess we have the same issue for if you run the same program to
+>>>>> redirect traffic from multiple netdevices into one netdevice, how do
+>>>>> you synchronize accessing this TX ring ?
+>>>>
+>>>> The implementation uses a per cpu TX ring to resolve these races. And
+>>>> the pair of driver interface API calls, xdp_do_redirect() and xdp_do_flush_map()
+>>>> must be completed in a single poll() handler.
+>>>>
+>>>> This comment was included in the header file to document this,
+>>>>
+>>>> /* The pair of xdp_do_redirect and xdp_do_flush_map MUST be called in the
+>>>>  * same cpu context. Further for best results no more than a single map
+>>>>  * for the do_redirect/do_flush pair should be used. This limitation is
+>>>>  * because we only track one map and force a flush when the map changes.
+>>>>  * This does not appear to be a real limitation for existing software.
+>>>>  */
+>>>>
+>>>> In general some documentation about implementing XDP would probably be
+>>>> useful to add in Documentation/networking but this IMO goes beyond just
+>>>> this patch series.
+>>>>
+>>>>>
+>>>>> Maybe we need some clear guidelines in this ndo documentation stating
+>>>>> how to implement this ndo and what are the assumptions on those XDP
+>>>>> TX redirect rings or from which context this ndo can run.
+>>>>>
+>>>>> can you please elaborate.
+>>>>
+>>>> I think the best implementation is to use a per cpu TX ring as I did in
+>>>> this series. If your device is limited by the number of queues for some
+>>>> reason some other scheme would need to be devised. Unfortunately, the only
+>>>> thing I've come up for this case (using only this series) would both impact
+>>>> performance and make the code complex.
 
-diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
-index 0cf25c3..875e8b4 100644
---- a/net/core/drop_monitor.c
-+++ b/net/core/drop_monitor.c
-@@ -53,10 +53,12 @@ struct ns_pcpu_dm_data {
-  * struct per_ns_dm_cb  - drop monitor control block in per net ns.
-  * @trace_state:    the trace state.
-  * @ns_dm_mutex:    protect whole per_ns_dm_cb.
-+ * @hw_stats_list:  monitor for NAPI of net device.
-  */
- struct per_ns_dm_cb {
- 	int trace_state;
- 	struct mutex ns_dm_mutex;
-+	struct list_head hw_stats_list;
- };
- 
- static DEFINE_MUTEX(trace_state_mutex);
-@@ -85,7 +87,6 @@ struct dm_hw_stat_delta {
- static int dm_hit_limit = 64;
- static int dm_delay = 1;
- static unsigned long dm_hw_check_delta = 2*HZ;
--static LIST_HEAD(hw_stats_list);
- 
- static struct sk_buff *reset_per_cpu_data(struct per_cpu_dm_data *data)
- {
-@@ -225,16 +226,22 @@ static void trace_kfree_skb_hit(void *ignore, struct sk_buff *skb, void *locatio
- static void trace_napi_poll_hit(void *ignore, struct napi_struct *napi,
- 				int work, int budget)
- {
-+	struct net *net;
- 	struct dm_hw_stat_delta *new_stat;
-+	struct per_ns_dm_cb *ns_dm_net;
- 
- 	/*
- 	 * Don't check napi structures with no associated device
- 	 */
- 	if (!napi->dev)
- 		return;
-+	net = dev_net(napi->dev);
-+	ns_dm_net = net_generic(net, dm_net_id);
-+	if (!ns_dm_net)
-+		return;
- 
- 	rcu_read_lock();
--	list_for_each_entry_rcu(new_stat, &hw_stats_list, list) {
-+	list_for_each_entry_rcu(new_stat, &ns_dm_net->hw_stats_list, list) {
- 		/*
- 		 * only add a note to our monitor buffer if:
- 		 * 1) this is the dev we received on
-@@ -256,8 +263,6 @@ static void trace_napi_poll_hit(void *ignore, struct napi_struct *napi,
- static int set_all_monitor_traces(int state)
- {
- 	int rc = 0;
--	struct dm_hw_stat_delta *new_stat = NULL;
--	struct dm_hw_stat_delta *temp;
- 
- 	mutex_lock(&trace_state_mutex);
- 
-@@ -290,16 +295,6 @@ static int set_all_monitor_traces(int state)
- 
- 		tracepoint_synchronize_unregister();
- 
--		/*
--		 * Clean the device list
--		 */
--		list_for_each_entry_safe(new_stat, temp, &hw_stats_list, list) {
--			if (new_stat->dev == NULL) {
--				list_del_rcu(&new_stat->list);
--				kfree_rcu(new_stat, rcu);
--			}
--		}
--
- 		module_put(THIS_MODULE);
- 
- 		break;
-@@ -368,6 +363,19 @@ static int net_dm_cmd_trace(struct sk_buff *skb,
- 		return -ENOTSUPP;
- 	}
- 
-+	if (state == TRACE_OFF) {
-+		/* Clean the device list */
-+		struct dm_hw_stat_delta *new_stat = NULL;
-+		struct dm_hw_stat_delta *temp;
-+		struct list_head *head = &ns_dm_cb->hw_stats_list;
-+
-+		list_for_each_entry_safe(new_stat, temp, head, list) {
-+			if (!new_stat->dev) {
-+				list_del_rcu(&new_stat->list);
-+				kfree_rcu(new_stat, rcu);
-+			}
-+		}
-+	}
- 	ns_dm_cb->trace_state = state;
- 	mutex_unlock(&ns_dm_cb->ns_dm_mutex);
- 
-@@ -382,6 +390,7 @@ static int dropmon_net_event(struct notifier_block *ev_block,
- 	struct dm_hw_stat_delta *new_stat = NULL;
- 	struct dm_hw_stat_delta *tmp;
- 	struct per_ns_dm_cb *ns_dm_cb;
-+	struct list_head *head;
- 
- 	dev = netdev_notifier_info_to_dev(ptr);
- 	if (!dev)
-@@ -391,23 +400,23 @@ static int dropmon_net_event(struct notifier_block *ev_block,
- 	ns_dm_cb = net_generic(net, dm_net_id);
- 	if (!ns_dm_cb)
- 		goto out;
-+	head = &ns_dm_cb->hw_stats_list;
- 
- 	switch (event) {
- 	case NETDEV_REGISTER:
- 		new_stat = kzalloc(sizeof(struct dm_hw_stat_delta), GFP_KERNEL);
--
- 		if (!new_stat)
- 			goto out;
- 
- 		new_stat->dev = dev;
- 		new_stat->last_rx = jiffies;
--		mutex_lock(&trace_state_mutex);
--		list_add_rcu(&new_stat->list, &hw_stats_list);
--		mutex_unlock(&trace_state_mutex);
-+		mutex_lock(&ns_dm_cb->ns_dm_mutex);
-+		list_add_rcu(&new_stat->list, head);
-+		mutex_unlock(&ns_dm_cb->ns_dm_mutex);
- 		break;
- 	case NETDEV_UNREGISTER:
--		mutex_lock(&trace_state_mutex);
--		list_for_each_entry_safe(new_stat, tmp, &hw_stats_list, list) {
-+		mutex_lock(&ns_dm_cb->ns_dm_mutex);
-+		list_for_each_entry_safe(new_stat, tmp, head, list) {
- 			if (new_stat->dev == dev) {
- 				new_stat->dev = NULL;
- 				if (ns_dm_cb->trace_state == TRACE_OFF) {
-@@ -417,7 +426,7 @@ static int dropmon_net_event(struct notifier_block *ev_block,
- 				}
- 			}
- 		}
--		mutex_unlock(&trace_state_mutex);
-+		mutex_unlock(&ns_dm_cb->ns_dm_mutex);
- 		break;
- 	}
- out:
-@@ -462,7 +471,10 @@ static int __net_init dm_net_init(struct net *net)
- 	if (!ns_dm_cb)
- 		return -ENOMEM;
- 
-+	mutex_init(&ns_dm_cb->ns_dm_mutex);
- 	ns_dm_cb->trace_state = TRACE_OFF;
-+	INIT_LIST_HEAD(&ns_dm_cb->hw_stats_list);
-+
- 	return 0;
- }
- 
--- 
-1.8.3.1
+mlx5 and mlx4 have no limitation in regards of number of queues, My only 
+concern is that this looks like a very heavy assumption with some 
+unwanted side effects.
+
+is this per cpu TX ring made only for XDP_REDIRECT action ? or it is 
+shared with the XDP_TX action coming from the same device ?
+
+if yes, wouldn't there be a race on a preempt systems or while 
+XDP_REDIRECT is taking action, a HW IRQ RX interrupt occurs on the 
+target device, which might execute an XDP_TX action at the same time on 
+the same ring ?
+
+>>>>
+>>>> A nice solution might be to constrain networking "tasks" to only a subset
+>>>> of cores. For 64+ core systems this might be a good idea. It would allow
+>>>> avoiding locking using per_cpu logic but also avoid networking consuming
+>>>> slices of every core in the system. As core count goes up I think we will
+>>>> eventually need to address this.I believe Eric was thinking along these
+>>>> lines with his netconf talk iirc. Obviously this work is way outside the
+>>>> scope of this series though.
+>>>
+>>> I agree that it is outside the scope of this series, but I think it is
+>>> important to consider the impact of the output queue selection in both
+>>> a heterogenous and homogenous driver setup and how tx could be
+>>> optimized or even considered to be more reliable and I think that was
+>>> part of Saeed's point.
+>>>
+>>> I got base redirect support for bnxt_en working yesterday, but for it
+>>> and other drivers that do not necessarily create a ring/queue per core
+>>> like ixgbe there is probably a bit more to work in each driver to
+>>> properly track output tx rings/queues than what you have done with
+>>> ixgbe.
+>>>
+>>
+>> The problem, in my mind at least, is if you do not have a ring per core
+>> how does the locking work? I don't see any good way to do this outside
+>> of locking which I was trying to avoid.
+
+I also agree this is outside the scope of the series, but i also tend to 
+agree with Andy and Jesper, we need some-kind of a middle ground to at 
+least address the 64+ core systems and limited drivers/NICs and improve 
+XDP redirect reliability.
+
+I also don't see any other solution other than having a Qdisc like layer 
+with some locking mechanism. it should be a good practice to separate 
+between the XDP redirect work producers and the actual target driver's 
+XDP ring consumers, which will remove the dependency and assumption of 
+the per cpu ring.
+
+The question is do we want this ? and what is the performance impact?
+
+>
+> My solution would be to queue the XDP packets in the devmap, and then
+> bulk xdp_xmit them to the device on flush.  Talking a lock per bulk
+> amortize cost to basically nothing.  The other advantage of this is
+> improving the instruction-cache (re)usage.
+>
+> One thing I don't like with this patchset, is this implicit requirement
+> it put on drivers, that they must have a HW TX-ring queue per CPU in the
+> system.
+>
+
++1, but I am not totally against the current approach with a future task 
+to improve.
