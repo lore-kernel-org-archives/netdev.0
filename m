@@ -1,7 +1,8 @@
 From: <sean.wang@mediatek.com>
-Subject: [PATCH net-next 0/4] net-next: mediatek: add support for ethernet on MT7622 SoC
-Date: Wed, 12 Jul 2017 11:37:41 +0800
-Message-ID: <cover.1499829241.git.sean.wang@mediatek.com>
+Subject: [PATCH net-next 1/4] dt-bindings: net: mediatek: add support for MediaTek MT7623 and MT7622 SoC
+Date: Wed, 12 Jul 2017 11:37:42 +0800
+Message-ID: <b894d13d8896af9c781ce7a9caf627f7b2efeb22.1499829241.git.sean.wang@mediatek.com>
+References: <cover.1499829241.git.sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
@@ -9,40 +10,61 @@ Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
         <linux-mediatek@lists.infradead.org>,
         Sean Wang <sean.wang@mediatek.com>
 To: <john@phrozen.org>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw01.mediatek.com ([210.61.82.183]:18286 "EHLO
-        mailgw01.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752543AbdGLDhw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2017 23:37:52 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1499829241.git.sean.wang@mediatek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Sean Wang <sean.wang@mediatek.com>
 
-The series adds the driver for ethernet controller found on MT7622 SoC.
-There are additions against with previous MT7623 SoC such as shared SGMII
-given for the dual GMACs and built-in 5-ports 10/100 embedded switch support
-(ESW). Thus more clocks consumers and SGMII hardware setup for the extra
-features are all introduced here and as for the support for ESW that would be
-planned to add in the separate patch integrating with DSA infrastructure
-in the future.
+The patch adds the supplements in the dt-binding document for MediaTek
+MT7622 SoC with extra SGMII system controller and relevant clock consumers
+listed as the requirements for those SoCs equipped with the SGMII circuit.
+Also, add the missing binding information for MT7623 SoC here which relies
+on the fallback binding of MT2701.
 
-Currently testing successfully is done with those patches for the conditions
-such as GMAC2 with IP1001 PHY via RGMII and GMAC1/2 with RTL8211F PHY via SGMII.
+Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+---
+ Documentation/devicetree/bindings/net/mediatek-net.txt | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
 
-Sean Wang (4):
-  dt-bindings: net: mediatek: add support for MediaTek MT7623 and MT7622
-    SoC
-  net-next: mediatek: add platform data to adapt into various hardware
-  net-next: mediatek: add support for MediaTek MT7622 SoC
-  MAINTAINERS: add Sean/Nelson as MediaTek ethernet maintainers
-
- .../devicetree/bindings/net/mediatek-net.txt       |  12 +-
- MAINTAINERS                                        |   2 +
- drivers/net/ethernet/mediatek/Kconfig              |   6 +-
- drivers/net/ethernet/mediatek/mtk_eth_soc.c        | 143 +++++++++++++++++++--
- drivers/net/ethernet/mediatek/mtk_eth_soc.h        |  73 ++++++++++-
- 5 files changed, 216 insertions(+), 20 deletions(-)
-
+diff --git a/Documentation/devicetree/bindings/net/mediatek-net.txt b/Documentation/devicetree/bindings/net/mediatek-net.txt
+index c7194e8..1d1168b 100644
+--- a/Documentation/devicetree/bindings/net/mediatek-net.txt
++++ b/Documentation/devicetree/bindings/net/mediatek-net.txt
+@@ -7,24 +7,30 @@ have dual GMAC each represented by a child node..
+ * Ethernet controller node
+ 
+ Required properties:
+-- compatible: Should be "mediatek,mt2701-eth"
++- compatible: Should be
++		"mediatek,mt2701-eth": for MT2701 SoC
++		"mediatek,mt7623-eth", "mediatek,mt2701-eth": for MT7623 SoC
++		"mediatek,mt7622-eth": for MT7622 SoC
+ - reg: Address and length of the register set for the device
+ - interrupts: Should contain the three frame engines interrupts in numeric
+ 	order. These are fe_int0, fe_int1 and fe_int2.
+ - clocks: the clock used by the core
+ - clock-names: the names of the clock listed in the clocks property. These are
+-	"ethif", "esw", "gp2", "gp1"
++	"ethif", "esw", "gp2", "gp1" : For MT2701 and MT7623 SoC
++        "ethif", "esw", "gp0", "gp1", "gp2", "sgmii_tx250m", "sgmii_rx250m",
++	"sgmii_cdr_ref", "sgmii_cdr_fb", "sgmii_ck", "eth2pll" : For MT7622 SoC
+ - power-domains: phandle to the power domain that the ethernet is part of
+ - resets: Should contain a phandle to the ethsys reset signal
+ - reset-names: Should contain the reset signal name "eth"
+ - mediatek,ethsys: phandle to the syscon node that handles the port setup
++- mediatek,sgmiisys: phandle to the syscon node that handles the SGMII setup
++	which is required for those SoCs equipped with SGMII such as MT7622 SoC.
+ - mediatek,pctl: phandle to the syscon node that handles the ports slew rate
+ 	and driver current
+ 
+ Optional properties:
+ - interrupt-parent: Should be the phandle for the interrupt controller
+   that services interrupts for this device
+-
+ * Ethernet MAC node
+ 
+ Required properties:
 -- 
 2.7.4
