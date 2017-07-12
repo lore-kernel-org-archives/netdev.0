@@ -1,329 +1,61 @@
-From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Subject: [PATCH net 04/20] net/hinic: Initialize api cmd hw
-Date: Wed, 12 Jul 2017 22:17:10 +0800
-Message-ID: <a05c4b0a6c1aa3f412df7650a0413f730d9d3782.1499865197.git.aviad.krawczyk@huawei.com>
-References: <cover.1499865197.git.aviad.krawczyk@huawei.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 2/4] net-next: mediatek: add platform data to
+ adapt into various hardware
+Date: Wed, 12 Jul 2017 16:50:50 +0200
+Message-ID: <20170712145050.GD2557@lunn.ch>
+References: <cover.1499829241.git.sean.wang@mediatek.com>
+ <401e9fa04ea4759c936fa5af11bb2b5c97ef14f0.1499829241.git.sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <bc.y@huawei.com>, <victor.gissin@huawei.com>,
-        <aviad.krawczyk@huawei.com>, <zhaochen6@huawei.com>,
-        <tony.qu@huawei.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: john@phrozen.org, davem@davemloft.net, nbd@openwrt.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-mediatek@lists.infradead.org
+To: sean.wang@mediatek.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1499865197.git.aviad.krawczyk@huawei.com>
+Content-Disposition: inline
+In-Reply-To: <401e9fa04ea4759c936fa5af11bb2b5c97ef14f0.1499829241.git.sean.wang@mediatek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Update the hardware about api cmd resources and initialize api cmd hw.
+> +static int mtk_clk_enable(struct mtk_eth *eth)
+> +{
+> +	int clk, ret;
+> +
+> +	for (clk = 0; clk < MTK_CLK_MAX ; clk++) {
+> +		if (eth->clks[clk]) {
+> +			ret = clk_prepare_enable(eth->clks[clk]);
+> +			if (ret)
+> +				goto err_disable_clks;
+> +		}
+> +	}
+> +
+> +	return 0;
+> +
+> +err_disable_clks:
+> +	while (--clk >= 0) {
+> +		if (eth->clks[clk])
+> +			clk_disable_unprepare(eth->clks[clk]);
+> +	}
+> +
+> +	return ret;
+> +}
 
-Signed-off-by: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Sigend-off-by: Zhaochen <zhaochen6@huawei.com>
----
- .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.c   | 174 ++++++++++++++++++++-
- .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.h   |  38 +++++
- drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h   |  25 +++
- 3 files changed, 236 insertions(+), 1 deletion(-)
+> +
+>  static int mtk_hw_init(struct mtk_eth *eth)
+>  {
+>  	int i, val;
+> @@ -1847,10 +1881,8 @@ static int mtk_hw_init(struct mtk_eth *eth)
+>  	pm_runtime_enable(eth->dev);
+>  	pm_runtime_get_sync(eth->dev);
+>  
+> -	clk_prepare_enable(eth->clks[MTK_CLK_ETHIF]);
+> -	clk_prepare_enable(eth->clks[MTK_CLK_ESW]);
+> -	clk_prepare_enable(eth->clks[MTK_CLK_GP1]);
+> -	clk_prepare_enable(eth->clks[MTK_CLK_GP2]);
+> +	mtk_clk_enable(eth);
+> +
 
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
-index dc80fa7..1cd91ae 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
-@@ -15,6 +15,7 @@
- 
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
- 
-+#include <linux/kernel.h>
- #include <linux/types.h>
- #include <linux/errno.h>
- #include <linux/pci.h>
-@@ -22,8 +23,12 @@
- #include <linux/slab.h>
- #include <linux/dma-mapping.h>
- #include <linux/bitops.h>
-+#include <linux/jiffies.h>
-+#include <linux/delay.h>
-+#include <linux/log2.h>
- #include <asm/byteorder.h>
- 
-+#include "hinic_hw_csr.h"
- #include "hinic_hw_if.h"
- #include "hinic_hw_api_cmd.h"
- 
-@@ -36,8 +41,157 @@
- 		(((cell_size) >= API_CMD_CELL_SIZE_MIN) ? \
- 		 (1 << (fls(cell_size - 1))) : API_CMD_CELL_SIZE_MIN)
- 
-+#define API_CMD_CELL_SIZE_VAL(size)		\
-+		ilog2((size) >> API_CMD_CELL_SIZE_SHIFT)
-+
- #define API_CMD_BUF_SIZE			2048
- 
-+#define API_CMD_TIMEOUT			1000
-+
-+enum api_cmd_xor_chk_level {
-+	XOR_CHK_DIS = 0,
-+
-+	XOR_CHK_ALL = 3,
-+};
-+
-+/**
-+ * api_cmd_hw_restart - restart the chain in the HW
-+ * @chain: the API CMD specific chain to restart
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int api_cmd_hw_restart(struct hinic_api_cmd_chain *chain)
-+{
-+	struct hinic_hwif *hwif = chain->hwif;
-+	unsigned long end;
-+	u32 reg_addr, val;
-+	int err = -ETIMEDOUT;
-+
-+	/* Read Modify Write */
-+	reg_addr = HINIC_CSR_API_CMD_CHAIN_REQ_ADDR(chain->chain_type);
-+	val = hinic_hwif_read_reg(hwif, reg_addr);
-+
-+	val = HINIC_API_CMD_CHAIN_REQ_CLEAR(val, RESTART);
-+	val |= HINIC_API_CMD_CHAIN_REQ_SET(1, RESTART);
-+
-+	hinic_hwif_write_reg(hwif, reg_addr, val);
-+
-+	end = jiffies + msecs_to_jiffies(API_CMD_TIMEOUT);
-+	do {
-+		val = hinic_hwif_read_reg(hwif, reg_addr);
-+
-+		if (!HINIC_API_CMD_CHAIN_REQ_GET(val, RESTART)) {
-+			err = 0;
-+			break;
-+		}
-+
-+		msleep(20);
-+	} while (time_before(jiffies, end));
-+
-+	return err;
-+}
-+
-+/**
-+ * api_cmd_ctrl_init - set the control register of a chain
-+ * @chain: the API CMD specific chain to set control register for
-+ **/
-+static void api_cmd_ctrl_init(struct hinic_api_cmd_chain *chain)
-+{
-+	struct hinic_hwif *hwif = chain->hwif;
-+	u32 reg_addr, ctrl;
-+	u16 cell_size;
-+
-+	/* Read Modify Write */
-+	reg_addr = HINIC_CSR_API_CMD_CHAIN_CTRL_ADDR(chain->chain_type);
-+
-+	cell_size = API_CMD_CELL_SIZE_VAL(chain->cell_size);
-+
-+	ctrl = hinic_hwif_read_reg(hwif, reg_addr);
-+
-+	ctrl =  HINIC_API_CMD_CHAIN_CTRL_CLEAR(ctrl, RESTART_WB_STAT) &
-+		HINIC_API_CMD_CHAIN_CTRL_CLEAR(ctrl, XOR_ERR)	&
-+		HINIC_API_CMD_CHAIN_CTRL_CLEAR(ctrl, AEQE_EN)	&
-+		HINIC_API_CMD_CHAIN_CTRL_CLEAR(ctrl, XOR_CHK_EN) &
-+		HINIC_API_CMD_CHAIN_CTRL_CLEAR(ctrl, CELL_SIZE);
-+
-+	ctrl |= HINIC_API_CMD_CHAIN_CTRL_SET(1, XOR_ERR) |
-+		HINIC_API_CMD_CHAIN_CTRL_SET(XOR_CHK_ALL, XOR_CHK_EN) |
-+		HINIC_API_CMD_CHAIN_CTRL_SET(cell_size, CELL_SIZE);
-+
-+	hinic_hwif_write_reg(hwif, reg_addr, ctrl);
-+}
-+
-+/**
-+ * api_cmd_set_status_addr - set the status address of a chain in the HW
-+ * @chain: the API CMD specific chain to set in HW status address for
-+ **/
-+static void api_cmd_set_status_addr(struct hinic_api_cmd_chain *chain)
-+{
-+	struct hinic_hwif *hwif = chain->hwif;
-+	u32 addr, val;
-+
-+	addr = HINIC_CSR_API_CMD_STATUS_HI_ADDR(chain->chain_type);
-+	val = upper_32_bits(chain->wb_status_paddr);
-+	hinic_hwif_write_reg(hwif, addr, val);
-+
-+	addr = HINIC_CSR_API_CMD_STATUS_LO_ADDR(chain->chain_type);
-+	val = lower_32_bits(chain->wb_status_paddr);
-+	hinic_hwif_write_reg(hwif, addr, val);
-+}
-+
-+/**
-+ * api_cmd_set_num_cells - set the number cells of a chain in the HW
-+ * @chain: the API CMD specific chain to set in HW the number of cells for
-+ **/
-+static void api_cmd_set_num_cells(struct hinic_api_cmd_chain *chain)
-+{
-+	struct hinic_hwif *hwif = chain->hwif;
-+	u32 addr, val;
-+
-+	addr = HINIC_CSR_API_CMD_CHAIN_NUM_CELLS_ADDR(chain->chain_type);
-+	val  = chain->num_cells;
-+	hinic_hwif_write_reg(hwif, addr, val);
-+}
-+
-+/**
-+ * api_cmd_head_init - set the head of a chain in the HW
-+ * @chain: the API CMD specific chain to set in HW the head for
-+ **/
-+static void api_cmd_head_init(struct hinic_api_cmd_chain *chain)
-+{
-+	struct hinic_hwif *hwif = chain->hwif;
-+	u32 addr, val;
-+
-+	addr = HINIC_CSR_API_CMD_CHAIN_HEAD_HI_ADDR(chain->chain_type);
-+	val = upper_32_bits(chain->head_cell_paddr);
-+	hinic_hwif_write_reg(hwif, addr, val);
-+
-+	addr = HINIC_CSR_API_CMD_CHAIN_HEAD_LO_ADDR(chain->chain_type);
-+	val = lower_32_bits(chain->head_cell_paddr);
-+	hinic_hwif_write_reg(hwif, addr, val);
-+}
-+
-+/**
-+ * api_cmd_chain_hw_clean - clean the HW
-+ * @chain: the API CMD specific chain
-+ **/
-+static void api_cmd_chain_hw_clean(struct hinic_api_cmd_chain *chain)
-+{
-+	struct hinic_hwif *hwif = chain->hwif;
-+	u32 addr, ctrl;
-+
-+	addr = HINIC_CSR_API_CMD_CHAIN_CTRL_ADDR(chain->chain_type);
-+
-+	ctrl = hinic_hwif_read_reg(hwif, addr);
-+	ctrl = HINIC_API_CMD_CHAIN_CTRL_CLEAR(ctrl, RESTART_WB_STAT) &
-+		HINIC_API_CMD_CHAIN_CTRL_CLEAR(ctrl, XOR_ERR)	&
-+		HINIC_API_CMD_CHAIN_CTRL_CLEAR(ctrl, AEQE_EN)	&
-+		HINIC_API_CMD_CHAIN_CTRL_CLEAR(ctrl, XOR_CHK_EN) &
-+		HINIC_API_CMD_CHAIN_CTRL_CLEAR(ctrl, CELL_SIZE);
-+
-+	hinic_hwif_write_reg(hwif, addr, ctrl);
-+}
-+
- /**
-  * api_cmd_chain_hw_init - initialize the chain in the HW
-  * @chain: the API CMD specific chain to initialize in HW
-@@ -46,7 +200,24 @@
-  **/
- static int api_cmd_chain_hw_init(struct hinic_api_cmd_chain *chain)
- {
--	/* should be implemented */
-+	struct hinic_hwif *hwif = chain->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	int err;
-+
-+	api_cmd_chain_hw_clean(chain);
-+
-+	api_cmd_set_status_addr(chain);
-+
-+	err = api_cmd_hw_restart(chain);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to restart API CMD HW\n");
-+		return err;
-+	}
-+
-+	api_cmd_ctrl_init(chain);
-+	api_cmd_set_num_cells(chain);
-+	api_cmd_head_init(chain);
-+
- 	return 0;
- }
- 
-@@ -386,6 +557,7 @@ static int api_cmd_create_chain(struct hinic_api_cmd_chain **cmd_chain,
-  **/
- static void api_cmd_destroy_chain(struct hinic_api_cmd_chain *chain)
- {
-+	api_cmd_chain_hw_clean(chain);
- 	api_cmd_destroy_cells(chain, chain->num_cells);
- 	api_chain_free(chain);
- 	kfree(chain);
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
-index 39d33c7..0596b55 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
-@@ -20,6 +20,44 @@
- 
- #include "hinic_hw_if.h"
- 
-+#define HINIC_API_CMD_CHAIN_REQ_RESTART_SHIFT			1
-+
-+#define HINIC_API_CMD_CHAIN_REQ_RESTART_MASK			0x1
-+
-+#define HINIC_API_CMD_CHAIN_REQ_SET(val, member)		\
-+	(((u32)(val) & HINIC_API_CMD_CHAIN_REQ_##member##_MASK) << \
-+	 HINIC_API_CMD_CHAIN_REQ_##member##_SHIFT)
-+
-+#define HINIC_API_CMD_CHAIN_REQ_GET(val, member)		\
-+	(((val) >> HINIC_API_CMD_CHAIN_REQ_##member##_SHIFT) &	\
-+	 HINIC_API_CMD_CHAIN_REQ_##member##_MASK)
-+
-+#define HINIC_API_CMD_CHAIN_REQ_CLEAR(val, member)		\
-+	((val) & (~(HINIC_API_CMD_CHAIN_REQ_##member##_MASK	\
-+	 << HINIC_API_CMD_CHAIN_REQ_##member##_SHIFT)))
-+
-+#define HINIC_API_CMD_CHAIN_CTRL_RESTART_WB_STAT_SHIFT		1
-+#define HINIC_API_CMD_CHAIN_CTRL_XOR_ERR_SHIFT			2
-+#define HINIC_API_CMD_CHAIN_CTRL_AEQE_EN_SHIFT			4
-+#define HINIC_API_CMD_CHAIN_CTRL_AEQ_ID_SHIFT			8
-+#define HINIC_API_CMD_CHAIN_CTRL_XOR_CHK_EN_SHIFT		28
-+#define HINIC_API_CMD_CHAIN_CTRL_CELL_SIZE_SHIFT		30
-+
-+#define HINIC_API_CMD_CHAIN_CTRL_RESTART_WB_STAT_MASK		0x1
-+#define HINIC_API_CMD_CHAIN_CTRL_XOR_ERR_MASK			0x1
-+#define HINIC_API_CMD_CHAIN_CTRL_AEQE_EN_MASK			0x1
-+#define HINIC_API_CMD_CHAIN_CTRL_AEQ_ID_MASK			0x3
-+#define HINIC_API_CMD_CHAIN_CTRL_XOR_CHK_EN_MASK		0x3
-+#define HINIC_API_CMD_CHAIN_CTRL_CELL_SIZE_MASK			0x3
-+
-+#define HINIC_API_CMD_CHAIN_CTRL_SET(val, member)		\
-+	(((u32)(val) & HINIC_API_CMD_CHAIN_CTRL_##member##_MASK) << \
-+	 HINIC_API_CMD_CHAIN_CTRL_##member##_SHIFT)
-+
-+#define HINIC_API_CMD_CHAIN_CTRL_CLEAR(val, member)		\
-+	((val) & (~(HINIC_API_CMD_CHAIN_CTRL_##member##_MASK	\
-+	 << HINIC_API_CMD_CHAIN_CTRL_##member##_SHIFT)))
-+
- enum hinic_api_cmd_chain_type {
- 	HINIC_API_CMD_WRITE_TO_MGMT_CPU	= 2,
- 
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
-index 15b9409..6a12894 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
-@@ -33,4 +33,29 @@
- #define HINIC_CSR_PPF_ELECTION_ADDR(idx)		\
- 	(HINIC_ELECTION_BASE +	(idx) * HINIC_PPF_ELECTION_STRIDE)
- 
-+/* API CMD registers */
-+#define HINIC_CSR_API_CMD_BASE				0xF000
-+
-+#define HINIC_CSR_API_CMD_STRIDE			0x100
-+
-+#define HINIC_CSR_API_CMD_CHAIN_HEAD_HI_ADDR(idx)	\
-+	(HINIC_CSR_API_CMD_BASE + 0x0 + (idx) * HINIC_CSR_API_CMD_STRIDE)
-+
-+#define HINIC_CSR_API_CMD_CHAIN_HEAD_LO_ADDR(idx)	\
-+	(HINIC_CSR_API_CMD_BASE + 0x4 + (idx) * HINIC_CSR_API_CMD_STRIDE)
-+
-+#define HINIC_CSR_API_CMD_STATUS_HI_ADDR(idx)		\
-+	(HINIC_CSR_API_CMD_BASE + 0x8 + (idx) * HINIC_CSR_API_CMD_STRIDE)
-+
-+#define HINIC_CSR_API_CMD_STATUS_LO_ADDR(idx)		\
-+	(HINIC_CSR_API_CMD_BASE + 0xC + (idx) * HINIC_CSR_API_CMD_STRIDE)
-+
-+#define HINIC_CSR_API_CMD_CHAIN_NUM_CELLS_ADDR(idx)	\
-+	(HINIC_CSR_API_CMD_BASE + 0x10 + (idx) * HINIC_CSR_API_CMD_STRIDE)
-+
-+#define HINIC_CSR_API_CMD_CHAIN_CTRL_ADDR(idx)		\
-+	(HINIC_CSR_API_CMD_BASE + 0x14 + (idx) * HINIC_CSR_API_CMD_STRIDE)
-+
-+#define HINIC_CSR_API_CMD_CHAIN_REQ_ADDR(idx)		\
-+	(HINIC_CSR_API_CMD_BASE + 0x20 + (idx) * HINIC_CSR_API_CMD_STRIDE)
- #endif
--- 
-1.9.1
+mtk_clk_enable() returns an error code. It is probably a good idea to
+use it, especially if it could be EPRODE_DEFER.
+
+    Andrew
