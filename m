@@ -1,38 +1,24 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] net-next: mediatek: add support for
- ethernet on MT7622 SoC
-Date: Tue, 11 Jul 2017 20:53:04 -0700 (PDT)
-Message-ID: <20170711.205304.168426733833873080.davem@davemloft.net>
-References: <cover.1499829241.git.sean.wang@mediatek.com>
+From: =?utf-8?q?Bernhard_St=C3=B6ckl?= <sunrisefundingltd@gmail.com>
+Subject: =?utf-8?q?AW=3A?= Wir vergeben Kredite mit einem Zinssatz von
+ =?utf-8?q?j=C3=A4hrlich?= 2%
+Date: Wed, 12 Jul 2017 05:47:33 +0200
+Message-ID: <189e-59659c00-13f-2c5e040__45430.7518470616$1499831643$gmane$org@183827823>
+Reply-To: sunrisefunding@yahoo.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: john@phrozen.org, nbd@openwrt.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-mediatek@lists.infradead.org
-To: sean.wang@mediatek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1499829241.git.sean.wang@mediatek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from purin.rz.uni-konstanz.de ([134.34.240.45]:23095 "EHLO
+        purin.rz.uni-konstanz.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932763AbdGLDxs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2017 23:53:48 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: <sean.wang@mediatek.com>
-Date: Wed, 12 Jul 2017 11:37:41 +0800
 
-> From: Sean Wang <sean.wang@mediatek.com>
-> 
-> The series adds the driver for ethernet controller found on MT7622 SoC.
-> There are additions against with previous MT7623 SoC such as shared SGMII
-> given for the dual GMACs and built-in 5-ports 10/100 embedded switch support
-> (ESW). Thus more clocks consumers and SGMII hardware setup for the extra
-> features are all introduced here and as for the support for ESW that would be
-> planned to add in the separate patch integrating with DSA infrastructure
-> in the future.
-> 
-> Currently testing successfully is done with those patches for the conditions
-> such as GMAC2 with IP1001 PHY via RGMII and GMAC1/2 with RTL8211F PHY via SGMII.
+Wir vergeben Kredite mit einem Zinssatz von jährlich 2%.
 
-net-next is closed, please resubmit this when net-next is open again:
+Die Bearbeitung des Antrags erfolgt rasch, wir verlangen keine Gebühren, was sie beantragen werden wir annehmen. Wir bewilligen Kredite von bis zu 40 Millionen Euro und von mindestens 15.000 Euro. Sie können einen geschäftlichen oder privaten Kredit beantrage, wobei Sie bei Geschäftskrediten eine Zahlungsfrist von einem Jahr erhalten.
 
-	http://vger.kernel.org/~davem/net-next.html
-
-Thanks.
+Anfragen bitte per Mail an:       sunrisefunding01@hotmail.com  
