@@ -1,10 +1,10 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 2/4] net-next: mediatek: add platform data to
- adapt into various hardware
-Date: Wed, 12 Jul 2017 16:50:50 +0200
-Message-ID: <20170712145050.GD2557@lunn.ch>
+Subject: Re: [PATCH net-next 3/4] net-next: mediatek: add support for
+ MediaTek MT7622 SoC
+Date: Wed, 12 Jul 2017 17:00:09 +0200
+Message-ID: <20170712150009.GE2557@lunn.ch>
 References: <cover.1499829241.git.sean.wang@mediatek.com>
- <401e9fa04ea4759c936fa5af11bb2b5c97ef14f0.1499829241.git.sean.wang@mediatek.com>
+ <42912dfa706f0d1f1bbe152da71dc00c0a4e18cc.1499829241.git.sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: john@phrozen.org, davem@davemloft.net, nbd@openwrt.org,
@@ -13,49 +13,42 @@ Cc: john@phrozen.org, davem@davemloft.net, nbd@openwrt.org,
 To: sean.wang@mediatek.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <401e9fa04ea4759c936fa5af11bb2b5c97ef14f0.1499829241.git.sean.wang@mediatek.com>
+In-Reply-To: <42912dfa706f0d1f1bbe152da71dc00c0a4e18cc.1499829241.git.sean.wang@mediatek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> +static int mtk_clk_enable(struct mtk_eth *eth)
-> +{
-> +	int clk, ret;
-> +
-> +	for (clk = 0; clk < MTK_CLK_MAX ; clk++) {
-> +		if (eth->clks[clk]) {
-> +			ret = clk_prepare_enable(eth->clks[clk]);
-> +			if (ret)
-> +				goto err_disable_clks;
-> +		}
-> +	}
-> +
-> +	return 0;
-> +
-> +err_disable_clks:
-> +	while (--clk >= 0) {
-> +		if (eth->clks[clk])
-> +			clk_disable_unprepare(eth->clks[clk]);
-> +	}
-> +
-> +	return ret;
-> +}
+Hi Sean
 
-> +
->  static int mtk_hw_init(struct mtk_eth *eth)
+>  static void mtk_phy_link_adjust(struct net_device *dev)
 >  {
->  	int i, val;
-> @@ -1847,10 +1881,8 @@ static int mtk_hw_init(struct mtk_eth *eth)
->  	pm_runtime_enable(eth->dev);
->  	pm_runtime_get_sync(eth->dev);
+>  	struct mtk_mac *mac = netdev_priv(dev);
+> @@ -269,6 +311,7 @@ static int mtk_phy_connect(struct net_device *dev)
+>  	if (!np)
+>  		return -ENODEV;
 >  
-> -	clk_prepare_enable(eth->clks[MTK_CLK_ETHIF]);
-> -	clk_prepare_enable(eth->clks[MTK_CLK_ESW]);
-> -	clk_prepare_enable(eth->clks[MTK_CLK_GP1]);
-> -	clk_prepare_enable(eth->clks[MTK_CLK_GP2]);
-> +	mtk_clk_enable(eth);
-> +
+> +	mac->ge_mode = 0;
+>  	switch (of_get_phy_mode(np)) {
+>  	case PHY_INTERFACE_MODE_TRGMII:
+>  		mac->trgmii = true;
+> @@ -276,7 +319,15 @@ static int mtk_phy_connect(struct net_device *dev)
+>  	case PHY_INTERFACE_MODE_RGMII_RXID:
+>  	case PHY_INTERFACE_MODE_RGMII_ID:
+>  	case PHY_INTERFACE_MODE_RGMII:
+> -		mac->ge_mode = 0;
+> +		break;
+> +	case PHY_INTERFACE_MODE_SGMII:
+> +		if (MTK_HAS_CAPS(eth->soc->caps, MTK_SGMII))
+> +			mtk_gmac_sgmii_hw_setup(eth, mac->id);
+> +		break;
 
-mtk_clk_enable() returns an error code. It is probably a good idea to
-use it, especially if it could be EPRODE_DEFER.
+> +	case PHY_INTERFACE_MODE_INTERNAL:
+> +		if (MTK_HAS_CAPS(eth->soc->caps, MTK_GMAC1_ESW) && !mac->id)
+> +			/* Setup the path through ESW internal switch */
+> +			mtk_w32(eth, MTK_MUX_TO_ESW, MTK_MAC_MISC);
 
-    Andrew
+This bit is interesting. Generally, there is no PHY at all between the
+MAC and the switch. So i don't think this is correct. Please can you
+take this out for the moment, until you actually add support for the
+switch. We can discuss it then, when we see the bigger picture.
+
+	Andrew
