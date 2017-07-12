@@ -1,43 +1,61 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: nf_conntrack: Infoleak via CTA_ID and CTA_EXPECT_ID
-Date: Thu, 13 Jul 2017 00:19:35 +0200
-Message-ID: <20170712221935.GC12347@breakpoint.cc>
-References: <c84e0301-2bb6-8932-2ed5-939340762159@nod.at>
- <20170630193544.GM9307@breakpoint.cc>
- <f3d78dc5-7694-8e01-ac4d-54fc248a96f1@nod.at>
- <20170630195547.GN9307@breakpoint.cc>
- <ad87cf0f-2ff4-48d7-b53c-bc4b5e98cfca@nod.at>
- <20170701103504.GO9307@breakpoint.cc>
- <1daf1401-5009-df1c-a77a-a271811c0760@nod.at>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: netconsole refcount warning
+Date: Wed, 12 Jul 2017 15:30:37 -0700
+Message-ID: <CAM_iQpXZPW+nMha=GQm8rnf_W-LZqq7jc_cBX6P5azNpF1ToWQ@mail.gmail.com>
+References: <20170709235757.43bjgxjbimwqx6yk@codemonkey.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        David Miller <davem@davemloft.net>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        David Gstir <david@sigma-star.at>, kaber@trash.net,
-        "keescook@chromium.org" <keescook@chromium.org>
-To: Richard Weinberger <richard@nod.at>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1daf1401-5009-df1c-a77a-a271811c0760@nod.at>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Dave Jones <davej@codemonkey.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:34044 "EHLO
+        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751916AbdGLWa7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2017 18:30:59 -0400
+Received: by mail-wm0-f42.google.com with SMTP id 70so50068wmo.1
+        for <netdev@vger.kernel.org>; Wed, 12 Jul 2017 15:30:58 -0700 (PDT)
+In-Reply-To: <20170709235757.43bjgxjbimwqx6yk@codemonkey.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Richard Weinberger <richard@nod.at> wrote:
-> Am 01.07.2017 um 12:35 schrieb Florian Westphal:
-> > The compare on removal is not needed afaics, and its also not used when
-> > doing lookup to begin with, so we can just recompute it?
-> 
-> Isn't this a way too much overhead?
+On Sun, Jul 9, 2017 at 4:57 PM, Dave Jones <davej@codemonkey.org.uk> wrote:
+> The new refcount debugging code spews this twice during boot on my router..
+>
+>
+> refcount_t: increment on 0; use-after-free.
+> ------------[ cut here ]------------
+> WARNING: CPU: 1 PID: 17 at lib/refcount.c:152 refcount_inc+0x2b/0x30
+> CPU: 1 PID: 17 Comm: ksoftirqd/1 Not tainted 4.12.0-firewall+ #8
+> task: ffff8801d4441ac0 task.stack: ffff8801d4450000
+> RIP: 0010:refcount_inc+0x2b/0x30
+> RSP: 0018:ffff8801d4456da8 EFLAGS: 00010046
+> RAX: 000000000000002c RBX: ffff8801d4c3cf40 RCX: 0000000000000000
+> RDX: 000000000000002c RSI: 0000000000000003 RDI: ffffed003a88adab
+> RBP: ffff8801d4456da8 R08: 0000000000000003 R09: fffffbfff4afcb57
+> R10: 0000000000000000 R11: fffffbfff4afcb58 R12: ffff8801d4c3c540
+> R13: 0000000000000082 R14: ffff8801ce9c7ff8 R15: ffff8801ce9c8aa0
+> FS:  0000000000000000(0000) GS:ffff8801d6a00000(0000) knlGS:0000000000000000
+> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> CR2: 00007fa2b803156e CR3: 00000001c405d000 CR4: 00000000000406e0
+> Call Trace:
+>  zap_completion_queue+0xad/0x1a0
 
-I don't think so.  This computation only occurs when we dump events
-to userspace.
 
-> I personally favor Pablo's per-cpu counter approach.
-> That way the IDs are unique again and we get rid of the info leak without
-> much effort.
+Sigh... it is on purpose:
 
-I have not seen these patches so can't really comment.
+commit 8a455b087c9629b3ae3b521b4f1ed16672f978cc
+Author: Jarek Poplawski <jarkao2@gmail.com>
+Date:   Thu Mar 20 16:07:27 2008 -0700
+
+    netpoll: zap_completion_queue: adjust skb->users counter
+
+    zap_completion_queue() retrieves skbs from completion_queue where they have
+    zero skb->users counter.  Before dev_kfree_skb_any() it should be non-zero
+    yet, so it's increased now.
+
+    Reported-and-tested-by: Andrew Morton <akpm@linux-foundation.org>
+    Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+    Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+We need to review it now. :-/
