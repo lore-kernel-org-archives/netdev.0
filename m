@@ -1,73 +1,56 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 2/4] net-next: mediatek: add platform data to
- adapt into various hardware
-Date: Tue, 11 Jul 2017 21:19:49 -0700
-Message-ID: <2ab410a6-bf08-79bc-28ca-e05eb8b67cf5@gmail.com>
-References: <cover.1499829241.git.sean.wang@mediatek.com>
- <401e9fa04ea4759c936fa5af11bb2b5c97ef14f0.1499829241.git.sean.wang@mediatek.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: nbd@openwrt.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-mediatek@lists.infradead.org
-To: sean.wang@mediatek.com, john@phrozen.org, davem@davemloft.net
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Subject: [PATCH] iwlwifi: mvm: Fix a memory leak in an error handling path in 'iwl_mvm_sar_get_wgds_table()'
+Date: Wed, 12 Jul 2017 07:17:38 +0200
+Message-ID: <20170712051738.21646-1-christophe.jaillet@wanadoo.fr>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+To: johannes.berg@intel.com, emmanuel.grumbach@intel.com,
+        luciano.coelho@intel.com, linuxwifi@intel.com,
+        kvalo@codeaurora.org, sara.sharon@intel.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <401e9fa04ea4759c936fa5af11bb2b5c97ef14f0.1499829241.git.sean.wang@mediatek.com>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+We should free 'wgds.pointer' here as done a few lines above in another
+error handling path.
+It was allocated within 'acpi_evaluate_object()'.
 
+Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+---
+A comment in '/drivers/acpi/acpica/utalloc.c' states that:
+/* [...] Note: The caller should use acpi_os_free to free this
+ * buffer created via ACPI_ALLOCATE_BUFFER.
+ */
 
-On 07/11/2017 08:37 PM, sean.wang@mediatek.com wrote:
-> From: Sean Wang <sean.wang@mediatek.com>
-> 
-> This patch is the preparation patch in order to adapt into various
-> hardware through adding platform data which holds specific characteristics
-> among MediaTek SoCs and introducing the unified clock handler for those
-> distinct clock requirements depending on different features such as
-> TRGMII and SGMII getting support on the target SoC. And finally, add
-> enhancement with given the generic description for Kconfig and remove the
-> unnecessary machine type dependency in Makefile.
-> 
-> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
-> ---
+So, at the end of this function:
+	out_free:
+		kfree(wgds.pointer);
+should maybe be:
+	out_free:
+		acpi_os_free(wgds.pointer);
 
->  	if (dev->phydev->link)
-> @@ -1837,6 +1838,39 @@ static void ethsys_reset(struct mtk_eth *eth, u32 reset_bits)
->  	mdelay(10);
->  }
->  
-> +static void mtk_clk_disable(struct mtk_eth *eth)
-> +{
-> +	int clk;
-> +
-> +	for (clk = MTK_CLK_MAX - 1; clk >= 0; clk--) {
-> +		if (eth->clks[clk])
-> +			clk_disable_unprepare(eth->clks[clk]);
-> +	}
+If correct, several places should be fixed accordingly.
+---
+ drivers/net/wireless/intel/iwlwifi/mvm/fw.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-The clock framework works just fine with NULL clk references, no need to
-check that.
-
-> +}
-
-There are now (or will be soon in clk-next) bulk accessors that you may
-consider using for this.
-
-> +
-> +static int mtk_clk_enable(struct mtk_eth *eth)
-> +{
-> +	int clk, ret;
-> +
-> +	for (clk = 0; clk < MTK_CLK_MAX ; clk++) {
-> +		if (eth->clks[clk]) {
-> +			ret = clk_prepare_enable(eth->clks[clk]);
-> +			if (ret)
-> +				goto err_disable_clks;
-> +		}
-> +	}
-
-Same here.
+diff --git a/drivers/net/wireless/intel/iwlwifi/mvm/fw.c b/drivers/net/wireless/intel/iwlwifi/mvm/fw.c
+index 24cc406d87ef..56d535ab696f 100644
+--- a/drivers/net/wireless/intel/iwlwifi/mvm/fw.c
++++ b/drivers/net/wireless/intel/iwlwifi/mvm/fw.c
+@@ -1287,8 +1287,10 @@ static int iwl_mvm_sar_get_wgds_table(struct iwl_mvm *mvm,
+ 
+ 		entry = &wifi_pkg->package.elements[i + 1];
+ 		if ((entry->type != ACPI_TYPE_INTEGER) ||
+-		    (entry->integer.value > U8_MAX))
+-			return -EINVAL;
++		    (entry->integer.value > U8_MAX)) {
++			ret = -EINVAL;
++			goto out_free;
++		}
+ 
+ 		geo_table->values[i] = entry->integer.value;
+ 	}
 -- 
-Florian
+2.11.0
