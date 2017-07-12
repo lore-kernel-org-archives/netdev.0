@@ -1,27 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net 0/4] mlxsw: spectrum: Various fixes
-Date: Wed, 12 Jul 2017 08:16:53 -0700 (PDT)
-Message-ID: <20170712.081653.2173301523941887907.davem@davemloft.net>
-References: <20170712071255.1232-1-jiri@resnulli.us>
+Subject: Re: [PATCH net] nfp: freeing the wrong variable
+Date: Wed, 12 Jul 2017 08:19:02 -0700 (PDT)
+Message-ID: <20170712.081902.1365961724075582090.davem@davemloft.net>
+References: <20170712074206.otviyjx2qhuz3snt@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, mlxsw@mellanox.com
-To: jiri@resnulli.us
+Cc: jakub.kicinski@netronome.com, pieter.jansenvanvuuren@netronome.com,
+        simon.horman@netronome.com, oss-drivers@netronome.com,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55250 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55302 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752735AbdGLPQz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2017 11:16:55 -0400
-In-Reply-To: <20170712071255.1232-1-jiri@resnulli.us>
+        with ESMTP id S1752617AbdGLPTD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2017 11:19:03 -0400
+In-Reply-To: <20170712074206.otviyjx2qhuz3snt@mwanda>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Wed, 12 Jul 2017 09:12:51 +0200
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Wed, 12 Jul 2017 10:42:06 +0300
 
-> First patch adds a missing rollback in error path. Second patch prevents
-> a use-after-free during IPv4 route replace. Last two patches fix warnings
-> from static checkers.
+> We accidentally free a NULL pointer and leak the pointer we want to
+> free.  Also you can tell from the label name what was intended.  :)
+> 
+> Fixes: abfcdc1de9bf ("nfp: add a stats handler for flower offloads")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Series applied, thanks.
+Applied.
