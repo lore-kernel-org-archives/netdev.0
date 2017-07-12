@@ -1,56 +1,27 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: nf_conntrack: Infoleak via CTA_ID and CTA_EXPECT_ID
-Date: Wed, 12 Jul 2017 23:26:35 +0200
-Message-ID: <1daf1401-5009-df1c-a77a-a271811c0760@nod.at>
-References: <c84e0301-2bb6-8932-2ed5-939340762159@nod.at>
- <20170630193544.GM9307@breakpoint.cc>
- <f3d78dc5-7694-8e01-ac4d-54fc248a96f1@nod.at>
- <20170630195547.GN9307@breakpoint.cc>
- <ad87cf0f-2ff4-48d7-b53c-bc4b5e98cfca@nod.at>
- <20170701103504.GO9307@breakpoint.cc>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] smsc911x: Add check for ioremap_nocache() return code
+Date: Wed, 12 Jul 2017 14:36:50 -0700 (PDT)
+Message-ID: <20170712.143650.694091715091219972.davem@davemloft.net>
+References: <1499893136-17013-1-git-send-email-khoroshilov@ispras.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        David Miller <davem@davemloft.net>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        David Gstir <david@sigma-star.at>, kaber@trash.net,
-        "keescook@chromium.org" <keescook@chromium.org>
-To: Florian Westphal <fw@strlen.de>
+Cc: steve.glendinning@shawell.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: khoroshilov@ispras.ru
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170701103504.GO9307@breakpoint.cc>
-Content-Language: en-US
+In-Reply-To: <1499893136-17013-1-git-send-email-khoroshilov@ispras.ru>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Florian,
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Date: Wed, 12 Jul 2017 23:58:56 +0300
 
-Am 01.07.2017 um 12:35 schrieb Florian Westphal:
->>> Perhaps we can place that in a new extension (its not needed in any
->>> fastpath ops)?
->>
->> To get rid of the infoleak we have to re-introduce the id field in struct nf_conn
->> and struct nf_conntrack_expect.
+> There is no check for return code of smsc911x_drv_probe()
+> in smsc911x_drv_probe(). The patch adds one.
 > 
-> Why will this not work?
-
-You are right, when we compute the ID from the whole object, it should be fine.
-
->> Otherwise have nothing to compare against in the conntrack/expect remove case.
+> Found by Linux Driver Verification project (linuxtesting.org).
 > 
-> Not following, sorry.  The id is not used anywhere except when we send
-> info to userspace.
-> 
-> The compare on removal is not needed afaics, and its also not used when
-> doing lookup to begin with, so we can just recompute it?
+> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
 
-Isn't this a way too much overhead?
-
-I personally favor Pablo's per-cpu counter approach.
-That way the IDs are unique again and we get rid of the info leak without
-much effort.
-
-Thanks,
-//richard
+Applied, thanks.
