@@ -1,52 +1,41 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net] net: ipmr: ipmr_get_table() returns NULL
-Date: Wed, 12 Jul 2017 11:02:53 +0300
-Message-ID: <ceca8ed6-f40f-7b62-2681-61b7cf1eb9d2@cumulusnetworks.com>
-References: <20170712075647.zyz6pkppyerl4ktf@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Donald Sharp <sharpd@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f176.google.com ([209.85.128.176]:36606 "EHLO
-        mail-wr0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756893AbdGLIC4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2017 04:02:56 -0400
-Received: by mail-wr0-f176.google.com with SMTP id c11so22286908wrc.3
-        for <netdev@vger.kernel.org>; Wed, 12 Jul 2017 01:02:55 -0700 (PDT)
-In-Reply-To: <20170712075647.zyz6pkppyerl4ktf@mwanda>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Benjamin Gaignard <benjamin.gaignard@linaro.org>
+Subject: [PATCH v2 03/22] net: broadcom: stop using rtc deprecated functions
+Date: Wed, 12 Jul 2017 10:04:23 +0200
+Message-ID: <1499846682-14093-4-git-send-email-benjamin.gaignard@linaro.org>
+References: <1499846682-14093-1-git-send-email-benjamin.gaignard@linaro.org>
+Cc: linaro-kernel@lists.linaro.org,
+        Michael Chan <michael.chan@broadcom.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: benjamin.gaignard@linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1499846682-14093-1-git-send-email-benjamin.gaignard@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/07/17 10:56, Dan Carpenter wrote:
-> The ipmr_get_table() function doesn't return error pointers it returns
-> NULL on error.
-> 
-> Fixes: 4f75ba6982bc ("net: ipmr: Add ipmr_rtm_getroute")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
-> diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-> index bb909f1d7537..06863ea3fc5b 100644
-> --- a/net/ipv4/ipmr.c
-> +++ b/net/ipv4/ipmr.c
-> @@ -2431,8 +2431,8 @@ static int ipmr_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
->  	tableid = tb[RTA_TABLE] ? nla_get_u32(tb[RTA_TABLE]) : 0;
->  
->  	mrt = ipmr_get_table(net, tableid ? tableid : RT_TABLE_DEFAULT);
-> -	if (IS_ERR(mrt)) {
-> -		err = PTR_ERR(mrt);
-> +	if (!mrt) {
-> +		err = -ENOENT;
->  		goto errout_free;
->  	}
->  
-> 
+rtc_time_to_tm() and rtc_tm_to_time() are deprecated because they
+rely on 32bits variables and that will make rtc break in y2038/2016.
+Stop using those two functions to safer 64bits ones.
 
-Good catch, ipmr_new_table() is the one that can return err ptr.
+Signed-off-by: Benjamin Gaignard <benjamin.gaignard@linaro.org>
+CC: Michael Chan <michael.chan@broadcom.com>
+CC: netdev@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index b56c54d..9fef202 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -4703,7 +4703,7 @@ int bnxt_hwrm_fw_set_time(struct bnxt *bp)
+ 		return -EOPNOTSUPP;
+ 
+ 	do_gettimeofday(&tv);
+-	rtc_time_to_tm(tv.tv_sec, &tm);
++	rtc_time64_to_tm(tv.tv_sec, &tm);
+ 	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_FW_SET_TIME, -1, -1);
+ 	req.year = cpu_to_le16(1900 + tm.tm_year);
+ 	req.month = 1 + tm.tm_mon;
+-- 
+1.9.1
