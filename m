@@ -1,72 +1,62 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH v3 net-next 3/4] tls: kernel TLS support
-Date: Wed, 12 Jul 2017 09:20:13 +0200
-Message-ID: <20170712072012.GK2631@secunet.com>
-References: <cover.1497465295.git.davejwatson@fb.com>
- <20170614183739.GA80368@davejwatson-mba.dhcp.thefacebook.com>
- <20170711062953.GE2631@secunet.com>
- <20170711185311.GA200@davejwatson-mba.dhcp.thefacebook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Ilya Lesokhin <ilyal@mellanox.com>,
-        Aviad Yehezkel <aviadye@mellanox.com>,
-        Boris Pismenny <borisp@mellanox.com>,
-        Liran Liss <liranl@mellanox.com>,
-        "Matan Barak" <matanb@mellanox.com>,
-        David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        Tom Herbert <tom@herbertland.com>,
-        <herbert@gondor.apana.org.au>, <linux-crypto@vger.kernel.org>,
-        "Hannes Frederic Sowa" <hannes@stressinduktion.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        <nmav@gnutls.org>, <fridolin.pokorny@gmail.com>
-To: Dave Watson <davejwatson@fb.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170711185311.GA200@davejwatson-mba.dhcp.thefacebook.com>
-Sender: linux-crypto-owner@vger.kernel.org
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: [PATCH] net: stmmac: revert "support future possible different internal phy mode"
+Date: Wed, 12 Jul 2017 09:32:34 +0200
+Message-ID: <20170712073234.9809-1-clabbe.montjoie@gmail.com>
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-kernel@vger.kernel.org,
+        Corentin Labbe <clabbe.montjoie@gmail.com>
+To: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        maxime.ripard@free-electrons.com, wens@csie.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 11, 2017 at 11:53:11AM -0700, Dave Watson wrote:
-> On 07/11/17 08:29 AM, Steffen Klassert wrote:
-> > Sorry for replying to old mail...
-> > > +int tls_set_sw_offload(struct sock *sk, struct tls_context *ctx)
-> > > +{
-> > 
-> > ...
-> > 
-> > > +
-> > > +	if (!sw_ctx->aead_send) {
-> > > +		sw_ctx->aead_send = crypto_alloc_aead("gcm(aes)", 0, 0);
-> > > +		if (IS_ERR(sw_ctx->aead_send)) {
-> > > +			rc = PTR_ERR(sw_ctx->aead_send);
-> > > +			sw_ctx->aead_send = NULL;
-> > > +			goto free_rec_seq;
-> > > +		}
-> > > +	}
-> > > +
-> > 
-> > When I look on how you allocate the aead transformation, it seems
-> > that you should either register an asynchronous callback with
-> > aead_request_set_callback(), or request for a synchronous algorithm.
-> > 
-> > Otherwise you will crash on an asynchronous crypto return, no?
-> 
-> The intention is for it to be synchronous, and gather directly from
-> userspace buffers.  It looks like calling
-> crypto_alloc_aead("gcm(aes)", 0, CRYPTO_ALG_ASYNC) is the correct way
-> to request synchronous algorithms only?
+Since internal phy-mode is reserved for non-xMII protocol we cannot use
+it with dwmac-sun8i.
+Furthermore, all DT patchs which comes with this patch were cleaned, so
+the current state is broken.
+This reverts commit 1c2fa5f84683 ("net: stmmac: support future possible different internal phy mode")
 
-Yes, but then you loose the aes-ni based algorithms because they are
-asynchronous. If you want to have good crypto performance, it is
-better to implement the asynchronous callbacks.
+Fixes: 1c2fa5f84683 ("net: stmmac: support future possible different internal phy mode")
+Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 10 +++-------
+ 1 file changed, 3 insertions(+), 7 deletions(-)
 
-> 
-> > Also, it seems that you have your scatterlists on a per crypto
-> > transformation base istead of per crypto request. Is this intentional?
-> 
-> We hold the socket lock and only one crypto op can happen at a time,
-> so we reuse the scatterlists.
-
-This is OK as long as the crypto happens synchronous. But as said above,
-I think this is not what you want.
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+index 6c2d1da05588..fffd6d5fc907 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+@@ -638,7 +638,7 @@ static int sun8i_dwmac_set_syscon(struct stmmac_priv *priv)
+ {
+ 	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
+ 	struct device_node *node = priv->device->of_node;
+-	int ret, phy_interface;
++	int ret;
+ 	u32 reg, val;
+ 
+ 	regmap_read(gmac->regmap, SYSCON_EMAC_REG, &val);
+@@ -718,11 +718,7 @@ static int sun8i_dwmac_set_syscon(struct stmmac_priv *priv)
+ 	if (gmac->variant->support_rmii)
+ 		reg &= ~SYSCON_RMII_EN;
+ 
+-	phy_interface = priv->plat->interface;
+-	/* if PHY is internal, select the mode (xMII) used by the SoC */
+-	if (gmac->use_internal_phy)
+-		phy_interface = gmac->variant->internal_phy;
+-	switch (phy_interface) {
++	switch (priv->plat->interface) {
+ 	case PHY_INTERFACE_MODE_MII:
+ 		/* default */
+ 		break;
+@@ -936,7 +932,7 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	plat_dat->interface = of_get_phy_mode(dev->of_node);
+-	if (plat_dat->interface == PHY_INTERFACE_MODE_INTERNAL) {
++	if (plat_dat->interface == gmac->variant->internal_phy) {
+ 		dev_info(&pdev->dev, "Will use internal PHY\n");
+ 		gmac->use_internal_phy = true;
+ 		gmac->ephy_clk = of_clk_get(plat_dat->phy_node, 0);
+-- 
+2.13.0
