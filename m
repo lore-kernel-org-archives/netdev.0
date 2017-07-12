@@ -1,41 +1,44 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [PATCH net] net: ipmr: ipmr_get_table() returns NULL
-Date: Wed, 12 Jul 2017 10:56:47 +0300
-Message-ID: <20170712075647.zyz6pkppyerl4ktf@mwanda>
+From: Noa Osherovich <noaos@mellanox.com>
+Subject: Re: bug in "PCI: Support INTx masking on ConnectX-4 with firmware
+ x.14.1100+"?
+Date: Wed, 12 Jul 2017 10:58:22 +0300
+Message-ID: <2f3fce8a-61d4-8878-c351-b138ffec6e86@mellanox.com>
+References: <CAK1hOcP-+=8SMi8z6zxwqYYcJtSnGHv36Db6fj3Zenux0ViN4g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-        Donald Sharp <sharpd@cumulusnetworks.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Denys Vlasenko <vda.linux@googlemail.com>,
+        netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:22449 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756778AbdGLH5g (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2017 03:57:36 -0400
-Content-Disposition: inline
+Received: from mail-he1eur01on0045.outbound.protection.outlook.com ([104.47.0.45]:51844
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S933181AbdGLH6s (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Jul 2017 03:58:48 -0400
+In-Reply-To: <CAK1hOcP-+=8SMi8z6zxwqYYcJtSnGHv36Db6fj3Zenux0ViN4g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ipmr_get_table() function doesn't return error pointers it returns
-NULL on error.
+Hi,
 
-Fixes: 4f75ba6982bc ("net: ipmr: Add ipmr_rtm_getroute")
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+On 7/10/2017 7:49 PM, Denys Vlasenko wrote:
 
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index bb909f1d7537..06863ea3fc5b 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -2431,8 +2431,8 @@ static int ipmr_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
- 	tableid = tb[RTA_TABLE] ? nla_get_u32(tb[RTA_TABLE]) : 0;
- 
- 	mrt = ipmr_get_table(net, tableid ? tableid : RT_TABLE_DEFAULT);
--	if (IS_ERR(mrt)) {
--		err = PTR_ERR(mrt);
-+	if (!mrt) {
-+		err = -ENOENT;
- 		goto errout_free;
- 	}
- 
+> +       /* Reading from resource space should be 32b aligned */
+> +       fw_maj_min = ioread32be(fw_ver);
+> +       fw_sub_min = ioread32be(fw_ver + 1);
+> +       fw_major = fw_maj_min & 0xffff;
+> +       fw_minor = fw_maj_min >> 16;
+> +       fw_subminor = fw_sub_min & 0xffff;
+>
+> Maybe second read should be ioread32be(fw_ver + 4)?
+>
+fw_ver is a pointer:
+
+__be32 __iomem *fw_ver;
+
+Increasing its value means incrementing it by the size of its contents
+thus reading the next 32 bits.
+
+Doesn't seem like a bug.
+
+Thanks, Noa
