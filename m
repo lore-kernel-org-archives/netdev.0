@@ -1,99 +1,59 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH v2] dt-bindings: net: ravb : Add support for r8a7743 SoC
-Date: Wed, 12 Jul 2017 07:52:58 +0200
-Message-ID: <20170712055258.GB18990@verge.net.au>
-References: <20170710012024.j4cso2jyi6canws2@rob-hp-laptop>
- <1499700776-54504-1-git-send-email-biju.das@bp.renesas.com>
- <52eb0b92-5d25-e1f4-df54-e4fcf648c90e@cogentembedded.com>
- <20170711122100.GM4517@verge.net.au>
- <87b6b38a-ca6b-a0d7-b777-0a4809eaf6fc@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Biju Das <biju.das@bp.renesas.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Russell King <linux@armlinux.org.uk>,
-        "David S. Miller" <davem@davemloft.net>,
-        Magnus Damm <magnus.damm@gmail.com>,
-        Chris Paterson <chris.paterson2@renesas.com>,
-        devicetree@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87b6b38a-ca6b-a0d7-b777-0a4809eaf6fc@cogentembedded.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+From: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH 1/1] mlx4_en: remove unnecessary returned value check
+Date: Wed, 12 Jul 2017 02:44:33 -0400
+Message-ID: <1499841873-10275-1-git-send-email-yanjun.zhu@oracle.com>
+To: tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 11, 2017 at 03:51:40PM +0300, Sergei Shtylyov wrote:
-> On 07/11/2017 03:21 PM, Simon Horman wrote:
-> 
-> >>>Add a new compatible string for the RZ/G1M (R8A7743) SoC.
-> >>>
-> >>>Signed-off-by: Biju Das <biju.das@bp.renesas.com>
-> >>>---
-> >>>v1->v2
-> >>>* Changed the subject
-> >>>* re-formatted the required properties
-> >>>
-> >>>.../devicetree/bindings/net/renesas,ravb.txt       | 29 +++++++++++++---------
-> >>>1 file changed, 17 insertions(+), 12 deletions(-)
-> >>>
-> >>>diff --git a/Documentation/devicetree/bindings/net/renesas,ravb.txt b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> >>>index b519503..4717bc2 100644
-> >>>--- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> >>>+++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> >>>@@ -4,19 +4,24 @@ This file provides information on what the device node for the Ethernet AVB
-> >>>interface contains.
-> >>>
-> >>>Required properties:
-> >>>-- compatible: "renesas,etheravb-r8a7790" if the device is a part of R8A7790 SoC.
-> >>>-	      "renesas,etheravb-r8a7791" if the device is a part of R8A7791 SoC.
-> >>>-	      "renesas,etheravb-r8a7792" if the device is a part of R8A7792 SoC.
-> >>>-	      "renesas,etheravb-r8a7793" if the device is a part of R8A7793 SoC.
-> >>>-	      "renesas,etheravb-r8a7794" if the device is a part of R8A7794 SoC.
-> >>>-	      "renesas,etheravb-r8a7795" if the device is a part of R8A7795 SoC.
-> >>>-	      "renesas,etheravb-r8a7796" if the device is a part of R8A7796 SoC.
-> >>>-	      "renesas,etheravb-rcar-gen2" for generic R-Car Gen 2 compatible interface.
-> >>>-	      "renesas,etheravb-rcar-gen3" for generic R-Car Gen 3 compatible interface.
-> >>>+- compatible: Must contain one or more of the following:
-> >>
-> >>   No, it can't contain more than one SoC specific value.
-> >
-> >The text above does not say it can unless one is under the delusion
-> >that, f.e. an r8a7790 SoC is also an r8a7791 SoC.
-> 
->    Hm, you're right. Sorry about my misunderstanding...
-> 
->    The only problem I'm still seeing with the current wording is that gen2/3
-> fallback
-> values are declared optional, while you can't get the driver to bind without
-> them on
-> the newer SoCs. But this is probably not a new problem...
-> 
-> >If you would prefer an alternate wording please provide a suggestion.
-> 
->    Perhaps we should emphasize that the gen2/3 fallback values are mandatory?
+The function __mlx4_zone_remove_one_entry always returns zero. So
+it is not necessary to check it.
 
-It's only mandatory for SoCs covered by those values - admittedly all SoCs
-supported by the driver at this time. But that is an artifact of the
-implementation rather than a property of the binding.
+Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Cc: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+---
+ drivers/net/ethernet/mellanox/mlx4/alloc.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-In any case I think is already described sufficiently in:
+diff --git a/drivers/net/ethernet/mellanox/mlx4/alloc.c b/drivers/net/ethernet/mellanox/mlx4/alloc.c
+index 249a458..bfb185d 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/alloc.c
++++ b/drivers/net/ethernet/mellanox/mlx4/alloc.c
+@@ -283,7 +283,7 @@ int mlx4_zone_add_one(struct mlx4_zone_allocator *zone_alloc,
+ }
+ 
+ /* Should be called under a lock */
+-static int __mlx4_zone_remove_one_entry(struct mlx4_zone_entry *entry)
++static void __mlx4_zone_remove_one_entry(struct mlx4_zone_entry *entry)
+ {
+ 	struct mlx4_zone_allocator *zone_alloc = entry->allocator;
+ 
+@@ -315,8 +315,6 @@ static int __mlx4_zone_remove_one_entry(struct mlx4_zone_entry *entry)
+ 		}
+ 		zone_alloc->mask = mask;
+ 	}
+-
+-	return 0;
+ }
+ 
+ void mlx4_zone_allocator_destroy(struct mlx4_zone_allocator *zone_alloc)
+@@ -468,7 +466,8 @@ int mlx4_zone_remove_one(struct mlx4_zone_allocator *zones, u32 uid)
+ 		goto out;
+ 	}
+ 
+-	res = __mlx4_zone_remove_one_entry(zone);
++	__mlx4_zone_remove_one_entry(zone);
++	res = 0;
+ 
+ out:
+ 	spin_unlock(&zones->lock);
+-- 
+2.7.4
 
-	When compatible with the generic version, nodes must list the
-	SoC-specific version corresponding to the platform first followed by
-	the generic version.
-
-> >>>+      - "renesas,etheravb-r8a7743" for the R8A7743 SoC.
-> >>>+      - "renesas,etheravb-r8a7790" for the R8A7790 SoC.
-> >>>+      - "renesas,etheravb-r8a7791" for the R8A7791 SoC.
-> >>>+      - "renesas,etheravb-r8a7792" for the R8A7792 SoC.
-> >>>+      - "renesas,etheravb-r8a7793" for the R8A7793 SoC.
-> >>>+      - "renesas,etheravb-r8a7794" for the R8A7794 SoC.
-> >>>+      - "renesas,etheravb-rcar-gen2" as a fallback for the above
-> >>>+		R-Car Gen2 and RZ/G1 devices.
-> [...]
-> 
-> WBR, Sergei
-> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
