@@ -1,73 +1,91 @@
-From: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 1/1] mlx4_en: remove unnecessary returned value check
-Date: Wed, 12 Jul 2017 11:36:48 +0300
-Message-ID: <20170712083647.GB2866@yuvallap>
-References: <1499841873-10275-1-git-send-email-yanjun.zhu@oracle.com>
+From: Richard Leitner <richard.leitner@skidata.com>
+Subject: Re: [PATCH 2/2] net: ethernet: fsl: add phy reset after clk enable
+ option
+Date: Wed, 12 Jul 2017 11:21:06 +0200
+Message-ID: <e6b838e5-af7a-07be-42db-59b901cc04db@skidata.com>
+References: <1499346330-12166-1-git-send-email-richard.leitner@skidata.com>
+ <1499346330-12166-2-git-send-email-richard.leitner@skidata.com>
+ <AM4PR0401MB2260ECD4508E26FF16670004FFAA0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+ <81105c77-d48f-271b-2de1-c877b9413184@skidata.com>
+ <AM4PR0401MB226089839458F5F92C3B1F39FFAA0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+ <6de114cb-4521-4bb2-d0a3-4aea32936bd3@skidata.com>
+ <AM4PR0401MB22609FFACD2BB51247709936FFAA0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+ <b68f444e-cea4-acaa-d1e9-7955a577ed35@skidata.com>
+ <20170707140010.GD24237@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-To: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1499841873-10275-1-git-send-email-yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: "mark.rutland@arm.com" <mark.rutland@arm.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "dev@g0hl1n.net" <dev@g0hl1n.net>,
+        Richard Leitner <richard.leitner@skidata.com>
+To: Andrew Lunn <andrew@lunn.ch>, Andy Duan <fugang.duan@nxp.com>,
+        "robh+dt@kernel.org" <robh+dt@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170707140010.GD24237@lunn.ch>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 12, 2017 at 02:44:33AM -0400, Zhu Yanjun wrote:
-> The function __mlx4_zone_remove_one_entry always returns zero. So
-> it is not necessary to check it.
+
+On 07/07/2017 04:00 PM, Andrew Lunn wrote:
+>> Ok. I'm fine with moving the phy-reset-gpios binding into the PHY.
+>> But one question still remains: Who should then trigger the "hard
+>> reset" of the PHY?
 > 
-> Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> Cc: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/alloc.c | 7 +++----
->  1 file changed, 3 insertions(+), 4 deletions(-)
+> Hi Richard
 > 
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/alloc.c b/drivers/net/ethernet/mellanox/mlx4/alloc.c
-> index 249a458..bfb185d 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/alloc.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/alloc.c
-> @@ -283,7 +283,7 @@ int mlx4_zone_add_one(struct mlx4_zone_allocator *zone_alloc,
->  }
->  
->  /* Should be called under a lock */
-> -static int __mlx4_zone_remove_one_entry(struct mlx4_zone_entry *entry)
-> +static void __mlx4_zone_remove_one_entry(struct mlx4_zone_entry *entry)
->  {
->  	struct mlx4_zone_allocator *zone_alloc = entry->allocator;
->  
-> @@ -315,8 +315,6 @@ static int __mlx4_zone_remove_one_entry(struct mlx4_zone_entry *entry)
->  		}
->  		zone_alloc->mask = mask;
->  	}
-> -
-> -	return 0;
->  }
->  
->  void mlx4_zone_allocator_destroy(struct mlx4_zone_allocator *zone_alloc)
-> @@ -468,7 +466,8 @@ int mlx4_zone_remove_one(struct mlx4_zone_allocator *zones, u32 uid)
->  		goto out;
->  	}
->  
-> -	res = __mlx4_zone_remove_one_entry(zone);
-> +	__mlx4_zone_remove_one_entry(zone);
-> +	res = 0;
-
-Will look better if initialization will move to variable declaration.
-
-Besides this minor thing - lgtm.
-
-Reviewed-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-
->  
->  out:
->  	spin_unlock(&zones->lock);
-> -- 
-> 2.7.4
+> I think i see a few whys to do this, but first i need to check
+> something. Is the clock which is causing a problem this one:
 > 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>         /* clk_ref is optional, depends on board */
+>         fep->clk_ref = devm_clk_get(&pdev->dev, "enet_clk_ref");
+>         if (IS_ERR(fep->clk_ref))
+>                 fep->clk_ref = NULL;
+
+Yes. It's this one.
+
+> 
+> Possible solutions:
+> 
+> 1) clocks are referenced counted. If it is turned on twice, it needs
+>    to be turned off twice before it is actually turned off. So, make
+>    the PHY driver also clk_prepare_enable() this clock. When the FEC
+>    tries to turn it off, it will stay ticking. Problem avoided, at the
+>    expense of some power.
+
+Somehow this approach triggers a "workaround-feeling" for me...
+Furthermore as you say it "wastes" (at least some) power. For exactly
+this reason the disabling of the clock was implemented in commit
+e8fcfcd5684a ("net: fec: optimize the clock management to save power").
+
+> 
+> 2) More complex, but make the PHY driver also a clock driver. Have the
+>    PHY driver export a clock which the FEC use, as "enet_clk_ref". The
+>    implementation of this clock, would both turn the real clock on,
+>    and the perform the reset.
+
+This seems as a good solution to me. Furthermore IMHO it would be good
+to move all PHY related dt bindings (reset-gpio, clk, etc.) from the MAC
+into the PHY node.
+
+Or are there any reasons/arguments against this approach?
+
+> 
+> Both require no changes to the FEC, or any other MAC driver using this
+> PHY, so long as the MAC driver uses the common clock infrastructure to
+> control the clock to the PHY.
+As (IMHO) the new approach likely won't be backported to stable releases
+I want to stress again the point that commit e8fcfcd5684a
+("net: fec: optimize the clock management to save power") introduced
+this problem and therefore "broke the PHY" for our board.
+
+So would it be possible to add a "quick" bugfix patch (maybe this patch
+or another one removing the clk disable) so this fix can be backported
+to stable? Otherwise our board is only working with another
+"out-of-tree" patch (which I want to avoid)...
+
+kind regards,
+Richard.L
