@@ -1,56 +1,56 @@
-From: Alexander Dahl <ada@thorsis.com>
-Subject: [RFC 0/3] net: macb: Use SRAM on SoC for RX rings and buffers
-Date: Wed, 12 Jul 2017 18:28:09 +0200
-Message-ID: <1499876892-14423-1-git-send-email-ada@thorsis.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net 1/2] socket: add documentation for missing elements
+Date: Wed, 12 Jul 2017 09:29:06 -0700
+Message-ID: <20170712162907.18465-2-sthemmin@microsoft.com>
+References: <20170712162907.18465-1-sthemmin@microsoft.com>
+Cc: netdev@vger.kernel.org, linux-doc@vger.kernel.org,
+        Stephen Hemminger <sthemmin@microsoft.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:36523 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753509AbdGLQ3S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2017 12:29:18 -0400
+Received: by mail-pf0-f181.google.com with SMTP id q86so15421679pfl.3
+        for <netdev@vger.kernel.org>; Wed, 12 Jul 2017 09:29:17 -0700 (PDT)
+In-Reply-To: <20170712162907.18465-1-sthemmin@microsoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hei hei,
+Fill in missing kernel-doc for missing elements in struct sock.
 
-this is a small patch series for a problem we encoutered with a board
-based on an AT91SAM9G20 SoC. I talked about it a few days ago on the
-#armlinux IRC channel with Alexandre Belloni and Florian Fainelli. The
-current state of those patches is 'prove of concept', but if this is
-useful for someone I would like to get it upstream.
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ include/net/sock.h | 3 +++
+ 1 file changed, 3 insertions(+)
 
-The first two patches are just adding some descriptive comments for
-register and bit definitions, taken from the at91sam9g20 hardware
-manual. Those may be of general interest, even without the third
-patch.
-
-The third patch is the main one. I tried to describe in the commit
-message as clear as possible what problem is to be solved. If you
-don't understand the reason please ask, I will happily change or
-extend the message.
-
-Regarding the third patch: It's just a proof of concept so far, I
-changed some hardcoded values which probably should not be that low
-for the normal usecase with RX buffers/rings in SD-RAM/DDR-RAM. It
-would be good if this would be somehow configurable at boot time, so
-maybe in device tree. However I would need an idea how to do this and
-some help, that's why this series is just RFC.
-
-I tested this with heavy load on the EBI bus (external SRAM), network
-seems to work as usual and I get no receive overrun errors anymore.
-
-An interesting question for me would be where this mac is used and
-whether internal sram is available on those SoCs and in what sizes
-(sam9g20 has 32k). A quick view in arch/arm/boot/dts just showed my
-at91sam9 and sama5 platforms using the macb driver.
-
-Greets
-Alex
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 8c85791fc196..f69c8c2782df 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -246,6 +246,7 @@ struct sock_common {
+   *	@sk_policy: flow policy
+   *	@sk_receive_queue: incoming packets
+   *	@sk_wmem_alloc: transmit queue bytes committed
++  *	@sk_tsq_flags: TCP Small Queues flags
+   *	@sk_write_queue: Packet sending queue
+   *	@sk_omem_alloc: "o" is "option" or "other"
+   *	@sk_wmem_queued: persistent queue size
+@@ -257,6 +258,7 @@ struct sock_common {
+   *	@sk_pacing_status: Pacing status (requested, handled by sch_fq)
+   *	@sk_max_pacing_rate: Maximum pacing rate (%SO_MAX_PACING_RATE)
+   *	@sk_sndbuf: size of send buffer in bytes
++  *	@__sk_flags_offset: empty field used to determine location of bitfield
+   *	@sk_padding: unused element for alignment
+   *	@sk_no_check_tx: %SO_NO_CHECK setting, set checksum in TX packets
+   *	@sk_no_check_rx: allow zero checksum in RX packets
+@@ -277,6 +279,7 @@ struct sock_common {
+   *	@sk_drops: raw/udp drops counter
+   *	@sk_ack_backlog: current listen backlog
+   *	@sk_max_ack_backlog: listen backlog set in listen()
++  *	@sk_uid: user id of owner
+   *	@sk_priority: %SO_PRIORITY setting
+   *	@sk_type: socket type (%SOCK_STREAM, etc)
+   *	@sk_protocol: which protocol this socket belongs in this network family
+-- 
+2.11.0
