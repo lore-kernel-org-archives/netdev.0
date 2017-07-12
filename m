@@ -1,130 +1,181 @@
 From: Alexander Dahl <ada@thorsis.com>
-Subject: [RFC 2/3] net: macb: Add buffer descriptor names
-Date: Wed, 12 Jul 2017 18:28:11 +0200
-Message-ID: <1499876892-14423-3-git-send-email-ada@thorsis.com>
+Subject: [RFC 3/3] net: macb: Use sram for rx buffers
+Date: Wed, 12 Jul 2017 18:28:12 +0200
+Message-ID: <1499876892-14423-4-git-send-email-ada@thorsis.com>
 References: <1499876892-14423-1-git-send-email-ada@thorsis.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+Cc: Nicolas Ferre <nicolas.ferre@microchip.com>,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1499876892-14423-1-git-send-email-ada@thorsis.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Documentation of the EMAC buffer descriptor bitfields. Taken from the
-AT91SAM9G20 complete datasheet.
+The default way for the driver is to use system memory for RX/TX DMA
+buffers and rings. For the AT91SAM9G20 this is SDRAM which is connected
+through the EBI bus, together with other memories like NAND-Flash or
+external SRAM. If a memory access to external SRAM using the NWAIT
+signal takes too long, the EMAC on the SoC throws receive overrun (ROVR)
+errors which means it can not put incoming packets into SDRAM (through
+DMA). Those errors add up in /proc/net/dev
+
+To circumvent those "dropped" ethernet frames, we put the RX buffers and
+rings into the small internal SRAM of the SoC, which are also usable for
+DMA but directly connected through the AHB without the path through the
+EBI. This way there are no lost ethernet frames anymore. (If there's too
+much load however packets can still be dropped by the kernel.)
 
 Signed-off-by: Alexander Dahl <ada@thorsis.com>
 ---
- drivers/net/ethernet/cadence/macb.h | 50 ++++++++++++++++++-------------------
- 1 file changed, 25 insertions(+), 25 deletions(-)
+ drivers/net/ethernet/cadence/macb.c | 66 ++++++++++++++++++++++++++++++-------
+ drivers/net/ethernet/cadence/macb.h |  2 ++
+ 2 files changed, 57 insertions(+), 11 deletions(-)
 
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 91f7492..8dacd9c 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -23,6 +23,7 @@
+ #include <linux/interrupt.h>
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
++#include <linux/genalloc.h>
+ #include <linux/dma-mapping.h>
+ #include <linux/platform_data/macb.h>
+ #include <linux/platform_device.h>
+@@ -40,9 +41,9 @@
+ #define MACB_RX_BUFFER_SIZE	128
+ #define RX_BUFFER_MULTIPLE	64  /* bytes */
+ 
+-#define DEFAULT_RX_RING_SIZE	512 /* must be power of 2 */
++#define DEFAULT_RX_RING_SIZE	128 /* must be power of 2 */
+ #define MIN_RX_RING_SIZE	64
+-#define MAX_RX_RING_SIZE	8192
++#define MAX_RX_RING_SIZE	128
+ #define RX_RING_BYTES(bp)	(macb_dma_desc_get_size(bp)	\
+ 				 * (bp)->rx_ring_size)
+ 
+@@ -1660,9 +1661,14 @@ static void gem_free_rx_buffers(struct macb *bp)
+ static void macb_free_rx_buffers(struct macb *bp)
+ {
+ 	if (bp->rx_buffers) {
+-		dma_free_coherent(&bp->pdev->dev,
+-				  bp->rx_ring_size * bp->rx_buffer_size,
+-				  bp->rx_buffers, bp->rx_buffers_dma);
++		if (bp->sram_pool)
++			gen_pool_free(bp->sram_pool,
++				      (unsigned long)bp->rx_buffers,
++				      bp->rx_ring_size * bp->rx_buffer_size);
++		else
++			dma_free_coherent(&bp->pdev->dev,
++					  bp->rx_ring_size * bp->rx_buffer_size,
++					  bp->rx_buffers, bp->rx_buffers_dma);
+ 		bp->rx_buffers = NULL;
+ 	}
+ }
+@@ -1674,8 +1680,12 @@ static void macb_free_consistent(struct macb *bp)
+ 
+ 	bp->macbgem_ops.mog_free_rx_buffers(bp);
+ 	if (bp->rx_ring) {
+-		dma_free_coherent(&bp->pdev->dev, RX_RING_BYTES(bp),
+-				  bp->rx_ring, bp->rx_ring_dma);
++		if (bp->sram_pool)
++			gen_pool_free(bp->sram_pool, (unsigned long)bp->rx_ring,
++				      RX_RING_BYTES(bp));
++		else
++			dma_free_coherent(&bp->pdev->dev, RX_RING_BYTES(bp),
++					  bp->rx_ring, bp->rx_ring_dma);
+ 		bp->rx_ring = NULL;
+ 	}
+ 
+@@ -1690,6 +1700,28 @@ static void macb_free_consistent(struct macb *bp)
+ 	}
+ }
+ 
++static void macb_init_sram(struct macb *bp)
++{
++	struct device_node *node;
++	struct platform_device *pdev = NULL;
++
++	for_each_compatible_node(node, NULL, "mmio-sram") {
++		pdev = of_find_device_by_node(node);
++		if (pdev) {
++			of_node_put(node);
++			break;
++		}
++	}
++
++	if (!pdev) {
++		netdev_warn(bp->dev, "Failed to find sram device!\n");
++		bp->sram_pool = NULL;
++		return;
++	}
++
++	bp->sram_pool = gen_pool_get(&pdev->dev, NULL);
++}
++
+ static int gem_alloc_rx_buffers(struct macb *bp)
+ {
+ 	int size;
+@@ -1710,14 +1742,20 @@ static int macb_alloc_rx_buffers(struct macb *bp)
+ 	int size;
+ 
+ 	size = bp->rx_ring_size * bp->rx_buffer_size;
+-	bp->rx_buffers = dma_alloc_coherent(&bp->pdev->dev, size,
+-					    &bp->rx_buffers_dma, GFP_KERNEL);
++	if (bp->sram_pool)
++		bp->rx_buffers = gen_pool_dma_alloc(bp->sram_pool, size,
++						    &bp->rx_buffers_dma);
++	else
++		bp->rx_buffers = dma_alloc_coherent(&bp->pdev->dev, size,
++						    &bp->rx_buffers_dma,
++						    GFP_KERNEL);
+ 	if (!bp->rx_buffers)
+ 		return -ENOMEM;
+ 
+ 	netdev_dbg(bp->dev,
+ 		   "Allocated RX buffers of %d bytes at %08lx (mapped %p)\n",
+ 		   size, (unsigned long)bp->rx_buffers_dma, bp->rx_buffers);
++
+ 	return 0;
+ }
+ 
+@@ -1746,8 +1784,12 @@ static int macb_alloc_consistent(struct macb *bp)
+ 	}
+ 
+ 	size = RX_RING_BYTES(bp);
+-	bp->rx_ring = dma_alloc_coherent(&bp->pdev->dev, size,
+-					 &bp->rx_ring_dma, GFP_KERNEL);
++	if (bp->sram_pool)
++		bp->rx_ring = gen_pool_dma_alloc(bp->sram_pool, size,
++						 &bp->rx_ring_dma);
++	else
++		bp->rx_ring = dma_alloc_coherent(&bp->pdev->dev, size,
++						 &bp->rx_ring_dma, GFP_KERNEL);
+ 	if (!bp->rx_ring)
+ 		goto out_err;
+ 	netdev_dbg(bp->dev,
+@@ -2698,6 +2740,8 @@ static int macb_init(struct platform_device *pdev)
+ 	int err;
+ 	u32 val;
+ 
++	macb_init_sram(bp);
++
+ 	bp->tx_ring_size = DEFAULT_TX_RING_SIZE;
+ 	bp->rx_ring_size = DEFAULT_RX_RING_SIZE;
+ 
 diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index 8547d92..567c72d 100644
+index 567c72d..d352181 100644
 --- a/drivers/net/ethernet/cadence/macb.h
 +++ b/drivers/net/ethernet/cadence/macb.h
-@@ -566,39 +566,39 @@ struct macb_dma_desc_64 {
- #define MACB_RX_WADDR_OFFSET			2
- #define MACB_RX_WADDR_SIZE			30
+@@ -957,6 +957,8 @@ struct macb {
+ #ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
+ 	enum macb_hw_dma_cap hw_dma_cap;
+ #endif
++
++	struct gen_pool		*sram_pool;
+ };
  
--#define MACB_RX_FRMLEN_OFFSET			0
-+#define MACB_RX_FRMLEN_OFFSET			0  /* Length of frame */
- #define MACB_RX_FRMLEN_SIZE			12
--#define MACB_RX_OFFSET_OFFSET			12
-+#define MACB_RX_OFFSET_OFFSET			12 /* Receive buffer offset */
- #define MACB_RX_OFFSET_SIZE			2
--#define MACB_RX_SOF_OFFSET			14
-+#define MACB_RX_SOF_OFFSET			14 /* Start of frame */
- #define MACB_RX_SOF_SIZE			1
--#define MACB_RX_EOF_OFFSET			15
-+#define MACB_RX_EOF_OFFSET			15 /* End of frame */
- #define MACB_RX_EOF_SIZE			1
--#define MACB_RX_CFI_OFFSET			16
-+#define MACB_RX_CFI_OFFSET			16 /* Concatenation format indicator */
- #define MACB_RX_CFI_SIZE			1
--#define MACB_RX_VLAN_PRI_OFFSET			17
-+#define MACB_RX_VLAN_PRI_OFFSET			17 /* VLAN priority */
- #define MACB_RX_VLAN_PRI_SIZE			3
--#define MACB_RX_PRI_TAG_OFFSET			20
-+#define MACB_RX_PRI_TAG_OFFSET			20 /* Priority tag detected */
- #define MACB_RX_PRI_TAG_SIZE			1
--#define MACB_RX_VLAN_TAG_OFFSET			21
-+#define MACB_RX_VLAN_TAG_OFFSET			21 /* VLAN tag detected */
- #define MACB_RX_VLAN_TAG_SIZE			1
--#define MACB_RX_TYPEID_MATCH_OFFSET		22
-+#define MACB_RX_TYPEID_MATCH_OFFSET		22 /* Type ID match */
- #define MACB_RX_TYPEID_MATCH_SIZE		1
--#define MACB_RX_SA4_MATCH_OFFSET		23
-+#define MACB_RX_SA4_MATCH_OFFSET		23 /* Specific address register 4 match */
- #define MACB_RX_SA4_MATCH_SIZE			1
--#define MACB_RX_SA3_MATCH_OFFSET		24
-+#define MACB_RX_SA3_MATCH_OFFSET		24 /* Specific address register 3 match */
- #define MACB_RX_SA3_MATCH_SIZE			1
--#define MACB_RX_SA2_MATCH_OFFSET		25
-+#define MACB_RX_SA2_MATCH_OFFSET		25 /* Specific address register 2 match */
- #define MACB_RX_SA2_MATCH_SIZE			1
--#define MACB_RX_SA1_MATCH_OFFSET		26
-+#define MACB_RX_SA1_MATCH_OFFSET		26 /* Specific address register 1 match */
- #define MACB_RX_SA1_MATCH_SIZE			1
--#define MACB_RX_EXT_MATCH_OFFSET		28
-+#define MACB_RX_EXT_MATCH_OFFSET		28 /* External address match */
- #define MACB_RX_EXT_MATCH_SIZE			1
--#define MACB_RX_UHASH_MATCH_OFFSET		29
-+#define MACB_RX_UHASH_MATCH_OFFSET		29 /* Unicast hash match */
- #define MACB_RX_UHASH_MATCH_SIZE		1
--#define MACB_RX_MHASH_MATCH_OFFSET		30
-+#define MACB_RX_MHASH_MATCH_OFFSET		30 /* Multicast hash match */
- #define MACB_RX_MHASH_MATCH_SIZE		1
--#define MACB_RX_BROADCAST_OFFSET		31
-+#define MACB_RX_BROADCAST_OFFSET		31 /* Global all ones broadcast addr detected */
- #define MACB_RX_BROADCAST_SIZE			1
- 
- #define MACB_RX_FRMLEN_MASK			0xFFF
-@@ -612,11 +612,11 @@ struct macb_dma_desc_64 {
- #define GEM_RX_CSUM_OFFSET			22
- #define GEM_RX_CSUM_SIZE			2
- 
--#define MACB_TX_FRMLEN_OFFSET			0
-+#define MACB_TX_FRMLEN_OFFSET			0  /* Length of buffer */
- #define MACB_TX_FRMLEN_SIZE			11
--#define MACB_TX_LAST_OFFSET			15
-+#define MACB_TX_LAST_OFFSET			15 /* Last buffer */
- #define MACB_TX_LAST_SIZE			1
--#define MACB_TX_NOCRC_OFFSET			16
-+#define MACB_TX_NOCRC_OFFSET			16 /* No CRC */
- #define MACB_TX_NOCRC_SIZE			1
- #define MACB_MSS_MFS_OFFSET			16
- #define MACB_MSS_MFS_SIZE			14
-@@ -624,15 +624,15 @@ struct macb_dma_desc_64 {
- #define MACB_TX_LSO_SIZE			2
- #define MACB_TX_TCP_SEQ_SRC_OFFSET		19
- #define MACB_TX_TCP_SEQ_SRC_SIZE		1
--#define MACB_TX_BUF_EXHAUSTED_OFFSET		27
-+#define MACB_TX_BUF_EXHAUSTED_OFFSET		27 /* Buffers exhausted in mid frame */
- #define MACB_TX_BUF_EXHAUSTED_SIZE		1
--#define MACB_TX_UNDERRUN_OFFSET			28
-+#define MACB_TX_UNDERRUN_OFFSET			28 /* Transmit underrun */
- #define MACB_TX_UNDERRUN_SIZE			1
--#define MACB_TX_ERROR_OFFSET			29
-+#define MACB_TX_ERROR_OFFSET			29 /* Retry limit exceeded */
- #define MACB_TX_ERROR_SIZE			1
--#define MACB_TX_WRAP_OFFSET			30
-+#define MACB_TX_WRAP_OFFSET			30 /* Wrap */
- #define MACB_TX_WRAP_SIZE			1
--#define MACB_TX_USED_OFFSET			31
-+#define MACB_TX_USED_OFFSET			31 /* Used */
- #define MACB_TX_USED_SIZE			1
- 
- #define GEM_TX_FRMLEN_OFFSET			0
+ static inline bool macb_is_gem(struct macb *bp)
 -- 
 2.1.4
