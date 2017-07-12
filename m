@@ -1,79 +1,56 @@
-From: <associatebusiness2009@yahoo.co.uk>
-Subject: (unknown)
-Date: Wed, 12 Jul 2017 00:42:45 -0000
-Message-ID: <149982016509.24847.8639140139445253171@hinet.net>
-Reply-To: <associatebusiness2009@yahoo.co.uk>
+From: Igor Mitsyanko <igor.mitsyanko.os-P/7pdk10T0iB+jHODAdFcQ@public.gmane.org>
+Subject: Re: WARN_ON_ONCE(work > weight) in napi_poll()
+Date: Tue, 11 Jul 2017 18:19:51 -0700
+Message-ID: <3ce246b3-b110-dd50-bf29-45ee78985872@quantenna.com>
+References: <26670dce-4dd2-f8e4-0e14-90d74257e739@virtuozzo.com>
+ <87wp7oia6j.fsf@kamboji.qca.qualcomm.com>
+ <952aefe1-6f6a-3978-e7e7-5e74076f26a3@virtuozzo.com>
+ <b418d63d-d348-90b5-ea58-6478a1a037f5@qca.qualcomm.com>
+ <8cb28d9b-41c9-043c-16ca-f0bea41944e9@virtuozzo.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="1727806876_netdev.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 125-231-51-195.dynamic-ip.hinet.net ([125.231.51.195]:39059
-        "HELO hinet.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with SMTP id S1754057AbdGLAnP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2017 20:43:15 -0400
-Subject: 
-Content-Disposition: attachment
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Networking <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org" <ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: Andrey Ryabinin <aryabinin-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>,
+        Ryan Hsu <ryanhsu-Rm6X0d1/PG5y9aJCnZT0Uw@public.gmane.org>,
+        Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <8cb28d9b-41c9-043c-16ca-f0bea41944e9-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
+Content-Language: en-US
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-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
-AAAAAAEAAQBPAAAA0AwAAAAA
+On 07/11/2017 10:28 AM, Andrey Ryabinin wrote:
+> 
+> It gave me this:
+> 
+> [118648.825347] #1 quota too big 72 64 16
+> [118648.825351] #2 quota too big 72 64 16
+> [118648.825471] ------------[ cut here ]------------
+> [118648.825484] WARNING: CPU: 0 PID: 0 at ../net/core/dev.c:5274 net_rx_action+0x258/0x360
+> 
+> So this means that we didn't met the condition bellow, i.e. skb_queue_empty() returned true.
+> 
+>          ath10k_htt_txrx_compl_task():
+> 
+>                  if ((quota > ATH10K_NAPI_QUOTA_LIMIT) &&
+>                      !skb_queue_empty(&htt->rx_in_ord_compl_q)) {
+>                          resched_napi = true;
+>                          goto exit;
+>                  }
+> 
+>> Also WLAN.RM.2.0-00180-QCARMSWPZ-1 firmware is a bit old, could you also update firmware to give it a try?
+>> https://github.com/kvalo/ath10k-firmware/tree/master/QCA6174/hw3.0/4.4
+>>
+> 
+> Will try.
+> 
+
+Maybe ath10k_htt_rx_in_ord_ind() has to accept "budget_left" parameter 
+and use it to limit number of processed MSDUs in queued AMSDU and saving 
+rest for later (NAPI has to be rescheduled in this case).
+It seems natural that this problem happens with current logic, in case 
+AMSDU in Rx queue has more elements then left in budget.
