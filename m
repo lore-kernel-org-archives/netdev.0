@@ -1,54 +1,100 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2] brcmfmac: fix possible buffer overflow in
- brcmf_cfg80211_mgmt_tx()
-Date: Wed, 12 Jul 2017 08:28:53 -0700 (PDT)
-Message-ID: <20170712.082853.1710711458527879433.davem@davemloft.net>
-References: <1499458154-18358-1-git-send-email-arend.vanspriel@broadcom.com>
-        <59660CC3.9030809@broadcom.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net 01/20] net/hinic: Initialize hw interface
+Date: Wed, 12 Jul 2017 17:29:33 +0200
+Message-ID: <20170712152933.GF2557@lunn.ch>
+References: <cover.1499865197.git.aviad.krawczyk@huawei.com>
+ <281a172bd66298acb1a176a03a53710c1b777fb6.1499865197.git.aviad.krawczyk@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-        torvalds@linux-foundation.org
-To: arend.vanspriel@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55488 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752617AbdGLP2y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2017 11:28:54 -0400
-In-Reply-To: <59660CC3.9030809@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org, bc.y@huawei.com, victor.gissin@huawei.com,
+        zhaochen6@huawei.com, tony.qu@huawei.com
+To: Aviad Krawczyk <aviad.krawczyk@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <281a172bd66298acb1a176a03a53710c1b777fb6.1499865197.git.aviad.krawczyk@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogQXJlbmQgdmFuIFNwcmllbCA8YXJlbmQudmFuc3ByaWVsQGJyb2FkY29tLmNvbT4NCkRh
-dGU6IFdlZCwgMTIgSnVsIDIwMTcgMTM6NDk6MjMgKzAyMDANCg0KPiBPbiA3LzcvMjAxNyAxMDow
-OSBQTSwgQXJlbmQgdmFuIFNwcmllbCB3cm90ZToNCj4+IFRoZSBsb3dlciBsZXZlbCBubDgwMjEx
-IGNvZGUgaW4gY2ZnODAyMTEgZW5zdXJlcyB0aGF0ICJsZW4iIGlzIGJldHdlZW4NCj4+IDI1IGFu
-ZCBOTDgwMjExX0FUVFJfRlJBTUUgKDIzMDQpLiAgV2Ugc3VidHJhY3QgRE9UMTFfTUdNVF9IRFJf
-TEVOICgyNCkNCj4+IGZyb20NCj4+ICJsZW4iIHNvIHRoYXRzJ3MgbWF4IG9mIDIyODAuICBIb3dl
-dmVyLCB0aGUgYWN0aW9uX2ZyYW1lLT5kYXRhW10NCj4+IGJ1ZmZlciBpcw0KPj4gb25seSBCUkNN
-Rl9GSUxfQUNUSU9OX0ZSQU1FX1NJWkUgKDE4MDApIGJ5dGVzIGxvbmcgc28gdGhpcyBtZW1jcHko
-KQ0KPj4gY2FuDQo+PiBvdmVyZmxvdy4NCj4+DQo+PiAJbWVtY3B5KGFjdGlvbl9mcmFtZS0+ZGF0
-YSwgJmJ1ZltET1QxMV9NR01UX0hEUl9MRU5dLA0KPj4gCSAgICAgICBsZTE2X3RvX2NwdShhY3Rp
-b25fZnJhbWUtPmxlbikpOw0KPj4NCj4+IENjOiBzdGFibGVAdmdlci5rZXJuZWwub3JnICMgMy45
-LngNCj4+IEZpeGVzOiAxOGUyZjYxZGIzYjcwICgiYnJjbWZtYWM6IFAyUCBhY3Rpb24gZnJhbWUg
-dHguIikNCj4+IFJlcG9ydGVkLWJ5OiAiZnJlZW5lcmd1byjpg63lpKflhbQpIiA8ZnJlZW5lcmd1
-b0B0ZW5jZW50LmNvbT4NCj4+IFNpZ25lZC1vZmYtYnk6IEFyZW5kIHZhbiBTcHJpZWwgPGFyZW5k
-LnZhbnNwcmllbEBicm9hZGNvbS5jb20+DQo+PiAtLS0NCj4+ICAgVjI6DQo+PiAgICAtIGFkZGVk
-IEZpeGVzOiB0YWcgYW5kIENjOiBmb3Igc3RhYmxlIGtlcm5lbHMuDQo+PiAgICAtIENjOiBwYXRj
-aCB0byBuZXRkZXYgbGlzdC4NCj4+IC0tLQ0KPj4gSGkgRGF2aWQsDQo+Pg0KPj4gSGVyZSBpcyB0
-aGUgcGF0Y2ggYXMgTGludXMgc2VuZCBpdCB0byB1cyBhbmQgc2VjdXJpdHlAa2VybmVsLm9yZy4g
-SQ0KPj4gcmVtb3ZlZCB0aGUgbG93ZXIgYm91bmQgY2hlY2sgYXMgdGhhdCBpcyBhbHJlYWR5IGRv
-bmUgaW4gY2ZnODAyMTEuDQo+PiBOb3cgSSBzaWduZWQgb2ZmIG9uIHRoZSBwYXRjaCBhbHRob3Vn
-aCBmb3JtYWxseSBJIHN1cHBvc2UgTGludXMgc2hvdWxkDQo+PiBzaWduIGl0IG9mZi4gUHV0dGlu
-ZyBpdCBvdXQgdGhlcmUgc28gcGVvcGxlIGNhbiByZXNwb25kIGFzIGRlZW1lZA0KPj4gbmVjZXNz
-YXJ5Lg0KPj4NCj4+IFRoZSByZWFzb24gZm9yIHN1Ym1pdHRpbmcgaXQgdG8geW91ciB0cmVlIGlz
-IHRoZSBmYWN0IHRoYXQgS2FsbGUgaXMNCj4+IG9uIHZhY2F0aW9uIGZvciBuZXh0IDEwIGRheXMg
-b3Igc28gd2hpY2ggd2FzIGluZGljYXRlZCB0byBtZSBieQ0KPj4gSm9oYW5uZXMuDQo+PiBUaGUg
-cGF0Y2ggYXBwbGllcyB0byB0aGUgbWFzdGVyIGJyYW5jaCBvZiB5b3VyIG5ldCByZXBvc2l0b3J5
-LiBGb3INCj4+IHJlZmVyZW5jZSBWMSBvZiB0aGlzIHBhdGNoIGNhbiBiZSBmb3VuZCBoZXJlIFsx
-XS4NCj4gDQo+IEhpIERhdmUsDQo+IA0KPiBOb3Qgc3VyZSBpZiB5b3UgbWlzc2VkIHRoaXMgb25l
-LiBJdCBpcyBhZGRyZXNzaW5nIGEgcmVwb3J0ZWQgc2VjdXJpdHkNCj4gaXNzdWUgYW5kIGludGVu
-ZGVkIGZvciB0aGUgbmV0IHJlcG9zaXRvcnksIG5vdCBuZXQtbmV4dCB3aGljaCBpcw0KPiBvYnZp
-b3VzbHkgY2xvc2VkIFsyXS4NCg0KVGhhbmtzIGZvciBwb2ludGluZyB0aGlzIG91dCB0byBtZSwg
-SSdsbCB0YWtlIGNhcmUgb2YgaXQuDQoNCg==
+> +
+> +#define HINIC_DRV_NAME		"HiNIC"
+> +#define HINIC_DRV_VERSION	"1.0"
+
+Hi Aviad
+
+Please don't add a driver version. There was a discussion about this
+recently, how pointless it is.
+
+> +/**
+> + * hinic_init_hwdev - Initialize the NIC HW
+> + * @hwdev: the NIC HW device that is returned from the initialization
+> + * @pdev: the NIC pci device
+> + *
+> + * Return 0 - Success, negative - Failure
+> + *
+> + * Initialize the NIC HW device and return a pointer to it in the first arg
+> + **/
+> +int hinic_init_hwdev(struct hinic_hwdev **hwdev, struct pci_dev *pdev)
+> +{
+> +	struct hinic_pfhwdev *pfhwdev;
+> +	struct hinic_hwif *hwif;
+> +	int err;
+> +
+> +	hwif = kzalloc(sizeof(*hwif), GFP_KERNEL);
+
+Using the devm_ functions makes your cleanup code simpler when
+handling memory.
+
+> +/**
+> + * nic_dev_init - Initialize the NIC device
+> + * @pdev: the NIC pci device
+> + *
+> + * Return 0 - Success, negative - Failure
+> + **/
+> +static int nic_dev_init(struct pci_dev *pdev)
+> +{
+> +	struct hinic_dev *nic_dev;
+> +	struct net_device *netdev;
+> +	struct hinic_hwdev *hwdev;
+> +	int err, num_qps;
+> +
+> +	err = hinic_init_hwdev(&hwdev, pdev);
+> +	if (err) {
+> +		dev_err(&pdev->dev, "Failed to initialize HW device\n");
+> +		return err;
+> +	}
+> +
+> +	num_qps = hinic_hwdev_num_qps(hwdev);
+> +	if (num_qps <= 0) {
+> +		dev_err(&pdev->dev, "Invalid number of QPS\n");
+> +		err = -EINVAL;
+> +		goto num_qps_err;
+> +	}
+> +
+> +	netdev = alloc_etherdev_mq(sizeof(*nic_dev), num_qps);
+> +	if (!netdev) {
+> +		pr_err("Failed to allocate Ethernet device\n");
+
+Above you used dev_err, here you used pr_err(). Please be consistent.
+
+> +		err = -ENOMEM;
+> +		goto alloc_etherdev_err;
+> +	}
+> +
+> +	netdev->netdev_ops = &hinic_netdev_ops;
+> +
+> +	nic_dev = (struct hinic_dev *)netdev_priv(netdev);
+> +	nic_dev->hwdev = hwdev;
+> +	nic_dev->netdev = netdev;
+> +	nic_dev->msg_enable = MSG_ENABLE_DEFAULT;
+> +
+> +	pci_set_drvdata(pdev, netdev);
+> +
+> +	netif_carrier_off(netdev);
+> +
+> +	err = register_netdev(netdev);
+> +	if (err) {
+> +		netif_err(nic_dev, probe, netdev, "Failed to register netdev\n");
+
+probably not a good idea to use netif_err, if register_netdev just
+failed. dev_err() would be better.
