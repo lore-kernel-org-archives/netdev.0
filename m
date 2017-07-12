@@ -1,98 +1,37 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net 2/4] mlxsw: spectrum_router: Fix use-after-free in route replace
-Date: Wed, 12 Jul 2017 09:12:53 +0200
-Message-ID: <20170712071255.1232-3-jiri@resnulli.us>
-References: <20170712071255.1232-1-jiri@resnulli.us>
+Subject: [patch net 0/4] mlxsw: spectrum: Various fixes
+Date: Wed, 12 Jul 2017 09:12:51 +0200
+Message-ID: <20170712071255.1232-1-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:33192 "EHLO
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:35372 "EHLO
         mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751378AbdGLHNB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2017 03:13:01 -0400
-Received: by mail-wr0-f193.google.com with SMTP id x23so3653611wrb.0
-        for <netdev@vger.kernel.org>; Wed, 12 Jul 2017 00:13:01 -0700 (PDT)
-In-Reply-To: <20170712071255.1232-1-jiri@resnulli.us>
+        with ESMTP id S1751378AbdGLHM7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2017 03:12:59 -0400
+Received: by mail-wr0-f193.google.com with SMTP id z45so3657329wrb.2
+        for <netdev@vger.kernel.org>; Wed, 12 Jul 2017 00:12:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-While working on IPv6 route replace I realized we can have a
-use-after-free in IPv4 in case the replaced route is offloaded and the
-only one using its FIB info.
+First patch adds a missing rollback in error path. Second patch prevents
+a use-after-free during IPv4 route replace. Last two patches fix warnings
+from static checkers.
 
-The problem is that fib_table_insert() drops the reference on the FIB
-info of the replaced routes which is eventually freed via call_rcu().
-Since the driver doesn't hold a reference on this FIB info it can cause
-a use-after-free when it tries to clear the RTNH_F_OFFLOAD flag stored
-in fi->fib_flags.
+Ido Schimmel (4):
+  mlxsw: spectrum_router: Add missing rollback
+  mlxsw: spectrum_router: Fix use-after-free in route replace
+  mlxsw: spectrum_switchdev: Remove unused variable
+  mlxsw: spectrum_switchdev: Check status of memory allocation
 
-After running the following commands in a loop for enough time with a
-KASAN enabled kernel I finally got the below trace.
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c    | 4 ++++
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c | 9 ++++++---
+ 2 files changed, 10 insertions(+), 3 deletions(-)
 
-$ ip route add 192.168.50.0/24 via 192.168.200.1 dev enp3s0np3
-$ ip route replace 192.168.50.0/24 dev enp3s0np5
-$ ip route del 192.168.50.0/24 dev enp3s0np5
-
-BUG: KASAN: use-after-free in mlxsw_sp_fib_entry_offload_unset+0xa7/0x120 [mlxsw_spectrum]
-Read of size 4 at addr ffff8803717d9820 by task kworker/u4:2/55
-[...]
-? mlxsw_sp_fib_entry_offload_unset+0xa7/0x120 [mlxsw_spectrum]
-? mlxsw_sp_fib_entry_offload_unset+0xa7/0x120 [mlxsw_spectrum]
-? mlxsw_sp_router_neighs_update_work+0x1cd0/0x1ce0 [mlxsw_spectrum]
-? mlxsw_sp_fib_entry_offload_unset+0xa7/0x120 [mlxsw_spectrum]
-__asan_load4+0x61/0x80
-mlxsw_sp_fib_entry_offload_unset+0xa7/0x120 [mlxsw_spectrum]
-mlxsw_sp_fib_entry_offload_refresh+0xb6/0x370 [mlxsw_spectrum]
-mlxsw_sp_router_fib_event_work+0xd1c/0x2780 [mlxsw_spectrum]
-[...]
-Freed by task 5131:
- save_stack_trace+0x16/0x20
- save_stack+0x46/0xd0
- kasan_slab_free+0x70/0xc0
- kfree+0x144/0x570
- free_fib_info_rcu+0x2e7/0x410
- rcu_process_callbacks+0x4f8/0xe30
- __do_softirq+0x1d3/0x9e2
-
-Fix this by taking a reference on the FIB info when creating the nexthop
-group it represents and drop it when the group is destroyed.
-
-Fixes: 599cf8f95f22 ("mlxsw: spectrum_router: Add support for route replace")
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 129afc1..383fef5 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -1867,6 +1867,7 @@ mlxsw_sp_nexthop_group_create(struct mlxsw_sp *mlxsw_sp, struct fib_info *fi)
- 	nh_grp->gateway = fi->fib_nh->nh_scope == RT_SCOPE_LINK;
- 	nh_grp->count = fi->fib_nhs;
- 	nh_grp->key.fi = fi;
-+	fib_info_hold(fi);
- 	for (i = 0; i < nh_grp->count; i++) {
- 		nh = &nh_grp->nexthops[i];
- 		fib_nh = &fi->fib_nh[i];
-@@ -1886,6 +1887,7 @@ mlxsw_sp_nexthop_group_create(struct mlxsw_sp *mlxsw_sp, struct fib_info *fi)
- 		nh = &nh_grp->nexthops[i];
- 		mlxsw_sp_nexthop_fini(mlxsw_sp, nh);
- 	}
-+	fib_info_put(nh_grp->key.fi);
- 	kfree(nh_grp);
- 	return ERR_PTR(err);
- }
-@@ -1904,6 +1906,7 @@ mlxsw_sp_nexthop_group_destroy(struct mlxsw_sp *mlxsw_sp,
- 	}
- 	mlxsw_sp_nexthop_group_refresh(mlxsw_sp, nh_grp);
- 	WARN_ON_ONCE(nh_grp->adj_index_valid);
-+	fib_info_put(nh_grp->key.fi);
- 	kfree(nh_grp);
- }
- 
 -- 
 2.9.3
