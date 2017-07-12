@@ -1,175 +1,171 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: Re: [RFC PATCH 03/12] xdp: add bpf_redirect helper function
-Date: Wed, 12 Jul 2017 14:00:10 +0300
-Message-ID: <836efa9d-4174-0314-ffad-6e6fbadb61d0@mellanox.com>
-References: <20170707172115.9984.53461.stgit@john-Precision-Tower-5810>
- <20170707173522.9984.73677.stgit@john-Precision-Tower-5810>
- <8cf998a4-dadb-0a1a-0f3d-9a4f8ca39287@mellanox.com>
- <5963B81A.5070008@gmail.com>
- <CAHashqA8UYWAX7TDVrnGiTCA3zN5RGyiOQ3CcJpFDNnMemRnoQ@mail.gmail.com>
- <59651B29.5040403@gmail.com> <20170711213811.3f83405c@redhat.com>
+From: Arkadi Sharshevsky <arkadis@mellanox.com>
+Subject: Re: [PATCH net-next RFC 05/12] net: dsa: Add support for learning FDB
+ through notification
+Date: Wed, 12 Jul 2017 14:23:06 +0300
+Message-ID: <c59d8cc0-4601-24d6-414f-a4d8c59b4cfb@mellanox.com>
+References: <1499268990-19251-1-git-send-email-arkadis@mellanox.com>
+ <1499268990-19251-6-git-send-email-arkadis@mellanox.com>
+ <424fbf9a-f060-87d1-cad2-36e2ef732bd6@gmail.com>
+ <87aa5f4c-748c-7a6f-b1ce-18625ef9418e@mellanox.com>
+ <87r2xoross.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <ccad80c4-2d1f-2efe-ebf6-29945d84f287@mellanox.com>
+ <df578ae3-ec4e-5aca-6b1c-9bdb8db10774@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <ast@fb.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>,
-        John Fastabend <john.fastabend@gmail.com>
+Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
+        andrew@lunn.ch, Woojung.Huh@microchip.com,
+        stephen@networkplumber.org, mlxsw@mellanox.com,
+        roopa <roopa@cumulusnetworks.com>,
+        Shrijeet Mukherjee <shm@cumulusnetworks.com>
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr20049.outbound.protection.outlook.com ([40.107.2.49]:39457
-        "EHLO EUR02-VE1-obe.outbound.protection.outlook.com"
+Received: from mail-he1eur01on0052.outbound.protection.outlook.com ([104.47.0.52]:6931
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1756373AbdGLLAX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 12 Jul 2017 07:00:23 -0400
-In-Reply-To: <20170711213811.3f83405c@redhat.com>
+        id S1756068AbdGLLXS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Jul 2017 07:23:18 -0400
+In-Reply-To: <df578ae3-ec4e-5aca-6b1c-9bdb8db10774@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 
-On 7/11/2017 10:38 PM, Jesper Dangaard Brouer wrote:
-> On Tue, 11 Jul 2017 11:38:33 -0700
-> John Fastabend <john.fastabend@gmail.com> wrote:
->
->> On 07/11/2017 07:09 AM, Andy Gospodarek wrote:
->>> On Mon, Jul 10, 2017 at 1:23 PM, John Fastabend
->>> <john.fastabend@gmail.com> wrote:
->>>> On 07/09/2017 06:37 AM, Saeed Mahameed wrote:
->>>>>
->>>>>
->>>>> On 7/7/2017 8:35 PM, John Fastabend wrote:
->>>>>> This adds support for a bpf_redirect helper function to the XDP
->>>>>> infrastructure. For now this only supports redirecting to the egress
->>>>>> path of a port.
->>>>>>
->>>>>> In order to support drivers handling a xdp_buff natively this patches
->>>>>> uses a new ndo operation ndo_xdp_xmit() that takes pushes a xdp_buff
->>>>>> to the specified device.
->>>>>>
->>>>>> If the program specifies either (a) an unknown device or (b) a device
->>>>>> that does not support the operation a BPF warning is thrown and the
->>>>>> XDP_ABORTED error code is returned.
->>>>>>
->>>>>> Signed-off-by: John Fastabend <john.fastabend@gmail.com>
->>>>>> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
->>>>>> ---
->>>>
->>>> [...]
->>>>
->>>>>>
->>>>>> +static int __bpf_tx_xdp(struct net_device *dev, struct xdp_buff *xdp)
->>>>>> +{
->>>>>> +    if (dev->netdev_ops->ndo_xdp_xmit) {
->>>>>> +        dev->netdev_ops->ndo_xdp_xmit(dev, xdp);
->>>>>
->>>>> Hi John,
->>>>>
->>>>> I have some concern here regarding synchronizing between the
->>>>> redirecting device and the target device:
->>>>>
->>>>> if the target device's NAPI is also doing XDP_TX on the same XDP TX
->>>>> ring which this NDO might be redirecting xdp packets into the same
->>>>> ring, there would be a race accessing this ring resources (buffers
->>>>> and descriptors). Maybe you addressed this issue in the device driver
->>>>> implementation of this ndo or with some NAPI tricks/assumptions, I
->>>>> guess we have the same issue for if you run the same program to
->>>>> redirect traffic from multiple netdevices into one netdevice, how do
->>>>> you synchronize accessing this TX ring ?
->>>>
->>>> The implementation uses a per cpu TX ring to resolve these races. And
->>>> the pair of driver interface API calls, xdp_do_redirect() and xdp_do_flush_map()
->>>> must be completed in a single poll() handler.
->>>>
->>>> This comment was included in the header file to document this,
->>>>
->>>> /* The pair of xdp_do_redirect and xdp_do_flush_map MUST be called in the
->>>>  * same cpu context. Further for best results no more than a single map
->>>>  * for the do_redirect/do_flush pair should be used. This limitation is
->>>>  * because we only track one map and force a flush when the map changes.
->>>>  * This does not appear to be a real limitation for existing software.
->>>>  */
->>>>
->>>> In general some documentation about implementing XDP would probably be
->>>> useful to add in Documentation/networking but this IMO goes beyond just
->>>> this patch series.
->>>>
->>>>>
->>>>> Maybe we need some clear guidelines in this ndo documentation stating
->>>>> how to implement this ndo and what are the assumptions on those XDP
->>>>> TX redirect rings or from which context this ndo can run.
->>>>>
->>>>> can you please elaborate.
->>>>
->>>> I think the best implementation is to use a per cpu TX ring as I did in
->>>> this series. If your device is limited by the number of queues for some
->>>> reason some other scheme would need to be devised. Unfortunately, the only
->>>> thing I've come up for this case (using only this series) would both impact
->>>> performance and make the code complex.
-
-mlx5 and mlx4 have no limitation in regards of number of queues, My only 
-concern is that this looks like a very heavy assumption with some 
-unwanted side effects.
-
-is this per cpu TX ring made only for XDP_REDIRECT action ? or it is 
-shared with the XDP_TX action coming from the same device ?
-
-if yes, wouldn't there be a race on a preempt systems or while 
-XDP_REDIRECT is taking action, a HW IRQ RX interrupt occurs on the 
-target device, which might execute an XDP_TX action at the same time on 
-the same ring ?
-
->>>>
->>>> A nice solution might be to constrain networking "tasks" to only a subset
->>>> of cores. For 64+ core systems this might be a good idea. It would allow
->>>> avoiding locking using per_cpu logic but also avoid networking consuming
->>>> slices of every core in the system. As core count goes up I think we will
->>>> eventually need to address this.I believe Eric was thinking along these
->>>> lines with his netconf talk iirc. Obviously this work is way outside the
->>>> scope of this series though.
+On 07/11/2017 06:05 PM, Nikolay Aleksandrov wrote:
+> On 11/07/17 13:26, Arkadi Sharshevsky wrote:
+>>
+>>
+>> On 07/10/2017 11:59 PM, Vivien Didelot wrote:
+>>> Hi Arkadi,
 >>>
->>> I agree that it is outside the scope of this series, but I think it is
->>> important to consider the impact of the output queue selection in both
->>> a heterogenous and homogenous driver setup and how tx could be
->>> optimized or even considered to be more reliable and I think that was
->>> part of Saeed's point.
+>>> Arkadi Sharshevsky <arkadis@mellanox.com> writes:
 >>>
->>> I got base redirect support for bnxt_en working yesterday, but for it
->>> and other drivers that do not necessarily create a ring/queue per core
->>> like ixgbe there is probably a bit more to work in each driver to
->>> properly track output tx rings/queues than what you have done with
->>> ixgbe.
+>>>>>> +		err = dsa_port_fdb_add(p->dp, fdb_info->addr, fdb_info->vid);
+>>>>>> +		if (err) {
+>>>>>> +			netdev_dbg(dev, "fdb add failed err=%d\n", err);
+>>>>>> +			break;
+>>>>>> +		}
+>>>>>> +		call_switchdev_notifiers(SWITCHDEV_FDB_OFFLOADED, dev,
+>>>>>> +					 &fdb_info->info);
+>>>>>> +		break;
+>>>>>> +
+>>>>>> +	case SWITCHDEV_FDB_DEL_TO_DEVICE:
+>>>>>> +		fdb_info = &switchdev_work->fdb_info;
+>>>>>> +		err = dsa_port_fdb_del(p->dp, fdb_info->addr, fdb_info->vid);
+>>>>>> +		if (err)
+>>>>>> +			netdev_dbg(dev, "fdb del failed err=%d\n", err);
+>>>>>
+>>>>> OK I must have missed from the off-list discussion why we are not
+>>>>> calling the switchdev notifier here?
+>>>>
+>>>> We do not agree on it actually, that is why it was moved to the list.
+>>>> I think that delete should succeed, you should retry until succession.
+>>>>
+>>>> The deletion is done under spinlock in the bridge so you cannot block,
+>>>> thus delete cannot fail due to hardware failure. Calling it here doesn't
+>>>> make sense because the bridge probably already deleted this FDB.
+>>>
+>>> So as we discussed, the problem here is that if dsa_port_fdb_del fails
+>>> for some probable reasons (MDIO timeout, weak GPIO lines, etc.), Linux
+>>> bridge will delete the entry in software, dumping bridge fdb will show
+>>> nothing, but the entry would still be programmed in hardware and the
+>>> network can thus be inconsistent, unsupposedly switching frames.
+>>>
+>>> IMHO the correct way for bridge to use the notification chain is to make
+>>> SWITCHDEV_FDB_DEL_TO_DEVICE symmetrical to SWITCHDEV_FDB_ADD_TO_DEVICE:
+>>> if an entry has been marked as offloaded, bridge must mark the entry as
+>>> to-be-deleted and do not delete the software entry until the driver
+>>> notifies back the successful deletion.
+>>>
+>>> If that is hardly feasible due to some bridge limitations, we must
+>>> explain this in a comment and use something more explosive than a simple
+>>> netdev_dbg to warn the user about the broken network setup...
+>>>
+>>>
+>>> Thanks,
+>>>
+>>>         Vivien
 >>>
 >>
->> The problem, in my mind at least, is if you do not have a ring per core
->> how does the locking work? I don't see any good way to do this outside
->> of locking which I was trying to avoid.
+>> Hi Nikolay,
+>>
+>> Vivien raised inconsistency issue with the current switchdev
+>> notification chain in case of FDB del. In case of static FDB delete,
+>> notification will be sent to the driver, followed by deletion of the
+>> software entry without waiting for the hardware delete. In case of
+>> hardware deletion failure the consecutive FDB dump will not show the
+>> deleted entry, yet, the entry will stay in hardware.
+>>
+>> The deletion is done under lock thus the hardware deletion is deferred,
+>> and cannot fail due to hardware removal failure. Thus the above proposed
+>> solution by Vivien can lead to confusing situation:
+>>
+>> 1. User deletes the entry
+>> 2. Deletion succeed
+>> 3. User dumps FDB and still sees this entry due to hardware failure,
+>>    what should he do? retry to delete until the FDB dump will not show
+>>    the entry?
+>>
+>> Would like to hear you opinion about this solution.
+>>
+>> IMHO in this case the driver should retry to delete, in case of
+>> several retries the driver should maybe:
+>> 1. Trap the traffic to CPU (dint think it possible in case of DSA).
+>> 2. Disable the port (its more explosive then netdev_dbg).
+>>
+>> Thanks,
+>> Arkadi
+>>
+>>
+> 
+> Hi,
+> Looking at the code - it would seem that retrying is the only current option
+> with the way these switchdev notifications are handled. They cannot fail, meaning
+> from the bridge POV these ops must always succeed and errors are ignored, so the
+> driver should do everything possible to stay in sync, and in case all fails
+> then disabling the port seems like the best option to me, to show that something is
+> clearly wrong and avoid further issues, but DSA maintainers can comment more
+> on how to handle failure.
+> 
+> That being said:
+> This sounds a lot like the switchdev notifications vs callbacks discussions that we've
+> had in the past. Also what happened with the prepare+commit and all that ? If the hash_lock
+> is the main problem let's work towards improving that and making the fdb code handle
+> switchdev similar to the vlan code.
+> 
+> Cheers,
+>  Nik
+> 
 
-I also agree this is outside the scope of the series, but i also tend to 
-agree with Andy and Jesper, we need some-kind of a middle ground to at 
-least address the 64+ core systems and limited drivers/NICs and improve 
-XDP redirect reliability.
+Vlans can be only added by user under rtnl so its possible to sleep. On
+the other hand FDBs can be learned in atomic context, thus the
+notification chain is atomic. One Possible way I thought about doing it
+is to maintain bridge internal ordered workqueue for the FDBs learned in
+atomic context, furthermore the FDB table will be protected by mutex.
+The STATIC entries are added in user context so the user will add
+directly to this hash table and could sleep.
 
-I also don't see any other solution other than having a Qdisc like layer 
-with some locking mechanism. it should be a good practice to separate 
-between the XDP redirect work producers and the actual target driver's 
-XDP ring consumers, which will remove the dependency and assumption of 
-the per cpu ring.
+Its not very good, but I don't think about another solution here.
 
-The question is do we want this ? and what is the performance impact?
+Regarding notification or not, drivers should know about FDBs that are
+not directly related to them like in case of vxlan (vxlan device is not
+upper device of some siwthcdev port) so notification is better approach
+in my opinion.
 
->
-> My solution would be to queue the XDP packets in the devmap, and then
-> bulk xdp_xmit them to the device on flush.  Talking a lock per bulk
-> amortize cost to basically nothing.  The other advantage of this is
-> improving the instruction-cache (re)usage.
->
-> One thing I don't like with this patchset, is this implicit requirement
-> it put on drivers, that they must have a HW TX-ring queue per CPU in the
-> system.
->
+Regarding prepare/commit, it is not used in mlxsw. And we would like
+to remove it from DSA (in case of FDBs). The prepare phase cannot
+assure success because errors could happen unrelated to reserved space
+in the switch in the commit stage..
 
-+1, but I am not totally against the current approach with a future task 
-to improve.
+Thanks,
+Arkadi
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
