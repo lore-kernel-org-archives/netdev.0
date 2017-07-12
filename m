@@ -1,72 +1,204 @@
-From: Lin Yun Sheng <linyunsheng@huawei.com>
-Subject: [PATCH net] net: hns: Bugfix for Tx timeout handling in hns driver
-Date: Wed, 12 Jul 2017 19:09:59 +0800
-Message-ID: <1499857799-16124-1-git-send-email-linyunsheng@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
-        <liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
-        <gabriele.paoloni@huawei.com>, <john.garry@huawei.com>,
-        <linuxarm@huawei.com>, <yisen.zhuang@huawei.com>,
-        <salil.mehta@huawei.com>, <lipeng321@huawei.com>,
-        <tremyfr@gmail.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: martinbj2008@gmail.com
+Subject: [PATCH v1 net-next 2/5] drop_monitor: let dm trace state support ns
+Date: Wed, 12 Jul 2017 18:40:50 +0800
+Message-ID: <1499856053-30475-2-git-send-email-zhangjunweimartin@didichuxing.com>
+References: <1499856053-30475-1-git-send-email-zhangjunweimartin@didichuxing.com>
+Cc: netdev@vger.kernel.org, martinbj2008@gmail.com,
+        zhangjunweimartin@didichuxing.com
+To: nhorman@tuxdriver.com, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:32820 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756260AbdGLKlP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2017 06:41:15 -0400
+Received: by mail-pg0-f67.google.com with SMTP id u62so2561911pgb.0
+        for <netdev@vger.kernel.org>; Wed, 12 Jul 2017 03:41:15 -0700 (PDT)
+In-Reply-To: <1499856053-30475-1-git-send-email-zhangjunweimartin@didichuxing.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When hns port type is not debug mode, netif_tx_disable is called
-when there is a tx timeout, which requires system reboot to return
-to normal state. This patch fix this problem by resetting the net
-dev.
+From: martin Zhang <zhangjunweimartin@didichuxing.com>
 
-Fixes: b5996f11ea54 ("net: add Hisilicon Network Subsystem basic ethernet support")
-Signed-off-by: Lin Yun Sheng <linyunsheng@huawei.com>
+Every net ns has its own trace_state,
+and use a ref to control trace state of whole kernel.
+
+trace_state in struct per_ns_dm_cb:
+Just like the previous trace state, record the trace state for
+every net ns. Possible values are ON/OFF.
+
+dm_trace_ref: record how many net namespace is set to
+TRACE_ON. increase when a net ns change to ON,
+and decrease for OFF.
+
+Signed-off-by: martin Zhang <zhangjunweimartin@didichuxing.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_enet.c | 16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+ net/core/drop_monitor.c | 88 +++++++++++++++++++++++++++++++++++++++++--------
+ 1 file changed, 75 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index fe166e0..3987699 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -1378,13 +1378,20 @@ void hns_nic_net_reset(struct net_device *ndev)
- void hns_nic_net_reinit(struct net_device *netdev)
+diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
+index 6a75e04..0cf25c3 100644
+--- a/net/core/drop_monitor.c
++++ b/net/core/drop_monitor.c
+@@ -49,10 +49,16 @@
+ struct ns_pcpu_dm_data {
+ };
+ 
++/**
++ * struct per_ns_dm_cb  - drop monitor control block in per net ns.
++ * @trace_state:    the trace state.
++ * @ns_dm_mutex:    protect whole per_ns_dm_cb.
++ */
+ struct per_ns_dm_cb {
++	int trace_state;
++	struct mutex ns_dm_mutex;
+ };
+ 
+-static int trace_state = TRACE_OFF;
+ static DEFINE_MUTEX(trace_state_mutex);
+ 
+ struct per_cpu_dm_data {
+@@ -70,6 +76,7 @@ struct dm_hw_stat_delta {
+ 	unsigned long last_drop_val;
+ };
+ 
++int dm_trace_ref;
+ static int dm_net_id __read_mostly;
+ static struct genl_family net_drop_monitor_family;
+ 
+@@ -254,9 +261,16 @@ static int set_all_monitor_traces(int state)
+ 
+ 	mutex_lock(&trace_state_mutex);
+ 
+-	if (state == trace_state) {
+-		rc = -EAGAIN;
+-		goto out_unlock;
++	//Cases: Only inc/dec reference value.
++	if (state == TRACE_ON && dm_trace_ref > 0)
++		goto skip_register_trace;
++	else if (state == TRACE_OFF && dm_trace_ref > 1)
++		goto skip_register_trace;
++
++	//Bad cases.
++	if (dm_trace_ref < 0 || (dm_trace_ref == 0 && state == TRACE_OFF)) {
++		rc = -EINPROGRESS;
++		goto skip_register_trace;
+ 	}
+ 
+ 	switch (state) {
+@@ -294,12 +308,15 @@ static int set_all_monitor_traces(int state)
+ 		break;
+ 	}
+ 
+-	if (!rc)
+-		trace_state = state;
+-	else
++skip_register_trace:
++	if (!rc) {
++		if (state == TRACE_ON)
++			dm_trace_ref++;
++		else if (state == TRACE_OFF)
++			dm_trace_ref--;
++	} else
+ 		rc = -EINPROGRESS;
+ 
+-out_unlock:
+ 	mutex_unlock(&trace_state_mutex);
+ 
+ 	return rc;
+@@ -315,22 +332,65 @@ static int net_dm_cmd_config(struct sk_buff *skb,
+ static int net_dm_cmd_trace(struct sk_buff *skb,
+ 			struct genl_info *info)
  {
- 	struct hns_nic_priv *priv = netdev_priv(netdev);
-+	enum hnae_port_type type = priv->ae_handle->port_type;
- 
- 	netif_trans_update(priv->netdev);
- 	while (test_and_set_bit(NIC_STATE_REINITING, &priv->state))
- 		usleep_range(1000, 2000);
- 
- 	hns_nic_net_down(netdev);
--	hns_nic_net_reset(netdev);
++	int state;
++	struct net *net;
++	struct per_ns_dm_cb *ns_dm_cb;
 +
-+	/* Only do hns_nic_net_reset in debug mode
-+	 * because of hardware limitation.
-+	 */
-+	if (type == HNAE_PORT_DEBUG)
-+		hns_nic_net_reset(netdev);
++	if (!skb->sk)
++		return -ENOTSUPP;
++	net = sock_net(skb->sk);
++	ns_dm_cb = net_generic(net, dm_net_id);
 +
- 	(void)hns_nic_net_up(netdev);
- 	clear_bit(NIC_STATE_REINITING, &priv->state);
- }
-@@ -1997,13 +2004,8 @@ static void hns_nic_reset_subtask(struct hns_nic_priv *priv)
- 	rtnl_lock();
- 	/* put off any impending NetWatchDogTimeout */
- 	netif_trans_update(priv->netdev);
-+	hns_nic_net_reinit(priv->netdev);
++	if (!ns_dm_cb)
++		return -ENOMEM;
++
+ 	switch (info->genlhdr->cmd) {
+ 	case NET_DM_CMD_START:
+-		return set_all_monitor_traces(TRACE_ON);
++		state = TRACE_ON;
++		break;
++
+ 	case NET_DM_CMD_STOP:
+-		return set_all_monitor_traces(TRACE_OFF);
++		state = TRACE_OFF;
++		break;
++
++	default:
++		return -ENOTSUPP;
+ 	}
  
--	if (type == HNAE_PORT_DEBUG) {
--		hns_nic_net_reinit(priv->netdev);
--	} else {
--		netif_carrier_off(priv->netdev);
--		netif_tx_disable(priv->netdev);
--	}
- 	rtnl_unlock();
+-	return -ENOTSUPP;
++	mutex_lock(&ns_dm_cb->ns_dm_mutex);
++	if (state == ns_dm_cb->trace_state) {
++		mutex_unlock(&ns_dm_cb->ns_dm_mutex);
++		return -EAGAIN;
++	}
++
++	if (set_all_monitor_traces(state) != 0) {
++		mutex_unlock(&ns_dm_cb->ns_dm_mutex);
++		return -ENOTSUPP;
++	}
++
++	ns_dm_cb->trace_state = state;
++	mutex_unlock(&ns_dm_cb->ns_dm_mutex);
++
++	return 0;
  }
  
+ static int dropmon_net_event(struct notifier_block *ev_block,
+ 			     unsigned long event, void *ptr)
+ {
+-	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
++	struct net *net;
++	struct net_device *dev;
+ 	struct dm_hw_stat_delta *new_stat = NULL;
+ 	struct dm_hw_stat_delta *tmp;
++	struct per_ns_dm_cb *ns_dm_cb;
++
++	dev = netdev_notifier_info_to_dev(ptr);
++	if (!dev)
++		goto out;
++
++	net = dev_net(dev);
++	ns_dm_cb = net_generic(net, dm_net_id);
++	if (!ns_dm_cb)
++		goto out;
+ 
+ 	switch (event) {
+ 	case NETDEV_REGISTER:
+@@ -350,7 +410,7 @@ static int dropmon_net_event(struct notifier_block *ev_block,
+ 		list_for_each_entry_safe(new_stat, tmp, &hw_stats_list, list) {
+ 			if (new_stat->dev == dev) {
+ 				new_stat->dev = NULL;
+-				if (trace_state == TRACE_OFF) {
++				if (ns_dm_cb->trace_state == TRACE_OFF) {
+ 					list_del_rcu(&new_stat->list);
+ 					kfree_rcu(new_stat, rcu);
+ 					break;
+@@ -402,6 +462,7 @@ static int __net_init dm_net_init(struct net *net)
+ 	if (!ns_dm_cb)
+ 		return -ENOMEM;
+ 
++	ns_dm_cb->trace_state = TRACE_OFF;
+ 	return 0;
+ }
+ 
+@@ -432,6 +493,7 @@ static int __init init_net_drop_monitor(void)
+ 		pr_err("Unable to store program counters on this arch, Drop monitor failed\n");
+ 		return -ENOSPC;
+ 	}
++	dm_trace_ref = 0;
+ 	rc = register_pernet_subsys(&dm_net_ops);
+ 
+ 	rc = genl_register_family(&net_drop_monitor_family);
 -- 
-1.9.1
+1.8.3.1
