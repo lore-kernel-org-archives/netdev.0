@@ -1,59 +1,44 @@
-From: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 1/1] mlx4_en: remove unnecessary returned value check
-Date: Wed, 12 Jul 2017 02:44:33 -0400
-Message-ID: <1499841873-10275-1-git-send-email-yanjun.zhu@oracle.com>
-To: tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: Re: [PATCH] rt2x00: make const array glrt_table static
+Date: Wed, 12 Jul 2017 08:49:12 +0200
+Message-ID: <20170712064911.GA2769@redhat.com>
+References: <20170711114733.15387-1-colin.king@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Helmut Schaa <helmut.schaa@googlemail.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Colin King <colin.king@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:40354 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755903AbdGLGuP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Jul 2017 02:50:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20170711114733.15387-1-colin.king@canonical.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The function __mlx4_zone_remove_one_entry always returns zero. So
-it is not necessary to check it.
+On Tue, Jul 11, 2017 at 12:47:33PM +0100, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> Don't populate array glrt_table on the stack but make it static.
+> Makes the object code a smaller by over 670 bytes:
+> 
+> Before:
+>    text	   data	    bss	    dec	    hex	filename
+>  131772	   4733	      0	 136505	  21539	rt2800lib.o
+> 
+> After:
+>    text	   data	    bss	    dec	    hex	filename
+>  131043	   4789	      0	 135832	  21298	rt2800lib.o
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Cc: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
----
- drivers/net/ethernet/mellanox/mlx4/alloc.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+Acked-by: Stanislaw Gruszka <sgruszka@redhat.com>
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/alloc.c b/drivers/net/ethernet/mellanox/mlx4/alloc.c
-index 249a458..bfb185d 100644
---- a/drivers/net/ethernet/mellanox/mlx4/alloc.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/alloc.c
-@@ -283,7 +283,7 @@ int mlx4_zone_add_one(struct mlx4_zone_allocator *zone_alloc,
- }
- 
- /* Should be called under a lock */
--static int __mlx4_zone_remove_one_entry(struct mlx4_zone_entry *entry)
-+static void __mlx4_zone_remove_one_entry(struct mlx4_zone_entry *entry)
- {
- 	struct mlx4_zone_allocator *zone_alloc = entry->allocator;
- 
-@@ -315,8 +315,6 @@ static int __mlx4_zone_remove_one_entry(struct mlx4_zone_entry *entry)
- 		}
- 		zone_alloc->mask = mask;
- 	}
--
--	return 0;
- }
- 
- void mlx4_zone_allocator_destroy(struct mlx4_zone_allocator *zone_alloc)
-@@ -468,7 +466,8 @@ int mlx4_zone_remove_one(struct mlx4_zone_allocator *zones, u32 uid)
- 		goto out;
- 	}
- 
--	res = __mlx4_zone_remove_one_entry(zone);
-+	__mlx4_zone_remove_one_entry(zone);
-+	res = 0;
- 
- out:
- 	spin_unlock(&zones->lock);
--- 
-2.7.4
+I wonder why compiler do not optimize by itself since array is
+const, but patch is ok.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Stanislaw 
