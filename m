@@ -1,25 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 00/20] Huawei HiNIC Ethernet Driver
-Date: Wed, 12 Jul 2017 08:10:21 -0700 (PDT)
-Message-ID: <20170712.081021.2202480690720488685.davem@davemloft.net>
-References: <cover.1499865197.git.aviad.krawczyk@huawei.com>
+Subject: Re: [patch net 0/4] mlxsw: spectrum: Various fixes
+Date: Wed, 12 Jul 2017 08:16:53 -0700 (PDT)
+Message-ID: <20170712.081653.2173301523941887907.davem@davemloft.net>
+References: <20170712071255.1232-1-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        bc.y@huawei.com, victor.gissin@huawei.com, zhaochen6@huawei.com,
-        tony.qu@huawei.com
-To: aviad.krawczyk@huawei.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1499865197.git.aviad.krawczyk@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, mlxsw@mellanox.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:55250 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752735AbdGLPQz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2017 11:16:55 -0400
+In-Reply-To: <20170712071255.1232-1-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed, 12 Jul 2017 09:12:51 +0200
 
-The net-next tree is closed:
+> First patch adds a missing rollback in error path. Second patch prevents
+> a use-after-free during IPv4 route replace. Last two patches fix warnings
+> from static checkers.
 
-	http://vger.kernel.org/~davem/net-next.html
-
-Please resubmit this when the net-next tree is open again.
-
-Thank you.
+Series applied, thanks.
