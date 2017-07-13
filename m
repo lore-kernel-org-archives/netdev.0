@@ -1,68 +1,106 @@
-From: "Aviad Krawczyk (A)" <aviad.krawczyk@huawei.com>
-Subject: Re: [PATCH net 20/20] net/hinic: Add ethtool and stats
-Date: Thu, 13 Jul 2017 16:16:46 +0300
-Message-ID: <a83d8d80-8a4f-1a65-ff4e-71bf4d0828d1@huawei.com>
-References: <cover.1499865197.git.aviad.krawczyk@huawei.com>
- <bd60f835144c37334a53df6a053b7efcc4c26c41.1499865198.git.aviad.krawczyk@huawei.com>
- <20170712154347.GH2557@lunn.ch>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH v7 1/3] PCI: Add new PCIe Fabric End Node flag, PCI_DEV_FLAGS_NO_RELAXED_ORDERING
+Date: Thu, 13 Jul 2017 22:21:30 +0800
+Message-ID: <1499955692-26556-2-git-send-email-dingtianhong@huawei.com>
+References: <1499955692-26556-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <linux-kernel@vger.kernel.org>,
-        <netdev@vger.kernel.org>, <bc.y@huawei.com>,
-        <victor.gissin@huawei.com>, <zhaochen6@huawei.com>,
-        <tony.qu@huawei.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([45.249.212.187]:9764 "EHLO
-        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751176AbdGMNRH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2017 09:17:07 -0400
-In-Reply-To: <20170712154347.GH2557@lunn.ch>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Ding Tianhong <dingtianhong@huawei.com>
+To: <leedom@chelsio.com>, <ashok.raj@intel.com>, <bhelgaas@google.com>,
+        <helgaas@kernel.org>, <werner@chelsio.com>, <ganeshgr@chelsio.com>,
+        <asit.k.mallick@intel.com>, <patrick.j.cramer@intel.com>,
+        <Suravee.Suthikulpanit@amd.com>, <Bob.Shaw@amd.com>,
+        <l.stach@pengutronix.de>, <amira@mellanox.com>,
+        <gabriele.paoloni@huawei.com>, <David.Laight@aculab.com>,
+        <jeffrey.t.kirsher@intel.com>, <catalin.marinas@arm.com>,
+        <will.deacon@arm.com>, <mark.rutland@arm.com>,
+        <robin.murphy@arm.com>, <davem@davemloft.net>,
+        <alexander.duyck@gmail.com>,
+        <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+        <linux-pci@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <linuxarm@huawei.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1499955692-26556-1-git-send-email-dingtianhong@huawei.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Casey Leedom <leedom@chelsio.com>
 
-Hi Andrew,
+The new flag PCI_DEV_FLAGS_NO_RELAXED_ORDERING indicates that the Relaxed
+Ordering Attribute should not be used on Transaction Layer Packets destined
+for the PCIe End Node so flagged.  Initially flagged this way are Intel
+E5-26xx Root Complex Ports which suffer from a Flow Control Credit
+Performance Problem and AMD A1100 ARM ("SEATTLE") Root Complex Ports which
+don't obey PCIe 3.0 ordering rules which can lead to Data Corruption.
 
-We will separate the patches when we will resubmit.
+Signed-off-by: Casey Leedom <leedom@chelsio.com>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ drivers/pci/quirks.c | 38 ++++++++++++++++++++++++++++++++++++++
+ include/linux/pci.h  |  2 ++
+ 2 files changed, 40 insertions(+)
 
-Aviad
-
-On 7/12/2017 6:43 PM, Andrew Lunn wrote:
-> On Wed, Jul 12, 2017 at 10:17:26PM +0800, Aviad Krawczyk wrote:
-> 
-> Hi Avaid
-> 
->> +
->> +static void hinic_tx_timeout(struct net_device *netdev)
->> +{
->> +	struct hinic_dev *nic_dev = netdev_priv(netdev);
->> +
->> +	netif_err(nic_dev, drv, netdev, "Tx timeout\n");
->> +}
->> +
->> +#ifdef CONFIG_NET_POLL_CONTROLLER
->> +static void hinic_netpoll(struct net_device *netdev)
->> +{
->> +	struct hinic_dev *nic_dev = netdev_priv(netdev);
->> +	struct hinic_hwdev *hwdev = nic_dev->hwdev;
->> +	int i, num_qps = hinic_hwdev_num_qps(hwdev);
->> +
->> +	for (i = 0; i < num_qps; i++) {
->> +		struct hinic_txq *txq = &nic_dev->txqs[i];
->> +		struct hinic_rxq *rxq = &nic_dev->rxqs[i];
->> +
->> +		napi_schedule(&txq->napi);
->> +		napi_schedule(&rxq->napi);
->> +	}
->> +}
->> +#endif
-> 
-> This has nothing to do with ethtool support. Separate patch please.
-> 
->      Andrew
-> 
-> .
-> 
+diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+index 6967c6b..1e1cdbe 100644
+--- a/drivers/pci/quirks.c
++++ b/drivers/pci/quirks.c
+@@ -4016,6 +4016,44 @@ static void quirk_tw686x_class(struct pci_dev *pdev)
+ 			      quirk_tw686x_class);
+ 
+ /*
++ * Some devices have problems with Transaction Layer Packets with the Relaxed
++ * Ordering Attribute set.  Such devices should mark themselves and other
++ * Device Drivers should check before sending TLPs with RO set.
++ */
++static void quirk_relaxedordering_disable(struct pci_dev *dev)
++{
++	dev->dev_flags |= PCI_DEV_FLAGS_NO_RELAXED_ORDERING;
++}
++
++/*
++ * Intel E5-26xx Root Complex has a Flow Control Credit issue which can
++ * cause performance problems with Upstream Transaction Layer Packets with
++ * Relaxed Ordering set.
++ */
++DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_VENDOR_ID_INTEL, 0x6f02, PCI_CLASS_NOT_DEFINED, 8,
++			      quirk_relaxedordering_disable);
++DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_VENDOR_ID_INTEL, 0x6f04, PCI_CLASS_NOT_DEFINED, 8,
++			      quirk_relaxedordering_disable);
++DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_VENDOR_ID_INTEL, 0x6f08, PCI_CLASS_NOT_DEFINED, 8,
++			      quirk_relaxedordering_disable);
++
++/*
++ * The AMD ARM A1100 (AKA "SEATTLE") SoC has a bug in its PCIe Root Complex
++ * where Upstream Transaction Layer Packets with the Relaxed Ordering
++ * Attribute clear are allowed to bypass earlier TLPs with Relaxed Ordering
++ * set.  This is a violation of the PCIe 3.0 Transaction Ordering Rules
++ * outlined in Section 2.4.1 (PCI Express(r) Base Specification Revision 3.0
++ * November 10, 2010).  As a result, on this platform we can't use Relaxed
++ * Ordering for Upstream TLPs.
++ */
++DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_VENDOR_ID_AMD, 0x1a00, PCI_CLASS_NOT_DEFINED, 8,
++			      quirk_relaxedordering_disable);
++DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_VENDOR_ID_AMD, 0x1a01, PCI_CLASS_NOT_DEFINED, 8,
++			      quirk_relaxedordering_disable);
++DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_VENDOR_ID_AMD, 0x1a02, PCI_CLASS_NOT_DEFINED, 8,
++			      quirk_relaxedordering_disable);
++
++/*
+  * Per PCIe r3.0, sec 2.2.9, "Completion headers must supply the same
+  * values for the Attribute as were supplied in the header of the
+  * corresponding Request, except as explicitly allowed when IDO is used."
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index 4869e66..412ec1c 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -188,6 +188,8 @@ enum pci_dev_flags {
+ 	 * the direct_complete optimization.
+ 	 */
+ 	PCI_DEV_FLAGS_NEEDS_RESUME = (__force pci_dev_flags_t) (1 << 11),
++	/* Don't use Relaxed Ordering for TLPs directed at this device */
++	PCI_DEV_FLAGS_NO_RELAXED_ORDERING = (__force pci_dev_flags_t) (1 << 12),
+ };
+ 
+ enum pci_irq_reroute_variant {
+-- 
+1.8.3.1
