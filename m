@@ -1,51 +1,37 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [PATCH net] libceph: osdmap: Fix some NULL dereferences
-Date: Thu, 13 Jul 2017 10:45:17 +0300
-Message-ID: <20170713074517.io64uezw3qf6oush@mwanda>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: net-next STATUS page
+Date: Thu, 13 Jul 2017 10:56:39 +0200
+Message-ID: <20170713085639.GA2060@nanopsycho>
+References: <20170711.072416.2014054416066621222.davem@davemloft.net>
+ <20170711115841.64d9aa1d@xeon-e3>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Yan, Zheng" <zyan@redhat.com>, Sage Weil <sage@redhat.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        ceph-devel@vger.kernel.org, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: Ilya Dryomov <idryomov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:27687 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751128AbdGMHpf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2017 03:45:35 -0400
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-wireless@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170711115841.64d9aa1d@xeon-e3>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There are hidden gotos in the ceph_decode_* macros.  We need to set the
-"err" variable on these error paths otherwise we end up returning
-ERR_PTR(0) which is NULL.  It causes NULL dereferences in the callers.
+Tue, Jul 11, 2017 at 08:58:41PM CEST, stephen@networkplumber.org wrote:
+>On Tue, 11 Jul 2017 07:24:16 -0700 (PDT)
+>David Miller <davem@davemloft.net> wrote:
+>
+>> It has gotten to the point that even casually walking around
+>> Faro, Portugal last week, random German tourists would stop
+>> me in the street and ask if net-next was open or not.
+>> 
+>> Therefore, in order to avoid any and all confusion I have created this
+>> web site:
+>> 
+>> 	http://vger.kernel.org/~davem/net-next.html
+>> 
+>> Please refer to it if you are ever in doubt.
+>> 
+>> Thanks!
+>
+>Where is the app?
 
-Fixes: 278b1d709c6a ("libceph: ceph_decode_skip_* helpers")
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-diff --git a/net/ceph/osdmap.c b/net/ceph/osdmap.c
-index 864789c5974e..c7521a847ef7 100644
---- a/net/ceph/osdmap.c
-+++ b/net/ceph/osdmap.c
-@@ -510,6 +510,7 @@ static struct crush_map *crush_decode(void *pbyval, void *end)
- 		}
- 	}
- 
-+	err = -EINVAL;
- 	ceph_decode_skip_map(p, end, 32, string, bad); /* type_map */
- 	ceph_decode_skip_map(p, end, 32, string, bad); /* name_map */
- 	ceph_decode_skip_map(p, end, 32, string, bad); /* rule_name_map */
-@@ -1825,9 +1826,9 @@ struct ceph_osdmap *osdmap_apply_incremental(void **p, void *end,
- 	if (struct_v >= 3) {
- 		/* new_erasure_code_profiles */
- 		ceph_decode_skip_map_of_map(p, end, string, string, string,
--					    bad);
-+					    e_inval);
- 		/* old_erasure_code_profiles */
--		ceph_decode_skip_set(p, end, string, bad);
-+		ceph_decode_skip_set(p, end, string, e_inval);
- 	}
- 
- 	if (struct_v >= 4) {
+There would be good to have git-send-email hook to check this :)
