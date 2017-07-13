@@ -1,36 +1,51 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: Re: [PATCH net] mlxsw: spectrum_router: do not drop refcnt on fib
- rule
-Date: Fri, 14 Jul 2017 00:05:38 +0300
-Message-ID: <20170713210538.GA20474@splinter>
-References: <1499973097-14579-1-git-send-email-dsahern@gmail.com>
- <2b419d5a-8dc7-6066-4c26-699a881ce425@gmail.com>
- <20170713203358.GA8349@splinter>
- <ca0fb684-34fd-0744-1d84-829c187f6d70@gmail.com>
+From: Sinan Kaya <okaya@codeaurora.org>
+Subject: Re: [PATCH v7 2/3] PCI: Enable PCIe Relaxed Ordering if supported
+Date: Thu, 13 Jul 2017 17:09:55 -0400
+Message-ID: <e496ff1d-b836-ebef-fdf7-76273aaaaef6@codeaurora.org>
+References: <1499955692-26556-1-git-send-email-dingtianhong@huawei.com>
+ <1499955692-26556-3-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jiri@mellanox.com, netdev@vger.kernel.org
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0042.outbound.protection.outlook.com ([104.47.0.42]:14499
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752478AbdGMVFp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 13 Jul 2017 17:05:45 -0400
-Content-Disposition: inline
-In-Reply-To: <ca0fb684-34fd-0744-1d84-829c187f6d70@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Ding Tianhong <dingtianhong@huawei.com>, leedom@chelsio.com,
+        ashok.raj@intel.com, bhelgaas@google.com, helgaas@kernel.org,
+        werner@chelsio.com, ganeshgr@chelsio.com, asit.k.mallick@intel.com,
+        patrick.j.cramer@intel.com, Suravee.Suthikulpanit@amd.com,
+        Bob.Shaw@amd.com, l.stach@pengutronix.de, amira@mellanox.com,
+        gabriele.paoloni@huawei.com, David.Laight@aculab.com,
+        jeffrey.t.kirsher@intel.com, catalin.marinas@arm.com,
+        will.deacon@arm.com, mark.rutland@arm.com, robin.murphy@arm.com,
+        davem@davemloft.net, alexander.duyck@gmail.com,
+        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+        linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linuxarm@huawei.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1499955692-26556-3-git-send-email-dingtianhong@huawei.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 13, 2017 at 02:39:10PM -0600, David Ahern wrote:
-> On 7/13/17 2:33 PM, Ido Schimmel wrote:
-> > Remains where? It's not clear to me how you concluded mlxsw is at fault.
-> > My setup is running net-next with the refcount patches and I didn't
-> > observe this.
-> 
-> Create a VRF.
+On 7/13/2017 10:21 AM, Ding Tianhong wrote:
+> static void pci_configure_relaxed_ordering(struct pci_dev *dev)
+> +{
+> +	/* We should not alter the relaxed ordering bit for the VF */
+> +	if (dev->is_virtfn)
+> +		return;
+> +
+> +	/* If the releaxed ordering enable bit is not set, do nothing. */
+> +	if (!pcie_relaxed_ordering_supported(dev))
+> +		return;
+> +
+> +	if (pci_dev_should_disable_relaxed_ordering(dev)) {
+> +		pcie_clear_relaxed_ordering(dev);
+> +		dev_info(&dev->dev, "Disable Relaxed Ordering\n");
+> +	}
+> +}
 
-BTW, this didn't show up on my dev branch as I've patches that introduce
-IPv6 support where I move the rules notifications to core, after the
-refcount is set to 1 and just before the netlink notification is sent.
-https://github.com/idosch/linux/commit/7b17a21b1d71fc9a1969080e5fdcb90f376b73b2
+I couldn't find anywhere where you actually enable the relaxed ordering
+like the subject suggests.
+
+-- 
+Sinan Kaya
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm Technologies, Inc.
+Qualcomm Technologies, Inc. is a member of the Code Aurora Forum, a Linux Foundation Collaborative Project.
