@@ -1,206 +1,39 @@
-From: Greg Rose <gvrose8192@gmail.com>
-Subject: Re: [PATCH] datapath: Fix for force/commit action failures
-Date: Thu, 13 Jul 2017 15:38:49 -0700
-Message-ID: <0d78303a-31b2-f59c-2b47-0e684ff0f629@gmail.com>
-References: <1499963124-7841-1-git-send-email-gvrose8192@gmail.com>
- <CAPWQB7EvfsMCddisznPgfNQPtHMboKz2hoTiH6uknmTwx+B5Dw@mail.gmail.com>
- <4a063b92-1e36-db6f-d6cc-4f215637f549@gmail.com>
- <CAPWQB7GzQ4qm9dJjuzUm7nO2HHiNq9M+B4c00NNKqOzx9_O48g@mail.gmail.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] zd1211rw: fix spelling mistake 'hybernate' -> 'hibernate'
+Date: Thu, 13 Jul 2017 23:48:29 +0100
+Message-ID: <20170713224829.15459-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, ovs dev <dev@openvswitch.org>,
-        Pravin Shalar <pshelar@nicira.com>
-To: Joe Stringer <joe@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:36504 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751216AbdGMWix (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2017 18:38:53 -0400
-Received: by mail-pg0-f68.google.com with SMTP id y129so8381796pgy.3
-        for <netdev@vger.kernel.org>; Thu, 13 Jul 2017 15:38:53 -0700 (PDT)
-In-Reply-To: <CAPWQB7GzQ4qm9dJjuzUm7nO2HHiNq9M+B4c00NNKqOzx9_O48g@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: Daniel Drake <dsd@gentoo.org>, Ulrich Kunitz <kune@deine-taler.de>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/13/2017 11:03 AM, Joe Stringer wrote:
-> On 13 July 2017 at 11:01, Greg Rose <gvrose8192@gmail.com> wrote:
->> On 07/13/2017 10:46 AM, Joe Stringer wrote:
->>>
->>> On 13 July 2017 at 09:25, Greg Rose <gvrose8192@gmail.com> wrote:
->>>>
->>>> When there is an established connection in direction A->B, it is
->>>> possible to receive a packet on port B which then executes
->>>> ct(commit,force) without first performing ct() - ie, a lookup.
->>>> In this case, we would expect that this packet can delete the existing
->>>> entry so that we can commit a connection with direction B->A. However,
->>>> currently we only perform a check in skb_nfct_cached() for whether
->>>> OVS_CS_F_TRACKED is set and OVS_CS_F_INVALID is not set, ie that a
->>>> lookup previously occurred. In the above scenario, a lookup has not
->>>> occurred but we should still be able to statelessly look up the
->>>> existing entry and potentially delete the entry if it is in the
->>>> opposite direction.
->>>>
->>>> This patch extends the check to also hint that if the action has the
->>>> force flag set, then we will lookup the existing entry so that the
->>>> force check at the end of skb_nfct_cached has the ability to delete
->>>> the connection.
->>>>
->>>> CC: dev@openvswitch.org
->>>> CC: Pravin Shalar <pshelar@nicira.com>
->>>> Signed-off-by: Joe Stringer <joe@ovn.org>
->>>> Signed-off-by: Greg Rose <gvrose8192@gmail.com>
->>>> ---
->>>
->>>
->>> A couple more administrative notes, on netdev the module name in the
->>> patch subject for openvswitch is "openvswitch" rather than datapath;
->>
->>
->> Right you are.
->>
->>> and patches rather than having just "PATCH" as the subject prefix
->>> should state the tree. In this case, it's a bugfix so it should be
->>> "PATCH net".
->>
->>
->> I knew that... forgot the format patch option to add it.  Net-next
->> is closed so that would be mandatory.
->>
->>   Furthermore, if you're able to figure out which commit
->>>
->>> introduced the issue (I believe it's introduced by the force commit
->>> patch), then you should place the "Fixes: " tag. I can give you some
->>> pointers off-list on how to do this (git blame and some basic
->>> formatting of the targeted patch should do the trick - this tag
->>> expects a 12-digit hash).
->>>
->>> For reference, I ended up looking it up during review, this is the
->>> line you'd add:
->>> Fixes: dd41d33f0b03 ("openvswitch: Add force commit.")
->>
->>
->> Oh, thanks!
->>
->>
->>>
->>>>    net/openvswitch/conntrack.c | 12 ++++++++----
->>>>    1 file changed, 8 insertions(+), 4 deletions(-)
->>>>
->>>> diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
->>>> index 08679eb..9041cf8 100644
->>>> --- a/net/openvswitch/conntrack.c
->>>> +++ b/net/openvswitch/conntrack.c
->>>> @@ -641,17 +641,21 @@ static bool skb_nfct_cached(struct net *net,
->>>>           ct = nf_ct_get(skb, &ctinfo);
->>>>           /* If no ct, check if we have evidence that an existing
->>>> conntrack entry
->>>>            * might be found for this skb.  This happens when we lose a
->>>> skb->_nfct
->>>> -        * due to an upcall.  If the connection was not confirmed, it is
->>>> not
->>>> -        * cached and needs to be run through conntrack again.
->>>> +        * due to an upcall, or if the direction is being forced.  If the
->>>> +        * connection was not confirmed, it is not cached and needs to be
->>>> run
->>>> +        * through conntrack again.
->>>>            */
->>>> -       if (!ct && key->ct_state & OVS_CS_F_TRACKED &&
->>>> +       if ((!ct && (key->ct_state & OVS_CS_F_TRACKED) &&
->>>>               !(key->ct_state & OVS_CS_F_INVALID) &&
->>>> -           key->ct_zone == info->zone.id) {
->>>> +            key->ct_zone == info->zone.id) ||
->>>> +            (!key->ct_state && info->force)) {
->>>>                   ct = ovs_ct_find_existing(net, &info->zone,
->>>> info->family, skb,
->>>>                                             !!(key->ct_state
->>>>                                                & OVS_CS_F_NAT_MASK));
->>>>                   if (ct)
->>>>                           nf_ct_get(skb, &ctinfo);
->>>> +               else
->>>> +                       return false;
->>>>           }
->>>>           if (!ct)
->>>>                   return false;
->>>
->>>
->>> I was just wondering if this has the potential to prevent
->>> nf_conntrack_in() from being called at all in this case, which is also
->>> not quite right. In the original case of (!ct && (key->ct_state &
->>> OVS_CS_F_TRACKED) && !(key->ct_state & OVS_CS_F_TRACKED)), which I'll
->>> refer to as "ct_executed", we explicitly want to avoid running
->>> nf_conntrack_in() if we already ran it, because the connection tracker
->>> doesn't expect to see the same packet twice (there's also things like
->>> stats/accounting, and potentially L4 state machines that could get
->>> messed up by multiple calls). By the time the info->force and
->>> direction check happens at the end of the function, "ct_executed" is
->>> implied to be true. However, in this new case, ct_executed is actually
->>> false - because there was no ct() before the ct(force,commit). In this
->>> case, we only want to look up the existing entry to see if it should
->>> be deleted; if it should not be deleted, then we still haven't yet
->>> done the nf_conntrack_in() call so we should return false and the
->>> caller, __ovs_ct_lookup() should make the call to nf_conntrack_in().
->>>
->>> What I mean is something like the following incremental on your patch:
->>>
->>> diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
->>> index 9041cf8b822f..98783f114824 100644
->>> --- a/net/openvswitch/conntrack.c
->>> +++ b/net/openvswitch/conntrack.c
->>> @@ -637,6 +637,7 @@ static bool skb_nfct_cached(struct net *net,
->>> {
->>>          enum ip_conntrack_info ctinfo;
->>>          struct nf_conn *ct;
->>> +       bool ct_executed;
->>>
->>>          ct = nf_ct_get(skb, &ctinfo);
->>>          /* If no ct, check if we have evidence that an existing conntrack
->>> entry
->>> @@ -645,10 +646,10 @@ static bool skb_nfct_cached(struct net *net,
->>>           * connection was not confirmed, it is not cached and needs to be
->>> run
->>>           * through conntrack again.
->>>           */
->>> -       if ((!ct && (key->ct_state & OVS_CS_F_TRACKED) &&
->>> -           !(key->ct_state & OVS_CS_F_INVALID) &&
->>> -            key->ct_zone == info->zone.id) ||
->>> -            (!key->ct_state && info->force)) {
->>> +       ct_executed = key->ct_state & OVS_CS_F_TRACKED &&
->>> +                     !(key->ct_state & OVS_CS_F_INVALID) &&
->>> +                     key->ct_zone == info->zone.id;
+From: Colin Ian King <colin.king@canonical.com>
 
-This part seems fine - I'm OK with setting a boolean on all the complex
-conditionals *but* we shouldn't be doing that if ct is set.  And this is
-fast path right?  So this code is losing the 'if (!ct...)' and that is
-one of the first things checked.  When I was debugging ct would often
-be set because of the first pass through ovs_ct_execute had done the
-ovs_ct_lookup() call.  I'm not very comfortable with executing the
-code to set the ct_executed variable without first checking if ct
-was set in the call to nf_ct_get().
+Trivial fix to spelling mistake in PDEBUG debug message.
 
-I'll incorporate your suggestion but include something to skip all the
-conditionals if ct is set unless you can see some reason not to.
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/wireless/zydas/zd1211rw/zd_rf_rf2959.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thanks,
-
-- Greg
-
->>> +       if (!ct && (ct_executed || (!key->ct_state && info->force))) {
->>
->>
->> All the conditional cases are really ugly and tough to follow but you know
->> this code better than I do so let me try this out and see if it works to
->> fix the specific bug I'm focused on.
-> 
-> I completely agree, and this is something we could work on trying to
-> improve. Even some refactoring like what I suggested here to simplify
-> several bitwise comparisons into a single bool that states the
-> intention of those checks should help. But this is a bugfix, we
-> shouldn't be doing a wohle bunch of refactoring in a bugfix; that can
-> come when the window
-> opens.
-> 
-> Thanks,
-> Joe
-> 
+diff --git a/drivers/net/wireless/zydas/zd1211rw/zd_rf_rf2959.c b/drivers/net/wireless/zydas/zd1211rw/zd_rf_rf2959.c
+index a93f657a41c7..d4e512f50945 100644
+--- a/drivers/net/wireless/zydas/zd1211rw/zd_rf_rf2959.c
++++ b/drivers/net/wireless/zydas/zd1211rw/zd_rf_rf2959.c
+@@ -61,7 +61,7 @@ static void dump_regwrite(u32 rw)
+ 
+ 	switch (reg) {
+ 	case 0:
+-		PDEBUG("reg0 CFG1 ref_sel %d hybernate %d rf_vco_reg_en %d"
++		PDEBUG("reg0 CFG1 ref_sel %d hibernate %d rf_vco_reg_en %d"
+ 		       " if_vco_reg_en %d if_vga_en %d",
+ 		       bits(rw, 14, 15), bit(rw, 3), bit(rw, 2), bit(rw, 1),
+ 		       bit(rw, 0));
+-- 
+2.11.0
