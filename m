@@ -1,82 +1,110 @@
-From: Darrell Ball <dball@vmware.com>
-Subject: Re: [ovs-dev] [PATCH] datapath: Fix for force/commit action failures
-Date: Thu, 13 Jul 2017 17:08:38 +0000
-Message-ID: <76FBD265-9CC9-4366-A075-203E76BA4E97@vmware.com>
+From: Greg Rose <gvrose8192-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] datapath: Fix for force/commit action failures
+Date: Thu, 13 Jul 2017 10:12:15 -0700
+Message-ID: <174ca16b-264f-66ac-af0d-eec003cbcd07@gmail.com>
 References: <1499963124-7841-1-git-send-email-gvrose8192@gmail.com>
+	<76FBD265-9CC9-4366-A075-203E76BA4E97@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev@openvswitch.org" <dev@openvswitch.org>
-To: Greg Rose <gvrose8192@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0072.outbound.protection.outlook.com ([104.47.42.72]:34480
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750953AbdGMRIk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 13 Jul 2017 13:08:40 -0400
-In-Reply-To: <1499963124-7841-1-git-send-email-gvrose8192@gmail.com>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+To: Darrell Ball <dball-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <76FBD265-9CC9-4366-A075-203E76BA4E97-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
 Content-Language: en-US
-Content-ID: <C45F3C650C0C3E4987C2A4F6ACD71BC3@namprd05.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCk9uIDcvMTMvMTcsIDk6MjUgQU0sICJvdnMtZGV2LWJvdW5jZXNAb3BlbnZzd2l0Y2gub3Jn
-IG9uIGJlaGFsZiBvZiBHcmVnIFJvc2UiIDxvdnMtZGV2LWJvdW5jZXNAb3BlbnZzd2l0Y2gub3Jn
-IG9uIGJlaGFsZiBvZiBndnJvc2U4MTkyQGdtYWlsLmNvbT4gd3JvdGU6DQoNCiAgICBXaGVuIHRo
-ZXJlIGlzIGFuIGVzdGFibGlzaGVkIGNvbm5lY3Rpb24gaW4gZGlyZWN0aW9uIEEtPkIsIGl0IGlz
-DQogICAgcG9zc2libGUgdG8gcmVjZWl2ZSBhIHBhY2tldCBvbiBwb3J0IEIgd2hpY2ggdGhlbiBl
-eGVjdXRlcw0KICAgIGN0KGNvbW1pdCxmb3JjZSkgd2l0aG91dCBmaXJzdCBwZXJmb3JtaW5nIGN0
-KCkgLSBpZSwgYSBsb29rdXAuDQogICAgSW4gdGhpcyBjYXNlLCB3ZSB3b3VsZCBleHBlY3QgdGhh
-dCB0aGlzIHBhY2tldCBjYW4gZGVsZXRlIHRoZSBleGlzdGluZw0KICAgIGVudHJ5IHNvIHRoYXQg
-d2UgY2FuIGNvbW1pdCBhIGNvbm5lY3Rpb24gd2l0aCBkaXJlY3Rpb24gQi0+QS4gSG93ZXZlciwN
-CiAgICBjdXJyZW50bHkgd2Ugb25seSBwZXJmb3JtIGEgY2hlY2sgaW4gc2tiX25mY3RfY2FjaGVk
-KCkgZm9yIHdoZXRoZXINCiAgICBPVlNfQ1NfRl9UUkFDS0VEIGlzIHNldCBhbmQgT1ZTX0NTX0Zf
-SU5WQUxJRCBpcyBub3Qgc2V0LCBpZSB0aGF0IGENCiAgICBsb29rdXAgcHJldmlvdXNseSBvY2N1
-cnJlZC4gSW4gdGhlIGFib3ZlIHNjZW5hcmlvLCBhIGxvb2t1cCBoYXMgbm90DQogICAgb2NjdXJy
-ZWQgYnV0IHdlIHNob3VsZCBzdGlsbCBiZSBhYmxlIHRvIHN0YXRlbGVzc2x5IGxvb2sgdXAgdGhl
-DQogICAgZXhpc3RpbmcgZW50cnkgYW5kIHBvdGVudGlhbGx5IGRlbGV0ZSB0aGUgZW50cnkgaWYg
-aXQgaXMgaW4gdGhlDQogICAgb3Bwb3NpdGUgZGlyZWN0aW9uLg0KICAgIA0KICAgIFRoaXMgcGF0
-Y2ggZXh0ZW5kcyB0aGUgY2hlY2sgdG8gYWxzbyBoaW50IHRoYXQgaWYgdGhlIGFjdGlvbiBoYXMg
-dGhlDQogICAgZm9yY2UgZmxhZyBzZXQsIHRoZW4gd2Ugd2lsbCBsb29rdXAgdGhlIGV4aXN0aW5n
-IGVudHJ5IHNvIHRoYXQgdGhlDQogICAgZm9yY2UgY2hlY2sgYXQgdGhlIGVuZCBvZiBza2JfbmZj
-dF9jYWNoZWQgaGFzIHRoZSBhYmlsaXR5IHRvIGRlbGV0ZQ0KICAgIHRoZSBjb25uZWN0aW9uLg0K
-ICAgIA0KICAgIENDOiBkZXZAb3BlbnZzd2l0Y2gub3JnDQogICAgQ0M6IFByYXZpbiBTaGFsYXIg
-PHBzaGVsYXJAbmljaXJhLmNvbT4NCiAgICBTaWduZWQtb2ZmLWJ5OiBKb2UgU3RyaW5nZXIgPGpv
-ZUBvdm4ub3JnPg0KICAgIFNpZ25lZC1vZmYtYnk6IEdyZWcgUm9zZSA8Z3Zyb3NlODE5MkBnbWFp
-bC5jb20+DQogICAgLS0tDQogICAgIG5ldC9vcGVudnN3aXRjaC9jb25udHJhY2suYyB8IDEyICsr
-KysrKysrLS0tLQ0KICAgICAxIGZpbGUgY2hhbmdlZCwgOCBpbnNlcnRpb25zKCspLCA0IGRlbGV0
-aW9ucygtKQ0KICAgIA0KICAgIGRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNr
-LmMgYi9uZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMNCiAgICBpbmRleCAwODY3OWViLi45MDQx
-Y2Y4IDEwMDY0NA0KICAgIC0tLSBhL25ldC9vcGVudnN3aXRjaC9jb25udHJhY2suYw0KICAgICsr
-KyBiL25ldC9vcGVudnN3aXRjaC9jb25udHJhY2suYw0KICAgIEBAIC02NDEsMTcgKzY0MSwyMSBA
-QCBzdGF0aWMgYm9vbCBza2JfbmZjdF9jYWNoZWQoc3RydWN0IG5ldCAqbmV0LA0KICAgICAJY3Qg
-PSBuZl9jdF9nZXQoc2tiLCAmY3RpbmZvKTsNCiAgICAgCS8qIElmIG5vIGN0LCBjaGVjayBpZiB3
-ZSBoYXZlIGV2aWRlbmNlIHRoYXQgYW4gZXhpc3RpbmcgY29ubnRyYWNrIGVudHJ5DQogICAgIAkg
-KiBtaWdodCBiZSBmb3VuZCBmb3IgdGhpcyBza2IuICBUaGlzIGhhcHBlbnMgd2hlbiB3ZSBsb3Nl
-IGEgc2tiLT5fbmZjdA0KICAgIC0JICogZHVlIHRvIGFuIHVwY2FsbC4gIElmIHRoZSBjb25uZWN0
-aW9uIHdhcyBub3QgY29uZmlybWVkLCBpdCBpcyBub3QNCiAgICAtCSAqIGNhY2hlZCBhbmQgbmVl
-ZHMgdG8gYmUgcnVuIHRocm91Z2ggY29ubnRyYWNrIGFnYWluLg0KICAgICsJICogZHVlIHRvIGFu
-IHVwY2FsbCwgb3IgaWYgdGhlIGRpcmVjdGlvbiBpcyBiZWluZyBmb3JjZWQuICBJZiB0aGUNCiAg
-ICArCSAqIGNvbm5lY3Rpb24gd2FzIG5vdCBjb25maXJtZWQsIGl0IGlzIG5vdCBjYWNoZWQgYW5k
-IG5lZWRzIHRvIGJlIHJ1bg0KICAgICsJICogdGhyb3VnaCBjb25udHJhY2sgYWdhaW4uDQogICAg
-IAkgKi8NCiAgICAtCWlmICghY3QgJiYga2V5LT5jdF9zdGF0ZSAmIE9WU19DU19GX1RSQUNLRUQg
-JiYNCiAgICArCWlmICgoIWN0ICYmIChrZXktPmN0X3N0YXRlICYgT1ZTX0NTX0ZfVFJBQ0tFRCkg
-JiYNCiAgICAgCSAgICAhKGtleS0+Y3Rfc3RhdGUgJiBPVlNfQ1NfRl9JTlZBTElEKSAmJg0KICAg
-IC0JICAgIGtleS0+Y3Rfem9uZSA9PSBpbmZvLT56b25lLmlkKSB7DQogICAgKwkgICAgIGtleS0+
-Y3Rfem9uZSA9PSBpbmZvLT56b25lLmlkKSB8fA0KICAgICsJICAgICAoIWtleS0+Y3Rfc3RhdGUg
-JiYgaW5mby0+Zm9yY2UpKSB7DQogICAgIAkJY3QgPSBvdnNfY3RfZmluZF9leGlzdGluZyhuZXQs
-ICZpbmZvLT56b25lLCBpbmZvLT5mYW1pbHksIHNrYiwNCiAgICAgCQkJCQkgICEhKGtleS0+Y3Rf
-c3RhdGUNCiAgICAgCQkJCQkgICAgICYgT1ZTX0NTX0ZfTkFUX01BU0spKTsNCiAgICAgCQlpZiAo
-Y3QpDQogICAgIAkJCW5mX2N0X2dldChza2IsICZjdGluZm8pOw0KICAgICsJCWVsc2UNCiAgICAr
-CQkJcmV0dXJuIGZhbHNlOw0KDQp0aGUgYWJvdmUgZWxzZSBjYXNlIGxvb2tzIHJlZHVuZGFudCBz
-aW5jZSBpdCBtYXBzIHRvIHRoZSBmb2xsb3dpbmcgY2hlY2sNCiAgICAgCWlmICghY3QpDQogICAg
-IAkJcmV0dXJuIGZhbHNlOw0Kd2hpY2ggc2VydmljZXMgYSBzdXBlcnNldCBvZiB0aGUgY29kZSBm
-bG93Lg0KDQogICAgIAl9DQogICAgIAlpZiAoIWN0KQ0KICAgICAJCXJldHVybiBmYWxzZTsNCiAg
-ICAtLSANCiAgICAxLjguMy4xDQogICAgDQogICAgX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX18NCiAgICBkZXYgbWFpbGluZyBsaXN0DQogICAgZGV2QG9wZW52
-c3dpdGNoLm9yZw0KICAgIGh0dHBzOi8vdXJsZGVmZW5zZS5wcm9vZnBvaW50LmNvbS92Mi91cmw/
-dT1odHRwcy0zQV9fbWFpbC5vcGVudnN3aXRjaC5vcmdfbWFpbG1hbl9saXN0aW5mb19vdnMtMkRk
-ZXYmZD1Ed0lDQWcmYz11aWxhSzkwRDRUT1ZvSDU4Sk5YUmdRJnI9QlZoRkEwOUNHWDdKUTVJaC11
-Wm5zdyZtPTVkYTZ5a2lTUUpCb0pYbXBxNmlWa25tUEFjNUpEemxWbmdtcDhqX3hjWEEmcz1Qc1gt
-bmpRX2hGcXk4UDc3S05FeVgwaTd1MTY1cDJXcmJnNHVBWXFmYkdzJmU9IA0KICAgIA0KDQo=
+On 07/13/2017 10:08 AM, Darrell Ball wrote:
+> 
+> 
+> On 7/13/17, 9:25 AM, "ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org on behalf of Greg Rose" <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org on behalf of gvrose8192-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> 
+>      When there is an established connection in direction A->B, it is
+>      possible to receive a packet on port B which then executes
+>      ct(commit,force) without first performing ct() - ie, a lookup.
+>      In this case, we would expect that this packet can delete the existing
+>      entry so that we can commit a connection with direction B->A. However,
+>      currently we only perform a check in skb_nfct_cached() for whether
+>      OVS_CS_F_TRACKED is set and OVS_CS_F_INVALID is not set, ie that a
+>      lookup previously occurred. In the above scenario, a lookup has not
+>      occurred but we should still be able to statelessly look up the
+>      existing entry and potentially delete the entry if it is in the
+>      opposite direction.
+>      
+>      This patch extends the check to also hint that if the action has the
+>      force flag set, then we will lookup the existing entry so that the
+>      force check at the end of skb_nfct_cached has the ability to delete
+>      the connection.
+>      
+>      CC: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+>      CC: Pravin Shalar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+>      Signed-off-by: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
+>      Signed-off-by: Greg Rose <gvrose8192-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>      ---
+>       net/openvswitch/conntrack.c | 12 ++++++++----
+>       1 file changed, 8 insertions(+), 4 deletions(-)
+>      
+>      diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+>      index 08679eb..9041cf8 100644
+>      --- a/net/openvswitch/conntrack.c
+>      +++ b/net/openvswitch/conntrack.c
+>      @@ -641,17 +641,21 @@ static bool skb_nfct_cached(struct net *net,
+>       	ct = nf_ct_get(skb, &ctinfo);
+>       	/* If no ct, check if we have evidence that an existing conntrack entry
+>       	 * might be found for this skb.  This happens when we lose a skb->_nfct
+>      -	 * due to an upcall.  If the connection was not confirmed, it is not
+>      -	 * cached and needs to be run through conntrack again.
+>      +	 * due to an upcall, or if the direction is being forced.  If the
+>      +	 * connection was not confirmed, it is not cached and needs to be run
+>      +	 * through conntrack again.
+>       	 */
+>      -	if (!ct && key->ct_state & OVS_CS_F_TRACKED &&
+>      +	if ((!ct && (key->ct_state & OVS_CS_F_TRACKED) &&
+>       	    !(key->ct_state & OVS_CS_F_INVALID) &&
+>      -	    key->ct_zone == info->zone.id) {
+>      +	     key->ct_zone == info->zone.id) ||
+>      +	     (!key->ct_state && info->force)) {
+>       		ct = ovs_ct_find_existing(net, &info->zone, info->family, skb,
+>       					  !!(key->ct_state
+>       					     & OVS_CS_F_NAT_MASK));
+>       		if (ct)
+>       			nf_ct_get(skb, &ctinfo);
+>      +		else
+>      +			return false;
+> 
+> the above else case looks redundant since it maps to the following check
+>       	if (!ct)
+>       		return false;
+> which services a superset of the code flow.
+
+Sure, we can let it fall through... missed that.
+
+After waiting for more review I'll send a V2 patch.
+
+Thanks for the review Darrell
+
+- Greg
+
+> 
+>       	}
+>       	if (!ct)
+>       		return false;
+>      --
+>      1.8.3.1
+>      
+>      _______________________________________________
+>      dev mailing list
+>      dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+>      https://urldefense.proofpoint.com/v2/url?u=https-3A__mail.openvswitch.org_mailman_listinfo_ovs-2Ddev&d=DwICAg&c=uilaK90D4TOVoH58JNXRgQ&r=BVhFA09CGX7JQ5Ih-uZnsw&m=5da6ykiSQJBoJXmpq6iVknmPAc5JDzlVngmp8j_xcXA&s=PsX-njQ_hFqy8P77KNEyX0i7u165p2Wrbg4uAYqfbGs&e=
+>      
+> 
