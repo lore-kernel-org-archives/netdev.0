@@ -1,47 +1,125 @@
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Subject: [PATCH net v2] cxgb4: ptp_clock_register() returns error pointers
-Date: Thu, 13 Jul 2017 18:36:50 +0530
-Message-ID: <1499951210-6283-1-git-send-email-ganeshgr@chelsio.com>
-Cc: atul.gupta@chelsio.com, nirranjan@chelsio.com,
-        indranil@chelsio.com, dan.carpenter@oracle.com,
-        Ganesh Goudar <ganeshgr@chelsio.com>,
-        Richard Cochran <richardcochran@gmail.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:59484 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751244AbdGMNJ5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2017 09:09:57 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Aviad Krawczyk (A)" <aviad.krawczyk@huawei.com>
+Subject: Re: [PATCH net 01/20] net/hinic: Initialize hw interface
+Date: Thu, 13 Jul 2017 16:14:01 +0300
+Message-ID: <52493b35-c0d7-99ae-cecf-0a26d904a31e@huawei.com>
+References: <cover.1499865197.git.aviad.krawczyk@huawei.com>
+ <281a172bd66298acb1a176a03a53710c1b777fb6.1499865197.git.aviad.krawczyk@huawei.com>
+ <20170712152933.GF2557@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <linux-kernel@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <bc.y@huawei.com>,
+        <victor.gissin@huawei.com>, <zhaochen6@huawei.com>,
+        <tony.qu@huawei.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170712152933.GF2557@lunn.ch>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Check ptp_clock_register() return not only for NULL but
-also for error pointers, and also nullify adapter->ptp_clock
-if ptp_clock_register() fails.
 
-Fixes: 9c33e4208bce ("cxgb4: Add PTP Hardware Clock (PHC) support")
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Cc: Richard Cochran <richardcochran@gmail.com>
-Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
----
-v2: nullifying adapter->ptp_clock if ptp_clock_register() fails.
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_ptp.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Hi Andrew,
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ptp.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ptp.c
-index 50517cf..9f9d6ca 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ptp.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ptp.c
-@@ -441,7 +441,8 @@ void cxgb4_ptp_init(struct adapter *adapter)
- 
- 	adapter->ptp_clock = ptp_clock_register(&adapter->ptp_clock_info,
- 						&adapter->pdev->dev);
--	if (!adapter->ptp_clock) {
-+	if (IS_ERR_OR_NULL(adapter->ptp_clock)) {
-+		adapter->ptp_clock = NULL;
- 		dev_err(adapter->pdev_dev,
- 			"PTP %s Clock registration has failed\n", __func__);
- 		return;
--- 
-2.1.0
+Now is the merge window and we need to resubmit.
+We will fix it when we will resubmit.
+
+The version number was used for the ethtool information and module version and
+will be removed.
+
+devm_kzalloc - will be used for the allocation of the memory at initialization.
+
+We used pr_ for messages that point on errors or information in module,
+and dev_ for errors in device and netif_ for errors in network device operations.
+netif_ will be used for network device ops and dev_ for the others.
+
+Aviad
+
+On 7/12/2017 6:29 PM, Andrew Lunn wrote:
+>> +
+>> +#define HINIC_DRV_NAME		"HiNIC"
+>> +#define HINIC_DRV_VERSION	"1.0"
+> 
+> Hi Aviad
+> 
+> Please don't add a driver version. There was a discussion about this
+> recently, how pointless it is.
+> 
+>> +/**
+>> + * hinic_init_hwdev - Initialize the NIC HW
+>> + * @hwdev: the NIC HW device that is returned from the initialization
+>> + * @pdev: the NIC pci device
+>> + *
+>> + * Return 0 - Success, negative - Failure
+>> + *
+>> + * Initialize the NIC HW device and return a pointer to it in the first arg
+>> + **/
+>> +int hinic_init_hwdev(struct hinic_hwdev **hwdev, struct pci_dev *pdev)
+>> +{
+>> +	struct hinic_pfhwdev *pfhwdev;
+>> +	struct hinic_hwif *hwif;
+>> +	int err;
+>> +
+>> +	hwif = kzalloc(sizeof(*hwif), GFP_KERNEL);
+> 
+> Using the devm_ functions makes your cleanup code simpler when
+> handling memory.
+> 
+>> +/**
+>> + * nic_dev_init - Initialize the NIC device
+>> + * @pdev: the NIC pci device
+>> + *
+>> + * Return 0 - Success, negative - Failure
+>> + **/
+>> +static int nic_dev_init(struct pci_dev *pdev)
+>> +{
+>> +	struct hinic_dev *nic_dev;
+>> +	struct net_device *netdev;
+>> +	struct hinic_hwdev *hwdev;
+>> +	int err, num_qps;
+>> +
+>> +	err = hinic_init_hwdev(&hwdev, pdev);
+>> +	if (err) {
+>> +		dev_err(&pdev->dev, "Failed to initialize HW device\n");
+>> +		return err;
+>> +	}
+>> +
+>> +	num_qps = hinic_hwdev_num_qps(hwdev);
+>> +	if (num_qps <= 0) {
+>> +		dev_err(&pdev->dev, "Invalid number of QPS\n");
+>> +		err = -EINVAL;
+>> +		goto num_qps_err;
+>> +	}
+>> +
+>> +	netdev = alloc_etherdev_mq(sizeof(*nic_dev), num_qps);
+>> +	if (!netdev) {
+>> +		pr_err("Failed to allocate Ethernet device\n");
+> 
+> Above you used dev_err, here you used pr_err(). Please be consistent.
+> 
+>> +		err = -ENOMEM;
+>> +		goto alloc_etherdev_err;
+>> +	}
+>> +
+>> +	netdev->netdev_ops = &hinic_netdev_ops;
+>> +
+>> +	nic_dev = (struct hinic_dev *)netdev_priv(netdev);
+>> +	nic_dev->hwdev = hwdev;
+>> +	nic_dev->netdev = netdev;
+>> +	nic_dev->msg_enable = MSG_ENABLE_DEFAULT;
+>> +
+>> +	pci_set_drvdata(pdev, netdev);
+>> +
+>> +	netif_carrier_off(netdev);
+>> +
+>> +	err = register_netdev(netdev);
+>> +	if (err) {
+>> +		netif_err(nic_dev, probe, netdev, "Failed to register netdev\n");
+> 
+> probably not a good idea to use netif_err, if register_netdev just
+> failed. dev_err() would be better.
+> 
+> 
+> .
+>
