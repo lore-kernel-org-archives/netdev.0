@@ -1,37 +1,26 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: net-next STATUS page
-Date: Thu, 13 Jul 2017 10:56:39 +0200
-Message-ID: <20170713085639.GA2060@nanopsycho>
-References: <20170711.072416.2014054416066621222.davem@davemloft.net>
- <20170711115841.64d9aa1d@xeon-e3>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH] bpf: fix return in bpf_skb_adjust_net
+Date: Thu, 13 Jul 2017 11:20:58 +0200
+Message-ID: <59673B7A.2080606@iogearbox.net>
+References: <1499927278-175876-1-git-send-email-wangkefeng.wang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-wireless@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170711115841.64d9aa1d@xeon-e3>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Kefeng Wang <wangkefeng.wang@huawei.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1499927278-175876-1-git-send-email-wangkefeng.wang@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Tue, Jul 11, 2017 at 08:58:41PM CEST, stephen@networkplumber.org wrote:
->On Tue, 11 Jul 2017 07:24:16 -0700 (PDT)
->David Miller <davem@davemloft.net> wrote:
+On 07/13/2017 08:27 AM, Kefeng Wang wrote:
+> The bpf_skb_adjust_net() ignores the return value of bpf_skb_net_shrink/grow,
+> and always return 0, fix it by return 'ret'.
 >
->> It has gotten to the point that even casually walking around
->> Faro, Portugal last week, random German tourists would stop
->> me in the street and ask if net-next was open or not.
->> 
->> Therefore, in order to avoid any and all confusion I have created this
->> web site:
->> 
->> 	http://vger.kernel.org/~davem/net-next.html
->> 
->> Please refer to it if you are ever in doubt.
->> 
->> Thanks!
->
->Where is the app?
+> Signed-off-by: Kefeng Wang <wangkefeng.wang@huawei.com>
 
-There would be good to have git-send-email hook to check this :)
+Sigh, yep of course. Thanks!
+
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
