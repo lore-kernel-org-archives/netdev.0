@@ -1,39 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: set fib rule refcount after malloc
-Date: Thu, 13 Jul 2017 13:43:35 -0700 (PDT)
-Message-ID: <20170713.134335.1544432096954681162.davem@davemloft.net>
-References: <1499978200-12331-1-git-send-email-dsahern@gmail.com>
+Subject: Re: [PATCH] sctp: don't dereference ptr before leaving
+ _sctp_walk_{params,errors}()
+Date: Thu, 13 Jul 2017 13:44:43 -0700 (PDT)
+Message-ID: <20170713.134443.1912348414766536226.davem@davemloft.net>
+References: <20170713181034.41123-1-glider@google.com>
+        <20170713.113206.177363709000549854.davem@davemloft.net>
+        <CAG_fn=VJQUG1RveUyXDVuZmMrBz3DZLrar3pEKKJegyi3mYbaA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, idosch@mellanox.com, jiri@mellanox.com,
+Cc: dvyukov@google.com, kcc@google.com, edumazet@google.com,
+        lucien.xin@gmail.com, linux-kernel@vger.kernel.org,
         netdev@vger.kernel.org
-To: dsahern@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51186 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752962AbdGMUng (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2017 16:43:36 -0400
-In-Reply-To: <1499978200-12331-1-git-send-email-dsahern@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: glider@google.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAG_fn=VJQUG1RveUyXDVuZmMrBz3DZLrar3pEKKJegyi3mYbaA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ahern <dsahern@gmail.com>
-Date: Thu, 13 Jul 2017 13:36:40 -0700
+From: Alexander Potapenko <glider@google.com>
+Date: Thu, 13 Jul 2017 21:28:39 +0200
 
-> The configure callback of fib_rules_ops can change the refcnt of a
-> fib rule. For instance, mlxsw takes a refcnt when adding the processing
-> of the rule to a work queue. Thus the rule refcnt can not be reset to
-> to 1 afterwards. Move the refcnt setting to after the allocation.
+> On Thu, Jul 13, 2017 at 8:32 PM, David Miller <davem@davemloft.net> wrote:
+>> struct sctp_paramhdr {
+>>         __be16 type;
+>>         __be16 length;
+>> };
+>>
+>> typedef struct sctp_errhdr {
+>>         __be16 cause;
+>>         __be16 length;
+>>         __u8  variable[0];
+>> } sctp_errhdr_t;
+ ...
+>> Something like:
+>>
+>>         pos.v + offsetof(pos.v, length) + sizeof(pos.v->length) <= (void *) chunk + end
 > 
-> Fixes: 5361e209dd30 ("net: avoid one splat in fib_nl_delrule()")
-> Signed-off-by: David Ahern <dsahern@gmail.com>
+> Do we need to bother about truncated structures? Shouldn't it be
+> enough to check that there's at least sizeof(struct sctp_paramhdr)
+> bytes left then?
 
-Can someone keep a scoreboard of how many bugs and arbitrary
-unnecessary changes get introduced because of this new refcount_t
-business rather than get fixed?
+With the zero length array at the end, it's arguable what the "size"
+of such a thing is.
 
-I'd really like to see how that pans out over the long term especially
-with all of the backporting pain this facility is going to cause.
-
-Anyways, David I will apply this, thanks.
+That's why I tried to be explicit with the length field.
