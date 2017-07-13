@@ -1,76 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: don't dereference ptr before leaving
- _sctp_walk_{params,errors}()
-Date: Thu, 13 Jul 2017 11:32:06 -0700 (PDT)
-Message-ID: <20170713.113206.177363709000549854.davem@davemloft.net>
-References: <20170713181034.41123-1-glider@google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dvyukov@google.com, kcc@google.com, edumazet@google.com,
-        lucien.xin@gmail.com, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: glider@google.com
+From: Abhishek Shah <abhishek.shah@broadcom.com>
+Subject: [PATCH 0/3] Extend BGMAC driver for Stingray SoC
+Date: Fri, 14 Jul 2017 00:34:06 +0530
+Message-ID: <1499972649-6200-1-git-send-email-abhishek.shah@broadcom.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
+        bcm-kernel-feedback-list@broadcom.com,
+        Abhishek Shah <abhishek.shah@broadcom.com>
+To: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Jon Mason <jon.mason@broadcom.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170713181034.41123-1-glider@google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexander Potapenko <glider@google.com>
-Date: Thu, 13 Jul 2017 20:10:34 +0200
+The patchset extends Broadcom BGMAC driver for Broadcom Stingray SoC.
 
-> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-> index a9519a06a23b..f13632ee33f0 100644
-> --- a/include/net/sctp/sctp.h
-> +++ b/include/net/sctp/sctp.h
-> @@ -469,6 +469,7 @@ _sctp_walk_params((pos), (chunk), ntohs((chunk)->chunk_hdr.length), member)
->  
->  #define _sctp_walk_params(pos, chunk, end, member)\
->  for (pos.v = chunk->member;\
-> +     pos.v < (void *)chunk + end &&\
->       pos.v <= (void *)chunk + end - ntohs(pos.p->length) &&\
->       ntohs(pos.p->length) >= sizeof(struct sctp_paramhdr);\
->       pos.v += SCTP_PAD4(ntohs(pos.p->length)))
-> @@ -479,6 +480,7 @@ _sctp_walk_errors((err), (chunk_hdr), ntohs((chunk_hdr)->length))
->  #define _sctp_walk_errors(err, chunk_hdr, end)\
->  for (err = (sctp_errhdr_t *)((void *)chunk_hdr + \
->  	    sizeof(struct sctp_chunkhdr));\
-> +     (void *)err <= (void *)chunk_hdr + end &&\
->       (void *)err <= (void *)chunk_hdr + end - ntohs(err->length) &&\
->       ntohs(err->length) >= sizeof(sctp_errhdr_t); \
->       err = (sctp_errhdr_t *)((void *)err + SCTP_PAD4(ntohs(err->length))))
+This patchset is based on Linux-4.12 and tested on NS2 and Stingray.
 
-Even with the "err < ..." fixed in the second hunk, I still think you need
-to tweak these checks some more.
+Abhishek Shah (3):
+  net: ethernet: bgmac: Remove unnecessary 'return' from
+    platform_bgmac_idm_write
+  net: ethernet: bgmac: Make IDM register space optional in BGMAC driver
+  Documentation: devicetree: net: optional idm regs for bgmac
 
-What is necessary is that the first two members of sctp_paramhdr or
-sctp_errhdr are in the range ptr to end.
+ .../devicetree/bindings/net/brcm,amac.txt          |  1 +
+ drivers/net/ethernet/broadcom/bgmac-platform.c     | 21 ++++---
+ drivers/net/ethernet/broadcom/bgmac.c              | 70 +++++++++++++---------
+ drivers/net/ethernet/broadcom/bgmac.h              |  1 +
+ 4 files changed, 57 insertions(+), 36 deletions(-)
 
-struct sctp_paramhdr {
-	__be16 type;
-	__be16 length;
-};
-
-typedef struct sctp_errhdr {
-	__be16 cause;
-	__be16 length;
-	__u8  variable[0];
-} sctp_errhdr_t;
-
-so that we can legally dereference ->length.
-
-But that is not what your new check is doing.  Your new check is only
-making sure there is at least one byte there.
-
-I guess it's not easy to write a clean test that doesn't hardcode the
-offset of the length field and it's size.
-
-Something like:
-
-	pos.v + offsetof(pos.v, length) + sizeof(pos.v->length) <= (void *) chunk + end
-
-and
-
-	(void *)err + offsetof(err, length) + sizeof(err->length) <= (void *) chunk_hdr + end
-
-And yeah, that isn't exactly concise nor pretty...
+-- 
+2.7.4
