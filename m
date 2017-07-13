@@ -1,73 +1,205 @@
-From: Jiannan Ouyang <ouyangj@fb.com>
-Subject: Re: [PATCH net-next v1 0/3] Flow Based GTP Tunneling
-Date: Thu, 13 Jul 2017 22:54:10 +0000
-Message-ID: <AAC8ECB0-A089-4308-989D-65E18B9EFAB7@fb.com>
-References: <20170713004455.3946570-1-ouyangj@fb.com>
- <20170713071249.lk7dph6bpzgn622d@nataraja>
- <CAPWQB7F4aLDnZpqLqqDpNpzHG2nLOUAvcdibqR1CC4cO_ymz0g@mail.gmail.com>
+From: Joe Stringer <joe@ovn.org>
+Subject: Re: [PATCH] datapath: Fix for force/commit action failures
+Date: Thu, 13 Jul 2017 16:08:46 -0700
+Message-ID: <CAPWQB7FVCCyXL2j49vgGPEgN6tDMgLu7csbdJPdbQ6j1Ozuzww@mail.gmail.com>
+References: <1499963124-7841-1-git-send-email-gvrose8192@gmail.com>
+ <CAPWQB7EvfsMCddisznPgfNQPtHMboKz2hoTiH6uknmTwx+B5Dw@mail.gmail.com>
+ <4a063b92-1e36-db6f-d6cc-4f215637f549@gmail.com> <CAPWQB7GzQ4qm9dJjuzUm7nO2HHiNq9M+B4c00NNKqOzx9_O48g@mail.gmail.com>
+ <0d78303a-31b2-f59c-2b47-0e684ff0f629@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "osmocom-net-gprs@lists.osmocom.org"
-        <osmocom-net-gprs@lists.osmocom.org>,
-        netdev <netdev@vger.kernel.org>, ovs dev <dev@openvswitch.org>,
-        "Pablo Neira Ayuso" <pablo@netfilter.org>,
-        Pravin B Shelar <pshelar@nicira.com>,
-        "Wieger IJntema" <wieger.ijntema.tno@gmail.com>,
-        "Yang, Yi Y" <yi.y.yang@intel.com>,
-        Amar Padmanabhan <amarpadmanabhan@fb.com>
-To: Joe Stringer <joe@ovn.org>, Harald Welte <laforge@gnumonks.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev <netdev@vger.kernel.org>, ovs dev <dev@openvswitch.org>,
+        Pravin Shalar <pshelar@nicira.com>
+To: Greg Rose <gvrose8192@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:58481 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751828AbdGMWyn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2017 18:54:43 -0400
-In-Reply-To: <CAPWQB7F4aLDnZpqLqqDpNpzHG2nLOUAvcdibqR1CC4cO_ymz0g@mail.gmail.com>
-Content-Language: en-US
-Content-ID: <F201884D9849174AAFB169A8F1D62935@namprd15.prod.outlook.com>
+Received: from relay2-d.mail.gandi.net ([217.70.183.194]:46728 "EHLO
+        relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752012AbdGMXJK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2017 19:09:10 -0400
+Received: from mail-oi0-f43.google.com (mail-oi0-f43.google.com [209.85.218.43])
+        (Authenticated sender: joe@ovn.org)
+        by relay2-d.mail.gandi.net (Postfix) with ESMTPSA id 6E9C5C5A46
+        for <netdev@vger.kernel.org>; Fri, 14 Jul 2017 01:09:08 +0200 (CEST)
+Received: by mail-oi0-f43.google.com with SMTP id x187so58743220oig.3
+        for <netdev@vger.kernel.org>; Thu, 13 Jul 2017 16:09:08 -0700 (PDT)
+In-Reply-To: <0d78303a-31b2-f59c-2b47-0e684ff0f629@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgSGFyYWxkIGFuZCBKZW8sDQoNClRoYW5rIHlvdSBmb3IgdGhlIGNvZGUgcmV2aWV3LiBUaGV5
-IGFyZSByZWFsbHkgaGVscGZ1bCENCg0KPiBPbiA3LzEzLzE3LCAxMToxNCBBTSwgIkpvZSBTdHJp
-bmdlciIgPGpvZUBvdm4ub3JnPiB3cm90ZToNCj4gDQogICAgPiBPbiAxMyBKdWx5IDIwMTcgYXQg
-MDA6MTIsIEhhcmFsZCBXZWx0ZSA8bGFmb3JnZUBnbnVtb25rcy5vcmc+IHdyb3RlOg0KICAgID4+
-IEknbSBub3QgZmFtaWxpYXIgd2l0aCB0aGUgZGV0YWlscyBoZXJlLCBidXQgZG9lcyB0aGlzIGlt
-cGx5IHRoYXQgeW91DQogICAgPj4gYXJlIG1hdGNoaW5nIG9uIHRoZSBvdXRlciAodHJhbnNwb3J0
-IGxheWVyKSBzb3VyY2UgSVAgYWRkcmVzcz8gSWYgc28sDQogICAgPj4gcGxlYXNlIG5vdGUgdGhp
-cyBpcyBpbiB2aW9sYXRpb24gb2YgdGhlIDNHUFAgc3BlY2lmaWNhdGlvbnMgZm9yIEdUUCwNCiAg
-ICA+PiB3aGljaCByZXF1aXJlIGV4cGxpY2l0bHkgdGhhdCB0aGUgVEVJRCBpcyB0aGUgKm9ubHkq
-IGNyaXRlcmlhIGZvcg0KICAgID4+IG1hdGNoaW5nIGFuIGVuY2Fwc3VsYXRlZCBwYWNrZXQgdG8g
-dGhlIHR1bm5lbC4gIEJhc2ljYWxseSBhbnlvbmUgY2FuDQogICAgPj4gc2VuZCB5b3UgYW4gZW5j
-YXBzdWxhdGVkIHBhY2tldCBmcm9tIGFueSByYW5kb20gc291cmNlIElQLCBqdXN0IGFzIGxvbmcN
-CiAgICA+PiBhcyB0aGUgVEVJRCBtYXRjaGVzIGEgdHVubmVsLCBpdCB3aWxsIGJlIGRlY2Fwc3Vs
-YXRlZC4NCiAgICA+Pg0KICAgID4+IFRoaXMgaXMgW3ByZXN1bWFibHldIGluIG9yZGVyIHRvIHRh
-a2UgY2FyZSBvZiBtb2JpbGl0eSwgYXMgdGhlDQogICAgPj4gc3Vic2NyaWJlcnMnIHBob25lIG1v
-dmVzIGFyb3VuZCBkaWZmZXJlbnQgTU1FL1MtR1cvU0dTTiwgZWFjaCBoYXZpbmcNCiAgICA+PiBk
-aWZmZXJlbnQgc291cmNlIElQIGFkZHJlc3Nlcy4NCiAgICA+DQogICAgPiBJIHRoaW5rIHRoYXQg
-dGhpcyB3aWxsIGJlIGhhcmQgdG8gYXZvaWQ7IHRoZSBzZXZlcmFsIGV4aXN0aW5nIHR1bm5lbA0K
-ICAgID4gaW1wbGVtZW50YXRpb25zIHRoYXQgT1ZTIHBsdWdzIGludG8gYWxsIGFsbG93IG1hdGNo
-aW5nIG9uIHRoZSBvdXRlcg0KICAgID4gYWRkcmVzc2VzL3BvcnRzLCBJIGRvbid0IHNlZSBhIGdv
-b2Qgd2F5IHRvIHJlc3RyaWN0IGl0IHdpdGhvdXQNCiAgICA+IGludHJvZHVjaW5nIGNvbXBsZXRl
-bHkgbmV3IG1ldGFkYXRhX2RzdCBwYXRocyBmb3IgR1RQLiBJJ2QgcHJlZmVyIG5vdA0KICAgID4g
-dG8gaW50cm9kdWNlIHNvbWV0aGluZyBsaWtlIHRoaXMgaWYgd2UgY2FuIGF2b2lkIGl0OyBzZXZl
-cmFsIHR1bm5lbHMNCiAgICA+IGN1cnJlbnRseSBzaGFyZSBhbGwgb2YgdGhlIHNhbWUgbWV0YWRh
-dGFfZHN0IGNvZGUgYW5kIHRoYXQncyBwcm92ZW4NCiAgICA+IHN1ZmZpY2llbnQgZm9yIGFsbCBj
-YXNlcyBzbyBmYXIuIElmIHNvbWVvbmUgd2lzaGVzIHRvIGltcGxlbWVudCB0aGUNCiAgICA+IDNH
-UFAgc3RhbmRhcmQgY29ycmVjdGx5IHRoZW4gdGhleSBzaG91bGQgbm90IGNyZWF0ZSBtYXRjaGVz
-IGxpa2UgdGhpcy4NCiAgICA+IEluIHF1aXRlIGEgZmV3IGNhc2VzLCBPVlMgdGVuZHMgdG8gdGFr
-ZSB0aGUgYXBwcm9hY2ggdGhhdCB3ZSBnaXZlIHRoZQ0KICAgID4gdXNlciB0aGUgdG9vbHMgdG8g
-ZG8gd2hhdCB0aGV5IG5lZWQgdG8gZG8sIGJ1dCBpZiB0aGV5IHdpc2ggdG8gc2hvb3QNCiAgICA+
-IHRoZW1zZWx2ZXMgaW4gdGhlIGZvb3QgdGhlbiB0aGF0J3MgdXAgdG8gdGhlbS4gV2UgY2FuIG9m
-IGNvdXJzZSB3b3JrDQogICAgPiAgdG93YXJkcyBlbnN1cmluZyB0aGUgT1ZTIHVzZXJzcGFjZSBn
-dWlkZXMgdXNlcnMgaW4gdGhlIHJpZ2h0IGRpcmVjdGlvbg0KICAgID4gdGhvdWdoLg0KICAgIA0K
-VGhlIGZsb3cgbGlzdGVkIG91dCBoZXJlIGlzIGFuIGV4YW1wbGUgZm9yIHRoZSBuYXR1cmUgb2Yg
-dGhlIG1hdGNoDQp0aGF0IGNhbiBiZSBwZXJmb3JtZWQsIGJ1dCB0aGUgYWN0dWFsIG1hdGNoIHJ1
-bGUgdGhhdCBpcyBwcm9ncmFtbWVkDQogYnkgdGhlIGNvbnRyb2wgcGxhbmUgc2hvdWxkIHdpbGRj
-YXJkIHRoZSB0dW5fc3JjIGFzIG5vdGVkIGJ5IEhhcmFsZC4gDQoNCkl0IGlzIHRoZSBjb250cm9s
-IHBsYW5l4oCZcyByZXNwb25zaWJpbGl0eSB0byBlbmZvcmNlIHRoZSAzR1BQIFNwZWNpZmljYXRp
-b25zLCANCmUuZy4gY3JlYXRpbmcgZmxvdyBydWxlcyB0byBtYWtlIFRFSUQgdGhlIG9ubHkgY3Jp
-dGVyaWEgZm9yIG1hdGNoaW5nIGFuIA0KZW5jYXBzdWxhdGVkIHBhY2tldCB0byB0aGUgdHVubmVs
-LiAgDQoNCkkgd2lsbCBwcm92aWRlIGEgM0dQUCBjb21wbGlhbnQgZXhhbXBsZSBpbiB0aGUgbmV4
-dCB2ZXJzaW9uLCB0aGFuayBIYXJhbGQNCiBmb3IgcG9pbnRpbmcgaXQgb3V0Lg0KDQotSmlhbm5h
-bg0KDQo=
+On 13 July 2017 at 15:38, Greg Rose <gvrose8192@gmail.com> wrote:
+> On 07/13/2017 11:03 AM, Joe Stringer wrote:
+>>
+>> On 13 July 2017 at 11:01, Greg Rose <gvrose8192@gmail.com> wrote:
+>>>
+>>> On 07/13/2017 10:46 AM, Joe Stringer wrote:
+>>>>
+>>>>
+>>>> On 13 July 2017 at 09:25, Greg Rose <gvrose8192@gmail.com> wrote:
+>>>>>
+>>>>>
+>>>>> When there is an established connection in direction A->B, it is
+>>>>> possible to receive a packet on port B which then executes
+>>>>> ct(commit,force) without first performing ct() - ie, a lookup.
+>>>>> In this case, we would expect that this packet can delete the existing
+>>>>> entry so that we can commit a connection with direction B->A. However,
+>>>>> currently we only perform a check in skb_nfct_cached() for whether
+>>>>> OVS_CS_F_TRACKED is set and OVS_CS_F_INVALID is not set, ie that a
+>>>>> lookup previously occurred. In the above scenario, a lookup has not
+>>>>> occurred but we should still be able to statelessly look up the
+>>>>> existing entry and potentially delete the entry if it is in the
+>>>>> opposite direction.
+>>>>>
+>>>>> This patch extends the check to also hint that if the action has the
+>>>>> force flag set, then we will lookup the existing entry so that the
+>>>>> force check at the end of skb_nfct_cached has the ability to delete
+>>>>> the connection.
+>>>>>
+>>>>> CC: dev@openvswitch.org
+>>>>> CC: Pravin Shalar <pshelar@nicira.com>
+>>>>> Signed-off-by: Joe Stringer <joe@ovn.org>
+>>>>> Signed-off-by: Greg Rose <gvrose8192@gmail.com>
+>>>>> ---
+>>>>
+>>>>
+>>>>
+>>>> A couple more administrative notes, on netdev the module name in the
+>>>> patch subject for openvswitch is "openvswitch" rather than datapath;
+>>>
+>>>
+>>>
+>>> Right you are.
+>>>
+>>>> and patches rather than having just "PATCH" as the subject prefix
+>>>> should state the tree. In this case, it's a bugfix so it should be
+>>>> "PATCH net".
+>>>
+>>>
+>>>
+>>> I knew that... forgot the format patch option to add it.  Net-next
+>>> is closed so that would be mandatory.
+>>>
+>>>   Furthermore, if you're able to figure out which commit
+>>>>
+>>>>
+>>>> introduced the issue (I believe it's introduced by the force commit
+>>>> patch), then you should place the "Fixes: " tag. I can give you some
+>>>> pointers off-list on how to do this (git blame and some basic
+>>>> formatting of the targeted patch should do the trick - this tag
+>>>> expects a 12-digit hash).
+>>>>
+>>>> For reference, I ended up looking it up during review, this is the
+>>>> line you'd add:
+>>>> Fixes: dd41d33f0b03 ("openvswitch: Add force commit.")
+>>>
+>>>
+>>>
+>>> Oh, thanks!
+>>>
+>>>
+>>>>
+>>>>>    net/openvswitch/conntrack.c | 12 ++++++++----
+>>>>>    1 file changed, 8 insertions(+), 4 deletions(-)
+>>>>>
+>>>>> diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+>>>>> index 08679eb..9041cf8 100644
+>>>>> --- a/net/openvswitch/conntrack.c
+>>>>> +++ b/net/openvswitch/conntrack.c
+>>>>> @@ -641,17 +641,21 @@ static bool skb_nfct_cached(struct net *net,
+>>>>>           ct = nf_ct_get(skb, &ctinfo);
+>>>>>           /* If no ct, check if we have evidence that an existing
+>>>>> conntrack entry
+>>>>>            * might be found for this skb.  This happens when we lose a
+>>>>> skb->_nfct
+>>>>> -        * due to an upcall.  If the connection was not confirmed, it
+>>>>> is
+>>>>> not
+>>>>> -        * cached and needs to be run through conntrack again.
+>>>>> +        * due to an upcall, or if the direction is being forced.  If
+>>>>> the
+>>>>> +        * connection was not confirmed, it is not cached and needs to
+>>>>> be
+>>>>> run
+>>>>> +        * through conntrack again.
+>>>>>            */
+>>>>> -       if (!ct && key->ct_state & OVS_CS_F_TRACKED &&
+>>>>> +       if ((!ct && (key->ct_state & OVS_CS_F_TRACKED) &&
+>>>>>               !(key->ct_state & OVS_CS_F_INVALID) &&
+>>>>> -           key->ct_zone == info->zone.id) {
+>>>>> +            key->ct_zone == info->zone.id) ||
+>>>>> +            (!key->ct_state && info->force)) {
+>>>>>                   ct = ovs_ct_find_existing(net, &info->zone,
+>>>>> info->family, skb,
+>>>>>                                             !!(key->ct_state
+>>>>>                                                & OVS_CS_F_NAT_MASK));
+>>>>>                   if (ct)
+>>>>>                           nf_ct_get(skb, &ctinfo);
+>>>>> +               else
+>>>>> +                       return false;
+>>>>>           }
+>>>>>           if (!ct)
+>>>>>                   return false;
+>>>>
+>>>>
+>>>>
+>>>> I was just wondering if this has the potential to prevent
+>>>> nf_conntrack_in() from being called at all in this case, which is also
+>>>> not quite right. In the original case of (!ct && (key->ct_state &
+>>>> OVS_CS_F_TRACKED) && !(key->ct_state & OVS_CS_F_TRACKED)), which I'll
+>>>> refer to as "ct_executed", we explicitly want to avoid running
+>>>> nf_conntrack_in() if we already ran it, because the connection tracker
+>>>> doesn't expect to see the same packet twice (there's also things like
+>>>> stats/accounting, and potentially L4 state machines that could get
+>>>> messed up by multiple calls). By the time the info->force and
+>>>> direction check happens at the end of the function, "ct_executed" is
+>>>> implied to be true. However, in this new case, ct_executed is actually
+>>>> false - because there was no ct() before the ct(force,commit). In this
+>>>> case, we only want to look up the existing entry to see if it should
+>>>> be deleted; if it should not be deleted, then we still haven't yet
+>>>> done the nf_conntrack_in() call so we should return false and the
+>>>> caller, __ovs_ct_lookup() should make the call to nf_conntrack_in().
+>>>>
+>>>> What I mean is something like the following incremental on your patch:
+>>>>
+>>>> diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+>>>> index 9041cf8b822f..98783f114824 100644
+>>>> --- a/net/openvswitch/conntrack.c
+>>>> +++ b/net/openvswitch/conntrack.c
+>>>> @@ -637,6 +637,7 @@ static bool skb_nfct_cached(struct net *net,
+>>>> {
+>>>>          enum ip_conntrack_info ctinfo;
+>>>>          struct nf_conn *ct;
+>>>> +       bool ct_executed;
+>>>>
+>>>>          ct = nf_ct_get(skb, &ctinfo);
+>>>>          /* If no ct, check if we have evidence that an existing
+>>>> conntrack
+>>>> entry
+>>>> @@ -645,10 +646,10 @@ static bool skb_nfct_cached(struct net *net,
+>>>>           * connection was not confirmed, it is not cached and needs to
+>>>> be
+>>>> run
+>>>>           * through conntrack again.
+>>>>           */
+>>>> -       if ((!ct && (key->ct_state & OVS_CS_F_TRACKED) &&
+>>>> -           !(key->ct_state & OVS_CS_F_INVALID) &&
+>>>> -            key->ct_zone == info->zone.id) ||
+>>>> -            (!key->ct_state && info->force)) {
+>>>> +       ct_executed = key->ct_state & OVS_CS_F_TRACKED &&
+>>>> +                     !(key->ct_state & OVS_CS_F_INVALID) &&
+>>>> +                     key->ct_zone == info->zone.id;
+>
+>
+> This part seems fine - I'm OK with setting a boolean on all the complex
+> conditionals *but* we shouldn't be doing that if ct is set.  And this is
+> fast path right?  So this code is losing the 'if (!ct...)' and that is
+> one of the first things checked.  When I was debugging ct would often
+> be set because of the first pass through ovs_ct_execute had done the
+> ovs_ct_lookup() call.  I'm not very comfortable with executing the
+> code to set the ct_executed variable without first checking if ct
+> was set in the call to nf_ct_get().
+>
+> I'll incorporate your suggestion but include something to skip all the
+> conditionals if ct is set unless you can see some reason not to.
+
+OK, fair enough. I wasn't overly careful in my incremental about the
+specific ordering of these checks. Thanks for looking it over.
