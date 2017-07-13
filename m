@@ -1,81 +1,80 @@
-From: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH net-next v1 0/3] Flow Based GTP Tunneling
-Date: Wed, 12 Jul 2017 18:28:29 -0700
-Message-ID: <CAPWQB7Fv5VHwVt-65w9v=VvqXcprT6cRBQyKv5U8gZ+gL1WH7w@mail.gmail.com>
-References: <20170713004455.3946570-1-ouyangj@fb.com>
+From: <tomsue2000@yahoo.co.uk>
+Subject: (unknown)
+Date: Thu, 13 Jul 2017 02:27:59 -0000
+Message-ID: <149991287931.24845.7860613932810103392@se.alltele.net>
+Reply-To: <tomsue2000@yahoo.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	osmocom-net-gprs-qjLDD68F18N4m7O/Vxda39i2O/JbrIOy@public.gmane.org, laforge-TgoAw6mPHtdg9hUCZPvPmw@public.gmane.org,
-	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-To: Jiannan Ouyang <ouyangj-b10kYP2dOMg@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20170713004455.3946570-1-ouyangj-b10kYP2dOMg@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: application/zip; name="280947457437_netdev.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from h85-8-43-85.cust.se.alltele.net ([85.8.43.85]:48071 "HELO
+        se.alltele.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with SMTP id S1750899AbdGMC21 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2017 22:28:27 -0400
+Content-Disposition: attachment
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12 July 2017 at 17:44, Jiannan Ouyang <ouyangj-b10kYP2dOMg@public.gmane.org> wrote:
-> This patch series augmented the existing GTP module to support flow
-> based GTP tunneling and modified the openvswitch datapath to support the
-> GTP vport type.
->
-> A flow based GTP net device enables that,
-> 1) on the RX path, the outer (IP/UDP/GTP) header information could to be
-> stored in the metadata_dst struct, and embedded into the skb.
-> 2) on the TX path, packets are encapsulated following instructions in
-> the metadata_dst field of the skb.
->
-> A flow based GTP net device can be integrated with Open vSwitch, which
-> allows SDN controllers to program GTP tunnels via Open vSwitch.
->
-> Open vSwitch changes are based on patch set
->     [PATCH] Add GTP vport based on upstream datapath
->
-> Example usage with OVS:
->
-> ovs-vsctl add-port br0 gtp-vport -- set interface gtp-vport \
->     ofport_request=2 type=gtp option:remote_ip=flow options:key=flow
->
-> ovs-ofctl add-flow br0
->     "in_port=2,tun_src=192.168.60.141,tun_id=123, \
->     actions=set_field:02:00:00:00:00:00->eth_src, \
->     set_field:ff:ff:ff:ff:ff:ff->eth_dst,LOCAL"
->
-> ovs-ofctl add-flow br0 \
->     "in_port=LOCAL,actions=set_tunnel:888, \
->     set_field:192.168.60.141->tun_dst,2"
->
-> arp -s 10.1.1.122 02:00:00:00:00:00
->
-> Jiannan Ouyang (3):
->   gtp: refactor to support flow-based gtp encap and decap
->   gtp: Support creating flow-based gtp net_device
->   openvswitch: Add GPRS Tunnel Protocol (GTP) vport support
-
-Hi Jiannan,
-
-net-next is closed, Dave won't accept patches at this time.
-
-Some brief feedback in regards to patch #3, the preference these days
-is for OVS userspace to use rtnetlink to configure devices in
-COLLECT_METADATA mode, then attach those devices as regular
-vport-netdev device type to OVS kernel datapath. I think that should
-mean that no kernel changes to openvswitch are required for providing
-GTP vports. Instead of this patch it would require something similar
-to the IFLA_GRE_COLLECT_METADATA flag which GRE has, but for the GTP
-devices. The latest OVS master now supports configuring devices in
-this way, perhaps you could take a look at OVS tree's
-lib/dpif-netlink-rtnl.c to see how other tunnel devices are configured
-and see if that makes sense for GTP as well?
-
-Cheers,
-Joe
+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
+AAAAAFBLBQYAAAAAAQABAE8AAAARDQAAAAA=
