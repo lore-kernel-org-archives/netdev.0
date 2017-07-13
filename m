@@ -1,80 +1,51 @@
-From: <tomsue2000@yahoo.co.uk>
-Subject: (unknown)
-Date: Thu, 13 Jul 2017 02:27:59 -0000
-Message-ID: <149991287931.24845.7860613932810103392@se.alltele.net>
-Reply-To: <tomsue2000@yahoo.co.uk>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: Re: [PATCH v6 0/3] Add new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+Date: Thu, 13 Jul 2017 02:28:37 +0000
+Message-ID: <MWHPR12MB160000E5BC855DAC525C5745C8AC0@MWHPR12MB1600.namprd12.prod.outlook.com>
+References: <1498133721-21152-1-git-send-email-dingtianhong@huawei.com>
+ <MWHPR12MB160087E9E0B17F7A17609714C8AA0@MWHPR12MB1600.namprd12.prod.outlook.com>
+ <MWHPR12MB160006024D920ED58126048AC8AB0@MWHPR12MB1600.namprd12.prod.outlook.com>
+ <CAKgT0Uc5KSJTj4A=9pSudiJ28AW0krc7FZpdW4upwY+FgpeArA@mail.gmail.com>
+ <MWHPR12MB1600AECAE619EAA97E6B15D5C8AB0@MWHPR12MB1600.namprd12.prod.outlook.com>
+ <CAKgT0UdqoRR8XLG1o3ygUZTqEBQ4dgNaneZ-n1OSNC1AiswO_g@mail.gmail.com>
+ <MWHPR12MB16008EFFC5F2792880F7E80BC8A90@MWHPR12MB1600.namprd12.prod.outlook.com>
+ <16d18af6-f578-ef8a-a52e-46ec975e59e0@huawei.com>
+ <MWHPR12MB160080C62945A101FF0718DEC8AC0@MWHPR12MB1600.namprd12.prod.outlook.com>,<3aed2e2d-025d-b35c-46fa-bced87789037@huawei.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="280947457437_netdev.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from h85-8-43-85.cust.se.alltele.net ([85.8.43.85]:48071 "HELO
-        se.alltele.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with SMTP id S1750899AbdGMC21 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2017 22:28:27 -0400
-Content-Disposition: attachment
-Subject: 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "ashok.raj@intel.com" <ashok.raj@intel.com>,
+        "helgaas@kernel.org" <helgaas@kernel.org>,
+        Michael Werner <werner@chelsio.com>,
+        Ganesh GR <ganeshgr@chelsio.com>,
+        "asit.k.mallick@intel.com" <asit.k.mallick@intel.com>,
+        "patrick.j.cramer@intel.com" <patrick.j.cramer@intel.com>,
+        "Suravee.Suthikulpanit@amd.com" <Suravee.Suthikulpanit@amd.com>,
+        "Bob.Shaw@amd.com" <Bob.Shaw@amd.com>,
+        "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
+        "amira@mellanox.com" <amira@mellanox.com>,
+        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
+        "David.Laight@aculab.com" <David.Laight@aculab.com>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+        "catalin.marinas@arm.com" <catalin.marinas@arm.com>,
+        "will.deacon@arm.com" <will.deacon@arm.com>,
+        "mark.rutland@arm.com" <mark.rut
+To: Ding Tianhong <dingtianhong@huawei.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <3aed2e2d-025d-b35c-46fa-bced87789037@huawei.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-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
-AAAAAFBLBQYAAAAAAQABAE8AAAARDQAAAAA=
+| From: Ding Tianhong <dingtianhong@huawei.com>
+| Sent: Wednesday, July 12, 2017 6:18 PM
+|=20
+| If no other more suggestion, I will send a new version and remove the
+| enable_pcie_relaxed_ordering(), thanks.=A0 :)
+
+   Sounds good to me.  (And sorry for forgetting to justify that last messa=
+ge.
+I hate working with web-based email agents.)
+
+Casey=
