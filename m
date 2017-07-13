@@ -1,186 +1,141 @@
-From: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH] datapath: Fix for force/commit action failures
-Date: Thu, 13 Jul 2017 11:03:44 -0700
-Message-ID: <CAPWQB7GzQ4qm9dJjuzUm7nO2HHiNq9M+B4c00NNKqOzx9_O48g@mail.gmail.com>
-References: <1499963124-7841-1-git-send-email-gvrose8192@gmail.com>
-	<CAPWQB7EvfsMCddisznPgfNQPtHMboKz2hoTiH6uknmTwx+B5Dw@mail.gmail.com>
-	<4a063b92-1e36-db6f-d6cc-4f215637f549@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Greg Rose <gvrose8192-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <4a063b92-1e36-db6f-d6cc-4f215637f549-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+From: Alexander Potapenko <glider@google.com>
+Subject: [PATCH] sctp: don't dereference ptr before leaving _sctp_walk_{params,errors}()
+Date: Thu, 13 Jul 2017 20:10:34 +0200
+Message-ID: <20170713181034.41123-1-glider@google.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: dvyukov@google.com, kcc@google.com, edumazet@google.com,
+        davem@davemloft.net, lucien.xin@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 13 July 2017 at 11:01, Greg Rose <gvrose8192-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On 07/13/2017 10:46 AM, Joe Stringer wrote:
->>
->> On 13 July 2017 at 09:25, Greg Rose <gvrose8192-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->>>
->>> When there is an established connection in direction A->B, it is
->>> possible to receive a packet on port B which then executes
->>> ct(commit,force) without first performing ct() - ie, a lookup.
->>> In this case, we would expect that this packet can delete the existing
->>> entry so that we can commit a connection with direction B->A. However,
->>> currently we only perform a check in skb_nfct_cached() for whether
->>> OVS_CS_F_TRACKED is set and OVS_CS_F_INVALID is not set, ie that a
->>> lookup previously occurred. In the above scenario, a lookup has not
->>> occurred but we should still be able to statelessly look up the
->>> existing entry and potentially delete the entry if it is in the
->>> opposite direction.
->>>
->>> This patch extends the check to also hint that if the action has the
->>> force flag set, then we will lookup the existing entry so that the
->>> force check at the end of skb_nfct_cached has the ability to delete
->>> the connection.
->>>
->>> CC: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
->>> CC: Pravin Shalar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
->>> Signed-off-by: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
->>> Signed-off-by: Greg Rose <gvrose8192-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->>> ---
->>
->>
->> A couple more administrative notes, on netdev the module name in the
->> patch subject for openvswitch is "openvswitch" rather than datapath;
->
->
-> Right you are.
->
->> and patches rather than having just "PATCH" as the subject prefix
->> should state the tree. In this case, it's a bugfix so it should be
->> "PATCH net".
->
->
-> I knew that... forgot the format patch option to add it.  Net-next
-> is closed so that would be mandatory.
->
->  Furthermore, if you're able to figure out which commit
->>
->> introduced the issue (I believe it's introduced by the force commit
->> patch), then you should place the "Fixes: " tag. I can give you some
->> pointers off-list on how to do this (git blame and some basic
->> formatting of the targeted patch should do the trick - this tag
->> expects a 12-digit hash).
->>
->> For reference, I ended up looking it up during review, this is the
->> line you'd add:
->> Fixes: dd41d33f0b03 ("openvswitch: Add force commit.")
->
->
-> Oh, thanks!
->
->
->>
->>>   net/openvswitch/conntrack.c | 12 ++++++++----
->>>   1 file changed, 8 insertions(+), 4 deletions(-)
->>>
->>> diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
->>> index 08679eb..9041cf8 100644
->>> --- a/net/openvswitch/conntrack.c
->>> +++ b/net/openvswitch/conntrack.c
->>> @@ -641,17 +641,21 @@ static bool skb_nfct_cached(struct net *net,
->>>          ct = nf_ct_get(skb, &ctinfo);
->>>          /* If no ct, check if we have evidence that an existing
->>> conntrack entry
->>>           * might be found for this skb.  This happens when we lose a
->>> skb->_nfct
->>> -        * due to an upcall.  If the connection was not confirmed, it is
->>> not
->>> -        * cached and needs to be run through conntrack again.
->>> +        * due to an upcall, or if the direction is being forced.  If the
->>> +        * connection was not confirmed, it is not cached and needs to be
->>> run
->>> +        * through conntrack again.
->>>           */
->>> -       if (!ct && key->ct_state & OVS_CS_F_TRACKED &&
->>> +       if ((!ct && (key->ct_state & OVS_CS_F_TRACKED) &&
->>>              !(key->ct_state & OVS_CS_F_INVALID) &&
->>> -           key->ct_zone == info->zone.id) {
->>> +            key->ct_zone == info->zone.id) ||
->>> +            (!key->ct_state && info->force)) {
->>>                  ct = ovs_ct_find_existing(net, &info->zone,
->>> info->family, skb,
->>>                                            !!(key->ct_state
->>>                                               & OVS_CS_F_NAT_MASK));
->>>                  if (ct)
->>>                          nf_ct_get(skb, &ctinfo);
->>> +               else
->>> +                       return false;
->>>          }
->>>          if (!ct)
->>>                  return false;
->>
->>
->> I was just wondering if this has the potential to prevent
->> nf_conntrack_in() from being called at all in this case, which is also
->> not quite right. In the original case of (!ct && (key->ct_state &
->> OVS_CS_F_TRACKED) && !(key->ct_state & OVS_CS_F_TRACKED)), which I'll
->> refer to as "ct_executed", we explicitly want to avoid running
->> nf_conntrack_in() if we already ran it, because the connection tracker
->> doesn't expect to see the same packet twice (there's also things like
->> stats/accounting, and potentially L4 state machines that could get
->> messed up by multiple calls). By the time the info->force and
->> direction check happens at the end of the function, "ct_executed" is
->> implied to be true. However, in this new case, ct_executed is actually
->> false - because there was no ct() before the ct(force,commit). In this
->> case, we only want to look up the existing entry to see if it should
->> be deleted; if it should not be deleted, then we still haven't yet
->> done the nf_conntrack_in() call so we should return false and the
->> caller, __ovs_ct_lookup() should make the call to nf_conntrack_in().
->>
->> What I mean is something like the following incremental on your patch:
->>
->> diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
->> index 9041cf8b822f..98783f114824 100644
->> --- a/net/openvswitch/conntrack.c
->> +++ b/net/openvswitch/conntrack.c
->> @@ -637,6 +637,7 @@ static bool skb_nfct_cached(struct net *net,
->> {
->>         enum ip_conntrack_info ctinfo;
->>         struct nf_conn *ct;
->> +       bool ct_executed;
->>
->>         ct = nf_ct_get(skb, &ctinfo);
->>         /* If no ct, check if we have evidence that an existing conntrack
->> entry
->> @@ -645,10 +646,10 @@ static bool skb_nfct_cached(struct net *net,
->>          * connection was not confirmed, it is not cached and needs to be
->> run
->>          * through conntrack again.
->>          */
->> -       if ((!ct && (key->ct_state & OVS_CS_F_TRACKED) &&
->> -           !(key->ct_state & OVS_CS_F_INVALID) &&
->> -            key->ct_zone == info->zone.id) ||
->> -            (!key->ct_state && info->force)) {
->> +       ct_executed = key->ct_state & OVS_CS_F_TRACKED &&
->> +                     !(key->ct_state & OVS_CS_F_INVALID) &&
->> +                     key->ct_zone == info->zone.id;
->> +       if (!ct && (ct_executed || (!key->ct_state && info->force))) {
->
->
-> All the conditional cases are really ugly and tough to follow but you know
-> this code better than I do so let me try this out and see if it works to
-> fix the specific bug I'm focused on.
+If the iterator (|pos.p| or |err|) has already reached the end of
+chunk, we shouldn't access iterator->length.
 
-I completely agree, and this is something we could work on trying to
-improve. Even some refactoring like what I suggested here to simplify
-several bitwise comparisons into a single bool that states the
-intention of those checks should help. But this is a bugfix, we
-shouldn't be doing a wohle bunch of refactoring in a bugfix; that can
-come when the window
-opens.
+This bug has been detected by KMSAN. For the following pair of system
+calls:
 
-Thanks,
-Joe
+  socket(PF_INET6, SOCK_STREAM, 0x84 /* IPPROTO_??? */) = 3
+  sendto(3, "A", 1, MSG_OOB, {sa_family=AF_INET6, sin6_port=htons(0),
+         inet_pton(AF_INET6, "::1", &sin6_addr), sin6_flowinfo=0,
+         sin6_scope_id=0}, 28) = 1
+
+the tool has reported a use of uninitialized memory:
+
+  ==================================================================
+  BUG: KMSAN: use of uninitialized memory in sctp_rcv+0x17b8/0x43b0
+  CPU: 1 PID: 2940 Comm: probe Not tainted 4.11.0-rc5+ #2926
+  Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs
+  01/01/2011
+  Call Trace:
+   <IRQ>
+   __dump_stack lib/dump_stack.c:16
+   dump_stack+0x172/0x1c0 lib/dump_stack.c:52
+   kmsan_report+0x12a/0x180 mm/kmsan/kmsan.c:927
+   __msan_warning_32+0x61/0xb0 mm/kmsan/kmsan_instr.c:469
+   __sctp_rcv_init_lookup net/sctp/input.c:1074
+   __sctp_rcv_lookup_harder net/sctp/input.c:1233
+   __sctp_rcv_lookup net/sctp/input.c:1255
+   sctp_rcv+0x17b8/0x43b0 net/sctp/input.c:170
+   sctp6_rcv+0x32/0x70 net/sctp/ipv6.c:984
+   ip6_input_finish+0x82f/0x1ee0 net/ipv6/ip6_input.c:279
+   NF_HOOK ./include/linux/netfilter.h:257
+   ip6_input+0x239/0x290 net/ipv6/ip6_input.c:322
+   dst_input ./include/net/dst.h:492
+   ip6_rcv_finish net/ipv6/ip6_input.c:69
+   NF_HOOK ./include/linux/netfilter.h:257
+   ipv6_rcv+0x1dbd/0x22e0 net/ipv6/ip6_input.c:203
+   __netif_receive_skb_core+0x2f6f/0x3a20 net/core/dev.c:4208
+   __netif_receive_skb net/core/dev.c:4246
+   process_backlog+0x667/0xba0 net/core/dev.c:4866
+   napi_poll net/core/dev.c:5268
+   net_rx_action+0xc95/0x1590 net/core/dev.c:5333
+   __do_softirq+0x485/0x942 kernel/softirq.c:284
+   do_softirq_own_stack+0x1c/0x30 arch/x86/entry/entry_64.S:902
+   </IRQ>
+   do_softirq kernel/softirq.c:328
+   __local_bh_enable_ip+0x25b/0x290 kernel/softirq.c:181
+   local_bh_enable+0x37/0x40 ./include/linux/bottom_half.h:31
+   rcu_read_unlock_bh ./include/linux/rcupdate.h:931
+   ip6_finish_output2+0x19b2/0x1cf0 net/ipv6/ip6_output.c:124
+   ip6_finish_output+0x764/0x970 net/ipv6/ip6_output.c:149
+   NF_HOOK_COND ./include/linux/netfilter.h:246
+   ip6_output+0x456/0x520 net/ipv6/ip6_output.c:163
+   dst_output ./include/net/dst.h:486
+   NF_HOOK ./include/linux/netfilter.h:257
+   ip6_xmit+0x1841/0x1c00 net/ipv6/ip6_output.c:261
+   sctp_v6_xmit+0x3b7/0x470 net/sctp/ipv6.c:225
+   sctp_packet_transmit+0x38cb/0x3a20 net/sctp/output.c:632
+   sctp_outq_flush+0xeb3/0x46e0 net/sctp/outqueue.c:885
+   sctp_outq_uncork+0xb2/0xd0 net/sctp/outqueue.c:750
+   sctp_side_effects net/sctp/sm_sideeffect.c:1773
+   sctp_do_sm+0x6962/0x6ec0 net/sctp/sm_sideeffect.c:1147
+   sctp_primitive_ASSOCIATE+0x12c/0x160 net/sctp/primitive.c:88
+   sctp_sendmsg+0x43e5/0x4f90 net/sctp/socket.c:1954
+   inet_sendmsg+0x498/0x670 net/ipv4/af_inet.c:762
+   sock_sendmsg_nosec net/socket.c:633
+   sock_sendmsg net/socket.c:643
+   SYSC_sendto+0x608/0x710 net/socket.c:1696
+   SyS_sendto+0x8a/0xb0 net/socket.c:1664
+   do_syscall_64+0xe6/0x130 arch/x86/entry/common.c:285
+   entry_SYSCALL64_slow_path+0x25/0x25 arch/x86/entry/entry_64.S:246
+  RIP: 0033:0x401133
+  RSP: 002b:00007fff6d99cd38 EFLAGS: 00000246 ORIG_RAX: 000000000000002c
+  RAX: ffffffffffffffda RBX: 00000000004002b0 RCX: 0000000000401133
+  RDX: 0000000000000001 RSI: 0000000000494088 RDI: 0000000000000003
+  RBP: 00007fff6d99cd90 R08: 00007fff6d99cd50 R09: 000000000000001c
+  R10: 0000000000000001 R11: 0000000000000246 R12: 0000000000000000
+  R13: 00000000004063d0 R14: 0000000000406460 R15: 0000000000000000
+  origin:
+   save_stack_trace+0x37/0x40 arch/x86/kernel/stacktrace.c:59
+   kmsan_save_stack_with_flags mm/kmsan/kmsan.c:302
+   kmsan_internal_poison_shadow+0xb1/0x1a0 mm/kmsan/kmsan.c:198
+   kmsan_poison_shadow+0x6d/0xc0 mm/kmsan/kmsan.c:211
+   slab_alloc_node mm/slub.c:2743
+   __kmalloc_node_track_caller+0x200/0x360 mm/slub.c:4351
+   __kmalloc_reserve net/core/skbuff.c:138
+   __alloc_skb+0x26b/0x840 net/core/skbuff.c:231
+   alloc_skb ./include/linux/skbuff.h:933
+   sctp_packet_transmit+0x31e/0x3a20 net/sctp/output.c:570
+   sctp_outq_flush+0xeb3/0x46e0 net/sctp/outqueue.c:885
+   sctp_outq_uncork+0xb2/0xd0 net/sctp/outqueue.c:750
+   sctp_side_effects net/sctp/sm_sideeffect.c:1773
+   sctp_do_sm+0x6962/0x6ec0 net/sctp/sm_sideeffect.c:1147
+   sctp_primitive_ASSOCIATE+0x12c/0x160 net/sctp/primitive.c:88
+   sctp_sendmsg+0x43e5/0x4f90 net/sctp/socket.c:1954
+   inet_sendmsg+0x498/0x670 net/ipv4/af_inet.c:762
+   sock_sendmsg_nosec net/socket.c:633
+   sock_sendmsg net/socket.c:643
+   SYSC_sendto+0x608/0x710 net/socket.c:1696
+   SyS_sendto+0x8a/0xb0 net/socket.c:1664
+   do_syscall_64+0xe6/0x130 arch/x86/entry/common.c:285
+   return_from_SYSCALL_64+0x0/0x6a arch/x86/entry/entry_64.S:246
+  ==================================================================
+
+Signed-off-by: Alexander Potapenko <glider@google.com>
+---
+ include/net/sctp/sctp.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+index a9519a06a23b..f13632ee33f0 100644
+--- a/include/net/sctp/sctp.h
++++ b/include/net/sctp/sctp.h
+@@ -469,6 +469,7 @@ _sctp_walk_params((pos), (chunk), ntohs((chunk)->chunk_hdr.length), member)
+ 
+ #define _sctp_walk_params(pos, chunk, end, member)\
+ for (pos.v = chunk->member;\
++     pos.v < (void *)chunk + end &&\
+      pos.v <= (void *)chunk + end - ntohs(pos.p->length) &&\
+      ntohs(pos.p->length) >= sizeof(struct sctp_paramhdr);\
+      pos.v += SCTP_PAD4(ntohs(pos.p->length)))
+@@ -479,6 +480,7 @@ _sctp_walk_errors((err), (chunk_hdr), ntohs((chunk_hdr)->length))
+ #define _sctp_walk_errors(err, chunk_hdr, end)\
+ for (err = (sctp_errhdr_t *)((void *)chunk_hdr + \
+ 	    sizeof(struct sctp_chunkhdr));\
++     (void *)err <= (void *)chunk_hdr + end &&\
+      (void *)err <= (void *)chunk_hdr + end - ntohs(err->length) &&\
+      ntohs(err->length) >= sizeof(sctp_errhdr_t); \
+      err = (sctp_errhdr_t *)((void *)err + SCTP_PAD4(ntohs(err->length))))
+-- 
+2.13.2.932.g7449e964c-goog
