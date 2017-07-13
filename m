@@ -1,131 +1,224 @@
-From: Harald Welte <laforge-TgoAw6mPHtdg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH net-next v1 2/3] gtp: Support creating
- flow-based gtp net_device
-Date: Thu, 13 Jul 2017 09:35:41 +0200
-Message-ID: <20170713073540.q4tqqawhxwzqrzsv@nataraja>
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: [PATCH net-next v1 1/3] gtp: refactor to support flow-based gtp
+ encap and decap
+Date: Thu, 13 Jul 2017 09:26:24 +0200
+Message-ID: <20170713072624.iinvf7sqiwn6abff@nataraja>
 References: <20170713004455.3946570-1-ouyangj@fb.com>
-	<20170713004455.3946570-3-ouyangj@fb.com>
+ <20170713004455.3946570-2-ouyangj@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	osmocom-net-gprs-qjLDD68F18N4m7O/Vxda39i2O/JbrIOy@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org
-To: Jiannan Ouyang <ouyangj-b10kYP2dOMg@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: osmocom-net-gprs@lists.osmocom.org, netdev@vger.kernel.org,
+        dev@openvswitch.org, pablo@netfilter.org, pshelar@nicira.com,
+        wieger.ijntema.tno@gmail.com, yi.y.yang@intel.com, joe@ovn.org,
+        amarpadmanabhan@fb.com
+To: Jiannan Ouyang <ouyangj@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ganesha.gnumonks.org ([213.95.27.120]:38855 "EHLO
+        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751200AbdGMHh4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2017 03:37:56 -0400
 Content-Disposition: inline
-In-Reply-To: <20170713004455.3946570-3-ouyangj-b10kYP2dOMg@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170713004455.3946570-2-ouyangj@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hi Jiannan,
 
-please keep in mind I have zero clue about OVS, so I cannot really
-comment on what is customary in that context and what not.  However,
-some general review from the GTP point of view below:
+On Wed, Jul 12, 2017 at 05:44:53PM -0700, Jiannan Ouyang wrote:
 
-On Wed, Jul 12, 2017 at 05:44:54PM -0700, Jiannan Ouyang wrote:
-> Add the gtp_create_flow_based_dev() interface to create flow-based gtp
-> net_device, which sets gtp->collect_md. Under flow-based mode, UDP sockets are
-> created and maintained in kernel.
-> 
-> Signed-off-by: Jiannan Ouyang <ouyangj-b10kYP2dOMg@public.gmane.org>
-> ---
->  drivers/net/gtp.c | 213 +++++++++++++++++++++++++++++++++++++++++++++++++++++-
->  include/net/gtp.h |   8 ++
->  2 files changed, 217 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-> index 5a7b504..09712c9 100644
-> --- a/drivers/net/gtp.c
-> +++ b/drivers/net/gtp.c
-> @@ -642,9 +642,94 @@ static netdev_tx_t gtp_dev_xmit(struct sk_buff *skb, struct net_device *dev)
->  	return NETDEV_TX_OK;
+> +#define GTP_PDP_HASHSIZE 1024
+
+please don't mix cosmetic cleanups with actual functional code changes.
+
+> -	struct net_device       *dev;
+> +	struct net_device	*dev;
+
+please don't mix cosmetic cleanups with actual functional code changes.
+
+> -static int gtp_rx(struct pdp_ctx *pctx, struct sk_buff *skb,
+> -			unsigned int hdrlen, unsigned int role)
+> +static int gtp_rx(struct gtp_dev *gtp, struct sk_buff *skb,
+> +		  unsigned int hdrlen, struct sock *sk,
+> +		  struct metadata_dst *tun_dst)
+>  {
+>  	struct pcpu_sw_netstats *stats;
+>  
+> -	if (!gtp_check_ms(skb, pctx, hdrlen, role)) {
+> -		netdev_dbg(pctx->dev, "No PDP ctx for this MS\n");
+> -		return 1;
+> -	}
+> -
+>  	/* Get rid of the GTP + UDP headers. */
+>  	if (iptunnel_pull_header(skb, hdrlen, skb->protocol,
+> -				 !net_eq(sock_net(pctx->sk), dev_net(pctx->dev))))
+> +				 !net_eq(sock_net(sk), dev_net(gtp->dev))))
+>  		return -1;
+>  
+> -	netdev_dbg(pctx->dev, "forwarding packet from GGSN to uplink\n");
+> +	netdev_dbg(gtp->dev, "forwarding packet from GGSN to uplink\n");
+> +
+> +	if (tun_dst) {
+> +		skb_dst_set(skb, (struct dst_entry *)tun_dst);
+> +		netdev_dbg(gtp->dev, "attaching metadata_dst to skb\n");
+> +	}
+>  
+>  	/* Now that the UDP and the GTP header have been removed, set up the
+>  	 * new network header. This is required by the upper layer to
+> @@ -207,15 +215,16 @@ static int gtp_rx(struct pdp_ctx *pctx, struct sk_buff *skb,
+>  	 */
+>  	skb_reset_network_header(skb);
+>  
+> -	skb->dev = pctx->dev;
+> +	skb->dev = gtp->dev;
+>  
+> -	stats = this_cpu_ptr(pctx->dev->tstats);
+> +	stats = this_cpu_ptr(gtp->dev->tstats);
+>  	u64_stats_update_begin(&stats->syncp);
+>  	stats->rx_packets++;
+>  	stats->rx_bytes += skb->len;
+>  	u64_stats_update_end(&stats->syncp);
+>  
+>  	netif_rx(skb);
+> +
+>  	return 0;
 >  }
 >  
-> +static int gtp_hashtable_new(struct gtp_dev *gtp, int hsize);
-> +static void gtp_hashtable_free(struct gtp_dev *gtp);
-> +static int gtp_encap_enable(struct gtp_dev *gtp, struct nlattr *data[]);
-> +
-> +static int gtp_change_mtu(struct net_device *dev, int new_mtu, bool strict)
-> +{
-> +	int max_mtu = IP_MAX_MTU - dev->hard_header_len - sizeof(struct iphdr)
-> +			- sizeof(struct udphdr) - sizeof(struct gtp1_header);
-> +
-> +	if (new_mtu < ETH_MIN_MTU)
-> +		return -EINVAL;
-> +
-> +	if (new_mtu > max_mtu) {
-> +		if (strict)
-> +			return -EINVAL;
-> +
-> +		new_mtu = max_mtu;
+> @@ -244,7 +253,12 @@ static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
+>  		return 1;
+>  	}
+>  
+> -	return gtp_rx(pctx, skb, hdrlen, gtp->role);
+> +	if (!gtp_check_ms(skb, pctx, hdrlen, gtp->role)) {
+> +		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
+> +		return 1;
 > +	}
 > +
-> +	dev->mtu = new_mtu;
-> +	return 0;
-> +}
+> +	return gtp_rx(gtp, skb, hdrlen, pctx->sk, NULL);
+>  }
+>  
+>  static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
+> @@ -253,6 +267,7 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
+>  			      sizeof(struct gtp1_header);
+>  	struct gtp1_header *gtp1;
+>  	struct pdp_ctx *pctx;
+> +	struct metadata_dst *tun_dst = NULL;
+>  
+>  	if (!pskb_may_pull(skb, hdrlen))
+>  		return -1;
+> @@ -280,13 +295,24 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
+>  
+>  	gtp1 = (struct gtp1_header *)(skb->data + sizeof(struct udphdr));
+>  
+> -	pctx = gtp1_pdp_find(gtp, ntohl(gtp1->tid));
+> -	if (!pctx) {
+> -		netdev_dbg(gtp->dev, "No PDP ctx to decap skb=%p\n", skb);
+> -		return 1;
+> +	if (ip_tunnel_collect_metadata() || gtp->collect_md) {
+> +		tun_dst = udp_tun_rx_dst(skb, gtp->sk1u->sk_family, TUNNEL_KEY,
+> +					 key32_to_tunnel_id(gtp1->tid), 0);
+> +	} else {
+> +		pctx = gtp1_pdp_find(gtp, ntohl(gtp1->tid));
+> +		if (!pctx) {
+> +			netdev_dbg(gtp->dev, "No PDP ctx to decap skb=%p\n",
+> +				   skb);
+> +			return 1;
+> +		}
 > +
-> +static int gtp_dev_open(struct net_device *dev)
-> +{
-> +	struct gtp_dev *gtp = netdev_priv(dev);
-> +	struct net *net = gtp->net;
-> +	struct socket *sock1u;
-> +	struct socket *sock0;
-> +	struct udp_tunnel_sock_cfg tunnel_cfg;
-> +	struct udp_port_cfg udp_conf;
-> +	int err;
-> +
-> +	memset(&udp_conf, 0, sizeof(udp_conf));
-> +
-> +	udp_conf.family = AF_INET;
-> +	udp_conf.local_ip.s_addr = htonl(INADDR_ANY);
-> +	udp_conf.local_udp_port = htons(GTP1U_PORT);
-> +
-> +	err = udp_sock_create(gtp->net, &udp_conf, &sock1u);
-> +	if (err < 0)
-> +		return err;
-> +
-> +	udp_conf.local_udp_port = htons(GTP0_PORT);
-> +	err = udp_sock_create(gtp->net, &udp_conf, &sock0);
-> +	if (err < 0)
-> +		return err;
+> +		if (!gtp_check_ms(skb, pctx, hdrlen, gtp->role)) {
+> +			netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
+> +			return 1;
+> +		}
+>  	}
+>  
+> -	return gtp_rx(pctx, skb, hdrlen, gtp->role);
+> +	return gtp_rx(gtp, skb, hdrlen, gtp->sk1u, tun_dst);
+>  }
+>  
+>  static void gtp_encap_destroy(struct sock *sk)
+> @@ -410,7 +436,7 @@ static inline void gtp0_push_header(struct sk_buff *skb, struct pdp_ctx *pctx)
+>  	gtp0->tid	= cpu_to_be64(pctx->u.v0.tid);
+>  }
+>  
+> -static inline void gtp1_push_header(struct sk_buff *skb, struct pdp_ctx *pctx)
+> +static inline void gtp1_push_header(struct sk_buff *skb, __be32 tid)
+>  {
+>  	int payload_len = skb->len;
+>  	struct gtp1_header *gtp1;
+> @@ -426,7 +452,7 @@ static inline void gtp1_push_header(struct sk_buff *skb, struct pdp_ctx *pctx)
+>  	gtp1->flags	= 0x30; /* v1, GTP-non-prime. */
+>  	gtp1->type	= GTP_TPDU;
+>  	gtp1->length	= htons(payload_len);
+> -	gtp1->tid	= htonl(pctx->u.v1.o_tei);
+> +	gtp1->tid	= tid;
+>  
+>  	/* TODO: Suppport for extension header, sequence number and N-PDU.
+>  	 *	 Update the length field if any of them is available.
+> @@ -438,34 +464,17 @@ struct gtp_pktinfo {
+>  	struct iphdr		*iph;
+>  	struct flowi4		fl4;
+>  	struct rtable		*rt;
+> -	struct pdp_ctx		*pctx;
+>  	struct net_device	*dev;
+>  	__be16			gtph_port;
+>  };
+>  
+> -static void gtp_push_header(struct sk_buff *skb, struct gtp_pktinfo *pktinfo)
+> -{
+> -	switch (pktinfo->pctx->gtp_version) {
+> -	case GTP_V0:
+> -		pktinfo->gtph_port = htons(GTP0_PORT);
+> -		gtp0_push_header(skb, pktinfo->pctx);
+> -		break;
+> -	case GTP_V1:
+> -		pktinfo->gtph_port = htons(GTP1U_PORT);
+> -		gtp1_push_header(skb, pktinfo->pctx);
+> -		break;
+> -	}
+> -}
+> -
+>  static inline void gtp_set_pktinfo_ipv4(struct gtp_pktinfo *pktinfo,
+>  					struct sock *sk, struct iphdr *iph,
+> -					struct pdp_ctx *pctx, struct rtable *rt,
+> -					struct flowi4 *fl4,
+> +					struct rtable *rt, struct flowi4 *fl4,
+>  					struct net_device *dev)
+>  {
+>  [...]
+> +	__be32 tun_id;
 
-you're unconditionally binding to both GTP0 and GTP1 UDP ports.  This is
-done selectively based on netlink attributes in the existing "normal"
-non-OVS kernel code, i.e. the control is left to the user.
+you are breaking GTPv0 functionality here.  GTPv0 has 64 bit tunnel
+identifiers, and this function is called both from GTPv1 and GTPv0
+context.
 
-Is this function is only called/used in the context of OVS?  If so,
-since you explicitly implement only GTPv1, why bind to GTPv0 port?
+This makes me wonder how you did verify that your changes do not break
+the existing operation with both GTPv0 and GTPv1?
 
-> +	setup_udp_tunnel_sock(net, sock1u, &tunnel_cfg);
+> +	// flow-based GTP1U encap
+> +	info = skb_tunnel_info(skb);
+> +	if (gtp->collect_md && info && ntohs(info->key.tp_dst) == GTP1U_PORT) {
 
-even here, you're only setting up the v1 and not v0.
+I think it's typically safe to assume that GTP is only operated on
+standard ports, but it is something you chould/should think about, i.e.
+whether you want that kind of restriction.  In the existing use case, we
+have the v0/v1 information stored in the per-pdp context structure.
 
-> +	/* Assume largest header, ie. GTPv0. */
-> +	dev->needed_headroom	= LL_MAX_HEADER +
-> +		sizeof(struct iphdr) +
-> +		sizeof(struct udphdr) +
-> +		sizeof(struct gtp0_header);
+> +		tun_id	= htonl(pctx->u.v1.o_tei);
 
-... and here you're using headroom for a GTPv0 header, despite (I think)
-only supporting GTPv1 from this configuration?
+here is where you're assuming GTPv1 in two ways from code that is called
+from both v0 and v1.
+* you're dereferencing a v1 specific element in the pctx union
+* you're storing the result in a 32bit variable
 
-> +	err = gtp_hashtable_new(gtp, GTP_PDP_HASHSIZE); // JO: when to free??
+>  	gtp = netdev_priv(dev);
+> +	gtp->net = src_net;
 
-I think that question about when to free needs to be resolved before any
-merge.  Did you check that it persists even after the device is
-closed/removed?
+Isn't this a generic change that's independent of your work on OVS GTP?
+
+Regards,
+	Harald
 
 -- 
-- Harald Welte <laforge-TgoAw6mPHtdg9hUCZPvPmw@public.gmane.org>           http://laforge.gnumonks.org/
+- Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
 ============================================================================
 "Privacy in residential applications is a desirable marketing option."
                                                   (ETSI EN 300 175-7 Ch. A6)
