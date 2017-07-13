@@ -1,39 +1,73 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] zd1211rw: fix spelling mistake 'hybernate' -> 'hibernate'
-Date: Thu, 13 Jul 2017 23:48:29 +0100
-Message-ID: <20170713224829.15459-1-colin.king@canonical.com>
+From: Jiannan Ouyang <ouyangj@fb.com>
+Subject: Re: [PATCH net-next v1 0/3] Flow Based GTP Tunneling
+Date: Thu, 13 Jul 2017 22:54:10 +0000
+Message-ID: <AAC8ECB0-A089-4308-989D-65E18B9EFAB7@fb.com>
+References: <20170713004455.3946570-1-ouyangj@fb.com>
+ <20170713071249.lk7dph6bpzgn622d@nataraja>
+ <CAPWQB7F4aLDnZpqLqqDpNpzHG2nLOUAvcdibqR1CC4cO_ymz0g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Daniel Drake <dsd@gentoo.org>, Ulrich Kunitz <kune@deine-taler.de>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: base64
+Cc: "osmocom-net-gprs@lists.osmocom.org"
+        <osmocom-net-gprs@lists.osmocom.org>,
+        netdev <netdev@vger.kernel.org>, ovs dev <dev@openvswitch.org>,
+        "Pablo Neira Ayuso" <pablo@netfilter.org>,
+        Pravin B Shelar <pshelar@nicira.com>,
+        "Wieger IJntema" <wieger.ijntema.tno@gmail.com>,
+        "Yang, Yi Y" <yi.y.yang@intel.com>,
+        Amar Padmanabhan <amarpadmanabhan@fb.com>
+To: Joe Stringer <joe@ovn.org>, Harald Welte <laforge@gnumonks.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:58481 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751828AbdGMWyn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2017 18:54:43 -0400
+In-Reply-To: <CAPWQB7F4aLDnZpqLqqDpNpzHG2nLOUAvcdibqR1CC4cO_ymz0g@mail.gmail.com>
+Content-Language: en-US
+Content-ID: <F201884D9849174AAFB169A8F1D62935@namprd15.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
-
-Trivial fix to spelling mistake in PDEBUG debug message.
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/wireless/zydas/zd1211rw/zd_rf_rf2959.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/zydas/zd1211rw/zd_rf_rf2959.c b/drivers/net/wireless/zydas/zd1211rw/zd_rf_rf2959.c
-index a93f657a41c7..d4e512f50945 100644
---- a/drivers/net/wireless/zydas/zd1211rw/zd_rf_rf2959.c
-+++ b/drivers/net/wireless/zydas/zd1211rw/zd_rf_rf2959.c
-@@ -61,7 +61,7 @@ static void dump_regwrite(u32 rw)
- 
- 	switch (reg) {
- 	case 0:
--		PDEBUG("reg0 CFG1 ref_sel %d hybernate %d rf_vco_reg_en %d"
-+		PDEBUG("reg0 CFG1 ref_sel %d hibernate %d rf_vco_reg_en %d"
- 		       " if_vco_reg_en %d if_vga_en %d",
- 		       bits(rw, 14, 15), bit(rw, 3), bit(rw, 2), bit(rw, 1),
- 		       bit(rw, 0));
--- 
-2.11.0
+SGkgSGFyYWxkIGFuZCBKZW8sDQoNClRoYW5rIHlvdSBmb3IgdGhlIGNvZGUgcmV2aWV3LiBUaGV5
+IGFyZSByZWFsbHkgaGVscGZ1bCENCg0KPiBPbiA3LzEzLzE3LCAxMToxNCBBTSwgIkpvZSBTdHJp
+bmdlciIgPGpvZUBvdm4ub3JnPiB3cm90ZToNCj4gDQogICAgPiBPbiAxMyBKdWx5IDIwMTcgYXQg
+MDA6MTIsIEhhcmFsZCBXZWx0ZSA8bGFmb3JnZUBnbnVtb25rcy5vcmc+IHdyb3RlOg0KICAgID4+
+IEknbSBub3QgZmFtaWxpYXIgd2l0aCB0aGUgZGV0YWlscyBoZXJlLCBidXQgZG9lcyB0aGlzIGlt
+cGx5IHRoYXQgeW91DQogICAgPj4gYXJlIG1hdGNoaW5nIG9uIHRoZSBvdXRlciAodHJhbnNwb3J0
+IGxheWVyKSBzb3VyY2UgSVAgYWRkcmVzcz8gSWYgc28sDQogICAgPj4gcGxlYXNlIG5vdGUgdGhp
+cyBpcyBpbiB2aW9sYXRpb24gb2YgdGhlIDNHUFAgc3BlY2lmaWNhdGlvbnMgZm9yIEdUUCwNCiAg
+ICA+PiB3aGljaCByZXF1aXJlIGV4cGxpY2l0bHkgdGhhdCB0aGUgVEVJRCBpcyB0aGUgKm9ubHkq
+IGNyaXRlcmlhIGZvcg0KICAgID4+IG1hdGNoaW5nIGFuIGVuY2Fwc3VsYXRlZCBwYWNrZXQgdG8g
+dGhlIHR1bm5lbC4gIEJhc2ljYWxseSBhbnlvbmUgY2FuDQogICAgPj4gc2VuZCB5b3UgYW4gZW5j
+YXBzdWxhdGVkIHBhY2tldCBmcm9tIGFueSByYW5kb20gc291cmNlIElQLCBqdXN0IGFzIGxvbmcN
+CiAgICA+PiBhcyB0aGUgVEVJRCBtYXRjaGVzIGEgdHVubmVsLCBpdCB3aWxsIGJlIGRlY2Fwc3Vs
+YXRlZC4NCiAgICA+Pg0KICAgID4+IFRoaXMgaXMgW3ByZXN1bWFibHldIGluIG9yZGVyIHRvIHRh
+a2UgY2FyZSBvZiBtb2JpbGl0eSwgYXMgdGhlDQogICAgPj4gc3Vic2NyaWJlcnMnIHBob25lIG1v
+dmVzIGFyb3VuZCBkaWZmZXJlbnQgTU1FL1MtR1cvU0dTTiwgZWFjaCBoYXZpbmcNCiAgICA+PiBk
+aWZmZXJlbnQgc291cmNlIElQIGFkZHJlc3Nlcy4NCiAgICA+DQogICAgPiBJIHRoaW5rIHRoYXQg
+dGhpcyB3aWxsIGJlIGhhcmQgdG8gYXZvaWQ7IHRoZSBzZXZlcmFsIGV4aXN0aW5nIHR1bm5lbA0K
+ICAgID4gaW1wbGVtZW50YXRpb25zIHRoYXQgT1ZTIHBsdWdzIGludG8gYWxsIGFsbG93IG1hdGNo
+aW5nIG9uIHRoZSBvdXRlcg0KICAgID4gYWRkcmVzc2VzL3BvcnRzLCBJIGRvbid0IHNlZSBhIGdv
+b2Qgd2F5IHRvIHJlc3RyaWN0IGl0IHdpdGhvdXQNCiAgICA+IGludHJvZHVjaW5nIGNvbXBsZXRl
+bHkgbmV3IG1ldGFkYXRhX2RzdCBwYXRocyBmb3IgR1RQLiBJJ2QgcHJlZmVyIG5vdA0KICAgID4g
+dG8gaW50cm9kdWNlIHNvbWV0aGluZyBsaWtlIHRoaXMgaWYgd2UgY2FuIGF2b2lkIGl0OyBzZXZl
+cmFsIHR1bm5lbHMNCiAgICA+IGN1cnJlbnRseSBzaGFyZSBhbGwgb2YgdGhlIHNhbWUgbWV0YWRh
+dGFfZHN0IGNvZGUgYW5kIHRoYXQncyBwcm92ZW4NCiAgICA+IHN1ZmZpY2llbnQgZm9yIGFsbCBj
+YXNlcyBzbyBmYXIuIElmIHNvbWVvbmUgd2lzaGVzIHRvIGltcGxlbWVudCB0aGUNCiAgICA+IDNH
+UFAgc3RhbmRhcmQgY29ycmVjdGx5IHRoZW4gdGhleSBzaG91bGQgbm90IGNyZWF0ZSBtYXRjaGVz
+IGxpa2UgdGhpcy4NCiAgICA+IEluIHF1aXRlIGEgZmV3IGNhc2VzLCBPVlMgdGVuZHMgdG8gdGFr
+ZSB0aGUgYXBwcm9hY2ggdGhhdCB3ZSBnaXZlIHRoZQ0KICAgID4gdXNlciB0aGUgdG9vbHMgdG8g
+ZG8gd2hhdCB0aGV5IG5lZWQgdG8gZG8sIGJ1dCBpZiB0aGV5IHdpc2ggdG8gc2hvb3QNCiAgICA+
+IHRoZW1zZWx2ZXMgaW4gdGhlIGZvb3QgdGhlbiB0aGF0J3MgdXAgdG8gdGhlbS4gV2UgY2FuIG9m
+IGNvdXJzZSB3b3JrDQogICAgPiAgdG93YXJkcyBlbnN1cmluZyB0aGUgT1ZTIHVzZXJzcGFjZSBn
+dWlkZXMgdXNlcnMgaW4gdGhlIHJpZ2h0IGRpcmVjdGlvbg0KICAgID4gdGhvdWdoLg0KICAgIA0K
+VGhlIGZsb3cgbGlzdGVkIG91dCBoZXJlIGlzIGFuIGV4YW1wbGUgZm9yIHRoZSBuYXR1cmUgb2Yg
+dGhlIG1hdGNoDQp0aGF0IGNhbiBiZSBwZXJmb3JtZWQsIGJ1dCB0aGUgYWN0dWFsIG1hdGNoIHJ1
+bGUgdGhhdCBpcyBwcm9ncmFtbWVkDQogYnkgdGhlIGNvbnRyb2wgcGxhbmUgc2hvdWxkIHdpbGRj
+YXJkIHRoZSB0dW5fc3JjIGFzIG5vdGVkIGJ5IEhhcmFsZC4gDQoNCkl0IGlzIHRoZSBjb250cm9s
+IHBsYW5l4oCZcyByZXNwb25zaWJpbGl0eSB0byBlbmZvcmNlIHRoZSAzR1BQIFNwZWNpZmljYXRp
+b25zLCANCmUuZy4gY3JlYXRpbmcgZmxvdyBydWxlcyB0byBtYWtlIFRFSUQgdGhlIG9ubHkgY3Jp
+dGVyaWEgZm9yIG1hdGNoaW5nIGFuIA0KZW5jYXBzdWxhdGVkIHBhY2tldCB0byB0aGUgdHVubmVs
+LiAgDQoNCkkgd2lsbCBwcm92aWRlIGEgM0dQUCBjb21wbGlhbnQgZXhhbXBsZSBpbiB0aGUgbmV4
+dCB2ZXJzaW9uLCB0aGFuayBIYXJhbGQNCiBmb3IgcG9pbnRpbmcgaXQgb3V0Lg0KDQotSmlhbm5h
+bg0KDQo=
