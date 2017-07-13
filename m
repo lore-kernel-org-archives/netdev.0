@@ -1,47 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: don't dereference ptr before leaving
- _sctp_walk_{params,errors}()
-Date: Thu, 13 Jul 2017 13:44:43 -0700 (PDT)
-Message-ID: <20170713.134443.1912348414766536226.davem@davemloft.net>
-References: <20170713181034.41123-1-glider@google.com>
-        <20170713.113206.177363709000549854.davem@davemloft.net>
-        <CAG_fn=VJQUG1RveUyXDVuZmMrBz3DZLrar3pEKKJegyi3mYbaA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dvyukov@google.com, kcc@google.com, edumazet@google.com,
-        lucien.xin@gmail.com, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: glider@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAG_fn=VJQUG1RveUyXDVuZmMrBz3DZLrar3pEKKJegyi3mYbaA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Timur Tabi <timur@codeaurora.org>
+Subject: [PATCH] [for 4.13] net: qcom/emac: fix double free of SGMII IRQ during shutdown
+Date: Thu, 13 Jul 2017 15:45:41 -0500
+Message-ID: <1499978741-16451-1-git-send-email-timur@codeaurora.org>
+Cc: timur@codeaurora.org
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:33832 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753173AbdGMUqp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2017 16:46:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Potapenko <glider@google.com>
-Date: Thu, 13 Jul 2017 21:28:39 +0200
+If the interface is not up, then don't try to close it during a
+shutdown.  This avoids possible double free of the IRQ, which
+can happen during a shutdown.
 
-> On Thu, Jul 13, 2017 at 8:32 PM, David Miller <davem@davemloft.net> wrote:
->> struct sctp_paramhdr {
->>         __be16 type;
->>         __be16 length;
->> };
->>
->> typedef struct sctp_errhdr {
->>         __be16 cause;
->>         __be16 length;
->>         __u8  variable[0];
->> } sctp_errhdr_t;
- ...
->> Something like:
->>
->>         pos.v + offsetof(pos.v, length) + sizeof(pos.v->length) <= (void *) chunk + end
-> 
-> Do we need to bother about truncated structures? Shouldn't it be
-> enough to check that there's at least sizeof(struct sctp_paramhdr)
-> bytes left then?
+Fixes: 03eb3eb4d4d5 ("net: qcom/emac: add shutdown function")
+Signed-off-by: Timur Tabi <timur@codeaurora.org>
+---
+ drivers/net/ethernet/qualcomm/emac/emac.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-With the zero length array at the end, it's arguable what the "size"
-of such a thing is.
-
-That's why I tried to be explicit with the length field.
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac.c b/drivers/net/ethernet/qualcomm/emac/emac.c
+index 746d94e..60850bf 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac.c
+@@ -766,11 +766,13 @@ static void emac_shutdown(struct platform_device *pdev)
+ 	struct emac_adapter *adpt = netdev_priv(netdev);
+ 	struct emac_sgmii *sgmii = &adpt->phy;
+ 
+-	/* Closing the SGMII turns off its interrupts */
+-	sgmii->close(adpt);
++	if (netdev->flags & IFF_UP) {
++		/* Closing the SGMII turns off its interrupts */
++		sgmii->close(adpt);
+ 
+-	/* Resetting the MAC turns off all DMA and its interrupts */
+-	emac_mac_reset(adpt);
++		/* Resetting the MAC turns off all DMA and its interrupts */
++		emac_mac_reset(adpt);
++	}
+ }
+ 
+ static struct platform_driver emac_platform_driver = {
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
