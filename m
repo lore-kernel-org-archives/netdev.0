@@ -1,41 +1,37 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH net] libceph: osdmap: Fix some NULL dereferences
-Date: Thu, 13 Jul 2017 23:23:22 +0300
-Message-ID: <20170713202322.4joas52vuvjpx6w5@mwanda>
-References: <20170713074517.io64uezw3qf6oush@mwanda>
- <CAOi1vP8tNXb7izDJXV1LzHhFMcqhFh_+_+zxsHQZnqgb_S+Etg@mail.gmail.com>
+From: Ido Schimmel <idosch@mellanox.com>
+Subject: Re: [PATCH net] mlxsw: spectrum_router: do not drop refcnt on fib
+ rule
+Date: Thu, 13 Jul 2017 23:33:58 +0300
+Message-ID: <20170713203358.GA8349@splinter>
+References: <1499973097-14579-1-git-send-email-dsahern@gmail.com>
+ <2b419d5a-8dc7-6066-4c26-699a881ce425@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Yan, Zheng" <zyan@redhat.com>, Sage Weil <sage@redhat.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Ceph Development <ceph-devel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>, kernel-janitors@vger.kernel.org
-To: Ilya Dryomov <idryomov@gmail.com>
+Cc: jiri@mellanox.com, netdev@vger.kernel.org
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:30403 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752745AbdGMUXk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2017 16:23:40 -0400
+Received: from mail-db5eur01on0040.outbound.protection.outlook.com ([104.47.2.40]:55441
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753263AbdGMUeG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 13 Jul 2017 16:34:06 -0400
 Content-Disposition: inline
-In-Reply-To: <CAOi1vP8tNXb7izDJXV1LzHhFMcqhFh_+_+zxsHQZnqgb_S+Etg@mail.gmail.com>
+In-Reply-To: <2b419d5a-8dc7-6066-4c26-699a881ce425@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 13, 2017 at 06:13:22PM +0200, Ilya Dryomov wrote:
+On Thu, Jul 13, 2017 at 01:46:15PM -0600, David Ahern wrote:
+> On 7/13/17 1:11 PM, David Ahern wrote:
+> > Since mlxsw is not doing a get on the rule to increase the ref count, it
+> > should not be doing a put.
 > 
-> Hi Dan,
+> upon further review, mlxsw is doing a get on the rule
 > 
-> I applied osdmap_apply_incremental() hunk and fixed a similar bug in
-> osdmap_decode() (it's a not NULL deref, that's why smatch didn't catch
-> it).
-> 
+> Problem remains, but this is not the right fix.
 
-No...  :/  Smatch complained about it, but I somehow marked it as done
-yesterday without sending a patch.  Thanks for catching that.
+Remains where? It's not clear to me how you concluded mlxsw is at fault.
+My setup is running net-next with the refcount patches and I didn't
+observe this.
 
-The Smatch check is just looking for places where we do ERR_PTR(0) or
-ERR_PTR(valid_ptr).  That can be intentional, so there is some hand
-reviewing involved.
-
-regards,
-dan carpenter
+If current trace isn't enough to pinpoint the problem, can you try to
+reproduce with a KASAN enabled kernel?
