@@ -1,37 +1,51 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: Re: [PATCH net] mlxsw: spectrum_router: do not drop refcnt on fib
- rule
-Date: Thu, 13 Jul 2017 23:33:58 +0300
-Message-ID: <20170713203358.GA8349@splinter>
-References: <1499973097-14579-1-git-send-email-dsahern@gmail.com>
- <2b419d5a-8dc7-6066-4c26-699a881ce425@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jiri@mellanox.com, netdev@vger.kernel.org
-To: David Ahern <dsahern@gmail.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: [PATCH net] net: set fib rule refcount after malloc
+Date: Thu, 13 Jul 2017 13:36:40 -0700
+Message-ID: <1499978200-12331-1-git-send-email-dsahern@gmail.com>
+Cc: David Ahern <dsahern@gmail.com>
+To: edumazet@google.com, idosch@mellanox.com, jiri@mellanox.com,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0040.outbound.protection.outlook.com ([104.47.2.40]:55441
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753263AbdGMUeG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 13 Jul 2017 16:34:06 -0400
-Content-Disposition: inline
-In-Reply-To: <2b419d5a-8dc7-6066-4c26-699a881ce425@gmail.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:36595 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752870AbdGMUgq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2017 16:36:46 -0400
+Received: by mail-pg0-f65.google.com with SMTP id y129so8125149pgy.3
+        for <netdev@vger.kernel.org>; Thu, 13 Jul 2017 13:36:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 13, 2017 at 01:46:15PM -0600, David Ahern wrote:
-> On 7/13/17 1:11 PM, David Ahern wrote:
-> > Since mlxsw is not doing a get on the rule to increase the ref count, it
-> > should not be doing a put.
-> 
-> upon further review, mlxsw is doing a get on the rule
-> 
-> Problem remains, but this is not the right fix.
+The configure callback of fib_rules_ops can change the refcnt of a
+fib rule. For instance, mlxsw takes a refcnt when adding the processing
+of the rule to a work queue. Thus the rule refcnt can not be reset to
+to 1 afterwards. Move the refcnt setting to after the allocation.
 
-Remains where? It's not clear to me how you concluded mlxsw is at fault.
-My setup is running net-next with the refcount patches and I didn't
-observe this.
+Fixes: 5361e209dd30 ("net: avoid one splat in fib_nl_delrule()")
+Signed-off-by: David Ahern <dsahern@gmail.com>
+---
+ net/core/fib_rules.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-If current trace isn't enough to pinpoint the problem, can you try to
-reproduce with a KASAN enabled kernel?
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index a0093e1b0235..fdcb1bcd2afa 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -400,6 +400,7 @@ int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 		err = -ENOMEM;
+ 		goto errout;
+ 	}
++	refcount_set(&rule->refcnt, 1);
+ 	rule->fr_net = net;
+ 
+ 	rule->pref = tb[FRA_PRIORITY] ? nla_get_u32(tb[FRA_PRIORITY])
+@@ -517,8 +518,6 @@ int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 		last = r;
+ 	}
+ 
+-	refcount_set(&rule->refcnt, 1);
+-
+ 	if (last)
+ 		list_add_rcu(&rule->list, &last->list);
+ 	else
+-- 
+2.1.4
