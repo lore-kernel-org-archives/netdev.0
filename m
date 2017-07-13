@@ -1,30 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netlink: correctly document nla_put_u64_64bit()
-Date: Thu, 13 Jul 2017 09:26:40 -0700 (PDT)
-Message-ID: <20170713.092640.609290377272996194.davem@davemloft.net>
-References: <15468457.IYSIRIbmYT@devpool21>
+Subject: Re: [PATCH] net: stmmac: make const array route_possibilities
+ static
+Date: Thu, 13 Jul 2017 09:24:38 -0700 (PDT)
+Message-ID: <20170713.092438.1772000521677037512.davem@davemloft.net>
+References: <20170711111848.14469-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
-To: eb@emlix.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47236 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752808AbdGMQ0q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2017 12:26:46 -0400
-In-Reply-To: <15468457.IYSIRIbmYT@devpool21>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170711111848.14469-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Rolf Eike Beer <eb@emlix.com>
-Date: Thu, 13 Jul 2017 16:50:24 +0200
+From: Colin King <colin.king@canonical.com>
+Date: Tue, 11 Jul 2017 12:18:48 +0100
 
-> From 90bda8d1bc2a0c5d283e4e0a4b19812a4cce72bd Mon Sep 17 00:00:00 2001
-> From: Rolf Eike Beer <eb@emlix.com>
-> Date: Thu, 13 Jul 2017 16:46:43 +0200
-> Subject: [PATCH] netlink: correctly document nla_put_u64_64bit()
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Signed-off-by: Rolf Eike Beer <eb@emlix.com>
+> Don't populate array route_possibilities on the stack but make it
+> static const.  Makes the object code a little smaller by 85 bytes:
+> 
+> Before:
+>    text	   data	    bss	    dec	    hex	filename
+>    9901	   2448	      0	  12349	   303d	dwmac4_core.o
+> 
+> After:
+>    text	   data	    bss	    dec	    hex	filename
+>    9760	   2504	      0	  12264	   2fe8	dwmac4_core.o
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
 Applied.
