@@ -1,81 +1,120 @@
-From: =?UTF-8?q?Iv=C3=A1n=20Briano?= <ivan.briano@intel.com>
-Subject: [PATCH net] net/packet: Fix Tx queue selection for AF_PACKET
-Date: Thu, 13 Jul 2017 09:46:58 -0700
-Message-ID: <20170713164658.4859-1-ivan.briano@intel.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [RFC PATCH 00/12] Implement XDP bpf_redirect vairants
+Date: Thu, 13 Jul 2017 10:00:15 -0700
+Message-ID: <5967A71F.9010409@gmail.com>
+References: <20170707172115.9984.53461.stgit@john-Precision-Tower-5810> <595FC974.9030807@gmail.com>    <20170708.104618.2149883426031901592.davem@davemloft.net>       <20170708210617.249059b9@redhat.com>    <20170710203050.54b2d8eb@redhat.com>    <596422E5.6010100@gmail.com>    <20170711162344.6fd8fb39@redhat.com>    <5965186E.8060409@gmail.com>    <20170713131430.7032b5fa@redhat.com> <20170713181644.2d421e4d@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: jesus.sanchez-palencia@intel.com, vinicius.gomes@intel.com,
-        andre.guedes@intel.com,
-        =?UTF-8?q?Iv=C3=A1n=20Briano?= <ivan.briano@intel.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        andy@greyhouse.net, daniel@iogearbox.net, ast@fb.com,
+        alexander.duyck@gmail.com, bjorn.topel@intel.com,
+        jakub.kicinski@netronome.com, ecree@solarflare.com,
+        sgoutham@cavium.com, Yuval.Mintz@cavium.com, saeedm@mellanox.com
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:41703 "EHLO mga03.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750881AbdGMQrA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 13 Jul 2017 12:47:00 -0400
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:34482 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751198AbdGMRAd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2017 13:00:33 -0400
+Received: by mail-pg0-f65.google.com with SMTP id j186so7584683pge.1
+        for <netdev@vger.kernel.org>; Thu, 13 Jul 2017 10:00:33 -0700 (PDT)
+In-Reply-To: <20170713181644.2d421e4d@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When PACKET_QDISC_BYPASS is not used, Tx queue selection will be done
-before the packet is enqueued, taking into account any mappings set by
-a queuing discipline such as mqprio without hardware offloading. This
-selection may be affected by a previously saved queue_mapping, either on
-the Rx path, or done before the packet reaches the device, as it's
-currently the case for AF_PACKET.
+On 07/13/2017 09:16 AM, Jesper Dangaard Brouer wrote:
+> On Thu, 13 Jul 2017 13:14:30 +0200
+> Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+> 
+>> I'm still getting crashes (but much harder to provoke), but I figured
+>> out why.  We sort of missed one case, where map_to_flush gets set, when
+>> the ndo_xdp_xmit() call starts to fail, and the ixgbe driver then
+>> forgets to call xdp_do_flush_map, if all packets in that NAPI cycle
+>> failed.  We could blame the driver, but yhe clean solution is making
+>> sure, that we don't set map_to_flush when the __bpf_tx_xdp() call
+>> fails. It should also handle the other case I fixed .... I'll cleanup
+>> my PoC-fix patch, test it and provide it here.
+> 
+> I changed flow in the function to be:
 
-In order for queue selection to work as expected when using traffic
-control, there can't be another selection done before that point is
-reached, so move the call to packet_pick_tx_queue to
-packet_direct_xmit, leaving the default xmit path as it was before
-PACKET_QDISC_BYPASS was introduced.
 
-A forward declaration of packet_pick_tx_queue() is introduced to avoid
-the need to reorder the functions within the file.
+Great, I'll merge this, the other couple fixes, and the bitops optimization and
+hopefully then we are set. I'll post a v2 and we can do some final checks.
 
-Fixes: d346a3fae3ff ("packet: introduce PACKET_QDISC_BYPASS socket option")
-Signed-off-by: Iván Briano <ivan.briano@intel.com>
----
- net/packet/af_packet.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+Thanks!
+John
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index e3beb28..008bb34 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -214,6 +214,7 @@ static void prb_clear_rxhash(struct tpacket_kbdq_core *,
- static void prb_fill_vlan_info(struct tpacket_kbdq_core *,
- 		struct tpacket3_hdr *);
- static void packet_flush_mclist(struct sock *sk);
-+static void packet_pick_tx_queue(struct net_device *dev, struct sk_buff *skb);
- 
- struct packet_skb_cb {
- 	union {
-@@ -260,6 +261,7 @@ static int packet_direct_xmit(struct sk_buff *skb)
- 	if (skb != orig_skb)
- 		goto drop;
- 
-+	packet_pick_tx_queue(dev, skb);
- 	txq = skb_get_tx_queue(dev, skb);
- 
- 	local_bh_disable();
-@@ -2747,8 +2749,6 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 			goto tpacket_error;
- 		}
- 
--		packet_pick_tx_queue(dev, skb);
--
- 		skb->destructor = tpacket_destruct_skb;
- 		__packet_set_status(po, ph, TP_STATUS_SENDING);
- 		packet_inc_pending(&po->tx_ring);
-@@ -2931,8 +2931,6 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
- 	skb->priority = sk->sk_priority;
- 	skb->mark = sockc.mark;
- 
--	packet_pick_tx_queue(dev, skb);
--
- 	if (po->has_vnet_hdr) {
- 		err = virtio_net_hdr_to_skb(skb, &vnet_hdr, vio_le());
- 		if (err)
--- 
-2.9.4
+> 
+> int xdp_do_redirect_map(struct net_device *dev, struct xdp_buff *xdp,
+> 			struct bpf_prog *xdp_prog)
+> {
+> 	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
+> 	struct bpf_map *map = ri->map;
+> 	u32 index = ri->ifindex;
+> 	struct net_device *fwd;
+> 	int err = -EINVAL;
+> 
+> 	ri->ifindex = 0;
+> 	ri->map = NULL;
+> 
+> 	fwd = __dev_map_lookup_elem(map, index);
+> 	if (!fwd)
+> 		goto out;
+> 
+> 	if (ri->map_to_flush && (ri->map_to_flush != map))
+> 		xdp_do_flush_map();
+> 
+> 	err = __bpf_tx_xdp(fwd, map, xdp, index);
+> 	if (likely(!err))
+> 		ri->map_to_flush = map;
+> 
+> out:
+> 	trace_xdp_redirect(dev, fwd, xdp_prog, XDP_REDIRECT);
+> 	return err;
+> }
+> 
+> 
+> The diff is:
+> 
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index 4ca895d6ed51..c50a7ec2cdab 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -2483,26 +2483,25 @@ int xdp_do_redirect_map(struct net_device *dev, struct xdp_buff *xdp,
+>         struct bpf_map *map = ri->map;
+>         u32 index = ri->ifindex;
+>         struct net_device *fwd;
+> +       int err = -EINVAL;
+> +
+> +       ri->ifindex = 0;
+> +       ri->map = NULL;
+>  
+>         fwd = __dev_map_lookup_elem(map, index);
+>         if (!fwd)
+>                 goto out;
+>  
+> -       ri->ifindex = 0;
+> -
+>         if (ri->map_to_flush && (ri->map_to_flush != map))
+>                 xdp_do_flush_map();
+>  
+> -       ri->map_to_flush = map;
+> -       ri->map = NULL;
+> +       err = __bpf_tx_xdp(fwd, map, xdp, index);
+> +       if (likely(!err))
+> +               ri->map_to_flush = map;
+>  
+> -       trace_xdp_redirect(dev, fwd, xdp_prog, XDP_REDIRECT);
+> -
+> -       return __bpf_tx_xdp(fwd, map, xdp, index);
+>  out:
+> -       ri->ifindex = 0;
+> -       ri->map = NULL;
+> -       return -EINVAL;
+> +       trace_xdp_redirect(dev, fwd, xdp_prog, XDP_REDIRECT);
+> +       return err;
+>  }
+>  
+>  int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
+> 
