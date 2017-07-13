@@ -1,62 +1,194 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v7 3/3] net/cxgb4: Use new PCI_DEV_FLAGS_NO_RELAXED_ORDERING
- flag
-Date: Thu, 13 Jul 2017 11:17:28 -0700
-Message-ID: <CAKgT0Uf8Tg6AFthXt-bJrdNHCqJ3MfzduR1yCMMsjLYoEFXb-w@mail.gmail.com>
-References: <1499955692-26556-1-git-send-email-dingtianhong@huawei.com>
- <1499955692-26556-4-git-send-email-dingtianhong@huawei.com> <CAKgT0UcBFBk9T7g0Dh-rHY6Z+6-4=5jsUWHbLcSMc+ohdTz=CA@mail.gmail.com>
+From: Alexander Potapenko <glider@google.com>
+Subject: Re: [PATCH] sctp: don't dereference ptr before leaving _sctp_walk_{params,errors}()
+Date: Thu, 13 Jul 2017 20:18:38 +0200
+Message-ID: <CAG_fn=WGLdfaMFKaqoniEacQJJeGp0-BbJCcrBJsUKRRzsNE=Q@mail.gmail.com>
+References: <20170713181034.41123-1-glider@google.com> <CAG_fn=UBWXAtKm9gzfUTjaLHGKWXJ9B7A_FAp0s12+bhJmpPOg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Casey Leedom <leedom@chelsio.com>, Ashok Raj <ashok.raj@intel.com>,
-        Bjorn Helgaas <bhelgaas@google.com>,
-        Bjorn Helgaas <helgaas@kernel.org>,
-        Michael Werner <werner@chelsio.com>,
-        Ganesh Goudar <ganeshgr@chelsio.com>,
-        Asit K Mallick <asit.k.mallick@intel.com>,
-        Patrick J Cramer <patrick.j.cramer@intel.com>,
-        Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
-        Bob Shaw <Bob.Shaw@amd.com>, h <l.stach@pengutronix.de>,
-        Amir Ancel <amira@mellanox.com>,
-        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
-        David Laight <David.Laight@aculab.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will.deacon@arm.com>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Robin Murphy <robin.murphy@arm.com>,
-        David Miller <davem@davem
-To: Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <CAKgT0UcBFBk9T7g0Dh-rHY6Z+6-4=5jsUWHbLcSMc+ohdTz=CA@mail.gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        Networking <netdev@vger.kernel.org>
+To: Dmitriy Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        lucien xin <lucien.xin@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAG_fn=UBWXAtKm9gzfUTjaLHGKWXJ9B7A_FAp0s12+bhJmpPOg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 13, 2017 at 11:14 AM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On Thu, Jul 13, 2017 at 7:21 AM, Ding Tianhong <dingtianhong@huawei.com> wrote:
->> From: Casey Leedom <leedom@chelsio.com>
+On Thu, Jul 13, 2017 at 8:14 PM, Alexander Potapenko <glider@google.com> wr=
+ote:
+> On Thu, Jul 13, 2017 at 8:10 PM, Alexander Potapenko <glider@google.com> =
+wrote:
+>> If the iterator (|pos.p| or |err|) has already reached the end of
+>> chunk, we shouldn't access iterator->length.
 >>
->> cxgb4 Ethernet driver now queries PCIe configuration space to determine
->> if it can send TLPs to it with the Relaxed Ordering Attribute set.
+>> This bug has been detected by KMSAN. For the following pair of system
+>> calls:
 >>
->> Remove the enable_pcie_relaxed_ordering() to avoid enable PCIe Capability
->> Device Control[Relaxed Ordering Enable] at probe routine, to make sure
->> the driver will not send the Relaxed Ordering TLPs to the Root Complex which
->> could not deal the Relaxed Ordering TLPs.
+>>   socket(PF_INET6, SOCK_STREAM, 0x84 /* IPPROTO_??? */) =3D 3
+>>   sendto(3, "A", 1, MSG_OOB, {sa_family=3DAF_INET6, sin6_port=3Dhtons(0)=
+,
+>>          inet_pton(AF_INET6, "::1", &sin6_addr), sin6_flowinfo=3D0,
+>>          sin6_scope_id=3D0}, 28) =3D 1
 >>
->> Signed-off-by: Casey Leedom <leedom@chelsio.com>
->> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>> the tool has reported a use of uninitialized memory:
+>>
+>>   =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>>   BUG: KMSAN: use of uninitialized memory in sctp_rcv+0x17b8/0x43b0
+>>   CPU: 1 PID: 2940 Comm: probe Not tainted 4.11.0-rc5+ #2926
+>>   Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs
+>>   01/01/2011
+>>   Call Trace:
+>>    <IRQ>
+>>    __dump_stack lib/dump_stack.c:16
+>>    dump_stack+0x172/0x1c0 lib/dump_stack.c:52
+>>    kmsan_report+0x12a/0x180 mm/kmsan/kmsan.c:927
+>>    __msan_warning_32+0x61/0xb0 mm/kmsan/kmsan_instr.c:469
+>>    __sctp_rcv_init_lookup net/sctp/input.c:1074
+>>    __sctp_rcv_lookup_harder net/sctp/input.c:1233
+>>    __sctp_rcv_lookup net/sctp/input.c:1255
+>>    sctp_rcv+0x17b8/0x43b0 net/sctp/input.c:170
+>>    sctp6_rcv+0x32/0x70 net/sctp/ipv6.c:984
+>>    ip6_input_finish+0x82f/0x1ee0 net/ipv6/ip6_input.c:279
+>>    NF_HOOK ./include/linux/netfilter.h:257
+>>    ip6_input+0x239/0x290 net/ipv6/ip6_input.c:322
+>>    dst_input ./include/net/dst.h:492
+>>    ip6_rcv_finish net/ipv6/ip6_input.c:69
+>>    NF_HOOK ./include/linux/netfilter.h:257
+>>    ipv6_rcv+0x1dbd/0x22e0 net/ipv6/ip6_input.c:203
+>>    __netif_receive_skb_core+0x2f6f/0x3a20 net/core/dev.c:4208
+>>    __netif_receive_skb net/core/dev.c:4246
+>>    process_backlog+0x667/0xba0 net/core/dev.c:4866
+>>    napi_poll net/core/dev.c:5268
+>>    net_rx_action+0xc95/0x1590 net/core/dev.c:5333
+>>    __do_softirq+0x485/0x942 kernel/softirq.c:284
+>>    do_softirq_own_stack+0x1c/0x30 arch/x86/entry/entry_64.S:902
+>>    </IRQ>
+>>    do_softirq kernel/softirq.c:328
+>>    __local_bh_enable_ip+0x25b/0x290 kernel/softirq.c:181
+>>    local_bh_enable+0x37/0x40 ./include/linux/bottom_half.h:31
+>>    rcu_read_unlock_bh ./include/linux/rcupdate.h:931
+>>    ip6_finish_output2+0x19b2/0x1cf0 net/ipv6/ip6_output.c:124
+>>    ip6_finish_output+0x764/0x970 net/ipv6/ip6_output.c:149
+>>    NF_HOOK_COND ./include/linux/netfilter.h:246
+>>    ip6_output+0x456/0x520 net/ipv6/ip6_output.c:163
+>>    dst_output ./include/net/dst.h:486
+>>    NF_HOOK ./include/linux/netfilter.h:257
+>>    ip6_xmit+0x1841/0x1c00 net/ipv6/ip6_output.c:261
+>>    sctp_v6_xmit+0x3b7/0x470 net/sctp/ipv6.c:225
+>>    sctp_packet_transmit+0x38cb/0x3a20 net/sctp/output.c:632
+>>    sctp_outq_flush+0xeb3/0x46e0 net/sctp/outqueue.c:885
+>>    sctp_outq_uncork+0xb2/0xd0 net/sctp/outqueue.c:750
+>>    sctp_side_effects net/sctp/sm_sideeffect.c:1773
+>>    sctp_do_sm+0x6962/0x6ec0 net/sctp/sm_sideeffect.c:1147
+>>    sctp_primitive_ASSOCIATE+0x12c/0x160 net/sctp/primitive.c:88
+>>    sctp_sendmsg+0x43e5/0x4f90 net/sctp/socket.c:1954
+>>    inet_sendmsg+0x498/0x670 net/ipv4/af_inet.c:762
+>>    sock_sendmsg_nosec net/socket.c:633
+>>    sock_sendmsg net/socket.c:643
+>>    SYSC_sendto+0x608/0x710 net/socket.c:1696
+>>    SyS_sendto+0x8a/0xb0 net/socket.c:1664
+>>    do_syscall_64+0xe6/0x130 arch/x86/entry/common.c:285
+>>    entry_SYSCALL64_slow_path+0x25/0x25 arch/x86/entry/entry_64.S:246
+>>   RIP: 0033:0x401133
+>>   RSP: 002b:00007fff6d99cd38 EFLAGS: 00000246 ORIG_RAX: 000000000000002c
+>>   RAX: ffffffffffffffda RBX: 00000000004002b0 RCX: 0000000000401133
+>>   RDX: 0000000000000001 RSI: 0000000000494088 RDI: 0000000000000003
+>>   RBP: 00007fff6d99cd90 R08: 00007fff6d99cd50 R09: 000000000000001c
+>>   R10: 0000000000000001 R11: 0000000000000246 R12: 0000000000000000
+>>   R13: 00000000004063d0 R14: 0000000000406460 R15: 0000000000000000
+>>   origin:
+>>    save_stack_trace+0x37/0x40 arch/x86/kernel/stacktrace.c:59
+>>    kmsan_save_stack_with_flags mm/kmsan/kmsan.c:302
+>>    kmsan_internal_poison_shadow+0xb1/0x1a0 mm/kmsan/kmsan.c:198
+>>    kmsan_poison_shadow+0x6d/0xc0 mm/kmsan/kmsan.c:211
+>>    slab_alloc_node mm/slub.c:2743
+>>    __kmalloc_node_track_caller+0x200/0x360 mm/slub.c:4351
+>>    __kmalloc_reserve net/core/skbuff.c:138
+>>    __alloc_skb+0x26b/0x840 net/core/skbuff.c:231
+>>    alloc_skb ./include/linux/skbuff.h:933
+>>    sctp_packet_transmit+0x31e/0x3a20 net/sctp/output.c:570
+>>    sctp_outq_flush+0xeb3/0x46e0 net/sctp/outqueue.c:885
+>>    sctp_outq_uncork+0xb2/0xd0 net/sctp/outqueue.c:750
+>>    sctp_side_effects net/sctp/sm_sideeffect.c:1773
+>>    sctp_do_sm+0x6962/0x6ec0 net/sctp/sm_sideeffect.c:1147
+>>    sctp_primitive_ASSOCIATE+0x12c/0x160 net/sctp/primitive.c:88
+>>    sctp_sendmsg+0x43e5/0x4f90 net/sctp/socket.c:1954
+>>    inet_sendmsg+0x498/0x670 net/ipv4/af_inet.c:762
+>>    sock_sendmsg_nosec net/socket.c:633
+>>    sock_sendmsg net/socket.c:643
+>>    SYSC_sendto+0x608/0x710 net/socket.c:1696
+>>    SyS_sendto+0x8a/0xb0 net/socket.c:1664
+>>    do_syscall_64+0xe6/0x130 arch/x86/entry/common.c:285
+>>    return_from_SYSCALL_64+0x0/0x6a arch/x86/entry/entry_64.S:246
+>>   =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>>
+>> Signed-off-by: Alexander Potapenko <glider@google.com>
+>> ---
+>>  include/net/sctp/sctp.h | 2 ++
+>>  1 file changed, 2 insertions(+)
+>>
+>> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+>> index a9519a06a23b..f13632ee33f0 100644
+>> --- a/include/net/sctp/sctp.h
+>> +++ b/include/net/sctp/sctp.h
+>> @@ -469,6 +469,7 @@ _sctp_walk_params((pos), (chunk), ntohs((chunk)->chu=
+nk_hdr.length), member)
+>>
+>>  #define _sctp_walk_params(pos, chunk, end, member)\
+>>  for (pos.v =3D chunk->member;\
+>> +     pos.v < (void *)chunk + end &&\
+> checkpatch.pl warns about spaces here, but I wanted to be consistent
+> with the rest of the file.
+>>       pos.v <=3D (void *)chunk + end - ntohs(pos.p->length) &&\
+>>       ntohs(pos.p->length) >=3D sizeof(struct sctp_paramhdr);\
+>>       pos.v +=3D SCTP_PAD4(ntohs(pos.p->length)))
+>> @@ -479,6 +480,7 @@ _sctp_walk_errors((err), (chunk_hdr), ntohs((chunk_h=
+dr)->length))
+>>  #define _sctp_walk_errors(err, chunk_hdr, end)\
+>>  for (err =3D (sctp_errhdr_t *)((void *)chunk_hdr + \
+>>             sizeof(struct sctp_chunkhdr));\
+>> +     (void *)err <=3D (void *)chunk_hdr + end &&\
+Should be "<", obviously.
+>>       (void *)err <=3D (void *)chunk_hdr + end - ntohs(err->length) &&\
+>>       ntohs(err->length) >=3D sizeof(sctp_errhdr_t); \
+>>       err =3D (sctp_errhdr_t *)((void *)err + SCTP_PAD4(ntohs(err->lengt=
+h))))
+>> --
+>> 2.13.2.932.g7449e964c-goog
+>>
 >
-> Ding,
 >
-> You can probably just drop this patch. If I am understanding Casey
-> correctly just the fact that the relaxed ordering enable bit is
-> cleared in the configuration should be enough to do this for the
-> device automatically.
 >
-> - Alex
+> --
+> Alexander Potapenko
+> Software Engineer
+>
+> Google Germany GmbH
+> Erika-Mann-Stra=C3=9Fe, 33
+> 80636 M=C3=BCnchen
+>
+> Gesch=C3=A4ftsf=C3=BChrer: Matthew Scott Sucherman, Paul Terence Manicle
+> Registergericht und -nummer: Hamburg, HRB 86891
+> Sitz der Gesellschaft: Hamburg
 
-Actually I take that back. I hadn't caught the most recent parts of
-the thread. If this is good for Casey then this works for me.
 
-- Alex
+
+--=20
+Alexander Potapenko
+Software Engineer
+
+Google Germany GmbH
+Erika-Mann-Stra=C3=9Fe, 33
+80636 M=C3=BCnchen
+
+Gesch=C3=A4ftsf=C3=BChrer: Matthew Scott Sucherman, Paul Terence Manicle
+Registergericht und -nummer: Hamburg, HRB 86891
+Sitz der Gesellschaft: Hamburg
