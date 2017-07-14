@@ -1,57 +1,116 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 17/22] platform/x86: alienware-wmi: fix format string overflow warning
-Date: Fri, 14 Jul 2017 14:07:09 +0200
-Message-ID: <20170714120720.906842-18-arnd@arndb.de>
+Subject: [PATCH 20/22] sound: pci: avoid string overflow
+	warnings
+Date: Fri, 14 Jul 2017 14:07:12 +0200
+Message-ID: <20170714120720.906842-21-arnd@arndb.de>
 References: <20170714120720.906842-1-arnd@arndb.de>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Guenter Roeck <linux@roeck-us.net>, akpm@linux-foundation.org,
-        netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
-        "James E . J . Bottomley" <jejb@linux.vnet.ibm.com>,
-        "Martin K . Petersen" <martin.petersen@oracle.com>,
-        linux-scsi@vger.kernel.org, x86@kernel.org,
-        Arnd Bergmann <arnd@arndb.de>,
-        Mario Limonciello <mario.limonciello@dell.com>,
-        Arvind Yadav <arvind.yadav.cs@gmail.com>,
-        platform-driver-x86@vger.kernel.org
-To: linux-kernel@vger.kernel.org, Darren Hart <dvhart@infradead.org>,
-        Andy Shevchenko <andy@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: alsa-devel@alsa-project.org,
+ "James E . J . Bottomley" <jejb@linux.vnet.ibm.com>,
+ linux-scsi@vger.kernel.org, "Martin K . Petersen" <martin.petersen@oracle.com>,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>, x86@kernel.org,
+ Takashi Sakamoto <o-takashi@sakamocchi.jp>,
+ Geliang Tang <geliangtang@gmail.com>, Arnd Bergmann <arnd@arndb.de>,
+ netdev@vger.kernel.org, akpm@linux-foundation.org,
+ Linus Torvalds <torvalds@linux-foundation.org>,
+ "David S . Miller" <davem@davemloft.net>, Guenter Roeck <linux@roeck-us.net>
+To: linux-kernel@vger.kernel.org, Jaroslav Kysela <perex@perex.cz>,
+ Takashi Iwai <tiwai@suse.com>
+Return-path: <alsa-devel-bounces@alsa-project.org>
 In-Reply-To: <20170714120720.906842-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
+List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
+List-Post: <mailto:alsa-devel@alsa-project.org>
+List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
+List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
+Errors-To: alsa-devel-bounces@alsa-project.org
+Sender: alsa-devel-bounces@alsa-project.org
 List-Id: netdev.vger.kernel.org
 
-gcc points out a possible format string overflow for a large value of 'zone':
+With gcc-7, we get various warnings about a possible string overflow:
 
-drivers/platform/x86/alienware-wmi.c: In function 'alienware_wmi_init':
-drivers/platform/x86/alienware-wmi.c:461:24: error: '%02X' directive writing between 2 and 8 bytes into a region of size 6 [-Werror=format-overflow=]
-   sprintf(buffer, "zone%02X", i);
-                        ^~~~
-drivers/platform/x86/alienware-wmi.c:461:19: note: directive argument in the range [0, 2147483646]
-   sprintf(buffer, "zone%02X", i);
-                   ^~~~~~~~~~
-drivers/platform/x86/alienware-wmi.c:461:3: note: 'sprintf' output between 7 and 13 bytes into a destination of size 10
+sound/pci/rme9652/hdspm.c: In function 'snd_hdspm_create_alsa_devices':
+sound/pci/rme9652/hdspm.c:2123:17: error: ' MIDIoverMADI' directive writing 13 bytes into a region of size between 1 and 32 [-Werror=format-overflow=]
+sound/pci/pcxhr/pcxhr.c: In function 'pcxhr_probe':
+sound/pci/pcxhr/pcxhr.c:1647:28: error: ' [PCM #' directive writing 7 bytes into a region of size between 1 and 32 [-Werror=format-overflow=]
+sound/pci/mixart/mixart.c: In function 'snd_mixart_probe':
+sound/pci/mixart/mixart.c:1353:28: error: ' [PCM #' directive writing 7 bytes into a region of size between 1 and 32 [-Werror=format-overflow=]
+   sprintf(card->shortname, "%s [PCM #%d]", mgr->shortname, i);
+                            ^~~~~~~~~~~~~~
+sound/pci/mixart/mixart.c:1353:28: note: using the range [-2147483648, 2147483647] for directive argument
+sound/pci/mixart/mixart.c:1353:3: note: 'sprintf' output between 10 and 51 bytes into a destination of size 32
+   sprintf(card->shortname, "%s [PCM #%d]", mgr->shortname, i);
+   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+sound/pci/mixart/mixart.c:1354:27: error: ' [PCM #' directive writing 7 bytes into a region of size between 1 and 80 [-Werror=format-overflow=]
+   sprintf(card->longname, "%s [PCM #%d]", mgr->longname, i);
+                           ^~~~~~~~~~~~~~
+sound/pci/mixart/mixart.c:1354:27: note: using the range [-2147483648, 2147483647] for directive argument
+sound/pci/mixart/mixart.c:1354:3: note: 'sprintf' output between 10 and 99 bytes into a destination of size 80
 
-While the zone should never be that large, it's easy to make the
-buffer a few bytes longer so gcc can prove this to be safe.
+I have checked these all and found that the driver-private
+shortname strings for mixart and pcxhr are longer than necessary,
+and making them shorter will be safe while also making it clear
+that no overflow can happen when they get passed as a substring
+into the card shortname.
+
+For hdspm, we have a local buffer of the same size as its substring.
+In this case, making the buffer a little longer is safe as the
+functions that take it as an argument all use length checking and
+the strings we pass into it are actually short enough.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/platform/x86/alienware-wmi.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ sound/pci/mixart/mixart.h | 4 ++--
+ sound/pci/pcxhr/pcxhr.h   | 4 ++--
+ sound/pci/rme9652/hdspm.c | 2 +-
+ 3 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/platform/x86/alienware-wmi.c b/drivers/platform/x86/alienware-wmi.c
-index 0831b428c217..acc01242da82 100644
---- a/drivers/platform/x86/alienware-wmi.c
-+++ b/drivers/platform/x86/alienware-wmi.c
-@@ -421,7 +421,7 @@ static DEVICE_ATTR(lighting_control_state, 0644, show_control_state,
- static int alienware_zone_init(struct platform_device *dev)
- {
- 	int i;
--	char buffer[10];
-+	char buffer[13];
- 	char *name;
+diff --git a/sound/pci/mixart/mixart.h b/sound/pci/mixart/mixart.h
+index 426743871540..c8309e327663 100644
+--- a/sound/pci/mixart/mixart.h
++++ b/sound/pci/mixart/mixart.h
+@@ -75,8 +75,8 @@ struct mixart_mgr {
+ 	struct mem_area mem[2];
  
- 	if (interface == WMAX) {
+ 	/* share the name */
+-	char shortname[32];         /* short name of this soundcard */
+-	char longname[80];          /* name of this soundcard */
++	char shortname[16];         /* short name of this soundcard */
++	char longname[40];          /* name of this soundcard */
+ 
+ 	/* one and only blocking message or notification may be pending  */
+ 	u32 pending_event;
+diff --git a/sound/pci/pcxhr/pcxhr.h b/sound/pci/pcxhr/pcxhr.h
+index 9e39e509a3ef..4909a43ce3d9 100644
+--- a/sound/pci/pcxhr/pcxhr.h
++++ b/sound/pci/pcxhr/pcxhr.h
+@@ -75,8 +75,8 @@ struct pcxhr_mgr {
+ 	unsigned long port[3];
+ 
+ 	/* share the name */
+-	char shortname[32];		/* short name of this soundcard */
+-	char longname[96];		/* name of this soundcard */
++	char shortname[16];		/* short name of this soundcard */
++	char longname[40];		/* name of this soundcard */
+ 
+ 	struct pcxhr_rmh *prmh;
+ 
+diff --git a/sound/pci/rme9652/hdspm.c b/sound/pci/rme9652/hdspm.c
+index 254c3d040118..a1cbf5938a0e 100644
+--- a/sound/pci/rme9652/hdspm.c
++++ b/sound/pci/rme9652/hdspm.c
+@@ -2061,7 +2061,7 @@ static int snd_hdspm_create_midi(struct snd_card *card,
+ 				 struct hdspm *hdspm, int id)
+ {
+ 	int err;
+-	char buf[32];
++	char buf[64];
+ 
+ 	hdspm->midi[id].id = id;
+ 	hdspm->midi[id].hdspm = hdspm;
 -- 
 2.9.0
