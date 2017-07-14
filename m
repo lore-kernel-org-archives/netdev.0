@@ -1,84 +1,98 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 18/22] gpio: acpi: fix string overflow for large pin numbers
-Date: Fri, 14 Jul 2017 21:59:50 +0200
-Message-ID: <CAK8P3a1tozFc7Rmmv04dovtieHcLpg1VHaeZpW_NKFw4w-fZug@mail.gmail.com>
-References: <20170714120720.906842-1-arnd@arndb.de> <20170714120720.906842-19-arnd@arndb.de>
- <1500036740.29303.7.camel@linux.intel.com>
+From: Y Song <ys114321@gmail.com>
+Subject: Re: [iovisor-dev] [PATCH v3 net-next 00/12] bpf: rewrite value
+ tracking in verifier
+Date: Fri, 14 Jul 2017 13:03:26 -0700
+Message-ID: <CAH3MdRUh-RHhntzvvwZwMuhqDd0O8kPyOqsFu5reJs8PU+Ss9w@mail.gmail.com>
+References: <adc11342-737f-4e06-bce3-f0a92b5594a5@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Mika Westerberg <mika.westerberg@linux.intel.com>,
-        Linus Walleij <linus.walleij@linaro.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Guenter Roeck <linux@roeck-us.net>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Networking <netdev@vger.kernel.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        "James E . J . Bottomley" <jejb@linux.vnet.ibm.com>,
-        "Martin K . Petersen" <martin.petersen@oracle.com>,
-        linux-scsi <linux-scsi@vger.kernel.org>,
-        "the arch/x86 maintainers" <x86@kernel.org>,
-        Hans de Goede <hdegoede@redhat.com>,
-        "Rafael J. Wysocki" <rjw@rjwysocki.net>,
-        Wei Yongjun <weiyongjun1@huawei.com>,
-        linux-gpio@vger.kernel.org,
-        ACPI Devel Maling L
-To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Return-path: <linux-gpio-owner@vger.kernel.org>
-In-Reply-To: <1500036740.29303.7.camel@linux.intel.com>
-Sender: linux-gpio-owner@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        netdev <netdev@vger.kernel.org>,
+        iovisor-dev <iovisor-dev@lists.iovisor.org>,
+        linux-kernel@vger.kernel.org, yhs@fb.com
+To: Edward Cree <ecree@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <adc11342-737f-4e06-bce3-f0a92b5594a5@solarflare.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 14, 2017 at 2:52 PM, Andy Shevchenko
-<andriy.shevchenko@linux.intel.com> wrote:
-> On Fri, 2017-07-14 at 14:07 +0200, Arnd Bergmann wrote:
->> gcc-7 notices that the pin_table is an array of 16-bit numbers,
->> but we assume it can be printed as a two-character hexadecimal
->> string:
->>
->> drivers/gpio/gpiolib-acpi.c: In function
->> 'acpi_gpiochip_request_interrupt':
->> drivers/gpio/gpiolib-acpi.c:206:24: warning: '%02X' directive writing
->> between 2 and 4 bytes into a region of size 3 [-Wformat-overflow=]
->>    sprintf(ev_name, "_%c%02X",
->>                         ^~~~
->> drivers/gpio/gpiolib-acpi.c:206:20: note: directive argument in the
->> range [0, 65535]
->>    sprintf(ev_name, "_%c%02X",
->>                     ^~~~~~~~~
->> drivers/gpio/gpiolib-acpi.c:206:3: note: 'sprintf' output between 5
->> and 7 bytes into a destination of size 5
->>    sprintf(ev_name, "_%c%02X",
->>    ^~~~~~~~~~~~~~~~~~~~~~~~~~~
->>     agpio->triggering == ACPI_EDGE_SENSITIVE ? 'E' : 'L',
->>     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
->>     pin);
->>     ~~~~
->
->
-> This is obviously a false positive warning.
->
-> Here we have
-> int pin = u16 pin_table[0] <= 255 (implying >= 0).
->
-> I see few options how to make it more clear
-> 1) your proposal;
-> 2) use "%02hhX" instead;
-> 3) use if (ret >= 0 && ret <= 255) condition.
->
-> I would choose one of the 2-3.
->
-> In case gcc will complain about 3), file a bug to gcc crazy warning.
+I did an experiment with one of our internal bpf programs.
+The program has 1563 insns.
 
-Makes sense. I didn't remember the syntax for 2) and couldn't find
-it in the man page when I first looked. This seems like a good solution
-here.
+Without Edward's patch:
+processed 13634 insns, stack depth 160
 
-I'm pretty sure I tried 3) a few times when the warning first showed
-up last year, but couldn't get that to work. Filing a gcc bug also seems
-like a good idea, but I should first see if it's already fixed. The version
-I use for testing at the moment is from late April, and others may
-have complained about that already.
+With Edward's patch:
+processed 15807 insns, stack depth 160
 
-      Arnd
+So the number of processed insns regressed by roughly 16%.
+Did anybody do any similar experiments to quantify the patch's
+impact in verification performance (e.g., in terms of processed insns)?
+
+On Tue, Jun 27, 2017 at 5:53 AM, Edward Cree via iovisor-dev
+<iovisor-dev@lists.iovisor.org> wrote:
+> This series simplifies alignment tracking, generalises bounds tracking and
+>  fixes some bounds-tracking bugs in the BPF verifier.  Pointer arithmetic on
+>  packet pointers, stack pointers, map value pointers and context pointers has
+>  been unified, and bounds on these pointers are only checked when the pointer
+>  is dereferenced.
+> Operations on pointers which destroy all relation to the original pointer
+>  (such as multiplies and shifts) are disallowed if !env->allow_ptr_leaks,
+>  otherwise they convert the pointer to an unknown scalar and feed it to the
+>  normal scalar arithmetic handling.
+> Pointer types have been unified with the corresponding adjusted-pointer types
+>  where those existed (e.g. PTR_TO_MAP_VALUE[_ADJ] or FRAME_PTR vs
+>  PTR_TO_STACK); similarly, CONST_IMM and UNKNOWN_VALUE have been unified into
+>  SCALAR_VALUE.
+> Pointer types (except CONST_PTR_TO_MAP, PTR_TO_MAP_VALUE_OR_NULL and
+>  PTR_TO_PACKET_END, which do not allow arithmetic) have a 'fixed offset' and
+>  a 'variable offset'; the former is used when e.g. adding an immediate or a
+>  known-constant register, as long as it does not overflow.  Otherwise the
+>  latter is used, and any operation creating a new variable offset creates a
+>  new 'id' (and, for PTR_TO_PACKET, clears the 'range').
+> SCALAR_VALUEs use the 'variable offset' fields to track the range of possible
+>  values; the 'fixed offset' should never be set on a scalar.
+>
+> As of patch 12/12, all tests of tools/testing/selftests/bpf/test_verifier
+>  and tools/testing/selftests/bpf/test_align pass.
+>
+> v3: added a few more tests; removed RFC tags.
+>
+> v2: fixed nfp build, made test_align pass again and extended it with a few
+>  new tests (though still need to add more).
+>
+> Edward Cree (12):
+>   selftests/bpf: add test for mixed signed and unsigned bounds checks
+>   bpf/verifier: rework value tracking
+>   nfp: change bpf verifier hooks to match new verifier data structures
+>   bpf/verifier: track signed and unsigned min/max values
+>   bpf/verifier: more concise register state logs for constant var_off
+>   selftests/bpf: change test_verifier expectations
+>   selftests/bpf: rewrite test_align
+>   selftests/bpf: add a test to test_align
+>   selftests/bpf: add test for bogus operations on pointers
+>   selftests/bpf: don't try to access past MAX_PACKET_OFF in
+>     test_verifier
+>   selftests/bpf: add tests for subtraction & negative numbers
+>   selftests/bpf: variable offset negative tests
+>
+>  drivers/net/ethernet/netronome/nfp/bpf/verifier.c |   24 +-
+>  include/linux/bpf.h                               |   34 +-
+>  include/linux/bpf_verifier.h                      |   56 +-
+>  include/linux/tnum.h                              |   81 +
+>  kernel/bpf/Makefile                               |    2 +-
+>  kernel/bpf/tnum.c                                 |  180 ++
+>  kernel/bpf/verifier.c                             | 1943 ++++++++++++---------
+>  tools/testing/selftests/bpf/test_align.c          |  462 ++++-
+>  tools/testing/selftests/bpf/test_verifier.c       |  293 ++--
+>  9 files changed, 2034 insertions(+), 1041 deletions(-)
+>  create mode 100644 include/linux/tnum.h
+>  create mode 100644 kernel/bpf/tnum.c
+>
+> _______________________________________________
+> iovisor-dev mailing list
+> iovisor-dev@lists.iovisor.org
+> https://lists.iovisor.org/mailman/listinfo/iovisor-dev
