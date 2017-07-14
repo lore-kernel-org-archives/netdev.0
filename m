@@ -1,67 +1,44 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH v7 2/3] PCI: Enable PCIe Relaxed Ordering if supported
-Date: Fri, 14 Jul 2017 09:26:15 +0800
-Message-ID: <0260e398-bd8e-6615-6d5c-1f7c07b6fc09@huawei.com>
-References: <1499955692-26556-1-git-send-email-dingtianhong@huawei.com>
- <1499955692-26556-3-git-send-email-dingtianhong@huawei.com>
- <e496ff1d-b836-ebef-fdf7-76273aaaaef6@codeaurora.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 2/2] net: ethernet: nixge: Add support for National
+ Instruments XGE netdev
+Date: Fri, 14 Jul 2017 03:34:35 +0200
+Message-ID: <20170714013435.GA9065@lunn.ch>
+References: <1499980909-11702-1-git-send-email-mdf@kernel.org>
+ <1499980909-11702-2-git-send-email-mdf@kernel.org>
+ <20170713223636.GF3120@lunn.ch>
+ <20170714003111.GA13512@tyrael.ni.corp.natinst.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Sinan Kaya <okaya@codeaurora.org>, <leedom@chelsio.com>,
- <ashok.raj@intel.com>, <bhelgaas@google.com>, <helgaas@kernel.org>,
- <werner@chelsio.com>, <ganeshgr@chelsio.com>,
- <asit.k.mallick@intel.com>, <patrick.j.cramer@intel.com>,
- <Suravee.Suthikulpanit@amd.com>, <Bob.Shaw@amd.com>,
- <l.stach@pengutronix.de>, <amira@mellanox.com>,
- <gabriele.paoloni@huawei.com>, <David.Laight@aculab.com>,
- <jeffrey.t.kirsher@intel.com>, <catalin.marinas@arm.com>,
- <will.deacon@arm.com>, <mark.rutland@arm.com>, <robin.murphy@arm.com>,
- <davem@davemloft.net>, <alexander.duyck@gmail.com>,
- <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
- <linux-pci@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
- <linuxarm@huawei.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <e496ff1d-b836-ebef-fdf7-76273aaaaef6@codeaurora.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Moritz Fischer <mdf@kernel.org>, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+        davem@davemloft.net, mark.rutland@arm.com, robh+dt@kernel.org
+To: Moritz Fischer <moritz.fischer@ettus.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170714003111.GA13512@tyrael.ni.corp.natinst.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On 2017/7/14 5:09, Sinan Kaya wrote:
-> On 7/13/2017 10:21 AM, Ding Tianhong wrote:
->> static void pci_configure_relaxed_ordering(struct pci_dev *dev)
->> +{
->> +	/* We should not alter the relaxed ordering bit for the VF */
->> +	if (dev->is_virtfn)
->> +		return;
->> +
->> +	/* If the releaxed ordering enable bit is not set, do nothing. */
->> +	if (!pcie_relaxed_ordering_supported(dev))
->> +		return;
->> +
->> +	if (pci_dev_should_disable_relaxed_ordering(dev)) {
->> +		pcie_clear_relaxed_ordering(dev);
->> +		dev_info(&dev->dev, "Disable Relaxed Ordering\n");
->> +	}
->> +}
+> > > +	/* not sure if this is the correct way of dealing with this ... */
+> > > +	ndev->phydev->supported &= ~(SUPPORTED_Autoneg);
+> > > +	ndev->phydev->advertising = ndev->phydev->supported;
+> > > +	ndev->phydev->autoneg = AUTONEG_DISABLE;
+> > 
+> > What are you trying to achieve?
 > 
-> I couldn't find anywhere where you actually enable the relaxed ordering
-> like the subject suggests.
-> 
-There is no code to enable the PCIe Relaxed Ordering bit in the configuration space,
-it is only be enable by default according to the PCIe Standard Specification, what we
-do is to distinguish the RC problematic platform and clear the Relaxed Ordering bit
-to tell the PCIe EP don't send any TLPs with Relaxed Ordering Attributes to the Root
-Complex.
+> Basically can't do Autoneg, I'll need to take a closer look.
 
-Thanks
-Ding
+Hi Moritz
+
+What i actually think you mean, is it can only do 1Gbps. So you could
+autoneg, but only advertise 1Gbps. Look at masking out
+PHY_10BT_FEATURES and PHY_100BT_FEATURES.
+
+Take a look at:
+
+http://elixir.free-electrons.com/linux/latest/source/drivers/net/ethernet/renesas/ravb_main.c#L1045
+
+It might actually make sense to add a phy_set_min_speed(), a mirror to
+phy_set_max_speed().
+
+	Andrew
