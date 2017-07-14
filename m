@@ -1,42 +1,43 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH] ipv6: initialize treq->txhash in cookie_v6_check()
-Date: Fri, 14 Jul 2017 13:04:06 -0400
-Message-ID: <CADVnQynZUh+4kU9Fdq8crAmi-j8BbErid=mJQ6B-WVXDGU2VQA@mail.gmail.com>
-References: <20170714165453.112098-1-glider@google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] sctp: don't dereference ptr before leaving
+ _sctp_walk_{params,errors}()
+Date: Fri, 14 Jul 2017 10:23:12 -0700 (PDT)
+Message-ID: <20170714.102312.821784668156442305.davem@davemloft.net>
+References: <20170714100329.105604-1-glider@google.com>
+        <20170714.085832.929093611392872988.davem@davemloft.net>
+        <CAG_fn=UU5wT5GuFd6=br2WycHZ+JF6SWTS7=HhNLzDTiDMi-=g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Dmitry Vyukov <dvyukov@google.com>, kcc@google.com,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Netdev <netdev@vger.kernel.org>
-To: Alexander Potapenko <glider@google.com>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: dvyukov@google.com, kcc@google.com, edumazet@google.com,
+        lucien.xin@gmail.com, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: glider@google.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170714165453.112098-1-glider@google.com>
+In-Reply-To: <CAG_fn=UU5wT5GuFd6=br2WycHZ+JF6SWTS7=HhNLzDTiDMi-=g@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 14, 2017 at 12:54 PM, Alexander Potapenko <glider@google.com> wrote:
-> KMSAN reported use of uninitialized memory in skb_set_hash_from_sk(),
-> which originated from the TCP request socket created in
-> cookie_v6_check():
-...
-> --- a/net/ipv6/syncookies.c
-> +++ b/net/ipv6/syncookies.c
-> @@ -216,6 +216,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
->         treq->rcv_isn = ntohl(th->seq) - 1;
->         treq->snt_isn = cookie;
->         treq->ts_off = 0;
-> +       treq->txhash = 0;
->
->         /*
->          * We need to lookup the dst_entry to get the correct window size.
-
-I would have thought that the same fix is needed in the corresponding
-line in cookie_v4_check() in net/ipv4/syncookies.c? (I do not see
-txhash being initialized for the IPv4 side.) If it's not needed for
-some reason, then it would be worth a comment in the commit
-description to explain why not.
-
-thanks,
-neal
+RnJvbTogQWxleGFuZGVyIFBvdGFwZW5rbyA8Z2xpZGVyQGdvb2dsZS5jb20+DQpEYXRlOiBGcmks
+IDE0IEp1bCAyMDE3IDE4OjMzOjAxICswMjAwDQoNCj4gT24gRnJpLCBKdWwgMTQsIDIwMTcgYXQg
+NTo1OCBQTSwgRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0PiB3cm90ZToNCj4+IEZy
+b206IEFsZXhhbmRlciBQb3RhcGVua28gPGdsaWRlckBnb29nbGUuY29tPg0KPj4gRGF0ZTogRnJp
+LCAxNCBKdWwgMjAxNyAxMjowMzoyOSArMDIwMA0KPj4NCj4+PiAgdjI6IHBlciBjb21tZW50IGZy
+b20gRGF2aWQgTWlsbGVyLCBtYWtlIHN1cmUgdGhlIHdob2xlIGl0ZXJhdG9yLT5sZW5ndGgNCj4+
+PiAgICAgIGZpdHMgaW50byB0aGUgcmVtYWluaW5nIGJ1ZmZlci4NCj4+DQo+PiBQbGVhc2UgY29t
+cGlsZSBhbmQgZnVuY3Rpb25hbGx5IHRlc3QgeW91ciBjaGFuZ2VzOg0KPj4NCj4+IEluIGZpbGUg
+aW5jbHVkZWQgZnJvbSAuL2luY2x1ZGUvbGludXgvY29tcGlsZXIuaDo1ODowLA0KPj4gICAgICAg
+ICAgICAgICAgICBmcm9tIC4vaW5jbHVkZS91YXBpL2xpbnV4L3N0ZGRlZi5oOjEsDQo+PiAgICAg
+ICAgICAgICAgICAgIGZyb20gLi9pbmNsdWRlL2xpbnV4L3N0ZGRlZi5oOjQsDQo+PiAgICAgICAg
+ICAgICAgICAgIGZyb20gLi9pbmNsdWRlL3VhcGkvbGludXgvcG9zaXhfdHlwZXMuaDo0LA0KPj4g
+ICAgICAgICAgICAgICAgICBmcm9tIC4vaW5jbHVkZS91YXBpL2xpbnV4L3R5cGVzLmg6MTMsDQo+
+PiAgICAgICAgICAgICAgICAgIGZyb20gLi9pbmNsdWRlL2xpbnV4L3R5cGVzLmg6NSwNCj4+ICAg
+ICAgICAgICAgICAgICAgZnJvbSBuZXQvc2N0cC9zbV9zdGF0ZWZ1bnMuYzo0ODoNCj4+IG5ldC9z
+Y3RwL3NtX3N0YXRlZnVucy5jOiBJbiBmdW5jdGlvbiChc2N0cF9zZl9kb19yZWNvbmaiOg0KPj4g
+Li9pbmNsdWRlL25ldC9zY3RwL3NjdHAuaDo0NzI6MjQ6IGVycm9yOiB1bmtub3duIHR5cGUgbmFt
+ZSChc2N0cF9wYXJhbWhkcl90og0KPj4gICAgICAgKHBvcy52ICsgb2Zmc2V0b2Yoc2N0cF9wYXJh
+bWhkcl90LCBsZW5ndGgpICsgc2l6ZW9mKHBvcy5wLT5sZW5ndGgpIDxcDQo+PiAgICAgICAgICAg
+ICAgICAgICAgICAgICBeDQo+IE9vcHMuIEZpeGVkLg0KDQpEaWQgeW91IGZ1bmN0aW9uYWxseSB0
+ZXN0IHRoZSBuZXcgdmVyc2lvbiBvciBqdXN0IGRvIGEgcXVpY2sgY29tcGlsZQ0KY2hlY2sgYW5k
+IHJlc3VibWl0Pw0KDQpJIHJlYWxseSB3YW50IHlvdSB0byB0ZXN0IHRoaXMgaWYgdGhlIGxvZ2lj
+IGhhcyBiZWVuIGNoYW5nZWQuDQo=
