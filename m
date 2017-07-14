@@ -1,7 +1,7 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 10/22] bnx2x: fix format overflow warning
-Date: Fri, 14 Jul 2017 14:07:02 +0200
-Message-ID: <20170714120720.906842-11-arnd@arndb.de>
+Subject: [PATCH 13/22] liquidio: fix possible eeprom format string overflow
+Date: Fri, 14 Jul 2017 14:07:05 +0200
+Message-ID: <20170714120720.906842-14-arnd@arndb.de>
 References: <20170714120720.906842-1-arnd@arndb.de>
 Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
         Linus Torvalds <torvalds@linux-foundation.org>,
@@ -11,46 +11,49 @@ Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
         "Martin K . Petersen" <martin.petersen@oracle.com>,
         linux-scsi@vger.kernel.org, x86@kernel.org,
         Arnd Bergmann <arnd@arndb.de>,
-        Colin Ian King <colin.king@canonical.com>,
-        Philippe Reynes <tremyfr@gmail.com>
-To: linux-kernel@vger.kernel.org, Yuval Mintz <Yuval.Mintz@cavium.com>,
-        Ariel Elior <ariel.elior@cavium.com>,
-        everest-linux-l2@cavium.com
+        Weilin Chang <weilin.chang@cavium.com>,
+        Prasad Kanneganti <prasad.kanneganti@cavium.com>
+To: linux-kernel@vger.kernel.org,
+        Derek Chickles <derek.chickles@caviumnetworks.com>,
+        Satanand Burla <satananda.burla@caviumnetworks.com>,
+        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170714120720.906842-1-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-gcc notices that large queue numbers would overflow the queue name
-string:
+gcc reports that the temporary buffer for computing the
+string length may be too small here:
 
-drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c: In function 'bnx2x_get_strings':
-drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c:3165:25: error: '%d' directive writing between 1 and 10 bytes into a region of size 5 [-Werror=format-overflow=]
-drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c:3165:25: note: directive argument in the range [0, 2147483647]
-drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c:3165:5: note: 'sprintf' output between 2 and 11 bytes into a destination of size 5
+drivers/net/ethernet/cavium/liquidio/lio_ethtool.c: In function 'lio_get_eeprom_len':
+/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c:345:21: error: 'sprintf' may write a terminating nul past the end of the destination [-Werror=format-overflow=]
+  len = sprintf(buf, "boardname:%s serialnum:%s maj:%lld min:%lld\n",
+                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+drivers/net/ethernet/cavium/liquidio/lio_ethtool.c:345:6: note: 'sprintf' output between 35 and 167 bytes into a destination of size 128
+  len = sprintf(buf, "boardname:%s serialnum:%s maj:%lld min:%lld\n",
 
-There is a hard limit in place that makes the number at most two
-digits, so the code is fine. This changes it to use snprintf()
-to truncate instead of overflowing, which shuts up that warning.
+This extends it to 192 bytes, which is certainly enough. As far
+as I could tell, there are no other constraints that require a specific
+maximum size.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/cavium/liquidio/lio_ethtool.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index 21bc4bed6b26..1e33abde4a3e 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -3162,7 +3162,8 @@ static void bnx2x_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
- 		if (is_multi(bp)) {
- 			for_each_eth_queue(bp, i) {
- 				memset(queue_name, 0, sizeof(queue_name));
--				sprintf(queue_name, "%d", i);
-+				snprintf(queue_name, sizeof(queue_name),
-+					 "%d", i);
- 				for (j = 0; j < BNX2X_NUM_Q_STATS; j++)
- 					snprintf(buf + (k + j)*ETH_GSTRING_LEN,
- 						ETH_GSTRING_LEN,
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
+index 28ecda3d3404..ebd353bc78ff 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
+@@ -335,7 +335,7 @@ lio_ethtool_get_channels(struct net_device *dev,
+ 
+ static int lio_get_eeprom_len(struct net_device *netdev)
+ {
+-	u8 buf[128];
++	u8 buf[192];
+ 	struct lio *lio = GET_LIO(netdev);
+ 	struct octeon_device *oct_dev = lio->oct_dev;
+ 	struct octeon_board_info *board_info;
 -- 
 2.9.0
