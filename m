@@ -1,34 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] sctp: don't dereference ptr before leaving
- _sctp_walk_{params,errors}()
-Date: Fri, 14 Jul 2017 08:58:32 -0700 (PDT)
-Message-ID: <20170714.085832.929093611392872988.davem@davemloft.net>
-References: <20170714100329.105604-1-glider@google.com>
+Subject: Re: [PATCH 08/22] isdn: divert: fix sprintf buffer overflow warning
+Date: Fri, 14 Jul 2017 09:03:33 -0700 (PDT)
+Message-ID: <20170714.090333.1855828185812848713.davem@davemloft.net>
+References: <20170714120720.906842-1-arnd@arndb.de>
+        <20170714120720.906842-9-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: dvyukov@google.com, kcc@google.com, edumazet@google.com,
-        lucien.xin@gmail.com, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: glider@google.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, isdn@linux-pingi.de,
+        geliangtang@gmail.com, gregkh@linuxfoundation.org,
+        torvalds@linux-foundation.org, linux@roeck-us.net,
+        akpm@linux-foundation.org, netdev@vger.kernel.org,
+        jejb@linux.vnet.ibm.com, martin.petersen@oracle.com,
+        linux-scsi@vger.kernel.org, x86@kernel.org
+To: arnd@arndb.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170714100329.105604-1-glider@google.com>
+In-Reply-To: <20170714120720.906842-9-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogQWxleGFuZGVyIFBvdGFwZW5rbyA8Z2xpZGVyQGdvb2dsZS5jb20+DQpEYXRlOiBGcmks
-IDE0IEp1bCAyMDE3IDEyOjAzOjI5ICswMjAwDQoNCj4gIHYyOiBwZXIgY29tbWVudCBmcm9tIERh
-dmlkIE1pbGxlciwgbWFrZSBzdXJlIHRoZSB3aG9sZSBpdGVyYXRvci0+bGVuZ3RoDQo+ICAgICAg
-Zml0cyBpbnRvIHRoZSByZW1haW5pbmcgYnVmZmVyLg0KDQpQbGVhc2UgY29tcGlsZSBhbmQgZnVu
-Y3Rpb25hbGx5IHRlc3QgeW91ciBjaGFuZ2VzOg0KDQpJbiBmaWxlIGluY2x1ZGVkIGZyb20gLi9p
-bmNsdWRlL2xpbnV4L2NvbXBpbGVyLmg6NTg6MCwNCiAgICAgICAgICAgICAgICAgZnJvbSAuL2lu
-Y2x1ZGUvdWFwaS9saW51eC9zdGRkZWYuaDoxLA0KICAgICAgICAgICAgICAgICBmcm9tIC4vaW5j
-bHVkZS9saW51eC9zdGRkZWYuaDo0LA0KICAgICAgICAgICAgICAgICBmcm9tIC4vaW5jbHVkZS91
-YXBpL2xpbnV4L3Bvc2l4X3R5cGVzLmg6NCwNCiAgICAgICAgICAgICAgICAgZnJvbSAuL2luY2x1
-ZGUvdWFwaS9saW51eC90eXBlcy5oOjEzLA0KICAgICAgICAgICAgICAgICBmcm9tIC4vaW5jbHVk
-ZS9saW51eC90eXBlcy5oOjUsDQogICAgICAgICAgICAgICAgIGZyb20gbmV0L3NjdHAvc21fc3Rh
-dGVmdW5zLmM6NDg6DQpuZXQvc2N0cC9zbV9zdGF0ZWZ1bnMuYzogSW4gZnVuY3Rpb24goXNjdHBf
-c2ZfZG9fcmVjb25mojoNCi4vaW5jbHVkZS9uZXQvc2N0cC9zY3RwLmg6NDcyOjI0OiBlcnJvcjog
-dW5rbm93biB0eXBlIG5hbWUgoXNjdHBfcGFyYW1oZHJfdKINCiAgICAgIChwb3MudiArIG9mZnNl
-dG9mKHNjdHBfcGFyYW1oZHJfdCwgbGVuZ3RoKSArIHNpemVvZihwb3MucC0+bGVuZ3RoKSA8XA0K
-ICAgICAgICAgICAgICAgICAgICAgICAgXg0K
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 14 Jul 2017 14:07:00 +0200
+
+> One string we pass into the cs->info buffer might be too long,
+> as pointed out by gcc:
+> 
+> drivers/isdn/divert/isdn_divert.c: In function 'll_callback':
+> drivers/isdn/divert/isdn_divert.c:488:22: error: '%d' directive writing between 1 and 3 bytes into a region of size between 1 and 69 [-Werror=format-overflow=]
+>  sprintf(cs->info, "%d 0x%lx %s %s %s %s 0x%x 0x%x %d %d %s\n",
+>                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+> drivers/isdn/divert/isdn_divert.c:488:22: note: directive argument in the range [0, 255]
+> drivers/isdn/divert/isdn_divert.c:488:4: note: 'sprintf' output 25 or more bytes (assuming 129) into a destination of size 90
+> 
+> This is unlikely to actually cause problems, so let's use snprintf
+> as a simple workaround to shut  up the warning and truncate the
+> buffer instead.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+
+Applied.
