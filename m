@@ -1,55 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] sctp: don't dereference ptr before leaving
- _sctp_walk_{params,errors}()
-Date: Fri, 14 Jul 2017 10:54:31 -0700 (PDT)
-Message-ID: <20170714.105431.403659291323482633.davem@davemloft.net>
-References: <CAG_fn=UU5wT5GuFd6=br2WycHZ+JF6SWTS7=HhNLzDTiDMi-=g@mail.gmail.com>
-        <20170714.102312.821784668156442305.davem@davemloft.net>
-        <CAG_fn=XtmFsygwP=o5_pS1fHXUamAy=bib-7DZvX1n9P4MwCgQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: dvyukov@google.com, kcc@google.com, edumazet@google.com,
-        lucien.xin@gmail.com, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: glider@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAG_fn=XtmFsygwP=o5_pS1fHXUamAy=bib-7DZvX1n9P4MwCgQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Simon Xiao <sixiao@microsoft.com>
+Subject: [PATCH net-next,1/1] tools: hv: ignore a NIC if it has been configured
+Date: Fri, 14 Jul 2017 10:47:20 -0700
+Message-ID: <1500054440-11228-1-git-send-email-sixiao@microsoft.com>
+Cc: Simon Xiao <sixiao@microsoft.com>
+To: netdev@vger.kernel.org, davem@davemloft.net, kys@microsoft.com,
+        haiyangz@microsoft.com, sthemmin@microsoft.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a2nlsmtp01-04.prod.iad2.secureserver.net ([198.71.225.38]:48012
+        "EHLO a2nlsmtp01-04.prod.iad2.secureserver.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750860AbdGNSAS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2017 14:00:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQWxleGFuZGVyIFBvdGFwZW5rbyA8Z2xpZGVyQGdvb2dsZS5jb20+DQpEYXRlOiBGcmks
-IDE0IEp1bCAyMDE3IDE5OjMzOjU0ICswMjAwDQoNCj4gT24gRnJpLCBKdWwgMTQsIDIwMTcgYXQg
-NzoyMyBQTSwgRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0PiB3cm90ZToNCj4+IEZy
-b206IEFsZXhhbmRlciBQb3RhcGVua28gPGdsaWRlckBnb29nbGUuY29tPg0KPj4gRGF0ZTogRnJp
-LCAxNCBKdWwgMjAxNyAxODozMzowMSArMDIwMA0KPj4NCj4+PiBPbiBGcmksIEp1bCAxNCwgMjAx
-NyBhdCA1OjU4IFBNLCBEYXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+IHdyb3RlOg0K
-Pj4+PiBGcm9tOiBBbGV4YW5kZXIgUG90YXBlbmtvIDxnbGlkZXJAZ29vZ2xlLmNvbT4NCj4+Pj4g
-RGF0ZTogRnJpLCAxNCBKdWwgMjAxNyAxMjowMzoyOSArMDIwMA0KPj4+Pg0KPj4+Pj4gIHYyOiBw
-ZXIgY29tbWVudCBmcm9tIERhdmlkIE1pbGxlciwgbWFrZSBzdXJlIHRoZSB3aG9sZSBpdGVyYXRv
-ci0+bGVuZ3RoDQo+Pj4+PiAgICAgIGZpdHMgaW50byB0aGUgcmVtYWluaW5nIGJ1ZmZlci4NCj4+
-Pj4NCj4+Pj4gUGxlYXNlIGNvbXBpbGUgYW5kIGZ1bmN0aW9uYWxseSB0ZXN0IHlvdXIgY2hhbmdl
-czoNCj4+Pj4NCj4+Pj4gSW4gZmlsZSBpbmNsdWRlZCBmcm9tIC4vaW5jbHVkZS9saW51eC9jb21w
-aWxlci5oOjU4OjAsDQo+Pj4+ICAgICAgICAgICAgICAgICAgZnJvbSAuL2luY2x1ZGUvdWFwaS9s
-aW51eC9zdGRkZWYuaDoxLA0KPj4+PiAgICAgICAgICAgICAgICAgIGZyb20gLi9pbmNsdWRlL2xp
-bnV4L3N0ZGRlZi5oOjQsDQo+Pj4+ICAgICAgICAgICAgICAgICAgZnJvbSAuL2luY2x1ZGUvdWFw
-aS9saW51eC9wb3NpeF90eXBlcy5oOjQsDQo+Pj4+ICAgICAgICAgICAgICAgICAgZnJvbSAuL2lu
-Y2x1ZGUvdWFwaS9saW51eC90eXBlcy5oOjEzLA0KPj4+PiAgICAgICAgICAgICAgICAgIGZyb20g
-Li9pbmNsdWRlL2xpbnV4L3R5cGVzLmg6NSwNCj4+Pj4gICAgICAgICAgICAgICAgICBmcm9tIG5l
-dC9zY3RwL3NtX3N0YXRlZnVucy5jOjQ4Og0KPj4+PiBuZXQvc2N0cC9zbV9zdGF0ZWZ1bnMuYzog
-SW4gZnVuY3Rpb24goXNjdHBfc2ZfZG9fcmVjb25mojoNCj4+Pj4gLi9pbmNsdWRlL25ldC9zY3Rw
-L3NjdHAuaDo0NzI6MjQ6IGVycm9yOiB1bmtub3duIHR5cGUgbmFtZSChc2N0cF9wYXJhbWhkcl90
-og0KPj4+PiAgICAgICAocG9zLnYgKyBvZmZzZXRvZihzY3RwX3BhcmFtaGRyX3QsIGxlbmd0aCkg
-KyBzaXplb2YocG9zLnAtPmxlbmd0aCkgPFwNCj4+Pj4gICAgICAgICAgICAgICAgICAgICAgICAg
-Xg0KPj4+IE9vcHMuIEZpeGVkLg0KPj4NCj4+IERpZCB5b3UgZnVuY3Rpb25hbGx5IHRlc3QgdGhl
-IG5ldyB2ZXJzaW9uIG9yIGp1c3QgZG8gYSBxdWljayBjb21waWxlDQo+PiBjaGVjayBhbmQgcmVz
-dWJtaXQ/DQo+IEkndmUgY2hlY2tlZCB0aGF0IHRoZSBrZXJuZWwgc3RpbGwgd29ya3MsIGJ1dCB1
-bmZvcnR1bmF0ZWx5IEkgY291bGRuJ3QNCj4gY2hlY2sgd2hldGhlciBvciBub3QgdGhpcyBhZmZl
-Y3RlZCB0aGUgdW5pbml0IG1lbW9yeSwgYXMgS01TQU4NCj4gY3VycmVudGx5IHdvcmtzIG9uIGEg
-Zml4ZWQga2VybmVsIHJldmlzaW9uLiBUaGUgY29tcGlsYXRpb24gZXJyb3Igd2FzDQo+IGFjdHVh
-bGx5IGNhdXNlZCBieSBtZSBmYWlsaW5nIHRvIHRlc3QgdGhlIGtlcm5lbCB3aGVuIHBvcnRpbmcg
-dGhlIGZpeA0KPiBmcm9tIHRoYXQgcmV2aXNpb24gdG8gdXBzdHJlYW0uDQo+IA0KPj4gSSByZWFs
-bHkgd2FudCB5b3UgdG8gdGVzdCB0aGlzIGlmIHRoZSBsb2dpYyBoYXMgYmVlbiBjaGFuZ2VkLg0K
-PiBEbyB5b3UgbWVhbiBhbnkgc3BlY2lmaWMgdGVzdHMgaW4gYWRkaXRpb24gdG8sIHNheSwgcnVu
-bmluZyB0aGUNCj4gcmVwcm9kdWNlciBvbiB3aGljaCB0aGUgdW5pbml0IHVzZSB3YXMgcmVwb3J0
-ZWQ/DQoNCkkgbWVhbiB0aGUgcmVwcm9kdWNlci4NCg==
+Let bondvf.sh ignore this NIC if it has been configured, to prevent
+user configuration from being overwritten unexpectly.
+
+Signed-off-by: Simon Xiao <sixiao@microsoft.com>
+---
+ tools/hv/bondvf.sh | 27 +++++++++++++++++++++++++--
+ 1 file changed, 25 insertions(+), 2 deletions(-)
+
+diff --git a/tools/hv/bondvf.sh b/tools/hv/bondvf.sh
+index 89b2506..80f1028 100755
+--- a/tools/hv/bondvf.sh
++++ b/tools/hv/bondvf.sh
+@@ -211,6 +211,30 @@ function create_bond {
+ 
+ 	echo $'\nBond name:' $bondname
+ 
++	if [ $distro == ubuntu ]
++	then
++		local mainfn=$cfgdir/interfaces
++		local s="^[ \t]*(auto|iface|mapping|allow-.*)[ \t]+${bondname}"
++
++		grep -E "$s" $mainfn
++		if [ $? -eq 0 ]
++		then
++			echo "WARNING: ${bondname} has been configured already"
++			return
++		fi
++	elif [ $distro == redhat ] || [ $distro == suse ]
++	then
++		local fn=$cfgdir/ifcfg-$bondname
++		if [ -f $fn ]
++		then
++			echo "WARNING: ${bondname} has been configured already"
++			return
++		fi
++	else
++		echo "Unsupported Distro: ${distro}"
++		return
++	fi
++
+ 	echo configuring $primary
+ 	create_eth_cfg_pri_$distro $primary $bondname
+ 
+@@ -219,8 +243,6 @@ function create_bond {
+ 
+ 	echo creating: $bondname with primary slave: $primary
+ 	create_bond_cfg_$distro $bondname $primary $secondary
+-
+-	let bondcnt=bondcnt+1
+ }
+ 
+ for (( i=0; i < $eth_cnt-1; i++ ))
+@@ -228,5 +250,6 @@ do
+         if [ -n "${list_match[$i]}" ]
+         then
+ 		create_bond ${list_eth[$i]} ${list_match[$i]}
++		let bondcnt=bondcnt+1
+         fi
+ done
+-- 
+2.7.4
