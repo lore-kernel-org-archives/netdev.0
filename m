@@ -1,41 +1,55 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: Re: [PATCH v7 3/3] net/cxgb4: Use new
- PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
-Date: Fri, 14 Jul 2017 17:50:21 +0000
-Message-ID: <MWHPR12MB1600415DE896360B2F1BA4C1C8AD0@MWHPR12MB1600.namprd12.prod.outlook.com>
-References: <1499955692-26556-1-git-send-email-dingtianhong@huawei.com>
- <1499955692-26556-4-git-send-email-dingtianhong@huawei.com>
- <CAKgT0UcBFBk9T7g0Dh-rHY6Z+6-4=5jsUWHbLcSMc+ohdTz=CA@mail.gmail.com>
- <CAKgT0Uf8Tg6AFthXt-bJrdNHCqJ3MfzduR1yCMMsjLYoEFXb-w@mail.gmail.com>
- <MWHPR12MB1600E5A4404EE9D97CD99F88C8AC0@MWHPR12MB1600.namprd12.prod.outlook.com>,<d36574a1-2853-6989-25ae-5fd1b0d811ba@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] sctp: don't dereference ptr before leaving
+ _sctp_walk_{params,errors}()
+Date: Fri, 14 Jul 2017 10:54:31 -0700 (PDT)
+Message-ID: <20170714.105431.403659291323482633.davem@davemloft.net>
+References: <CAG_fn=UU5wT5GuFd6=br2WycHZ+JF6SWTS7=HhNLzDTiDMi-=g@mail.gmail.com>
+        <20170714.102312.821784668156442305.davem@davemloft.net>
+        <CAG_fn=XtmFsygwP=o5_pS1fHXUamAy=bib-7DZvX1n9P4MwCgQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Ashok Raj <ashok.raj@intel.com>,
-        Bjorn Helgaas <bhelgaas@google.com>,
-        Bjorn Helgaas <helgaas@kernel.org>,
-        Michael Werner <werner@chelsio.com>,
-        Ganesh GR <ganeshgr@chelsio.com>,
-        Asit K Mallick <asit.k.mallick@intel.com>,
-        Patrick J Cramer <patrick.j.cramer@intel.com>,
-        Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
-        Bob Shaw <Bob.Shaw@amd.com>, h <l.stach@pengutronix.de>,
-        Amir Ancel <amira@mellanox.com>,
-        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
-        David Laight <David.Laight@aculab.com>,
-        "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will.deacon@arm.com>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Robin Murphy <robin.murphy@arm.com>,
-        David Miller <davem@davemloft.net>,
-        "linux-arm-kernel@
-To: Ding Tianhong <dingtianhong@huawei.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <d36574a1-2853-6989-25ae-5fd1b0d811ba@huawei.com>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: dvyukov@google.com, kcc@google.com, edumazet@google.com,
+        lucien.xin@gmail.com, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: glider@google.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAG_fn=XtmFsygwP=o5_pS1fHXUamAy=bib-7DZvX1n9P4MwCgQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Reviewed-by: Casey Leedom <leedom@chelsio.com>
+RnJvbTogQWxleGFuZGVyIFBvdGFwZW5rbyA8Z2xpZGVyQGdvb2dsZS5jb20+DQpEYXRlOiBGcmks
+IDE0IEp1bCAyMDE3IDE5OjMzOjU0ICswMjAwDQoNCj4gT24gRnJpLCBKdWwgMTQsIDIwMTcgYXQg
+NzoyMyBQTSwgRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0PiB3cm90ZToNCj4+IEZy
+b206IEFsZXhhbmRlciBQb3RhcGVua28gPGdsaWRlckBnb29nbGUuY29tPg0KPj4gRGF0ZTogRnJp
+LCAxNCBKdWwgMjAxNyAxODozMzowMSArMDIwMA0KPj4NCj4+PiBPbiBGcmksIEp1bCAxNCwgMjAx
+NyBhdCA1OjU4IFBNLCBEYXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+IHdyb3RlOg0K
+Pj4+PiBGcm9tOiBBbGV4YW5kZXIgUG90YXBlbmtvIDxnbGlkZXJAZ29vZ2xlLmNvbT4NCj4+Pj4g
+RGF0ZTogRnJpLCAxNCBKdWwgMjAxNyAxMjowMzoyOSArMDIwMA0KPj4+Pg0KPj4+Pj4gIHYyOiBw
+ZXIgY29tbWVudCBmcm9tIERhdmlkIE1pbGxlciwgbWFrZSBzdXJlIHRoZSB3aG9sZSBpdGVyYXRv
+ci0+bGVuZ3RoDQo+Pj4+PiAgICAgIGZpdHMgaW50byB0aGUgcmVtYWluaW5nIGJ1ZmZlci4NCj4+
+Pj4NCj4+Pj4gUGxlYXNlIGNvbXBpbGUgYW5kIGZ1bmN0aW9uYWxseSB0ZXN0IHlvdXIgY2hhbmdl
+czoNCj4+Pj4NCj4+Pj4gSW4gZmlsZSBpbmNsdWRlZCBmcm9tIC4vaW5jbHVkZS9saW51eC9jb21w
+aWxlci5oOjU4OjAsDQo+Pj4+ICAgICAgICAgICAgICAgICAgZnJvbSAuL2luY2x1ZGUvdWFwaS9s
+aW51eC9zdGRkZWYuaDoxLA0KPj4+PiAgICAgICAgICAgICAgICAgIGZyb20gLi9pbmNsdWRlL2xp
+bnV4L3N0ZGRlZi5oOjQsDQo+Pj4+ICAgICAgICAgICAgICAgICAgZnJvbSAuL2luY2x1ZGUvdWFw
+aS9saW51eC9wb3NpeF90eXBlcy5oOjQsDQo+Pj4+ICAgICAgICAgICAgICAgICAgZnJvbSAuL2lu
+Y2x1ZGUvdWFwaS9saW51eC90eXBlcy5oOjEzLA0KPj4+PiAgICAgICAgICAgICAgICAgIGZyb20g
+Li9pbmNsdWRlL2xpbnV4L3R5cGVzLmg6NSwNCj4+Pj4gICAgICAgICAgICAgICAgICBmcm9tIG5l
+dC9zY3RwL3NtX3N0YXRlZnVucy5jOjQ4Og0KPj4+PiBuZXQvc2N0cC9zbV9zdGF0ZWZ1bnMuYzog
+SW4gZnVuY3Rpb24goXNjdHBfc2ZfZG9fcmVjb25mojoNCj4+Pj4gLi9pbmNsdWRlL25ldC9zY3Rw
+L3NjdHAuaDo0NzI6MjQ6IGVycm9yOiB1bmtub3duIHR5cGUgbmFtZSChc2N0cF9wYXJhbWhkcl90
+og0KPj4+PiAgICAgICAocG9zLnYgKyBvZmZzZXRvZihzY3RwX3BhcmFtaGRyX3QsIGxlbmd0aCkg
+KyBzaXplb2YocG9zLnAtPmxlbmd0aCkgPFwNCj4+Pj4gICAgICAgICAgICAgICAgICAgICAgICAg
+Xg0KPj4+IE9vcHMuIEZpeGVkLg0KPj4NCj4+IERpZCB5b3UgZnVuY3Rpb25hbGx5IHRlc3QgdGhl
+IG5ldyB2ZXJzaW9uIG9yIGp1c3QgZG8gYSBxdWljayBjb21waWxlDQo+PiBjaGVjayBhbmQgcmVz
+dWJtaXQ/DQo+IEkndmUgY2hlY2tlZCB0aGF0IHRoZSBrZXJuZWwgc3RpbGwgd29ya3MsIGJ1dCB1
+bmZvcnR1bmF0ZWx5IEkgY291bGRuJ3QNCj4gY2hlY2sgd2hldGhlciBvciBub3QgdGhpcyBhZmZl
+Y3RlZCB0aGUgdW5pbml0IG1lbW9yeSwgYXMgS01TQU4NCj4gY3VycmVudGx5IHdvcmtzIG9uIGEg
+Zml4ZWQga2VybmVsIHJldmlzaW9uLiBUaGUgY29tcGlsYXRpb24gZXJyb3Igd2FzDQo+IGFjdHVh
+bGx5IGNhdXNlZCBieSBtZSBmYWlsaW5nIHRvIHRlc3QgdGhlIGtlcm5lbCB3aGVuIHBvcnRpbmcg
+dGhlIGZpeA0KPiBmcm9tIHRoYXQgcmV2aXNpb24gdG8gdXBzdHJlYW0uDQo+IA0KPj4gSSByZWFs
+bHkgd2FudCB5b3UgdG8gdGVzdCB0aGlzIGlmIHRoZSBsb2dpYyBoYXMgYmVlbiBjaGFuZ2VkLg0K
+PiBEbyB5b3UgbWVhbiBhbnkgc3BlY2lmaWMgdGVzdHMgaW4gYWRkaXRpb24gdG8sIHNheSwgcnVu
+bmluZyB0aGUNCj4gcmVwcm9kdWNlciBvbiB3aGljaCB0aGUgdW5pbml0IHVzZSB3YXMgcmVwb3J0
+ZWQ/DQoNCkkgbWVhbiB0aGUgcmVwcm9kdWNlci4NCg==
