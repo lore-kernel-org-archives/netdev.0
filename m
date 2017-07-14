@@ -1,42 +1,51 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: IGMP snooping, switchdev and local multicast receiver on br interface
-Date: Fri, 14 Jul 2017 16:49:49 +0200
-Message-ID: <20170714144949.GG21743@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] mdio: mux: fix parsing mux registers outside of
+ the PHY address range
+Date: Fri, 14 Jul 2017 08:13:18 -0700 (PDT)
+Message-ID: <20170714.081318.505725392656343819.davem@davemloft.net>
+References: <20170710123523.6625-1-martin.blumenstingl@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Elad Raz <eladr@mellanox.com>, Ido Schimmel <idosch@mellanox.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-amlogic@lists.infradead.org, jon.mason@broadcom.com
+To: martin.blumenstingl@googlemail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:54249 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753968AbdGNOtw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 14 Jul 2017 10:49:52 -0400
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([184.105.139.130]:36128 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754031AbdGNPNW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2017 11:13:22 -0400
+In-Reply-To: <20170710123523.6625-1-martin.blumenstingl@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Folks
+From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Date: Mon, 10 Jul 2017 14:35:23 +0200
 
-I've been testing IGMP snooping support with DSA, putting MDB entries
-into the switch so that traffic only goes out ports where there has
-been an interest indicated via IGMP. It mostly works, but i've come
-across one use case which does not.
+> mdio_mux_init parses the child nodes of the MDIO mux. When using
+> "mdio-mux-mmioreg" the child nodes are describing the register value
+> that is written to switch between the MDIO busses.
+> 
+> The change which makes the error messages more verbose changed the
+> parsing of the "reg" property from a simple of_property_read_u32 call
+> to of_mdio_parse_addr. On a Khadas VIM (based on the Meson GXL SoC,
+> which uses mdio-mux-mmioreg) this prevents registering the MDIO mux
+> (because the "reg" values on the MDIO mux child nodes are 0x2009087f
+> and 0xe40908ff) and leads to the following errors:
+>   mdio-mux-mmioreg c883455c.eth-phy-mux: /soc/periphs@c8834000/eth-phy-mux/mdio@e40908ff PHY address -469169921 is too large
+>   mdio-mux-mmioreg c883455c.eth-phy-mux: Error: Failed to find reg for child /soc/periphs@c8834000/eth-phy-mux/mdio@e40908ff
+>   mdio-mux-mmioreg c883455c.eth-phy-mux: /soc/periphs@c8834000/eth-phy-mux/mdio@2009087f PHY address 537462911 is too large
+>   mdio-mux-mmioreg c883455c.eth-phy-mux: Error: Failed to find reg for child /soc/periphs@c8834000/eth-phy-mux/mdio@2009087f
+>   mdio-mux-mmioreg c883455c.eth-phy-mux: Error: No acceptable child buses found
+>   mdio-mux-mmioreg c883455c.eth-phy-mux: failed to register mdio-mux bus /soc/periphs@c8834000/eth-phy-mux
+> (as a result of that ethernet is not working, because the PHY which is
+> connected through the mux' child MDIO bus, which is not being
+> registered).
+> 
+> Fix this by reverting the change from of_mdio_parse_addr to
+> of_mdio_parse_addr.
+> 
+> Fixes: 342fa1964439 ("mdio: mux: make child bus walking more permissive and errors more verbose")
+> Signed-off-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
 
-I have a multicast listener running on the host, performing a
-setsockopt(IP_ADD_MEMBERSHIP) on the bridge interface. It is not an
-unreasonable thing to want to do, e.g. a WiFi access point listening
-to mDNS, or running other multicast protocols, a STB wanting to
-receive a multicast video stream to display on the set, etc.
-
-I'm not seeing any switchdev operations when the IP_ADD_MEMBERSHIP is
-called. So there is no indication that the switch should add an MDB
-entry to forward traffic to the host.
-
-Im i missing something, or is this not implemented?
-
-Thanks
-	Andrew
+Applied, thanks.
