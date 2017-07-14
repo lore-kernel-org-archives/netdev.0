@@ -1,32 +1,28 @@
-From: Mason <slash.tmp@free.fr>
+From: Florian Fainelli <f.fainelli@gmail.com>
 Subject: Re: Quirks of the Atheros 8035 PHY
-Date: Fri, 14 Jul 2017 23:12:52 +0200
-Message-ID: <568e294d-2ed6-c7b0-b161-0d653ca779f1@free.fr>
+Date: Fri, 14 Jul 2017 14:28:12 -0700
+Message-ID: <a3d66c99-a4c6-3ce2-83cc-b0398b409107@gmail.com>
 References: <06a3ad40-ad88-c456-b643-901ea964b5aa@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Mans Rullgard <mans@mansr.com>,
-        "David S. Miller" <davem@davemloft.net>
-To: netdev <netdev@vger.kernel.org>,
-        Martin Blumenstingl <martin.blumenstingl@gmail.com>,
-        Grygorii Strashko <grygorii.strashko@ti.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Andrew Lunn <andrew@lunn.ch>, Mans Rullgard <mans@mansr.com>,
+        "David S. Miller" <davem@davemloft.net>, grygorii.strashko@ti.com
+To: Mason <slash.tmp@free.fr>, netdev <netdev@vger.kernel.org>,
+        Martin Blumenstingl <martin.blumenstingl@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2-g21.free.fr ([212.27.42.2]:23763 "EHLO smtp2-g21.free.fr"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751083AbdGNVN1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 14 Jul 2017 17:13:27 -0400
+Received: from mail-wr0-f176.google.com ([209.85.128.176]:35102 "EHLO
+        mail-wr0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751142AbdGNV2S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2017 17:28:18 -0400
+Received: by mail-wr0-f176.google.com with SMTP id k67so72431562wrc.2
+        for <netdev@vger.kernel.org>; Fri, 14 Jul 2017 14:28:17 -0700 (PDT)
 In-Reply-To: <06a3ad40-ad88-c456-b643-901ea964b5aa@free.fr>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mugunthan's address bounces. Removing it.
-Adding Grygorii's address instead.
-
-On 14/07/2017 23:08, Mason wrote:
-
+On 07/14/2017 02:08 PM, Mason wrote:
 > Hello,
 > 
 > I've discussed this subject in the past, but we never reached
@@ -72,6 +68,12 @@ On 14/07/2017 23:08, Mason wrote:
 > what was said last time was that "it's too late to
 > fix it now, since the fix risks breaking working
 > setups". Is that an accurate paraphrase?
+
+More or less, this particular problematic PHY has come up with some many
+different platforms, and people and typically no one being able to have
+insights on its internal design that it is really hard to comment on
+what would break, it's already apparently pretty broken.
+
 > 
 > 
 > 3) There's also a RGMII GTX_CLK documented as
@@ -90,12 +92,24 @@ On 14/07/2017 23:08, Mason wrote:
 > so inherit bootloader value)
 > I'm not sure the current DT allows such fine-grained
 > tweaking? Should we enhance it?
+
+What is "the current DT" in that context? There is no binding for
+at8033x defined and there is not one either for nb8800.
+
+Some bindings do define RGMII RX/TX delay, but they can't agree on that
+either (net/cavium-pip.txt, net/apm-xgene-enet.txt and
+net/dwmac-sun8i.txt). The latest in date: net/dwmac-sun8i.txt is
+probably the best example of what should be defined and generalized.
+
 > 
 > 
 > 4) There's the whole mess of having clock delays
 > supported both by the PHY *AND* the MAC. If both
 > add a delay, things won't work as expected.
 > What's the recommended approach there?
-> 
-> 
-> Regards.
+
+Submit patches that fix problems for your particular use case that we
+can review and evaluate, once we have that, it's a lot easier to assess
+the impact it could have on other platforms.
+-- 
+Florian
