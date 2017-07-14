@@ -1,146 +1,59 @@
-From: Alexander Potapenko <glider@google.com>
-Subject: [PATCH v2] sctp: don't dereference ptr before leaving _sctp_walk_{params,errors}()
-Date: Fri, 14 Jul 2017 12:03:29 +0200
-Message-ID: <20170714100329.105604-1-glider@google.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: dvyukov@google.com, kcc@google.com, edumazet@google.com,
-        davem@davemloft.net, lucien.xin@gmail.com
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Subject: [PATCH v2] iwlwifi: mvm: Fix a memory leak in an error handling path in 'iwl_mvm_sar_get_wgds_table()'
+Date: Fri, 14 Jul 2017 12:06:59 +0200
+Message-ID: <20170714100659.26369-1-christophe.jaillet@wanadoo.fr>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+To: johannes.berg@intel.com, emmanuel.grumbach@intel.com,
+        luciano.coelho@intel.com, linuxwifi@intel.com,
+        kvalo@codeaurora.org, sara.sharon@intel.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If the length field of the iterator (|pos.p| or |err|) is past the end
-of the chunk, we shouldn't access it.
+We should free 'wgds.pointer' here as done a few lines above in another
+error handling path.
+It was allocated within 'acpi_evaluate_object()'.
 
-This bug has been detected by KMSAN. For the following pair of system
-calls:
-
-  socket(PF_INET6, SOCK_STREAM, 0x84 /* IPPROTO_??? */) = 3
-  sendto(3, "A", 1, MSG_OOB, {sa_family=AF_INET6, sin6_port=htons(0),
-         inet_pton(AF_INET6, "::1", &sin6_addr), sin6_flowinfo=0,
-         sin6_scope_id=0}, 28) = 1
-
-the tool has reported a use of uninitialized memory:
-
-  ==================================================================
-  BUG: KMSAN: use of uninitialized memory in sctp_rcv+0x17b8/0x43b0
-  CPU: 1 PID: 2940 Comm: probe Not tainted 4.11.0-rc5+ #2926
-  Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs
-  01/01/2011
-  Call Trace:
-   <IRQ>
-   __dump_stack lib/dump_stack.c:16
-   dump_stack+0x172/0x1c0 lib/dump_stack.c:52
-   kmsan_report+0x12a/0x180 mm/kmsan/kmsan.c:927
-   __msan_warning_32+0x61/0xb0 mm/kmsan/kmsan_instr.c:469
-   __sctp_rcv_init_lookup net/sctp/input.c:1074
-   __sctp_rcv_lookup_harder net/sctp/input.c:1233
-   __sctp_rcv_lookup net/sctp/input.c:1255
-   sctp_rcv+0x17b8/0x43b0 net/sctp/input.c:170
-   sctp6_rcv+0x32/0x70 net/sctp/ipv6.c:984
-   ip6_input_finish+0x82f/0x1ee0 net/ipv6/ip6_input.c:279
-   NF_HOOK ./include/linux/netfilter.h:257
-   ip6_input+0x239/0x290 net/ipv6/ip6_input.c:322
-   dst_input ./include/net/dst.h:492
-   ip6_rcv_finish net/ipv6/ip6_input.c:69
-   NF_HOOK ./include/linux/netfilter.h:257
-   ipv6_rcv+0x1dbd/0x22e0 net/ipv6/ip6_input.c:203
-   __netif_receive_skb_core+0x2f6f/0x3a20 net/core/dev.c:4208
-   __netif_receive_skb net/core/dev.c:4246
-   process_backlog+0x667/0xba0 net/core/dev.c:4866
-   napi_poll net/core/dev.c:5268
-   net_rx_action+0xc95/0x1590 net/core/dev.c:5333
-   __do_softirq+0x485/0x942 kernel/softirq.c:284
-   do_softirq_own_stack+0x1c/0x30 arch/x86/entry/entry_64.S:902
-   </IRQ>
-   do_softirq kernel/softirq.c:328
-   __local_bh_enable_ip+0x25b/0x290 kernel/softirq.c:181
-   local_bh_enable+0x37/0x40 ./include/linux/bottom_half.h:31
-   rcu_read_unlock_bh ./include/linux/rcupdate.h:931
-   ip6_finish_output2+0x19b2/0x1cf0 net/ipv6/ip6_output.c:124
-   ip6_finish_output+0x764/0x970 net/ipv6/ip6_output.c:149
-   NF_HOOK_COND ./include/linux/netfilter.h:246
-   ip6_output+0x456/0x520 net/ipv6/ip6_output.c:163
-   dst_output ./include/net/dst.h:486
-   NF_HOOK ./include/linux/netfilter.h:257
-   ip6_xmit+0x1841/0x1c00 net/ipv6/ip6_output.c:261
-   sctp_v6_xmit+0x3b7/0x470 net/sctp/ipv6.c:225
-   sctp_packet_transmit+0x38cb/0x3a20 net/sctp/output.c:632
-   sctp_outq_flush+0xeb3/0x46e0 net/sctp/outqueue.c:885
-   sctp_outq_uncork+0xb2/0xd0 net/sctp/outqueue.c:750
-   sctp_side_effects net/sctp/sm_sideeffect.c:1773
-   sctp_do_sm+0x6962/0x6ec0 net/sctp/sm_sideeffect.c:1147
-   sctp_primitive_ASSOCIATE+0x12c/0x160 net/sctp/primitive.c:88
-   sctp_sendmsg+0x43e5/0x4f90 net/sctp/socket.c:1954
-   inet_sendmsg+0x498/0x670 net/ipv4/af_inet.c:762
-   sock_sendmsg_nosec net/socket.c:633
-   sock_sendmsg net/socket.c:643
-   SYSC_sendto+0x608/0x710 net/socket.c:1696
-   SyS_sendto+0x8a/0xb0 net/socket.c:1664
-   do_syscall_64+0xe6/0x130 arch/x86/entry/common.c:285
-   entry_SYSCALL64_slow_path+0x25/0x25 arch/x86/entry/entry_64.S:246
-  RIP: 0033:0x401133
-  RSP: 002b:00007fff6d99cd38 EFLAGS: 00000246 ORIG_RAX: 000000000000002c
-  RAX: ffffffffffffffda RBX: 00000000004002b0 RCX: 0000000000401133
-  RDX: 0000000000000001 RSI: 0000000000494088 RDI: 0000000000000003
-  RBP: 00007fff6d99cd90 R08: 00007fff6d99cd50 R09: 000000000000001c
-  R10: 0000000000000001 R11: 0000000000000246 R12: 0000000000000000
-  R13: 00000000004063d0 R14: 0000000000406460 R15: 0000000000000000
-  origin:
-   save_stack_trace+0x37/0x40 arch/x86/kernel/stacktrace.c:59
-   kmsan_save_stack_with_flags mm/kmsan/kmsan.c:302
-   kmsan_internal_poison_shadow+0xb1/0x1a0 mm/kmsan/kmsan.c:198
-   kmsan_poison_shadow+0x6d/0xc0 mm/kmsan/kmsan.c:211
-   slab_alloc_node mm/slub.c:2743
-   __kmalloc_node_track_caller+0x200/0x360 mm/slub.c:4351
-   __kmalloc_reserve net/core/skbuff.c:138
-   __alloc_skb+0x26b/0x840 net/core/skbuff.c:231
-   alloc_skb ./include/linux/skbuff.h:933
-   sctp_packet_transmit+0x31e/0x3a20 net/sctp/output.c:570
-   sctp_outq_flush+0xeb3/0x46e0 net/sctp/outqueue.c:885
-   sctp_outq_uncork+0xb2/0xd0 net/sctp/outqueue.c:750
-   sctp_side_effects net/sctp/sm_sideeffect.c:1773
-   sctp_do_sm+0x6962/0x6ec0 net/sctp/sm_sideeffect.c:1147
-   sctp_primitive_ASSOCIATE+0x12c/0x160 net/sctp/primitive.c:88
-   sctp_sendmsg+0x43e5/0x4f90 net/sctp/socket.c:1954
-   inet_sendmsg+0x498/0x670 net/ipv4/af_inet.c:762
-   sock_sendmsg_nosec net/socket.c:633
-   sock_sendmsg net/socket.c:643
-   SYSC_sendto+0x608/0x710 net/socket.c:1696
-   SyS_sendto+0x8a/0xb0 net/socket.c:1664
-   do_syscall_64+0xe6/0x130 arch/x86/entry/common.c:285
-   return_from_SYSCALL_64+0x0/0x6a arch/x86/entry/entry_64.S:246
-  ==================================================================
-
-Signed-off-by: Alexander Potapenko <glider@google.com>
+Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 ---
- v2: per comment from David Miller, make sure the whole iterator->length
-     fits into the remaining buffer.
----
- include/net/sctp/sctp.h | 4 ++++
- 1 file changed, 4 insertions(+)
+v2: rebase after 7fe90e0e3d60 ("iwlwifi: mvm: refactor geo init")
 
-diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-index a9519a06a23b..9f6164a15715 100644
---- a/include/net/sctp/sctp.h
-+++ b/include/net/sctp/sctp.h
-@@ -469,6 +469,8 @@ _sctp_walk_params((pos), (chunk), ntohs((chunk)->chunk_hdr.length), member)
+
+Moreovern a comment in '/drivers/acpi/acpica/utalloc.c' states that:
+/* [...] Note: The caller should use acpi_os_free to free this
+ * buffer created via ACPI_ALLOCATE_BUFFER.
+ */
+
+So, at the end of this function:
+	out_free:
+		kfree(wgds.pointer);
+should maybe be:
+	out_free:
+		acpi_os_free(wgds.pointer);
+
+If correct, several places should be fixed accordingly.
+---
+ drivers/net/wireless/intel/iwlwifi/mvm/fw.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/intel/iwlwifi/mvm/fw.c b/drivers/net/wireless/intel/iwlwifi/mvm/fw.c
+index 79e7a7a285dc..82863e9273eb 100644
+--- a/drivers/net/wireless/intel/iwlwifi/mvm/fw.c
++++ b/drivers/net/wireless/intel/iwlwifi/mvm/fw.c
+@@ -1275,8 +1275,10 @@ static int iwl_mvm_sar_get_wgds_table(struct iwl_mvm *mvm)
  
- #define _sctp_walk_params(pos, chunk, end, member)\
- for (pos.v = chunk->member;\
-+     (pos.v + offsetof(sctp_paramhdr_t, length) + sizeof(pos.p->length) <\
-+      (void *)chunk + end) &&\
-      pos.v <= (void *)chunk + end - ntohs(pos.p->length) &&\
-      ntohs(pos.p->length) >= sizeof(struct sctp_paramhdr);\
-      pos.v += SCTP_PAD4(ntohs(pos.p->length)))
-@@ -479,6 +481,8 @@ _sctp_walk_errors((err), (chunk_hdr), ntohs((chunk_hdr)->length))
- #define _sctp_walk_errors(err, chunk_hdr, end)\
- for (err = (sctp_errhdr_t *)((void *)chunk_hdr + \
- 	    sizeof(struct sctp_chunkhdr));\
-+     ((void *)err + offsetof(sctp_errhdr_t, length) + sizeof(err->length) <\
-+      (void *)chunk_hdr + end) &&\
-      (void *)err <= (void *)chunk_hdr + end - ntohs(err->length) &&\
-      ntohs(err->length) >= sizeof(sctp_errhdr_t); \
-      err = (sctp_errhdr_t *)((void *)err + SCTP_PAD4(ntohs(err->length))))
+ 			entry = &wifi_pkg->package.elements[idx++];
+ 			if ((entry->type != ACPI_TYPE_INTEGER) ||
+-			    (entry->integer.value > U8_MAX))
+-				return -EINVAL;
++			    (entry->integer.value > U8_MAX)) {
++				ret = -EINVAL;
++				goto out_free;
++			}
+ 
+ 			mvm->geo_profiles[i].values[j] = entry->integer.value;
+ 		}
 -- 
-2.13.2.932.g7449e964c-goog
+2.11.0
