@@ -1,79 +1,52 @@
-From: Vasily Averin <vvs@virtuozzo.com>
-Subject: [PATCH] ipv4: ip_do_fragment: fix headroom tests
-Date: Fri, 14 Jul 2017 12:04:16 +0300
-Message-ID: <88e7a111-ddcd-5aa9-f15e-045f9b0831a8@virtuozzo.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH 05/14] isdn: isdnloop: suppress a gcc-7 warning
+Date: Fri, 14 Jul 2017 11:25:17 +0200
+Message-ID: <20170714092540.1217397-6-arnd@arndb.de>
+References: <20170714092540.1217397-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Florian Westphal <fw@strlen.de>,
-        David Woodhouse <dwmw2@infradead.org>, devel@openvz.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:32354 "EHLO relay.sw.ru"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753636AbdGNJ1r (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 14 Jul 2017 05:27:47 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Arnd Bergmann <arnd@arndb.de>,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+ dri-devel@lists.freedesktop.org, linux-ide@vger.kernel.org,
+ netdev@vger.kernel.org, Tejun Heo <tj@kernel.org>, akpm@linux-foundation.org,
+ Linus Torvalds <torvalds@linux-foundation.org>,
+ Guenter Roeck <linux@roeck-us.net>, linux-media@vger.kernel.org
+To: linux-kernel@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>,
+ "David S. Miller" <davem@davemloft.net>
+Return-path: <dri-devel-bounces@lists.freedesktop.org>
+In-Reply-To: <20170714092540.1217397-1-arnd@arndb.de>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
+List-Post: <mailto:dri-devel@lists.freedesktop.org>
+List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: dri-devel-bounces@lists.freedesktop.org
+Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
+List-Id: netdev.vger.kernel.org
 
-Some time ago David Woodhouse reported skb_under_panic
-when we try to push ethernet header to fragmented ipv6 skbs.
-It was fixed for ipv6 by Florian Westphal in
-commit 1d325d217c7f ("ipv6: ip6_fragment: fix headroom tests and skb leak")
-
-However similar problem still exist in ipv4.
-
-It does not trigger skb_under_panic due paranoid check
-in ip_finish_output2, however according to Alexey Kuznetsov
-current state is abnormal and ip_fragment should be fixed too.
-
-Signed-off-by: Vasily Averin <vvs@virtuozzo.com>
----
- net/ipv4/ip_output.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 7eb252d..50c74cd 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -599,6 +599,7 @@ int ip_do_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
- 	hlen = iph->ihl * 4;
- 	mtu = mtu - hlen;	/* Size of data space */
- 	IPCB(skb)->flags |= IPSKB_FRAG_COMPLETE;
-+	ll_rs = LL_RESERVED_SPACE(rt->dst.dev);
- 
- 	/* When frag_list is given, use it. First, check its validity:
- 	 * some transformers could create wrong frag_list or break existing
-@@ -614,14 +615,15 @@ int ip_do_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
- 		if (first_len - hlen > mtu ||
- 		    ((first_len - hlen) & 7) ||
- 		    ip_is_fragment(iph) ||
--		    skb_cloned(skb))
-+		    skb_cloned(skb) ||
-+		    skb_headroom(skb) < ll_rs)
- 			goto slow_path;
- 
- 		skb_walk_frags(skb, frag) {
- 			/* Correct geometry. */
- 			if (frag->len > mtu ||
- 			    ((frag->len & 7) && frag->next) ||
--			    skb_headroom(frag) < hlen)
-+			    skb_headroom(frag) < hlen + ll_rs)
- 				goto slow_path_clean;
- 
- 			/* Partially cloned skb? */
-@@ -711,8 +713,6 @@ int ip_do_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
- 	left = skb->len - hlen;		/* Space per frame */
- 	ptr = hlen;		/* Where to start from */
- 
--	ll_rs = LL_RESERVED_SPACE(rt->dst.dev);
--
- 	/*
- 	 *	Fragment the datagram.
- 	 */
--- 
-2.7.4
+V2UgdGVzdCB3aGV0aGVyIGEgYml0IGlzIHNldCBpbiBhIG1hc2sgaGVyZSwgd2hpY2ggaXMgY29y
+cmVjdApidXQgZ2NjIHdhcm5zIGFib3V0IGl0IGFzIGl0IHRoaW5rcyBpdCBtaWdodCBiZSBjb25m
+dXNpbmc6Cgpkcml2ZXJzL2lzZG4vaXNkbmxvb3AvaXNkbmxvb3AuYzo0MTI6Mzc6IGVycm9yOiA/
+OiB1c2luZyBpbnRlZ2VyIGNvbnN0YW50cyBpbiBib29sZWFuIGNvbnRleHQsIHRoZSBleHByZXNz
+aW9uIHdpbGwgYWx3YXlzIGV2YWx1YXRlIHRvICd0cnVlJyBbLVdlcnJvcj1pbnQtaW4tYm9vbC1j
+b250ZXh0XQoKVGhpcyByZXBsYWNlcyB0aGUgbmVnYXRpb24gb2YgYW4gaW50ZWdlciB3aXRoIGFu
+IGVxdWl2YWxlbnQKY29tcGFyaXNvbiB0byB6ZXJvLCB3aGljaCBnZXRzIHJpZCBvZiB0aGUgd2Fy
+bmluZy4KClNpZ25lZC1vZmYtYnk6IEFybmQgQmVyZ21hbm4gPGFybmRAYXJuZGIuZGU+Ci0tLQog
+ZHJpdmVycy9pc2RuL2lzZG5sb29wL2lzZG5sb29wLmMgfCAyICstCiAxIGZpbGUgY2hhbmdlZCwg
+MSBpbnNlcnRpb24oKyksIDEgZGVsZXRpb24oLSkKCmRpZmYgLS1naXQgYS9kcml2ZXJzL2lzZG4v
+aXNkbmxvb3AvaXNkbmxvb3AuYyBiL2RyaXZlcnMvaXNkbi9pc2RubG9vcC9pc2RubG9vcC5jCmlu
+ZGV4IDZmZmQxMzQ2NmI4Yy4uNTc5MjkyOGI5NDRkIDEwMDY0NAotLS0gYS9kcml2ZXJzL2lzZG4v
+aXNkbmxvb3AvaXNkbmxvb3AuYworKysgYi9kcml2ZXJzL2lzZG4vaXNkbmxvb3AvaXNkbmxvb3Au
+YwpAQCAtNDA5LDcgKzQwOSw3IEBAIGlzZG5sb29wX3NlbmRidWYoaW50IGNoYW5uZWwsIHN0cnVj
+dCBza19idWZmICpza2IsIGlzZG5sb29wX2NhcmQgKmNhcmQpCiAJCXJldHVybiAtRUlOVkFMOwog
+CX0KIAlpZiAobGVuKSB7Ci0JCWlmICghKGNhcmQtPmZsYWdzICYgKGNoYW5uZWwpID8gSVNETkxP
+T1BfRkxBR1NfQjJBQ1RJVkUgOiBJU0ROTE9PUF9GTEFHU19CMUFDVElWRSkpCisJCWlmICgoY2Fy
+ZC0+ZmxhZ3MgJiAoY2hhbm5lbCkgPyBJU0ROTE9PUF9GTEFHU19CMkFDVElWRSA6IElTRE5MT09Q
+X0ZMQUdTX0IxQUNUSVZFKSA9PSAwKQogCQkJcmV0dXJuIDA7CiAJCWlmIChjYXJkLT5zbmRjb3Vu
+dFtjaGFubmVsXSA+IElTRE5MT09QX01BWF9TUVVFVUUpCiAJCQlyZXR1cm4gMDsKLS0gCjIuOS4w
+CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkcmktZGV2
+ZWwgbWFpbGluZyBsaXN0CmRyaS1kZXZlbEBsaXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0cHM6Ly9s
+aXN0cy5mcmVlZGVza3RvcC5vcmcvbWFpbG1hbi9saXN0aW5mby9kcmktZGV2ZWwK
