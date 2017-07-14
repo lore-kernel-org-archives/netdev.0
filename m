@@ -1,23 +1,23 @@
 From: Jiannan Ouyang <ouyangj-b10kYP2dOMg@public.gmane.org>
-Subject: Re: [PATCH net-next v1 1/3] gtp: refactor to support
- flow-based gtp encap and decap
-Date: Fri, 14 Jul 2017 00:55:11 +0000
-Message-ID: <3729E0DA-08AB-4C5C-B9EC-C76DAAA60E10@fb.com>
+Subject: Re: [PATCH net-next v1 2/3] gtp: Support creating
+ flow-based gtp net_device
+Date: Fri, 14 Jul 2017 01:01:34 +0000
+Message-ID: <FFC0D5B5-37F4-4DD0-B294-FE3074EA9017@fb.com>
 References: <20170713004455.3946570-1-ouyangj@fb.com>
-	<20170713004455.3946570-2-ouyangj@fb.com>
-	<20170713072624.iinvf7sqiwn6abff@nataraja>
+	<20170713004455.3946570-3-ouyangj@fb.com>
+	<20170713073540.q4tqqawhxwzqrzsv@nataraja>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
 	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	"osmocom-net-gprs-qjLDD68F18N4m7O/Vxda39i2O/JbrIOy@public.gmane.org" <osmocom-net-gprs-qjLDD68F18N4m7O/Vxda39i2O/JbrIOy@public.gmane.org>,
 	"pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org" <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
 To: Harald Welte <laforge-TgoAw6mPHtdg9hUCZPvPmw@public.gmane.org>
 Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20170713072624.iinvf7sqiwn6abff@nataraja>
+In-Reply-To: <20170713073540.q4tqqawhxwzqrzsv@nataraja>
 Content-Language: en-US
-Content-ID: <4E8970F707E02D4BB90651A01300EB3A-JGF9Izt3QrScE4WynfumptQqCkab/8FMAL8bYrjMMd8@public.gmane.org>
+Content-ID: <5138DB046C19FF4994BDA52596DEF76A-JGF9Izt3QrScE4WynfumptQqCkab/8FMAL8bYrjMMd8@public.gmane.org>
 List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
 	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
@@ -29,46 +29,73 @@ Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-SGkgSGFyYWxkLA0KDQo+IE9uIDcvMTMvMTcsIDEyOjI2IEFNLCAiSGFyYWxkIFdlbHRlIiA8bGFm
-b3JnZUBnbnVtb25rcy5vcmc+IHdyb3RlOg0KPsK3DQo+ID4gIHN0YXRpYyBpbmxpbmUgdm9pZCBn
-dHBfc2V0X3BrdGluZm9faXB2NChzdHJ1Y3QgZ3RwX3BrdGluZm8gKnBrdGluZm8sDQo+ID4gICAg
-ICAgICAgIHN0cnVjdCBzb2NrICpzaywgc3RydWN0IGlwaGRyICppcGgsDQo+ID4gLSAgICAgICAg
-IHN0cnVjdCBwZHBfY3R4ICpwY3R4LCBzdHJ1Y3QgcnRhYmxlICpydCwNCj4gPiAtICAgICAgICAg
-c3RydWN0IGZsb3dpNCAqZmw0LA0KPiA+ICsgICAgICAgICBzdHJ1Y3QgcnRhYmxlICpydCwgc3Ry
-dWN0IGZsb3dpNCAqZmw0LA0KPiA+ICAgICAgICAgICBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQ0K
-PiA+ICB7DQo+ID4gIFsuLi5dDQo+ID4gKyBfX2JlMzIgdHVuX2lkOw0KPsK3DQo+IHlvdSBhcmUg
-YnJlYWtpbmcgR1RQdjAgZnVuY3Rpb25hbGl0eSBoZXJlLiAgR1RQdjAgaGFzIDY0IGJpdCB0dW5u
-ZWwNCj4gaWRlbnRpZmllcnMsIGFuZCB0aGlzIGZ1bmN0aW9uIGlzIGNhbGxlZCBib3RoIGZyb20g
-R1RQdjEgYW5kIEdUUHYwDQo+IGNvbnRleHQuDQo+wrcNCj4gVGhpcyBtYWtlcyBtZSB3b25kZXIg
-aG93IHlvdSBkaWQgdmVyaWZ5IHRoYXQgeW91ciBjaGFuZ2VzIGRvIG5vdCBicmVhaw0KPiB0aGUg
-ZXhpc3Rpbmcgb3BlcmF0aW9uIHdpdGggYm90aCBHVFB2MCBhbmQgR1RQdjE/DQo+wrcNCg0KR29v
-ZCBjYXRjaC4gSSBvbmx5IGZ1bGx5IHRlc3RlZCB0aGUgR1RQdjEgcGF0aCBhZ2FpbnN0IG9haS1j
-bi4gV2lsbCBmaXgNCnRoaXMgYW5kIHRlc3QgdGhlIEdUUHYwIHBhdGggYXMgd2VsbC4NCg0KSSBo
-YWQgZG91YnRzIG9uIGhvdyB0aGlzIGZsb3ctYmFzZWQgR1RQdjEgY29kZSBwYXRoIHNob3VsZCBm
-aXQgaW4sIA0Kd2hpY2ggaXMgd2h5IHRoZSBHVFB2MCBhbmQgdGhlIEdUUHYxIGNvZGUgcGllY2Vz
-IGFyZSBtaXhlZCBpbiBteSBjaGFuZ2VzLiANCg0KU2hvdWxkIEkgZXhwbGljaXRseSBjbGFpbSB0
-aGF0IHRoZSBmbG93LWJhc2VkIGNoYW5nZSBpcyBmb3IgR1RQdjEgb25seT8gDQoNCj4gPiArIC8v
-IGZsb3ctYmFzZWQgR1RQMVUgZW5jYXANCj4gPiArIGluZm8gPSBza2JfdHVubmVsX2luZm8oc2ti
-KTsNCj4gPiArIGlmIChndHAtPmNvbGxlY3RfbWQgJiYgaW5mbyAmJiBudG9ocyhpbmZvLT5rZXku
-dHBfZHN0KSA9PSBHVFAxVV9QT1JUKSB7DQo+wrcNCj4gSSB0aGluayBpdCdzIHR5cGljYWxseSBz
-YWZlIHRvIGFzc3VtZSB0aGF0IEdUUCBpcyBvbmx5IG9wZXJhdGVkIG9uDQo+IHN0YW5kYXJkIHBv
-cnRzLCBidXQgaXQgaXMgc29tZXRoaW5nIHlvdSBjaG91bGQvc2hvdWxkIHRoaW5rIGFib3V0LCBp
-LmUuDQo+IHdoZXRoZXIgeW91IHdhbnQgdGhhdCBraW5kIG9mIHJlc3RyaWN0aW9uLiAgSW4gdGhl
-IGV4aXN0aW5nIHVzZSBjYXNlLCB3ZQ0KPiBoYXZlIHRoZSB2MC92MSBpbmZvcm1hdGlvbiBzdG9y
-ZWQgaW4gdGhlIHBlci1wZHAgY29udGV4dCBzdHJ1Y3R1cmUuDQo+wrcNCg0KVGhlIHJlYXNvbiBJ
-4oCZbSBjaGVja2luZyBHVFAxVV9QT1JUIGhlcmUgaXMgdG8gZmlsdGVyIEdUUDFVIHRyYWZmaWMu
-IA0KSXQgcG9zc2libGUgdG8gcGFzcyBhIHBvcnQgbnVtYmVyIGZyb20gb3ZzIGludG8gdGhlIGd0
-cCBtb2R1bGUuIEkgd2lsbCANCmludmVzdGlnYXRlIGhvdyB0byBzdXBwb3J0IHByb2dyYW1tYWJs
-ZSBwb3J0LiANCg0KPiA+ICsgICB0dW5faWQgID0gaHRvbmwocGN0eC0+dS52MS5vX3RlaSk7DQo+
-wrcNCj4gaGVyZSBpcyB3aGVyZSB5b3UncmUgYXNzdW1pbmcgR1RQdjEgaW4gdHdvIHdheXMgZnJv
-bSBjb2RlIHRoYXQgaXMgY2FsbGVkDQo+IGZyb20gYm90aCB2MCBhbmQgdjEuDQo+ICogeW91J3Jl
-IGRlcmVmZXJlbmNpbmcgYSB2MSBzcGVjaWZpYyBlbGVtZW50IGluIHRoZSBwY3R4IHVuaW9uDQo+
-ICogeW91J3JlIHN0b3JpbmcgdGhlIHJlc3VsdCBpbiBhIDMyYml0IHZhcmlhYmxlDQo+wrcNCg0K
-UmlnaHQsIHdpbGwgZml4IHRoaXMgZm9yIEdUUHYwLg0KDQo+ID4gICBndHAgPSBuZXRkZXZfcHJp
-dihkZXYpOw0KPiA+ICsgZ3RwLT5uZXQgPSBzcmNfbmV0Ow0KPsK3DQo+IElzbid0IHRoaXMgYSBn
-ZW5lcmljIGNoYW5nZSB0aGF0J3MgaW5kZXBlbmRlbnQgb2YgeW91ciB3b3JrIG9uIE9WUyBHVFA/
-DQoNCkl0IGlzIG1lYW50IHRvIGJlIE9WUyBpbmRlcGVuZGVudC4gV2hhdCBtYWtlcyBpdCBub3Q/
-IFNob3VsZCBJIGxlYXZlIA0KdGhpcyBmaWVsZCB1bi1pbml0aWFsaXplZD8NCg0KVGhhbmtzDQot
-Smlhbm5hbg0KDQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-XwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cHM6Ly9tYWlsLm9wZW52
-c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL292cy1kZXYK
+Hi Harald,
+
+> On 7/13/17, 12:35 AM, "Harald Welte" <laforge-TgoAw6mPHtdg9hUCZPvPmw@public.gmane.org> wrote:
+> 
+> > +static int gtp_dev_open(struct net_device *dev)
+> > +{
+> > +	struct gtp_dev *gtp = netdev_priv(dev);
+> > +	struct net *net = gtp->net;
+> > +	struct socket *sock1u;
+> > +	struct socket *sock0;
+> > +	struct udp_tunnel_sock_cfg tunnel_cfg;
+> > +	struct udp_port_cfg udp_conf;
+> > +	int err;
+> > +
+> > +	memset(&udp_conf, 0, sizeof(udp_conf));
+> > +
+> > +	udp_conf.family = AF_INET;
+> > +	udp_conf.local_ip.s_addr = htonl(INADDR_ANY);
+> > +	udp_conf.local_udp_port = htons(GTP1U_PORT);
+> > +
+> > +	err = udp_sock_create(gtp->net, &udp_conf, &sock1u);
+> > +	if (err < 0)
+> > +		return err;
+> > +
+> > +	udp_conf.local_udp_port = htons(GTP0_PORT);
+> > +	err = udp_sock_create(gtp->net, &udp_conf, &sock0);
+> > +	if (err < 0)
+> > +		return err;
+> 
+> you're unconditionally binding to both GTP0 and GTP1 UDP ports.  This is
+> done selectively based on netlink attributes in the existing "normal"
+> non-OVS kernel code, i.e. the control is left to the user.
+> 
+> Is this function is only called/used in the context of OVS?  If so,
+> since you explicitly implement only GTPv1, why bind to GTPv0 port?
+> 
+
+I had doubts on how this flow-based GTPv1 code path should fit in, which is why
+the GTPv0 and the GTPv1 code pieces are mixed in my changes. Should I
+explicitly claim that the flow-based change is for GTPv1 only?
+
+> > +	setup_udp_tunnel_sock(net, sock1u, &tunnel_cfg);
+> 
+> even here, you're only setting up the v1 and not v0.
+> 
+
+same reason as above.
+
+> > +	/* Assume largest header, ie. GTPv0. */
+> > +	dev->needed_headroom	= LL_MAX_HEADER +
+> > +		sizeof(struct iphdr) +
+> > +		sizeof(struct udphdr) +
+> > +		sizeof(struct gtp0_header);
+> 
+> ... and here you're using headroom for a GTPv0 header, despite (I think)
+> only supporting GTPv1 from this configuration?
+
+Yes, only GTPv1 is supported.
+
+> 
+> > +	err = gtp_hashtable_new(gtp, GTP_PDP_HASHSIZE); // JO: when to free??
+> 
+> I think that question about when to free needs to be resolved before any
+> merge.  Did you check that it persists even after the device is
+> closed/removed?
+
+I didn't investigate it. What do you mean by persist?
+
+Thanks
+-Jiannan
