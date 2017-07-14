@@ -1,36 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] netpoll: shut up a kernel warning on refcount
-Date: Fri, 14 Jul 2017 08:17:40 -0700 (PDT)
-Message-ID: <20170714.081740.1892120761671347344.davem@davemloft.net>
-References: <1499900201-8676-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] net: hns: add acpi function of xge led control
+Date: Fri, 14 Jul 2017 08:18:20 -0700 (PDT)
+Message-ID: <20170714.081820.197245344200946088.davem@davemloft.net>
+References: <1499943474-13976-1-git-send-email-liujian56@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davej@codemonkey.org.uk,
-        elena.reshetova@intel.com
-To: xiyou.wangcong@gmail.com
+Cc: yisen.zhuang@huawei.com, netdev@vger.kernel.org,
+        linuxarm@huawei.com
+To: liujian56@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36220 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:36258 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754500AbdGNPRm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2017 11:17:42 -0400
-In-Reply-To: <1499900201-8676-1-git-send-email-xiyou.wangcong@gmail.com>
+        with ESMTP id S1754392AbdGNPSV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2017 11:18:21 -0400
+In-Reply-To: <1499943474-13976-1-git-send-email-liujian56@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Wed, 12 Jul 2017 15:56:41 -0700
+From: <liujian56@huawei.com>
+Date: Thu, 13 Jul 2017 18:57:54 +0800
 
-> When we convert atomic_t to refcount_t, a new kernel warning
-> on "increment on 0" is introduced in the netpoll code,
-> zap_completion_queue(). In fact for this special case, we know
-> the refcount is 0 and we just have to set it to 1 to satisfy
-> the following dev_kfree_skb_any(), so we can just use
-> refcount_set(..., 1) instead.
+> From: LiuJian <liujian56@huawei.com>
 > 
-> Fixes: 633547973ffc ("net: convert sk_buff.users from atomic_t to refcount_t")
-> Reported-by: Dave Jones <davej@codemonkey.org.uk>
-> Cc: Reshetova, Elena <elena.reshetova@intel.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> The current code only support DT method to control xge led.
+> This patch is the implementation of acpi method to control xge led.
+> 
+> Signed-off-by: LiuJian <liujian56@huawei.com>
+> Reviewed-by: John Garry <john.garry@huawei.com>
+> Reviewed-by: Yunsheng Lin <linyunsheng@huawei.com>
+> Reviewed-by: Daode Huang <huangdaode@hisilicon.com>
 
-Applied, thanks Cong.
+Applied.
