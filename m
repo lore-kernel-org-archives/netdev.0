@@ -1,147 +1,56 @@
 From: Alexander Potapenko <glider@google.com>
-Subject: [PATCH v3] sctp: don't dereference ptr before leaving _sctp_walk_{params,errors}()
-Date: Fri, 14 Jul 2017 18:32:45 +0200
-Message-ID: <20170714163245.66953-1-glider@google.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: dvyukov@google.com, kcc@google.com, edumazet@google.com,
-        davem@davemloft.net, lucien.xin@gmail.com
+Subject: Re: [PATCH v2] sctp: don't dereference ptr before leaving _sctp_walk_{params,errors}()
+Date: Fri, 14 Jul 2017 18:33:01 +0200
+Message-ID: <CAG_fn=UU5wT5GuFd6=br2WycHZ+JF6SWTS7=HhNLzDTiDMi-=g@mail.gmail.com>
+References: <20170714100329.105604-1-glider@google.com> <20170714.085832.929093611392872988.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: Dmitriy Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        lucien xin <lucien.xin@gmail.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Networking <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170714.085832.929093611392872988.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If the length field of the iterator (|pos.p| or |err|) is past the end
-of the chunk, we shouldn't access it.
+On Fri, Jul 14, 2017 at 5:58 PM, David Miller <davem@davemloft.net> wrote:
+> From: Alexander Potapenko <glider@google.com>
+> Date: Fri, 14 Jul 2017 12:03:29 +0200
+>
+>>  v2: per comment from David Miller, make sure the whole iterator->length
+>>      fits into the remaining buffer.
+>
+> Please compile and functionally test your changes:
+>
+> In file included from ./include/linux/compiler.h:58:0,
+>                  from ./include/uapi/linux/stddef.h:1,
+>                  from ./include/linux/stddef.h:4,
+>                  from ./include/uapi/linux/posix_types.h:4,
+>                  from ./include/uapi/linux/types.h:13,
+>                  from ./include/linux/types.h:5,
+>                  from net/sctp/sm_statefuns.c:48:
+> net/sctp/sm_statefuns.c: In function =E2=80=98sctp_sf_do_reconf=E2=80=99:
+> ./include/net/sctp/sctp.h:472:24: error: unknown type name =E2=80=98sctp_=
+paramhdr_t=E2=80=99
+>       (pos.v + offsetof(sctp_paramhdr_t, length) + sizeof(pos.p->length) =
+<\
+>                         ^
+Oops. Fixed.
 
-This bug has been detected by KMSAN. For the following pair of system
-calls:
 
-  socket(PF_INET6, SOCK_STREAM, 0x84 /* IPPROTO_??? */) = 3
-  sendto(3, "A", 1, MSG_OOB, {sa_family=AF_INET6, sin6_port=htons(0),
-         inet_pton(AF_INET6, "::1", &sin6_addr), sin6_flowinfo=0,
-         sin6_scope_id=0}, 28) = 1
+--=20
+Alexander Potapenko
+Software Engineer
 
-the tool has reported a use of uninitialized memory:
+Google Germany GmbH
+Erika-Mann-Stra=C3=9Fe, 33
+80636 M=C3=BCnchen
 
-  ==================================================================
-  BUG: KMSAN: use of uninitialized memory in sctp_rcv+0x17b8/0x43b0
-  CPU: 1 PID: 2940 Comm: probe Not tainted 4.11.0-rc5+ #2926
-  Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs
-  01/01/2011
-  Call Trace:
-   <IRQ>
-   __dump_stack lib/dump_stack.c:16
-   dump_stack+0x172/0x1c0 lib/dump_stack.c:52
-   kmsan_report+0x12a/0x180 mm/kmsan/kmsan.c:927
-   __msan_warning_32+0x61/0xb0 mm/kmsan/kmsan_instr.c:469
-   __sctp_rcv_init_lookup net/sctp/input.c:1074
-   __sctp_rcv_lookup_harder net/sctp/input.c:1233
-   __sctp_rcv_lookup net/sctp/input.c:1255
-   sctp_rcv+0x17b8/0x43b0 net/sctp/input.c:170
-   sctp6_rcv+0x32/0x70 net/sctp/ipv6.c:984
-   ip6_input_finish+0x82f/0x1ee0 net/ipv6/ip6_input.c:279
-   NF_HOOK ./include/linux/netfilter.h:257
-   ip6_input+0x239/0x290 net/ipv6/ip6_input.c:322
-   dst_input ./include/net/dst.h:492
-   ip6_rcv_finish net/ipv6/ip6_input.c:69
-   NF_HOOK ./include/linux/netfilter.h:257
-   ipv6_rcv+0x1dbd/0x22e0 net/ipv6/ip6_input.c:203
-   __netif_receive_skb_core+0x2f6f/0x3a20 net/core/dev.c:4208
-   __netif_receive_skb net/core/dev.c:4246
-   process_backlog+0x667/0xba0 net/core/dev.c:4866
-   napi_poll net/core/dev.c:5268
-   net_rx_action+0xc95/0x1590 net/core/dev.c:5333
-   __do_softirq+0x485/0x942 kernel/softirq.c:284
-   do_softirq_own_stack+0x1c/0x30 arch/x86/entry/entry_64.S:902
-   </IRQ>
-   do_softirq kernel/softirq.c:328
-   __local_bh_enable_ip+0x25b/0x290 kernel/softirq.c:181
-   local_bh_enable+0x37/0x40 ./include/linux/bottom_half.h:31
-   rcu_read_unlock_bh ./include/linux/rcupdate.h:931
-   ip6_finish_output2+0x19b2/0x1cf0 net/ipv6/ip6_output.c:124
-   ip6_finish_output+0x764/0x970 net/ipv6/ip6_output.c:149
-   NF_HOOK_COND ./include/linux/netfilter.h:246
-   ip6_output+0x456/0x520 net/ipv6/ip6_output.c:163
-   dst_output ./include/net/dst.h:486
-   NF_HOOK ./include/linux/netfilter.h:257
-   ip6_xmit+0x1841/0x1c00 net/ipv6/ip6_output.c:261
-   sctp_v6_xmit+0x3b7/0x470 net/sctp/ipv6.c:225
-   sctp_packet_transmit+0x38cb/0x3a20 net/sctp/output.c:632
-   sctp_outq_flush+0xeb3/0x46e0 net/sctp/outqueue.c:885
-   sctp_outq_uncork+0xb2/0xd0 net/sctp/outqueue.c:750
-   sctp_side_effects net/sctp/sm_sideeffect.c:1773
-   sctp_do_sm+0x6962/0x6ec0 net/sctp/sm_sideeffect.c:1147
-   sctp_primitive_ASSOCIATE+0x12c/0x160 net/sctp/primitive.c:88
-   sctp_sendmsg+0x43e5/0x4f90 net/sctp/socket.c:1954
-   inet_sendmsg+0x498/0x670 net/ipv4/af_inet.c:762
-   sock_sendmsg_nosec net/socket.c:633
-   sock_sendmsg net/socket.c:643
-   SYSC_sendto+0x608/0x710 net/socket.c:1696
-   SyS_sendto+0x8a/0xb0 net/socket.c:1664
-   do_syscall_64+0xe6/0x130 arch/x86/entry/common.c:285
-   entry_SYSCALL64_slow_path+0x25/0x25 arch/x86/entry/entry_64.S:246
-  RIP: 0033:0x401133
-  RSP: 002b:00007fff6d99cd38 EFLAGS: 00000246 ORIG_RAX: 000000000000002c
-  RAX: ffffffffffffffda RBX: 00000000004002b0 RCX: 0000000000401133
-  RDX: 0000000000000001 RSI: 0000000000494088 RDI: 0000000000000003
-  RBP: 00007fff6d99cd90 R08: 00007fff6d99cd50 R09: 000000000000001c
-  R10: 0000000000000001 R11: 0000000000000246 R12: 0000000000000000
-  R13: 00000000004063d0 R14: 0000000000406460 R15: 0000000000000000
-  origin:
-   save_stack_trace+0x37/0x40 arch/x86/kernel/stacktrace.c:59
-   kmsan_save_stack_with_flags mm/kmsan/kmsan.c:302
-   kmsan_internal_poison_shadow+0xb1/0x1a0 mm/kmsan/kmsan.c:198
-   kmsan_poison_shadow+0x6d/0xc0 mm/kmsan/kmsan.c:211
-   slab_alloc_node mm/slub.c:2743
-   __kmalloc_node_track_caller+0x200/0x360 mm/slub.c:4351
-   __kmalloc_reserve net/core/skbuff.c:138
-   __alloc_skb+0x26b/0x840 net/core/skbuff.c:231
-   alloc_skb ./include/linux/skbuff.h:933
-   sctp_packet_transmit+0x31e/0x3a20 net/sctp/output.c:570
-   sctp_outq_flush+0xeb3/0x46e0 net/sctp/outqueue.c:885
-   sctp_outq_uncork+0xb2/0xd0 net/sctp/outqueue.c:750
-   sctp_side_effects net/sctp/sm_sideeffect.c:1773
-   sctp_do_sm+0x6962/0x6ec0 net/sctp/sm_sideeffect.c:1147
-   sctp_primitive_ASSOCIATE+0x12c/0x160 net/sctp/primitive.c:88
-   sctp_sendmsg+0x43e5/0x4f90 net/sctp/socket.c:1954
-   inet_sendmsg+0x498/0x670 net/ipv4/af_inet.c:762
-   sock_sendmsg_nosec net/socket.c:633
-   sock_sendmsg net/socket.c:643
-   SYSC_sendto+0x608/0x710 net/socket.c:1696
-   SyS_sendto+0x8a/0xb0 net/socket.c:1664
-   do_syscall_64+0xe6/0x130 arch/x86/entry/common.c:285
-   return_from_SYSCALL_64+0x0/0x6a arch/x86/entry/entry_64.S:246
-  ==================================================================
-
-Signed-off-by: Alexander Potapenko <glider@google.com>
----
- v3: fix compilation
- v2: per comment from David Miller, make sure the whole iterator->length
-     fits into the remaining buffer.
----
- include/net/sctp/sctp.h | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-index a9519a06a23b..980807d7506f 100644
---- a/include/net/sctp/sctp.h
-+++ b/include/net/sctp/sctp.h
-@@ -469,6 +469,8 @@ _sctp_walk_params((pos), (chunk), ntohs((chunk)->chunk_hdr.length), member)
- 
- #define _sctp_walk_params(pos, chunk, end, member)\
- for (pos.v = chunk->member;\
-+     (pos.v + offsetof(struct sctp_paramhdr, length) + sizeof(pos.p->length) <\
-+      (void *)chunk + end) &&\
-      pos.v <= (void *)chunk + end - ntohs(pos.p->length) &&\
-      ntohs(pos.p->length) >= sizeof(struct sctp_paramhdr);\
-      pos.v += SCTP_PAD4(ntohs(pos.p->length)))
-@@ -479,6 +481,8 @@ _sctp_walk_errors((err), (chunk_hdr), ntohs((chunk_hdr)->length))
- #define _sctp_walk_errors(err, chunk_hdr, end)\
- for (err = (sctp_errhdr_t *)((void *)chunk_hdr + \
- 	    sizeof(struct sctp_chunkhdr));\
-+     ((void *)err + offsetof(sctp_errhdr_t, length) + sizeof(err->length) <\
-+      (void *)chunk_hdr + end) &&\
-      (void *)err <= (void *)chunk_hdr + end - ntohs(err->length) &&\
-      ntohs(err->length) >= sizeof(sctp_errhdr_t); \
-      err = (sctp_errhdr_t *)((void *)err + SCTP_PAD4(ntohs(err->length))))
--- 
-2.13.2.932.g7449e964c-goog
+Gesch=C3=A4ftsf=C3=BChrer: Matthew Scott Sucherman, Paul Terence Manicle
+Registergericht und -nummer: Hamburg, HRB 86891
+Sitz der Gesellschaft: Hamburg
