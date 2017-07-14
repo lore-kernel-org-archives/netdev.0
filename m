@@ -1,56 +1,134 @@
 From: Alexander Potapenko <glider@google.com>
-Subject: Re: [PATCH v2] sctp: don't dereference ptr before leaving _sctp_walk_{params,errors}()
-Date: Fri, 14 Jul 2017 18:33:01 +0200
-Message-ID: <CAG_fn=UU5wT5GuFd6=br2WycHZ+JF6SWTS7=HhNLzDTiDMi-=g@mail.gmail.com>
-References: <20170714100329.105604-1-glider@google.com> <20170714.085832.929093611392872988.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Dmitriy Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        lucien xin <lucien.xin@gmail.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Networking <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Subject: [PATCH] ipv6: initialize treq->txhash in cookie_v6_check()
+Date: Fri, 14 Jul 2017 18:54:53 +0200
+Message-ID: <20170714165453.112098-1-glider@google.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: dvyukov@google.com, kcc@google.com, edumazet@google.com,
+        davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170714.085832.929093611392872988.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 14, 2017 at 5:58 PM, David Miller <davem@davemloft.net> wrote:
-> From: Alexander Potapenko <glider@google.com>
-> Date: Fri, 14 Jul 2017 12:03:29 +0200
->
->>  v2: per comment from David Miller, make sure the whole iterator->length
->>      fits into the remaining buffer.
->
-> Please compile and functionally test your changes:
->
-> In file included from ./include/linux/compiler.h:58:0,
->                  from ./include/uapi/linux/stddef.h:1,
->                  from ./include/linux/stddef.h:4,
->                  from ./include/uapi/linux/posix_types.h:4,
->                  from ./include/uapi/linux/types.h:13,
->                  from ./include/linux/types.h:5,
->                  from net/sctp/sm_statefuns.c:48:
-> net/sctp/sm_statefuns.c: In function =E2=80=98sctp_sf_do_reconf=E2=80=99:
-> ./include/net/sctp/sctp.h:472:24: error: unknown type name =E2=80=98sctp_=
-paramhdr_t=E2=80=99
->       (pos.v + offsetof(sctp_paramhdr_t, length) + sizeof(pos.p->length) =
-<\
->                         ^
-Oops. Fixed.
+KMSAN reported use of uninitialized memory in skb_set_hash_from_sk(),
+which originated from the TCP request socket created in
+cookie_v6_check():
 
+ ==================================================================
+ BUG: KMSAN: use of uninitialized memory in tcp_transmit_skb+0xf77/0x3ec0
+ CPU: 1 PID: 2949 Comm: syz-execprog Not tainted 4.11.0-rc5+ #2931
+ Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+ TCP: request_sock_TCPv6: Possible SYN flooding on port 20028. Sending cookies.  Check SNMP counters.
+ Call Trace:
+  <IRQ>
+  __dump_stack lib/dump_stack.c:16
+  dump_stack+0x172/0x1c0 lib/dump_stack.c:52
+  kmsan_report+0x12a/0x180 mm/kmsan/kmsan.c:927
+  __msan_warning_32+0x61/0xb0 mm/kmsan/kmsan_instr.c:469
+  skb_set_hash_from_sk ./include/net/sock.h:2011
+  tcp_transmit_skb+0xf77/0x3ec0 net/ipv4/tcp_output.c:983
+  tcp_send_ack+0x75b/0x830 net/ipv4/tcp_output.c:3493
+  tcp_delack_timer_handler+0x9a6/0xb90 net/ipv4/tcp_timer.c:284
+  tcp_delack_timer+0x1b0/0x310 net/ipv4/tcp_timer.c:309
+  call_timer_fn+0x240/0x520 kernel/time/timer.c:1268
+  expire_timers kernel/time/timer.c:1307
+  __run_timers+0xc13/0xf10 kernel/time/timer.c:1601
+  run_timer_softirq+0x36/0xa0 kernel/time/timer.c:1614
+  __do_softirq+0x485/0x942 kernel/softirq.c:284
+  invoke_softirq kernel/softirq.c:364
+  irq_exit+0x1fa/0x230 kernel/softirq.c:405
+  exiting_irq+0xe/0x10 ./arch/x86/include/asm/apic.h:657
+  smp_apic_timer_interrupt+0x5a/0x80 arch/x86/kernel/apic/apic.c:966
+  apic_timer_interrupt+0x86/0x90 arch/x86/entry/entry_64.S:489
+ RIP: 0010:native_restore_fl ./arch/x86/include/asm/irqflags.h:36
+ RIP: 0010:arch_local_irq_restore ./arch/x86/include/asm/irqflags.h:77
+ RIP: 0010:__msan_poison_alloca+0xed/0x120 mm/kmsan/kmsan_instr.c:440
+ RSP: 0018:ffff880024917cd8 EFLAGS: 00000246 ORIG_RAX: ffffffffffffff10
+ RAX: 0000000000000246 RBX: ffff8800224c0000 RCX: 0000000000000005
+ RDX: 0000000000000004 RSI: ffff880000000000 RDI: ffffea0000b6d770
+ RBP: ffff880024917d58 R08: 0000000000000dd8 R09: 0000000000000004
+ R10: 0000160000000000 R11: 0000000000000000 R12: ffffffff85abf810
+ R13: ffff880024917dd8 R14: 0000000000000010 R15: ffffffff81cabde4
+  </IRQ>
+  poll_select_copy_remaining+0xac/0x6b0 fs/select.c:293
+  SYSC_select+0x4b4/0x4e0 fs/select.c:653
+  SyS_select+0x76/0xa0 fs/select.c:634
+  entry_SYSCALL_64_fastpath+0x13/0x94 arch/x86/entry/entry_64.S:204
+ RIP: 0033:0x4597e7
+ RSP: 002b:000000c420037ee0 EFLAGS: 00000246 ORIG_RAX: 0000000000000017
+ RAX: ffffffffffffffda RBX: 0000000000000000 RCX: 00000000004597e7
+ RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000000000
+ RBP: 000000c420037ef0 R08: 000000c420037ee0 R09: 0000000000000059
+ R10: 0000000000000000 R11: 0000000000000246 R12: 000000000042dc20
+ R13: 00000000000000f3 R14: 0000000000000030 R15: 0000000000000003
+ chained origin:
+  save_stack_trace+0x37/0x40 arch/x86/kernel/stacktrace.c:59
+  kmsan_save_stack_with_flags mm/kmsan/kmsan.c:302
+  kmsan_save_stack mm/kmsan/kmsan.c:317
+  kmsan_internal_chain_origin+0x12a/0x1f0 mm/kmsan/kmsan.c:547
+  __msan_store_shadow_origin_4+0xac/0x110 mm/kmsan/kmsan_instr.c:259
+  tcp_create_openreq_child+0x709/0x1ae0 net/ipv4/tcp_minisocks.c:472
+  tcp_v6_syn_recv_sock+0x7eb/0x2a30 net/ipv6/tcp_ipv6.c:1103
+  tcp_get_cookie_sock+0x136/0x5f0 net/ipv4/syncookies.c:212
+  cookie_v6_check+0x17a9/0x1b50 net/ipv6/syncookies.c:245
+  tcp_v6_cookie_check net/ipv6/tcp_ipv6.c:989
+  tcp_v6_do_rcv+0xdd8/0x1c60 net/ipv6/tcp_ipv6.c:1298
+  tcp_v6_rcv+0x41a3/0x4f00 net/ipv6/tcp_ipv6.c:1487
+  ip6_input_finish+0x82f/0x1ee0 net/ipv6/ip6_input.c:279
+  NF_HOOK ./include/linux/netfilter.h:257
+  ip6_input+0x239/0x290 net/ipv6/ip6_input.c:322
+  dst_input ./include/net/dst.h:492
+  ip6_rcv_finish net/ipv6/ip6_input.c:69
+  NF_HOOK ./include/linux/netfilter.h:257
+  ipv6_rcv+0x1dbd/0x22e0 net/ipv6/ip6_input.c:203
+  __netif_receive_skb_core+0x2f6f/0x3a20 net/core/dev.c:4208
+  __netif_receive_skb net/core/dev.c:4246
+  process_backlog+0x667/0xba0 net/core/dev.c:4866
+  napi_poll net/core/dev.c:5268
+  net_rx_action+0xc95/0x1590 net/core/dev.c:5333
+  __do_softirq+0x485/0x942 kernel/softirq.c:284
+ origin:
+  save_stack_trace+0x37/0x40 arch/x86/kernel/stacktrace.c:59
+  kmsan_save_stack_with_flags mm/kmsan/kmsan.c:302
+  kmsan_internal_poison_shadow+0xb1/0x1a0 mm/kmsan/kmsan.c:198
+  kmsan_kmalloc+0x7f/0xe0 mm/kmsan/kmsan.c:337
+  kmem_cache_alloc+0x1c2/0x1e0 mm/slub.c:2766
+  reqsk_alloc ./include/net/request_sock.h:87
+  inet_reqsk_alloc+0xa4/0x5b0 net/ipv4/tcp_input.c:6200
+  cookie_v6_check+0x4f4/0x1b50 net/ipv6/syncookies.c:169
+  tcp_v6_cookie_check net/ipv6/tcp_ipv6.c:989
+  tcp_v6_do_rcv+0xdd8/0x1c60 net/ipv6/tcp_ipv6.c:1298
+  tcp_v6_rcv+0x41a3/0x4f00 net/ipv6/tcp_ipv6.c:1487
+  ip6_input_finish+0x82f/0x1ee0 net/ipv6/ip6_input.c:279
+  NF_HOOK ./include/linux/netfilter.h:257
+  ip6_input+0x239/0x290 net/ipv6/ip6_input.c:322
+  dst_input ./include/net/dst.h:492
+  ip6_rcv_finish net/ipv6/ip6_input.c:69
+  NF_HOOK ./include/linux/netfilter.h:257
+  ipv6_rcv+0x1dbd/0x22e0 net/ipv6/ip6_input.c:203
+  __netif_receive_skb_core+0x2f6f/0x3a20 net/core/dev.c:4208
+  __netif_receive_skb net/core/dev.c:4246
+  process_backlog+0x667/0xba0 net/core/dev.c:4866
+  napi_poll net/core/dev.c:5268
+  net_rx_action+0xc95/0x1590 net/core/dev.c:5333
+  __do_softirq+0x485/0x942 kernel/softirq.c:284
+ ==================================================================
 
---=20
-Alexander Potapenko
-Software Engineer
+Signed-off-by: Alexander Potapenko <glider@google.com>
+---
+ net/ipv6/syncookies.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Google Germany GmbH
-Erika-Mann-Stra=C3=9Fe, 33
-80636 M=C3=BCnchen
-
-Gesch=C3=A4ftsf=C3=BChrer: Matthew Scott Sucherman, Paul Terence Manicle
-Registergericht und -nummer: Hamburg, HRB 86891
-Sitz der Gesellschaft: Hamburg
+diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
+index 7b75b0620730..b4b354502c6e 100644
+--- a/net/ipv6/syncookies.c
++++ b/net/ipv6/syncookies.c
+@@ -216,6 +216,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
+ 	treq->rcv_isn = ntohl(th->seq) - 1;
+ 	treq->snt_isn = cookie;
+ 	treq->ts_off = 0;
++	treq->txhash = 0;
+ 
+ 	/*
+ 	 * We need to lookup the dst_entry to get the correct window size.
+-- 
+2.13.2.932.g7449e964c-goog
