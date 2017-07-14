@@ -1,205 +1,55 @@
-From: Joe Stringer <joe@ovn.org>
-Subject: Re: [PATCH] datapath: Fix for force/commit action failures
-Date: Thu, 13 Jul 2017 16:08:46 -0700
-Message-ID: <CAPWQB7FVCCyXL2j49vgGPEgN6tDMgLu7csbdJPdbQ6j1Ozuzww@mail.gmail.com>
-References: <1499963124-7841-1-git-send-email-gvrose8192@gmail.com>
- <CAPWQB7EvfsMCddisznPgfNQPtHMboKz2hoTiH6uknmTwx+B5Dw@mail.gmail.com>
- <4a063b92-1e36-db6f-d6cc-4f215637f549@gmail.com> <CAPWQB7GzQ4qm9dJjuzUm7nO2HHiNq9M+B4c00NNKqOzx9_O48g@mail.gmail.com>
- <0d78303a-31b2-f59c-2b47-0e684ff0f629@gmail.com>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: Re: [PATCH v7 3/3] net/cxgb4: Use new
+ PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+Date: Fri, 14 Jul 2017 00:00:07 +0000
+Message-ID: <MWHPR12MB16004FB4E5A3DFB5B8D87876C8AC0@MWHPR12MB1600.namprd12.prod.outlook.com>
+References: <1499955692-26556-1-git-send-email-dingtianhong@huawei.com>
+ <1499955692-26556-4-git-send-email-dingtianhong@huawei.com>
+ <CAKgT0UcBFBk9T7g0Dh-rHY6Z+6-4=5jsUWHbLcSMc+ohdTz=CA@mail.gmail.com>,<CAKgT0Uf8Tg6AFthXt-bJrdNHCqJ3MfzduR1yCMMsjLYoEFXb-w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev <netdev@vger.kernel.org>, ovs dev <dev@openvswitch.org>,
-        Pravin Shalar <pshelar@nicira.com>
-To: Greg Rose <gvrose8192@gmail.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Ashok Raj <ashok.raj@intel.com>,
+        Bjorn Helgaas <bhelgaas@google.com>,
+        Bjorn Helgaas <helgaas@kernel.org>,
+        Michael Werner <werner@chelsio.com>,
+        Ganesh GR <ganeshgr@chelsio.com>,
+        Asit K Mallick <asit.k.mallick@intel.com>,
+        Patrick J Cramer <patrick.j.cramer@intel.com>,
+        Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
+        Bob Shaw <Bob.Shaw@amd.com>, h <l.stach@pengutronix.de>,
+        Amir Ancel <amira@mellanox.com>,
+        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
+        David Laight <David.Laight@aculab.com>,
+        "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will.deacon@arm.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Robin Murphy <robin.murphy@arm.com>,
+        David Miller <davem@davemloft.net>,
+        "linux-arm-kernel@
+To: Alexander Duyck <alexander.duyck@gmail.com>,
+        Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2-d.mail.gandi.net ([217.70.183.194]:46728 "EHLO
-        relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752012AbdGMXJK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2017 19:09:10 -0400
-Received: from mail-oi0-f43.google.com (mail-oi0-f43.google.com [209.85.218.43])
-        (Authenticated sender: joe@ovn.org)
-        by relay2-d.mail.gandi.net (Postfix) with ESMTPSA id 6E9C5C5A46
-        for <netdev@vger.kernel.org>; Fri, 14 Jul 2017 01:09:08 +0200 (CEST)
-Received: by mail-oi0-f43.google.com with SMTP id x187so58743220oig.3
-        for <netdev@vger.kernel.org>; Thu, 13 Jul 2017 16:09:08 -0700 (PDT)
-In-Reply-To: <0d78303a-31b2-f59c-2b47-0e684ff0f629@gmail.com>
+Received: from mail-cys01nam02on0139.outbound.protection.outlook.com ([104.47.37.139]:59408
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751198AbdGNAAM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 13 Jul 2017 20:00:12 -0400
+In-Reply-To: <CAKgT0Uf8Tg6AFthXt-bJrdNHCqJ3MfzduR1yCMMsjLYoEFXb-w@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 13 July 2017 at 15:38, Greg Rose <gvrose8192@gmail.com> wrote:
-> On 07/13/2017 11:03 AM, Joe Stringer wrote:
->>
->> On 13 July 2017 at 11:01, Greg Rose <gvrose8192@gmail.com> wrote:
->>>
->>> On 07/13/2017 10:46 AM, Joe Stringer wrote:
->>>>
->>>>
->>>> On 13 July 2017 at 09:25, Greg Rose <gvrose8192@gmail.com> wrote:
->>>>>
->>>>>
->>>>> When there is an established connection in direction A->B, it is
->>>>> possible to receive a packet on port B which then executes
->>>>> ct(commit,force) without first performing ct() - ie, a lookup.
->>>>> In this case, we would expect that this packet can delete the existing
->>>>> entry so that we can commit a connection with direction B->A. However,
->>>>> currently we only perform a check in skb_nfct_cached() for whether
->>>>> OVS_CS_F_TRACKED is set and OVS_CS_F_INVALID is not set, ie that a
->>>>> lookup previously occurred. In the above scenario, a lookup has not
->>>>> occurred but we should still be able to statelessly look up the
->>>>> existing entry and potentially delete the entry if it is in the
->>>>> opposite direction.
->>>>>
->>>>> This patch extends the check to also hint that if the action has the
->>>>> force flag set, then we will lookup the existing entry so that the
->>>>> force check at the end of skb_nfct_cached has the ability to delete
->>>>> the connection.
->>>>>
->>>>> CC: dev@openvswitch.org
->>>>> CC: Pravin Shalar <pshelar@nicira.com>
->>>>> Signed-off-by: Joe Stringer <joe@ovn.org>
->>>>> Signed-off-by: Greg Rose <gvrose8192@gmail.com>
->>>>> ---
->>>>
->>>>
->>>>
->>>> A couple more administrative notes, on netdev the module name in the
->>>> patch subject for openvswitch is "openvswitch" rather than datapath;
->>>
->>>
->>>
->>> Right you are.
->>>
->>>> and patches rather than having just "PATCH" as the subject prefix
->>>> should state the tree. In this case, it's a bugfix so it should be
->>>> "PATCH net".
->>>
->>>
->>>
->>> I knew that... forgot the format patch option to add it.  Net-next
->>> is closed so that would be mandatory.
->>>
->>>   Furthermore, if you're able to figure out which commit
->>>>
->>>>
->>>> introduced the issue (I believe it's introduced by the force commit
->>>> patch), then you should place the "Fixes: " tag. I can give you some
->>>> pointers off-list on how to do this (git blame and some basic
->>>> formatting of the targeted patch should do the trick - this tag
->>>> expects a 12-digit hash).
->>>>
->>>> For reference, I ended up looking it up during review, this is the
->>>> line you'd add:
->>>> Fixes: dd41d33f0b03 ("openvswitch: Add force commit.")
->>>
->>>
->>>
->>> Oh, thanks!
->>>
->>>
->>>>
->>>>>    net/openvswitch/conntrack.c | 12 ++++++++----
->>>>>    1 file changed, 8 insertions(+), 4 deletions(-)
->>>>>
->>>>> diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
->>>>> index 08679eb..9041cf8 100644
->>>>> --- a/net/openvswitch/conntrack.c
->>>>> +++ b/net/openvswitch/conntrack.c
->>>>> @@ -641,17 +641,21 @@ static bool skb_nfct_cached(struct net *net,
->>>>>           ct = nf_ct_get(skb, &ctinfo);
->>>>>           /* If no ct, check if we have evidence that an existing
->>>>> conntrack entry
->>>>>            * might be found for this skb.  This happens when we lose a
->>>>> skb->_nfct
->>>>> -        * due to an upcall.  If the connection was not confirmed, it
->>>>> is
->>>>> not
->>>>> -        * cached and needs to be run through conntrack again.
->>>>> +        * due to an upcall, or if the direction is being forced.  If
->>>>> the
->>>>> +        * connection was not confirmed, it is not cached and needs to
->>>>> be
->>>>> run
->>>>> +        * through conntrack again.
->>>>>            */
->>>>> -       if (!ct && key->ct_state & OVS_CS_F_TRACKED &&
->>>>> +       if ((!ct && (key->ct_state & OVS_CS_F_TRACKED) &&
->>>>>               !(key->ct_state & OVS_CS_F_INVALID) &&
->>>>> -           key->ct_zone == info->zone.id) {
->>>>> +            key->ct_zone == info->zone.id) ||
->>>>> +            (!key->ct_state && info->force)) {
->>>>>                   ct = ovs_ct_find_existing(net, &info->zone,
->>>>> info->family, skb,
->>>>>                                             !!(key->ct_state
->>>>>                                                & OVS_CS_F_NAT_MASK));
->>>>>                   if (ct)
->>>>>                           nf_ct_get(skb, &ctinfo);
->>>>> +               else
->>>>> +                       return false;
->>>>>           }
->>>>>           if (!ct)
->>>>>                   return false;
->>>>
->>>>
->>>>
->>>> I was just wondering if this has the potential to prevent
->>>> nf_conntrack_in() from being called at all in this case, which is also
->>>> not quite right. In the original case of (!ct && (key->ct_state &
->>>> OVS_CS_F_TRACKED) && !(key->ct_state & OVS_CS_F_TRACKED)), which I'll
->>>> refer to as "ct_executed", we explicitly want to avoid running
->>>> nf_conntrack_in() if we already ran it, because the connection tracker
->>>> doesn't expect to see the same packet twice (there's also things like
->>>> stats/accounting, and potentially L4 state machines that could get
->>>> messed up by multiple calls). By the time the info->force and
->>>> direction check happens at the end of the function, "ct_executed" is
->>>> implied to be true. However, in this new case, ct_executed is actually
->>>> false - because there was no ct() before the ct(force,commit). In this
->>>> case, we only want to look up the existing entry to see if it should
->>>> be deleted; if it should not be deleted, then we still haven't yet
->>>> done the nf_conntrack_in() call so we should return false and the
->>>> caller, __ovs_ct_lookup() should make the call to nf_conntrack_in().
->>>>
->>>> What I mean is something like the following incremental on your patch:
->>>>
->>>> diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
->>>> index 9041cf8b822f..98783f114824 100644
->>>> --- a/net/openvswitch/conntrack.c
->>>> +++ b/net/openvswitch/conntrack.c
->>>> @@ -637,6 +637,7 @@ static bool skb_nfct_cached(struct net *net,
->>>> {
->>>>          enum ip_conntrack_info ctinfo;
->>>>          struct nf_conn *ct;
->>>> +       bool ct_executed;
->>>>
->>>>          ct = nf_ct_get(skb, &ctinfo);
->>>>          /* If no ct, check if we have evidence that an existing
->>>> conntrack
->>>> entry
->>>> @@ -645,10 +646,10 @@ static bool skb_nfct_cached(struct net *net,
->>>>           * connection was not confirmed, it is not cached and needs to
->>>> be
->>>> run
->>>>           * through conntrack again.
->>>>           */
->>>> -       if ((!ct && (key->ct_state & OVS_CS_F_TRACKED) &&
->>>> -           !(key->ct_state & OVS_CS_F_INVALID) &&
->>>> -            key->ct_zone == info->zone.id) ||
->>>> -            (!key->ct_state && info->force)) {
->>>> +       ct_executed = key->ct_state & OVS_CS_F_TRACKED &&
->>>> +                     !(key->ct_state & OVS_CS_F_INVALID) &&
->>>> +                     key->ct_zone == info->zone.id;
->
->
-> This part seems fine - I'm OK with setting a boolean on all the complex
-> conditionals *but* we shouldn't be doing that if ct is set.  And this is
-> fast path right?  So this code is losing the 'if (!ct...)' and that is
-> one of the first things checked.  When I was debugging ct would often
-> be set because of the first pass through ovs_ct_execute had done the
-> ovs_ct_lookup() call.  I'm not very comfortable with executing the
-> code to set the ct_executed variable without first checking if ct
-> was set in the call to nf_ct_get().
->
-> I'll incorporate your suggestion but include something to skip all the
-> conditionals if ct is set unless you can see some reason not to.
+[[ Sorry for the Double Send: I forgot to switch to Plain Text.  Have I men=
+tioned how much I hate modern Web-based email agents? :-) -- Casey ]]
 
-OK, fair enough. I wasn't overly careful in my incremental about the
-specific ordering of these checks. Thanks for looking it over.
+=A0 Yeah, I think this works  for now.=A0 We'll stumble over what to do whe=
+n we want to mix upstream  TLPs without Relaxed Ordering Attributes directe=
+d at problematic Root  Complexes, and Peer-to-Peer TLPs with Relaxed Orderi=
+ng Attributes ... or vice versa depending on which target PCIe Device has  =
+issues with Relaxed Ordering.
+
+=A0 Thanks for all the work!
+
+Casey   =20
