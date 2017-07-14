@@ -1,114 +1,190 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: [PATCH net-next v1 2/3] gtp: Support creating flow-based gtp
- net_device
-Date: Fri, 14 Jul 2017 10:12:36 +0200
-Message-ID: <20170714081236.zxxdnjzihp3sexxa@nataraja>
-References: <20170713004455.3946570-1-ouyangj@fb.com>
- <20170713004455.3946570-3-ouyangj@fb.com>
- <20170713073540.q4tqqawhxwzqrzsv@nataraja>
- <FFC0D5B5-37F4-4DD0-B294-FE3074EA9017@fb.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH 1/6] [next-queue]net: mqprio: Introduce new hardware
+ offload mode in mqprio for offloading full TC configurations
+Date: Fri, 14 Jul 2017 04:36:20 -0400
+Message-ID: <d88ee2ba-ff7b-74dd-3b0b-9887fd7d1de9@mojatatu.com>
+References: <149976762072.2896.5722904915197643856.stgit@anamdev.jf.intel.com>
+ <149976831535.2896.16233967758531918702.stgit@anamdev.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "osmocom-net-gprs@lists.osmocom.org"
-        <osmocom-net-gprs@lists.osmocom.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "dev@openvswitch.org" <dev@openvswitch.org>,
-        "pablo@netfilter.org" <pablo@netfilter.org>,
-        "pshelar@nicira.com" <pshelar@nicira.com>,
-        "wieger.ijntema.tno@gmail.com" <wieger.ijntema.tno@gmail.com>,
-        "yi.y.yang@intel.com" <yi.y.yang@intel.com>,
-        "joe@ovn.org" <joe@ovn.org>,
-        Amar Padmanabhan <amarpadmanabhan@fb.com>
-To: Jiannan Ouyang <ouyangj@fb.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: alexander.h.duyck@intel.com, kiran.patil@intel.com,
+        netdev@vger.kernel.org, mitch.a.williams@intel.com,
+        alexander.duyck@gmail.com, neerav.parikh@intel.com,
+        sridhar.samudrala@intel.com, carolyn.wyborny@intel.com
+To: Amritha Nambiar <amritha.nambiar@intel.com>,
+        intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ganesha.gnumonks.org ([213.95.27.120]:48793 "EHLO
-        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751445AbdGNIPM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2017 04:15:12 -0400
-Content-Disposition: inline
-In-Reply-To: <FFC0D5B5-37F4-4DD0-B294-FE3074EA9017@fb.com>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:36666 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751056AbdGNIg2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2017 04:36:28 -0400
+Received: by mail-wr0-f196.google.com with SMTP id 77so11144455wrb.3
+        for <netdev@vger.kernel.org>; Fri, 14 Jul 2017 01:36:28 -0700 (PDT)
+In-Reply-To: <149976831535.2896.16233967758531918702.stgit@anamdev.jf.intel.com>
+Content-Language: en-GB
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jiannan,
-
-On Fri, Jul 14, 2017 at 01:01:34AM +0000, Jiannan Ouyang wrote:
-> > you're unconditionally binding to both GTP0 and GTP1 UDP ports.  This is
-> > done selectively based on netlink attributes in the existing "normal"
-> > non-OVS kernel code, i.e. the control is left to the user.
-> > 
-> > Is this function is only called/used in the context of OVS?  If so,
-> > since you explicitly implement only GTPv1, why bind to GTPv0 port?
-> > 
+On 17-07-11 06:18 AM, Amritha Nambiar wrote:
+> This patch introduces a new hardware offload mode in mqprio
+> which makes full use of the mqprio options, the TCs, the
+> queue configurations and the bandwidth rates for the TCs.
+> This is achieved by setting the value 2 for the "hw" option.
+> This new offload mode supports new attributes for traffic
+> class such as minimum and maximum values for bandwidth rate limits.
 > 
-> I had doubts on how this flow-based GTPv1 code path should fit in, which is why
-> the GTPv0 and the GTPv1 code pieces are mixed in my changes. 
-
-Well, I know nothing about flow-based paths and OVS, so if you are the
-one proposing related changes to me as the maintainer, you need to make
-sure that your changes are consistend and useful within your use
-case/scenario while making sure that the existing features don't break.
-
-If you refactor generic code (used by "classic" GTP tunneling + your new
-flow based tunneling), and that old code worked with GTPv0 and GTPv1,
-then your modifications must make sure that they continue to support
-GTPv0 and v1 in the "classic tunnel" use case.
-
-If your new code for flow-based tunneling simply only implements v0, it
-is fine to me - but then those restrictions must be in the flow-based
-part only, and things must be consistent.  I.e. in this case, for the
-flow-based tunnel approach you must not bind the v0 port, if you don't
-handle related packets.
-
-> Should I explicitly claim that the flow-based change is for GTPv1
-> only?
-
-That's definitely important, too - but is not the point I raised (see
-above).
-
-> > > +	setup_udp_tunnel_sock(net, sock1u, &tunnel_cfg);
-> > 
-> > even here, you're only setting up the v1 and not v0.
+> Introduces a new datastructure 'tc_mqprio_qopt_offload' for offloading
+> mqprio queue options and use this to be shared between the kernel and
+> device driver. This contains a copy of the exisiting datastructure
+> for mqprio queue options. This new datastructure can be extended when
+> adding new attributes for traffic class such as bandwidth rate limits. The
+> existing datastructure for mqprio queue options will be shared between the
+> kernel and userspace.
 > 
-> same reason as above.
-
-yes, but if I read your code correctly, this is generic/shared code that
-will break the existing GTPv0 support in the "classic tunnel" case!
-
-> > > +	/* Assume largest header, ie. GTPv0. */
-> > > +	dev->needed_headroom	= LL_MAX_HEADER +
-> > > +		sizeof(struct iphdr) +
-> > > +		sizeof(struct udphdr) +
-> > > +		sizeof(struct gtp0_header);
-> > 
-> > ... and here you're using headroom for a GTPv0 header, despite (I think)
-> > only supporting GTPv1 from this configuration?
+> This patch enables configuring additional attributes associated
+> with a traffic class such as minimum and maximum bandwidth
+> rates and can be offloaded to the hardware in the new offload mode.
+> The min and max limits for bandwidth rates are provided
+> by the user along with the the TCs and the queue configurations
+> when creating the mqprio qdisc.
 > 
-> Yes, only GTPv1 is supported.
-
-well, then I suggest you don't generate headroom for a v0 header (which
-is larger) in a v1-only code path :)
-
-> > > +	err = gtp_hashtable_new(gtp, GTP_PDP_HASHSIZE); // JO: when to free??
-> > 
-> > I think that question about when to free needs to be resolved before any
-> > merge.  Did you check that it persists even after the device is
-> > closed/removed?
+> Example:
+> # tc qdisc add dev eth0 root mqprio num_tc 2 map 0 0 0 0 1 1 1 1\
+>    queues 4@0 4@4 min_rate 0Mbit 0Mbit max_rate 55Mbit 60Mbit hw 2
 > 
-> I didn't investigate it. What do you mean by persist?
 
-"persist" means "remains allocated after the release of the network
-device".  Whatever you allocate during device creation you must
-de-allocate on device release.  I cannot tell you when exactly (as I'm
-not familiar with OVS or flow-based tunneling, as indicateD).  However,
-I know for sure we cannot introduce code that looks like it introduces
-memory leaks to the kernel :)
+I know this has nothing to do with your patches - but that is very
+unfriendly ;-> Most mortals will have a problem with the map (but you
+can argue it has been there since prio qdisc was introduced) - leave
+alone the 4@4 syntax and now min_rate where i have to type in obvious
+defaults like "0Mbit".
+You have some great features that not many people can use as a result.
+Note:
+This is just a comment maybe someone can be kind enough to fix (or
+it would get annoying enough I will fix it); i.e should not be
+holding your good work.
 
-Regards,
-	Harald
+> To dump the bandwidth rates:
+> 
+> # tc qdisc show dev eth0
+> 
+> qdisc mqprio 804a: root  tc 2 map 0 0 0 0 1 1 1 1 0 0 0 0 0 0 0 0
+>               queues:(0:3) (4:7)
+>               min rates:0bit 0bit
+>               max rates:55Mbit 60Mbit
+> 
+> Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
+> ---
+>   include/linux/netdevice.h      |    2
+>   include/net/pkt_cls.h          |    7 ++
+>   include/uapi/linux/pkt_sched.h |   13 +++
+>   net/sched/sch_mqprio.c         |  170 +++++++++++++++++++++++++++++++++++++---
+>   4 files changed, 181 insertions(+), 11 deletions(-)
+> 
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index e48ee2e..12c6c3f 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -779,6 +779,7 @@ enum {
+>   	TC_SETUP_CLSFLOWER,
+>   	TC_SETUP_MATCHALL,
+>   	TC_SETUP_CLSBPF,
+> +	TC_SETUP_MQPRIO_EXT,
+>   };
+> 
+>   struct tc_cls_u32_offload;
+> @@ -791,6 +792,7 @@ struct tc_to_netdev {
+>   		struct tc_cls_matchall_offload *cls_mall;
+>   		struct tc_cls_bpf_offload *cls_bpf;
+>   		struct tc_mqprio_qopt *mqprio;
+> +		struct tc_mqprio_qopt_offload *mqprio_qopt;
+>   	};
+>   	bool egress_dev;
+>   };
 
--- 
-- Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
-============================================================================
-"Privacy in residential applications is a desirable marketing option."
-                                                  (ETSI EN 300 175-7 Ch. A6)
+
+> diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+> index 537d0a0..9facda2 100644
+> --- a/include/net/pkt_cls.h
+> +++ b/include/net/pkt_cls.h
+> @@ -569,6 +569,13 @@ struct tc_cls_bpf_offload {
+>   	u32 gen_flags;
+>   };
+>   
+> +struct tc_mqprio_qopt_offload {
+> +	/* struct tc_mqprio_qopt must always be the first element */
+> +	struct tc_mqprio_qopt qopt;
+> +	u32 flags;
+> +	u64 min_rate[TC_QOPT_MAX_QUEUE];
+> +	u64 max_rate[TC_QOPT_MAX_QUEUE];
+> +};
+>
+
+Quickly scanned code.
+My opinion is: struct tc_mqprio_qopt is messed up in terms of
+alignments. And you just made it worse. Why not create a new struct
+call it "tc_mqprio_qopt_hw" or something indicating it is for hw
+offload. You can then fixup stuff. I think it will depend on whether
+you can have both hw priority and rate in all network cards.
+If some hw cannot support rate offload then I would suggest it becomes
+optional via TLVs etc.
+If you are willing to do that clean up I can say more.
+
+>   /* This structure holds cookie structure that is passed from user
+>    * to the kernel for actions and classifiers
+> diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
+> index 099bf55..cf2a146 100644
+> --- a/include/uapi/linux/pkt_sched.h
+> +++ b/include/uapi/linux/pkt_sched.h
+> @@ -620,6 +620,7 @@ struct tc_drr_stats {
+>   enum {
+>   	TC_MQPRIO_HW_OFFLOAD_NONE,	/* no offload requested */
+>   	TC_MQPRIO_HW_OFFLOAD_TCS,	/* offload TCs, no queue counts */
+> +	TC_MQPRIO_HW_OFFLOAD,		/* fully supported offload */
+>   	__TC_MQPRIO_HW_OFFLOAD_MAX
+>   };
+>   
+> @@ -633,6 +634,18 @@ struct tc_mqprio_qopt {
+>   	__u16	offset[TC_QOPT_MAX_QUEUE];
+>   };
+>   
+> +#define TC_MQPRIO_F_MIN_RATE  0x1
+> +#define TC_MQPRIO_F_MAX_RATE  0x2
+> +
+> +enum {
+> +	TCA_MQPRIO_UNSPEC,
+> +	TCA_MQPRIO_MIN_RATE64,
+> +	TCA_MQPRIO_MAX_RATE64,
+> +	__TCA_MQPRIO_MAX,
+> +};
+> +
+> +#define TCA_MQPRIO_MAX (__TCA_MQPRIO_MAX - 1)
+> +
+>   /* SFB */
+>   
+>   enum {
+> diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
+> index e0c0272..6524d12 100644
+> --- a/net/sched/sch_mqprio.c
+> +++ b/net/sched/sch_mqprio.c
+> @@ -18,10 +18,13 @@
+>   #include <net/netlink.h>
+>   #include <net/pkt_sched.h>
+>   #include <net/sch_generic.h>
+> +#include <net/pkt_cls.h>
+>   
+>   struct mqprio_sched {
+>   	struct Qdisc		**qdiscs;
+>   	int hw_offload;
+> +	u32 flags;
+> +	u64 min_rate[TC_QOPT_MAX_QUEUE], max_rate[TC_QOPT_MAX_QUEUE];
+>   };
+
+You have to change this before Jiri sees it ;->
+
+
+I will review more later.
+
+cheers,
+jamal
