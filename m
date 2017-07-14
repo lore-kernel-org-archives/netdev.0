@@ -1,65 +1,53 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 11/22] net: thunder_bgx: avoid format string overflow warning
-Date: Fri, 14 Jul 2017 14:07:03 +0200
-Message-ID: <20170714120720.906842-12-arnd@arndb.de>
+Subject: [PATCH 12/22] vmxnet3: avoid format strint overflow warning
+Date: Fri, 14 Jul 2017 14:07:04 +0200
+Message-ID: <20170714120720.906842-13-arnd@arndb.de>
 References: <20170714120720.906842-1-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: George Cherian <george.cherian@cavium.com>,
- "James E . J . Bottomley" <jejb@linux.vnet.ibm.com>,
- linux-scsi@vger.kernel.org, "Martin K . Petersen" <martin.petersen@oracle.com>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>, x86@kernel.org,
- Radha Mohan Chintakuntla <rchintakuntla@cavium.com>,
- Vadim Lomovtsev <Vadim.Lomovtsev@caviumnetworks.com>,
- Arnd Bergmann <arnd@arndb.de>, linux-arm-kernel@lists.infradead.org,
- netdev@vger.kernel.org, Thanneeru Srinivasulu <tsrinivasulu@cavium.com>,
- akpm@linux-foundation.org, Linus Torvalds <torvalds@linux-foundation.org>,
- "David S . Miller" <davem@davemloft.net>, Guenter Roeck <linux@roeck-us.net>
-To: linux-kernel@vger.kernel.org, Sunil Goutham <sgoutham@cavium.com>,
- Robert Richter <rric@kernel.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Guenter Roeck <linux@roeck-us.net>, akpm@linux-foundation.org,
+        netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
+        "James E . J . Bottomley" <jejb@linux.vnet.ibm.com>,
+        "Martin K . Petersen" <martin.petersen@oracle.com>,
+        linux-scsi@vger.kernel.org, x86@kernel.org,
+        Arnd Bergmann <arnd@arndb.de>
+To: linux-kernel@vger.kernel.org,
+        Shrikrishna Khare <skhare@vmware.com>,
+        "VMware, Inc." <pv-drivers@vmware.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170714120720.906842-1-arnd@arndb.de>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-gcc warns that the temporary buffer might be too small here:
+gcc-7 notices that "-event-%d" could be more than 11 characters long
+if we had larger 'vector' numbers:
 
-drivers/net/ethernet/cavium/thunder/thunder_bgx.c: In function 'bgx_probe':
-drivers/net/ethernet/cavium/thunder/thunder_bgx.c:1020:16: error: '%d' directive writing between 1 and 10 bytes into a region of size between 9 and 11 [-Werror=format-overflow=]
-sprintf(str, "BGX%d LMAC%d mode", bgx->bgx_id, lmacid);
-             ^~~~~~~~~~~~~~~~~~~
-drivers/net/ethernet/cavium/thunder/thunder_bgx.c:1020:16: note: directive argument in the range [0, 2147483647]
-drivers/net/ethernet/cavium/thunder/thunder_bgx.c:1020:3: note: 'sprintf' output between 16 and 27 bytes into a destination of size 20
+drivers/net/vmxnet3/vmxnet3_drv.c: In function 'vmxnet3_activate_dev':
+drivers/net/vmxnet3/vmxnet3_drv.c:2095:40: error: 'sprintf' may write a terminating nul past the end of the destination [-Werror=format-overflow=]
+sprintf(intr->event_msi_vector_name, "%s-event-%d",
+                                     ^~~~~~~~~~~~~
+drivers/net/vmxnet3/vmxnet3_drv.c:2095:3: note: 'sprintf' output between 9 and 33 bytes into a destination of size 32
 
-This probably can't happen, but it can't hurt to make it long
-enough for the theoretical limit.
+The current code is safe, but making the string a little longer
+is harmless and lets gcc see that it's ok.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 2 +-
+ drivers/net/vmxnet3/vmxnet3_int.h | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-index a0ca68ce3fbb..79112563a25a 100644
---- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-+++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-@@ -1008,7 +1008,7 @@ static void bgx_print_qlm_mode(struct bgx *bgx, u8 lmacid)
- {
- 	struct device *dev = &bgx->pdev->dev;
- 	struct lmac *lmac;
--	char str[20];
-+	char str[27];
- 
- 	if (!bgx->is_dlm && lmacid)
- 		return;
+diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
+index ba1c9f93592b..9c51b8be0038 100644
+--- a/drivers/net/vmxnet3/vmxnet3_int.h
++++ b/drivers/net/vmxnet3/vmxnet3_int.h
+@@ -311,7 +311,7 @@ struct vmxnet3_intr {
+ 	u8  num_intrs;			/* # of intr vectors */
+ 	u8  event_intr_idx;		/* idx of the intr vector for event */
+ 	u8  mod_levels[VMXNET3_LINUX_MAX_MSIX_VECT]; /* moderation level */
+-	char	event_msi_vector_name[IFNAMSIZ+11];
++	char	event_msi_vector_name[IFNAMSIZ+17];
+ #ifdef CONFIG_PCI_MSI
+ 	struct msix_entry msix_entries[VMXNET3_LINUX_MAX_MSIX_VECT];
+ #endif
 -- 
 2.9.0
