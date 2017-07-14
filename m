@@ -1,106 +1,52 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH net-next] tcp: adjust tail loss probe timeout
-Date: Fri, 14 Jul 2017 11:21:35 -0700
-Message-ID: <20170714182135.141460-1-ycheng@google.com>
-Cc: netdev@vger.kernel.org, ncardwell@google.com,
-        Yuchung Cheng <ycheng@google.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f41.google.com ([74.125.83.41]:36836 "EHLO
-        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750763AbdGNSVp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2017 14:21:45 -0400
-Received: by mail-pg0-f41.google.com with SMTP id u62so49193254pgb.3
-        for <netdev@vger.kernel.org>; Fri, 14 Jul 2017 11:21:45 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH net] openvswitch: Fix for force/commit action
+	failures
+Date: Fri, 14 Jul 2017 11:29:59 -0700
+Message-ID: <CAPWQB7FxZa8=YCQj92+cOqNHoaBh8sO0b=0FW5=oj1SW7Q0eWQ@mail.gmail.com>
+References: <1500048639-24169-1-git-send-email-gvrose8192@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Greg Rose <gvrose8192-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1500048639-24169-1-git-send-email-gvrose8192-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch adjusts the timeout formula to schedule the TCP loss probe
-(TLP). The previous formula uses 2*SRTT or 1.5*RTT + DelayACKMax if
-only one packet is in flight. It keeps a lower bound of 10 msec which
-is too large for short RTT connections (e.g. within a data-center).
-The new formula = 2*RTT + (inflight == 1 ? 200ms : 2ticks) which
-performs better for short and fast connections.
+On 14 July 2017 at 09:10, Greg Rose <gvrose8192-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> When there is an established connection in direction A->B, it is
+> possible to receive a packet on port B which then executes
+> ct(commit,force) without first performing ct() - ie, a lookup.
+> In this case, we would expect that this packet can delete the existing
+> entry so that we can commit a connection with direction B->A. However,
+> currently we only perform a check in skb_nfct_cached() for whether
+> OVS_CS_F_TRACKED is set and OVS_CS_F_INVALID is not set, ie that a
+> lookup previously occurred. In the above scenario, a lookup has not
+> occurred but we should still be able to statelessly look up the
+> existing entry and potentially delete the entry if it is in the
+> opposite direction.
+>
+> This patch extends the check to also hint that if the action has the
+> force flag set, then we will lookup the existing entry so that the
+> force check at the end of skb_nfct_cached has the ability to delete
+> the connection.
+>
+> Fixes: dd41d330b03 ("openvswitch: Add force commit.")
+> CC: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+> CC: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+> Signed-off-by: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
+> Signed-off-by: Greg Rose <gvrose8192-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
 
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
----
- include/net/tcp.h       |  3 +--
- net/ipv4/tcp_output.c   | 17 ++++++++++-------
- net/ipv4/tcp_recovery.c |  2 +-
- 3 files changed, 12 insertions(+), 10 deletions(-)
+Thanks for the fix.
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 70483296157f..4f056ea79df2 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -139,6 +139,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
- #endif
- #define TCP_RTO_MAX	((unsigned)(120*HZ))
- #define TCP_RTO_MIN	((unsigned)(HZ/5))
-+#define TCP_TIMEOUT_MIN	(2U) /* Min timeout for TCP timers in jiffies */
- #define TCP_TIMEOUT_INIT ((unsigned)(1*HZ))	/* RFC6298 2.1 initial RTO value	*/
- #define TCP_TIMEOUT_FALLBACK ((unsigned)(3*HZ))	/* RFC 1122 initial RTO value, now
- 						 * used as a fallback RTO for the
-@@ -150,8 +151,6 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
- #define TCP_RESOURCE_PROBE_INTERVAL ((unsigned)(HZ/2U)) /* Maximal interval between probes
- 					                 * for local resources.
- 					                 */
--#define TCP_REO_TIMEOUT_MIN	(2000) /* Min RACK reordering timeout in usec */
--
- #define TCP_KEEPALIVE_TIME	(120*60*HZ)	/* two hours */
- #define TCP_KEEPALIVE_PROBES	9		/* Max of 9 keepalive probes	*/
- #define TCP_KEEPALIVE_INTVL	(75*HZ)
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 4e985dea1dd2..886d874775df 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2377,7 +2377,6 @@ bool tcp_schedule_loss_probe(struct sock *sk)
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	u32 timeout, tlp_time_stamp, rto_time_stamp;
--	u32 rtt = usecs_to_jiffies(tp->srtt_us >> 3);
- 
- 	/* No consecutive loss probes. */
- 	if (WARN_ON(icsk->icsk_pending == ICSK_TIME_LOSS_PROBE)) {
-@@ -2406,15 +2405,19 @@ bool tcp_schedule_loss_probe(struct sock *sk)
- 	     tcp_send_head(sk))
- 		return false;
- 
--	/* Probe timeout is at least 1.5*rtt + TCP_DELACK_MAX to account
-+	/* Probe timeout is 2*rtt. Add minimum RTO to account
- 	 * for delayed ack when there's one outstanding packet. If no RTT
- 	 * sample is available then probe after TCP_TIMEOUT_INIT.
- 	 */
--	timeout = rtt << 1 ? : TCP_TIMEOUT_INIT;
--	if (tp->packets_out == 1)
--		timeout = max_t(u32, timeout,
--				(rtt + (rtt >> 1) + TCP_DELACK_MAX));
--	timeout = max_t(u32, timeout, msecs_to_jiffies(10));
-+	if (tp->srtt_us) {
-+		timeout = usecs_to_jiffies(tp->srtt_us >> 2);
-+		if (tp->packets_out == 1)
-+			timeout += TCP_RTO_MIN;
-+		else
-+			timeout += TCP_TIMEOUT_MIN;
-+	} else {
-+		timeout = TCP_TIMEOUT_INIT;
-+	}
- 
- 	/* If RTO is shorter, just schedule TLP in its place. */
- 	tlp_time_stamp = tcp_jiffies32 + timeout;
-diff --git a/net/ipv4/tcp_recovery.c b/net/ipv4/tcp_recovery.c
-index fe9a493d0208..449cd914d58e 100644
---- a/net/ipv4/tcp_recovery.c
-+++ b/net/ipv4/tcp_recovery.c
-@@ -113,7 +113,7 @@ void tcp_rack_mark_lost(struct sock *sk)
- 	tp->rack.advanced = 0;
- 	tcp_rack_detect_loss(sk, &timeout);
- 	if (timeout) {
--		timeout = usecs_to_jiffies(timeout + TCP_REO_TIMEOUT_MIN);
-+		timeout = usecs_to_jiffies(timeout) + TCP_TIMEOUT_MIN;
- 		inet_csk_reset_xmit_timer(sk, ICSK_TIME_REO_TIMEOUT,
- 					  timeout, inet_csk(sk)->icsk_rto);
- 	}
--- 
-2.13.2.932.g7449e964c-goog
+Reviewed-by: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
