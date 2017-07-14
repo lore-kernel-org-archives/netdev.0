@@ -1,50 +1,71 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [git pull] vfs.git network field-by-field copyin patches
-Date: Fri, 14 Jul 2017 03:50:54 +0100
-Message-ID: <20170714025054.GF13102@ZenIV.linux.org.uk>
-References: <20170708182100.GR10672@ZenIV.linux.org.uk>
- <20170711.202514.815304234636661456.davem@davemloft.net>
- <20170714013750.GC13102@ZenIV.linux.org.uk>
- <20170713.193602.14448503583172802.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:35430 "EHLO
-        ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752974AbdGNCu5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2017 22:50:57 -0400
-Content-Disposition: inline
-In-Reply-To: <20170713.193602.14448503583172802.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCHv2 1/1] mlx4_en: remove unnecessary returned value check
+Date: Thu, 13 Jul 2017 23:01:27 -0400
+Message-ID: <1500001287-31317-1-git-send-email-yanjun.zhu@oracle.com>
+To: tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-[My apologies for late pull requests - I hoped to be back to normal
-connectivity by yesterday evening.  Spent the night sitting in Logan
-instead...]
+The function __mlx4_zone_remove_one_entry always returns zero. So
+it is not necessary to check it.
 
-This part of misc.compat queue was held back for review from networking
-folks and since davem has jus ACKed those...
+Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Cc: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Reviewed-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+---
+Change from v1 to v2:
+ Initialization is moved to variable declaration.
 
-The following changes since commit 0d0606060baefdb13d3d80dba1b4c816b0676e16:
+ drivers/net/ethernet/mellanox/mlx4/alloc.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
 
-  mqueue: move compat syscalls to native ones (2017-07-04 13:13:49 -0400)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/alloc.c b/drivers/net/ethernet/mellanox/mlx4/alloc.c
+index 249a458..710d6c6 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/alloc.c
++++ b/drivers/net/ethernet/mellanox/mlx4/alloc.c
+@@ -283,7 +283,7 @@ int mlx4_zone_add_one(struct mlx4_zone_allocator *zone_alloc,
+ }
+ 
+ /* Should be called under a lock */
+-static int __mlx4_zone_remove_one_entry(struct mlx4_zone_entry *entry)
++static void __mlx4_zone_remove_one_entry(struct mlx4_zone_entry *entry)
+ {
+ 	struct mlx4_zone_allocator *zone_alloc = entry->allocator;
+ 
+@@ -315,8 +315,6 @@ static int __mlx4_zone_remove_one_entry(struct mlx4_zone_entry *entry)
+ 		}
+ 		zone_alloc->mask = mask;
+ 	}
+-
+-	return 0;
+ }
+ 
+ void mlx4_zone_allocator_destroy(struct mlx4_zone_allocator *zone_alloc)
+@@ -457,7 +455,7 @@ struct mlx4_bitmap *mlx4_zone_get_bitmap(struct mlx4_zone_allocator *zones, u32
+ int mlx4_zone_remove_one(struct mlx4_zone_allocator *zones, u32 uid)
+ {
+ 	struct mlx4_zone_entry *zone;
+-	int res;
++	int res = 0;
+ 
+ 	spin_lock(&zones->lock);
+ 
+@@ -468,7 +466,7 @@ int mlx4_zone_remove_one(struct mlx4_zone_allocator *zones, u32 uid)
+ 		goto out;
+ 	}
+ 
+-	res = __mlx4_zone_remove_one_entry(zone);
++	__mlx4_zone_remove_one_entry(zone);
+ 
+ out:
+ 	spin_unlock(&zones->lock);
+-- 
+2.7.4
 
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/viro/vfs.git misc.compat
-
-for you to fetch changes up to f8f8a727eab1c5b78c3703a461565b042979cc79:
-
-  get_compat_bpf_fprog(): don't copyin field-by-field (2017-07-04 13:14:34 -0400)
-
-----------------------------------------------------------------
-Al Viro (3):
-      copy_msghdr_from_user(): get rid of field-by-field copyin
-      get_compat_msghdr(): get rid of field-by-field copyin
-      get_compat_bpf_fprog(): don't copyin field-by-field
-
- net/compat.c | 49 +++++++++++++++++++++++--------------------------
- net/socket.c | 31 ++++++++++++++-----------------
- 2 files changed, 37 insertions(+), 43 deletions(-)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
