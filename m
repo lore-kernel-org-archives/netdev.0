@@ -1,43 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V3] Set NTB format again after altsetting switch for
- Huawei devices
-Date: Fri, 14 Jul 2017 08:15:19 -0700 (PDT)
-Message-ID: <20170714.081519.1938487375638130917.davem@davemloft.net>
-References: <20170711152152.30011-1-mrkiko.rs@gmail.com>
+Subject: Re: [Patch net] netpoll: shut up a kernel warning on refcount
+Date: Fri, 14 Jul 2017 08:17:40 -0700 (PDT)
+Message-ID: <20170714.081740.1892120761671347344.davem@davemloft.net>
+References: <1499900201-8676-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: bjorn@mork.no, christian@panton.org, linux-usb@vger.kernel.org,
-        netdev@vger.kernel.org, oliver@neukum.org
-To: mrkiko.rs@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davej@codemonkey.org.uk,
+        elena.reshetova@intel.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36186 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:36220 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754424AbdGNPPV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2017 11:15:21 -0400
-In-Reply-To: <20170711152152.30011-1-mrkiko.rs@gmail.com>
+        with ESMTP id S1754500AbdGNPRm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2017 11:17:42 -0400
+In-Reply-To: <1499900201-8676-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Enrico Mioso <mrkiko.rs@gmail.com>
-Date: Tue, 11 Jul 2017 17:21:52 +0200
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Wed, 12 Jul 2017 15:56:41 -0700
 
-> Some firmwares in Huawei E3372H devices have been observed to switch back
-> to NTB 32-bit format after altsetting switch.
-> This patch implements a driver flag to check for the device settings and
-> set NTB format to 16-bit again if needed.
-> The flag has been activated for devices controlled by the huawei_cdc_ncm.c
-> driver.
+> When we convert atomic_t to refcount_t, a new kernel warning
+> on "increment on 0" is introduced in the netpoll code,
+> zap_completion_queue(). In fact for this special case, we know
+> the refcount is 0 and we just have to set it to 1 to satisfy
+> the following dev_kfree_skb_any(), so we can just use
+> refcount_set(..., 1) instead.
 > 
-> V1->V2:
-> - fixed broken error checks
-> - some corrections to the commit message
-> V2->V3:
-> - variable name changes, to clarify what's happening
-> - check (and possibly set) the NTB format later in the common bind code path
-> 
-> Signed-off-by: Enrico Mioso <mrkiko.rs@gmail.com>
-> Reported-and-tested-by: Christian Panton <christian@panton.org>
-> Reviewed-by: Bjørn Mork <bjorn@mork.no>
+> Fixes: 633547973ffc ("net: convert sk_buff.users from atomic_t to refcount_t")
+> Reported-by: Dave Jones <davej@codemonkey.org.uk>
+> Cc: Reshetova, Elena <elena.reshetova@intel.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Applied, thanks.
+Applied, thanks Cong.
