@@ -1,45 +1,67 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH net] net: bridge: fix dest lookup when vlan
- proto doesn't match
-Date: Fri, 14 Jul 2017 10:02:33 +0900
-Message-ID: <c5558df7-c1f3-d130-3d91-e3e423a669b1@lab.ntt.co.jp>
-References: <1499951350-2087-1-git-send-email-nikolay@cumulusnetworks.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH v7 2/3] PCI: Enable PCIe Relaxed Ordering if supported
+Date: Fri, 14 Jul 2017 09:26:15 +0800
+Message-ID: <0260e398-bd8e-6615-6d5c-1f7c07b6fc09@huawei.com>
+References: <1499955692-26556-1-git-send-email-dingtianhong@huawei.com>
+ <1499955692-26556-3-git-send-email-dingtianhong@huawei.com>
+ <e496ff1d-b836-ebef-fdf7-76273aaaaef6@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: bridge@lists.linux-foundation.org, roopa@cumulusnetworks.com,
-	anitha@cumulusnetworks.com, davem@davemloft.net
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>, netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1499951350-2087-1-git-send-email-nikolay@cumulusnetworks.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+To: Sinan Kaya <okaya@codeaurora.org>, <leedom@chelsio.com>,
+ <ashok.raj@intel.com>, <bhelgaas@google.com>, <helgaas@kernel.org>,
+ <werner@chelsio.com>, <ganeshgr@chelsio.com>,
+ <asit.k.mallick@intel.com>, <patrick.j.cramer@intel.com>,
+ <Suravee.Suthikulpanit@amd.com>, <Bob.Shaw@amd.com>,
+ <l.stach@pengutronix.de>, <amira@mellanox.com>,
+ <gabriele.paoloni@huawei.com>, <David.Laight@aculab.com>,
+ <jeffrey.t.kirsher@intel.com>, <catalin.marinas@arm.com>,
+ <will.deacon@arm.com>, <mark.rutland@arm.com>, <robin.murphy@arm.com>,
+ <davem@davemloft.net>, <alexander.duyck@gmail.com>,
+ <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+ <linux-pci@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+ <linuxarm@huawei.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <e496ff1d-b836-ebef-fdf7-76273aaaaef6@codeaurora.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On 2017/07/13 22:09, Nikolay Aleksandrov wrote:
-> With 802.1ad support the vlan_ingress code started checking for vlan
-> protocol mismatch which causes the current tag to be inserted and the
-> bridge vlan protocol & pvid to be set. The vlan tag insertion changes
-> the skb mac_header and thus the lookup mac dest pointer which was loaded
-> prior to calling br_allowed_ingress in br_handle_frame_finish is VLAN_HLEN
-> bytes off now, pointing to the last two bytes of the destination mac and
-> the first four of the source mac causing lookups to always fail and
-> broadcasting all such packets to all ports. Same thing happens for locally
-> originated packets when passing via br_dev_xmit. So load the dest pointer
-> after the vlan checks and possible skb change.
+
+
+On 2017/7/14 5:09, Sinan Kaya wrote:
+> On 7/13/2017 10:21 AM, Ding Tianhong wrote:
+>> static void pci_configure_relaxed_ordering(struct pci_dev *dev)
+>> +{
+>> +	/* We should not alter the relaxed ordering bit for the VF */
+>> +	if (dev->is_virtfn)
+>> +		return;
+>> +
+>> +	/* If the releaxed ordering enable bit is not set, do nothing. */
+>> +	if (!pcie_relaxed_ordering_supported(dev))
+>> +		return;
+>> +
+>> +	if (pci_dev_should_disable_relaxed_ordering(dev)) {
+>> +		pcie_clear_relaxed_ordering(dev);
+>> +		dev_info(&dev->dev, "Disable Relaxed Ordering\n");
+>> +	}
+>> +}
 > 
-> Fixes: 8580e2117c06 ("bridge: Prepare for 802.1ad vlan filtering support")
-> Reported-by: Anitha Narasimha Murthy <anitha@cumulusnetworks.com>
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> I couldn't find anywhere where you actually enable the relaxed ordering
+> like the subject suggests.
+> 
+There is no code to enable the PCIe Relaxed Ordering bit in the configuration space,
+it is only be enable by default according to the PCIe Standard Specification, what we
+do is to distinguish the RC problematic platform and clear the Relaxed Ordering bit
+to tell the PCIe EP don't send any TLPs with Relaxed Ordering Attributes to the Root
+Complex.
 
-Oops. Thank you for fixing it.
-
-Acked-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Thanks
+Ding
