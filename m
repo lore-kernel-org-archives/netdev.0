@@ -1,86 +1,50 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH net 5/5] tcp_bbr: init pacing rate on first RTT sample
-Date: Fri, 14 Jul 2017 17:49:25 -0400
-Message-ID: <20170714214925.30720-5-ncardwell@google.com>
+Subject: [PATCH net 4/5] tcp_bbr: remove sk_pacing_rate=0 transient during init
+Date: Fri, 14 Jul 2017 17:49:24 -0400
+Message-ID: <20170714214925.30720-4-ncardwell@google.com>
 References: <20170714214925.30720-1-ncardwell@google.com>
 Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
         Yuchung Cheng <ycheng@google.com>,
         Soheil Hassas Yeganeh <soheil@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f181.google.com ([209.85.216.181]:32958 "EHLO
-        mail-qt0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751178AbdGNVtu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2017 17:49:50 -0400
-Received: by mail-qt0-f181.google.com with SMTP id r30so72290664qtc.0
-        for <netdev@vger.kernel.org>; Fri, 14 Jul 2017 14:49:50 -0700 (PDT)
+Received: from mail-qk0-f182.google.com ([209.85.220.182]:33471 "EHLO
+        mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751124AbdGNVtr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2017 17:49:47 -0400
+Received: by mail-qk0-f182.google.com with SMTP id a66so71982990qkb.0
+        for <netdev@vger.kernel.org>; Fri, 14 Jul 2017 14:49:47 -0700 (PDT)
 In-Reply-To: <20170714214925.30720-1-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixes the following behavior: for connections that had no RTT sample
-at the time of initializing congestion control, BBR was initializing
-the pacing rate to a high nominal rate (based an a guess of RTT=1ms,
-in case this is LAN traffic). Then BBR never adjusted the pacing rate
-downward upon obtaining an actual RTT sample, if the connection never
-filled the pipe (e.g. all sends were small app-limited writes()).
-
-This fix adjusts the pacing rate upon obtaining the first RTT sample.
+Fix a corner case noticed by Eric Dumazet, where BBR's setting
+sk->sk_pacing_rate to 0 during initialization could theoretically
+cause packets in the sending host to hang if there were packets "in
+flight" in the pacing infrastructure at the time the BBR congestion
+control state is initialized. This could occur if the pacing
+infrastructure happened to race with bbr_init() in a way such that the
+pacer read the 0 rather than the immediately following non-zero pacing
+rate.
 
 Fixes: 0f8782ea1497 ("tcp_bbr: add BBR congestion control")
+Reported-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
 Signed-off-by: Yuchung Cheng <ycheng@google.com>
 Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
 ---
- net/ipv4/tcp_bbr.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
+ net/ipv4/tcp_bbr.c | 1 -
+ 1 file changed, 1 deletion(-)
 
 diff --git a/net/ipv4/tcp_bbr.c b/net/ipv4/tcp_bbr.c
-index 42e0017f2ebc..69ee877574d0 100644
+index 3276140c2506..42e0017f2ebc 100644
 --- a/net/ipv4/tcp_bbr.c
 +++ b/net/ipv4/tcp_bbr.c
-@@ -112,7 +112,8 @@ struct bbr {
- 		cwnd_gain:10,	/* current gain for setting cwnd */
- 		full_bw_cnt:3,	/* number of rounds without large bw gains */
- 		cycle_idx:3,	/* current index in pacing_gain cycle array */
--		unused_b:6;
-+		has_seen_rtt:1, /* have we seen an RTT sample yet? */
-+		unused_b:5;
- 	u32	prior_cwnd;	/* prior cwnd upon entering loss recovery */
- 	u32	full_bw;	/* recent bw, to estimate if pipe is full */
- };
-@@ -225,11 +226,13 @@ static u32 bbr_bw_to_pacing_rate(struct sock *sk, u32 bw, int gain)
- static void bbr_init_pacing_rate_from_rtt(struct sock *sk)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
-+	struct bbr *bbr = inet_csk_ca(sk);
- 	u64 bw;
- 	u32 rtt_us;
- 
- 	if (tp->srtt_us) {		/* any RTT sample yet? */
- 		rtt_us = max(tp->srtt_us >> 3, 1U);
-+		bbr->has_seen_rtt = 1;
- 	} else {			 /* no RTT sample yet */
- 		rtt_us = USEC_PER_MSEC;	 /* use nominal default RTT */
- 	}
-@@ -247,8 +250,12 @@ static void bbr_init_pacing_rate_from_rtt(struct sock *sk)
-  */
- static void bbr_set_pacing_rate(struct sock *sk, u32 bw, int gain)
- {
-+	struct tcp_sock *tp = tcp_sk(sk);
-+	struct bbr *bbr = inet_csk_ca(sk);
- 	u32 rate = bbr_bw_to_pacing_rate(sk, bw, gain);
- 
-+	if (unlikely(!bbr->has_seen_rtt && tp->srtt_us))
-+		bbr_init_pacing_rate_from_rtt(sk);
- 	if (bbr_full_bw_reached(sk) || rate > sk->sk_pacing_rate)
- 		sk->sk_pacing_rate = rate;
- }
-@@ -837,6 +844,7 @@ static void bbr_init(struct sock *sk)
+@@ -837,7 +837,6 @@ static void bbr_init(struct sock *sk)
  
  	minmax_reset(&bbr->bw, bbr->rtt_cnt, 0);  /* init max bw to 0 */
  
-+	bbr->has_seen_rtt = 0;
+-	sk->sk_pacing_rate = 0;		/* force an update of sk_pacing_rate */
  	bbr_init_pacing_rate_from_rtt(sk);
  
  	bbr->restore_cwnd = 0;
