@@ -1,65 +1,41 @@
-From: Alexander Potapenko <glider@google.com>
-Subject: Re: [PATCH] ipv6: initialize treq->txhash in cookie_v6_check()
-Date: Fri, 14 Jul 2017 19:35:02 +0200
-Message-ID: <CAG_fn=XZVGc6Viw2ngQp7kMZ50PK5se_PXynjVKYr9cLywU58g@mail.gmail.com>
-References: <20170714165453.112098-1-glider@google.com> <CADVnQynZUh+4kU9Fdq8crAmi-j8BbErid=mJQ6B-WVXDGU2VQA@mail.gmail.com>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: Re: [PATCH v7 3/3] net/cxgb4: Use new
+ PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+Date: Fri, 14 Jul 2017 17:50:21 +0000
+Message-ID: <MWHPR12MB1600415DE896360B2F1BA4C1C8AD0@MWHPR12MB1600.namprd12.prod.outlook.com>
+References: <1499955692-26556-1-git-send-email-dingtianhong@huawei.com>
+ <1499955692-26556-4-git-send-email-dingtianhong@huawei.com>
+ <CAKgT0UcBFBk9T7g0Dh-rHY6Z+6-4=5jsUWHbLcSMc+ohdTz=CA@mail.gmail.com>
+ <CAKgT0Uf8Tg6AFthXt-bJrdNHCqJ3MfzduR1yCMMsjLYoEFXb-w@mail.gmail.com>
+ <MWHPR12MB1600E5A4404EE9D97CD99F88C8AC0@MWHPR12MB1600.namprd12.prod.outlook.com>,<d36574a1-2853-6989-25ae-5fd1b0d811ba@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
+Cc: Ashok Raj <ashok.raj@intel.com>,
+        Bjorn Helgaas <bhelgaas@google.com>,
+        Bjorn Helgaas <helgaas@kernel.org>,
+        Michael Werner <werner@chelsio.com>,
+        Ganesh GR <ganeshgr@chelsio.com>,
+        Asit K Mallick <asit.k.mallick@intel.com>,
+        Patrick J Cramer <patrick.j.cramer@intel.com>,
+        Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
+        Bob Shaw <Bob.Shaw@amd.com>, h <l.stach@pengutronix.de>,
+        Amir Ancel <amira@mellanox.com>,
+        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
+        David Laight <David.Laight@aculab.com>,
+        "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will.deacon@arm.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Robin Murphy <robin.murphy@arm.com>,
         David Miller <davem@davemloft.net>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Netdev <netdev@vger.kernel.org>
-To: Neal Cardwell <ncardwell@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CADVnQynZUh+4kU9Fdq8crAmi-j8BbErid=mJQ6B-WVXDGU2VQA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+        "linux-arm-kernel@
+To: Ding Tianhong <dingtianhong@huawei.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <d36574a1-2853-6989-25ae-5fd1b0d811ba@huawei.com>
+Content-Language: en-US
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 14, 2017 at 7:04 PM, Neal Cardwell <ncardwell@google.com> wrote=
-:
-> On Fri, Jul 14, 2017 at 12:54 PM, Alexander Potapenko <glider@google.com>=
- wrote:
->> KMSAN reported use of uninitialized memory in skb_set_hash_from_sk(),
->> which originated from the TCP request socket created in
->> cookie_v6_check():
-> ...
->> --- a/net/ipv6/syncookies.c
->> +++ b/net/ipv6/syncookies.c
->> @@ -216,6 +216,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct=
- sk_buff *skb)
->>         treq->rcv_isn =3D ntohl(th->seq) - 1;
->>         treq->snt_isn =3D cookie;
->>         treq->ts_off =3D 0;
->> +       treq->txhash =3D 0;
->>
->>         /*
->>          * We need to lookup the dst_entry to get the correct window siz=
-e.
->
-> I would have thought that the same fix is needed in the corresponding
-> line in cookie_v4_check() in net/ipv4/syncookies.c? (I do not see
-> txhash being initialized for the IPv4 side.) If it's not needed for
-> some reason, then it would be worth a comment in the commit
-> description to explain why not.
-Most certainly it is needed. I haven't seen reports for that in the
-wild and couldn't forge a repro triggering the bug in IPv4, but I'll
-give it another shot.
-> thanks,
-> neal
-
-
-
---=20
-Alexander Potapenko
-Software Engineer
-
-Google Germany GmbH
-Erika-Mann-Stra=C3=9Fe, 33
-80636 M=C3=BCnchen
-
-Gesch=C3=A4ftsf=C3=BChrer: Matthew Scott Sucherman, Paul Terence Manicle
-Registergericht und -nummer: Hamburg, HRB 86891
-Sitz der Gesellschaft: Hamburg
+Reviewed-by: Casey Leedom <leedom@chelsio.com>
