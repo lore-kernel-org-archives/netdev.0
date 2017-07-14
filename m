@@ -1,71 +1,63 @@
-From: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCHv2 1/1] mlx4_en: remove unnecessary returned value check
-Date: Thu, 13 Jul 2017 23:01:27 -0400
-Message-ID: <1500001287-31317-1-git-send-email-yanjun.zhu@oracle.com>
-To: tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Moritz Fischer <moritz.fischer-+aYTwkv1SeIAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 2/2] net: ethernet: nixge: Add support for National
+ Instruments XGE netdev
+Date: Thu, 13 Jul 2017 20:36:29 -0700
+Message-ID: <CAAtXAHc-Rzj41PA8tW6RWROrKDBc_YZWSo1+vvihB5njF_Og-Q@mail.gmail.com>
+References: <1499980909-11702-1-git-send-email-mdf@kernel.org>
+ <1499980909-11702-2-git-send-email-mdf@kernel.org> <20170713223636.GF3120@lunn.ch>
+ <20170714003111.GA13512@tyrael.ni.corp.natinst.com> <20170714013435.GA9065@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Devicetree List <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170714013435.GA9065-g2DYL2Zd6BY@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The function __mlx4_zone_remove_one_entry always returns zero. So
-it is not necessary to check it.
+Hi Andrew,
 
-Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Cc: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Reviewed-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
----
-Change from v1 to v2:
- Initialization is moved to variable declaration.
+On Thu, Jul 13, 2017 at 6:34 PM, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org> wrote:
+>> > > + /* not sure if this is the correct way of dealing with this ... */
+>> > > + ndev->phydev->supported &= ~(SUPPORTED_Autoneg);
+>> > > + ndev->phydev->advertising = ndev->phydev->supported;
+>> > > + ndev->phydev->autoneg = AUTONEG_DISABLE;
+>> >
+>> > What are you trying to achieve?
+>>
+>> Basically can't do Autoneg, I'll need to take a closer look.
+>
+> Hi Moritz
+>
+> What i actually think you mean, is it can only do 1Gbps. So you could
+> autoneg, but only advertise 1Gbps. Look at masking out
+> PHY_10BT_FEATURES and PHY_100BT_FEATURES.
 
- drivers/net/ethernet/mellanox/mlx4/alloc.c | 8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
+It does either 1Gbps or 10Gbps (over SFP+), depending which bitstream is loaded
+into the  FPGA. In the current setup I could also just have two
+different compatible
+strings, since neither setup supports the other rate, but that might change.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/alloc.c b/drivers/net/ethernet/mellanox/mlx4/alloc.c
-index 249a458..710d6c6 100644
---- a/drivers/net/ethernet/mellanox/mlx4/alloc.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/alloc.c
-@@ -283,7 +283,7 @@ int mlx4_zone_add_one(struct mlx4_zone_allocator *zone_alloc,
- }
- 
- /* Should be called under a lock */
--static int __mlx4_zone_remove_one_entry(struct mlx4_zone_entry *entry)
-+static void __mlx4_zone_remove_one_entry(struct mlx4_zone_entry *entry)
- {
- 	struct mlx4_zone_allocator *zone_alloc = entry->allocator;
- 
-@@ -315,8 +315,6 @@ static int __mlx4_zone_remove_one_entry(struct mlx4_zone_entry *entry)
- 		}
- 		zone_alloc->mask = mask;
- 	}
--
--	return 0;
- }
- 
- void mlx4_zone_allocator_destroy(struct mlx4_zone_allocator *zone_alloc)
-@@ -457,7 +455,7 @@ struct mlx4_bitmap *mlx4_zone_get_bitmap(struct mlx4_zone_allocator *zones, u32
- int mlx4_zone_remove_one(struct mlx4_zone_allocator *zones, u32 uid)
- {
- 	struct mlx4_zone_entry *zone;
--	int res;
-+	int res = 0;
- 
- 	spin_lock(&zones->lock);
- 
-@@ -468,7 +466,7 @@ int mlx4_zone_remove_one(struct mlx4_zone_allocator *zones, u32 uid)
- 		goto out;
- 	}
- 
--	res = __mlx4_zone_remove_one_entry(zone);
-+	__mlx4_zone_remove_one_entry(zone);
- 
- out:
- 	spin_unlock(&zones->lock);
--- 
-2.7.4
+It seems getting rid of that part (the default values) now works, too.
 
+I'll need to take a closer look tomorrow (and I need to retest with 1Gbps)
+
+>
+> Take a look at:
+>
+> http://elixir.free-electrons.com/linux/latest/source/drivers/net/ethernet/renesas/ravb_main.c#L1045
+
+Will do.
+
+Thanks for feedback,
+
+Moritz
 --
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
