@@ -1,7 +1,7 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 08/22] isdn: divert: fix sprintf buffer overflow warning
-Date: Fri, 14 Jul 2017 14:07:00 +0200
-Message-ID: <20170714120720.906842-9-arnd@arndb.de>
+Subject: [PATCH 09/22] net: niu: fix format string overflow warning:
+Date: Fri, 14 Jul 2017 14:07:01 +0200
+Message-ID: <20170714120720.906842-10-arnd@arndb.de>
 References: <20170714120720.906842-1-arnd@arndb.de>
 Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
         Linus Torvalds <torvalds@linux-foundation.org>,
@@ -9,70 +9,70 @@ Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
         netdev@vger.kernel.org,
         "James E . J . Bottomley" <jejb@linux.vnet.ibm.com>,
         "Martin K . Petersen" <martin.petersen@oracle.com>,
-        linux-scsi@vger.kernel.org, x86@kernel.org
-To: linux-kernel@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>,
-        Geliang Tang <geliangtang@gmail.com>,
+        linux-scsi@vger.kernel.org, x86@kernel.org,
+        Eric Dumazet <edumazet@google.com>,
+        stephen hemminger <stephen@networkplumber.org>,
+        Jarod Wilson <jarod@redhat.com>
+To: linux-kernel@vger.kernel.org,
         "David S. Miller" <davem@davemloft.net>,
+        Philippe Reynes <tremyfr@gmail.com>,
         Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([217.72.192.75]:50878 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753787AbdGNMLC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2017 08:11:02 -0400
 In-Reply-To: <20170714120720.906842-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-One string we pass into the cs->info buffer might be too long,
-as pointed out by gcc:
+We get a warning for the port_name string that might be longer than
+six characters if we had more than 10 ports:
 
-drivers/isdn/divert/isdn_divert.c: In function 'll_callback':
-drivers/isdn/divert/isdn_divert.c:488:22: error: '%d' directive writing between 1 and 3 bytes into a region of size between 1 and 69 [-Werror=format-overflow=]
- sprintf(cs->info, "%d 0x%lx %s %s %s %s 0x%x 0x%x %d %d %s\n",
-                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-drivers/isdn/divert/isdn_divert.c:488:22: note: directive argument in the range [0, 255]
-drivers/isdn/divert/isdn_divert.c:488:4: note: 'sprintf' output 25 or more bytes (assuming 129) into a destination of size 90
+drivers/net/ethernet/sun/niu.c: In function 'niu_put_parent':
+drivers/net/ethernet/sun/niu.c:9563:21: error: '%d' directive writing between 1 and 3 bytes into a region of size 2 [-Werror=format-overflow=]
+  sprintf(port_name, "port%d", port);
+                     ^~~~~~~~
+drivers/net/ethernet/sun/niu.c:9563:21: note: directive argument in the range [0, 255]
+drivers/net/ethernet/sun/niu.c:9563:2: note: 'sprintf' output between 6 and 8 bytes into a destination of size 6
+  sprintf(port_name, "port%d", port);
+  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+drivers/net/ethernet/sun/niu.c: In function 'niu_pci_init_one':
+drivers/net/ethernet/sun/niu.c:9538:22: error: '%d' directive writing between 1 and 3 bytes into a region of size 2 [-Werror=format-overflow=]
+   sprintf(port_name, "port%d", port);
+                      ^~~~~~~~
+drivers/net/ethernet/sun/niu.c:9538:22: note: directive argument in the range [0, 255]
+drivers/net/ethernet/sun/niu.c:9538:3: note: 'sprintf' output between 6 and 8 bytes into a destination of size 6
 
-This is unlikely to actually cause problems, so let's use snprintf
-as a simple workaround to shut  up the warning and truncate the
-buffer instead.
+While we know that the port number is small, there is no harm in
+making the format string two bytes longer to avoid the warning.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/isdn/divert/isdn_divert.c | 25 +++++++++++++------------
- 1 file changed, 13 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/sun/niu.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/isdn/divert/isdn_divert.c b/drivers/isdn/divert/isdn_divert.c
-index 060d357f107f..6f423bc49d0d 100644
---- a/drivers/isdn/divert/isdn_divert.c
-+++ b/drivers/isdn/divert/isdn_divert.c
-@@ -485,18 +485,19 @@ static int isdn_divert_icall(isdn_ctrl *ic)
- 				cs->deflect_dest[0] = '\0';
- 				retval = 4; /* only proceed */
- 			}
--			sprintf(cs->info, "%d 0x%lx %s %s %s %s 0x%x 0x%x %d %d %s\n",
--				cs->akt_state,
--				cs->divert_id,
--				divert_if.drv_to_name(cs->ics.driver),
--				(ic->command == ISDN_STAT_ICALLW) ? "1" : "0",
--				cs->ics.parm.setup.phone,
--				cs->ics.parm.setup.eazmsn,
--				cs->ics.parm.setup.si1,
--				cs->ics.parm.setup.si2,
--				cs->ics.parm.setup.screen,
--				dv->rule.waittime,
--				cs->deflect_dest);
-+			snprintf(cs->info, sizeof(cs->info),
-+				 "%d 0x%lx %s %s %s %s 0x%x 0x%x %d %d %s\n",
-+				 cs->akt_state,
-+				 cs->divert_id,
-+				 divert_if.drv_to_name(cs->ics.driver),
-+				 (ic->command == ISDN_STAT_ICALLW) ? "1" : "0",
-+				 cs->ics.parm.setup.phone,
-+				 cs->ics.parm.setup.eazmsn,
-+				 cs->ics.parm.setup.si1,
-+				 cs->ics.parm.setup.si2,
-+				 cs->ics.parm.setup.screen,
-+				 dv->rule.waittime,
-+				 cs->deflect_dest);
- 			if ((dv->rule.action == DEFLECT_REPORT) ||
- 			    (dv->rule.action == DEFLECT_REJECT)) {
- 				put_info_buffer(cs->info);
+diff --git a/drivers/net/ethernet/sun/niu.c b/drivers/net/ethernet/sun/niu.c
+index 46cb7f8955a2..4bb04aaf9650 100644
+--- a/drivers/net/ethernet/sun/niu.c
++++ b/drivers/net/ethernet/sun/niu.c
+@@ -9532,7 +9532,7 @@ static struct niu_parent *niu_get_parent(struct niu *np,
+ 		p = niu_new_parent(np, id, ptype);
+ 
+ 	if (p) {
+-		char port_name[6];
++		char port_name[8];
+ 		int err;
+ 
+ 		sprintf(port_name, "port%d", port);
+@@ -9553,7 +9553,7 @@ static void niu_put_parent(struct niu *np)
+ {
+ 	struct niu_parent *p = np->parent;
+ 	u8 port = np->port;
+-	char port_name[6];
++	char port_name[8];
+ 
+ 	BUG_ON(!p || p->ports[port] != np);
+ 
 -- 
 2.9.0
