@@ -1,78 +1,65 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 09/22] net: niu: fix format string overflow warning:
-Date: Fri, 14 Jul 2017 14:07:01 +0200
-Message-ID: <20170714120720.906842-10-arnd@arndb.de>
+Subject: [PATCH 11/22] net: thunder_bgx: avoid format string overflow warning
+Date: Fri, 14 Jul 2017 14:07:03 +0200
+Message-ID: <20170714120720.906842-12-arnd@arndb.de>
 References: <20170714120720.906842-1-arnd@arndb.de>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Guenter Roeck <linux@roeck-us.net>, akpm@linux-foundation.org,
-        netdev@vger.kernel.org,
-        "James E . J . Bottomley" <jejb@linux.vnet.ibm.com>,
-        "Martin K . Petersen" <martin.petersen@oracle.com>,
-        linux-scsi@vger.kernel.org, x86@kernel.org,
-        Eric Dumazet <edumazet@google.com>,
-        stephen hemminger <stephen@networkplumber.org>,
-        Jarod Wilson <jarod@redhat.com>
-To: linux-kernel@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Philippe Reynes <tremyfr@gmail.com>,
-        Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([217.72.192.75]:50878 "EHLO
-        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753787AbdGNMLC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2017 08:11:02 -0400
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: George Cherian <george.cherian@cavium.com>,
+ "James E . J . Bottomley" <jejb@linux.vnet.ibm.com>,
+ linux-scsi@vger.kernel.org, "Martin K . Petersen" <martin.petersen@oracle.com>,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>, x86@kernel.org,
+ Radha Mohan Chintakuntla <rchintakuntla@cavium.com>,
+ Vadim Lomovtsev <Vadim.Lomovtsev@caviumnetworks.com>,
+ Arnd Bergmann <arnd@arndb.de>, linux-arm-kernel@lists.infradead.org,
+ netdev@vger.kernel.org, Thanneeru Srinivasulu <tsrinivasulu@cavium.com>,
+ akpm@linux-foundation.org, Linus Torvalds <torvalds@linux-foundation.org>,
+ "David S . Miller" <davem@davemloft.net>, Guenter Roeck <linux@roeck-us.net>
+To: linux-kernel@vger.kernel.org, Sunil Goutham <sgoutham@cavium.com>,
+ Robert Richter <rric@kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <20170714120720.906842-1-arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-We get a warning for the port_name string that might be longer than
-six characters if we had more than 10 ports:
+gcc warns that the temporary buffer might be too small here:
 
-drivers/net/ethernet/sun/niu.c: In function 'niu_put_parent':
-drivers/net/ethernet/sun/niu.c:9563:21: error: '%d' directive writing between 1 and 3 bytes into a region of size 2 [-Werror=format-overflow=]
-  sprintf(port_name, "port%d", port);
-                     ^~~~~~~~
-drivers/net/ethernet/sun/niu.c:9563:21: note: directive argument in the range [0, 255]
-drivers/net/ethernet/sun/niu.c:9563:2: note: 'sprintf' output between 6 and 8 bytes into a destination of size 6
-  sprintf(port_name, "port%d", port);
-  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-drivers/net/ethernet/sun/niu.c: In function 'niu_pci_init_one':
-drivers/net/ethernet/sun/niu.c:9538:22: error: '%d' directive writing between 1 and 3 bytes into a region of size 2 [-Werror=format-overflow=]
-   sprintf(port_name, "port%d", port);
-                      ^~~~~~~~
-drivers/net/ethernet/sun/niu.c:9538:22: note: directive argument in the range [0, 255]
-drivers/net/ethernet/sun/niu.c:9538:3: note: 'sprintf' output between 6 and 8 bytes into a destination of size 6
+drivers/net/ethernet/cavium/thunder/thunder_bgx.c: In function 'bgx_probe':
+drivers/net/ethernet/cavium/thunder/thunder_bgx.c:1020:16: error: '%d' directive writing between 1 and 10 bytes into a region of size between 9 and 11 [-Werror=format-overflow=]
+sprintf(str, "BGX%d LMAC%d mode", bgx->bgx_id, lmacid);
+             ^~~~~~~~~~~~~~~~~~~
+drivers/net/ethernet/cavium/thunder/thunder_bgx.c:1020:16: note: directive argument in the range [0, 2147483647]
+drivers/net/ethernet/cavium/thunder/thunder_bgx.c:1020:3: note: 'sprintf' output between 16 and 27 bytes into a destination of size 20
 
-While we know that the port number is small, there is no harm in
-making the format string two bytes longer to avoid the warning.
+This probably can't happen, but it can't hurt to make it long
+enough for the theoretical limit.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/ethernet/sun/niu.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/sun/niu.c b/drivers/net/ethernet/sun/niu.c
-index 46cb7f8955a2..4bb04aaf9650 100644
---- a/drivers/net/ethernet/sun/niu.c
-+++ b/drivers/net/ethernet/sun/niu.c
-@@ -9532,7 +9532,7 @@ static struct niu_parent *niu_get_parent(struct niu *np,
- 		p = niu_new_parent(np, id, ptype);
- 
- 	if (p) {
--		char port_name[6];
-+		char port_name[8];
- 		int err;
- 
- 		sprintf(port_name, "port%d", port);
-@@ -9553,7 +9553,7 @@ static void niu_put_parent(struct niu *np)
+diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+index a0ca68ce3fbb..79112563a25a 100644
+--- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
++++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+@@ -1008,7 +1008,7 @@ static void bgx_print_qlm_mode(struct bgx *bgx, u8 lmacid)
  {
- 	struct niu_parent *p = np->parent;
- 	u8 port = np->port;
--	char port_name[6];
-+	char port_name[8];
+ 	struct device *dev = &bgx->pdev->dev;
+ 	struct lmac *lmac;
+-	char str[20];
++	char str[27];
  
- 	BUG_ON(!p || p->ports[port] != np);
- 
+ 	if (!bgx->is_dlm && lmacid)
+ 		return;
 -- 
 2.9.0
