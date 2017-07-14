@@ -1,52 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] get_compat_msghdr(): get rid of field-by-field copyin
-Date: Thu, 13 Jul 2017 19:36:02 -0700 (PDT)
-Message-ID: <20170713.193602.14448503583172802.davem@davemloft.net>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: [git pull] vfs.git network field-by-field copyin patches
+Date: Fri, 14 Jul 2017 03:50:54 +0100
+Message-ID: <20170714025054.GF13102@ZenIV.linux.org.uk>
 References: <20170708182100.GR10672@ZenIV.linux.org.uk>
-        <20170711.202514.815304234636661456.davem@davemloft.net>
-        <20170714013750.GC13102@ZenIV.linux.org.uk>
+ <20170711.202514.815304234636661456.davem@davemloft.net>
+ <20170714013750.GC13102@ZenIV.linux.org.uk>
+ <20170713.193602.14448503583172802.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: viro@ZenIV.linux.org.uk
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56046 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752825AbdGNCgF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2017 22:36:05 -0400
-In-Reply-To: <20170714013750.GC13102@ZenIV.linux.org.uk>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:35430 "EHLO
+        ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752974AbdGNCu5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2017 22:50:57 -0400
+Content-Disposition: inline
+In-Reply-To: <20170713.193602.14448503583172802.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Date: Fri, 14 Jul 2017 02:37:50 +0100
+[My apologies for late pull requests - I hoped to be back to normal
+connectivity by yesterday evening.  Spent the night sitting in Logan
+instead...]
 
-> On Tue, Jul 11, 2017 at 08:25:14PM -0700, David Miller wrote:
-> 
->> looks harmless, or if there is a bug in there I can't see it.
->> 
->> But whatever it is, that same problem could be hiding in some of these
->> other transformations as well.
->> 
->> I think the bug might be that we are corrupting the user's stack
->> somehow.  But the two user copies in that commit look perfectly fine
->> to my eyes.
->> 
->> There shouldn't be any padding in that compat_rlimit structure, so
->> it's not like we're copying extra bytes.  Well, we'd be exposing
->> kernel stack memory if that were the case.
-> 
-> There isn't any padding in compat_rlimit; unfortunately, it was
-> mistakenly declared as struct rlimit instead.  Which, of course,
-> has different member sizes - otherwise we wouldn't have needed
-> a compat syscall there in the first place.
-> 
-> It was harder to spot since I combined move and a transformation
-> into one commit.  Shouldn't have done so...  Had those been two
-> separate commits, the bug would've stood out immediately.  Shouldn't
-> be the case here...
+This part of misc.compat queue was held back for review from networking
+folks and since davem has jus ACKed those...
 
-Ok, I'll ack these patches then:
+The following changes since commit 0d0606060baefdb13d3d80dba1b4c816b0676e16:
 
-Acked-by: David S. Miller <davem@davemloft.net>
+  mqueue: move compat syscalls to native ones (2017-07-04 13:13:49 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/viro/vfs.git misc.compat
+
+for you to fetch changes up to f8f8a727eab1c5b78c3703a461565b042979cc79:
+
+  get_compat_bpf_fprog(): don't copyin field-by-field (2017-07-04 13:14:34 -0400)
+
+----------------------------------------------------------------
+Al Viro (3):
+      copy_msghdr_from_user(): get rid of field-by-field copyin
+      get_compat_msghdr(): get rid of field-by-field copyin
+      get_compat_bpf_fprog(): don't copyin field-by-field
+
+ net/compat.c | 49 +++++++++++++++++++++++--------------------------
+ net/socket.c | 31 ++++++++++++++-----------------
+ 2 files changed, 37 insertions(+), 43 deletions(-)
