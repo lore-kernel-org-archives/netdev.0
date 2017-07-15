@@ -1,38 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: ip_do_fragment: fix headroom tests
-Date: Sat, 15 Jul 2017 14:38:55 -0700 (PDT)
-Message-ID: <20170715.143855.2063043330641361274.davem@davemloft.net>
-References: <88e7a111-ddcd-5aa9-f15e-045f9b0831a8@virtuozzo.com>
+Subject: Re: [PATCH V3 net] openvswitch: Fix for force/commit action
+ failures
+Date: Sat, 15 Jul 2017 14:40:40 -0700 (PDT)
+Message-ID: <20170715.144040.2208563191392538027.davem@davemloft.net>
+References: <1500061369-27918-1-git-send-email-gvrose8192@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-        yoshfuji@linux-ipv6.org, fw@strlen.de, dwmw2@infradead.org,
-        devel@openvz.org
-To: vvs@virtuozzo.com
+Cc: netdev@vger.kernel.org, pshelar@nicira.com, dev@openvswitch.org,
+        joe@ovn.org
+To: gvrose8192@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54568 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:54586 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751194AbdGOVi4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 15 Jul 2017 17:38:56 -0400
-In-Reply-To: <88e7a111-ddcd-5aa9-f15e-045f9b0831a8@virtuozzo.com>
+        with ESMTP id S1751182AbdGOVkl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 15 Jul 2017 17:40:41 -0400
+In-Reply-To: <1500061369-27918-1-git-send-email-gvrose8192@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vasily Averin <vvs@virtuozzo.com>
-Date: Fri, 14 Jul 2017 12:04:16 +0300
+From: Greg Rose <gvrose8192@gmail.com>
+Date: Fri, 14 Jul 2017 12:42:49 -0700
 
-> Some time ago David Woodhouse reported skb_under_panic
-> when we try to push ethernet header to fragmented ipv6 skbs.
-> It was fixed for ipv6 by Florian Westphal in
-> commit 1d325d217c7f ("ipv6: ip6_fragment: fix headroom tests and skb leak")
+> When there is an established connection in direction A->B, it is
+> possible to receive a packet on port B which then executes
+> ct(commit,force) without first performing ct() - ie, a lookup.
+> In this case, we would expect that this packet can delete the existing
+> entry so that we can commit a connection with direction B->A. However,
+> currently we only perform a check in skb_nfct_cached() for whether
+> OVS_CS_F_TRACKED is set and OVS_CS_F_INVALID is not set, ie that a
+> lookup previously occurred. In the above scenario, a lookup has not
+> occurred but we should still be able to statelessly look up the
+> existing entry and potentially delete the entry if it is in the
+> opposite direction.
 > 
-> However similar problem still exist in ipv4.
+> This patch extends the check to also hint that if the action has the
+> force flag set, then we will lookup the existing entry so that the
+> force check at the end of skb_nfct_cached has the ability to delete
+> the connection.
 > 
-> It does not trigger skb_under_panic due paranoid check
-> in ip_finish_output2, however according to Alexey Kuznetsov
-> current state is abnormal and ip_fragment should be fixed too.
-> 
-> Signed-off-by: Vasily Averin <vvs@virtuozzo.com>
+> Fixes: dd41d330b03 ("openvswitch: Add force commit.")
+> CC: Pravin Shelar <pshelar@nicira.com>
+> CC: dev@openvswitch.org
+> Signed-off-by: Joe Stringer <joe@ovn.org>
+> Signed-off-by: Greg Rose <gvrose8192@gmail.com>
 
-Applied, thank you.
+Applied, thanks.
