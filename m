@@ -1,75 +1,35 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net] jhash: fix -Wimplicit-fallthrough warnings
-Date: Fri, 14 Jul 2017 23:03:49 -0700
-Message-ID: <20170715060349.2464-1-jakub.kicinski@netronome.com>
-Cc: linux-kernel@vger.kernel.org, kadlec@blackhole.kfki.hu,
-        oss-drivers@netronome.com,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-To: netdev@vger.kernel.org
+From: xiang fei <liuxiang1999@gmail.com>
+Subject: Re: [PATCH v2] net: davicom: dm9000: Avoid spinlock recursion during
+ dm9000_timeout routine
+Date: Sat, 15 Jul 2017 16:56:40 +0800
+Message-ID: <CAPPcxxRnbE8Ldbm=JQxf=0xLf4VmFBDKrf+UqUUy2KS=qigbZg@mail.gmail.com>
+References: <1496758626-2726-1-git-send-email-liu.xiang6@zte.com.cn> <20170607.143844.682492319776197931.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: liu.xiang6@zte.com.cn, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170607.143844.682492319776197931.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-GCC 7 added a new -Wimplicit-fallthrough warning.  It's only enabled
-with W=1, but since linux/jhash.h is included in over hundred places
-(including other global headers) it seems worthwhile fixing this
-warning.
+Hi,
+  In this patch, I don't change the routine of dm9000_phy_write().
+  I just abstract the real phy operation from dm9000_phy_write()
+  to make a new function dm9000_phy_write_reg(),
+  which contains no lock.
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
----
-If it looks good, would it be OK to take it via the net tree?
+  It is called in dm9000_phy_write() or dm9000_init_dm9000().
+  Since dm9000_timeout() holds the main spinlock through the
+  entire routine, dm9000_phy_write_reg() called in this routine is
+  protected from another thread. I think there is no need to
+  acquire any locks.
 
- include/linux/jhash.h | 29 ++++++++++++++---------------
- 1 file changed, 14 insertions(+), 15 deletions(-)
+  The only problem is dm9000_init_dm9000() may be called
+  in dm9000_open(). If another thread calls dm9000_open()
+  in timeout may cause race condition.
 
-diff --git a/include/linux/jhash.h b/include/linux/jhash.h
-index 348c6f47e4cc..8037850f3104 100644
---- a/include/linux/jhash.h
-+++ b/include/linux/jhash.h
-@@ -85,19 +85,18 @@ static inline u32 jhash(const void *key, u32 length, u32 initval)
- 		k += 12;
- 	}
- 	/* Last block: affect all 32 bits of (c) */
--	/* All the case statements fall through */
- 	switch (length) {
--	case 12: c += (u32)k[11]<<24;
--	case 11: c += (u32)k[10]<<16;
--	case 10: c += (u32)k[9]<<8;
--	case 9:  c += k[8];
--	case 8:  b += (u32)k[7]<<24;
--	case 7:  b += (u32)k[6]<<16;
--	case 6:  b += (u32)k[5]<<8;
--	case 5:  b += k[4];
--	case 4:  a += (u32)k[3]<<24;
--	case 3:  a += (u32)k[2]<<16;
--	case 2:  a += (u32)k[1]<<8;
-+	case 12: c += (u32)k[11]<<24;	/* fall through */
-+	case 11: c += (u32)k[10]<<16;	/* fall through */
-+	case 10: c += (u32)k[9]<<8;	/* fall through */
-+	case 9:  c += k[8];		/* fall through */
-+	case 8:  b += (u32)k[7]<<24;	/* fall through */
-+	case 7:  b += (u32)k[6]<<16;	/* fall through */
-+	case 6:  b += (u32)k[5]<<8;	/* fall through */
-+	case 5:  b += k[4];		/* fall through */
-+	case 4:  a += (u32)k[3]<<24;	/* fall through */
-+	case 3:  a += (u32)k[2]<<16;	/* fall through */
-+	case 2:  a += (u32)k[1]<<8;	/* fall through */
- 	case 1:  a += k[0];
- 		 __jhash_final(a, b, c);
- 	case 0: /* Nothing left to add */
-@@ -131,10 +130,10 @@ static inline u32 jhash2(const u32 *k, u32 length, u32 initval)
- 		k += 3;
- 	}
- 
--	/* Handle the last 3 u32's: all the case statements fall through */
-+	/* Handle the last 3 u32's */
- 	switch (length) {
--	case 3: c += k[2];
--	case 2: b += k[1];
-+	case 3: c += k[2];	/* fall through */
-+	case 2: b += k[1];	/* fall through */
- 	case 1: a += k[0];
- 		__jhash_final(a, b, c);
- 	case 0:	/* Nothing left to add */
--- 
-2.11.0
+  dm9000_init_dm9000() needs lock to avoid race condition,
+  did you mean that?
+  Thanks!
