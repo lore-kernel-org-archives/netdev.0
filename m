@@ -1,35 +1,38 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCHv2 1/1] mlx4_en: remove unnecessary returned value check
-Date: Sat, 15 Jul 2017 14:30:58 -0700 (PDT)
-Message-ID: <20170715.143058.1870786127685133239.davem@davemloft.net>
-References: <1500001287-31317-1-git-send-email-yanjun.zhu@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv4: ip_do_fragment: fix headroom tests
+Date: Sat, 15 Jul 2017 14:38:55 -0700 (PDT)
+Message-ID: <20170715.143855.2063043330641361274.davem@davemloft.net>
+References: <88e7a111-ddcd-5aa9-f15e-045f9b0831a8@virtuozzo.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-To: yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1500001287-31317-1-git-send-email-yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+        yoshfuji@linux-ipv6.org, fw@strlen.de, dwmw2@infradead.org,
+        devel@openvz.org
+To: vvs@virtuozzo.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54568 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751194AbdGOVi4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 15 Jul 2017 17:38:56 -0400
+In-Reply-To: <88e7a111-ddcd-5aa9-f15e-045f9b0831a8@virtuozzo.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Date: Thu, 13 Jul 2017 23:01:27 -0400
+From: Vasily Averin <vvs@virtuozzo.com>
+Date: Fri, 14 Jul 2017 12:04:16 +0300
 
-> The function __mlx4_zone_remove_one_entry always returns zero. So
-> it is not necessary to check it.
+> Some time ago David Woodhouse reported skb_under_panic
+> when we try to push ethernet header to fragmented ipv6 skbs.
+> It was fixed for ipv6 by Florian Westphal in
+> commit 1d325d217c7f ("ipv6: ip6_fragment: fix headroom tests and skb leak")
 > 
-> Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> Cc: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> Reviewed-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> ---
-> Change from v1 to v2:
->  Initialization is moved to variable declaration.
+> However similar problem still exist in ipv4.
+> 
+> It does not trigger skb_under_panic due paranoid check
+> in ip_finish_output2, however according to Alexey Kuznetsov
+> current state is abnormal and ip_fragment should be fixed too.
+> 
+> Signed-off-by: Vasily Averin <vvs@virtuozzo.com>
 
-Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thank you.
