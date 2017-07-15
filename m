@@ -1,227 +1,272 @@
-From: kiki good <jqiaoulk@gmail.com>
-Subject: Re: [PATCH] Broadcom Sysport: Support 64bit net status report on
- 32bit Platform
-Date: Sat, 15 Jul 2017 17:14:39 +0100
-Message-ID: <CACM3AawGfLza5UNDKDGra8D-+f1MG64xUf+P=M5tU=Ao807V+Q@mail.gmail.com>
-References: <CACM3AazJFQbzbyn8sf9_h-PtAreLv2qzaAKjiVE9LYciz-JOMA@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2 2/2] net: ethernet: nixge: Add support for National
+ Instruments XGE netdev
+Date: Sat, 15 Jul 2017 18:46:29 +0200
+Message-ID: <20170715164629.GB25966@lunn.ch>
+References: <1500065326-26182-1-git-send-email-mdf@kernel.org>
+ <1500065326-26182-2-git-send-email-mdf@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-To: f.fainelli@gmail.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:35150 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751066AbdGOQOl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 15 Jul 2017 12:14:41 -0400
-Received: by mail-it0-f66.google.com with SMTP id v193so14865745itc.2
-        for <netdev@vger.kernel.org>; Sat, 15 Jul 2017 09:14:40 -0700 (PDT)
-In-Reply-To: <CACM3AazJFQbzbyn8sf9_h-PtAreLv2qzaAKjiVE9LYciz-JOMA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-kernel@vger.kernel.org, davem@davemloft.net,
+        mark.rutland@arm.com, robh+dt@kernel.org
+To: Moritz Fischer <mdf@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1500065326-26182-2-git-send-email-mdf@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When using Broadcom Sysport device in 32bit Platform, ifconfig can
-only report up to 4G
-tx,rx status, which will be wrapped to 0 when the number of incoming or outgoing
-packets exceeds 4G.
+> +++ b/drivers/net/ethernet/ni/Kconfig
+> @@ -0,0 +1,27 @@
+> +#
+> +# National Instuments network device configuration
+> +#
+> +
+> +config NET_VENDOR_NI
+> +	bool "National Instruments Devices"
+> +	default y
+> +	---help---
+> +	  If you have a network (Ethernet) device belonging to this class, say Y.
+> +
+> +	  Note that the answer to this question doesn't directly affect the
+> +	  kernel: saying N will just cause the configurator to skip all
+> +	  the questions about National Instrument devices.
+> +	  If you say Y, you will be asked for your specific device in the
+> +	  following questions.
+> +
+> +if NET_VENDOR_NI
+> +
+> +config NI_XGE_MANAGEMENT_ENET
+> +	tristate "National Instruments XGE management enet support"
+> +	depends on ARCH_ZYNQ
 
-The patch is used to add 64bit support for Broadcom Sysport device in
-32bit Platform.
+Consider also adding COMPILE_TEST, if possible.
 
-On Sat, Jul 15, 2017 at 5:11 PM, kiki good <jqiaoulk@gmail.com> wrote:
-> Signed-off-by: Jianming Qiao <kiki-good@hotmail.com>
-> ---
->  drivers/net/ethernet/broadcom/bcmsysport.c | 81
-> ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++---------------------
->  drivers/net/ethernet/broadcom/bcmsysport.h |  8 ++++++++
->  2 files changed, 68 insertions(+), 21 deletions(-)
->
-> diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c
-> b/drivers/net/ethernet/broadcom/bcmsysport.c
-> index 5274501..263512f 100644
-> --- a/drivers/net/ethernet/broadcom/bcmsysport.c
-> +++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-> @@ -663,6 +663,7 @@ static unsigned int bcm_sysport_desc_rx(struct
-> bcm_sysport_priv *priv,
->                                          unsigned int budget)
->  {
->          struct net_device *ndev = priv->netdev;
-> +       struct bcmsysport_netstats *bsysport_netstats = priv->bsysport_netstats;
->          unsigned int processed = 0, to_process;
->          struct bcm_sysport_cb *cb;
->          struct sk_buff *skb;
-> @@ -763,8 +764,10 @@ static unsigned int bcm_sysport_desc_rx(struct
-> bcm_sysport_priv *priv,
->                  }
->
->                  skb->protocol = eth_type_trans(skb, ndev);
-> -               ndev->stats.rx_packets++;
-> -               ndev->stats.rx_bytes += len;
-> +               u64_stats_update_begin(&bsysport_netstats->syncp);
-> +               bsysport_netstats->rx_packets++;
-> +               bsysport_netstats->rx_bytes += len;
-> +               u64_stats_update_end(&bsysport_netstats->syncp);
->
->                  napi_gro_receive(&priv->napi, skb);
->  next:
-> @@ -785,19 +788,26 @@ static void bcm_sysport_tx_reclaim_one(struct
-> bcm_sysport_tx_ring *ring,
->  {
->          struct bcm_sysport_priv *priv = ring->priv;
->          struct device *kdev = &priv->pdev->dev;
-> +       struct bcmsysport_netstats *bsysport_netstats = priv->bsysport_netstats;
->
->          if (cb->skb) {
-> +               u64_stats_update_begin(&bsysport_netstats->syncp);
->                  ring->bytes += cb->skb->len;
-> +               u64_stats_update_end(&bsysport_netstats->syncp);
->                  *bytes_compl += cb->skb->len;
->                  dma_unmap_single(kdev, dma_unmap_addr(cb, dma_addr),
->                                   dma_unmap_len(cb, dma_len),
->                                   DMA_TO_DEVICE);
-> +               u64_stats_update_begin(&bsysport_netstats->syncp);
->                  ring->packets++;
-> +               u64_stats_update_end(&bsysport_netstats->syncp);
->                  (*pkts_compl)++;
->                  bcm_sysport_free_cb(cb);
->          /* SKB fragment */
->          } else if (dma_unmap_addr(cb, dma_addr)) {
-> +               u64_stats_update_begin(&bsysport_netstats->syncp);
->                  ring->bytes += dma_unmap_len(cb, dma_len);
-> +               u64_stats_update_end(&bsysport_netstats->syncp);
->                  dma_unmap_page(kdev, dma_unmap_addr(cb, dma_addr),
->                                 dma_unmap_len(cb, dma_len), DMA_TO_DEVICE);
->                  dma_unmap_addr_set(cb, dma_addr, 0);
-> @@ -1671,23 +1681,6 @@ static int bcm_sysport_change_mac(struct
-> net_device *dev, void *p)
->          return 0;
->  }
->
-> -static struct net_device_stats *bcm_sysport_get_nstats(struct net_device *dev)
-> -{
-> -       struct bcm_sysport_priv *priv = netdev_priv(dev);
-> -       unsigned long tx_bytes = 0, tx_packets = 0;
-> -       struct bcm_sysport_tx_ring *ring;
-> -       unsigned int q;
-> -
-> -       for (q = 0; q < dev->num_tx_queues; q++) {
-> -               ring = &priv->tx_rings[q];
-> -               tx_bytes += ring->bytes;
-> -               tx_packets += ring->packets;
-> -       }
-> -
-> -       dev->stats.tx_bytes = tx_bytes;
-> -       dev->stats.tx_packets = tx_packets;
-> -       return &dev->stats;
-> -}
->
->  static void bcm_sysport_netif_start(struct net_device *dev)
->  {
-> @@ -1923,6 +1916,49 @@ static int bcm_sysport_stop(struct net_device *dev)
->          return 0;
->  }
->
-> +static int bcm_sysport_init(struct net_device *dev)
+> +#define nixge_ctrl_poll_timeout(priv, addr, val, cond, sleep_us, timeout_us) \
+> +	readl_poll_timeout((priv)->ctrl_regs + (addr), (val), cond, \
+> +			   (sleep_us), (timeout_us))
+
+Seems odd not having cond inside (), especially since cond could be a
+complex expression.
+
+> +static void nixge_handle_link_change(struct net_device *ndev)
 > +{
-> +       struct bcm_sysport_priv *priv = netdev_priv(dev);
+> +	struct nixge_priv *priv = netdev_priv(ndev);
+> +	struct phy_device *phydev = ndev->phydev;
+> +	unsigned long flags;
+> +	int status_change = 0;
 > +
-> +       priv->bsysport_netstats = kzalloc(sizeof(*priv->bsysport_netstats),
-> +                                         GFP_KERNEL);
-> +       if (!priv->bsysport_netstats)
-> +               return -ENOMEM;
+> +	spin_lock_irqsave(&priv->lock, flags);
 > +
-> +       return 0;
+> +	if (phydev->link != priv->link || phydev->speed != priv->speed ||
+> +	    phydev->duplex != priv->duplex) {
+> +		priv->link = phydev->link;
+> +		priv->speed = phydev->speed;
+> +		priv->duplex = phydev->duplex;
+> +		status_change = 1;
+> +	}
+> +
+> +	spin_unlock_irqrestore(&priv->lock, flags);
+> +
+> +	if (status_change)
+> +		phy_print_status(phydev);
+> +}
+
+As Florian pointed out, you don't make use of any of this
+information. So maybe don't bother, just have a return statement.
+
+> +static int nixge_stop(struct net_device *ndev)
+> +{
+> +	u32 cr;
+> +	struct nixge_priv *priv = netdev_priv(ndev);
+> +
+> +	cr = nixge_dma_read_reg(priv, XAXIDMA_RX_CR_OFFSET);
+> +	nixge_dma_write_reg(priv, XAXIDMA_RX_CR_OFFSET,
+> +			    cr & (~XAXIDMA_CR_RUNSTOP_MASK));
+> +	cr = nixge_dma_read_reg(priv, XAXIDMA_TX_CR_OFFSET);
+> +	nixge_dma_write_reg(priv, XAXIDMA_TX_CR_OFFSET,
+> +			    cr & (~XAXIDMA_CR_RUNSTOP_MASK));
+> +
+> +	tasklet_kill(&priv->dma_err_tasklet);
+> +
+> +	free_irq(priv->tx_irq, ndev);
+> +	free_irq(priv->rx_irq, ndev);
+> +
+> +	nixge_dma_bd_release(ndev);
+> +
+> +	if (ndev->phydev) {
+
+Do you need this condition? You bail out with ENODEV if of_phy_connect fails?
+
+> +		phy_stop(ndev->phydev);
+> +		phy_disconnect(ndev->phydev);
+> +	}
+> +
+> +	return 0;
 > +}
 > +
-> +static void bcm_sysport_get_stats64(struct net_device *dev,
-> +                                   struct rtnl_link_stats64 *stats)
+> +static int nixge_change_mtu(struct net_device *ndev, int new_mtu)
 > +{
-> +       struct bcm_sysport_priv *priv = netdev_priv(dev);
-> +       struct bcmsysport_netstats *bsysport_netstats = priv->bsysport_netstats;
-> +       struct bcm_sysport_tx_ring *ring;
-> +       unsigned int q;
-> +       u64 tx_packets = 0, tx_bytes = 0;
-> +       unsigned int start;
+> +	struct nixge_priv *priv = netdev_priv(ndev);
 > +
-> +       netdev_stats_to_stats64(stats, &dev->stats);
+> +	if (netif_running(ndev))
+> +		return -EBUSY;
 > +
-> +       for (q = 0; q < dev->num_tx_queues; q++) {
-> +               ring = &priv->tx_rings[q];
-> +               do {
-> +                       start =
-> u64_stats_fetch_begin_irq(&bsysport_netstats->syncp);
-> +                       tx_bytes += ring->bytes;
-> +                       tx_packets += ring->packets;
-> +               } while
-> (u64_stats_fetch_retry_irq(&bsysport_netstats->syncp, start));
-> +       }
+> +	if ((new_mtu + VLAN_ETH_HLEN +
+> +		NIXGE_TRL_SIZE) > priv->rxmem)
+> +		return -EINVAL;
 > +
-> +       stats->tx_packets = tx_packets;
-> +       stats->tx_bytes = tx_bytes;
+> +	ndev->mtu = new_mtu;
 > +
-> +       do {
-> +               start = u64_stats_fetch_begin_irq(&bsysport_netstats->syncp);
-> +               stats->rx_packets = bsysport_netstats->rx_packets;
-> +               stats->rx_bytes = bsysport_netstats->rx_bytes;
-> +       } while (u64_stats_fetch_retry_irq(&bsysport_netstats->syncp, start));
+> +	return 0;
 > +}
 > +
->  static const struct ethtool_ops bcm_sysport_ethtool_ops = {
->          .get_drvinfo            = bcm_sysport_get_drvinfo,
->          .get_msglevel           = bcm_sysport_get_msglvl,
-> @@ -1942,6 +1978,7 @@ static int bcm_sysport_stop(struct net_device *dev)
->  static const struct net_device_ops bcm_sysport_netdev_ops = {
->          .ndo_start_xmit         = bcm_sysport_xmit,
->          .ndo_tx_timeout         = bcm_sysport_tx_timeout,
-> +       .ndo_init               = bcm_sysport_init,
->          .ndo_open               = bcm_sysport_open,
->          .ndo_stop               = bcm_sysport_stop,
->          .ndo_set_features       = bcm_sysport_set_features,
-> @@ -1950,7 +1987,7 @@ static int bcm_sysport_stop(struct net_device *dev)
->  #ifdef CONFIG_NET_POLL_CONTROLLER
->          .ndo_poll_controller    = bcm_sysport_poll_controller,
->  #endif
-> -       .ndo_get_stats          = bcm_sysport_get_nstats,
-> +       .ndo_get_stats64        = bcm_sysport_get_stats64,
->  };
->
->  #define REV_FMT "v%2x.%02x"
-> @@ -2126,10 +2163,12 @@ static int bcm_sysport_remove(struct
-> platform_device *pdev)
->  {
->          struct net_device *dev = dev_get_drvdata(&pdev->dev);
->          struct device_node *dn = pdev->dev.of_node;
-> -
-> +       struct bcm_sysport_priv *priv = netdev_priv(dev);
->          /* Not much to do, ndo_close has been called
->           * and we use managed allocations
->           */
-> +       kfree(priv->bsysport_netstats);
-> +       priv->bsysport_netstats = NULL;
->          unregister_netdev(dev);
->          if (of_phy_is_fixed_link(dn))
->                  of_phy_deregister_fixed_link(dn);
-> diff --git a/drivers/net/ethernet/broadcom/bcmsysport.h
-> b/drivers/net/ethernet/broadcom/bcmsysport.h
-> index 77a51c1..29a7442 100644
-> --- a/drivers/net/ethernet/broadcom/bcmsysport.h
-> +++ b/drivers/net/ethernet/broadcom/bcmsysport.h
-> @@ -697,6 +697,12 @@ struct bcm_sysport_tx_ring {
->          unsigned long   bytes;          /* bytes statistics */
->  };
->
-> +struct bcmsysport_netstats {
-> +       u64     rx_packets;
-> +       u64     rx_bytes;
-> +       struct u64_stats_sync   syncp;
-> +};
+> +static s32 __nixge_hw_set_mac_address(struct net_device *ndev)
+> +{
+> +	struct nixge_priv *priv = netdev_priv(ndev);
 > +
->  /* Driver private structure */
->  struct bcm_sysport_priv {
->          void __iomem            *base;
-> @@ -743,5 +749,7 @@ struct bcm_sysport_priv {
->
->          /* Ethtool */
->          u32                     msg_enable;
-> +       /* 64bit stats on 32bit Machine */
-> +       struct bcmsysport_netstats *bsysport_netstats;
->  };
->  #endif /* __BCM_SYSPORT_H */
+> +	nixge_ctrl_write_reg(priv, NIXGE_REG_MAC_LSB,
+> +			     (ndev->dev_addr[2]) << 24 |
+> +			     (ndev->dev_addr[3] << 16) |
+> +			     (ndev->dev_addr[4] << 8) |
+> +			     (ndev->dev_addr[5] << 0));
+> +
+> +	nixge_ctrl_write_reg(priv, NIXGE_REG_MAC_MSB,
+> +			     (ndev->dev_addr[1] | (ndev->dev_addr[0] << 8)));
+> +
+> +	return 0;
+> +}
+> +
+> +static int nixge_net_set_mac_address(struct net_device *ndev, void *p)
+> +{
+> +	int err;
+> +
+> +	err = eth_mac_addr(ndev, p);
+> +	if (!err)
+> +		__nixge_hw_set_mac_address(ndev);
+> +
+> +	return err;
+> +}
+
+Much better, thanks.
+
+> +
+> +static int nixge_mdio_write(struct mii_bus *bus, int phy_id, int reg, u16 val)
+> +{
+> +	struct nixge_priv *priv = bus->priv;
+> +	u32 status, tmp;
+> +	int err;
+> +	u16 device;
+> +
+> +	/* FIXME: Currently don't do writes */
+> +	if (reg & MII_ADDR_C45)
+> +		return -EOPNOTSUPP;
+> +
+> +	device = reg & 0x1f;
+> +
+> +	tmp = NIXGE_MDIO_CLAUSE22 | NIXGE_MDIO_OP(MDIO_C22_WRITE) |
+> +		NIXGE_MDIO_ADDR(phy_id) | NIXGE_MDIO_MMD(device);
+> +
+> +	nixge_ctrl_write_reg(priv, NIXGE_REG_MDIO_DATA, val);
+> +	nixge_ctrl_write_reg(priv, NIXGE_REG_MDIO_OP, tmp);
+> +	nixge_ctrl_write_reg(priv, NIXGE_REG_MDIO_CTRL, 1);
+> +
+> +	err = nixge_ctrl_poll_timeout(priv, NIXGE_REG_MDIO_CTRL, status,
+> +				      !status, 10, 1000);
+> +	if (err) {
+> +		dev_err(priv->dev, "timeout setting write command");
+> +		return -ETIMEDOUT;
+
+return err;
+
+> +	}
+> +
+> +	dev_dbg(priv->dev, "%x %x <- %x\n", phy_id, reg, val);
+> +
+> +	return 0;
+> +}
+> +
+> +static int nixge_mdio_setup(struct nixge_priv *priv, struct device_node *np)
+> +{
+> +	struct mii_bus *bus;
+> +	struct resource res;
+> +	int err;
+> +
+> +	bus = mdiobus_alloc();
+> +	if (!bus)
+> +		return -ENOMEM;
+> +
+> +	of_address_to_resource(np, 0, &res);
+
+This can fail.
+
+Err, why are you actually doing it anyway? You don't make use of res,
+you don't ioremap() it, etc.
+
+> +	snprintf(bus->id, MII_BUS_ID_SIZE, "%s-mii", dev_name(priv->dev));
+> +	bus->priv = priv;
+> +	bus->name = "nixge_mii_bus";
+> +	bus->read = nixge_mdio_read;
+> +	bus->write = nixge_mdio_write;
+> +	bus->parent = priv->dev;
+> +
+> +	priv->mii_bus = bus;
+> +	err = of_mdiobus_register(bus, np);
+> +	if (err)
+> +		goto err_register;
+> +
+> +	dev_info(priv->dev, "MDIO bus registered\n");
+> +
+> +	return 0;
+> +
+> +err_register:
+> +	mdiobus_free(bus);
+> +	return err;
+> +}
+> +
+
+> +static int nixge_probe(struct platform_device *pdev)
+> +{
+> +	int err;
+> +	struct nixge_priv *priv;
+> +	struct net_device *ndev;
+> +	struct resource *dmares;
+> +	const char *mac_addr;
+> +
+> +	ndev = alloc_etherdev(sizeof(*priv));
+> +	if (!ndev)
+> +		return -ENOMEM;
+> +
+> +	platform_set_drvdata(pdev, ndev);
+> +	SET_NETDEV_DEV(ndev, &pdev->dev);
+> +
+> +	ndev->flags &= ~IFF_MULTICAST;  /* clear multicast */
+
+Could you explain this a bit better please. Does this imply that IPv6
+neighbour discovery is not supported? That is a severe restriction.
+
+
+> +static int nixge_remove(struct platform_device *pdev)
+> +{
+> +	struct net_device *ndev = platform_get_drvdata(pdev);
+> +	struct nixge_priv *priv = netdev_priv(ndev);
+> +
+> +	if (ndev->phydev)
+> +		phy_disconnect(ndev->phydev);
+
+nixge_stop() disconnects the phy. I don't think you need it twice.
+
+> +	ndev->phydev = NULL;
+> +
+> +	mdiobus_unregister(priv->mii_bus);
+> +	mdiobus_free(priv->mii_bus);
+> +	priv->mii_bus = NULL;
+> +
+> +	unregister_netdev(ndev);
+> +
+> +	free_netdev(ndev);
+> +
+> +	return 0;
+
+  Andrew
