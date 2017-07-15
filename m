@@ -1,34 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ioc3-eth: store pointer to net_device for priviate area
-Date: Sat, 15 Jul 2017 14:30:20 -0700 (PDT)
-Message-ID: <20170715.143020.159307310638213706.davem@davemloft.net>
-References: <20170710120032.11173-1-Jason@zx2c4.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCHv2 1/1] mlx4_en: remove unnecessary returned value check
+Date: Sat, 15 Jul 2017 14:30:58 -0700 (PDT)
+Message-ID: <20170715.143058.1870786127685133239.davem@davemloft.net>
+References: <1500001287-31317-1-git-send-email-yanjun.zhu@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, linux-mips@linux-mips.org,
-        netdev@vger.kernel.org
-To: Jason@zx2c4.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54442 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751184AbdGOVaV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 15 Jul 2017 17:30:21 -0400
-In-Reply-To: <20170710120032.11173-1-Jason@zx2c4.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+To: yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1500001287-31317-1-git-send-email-yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Date: Mon, 10 Jul 2017 14:00:32 +0200
+From: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Date: Thu, 13 Jul 2017 23:01:27 -0400
 
-> Computing the alignment manually for going from priv to pub is probably
-> not such a good idea, and in general the assumption that going from priv
-> to pub is possible trivially could change, so rather than relying on
-> that, we change things to just store a pointer to pub. This was sugested
-> by DaveM in [1].
+> The function __mlx4_zone_remove_one_entry always returns zero. So
+> it is not necessary to check it.
 > 
-> [1] http://www.spinics.net/lists/netdev/msg443992.html
-> 
-> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+> Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Cc: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Reviewed-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> ---
+> Change from v1 to v2:
+>  Initialization is moved to variable declaration.
 
 Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
