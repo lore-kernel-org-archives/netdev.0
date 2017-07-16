@@ -1,7 +1,7 @@
 From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [PATCH 12/12] atm: idt77252: constify pci_device_id.
-Date: Sun, 16 Jul 2017 15:02:40 +0530
-Message-ID: <1500197560-14623-13-git-send-email-arvind.yadav.cs@gmail.com>
+Subject: [PATCH 11/12] atm: eni: constify pci_device_id.
+Date: Sun, 16 Jul 2017 15:02:39 +0530
+Message-ID: <1500197560-14623-12-git-send-email-arvind.yadav.cs@gmail.com>
 References: <1500197560-14623-1-git-send-email-arvind.yadav.cs@gmail.com>
 To: 3chas3@gmail.com, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org,
@@ -17,29 +17,29 @@ const pci_device_id. So mark the non-const structs as const.
 
 File size before:
    text	   data	    bss	    dec	    hex	filename
-  27702	    468	     16	  28186	   6e1a	drivers/atm/idt77252.o
+  21565	    352	     56	  21973	   55d5	drivers/atm/eni.o
 
 File size After adding 'const':
    text	   data	    bss	    dec	    hex	filename
-  27766	    404	     16	  28186	   6e1a	drivers/atm/idt77252.o
+  21661	    256	     56	  21973	   55d5	drivers/atm/eni.o
 
 Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
 ---
- drivers/atm/idt77252.c | 2 +-
+ drivers/atm/eni.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/atm/idt77252.c b/drivers/atm/idt77252.c
-index 60bacba..b7a168c 100644
---- a/drivers/atm/idt77252.c
-+++ b/drivers/atm/idt77252.c
-@@ -3725,7 +3725,7 @@ static int idt77252_init_one(struct pci_dev *pcidev,
- 	return err;
+diff --git a/drivers/atm/eni.c b/drivers/atm/eni.c
+index b042ec4..ce47eb1 100644
+--- a/drivers/atm/eni.c
++++ b/drivers/atm/eni.c
+@@ -2292,7 +2292,7 @@ static int eni_init_one(struct pci_dev *pci_dev,
  }
  
--static struct pci_device_id idt77252_pci_tbl[] =
-+static const struct pci_device_id idt77252_pci_tbl[] =
- {
- 	{ PCI_VDEVICE(IDT, PCI_DEVICE_ID_IDT_IDT77252), 0 },
+ 
+-static struct pci_device_id eni_pci_tbl[] = {
++static const struct pci_device_id eni_pci_tbl[] = {
+ 	{ PCI_VDEVICE(EF, PCI_DEVICE_ID_EF_ATM_FPGA), 0 /* FPGA */ },
+ 	{ PCI_VDEVICE(EF, PCI_DEVICE_ID_EF_ATM_ASIC), 1 /* ASIC */ },
  	{ 0, }
 -- 
 2.7.4
