@@ -1,77 +1,45 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [RFC PATCH 00/12] Implement XDP bpf_redirect vairants
-Date: Sun, 16 Jul 2017 10:23:08 +0200
-Message-ID: <20170716102308.163b9f91@redhat.com>
-References: <20170707172115.9984.53461.stgit@john-Precision-Tower-5810>
-        <595FC974.9030807@gmail.com>
-        <20170708.104618.2149883426031901592.davem@davemloft.net>
-        <20170708210617.249059b9@redhat.com>
-        <20170711173658.6188b0a2@redhat.com>
-        <59650F6D.4070202@gmail.com>
-        <20170711200136.46ab5687@redhat.com>
-        <20170711204405.2f6b033c@redhat.com>
-        <59651F55.9050203@gmail.com>
-        <20170711211942.08fdd2f9@redhat.com>
-        <596528E6.2080707@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        andy@greyhouse.net, daniel@iogearbox.net, ast@fb.com,
-        alexander.duyck@gmail.com, bjorn.topel@intel.com,
-        jakub.kicinski@netronome.com, ecree@solarflare.com,
-        sgoutham@cavium.com, Yuval.Mintz@cavium.com, saeedm@mellanox.com,
-        Andi Kleen <andi@firstfloor.org>, jesse.brandeburg@intel.com,
-        brouer@redhat.com
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38590 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750934AbdGPIXS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 16 Jul 2017 04:23:18 -0400
-In-Reply-To: <596528E6.2080707@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Subject: [PATCH 00/12] constify atm pci_device_id.
+Date: Sun, 16 Jul 2017 15:02:28 +0530
+Message-ID: <1500197560-14623-1-git-send-email-arvind.yadav.cs@gmail.com>
+To: 3chas3@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        linux-atm-general@lists.sourceforge.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+pci_device_id are not supposed to change at runtime. All functions
+working with pci_device_id provided by <linux/pci.h> work with
+const pci_device_id. So mark the non-const structs as const.
 
-On Tue, 11 Jul 2017 12:37:10 -0700 John Fastabend <john.fastabend@gmail.com> wrote:
+Arvind Yadav (12):
+  [PATCH 01/12] atm: iphase: constify pci_device_id.
+  [PATCH 02/12] atm: ambassador: constify pci_device_id.
+  [PATCH 03/12] atm: fore200e: constify pci_device_id.
+  [PATCH 04/12] atm: nicstar: constify pci_device_id.
+  [PATCH 05/12] atm: he: constify pci_device_id.
+  [PATCH 06/12] atm: horizon: constify pci_device_id.
+  [PATCH 07/12] atm: solos-pci: constify pci_device_id.
+  [PATCH 08/12] atm: lanai: constify pci_device_id.
+  [PATCH 09/12] atm: zatm: constify pci_device_id.
+  [PATCH 10/12] atm: firestream: constify pci_device_id.
+  [PATCH 11/12] atm: eni: constify pci_device_id.
+  [PATCH 12/12] atm: idt77252: constify pci_device_id.
 
-> > I have a really strange observation... if I change the CPU powersave
-> > settings, then the xdp_redirect_map performance drops in half!  Above
-> > was with "tuned-adm profile powersave" (because, this is a really noisy
-> > server, and I'm sitting next to it).  I can see that the CPU under-load
-> > goes into "turbomode", rest going into low-power, including the
-> > Hyper-thread siblings.
-> > 
-> > If I change the profile to: # tuned-adm profile network-latency
-> > 
-> > ifindex 6:   12964879 pkt/s
-> > ifindex 6:   12964683 pkt/s
-> > ifindex 6:   12961497 pkt/s
-> > ifindex 6:   11779966 pkt/s <-- change to tuned-adm profile network-latency
-> > ifindex 6:    6853959 pkt/s
-> > ifindex 6:    6851120 pkt/s
-> > ifindex 6:    6856934 pkt/s
-> > ifindex 6:    6857344 pkt/s
-> > ifindex 6:    6857161 pkt/s
-> > 
-> > The CPU efficiency goes from 2.35 to 1.24 insn per cycle.
-> > 
-> > John do you know some Intel people that could help me understand what
-> > is going on?!? This is very strange...
-> > 
-> > I tried Andi's toplev tool, which AFAIK indicate that this is a
-> > Frontend problem, e.g. in decoding the instructions?!?
-> >   
-> 
-> hmm maybe Jesse or Alex have some clues. Adding them to the CC list.
-
-This seems related to Hyper-Threading.  I tried to disable
-hyperthreading in the BIOS, and the problem goes away.  That is, the
-benchmarks are no-longer affected by the CPU tuned-adm profile.
+ drivers/atm/ambassador.c | 2 +-
+ drivers/atm/eni.c        | 2 +-
+ drivers/atm/firestream.c | 2 +-
+ drivers/atm/fore200e.c   | 2 +-
+ drivers/atm/he.c         | 2 +-
+ drivers/atm/horizon.c    | 2 +-
+ drivers/atm/idt77252.c   | 2 +-
+ drivers/atm/iphase.c     | 2 +-
+ drivers/atm/lanai.c      | 2 +-
+ drivers/atm/nicstar.c    | 2 +-
+ drivers/atm/solos-pci.c  | 2 +-
+ drivers/atm/zatm.c       | 2 +-
+ 12 files changed, 12 insertions(+), 12 deletions(-)
 
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+2.7.4
