@@ -1,81 +1,77 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: Re: IGMP snooping, switchdev and local multicast receiver on br
- interface
-Date: Sun, 16 Jul 2017 11:17:54 +0300
-Message-ID: <8a4c1da0-e009-fddd-c5a3-b5e2858c577f@mellanox.com>
-References: <20170714144949.GG21743@lunn.ch>
- <878tjr2fyp.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC PATCH 00/12] Implement XDP bpf_redirect vairants
+Date: Sun, 16 Jul 2017 10:23:08 +0200
+Message-ID: <20170716102308.163b9f91@redhat.com>
+References: <20170707172115.9984.53461.stgit@john-Precision-Tower-5810>
+        <595FC974.9030807@gmail.com>
+        <20170708.104618.2149883426031901592.davem@davemloft.net>
+        <20170708210617.249059b9@redhat.com>
+        <20170711173658.6188b0a2@redhat.com>
+        <59650F6D.4070202@gmail.com>
+        <20170711200136.46ab5687@redhat.com>
+        <20170711204405.2f6b033c@redhat.com>
+        <59651F55.9050203@gmail.com>
+        <20170711211942.08fdd2f9@redhat.com>
+        <596528E6.2080707@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Andrew Lunn <andrew@lunn.ch>, Elad Raz <eladr@mellanox.com>,
-        Ido Schimmel <idosch@mellanox.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        andy@greyhouse.net, daniel@iogearbox.net, ast@fb.com,
+        alexander.duyck@gmail.com, bjorn.topel@intel.com,
+        jakub.kicinski@netronome.com, ecree@solarflare.com,
+        sgoutham@cavium.com, Yuval.Mintz@cavium.com, saeedm@mellanox.com,
+        Andi Kleen <andi@firstfloor.org>, jesse.brandeburg@intel.com,
+        brouer@redhat.com
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr20046.outbound.protection.outlook.com ([40.107.2.46]:13760
-        "EHLO EUR02-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751010AbdGPISB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 16 Jul 2017 04:18:01 -0400
-In-Reply-To: <878tjr2fyp.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:38590 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750934AbdGPIXS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 16 Jul 2017 04:23:18 -0400
+In-Reply-To: <596528E6.2080707@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/14/2017 06:30 PM, Vivien Didelot wrote:
-> Hi All,
->
-> Andrew Lunn <andrew@lunn.ch> writes:
->
->> I've been testing IGMP snooping support with DSA, putting MDB entries
->> into the switch so that traffic only goes out ports where there has
->> been an interest indicated via IGMP. It mostly works, but i've come
->> across one use case which does not.
->>
->> I have a multicast listener running on the host, performing a
->> setsockopt(IP_ADD_MEMBERSHIP) on the bridge interface. It is not an
->> unreasonable thing to want to do, e.g. a WiFi access point listening
->> to mDNS, or running other multicast protocols, a STB wanting to
->> receive a multicast video stream to display on the set, etc.
->>
->> I'm not seeing any switchdev operations when the IP_ADD_MEMBERSHIP is
->> called. So there is no indication that the switch should add an MDB
->> entry to forward traffic to the host.
->>
->> Im i missing something, or is this not implemented?
 
-You are not missing, we did not add that support yet. Currently the hardware MDB
-does not get updated with mcast_routers. The flood tables does get updated
-though.
+On Tue, 11 Jul 2017 12:37:10 -0700 John Fastabend <john.fastabend@gmail.com> wrote:
 
-> I follow Andrew's question with another multicast issue I'm having:
->
-> It seems like there is no way to add a multicast group via its MAC
-> address. All iproute2 and kernel bridge code assumes IP multicast
-> (0x0800 IPv4 and 0x86DD IPv6.)
->
-> But there are valid cases where you might want to add an L2 multicast
-> group on a specific VLAN ID, e.g. for 0x88F7 PTP, 0x88BA Multicast
-> sampled values, one of the 802.1D reserved 01-80-C2-* addresses, or any
-> proprietary protocol addresses.
->
-> There is the ip-maddress VLAN-unaware tool using RTM_NEWADDR which isn't
-> bound to switchdev, or bridge-mdb which only accepts a IPv4 or IPv6 grp.
->
-> I tried to hack a PoC in iproute2 (http://ix.io/yuJ) but the kernel
-> counterpart is not trivial at all. *br_mdb_entry only play with br_ip...
->
-> Any thoughts on this?
+> > I have a really strange observation... if I change the CPU powersave
+> > settings, then the xdp_redirect_map performance drops in half!  Above
+> > was with "tuned-adm profile powersave" (because, this is a really noisy
+> > server, and I'm sitting next to it).  I can see that the CPU under-load
+> > goes into "turbomode", rest going into low-power, including the
+> > Hyper-thread siblings.
+> > 
+> > If I change the profile to: # tuned-adm profile network-latency
+> > 
+> > ifindex 6:   12964879 pkt/s
+> > ifindex 6:   12964683 pkt/s
+> > ifindex 6:   12961497 pkt/s
+> > ifindex 6:   11779966 pkt/s <-- change to tuned-adm profile network-latency
+> > ifindex 6:    6853959 pkt/s
+> > ifindex 6:    6851120 pkt/s
+> > ifindex 6:    6856934 pkt/s
+> > ifindex 6:    6857344 pkt/s
+> > ifindex 6:    6857161 pkt/s
+> > 
+> > The CPU efficiency goes from 2.35 to 1.24 insn per cycle.
+> > 
+> > John do you know some Intel people that could help me understand what
+> > is going on?!? This is very strange...
+> > 
+> > I tried Andi's toplev tool, which AFAIK indicate that this is a
+> > Frontend problem, e.g. in decoding the instructions?!?
+> >   
+> 
+> hmm maybe Jesse or Alex have some clues. Adding them to the CC list.
 
-We did not have this usecase yet, but what you say make perfect sense :)
+This seems related to Hyper-Threading.  I tried to disable
+hyperthreading in the BIOS, and the problem goes away.  That is, the
+benchmarks are no-longer affected by the CPU tuned-adm profile.
 
-It is weird for me too that one can not configure MDB with MAC address.
-
->
-> Regards,
->
->         Vivien
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
