@@ -1,7 +1,7 @@
 From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [PATCH 09/12] atm: zatm: constify pci_device_id.
-Date: Sun, 16 Jul 2017 15:02:37 +0530
-Message-ID: <1500197560-14623-10-git-send-email-arvind.yadav.cs@gmail.com>
+Subject: [PATCH 07/12] atm: solos-pci: constify pci_device_id.
+Date: Sun, 16 Jul 2017 15:02:35 +0530
+Message-ID: <1500197560-14623-8-git-send-email-arvind.yadav.cs@gmail.com>
 References: <1500197560-14623-1-git-send-email-arvind.yadav.cs@gmail.com>
 To: 3chas3@gmail.com, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org,
@@ -17,29 +17,29 @@ const pci_device_id. So mark the non-const structs as const.
 
 File size before:
    text	   data	    bss	    dec	    hex	filename
-  14350	    352	     40	  14742	   3996	drivers/atm/zatm.o
+  16138	   4592	     24	  20754	   5112	drivers/atm/solos-pci.o
 
 File size After adding 'const':
    text	   data	    bss	    dec	    hex	filename
-  14446	    256	     40	  14742	   3996	drivers/atm/zatm.o
+  16218	   4528	     24	  20754	   5122	drivers/atm/solos-pci.o
 
 Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
 ---
- drivers/atm/zatm.c | 2 +-
+ drivers/atm/solos-pci.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/atm/zatm.c b/drivers/atm/zatm.c
-index 292dec1..d3aa748 100644
---- a/drivers/atm/zatm.c
-+++ b/drivers/atm/zatm.c
-@@ -1642,7 +1642,7 @@ static int zatm_init_one(struct pci_dev *pci_dev,
+diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
+index c8f2ca6..585984e 100644
+--- a/drivers/atm/solos-pci.c
++++ b/drivers/atm/solos-pci.c
+@@ -1476,7 +1476,7 @@ static void fpga_remove(struct pci_dev *dev)
+ 	kfree(card);
+ }
  
- MODULE_LICENSE("GPL");
- 
--static struct pci_device_id zatm_pci_tbl[] = {
-+static const struct pci_device_id zatm_pci_tbl[] = {
- 	{ PCI_VDEVICE(ZEITNET, PCI_DEVICE_ID_ZEITNET_1221), ZATM_COPPER },
- 	{ PCI_VDEVICE(ZEITNET, PCI_DEVICE_ID_ZEITNET_1225), 0 },
+-static struct pci_device_id fpga_pci_tbl[] = {
++static const struct pci_device_id fpga_pci_tbl[] = {
+ 	{ 0x10ee, 0x0300, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
  	{ 0, }
+ };
 -- 
 2.7.4
