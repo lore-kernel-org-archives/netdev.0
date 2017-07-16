@@ -1,45 +1,53 @@
-From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [PATCH 02/12] atm: ambassador: constify pci_device_id.
-Date: Sun, 16 Jul 2017 15:02:30 +0530
-Message-ID: <1500197560-14623-3-git-send-email-arvind.yadav.cs@gmail.com>
-References: <1500197560-14623-1-git-send-email-arvind.yadav.cs@gmail.com>
-To: 3chas3@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        linux-atm-general@lists.sourceforge.net
+From: Gabriel C <nix.or.die@gmail.com>
+Subject: ath10k_htt_rx_amsdu_allowed() noise
+Date: Mon, 17 Jul 2017 00:56:48 +0200
+Message-ID: <edbe270b-ba70-b844-f814-53d04d07d253@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: ath10k@lists.infradead.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1500197560-14623-1-git-send-email-arvind.yadav.cs@gmail.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-pci_device_id are not supposed to change at runtime. All functions
-working with pci_device_id provided by <linux/pci.h> work with
-const pci_device_id. So mark the non-const structs as const.
+Hello,
 
-File size before:
-   text	   data	    bss	    dec	    hex	filename
-  13372	    408	      4	  13784	   35d8	drivers/atm/ambassador.o
+each time I disconnect my card from AP my dmesg gets flooded like this :
 
-File size After adding 'const':
-   text	   data	    bss	    dec	    hex	filename
-  13484	    296	      4	  13784	   35d8	drivers/atm/ambassador.o
+...
+ath10k_pci 0000:03:00.0: no channel configured; ignoring frame(s)!
+<until ratelimit kicks in>
+ath10k_warn: 155 callbacks suppressed
+<and so on>
 
-Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Can ath10k_warn() be ath10k_dbg() there ? Maybe this ?
+
+
+ From d4138d936635ca7b69ed7f7b0cda4914f0f07917 Mon Sep 17 00:00:00 2001
+From: Gabriel Craciunescu <nix.or.die@gmail.com>
+Date: Mon, 17 Jul 2017 00:45:29 +0200
+Subject: [PATCH] ath10k_htt_rx_amsdu_allowed(): change ath10k_warn() to th10k_dbg()
+
+Signed-off-by: Gabriel Craciunescu <nix.or.die@gmail.com>
 ---
- drivers/atm/ambassador.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+  drivers/net/wireless/ath/ath10k/htt_rx.c | 2 +-
+  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/atm/ambassador.c b/drivers/atm/ambassador.c
-index 906705e..acf16c3 100644
---- a/drivers/atm/ambassador.c
-+++ b/drivers/atm/ambassador.c
-@@ -2374,7 +2374,7 @@ MODULE_PARM_DESC(pci_lat, "PCI latency in bus cycles");
- 
- /********** module entry **********/
- 
--static struct pci_device_id amb_pci_tbl[] = {
-+static const struct pci_device_id amb_pci_tbl[] = {
- 	{ PCI_VDEVICE(MADGE, PCI_DEVICE_ID_MADGE_AMBASSADOR), 0 },
- 	{ PCI_VDEVICE(MADGE, PCI_DEVICE_ID_MADGE_AMBASSADOR_BAD), 0 },
- 	{ 0, }
+diff --git a/drivers/net/wireless/ath/ath10k/htt_rx.c b/drivers/net/wireless/ath/ath10k/htt_rx.c
+index 398dda978d6e..ad0306cd6ee1 100644
+--- a/drivers/net/wireless/ath/ath10k/htt_rx.c
++++ b/drivers/net/wireless/ath/ath10k/htt_rx.c
+@@ -1514,7 +1514,7 @@ static bool ath10k_htt_rx_amsdu_allowed(struct ath10k *ar,
+          */
+
+         if (!rx_status->freq) {
+-               ath10k_warn(ar, "no channel configured; ignoriframe(s)!\n");
++               ath10k_dbg(ar, ATH10K_DBG_HTT, "no channel configured, ignoring frame(s)!\n");
+                 return false;
+         }
+
 -- 
-2.7.4
+2.13.3
