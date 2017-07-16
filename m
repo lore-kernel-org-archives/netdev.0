@@ -1,29 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sunvnet: add support for IPv6 checksum
- offloads
-Date: Sun, 16 Jul 2017 16:36:27 -0700 (PDT)
-Message-ID: <20170716.163627.1466579407318984833.davem@davemloft.net>
-References: <1499385430-11659-1-git-send-email-shannon.nelson@oracle.com>
+Subject: Re: [PATCH net-next,1/1] tools: hv: ignore a NIC if it has been
+ configured
+Date: Sun, 16 Jul 2017 16:36:48 -0700 (PDT)
+Message-ID: <20170716.163648.2126356115393718878.davem@davemloft.net>
+References: <1500054440-11228-1-git-send-email-sixiao@microsoft.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sparclinux@vger.kernel.org
-To: shannon.nelson@oracle.com
-Return-path: <sparclinux-owner@vger.kernel.org>
-In-Reply-To: <1499385430-11659-1-git-send-email-shannon.nelson@oracle.com>
-Sender: sparclinux-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kys@microsoft.com, haiyangz@microsoft.com,
+        sthemmin@microsoft.com
+To: sixiao@microsoft.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44204 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751221AbdGPXgt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 16 Jul 2017 19:36:49 -0400
+In-Reply-To: <1500054440-11228-1-git-send-email-sixiao@microsoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@oracle.com>
-Date: Thu,  6 Jul 2017 16:57:10 -0700
+From: Simon Xiao <sixiao@microsoft.com>
+Date: Fri, 14 Jul 2017 10:47:20 -0700
 
-> The original code didn't handle non-IPv4 packets very well, so the
-> offload advertising had to be scaled back down to just IP.  Here we
-> add the bits needed to support TCP and UDP packets over IPv6 and
-> turn the offload advertising back on.
+> Let bondvf.sh ignore this NIC if it has been configured, to prevent
+> user configuration from being overwritten unexpectly.
 > 
-> Orabug: 26289579
-> 
-> Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
+> Signed-off-by: Simon Xiao <sixiao@microsoft.com>
 
 Applied.
