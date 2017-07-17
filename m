@@ -1,216 +1,151 @@
-From: kiki good <jqiaoulk@gmail.com>
-Subject: [PATCH] net: systemport: Support 64bit statistics
-Date: Mon, 17 Jul 2017 20:48:56 +0100
-Message-ID: <CACM3AaxXfTeVp5CHXqfmrid9gvBYydZeKjmUr4CB02vPYS4Sng@mail.gmail.com>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next 1/2] liquidio: Add support to pass meta information
+ to firmware
+Date: Mon, 17 Jul 2017 12:51:55 -0700
+Message-ID: <20170717195155.GA1211@felix-thinkpad.cavium.com>
+References: <20170717195046.GA1191@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        veerasenareddy.burru@cavium.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:33718 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751316AbdGQTs5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 15:48:57 -0400
-Received: by mail-io0-f195.google.com with SMTP id z62so433300ioi.0
-        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 12:48:57 -0700 (PDT)
+Received: from mail-by2nam03on0066.outbound.protection.outlook.com ([104.47.42.66]:59967
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751316AbdGQTtn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 17 Jul 2017 15:49:43 -0400
+Content-Disposition: inline
+In-Reply-To: <20170717195046.GA1191@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian:
+From: VSR Burru <veerasenareddy.burru@cavium.com>
 
-I have created new patch based on you suggestion.
+The LiquidIO adapter has processor cores that can run Linux. This patch
+adds the support for passing meta information to LiquidIO linux cores.
 
-BTW: When using ndo_get_stats64, ndo_get_stats won't be called,
-therefore, it is unnecessary to keep old bcm_sysport_get_stats64. The
-exact logic could be found in dev_get_stats() at net/core/dev.c.
-
-Why:
-When using Broadcom Systemport device in 32bit Platform, ifconfig can
-only report up to 4G tx,rx status, which will be wrapped to 0 when the
-number of incoming or outgoing packets exceeds 4G.
-The patch is used to add 64bit support for Broadcom Systemport device
-in 32bit Platform.
-
-Signed-off-by: Jianming Qiao <kiki-good@hotmail.com>
+Signed-off-by: VSR Burru <veerasenareddy.burru@cavium.com>
+Signed-off-by: Srinivasa Jampala <Srinivasa.Jampala@cavium.com>
+Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
+Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@cavium.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
 ---
- drivers/net/ethernet/broadcom/bcmsysport.c | 71 +++++++++++++++++++++---------
- drivers/net/ethernet/broadcom/bcmsysport.h |  9 +++-
- 2 files changed, 56 insertions(+), 24 deletions(-)
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    | 11 ++++++++-
+ .../net/ethernet/cavium/liquidio/liquidio_common.h | 17 +++++++++++++
+ .../net/ethernet/cavium/liquidio/octeon_console.c  | 28 ++++++++++++++++++----
+ 3 files changed, 51 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c
-b/drivers/net/ethernet/broadcom/bcmsysport.c
-index 5274501..5c17965 100644
---- a/drivers/net/ethernet/broadcom/bcmsysport.c
-+++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-@@ -662,6 +662,7 @@ static int bcm_sysport_alloc_rx_bufs(struct
-bcm_sysport_priv *priv)
- static unsigned int bcm_sysport_desc_rx(struct bcm_sysport_priv *priv,
-  unsigned int budget)
- {
-+ struct bcm_sysport_stats *stats64 = &priv->stats64;
-  struct net_device *ndev = priv->netdev;
-  unsigned int processed = 0, to_process;
-  struct bcm_sysport_cb *cb;
-@@ -765,6 +766,10 @@ static unsigned int bcm_sysport_desc_rx(struct
-bcm_sysport_priv *priv,
-  skb->protocol = eth_type_trans(skb, ndev);
-  ndev->stats.rx_packets++;
-  ndev->stats.rx_bytes += len;
-+ u64_stats_update_begin(&stats64->syncp);
-+ stats64->rx_packets++;
-+ stats64->rx_bytes += len;
-+ u64_stats_update_end(&stats64->syncp);
-
-  napi_gro_receive(&priv->napi, skb);
- next:
-@@ -784,24 +789,31 @@ static void bcm_sysport_tx_reclaim_one(struct
-bcm_sysport_tx_ring *ring,
-        unsigned int *pkts_compl)
- {
-  struct bcm_sysport_priv *priv = ring->priv;
-+ struct bcm_sysport_stats *stats64 = &priv->stats64;
-  struct device *kdev = &priv->pdev->dev;
-+ unsigned int len = 0;
-
-  if (cb->skb) {
-- ring->bytes += cb->skb->len;
-- *bytes_compl += cb->skb->len;
-+ len = cb->skb->len;
-+ *bytes_compl += len;
-  dma_unmap_single(kdev, dma_unmap_addr(cb, dma_addr),
-  dma_unmap_len(cb, dma_len),
-  DMA_TO_DEVICE);
-- ring->packets++;
-  (*pkts_compl)++;
-  bcm_sysport_free_cb(cb);
-  /* SKB fragment */
-  } else if (dma_unmap_addr(cb, dma_addr)) {
-- ring->bytes += dma_unmap_len(cb, dma_len);
-+ len =  dma_unmap_len(cb, dma_len);
-  dma_unmap_page(kdev, dma_unmap_addr(cb, dma_addr),
-        dma_unmap_len(cb, dma_len), DMA_TO_DEVICE);
-  dma_unmap_addr_set(cb, dma_addr, 0);
-  }
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index 51583ae..1508b18 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -3949,6 +3949,8 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
+ 	u32 resp_size, ctx_size, data_size;
+ 	u32 ifidx_or_pfnum;
+ 	struct lio_version *vdata;
++	union oct_nic_vf_info vf_info;
 +
-+ u64_stats_update_begin(&stats64->syncp);
-+ ring->bytes += len;
-+ if (cb->skb)
-+ ring->packets++;
-+ u64_stats_update_end(&stats64->syncp);
- }
-
- /* Reclaim queued SKBs for transmission completion, lockless version */
-@@ -1671,23 +1683,6 @@ static int bcm_sysport_change_mac(struct
-net_device *dev, void *p)
-  return 0;
- }
-
--static struct net_device_stats *bcm_sysport_get_nstats(struct net_device *dev)
--{
-- struct bcm_sysport_priv *priv = netdev_priv(dev);
-- unsigned long tx_bytes = 0, tx_packets = 0;
-- struct bcm_sysport_tx_ring *ring;
-- unsigned int q;
--
-- for (q = 0; q < dev->num_tx_queues; q++) {
-- ring = &priv->tx_rings[q];
-- tx_bytes += ring->bytes;
-- tx_packets += ring->packets;
-- }
--
-- dev->stats.tx_bytes = tx_bytes;
-- dev->stats.tx_packets = tx_packets;
-- return &dev->stats;
--}
-
- static void bcm_sysport_netif_start(struct net_device *dev)
- {
-@@ -1923,6 +1918,37 @@ static int bcm_sysport_stop(struct net_device *dev)
-  return 0;
- }
-
-+static void bcm_sysport_get_stats64(struct net_device *dev,
-+    struct rtnl_link_stats64 *stats)
-+{
-+ struct bcm_sysport_priv *priv = netdev_priv(dev);
-+ struct bcm_sysport_stats *stats64 = &priv->stats64;
-+ struct bcm_sysport_tx_ring *ring;
-+ u64 tx_packets = 0, tx_bytes = 0;
-+ unsigned int start;
-+ unsigned int q;
+ 
+ 	/* This is to handle link status changes */
+ 	octeon_register_dispatch_fn(octeon_dev, OPCODE_NIC,
+@@ -4017,9 +4019,16 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
+ 
+ 		sc->iq_no = 0;
+ 
++		/* Populate VF info for firmware */
++		vf_info.info = 0;
 +
-+ netdev_stats_to_stats64(stats, &dev->stats);
++		vf_info.s.bus_num = octeon_dev->pci_dev->bus->number;
++		vf_info.s.dev_fn = octeon_dev->pci_dev->devfn;
++		vf_info.s.max_vfs = octeon_dev->sriov_info.max_vfs;
 +
-+ for (q = 0; q < dev->num_tx_queues; q++) {
-+ ring = &priv->tx_rings[q];
-+ do {
-+ start = u64_stats_fetch_begin_irq(&stats64->syncp);
-+ tx_bytes += ring->bytes;
-+ tx_packets += ring->packets;
-+ } while (u64_stats_fetch_retry_irq(&stats64->syncp, start));
-+ }
+ 		octeon_prepare_soft_command(octeon_dev, sc, OPCODE_NIC,
+ 					    OPCODE_NIC_IF_CFG, 0,
+-					    if_cfg.u64, 0);
++					    if_cfg.u64, vf_info.info);
+ 
+ 		sc->callback = if_cfg_callback;
+ 		sc->callback_arg = sc;
+diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+index 231dd7f..fc59eda 100644
+--- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
++++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+@@ -894,4 +894,21 @@ union oct_nic_if_cfg {
+ 	} s;
+ };
+ 
++union oct_nic_vf_info {
++	u64 info;
++	struct {
++#ifdef __BIG_ENDIAN_BITFIELD
++		u64 max_vfs:32;
++		u64 bus_num:8;
++		u64 dev_fn:8;
++		u64 reserved:16;
++#else
++		u64 reserved:16;
++		u64 dev_fn:8;
++		u64 bus_num:8;
++		u64 max_vfs:32;
++#endif
++	} s;
++};
 +
-+ stats->tx_packets = tx_packets;
-+ stats->tx_bytes = tx_bytes;
-+
-+ do {
-+ start = u64_stats_fetch_begin_irq(&stats64->syncp);
-+ stats->rx_packets = stats64->rx_packets;
-+ stats->rx_bytes = stats64->rx_bytes;
-+ } while (u64_stats_fetch_retry_irq(&stats64->syncp, start));
-+}
-+
- static const struct ethtool_ops bcm_sysport_ethtool_ops = {
-  .get_drvinfo = bcm_sysport_get_drvinfo,
-  .get_msglevel = bcm_sysport_get_msglvl,
-@@ -1950,7 +1976,7 @@ static int bcm_sysport_stop(struct net_device *dev)
- #ifdef CONFIG_NET_POLL_CONTROLLER
-  .ndo_poll_controller = bcm_sysport_poll_controller,
  #endif
-- .ndo_get_stats = bcm_sysport_get_nstats,
-+ .ndo_get_stats64 = bcm_sysport_get_stats64,
- };
-
- #define REV_FMT "v%2x.%02x"
-@@ -2137,6 +2163,7 @@ static int bcm_sysport_remove(struct
-platform_device *pdev)
-  dev_set_drvdata(&pdev->dev, NULL);
-
-  return 0;
-+
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_console.c b/drivers/net/ethernet/cavium/liquidio/octeon_console.c
+index e08f760..a6b9551 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_console.c
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_console.c
+@@ -724,15 +724,19 @@ static int octeon_console_read(struct octeon_device *oct, u32 console_num,
  }
-
- #ifdef CONFIG_PM_SLEEP
-diff --git a/drivers/net/ethernet/broadcom/bcmsysport.h
-b/drivers/net/ethernet/broadcom/bcmsysport.h
-index 77a51c1..3480865 100644
---- a/drivers/net/ethernet/broadcom/bcmsysport.h
-+++ b/drivers/net/ethernet/broadcom/bcmsysport.h
-@@ -657,6 +657,9 @@ struct bcm_sysport_stats {
-  enum bcm_sysport_stat_type type;
-  /* reg offset from UMAC base for misc counters */
-  u16 reg_offset;
-+ u64     rx_packets;
-+ u64     rx_bytes;
-+ struct u64_stats_sync   syncp;
- };
-
- /* Software house keeping helper structure */
-@@ -693,8 +696,8 @@ struct bcm_sysport_tx_ring {
-  struct bcm_sysport_cb *cbs; /* Transmit control blocks */
-  struct dma_desc *desc_cpu; /* CPU view of the descriptor */
-  struct bcm_sysport_priv *priv; /* private context backpointer */
-- unsigned long packets; /* packets statistics */
-- unsigned long bytes; /* bytes statistics */
-+ u64 packets; /* packets statistics */
-+ u64 bytes;/* bytes statistics */
- };
-
- /* Driver private structure */
-@@ -743,5 +746,7 @@ struct bcm_sysport_priv {
-
-  /* Ethtool */
-  u32 msg_enable;
-+ /* 64bit stats on 32bit Machine */
-+ struct bcm_sysport_stats stats64;
- };
- #endif /* __BCM_SYSPORT_H */
+ 
+ #define FBUF_SIZE	(4 * 1024 * 1024)
++#define MAX_DATE_SIZE    30
+ 
+ int octeon_download_firmware(struct octeon_device *oct, const u8 *data,
+ 			     size_t size)
+ {
+-	int ret = 0;
++	struct octeon_firmware_file_header *h;
++	char date[MAX_DATE_SIZE];
++	struct timeval time;
+ 	u32 crc32_result;
++	struct tm tm_val;
+ 	u64 load_addr;
+ 	u32 image_len;
+-	struct octeon_firmware_file_header *h;
++	int ret = 0;
+ 	u32 i, rem;
+ 
+ 	if (size < sizeof(struct octeon_firmware_file_header)) {
+@@ -814,8 +818,24 @@ int octeon_download_firmware(struct octeon_device *oct, const u8 *data,
+ 	dev_info(&oct->pci_dev->dev, "Writing boot command: %s\n",
+ 		 h->bootcmd);
+ 
+-	/* Invoke the bootcmd */
++	/*Get time of the day*/
++	do_gettimeofday(&time);
++	time_to_tm(time.tv_sec, (-sys_tz.tz_minuteswest) * 60,  &tm_val);
++	ret = snprintf(date, MAX_DATE_SIZE,
++		       " date=%04ld.%02d.%02d-%02d:%02d:%02d",
++		       tm_val.tm_year + 1900, tm_val.tm_mon + 1, tm_val.tm_mday,
++		       tm_val.tm_hour, tm_val.tm_min, tm_val.tm_sec);
++	if ((sizeof(h->bootcmd) - strnlen(h->bootcmd, sizeof(h->bootcmd))) <
++		ret) {
++		dev_err(&oct->pci_dev->dev, "Boot command buffer too small\n");
++		return -EINVAL;
++	}
++	strncat(h->bootcmd, date,
++		sizeof(h->bootcmd) - strnlen(h->bootcmd, sizeof(h->bootcmd)));
++
+ 	ret = octeon_console_send_cmd(oct, h->bootcmd, 50);
++	if (ret)
++		dev_info(&oct->pci_dev->dev, "Boot command send failed\n");
+ 
+-	return 0;
++	return ret;
+ }
+-- 
+2.9.0
