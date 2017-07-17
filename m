@@ -1,38 +1,44 @@
-From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [PATCH 11/11] net: brcmfmac: constify pci_device_id.
-Date: Mon, 17 Jul 2017 23:46:42 +0530
-Message-ID: <1500315402-3439-1-git-send-email-arvind.yadav.cs@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-wireless@vger.kernel.org,
-        brcm80211-dev-list.pdl@broadcom.com, brcm80211-dev-list@cypress.com
-To: arend.vanspriel@broadcom.com, kvalo@codeaurora.org,
-        hante.meuleman@broadcom.com, franky.lin@broadcom.com,
-        wright.feng@cypress.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Rao Shoaib <rao.shoaib@oracle.com>
+Subject: What is the correct behavior ipv4/ipv6
+Date: Mon, 17 Jul 2017 11:28:02 -0700
+Message-ID: <f7aa79a4-81d9-5b6d-3a27-0d681e5619ae@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:32912 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751311AbdGQS2E (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 14:28:04 -0400
+Received: from userv0021.oracle.com (userv0021.oracle.com [156.151.31.71])
+        by userp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id v6HIS31l000335
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
+        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 18:28:03 GMT
+Received: from userv0121.oracle.com (userv0121.oracle.com [156.151.31.72])
+        by userv0021.oracle.com (8.14.4/8.14.4) with ESMTP id v6HIS3rq028355
+        (version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
+        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 18:28:03 GMT
+Received: from abhmp0016.oracle.com (abhmp0016.oracle.com [141.146.116.22])
+        by userv0121.oracle.com (8.14.4/8.13.8) with ESMTP id v6HIS39i015790
+        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 18:28:03 GMT
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-pci_device_id are not supposed to change at runtime. All functions
-working with pci_device_id provided by <linux/pci.h> work with
-const pci_device_id. So mark the non-const structs as const.
+I am looking at a system which is configured for IPv6 only but sits in a 
+network that serves both IPv4 and IPv6. When an IPv4 packet with a 
+destination  broadcast address is sent out (in this case DHCP) the 
+system accepts it and since it does not have any route to the sender it 
+prints the Martian message.
 
-Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
----
- drivers/net/wireless/broadcom/brcm80211/brcmfmac/pcie.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Sure, we can turn off the Martian message and maybe the system should be 
+in an IPv6 only network.
 
-diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/pcie.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/pcie.c
-index f878706..e6e9b00 100644
---- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/pcie.c
-+++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/pcie.c
-@@ -1951,7 +1951,7 @@ static const struct dev_pm_ops brcmf_pciedrvr_pm = {
- 	BRCM_PCIE_VENDOR_ID_BROADCOM, dev_id,\
- 	subvend, subdev, PCI_CLASS_NETWORK_OTHER << 8, 0xffff00, 0 }
- 
--static struct pci_device_id brcmf_pcie_devid_table[] = {
-+static const struct pci_device_id brcmf_pcie_devid_table[] = {
- 	BRCMF_PCIE_DEVICE(BRCM_PCIE_4350_DEVICE_ID),
- 	BRCMF_PCIE_DEVICE(BRCM_PCIE_4356_DEVICE_ID),
- 	BRCMF_PCIE_DEVICE(BRCM_PCIE_43567_DEVICE_ID),
--- 
-2.7.4
+The question that is being asked is that why is the system accepting an 
+IPv4 broadcast packet in the first place ?  Is this behavior incorrect 
+and should I submit a patch ?
+
+Thanks,
+
+Shoaib
