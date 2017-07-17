@@ -1,74 +1,45 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next resubmit] skbuff: optimize the pull_pages code
- in __pskb_pull_tail()
-Date: Mon, 17 Jul 2017 00:32:40 -0700
-Message-ID: <1500276760.5566.5.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1500258126-11235-1-git-send-email-xiaolou4617@gmail.com>
+Subject: Re: [PATCH] ipv6: initialize treq->txhash in cookie_v6_check()
+Date: Mon, 17 Jul 2017 00:39:05 -0700
+Message-ID: <1500277145.5566.7.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170714165453.112098-1-glider@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Lin Zhang <xiaolou4617@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:33764 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751257AbdGQHco (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 03:32:44 -0400
-Received: by mail-wr0-f194.google.com with SMTP id 40so1890708wrw.0
-        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 00:32:43 -0700 (PDT)
-In-Reply-To: <1500258126-11235-1-git-send-email-xiaolou4617@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dvyukov@google.com, kcc@google.com, edumazet@google.com,
+        davem@davemloft.net, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Alexander Potapenko <glider@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170714165453.112098-1-glider@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2017-07-17 at 10:22 +0800, Lin Zhang wrote:
-> In the pull_pages code block, if the first frag size > eat,
-> we can end the loop in advance to avoid extra copy.
+On Fri, 2017-07-14 at 18:54 +0200, Alexander Potapenko wrote:
+> KMSAN reported use of uninitialized memory in skb_set_hash_from_sk(),
+> which originated from the TCP request socket created in
+> cookie_v6_check():
+
+>  ==================================================================
 > 
-> Signed-off-by: Lin Zhang <xiaolou4617@gmail.com>
+> Signed-off-by: Alexander Potapenko <glider@google.com>
 > ---
->  net/core/skbuff.c | 4 ++++
->  1 file changed, 4 insertions(+)
+>  net/ipv6/syncookies.c | 1 +
+>  1 file changed, 1 insertion(+)
 > 
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index f990eb8..c00a1df 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -1720,6 +1720,10 @@ void *__pskb_pull_tail(struct sk_buff *skb, int delta)
->  				skb_shinfo(skb)->frags[k].page_offset += eat;
->  				skb_frag_size_sub(&skb_shinfo(skb)->frags[k], eat);
->  				eat = 0;
-> +				if (!i) {
-> +					k = skb_shinfo(skb)->nr_frags;
-> +					break;
-> +				}
->  			}
->  			k++;
->  		}
+> diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
+> index 7b75b0620730..b4b354502c6e 100644
+> --- a/net/ipv6/syncookies.c
+> +++ b/net/ipv6/syncookies.c
+> @@ -216,6 +216,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
+>  	treq->rcv_isn = ntohl(th->seq) - 1;
+>  	treq->snt_isn = cookie;
+>  	treq->ts_off = 0;
+> +	treq->txhash = 0;
+>  
+>  	/*
+>  	 * We need to lookup the dst_entry to get the correct window size.
 
--CC lkml  (no need to spam lkml for netdev patches )
+Please use net_tx_rndhash() instead of 0, thanks.
 
-Why even reading skb_shinfo(skb)->nr_frags to write it again ?
-
-I would use something like :
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 8b11341ed69ad97d34dd3e9b73c8c44ef7c452ff..a562b0e61afa3faf7abdd7f9209ae9096310fb7d 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -1719,13 +1719,15 @@ void *__pskb_pull_tail(struct sk_buff *skb, int delta)
- 			if (eat) {
- 				skb_shinfo(skb)->frags[k].page_offset += eat;
- 				skb_frag_size_sub(&skb_shinfo(skb)->frags[k], eat);
-+				if (!i)
-+					goto end;
- 				eat = 0;
- 			}
- 			k++;
- 		}
- 	}
- 	skb_shinfo(skb)->nr_frags = k;
--
-+end:
- 	skb->tail     += delta;
- 	skb->data_len -= delta;
- 
+( And same fix is needed for IPv4, as Neal mentioned already )
