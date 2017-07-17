@@ -1,54 +1,51 @@
-From: Ilya Dryomov <idryomov@gmail.com>
-Subject: Re: [PATCH] libceph: potential NULL dereference in ceph_msg_data_create()
-Date: Mon, 17 Jul 2017 15:17:34 +0200
-Message-ID: <CAOi1vP9ekX47XqJXmsc0CAEmgtLmqDXReUipL+GpAJpWnvufBQ@mail.gmail.com>
-References: <20170717081335.3hhaj2k2frpq7gfa@mwanda>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v2 1/4] dt-bindings: net: mediatek: add support
+ for MediaTek MT7623 and MT7622 SoC
+Date: Mon, 17 Jul 2017 15:38:11 +0200
+Message-ID: <20170717133811.GA30392@lunn.ch>
+References: <cover.1500285278.git.sean.wang@mediatek.com>
+ <d1e8daa3291f303bd581b89eae6e4003f2ee58a8.1500285278.git.sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Alex Elder <elder@inktank.com>, "Yan, Zheng" <zyan@redhat.com>,
-        Sage Weil <sage@redhat.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Ceph Development <ceph-devel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f194.google.com ([209.85.217.194]:33874 "EHLO
-        mail-ua0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751278AbdGQNRf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 09:17:35 -0400
-In-Reply-To: <20170717081335.3hhaj2k2frpq7gfa@mwanda>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: john@phrozen.org, davem@davemloft.net, nbd@openwrt.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-mediatek@lists.infradead.org
+To: sean.wang@mediatek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <d1e8daa3291f303bd581b89eae6e4003f2ee58a8.1500285278.git.sean.wang@mediatek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 17, 2017 at 10:13 AM, Dan Carpenter
-<dan.carpenter@oracle.com> wrote:
-> If kmem_cache_zalloc() returns NULL then the INIT_LIST_HEAD(&data->links);
-> will Oops.  The callers aren't really prepared for NULL returns so it
-> doesn't make a lot of difference in real life.
->
-> Fixes: 5240d9f95dfe ("libceph: replace message data pointer with list")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->
-> diff --git a/net/ceph/messenger.c b/net/ceph/messenger.c
-> index 0c31035bbfee..b7cc615d42ef 100644
-> --- a/net/ceph/messenger.c
-> +++ b/net/ceph/messenger.c
-> @@ -3203,8 +3203,10 @@ static struct ceph_msg_data *ceph_msg_data_create(enum ceph_msg_data_type type)
->                 return NULL;
->
->         data = kmem_cache_zalloc(ceph_msg_data_cache, GFP_NOFS);
-> -       if (data)
-> -               data->type = type;
-> +       if (!data)
-> +               return NULL;
-> +
-> +       data->type = type;
->         INIT_LIST_HEAD(&data->links);
->
->         return data;
+On Mon, Jul 17, 2017 at 06:06:22PM +0800, sean.wang@mediatek.com wrote:
+> From: Sean Wang <sean.wang@mediatek.com>
+> 
+> The patch adds the supplements in the dt-binding document for MediaTek
+> MT7622 SoC with extra SGMII system controller and relevant clock consumers
+> listed as the requirements for those SoCs equipped with the SGMII circuit.
+> Also, add the missing binding information for MT7623 SoC here which relies
+> on the fallback binding of MT2701.
+> 
+> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+> ---
+>  Documentation/devicetree/bindings/net/mediatek-net.txt | 12 +++++++++---
+>  1 file changed, 9 insertions(+), 3 deletions(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/mediatek-net.txt b/Documentation/devicetree/bindings/net/mediatek-net.txt
+> index c7194e8..1d1168b 100644
+> --- a/Documentation/devicetree/bindings/net/mediatek-net.txt
+> +++ b/Documentation/devicetree/bindings/net/mediatek-net.txt
+> @@ -7,24 +7,30 @@ have dual GMAC each represented by a child node..
+>  * Ethernet controller node
+>  
+>  Required properties:
+> -- compatible: Should be "mediatek,mt2701-eth"
+> +- compatible: Should be
+> +		"mediatek,mt2701-eth": for MT2701 SoC
+> +		"mediatek,mt7623-eth", "mediatek,mt2701-eth": for MT7623 SoC
 
-Applied.
+Hi Sean
 
-Thanks,
+We appear to have "mediatek,mt2701-eth" twice.
 
-                Ilya
+   Andrew
