@@ -1,284 +1,73 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH 12/12] xdp: bpf redirect with map sample program
-Date: Mon, 17 Jul 2017 09:30:25 -0700
-Message-ID: <20170717163025.24315.99418.stgit@john-Precision-Tower-5810>
-References: <20170717160759.24315.7464.stgit@john-Precision-Tower-5810>
+From: Moritz Fischer <mdf-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v2 1/2] dt-bindings: net: Add bindings for National
+ Instruments XGE netdev
+Date: Mon, 17 Jul 2017 09:45:59 -0700
+Message-ID: <20170717164559.GA8750@tyrael.ni.corp.natinst.com>
+References: <1500065326-26182-1-git-send-email-mdf@kernel.org>
+ <20170715183745.GA28217@lunn.ch>
+ <20170715184653.GA28599@tyrael.ni.corp.natinst.com>
+ <20170715194832.GB28217@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, ast@fb.com, netdev@vger.kernel.org,
-        john.fastabend@gmail.com, brouer@redhat.com, andy@greyhouse.net
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:35179 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751284AbdGQQak (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 12:30:40 -0400
-Received: by mail-pf0-f194.google.com with SMTP id q85so20102775pfq.2
-        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 09:30:40 -0700 (PDT)
-In-Reply-To: <20170717160759.24315.7464.stgit@john-Precision-Tower-5810>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="zhXaljGHf11kAtnf"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+        mark.rutland-5wv7dgnIgG8@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170715194832.GB28217-g2DYL2Zd6BY@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: John Fastabend <john.fastabend@gmail.com>
-Tested-by: Andy Gospodarek <andy@greyhouse.net>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
----
- samples/bpf/Makefile                      |    4 +
- samples/bpf/xdp_redirect_map_kern.c       |   83 +++++++++++++++++++++++
- samples/bpf/xdp_redirect_map_user.c       |  105 +++++++++++++++++++++++++++++
- tools/testing/selftests/bpf/bpf_helpers.h |    2 +
- 4 files changed, 194 insertions(+)
- create mode 100644 samples/bpf/xdp_redirect_map_kern.c
- create mode 100644 samples/bpf/xdp_redirect_map_user.c
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 97734ce..770d46c 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -38,6 +38,7 @@ hostprogs-y += test_map_in_map
- hostprogs-y += per_socket_stats_example
- hostprogs-y += load_sock_ops
- hostprogs-y += xdp_redirect
-+hostprogs-y += xdp_redirect_map
- 
- # Libbpf dependencies
- LIBBPF := ../../tools/lib/bpf/bpf.o
-@@ -80,6 +81,7 @@ xdp_tx_iptunnel-objs := bpf_load.o $(LIBBPF) xdp_tx_iptunnel_user.o
- test_map_in_map-objs := bpf_load.o $(LIBBPF) test_map_in_map_user.o
- per_socket_stats_example-objs := $(LIBBPF) cookie_uid_helper_example.o
- xdp_redirect-objs := bpf_load.o $(LIBBPF) xdp_redirect_user.o
-+xdp_redirect_map-objs := bpf_load.o $(LIBBPF) xdp_redirect_map_user.o
- 
- # Tell kbuild to always build the programs
- always := $(hostprogs-y)
-@@ -122,6 +124,7 @@ always += tcp_cong_kern.o
- always += tcp_iw_kern.o
- always += tcp_clamp_kern.o
- always += xdp_redirect_kern.o
-+always += xdp_redirect_map_kern.o
- 
- HOSTCFLAGS += -I$(objtree)/usr/include
- HOSTCFLAGS += -I$(srctree)/tools/lib/
-@@ -159,6 +162,7 @@ HOSTLOADLIBES_lwt_len_hist += -l elf
- HOSTLOADLIBES_xdp_tx_iptunnel += -lelf
- HOSTLOADLIBES_test_map_in_map += -lelf
- HOSTLOADLIBES_xdp_redirect += -lelf
-+HOSTLOADLIBES_xdp_redirect_map += -lelf
- 
- # Allows pointing LLC/CLANG to a LLVM backend with bpf support, redefine on cmdline:
- #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
-diff --git a/samples/bpf/xdp_redirect_map_kern.c b/samples/bpf/xdp_redirect_map_kern.c
-new file mode 100644
-index 0000000..2faf196
---- /dev/null
-+++ b/samples/bpf/xdp_redirect_map_kern.c
-@@ -0,0 +1,83 @@
-+/* Copyright (c) 2017 Covalent IO, Inc. http://covalent.io
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-+ * General Public License for more details.
-+ */
-+#define KBUILD_MODNAME "foo"
-+#include <uapi/linux/bpf.h>
-+#include <linux/in.h>
-+#include <linux/if_ether.h>
-+#include <linux/if_packet.h>
-+#include <linux/if_vlan.h>
-+#include <linux/ip.h>
-+#include <linux/ipv6.h>
-+#include "bpf_helpers.h"
-+
-+struct bpf_map_def SEC("maps") tx_port = {
-+	.type = BPF_MAP_TYPE_DEVMAP,
-+	.key_size = sizeof(int),
-+	.value_size = sizeof(int),
-+	.max_entries = 100,
-+};
-+
-+struct bpf_map_def SEC("maps") rxcnt = {
-+	.type = BPF_MAP_TYPE_PERCPU_ARRAY,
-+	.key_size = sizeof(u32),
-+	.value_size = sizeof(long),
-+	.max_entries = 1,
-+};
-+
-+
-+static void swap_src_dst_mac(void *data)
-+{
-+	unsigned short *p = data;
-+	unsigned short dst[3];
-+
-+	dst[0] = p[0];
-+	dst[1] = p[1];
-+	dst[2] = p[2];
-+	p[0] = p[3];
-+	p[1] = p[4];
-+	p[2] = p[5];
-+	p[3] = dst[0];
-+	p[4] = dst[1];
-+	p[5] = dst[2];
-+}
-+
-+SEC("xdp_redirect_map")
-+int xdp_redirect_map_prog(struct xdp_md *ctx)
-+{
-+	void *data_end = (void *)(long)ctx->data_end;
-+	void *data = (void *)(long)ctx->data;
-+	struct ethhdr *eth = data;
-+	int rc = XDP_DROP;
-+	int vport, port = 0, m = 0;
-+	long *value;
-+	u32 key = 0;
-+	u64 nh_off;
-+
-+	nh_off = sizeof(*eth);
-+	if (data + nh_off > data_end)
-+		return rc;
-+
-+	/* constant virtual port */
-+	vport = 0;
-+
-+	/* count packet in global counter */
-+	value = bpf_map_lookup_elem(&rxcnt, &key);
-+	if (value)
-+		*value += 1;
-+
-+	swap_src_dst_mac(data);
-+
-+	/* send packet out physical port */
-+	return bpf_redirect_map(&tx_port, vport, 0);
-+}
-+
-+char _license[] SEC("license") = "GPL";
-diff --git a/samples/bpf/xdp_redirect_map_user.c b/samples/bpf/xdp_redirect_map_user.c
-new file mode 100644
-index 0000000..0b8009a
---- /dev/null
-+++ b/samples/bpf/xdp_redirect_map_user.c
-@@ -0,0 +1,105 @@
-+/* Copyright (c) 2017 Covalent IO, Inc. http://covalent.io
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-+ * General Public License for more details.
-+ */
-+#include <linux/bpf.h>
-+#include <assert.h>
-+#include <errno.h>
-+#include <signal.h>
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <unistd.h>
-+
-+#include "bpf_load.h"
-+#include "bpf_util.h"
-+#include "libbpf.h"
-+
-+static int ifindex_in;
-+static int ifindex_out;
-+
-+static void int_exit(int sig)
-+{
-+	set_link_xdp_fd(ifindex_in, -1, 0);
-+	exit(0);
-+}
-+
-+/* simple per-protocol drop counter
-+ */
-+static void poll_stats(int interval, int ifindex)
-+{
-+	unsigned int nr_cpus = bpf_num_possible_cpus();
-+	__u64 values[nr_cpus], prev[nr_cpus];
-+
-+	memset(prev, 0, sizeof(prev));
-+
-+	while (1) {
-+		__u64 sum = 0;
-+		__u32 key = 0;
-+		int i;
-+
-+		sleep(interval);
-+		assert(bpf_map_lookup_elem(map_fd[1], &key, values) == 0);
-+		for (i = 0; i < nr_cpus; i++)
-+			sum += (values[i] - prev[i]);
-+		if (sum)
-+			printf("ifindex %i: %10llu pkt/s\n",
-+			       ifindex, sum / interval);
-+		memcpy(prev, values, sizeof(values));
-+	}
-+}
-+
-+int main(int ac, char **argv)
-+{
-+	char filename[256];
-+	int ret, key = 0;
-+
-+	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
-+
-+	if (ac != 3) {
-+		printf("usage: %s IFINDEX_IN IFINDEX_OUT\n", argv[0]);
-+		return 1;
-+	}
-+
-+	ifindex_in = strtoul(argv[1], NULL, 0);
-+	ifindex_out = strtoul(argv[2], NULL, 0);
-+
-+	if (load_bpf_file(filename)) {
-+		printf("%s", bpf_log_buf);
-+		return 1;
-+	}
-+
-+	if (!prog_fd[0]) {
-+		printf("load_bpf_file: %s\n", strerror(errno));
-+		return 1;
-+	}
-+
-+	signal(SIGINT, int_exit);
-+
-+	if (set_link_xdp_fd(ifindex_in, prog_fd[0], 0) < 0) {
-+		printf("link set xdp fd failed\n");
-+		return 1;
-+	}
-+
-+	printf("map[0] (vports) = %i, map[1] (map) = %i, map[2] (count) = %i\n",
-+		map_fd[0], map_fd[1], map_fd[2]);
-+
-+	/* populate virtual to physical port map */
-+	ret = bpf_map_update_elem(map_fd[0], &key, &ifindex_out, 0);
-+	if (ret) {
-+		perror("bpf_update_elem");
-+		goto out;
-+	}
-+
-+	poll_stats(2, ifindex_out);
-+
-+out:
-+	return 0;
-+}
-diff --git a/tools/testing/selftests/bpf/bpf_helpers.h b/tools/testing/selftests/bpf/bpf_helpers.h
-index d50ac34..acbd605 100644
---- a/tools/testing/selftests/bpf/bpf_helpers.h
-+++ b/tools/testing/selftests/bpf/bpf_helpers.h
-@@ -38,6 +38,8 @@ static int (*bpf_clone_redirect)(void *ctx, int ifindex, int flags) =
- 	(void *) BPF_FUNC_clone_redirect;
- static int (*bpf_redirect)(int ifindex, int flags) =
- 	(void *) BPF_FUNC_redirect;
-+static int (*bpf_redirect_map)(void *map, int key, int flags) =
-+	(void *) BPF_FUNC_redirect_map;
- static int (*bpf_perf_event_output)(void *ctx, void *map,
- 				    unsigned long long flags, void *data,
- 				    int size) =
+--zhXaljGHf11kAtnf
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Sat, Jul 15, 2017 at 09:48:32PM +0200, Andrew Lunn wrote:
+> > > > +		ethernet_phy1: ethernet-phy@4 {
+> > > > +			compatible =3D "ethernet-phy-ieee802.3-c45";
+> > > > +			reg =3D <4>;
+> > > > +			devices =3D <0xa>;
+> > > > +		};
+> > >=20
+> > > Since you don't fully implement c45, does this example actually work?
+> >=20
+> > Yeah, I've tested this continuously. But for v3 I anyways implmented c45
+> > writes.
+>=20
+> Hi Moritz
+>=20
+> Just out of interest, what PHY are you using?
+
+Depending on whether the FPGA image is configured either:
+
+- Xilinx 10G PCS/PMA LogiCore IP (C45)
+- Xilinx LogiCORE IP Ethernet 1000Base-X PCS/PMA (C22)
+
+in between that and the DMA engine there's a bunch of custom
+stuff (will be open source once the product ships).
+
+Moritz
+
+--zhXaljGHf11kAtnf
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBAgAGBQJZbOnDAAoJEL5CEHepFqovIXEH/RY7Xbge/rOCvOO+qpceLdfp
+X3hUvgb+ME2mkj9rAUZcKMbnyg8XL33bP9z0AGp/2t/+J0Fsg8r1Gq6voGR6Xtmd
+HAjFIO0JyTc+eVNT072WIMFwSlk+WPwl8/BjWx+bf87H6wXOhwUCx+BlVp4fEuHR
+MvwYtdmq8Cs0OlcDyd25uCO9PaBEMQ+szWSIpR4711WBxELjXJooYRttVjd4oX8b
+GcQ0dHAe+OWhAxEMYKCUvVZrOzqkReEUz6cPH2Xs8BTxDwBBUZYdNzLkFqpNLhfZ
+bq0t7a2+Qc4vPyayNdvHaIIAdbEEE5Wu8OywsBkQ6qpVTOvkLaFviRMiYUe77ac=
+=axjd
+-----END PGP SIGNATURE-----
+
+--zhXaljGHf11kAtnf--
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
