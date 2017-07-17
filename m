@@ -1,33 +1,35 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 12/12] net: dsa: mv88e6xxx: add a multi_chip
- info flag
-Date: Mon, 17 Jul 2017 21:32:19 +0200
-Message-ID: <20170717193219.GE9363@lunn.ch>
-References: <20170717170346.19555-1-vivien.didelot@savoirfairelinux.com>
- <20170717170346.19555-13-vivien.didelot@savoirfairelinux.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 11/12] net: dsa: mv88e6xxx: add Energy Detect ops
+Date: Mon, 17 Jul 2017 15:32:52 -0400
+Message-ID: <87bmoiuae3.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170717170346.19555-1-vivien.didelot@savoirfairelinux.com> <20170717170346.19555-12-vivien.didelot@savoirfairelinux.com> <20170717192734.GD9363@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170717170346.19555-13-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <20170717192734.GD9363@lunn.ch>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 17, 2017 at 01:03:46PM -0400, Vivien Didelot wrote:
-> Instead of relying on a bitmap flag, add a new multi_chip info flag to
-> describe the presence of the indirect SMI access though the two device
-> registers 0x0 and 0x1.
-> 
-> All remaining capabilities and flags are now unused. Remove the
-> mv88e6xxx_cap enum and the info flags bitmaps.
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Hi Andrew,
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Andrew Lunn <andrew@lunn.ch> writes:
 
-    Andrew
+> I never liked this. I think it is architecturally wrong for the switch
+> to be poking around in the PHY. It should ask the PHY driver. This is
+> especially true for external PHYs which might not be a Marvell PHY.
+
+I share the same concern. However this patch is just isolating the
+existing code so that we get rid of the last caps and flags and stop
+writing (without reading them first) arbitrary registers.
+
+Once this portion is moved to the PHY driver, one can remove it from
+mv88e6xxx.
+
+Thanks,
+
+        Vivien
