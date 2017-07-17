@@ -1,51 +1,47 @@
-From: Abhishek Shah <abhishek.shah-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH 2/3] net: ethernet: bgmac: Make IDM register space optional
-Date: Tue, 18 Jul 2017 00:07:35 +0530
-Message-ID: <CAKUFe6ad027MAg-A3XO7i1=c-Q623JqMPCKV_+Hi+ZpUojBn-Q@mail.gmail.com>
-References: <1499972649-6200-1-git-send-email-abhishek.shah@broadcom.com>
- <1499972649-6200-3-git-send-email-abhishek.shah@broadcom.com> <CAC3K-4o=WRqBv_vTf7QGDYjWzMmVog=63ZbiHbHAuW7zJcsHFQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-        "open list:OPEN FIRMWARE AND FLATTENED DEVICE TREE BINDINGS"
-        <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        BCM Kernel Feedback <bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-To: Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAC3K-4o=WRqBv_vTf7QGDYjWzMmVog=63ZbiHbHAuW7zJcsHFQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] bpf: check NULL for sk_to_full_sk() return value
+Date: Mon, 17 Jul 2017 11:42:55 -0700
+Message-ID: <20170717184255.6121-1-xiyou.wangcong@gmail.com>
+Cc: dsahern@gmail.com, Cong Wang <xiyou.wangcong@gmail.com>,
+        Lawrence Brakmo <brakmo@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34732 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751312AbdGQSnI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 14:43:08 -0400
+Received: by mail-pf0-f194.google.com with SMTP id o88so2324097pfk.1
+        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 11:43:08 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Jon,
+When req->rsk_listener is NULL, sk_to_full_sk() returns
+NULL too, so we have to check its return value against
+NULL here.
 
-> This also will need to be added to
-> drivers/net/ethernet/broadcom/bgmac-bcma.c.  Otherwise, the driver
-> will no longer work for those platforms.  Since this was already
-> accepted, please push out a fix ASAP.
->
-I do not see how the bcma driver [bgmac-bcma.c] will no longer work.
-The whole idea behind introducing this  BGMAC_FEAT_IDM_MASK bit
-was to keep bcma driver's functionality intact.
+Fixes: 40304b2a1567 ("bpf: BPF support for sock_ops")
+Reported-by: David Ahern <dsahern@gmail.com>
+Tested-by: David Ahern <dsahern@gmail.com>
+Cc: Lawrence Brakmo <brakmo@fb.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ include/linux/bpf-cgroup.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-The BGMAC_FEAT_IDM_MASK bit is explicitly set by the bgmac-platform driver
-and is unset inside the same if the idm register base is provided.
-
-For BCMA driver case, I do not touch BGMAC_FEAT_IDM_MASK bit, i.e. it
-is *not* set.
-And if it is not set, each idm operation done in bgmac.c will take place.
-Please explain if I am missing something here.
-
-
-Regards,
-Abhishek
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/linux/bpf-cgroup.h b/include/linux/bpf-cgroup.h
+index 360c082e885c..d41d40ac3efd 100644
+--- a/include/linux/bpf-cgroup.h
++++ b/include/linux/bpf-cgroup.h
+@@ -85,7 +85,7 @@ int __cgroup_bpf_run_filter_sock_ops(struct sock *sk,
+ 	int __ret = 0;							       \
+ 	if (cgroup_bpf_enabled && (sock_ops)->sk) {	       \
+ 		typeof(sk) __sk = sk_to_full_sk((sock_ops)->sk);	       \
+-		if (sk_fullsock(__sk))					       \
++		if (__sk && sk_fullsock(__sk))				       \
+ 			__ret = __cgroup_bpf_run_filter_sock_ops(__sk,	       \
+ 								 sock_ops,     \
+ 							 BPF_CGROUP_SOCK_OPS); \
+-- 
+2.13.0
