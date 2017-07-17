@@ -1,157 +1,135 @@
-From: Tonghao Zhang <xiangxia.m.yue@gmail.com>
-Subject: [PATCH 2/2] openvswitch: Optimize operations for OvS flow_stats.
-Date: Sun, 16 Jul 2017 23:29:24 -0700
-Message-ID: <1500272964-27238-2-git-send-email-xiangxia.m.yue@gmail.com>
-References: <1500272964-27238-1-git-send-email-xiangxia.m.yue@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v3 2/3] udp: avoid a cache miss on dequeue
+Date: Mon, 17 Jul 2017 00:04:03 -0700
+Message-ID: <1500275043.5566.1.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <cover.1497026892.git.pabeni@redhat.com>
+         <fbe99a560444d9f0471f3ed23d80f2105f103fa0.1497026892.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: pshelar@ovn.org, dev@openvswitch.org,
-        Tonghao Zhang <xiangxia.m.yue@gmail.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33261 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751253AbdGQG35 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 02:29:57 -0400
-Received: by mail-pf0-f195.google.com with SMTP id e199so18510445pfh.0
-        for <netdev@vger.kernel.org>; Sun, 16 Jul 2017 23:29:56 -0700 (PDT)
-In-Reply-To: <1500272964-27238-1-git-send-email-xiangxia.m.yue@gmail.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33688 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751256AbdGQHEH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 03:04:07 -0400
+Received: by mail-wm0-f67.google.com with SMTP id 65so1446031wmf.0
+        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 00:04:06 -0700 (PDT)
+In-Reply-To: <fbe99a560444d9f0471f3ed23d80f2105f103fa0.1497026892.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When calling the flow_free() to free the flow, we call many times
-(cpu_possible_mask, eg. 128 as default) cpumask_next(). That will
-take up our CPU usage if we call the flow_free() frequently.
-When we put all packets to userspace via upcall, and OvS will send
-them back via netlink to ovs_packet_cmd_execute(will call flow_free).
+On Mon, 2017-06-12 at 11:23 +0200, Paolo Abeni wrote:
+> Since UDP no more uses sk->destructor, we can clear completely
+> the skb head state before enqueuing. Amend and use
+> skb_release_head_state() for that.
+> 
+> All head states share a single cacheline, which is not
+> normally used/accesses on dequeue. We can avoid entirely accessing
+> such cacheline implementing and using in the UDP code a specialized
+> skb free helper which ignores the skb head state.
+> 
+> This saves a cacheline miss at skb deallocation time.
+> 
+> v1 -> v2:
+>   replaced secpath_reset() with skb_release_head_state()
+> 
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> Acked-by: Eric Dumazet <edumazet@google.com>
+> ---
+>  include/linux/skbuff.h |  2 ++
+>  net/core/skbuff.c      | 24 ++++++++++++++++++++----
+>  net/ipv4/udp.c         |  6 +++++-
+>  3 files changed, 27 insertions(+), 5 deletions(-)
+> 
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index decce36..d66d4fe 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -880,10 +880,12 @@ static inline bool skb_unref(struct sk_buff *skb)
+>  	return true;
+>  }
+>  
+> +void skb_release_head_state(struct sk_buff *skb);
+>  void kfree_skb(struct sk_buff *skb);
+>  void kfree_skb_list(struct sk_buff *segs);
+>  void skb_tx_error(struct sk_buff *skb);
+>  void consume_skb(struct sk_buff *skb);
+> +void consume_stateless_skb(struct sk_buff *skb);
+>  void  __kfree_skb(struct sk_buff *skb);
+>  extern struct kmem_cache *skbuff_head_cache;
+>  
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 747263c..3046027 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -643,12 +643,10 @@ static void kfree_skbmem(struct sk_buff *skb)
+>  	kmem_cache_free(skbuff_fclone_cache, fclones);
+>  }
+>  
+> -static void skb_release_head_state(struct sk_buff *skb)
+> +void skb_release_head_state(struct sk_buff *skb)
+>  {
+>  	skb_dst_drop(skb);
+> -#ifdef CONFIG_XFRM
+> -	secpath_put(skb->sp);
+> -#endif
+> +	secpath_reset(skb);
+>  	if (skb->destructor) {
+>  		WARN_ON(in_irq());
+>  		skb->destructor(skb);
+> @@ -751,6 +749,24 @@ void consume_skb(struct sk_buff *skb)
+>  }
+>  EXPORT_SYMBOL(consume_skb);
+>  
+> +/**
+> + *	consume_stateless_skb - free an skbuff, assuming it is stateless
+> + *	@skb: buffer to free
+> + *
+> + *	Works like consume_skb(), but this variant assumes that all the head
+> + *	states have been already dropped.
+> + */
+> +void consume_stateless_skb(struct sk_buff *skb)
+> +{
+> +	if (!skb_unref(skb))
+> +		return;
+> +
+> +	trace_consume_skb(skb);
+> +	if (likely(skb->head))
+> +		skb_release_data(skb);
+> +	kfree_skbmem(skb);
+> +}
+> +
+>  void __kfree_skb_flush(void)
+>  {
+>  	struct napi_alloc_cache *nc = this_cpu_ptr(&napi_alloc_cache);
+> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+> index fdcb743..d8b265f 100644
+> --- a/net/ipv4/udp.c
+> +++ b/net/ipv4/udp.c
+> @@ -1359,7 +1359,8 @@ void skb_consume_udp(struct sock *sk, struct sk_buff *skb, int len)
+>  		sk_peek_offset_bwd(sk, len);
+>  		unlock_sock_fast(sk, slow);
+>  	}
+> -	consume_skb(skb);
+> +
+> +	consume_stateless_skb(skb);
+>  }
+>  EXPORT_SYMBOL_GPL(skb_consume_udp);
+>  
+> @@ -1739,6 +1740,9 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+>  		sk_mark_napi_id_once(sk, skb);
+>  	}
+>  
+> +	/* clear all pending head states while they are hot in the cache */
+> +	skb_release_head_state(skb);
+> +
+>  	rc = __udp_enqueue_schedule_skb(sk, skb);
+>  	if (rc < 0) {
+>  		int is_udplite = IS_UDPLITE(sk);
 
-The test topo is shown as below. VM01 sends TCP packets to VM02,
-and OvS forward packtets. When testing, we use perf to report the
-system performance.
 
-VM01 --- OvS-VM --- VM02
-
-Without this patch, perf-top show as below: The flow_free() is
-3.02% CPU usage.
-
-	4.23%  [kernel]            [k] _raw_spin_unlock_irqrestore
-	3.62%  [kernel]            [k] __do_softirq
-	3.16%  [kernel]            [k] __memcpy
-	3.02%  [kernel]            [k] flow_free
-	2.42%  libc-2.17.so        [.] __memcpy_ssse3_back
-	2.18%  [kernel]            [k] copy_user_generic_unrolled
-	2.17%  [kernel]            [k] find_next_bit
-
-When applied this patch, perf-top show as below: Not shown on
-the list anymore.
-
-	4.11%  [kernel]            [k] _raw_spin_unlock_irqrestore
-	3.79%  [kernel]            [k] __do_softirq
-	3.46%  [kernel]            [k] __memcpy
-	2.73%  libc-2.17.so        [.] __memcpy_ssse3_back
-	2.25%  [kernel]            [k] copy_user_generic_unrolled
-	1.89%  libc-2.17.so        [.] _int_malloc
-	1.53%  ovs-vswitchd        [.] xlate_actions
-
-With this patch, the TCP throughput(we dont use Megaflow Cache
-+ Microflow Cache) between VMs is 1.18Gbs/sec up to 1.30Gbs/sec
-(maybe ~10% performance imporve).
-
-This patch adds cpumask struct, the cpu_used_mask stores the cpu_id
-that the flow used. And we only check the flow_stats on the cpu we
-used, and it is unncessary to check all possible cpu when getting,
-cleaning, and updating the flow_stats. Adding the cpu_used_mask to
-sw_flow struct does’t increase the cacheline number.
-
-Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
----
- net/openvswitch/flow.c       | 7 ++++---
- net/openvswitch/flow.h       | 2 ++
- net/openvswitch/flow_table.c | 5 ++++-
- 3 files changed, 10 insertions(+), 4 deletions(-)
-
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index 89aeb32..cfb652a 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -72,7 +72,7 @@ void ovs_flow_stats_update(struct sw_flow *flow, __be16 tcp_flags,
- 			   const struct sk_buff *skb)
- {
- 	struct flow_stats *stats;
--	int cpu = smp_processor_id();
-+	unsigned int cpu = smp_processor_id();
- 	int len = skb->len + (skb_vlan_tag_present(skb) ? VLAN_HLEN : 0);
- 
- 	stats = rcu_dereference(flow->stats[cpu]);
-@@ -117,6 +117,7 @@ void ovs_flow_stats_update(struct sw_flow *flow, __be16 tcp_flags,
- 
- 					rcu_assign_pointer(flow->stats[cpu],
- 							   new_stats);
-+					cpumask_set_cpu(cpu, &flow->cpu_used_mask);
- 					goto unlock;
- 				}
- 			}
-@@ -144,7 +145,7 @@ void ovs_flow_stats_get(const struct sw_flow *flow,
- 	memset(ovs_stats, 0, sizeof(*ovs_stats));
- 
- 	/* We open code this to make sure cpu 0 is always considered */
--	for (cpu = 0; cpu < nr_cpu_ids; cpu = cpumask_next(cpu, cpu_possible_mask)) {
-+	for (cpu = 0; cpu < nr_cpu_ids; cpu = cpumask_next(cpu, &flow->cpu_used_mask)) {
- 		struct flow_stats *stats = rcu_dereference_ovsl(flow->stats[cpu]);
- 
- 		if (stats) {
-@@ -168,7 +169,7 @@ void ovs_flow_stats_clear(struct sw_flow *flow)
- 	int cpu;
- 
- 	/* We open code this to make sure cpu 0 is always considered */
--	for (cpu = 0; cpu < nr_cpu_ids; cpu = cpumask_next(cpu, cpu_possible_mask)) {
-+	for (cpu = 0; cpu < nr_cpu_ids; cpu = cpumask_next(cpu, &flow->cpu_used_mask)) {
- 		struct flow_stats *stats = ovsl_dereference(flow->stats[cpu]);
- 
- 		if (stats) {
-diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
-index a9bc1c8..1875bba 100644
---- a/net/openvswitch/flow.h
-+++ b/net/openvswitch/flow.h
-@@ -31,6 +31,7 @@
- #include <linux/jiffies.h>
- #include <linux/time.h>
- #include <linux/flex_array.h>
-+#include <linux/cpumask.h>
- #include <net/inet_ecn.h>
- #include <net/ip_tunnels.h>
- #include <net/dst_metadata.h>
-@@ -219,6 +220,7 @@ struct sw_flow {
- 					 */
- 	struct sw_flow_key key;
- 	struct sw_flow_id id;
-+	struct cpumask cpu_used_mask;
- 	struct sw_flow_mask *mask;
- 	struct sw_flow_actions __rcu *sf_acts;
- 	struct flow_stats __rcu *stats[]; /* One for each CPU.  First one
-diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
-index ea7a807..324a246 100644
---- a/net/openvswitch/flow_table.c
-+++ b/net/openvswitch/flow_table.c
-@@ -98,6 +98,9 @@ struct sw_flow *ovs_flow_alloc(void)
- 
- 	RCU_INIT_POINTER(flow->stats[0], stats);
- 
-+	cpumask_clear(&flow->cpu_used_mask);
-+	cpumask_set_cpu(0, &flow->cpu_used_mask);
-+
- 	return flow;
- err:
- 	kmem_cache_free(flow_cache, flow);
-@@ -141,7 +144,7 @@ static void flow_free(struct sw_flow *flow)
- 	if (flow->sf_acts)
- 		ovs_nla_free_flow_actions((struct sw_flow_actions __force *)flow->sf_acts);
- 	/* We open code this to make sure cpu 0 is always considered */
--	for (cpu = 0; cpu < nr_cpu_ids; cpu = cpumask_next(cpu, cpu_possible_mask))
-+	for (cpu = 0; cpu < nr_cpu_ids; cpu = cpumask_next(cpu, &flow->cpu_used_mask))
- 		if (flow->stats[cpu])
- 			kmem_cache_free(flow_stats_cache,
- 					(struct flow_stats __force *)flow->stats[cpu]);
--- 
-1.8.3.1
+Oh well, we forgot that we need to access IP header when/if
+__ip_options_echo() needs it.
