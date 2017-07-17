@@ -1,81 +1,379 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next 3/5] virtio-net: switch to use new ctx API for small buffer
-Date: Mon, 17 Jul 2017 20:43:59 +0800
-Message-ID: <1500295441-19339-4-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net-next 4/5] virtio-net: do not reset during XDP set
+Date: Mon, 17 Jul 2017 20:44:00 +0800
+Message-ID: <1500295441-19339-5-git-send-email-jasowang@redhat.com>
 References: <1500295441-19339-1-git-send-email-jasowang@redhat.com>
 To: mst@redhat.com, jasowang@redhat.com,
         virtualization@lists.linux-foundation.org,
         linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:40372 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751456AbdGQMoU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 17 Jul 2017 08:44:20 -0400
 In-Reply-To: <1500295441-19339-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Switch to use ctx API for small buffer, this is need for avoiding
-reset on XDP.
+We used to reset during XDP set, the main reason is we need allocate
+extra headroom for header adjustment but there's no way to know the
+headroom of exist receive buffer. This works buy maybe complex and may
+cause the network down for a while which is bad for user
+experience. So this patch tries to avoid this by:
+
+- packing headroom into receive buffer ctx
+- check the headroom during XDP, and if it was not sufficient, copy
+  the packet into a location which has a large enough headroom
 
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/virtio_net.c | 12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+ drivers/net/virtio_net.c | 230 ++++++++++++++++++++++-------------------------
+ 1 file changed, 105 insertions(+), 125 deletions(-)
 
 diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 8fae9a8..e31b5b2 100644
+index e31b5b2..e732bd6 100644
 --- a/drivers/net/virtio_net.c
 +++ b/drivers/net/virtio_net.c
-@@ -410,7 +410,8 @@ static unsigned int virtnet_get_headroom(struct virtnet_info *vi)
+@@ -407,6 +407,67 @@ static unsigned int virtnet_get_headroom(struct virtnet_info *vi)
+ 	return vi->xdp_queue_pairs ? VIRTIO_XDP_HEADROOM : 0;
+ }
+ 
++/* We copy and linearize packet in the following cases:
++ *
++ * 1) Packet across multiple buffers, this happens normally when rx
++ *    buffer size is underestimated. Rarely, since spec does not
++ *    forbid using more than one buffer even if a single buffer is
++ *    sufficient for the packet, we should also deal with this case.
++ * 2) The header room is smaller than what XDP required. In this case
++ *    we should copy the packet and reserve enough headroom for this.
++ *    This would be slow but we at most we can copy times of queue
++ *    size, this is acceptable. What's more important, this help to
++ *    avoid resetting.
++ */
++static struct page *xdp_linearize_page(struct receive_queue *rq,
++				       u16 *num_buf,
++				       struct page *p,
++				       int offset,
++				       int page_off,
++				       unsigned int *len)
++{
++	struct page *page = alloc_page(GFP_ATOMIC);
++
++	if (!page)
++		return NULL;
++
++	memcpy(page_address(page) + page_off, page_address(p) + offset, *len);
++	page_off += *len;
++
++	while (--*num_buf) {
++		unsigned int buflen;
++		void *buf;
++		int off;
++
++		buf = virtqueue_get_buf(rq->vq, &buflen);
++		if (unlikely(!buf))
++			goto err_buf;
++
++		p = virt_to_head_page(buf);
++		off = buf - page_address(p);
++
++		/* guard against a misconfigured or uncooperative backend that
++		 * is sending packet larger than the MTU.
++		 */
++		if ((page_off + buflen) > PAGE_SIZE) {
++			put_page(p);
++			goto err_buf;
++		}
++
++		memcpy(page_address(page) + page_off,
++		       page_address(p) + off, buflen);
++		page_off += buflen;
++		put_page(p);
++	}
++
++	/* Headroom does not contribute to packet length */
++	*len = page_off - VIRTIO_XDP_HEADROOM;
++	return page;
++err_buf:
++	__free_pages(page, 0);
++	return NULL;
++}
++
  static struct sk_buff *receive_small(struct net_device *dev,
  				     struct virtnet_info *vi,
  				     struct receive_queue *rq,
--				     void *buf, unsigned int len)
-+				     void *buf, void *ctx,
-+				     unsigned int len)
+@@ -415,12 +476,14 @@ static struct sk_buff *receive_small(struct net_device *dev,
  {
  	struct sk_buff *skb;
  	struct bpf_prog *xdp_prog;
-@@ -773,7 +774,7 @@ static int receive_buf(struct virtnet_info *vi, struct receive_queue *rq,
- 	else if (vi->big_packets)
- 		skb = receive_big(dev, vi, rq, buf, len);
- 	else
--		skb = receive_small(dev, vi, rq, buf, len);
-+		skb = receive_small(dev, vi, rq, buf, ctx, len);
+-	unsigned int xdp_headroom = virtnet_get_headroom(vi);
++	unsigned int xdp_headroom = (unsigned long)ctx;
+ 	unsigned int header_offset = VIRTNET_RX_PAD + xdp_headroom;
+ 	unsigned int headroom = vi->hdr_len + header_offset;
+ 	unsigned int buflen = SKB_DATA_ALIGN(GOOD_PACKET_LEN + headroom) +
+ 			      SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
++	struct page *page = virt_to_head_page(buf);
+ 	unsigned int delta = 0;
++	struct page *xdp_page;
+ 	len -= vi->hdr_len;
  
- 	if (unlikely(!skb))
- 		return 0;
-@@ -812,6 +813,7 @@ static int add_recvbuf_small(struct virtnet_info *vi, struct receive_queue *rq,
- 	struct page_frag *alloc_frag = &rq->alloc_frag;
- 	char *buf;
- 	unsigned int xdp_headroom = virtnet_get_headroom(vi);
-+	void *ctx = (void *)(unsigned long)xdp_headroom;
- 	int len = vi->hdr_len + VIRTNET_RX_PAD + GOOD_PACKET_LEN + xdp_headroom;
- 	int err;
+ 	rcu_read_lock();
+@@ -434,6 +497,27 @@ static struct sk_buff *receive_small(struct net_device *dev,
+ 		if (unlikely(hdr->hdr.gso_type || hdr->hdr.flags))
+ 			goto err_xdp;
  
-@@ -825,7 +827,7 @@ static int add_recvbuf_small(struct virtnet_info *vi, struct receive_queue *rq,
- 	alloc_frag->offset += len;
- 	sg_init_one(rq->sg, buf + VIRTNET_RX_PAD + xdp_headroom,
- 		    vi->hdr_len + GOOD_PACKET_LEN);
--	err = virtqueue_add_inbuf(rq->vq, rq->sg, 1, buf, gfp);
-+	err = virtqueue_add_inbuf_ctx(rq->vq, rq->sg, 1, buf, ctx, gfp);
++		if (unlikely(xdp_headroom != virtnet_get_headroom(vi))) {
++			int offset = buf - page_address(page) + header_offset;
++			unsigned int tlen = len + vi->hdr_len;
++			u16 num_buf = 1;
++
++			xdp_headroom = virtnet_get_headroom(vi);
++			header_offset = VIRTNET_RX_PAD + xdp_headroom;
++			headroom = vi->hdr_len + header_offset;
++			buflen = SKB_DATA_ALIGN(GOOD_PACKET_LEN + headroom) +
++				 SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
++			xdp_page = xdp_linearize_page(rq, &num_buf, page,
++						      offset, header_offset,
++						      &tlen);
++			if (!xdp_page)
++				goto err_xdp;
++
++			buf = page_address(xdp_page);
++			put_page(page);
++			page = xdp_page;
++		}
++
+ 		xdp.data_hard_start = buf + VIRTNET_RX_PAD + vi->hdr_len;
+ 		xdp.data = xdp.data_hard_start + xdp_headroom;
+ 		xdp.data_end = xdp.data + len;
+@@ -462,7 +546,7 @@ static struct sk_buff *receive_small(struct net_device *dev,
+ 
+ 	skb = build_skb(buf, buflen);
+ 	if (!skb) {
+-		put_page(virt_to_head_page(buf));
++		put_page(page);
+ 		goto err;
+ 	}
+ 	skb_reserve(skb, headroom - delta);
+@@ -478,7 +562,7 @@ static struct sk_buff *receive_small(struct net_device *dev,
+ err_xdp:
+ 	rcu_read_unlock();
+ 	dev->stats.rx_dropped++;
+-	put_page(virt_to_head_page(buf));
++	put_page(page);
+ xdp_xmit:
+ 	return NULL;
+ }
+@@ -503,66 +587,6 @@ static struct sk_buff *receive_big(struct net_device *dev,
+ 	return NULL;
+ }
+ 
+-/* The conditions to enable XDP should preclude the underlying device from
+- * sending packets across multiple buffers (num_buf > 1). However per spec
+- * it does not appear to be illegal to do so but rather just against convention.
+- * So in order to avoid making a system unresponsive the packets are pushed
+- * into a page and the XDP program is run. This will be extremely slow and we
+- * push a warning to the user to fix this as soon as possible. Fixing this may
+- * require resolving the underlying hardware to determine why multiple buffers
+- * are being received or simply loading the XDP program in the ingress stack
+- * after the skb is built because there is no advantage to running it here
+- * anymore.
+- */
+-static struct page *xdp_linearize_page(struct receive_queue *rq,
+-				       u16 *num_buf,
+-				       struct page *p,
+-				       int offset,
+-				       unsigned int *len)
+-{
+-	struct page *page = alloc_page(GFP_ATOMIC);
+-	unsigned int page_off = VIRTIO_XDP_HEADROOM;
+-
+-	if (!page)
+-		return NULL;
+-
+-	memcpy(page_address(page) + page_off, page_address(p) + offset, *len);
+-	page_off += *len;
+-
+-	while (--*num_buf) {
+-		unsigned int buflen;
+-		void *buf;
+-		int off;
+-
+-		buf = virtqueue_get_buf(rq->vq, &buflen);
+-		if (unlikely(!buf))
+-			goto err_buf;
+-
+-		p = virt_to_head_page(buf);
+-		off = buf - page_address(p);
+-
+-		/* guard against a misconfigured or uncooperative backend that
+-		 * is sending packet larger than the MTU.
+-		 */
+-		if ((page_off + buflen) > PAGE_SIZE) {
+-			put_page(p);
+-			goto err_buf;
+-		}
+-
+-		memcpy(page_address(page) + page_off,
+-		       page_address(p) + off, buflen);
+-		page_off += buflen;
+-		put_page(p);
+-	}
+-
+-	/* Headroom does not contribute to packet length */
+-	*len = page_off - VIRTIO_XDP_HEADROOM;
+-	return page;
+-err_buf:
+-	__free_pages(page, 0);
+-	return NULL;
+-}
+-
+ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 					 struct virtnet_info *vi,
+ 					 struct receive_queue *rq,
+@@ -577,6 +601,7 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 	struct sk_buff *head_skb, *curr_skb;
+ 	struct bpf_prog *xdp_prog;
+ 	unsigned int truesize;
++	unsigned int headroom = mergeable_ctx_to_headroom(ctx);
+ 
+ 	head_skb = NULL;
+ 
+@@ -589,10 +614,13 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 		u32 act;
+ 
+ 		/* This happens when rx buffer size is underestimated */
+-		if (unlikely(num_buf > 1)) {
++		if (unlikely(num_buf > 1 ||
++			     headroom < virtnet_get_headroom(vi))) {
+ 			/* linearize data for XDP */
+ 			xdp_page = xdp_linearize_page(rq, &num_buf,
+-						      page, offset, &len);
++						      page, offset,
++						      VIRTIO_XDP_HEADROOM,
++						      &len);
+ 			if (!xdp_page)
+ 				goto err_xdp;
+ 			offset = VIRTIO_XDP_HEADROOM;
+@@ -830,7 +858,6 @@ static int add_recvbuf_small(struct virtnet_info *vi, struct receive_queue *rq,
+ 	err = virtqueue_add_inbuf_ctx(rq->vq, rq->sg, 1, buf, ctx, gfp);
  	if (err < 0)
  		put_page(virt_to_head_page(buf));
+-
+ 	return err;
+ }
  
-@@ -1034,7 +1036,7 @@ static int virtnet_receive(struct receive_queue *rq, int budget)
- 	void *buf;
- 	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
+@@ -1834,7 +1861,6 @@ static void virtnet_freeze_down(struct virtio_device *vdev)
+ }
  
--	if (vi->mergeable_rx_bufs) {
-+	if (!vi->big_packets || vi->mergeable_rx_bufs) {
- 		void *ctx;
+ static int init_vqs(struct virtnet_info *vi);
+-static void _remove_vq_common(struct virtnet_info *vi);
  
- 		while (received < budget &&
-@@ -2198,7 +2200,7 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
- 	names = kmalloc(total_vqs * sizeof(*names), GFP_KERNEL);
- 	if (!names)
- 		goto err_names;
--	if (vi->mergeable_rx_bufs) {
-+	if (!vi->big_packets || vi->mergeable_rx_bufs) {
- 		ctx = kzalloc(total_vqs * sizeof(*ctx), GFP_KERNEL);
- 		if (!ctx)
- 			goto err_ctx;
+ static int virtnet_restore_up(struct virtio_device *vdev)
+ {
+@@ -1863,39 +1889,6 @@ static int virtnet_restore_up(struct virtio_device *vdev)
+ 	return err;
+ }
+ 
+-static int virtnet_reset(struct virtnet_info *vi, int curr_qp, int xdp_qp)
+-{
+-	struct virtio_device *dev = vi->vdev;
+-	int ret;
+-
+-	virtio_config_disable(dev);
+-	dev->failed = dev->config->get_status(dev) & VIRTIO_CONFIG_S_FAILED;
+-	virtnet_freeze_down(dev);
+-	_remove_vq_common(vi);
+-
+-	virtio_add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
+-	virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER);
+-
+-	ret = virtio_finalize_features(dev);
+-	if (ret)
+-		goto err;
+-
+-	vi->xdp_queue_pairs = xdp_qp;
+-	ret = virtnet_restore_up(dev);
+-	if (ret)
+-		goto err;
+-	ret = _virtnet_set_queues(vi, curr_qp);
+-	if (ret)
+-		goto err;
+-
+-	virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER_OK);
+-	virtio_config_enable(dev);
+-	return 0;
+-err:
+-	virtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);
+-	return ret;
+-}
+-
+ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog,
+ 			   struct netlink_ext_ack *extack)
+ {
+@@ -1942,35 +1935,31 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog,
+ 			return PTR_ERR(prog);
+ 	}
+ 
+-	/* Changing the headroom in buffers is a disruptive operation because
+-	 * existing buffers must be flushed and reallocated. This will happen
+-	 * when a xdp program is initially added or xdp is disabled by removing
+-	 * the xdp program resulting in number of XDP queues changing.
++	/* synchronize with NAPI which may do XDP_TX based on queue
++	 * pair numbers.
+ 	 */
+-	if (vi->xdp_queue_pairs != xdp_qp) {
+-		err = virtnet_reset(vi, curr_qp + xdp_qp, xdp_qp);
+-		if (err) {
+-			dev_warn(&dev->dev, "XDP reset failure.\n");
+-			goto virtio_reset_err;
+-		}
+-	}
++	for (i = 0; i < vi->max_queue_pairs; i++)
++		napi_disable(&vi->rq[i].napi);
+ 
+ 	netif_set_real_num_rx_queues(dev, curr_qp + xdp_qp);
++	err = _virtnet_set_queues(vi, curr_qp + xdp_qp);
++	if (err)
++		goto err;
++	vi->xdp_queue_pairs = xdp_qp;
+ 
+ 	for (i = 0; i < vi->max_queue_pairs; i++) {
+ 		old_prog = rtnl_dereference(vi->rq[i].xdp_prog);
+ 		rcu_assign_pointer(vi->rq[i].xdp_prog, prog);
+ 		if (old_prog)
+ 			bpf_prog_put(old_prog);
++		napi_enable(&vi->rq[i].napi);
+ 	}
+ 
+ 	return 0;
+ 
+-virtio_reset_err:
+-	/* On reset error do our best to unwind XDP changes inflight and return
+-	 * error up to user space for resolution. The underlying reset hung on
+-	 * us so not much we can do here.
+-	 */
++err:
++	for (i = 0; i < vi->max_queue_pairs; i++)
++		napi_enable(&vi->rq[i].napi);
+ 	if (prog)
+ 		bpf_prog_sub(prog, vi->max_queue_pairs - 1);
+ 	return err;
+@@ -2614,15 +2603,6 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	return err;
+ }
+ 
+-static void _remove_vq_common(struct virtnet_info *vi)
+-{
+-	vi->vdev->config->reset(vi->vdev);
+-	free_unused_bufs(vi);
+-	_free_receive_bufs(vi);
+-	free_receive_page_frags(vi);
+-	virtnet_del_vqs(vi);
+-}
+-
+ static void remove_vq_common(struct virtnet_info *vi)
+ {
+ 	vi->vdev->config->reset(vi->vdev);
 -- 
 2.7.4
