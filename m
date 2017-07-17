@@ -1,55 +1,58 @@
-From: Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [PATCH v3 net-next 02/12] bpf/verifier: rework
- value tracking
-Date: Mon, 17 Jul 2017 18:02:02 +0100
-Message-ID: <fbd2b381-c444-a736-2d9e-aa83d6153178@solarflare.com>
-References: <adc11342-737f-4e06-bce3-f0a92b5594a5@solarflare.com>
-	<2244b48b-f415-3239-6912-cb09f0abc546@solarflare.com>
-	<E65DE75F-FC5F-41BC-9F7B-C03D324D8C6F@gmail.com>
-	<abd3c014-f33a-6e86-aead-be38697a2cec@solarflare.com>
-	<3A96914E-3009-4E19-B138-7A636A76D9C8@gmail.com>
-	<68a2487e-f706-1b61-5c4c-20ffe6d51127@solarflare.com>
-	<12DCE590-7F67-4639-A825-61A24AC44ED3@gmail.com>
-Reply-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: [RFC PATCH 00/12] Implement XDP bpf_redirect vairants
+Date: Mon, 17 Jul 2017 10:04:44 -0700
+Message-ID: <20170717100444.00007077@intel.com>
+References: <20170707172115.9984.53461.stgit@john-Precision-Tower-5810>
+        <595FC974.9030807@gmail.com>
+        <20170708.104618.2149883426031901592.davem@davemloft.net>
+        <20170708210617.249059b9@redhat.com>
+        <20170711173658.6188b0a2@redhat.com>
+        <59650F6D.4070202@gmail.com>
+        <20170711200136.46ab5687@redhat.com>
+        <20170711204405.2f6b033c@redhat.com>
+        <59651F55.9050203@gmail.com>
+        <20170711211942.08fdd2f9@redhat.com>
+        <596528E6.2080707@gmail.com>
+        <20170716102308.163b9f91@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Nadav Amit <nadav.amit-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <12DCE590-7F67-4639-A825-61A24AC44ED3-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: John Fastabend <john.fastabend@gmail.com>,
+        David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        <andy@greyhouse.net>, <daniel@iogearbox.net>, <ast@fb.com>,
+        <alexander.duyck@gmail.com>, <bjorn.topel@intel.com>,
+        <jakub.kicinski@netronome.com>, <ecree@solarflare.com>,
+        <sgoutham@cavium.com>, <Yuval.Mintz@cavium.com>,
+        <saeedm@mellanox.com>, "Andi Kleen" <andi@firstfloor.org>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:38888 "EHLO mga09.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751293AbdGQREr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 17 Jul 2017 13:04:47 -0400
+In-Reply-To: <20170716102308.163b9f91@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/07/17 23:07, Nadav Amit wrote:
-> Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org> wrote:
->> In this specific case, there was a bug before: if (say) src and dst were
->> both unknown bytes (so range 0 to 255), it would compute the new min and max
->> to be 0, so it would think the result is known to be 0.  But that's wrong,
->> because it could be anything from -255 to +255.  The bug's implications are
->> that it could be used to construct an out-of-range offset to (say) a map
->> pointer which the verifier would think was in-range and thus accept.
-> This sounds like a serious bug that may need to be backported to stable
-> versions, no? In this case I would assume it should be in a separate patch
-> so it could be applied separately.
-Having looked deeper into this in attempting to create a test that the existing
- verifier would fail, it turns out that in the existing verifier that BPF_SUB
- handling is dead code.  If (for instance) we subtract an UNKNOWN_VALUE from a
- PTR_TO_MAP_VALUE_ADJ, that code will be run, but afterwards we will
- mark_reg_unknown_value() the register (bottom of check_alu_op()) making our
- previous min/max determination irrelevant.
-So there's nothing to backport, and if I did change this in its own patch,
- there'd be no way to test it.  (I have, however, added a test covering this
- codepath in the new verifier.)
+On Sun, 16 Jul 2017 10:23:08 +0200
+Jesper Dangaard Brouer <brouer@redhat.com> wrote:
 
--Ed
+> On Tue, 11 Jul 2017 12:37:10 -0700 John Fastabend <john.fastabend@gmail.com> wrote:
+> 
+>  [...]  
+> > 
+> > hmm maybe Jesse or Alex have some clues. Adding them to the CC list.  
+> 
+> This seems related to Hyper-Threading.  I tried to disable
+> hyperthreading in the BIOS, and the problem goes away.  That is, the
+> benchmarks are no-longer affected by the CPU tuned-adm profile.
+
+Wow, nice job figuring that out.  I went and took a look at tuned-adm
+documentation but didn't see anything that stood out that would cause
+the behavior you were seeing.
+
+I suspect your toplev results showing this is a frontend problem mesh
+nicely with the hyper-threading configuration inducing the bad behavior,
+since there is still only one execution unit, and the fetchers would
+have to stall.  I think you've rediscovered why the forwarding /
+routing crowd generally turns off hyperthreading.
