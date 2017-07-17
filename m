@@ -1,59 +1,73 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next] samples/bpf: add option for native and skb mode
- for redirect apps
-Date: Mon, 17 Jul 2017 13:19:40 -0700
-Message-ID: <596D1BDC.3020004@gmail.com>
-References: <1500322459-3743-1-git-send-email-andy@greyhouse.net>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: support new firmware statistic fw_err_pki
+Date: Mon, 17 Jul 2017 13:33:14 -0700
+Message-ID: <20170717203314.GA1327@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
-To: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        ricardo.farrington@cavium.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f53.google.com ([74.125.83.53]:35866 "EHLO
-        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751318AbdGQUTx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 16:19:53 -0400
-Received: by mail-pg0-f53.google.com with SMTP id u5so134655pgq.3
-        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 13:19:53 -0700 (PDT)
-In-Reply-To: <1500322459-3743-1-git-send-email-andy@greyhouse.net>
+Received: from mail-cys01nam02on0066.outbound.protection.outlook.com ([104.47.37.66]:35040
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751317AbdGQUaR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 17 Jul 2017 16:30:17 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/17/2017 01:14 PM, Andy Gospodarek wrote:
-> When testing with a driver that has both native and generic redirect support:
-> 
-> $ sudo ./samples/bpf/xdp_redirect -N 5 6
-> input: 5 output: 6
-> ifindex 6:    4961879 pkt/s
-> ifindex 6:    6391319 pkt/s
-> ifindex 6:    6419468 pkt/s
-> 
-> $ sudo ./samples/bpf/xdp_redirect -S 5 6
-> input: 5 output: 6
-> ifindex 6:    1845435 pkt/s
-> ifindex 6:    3882850 pkt/s
-> ifindex 6:    3893974 pkt/s
-> 
-> $ sudo ./samples/bpf/xdp_redirect_map -N 5 6
-> input: 5 output: 6
-> map[0] (vports) = 4, map[1] (map) = 5, map[2] (count) = 0
-> ifindex 6:    2207374 pkt/s
-> ifindex 6:    6212869 pkt/s
-> ifindex 6:    6286515 pkt/s
-> 
-> $ sudo ./samples/bpf/xdp_redirect_map -S 5 6
-> input: 5 output: 6
-> map[0] (vports) = 4, map[1] (map) = 5, map[2] (count) = 0
-> ifindex 6:    5052528 pkt/s
-> ifindex 6:    5736631 pkt/s
-> ifindex 6:    5739962 pkt/s
-> 
-> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-> ---
+From: Rick Farrington <ricardo.farrington@cavium.com>
 
+Added support for new firmware statistic 'tx_err_pki'.
 
-Looks good, thanks.
+Signed-off-by: Rick Farrington <ricardo.farrington@cavium.com>
+Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+---
+ drivers/net/ethernet/cavium/liquidio/lio_ethtool.c     | 4 ++++
+ drivers/net/ethernet/cavium/liquidio/liquidio_common.h | 1 +
+ 2 files changed, 5 insertions(+)
 
-Acked-by: John Fastabend <john.fastabend@gmail.com>
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
+index 28ecda3..976a50f 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
+@@ -105,6 +105,7 @@ static const char oct_stats_strings[][ETH_GSTRING_LEN] = {
+ 	"tx_total_sent",
+ 	"tx_total_fwd",
+ 	"tx_err_pko",
++	"tx_err_pki",
+ 	"tx_err_link",
+ 	"tx_err_drop",
+ 
+@@ -826,6 +827,8 @@ lio_get_ethtool_stats(struct net_device *netdev,
+ 	data[i++] = CVM_CAST64(oct_dev->link_stats.fromhost.fw_total_fwd);
+ 	/*per_core_stats[j].link_stats[i].fromhost.fw_err_pko */
+ 	data[i++] = CVM_CAST64(oct_dev->link_stats.fromhost.fw_err_pko);
++	/*per_core_stats[j].link_stats[i].fromhost.fw_err_pki */
++	data[i++] = CVM_CAST64(oct_dev->link_stats.fromhost.fw_err_pki);
+ 	/*per_core_stats[j].link_stats[i].fromhost.fw_err_link */
+ 	data[i++] = CVM_CAST64(oct_dev->link_stats.fromhost.fw_err_link);
+ 	/*per_core_stats[cvmx_get_core_num()].link_stats[idx].fromhost.
+@@ -1568,6 +1571,7 @@ octnet_nic_stats_callback(struct octeon_device *oct_dev,
+ 		tstats->fw_total_sent = rsp_tstats->fw_total_sent;
+ 		tstats->fw_total_fwd = rsp_tstats->fw_total_fwd;
+ 		tstats->fw_err_pko = rsp_tstats->fw_err_pko;
++		tstats->fw_err_pki = rsp_tstats->fw_err_pki;
+ 		tstats->fw_err_link = rsp_tstats->fw_err_link;
+ 		tstats->fw_err_drop = rsp_tstats->fw_err_drop;
+ 		tstats->fw_tso = rsp_tstats->fw_tso;
+diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+index a479383..7162fb8 100644
+--- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
++++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+@@ -818,6 +818,7 @@ struct nic_tx_stats {
+ 	u64 fw_tso;		/* number of tso requests */
+ 	u64 fw_tso_fwd;		/* number of packets segmented in tso */
+ 	u64 fw_tx_vxlan;
++	u64 fw_err_pki;
+ };
+ 
+ struct oct_link_stats {
