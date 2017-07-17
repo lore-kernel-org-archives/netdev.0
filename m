@@ -1,53 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] udp: preserve skb->dst if required for IP options
- processing
-Date: Mon, 17 Jul 2017 14:35:58 -0700
-Message-ID: <1500327358.5566.30.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1500275043.5566.1.camel@edumazet-glaptop3.roam.corp.google.com>
-         <a72faa05ed7b5ede6467096121ad6cee1fee229d.1500325067.git.pabeni@redhat.com>
-         <1500327006.5566.29.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Shaohua Li <shli@kernel.org>
+Subject: Re: [RFC net 1/2] net: set skb hash for IP6 TCP reset packet
+Date: Mon, 17 Jul 2017 14:53:22 -0700
+Message-ID: <20170717215322.vdbz2l76qmdtp4xu@kernel.org>
+References: <cover.1499967945.git.shli@fb.com>
+ <5595e60068d7c18c7f0749d8a355a008123ca0d8.1499967945.git.shli@fb.com>
+ <1500281511.5566.15.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Paolo Abeni <pabeni@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, Kernel-team@fb.com,
+        Florent Fourcot <flo@fourcot.fr>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:33439 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751335AbdGQVgB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 17:36:01 -0400
-Received: by mail-wr0-f195.google.com with SMTP id 40so296795wrw.0
-        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 14:36:00 -0700 (PDT)
-In-Reply-To: <1500327006.5566.29.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail.kernel.org ([198.145.29.99]:58662 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751318AbdGQVxZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 17 Jul 2017 17:53:25 -0400
+Content-Disposition: inline
+In-Reply-To: <1500281511.5566.15.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-07-17 at 14:30 -0700, Eric Dumazet wrote:
-> On Mon, 2017-07-17 at 22:59 +0200, Paolo Abeni wrote:
-> > Eric noticed that in udp_recvmsg() we still need to access
-> > skb->dst while processing the IP options.
-> > Since commit 0a463c78d25b ("udp: avoid a cache miss on dequeue")
-> > skb->dst is no more available at recvmsg() time and bad things
-> > will happen if we enter the relevant code path.
+On Mon, Jul 17, 2017 at 01:51:51AM -0700, Eric Dumazet wrote:
+> On Thu, 2017-07-13 at 10:56 -0700, Shaohua Li wrote:
+> > From: Shaohua Li <shli@fb.com>
 > > 
-> > This commit address the issue, avoid clearing skb->dst if
-> > any IP options are present into the relevant skb.
-> > Since the IP CB is contained in the first skb cacheline, we can
-> > test it to decide to leverage the consume_stateless_skb()
-> > optimization, without measurable additional cost in the faster
-> > path.
+> > Please see below tcpdump output:
 > 
-> Also the problem was not skb->dst at all, but fact that 
-> skb->head can not be freed if IP options need later to be fetched.
+> > The tcp reset packet has a different flowlabel, which causes our router
+> > doesn't correctly close tcp connection.
 > 
-> ( __ip_options_echo() -> 
->    sptr = skb_network_header(skb);
+> This looks a bug in your router, because (IPv6 only) flowlabel is not
+> part of the tuple identifying a TCP flow.
+
+Actually it's for load balance between several routers.
 > 
-> ... -> use after free
+> >   The reason is the normal packet
+> > gets the skb->hash from sk->sk_txhash, which is generated randomly.
+> > ip6_make_flowlabel then uses the hash to create a flowlabel. The reset
+> > packet doesn't get assigned a hash, so the flowlabel is calculated with
+> > flowi6.
+> > 
+> > The solution is to save the hash value for timeout sock and use it for
+> > reset packet.
+> 
+> I am a bit unsure why we need to add yet another field in TCP timewait
+> structure, since :
+> 
+> 1) flowlabel can vary during a TCP flow lifetime.
+> 2) flowlabel is different unde synflood (each syncookie gets a random
+> flowlabel), and if 3rd packet comes back from the client to finish 3WHS,
+> the flowlabel will again be different from the one that SYNACK used.
 
+Is it acceptable we reuse tw_flowlabel as Florent Fourcot suggested? It makes
+no sense to change flowlabel for no reason.
 
-Oh well, I read again the whole thing, and it seems you are right.
-
-Acked-by: Eric Dumazet <edumazet@google.com>
+Thanks,
+Shaohua
