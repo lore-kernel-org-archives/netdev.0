@@ -1,182 +1,86 @@
-From: David Herrmann <dh.herrmann@gmail.com>
-Subject: [PATCH] net/unix: drop obsolete fd-recursion limits
-Date: Mon, 17 Jul 2017 11:35:54 +0200
-Message-ID: <20170717093554.16459-1-dh.herrmann@gmail.com>
-Cc: Tom Gundersen <teg@jklm.no>, davem@davemloft.net,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        linux-kernel@vger.kernel.org,
-        David Herrmann <dh.herrmann@gmail.com>,
-        Alban Crequy <alban.crequy@collabora.co.uk>,
-        Simon McVittie <simon.mcvittie@collabora.co.uk>
-To: netdev@vger.kernel.org
+From: Alexander Potapenko <glider@google.com>
+Subject: Re: [PATCH v2] sctp: don't dereference ptr before leaving _sctp_walk_{params,errors}()
+Date: Mon, 17 Jul 2017 11:37:37 +0200
+Message-ID: <CAG_fn=WX+ahhp8tokB5K59Q-0z4ok4g+8TMOknTENf2yuvn_1g@mail.gmail.com>
+References: <CAG_fn=UU5wT5GuFd6=br2WycHZ+JF6SWTS7=HhNLzDTiDMi-=g@mail.gmail.com>
+ <20170714.102312.821784668156442305.davem@davemloft.net> <CAG_fn=XtmFsygwP=o5_pS1fHXUamAy=bib-7DZvX1n9P4MwCgQ@mail.gmail.com>
+ <20170714.105431.403659291323482633.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: Dmitriy Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        lucien xin <lucien.xin@gmail.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Networking <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170714.105431.403659291323482633.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-All unix sockets now account inflight FDs to the respective sender.
-This was introduced in:
+On Fri, Jul 14, 2017 at 7:54 PM, David Miller <davem@davemloft.net> wrote:
+> From: Alexander Potapenko <glider@google.com>
+> Date: Fri, 14 Jul 2017 19:33:54 +0200
+>
+>> On Fri, Jul 14, 2017 at 7:23 PM, David Miller <davem@davemloft.net> wrot=
+e:
+>>> From: Alexander Potapenko <glider@google.com>
+>>> Date: Fri, 14 Jul 2017 18:33:01 +0200
+>>>
+>>>> On Fri, Jul 14, 2017 at 5:58 PM, David Miller <davem@davemloft.net> wr=
+ote:
+>>>>> From: Alexander Potapenko <glider@google.com>
+>>>>> Date: Fri, 14 Jul 2017 12:03:29 +0200
+>>>>>
+>>>>>>  v2: per comment from David Miller, make sure the whole iterator->le=
+ngth
+>>>>>>      fits into the remaining buffer.
+>>>>>
+>>>>> Please compile and functionally test your changes:
+>>>>>
+>>>>> In file included from ./include/linux/compiler.h:58:0,
+>>>>>                  from ./include/uapi/linux/stddef.h:1,
+>>>>>                  from ./include/linux/stddef.h:4,
+>>>>>                  from ./include/uapi/linux/posix_types.h:4,
+>>>>>                  from ./include/uapi/linux/types.h:13,
+>>>>>                  from ./include/linux/types.h:5,
+>>>>>                  from net/sctp/sm_statefuns.c:48:
+>>>>> net/sctp/sm_statefuns.c: In function =E2=80=98sctp_sf_do_reconf=E2=80=
+=99:
+>>>>> ./include/net/sctp/sctp.h:472:24: error: unknown type name =E2=80=98s=
+ctp_paramhdr_t=E2=80=99
+>>>>>       (pos.v + offsetof(sctp_paramhdr_t, length) + sizeof(pos.p->leng=
+th) <\
+>>>>>                         ^
+>>>> Oops. Fixed.
+>>>
+>>> Did you functionally test the new version or just do a quick compile
+>>> check and resubmit?
+>> I've checked that the kernel still works, but unfortunately I couldn't
+>> check whether or not this affected the uninit memory, as KMSAN
+>> currently works on a fixed kernel revision. The compilation error was
+>> actually caused by me failing to test the kernel when porting the fix
+>> from that revision to upstream.
+>>
+>>> I really want you to test this if the logic has been changed.
+>> Do you mean any specific tests in addition to, say, running the
+>> reproducer on which the uninit use was reported?
+>
+> I mean the reproducer.
+Yes, I've ran the reproducer, and just double-checked that. Sorry for the d=
+elay.
 
-    commit 712f4aad406bb1ed67f3f98d04c044191f0ff593
-    Author: willy tarreau <w@1wt.eu>
-    Date:   Sun Jan 10 07:54:56 2016 +0100
 
-        unix: properly account for FDs passed over unix sockets
+--=20
+Alexander Potapenko
+Software Engineer
 
-and further refined in:
+Google Germany GmbH
+Erika-Mann-Stra=C3=9Fe, 33
+80636 M=C3=BCnchen
 
-    commit 415e3d3e90ce9e18727e8843ae343eda5a58fad6
-    Author: Hannes Frederic Sowa <hannes@stressinduktion.org>
-    Date:   Wed Feb 3 02:11:03 2016 +0100
-
-        unix: correctly track in-flight fds in sending process user_struct
-
-Hence, regardless of the stacking depth of FDs, the total number of
-inflight FDs is limited, and accounted. There is no known way for a
-local user to exceed those limits or exploit the accounting.
-
-Furthermore, the GC logic is independent of the recursion/stacking depth
-as well. It solely depends on the total number of inflight FDs,
-regardless of their layout.
-
-Lastly, the current `recursion_level' suffers a TOCTOU race, since it
-checks and inherits depths only at queue time. If we consider `A<-B' to
-mean `queue-B-on-A', the following sequence circumvents the recursion
-level easily:
-
-    A<-B
-       B<-C
-          C<-D
-             ...
-               Y<-Z
-
-resulting in:
-
-    A<-B<-C<-...<-Z
-
-With all of this in mind, lets drop the recursion limit. It has no
-additional security value, anymore. On the contrary, it randomly
-confuses message brokers that try to forward file-descriptors, since
-any sendmsg(2) call can fail spuriously with ETOOMANYREFS if a client
-maliciously modifies the FD while inflight.
-
-Cc: Alban Crequy <alban.crequy@collabora.co.uk>
-Cc: Simon McVittie <simon.mcvittie@collabora.co.uk>
-Signed-off-by: David Herrmann <dh.herrmann@gmail.com>
----
- include/net/af_unix.h |  1 -
- net/unix/af_unix.c    | 24 +-----------------------
- 2 files changed, 1 insertion(+), 24 deletions(-)
-
-diff --git a/include/net/af_unix.h b/include/net/af_unix.h
-index 678e4d6fa317..3b3194b2fc65 100644
---- a/include/net/af_unix.h
-+++ b/include/net/af_unix.h
-@@ -58,7 +58,6 @@ struct unix_sock {
- 	struct list_head	link;
- 	atomic_long_t		inflight;
- 	spinlock_t		lock;
--	unsigned char		recursion_level;
- 	unsigned long		gc_flags;
- #define UNIX_GC_CANDIDATE	0
- #define UNIX_GC_MAYBE_CYCLE	1
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 7b52a380d710..5c53f22d62e8 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1528,26 +1528,13 @@ static inline bool too_many_unix_fds(struct task_struct *p)
- 	return false;
- }
- 
--#define MAX_RECURSION_LEVEL 4
--
- static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
- {
- 	int i;
--	unsigned char max_level = 0;
- 
- 	if (too_many_unix_fds(current))
- 		return -ETOOMANYREFS;
- 
--	for (i = scm->fp->count - 1; i >= 0; i--) {
--		struct sock *sk = unix_get_socket(scm->fp->fp[i]);
--
--		if (sk)
--			max_level = max(max_level,
--					unix_sk(sk)->recursion_level);
--	}
--	if (unlikely(max_level > MAX_RECURSION_LEVEL))
--		return -ETOOMANYREFS;
--
- 	/*
- 	 * Need to duplicate file references for the sake of garbage
- 	 * collection.  Otherwise a socket in the fps might become a
-@@ -1559,7 +1546,7 @@ static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
- 
- 	for (i = scm->fp->count - 1; i >= 0; i--)
- 		unix_inflight(scm->fp->user, scm->fp->fp[i]);
--	return max_level;
-+	return 0;
- }
- 
- static int unix_scm_to_skb(struct scm_cookie *scm, struct sk_buff *skb, bool send_fds)
-@@ -1649,7 +1636,6 @@ static int unix_dgram_sendmsg(struct socket *sock, struct msghdr *msg,
- 	struct sk_buff *skb;
- 	long timeo;
- 	struct scm_cookie scm;
--	int max_level;
- 	int data_len = 0;
- 	int sk_locked;
- 
-@@ -1701,7 +1687,6 @@ static int unix_dgram_sendmsg(struct socket *sock, struct msghdr *msg,
- 	err = unix_scm_to_skb(&scm, skb, true);
- 	if (err < 0)
- 		goto out_free;
--	max_level = err + 1;
- 
- 	skb_put(skb, len - data_len);
- 	skb->data_len = data_len;
-@@ -1819,8 +1804,6 @@ static int unix_dgram_sendmsg(struct socket *sock, struct msghdr *msg,
- 		__net_timestamp(skb);
- 	maybe_add_creds(skb, sock, other);
- 	skb_queue_tail(&other->sk_receive_queue, skb);
--	if (max_level > unix_sk(other)->recursion_level)
--		unix_sk(other)->recursion_level = max_level;
- 	unix_state_unlock(other);
- 	other->sk_data_ready(other);
- 	sock_put(other);
-@@ -1855,7 +1838,6 @@ static int unix_stream_sendmsg(struct socket *sock, struct msghdr *msg,
- 	int sent = 0;
- 	struct scm_cookie scm;
- 	bool fds_sent = false;
--	int max_level;
- 	int data_len;
- 
- 	wait_for_unix_gc();
-@@ -1905,7 +1887,6 @@ static int unix_stream_sendmsg(struct socket *sock, struct msghdr *msg,
- 			kfree_skb(skb);
- 			goto out_err;
- 		}
--		max_level = err + 1;
- 		fds_sent = true;
- 
- 		skb_put(skb, size - data_len);
-@@ -1925,8 +1906,6 @@ static int unix_stream_sendmsg(struct socket *sock, struct msghdr *msg,
- 
- 		maybe_add_creds(skb, sock, other);
- 		skb_queue_tail(&other->sk_receive_queue, skb);
--		if (max_level > unix_sk(other)->recursion_level)
--			unix_sk(other)->recursion_level = max_level;
- 		unix_state_unlock(other);
- 		other->sk_data_ready(other);
- 		sent += size;
-@@ -2324,7 +2303,6 @@ static int unix_stream_read_generic(struct unix_stream_read_state *state,
- 		last_len = last ? last->len : 0;
- again:
- 		if (skb == NULL) {
--			unix_sk(sk)->recursion_level = 0;
- 			if (copied >= target)
- 				goto unlock;
- 
--- 
-2.13.2
+Gesch=C3=A4ftsf=C3=BChrer: Matthew Scott Sucherman, Paul Terence Manicle
+Registergericht und -nummer: Hamburg, HRB 86891
+Sitz der Gesellschaft: Hamburg
