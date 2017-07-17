@@ -1,47 +1,63 @@
-From: Arend van Spriel <arend.vanspriel@broadcom.com>
-Subject: Re: [PATCH 11/11] net: brcmfmac: constify pci_device_id.
-Date: Mon, 17 Jul 2017 21:21:12 +0200
-Message-ID: <aa683182-5d94-1b63-2c22-fec3775ae7d3@broadcom.com>
-References: <1500315402-3439-1-git-send-email-arvind.yadav.cs@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 11/12] net: dsa: mv88e6xxx: add Energy Detect ops
+Date: Mon, 17 Jul 2017 21:27:34 +0200
+Message-ID: <20170717192734.GD9363@lunn.ch>
+References: <20170717170346.19555-1-vivien.didelot@savoirfairelinux.com>
+ <20170717170346.19555-12-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-wireless@vger.kernel.org,
-        brcm80211-dev-list.pdl@broadcom.com, brcm80211-dev-list@cypress.com
-To: Arvind Yadav <arvind.yadav.cs@gmail.com>, kvalo@codeaurora.org,
-        hante.meuleman@broadcom.com, franky.lin@broadcom.com,
-        wright.feng@cypress.com
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1500315402-3439-1-git-send-email-arvind.yadav.cs@gmail.com>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <20170717170346.19555-12-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+> diff --git a/drivers/net/dsa/mv88e6xxx/phy.c b/drivers/net/dsa/mv88e6xxx/phy.c
+> index 436668bd50dc..317ae89cfa68 100644
+> --- a/drivers/net/dsa/mv88e6xxx/phy.c
+> +++ b/drivers/net/dsa/mv88e6xxx/phy.c
+> @@ -246,3 +246,99 @@ int mv88e6xxx_phy_setup(struct mv88e6xxx_chip *chip)
+>  {
+>  	return mv88e6xxx_phy_ppu_enable(chip);
+>  }
+> +
+> +/* Page 0, Register 16: Copper Specific Control Register 1 */
+> +
+> +int mv88e6352_phy_energy_detect_read(struct mv88e6xxx_chip *chip, int phy,
+> +				     struct ethtool_eee *eee)
+> +{
+> +	u16 val;
+> +	int err;
+> +
+> +	err = mv88e6xxx_phy_read(chip, phy, MV88E6XXX_PHY_CSCTL1, &val);
+> +	if (err)
+> +		return err;
+> +
+> +	val &= MV88E6352_PHY_CSCTL1_ENERGY_DETECT_MASK;
+> +
+> +	eee->eee_enabled = false;
+> +	eee->tx_lpi_enabled = false;
+> +
+> +	switch (val) {
+> +	case MV88E6352_PHY_CSCTL1_ENERGY_DETECT_SENSE_NLP:
+> +		eee->tx_lpi_enabled = true;
+> +		/* fall through... */
+> +	case MV88E6352_PHY_CSCTL1_ENERGY_DETECT_SENSE_RCV:
+> +		eee->eee_enabled = true;
+> +	}
+> +
+> +	return 0;
+> +}
 
+Hi Vivien
 
-On 17-07-17 20:16, Arvind Yadav wrote:
-> pci_device_id are not supposed to change at runtime. All functions
-> working with pci_device_id provided by <linux/pci.h> work with
-> const pci_device_id. So mark the non-const structs as const.
+I never liked this. I think it is architecturally wrong for the switch
+to be poking around in the PHY. It should ask the PHY driver. This is
+especially true for external PHYs which might not be a Marvell PHY.
 
-Acked-by: Arend van Spriel <arend.vanspriel@broadcom.com>
-> Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
-> ---
->  drivers/net/wireless/broadcom/brcm80211/brcmfmac/pcie.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/pcie.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/pcie.c
-> index f878706..e6e9b00 100644
-> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/pcie.c
-> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/pcie.c
-> @@ -1951,7 +1951,7 @@ static const struct dev_pm_ops brcmf_pciedrvr_pm = {
->  	BRCM_PCIE_VENDOR_ID_BROADCOM, dev_id,\
->  	subvend, subdev, PCI_CLASS_NETWORK_OTHER << 8, 0xffff00, 0 }
->  
-> -static struct pci_device_id brcmf_pcie_devid_table[] = {
-> +static const struct pci_device_id brcmf_pcie_devid_table[] = {
->  	BRCMF_PCIE_DEVICE(BRCM_PCIE_4350_DEVICE_ID),
->  	BRCMF_PCIE_DEVICE(BRCM_PCIE_4356_DEVICE_ID),
->  	BRCMF_PCIE_DEVICE(BRCM_PCIE_43567_DEVICE_ID),
-> 
+   Andrew
