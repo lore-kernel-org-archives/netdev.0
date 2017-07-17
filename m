@@ -1,80 +1,56 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v2 1/2] dt-bindings: net: Add bindings for National
- Instruments XGE netdev
-Date: Mon, 17 Jul 2017 14:03:39 -0500
-Message-ID: <20170717190339.gxxik5pwdd3bivks@rob-hp-laptop>
-References: <1500065326-26182-1-git-send-email-mdf@kernel.org>
+From: Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH 2/3] net: ethernet: bgmac: Make IDM register space optional
+Date: Mon, 17 Jul 2017 15:05:44 -0400
+Message-ID: <CAC3K-4rgVYkjGq_WTHoO6=fvSH0TuHOpdDpukbvK+5LxhLm4BA@mail.gmail.com>
+References: <1499972649-6200-1-git-send-email-abhishek.shah@broadcom.com>
+ <1499972649-6200-3-git-send-email-abhishek.shah@broadcom.com>
+ <CAC3K-4o=WRqBv_vTf7QGDYjWzMmVog=63ZbiHbHAuW7zJcsHFQ@mail.gmail.com> <CAKUFe6ad027MAg-A3XO7i1=c-Q623JqMPCKV_+Hi+ZpUojBn-Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-        mark.rutland-5wv7dgnIgG8@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org
-To: Moritz Fischer <mdf-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        "open list:OPEN FIRMWARE AND FLATTENED DEVICE TREE BINDINGS"
+        <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        BCM Kernel Feedback <bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+To: Abhishek Shah <abhishek.shah-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
 Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1500065326-26182-1-git-send-email-mdf-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+In-Reply-To: <CAKUFe6ad027MAg-A3XO7i1=c-Q623JqMPCKV_+Hi+ZpUojBn-Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 14, 2017 at 01:48:45PM -0700, Moritz Fischer wrote:
-> This adds bindings for the NI XGE 1G/10G network device.
-> 
-> Signed-off-by: Moritz Fischer <mdf-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> ---
->  Documentation/devicetree/bindings/net/nixge.txt | 32 +++++++++++++++++++++++++
->  1 file changed, 32 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/nixge.txt
-> 
-> diff --git a/Documentation/devicetree/bindings/net/nixge.txt b/Documentation/devicetree/bindings/net/nixge.txt
-> new file mode 100644
-> index 0000000..9fff5a7
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/nixge.txt
-> @@ -0,0 +1,32 @@
-> +* NI XGE Ethernet controller
-> +
-> +Required properties:
-> +- compatible: Should be "ni,xge-enet-2.00"
-> +- reg: Address and length of the register set for the device
-> +- interrupts: Should contain tx and rx interrupt
-> +- interrupt-names: Should be "rx-irq" and "tx-irq"
+On Mon, Jul 17, 2017 at 2:37 PM, Abhishek Shah
+<abhishek.shah-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> wrote:
+> Hi Jon,
+>
+>> This also will need to be added to
+>> drivers/net/ethernet/broadcom/bgmac-bcma.c.  Otherwise, the driver
+>> will no longer work for those platforms.  Since this was already
+>> accepted, please push out a fix ASAP.
+>>
+> I do not see how the bcma driver [bgmac-bcma.c] will no longer work.
+> The whole idea behind introducing this  BGMAC_FEAT_IDM_MASK bit
+> was to keep bcma driver's functionality intact.
+>
+> The BGMAC_FEAT_IDM_MASK bit is explicitly set by the bgmac-platform driver
+> and is unset inside the same if the idm register base is provided.
+>
+> For BCMA driver case, I do not touch BGMAC_FEAT_IDM_MASK bit, i.e. it
+> is *not* set.
+> And if it is not set, each idm operation done in bgmac.c will take place.
+> Please explain if I am missing something here.
 
-The "-irq" part is redundant.
+Sorry, I had it flipped in my mind.  Please disregard.
 
-> +- phy-mode: See ethernet.txt file in the same directory.
-> +- nvmem-cells: Phandle of nvmem cell containing the mac address
-
-s/mac/MAC/
-
-> +- nvmem-cell-names: Should be "address"
-> +
-> +Examples (10G generic PHY):
-> +	nixge0: ethernet@40000000 {
-> +		compatible = "ni,xge-enet-2.00";
-> +		reg = <0x40000000 0x6000>;
-> +
-> +		nvmem-cells = <&eth1_addr>;
-> +		nvmem-cell-names = "address";
-> +
-> +		interrupts = <0 29 4>, <0 30 4>;
-> +		interrupt-names = "rx-irq", "tx-irq";
-> +		interrupt-parent = <&intc>;
-> +
-> +		phy-mode = "xgmii";
-> +		phy-handle = <&ethernet_phy1>;
-> +
-> +		ethernet_phy1: ethernet-phy@4 {
-> +			compatible = "ethernet-phy-ieee802.3-c45";
-> +			reg = <4>;
-> +			devices = <0xa>;
-
-??
-
-> +		};
-> +	};
-> -- 
-> 2.7.4
-> 
+>
+>
+> Regards,
+> Abhishek
 --
 To unsubscribe from this list: send the line "unsubscribe devicetree" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
