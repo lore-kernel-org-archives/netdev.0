@@ -1,38 +1,41 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 05/12] net: dsa: mv88e6xxx: remove 88E6185 G2 interrupt
-Date: Mon, 17 Jul 2017 13:03:39 -0400
-Message-ID: <20170717170346.19555-6-vivien.didelot@savoirfairelinux.com>
-References: <20170717170346.19555-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170717170346.19555-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH 09/12] bpf: add bpf_redirect_map helper routine
+Date: Mon, 17 Jul 2017 10:16:26 -0700
+Message-ID: <596CF0EA.7090100@gmail.com>
+References: <20170717160759.24315.7464.stgit@john-Precision-Tower-5810> <20170717162918.24315.8414.stgit@john-Precision-Tower-5810> <cf37d698-66b8-552c-abe4-8704d8fc84ff@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: daniel@iogearbox.net, netdev@vger.kernel.org, brouer@redhat.com,
+        andy@greyhouse.net
+To: Alexei Starovoitov <ast@fb.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:34477 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751311AbdGQRQh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 13:16:37 -0400
+Received: by mail-pf0-f178.google.com with SMTP id q85so79467680pfq.1
+        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 10:16:37 -0700 (PDT)
+In-Reply-To: <cf37d698-66b8-552c-abe4-8704d8fc84ff@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The 88E6185 family has no Global 2 Interrupt Source or Mask registers.
-Remove the MV88E6XXX_FLAG_G2_INT from MV88E6XXX_FLAGS_FAMILY_6185.
+On 07/17/2017 10:00 AM, Alexei Starovoitov wrote:
+> On 7/17/17 9:29 AM, John Fastabend wrote:
+>> + * int bpf_redirect_map(key, map, flags)
+>> + *     redirect to endpoint in map
+>> + *     @key: index in map to lookup
+>> + *     @map: fd of map to do lookup in
+>> + *     @flags: --
+> 
+> could you please adjust the comment describing return value
+> and also fix the comment next to bpf_redirect()
+> since that function got reused between tc and xdp.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx/chip.h | 1 -
- 1 file changed, 1 deletion(-)
+Looks like Dave pulled it in so I'll roll a patch on top of that
+with the comment description fix. Thanks.
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.h b/drivers/net/dsa/mv88e6xxx/chip.h
-index 9ccf5d03346a..8eab123f0fed 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.h
-+++ b/drivers/net/dsa/mv88e6xxx/chip.h
-@@ -159,7 +159,6 @@ enum mv88e6xxx_cap {
- 
- #define MV88E6XXX_FLAGS_FAMILY_6185	\
- 	(MV88E6XXX_FLAG_GLOBAL2 |	\
--	 MV88E6XXX_FLAG_G2_INT |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
- 	 MV88E6XXX_FLAGS_MULTI_CHIP)
- 
--- 
-2.13.2
+> 
+> Great stuff!
+> looking forward to support in other drivers.
+> 
