@@ -1,82 +1,82 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: Re: BUG triggered in tcp_openreq_init_rwin most likely due to
- 13d3b1ebe2876
-Date: Mon, 17 Jul 2017 08:18:54 +0000
-Message-ID: <BEA8CA36-9056-47C7-9759-7ED0410C6FBA@fb.com>
-References: <5d6eb001-2f2b-d9d4-5c5e-a0b22cd53f65@gmail.com>
+From: lin zhang <xiaolou4617@gmail.com>
+Subject: Re: [PATCH net-next resubmit] skbuff: optimize the pull_pages code in __pskb_pull_tail()
+Date: Mon, 17 Jul 2017 16:24:32 +0800
+Message-ID: <CAGd-6Zf+op44YT0b3qr2PVVOOxSK=FBarKTMRLX_f2F1VSQsJw@mail.gmail.com>
+References: <1500258126-11235-1-git-send-email-xiaolou4617@gmail.com> <1500276760.5566.5.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: David Ahern <dsahern@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:38987 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751279AbdGQIS6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 04:18:58 -0400
-In-Reply-To: <5d6eb001-2f2b-d9d4-5c5e-a0b22cd53f65@gmail.com>
-Content-Language: en-US
-Content-ID: <93860EFE3A92C449B36E97D582791917@namprd15.prod.outlook.com>
+Received: from mail-ua0-f194.google.com ([209.85.217.194]:33517 "EHLO
+        mail-ua0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751257AbdGQIYe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 04:24:34 -0400
+Received: by mail-ua0-f194.google.com with SMTP id z22so9159797uah.0
+        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 01:24:33 -0700 (PDT)
+In-Reply-To: <1500276760.5566.5.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RGF2aWQsIHRoYW5rIHlvdSBmb3IgYnJpbmdpbmcgdGhpcyB1cC4gU29ycnkgZm9yIHRoZSBkZWxh
-eSBidXQgSSBoYWQgYmVlbiB0cmF2ZWxpbmcuIEkgd2lsbCBsb29rIGludG8gaXQuDQoNCi0gTGF3
-cmVuY2UNCg0KT24gNy8xNi8xNywgNDo0NyBQTSwgIkRhdmlkIEFoZXJuIiA8ZHNhaGVybkBnbWFp
-bC5jb20+IHdyb3RlOg0KDQogICAgSGk6DQogICAgDQogICAgSSBhbSBnZXR0aW5nIHRoZSBmb2xs
-b3dpbmcgd2hpbGUgdGVzdGluZyBJUHY2IGNoYW5nZXM6DQogICAgDQogICAgWyAzOTA0LjI1MDk4
-MV0gVENQOiByZXF1ZXN0X3NvY2tfVENQdjY6IFBvc3NpYmxlIFNZTiBmbG9vZGluZyBvbiBwb3J0
-DQogICAgMTIzNDUuIFNlbmRpbmcgY29va2llcy4gIENoZWNrIFNOTVAgY291bnRlcnMuDQogICAg
-WyAzOTA0LjI1Mjg2Ml0NCiAgICA9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0NCiAgICBbIDM5MDQuMjU0MDU3XSBCVUc6IEtB
-U0FOOiBudWxsLXB0ci1kZXJlZiBpbg0KICAgIHRjcF9vcGVucmVxX2luaXRfcndpbisweDFkNS8w
-eDJiNA0KICAgIFsgMzkwNC4yNTUxMTNdIFJlYWQgb2Ygc2l6ZSAxIGF0IGFkZHIgMDAwMDAwMDAw
-MDAwMDAxMiBieSB0YXNrIHZyZi10ZXN0LzExNjYNCiAgICBbIDM5MDQuMjU2MTQ5XQ0KICAgIFsg
-MzkwNC4yNTY0MDVdIENQVTogMCBQSUQ6IDExNjYgQ29tbTogdnJmLXRlc3QgTm90IHRhaW50ZWQg
-NC4xMi4wKyAjMzA3DQogICAgWyAzOTA0LjI1NzM3M10gSGFyZHdhcmUgbmFtZTogUUVNVSBTdGFu
-ZGFyZCBQQyAoaTQ0MEZYICsgUElJWCwgMTk5NiksDQogICAgQklPUyAxLjcuNS0yMDE0MDUzMV8w
-ODMwMzAtZ2FuZGFsZiAwNC8wMS8yMDE0DQogICAgWyAzOTA0LjI1ODg5OV0gQ2FsbCBUcmFjZToN
-CiAgICBbIDM5MDQuMjU5MjkxXSAgPElSUT4NCiAgICBbIDM5MDQuMjU5NjI5XSAgZHVtcF9zdGFj
-aysweDgxLzB4YjYNCiAgICBbIDM5MDQuMjYwMTY3XSAga2FzYW5fcmVwb3J0KzB4MjM0LzB4MjY5
-DQogICAgWyAzOTA0LjI2MDY4OF0gIF9fYXNhbl9sb2FkMSsweDQ1LzB4NDcNCiAgICBbIDM5MDQu
-MjYxMTc2XSAgdGNwX29wZW5yZXFfaW5pdF9yd2luKzB4MWQ1LzB4MmI0DQogICAgWyAzOTA0LjI2
-MTgxMV0gIHRjcF9jb25uX3JlcXVlc3QrMHhiMWUvMHhlMTENCiAgICBbIDM5MDQuMjYyNDQ4XSAg
-dGNwX3Y2X2Nvbm5fcmVxdWVzdCsweDcyLzB4ODUNCiAgICBbIDM5MDQuMjYzMDEwXSAgPyB0Y3Bf
-djZfY29ubl9yZXF1ZXN0KzB4NzIvMHg4NQ0KICAgIFsgMzkwNC4yNjM2MDVdICB0Y3BfcmN2X3N0
-YXRlX3Byb2Nlc3MrMHhlNi8weDEyNDMNCiAgICBbIDM5MDQuMjY0MjM2XSAgPyBsb2NrX3JlbGVh
-c2UrMHgyN2YvMHg0NDQNCiAgICBbIDM5MDQuMjY0NzkzXSAgdGNwX3Y2X2RvX3JjdisweDMyMS8w
-eDU1OQ0KICAgIFsgMzkwNC4yNjUzMTZdICA/IHRjcF92Nl9kb19yY3YrMHgzMjEvMHg1NTkNCiAg
-ICBbIDM5MDQuMjY1ODU4XSAgPyB0Y3BfZmlsdGVyKzB4ODIvMHg5NQ0KICAgIFsgMzkwNC4yNjYz
-NTddICB0Y3BfdjZfcmN2KzB4NmM3LzB4YjMzDQogICAgWyAzOTA0LjI2Njg4Nl0gIGlwNl9pbnB1
-dF9maW5pc2grMHgxZGUvMHg1Y2ENCiAgICBbIDM5MDQuMjY3NDcxXSAgaXA2X2lucHV0KzB4NjYv
-MHg2Yw0KICAgIA0KICAgIA0KICAgIFRoaXMgaXMgZW5vdWdoIHRvIHByZXZlbnQgdGhlIHByb2Js
-ZW0gdGhlIGNyYXNoIHdoaWNoIHN1Z2dlc3QgdGhlIHJlY2VudA0KICAgIGJwZiBzb2NrX29wcyBp
-cyB0aGUgY3VscHJpdDoNCiAgICANCiAgICBkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvdGNwX21pbmlz
-b2Nrcy5jIGIvbmV0L2lwdjQvdGNwX21pbmlzb2Nrcy5jDQogICAgaW5kZXggMGZmODNjMTYzN2Q4
-Li44ODkwNDg4MmI0YWQgMTAwNjQ0DQogICAgLS0tIGEvbmV0L2lwdjQvdGNwX21pbmlzb2Nrcy5j
-DQogICAgKysrIGIvbmV0L2lwdjQvdGNwX21pbmlzb2Nrcy5jDQogICAgQEAgLTM2NCw3ICszNjQs
-NyBAQCB2b2lkIHRjcF9vcGVucmVxX2luaXRfcndpbihzdHJ1Y3QgcmVxdWVzdF9zb2NrICpyZXEs
-DQogICAgICAgICAgICAgICAgKHJlcS0+cnNrX3dpbmRvd19jbGFtcCA+IGZ1bGxfc3BhY2UgfHwg
-cmVxLT5yc2tfd2luZG93X2NsYW1wDQogICAgPT0gMCkpDQogICAgICAgICAgICAgICAgICAgIHJl
-cS0+cnNrX3dpbmRvd19jbGFtcCA9IGZ1bGxfc3BhY2U7DQogICAgDQogICAgLSAgICAgICByY3Zf
-d25kID0gdGNwX3J3bmRfaW5pdF9icGYoKHN0cnVjdCBzb2NrICopcmVxKTsNCiAgICArICAgICAg
-IHJjdl93bmQgPSAwOyAvLyB0Y3BfcnduZF9pbml0X2JwZigoc3RydWN0IHNvY2sgKilyZXEpOw0K
-ICAgICAgICAgICAgaWYgKHJjdl93bmQgPT0gMCkNCiAgICAgICAgICAgICAgICAgICAgcmN2X3du
-ZCA9IGRzdF9tZXRyaWMoZHN0LCBSVEFYX0lOSVRSV05EKTsNCiAgICAgICAgICAgIGVsc2UgaWYg
-KGZ1bGxfc3BhY2UgPCByY3Zfd25kICogbXNzKQ0KICAgIA0KICAgIA0KICAgIE5vdGU6IEkgYW0g
-Km5vdCogdXNpbmcgYW55IG9mIHRoZSBuZXcgc29ja19vcHMgaG9va3M7IEkgc2ltcGx5IGhhdmUg
-dGhlDQogICAgY2dyb3VwIGJwZiBob29rcyBlbmFibGVkIGFuZCBpbiB1c2UgZm9yIFZSRi4NCiAg
-ICANCiAgICBSZXByb2R1Y3Rpb24gaW5jbHVkZXMgY3JlYXRpbmcgYSBWUkYgYW5kIGVuYWJsaW5n
-IGNncm91cCBjb2RlIGZvciBpdDoNCiAgICAgICAgaXAgbGkgYWRkIHJlZCB0eXBlIHZyZiB0YWJs
-ZSAxMjMNCiAgICAgICAgaXAgbGkgc2V0IHJlZCB1cA0KICAgICAgICBpcCBhZGRyIGFkZCBkZXYg
-cmVkIDE3Mi4xNi4xLjEvMzINCiAgICAgICAgaXAgdnJmIGV4ZWMgcmVkIHBpbmcgLWMxIDE3Mi4x
-Ni4xLjENCiAgICANCiAgICBCeSBhZGRpbmcgdnJmIGJwZiB0byBhIGNncm91cCB0aGUgY2dyb3Vw
-X2JwZl9lbmFibGVkIGlzIHNldCBjYXVzaW5nIHRoZQ0KICAgIHJlc3Qgb2YgQlBGX0NHUk9VUF9S
-VU5fUFJPR19TT0NLX09QUyB0byBiZSBldmFsdWF0ZWQuDQogICAgDQogICAgRnJvbSBoZXJlLCB1
-c2UgeW91ciBmYXZvcml0ZSB0ZXN0IHNlcnZlciBhbmQgbWFrZSBTWU4tQUNLcyBnZXQgbG9zdCAo
-bm90DQogICAgc3VyZSB0aGF0IGlzIHJlcXVpcmVkIGJ1dCBpcyBhIHJlbGlhYmxlIHRyaWdnZXIg
-Zm9yIG1lKS4gSW4gbXkgY2FzZSBJIGFtDQogICAgdXNpbmcgbXkgYSBzaW1wbGUgbmV0d29ya2lu
-ZyB0ZXN0IHByb2dyYW06DQogICAgDQogICAgaXA2dGFibGVzIC1BIElOUFVUIC1wIHRjcCAtLXNw
-b3J0IDEyMzQ1IC1qIERST1ANCiAgICB2cmYtdGVzdCAtNiAtcyAmDQogICAgdnJmLXRlc3QgLTYg
-LXIgMjAwMTpkYjg6MTo6MSAmDQogICAgdnJmLXRlc3QgLTYgLXIgMjAwMTpkYjg6MTo6MSAmDQog
-ICAgPEJPT00+DQogICAgICANCg0K
+2017-07-17 15:32 GMT+08:00 Eric Dumazet <eric.dumazet@gmail.com>:
+> On Mon, 2017-07-17 at 10:22 +0800, Lin Zhang wrote:
+>> In the pull_pages code block, if the first frag size > eat,
+>> we can end the loop in advance to avoid extra copy.
+>>
+>> Signed-off-by: Lin Zhang <xiaolou4617@gmail.com>
+>> ---
+>>  net/core/skbuff.c | 4 ++++
+>>  1 file changed, 4 insertions(+)
+>>
+>> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+>> index f990eb8..c00a1df 100644
+>> --- a/net/core/skbuff.c
+>> +++ b/net/core/skbuff.c
+>> @@ -1720,6 +1720,10 @@ void *__pskb_pull_tail(struct sk_buff *skb, int delta)
+>>                               skb_shinfo(skb)->frags[k].page_offset += eat;
+>>                               skb_frag_size_sub(&skb_shinfo(skb)->frags[k], eat);
+>>                               eat = 0;
+>> +                             if (!i) {
+>> +                                     k = skb_shinfo(skb)->nr_frags;
+>> +                                     break;
+>> +                             }
+>>                       }
+>>                       k++;
+>>               }
+>
+> -CC lkml  (no need to spam lkml for netdev patches )
+>
+> Why even reading skb_shinfo(skb)->nr_frags to write it again ?
+>
+> I would use something like :
+>
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 8b11341ed69ad97d34dd3e9b73c8c44ef7c452ff..a562b0e61afa3faf7abdd7f9209ae9096310fb7d 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -1719,13 +1719,15 @@ void *__pskb_pull_tail(struct sk_buff *skb, int delta)
+>                         if (eat) {
+>                                 skb_shinfo(skb)->frags[k].page_offset += eat;
+>                                 skb_frag_size_sub(&skb_shinfo(skb)->frags[k], eat);
+> +                               if (!i)
+> +                                       goto end;
+>                                 eat = 0;
+>                         }
+>                         k++;
+>                 }
+>         }
+>         skb_shinfo(skb)->nr_frags = k;
+> -
+> +end:
+>         skb->tail     += delta;
+>         skb->data_len -= delta;
+>
+>
+>
+>
+>
+Yes, this change it is looks like better than me. :)
+
+
+-- 
+Lin Zhang
