@@ -1,38 +1,46 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2 2/4] net-next: mediatek: add platform data to
- adapt into various hardware
-Date: Mon, 17 Jul 2017 15:44:01 +0200
-Message-ID: <20170717134401.GC30392@lunn.ch>
-References: <cover.1500285278.git.sean.wang@mediatek.com>
- <2987b7e3b40cfcd143b5da444c6722b5e92bc0b5.1500285278.git.sean.wang@mediatek.com>
- <20170717134309.GB30392@lunn.ch>
+From: Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH rdma-next V2 20/27] RDMA: Simplify get firmware interface
+Date: Mon, 17 Jul 2017 10:48:22 -0400
+Message-ID: <4c9322da-8370-305e-0e6d-f79f931c7f8d@intel.com>
+References: <20170703062830.30361-1-leon@kernel.org>
+ <20170703062830.30361-21-leon@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: john@phrozen.org, davem@davemloft.net, nbd@openwrt.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-mediatek@lists.infradead.org
-To: sean.wang@mediatek.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:57748 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751280AbdGQNoG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Jul 2017 09:44:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20170717134309.GB30392@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+        Ariel Almog <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Linux Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170703062830.30361-21-leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 17, 2017 at 03:43:09PM +0200, Andrew Lunn wrote:
-> >  const struct of_device_id of_mtk_match[] = {
-> > -	{ .compatible = "mediatek,mt2701-eth" },
-> > +	{ .compatible = "mediatek,mt2701-eth", .data = &mt2701_data},
-> > +	{ .compatible = "mediatek,mt7623-eth", .data = &mt7623_data},
-> >  	{},
+On 7/3/2017 2:28 AM, Leon Romanovsky wrote:
+> From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 > 
-> Hi Sean
+> There is a need to forward FW version to user space
+> application through RDMA netlink. In order to make it safe, there
+> is need to declare nla_policy and limit the size of FW string.
 > 
-> The binding document also lists "mediatek,mt7622-eth"?
+> The new define IB_FW_VERSION_NAME_MAX will limit the size of
+> FW version string. That define was chosen to be equal to
+> ETHTOOL_FWVERS_LEN, because many drivers anyway are limited
+> by that value indirectly.
+> 
+> The introduction of this define allows us to remove the string size
+> from get_fw_str function signature.
+> 
+> Signed-off-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
-Doh! The next patch adds it. Sorry for the noise.
+Reviewed-by: Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-     Andrew
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
