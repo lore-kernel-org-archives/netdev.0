@@ -1,72 +1,80 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [netfilter-core] [PATCH v2] netfilter: nfnetlink: Improve input
- length sanitization in nfnetlink_rcv
-Date: Mon, 17 Jul 2017 13:31:17 +0200
-Message-ID: <20170717113117.GA4148@salvia>
-References: <1496841821.736.35.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170607135038.1592-1-mjurczyk@google.com>
- <20170627155825.GA4885@salvia>
- <20170627170527.GA13513@salvia>
- <20170629162240.GA6883@salvia>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        coreteam@netfilter.org, netfilter-devel@vger.kernel.org,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>
-To: Mateusz Jurczyk <mjurczyk@google.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH net-next 01/10] drivers: net: add missing interrupt.h include
+Date: Mon, 17 Jul 2017 13:57:18 +0200
+Message-ID: <20170717115727.26042-2-fw@strlen.de>
+References: <20170717115727.26042-1-fw@strlen.de>
+Cc: steffen.klassert@secunet.com, ilant@mellanox.com,
+        Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:35776 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751291AbdGQLbW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Jul 2017 07:31:22 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id F376752316
-        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 13:31:09 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id E4DF5CE5DD
-        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 13:31:09 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id B5EA5DA57E
-        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 13:31:07 +0200 (CEST)
-Content-Disposition: inline
-In-Reply-To: <20170629162240.GA6883@salvia>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:43888 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751280AbdGQL5L (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 07:57:11 -0400
+In-Reply-To: <20170717115727.26042-1-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 29, 2017 at 06:22:40PM +0200, Pablo Neira Ayuso wrote:
-> On Tue, Jun 27, 2017 at 07:05:27PM +0200, Pablo Neira Ayuso wrote:
-> > On Tue, Jun 27, 2017 at 05:58:25PM +0200, Pablo Neira Ayuso wrote:
-> > > On Wed, Jun 07, 2017 at 03:50:38PM +0200, Mateusz Jurczyk wrote:
-> > > > Verify that the length of the socket buffer is sufficient to cover the
-> > > > nlmsghdr structure before accessing the nlh->nlmsg_len field for further
-> > > > input sanitization. If the client only supplies 1-3 bytes of data in
-> > > > sk_buff, then nlh->nlmsg_len remains partially uninitialized and
-> > > > contains leftover memory from the corresponding kernel allocation.
-> > > > Operating on such data may result in indeterminate evaluation of the
-> > > > nlmsg_len < NLMSG_HDRLEN expression.
-> > > > 
-> > > > The bug was discovered by a runtime instrumentation designed to detect
-> > > > use of uninitialized memory in the kernel. The patch prevents this and
-> > > > other similar tools (e.g. KMSAN) from flagging this behavior in the future.
-> > > 
-> > > Applied, thanks.
-> > 
-> > Wait, I keeping this back after closer look.
-> > 
-> > I think we have to remove this:
-> > 
-> >         if (nlh->nlmsg_len < NLMSG_HDRLEN || <---
-> >             skb->len < NLMSG_HDRLEN + sizeof(struct nfgenmsg))
-> >                 return;
-> > 
-> > in nfnetlink_rcv_skb_batch()
-> > 
-> > now that we make this unfront check from nfnetlink_rcv().
-> 
-> BTW, I can just mangle your patch here to delete such line to speed up
-> things. See the mangled patch that is attached to this email.
+these drivers use tasklets or irq apis, but don't include interrupt.h.
+Once flow cache is removed the implicit interrupt.h inclusion goes away
+which will break the build.
 
-OK, I have applied this to the nf tree.
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ drivers/net/arcnet/arcdevice.h                 | 2 +-
+ drivers/net/ethernet/amd/xgbe/xgbe.h           | 1 +
+ drivers/net/ethernet/synopsys/dwc-xlgmac-net.c | 1 +
+ drivers/net/ieee802154/ca8210.c                | 1 +
+ 4 files changed, 4 insertions(+), 1 deletion(-)
 
-Thanks!
+diff --git a/drivers/net/arcnet/arcdevice.h b/drivers/net/arcnet/arcdevice.h
+index cbb4f8566bbe..d09b2b46ab63 100644
+--- a/drivers/net/arcnet/arcdevice.h
++++ b/drivers/net/arcnet/arcdevice.h
+@@ -20,7 +20,7 @@
+ #include <linux/if_arcnet.h>
+ 
+ #ifdef __KERNEL__
+-#include  <linux/irqreturn.h>
++#include <linux/interrupt.h>
+ 
+ /*
+  * RECON_THRESHOLD is the maximum number of RECON messages to receive
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
+index 0938294f640a..e9282c924621 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe.h
++++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
+@@ -129,6 +129,7 @@
+ #include <net/dcbnl.h>
+ #include <linux/completion.h>
+ #include <linux/cpumask.h>
++#include <linux/interrupt.h>
+ 
+ #define XGBE_DRV_NAME		"amd-xgbe"
+ #define XGBE_DRV_VERSION	"1.0.3"
+diff --git a/drivers/net/ethernet/synopsys/dwc-xlgmac-net.c b/drivers/net/ethernet/synopsys/dwc-xlgmac-net.c
+index 3b91257683bc..e1b55b8fb8e0 100644
+--- a/drivers/net/ethernet/synopsys/dwc-xlgmac-net.c
++++ b/drivers/net/ethernet/synopsys/dwc-xlgmac-net.c
+@@ -17,6 +17,7 @@
+ 
+ #include <linux/netdevice.h>
+ #include <linux/tcp.h>
++#include <linux/interrupt.h>
+ 
+ #include "dwc-xlgmac.h"
+ #include "dwc-xlgmac-reg.h"
+diff --git a/drivers/net/ieee802154/ca8210.c b/drivers/net/ieee802154/ca8210.c
+index a626c539fb17..326243fae7e2 100644
+--- a/drivers/net/ieee802154/ca8210.c
++++ b/drivers/net/ieee802154/ca8210.c
+@@ -66,6 +66,7 @@
+ #include <linux/spinlock.h>
+ #include <linux/string.h>
+ #include <linux/workqueue.h>
++#include <linux/interrupt.h>
+ 
+ #include <net/ieee802154_netdev.h>
+ #include <net/mac802154.h>
+-- 
+2.13.0
