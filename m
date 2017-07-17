@@ -1,36 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv4: ipv6: initialize treq->txhash in
- cookie_v[46]_check()
-Date: Mon, 17 Jul 2017 10:42:59 -0700
-Message-ID: <1500313379.5566.21.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170717103558.35448-1-glider@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: dvyukov@google.com, kcc@google.com, edumazet@google.com,
-        davem@davemloft.net, netdev@vger.kernel.org
-To: Alexander Potapenko <glider@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35609 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751293AbdGQRnD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 13:43:03 -0400
-Received: by mail-wm0-f67.google.com with SMTP id u23so304536wma.2
-        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 10:43:02 -0700 (PDT)
-In-Reply-To: <20170717103558.35448-1-glider@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Subject: [PATCH] atm: zatm: Fix an error handling path in 'zatm_init_one()'
+Date: Mon, 17 Jul 2017 19:42:41 +0200
+Message-ID: <20170717174241.18935-1-christophe.jaillet@wanadoo.fr>
+Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+To: 3chas3@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2017-07-17 at 12:35 +0200, Alexander Potapenko wrote:
-> KMSAN reported use of uninitialized memory in skb_set_hash_from_sk(),
-> which originated from the TCP request socket created in
-> cookie_v6_check():
+If 'dma_set_mask_and_coherent()' fails, we must undo the previous
+'pci_request_regions()' call.
+Adjust corresponding 'goto' to jump at the right place of the error
+handling path.
 
-> Similar error is reported for cookie_v4_check().
-> 
-> Signed-off-by: Alexander Potapenko <glider@google.com>
-> Fixes: 58d607d3e52f ("tcp: provide skb->hash to synack packets")
+Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+---
+ drivers/atm/zatm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Acked-by: Eric Dumazet <edumazet@google.com>
-
-Thanks !
+diff --git a/drivers/atm/zatm.c b/drivers/atm/zatm.c
+index 292dec18ffb8..07bdd51b3b9a 100644
+--- a/drivers/atm/zatm.c
++++ b/drivers/atm/zatm.c
+@@ -1613,7 +1613,7 @@ static int zatm_init_one(struct pci_dev *pci_dev,
+ 
+ 	ret = dma_set_mask_and_coherent(&pci_dev->dev, DMA_BIT_MASK(32));
+ 	if (ret < 0)
+-		goto out_disable;
++		goto out_release;
+ 
+ 	zatm_dev->pci_dev = pci_dev;
+ 	dev->dev_data = zatm_dev;
+-- 
+2.11.0
