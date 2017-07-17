@@ -1,153 +1,52 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next 02/10] vti: revert flush x-netns xfrm cache when vti interface is removed
-Date: Mon, 17 Jul 2017 13:57:19 +0200
-Message-ID: <20170717115727.26042-3-fw@strlen.de>
-References: <20170717115727.26042-1-fw@strlen.de>
-Cc: steffen.klassert@secunet.com, ilant@mellanox.com,
-        Florian Westphal <fw@strlen.de>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:43898 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751280AbdGQL5P (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 07:57:15 -0400
-In-Reply-To: <20170717115727.26042-1-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 04/22] scsi: fusion: fix string overflow warning
+Date: Mon, 17 Jul 2017 14:00:10 +0200
+Message-ID: <CAK8P3a3D3zV0fMZc2OotCfkgxWAiaM5VUD=Pg5Uj1x9AXpDXWA@mail.gmail.com>
+References: <20170714120720.906842-1-arnd@arndb.de> <20170714120720.906842-5-arnd@arndb.de>
+ <063D6719AE5E284EB5DD2968C1650D6DD003A6C7@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Sathya Prakash <sathya.prakash@broadcom.com>,
+        Chaitra P B <chaitra.basappa@broadcom.com>,
+        Suganath Prabu Subramani
+        <suganath-prabu.subramani@broadcom.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Guenter Roeck <linux@roeck-us.net>,
+        "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        "James E . J . Bottomley" <jejb@linux.vnet.ibm.com>,
+        "Martin K . Petersen" <martin.petersen@oracle.com>,
+        "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+        "x86@kernel.org" <x86@kernel.org>, Helge Deller <deller@gmx.de>,
+        "MPT-FusionLinux.pdl@broadcom.com" <MPT-Fusi
+To: David Laight <David.Laight@aculab.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD003A6C7@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-flow cache is removed in next commit.
+On Mon, Jul 17, 2017 at 11:17 AM, David Laight <David.Laight@aculab.com> wrote:
+> From: Arnd Bergmann
+>> Sent: 14 July 2017 13:07
+>> gcc points out a theorerical string overflow:
+>>
+>> drivers/message/fusion/mptbase.c: In function 'mpt_detach':
+>> drivers/message/fusion/mptbase.c:2103:17: error: '%s' directive writing up to 31 bytes into a region
+>> of size 28 [-Werror=format-overflow=]
+>> sprintf(pname, MPT_PROCFS_MPTBASEDIR "/%s/summary", ioc->name);
+>>                ^~~~~
+>> drivers/message/fusion/mptbase.c:2103:2: note: 'sprintf' output between 13 and 44 bytes into a
+>> destination of size 32
+>>
+>> We can simply double the size of the local buffer here to be on the
+>> safe side.
+>
+> I think I'd change it to snprintf() as well.
+> Saves any worries if ioc->name isn't '\0' terminated.
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- net/ipv4/ip_vti.c  | 31 -------------------------------
- net/ipv6/ip6_vti.c | 31 -------------------------------
- 2 files changed, 62 deletions(-)
+Ok, fair enough, I'll send a new version right away.
 
-diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index 0192c255e508..5ed63d250950 100644
---- a/net/ipv4/ip_vti.c
-+++ b/net/ipv4/ip_vti.c
-@@ -584,33 +584,6 @@ static struct rtnl_link_ops vti_link_ops __read_mostly = {
- 	.get_link_net	= ip_tunnel_get_link_net,
- };
- 
--static bool is_vti_tunnel(const struct net_device *dev)
--{
--	return dev->netdev_ops == &vti_netdev_ops;
--}
--
--static int vti_device_event(struct notifier_block *unused,
--			    unsigned long event, void *ptr)
--{
--	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
--	struct ip_tunnel *tunnel = netdev_priv(dev);
--
--	if (!is_vti_tunnel(dev))
--		return NOTIFY_DONE;
--
--	switch (event) {
--	case NETDEV_DOWN:
--		if (!net_eq(tunnel->net, dev_net(dev)))
--			xfrm_garbage_collect(tunnel->net);
--		break;
--	}
--	return NOTIFY_DONE;
--}
--
--static struct notifier_block vti_notifier_block __read_mostly = {
--	.notifier_call = vti_device_event,
--};
--
- static int __init vti_init(void)
- {
- 	const char *msg;
-@@ -618,8 +591,6 @@ static int __init vti_init(void)
- 
- 	pr_info("IPv4 over IPsec tunneling driver\n");
- 
--	register_netdevice_notifier(&vti_notifier_block);
--
- 	msg = "tunnel device";
- 	err = register_pernet_device(&vti_net_ops);
- 	if (err < 0)
-@@ -652,7 +623,6 @@ static int __init vti_init(void)
- xfrm_proto_esp_failed:
- 	unregister_pernet_device(&vti_net_ops);
- pernet_dev_failed:
--	unregister_netdevice_notifier(&vti_notifier_block);
- 	pr_err("vti init: failed to register %s\n", msg);
- 	return err;
- }
-@@ -664,7 +634,6 @@ static void __exit vti_fini(void)
- 	xfrm4_protocol_deregister(&vti_ah4_protocol, IPPROTO_AH);
- 	xfrm4_protocol_deregister(&vti_esp4_protocol, IPPROTO_ESP);
- 	unregister_pernet_device(&vti_net_ops);
--	unregister_netdevice_notifier(&vti_notifier_block);
- }
- 
- module_init(vti_init);
-diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
-index 486c2305f53c..79444a4bfd6d 100644
---- a/net/ipv6/ip6_vti.c
-+++ b/net/ipv6/ip6_vti.c
-@@ -1145,33 +1145,6 @@ static struct xfrm6_protocol vti_ipcomp6_protocol __read_mostly = {
- 	.priority	=	100,
- };
- 
--static bool is_vti6_tunnel(const struct net_device *dev)
--{
--	return dev->netdev_ops == &vti6_netdev_ops;
--}
--
--static int vti6_device_event(struct notifier_block *unused,
--			     unsigned long event, void *ptr)
--{
--	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
--	struct ip6_tnl *t = netdev_priv(dev);
--
--	if (!is_vti6_tunnel(dev))
--		return NOTIFY_DONE;
--
--	switch (event) {
--	case NETDEV_DOWN:
--		if (!net_eq(t->net, dev_net(dev)))
--			xfrm_garbage_collect(t->net);
--		break;
--	}
--	return NOTIFY_DONE;
--}
--
--static struct notifier_block vti6_notifier_block __read_mostly = {
--	.notifier_call = vti6_device_event,
--};
--
- /**
-  * vti6_tunnel_init - register protocol and reserve needed resources
-  *
-@@ -1182,8 +1155,6 @@ static int __init vti6_tunnel_init(void)
- 	const char *msg;
- 	int err;
- 
--	register_netdevice_notifier(&vti6_notifier_block);
--
- 	msg = "tunnel device";
- 	err = register_pernet_device(&vti6_net_ops);
- 	if (err < 0)
-@@ -1216,7 +1187,6 @@ static int __init vti6_tunnel_init(void)
- xfrm_proto_esp_failed:
- 	unregister_pernet_device(&vti6_net_ops);
- pernet_dev_failed:
--	unregister_netdevice_notifier(&vti6_notifier_block);
- 	pr_err("vti6 init: failed to register %s\n", msg);
- 	return err;
- }
-@@ -1231,7 +1201,6 @@ static void __exit vti6_tunnel_cleanup(void)
- 	xfrm6_protocol_deregister(&vti_ah6_protocol, IPPROTO_AH);
- 	xfrm6_protocol_deregister(&vti_esp6_protocol, IPPROTO_ESP);
- 	unregister_pernet_device(&vti6_net_ops);
--	unregister_netdevice_notifier(&vti6_notifier_block);
- }
- 
- module_init(vti6_tunnel_init);
--- 
-2.13.0
+      Arnd
