@@ -1,137 +1,156 @@
-From: gfree.wind@vip.163.com
-Subject: [PATCH] ppp: Fix false xmit recursion detect with two ppp devices
-Date: Mon, 17 Jul 2017 18:34:42 +0800
-Message-ID: <1500287682-18872-1-git-send-email-gfree.wind@vip.163.com>
-Cc: Gao Feng <gfree.wind@vip.163.com>
-To: paulus@samba.org, g.nault@alphalink.fr, davem@davemloft.net,
-        linux-ppp@vger.kernel.org, netdev@vger.kernel.org
+From: Alexander Potapenko <glider@google.com>
+Subject: [PATCH] ipv4: ipv6: initialize treq->txhash in cookie_v[46]_check()
+Date: Mon, 17 Jul 2017 12:35:58 +0200
+Message-ID: <20170717103558.35448-1-glider@google.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: dvyukov@google.com, kcc@google.com, edumazet@google.com,
+        davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m181-177.vip.163.com ([123.58.177.181]:57185 "EHLO
-        m181-177.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751493AbdGQKfX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 06:35:23 -0400
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:37460 "EHLO
+        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751276AbdGQKgD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 06:36:03 -0400
+Received: by mail-wm0-f53.google.com with SMTP id b134so43261714wma.0
+        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 03:36:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <gfree.wind@vip.163.com>
+KMSAN reported use of uninitialized memory in skb_set_hash_from_sk(),
+which originated from the TCP request socket created in
+cookie_v6_check():
 
-The global percpu variable ppp_xmit_recursion is used to detect the ppp
-xmit recursion to avoid the deadlock, which is caused by one CPU tries to
-lock the xmit lock twice. But it would report false recursion when one CPU
-wants to send the skb from two different PPP devices, like one L2TP on the
-PPPoE. It is a normal case actually.
+ ==================================================================
+ BUG: KMSAN: use of uninitialized memory in tcp_transmit_skb+0xf77/0x3ec0
+ CPU: 1 PID: 2949 Comm: syz-execprog Not tainted 4.11.0-rc5+ #2931
+ Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+ TCP: request_sock_TCPv6: Possible SYN flooding on port 20028. Sending cookies.  Check SNMP counters.
+ Call Trace:
+  <IRQ>
+  __dump_stack lib/dump_stack.c:16
+  dump_stack+0x172/0x1c0 lib/dump_stack.c:52
+  kmsan_report+0x12a/0x180 mm/kmsan/kmsan.c:927
+  __msan_warning_32+0x61/0xb0 mm/kmsan/kmsan_instr.c:469
+  skb_set_hash_from_sk ./include/net/sock.h:2011
+  tcp_transmit_skb+0xf77/0x3ec0 net/ipv4/tcp_output.c:983
+  tcp_send_ack+0x75b/0x830 net/ipv4/tcp_output.c:3493
+  tcp_delack_timer_handler+0x9a6/0xb90 net/ipv4/tcp_timer.c:284
+  tcp_delack_timer+0x1b0/0x310 net/ipv4/tcp_timer.c:309
+  call_timer_fn+0x240/0x520 kernel/time/timer.c:1268
+  expire_timers kernel/time/timer.c:1307
+  __run_timers+0xc13/0xf10 kernel/time/timer.c:1601
+  run_timer_softirq+0x36/0xa0 kernel/time/timer.c:1614
+  __do_softirq+0x485/0x942 kernel/softirq.c:284
+  invoke_softirq kernel/softirq.c:364
+  irq_exit+0x1fa/0x230 kernel/softirq.c:405
+  exiting_irq+0xe/0x10 ./arch/x86/include/asm/apic.h:657
+  smp_apic_timer_interrupt+0x5a/0x80 arch/x86/kernel/apic/apic.c:966
+  apic_timer_interrupt+0x86/0x90 arch/x86/entry/entry_64.S:489
+ RIP: 0010:native_restore_fl ./arch/x86/include/asm/irqflags.h:36
+ RIP: 0010:arch_local_irq_restore ./arch/x86/include/asm/irqflags.h:77
+ RIP: 0010:__msan_poison_alloca+0xed/0x120 mm/kmsan/kmsan_instr.c:440
+ RSP: 0018:ffff880024917cd8 EFLAGS: 00000246 ORIG_RAX: ffffffffffffff10
+ RAX: 0000000000000246 RBX: ffff8800224c0000 RCX: 0000000000000005
+ RDX: 0000000000000004 RSI: ffff880000000000 RDI: ffffea0000b6d770
+ RBP: ffff880024917d58 R08: 0000000000000dd8 R09: 0000000000000004
+ R10: 0000160000000000 R11: 0000000000000000 R12: ffffffff85abf810
+ R13: ffff880024917dd8 R14: 0000000000000010 R15: ffffffff81cabde4
+  </IRQ>
+  poll_select_copy_remaining+0xac/0x6b0 fs/select.c:293
+  SYSC_select+0x4b4/0x4e0 fs/select.c:653
+  SyS_select+0x76/0xa0 fs/select.c:634
+  entry_SYSCALL_64_fastpath+0x13/0x94 arch/x86/entry/entry_64.S:204
+ RIP: 0033:0x4597e7
+ RSP: 002b:000000c420037ee0 EFLAGS: 00000246 ORIG_RAX: 0000000000000017
+ RAX: ffffffffffffffda RBX: 0000000000000000 RCX: 00000000004597e7
+ RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000000000
+ RBP: 000000c420037ef0 R08: 000000c420037ee0 R09: 0000000000000059
+ R10: 0000000000000000 R11: 0000000000000246 R12: 000000000042dc20
+ R13: 00000000000000f3 R14: 0000000000000030 R15: 0000000000000003
+ chained origin:
+  save_stack_trace+0x37/0x40 arch/x86/kernel/stacktrace.c:59
+  kmsan_save_stack_with_flags mm/kmsan/kmsan.c:302
+  kmsan_save_stack mm/kmsan/kmsan.c:317
+  kmsan_internal_chain_origin+0x12a/0x1f0 mm/kmsan/kmsan.c:547
+  __msan_store_shadow_origin_4+0xac/0x110 mm/kmsan/kmsan_instr.c:259
+  tcp_create_openreq_child+0x709/0x1ae0 net/ipv4/tcp_minisocks.c:472
+  tcp_v6_syn_recv_sock+0x7eb/0x2a30 net/ipv6/tcp_ipv6.c:1103
+  tcp_get_cookie_sock+0x136/0x5f0 net/ipv4/syncookies.c:212
+  cookie_v6_check+0x17a9/0x1b50 net/ipv6/syncookies.c:245
+  tcp_v6_cookie_check net/ipv6/tcp_ipv6.c:989
+  tcp_v6_do_rcv+0xdd8/0x1c60 net/ipv6/tcp_ipv6.c:1298
+  tcp_v6_rcv+0x41a3/0x4f00 net/ipv6/tcp_ipv6.c:1487
+  ip6_input_finish+0x82f/0x1ee0 net/ipv6/ip6_input.c:279
+  NF_HOOK ./include/linux/netfilter.h:257
+  ip6_input+0x239/0x290 net/ipv6/ip6_input.c:322
+  dst_input ./include/net/dst.h:492
+  ip6_rcv_finish net/ipv6/ip6_input.c:69
+  NF_HOOK ./include/linux/netfilter.h:257
+  ipv6_rcv+0x1dbd/0x22e0 net/ipv6/ip6_input.c:203
+  __netif_receive_skb_core+0x2f6f/0x3a20 net/core/dev.c:4208
+  __netif_receive_skb net/core/dev.c:4246
+  process_backlog+0x667/0xba0 net/core/dev.c:4866
+  napi_poll net/core/dev.c:5268
+  net_rx_action+0xc95/0x1590 net/core/dev.c:5333
+  __do_softirq+0x485/0x942 kernel/softirq.c:284
+ origin:
+  save_stack_trace+0x37/0x40 arch/x86/kernel/stacktrace.c:59
+  kmsan_save_stack_with_flags mm/kmsan/kmsan.c:302
+  kmsan_internal_poison_shadow+0xb1/0x1a0 mm/kmsan/kmsan.c:198
+  kmsan_kmalloc+0x7f/0xe0 mm/kmsan/kmsan.c:337
+  kmem_cache_alloc+0x1c2/0x1e0 mm/slub.c:2766
+  reqsk_alloc ./include/net/request_sock.h:87
+  inet_reqsk_alloc+0xa4/0x5b0 net/ipv4/tcp_input.c:6200
+  cookie_v6_check+0x4f4/0x1b50 net/ipv6/syncookies.c:169
+  tcp_v6_cookie_check net/ipv6/tcp_ipv6.c:989
+  tcp_v6_do_rcv+0xdd8/0x1c60 net/ipv6/tcp_ipv6.c:1298
+  tcp_v6_rcv+0x41a3/0x4f00 net/ipv6/tcp_ipv6.c:1487
+  ip6_input_finish+0x82f/0x1ee0 net/ipv6/ip6_input.c:279
+  NF_HOOK ./include/linux/netfilter.h:257
+  ip6_input+0x239/0x290 net/ipv6/ip6_input.c:322
+  dst_input ./include/net/dst.h:492
+  ip6_rcv_finish net/ipv6/ip6_input.c:69
+  NF_HOOK ./include/linux/netfilter.h:257
+  ipv6_rcv+0x1dbd/0x22e0 net/ipv6/ip6_input.c:203
+  __netif_receive_skb_core+0x2f6f/0x3a20 net/core/dev.c:4208
+  __netif_receive_skb net/core/dev.c:4246
+  process_backlog+0x667/0xba0 net/core/dev.c:4866
+  napi_poll net/core/dev.c:5268
+  net_rx_action+0xc95/0x1590 net/core/dev.c:5333
+  __do_softirq+0x485/0x942 kernel/softirq.c:284
+ ==================================================================
 
-Now use one percpu member of struct ppp instead of the gloable variable to
-detect the xmit recursion of one ppp device.
+Similar error is reported for cookie_v4_check().
 
-Fixes: 55454a565836 ("ppp: avoid dealock on recursive xmit")
-Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
-Signed-off-by: Liu Jianying <jianying.liu@ikuai8.com>
+Signed-off-by: Alexander Potapenko <glider@google.com>
+Fixes: 58d607d3e52f ("tcp: provide skb->hash to synack packets")
 ---
- drivers/net/ppp/ppp_generic.c | 30 +++++++++++++++++++++---------
- 1 file changed, 21 insertions(+), 9 deletions(-)
+ net/ipv4/syncookies.c | 1 +
+ net/ipv6/syncookies.c | 1 +
+ 2 files changed, 2 insertions(+)
 
-diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
-index 1302883..bd43039 100644
---- a/drivers/net/ppp/ppp_generic.c
-+++ b/drivers/net/ppp/ppp_generic.c
-@@ -120,6 +120,7 @@ struct ppp {
- 	int		n_channels;	/* how many channels are attached 54 */
- 	spinlock_t	rlock;		/* lock for receive side 58 */
- 	spinlock_t	wlock;		/* lock for transmit side 5c */
-+	int		*xmit_recursion __percpu; /* xmit recursion detect */
- 	int		mru;		/* max receive unit 60 */
- 	unsigned int	flags;		/* control bits 64 */
- 	unsigned int	xstate;		/* transmit state bits 68 */
-@@ -1025,6 +1026,7 @@ static int ppp_dev_configure(struct net *src_net, struct net_device *dev,
- 	struct ppp *ppp = netdev_priv(dev);
- 	int indx;
- 	int err;
-+	int cpu;
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index 0905cf04c2a4..03ad8778c395 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -335,6 +335,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
+ 	treq->rcv_isn		= ntohl(th->seq) - 1;
+ 	treq->snt_isn		= cookie;
+ 	treq->ts_off		= 0;
++	treq->txhash		= net_tx_rndhash();
+ 	req->mss		= mss;
+ 	ireq->ir_num		= ntohs(th->dest);
+ 	ireq->ir_rmt_port	= th->source;
+diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
+index 7b75b0620730..4e7817abc0b9 100644
+--- a/net/ipv6/syncookies.c
++++ b/net/ipv6/syncookies.c
+@@ -216,6 +216,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
+ 	treq->rcv_isn = ntohl(th->seq) - 1;
+ 	treq->snt_isn = cookie;
+ 	treq->ts_off = 0;
++	treq->txhash = net_tx_rndhash();
  
- 	ppp->dev = dev;
- 	ppp->ppp_net = src_net;
-@@ -1039,6 +1041,15 @@ static int ppp_dev_configure(struct net *src_net, struct net_device *dev,
- 	INIT_LIST_HEAD(&ppp->channels);
- 	spin_lock_init(&ppp->rlock);
- 	spin_lock_init(&ppp->wlock);
-+
-+	ppp->xmit_recursion = alloc_percpu(int);
-+	if (!ppp->xmit_recursion) {
-+		err = -ENOMEM;
-+		goto err1;
-+	}
-+	for_each_possible_cpu(cpu)
-+		(*per_cpu_ptr(ppp->xmit_recursion, cpu)) = 0;
-+
- #ifdef CONFIG_PPP_MULTILINK
- 	ppp->minseq = -1;
- 	skb_queue_head_init(&ppp->mrq);
-@@ -1050,11 +1061,15 @@ static int ppp_dev_configure(struct net *src_net, struct net_device *dev,
- 
- 	err = ppp_unit_register(ppp, conf->unit, conf->ifname_is_set);
- 	if (err < 0)
--		return err;
-+		goto err2;
- 
- 	conf->file->private_data = &ppp->file;
- 
- 	return 0;
-+err2:
-+	free_percpu(ppp->xmit_recursion);
-+err1:
-+	return err;
- }
- 
- static const struct nla_policy ppp_nl_policy[IFLA_PPP_MAX + 1] = {
-@@ -1400,18 +1415,16 @@ static void __ppp_xmit_process(struct ppp *ppp)
- 	ppp_xmit_unlock(ppp);
- }
- 
--static DEFINE_PER_CPU(int, ppp_xmit_recursion);
--
- static void ppp_xmit_process(struct ppp *ppp)
- {
- 	local_bh_disable();
- 
--	if (unlikely(__this_cpu_read(ppp_xmit_recursion)))
-+	if (unlikely(*this_cpu_ptr(ppp->xmit_recursion)))
- 		goto err;
- 
--	__this_cpu_inc(ppp_xmit_recursion);
-+	(*this_cpu_ptr(ppp->xmit_recursion))++;
- 	__ppp_xmit_process(ppp);
--	__this_cpu_dec(ppp_xmit_recursion);
-+	(*this_cpu_ptr(ppp->xmit_recursion))--;
- 
- 	local_bh_enable();
- 
-@@ -1905,7 +1918,7 @@ static void __ppp_channel_push(struct channel *pch)
- 		read_lock(&pch->upl);
- 		ppp = pch->ppp;
- 		if (ppp)
--			__ppp_xmit_process(ppp);
-+			ppp_xmit_process(ppp);
- 		read_unlock(&pch->upl);
- 	}
- }
-@@ -1914,9 +1927,7 @@ static void ppp_channel_push(struct channel *pch)
- {
- 	local_bh_disable();
- 
--	__this_cpu_inc(ppp_xmit_recursion);
- 	__ppp_channel_push(pch);
--	__this_cpu_dec(ppp_xmit_recursion);
- 
- 	local_bh_enable();
- }
-@@ -3057,6 +3068,7 @@ static void ppp_destroy_interface(struct ppp *ppp)
- #endif /* CONFIG_PPP_FILTER */
- 
- 	kfree_skb(ppp->xmit_pending);
-+	free_percpu(ppp->xmit_recursion);
- 
- 	free_netdev(ppp->dev);
- }
+ 	/*
+ 	 * We need to lookup the dst_entry to get the correct window size.
 -- 
-1.9.1
+2.13.2.932.g7449e964c-goog
