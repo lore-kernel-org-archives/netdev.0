@@ -1,52 +1,51 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 04/22] scsi: fusion: fix string overflow warning
-Date: Mon, 17 Jul 2017 14:00:10 +0200
-Message-ID: <CAK8P3a3D3zV0fMZc2OotCfkgxWAiaM5VUD=Pg5Uj1x9AXpDXWA@mail.gmail.com>
-References: <20170714120720.906842-1-arnd@arndb.de> <20170714120720.906842-5-arnd@arndb.de>
- <063D6719AE5E284EB5DD2968C1650D6DD003A6C7@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Sathya Prakash <sathya.prakash@broadcom.com>,
-        Chaitra P B <chaitra.basappa@broadcom.com>,
-        Suganath Prabu Subramani
-        <suganath-prabu.subramani@broadcom.com>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Guenter Roeck <linux@roeck-us.net>,
-        "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        "James E . J . Bottomley" <jejb@linux.vnet.ibm.com>,
-        "Martin K . Petersen" <martin.petersen@oracle.com>,
-        "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-        "x86@kernel.org" <x86@kernel.org>, Helge Deller <deller@gmx.de>,
-        "MPT-FusionLinux.pdl@broadcom.com" <MPT-Fusi
-To: David Laight <David.Laight@aculab.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD003A6C7@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 1/6] mlxsw: acl: Add ip ttl acl element
+Date: Mon, 17 Jul 2017 14:07:26 +0200
+Message-ID: <20170717120731.3875-2-jiri@resnulli.us>
+References: <20170717120731.3875-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, ogerlitz@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33314 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751320AbdGQMHg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 08:07:36 -0400
+Received: by mail-wm0-f67.google.com with SMTP id 65so2862933wmf.0
+        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 05:07:36 -0700 (PDT)
+In-Reply-To: <20170717120731.3875-1-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 17, 2017 at 11:17 AM, David Laight <David.Laight@aculab.com> wrote:
-> From: Arnd Bergmann
->> Sent: 14 July 2017 13:07
->> gcc points out a theorerical string overflow:
->>
->> drivers/message/fusion/mptbase.c: In function 'mpt_detach':
->> drivers/message/fusion/mptbase.c:2103:17: error: '%s' directive writing up to 31 bytes into a region
->> of size 28 [-Werror=format-overflow=]
->> sprintf(pname, MPT_PROCFS_MPTBASEDIR "/%s/summary", ioc->name);
->>                ^~~~~
->> drivers/message/fusion/mptbase.c:2103:2: note: 'sprintf' output between 13 and 44 bytes into a
->> destination of size 32
->>
->> We can simply double the size of the local buffer here to be on the
->> safe side.
->
-> I think I'd change it to snprintf() as well.
-> Saves any worries if ioc->name isn't '\0' terminated.
+From: Or Gerlitz <ogerlitz@mellanox.com>
 
-Ok, fair enough, I'll send a new version right away.
+Define new element for ip ttl and place it into scratch area.
 
-      Arnd
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_keys.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_keys.h b/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_keys.h
+index 9807ef8..789ebb3 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_keys.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_keys.h
+@@ -57,6 +57,7 @@ enum mlxsw_afk_element {
+ 	MLXSW_AFK_ELEMENT_VID,
+ 	MLXSW_AFK_ELEMENT_PCP,
+ 	MLXSW_AFK_ELEMENT_TCP_FLAGS,
++	MLXSW_AFK_ELEMENT_IP_TTL_,
+ 	MLXSW_AFK_ELEMENT_MAX,
+ };
+ 
+@@ -104,6 +105,7 @@ static const struct mlxsw_afk_element_info mlxsw_afk_element_infos[] = {
+ 	MLXSW_AFK_ELEMENT_INFO_U32(VID, 0x10, 8, 12),
+ 	MLXSW_AFK_ELEMENT_INFO_U32(PCP, 0x10, 20, 3),
+ 	MLXSW_AFK_ELEMENT_INFO_U32(TCP_FLAGS, 0x10, 23, 9),
++	MLXSW_AFK_ELEMENT_INFO_U32(IP_TTL_, 0x14, 0, 8),
+ 	MLXSW_AFK_ELEMENT_INFO_U32(SRC_IP4, 0x18, 0, 32),
+ 	MLXSW_AFK_ELEMENT_INFO_U32(DST_IP4, 0x1C, 0, 32),
+ 	MLXSW_AFK_ELEMENT_INFO_BUF(SRC_IP6_HI, 0x18, 8),
+-- 
+2.9.3
