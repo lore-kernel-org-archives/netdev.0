@@ -1,35 +1,45 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 11/12] net: dsa: mv88e6xxx: add Energy Detect ops
-Date: Mon, 17 Jul 2017 15:32:52 -0400
-Message-ID: <87bmoiuae3.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170717170346.19555-1-vivien.didelot@savoirfairelinux.com> <20170717170346.19555-12-vivien.didelot@savoirfairelinux.com> <20170717192734.GD9363@lunn.ch>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next 0/2] liquidio: Add support for managing liquidio
+ adapter
+Date: Mon, 17 Jul 2017 12:50:46 -0700
+Message-ID: <20170717195046.GA1191@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170717192734.GD9363@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        veerasenareddy.burru@cavium.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-sn1nam02on0068.outbound.protection.outlook.com ([104.47.36.68]:50352
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751316AbdGQTsg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 17 Jul 2017 15:48:36 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+From: VSR Burru <veerasenareddy.burru@cavium.com>
 
-Andrew Lunn <andrew@lunn.ch> writes:
+The LiquidIO adapter has processor cores that can run Linux. This patch
+adds support to create a virtual Ethernet interface on host to
+communicate with applications running on Linux in the LiquidIO adapter.
+The virtual Ethernet interface also provides login access to Linux on
+LiquidIO through ssh for management and debugging.
 
-> I never liked this. I think it is architecturally wrong for the switch
-> to be poking around in the PHY. It should ask the PHY driver. This is
-> especially true for external PHYs which might not be a Marvell PHY.
+VSR Burru (2):
+  liquidio: Add support to pass meta information to firmware
+  liquidio: Add support to create management interface
 
-I share the same concern. However this patch is just isolating the
-existing code so that we get rid of the last caps and flags and stop
-writing (without reading them first) arbitrary registers.
+ drivers/net/ethernet/cavium/liquidio/Makefile      |   1 +
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    |  17 +-
+ .../net/ethernet/cavium/liquidio/liquidio_common.h |  21 ++
+ .../net/ethernet/cavium/liquidio/liquidio_mgmt.c   | 397 +++++++++++++++++++++
+ .../net/ethernet/cavium/liquidio/octeon_console.c  |  28 +-
+ .../net/ethernet/cavium/liquidio/octeon_device.h   |   2 +
+ drivers/net/ethernet/cavium/liquidio/octeon_main.h |   9 +
+ 7 files changed, 470 insertions(+), 5 deletions(-)
+ create mode 100644 drivers/net/ethernet/cavium/liquidio/liquidio_mgmt.c
 
-Once this portion is moved to the PHY driver, one can remove it from
-mv88e6xxx.
-
-Thanks,
-
-        Vivien
+-- 
+2.9.0
