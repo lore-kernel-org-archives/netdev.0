@@ -1,40 +1,82 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [PATCH] libceph: potential NULL dereference in ceph_msg_data_create()
-Date: Mon, 17 Jul 2017 11:13:35 +0300
-Message-ID: <20170717081335.3hhaj2k2frpq7gfa@mwanda>
+From: Lawrence Brakmo <brakmo@fb.com>
+Subject: Re: BUG triggered in tcp_openreq_init_rwin most likely due to
+ 13d3b1ebe2876
+Date: Mon, 17 Jul 2017 08:18:54 +0000
+Message-ID: <BEA8CA36-9056-47C7-9759-7ED0410C6FBA@fb.com>
+References: <5d6eb001-2f2b-d9d4-5c5e-a0b22cd53f65@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Yan, Zheng" <zyan@redhat.com>, Sage Weil <sage@redhat.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        ceph-devel@vger.kernel.org, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: Ilya Dryomov <idryomov@gmail.com>, Alex Elder <elder@inktank.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: David Ahern <dsahern@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:38987 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751279AbdGQIS6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 04:18:58 -0400
+In-Reply-To: <5d6eb001-2f2b-d9d4-5c5e-a0b22cd53f65@gmail.com>
+Content-Language: en-US
+Content-ID: <93860EFE3A92C449B36E97D582791917@namprd15.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If kmem_cache_zalloc() returns NULL then the INIT_LIST_HEAD(&data->links);
-will Oops.  The callers aren't really prepared for NULL returns so it
-doesn't make a lot of difference in real life.
-
-Fixes: 5240d9f95dfe ("libceph: replace message data pointer with list")
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-diff --git a/net/ceph/messenger.c b/net/ceph/messenger.c
-index 0c31035bbfee..b7cc615d42ef 100644
---- a/net/ceph/messenger.c
-+++ b/net/ceph/messenger.c
-@@ -3203,8 +3203,10 @@ static struct ceph_msg_data *ceph_msg_data_create(enum ceph_msg_data_type type)
- 		return NULL;
- 
- 	data = kmem_cache_zalloc(ceph_msg_data_cache, GFP_NOFS);
--	if (data)
--		data->type = type;
-+	if (!data)
-+		return NULL;
-+
-+	data->type = type;
- 	INIT_LIST_HEAD(&data->links);
- 
- 	return data;
+RGF2aWQsIHRoYW5rIHlvdSBmb3IgYnJpbmdpbmcgdGhpcyB1cC4gU29ycnkgZm9yIHRoZSBkZWxh
+eSBidXQgSSBoYWQgYmVlbiB0cmF2ZWxpbmcuIEkgd2lsbCBsb29rIGludG8gaXQuDQoNCi0gTGF3
+cmVuY2UNCg0KT24gNy8xNi8xNywgNDo0NyBQTSwgIkRhdmlkIEFoZXJuIiA8ZHNhaGVybkBnbWFp
+bC5jb20+IHdyb3RlOg0KDQogICAgSGk6DQogICAgDQogICAgSSBhbSBnZXR0aW5nIHRoZSBmb2xs
+b3dpbmcgd2hpbGUgdGVzdGluZyBJUHY2IGNoYW5nZXM6DQogICAgDQogICAgWyAzOTA0LjI1MDk4
+MV0gVENQOiByZXF1ZXN0X3NvY2tfVENQdjY6IFBvc3NpYmxlIFNZTiBmbG9vZGluZyBvbiBwb3J0
+DQogICAgMTIzNDUuIFNlbmRpbmcgY29va2llcy4gIENoZWNrIFNOTVAgY291bnRlcnMuDQogICAg
+WyAzOTA0LjI1Mjg2Ml0NCiAgICA9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
+PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0NCiAgICBbIDM5MDQuMjU0MDU3XSBCVUc6IEtB
+U0FOOiBudWxsLXB0ci1kZXJlZiBpbg0KICAgIHRjcF9vcGVucmVxX2luaXRfcndpbisweDFkNS8w
+eDJiNA0KICAgIFsgMzkwNC4yNTUxMTNdIFJlYWQgb2Ygc2l6ZSAxIGF0IGFkZHIgMDAwMDAwMDAw
+MDAwMDAxMiBieSB0YXNrIHZyZi10ZXN0LzExNjYNCiAgICBbIDM5MDQuMjU2MTQ5XQ0KICAgIFsg
+MzkwNC4yNTY0MDVdIENQVTogMCBQSUQ6IDExNjYgQ29tbTogdnJmLXRlc3QgTm90IHRhaW50ZWQg
+NC4xMi4wKyAjMzA3DQogICAgWyAzOTA0LjI1NzM3M10gSGFyZHdhcmUgbmFtZTogUUVNVSBTdGFu
+ZGFyZCBQQyAoaTQ0MEZYICsgUElJWCwgMTk5NiksDQogICAgQklPUyAxLjcuNS0yMDE0MDUzMV8w
+ODMwMzAtZ2FuZGFsZiAwNC8wMS8yMDE0DQogICAgWyAzOTA0LjI1ODg5OV0gQ2FsbCBUcmFjZToN
+CiAgICBbIDM5MDQuMjU5MjkxXSAgPElSUT4NCiAgICBbIDM5MDQuMjU5NjI5XSAgZHVtcF9zdGFj
+aysweDgxLzB4YjYNCiAgICBbIDM5MDQuMjYwMTY3XSAga2FzYW5fcmVwb3J0KzB4MjM0LzB4MjY5
+DQogICAgWyAzOTA0LjI2MDY4OF0gIF9fYXNhbl9sb2FkMSsweDQ1LzB4NDcNCiAgICBbIDM5MDQu
+MjYxMTc2XSAgdGNwX29wZW5yZXFfaW5pdF9yd2luKzB4MWQ1LzB4MmI0DQogICAgWyAzOTA0LjI2
+MTgxMV0gIHRjcF9jb25uX3JlcXVlc3QrMHhiMWUvMHhlMTENCiAgICBbIDM5MDQuMjYyNDQ4XSAg
+dGNwX3Y2X2Nvbm5fcmVxdWVzdCsweDcyLzB4ODUNCiAgICBbIDM5MDQuMjYzMDEwXSAgPyB0Y3Bf
+djZfY29ubl9yZXF1ZXN0KzB4NzIvMHg4NQ0KICAgIFsgMzkwNC4yNjM2MDVdICB0Y3BfcmN2X3N0
+YXRlX3Byb2Nlc3MrMHhlNi8weDEyNDMNCiAgICBbIDM5MDQuMjY0MjM2XSAgPyBsb2NrX3JlbGVh
+c2UrMHgyN2YvMHg0NDQNCiAgICBbIDM5MDQuMjY0NzkzXSAgdGNwX3Y2X2RvX3JjdisweDMyMS8w
+eDU1OQ0KICAgIFsgMzkwNC4yNjUzMTZdICA/IHRjcF92Nl9kb19yY3YrMHgzMjEvMHg1NTkNCiAg
+ICBbIDM5MDQuMjY1ODU4XSAgPyB0Y3BfZmlsdGVyKzB4ODIvMHg5NQ0KICAgIFsgMzkwNC4yNjYz
+NTddICB0Y3BfdjZfcmN2KzB4NmM3LzB4YjMzDQogICAgWyAzOTA0LjI2Njg4Nl0gIGlwNl9pbnB1
+dF9maW5pc2grMHgxZGUvMHg1Y2ENCiAgICBbIDM5MDQuMjY3NDcxXSAgaXA2X2lucHV0KzB4NjYv
+MHg2Yw0KICAgIA0KICAgIA0KICAgIFRoaXMgaXMgZW5vdWdoIHRvIHByZXZlbnQgdGhlIHByb2Js
+ZW0gdGhlIGNyYXNoIHdoaWNoIHN1Z2dlc3QgdGhlIHJlY2VudA0KICAgIGJwZiBzb2NrX29wcyBp
+cyB0aGUgY3VscHJpdDoNCiAgICANCiAgICBkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvdGNwX21pbmlz
+b2Nrcy5jIGIvbmV0L2lwdjQvdGNwX21pbmlzb2Nrcy5jDQogICAgaW5kZXggMGZmODNjMTYzN2Q4
+Li44ODkwNDg4MmI0YWQgMTAwNjQ0DQogICAgLS0tIGEvbmV0L2lwdjQvdGNwX21pbmlzb2Nrcy5j
+DQogICAgKysrIGIvbmV0L2lwdjQvdGNwX21pbmlzb2Nrcy5jDQogICAgQEAgLTM2NCw3ICszNjQs
+NyBAQCB2b2lkIHRjcF9vcGVucmVxX2luaXRfcndpbihzdHJ1Y3QgcmVxdWVzdF9zb2NrICpyZXEs
+DQogICAgICAgICAgICAgICAgKHJlcS0+cnNrX3dpbmRvd19jbGFtcCA+IGZ1bGxfc3BhY2UgfHwg
+cmVxLT5yc2tfd2luZG93X2NsYW1wDQogICAgPT0gMCkpDQogICAgICAgICAgICAgICAgICAgIHJl
+cS0+cnNrX3dpbmRvd19jbGFtcCA9IGZ1bGxfc3BhY2U7DQogICAgDQogICAgLSAgICAgICByY3Zf
+d25kID0gdGNwX3J3bmRfaW5pdF9icGYoKHN0cnVjdCBzb2NrICopcmVxKTsNCiAgICArICAgICAg
+IHJjdl93bmQgPSAwOyAvLyB0Y3BfcnduZF9pbml0X2JwZigoc3RydWN0IHNvY2sgKilyZXEpOw0K
+ICAgICAgICAgICAgaWYgKHJjdl93bmQgPT0gMCkNCiAgICAgICAgICAgICAgICAgICAgcmN2X3du
+ZCA9IGRzdF9tZXRyaWMoZHN0LCBSVEFYX0lOSVRSV05EKTsNCiAgICAgICAgICAgIGVsc2UgaWYg
+KGZ1bGxfc3BhY2UgPCByY3Zfd25kICogbXNzKQ0KICAgIA0KICAgIA0KICAgIE5vdGU6IEkgYW0g
+Km5vdCogdXNpbmcgYW55IG9mIHRoZSBuZXcgc29ja19vcHMgaG9va3M7IEkgc2ltcGx5IGhhdmUg
+dGhlDQogICAgY2dyb3VwIGJwZiBob29rcyBlbmFibGVkIGFuZCBpbiB1c2UgZm9yIFZSRi4NCiAg
+ICANCiAgICBSZXByb2R1Y3Rpb24gaW5jbHVkZXMgY3JlYXRpbmcgYSBWUkYgYW5kIGVuYWJsaW5n
+IGNncm91cCBjb2RlIGZvciBpdDoNCiAgICAgICAgaXAgbGkgYWRkIHJlZCB0eXBlIHZyZiB0YWJs
+ZSAxMjMNCiAgICAgICAgaXAgbGkgc2V0IHJlZCB1cA0KICAgICAgICBpcCBhZGRyIGFkZCBkZXYg
+cmVkIDE3Mi4xNi4xLjEvMzINCiAgICAgICAgaXAgdnJmIGV4ZWMgcmVkIHBpbmcgLWMxIDE3Mi4x
+Ni4xLjENCiAgICANCiAgICBCeSBhZGRpbmcgdnJmIGJwZiB0byBhIGNncm91cCB0aGUgY2dyb3Vw
+X2JwZl9lbmFibGVkIGlzIHNldCBjYXVzaW5nIHRoZQ0KICAgIHJlc3Qgb2YgQlBGX0NHUk9VUF9S
+VU5fUFJPR19TT0NLX09QUyB0byBiZSBldmFsdWF0ZWQuDQogICAgDQogICAgRnJvbSBoZXJlLCB1
+c2UgeW91ciBmYXZvcml0ZSB0ZXN0IHNlcnZlciBhbmQgbWFrZSBTWU4tQUNLcyBnZXQgbG9zdCAo
+bm90DQogICAgc3VyZSB0aGF0IGlzIHJlcXVpcmVkIGJ1dCBpcyBhIHJlbGlhYmxlIHRyaWdnZXIg
+Zm9yIG1lKS4gSW4gbXkgY2FzZSBJIGFtDQogICAgdXNpbmcgbXkgYSBzaW1wbGUgbmV0d29ya2lu
+ZyB0ZXN0IHByb2dyYW06DQogICAgDQogICAgaXA2dGFibGVzIC1BIElOUFVUIC1wIHRjcCAtLXNw
+b3J0IDEyMzQ1IC1qIERST1ANCiAgICB2cmYtdGVzdCAtNiAtcyAmDQogICAgdnJmLXRlc3QgLTYg
+LXIgMjAwMTpkYjg6MTo6MSAmDQogICAgdnJmLXRlc3QgLTYgLXIgMjAwMTpkYjg6MTo6MSAmDQog
+ICAgPEJPT00+DQogICAgICANCg0K
