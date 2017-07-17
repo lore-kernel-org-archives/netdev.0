@@ -1,135 +1,195 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v3 2/3] udp: avoid a cache miss on dequeue
-Date: Mon, 17 Jul 2017 00:04:03 -0700
-Message-ID: <1500275043.5566.1.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1497026892.git.pabeni@redhat.com>
-         <fbe99a560444d9f0471f3ed23d80f2105f103fa0.1497026892.git.pabeni@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33688 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751256AbdGQHEH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 03:04:07 -0400
-Received: by mail-wm0-f67.google.com with SMTP id 65so1446031wmf.0
-        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 00:04:06 -0700 (PDT)
-In-Reply-To: <fbe99a560444d9f0471f3ed23d80f2105f103fa0.1497026892.git.pabeni@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alvaro Gamez Machado <alvaro.gamez@hazent.com>
+Subject: [PATCH v3] net: axienet: add support for standard phy-mode binding
+Date: Mon, 17 Jul 2017 09:12:28 +0200
+Message-ID: <20170717071228.22585-1-alvaro.gamez@hazent.com>
+Cc: Alvaro Gamez Machado <alvaro.gamez@hazent.com>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Anirudha Sarangi <anirudh@xilinx.com>,
+        John Linn <John.Linn@xilinx.com>,
+        Michal Simek <michal.simek@xilinx.com>,
+        =?UTF-8?q?S=C3=B6ren=20Brinkmann?= <soren.brinkmann@xilinx.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2017-06-12 at 11:23 +0200, Paolo Abeni wrote:
-> Since UDP no more uses sk->destructor, we can clear completely
-> the skb head state before enqueuing. Amend and use
-> skb_release_head_state() for that.
-> 
-> All head states share a single cacheline, which is not
-> normally used/accesses on dequeue. We can avoid entirely accessing
-> such cacheline implementing and using in the UDP code a specialized
-> skb free helper which ignores the skb head state.
-> 
-> This saves a cacheline miss at skb deallocation time.
-> 
-> v1 -> v2:
->   replaced secpath_reset() with skb_release_head_state()
-> 
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> Acked-by: Eric Dumazet <edumazet@google.com>
-> ---
->  include/linux/skbuff.h |  2 ++
->  net/core/skbuff.c      | 24 ++++++++++++++++++++----
->  net/ipv4/udp.c         |  6 +++++-
->  3 files changed, 27 insertions(+), 5 deletions(-)
-> 
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index decce36..d66d4fe 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -880,10 +880,12 @@ static inline bool skb_unref(struct sk_buff *skb)
->  	return true;
->  }
->  
-> +void skb_release_head_state(struct sk_buff *skb);
->  void kfree_skb(struct sk_buff *skb);
->  void kfree_skb_list(struct sk_buff *segs);
->  void skb_tx_error(struct sk_buff *skb);
->  void consume_skb(struct sk_buff *skb);
-> +void consume_stateless_skb(struct sk_buff *skb);
->  void  __kfree_skb(struct sk_buff *skb);
->  extern struct kmem_cache *skbuff_head_cache;
->  
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 747263c..3046027 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -643,12 +643,10 @@ static void kfree_skbmem(struct sk_buff *skb)
->  	kmem_cache_free(skbuff_fclone_cache, fclones);
->  }
->  
-> -static void skb_release_head_state(struct sk_buff *skb)
-> +void skb_release_head_state(struct sk_buff *skb)
->  {
->  	skb_dst_drop(skb);
-> -#ifdef CONFIG_XFRM
-> -	secpath_put(skb->sp);
-> -#endif
-> +	secpath_reset(skb);
->  	if (skb->destructor) {
->  		WARN_ON(in_irq());
->  		skb->destructor(skb);
-> @@ -751,6 +749,24 @@ void consume_skb(struct sk_buff *skb)
->  }
->  EXPORT_SYMBOL(consume_skb);
->  
-> +/**
-> + *	consume_stateless_skb - free an skbuff, assuming it is stateless
-> + *	@skb: buffer to free
-> + *
-> + *	Works like consume_skb(), but this variant assumes that all the head
-> + *	states have been already dropped.
-> + */
-> +void consume_stateless_skb(struct sk_buff *skb)
-> +{
-> +	if (!skb_unref(skb))
-> +		return;
-> +
-> +	trace_consume_skb(skb);
-> +	if (likely(skb->head))
-> +		skb_release_data(skb);
-> +	kfree_skbmem(skb);
-> +}
-> +
->  void __kfree_skb_flush(void)
->  {
->  	struct napi_alloc_cache *nc = this_cpu_ptr(&napi_alloc_cache);
-> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> index fdcb743..d8b265f 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-> @@ -1359,7 +1359,8 @@ void skb_consume_udp(struct sock *sk, struct sk_buff *skb, int len)
->  		sk_peek_offset_bwd(sk, len);
->  		unlock_sock_fast(sk, slow);
->  	}
-> -	consume_skb(skb);
-> +
-> +	consume_stateless_skb(skb);
->  }
->  EXPORT_SYMBOL_GPL(skb_consume_udp);
->  
-> @@ -1739,6 +1740,9 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
->  		sk_mark_napi_id_once(sk, skb);
->  	}
->  
-> +	/* clear all pending head states while they are hot in the cache */
-> +	skb_release_head_state(skb);
-> +
->  	rc = __udp_enqueue_schedule_skb(sk, skb);
->  	if (rc < 0) {
->  		int is_udplite = IS_UDPLITE(sk);
+Keep supporting proprietary "xlnx,phy-type" attribute and add support for
+MII connectivity to the PHY.
+
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Alvaro Gamez Machado <alvaro.gamez@hazent.com>
+---
+
+Changes from v2:
+  * Replaced u32 phy_mode -> phy_interface_t phy_mode
+  * Fix bug we introduced PHY_INTERFACE_MODE_RGMII -> PHY_INTERFACE_MODE_RGMII_ID
 
 
-Oh well, we forgot that we need to access IP header when/if
-__ip_options_echo() needs it.
+ .../devicetree/bindings/net/xilinx_axienet.txt     | 55 ++++++++++++++++++++++
+ drivers/net/ethernet/xilinx/xilinx_axienet.h       |  4 +-
+ drivers/net/ethernet/xilinx/xilinx_axienet_main.c  | 48 ++++++++++++++-----
+ 3 files changed, 93 insertions(+), 14 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/xilinx_axienet.txt
+
+diff --git a/Documentation/devicetree/bindings/net/xilinx_axienet.txt b/Documentation/devicetree/bindings/net/xilinx_axienet.txt
+new file mode 100644
+index 000000000000..38f9ec076743
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/xilinx_axienet.txt
+@@ -0,0 +1,55 @@
++XILINX AXI ETHERNET Device Tree Bindings
++--------------------------------------------------------
++
++Also called  AXI 1G/2.5G Ethernet Subsystem, the xilinx axi ethernet IP core
++provides connectivity to an external ethernet PHY supporting different
++interfaces: MII, GMII, RGMII, SGMII, 1000BaseX. It also includes two
++segments of memory for buffering TX and RX, as well as the capability of
++offloading TX/RX checksum calculation off the processor.
++
++Management configuration is done through the AXI interface, while payload is
++sent and received through means of an AXI DMA controller. This driver
++includes the DMA driver code, so this driver is incompatible with AXI DMA
++driver.
++
++For more details about mdio please refer phy.txt file in the same directory.
++
++Required properties:
++- compatible	: Must be one of "xlnx,axi-ethernet-1.00.a",
++		  "xlnx,axi-ethernet-1.01.a", "xlnx,axi-ethernet-2.01.a"
++- reg		: Address and length of the IO space.
++- interrupts	: Should be a list of two interrupt, TX and RX.
++- phy-handle	: Should point to the external phy device.
++		  See ethernet.txt file in the same directory.
++- xlnx,rxmem	: Set to allocated memory buffer for Rx/Tx in the hardware
++
++Optional properties:
++- phy-mode	: See ethernet.txt
++- xlnx,phy-type	: Deprecated, do not use, but still accepted in preference
++		  to phy-mode.
++- xlnx,txcsum	: 0 or empty for disabling TX checksum offload,
++		  1 to enable partial TX checksum offload,
++		  2 to enable full TX checksum offload
++- xlnx,rxcsum	: Same values as xlnx,txcsum but for RX checksum offload
++
++Example:
++	axi_ethernet_eth: ethernet@40c00000 {
++		compatible = "xlnx,axi-ethernet-1.00.a";
++		device_type = "network";
++		interrupt-parent = <&microblaze_0_axi_intc>;
++		interrupts = <2 0>;
++		phy-mode = "mii";
++		reg = <0x40c00000 0x40000>;
++		xlnx,rxcsum = <0x2>;
++		xlnx,rxmem = <0x800>;
++		xlnx,txcsum = <0x2>;
++		phy-handle = <&phy0>;
++		axi_ethernetlite_0_mdio: mdio {
++			#address-cells = <1>;
++			#size-cells = <0>;
++			phy0: phy@0 {
++				device_type = "ethernet-phy";
++				reg = <1>;
++			};
++		};
++	};
+diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet.h b/drivers/net/ethernet/xilinx/xilinx_axienet.h
+index af27f7d1cbf3..5ef626331f85 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_axienet.h
++++ b/drivers/net/ethernet/xilinx/xilinx_axienet.h
+@@ -389,7 +389,7 @@ struct axidma_bd {
+  * @dma_err_tasklet: Tasklet structure to process Axi DMA errors
+  * @tx_irq:	Axidma TX IRQ number
+  * @rx_irq:	Axidma RX IRQ number
+- * @phy_type:	Phy type to identify between MII/GMII/RGMII/SGMII/1000 Base-X
++ * @phy_mode:	Phy type to identify between MII/GMII/RGMII/SGMII/1000 Base-X
+  * @options:	AxiEthernet option word
+  * @last_link:	Phy link state in which the PHY was negotiated earlier
+  * @features:	Stores the extended features supported by the axienet hw
+@@ -432,7 +432,7 @@ struct axienet_local {
+ 
+ 	int tx_irq;
+ 	int rx_irq;
+-	u32 phy_type;
++	phy_interface_t phy_mode;
+ 
+ 	u32 options;			/* Current options word */
+ 	u32 last_link;
+diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+index 33c595f4691d..e74e1e897864 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
++++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+@@ -531,11 +531,11 @@ static void axienet_adjust_link(struct net_device *ndev)
+ 	link_state = phy->speed | (phy->duplex << 1) | phy->link;
+ 	if (lp->last_link != link_state) {
+ 		if ((phy->speed == SPEED_10) || (phy->speed == SPEED_100)) {
+-			if (lp->phy_type == XAE_PHY_TYPE_1000BASE_X)
++			if (lp->phy_mode == PHY_INTERFACE_MODE_1000BASEX)
+ 				setspeed = 0;
+ 		} else {
+ 			if ((phy->speed == SPEED_1000) &&
+-			    (lp->phy_type == XAE_PHY_TYPE_MII))
++			    (lp->phy_mode == PHY_INTERFACE_MODE_MII))
+ 				setspeed = 0;
+ 		}
+ 
+@@ -935,15 +935,8 @@ static int axienet_open(struct net_device *ndev)
+ 		return ret;
+ 
+ 	if (lp->phy_node) {
+-		if (lp->phy_type == XAE_PHY_TYPE_GMII) {
+-			phydev = of_phy_connect(lp->ndev, lp->phy_node,
+-						axienet_adjust_link, 0,
+-						PHY_INTERFACE_MODE_GMII);
+-		} else if (lp->phy_type == XAE_PHY_TYPE_RGMII_2_0) {
+-			phydev = of_phy_connect(lp->ndev, lp->phy_node,
+-						axienet_adjust_link, 0,
+-						PHY_INTERFACE_MODE_RGMII_ID);
+-		}
++		phydev = of_phy_connect(lp->ndev, lp->phy_node,
++					axienet_adjust_link, 0, lp->phy_mode);
+ 
+ 		if (!phydev)
+ 			dev_err(lp->dev, "of_phy_connect() failed\n");
+@@ -1539,7 +1532,38 @@ static int axienet_probe(struct platform_device *pdev)
+ 	 * the device-tree and accordingly set flags.
+ 	 */
+ 	of_property_read_u32(pdev->dev.of_node, "xlnx,rxmem", &lp->rxmem);
+-	of_property_read_u32(pdev->dev.of_node, "xlnx,phy-type", &lp->phy_type);
++
++	/* Start with the proprietary, and broken phy_type */
++	ret = of_property_read_u32(pdev->dev.of_node, "xlnx,phy-type", &value);
++	if (!ret) {
++		netdev_warn(ndev, "Please upgrade your device tree binary blob to use phy-mode");
++		switch (value) {
++		case XAE_PHY_TYPE_MII:
++			lp->phy_mode = PHY_INTERFACE_MODE_MII;
++			break;
++		case XAE_PHY_TYPE_GMII:
++			lp->phy_mode = PHY_INTERFACE_MODE_GMII;
++			break;
++		case XAE_PHY_TYPE_RGMII_2_0:
++			lp->phy_mode = PHY_INTERFACE_MODE_RGMII_ID;
++			break;
++		case XAE_PHY_TYPE_SGMII:
++			lp->phy_mode = PHY_INTERFACE_MODE_SGMII;
++			break;
++		case XAE_PHY_TYPE_1000BASE_X:
++			lp->phy_mode = PHY_INTERFACE_MODE_1000BASEX;
++			break;
++		default:
++			ret = -EINVAL;
++			goto free_netdev;
++		}
++	} else {
++		lp->phy_mode = of_get_phy_mode(pdev->dev.of_node);
++		if (lp->phy_mode < 0) {
++			ret = -EINVAL;
++			goto free_netdev;
++		}
++	}
+ 
+ 	/* Find the DMA node, map the DMA registers, and decode the DMA IRQs */
+ 	np = of_parse_phandle(pdev->dev.of_node, "axistream-connected", 0);
+-- 
+2.11.0
