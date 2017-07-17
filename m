@@ -1,53 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv6: initialize treq->txhash in cookie_v6_check()
-Date: Mon, 17 Jul 2017 00:51:36 -0700
-Message-ID: <1500277896.5566.10.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170714165453.112098-1-glider@google.com>
-         <1500277145.5566.7.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [PATCH] libceph: potential NULL dereference in ceph_msg_data_create()
+Date: Mon, 17 Jul 2017 11:13:35 +0300
+Message-ID: <20170717081335.3hhaj2k2frpq7gfa@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: dvyukov@google.com, kcc@google.com, edumazet@google.com,
-        davem@davemloft.net, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Alexander Potapenko <glider@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1500277145.5566.7.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Yan, Zheng" <zyan@redhat.com>, Sage Weil <sage@redhat.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        ceph-devel@vger.kernel.org, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: Ilya Dryomov <idryomov@gmail.com>, Alex Elder <elder@inktank.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2017-07-17 at 00:39 -0700, Eric Dumazet wrote:
-> On Fri, 2017-07-14 at 18:54 +0200, Alexander Potapenko wrote:
-> > KMSAN reported use of uninitialized memory in skb_set_hash_from_sk(),
-> > which originated from the TCP request socket created in
-> > cookie_v6_check():
-> 
-> >  ==================================================================
-> > 
-> > Signed-off-by: Alexander Potapenko <glider@google.com>
-> > ---
-> >  net/ipv6/syncookies.c | 1 +
-> >  1 file changed, 1 insertion(+)
-> > 
-> > diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
-> > index 7b75b0620730..b4b354502c6e 100644
-> > --- a/net/ipv6/syncookies.c
-> > +++ b/net/ipv6/syncookies.c
-> > @@ -216,6 +216,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
-> >  	treq->rcv_isn = ntohl(th->seq) - 1;
-> >  	treq->snt_isn = cookie;
-> >  	treq->ts_off = 0;
-> > +	treq->txhash = 0;
-> >  
-> >  	/*
-> >  	 * We need to lookup the dst_entry to get the correct window size.
-> 
-> Please use net_tx_rndhash() instead of 0, thanks.
-> 
-> ( And same fix is needed for IPv4, as Neal mentioned already )
+If kmem_cache_zalloc() returns NULL then the INIT_LIST_HEAD(&data->links);
+will Oops.  The callers aren't really prepared for NULL returns so it
+doesn't make a lot of difference in real life.
 
-Also please add the following tag.
+Fixes: 5240d9f95dfe ("libceph: replace message data pointer with list")
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Fixes: 58d607d3e52f ("tcp: provide skb->hash to synack packets")
-
-Thanks again !
+diff --git a/net/ceph/messenger.c b/net/ceph/messenger.c
+index 0c31035bbfee..b7cc615d42ef 100644
+--- a/net/ceph/messenger.c
++++ b/net/ceph/messenger.c
+@@ -3203,8 +3203,10 @@ static struct ceph_msg_data *ceph_msg_data_create(enum ceph_msg_data_type type)
+ 		return NULL;
+ 
+ 	data = kmem_cache_zalloc(ceph_msg_data_cache, GFP_NOFS);
+-	if (data)
+-		data->type = type;
++	if (!data)
++		return NULL;
++
++	data->type = type;
+ 	INIT_LIST_HEAD(&data->links);
+ 
+ 	return data;
