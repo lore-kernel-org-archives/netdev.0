@@ -1,37 +1,35 @@
-From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Subject: [PATCH] atm: zatm: Fix an error handling path in 'zatm_init_one()'
-Date: Mon, 17 Jul 2017 19:42:41 +0200
-Message-ID: <20170717174241.18935-1-christophe.jaillet@wanadoo.fr>
-Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-        Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-To: 3chas3@gmail.com
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 06/12] net: dsa: mv88e6xxx: add number of Global
+ 2 IRQs
+Date: Mon, 17 Jul 2017 19:43:57 +0200
+Message-ID: <20170717174357.GI30392@lunn.ch>
+References: <20170717170346.19555-1-vivien.didelot@savoirfairelinux.com>
+ <20170717170346.19555-7-vivien.didelot@savoirfairelinux.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170717170346.19555-7-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If 'dma_set_mask_and_coherent()' fails, we must undo the previous
-'pci_request_regions()' call.
-Adjust corresponding 'goto' to jump at the right place of the error
-handling path.
+On Mon, Jul 17, 2017 at 01:03:40PM -0400, Vivien Didelot wrote:
+> Similarly to g1_irqs, add a g2_irqs member to the info structure to
+> indicates the presence of the Global 2 Interrupt Source and Mask
+> registers.
+> 
+> At the same time, provide helpers and document the registers since they
+> differ a bit between 88E6352 and 88E6390 families.
+> 
+> This allows us to get rid of the MV88E6XXX_FLAG_G2_INT flag.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
----
- drivers/atm/zatm.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-diff --git a/drivers/atm/zatm.c b/drivers/atm/zatm.c
-index 292dec18ffb8..07bdd51b3b9a 100644
---- a/drivers/atm/zatm.c
-+++ b/drivers/atm/zatm.c
-@@ -1613,7 +1613,7 @@ static int zatm_init_one(struct pci_dev *pci_dev,
- 
- 	ret = dma_set_mask_and_coherent(&pci_dev->dev, DMA_BIT_MASK(32));
- 	if (ret < 0)
--		goto out_disable;
-+		goto out_release;
- 
- 	zatm_dev->pci_dev = pci_dev;
- 	dev->dev_data = zatm_dev;
--- 
-2.11.0
+    Andrew
