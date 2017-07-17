@@ -1,96 +1,189 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 3/4] mlxsw: spectrum: Add support for IPv6 MLDv1/2 traps
-Date: Mon, 17 Jul 2017 14:15:31 +0200
-Message-ID: <20170717121532.4036-4-jiri@resnulli.us>
-References: <20170717121532.4036-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:34692 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751303AbdGQMPk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 08:15:40 -0400
-Received: by mail-wr0-f195.google.com with SMTP id w4so969643wrb.1
-        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 05:15:39 -0700 (PDT)
-In-Reply-To: <20170717121532.4036-1-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tom Gundersen <teg@jklm.no>
+Subject: Re: [PATCH] net/unix: drop obsolete fd-recursion limits
+Date: Mon, 17 Jul 2017 14:25:00 +0200
+Message-ID: <CAG-2HqXokzbsDt5Mt5VRyE=FFpUtfVe3YFhEhxuHv0b1KR7Wmw@mail.gmail.com>
+References: <20170717093554.16459-1-dh.herrmann@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Alban Crequy <alban.crequy@collabora.co.uk>,
+        Simon McVittie <simon.mcvittie@collabora.co.uk>
+To: David Herrmann <dh.herrmann@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170717093554.16459-1-dh.herrmann@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
-
-Add support for IPv6 MLDv1/2 packet trapping.
-
-Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/reg.h      |  1 +
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 10 ++++++++++
- drivers/net/ethernet/mellanox/mlxsw/trap.h     |  4 ++++
- 3 files changed, 15 insertions(+)
-
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 1bd34d9..0ca1968 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -3688,6 +3688,7 @@ enum mlxsw_reg_htgt_trap_group {
- 	MLXSW_REG_HTGT_TRAP_GROUP_SP_IP2ME,
- 	MLXSW_REG_HTGT_TRAP_GROUP_SP_DHCP,
- 	MLXSW_REG_HTGT_TRAP_GROUP_SP_EVENT,
-+	MLXSW_REG_HTGT_TRAP_GROUP_SP_IPV6_MLD,
- };
- 
- /* reg_htgt_trap_group
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index bc35b40..1aa6298 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -3333,6 +3333,14 @@ static const struct mlxsw_listener mlxsw_sp_listener[] = {
- 	MLXSW_SP_RXL_MARK(ARPBC, MIRROR_TO_CPU, ARP, false),
- 	MLXSW_SP_RXL_MARK(ARPUC, MIRROR_TO_CPU, ARP, false),
- 	MLXSW_SP_RXL_NO_MARK(FID_MISS, TRAP_TO_CPU, IP2ME, false),
-+	MLXSW_SP_RXL_MARK(IPV6_MLDV12_LISTENER_QUERY, MIRROR_TO_CPU, IPV6_MLD,
-+			  false),
-+	MLXSW_SP_RXL_NO_MARK(IPV6_MLDV1_LISTENER_REPORT, TRAP_TO_CPU, IPV6_MLD,
-+			     false),
-+	MLXSW_SP_RXL_NO_MARK(IPV6_MLDV1_LISTENER_DONE, TRAP_TO_CPU, IPV6_MLD,
-+			     false),
-+	MLXSW_SP_RXL_NO_MARK(IPV6_MLDV2_LISTENER_REPORT, TRAP_TO_CPU, IPV6_MLD,
-+			     false),
- 	/* L3 traps */
- 	MLXSW_SP_RXL_MARK(MTUERROR, TRAP_TO_CPU, ROUTER_EXP, false),
- 	MLXSW_SP_RXL_MARK(TTLERROR, TRAP_TO_CPU, ROUTER_EXP, false),
-@@ -3377,6 +3385,7 @@ static int mlxsw_sp_cpu_policers_set(struct mlxsw_core *mlxsw_core)
- 			burst_size = 7;
- 			break;
- 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_IGMP:
-+		case MLXSW_REG_HTGT_TRAP_GROUP_SP_IPV6_MLD:
- 			rate = 16 * 1024;
- 			burst_size = 10;
- 			break;
-@@ -3441,6 +3450,7 @@ static int mlxsw_sp_trap_groups_set(struct mlxsw_core *mlxsw_core)
- 			break;
- 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_IGMP:
- 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_IP2ME:
-+		case MLXSW_REG_HTGT_TRAP_GROUP_SP_IPV6_MLD:
- 			priority = 3;
- 			tc = 3;
- 			break;
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/trap.h b/drivers/net/ethernet/mellanox/mlxsw/trap.h
-index 4946d4e..891b4ee 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/trap.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/trap.h
-@@ -63,6 +63,10 @@ enum {
- 	MLXSW_TRAP_ID_LBERROR = 0x54,
- 	MLXSW_TRAP_ID_OSPF = 0x55,
- 	MLXSW_TRAP_ID_IP2ME = 0x5F,
-+	MLXSW_TRAP_ID_IPV6_MLDV12_LISTENER_QUERY = 0x65,
-+	MLXSW_TRAP_ID_IPV6_MLDV1_LISTENER_REPORT = 0x66,
-+	MLXSW_TRAP_ID_IPV6_MLDV1_LISTENER_DONE = 0x67,
-+	MLXSW_TRAP_ID_IPV6_MLDV2_LISTENER_REPORT = 0x68,
- 	MLXSW_TRAP_ID_RTR_INGRESS0 = 0x70,
- 	MLXSW_TRAP_ID_BGP_IPV4 = 0x88,
- 	MLXSW_TRAP_ID_HOST_MISS_IPV4 = 0x90,
--- 
-2.9.3
+On Mon, Jul 17, 2017 at 11:35 AM, David Herrmann <dh.herrmann@gmail.com> wrote:
+> All unix sockets now account inflight FDs to the respective sender.
+> This was introduced in:
+>
+>     commit 712f4aad406bb1ed67f3f98d04c044191f0ff593
+>     Author: willy tarreau <w@1wt.eu>
+>     Date:   Sun Jan 10 07:54:56 2016 +0100
+>
+>         unix: properly account for FDs passed over unix sockets
+>
+> and further refined in:
+>
+>     commit 415e3d3e90ce9e18727e8843ae343eda5a58fad6
+>     Author: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>     Date:   Wed Feb 3 02:11:03 2016 +0100
+>
+>         unix: correctly track in-flight fds in sending process user_struct
+>
+> Hence, regardless of the stacking depth of FDs, the total number of
+> inflight FDs is limited, and accounted. There is no known way for a
+> local user to exceed those limits or exploit the accounting.
+>
+> Furthermore, the GC logic is independent of the recursion/stacking depth
+> as well. It solely depends on the total number of inflight FDs,
+> regardless of their layout.
+>
+> Lastly, the current `recursion_level' suffers a TOCTOU race, since it
+> checks and inherits depths only at queue time. If we consider `A<-B' to
+> mean `queue-B-on-A', the following sequence circumvents the recursion
+> level easily:
+>
+>     A<-B
+>        B<-C
+>           C<-D
+>              ...
+>                Y<-Z
+>
+> resulting in:
+>
+>     A<-B<-C<-...<-Z
+>
+> With all of this in mind, lets drop the recursion limit. It has no
+> additional security value, anymore. On the contrary, it randomly
+> confuses message brokers that try to forward file-descriptors, since
+> any sendmsg(2) call can fail spuriously with ETOOMANYREFS if a client
+> maliciously modifies the FD while inflight.
+>
+> Cc: Alban Crequy <alban.crequy@collabora.co.uk>
+> Cc: Simon McVittie <simon.mcvittie@collabora.co.uk>
+> Signed-off-by: David Herrmann <dh.herrmann@gmail.com>
+Reviewed-by: Tom Gundersen <teg@jklm.no>
+> ---
+>  include/net/af_unix.h |  1 -
+>  net/unix/af_unix.c    | 24 +-----------------------
+>  2 files changed, 1 insertion(+), 24 deletions(-)
+>
+> diff --git a/include/net/af_unix.h b/include/net/af_unix.h
+> index 678e4d6fa317..3b3194b2fc65 100644
+> --- a/include/net/af_unix.h
+> +++ b/include/net/af_unix.h
+> @@ -58,7 +58,6 @@ struct unix_sock {
+>         struct list_head        link;
+>         atomic_long_t           inflight;
+>         spinlock_t              lock;
+> -       unsigned char           recursion_level;
+>         unsigned long           gc_flags;
+>  #define UNIX_GC_CANDIDATE      0
+>  #define UNIX_GC_MAYBE_CYCLE    1
+> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+> index 7b52a380d710..5c53f22d62e8 100644
+> --- a/net/unix/af_unix.c
+> +++ b/net/unix/af_unix.c
+> @@ -1528,26 +1528,13 @@ static inline bool too_many_unix_fds(struct task_struct *p)
+>         return false;
+>  }
+>
+> -#define MAX_RECURSION_LEVEL 4
+> -
+>  static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
+>  {
+>         int i;
+> -       unsigned char max_level = 0;
+>
+>         if (too_many_unix_fds(current))
+>                 return -ETOOMANYREFS;
+>
+> -       for (i = scm->fp->count - 1; i >= 0; i--) {
+> -               struct sock *sk = unix_get_socket(scm->fp->fp[i]);
+> -
+> -               if (sk)
+> -                       max_level = max(max_level,
+> -                                       unix_sk(sk)->recursion_level);
+> -       }
+> -       if (unlikely(max_level > MAX_RECURSION_LEVEL))
+> -               return -ETOOMANYREFS;
+> -
+>         /*
+>          * Need to duplicate file references for the sake of garbage
+>          * collection.  Otherwise a socket in the fps might become a
+> @@ -1559,7 +1546,7 @@ static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
+>
+>         for (i = scm->fp->count - 1; i >= 0; i--)
+>                 unix_inflight(scm->fp->user, scm->fp->fp[i]);
+> -       return max_level;
+> +       return 0;
+>  }
+>
+>  static int unix_scm_to_skb(struct scm_cookie *scm, struct sk_buff *skb, bool send_fds)
+> @@ -1649,7 +1636,6 @@ static int unix_dgram_sendmsg(struct socket *sock, struct msghdr *msg,
+>         struct sk_buff *skb;
+>         long timeo;
+>         struct scm_cookie scm;
+> -       int max_level;
+>         int data_len = 0;
+>         int sk_locked;
+>
+> @@ -1701,7 +1687,6 @@ static int unix_dgram_sendmsg(struct socket *sock, struct msghdr *msg,
+>         err = unix_scm_to_skb(&scm, skb, true);
+>         if (err < 0)
+>                 goto out_free;
+> -       max_level = err + 1;
+>
+>         skb_put(skb, len - data_len);
+>         skb->data_len = data_len;
+> @@ -1819,8 +1804,6 @@ static int unix_dgram_sendmsg(struct socket *sock, struct msghdr *msg,
+>                 __net_timestamp(skb);
+>         maybe_add_creds(skb, sock, other);
+>         skb_queue_tail(&other->sk_receive_queue, skb);
+> -       if (max_level > unix_sk(other)->recursion_level)
+> -               unix_sk(other)->recursion_level = max_level;
+>         unix_state_unlock(other);
+>         other->sk_data_ready(other);
+>         sock_put(other);
+> @@ -1855,7 +1838,6 @@ static int unix_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+>         int sent = 0;
+>         struct scm_cookie scm;
+>         bool fds_sent = false;
+> -       int max_level;
+>         int data_len;
+>
+>         wait_for_unix_gc();
+> @@ -1905,7 +1887,6 @@ static int unix_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+>                         kfree_skb(skb);
+>                         goto out_err;
+>                 }
+> -               max_level = err + 1;
+>                 fds_sent = true;
+>
+>                 skb_put(skb, size - data_len);
+> @@ -1925,8 +1906,6 @@ static int unix_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+>
+>                 maybe_add_creds(skb, sock, other);
+>                 skb_queue_tail(&other->sk_receive_queue, skb);
+> -               if (max_level > unix_sk(other)->recursion_level)
+> -                       unix_sk(other)->recursion_level = max_level;
+>                 unix_state_unlock(other);
+>                 other->sk_data_ready(other);
+>                 sent += size;
+> @@ -2324,7 +2303,6 @@ static int unix_stream_read_generic(struct unix_stream_read_state *state,
+>                 last_len = last ? last->len : 0;
+>  again:
+>                 if (skb == NULL) {
+> -                       unix_sk(sk)->recursion_level = 0;
+>                         if (copied >= target)
+>                                 goto unlock;
+>
+> --
+> 2.13.2
+>
