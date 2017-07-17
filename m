@@ -1,51 +1,182 @@
-From: Lin Zhang <xiaolou4617@gmail.com>
-Subject: [PATCH net-next v2 resubmit] skbuff: optimize the pull_pages code in __pskb_pull_tail()
-Date: Mon, 17 Jul 2017 17:25:02 +0800
-Message-ID: <1500283502-36546-1-git-send-email-xiaolou4617@gmail.com>
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-        Lin Zhang <xiaolou4617@gmail.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:36609 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751178AbdGQJZP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 05:25:15 -0400
-Received: by mail-pg0-f65.google.com with SMTP id y129so18853831pgy.3
-        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 02:25:15 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Herrmann <dh.herrmann@gmail.com>
+Subject: [PATCH] net/unix: drop obsolete fd-recursion limits
+Date: Mon, 17 Jul 2017 11:35:54 +0200
+Message-ID: <20170717093554.16459-1-dh.herrmann@gmail.com>
+Cc: Tom Gundersen <teg@jklm.no>, davem@davemloft.net,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        linux-kernel@vger.kernel.org,
+        David Herrmann <dh.herrmann@gmail.com>,
+        Alban Crequy <alban.crequy@collabora.co.uk>,
+        Simon McVittie <simon.mcvittie@collabora.co.uk>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In the pull_pages code block, if the first frag size > eat,
-we can end the loop in advance to avoid extra copy.
+All unix sockets now account inflight FDs to the respective sender.
+This was introduced in:
 
-Signed-off-by: Lin Zhang <xiaolou4617@gmail.com>
+    commit 712f4aad406bb1ed67f3f98d04c044191f0ff593
+    Author: willy tarreau <w@1wt.eu>
+    Date:   Sun Jan 10 07:54:56 2016 +0100
+
+        unix: properly account for FDs passed over unix sockets
+
+and further refined in:
+
+    commit 415e3d3e90ce9e18727e8843ae343eda5a58fad6
+    Author: Hannes Frederic Sowa <hannes@stressinduktion.org>
+    Date:   Wed Feb 3 02:11:03 2016 +0100
+
+        unix: correctly track in-flight fds in sending process user_struct
+
+Hence, regardless of the stacking depth of FDs, the total number of
+inflight FDs is limited, and accounted. There is no known way for a
+local user to exceed those limits or exploit the accounting.
+
+Furthermore, the GC logic is independent of the recursion/stacking depth
+as well. It solely depends on the total number of inflight FDs,
+regardless of their layout.
+
+Lastly, the current `recursion_level' suffers a TOCTOU race, since it
+checks and inherits depths only at queue time. If we consider `A<-B' to
+mean `queue-B-on-A', the following sequence circumvents the recursion
+level easily:
+
+    A<-B
+       B<-C
+          C<-D
+             ...
+               Y<-Z
+
+resulting in:
+
+    A<-B<-C<-...<-Z
+
+With all of this in mind, lets drop the recursion limit. It has no
+additional security value, anymore. On the contrary, it randomly
+confuses message brokers that try to forward file-descriptors, since
+any sendmsg(2) call can fail spuriously with ETOOMANYREFS if a client
+maliciously modifies the FD while inflight.
+
+Cc: Alban Crequy <alban.crequy@collabora.co.uk>
+Cc: Simon McVittie <simon.mcvittie@collabora.co.uk>
+Signed-off-by: David Herrmann <dh.herrmann@gmail.com>
 ---
-v1 -> v2:
-	* no need to rewrite skb_shinfo(skb)->nr_frags, per Eric Dumazet.
----
- net/core/skbuff.c | 3 +++
- 1 file changed, 3 insertions(+)
+ include/net/af_unix.h |  1 -
+ net/unix/af_unix.c    | 24 +-----------------------
+ 2 files changed, 1 insertion(+), 24 deletions(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index f990eb8..af61065 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -1719,6 +1719,8 @@ void *__pskb_pull_tail(struct sk_buff *skb, int delta)
- 			if (eat) {
- 				skb_shinfo(skb)->frags[k].page_offset += eat;
- 				skb_frag_size_sub(&skb_shinfo(skb)->frags[k], eat);
-+				if (!i)
-+					goto end;
- 				eat = 0;
- 			}
- 			k++;
-@@ -1726,6 +1728,7 @@ void *__pskb_pull_tail(struct sk_buff *skb, int delta)
- 	}
- 	skb_shinfo(skb)->nr_frags = k;
+diff --git a/include/net/af_unix.h b/include/net/af_unix.h
+index 678e4d6fa317..3b3194b2fc65 100644
+--- a/include/net/af_unix.h
++++ b/include/net/af_unix.h
+@@ -58,7 +58,6 @@ struct unix_sock {
+ 	struct list_head	link;
+ 	atomic_long_t		inflight;
+ 	spinlock_t		lock;
+-	unsigned char		recursion_level;
+ 	unsigned long		gc_flags;
+ #define UNIX_GC_CANDIDATE	0
+ #define UNIX_GC_MAYBE_CYCLE	1
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 7b52a380d710..5c53f22d62e8 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1528,26 +1528,13 @@ static inline bool too_many_unix_fds(struct task_struct *p)
+ 	return false;
+ }
  
-+end:
- 	skb->tail     += delta;
- 	skb->data_len -= delta;
+-#define MAX_RECURSION_LEVEL 4
+-
+ static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
+ {
+ 	int i;
+-	unsigned char max_level = 0;
+ 
+ 	if (too_many_unix_fds(current))
+ 		return -ETOOMANYREFS;
+ 
+-	for (i = scm->fp->count - 1; i >= 0; i--) {
+-		struct sock *sk = unix_get_socket(scm->fp->fp[i]);
+-
+-		if (sk)
+-			max_level = max(max_level,
+-					unix_sk(sk)->recursion_level);
+-	}
+-	if (unlikely(max_level > MAX_RECURSION_LEVEL))
+-		return -ETOOMANYREFS;
+-
+ 	/*
+ 	 * Need to duplicate file references for the sake of garbage
+ 	 * collection.  Otherwise a socket in the fps might become a
+@@ -1559,7 +1546,7 @@ static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
+ 
+ 	for (i = scm->fp->count - 1; i >= 0; i--)
+ 		unix_inflight(scm->fp->user, scm->fp->fp[i]);
+-	return max_level;
++	return 0;
+ }
+ 
+ static int unix_scm_to_skb(struct scm_cookie *scm, struct sk_buff *skb, bool send_fds)
+@@ -1649,7 +1636,6 @@ static int unix_dgram_sendmsg(struct socket *sock, struct msghdr *msg,
+ 	struct sk_buff *skb;
+ 	long timeo;
+ 	struct scm_cookie scm;
+-	int max_level;
+ 	int data_len = 0;
+ 	int sk_locked;
+ 
+@@ -1701,7 +1687,6 @@ static int unix_dgram_sendmsg(struct socket *sock, struct msghdr *msg,
+ 	err = unix_scm_to_skb(&scm, skb, true);
+ 	if (err < 0)
+ 		goto out_free;
+-	max_level = err + 1;
+ 
+ 	skb_put(skb, len - data_len);
+ 	skb->data_len = data_len;
+@@ -1819,8 +1804,6 @@ static int unix_dgram_sendmsg(struct socket *sock, struct msghdr *msg,
+ 		__net_timestamp(skb);
+ 	maybe_add_creds(skb, sock, other);
+ 	skb_queue_tail(&other->sk_receive_queue, skb);
+-	if (max_level > unix_sk(other)->recursion_level)
+-		unix_sk(other)->recursion_level = max_level;
+ 	unix_state_unlock(other);
+ 	other->sk_data_ready(other);
+ 	sock_put(other);
+@@ -1855,7 +1838,6 @@ static int unix_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+ 	int sent = 0;
+ 	struct scm_cookie scm;
+ 	bool fds_sent = false;
+-	int max_level;
+ 	int data_len;
+ 
+ 	wait_for_unix_gc();
+@@ -1905,7 +1887,6 @@ static int unix_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+ 			kfree_skb(skb);
+ 			goto out_err;
+ 		}
+-		max_level = err + 1;
+ 		fds_sent = true;
+ 
+ 		skb_put(skb, size - data_len);
+@@ -1925,8 +1906,6 @@ static int unix_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+ 
+ 		maybe_add_creds(skb, sock, other);
+ 		skb_queue_tail(&other->sk_receive_queue, skb);
+-		if (max_level > unix_sk(other)->recursion_level)
+-			unix_sk(other)->recursion_level = max_level;
+ 		unix_state_unlock(other);
+ 		other->sk_data_ready(other);
+ 		sent += size;
+@@ -2324,7 +2303,6 @@ static int unix_stream_read_generic(struct unix_stream_read_state *state,
+ 		last_len = last ? last->len : 0;
+ again:
+ 		if (skb == NULL) {
+-			unix_sk(sk)->recursion_level = 0;
+ 			if (copied >= target)
+ 				goto unlock;
  
 -- 
-1.8.3.1
+2.13.2
