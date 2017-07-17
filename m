@@ -1,154 +1,68 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next 5/5] virtio-net: switch off offloads on demand if possible on XDP set
-Date: Mon, 17 Jul 2017 20:44:01 +0800
-Message-ID: <1500295441-19339-6-git-send-email-jasowang@redhat.com>
-References: <1500295441-19339-1-git-send-email-jasowang@redhat.com>
-To: mst@redhat.com, jasowang@redhat.com,
-        virtualization@lists.linux-foundation.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+From: Hans Verkuil <hverkuil@xs4all.nl>
+Subject: Re: [PATCH 14/22] [media] usbvision-i2c: fix format overflow warning
+Date: Mon, 17 Jul 2017 14:53:01 +0200
+Message-ID: <f44cbc53-8c95-9fad-04d4-1fbf3708191c@xs4all.nl>
+References: <20170714120720.906842-1-arnd@arndb.de>
+ <20170714120720.906842-15-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Guenter Roeck <linux@roeck-us.net>, akpm@linux-foundation.org,
+        netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
+        "James E . J . Bottomley" <jejb@linux.vnet.ibm.com>,
+        "Martin K . Petersen" <martin.petersen@oracle.com>,
+        linux-scsi@vger.kernel.org, x86@kernel.org,
+        Sakari Ailus <sakari.ailus@linux.intel.com>,
+        linux-media@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>, linux-kernel@vger.kernel.org,
+        Mauro Carvalho Chehab <mchehab@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1500295441-19339-1-git-send-email-jasowang@redhat.com>
+In-Reply-To: <20170714120720.906842-15-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Current XDP implementation want guest offloads feature to be disabled
-on qemu cli. This is inconvenient and means guest can't benefit from
-offloads if XDP is not used. This patch tries to address this
-limitation by disable the offloads on demand through control guest
-offloads. Guest offloads will be disabled and enabled on demand on XDP
-set.
+On 14/07/17 14:07, Arnd Bergmann wrote:
+> gcc-7 notices that we copy a fixed length string into another
+> string of the same size, with additional characters:
+> 
+> drivers/media/usb/usbvision/usbvision-i2c.c: In function 'usbvision_i2c_register':
+> drivers/media/usb/usbvision/usbvision-i2c.c:190:36: error: '%d' directive writing between 1 and 11 bytes into a region of size between 0 and 47 [-Werror=format-overflow=]
+>   sprintf(usbvision->i2c_adap.name, "%s-%d-%s", i2c_adap_template.name,
+>                                     ^~~~~~~~~~
+> drivers/media/usb/usbvision/usbvision-i2c.c:190:2: note: 'sprintf' output between 4 and 76 bytes into a destination of size 48
+> 
+> We know this is fine as the template name is always "usbvision", so
+> we can easily avoid the warning by using this as the format string
+> directly.
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/virtio_net.c | 70 ++++++++++++++++++++++++++++++++++++++++++++----
- 1 file changed, 65 insertions(+), 5 deletions(-)
+Hmm, how about replacing sprintf by snprintf? That feels a lot safer (this is very
+old code, it's not surprising it is still using sprintf).
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index e732bd6..d970c2d 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -57,6 +57,11 @@ DECLARE_EWMA(pkt_len, 0, 64)
- 
- #define VIRTNET_DRIVER_VERSION "1.0.0"
- 
-+const unsigned long guest_offloads[] = { VIRTIO_NET_F_GUEST_TSO4,
-+					 VIRTIO_NET_F_GUEST_TSO6,
-+					 VIRTIO_NET_F_GUEST_ECN,
-+					 VIRTIO_NET_F_GUEST_UFO };
-+
- struct virtnet_stats {
- 	struct u64_stats_sync tx_syncp;
- 	struct u64_stats_sync rx_syncp;
-@@ -164,10 +169,13 @@ struct virtnet_info {
- 	u8 ctrl_promisc;
- 	u8 ctrl_allmulti;
- 	u16 ctrl_vid;
-+	u64 ctrl_offloads;
- 
- 	/* Ethtool settings */
- 	u8 duplex;
- 	u32 speed;
-+
-+	unsigned long guest_offloads;
- };
- 
- struct padded_vnet_hdr {
-@@ -1889,6 +1897,47 @@ static int virtnet_restore_up(struct virtio_device *vdev)
- 	return err;
- }
- 
-+static int virtnet_set_guest_offloads(struct virtnet_info *vi, u64 offloads)
-+{
-+	struct scatterlist sg;
-+	vi->ctrl_offloads = cpu_to_virtio64(vi->vdev, offloads);
-+
-+	sg_init_one(&sg, &vi->ctrl_offloads, sizeof(vi->ctrl_offloads));
-+
-+	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_GUEST_OFFLOADS,
-+				  VIRTIO_NET_CTRL_GUEST_OFFLOADS_SET, &sg)) {
-+		dev_warn(&vi->dev->dev, "Fail to set guest offload. \n");
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+static int virtnet_clear_guest_offloads(struct virtnet_info *vi)
-+{
-+	u64 offloads = 0;
-+
-+	if (!vi->guest_offloads)
-+		return 0;
-+
-+	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_CSUM))
-+		offloads = 1ULL << VIRTIO_NET_F_GUEST_CSUM;
-+
-+	return virtnet_set_guest_offloads(vi, offloads);
-+}
-+
-+static int virtnet_restore_guest_offloads(struct virtnet_info *vi)
-+{
-+	u64 offloads = vi->guest_offloads;
-+
-+	if (!vi->guest_offloads)
-+		return 0;
-+	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_CSUM))
-+		offloads |= 1ULL << VIRTIO_NET_F_GUEST_CSUM;
-+
-+	return virtnet_set_guest_offloads(vi, offloads);
-+}
-+
- static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog,
- 			   struct netlink_ext_ack *extack)
- {
-@@ -1898,10 +1947,11 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog,
- 	u16 xdp_qp = 0, curr_qp;
- 	int i, err;
- 
--	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO4) ||
--	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO6) ||
--	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_ECN) ||
--	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_UFO)) {
-+	if (!virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_GUEST_OFFLOADS)
-+	    && (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO4) ||
-+	        virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO6) ||
-+	        virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_ECN) ||
-+		virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_UFO))) {
- 		NL_SET_ERR_MSG_MOD(extack, "Can't set XDP while host is implementing LRO, disable LRO first");
- 		return -EOPNOTSUPP;
- 	}
-@@ -1950,6 +2000,12 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog,
- 	for (i = 0; i < vi->max_queue_pairs; i++) {
- 		old_prog = rtnl_dereference(vi->rq[i].xdp_prog);
- 		rcu_assign_pointer(vi->rq[i].xdp_prog, prog);
-+		if (i == 0) {
-+			if (!old_prog)
-+				virtnet_clear_guest_offloads(vi);
-+			if (!prog)
-+				virtnet_restore_guest_offloads(vi);
-+		}
- 		if (old_prog)
- 			bpf_prog_put(old_prog);
- 		napi_enable(&vi->rq[i].napi);
-@@ -2583,6 +2639,10 @@ static int virtnet_probe(struct virtio_device *vdev)
- 		netif_carrier_on(dev);
- 	}
- 
-+	for (i = 0; i < ARRAY_SIZE(guest_offloads); i++)
-+		if (virtio_has_feature(vi->vdev, guest_offloads[i]))
-+			set_bit(guest_offloads[i], &vi->guest_offloads);
-+
- 	pr_debug("virtnet: registered device %s with %d RX and TX vq's\n",
- 		 dev->name, max_queue_pairs);
- 
-@@ -2679,7 +2739,7 @@ static struct virtio_device_id id_table[] = {
- 	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN, \
- 	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ, \
- 	VIRTIO_NET_F_CTRL_MAC_ADDR, \
--	VIRTIO_NET_F_MTU
-+	VIRTIO_NET_F_MTU, VIRTIO_NET_F_CTRL_GUEST_OFFLOADS
- 
- static unsigned int features[] = {
- 	VIRTNET_FEATURES,
--- 
-2.7.4
+Regards,
+
+	Hans
+
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> ---
+>  drivers/media/usb/usbvision/usbvision-i2c.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/media/usb/usbvision/usbvision-i2c.c b/drivers/media/usb/usbvision/usbvision-i2c.c
+> index fdf6b6e285da..aae9f69884da 100644
+> --- a/drivers/media/usb/usbvision/usbvision-i2c.c
+> +++ b/drivers/media/usb/usbvision/usbvision-i2c.c
+> @@ -187,8 +187,8 @@ int usbvision_i2c_register(struct usb_usbvision *usbvision)
+>  
+>  	usbvision->i2c_adap = i2c_adap_template;
+>  
+> -	sprintf(usbvision->i2c_adap.name, "%s-%d-%s", i2c_adap_template.name,
+> -		usbvision->dev->bus->busnum, usbvision->dev->devpath);
+> +	sprintf(usbvision->i2c_adap.name, "usbvision-%d-%s",
+> +		 usbvision->dev->bus->busnum, usbvision->dev->devpath);
+>  	PDEBUG(DBG_I2C, "Adaptername: %s", usbvision->i2c_adap.name);
+>  	usbvision->i2c_adap.dev.parent = &usbvision->dev->dev;
+>  
+> 
