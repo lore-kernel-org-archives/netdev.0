@@ -1,48 +1,53 @@
 From: <sean.wang@mediatek.com>
-Subject: [PATCH net-next v2 0/4] net-next: mediatek: add support for ethernet on MT7622 SoC
-Date: Mon, 17 Jul 2017 18:06:21 +0800
-Message-ID: <cover.1500285278.git.sean.wang@mediatek.com>
+Subject: [PATCH net-next v2 4/4] MAINTAINERS: add Sean/Nelson as MediaTek ethernet maintainers
+Date: Mon, 17 Jul 2017 18:06:25 +0800
+Message-ID: <c138200acbea648630875b6d7544f9ebc89d112d.1500285278.git.sean.wang@mediatek.com>
+References: <cover.1500285278.git.sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
         <linux-kernel@vger.kernel.org>,
         <linux-mediatek@lists.infradead.org>,
-        Sean Wang <sean.wang@mediatek.com>
+        Sean Wang <sean.wang@mediatek.com>,
+        Nelson Chang <nelson.chang@mediatek.com>
 To: <john@phrozen.org>, <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw02.mediatek.com ([210.61.82.184]:37671 "EHLO
+        mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751366AbdGQKGk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 06:06:40 -0400
+In-Reply-To: <cover.1500285278.git.sean.wang@mediatek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Sean Wang <sean.wang@mediatek.com>
 
-Changes since v1:
-- add refinement for ethernet clock management
-- take out the code block for ESW, add it until ESW driver is actually introduced
+Sean and Nelson work for MediaTek on maintaining the MediaTek ethernet
+driver for the existing SoCs and adding support for the following SoCs.
+In the past, Sean has been active at making most of the qualifications
+, stress test and submitting a lot of patches for the driver while
+Nelson was looking into the aspects more on hardware additions and details
+such as introducing PDMA with Hardware LRO to the driver.
 
-The series adds the driver for ethernet controller found on MT7622 SoC.
-There are additions against with previous MT7623 SoC such as shared SGMII
-given for the dual GMACs and built-in 5-ports 10/100 embedded switch support
-(ESW). Thus more clocks consumers and SGMII hardware setup for the extra
-features are all introduced here and as for the support for ESW that would be
-planned to add in the separate patch integrating with DSA infrastructure
-in the future.
+Cc: John Crispin <john@phrozen.org>
+Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+Signed-off-by: Nelson Chang <nelson.chang@mediatek.com>
+---
+ MAINTAINERS | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Currently testing successfully is done with those patches for the conditions
-such as GMAC2 with IP1001 PHY via RGMII and GMAC1/2 with RTL8211F PHY via SGMII.
-
-Sean Wang (4):
-  dt-bindings: net: mediatek: add support for MediaTek MT7623 and MT7622
-    SoC
-  net-next: mediatek: add platform data to adapt into various hardware
-  net-next: mediatek: add support for MediaTek MT7622 SoC
-  MAINTAINERS: add Sean/Nelson as MediaTek ethernet maintainers
-
- .../devicetree/bindings/net/mediatek-net.txt       |  12 +-
- MAINTAINERS                                        |   2 +
- drivers/net/ethernet/mediatek/Kconfig              |   6 +-
- drivers/net/ethernet/mediatek/mtk_eth_soc.c        | 142 +++++++++++++++++++--
- drivers/net/ethernet/mediatek/mtk_eth_soc.h        |  73 ++++++++++-
- 5 files changed, 214 insertions(+), 21 deletions(-)
-
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 4f4057c..3b2dd4b 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -8385,6 +8385,8 @@ F:	include/uapi/linux/uvcvideo.h
+ MEDIATEK ETHERNET DRIVER
+ M:	Felix Fietkau <nbd@openwrt.org>
+ M:	John Crispin <blogic@openwrt.org>
++M:	Sean Wang <sean.wang@mediatek.com>
++M:	Nelson Chang <nelson.chang@mediatek.com>
+ L:	netdev@vger.kernel.org
+ S:	Maintained
+ F:	drivers/net/ethernet/mediatek/
 -- 
 2.7.4
